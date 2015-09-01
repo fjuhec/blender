@@ -464,15 +464,26 @@ static int psketch_direct_exec(bContext *C, wmOperator *op)
 				copy_m4_m3(pchan->pose_mat, rmat);
 			}
 			
-			/* Apply the translation differences */
-			// XXX: If scaling is disabled, this may not be correct
-			{
-				float delta[3];
-				sub_v3_v3v3(delta, p1->co, pchan->pose_head);
-				
+			/* Compute the new joints */
+			if ((pchan->parent == NULL) || (pchan->bone->flag & BONE_CONNECTED)) {
+				/* head -> start of chain */
 				copy_v3_v3(pchan->pose_mat[3], p1->co);
 				copy_v3_v3(pchan->pose_head, p1->co);
-				add_v3_v3(pchan->pose_tail, delta);
+			}
+			
+			if (use_stretch) {
+				/* Scaled Tail - Reapply stretched length to new-vector, and add that to the bone's current position */
+				float vec[3];
+				
+				mul_v3_v3fl(vec, new_vec, new_len);
+				add_v3_v3v3(pchan->pose_tail, pchan->pose_head, vec);
+			}
+			else {
+				/* Direction-Only Tail - Use new rotation but old length */
+				float vec[3];
+				
+				mul_v3_v3fl(vec, new_vec, old_len);
+				add_v3_v3v3(pchan->pose_tail, pchan->pose_head, vec);
 			}
 		}
 	}
