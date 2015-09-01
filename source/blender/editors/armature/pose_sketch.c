@@ -451,7 +451,7 @@ static int psketch_direct_exec(bContext *C, wmOperator *op)
 					mul_v3_fl(rmat[0], scale[0] * sfac);
 					mul_v3_fl(rmat[1], scale[1] * sfac);
 					mul_v3_fl(rmat[2], scale[2] * sfac);
-
+					
 				}
 				else {
 					/* Just reapply scaling normally */
@@ -465,10 +465,16 @@ static int psketch_direct_exec(bContext *C, wmOperator *op)
 			}
 			
 			/* Compute the new joints */
-			if ((pchan->parent == NULL) || (pchan->bone->flag & BONE_CONNECTED)) {
+			// XXX: unconnected bones should be able to be freely positioned!
+			if ((pchan->parent == NULL) || (pchan->bone->flag & BONE_CONNECTED) == 0) {
 				/* head -> start of chain */
 				copy_v3_v3(pchan->pose_mat[3], p1->co);
 				copy_v3_v3(pchan->pose_head, p1->co);
+			}
+			else if (pchan->parent) {
+				/* head -> parent's tip (as it would have been modified by previous) */
+				copy_v3_v3(pchan->pose_mat[3], pchan->parent->pose_tail);
+				copy_v3_v3(pchan->pose_head, pchan->parent->pose_tail);
 			}
 			
 			if (use_stretch) {
