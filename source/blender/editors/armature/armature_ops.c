@@ -160,6 +160,9 @@ void ED_operatortypes_armature(void)
 	WM_operatortype_append(POSE_OT_push);
 	WM_operatortype_append(POSE_OT_relax);
 	WM_operatortype_append(POSE_OT_breakdown);
+	
+	/* POSE SKETCHING */
+	WM_operatortype_append(POSE_OT_sketch_direct);
 }
 
 void ED_operatormacros_armature(void)
@@ -191,6 +194,17 @@ void ED_operatormacros_armature(void)
 	RNA_boolean_set(otmacro->ptr, "forked", true);
 	otmacro = WM_operatortype_macro_define(ot, "TRANSFORM_OT_translate");
 	RNA_enum_set(otmacro->ptr, "proportional", 0);
+	
+	
+	
+	/* Pose Sketching operators for now must be paired with Grease Pencil ones
+	 * (GPencil first) or else we wouldn't have anything to work with
+	 */
+	ot = WM_operatortype_append_macro("POSE_OT_sketch_direct_interactive", "Sketch Bone Chain Pose",
+	                                  "Interactively sketch the pose for the selected bones",
+	                                  OPTYPE_UNDO | OPTYPE_REGISTER);
+	otmacro = WM_operatortype_macro_define(ot, "GPENCIL_OT_draw");
+	otmacro = WM_operatortype_macro_define(ot, "POSE_OT_sketch_direct");
 }
 
 void ED_keymap_armature(wmKeyConfig *keyconf)
@@ -411,6 +425,13 @@ void ED_keymap_armature(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "POSE_OT_push", EKEY, KM_PRESS, KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "POSE_OT_relax", EKEY, KM_PRESS, KM_ALT, 0);
 	WM_keymap_add_item(keymap, "POSE_OT_breakdown", EKEY, KM_PRESS, KM_SHIFT, 0);
+	
+	
+	/* Pose -> Pose Sketching ----------- */
+	/* only set in posemode, by space_view3d listener */
+	
+	// XXX: temporary mappings
+	WM_keymap_add_item(keymap, "POSE_OT_sketch_direct_interactive", EKEY, KM_PRESS, 0, 0);
 
 	/* menus */
 	WM_keymap_add_menu(keymap, "VIEW3D_MT_pose_specials", WKEY, KM_PRESS, 0, 0);

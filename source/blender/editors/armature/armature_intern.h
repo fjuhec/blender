@@ -210,6 +210,12 @@ void POSE_OT_breakdown(struct wmOperatorType *ot);
 void POSE_OT_propagate(struct wmOperatorType *ot);
 
 /* ******************************************************* */
+/* Pose Sketching/Sculpting Tools */
+
+/* pose_sketch.c */
+void POSE_OT_sketch_direct(struct wmOperatorType *ot);
+
+/* ******************************************************* */
 /* Various Armature Edit/Pose Editing API's */
 
 /* Ideally, many of these defines would not be needed as everything would be strictly self-contained
