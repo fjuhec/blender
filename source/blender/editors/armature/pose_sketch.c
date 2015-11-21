@@ -492,6 +492,13 @@ static int psketch_direct_exec(bContext *C, wmOperator *op)
 				add_v3_v3v3(pchan->pose_tail, pchan->pose_head, vec);
 			}
 		}
+		
+		/* Apply the data to the bones proper */
+		// FIXME: previous bones end up distorting the required pose for each bone!
+		//for (i = 0; i < num_items; i++) {
+		//	bPoseChannel *pchan = chain[i];
+		//	BKE_pchan_apply_mat4(pchan, pchan->pose_mat, true);
+		//}
 	}
 	
 	/* free temp data */
@@ -500,6 +507,7 @@ static int psketch_direct_exec(bContext *C, wmOperator *op)
 	MEM_freeN(spoints);
 	
 	/* updates */
+	//poseAnim_mapping_refresh(C, scene, ob);
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
 	
 	return OPERATOR_FINISHED;
