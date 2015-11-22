@@ -1161,10 +1161,27 @@ static void psculpt_brush_apply_event(bContext *C, wmOperator *op, const wmEvent
 	
 	/* fill in stroke */
 	RNA_collection_add(op->ptr, "stroke", &itemptr);
-	RNA_float_set_array(&itemptr, "mouse", mouse);
 	
-	// XXX: tablet data...
+	RNA_float_set_array(&itemptr, "mouse", mouse);
 	RNA_boolean_set(&itemptr, "pen_flip", event->shift != false); // XXX hardcoded
+	
+	/* handle pressure sensitivity (which is supplied by tablets) */
+	if (event->tablet_data) {
+		const wmTabletData *wmtab = event->tablet_data;
+		float pressure = wmtab->Pressure;
+		bool tablet = (wmtab->Active != EVT_TABLET_NONE);
+		
+		/* special exception here for too high pressure values on first touch in
+		 * windows for some tablets: clamp the values to be sane
+		 */
+		if (tablet && (pressure >= 0.99f)) {
+			pressure = 1.0f;
+		}		
+		RNA_float_set(&itemptr, "pressure", pressure);
+	}
+	else {
+		RNA_float_set(&itemptr, "pressure", 1.0f);
+	}
 	
 	/* apply */
 	psculpt_brush_apply(C, op, &itemptr);
