@@ -465,6 +465,7 @@ void BKE_scene_free(Scene *sce)
 void BKE_scene_init(Scene *sce)
 {
 	ParticleEditSettings *pset;
+	PSculptSettings *psculpt;
 	int a;
 	const char *colorspace_name;
 	SceneRenderView *srv;
@@ -650,6 +651,17 @@ void BKE_scene_init(Scene *sce)
 		pset->brush[a].count = 10;
 	}
 	pset->brush[PE_BRUSH_CUT].strength = 100;
+	
+	psculpt = &sce->toolsettings->psculpt;
+	for (a = 0; a < PSCULPT_TOT_BRUSH; a++) {
+		psculpt->brush[a].strength = 0.5f;
+		psculpt->brush[a].size = 50;
+		psculpt->brush[a].rate = 0.1f;
+	}
+	psculpt->brush[PSCULPT_BRUSH_CURL].strength = 0.25f;
+	psculpt->brush[PSCULPT_BRUSH_TWIST].strength = 0.25f;
+	psculpt->brush[PSCULPT_BRUSH_CURL].xzMode = PSCULPT_BRUSH_DO_X;
+	psculpt->brush[PSCULPT_BRUSH_GRAB].flag |= PSCULPT_BRUSH_FLAG_GRAB_INITIAL;
 
 	sce->r.ffcodecdata.audio_mixrate = 44100;
 	sce->r.ffcodecdata.audio_volume = 1.0f;

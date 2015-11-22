@@ -786,6 +786,45 @@ class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
 
         self.layout.prop(arm, "use_auto_ik")
 
+
+class VIEW3D_PT_tools_poosemode_sculpt(View3DPanel, Panel):
+    bl_category = "Sculpt"
+    bl_context = "posemode"
+    bl_label = "Pose Sculpt"
+
+    def draw(self, context):
+        layout = self.layout
+
+        settings = context.tool_settings.pose_sculpt
+
+        tool = settings.tool
+        brush = settings.brush
+
+        layout.column().prop(settings, "tool", expand=True)
+
+        layout.separator()
+
+        if tool != 'NONE':
+            col = layout.column()
+            col.prop(brush, "size", slider=True)
+            col.prop(brush, "strength", slider=True)
+
+        if tool in ('CURL', 'STRETCH'):
+            col.prop(brush, "rate", slider=True)
+
+        if tool not in ('NONE', 'RESET'):
+            col.separator()
+            col.row().prop(brush, "direction", expand=True)
+
+        if tool == 'GRAB':
+            col.prop(brush, "use_initial_only")
+        if tool in ('CURL', 'STRETCH'):
+            col.row().prop(brush, "xz_mode", expand=True)
+
+        layout.separator()
+        layout.prop(settings, "use_select_mask")
+
+
 # ********** default tools for paint modes ****************
 
 

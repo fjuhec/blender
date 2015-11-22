@@ -1006,6 +1006,43 @@ typedef struct ParticleEditSettings {
 } ParticleEditSettings;
 
 /* ------------------------------------------- */
+/* Pose Sculpting */
+
+/* Pose Sculpting Brush */
+typedef struct PSculptBrushData {
+	/* Common Settings */	
+	float strength;	/* amount of influence of brush */
+	float rate;		/* seconds between timer-driven brush apply events */
+	short size;		/* radius in pixels of the brush */
+	
+	short flag;		/* ePSculptBrush_Flag */
+	
+	/* Brush Specific Settings */
+	short xzMode;	/* ePSculptBrush_XZMode */
+	short pad;
+} PSculptBrushData;
+
+/* Pose Sculpt Mode Data */
+typedef struct PSculptSettings {
+	/* Brush Data */
+	PSculptBrushData brush[10];	/* 10 = PSCULPT_TOT_BRUSH */
+	
+	short brushtype;			/* ePSculpt_BrushType */
+	short flag;					/* ePSculpt_Flag */
+	
+	int pad;
+	
+	/* Runtime ................... */
+	void *paintcursor;
+} PSculptSettings;
+
+/* Pose Sculpt Settings */
+typedef enum ePSculpt_Flag {
+	/* only selected bones should be affected */
+	PSCULPT_FLAG_SELECT_MASK	= (1 << 0),
+} ePSculptFlag;
+
+/* ----------------------------------------- */
 /* Sculpt */
 
 /* Sculpt */
@@ -1230,6 +1267,9 @@ typedef struct ToolSettings {
 
 	/* Particle Editing */
 	struct ParticleEditSettings particle;
+	
+	/* Pose Sculpt */
+	struct PSculptSettings psculpt;
 	
 	/* Transform Proportional Area of Effect */
 	float proportional_size;
@@ -1950,6 +1990,38 @@ typedef enum eGPencil_Source_3D {
 #define PE_TYPE_PARTICLES	0
 #define PE_TYPE_SOFTBODY	1
 #define PE_TYPE_CLOTH		2
+
+/* toolsetting->psculpt brushtype */
+typedef enum ePSculptBrushType {
+	PSCULPT_BRUSH_DRAW      = 0, 
+	PSCULPT_BRUSH_SMOOTH    = 1,
+	PSCULPT_BRUSH_GRAB      = 2,
+	PSCULPT_BRUSH_CURL      = 3,
+	PSCULPT_BRUSH_STRETCH   = 4,
+	PSCULPT_BRUSH_TWIST     = 5,
+	PSCULPT_BRUSH_RADIAL    = 6,
+	PSCULPT_BRUSH_WRAP      = 7,
+	PSCULPT_BRUSH_RESET     = 8,
+	PSCULPT_BRUSH_SELECT    = 9 /* XXX */
+} ePSculptBrushType;
+
+/* this must equal PSculptSetitngs.brush array size */
+#define PSCULPT_TOT_BRUSH	10
+
+/* PSculptBrushData.flag */
+typedef enum ePSculptBrush_Flag {
+	/* negative influence */
+	PSCULPT_BRUSH_FLAG_INV			= (1 << 0),
+	/* only initially affected bones should be considered */
+	PSCULPT_BRUSH_FLAG_GRAB_INITIAL = (1 << 1),
+} ePSculptBrush_Flag;
+
+/* PSculptBrushData.xzMode - how to handle x and z axes (when scaling or rotating) */
+typedef enum ePSculptBrush_XZMode {
+	PSCULPT_BRUSH_DO_XZ = 0,
+	PSCULPT_BRUSH_DO_X  = 1,
+	PSCULPT_BRUSH_DO_Z  = 2
+} ePSculptBrush_XZMode;
 
 /* toolsettings->skgen_options */
 #define SKGEN_FILTER_INTERNAL	(1 << 0)

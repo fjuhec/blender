@@ -163,6 +163,9 @@ void ED_operatortypes_armature(void)
 	
 	/* POSE SKETCHING */
 	WM_operatortype_append(POSE_OT_sketch_direct);
+	
+	/* POSE SCULPTING */
+	WM_operatortype_append(POSE_OT_brush_paint);
 }
 
 void ED_operatormacros_armature(void)
@@ -426,15 +429,21 @@ void ED_keymap_armature(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "POSE_OT_relax", EKEY, KM_PRESS, KM_ALT, 0);
 	WM_keymap_add_item(keymap, "POSE_OT_breakdown", EKEY, KM_PRESS, KM_SHIFT, 0);
 	
+	/* Menus */
+	WM_keymap_add_menu(keymap, "VIEW3D_MT_pose_specials", WKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_menu(keymap, "VIEW3D_MT_pose_propagate", PKEY, KM_PRESS, KM_ALT, 0);
 	
 	/* Pose -> Pose Sketching ----------- */
 	/* only set in posemode, by space_view3d listener */
 	
 	// XXX: temporary mappings
 	WM_keymap_add_item(keymap, "POSE_OT_sketch_direct_interactive", EKEY, KM_PRESS, 0, 0);
-
-	/* menus */
-	WM_keymap_add_menu(keymap, "VIEW3D_MT_pose_specials", WKEY, KM_PRESS, 0, 0);
-	WM_keymap_add_menu(keymap, "VIEW3D_MT_pose_propagate", PKEY, KM_PRESS, KM_ALT, 0);
+	
+	/* Pose -> Pose Sculpting ----------- */
+	kmi = WM_keymap_add_item(keymap, "POSE_OT_brush_paint", LEFTMOUSE, KM_PRESS, 0, QKEY);
+	RNA_boolean_set(kmi->ptr, "invert", false);
+	
+	kmi = WM_keymap_add_item(keymap, "POSE_OT_brush_paint", RIGHTMOUSE, KM_PRESS, 0, QKEY);
+	RNA_boolean_set(kmi->ptr, "invert", true);
 }
 

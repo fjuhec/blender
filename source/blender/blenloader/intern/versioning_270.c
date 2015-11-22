@@ -935,5 +935,31 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 	}
 
-
+	/* Pose Sculpt... */
+	if (!DNA_struct_elem_find(fd->filesdna, "ToolSettings", "PSculptSettings", "psculpt")) {
+		Scene *scene;
+		
+		/* init defaults for pose sculpt settings 
+		 * ! Keep in sync with blenkernel/scene.c - BKE_scene_init()
+		 *                and  blenloader/versioning_defaults.c
+		 */
+		for (scene = main->scene.first; scene; scene = scene->id.next) {
+			PSculptSettings *pset = &scene->toolsettings->psculpt;
+			
+			//if (pset->brush[0].size == 0) 
+			{
+				int i;
+				
+				for (i = 0; i < PSCULPT_TOT_BRUSH; i++) {
+					pset->brush[i].strength = 0.5f;
+					pset->brush[i].size = 50;
+					pset->brush[i].rate = 0.1f;
+				}
+				pset->brush[PSCULPT_BRUSH_CURL].strength = 0.25f;
+				pset->brush[PSCULPT_BRUSH_TWIST].strength = 0.25f;
+				pset->brush[PSCULPT_BRUSH_CURL].xzMode = PSCULPT_BRUSH_DO_X;
+				pset->brush[PSCULPT_BRUSH_GRAB].flag |= PSCULPT_BRUSH_FLAG_GRAB_INITIAL;
+			}
+		}
+	}
 }

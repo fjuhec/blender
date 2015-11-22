@@ -215,6 +215,9 @@ void POSE_OT_propagate(struct wmOperatorType *ot);
 /* pose_sketch.c */
 void POSE_OT_sketch_direct(struct wmOperatorType *ot);
 
+/* pose_sculpt.c */
+void POSE_OT_brush_paint(struct wmOperatorType *ot);
+
 /* ******************************************************* */
 /* Various Armature Edit/Pose Editing API's */
 

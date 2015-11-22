@@ -203,6 +203,35 @@ static char *rna_ParticleEdit_path(PointerRNA *UNUSED(ptr))
 	return BLI_strdup("tool_settings.particle_edit");
 }
 
+static void rna_PoseSculpt_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+{
+	WM_main_add_notifier(NC_SPACE | ND_SPACE_VIEW3D, NULL);
+}
+
+static void rna_PSculptBrush_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+{
+	WM_main_add_notifier(NC_SPACE | ND_SPACE_VIEW3D, NULL);
+}
+
+static PointerRNA rna_PoseSculpt_brush_get(PointerRNA *ptr)
+{
+	PSculptSettings *pset = (PSculptSettings*)ptr->data;
+	PSculptBrushData *brush = &pset->brush[pset->brushtype];
+	
+	return rna_pointer_inherit_refine(ptr, &RNA_PoseSculptBrush, brush);
+}
+
+static PointerRNA rna_PSculptBrush_curve_get(PointerRNA *ptr)
+{
+	// FIXME: this is just a dummy for now, but could be useful later?
+	return rna_pointer_inherit_refine(ptr, &RNA_CurveMapping, NULL);
+}
+
+static char *rna_PoseSculpt_path(PointerRNA *UNUSED(ptr))
+{
+	return BLI_strdup("tool_settings.pose_sculpt");
+}
+
 static int rna_Brush_mode_poll(PointerRNA *ptr, PointerRNA value)
 {
 	Scene *scene = (Scene *)ptr->id.data;
@@ -945,6 +974,112 @@ static void rna_def_particle_edit(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Curve", "");
 }
 
+static void rna_def_pose_sculpt(BlenderRNA *brna)
+{
+	static EnumPropertyItem pose_sculpt_brush_items[] = {
+		{0, "", 0, "Draw:", ""},
+		{PSCULPT_BRUSH_DRAW, "DRAW", 0, "Draw", "Easily sculpt bones into place by drawing over the rig"},
+		{PSCULPT_BRUSH_SMOOTH, "SMOOTH", 0, "Smooth", "Reduce differences between bones"},
+		
+		{0, "", 0, "Transform:", ""},
+		{PSCULPT_BRUSH_GRAB, "GRAB", 0, "Grab", "Move bones around as if affected by a force"},
+		{PSCULPT_BRUSH_CURL, "CURL", 0, "Curl", "Rotate all bones along some local axis (e.g. finger curling)"},
+		{PSCULPT_BRUSH_TWIST, "TWIST", 0, "Twist", "Scale bones length-wise"},
+		{PSCULPT_BRUSH_STRETCH, "STRETCH", 0, "Stretch", "Scale bones length-wise"},
+		
+		{0, "", 0, "Distribute:", ""},
+		{PSCULPT_BRUSH_RADIAL, "RADIAL", 0, "Radial Spread", "Distribute child bones in a radial manner"},
+		{PSCULPT_BRUSH_WRAP, "WRAP", 0, "Wrap", "Snap bones to lie on the nearest surface"},
+		
+		{0, "", 0, "Utils:", ""},
+		{PSCULPT_BRUSH_RESET, "RESET", 0, "Reset", "Clear/reset transforms"},
+		{PSCULPT_BRUSH_SELECT, "SELECT", 0, "Select", "Brush-select bones to mask affected area"}, // TODO: rename define
+		{0, NULL, 0, NULL, NULL}};
+		
+	static EnumPropertyItem prop_direction_items[]= {
+		{0, "ADD", 0, "Add", "Add effect of brush"},
+		{PSCULPT_BRUSH_FLAG_INV, "SUBTRACT", 0, "Subtract", "Subtract effect of brush"},
+		{0, NULL, 0, NULL, NULL}};
+		
+	static EnumPropertyItem prop_xz_mode_items[]= {
+		{PSCULPT_BRUSH_DO_XZ, "XZ", 0, "XZ", "Affect both X and Z axes"},
+		{PSCULPT_BRUSH_DO_X, "X", 0, "X", "Affect X axis only"},
+		{PSCULPT_BRUSH_DO_Z, "Z", 0, "Z", "Affect Z axis only"},
+		{0, NULL, 0, NULL, NULL}};
+	
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	/* EDIT ------------------------------------------- */
+	srna = RNA_def_struct(brna, "PoseSculpt", NULL);
+	RNA_def_struct_sdna(srna, "PSculptSettings");
+	RNA_def_struct_path_func(srna, "rna_PoseSculpt_path");
+	RNA_def_struct_ui_text(srna, "Pose Sculpt", "Properties of pose sculpting tool");
+
+	prop = RNA_def_property(srna, "tool", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "brushtype");
+	RNA_def_property_enum_items(prop, pose_sculpt_brush_items);
+	RNA_def_property_ui_text(prop, "Tool", "");
+	RNA_def_property_update(prop, 0, "rna_PoseSculpt_update");
+	
+	prop = RNA_def_property(srna, "brush", PROP_POINTER, PROP_NONE);
+	RNA_def_property_struct_type(prop, "PoseSculptBrush");
+	RNA_def_property_pointer_funcs(prop, "rna_PoseSculpt_brush_get", NULL, NULL, NULL);
+	RNA_def_property_ui_text(prop, "Brush", "");
+	
+	prop = RNA_def_property(srna, "use_select_mask", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PSCULPT_FLAG_SELECT_MASK);
+	RNA_def_property_ui_text(prop, "Selection Mask", 
+	                         "Only affect selected bones, preventing accidentally destroying poses");
+	RNA_def_property_ui_icon(prop, ICON_VERTEXSEL, 0);
+	
+	/* BRUSH ------------------------------------------ */
+	srna = RNA_def_struct(brna, "PoseSculptBrush", NULL);
+	RNA_def_struct_sdna(srna, "PSculptBrushData");
+	RNA_def_struct_ui_text(srna, "Pose Sculpt Brush", "Pose sculpting brush");
+
+	prop = RNA_def_property(srna, "size", PROP_INT, PROP_NONE);
+	RNA_def_property_range(prop, 1, SHRT_MAX);
+	RNA_def_property_ui_range(prop, 1, 300, 10, 3);
+	RNA_def_property_ui_text(prop, "Radius", "Radius of the brush in pixels");
+	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update");
+
+	prop = RNA_def_property(srna, "strength", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_range(prop, 0.001f, 1.0f);
+	RNA_def_property_ui_text(prop, "Strength", "Brush strength");
+	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update");
+	
+	prop = RNA_def_property(srna, "rate", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_range(prop, 0.001f, 1.0f);
+	RNA_def_property_ui_text(prop, "Rate", "Rate of brush application in seconds");
+	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update");
+	
+	prop = RNA_def_property(srna, "direction", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "flag");
+	RNA_def_property_enum_items(prop, prop_direction_items);
+	RNA_def_property_ui_text(prop, "Direction", "");
+	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update"); // XXX: to change color
+	
+	// XXX: review this property...
+	prop = RNA_def_property(srna, "xz_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "xzMode");
+	RNA_def_property_enum_items(prop, prop_xz_mode_items);
+	RNA_def_property_ui_text(prop, "XZ Axis Behaviour", "Which axes (X and Z) get affected by brush");
+	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update");
+	
+	prop = RNA_def_property(srna, "use_initial_only", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PSCULPT_BRUSH_FLAG_GRAB_INITIAL);
+	RNA_def_property_ui_text(prop, "Initial Bones Only", "Only affect the bones within the brush when the stroke was initiated");
+	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update");
+	
+	/* dummy */
+	prop = RNA_def_property(srna, "curve", PROP_POINTER, PROP_NONE);
+	RNA_def_property_struct_type(prop, "CurveMapping");
+	RNA_def_property_pointer_funcs(prop, "rna_PSculptBrush_curve_get", NULL, NULL, NULL);
+	RNA_def_property_ui_text(prop, "Curve", "");
+}
+
+
 void RNA_def_sculpt_paint(BlenderRNA *brna)
 {
 	/* *** Non-Animated *** */
@@ -956,6 +1091,7 @@ void RNA_def_sculpt_paint(BlenderRNA *brna)
 	rna_def_vertex_paint(brna);
 	rna_def_image_paint(brna);
 	rna_def_particle_edit(brna);
+	rna_def_pose_sculpt(brna);
 	RNA_define_animate_sdna(true);
 }
 
