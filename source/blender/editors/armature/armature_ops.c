@@ -440,10 +440,22 @@ void ED_keymap_armature(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "POSE_OT_sketch_direct_interactive", EKEY, KM_PRESS, 0, 0);
 	
 	/* Pose -> Pose Sculpting ----------- */
+	
+	/* Sculpting - Apply effects... */
 	kmi = WM_keymap_add_item(keymap, "POSE_OT_brush_paint", LEFTMOUSE, KM_PRESS, 0, QKEY);
 	RNA_boolean_set(kmi->ptr, "invert", false);
 	
-	kmi = WM_keymap_add_item(keymap, "POSE_OT_brush_paint", RIGHTMOUSE, KM_PRESS, 0, QKEY);
+	kmi = WM_keymap_add_item(keymap, "POSE_OT_brush_paint", LEFTMOUSE, KM_PRESS, KM_SHIFT, QKEY);
 	RNA_boolean_set(kmi->ptr, "invert", true);
+	
+	/* Sculpt Brush Menu */
+	/* TODO: Q + RMB */
+	
+	/* Adjust brush size/strength */
+	kmi = WM_keymap_add_item(keymap, "WM_OT_radial_control", QKEY, KM_PRESS, KM_ALT, 0);
+	RNA_string_set(kmi->ptr, "data_path_primary", "tool_settings.pose_sculpt.brush.size");
+	
+	kmi = WM_keymap_add_item(keymap, "WM_OT_radial_control", QKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
+	RNA_string_set(kmi->ptr, "data_path_primary", "tool_settings.pose_sculpt.brush.strength");
 }
 
