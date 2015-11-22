@@ -51,7 +51,9 @@ set(SRC
 	pose_edit.c
 	pose_lib.c
 	pose_group.c
+	pose_sculpt.c
 	pose_select.c
+	pose_sketch.c
 	pose_slide.c
 	pose_transform.c
 	pose_utils.c
