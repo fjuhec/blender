@@ -45,7 +45,6 @@
 #include "BLI_utildefines.h"
 #include "BLI_dynstr.h"
 #include "BLI_ghash.h"
-//#include "BLI_pbvh.h"
 #include "BLI_threads.h"
 #include "BLI_rand.h"
 
@@ -96,13 +95,10 @@ PSculptBrushData *psculpt_get_brush(Scene *scene)
 		return NULL;
 }
 
-void *psculpt_get_current(Scene *scene, Object *ob)
-{
-	return NULL; // XXX
-}
 
 /* ******************************************************** */
 /* Polling Callbacks */
+// TODO: amalgamate these...
 
 int psculpt_poll(bContext *C)
 {
@@ -401,8 +397,8 @@ static void apply_pchan_joints(bPoseChannel *pchan, float dvec[3])
 	}
 	
 	/* 3) apply these joints to low-level transforms */
-	//if ( (locks & (OB_LOCK_ROTX|OB_LOCK_ROTY|OB_LOCK_ROTZ)) ||
-	//	 ((locks & OB_LOCK_ROT4D) && (locks & OB_LOCK_ROTW)) )
+	//if ((locks & (OB_LOCK_ROTX | OB_LOCK_ROTY | OB_LOCK_ROTZ)) ||
+	//	  ((locks & OB_LOCK_ROT4D) && (locks & OB_LOCK_ROTW)) )
 	if (locks)
 	{
 		float dloc[3], dsize[3];
@@ -664,7 +660,6 @@ static void brush_curl(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 /* "twist" brush */
 static void brush_twist(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
-	PSculptBrushData *brush = data->brush;
 	short locks = pchan->protectflag;
 	float eul[3] = {0.0f};
 	float angle = 0.0f;
@@ -783,7 +778,6 @@ static int psculpt_brush_init(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
-	PSculptSettings *pset = psculpt_settings(scene);
 	tPoseSculptingOp *pso;
 	tPSculptContext *data;
 	PSculptBrushData *brush;
@@ -1046,14 +1040,15 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 					
 					/* apply brush to bones */
 					changed = psculpt_brush_do_apply(pso, &data, brush_comb, selected);
-				}
+					
 					break;
+				}
 					
 				case PSCULPT_BRUSH_SMOOTH:
 				{
 				
-				}
 					break;
+				}
 					
 				case PSCULPT_BRUSH_GRAB:
 				{
@@ -1072,44 +1067,45 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 					data.dvec = vec;
 					
 					changed = psculpt_brush_do_apply(pso, &data, brush_grab, selected);
-				}
+					
 					break;
+				}
 					
 				case PSCULPT_BRUSH_CURL:
 				{
 					changed = psculpt_brush_do_apply(pso, &data, brush_curl, selected);
-				}
 					break;
+				}
 					
 				case PSCULPT_BRUSH_STRETCH:
 				{
 					changed = psculpt_brush_do_apply(pso, &data, brush_stretch, selected);
-				}
 					break;
+				}
 					
 				case PSCULPT_BRUSH_TWIST:
 				{
 					changed = psculpt_brush_do_apply(pso, &data, brush_twist, selected);
-				}
 					break;
+				}
 					
 				case PSCULPT_BRUSH_RADIAL:
 				{
 				
-				}
 					break;
+				}
 					
 				case PSCULPT_BRUSH_WRAP:
 				{
 				
-				}
 					break;
+				}
 					
 				case PSCULPT_BRUSH_RESET:
 				{
 					changed = psculpt_brush_do_apply(pso, &data, brush_reset, selected);
-				}
 					break;
+				}
 					
 				case PSCULPT_BRUSH_SELECT:
 				{
@@ -1121,8 +1117,9 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 					 */
 					sel_changed = psculpt_brush_do_apply(pso, &data, brush_select_bone, selected);
 					changed = ((sel_changed) && (arm->flag & ARM_HAS_VIZ_DEPS));
-				}
+					
 					break;
+				}
 					
 				default:
 					printf("Pose Sculpt: Unknown brush type %d\n", pset->brushtype);
