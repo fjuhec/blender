@@ -632,12 +632,13 @@ static void brush_curl(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 	if (get_pchan_eul_rotation(eul, NULL, pchan) == false)
 		return;
 	
-	/* amount to rotate depends on the strength of the brush 
-	 * - 10.0f factor is used to get values of ~x.y degrees vs 0.xy degrees
-	 * - rotations are internally represented using radians, which are very sensitive
+	/* Amount to rotate depends on the strength of the brush 
+	 * - The current calculation results in 0.xy degree values. Multiplying by even 2.5
+	 *   however is much too strong for controllability. So, leaving it as-is.
+	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = fabsf(1.0f - data->dist / data->rad) * data->fac * 10.0f;	//printf("%f ", angle);
-	angle = DEG2RAD(angle);                                             //printf("%f \n", angle);
+	angle = fabsf(1.0f - data->dist / data->rad) * data->fac;	//printf("%f ", angle);
+	angle = DEG2RAD(angle);                                     //printf("%f \n", angle);
 	
 	if (data->invert) angle = -angle;
 	
@@ -672,12 +673,13 @@ static void brush_twist(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChann
 	if (get_pchan_eul_rotation(eul, NULL, pchan) == false)
 		return;
 	
-	/* amount to rotate depends on the strength of the brush 
-	 * - 10.0f factor is used to get values of ~x.y degrees vs 0.xy degrees
-	 * - rotations are internally represented using radians, which are very sensitive
+	/* Amount to rotate depends on the strength of the brush 
+	 * - The current calculation results in 0.xy degree values. Multiplying by even 2.5
+	 *   however is much too strong for controllability. So, leaving it as-is.
+	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = fabsf(1.0f - data->dist / data->rad) * data->fac * 10.0f;	//printf("%f ", angle);
-	angle = DEG2RAD(angle);                                             //printf("%f \n", angle);
+	angle = fabsf(1.0f - data->dist / data->rad) * data->fac;	//printf("%f ", angle);
+	angle = DEG2RAD(angle);                                     //printf("%f \n", angle);
 	
 	if (data->invert) angle = -angle;
 	
