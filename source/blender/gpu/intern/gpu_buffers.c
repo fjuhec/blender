@@ -455,7 +455,7 @@ void GPU_drawobject_free(DerivedMesh *dm)
 #ifdef USE_GPU_POINT_LINK
 	MEM_freeN(gdo->vert_points_mem);
 #endif
-	GPU_buffer_free(gdo->points);
+	GPU_buffer_free(gdo->vertices);
 	GPU_buffer_free(gdo->normals);
 	GPU_buffer_free(gdo->uv);
 	GPU_buffer_free(gdo->uv_tex);
@@ -463,7 +463,6 @@ void GPU_drawobject_free(DerivedMesh *dm)
 	GPU_buffer_free(gdo->edges);
 	GPU_buffer_free(gdo->uvedges);
 	GPU_buffer_free(gdo->triangles);
-	GPU_buffer_free(gdo->editfacecolors);
 
 	MEM_freeN(gdo);
 	dm->drawObject = NULL;
@@ -559,7 +558,7 @@ static GPUBuffer **gpu_drawobject_buffer_from_type(GPUDrawObject *gdo, GPUBuffer
 {
 	switch (type) {
 		case GPU_BUFFER_VERTEX:
-			return &gdo->points;
+			return &gdo->vertices;
 		case GPU_BUFFER_NORMAL:
 			return &gdo->normals;
 		case GPU_BUFFER_COLOR:
@@ -574,8 +573,6 @@ static GPUBuffer **gpu_drawobject_buffer_from_type(GPUDrawObject *gdo, GPUBuffer
 			return &gdo->uvedges;
 		case GPU_BUFFER_TRIANGLES:
 			return &gdo->triangles;
-		case GPU_BUFFER_EDITFACE_COLORS:
-			return &gdo->editfacecolors;
 		default:
 			return NULL;
 	}
@@ -591,9 +588,7 @@ static size_t gpu_buffer_size_from_type(DerivedMesh *dm, GPUBufferType type)
 		case GPU_BUFFER_NORMAL:
 			return sizeof(short) * components * dm->drawObject->tot_loop_verts;
 		case GPU_BUFFER_COLOR:
-            return sizeof(char) * components * dm->drawObject->tot_loop_verts;
-		case GPU_BUFFER_EDITFACE_COLORS:
-            return sizeof(char) * components * dm->drawObject->tot_loop_verts;
+			return sizeof(char) * components * dm->drawObject->tot_loop_verts;
 		case GPU_BUFFER_UV:
 			return sizeof(float) * components * dm->drawObject->tot_loop_verts;
 		case GPU_BUFFER_UV_TEXPAINT:
@@ -653,7 +648,7 @@ void GPU_vertex_setup(DerivedMesh *dm)
 		return;
 
 	glEnableClientState(GL_VERTEX_ARRAY);
-	glBindBuffer(GL_ARRAY_BUFFER, dm->drawObject->points->id);
+	glBindBuffer(GL_ARRAY_BUFFER, dm->drawObject->vertices->id);
 	glVertexPointer(3, GL_FLOAT, 0, 0);
 	
 	GLStates |= GPU_BUFFER_VERTEX_STATE;
@@ -748,7 +743,7 @@ void GPU_edge_setup(DerivedMesh *dm)
 		return;
 
 	glEnableClientState(GL_VERTEX_ARRAY);
-	glBindBuffer(GL_ARRAY_BUFFER, dm->drawObject->points->id);
+	glBindBuffer(GL_ARRAY_BUFFER, dm->drawObject->vertices->id);
 	glVertexPointer(3, GL_FLOAT, 0, 0);
 	
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, dm->drawObject->edges->id);

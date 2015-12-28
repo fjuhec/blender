@@ -782,6 +782,7 @@ static void emDM_buffer_copy_normal(
 }
 
 typedef struct FaceCount {
+	unsigned int i_selected;
 	unsigned int i_visible;
 	unsigned int i_hidden;
 	unsigned int i_tri_visible;
@@ -808,6 +809,7 @@ static void emDM_buffer_copy_triangles(
 	FaceCount *fc = MEM_mallocN(sizeof(*fc) * totmat, "gpumaterial.facecount");
 
 	for (i = 0; i < totmat; i++) {
+		fc[i].i_selected = 0;
 		fc[i].i_visible = 0;
 		fc[i].i_tri_visible = 0;
 		fc[i].i_hidden = gpumaterials[i].totpolys - 1;
@@ -1172,7 +1174,7 @@ static void emDM_drawMappedFaces(
 		/* weak, this logic should really be moved higher up */
 		setMaterial = NULL;
 	}
-
+#if 1
 	GPU_vertex_setup(dm);
 
 	/* if we do selection, fill the selection buffer color */
@@ -1210,6 +1212,7 @@ static void emDM_drawMappedFaces(
 	}
 	GPU_triangle_setup(dm);
 	glShadeModel(GL_SMOOTH);
+
 	for (i = 0; i < dm->drawObject->totmaterial; i++) {
 		if (!setMaterial || setMaterial(dm->drawObject->materials[i].mat_nr + 1, NULL)) {
 			unsigned int totalelem = (skip_hidden) ? dm->drawObject->materials[i].totvisibleelems :
@@ -1218,13 +1221,14 @@ static void emDM_drawMappedFaces(
 			                         dm->drawObject->materials[i].start, totalelem);
 		}
 	}
+
 	glShadeModel(GL_FLAT);
 	GPU_buffers_unbind();
 
 	if (findex_buffer)
 		GPU_buffer_free(findex_buffer);
 	return;
-
+#endif
 	if (bmdm->vertexCos) {
 		short prev_mat_nr = -1;
 

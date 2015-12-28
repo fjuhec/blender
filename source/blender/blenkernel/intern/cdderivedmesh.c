@@ -418,7 +418,7 @@ static void cdDM_drawEdges(DerivedMesh *dm, bool drawLooseEdges, bool drawAllEdg
 	
 	GPU_edge_setup(dm);
 	gdo = dm->drawObject;
-	if (gdo->edges && gdo->points) {
+	if (gdo->edges && gdo->vertices) {
 		if (drawAllEdges && drawLooseEdges) {
 			GPU_buffer_draw_elements(gdo->edges, GL_LINES, 0, gdo->totedge * 2);
 		}

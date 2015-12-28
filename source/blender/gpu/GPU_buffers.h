@@ -90,16 +90,30 @@ void GPU_buffer_material_finalize(struct GPUDrawObject *gdo, GPUBufferMaterial *
  * for MFaces are referred to as triangles rather than faces.
  */
 typedef struct GPUDrawObject {
-	GPUBuffer *points;
+	/* vertices are kept in a separate buffer to ensure better cache coherence for edge drawing or
+	 * for passes not reliant to other formats, such as, for example, depth pass or shadow maps */
+	GPUBuffer *vertices;
+
+	/* legacy buffers, do not reuse */
 	GPUBuffer *normals;
 	GPUBuffer *uv;
 	GPUBuffer *uv_tex;
 	GPUBuffer *colors;
+
+	/* index buffers */
 	GPUBuffer *edges;
 	GPUBuffer *uvedges;
 	GPUBuffer *triangles; /* triangle index buffer */
 
-	GPUBuffer *editfacecolors; /* colors for edit mode */
+	/* material display data needed for the object. The resident data inside the buffer varies depending
+	 * on the material that is assigned to each polygon. Vertex stride is the maximum vertex stride needed
+	 * to accomodate the most fat material vertex format
+	 * NOTE: For future deferred rendering we might want to separate data that are needed for normals as well */
+	GPUBuffer *materialData;
+
+	/* These data exist only to display UI helpers for the mesh that are not relevant to materials. Examples
+	 * include selection state, weights and mode dependent visual debugging variables, uvs for uveditor */
+	GPUBuffer *workflowData;
 
 	/* for each original vertex, the list of related points */
 	struct GPUVertPointLink *vert_points;
@@ -159,33 +173,33 @@ typedef struct GPUAttrib {
  * This corresponds in a single interleaved buffer */
 typedef struct GPUMeshVertexAttribute
 {
-    /* char is sufficient here, we have less than 255 customdata types */
-    char customdatatype;
-    /* layer number, for layers that need it */
-    char layer;
+	/* char is sufficient here, we have less than 255 customdata types */
+	char customdatatype;
+	/* layer number, for layers that need it */
+	char layer;
 } GPUMeshVertexAttribute;
 
 typedef struct GPUMeshVertexFormat
 {
-    /* which customdata exist in the current vertex format */
-    long long customdataflag;
+	/* which customdata exist in the current vertex format */
+	long customdataflag;
 
-    /* number of customData in format */
-    char numData;
+	/* number of customData in format */
+	char numData;
 
-    /* actual current data existing in buffer */
-    GPUMeshVertexAttribute *layout;
+	/* actual current data existing in buffer */
+	GPUMeshVertexAttribute *layout;
 } GPUMeshVertexFormat;
 
 /* create a vertex format with the specified formats */
-GPUMeshVertexFormat *GPU_vertex_format_alloc(long long iformat);
+GPUMeshVertexFormat *GPU_vertex_format_alloc(long iformat);
 
 /* check if reusing the vertex format is possible */
-bool GPU_vertex_format_reuse(GPUMeshVertexFormat *vformat, long long iformat);
+bool GPU_vertex_format_reuse(GPUMeshVertexFormat *vformat, long iformat);
 
 /* bind the vertex format existing in the currently bound buffer object,
- * according to the format specified here */
-void GPU_vertex_format_bind(GPUMeshVertexFormat *vformat, long long iformat);
+ * according to the format specified here (should be a subset of the format of the buffer) */
+void GPU_vertex_format_bind(GPUMeshVertexFormat *vformat, long iformat);
 
 /* get the size of the vertex format */
 int GPU_vertex_format_size(GPUMeshVertexFormat *vformat);
@@ -211,8 +225,6 @@ typedef enum {
 	GPU_BUFFER_EDGE,
 	GPU_BUFFER_UVEDGE,
 	GPU_BUFFER_TRIANGLES,
-
-	GPU_BUFFER_EDITFACE_COLORS,
 } GPUBufferType;
 
 typedef enum {
