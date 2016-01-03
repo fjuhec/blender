@@ -787,7 +787,7 @@ class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
         self.layout.prop(arm, "use_auto_ik")
 
 
-class VIEW3D_PT_tools_poosemode_sculpt(View3DPanel, Panel):
+class VIEW3D_PT_tools_posemode_sculpt(View3DPanel, Panel):
     bl_category = "Sculpt"
     bl_context = "posemode"
     bl_label = "Pose Sculpt"
