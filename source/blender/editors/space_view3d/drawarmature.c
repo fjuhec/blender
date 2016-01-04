@@ -90,14 +90,41 @@ static void set_pchan_colorset(Object *ob, bPoseChannel *pchan)
 {
 	bPose *pose = (ob) ? ob->pose : NULL;
 	bArmature *arm = (ob) ? ob->data : NULL;
-
+	bActionGroup *grp = NULL;
+	short color_index = 0;
+	
 	/* sanity check */
 	if (ELEM(NULL, ob, arm, pose, pchan)) {
 		bcolor = NULL;
 		return;
 	}
-
-	bcolor = ED_pchan_get_colorset(arm, pose, pchan);
+	
+	/* only try to set custom color if enabled for armature */
+	if (arm->flag & ARM_COL_CUSTOM) {
+		/* currently, a bone can only use a custom color set if it's group (if it has one),
+		 * has been set to use one
+		 */
+		if (pchan->agrp_index) {
+			grp = (bActionGroup *)BLI_findlink(&pose->agroups, (pchan->agrp_index - 1));
+			if (grp)
+				color_index = grp->customCol;
+		}
+	}
+	
+	/* bcolor is a pointer to the color set to use. If NULL, then the default
+	 * color set (based on the theme colors for 3d-view) is used. 
+	 */
+	if (color_index > 0) {
+		bTheme *btheme = UI_GetTheme();
+		bcolor = &btheme->tarm[(color_index - 1)];
+	}
+	else if (color_index == -1) {
+		/* use the group's own custom color set (grp is always != NULL here) */
+		bcolor = &grp->cs;
+	}
+	else {
+		bcolor = NULL;
+	}
 }
 
 /* This function is for brightening/darkening a given color (like UI_ThemeColorShade()) */
@@ -1409,7 +1436,8 @@ static void pchan_draw_IK_root_lines(bPoseChannel *pchan, short only_temp)
 					if (segcount == data->chainlen || segcount > 255) break;  /* 255 is weak */
 					parchan = parchan->parent;
 				}
-				if (parchan)  /* XXX revise the breaking conditions to only stop at the tail? */
+				/* Only draw line in case our chain is more than one bone long! */
+				if (parchan != pchan)  /* XXX revise the breaking conditions to only stop at the tail? */
 					glVertex3fv(parchan->pose_head);
 
 				glEnd();
