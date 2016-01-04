@@ -1275,6 +1275,16 @@ bool BM_face_share_vert_check(BMFace *f_a, BMFace *f_b)
 }
 
 /**
+ * Returns true when 2 loops share an edge (are adjacent in the face-fan)
+ */
+bool BM_loop_share_edge_check(BMLoop *l_a, BMLoop *l_b)
+{
+	BLI_assert(l_a->v == l_b->v);
+	return (ELEM(l_a->e, l_b->e, l_b->prev->e) ||
+	        ELEM(l_b->e, l_a->e, l_a->prev->e));
+}
+
+/**
  * Test if e1 shares any faces with e2
  */
 bool BM_edge_share_face_check(BMEdge *e1, BMEdge *e2)
@@ -2094,26 +2104,13 @@ bool BM_face_exists_multi_edge(BMEdge **earr, int len)
 {
 	BMVert **varr = BLI_array_alloca(varr, len);
 
-	bool ok;
-	int i, i_next;
-
 	/* first check if verts have edges, if not we can bail out early */
-	ok = true;
-	for (i = len - 1, i_next = 0; i_next < len; (i = i_next++)) {
-		if (!(varr[i] = BM_edge_share_vert(earr[i], earr[i_next]))) {
-			ok = false;
-			break;
-		}
-	}
-
-	if (ok == false) {
+	if (!BM_verts_from_edges(varr, earr, len)) {
 		BMESH_ASSERT(0);
 		return false;
 	}
 
-	ok = BM_face_exists_multi(varr, earr, len);
-
-	return ok;
+	return BM_face_exists_multi(varr, earr, len);
 }
 
 
