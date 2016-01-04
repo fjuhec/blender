@@ -323,14 +323,22 @@ static bool manipulator_is_axis_visible(const View3D *v3d, const RegionView3D *r
 
 static void manipulator_get_axis_color(const RegionView3D *rv3d, const int axis_idx, float r_col[4], float r_col_hi[4])
 {
-	const float idot = rv3d->tw_idot[manipulator_index_normalize(axis_idx)];
 	/* alpha values for normal/highlighted states */
 	const float alpha = 0.6f;
 	const float alpha_hi = 1.0f;
 	/* get alpha fac based on axis angle, to fade axis out when hiding it because it points towards view */
-	float alpha_fac_view = (idot > TW_AXIS_DOT_MAX) ?
-	                        1.0f : (idot < TW_AXIS_DOT_MIN) ?
-	                        0.0f : ((idot - TW_AXIS_DOT_MIN) / (TW_AXIS_DOT_MAX - TW_AXIS_DOT_MIN));
+	float alpha_fac_view;
+
+	const int axis_idx_norm = manipulator_index_normalize(axis_idx);
+	if (axis_idx_norm < 3) {
+		const float idot = rv3d->tw_idot[axis_idx_norm];
+		alpha_fac_view = (idot > TW_AXIS_DOT_MAX) ?
+		        1.0f : (idot < TW_AXIS_DOT_MIN) ?
+		        0.0f : ((idot - TW_AXIS_DOT_MIN) / (TW_AXIS_DOT_MAX - TW_AXIS_DOT_MIN));
+	}
+	else {
+		alpha_fac_view = 1.0f;
+	}
 
 	switch (axis_idx) {
 		case MAN_AXIS_TRANS_X:
@@ -358,7 +366,6 @@ static void manipulator_get_axis_color(const RegionView3D *rv3d, const int axis_
 		case MAN_AXIS_ROT_C:
 		case MAN_AXIS_SCALE_C:
 			copy_v4_fl(r_col, 1.0f);
-			alpha_fac_view = 1.0f;
 			break;
 	}
 
