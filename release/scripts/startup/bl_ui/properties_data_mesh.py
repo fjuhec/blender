@@ -349,7 +349,7 @@ class DATA_PT_shape_keys(MeshButtonsPanel, Panel):
                     row = layout.row()
                     row.active = enable_edit_value
                     row.prop(kb, "value")
- 
+
                     split = layout.split()
 
                     col = split.column(align=True)
