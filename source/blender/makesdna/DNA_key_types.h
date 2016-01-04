@@ -67,6 +67,7 @@ typedef struct KeyBlock {
 	/* ranges, for RNA and UI only to clamp 'curval' */
 	float slidermin;
 	float slidermax;
+
 } KeyBlock;
 
 

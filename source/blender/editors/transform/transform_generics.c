@@ -1206,7 +1206,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 		
 		t->view = v3d;
 		t->animtimer = (animscreen) ? animscreen->animtimer : NULL;
-
+		
 		/* turn manipulator off during transform */
 		if (t->flag & T_MODAL) {
 			t->twtype = v3d->twtype;

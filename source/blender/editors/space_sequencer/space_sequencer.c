@@ -169,7 +169,7 @@ static SpaceLink *sequencer_new(const bContext *C)
 	BLI_addtail(&sseq->regionbase, ar);
 	ar->regiontype = RGN_TYPE_WINDOW;
 	
-
+	
 	/* seq space goes from (0,8) to (0, efra) */
 	
 	ar->v2d.tot.xmin = 0.0f;
@@ -481,7 +481,7 @@ static void sequencer_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 	/* add drop boxes */
 	lb = WM_dropboxmap_find("Sequencer", SPACE_SEQ, RGN_TYPE_WINDOW);
-	
+
 	WM_event_add_dropbox_handler(&ar->handlers, lb);
 	
 	/* no modal keymap here, only operators use this currently */

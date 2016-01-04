@@ -168,7 +168,6 @@ void ED_spacedropwidgets_init(void)
 	}
 }
 
-
 /* called in wm.c */
 /* keymap definitions are registered only once per WM initialize, usually on file read,
  * using the keymap the actual areas/regions add the handlers */

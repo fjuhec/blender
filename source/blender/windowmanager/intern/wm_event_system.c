@@ -1474,7 +1474,7 @@ void WM_event_remove_handlers(bContext *C, ListBase *handlers)
 
 				if (handler->op->type->flag & OPTYPE_UNDO)
 					wm->op_undo_depth--;
-				
+
 				CTX_wm_area_set(C, area);
 				CTX_wm_region_set(C, region);
 			}
@@ -1677,8 +1677,8 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 
 			/* warning, after this call all context data and 'event' may be freed. see check below */
 			retval = ot->modal(C, op, event);
-
 			OPERATOR_RETVAL_CHECK(retval);
+			
 			/* when this is _not_ the case the modal modifier may have loaded
 			 * a new blend file (demo mode does this), so we have to assume
 			 * the event, operator etc have all been freed. - campbell */
@@ -2693,7 +2693,7 @@ wmEventHandler *WM_event_add_modal_handler(bContext *C, wmOperator *op)
 {
 	wmEventHandler *handler = MEM_callocN(sizeof(wmEventHandler), "event modal handler");
 	wmWindow *win = CTX_wm_window(C);
-
+	
 	/* operator was part of macro */
 	if (op->opm) {
 		/* give the mother macro to the handler */

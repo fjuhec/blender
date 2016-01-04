@@ -4600,8 +4600,6 @@ static void WM_OT_radial_control(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "secondary_tex", false, "Secondary Texture", "Tweak brush secondary/mask texture");
 }
 
-
-
 /* ************************** timer for testing ***************** */
 
 /* uses no type defines, fully local testing function anyway... ;) */

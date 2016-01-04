@@ -1212,11 +1212,10 @@ static void layerDefault_fmap(void *data, int count)
 {
 	int *fmap_num = (int *)data;
 	int i;
-	for (i = 0; i < count; i++)
+	for (i = 0; i < count; i++) {
 		*fmap_num = -1;
-
+	}
 }
-
 
 static const LayerTypeInfo LAYERTYPEINFO[CD_NUMTYPES] = {
 	/* 0: CD_MVERT */

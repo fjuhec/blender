@@ -460,7 +460,7 @@ static int face_map_move_exec(bContext *C, wmOperator *op)
 	/* iterate through mesh and substitute the indices as necessary */
 	object_facemap_swap(ob, pos2, pos1);
 	
-	ob->actfmap = pos2 +1;
+	ob->actfmap = pos2 + 1;
 	
 	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, ob);

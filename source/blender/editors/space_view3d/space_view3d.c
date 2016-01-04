@@ -404,13 +404,12 @@ static SpaceLink *view3d_new(const bContext *C)
 	ar->regiontype = RGN_TYPE_WINDOW;
 	
 	ar->regiondata = MEM_callocN(sizeof(RegionView3D), "region view3d");
-
 	rv3d = ar->regiondata;
 	rv3d->viewquat[0] = 1.0f;
 	rv3d->persp = RV3D_PERSP;
 	rv3d->view = RV3D_VIEW_USER;
 	rv3d->dist = 10.0;
-		
+	
 	return (SpaceLink *)v3d;
 }
 
@@ -451,7 +450,8 @@ static void view3d_free(SpaceLink *sl)
 
 /* spacetype; init callback */
 static void view3d_init(wmWindowManager *UNUSED(wm), ScrArea *UNUSED(sa))
-{	
+{
+
 }
 
 static SpaceLink *view3d_duplicate(SpaceLink *sl)
@@ -583,6 +583,7 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 	lb = WM_dropboxmap_find("View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW);
 	
 	WM_event_add_dropbox_handler(&ar->handlers, lb);
+	
 }
 
 static void view3d_main_region_exit(wmWindowManager *wm, ARegion *ar)

@@ -1528,8 +1528,9 @@ static void write_fmaps(WriteData *wd, ListBase *fbase)
 {
 	bFaceMap *fmap;
 
-	for (fmap=fbase->first; fmap; fmap=fmap->next)
+	for (fmap = fbase->first; fmap; fmap = fmap->next) {
 		writestruct(wd, DATA, "bFaceMap", 1, fmap);
+	}
 }
 
 static void write_modifiers(WriteData *wd, ListBase *modbase)

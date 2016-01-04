@@ -124,6 +124,7 @@ class OBJECT_PT_transform_locks(ObjectButtonsPanel, Panel):
             sub.active = ob.lock_rotations_4d
             sub.prop(ob, "lock_rotation_w", text="W")
 
+
 class OBJECT_PT_widgets(ObjectButtonsPanel, Panel):
     bl_label = "Widgets"
 
@@ -134,6 +135,7 @@ class OBJECT_PT_widgets(ObjectButtonsPanel, Panel):
         wg = ob.wgroup
 
         layout.operator_menu_enum("object.widget_add", "type")
+
 
 class OBJECT_PT_relations(ObjectButtonsPanel, Panel):
     bl_label = "Relations"

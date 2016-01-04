@@ -886,16 +886,22 @@ static int calc_manipulator_stats(const bContext *C)
 		float mat[3][3];
 
 		switch (v3d->twmode) {
+		
 			case V3D_MANIP_GLOBAL:
+			{
 				break; /* nothing to do */
+			}
 			case V3D_MANIP_GIMBAL:
+			{
 				if (gimbal_axis(ob, mat)) {
 					copy_m4_m3(rv3d->twmat, mat);
 					break;
 				}
 				/* if not gimbal, fall through to normal */
 				/* fall-through */
+			}
 			case V3D_MANIP_NORMAL:
+			{
 				if (obedit || ob->mode & OB_MODE_POSE) {
 					ED_getTransformOrientationMatrix(C, mat, v3d->around);
 					copy_m4_m3(rv3d->twmat, mat);
@@ -903,7 +909,9 @@ static int calc_manipulator_stats(const bContext *C)
 				}
 				/* no break we define 'normal' as 'local' in Object mode */
 				/* fall-through */
+			}
 			case V3D_MANIP_LOCAL:
+			{
 				if (ob->mode & OB_MODE_POSE) {
 					/* each bone moves on its own local axis, but  to avoid confusion,
 					 * use the active pones axis for display [#33575], this works as expected on a single bone
@@ -916,17 +924,23 @@ static int calc_manipulator_stats(const bContext *C)
 				copy_m4_m4(rv3d->twmat, ob->obmat);
 				normalize_m4(rv3d->twmat);
 				break;
+			}
 			case V3D_MANIP_VIEW:
+			{
 				copy_m3_m4(mat, rv3d->viewinv);
 				normalize_m3(mat);
 				copy_m4_m3(rv3d->twmat, mat);
 				break;
+			}
 			default: /* V3D_MANIP_CUSTOM */
+			{
 				if (applyTransformOrientation(C, mat, NULL, v3d->twmode - V3D_MANIP_CUSTOM)) {
 					copy_m4_m3(rv3d->twmat, mat);
 				}
 				break;
+			}
 		}
+
 	}
 
 	return totsel;
@@ -943,7 +957,6 @@ static void manipulator_drawflags_refresh(RegionView3D *rv3d)
 	    (MAN_TRANS_X | MAN_SCALE_X),
 	    (MAN_TRANS_Y | MAN_SCALE_Y),
 	    (MAN_TRANS_Z | MAN_SCALE_Z)};
-
 
 	ED_view3d_global_to_vector(rv3d, rv3d->twmat[3], view_vec);
 
