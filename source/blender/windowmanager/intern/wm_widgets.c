@@ -234,7 +234,6 @@ static void wm_widget_delete(ListBase *widgetlist, wmWidget *widget)
 	wm_widget_data_free(widget);
 	if (widgetlist)
 		BLI_remlink(widgetlist, widget);
-	WM_operator_properties_free(&widget->opptr);
 	MEM_freeN(widget);
 }
 
