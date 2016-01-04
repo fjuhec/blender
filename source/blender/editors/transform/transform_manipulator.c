@@ -171,7 +171,7 @@ typedef struct ManipulatorGroup {
 /* **************** Utilities **************** */
 
 /* loop over axes */
-#define MAN_ITER_AXES_BEGIN \
+#define MAN_ITER_AXES_BEGIN(axis, axis_idx) \
 	{ \
 		wmWidget *axis; \
 		int axis_idx; \
@@ -1119,7 +1119,7 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 	/* when looking through a selected camera, the manipulator can be at the
 	 * exact same position as the view, skip so we don't break selection */
 	if (fabsf(mat4_to_scale(rv3d->twmat)) < 1e-7f) {
-		MAN_ITER_AXES_BEGIN
+		MAN_ITER_AXES_BEGIN(axis, axis_idx)
 		{
 			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, true);
 		}
@@ -1132,7 +1132,7 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 
 	/* *** set properties for axes *** */
 
-	MAN_ITER_AXES_BEGIN
+	MAN_ITER_AXES_BEGIN(axis, axis_idx)
 	{
 		const short axis_type = manipulator_get_axis_type(man, axis);
 		const int aidx_norm = manipulator_index_normalize(axis_idx);
