@@ -279,7 +279,6 @@ static void arrow_draw_geom(const ArrowWidget *arrow, const bool select)
 			widget_draw_intern(&cube_draw_info, select);
 		}
 		else {
-			GLUquadricObj *qobj = gluNewQuadric();
 			const float len = 0.25f;
 			const float width = 0.06f;
 			const bool use_lighting = select == false && ((U.tw_flag & V3D_SHADED_WIDGETS) != 0);
@@ -291,11 +290,13 @@ static void arrow_draw_geom(const ArrowWidget *arrow, const bool select)
 				glShadeModel(GL_SMOOTH);
 			}
 
+			GLUquadricObj *qobj = gluNewQuadric();
 			gluQuadricDrawStyle(qobj, GLU_FILL);
 			gluQuadricOrientation(qobj, GLU_INSIDE);
 			gluDisk(qobj, 0.0, width, 8, 1);
 			gluQuadricOrientation(qobj, GLU_OUTSIDE);
 			gluCylinder(qobj, width, 0.0, len, 8, 1);
+			gluDeleteQuadric(qobj);
 
 			if (use_lighting) {
 				glShadeModel(GL_FLAT);
@@ -770,13 +771,16 @@ static void dial_draw_geom(const DialWidget *dial, const bool select)
 #ifdef WIDGET_USE_CUSTOM_DIAS
 	widget_draw_intern(&dial_draw_info, select);
 #else
-	GLUquadricObj *qobj = gluNewQuadric();
 	const float width = 1.0f;
 	const int resol = 32;
 
 	glLineWidth(dial->widget.line_width);
+
+	GLUquadricObj *qobj = gluNewQuadric();
 	gluQuadricDrawStyle(qobj, GLU_SILHOUETTE);
 	gluDisk(qobj, 0.0, width, resol, 1);
+	gluDeleteQuadric(qobj);
+
 	glLineWidth(1.0);
 
 	UNUSED_VARS(select);
