@@ -585,6 +585,9 @@ PointerRNA *WM_widget_set_operator(wmWidget *widget, const char *opname)
 	if (ot) {
 		widget->opname = opname;
 
+		if (widget->opptr.data) {
+			WM_operator_properties_free(&widget->opptr);
+		}
 		WM_operator_properties_create_ptr(&widget->opptr, ot);
 
 		return &widget->opptr;
