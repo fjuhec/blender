@@ -531,31 +531,6 @@ void  WM_event_add_area_widgetmap_handlers(struct ARegion *ar);
 void  WM_modal_handler_attach_widgetgroup(struct bContext *C, struct wmEventHandler *handler,
                                           struct wmWidgetGroupType *wgrouptype, struct wmOperator *op);
 
-/* wmWidget->flag */
-enum eWidgetFlag {
-	/* states */
-	WM_WIDGET_HIGHLIGHT   = (1 << 0),
-	WM_WIDGET_ACTIVE      = (1 << 1),
-	WM_WIDGET_SELECTED    = (1 << 2),
-	/* settings */
-	WM_WIDGET_DRAW_HOVER  = (1 << 3),
-	WM_WIDGET_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
-	WM_WIDGET_SCALE_3D    = (1 << 5),
-	WM_WIDGET_SCENE_DEPTH = (1 << 6), /* widget is depth culled with scene objects*/
-	WM_WIDGET_HIDDEN      = (1 << 7),
-	WM_WIDGET_SELECTABLE  = (1 << 8),
-};
-
-/* wmWidgetType->flag */
-enum eWidgetTypeFlag {
-	/**
-	 * Check if widgetmap does 3D drawing
-	 * (uses a different kind of interaction),
-	 * - 3d: use glSelect buffer.
-	 * - 2d: use simple cursor position intersection test. */
-	WM_WIDGET_TYPE_3D           = (1 << 0),
-};
-
 /**
  * \brief Widget tweak flag.
  * Bitflag passed to widget while tweaking.

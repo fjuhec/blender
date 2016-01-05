@@ -440,6 +440,13 @@ EnumPropertyItem rna_enum_operator_return_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+#ifndef RNA_RUNTIME
+static EnumPropertyItem widget_flag_items[] = {
+	{WM_WIDGET_TYPE_3D, "3D", 0, "3D", "Use the 3d viewport"},
+	{0, NULL, 0, NULL, NULL}
+};
+#endif
+
 /* flag/enum */
 EnumPropertyItem rna_enum_wm_report_items[] = {
 	{RPT_DEBUG, "DEBUG", 0, "Debug", ""},
@@ -540,15 +547,25 @@ static PointerRNA rna_Operator_properties_get(PointerRNA *ptr)
 static void rna_WidgetGroup_name_get(PointerRNA *ptr, char *value)
 {
 	wmWidgetGroup *wgroup = ptr->data;
-	strcpy(value, "Dummy_XXX" /*wgroup->type->name*/);
+	strcpy(value, wgroup->type->name);
 	(void)wgroup;
 }
 
 static int rna_WidgetGroup_name_length(PointerRNA *ptr)
 {
 	wmWidgetGroup *wgroup = ptr->data;
-	return strlen("Dummy_XXX" /*wgroup->type->name*/);
+	return strlen(wgroup->type->name);
 	(void)wgroup;
+}
+
+static void rna_WidgetGroup_bl_label_set(PointerRNA *ptr, const char *value)
+{
+	wmWidgetGroup *data = ptr->data;
+	char *str = data->type->name;
+	if (!str[0])
+		BLI_strncpy(str, value, sizeof(data->type->name));  /* utf8 already ensured */
+	else
+		assert(!"setting the bl_label on a non-builtin operator");
 }
 
 static int rna_WidgetGroup_has_reports_get(PointerRNA *ptr)
@@ -1520,8 +1537,9 @@ static char _widgetgroup_idname[OP_MAX_TYPENAME];
 //static char _widgetgroup_name[OP_MAX_TYPENAME];
 //static char _widgetgroup_descr[RNA_DYN_DESCR_MAX];
 //static char _widgetgroup_ctxt[RNA_DYN_DESCR_MAX];
-static StructRNA *rna_WidgetGroup_register(Main *bmain, ReportList *reports, void *data, const char *identifier,
-                                        StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
+static StructRNA *rna_WidgetGroup_register(
+        Main *bmain, ReportList *reports, void *data, const char *identifier,
+        StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
 {
 
 	wmWidgetGroupType *wgrouptype, dummywgt = {NULL};
@@ -1547,7 +1565,7 @@ static StructRNA *rna_WidgetGroup_register(Main *bmain, ReportList *reports, voi
 	}
 	
 	/* check if the area supports widgets */
-	if (!WM_widgetmaptype_find(dummywgt.mapidname ,dummywgt.spaceid, dummywgt.regionid, dummywgt.flag, false)) {
+	if (!WM_widgetmaptype_find(dummywgt.mapidname ,dummywgt.spaceid, dummywgt.regionid, dummywgt.flag, true)) {
 		BKE_reportf(reports, RPT_ERROR, "Area type does not support widgets");
 		return NULL;
 	}
@@ -1576,7 +1594,7 @@ static StructRNA *rna_WidgetGroup_register(Main *bmain, ReportList *reports, voi
 
 	wgrouptype = WM_widgetgrouptype_new(
 	        dummywgt.poll, dummywgt.create, NULL,
-	        bmain, dummywgt.mapidname, NULL, dummywgt.spaceid, dummywgt.regionid, dummywgt.flag);
+	        bmain, dummywgt.mapidname, dummywgt.name, dummywgt.spaceid, dummywgt.regionid, dummywgt.flag);
 	memcpy(wgrouptype, &dummywgt, sizeof(dummywgt));
 	
 	/* update while blender is running */
@@ -1894,6 +1912,13 @@ static void rna_def_widgetgroup(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_REGISTER);
 	RNA_def_struct_name_property(srna, prop);
 
+	prop = RNA_def_property(srna, "bl_label", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "type->name");
+	RNA_def_property_string_maxlength(prop, 64); /* else it uses the pointer size! */
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_WidgetGroup_bl_label_set");
+	/* RNA_def_property_clear_flag(prop, PROP_EDITABLE); */
+	RNA_def_property_flag(prop, PROP_REGISTER);
+
 	prop = RNA_def_property(srna, "bl_space_type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "type->spaceid");
 	RNA_def_property_enum_items(prop, rna_enum_space_type_items);
@@ -1906,13 +1931,11 @@ static void rna_def_widgetgroup(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_REGISTER);
 	RNA_def_property_ui_text(prop, "Region Type", "The region where the panel is going to be used in");
 
-#if 0
 	prop = RNA_def_property(srna, "bl_options", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "type->flag");
-	RNA_def_property_enum_items(prop, operator_flag_items);
+	RNA_def_property_enum_items(prop, widget_flag_items);
 	RNA_def_property_flag(prop, PROP_REGISTER_OPTIONAL | PROP_ENUM_FLAG);
-	RNA_def_property_ui_text(prop, "Options",  "Options for this operator type");
-#endif
+	RNA_def_property_ui_text(prop, "Options",  "Options for this widget type");
 
 	prop = RNA_def_property(srna, "widgets", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "widgets", NULL);
