@@ -303,7 +303,7 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 		}
 	}
 	else if (!BLI_listbase_is_empty(&wmap->widgetgroups)) {
-		wmWidget *highlighted = NULL;
+		wmWidget *highlighted_old = NULL;
 
 		for (wmWidgetGroup *wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup->next) {
 			if (!wgroup->type->poll || wgroup->type->poll(C, wgroup->type)) {
@@ -318,7 +318,7 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 						widget->next = widget->prev = NULL;
 					}
 					else if (widget->flag & WM_WIDGET_HIGHLIGHT) {
-						highlighted = widget;
+						highlighted_old = widget;
 						BLI_remlink(&wgroup->widgets, widget);
 						widget->next = widget->prev = NULL;
 					}
@@ -346,11 +346,11 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 			}
 		}
 
-		if (highlighted) {
-			wmWidget *highlighted_new = BLI_ghash_lookup(draw_widgets, highlighted->idname);
+		if (highlighted_old) {
+			wmWidget *highlighted_new = BLI_ghash_lookup(draw_widgets, highlighted_old->idname);
 			if (highlighted_new) {
-				BLI_assert(widget_compare(highlighted, highlighted_new));
-				widget_highlight_update(wmap, highlighted, highlighted_new);
+				BLI_assert(widget_compare(highlighted_old, highlighted_new));
+				widget_highlight_update(wmap, highlighted_old, highlighted_new);
 			}
 			else {
 				/* if we didn't find a highlighted widget, delete the old one here,
@@ -358,8 +358,8 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 				wmap->wmap_context.highlighted_widget = NULL;
 			}
 
-			wm_widget_delete(NULL, highlighted);
-			highlighted = NULL;
+			wm_widget_delete(NULL, highlighted_old);
+			highlighted_old = NULL;
 		}
 
 		if (wmap->wmap_context.selected_widgets) {
@@ -1098,16 +1098,16 @@ static int wm_widget_find_highlighted_3D_intern(
 	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
 
 	if (do_passes)
-		GPU_select_begin(buffer, 64, &selrect, GPU_SELECT_NEAREST_FIRST_PASS, 0);
+		GPU_select_begin(buffer, ARRAY_SIZE(buffer), &selrect, GPU_SELECT_NEAREST_FIRST_PASS, 0);
 	else
-		GPU_select_begin(buffer, 64, &selrect, GPU_SELECT_ALL, 0);
+		GPU_select_begin(buffer, ARRAY_SIZE(buffer), &selrect, GPU_SELECT_ALL, 0);
 	/* do the drawing */
 	widget_find_active_3D_loop(C, visible_widgets);
 
 	hits = GPU_select_end();
 
 	if (do_passes) {
-		GPU_select_begin(buffer, 64, &selrect, GPU_SELECT_NEAREST_SECOND_PASS, hits);
+		GPU_select_begin(buffer, ARRAY_SIZE(buffer), &selrect, GPU_SELECT_NEAREST_SECOND_PASS, hits);
 		widget_find_active_3D_loop(C, visible_widgets);
 		GPU_select_end();
 	}
