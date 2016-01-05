@@ -501,7 +501,9 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 	wmKeyMap *keymap;
 
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
-		BLI_addhead(&ar->widgetmaps, WM_widgetmap_from_type("View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, true));
+		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_WIDGET_TYPE_3D});
+		BLI_addhead(&ar->widgetmaps, wmap);
 	}
 
 	WM_event_add_area_widgetmap_handlers(ar);
@@ -733,28 +735,44 @@ static void view3d_dropboxes(void)
 
 static void view3d_widgets(void)
 {
-	WM_widgetmaptype_find("View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, true, true);
+	const struct wmWidgetMapType_Params wmap_params = {
+		.idname = "View3D",
+		.spaceid = SPACE_VIEW3D, .regionid = RGN_TYPE_WINDOW,
+		.flag = WM_WIDGET_TYPE_3D,
+	};
 
-	WM_widgetgrouptype_new(WIDGETGROUP_armature_facemaps_poll,
-	                       WIDGETGROUP_armature_facemaps_create,
-	                       WM_widgetgroup_keymap_common,
-	                       NULL, "View3D", "Face Map Widgets", SPACE_VIEW3D, RGN_TYPE_WINDOW, true);
-	WM_widgetgrouptype_new(WIDGETGROUP_lamp_poll,
-	                       WIDGETGROUP_lamp_create,
-	                       WM_widgetgroup_keymap_common,
-	                       NULL, "View3D", "Lamp Widgets", SPACE_VIEW3D, RGN_TYPE_WINDOW, true);
-	WM_widgetgrouptype_new(WIDGETGROUP_forcefield_poll,
-	                       WIDGETGROUP_forcefield_create,
-	                       WM_widgetgroup_keymap_common,
-	                       NULL, "View3D", "Force Field Widgets", SPACE_VIEW3D, RGN_TYPE_WINDOW, true);
-	WM_widgetgrouptype_new(WIDGETGROUP_camera_poll,
-	                       WIDGETGROUP_camera_create,
-	                       WM_widgetgroup_keymap_common,
-	                       NULL, "View3D", "Camera Widgets", SPACE_VIEW3D, RGN_TYPE_WINDOW, true);
-	WM_widgetgrouptype_new(WIDGETGROUP_manipulator_poll,
-	                       WIDGETGROUP_manipulator_create,
-	                       WM_widgetgroup_keymap_common,
-	                       NULL, "View3D", "Manipulator Widgets", SPACE_VIEW3D, RGN_TYPE_WINDOW, true);
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
+
+	WM_widgetgrouptype_register_ptr(
+	        NULL, wmaptype,
+	        WIDGETGROUP_armature_facemaps_poll,
+	        WIDGETGROUP_armature_facemaps_create,
+	        WM_widgetgroup_keymap_common,
+	        "Face Map Widgets");
+	WM_widgetgrouptype_register_ptr(
+	        NULL, wmaptype,
+	        WIDGETGROUP_lamp_poll,
+	        WIDGETGROUP_lamp_create,
+	        WM_widgetgroup_keymap_common,
+	        "Lamp Widgets");
+	WM_widgetgrouptype_register_ptr(
+	        NULL, wmaptype,
+	        WIDGETGROUP_forcefield_poll,
+	        WIDGETGROUP_forcefield_create,
+	        WM_widgetgroup_keymap_common,
+	        "Force Field Widgets");
+	WM_widgetgrouptype_register_ptr(
+	        NULL, wmaptype,
+	        WIDGETGROUP_camera_poll,
+	        WIDGETGROUP_camera_create,
+	        WM_widgetgroup_keymap_common,
+	        "Camera Widgets");
+	WM_widgetgrouptype_register_ptr(
+	        NULL, wmaptype,
+	        WIDGETGROUP_manipulator_poll,
+	        WIDGETGROUP_manipulator_create,
+	        WM_widgetgroup_keymap_common,
+	        "Manipulator Widgets");
 }
 
 

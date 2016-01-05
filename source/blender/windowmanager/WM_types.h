@@ -693,7 +693,7 @@ typedef struct wmWidgetGroupType {
 	void (*create)(const struct bContext *C, struct wmWidgetGroup *wgroup);
 
 	/* keymap init callback for this widgetgroup */
-	struct wmKeyMap *(*keymap_init)(struct wmKeyConfig *, const char *);
+	struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *);
 
 	/* keymap created with callback from above */
 	struct wmKeyMap *keymap;

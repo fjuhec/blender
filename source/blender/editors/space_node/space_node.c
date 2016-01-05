@@ -649,7 +649,9 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 	/* widgets stay in the background for now - quick patchjob to make sure nodes themselves work */
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
-		BLI_addhead(&ar->widgetmaps, WM_widgetmap_from_type("Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, false));
+		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, 0});
+		BLI_addhead(&ar->widgetmaps, wmap);
 	}
 
 	WM_event_add_area_widgetmap_handlers(ar);
@@ -886,13 +888,15 @@ static void WIDGETGROUP_node_transform_create(const struct bContext *C, struct w
 static void node_widgets(void)
 {
 	/* create the widgetmap for the area here */
-	WM_widgetmaptype_find("Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, false, true);
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&(const struct wmWidgetMapType_Params) {
+	        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, 0});
 	
-	WM_widgetgrouptype_new(WIDGETGROUP_node_transform_poll,
-	                       WIDGETGROUP_node_transform_create,
-	                       WM_widgetgroup_keymap_common,
-	                       NULL, "Node_Canvas", "Backdrop Transform Widgets",
-	                       SPACE_NODE, RGN_TYPE_WINDOW, false);
+	WM_widgetgrouptype_register_ptr(
+	        NULL, wmaptype,
+	        WIDGETGROUP_node_transform_poll,
+	        WIDGETGROUP_node_transform_create,
+	        WM_widgetgroup_keymap_common,
+	        "Backdrop Transform Widgets");
 }
 
 /* only called once, from space/spacetypes.c */

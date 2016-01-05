@@ -101,30 +101,27 @@ static ListBase widgetmaptypes = {NULL, NULL};
 static GHash *draw_widgets = NULL;
 
 
-wmWidgetGroupType *WM_widgetgrouptype_new(
+/**
+ * A varsion of #WM_widgetgrouptype_register when theres no need to search for the \a wmaptype.
+ */
+wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
+        const Main *bmain, wmWidgetMapType *wmaptype,
         int (*poll)(const bContext *C, wmWidgetGroupType *),
         void (*create)(const bContext *, wmWidgetGroup *),
-        wmKeyMap *(*keymap_init)(wmKeyConfig *, const char *),
-        const Main *bmain, const char *mapidname, const char *name,
-        const short spaceid, const short regionid, const int flag)
+        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
+        const char *name)
 {
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(mapidname, spaceid, regionid, flag, false);
-
-	if (!wmaptype) {
-		fprintf(stderr, "widgetgrouptype creation: widgetmap type does not exist");
-		return NULL;
-	}
 
 	wmWidgetGroupType *wgrouptype = MEM_callocN(sizeof(wmWidgetGroupType), "widgetgroup");
 
 	wgrouptype->poll = poll;
 	wgrouptype->create = create;
 	wgrouptype->keymap_init = keymap_init;
-	wgrouptype->spaceid = spaceid;
-	wgrouptype->regionid = regionid;
-	wgrouptype->flag = flag;
+	wgrouptype->spaceid = wmaptype->spaceid;
+	wgrouptype->regionid = wmaptype->regionid;
+	wgrouptype->flag = wmaptype->flag;
 	BLI_strncpy(wgrouptype->name, name, MAX_NAME);
-	BLI_strncpy(wgrouptype->mapidname, mapidname, MAX_NAME);
+	BLI_strncpy(wgrouptype->mapidname, wmaptype->idname, MAX_NAME);
 
 	/* add the type for future created areas of the same type  */
 	BLI_addtail(&wmaptype->widgetgrouptypes, wgrouptype);
@@ -162,6 +159,26 @@ wmWidgetGroupType *WM_widgetgrouptype_new(
 	}
 
 	return wgrouptype;
+}
+
+wmWidgetGroupType *WM_widgetgrouptype_register(
+        const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
+        int (*poll)(const bContext *C, wmWidgetGroupType *),
+        void (*create)(const bContext *, wmWidgetGroup *),
+        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
+        const char *name)
+{
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(wmap_params);
+
+	if (!wmaptype) {
+		fprintf(stderr, "widgetgrouptype creation: widgetmap type does not exist");
+		return NULL;
+	}
+
+	return WM_widgetgrouptype_register_ptr(
+	        bmain, wmaptype,
+	        poll, create, keymap_init,
+	        name);
 }
 
 /**
@@ -1013,30 +1030,40 @@ void WIDGETGROUP_OT_widget_tweak(wmOperatorType *ot)
 
 
 wmWidgetMapType *WM_widgetmaptype_find(
-        const char *idname, const int spaceid, const int regionid, const int flag, const bool create)
+        const struct wmWidgetMapType_Params *wmap_params)
 {
 	wmWidgetMapType *wmaptype;
 	/* flags which differentiates widget groups */
 	const int flag_cmp = WM_WIDGET_TYPE_3D;
-	const int flag_test = flag & flag_cmp;
+	const int flag_test = wmap_params->flag & flag_cmp;
 
 	for (wmaptype = widgetmaptypes.first; wmaptype; wmaptype = wmaptype->next) {
-		if (wmaptype->spaceid == spaceid &&
-		    wmaptype->regionid == regionid &&
+		if (wmaptype->spaceid == wmap_params->spaceid &&
+		    wmaptype->regionid == wmap_params->regionid &&
 		    ((wmaptype->flag & flag_cmp) == flag_test) &&
-		    STREQ(wmaptype->idname, idname))
+		    STREQ(wmaptype->idname, wmap_params->idname))
 		{
 			return wmaptype;
 		}
 	}
 
-	if (!create) return NULL;
+	return NULL;
+}
+
+wmWidgetMapType *WM_widgetmaptype_ensure(
+        const struct wmWidgetMapType_Params *wmap_params)
+{
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(wmap_params);
+
+	if (wmaptype) {
+		return wmaptype;
+	}
 
 	wmaptype = MEM_callocN(sizeof(wmWidgetMapType), "widgettype list");
-	wmaptype->spaceid = spaceid;
-	wmaptype->regionid = regionid;
-	wmaptype->flag = flag;
-	BLI_strncpy(wmaptype->idname, idname, 64);
+	wmaptype->spaceid = wmap_params->spaceid;
+	wmaptype->regionid = wmap_params->regionid;
+	wmaptype->flag = wmap_params->flag;
+	BLI_strncpy(wmaptype->idname, wmap_params->idname, sizeof(wmaptype->idname));
 	BLI_addhead(&widgetmaptypes, wmaptype);
 
 	return wmaptype;
@@ -1395,10 +1422,12 @@ wmWidget *wm_widgetmap_get_active_widget(wmWidgetMap *wmap)
 	return wmap->wmap_context.active_widget;
 }
 
-
-wmWidgetMap *WM_widgetmap_from_type(const char *idname, const int spaceid, const int regionid, const bool is_3d)
+/**
+ * creates a widgetmap with all registered widgets for that type
+ */
+wmWidgetMap *WM_widgetmap_from_type(const struct wmWidgetMapType_Params *wmap_params)
 {
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(idname, spaceid, regionid, is_3d, true);
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(wmap_params);
 	wmWidgetMap *wmap;
 
 	wmap = MEM_callocN(sizeof(wmWidgetMap), "WidgetMap");
@@ -1511,8 +1540,9 @@ static wmKeyMap *widgetgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char
 /**
  * Common default keymap for widget groups
  */
-wmKeyMap *WM_widgetgroup_keymap_common(wmKeyConfig *config, const char *wgroupname)
+wmKeyMap *WM_widgetgroup_keymap_common(const struct wmWidgetGroupType *wgrouptype, wmKeyConfig *config)
 {
+	const char *wgroupname = wgrouptype->name;
 	wmKeyMap *km = WM_keymap_find(config, wgroupname, 0, 0);
 	wmKeyMapItem *kmi;
 
@@ -1534,7 +1564,7 @@ wmKeyMap *WM_widgetgroup_keymap_common(wmKeyConfig *config, const char *wgroupna
 
 void wm_widgetgrouptype_keymap_init(wmWidgetGroupType *wgrouptype, wmKeyConfig *keyconf)
 {
-	wgrouptype->keymap = wgrouptype->keymap_init(keyconf, wgrouptype->name);
+	wgrouptype->keymap = wgrouptype->keymap_init(wgrouptype, keyconf);
 }
 
 void WM_widgetgrouptype_unregister(bContext *C, Main *bmain, wmWidgetGroupType *wgrouptype)
@@ -1560,9 +1590,9 @@ void WM_widgetgrouptype_unregister(bContext *C, Main *bmain, wmWidgetGroupType *
 		}
 	}
 
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(&(const struct wmWidgetMapType_Params) {
 	        wgrouptype->mapidname, wgrouptype->spaceid,
-	        wgrouptype->regionid, wgrouptype->flag, false);
+	        wgrouptype->regionid, wgrouptype->flag});
 
 	BLI_remlink(&wmaptype->widgetgrouptypes, wgrouptype);
 	wgrouptype->prev = wgrouptype->next = NULL;

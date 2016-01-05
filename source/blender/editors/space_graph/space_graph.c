@@ -226,7 +226,9 @@ static void graph_main_region_init(wmWindowManager *wm, ARegion *ar)
 	
 	/* widgets */
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
-		BLI_addhead(&ar->widgetmaps, WM_widgetmap_from_type("Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, false));
+		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
+		BLI_addhead(&ar->widgetmaps, wmap);
 	}
 }
 
@@ -673,7 +675,8 @@ static void graph_refresh(const bContext *C, ScrArea *sa)
 static void graph_widgets(void)
 {
 	/* create the widgetmap for the area here */
-	WM_widgetmaptype_find("Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, false, true);
+	WM_widgetmaptype_ensure(&(const struct wmWidgetMapType_Params) {
+	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
 }
 
 /* only called once, from space/spacetypes.c */

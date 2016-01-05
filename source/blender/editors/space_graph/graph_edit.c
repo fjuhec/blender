@@ -2634,10 +2634,12 @@ static int graph_widget_backdrop_transform_invoke(bContext *C, wmOperator *op, c
 	ScrArea *sa = CTX_wm_area(C);
 	SpaceIpo *sipo = CTX_wm_space_graph(C);
 	/* no poll, lives always for the duration of the operator */
-	wmWidgetGroupType *cagetype = WM_widgetgrouptype_new(NULL, widgetgroup_backdrop_create,
-	                                                     WM_widgetgroup_keymap_common, CTX_data_main(C),
-	                                                     "Graph_Canvas", "Backdrop Transform Widgets",
-	                                                     SPACE_IPO, RGN_TYPE_WINDOW, false);
+	wmWidgetGroupType *cagetype = WM_widgetgrouptype_register(
+	        CTX_data_main(C),
+	        &(const struct wmWidgetMapType_Params) {"Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0},
+	        NULL, widgetgroup_backdrop_create,
+	        WM_widgetgroup_keymap_common,
+	        "Backdrop Transform Widgets");
 	struct wmEventHandler *handler = WM_event_add_modal_handler(C, op);
 	BackDropTransformData *data = MEM_mallocN(sizeof(BackDropTransformData), "overdrop transform data");
 	WM_modal_handler_attach_widgetgroup(C, handler, cagetype, op);

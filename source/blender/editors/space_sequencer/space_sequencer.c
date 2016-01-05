@@ -486,7 +486,9 @@ static void sequencer_main_region_init(wmWindowManager *wm, ARegion *ar)
 	
 	/* no modal keymap here, only operators use this currently */
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
-		BLI_addhead(&ar->widgetmaps, WM_widgetmap_from_type("Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, false));
+		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0});
+		BLI_addhead(&ar->widgetmaps, wmap);
 	}
 }
 
@@ -566,7 +568,9 @@ static void sequencer_preview_region_init(wmWindowManager *wm, ARegion *ar)
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
 
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
-		BLI_addhead(&ar->widgetmaps, WM_widgetmap_from_type("Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, false));
+		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, 0});
+		BLI_addhead(&ar->widgetmaps, wmap);
 	}
 }
 
@@ -708,9 +712,10 @@ static void sequencer_buttons_region_listener(bScreen *UNUSED(sc), ScrArea *UNUS
 static void sequencer_widgets(void)
 {
 	/* create the widgetmap for the area here */
-	WM_widgetmaptype_find("Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, false, true);
-
-	WM_widgetmaptype_find("Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, false, true);
+	WM_widgetmaptype_ensure(&(const struct wmWidgetMapType_Params) {
+	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0});
+	WM_widgetmaptype_ensure(&(const struct wmWidgetMapType_Params) {
+	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, false});
 }
 
 

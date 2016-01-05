@@ -1565,7 +1565,10 @@ static StructRNA *rna_WidgetGroup_register(
 	}
 	
 	/* check if the area supports widgets */
-	if (!WM_widgetmaptype_find(dummywgt.mapidname ,dummywgt.spaceid, dummywgt.regionid, dummywgt.flag, true)) {
+	const struct wmWidgetMapType_Params wmap_params = {
+		dummywgt.mapidname ,dummywgt.spaceid, dummywgt.regionid, dummywgt.flag,
+	};
+	if (!WM_widgetmaptype_ensure(&wmap_params)) {
 		BKE_reportf(reports, RPT_ERROR, "Area type does not support widgets");
 		return NULL;
 	}
@@ -1592,9 +1595,10 @@ static StructRNA *rna_WidgetGroup_register(
 	dummywgt.poll = (have_function[0]) ? widgetgroup_poll : NULL;
 	dummywgt.create = (have_function[1]) ? widgetgroup_draw : NULL;
 
-	wgrouptype = WM_widgetgrouptype_new(
+	wgrouptype = WM_widgetgrouptype_register(
+	        bmain, &wmap_params,
 	        dummywgt.poll, dummywgt.create, NULL,
-	        bmain, dummywgt.mapidname, dummywgt.name, dummywgt.spaceid, dummywgt.regionid, dummywgt.flag);
+	        dummywgt.name);
 	memcpy(wgrouptype, &dummywgt, sizeof(dummywgt));
 	
 	/* update while blender is running */
