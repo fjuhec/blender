@@ -83,12 +83,8 @@ typedef struct wmWidgetMapType {
 	wmWidgetMapType *next, *prev;
 	char idname[64];
 	short spaceid, regionid;
-	/**
-	 * Check if widgetmap does 3D drawing
-	 * (uses a different kind of interaction),
-	 * - 3d: use glSelect buffer.
-	 * - 2d: use simple cursor position intersection test. */
-	bool is_3d;
+	/* widgetTypeflags */
+	int flag;
 	/* types of widgetgroups for this widgetmap type */
 	ListBase widgetgrouptypes;
 } wmWidgetMapType;
@@ -110,9 +106,9 @@ wmWidgetGroupType *WM_widgetgrouptype_new(
         void (*create)(const bContext *, wmWidgetGroup *),
         wmKeyMap *(*keymap_init)(wmKeyConfig *, const char *),
         const Main *bmain, const char *mapidname, const char *name,
-        const short spaceid, const short regionid, const bool is_3d)
+        const short spaceid, const short regionid, const int flag)
 {
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(mapidname, spaceid, regionid, is_3d, false);
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(mapidname, spaceid, regionid, flag, false);
 
 	if (!wmaptype) {
 		fprintf(stderr, "widgetgrouptype creation: widgetmap type does not exist");
@@ -126,7 +122,7 @@ wmWidgetGroupType *WM_widgetgrouptype_new(
 	wgrouptype->keymap_init = keymap_init;
 	wgrouptype->spaceid = spaceid;
 	wgrouptype->regionid = regionid;
-	wgrouptype->is_3d = is_3d;
+	wgrouptype->flag = flag;
 	BLI_strncpy(wgrouptype->name, name, MAX_NAME);
 	BLI_strncpy(wgrouptype->mapidname, mapidname, MAX_NAME);
 
@@ -1017,14 +1013,17 @@ void WIDGETGROUP_OT_widget_tweak(wmOperatorType *ot)
 
 
 wmWidgetMapType *WM_widgetmaptype_find(
-        const char *idname, const int spaceid, const int regionid, const bool is_3d, const bool create)
+        const char *idname, const int spaceid, const int regionid, const int flag, const bool create)
 {
 	wmWidgetMapType *wmaptype;
+	/* flags which differentiates widget groups */
+	const int flag_cmp = WM_WIDGET_TYPE_3D;
+	const int flag_test = flag & flag_cmp;
 
 	for (wmaptype = widgetmaptypes.first; wmaptype; wmaptype = wmaptype->next) {
 		if (wmaptype->spaceid == spaceid &&
 		    wmaptype->regionid == regionid &&
-		    wmaptype->is_3d == is_3d &&
+		    ((wmaptype->flag & flag_cmp) == flag_test) &&
 		    STREQ(wmaptype->idname, idname))
 		{
 			return wmaptype;
@@ -1036,7 +1035,7 @@ wmWidgetMapType *WM_widgetmaptype_find(
 	wmaptype = MEM_callocN(sizeof(wmWidgetMapType), "widgettype list");
 	wmaptype->spaceid = spaceid;
 	wmaptype->regionid = regionid;
-	wmaptype->is_3d = is_3d;
+	wmaptype->flag = flag;
 	BLI_strncpy(wmaptype->idname, idname, 64);
 	BLI_addhead(&widgetmaptypes, wmaptype);
 
@@ -1055,7 +1054,7 @@ void WM_widgetmaptypes_free(void)
 
 bool wm_widgetmap_is_3d(const wmWidgetMap *wmap)
 {
-	return wmap->type->is_3d;
+	return (wmap->type->flag & WM_WIDGET_TYPE_3D) != 0;
 }
 
 static void widget_find_active_3D_loop(const bContext *C, ListBase *visible_widgets)
@@ -1561,8 +1560,9 @@ void WM_widgetgrouptype_unregister(bContext *C, Main *bmain, wmWidgetGroupType *
 		}
 	}
 
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(wgrouptype->mapidname, wgrouptype->spaceid,
-	                                                  wgrouptype->regionid, wgrouptype->is_3d, false);
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(
+	        wgrouptype->mapidname, wgrouptype->spaceid,
+	        wgrouptype->regionid, wgrouptype->flag, false);
 
 	BLI_remlink(&wmaptype->widgetgrouptypes, wgrouptype);
 	wgrouptype->prev = wgrouptype->next = NULL;

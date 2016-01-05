@@ -532,7 +532,7 @@ void  WM_modal_handler_attach_widgetgroup(struct bContext *C, struct wmEventHand
                                           struct wmWidgetGroupType *wgrouptype, struct wmOperator *op);
 
 /* wmWidget->flag */
-enum widgetflags {
+enum eWidgetFlag {
 	/* states */
 	WM_WIDGET_HIGHLIGHT   = (1 << 0),
 	WM_WIDGET_ACTIVE      = (1 << 1),
@@ -544,6 +544,16 @@ enum widgetflags {
 	WM_WIDGET_SCENE_DEPTH = (1 << 6), /* widget is depth culled with scene objects*/
 	WM_WIDGET_HIDDEN      = (1 << 7),
 	WM_WIDGET_SELECTABLE  = (1 << 8),
+};
+
+/* wmWidgetType->flag */
+enum eWidgetTypeFlag {
+	/**
+	 * Check if widgetmap does 3D drawing
+	 * (uses a different kind of interaction),
+	 * - 3d: use glSelect buffer.
+	 * - 2d: use simple cursor position intersection test. */
+	WM_WIDGET_TYPE_3D           = (1 << 0),
 };
 
 /**
@@ -570,8 +580,9 @@ void WM_widget_set_colors(struct wmWidget *widget, const float col[4], const flo
 
 wmKeyMap *WM_widgetgroup_keymap_common(wmKeyConfig *config, const char *wgroupname);
 
-struct wmWidgetMapType *WM_widgetmaptype_find(const char *idname, const int spaceid, const int regionid,
-                                              const bool is_3d, const bool create);
+struct wmWidgetMapType *WM_widgetmaptype_find(
+        const char *idname, const int spaceid, const int regionid,
+        const int flag, const bool create);
 bool WM_widgetmap_select_all(struct bContext *C, struct wmWidgetMap *wmap, const int action);
 
 struct wmWidgetGroupType *WM_widgetgrouptype_new(
@@ -579,7 +590,7 @@ struct wmWidgetGroupType *WM_widgetgrouptype_new(
         void (*create)(const struct bContext *, struct wmWidgetGroup *),
         wmKeyMap *(*keymap_init)(wmKeyConfig *, const char *),
         const struct Main *bmain, const char *mapidname, const char *name,
-        const short spaceid, const short regionid, const bool is_3d);
+        const short spaceid, const short regionid, const int flag);
 void WM_widgetgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmWidgetGroupType *wgroup);
 
 /* creates a widgetmap with all registered widgets for that type */

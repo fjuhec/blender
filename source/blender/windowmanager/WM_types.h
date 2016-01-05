@@ -704,7 +704,7 @@ typedef struct wmWidgetGroupType {
 	/* RNA integration */
 	ExtensionRNA ext;
 
-	/* general flag */
+	/* widgetTypeflags (copy of wmWidgetMapType.flag - used for comparisons) */
 	int flag;
 	
 	/* if type is spawned from operator this is set here */
@@ -713,7 +713,6 @@ typedef struct wmWidgetGroupType {
 	/* same as widgetmaps, so registering/unregistering goes to the correct region */
 	short spaceid, regionid;
 	char mapidname[64];
-	bool is_3d;
 } wmWidgetGroupType;
 
 typedef struct wmWidgetMap {

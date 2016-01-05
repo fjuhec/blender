@@ -1547,7 +1547,7 @@ static StructRNA *rna_WidgetGroup_register(Main *bmain, ReportList *reports, voi
 	}
 	
 	/* check if the area supports widgets */
-	if (!WM_widgetmaptype_find(dummywgt.mapidname ,dummywgt.spaceid, dummywgt.regionid, dummywgt.is_3d, false)) {
+	if (!WM_widgetmaptype_find(dummywgt.mapidname ,dummywgt.spaceid, dummywgt.regionid, dummywgt.flag, false)) {
 		BKE_reportf(reports, RPT_ERROR, "Area type does not support widgets");
 		return NULL;
 	}
@@ -1574,7 +1574,9 @@ static StructRNA *rna_WidgetGroup_register(Main *bmain, ReportList *reports, voi
 	dummywgt.poll = (have_function[0]) ? widgetgroup_poll : NULL;
 	dummywgt.create = (have_function[1]) ? widgetgroup_draw : NULL;
 
-	wgrouptype = WM_widgetgrouptype_new(dummywgt.poll, dummywgt.create, NULL, bmain, dummywgt.mapidname, NULL, dummywgt.spaceid, dummywgt.regionid, dummywgt.is_3d);
+	wgrouptype = WM_widgetgrouptype_new(
+	        dummywgt.poll, dummywgt.create, NULL,
+	        bmain, dummywgt.mapidname, NULL, dummywgt.spaceid, dummywgt.regionid, dummywgt.flag);
 	memcpy(wgrouptype, &dummywgt, sizeof(dummywgt));
 	
 	/* update while blender is running */
