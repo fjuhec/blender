@@ -351,13 +351,15 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 			if (highlighted_new) {
 				BLI_assert(widget_compare(highlighted, highlighted_new));
 				widget_highlight_update(wmap, highlighted, highlighted_new);
-				wm_widget_delete(NULL, highlighted);
 			}
-			/* if we didn't find a highlighted widget, delete the old one here */
 			else {
-				MEM_SAFE_FREE(highlighted);
+				/* if we didn't find a highlighted widget, delete the old one here,
+				 * happens when switching modes while the cursor is hovering over a widget for eg. */
 				wmap->wmap_context.highlighted_widget = NULL;
 			}
+
+			wm_widget_delete(NULL, highlighted);
+			highlighted = NULL;
 		}
 
 		if (wmap->wmap_context.selected_widgets) {
