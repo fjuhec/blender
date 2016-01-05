@@ -1509,6 +1509,33 @@ static void widgetgroup_draw(const bContext *C, wmWidgetGroup *wgroup)
 
 	RNA_parameter_list_free(&list);
 }
+
+static wmKeyMap *widgetgroup_keymap_init(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config)
+{
+	extern FunctionRNA rna_WidgetGroup_keymap_init_func;
+	const char *wgroupname = wgrouptype->name;
+	void *ret;
+
+	PointerRNA ptr;
+	ParameterList list;
+	FunctionRNA *func;
+
+	RNA_pointer_create(NULL, wgrouptype->ext.srna, NULL, &ptr); /* dummy */
+	func = &rna_WidgetGroup_keymap_init_func; /* RNA_struct_find_function(&wgroupr, "keymap_init"); */
+
+	RNA_parameter_list_create(&list, &ptr, func);
+	RNA_parameter_set_lookup(&list, "keyconfig", &config);
+	RNA_parameter_set_lookup(&list, "group_name", &wgroupname);
+	wgrouptype->ext.call(NULL, &ptr, func, &list);
+
+	RNA_parameter_get_lookup(&list, "keymap", &ret);
+	wmKeyMap *keymap = *(wmKeyMap **)ret;
+
+	RNA_parameter_list_free(&list);
+
+	return keymap;
+}
+
 #if 0
 
 /* same as exec(), but call cancel */
@@ -1538,14 +1565,14 @@ static char _widgetgroup_idname[OP_MAX_TYPENAME];
 //static char _widgetgroup_descr[RNA_DYN_DESCR_MAX];
 //static char _widgetgroup_ctxt[RNA_DYN_DESCR_MAX];
 static StructRNA *rna_WidgetGroup_register(
-        Main *bmain, ReportList *reports, void *data, const char *identifier,
+        Main *UNUSED(bmain), ReportList *reports, void *data, const char *identifier,
         StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
 {
 
 	wmWidgetGroupType *wgrouptype, dummywgt = {NULL};
 	wmWidgetGroup dummywg = {NULL};
 	PointerRNA wgptr;
-	int have_function[2];
+	int have_function[3];
 
 	/* setup dummy widgetgroup & widgetgroup type to store static properties in */
 	dummywg.type = &dummywgt;
@@ -1566,9 +1593,11 @@ static StructRNA *rna_WidgetGroup_register(
 	
 	/* check if the area supports widgets */
 	const struct wmWidgetMapType_Params wmap_params = {
-		dummywgt.mapidname ,dummywgt.spaceid, dummywgt.regionid, dummywgt.flag,
+		dummywgt.mapidname, dummywgt.spaceid, dummywgt.regionid, dummywgt.flag,
 	};
-	if (!WM_widgetmaptype_ensure(&wmap_params)) {
+
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
+	if (wmaptype == NULL) {
 		BKE_reportf(reports, RPT_ERROR, "Area type does not support widgets");
 		return NULL;
 	}
@@ -1593,11 +1622,12 @@ static StructRNA *rna_WidgetGroup_register(
 	dummywgt.ext.free = free;
 
 	dummywgt.poll = (have_function[0]) ? widgetgroup_poll : NULL;
-	dummywgt.create = (have_function[1]) ? widgetgroup_draw : NULL;
+	dummywgt.keymap_init = (have_function[1]) ? widgetgroup_keymap_init : NULL;
+	dummywgt.create = (have_function[2]) ? widgetgroup_draw : NULL;
 
-	wgrouptype = WM_widgetgrouptype_register(
-	        bmain, &wmap_params,
-	        dummywgt.poll, dummywgt.create, NULL,
+	wgrouptype = WM_widgetgrouptype_register_ptr(
+	        NULL, wmaptype,
+	        dummywgt.poll, dummywgt.create, dummywgt.keymap_init,
 	        dummywgt.name);
 	memcpy(wgrouptype, &dummywgt, sizeof(dummywgt));
 	

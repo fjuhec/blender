@@ -641,6 +641,21 @@ void RNA_api_widgetgroup(StructRNA *srna)
 	parm = RNA_def_pointer(func, "context", "Context", "", "");
 	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
 
+	/* keymap_init */
+	func = RNA_def_function(srna, "keymap_init", NULL);
+	RNA_def_function_ui_description(func, "Initialize keymaps for this widget group");
+	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER);
+	parm = RNA_def_pointer(func, "keyconf", "KeyConfig", "", "");
+	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
+	parm = RNA_def_property(func, "widget_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(parm, "Widget Group", "Widget group id");
+	// RNA_def_property_string_default(parm, "");
+	RNA_def_property_flag(parm, PROP_REQUIRED);
+
+	parm = RNA_def_pointer(func, "keymap", "KeyMap", "", "");
+	RNA_def_property_flag(parm, PROP_NEVER_NULL);
+	RNA_def_function_return(func, parm);
+
 	/* draw */
 	func = RNA_def_function(srna, "draw", NULL);
 	RNA_def_function_ui_description(func, "Draw function for the operator");
