@@ -585,6 +585,10 @@ struct wmWidgetGroupType *WM_widgetgrouptype_register(
         wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 
+void WM_widgetgrouptype_init_runtime(
+        const struct Main *bmain, struct wmWidgetMapType *wmaptype,
+        struct wmWidgetGroupType *wgrouptype);
+
 void WM_widgetgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmWidgetGroupType *wgroup);
 
 void WM_widgetmap_delete(struct wmWidgetMap *wmap);

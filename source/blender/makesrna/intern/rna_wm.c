@@ -1560,12 +1560,8 @@ static void operator_cancel(bContext *C, wmWidgetGroup *op)
 
 void widgetgroup_wrapper(wmWidgetGroupType *ot, void *userdata);
 
-static char _widgetgroup_idname[OP_MAX_TYPENAME];
-//static char _widgetgroup_name[OP_MAX_TYPENAME];
-//static char _widgetgroup_descr[RNA_DYN_DESCR_MAX];
-//static char _widgetgroup_ctxt[RNA_DYN_DESCR_MAX];
 static StructRNA *rna_WidgetGroup_register(
-        Main *UNUSED(bmain), ReportList *reports, void *data, const char *identifier,
+        Main *bmain, ReportList *reports, void *data, const char *identifier,
         StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
 {
 
@@ -1577,9 +1573,6 @@ static StructRNA *rna_WidgetGroup_register(
 	/* setup dummy widgetgroup & widgetgroup type to store static properties in */
 	dummywg.type = &dummywgt;
 	RNA_pointer_create(NULL, &RNA_WidgetGroup, &dummywg, &wgptr);
-
-	/* clear in case they are left unset */
-	_widgetgroup_idname[0] = '\0';
 
 	/* validate the python class */
 	if (validate(&wgptr, data, have_function) != 0)
@@ -1614,32 +1607,32 @@ static StructRNA *rna_WidgetGroup_register(
 	/* XXX, this doubles up with the widgetgroup name [#29666]
 	 * for now just remove from dir(bpy.types) */
 
-	/* create a new widgetgroup type */
-	dummywgt.ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, dummywgt.idname, &RNA_WidgetGroup);
-	RNA_def_struct_flag(dummywgt.ext.srna, STRUCT_NO_IDPROPERTIES); /* widgetgroup properties are registered separately */
-	dummywgt.ext.data = data;
-	dummywgt.ext.call = call;
-	dummywgt.ext.free = free;
-
-	dummywgt.poll = (have_function[0]) ? widgetgroup_poll : NULL;
-	dummywgt.keymap_init = (have_function[1]) ? widgetgroup_keymap_init : NULL;
-	dummywgt.create = (have_function[2]) ? widgetgroup_draw : NULL;
-
 	wgrouptype = WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
-	        dummywgt.poll, dummywgt.create, dummywgt.keymap_init,
+	        (have_function[0]) ? widgetgroup_poll : NULL,
+	        (have_function[2]) ? widgetgroup_draw : NULL,
+	        (have_function[1]) ? widgetgroup_keymap_init : NULL,
 	        dummywgt.name);
-	memcpy(wgrouptype, &dummywgt, sizeof(dummywgt));
-	
+
+	/* create a new widgetgroup type */
+	wgrouptype->ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, wgrouptype->idname, &RNA_WidgetGroup);
+	RNA_def_struct_flag(wgrouptype->ext.srna, STRUCT_NO_IDPROPERTIES); /* widgetgroup properties are registered separately */
+	wgrouptype->ext.data = data;
+	wgrouptype->ext.call = call;
+	wgrouptype->ext.free = free;
+
+	RNA_struct_blender_type_set(wgrouptype->ext.srna, wgrouptype);
+
+	/* by passing NULL as main to WM_widgetgrouptype_register_ptr, we delay initialization */
+
+	/* XXX, currently not working since we cant call own callbacks until this function finishes, catch22! */
+	WM_widgetgrouptype_init_runtime(bmain, wmaptype, wgrouptype);
+
 	/* update while blender is running */
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
 
-	dummywgt.ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, dummywgt.idname, &RNA_WidgetGroup);
-
-	return dummywgt.ext.srna;
+	return wgrouptype->ext.srna;
 }
-
-//RNA_struct_blender_type_set(pt->ext.srna, pt);
 
 static void **rna_WidgetGroup_instance(PointerRNA *ptr)
 {

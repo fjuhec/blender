@@ -128,9 +128,37 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 
 	/* Main is missing on startup when we create new areas.
 	 * So this is only called for widgets initialized on runtime */
-	if (!bmain)
-		return wgrouptype;
+	if (bmain) {
+		WM_widgetgrouptype_init_runtime(bmain, wmaptype, wgrouptype);
+	}
 
+	return wgrouptype;
+}
+
+wmWidgetGroupType *WM_widgetgrouptype_register(
+        const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
+        int (*poll)(const bContext *C, wmWidgetGroupType *),
+        void (*create)(const bContext *, wmWidgetGroup *),
+        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
+        const char *name)
+{
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(wmap_params);
+
+	if (!wmaptype) {
+		fprintf(stderr, "widgetgrouptype creation: widgetmap type does not exist");
+		return NULL;
+	}
+
+	return WM_widgetgrouptype_register_ptr(
+	        bmain, wmaptype,
+	        poll, create, keymap_init,
+	        name);
+}
+
+void WM_widgetgrouptype_init_runtime(
+        const Main *bmain, wmWidgetMapType *wmaptype,
+        wmWidgetGroupType *wgrouptype)
+{
 
 	/* init keymap - on startup there's an extra call to init keymaps for 'permanent' widget-groups */
 	wm_widgetgrouptype_keymap_init(wgrouptype, ((wmWindowManager *)bmain->wm.first)->defaultconf);
@@ -157,28 +185,6 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 			}
 		}
 	}
-
-	return wgrouptype;
-}
-
-wmWidgetGroupType *WM_widgetgrouptype_register(
-        const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        int (*poll)(const bContext *C, wmWidgetGroupType *),
-        void (*create)(const bContext *, wmWidgetGroup *),
-        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
-        const char *name)
-{
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(wmap_params);
-
-	if (!wmaptype) {
-		fprintf(stderr, "widgetgrouptype creation: widgetmap type does not exist");
-		return NULL;
-	}
-
-	return WM_widgetgrouptype_register_ptr(
-	        bmain, wmaptype,
-	        poll, create, keymap_init,
-	        name);
 }
 
 /**
