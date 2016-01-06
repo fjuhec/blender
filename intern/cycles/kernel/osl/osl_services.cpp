@@ -858,8 +858,10 @@ bool OSLRenderServices::texture(ustring filename,
 	OSLThreadData *tdata = kg->osl_tdata;
 	OIIO::TextureSystem::Perthread *texture_thread_info =
 	       tdata->oiio_thread_info;
-	OIIO::TextureSystem::TextureHandle *texture_handle =
-	       ts->get_texture_handle(filename, texture_thread_info);
+	OIIO::TextureSystem::TextureHandle *texture_handle = NULL;
+	if(filename[0] != '@') {
+		texture_handle = ts->get_texture_handle(filename, texture_thread_info);
+	}
 	return texture(filename,
 	               texture_handle,
 	               texture_thread_info,
@@ -887,8 +889,10 @@ bool OSLRenderServices::texture3d(ustring filename,
 	OSLThreadData *tdata = kg->osl_tdata;
 	OIIO::TextureSystem::Perthread *texture_thread_info =
 	       tdata->oiio_thread_info;
-	OIIO::TextureSystem::TextureHandle *texture_handle =
-	       ts->get_texture_handle(filename, texture_thread_info);
+	OIIO::TextureSystem::TextureHandle *texture_handle = NULL;
+	if(filename[0] != '@') {
+		texture_handle = ts->get_texture_handle(filename, texture_thread_info);
+	}
 	return texture3d(filename,
 	                 texture_handle,
 	                 texture_thread_info,
@@ -1020,6 +1024,11 @@ bool OSLRenderServices::texture(ustring filename,
 			if(nchannels == 4)
 				result[3] = 1.0f;
 		}
+		/* This might be slow, but prevents error messages leak and
+		 * other nasty stuff happening.
+		 */
+		string err = ts->geterror();
+		(void)err;
 	}
 
 	return status;
@@ -1106,7 +1115,11 @@ bool OSLRenderServices::texture3d(ustring filename,
 			if(nchannels == 4)
 				result[3] = 1.0f;
 		}
-
+		/* This might be slow, but prevents error messages leak and
+		 * other nasty stuff happening.
+		 */
+		string err = ts->geterror();
+		(void)err;
 	}
 
 	return status;

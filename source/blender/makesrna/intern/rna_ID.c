@@ -348,28 +348,6 @@ static void rna_ID_user_remap(ID *id, Main *bmain, ID *new_id)
 	}
 }
 
-static CollectionListBase rna_ID_used_by_ids(ID *id, Main *bmain)
-{
-	ListBase ret = {0};
-	struct IDUsersIter *iter = BKE_library_ID_users_iter_init(bmain, id);
-	ID *id_user;
-
-	do {
-		id_user = BKE_library_ID_users_iter_next(iter, NULL);
-
-		if (id_user) {
-			CollectionPointerLink *lnk = MEM_mallocN(sizeof(*lnk), __func__);
-			RNA_id_pointer_create(id_user, &lnk->ptr);
-			BLI_addtail(&ret, lnk);
-		}
-	} while (id_user != NULL);
-
-	BKE_library_ID_users_iter_end(&iter);
-
-	/* CollectionListBase is a mere RNA redefinition of ListBase. */
-	return *(CollectionListBase *)&ret;
-}
-
 static AnimData * rna_ID_animation_data_create(ID *id, Main *bmain)
 {
 	AnimData *adt = BKE_animdata_add_id(id);
@@ -1030,12 +1008,6 @@ static void rna_def_ID(BlenderRNA *brna)
 	RNA_def_property_flag(parm, PROP_NEVER_NULL);
 	parm = RNA_def_int(func, "count", 0, 0, INT_MAX,
 	                   "", "Number of usages/references of given id by current datablock", 0, INT_MAX);
-	RNA_def_function_return(func, parm);
-
-	func = RNA_def_function(srna, "used_by_ids", "rna_ID_used_by_ids");
-	RNA_def_function_ui_description(func, "Return a list of all datablocks using/referencing current one");
-	RNA_def_function_flag(func, FUNC_USE_MAIN);
-	parm = RNA_def_collection(func, "ids", "ID", "", "All datablocks using current ID");
 	RNA_def_function_return(func, parm);
 
 	func = RNA_def_function(srna, "animation_data_create", "rna_ID_animation_data_create");
