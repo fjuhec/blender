@@ -1364,8 +1364,7 @@ void BKE_libblock_remap(Main *bmain, void *old_idv, void *new_idv, const short r
  */
 void BKE_libblock_unlink(Main *bmain, void *idv, const bool do_flag_never_null)
 {
-	const short remap_flags = ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_INDIRECT_USAGE |
-	                          (do_flag_never_null ? ID_REMAP_FLAG_NEVER_NULL_USAGE : 0);
+	const short remap_flags = ID_REMAP_SKIP_INDIRECT_USAGE | (do_flag_never_null ? ID_REMAP_FLAG_NEVER_NULL_USAGE : 0);
 
 	BKE_main_lock(bmain);
 
@@ -1624,8 +1623,12 @@ void BKE_libblock_delete(Main *bmain, void *idv)
 			/* Note: in case we delete a library, we also delete all its datablocks! */
 			if ((id == (ID *)idv) || (id->lib == (Library *)idv) || (id->flag & LIB_TAG_DOIT)) {
 				id->flag |= LIB_TAG_DOIT;
-				/* Will tag 'never NULL' users of this ID too. */
-				BKE_libblock_unlink(bmain, id, true);
+				/* Will tag 'never NULL' users of this ID too.
+				 * Note that we cannot use BKE_libblock_unlink() here, since it would ignore indirect (and proxy!)
+				 * links, this can lead to nasty crashing here in second, actual deleting loop.
+				 * Also, this will also flag users of deleted data that cannot be unlinked
+				 * (object using deleted obdata, etc.), so that they also get deleted. */
+				BKE_libblock_remap(bmain, id, NULL, ID_REMAP_FLAG_NEVER_NULL_USAGE);
 			}
 		}
 	}
