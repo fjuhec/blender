@@ -9648,9 +9648,9 @@ static ID *link_named_part(
 			if (G.debug)
 				printf("append: already linked\n");
 			oldnewmap_insert(fd->libmap, bhead->old, id, bhead->code);
-			if (!force_indirect && (id->flag & LIB_TAG_INDIRECT)) {
-				id->flag &= ~LIB_TAG_INDIRECT;
-				id->flag |= LIB_TAG_EXTERN;
+			if (!force_indirect && (id->tag & LIB_TAG_INDIRECT)) {
+				id->tag &= ~LIB_TAG_INDIRECT;
+				id->tag |= LIB_TAG_EXTERN;
 			}
 		}
 	}

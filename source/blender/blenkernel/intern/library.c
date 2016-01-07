@@ -1089,7 +1089,7 @@ static bool foreach_libblock_remap_callback(void *user_data, ID **id_p, int cb_f
 		const bool skip_never_null = (id_remap_data->flag & ID_REMAP_SKIP_NEVER_NULL_USAGE) != 0;
 
 		if ((id_remap_data->flag & ID_REMAP_FLAG_NEVER_NULL_USAGE) && (cb_flag & IDWALK_NEVER_NULL)) {
-			id->flag |= LIB_TAG_DOIT;
+			id->tag |= LIB_TAG_DOIT;
 		}
 
 //		if (GS(old_id->name) == ID_TXT) {
@@ -1220,9 +1220,9 @@ static void libblock_remap_data(
 
 	id_us_clear_real(old_id);
 
-	if (new_id && (new_id->flag & LIB_TAG_INDIRECT) && (r_id_remap_data->status & ID_REMAP_IS_LINKED_DIRECT)) {
-		new_id->flag &= ~LIB_TAG_INDIRECT;
-		new_id->flag |= LIB_TAG_EXTERN;
+	if (new_id && (new_id->tag & LIB_TAG_INDIRECT) && (r_id_remap_data->status & ID_REMAP_IS_LINKED_DIRECT)) {
+		new_id->tag &= ~LIB_TAG_INDIRECT;
+		new_id->tag |= LIB_TAG_EXTERN;
 	}
 
 //	printf("%s: %d occurences skipped (%d direct and %d indirect ones)\n", __func__,
@@ -1306,9 +1306,9 @@ void BKE_libblock_remap_locked(
 
 	if (skipped_direct == 0) {
 		/* old_id is assumed to not be used directly anymore... */
-		if (old_id->lib && (old_id->flag & LIB_TAG_EXTERN)) {
-			old_id->flag &= ~LIB_TAG_EXTERN;
-			old_id->flag |= LIB_TAG_INDIRECT;
+		if (old_id->lib && (old_id->tag & LIB_TAG_EXTERN)) {
+			old_id->tag &= ~LIB_TAG_EXTERN;
+			old_id->tag |= LIB_TAG_INDIRECT;
 		}
 	}
 
@@ -1622,8 +1622,8 @@ void BKE_libblock_delete(Main *bmain, void *idv)
 
 		for (id = lb->first; id; id = id->next) {
 			/* Note: in case we delete a library, we also delete all its datablocks! */
-			if ((id == (ID *)idv) || (id->lib == (Library *)idv) || (id->flag & LIB_TAG_DOIT)) {
-				id->flag |= LIB_TAG_DOIT;
+			if ((id == (ID *)idv) || (id->lib == (Library *)idv) || (id->tag & LIB_TAG_DOIT)) {
+				id->tag |= LIB_TAG_DOIT;
 				/* Will tag 'never NULL' users of this ID too.
 				 * Note that we cannot use BKE_libblock_unlink() here, since it would ignore indirect (and proxy!)
 				 * links, this can lead to nasty crashing here in second, actual deleting loop.
@@ -1643,7 +1643,7 @@ void BKE_libblock_delete(Main *bmain, void *idv)
 
 		for (id = lb->first; id; id = id_next) {
 			id_next = id->next;
-			if (id->flag & LIB_TAG_DOIT) {
+			if (id->tag & LIB_TAG_DOIT) {
 				if (id->us != 0) {
 					printf("%s: deleting %s (%d)\n", __func__, id->name, id->us);
 					BLI_assert(id->us == 0);
