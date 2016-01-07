@@ -1084,7 +1084,8 @@ static bool foreach_libblock_remap_callback(void *user_data, ID **id_p, int cb_f
 		/* Note that indirect data from same file as processed ID is **not** considered indirect! */
 		const bool is_indirect = ((id->lib != NULL) && (id->lib != old_id->lib));
 		const bool skip_indirect = (id_remap_data->flag & ID_REMAP_SKIP_INDIRECT_USAGE) != 0;
-		const bool is_never_null = ((cb_flag & IDWALK_NEVER_NULL) && (new_id == NULL));
+		const bool is_never_null = ((cb_flag & IDWALK_NEVER_NULL) && (new_id == NULL) &&
+		                            (id_remap_data->flag & ID_REMAP_FORCE_NEVER_NULL_USAGE) == 0);
 		const bool skip_never_null = (id_remap_data->flag & ID_REMAP_SKIP_NEVER_NULL_USAGE) != 0;
 
 		if ((id_remap_data->flag & ID_REMAP_FLAG_NEVER_NULL_USAGE) && (cb_flag & IDWALK_NEVER_NULL)) {
@@ -1628,7 +1629,7 @@ void BKE_libblock_delete(Main *bmain, void *idv)
 				 * links, this can lead to nasty crashing here in second, actual deleting loop.
 				 * Also, this will also flag users of deleted data that cannot be unlinked
 				 * (object using deleted obdata, etc.), so that they also get deleted. */
-				BKE_libblock_remap(bmain, id, NULL, ID_REMAP_FLAG_NEVER_NULL_USAGE);
+				BKE_libblock_remap(bmain, id, NULL, ID_REMAP_FLAG_NEVER_NULL_USAGE | ID_REMAP_FORCE_NEVER_NULL_USAGE);
 			}
 		}
 	}
