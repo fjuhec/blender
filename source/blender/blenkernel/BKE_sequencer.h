@@ -237,6 +237,7 @@ void BKE_sequencer_base_clipboard_pointers_restore(struct ListBase *seqbase, str
 void BKE_sequence_free(struct Scene *scene, struct Sequence *seq);
 void BKE_sequence_free_anim(struct Sequence *seq);
 const char *BKE_sequence_give_name(struct Sequence *seq);
+ListBase *BKE_sequence_seqbase_get(struct Sequence *seq, int *r_offset);
 void BKE_sequence_calc(struct Scene *scene, struct Sequence *seq);
 void BKE_sequence_calc_disp(struct Scene *scene, struct Sequence *seq);
 void BKE_sequence_reload_new_file(struct Scene *scene, struct Sequence *seq, const bool lock_range);
@@ -314,6 +315,7 @@ void BKE_sequence_tx_set_final_left(struct Sequence *seq, int val);
 void BKE_sequence_tx_set_final_right(struct Sequence *seq, int val);
 void BKE_sequence_tx_handle_xlimits(struct Sequence *seq, int leftflag, int rightflag);
 bool BKE_sequence_tx_test(struct Sequence *seq);
+bool BKE_sequence_tx_fullupdate_test(struct Sequence *seq);
 bool BKE_sequence_single_check(struct Sequence *seq);
 void BKE_sequence_single_fix(struct Sequence *seq);
 bool BKE_sequence_test_overlap(struct ListBase *seqbasep, struct Sequence *test);
@@ -384,6 +386,7 @@ typedef struct SeqLoadInfo {
 #define SEQ_LOAD_FRAME_ADVANCE  (1 << 1)
 #define SEQ_LOAD_MOVIE_SOUND    (1 << 2)
 #define SEQ_LOAD_SOUND_CACHE    (1 << 3)
+#define SEQ_LOAD_SYNC_FPS       (1 << 4)
 
 
 /* seq_dupli' flags */
@@ -456,7 +459,7 @@ typedef struct SequenceModifierTypeInfo {
 
 const struct SequenceModifierTypeInfo *BKE_sequence_modifier_type_info_get(int type);
 
-struct SequenceModifierData *BKE_sequence_modifier_new(struct Sequence *seq, const char *name, int type);
+struct SequenceModifierData *BKE_sequence_modifier_new(struct Sequence *seq, const char *name, int type, struct Scene *scene);
 bool BKE_sequence_modifier_remove(struct Sequence *seq, struct SequenceModifierData *smd);
 void BKE_sequence_modifier_clear(struct Sequence *seq);
 void BKE_sequence_modifier_free(struct SequenceModifierData *smd);

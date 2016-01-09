@@ -939,6 +939,7 @@ static void node_shader_buts_tex_brick(uiLayout *layout, bContext *UNUSED(C), Po
 static void node_shader_buts_tex_wave(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
 {
 	uiItemR(layout, ptr, "wave_type", 0, "", ICON_NONE);
+	uiItemR(layout, ptr, "wave_profile", 0, "", ICON_NONE);
 }
 
 static void node_shader_buts_tex_musgrave(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
@@ -2452,7 +2453,6 @@ static void node_composit_buts_planetrackdeform(uiLayout *layout, bContext *C, P
 		MovieTrackingObject *object;
 		uiLayout *col;
 		PointerRNA tracking_ptr;
-		NodeTrackPosData *data = node->storage;
 
 		RNA_pointer_create(&clip->id, &RNA_MovieTracking, tracking, &tracking_ptr);
 

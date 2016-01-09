@@ -241,8 +241,7 @@ GHOST_IWindow *GHOST_SystemWin32::createWindow(
 		        state,
 		        type,
 		        ((glSettings.flags & GHOST_glStereoVisual) != 0),
-	            ((glSettings.flags & GHOST_glWarnSupport) != 0),
-				((glSettings.flags & GHOST_glAlphaBackground) != 0),
+		        ((glSettings.flags & GHOST_glAlphaBackground) != 0),
 		        glSettings.numOfAASamples,
 		        parentWindow,
 		        ((glSettings.flags & GHOST_glDebugContext) != 0));

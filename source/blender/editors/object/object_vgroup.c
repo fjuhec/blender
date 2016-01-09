@@ -517,7 +517,7 @@ static void ED_mesh_defvert_mirror_update_ob(Object *ob, int def_nr, int vidx)
 	if (vidx == -1)
 		return;
 
-	vidx_mirr = mesh_get_x_mirror_vert(ob, vidx, use_topology);
+	vidx_mirr = mesh_get_x_mirror_vert(ob, NULL, vidx, use_topology);
 
 	if ((vidx_mirr) >= 0 && (vidx_mirr != vidx)) {
 		MDeformVert *dvert_src = &me->dvert[vidx];
@@ -1718,7 +1718,7 @@ static void vgroup_smooth_subset(
 {
 	const float ifac = 1.0f - fac;
 	MDeformVert **dvert_array = NULL;
-	int i, dvert_tot = 0;
+	int dvert_tot = 0;
 	int *vgroup_subset_map = BLI_array_alloca(vgroup_subset_map, subset_count);
 	float *vgroup_subset_weights = BLI_array_alloca(vgroup_subset_weights, subset_count);
 	const bool use_mirror = (ob->type == OB_MESH) ? (((Mesh *)ob->data)->editflag & ME_EDIT_MIRROR_X) != 0 : false;
@@ -1768,7 +1768,7 @@ static void vgroup_smooth_subset(
 
 	/* initialize used verts */
 	if (bm) {
-		for (i = 0; i < dvert_tot; i++) {
+		for (int i = 0; i < dvert_tot; i++) {
 			BMVert *v = BM_vert_at_index(bm, i);
 			if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 				BMIter eiter;
@@ -1786,7 +1786,7 @@ static void vgroup_smooth_subset(
 		}
 	}
 	else {
-		for (i = 0; i < dvert_tot; i++) {
+		for (int i = 0; i < dvert_tot; i++) {
 			MVert *v = &me->mvert[i];
 			if (v->flag & SELECT) {
 				int j;
@@ -2244,7 +2244,7 @@ void ED_vgroup_mirror(Object *ob,
 
 			for (vidx = 0, mv = me->mvert; vidx < me->totvert; vidx++, mv++) {
 				if ((mv->flag & ME_VERT_TMP_TAG) == 0) {
-					if ((vidx_mirr = mesh_get_x_mirror_vert(ob, vidx, use_topology)) != -1) {
+					if ((vidx_mirr = mesh_get_x_mirror_vert(ob, NULL, vidx, use_topology)) != -1) {
 						if (vidx != vidx_mirr) {
 							mv_mirr = &me->mvert[vidx_mirr];
 							if ((mv_mirr->flag & ME_VERT_TMP_TAG) == 0) {

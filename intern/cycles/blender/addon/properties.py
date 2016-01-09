@@ -54,6 +54,7 @@ enum_bvh_types = (
 enum_filter_types = (
     ('BOX', "Box", "Box filter"),
     ('GAUSSIAN', "Gaussian", "Gaussian filter"),
+    ('BLACKMAN_HARRIS', "Blackman-Harris", "Blackman-Harris filter"),
     )
 
 enum_aperture_types = (
@@ -528,6 +529,24 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
                 ('CENTER', "Center on Frame", "The shutter is open during the current frame"),
                 ('END', "End on Frame", "The shutter closes at the current frame"),
                 ),
+            )
+
+        cls.rolling_shutter_type = EnumProperty(
+            name="Shutter Type",
+            default='NONE',
+            description="Type of rolling shutter effect matching CMOS-based cameras",
+            items=(
+                ('NONE', "None", "No rolling shutter effect used"),
+                ('TOP', "Top-Bottom", "Sensor is being scanned from top to bottom")
+                # TODO(seergey): Are there real cameras with different scanning direction?
+                ),
+            )
+
+        cls.rolling_shutter_duration = FloatProperty(
+            name="Rolling Shutter Duration",
+            description="Scanline \"exposure\" time for the rolling shutter effect",
+            default = 0.1,
+            min=0.0, max=1.0,
             )
 
     @classmethod
