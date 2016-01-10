@@ -438,7 +438,7 @@ mBufferCacheSize(cacheSize)
             // In case the DLL is not in place, don't fail, just fallback on OpenGL
             if (dvpInitGLContext(DVP_DEVICE_FLAGS_SHARE_APP_CONTEXT) != DVP_STATUS_OK)
             {
-                printf("Warning: Could not initialize DVP context, fallback on OpenGL transfer.\nInstall dvp.dll to take advantage of nVidia GPUDirect.");
+                printf("Warning: Could not initialize DVP context, fallback on OpenGL transfer.\nInstall dvp.dll to take advantage of nVidia GPUDirect.\n");
                 mHasDvp = false;
             }
 		}
@@ -981,7 +981,7 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 		THRWEXCP(DeckLinkInternalError, S_OK); 
 
     // just in case it is needed to capture from certain cards, we don't check error because we don't need audio
-    mDLInput->EnableAudioInput(bmdAudioSampleRate48kHz, 16, 2);
+	mDLInput->EnableAudioInput(bmdAudioSampleRate48kHz, bmdAudioSampleType16bitInteger, 2);
 
 	// open base class
 	VideoBase::openCam(format, camIdx);
