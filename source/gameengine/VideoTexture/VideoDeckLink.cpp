@@ -435,7 +435,12 @@ mBufferCacheSize(cacheSize)
 
 		if (mHasDvp)
 		{
-			DVP_CHECK(dvpInitGLContext(DVP_DEVICE_FLAGS_SHARE_APP_CONTEXT));
+            // In case the DLL is not in place, don't fail, just fallback on OpenGL
+            if (dvpInitGLContext(DVP_DEVICE_FLAGS_SHARE_APP_CONTEXT) != DVP_STATUS_OK)
+            {
+                printf("Warning: Could not initialize DVP context, fallback on OpenGL transfer.\nInstall dvp.dll to take advantage of nVidia GPUDirect.");
+                mHasDvp = false;
+            }
 		}
 #endif
 		if (GLEW_AMD_pinned_memory)
@@ -727,7 +732,8 @@ VideoDeckLink::~VideoDeckLink ()
 		mDLInput->StopStreams();
 		mDLInput->SetCallback(NULL);
 		mDLInput->DisableVideoInput();
-		mDLInput->FlushStreams();
+        mDLInput->DisableAudioInput();
+        mDLInput->FlushStreams();
 		if (mDLInput->Release() != 0)
 			THRWEXCP(DeckLinkInternalError, S_OK);
 		mDLInput = NULL;
@@ -778,9 +784,9 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	BMDTimeScale					frameTimescale;
 	IDeckLink*						pDL;
 	u_int displayFlags, inputFlags; 
-	char *pPixel, *p3D;
+    char *pPixel, *p3D, *pEnd;
 	size_t len;
-	int i;
+    int i, modeIdx;
 
 	// format is constructed as <displayMode>/<pixelFormat>[/3D]
 	// <displayMode> takes the form of BMDDisplayMode identifier minus the 'bmdMode' prefix.
@@ -801,8 +807,24 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	mUse3D = (p3D) ? true : false;
 	// read the mode
 	len = (size_t)(pPixel - format);
-	// throws if bad mode
-	decklink_ReadDisplayMode(format, len, &mDisplayMode);
+    // accept integer display mode
+
+    try
+    {
+        // throws if bad mode
+        decklink_ReadDisplayMode(format, len, &mDisplayMode);
+        // found a valid mode, remember that we do not look for an index
+        modeIdx = -1;
+    }
+    catch (Exception & exp)
+    {
+        // accept also purely numerical mode as a mode index
+        modeIdx = strtol(format, &pEnd, 10);
+        if (pEnd != pPixel || modeIdx < 0)
+            // not a pure number, give up
+            throw;
+    }
+
 	// skip /
 	pPixel++;
 	len = ((mUse3D) ? (size_t)(p3D - pPixel) : strlen(pPixel));
@@ -840,15 +862,22 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	pDLDisplayMode = NULL;
 	displayFlags = (mUse3D) ? bmdDisplayModeSupports3D : 0;
 	inputFlags = (mUse3D) ? bmdVideoInputDualStream3D : bmdVideoInputFlagDefault;
-	while (pDLDisplayModeIterator->Next(&pDLDisplayMode) == S_OK) 
+    while (pDLDisplayModeIterator->Next(&pDLDisplayMode) == S_OK)
 	{
-		if (   pDLDisplayMode->GetDisplayMode() == mDisplayMode
-			&& (pDLDisplayMode->GetFlags() & displayFlags) == displayFlags
-			&& mDLInput->DoesSupportVideoMode(mDisplayMode, mPixelFormat, inputFlags, &modeSupport, NULL) == S_OK
-			&& modeSupport == bmdDisplayModeSupported)
-			break;
+        if (modeIdx == 0 || pDLDisplayMode->GetDisplayMode() == mDisplayMode)
+        {
+            // in case we get here because of modeIdx, make sure we have mDisplayMode set
+            mDisplayMode = pDLDisplayMode->GetDisplayMode();
+            if (   (pDLDisplayMode->GetFlags() & displayFlags) == displayFlags
+                && mDLInput->DoesSupportVideoMode(mDisplayMode, mPixelFormat, inputFlags, &modeSupport, NULL) == S_OK
+                && modeSupport == bmdDisplayModeSupported)
+                break;
+        }
 		pDLDisplayMode->Release();
 		pDLDisplayMode = NULL;
+        if (modeIdx-- == 0)
+            // reached the correct mode index but it does not meet the pixel format, give up
+            break;
 	}
 	pDLDisplayModeIterator->Release();
 
@@ -943,13 +972,16 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	if (mDLInput->SetVideoInputFrameMemoryAllocator(mpAllocator) != S_OK)
 		THRWEXCP(DeckLinkInternalError, S_OK);
 
-	if (mDLInput->EnableVideoInput(mDisplayMode, mPixelFormat, ((mUse3D) ? bmdVideoInputDualStream3D : bmdVideoInputFlagDefault)) != S_OK)
+    mpCaptureDelegate = new CaptureDelegate(this);
+    if (mDLInput->SetCallback(mpCaptureDelegate) != S_OK)
+        THRWEXCP(DeckLinkInternalError, S_OK);
+
+    if (mDLInput->EnableVideoInput(mDisplayMode, mPixelFormat, ((mUse3D) ? bmdVideoInputDualStream3D : bmdVideoInputFlagDefault)) != S_OK)
 		// this shouldn't failed, we tested above
 		THRWEXCP(DeckLinkInternalError, S_OK); 
 
-	mpCaptureDelegate = new CaptureDelegate(this);
-	if (mDLInput->SetCallback(mpCaptureDelegate) != S_OK)
-		THRWEXCP(DeckLinkInternalError, S_OK);
+    // just in case it is needed to capture from certain cards, we don't check error because we don't need audio
+    mDLInput->EnableAudioInput(bmdAudioSampleRate48kHz, 16, 2);
 
 	// open base class
 	VideoBase::openCam(format, camIdx);
