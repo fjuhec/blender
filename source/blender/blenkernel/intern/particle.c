@@ -3420,6 +3420,11 @@ static int get_particle_uv(DerivedMesh *dm, ParticleData *pa, int face_index, co
 
 #define CLAMP_PARTICLE_TEXTURE_POS(type, pvalue)                              \
 	if (event & type) {                                                       \
+		CLAMP(pvalue, 0.0f, 1.0f);                                            \
+	} (void)0
+
+#define CLAMP_WARP_PARTICLE_TEXTURE_POS(type, pvalue)                              \
+	if (event & type) {                                                       \
 		if (pvalue < 0.0f)                                                    \
 			pvalue = 1.0f + pvalue;                                           \
 		CLAMP(pvalue, 0.0f, 1.0f);                                            \
@@ -3491,11 +3496,11 @@ static void get_cpa_texture(DerivedMesh *dm, ParticleSystem *psys, ParticleSetti
 	}
 
 	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_LENGTH, ptex->length);
-	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_CLUMP, ptex->clump);
-	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_KINK_AMP, ptex->kink_amp);
-	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_KINK_FREQ, ptex->kink_freq);
-	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_ROUGH, ptex->rough1);
-	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_DENS, ptex->exist);
+	CLAMP_WARP_PARTICLE_TEXTURE_POS(PAMAP_CLUMP, ptex->clump);
+	CLAMP_WARP_PARTICLE_TEXTURE_POS(PAMAP_KINK_AMP, ptex->kink_amp);
+	CLAMP_WARP_PARTICLE_TEXTURE_POS(PAMAP_KINK_FREQ, ptex->kink_freq);
+	CLAMP_WARP_PARTICLE_TEXTURE_POS(PAMAP_ROUGH, ptex->rough1);
+	CLAMP_WARP_PARTICLE_TEXTURE_POS(PAMAP_DENS, ptex->exist);
 }
 void psys_get_texture(ParticleSimulationData *sim, ParticleData *pa, ParticleTexture *ptex, int event, float cfra)
 {
@@ -3585,14 +3590,14 @@ void psys_get_texture(ParticleSimulationData *sim, ParticleData *pa, ParticleTex
 		}
 	}
 
-	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_TIME, ptex->time);
-	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_LIFE, ptex->life);
-	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_DENS, ptex->exist);
+	CLAMP_WARP_PARTICLE_TEXTURE_POS(PAMAP_TIME, ptex->time);
+	CLAMP_WARP_PARTICLE_TEXTURE_POS(PAMAP_LIFE, ptex->life);
+	CLAMP_WARP_PARTICLE_TEXTURE_POS(PAMAP_DENS, ptex->exist);
 	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_SIZE, ptex->size);
 	CLAMP_PARTICLE_TEXTURE_POSNEG(PAMAP_IVEL, ptex->ivel);
 	CLAMP_PARTICLE_TEXTURE_POSNEG(PAMAP_FIELD, ptex->field);
 	CLAMP_PARTICLE_TEXTURE_POSNEG(PAMAP_GRAVITY, ptex->gravity);
-	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_DAMP, ptex->damp);
+	CLAMP_WARP_PARTICLE_TEXTURE_POS(PAMAP_DAMP, ptex->damp);
 	CLAMP_PARTICLE_TEXTURE_POS(PAMAP_LENGTH, ptex->length);
 }
 /************************************************/
@@ -4071,7 +4076,10 @@ void psys_get_dupli_texture(ParticleSystem *psys, ParticleSettings *part,
 
 	if (cpa) {
 		if ((part->childtype == PART_CHILD_FACES) && (psmd->dm_final != NULL)) {
-			mtface = CustomData_get_layer(&psmd->dm_final->faceData, CD_MTFACE);
+			CustomData *mtf_data = psmd->dm_final->getTessFaceDataLayout(psmd->dm_final);
+			const int uv_idx = CustomData_get_render_layer(mtf_data, CD_MTFACE);
+			mtface = CustomData_get_layer_n(mtf_data, CD_MTFACE, uv_idx);
+
 			if (mtface) {
 				mface = psmd->dm_final->getTessFaceData(psmd->dm_final, cpa->num, CD_MFACE);
 				mtface += cpa->num;
@@ -4087,7 +4095,10 @@ void psys_get_dupli_texture(ParticleSystem *psys, ParticleSettings *part,
 	}
 
 	if ((part->from == PART_FROM_FACE) && (psmd->dm_final != NULL)) {
-		mtface = CustomData_get_layer(&psmd->dm_final->faceData, CD_MTFACE);
+		CustomData *mtf_data = psmd->dm_final->getTessFaceDataLayout(psmd->dm_final);
+		const int uv_idx = CustomData_get_render_layer(mtf_data, CD_MTFACE);
+		mtface = CustomData_get_layer_n(mtf_data, CD_MTFACE, uv_idx);
+
 		num = pa->num_dmcache;
 
 		if (num == DMCACHE_NOTFOUND)
