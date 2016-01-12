@@ -1084,11 +1084,12 @@ static bool foreach_libblock_remap_callback(void *user_data, ID **id_p, int cb_f
 		/* Note that indirect data from same file as processed ID is **not** considered indirect! */
 		const bool is_indirect = ((id->lib != NULL) && (id->lib != old_id->lib));
 		const bool skip_indirect = (id_remap_data->flag & ID_REMAP_SKIP_INDIRECT_USAGE) != 0;
-		const bool is_never_null = ((cb_flag & IDWALK_NEVER_NULL) && (new_id == NULL));
+		const bool is_never_null = ((cb_flag & IDWALK_NEVER_NULL) && (new_id == NULL) &&
+		                            (id_remap_data->flag & ID_REMAP_FORCE_NEVER_NULL_USAGE) == 0);
 		const bool skip_never_null = (id_remap_data->flag & ID_REMAP_SKIP_NEVER_NULL_USAGE) != 0;
 
 		if ((id_remap_data->flag & ID_REMAP_FLAG_NEVER_NULL_USAGE) && (cb_flag & IDWALK_NEVER_NULL)) {
-			id->flag |= LIB_TAG_DOIT;
+			id->tag |= LIB_TAG_DOIT;
 		}
 
 //		if (GS(old_id->name) == ID_TXT) {
@@ -1219,9 +1220,9 @@ static void libblock_remap_data(
 
 	id_us_clear_real(old_id);
 
-	if (new_id && (new_id->flag & LIB_TAG_INDIRECT) && (r_id_remap_data->status & ID_REMAP_IS_LINKED_DIRECT)) {
-		new_id->flag &= ~LIB_TAG_INDIRECT;
-		new_id->flag |= LIB_TAG_EXTERN;
+	if (new_id && (new_id->tag & LIB_TAG_INDIRECT) && (r_id_remap_data->status & ID_REMAP_IS_LINKED_DIRECT)) {
+		new_id->tag &= ~LIB_TAG_INDIRECT;
+		new_id->tag |= LIB_TAG_EXTERN;
 	}
 
 //	printf("%s: %d occurences skipped (%d direct and %d indirect ones)\n", __func__,
@@ -1305,9 +1306,9 @@ void BKE_libblock_remap_locked(
 
 	if (skipped_direct == 0) {
 		/* old_id is assumed to not be used directly anymore... */
-		if (old_id->lib && (old_id->flag & LIB_TAG_EXTERN)) {
-			old_id->flag &= ~LIB_TAG_EXTERN;
-			old_id->flag |= LIB_TAG_INDIRECT;
+		if (old_id->lib && (old_id->tag & LIB_TAG_EXTERN)) {
+			old_id->tag &= ~LIB_TAG_EXTERN;
+			old_id->tag |= LIB_TAG_INDIRECT;
 		}
 	}
 
@@ -1364,8 +1365,7 @@ void BKE_libblock_remap(Main *bmain, void *old_idv, void *new_idv, const short r
  */
 void BKE_libblock_unlink(Main *bmain, void *idv, const bool do_flag_never_null)
 {
-	const short remap_flags = ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_INDIRECT_USAGE |
-	                          (do_flag_never_null ? ID_REMAP_FLAG_NEVER_NULL_USAGE : 0);
+	const short remap_flags = ID_REMAP_SKIP_INDIRECT_USAGE | (do_flag_never_null ? ID_REMAP_FLAG_NEVER_NULL_USAGE : 0);
 
 	BKE_main_lock(bmain);
 
@@ -1622,10 +1622,14 @@ void BKE_libblock_delete(Main *bmain, void *idv)
 
 		for (id = lb->first; id; id = id->next) {
 			/* Note: in case we delete a library, we also delete all its datablocks! */
-			if ((id == (ID *)idv) || (id->lib == (Library *)idv) || (id->flag & LIB_TAG_DOIT)) {
-				id->flag |= LIB_TAG_DOIT;
-				/* Will tag 'never NULL' users of this ID too. */
-				BKE_libblock_unlink(bmain, id, true);
+			if ((id == (ID *)idv) || (id->lib == (Library *)idv) || (id->tag & LIB_TAG_DOIT)) {
+				id->tag |= LIB_TAG_DOIT;
+				/* Will tag 'never NULL' users of this ID too.
+				 * Note that we cannot use BKE_libblock_unlink() here, since it would ignore indirect (and proxy!)
+				 * links, this can lead to nasty crashing here in second, actual deleting loop.
+				 * Also, this will also flag users of deleted data that cannot be unlinked
+				 * (object using deleted obdata, etc.), so that they also get deleted. */
+				BKE_libblock_remap(bmain, id, NULL, ID_REMAP_FLAG_NEVER_NULL_USAGE | ID_REMAP_FORCE_NEVER_NULL_USAGE);
 			}
 		}
 	}
@@ -1639,7 +1643,7 @@ void BKE_libblock_delete(Main *bmain, void *idv)
 
 		for (id = lb->first; id; id = id_next) {
 			id_next = id->next;
-			if (id->flag & LIB_TAG_DOIT) {
+			if (id->tag & LIB_TAG_DOIT) {
 				if (id->us != 0) {
 					printf("%s: deleting %s (%d)\n", __func__, id->name, id->us);
 					BLI_assert(id->us == 0);
@@ -2049,7 +2053,7 @@ void id_clear_lib_data(Main *bmain, ID *id)
 
 	id->lib = NULL;
 	MEM_SAFE_FREE(id->uuid);  /* Local ID have no more use for asset-related data. */
-	id->tag |= LIB_TAG_LOCAL;
+	id->tag &= ~(LIB_TAG_INDIRECT | LIB_TAG_EXTERN);
 	new_id(which_libbase(bmain, GS(id->name)), id, NULL);
 
 	/* internal bNodeTree blocks inside ID types below
@@ -2058,8 +2062,7 @@ void id_clear_lib_data(Main *bmain, ID *id)
 	ntree = ntreeFromID(id);
 
 	if (ntree) {
-		ntree->id.lib = NULL;
-		MEM_SAFE_FREE(ntree->id.uuid);
+		ntreeMakeLocal(ntree);
 	}
 
 	if (GS(id->name) == ID_OB) {

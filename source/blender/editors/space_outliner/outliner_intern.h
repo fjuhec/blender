@@ -175,14 +175,17 @@ void group_toggle_selectability_cb(struct bContext *C, struct Scene *scene, Tree
 void group_toggle_renderability_cb(struct bContext *C, struct Scene *scene, TreeElement *te, struct TreeStoreElem *tsep, struct TreeStoreElem *tselem, void *user_data);
 
 void item_rename_cb(struct bContext *C, struct Scene *scene, TreeElement *te, struct TreeStoreElem *tsep, struct TreeStoreElem *tselem, void *user_data);
-void item_lib_relocate_cb(
+void lib_relocate_cb(
         struct bContext *C, struct Scene *scene, struct TreeElement *te,
         struct TreeStoreElem *tsep, struct TreeStoreElem *tselem, void *user_data);
-void item_lib_reload_cb(
+void lib_reload_cb(
         struct bContext *C, struct Scene *scene, struct TreeElement *te,
         struct TreeStoreElem *tsep, struct TreeStoreElem *tselem, void *user_data);
 
 void id_delete_cb(
+        struct bContext *C, struct Scene *scene, struct TreeElement *te,
+        struct TreeStoreElem *tsep, struct TreeStoreElem *tselem, void *user_data);
+void id_remap_cb(
         struct bContext *C, struct Scene *scene, struct TreeElement *te,
         struct TreeStoreElem *tsep, struct TreeStoreElem *tselem, void *user_data);
 

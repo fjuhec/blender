@@ -78,6 +78,9 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_enum_types.h"
+
+#include "GPU_material.h"
 
 #include "outliner_intern.h"
 
@@ -381,9 +384,152 @@ void OUTLINER_OT_id_delete(wmOperatorType *ot)
 	ot->poll = ED_operator_outliner_active;
 }
 
+/* ID remap --------------------------------------------------- */
+
+static int outliner_id_remap_exec(bContext *C, wmOperator *op)
+{
+	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
+	SpaceOops *soops = CTX_wm_space_outliner(C);
+
+	const short id_type = (short)RNA_enum_get(op->ptr, "id_type");
+	ID *old_id = BLI_findlink(which_libbase(CTX_data_main(C), id_type), RNA_enum_get(op->ptr, "old_id"));
+	ID *new_id = BLI_findlink(which_libbase(CTX_data_main(C), id_type), RNA_enum_get(op->ptr, "new_id"));
+
+	/* check for invalid states */
+	if (soops == NULL)
+		return OPERATOR_CANCELLED;
+
+	if (!(old_id && (old_id != new_id) && (GS(old_id->name) == GS(new_id->name)))) {
+		return OPERATOR_CANCELLED;
+	}
+
+	BKE_libblock_remap(bmain, old_id, new_id,
+					   ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_NEVER_NULL_USAGE);
+
+	BKE_main_lib_objects_recalc_all(bmain);
+
+	/* recreate dependency graph to include new objects */
+	DAG_scene_relations_rebuild(bmain, scene);
+
+	/* free gpu materials, some materials depend on existing objects, such as lamps so freeing correctly refreshes */
+	GPU_materials_free();
+
+	WM_event_add_notifier(C, NC_WINDOW, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+static bool outliner_id_remap_find_tree_element(bContext *C, wmOperator *op, ListBase *tree, const float y)
+{
+	TreeElement *te;
+
+	for (te = tree->first; te; te = te->next) {
+		if (y > te->ys && y < te->ys + UI_UNIT_Y) {
+			TreeStoreElem *tselem = TREESTORE(te);
+
+			if (tselem->type == 0 && tselem->id) {
+				printf("found id %s (%p)!\n", tselem->id->name, tselem->id);
+
+				RNA_enum_set(op->ptr, "id_type", GS(tselem->id->name));
+				RNA_enum_set_identifier(C, op->ptr, "new_id", tselem->id->name + 2);
+				RNA_enum_set_identifier(C, op->ptr, "old_id", tselem->id->name + 2);
+				return true;
+			}
+		}
+		if (outliner_id_remap_find_tree_element(C, op, &te->subtree, y)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static int outliner_id_remap_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	SpaceOops *soops = CTX_wm_space_outliner(C);
+	ARegion *ar = CTX_wm_region(C);
+	float fmval[2];
+
+	if (!RNA_property_is_set(op->ptr, RNA_struct_find_property(op->ptr, "id_type"))) {
+		UI_view2d_region_to_view(&ar->v2d, event->mval[0], event->mval[1], &fmval[0], &fmval[1]);
+
+		outliner_id_remap_find_tree_element(C, op, &soops->tree, fmval[1]);
+	}
+
+	return WM_operator_props_dialog_popup(C, op, 200, 100);
+}
+
+static EnumPropertyItem *outliner_id_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+{
+	EnumPropertyItem item_tmp = {0}, *item = NULL;
+	int totitem = 0;
+	int i = 0;
+
+	short id_type = (short)RNA_enum_get(ptr, "id_type");
+	ID *id = which_libbase(CTX_data_main(C), id_type)->first;
+
+	for (; id; id = id->next) {
+		item_tmp.identifier = item_tmp.name = id->name + 2;
+		item_tmp.value = i++;
+		RNA_enum_item_add(&item, &totitem, &item_tmp);
+	}
+
+	RNA_enum_item_end(&item, &totitem);
+	*r_free = true;
+
+	return item;
+}
+
+void OUTLINER_OT_id_remap(wmOperatorType *ot)
+{
+	PropertyRNA *prop;
+
+	/* identifiers */
+	ot->name = "Outliner ID data Remap";
+	ot->idname = "OUTLINER_OT_id_remap";
+	ot->description = "";
+
+	/* callbacks */
+	ot->invoke = outliner_id_remap_invoke;
+	ot->exec = outliner_id_remap_exec;
+	ot->poll = ED_operator_outliner_active;
+
+	ot->flag = 0;
+
+	RNA_def_enum(ot->srna, "id_type", rna_enum_id_type_items, ID_OB, "ID Type", "");
+
+	prop = RNA_def_enum(ot->srna, "old_id", DummyRNA_NULL_items, 0, "Old ID", "Old ID to replace");
+	RNA_def_property_enum_funcs_runtime(prop, NULL, NULL, outliner_id_itemf);
+	RNA_def_property_flag(prop, PROP_ENUM_NO_TRANSLATE | PROP_HIDDEN);
+
+	ot->prop = RNA_def_enum(ot->srna, "new_id", DummyRNA_NULL_items, 0,
+	                        "New ID", "New ID to remap all selected IDs' users to");
+	RNA_def_property_enum_funcs_runtime(ot->prop, NULL, NULL, outliner_id_itemf);
+	RNA_def_property_flag(ot->prop, PROP_ENUM_NO_TRANSLATE);
+}
+
+void id_remap_cb(
+        bContext *C, Scene *UNUSED(scene), TreeElement *UNUSED(te),
+        TreeStoreElem *UNUSED(tsep), TreeStoreElem *tselem, void *UNUSED(user_data))
+{
+	wmOperatorType *ot = WM_operatortype_find("OUTLINER_OT_id_remap", false);
+	PointerRNA op_props;
+
+	BLI_assert(tselem->id != NULL);
+
+	WM_operator_properties_create_ptr(&op_props, ot);
+
+	RNA_enum_set(&op_props, "id_type", GS(tselem->id->name));
+	RNA_enum_set_identifier(C, &op_props, "old_id", tselem->id->name + 2);
+
+	WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &op_props);
+
+	WM_operator_properties_free(&op_props);
+}
+
 /* Library relocate/reload --------------------------------------------------- */
 
-static int item_lib_relocate(
+static int lib_relocate(
 		bContext *C, TreeElement *te, TreeStoreElem *tselem, wmOperatorType *ot, const bool reload)
 {
 	PointerRNA op_props;
@@ -436,7 +582,7 @@ static int outliner_lib_relocate_invoke_do(
 			else {
 				wmOperatorType *ot = WM_operatortype_find(reload ? "WM_OT_lib_reload" : "WM_OT_lib_relocate", false);
 
-				return item_lib_relocate(C, te, tselem, ot, reload);
+				return lib_relocate(C, te, tselem, ot, reload);
 			}
 		}
 	}
@@ -486,13 +632,13 @@ void OUTLINER_OT_lib_relocate(wmOperatorType *ot)
 
 /* XXX This does not work with several items
  *     (ot is only called once in the end, due to the 'deffered' filebrowser invocation through event system...). */
-void item_lib_relocate_cb(
+void lib_relocate_cb(
         bContext *C, Scene *UNUSED(scene), TreeElement *te,
-        TreeStoreElem *UNUSED(tsep), TreeStoreElem *tselem, void *user_data)
+        TreeStoreElem *UNUSED(tsep), TreeStoreElem *tselem, void *UNUSED(user_data))
 {
-	wmOperatorType *ot = user_data;
+	wmOperatorType *ot = WM_operatortype_find("WM_OT_lib_relocate", false);
 
-	item_lib_relocate(C, te, tselem, ot, false);
+	lib_relocate(C, te, tselem, ot, false);
 }
 
 
@@ -528,13 +674,13 @@ void OUTLINER_OT_lib_reload(wmOperatorType *ot)
 	ot->poll = ED_operator_outliner_active;
 }
 
-void item_lib_reload_cb(
+void lib_reload_cb(
         bContext *C, Scene *UNUSED(scene), TreeElement *te,
-        TreeStoreElem *UNUSED(tsep), TreeStoreElem *tselem, void *user_data)
+        TreeStoreElem *UNUSED(tsep), TreeStoreElem *tselem, void *UNUSED(user_data))
 {
-	wmOperatorType *ot = user_data;
+	wmOperatorType *ot = WM_operatortype_find("WM_OT_lib_reload", false);
 
-	item_lib_relocate(C, te, tselem, ot, true);
+	lib_relocate(C, te, tselem, ot, true);
 }
 
 /* ************************************************************** */
@@ -959,6 +1105,8 @@ static int outliner_scroll_page_exec(bContext *C, wmOperator *op)
 
 void OUTLINER_OT_scroll_page(wmOperatorType *ot)
 {
+	PropertyRNA *prop;
+
 	/* identifiers */
 	ot->name = "Scroll Page";
 	ot->idname = "OUTLINER_OT_scroll_page";
@@ -969,7 +1117,8 @@ void OUTLINER_OT_scroll_page(wmOperatorType *ot)
 	ot->poll = ED_operator_outliner_active;
 	
 	/* properties */
-	RNA_def_boolean(ot->srna, "up", 0, "Up", "Scroll up one page");
+	prop = RNA_def_boolean(ot->srna, "up", 0, "Up", "Scroll up one page");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 /* Search ------------------------------------------------------- */

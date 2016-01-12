@@ -82,6 +82,9 @@ enum {
 	/* This tells the callback func to flag with LIB_DOIT all IDs using target one with a 'never NULL' pointer
 	 * (like e.g. Object->data). */
 	ID_REMAP_FLAG_NEVER_NULL_USAGE  = 1 << 2,
+	/* This tells the callback func to force setting IDs using target one with a 'never NULL' pointer to NULL.
+	 * WARNING! Use with extreme care, this will leave database in broken state! */
+	ID_REMAP_FORCE_NEVER_NULL_USAGE = 1 << 3,
 };
 
 /* Note: Requiring new_id to be non-null, this *may* not be the case ultimately, but makes things simpler for now. */
