@@ -281,6 +281,12 @@ class CyclesRender_PT_motion_blur(CyclesButtonsPanel, Panel):
         row.operator("render.shutter_curve_preset", icon='LINCURVE', text="").shape = 'LINE'
         row.operator("render.shutter_curve_preset", icon='NOCURVE', text="").shape = 'MAX'
 
+        col = layout.column()
+        col.prop(cscene, "rolling_shutter_type")
+        row = col.row()
+        row.active = cscene.rolling_shutter_type != 'NONE'
+        row.prop(cscene, "rolling_shutter_duration")
+
 
 class CyclesRender_PT_film(CyclesButtonsPanel, Panel):
     bl_label = "Film"
@@ -387,6 +393,7 @@ class CyclesRender_PT_layer_options(CyclesButtonsPanel, Panel):
 
         col = split.column()
         col.prop(rl, "use_sky", "Use Environment")
+        col.prop(rl, "use_ao", "Use AO")
         col.prop(rl, "use_solid", "Use Surfaces")
         col.prop(rl, "use_strand", "Use Hair")
 

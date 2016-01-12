@@ -920,7 +920,7 @@ static PyObject *pyrna_prop_str(BPy_PropertyRNA *self)
 
 	type = RNA_property_type(self->prop);
 
-	if (RNA_enum_id_from_value(property_type_items, type, &type_id) == 0) {
+	if (RNA_enum_id_from_value(rna_enum_property_type_items, type, &type_id) == 0) {
 		PyErr_SetString(PyExc_RuntimeError, "could not use property type, internal error"); /* should never happen */
 		return NULL;
 	}
@@ -1303,27 +1303,32 @@ static PyObject *pyrna_enum_to_py(PointerRNA *ptr, PropertyRNA *prop, int val)
 				ret = PyUnicode_FromString(enum_item->identifier);
 			}
 			else {
-				const char *ptr_name = RNA_struct_name_get_alloc(ptr, NULL, 0, NULL);
+				RNA_property_enum_items(NULL, ptr, prop, &enum_item, NULL, &free);
 
-				/* prefer not fail silently in case of api errors, maybe disable it later */
-				printf("RNA Warning: Current value \"%d\" "
-				       "matches no enum in '%s', '%s', '%s'\n",
-				       val, RNA_struct_identifier(ptr->type),
-				       ptr_name, RNA_property_identifier(prop));
+				/* Do not print warning in case of DummyRNA_NULL_items, this one will never match any value... */
+				if (enum_item != DummyRNA_NULL_items) {
+					const char *ptr_name = RNA_struct_name_get_alloc(ptr, NULL, 0, NULL);
 
-#if 0           /* gives python decoding errors while generating docs :( */
-				char error_str[256];
-				BLI_snprintf(error_str, sizeof(error_str),
-				             "RNA Warning: Current value \"%d\" "
-				             "matches no enum in '%s', '%s', '%s'",
-				             val, RNA_struct_identifier(ptr->type),
-				             ptr_name, RNA_property_identifier(prop));
+					/* prefer not fail silently in case of api errors, maybe disable it later */
+					printf("RNA Warning: Current value \"%d\" "
+						   "matches no enum in '%s', '%s', '%s'\n",
+						   val, RNA_struct_identifier(ptr->type),
+						   ptr_name, RNA_property_identifier(prop));
 
-				PyErr_Warn(PyExc_RuntimeWarning, error_str);
+#if 0				/* gives python decoding errors while generating docs :( */
+					char error_str[256];
+					BLI_snprintf(error_str, sizeof(error_str),
+								 "RNA Warning: Current value \"%d\" "
+								 "matches no enum in '%s', '%s', '%s'",
+								 val, RNA_struct_identifier(ptr->type),
+								 ptr_name, RNA_property_identifier(prop));
+
+					PyErr_Warn(PyExc_RuntimeWarning, error_str);
 #endif
 
-				if (ptr_name)
-					MEM_freeN((void *)ptr_name);
+					if (ptr_name)
+						MEM_freeN((void *)ptr_name);
+				}
 
 				ret = PyUnicode_FromString("");
 			}
@@ -6678,6 +6683,21 @@ PyObject *BPY_rna_types(void)
 	/* add __name__ since help() expects its */
 	PyDict_SetItem(pyrna_basetype_Type.tp_dict, bpy_intern_str___name__, bpy_intern_str_bpy_types);
 
+	/* internal base types we have no other accessors for */
+	{
+		PyTypeObject *pyrna_types[] = {
+		    &pyrna_struct_meta_idprop_Type,
+		    &pyrna_struct_Type,
+		    &pyrna_prop_Type,
+		    &pyrna_prop_array_Type,
+		    &pyrna_prop_collection_Type,
+		    &pyrna_func_Type,
+		};
+
+		for (int i = 0; i < ARRAY_SIZE(pyrna_types); i += 1) {
+			PyDict_SetItemString(pyrna_basetype_Type.tp_dict, pyrna_types[i]->tp_name, (PyObject *)pyrna_types[i]);
+		}
+	}
 
 	self = (BPy_BaseTypeRNA *)PyObject_NEW(BPy_BaseTypeRNA, &pyrna_basetype_Type);
 

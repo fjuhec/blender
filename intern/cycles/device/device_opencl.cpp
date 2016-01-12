@@ -1304,6 +1304,7 @@ public:
 		cl_mem d_data = CL_MEM_PTR(const_mem_map["__data"]->device_pointer);
 		cl_mem d_input = CL_MEM_PTR(task.shader_input);
 		cl_mem d_output = CL_MEM_PTR(task.shader_output);
+		cl_mem d_output_luma = CL_MEM_PTR(task.shader_output_luma);
 		cl_int d_shader_eval_type = task.shader_eval_type;
 		cl_int d_shader_x = task.shader_x;
 		cl_int d_shader_w = task.shader_w;
@@ -1329,6 +1330,12 @@ public:
 				                d_data,
 				                d_input,
 				                d_output);
+
+		if(task.shader_eval_type < SHADER_EVAL_BAKE) {
+			start_arg_index += kernel_set_args(kernel,
+			                                   start_arg_index,
+			                                   d_output_luma);
+		}
 
 #define KERNEL_TEX(type, ttype, name) \
 		set_kernel_arg_mem(kernel, &start_arg_index, #name);
@@ -1385,7 +1392,7 @@ public:
 protected:
 	string kernel_build_options(const string *debug_src = NULL)
 	{
-		string build_options = " -cl-fast-relaxed-math ";
+		string build_options = "-cl-fast-relaxed-math ";
 
 		if(platform_name == "NVIDIA CUDA") {
 			build_options += "-D__KERNEL_OPENCL_NVIDIA__ "
@@ -1548,34 +1555,6 @@ protected:
 		if(program) {
 			clReleaseProgram(program);
 		}
-	}
-
-	string build_options_from_requested_features(
-	        const DeviceRequestedFeatures& requested_features)
-	{
-		string build_options = "";
-		if(requested_features.experimental) {
-			build_options += " -D__KERNEL_EXPERIMENTAL__";
-		}
-		build_options += " -D__NODES_MAX_GROUP__=" +
-			string_printf("%d", requested_features.max_nodes_group);
-		build_options += " -D__NODES_FEATURES__=" +
-			string_printf("%d", requested_features.nodes_features);
-		build_options += string_printf(" -D__MAX_CLOSURE__=%d",
-		                               requested_features.max_closure);
-		if(!requested_features.use_hair) {
-			build_options += " -D__NO_HAIR__";
-		}
-		if(!requested_features.use_object_motion) {
-			build_options += " -D__NO_OBJECT_MOTION__";
-		}
-		if(!requested_features.use_camera_motion) {
-			build_options += " -D__NO_CAMERA_MOTION__";
-		}
-		if(!requested_features.use_baking) {
-			build_options += " -D__NO_BAKING__";
-		}
-		return build_options;
 	}
 
 	/* ** Those guys are for workign around some compiler-specific bugs ** */
@@ -2312,7 +2291,7 @@ public:
 #ifdef __WORK_STEALING__
 		build_options += " -D__WORK_STEALING__";
 #endif
-		build_options += build_options_from_requested_features(requested_features);
+		build_options += requested_features.get_build_options();
 
 		/* Set compute device build option. */
 		cl_device_type device_type;
@@ -2807,7 +2786,7 @@ public:
 			                PathState_coop,
 			                ray_state);
 
-/* TODO(segrey): Avoid map lookup here. */
+/* TODO(sergey): Avoid map lookup here. */
 #define KERNEL_TEX(type, ttype, name) \
 	set_kernel_arg_mem(ckPathTraceKernel_data_init, &start_arg_index, #name);
 #include "kernel_textures.h"
@@ -3585,7 +3564,7 @@ protected:
 	string build_options_for_base_program(
 	        const DeviceRequestedFeatures& requested_features)
 	{
-		return build_options_from_requested_features(requested_features);
+		return requested_features.get_build_options();
 	}
 };
 
