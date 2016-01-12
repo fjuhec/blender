@@ -1664,7 +1664,6 @@ void id_clear_lib_data(Main *bmain, ID *id)
 
 	id->lib = NULL;
 	MEM_SAFE_FREE(id->uuid);  /* Local ID have no more use for asset-related data. */
-	id->tag |= LIB_TAG_LOCAL;
 	new_id(which_libbase(bmain, GS(id->name)), id, NULL);
 
 	/* internal bNodeTree blocks inside ID types below
@@ -1673,8 +1672,7 @@ void id_clear_lib_data(Main *bmain, ID *id)
 	ntree = ntreeFromID(id);
 
 	if (ntree) {
-		ntree->id.lib = NULL;
-		MEM_SAFE_FREE(ntree->id.uuid);
+		ntreeMakeLocal(ntree);
 	}
 
 	if (GS(id->name) == ID_OB) {
