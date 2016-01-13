@@ -65,6 +65,7 @@
 
 #include "ED_armature.h"
 #include "ED_screen.h"
+#include "ED_transform.h"
 #include "ED_view3d.h"
 
 #include "armature_intern.h"
@@ -192,6 +193,7 @@ typedef struct tPSculptContext {
 	
 	/* Brush Specific Data */
 	float *dvec;				/* mouse travel vector, or something else */
+	float rmat[3][3];			/* rotation matrix to apply to all bones (e.g. trackball) */
 } tPSculptContext;
 
 
@@ -201,6 +203,8 @@ typedef struct tAffectedBone {
 	
 	bPoseChannel *pchan;		/* bone in question */
 	float fac;					/* (last) strength factor applied to this bone */
+	
+	// TODO: unaffected transforms
 } tAffectedBone;
 
 /* Pose Sculpting brush operator data  */
@@ -323,6 +327,186 @@ static void set_pchan_eul_rotation(const float eul[3], bPoseChannel *pchan)
 		default: /* euler */
 			copy_v3_v3(pchan->eul, eul);
 			break;
+	}
+}
+
+/* ........................................................ */
+
+#define TD_PBONE_LOCAL_MTX_C  (1 << 0)
+#define TD_PBONE_LOCAL_MTX_P  (1 << 1)
+
+/* Perform trackball rotation on the given bone
+ *
+ * Adapted from the transform system code for trackball rotations
+ *  - Main method adapted from the T_POSE case for ElementRotation() in transform.c
+ *  - All transform/setup math adapted from bPoseChannel -> TransData stuff in transform_conversions.c
+ */
+static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat[3][3])
+{
+	float mtx[3][3], smtx[3][3], r_mtx[3][3], r_smtx[3][3], l_smtx[3][3];
+	//float center[3] = {0}, td_center[3] = {0};
+	short td_flag = 0;
+	
+	float pmtx[3][3], imtx[3][3];
+	
+	/* ...... transform_conversions.c stuff here ........ */
+	// TODO: maybe this stuff can (or maybe should - to prevent errors) be saved off?
+	
+	// xxx: refactor this out
+	//copy_v3_v3(td_center, pchan->pose_mat[3]);
+	
+	/* Compute the transform matrices needed */
+	/* New code, using "generic" BKE_pchan_to_pose_mat(). */
+	{
+		float pmat[3][3], tmat[3][3], cmat[3][3];
+		float rotscale_mat[4][4], loc_mat[4][4];
+		float rpmat[3][3];
+		float omat[3][3];
+		
+		copy_m3_m4(omat, ob->obmat);
+		
+		BKE_pchan_to_pose_mat(pchan, rotscale_mat, loc_mat);
+		copy_m3_m4(pmat, rotscale_mat);
+		
+		/* Grrr! Exceptional case: When translating pose bones that are either Hinge or NoLocal,
+		 * and want align snapping, we just need both loc_mat and rotscale_mat.
+		 * So simply always store rotscale mat in td->ext, and always use it to apply rotations...
+		 * Ugly to need such hacks! :/ */
+		copy_m3_m4(rpmat, rotscale_mat);
+		
+		if (false /*constraints_list_needinv(t, &pchan->constraints)*/) {  // XXX...
+			copy_m3_m4(tmat, pchan->constinv);
+			invert_m3_m3(cmat, tmat);
+			mul_m3_series(mtx, cmat, omat, pmat);
+			mul_m3_series(r_mtx, cmat, omat, rpmat);
+		}
+		else {
+			mul_m3_series(mtx, omat, pmat);
+			mul_m3_series(r_mtx, omat, rpmat);
+		}
+		invert_m3_m3(r_smtx, r_mtx);
+	}
+	
+	pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
+	
+	/* Exceptional Case: Rotating the pose bone which also applies transformation
+	 * when a parentless bone has BONE_NO_LOCAL_LOCATION
+	 */
+	if (pchan->bone->flag & BONE_NO_LOCAL_LOCATION) {
+		if (pchan->parent) {
+			/* same as td->smtx but without pchan->bone->bone_mat */
+			td_flag |= TD_PBONE_LOCAL_MTX_C;
+			mul_m3_m3m3(l_smtx, pchan->bone->bone_mat, smtx);
+		}
+		else {
+			td_flag |= TD_PBONE_LOCAL_MTX_P;
+		}
+	}
+	
+	
+	/* ....... transform.c stuff begins here .........  */
+	
+	/* Extract and invert armature object matrix */
+	copy_m3_m4(pmtx, ob->obmat);
+	invert_m3_m3(imtx, pmtx);
+	
+	/* Location */
+	if ((pchan->parent == NULL) || !(pchan->bone->flag & BONE_CONNECTED)) {
+		float vec[3] = {0};
+		//sub_v3_v3v3(vec, td->center, center);
+		
+		mul_m3_v3(pmtx, vec);   /* To Global space */
+		mul_m3_v3(mat, vec);    /* (Applying rotation) */
+		mul_m3_v3(imtx, vec);   /* To Local space */
+		
+		//add_v3_v3(vec, center);
+		/* vec now is the location where the bone has to be */
+		
+		//sub_v3_v3v3(vec, vec, td_center); /* Translation needed from the initial location */
+		
+		/* special exception, see TD_PBONE_LOCAL_MTX definition comments */
+		if (td_flag & TD_PBONE_LOCAL_MTX_P) {
+			/* do nothing */
+		}
+		else if (td_flag & TD_PBONE_LOCAL_MTX_C) {
+			mul_m3_v3(pmtx, vec);   /* To Global space */
+			mul_m3_v3(l_smtx, vec); /* To Pose space (Local Location) */
+		}
+		else {
+			mul_m3_v3(pmtx, vec);  /* To Global space */
+			mul_m3_v3(smtx, vec);  /* To Pose space */
+		}
+		
+		//protectedTransBits(td->protectflag, vec);
+		
+		//add_v3_v3v3(td->loc, td->iloc, vec);
+		add_v3_v3(pchan->loc, vec);
+		
+		//constraintTransLim(t, td);
+	}
+	
+	/* Rotation */
+	/* MORE HACK: as in some cases the matrix to apply location and rot/scale is not the same,
+	 * and ElementRotation() might be called in Translation context (with align snapping),
+	 * we need to be sure to actually use the *rotation* matrix here...
+	 * So no other way than storing it in some dedicated members of td->ext! */
+	if (true) {
+		/* euler or quaternion/axis-angle? */
+		if (pchan->rotmode == ROT_MODE_QUAT) {
+			float oldquat[4], quat[4];
+			float fmat[3][3];
+			
+			copy_qt_qt(oldquat, pchan->quat); // XXX: iquat!
+			
+			mul_m3_series(fmat, r_smtx, mat, r_mtx);
+			mat3_to_quat(quat, fmat); /* Actual transform */
+			
+			mul_qt_qtqt(pchan->quat, quat, oldquat);
+			/* this function works on end result */
+			//protectedQuaternionBits(pchan->protectflag, pchan->quat, oldquat);
+			
+		}
+		else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
+			/* calculate effect based on quats */
+			float iquat[4], tquat[4], quat[4];
+			float fmat[3][3];
+			
+			//axis_angle_to_quat(iquat, td->ext->irotAxis, td->ext->irotAngle);
+			axis_angle_to_quat(iquat, pchan->rotAxis, pchan->rotAngle);
+			
+			mul_m3_series(fmat, r_smtx, mat, r_mtx);
+			mat3_to_quat(quat, fmat); /* Actual transform */
+			mul_qt_qtqt(tquat, quat, iquat);
+			
+			quat_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, tquat);
+			
+			/* this function works on end result */
+			//protectedAxisAngleBits(pchan->protectflag, pchan->rotAxis, pchan->rotAngle, td->ext->irotAxis,
+			//					   td->ext->irotAngle);
+		}
+		else {
+			float smat[3][3], fmat[3][3], totmat[3][3];
+			float eulmat[3][3];
+			float eul[3];
+			
+			mul_m3_m3m3(totmat, mat, r_mtx);
+			mul_m3_m3m3(smat, r_smtx, totmat);
+			
+			/* calculate the total rotation in eulers */
+			copy_v3_v3(eul, pchan->eul);
+			eulO_to_mat3(eulmat, eul, pchan->rotmode);
+			
+			/* mat = transform, obmat = bone rotation */
+			mul_m3_m3m3(fmat, smat, eulmat);
+			
+			mat3_to_compatible_eulO(eul, pchan->eul, pchan->rotmode, fmat);
+			
+			/* and apply (to end result only) */
+			//protectedRotateBits(pchan->protectflag, eul, td->ext->irot);
+			copy_v3_v3(pchan->eul, eul);
+		}
+		
+		//constraintRotLim(t, td);
 	}
 }
 
@@ -548,6 +732,14 @@ static void brush_comb(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 	
 	/* convert joints to low-level transforms */
 	apply_pchan_joints(pchan, dvec);
+}
+
+/* "Trackball" Brush */
+// TODO: do prop-edit type stuff using the endpoints?
+// TODO: on root bones, don't do trackball... do grab instead?
+static void brush_trackball(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float sco1[2], float sco2[2])
+{
+	pchan_do_trackball_rotate(data->ob, pchan, data->rmat);
 }
 
 /* "smooth" brush */
@@ -1011,7 +1203,9 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			
 			/* apply brushes */
 			switch (pset->brushtype) {
-				case PSCULPT_BRUSH_DRAW:
+			// XXX: To be removed ......................
+				#define PSCULPT_BRUSH_COMB -1
+				case PSCULPT_BRUSH_COMB:
 				{
 					float mval_f[2], vec[3];
 					
@@ -1040,6 +1234,39 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 					
 					/* apply brush to bones */
 					changed = psculpt_brush_do_apply(pso, &data, brush_comb, selected);
+					
+					break;
+				}
+			// XXX .........................................
+			
+				case PSCULPT_BRUSH_DRAW:
+				{
+					float smat[3][3], totmat[3][3];
+					float axis1[3], axis2[3];
+					float angles[2];
+					
+					/* Compute screenspace movements for trackball transform
+					 * Adapted from applyTrackball() in transform.c
+					 */
+					copy_v3_v3(axis1, rv3d->persinv[0]);
+					copy_v3_v3(axis2, rv3d->persinv[1]);
+					normalize_v3(axis1);
+					normalize_v3(axis2);
+					
+					/* From InputTrackBall() in transform_input.c */
+					angles[0] = pso->lastmouse[1] - mouse[1];
+					angles[1] = mouse[0] - pso->lastmouse[0];
+					
+					mul_v2_fl(angles, 0.01f); /* (mi->factor = 0.01f) */
+					
+					/* Adapted from applyTrackballValue() in transform.c */
+					axis_angle_normalized_to_mat3(smat, axis1, angles[0]);
+					axis_angle_normalized_to_mat3(totmat, axis2, angles[1]);
+					
+					mul_m3_m3m3(data.rmat, smat, totmat);
+					
+					/* Apply trackball transform to bones... */
+					changed = psculpt_brush_do_apply(pso, &data, brush_trackball, selected);
 					
 					break;
 				}
