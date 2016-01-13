@@ -345,6 +345,7 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 {
 	float mtx[3][3], smtx[3][3], r_mtx[3][3], r_smtx[3][3], l_smtx[3][3];
 	//float center[3] = {0}, td_center[3] = {0};
+	short locks = pchan->protectflag;
 	short td_flag = 0;
 	
 	float pmtx[3][3], imtx[3][3];
@@ -352,8 +353,11 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 	/* ...... transform_conversions.c stuff here ........ */
 	// TODO: maybe this stuff can (or maybe should - to prevent errors) be saved off?
 	
-	// xxx: refactor this out
-	//copy_v3_v3(td_center, pchan->pose_mat[3]);
+	// 	copy_v3_v3(td_center, pchan->pose_mat[3]);
+	// if (localspace)
+	// 	copy_v3_v3(center, td_center);
+	// else
+	// 	copy_v3_v3(center, bones.center);
 	
 	/* Compute the transform matrices needed */
 	/* New code, using "generic" BKE_pchan_to_pose_mat(). */
@@ -437,7 +441,9 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 			mul_m3_v3(smtx, vec);  /* To Pose space */
 		}
 		
-		//protectedTransBits(td->protectflag, vec);
+		if (locks & OB_LOCK_LOCX) vec[0] = 0.0f;
+		if (locks & OB_LOCK_LOCY) vec[1] = 0.0f;
+		if (locks & OB_LOCK_LOCZ) vec[2] = 0.0f;
 		
 		//add_v3_v3v3(td->loc, td->iloc, vec);
 		add_v3_v3(pchan->loc, vec);
