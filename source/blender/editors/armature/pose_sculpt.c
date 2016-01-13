@@ -1163,7 +1163,9 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 					
 					mul_m3_m3m3(data.rmat, smat, totmat);
 					
+					
 					/* Apply trackball transform to bones... */
+					// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
 					changed = psculpt_brush_do_apply(pso, &data, brush_trackball, selected);
 					
 					break;
