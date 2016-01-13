@@ -662,78 +662,6 @@ static void brush_select_bone(tPoseSculptingOp *pso, tPSculptContext *data, bPos
 	}
 }
 
-/* "comb" brush - inspired by Particle Comb */
-static void brush_comb(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float sco1[2], float sco2[2])
-{
-	//PSculptBrushData *brush = data->brush;
-	short locks = pchan->protectflag;
-	float dvec[3] = {0.0f}; /* bone vector */
-	
-	/* only affect head if it's not locked */
-	if ((pchan->parent == NULL) || !(pchan->bone->flag & BONE_CONNECTED)) 
-	{
-		float cvec[3];
-		float dist, fac;
-		
-		/* calculate strength of action */
-		dist = len_v2v2(sco1, data->mval);
-		
-		fac = (float)pow((double)(1.0f - dist / data->rad), (double)data->fac);
-		if (fac > 0.0f) {
-			//printf("pchan-H %s (%f/%f) %f\n", pchan->name, dist, data->dist, fac);
-			
-			/* apply this to bone */
-			mul_v3_v3fl(cvec, data->dvec, fac);
-			
-			if (locks & OB_LOCK_LOCX) cvec[0] = 0.0f;
-			if (locks & OB_LOCK_LOCY) cvec[1] = 0.0f;
-			if (locks & OB_LOCK_LOCZ) cvec[2] = 0.0f;
-			
-			add_v3_v3(pchan->pose_head, cvec);
-		}
-		else {
-			//printf("pchan-H %s ignored\n", pchan->name);
-		}
-	}
-	
-	/* affect tail */
-	{
-		float cvec[3];
-		float dist, fac;
-		float len;
-		
-		/* get delta vector pointing from head to tail (i.e. bone) */
-		sub_v3_v3v3(dvec, pchan->pose_tail, pchan->pose_head);
-		len = len_v3(dvec);
-		
-		/* calculate strength of action */
-		dist = len_v2v2(sco2, data->mval);
-		
-		fac = (float)pow((double)(1.0f - dist / data->rad), (double)data->fac);
-		if (fac > 0.0f) {
-			//printf("pchan-T %s (%f/%f) %f\n\n", pchan->name, dist, data->dist, fac);
-			
-			/* apply brush effect to this vector */
-			mul_v3_v3fl(cvec, data->dvec, fac);
-			add_v3_v3(dvec, cvec);
-			
-			/* rescale to keep it the same length */
-			normalize_v3(dvec);
-			mul_v3_fl(dvec, len);
-			
-			/* set new pose tail */
-			// XXX: doesn't this end up doubling up what came before?
-			add_v3_v3v3(pchan->pose_tail, pchan->pose_head, dvec);
-		}
-		else {
-			//printf("pchan-T %s ignored\n", pchan->name);
-		}
-	}
-	
-	/* convert joints to low-level transforms */
-	apply_pchan_joints(pchan, dvec);
-}
-
 /* "Trackball" Brush */
 // TODO: do prop-edit type stuff using the endpoints?
 // TODO: on root bones, don't do trackball... do grab instead?
@@ -1203,42 +1131,6 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			
 			/* apply brushes */
 			switch (pset->brushtype) {
-			// XXX: To be removed ......................
-				#define PSCULPT_BRUSH_COMB -1
-				case PSCULPT_BRUSH_COMB:
-				{
-					float mval_f[2], vec[3];
-					
-					/* based on particle comb brush */
-					data.fac = (brush->strength - 0.5f) * 2.0f;
-					if (data.fac < 0.0f)
-						data.fac = 1.0f - 9.0f * data.fac;
-					else
-						data.fac = 1.0f - data.fac;
-					
-					/* calculate mouse movement in 3D space... */
-					if (data.invert) {
-						mval_f[0] = -dx;
-						mval_f[1] = -dy;
-					}
-					else {
-						mval_f[0] = dx;
-						mval_f[1] = dy;
-					}
-					ED_view3d_win_to_delta(ar, mval_f, vec, zfac); /* screen (2D) -> world (3D) */
-					mul_mat3_m4_v3(ob->imat, vec);                 /* world  (3D) -> pose (3D) = pchan endpoints space */
-					
-					data.dvec = vec;
-					
-					//printf("comb: (%f %f) -> (%.3f %.3f %.3f) @ %f\n", mval_f[0], mval_f[1], vec[0], vec[1], vec[2], data.fac);
-					
-					/* apply brush to bones */
-					changed = psculpt_brush_do_apply(pso, &data, brush_comb, selected);
-					
-					break;
-				}
-			// XXX .........................................
-			
 				case PSCULPT_BRUSH_DRAW:
 				{
 					float smat[3][3], totmat[3][3];
