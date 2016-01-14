@@ -445,7 +445,6 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 		if (locks & OB_LOCK_LOCY) vec[1] = 0.0f;
 		if (locks & OB_LOCK_LOCZ) vec[2] = 0.0f;
 		
-		//add_v3_v3v3(td->loc, td->iloc, vec);
 		add_v3_v3(pchan->loc, vec);
 		
 		//constraintTransLim(t, td);
@@ -462,7 +461,7 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 			float oldquat[4], quat[4];
 			float fmat[3][3];
 			
-			copy_qt_qt(oldquat, pchan->quat); // XXX: iquat!
+			copy_qt_qt(oldquat, pchan->quat);
 			
 			mul_m3_series(fmat, r_smtx, mat, r_mtx);
 			mat3_to_quat(quat, fmat); /* Actual transform */
@@ -470,7 +469,6 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 			mul_qt_qtqt(pchan->quat, quat, oldquat);
 			
 			/* this function works on end result */
-			//protectedQuaternionBits(pchan->protectflag, pchan->quat, oldquat);
 			if (locks & OB_LOCK_ROT4D) {
 				if (locks & OB_LOCK_ROTW) pchan->quat[0] = oldquat[0];
 				if (locks & OB_LOCK_ROTX) pchan->quat[1] = oldquat[1];
@@ -499,7 +497,6 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 			copy_v3_v3(oldAxis, pchan->rotAxis);
 			oldAngle = pchan->rotAngle;
 			
-			//axis_angle_to_quat(iquat, td->ext->irotAxis, td->ext->irotAngle);
 			axis_angle_to_quat(iquat, pchan->rotAxis, pchan->rotAngle);
 			
 			mul_m3_series(fmat, r_smtx, mat, r_mtx);
@@ -509,8 +506,6 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 			quat_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, tquat);
 			
 			/* this function works on end result */
-			//protectedAxisAngleBits(pchan->protectflag, pchan->rotAxis, pchan->rotAngle, td->ext->irotAxis,
-			//					   td->ext->irotAngle);
 			if (locks & OB_LOCK_ROT4D) {
 				if (locks & OB_LOCK_ROTW) pchan->rotAngle   = oldAngle;
 				if (locks & OB_LOCK_ROTX) pchan->rotAxis[0] = oldAxis[0];
@@ -548,7 +543,6 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 			mat3_to_compatible_eulO(eul, pchan->eul, pchan->rotmode, fmat);
 			
 			/* and apply (to end result only) */
-			//protectedRotateBits(pchan->protectflag, eul, td->ext->irot);
 			if (locks & OB_LOCK_ROTX) eul[0] = pchan->eul[0];
 			if (locks & OB_LOCK_ROTY) eul[1] = pchan->eul[1];
 			if (locks & OB_LOCK_ROTZ) eul[2] = pchan->eul[2];
@@ -713,9 +707,8 @@ static void brush_select_bone(tPoseSculptingOp *pso, tPSculptContext *data, bPos
 }
 
 /* "Trackball" Brush */
-// TODO: do prop-edit type stuff using the endpoints?
 // TODO: on root bones, don't do trackball... do grab instead?
-static void brush_trackball(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float sco1[2], float sco2[2])
+static void brush_trackball(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	pchan_do_trackball_rotate(data->ob, pchan, data->rmat);
 }
@@ -794,7 +787,7 @@ static void brush_curl(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 	float eul[3] = {0.0f};
 	float angle = 0.0f;
 	
-	/* get temp euler tuple to work on*/
+	/* get temp euler tuple to work on */
 	if (get_pchan_eul_rotation(eul, NULL, pchan) == false)
 		return;
 	
