@@ -2433,7 +2433,7 @@ static short wm_link_append_flag(wmOperator *op)
 }
 
 typedef struct WMLinkAppendDataItem {
-	AssetUUID uuid;
+	AssetUUID *uuid;
 	char *name;
 	BLI_bitmap *libraries;  /* All libs (from WMLinkAppendData.libraries) to try to load this ID from. */
 	short idcode;
@@ -2487,7 +2487,13 @@ static WMLinkAppendDataItem *wm_link_append_data_item_add(
 	WMLinkAppendDataItem *item = BLI_memarena_alloc(lapp_data->memarena, sizeof(*item));
 	size_t len = strlen(idname) + 1;
 
-	item->uuid = *uuid;
+	if (uuid) {
+		item->uuid = BLI_memarena_alloc(lapp_data->memarena, sizeof(*item->uuid));
+		*item->uuid = *uuid;
+	}
+	else {
+		item->uuid = NULL;
+	}
 	item->name = BLI_memarena_alloc(lapp_data->memarena, len);
 	BLI_strncpy(item->name, idname, len);
 	item->idcode = idcode;
@@ -2552,7 +2558,7 @@ static void wm_link_do(
 			}
 
 			new_id = BLO_library_link_named_part_asset(
-			             mainl, &bh, aet, item->idcode, item->name, &item->uuid, flag, scene, v3d,
+			             mainl, &bh, aet, item->idcode, item->name, item->uuid, flag, scene, v3d,
 			             use_placeholders, force_indirect);
 
 			if (new_id) {
