@@ -1177,6 +1177,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 				case PSCULPT_BRUSH_DRAW:
 				{
 					float smat[3][3], totmat[3][3];
+					float mat[3][3], refmat[3][3];
 					float axis1[3], axis2[3];
 					float angles[2];
 					
@@ -1198,8 +1199,11 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 					axis_angle_normalized_to_mat3(smat, axis1, angles[0]);
 					axis_angle_normalized_to_mat3(totmat, axis2, angles[1]);
 					
-					mul_m3_m3m3(data.rmat, smat, totmat);
+					mul_m3_m3m3(mat, smat, totmat);
 					
+					/* Adjust strength of effect */
+					unit_m3(refmat);
+					interp_m3_m3m3(data.rmat, refmat, mat, brush->strength);
 					
 					/* Apply trackball transform to bones... */
 					// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
