@@ -468,14 +468,36 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 			mat3_to_quat(quat, fmat); /* Actual transform */
 			
 			mul_qt_qtqt(pchan->quat, quat, oldquat);
+			
 			/* this function works on end result */
 			//protectedQuaternionBits(pchan->protectflag, pchan->quat, oldquat);
-			
+			if (locks & OB_LOCK_ROT4D) {
+				if (locks & OB_LOCK_ROTW) pchan->quat[0] = oldquat[0];
+				if (locks & OB_LOCK_ROTX) pchan->quat[1] = oldquat[1];
+				if (locks & OB_LOCK_ROTX) pchan->quat[2] = oldquat[2];
+				if (locks & OB_LOCK_ROTX) pchan->quat[3] = oldquat[3];
+			}
+			else {
+				float eul[3], oldeul[3];
+				
+				quat_to_eulO(eul, ROT_MODE_EUL, pchan->quat);
+				quat_to_eulO(oldeul, ROT_MODE_EUL, oldquat);
+				
+				if (locks & OB_LOCK_ROTX) eul[0] = oldeul[0];
+				if (locks & OB_LOCK_ROTY) eul[1] = oldeul[1];
+				if (locks & OB_LOCK_ROTZ) eul[2] = oldeul[2];
+				
+				eulO_to_quat(pchan->quat, eul, ROT_MODE_EUL);
+			}
 		}
 		else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
 			/* calculate effect based on quats */
+			float oldAxis[3], oldAngle;
 			float iquat[4], tquat[4], quat[4];
 			float fmat[3][3];
+			
+			copy_v3_v3(oldAxis, pchan->rotAxis);
+			oldAngle = pchan->rotAngle;
 			
 			//axis_angle_to_quat(iquat, td->ext->irotAxis, td->ext->irotAngle);
 			axis_angle_to_quat(iquat, pchan->rotAxis, pchan->rotAngle);
@@ -489,6 +511,24 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 			/* this function works on end result */
 			//protectedAxisAngleBits(pchan->protectflag, pchan->rotAxis, pchan->rotAngle, td->ext->irotAxis,
 			//					   td->ext->irotAngle);
+			if (locks & OB_LOCK_ROT4D) {
+				if (locks & OB_LOCK_ROTW) pchan->rotAngle   = oldAngle;
+				if (locks & OB_LOCK_ROTX) pchan->rotAxis[0] = oldAxis[0];
+				if (locks & OB_LOCK_ROTX) pchan->rotAxis[1] = oldAxis[1];
+				if (locks & OB_LOCK_ROTX) pchan->rotAxis[2] = oldAxis[2];
+			}
+			else {
+				float eul[3], oldeul[3];
+				
+				axis_angle_to_eulO(eul, ROT_MODE_EUL, pchan->rotAxis, pchan->rotAngle);
+				axis_angle_to_eulO(oldeul, ROT_MODE_EUL, oldAxis, oldAngle);
+				
+				if (locks & OB_LOCK_ROTX) eul[0] = oldeul[0];
+				if (locks & OB_LOCK_ROTY) eul[1] = oldeul[1];
+				if (locks & OB_LOCK_ROTZ) eul[2] = oldeul[2];
+				
+				eulO_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, eul, ROT_MODE_EUL);
+			}
 		}
 		else {
 			float smat[3][3], fmat[3][3], totmat[3][3];
@@ -509,6 +549,10 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 			
 			/* and apply (to end result only) */
 			//protectedRotateBits(pchan->protectflag, eul, td->ext->irot);
+			if (locks & OB_LOCK_ROTX) eul[0] = pchan->eul[0];
+			if (locks & OB_LOCK_ROTY) eul[1] = pchan->eul[1];
+			if (locks & OB_LOCK_ROTZ) eul[2] = pchan->eul[2];
+			
 			copy_v3_v3(pchan->eul, eul);
 		}
 		
