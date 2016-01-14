@@ -1321,13 +1321,12 @@ static void psculpt_brush_apply_event(bContext *C, wmOperator *op, const wmEvent
 	PointerRNA itemptr;
 	float mouse[2];
 	
-	VECCOPY2D(mouse, event->mval);
-	
-	/* fill in stroke */
+	/* add a new entry in the stroke-elements collection */
 	RNA_collection_add(op->ptr, "stroke", &itemptr);
 	
+	/* fill in current mouse coordinates */
+	VECCOPY2D(mouse, event->mval);
 	RNA_float_set_array(&itemptr, "mouse", mouse);
-	RNA_boolean_set(&itemptr, "pen_flip", event->shift != false); // XXX hardcoded
 	
 	/* handle pressure sensitivity (which is supplied by tablets) */
 	if (event->tablet_data) {
@@ -1342,9 +1341,16 @@ static void psculpt_brush_apply_event(bContext *C, wmOperator *op, const wmEvent
 			pressure = 1.0f;
 		}		
 		RNA_float_set(&itemptr, "pressure", pressure);
+		
+		/* "pen_flip" is meant to be attached to the eraser */
+		if (wmtab->Active == EVT_TABLET_ERASER)
+			RNA_boolean_set(&itemptr, "pen_flip", event->shift == false);
+		else
+			RNA_boolean_set(&itemptr, "pen_flip", event->shift != false);
 	}
 	else {
 		RNA_float_set(&itemptr, "pressure", 1.0f);
+		RNA_boolean_set(&itemptr, "pen_flip", event->shift != false);
 	}
 	
 	/* apply */
