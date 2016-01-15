@@ -1127,8 +1127,9 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		RegionView3D *rv3d = CTX_wm_region_view3d(C);
 		float *rvec, zfac;
 		
-		int tot_steps = 1, step = 1;
-		float dmax;
+		tPSculptContext data = pso->data;
+		bool changed = false;
+		float mval[2];
 		
 		/* init view3D depth buffer stuff, used for finding bones to affect */
 		view3d_operator_needs_opengl(C);
@@ -1137,177 +1138,161 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		rvec = ED_view3d_cursor3d_get(scene, v3d);
 		zfac = ED_view3d_calc_zfac(rv3d, rvec, NULL);
 		
-		/* Calculate the distance each "step" (i.e. each sub-point on the linear path
-		 * between the distance travelled by the brush since the last evaluation step)
-		 * takes. Substeps are used to ensure a more consistent application along the
-		 * path taken by the brush.
-		 */
-		dmax = max_ff(fabs(dx), fabs(dy));
-		tot_steps = dmax / (0.2f * brush->size) + 1;
-		
-		dx /= (float)tot_steps;
-		dy /= (float)tot_steps;
-		
 		/* precompute object dependencies */
 		invert_m4_m4(ob->imat, ob->obmat);
 		
-		/* apply the brush for each brush step */
-		for (step = 1; step <= tot_steps; step++) {
-			tPSculptContext data = pso->data;
-			bool changed = false;
-			float mval[2];
 			
-			/* get mouse coordinates of step point */
-			mval[0] = pso->lastmouse[0] + step*dx;
-			mval[1] = pso->lastmouse[1] + step*dy;
 			
-			/* set generic mouse parameters */
-			data.mval = mval;
-			data.rad = (float)brush->size;
-			data.fac = brush->strength;
-			data.is_first = pso->is_first;
-			
-			/* apply brushes */
-			switch (pset->brushtype) {
-				case PSCULPT_BRUSH_DRAW:
-				{
-					float smat[3][3], totmat[3][3];
-					float mat[3][3], refmat[3][3];
-					float axis1[3], axis2[3];
-					float angles[2];
-					
-					/* Compute screenspace movements for trackball transform
-					 * Adapted from applyTrackball() in transform.c
-					 */
-					copy_v3_v3(axis1, rv3d->persinv[0]);
-					copy_v3_v3(axis2, rv3d->persinv[1]);
-					normalize_v3(axis1);
-					normalize_v3(axis2);
-					
-					/* From InputTrackBall() in transform_input.c */
-					angles[0] = pso->lastmouse[1] - mouse[1];
-					angles[1] = mouse[0] - pso->lastmouse[0];
-					
-					mul_v2_fl(angles, 0.01f); /* (mi->factor = 0.01f) */
-					
-					/* Adapted from applyTrackballValue() in transform.c */
-					axis_angle_normalized_to_mat3(smat, axis1, angles[0]);
-					axis_angle_normalized_to_mat3(totmat, axis2, angles[1]);
-					
-					mul_m3_m3m3(mat, smat, totmat);
-					
-					/* Adjust strength of effect */
-					unit_m3(refmat);
-					interp_m3_m3m3(data.rmat, refmat, mat, brush->strength);
-					
-					/* Apply trackball transform to bones... */
-					// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
-					changed = psculpt_brush_do_apply(pso, &data, brush_trackball, selected);
-					
-					break;
-				}
-					
-				case PSCULPT_BRUSH_SMOOTH:
-				{
-					// XXX: placeholder
-					changed = psculpt_brush_do_apply(pso, &data, brush_smooth, selected);
-					
-					break;
-				}
-					
-				case PSCULPT_BRUSH_GRAB:
-				{
-					float mval_f[2], vec[2];
-					
-					/* based on particle comb brush */
-					data.fac = (brush->strength - 0.5f) * 2.0f;
-					if (data.fac < 0.0f)
-						data.fac = 1.0f - 9.0f * data.fac;
-					else
-						data.fac = 1.0f - data.fac;
-					
-					mval_f[0] = dx;
-					mval_f[1] = dy;
-					ED_view3d_win_to_delta(ar, mval_f, vec, zfac);
-					data.dvec = vec;
-					
-					changed = psculpt_brush_do_apply(pso, &data, brush_grab, selected);
-					
-					break;
-				}
+		/* get mouse coordinates of step point */
+		mval[0] = mouse[0];
+		mval[1] = mouse[1];
+		
+		/* set generic mouse parameters */
+		data.mval = mval;
+		data.rad = (float)brush->size;
+		data.fac = brush->strength;
+		data.is_first = pso->is_first;
+		
+		/* apply brushes */
+		switch (pset->brushtype) {
+			case PSCULPT_BRUSH_DRAW:
+			{
+				float smat[3][3], totmat[3][3];
+				float mat[3][3], refmat[3][3];
+				float axis1[3], axis2[3];
+				float angles[2];
 				
-				case PSCULPT_BRUSH_CURL:
-				{
-					changed = psculpt_brush_do_apply(pso, &data, brush_curl, selected);
-					break;
-				}
-				
-				case PSCULPT_BRUSH_STRETCH:
-				{
-					changed = psculpt_brush_do_apply(pso, &data, brush_stretch, selected);
-					break;
-				}
-				
-				case PSCULPT_BRUSH_TWIST:
-				{
-					changed = psculpt_brush_do_apply(pso, &data, brush_twist, selected);
-					break;
-				}
-				
-				case PSCULPT_BRUSH_RADIAL:
-				{
-					// XXX: placeholder
-					changed = psculpt_brush_do_apply(pso, &data, brush_radial, selected);
-					
-					break;
-				}
-				
-				case PSCULPT_BRUSH_WRAP:
-				{
-					// XXX: placeholder
-					changed = psculpt_brush_do_apply(pso, &data, brush_wrap, selected);
-					
-					break;
-				}
-				
-				case PSCULPT_BRUSH_RESET:
-				{
-					changed = psculpt_brush_do_apply(pso, &data, brush_reset, selected);
-					break;
-				}
-				
-				case PSCULPT_BRUSH_SELECT:
-				{
-					bArmature *arm = (bArmature *)ob->data;
-					bool sel_changed = false;
-					
-					/* no need for recalc, unless some visualisation tools depend on this 
-					 * (i.e. mask modifier in 'armature' mode) 
-					 */
-					sel_changed = psculpt_brush_do_apply(pso, &data, brush_select_bone, selected);
-					changed = ((sel_changed) && (arm->flag & ARM_HAS_VIZ_DEPS));
-					
-					break;
-				}
-				
-				default:
-					printf("Pose Sculpt: Unknown brush type %d\n", pset->brushtype);
-					break;
-			}
-			
-			/* flush updates */
-			if (changed) {
-				bArmature *arm = (bArmature *)ob->data;
-				
-				/* old optimize trick... this enforces to bypass the depgraph 
-				 *	- note: code copied from transform_generics.c -> recalcData()
+				/* Compute screenspace movements for trackball transform
+				 * Adapted from applyTrackball() in transform.c
 				 */
-				// FIXME: shouldn't this use the builtin stuff?
-				if ((arm->flag & ARM_DELAYDEFORM) == 0)
-					DAG_id_tag_update(&ob->id, OB_RECALC_DATA);  /* sets recalc flags */
-				else
-					BKE_pose_where_is(scene, ob);
+				copy_v3_v3(axis1, rv3d->persinv[0]);
+				copy_v3_v3(axis2, rv3d->persinv[1]);
+				normalize_v3(axis1);
+				normalize_v3(axis2);
+				
+				/* From InputTrackBall() in transform_input.c */
+				angles[0] = pso->lastmouse[1] - mouse[1];
+				angles[1] = mouse[0] - pso->lastmouse[0];
+				
+				mul_v2_fl(angles, 0.01f); /* (mi->factor = 0.01f) */
+				
+				/* Adapted from applyTrackballValue() in transform.c */
+				axis_angle_normalized_to_mat3(smat, axis1, angles[0]);
+				axis_angle_normalized_to_mat3(totmat, axis2, angles[1]);
+				
+				mul_m3_m3m3(mat, smat, totmat);
+				
+				/* Adjust strength of effect */
+				unit_m3(refmat);
+				interp_m3_m3m3(data.rmat, refmat, mat, brush->strength);
+				
+				/* Apply trackball transform to bones... */
+				// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
+				changed = psculpt_brush_do_apply(pso, &data, brush_trackball, selected);
+				
+				break;
 			}
+				
+			case PSCULPT_BRUSH_SMOOTH:
+			{
+				// XXX: placeholder
+				changed = psculpt_brush_do_apply(pso, &data, brush_smooth, selected);
+				
+				break;
+			}
+				
+			case PSCULPT_BRUSH_GRAB:
+			{
+				float mval_f[2], vec[2];
+				
+				/* based on particle comb brush */
+				data.fac = (brush->strength - 0.5f) * 2.0f;
+				if (data.fac < 0.0f)
+					data.fac = 1.0f - 9.0f * data.fac;
+				else
+					data.fac = 1.0f - data.fac;
+				
+				mval_f[0] = dx;
+				mval_f[1] = dy;
+				ED_view3d_win_to_delta(ar, mval_f, vec, zfac);
+				data.dvec = vec;
+				
+				changed = psculpt_brush_do_apply(pso, &data, brush_grab, selected);
+				
+				break;
+			}
+			
+			case PSCULPT_BRUSH_CURL:
+			{
+				changed = psculpt_brush_do_apply(pso, &data, brush_curl, selected);
+				break;
+			}
+			
+			case PSCULPT_BRUSH_STRETCH:
+			{
+				changed = psculpt_brush_do_apply(pso, &data, brush_stretch, selected);
+				break;
+			}
+			
+			case PSCULPT_BRUSH_TWIST:
+			{
+				changed = psculpt_brush_do_apply(pso, &data, brush_twist, selected);
+				break;
+			}
+			
+			case PSCULPT_BRUSH_RADIAL:
+			{
+				// XXX: placeholder
+				changed = psculpt_brush_do_apply(pso, &data, brush_radial, selected);
+				
+				break;
+			}
+			
+			case PSCULPT_BRUSH_WRAP:
+			{
+				// XXX: placeholder
+				changed = psculpt_brush_do_apply(pso, &data, brush_wrap, selected);
+				
+				break;
+			}
+			
+			case PSCULPT_BRUSH_RESET:
+			{
+				changed = psculpt_brush_do_apply(pso, &data, brush_reset, selected);
+				break;
+			}
+			
+			case PSCULPT_BRUSH_SELECT:
+			{
+				bArmature *arm = (bArmature *)ob->data;
+				bool sel_changed = false;
+				
+				/* no need for recalc, unless some visualisation tools depend on this 
+				 * (i.e. mask modifier in 'armature' mode) 
+				 */
+				sel_changed = psculpt_brush_do_apply(pso, &data, brush_select_bone, selected);
+				changed = ((sel_changed) && (arm->flag & ARM_HAS_VIZ_DEPS));
+				
+				break;
+			}
+			
+			default:
+				printf("Pose Sculpt: Unknown brush type %d\n", pset->brushtype);
+				break;
+		}
+		
+		/* flush updates */
+		if (changed) {
+			bArmature *arm = (bArmature *)ob->data;
+			
+			/* old optimize trick... this enforces to bypass the depgraph 
+			 *	- note: code copied from transform_generics.c -> recalcData()
+			 */
+			// FIXME: shouldn't this use the builtin stuff?
+			if ((arm->flag & ARM_DELAYDEFORM) == 0)
+				DAG_id_tag_update(&ob->id, OB_RECALC_DATA);  /* sets recalc flags */
+			else
+				BKE_pose_where_is(scene, ob);
 		}
 		
 		/* cleanup and send updates */
