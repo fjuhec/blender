@@ -189,7 +189,7 @@ typedef struct tPSculptContext {
 	float fac;					/* brush strength (factor 0-1) */
 	
 	short invert;				/* "subtract" mode? */
-	short first;				/* first run through? */
+	bool  is_first;				/* first run through? */
 	
 	/* Brush Specific Data */
 	float *dvec;				/* mouse travel vector, or something else */
@@ -215,8 +215,8 @@ typedef struct tPoseSculptingOp {
 	Object *ob;
 	
 	float lastmouse[2];			/* previous mouse position */
-	short first;				/* is this the first time we're applying anything? */
-	short timerTick;			/* is the current event being processed due to a timer tick? */
+	bool is_first;				/* is this the first time we're applying anything? */
+	bool is_timer_tick;			/* is the current event being processed due to a timer tick? */
 	
 	wmTimer *timer;				/* timer for in-place accumulation of brush effect */
 	
@@ -732,7 +732,7 @@ static void brush_grab(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 	if (data->invert) fac = -fac;
 	
 	if (brush->flag & PSCULPT_BRUSH_FLAG_GRAB_INITIAL) {
-		tAffectedBone *tab = verify_bone_is_affected(pso, data, pchan, data->first);
+		tAffectedBone *tab = verify_bone_is_affected(pso, data, pchan, data->is_first);
 		
 		/* if one couldn't be found or added, then it didn't exist the first time round,
 		 * so we shouldn't proceed (to avoid clobbering additional bones)
@@ -740,7 +740,7 @@ static void brush_grab(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 		if (tab == NULL) {
 			return;
 		}
-		else if (data->first) {
+		else if (data->is_first) {
 			/* store factor for later */
 			tab->fac = fac;
 		}
@@ -949,7 +949,7 @@ static int psculpt_brush_init(bContext *C, wmOperator *op)
 	pso = MEM_callocN(sizeof(tPoseSculptingOp), "tPoseSculptingOp");
 	op->customdata = pso;
 	
-	pso->first = true;
+	pso->is_first = true;
 	
 	pso->scene = scene;
 	pso->ob = ob;
@@ -957,7 +957,6 @@ static int psculpt_brush_init(bContext *C, wmOperator *op)
 	pso->affected_bones = BLI_ghash_new(BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, "psculpt affected bones gh");
 	
 	/* ensure that object's inverse matrix is set and valid */
-	// XXX: this should generally be valid...
 	invert_m4_m4(ob->imat, ob->obmat);
 	
 	/* setup callback data */
@@ -968,7 +967,7 @@ static int psculpt_brush_init(bContext *C, wmOperator *op)
 	data->invert = (brush && (brush->flag & PSCULPT_BRUSH_FLAG_INV)) || 
 	                (RNA_boolean_get(op->ptr, "invert"));
 				  
-	data->first = true;
+	data->is_first = true;
 	
 	/* setup cursor and header drawing */
 	ED_area_headerprint(CTX_wm_area(C), IFACE_("Pose Sculpting in progress..."));
@@ -1008,7 +1007,7 @@ static void psculpt_brush_exit(bContext *C, wmOperator *op)
 /* Apply brush callback on bones which fall within the brush region 
  * Based on method pose_circle_select() in view3d_select.c
  */
-static short psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data, PSculptBrushCallback brush_cb, short selected)
+static short psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data, PSculptBrushCallback brush_cb, bool selected)
 {
 	PSculptSettings *pset = psculpt_settings(pso->scene);
 	ViewContext *vc = &data->vc;
@@ -1064,7 +1063,7 @@ static short psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data
 		}
 		/* alternatively, check if this is already in the cache for a brush that just wants to affect those initially captured */
 		else if ((data->brush->flag & PSCULPT_BRUSH_FLAG_GRAB_INITIAL) && 
-				 (data->first == false) && 
+				 (data->is_first == false) && 
 				 (verify_bone_is_affected(pso, data, pchan, false) != NULL))
 		{
 			ok = true;
@@ -1112,7 +1111,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		pso->data.invert = true;
 	
 	/* store coordinates as reference, if operator just started running */
-	if (pso->first) {
+	if (pso->is_first) {
 		pso->lastmouse[0] = mouse[0];
 		pso->lastmouse[1] = mouse[1];
 	}
@@ -1122,7 +1121,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 	dy = mouse[1] - pso->lastmouse[1];
 	
 	/* only apply brush if mouse moved, or if this is the first run, or if the timer ticked */
-	if (((dx != 0.0f) || (dy != 0.0f)) || (pso->first) || (pso->timerTick)) 
+	if (((dx != 0.0f) || (dy != 0.0f)) || (pso->is_first) || (pso->is_timer_tick)) 
 	{
 		PSculptSettings *pset = psculpt_settings(scene);
 		PSculptBrushData *brush = psculpt_get_brush(scene);
@@ -1170,7 +1169,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			data.mval = mval;
 			data.rad = (float)brush->size;
 			data.fac = brush->strength;
-			data.first = pso->first;
+			data.is_first = pso->is_first;
 			
 			/* apply brushes */
 			switch (pset->brushtype) {
@@ -1313,7 +1312,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		
 		pso->lastmouse[0] = mouse[0];
 		pso->lastmouse[1] = mouse[1];
-		pso->first = false;
+		pso->is_first = false;
 	}
 }
 
@@ -1425,9 +1424,9 @@ static int psculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *event
 		/* timer tick - only if this was our own timer */
 		case TIMER:
 			if (event->customdata == pso->timer) {
-				pso->timerTick = true;
+				pso->is_timer_tick = true;
 				psculpt_brush_apply_event(C, op, event);
-				pso->timerTick = false;
+				pso->is_timer_tick = false;
 			}
 			break;
 			
@@ -1462,7 +1461,7 @@ void POSE_OT_brush_paint(wmOperatorType *ot)
 
 	/* properties */
 	RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
-	RNA_def_boolean(ot->srna, "invert", 0, "Invert Brush Action", "Override brush direction to apply inverse operation");
+	RNA_def_boolean(ot->srna, "invert", false, "Invert Brush Action", "Override brush direction to apply inverse operation");
 }
 
 /* ******************************************************** */
