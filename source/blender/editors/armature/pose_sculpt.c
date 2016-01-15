@@ -99,26 +99,18 @@ PSculptBrushData *psculpt_get_brush(Scene *scene)
 
 /* ******************************************************** */
 /* Polling Callbacks */
-// TODO: amalgamate these...
 
 int psculpt_poll(bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
 	
-	if (ELEM(NULL, scene, ob))
-		return false;
-	
-	/* we only need to be in pose mode... */
-	return ((ob->pose) && (ob->mode & OB_MODE_POSE));
-}
-
-int psculpt_poll_view3d(bContext *C)
-{
 	ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
 	
-	return ((psculpt_poll(C)) && (sa->spacetype == SPACE_VIEW3D) &&
+	return ((scene && ob) &&
+			((ob->pose) && (ob->mode & OB_MODE_POSE)) && 
+			(sa->spacetype == SPACE_VIEW3D) &&
 			(ar->regiontype == RGN_TYPE_WINDOW));
 }
 
@@ -162,7 +154,7 @@ static void psculpt_toggle_cursor(bContext *C, bool enable)
 	else if (enable) {
 		/* enable cursor */
 		pset->paintcursor = WM_paint_cursor_activate(CTX_wm_manager(C), 
-		                                             psculpt_poll_view3d, 
+		                                             psculpt_poll, 
 		                                             brush_drawcursor, NULL);
 	}
 }
@@ -1458,7 +1450,7 @@ void POSE_OT_brush_paint(wmOperatorType *ot)
 	ot->invoke = psculpt_brush_invoke;
 	ot->modal = psculpt_brush_modal;
 	ot->cancel = psculpt_brush_exit;
-	ot->poll = psculpt_poll_view3d;
+	ot->poll = psculpt_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
