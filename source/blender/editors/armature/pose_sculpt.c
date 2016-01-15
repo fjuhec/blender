@@ -1209,7 +1209,9 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 					
 				case PSCULPT_BRUSH_SMOOTH:
 				{
-				
+					// XXX: placeholder
+					changed = psculpt_brush_do_apply(pso, &data, brush_smooth, selected);
+					
 					break;
 				}
 					
@@ -1233,43 +1235,47 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 					
 					break;
 				}
-					
+				
 				case PSCULPT_BRUSH_CURL:
 				{
 					changed = psculpt_brush_do_apply(pso, &data, brush_curl, selected);
 					break;
 				}
-					
+				
 				case PSCULPT_BRUSH_STRETCH:
 				{
 					changed = psculpt_brush_do_apply(pso, &data, brush_stretch, selected);
 					break;
 				}
-					
+				
 				case PSCULPT_BRUSH_TWIST:
 				{
 					changed = psculpt_brush_do_apply(pso, &data, brush_twist, selected);
 					break;
 				}
-					
+				
 				case PSCULPT_BRUSH_RADIAL:
 				{
-				
+					// XXX: placeholder
+					changed = psculpt_brush_do_apply(pso, &data, brush_radial, selected);
+					
 					break;
 				}
-					
+				
 				case PSCULPT_BRUSH_WRAP:
 				{
-				
+					// XXX: placeholder
+					changed = psculpt_brush_do_apply(pso, &data, brush_wrap, selected);
+					
 					break;
 				}
-					
+				
 				case PSCULPT_BRUSH_RESET:
 				{
 					changed = psculpt_brush_do_apply(pso, &data, brush_reset, selected);
 					break;
 				}
-					
+				
 				case PSCULPT_BRUSH_SELECT:
 				{
 					bArmature *arm = (bArmature *)ob->data;
@@ -1283,9 +1289,10 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 					
 					break;
 				}
-					
+				
 				default:
 					printf("Pose Sculpt: Unknown brush type %d\n", pset->brushtype);
+					break;
 			}
 			
 			/* flush updates */
