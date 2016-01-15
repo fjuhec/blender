@@ -556,6 +556,8 @@ static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat
 
 /* ........................................................ */
 
+#if 0  // XXX: Old, slightly buggy code
+
 /* convert pose-space joints of PoseChannel to loc/rot/scale components 
  * <> pchan: (bPoseChannel) pose channel that we're working on
  * < dvec: (vector) vector indicating direction of bone desired
@@ -664,6 +666,8 @@ static void apply_pchan_joints(bPoseChannel *pchan, float dvec[3])
 		BKE_pchan_apply_mat4(pchan, poseDeltaMat, true);
 	}
 }
+
+#endif // XXX: end of old, buggy and unused code
 
 /* ........................................................ */
 

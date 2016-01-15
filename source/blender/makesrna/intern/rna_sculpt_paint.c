@@ -1176,12 +1176,6 @@ static void rna_def_pose_sculpt(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PSCULPT_BRUSH_FLAG_GRAB_INITIAL);
 	RNA_def_property_ui_text(prop, "Initial Bones Only", "Only affect the bones within the brush when the stroke was initiated");
 	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update");
-	
-	/* dummy */
-	prop = RNA_def_property(srna, "curve", PROP_POINTER, PROP_NONE);
-	RNA_def_property_struct_type(prop, "CurveMapping");
-	RNA_def_property_pointer_funcs(prop, "rna_PSculptBrush_curve_get", NULL, NULL, NULL);
-	RNA_def_property_ui_text(prop, "Curve", "");
 }
 
 void RNA_def_sculpt_paint(BlenderRNA *brna)
