@@ -1209,6 +1209,78 @@ static void do_weight_paint_normalize_all(MDeformVert *dvert, const int defbase_
 	}
 }
 
+/**
+ * A version of #do_weight_paint_normalize_all that includes locked weights
+ * but only changes unlocked weights.
+ */
+static void do_weight_paint_normalize_all_locked(
+        MDeformVert *dvert, const int defbase_tot, const bool *vgroup_validmap,
+        const bool *lock_flags)
+{
+	float sum = 0.0f, fac;
+	float sum_unlock = 0.0f;
+	float lock_weight = 0.0f;
+	unsigned int i, tot = 0;
+	MDeformWeight *dw;
+
+
+	for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+		if (dw->def_nr < defbase_tot && vgroup_validmap[dw->def_nr]) {
+			sum += dw->weight;
+
+			if (lock_flags[dw->def_nr]) {
+				lock_weight += dw->weight;
+			}
+			else {
+				tot++;
+				sum_unlock += dw->weight;
+			}
+		}
+	}
+
+	if ((tot == 0) || (sum == 1.0f)) {
+		return;
+	}
+
+	if (lock_weight >= 1.0f) {
+		for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+			if (dw->def_nr < defbase_tot && vgroup_validmap[dw->def_nr]) {
+				if (lock_flags[dw->def_nr] == false) {
+					dw->weight = 0.0f;
+				}
+			}
+		}
+
+	}
+	else if (sum_unlock != 0.0f) {
+		fac = (1.0f - lock_weight) / sum;
+
+		for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+			if (dw->def_nr < defbase_tot && vgroup_validmap[dw->def_nr]) {
+				if (lock_flags[dw->def_nr] == false) {
+					dw->weight *= fac;
+					/* paranoid but possibly with float error */
+					CLAMP(dw->weight, 0.0f, 1.0f);
+				}
+			}
+		}
+	}
+	else {
+		/* hrmf, not a factor in this case */
+		fac = (1.0f - lock_weight) / tot;
+		/* paranoid but possibly with float error */
+		CLAMP(fac, 0.0f, 1.0f);
+
+		for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
+			if (dw->def_nr < defbase_tot && vgroup_validmap[dw->def_nr]) {
+				if (lock_flags[dw->def_nr] == false) {
+					dw->weight = fac;
+				}
+			}
+		}
+	}
+}
+
 /* same as function above except it normalizes against the active vgroup which remains unchanged
  *
  * note that the active is just the group which is unchanged, it can be any,
@@ -1238,7 +1310,7 @@ static void do_weight_paint_normalize_all_active(MDeformVert *dvert, const int d
 	}
 
 	if (sum != 0.0f) {
-		fac = (1.0f / sum) * (1.0f - act_weight);
+		fac = (1.0f - act_weight) / sum;
 
 		for (i = dvert->totweight, dw = dvert->dw; i != 0; i--, dw++) {
 			if (dw->def_nr < defbase_tot && vgroup_validmap[dw->def_nr]) {
@@ -1391,7 +1463,7 @@ static float redistribute_change(MDeformVert *ndv, const int defbase_tot,
 						total_valid--;
 					}
 					else if (ndw->weight + change < 0) { /* check the lower bound */
-						totchange -= ndw->weight;
+						totchange += ndw->weight;
 						ndw->weight = 0;
 						change_status[ndw->def_nr] = changeto;
 						total_valid--;
@@ -1641,7 +1713,12 @@ static int apply_mp_locks_normalize(Mesh *me, const WeightPaintInfo *wpi,
 
 	if (wpi->do_auto_normalize) {
 		/* XXX - should we pass the active group? - currently '-1' */
-		do_weight_paint_normalize_all(dv, wpi->defbase_tot, wpi->vgroup_validmap);
+		if (wpi->lock_flags) {
+			do_weight_paint_normalize_all_locked(dv, wpi->defbase_tot, wpi->vgroup_validmap, wpi->lock_flags);
+		}
+		else {
+			do_weight_paint_normalize_all(dv, wpi->defbase_tot, wpi->vgroup_validmap);
+		}
 	}
 
 	if (oldChange && wpi->do_multipaint && wpi->defbase_tot_sel > 1) {
@@ -1699,8 +1776,6 @@ static void do_weight_paint_vertex(
 
 	MDeformVert *dv_mirr;
 	MDeformWeight *dw_mirr;
-
-	const short do_multipaint_totsel = (wpi->do_multipaint && wpi->defbase_tot_sel > 1);
 
 	if (wp->flag & VP_ONLYVGROUP) {
 		dw = defvert_find_index(dv, wpi->vgroup_active);
@@ -1765,15 +1840,15 @@ static void do_weight_paint_vertex(
 		dw_mirr = NULL;
 	}
 
-
-	/* TODO: De-duplicate the simple weight paint - jason */
-	/* ... or not, since its <10 SLOC - campbell */
-
-	/* If there are no locks or multipaint,
+	/* If there are no normalize-locks or multipaint,
 	 * then there is no need to run the more complicated checks */
-	if ((do_multipaint_totsel == false) &&
-	    (wpi->lock_flags == NULL || has_locked_group(dv, wpi->defbase_tot, wpi->vgroup_validmap, wpi->lock_flags) == false))
-	{
+	const bool do_multipaint_totsel =
+	        (wpi->do_multipaint && wpi->defbase_tot_sel > 1);
+	const bool do_locked_normalize  =
+	        (wpi->do_auto_normalize && wpi->lock_flags &&
+	         has_locked_group(dv, wpi->defbase_tot, wpi->vgroup_validmap, wpi->lock_flags));
+
+	if ((do_multipaint_totsel || do_locked_normalize) == false) {
 		dw->weight = wpaint_blend(wp, dw->weight, dw_prev->weight, alpha, paintweight,
 		                          wpi->brush_alpha_value, wpi->do_flip, false);
 
@@ -2106,11 +2181,16 @@ static bool wpaint_ensure_data(
 		return false;
 	}
 
-	vgroup_index->active = ob->actdef - 1;
+	if (vgroup_index) {
+		vgroup_index->active = ob->actdef - 1;
+	}
 
 	if (flag & WPAINT_ENSURE_MIRROR) {
 		if (me->editflag & ME_EDIT_MIRROR_X) {
-			vgroup_index->mirror = wpaint_mirror_vgroup_ensure(ob, vgroup_index->active);
+			int mirror = wpaint_mirror_vgroup_ensure(ob, ob->actdef - 1);
+			if (vgroup_index) {
+				vgroup_index->mirror = mirror;
+			}
 		}
 	}
 
