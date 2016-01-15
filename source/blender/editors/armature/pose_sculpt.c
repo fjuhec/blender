@@ -706,7 +706,7 @@ static void brush_grab(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 	float fac;
 	
 	/* strength of push */
-	fac = (float)pow((double)(1.0f - data->dist / data->rad), (double)data->fac);
+	fac = fabsf(1.0f - data->dist / data->rad) * data->fac;
 	if (data->invert) fac = -fac;
 	
 	if (brush->flag & PSCULPT_BRUSH_FLAG_GRAB_INITIAL) {
@@ -722,18 +722,13 @@ static void brush_grab(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 			/* store factor for later */
 			tab->fac = fac;
 		}
-		else if (1 /* brush->flag & PSCULPT_BRUSH_FLAG_NO_FALLOFF */) {
-			/* don't use falloff - better for chains */
-			fac = 1.0f;
-		}
 		else {
-			/* reuse initial factor */
-			fac = tab->fac;
+			/* don't use falloff - works better for chains */
+			fac = 1.0f;
 		}
 	}
 	
 	/* compute inverse matrix to convert from screen-space to bone space */
-	//mult_m4_m4m4(mat, data->ob->obmat, pchan->bone->arm_mat); original function, pre math cleanup
 	mul_m4_m4m4(mat, data->ob->obmat, pchan->bone->arm_mat);
 	invert_m4_m4(imat, mat);
 	
@@ -1186,13 +1181,6 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			case PSCULPT_BRUSH_GRAB:
 			{
 				float mval_f[2], vec[2];
-				
-				/* based on particle comb brush */
-				data.fac = (brush->strength - 0.5f) * 2.0f;
-				if (data.fac < 0.0f)
-					data.fac = 1.0f - 9.0f * data.fac;
-				else
-					data.fac = 1.0f - data.fac;
 				
 				mval_f[0] = dx;
 				mval_f[1] = dy;
