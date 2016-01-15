@@ -237,24 +237,6 @@ static void psculpt_init_view3d_data(bContext *C, tPSculptContext *data)
 	
 	/* hook up 3D View context */
 	view3d_set_viewcontext(C, &data->vc);
-	
-#if 0
-	/* note, the object argument means the modelview matrix does not account for the objects matrix, use viewmat rather than (obmat * viewmat) */
-	view3d_get_transformation(data->vc.ar, data->vc.rv3d, NULL, &data->mats);
-
-	if ((data->vc.v3d->drawtype>OB_WIRE) && (data->vc.v3d->flag & V3D_ZBUF_SELECT)) {
-		if (data->vc.v3d->flag & V3D_INVALID_BACKBUF) {
-			/* needed or else the draw matrix can be incorrect */
-			view3d_operator_needs_opengl(C);
-			
-			view3d_validate_backbuf(&data->vc);
-			/* we may need to force an update here by setting the rv3d as dirty
-			 * for now it seems ok, but take care!:
-			 * rv3d->depths->dirty = 1; */
-			ED_view3d_depth_update(data->vc.ar);
-		}
-	}
-#endif
 }
 
 /* Brush Utilities ---------------------------------------- */
