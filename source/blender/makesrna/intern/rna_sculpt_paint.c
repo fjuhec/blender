@@ -1084,18 +1084,21 @@ static void rna_def_pose_sculpt(BlenderRNA *brna)
 	static EnumPropertyItem pose_sculpt_brush_items[] = {
 		{0, "", 0, "Draw:", ""},
 		{PSCULPT_BRUSH_DRAW, "DRAW", 0, "Draw", "Easily sculpt bones into place by drawing over the rig"},
-		{PSCULPT_BRUSH_SMOOTH, "SMOOTH", 0, "Smooth", "Reduce differences between bones"},
+		{PSCULPT_BRUSH_ADJUST, "ADJUST", 0, "Adjust", "Make small adjustments to the pose using a trackball-like tool"},
+		{PSCULPT_BRUSH_SMOOTH, "SMOOTH", 0, "Smooth", "Reduce orientation differences between bones"},
 		
 		{0, "", 0, "Transform:", ""},
 		{PSCULPT_BRUSH_GRAB, "GRAB", 0, "Grab", "Move bones around as if affected by a force"},
 		{PSCULPT_BRUSH_CURL, "CURL", 0, "Curl", "Rotate all bones along some local axis (e.g. finger curling)"},
-		{PSCULPT_BRUSH_TWIST, "TWIST", 0, "Twist", "Scale bones length-wise"},
+		{PSCULPT_BRUSH_TWIST, "TWIST", 0, "Twist", "Roll bones along their main axis"},
 		{PSCULPT_BRUSH_STRETCH, "STRETCH", 0, "Stretch", "Scale bones length-wise"},
-		
+	
+#if 0	
 		{0, "", 0, "Distribute:", ""},
 		{PSCULPT_BRUSH_RADIAL, "RADIAL", 0, "Radial Spread", "Distribute child bones in a radial manner"},
 		{PSCULPT_BRUSH_WRAP, "WRAP", 0, "Wrap", "Snap bones to lie on the nearest surface"},
-		
+#endif		
+	
 		{0, "", 0, "Utils:", ""},
 		{PSCULPT_BRUSH_RESET, "RESET", 0, "Reset", "Clear/reset transforms"},
 		{PSCULPT_BRUSH_SELECT, "SELECT", 0, "Select", "Brush-select bones to mask affected area"}, // TODO: rename define

@@ -2090,20 +2090,22 @@ typedef enum eGPencil_Placement_Flags {
 
 /* toolsetting->psculpt brushtype */
 typedef enum ePSculptBrushType {
-	PSCULPT_BRUSH_DRAW      = 0, 
-	PSCULPT_BRUSH_SMOOTH    = 1,
-	PSCULPT_BRUSH_GRAB      = 2,
-	PSCULPT_BRUSH_CURL      = 3,
-	PSCULPT_BRUSH_STRETCH   = 4,
-	PSCULPT_BRUSH_TWIST     = 5,
-	PSCULPT_BRUSH_RADIAL    = 6,
-	PSCULPT_BRUSH_WRAP      = 7,
-	PSCULPT_BRUSH_RESET     = 8,
-	PSCULPT_BRUSH_SELECT    = 9 /* XXX */
+	PSCULPT_BRUSH_DRAW      = 0,
+	PSCULPT_BRUSH_ADJUST    = 1,
+	PSCULPT_BRUSH_SMOOTH    = 2,
+	PSCULPT_BRUSH_GRAB      = 3,
+	PSCULPT_BRUSH_CURL      = 4,
+	PSCULPT_BRUSH_STRETCH   = 5,
+	PSCULPT_BRUSH_TWIST     = 6,
+	PSCULPT_BRUSH_RESET     = 7,
+	PSCULPT_BRUSH_SELECT    = 8,
+	PSCULPT_BRUSH_RADIAL    = 9,
+	PSCULPT_BRUSH_WRAP      = 10,
+	
+	/* this must equal PSculptSetitngs.brush array size */
+	PSCULPT_TOT_BRUSH       = 11
 } ePSculptBrushType;
 
-/* this must equal PSculptSetitngs.brush array size */
-#define PSCULPT_TOT_BRUSH	10
 
 /* PSculptBrushData.flag */
 typedef enum ePSculptBrush_Flag {

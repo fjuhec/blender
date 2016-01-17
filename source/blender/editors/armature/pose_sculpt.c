@@ -309,13 +309,13 @@ static void set_pchan_eul_rotation(const float eul[3], bPoseChannel *pchan)
 #define TD_PBONE_LOCAL_MTX_C  (1 << 0)
 #define TD_PBONE_LOCAL_MTX_P  (1 << 1)
 
-/* Perform trackball rotation on the given bone
+/* Apply given rotation on the given bone
  *
  * Adapted from the transform system code for trackball rotations
  *  - Main method adapted from the T_POSE case for ElementRotation() in transform.c
  *  - All transform/setup math adapted from bPoseChannel -> TransData stuff in transform_conversions.c
  */
-static void pchan_do_trackball_rotate(Object *ob, bPoseChannel *pchan, float mat[3][3])
+static void pchan_do_rotate(Object *ob, bPoseChannel *pchan, float mat[3][3])
 {
 	float mtx[3][3], smtx[3][3], r_mtx[3][3], r_smtx[3][3], l_smtx[3][3];
 	//float center[3] = {0}, td_center[3] = {0};
@@ -684,11 +684,11 @@ static void brush_select_bone(tPoseSculptingOp *pso, tPSculptContext *data, bPos
 	}
 }
 
-/* "Trackball" Brush */
+/* "Adjust" Brush - i.e. a simple trackball transform */
 // TODO: on root bones, don't do trackball... do grab instead?
-static void brush_trackball(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void brush_adjust(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
-	pchan_do_trackball_rotate(data->ob, pchan, data->rmat);
+	pchan_do_rotate(data->ob, pchan, data->rmat);
 }
 
 /* "smooth" brush */
@@ -1134,7 +1134,8 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		
 		/* apply brushes */
 		switch (pset->brushtype) {
-			case PSCULPT_BRUSH_DRAW:
+			case PSCULPT_BRUSH_DRAW: // XXX: placeholder... we need a proper "draw" brush
+			case PSCULPT_BRUSH_ADJUST:
 			{
 				float smat[3][3], totmat[3][3];
 				float mat[3][3], refmat[3][3];
@@ -1167,7 +1168,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 				
 				/* Apply trackball transform to bones... */
 				// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
-				changed = psculpt_brush_do_apply(pso, &data, brush_trackball, selected);
+				changed = psculpt_brush_do_apply(pso, &data, brush_adjust, selected);
 				
 				break;
 			}
