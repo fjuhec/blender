@@ -859,38 +859,40 @@ static void brush_stretch(tPoseSculptingOp *pso, tPSculptContext *data, bPoseCha
 }
 
 /* clear transforms */
-static void brush_reset(tPoseSculptingOp *UNUSED(pso), tPSculptContext *UNUSED(data), bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void brush_reset(tPoseSculptingOp *UNUSED(pso), tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
-	short locks = pchan->protectflag;
+	const short locks = pchan->protectflag;
+	const float fac = data->fac;
 	float eul[3] = {0.0f};
 	
 	/* location locks */
 	if ((locks & OB_LOCK_LOCX) == 0)
-		pchan->loc[0] = 0.0f;
+		pchan->loc[0] = interpf(0.0f, pchan->loc[0], fac);
 	if ((locks & OB_LOCK_LOCY) == 0)
-		pchan->loc[1] = 0.0f;
+		pchan->loc[1] = interpf(0.0f, pchan->loc[1], fac);
 	if ((locks & OB_LOCK_LOCZ) == 0)
-		pchan->loc[2] = 0.0f;
+		pchan->loc[2] = interpf(0.0f, pchan->loc[2], fac);
 		
 	/* rotation locks */
 	if (get_pchan_eul_rotation(eul, NULL, pchan)) {
 		if ((locks & OB_LOCK_ROTX) == 0)
-			eul[0] = 0.0f;
+			eul[0] = interpf(0.0f, eul[0], fac);
 		if ((locks & OB_LOCK_ROTY) == 0)
-			eul[1] = 0.0f;
+			eul[1] = interpf(0.0f, eul[1], fac);
 		if ((locks & OB_LOCK_ROTZ) == 0)
-			eul[2] = 0.0f;
-			
+			eul[2] = interpf(0.0f, eul[2], fac);
+		
+		// do compat euler?
 		set_pchan_eul_rotation(eul, pchan);
 	}
 	
 	/* scaling locks */
 	if ((locks & OB_LOCK_SCALEX) == 0)
-		pchan->size[0] = 1.0f;
+		pchan->size[0] = interpf(1.0f, pchan->size[0], fac);
 	if ((locks & OB_LOCK_SCALEY) == 0)
-		pchan->size[1] = 1.0f;
+		pchan->size[1] = interpf(1.0f, pchan->size[1], fac);
 	if ((locks & OB_LOCK_SCALEZ) == 0)
-		pchan->size[2] = 1.0f;
+		pchan->size[2] = interpf(1.0f, pchan->size[2], fac);
 }
 
 /* "radial" brush */

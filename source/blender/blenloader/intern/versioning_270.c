@@ -1074,6 +1074,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 				pset->brush[PSCULPT_BRUSH_CURL].strength = 0.25f;
 				pset->brush[PSCULPT_BRUSH_TWIST].strength = 0.25f;
+				pset->brush[PSCULPT_BRUSH_RESET].strength = 1.0f;
 				pset->brush[PSCULPT_BRUSH_CURL].xzMode = PSCULPT_BRUSH_DO_X;
 				pset->brush[PSCULPT_BRUSH_GRAB].flag |= PSCULPT_BRUSH_FLAG_GRAB_INITIAL;
 			}
