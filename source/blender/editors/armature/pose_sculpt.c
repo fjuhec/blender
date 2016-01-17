@@ -1092,8 +1092,8 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 	}
 	
 	/* get distance moved */
-	dx = mouse[0] - pso->lastmouse[0];
-	dy = mouse[1] - pso->lastmouse[1];
+	dx = (float)(mouse[0] - pso->lastmouse[0]);
+	dy = (float)(mouse[1] - pso->lastmouse[1]);
 	
 	/* only apply brush if mouse moved, or if this is the first run, or if the timer ticked */
 	if (((dx != 0.0f) || (dy != 0.0f)) || (pso->is_first) || (pso->is_timer_tick)) 
@@ -1108,7 +1108,6 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		
 		tPSculptContext data = pso->data;
 		bool changed = false;
-		float mval[2];
 		
 		/* init view3D depth buffer stuff, used for finding bones to affect */
 		view3d_operator_needs_opengl(C);
@@ -1120,14 +1119,8 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		/* precompute object dependencies */
 		invert_m4_m4(ob->imat, ob->obmat);
 		
-			
-			
-		/* get mouse coordinates of step point */
-		mval[0] = mouse[0];
-		mval[1] = mouse[1];
-		
 		/* set generic mouse parameters */
-		data.mval = mval;
+		data.mval = mousef;
 		data.rad = (float)brush->size;
 		data.fac = brush->strength;
 		data.is_first = pso->is_first;
@@ -1151,8 +1144,8 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 				normalize_v3(axis2);
 				
 				/* From InputTrackBall() in transform_input.c */
-				angles[0] = pso->lastmouse[1] - mouse[1];
-				angles[1] = mouse[0] - pso->lastmouse[0];
+				angles[0] = (float)(pso->lastmouse[1] - mouse[1]);
+				angles[1] = (float)(mouse[0] - pso->lastmouse[0]);
 				
 				mul_v2_fl(angles, 0.01f); /* (mi->factor = 0.01f) */
 				
@@ -1183,11 +1176,10 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 				
 			case PSCULPT_BRUSH_GRAB:
 			{
-				float mval_f[2], vec[2];
+				float delta[2] = {dx, dy};
+				float vec[2] = {0.0f};
 				
-				mval_f[0] = dx;
-				mval_f[1] = dy;
-				ED_view3d_win_to_delta(ar, mval_f, vec, zfac);
+				ED_view3d_win_to_delta(ar, delta, vec, zfac);
 				data.dvec = vec;
 				
 				changed = psculpt_brush_do_apply(pso, &data, brush_grab, selected);
