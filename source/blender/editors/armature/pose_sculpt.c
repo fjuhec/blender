@@ -184,7 +184,7 @@ typedef struct tPSculptContext {
 	bool  is_first;				/* first run through? */
 	
 	/* Brush Specific Data */
-	float *dvec;				/* mouse travel vector, or something else */
+	float dvec[3];				/* mouse travel vector, or something else */
 	float rmat[3][3];			/* rotation matrix to apply to all bones (e.g. trackball) */
 } tPSculptContext;
 
@@ -667,7 +667,6 @@ static tAffectedBone *verify_bone_is_affected(tPoseSculptingOp *pso, tPSculptCon
 /* free affected bone temp data */
 static void free_affected_bone(void *tab_p)
 {
-	// just a wrapper around this for now
 	MEM_freeN(tab_p);
 }
 
@@ -684,20 +683,17 @@ static void psculpt_brush_select_apply(tPoseSculptingOp *pso, tPSculptContext *d
 	}
 }
 
-/* "Adjust" Brush - i.e. a simple trackball transform */
-// TODO: on root bones, don't do trackball... do grab instead?
-static void psculpt_brush_adjust_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
-{
-	pchan_do_rotate(data->ob, pchan, data->rmat);
-}
+/* .......................... */
 
-/* "smooth" brush */
+/* "Smooth" brush */
 static void psculpt_brush_smooth_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float sco1[2], float sco2[2])
 {
 	
 }
 
-/* "grab" brush */
+/* .......................... */
+
+/* "Grab" brush - Translate bone */
 static void psculpt_brush_grab_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	PSculptBrushData *brush = data->brush;
@@ -752,7 +748,18 @@ static void psculpt_brush_grab_apply(tPoseSculptingOp *pso, tPSculptContext *dat
 	add_v3_v3(pchan->loc, cvec);
 }
 
-/* "curl" brush */
+/* .......................... */
+
+/* "Adjust" Brush - i.e. a simple trackball transform */
+// TODO: on root bones, don't do trackball... do grab instead?
+static void psculpt_brush_adjust_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+{
+	pchan_do_rotate(data->ob, pchan, data->rmat);
+}
+
+/* .......................... */
+
+/* "Curl" brush - Rotate bone around its non-primary axes */
 static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	PSculptBrushData *brush = data->brush;
@@ -793,14 +800,16 @@ static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, tPSculptContext *dat
 	set_pchan_eul_rotation(eul, pchan);
 }
 
-/* "twist" brush */
+/* .......................... */
+
+/* "Twist" brush - Rotate bone around its primary axis */
 static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	short locks = pchan->protectflag;
 	float eul[3] = {0.0f};
 	float angle = 0.0f;
 	
-	/* get temp euler tuple to work on*/
+	/* get temp euler tuple to work on */
 	if (get_pchan_eul_rotation(eul, NULL, pchan) == false)
 		return;
 	
@@ -823,7 +832,9 @@ static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, tPSculptContext *da
 	set_pchan_eul_rotation(eul, pchan);
 }
 
-/* "stretch" brush */
+/* .......................... */
+
+/* "Stretch" brush - Scale bone along its primary axis */
 static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	PSculptBrushData *brush = data->brush;
@@ -858,7 +869,15 @@ static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, tPSculptContext *
 	}
 }
 
-/* clear transforms */
+/* .......................... */
+
+/* Clear transforms
+ *
+ * This brush doesn't immediately set values back to the rest pose.
+ * Instead, it blends between the current value and the rest pose,
+ * making it possible to "relax" the pose somewhat (if they are similar)
+ */
+// TODO: Use mouse pressure here to modulate factor too?
 static void psculpt_brush_reset_apply(tPoseSculptingOp *UNUSED(pso), tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	const short locks = pchan->protectflag;
@@ -894,6 +913,8 @@ static void psculpt_brush_reset_apply(tPoseSculptingOp *UNUSED(pso), tPSculptCon
 	if ((locks & OB_LOCK_SCALEZ) == 0)
 		pchan->size[2] = interpf(1.0f, pchan->size[2], fac);
 }
+
+/* .......................... */
 
 /* "radial" brush */
 static void psculpt_brush_radial_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
@@ -1176,10 +1197,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			case PSCULPT_BRUSH_GRAB:
 			{
 				float delta[2] = {dx, dy};
-				float vec[2] = {0.0f};
-				
-				ED_view3d_win_to_delta(ar, delta, vec, zfac);
-				data.dvec = vec;
+				ED_view3d_win_to_delta(ar, delta, data.dvec, zfac);
 				
 				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_grab_apply);
 				
