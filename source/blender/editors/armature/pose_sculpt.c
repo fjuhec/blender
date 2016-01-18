@@ -1196,12 +1196,24 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			case PSCULPT_BRUSH_DRAW: // XXX: placeholder... we need a proper "draw" brush
 			case PSCULPT_BRUSH_ADJUST:
 			{
-				/* Compute trackball effect */
-				psculpt_brush_calc_trackball(pso, &data);
-				
-				/* Apply trackball transform to bones... */
-				// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
-				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_adjust_apply);
+				if (data.invert) {
+					/* Shift = Hardcoded convenience shortcut to perform Grab */
+					float delta[2] = {dx, dy};
+					ED_view3d_win_to_delta(ar, delta, data.dvec, zfac);
+					
+					/* Hack: Clear invert flag, or else translate behaves wrong */
+					data.invert = false;
+					
+					changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_grab_apply);
+				}
+				else {
+					/* Compute trackball effect */
+					psculpt_brush_calc_trackball(pso, &data);
+					
+					/* Apply trackball transform to bones... */
+					// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
+					changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_adjust_apply);
+				}
 				
 				break;
 			}
