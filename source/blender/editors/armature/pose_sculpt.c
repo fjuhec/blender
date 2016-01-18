@@ -118,7 +118,7 @@ int psculpt_poll(bContext *C)
 /* Cursor drawing */
 
 /* Helper callback for drawing the cursor itself */
-static void brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customdata))
+static void psculpt_brush_apply_drawcursor(bContext *C, int x, int y, void *UNUSED(customdata))
 {
 	PSculptBrushData *brush = psculpt_get_brush(CTX_data_scene(C));
 	
@@ -155,7 +155,7 @@ static void psculpt_toggle_cursor(bContext *C, bool enable)
 		/* enable cursor */
 		pset->paintcursor = WM_paint_cursor_activate(CTX_wm_manager(C), 
 		                                             psculpt_poll, 
-		                                             brush_drawcursor, NULL);
+		                                             psculpt_brush_apply_drawcursor, NULL);
 	}
 }
 
@@ -674,7 +674,7 @@ static void free_affected_bone(void *tab_p)
 /* Brushes ------------------------------------------------ */
 
 /* change selection status of bones - used to define masks */
-static void brush_select_bone(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_select_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	if (pchan->bone) {
 		if (data->invert)
@@ -686,19 +686,19 @@ static void brush_select_bone(tPoseSculptingOp *pso, tPSculptContext *data, bPos
 
 /* "Adjust" Brush - i.e. a simple trackball transform */
 // TODO: on root bones, don't do trackball... do grab instead?
-static void brush_adjust(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_adjust_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	pchan_do_rotate(data->ob, pchan, data->rmat);
 }
 
 /* "smooth" brush */
-static void brush_smooth(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float sco1[2], float sco2[2])
+static void psculpt_brush_smooth_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float sco1[2], float sco2[2])
 {
 	
 }
 
 /* "grab" brush */
-static void brush_grab(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_grab_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	PSculptBrushData *brush = data->brush;
 	float imat[4][4], mat[4][4];
@@ -753,7 +753,7 @@ static void brush_grab(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 }
 
 /* "curl" brush */
-static void brush_curl(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	PSculptBrushData *brush = data->brush;
 	short locks = pchan->protectflag;
@@ -794,7 +794,7 @@ static void brush_curl(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChanne
 }
 
 /* "twist" brush */
-static void brush_twist(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	short locks = pchan->protectflag;
 	float eul[3] = {0.0f};
@@ -824,7 +824,7 @@ static void brush_twist(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChann
 }
 
 /* "stretch" brush */
-static void brush_stretch(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	PSculptBrushData *brush = data->brush;
 	const float DAMP_FAC = 0.1f; /* damping factor - to be configurable? */
@@ -859,7 +859,7 @@ static void brush_stretch(tPoseSculptingOp *pso, tPSculptContext *data, bPoseCha
 }
 
 /* clear transforms */
-static void brush_reset(tPoseSculptingOp *UNUSED(pso), tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_reset_apply(tPoseSculptingOp *UNUSED(pso), tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	const short locks = pchan->protectflag;
 	const float fac = data->fac;
@@ -896,13 +896,13 @@ static void brush_reset(tPoseSculptingOp *UNUSED(pso), tPSculptContext *data, bP
 }
 
 /* "radial" brush */
-static void brush_radial(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_radial_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	
 }
 
 /* "wrap" brush */
-static void brush_wrap(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_wrap_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	
 }
@@ -982,7 +982,7 @@ static void psculpt_brush_exit(bContext *C, wmOperator *op)
 /* Apply brush callback on bones which fall within the brush region 
  * Based on method pose_circle_select() in view3d_select.c
  */
-static short psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data, PSculptBrushCallback brush_cb, bool selected)
+static bool psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data, PSculptBrushCallback brush_cb)
 {
 	PSculptSettings *pset = psculpt_settings(pso->scene);
 	ViewContext *vc = &data->vc;
@@ -1075,12 +1075,11 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 	int mouse[2];
 	float mousef[2];
 	float dx, dy;
-	short selected = 0;
 	
 	/* get latest mouse coordinates */
 	RNA_float_get_array(itemptr, "mouse", mousef);
-	mouse[0] = mousef[0];
-	mouse[1] = mousef[1];
+	mouse[0] = (int)mousef[0];
+	mouse[1] = (int)mousef[1];
 	
 	if (RNA_boolean_get(itemptr, "pen_flip"))
 		pso->data.invert = true;
@@ -1161,7 +1160,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 				
 				/* Apply trackball transform to bones... */
 				// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
-				changed = psculpt_brush_do_apply(pso, &data, brush_adjust, selected);
+				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_adjust_apply);
 				
 				break;
 			}
@@ -1169,7 +1168,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			case PSCULPT_BRUSH_SMOOTH:
 			{
 				// XXX: placeholder
-				changed = psculpt_brush_do_apply(pso, &data, brush_smooth, selected);
+				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_smooth_apply);
 				
 				break;
 			}
@@ -1182,33 +1181,33 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 				ED_view3d_win_to_delta(ar, delta, vec, zfac);
 				data.dvec = vec;
 				
-				changed = psculpt_brush_do_apply(pso, &data, brush_grab, selected);
+				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_grab_apply);
 				
 				break;
 			}
 			
 			case PSCULPT_BRUSH_CURL:
 			{
-				changed = psculpt_brush_do_apply(pso, &data, brush_curl, selected);
+				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_curl_apply);
 				break;
 			}
 			
 			case PSCULPT_BRUSH_STRETCH:
 			{
-				changed = psculpt_brush_do_apply(pso, &data, brush_stretch, selected);
+				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_stretch_apply);
 				break;
 			}
 			
 			case PSCULPT_BRUSH_TWIST:
 			{
-				changed = psculpt_brush_do_apply(pso, &data, brush_twist, selected);
+				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_twist_apply);
 				break;
 			}
 			
 			case PSCULPT_BRUSH_RADIAL:
 			{
 				// XXX: placeholder
-				changed = psculpt_brush_do_apply(pso, &data, brush_radial, selected);
+				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_radial_apply);
 				
 				break;
 			}
@@ -1216,14 +1215,14 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			case PSCULPT_BRUSH_WRAP:
 			{
 				// XXX: placeholder
-				changed = psculpt_brush_do_apply(pso, &data, brush_wrap, selected);
+				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_wrap_apply);
 				
 				break;
 			}
 			
 			case PSCULPT_BRUSH_RESET:
 			{
-				changed = psculpt_brush_do_apply(pso, &data, brush_reset, selected);
+				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_reset_apply);
 				break;
 			}
 			
@@ -1235,7 +1234,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 				/* no need for recalc, unless some visualisation tools depend on this 
 				 * (i.e. mask modifier in 'armature' mode) 
 				 */
-				sel_changed = psculpt_brush_do_apply(pso, &data, brush_select_bone, selected);
+				sel_changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_select_apply);
 				changed = ((sel_changed) && (arm->flag & ARM_HAS_VIZ_DEPS));
 				
 				break;
