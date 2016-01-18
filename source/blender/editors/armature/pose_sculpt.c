@@ -169,6 +169,10 @@ typedef struct tPSculptContext {
 	/* Relevant context data */
 	ViewContext vc;
 	
+	ARegion *ar;
+	View3D *v3d;
+	RegionView3D *rv3d;
+	
 	Scene *scene;
 	Object *ob;
 	
@@ -750,6 +754,43 @@ static void psculpt_brush_grab_apply(tPoseSculptingOp *pso, tPSculptContext *dat
 
 /* .......................... */
 
+/* "Adjust" Brush - Compute transform to apply to all bones inside the brush */
+static void psculpt_brush_calc_trackball(tPoseSculptingOp *pso, tPSculptContext *data)
+{
+	PSculptBrushData *brush = data->brush;
+	RegionView3D *rv3d = data->rv3d;
+	
+	float smat[3][3], totmat[3][3];
+	float mat[3][3], refmat[3][3];
+	float axis1[3], axis2[3];
+	float angles[2];
+
+	
+	/* Compute screenspace movements for trackball transform
+	 * Adapted from applyTrackball() in transform.c
+	 */
+	copy_v3_v3(axis1, rv3d->persinv[0]);
+	copy_v3_v3(axis2, rv3d->persinv[1]);
+	normalize_v3(axis1);
+	normalize_v3(axis2);
+
+	/* From InputTrackBall() in transform_input.c */
+	angles[0] = (float)(pso->lastmouse[1] - data->mval[1]);
+	angles[1] = (float)(data->mval[0] - pso->lastmouse[0]);
+
+	mul_v2_fl(angles, 0.01f); /* (mi->factor = 0.01f) */
+
+	/* Adapted from applyTrackballValue() in transform.c */
+	axis_angle_normalized_to_mat3(smat, axis1, angles[0]);
+	axis_angle_normalized_to_mat3(totmat, axis2, angles[1]);
+
+	mul_m3_m3m3(mat, smat, totmat);
+
+	/* Adjust strength of effect */
+	unit_m3(refmat);
+	interp_m3_m3m3(data->rmat, refmat, mat, brush->strength);
+}
+
 /* "Adjust" Brush - i.e. a simple trackball transform */
 // TODO: on root bones, don't do trackball... do grab instead?
 static void psculpt_brush_adjust_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
@@ -1140,6 +1181,11 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		invert_m4_m4(ob->imat, ob->obmat);
 		
 		/* set generic mouse parameters */
+		// XXX: this doesn't need to happen everytime!
+		data.ar = ar;
+		data.v3d = v3d;
+		data.rv3d = rv3d;
+		
 		data.mval = mousef;
 		data.rad = (float)brush->size;
 		data.fac = brush->strength;
@@ -1150,34 +1196,8 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			case PSCULPT_BRUSH_DRAW: // XXX: placeholder... we need a proper "draw" brush
 			case PSCULPT_BRUSH_ADJUST:
 			{
-				float smat[3][3], totmat[3][3];
-				float mat[3][3], refmat[3][3];
-				float axis1[3], axis2[3];
-				float angles[2];
-				
-				/* Compute screenspace movements for trackball transform
-				 * Adapted from applyTrackball() in transform.c
-				 */
-				copy_v3_v3(axis1, rv3d->persinv[0]);
-				copy_v3_v3(axis2, rv3d->persinv[1]);
-				normalize_v3(axis1);
-				normalize_v3(axis2);
-				
-				/* From InputTrackBall() in transform_input.c */
-				angles[0] = (float)(pso->lastmouse[1] - mouse[1]);
-				angles[1] = (float)(mouse[0] - pso->lastmouse[0]);
-				
-				mul_v2_fl(angles, 0.01f); /* (mi->factor = 0.01f) */
-				
-				/* Adapted from applyTrackballValue() in transform.c */
-				axis_angle_normalized_to_mat3(smat, axis1, angles[0]);
-				axis_angle_normalized_to_mat3(totmat, axis2, angles[1]);
-				
-				mul_m3_m3m3(mat, smat, totmat);
-				
-				/* Adjust strength of effect */
-				unit_m3(refmat);
-				interp_m3_m3m3(data.rmat, refmat, mat, brush->strength);
+				/* Compute trackball effect */
+				psculpt_brush_calc_trackball(pso, &data);
 				
 				/* Apply trackball transform to bones... */
 				// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
