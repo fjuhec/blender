@@ -259,7 +259,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				/* nodetree **are owned by IDs**, treat them as mere sub-data and not real ID! */
 				BKE_library_foreach_ID_link((ID *)scene->nodetree, callback, user_data, flag);
 			}
-			/* DO NOT handle scene->basact here, it’s doubling with the loop over whole scene->base later,
+			/* DO NOT handle scene->basact here, it's doubling with the loop over whole scene->base later,
 			 * since basact is just a pointer to one of those items. */
 			CALLBACK_INVOKE(scene->obedit, IDWALK_NOP);
 
@@ -337,6 +337,8 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 			if (scene->rigidbody_world) {
 				BKE_rigidbody_world_id_loop(scene->rigidbody_world, library_foreach_rigidbodyworldSceneLooper, &data);
 			}
+
+			CALLBACK_INVOKE(scene->gm.dome.warptext, IDWALK_NOP);
 
 			break;
 		}

@@ -246,7 +246,7 @@ mark_as_advanced(WITH_COMPOSITOR_WERROR)
 option(WITH_GHOST_DEBUG   "Enable debugging output for the GHOST library" OFF)
 mark_as_advanced(WITH_GHOST_DEBUG)
 
-option(WITH_GHOST_SDL    "Enable building blender against SDL for windowing rather then the native APIs" OFF)
+option(WITH_GHOST_SDL    "Enable building Blender against SDL for windowing rather than the native APIs" OFF)
 mark_as_advanced(WITH_GHOST_SDL)
 
 if(WITH_X11)
@@ -724,11 +724,6 @@ else()
 	message(STATUS "SSE and SSE2 optimizations are DISABLED!")
 	set(COMPILER_SSE_FLAG)
 	set(COMPILER_SSE2_FLAG)
-endif()
-
-TEST_STDBOOL_SUPPORT()
-if(HAVE_STDBOOL_H)
-	add_definitions(-DHAVE_STDBOOL_H)
 endif()
 
 TEST_SHARED_PTR_SUPPORT()
@@ -1488,8 +1483,8 @@ elseif(WIN32)
 				set(BOOST_INCLUDE_DIR ${BOOST}/include)
 				if(MSVC12)
 					set(BOOST_LIBPATH ${BOOST}/lib)
-					set(BOOST_POSTFIX "vc120-mt-s-1_55.lib")
-					set(BOOST_DEBUG_POSTFIX "vc120-mt-sgd-1_55.lib")
+					set(BOOST_POSTFIX "vc120-mt-s-1_60.lib")
+					set(BOOST_DEBUG_POSTFIX "vc120-mt-sgd-1_60.lib")
 				else()
 					set(BOOST_LIBPATH ${BOOST}/lib)
 					set(BOOST_POSTFIX "vc140-mt-s-1_60.lib")
@@ -3050,9 +3045,6 @@ if(FIRST_RUN)
 	if(WIN32)
 		info_cfg_option(WITH_GL_ANGLE)
 	endif()
-
-	# debug
-	message(STATUS "HAVE_STDBOOL_H = ${HAVE_STDBOOL_H}")
 
 	info_cfg_text("")
 
