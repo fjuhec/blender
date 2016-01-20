@@ -493,18 +493,10 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
                 ('UV', "UV", ""),
                 ('EMIT', "Emit", ""),
                 ('ENVIRONMENT', "Environment", ""),
-                ('DIFFUSE_DIRECT', "Diffuse Direct", ""),
-                ('DIFFUSE_INDIRECT', "Diffuse Indirect", ""),
-                ('DIFFUSE_COLOR', "Diffuse Color", ""),
-                ('GLOSSY_DIRECT', "Glossy Direct", ""),
-                ('GLOSSY_INDIRECT', "Glossy Indirect", ""),
-                ('GLOSSY_COLOR', "Glossy Color", ""),
-                ('TRANSMISSION_DIRECT', "Transmission Direct", ""),
-                ('TRANSMISSION_INDIRECT', "Transmission Indirect", ""),
-                ('TRANSMISSION_COLOR', "Transmission Color", ""),
-                ('SUBSURFACE_DIRECT', "Subsurface Direct", ""),
-                ('SUBSURFACE_INDIRECT', "Subsurface Indirect", ""),
-                ('SUBSURFACE_COLOR', "Subsurface Color", ""),
+                ('DIFFUSE', "Diffuse", ""),
+                ('GLOSSY', "Glossy", ""),
+                ('TRANSMISSION', "Transmission", ""),
+                ('SUBSURFACE', "Subsurface", ""),
                 ),
             )
 
@@ -562,6 +554,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         cls.debug_use_cpu_sse41 = BoolProperty(name="SSE41", default=True)
         cls.debug_use_cpu_sse3 = BoolProperty(name="SSE3", default=True)
         cls.debug_use_cpu_sse2 = BoolProperty(name="SSE2", default=True)
+        cls.debug_use_qbvh = BoolProperty(name="QBVH", default=True)
 
         cls.debug_opencl_kernel_type = EnumProperty(
             name="OpenCL Kernel Type",

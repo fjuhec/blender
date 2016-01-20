@@ -1333,9 +1333,9 @@ typedef struct DMWeightColorInfo {
 
 static int dm_drawflag_calc(const ToolSettings *ts)
 {
-	return ((ts->multipaint ? CALC_WP_MULTIPAINT :
-	                          /* CALC_WP_GROUP_USER_ACTIVE or CALC_WP_GROUP_USER_ALL*/
-	                          (1 << ts->weightuser)) |
+	return ((ts->multipaint ? CALC_WP_MULTIPAINT : 0) |
+	        /* CALC_WP_GROUP_USER_ACTIVE or CALC_WP_GROUP_USER_ALL*/
+	        (1 << ts->weightuser) |
 	        (ts->auto_normalize ? CALC_WP_AUTO_NORMALIZE : 0));
 }
 
@@ -2987,6 +2987,12 @@ void mesh_get_mapped_verts_coords(DerivedMesh *dm, float (*r_cos)[3], const int 
 
 /* ******************* GLSL ******************** */
 
+/** \name Tangent Space Calculation
+ * \{ */
+
+/* Necessary complexity to handle looptri's as quads for correct tangents */
+#define USE_LOOPTRI_DETECT_QUADS
+
 typedef struct {
 	float (*precomputedFaceNormals)[3];
 	float (*precomputedLoopNormals)[3];
@@ -2999,83 +3005,212 @@ typedef struct {
 	float (*tangent)[4];    /* destination */
 	int numTessFaces;
 
+#ifdef USE_LOOPTRI_DETECT_QUADS
+	/* map from 'fake' face index to looptri,
+	 * quads will point to the first looptri of the quad */
+	const int    *face_as_quad_map;
+	int       num_face_as_quad_map;
+#endif
+
 } SGLSLMeshToTangent;
 
 /* interface */
 #include "mikktspace.h"
 
-static int GetNumFaces(const SMikkTSpaceContext *pContext)
+static int dm_ts_GetNumFaces(const SMikkTSpaceContext *pContext)
 {
-	SGLSLMeshToTangent *pMesh = (SGLSLMeshToTangent *) pContext->m_pUserData;
+	SGLSLMeshToTangent *pMesh = pContext->m_pUserData;
+
+#ifdef USE_LOOPTRI_DETECT_QUADS
+	return pMesh->num_face_as_quad_map;
+#else
 	return pMesh->numTessFaces;
+#endif
 }
 
-static int GetNumVertsOfFace(const SMikkTSpaceContext *pContext, const int face_num)
+static int dm_ts_GetNumVertsOfFace(const SMikkTSpaceContext *pContext, const int face_num)
 {
-	//SGLSLMeshToTangent *pMesh = (SGLSLMeshToTangent *) pContext->m_pUserData;
+#ifdef USE_LOOPTRI_DETECT_QUADS
+	SGLSLMeshToTangent *pMesh = pContext->m_pUserData;
+	if (pMesh->face_as_quad_map) {
+		const MLoopTri *lt = &pMesh->looptri[pMesh->face_as_quad_map[face_num]];
+		const MPoly *mp = &pMesh->mpoly[lt->poly];
+		if (mp->totloop == 4) {
+			return 4;
+		}
+	}
+	return 3;
+#else
 	UNUSED_VARS(pContext, face_num);
 	return 3;
+#endif
 }
 
-static void GetPosition(const SMikkTSpaceContext *pContext, float r_co[3], const int face_num, const int vert_index)
+static void dm_ts_GetPosition(
+        const SMikkTSpaceContext *pContext, float r_co[3],
+        const int face_num, const int vert_index)
 {
 	//assert(vert_index >= 0 && vert_index < 4);
-	SGLSLMeshToTangent *pMesh = (SGLSLMeshToTangent *) pContext->m_pUserData;
-	const MLoopTri *lt = &pMesh->looptri[face_num];
-	const float *co = pMesh->mvert[pMesh->mloop[lt->tri[vert_index]].v].co;
+	SGLSLMeshToTangent *pMesh = pContext->m_pUserData;
+	const MLoopTri *lt;
+	int loop_index;
+	const float *co;
+
+#ifdef USE_LOOPTRI_DETECT_QUADS
+	if (pMesh->face_as_quad_map) {
+		lt = &pMesh->looptri[pMesh->face_as_quad_map[face_num]];
+		const MPoly *mp = &pMesh->mpoly[lt->poly];
+		if (mp->totloop == 4) {
+			loop_index = mp->loopstart + vert_index;
+			goto finally;
+		}
+		/* fall through to regular triangle */
+	}
+	else {
+		lt = &pMesh->looptri[face_num];
+	}
+#else
+	lt = &pMesh->looptri[face_num];
+#endif
+	loop_index = lt->tri[vert_index];
+
+finally:
+	co = pMesh->mvert[pMesh->mloop[loop_index].v].co;
 	copy_v3_v3(r_co, co);
 }
 
-static void GetTextureCoordinate(const SMikkTSpaceContext *pContext, float r_uv[2], const int face_num, const int vert_index)
+static void dm_ts_GetTextureCoordinate(
+        const SMikkTSpaceContext *pContext, float r_uv[2],
+        const int face_num, const int vert_index)
 {
 	//assert(vert_index >= 0 && vert_index < 4);
-	SGLSLMeshToTangent *pMesh = (SGLSLMeshToTangent *) pContext->m_pUserData;
-	const MLoopTri *lt = &pMesh->looptri[face_num];
+	SGLSLMeshToTangent *pMesh = pContext->m_pUserData;
+	const MLoopTri *lt;
+	int loop_index;
 
+#ifdef USE_LOOPTRI_DETECT_QUADS
+	if (pMesh->face_as_quad_map) {
+		lt = &pMesh->looptri[pMesh->face_as_quad_map[face_num]];
+		const MPoly *mp = &pMesh->mpoly[lt->poly];
+		if (mp->totloop == 4) {
+			loop_index = mp->loopstart + vert_index;
+			goto finally;
+		}
+		/* fall through to regular triangle */
+	}
+	else {
+		lt = &pMesh->looptri[face_num];
+	}
+#else
+	lt = &pMesh->looptri[face_num];
+#endif
+	loop_index = lt->tri[vert_index];
+
+finally:
 	if (pMesh->mloopuv != NULL) {
-		const float *uv = pMesh->mloopuv[lt->tri[vert_index]].uv;
+		const float *uv = pMesh->mloopuv[loop_index].uv;
 		copy_v2_v2(r_uv, uv);
 	}
 	else {
-		const float *orco = pMesh->orco[pMesh->mloop[lt->tri[vert_index]].v];
+		const float *orco = pMesh->orco[pMesh->mloop[loop_index].v];
 		map_to_sphere(&r_uv[0], &r_uv[1], orco[0], orco[1], orco[2]);
 	}
 }
 
-static void GetNormal(const SMikkTSpaceContext *pContext, float r_no[3], const int face_num, const int vert_index)
+static void dm_ts_GetNormal(
+        const SMikkTSpaceContext *pContext, float r_no[3],
+        const int face_num, const int vert_index)
 {
 	//assert(vert_index >= 0 && vert_index < 4);
 	SGLSLMeshToTangent *pMesh = (SGLSLMeshToTangent *) pContext->m_pUserData;
-	const MLoopTri *lt = &pMesh->looptri[face_num];
-	const bool smoothnormal = (pMesh->mpoly[lt->poly].flag & ME_SMOOTH) != 0;
+	const MLoopTri *lt;
+	int loop_index;
 
-	if (pMesh->precomputedLoopNormals) {
-		copy_v3_v3(r_no, pMesh->precomputedLoopNormals[lt->tri[vert_index]]);
+#ifdef USE_LOOPTRI_DETECT_QUADS
+	if (pMesh->face_as_quad_map) {
+		lt = &pMesh->looptri[pMesh->face_as_quad_map[face_num]];
+		const MPoly *mp = &pMesh->mpoly[lt->poly];
+		if (mp->totloop == 4) {
+			loop_index = mp->loopstart + vert_index;
+			goto finally;
+		}
+		/* fall through to regular triangle */
 	}
-	else if (!smoothnormal) {    // flat
+	else {
+		lt = &pMesh->looptri[face_num];
+	}
+#else
+	lt = &pMesh->looptri[face_num];
+#endif
+	loop_index = lt->tri[vert_index];
+
+finally:
+	if (pMesh->precomputedLoopNormals) {
+		copy_v3_v3(r_no, pMesh->precomputedLoopNormals[loop_index]);
+	}
+	else if ((pMesh->mpoly[lt->poly].flag & ME_SMOOTH) == 0) {  /* flat */
 		if (pMesh->precomputedFaceNormals) {
 			copy_v3_v3(r_no, pMesh->precomputedFaceNormals[lt->poly]);
 		}
 		else {
-			const float *p0 = pMesh->mvert[pMesh->mloop[lt->tri[0]].v].co;
-			const float *p1 = pMesh->mvert[pMesh->mloop[lt->tri[1]].v].co;
-			const float *p2 = pMesh->mvert[pMesh->mloop[lt->tri[2]].v].co;
-
-			normal_tri_v3(r_no, p0, p1, p2);
+#ifdef USE_LOOPTRI_DETECT_QUADS
+			const MPoly *mp = &pMesh->mpoly[lt->poly];
+			if (mp->totloop == 4) {
+				normal_quad_v3(
+				        r_no,
+				        pMesh->mvert[pMesh->mloop[mp->loopstart + 0].v].co,
+				        pMesh->mvert[pMesh->mloop[mp->loopstart + 1].v].co,
+				        pMesh->mvert[pMesh->mloop[mp->loopstart + 2].v].co,
+				        pMesh->mvert[pMesh->mloop[mp->loopstart + 3].v].co);
+			}
+			else
+#endif
+			{
+				normal_tri_v3(
+				        r_no,
+				        pMesh->mvert[pMesh->mloop[lt->tri[0]].v].co,
+				        pMesh->mvert[pMesh->mloop[lt->tri[1]].v].co,
+				        pMesh->mvert[pMesh->mloop[lt->tri[2]].v].co);
+			}
 		}
 	}
 	else {
-		const short *no = pMesh->mvert[pMesh->mloop[lt->tri[vert_index]].v].no;
+		const short *no = pMesh->mvert[pMesh->mloop[loop_index].v].no;
 		normal_short_to_float_v3(r_no, no);
 	}
 }
 
-static void SetTSpace(const SMikkTSpaceContext *pContext, const float fvTangent[3], const float fSign, const int face_num, const int vert_index)
+static void dm_ts_SetTSpace(
+        const SMikkTSpaceContext *pContext, const float fvTangent[3], const float fSign,
+        const int face_num, const int vert_index)
 {
 	//assert(vert_index >= 0 && vert_index < 4);
 	SGLSLMeshToTangent *pMesh = (SGLSLMeshToTangent *) pContext->m_pUserData;
-	const MLoopTri *lt = &pMesh->looptri[face_num];
-	float *pRes = pMesh->tangent[lt->tri[vert_index]];
+	const MLoopTri *lt;
+	int loop_index;
+
+#ifdef USE_LOOPTRI_DETECT_QUADS
+	if (pMesh->face_as_quad_map) {
+		lt = &pMesh->looptri[pMesh->face_as_quad_map[face_num]];
+		const MPoly *mp = &pMesh->mpoly[lt->poly];
+		if (mp->totloop == 4) {
+			loop_index = mp->loopstart + vert_index;
+			goto finally;
+		}
+		/* fall through to regular triangle */
+	}
+	else {
+		lt = &pMesh->looptri[face_num];
+	}
+#else
+	lt = &pMesh->looptri[face_num];
+#endif
+	loop_index = lt->tri[vert_index];
+
+	float *pRes;
+
+finally:
+	pRes = pMesh->tangent[loop_index];
 	copy_v3_v3(pRes, fvTangent);
 	pRes[3] = fSign;
 }
@@ -3122,6 +3257,31 @@ void DM_calc_loop_tangents(DerivedMesh *dm)
 	DM_add_loop_layer(dm, CD_TANGENT, CD_CALLOC, NULL);
 	tangent = DM_get_loop_data_layer(dm, CD_TANGENT);
 	
+#ifdef USE_LOOPTRI_DETECT_QUADS
+	int num_face_as_quad_map;
+	int *face_as_quad_map = NULL;
+
+	/* map faces to quads */
+	if (totface != dm->getNumPolys(dm)) {
+		/* over alloc, since we dont know how many ngon or quads we have */
+
+		/* map fake face index to looptri */
+		face_as_quad_map = MEM_mallocN(sizeof(int) * totface, __func__);
+		int i, j;
+		for (i = 0, j = 0; j < totface; i++, j++) {
+			face_as_quad_map[i] = j;
+			/* step over all quads */
+			if (mpoly[looptri[j].poly].totloop == 4) {
+				j++;  /* skips the nest looptri */
+			}
+		}
+		num_face_as_quad_map = i;
+	}
+	else {
+		num_face_as_quad_map = totface;
+	}
+#endif
+
 	/* new computation method */
 	{
 		SGLSLMeshToTangent mesh2tangent = {NULL};
@@ -3139,19 +3299,34 @@ void DM_calc_loop_tangents(DerivedMesh *dm)
 		mesh2tangent.tangent = tangent;
 		mesh2tangent.numTessFaces = totface;
 
+#ifdef USE_LOOPTRI_DETECT_QUADS
+		mesh2tangent.face_as_quad_map = face_as_quad_map;
+		mesh2tangent.num_face_as_quad_map = num_face_as_quad_map;
+#endif
+
 		sContext.m_pUserData = &mesh2tangent;
 		sContext.m_pInterface = &sInterface;
-		sInterface.m_getNumFaces = GetNumFaces;
-		sInterface.m_getNumVerticesOfFace = GetNumVertsOfFace;
-		sInterface.m_getPosition = GetPosition;
-		sInterface.m_getTexCoord = GetTextureCoordinate;
-		sInterface.m_getNormal = GetNormal;
-		sInterface.m_setTSpaceBasic = SetTSpace;
+		sInterface.m_getNumFaces = dm_ts_GetNumFaces;
+		sInterface.m_getNumVerticesOfFace = dm_ts_GetNumVertsOfFace;
+		sInterface.m_getPosition = dm_ts_GetPosition;
+		sInterface.m_getTexCoord = dm_ts_GetTextureCoordinate;
+		sInterface.m_getNormal = dm_ts_GetNormal;
+		sInterface.m_setTSpaceBasic = dm_ts_SetTSpace;
 
 		/* 0 if failed */
 		genTangSpaceDefault(&sContext);
+
+#ifdef USE_LOOPTRI_DETECT_QUADS
+		if (face_as_quad_map) {
+			MEM_freeN(face_as_quad_map);
+		}
+#undef USE_LOOPTRI_DETECT_QUADS
+#endif
 	}
 }
+
+/** \} */
+
 
 void DM_calc_auto_bump_scale(DerivedMesh *dm)
 {
