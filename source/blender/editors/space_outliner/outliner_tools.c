@@ -1299,7 +1299,6 @@ static EnumPropertyItem outliner_lib_op_type_items[] = {
     {OL_LIB_RELOCATE, "RELOCATE", 0, "Relocate", "Select a new path for this library, and reload all its data"},
     {OL_LIB_RELOAD, "RELOAD", 0, "Reload", "Reload all data from this library"},
 	{0, NULL, 0, NULL, NULL}
-
 };
 
 static int outliner_lib_operation_exec(bContext *C, wmOperator *op)
