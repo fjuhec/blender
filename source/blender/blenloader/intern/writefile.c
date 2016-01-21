@@ -2929,6 +2929,9 @@ static void write_libraries(WriteData *wd, Main *main)
 							BLI_assert(0);
 						}
 						writestruct(wd, ID_ID, "ID", 1, id);
+						if (id->uuid) {
+							writestruct(wd, DATA, "AssetUUID", 1, id->uuid);
+						}
 					}
 				}
 			}

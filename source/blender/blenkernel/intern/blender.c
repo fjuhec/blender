@@ -509,6 +509,25 @@ void BKE_userdef_state(void)
 
 }
 
+static void read_file_update_assets(bContext *C)
+{
+	Main *bmain = CTX_data_main(C);
+	ListBase *lb_array[MAX_LIBARRAY];
+	int i = set_listbasepointers(bmain, lb_array);
+
+	while (i--) {
+		for (ID *id = lb_array[i]->first; id; id = id->next) {
+			if (id->uuid && id->lib && (id->tag & LIB_TAG_EXTERN)) {
+				printf("We need to check for updated asset %s...\n", id->name);
+				id->tag |= LIB_TAG_DOIT;
+			}
+			else {
+				id->tag &= ~LIB_TAG_DOIT;
+			}
+		}
+	}
+}
+
 int BKE_read_file(bContext *C, const char *filepath, ReportList *reports)
 {
 	BlendFileData *bfd;
@@ -527,8 +546,12 @@ int BKE_read_file(bContext *C, const char *filepath, ReportList *reports)
 			bfd = NULL;
 			retval = BKE_READ_FILE_FAIL;
 		}
-		else
+		else {
 			setup_app_data(C, bfd, filepath);  // frees BFD
+
+			printf("Updating assets for: %s\n", filepath);
+			read_file_update_assets(C);
+		}
 	}
 	else
 		BKE_reports_prependf(reports, "Loading '%s' failed: ", filepath);
