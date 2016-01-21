@@ -7949,6 +7949,17 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, int flag, ID
 	
 	/* this case cannot be direct_linked: it's just the ID part */
 	if (bhead->code == ID_ID) {
+		if (id->uuid) {
+			/* read all data into fd->datamap */
+			bhead = read_data_into_oldnewmap(fd, bhead, __func__);
+
+			id->uuid = newdataadr(fd, id->uuid);
+
+			oldnewmap_free_unused(fd->datamap);
+			oldnewmap_clear(fd->datamap);
+			return bhead;
+		}
+
 		return blo_nextbhead(fd, bhead);
 	}
 	
@@ -9762,6 +9773,11 @@ static ID *link_named_part_ex(
 			id->tag |= LIB_TAG_DOIT;
 	}
 
+	if (id && uuid) {
+		id->uuid = MEM_mallocN(sizeof(*id->uuid), __func__);
+		*id->uuid = *uuid;
+	}
+
 	return id;
 }
 
@@ -10136,6 +10152,11 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
 							/* realid shall never be NULL - unless some source file/lib is broken
 							 * (known case: some directly linked shapekey from a missing lib...). */
 							/* BLI_assert(realid != NULL); */
+
+							if (realid && id->uuid) {
+								/* we can give ownership of that pointer to new ID. */
+								realid->uuid = id->uuid;
+							}
 
 							change_idid_adr(mainlist, basefd, id, realid);
 
