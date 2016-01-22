@@ -602,23 +602,18 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 	}
 
 	/* add extra rolls */
-	float extraRoll1 = bone->roll1;
-
-	if (bone->flag & BONE_ADD_PARENT_END_ROLL){
-		extraRoll1 = extraRoll1 + prev->bone->roll2;
-	}
-	float extraRoll2 = bone->roll2;
-
-	roll1 = roll1 + extraRoll1;
-	roll2 = roll2 + extraRoll2;
-
-	/* extra curve x / y */
+	roll1 += bone->roll1;
+	roll2 += bone->roll2;
 	
-	h1[0] = h1[0] + bone->curveInX;
-	h1[2] = h1[2] + bone->curveInY;
+	if (bone->flag & BONE_ADD_PARENT_END_ROLL)
+		roll1 += prev->bone->roll2;
+	
+	/* extra curve x / y */
+	h1[0] += bone->curveInX;
+	h1[2] += bone->curveInY;
 
-	h2[0] = h2[0] + bone->curveOutX;
-	h2[2] = h2[2] + bone->curveOutY;
+	h2[0] += bone->curveOutX;
+	h2[2] += bone->curveOutY;
 	
 	/* make curve */
 	if (bone->segments > MAX_BBONE_SUBDIV)
@@ -645,21 +640,21 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		}
 		
 		float scaleFactorIn = 1.0;
-		if (a <= bone->segments - 1){
-			scaleFactorIn = 1.0 + (bone->scaleIn - 1.0)*((1.0*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));
+		if (a <= bone->segments - 1) {
+			scaleFactorIn = 1.0f + (bone->scaleIn - 1.0f)  * ((1.0f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
 		}
 
-		float scaleFactorOut = 1.0;
-		if (a >= 0){
-			scaleFactorOut = 1.0 + (bone->scaleOut - 1.0)*((1.0*(a + 1)) / (1.0*(bone->segments - 1)));
+		float scaleFactorOut = 1.0f;
+		if (a >= 0) {
+			scaleFactorOut = 1.0 + (bone->scaleOut - 1.0f) * ((1.0f * (a + 1))                 / (1.0f * (bone->segments - 1)));
 		}
 
 		float bscalemat[4][4], ibscalemat[4][4];
 		float bscale[3];
 
-		bscale[0] = 1.0*scaleFactorIn*scaleFactorOut;
-		bscale[1] = 1.0 / bone->segments;
-		bscale[2] = 1.0*scaleFactorIn*scaleFactorOut;
+		bscale[0] = 1.0f * scaleFactorIn * scaleFactorOut;
+		bscale[1] = 1.0f / bone->segments;
+		bscale[2] = 1.0f * scaleFactorIn * scaleFactorOut;
 
 		
 		size_to_mat4(bscalemat, bscale);
