@@ -630,15 +630,15 @@ static void rna_def_bone_common(StructRNA *srna, int editbone)
 	RNA_def_property_ui_text(prop, "B-Bone Display Z Width", "B-Bone Z size");
 	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
 	
-	prop = RNA_def_property(srna, "bbone_rollin", PROP_FLOAT, PROP_NONE);
+	prop = RNA_def_property(srna, "bbone_rollin", PROP_FLOAT, PROP_ANGLE);
 	RNA_def_property_float_sdna(prop, NULL, "roll1");
-	RNA_def_property_range(prop, -360.0f, 360.0f);
+	RNA_def_property_range(prop, -M_PI * 2, M_PI * 2);
 	RNA_def_property_ui_text(prop, "B-Bone Roll In", "Extra roll in (for B-Bones only)");
 	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
 
-	prop = RNA_def_property(srna, "bbone_rollout", PROP_FLOAT, PROP_NONE);
+	prop = RNA_def_property(srna, "bbone_rollout", PROP_FLOAT, PROP_ANGLE);
 	RNA_def_property_float_sdna(prop, NULL, "roll2");
-	RNA_def_property_range(prop, -360.0f, 360.0f);
+	RNA_def_property_range(prop, -M_PI * 2, M_PI * 2);
 	RNA_def_property_ui_text(prop, "B-Bone Roll Out", "Extra roll out (for B-Bones only)");
 	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
 

@@ -602,12 +602,12 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 	}
 
 	/* add extra rolls */
-	float extraRoll1 = bone->roll1 / (180 / M_PI);
+	float extraRoll1 = bone->roll1;
 
 	if (bone->flag & BONE_ADD_PARENT_END_ROLL){
-		extraRoll1 = extraRoll1 + prev->bone->roll2 / (180 / M_PI);
+		extraRoll1 = extraRoll1 + prev->bone->roll2;
 	}
-	float extraRoll2 = bone->roll2 / (180 / M_PI);
+	float extraRoll2 = bone->roll2;
 
 	roll1 = roll1 + extraRoll1;
 	roll2 = roll2 + extraRoll2;
@@ -742,10 +742,7 @@ static void b_bone_deform(bPoseChanDeform *pdef_info, Bone *bone, float co[3], D
 	y = mat[0][1] * co[0] + mat[1][1] * co[1] + mat[2][1] * co[2] + mat[3][1];
 	z = mat[0][2] * co[0] + mat[1][2] * co[1] + mat[2][2] * co[2] + mat[3][2];
 	
-	float pos[3];
-	pos[0] = x;
-	pos[1] = y;
-	pos[2] = z;
+	float pos[3] = {x, y, z};
 
 	//print_m4("mat",mat);
 	//print_v3("pos", pos);
@@ -765,20 +762,20 @@ static void b_bone_deform(bPoseChanDeform *pdef_info, Bone *bone, float co[3], D
 
 		/* start  scale in/out deform*/
 		
-		float scaleFactorIn = 1.0 + (bone->scaleIn - 1.0)*((1.0*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));;
-		float scaleFactorOut = 1.0 + (bone->scaleOut - 1.0)*((1.0*(a + 1)) / (1.0*(bone->segments - 1)));
+		float scaleFactorIn  = 1.0f + (bone->scaleIn  - 1.0f) * ((1.0f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
+		float scaleFactorOut = 1.0f + (bone->scaleOut - 1.0f) * ((1.0f * (a + 1))                  / (1.0f * (bone->segments - 1)));
 
 		float bscalemat[4][4], ibscalemat[4][4];
 		float bscale[3];
 
-		bscale[0] = 1.0*scaleFactorIn*scaleFactorOut;
-		bscale[1] = 1.0*scaleFactorIn*scaleFactorOut;
-		bscale[2] = 1.0;
+		bscale[0] = 1.0f * scaleFactorIn * scaleFactorOut;
+		bscale[1] = 1.0f * scaleFactorIn * scaleFactorOut;
+		bscale[2] = 1.0f;
 		
 
 		size_to_mat4(bscalemat, bscale);
-		bscalemat[3][0] = -1.0*bone->arm_head[0] * (bscale[0] - 1.0);
-		bscalemat[3][1] = -1.0*bone->arm_head[1] * (bscale[1] - 1.0);
+		bscalemat[3][0] = -1.0f * bone->arm_head[0] * (bscale[0] - 1.0f);
+		bscalemat[3][1] = -1.0f * bone->arm_head[1] * (bscale[1] - 1.0f);
 		//bscalemat[3][3] = 1.0;
 
 
@@ -794,31 +791,31 @@ static void b_bone_deform(bPoseChanDeform *pdef_info, Bone *bone, float co[3], D
 
 		/* start  extra roll deform*/
 
-		float extraRoll1 = (bone->roll1 / (180 / M_PI))*((1.0*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));
-		float extraRoll2 = (bone->roll2 / (180 / M_PI))*((1.0*(a + 1)) / (1.0*(bone->segments - 1)));
+		float extraRoll1 = bone->roll1 * ((1.0f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
+		float extraRoll2 = bone->roll2 * ((1.0f * (a + 1))                  / (1.0f * (bone->segments - 1)));
 		float extraRoll = extraRoll2 - extraRoll1;
 
-		float cosExtraRoll = cos(extraRoll);
-		float sinExtraRoll = sin(extraRoll);
+		float cosExtraRoll = cosf(extraRoll);
+		float sinExtraRoll = sinf(extraRoll);
 
 		float matRot[4][4];
 
 		matRot[0][0] = cosExtraRoll;
 		matRot[0][1] = -sinExtraRoll;
-		matRot[0][2] = 0.0;
-		matRot[0][3] = 0.0;
+		matRot[0][2] = 0.0f;
+		matRot[0][3] = 0.0f;
 		matRot[1][0] = sinExtraRoll;
 		matRot[1][1] = cosExtraRoll;
-		matRot[1][2] = 0.0;
-		matRot[1][3] = 0.0;
-		matRot[2][0] = 0.0;
-		matRot[2][1] = 0.0;
-		matRot[2][2] = 1.0;
-		matRot[2][3] = 0.0;
-		matRot[3][0] = 0.0;
-		matRot[3][1] = 0.0;
-		matRot[3][2] = 0.0;
-		matRot[3][3] = 1.0;
+		matRot[1][2] = 0.0f;
+		matRot[1][3] = 0.0f;
+		matRot[2][0] = 0.0f;
+		matRot[2][1] = 0.0f;
+		matRot[2][2] = 1.0f;
+		matRot[2][3] = 0.0f;
+		matRot[3][0] = 0.0f;
+		matRot[3][1] = 0.0f;
+		matRot[3][2] = 0.0f;
+		matRot[3][3] = 1.0f;
 
 		//mul_m4_v3(matRot, co);
 
@@ -828,22 +825,22 @@ static void b_bone_deform(bPoseChanDeform *pdef_info, Bone *bone, float co[3], D
 		/* start x/y pos deform */
 		float matPos[4][4];
 
-		matPos[0][0] = 1.0;
-		matPos[0][1] = 0.0;
-		matPos[0][2] = 0.0;
-		matPos[0][3] = 0.0;
-		matPos[1][0] = 0.0;
-		matPos[1][1] = 1.0;
-		matPos[1][2] = 0.0;
-		matPos[1][3] = 0.0;
-		matPos[2][0] = 0.0;
-		matPos[2][1] = 0.0;
-		matPos[2][2] = 1.0;
-		matPos[2][3] = 0.0;
-		matPos[3][0] =  bone->curveInX*((0.5*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));
-		matPos[3][1] = -bone->curveInY*((0.5*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));
-		matPos[3][2] = 0.0;
-		matPos[3][3] = 1.0;
+		matPos[0][0] = 1.0f;
+		matPos[0][1] = 0.0f;
+		matPos[0][2] = 0.0f;
+		matPos[0][3] = 0.0f;
+		matPos[1][0] = 0.0f;
+		matPos[1][1] = 1.0f;
+		matPos[1][2] = 0.0f;
+		matPos[1][3] = 0.0f;
+		matPos[2][0] = 0.0f;
+		matPos[2][1] = 0.0f;
+		matPos[2][2] = 1.0f;
+		matPos[2][3] = 0.0f;
+		matPos[3][0] =  bone->curveInX * ((0.5f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
+		matPos[3][1] = -bone->curveInY * ((0.5f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
+		matPos[3][2] = 0.0f;
+		matPos[3][3] = 1.0f;
 		//mul_m4_v3(matPos, co);
 		/* end x/y pos deform */
 
