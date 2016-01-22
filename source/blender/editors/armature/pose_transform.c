@@ -540,6 +540,9 @@ static void pchan_clear_scale(bPoseChannel *pchan)
 		pchan->size[1] = 1.0f;
 	if ((pchan->protectflag & OB_LOCK_SCALEZ) == 0)
 		pchan->size[2] = 1.0f;
+
+	pchan->bone->scaleIn = 1.0f;
+	pchan->bone->scaleOut = 1.0f;
 }
 
 /* clear location of pose-channel */
@@ -650,6 +653,8 @@ static void pchan_clear_rot(bPoseChannel *pchan)
 			zero_v3(pchan->eul);
 		}
 	}
+	pchan->bone->roll1 = 0.0f;
+	pchan->bone->roll2 = 0.0f;
 }
 
 /* clear loc/rot/scale of pose-channel */

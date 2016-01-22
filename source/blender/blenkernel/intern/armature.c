@@ -601,6 +601,25 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		roll2 = 0.0;
 	}
 
+	/* add extra rolls */
+	float extraRoll1 = bone->roll1 / (180 / M_PI);
+
+	if (bone->flag & BONE_ADD_PARENT_END_ROLL){
+		extraRoll1 = extraRoll1 + prev->bone->roll2 / (180 / M_PI);
+	}
+	float extraRoll2 = bone->roll2 / (180 / M_PI);
+
+	roll1 = roll1 + extraRoll1;
+	roll2 = roll2 + extraRoll2;
+
+	/* extra curve x / y */
+	
+	h1[0] = h1[0] + bone->curveInX;
+	h1[2] = h1[2] + bone->curveInY;
+
+	h2[0] = h2[0] + bone->curveOutX;
+	h2[2] = h2[2] + bone->curveOutY;
+	
 	/* make curve */
 	if (bone->segments > MAX_BBONE_SUBDIV)
 		bone->segments = MAX_BBONE_SUBDIV;
@@ -624,6 +643,32 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 			/* correct for scaling when this matrix is used in scaled space */
 			mul_m4_series(result_array[a].mat, iscalemat, result_array[a].mat, scalemat);
 		}
+		
+		float scaleFactorIn = 1.0;
+		if (a <= bone->segments - 1){
+			scaleFactorIn = 1.0 + (bone->scaleIn - 1.0)*((1.0*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));
+		}
+
+		float scaleFactorOut = 1.0;
+		if (a >= 0){
+			scaleFactorOut = 1.0 + (bone->scaleOut - 1.0)*((1.0*(a + 1)) / (1.0*(bone->segments - 1)));
+		}
+
+		float bscalemat[4][4], ibscalemat[4][4];
+		float bscale[3];
+
+		bscale[0] = 1.0*scaleFactorIn*scaleFactorOut;
+		bscale[1] = 1.0 / bone->segments;
+		bscale[2] = 1.0*scaleFactorIn*scaleFactorOut;
+
+		
+		size_to_mat4(bscalemat, bscale);
+		mul_m4_m4m4(result_array[a].mat, result_array[a].mat, bscalemat);
+		//printf("a %d",a);
+		//print_m4("result_array[a].mat", result_array[a].mat);
+
+		//copy_m4_m4(bone->bbone_mat[a], result_array[a].mat);
+		
 	}
 }
 
@@ -669,9 +714,17 @@ static void pchan_b_bone_defmats(bPoseChannel *pchan, bPoseChanDeform *pdef_info
 		float tmat[4][4];
 
 		invert_m4_m4(tmat, b_bone_rest[a].mat);
-
-		mul_m4_series(b_bone_mats[a + 1].mat, pchan->chan_mat, bone->arm_mat, b_bone[a].mat, tmat, b_bone_mats[0].mat);
-
+		/*
+		printf("####################  %d #######################",a);
+		print_m4("b_bone_mats[a + 1].mat", b_bone_mats[a + 1].mat);
+		print_m4("pchan->chan_mat", pchan->chan_mat);
+		print_m4("bone->arm_mat", bone->arm_mat);
+		print_m4("b_bone[a].mat", b_bone[a].mat);
+		print_m4("tmat", tmat);
+		print_m4("b_bone_mats[0].mat", b_bone_mats[0].mat);
+		*/
+		mul_m4_series(b_bone_mats[a + 1].mat, pchan->chan_mat, bone->arm_mat, b_bone[a].mat, b_bone_mats[0].mat);//, tmat, b_bone_mats[0].mat);
+		//print_m4("b_bone_mats[a + 1].mat", b_bone_mats[a + 1].mat);
 		if (use_quaternion)
 			mat4_to_dquat(&b_bone_dual_quats[a], bone->arm_mat, b_bone_mats[a + 1].mat);
 	}
@@ -681,11 +734,21 @@ static void b_bone_deform(bPoseChanDeform *pdef_info, Bone *bone, float co[3], D
 {
 	Mat4 *b_bone = pdef_info->b_bone_mats;
 	float (*mat)[4] = b_bone[0].mat;
-	float segment, y;
+	float segment, x, y, z;
 	int a;
-
+	//printf("*****************************************************\n");
 	/* need to transform co back to bonespace, only need y */
+	x = mat[0][0] * co[0] + mat[1][0] * co[1] + mat[2][0] * co[2] + mat[3][0];
 	y = mat[0][1] * co[0] + mat[1][1] * co[1] + mat[2][1] * co[2] + mat[3][1];
+	z = mat[0][2] * co[0] + mat[1][2] * co[1] + mat[2][2] * co[2] + mat[3][2];
+	
+	float pos[3];
+	pos[0] = x;
+	pos[1] = y;
+	pos[2] = z;
+
+	//print_m4("mat",mat);
+	//print_v3("pos", pos);
 
 	/* now calculate which of the b_bones are deforming this */
 	segment = bone->length / ((float)bone->segments);
@@ -699,6 +762,91 @@ static void b_bone_deform(bPoseChanDeform *pdef_info, Bone *bone, float co[3], D
 		copy_dq_dq(dq, &(pdef_info->b_bone_dual_quats)[a]);
 	}
 	else {
+
+		/* start  scale in/out deform*/
+		
+		float scaleFactorIn = 1.0 + (bone->scaleIn - 1.0)*((1.0*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));;
+		float scaleFactorOut = 1.0 + (bone->scaleOut - 1.0)*((1.0*(a + 1)) / (1.0*(bone->segments - 1)));
+
+		float bscalemat[4][4], ibscalemat[4][4];
+		float bscale[3];
+
+		bscale[0] = 1.0*scaleFactorIn*scaleFactorOut;
+		bscale[1] = 1.0*scaleFactorIn*scaleFactorOut;
+		bscale[2] = 1.0;
+		
+
+		size_to_mat4(bscalemat, bscale);
+		bscalemat[3][0] = -1.0*bone->arm_head[0] * (bscale[0] - 1.0);
+		bscalemat[3][1] = -1.0*bone->arm_head[1] * (bscale[1] - 1.0);
+		//bscalemat[3][3] = 1.0;
+
+
+		//print_m4("bscalemat", bscalemat);
+		//print_v4("co antes", co);
+		//mul_m4_v3(bscalemat, co);
+		////add_m4_m4m4(b_bone[a + 1].mat, b_bone[a + 1].mat, bscalemat);
+		//print_v4("co despues", co);
+
+
+
+		/* end  scale in/out deform*/
+
+		/* start  extra roll deform*/
+
+		float extraRoll1 = (bone->roll1 / (180 / M_PI))*((1.0*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));
+		float extraRoll2 = (bone->roll2 / (180 / M_PI))*((1.0*(a + 1)) / (1.0*(bone->segments - 1)));
+		float extraRoll = extraRoll2 - extraRoll1;
+
+		float cosExtraRoll = cos(extraRoll);
+		float sinExtraRoll = sin(extraRoll);
+
+		float matRot[4][4];
+
+		matRot[0][0] = cosExtraRoll;
+		matRot[0][1] = -sinExtraRoll;
+		matRot[0][2] = 0.0;
+		matRot[0][3] = 0.0;
+		matRot[1][0] = sinExtraRoll;
+		matRot[1][1] = cosExtraRoll;
+		matRot[1][2] = 0.0;
+		matRot[1][3] = 0.0;
+		matRot[2][0] = 0.0;
+		matRot[2][1] = 0.0;
+		matRot[2][2] = 1.0;
+		matRot[2][3] = 0.0;
+		matRot[3][0] = 0.0;
+		matRot[3][1] = 0.0;
+		matRot[3][2] = 0.0;
+		matRot[3][3] = 1.0;
+
+		//mul_m4_v3(matRot, co);
+
+		/* end  extra roll deform*/
+
+
+		/* start x/y pos deform */
+		float matPos[4][4];
+
+		matPos[0][0] = 1.0;
+		matPos[0][1] = 0.0;
+		matPos[0][2] = 0.0;
+		matPos[0][3] = 0.0;
+		matPos[1][0] = 0.0;
+		matPos[1][1] = 1.0;
+		matPos[1][2] = 0.0;
+		matPos[1][3] = 0.0;
+		matPos[2][0] = 0.0;
+		matPos[2][1] = 0.0;
+		matPos[2][2] = 1.0;
+		matPos[2][3] = 0.0;
+		matPos[3][0] =  bone->curveInX*((0.5*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));
+		matPos[3][1] = -bone->curveInY*((0.5*(bone->segments - a - 1)) / (1.0*(bone->segments - 1)));
+		matPos[3][2] = 0.0;
+		matPos[3][3] = 1.0;
+		//mul_m4_v3(matPos, co);
+		/* end x/y pos deform */
+
 		mul_m4_v3(b_bone[a + 1].mat, co);
 
 		if (defmat) {

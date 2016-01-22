@@ -188,9 +188,11 @@ class BONE_PT_relations(BoneButtonsPanel, Panel):
         sub.prop(bone, "use_connect")
         sub.prop(bone, "use_inherit_rotation")
         sub.prop(bone, "use_inherit_scale")
+        sub.prop(bone, "use_endroll_as_inroll")
         sub = col.column()
         sub.active = (not bone.parent or not bone.use_connect)
         sub.prop(bone, "use_local_location")
+
 
 
 class BONE_PT_display(BoneButtonsPanel, Panel):
@@ -370,6 +372,18 @@ class BONE_PT_deform(BoneButtonsPanel, Panel):
         sub.prop(bone, "bbone_segments", text="Segments")
         sub.prop(bone, "bbone_in", text="Ease In")
         sub.prop(bone, "bbone_out", text="Ease Out")
+        sub.prop(bone, "bbone_rollin", text="Roll In")
+        sub.prop(bone, "bbone_rollout", text="Roll Out")
+        
+        sub.label(text="Curve XY:")
+        sub.prop(bone, "bbone_curveinx", text="Roll Curve in X")
+        sub.prop(bone, "bbone_curveiny", text="Roll Curve in Y")
+        sub.prop(bone, "bbone_curveoutx", text="Roll Curve out X")
+        sub.prop(bone, "bbone_curveouty", text="Roll Curve out Y")
+        
+        sub.label(text="Scale In/Out:")
+        sub.prop(bone, "bbone_scalein", text="Scale In")
+        sub.prop(bone, "bbone_scaleout", text="Scale Out")
 
 
 class BONE_PT_custom_props(BoneButtonsPanel, PropertyPanel, Panel):
