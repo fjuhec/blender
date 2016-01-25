@@ -48,6 +48,7 @@
 #include "BLI_threads.h"
 #include "BLI_rand.h"
 
+#include "DNA_anim_types.h"
 #include "DNA_action_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_object_types.h"
@@ -64,6 +65,7 @@
 #include "BIF_glutil.h"
 
 #include "ED_armature.h"
+#include "ED_keyframing.h"
 #include "ED_screen.h"
 #include "ED_transform.h"
 #include "ED_view3d.h"
@@ -201,7 +203,8 @@ typedef struct tAffectedBone {
 	bPoseChannel *pchan;		/* bone in question */
 	float fac;					/* (last) strength factor applied to this bone */
 	
-	// TODO: unaffected transforms
+	// TODO: original bone values?
+	// TODO: bitflag for which channels need keying
 } tAffectedBone;
 
 /* Pose Sculpting brush operator data  */
@@ -218,6 +221,9 @@ typedef struct tPoseSculptingOp {
 	wmTimer *timer;				/* timer for in-place accumulation of brush effect */
 	
 	GHash *affected_bones;		/* list of bones affected by brush */
+	
+	KeyingSet *ks;				/* keyingset to use */
+	ListBase ks_sources;		/* list of elements to be keyed by the Keying Set */
 } tPoseSculptingOp;
 
 /* Callback Function Signature */
@@ -651,7 +657,7 @@ static void apply_pchan_joints(bPoseChannel *pchan, float dvec[3])
 /* ........................................................ */
 
 /* check if a bone has already been affected by the brush, and add an entry if not */
-static tAffectedBone *verify_bone_is_affected(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, short add)
+static tAffectedBone *verify_bone_is_affected(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, bool add)
 {
 	/* try to find bone */
 	tAffectedBone *tab = BLI_ghash_lookup(pso->affected_bones, pchan);
@@ -765,7 +771,7 @@ static void psculpt_brush_calc_trackball(tPoseSculptingOp *pso, tPSculptContext 
 	float mat[3][3], refmat[3][3];
 	float axis1[3], axis2[3];
 	float angles[2];
-
+	
 	
 	/* Compute screenspace movements for trackball transform
 	 * Adapted from applyTrackball() in transform.c
@@ -774,19 +780,19 @@ static void psculpt_brush_calc_trackball(tPoseSculptingOp *pso, tPSculptContext 
 	copy_v3_v3(axis2, rv3d->persinv[1]);
 	normalize_v3(axis1);
 	normalize_v3(axis2);
-
+	
 	/* From InputTrackBall() in transform_input.c */
 	angles[0] = (float)(pso->lastmouse[1] - data->mval[1]);
 	angles[1] = (float)(data->mval[0] - pso->lastmouse[0]);
-
+	
 	mul_v2_fl(angles, 0.01f); /* (mi->factor = 0.01f) */
-
+	
 	/* Adapted from applyTrackballValue() in transform.c */
 	axis_angle_normalized_to_mat3(smat, axis1, angles[0]);
 	axis_angle_normalized_to_mat3(totmat, axis2, angles[1]);
-
+	
 	mul_m3_m3m3(mat, smat, totmat);
-
+	
 	/* Adjust strength of effect */
 	unit_m3(refmat);
 	interp_m3_m3m3(data->rmat, refmat, mat, brush->strength);
@@ -1007,6 +1013,14 @@ static int psculpt_brush_init(bContext *C, wmOperator *op)
 				  
 	data->is_first = true;
 	
+	/* init data needed for handling autokeying
+	 * - If autokeying is not applicable here, the keyingset will be NULL,
+	 *   and therefore no autokeying stuff will need to happen later...
+	 */
+	if (autokeyframe_cfra_can_key(scene, &ob->id)) {
+		pso->ks = ANIM_get_keyingset_for_autokeying(scene, ANIM_KS_WHOLE_CHARACTER_ID);
+	}
+	
 	/* setup cursor and header drawing */
 	ED_area_headerprint(CTX_wm_area(C), IFACE_("Pose Sculpting in progress..."));
 	
@@ -1042,6 +1056,30 @@ static void psculpt_brush_exit(bContext *C, wmOperator *op)
 
 /* Apply ----------------------------------------------- */
 
+/* Perform auto-keyframing */
+static void psculpt_brush_do_autokey(bContext *C, tPoseSculptingOp *pso)
+{
+	BLI_assert(pso->ks != NULL);
+	
+	if (pso->ks && pso->ks_sources.first) {
+		Scene *scene = pso->scene;
+		Object *ob = pso->ob;
+		
+		/* insert keyframes for all relevant bones in one go */
+		ANIM_apply_keyingset(C, &pso->ks_sources, NULL, pso->ks, MODIFYKEY_MODE_INSERT, CFRA);
+		BLI_freelistN(&pso->ks_sources);
+		
+		/* do the bone paths
+		 *	- only do this if keyframes should have been added
+		 *	- do not calculate unless there are paths already to update...
+		 */
+		if (ob->pose->avs.path_bakeflag & MOTIONPATH_BAKE_HAS_PATHS) {
+			//ED_pose_clear_paths(C, ob); // XXX for now, don't need to clear
+			ED_pose_recalculate_paths(scene, ob);
+		}
+	}
+}
+
 /* Apply brush callback on bones which fall within the brush region 
  * Based on method pose_circle_select() in view3d_select.c
  */
@@ -1049,8 +1087,9 @@ static bool psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data,
 {
 	PSculptSettings *pset = psculpt_settings(pso->scene);
 	ViewContext *vc = &data->vc;
-	bArmature *arm = data->ob->data;
-	bPose *pose = data->ob->pose;
+	Object *ob = data->ob;
+	bArmature *arm = ob->data;
+	bPose *pose = ob->pose;
 	bPoseChannel *pchan;
 	bool changed = false;
 	
@@ -1092,18 +1131,20 @@ static bool psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data,
 			continue;
 		}
 		
-		/* check if the head and/or tail is in the circle 
-		 *	- the call to check also does the selection already
+		/* Check if this is already in the cache for a brush that just wants to affect those initially captured;
+		 * If that's the case, we should just continue to affect it
 		 */
-		// FIXME: this method FAILS on custom bones shapes. Can be quite bad sometimes with production rigs!
-		if (edge_inside_circle(data->mval, data->rad, sco1, sco2)) {
-			ok = true;
-		}
-		/* alternatively, check if this is already in the cache for a brush that just wants to affect those initially captured */
 		else if ((data->brush->flag & PSCULPT_BRUSH_FLAG_GRAB_INITIAL) && 
 				 (data->is_first == false) && 
 				 (verify_bone_is_affected(pso, data, pchan, false) != NULL))
 		{
+			ok = true;
+		}
+		/* Otherwise, check if the head and/or tail is in the circle 
+		 *	- the call to check also does the selection already
+		 */
+		// FIXME: this method FAILS on custom bones shapes. Can be quite bad sometimes with production rigs!
+		else if (edge_inside_circle(data->mval, data->rad, sco1, sco2)) {
 			ok = true;
 		}
 		
@@ -1117,6 +1158,15 @@ static bool psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data,
 			
 			/* apply callback to this bone */
 			brush_cb(pso, data, pchan, sco1, sco2);
+			
+			/* schedule this bone up for being keyframed (if autokeying is enabled) */
+			if (pso->ks) {
+				ANIM_relative_keyingset_add_source(&pso->ks_sources, &ob->id, &RNA_PoseBone, pchan); 
+				if (pchan->bone) pchan->bone->flag &= ~BONE_UNKEYED;
+			}
+			else {
+				if (pchan->bone) pchan->bone->flag |= BONE_UNKEYED;
+			}
 			
 			/* tag as changed */
 			// TODO: add to autokeying cache...
@@ -1299,6 +1349,10 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		/* flush updates */
 		if (changed) {
 			bArmature *arm = (bArmature *)ob->data;
+			
+			/* perform autokeying first */
+			// XXX: order?
+			psculpt_brush_do_autokey(C, pso);
 			
 			/* old optimize trick... this enforces to bypass the depgraph 
 			 *	- note: code copied from transform_generics.c -> recalcData()
