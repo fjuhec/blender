@@ -128,6 +128,7 @@ static void psculpt_brush_apply_drawcursor(bContext *C, int x, int y, void *UNUS
 		glTranslatef((float)x, (float)y, 0.0f);
 		
 		glColor4ub(255, 255, 255, 128);
+		glLineWidth(1.0);
 		
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
