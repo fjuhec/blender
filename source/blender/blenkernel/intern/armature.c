@@ -646,7 +646,7 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 
 		float scaleFactorOut = 1.0f;
 		if (a >= 0) {
-			scaleFactorOut = 1.0 + (bone->scaleOut - 1.0f) * ((1.0f * (a + 1))                 / (1.0f * (bone->segments - 1)));
+			scaleFactorOut = 1.0 + (bone->scaleOut - 1.0f) * ((1.0f * (a + 1))                  / (1.0f * (bone->segments - 1)));
 		}
 
 		float bscalemat[4][4], ibscalemat[4][4];
@@ -659,6 +659,7 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		
 		size_to_mat4(bscalemat, bscale);
 		mul_m4_m4m4(result_array[a].mat, result_array[a].mat, bscalemat);
+		
 		//printf("a %d",a);
 		//print_m4("result_array[a].mat", result_array[a].mat);
 
@@ -731,7 +732,7 @@ static void b_bone_deform(bPoseChanDeform *pdef_info, Bone *bone, float co[3], D
 	float (*mat)[4] = b_bone[0].mat;
 	float segment, y;
 	int a;
-	//printf("*****************************************************\n");
+	
 	/* need to transform co back to bonespace, only need y */
 	y = mat[0][1] * co[0] + mat[1][1] * co[1] + mat[2][1] * co[2] + mat[3][1];
 	
