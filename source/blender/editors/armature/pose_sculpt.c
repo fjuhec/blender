@@ -973,12 +973,14 @@ static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, bPoseChannel *pch
  * Instead, it blends between the current value and the rest pose,
  * making it possible to "relax" the pose somewhat (if they are similar)
  */
-// TODO: Use mouse pressure here to modulate factor too?
 static void psculpt_brush_reset_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	const float fac = psculpt_brush_calc_influence(pso, true);
 	const short locks = pchan->protectflag;
 	float eul[3] = {0.0f};
+	
+	/* make sure we capture this bone's original values before they are lost */
+	verify_bone_is_affected(pso, pchan, true);
 	
 	/* location locks */
 	if ((locks & OB_LOCK_LOCX) == 0)
@@ -1008,6 +1010,152 @@ static void psculpt_brush_reset_apply(tPoseSculptingOp *pso, bPoseChannel *pchan
 		pchan->size[1] = interpf(1.0f, pchan->size[1], fac);
 	if ((locks & OB_LOCK_SCALEZ) == 0)
 		pchan->size[2] = interpf(1.0f, pchan->size[2], fac);
+}
+
+/* Blend between current and pre-sculpt values
+ *
+ * This is like a sculpt-based version of Push/Relax pose.
+ * Here, we hardcode this to be the inverse of normal "Reset",
+ * (via the shift/invert) functionality, providing the user
+ * with a way to correct their mistakes (reset too far) without
+ * stopping to undo first and try again.
+ */
+static void psculpt_brush_restore_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+{
+	const float fac = psculpt_brush_calc_influence(pso, true);
+	const short locks = pchan->protectflag;
+	
+	/* We need to use the old (pre-sculpt) values.
+	 * If the bone hasn't been affected yet, then
+	 * we don't know what it would've looked like,
+	 * so we can't do anything...
+	 */
+	tAffectedBone *tab = verify_bone_is_affected(pso, pchan, false);
+	if (tab == NULL) {
+		/* printf("%s: Ignore bone - '%s' as not yet affected\n", __func__, pchan->name); */
+		return;
+	}
+	
+	
+	/* location locks */
+	if ((locks & OB_LOCK_LOCX) == 0)
+		pchan->loc[0] = interpf(tab->oldloc[0], pchan->loc[0], fac);
+	if ((locks & OB_LOCK_LOCY) == 0)
+		pchan->loc[1] = interpf(tab->oldloc[1], pchan->loc[1], fac);
+	if ((locks & OB_LOCK_LOCZ) == 0)
+		pchan->loc[2] = interpf(tab->oldloc[2], pchan->loc[2], fac);
+	
+	
+	/* rotation locks */
+	/* NOTE: We can't do the euler-conversion hack here, since the old values
+	 *       are only stored in their native formats.
+	 */
+	if (ELEM(pchan->rotmode, ROT_MODE_QUAT, ROT_MODE_AXISANGLE) && (locks & OB_LOCK_ROT4D) == 0) {
+		float eul[3] = {0.0f}, oldeul[3] = {0.0f};
+		
+		/* Treat rotations as eulers */
+		// TODO: need to compute oldeul from the 
+		if (get_pchan_eul_rotation(eul, NULL, pchan)) {
+			switch (pchan->rotmode) {
+				case ROT_MODE_QUAT:
+					quat_to_eulO(oldeul, ROT_MODE_EUL, tab->oldquat);
+					break;
+				
+				case ROT_MODE_AXISANGLE:
+					axis_angle_to_eulO(oldeul, ROT_MODE_EUL, tab->oldaxis, tab->oldangle);
+					break;
+					
+				default:
+					/* this can't happen */
+					copy_v3_v3(eul, oldeul);
+					break;
+			}
+			
+			if ((locks & OB_LOCK_ROTX) == 0)
+				eul[0] = interpf(oldeul[0], eul[0], fac);
+			if ((locks & OB_LOCK_ROTY) == 0)
+				eul[1] = interpf(oldeul[1], eul[1], fac);
+			if ((locks & OB_LOCK_ROTZ) == 0)
+				eul[2] = interpf(oldeul[2], eul[2], fac);
+			
+			// do compat euler?
+			set_pchan_eul_rotation(eul, pchan);
+		}
+	}
+	else {
+		switch (pchan->rotmode) {
+			case ROT_MODE_QUAT:
+			{
+				/* Quat Interpolation? */
+				if (!(locks & OB_LOCK_ROTW) && !(locks & OB_LOCK_ROTX) && !(locks & OB_LOCK_ROTY) && !(locks & OB_LOCK_ROTZ)) {
+					/* All unlocked - Do Quat interpolation for best results */
+					float quat[4];
+					
+					copy_qt_qt(quat, pchan->quat);
+					interp_qt_qtqt(pchan->quat, tab->oldquat, quat, fac);
+				}
+				else {
+					/* Partial - Just assume that we can get away with element-wise interpolation
+					 *
+					 * XXX: The alternative here is to do what Pose Sliding does, which is to ignore the fact that some of these
+					 *      channels may be locked!
+					 */
+					if ((locks & OB_LOCK_ROTW) == 0)
+						pchan->quat[0] = interpf(tab->oldquat[0], pchan->quat[0], fac);
+					if ((locks & OB_LOCK_ROTX) == 0)
+						pchan->quat[1] = interpf(tab->oldquat[1], pchan->quat[1], fac);
+					if ((locks & OB_LOCK_ROTY) == 0)
+						pchan->quat[2] = interpf(tab->oldquat[2], pchan->quat[2], fac);
+					if ((locks & OB_LOCK_ROTZ) == 0)
+						pchan->quat[3] = interpf(tab->oldquat[3], pchan->quat[3], fac);
+				}
+				
+				break;
+			}
+			
+			case ROT_MODE_AXISANGLE:
+			{
+				/* Axis Angle
+				 *
+				 * XXX: The proper thing to do is to do quat interpolation
+				 *      but now let's just do it element by element.
+				 * NOTE: Pose Sliding doesn't handle this case either though
+				 */
+				if ((locks & OB_LOCK_ROTW) == 0)
+					pchan->rotAngle = interpf(tab->oldangle, pchan->rotAngle, fac);
+				if ((locks & OB_LOCK_ROTX) == 0)
+					pchan->rotAxis[0] = interpf(tab->oldaxis[0], pchan->rotAxis[0], fac);
+				if ((locks & OB_LOCK_ROTY) == 0)
+					pchan->rotAxis[1] = interpf(tab->oldaxis[1], pchan->rotAxis[1], fac);
+				if ((locks & OB_LOCK_ROTZ) == 0)
+					pchan->rotAxis[2] = interpf(tab->oldaxis[2], pchan->rotAxis[2], fac);
+				
+				break;
+			}
+			
+			case ROT_MODE_EUL:
+			default:
+			{
+				if ((locks & OB_LOCK_ROTX) == 0)
+					pchan->eul[0] = interpf(tab->oldrot[0], pchan->eul[0], fac);
+				if ((locks & OB_LOCK_ROTY) == 0)
+					pchan->eul[1] = interpf(tab->oldrot[1], pchan->eul[1], fac);
+				if ((locks & OB_LOCK_ROTZ) == 0)
+					pchan->eul[2] = interpf(tab->oldrot[2], pchan->eul[2], fac);
+				
+				break;
+			}
+		}
+	}
+	
+	
+	/* scaling locks */
+	if ((locks & OB_LOCK_SCALEX) == 0)
+		pchan->size[0] = interpf(tab->oldscale[0], pchan->size[0], fac);
+	if ((locks & OB_LOCK_SCALEY) == 0)
+		pchan->size[1] = interpf(tab->oldscale[1], pchan->size[1], fac);
+	if ((locks & OB_LOCK_SCALEZ) == 0)
+		pchan->size[2] = interpf(tab->oldscale[2], pchan->size[2], fac);
 }
 
 /* .......................... */
@@ -1372,7 +1520,14 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			
 			case PSCULPT_BRUSH_RESET:
 			{
-				changed = psculpt_brush_do_apply(pso, psculpt_brush_reset_apply);
+				if (data->invert) {
+					/* Invert = "Restore back to pre-sculpt value" */
+					changed = psculpt_brush_do_apply(pso, psculpt_brush_restore_apply);
+				}
+				else {
+					/* Normal = "Reset pose to rest pose" */
+					changed = psculpt_brush_do_apply(pso, psculpt_brush_reset_apply);
+				}
 				break;
 			}
 			
