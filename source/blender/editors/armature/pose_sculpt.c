@@ -229,7 +229,7 @@ typedef struct tPoseSculptingOp {
 } tPoseSculptingOp;
 
 /* Callback Function Signature */
-typedef void (*PSculptBrushCallback)(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float sco1[2], float sco2[2]);
+typedef void (*PSculptBrushCallback)(tPoseSculptingOp *pso, bPoseChannel *pchan, float sco1[2], float sco2[2]);
 
 /* Init ------------------------------------------------ */
 
@@ -254,9 +254,9 @@ static void psculpt_init_view3d_data(bContext *C, tPSculptContext *data)
 
 /* Brush Utilities ---------------------------------------- */
 
-static float psculpt_brush_calc_influence(tPoseSculptingOp *pso, tPSculptContext *data, bool use_falloff)
+static float psculpt_brush_calc_influence(tPoseSculptingOp *pso, bool use_falloff)
 {
-	//tPSculptContext *data = &pso->data;
+	tPSculptContext *data = &pso->data;
 	PSculptBrushData *brush = data->brush;
 	float fac = brush->strength;
 	
@@ -683,7 +683,7 @@ static void apply_pchan_joints(bPoseChannel *pchan, float dvec[3])
 /* ........................................................ */
 
 /* check if a bone has already been affected by the brush, and add an entry if not */
-static tAffectedBone *verify_bone_is_affected(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, bool add)
+static tAffectedBone *verify_bone_is_affected(tPoseSculptingOp *pso, bPoseChannel *pchan, bool add)
 {
 	/* try to find bone */
 	tAffectedBone *tab = BLI_ghash_lookup(pso->affected_bones, pchan);
@@ -710,8 +710,10 @@ static void free_affected_bone(void *tab_p)
 /* Brushes ------------------------------------------------ */
 
 /* change selection status of bones - used to define masks */
-static void psculpt_brush_select_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_select_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
+	tPSculptContext *data = &pso->data;
+	
 	if (pchan->bone) {
 		if (data->invert)
 			pchan->bone->flag &= ~BONE_SELECTED;
@@ -723,7 +725,7 @@ static void psculpt_brush_select_apply(tPoseSculptingOp *pso, tPSculptContext *d
 /* .......................... */
 
 /* "Smooth" brush */
-static void psculpt_brush_smooth_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float sco1[2], float sco2[2])
+static void psculpt_brush_smooth_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float sco1[2], float sco2[2])
 {
 	
 }
@@ -731,19 +733,20 @@ static void psculpt_brush_smooth_apply(tPoseSculptingOp *pso, tPSculptContext *d
 /* .......................... */
 
 /* "Grab" brush - Translate bone */
-static void psculpt_brush_grab_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_grab_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
+	tPSculptContext *data = &pso->data;
 	PSculptBrushData *brush = data->brush;
 	float imat[4][4], mat[4][4];
 	float cvec[3];
 	float fac;
 	
 	/* strength of push */
-	fac = psculpt_brush_calc_influence(pso, data, true);
+	fac = psculpt_brush_calc_influence(pso, true);
 	if (data->invert) fac = -fac;
 	
 	if (brush->flag & PSCULPT_BRUSH_FLAG_GRAB_INITIAL) {
-		tAffectedBone *tab = verify_bone_is_affected(pso, data, pchan, data->is_first);
+		tAffectedBone *tab = verify_bone_is_affected(pso, pchan, data->is_first);
 		
 		/* if one couldn't be found or added, then it didn't exist the first time round,
 		 * so we shouldn't proceed (to avoid clobbering additional bones)
@@ -788,8 +791,9 @@ static void psculpt_brush_grab_apply(tPoseSculptingOp *pso, tPSculptContext *dat
 /* .......................... */
 
 /* "Adjust" Brush - Compute transform to apply to all bones inside the brush */
-static void psculpt_brush_calc_trackball(tPoseSculptingOp *pso, tPSculptContext *data)
+static void psculpt_brush_calc_trackball(tPoseSculptingOp *pso)
 {
+	tPSculptContext *data = &pso->data;
 	PSculptBrushData *brush = data->brush;
 	RegionView3D *rv3d = data->rv3d;
 	
@@ -826,16 +830,18 @@ static void psculpt_brush_calc_trackball(tPoseSculptingOp *pso, tPSculptContext 
 
 /* "Adjust" Brush - i.e. a simple trackball transform */
 // TODO: on root bones, don't do trackball... do grab instead?
-static void psculpt_brush_adjust_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_adjust_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
+	tPSculptContext *data = &pso->data;
 	pchan_do_rotate(data->ob, pchan, data->rmat);
 }
 
 /* .......................... */
 
 /* "Curl" brush - Rotate bone around its non-primary axes */
-static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
+	tPSculptContext *data = &pso->data;
 	PSculptBrushData *brush = data->brush;
 	short locks = pchan->protectflag;
 	float eul[3] = {0.0f};
@@ -850,8 +856,8 @@ static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, tPSculptContext *dat
 	 *   however is much too strong for controllability. So, leaving it as-is.
 	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = psculpt_brush_calc_influence(pso, data, true);      //printf("%f ", angle);
-	angle = DEG2RAD(angle);                                     //printf("%f \n", angle);
+	angle = psculpt_brush_calc_influence(pso, true);      //printf("%f ", angle);
+	angle = DEG2RAD(angle);                               //printf("%f \n", angle);
 	
 	if (data->invert) angle = -angle;
 	
@@ -877,8 +883,9 @@ static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, tPSculptContext *dat
 /* .......................... */
 
 /* "Twist" brush - Rotate bone around its primary axis */
-static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
+	tPSculptContext *data = &pso->data;
 	short locks = pchan->protectflag;
 	float eul[3] = {0.0f};
 	float angle = 0.0f;
@@ -892,8 +899,8 @@ static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, tPSculptContext *da
 	 *   however is much too strong for controllability. So, leaving it as-is.
 	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = psculpt_brush_calc_influence(pso, data, true);      //printf("%f ", angle);
-	angle = DEG2RAD(angle);                                     //printf("%f \n", angle);
+	angle = psculpt_brush_calc_influence(pso, true);      //printf("%f ", angle);
+	angle = DEG2RAD(angle);                               //printf("%f \n", angle);
 	
 	if (data->invert) angle = -angle;
 	
@@ -909,14 +916,15 @@ static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, tPSculptContext *da
 /* .......................... */
 
 /* "Stretch" brush - Scale bone along its primary axis */
-static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
+	tPSculptContext *data = &pso->data;
 	PSculptBrushData *brush = data->brush;
 	const float DAMP_FAC = 0.1f; /* damping factor - to be configurable? */
 	float fac;
 	
 	/* scale factor must be greater than 1 for add, and less for subtract */
-	fac = psculpt_brush_calc_influence(pso, data, true) * DAMP_FAC;
+	fac = psculpt_brush_calc_influence(pso, true) * DAMP_FAC;
 	
 	if (data->invert)
 		fac = 1.0f - fac;
@@ -952,9 +960,9 @@ static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, tPSculptContext *
  * making it possible to "relax" the pose somewhat (if they are similar)
  */
 // TODO: Use mouse pressure here to modulate factor too?
-static void psculpt_brush_reset_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_reset_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
-	const float fac = psculpt_brush_calc_influence(pso, data, true);
+	const float fac = psculpt_brush_calc_influence(pso, true);
 	const short locks = pchan->protectflag;
 	float eul[3] = {0.0f};
 	
@@ -991,13 +999,13 @@ static void psculpt_brush_reset_apply(tPoseSculptingOp *pso, tPSculptContext *da
 /* .......................... */
 
 /* "radial" brush */
-static void psculpt_brush_radial_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_radial_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	
 }
 
 /* "wrap" brush */
-static void psculpt_brush_wrap_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_wrap_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
 	
 }
@@ -1036,7 +1044,7 @@ static int psculpt_brush_init(bContext *C, wmOperator *op)
 	brush = data->brush;
 	data->invert = (brush && (brush->flag & PSCULPT_BRUSH_FLAG_INV)) || 
 	                (RNA_boolean_get(op->ptr, "invert"));
-				  
+	
 	data->is_first = true;
 	
 	/* init data needed for handling autokeying
@@ -1109,9 +1117,10 @@ static void psculpt_brush_do_autokey(bContext *C, tPoseSculptingOp *pso)
 /* Apply brush callback on bones which fall within the brush region 
  * Based on method pose_circle_select() in view3d_select.c
  */
-static bool psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data, PSculptBrushCallback brush_cb)
+static bool psculpt_brush_do_apply(tPoseSculptingOp *pso, PSculptBrushCallback brush_cb)
 {
 	PSculptSettings *pset = psculpt_settings(pso->scene);
+	tPSculptContext *data = &pso->data;
 	ViewContext *vc = &data->vc;
 	Object *ob = data->ob;
 	bArmature *arm = ob->data;
@@ -1162,7 +1171,7 @@ static bool psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data,
 		 */
 		else if ((data->brush->flag & PSCULPT_BRUSH_FLAG_GRAB_INITIAL) && 
 				 (data->is_first == false) && 
-				 (verify_bone_is_affected(pso, data, pchan, false) != NULL))
+				 (verify_bone_is_affected(pso, pchan, false) != NULL))
 		{
 			ok = true;
 		}
@@ -1183,7 +1192,7 @@ static bool psculpt_brush_do_apply(tPoseSculptingOp *pso, tPSculptContext *data,
 			data->dist = len_v2v2(mid, data->mval);
 			
 			/* apply callback to this bone */
-			brush_cb(pso, data, pchan, sco1, sco2);
+			brush_cb(pso, pchan, sco1, sco2);
 			
 			/* schedule this bone up for being keyframed (if autokeying is enabled) */
 			if (pso->ks) {
@@ -1246,7 +1255,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		RegionView3D *rv3d = CTX_wm_region_view3d(C);
 		float *rvec, zfac;
 		
-		tPSculptContext data = pso->data;  // XXXX: THIS IS NOT THE SAME AS THE CONTEXT ONE!
+		tPSculptContext *data = &pso->data;
 		bool changed = false;
 		
 		/* init view3D depth buffer stuff, used for finding bones to affect */
@@ -1261,37 +1270,37 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		
 		/* set generic mouse parameters */
 		// XXX: this doesn't need to happen everytime!
-		data.ar = ar;
-		data.v3d = v3d;
-		data.rv3d = rv3d;
+		data->ar = ar;
+		data->v3d = v3d;
+		data->rv3d = rv3d;
 		
-		data.mval = mousef;
-		data.rad = (float)brush->size;
-		data.fac = brush->strength;
-		data.is_first = pso->is_first;
+		data->mval = mousef;
+		data->rad = (float)brush->size;
+		data->fac = brush->strength;
+		data->is_first = pso->is_first;
 		
 		/* apply brushes */
 		switch (pset->brushtype) {
 			case PSCULPT_BRUSH_DRAW: // XXX: placeholder... we need a proper "draw" brush
 			case PSCULPT_BRUSH_ADJUST:
 			{
-				if (data.invert) {
+				if (data->invert) {
 					/* Shift = Hardcoded convenience shortcut to perform Grab */
 					float delta[2] = {dx, dy};
-					ED_view3d_win_to_delta(ar, delta, data.dvec, zfac);
+					ED_view3d_win_to_delta(ar, delta, data->dvec, zfac);
 					
 					/* Hack: Clear invert flag, or else translate behaves wrong */
-					data.invert = false;
+					data->invert = false;
 					
-					changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_grab_apply);
+					changed = psculpt_brush_do_apply(pso, psculpt_brush_grab_apply);
 				}
 				else {
 					/* Compute trackball effect */
-					psculpt_brush_calc_trackball(pso, &data);
+					psculpt_brush_calc_trackball(pso);
 					
 					/* Apply trackball transform to bones... */
 					// TODO: if no bones affected, fall back to the ones last affected (as we may have slipped off into space)
-					changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_adjust_apply);
+					changed = psculpt_brush_do_apply(pso, psculpt_brush_adjust_apply);
 				}
 				
 				break;
@@ -1300,7 +1309,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			case PSCULPT_BRUSH_SMOOTH:
 			{
 				// XXX: placeholder
-				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_smooth_apply);
+				changed = psculpt_brush_do_apply(pso, psculpt_brush_smooth_apply);
 				
 				break;
 			}
@@ -1308,35 +1317,35 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			case PSCULPT_BRUSH_GRAB:
 			{
 				float delta[2] = {dx, dy};
-				ED_view3d_win_to_delta(ar, delta, data.dvec, zfac);
+				ED_view3d_win_to_delta(ar, delta, data->dvec, zfac);
 				
-				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_grab_apply);
+				changed = psculpt_brush_do_apply(pso, psculpt_brush_grab_apply);
 				
 				break;
 			}
 			
 			case PSCULPT_BRUSH_CURL:
 			{
-				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_curl_apply);
+				changed = psculpt_brush_do_apply(pso, psculpt_brush_curl_apply);
 				break;
 			}
 			
 			case PSCULPT_BRUSH_STRETCH:
 			{
-				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_stretch_apply);
+				changed = psculpt_brush_do_apply(pso, psculpt_brush_stretch_apply);
 				break;
 			}
 			
 			case PSCULPT_BRUSH_TWIST:
 			{
-				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_twist_apply);
+				changed = psculpt_brush_do_apply(pso, psculpt_brush_twist_apply);
 				break;
 			}
 			
 			case PSCULPT_BRUSH_RADIAL:
 			{
 				// XXX: placeholder
-				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_radial_apply);
+				changed = psculpt_brush_do_apply(pso, psculpt_brush_radial_apply);
 				
 				break;
 			}
@@ -1344,14 +1353,14 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			case PSCULPT_BRUSH_WRAP:
 			{
 				// XXX: placeholder
-				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_wrap_apply);
+				changed = psculpt_brush_do_apply(pso, psculpt_brush_wrap_apply);
 				
 				break;
 			}
 			
 			case PSCULPT_BRUSH_RESET:
 			{
-				changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_reset_apply);
+				changed = psculpt_brush_do_apply(pso, psculpt_brush_reset_apply);
 				break;
 			}
 			
@@ -1363,7 +1372,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 				/* no need for recalc, unless some visualisation tools depend on this 
 				 * (i.e. mask modifier in 'armature' mode) 
 				 */
-				sel_changed = psculpt_brush_do_apply(pso, &data, psculpt_brush_select_apply);
+				sel_changed = psculpt_brush_do_apply(pso, psculpt_brush_select_apply);
 				changed = ((sel_changed) && (arm->flag & ARM_HAS_VIZ_DEPS));
 				
 				break;
