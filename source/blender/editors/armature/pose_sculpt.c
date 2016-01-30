@@ -1243,9 +1243,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 	mouse[0] = (int)mousef[0];
 	mouse[1] = (int)mousef[1];
 	
-	if (RNA_boolean_get(itemptr, "pen_flip"))
-		pso->data.invert = true;
-		
+	pso->data.invert = RNA_boolean_get(itemptr, "pen_flip");
 	pso->pressure = RNA_float_get(itemptr, "pressure");
 	
 	/* store coordinates as reference, if operator just started running */
