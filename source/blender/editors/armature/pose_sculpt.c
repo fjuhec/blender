@@ -215,6 +215,8 @@ typedef struct tPoseSculptingOp {
 	Object *ob;
 	
 	float lastmouse[2];			/* previous mouse position */
+	float pressure;				/* current mouse pressure */
+	
 	bool is_first;				/* is this the first time we're applying anything? */
 	bool is_timer_tick;			/* is the current event being processed due to a timer tick? */
 	
@@ -252,8 +254,32 @@ static void psculpt_init_view3d_data(bContext *C, tPSculptContext *data)
 
 /* Brush Utilities ---------------------------------------- */
 
+static float psculpt_brush_calc_influence(tPoseSculptingOp *pso, tPSculptContext *data, bool use_falloff)
+{
+	//tPSculptContext *data = &pso->data;
+	PSculptBrushData *brush = data->brush;
+	float fac = brush->strength;
+	
+	/* use pressure to modulate strength */
+	//if (brush->flag & PSCULPT_BRUSH_FLAG_USE_PRESSURE) 
+	{
+		fac *= pso->pressure;
+	}
+	
+	/* use distance falloff */
+	// XXX: make this another brush setting?
+	if (use_falloff) {
+		fac *= fabsf(1.0f - data->dist / data->rad);
+	}
+	
+	/* return the new influence */
+	return fac;
+}
+
+/* ........................................................ */
+
 /* get euler rotation value to work with */
-static short get_pchan_eul_rotation(float eul[3], short *order, const bPoseChannel *pchan)
+static bool get_pchan_eul_rotation(float eul[3], short *order, const bPoseChannel *pchan)
 {
 	if (ELEM(pchan->rotmode, ROT_MODE_QUAT, ROT_MODE_AXISANGLE)) {
 		/* ensure that we're not totally locked... */
@@ -713,7 +739,7 @@ static void psculpt_brush_grab_apply(tPoseSculptingOp *pso, tPSculptContext *dat
 	float fac;
 	
 	/* strength of push */
-	fac = fabsf(1.0f - data->dist / data->rad) * data->fac;
+	fac = psculpt_brush_calc_influence(pso, data, true);
 	if (data->invert) fac = -fac;
 	
 	if (brush->flag & PSCULPT_BRUSH_FLAG_GRAB_INITIAL) {
@@ -824,7 +850,7 @@ static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, tPSculptContext *dat
 	 *   however is much too strong for controllability. So, leaving it as-is.
 	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = fabsf(1.0f - data->dist / data->rad) * data->fac;	//printf("%f ", angle);
+	angle = psculpt_brush_calc_influence(pso, data, true);      //printf("%f ", angle);
 	angle = DEG2RAD(angle);                                     //printf("%f \n", angle);
 	
 	if (data->invert) angle = -angle;
@@ -866,7 +892,7 @@ static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, tPSculptContext *da
 	 *   however is much too strong for controllability. So, leaving it as-is.
 	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = fabsf(1.0f - data->dist / data->rad) * data->fac;	//printf("%f ", angle);
+	angle = psculpt_brush_calc_influence(pso, data, true);      //printf("%f ", angle);
 	angle = DEG2RAD(angle);                                     //printf("%f \n", angle);
 	
 	if (data->invert) angle = -angle;
@@ -890,7 +916,7 @@ static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, tPSculptContext *
 	float fac;
 	
 	/* scale factor must be greater than 1 for add, and less for subtract */
-	fac = fabsf(1.0f - data->dist / data->rad) * data->fac * DAMP_FAC;
+	fac = psculpt_brush_calc_influence(pso, data, true) * DAMP_FAC;
 	
 	if (data->invert)
 		fac = 1.0f - fac;
@@ -926,10 +952,10 @@ static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, tPSculptContext *
  * making it possible to "relax" the pose somewhat (if they are similar)
  */
 // TODO: Use mouse pressure here to modulate factor too?
-static void psculpt_brush_reset_apply(tPoseSculptingOp *UNUSED(pso), tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
+static void psculpt_brush_reset_apply(tPoseSculptingOp *pso, tPSculptContext *data, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
+	const float fac = psculpt_brush_calc_influence(pso, data, true);
 	const short locks = pchan->protectflag;
-	const float fac = data->fac;
 	float eul[3] = {0.0f};
 	
 	/* location locks */
@@ -1196,6 +1222,8 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 	
 	if (RNA_boolean_get(itemptr, "pen_flip"))
 		pso->data.invert = true;
+		
+	pso->pressure = RNA_float_get(itemptr, "pressure");
 	
 	/* store coordinates as reference, if operator just started running */
 	if (pso->is_first) {
@@ -1218,7 +1246,7 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 		RegionView3D *rv3d = CTX_wm_region_view3d(C);
 		float *rvec, zfac;
 		
-		tPSculptContext data = pso->data;
+		tPSculptContext data = pso->data;  // XXXX: THIS IS NOT THE SAME AS THE CONTEXT ONE!
 		bool changed = false;
 		
 		/* init view3D depth buffer stuff, used for finding bones to affect */
