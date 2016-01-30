@@ -203,8 +203,12 @@ typedef struct tAffectedBone {
 	bPoseChannel *pchan;		/* bone in question */
 	float fac;					/* (last) strength factor applied to this bone */
 	
-	// TODO: original bone values?
-	// TODO: bitflag for which channels need keying
+	float oldloc[3];            /* transform values at start of operator (to be restored before each modal step) */
+	float oldrot[3];
+	float oldscale[3];
+	float oldquat[4];
+	float oldangle;
+	float oldaxis[3];
 } tAffectedBone;
 
 /* Pose Sculpting brush operator data  */
@@ -688,14 +692,24 @@ static tAffectedBone *verify_bone_is_affected(tPoseSculptingOp *pso, bPoseChanne
 	/* try to find bone */
 	tAffectedBone *tab = BLI_ghash_lookup(pso->affected_bones, pchan);
 	
-	/* add if not found and we're allowed to */
+	/* add if not found (and we're allowed to do so) */
 	if ((tab == NULL) && (add)) {
 		tab = MEM_callocN(sizeof(tAffectedBone), "tAffectedBone");
-		
-		tab->pchan = pchan;
-		tab->fac = 0.5f; // placeholder
-		
 		BLI_ghash_insert(pso->affected_bones, pchan, tab);
+		
+		/* basic info */
+		tab->pchan = pchan;
+		tab->fac = 0.5f; /* placeholder - should be the amount of influence to apply to the bone */
+		
+		/* store old values (which should still be "pristine" - i.e. pre-sculpt) */
+		copy_v3_v3(tab->oldloc, pchan->loc);
+		copy_v3_v3(tab->oldrot, pchan->eul);
+		copy_v3_v3(tab->oldscale, pchan->size);
+		copy_qt_qt(tab->oldquat, pchan->quat);
+		copy_v3_v3(tab->oldaxis, pchan->rotAxis);
+		tab->oldangle = pchan->rotAngle;
+		
+		// TODO: custom props?
 	}
 	
 	return tab;
