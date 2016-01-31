@@ -1669,6 +1669,7 @@ static int psculpt_brush_invoke(bContext *C, wmOperator *op, const wmEvent *even
 static int psculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tPoseSculptingOp *pso = op->customdata;
+	bool redraw_region = false;
 	
 	switch (event->type) {
 		/* mouse release or some other mbut click = abort! */
@@ -1692,6 +1693,47 @@ static int psculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *event
 		case INBETWEEN_MOUSEMOVE:
 			psculpt_brush_apply_event(C, op, event);
 			break;
+			
+			
+		/* Adjust brush settings */
+		/* FIXME: Step increments and modifier keys are hardcoded here! */
+		case WHEELUPMOUSE:
+		case PADPLUSKEY:
+			if (event->shift) {
+				/* increase strength */
+				pso->brush->strength += 0.05f;
+				CLAMP_MAX(pso->brush->strength, 1.0f);
+			}
+			else {
+				/* increase brush size */
+				pso->brush->size += 3;
+				CLAMP_MAX(pso->brush->size, 300);
+			}
+				
+			redraw_region = true;
+			break;
+			
+		case WHEELDOWNMOUSE: 
+		case PADMINUS:
+			if (event->shift) {
+				/* decrease strength */
+				pso->brush->strength -= 0.05f;
+				CLAMP_MIN(pso->brush->strength, 0.0f);
+			}
+			else {
+				/* decrease brush size */
+				pso->brush->size -= 3;
+				CLAMP_MIN(pso->brush->size, 1);
+			}
+				
+			redraw_region = true;
+			break;
+	}
+	
+	/* Redraw region? */
+	if (redraw_region) {
+		ARegion *ar = CTX_wm_region(C);
+		ED_region_tag_redraw(ar);
 	}
 	
 	return OPERATOR_RUNNING_MODAL;
