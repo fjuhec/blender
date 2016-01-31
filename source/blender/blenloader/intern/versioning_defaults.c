@@ -256,6 +256,7 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 					pset->brush[i].strength = 0.5f;
 					pset->brush[i].size = 50;
 					pset->brush[i].rate = 0.1f;
+					pset->brush[i].flag = PSCULPT_BRUSH_FLAG_USE_PRESSURE | PSCULPT_BRUSH_FLAG_USE_FALLOFF;
 				}
 				pset->brush[PSCULPT_BRUSH_CURL].strength = 0.25f;
 				pset->brush[PSCULPT_BRUSH_TWIST].strength = 0.25f;

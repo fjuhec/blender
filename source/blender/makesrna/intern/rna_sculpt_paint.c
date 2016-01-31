@@ -1157,6 +1157,17 @@ static void rna_def_pose_sculpt(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Strength", "Brush strength");
 	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update");
 	
+	prop = RNA_def_property(srna, "use_pressure_strength", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PSCULPT_BRUSH_FLAG_USE_PRESSURE);
+	RNA_def_property_ui_icon(prop, ICON_STYLUS_PRESSURE, 0);
+	RNA_def_property_ui_text(prop, "Strength Pressure", "Enable tablet pressure sensitivity for strength");
+	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update");
+	
+	prop = RNA_def_property(srna, "use_falloff", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PSCULPT_BRUSH_FLAG_USE_FALLOFF);
+	RNA_def_property_ui_text(prop, "Use Falloff", "Strength of brush decays with distance from cursor");
+	RNA_def_property_update(prop, 0, "rna_PSculptBrush_update");
+	
 	prop = RNA_def_property(srna, "rate", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_range(prop, 0.001f, 1.0f);
 	RNA_def_property_ui_text(prop, "Rate", "Rate of brush application in seconds");

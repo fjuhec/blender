@@ -2113,6 +2113,10 @@ typedef enum ePSculptBrush_Flag {
 	PSCULPT_BRUSH_FLAG_INV			= (1 << 0),
 	/* only initially affected bones should be considered */
 	PSCULPT_BRUSH_FLAG_GRAB_INITIAL = (1 << 1),
+	/* tablet pressure influences strength */
+	PSCULPT_BRUSH_FLAG_USE_PRESSURE = (1 << 2),
+	/* use brush falloff */
+	PSCULPT_BRUSH_FLAG_USE_FALLOFF  = (1 << 3),
 } ePSculptBrush_Flag;
 
 /* PSculptBrushData.xzMode - how to handle x and z axes (when scaling or rotating) */

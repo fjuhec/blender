@@ -808,10 +808,15 @@ class VIEW3D_PT_tools_posemode_sculpt(View3DPanel, Panel):
         if tool != 'NONE':
             col = layout.column()
             col.prop(brush, "size", slider=True)
-            col.prop(brush, "strength", slider=True)
+            subcol = col.row(align=True)
+            subcol.prop(brush, "strength", slider=True)
+            subcol.prop(brush, "use_pressure_strength", text="")
+            col.prop(brush, "use_falloff") # XXX: should be with rate?
 
-        if tool in ('CURL', 'STRETCH'):
+        if tool in ('CURL', 'STRETCH', 'TWIST', 'RESET'):
+            col.separator()
             col.prop(brush, "rate", slider=True)
+
 
         if tool not in ('NONE', 'RESET'):
             col.separator()

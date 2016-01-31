@@ -314,21 +314,20 @@ static void psculpt_init_view3d_data(bContext *C, tPSculptContext *data)
 
 /* Brush Utilities ---------------------------------------- */
 
-static float psculpt_brush_calc_influence(tPoseSculptingOp *pso, bool use_falloff)
+static float psculpt_brush_calc_influence(tPoseSculptingOp *pso)
 {
 	tPSculptContext *data = &pso->data;
 	PSculptBrushData *brush = data->brush;
 	float fac = brush->strength;
 	
 	/* use pressure to modulate strength */
-	//if (brush->flag & PSCULPT_BRUSH_FLAG_USE_PRESSURE) 
+	if (brush->flag & PSCULPT_BRUSH_FLAG_USE_PRESSURE) 
 	{
 		fac *= pso->pressure;
 	}
 	
 	/* use distance falloff */
-	// XXX: make this another brush setting?
-	if (use_falloff) {
+	if (brush->flag & PSCULPT_BRUSH_FLAG_USE_FALLOFF) {
 		fac *= fabsf(1.0f - data->dist / data->rad);
 	}
 	
@@ -812,7 +811,7 @@ static void psculpt_brush_grab_apply(tPoseSculptingOp *pso, bPoseChannel *pchan,
 	float fac;
 	
 	/* strength of push */
-	fac = psculpt_brush_calc_influence(pso, true);
+	fac = psculpt_brush_calc_influence(pso);
 	if (data->invert) fac = -fac;
 	
 	if (brush->flag & PSCULPT_BRUSH_FLAG_GRAB_INITIAL) {
@@ -926,8 +925,8 @@ static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, bPoseChannel *pchan,
 	 *   however is much too strong for controllability. So, leaving it as-is.
 	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = psculpt_brush_calc_influence(pso, true);      //printf("%f ", angle);
-	angle = DEG2RAD(angle);                               //printf("%f \n", angle);
+	angle = psculpt_brush_calc_influence(pso);      //printf("%f ", angle);
+	angle = DEG2RAD(angle);                         //printf("%f \n", angle);
 	
 	if (data->invert) angle = -angle;
 	
@@ -969,8 +968,8 @@ static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, bPoseChannel *pchan
 	 *   however is much too strong for controllability. So, leaving it as-is.
 	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = psculpt_brush_calc_influence(pso, true);      //printf("%f ", angle);
-	angle = DEG2RAD(angle);                               //printf("%f \n", angle);
+	angle = psculpt_brush_calc_influence(pso);  //printf("%f ", angle);
+	angle = DEG2RAD(angle);                     //printf("%f \n", angle);
 	
 	if (data->invert) angle = -angle;
 	
@@ -994,7 +993,7 @@ static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, bPoseChannel *pch
 	float fac;
 	
 	/* scale factor must be greater than 1 for add, and less for subtract */
-	fac = psculpt_brush_calc_influence(pso, true) * DAMP_FAC;
+	fac = psculpt_brush_calc_influence(pso) * DAMP_FAC;
 	
 	if (data->invert)
 		fac = 1.0f - fac;
@@ -1031,7 +1030,7 @@ static void psculpt_brush_stretch_apply(tPoseSculptingOp *pso, bPoseChannel *pch
  */
 static void psculpt_brush_reset_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
-	const float fac = psculpt_brush_calc_influence(pso, true);
+	const float fac = psculpt_brush_calc_influence(pso);
 	const short locks = pchan->protectflag;
 	float eul[3] = {0.0f};
 	
@@ -1078,7 +1077,7 @@ static void psculpt_brush_reset_apply(tPoseSculptingOp *pso, bPoseChannel *pchan
  */
 static void psculpt_brush_restore_apply(tPoseSculptingOp *pso, bPoseChannel *pchan, float UNUSED(sco1[2]), float UNUSED(sco2[2]))
 {
-	const float fac = psculpt_brush_calc_influence(pso, true);
+	const float fac = psculpt_brush_calc_influence(pso);
 	const short locks = pchan->protectflag;
 	
 	/* We need to use the old (pre-sculpt) values.
