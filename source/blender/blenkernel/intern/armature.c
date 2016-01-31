@@ -653,7 +653,7 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		float bscale[3];
 
 		bscale[0] = 1.0f * scaleFactorIn * scaleFactorOut;
-		bscale[1] = 1.0f / bone->segments;
+		bscale[1] = 1.0f / bone->segments;  // <--- this breaks drawing lengths, but changing to 1 breaks deforms
 		bscale[2] = 1.0f * scaleFactorIn * scaleFactorOut;
 
 		
