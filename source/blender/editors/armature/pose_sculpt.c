@@ -163,6 +163,62 @@ static void psculpt_toggle_cursor(bContext *C, bool enable)
 }
 
 /* ******************************************************** */
+/* Header Info */
+
+static void psculpt_brush_header_info(bContext *C)
+{
+	Scene *scene = CTX_data_scene(C);
+	ScrArea *sa = CTX_wm_area(C);
+	
+	PSculptSettings *pset = psculpt_settings(scene);
+	PSculptBrushData *brush = psculpt_get_brush(scene);
+	
+	
+	switch (pset->brushtype) {
+		case PSCULPT_BRUSH_DRAW:
+			ED_area_headerprint(sa, IFACE_("Pose Sculpting: Draw Pose"));
+			break;
+			
+		case PSCULPT_BRUSH_ADJUST:
+			ED_area_headerprint(sa, IFACE_("Adjust Pose: Move to rotate bones   |  Pressure controls strength"));
+			break;
+			
+		case PSCULPT_BRUSH_SMOOTH:
+			ED_area_headerprint(sa, IFACE_("Smooth Pose"));
+			break;
+		
+		case PSCULPT_BRUSH_GRAB:
+			ED_area_headerprint(sa, IFACE_("Grab Bones: Move to translate bones"));
+			break;
+		
+		case PSCULPT_BRUSH_CURL:
+			if (brush->xzMode == PSCULPT_BRUSH_DO_X)
+				ED_area_headerprint(sa, IFACE_("Curl Bones: Move to paint curling effects on X axis |  Shift to Invert direction  | Pressure controls strength"));
+			else if (brush->xzMode == PSCULPT_BRUSH_DO_Z)
+				ED_area_headerprint(sa, IFACE_("Curl Bones: Move to paint curling effects on Z axis  |  Shift to Invert direction  | Pressure controls strength"));
+			else
+				ED_area_headerprint(sa, IFACE_("Curl Bones: Move to paint curling effects on X and Z axes  |  Shift to Invert direction  | Pressure controls strength"));
+			break;
+			
+		case PSCULPT_BRUSH_TWIST:
+			ED_area_headerprint(sa, IFACE_("Twist Bones: Move to paint y-rotation effects on bones  |  Shift to Invert direction"));
+			break;
+			
+		case PSCULPT_BRUSH_STRETCH:
+			ED_area_headerprint(sa, IFACE_("Stretch Bones: Move to paint stretching effects on bones  |  Shift to Invert direction"));
+			break;
+			
+		case PSCULPT_BRUSH_RESET:
+			ED_area_headerprint(sa, IFACE_("Reset Pose: Paint to blend pose back to rest pose  |  Shift to Invert (blend pose back to pre-sculpt condition)"));
+			break;
+		
+		default:
+			ED_area_headerprint(sa, IFACE_("Pose Sculpting in progress..."));
+			break;
+	}
+}
+
+/* ******************************************************** */
 /* Brush Operation Callbacks */
 
 /* Defines ------------------------------------------------ */
@@ -1181,9 +1237,7 @@ static int psculpt_brush_init(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
-	ScrArea *sa = CTX_wm_area(C);
 	
-	PSculptSettings *pset = psculpt_settings(scene);
 	tPoseSculptingOp *pso;
 	tPSculptContext *data;
 	PSculptBrushData *brush;
@@ -1221,48 +1275,7 @@ static int psculpt_brush_init(bContext *C, wmOperator *op)
 	}
 	
 	/* setup cursor and header drawing */
-	switch (pset->brushtype) {
-		case PSCULPT_BRUSH_DRAW:
-			ED_area_headerprint(sa, IFACE_("Draw Pose"));
-			break;
-			
-		case PSCULPT_BRUSH_ADJUST:
-			ED_area_headerprint(sa, IFACE_("Adjust Pose: Move to rotate bones   |  Pressure controls strength"));
-			break;
-			
-		case PSCULPT_BRUSH_SMOOTH:
-			ED_area_headerprint(sa, IFACE_("Smooth Pose"));
-			break;
-		
-		case PSCULPT_BRUSH_GRAB:
-			ED_area_headerprint(sa, IFACE_("Grab Bones: Move to translate bones"));
-			break;
-		
-		case PSCULPT_BRUSH_CURL:
-			if (brush->xzMode == PSCULPT_BRUSH_DO_X)
-				ED_area_headerprint(sa, IFACE_("Curl Bones: Move to paint curling effects on X axis |  Shift to Invert direction  | Pressure controls strength"));
-			else if (brush->xzMode == PSCULPT_BRUSH_DO_Z)
-				ED_area_headerprint(sa, IFACE_("Curl Bones: Move to paint curling effects on Z axis  |  Shift to Invert direction  | Pressure controls strength"));
-			else
-				ED_area_headerprint(sa, IFACE_("Curl Bones: Move to paint curling effects on X and Z axes  |  Shift to Invert direction  | Pressure controls strength"));
-			break;
-			
-		case PSCULPT_BRUSH_TWIST:
-			ED_area_headerprint(sa, IFACE_("Twist Bones: Move to paint y-rotation effects on bones  |  Shift to Invert direction"));
-			break;
-			
-		case PSCULPT_BRUSH_STRETCH:
-			ED_area_headerprint(sa, IFACE_("Stretch Bones: Move to paint stretching effects on bones  |  Shift to Invert direction"));
-			break;
-			
-		case PSCULPT_BRUSH_RESET:
-			ED_area_headerprint(sa, IFACE_("Reset Pose: Paint to blend pose back to rest pose  |  Shift to Invert (blend pose back to pre-sculpt condition)"));
-			break;
-		
-		default:
-			ED_area_headerprint(CTX_wm_area(C), IFACE_("Pose Sculpting in progress..."));
-			break;
-	}
+	psculpt_brush_header_info(C);
 	
 	WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
 	psculpt_toggle_cursor(C, true);
