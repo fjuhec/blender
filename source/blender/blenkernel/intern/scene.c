@@ -656,7 +656,7 @@ void BKE_scene_init(Scene *sce)
 	for (a = 0; a < PSCULPT_TOT_BRUSH; a++) {
 		psculpt->brush[a].strength = 0.5f;
 		psculpt->brush[a].size = 50;
-		psculpt->brush[a].rate = 0.1f;
+		psculpt->brush[a].rate = 0.01f;
 		psculpt->brush[a].flag = PSCULPT_BRUSH_FLAG_USE_PRESSURE | PSCULPT_BRUSH_FLAG_USE_FALLOFF;
 	}
 	psculpt->brush[PSCULPT_BRUSH_CURL].strength = 0.25f;

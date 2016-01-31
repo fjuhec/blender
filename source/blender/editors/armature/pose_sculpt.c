@@ -1653,7 +1653,7 @@ static int psculpt_brush_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	psculpt_brush_apply_event(C, op, event);
 	
 	/* register timer for increasing influence by hovering over an area */
-	if (ELEM(pset->brushtype, PSCULPT_BRUSH_CURL, PSCULPT_BRUSH_STRETCH))
+	if (ELEM(pset->brushtype, PSCULPT_BRUSH_CURL, PSCULPT_BRUSH_STRETCH, PSCULPT_BRUSH_TWIST, PSCULPT_BRUSH_RESET))
 	{
 		PSculptBrushData *brush = psculpt_get_brush(scene);
 		pso->timer = WM_event_add_timer(CTX_wm_manager(C), CTX_wm_window(C), TIMER, brush->rate);
