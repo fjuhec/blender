@@ -890,8 +890,8 @@ static void psculpt_brush_curl_apply(tPoseSculptingOp *pso, bPoseChannel *pchan,
 	 *   however is much too strong for controllability. So, leaving it as-is.
 	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = psculpt_brush_calc_influence(pso, dist);      //printf("%f ", angle);
-	angle = DEG2RAD(angle);                               //printf("%f \n", angle);
+	angle = psculpt_brush_calc_influence(pso, dist);
+	angle = DEG2RAD(angle);
 	
 	if (pso->invert) angle = -angle;
 	
@@ -932,8 +932,8 @@ static void psculpt_brush_twist_apply(tPoseSculptingOp *pso, bPoseChannel *pchan
 	 *   however is much too strong for controllability. So, leaving it as-is.
 	 * - Rotations are internally represented using radians, which are very sensitive
 	 */
-	angle = psculpt_brush_calc_influence(pso, dist);  //printf("%f ", angle);
-	angle = DEG2RAD(angle);                           //printf("%f \n", angle);
+	angle = psculpt_brush_calc_influence(pso, dist);
+	angle = DEG2RAD(angle);
 	
 	if (pso->invert) angle = -angle;
 	
@@ -1017,7 +1017,6 @@ static void psculpt_brush_reset_apply(tPoseSculptingOp *pso, bPoseChannel *pchan
 		if ((locks & OB_LOCK_ROTZ) == 0)
 			eul[2] = interpf(0.0f, eul[2], fac);
 		
-		// do compat euler?
 		set_pchan_eul_rotation(eul, pchan);
 	}
 	
@@ -1096,7 +1095,6 @@ static void psculpt_brush_restore_apply(tPoseSculptingOp *pso, bPoseChannel *pch
 			if ((locks & OB_LOCK_ROTZ) == 0)
 				eul[2] = interpf(oldeul[2], eul[2], fac);
 			
-			// do compat euler?
 			set_pchan_eul_rotation(eul, pchan);
 		}
 	}
@@ -1554,7 +1552,6 @@ static void psculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr
 			bArmature *arm = (bArmature *)ob->data;
 			
 			/* perform autokeying first */
-			// XXX: order?
 			psculpt_brush_do_autokey(C, pso);
 			
 			/* old optimize trick... this enforces to bypass the depgraph 
