@@ -275,10 +275,8 @@ void setTransformViewAspect(TransInfo *t, float r_aspect[3])
 
 static void convertViewVec2D(View2D *v2d, float r_vec[3], int dx, int dy)
 {
-	float divx, divy;
-	
-	divx = BLI_rcti_size_x(&v2d->mask);
-	divy = BLI_rcti_size_y(&v2d->mask);
+	float divx = BLI_rcti_size_x(&v2d->mask);
+	float divy = BLI_rcti_size_y(&v2d->mask);
 
 	r_vec[0] = BLI_rctf_size_x(&v2d->cur) * dx / divx;
 	r_vec[1] = BLI_rctf_size_y(&v2d->cur) * dy / divy;
@@ -287,14 +285,11 @@ static void convertViewVec2D(View2D *v2d, float r_vec[3], int dx, int dy)
 
 static void convertViewVec2D_mask(View2D *v2d, float r_vec[3], int dx, int dy)
 {
-	float divx, divy;
-	float mulx, muly;
+	float divx = BLI_rcti_size_x(&v2d->mask);
+	float divy = BLI_rcti_size_y(&v2d->mask);
 
-	divx = BLI_rcti_size_x(&v2d->mask);
-	divy = BLI_rcti_size_y(&v2d->mask);
-
-	mulx = BLI_rctf_size_x(&v2d->cur);
-	muly = BLI_rctf_size_y(&v2d->cur);
+	float mulx = BLI_rctf_size_x(&v2d->cur);
+	float muly = BLI_rctf_size_y(&v2d->cur);
 
 	/* difference with convertViewVec2D */
 	/* clamp w/h, mask only */
@@ -1716,7 +1711,8 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 				UI_ThemeColor(TH_VIEW_OVERLAY);
 
 				setlinestyle(3);
-				glBegin(GL_LINE_STRIP);
+				glLineWidth(1);
+				glBegin(GL_LINES);
 				glVertex2iv(t->mval);
 				glVertex2fv(cent);
 				glEnd();
@@ -1728,7 +1724,6 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 				glLineWidth(3.0);
 				drawArrow(UP, 5, 10, 5);
 				drawArrow(DOWN, 5, 10, 5);
-				glLineWidth(1.0);
 				break;
 			case HLP_HARROW:
 				UI_ThemeColor(TH_VIEW_OVERLAY);
@@ -1738,7 +1733,6 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 				glLineWidth(3.0);
 				drawArrow(RIGHT, 5, 10, 5);
 				drawArrow(LEFT, 5, 10, 5);
-				glLineWidth(1.0);
 				break;
 			case HLP_VARROW:
 				UI_ThemeColor(TH_VIEW_OVERLAY);
@@ -1748,7 +1742,6 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 				glLineWidth(3.0);
 				drawArrow(UP, 5, 10, 5);
 				drawArrow(DOWN, 5, 10, 5);
-				glLineWidth(1.0);
 				break;
 			case HLP_ANGLE:
 			{
@@ -1760,7 +1753,8 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 				UI_ThemeColor(TH_VIEW_OVERLAY);
 
 				setlinestyle(3);
-				glBegin(GL_LINE_STRIP);
+				glLineWidth(1);
+				glBegin(GL_LINES);
 				glVertex2iv(t->mval);
 				glVertex2fv(cent);
 				glEnd();
@@ -1785,8 +1779,6 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 				glRotatef(RAD2DEGF(angle + delta_angle), 0, 0, 1);
 
 				drawArrowHead(UP, 5);
-
-				glLineWidth(1.0);
 				break;
 			}
 			case HLP_TRACKBALL:
@@ -1809,7 +1801,6 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 
 				drawArrow(UP, 5, 10, 5);
 				drawArrow(DOWN, 5, 10, 5);
-				glLineWidth(1.0);
 				break;
 			}
 		}
@@ -4309,12 +4300,12 @@ static void headerTranslation(TransInfo *t, const float vec[3], char str[MAX_INF
 
 		if ((snode->flag & SNODE_SKIP_INSOFFSET) == 0) {
 			const char *str_old = BLI_strdup(str);
-			const char *str_dir = (snode->insert_ofs_dir == SNODE_INSERTOFS_DIR_RIGHT) ? "right" : "left";
+			const char *str_dir = (snode->insert_ofs_dir == SNODE_INSERTOFS_DIR_RIGHT) ? IFACE_("right") : IFACE_("left");
 			char str_km[MAX_INFO_LEN];
 
 			WM_modalkeymap_items_to_string(t->keymap, TFM_MODAL_INSERTOFS_TOGGLE_DIR, true, sizeof(str_km), str_km);
 
-			ofs += BLI_snprintf(str, MAX_INFO_LEN, "Auto-offset set to %s - press %s to toggle direction  |  %s",
+			ofs += BLI_snprintf(str, MAX_INFO_LEN, IFACE_("Auto-offset set to %s - press %s to toggle direction  |  %s"),
 			                    str_dir, str_km, str_old);
 
 			MEM_freeN((void *)str_old);

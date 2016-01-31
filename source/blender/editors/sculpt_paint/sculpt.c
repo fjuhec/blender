@@ -158,9 +158,21 @@ static int sculpt_brush_needs_normal(const Brush *brush)
 
 	        (brush->mtex.brush_map_mode == MTEX_MAP_MODE_AREA));
 }
-
 /** \} */
 
+static bool sculpt_brush_needs_rake_rotation(const Brush *brush)
+{
+	return SCULPT_TOOL_HAS_RAKE(brush->sculpt_tool) && (brush->rake_factor != 0.0f);
+}
+
+/* Factor of brush to have rake point following behind
+ * (could be configurable but this is reasonable default). */
+#define SCULPT_RAKE_BRUSH_FACTOR 0.25f
+
+struct SculptRakeData {
+	float follow_dist;
+	float follow_co[3];
+};
 
 typedef enum StrokeFlags {
 	CLIP_X = 1,
@@ -207,6 +219,11 @@ typedef struct StrokeCache {
 	float special_rotation;
 	float grab_delta[3], grab_delta_symmetry[3];
 	float old_grab_location[3], orig_grab_location[3];
+
+	/* screen-space rotation defined by mouse motion */
+	float   rake_rotation[4], rake_rotation_symmetry[4];
+	bool is_rake_rotation_valid;
+	struct SculptRakeData rake_data;
 
 	int symmetry; /* Symmetry index between 0 and 7 bit combo 0 is Brush only;
 	               * 1 is X mirror; 2 is Y mirror; 3 is XY; 4 is Z; 5 is XZ; 6 is YZ; 7 is XYZ */
@@ -327,6 +344,43 @@ static void sculpt_orig_vert_data_update(SculptOrigVertData *orig_data,
 		}
 	}
 }
+
+static void sculpt_rake_data_update(struct SculptRakeData *srd, const float co[3])
+{
+	float rake_dist = len_v3v3(srd->follow_co, co);
+	if (rake_dist > srd->follow_dist) {
+		interp_v3_v3v3(srd->follow_co, srd->follow_co, co, rake_dist - srd->follow_dist);
+	}
+}
+
+
+static void sculpt_rake_rotate(
+        const SculptSession *ss, const float sculpt_co[3], const float v_co[3], float factor, float r_delta[3])
+{
+	float vec_rot[3];
+
+#if 0
+	/* lerp */
+	sub_v3_v3v3(vec_rot, v_co, sculpt_co);
+	mul_qt_v3(ss->cache->rake_rotation_symmetry, vec_rot);
+	add_v3_v3(vec_rot, sculpt_co);
+	sub_v3_v3v3(r_delta, vec_rot, v_co);
+	mul_v3_fl(r_delta, factor);
+#else
+	/* slerp */
+	float q_interp[4];
+	sub_v3_v3v3(vec_rot, v_co, sculpt_co);
+
+	copy_qt_qt(q_interp, ss->cache->rake_rotation_symmetry);
+	mul_fac_qt_fl(q_interp, factor);
+	mul_qt_v3(q_interp, vec_rot);
+
+	add_v3_v3(vec_rot, sculpt_co);
+	sub_v3_v3v3(r_delta, vec_rot, v_co);
+#endif
+
+}
+
 
 /** \name SculptProjectVector
  *
@@ -2224,12 +2278,17 @@ static void do_snake_hook_brush_task_cb_ex(
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
 	Brush *brush = data->brush;
+	SculptProjectVector *spvc = data->spvc;
 	const float *grab_delta = data->grab_delta;
 
 	PBVHVertexIter vd;
 	SculptBrushTest test;
 	float (*proxy)[3];
 	const float bstrength = ss->cache->bstrength;
+	const bool do_rake_rotation = ss->cache->is_rake_rotation_valid;
+	const bool do_pinch = (brush->crease_pinch_factor != 0.5f);
+	const float pinch = do_pinch ?
+	        (2.0f * (0.5f - brush->crease_pinch_factor) * (len_v3(grab_delta) / ss->cache->radius)) : 0.0f;
 
 	proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
 
@@ -2242,6 +2301,37 @@ static void do_snake_hook_brush_task_cb_ex(
 			                       ss, brush, vd.co, test.dist, vd.no, vd.fno, vd.mask ? *vd.mask : 0.0f, thread_id);
 
 			mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
+
+			/* negative pinch will inflate, helps maintain volume */
+			if (do_pinch) {
+				float delta_pinch_init[3], delta_pinch[3];
+
+				sub_v3_v3v3(delta_pinch, vd.co, test.location);
+
+				/* important to calculate based on the grabbed location (intentionally ignore fade here). */
+				add_v3_v3(delta_pinch, grab_delta);
+
+				sculpt_project_v3(spvc, delta_pinch, delta_pinch);
+
+				copy_v3_v3(delta_pinch_init, delta_pinch);
+
+				float pinch_fade = pinch * fade;
+				/* when reducing, scale reduction back by how close to the center we are,
+				 * so we don't pinch into nothingness */
+				if (pinch > 0.0f) {
+					/* square to have even less impact for close vertices */
+					pinch_fade *= pow2f(min_ff(1.0f, len_v3(delta_pinch) / ss->cache->radius));
+				}
+				mul_v3_fl(delta_pinch, 1.0f + pinch_fade);
+				sub_v3_v3v3(delta_pinch, delta_pinch_init, delta_pinch);
+				add_v3_v3(proxy[vd.i], delta_pinch);
+			}
+
+			if (do_rake_rotation) {
+				float delta_rotate[3];
+				sculpt_rake_rotate(ss, test.location, vd.co, fade, delta_rotate);
+				add_v3_v3(proxy[vd.i], delta_rotate);
+			}
 
 			if (vd.mvert)
 				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
@@ -2258,6 +2348,8 @@ static void do_snake_hook_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int to
 	float grab_delta[3];
 	float len;
 
+	SculptProjectVector spvc;
+
 	copy_v3_v3(grab_delta, ss->cache->grab_delta_symmetry);
 
 	len = len_v3(grab_delta);
@@ -2271,9 +2363,14 @@ static void do_snake_hook_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int to
 		add_v3_v3(grab_delta, ss->cache->sculpt_normal_symm);
 	}
 
+	/* optionally pinch while painting */
+	if (brush->crease_pinch_factor != 0.5f) {
+		sculpt_project_v3_cache_init(&spvc, grab_delta);
+	}
+
 	SculptThreadedTaskData data = {
 	    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
-	    .grab_delta = grab_delta,
+	    .spvc = &spvc, .grab_delta = grab_delta,
 	};
 
 	BLI_task_parallel_range_ex(
@@ -3605,6 +3702,10 @@ static void calc_brushdata_symm(Sculpt *sd, StrokeCache *cache, const char symm,
 		flip_v3_v3(cache->gravity_direction, cache->true_gravity_direction, symm);
 		mul_m4_v3(cache->symm_rot_mat, cache->gravity_direction);
 	}
+
+	if (cache->is_rake_rotation_valid) {
+		flip_qt_qt(cache->rake_rotation_symmetry, cache->rake_rotation, symm);
+	}
 }
 
 typedef void (*BrushActionFunc)(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSettings *ups);
@@ -4097,6 +4198,54 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
 			ups->draw_anchored = true;
 			copy_v2_v2(ups->anchored_initial_mouse, cache->initial_mouse);
 			ups->anchored_size = ups->pixel_radius;
+		}
+
+
+		/* handle 'rake' */
+		cache->is_rake_rotation_valid = false;
+
+		if (cache->first_time) {
+			copy_v3_v3(cache->rake_data.follow_co, grab_location);
+		}
+
+		if (sculpt_brush_needs_rake_rotation(brush)) {
+			cache->rake_data.follow_dist = cache->radius * SCULPT_RAKE_BRUSH_FACTOR;
+
+			if (!is_zero_v3(cache->grab_delta)) {
+				const float eps = 0.00001f;
+
+				float v1[3], v2[3];
+
+				copy_v3_v3(v1, cache->rake_data.follow_co);
+				copy_v3_v3(v2, cache->rake_data.follow_co);
+				sub_v3_v3(v2, cache->grab_delta);
+
+				sub_v3_v3(v1, grab_location);
+				sub_v3_v3(v2, grab_location);
+
+				if ((normalize_v3(v2) > eps) &&
+				    (normalize_v3(v1) > eps) &&
+				    (len_squared_v3v3(v1, v2) > eps))
+				{
+					const float rake_dist_sq = len_squared_v3v3(cache->rake_data.follow_co, grab_location);
+					const float rake_fade = (rake_dist_sq > SQUARE(cache->rake_data.follow_dist)) ?
+					        1.0f : sqrtf(rake_dist_sq) / cache->rake_data.follow_dist;
+
+					float axis[3], angle;
+					float tquat[4];
+
+					rotation_between_vecs_to_quat(tquat, v1, v2);
+
+					/* use axis-angle to scale rotation since the factor may be above 1 */
+					quat_to_axis_angle(axis, &angle, tquat);
+					normalize_v3(axis);
+
+					angle *= brush->rake_factor * rake_fade;
+					axis_angle_normalized_to_quat(cache->rake_rotation, axis, angle);
+					cache->is_rake_rotation_valid = true;
+				}
+			}
+			sculpt_rake_data_update(&cache->rake_data, grab_location);
 		}
 	}
 }
@@ -4668,8 +4817,11 @@ static void sculpt_brush_stroke_cancel(bContext *C, wmOperator *op)
 	Object *ob = CTX_data_active_object(C);
 	SculptSession *ss = ob->sculpt;
 	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
+	const Brush *brush = BKE_paint_brush(&sd->paint);
 
-	if (ss->cache) {
+	/* XXX Canceling strokes that way does not work with dynamic topology, user will have to do real undo for now.
+	 *     See T46456. */
+	if (ss->cache && !sculpt_stroke_is_dynamic_topology(ss, brush)) {
 		paint_mesh_restore_co(sd, ob);
 	}
 

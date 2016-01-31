@@ -1787,11 +1787,11 @@ char **environ = NULL;
 #endif
 
 /**
- * Blender's main function responsabilities are:
+ * Blender's main function responsibilities are:
  * - setup subsystems.
  * - handle arguments.
- * - run WM_main() event loop,
- *   or exit when running in background mode.
+ * - run #WM_main() event loop,
+ *   or exit immediately when running in background mode.
  */
 int main(
         int argc,
@@ -1934,7 +1934,7 @@ int main(
 	DAG_init();
 
 	BKE_brush_system_init();
-	RE_init_texture_rng();
+	RE_texture_rng_init();
 	
 
 	BLI_callback_global_init();
@@ -2074,7 +2074,7 @@ int main(
 #endif
 
 	if (G.background) {
-		/* actually incorrect, but works for now (ton) */
+		/* Using window-manager API in background mode is a bit odd, but works fine. */
 		WM_exit(C);
 	}
 	else {
