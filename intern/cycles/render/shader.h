@@ -106,7 +106,8 @@ public:
 	bool has_displacement;
 	bool has_surface_bssrdf;
 	bool has_bssrdf_bump;
-	bool has_heterogeneous_volume;
+	bool has_surface_spatial_varying;
+	bool has_volume_spatial_varying;
 	bool has_object_dependency;
 	bool has_integrator_dependency;
 
@@ -118,10 +119,10 @@ public:
 
 #ifdef WITH_OSL
 	/* osl shading state references */
-	OSL::ShadingAttribStateRef osl_surface_ref;
-	OSL::ShadingAttribStateRef osl_surface_bump_ref;
-	OSL::ShadingAttribStateRef osl_volume_ref;
-	OSL::ShadingAttribStateRef osl_displacement_ref;
+	OSL::ShaderGroupRef osl_surface_ref;
+	OSL::ShaderGroupRef osl_surface_bump_ref;
+	OSL::ShaderGroupRef osl_volume_ref;
+	OSL::ShaderGroupRef osl_displacement_ref;
 #endif
 
 	Shader();

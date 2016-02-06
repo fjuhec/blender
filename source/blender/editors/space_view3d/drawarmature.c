@@ -1000,6 +1000,12 @@ static void draw_line_bone(int armflag, int boneflag, short constflag, unsigned 
 	/* this chunk not in object mode */
 	if (armflag & (ARM_EDITMODE | ARM_POSEMODE)) {
 		glLineWidth(4.0f);
+		if (G.f & G_PICKSEL) {
+			/* no bitmap in selection mode, crashes 3d cards...
+			 * instead draw a solid point the same size */
+			glPointSize(8.0f);
+		}
+
 		if (armflag & ARM_POSEMODE)
 			set_pchan_glColor(PCHAN_COLOR_NORMAL, boneflag, constflag);
 		else if (armflag & ARM_EDITMODE) {
@@ -1008,7 +1014,7 @@ static void draw_line_bone(int armflag, int boneflag, short constflag, unsigned 
 		
 		/*	Draw root point if we are not connected */
 		if ((boneflag & BONE_CONNECTED) == 0) {
-			if (G.f & G_PICKSEL) {  /* no bitmap in selection mode, crashes 3d cards... */
+			if (G.f & G_PICKSEL) {
 				GPU_select_load_id(id | BONESEL_ROOT);
 				glBegin(GL_POINTS);
 				glVertex3f(0.0f, 0.0f, 0.0f);
@@ -1083,8 +1089,6 @@ static void draw_line_bone(int armflag, int boneflag, short constflag, unsigned 
 		glRasterPos3f(0.0f, 1.0f, 0.0f);
 		glBitmap(8, 8, 4, 4, 0, 0, bm_dot5);
 	}
-	
-	glLineWidth(1.0);
 	
 	glPopMatrix();
 }
@@ -2095,7 +2099,10 @@ static void draw_pose_bones(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 							glMultMatrixf(bmat);
 							
 							glColor3ubv(col);
-							drawaxes(pchan->bone->length * 0.25f, OB_ARROWS);
+
+							float viewmat_pchan[4][4];
+							mul_m4_m4m4(viewmat_pchan, rv3d->viewmatob, bmat);
+							drawaxes(viewmat_pchan, pchan->bone->length * 0.25f, OB_ARROWS);
 							
 							glPopMatrix();
 						}
@@ -2303,7 +2310,10 @@ static void draw_ebones(View3D *v3d, ARegion *ar, Object *ob, const short dt)
 							glMultMatrixf(bmat);
 
 							glColor3ubv(col);
-							drawaxes(eBone->length * 0.25f, OB_ARROWS);
+
+							float viewmat_ebone[4][4];
+							mul_m4_m4m4(viewmat_ebone, rv3d->viewmatob, bmat);
+							drawaxes(viewmat_ebone, eBone->length * 0.25f, OB_ARROWS);
 							
 							glPopMatrix();
 						}
@@ -2609,7 +2619,7 @@ static void draw_ghost_poses(Scene *scene, View3D *v3d, ARegion *ar, Base *base)
 
 /* ********************************** Armature Drawing - Main ************************* */
 
-/* called from drawobject.c, return 1 if nothing was drawn
+/* called from drawobject.c, return true if nothing was drawn
  * (ob_wire_col == NULL) when drawing ghost */
 bool draw_armature(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
                    const short dt, const short dflag, const unsigned char ob_wire_col[4],

@@ -411,7 +411,7 @@ struct DerivedMesh {
 	void (*drawFacesTex)(DerivedMesh *dm,
 	                     DMSetDrawOptionsTex setDrawOptions,
 	                     DMCompareDrawOptions compareDrawOptions,
-	                     void *userData, DMDrawFlag uvflag);
+	                     void *userData, DMDrawFlag flag);
 
 	/** Draw all faces with GLSL materials
 	 *  o setMaterial is called for every different material nr
@@ -445,7 +445,7 @@ struct DerivedMesh {
 	void (*drawMappedFacesTex)(DerivedMesh *dm,
 	                           DMSetDrawOptionsMappedTex setDrawOptions,
 	                           DMCompareDrawOptions compareDrawOptions,
-	                           void *userData, DMDrawFlag uvflag);
+	                           void *userData, DMDrawFlag flag);
 
 	/** Draw mapped faces with GLSL materials
 	 * - setMaterial is called for every different material nr

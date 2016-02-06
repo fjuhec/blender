@@ -210,8 +210,7 @@ ShaderGraph::ShaderGraph()
 
 ShaderGraph::~ShaderGraph()
 {
-	foreach(ShaderNode *node, nodes)
-		delete node;
+	clear_nodes();
 }
 
 ShaderNode *ShaderGraph::add(ShaderNode *node)
@@ -240,7 +239,7 @@ ShaderGraph *ShaderGraph::copy()
 	copy_nodes(nodes_all, nodes_copy);
 
 	/* add nodes (in same order, so output is still first) */
-	newgraph->nodes.clear();
+	newgraph->clear_nodes();
 	foreach(ShaderNode *node, nodes)
 		newgraph->add(nodes_copy[node]);
 
@@ -352,6 +351,14 @@ void ShaderGraph::find_dependencies(ShaderNodeSet& dependencies, ShaderInput *in
 
 		dependencies.insert(node);
 	}
+}
+
+void ShaderGraph::clear_nodes()
+{
+	foreach(ShaderNode *node, nodes) {
+		delete node;
+	}
+	nodes.clear();
 }
 
 void ShaderGraph::copy_nodes(ShaderNodeSet& nodes, ShaderNodeMap& nnodemap)
@@ -474,7 +481,8 @@ void ShaderGraph::remove_unneeded_nodes()
 			if(bg->outputs[0]->links.size()) {
 				/* Black color or zero strength, remove node */
 				if((!bg->inputs[0]->link && bg->inputs[0]->value == make_float3(0.0f, 0.0f, 0.0f)) ||
-				   (!bg->inputs[1]->link && bg->inputs[1]->value.x == 0.0f)) {
+				   (!bg->inputs[1]->link && bg->inputs[1]->value.x == 0.0f))
+				{
 					vector<ShaderInput*> inputs = bg->outputs[0]->links;
 
 					relink(bg->inputs, inputs, NULL);
@@ -489,7 +497,8 @@ void ShaderGraph::remove_unneeded_nodes()
 			if(em->outputs[0]->links.size()) {
 				/* Black color or zero strength, remove node */
 				if((!em->inputs[0]->link && em->inputs[0]->value == make_float3(0.0f, 0.0f, 0.0f)) ||
-				   (!em->inputs[1]->link && em->inputs[1]->value.x == 0.0f)) {
+				   (!em->inputs[1]->link && em->inputs[1]->value.x == 0.0f))
+				{
 					vector<ShaderInput*> inputs = em->outputs[0]->links;
 
 					relink(em->inputs, inputs, NULL);

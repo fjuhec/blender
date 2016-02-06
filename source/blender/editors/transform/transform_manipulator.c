@@ -1242,7 +1242,8 @@ int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupT
 	const ScrArea *sa = CTX_wm_area(C);
 	const View3D *v3d = sa->spacedata.first;
 
-	return ((v3d->twflag & V3D_USE_MANIPULATOR) != 0);
+	return (((v3d->twflag & V3D_USE_MANIPULATOR) != 0) &&
+	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0));
 }
 
 void WIDGETGROUP_object_manipulator_create(const struct bContext *C, struct wmWidgetGroup *wgroup)

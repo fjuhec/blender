@@ -2243,6 +2243,7 @@ static ShaderEnum subsurface_falloff_init()
 
 	enm.insert("Cubic", CLOSURE_BSSRDF_CUBIC_ID);
 	enm.insert("Gaussian", CLOSURE_BSSRDF_GAUSSIAN_ID);
+	enm.insert("Burley", CLOSURE_BSSRDF_BURLEY_ID);
 
 	return enm;
 }
@@ -2893,6 +2894,7 @@ LightPathNode::LightPathNode()
 	add_output("Ray Length", SHADER_SOCKET_FLOAT);
 	add_output("Ray Depth", SHADER_SOCKET_FLOAT);
 	add_output("Transparent Depth", SHADER_SOCKET_FLOAT);
+	add_output("Transmission Depth", SHADER_SOCKET_FLOAT);
 }
 
 void LightPathNode::compile(SVMCompiler& compiler)
@@ -2964,6 +2966,12 @@ void LightPathNode::compile(SVMCompiler& compiler)
 	if(!out->links.empty()) {
 		compiler.stack_assign(out);
 		compiler.add_node(NODE_LIGHT_PATH, NODE_LP_ray_transparent, out->stack_offset);
+	}
+
+	out = output("Transmission Depth");
+	if(!out->links.empty()) {
+		compiler.stack_assign(out);
+		compiler.add_node(NODE_LIGHT_PATH, NODE_LP_ray_transmission, out->stack_offset);
 	}
 }
 
@@ -4244,10 +4252,10 @@ bool VectorMathNode::constant_fold(ShaderOutput *socket, float3 *optimized_value
 
 	if(vector1_in->link == NULL && vector2_in->link == NULL) {
 		svm_vector_math(&value,
-						&vector,
-						(NodeVectorMath)type_enum[type],
-						vector1_in->value,
-						vector2_in->value);
+		                &vector,
+		                (NodeVectorMath)type_enum[type],
+		                vector1_in->value,
+		                vector2_in->value);
 
 		if(socket == output("Value")) {
 			optimized_value->x = value;

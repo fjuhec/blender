@@ -55,7 +55,6 @@ set(SRC_HEADERS
 	kernel_queues.h
 	kernel_random.h
 	kernel_shader.h
-	kernel_shaderdata_vars.h
 	kernel_shadow.h
 	kernel_subsurface.h
 	kernel_textures.h
@@ -260,9 +259,6 @@ if(WITH_CYCLES_CUDA_BINARIES)
 	foreach(arch ${CYCLES_CUDA_BINARIES_ARCH})
 		# Compile regular kernel
 		CYCLES_CUDA_KERNEL_ADD(${arch} FALSE)
-
-		# Compile experimental kernel
-		CYCLES_CUDA_KERNEL_ADD(${arch} TRUE)
 	endforeach()
 
 	add_custom_target(cycles_kernel_cuda ALL DEPENDS ${cuda_cubins})

@@ -26,6 +26,7 @@ StructMetaPropGroup = bpy_types.bpy_struct_meta_idprop
 # StructRNA = bpy_types.Struct
 
 bpy_types.BlendDataLibraries.load = _bpy._library_load
+bpy_types.BlendData.user_map = _bpy._rna_id_collection_user_map
 
 
 class Context(StructRNA):
@@ -207,7 +208,7 @@ class _GenericBone:
     @property
     def basename(self):
         """The name of this bone before any '.' character"""
-        #return self.name.rsplit(".", 1)[0]
+        # return self.name.rsplit(".", 1)[0]
         return self.name.split(".")[0]
 
     @property

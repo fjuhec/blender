@@ -186,6 +186,7 @@ void OSLShaderManager::texture_system_free()
 	ts_shared_users--;
 
 	if(ts_shared_users == 0) {
+		ts_shared->invalidate_all(true);
 		OSL::TextureSystem::destroy(ts_shared);
 		ts_shared = NULL;
 	}
@@ -263,11 +264,7 @@ void OSLShaderManager::shading_system_free()
 
 bool OSLShaderManager::osl_compile(const string& inputfile, const string& outputfile)
 {
-#if OSL_LIBRARY_VERSION_CODE < 10602
-	vector<string_view> options;
-#else
 	vector<string> options;
-#endif
 	string stdosl_path;
 	string shader_path = path_get("shader");
 
@@ -282,7 +279,7 @@ bool OSLShaderManager::osl_compile(const string& inputfile, const string& output
 	stdosl_path = path_get("shader/stdosl.h");
 
 	/* compile */
-	OSL::OSLCompiler *compiler = new OSL::OSLCompiler();
+	OSL::OSLCompiler *compiler = new OSL::OSLCompiler(&OSL::ErrorHandler::default_handler());
 	bool ok = compiler->compile(string_view(inputfile), options, string_view(stdosl_path));
 	delete compiler;
 
@@ -565,19 +562,25 @@ void OSLCompiler::add(ShaderNode *node, const char *name, bool isfilepath)
 	/* test if we shader contains specific closures */
 	OSLShaderInfo *info = ((OSLShaderManager*)manager)->shader_loaded_info(name);
 
-	if(info && current_type == SHADER_TYPE_SURFACE) {
-		if(info->has_surface_emission)
-			current_shader->has_surface_emission = true;
-		if(info->has_surface_transparent)
-			current_shader->has_surface_transparent = true;
-		if(info->has_surface_bssrdf) {
-			current_shader->has_surface_bssrdf = true;
-			current_shader->has_bssrdf_bump = true; /* can't detect yet */
+	if(current_type == SHADER_TYPE_SURFACE) {
+		if(info) {
+			if(info->has_surface_emission)
+				current_shader->has_surface_emission = true;
+			if(info->has_surface_transparent)
+				current_shader->has_surface_transparent = true;
+			if(info->has_surface_bssrdf) {
+				current_shader->has_surface_bssrdf = true;
+				current_shader->has_bssrdf_bump = true; /* can't detect yet */
+			}
+		}
+
+		if(node->has_spatial_varying()) {
+			current_shader->has_surface_spatial_varying = true;
 		}
 	}
 	else if(current_type == SHADER_TYPE_VOLUME) {
 		if(node->has_spatial_varying())
-			current_shader->has_heterogeneous_volume = true;
+			current_shader->has_volume_spatial_varying = true;
 	}
 
 	if(node->has_object_dependency()) {
@@ -747,6 +750,8 @@ void OSLCompiler::generate_nodes(const ShaderNodeSet& nodes)
 							current_shader->has_surface_emission = true;
 						if(node->has_surface_transparent())
 							current_shader->has_surface_transparent = true;
+						if(node->has_spatial_varying())
+							current_shader->has_surface_spatial_varying = true;
 						if(node->has_surface_bssrdf()) {
 							current_shader->has_surface_bssrdf = true;
 							if(node->has_bssrdf_bump())
@@ -755,7 +760,7 @@ void OSLCompiler::generate_nodes(const ShaderNodeSet& nodes)
 					}
 					else if(current_type == SHADER_TYPE_VOLUME) {
 						if(node->has_spatial_varying())
-							current_shader->has_heterogeneous_volume = true;
+							current_shader->has_volume_spatial_varying = true;
 					}
 				}
 				else
@@ -765,13 +770,13 @@ void OSLCompiler::generate_nodes(const ShaderNodeSet& nodes)
 	} while(!nodes_done);
 }
 
-OSL::ShadingAttribStateRef OSLCompiler::compile_type(Shader *shader, ShaderGraph *graph, ShaderType type)
+OSL::ShaderGroupRef OSLCompiler::compile_type(Shader *shader, ShaderGraph *graph, ShaderType type)
 {
 	OSL::ShadingSystem *ss = (OSL::ShadingSystem*)shadingsys;
 
 	current_type = type;
 
-	OSL::ShadingAttribStateRef group = ss->ShaderGroupBegin(shader->name.c_str());
+	OSL::ShaderGroupRef group = ss->ShaderGroupBegin(shader->name.c_str());
 
 	ShaderNode *output = graph->output();
 	ShaderNodeSet dependencies;
@@ -834,7 +839,8 @@ void OSLCompiler::compile(Scene *scene, OSLGlobals *og, Shader *shader)
 		shader->has_bssrdf_bump = false;
 		shader->has_volume = false;
 		shader->has_displacement = false;
-		shader->has_heterogeneous_volume = false;
+		shader->has_surface_spatial_varying = false;
+		shader->has_volume_spatial_varying = false;
 		shader->has_object_dependency = false;
 		shader->has_integrator_dependency = false;
 
@@ -850,8 +856,8 @@ void OSLCompiler::compile(Scene *scene, OSLGlobals *og, Shader *shader)
 			shader->has_surface = true;
 		}
 		else {
-			shader->osl_surface_ref = OSL::ShadingAttribStateRef();
-			shader->osl_surface_bump_ref = OSL::ShadingAttribStateRef();
+			shader->osl_surface_ref = OSL::ShaderGroupRef();
+			shader->osl_surface_bump_ref = OSL::ShaderGroupRef();
 		}
 
 		/* generate volume shader */
@@ -860,7 +866,7 @@ void OSLCompiler::compile(Scene *scene, OSLGlobals *og, Shader *shader)
 			shader->has_volume = true;
 		}
 		else
-			shader->osl_volume_ref = OSL::ShadingAttribStateRef();
+			shader->osl_volume_ref = OSL::ShaderGroupRef();
 
 		/* generate displacement shader */
 		if(shader->used && graph && output->input("Displacement")->link) {
@@ -868,7 +874,7 @@ void OSLCompiler::compile(Scene *scene, OSLGlobals *og, Shader *shader)
 			shader->has_displacement = true;
 		}
 		else
-			shader->osl_displacement_ref = OSL::ShadingAttribStateRef();
+			shader->osl_displacement_ref = OSL::ShaderGroupRef();
 	}
 
 	/* push state to array for lookup */

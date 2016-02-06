@@ -156,6 +156,9 @@ typedef struct ParticleThreadContext {
 	float *vg_length, *vg_clump, *vg_kink;
 	float *vg_rough1, *vg_rough2, *vg_roughe;
 	float *vg_effector;
+
+	struct CurveMapping *clumpcurve;
+	struct CurveMapping *roughcurve;
 } ParticleThreadContext;
 
 typedef struct ParticleTask {
@@ -302,7 +305,7 @@ void psys_free_path_cache(struct ParticleSystem *psys, struct PTCacheEdit *edit)
 void psys_free(struct Object *ob, struct ParticleSystem *psys);
 
 void psys_render_set(struct Object *ob, struct ParticleSystem *psys, float viewmat[4][4], float winmat[4][4], int winx, int winy, int timeoffset);
-void psys_render_restore(struct Scene *scene, struct Object *ob, struct ParticleSystem *psys);
+void psys_render_restore(struct Object *ob, struct ParticleSystem *psys);
 bool psys_render_simplify_params(struct ParticleSystem *psys, struct ChildParticle *cpa, float *params);
 
 void psys_interpolate_uvs(const struct MTFace *tface, int quad, const float w[4], float uvco[2]);
