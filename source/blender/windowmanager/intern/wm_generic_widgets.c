@@ -773,12 +773,14 @@ static void dial_draw_geom(const DialWidget *dial, const bool select)
 #else
 	const float width = 1.0f;
 	const int resol = 32;
+	const bool filled = (dial->style == WIDGET_DIAL_STYLE_RING_FILLED);
 
 	glLineWidth(dial->widget.line_width);
 
 	GLUquadricObj *qobj = gluNewQuadric();
-	gluQuadricDrawStyle(qobj, GLU_SILHOUETTE);
-	gluDisk(qobj, 0.0, width, resol, 1);
+	gluQuadricDrawStyle(qobj, filled ? GLU_FILL : GLU_SILHOUETTE);
+	/* inner at 0.0 with silhouette drawing confuses OGL selection, so draw it at width */
+	gluDisk(qobj, filled ? 0.0 : width, width, resol, 1);
 	gluDeleteQuadric(qobj);
 
 	glLineWidth(1.0);

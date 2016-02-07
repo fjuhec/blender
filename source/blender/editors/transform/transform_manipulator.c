@@ -118,6 +118,7 @@ enum {
 	MAN_AXIS_ROT_Y,
 	MAN_AXIS_ROT_Z,
 	MAN_AXIS_ROT_C,
+	MAN_AXIS_ROT_T, /* trackball rotation */
 
 	MAN_AXIS_SCALE_X,
 	MAN_AXIS_SCALE_Y,
@@ -157,6 +158,7 @@ typedef struct ManipulatorGroup {
 	                *rotate_y,
 	                *rotate_z,
 	                *rotate_c,
+	                *rotate_t, /* trackball rotation */
 
 	                *scale_x,
 	                *scale_y,
@@ -210,6 +212,8 @@ static wmWidget *manipulator_get_axis_from_index(const ManipulatorGroup *man, co
 			return man->rotate_z;
 		case MAN_AXIS_ROT_C:
 			return man->rotate_c;
+		case MAN_AXIS_ROT_T:
+			return man->rotate_t;
 		case MAN_AXIS_SCALE_X:
 			return man->scale_x;
 		case MAN_AXIS_SCALE_Y:
@@ -236,7 +240,7 @@ static short manipulator_get_axis_type(const ManipulatorGroup *man, const wmWidg
 	{
 		return MAN_AXES_TRANSLATE;
 	}
-	else if (ELEM(axis, man->rotate_x, man->rotate_y, man->rotate_z, man->rotate_c)) {
+	else if (ELEM(axis, man->rotate_x, man->rotate_y, man->rotate_z, man->rotate_c, man->rotate_t)) {
 		return MAN_AXES_ROTATE;
 	}
 	else {
@@ -248,13 +252,13 @@ static short manipulator_get_axis_type(const ManipulatorGroup *man, const wmWidg
 static int manipulator_index_normalize(const int axis_idx)
 {
 	if (axis_idx > MAN_AXIS_TRANS_ZX) {
-		return axis_idx - 15;
+		return axis_idx - 16;
 	}
 	else if (axis_idx > MAN_AXIS_SCALE_C) {
-		return axis_idx - 12;
+		return axis_idx - 13;
 	}
-	else if (axis_idx > MAN_AXIS_ROT_C) {
-		return axis_idx - 8;
+	else if (axis_idx > MAN_AXIS_ROT_T) {
+		return axis_idx - 9;
 	}
 	else if (axis_idx > MAN_AXIS_TRANS_C) {
 		return axis_idx - 4;
@@ -281,6 +285,7 @@ static bool manipulator_is_axis_visible(const View3D *v3d, const RegionView3D *r
 		case MAN_AXIS_ROT_Z:
 			return (rv3d->twdrawflag & MAN_ROT_Z);
 		case MAN_AXIS_ROT_C:
+		case MAN_AXIS_ROT_T:
 			return (rv3d->twdrawflag & MAN_ROT_C);
 		case MAN_AXIS_SCALE_X:
 			return (rv3d->twdrawflag & MAN_SCALE_X);
@@ -326,18 +331,19 @@ static void manipulator_get_axis_color(const RegionView3D *rv3d, const int axis_
 	/* alpha values for normal/highlighted states */
 	const float alpha = 0.6f;
 	const float alpha_hi = 1.0f;
-	/* get alpha fac based on axis angle, to fade axis out when hiding it because it points towards view */
-	float alpha_fac_view;
+	float alpha_fac;
 
 	const int axis_idx_norm = manipulator_index_normalize(axis_idx);
+	/* get alpha fac based on axis angle, to fade axis out when hiding it because it points towards view */
 	if (axis_idx_norm < 3) {
 		const float idot = rv3d->tw_idot[axis_idx_norm];
-		alpha_fac_view = (idot > TW_AXIS_DOT_MAX) ?
+		alpha_fac = (idot > TW_AXIS_DOT_MAX) ?
 		        1.0f : (idot < TW_AXIS_DOT_MIN) ?
 		        0.0f : ((idot - TW_AXIS_DOT_MIN) / (TW_AXIS_DOT_MAX - TW_AXIS_DOT_MIN));
 	}
 	else {
-		alpha_fac_view = 1.0f;
+		/* trackball rotation axis is a special case, we only draw a slight overlay */
+		alpha_fac = (axis_idx == MAN_AXIS_ROT_T) ? 0.1f : 1.0f;
 	}
 
 	switch (axis_idx) {
@@ -365,14 +371,15 @@ static void manipulator_get_axis_color(const RegionView3D *rv3d, const int axis_
 		case MAN_AXIS_TRANS_C:
 		case MAN_AXIS_ROT_C:
 		case MAN_AXIS_SCALE_C:
+		case MAN_AXIS_ROT_T:
 			copy_v4_fl(r_col, 1.0f);
 			break;
 	}
 
 	copy_v4_v4(r_col_hi, r_col);
 
-	r_col[3] = alpha * alpha_fac_view;
-	r_col_hi[3] = alpha_hi * alpha_fac_view;
+	r_col[3] = alpha * alpha_fac;
+	r_col_hi[3] = alpha_hi * alpha_fac;
 }
 
 static void manipulator_get_axis_constraint(const int axis_idx, int r_axis[3])
@@ -395,10 +402,6 @@ static void manipulator_get_axis_constraint(const int axis_idx, int r_axis[3])
 		case MAN_AXIS_SCALE_Z:
 			r_axis[2] = 1;
 			break;
-		case MAN_AXIS_TRANS_C:
-		case MAN_AXIS_ROT_C:
-		case MAN_AXIS_SCALE_C:
-			break;
 		case MAN_AXIS_TRANS_XY:
 		case MAN_AXIS_SCALE_XY:
 			r_axis[0] = r_axis[1] = 1;
@@ -410,6 +413,8 @@ static void manipulator_get_axis_constraint(const int axis_idx, int r_axis[3])
 		case MAN_AXIS_TRANS_ZX:
 		case MAN_AXIS_SCALE_ZX:
 			r_axis[2] = r_axis[0] = 1;
+			break;
+		default:
 			break;
 	}
 }
@@ -1054,6 +1059,9 @@ static ManipulatorGroup *manipulatorgroup_init(
 	man = MEM_callocN(sizeof(ManipulatorGroup), "manipulator_data");
 
 	/* add/init widgets - order matters! */
+	if (init_rot) {
+		man->rotate_t = WIDGET_dial_new(wgroup, "rotate_c", WIDGET_DIAL_STYLE_RING_FILLED);
+	}
 	if (init_scale) {
 		man->scale_c = WIDGET_dial_new(wgroup, "scale_c", WIDGET_DIAL_STYLE_RING);
 		man->scale_x = WIDGET_arrow_new(wgroup, "scale_x", WIDGET_ARROW_STYLE_BOX);
@@ -1210,8 +1218,12 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 			case MAN_AXIS_TRANS_C:
 			case MAN_AXIS_ROT_C:
 			case MAN_AXIS_SCALE_C:
+			case MAN_AXIS_ROT_T:
 				WIDGET_dial_set_up_vector(axis, rv3d->viewinv[2]);
-				if (axis_idx != MAN_AXIS_ROT_C) {
+				if (axis_idx == MAN_AXIS_ROT_T) {
+					WM_widget_set_flag(axis, WM_WIDGET_DRAW_HOVER, true);
+				}
+				else if (axis_idx != MAN_AXIS_ROT_C) {
 					WM_widget_set_scale(axis, 0.2f);
 				}
 				break;
@@ -1222,13 +1234,16 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 				ptr = WM_widget_set_operator(axis, "TRANSFORM_OT_translate");
 				break;
 			case MAN_AXES_ROTATE:
-				ptr = WM_widget_set_operator(axis, "TRANSFORM_OT_rotate");
+				ptr = WM_widget_set_operator(
+				          axis, (axis_idx == MAN_AXIS_ROT_T) ?
+				          "TRANSFORM_OT_trackball" : "TRANSFORM_OT_rotate");
 				break;
 			case MAN_AXES_SCALE:
 				ptr = WM_widget_set_operator(axis, "TRANSFORM_OT_resize");
 				break;
 		}
-		RNA_boolean_set_array(ptr, "constraint_axis", constraint_axis);
+		if (RNA_struct_find_property(ptr, "constraint_axis"))
+			RNA_boolean_set_array(ptr, "constraint_axis", constraint_axis);
 		RNA_boolean_set(ptr, "release_confirm", 1);
 	}
 	MAN_ITER_AXES_END;
