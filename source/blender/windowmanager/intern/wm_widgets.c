@@ -913,20 +913,14 @@ enum {
 	TWEAK_MODAL_PRECISION_OFF,
 };
 
-static void widget_tweak_finish(bContext *C, wmOperator *op)
+static void widget_tweak_finish(bContext *C, wmOperator *op, const bool cancel)
 {
 	WidgetTweakData *wtweak = op->customdata;
+	if (wtweak->active->exit) {
+		wtweak->active->exit(C, wtweak->active, cancel);
+	}
 	wm_widgetmap_set_active_widget(wtweak->wmap, C, NULL, NULL);
 	MEM_freeN(wtweak);
-}
-
-static void widget_tweak_cancel(bContext *C, wmOperator *op)
-{
-	WidgetTweakData *wtweak = op->customdata;
-	if (wtweak->active->cancel) {
-		wtweak->active->cancel(C, wtweak->active);
-	}
-	widget_tweak_finish(C, op);
 }
 
 static int widget_tweak_modal(bContext *C, wmOperator *op, const wmEvent *event)
@@ -940,7 +934,7 @@ static int widget_tweak_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	}
 
 	if (event->type == wtweak->init_event && event->val == KM_RELEASE) {
-		widget_tweak_finish(C, op);
+		widget_tweak_finish(C, op, false);
 		return OPERATOR_FINISHED;
 	}
 
@@ -948,10 +942,10 @@ static int widget_tweak_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	if (event->type == EVT_MODAL_MAP) {
 		switch (event->val) {
 			case TWEAK_MODAL_CANCEL:
-				widget_tweak_cancel(C, op);
+				widget_tweak_finish(C, op, true);
 				return OPERATOR_CANCELLED;
 			case TWEAK_MODAL_CONFIRM:
-				widget_tweak_finish(C, op);
+				widget_tweak_finish(C, op, false);
 				return OPERATOR_FINISHED;
 			case TWEAK_MODAL_PRECISION_ON:
 				wtweak->flag |= WM_WIDGET_TWEAK_PRECISE;
@@ -1029,7 +1023,6 @@ void WIDGETGROUP_OT_widget_tweak(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = widget_tweak_invoke;
 	ot->modal = widget_tweak_modal;
-	ot->cancel = widget_tweak_cancel;
 }
 
 /** \} */ // Widget operators

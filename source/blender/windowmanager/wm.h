@@ -79,8 +79,8 @@ typedef struct wmWidget {
 	/* activate a widget state when the user clicks on it */
 	int (*invoke)(struct bContext *C, const struct wmEvent *event, struct wmWidget *widget);
 
-	/* called after canceling widget handling - used to reset property */
-	void (*cancel)(struct bContext *C, struct wmWidget *widget);
+	/* called when widget tweaking is done - used to free data and reset property when cancelling */
+	void (*exit)(bContext *C, wmWidget *widget, const bool cancel);
 
 	int (*get_cursor)(struct wmWidget *widget);
 

@@ -602,11 +602,14 @@ static void widget_arrow_bind_to_prop(wmWidget *widget, const int UNUSED(slot))
 		arrow->offset = 0.0f;
 }
 
-static void widget_arrow_cancel(bContext *C, wmWidget *widget)
+static void widget_arrow_exit(bContext *C, wmWidget *widget, const bool cancel)
 {
 	PointerRNA ptr = widget->ptr[ARROW_SLOT_OFFSET_WORLD_SPACE];
 	PropertyRNA *prop = widget->props[ARROW_SLOT_OFFSET_WORLD_SPACE];
 	ArrowInteraction *data = widget->interaction_data;
+
+	if (!cancel)
+		return;
 
 	/* reset property */
 	RNA_property_float_set(&ptr, prop, data->orig_value);
@@ -656,7 +659,7 @@ wmWidget *WIDGET_arrow_new(wmWidgetGroup *wgroup, const char *name, const int st
 	arrow->widget.invoke = widget_arrow_invoke;
 	arrow->widget.render_3d_intersection = widget_arrow_render_3d_intersect;
 	arrow->widget.bind_to_prop = widget_arrow_bind_to_prop;
-	arrow->widget.cancel = widget_arrow_cancel;
+	arrow->widget.exit = widget_arrow_exit;
 	arrow->widget.flag |= (WM_WIDGET_SCALE_3D | WM_WIDGET_DRAW_ACTIVE);
 
 	arrow->style = real_style;
@@ -1494,10 +1497,13 @@ static void widget_rect_transform_bind_to_prop(wmWidget *widget, const int slot)
 		widget_rect_transform_get_property(widget, RECT_TRANSFORM_SLOT_SCALE, cage->scale);
 }
 
-static void widget_rect_transform_cancel(bContext *C, wmWidget *widget)
+static void widget_rect_transform_exit(bContext *C, wmWidget *widget, const bool cancel)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	RectTransformInteraction *data = widget->interaction_data;
+
+	if (!cancel)
+		return;
 
 	/* reset properties */
 	if (widget->props[RECT_TRANSFORM_SLOT_OFFSET]) {
@@ -1536,7 +1542,7 @@ wmWidget *WIDGET_rect_transform_new(
 	cage->widget.bind_to_prop = widget_rect_transform_bind_to_prop;
 	cage->widget.handler = widget_rect_transform_handler;
 	cage->widget.intersect = widget_rect_transform_intersect;
-	cage->widget.cancel = widget_rect_transform_cancel;
+	cage->widget.exit = widget_rect_transform_exit;
 	cage->widget.get_cursor = widget_rect_transform_get_cursor;
 	cage->widget.max_prop = 2;
 	cage->widget.flag |= WM_WIDGET_DRAW_ACTIVE;
