@@ -1299,16 +1299,17 @@ void wm_widgetmap_set_active_widget(
         const wmEvent *event, wmWidget *widget)
 {
 	if (widget) {
+		widget->flag |= WM_WIDGET_ACTIVE;
+		wmap->wmap_context.active_widget = widget;
+
 		if (widget->opname) {
 			wmOperatorType *ot = WM_operatortype_find(widget->opname, 0);
 
 			if (ot) {
 				/* first activate the widget itself */
 				if (widget->invoke && widget->handler) {
-					widget->flag |= WM_WIDGET_ACTIVE;
 					widget->invoke(C, event, widget);
 				}
-				wmap->wmap_context.active_widget = widget;
 
 				WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &widget->opptr);
 
@@ -1331,9 +1332,7 @@ void wm_widgetmap_set_active_widget(
 		}
 		else {
 			if (widget->invoke && widget->handler) {
-				widget->flag |= WM_WIDGET_ACTIVE;
 				widget->invoke(C, event, widget);
-				wmap->wmap_context.active_widget = widget;
 			}
 		}
 	}
