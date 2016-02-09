@@ -44,11 +44,12 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "../wm_widget_intern.h"
-#include "../../WM_widget_api.h"
-#include "../../WM_widget_types.h"
-#include "../../WM_widget_library.h"
-#include "../../wm_widget_wmapi.h"
+/* own includes */
+#include "WM_widget_api.h"
+#include "WM_widget_types.h"
+#include "WM_widget_library.h"
+#include "wm_widget_wmapi.h"
+#include "wm_widget_intern.h"
 
 
 /* PlaneWidget->flag */

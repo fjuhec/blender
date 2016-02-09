@@ -51,7 +51,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-#include "../wm_widget_wmapi.h"
+/* own includes */
+#include "wm_widget_wmapi.h"
 #include "wm_widget_intern.h"
 
 /**

@@ -54,9 +54,10 @@
 #include "WM_types.h"
 #include "WM_api.h"
 
+/* own includes */
+#include "wm_widget_wmapi.h"
+#include "wm_widget_intern.h"
 #include "widget_geometry.h"
-#include "../wm_widget_intern.h"
-#include "../../wm_widget_wmapi.h"
 
 
 /* to use custom arrows exported to arrow_widget.c */

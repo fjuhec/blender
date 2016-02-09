@@ -25,6 +25,8 @@
 
 set(INC
 	.
+	widgets
+	widgets/intern
 	../blenfont
 	../blenkernel
 	../blenlib
