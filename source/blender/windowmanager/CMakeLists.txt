@@ -67,11 +67,17 @@ set(SRC
 	intern/wm_subwindow.c
 	intern/wm_window.c
 	intern/wm_stereo.c
-	intern/wm_widgets.c
-	intern/wm_generic_widgets.c
-	3d_widgets/arrow_widget.c
-	3d_widgets/cube_widget.c
-	3d_widgets/dial_widget.c
+	widgets/intern/wm_widget.c
+	widgets/intern/wm_widgetgroup.c
+	widgets/intern/wm_widgetmap.c
+	widgets/intern/widget_library/arrow_widget.c
+	widgets/intern/widget_library/cage_widget.c
+	widgets/intern/widget_library/dial_widget.c
+	widgets/intern/widget_library/facemap_widget.c
+	widgets/intern/widget_library/plane_widget.c
+	widgets/intern/widget_library/geom_arrow_widget.c
+	widgets/intern/widget_library/geom_cube_widget
+	widgets/intern/widget_library/geom_dial_widget.c
 
 	WM_api.h
 	WM_keymap.h
@@ -84,7 +90,12 @@ set(SRC
 	wm_files.h
 	wm_subwindow.h
 	wm_window.h
-	3d_widgets/ui_widget_library.h
+	widgets/WM_widget_api.h
+	widgets/WM_widget_types.h
+	widgets/WM_widget_library.h
+	widgets/wm_widget_wmapi.h
+	widgets/intern/wm_widget_intern.h
+	widgets/intern/widget_library/widget_geometry.h
 )
 
 if(WITH_AUDASPACE)

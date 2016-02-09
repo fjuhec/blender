@@ -121,6 +121,7 @@ struct ImBuf;
 /* exported types for WM */
 #include "wm_cursors.h"
 #include "wm_event_types.h"
+#include "widgets/WM_widget_types.h"
 
 /* ************** wmOperatorType ************************ */
 
@@ -672,100 +673,6 @@ typedef struct wmDropBox {
 
 } wmDropBox;
 
-
-/* WidgetGroups store and manage groups of widgets.
- * They are responsible for drawing necessary widgets and updating their state and position. */
-typedef struct wmWidget wmWidget;
-typedef struct wmWidgetGroup wmWidgetGroup;
-typedef struct wmWidgetMapType wmWidgetMapType;
-
-/* factory class for a widgetgroup type, gets called every time a new area is spawned */
-typedef struct wmWidgetGroupType {
-	struct wmWidgetGroupType *next, *prev;
-
-	char idname[64]; /* MAX_NAME */
-	char name[64]; /* widget group name - displayed in UI (keymap editor) */
-
-	/* poll if widgetmap should be active */
-	int (*poll)(const struct bContext *C, struct wmWidgetGroupType *wgrouptype) ATTR_WARN_UNUSED_RESULT;
-
-	/* update widgets, called right before drawing */
-	void (*create)(const struct bContext *C, struct wmWidgetGroup *wgroup);
-
-	/* keymap init callback for this widgetgroup */
-	struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *);
-
-	/* keymap created with callback from above */
-	struct wmKeyMap *keymap;
-
-	/* rna for properties */
-	struct StructRNA *srna;
-
-	/* RNA integration */
-	ExtensionRNA ext;
-
-	/* widgetTypeflags (copy of wmWidgetMapType.flag - used for comparisons) */
-	int flag;
-	
-	/* if type is spawned from operator this is set here */
-	void *op;
-
-	/* same as widgetmaps, so registering/unregistering goes to the correct region */
-	short spaceid, regionid;
-	char mapidname[64];
-} wmWidgetGroupType;
-
-typedef struct wmWidgetMap {
-	struct wmWidgetMap *next, *prev;
-
-	wmWidgetMapType *type;
-	ListBase widgetgroups;
-
-	/**
-	 * \brief Widget map runtime context
-	 *
-	 * Contains information about this widget map. Currently
-	 * highlighted widget, currently selected widgets, ...
-	 */
-	struct {
-		/* we redraw the widgetmap when this changes */
-		wmWidget *highlighted_widget;
-		/* user has clicked this widget and it gets all input */
-		wmWidget *active_widget;
-		/* array for all selected widgets
-		 * TODO  check on using BLI_array */
-		wmWidget **selected_widgets;
-		int tot_selected;
-
-		/* set while widget is highlighted/active */
-		wmWidgetGroup *activegroup;
-	} wmap_context;
-} wmWidgetMap;
-
-/* wmWidget->flag */
-enum eWidgetFlag {
-	/* states */
-	WM_WIDGET_HIGHLIGHT   = (1 << 0),
-	WM_WIDGET_ACTIVE      = (1 << 1),
-	WM_WIDGET_SELECTED    = (1 << 2),
-	/* settings */
-	WM_WIDGET_DRAW_HOVER  = (1 << 3),
-	WM_WIDGET_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
-	WM_WIDGET_SCALE_3D    = (1 << 5),
-	WM_WIDGET_SCENE_DEPTH = (1 << 6), /* widget is depth culled with scene objects*/
-	WM_WIDGET_HIDDEN      = (1 << 7),
-	WM_WIDGET_SELECTABLE  = (1 << 8),
-};
-
-/* wmWidgetType->flag */
-enum eWidgetTypeFlag {
-	/**
-	 * Check if widgetmap does 3D drawing
-	 * (uses a different kind of interaction),
-	 * - 3d: use glSelect buffer.
-	 * - 2d: use simple cursor position intersection test. */
-	WM_WIDGET_TYPE_3D           = (1 << 0),
-};
 
 /* *************** migrated stuff, clean later? ************** */
 

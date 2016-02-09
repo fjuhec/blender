@@ -301,7 +301,7 @@ static int sequencer_overdrop_transform_invoke(bContext *C, wmOperator *op, cons
 	        "Backdrop Transform Widgets");
 	struct wmEventHandler *handler = WM_event_add_modal_handler(C, op);
 	OverDropTransformData *data = MEM_mallocN(sizeof(OverDropTransformData), "overdrop transform data");
-	WM_modal_handler_attach_widgetgroup(C, handler, cagetype, op);
+	WM_widgetgroup_attach_to_modal_handler(C, handler, cagetype, op);
 	
 	RNA_float_set_array(op->ptr, "offset", sseq->overdrop_offset);
 	RNA_float_set(op->ptr, "scale", sseq->overdrop_zoom);
@@ -475,7 +475,7 @@ static int sequencer_image_transform_widget_invoke(bContext *C, wmOperator *op, 
 		return OPERATOR_CANCELLED;
 	}
 
-	WM_modal_handler_attach_widgetgroup(C, handler, cagetype, op);
+	WM_widgetgroup_attach_to_modal_handler(C, handler, cagetype, op);
 
 	copy_v2_v2_int(data->init_size, &ibuf->x);
 	data->cagetype = cagetype;

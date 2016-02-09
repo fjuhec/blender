@@ -502,11 +502,11 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
 		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
-		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_WIDGET_TYPE_3D});
+		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_WIDGETMAPTYPE_3D});
 		BLI_addhead(&ar->widgetmaps, wmap);
 	}
 
-	WM_event_add_area_widgetmap_handlers(ar);
+	WM_widgetmaps_add_handlers(ar);
 
 	/* object ops. */
 	
@@ -738,7 +738,7 @@ static void view3d_widgets(void)
 	const struct wmWidgetMapType_Params wmap_params = {
 		.idname = "View3D",
 		.spaceid = SPACE_VIEW3D, .regionid = RGN_TYPE_WINDOW,
-		.flag = WM_WIDGET_TYPE_3D,
+		.flag = WM_WIDGETMAPTYPE_3D,
 	};
 
 	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);

@@ -2648,7 +2648,7 @@ static int graph_widget_backdrop_transform_invoke(bContext *C, wmOperator *op, c
 	        "Backdrop Transform Widgets");
 	struct wmEventHandler *handler = WM_event_add_modal_handler(C, op);
 	BackDropTransformData *data = MEM_mallocN(sizeof(BackDropTransformData), "overdrop transform data");
-	WM_modal_handler_attach_widgetgroup(C, handler, cagetype, op);
+	WM_widgetgroup_attach_to_modal_handler(C, handler, cagetype, op);
 
 	RNA_float_set_array(op->ptr, "offset", sipo->backdrop_offset);
 	RNA_float_set(op->ptr, "scale", sipo->backdrop_zoom);

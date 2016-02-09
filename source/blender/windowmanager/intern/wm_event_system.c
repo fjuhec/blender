@@ -1723,7 +1723,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 				}
 
 				/* update widgets during modal handlers */
-				wm_widget_handler_modal_update(C, event, handler);
+				wm_widgetmaps_handled_modal_update(C, event, handler);
 
 				/* remove modal handler, operator itself should have been canceled and freed */
 				if (retval & (OPERATOR_CANCELLED | OPERATOR_FINISHED)) {

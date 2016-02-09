@@ -34,11 +34,12 @@
 struct wmWindow;
 struct ReportList;
 struct wmEvent;
-struct wmWidgetMap;
 struct wmOperatorType;
 struct PointerRNA;
 struct PropertyRNA;
 struct wmOperator;
+
+#include "widgets/wm_widget_wmapi.h" /* widgets wm API */
 
 typedef struct wmPaintCursor {
 	struct wmPaintCursor *next, *prev;
@@ -48,82 +49,6 @@ typedef struct wmPaintCursor {
 	int (*poll)(struct bContext *C);
 	void (*draw)(bContext *C, int, int, void *customdata);
 } wmPaintCursor;
-
-/* widgets are set per region by registering them on widgetmaps */
-typedef struct wmWidget {
-	struct wmWidget *next, *prev;
-
-	char idname[MAX_NAME + 4]; /* + 4 for unique '.001', '.002', etc suffix */
-
-	/* pointer back to parent widget group */
-	wmWidgetGroup *wgroup;
-
-	/* draw widget */
-	void (*draw)(const struct bContext *C, struct wmWidget *widget);
-	/* determine if the mouse intersects with the widget. The calculation should be done in the callback itself */
-	int  (*intersect)(struct bContext *C, const struct wmEvent *event, struct wmWidget *widget);
-
-	/* determines 3d intersection by rendering the widget in a selection routine. */
-	void (*render_3d_intersection)(const struct bContext *C, struct wmWidget *widget, int selectionbase);
-
-	/* handler used by the widget. Usually handles interaction tied to a widget type */
-	int  (*handler)(struct bContext *C, const struct wmEvent *event, struct wmWidget *widget, const int flag);
-
-	/* widget-specific handler to update widget attributes when a property is bound */
-	void (*bind_to_prop)(struct wmWidget *widget, int slot);
-
-	/* returns the final position which may be different from the origin, depending on the widget.
-	 * used in calculations of scale */
-	void (*get_final_position)(struct wmWidget *widget, float vec[3]);
-
-	/* activate a widget state when the user clicks on it */
-	int (*invoke)(struct bContext *C, const struct wmEvent *event, struct wmWidget *widget);
-
-	/* called when widget tweaking is done - used to free data and reset property when cancelling */
-	void (*exit)(bContext *C, wmWidget *widget, const bool cancel);
-
-	int (*get_cursor)(struct wmWidget *widget);
-
-	/* called when widget selection state changes */
-	void (*select)(struct bContext *C, struct wmWidget *widget, const int action);
-
-	int flag; /* flags set by drawing and interaction, such as highlighting */
-
-	unsigned char highlighted_part;
-
-	/* center of widget in space, 2d or 3d */
-	float origin[3];
-	/* custom offset from origin */
-	float offset[3];
-
-	/* runtime property, set the scale while drawing on the viewport */
-	float scale;
-
-	/* user defined scale, in addition to the original one */
-	float user_scale;
-
-	/* user defined width for line drawing */
-	float line_width;
-
-	/* widget colors (uses default fallbacks if not defined) */
-	float col[4], col_hi[4];
-
-	/* data used during interaction */
-	void *interaction_data;
-
-	/* name of operator to spawn when activating the widget */
-	const char *opname;
-
-	/* operator properties if widget spawns and controls an operator, or owner pointer if widget spawns and controls a property */
-	PointerRNA opptr;
-
-	/* maximum number of properties attached to the widget */
-	int max_prop;
-
-	/* arrays of properties attached to various widget parameters. As the widget is interacted with, those properties get updated */
-	PointerRNA *ptr;
-	PropertyRNA **props;
-} wmWidget;
 
 
 extern void wm_close_and_free(bContext *C, wmWindowManager *);
@@ -171,14 +96,6 @@ void wm_stereo3d_set_cancel(bContext *C, wmOperator *op);
 void wm_open_init_load_ui(wmOperator *op, bool use_prefs);
 void wm_open_init_use_scripts(wmOperator *op, bool use_prefs);
 
-/* wm_widgets.c */
-bool wm_widgetmap_is_3d(const wmWidgetMap *wmap);
-bool wm_widget_register(wmWidgetGroup *wgroup, wmWidget *widget, const char *name);
-void wm_widgets_keymap(wmKeyConfig *keyconf);
-
-void WIDGETGROUP_OT_widget_select(wmOperatorType *ot);
-void WIDGETGROUP_OT_widget_tweak(wmOperatorType *ot);
-
 
 /* hack to store circle select size - campbell, must replace with nice operator memory */
 #define GESTURE_MEMORY
@@ -186,8 +103,6 @@ void WIDGETGROUP_OT_widget_tweak(wmOperatorType *ot);
 #ifdef GESTURE_MEMORY
 extern int circle_select_size;
 #endif
-
-void fix_linking_widget_lib(void);
 
 #endif /* __WM_H__ */
 

@@ -44,7 +44,7 @@ typedef enum WidgetType {
 	WT_CUSTOM    = 3,
 } WidgetType;
 
-struct wmWidgetGroup {
+typedef struct wmWidgetGroup {
 	struct wmWidgetGroup *next, *prev;
 
 	struct wmWidgetGroupType *type;
@@ -55,6 +55,6 @@ struct wmWidgetGroup {
 
 	int flag;
 	int pad;
-};
+} wmWidgetGroup;
 
 #endif

@@ -442,7 +442,7 @@ EnumPropertyItem rna_enum_operator_return_items[] = {
 
 #ifndef RNA_RUNTIME
 static EnumPropertyItem widget_flag_items[] = {
-	{WM_WIDGET_TYPE_3D, "3D", 0, "3D", "Use the 3d viewport"},
+	{WM_WIDGETMAPTYPE_3D, "3D", 0, "3D", "Use the 3d viewport"},
 	{0, NULL, 0, NULL, NULL}
 };
 #endif
