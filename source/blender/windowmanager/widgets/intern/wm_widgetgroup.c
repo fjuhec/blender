@@ -41,9 +41,6 @@
 
 #include "BPY_extern.h"
 
-#include "DNA_screen_types.h"
-#include "DNA_space_types.h"
-
 #include "ED_screen.h"
 
 #include "MEM_guardedalloc.h"

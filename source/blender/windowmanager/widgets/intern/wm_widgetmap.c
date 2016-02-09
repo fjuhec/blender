@@ -33,13 +33,7 @@
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
-#include "BLI_utildefines.h"
 #include "BLI_ghash.h"
-
-#include "DNA_screen_types.h"
-#include "DNA_userdef_types.h"
-#include "DNA_view3d_types.h"
-#include "DNA_widget_types.h"
 
 #include "ED_screen.h"
 

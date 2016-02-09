@@ -39,10 +39,8 @@
 #include "BKE_context.h"
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
 
 #include "DNA_object_types.h"
-#include "DNA_view3d_types.h"
 
 #include "ED_screen.h"
 #include "ED_view3d.h"
@@ -52,12 +50,10 @@
 #include "MEM_guardedalloc.h"
 
 /* own includes */
-#include "WM_widget_api.h"
 #include "WM_widget_types.h"
 #include "WM_widget_library.h"
 #include "wm_widget_wmapi.h"
 #include "wm_widget_intern.h"
-#include "widget_geometry.h"
 
 
 typedef struct FacemapWidget {

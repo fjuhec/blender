@@ -45,7 +45,6 @@
 #include "MEM_guardedalloc.h"
 
 /* own includes */
-#include "WM_widget_api.h"
 #include "WM_widget_types.h"
 #include "WM_widget_library.h"
 #include "wm_widget_wmapi.h"

@@ -33,10 +33,6 @@
 #include "BLI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
-#include "BLI_utildefines.h"
-
-#include "DNA_userdef_types.h"
-#include "DNA_view3d_types.h"
 
 #include "ED_screen.h"
 #include "ED_view3d.h"
