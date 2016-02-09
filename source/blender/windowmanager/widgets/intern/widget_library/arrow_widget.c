@@ -321,9 +321,9 @@ static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *wid
 	if (RAD2DEG(acos(dot_v3v3(viewvec, arrow->direction))) > 5.0f) {
 		/* multiply to projection space */
 		mul_m4_v4(rv3d->persmat, orig_origin);
-		mul_v4_fl(orig_origin, 1.0f/orig_origin[3]);
+		mul_v4_fl(orig_origin, 1.0f / orig_origin[3]);
 		mul_m4_v4(rv3d->persmat, offset);
-		mul_v4_fl(offset, 1.0f/offset[3]);
+		mul_v4_fl(offset, 1.0f / offset[3]);
 
 		sub_v2_v2v2(dir_2d, offset, orig_origin);
 		dir_2d[0] *= ar->winx;

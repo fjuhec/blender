@@ -20,7 +20,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/widget_library/WM_widget_library.h
+/** \file blender/windowmanager/widgets/WM_widget_library.h
  *  \ingroup wm
  *
  * \name Generic Widget Library

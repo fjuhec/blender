@@ -253,7 +253,7 @@ static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *e
 	//rotate_m2(matrot, -cage->transform.rotation);
 
 	if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)
-		mul_v2_fl(point_local, 1.0f/cage->scale[0]);
+		mul_v2_fl(point_local, 1.0f / cage->scale[0]);
 	else {
 		point_local[0] /= cage->scale[0];
 		point_local[1] /= cage->scale[0];
@@ -369,7 +369,7 @@ static bool widget_rect_transform_get_property(wmWidget *widget, const int slot,
 static int widget_rect_transform_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidget *widget)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
-	RectTransformInteraction *data = MEM_callocN(sizeof (RectTransformInteraction), "cage_interaction");
+	RectTransformInteraction *data = MEM_callocN(sizeof(RectTransformInteraction), "cage_interaction");
 
 	copy_v2_v2(data->orig_offset, widget->offset);
 	copy_v2_v2(data->orig_scale, cage->scale);
@@ -459,7 +459,7 @@ static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmWi
 		PointerRNA ptr = widget->ptr[RECT_TRANSFORM_SLOT_SCALE];
 		PropertyRNA *prop = widget->props[RECT_TRANSFORM_SLOT_SCALE];
 
-		if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM){
+		if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
 			RNA_property_float_set(&ptr, prop, cage->scale[0]);
 		}
 		else {
@@ -504,7 +504,7 @@ static void widget_rect_transform_exit(bContext *C, wmWidget *widget, const bool
 		PointerRNA ptr = widget->ptr[RECT_TRANSFORM_SLOT_SCALE];
 		PropertyRNA *prop = widget->props[RECT_TRANSFORM_SLOT_SCALE];
 
-		if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM){
+		if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
 			RNA_property_float_set(&ptr, prop, data->orig_scale[0]);
 		}
 		else {

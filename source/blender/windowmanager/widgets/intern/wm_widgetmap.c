@@ -461,6 +461,7 @@ bool WM_widgetmap_select_all(bContext *C, wmWidgetMap *wmap, const int action)
 			break;
 		default:
 			BLI_assert(0);
+			break;
 	}
 
 	if (changed)
