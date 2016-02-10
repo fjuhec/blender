@@ -105,11 +105,15 @@ struct bFaceMap *WIDGET_facemap_get_fmap(struct wmWidget *widget);
 
 
 /* -------------------------------------------------------------------- */
-/* Plane Widget */
+/* Primitive Widget */
 
-struct wmWidget *WIDGET_plane_new(struct wmWidgetGroup *wgroup, const char *name, const int style);
-void WIDGET_plane_set_direction(struct wmWidget *widget, const float direction[3]);
-void WIDGET_plane_set_up_vector(struct wmWidget *widget, const float direction[3]);
+enum {
+	WIDGET_PRIMITIVE_STYLE_PLANE = 0,
+};
+
+struct wmWidget *WIDGET_primitive_new(struct wmWidgetGroup *wgroup, const char *name, const int style);
+void WIDGET_primitive_set_direction(struct wmWidget *widget, const float direction[3]);
+void WIDGET_primitive_set_up_vector(struct wmWidget *widget, const float direction[3]);
 
 #endif  /* __WM_WIDGET_LIBRARY_H__ */
 

@@ -1067,9 +1067,9 @@ static ManipulatorGroup *manipulatorgroup_init(
 		man->scale_x = WIDGET_arrow_new(wgroup, "scale_x", WIDGET_ARROW_STYLE_BOX);
 		man->scale_y = WIDGET_arrow_new(wgroup, "scale_y", WIDGET_ARROW_STYLE_BOX);
 		man->scale_z = WIDGET_arrow_new(wgroup, "scale_z", WIDGET_ARROW_STYLE_BOX);
-		man->scale_xy = WIDGET_plane_new(wgroup, "scale_xy", 0);
-		man->scale_yz = WIDGET_plane_new(wgroup, "scale_yz", 0);
-		man->scale_zx = WIDGET_plane_new(wgroup, "scale_zx", 0);
+		man->scale_xy = WIDGET_primitive_new(wgroup, "scale_xy", WIDGET_PRIMITIVE_STYLE_PLANE);
+		man->scale_yz = WIDGET_primitive_new(wgroup, "scale_yz", WIDGET_PRIMITIVE_STYLE_PLANE);
+		man->scale_zx = WIDGET_primitive_new(wgroup, "scale_zx", WIDGET_PRIMITIVE_STYLE_PLANE);
 	}
 	if (init_rot) {
 		man->rotate_x = WIDGET_dial_new(wgroup, "rotate_x", WIDGET_DIAL_STYLE_RING_CLIPPED);
@@ -1083,9 +1083,9 @@ static ManipulatorGroup *manipulatorgroup_init(
 		man->translate_x = WIDGET_arrow_new(wgroup, "translate_x", WIDGET_ARROW_STYLE_NORMAL);
 		man->translate_y = WIDGET_arrow_new(wgroup, "translate_y", WIDGET_ARROW_STYLE_NORMAL);
 		man->translate_z = WIDGET_arrow_new(wgroup, "translate_z", WIDGET_ARROW_STYLE_NORMAL);
-		man->translate_xy = WIDGET_plane_new(wgroup, "translate_xy", 0);
-		man->translate_yz = WIDGET_plane_new(wgroup, "translate_yz", 0);
-		man->translate_zx = WIDGET_plane_new(wgroup, "translate_zx", 0);
+		man->translate_xy = WIDGET_primitive_new(wgroup, "translate_xy", WIDGET_PRIMITIVE_STYLE_PLANE);
+		man->translate_yz = WIDGET_primitive_new(wgroup, "translate_yz", WIDGET_PRIMITIVE_STYLE_PLANE);
+		man->translate_zx = WIDGET_primitive_new(wgroup, "translate_zx", WIDGET_PRIMITIVE_STYLE_PLANE);
 	}
 
 	return man;
@@ -1208,8 +1208,8 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 				ofs[1] = ofs_ax;
 				ofs[2] = 0.0f;
 
-				WIDGET_plane_set_direction(axis, rv3d->twmat[aidx_norm - 1 < 0 ? 2 : aidx_norm - 1]);
-				WIDGET_plane_set_up_vector(axis, rv3d->twmat[aidx_norm + 1 > 2 ? 0 : aidx_norm + 1]);
+				WIDGET_primitive_set_direction(axis, rv3d->twmat[aidx_norm - 1 < 0 ? 2 : aidx_norm - 1]);
+				WIDGET_primitive_set_up_vector(axis, rv3d->twmat[aidx_norm + 1 > 2 ? 0 : aidx_norm + 1]);
 				WM_widget_set_scale(axis, 0.07f);
 				WM_widget_set_origin(axis, rv3d->twmat[3]);
 				WM_widget_set_offset(axis, ofs);

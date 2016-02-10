@@ -122,7 +122,7 @@ wmWidget *WM_widget_new(void (*draw)(const bContext *C, wmWidget *customdata),
 	fix_linking_widget_cage();
 	fix_linking_widget_dial();
 	fix_linking_widget_facemap();
-	fix_linking_widget_plane();
+	fix_linking_widget_primitive();
 
 	return widget;
 }

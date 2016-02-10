@@ -76,7 +76,7 @@ set(SRC
 	widgets/intern/widget_library/cage_widget.c
 	widgets/intern/widget_library/dial_widget.c
 	widgets/intern/widget_library/facemap_widget.c
-	widgets/intern/widget_library/plane_widget.c
+	widgets/intern/widget_library/primitive_widget.c
 	widgets/intern/widget_library/geom_arrow_widget.c
 	widgets/intern/widget_library/geom_cube_widget
 	widgets/intern/widget_library/geom_dial_widget.c

@@ -59,7 +59,7 @@ void fix_linking_widget_arrow(void);
 void fix_linking_widget_cage(void);
 void fix_linking_widget_dial(void);
 void fix_linking_widget_facemap(void);
-void fix_linking_widget_plane(void);
+void fix_linking_widget_primitive(void);
 
 
 /* -------------------------------------------------------------------- */
