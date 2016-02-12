@@ -1908,6 +1908,7 @@ static void rna_def_modifier_boolean(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Operation", "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+#if 0  /* WITH_MOD_BOOLEAN */
 	/* BMesh intersection options */
 	prop = RNA_def_property(srna, "use_bmesh", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "bm_flag", eBooleanModifierBMeshFlag_Enabled);
@@ -1935,6 +1936,7 @@ static void rna_def_modifier_boolean(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0, 1, 1, 7);
 	RNA_def_property_ui_text(prop, "Threshold",  "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+#endif
 }
 
 static void rna_def_modifier_array(BlenderRNA *brna)
