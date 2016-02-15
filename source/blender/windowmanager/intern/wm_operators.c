@@ -2629,7 +2629,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	 * its also generally useful to know what is new
 	 *
 	 * take extra care BKE_main_id_flag_all(bmain, LIB_TAG_PRE_EXISTING, false) is called after! */
-	BKE_main_id_flag_all(bmain, LIB_TAG_PRE_EXISTING, true);
+	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
 	/* We define our working data...
 	 * Note that here, each item 'uses' one library, and only one. */
@@ -2710,7 +2710,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 	/* important we unset, otherwise these object wont
 	 * link into other scenes from this blend file */
-	BKE_main_id_flag_all(bmain, LIB_TAG_PRE_EXISTING, false);
+	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, false);
 
 	/* recreate dependency graph to include new objects */
 	DAG_scene_relations_rebuild(bmain, scene);
@@ -2889,7 +2889,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, const bool reloa
 				}
 			}
 
-			BKE_main_id_flag_all(bmain, LIB_TAG_PRE_EXISTING, true);
+			BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
 			/* XXX For now, locking is not reentrant so it's not safe to call core linking code with locked Main. */
 			BKE_main_unlock(bmain);
@@ -3031,7 +3031,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, const bool reloa
 				}
 			}
 
-			BKE_main_id_flag_all(bmain, LIB_TAG_PRE_EXISTING, true);
+			BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
 			/* XXX For now, locking is not reentrant so it's not safe to call core linking code with locked Main. */
 			BKE_main_unlock(bmain);
@@ -3108,7 +3108,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, const bool reloa
 
 		/* important we unset, otherwise these object wont
 		 * link into other scenes from this blend file */
-		BKE_main_id_flag_all(bmain, LIB_TAG_PRE_EXISTING, false);
+		BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, false);
 
 		/* recreate dependency graph to include new objects */
 		DAG_scene_relations_rebuild(bmain, scene);
@@ -5293,7 +5293,7 @@ static int previews_ensure_exec(bContext *C, wmOperator *UNUSED(op))
 	int i;
 
 	/* We use LIB_TAG_DOIT to check whether we have already handled a given ID or not. */
-	BKE_main_id_flag_all(bmain, LIB_TAG_DOIT, true);
+	BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, true);
 
 	BLI_LINKSTACK_INIT(preview_id_stack.id_stack);
 
