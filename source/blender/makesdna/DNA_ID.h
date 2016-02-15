@@ -158,6 +158,38 @@ typedef struct ID {
 	AssetUUID *uuid;
 } ID;
 
+/* Note: Those two structs are for now being runtime-stored in Library datablocks.
+ *       Later it may be interesting to also cache those globally in some ghash...
+ */
+/**
+ * An asset reference, storing the uuid and a list of pointers to all used IDs.
+ * Runtime only currently.
+ */
+#
+#
+typedef struct AssetRef {
+	struct AssetRef *next, *prev;
+	AssetUUID uuid;
+
+	/* Runtime */
+	ListBase id_list;  /* List of pointers to all IDs used by this asset (first one being 'root' one). */
+} AssetRef;
+
+/**
+ * An asset repository reference, storing all that's needed to find the repo, and a list of loaded assets.
+ * WARNING: this is per library, **not** per asset repo.
+ */
+typedef struct AssetRepositoryRef {
+	char asset_engine[64];  /* MAX_ST_NAME */
+	int asset_engine_version;
+	int pad_i1;
+	/* 'Path' to asset engine's root of the reprository, can be an url, whatever... */
+	char root[768];  /* FILE_MAXDIR */
+
+	/* Runtime */
+	ListBase assets;  /* A list of AssetRef assets from this lib. */
+} AssetRepositoryRef;
+
 /**
  * For each library file used, a Library struct is added to Main
  * WARNING: readfile.c, expand_doit() reads this struct without DNA check!
@@ -179,11 +211,7 @@ typedef struct Library {
 	
 	struct PackedFile *packedfile;
 
-	char asset_engine[64];  /* MAX_ST_NAME */
-	int asset_engine_version;
-	int pad_i1;
-	/* 'Path' to asset engine's root of the reprository, can be an url, whatever... */
-	char asset_engine_root[1024];
+	AssetRepositoryRef *asset_repository;
 } Library;
 
 enum eIconSizes {
@@ -307,6 +335,8 @@ typedef struct PreviewImage {
 
 /* id->flag (persitent). */
 enum {
+	/* Flag asset IDs (the ones who should have a valid uuid). */
+	LIB_ASSET           = 1 << 0,
 	LIB_FAKEUSER        = 1 << 9,
 };
 

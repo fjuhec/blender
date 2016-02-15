@@ -705,6 +705,29 @@ static PointerRNA rna_IDPreview_get(PointerRNA *ptr)
 	return rna_pointer_inherit_refine(ptr, &RNA_ImagePreview, prv_img);
 }
 
+static void rna_ID_asset_dependencies_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
+{
+	ID *id = ptr->data;
+
+	if (id->uuid && id->lib) {
+		AssetRef *aref = BKE_library_asset_repository_asset_find(id->lib, id);
+		if (aref) {
+			rna_iterator_listbase_begin(iter, &aref->id_list, NULL);
+			return;
+		}
+	}
+	rna_iterator_listbase_begin(iter, NULL, NULL);
+}
+
+static PointerRNA rna_ID_asset_dependencies_get(CollectionPropertyIterator *iter)
+{
+	ListBaseIterator *internal = &iter->internal.listbase;
+	PointerRNA ptr;
+
+	RNA_id_pointer_create((ID *)((LinkData *)internal->link)->data, &ptr);
+	return ptr;
+}
+
 #else
 
 static void rna_def_ID_properties(BlenderRNA *brna)
@@ -966,6 +989,20 @@ static void rna_def_ID(BlenderRNA *brna)
 	                       "Preview image and icon of this data-block (None if not supported for this type of data)");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_pointer_funcs(prop, "rna_IDPreview_get", NULL, NULL, NULL);
+
+	/* XXX Not sure we actually want those two in our RNA in the end.
+	 *     But at least for now, they are important debug tools! */
+	prop = RNA_def_pointer(srna, "asset_uuid", "AssetUUID", "Asset UUID",
+						   "Unique identifier of the asset represented by that ID (NULL if not an asset)");
+	RNA_def_property_pointer_sdna(prop, NULL, "uuid");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+	prop = RNA_def_collection(srna, "asset_dependencies", "ID", "Asset Dependencies",
+	                          "A list of all IDs used by this asset");
+	RNA_def_property_collection_funcs(prop, "rna_ID_asset_dependencies_begin", "rna_iterator_listbase_next",
+	                                  "rna_iterator_listbase_end", "rna_ID_asset_dependencies_get",
+	                                  NULL, NULL, NULL, NULL);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
 	/* functions */
 	func = RNA_def_function(srna, "copy", "rna_ID_copy");

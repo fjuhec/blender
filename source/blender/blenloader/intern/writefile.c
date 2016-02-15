@@ -2919,7 +2919,11 @@ static void write_libraries(WriteData *wd, Main *main)
 				if (wd->current == NULL)
 					printf("write packed .blend: %s\n", main->curlib->name);
 			}
-			
+
+			if (main->curlib->asset_repository) {
+				writestruct(wd, DATA, "AssetRepositoryRef", 1, main->curlib->asset_repository);
+			}
+
 			while (a--) {
 				for (id= lbarray[a]->first; id; id= id->next) {
 					if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {

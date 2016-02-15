@@ -41,6 +41,7 @@
 #include "BLT_translation.h"
 
 #include "BLI_fileops_types.h"
+#include "BLI_hash_mm2a.h"
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
@@ -369,3 +370,18 @@ void BKE_filedir_entryarr_clear(FileDirEntryArr *array)
     array->nbr_entries = 0;
 	array->nbr_entries_filtered = 0;
 }
+
+/* GHash helpers */
+unsigned int BKE_asset_uuid_hash(const void *key)
+{
+	return BLI_hash_mm2((const unsigned char *)key, sizeof(AssetUUID), 0);
+}
+
+bool BKE_asset_uuid_cmp(const void *a, const void *b)
+{
+	const AssetUUID *uuid1 = a;
+	const AssetUUID *uuid2 = b;
+	return !ASSETUUID_COMPARE(uuid1, uuid2);  /* Expects false when compared equal... */
+}
+
+
