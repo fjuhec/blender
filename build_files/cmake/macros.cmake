@@ -311,6 +311,7 @@ function(SETUP_LIBDIRS)
 	if(WITH_MEM_JEMALLOC)
 		link_directories(${JEMALLOC_LIBPATH})
 	endif()
+
 	if(WIN32 AND NOT UNIX)
 		link_directories(${PTHREADS_LIBPATH})
 	endif()
