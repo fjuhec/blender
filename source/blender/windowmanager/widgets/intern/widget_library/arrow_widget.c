@@ -58,6 +58,7 @@
 #include "wm_widget_wmapi.h"
 #include "wm_widget_intern.h"
 #include "widget_geometry.h"
+#include "widget_library_intern.h"
 
 
 /* to use custom arrows exported to arrow_widget.c */
@@ -76,6 +77,9 @@ enum {
 
 typedef struct ArrowWidget {
 	wmWidget widget;
+
+	WidgetCommonData data;
+
 	int style;
 	int flag;
 
@@ -83,29 +87,7 @@ typedef struct ArrowWidget {
 	float direction[3];
 	float up[3];
 	float aspect[2];    /* cone style only */
-
-	float range_fac;      /* factor for arrow min/max distance */
-	float offset;
-	/* property range and minimum for constrained arrows */
-	float range, min;
 } ArrowWidget;
-
-typedef struct ArrowInteraction {
-	float orig_value; /* initial property value */
-	float orig_origin[3];
-	float orig_mouse[2];
-	float orig_offset;
-	float orig_scale;
-
-	/* offset of last handling step */
-	float prev_offset;
-	/* Total offset added by precision tweaking.
-	 * Needed to allow toggling precision on/off without causing jumps */
-	float precision_offset;
-} ArrowInteraction;
-
-/* factor for precision tweaking */
-#define ARROW_PRECISION_FAC 0.05f
 
 
 /* -------------------------------------------------------------------- */
@@ -114,7 +96,7 @@ static void widget_arrow_get_final_pos(wmWidget *widget, float r_pos[3])
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 
-	mul_v3_v3fl(r_pos, arrow->direction, arrow->offset);
+	mul_v3_v3fl(r_pos, arrow->direction, arrow->data.offset);
 	add_v3_v3(r_pos, arrow->widget.origin);
 }
 
@@ -250,11 +232,11 @@ static void arrow_draw_intern(ArrowWidget *arrow, const bool select, const bool 
 	glPopMatrix();
 
 	if (arrow->widget.interaction_data) {
-		ArrowInteraction *data = arrow->widget.interaction_data;
+		WidgetInteraction *inter = arrow->widget.interaction_data;
 
 		copy_m4_m3(mat, rot);
-		copy_v3_v3(mat[3], data->orig_origin);
-		mul_mat3_m4_fl(mat, data->orig_scale);
+		copy_v3_v3(mat[3], inter->init_origin);
+		mul_mat3_m4_fl(mat, inter->init_scale);
 
 		glPushMatrix();
 		glMultMatrixf(mat);
@@ -289,7 +271,8 @@ static void widget_arrow_draw(const bContext *UNUSED(C), wmWidget *widget)
 static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *widget, const int flag)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
-	ArrowInteraction *data = widget->interaction_data;
+	WidgetCommonData *wdata = &arrow->data;
+	WidgetInteraction *inter = widget->interaction_data;
 	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = ar->regiondata;
 
@@ -302,7 +285,7 @@ static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *wid
 	bool use_vertical = false;
 
 
-	copy_v3_v3(orig_origin, data->orig_origin);
+	copy_v3_v3(orig_origin, inter->init_origin);
 	orig_origin[3] = 1.0f;
 	add_v3_v3v3(offset, orig_origin, arrow->direction);
 	offset[3] = 1.0f;
@@ -337,8 +320,8 @@ static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *wid
 	}
 
 	/* find mouse difference */
-	m_diff[0] = event->mval[0] - data->orig_mouse[0];
-	m_diff[1] = event->mval[1] - data->orig_mouse[1];
+	m_diff[0] = event->mval[0] - inter->init_mval[0];
+	m_diff[1] = event->mval[1] - inter->init_mval[1];
 
 	/* project the displacement on the screen space arrow direction */
 	project_v2_v2v2(dir2d_final, m_diff, dir_2d);
@@ -346,7 +329,7 @@ static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *wid
 	float zfac = ED_view3d_calc_zfac(rv3d, orig_origin, NULL);
 	ED_view3d_win_to_delta(ar, dir2d_final, offset, zfac);
 
-	add_v3_v3v3(orig_origin, offset, data->orig_origin);
+	add_v3_v3v3(orig_origin, offset, inter->init_origin);
 
 	/* calculate view vector for the new position */
 	if (rv3d->is_persp) {
@@ -373,61 +356,29 @@ static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *wid
 
 
 	const float ofs_new = facdir * len_v3(offset);
+	const int slot = ARROW_SLOT_OFFSET_WORLD_SPACE;
 
 	/* set the property for the operator and call its modal function */
-	if (widget->props[ARROW_SLOT_OFFSET_WORLD_SPACE]) {
-		float max = arrow->min + arrow->range;
-		float value;
+	if (widget->props[slot]) {
+		const bool constrained = arrow->style & WIDGET_ARROW_STYLE_CONSTRAINED;
+		const bool inverted = arrow->style & WIDGET_ARROW_STYLE_INVERTED;
+		const bool use_precision = flag & WM_WIDGET_TWEAK_PRECISE;
+		float value = widget_value_from_offset_float(wdata, inter, ofs_new, constrained, inverted, use_precision);
 
-		if (flag & WM_WIDGET_TWEAK_PRECISE) {
-			/* add delta offset of this step to total precision_offset */
-			data->precision_offset += ofs_new - data->prev_offset;
-		}
-		data->prev_offset = ofs_new;
-
-		value = data->orig_offset + ofs_new - data->precision_offset * (1.0f - ARROW_PRECISION_FAC);
-
-		if (arrow->style & WIDGET_ARROW_STYLE_CONSTRAINED) {
-			if (arrow->style & WIDGET_ARROW_STYLE_INVERTED)
-				value = max - (value * arrow->range / arrow->range_fac);
-			else
-#ifdef USE_ABS_HANDLE_RANGE
-				value = value * arrow->range / arrow->range_fac;
-#else
-				value = arrow->min + (value * arrow->range / arrow->range_fac);
-#endif
-		}
-
-		/* clamp to custom range */
-		if (arrow->flag & ARROW_CUSTOM_RANGE_SET) {
-			CLAMP(value, arrow->min, max);
-		}
-
-
-		PointerRNA ptr = widget->ptr[ARROW_SLOT_OFFSET_WORLD_SPACE];
-		PropertyRNA *prop = widget->props[ARROW_SLOT_OFFSET_WORLD_SPACE];
-
-		RNA_property_float_set(&ptr, prop, value);
-		RNA_property_update(C, &ptr, prop);
+		widget_property_set_float(C, widget, slot, value);
 		/* get clamped value */
-		value = RNA_property_float_get(&ptr, prop);
+		value = widget_property_get_float(widget, slot);
 
-		/* accounts for clamping properly */
-		if (arrow->style & WIDGET_ARROW_STYLE_CONSTRAINED) {
-			if (arrow->style & WIDGET_ARROW_STYLE_INVERTED)
-				arrow->offset = arrow->range_fac * (max - value) / arrow->range;
-			else
-#ifdef USE_ABS_HANDLE_RANGE
-				arrow->offset = arrow->range_fac * (value / arrow->range);
-#else
-				arrow->offset = arrow->range_fac * ((value - arrow->min) / arrow->range);
-#endif
+		if (constrained) {
+			wdata->offset = widget_offset_from_value_constrained_float(
+			                    wdata->range_fac, wdata->min, wdata->range,
+			                    value, inverted);
 		}
 		else
-			arrow->offset = value;
+			wdata->offset = value;
 	}
 	else {
-		arrow->offset = ofs_new;
+		wdata->offset = ofs_new;
 	}
 
 	/* tag the region for redraw */
@@ -441,82 +392,43 @@ static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *wid
 static int widget_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidget *widget)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
-	ArrowInteraction *data = MEM_callocN(sizeof(ArrowInteraction), "arrow_interaction");
+	WidgetInteraction *inter = MEM_callocN(sizeof(WidgetInteraction), __func__);
 	PointerRNA ptr = widget->ptr[ARROW_SLOT_OFFSET_WORLD_SPACE];
 	PropertyRNA *prop = widget->props[ARROW_SLOT_OFFSET_WORLD_SPACE];
 
 	if (prop) {
-		data->orig_value = RNA_property_float_get(&ptr, prop);
+		inter->init_value = RNA_property_float_get(&ptr, prop);
 	}
 
-	data->orig_offset = arrow->offset;
+	inter->init_offset = arrow->data.offset;
 
-	data->orig_mouse[0] = event->mval[0];
-	data->orig_mouse[1] = event->mval[1];
+	inter->init_mval[0] = event->mval[0];
+	inter->init_mval[1] = event->mval[1];
 
-	data->orig_scale = widget->scale;
+	inter->init_scale = widget->scale;
 
-	widget_arrow_get_final_pos(widget, data->orig_origin);
+	widget_arrow_get_final_pos(widget, inter->init_origin);
 
-	widget->interaction_data = data;
+	widget->interaction_data = inter;
 
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static void widget_arrow_bind_to_prop(wmWidget *widget, const int UNUSED(slot))
+static void widget_arrow_bind_to_prop(wmWidget *widget, const int slot)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
-	PointerRNA ptr = widget->ptr[ARROW_SLOT_OFFSET_WORLD_SPACE];
-	PropertyRNA *prop = widget->props[ARROW_SLOT_OFFSET_WORLD_SPACE];
-
-	if (prop) {
-		float float_prop = RNA_property_float_get(&ptr, prop);
-
-		if (arrow->style & WIDGET_ARROW_STYLE_CONSTRAINED) {
-			float min, max;
-
-			if (arrow->flag & ARROW_CUSTOM_RANGE_SET) {
-				max = arrow->min + arrow->range;
-			}
-			else {
-				float step, precision;
-				RNA_property_float_ui_range(&ptr, prop, &min, &max, &step, &precision);
-				arrow->range = max - min;
-				arrow->min = min;
-			}
-
-			if (arrow->style & WIDGET_ARROW_STYLE_INVERTED) {
-				arrow->offset = arrow->range_fac * (max - float_prop) / arrow->range;
-			}
-			else {
-#ifdef USE_ABS_HANDLE_RANGE
-				arrow->offset = arrow->range_fac * (float_prop / arrow->range);
-#else
-				arrow->offset = arrow->range_fac * ((float_prop - arrow->min) / arrow->range);
-#endif
-			}
-		}
-		else {
-			/* we'd need to check the property type here but for now assume always float */
-			arrow->offset = float_prop;
-		}
-	}
-	else
-		arrow->offset = 0.0f;
+	widget_bind_to_prop_float(
+	            widget, &arrow->data, slot,
+	            arrow->style & WIDGET_ARROW_STYLE_CONSTRAINED,
+	            arrow->style & WIDGET_ARROW_STYLE_INVERTED);
 }
 
 static void widget_arrow_exit(bContext *C, wmWidget *widget, const bool cancel)
 {
-	PointerRNA ptr = widget->ptr[ARROW_SLOT_OFFSET_WORLD_SPACE];
-	PropertyRNA *prop = widget->props[ARROW_SLOT_OFFSET_WORLD_SPACE];
-	ArrowInteraction *data = widget->interaction_data;
-
 	if (!cancel)
 		return;
 
-	/* reset property */
-	RNA_property_float_set(&ptr, prop, data->orig_value);
-	RNA_property_update(C, &ptr, prop);
+	widget_reset_float(C, widget, (WidgetInteraction *)widget->interaction_data, ARROW_SLOT_OFFSET_WORLD_SPACE);
 }
 
 
@@ -569,7 +481,7 @@ wmWidget *WIDGET_arrow_new(wmWidgetGroup *wgroup, const char *name, const int st
 
 	arrow->style = real_style;
 	arrow->len = 1.0f;
-	arrow->range_fac = 1.0f;
+	arrow->data.range_fac = 1.0f;
 	copy_v3_v3(arrow->direction, dir_default);
 
 	wm_widget_register(wgroup, &arrow->widget, name);
@@ -626,9 +538,9 @@ void WIDGET_arrow_set_ui_range(wmWidget *widget, const float min, const float ma
 	BLI_assert(min < max);
 	BLI_assert(!(arrow->widget.props[0] && "Make sure this function is called before WM_widget_set_property"));
 
-	arrow->range = max - min;
-	arrow->min = min;
-	arrow->flag |= ARROW_CUSTOM_RANGE_SET;
+	arrow->data.range = max - min;
+	arrow->data.min = min;
+	arrow->data.flag |= WIDGET_CUSTOM_RANGE_SET;
 }
 
 /**
@@ -642,7 +554,7 @@ void WIDGET_arrow_set_range_fac(wmWidget *widget, const float range_fac)
 
 	BLI_assert(!(arrow->widget.props[0] && "Make sure this function is called before WM_widget_set_property"));
 
-	arrow->range_fac = range_fac;
+	arrow->data.range_fac = range_fac;
 }
 
 /**

@@ -80,6 +80,7 @@ set(SRC
 	widgets/intern/widget_library/geom_arrow_widget.c
 	widgets/intern/widget_library/geom_cube_widget
 	widgets/intern/widget_library/geom_dial_widget.c
+	widgets/intern/widget_library/widget_library_utils.c
 
 	WM_api.h
 	WM_keymap.h
@@ -98,6 +99,7 @@ set(SRC
 	widgets/wm_widget_wmapi.h
 	widgets/intern/wm_widget_intern.h
 	widgets/intern/widget_library/widget_geometry.h
+	widgets/intern/widget_library/widget_library_intern.h
 )
 
 if(WITH_AUDASPACE)

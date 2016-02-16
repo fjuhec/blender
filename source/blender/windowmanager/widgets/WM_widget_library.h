@@ -48,6 +48,11 @@ enum {
 	WIDGET_ARROW_STYLE_CONE          = (1 << 6),
 };
 
+/* slots for properties */
+enum {
+	ARROW_SLOT_OFFSET_WORLD_SPACE = 0
+};
+
 struct wmWidget *WIDGET_arrow_new(struct wmWidgetGroup *wgroup, const char *name, const int style);
 void WIDGET_arrow_set_direction(struct wmWidget *widget, const float direction[3]);
 void WIDGET_arrow_set_up_vector(struct wmWidget *widget, const float direction[3]);
@@ -65,11 +70,6 @@ enum {
 	WIDGET_RECT_TRANSFORM_STYLE_ROTATE          = (1 << 1), /* widget rotates */
 	WIDGET_RECT_TRANSFORM_STYLE_SCALE           = (1 << 2), /* widget scales */
 	WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM   = (1 << 3), /* widget scales uniformly */
-};
-
-/* slots for properties */
-enum {
-	ARROW_SLOT_OFFSET_WORLD_SPACE = 0
 };
 
 enum {
