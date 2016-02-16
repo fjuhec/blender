@@ -37,6 +37,8 @@
 #ifdef WIN32
 	#include "win/DeckLinkAPI_h.h"
     typedef unsigned int   dl_size_t;
+#elif defined(__APPLE__)
+    #error "Decklink not supported in OSX"
 #else
     #include "linux/DeckLinkAPI.h"
     /* Windows COM API uses BOOL, linux uses bool */
