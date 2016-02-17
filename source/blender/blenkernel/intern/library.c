@@ -1066,7 +1066,7 @@ void *BKE_libblock_copy(ID *id)
 	return BKE_libblock_copy_ex(G.main, id);
 }
 
-static bool id_relink_looper(void *UNUSED(user_data), ID **id_pointer, const int cd_flag)
+static int id_relink_looper(void *UNUSED(user_data), ID *UNUSED(id_self), ID **id_pointer, const int cd_flag)
 {
 	ID *id = *id_pointer;
 	if (id) {
@@ -1080,7 +1080,7 @@ static bool id_relink_looper(void *UNUSED(user_data), ID **id_pointer, const int
 			BKE_libblock_relink(id);
 		}
 	}
-	return true;
+	return IDWALK_RET_NOP;
 }
 
 void BKE_libblock_relink(ID *id)
