@@ -1106,7 +1106,7 @@ enum {
 	ID_REMAP_IS_USER_ONE_SKIPPED    = 1 << 1,  /* There was some skipped 'user_one' usages of old_id. */
 };
 
-static bool foreach_libblock_remap_callback(void *user_data, ID **id_p, int cb_flag)
+static int foreach_libblock_remap_callback(void *user_data, ID *UNUSED(self_id), ID **id_p, int cb_flag)
 {
 	IDRemap *id_remap_data = user_data;
 	ID *old_id = id_remap_data->old_id;
@@ -1182,7 +1182,7 @@ static bool foreach_libblock_remap_callback(void *user_data, ID **id_p, int cb_f
 		}
 	}
 
-	return true;
+	return IDWALK_RET_NOP;
 }
 
 /**
