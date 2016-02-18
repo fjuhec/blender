@@ -175,8 +175,6 @@ void WM_init(bContext *C, int argc, const char **argv)
 	/* Enforce loading the UI for the initial homefile */
 	G.fileflags &= ~G_FILE_NO_UI;
 
-	ED_spacedropwidgets_init();
-
 	/* reports cant be initialized before the wm,
 	 * but keep before file reading, since that may report errors */
 	wm_init_reports(C);

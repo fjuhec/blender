@@ -122,11 +122,15 @@ void ED_spacetypes_init(void)
 	ED_operatortypes_view2d();
 	ED_button_operatortypes();
 	
-	/* register operators */
 	spacetypes = BKE_spacetypes_list();
 	for (type = spacetypes->first; type; type = type->next) {
+		/* register operators, dropboxes, widgets */
 		if (type->operatortypes)
 			type->operatortypes();
+		if (type->dropboxes)
+			type->dropboxes();
+		if (type->widgets)
+			type->widgets();
 	}
 
 	/* register internal render callbacks */
@@ -151,21 +155,6 @@ void ED_spacemacros_init(void)
 	ED_operatormacros_sequencer();
 	ED_operatormacros_paint();
 	ED_operatormacros_gpencil();
-}
-
-void ED_spacedropwidgets_init(void)
-{
-	const ListBase *spacetypes;
-	SpaceType *type;
-
-	/* register dropboxes (can use macros) */
-	spacetypes = BKE_spacetypes_list();
-	for (type = spacetypes->first; type; type = type->next) {
-		if (type->dropboxes)
-			type->dropboxes();
-		if (type->widgets)
-			type->widgets();
-	}
 }
 
 /* called in wm.c */
