@@ -124,13 +124,13 @@ void ED_spacetypes_init(void)
 	
 	spacetypes = BKE_spacetypes_list();
 	for (type = spacetypes->first; type; type = type->next) {
-		/* register operators, dropboxes, widgets */
+		/* register widgets, operators, dropboxes */
+		if (type->widgets)
+			type->widgets();
 		if (type->operatortypes)
 			type->operatortypes();
 		if (type->dropboxes)
 			type->dropboxes();
-		if (type->widgets)
-			type->widgets();
 	}
 
 	/* register internal render callbacks */

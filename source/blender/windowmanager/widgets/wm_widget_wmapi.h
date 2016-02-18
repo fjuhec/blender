@@ -38,6 +38,7 @@
 
 struct wmEventHandler;
 struct wmOperatorType;
+struct wmOperator;
 
 
 /* -------------------------------------------------------------------- */
@@ -121,6 +122,16 @@ typedef struct wmWidget {
 void WIDGETGROUP_OT_widget_select(struct wmOperatorType *ot);
 void WIDGETGROUP_OT_widget_tweak(struct wmOperatorType *ot);
 
+void  wm_widgetgroup_attach_to_modal_handler(struct bContext *C, struct wmEventHandler *handler,
+                                             struct wmWidgetGroupType *wgrouptype, struct wmOperator *op);
+
+/* wmWidgetGroupType->flag */
+enum {
+	WM_WIDGETGROUPTYPE_3D      = (1 << 0), /* WARNING: Don't change this! Bit used for wmWidgetMapType comparisons! */
+	/* widget group is attached to operator, and is only accessible as long as this runs */
+	WM_WIDGETGROUPTYPE_OP      = (1 << 10),
+};
+
 
 /* -------------------------------------------------------------------- */
 /* wmWidgetMap */
@@ -129,7 +140,9 @@ void wm_widgets_keymap(struct wmKeyConfig *keyconf);
 
 bool wm_widgetmap_is_3d(const struct wmWidgetMap *wmap);
 
-void wm_widgetmaps_handled_modal_update(bContext *C, struct wmEvent *event, struct wmEventHandler *handler);
+void wm_widgetmaps_handled_modal_update(
+        bContext *C, struct wmEvent *event, struct wmEventHandler *handler,
+        const struct wmOperatorType *ot);
 void wm_widgetmap_handler_context(bContext *C, struct wmEventHandler *handler);
 
 wmWidget *wm_widget_find_highlighted_3D(struct wmWidgetMap *wmap, bContext *C,

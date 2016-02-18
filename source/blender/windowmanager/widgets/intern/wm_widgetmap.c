@@ -166,6 +166,10 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 		wmWidget *highlighted_old = NULL;
 
 		for (wmWidgetGroup *wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup->next) {
+			/* skip if group is attached to an operator which doesn't run */
+			if (wgroup->type->flag & WM_WIDGETGROUPTYPE_OP && !wgroup->type->op)
+				continue;
+
 			if (!wgroup->type->poll || wgroup->type->poll(C, wgroup->type)) {
 				/* first delete and recreate the widgets */
 				for (widget = wgroup->widgets.first; widget;) {
@@ -344,30 +348,37 @@ void WM_widgetmaps_add_handlers(ARegion *ar)
 
 }
 
-void wm_widgetmaps_handled_modal_update(bContext *C, wmEvent *event, wmEventHandler *handler)
+void wm_widgetmaps_handled_modal_update(
+        bContext *C, wmEvent *event, wmEventHandler *handler,
+        const wmOperatorType *ot)
 {
+	const bool modal_running = (handler->op != NULL);
+
 	/* happens on render */
 	if (!handler->op_region)
 		return;
+
+	/* hide operator widgets */
+	if (!modal_running && ot->wgrouptype) {
+		ot->wgrouptype->op = NULL;
+	}
 
 	for (wmWidgetMap *wmap = handler->op_region->widgetmaps.first; wmap; wmap = wmap->next) {
 		wmWidget *widget = wm_widgetmap_get_active_widget(wmap);
 		ScrArea *area = CTX_wm_area(C);
 		ARegion *region = CTX_wm_region(C);
 
-		if (!widget)
-			continue;
-
 		wm_widgetmap_handler_context(C, handler);
 
 		/* regular update for running operator */
-		if (handler->op) {
+		if (modal_running) {
 			if (widget && widget->handler && widget->opname && STREQ(widget->opname, handler->op->idname)) {
 				widget->handler(C, event, widget, 0);
 			}
 		}
 		/* operator not running anymore */
 		else {
+			wm_widgetmap_set_highlighted_widget(wmap, C, NULL, 0);
 			wm_widgetmap_set_active_widget(wmap, C, event, NULL);
 		}
 

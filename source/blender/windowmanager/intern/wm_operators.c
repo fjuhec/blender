@@ -184,6 +184,10 @@ void WM_operatortype_append(void (*opfunc)(wmOperatorType *))
 		ot->name = N_("Dummy Name");
 	}
 
+	if (ot->wgrouptype) {
+		ot->wgrouptype->flag |= WM_WIDGETGROUPTYPE_OP;
+	}
+
 	/* XXX All ops should have a description but for now allow them not to. */
 	RNA_def_struct_ui_text(ot->srna, ot->name, ot->description ? ot->description : UNDOCUMENTED_OPERATOR_TIP);
 	RNA_def_struct_identifier(ot->srna, ot->idname);
@@ -500,6 +504,7 @@ void WM_operatortype_remove_ptr(wmOperatorType *ot)
 	BLI_ghash_remove(global_ops_hash, ot->idname, NULL, NULL);
 
 	WM_keyconfig_update_operatortype();
+	WM_widgetgrouptype_unregister(NULL, G.main, ot->wgrouptype);
 
 	MEM_freeN(ot);
 }

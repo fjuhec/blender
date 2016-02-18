@@ -67,7 +67,7 @@ typedef struct wmWidgetGroupType {
 	/* RNA integration */
 	ExtensionRNA ext;
 
-	/* widgetTypeflags (copy of wmWidgetMapType.flag - used for comparisons) */
+	/* widgetTypeflags (includes copy of wmWidgetMapType.flag - used for comparisons) */
 	int flag;
 
 	/* if type is spawned from operator this is set here */

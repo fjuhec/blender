@@ -92,7 +92,7 @@ static void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *w
 	MEM_freeN(wgroup);
 }
 
-void WM_widgetgroup_attach_to_modal_handler(bContext *C, wmEventHandler *handler,
+void wm_widgetgroup_attach_to_modal_handler(bContext *C, wmEventHandler *handler,
                                             wmWidgetGroupType *wgrouptype, wmOperator *op)
 {
 	/* maybe overly careful, but widgetgrouptype could come from a failed creation */
@@ -111,6 +111,8 @@ void WM_widgetgroup_attach_to_modal_handler(bContext *C, wmEventHandler *handler
 				handler->widgetmap = wmap;
 			}
 		}
+
+		ED_region_tag_redraw(handler->op_region);
 	}
 
 	WM_event_add_mousemove(C);

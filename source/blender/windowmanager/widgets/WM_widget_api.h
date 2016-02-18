@@ -90,8 +90,6 @@ void WM_widgetgrouptype_init_runtime(
         struct wmWidgetGroupType *wgrouptype);
 void WM_widgetgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmWidgetGroupType *wgroup);
 
-void  WM_widgetgroup_attach_to_modal_handler(struct bContext *C, struct wmEventHandler *handler,
-                                             struct wmWidgetGroupType *wgrouptype, struct wmOperator *op);
 struct wmKeyMap *WM_widgetgroup_keymap_common(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config);
 
 

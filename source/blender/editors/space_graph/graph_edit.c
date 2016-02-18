@@ -2600,7 +2600,6 @@ typedef struct BackDropTransformData {
 	float init_offset[2];
 	float init_zoom;
 	short event_type;
-	wmWidgetGroupType *cagetype;
 } BackDropTransformData;
 
 static int graph_widget_backdrop_transform_poll(bContext *C)
@@ -2636,30 +2635,32 @@ static void widgetgroup_backdrop_create(const struct bContext *C, struct wmWidge
 	WM_widget_set_origin(cage, origin);
 }
 
+static wmWidgetGroupType *graph_widget_backdrop_transform_widgets(void)
+{
+	/* no poll, lives always for the duration of the operator */
+	return WM_widgetgrouptype_register(
+	            NULL,
+	            &(const struct wmWidgetMapType_Params) {"Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0},
+	            NULL, widgetgroup_backdrop_create,
+	            WM_widgetgroup_keymap_common,
+	            "Backdrop Transform Widgets");
+}
+
 static int graph_widget_backdrop_transform_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	ScrArea *sa = CTX_wm_area(C);
 	SpaceIpo *sipo = CTX_wm_space_graph(C);
-	/* no poll, lives always for the duration of the operator */
-	wmWidgetGroupType *cagetype = WM_widgetgrouptype_register(
-	        CTX_data_main(C),
-	        &(const struct wmWidgetMapType_Params) {"Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0},
-	        NULL, widgetgroup_backdrop_create,
-	        WM_widgetgroup_keymap_common,
-	        "Backdrop Transform Widgets");
-	struct wmEventHandler *handler = WM_event_add_modal_handler(C, op);
 	BackDropTransformData *data = MEM_mallocN(sizeof(BackDropTransformData), "overdrop transform data");
-	WM_widgetgroup_attach_to_modal_handler(C, handler, cagetype, op);
 
 	RNA_float_set_array(op->ptr, "offset", sipo->backdrop_offset);
 	RNA_float_set(op->ptr, "scale", sipo->backdrop_zoom);
 
 	copy_v2_v2(data->init_offset, sipo->backdrop_offset);
 	data->init_zoom = sipo->backdrop_zoom;
-	data->cagetype = cagetype;
 	data->event_type = event->type;
 
 	op->customdata = data;
+	WM_event_add_modal_handler(C, op);
 
 	ED_area_headerprint(sa, "Drag to place, and scale, Space/Enter/Caller key to confirm, R to recenter, RClick/Esc to cancel");
 
@@ -2670,7 +2671,6 @@ static void graph_widget_backdrop_transform_finish(bContext *C, BackDropTransfor
 {
 	ScrArea *sa = CTX_wm_area(C);
 	ED_area_headerprint(sa, NULL);
-	WM_widgetgrouptype_unregister(C, CTX_data_main(C), data->cagetype);
 	MEM_freeN(data);
 }
 
@@ -2756,7 +2756,9 @@ void GRAPH_OT_widget_backdrop_transform(struct wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-	
+
+	ot->wgrouptype = graph_widget_backdrop_transform_widgets();
+
 	RNA_def_float_array(ot->srna, "offset", 2, default_offset, FLT_MIN, FLT_MAX, "Offset", "Offset of the backdrop", FLT_MIN, FLT_MAX);
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, FLT_MAX, "Scale", "Scale of the backdrop", 0.0f, FLT_MAX);
 }
