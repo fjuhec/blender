@@ -6774,6 +6774,8 @@ static bool drawmball(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
 		}
 	}
 	
+	glLineWidth(1.0f);
+
 	while (ml) {
 		/* draw radius */
 		if (mb->editelems) {
@@ -7124,7 +7126,6 @@ static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 	RegionView3D *rv3d = ar->regiondata;
 	Object *ob = base->object;
 	
-	glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
 	glDepthMask(0);
 	
 	if (ELEM(ob->type, OB_FONT, OB_CURVE, OB_SURF)) {
@@ -7147,6 +7148,7 @@ static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 		}
 
 		if (has_faces && ED_view3d_boundbox_clip(rv3d, ob->bb)) {
+			glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
 			if (dm) {
 				draw_mesh_object_outline(v3d, ob, dm);
 			}
@@ -7158,13 +7160,16 @@ static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 	else if (ob->type == OB_MBALL) {
 		if (BKE_mball_is_basis(ob)) {
 			if ((base->flag & OB_FROMDUPLI) == 0) {
+				glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
 				drawDispListwire(&ob->curve_cache->disp, ob->type);
 			}
 		}
 	}
 	else if (ob->type == OB_ARMATURE) {
-		if (!(ob->mode & OB_MODE_POSE && base == scene->basact))
+		if (!(ob->mode & OB_MODE_POSE && base == scene->basact)) {
+			glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
 			draw_armature(scene, v3d, ar, base, OB_WIRE, 0, ob_wire_col, true);
+		}
 	}
 
 	glDepthMask(1);
