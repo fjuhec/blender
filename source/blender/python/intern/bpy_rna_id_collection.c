@@ -81,7 +81,7 @@ static bool id_check_type(const ID *id, const BLI_bitmap *types_bitmap)
 }
 
 static int foreach_libblock_id_user_map_callback(
-        void *user_data, ID *UNUSED(id_self), ID **id_p, int UNUSED(cb_flag))
+        void *user_data, ID *UNUSED(self_id), ID **id_p, int UNUSED(cb_flag))
 {
 	IDUserMapData *data = user_data;
 

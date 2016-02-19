@@ -5264,7 +5264,7 @@ static void previews_id_ensure(bContext *C, Scene *scene, ID *id)
 	}
 }
 
-static int previews_id_ensure_callback(void *userdata, ID *UNUSED(id_self), ID **idptr, int UNUSED(cd_flag))
+static int previews_id_ensure_callback(void *userdata, ID *UNUSED(self_id), ID **idptr, int UNUSED(cd_flag))
 {
 	PreviewsIDEnsureData *data = userdata;
 	ID *id = *idptr;
@@ -5272,7 +5272,7 @@ static int previews_id_ensure_callback(void *userdata, ID *UNUSED(id_self), ID *
 	if (id && (id->tag & LIB_TAG_DOIT)) {
 		BLI_assert(ELEM(GS(id->name), ID_MA, ID_TE, ID_IM, ID_WO, ID_LA));
 		previews_id_ensure(data->C, data->scene, id);
-		id->tag &= ~LIB_TAG_DOIT;  /* Tag the ID as done in any case. */
+		id->tag &= ~LIB_TAG_DOIT;
 	}
 
 	return IDWALK_RET_NOP;
