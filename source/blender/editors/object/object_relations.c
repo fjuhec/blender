@@ -2124,7 +2124,7 @@ enum {
 };
 
 static int tag_localizable_looper(
-        void *UNUSED(user_data), ID *UNUSED(id_self), ID **id_pointer, const int UNUSED(cd_flag))
+        void *UNUSED(user_data), ID *UNUSED(self_id), ID **id_pointer, const int UNUSED(cd_flag))
 {
 	if (*id_pointer) {
 		(*id_pointer)->tag &= ~LIB_TAG_DOIT;

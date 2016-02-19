@@ -83,10 +83,10 @@
 #define FOREACH_CALLBACK_INVOKE_ID_PP(_data, id_pp, cb_flag) \
 	if (!((_data)->status & IDWALK_STOP)) { \
 		const int _flag = (_data)->flag; \
-		ID *old_id = *id_pp; \
-		const int callback_return = (_data)->callback((_data)->user_data, (_data)->id_self, id_pp, cb_flag); \
+		ID *old_id = *(id_pp); \
+		const int callback_return = (_data)->callback((_data)->user_data, (_data)->self_id, id_pp, cb_flag); \
 		if (_flag & IDWALK_READONLY) { \
-			BLI_assert(*id_pp == old_id); \
+			BLI_assert(*(id_pp) == old_id); \
 		} \
 		if (_flag & IDWALK_RECURSE) { \
 			if (!BLI_gset_haskey((_data)->ids_handled, old_id)) { \
@@ -105,16 +105,16 @@
 		goto FOREACH_FINALIZE; \
 	} ((void)0)
 
-#define FOREACH_CALLBACK_INVOKE_ID(data, id, cb_flag) \
+#define FOREACH_CALLBACK_INVOKE_ID(_data, id, cb_flag) \
 	{ \
 		CHECK_TYPE_ANY(id, ID *, void *); \
-		FOREACH_CALLBACK_INVOKE_ID_PP(data, (ID **)&(id), cb_flag); \
+		FOREACH_CALLBACK_INVOKE_ID_PP(_data, (ID **)&(id), cb_flag); \
 	} ((void)0)
 
-#define FOREACH_CALLBACK_INVOKE(data, id_super, cb_flag) \
+#define FOREACH_CALLBACK_INVOKE(_data, id_super, cb_flag) \
 	{ \
 		CHECK_TYPE(&((id_super)->id), ID *); \
-		FOREACH_CALLBACK_INVOKE_ID_PP(data, (ID **)&id_super, cb_flag); \
+		FOREACH_CALLBACK_INVOKE_ID_PP(_data, (ID **)&(id_super), cb_flag); \
 	} ((void)0)
 
 /* status */
@@ -123,11 +123,10 @@ enum {
 };
 
 typedef struct LibraryForeachIDData {
-	ID *id_self;
+	ID *self_id;
+	int flag;
 	LibraryIDLinkCallback callback;
 	void *user_data;
-
-	int flag;
 	int status;
 
 	/* To handle recursion. */
@@ -267,7 +266,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 	FOREACH_CALLBACK_INVOKE(&data, check_id_super, cb_flag)
 
 	do {
-		data.id_self = id;
+		data.self_id = id;
 
 		switch (GS(id->name)) {
 			case ID_SCE:
@@ -744,7 +743,7 @@ typedef struct IDUsersIter {
 	int count;  /* Set by callback. */
 } IDUsersIter;
 
-static int foreach_libblock_id_users_callback(void *user_data, ID *UNUSED(id_self), ID **id_p, int UNUSED(cb_flag))
+static int foreach_libblock_id_users_callback(void *user_data, ID *UNUSED(self_id), ID **id_p, int UNUSED(cb_flag))
 {
 	IDUsersIter *iter = user_data;
 
