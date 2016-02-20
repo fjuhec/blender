@@ -733,7 +733,6 @@ int GHOST_ContextWGL::choose_pixel_format(
 		0, 0, 0                          /* layer, visible, and damage masks (ignored) */
 	};
 
-
 	initContextWGLEW(preferredPFD);
 
 	if (numOfAASamples > 0 && !WGLEW_ARB_multisample) {

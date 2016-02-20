@@ -289,7 +289,7 @@ const bool GLXEW_ARB_create_context_robustness =
 		/* Create a GL 3.x context */
 		if (m_fbconfig)
 		{
-			m_context = glXCreateContextAttribsARB(m_display, m_fbconfig, s_sharedContext, True, attribs);
+			m_context = glXCreateContextAttribsARB(m_display, m_fbconfig, s_sharedContext, true, attribs);
 		}
 		else {
 			GLXFBConfig *framebuffer_config = NULL;
@@ -409,7 +409,7 @@ GHOST_TSuccess GHOST_ContextGLX::getSwapInterval(int &intervalOut)
 int GHOST_X11_GL_GetAttributes(
         int *attribs, int attribs_max,
         int samples, bool is_stereo_visual,
-	bool need_alpha,
+        bool need_alpha,
         bool for_fb_config)
 {
 	int i = 0;

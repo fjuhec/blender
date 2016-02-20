@@ -21,10 +21,10 @@ For example, to capture a PAL video stream, you must use one of the YUV formats.
 
 To find which pixel format is suitable for a particular video stream, use the 'Media Express'
 utility that comes with the Decklink software : if you see the video in the 'Log and Capture'
-Window, you have selected the right pixel format and you can then use the same in Blender.
+Window, you have selected the right pixel format and you can use the same in Blender.
 
 Notes: * these shaders only decode the RGB channel and set the alpha channel to a fixed
-value (look for color.a = ). It's up to you to add postprocessing.
+value (look for color.a = ). It's up to you to add postprocessing to the color.
        * these shaders are compatible with 2D and 3D video stream
 """
 import bge
@@ -181,7 +181,7 @@ FragmentShader_v210 = """
     }
 """
 
-# The exhausitve list of pixel formats that transferred as float texture
+# The exhausitve list of pixel formats that are transferred as float texture
 # Only use those for greater efficiency and compatiblity.
 #
 fg_shaders = {
@@ -234,8 +234,6 @@ def init(cont):
 #
 def play(cont):
     obj = cont.owner
-    try:
+    if hasattr(obj, "video"):
         obj["video"].refresh(True)
-    except:
-        pass
 

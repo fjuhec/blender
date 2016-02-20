@@ -105,10 +105,8 @@ protected:
 	RAS_IRasterizer* m_rasterizer;
 	/// engine
 	KX_KetsjiEngine* m_engine;
-	///
-
 	/// background color
-	float  m_background[4];
+	float m_background[4];
 
 
 	/// render 3d scene to image
