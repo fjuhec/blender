@@ -504,7 +504,8 @@ void WM_operatortype_remove_ptr(wmOperatorType *ot)
 	BLI_ghash_remove(global_ops_hash, ot->idname, NULL, NULL);
 
 	WM_keyconfig_update_operatortype();
-	WM_widgetgrouptype_unregister(NULL, G.main, ot->wgrouptype);
+	if (ot->wgrouptype)
+		WM_widgetgrouptype_unregister(NULL, G.main, ot->wgrouptype);
 
 	MEM_freeN(ot);
 }
@@ -5443,7 +5444,7 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	data_path = NULL;
 	(void)data_path;
 
-
+	wm_widgets_keymap(keyconf);
 	gesture_circle_modal_keymap(keyconf);
 	gesture_border_modal_keymap(keyconf);
 	gesture_zoom_border_modal_keymap(keyconf);

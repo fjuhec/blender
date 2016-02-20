@@ -19,9 +19,39 @@
 # <pep8 compliant>
 
 # bpy.type.KeyMap: (km.name, km.space_type, km.region_type, [...])
+# Add (0, 0, 0, 0) to skipp adding "Foo (Global)" entry
 
 #    ('Script', 'EMPTY', 'WINDOW', []),
 
+
+# would be good to have a more generic way of doing this...
+KM_WIDGETS_HIERARCHY = [
+    # VIEW_3D
+    ('Widgets', 'EMPTY', 'WINDOW', [
+        (0, 0, 0, 0), # avoid adding 'Widgets (Global)" entry
+        ('Face Map Widgets', 'VIEW_3D', 'WINDOW', []),
+        ('Lamp Widgets', 'VIEW_3D', 'WINDOW', []),
+        ('Force Field Widgets', 'VIEW_3D', 'WINDOW', []),
+        ('Camera Widgets', 'VIEW_3D', 'WINDOW', []),
+        ('Manipulator Widgets', 'VIEW_3D', 'WINDOW', []),
+        ]),
+    # GRAPH_EDITOR
+    ('Widgets', 'EMPTY', 'WINDOW', [
+        (0, 0, 0, 0),
+        ('Backdrop Transform Widgets', 'GRAPH_EDITOR', 'WINDOW', []),
+        ]),
+    # NODE_EDITOR
+    ('Widgets', 'EMPTY', 'WINDOW', [
+        (0, 0, 0, 0),
+        ('Backdrop Transform Widgets', 'NODE_EDITOR', 'WINDOW', []),
+        ]),
+    # SEQUENCE_EDITOR
+    ('Widgets', 'EMPTY', 'WINDOW', [
+        (0, 0, 0, 0),
+        ('Backdrop Transform Widgets', 'SEQUENCE_EDITOR', 'WINDOW', []),
+        # ('Image Transform Widgets', 'SEQUENCE_EDITOR', 'WINDOW', []),
+        ]),
+    ]
 
 KM_HIERARCHY = [
     ('Window', 'EMPTY', 'WINDOW', []),  # file save, window change, exit
@@ -53,6 +83,8 @@ KM_HIERARCHY = [
 
         ('Particle', 'EMPTY', 'WINDOW', []),
 
+        KM_WIDGETS_HIERARCHY[0],
+
         ('Knife Tool Modal Map', 'EMPTY', 'WINDOW', []),
         ('Paint Stroke Modal', 'EMPTY', 'WINDOW', []),
         ('Paint Curve', 'EMPTY', 'WINDOW', []),
@@ -71,6 +103,7 @@ KM_HIERARCHY = [
 
     ('Graph Editor', 'GRAPH_EDITOR', 'WINDOW', [
         ('Graph Editor Generic', 'GRAPH_EDITOR', 'WINDOW', []),
+        KM_WIDGETS_HIERARCHY[1]
         ]),
     ('Dopesheet', 'DOPESHEET_EDITOR', 'WINDOW', []),
     ('NLA Editor', 'NLA_EDITOR', 'WINDOW', [
@@ -90,10 +123,12 @@ KM_HIERARCHY = [
 
     ('Node Editor', 'NODE_EDITOR', 'WINDOW', [
         ('Node Generic', 'NODE_EDITOR', 'WINDOW', []),
+        KM_WIDGETS_HIERARCHY[2],
         ]),
     ('Sequencer', 'SEQUENCE_EDITOR', 'WINDOW', [
         ('SequencerCommon', 'SEQUENCE_EDITOR', 'WINDOW', []),
         ('SequencerPreview', 'SEQUENCE_EDITOR', 'WINDOW', []),
+        KM_WIDGETS_HIERARCHY[3],
         ]),
     ('Logic Editor', 'LOGIC_EDITOR', 'WINDOW', []),
 

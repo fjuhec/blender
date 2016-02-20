@@ -356,7 +356,8 @@ static wmKeyMap *widgetgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char
 wmKeyMap *WM_widgetgroup_keymap_common(const struct wmWidgetGroupType *wgrouptype, wmKeyConfig *config)
 {
 	const char *wgroupname = wgrouptype->name;
-	wmKeyMap *km = WM_keymap_find(config, wgroupname, 0, 0);
+	/* Use area and region id since we might have multiple widgets with the same name in different areas/regions */
+	wmKeyMap *km = WM_keymap_find(config, wgroupname, wgrouptype->spaceid, wgrouptype->regionid);
 	wmKeyMapItem *kmi;
 
 	WM_keymap_add_item(km, "WIDGETGROUP_OT_widget_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);

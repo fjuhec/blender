@@ -64,6 +64,7 @@ def draw_entry(display_keymaps, entry, col, level=0):
 
 
 def draw_km(display_keymaps, kc, km, children, layout, level):
+    draw_global = children and children[0][0]; # first entry (0, 0, 0, 0) means we don't add "Global" entry
     km = km.active()
 
     layout.context_pointer_set("keymap", km)
@@ -85,7 +86,7 @@ def draw_km(display_keymaps, kc, km, children, layout, level):
         del subrow
 
     if km.show_expanded_children:
-        if children:
+        if draw_global:
             # Put the Parent key map's entries in a 'global' sub-category
             # equal in hierarchy to the other children categories
             subcol = _indented_layout(col, level + 1)
@@ -101,13 +102,14 @@ def draw_km(display_keymaps, kc, km, children, layout, level):
             for kmi in km.keymap_items:
                 draw_kmi(display_keymaps, kc, km, kmi, col, kmi_level)
 
-            # "Add New" at end of keymap item list
-            subcol = _indented_layout(col, kmi_level)
-            subcol = subcol.split(percentage=0.2).column()
-            subcol.operator("wm.keyitem_add", text="Add New", text_ctxt=i18n_contexts.id_windowmanager,
-                            icon='ZOOMIN')
+            if draw_global:
+                # "Add New" at end of keymap item list
+                subcol = _indented_layout(col, kmi_level)
+                subcol = subcol.split(percentage=0.2).column()
+                subcol.operator("wm.keyitem_add", text="Add New", text_ctxt=i18n_contexts.id_windowmanager,
+                                icon='ZOOMIN')
 
-            col.separator()
+                col.separator()
 
         # Child key maps
         if children:

@@ -721,6 +721,9 @@ void wm_widgets_keymap(wmKeyConfig *keyconf)
 	wmWidgetMapType *wmaptype;
 	wmWidgetGroupType *wgrouptype;
 
+	/* we add this item-less keymap once and use it to group widgetgroup keymaps into it */
+	WM_keymap_find(keyconf, "Widgets", 0, 0);
+
 	for (wmaptype = widgetmaptypes.first; wmaptype; wmaptype = wmaptype->next) {
 		for (wgrouptype = wmaptype->widgetgrouptypes.first; wgrouptype; wgrouptype = wgrouptype->next) {
 			wm_widgetgrouptype_keymap_init(wgrouptype, keyconf);
