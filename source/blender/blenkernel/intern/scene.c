@@ -170,6 +170,7 @@ Scene *BKE_scene_copy(Scene *sce, int type)
 		
 		rl = scen->r.layers;
 		rv = scen->r.views;
+		curvemapping_free_data(&scen->r.mblur_shutter_curve);
 		scen->r = sce->r;
 		scen->r.layers = rl;
 		scen->r.actlay = 0;
@@ -183,6 +184,7 @@ Scene *BKE_scene_copy(Scene *sce, int type)
 			scen->id.properties = IDP_CopyProperty(sce->id.properties);
 
 		MEM_freeN(scen->toolsettings);
+		BKE_sound_destroy_scene(scen);
 	}
 	else {
 		scen = BKE_libblock_copy(&sce->id);
@@ -192,7 +194,7 @@ Scene *BKE_scene_copy(Scene *sce, int type)
 		
 		id_us_plus((ID *)scen->world);
 		id_us_plus((ID *)scen->set);
-		id_us_plus((ID *)scen->gm.dome.warptext);
+		/* id_us_plus((ID *)scen->gm.dome.warptext); */  /* XXX Not refcounted? see readfile.c */
 
 		scen->ed = NULL;
 		scen->theDag = NULL;
@@ -226,14 +228,6 @@ Scene *BKE_scene_copy(Scene *sce, int type)
 			base = base->next;
 		}
 
-		/* copy color management settings */
-		BKE_color_managed_display_settings_copy(&scen->display_settings, &sce->display_settings);
-		BKE_color_managed_view_settings_copy(&scen->view_settings, &sce->view_settings);
-		BKE_color_managed_view_settings_copy(&scen->r.im_format.view_settings, &sce->r.im_format.view_settings);
-
-		BLI_strncpy(scen->sequencer_colorspace_settings.name, sce->sequencer_colorspace_settings.name,
-		            sizeof(scen->sequencer_colorspace_settings.name));
-
 		/* copy action and remove animation used by sequencer */
 		BKE_animdata_copy_id_action(&scen->id);
 
@@ -254,9 +248,20 @@ Scene *BKE_scene_copy(Scene *sce, int type)
 			}
 			new_srl = new_srl->next;
 		}
-
-		curvemapping_copy_data(&scen->r.mblur_shutter_curve, &sce->r.mblur_shutter_curve);
 	}
+
+	/* copy color management settings */
+	BKE_color_managed_display_settings_copy(&scen->display_settings, &sce->display_settings);
+	BKE_color_managed_view_settings_copy(&scen->view_settings, &sce->view_settings);
+	BKE_color_managed_colorspace_settings_copy(&scen->sequencer_colorspace_settings, &sce->sequencer_colorspace_settings);
+
+	BKE_color_managed_display_settings_copy(&scen->r.im_format.display_settings, &sce->r.im_format.display_settings);
+	BKE_color_managed_view_settings_copy(&scen->r.im_format.view_settings, &sce->r.im_format.view_settings);
+
+	BKE_color_managed_display_settings_copy(&scen->r.bake.im_format.display_settings, &sce->r.bake.im_format.display_settings);
+	BKE_color_managed_view_settings_copy(&scen->r.bake.im_format.view_settings, &sce->r.bake.im_format.view_settings);
+
+	curvemapping_copy_data(&scen->r.mblur_shutter_curve, &sce->r.mblur_shutter_curve);
 
 	/* tool settings */
 	scen->toolsettings = MEM_dupallocN(sce->toolsettings);
@@ -528,6 +533,7 @@ void BKE_scene_init(Scene *sce)
 	sce->r.bake_biasdist = 0.001;
 
 	sce->r.bake.flag = R_BAKE_CLEAR;
+	sce->r.bake.pass_filter = R_BAKE_PASS_FILTER_ALL;
 	sce->r.bake.width = 512;
 	sce->r.bake.height = 512;
 	sce->r.bake.margin = 16;
@@ -1804,8 +1810,8 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 	/* clear "LIB_TAG_DOIT" flag from all materials, to prevent infinite recursion problems later
 	 * when trying to find materials with drivers that need evaluating [#32017] 
 	 */
-	BKE_main_id_tag_idcode(bmain, ID_MA, false);
-	BKE_main_id_tag_idcode(bmain, ID_LA, false);
+	BKE_main_id_tag_idcode(bmain, ID_MA, LIB_TAG_DOIT, false);
+	BKE_main_id_tag_idcode(bmain, ID_LA, LIB_TAG_DOIT, false);
 
 	/* update all objects: drivers, matrices, displists, etc. flags set
 	 * by depgraph or manual, no layer check here, gets correct flushed
@@ -1963,8 +1969,8 @@ void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, 
 	/* clear "LIB_TAG_DOIT" flag from all materials, to prevent infinite recursion problems later
 	 * when trying to find materials with drivers that need evaluating [#32017] 
 	 */
-	BKE_main_id_tag_idcode(bmain, ID_MA, false);
-	BKE_main_id_tag_idcode(bmain, ID_LA, false);
+	BKE_main_id_tag_idcode(bmain, ID_MA, LIB_TAG_DOIT, false);
+	BKE_main_id_tag_idcode(bmain, ID_LA, LIB_TAG_DOIT, false);
 
 	/* run rigidbody sim */
 	/* NOTE: current position is so that rigidbody sim affects other objects, might change in the future */
@@ -2524,13 +2530,15 @@ void BKE_scene_multiview_view_prefix_get(Scene *scene, const char *name, char *r
 
 	/* begin of extension */
 	index_act = BLI_str_rpartition(name, delims, rext, &suf_act);
+	if (*rext == NULL)
+		return;
 	BLI_assert(index_act > 0);
 	UNUSED_VARS_NDEBUG(index_act);
 
 	for (srv = scene->r.views.first; srv; srv = srv->next) {
 		if (BKE_scene_multiview_is_render_view_active(&scene->r, srv)) {
 			size_t len = strlen(srv->suffix);
-			if (STREQLEN(*rext - len, srv->suffix, len)) {
+			if (strlen(*rext) >= len && STREQLEN(*rext - len, srv->suffix, len)) {
 				BLI_strncpy(rprefix, name, strlen(name) - strlen(*rext) - len + 1);
 				break;
 			}

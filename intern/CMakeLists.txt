@@ -88,3 +88,7 @@ if(WIN32)
 	add_subdirectory(utfconv)
 	add_subdirectory(gpudirect)
 endif()
+
+if(WITH_OPENVDB)
+	add_subdirectory(openvdb)
+endif()
