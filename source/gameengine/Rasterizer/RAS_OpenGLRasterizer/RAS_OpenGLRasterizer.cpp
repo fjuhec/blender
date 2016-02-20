@@ -999,7 +999,13 @@ void RAS_OpenGLRasterizer::SetViewMatrix(const MT_Matrix4x4 &mat,
 		}
 	}
 
-	m_viewmatrix.tscale(scale[0], scale[1], scale[2], 1.0);
+	bool negX = (scale[0] < 0.0f);
+	bool negY = (scale[0] < 0.0f);
+	bool negZ = (scale[0] < 0.0f);
+	if (negX || negY || negZ)
+	{
+		m_viewmatrix.tscale((negX)?-1.0f:1.0f, (negY)?-1.0f:1.0f, (negZ)?-1.0f:1.0f, 1.0);
+	}
 	m_viewinvmatrix = m_viewmatrix;
 	m_viewinvmatrix.invert();
 
@@ -1010,7 +1016,7 @@ void RAS_OpenGLRasterizer::SetViewMatrix(const MT_Matrix4x4 &mat,
 	glMatrixMode(GL_MODELVIEW);
 	glLoadMatrixf(glviewmat);
 	m_campos = pos;
-	m_camnegscale = ((scale[0] < 0.0) ^ (scale[1] < 0.0) ^ (scale[2] < 0.0)) ? true : false;
+	m_camnegscale = negX ^ negY ^ negZ;
 }
 
 
