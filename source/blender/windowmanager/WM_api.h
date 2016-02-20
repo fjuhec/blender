@@ -43,6 +43,7 @@
 #include "WM_keymap.h"
 #include "BLI_compiler_attrs.h"
 
+/* Include external widget API's */
 #include "widgets/WM_widget_api.h"
 #include "widgets/WM_widget_library.h"
 
