@@ -19,7 +19,7 @@
 # <pep8 compliant>
 
 # bpy.type.KeyMap: (km.name, km.space_type, km.region_type, [...])
-# Add (0, 0, 0, 0) to skipp adding "Foo (Global)" entry
+# Add (0, 0, 0, 0) as first element to skip adding "Foo (Global)" entry
 
 #    ('Script', 'EMPTY', 'WINDOW', []),
 
