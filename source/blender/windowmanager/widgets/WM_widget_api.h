@@ -90,7 +90,10 @@ void WM_widgetgrouptype_init_runtime(
         struct wmWidgetGroupType *wgrouptype);
 void WM_widgetgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmWidgetGroupType *wgroup);
 
-struct wmKeyMap *WM_widgetgroup_keymap_common(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config);
+struct wmKeyMap *WM_widgetgroup_keymap_common(
+        const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config);
+struct wmKeyMap *WM_widgetgroup_keymap_common_sel(
+        const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config);
 
 
 /* -------------------------------------------------------------------- */

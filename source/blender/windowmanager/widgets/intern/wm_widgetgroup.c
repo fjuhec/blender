@@ -355,16 +355,27 @@ static wmKeyMap *widgetgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char
  */
 wmKeyMap *WM_widgetgroup_keymap_common(const struct wmWidgetGroupType *wgrouptype, wmKeyConfig *config)
 {
-	const char *wgroupname = wgrouptype->name;
 	/* Use area and region id since we might have multiple widgets with the same name in different areas/regions */
-	wmKeyMap *km = WM_keymap_find(config, wgroupname, wgrouptype->spaceid, wgrouptype->regionid);
-	wmKeyMapItem *kmi;
+	wmKeyMap *km = WM_keymap_find(config, wgrouptype->name, wgrouptype->spaceid, wgrouptype->regionid);
 
 	WM_keymap_add_item(km, "WIDGETGROUP_OT_widget_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
+	widgetgroup_tweak_modal_keymap(config, wgrouptype->name);
 
-	widgetgroup_tweak_modal_keymap(config, wgroupname);
+	return km;
+}
 
-	kmi = WM_keymap_add_item(km, "WIDGETGROUP_OT_widget_select", SELECTMOUSE, KM_PRESS, 0, 0);
+/**
+ * Variation of #WM_widgetgroup_keymap_common but with keymap items for selection
+ */
+wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmWidgetGroupType *wgrouptype, wmKeyConfig *config)
+{
+	/* Use area and region id since we might have multiple widgets with the same name in different areas/regions */
+	wmKeyMap *km = WM_keymap_find(config, wgrouptype->name, wgrouptype->spaceid, wgrouptype->regionid);
+
+	WM_keymap_add_item(km, "WIDGETGROUP_OT_widget_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
+	widgetgroup_tweak_modal_keymap(config, wgrouptype->name);
+
+	wmKeyMapItem *kmi = WM_keymap_add_item(km, "WIDGETGROUP_OT_widget_select", SELECTMOUSE, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "extend", false);
 	RNA_boolean_set(kmi->ptr, "deselect", false);
 	RNA_boolean_set(kmi->ptr, "toggle", false);

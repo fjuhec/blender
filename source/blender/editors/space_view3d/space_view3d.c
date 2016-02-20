@@ -747,7 +747,7 @@ static void view3d_widgets(void)
 	        NULL, wmaptype,
 	        WIDGETGROUP_armature_facemaps_poll,
 	        WIDGETGROUP_armature_facemaps_create,
-	        WM_widgetgroup_keymap_common,
+	        WM_widgetgroup_keymap_common_sel,
 	        "Face Map Widgets");
 	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
