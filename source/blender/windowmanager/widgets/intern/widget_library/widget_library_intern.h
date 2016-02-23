@@ -66,24 +66,20 @@ enum {
 };
 
 
-float widget_offset_from_value_constrained_float(
-        const float range_fac, const float min, const float range, const float value,
-        const bool inverted);
-float widget_value_from_offset_constrained_float(
-        const float range_fac, const float min, const float range, const float value,
-        const bool inverted);
-float widget_value_from_offset_float(
+float widget_offset_from_value(
+        WidgetCommonData *data, const float value,
+        const bool constrained, const bool inverted);
+float widget_value_from_offset(
         WidgetCommonData *data, WidgetInteraction *inter, const float offset,
         const bool constrained, const bool inverted, const bool use_precision);
 
-void widget_bind_to_prop_float(
+void widget_property_bind(
         wmWidget *widget, WidgetCommonData *data, const int slot,
         const bool constrained, const bool inverted);
 
-void  widget_property_set_float(bContext *C, const wmWidget *widget, const int slot, const float value);
-float widget_property_get_float(const wmWidget *widget, const int slot);
-
-void widget_reset_float(bContext *C, const wmWidget *widget, WidgetInteraction *inter, const int slot);
+void  widget_property_value_set(bContext *C, const wmWidget *widget, const int slot, const float value);
+float widget_property_value_get(const wmWidget *widget, const int slot);
+void  widget_property_value_reset(bContext *C, const wmWidget *widget, WidgetInteraction *inter, const int slot);
 
 #endif  /* __WIDGET_LIBRARY_INTERN_H__ */
 

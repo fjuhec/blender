@@ -271,7 +271,6 @@ static void widget_arrow_draw(const bContext *UNUSED(C), wmWidget *widget)
 static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *widget, const int flag)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
-	WidgetCommonData *wdata = &arrow->data;
 	WidgetInteraction *inter = widget->interaction_data;
 	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = ar->regiondata;
@@ -355,6 +354,7 @@ static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *wid
 	}
 
 
+	WidgetCommonData *data = &arrow->data;
 	const float ofs_new = facdir * len_v3(offset);
 	const int slot = ARROW_SLOT_OFFSET_WORLD_SPACE;
 
@@ -363,22 +363,16 @@ static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *wid
 		const bool constrained = arrow->style & WIDGET_ARROW_STYLE_CONSTRAINED;
 		const bool inverted = arrow->style & WIDGET_ARROW_STYLE_INVERTED;
 		const bool use_precision = flag & WM_WIDGET_TWEAK_PRECISE;
-		float value = widget_value_from_offset_float(wdata, inter, ofs_new, constrained, inverted, use_precision);
+		float value = widget_value_from_offset(data, inter, ofs_new, constrained, inverted, use_precision);
 
-		widget_property_set_float(C, widget, slot, value);
+		widget_property_value_set(C, widget, slot, value);
 		/* get clamped value */
-		value = widget_property_get_float(widget, slot);
+		value = widget_property_value_get(widget, slot);
 
-		if (constrained) {
-			wdata->offset = widget_offset_from_value_constrained_float(
-			                    wdata->range_fac, wdata->min, wdata->range,
-			                    value, inverted);
-		}
-		else
-			wdata->offset = value;
+		data->offset = widget_offset_from_value(data, value, constrained, inverted);
 	}
 	else {
-		wdata->offset = ofs_new;
+		data->offset = ofs_new;
 	}
 
 	/* tag the region for redraw */
@@ -417,7 +411,7 @@ static int widget_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidg
 static void widget_arrow_bind_to_prop(wmWidget *widget, const int slot)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
-	widget_bind_to_prop_float(
+	widget_property_bind(
 	            widget, &arrow->data, slot,
 	            arrow->style & WIDGET_ARROW_STYLE_CONSTRAINED,
 	            arrow->style & WIDGET_ARROW_STYLE_INVERTED);
@@ -428,7 +422,7 @@ static void widget_arrow_exit(bContext *C, wmWidget *widget, const bool cancel)
 	if (!cancel)
 		return;
 
-	widget_reset_float(C, widget, (WidgetInteraction *)widget->interaction_data, ARROW_SLOT_OFFSET_WORLD_SPACE);
+	widget_property_value_reset(C, widget, (WidgetInteraction *)widget->interaction_data, ARROW_SLOT_OFFSET_WORLD_SPACE);
 }
 
 
