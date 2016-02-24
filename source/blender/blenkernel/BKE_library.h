@@ -123,6 +123,7 @@ void BKE_library_make_local(struct Main *bmain, struct Library *lib, bool untagg
 
 void BKE_library_asset_repository_init(struct Library *lib, const struct AssetEngineType *aet, const char *repo_root);
 void BKE_library_asset_repository_clear(struct Library *lib);
+void BKE_library_asset_repository_free(struct Library *lib);
 struct AssetRef *BKE_library_asset_repository_asset_add(struct Library *lib, const void *idv);
 void BKE_library_asset_repository_asset_remove(struct Library *lib, const void *idv);
 struct AssetRef *BKE_library_asset_repository_asset_find(struct Library *lib, const void *idv);
@@ -130,6 +131,8 @@ void BKE_library_asset_repository_subdata_add(struct AssetRef *aref, const void 
 void BKE_library_asset_repository_subdata_remove(struct AssetRef *aref, const void *idv);
 
 void BKE_libraries_asset_subdata_remove(struct Main *bmain, const void *idv);
+void BKE_libraries_asset_repositories_clear(struct Main *bmain);
+void BKE_libraries_asset_repositories_rebuild(struct Main *bmain);
 
 typedef void (*BKE_library_free_window_manager_cb)(struct bContext *, struct wmWindowManager *);
 typedef void (*BKE_library_free_notifier_reference_cb)(const void *);

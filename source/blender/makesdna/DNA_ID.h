@@ -359,6 +359,8 @@ enum {
 	LIB_TAG_EXTERN          = 1 << 0,
 	/* RESET_NEVER Datablock is from a library, and is only used (linked) inderectly through other libraries. */
 	LIB_TAG_INDIRECT        = 1 << 1,
+	/* RESET_NEVER Datablock is (or is used by) an asset. */
+	LIB_TAG_ASSET           = 1 << 9,
 
 	/* RESET_AFTER_USE Three flags used internally in readfile.c, to mark IDs needing to be read (only done once). */
 	LIB_TAG_NEED_EXPAND     = 1 << 3,

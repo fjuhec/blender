@@ -7159,7 +7159,10 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 	
 	lib->packedfile = direct_link_packedfile(fd, lib->packedfile);
 	lib->asset_repository = newdataadr(fd, lib->asset_repository);
-	BLI_listbase_clear(&lib->asset_repository->assets);
+	if (lib->asset_repository) {
+		/* Do not clear lib->asset_repository itself! */
+		BLI_listbase_clear(&lib->asset_repository->assets);
+	}
 
 	/* new main */
 	newmain = BKE_main_new();
@@ -7167,9 +7170,6 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 	newmain->curlib = lib;
 	
 	lib->parent = NULL;
-
-	/* Do not clear lib->asset_repository itself! */
-	BLI_listbase_clear(&lib->asset_repository->assets);
 }
 
 static void lib_link_library(FileData *UNUSED(fd), Main *main)
@@ -8439,6 +8439,8 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 	lib_verify_nodetree(bfd->main, true);
 	fix_relpaths_library(fd->relabase, bfd->main); /* make all relative paths, relative to the open blend file */
 	
+	BKE_libraries_asset_repositories_rebuild(bfd->main);
+
 	link_global(fd, bfd);	/* as last */
 	
 	fd->mainlist = NULL;  /* Safety, this is local variable, shall not be used afterward. */
@@ -9996,6 +9998,8 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
 
 	/* clear group instantiating tag */
 	BKE_main_id_tag_listbase(&(mainvar->group), LIB_TAG_DOIT, false);
+
+	BKE_libraries_asset_repositories_rebuild(mainvar);
 
 	/* patch to prevent switch_endian happens twice */
 	if ((*fd)->flags & FD_FLAGS_SWITCH_ENDIAN) {
