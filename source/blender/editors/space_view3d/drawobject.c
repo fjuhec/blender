@@ -4248,20 +4248,26 @@ static bool draw_mesh_object(Scene *scene, ARegion *ar, View3D *v3d, RegionView3
 			        scene, ob, em, scene->customdata_mask,
 			        &finalDM);
 
+		const bool use_material = ((me->drawflag & ME_DRAWEIGHT) == 0);
+
 		DM_update_materials(finalDM, ob);
 		if (cageDM != finalDM) {
 			DM_update_materials(cageDM, ob);
 		}
 
-		if (dt > OB_WIRE) {
-			const bool glsl = draw_glsl_material(scene, ob, v3d, dt);
+		if (use_material) {
+			if (dt > OB_WIRE) {
+				const bool glsl = draw_glsl_material(scene, ob, v3d, dt);
 
-			GPU_begin_object_materials(v3d, rv3d, scene, ob, glsl, NULL);
+				GPU_begin_object_materials(v3d, rv3d, scene, ob, glsl, NULL);
+			}
 		}
 
 		draw_em_fancy(scene, ar, v3d, ob, em, cageDM, finalDM, dt);
 
-		GPU_end_object_materials();
+		if (use_material) {
+			GPU_end_object_materials();
+		}
 
 		if (obedit != ob)
 			finalDM->release(finalDM);
@@ -4435,6 +4441,9 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 	if (ob->type == OB_MBALL) {  /* mball always smooth shaded */
 		glShadeModel(GL_SMOOTH);
 	}
+
+	/* track current material, -1 for none (needed for lines) */
+	short col = -1;
 	
 	DispList *dl = lb->first;
 	while (dl) {
@@ -4444,6 +4453,11 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 		switch (dl->type) {
 			case DL_SEGM:
 				if (ob->type == OB_SURF) {
+					if (col != -1) {
+						GPU_object_material_unbind();
+						col = -1;
+					}
+
 					if ((dflag & DRAW_CONSTCOLOR) == 0)
 						glColor3ubv(ob_wire_col);
 
@@ -4458,6 +4472,11 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 				break;
 			case DL_POLY:
 				if (ob->type == OB_SURF) {
+					if (col != -1) {
+						GPU_object_material_unbind();
+						col = -1;
+					}
+
 					/* for some reason glDrawArrays crashes here in half of the platforms (not osx) */
 					//glVertexPointer(3, GL_FLOAT, 0, dl->verts);
 					//glDrawArrays(GL_LINE_LOOP, 0, dl->nr);
@@ -4471,7 +4490,10 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 			case DL_SURF:
 
 				if (dl->index) {
-					GPU_object_material_bind(dl->col + 1, use_glsl ? &gattribs : NULL);
+					if (col != dl->col) {
+						GPU_object_material_bind(dl->col + 1, use_glsl ? &gattribs : NULL);
+						col = dl->col;
+					}
 
 					if (dl->rt & CU_SMOOTH) glShadeModel(GL_SMOOTH);
 					else glShadeModel(GL_FLAT);
@@ -4485,7 +4507,10 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 				break;
 
 			case DL_INDEX3:
-				GPU_object_material_bind(dl->col + 1, (use_glsl) ? &gattribs : NULL);
+				if (col != dl->col) {
+					GPU_object_material_bind(dl->col + 1, use_glsl ? &gattribs : NULL);
+					col = dl->col;
+				}
 
 				glVertexPointer(3, GL_FLOAT, 0, dl->verts);
 
@@ -4505,7 +4530,10 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 				break;
 
 			case DL_INDEX4:
-				GPU_object_material_bind(dl->col + 1, (use_glsl) ? &gattribs : NULL);
+				if (col != dl->col) {
+					GPU_object_material_bind(dl->col + 1, use_glsl ? &gattribs : NULL);
+					col = dl->col;
+				}
 
 				glEnableClientState(GL_NORMAL_ARRAY);
 				glVertexPointer(3, GL_FLOAT, 0, dl->verts);
@@ -4522,7 +4550,9 @@ static void drawDispListsolid(ListBase *lb, Object *ob, const short dflag,
 	glShadeModel(GL_FLAT);
 	glFrontFace(GL_CCW);
 
-	GPU_object_material_unbind();
+	if (col != -1) {
+		GPU_object_material_unbind();
+	}
 }
 
 static void drawCurveDMWired(Object *ob)
@@ -5064,6 +5094,8 @@ static void draw_new_particle_system(Scene *scene, View3D *v3d, RegionView3D *rv
 		draw_as = PART_DRAW_DOT;
 
 /* 3. */
+	glLineWidth(1.0f);
+
 	switch (draw_as) {
 		case PART_DRAW_DOT:
 			if (part->draw_size)
@@ -7152,7 +7184,12 @@ static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 				draw_mesh_object_outline(v3d, ob, dm);
 			}
 			else {
-				drawDispListwire(&ob->curve_cache->disp, ob->type);
+				/* don't show outline on 'wire' with surfaces,
+				 * don't show interior tessellation with curves */
+				drawDispListwire_ex(
+				        &ob->curve_cache->disp,
+				        (ob->type == OB_SURF) ?
+				        (DL_INDEX3 | DL_INDEX4 | DL_SURF) : (DL_SEGM | DL_POLY));
 			}
 		}
 	}
@@ -8031,7 +8068,9 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 		if (do_draw_center != -1) {
 			if (dflag & DRAW_PICKING) {
 				/* draw a single point for opengl selection */
-				if (U.obcenter_dia > 0) {
+				if ((base->sx != IS_CLIPPED) &&
+				    (U.obcenter_dia != 0.0))
+				{
 					glPointSize(U.obcenter_dia);
 					glBegin(GL_POINTS);
 					glVertex3fv(ob->obmat[3]);
@@ -8040,7 +8079,10 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 			}
 			else if ((dflag & DRAW_CONSTCOLOR) == 0) {
 				/* we don't draw centers for duplicators and sets */
-				if (U.obcenter_dia > 0 && !(G.f & G_RENDER_OGL)) {
+				if ((base->sx != IS_CLIPPED) &&
+				    (U.obcenter_dia != 0.0) &&
+				    !(G.f & G_RENDER_OGL))
+				{
 					/* check > 0 otherwise grease pencil can draw into the circle select which is annoying. */
 					drawcentercircle(v3d, rv3d, ob->obmat[3], do_draw_center, ob->id.lib || ob->id.us > 1);
 				}

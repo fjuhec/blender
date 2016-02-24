@@ -1288,6 +1288,10 @@ elseif(WIN32)
 
 		set(PLATFORM_LINKFLAGS "/SUBSYSTEM:CONSOLE /STACK:2097152 /INCREMENTAL:NO /NODEFAULTLIB:msvcrt.lib /NODEFAULTLIB:msvcmrt.lib /NODEFAULTLIB:msvcurt.lib /NODEFAULTLIB:msvcrtd.lib")
 
+		# Ignore meaningless for us linker warnings.
+		set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} /ignore:4049 /ignore:4217 /ignore:4221")
+		set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /ignore:4221")
+
 		# MSVC only, Mingw doesnt need
 		if(CMAKE_CL_64)
 			set(PLATFORM_LINKFLAGS "/MACHINE:X64 /OPT:NOREF ${PLATFORM_LINKFLAGS}")
@@ -2172,7 +2176,7 @@ elseif(APPLE)
 		set(OPENVDB_INCLUDE_DIRS ${OPENVDB}/include)
 		set(TBB_INCLUDE_DIRS ${LIBDIR}/tbb/include)
 		set(TBB_LIBRARIES ${LIBDIR}/tbb/lib/libtbb.a)
-		set(OPENVDB_LIBRARIES openvdb ${TBB_LIBRARIES})
+		set(OPENVDB_LIBRARIES openvdb blosc ${TBB_LIBRARIES})
 		set(OPENVDB_LIBPATH ${LIBDIR}/openvdb/lib)
 		set(OPENVDB_DEFINITIONS)
 	endif()
