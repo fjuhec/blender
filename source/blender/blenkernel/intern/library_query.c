@@ -262,7 +262,6 @@ static void library_foreach_mtex(LibraryForeachIDData *data, MTex *mtex)
  */
 void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *user_data, int flag)
 {
-	AnimData *adt;
 	LibraryForeachIDData data;
 	int i;
 
@@ -276,15 +275,9 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 	else {
 		data.ids_handled = NULL;
 	}
-
 	data.flag = flag;
 	data.callback = callback;
 	data.user_data = user_data;
-
-	adt = BKE_animdata_from_id(id);
-	if (adt) {
-		library_foreach_animationData(&data, adt);
-	}
 
 #define CALLBACK_INVOKE_ID(check_id, cb_flag) \
 	FOREACH_CALLBACK_INVOKE_ID(&data, check_id, cb_flag)
@@ -294,6 +287,11 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 
 	do {
 		data.self_id = id;
+
+		AnimData *adt = BKE_animdata_from_id(id);
+		if (adt) {
+			library_foreach_animationData(&data, adt);
+		}
 
 		switch (GS(id->name)) {
 			case ID_LI:
