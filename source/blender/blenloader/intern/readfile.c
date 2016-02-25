@@ -7158,7 +7158,12 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 //	printf("direct_link_library: filepath %s\n", lib->filepath);
 	
 	lib->packedfile = direct_link_packedfile(fd, lib->packedfile);
-	
+	lib->asset_repository = newdataadr(fd, lib->asset_repository);
+	if (lib->asset_repository) {
+		/* Do not clear lib->asset_repository itself! */
+		BLI_listbase_clear(&lib->asset_repository->assets);
+	}
+
 	/* new main */
 	newmain = BKE_main_new();
 	BLI_addtail(fd->mainlist, newmain);
@@ -8434,6 +8439,8 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 	lib_verify_nodetree(bfd->main, true);
 	fix_relpaths_library(fd->relabase, bfd->main); /* make all relative paths, relative to the open blend file */
 	
+	BKE_libraries_asset_repositories_rebuild(bfd->main);
+
 	link_global(fd, bfd);	/* as last */
 	
 	fd->mainlist = NULL;  /* Safety, this is local variable, shall not be used afterward. */
@@ -9770,7 +9777,7 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 }
 
 static ID *link_named_part_ex(
-        Main *mainl, FileData *fd, const AssetEngineType *aet,
+        Main *mainl, FileData *fd, const AssetEngineType *aet, const char *root,
         const short idcode, const char *name, const AssetUUID *uuid, const int flag,
 		Scene *scene, View3D *v3d,
         const bool use_placeholders, const bool force_indirect)
@@ -9787,8 +9794,16 @@ static ID *link_named_part_ex(
 	}
 
 	if (id && uuid) {
+		BLI_assert(root);
+
 		id->uuid = MEM_mallocN(sizeof(*id->uuid), __func__);
 		*id->uuid = *uuid;
+		id->flag |= LIB_ASSET;
+
+		if (!mainl->curlib->asset_repository) {
+			BKE_library_asset_repository_init(mainl->curlib, aet, root);
+		}
+		BKE_library_asset_repository_asset_add(mainl->curlib, id);
 	}
 
 	return id;
@@ -9830,7 +9845,7 @@ ID *BLO_library_link_named_part_ex(
         const bool use_placeholders, const bool force_indirect)
 {
 	FileData *fd = (FileData*)(*bh);
-	return link_named_part_ex(mainl, fd, NULL, idcode, name, NULL, flag, scene, v3d, use_placeholders, force_indirect);
+	return link_named_part_ex(mainl, fd, NULL, NULL, idcode, name, NULL, flag, scene, v3d, use_placeholders, force_indirect);
 }
 
 /**
@@ -9840,6 +9855,7 @@ ID *BLO_library_link_named_part_ex(
  * \param mainl The main database to link from (not the active one).
  * \param bh The blender file handle.
  * \param aet The asset engine type (NULL when no asset engine is used).
+ * \param root the 'path' of the asset repository.
  * \param idcode The kind of datablock to link.
  * \param name The name of the datablock (without the 2 char ID prefix).
  * \param uuid The asset engine's UUID of this datablock (NULL when no asset engine is used).
@@ -9849,13 +9865,13 @@ ID *BLO_library_link_named_part_ex(
  * \return the linked ID when found.
  */
 struct ID *BLO_library_link_named_part_asset(
-        Main *mainl, BlendHandle **bh, const AssetEngineType *aet,
+        Main *mainl, BlendHandle **bh, const AssetEngineType *aet, const char *root,
         const short idcode, const char *name, const AssetUUID *uuid, const short flag,
         Scene *scene, View3D *v3d,
         const bool use_placeholders, const bool force_indirect)
 {
 	FileData *fd = (FileData*)(*bh);
-	return link_named_part_ex(mainl, fd, aet, idcode, name, uuid, flag, scene, v3d, use_placeholders, force_indirect);
+	return link_named_part_ex(mainl, fd, aet, root, idcode, name, uuid, flag, scene, v3d, use_placeholders, force_indirect);
 }
 
 static void link_id_part(ReportList *reports, FileData *fd, Main *mainvar, ID *id, ID **r_id)
@@ -9992,6 +10008,8 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
 
 	/* clear group instantiating tag */
 	BKE_main_id_tag_listbase(&(mainvar->group), LIB_TAG_DOIT, false);
+
+	BKE_libraries_asset_repositories_rebuild(mainvar);
 
 	/* patch to prevent switch_endian happens twice */
 	if ((*fd)->flags & FD_FLAGS_SWITCH_ENDIAN) {

@@ -105,7 +105,7 @@ struct ID *BLO_library_link_named_part_ex(
         struct Scene *scene, struct View3D *v3d,
         const bool use_placeholders, const bool force_indirect);
 struct ID *BLO_library_link_named_part_asset(
-        struct Main *mainl, BlendHandle **bh, const struct AssetEngineType *aet,
+        struct Main *mainl, BlendHandle **bh, const struct AssetEngineType *aet, const char *root,
         const short idcode, const char *name, const struct AssetUUID *uuid, const short flag,
         struct Scene *scene, struct View3D *v3d,
         const bool use_placeholders, const bool force_indirect);

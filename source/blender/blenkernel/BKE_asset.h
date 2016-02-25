@@ -193,6 +193,16 @@ struct FileDirEntry *BKE_filedir_entry_copy(struct FileDirEntry *entry);
 
 void BKE_filedir_entryarr_clear(struct FileDirEntryArr *array);
 
+#define ASSETUUID_SUB_COMPARE(_uuida, _uuidb, _member)                         \
+	(memcmp((_uuida)->#_member, (_uuidb)->#_member, sizeof((_uuida)->#_member)) == 0)
+
+#define ASSETUUID_COMPARE(_uuida, _uuidb)                                      \
+	(memcmp((_uuida), (_uuidb), sizeof(*(_uuida))) == 0)
+
+/* GHash helpers */
+unsigned int BKE_asset_uuid_hash(const void *key);
+bool BKE_asset_uuid_cmp(const void *a, const void *b);
+
 #ifdef __cplusplus
 }
 #endif

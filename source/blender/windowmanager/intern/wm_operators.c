@@ -2443,6 +2443,7 @@ typedef struct WMLinkAppendDataItem {
 } WMLinkAppendDataItem;
 
 typedef struct WMLinkAppendData {
+	const char *root;
 	LinkNodePair libraries;
 	LinkNodePair items;
 	int num_libraries;
@@ -2558,7 +2559,7 @@ static void wm_link_do(
 			}
 
 			new_id = BLO_library_link_named_part_asset(
-			             mainl, &bh, aet, item->idcode, item->name, item->uuid, flag, scene, v3d,
+			             mainl, &bh, aet, lapp_data->root, item->idcode, item->name, item->uuid, flag, scene, v3d,
 			             use_placeholders, force_indirect);
 
 			if (new_id) {
@@ -2654,6 +2655,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	/* We define our working data...
 	 * Note that here, each item 'uses' one library, and only one. */
 	lapp_data = wm_link_append_data_new(flag);
+	lapp_data->root = root;
 	if (totfiles != 0) {
 		GHash *libraries = BLI_ghash_new(BLI_ghashutil_strhash_p, BLI_ghashutil_strcmp, __func__);
 		int lib_idx = 0;
