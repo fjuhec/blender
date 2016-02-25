@@ -673,8 +673,11 @@ if(NOT WITH_BOOST)
 elseif(WITH_CYCLES OR WITH_OPENIMAGEIO OR WITH_AUDASPACE OR WITH_INTERNATIONAL OR WITH_OPENVDB OR WITH_OPENCOLORIO OR WITH_MOD_BOOLEAN)
 	# Keep enabled
 else()
-	# Enabled but we don't need it
-	set(WITH_BOOST OFF)
+	# New dependency graph needs either Boost or C++11 for function bindings.
+	if(NOT USE_CPP11)
+		# Enabled but we don't need it
+		set(WITH_BOOST OFF)
+	endif()
 endif()
 
 # auto enable openimageio for cycles
@@ -1239,6 +1242,14 @@ elseif(WIN32)
 	add_definitions(-DWIN32)
 
 	if(MSVC)
+		# Minimum MSVC Version
+		set(_min_ver "18.0.31101")
+		if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${_min_ver})
+			message(FATAL_ERROR
+			        "Visual Studio 2013 (Update 4, ${_min_ver}) required, "
+			        "found (${CMAKE_CXX_COMPILER_VERSION})")
+		endif()
+		unset(_min_ver)
 
 		# needed for some MSVC installations
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
@@ -1284,6 +1295,10 @@ elseif(WIN32)
 		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /MT")
 
 		set(PLATFORM_LINKFLAGS "/SUBSYSTEM:CONSOLE /STACK:2097152 /INCREMENTAL:NO /NODEFAULTLIB:msvcrt.lib /NODEFAULTLIB:msvcmrt.lib /NODEFAULTLIB:msvcurt.lib /NODEFAULTLIB:msvcrtd.lib")
+
+		# Ignore meaningless for us linker warnings.
+		set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} /ignore:4049 /ignore:4217 /ignore:4221")
+		set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /ignore:4221")
 
 		# MSVC only, Mingw doesnt need
 		if(CMAKE_CL_64)
@@ -1569,11 +1584,12 @@ elseif(WIN32)
 		endif()
 
 		if(WITH_OPENVDB)
+			set(BLOSC_LIBRARIES ${LIBDIR}/blosc/lib/libblosc.lib)
 			set(TBB_LIBRARIES ${LIBDIR}/tbb/lib/tbb.lib)
 			set(TBB_INCLUDE_DIR ${LIBDIR}/tbb/include)
 			set(OPENVDB ${LIBDIR}/openvdb)
 			set(OPENVDB_INCLUDE_DIRS ${OPENVDB}/include ${TBB_INCLUDE_DIR})
-			set(OPENVDB_LIBRARIES openvdb ${TBB_LIBRARIES})
+			set(OPENVDB_LIBRARIES openvdb ${TBB_LIBRARIES} ${BLOSC_LIBRARIES})
 			set(OPENVDB_LIBPATH ${LIBDIR}/openvdb/lib)
 		endif()
 
@@ -2169,7 +2185,7 @@ elseif(APPLE)
 		set(OPENVDB_INCLUDE_DIRS ${OPENVDB}/include)
 		set(TBB_INCLUDE_DIRS ${LIBDIR}/tbb/include)
 		set(TBB_LIBRARIES ${LIBDIR}/tbb/lib/libtbb.a)
-		set(OPENVDB_LIBRARIES openvdb ${TBB_LIBRARIES})
+		set(OPENVDB_LIBRARIES openvdb blosc ${TBB_LIBRARIES})
 		set(OPENVDB_LIBPATH ${LIBDIR}/openvdb/lib)
 		set(OPENVDB_DEFINITIONS)
 	endif()
