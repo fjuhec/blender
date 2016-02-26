@@ -31,6 +31,9 @@
 #ifndef __WIDGET_LIBRARY_INTERN_H__
 #define __WIDGET_LIBRARY_INTERN_H__
 
+/* distance around which widgets respond to input (and get highlighted) */
+#define WIDGET_HOTSPOT 14.0f /* TODO use everywhere */
+
 /**
  * Data for common interactions. Used in widget_library_utils.c functions.
  */
@@ -80,6 +83,11 @@ void widget_property_bind(
 void  widget_property_value_set(bContext *C, const wmWidget *widget, const int slot, const float value);
 float widget_property_value_get(const wmWidget *widget, const int slot);
 void  widget_property_value_reset(bContext *C, const wmWidget *widget, WidgetInteraction *inter, const int slot);
+
+
+/* -------------------------------------------------------------------- */
+
+float *widget_color_get(wmWidget *widget, const bool highlight);
 
 #endif  /* __WIDGET_LIBRARY_INTERN_H__ */
 

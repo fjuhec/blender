@@ -616,7 +616,10 @@ void flushTransMasking(TransInfo *t);
 void flushTransPaintCurve(TransInfo *t);
 void restoreBones(TransInfo *t);
 
-/*********************** exported from transform_manipulator.c ********** */
+/*********************** transform_manipulator.c ********** */
+
+#define MANIPULATOR_AXIS_LINE_WIDTH 2.0
+
 bool gimbal_axis(struct Object *ob, float gmat[3][3]); /* return 0 when no gimbal for selection */
 
 /*********************** TransData Creation and General Handling *********** */

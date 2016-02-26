@@ -36,7 +36,7 @@ struct wmWidgetGroup;
 
 
 /* -------------------------------------------------------------------- */
-/* Arrow Widget */
+/* 3D Arrow Widget */
 
 enum {
 	WIDGET_ARROW_STYLE_NORMAL        =  1,
@@ -60,6 +60,14 @@ void WIDGET_arrow_set_line_len(struct wmWidget *widget, const float len);
 void WIDGET_arrow_set_ui_range(struct wmWidget *widget, const float min, const float max);
 void WIDGET_arrow_set_range_fac(struct wmWidget *widget, const float range_fac);
 void WIDGET_arrow_cone_set_aspect(struct wmWidget *widget, const float aspect[2]);
+
+
+/* -------------------------------------------------------------------- */
+/* 2D Arrow Widget */
+
+struct wmWidget *WIDGET_arrow2d_new(struct wmWidgetGroup *wgroup, const char *name);
+void WIDGET_arrow2d_set_angle(struct wmWidget *widget, const float rot_fac);
+void WIDGET_arrow2d_set_line_len(struct wmWidget *widget, const float len);
 
 
 /* -------------------------------------------------------------------- */

@@ -56,6 +56,7 @@ bool wm_widget_compare(const struct wmWidget *a, const struct wmWidget *b);
 void wm_widget_calculate_scale(struct wmWidget *widget, const bContext *C);
 
 void fix_linking_widget_arrow(void);
+void fix_linking_widget_arrow2d(void);
 void fix_linking_widget_cage(void);
 void fix_linking_widget_dial(void);
 void fix_linking_widget_facemap(void);

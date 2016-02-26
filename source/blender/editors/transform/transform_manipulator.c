@@ -64,7 +64,7 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
-#include "wm.h"
+#include "wm.h" /* XXX */
 
 #include "ED_armature.h"
 #include "ED_curve.h"
@@ -104,8 +104,6 @@
 /* threshold for testing view aligned manipulator axis */
 #define TW_AXIS_DOT_MIN 0.02f
 #define TW_AXIS_DOT_MAX 0.1f
-
-#define MAN_AXIS_LINE_WIDTH 2.0
 
 /* axes as index */
 enum {
@@ -1185,14 +1183,14 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 				WIDGET_arrow_set_direction(axis, rv3d->twmat[aidx_norm]);
 				WIDGET_arrow_set_line_len(axis, len);
 				WM_widget_set_offset(axis, start_co);
-				WM_widget_set_line_width(axis, MAN_AXIS_LINE_WIDTH);
+				WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
 				break;
 			}
 			case MAN_AXIS_ROT_X:
 			case MAN_AXIS_ROT_Y:
 			case MAN_AXIS_ROT_Z:
 				WIDGET_dial_set_up_vector(axis, rv3d->twmat[aidx_norm]);
-				WM_widget_set_line_width(axis, MAN_AXIS_LINE_WIDTH);
+				WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
 				break;
 			case MAN_AXIS_TRANS_XY:
 			case MAN_AXIS_TRANS_YZ:
@@ -1260,6 +1258,10 @@ int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupT
 	return (((v3d->twflag & V3D_USE_MANIPULATOR) != 0) &&
 	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0));
 }
+
+
+/* -------------------------------------------------------------------- */
+/* Custom Object Manipulator (unfinished - unsure if this will stay) */
 
 void WIDGETGROUP_object_manipulator_create(const struct bContext *C, struct wmWidgetGroup *wgroup)
 {

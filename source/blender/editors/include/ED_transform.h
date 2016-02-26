@@ -158,13 +158,16 @@ int BIF_countTransformOrientation(const struct bContext *C);
 void Transform_Properties(struct wmOperatorType *ot, int flags);
 
 
-/* view3d manipulators */
+/* transform manipulators */
 
 int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
 void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGroup *wgroup);
 
 void WIDGETGROUP_object_manipulator_create(const struct bContext *C, struct wmWidgetGroup *wgroup);
 int WIDGETGROUP_object_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
+
+void WIDGETGROUP_manipulator2d_create(const struct bContext *C, struct wmWidgetGroup *wgroup);
+int WIDGETGROUP_manipulator2d_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
 
 
 /* Snapping */

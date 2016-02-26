@@ -38,6 +38,7 @@
 #include "WM_api.h"
 
 /* own includes */
+#include "WM_widget_types.h"
 #include "wm_widget_wmapi.h"
 #include "widget_library_intern.h"
 
@@ -144,4 +145,13 @@ float widget_property_value_get(const wmWidget *widget, const int slot)
 void widget_property_value_reset(bContext *C, const wmWidget *widget, WidgetInteraction *inter, const int slot)
 {
 	widget_property_value_set(C, widget, slot, inter->init_value);
+}
+
+
+/* -------------------------------------------------------------------- */
+
+/* TODO use everywhere */
+float *widget_color_get(wmWidget *widget, const bool highlight)
+{
+	return (highlight && !(widget->flag & WM_WIDGET_DRAW_HOVER)) ? widget->col_hi : widget->col;
 }

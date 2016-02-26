@@ -73,6 +73,7 @@ set(SRC
 	widgets/intern/wm_widgetgroup.c
 	widgets/intern/wm_widgetmap.c
 	widgets/intern/widget_library/arrow_widget.c
+	widgets/intern/widget_library/arrow2d_widget.c
 	widgets/intern/widget_library/cage_widget.c
 	widgets/intern/widget_library/dial_widget.c
 	widgets/intern/widget_library/facemap_widget.c

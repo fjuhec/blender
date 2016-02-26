@@ -57,6 +57,7 @@
 #include "ED_space_api.h"
 #include "ED_screen.h"
 #include "ED_uvedit.h"
+#include "ED_transform.h"
 
 #include "BIF_gl.h"
 
@@ -579,6 +580,24 @@ static int image_context(const bContext *C, const char *member, bContextDataResu
 	return 0;
 }
 
+static void image_widgets(void)
+{
+	const struct wmWidgetMapType_Params wmap_params = {
+		.idname = "Image_UV",
+		.spaceid = SPACE_IMAGE, .regionid = RGN_TYPE_WINDOW,
+		.flag = 0,
+	};
+
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
+
+	WM_widgetgrouptype_register_ptr(
+	        NULL, wmaptype,
+	        WIDGETGROUP_manipulator2d_poll,
+	        WIDGETGROUP_manipulator2d_create,
+	        WM_widgetgroup_keymap_common,
+	        "Manipulator Widgets");
+}
+
 /************************** main region ***************************/
 
 /* sets up the fields of the View2D from zoom and offset */
@@ -642,6 +661,14 @@ static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 	// image space manages own v2d
 	// UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_STANDARD, ar->winx, ar->winy);
 
+	/* widgets */
+	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
+		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
+		BLI_addhead(&ar->widgetmaps, wmap);
+	}
+	WM_widgetmaps_add_handlers(ar);
+
 	/* mask polls mode */
 	keymap = WM_keymap_find(wm->defaultconf, "Mask Editing", 0, 0);
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
@@ -667,7 +694,6 @@ static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 	WM_event_add_keymap_handler(&ar->handlers, keymap);
 	keymap = WM_keymap_find(wm->defaultconf, "Image", SPACE_IMAGE, 0);
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
-
 }
 
 static void image_main_region_draw(const bContext *C, ARegion *ar)
@@ -782,6 +808,9 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 		ED_image_draw_cursor(ar, sima->cursor);
 		UI_view2d_view_restore(C);
 	}
+
+	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
+	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
 
 	draw_image_cache(C, ar);
 
@@ -1000,6 +1029,7 @@ void ED_spacetype_image(void)
 	st->refresh = image_refresh;
 	st->listener = image_listener;
 	st->context = image_context;
+	st->widgets = image_widgets;
 	
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype image region");
