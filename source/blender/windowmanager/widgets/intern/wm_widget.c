@@ -379,15 +379,20 @@ void wm_widget_calculate_scale(wmWidget *widget, const bContext *C)
 	const RegionView3D *rv3d = CTX_wm_region_view3d(C);
 	float scale = 1.0f;
 
-	if (rv3d && (U.tw_flag & V3D_3D_WIDGETS) == 0 && (widget->flag & WM_WIDGET_SCALE_3D)) {
-		if (widget->get_final_position) {
-			float position[3];
+	if (widget->flag & WM_WIDGET_SCALE_3D) {
+		if (rv3d && (U.tw_flag & V3D_3D_WIDGETS) == 0) {
+			if (widget->get_final_position) {
+				float position[3];
 
-			widget->get_final_position(widget, position);
-			scale = ED_view3d_pixel_size(rv3d, position) * (float)U.tw_size;
+				widget->get_final_position(widget, position);
+				scale = ED_view3d_pixel_size(rv3d, position) * (float)U.tw_size;
+			}
+			else {
+				scale = ED_view3d_pixel_size(rv3d, widget->origin) * (float)U.tw_size;
+			}
 		}
 		else {
-			scale = ED_view3d_pixel_size(rv3d, widget->origin) * (float)U.tw_size;
+			scale = U.tw_size * 0.02f;
 		}
 	}
 
