@@ -2692,12 +2692,7 @@ void init_userdef_do_versions(void)
 		}
 	}
 
-	/**
-	 * Include next version bump.
-	 *
-	 * (keep this block even if it becomes empty).
-	 */
-	{
+	if (!USER_VERSION_ATLEAST(277, 0)) {
 		bTheme *btheme;
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
 			if (memcmp(btheme->tui.wcol_list_item.item, btheme->tui.wcol_list_item.text_sel, sizeof(char) * 3) == 0) {
@@ -2707,13 +2702,21 @@ void init_userdef_do_versions(void)
 		}
 	}
 
-	if (!USER_VERSION_ATLEAST(276, 11)) {
+	if (!USER_VERSION_ATLEAST(277, 0)) {
 		bTheme *btheme;
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
 			rgba_char_args_set_fl(btheme->tui.xaxis, 1.0f, 0.27f, 0.27f, 1.0f); /* red */
 			rgba_char_args_set_fl(btheme->tui.yaxis, 0.27f, 1.0f, 0.27f, 1.0f); /* green */
 			rgba_char_args_set_fl(btheme->tui.zaxis, 0.27f, 0.27f, 1.0f, 1.0f); /* blue */
 		}
+	}
+
+	/**
+	 * Include next version bump.
+	 *
+	 * (keep this block even if it becomes empty).
+	 */
+	{
 	}
 
 	if (U.pixelsize == 0.0f)

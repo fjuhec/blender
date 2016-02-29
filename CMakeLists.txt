@@ -1242,6 +1242,14 @@ elseif(WIN32)
 	add_definitions(-DWIN32)
 
 	if(MSVC)
+		# Minimum MSVC Version
+		set(_min_ver "18.0.31101")
+		if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${_min_ver})
+			message(FATAL_ERROR
+			        "Visual Studio 2013 (Update 4, ${_min_ver}) required, "
+			        "found (${CMAKE_CXX_COMPILER_VERSION})")
+		endif()
+		unset(_min_ver)
 
 		# needed for some MSVC installations
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
@@ -1288,6 +1296,10 @@ elseif(WIN32)
 
 		set(PLATFORM_LINKFLAGS "/SUBSYSTEM:CONSOLE /STACK:2097152 /INCREMENTAL:NO /NODEFAULTLIB:msvcrt.lib /NODEFAULTLIB:msvcmrt.lib /NODEFAULTLIB:msvcurt.lib /NODEFAULTLIB:msvcrtd.lib")
 
+		# Ignore meaningless for us linker warnings.
+		set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} /ignore:4049 /ignore:4217 /ignore:4221")
+		set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /ignore:4221")
+
 		# MSVC only, Mingw doesnt need
 		if(CMAKE_CL_64)
 			set(PLATFORM_LINKFLAGS "/MACHINE:X64 /OPT:NOREF ${PLATFORM_LINKFLAGS}")
@@ -1316,7 +1328,10 @@ elseif(WIN32)
 				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/${LIBDIR_BASE}_vc12)
 			endif()
 		else()
-			message(STATUS using LIBDIR  ${LIBDIR})
+			message(STATUS "Using pre-compiled LIBDIR: ${LIBDIR}")
+		endif()
+		if(NOT EXISTS "${LIBDIR}/")
+			message(FATAL_ERROR "Windows requires pre-compiled libs at: '${LIBDIR}'")
 		endif()
 
 		# Add each of our libraries to our cmake_prefix_path so find_package() could work
@@ -1572,11 +1587,12 @@ elseif(WIN32)
 		endif()
 
 		if(WITH_OPENVDB)
+			set(BLOSC_LIBRARIES ${LIBDIR}/blosc/lib/libblosc.lib)
 			set(TBB_LIBRARIES ${LIBDIR}/tbb/lib/tbb.lib)
 			set(TBB_INCLUDE_DIR ${LIBDIR}/tbb/include)
 			set(OPENVDB ${LIBDIR}/openvdb)
 			set(OPENVDB_INCLUDE_DIRS ${OPENVDB}/include ${TBB_INCLUDE_DIR})
-			set(OPENVDB_LIBRARIES openvdb ${TBB_LIBRARIES})
+			set(OPENVDB_LIBRARIES openvdb ${TBB_LIBRARIES} ${BLOSC_LIBRARIES})
 			set(OPENVDB_LIBPATH ${LIBDIR}/openvdb/lib)
 		endif()
 
@@ -1635,18 +1651,25 @@ elseif(WIN32)
 			" 
 			WITH_MINGW64)
 		
-		if(WITH_MINGW64)
-			message(STATUS "Compiling for 64 bit with MinGW-w64.")
-			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/mingw64)
-		else()
-			message(STATUS "Compiling for 32 bit with MinGW-w32.")
-			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/mingw32)
-			
-			if(WITH_RAYOPTIMIZATION)
-				message(WARNING "MinGW-w32 is known to be unstable with 'WITH_RAYOPTIMIZATION' option enabled.")
+		if(NOT DEFINED LIBDIR)
+			if(WITH_MINGW64)
+				message(STATUS "Compiling for 64 bit with MinGW-w64.")
+				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/mingw64)
+			else()
+				message(STATUS "Compiling for 32 bit with MinGW-w32.")
+				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/mingw32)
+
+				if(WITH_RAYOPTIMIZATION)
+					message(WARNING "MinGW-w32 is known to be unstable with 'WITH_RAYOPTIMIZATION' option enabled.")
+				endif()
 			endif()
+		else()
+			message(STATUS "Using pre-compiled LIBDIR: ${LIBDIR}")
 		endif()
-		
+		if(NOT EXISTS "${LIBDIR}/")
+			message(FATAL_ERROR "Windows requires pre-compiled libs at: '${LIBDIR}'")
+		endif()
+
 		list(APPEND PLATFORM_LINKLIBS -lshell32 -lshfolder -lgdi32 -lmsvcrt -lwinmm -lmingw32 -lm -lws2_32 -lz -lstdc++ -lole32 -luuid -lwsock32 -lpsapi -ldbghelp)
 
 		if(WITH_INPUT_IME)
@@ -1921,16 +1944,22 @@ elseif(APPLE)
 		set(WITH_LIBS10.5 ON CACHE BOOL "Use 10.5 libs" FORCE) # valid also for 10.6/7/8/9
 	endif()
 
-	if(WITH_LIBS10.5)
-		set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-9.x.universal)
-	else()
-		if(CMAKE_OSX_ARCHITECTURES MATCHES i386)
-			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-8.x.i386)
+	if(NOT DEFINED LIBDIR)
+		if(WITH_LIBS10.5)
+			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-9.x.universal)
 		else()
-			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-8.0.0-powerpc)
+			if(CMAKE_OSX_ARCHITECTURES MATCHES i386)
+				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-8.x.i386)
+			else()
+				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-8.0.0-powerpc)
+			endif()
 		endif()
+	else()
+		message(STATUS "Using pre-compiled LIBDIR: ${LIBDIR}")
 	endif()
-
+	if(NOT EXISTS "${LIBDIR}/")
+		message(FATAL_ERROR "Mac OSX requires pre-compiled libs at: '${LIBDIR}'")
+	endif()
 
 	if(WITH_OPENAL)
 		find_package(OpenAL)
@@ -2280,12 +2309,6 @@ endif()
 
 #-----------------------------------------------------------------------------
 # Common.
-
-if(APPLE OR WIN32)
-	if(NOT EXISTS "${LIBDIR}/")
-		message(FATAL_ERROR "Apple and Windows require pre-compiled libs at: '${LIBDIR}'")
-	endif()
-endif()
 
 if(NOT WITH_FFTW3 AND WITH_MOD_OCEANSIM)
 	message(FATAL_ERROR "WITH_MOD_OCEANSIM requires WITH_FFTW3 to be ON")

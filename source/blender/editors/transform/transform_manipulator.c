@@ -1190,7 +1190,6 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 			case MAN_AXIS_ROT_Y:
 			case MAN_AXIS_ROT_Z:
 				WIDGET_dial_set_up_vector(axis, rv3d->twmat[aidx_norm]);
-				WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
 				break;
 			case MAN_AXIS_TRANS_XY:
 			case MAN_AXIS_TRANS_YZ:
