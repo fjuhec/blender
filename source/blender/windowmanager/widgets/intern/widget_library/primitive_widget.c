@@ -44,11 +44,15 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "WM_api.h"
+#include "WM_types.h"
+
 /* own includes */
 #include "WM_widget_types.h"
 #include "WM_widget_library.h"
 #include "wm_widget_wmapi.h"
 #include "wm_widget_intern.h"
+#include "widget_library_intern.h"
 
 
 /* PrimitiveWidget->flag */
@@ -132,6 +136,28 @@ static void widget_primitive_draw_intern(PrimitiveWidget *prim, const bool UNUSE
 	glDisable(GL_BLEND);
 
 	glPopMatrix();
+
+	if (prim->widget.interaction_data) {
+		WidgetInteraction *inter = prim->widget.interaction_data;
+
+		copy_v4_fl(col_inner, 0.5f);
+		copy_v3_fl(col_outer, 0.5f);
+		col_outer[3] = 0.8f;
+
+		copy_m4_m3(mat, rot);
+		copy_v3_v3(mat[3], inter->init_origin);
+		mul_mat3_m4_fl(mat, inter->init_scale);
+
+		glPushMatrix();
+		glMultMatrixf(mat);
+
+		glEnable(GL_BLEND);
+		glTranslate3fv(prim->widget.offset);
+		widget_primitive_draw_geom(col_inner, col_outer, prim->style);
+		glDisable(GL_BLEND);
+
+		glPopMatrix();
+	}
 }
 
 static void widget_primitive_render_3d_intersect(const bContext *UNUSED(C), wmWidget *widget, int selectionbase)
@@ -143,6 +169,18 @@ static void widget_primitive_render_3d_intersect(const bContext *UNUSED(C), wmWi
 static void widget_primitive_draw(const bContext *UNUSED(C), wmWidget *widget)
 {
 	widget_primitive_draw_intern((PrimitiveWidget *)widget, false, (widget->flag & WM_WIDGET_HIGHLIGHT));
+}
+
+static int widget_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmWidget *widget)
+{
+	WidgetInteraction *inter = MEM_callocN(sizeof(WidgetInteraction), __func__);
+
+	copy_v3_v3(inter->init_origin, widget->origin);
+	inter->init_scale = widget->scale;
+
+	widget->interaction_data = inter;
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 
@@ -157,9 +195,10 @@ wmWidget *WIDGET_primitive_new(wmWidgetGroup *wgroup, const char *name, const in
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
 	prim->widget.draw = widget_primitive_draw;
+	prim->widget.invoke = widget_primitive_invoke;
 	prim->widget.intersect = NULL;
 	prim->widget.render_3d_intersection = widget_primitive_render_3d_intersect;
-	prim->widget.flag |= WM_WIDGET_SCALE_3D;
+	prim->widget.flag |= (WM_WIDGET_DRAW_ACTIVE | WM_WIDGET_SCALE_3D);
 	prim->style = style;
 
 	/* defaults */
