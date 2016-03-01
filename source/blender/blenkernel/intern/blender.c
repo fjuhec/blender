@@ -515,14 +515,20 @@ static void read_file_update_assets(bContext *C)
 	ListBase *lb_array[MAX_LIBARRAY];
 	int i = set_listbasepointers(bmain, lb_array);
 
+	BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+
 	while (i--) {
 		for (ID *id = lb_array[i]->first; id; id = id->next) {
-			if (id->uuid && id->lib && (id->tag & LIB_TAG_EXTERN)) {
-				printf("We need to check for updated asset %s...\n", id->name);
+			if (id->tag & LIB_TAG_ASSET) {
+				BLI_assert(id->lib);
+				id->lib->id.tag | LIB_TAG_DOIT;
+				if (id->uuid) {
+					printf("We need to check for updated asset %s...\n", id->name);
+				}
+				else {
+					printf("We need to check for updated asset sub-data %s...\n", id->name);
+				}
 				id->tag |= LIB_TAG_DOIT;
-			}
-			else {
-				id->tag &= ~LIB_TAG_DOIT;
 			}
 		}
 	}
