@@ -456,31 +456,7 @@ static int wm_widget_find_highlighted_3D_intern(
 	view3d_winmatrix_set(ar, v3d, NULL);
 	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
 
-	if (hits == 1) {
-		return buffer[3];
-	}
-	/* find the widget the value belongs to */
-	else if (hits > 1) {
-		GLuint val, dep, mindep = 0, minval = -1;
-		int a;
-
-		/* we compare the hits in buffer, but value centers highest */
-		/* we also store the rotation hits separate (because of arcs) and return hits on other widgets if there are */
-
-		for (a = 0; a < hits; a++) {
-			dep = buffer[4 * a + 1];
-			val = buffer[4 * a + 3];
-
-			if (minval == -1 || dep < mindep) {
-				mindep = dep;
-				minval = val;
-			}
-		}
-
-		return minval;
-	}
-
-	return -1;
+	return hits > 0 ? buffer[3] : -1;
 }
 
 static void wm_prepare_visible_widgets_3D(wmWidgetMap *wmap, ListBase *visible_widgets, bContext *C)
