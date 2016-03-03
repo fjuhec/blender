@@ -1058,7 +1058,7 @@ static ManipulatorGroup *manipulatorgroup_init(
 
 	/* add/init widgets - order matters! */
 	if (init_rot) {
-		man->rotate_t = WIDGET_dial_new(wgroup, "rotate_c", WIDGET_DIAL_STYLE_RING_FILLED);
+		man->rotate_t = WIDGET_dial_new(wgroup, "rotate_t", WIDGET_DIAL_STYLE_RING_FILLED);
 	}
 	if (init_scale) {
 		man->scale_c = WIDGET_dial_new(wgroup, "scale_c", WIDGET_DIAL_STYLE_RING);
