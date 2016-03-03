@@ -32,12 +32,15 @@
 #include "BKE_context.h"
 
 #include "BLI_listbase.h"
+#include "BLI_math.h"
 #include "BLI_string.h"
 #include "BLI_ghash.h"
 
 #include "ED_screen.h"
+#include "ED_view3d.h"
 
 #include "GL/glew.h"
+#include "GPU_select.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -341,6 +344,114 @@ void WM_widgetmap_widgets_draw(
 	}
 }
 
+static void widget_find_active_3D_loop(const bContext *C, ListBase *visible_widgets)
+{
+	int selectionbase = 0;
+	wmWidget *widget;
+
+	for (LinkData *link = visible_widgets->first; link; link = link->next) {
+		widget = link->data;
+		/* pass the selection id shifted by 8 bits. Last 8 bits are used for selected widget part id */
+		widget->render_3d_intersection(C, widget, selectionbase << 8);
+
+		selectionbase++;
+	}
+}
+
+static int widget_find_highlighted_3D_intern(
+        ListBase *visible_widgets, const bContext *C, const wmEvent *event, const float hotspot)
+{
+	ScrArea *sa = CTX_wm_area(C);
+	ARegion *ar = CTX_wm_region(C);
+	View3D *v3d = sa->spacedata.first;
+	RegionView3D *rv3d = ar->regiondata;
+	rctf rect, selrect;
+	GLuint buffer[64];      // max 4 items per select, so large enuf
+	short hits;
+	const bool do_passes = GPU_select_query_check_active();
+
+	extern void view3d_winmatrix_set(ARegion *ar, View3D *v3d, rctf *rect);
+
+
+	rect.xmin = event->mval[0] - hotspot;
+	rect.xmax = event->mval[0] + hotspot;
+	rect.ymin = event->mval[1] - hotspot;
+	rect.ymax = event->mval[1] + hotspot;
+
+	selrect = rect;
+
+	view3d_winmatrix_set(ar, v3d, &rect);
+	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
+
+	if (do_passes)
+		GPU_select_begin(buffer, ARRAY_SIZE(buffer), &selrect, GPU_SELECT_NEAREST_FIRST_PASS, 0);
+	else
+		GPU_select_begin(buffer, ARRAY_SIZE(buffer), &selrect, GPU_SELECT_ALL, 0);
+	/* do the drawing */
+	widget_find_active_3D_loop(C, visible_widgets);
+
+	hits = GPU_select_end();
+
+	if (do_passes) {
+		GPU_select_begin(buffer, ARRAY_SIZE(buffer), &selrect, GPU_SELECT_NEAREST_SECOND_PASS, hits);
+		widget_find_active_3D_loop(C, visible_widgets);
+		GPU_select_end();
+	}
+
+	view3d_winmatrix_set(ar, v3d, NULL);
+	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
+
+	return hits > 0 ? buffer[3] : -1;
+}
+
+static void widgets_prepare_visible_3D(wmWidgetMap *wmap, ListBase *visible_widgets, bContext *C)
+{
+	wmWidget *widget;
+
+	for (wmWidgetGroup *wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup->next) {
+		if (!wgroup->type->poll || wgroup->type->poll(C, wgroup->type)) {
+			for (widget = wgroup->widgets.first; widget; widget = widget->next) {
+				if (widget->render_3d_intersection && (widget->flag & WM_WIDGET_HIDDEN) == 0) {
+					BLI_addhead(visible_widgets, BLI_genericNodeN(widget));
+				}
+			}
+		}
+	}
+}
+
+wmWidget *wm_widgetmap_find_highlighted_3D(wmWidgetMap *wmap, bContext *C, const wmEvent *event, unsigned char *part)
+{
+	wmWidget *result = NULL;
+	ListBase visible_widgets = {0};
+	const float hotspot = 14.0f;
+	int ret;
+
+	widgets_prepare_visible_3D(wmap, &visible_widgets, C);
+
+	*part = 0;
+	/* set up view matrices */
+	view3d_operator_needs_opengl(C);
+
+	ret = widget_find_highlighted_3D_intern(&visible_widgets, C, event, 0.5f * hotspot);
+
+	if (ret != -1) {
+		LinkData *link;
+		int retsec;
+		retsec = widget_find_highlighted_3D_intern(&visible_widgets, C, event, 0.2f * hotspot);
+
+		if (retsec != -1)
+			ret = retsec;
+
+		link = BLI_findlink(&visible_widgets, ret >> 8);
+		*part = ret & 255;
+		result = link->data;
+	}
+
+	BLI_freelistN(&visible_widgets);
+
+	return result;
+}
+
 void WM_widgetmaps_add_handlers(ARegion *ar)
 {
 	for (wmWidgetMap *wmap = ar->widgetmaps.first; wmap; wmap = wmap->next) {
@@ -525,7 +636,7 @@ void wm_widgetmap_handler_context(bContext *C, wmEventHandler *handler)
 }
 
 
-wmWidget *wm_widget_find_highlighted(wmWidgetMap *wmap, bContext *C, const wmEvent *event, unsigned char *part)
+wmWidget *wm_widgetmap_find_highlighted_widget(wmWidgetMap *wmap, bContext *C, const wmEvent *event, unsigned char *part)
 {
 	wmWidget *widget;
 

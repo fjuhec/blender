@@ -145,9 +145,9 @@ void wm_widgetmaps_handled_modal_update(
         const struct wmOperatorType *ot);
 void wm_widgetmap_handler_context(bContext *C, struct wmEventHandler *handler);
 
-wmWidget *wm_widget_find_highlighted_3D(struct wmWidgetMap *wmap, bContext *C,
+wmWidget *wm_widgetmap_find_highlighted_3D(struct wmWidgetMap *wmap, bContext *C,
                                         const struct wmEvent *event, unsigned char *part);
-wmWidget *wm_widget_find_highlighted(struct wmWidgetMap *wmap, bContext *C,
+wmWidget *wm_widgetmap_find_highlighted_widget(struct wmWidgetMap *wmap, bContext *C,
                                      const struct wmEvent *event, unsigned char *part);
 void      wm_widgetmap_set_highlighted_widget(struct wmWidgetMap *wmap, bContext *C,
                                               wmWidget *widget, unsigned char part);
