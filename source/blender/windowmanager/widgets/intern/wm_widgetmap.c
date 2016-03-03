@@ -293,6 +293,7 @@ void WM_widgetmap_widgets_draw(
 
 	wmWidget *widget = wmap->wmap_context.active_widget;
 
+	/* draw active widget */
 	if (widget && in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH)) {
 		if (widget->flag & WM_WIDGET_DRAW_ACTIVE) {
 			/* notice that we don't update the widgetgroup, widget is now on
@@ -300,21 +301,8 @@ void WM_widgetmap_widgets_draw(
 			widget->draw(C, widget);
 		}
 	}
-	else if (!BLI_listbase_is_empty(&wmap->widgetgroups)) {
-		GHashIterator gh_iter;
 
-		GHASH_ITER (gh_iter, draw_widgets) { /* draw_widgets excludes hidden widgets */
-			widget = BLI_ghashIterator_getValue(&gh_iter);
-			if ((in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH)) &&
-			    ((widget->flag & WM_WIDGET_SELECTED) == 0) && /* selected are drawn later */
-			    ((widget->flag & WM_WIDGET_DRAW_HOVER) == 0 || (widget->flag & WM_WIDGET_HIGHLIGHT)))
-			{
-				widget->draw(C, widget);
-			}
-		}
-	}
-
-	/* draw selected widgets last */
+	/* draw selected widgets */
 	if (wmap->wmap_context.selected_widgets) {
 		for (int i = 0; i < wmap->wmap_context.tot_selected; i++) {
 			widget = BLI_ghash_lookup(draw_widgets, wmap->wmap_context.selected_widgets[i]->idname);
@@ -325,6 +313,22 @@ void WM_widgetmap_widgets_draw(
 			}
 		}
 	}
+
+	/* draw other widgets */
+	if (!wmap->wmap_context.active_widget && !BLI_listbase_is_empty(&wmap->widgetgroups)) {
+		GHashIterator gh_iter;
+
+		GHASH_ITER (gh_iter, draw_widgets) { /* draw_widgets excludes hidden widgets */
+			widget = BLI_ghashIterator_getValue(&gh_iter);
+			if ((in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH)) &&
+			    ((widget->flag & WM_WIDGET_SELECTED) == 0) && /* selected were drawn already */
+			    ((widget->flag & WM_WIDGET_DRAW_HOVER) == 0 || (widget->flag & WM_WIDGET_HIGHLIGHT)))
+			{
+				widget->draw(C, widget);
+			}
+		}
+	}
+
 
 	if (draw_multisample)
 		glDisable(GL_MULTISAMPLE);
