@@ -58,7 +58,7 @@ void widget_draw_intern(WidgetDrawInfo *info, const bool select)
 {
 	GLuint buf[3];
 
-	const bool use_lighting = !select && ((U.tw_flag & V3D_SHADED_WIDGETS) != 0);
+	const bool use_lighting = !select && ((U.widget_flag & V3D_SHADED_WIDGETS) != 0);
 
 	if (use_lighting)
 		glGenBuffers(3, buf);
@@ -380,19 +380,19 @@ void wm_widget_calculate_scale(wmWidget *widget, const bContext *C)
 	float scale = 1.0f;
 
 	if (widget->flag & WM_WIDGET_SCALE_3D) {
-		if (rv3d && (U.tw_flag & V3D_3D_WIDGETS) == 0) {
+		if (rv3d && (U.widget_flag & V3D_3D_WIDGETS) == 0) {
 			if (widget->get_final_position) {
 				float position[3];
 
 				widget->get_final_position(widget, position);
-				scale = ED_view3d_pixel_size(rv3d, position) * (float)U.tw_size;
+				scale = ED_view3d_pixel_size(rv3d, position) * (float)U.widget_scale;
 			}
 			else {
-				scale = ED_view3d_pixel_size(rv3d, widget->origin) * (float)U.tw_size;
+				scale = ED_view3d_pixel_size(rv3d, widget->origin) * (float)U.widget_scale;
 			}
 		}
 		else {
-			scale = U.tw_size * 0.02f;
+			scale = U.widget_scale * 0.02f;
 		}
 	}
 

@@ -174,7 +174,7 @@ void WIDGETGROUP_manipulator2d_create(const bContext *C, wmWidgetGroup *wgroup)
 		WIDGET_arrow2d_set_line_len(axis, 0.8f);
 		WM_widget_set_offset(axis, offset);
 		WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
-		WM_widget_set_scale(axis, U.tw_size);
+		WM_widget_set_scale(axis, U.widget_scale);
 		WM_widget_set_origin(axis, origin);
 		WM_widget_set_colors(axis, col, col_hi);
 

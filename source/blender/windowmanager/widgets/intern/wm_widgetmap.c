@@ -263,7 +263,7 @@ void WM_widgetmap_widgets_draw(
         const bool in_scene, const bool free_drawwidgets)
 {
 	const bool draw_multisample = (U.ogl_multisamples != USER_MULTISAMPLE_NONE);
-	const bool use_lighting = (U.tw_flag & V3D_SHADED_WIDGETS) != 0;
+	const bool use_lighting = (U.widget_flag & V3D_SHADED_WIDGETS) != 0;
 
 	if (!wmap)
 		return;

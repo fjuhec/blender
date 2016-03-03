@@ -166,7 +166,7 @@ static void arrow_draw_geom(const ArrowWidget *arrow, const bool select)
 		else {
 			const float len = 0.25f;
 			const float width = 0.06f;
-			const bool use_lighting = select == false && ((U.tw_flag & V3D_SHADED_WIDGETS) != 0);
+			const bool use_lighting = select == false && ((U.widget_flag & V3D_SHADED_WIDGETS) != 0);
 
 			/* translate to line end */
 			glTranslatef(0.0f, 0.0f, arrow->len);

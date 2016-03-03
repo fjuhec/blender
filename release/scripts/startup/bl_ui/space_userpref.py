@@ -217,9 +217,9 @@ class USERPREF_PT_interface(Panel):
         #col.prop(view, "open_right_mouse_delay", text="Hold RMB")
 
         col.label(text="Widgets:")
-        col.prop(view, "manipulator_size")
-        col.prop(view, "shaded_widgets")
-        col.prop(view, "widgets_3d")
+        col.prop(view, "widget_scale")
+        col.prop(view, "widget_world_space")
+        col.prop(view, "widget_shaded")
 
         col.separator()
         col.separator()

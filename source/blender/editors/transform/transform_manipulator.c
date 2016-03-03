@@ -1010,7 +1010,7 @@ static void manipulator_prepare_mat(const bContext *C, View3D *v3d, RegionView3D
 			break;
 	}
 
-	mul_mat3_m4_fl(rv3d->twmat, ED_view3d_pixel_size(rv3d, rv3d->twmat[3]) * U.tw_size);
+	mul_mat3_m4_fl(rv3d->twmat, ED_view3d_pixel_size(rv3d, rv3d->twmat[3]) * U.widget_scale);
 }
 
 /**
