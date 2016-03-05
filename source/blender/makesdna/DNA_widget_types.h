@@ -53,6 +53,7 @@ typedef struct wmWidgetGroup {
 	void *py_instance;            /* python stores the class instance here */
 	struct ReportList *reports;   /* errors and warnings storage */
 
+	void *customdata;
 	int flag;
 	int pad;
 } wmWidgetGroup;

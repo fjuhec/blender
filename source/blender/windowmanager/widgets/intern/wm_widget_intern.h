@@ -73,6 +73,8 @@ enum {
 	TWEAK_MODAL_PRECISION_OFF,
 };
 
+void wm_widgetgroup_free(bContext *C, struct wmWidgetMap *wmap, struct wmWidgetGroup *wgroup);
+
 void wm_widgetgrouptype_keymap_init(struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *keyconf);
 
 
@@ -94,6 +96,10 @@ typedef struct wmWidgetMapType {
 	/* types of widgetgroups for this widgetmap type */
 	ListBase widgetgrouptypes;
 } wmWidgetMapType;
+
+enum eWidgetMapRedrawFlags {
+	WIDGETMAP_RECREATE = (1 << 0),
+};
 
 
 /* -------------------------------------------------------------------- */

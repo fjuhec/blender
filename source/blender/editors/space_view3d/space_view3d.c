@@ -767,10 +767,11 @@ static void view3d_widgets(void)
 	        WIDGETGROUP_camera_create,
 	        WM_widgetgroup_keymap_common,
 	        "Camera Widgets");
-	WM_widgetgrouptype_register_ptr(
+	WM_widgetgrouptype_register_ptr_update(
 	        NULL, wmaptype,
 	        WIDGETGROUP_manipulator_poll,
 	        WIDGETGROUP_manipulator_create,
+	        WIDGETGROUP_manipulator_update,
 	        WM_widgetgroup_keymap_common,
 	        "Manipulator Widgets");
 }
@@ -865,7 +866,10 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 {
 	Scene *scene = sc->scene;
 	View3D *v3d = sa->spacedata.first;
-	
+	RegionView3D *rv3d = ar->regiondata;
+	wmWidgetMap *wmap = WM_widgetmap_find(ar, &(const struct wmWidgetMapType_Params) {
+	        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_WIDGETMAPTYPE_3D});
+
 	/* context changes */
 	switch (wmn->category) {
 		case NC_ANIMATION:
@@ -891,6 +895,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 					if (wmn->reference)
 						view3d_recalc_used_layers(ar, wmn, wmn->reference);
 					ED_region_tag_redraw(ar);
+					WM_widgetmap_tag_recreate(wmap);
 					break;
 				case ND_FRAME:
 				case ND_TRANSFORM:
@@ -902,6 +907,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_MARKERS:
 				case ND_MODE:
 					ED_region_tag_redraw(ar);
+					WM_widgetmap_tag_recreate(wmap);
 					break;
 				case ND_WORLD:
 					/* handled by space_view3d_listener() for v3d access */
@@ -909,7 +915,6 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_DRAW_RENDER_VIEWPORT:
 				{
 					if (v3d->camera && (scene == wmn->reference)) {
-						RegionView3D *rv3d = ar->regiondata;
 						if (rv3d->persp == RV3D_CAMOB) {
 							ED_region_tag_redraw(ar);
 						}
@@ -933,6 +938,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_PARTICLE:
 				case ND_LOD:
 					ED_region_tag_redraw(ar);
+					WM_widgetmap_tag_recreate(wmap);
 					break;
 			}
 			switch (wmn->action) {
@@ -960,7 +966,6 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_DRAW_RENDER_VIEWPORT:
 				{
 					if (v3d->camera && (v3d->camera->data == wmn->reference)) {
-						RegionView3D *rv3d = ar->regiondata;
 						if (rv3d->persp == RV3D_CAMOB) {
 							ED_region_tag_redraw(ar);
 						}
@@ -1048,10 +1053,10 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 		case NC_SPACE:
 			if (wmn->data == ND_SPACE_VIEW3D) {
 				if (wmn->subtype == NS_VIEW3D_GPU) {
-					RegionView3D *rv3d = ar->regiondata;
 					rv3d->rflag |= RV3D_GPULIGHT_UPDATE;
 				}
 				ED_region_tag_redraw(ar);
+				WM_widgetmap_tag_recreate(wmap);
 			}
 			break;
 		case NC_ID:

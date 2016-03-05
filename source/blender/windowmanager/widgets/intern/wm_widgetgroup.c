@@ -61,7 +61,7 @@
  *
  * \{ */
 
-static void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
+void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
 {
 	for (wmWidget *widget = wgroup->widgets.first; widget;) {
 		wmWidget *widget_next = widget->next;
@@ -87,6 +87,8 @@ static void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *w
 		BKE_reports_clear(wgroup->reports);
 		MEM_freeN(wgroup->reports);
 	}
+
+	MEM_SAFE_FREE(wgroup->customdata);
 
 	BLI_remlink(&wmap->widgetgroups, wgroup);
 	MEM_freeN(wgroup);
@@ -404,7 +406,6 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
-
 	wmWidgetGroupType *wgrouptype = MEM_callocN(sizeof(wmWidgetGroupType), "widgetgroup");
 
 	wgrouptype->poll = poll;
@@ -424,6 +425,21 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 	if (bmain) {
 		WM_widgetgrouptype_init_runtime(bmain, wmaptype, wgrouptype);
 	}
+
+	return wgrouptype;
+}
+
+/* XXX tmp */
+wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
+        const Main *bmain, wmWidgetMapType *wmaptype,
+        int (*poll)(const bContext *C, wmWidgetGroupType *),
+        void (*create)(const bContext *, wmWidgetGroup *),
+        void (*update)(const bContext *, wmWidgetGroup *),
+        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
+        const char *name)
+{
+	wmWidgetGroupType *wgrouptype = WM_widgetgrouptype_register_ptr(bmain, wmaptype, poll, create, keymap_init, name);
+	wgrouptype->update = update;
 
 	return wgrouptype;
 }

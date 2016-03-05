@@ -456,7 +456,7 @@ static void protectflag_to_drawflags(short protectflag, short *drawflags)
 }
 
 /* for pose mode */
-static void stats_pose(Scene *scene, Object *ob, RegionView3D *rv3d, bPoseChannel *pchan)
+static void stats_pose(Scene *scene, Object *ob, bPoseChannel *pchan)
 {
 	Bone *bone = pchan->bone;
 
@@ -465,15 +465,7 @@ static void stats_pose(Scene *scene, Object *ob, RegionView3D *rv3d, bPoseChanne
 		BKE_pose_where_is(scene, ob);
 
 		calc_tw_center(scene, pchan->pose_head);
-		protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
 	}
-}
-
-/* for editmode*/
-static void stats_editbone(RegionView3D *rv3d, const EditBone *ebo)
-{
-	if (ebo->flag & BONE_EDITMODE_LOCKED)
-		protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
 }
 
 /* could move into BLI_math however this is only useful for display/editing purposes */
@@ -597,8 +589,6 @@ static int calc_manipulator_stats(const bContext *C)
 	/* transform widget matrix */
 	unit_m4(rv3d->twmat);
 
-	rv3d->twdrawflag = 0xFFFF;
-
 	/* transform widget centroid/center */
 	INIT_MINMAX(scene->twmin, scene->twmax);
 	zero_v3(scene->twcent);
@@ -674,7 +664,6 @@ static int calc_manipulator_stats(const bContext *C)
 					calc_tw_center(scene, ebo->head);
 					totsel++;
 				}
-				stats_editbone(rv3d, ebo);
 			}
 			else {
 				for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
@@ -686,9 +675,6 @@ static int calc_manipulator_stats(const bContext *C)
 						if (ebo->flag & BONE_ROOTSEL) {
 							calc_tw_center(scene, ebo->head);
 							totsel++;
-						}
-						if (ebo->flag & BONE_SELECTED) {
-							stats_editbone(rv3d, ebo);
 						}
 					}
 				}
@@ -814,7 +800,7 @@ static int calc_manipulator_stats(const bContext *C)
 			/* doesn't check selection or visibility intentionally */
 			Bone *bone = pchan->bone;
 			if (bone) {
-				stats_pose(scene, ob, rv3d, pchan);
+				stats_pose(scene, ob, pchan);
 				totsel = 1;
 				ok = true;
 			}
@@ -827,7 +813,7 @@ static int calc_manipulator_stats(const bContext *C)
 				for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 					Bone *bone = pchan->bone;
 					if (bone && (bone->flag & BONE_TRANSFORM)) {
-						stats_pose(scene, ob, rv3d, pchan);
+						stats_pose(scene, ob, pchan);
 					}
 				}
 				ok = true;
@@ -880,7 +866,6 @@ static int calc_manipulator_stats(const bContext *C)
 					ob = base->object;
 
 				calc_tw_center(scene, base->object->loc);
-				protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
 				totsel++;
 			}
 		}
@@ -956,9 +941,65 @@ static int calc_manipulator_stats(const bContext *C)
 	return totsel;
 }
 
-/* don't draw axis perpendicular to the view */
-static void manipulator_drawflags_refresh(RegionView3D *rv3d)
+static void drawflags_posemode(Object *ob, View3D *v3d, RegionView3D *rv3d)
 {
+	bPoseChannel *pchan;
+
+	if ((ob->lay & v3d->lay) == 0)
+		return;
+
+	if ((v3d->around == V3D_AROUND_ACTIVE) && (pchan = BKE_pose_channel_active(ob))) {
+		if (pchan->bone)
+			protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
+	}
+	else {
+		int mode = TFM_ROTATION;
+		int totsel = count_set_pose_transflags(&mode, 0, ob);
+
+		if (totsel) {
+			/* use channels to get stats */
+			for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+				Bone *bone = pchan->bone;
+				if (bone && (bone->flag & BONE_TRANSFORM)) {
+					protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
+				}
+			}
+		}
+	}
+}
+
+static void drawflags_editmode(Object *obedit, View3D *v3d, RegionView3D *rv3d)
+{
+	if ((obedit->lay & v3d->lay) == 0)
+		return;
+
+	if (obedit->type == OB_ARMATURE) {
+		const bArmature *arm = obedit->data;
+		EditBone *ebo;
+		if ((v3d->around == V3D_AROUND_ACTIVE) && (ebo = arm->act_edbone)) {
+			if (ebo->flag & BONE_EDITMODE_LOCKED)
+				protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
+		}
+		else {
+			for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
+				if (EBONE_VISIBLE(arm, ebo)) {
+					if (ebo->flag & BONE_SELECTED) {
+						if (ebo->flag & BONE_EDITMODE_LOCKED)
+							protectflag_to_drawflags(OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE, &rv3d->twdrawflag);
+					}
+				}
+			}
+		}
+	}
+}
+
+/* don't draw axis perpendicular to the view */
+static void manipulator_drawflags_refresh(const bContext *C, View3D *v3d, RegionView3D *rv3d)
+{
+	Scene *scene = CTX_data_scene(C);
+	Object *ob = OBACT, *obedit = CTX_data_edit_object(C);
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
 	float view_vec[3], axis_vec[3];
 	float idot;
 	int i;
@@ -967,6 +1008,29 @@ static void manipulator_drawflags_refresh(RegionView3D *rv3d)
 	    (MAN_TRANS_X | MAN_SCALE_X),
 	    (MAN_TRANS_Y | MAN_SCALE_Y),
 	    (MAN_TRANS_Z | MAN_SCALE_Z)};
+
+	/* all enabled */
+	rv3d->twdrawflag = 0xFFFF;
+
+	if (is_gp_edit) {
+		/* pass */
+	}
+	else if (obedit) {
+		drawflags_editmode(obedit, v3d, rv3d);
+	}
+	else if (ob && (ob->mode & OB_MODE_POSE)) {
+		drawflags_posemode(ob, v3d, rv3d);
+	}
+	else if (ob && (ob->mode & OB_MODE_ALL_PAINT || ob->mode & OB_MODE_PARTICLE_EDIT)) {
+		/* pass */
+	}
+	else {
+		for (Base *base = scene->base.first; base; base = base->next) {
+			if (TESTBASELIB(v3d, base)) {
+				protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
+			}
+		}
+	}
 
 	ED_view3d_global_to_vector(rv3d, rv3d->twmat[3], view_vec);
 
@@ -1109,7 +1173,7 @@ static int manipulator_handler(bContext *C, const wmEvent *UNUSED(event), wmWidg
 	return OPERATOR_PASS_THROUGH;
 }
 
-void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGroup *wgroup)
+void WIDGETGROUP_manipulator_create(const bContext *C, wmWidgetGroup *wgroup)
 {
 	const ScrArea *sa = CTX_wm_area(C);
 	const ARegion *ar = CTX_wm_region(C);
@@ -1127,20 +1191,8 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 
 
 	manipulator_prepare_mat(C, v3d, rv3d);
-	manipulator_drawflags_refresh(rv3d);
-
-	/* when looking through a selected camera, the manipulator can be at the
-	 * exact same position as the view, skip so we don't break selection */
-	if (fabsf(mat4_to_scale(rv3d->twmat)) < 1e-7f) {
-		MAN_ITER_AXES_BEGIN(axis, axis_idx)
-		{
-			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, true);
-		}
-		MAN_ITER_AXES_END;
-
-		MEM_freeN(man);
-		return;
-	}
+	wgroup->customdata = man;
+	manipulator_drawflags_refresh(C, v3d, rv3d);
 
 
 	/* *** set properties for axes *** */
@@ -1150,20 +1202,11 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 		const short axis_type = manipulator_get_axis_type(man, axis);
 		const int aidx_norm = manipulator_index_normalize(axis_idx);
 		int constraint_axis[3] = {1, 0, 0};
-
 		PointerRNA *ptr;
-		float col[4], col_hi[4];
 
-		if (manipulator_is_axis_visible(v3d, rv3d, axis_idx) == false) {
-			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, true);
-			continue;
-		}
-
-		manipulator_get_axis_color(rv3d, axis_idx, col, col_hi);
 		manipulator_get_axis_constraint(axis_idx, constraint_axis);
 
 		WM_widget_set_origin(axis, rv3d->twmat[3]);
-		WM_widget_set_colors(axis, col, col_hi);
 		/* custom handler! */
 		axis->handler = manipulator_handler;
 
@@ -1210,7 +1253,6 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 				WIDGET_primitive_set_direction(axis, rv3d->twmat[aidx_norm - 1 < 0 ? 2 : aidx_norm - 1]);
 				WIDGET_primitive_set_up_vector(axis, rv3d->twmat[aidx_norm + 1 > 2 ? 0 : aidx_norm + 1]);
 				WM_widget_set_scale(axis, 0.07f);
-				WM_widget_set_origin(axis, rv3d->twmat[3]);
 				WM_widget_set_offset(axis, ofs);
 				break;
 			}
@@ -1218,7 +1260,6 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 			case MAN_AXIS_ROT_C:
 			case MAN_AXIS_SCALE_C:
 			case MAN_AXIS_ROT_T:
-				WIDGET_dial_set_up_vector(axis, rv3d->viewinv[2]);
 				WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
 				if (axis_idx == MAN_AXIS_ROT_T) {
 					WM_widget_set_flag(axis, WM_WIDGET_DRAW_HOVER, true);
@@ -1247,8 +1288,57 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 		RNA_boolean_set(ptr, "release_confirm", 1);
 	}
 	MAN_ITER_AXES_END;
+}
 
-	MEM_freeN(man);
+void WIDGETGROUP_manipulator_update(const bContext *C, wmWidgetGroup *wgroup)
+{
+	ManipulatorGroup *man = wgroup->customdata;
+	if (!man)
+		return;
+
+	ScrArea *sa = CTX_wm_area(C);
+	ARegion *ar = CTX_wm_region(C);
+	View3D *v3d = sa->spacedata.first;
+	RegionView3D *rv3d = ar->regiondata;
+
+	/* when looking through a selected camera, the manipulator can be at the
+	 * exact same position as the view, skip so we don't break selection */
+	if (fabsf(mat4_to_scale(rv3d->twmat)) < 1e-7f) {
+		MAN_ITER_AXES_BEGIN(axis, axis_idx)
+		{
+			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, true);
+		}
+		MAN_ITER_AXES_END;
+		return;
+	}
+	manipulator_drawflags_refresh(C, v3d, rv3d);
+
+	/* *** set properties for axes *** */
+
+	MAN_ITER_AXES_BEGIN(axis, axis_idx)
+	{
+		if (manipulator_is_axis_visible(v3d, rv3d, axis_idx)) {
+			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, false);
+		}
+		else {
+			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, true);
+			continue;
+		}
+
+		float col[4], col_hi[4];
+		manipulator_get_axis_color(rv3d, axis_idx, col, col_hi);
+		WM_widget_set_colors(axis, col, col_hi);
+
+		switch (axis_idx) {
+			case MAN_AXIS_TRANS_C:
+			case MAN_AXIS_ROT_C:
+			case MAN_AXIS_SCALE_C:
+			case MAN_AXIS_ROT_T:
+				WIDGET_dial_set_up_vector(axis, rv3d->viewinv[2]);
+				break;
+		}
+	}
+	MAN_ITER_AXES_END;
 }
 
 int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *UNUSED(wgrouptype))

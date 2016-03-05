@@ -810,7 +810,7 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 	}
 
 	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
+	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false);
 
 	draw_image_cache(C, ar);
 

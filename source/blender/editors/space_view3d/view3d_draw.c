@@ -3894,7 +3894,7 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 	 * it might be better to have 2 update calls, too */
 	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
 	/* draw depth culled widgets */
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, true, false);
+	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, true);
 
 	/* post process */
 	if (do_compositing) {
@@ -4066,7 +4066,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	if (update_widgets) {
 		WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
 	}
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
+	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false);
 
 	ED_region_pixelspace(ar);
 	

@@ -162,6 +162,7 @@ void Transform_Properties(struct wmOperatorType *ot, int flags);
 
 int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
 void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_manipulator_update(const struct bContext *C, struct wmWidgetGroup *wgroup);
 
 void WIDGETGROUP_object_manipulator_create(const struct bContext *C, struct wmWidgetGroup *wgroup);
 int WIDGETGROUP_object_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
