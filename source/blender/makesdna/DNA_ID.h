@@ -118,7 +118,25 @@ typedef struct AssetUUID {
 	int uuid_asset[4];
 	int uuid_variant[4];
 	int uuid_revision[4];
+	short flag;  /* Saved. */
+	short tag;   /* Runtime. */
+	int pad_i1;
 } AssetUUID;
+
+/**
+ * uuid->flag (persitent, saved in .blend files).
+ */
+enum {
+	UUID_FLAG_LAST_REVISION  = 1 << 0,  /* This asset should always use latest available revision. */
+};
+
+/**
+ * uuid->tag (runtime only).
+ */
+enum {
+	UUID_TAG_ENGINE_MISSING = 1 << 0,  /* The asset engine used for this asset is not known by Blender. */
+	UUID_TAG_ASSET_MISSING  = 1 << 1,  /* The asset engine was found but does not know about this asset (anymore). */
+};
 
 typedef struct AssetUUIDList {
 	AssetUUID *uuids;
