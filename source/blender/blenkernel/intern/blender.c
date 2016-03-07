@@ -515,20 +515,20 @@ static void read_file_update_assets(bContext *C)
 	ListBase *lb_array[MAX_LIBARRAY];
 	int i = set_listbasepointers(bmain, lb_array);
 
-	BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
+		if (lib->asset_repository) {
+			printf("Handling lib file %s (engine %s, %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
+			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
+				for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
+					ID *id = ld->data;
 
-	while (i--) {
-		for (ID *id = lb_array[i]->first; id; id = id->next) {
-			if (id->tag & LIB_TAG_ASSET) {
-				BLI_assert(id->lib);
-				id->lib->id.tag | LIB_TAG_DOIT;
-				if (id->uuid) {
-					printf("We need to check for updated asset %s...\n", id->name);
+					if (id->uuid) {
+						printf("\tWe need to check for updated asset %s...\n", id->name);
+					}
+					else {
+						printf("\t\tWe need to check for updated asset sub-data %s...\n", id->name);
+					}
 				}
-				else {
-					printf("We need to check for updated asset sub-data %s...\n", id->name);
-				}
-				id->tag |= LIB_TAG_DOIT;
 			}
 		}
 	}
