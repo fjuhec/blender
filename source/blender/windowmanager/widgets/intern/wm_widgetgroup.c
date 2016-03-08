@@ -61,7 +61,7 @@
  *
  * \{ */
 
-static void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
+void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
 {
 	for (wmWidget *widget = wgroup->widgets.first; widget;) {
 		wmWidget *widget_next = widget->next;
@@ -74,6 +74,7 @@ static void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *w
 		wm_widget_delete(&wgroup->widgets, widget);
 		widget = widget_next;
 	}
+	BLI_assert(BLI_listbase_is_empty(&wgroup->widgets));
 
 #ifdef WITH_PYTHON
 	if (wgroup->py_instance) {
