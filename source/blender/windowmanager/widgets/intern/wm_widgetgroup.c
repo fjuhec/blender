@@ -402,14 +402,14 @@ wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmWidgetGroupType *wgrou
 wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const Main *bmain, wmWidgetMapType *wmaptype,
         int (*poll)(const bContext *C, wmWidgetGroupType *),
-        void (*create)(const bContext *, wmWidgetGroup *),
+        void (*init)(const bContext *, wmWidgetGroup *),
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
 	wmWidgetGroupType *wgrouptype = MEM_callocN(sizeof(wmWidgetGroupType), "widgetgroup");
 
 	wgrouptype->poll = poll;
-	wgrouptype->create = create;
+	wgrouptype->init = init;
 	wgrouptype->keymap_init = keymap_init;
 	wgrouptype->spaceid = wmaptype->spaceid;
 	wgrouptype->regionid = wmaptype->regionid;
@@ -432,14 +432,16 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 /* XXX tmp */
 wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
         const Main *bmain, wmWidgetMapType *wmaptype,
-        int (*poll)(const bContext *C, wmWidgetGroupType *),
-        void (*create)(const bContext *, wmWidgetGroup *),
-        void (*update)(const bContext *, wmWidgetGroup *),
+        int (*poll)(const bContext *, wmWidgetGroupType *),
+        void (*init)(const bContext *, wmWidgetGroup *),
+        void (*refresh)(const bContext *, wmWidgetGroup *),
+        void (*draw_prepare)(const bContext *, wmWidgetGroup *),
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
-	wmWidgetGroupType *wgrouptype = WM_widgetgrouptype_register_ptr(bmain, wmaptype, poll, create, keymap_init, name);
-	wgrouptype->update = update;
+	wmWidgetGroupType *wgrouptype = WM_widgetgrouptype_register_ptr(bmain, wmaptype, poll, init, keymap_init, name);
+	wgrouptype->refresh = refresh;
+	wgrouptype->draw_prepare = draw_prepare;
 
 	return wgrouptype;
 }
@@ -447,7 +449,7 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
 wmWidgetGroupType *WM_widgetgrouptype_register(
         const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
         int (*poll)(const bContext *C, wmWidgetGroupType *),
-        void (*create)(const bContext *, wmWidgetGroup *),
+        void (*init)(const bContext *, wmWidgetGroup *),
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
@@ -460,7 +462,7 @@ wmWidgetGroupType *WM_widgetgrouptype_register(
 
 	return WM_widgetgrouptype_register_ptr(
 	        bmain, wmaptype,
-	        poll, create, keymap_init,
+	        poll, init, keymap_init,
 	        name);
 }
 

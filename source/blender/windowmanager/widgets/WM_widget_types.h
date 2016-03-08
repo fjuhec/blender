@@ -50,17 +50,18 @@ typedef struct wmWidgetGroupType {
 	char name[64]; /* widget group name - displayed in UI (keymap editor) */
 
 	/* poll if widgetmap should be active */
+	/* TODO use bool */
 	int (*poll)(const struct bContext *C, struct wmWidgetGroupType *wgrouptype) ATTR_WARN_UNUSED_RESULT;
 
-	/* create widgets, only called if recreate flag is set (WM_widgetmap_tag_redraw) */
-	void (*create)(const struct bContext *C, struct wmWidgetGroup *wgroup);
-
-	/* update widgets, called each time before drawing */
-	void (*update)(const struct bContext *C, struct wmWidgetGroup *wgroup);
+	/* initially create widgets, set permanent data stuff you only need to do once */
+	void (*init)(const struct bContext *C, struct wmWidgetGroup *wgroup);
+	/* refresh data, only called if recreate flag is set (WM_widgetmap_tag_refresh) */
+	void (*refresh)(const struct bContext *C, struct wmWidgetGroup *wgroup);
+	/* refresh data for drawing, called before each redraw */
+	void (*draw_prepare)(const struct bContext *C, struct wmWidgetGroup *wgroup);
 
 	/* keymap init callback for this widgetgroup */
 	struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *);
-
 	/* keymap created with callback from above */
 	struct wmKeyMap *keymap;
 
@@ -88,7 +89,7 @@ typedef struct wmWidgetMap {
 	struct wmWidgetMapType *type;
 	ListBase widgetgroups;
 
-	short refresh_flag; /* private, update tagging */
+	short update_flag; /* private, update tagging */
 
 	/**
 	 * \brief Widget map runtime context

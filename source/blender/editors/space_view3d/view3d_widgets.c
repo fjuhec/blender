@@ -61,7 +61,7 @@ int WIDGETGROUP_lamp_poll(const struct bContext *C, struct wmWidgetGroupType *UN
 	return false;
 }
 
-void WIDGETGROUP_lamp_create(const struct bContext *C, struct wmWidgetGroup *wgroup)
+void WIDGETGROUP_lamp_init(const struct bContext *C, struct wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	Lamp *la = ob->data;
@@ -93,7 +93,7 @@ int WIDGETGROUP_camera_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgroupt
 	return (ob && ob->type == OB_CAMERA);
 }
 
-void WIDGETGROUP_camera_create(const bContext *C, wmWidgetGroup *wgroup)
+void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	Camera *ca = ob->data;
@@ -185,7 +185,7 @@ int WIDGETGROUP_forcefield_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgr
 	return (ob && ob->pd && ob->pd->forcefield);
 }
 
-void WIDGETGROUP_forcefield_create(const bContext *C, wmWidgetGroup *wgroup)
+void WIDGETGROUP_forcefield_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	PartDeflect *pd = ob->pd;
@@ -272,7 +272,7 @@ static void WIDGET_armature_facemaps_select(bContext *C, wmWidget *widget, const
 	}
 }
 
-void WIDGETGROUP_armature_facemaps_create(const bContext *C, wmWidgetGroup *wgroup)
+void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	bArmature *arm = (bArmature *)ob->data;

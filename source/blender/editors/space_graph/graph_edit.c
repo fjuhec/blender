@@ -2613,7 +2613,7 @@ static int graph_widget_backdrop_transform_poll(bContext *C)
 	        (sipo->backdrop_camera));
 }
 
-static void widgetgroup_backdrop_create(const struct bContext *C, struct wmWidgetGroup *wgroup)
+static void widgetgroup_backdrop_init(const struct bContext *C, struct wmWidgetGroup *wgroup)
 {
 	ARegion *ar = CTX_wm_region(C);
 	wmOperator *op = wgroup->type->op;
@@ -2641,7 +2641,7 @@ static wmWidgetGroupType *graph_widget_backdrop_transform_widgets(void)
 	return WM_widgetgrouptype_register(
 	            NULL,
 	            &(const struct wmWidgetMapType_Params) {"Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0},
-	            NULL, widgetgroup_backdrop_create,
+	            NULL, widgetgroup_backdrop_init,
 	            WM_widgetgroup_keymap_common,
 	            "Backdrop Transform Widgets");
 }

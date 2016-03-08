@@ -746,32 +746,33 @@ static void view3d_widgets(void)
 	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_armature_facemaps_poll,
-	        WIDGETGROUP_armature_facemaps_create,
+	        WIDGETGROUP_armature_facemaps_init,
 	        WM_widgetgroup_keymap_common_sel,
 	        "Face Map Widgets");
 	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_lamp_poll,
-	        WIDGETGROUP_lamp_create,
+	        WIDGETGROUP_lamp_init,
 	        WM_widgetgroup_keymap_common,
 	        "Lamp Widgets");
 	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_forcefield_poll,
-	        WIDGETGROUP_forcefield_create,
+	        WIDGETGROUP_forcefield_init,
 	        WM_widgetgroup_keymap_common,
 	        "Force Field Widgets");
 	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_camera_poll,
-	        WIDGETGROUP_camera_create,
+	        WIDGETGROUP_camera_init,
 	        WM_widgetgroup_keymap_common,
 	        "Camera Widgets");
 	WM_widgetgrouptype_register_ptr_update(
 	        NULL, wmaptype,
 	        WIDGETGROUP_manipulator_poll,
-	        WIDGETGROUP_manipulator_create,
-	        WIDGETGROUP_manipulator_update,
+	        WIDGETGROUP_manipulator_init,
+	        WIDGETGROUP_manipulator_refresh,
+	        WIDGETGROUP_manipulator_draw_prepare,
 	        WM_widgetgroup_keymap_common,
 	        "Manipulator Widgets");
 }
@@ -895,7 +896,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 					if (wmn->reference)
 						view3d_recalc_used_layers(ar, wmn, wmn->reference);
 					ED_region_tag_redraw(ar);
-					WM_widgetmap_tag_recreate(wmap);
+					WM_widgetmap_tag_refresh(wmap);
 					break;
 				case ND_FRAME:
 				case ND_TRANSFORM:
@@ -907,7 +908,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_MARKERS:
 				case ND_MODE:
 					ED_region_tag_redraw(ar);
-					WM_widgetmap_tag_recreate(wmap);
+					WM_widgetmap_tag_refresh(wmap);
 					break;
 				case ND_WORLD:
 					/* handled by space_view3d_listener() for v3d access */
@@ -938,7 +939,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_PARTICLE:
 				case ND_LOD:
 					ED_region_tag_redraw(ar);
-					WM_widgetmap_tag_recreate(wmap);
+					WM_widgetmap_tag_refresh(wmap);
 					break;
 			}
 			switch (wmn->action) {
@@ -1056,7 +1057,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 					rv3d->rflag |= RV3D_GPULIGHT_UPDATE;
 				}
 				ED_region_tag_redraw(ar);
-				WM_widgetmap_tag_recreate(wmap);
+				WM_widgetmap_tag_refresh(wmap);
 			}
 			break;
 		case NC_ID:

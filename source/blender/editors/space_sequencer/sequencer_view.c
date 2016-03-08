@@ -265,7 +265,7 @@ static int sequencer_overdrop_transform_poll(bContext *C)
 	return (sseq && ar && ar->type->regionid == RGN_TYPE_WINDOW && (sseq->draw_flag & SEQ_DRAW_OVERDROP));
 }
 
-static void widgetgroup_overdrop_create(const struct bContext *C, struct wmWidgetGroup *wgroup)
+static void widgetgroup_overdrop_init(const struct bContext *C, struct wmWidgetGroup *wgroup)
 {
 	ARegion *ar = CTX_wm_region(C);
 	wmOperator *op = wgroup->type->op;
@@ -293,7 +293,7 @@ static wmWidgetGroupType *sequencer_overdrop_widgets(void)
 	return WM_widgetgrouptype_register(
 	        NULL,
 	        &(const struct wmWidgetMapType_Params) {"Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0},
-	        NULL, widgetgroup_overdrop_create,
+	        NULL, widgetgroup_overdrop_init,
 	        WM_widgetgroup_keymap_common,
 	        "Backdrop Transform Widgets");
 }
@@ -432,7 +432,7 @@ static int sequencer_image_transform_widget_poll(bContext *C)
 	return (sseq && ar && ar->type->regionid == RGN_TYPE_PREVIEW);
 }
 
-static void widgetgroup_image_transform_create(const struct bContext *C, struct wmWidgetGroup *wgroup)
+static void widgetgroup_image_transform_init(const struct bContext *C, struct wmWidgetGroup *wgroup)
 {
 	ARegion *ar = CTX_wm_region(C);
 	View2D *v2d = &ar->v2d;
@@ -463,7 +463,7 @@ static wmWidgetGroupType *sequencer_image_transform_widgets(void)
 	return WM_widgetgrouptype_register(
 	        NULL,
 	        &(const struct wmWidgetMapType_Params) {"Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, 0},
-	        NULL, widgetgroup_image_transform_create,
+	        NULL, widgetgroup_image_transform_init,
 	        WM_widgetgroup_keymap_common,
 	        "Image Transform Widgets");
 }

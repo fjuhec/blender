@@ -161,13 +161,14 @@ void Transform_Properties(struct wmOperatorType *ot, int flags);
 /* transform manipulators */
 
 int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
-void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGroup *wgroup);
-void WIDGETGROUP_manipulator_update(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_manipulator_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_manipulator_refresh(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_manipulator_draw_prepare(const struct bContext *C, struct wmWidgetGroup *wgroup);
 
-void WIDGETGROUP_object_manipulator_create(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_object_manipulator_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
 int WIDGETGROUP_object_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
 
-void WIDGETGROUP_manipulator2d_create(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_manipulator2d_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
 int WIDGETGROUP_manipulator2d_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
 
 

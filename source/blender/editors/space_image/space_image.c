@@ -593,7 +593,7 @@ static void image_widgets(void)
 	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_manipulator2d_poll,
-	        WIDGETGROUP_manipulator2d_create,
+	        WIDGETGROUP_manipulator2d_init,
 	        WM_widgetgroup_keymap_common,
 	        "Manipulator Widgets");
 }
@@ -810,7 +810,7 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 	}
 
 	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false);
+	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
 
 	draw_image_cache(C, ar);
 

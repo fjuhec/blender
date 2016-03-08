@@ -352,7 +352,7 @@ static void graph_main_region_draw(const bContext *C, ARegion *ar)
 	
 	/* finally draw any widgets here */
 	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false);
+	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
 	
 	/* scrollers */
 	// FIXME: args for scrollers depend on the type of data being shown...

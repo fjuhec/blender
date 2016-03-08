@@ -97,10 +97,6 @@ typedef struct wmWidgetMapType {
 	ListBase widgetgrouptypes;
 } wmWidgetMapType;
 
-enum eWidgetMapRedrawFlags {
-	WIDGETMAP_RECREATE = (1 << 0),
-};
-
 
 /* -------------------------------------------------------------------- */
 /* Widget drawing */

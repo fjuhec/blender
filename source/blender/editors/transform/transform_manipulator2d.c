@@ -153,7 +153,7 @@ static int manipulator2d_handler(bContext *C, const wmEvent *UNUSED(event), wmWi
 	return OPERATOR_PASS_THROUGH;
 }
 
-void WIDGETGROUP_manipulator2d_create(const bContext *C, wmWidgetGroup *wgroup)
+void WIDGETGROUP_manipulator2d_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	ManipulatorGroup2D *man = manipulatorgroup2d_init(wgroup);
 	float col[4], col_hi[4];

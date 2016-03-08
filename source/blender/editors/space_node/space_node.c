@@ -849,7 +849,7 @@ static int WIDGETGROUP_node_transform_poll(const struct bContext *C, struct wmWi
 	return false;
 }
 
-static void WIDGETGROUP_node_transform_create(const struct bContext *C, struct wmWidgetGroup *wgroup)
+static void WIDGETGROUP_node_transform_init(const struct bContext *C, struct wmWidgetGroup *wgroup)
 {
 	Image *ima;
 	ImBuf *ibuf;
@@ -894,7 +894,7 @@ static void node_widgets(void)
 	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_node_transform_poll,
-	        WIDGETGROUP_node_transform_create,
+	        WIDGETGROUP_node_transform_init,
 	        WM_widgetgroup_keymap_common,
 	        "Backdrop Transform Widgets");
 }

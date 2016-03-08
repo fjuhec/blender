@@ -76,20 +76,21 @@ void WM_widget_set_colors(struct wmWidget *widget, const float col[4], const flo
 struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const struct Main *bmain, struct wmWidgetMapType *wmaptype,
         int (*poll)(const struct bContext *, struct wmWidgetGroupType *),
-        void (*create)(const struct bContext *, struct wmWidgetGroup *),
+        void (*init)(const struct bContext *, struct wmWidgetGroup *),
         struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
         const struct Main *bmain, struct wmWidgetMapType *wmaptype,
         int (*poll)(const struct bContext *, struct wmWidgetGroupType *),
-        void (*create)(const struct bContext *, struct wmWidgetGroup *),
-        void (*update)(const struct bContext *, struct wmWidgetGroup *),
+        void (*init)(const struct bContext *, struct wmWidgetGroup *),
+        void (*refresh)(const struct bContext *, struct wmWidgetGroup *),
+        void (*draw_prepare)(const struct bContext *, struct wmWidgetGroup *),
         struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register(
         const struct Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
         int (*poll)(const struct bContext *, struct wmWidgetGroupType *),
-        void (*create)(const struct bContext *, struct wmWidgetGroup *),
+        void (*init)(const struct bContext *, struct wmWidgetGroup *),
         struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 void WM_widgetgrouptype_init_runtime(
@@ -114,9 +115,11 @@ struct wmWidgetMap *WM_widgetmap_find(const struct ARegion *ar, const struct wmW
 void WM_widgetmap_delete(struct wmWidgetMap *wmap);
 void WM_widgetmaptypes_free(void);
 
-void WM_widgetmap_tag_recreate(struct wmWidgetMap *wmap);
+void WM_widgetmap_tag_refresh(struct wmWidgetMap *wmap);
 void WM_widgetmap_widgets_update(const struct bContext *C, struct wmWidgetMap *wmap);
-void WM_widgetmap_widgets_draw(const struct bContext *C, const struct wmWidgetMap *wmap, const bool in_scene);
+void WM_widgetmap_widgets_draw(
+        const struct bContext *C, const struct wmWidgetMap *wmap,
+        const bool in_scene, const bool free_drawwidgets);
 
 void WM_widgetmaps_add_handlers(struct ARegion *ar);
 

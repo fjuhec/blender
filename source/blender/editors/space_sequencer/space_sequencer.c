@@ -610,7 +610,7 @@ static void sequencer_preview_region_draw(const bContext *C, ARegion *ar)
 	}
 
 	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false);
+	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
 }
 
 static void sequencer_preview_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)

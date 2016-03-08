@@ -2184,7 +2184,7 @@ static int object_widget_add_exec(bContext *C, wmOperator *UNUSED(op))
 	        CTX_data_main(C),
 	        &(const struct wmWidgetMapType_Params) {"View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_WIDGETMAPTYPE_3D},
 	        WIDGETGROUP_object_manipulator_poll,
-	        WIDGETGROUP_object_manipulator_create,
+	        WIDGETGROUP_object_manipulator_init,
 	        WM_widgetgroup_keymap_common,
 	        "Object Widgets");
 
