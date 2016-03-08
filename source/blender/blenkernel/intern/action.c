@@ -776,6 +776,14 @@ void BKE_pose_channels_remove(
  */
 void BKE_pose_channel_free_ex(bPoseChannel *pchan, bool do_id_user)
 {
+	if (pchan->fmap_object) {
+		if (do_id_user) {
+			id_us_min(&pchan->fmap_object->id);
+		}
+		pchan->fmap_object = NULL;
+	}
+	pchan->fmap = NULL;
+
 	if (pchan->custom) {
 		if (do_id_user) {
 			id_us_min(&pchan->custom->id);
@@ -915,6 +923,13 @@ void BKE_pose_channel_copy_data(bPoseChannel *pchan, const bPoseChannel *pchan_f
 	}
 	if (pchan_from->prop) {
 		pchan->prop = IDP_CopyProperty(pchan_from->prop);
+	}
+
+	/* face map */
+	pchan->fmap_object = pchan_from->fmap_object;
+	pchan->fmap = pchan_from->fmap;
+	if (pchan->fmap_object) {
+		id_us_plus(&pchan->fmap_object->id);
 	}
 
 	/* custom shape */

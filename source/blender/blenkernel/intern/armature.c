@@ -1755,11 +1755,19 @@ static void pose_proxy_synchronize(Object *ob, Object *from, int layer_protected
 			
 			/* copy data in temp back over to the cleaned-out (but still allocated) original channel */
 			*pchan = pchanw;
+			if (pchan->fmap_object) {
+				id_us_plus(&pchan->fmap_object->id);
+			}
 			if (pchan->custom) {
 				id_us_plus(&pchan->custom->id);
 			}
 		}
 		else {
+			pchan->fmap_object = pchanp->fmap_object;
+			pchan->fmap = pchanp->fmap;
+			if (pchan->fmap_object) {
+				id_us_plus(&pchan->fmap_object->id);
+			}
 			/* always copy custom shape */
 			pchan->custom = pchanp->custom;
 			if (pchan->custom) {
