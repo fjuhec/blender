@@ -97,7 +97,7 @@ typedef bool (*ae_entries_block_get)(struct AssetEngine *engine, const int start
 typedef bool (*ae_entries_uuid_get)(struct AssetEngine *engine, struct AssetUUIDList *uuids,
                                     struct FileDirEntryArr *entries_r);
 
-/* 'pre-loading' hook, called before opening/appending/linking given entries.
+/* 'pre-loading' hook, called before opening/appending/linking/updating given entries.
  * Note first given uuid is the one of 'active' entry, and first entry in returned list will be considered as such too.
  * E.g. allows the engine to ensure entries' paths are actually valid by downloading requested data, etc.
  * If is_virtual is True, then there is no requirement that returned paths actually exist.
@@ -108,9 +108,15 @@ typedef bool (*ae_entries_uuid_get)(struct AssetEngine *engine, struct AssetUUID
 typedef bool (*ae_load_pre)(struct AssetEngine *engine, struct AssetUUIDList *uuids,
                             struct FileDirEntryArr *entries_r);
 
-/* 'post-loading' hook, called after opening/appending/linking given entries.
+/* 'post-loading' hook, called after opening/appending/linking/updating given entries.
  * E.g. allows an advanced engine to make fancy scripted operations over loaded items. */
 typedef bool (*ae_load_post)(struct AssetEngine *engine, struct ID *items, const int *num_items);
+
+/* 'update' hook, called to prepare updating of given entries (typically after a file (re)load).
+ * Engine should check whether given assets are still valid, if they should be updated, etc.
+ * uuids tagged as needing reload will then be reloaded as new ones
+ * (ae_load_pre, then actual lib loading, then ae_load_post). */
+typedef bool (*ae_update_check)(struct AssetEngine *engine, struct AssetUUIDList *uuids);
 
 typedef struct AssetEngineType {
 	struct AssetEngineType *next, *prev;
@@ -136,6 +142,7 @@ typedef struct AssetEngineType {
 
 	ae_load_pre load_pre;
 	ae_load_post load_post;
+	ae_update_check update_check;
 
 	/* RNA integration */
 	struct ExtensionRNA ext;

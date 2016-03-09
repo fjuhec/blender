@@ -678,6 +678,10 @@ static void rna_def_asset_uuid(BlenderRNA *brna)
 
 	RNA_def_int_vector(srna, "uuid_revision", 4, null_uuid, INT_MIN, INT_MAX,
 	                   "Revision UUID", "Unique identifier of this asset's revision", INT_MIN, INT_MAX);
+
+	prop = RNA_def_boolean(srna, "is_unknown_engine", 0, "Unknown Asset Engine",
+	                       "This AssetUUID is referencing an unknown asset engine");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 }
 
 static void rna_def_asset_uuid_list(BlenderRNA *brna)

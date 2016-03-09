@@ -517,7 +517,7 @@ static void read_file_update_assets(bContext *C)
 
 	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
 		if (lib->asset_repository) {
-			printf("Handling lib file %s (engine %s, %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
+			printf("Handling lib file %s (engine %s, ver. %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
 			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
 				for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
 					ID *id = ld->data;

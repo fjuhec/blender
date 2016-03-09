@@ -46,13 +46,13 @@
 #  include "BLI_winstuff.h"
 #endif
 
-#include "RNA_define.h"
-
 #include "BLI_args.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 #include "BLI_callbacks.h"
 #include "BLI_string.h"
+
+#include "RNA_define.h"
 
 /* mostly init functions */
 #include "BKE_appdir.h"

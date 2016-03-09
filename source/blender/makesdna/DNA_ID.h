@@ -136,6 +136,8 @@ enum {
 enum {
 	UUID_TAG_ENGINE_MISSING = 1 << 0,  /* The asset engine used for this asset is not known by Blender. */
 	UUID_TAG_ASSET_MISSING  = 1 << 1,  /* The asset engine was found but does not know about this asset (anymore). */
+
+	UUID_TAG_ASSET_RELOAD   = 1 << 8,  /* Set by the asset engine to indicates that that asset has to be reloaded. */
 };
 
 typedef struct AssetUUIDList {
