@@ -3233,8 +3233,10 @@ static void lib_link_pose(FileData *fd, Main *bmain, Object *ob, bPose *pose)
 		
 		pchan->fmap_object = newlibadr_us(fd, arm->id.lib, pchan->fmap_object);
 		if (pchan->fmap_object) {
+			bFaceMap *fmap = fmap_find_name(pchan->fmap_object, pchan->fmap->name);
 			/* fix fmap pointer now that we've got updated fmap_object */
-			pchan->fmap = fmap_find_name(pchan->fmap_object, pchan->fmap->name);
+			MEM_freeN(pchan->fmap);
+			pchan->fmap = fmap;
 		}
 
 		pchan->custom = newlibadr_us(fd, arm->id.lib, pchan->custom);
