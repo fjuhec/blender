@@ -103,6 +103,12 @@ wmWidgetMap *WM_widgetmap_from_type(const struct wmWidgetMapType_Params *wmap_pa
 	return wmap;
 }
 
+void wm_widgetmap_selected_delete(wmWidgetMap *wmap)
+{
+	MEM_SAFE_FREE(wmap->wmap_context.selected_widgets);
+	wmap->wmap_context.tot_selected = 0;
+}
+
 void WM_widgetmap_delete(wmWidgetMap *wmap)
 {
 	if (!wmap)
@@ -113,10 +119,8 @@ void WM_widgetmap_delete(wmWidgetMap *wmap)
 		wm_widgetgroup_free(NULL, wmap, wgroup);
 	}
 	BLI_assert(BLI_listbase_is_empty(&wmap->widgetgroups));
-	BLI_listbase_clear(&wmap->widgetgroups);
 
-	/* XXX shouldn't widgets in wmap_context.selected_widgets be freed here? */
-	MEM_SAFE_FREE(wmap->wmap_context.selected_widgets);
+	wm_widgetmap_selected_delete(wmap);
 
 	MEM_freeN(wmap);
 }
@@ -474,8 +478,7 @@ bool wm_widgetmap_deselect_all(wmWidgetMap *wmap, wmWidget ***sel)
 		(*sel)[i]->flag &= ~WM_WIDGET_SELECTED;
 		(*sel)[i] = NULL;
 	}
-	MEM_SAFE_FREE(*sel);
-	wmap->wmap_context.tot_selected = 0;
+	wm_widgetmap_selected_delete(wmap);
 
 	/* always return true, we already checked
 	 * if there's anything to deselect */
@@ -668,7 +671,7 @@ wmWidget *wm_widgetmap_get_highlighted_widget(wmWidgetMap *wmap)
 
 void wm_widgetmap_set_active_widget(wmWidgetMap *wmap, bContext *C, const wmEvent *event, wmWidget *widget)
 {
-	if (widget) {
+	if (widget && C) {
 		widget->flag |= WM_WIDGET_ACTIVE;
 		wmap->wmap_context.active_widget = widget;
 
@@ -720,8 +723,10 @@ void wm_widgetmap_set_active_widget(wmWidgetMap *wmap, bContext *C, const wmEven
 		}
 		wmap->wmap_context.active_widget = NULL;
 
-		ED_region_tag_redraw(CTX_wm_region(C));
-		WM_event_add_mousemove(C);
+		if (C) {
+			ED_region_tag_redraw(CTX_wm_region(C));
+			WM_event_add_mousemove(C);
+		}
 	}
 }
 

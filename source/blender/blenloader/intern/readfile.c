@@ -3233,8 +3233,10 @@ static void lib_link_pose(FileData *fd, Main *bmain, Object *ob, bPose *pose)
 		
 		pchan->fmap_object = newlibadr_us(fd, arm->id.lib, pchan->fmap_object);
 		if (pchan->fmap_object) {
+			bFaceMap *fmap = fmap_find_name(pchan->fmap_object, pchan->fmap->name);
 			/* fix fmap pointer now that we've got updated fmap_object */
-			pchan->fmap = fmap_find_name(pchan->fmap_object, pchan->fmap->name);
+			MEM_freeN(pchan->fmap);
+			pchan->fmap = fmap;
 		}
 
 		pchan->custom = newlibadr_us(fd, arm->id.lib, pchan->custom);
@@ -9061,6 +9063,7 @@ static void expand_pose(FileData *fd, Main *mainvar, bPose *pose)
 	
 	for (chan = pose->chanbase.first; chan; chan = chan->next) {
 		expand_constraints(fd, mainvar, &chan->constraints);
+		expand_doit(fd, mainvar, chan->fmap_object);
 		expand_doit(fd, mainvar, chan->custom);
 	}
 }

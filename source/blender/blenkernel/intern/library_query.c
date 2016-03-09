@@ -346,6 +346,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 			if (object->pose) {
 				bPoseChannel *pchan;
 				for (pchan = object->pose->chanbase.first; pchan; pchan = pchan->next) {
+					CALLBACK_INVOKE(pchan->fmap_object, IDWALK_USER);
 					CALLBACK_INVOKE(pchan->custom, IDWALK_USER);
 					BKE_constraints_id_loop(&pchan->constraints, library_foreach_constraintObjectLooper, &data);
 				}

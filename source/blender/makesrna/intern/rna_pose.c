@@ -290,10 +290,16 @@ static void rna_PoseChannel_bone_fmap_object_set(PointerRNA *ptr, PointerRNA val
 {
 	bPoseChannel *pchan = (bPoseChannel *)ptr->data;
 
-	pchan->fmap_object = value.data;
-	if (!pchan->fmap_object) {
+	if (pchan->fmap_object) {
+		id_us_min(&pchan->fmap_object->id);
+		pchan->fmap_object = NULL;
+	}
+	else {
 		pchan->fmap = NULL;
 	}
+
+	pchan->fmap_object = value.data;
+	id_us_plus(&pchan->fmap_object->id);
 }
 
 static int rna_PoseChannel_has_ik_get(PointerRNA *ptr)

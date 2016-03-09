@@ -329,8 +329,7 @@ void wm_widget_deselect(const bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 
 	/* update array data */
 	if ((*tot_selected) <= 1) {
-		MEM_SAFE_FREE(*sel);
-		*tot_selected = 0;
+		wm_widgetmap_selected_delete(wmap);
 	}
 	else {
 		*sel = MEM_reallocN(*sel, sizeof(**sel) * (*tot_selected));
@@ -356,7 +355,7 @@ void wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 
 	(*tot_selected)++;
 
-	*sel = MEM_reallocN(*sel, sizeof(**sel) * (*tot_selected));
+	*sel = MEM_reallocN(*sel, sizeof(wmWidget *) * (*tot_selected));
 	(*sel)[(*tot_selected) - 1] = widget;
 
 	widget->flag |= WM_WIDGET_SELECTED;

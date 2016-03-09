@@ -129,6 +129,9 @@ static void game_copy_pose(bPose **dst, bPose *src, int copy_constraint)
 			BLI_listbase_clear(&pchan->constraints);
 		}
 
+		if (pchan->fmap_object) {
+			id_us_plus(&pchan->fmap_object->id);
+		}
 		if (pchan->custom) {
 			id_us_plus(&pchan->custom->id);
 		}

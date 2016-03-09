@@ -577,6 +577,10 @@ void BKE_object_unlink(Main *bmain, Object *ob)
 							cti->flush_constraint_targets(con, &targets, 0);
 					}
 				}
+				if (pchan->fmap_object == ob) {
+					pchan->fmap_object = NULL;
+					pchan->fmap = NULL;
+				}
 				if (pchan->custom == ob)
 					pchan->custom = NULL;
 			}
@@ -1717,10 +1721,11 @@ static void armature_set_id_extern(Object *ob)
 	unsigned int lay = arm->layer_protected;
 	
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-		if (!(pchan->bone->layer & lay))
+		if (!(pchan->bone->layer & lay)) {
+			id_lib_extern((ID *)pchan->fmap_object);
 			id_lib_extern((ID *)pchan->custom);
+		}
 	}
-			
 }
 
 void BKE_object_copy_proxy_drivers(Object *ob, Object *target)
