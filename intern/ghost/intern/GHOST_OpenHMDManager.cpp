@@ -61,15 +61,20 @@ bool GHOST_OpenHMDManager::processEvents()
 
         GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, m_system.getWindowManager()->getActiveWindow());
         GHOST_TEventOpenHMDData* data = (GHOST_TEventOpenHMDData*) event->getData();
+        float quat[4];
 
-        ohmd_device_getf(m_device, OHMD_ROTATION_QUAT, data->orientation);
+        ohmd_device_getf(m_device, OHMD_ROTATION_QUAT, quat);
+        data->orientation[0] = quat[3];
+        data->orientation[1] = quat[0];
+        data->orientation[2] = quat[1];
+        data->orientation[3] = quat[2];
 
-        printf("sending openhmd event with data x y z w %f %f %f %f at time %llu\n",
-               data->orientation[0],
-               data->orientation[1],
-               data->orientation[2],
-               data->orientation[3],
-               now);
+//        printf("sending openhmd event with data x y z w %f %f %f %f at time %llu\n",
+//               data->orientation[0],
+//               data->orientation[1],
+//               data->orientation[2],
+//               data->orientation[3],
+//               now);
 
 
         m_system.pushEvent(event);

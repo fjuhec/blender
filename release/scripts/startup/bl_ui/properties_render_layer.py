@@ -226,7 +226,7 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
             row.prop(rv, "camera_suffix", text="")
         else:
             col = layout.column()
-            col.prop(rd, "hmd_camera_lock")
+            col.prop(rd, "hmd_camlock")
             col.operator("wm.hmd_view_open")
 
 

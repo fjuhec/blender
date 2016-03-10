@@ -1657,7 +1657,7 @@ typedef struct Scene {
 #define R_VIEWPORT_PREVIEW	0x80000
 #define R_EXR_CACHE_FILE	0x100000
 #define R_MULTIVIEW			0x200000
-#define R_HMD_USE_CAM       0x400000
+#define R_HMD_USE_CAM		0x400000
 
 /* r->stamp */
 #define R_STAMP_TIME 	0x0001

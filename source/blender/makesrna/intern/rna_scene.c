@@ -808,6 +808,14 @@ static void rna_RenderSettings_stereoViews_begin(CollectionPropertyIterator *ite
 	rna_iterator_listbase_begin(iter, &rd->views, rna_RenderSettings_stereoViews_skip);
 }
 
+static void rna_RenderSettings_hmd_camlock_update(
+        struct Main *UNUSED(main), struct Scene *scene,
+        struct PointerRNA *UNUSED(ptr))
+{
+	Object *camera_ob = scene->camera;
+	DAG_id_tag_update(&camera_ob->id, OB_RECALC_OB);
+}
+
 static char *rna_RenderSettings_path(PointerRNA *UNUSED(ptr))
 {
 	return BLI_sprintfN("render");
@@ -5915,10 +5923,10 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	RNA_def_property_struct_type(prop, "SceneRenderView");
 	RNA_def_property_ui_text(prop, "Render Views", "");
 
-	prop = RNA_def_property(srna, "hmd_camera_lock", PROP_BOOLEAN, PROP_NONE);
-    RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_HMD_USE_CAM);
-    RNA_def_property_ui_text(prop, "HMD Rotation", "Use the rotation of a head mounted display if available");
-    RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+	prop = RNA_def_property(srna, "hmd_camlock", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_HMD_USE_CAM);
+	RNA_def_property_ui_text(prop, "HMD Rotation", "Use the rotation of a head mounted display if available");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_RenderSettings_hmd_camlock_update");
 
 	prop = RNA_def_property(srna, "use_multiview", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_MULTIVIEW);
