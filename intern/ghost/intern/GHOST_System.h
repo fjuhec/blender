@@ -281,6 +281,11 @@ public:
 	inline GHOST_NDOFManager *getNDOFManager() const;
 #endif
 
+    /**
+     * \return A pointer to our OpenHMD manager.
+     */
+    inline GHOST_OpenHMDManager *getOpenHMDManager() const;
+
 	/**
 	 * Returns the state of all modifier keys.
 	 * \param keys	The state of all modifier keys (true == pressed).
@@ -387,6 +392,11 @@ inline GHOST_WindowManager *GHOST_System::getWindowManager() const
 inline GHOST_NDOFManager *GHOST_System::getNDOFManager() const
 {
 	return m_ndofManager;
+}
+
+inline GHOST_OpenHMDManager *GHOST_System::getOpenHMDManager() const
+{
+    return m_openHMDManager;
 }
 #endif
 
