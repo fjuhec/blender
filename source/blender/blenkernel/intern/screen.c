@@ -64,7 +64,7 @@ static void spacetype_free(SpaceType *st)
 	ARegionType *art;
 	PanelType *pt;
 	HeaderType *ht;
-	
+
 	for (art = st->regiontypes.first; art; art = art->next) {
 		BLI_freelistN(&art->drawcalls);
 
@@ -79,7 +79,7 @@ static void spacetype_free(SpaceType *st)
 		BLI_freelistN(&art->paneltypes);
 		BLI_freelistN(&art->headertypes);
 	}
-	
+
 	BLI_freelistN(&st->regiontypes);
 	BLI_freelistN(&st->toolshelf);
 
@@ -88,18 +88,18 @@ static void spacetype_free(SpaceType *st)
 void BKE_spacetypes_free(void)
 {
 	SpaceType *st;
-	
+
 	for (st = spacetypes.first; st; st = st->next) {
 		spacetype_free(st);
 	}
-	
+
 	BLI_freelistN(&spacetypes);
 }
 
 SpaceType *BKE_spacetype_from_id(int spaceid)
 {
 	SpaceType *st;
-	
+
 	for (st = spacetypes.first; st; st = st->next) {
 		if (st->spaceid == spaceid)
 			return st;
@@ -110,11 +110,11 @@ SpaceType *BKE_spacetype_from_id(int spaceid)
 ARegionType *BKE_regiontype_from_id(SpaceType *st, int regionid)
 {
 	ARegionType *art;
-	
+
 	for (art = st->regiontypes.first; art; art = art->next)
 		if (art->regionid == regionid)
 			return art;
-	
+
 	printf("Error, region type %d missing in - name:\"%s\", id:%d\n", regionid, st->name, st->spaceid);
 	return st->regiontypes.first;
 }
@@ -128,7 +128,7 @@ const ListBase *BKE_spacetypes_list(void)
 void BKE_spacetype_register(SpaceType *st)
 {
 	SpaceType *stype;
-	
+
 	/* sanity check */
 	stype = BKE_spacetype_from_id(st->spaceid);
 	if (stype) {
@@ -136,7 +136,7 @@ void BKE_spacetype_register(SpaceType *st)
 		spacetype_free(stype);
 		MEM_freeN(stype);
 	}
-	
+
 	BLI_addtail(&spacetypes, st);
 }
 
@@ -151,20 +151,20 @@ void BKE_spacedata_freelist(ListBase *lb)
 {
 	SpaceLink *sl;
 	ARegion *ar;
-	
+
 	for (sl = lb->first; sl; sl = sl->next) {
 		SpaceType *st = BKE_spacetype_from_id(sl->spacetype);
-		
+
 		/* free regions for pushed spaces */
 		for (ar = sl->regionbase.first; ar; ar = ar->next)
 			BKE_area_region_free(st, ar);
 
 		BLI_freelistN(&sl->regionbase);
-		
-		if (st && st->free) 
+
+		if (st && st->free)
 			st->free(sl);
 	}
-	
+
 	BLI_freelistN(lb);
 }
 
@@ -172,7 +172,7 @@ ARegion *BKE_area_region_copy(SpaceType *st, ARegion *ar)
 {
 	ARegion *newar = MEM_dupallocN(ar);
 	Panel *pa, *newpa, *patab;
-	
+
 	newar->prev = newar->next = NULL;
 	BLI_listbase_clear(&newar->handlers);
 	BLI_listbase_clear(&newar->uiblocks);
@@ -181,7 +181,7 @@ ARegion *BKE_area_region_copy(SpaceType *st, ARegion *ar)
 	BLI_listbase_clear(&newar->ui_lists);
 	newar->swinid = 0;
 	newar->regiontimer = NULL;
-	
+
 	/* use optional regiondata callback */
 	if (ar->regiondata) {
 		ARegionType *art = BKE_regiontype_from_id(st, ar->regiontype);
@@ -194,7 +194,7 @@ ARegion *BKE_area_region_copy(SpaceType *st, ARegion *ar)
 
 	if (ar->v2d.tab_offset)
 		newar->v2d.tab_offset = MEM_dupallocN(ar->v2d.tab_offset);
-	
+
 	BLI_listbase_clear(&newar->panels);
 	BLI_duplicatelist(&newar->panels, &ar->panels);
 
@@ -214,7 +214,7 @@ ARegion *BKE_area_region_copy(SpaceType *st, ARegion *ar)
 			pa = pa->next;
 		}
 	}
-	
+
 	return newar;
 }
 
@@ -223,10 +223,10 @@ ARegion *BKE_area_region_copy(SpaceType *st, ARegion *ar)
 static void region_copylist(SpaceType *st, ListBase *lb1, ListBase *lb2)
 {
 	ARegion *ar;
-	
+
 	/* to be sure */
 	BLI_listbase_clear(lb1);
-	
+
 	for (ar = lb2->first; ar; ar = ar->next) {
 		ARegion *arnew = BKE_area_region_copy(st, ar);
 		BLI_addtail(lb1, arnew);
@@ -238,17 +238,17 @@ static void region_copylist(SpaceType *st, ListBase *lb1, ListBase *lb2)
 void BKE_spacedata_copylist(ListBase *lb1, ListBase *lb2)
 {
 	SpaceLink *sl;
-	
+
 	BLI_listbase_clear(lb1);  /* to be sure */
-	
+
 	for (sl = lb2->first; sl; sl = sl->next) {
 		SpaceType *st = BKE_spacetype_from_id(sl->spacetype);
-		
+
 		if (st && st->duplicate) {
 			SpaceLink *slnew = st->duplicate(sl);
-			
+
 			BLI_addtail(lb1, slnew);
-			
+
 			region_copylist(st, &slnew->regionbase, &sl->regionbase);
 		}
 	}
@@ -260,14 +260,14 @@ void BKE_spacedata_copylist(ListBase *lb1, ListBase *lb2)
 void BKE_spacedata_draw_locks(int set)
 {
 	SpaceType *st;
-	
+
 	for (st = spacetypes.first; st; st = st->next) {
 		ARegionType *art;
-	
+
 		for (art = st->regiontypes.first; art; art = art->next) {
-			if (set) 
+			if (set)
 				art->do_lock = art->lock;
-			else 
+			else
 				art->do_lock = false;
 		}
 	}
@@ -294,16 +294,16 @@ void BKE_area_region_free(SpaceType *st, ARegion *ar)
 
 	if (st) {
 		ARegionType *art = BKE_regiontype_from_id(st, ar->regiontype);
-		
+
 		if (art && art->free)
 			art->free(ar);
-		
+
 		if (ar->regiondata)
 			printf("regiondata free error\n");
 	}
 	else if (ar->type && ar->type->free)
 		ar->type->free(ar);
-	
+
 	if (ar->v2d.tab_offset) {
 		MEM_freeN(ar->v2d.tab_offset);
 		ar->v2d.tab_offset = NULL;
@@ -347,14 +347,14 @@ void BKE_screen_area_free(ScrArea *sa)
 {
 	SpaceType *st = BKE_spacetype_from_id(sa->spacetype);
 	ARegion *ar;
-	
+
 	for (ar = sa->regionbase.first; ar; ar = ar->next)
 		BKE_area_region_free(st, ar);
 
 	BLI_freelistN(&sa->regionbase);
-	
+
 	BKE_spacedata_freelist(&sa->spacedata);
-	
+
 	BLI_freelistN(&sa->actionzones);
 }
 
@@ -363,17 +363,17 @@ void BKE_screen_free(bScreen *sc)
 {
 	ScrArea *sa, *san;
 	ARegion *ar;
-	
+
 	for (ar = sc->regionbase.first; ar; ar = ar->next)
 		BKE_area_region_free(NULL, ar);
 
 	BLI_freelistN(&sc->regionbase);
-	
+
 	for (sa = sc->areabase.first; sa; sa = san) {
 		san = sa->next;
 		BKE_screen_area_free(sa);
 	}
-	
+
 	BLI_freelistN(&sc->vertbase);
 	BLI_freelistN(&sc->edgebase);
 	BLI_freelistN(&sc->areabase);
@@ -405,7 +405,7 @@ ARegion *BKE_area_find_region_type(ScrArea *sa, int type)
 {
 	if (sa) {
 		ARegion *ar;
-		
+
 		for (ar = sa->regionbase.first; ar; ar = ar->next) {
 			if (ar->regiontype == type)
 				return ar;
@@ -678,5 +678,14 @@ void BKE_screen_gpu_fx_validate(GPUFXSettings *fx_settings)
 		fx_ssao = fx_settings->ssao = MEM_callocN(sizeof(GPUSSAOSettings), __func__);
 
 		GPU_fx_compositor_init_ssao_settings(fx_ssao);
+	}
+
+    if ((fx_settings->lens_dist == NULL) &&
+	    (fx_settings->fx_flag & GPU_FX_FLAG_LensDist))
+	{
+		GPULensDistortionSettings *fx_lens_dist;
+		fx_lens_dist = fx_settings->lens_dist = MEM_callocN(sizeof(GPULensDistortionSettings), __func__);
+
+		//GPU_fx_compositor_init_ssao_settings(fx_ssao);
 	}
 }

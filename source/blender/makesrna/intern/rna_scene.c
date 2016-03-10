@@ -4399,6 +4399,14 @@ static void rna_def_gpu_ssao_fx(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 }
 
+static void rna_def_gpu_lens_dist_fx(BlenderRNA *brna)
+{
+	StructRNA *srna;
+
+	srna = RNA_def_struct(brna, "GPULensDistortionSettings", NULL);
+	RNA_def_struct_ui_text(srna, "GPU LENS_DISTORTION", "Settings for GPU based Lens Distortion settings");
+	RNA_def_struct_ui_icon(srna, ICON_RENDERLAYERS);
+}
 
 static void rna_def_gpu_fx(BlenderRNA *brna)
 {
@@ -4407,6 +4415,7 @@ static void rna_def_gpu_fx(BlenderRNA *brna)
 
 	rna_def_gpu_ssao_fx(brna);
 	rna_def_gpu_dof_fx(brna);
+	rna_def_gpu_lens_dist_fx(brna);
 
 	srna = RNA_def_struct(brna, "GPUFXSettings", NULL);
 	RNA_def_struct_ui_text(srna, "GPU FX Settings", "Settings for GPU based compositing");
@@ -4432,6 +4441,16 @@ static void rna_def_gpu_fx(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_ssao", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "fx_flag", GPU_FX_FLAG_SSAO);
 	RNA_def_property_ui_text(prop, "SSAO", "Use screen space ambient occlusion of field on viewport");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPUFXSettings_fx_update");
+
+    prop = RNA_def_property(srna, "lens_dist", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_struct_type(prop, "GPULensDistortionSettings");
+	RNA_def_property_ui_text(prop, "Lens Distortion settings", "");
+
+	prop = RNA_def_property(srna, "use_lens_dist", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "fx_flag", GPU_FX_FLAG_LensDist);
+	RNA_def_property_ui_text(prop, "Lens Distortion", "Use screen space Lens Distortion on viewport for HMD correction");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPUFXSettings_fx_update");
 }
 

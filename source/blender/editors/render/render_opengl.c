@@ -548,7 +548,7 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 		 * running notifiers again will overwrite */
 		oglrender->scene->customdata_mask |= oglrender->scene->customdata_mask_modal;
 
-		if (oglrender->v3d->fx_settings.fx_flag & (GPU_FX_FLAG_DOF | GPU_FX_FLAG_SSAO)) {
+		if (oglrender->v3d->fx_settings.fx_flag & (GPU_FX_FLAG_DOF | GPU_FX_FLAG_SSAO | GPU_FX_FLAG_LensDist)) {
 			oglrender->fx = GPU_fx_compositor_create();
 		}
 	}
@@ -804,7 +804,7 @@ static int screen_opengl_render_modal(bContext *C, wmOperator *op, const wmEvent
 
 	/* run first because screen_opengl_render_anim_step can free oglrender */
 	WM_event_add_notifier(C, NC_SCENE | ND_RENDER_RESULT, oglrender->scene);
-	
+
 	if (anim == 0) {
 		screen_opengl_render_apply(op->customdata);
 		screen_opengl_render_end(C, op->customdata);
@@ -834,16 +834,16 @@ static int screen_opengl_render_invoke(bContext *C, wmOperator *op, const wmEven
 		if (!screen_opengl_render_anim_initialize(C, op))
 			return OPERATOR_CANCELLED;
 	}
-	
+
 	oglrender = op->customdata;
 	render_view_open(C, event->x, event->y, op->reports);
-	
+
 	/* view may be changed above (R_OUTPUT_WINDOW) */
 	oglrender->win = CTX_wm_window(C);
 
 	WM_event_add_modal_handler(C, op);
 	oglrender->timer = WM_event_add_timer(oglrender->wm, oglrender->win, TIMER, 0.01f);
-	
+
 	return OPERATOR_RUNNING_MODAL;
 }
 

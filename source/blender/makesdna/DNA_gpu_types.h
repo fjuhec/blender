@@ -52,9 +52,16 @@ typedef struct GPUSSAOSettings {
 	int pad;
 } GPUSSAOSettings;
 
+/* properties for Lens Distortion effect */
+typedef struct GPULensDistortionSettings {
+    //placeholder for dynamic lens distortion settings
+    double doubleTrouble;
+} GPULensDistortionSettings;
+
 typedef struct GPUFXSettings {
 	GPUDOFSettings *dof;
 	GPUSSAOSettings *ssao;
+	GPULensDistortionSettings *lens_dist;
 	char fx_flag;  /* eGPUFXFlags */
 	char pad[7];
 } GPUFXSettings;
@@ -63,6 +70,7 @@ typedef struct GPUFXSettings {
 typedef enum eGPUFXFlags {
 	GPU_FX_FLAG_DOF         = (1 << 0),
 	GPU_FX_FLAG_SSAO        = (1 << 1),
+	GPU_FX_FLAG_LensDist    = (1 << 2),
 } eGPUFXFlags;
 
 #endif  /* __DNA_GPU_TYPES_H__ */

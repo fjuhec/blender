@@ -61,6 +61,8 @@ extern char datatoc_gpu_shader_fx_dof_hq_vert_glsl[];
 extern char datatoc_gpu_shader_fx_dof_hq_geo_glsl[];
 extern char datatoc_gpu_shader_fx_depth_resolve_glsl[];
 extern char datatoc_gpu_shader_fx_lib_glsl[];
+extern char datatoc_gpu_shader_fx_lensdistortion_frag_glsl[];
+extern char datatoc_gpu_shader_fx_lensdistortion_vert_glsl[];
 
 static struct GPUShadersGlobal {
 	struct {
@@ -106,11 +108,11 @@ static void shader_print_errors(const char *task, const char *log, const char **
 				c = pos + 1;
 				line++;
 			}
-			
+
 			fprintf(stderr, "%s", c);
 		}
 	}
-	
+
 	fprintf(stderr, "%s\n", log);
 }
 
@@ -397,7 +399,7 @@ GPUShader *GPU_shader_create_ex(const char *vertexcode,
 			GPU_shader_free(shader);
 			return NULL;
 		}
-		
+
 		if (!use_opensubdiv) {
 			GPU_shader_geometry_stage_primitive_io(shader, input, output, number);
 		}
@@ -533,7 +535,7 @@ void GPU_shader_uniform_texture(GPUShader *UNUSED(shader), int location, GPUText
 		fprintf(stderr, "Not enough texture slots.\n");
 		return;
 	}
-		
+
 	if (number == -1)
 		return;
 
@@ -559,7 +561,7 @@ void GPU_shader_uniform_texture(GPUShader *UNUSED(shader), int location, GPUText
 int GPU_shader_get_attribute(GPUShader *shader, const char *name)
 {
 	int index;
-	
+
 	GPU_CHECK_ERRORS_AROUND(index = glGetAttribLocation(shader->program, name));
 
 	return index;
@@ -676,6 +678,10 @@ GPUShader *GPU_shader_get_builtin_fx_shader(int effects, bool persp)
 
 			case GPU_SHADER_FX_DEPTH_RESOLVE:
 				GG.shaders.fx_shaders[offset] = GPU_shader_create(datatoc_gpu_shader_fx_vert_glsl, datatoc_gpu_shader_fx_depth_resolve_glsl, NULL, NULL, defines, 0, 0, 0);
+				break;
+
+			case GPU_SHADER_FX_LENS_DISTORTION:
+				GG.shaders.fx_shaders[offset] = GPU_shader_create(datatoc_gpu_shader_fx_lensdistortion_vert_glsl, datatoc_gpu_shader_fx_lensdistortion_frag_glsl, NULL, NULL, defines, 0, 0, 0);
 				break;
 		}
 	}
