@@ -225,9 +225,13 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
             row.label(text="Camera Suffix:")
             row.prop(rv, "camera_suffix", text="")
         else:
+            icon = 'PAUSE' if scene.hmd_running else 'PLAY'
             col = layout.column()
             col.prop(rd, "hmd_camlock")
-            col.operator("wm.hmd_view_open")
+            row = col.row(align=True)
+
+            row.operator("wm.hmd_view_open")
+            row.operator("view3d.hmd_run", text="", icon=icon)
 
 
 if __name__ == "__main__":  # only for live edit.

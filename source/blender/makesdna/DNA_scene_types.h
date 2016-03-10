@@ -1558,10 +1558,11 @@ typedef struct Scene {
 
 /* flag */
 	/* use preview range */
-#define SCER_PRV_RANGE	(1<<0)
-#define SCER_LOCK_FRAME_SELECTION	(1<<1)
+#define SCER_PRV_RANGE            (1 << 0)
+#define SCER_LOCK_FRAME_SELECTION (1 << 1)
 	/* timeline/keyframe jumping - only selected items (on by default) */
-#define SCE_KEYS_NO_SELONLY	(1<<2)
+#define SCE_KEYS_NO_SELONLY       (1 << 2)
+#define SCE_HMD_RUNNING           (1 << 3)
 
 /* mode (int now) */
 #define R_OSA			0x0001
@@ -1657,7 +1658,7 @@ typedef struct Scene {
 #define R_VIEWPORT_PREVIEW	0x80000
 #define R_EXR_CACHE_FILE	0x100000
 #define R_MULTIVIEW			0x200000
-#define R_HMD_USE_CAM		0x400000
+#define R_HMD_IGNORE_ROT	0x400000
 
 /* r->stamp */
 #define R_STAMP_TIME 	0x0001

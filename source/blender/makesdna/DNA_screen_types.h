@@ -69,7 +69,8 @@ typedef struct bScreen {
 	char swap;							/* indicator to survive swap-exchange systems */
 	char skip_handling;					/* set to delay screen handling after switching back from maximized area */
 	char scrubbing;						/* set when scrubbing to avoid some costly updates */
-	char pad[6];
+	short flag;
+	char pad[4];
 	
 	short mainwin;						/* screensize subwindow, for screenedges and global menus */
 	short subwinactive;					/* active subwindow */
@@ -77,6 +78,10 @@ typedef struct bScreen {
 	struct wmTimer *animtimer;			/* if set, screen has timer handler added in window */
 	void *context;						/* context callback */
 } bScreen;
+
+enum eScreenFlag {
+	SCREEN_FLAG_HMD_SCREEN = (1 << 0),
+};
 
 typedef struct ScrVert {
 	struct ScrVert *next, *prev, *newv;

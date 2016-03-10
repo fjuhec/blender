@@ -5123,6 +5123,7 @@ static int wm_md_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	ED_screen_state_toggle(C, win, sa, SCREENFULL);
 
 	ED_area_tag_redraw(sa);
+	win->screen->flag |= SCREEN_FLAG_HMD_SCREEN;
 
 	/* It is possible that new layers becomes visible. */
 	if (sa->spacetype == SPACE_VIEW3D) {

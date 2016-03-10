@@ -4809,7 +4809,7 @@ typedef struct HMDData {
 static int hmd_refresh_poll(bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
-	return (scene->r.scemode & R_HMD_USE_CAM) != 0;
+	return ((scene->r.scemode & R_HMD_IGNORE_ROT) == 0 && (scene->flag & SCE_HMD_RUNNING));
 }
 
 static int hmd_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
@@ -4840,6 +4840,109 @@ void VIEW3D_OT_hmd_refresh(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = hmd_refresh_invoke;
 	ot->poll = hmd_refresh_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_INTERNAL;
+}
+
+static int hmd_refresh_exec(bContext *C, wmOperator *op)
+{
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *win;
+	Scene *scene = CTX_data_scene(C);
+
+	for (win = wm->windows.first; win; win = win->next) {
+		if (win->screen->flag & SCREEN_FLAG_HMD_SCREEN) {
+			break;
+		}
+	}
+	/* Sanity */
+	if (!win)
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+
+	wmWindow *winstore = CTX_wm_window(C);
+	ScrArea *sastore = CTX_wm_area(C);
+	ARegion *arstore = CTX_wm_region(C);
+	CTX_wm_window_set(C, win);
+	CTX_wm_area_set(C, win->screen->areabase.first);
+	CTX_wm_region_set(C, BKE_area_find_region_type(win->screen->areabase.first, RGN_TYPE_WINDOW));
+	WM_operator_name_call(C, "WM_OT_window_fullscreen_toggle", WM_OP_EXEC_DEFAULT, NULL);
+	View3D *v3d = CTX_wm_view3d(C);
+	RegionView3D *rv3d = CTX_wm_region_view3d(C);
+	const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
+	
+	if ((rv3d->viewlock & RV3D_LOCKED) == 0) {
+		if (rv3d->persp != RV3D_CAMOB) {
+			Object *ob = OBACT;
+
+			if (!rv3d->smooth_timer) {
+				/* store settings of current view before allowing overwriting with camera view
+				 * only if we're not currently in a view transition */
+				
+				ED_view3d_lastview_store(rv3d);
+			}
+
+#if 0
+			if (G.qual == LR_ALTKEY) {
+				if (oldcamera && is_an_active_object(oldcamera)) {
+					v3d->camera = oldcamera;
+				}
+				handle_view3d_lock();
+			}
+#endif
+			
+			/* first get the default camera for the view lock type */
+			if (v3d->scenelock) {
+				/* sets the camera view if available */
+				v3d->camera = scene->camera;
+			}
+			else {
+				/* use scene camera if one is not set (even though we're unlocked) */
+				if (v3d->camera == NULL) {
+					v3d->camera = scene->camera;
+				}
+			}
+			
+			/* if the camera isn't found, check a number of options */
+			if (v3d->camera == NULL && ob && ob->type == OB_CAMERA)
+				v3d->camera = ob;
+			
+			if (v3d->camera == NULL)
+				v3d->camera = BKE_scene_camera_find(scene);
+			
+			/* couldnt find any useful camera, bail out */
+			if (v3d->camera == NULL)
+				return OPERATOR_CANCELLED;
+			
+			/* important these don't get out of sync for locked scenes */
+			if (v3d->scenelock)
+				scene->camera = v3d->camera;
+			
+			/* finally do snazzy view zooming */
+			rv3d->persp = RV3D_CAMOB;
+			ED_view3d_smooth_view(
+			            C, v3d, CTX_wm_region(C), smooth_viewtx,
+			            &(const V3D_SmoothParams) {
+			                .camera = v3d->camera, .ofs = rv3d->ofs, .quat = rv3d->viewquat,
+			                .dist = &rv3d->dist, .lens = &v3d->lens});
+		}
+	}
+	CTX_wm_region_set(C, arstore);
+	CTX_wm_area_set(C, sastore);
+	CTX_wm_window_set(C, winstore);
+	scene->flag ^= SCE_HMD_RUNNING;
+	return OPERATOR_FINISHED;
+}
+
+void VIEW3D_OT_hmd_run(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Run HMD Session";
+	ot->description = "Start/Stop a head mounted display (virtual reality) session";
+	ot->idname = "VIEW3D_OT_hmd_run";
+
+	/* api callbacks */
+	ot->exec = hmd_refresh_exec;
 
 	/* flags */
 	ot->flag = OPTYPE_INTERNAL;

@@ -219,7 +219,8 @@ void view3d_operatortypes(void)
 	WM_operatortype_append(VIEW3D_OT_snap_cursor_to_selected);
 	WM_operatortype_append(VIEW3D_OT_snap_cursor_to_active);
 	WM_operatortype_append(VIEW3D_OT_hmd_refresh);
-		
+	WM_operatortype_append(VIEW3D_OT_hmd_run);
+
 	transform_operatortypes();
 }
 

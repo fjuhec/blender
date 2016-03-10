@@ -5924,7 +5924,7 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Render Views", "");
 
 	prop = RNA_def_property(srna, "hmd_camlock", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_HMD_USE_CAM);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "scemode", R_HMD_IGNORE_ROT);
 	RNA_def_property_ui_text(prop, "HMD Rotation", "Use the rotation of a head mounted display if available");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_RenderSettings_hmd_camlock_update");
 
@@ -6697,6 +6697,12 @@ void RNA_def_scene(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "depsgraph", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "Depsgraph");
 	RNA_def_property_ui_text(prop, "Dependency Graph", "Dependencies in the scene data");
+
+	prop = RNA_def_property(srna, "hmd_running", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", SCE_HMD_RUNNING);
+	RNA_def_property_ui_text(prop, "HMD Running", "");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	/* Nestled Data  */
 	/* *** Non-Animated *** */
