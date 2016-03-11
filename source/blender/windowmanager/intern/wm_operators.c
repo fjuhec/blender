@@ -5099,17 +5099,12 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 
 static int wm_hmd_view_open_poll(bContext *C)
 {
-	wmWindowManager *wm = CTX_wm_manager(C);
-	for (wmWindow *win = wm->windows.first; win; win = win->next) {
-		if (UNLIKELY(win->screen->flag & SCREEN_FLAG_HMD_SCREEN)) {
-			return false;
-		}
-	}
-	return true;
+	return (CTX_wm_manager(C)->win_hmd == NULL);
 }
 
 static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
+	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = wm_window_copy_test(C, CTX_wm_window(C));
 	ScrArea *sa;
 
@@ -5124,6 +5119,7 @@ static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wm
 		BLI_assert(0);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
+	wm->win_hmd = win;
 	wmWindow *prevwin = CTX_wm_window(C);
 	ScrArea *prevsa = CTX_wm_area(C);
 	ARegion *prevar = CTX_wm_region(C);
@@ -5134,7 +5130,6 @@ static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wm
 	ED_screen_state_toggle(C, win, sa, SCREENFULL);
 
 	ED_area_tag_redraw(sa);
-	win->screen->flag |= SCREEN_FLAG_HMD_SCREEN;
 
 	/* It is possible that new layers becomes visible. */
 	if (sa->spacetype == SPACE_VIEW3D) {

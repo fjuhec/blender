@@ -4028,14 +4028,14 @@ static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
 void view3d_main_region_draw(const bContext *C, ARegion *ar)
 {
 	Scene *scene = CTX_data_scene(C);
-	wmWindow *win = CTX_wm_window(C);
+	wmWindowManager *wm = CTX_wm_manager(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	const char *grid_unit = NULL;
 	rcti border_rect;
 	bool render_border, clip_border;
-	const bool HMD_view = (scene->r.views_format == SCE_VIEWS_FORMAT_HMD) &&
-	                      (scene->flag & SCE_HMD_RUNNING) &&
-	                      (win->screen->flag & SCREEN_FLAG_HMD_SCREEN);
+	const bool HMD_view = ((wm->win_hmd == CTX_wm_window(C)) &&
+	                       (scene->r.views_format == SCE_VIEWS_FORMAT_HMD) &&
+	                       (scene->flag & SCE_HMD_RUNNING));
 
 	/* if we only redraw render border area, skip opengl draw and also
 	 * don't do scissor because it's already set */
