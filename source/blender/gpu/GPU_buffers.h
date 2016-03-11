@@ -146,13 +146,49 @@ typedef struct GPUVertPointLink {
 } GPUVertPointLink;
 
 
-
 /* used for GLSL materials */
 typedef struct GPUAttrib {
 	int index;
 	int size;
 	int type;
 } GPUAttrib;
+
+/* generic vertex format used for all derivedmeshes
+ * customdatatype is enough to get size of format
+ * and we can infer the offset by the position in buffer.
+ * This corresponds in a single interleaved buffer */
+typedef struct GPUMeshVertexAttribute
+{
+    /* char is sufficient here, we have less than 255 customdata types */
+    char customdatatype;
+    /* layer number, for layers that need it */
+    char layer;
+} GPUMeshVertexAttribute;
+
+typedef struct GPUMeshVertexFormat
+{
+    /* which customdata exist in the current vertex format */
+    long long customdataflag;
+
+    /* number of customData in format */
+    char numData;
+
+    /* actual current data existing in buffer */
+    GPUMeshVertexAttribute *layout;
+} GPUMeshVertexFormat;
+
+/* create a vertex format with the specified formats */
+GPUMeshVertexFormat *GPU_vertex_format_alloc(long long iformat);
+
+/* check if reusing the vertex format is possible */
+bool GPU_vertex_format_reuse(GPUMeshVertexFormat *vformat, long long iformat);
+
+/* bind the vertex format existing in the currently bound buffer object,
+ * according to the format specified here */
+void GPU_vertex_format_bind(GPUMeshVertexFormat *vformat, long long iformat);
+
+/* get the size of the vertex format */
+int GPU_vertex_format_size(GPUMeshVertexFormat *vformat);
 
 void GPU_global_buffer_pool_free(void);
 void GPU_global_buffer_pool_free_unused(void);
