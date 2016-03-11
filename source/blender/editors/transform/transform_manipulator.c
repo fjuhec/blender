@@ -367,7 +367,13 @@ static int calc_manipulator_stats(const bContext *C)
 							calc_tw_center(scene, ebo->tail);
 							totsel++;
 						}
-						if (ebo->flag & BONE_ROOTSEL) {
+						if ((ebo->flag & BONE_ROOTSEL) &&
+						    /* don't include same point multiple times */
+						    ((ebo->flag & BONE_CONNECTED) &&
+						     (ebo->parent != NULL) &&
+						     (ebo->parent->flag & BONE_TIPSEL) &&
+						     EBONE_VISIBLE(arm, ebo->parent)) == 0)
+						{
 							calc_tw_center(scene, ebo->head);
 							totsel++;
 						}
@@ -1326,6 +1332,7 @@ static void draw_manipulator_scale(
 		}
 	}
 
+#if 0 // XXX
 	/* if shiftkey, center point as last, for selectbuffer order */
 	if (is_picksel) {
 		int shift = 0; // XXX
@@ -1333,11 +1340,13 @@ static void draw_manipulator_scale(
 		if (shift) {
 			glTranslatef(0.0, -dz, 0.0);
 			GPU_select_load_id(MAN_SCALE_C);
+			/* TODO: set glPointSize before drawing center point */
 			glBegin(GL_POINTS);
 			glVertex3f(0.0, 0.0, 0.0);
 			glEnd();
 		}
 	}
+#endif
 
 	/* restore */
 	glLoadMatrixf(rv3d->viewmat);
@@ -1630,7 +1639,7 @@ void BIF_draw_manipulator(const bContext *C)
 
 				if (((v3d->around == V3D_AROUND_ACTIVE) && (scene->obedit == NULL)) &&
 				    ((gpd == NULL) || !(gpd->flag & GP_DATA_STROKE_EDITMODE)) &&
-				    (!(ob->mode & OB_MODE_POSE)))
+				    (ob && !(ob->mode & OB_MODE_POSE)))
 				{
 					copy_v3_v3(rv3d->twmat[3], ob->obmat[3]);
 				}
@@ -1660,11 +1669,11 @@ void BIF_draw_manipulator(const bContext *C)
 	drawflags = rv3d->twdrawflag;    /* set in calc_manipulator_stats */
 
 	if (v3d->twflag & V3D_DRAW_MANIPULATOR) {
-
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glEnable(GL_BLEND);
-		if (v3d->twtype & V3D_MANIP_ROTATE) {
+		glLineWidth(1.0f);
 
+		if (v3d->twtype & V3D_MANIP_ROTATE) {
 			if (G.debug_value == 3) {
 				if (G.moving & (G_TRANSFORM_OBJ | G_TRANSFORM_EDIT))
 					draw_manipulator_rotate_cyl(v3d, rv3d, drawflags, v3d->twtype, MAN_MOVECOL, true, is_picksel);

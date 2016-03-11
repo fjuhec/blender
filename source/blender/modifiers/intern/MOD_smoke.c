@@ -105,12 +105,11 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
                                   ModifierApplyFlag flag)
 {
 	SmokeModifierData *smd = (SmokeModifierData *) md;
-	bool for_render = (flag & MOD_APPLY_RENDER) != 0;
 
 	if (flag & MOD_APPLY_ORCO)
 		return dm;
 
-	return smokeModifier_do(smd, md->scene, ob, dm, for_render);
+	return smokeModifier_do(smd, md->scene, ob, dm);
 }
 
 static bool dependsOnTime(ModifierData *UNUSED(md))
@@ -214,7 +213,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 				}
 		}
 		else {
-			BKE_main_id_tag_listbase(&bmain->object, true);
+			BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
 			base = scene->base.first;
 			for (; base; base = base->next) {
 				update_depsgraph_flow_coll_object(forest, obNode, base->object);
@@ -222,7 +221,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 		}
 		/* add relation to all "smoke flow" force fields */
 		base = scene->base.first;
-		BKE_main_id_tag_listbase(&bmain->object, true);
+		BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
 		for (; base; base = base->next) {
 			update_depsgraph_field_source_object(forest, obNode, ob, base->object);
 		}
@@ -319,7 +318,7 @@ static void updateDepsgraph(ModifierData *md,
 			}
 		}
 		else {
-			BKE_main_id_tag_listbase(&bmain->object, true);
+			BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
 			base = scene->base.first;
 			for (; base; base = base->next) {
 				update_depsgraph_flow_coll_object_new(node, base->object);
@@ -327,7 +326,7 @@ static void updateDepsgraph(ModifierData *md,
 		}
 		/* add relation to all "smoke flow" force fields */
 		base = scene->base.first;
-		BKE_main_id_tag_listbase(&bmain->object, true);
+		BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
 		for (; base; base = base->next) {
 			update_depsgraph_field_source_object_new(node, ob, base->object);
 		}

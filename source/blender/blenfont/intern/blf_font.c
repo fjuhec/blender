@@ -467,7 +467,10 @@ size_t blf_font_width_to_strlen(FontBLF *font, const char *str, size_t len, floa
 
 	blf_font_ensure_ascii_table(font);
 
-	while ((i_prev = i), (width_new = pen_x), ((i < len) && str[i])) {
+	while ((void)(i_prev = i),
+	       (void)(width_new = pen_x),
+	       ((i < len) && str[i]))
+	{
 		BLF_UTF8_NEXT_FAST(font, g, str, i, c, glyph_ascii_table);
 
 		if (UNLIKELY(c == BLI_UTF8_ERR))
@@ -721,11 +724,13 @@ static void blf_font_wrap_apply(
 		}
 		else if (UNLIKELY(g->c != ' ' && (g_prev ? g_prev->c == ' ' : false))) {
 			wrap.last[0] = i_curr;
-			wrap.last[1] = i;
+			wrap.last[1] = i_curr;
 		}
 
 		if (UNLIKELY(do_draw)) {
-			// printf("(%d..%d)  `%.*s`\n", wrap.start, wrap.last[0], (wrap.last[0] - wrap.start) - 1, &str[wrap.start]);
+			// printf("(%03d..%03d)  `%.*s`\n",
+			//        wrap.start, wrap.last[0], (wrap.last[0] - wrap.start) - 1, &str[wrap.start]);
+
 			callback(font, &str[wrap.start], (wrap.last[0] - wrap.start) - 1, pen_y, userdata);
 			wrap.start = wrap.last[0];
 			i = wrap.last[1];
@@ -740,7 +745,7 @@ static void blf_font_wrap_apply(
 		g_prev = g;
 	}
 
-	// printf("done! %d lines\n", lines);
+	// printf("done! lines: %d, width, %d\n", lines, pen_x_next);
 
 	if (r_info) {
 		r_info->lines = lines;

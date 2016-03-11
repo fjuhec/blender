@@ -176,7 +176,7 @@ EnumPropertyItem rna_enum_dt_method_edge_items[] = {
 	{MREMAP_MODE_TOPOLOGY, "TOPOLOGY", 0, "Topology",
 	 "Copy from identical topology meshes"},
 	{MREMAP_MODE_EDGE_VERT_NEAREST, "VERT_NEAREST", 0, "Nearest Vertices",
-	 "Copy from most similar edge (edge which vertices are the closest of destination edge’s ones)"},
+	 "Copy from most similar edge (edge which vertices are the closest of destination edge's ones)"},
 	{MREMAP_MODE_EDGE_NEAREST, "NEAREST", 0, "Nearest Edge",
 	 "Copy from closest edge (using midpoints)"},
 	{MREMAP_MODE_EDGE_POLY_NEAREST, "POLY_NEAREST", 0, "Nearest Face Edge",
@@ -255,6 +255,25 @@ EnumPropertyItem rna_enum_dt_layers_select_dst_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+EnumPropertyItem rna_enum_axis_xy_items[] = {
+	{0, "X", 0, "X", ""},
+	{1, "Y", 0, "Y", ""},
+	{0, NULL, 0, NULL, NULL}
+};
+
+EnumPropertyItem rna_enum_axis_xyz_items[] = {
+	{0, "X", 0, "X", ""},
+	{1, "Y", 0, "Y", ""},
+	{2, "Z", 0, "Z", ""},
+	{0, NULL, 0, NULL, NULL}
+};
+
+EnumPropertyItem rna_enum_axis_flag_xyz_items[] = {
+	{(1 << 0), "X", 0, "X", ""},
+	{(1 << 1), "Y", 0, "Y", ""},
+	{(1 << 2), "Z", 0, "Z", ""},
+	{0, NULL, 0, NULL, NULL}
+};
 
 #ifdef RNA_RUNTIME
 
@@ -1557,7 +1576,7 @@ static void rna_def_modifier_decimate(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "symmetry_axis", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "symmetry_axis");
-	RNA_def_property_enum_items(prop, rna_enum_object_axis_unsigned_items);
+	RNA_def_property_enum_items(prop, rna_enum_axis_xyz_items);
 	RNA_def_property_ui_text(prop, "Axis", "Axis of symmetry");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -1884,6 +1903,7 @@ static void rna_def_modifier_boolean(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Operation", "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+#if 0  /* WITH_MOD_BOOLEAN */
 	/* BMesh intersection options */
 	prop = RNA_def_property(srna, "use_bmesh", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "bm_flag", eBooleanModifierBMeshFlag_Enabled);
@@ -1911,6 +1931,7 @@ static void rna_def_modifier_boolean(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0, 1, 1, 7);
 	RNA_def_property_ui_text(prop, "Threshold",  "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+#endif
 }
 
 static void rna_def_modifier_array(BlenderRNA *brna)
@@ -2544,13 +2565,6 @@ static void rna_def_modifier_particleinstance(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem particleinstance_axis[] = {
-		{0, "X", 0, "X", ""},
-		{1, "Y", 0, "Y", ""},
-		{2, "Z", 0, "Z", ""},
-		{0, NULL, 0, NULL, NULL}
-	};
-
 	srna = RNA_def_struct(brna, "ParticleInstanceModifier", "Modifier");
 	RNA_def_struct_ui_text(srna, "ParticleInstance Modifier", "Particle system instancing modifier");
 	RNA_def_struct_sdna(srna, "ParticleInstanceModifierData");
@@ -2571,7 +2585,7 @@ static void rna_def_modifier_particleinstance(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "axis", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "axis");
-	RNA_def_property_enum_items(prop, particleinstance_axis);
+	RNA_def_property_enum_items(prop, rna_enum_axis_xyz_items);
 	RNA_def_property_ui_text(prop, "Axis", "Pole axis for rotation");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 	
@@ -3029,6 +3043,11 @@ static void rna_def_modifier_shrinkwrap(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "shrinkOpts", MOD_SHRINKWRAP_KEEP_ABOVE_SURFACE);
 	RNA_def_property_ui_text(prop, "Keep Above Surface", "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "invert_vertex_group", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "shrinkOpts", MOD_SHRINKWRAP_INVERT_VGROUP);
+	RNA_def_property_ui_text(prop, "Invert", "Invert vertex group influence");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_fluidsim(BlenderRNA *brna)
@@ -3154,6 +3173,11 @@ static void rna_def_modifier_simpledeform(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "lock_y", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "axis", MOD_SIMPLEDEFORM_LOCK_AXIS_Y);
 	RNA_def_property_ui_text(prop, "Lock Y Axis", "Do not allow deformation along the Y axis");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "invert_vertex_group", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_SIMPLEDEFORM_FLAG_INVERT_VGROUP);
+	RNA_def_property_ui_text(prop, "Invert", "Invert vertex group influence");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
@@ -3284,13 +3308,6 @@ static void rna_def_modifier_solidify(BlenderRNA *brna)
 
 static void rna_def_modifier_screw(BlenderRNA *brna)
 {
-	static EnumPropertyItem axis_items[] = {
-		{0, "X", 0, "X Axis", ""},
-		{1, "Y", 0, "Y Axis", ""},
-		{2, "Z", 0, "Z Axis", ""},
-		{0, NULL, 0, NULL, NULL}
-	};
-
 	StructRNA *srna;
 	PropertyRNA *prop;
 
@@ -3325,7 +3342,7 @@ static void rna_def_modifier_screw(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "axis", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, axis_items);
+	RNA_def_property_enum_items(prop, rna_enum_axis_xyz_items);
 	RNA_def_property_ui_text(prop, "Axis", "Screw axis");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -3390,13 +3407,13 @@ static void rna_def_modifier_uvwarp(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "axis_u", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "axis_u");
-	RNA_def_property_enum_items(prop, rna_enum_object_axis_unsigned_items);
+	RNA_def_property_enum_items(prop, rna_enum_axis_xyz_items);
 	RNA_def_property_ui_text(prop, "U-Axis", "Pole axis for rotation");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "axis_v", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "axis_v");
-	RNA_def_property_enum_items(prop, rna_enum_object_axis_unsigned_items);
+	RNA_def_property_enum_items(prop, rna_enum_axis_xyz_items);
 	RNA_def_property_ui_text(prop, "V-Axis", "Pole axis for rotation");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -4099,13 +4116,6 @@ static void rna_def_modifier_meshcache(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem prop_flip_axis_flag_items[] = {
-		{(1 << 0), "X", 0, "X", ""},
-		{(1 << 1), "Y", 0, "Y", ""},
-		{(1 << 2), "Z", 0, "Z", ""},
-		{0, NULL, 0, NULL, NULL}
-	};
-
 	StructRNA *srna;
 	PropertyRNA *prop;
 
@@ -4170,7 +4180,7 @@ static void rna_def_modifier_meshcache(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "flip_axis", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "flip_axis");
-	RNA_def_property_enum_items(prop, prop_flip_axis_flag_items);
+	RNA_def_property_enum_items(prop, rna_enum_axis_flag_xyz_items);
 	RNA_def_property_flag(prop, PROP_ENUM_FLAG);
 	RNA_def_property_ui_text(prop, "Flip Axis",  "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");

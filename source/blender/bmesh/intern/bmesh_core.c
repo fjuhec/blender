@@ -519,8 +519,8 @@ BMFace *BM_face_create_verts(
 /**
  * Check the element is valid.
  *
- * BMESH_TODO, when this raises an error the output is incredible confusing.
- * need to have some nice way to print/debug what the hecks going on.
+ * BMESH_TODO, when this raises an error the output is incredibly confusing.
+ * need to have some nice way to print/debug what the heck's going on.
  */
 int bmesh_elem_check(void *element, const char htype)
 {
@@ -872,7 +872,12 @@ void BM_face_kill(BMesh *bm, BMFace *f)
 	BMLoopList *ls, *ls_next;
 #endif
 
-	BM_CHECK_ELEMENT(f);
+#ifdef NDEBUG
+	/* check length since we may be removing degenerate faces */
+	if (f->len >= 3) {
+		BM_CHECK_ELEMENT(f);
+	}
+#endif
 
 #ifdef USE_BMESH_HOLES
 	for (ls = f->loops.first; ls; ls = ls_next)
@@ -2497,7 +2502,8 @@ static void bmesh_vert_separate__cleanup(BMesh *bm, LinkNode *edges_separate)
 					n_prev->next = n_step->next;
 					n_step = n_prev;
 				}
-			} while ((n_prev = n_step),
+			} while ((void)
+			         (n_prev = n_step),
 			         (n_step = n_step->next));
 
 		} while ((n_orig = n_orig->next) && n_orig->next);
@@ -2560,7 +2566,7 @@ void BM_vert_separate_hflag(
 				do {
 					BMLoop *l_sep = e->l;
 					bmesh_edge_separate(bm, e, l_sep, copy_select);
-					/* trick to avoid looping over seperated edges */
+					/* trick to avoid looping over separated edges */
 					if (edges_separate == NULL && edges_orig == NULL) {
 						e_first = l_sep->e;
 					}
@@ -2833,7 +2839,7 @@ BMVert *bmesh_urmv_loop_multi(
 	}
 
 	if (is_mixed_any == false) {
-		/* all loops in 'larr' are the soul owners of their edges.
+		/* all loops in 'larr' are the sole owners of their edges.
 		 * nothing to split away from, this is a no-op */
 		v_new = v_sep;
 	}

@@ -40,11 +40,30 @@ public:
 	/* Specifies an offset for the shutter's time interval. */
 	enum MotionPosition {
 		/* Shutter opens at the current frame. */
-		MOTION_POSITION_START,
+		MOTION_POSITION_START = 0,
 		/* Shutter is fully open at the current frame. */
-		MOTION_POSITION_CENTER,
+		MOTION_POSITION_CENTER = 1,
 		/* Shutter closes at the current frame. */
-		MOTION_POSITION_END,
+		MOTION_POSITION_END = 2,
+
+		MOTION_NUM_POSITIONS,
+	};
+
+	/* Specifies rolling shutter effect. */
+	enum RollingShutterType {
+		/* No rolling shutter effect. */
+		ROLLING_SHUTTER_NONE = 0,
+		/* Sensor is being scanned vertically from top to bottom. */
+		ROLLING_SHUTTER_TOP = 1,
+
+		ROLLING_SHUTTER_NUM_TYPES,
+	};
+
+	/* Stereo Type */
+	enum StereoEye {
+		STEREO_NONE,
+		STEREO_LEFT,
+		STEREO_RIGHT,
 	};
 
 	/* motion blur */
@@ -52,6 +71,14 @@ public:
 	MotionPosition motion_position;
 	float shutter_curve[RAMP_TABLE_SIZE];
 	size_t shutter_table_offset;
+
+	/* ** Rolling shutter effect. ** */
+	/* Defines rolling shutter effect type. */
+	RollingShutterType rolling_shutter_type;
+	/* Specifies exposure time of scanlines when using
+	 * rolling shutter effect.
+	 */
+	float rolling_shutter_duration;
 
 	/* depth of field */
 	float focaldistance;
@@ -71,6 +98,12 @@ public:
 	float latitude_max;
 	float longitude_min;
 	float longitude_max;
+
+	/* panorama stereo */
+	StereoEye stereo_eye;
+	bool use_spherical_stereo;
+	float interocular_distance;
+	float convergence_distance;
 
 	/* anamorphic lens bokeh */
 	float aperture_ratio;
