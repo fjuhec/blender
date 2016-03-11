@@ -4934,6 +4934,10 @@ void VIEW3D_OT_hmd_session_run(wmOperatorType *ot)
 
 static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
+	Scene *scene = CTX_data_scene(C);
+	if ((scene->flag & SCE_HMD_RUNNING) == 0)
+		return OPERATOR_CANCELLED; /* no pass through, we don't need to keep that event in queue */
+
 	wmWindow *hmd_win = hmd_window_find(C);
 	hmd_session_refresh(C, hmd_win, CTX_data_scene(C), event->customdata);
 	return OPERATOR_FINISHED;
