@@ -5152,7 +5152,7 @@ static void WM_OT_hmd_view_open(wmOperatorType *ot)
 {
 	ot->name = "Open HMD View Window";
 	ot->idname = "WM_OT_hmd_view_open";
-	ot->description = "Open a separate window for display on a head mounted display";
+	ot->description = "Open a separate window for a head mounted display";
 
 	ot->invoke = wm_hmd_view_open_invoke;
 	ot->poll = wm_hmd_view_open_poll;

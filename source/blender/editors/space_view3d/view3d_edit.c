@@ -4826,7 +4826,7 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 	ED_region_tag_redraw(ar);
 }
 
-static wmWindow *hmd_window_find(bContext *C)
+static wmWindow *hmd_window_find(const bContext *C)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *hmd_win = CTX_wm_window(C);
@@ -4847,6 +4847,11 @@ static void hmd_run_exit(wmWindow *hmd_win, Scene *scene)
 {
 	scene->flag &= ~SCE_HMD_RUNNING;
 	WM_window_fullscreen_toggle(hmd_win, false, true);
+}
+
+static int hmd_session_run_poll(bContext *C)
+{
+	return (hmd_window_find(C) != NULL);
 }
 
 static int hmd_session_run_modal(bContext *C, wmOperator *op, const wmEvent *event)
@@ -4930,6 +4935,7 @@ void VIEW3D_OT_hmd_session_run(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = hmd_session_run_invoke;
 	ot->modal = hmd_session_run_modal;
+	ot->poll = hmd_session_run_poll;
 }
 
 static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
