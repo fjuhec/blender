@@ -727,7 +727,6 @@ bool GPU_fx_do_composite_pass(
 		GPUShader *ssao_shader;
 		ssao_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_SSAO, is_persp);
 		if (ssao_shader) {
-            printf("SSAO BIATCH\n");
 			const GPUSSAOSettings *fx_ssao = fx->settings.ssao;
 			int color_uniform, depth_uniform;
 			int ssao_uniform, ssao_color_uniform, viewvecs_uniform, ssao_sample_params_uniform;
@@ -1280,16 +1279,13 @@ bool GPU_fx_do_composite_pass(
     /* third pass, Lens Distortion */
     if(fx->effects & GPU_FX_FLAG_LensDist) {
         GPUShader *lensdist_shader;
-        //printf("STUFF AND SUCH\n");
 		lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp);
 		if (lensdist_shader) {
-            //printf("I am such lens shader\n");
-			//const GPULensDistortionSettings *fx_lens_dist = fx->settings.lens_dist;
-
-			GPU_shader_bind(lensdist_shader);
 
             int color_uniform;
             color_uniform = GPU_shader_get_uniform(lensdist_shader, "warpTexture");
+
+            GPU_shader_bind(lensdist_shader);
 
 			GPU_texture_bind(src, numslots++);
 			GPU_shader_uniform_texture(lensdist_shader, color_uniform, src);

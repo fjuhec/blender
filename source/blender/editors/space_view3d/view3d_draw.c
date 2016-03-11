@@ -3232,23 +3232,16 @@ void ED_view3d_draw_offscreen(
 	/* framebuffer fx needed, we need to draw offscreen first */
 	if (v3d->fx_settings.fx_flag && fx) {
 		GPUSSAOSettings *ssao = NULL;
-        GPUSSAOSettings *lens_dist = NULL;
 
 		if (v3d->drawtype < OB_SOLID) {
 			ssao = v3d->fx_settings.ssao;
 			v3d->fx_settings.ssao = NULL;
-
-			lens_dist = v3d->fx_settings.lens_dist;
-			v3d->fx_settings.lens_dist = NULL;
 		}
 
 		do_compositing = GPU_fx_compositor_initialize_passes(fx, &ar->winrct, NULL, fx_settings);
 
 		if (ssao)
 			v3d->fx_settings.ssao = ssao;
-
-        if (lens_dist)
-			v3d->fx_settings.lens_dist = lens_dist;
 	}
 
 	/* clear opengl buffers */
