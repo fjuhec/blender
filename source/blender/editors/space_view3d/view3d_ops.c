@@ -218,8 +218,7 @@ void view3d_operatortypes(void)
 	WM_operatortype_append(VIEW3D_OT_snap_cursor_to_center);
 	WM_operatortype_append(VIEW3D_OT_snap_cursor_to_selected);
 	WM_operatortype_append(VIEW3D_OT_snap_cursor_to_active);
-	WM_operatortype_append(VIEW3D_OT_hmd_refresh);
-	WM_operatortype_append(VIEW3D_OT_hmd_run);
+	WM_operatortype_append(VIEW3D_OT_hmd_session_run);
 
 	transform_operatortypes();
 }
@@ -505,8 +504,6 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "VIEW3D_OT_object_as_camera", PAD0, KM_PRESS, KM_CTRL, 0);
 	
 	WM_keymap_add_menu(keymap, "VIEW3D_MT_snap", SKEY, KM_PRESS, KM_SHIFT, 0);
-	
-	WM_keymap_add_item(keymap, "VIEW3D_OT_hmd_refresh", EVT_VR_TRANSFORM, KM_ANY, KM_ANY, 0);
 	
 #ifdef __APPLE__
 	WM_keymap_add_item(keymap, "VIEW3D_OT_copybuffer", CKEY, KM_PRESS, KM_OSKEY, 0);

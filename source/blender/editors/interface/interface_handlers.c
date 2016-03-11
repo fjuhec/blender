@@ -9836,16 +9836,6 @@ static int ui_region_handler(bContext *C, const wmEvent *event, void *UNUSED(use
 	/* delayed apply callbacks */
 	ui_apply_but_funcs_after(C);
 
-	if (event->type == EVT_VR_TRANSFORM) {
-        float* trans = event->customdata;
-/*
-        printf("Got EVT_VR_TRANSFORM event, transform is w x y z %f %f %f %f\n",
-               trans[0],
-               trans[1],
-               trans[2],
-               trans[3]);*/
-	}
-
 	return retval;
 }
 

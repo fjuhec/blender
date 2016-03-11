@@ -5097,7 +5097,7 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-static int wm_md_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	wmWindow *win = wm_window_copy_test(C, CTX_wm_window(C));
 	ScrArea *sa;
@@ -5143,7 +5143,7 @@ static void WM_OT_hmd_view_open(wmOperatorType *ot)
 	ot->idname = "WM_OT_hmd_view_open";
 	ot->description = "Open a separate window for display on a head mounted display";
 
-	ot->invoke = wm_md_view_open_invoke;
+	ot->invoke = wm_hmd_view_open_invoke;
 	ot->poll = WM_operator_winactive;
 }
 

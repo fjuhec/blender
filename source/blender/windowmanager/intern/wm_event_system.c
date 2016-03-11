@@ -3504,7 +3504,7 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, int U
         {
             GHOST_TEventOpenHMDData *e = customdata;
 
-            event.type = EVT_VR_TRANSFORM;
+            event.type = EVT_HMD_TRANSFORM;
             event.customdata = e->orientation;
 
             wm_event_add(win, &event);

@@ -731,24 +731,37 @@ int wm_window_duplicate_exec(bContext *C, wmOperator *UNUSED(op))
 	return ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
 
+void WM_window_fullscreen_toggle(const wmWindow *win, const bool force_full, const bool force_normal)
+{
+	/* mutally exclusive, forcing both doesn't work */
+	if (force_full && force_normal) {
+		printf("%s - WARNING: force_full and force normal can't both be true!", __func__);
+		return;
+	}
+
+	GHOST_TWindowState state = GHOST_GetWindowState(win->ghostwin);
+	if ((force_full && state == GHOST_kWindowStateFullScreen) ||
+	    (force_normal && state == GHOST_kWindowStateNormal))
+	{
+		return;
+	}
+	if (state != GHOST_kWindowStateFullScreen)
+		GHOST_SetWindowState(win->ghostwin, GHOST_kWindowStateFullScreen);
+	else
+		GHOST_SetWindowState(win->ghostwin, GHOST_kWindowStateNormal);
+}
 
 /* fullscreen operator callback */
 int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	wmWindow *window = CTX_wm_window(C);
-	GHOST_TWindowState state;
 
 	if (G.background)
 		return OPERATOR_CANCELLED;
 
-	state = GHOST_GetWindowState(window->ghostwin);
-	if (state != GHOST_kWindowStateFullScreen)
-		GHOST_SetWindowState(window->ghostwin, GHOST_kWindowStateFullScreen);
-	else
-		GHOST_SetWindowState(window->ghostwin, GHOST_kWindowStateNormal);
+	WM_window_fullscreen_toggle(window, false, false);
 
 	return OPERATOR_FINISHED;
-	
 }
 
 
