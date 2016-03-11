@@ -15,9 +15,6 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s):
- *   Mike Erwin
- *
  * ***** END GPL LICENSE BLOCK *****
  */
 
@@ -33,22 +30,24 @@ struct ohmd_device;
 class GHOST_OpenHMDManager
 {
 public:
-    GHOST_OpenHMDManager(GHOST_System&); // TODO maybe cut out dependency on the system? (only used for getMilliSeconds and none of the others without platform implementations use it)
-    virtual ~GHOST_OpenHMDManager();
-
-    bool available() const;
-    bool processEvents();
-
-    bool setDevice(const char* requested_vendor_name, const char* requested_device_name);
-
+	// TODO maybe cut out dependency on the system? (only used for getMilliSeconds and
+	// none of the others without platform implementations use it)
+	GHOST_OpenHMDManager(GHOST_System&);
+	virtual ~GHOST_OpenHMDManager();
+	
+	bool available() const;
+	bool processEvents();
+	
+	bool setDevice(const char *requested_vendor_name, const char *requested_device_name);
+	
 protected:
-    GHOST_System&   m_system;
-
+	GHOST_System& m_system;
+	
 private:
-    bool            m_available;
-
-    ohmd_context*   m_context;
-    ohmd_device*    m_device;
+	bool m_available;
+	
+	ohmd_context *m_context;
+	ohmd_device *m_device;
 };
 
 #endif //__GHOST_OPENHMDMANAGER_H__
