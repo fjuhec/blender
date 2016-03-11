@@ -225,14 +225,17 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
             row.label(text="Camera Suffix:")
             row.prop(rv, "camera_suffix", text="")
         else:
+            wm = context.window_manager
+
             running = scene.hmd_running
+            text_win = "Close HMD Window" if wm.has_hmd_window else "Open HMD Window"
             text_run = "Stop Session" if running else "Start Session"
             icon = 'PAUSE' if running else 'PLAY'
 
             col = layout.column()
 
             row = col.row(align=True)
-            row.operator("wm.hmd_view_open", text="Open HMD Window")
+            row.operator("wm.hmd_view_open", text=text_win)
             row.operator("view3d.hmd_session_run", text=text_run, icon=icon)
 
             col.prop(rd, "hmd_camlock")

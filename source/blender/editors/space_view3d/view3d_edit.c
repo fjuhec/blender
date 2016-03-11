@@ -4810,6 +4810,10 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 {
 	if (scene->r.scemode & R_HMD_IGNORE_ROT)
 		return;
+	if (!hmd_win) {
+		scene->flag &= ~SCE_HMD_RUNNING;
+		return;
+	}
 
 	View3D *v3d = CTX_wm_view3d(C);
 	Object *camera_ob = v3d ? v3d->camera : scene->camera;
