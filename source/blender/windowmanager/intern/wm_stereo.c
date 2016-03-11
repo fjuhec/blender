@@ -290,9 +290,40 @@ static void wm_method_draw_stereo3d_topbottom(wmWindow *win)
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	}
 }
-
-void wm_method_draw_stereo3d(const bContext *UNUSED(C), wmWindow *win)
+static void wm_method_draw_stereo3d_hmd(wmWindow *win)
 {
+	wmDrawData *drawdata;
+	int view;
+
+	for (view = 0; view < 1; view ++) {
+		drawdata = BLI_findlink(&win->drawdata, (view * 2) + 1);
+		glScissor(0, 0, WM_window_pixels_x(win) * 0.5f, WM_window_pixels_y(win));
+		if (view == 0) {
+			glTranslatef(-WM_window_pixels_x(win) / 2.0f, 0.0f, 0.0f);
+		}
+		else {
+			glTranslatef(WM_window_pixels_x(win) / 2.0f, 0.0f, 0.0f);
+		}
+		wm_triple_draw_textures(win, drawdata->triple, 0.5f);
+	}
+}
+
+BLI_INLINE bool wm_stere3d_is_hmd_view(const wmWindow *win, const Scene *scene)
+{
+	return ((scene->r.views_format == SCE_VIEWS_FORMAT_HMD) &&
+	        (scene->flag & SCE_HMD_RUNNING) &&
+	        (win->screen->flag & SCREEN_FLAG_HMD_SCREEN));
+}
+
+void wm_method_draw_stereo3d(const bContext *C, wmWindow *win)
+{
+	Scene *scene = CTX_data_scene(C);
+
+	if (wm_stere3d_is_hmd_view(win, scene)) {
+		wm_method_draw_stereo3d_hmd(win);
+		return;
+	}
+
 	switch (win->stereo3d_format->display_mode) {
 		case S3D_DISPLAY_ANAGLYPH:
 			wm_method_draw_stereo3d_anaglyph(win);
@@ -328,9 +359,12 @@ static bool wm_stereo3d_is_fullscreen_required(eStereoDisplayMode stereo_display
 	            S3D_DISPLAY_TOPBOTTOM);
 }
 
-bool WM_stereo3d_enabled(wmWindow *win, bool skip_stereo3d_check)
+bool WM_stereo3d_enabled(const bContext *C, wmWindow *win, bool skip_stereo3d_check)
 {
 	bScreen *screen = win->screen;
+
+	if (wm_stere3d_is_hmd_view(win, CTX_data_scene(C)))
+		return true;
 
 	/* some 3d methods change the window arrangement, thus they shouldn't
 	 * toggle on/off just because there is no 3d elements being drawn */
