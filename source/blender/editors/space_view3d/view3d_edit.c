@@ -4850,7 +4850,7 @@ static int hmd_session_run_modal(bContext *C, wmOperator *UNUSED(op), const wmEv
 	switch (event->type) {
 		case EVT_HMD_TRANSFORM:
 			hmd_session_refresh(C, hmd_win, scene, event->customdata);
-			return OPERATOR_RUNNING_MODAL;
+			return (OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH);
 		case ESCKEY:
 			hmd_run_exit(hmd_win, scene);
 			return OPERATOR_FINISHED;
