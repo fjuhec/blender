@@ -53,7 +53,7 @@ typedef struct wmWidgetGroupType {
 	/* TODO use bool */
 	int (*poll)(const struct bContext *C, struct wmWidgetGroupType *wgrouptype) ATTR_WARN_UNUSED_RESULT;
 
-	/* initially create widgets, set permanent data stuff you only need to do once */
+	/* initially create widgets, set permanent data stuff you only need to do once*/
 	void (*init)(const struct bContext *C, struct wmWidgetGroup *wgroup);
 	/* refresh data, only called if recreate flag is set (WM_widgetmap_tag_refresh) */
 	void (*refresh)(const struct bContext *C, struct wmWidgetGroup *wgroup);

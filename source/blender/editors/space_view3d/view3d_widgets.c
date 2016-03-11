@@ -42,12 +42,20 @@
 #include "ED_armature.h"
 #include "ED_screen.h"
 
+#include "MEM_guardedalloc.h"
+
 #include "RNA_access.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
 
 #include "view3d_intern.h"  /* own include */
+
+typedef struct CameraWidgetGroup {
+	wmWidget *dop_dist,
+	         *focallen,
+	         *ortho_scale;
+} CameraWidgetGroup;
 
 
 int WIDGETGROUP_lamp_poll(const struct bContext *C, struct wmWidgetGroupType *UNUSED(wgrouptype))
@@ -93,45 +101,117 @@ int WIDGETGROUP_camera_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgroupt
 	return (ob && ob->type == OB_CAMERA);
 }
 
+static void cameragroup_property_setup(wmWidget *widget, Object *ob, Camera *ca, const bool is_ortho)
+{
+	const float scale[3] = {1.0f / len_v3(ob->obmat[0]), 1.0f / len_v3(ob->obmat[1]), 1.0f / len_v3(ob->obmat[2])};
+	const float scale_fac = ca->drawsize;
+	const float drawsize = is_ortho ? (0.5f * ca->ortho_scale) :
+	                                  (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
+	const float half_sensor = 0.5f * ((ca->sensor_fit == CAMERA_SENSOR_FIT_VERT) ? ca->sensor_y : ca->sensor_x);
+	const char *propname = is_ortho ? "ortho_scale" : "lens";
+
+	PointerRNA cameraptr;
+	float min, max, range;
+	float step, precision;
+
+	RNA_pointer_create(&ca->id, &RNA_Camera, ca, &cameraptr);
+
+	/* get property range */
+	PropertyRNA *prop = RNA_struct_find_property(&cameraptr, propname);
+	RNA_property_float_ui_range(&cameraptr, prop, &min, &max, &step, &precision);
+	range = max - min;
+
+	WIDGET_arrow_set_range_fac(widget, is_ortho ? (scale_fac * range) : (drawsize * range / half_sensor));
+}
+
 void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	Camera *ca = ob->data;
-	wmWidget *widget;
 	PointerRNA cameraptr;
 	float dir[3];
-	const bool focallen_widget = true; /* TODO make optional */
+
+	CameraWidgetGroup *camgroup = MEM_callocN(sizeof(CameraWidgetGroup), __func__);
+	wgroup->customdata = camgroup;
 
 	RNA_pointer_create(&ca->id, &RNA_Camera, ca, &cameraptr);
 	negate_v3_v3(dir, ob->obmat[2]);
 
 	/* dof distance */
-	if (ca->flag & CAM_SHOWLIMITS) {
+	{
 		const float color[4] = {1.0f, 0.3f, 0.0f, 1.0f};
 		const float color_hi[4] = {1.0f, 0.3f, 0.0f, 1.0f};
 		const char *propname = "dof_distance";
 
-		widget = WIDGET_arrow_new(wgroup, propname, WIDGET_ARROW_STYLE_CROSS);
-		WIDGET_arrow_set_direction(widget, dir);
-		WIDGET_arrow_set_up_vector(widget, ob->obmat[1]);
-		WM_widget_set_flag(widget, WM_WIDGET_DRAW_HOVER, true);
-		WM_widget_set_flag(widget, WM_WIDGET_SCALE_3D, false);
-		WM_widget_set_colors(widget, color, color_hi);
-		WM_widget_set_origin(widget, ob->obmat[3]);
-		WM_widget_set_property(widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, propname);
-		WM_widget_set_scale(widget, ca->drawsize);
+		camgroup->dop_dist = WIDGET_arrow_new(wgroup, propname, WIDGET_ARROW_STYLE_CROSS);
+		WM_widget_set_flag(camgroup->dop_dist, WM_WIDGET_DRAW_HOVER, true);
+		WM_widget_set_flag(camgroup->dop_dist, WM_WIDGET_SCALE_3D, false);
+		WM_widget_set_colors(camgroup->dop_dist, color, color_hi);
+		WM_widget_set_property(camgroup->dop_dist, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, propname);
 	}
 
 	/* focal length
 	 * - logic/calculations are similar to BKE_camera_view_frame_ex, better keep in sync */
-	if (focallen_widget) {
+	{
+		const float color[4] = {1.0f, 1.0, 0.27f, 0.5f};
+		const float color_hi[4] = {1.0f, 1.0, 0.27f, 1.0f};
+
+		camgroup->focallen = WIDGET_arrow_new(
+								 wgroup, "focal_len",
+								 (WIDGET_ARROW_STYLE_CONE | WIDGET_ARROW_STYLE_CONSTRAINED));
+		WM_widget_set_flag(camgroup->focallen, WM_WIDGET_SCALE_3D, false);
+		WM_widget_set_colors(camgroup->focallen, color, color_hi);
+		cameragroup_property_setup(camgroup->focallen, ob, ca, false);
+		WM_widget_set_property(camgroup->focallen, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "lens");
+
+		camgroup->ortho_scale = WIDGET_arrow_new(
+								 wgroup, "ortho_scale",
+								 (WIDGET_ARROW_STYLE_CONE | WIDGET_ARROW_STYLE_CONSTRAINED));
+		WM_widget_set_flag(camgroup->ortho_scale, WM_WIDGET_SCALE_3D, false);
+		WM_widget_set_colors(camgroup->ortho_scale, color, color_hi);
+		cameragroup_property_setup(camgroup->ortho_scale, ob, ca, true);
+		WM_widget_set_property(camgroup->ortho_scale, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "ortho_scale");
+	}
+}
+
+void WIDGETGROUP_camera_refresh(const bContext *C, wmWidgetGroup *wgroup)
+{
+	if (!wgroup->customdata)
+		return;
+
+	CameraWidgetGroup *camgroup = wgroup->customdata;
+	Object *ob = CTX_data_active_object(C);
+	Camera *ca = ob->data;
+	float dir[3];
+
+	negate_v3_v3(dir, ob->obmat[2]);
+
+	if (ca->flag & CAM_SHOWLIMITS) {
+		WIDGET_arrow_set_direction(camgroup->dop_dist, dir);
+		WIDGET_arrow_set_up_vector(camgroup->dop_dist, ob->obmat[1]);
+		WM_widget_set_origin(camgroup->dop_dist, ob->obmat[3]);
+		WM_widget_set_scale(camgroup->dop_dist, ca->drawsize);
+	}
+
+	/* TODO - make focal length/ortho scale widget optional */
+	if (true) {
 		const bool is_ortho = (ca->type == CAM_ORTHO);
-		const char *propname = is_ortho ? "ortho_scale" : "lens";
+		const float scale[3] = {1.0f / len_v3(ob->obmat[0]), 1.0f / len_v3(ob->obmat[1]), 1.0f / len_v3(ob->obmat[2])};
+		const float scale_fac = ca->drawsize;
+		const float drawsize = is_ortho ? (0.5f * ca->ortho_scale) :
+										  (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
+		float offset[3];
+		float asp[2];
 
-		float offset[3], asp[2];
-		float min, max, range;
-		float step, precision;
+		wmWidget *widget = is_ortho ? camgroup->ortho_scale : camgroup->focallen;
+		WM_widget_set_flag(widget, WM_WIDGET_HIDDEN, false);
+		WM_widget_set_flag(is_ortho ? camgroup->focallen : camgroup->ortho_scale, WM_WIDGET_HIDDEN, true);
 
+
+		/* account for lens shifting */
+		offset[0] = ((ob->size[0] > 0.0f) ? -2.0f : 2.0f) * ca->shiftx;
+		offset[1] = 2.0f * ca->shifty;
+		offset[2] = 0.0f;
 
 		/* get aspect */
 		const Scene *scene = CTX_data_scene(C);
@@ -141,40 +221,12 @@ void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
 		asp[0] = (sensor_fit == CAMERA_SENSOR_FIT_HOR) ? 1.0 : aspx / aspy;
 		asp[1] = (sensor_fit == CAMERA_SENSOR_FIT_HOR) ? aspy / aspx : 1.0f;
 
-		/* account for lens shifting */
-		offset[0] = ((ob->size[0] > 0.0f) ? -2.0f : 2.0f) * ca->shiftx;
-		offset[1] = 2.0f * ca->shifty;
-		offset[2] = 0.0f;
-
-		/* get property range */
-		PropertyRNA *prop = RNA_struct_find_property(&cameraptr, propname);
-		RNA_property_float_ui_range(&cameraptr, prop, &min, &max, &step, &precision);
-		range = max - min;
-
-
-		/* *** actual widget stuff *** */
-
-		const float scale[3] = {1.0f / len_v3(ob->obmat[0]), 1.0f / len_v3(ob->obmat[1]), 1.0f / len_v3(ob->obmat[2])};
-		const float scale_fac = ca->drawsize;
-		const float drawsize = is_ortho ? (0.5f * ca->ortho_scale) :
-		                                  (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
-		const float half_sensor = 0.5f * ((ca->sensor_fit == CAMERA_SENSOR_FIT_VERT) ? ca->sensor_y : ca->sensor_x);
-		const float color[4] = {1.0f, 1.0, 0.27f, 0.5f};
-		const float color_hi[4] = {1.0f, 1.0, 0.27f, 1.0f};
-
-		widget = WIDGET_arrow_new(wgroup, propname, (WIDGET_ARROW_STYLE_CONE | WIDGET_ARROW_STYLE_CONSTRAINED));
-
-		WIDGET_arrow_set_range_fac(widget, is_ortho ? (scale_fac * range) : (drawsize * range / half_sensor));
-		WIDGET_arrow_set_direction(widget, dir);
 		WIDGET_arrow_set_up_vector(widget, ob->obmat[1]);
+		WIDGET_arrow_set_direction(widget, dir);
 		WIDGET_arrow_cone_set_aspect(widget, asp);
-		WM_widget_set_property(widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, propname);
 		WM_widget_set_origin(widget, ob->obmat[3]);
 		WM_widget_set_offset(widget, offset);
 		WM_widget_set_scale(widget, drawsize);
-		WM_widget_set_flag(widget, WM_WIDGET_SCALE_3D, false);
-		WM_widget_set_colors(widget, color, color_hi);
-
 	}
 }
 

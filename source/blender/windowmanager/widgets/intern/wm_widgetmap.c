@@ -187,12 +187,13 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 	draw_widgets = BLI_ghash_str_new("widget_draw_hash");
 
 	for (wmWidgetGroup *wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup->next) {
-		if (!(wgroup->type->poll && wgroup->type->poll(C, wgroup->type)))
+		if (wgroup->type->poll && !wgroup->type->poll(C, wgroup->type))
 			continue;
 
 		/* prepare for first draw */
-		if (UNLIKELY(wmap->update_flag & WIDGETMAP_INIT)) {
+		if (UNLIKELY((wgroup->flag & WM_WIDGETGROUP_INITIALIZED) == 0)) {
 			wgroup->type->init(C, wgroup);
+			wgroup->flag |= WM_WIDGETGROUP_INITIALIZED;
 		}
 		/* update data if needed */
 		if (wmap->update_flag & WIDGETMAP_REFRESH && wgroup->type->refresh) {

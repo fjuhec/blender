@@ -761,10 +761,12 @@ static void view3d_widgets(void)
 	        WIDGETGROUP_forcefield_init,
 	        WM_widgetgroup_keymap_common,
 	        "Force Field Widgets");
-	WM_widgetgrouptype_register_ptr(
+	WM_widgetgrouptype_register_ptr_update(
 	        NULL, wmaptype,
 	        WIDGETGROUP_camera_poll,
 	        WIDGETGROUP_camera_init,
+	        WIDGETGROUP_camera_refresh,
+	        NULL,
 	        WM_widgetgroup_keymap_common,
 	        "Camera Widgets");
 	WM_widgetgrouptype_register_ptr_update(

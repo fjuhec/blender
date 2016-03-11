@@ -130,6 +130,7 @@ enum {
 	WM_WIDGETGROUPTYPE_3D      = (1 << 0), /* WARNING: Don't change this! Bit used for wmWidgetMapType comparisons! */
 	/* widget group is attached to operator, and is only accessible as long as this runs */
 	WM_WIDGETGROUPTYPE_OP      = (1 << 10),
+	WM_WIDGETGROUP_INITIALIZED = (1 << 11), /* wgroup has been initialized */
 };
 
 
