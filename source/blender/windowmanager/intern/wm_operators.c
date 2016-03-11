@@ -5119,7 +5119,10 @@ static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wm
 		BLI_assert(0);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
+
 	wm->win_hmd = win;
+	wm_window_title(wm, win, "Blender HMD View");
+
 	wmWindow *prevwin = CTX_wm_window(C);
 	ScrArea *prevsa = CTX_wm_area(C);
 	ARegion *prevar = CTX_wm_region(C);
