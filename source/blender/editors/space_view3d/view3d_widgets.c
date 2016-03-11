@@ -191,6 +191,10 @@ void WIDGETGROUP_camera_refresh(const bContext *C, wmWidgetGroup *wgroup)
 		WIDGET_arrow_set_up_vector(camgroup->dop_dist, ob->obmat[1]);
 		WM_widget_set_origin(camgroup->dop_dist, ob->obmat[3]);
 		WM_widget_set_scale(camgroup->dop_dist, ca->drawsize);
+		WM_widget_set_flag(camgroup->dop_dist, WM_WIDGET_HIDDEN, false);
+	}
+	else {
+		WM_widget_set_flag(camgroup->dop_dist, WM_WIDGET_HIDDEN, true);
 	}
 
 	/* TODO - make focal length/ortho scale widget optional */
