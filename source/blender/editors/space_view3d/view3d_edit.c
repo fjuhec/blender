@@ -4800,50 +4800,12 @@ void VIEW3D_OT_enable_manipulator(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-/* ***************** TODO ******************* */
+/* ***************** HMD Session ******************* */
 
 typedef struct HMDData {
 	float orientation[4];
 } HMDData;
 
-static int hmd_refresh_poll(bContext *C)
-{
-	Scene *scene = CTX_data_scene(C);
-	return ((scene->r.scemode & R_HMD_IGNORE_ROT) == 0 && (scene->flag & SCE_HMD_RUNNING));
-}
-
-static int hmd_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
-{
-	Scene *scene = CTX_data_scene(C);
-	View3D *v3d = CTX_wm_view3d(C);
-	Object *camera_ob = v3d ? v3d->camera : scene->camera;
-	HMDData *data = event->customdata;
-	float quad[4] = {M_SQRT1_2, M_SQRT1_2, 0.0f, 0.0f};
-
-	mul_qt_qtqt(camera_ob->quat, quad, data->orientation);
-	normalize_qt(camera_ob->quat);
-	loc_quat_size_to_mat4(camera_ob->obmat, camera_ob->loc, camera_ob->quat, camera_ob->size);
-
-	DAG_id_tag_update(&camera_ob->id, 0);  /* sets recalc flags */
-	ED_region_tag_redraw(CTX_wm_region(C));
-
-	return OPERATOR_FINISHED;
-}
-
-void VIEW3D_OT_hmd_refresh(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "Refresh HMD Data";
-	ot->description = "Updates the orientation of the head mounted display";
-	ot->idname = "VIEW3D_OT_hmd_refresh";
-
-	/* api callbacks */
-	ot->invoke = hmd_refresh_invoke;
-	ot->poll = hmd_refresh_poll;
-
-	/* flags */
-	ot->flag = OPTYPE_INTERNAL;
-}
 static void hmd_run_exit(wmWindow *win, Scene *scene)
 {
 	scene->flag &= ~SCE_HMD_RUNNING;
