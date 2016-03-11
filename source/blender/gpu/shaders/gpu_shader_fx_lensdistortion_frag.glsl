@@ -19,7 +19,7 @@ void main()
 	vec2 ScreenCenter = gl_FragCoord.x < 960 ? LeftScreenCenter : RightScreenCenter;
 
 	vec2 oTexCoord = gl_FragCoord.xy / vec2(1920, 1080);
-
+    oTexCoord = vec2(oTexCoord.x, 1.0-oTexCoord.y);
 
 	vec2 theta = (oTexCoord - LensCenter) * ScaleIn; // Scales to [-1, 1]
 	float rSq = theta.x * theta.x + theta.y * theta.y;
