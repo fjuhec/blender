@@ -4896,7 +4896,6 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *op, const wmEvent *UN
 		}
 	}
 	if (!win) {
-		BLI_assert(0);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 

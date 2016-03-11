@@ -231,7 +231,7 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
             row = col.row(align=True)
 
             row.operator("wm.hmd_view_open")
-            row.operator("view3d.hmd_run", text="", icon=icon)
+            row.operator("view3d.hmd_session_run", text="", icon=icon)
 
 
 if __name__ == "__main__":  # only for live edit.
