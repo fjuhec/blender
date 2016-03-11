@@ -4898,7 +4898,19 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *op, const wmEvent *UN
 
 		op->customdata = win;
 		WM_window_fullscreen_toggle(win, true, false);
-		WM_event_add_modal_handler(C, op);
+
+		{
+			wmWindow *win_store = CTX_wm_window(C);
+			ScrArea *sa_store = CTX_wm_area(C);
+			ARegion *ar_store = CTX_wm_region(C);
+			CTX_wm_window_set(C, win);
+			CTX_wm_area_set(C, sa);
+			CTX_wm_region_set(C, ar);
+			WM_event_add_modal_handler(C, op);
+			CTX_wm_region_set(C, ar_store);
+			CTX_wm_area_set(C, sa_store);
+			CTX_wm_window_set(C, win_store);
+		}
 		return OPERATOR_RUNNING_MODAL;
 	}
 }
