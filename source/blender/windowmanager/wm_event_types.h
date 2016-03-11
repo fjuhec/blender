@@ -291,7 +291,7 @@ enum {
 	NDOF_LAST,
 
 	/* VR Viewport transform event */
-    EVT_HMD_TRANSFORM,
+	EVT_HMD_TRANSFORM,
 
 	/* ********** End of Input devices. ********** */
 

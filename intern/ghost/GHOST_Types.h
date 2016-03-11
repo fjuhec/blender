@@ -201,7 +201,7 @@ typedef enum {
 	GHOST_kEventImeComposition,
 	GHOST_kEventImeCompositionEnd,
 
-	GHOST_kEventOpenHMD,
+	GHOST_kEventHMD, // HMD - head mounted device (virtual reality)
 
 	GHOST_kNumEventTypes
 } GHOST_TEventType;

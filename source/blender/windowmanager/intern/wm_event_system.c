@@ -3500,17 +3500,17 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, int U
 			break;
 		}
 
-        case GHOST_kEventOpenHMD:
-        {
-            GHOST_TEventOpenHMDData *e = customdata;
+		case GHOST_kEventHMD:
+		{
+			GHOST_TEventOpenHMDData *e = customdata;
 
-            event.type = EVT_HMD_TRANSFORM;
-            event.customdata = e->orientation;
+			event.type = EVT_HMD_TRANSFORM;
+			event.customdata = e->orientation;
 
-            wm_event_add(win, &event);
+			wm_event_add(win, &event);
 
-            break;
-        }
+			break;
+		}
 
 		case GHOST_kEventUnknown:
 		case GHOST_kNumEventTypes:
