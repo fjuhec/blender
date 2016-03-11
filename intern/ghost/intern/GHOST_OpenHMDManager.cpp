@@ -55,11 +55,16 @@ GHOST_OpenHMDManager::~GHOST_OpenHMDManager()
 bool GHOST_OpenHMDManager::processEvents()
 {
 	if (m_available) {
-        ohmd_ctx_update(m_context);
+		GHOST_IWindow *window = m_system.getWindowManager()->getActiveWindow();
+
+		if (!window)
+			return false;
+
+		ohmd_ctx_update(m_context);
 
         GHOST_TUns64 now = m_system.getMilliSeconds();
 
-        GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, m_system.getWindowManager()->getActiveWindow());
+        GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, window);
         GHOST_TEventOpenHMDData* data = (GHOST_TEventOpenHMDData*) event->getData();
         float quat[4];
 
