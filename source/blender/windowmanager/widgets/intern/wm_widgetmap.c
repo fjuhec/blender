@@ -59,10 +59,10 @@
 static ListBase widgetmaptypes = {NULL, NULL};
 
 /**
- * Hash table of all visible widgets to avoid unnecessary loops and wmWidgetGroupType->poll checks.
- * Collected in WM_widgets_update, freed in WM_widgets_draw.
+ * List of all visible widgets to avoid unnecessary loops and wmWidgetGroupType->poll checks.
+ * Collected in WM_widgets_update.
  */
-static GHash *draw_widgets = NULL;
+static ListBase draw_widgets = {NULL, NULL};
 
 /**
  * Widget map update/init tagging.
@@ -183,9 +183,6 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 	if (!wmap || BLI_listbase_is_empty(&wmap->widgetgroups))
 		return;
 
-	BLI_assert(draw_widgets == NULL);
-	draw_widgets = BLI_ghash_str_new("widget_draw_hash");
-
 	for (wmWidgetGroup *wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup->next) {
 		if (wgroup->type->poll && !wgroup->type->poll(C, wgroup->type))
 			continue;
@@ -207,8 +204,8 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 		for (wmWidget *widget = wgroup->widgets.first; widget; widget = widget->next) {
 			if (widget->flag & WM_WIDGET_HIDDEN)
 				continue;
-			BLI_ghash_insert(draw_widgets, widget->idname, widget);
 			wm_widget_calculate_scale(widget, C);
+			BLI_addhead(&draw_widgets, BLI_genericNodeN(widget));
 		}
 	}
 
@@ -218,19 +215,18 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 
 /**
  * Draw all visible widgets in \a wmap.
- * Uses global draw_widgets hash table.
+ * Uses global draw_widgets listbase.
  *
  * \param in_scene  draw depth-culled widgets (wmWidget->flag WM_WIDGET_SCENE_DEPTH) - TODO
- * \param free_drawwidgets  free global draw_widgets hash table (always enable for last draw call in region!).
+ * \param free_drawwidgets  free global draw_widgets listbase (always enable for last draw call in region!).
  */
 void WM_widgetmap_widgets_draw(
         const bContext *C, const wmWidgetMap *wmap,
         const bool in_scene, const bool free_drawwidgets)
 {
-	if (!wmap || !draw_widgets)
-		return;
 	BLI_assert(!BLI_listbase_is_empty(&wmap->widgetgroups));
-
+	if (!wmap)
+		return;
 
 	const bool draw_multisample = (U.ogl_multisamples != USER_MULTISAMPLE_NONE);
 	const bool use_lighting = (U.widget_flag & V3D_SHADED_WIDGETS) != 0;
@@ -271,7 +267,7 @@ void WM_widgetmap_widgets_draw(
 	/* draw selected widgets */
 	if (wmap->wmap_context.selected_widgets) {
 		for (int i = 0; i < wmap->wmap_context.tot_selected; i++) {
-			widget = BLI_ghash_lookup(draw_widgets, wmap->wmap_context.selected_widgets[i]->idname);
+			widget = wmap->wmap_context.selected_widgets[i];
 			if (widget && (in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH))) {
 				/* notice that we don't update the widgetgroup, widget is now on
 				 * its own, it should have all relevant data to update itself */
@@ -282,13 +278,12 @@ void WM_widgetmap_widgets_draw(
 
 	/* draw other widgets */
 	if (!wmap->wmap_context.active_widget) {
-		GHashIterator gh_iter;
-
-		GHASH_ITER (gh_iter, draw_widgets) { /* draw_widgets excludes hidden widgets */
-			widget = BLI_ghashIterator_getValue(&gh_iter);
+		/* draw_widgets excludes hidden widgets */
+		for (LinkData *link = draw_widgets.first; link; link = link->next) {
+			widget = link->data;
 			if ((in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH)) &&
-			    ((widget->flag & WM_WIDGET_SELECTED) == 0) && /* selected were drawn already */
-			    ((widget->flag & WM_WIDGET_DRAW_HOVER) == 0 || (widget->flag & WM_WIDGET_HIGHLIGHT)))
+				((widget->flag & WM_WIDGET_SELECTED) == 0) && /* selected were drawn already */
+				((widget->flag & WM_WIDGET_DRAW_HOVER) == 0 || (widget->flag & WM_WIDGET_HIGHLIGHT)))
 			{
 				widget->draw(C, widget);
 			}
@@ -302,8 +297,7 @@ void WM_widgetmap_widgets_draw(
 		glPopAttrib();
 
 	if (free_drawwidgets) {
-		BLI_ghash_free(draw_widgets, NULL, NULL);
-		draw_widgets = NULL;
+		BLI_freelistN(&draw_widgets);
 	}
 }
 
