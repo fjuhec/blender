@@ -29,6 +29,7 @@
  *  \ingroup bke
  */
 
+#include <ctype.h>
 #include <stdlib.h> /* abort */
 #include <string.h> /* strstr */
 #include <sys/types.h>
@@ -129,6 +130,7 @@ static void txt_undo_add_blockop(Text *text, int op, const char *buf);
 static void txt_delete_line(Text *text, TextLine *line);
 static void txt_delete_sel(Text *text);
 static void txt_make_dirty(Text *text);
+static void txt_comment_ex(Text *text, const short undo_flag);
 
 /***/
 
@@ -1910,26 +1912,36 @@ static void txt_undo_add_charop(Text *text, int op_start, unsigned int c)
 	text->undo_buf[text->undo_pos + 1] = 0;
 }
 
-/* extends Link */
-struct LinkInt {
-	struct LinkInt *next, *prev;
-	int value;
+/**
+ * Storage for undoing line un-prefixing (uncomment, unindent).
+ * Each list item represents a line that has changes to be undone.
+ *
+ * \warning: Be careful when changing data types, the exact bytes are stored for undo!
+ *           (see #txt_undo_add_unprefix_op)
+ */
+typedef struct PrefixUndoData {
+	struct PrefixUndoData *next, *prev;
+	int line_nr;
+	short flag;
+} PrefixUndoData;
+
+/* short PrefixUndoData.flag */
+enum {
+	/* Line had whitespace in front of prefix */
+	PREFIX_HAD_LEAD_SPACE  = (1 << 0),
+	/* Prefix was followed by a single space */
+	PREFIX_HAD_TRAIL_SPACE = (1 << 1),
 };
 
-/**
- * UnindentLines points to a #ListBase composed of #LinkInt elements, listing the numbers
- * of the lines that should not be indented back.
- */
 static void txt_undo_add_unprefix_op(
         Text *text, char undo_op,
         const ListBase *line_index_mask, const int line_index_mask_len)
 {
-	struct LinkInt *idata;
-
+	const int data_store_size = 4 + 2; /* PrefixUndoData, UInt32 for line_nr, UInt16 for flag */
 	BLI_assert(BLI_listbase_count(line_index_mask) == line_index_mask_len);
 
-	/* OP byte + UInt32 count + counted UInt32 line numbers + UInt32 count + 12-bytes selection + OP byte */
-	if (!max_undo_test(text, 1 + 4 + (line_index_mask_len * 4) + 4 + 12 + 1)) {
+	/* OP byte + UInt32 count + PrefixUndoData storage for each item + UInt32 count + 12-bytes selection + OP byte */
+	if (!max_undo_test(text, 1 + 4 + (line_index_mask_len * data_store_size) + 4 + 12 + 1)) {
 		return;
 	}
 
@@ -1941,8 +1953,9 @@ static void txt_undo_add_unprefix_op(
 	txt_undo_store_uint32(text->undo_buf, &text->undo_pos, line_index_mask_len);
 
 	/* Adding linenumbers of lines that shall not be indented if undoing */
-	for (idata = line_index_mask->first; idata; idata = idata->next) {
-		txt_undo_store_uint32(text->undo_buf, &text->undo_pos, idata->value);
+	for (PrefixUndoData *data = line_index_mask->first; data; data = data->next) {
+		txt_undo_store_uint32(text->undo_buf, &text->undo_pos, data->line_nr);
+		txt_undo_store_uint16(text->undo_buf, &text->undo_pos, data->flag);
 	}
 
 	/* Adding number of line numbers to read again */
@@ -2282,7 +2295,6 @@ void txt_do_undo(Text *text)
 			text->undo_pos--;
 			break;
 		case UNDO_UNINDENT:
-		case UNDO_UNCOMMENT:
 		{
 			void (*txt_prefix_fn)(Text *);
 			void (*txt_unprefix_fn)(Text *);
@@ -2306,11 +2318,14 @@ void txt_do_undo(Text *text)
 			txt_prefix_fn(text);
 
 			/* Get the count */
+			/* TODO we used to only store lines that didn't change, now we only store lines that did change */
+			printf("%s, %i: FIXME!\n", __func__, __LINE__);
 			count = txt_undo_read_uint32(text->undo_buf, &text->undo_pos);
 			/* Iterate! */
 			txt_pop_sel(text);
 
 			for (i = 0; i < count; i++) {
+				txt_undo_read_uint16(text->undo_buf, &text->undo_pos); /* Jump over count */
 				txt_move_to(text, txt_undo_read_uint32(text->undo_buf, &text->undo_pos), 0, 0);
 				/* Un-un-unindent/comment */
 				txt_unprefix_fn(text);
@@ -2319,6 +2334,30 @@ void txt_do_undo(Text *text)
 			txt_move_to(text, curln, curc, 0);
 			txt_move_to(text, selln, selc, 1);
 			/* Jumo over count */
+			txt_undo_read_uint32(text->undo_buf, &text->undo_pos);
+			/* Jump over closing OP byte */
+			text->undo_pos--;
+			break;
+		}
+		case UNDO_UNCOMMENT:
+		{
+			/* Get the count */
+			/* get and restore the cursors */
+			txt_undo_read_cursors(text->undo_buf, &text->undo_pos, &curln, &curc, &selln, &selc);
+			txt_move_to(text, curln, curc, 0);
+			txt_move_to(text, selln, selc, 1);
+
+			int count = txt_undo_read_uint32(text->undo_buf, &text->undo_pos);
+			for (int i = 0; i < count; i++) {
+				const short flag = txt_undo_read_uint16(text->undo_buf, &text->undo_pos);
+				const int line_nr = txt_undo_read_uint32(text->undo_buf, &text->undo_pos);
+				txt_move_to(text, line_nr, 0, 0);
+				txt_comment_ex(text, flag);
+			}
+			/* Restore selection */
+			txt_move_to(text, curln, curc, 0);
+			txt_move_to(text, selln, selc, 1);
+			/* Jump over count */
 			txt_undo_read_uint32(text->undo_buf, &text->undo_pos);
 			/* Jump over closing OP byte */
 			text->undo_pos--;
@@ -2464,6 +2503,8 @@ void txt_do_redo(Text *text)
 			txt_redo_read_cursors(text->undo_buf, &text->undo_pos, &curln, &curc, &selln, &selc);
 			txt_move_to(text, curln, curc, 0);
 			txt_move_to(text, selln, selc, 1);
+
+			printf("%s, %i: FIXME!\n", __func__, __LINE__);
 
 			if (op == UNDO_INDENT) {
 				txt_indent(text);
@@ -2845,14 +2886,16 @@ bool txt_replace_char(Text *text, unsigned int add)
 /**
  * Generic prefix operation, use for comment & indent.
  *
+ * \param undo_flag: This function is called for undoing uncommenting/unindenting, for this
+ *                   case we might need some more info
  * \note caller must handle undo.
  */
-static void txt_select_prefix(Text *text, const char *add)
+static void txt_select_prefix(Text *text, const char *add, const short undo_flag)
 {
 	int len, num, curc_old;
 	char *tmp;
 
-	const int indentlen = strlen(add);
+	const int add_len = strlen(add);
 
 	BLI_assert(!ELEM(NULL, text->curl, text->sell));
 
@@ -2860,29 +2903,58 @@ static void txt_select_prefix(Text *text, const char *add)
 
 	num = 0;
 	while (true) {
+		int add_len_line = add_len, char_ofs = 0;
+		const char *add_line = add;
+
+		if (undoing) {
+			/* add trailing space */
+			if (undo_flag & PREFIX_HAD_TRAIL_SPACE) {
+				add_len_line++;
+				add_line = BLI_sprintfN("%s ", add);
+			}
+			if (undo_flag & PREFIX_HAD_LEAD_SPACE) {
+				/* iterate over chars until a non whitespace char appears */
+				for (int i = 0; i < text->curl->len; i++) {
+					if (!isspace(text->curl->line[i])) {
+						char_ofs = i;
+						break;
+					}
+				}
+			}
+		}
 
 		/* don't indent blank lines */
+		/* TODO undo uncommeting line with single '#' */
+		printf("%s, %i: FIXME!\n", __func__, __LINE__);
 		if (text->curl->len != 0) {
-			tmp = MEM_mallocN(text->curl->len + indentlen + 1, "textline_string");
+			tmp = MEM_mallocN(text->curl->len + add_len_line + 1, __func__);
+
+			if (char_ofs) {
+				memcpy(tmp, text->curl->line, char_ofs);
+			}
 
 			text->curc = 0;
-			if (text->curc) memcpy(tmp, text->curl->line, text->curc);  /* XXX never true, check prev line */
-			memcpy(tmp + text->curc, add, indentlen);
+			if (text->curc) memcpy(tmp, add_line, add_len_line); /* XXX never true, see prev line */
+			memcpy(tmp + text->curc + char_ofs, add_line, add_len_line);
 
-			len = text->curl->len - text->curc;
-			if (len > 0) memcpy(tmp + text->curc + indentlen, text->curl->line + text->curc, len);
-			tmp[text->curl->len + indentlen] = 0;
+			len = text->curl->len - text->curc - char_ofs;
+			if (len > 0) memcpy(tmp + text->curc + add_len_line + char_ofs,
+			                    text->curl->line + text->curc + char_ofs, len);
+			tmp[text->curl->len + add_len_line] = 0;
 
 			make_new_line(text->curl, tmp);
 
-			text->curc += indentlen;
+			text->curc += add_len_line;
 
 			txt_make_dirty(text);
 			txt_clean_text(text);
 		}
+		if (add_line != add) {
+			MEM_freeN((void *)add_line);
+		}
 		
 		if (text->curl == text->sell) {
-			text->selc += indentlen;
+			text->selc += add_len_line;
 			break;
 		}
 		else {
@@ -2891,7 +2963,7 @@ static void txt_select_prefix(Text *text, const char *add)
 		}
 	}
 	if (!curc_old) text->curc = 0;
-	else text->curc = curc_old + indentlen;
+	else text->curc = curc_old + add_len;
 
 	while (num > 0) {
 		text->curl = text->curl->prev;
@@ -2906,15 +2978,17 @@ static void txt_select_prefix(Text *text, const char *add)
  *
  * \param r_line_index_mask: List of lines that are already at indent level 0,
  * to store them later into the undo buffer.
+ * \param strip_trailing_space: Check if there's a ' ' char following \a remove and get rid of it if so.
  *
  * \note caller must handle undo.
  */
 static void txt_select_unprefix(
         Text *text, const char *remove,
-        ListBase *r_line_index_mask, int *r_line_index_mask_len)
+        ListBase *r_line_index_mask, int *r_line_index_mask_len,
+        const bool strip_trailing_space)
 {
 	int num = 0;
-	const int indentlen = strlen(remove);
+	const int remove_len = strlen(remove);
 	bool unindented_first = false;
 
 	int curl_span_init = 0;
@@ -2929,43 +3003,80 @@ static void txt_select_unprefix(
 	}
 
 	while (true) {
+		int remove_len_line = remove_len;
+		int start_idx = -1; /* first char to remove */
 		bool changed = false;
-		if (STREQLEN(text->curl->line, remove, indentlen)) {
+
+		/* iterate over chars until either remove string is reached, or a non whitespace char */
+		for (; (text->curl->len > 0) && (start_idx < text->curl->len); start_idx++) {
+			CLAMP_MIN(start_idx, 0); /* start_idx shouldn't be -1 at this point */
+			if (STREQLEN(&text->curl->line[start_idx], remove, remove_len)) {
+				/* remove trailing whitespace char */
+				if (strip_trailing_space) {
+					/* check if only the next char is a ' ' */
+					if ((start_idx + 1 < text->curl->len) &&
+					    (text->curl->line[start_idx + 1] == ' ') &&
+					    ((text->curl->line[start_idx + 2] != ' ') || (start_idx + 2 == text->curl->len)))
+					{
+						/* make sure it's removed */
+						remove_len_line++;
+					}
+				}
+				break;
+			}
+			/* remove string not found, next char is no whitespace -> break */
+			else if (!isspace(text->curl->line[start_idx])) {
+				start_idx = -1;
+				break;
+			}
+		}
+
+		if (start_idx > -1) {
+			const int newlen = text->curl->len - remove_len_line;
+			char *tmp = MEM_mallocN(newlen + 1, __func__);
+
+			BLI_assert(start_idx <= newlen && newlen >= 0);
+			if (newlen > 0) {
+				memcpy(tmp, text->curl->line, newlen);
+				memmove(tmp + start_idx, text->curl->line + start_idx + remove_len_line, newlen - start_idx);
+			}
+			tmp[newlen] = 0;
+			make_new_line(text->curl, tmp);
+
+			changed = true;
 			if (num == 0)
 				unindented_first = true;
-			text->curl->len -= indentlen;
-			memmove(text->curl->line, text->curl->line + indentlen, text->curl->len + 1);
-			changed = true;
-		}
-		else {
+
+			/* store line info for undo */
 			if (!undoing) {
-				/* Create list element for 0 indent line */
-				struct LinkInt *idata = MEM_mallocN(sizeof(struct LinkInt), __func__);
-				idata->value = curl_span_init + num;
-				BLI_assert(idata->value == txt_get_span(text->lines.first, text->curl));
-				BLI_addtail(r_line_index_mask, idata);
+				PrefixUndoData *data = MEM_callocN(sizeof(PrefixUndoData), __func__);
+				data->line_nr = curl_span_init + num;
+				if (start_idx != 0)
+					data->flag |= PREFIX_HAD_LEAD_SPACE;
+				if (remove_len != remove_len_line)
+					data->flag |= PREFIX_HAD_TRAIL_SPACE;
+				BLI_assert(data->line_nr == txt_get_span(text->lines.first, text->curl));
+				BLI_addtail(r_line_index_mask, data);
 				(*r_line_index_mask_len) += 1;
 			}
 		}
-	
+
 		txt_make_dirty(text);
 		txt_clean_text(text);
-		
+
 		if (text->curl == text->sell) {
 			if (changed)
-				text->selc = MAX2(text->selc - indentlen, 0);
+				text->selc = MAX2(text->selc - remove_len, 0);
 			break;
 		}
 		else {
 			text->curl = text->curl->next;
 			num++;
-
 		}
-		
 	}
 
 	if (unindented_first)
-		text->curc = MAX2(text->curc - indentlen, 0);
+		text->curc = MAX2(text->curc - remove_len, 0);
 
 	while (num > 0) {
 		text->curl = text->curl->prev;
@@ -2975,7 +3086,8 @@ static void txt_select_unprefix(
 	/* caller must handle undo */
 }
 
-void txt_comment(Text *text)
+
+static void txt_comment_ex(Text *text, const short undo_flag)
 {
 	const char *prefix = "#";
 
@@ -2983,11 +3095,16 @@ void txt_comment(Text *text)
 		return;
 	}
 
-	txt_select_prefix(text, prefix);
+	txt_select_prefix(text, prefix, undo_flag);
 
 	if (!undoing) {
 		txt_undo_add_op(text, UNDO_COMMENT);
 	}
+}
+
+void txt_comment(Text *text)
+{
+	txt_comment_ex(text, 0);
 }
 
 void txt_uncomment(Text *text)
@@ -3000,7 +3117,7 @@ void txt_uncomment(Text *text)
 		return;
 	}
 
-	txt_select_unprefix(text, prefix, &line_index_mask, &line_index_mask_len);
+	txt_select_unprefix(text, prefix, &line_index_mask, &line_index_mask_len, true);
 
 	if (!undoing) {
 		txt_undo_add_unprefix_op(text, UNDO_UNCOMMENT, &line_index_mask, line_index_mask_len);
@@ -3017,7 +3134,7 @@ void txt_indent(Text *text)
 		return;
 	}
 
-	txt_select_prefix(text, prefix);
+	txt_select_prefix(text, prefix, 0);
 
 	if (!undoing) {
 		txt_undo_add_op(text, UNDO_INDENT);
@@ -3034,7 +3151,7 @@ void txt_unindent(Text *text)
 		return;
 	}
 
-	txt_select_unprefix(text, prefix, &line_index_mask, &line_index_mask_len);
+	txt_select_unprefix(text, prefix, &line_index_mask, &line_index_mask_len, false);
 
 	if (!undoing) {
 		txt_undo_add_unprefix_op(text, UNDO_UNINDENT, &line_index_mask, line_index_mask_len);
