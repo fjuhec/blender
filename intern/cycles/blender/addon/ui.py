@@ -511,7 +511,7 @@ class CyclesRender_PT_views(CyclesButtonsPanel, Panel):
             row.label(text="File Suffix:")
             row.prop(rv, "file_suffix", text="")
 
-        else:
+        elif rd.views_format == 'MULTIVIEW':
             row = layout.row()
             row.template_list("RENDERLAYER_UL_renderviews", "name", rd, "views", rd.views, "active_index", rows=2)
 
@@ -522,6 +522,21 @@ class CyclesRender_PT_views(CyclesButtonsPanel, Panel):
             row = layout.row()
             row.label(text="Camera Suffix:")
             row.prop(rv, "camera_suffix", text="")
+        else:
+            wm = context.window_manager
+
+            running = scene.hmd_running
+            text_win = "Close HMD Window" if wm.has_hmd_window else "Open HMD Window"
+            text_run = "Stop Session" if running else "Start Session"
+            icon = 'PAUSE' if running else 'PLAY'
+
+            col = layout.column()
+
+            row = col.row(align=True)
+            row.operator("wm.hmd_view_open", text=text_win)
+            row.operator("view3d.hmd_session_run", text=text_run, icon=icon)
+
+            col.prop(rd, "hmd_camlock")
 
 
 class Cycles_PT_post_processing(CyclesButtonsPanel, Panel):
