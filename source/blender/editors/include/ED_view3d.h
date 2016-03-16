@@ -415,6 +415,7 @@ bool ED_view3d_snap_from_ray(
 
 int WIDGETGROUP_lamp_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
 void WIDGETGROUP_lamp_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_lamp_refresh(const struct bContext *C, struct wmWidgetGroup *wgroup);
 
 /* render */
 void ED_view3d_stop_render_preview(struct wmWindowManager *wm, struct ARegion *ar);

@@ -58,7 +58,7 @@ typedef struct CameraWidgetGroup {
 } CameraWidgetGroup;
 
 
-int WIDGETGROUP_lamp_poll(const struct bContext *C, struct wmWidgetGroupType *UNUSED(wgrouptype))
+int WIDGETGROUP_lamp_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -69,29 +69,37 @@ int WIDGETGROUP_lamp_poll(const struct bContext *C, struct wmWidgetGroupType *UN
 	return false;
 }
 
-void WIDGETGROUP_lamp_init(const struct bContext *C, struct wmWidgetGroup *wgroup)
+void WIDGETGROUP_lamp_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	Lamp *la = ob->data;
-	wmWidget *widget;
 	PointerRNA ptr;
-	float dir[3];
 	const char *propname = "spot_size";
 
 	const float color[4] = {0.5f, 0.5f, 1.0f, 1.0f};
 	const float color_hi[4] = {0.8f, 0.8f, 0.45f, 1.0f};
 
+	wmWidgetWrapper *wwrapper = MEM_mallocN(sizeof(wmWidgetWrapper), __func__);
+
+	wwrapper->widget = WIDGET_arrow_new(wgroup, propname, WIDGET_ARROW_STYLE_INVERTED);
+	wgroup->customdata = wwrapper;
+
+	RNA_pointer_create(&la->id, &RNA_Lamp, la, &ptr);
+	WIDGET_arrow_set_range_fac(wwrapper->widget, 4.0f);
+	WM_widget_set_colors(wwrapper->widget, color, color_hi);
+	WM_widget_set_property(wwrapper->widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, propname);
+}
+
+void WIDGETGROUP_lamp_refresh(const bContext *C, wmWidgetGroup *wgroup)
+{
+	wmWidgetWrapper *wwrapper = wgroup->customdata;
+	Object *ob = CTX_data_active_object(C);
+	float dir[3];
 
 	negate_v3_v3(dir, ob->obmat[2]);
 
-	widget = WIDGET_arrow_new(wgroup, propname, WIDGET_ARROW_STYLE_INVERTED);
-
-	RNA_pointer_create(&la->id, &RNA_Lamp, la, &ptr);
-	WIDGET_arrow_set_range_fac(widget, 4.0f);
-	WIDGET_arrow_set_direction(widget, dir);
-	WM_widget_set_origin(widget, ob->obmat[3]);
-	WM_widget_set_colors(widget, color, color_hi);
-	WM_widget_set_property(widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, propname);
+	WIDGET_arrow_set_direction(wwrapper->widget, dir);
+	WM_widget_set_origin(wwrapper->widget, ob->obmat[3]);
 }
 
 int WIDGETGROUP_camera_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
@@ -241,33 +249,44 @@ int WIDGETGROUP_forcefield_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgr
 	return (ob && ob->pd && ob->pd->forcefield);
 }
 
-void WIDGETGROUP_forcefield_init(const bContext *C, wmWidgetGroup *wgroup)
+void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
 {
-	Object *ob = CTX_data_active_object(C);
-	PartDeflect *pd = ob->pd;
-	PointerRNA ptr;
-	wmWidget *widget;
-
-	const float size = (ob->type == OB_EMPTY) ? ob->empty_drawsize : 1.0f;
-	const float ofs[3] = {0.0f, -size, 0.0f};
-
 	const float col[4] = {0.8f, 0.8f, 0.45f, 0.5f};
 	const float col_hi[4] = {0.8f, 0.8f, 0.45f, 1.0f};
 
-
 	/* only wind effector for now */
+	wmWidgetWrapper *wwrapper = MEM_mallocN(sizeof(wmWidgetWrapper), __func__);
+	wgroup->customdata = wwrapper;
+
+	wwrapper->widget = WIDGET_arrow_new(wgroup, "field_strength", WIDGET_ARROW_STYLE_CONSTRAINED);
+
+	WIDGET_arrow_set_ui_range(wwrapper->widget, -200.0f, 200.0f);
+	WIDGET_arrow_set_range_fac(wwrapper->widget, 6.0f);
+	WM_widget_set_colors(wwrapper->widget, col, col_hi);
+	WM_widget_set_flag(wwrapper->widget, WM_WIDGET_SCALE_3D, false);
+}
+
+void WIDGETGROUP_forcefield_refresh(const bContext *C, wmWidgetGroup *wgroup)
+{
+	wmWidgetWrapper *wwrapper = wgroup->customdata;
+	Object *ob = CTX_data_active_object(C);
+	PartDeflect *pd = ob->pd;
+
 	if (pd->forcefield == PFIELD_WIND) {
-		widget = WIDGET_arrow_new(wgroup, "field_strength", WIDGET_ARROW_STYLE_CONSTRAINED);
+		const float size = (ob->type == OB_EMPTY) ? ob->empty_drawsize : 1.0f;
+		const float ofs[3] = {0.0f, -size, 0.0f};
+		PointerRNA ptr;
 
 		RNA_pointer_create(&ob->id, &RNA_FieldSettings, pd, &ptr);
-		WIDGET_arrow_set_direction(widget, ob->obmat[2]);
-		WIDGET_arrow_set_ui_range(widget, -200.0f, 200.0f);
-		WIDGET_arrow_set_range_fac(widget, 6.0f);
-		WM_widget_set_colors(widget, col, col_hi);
-		WM_widget_set_origin(widget, ob->obmat[3]);
-		WM_widget_set_offset(widget, ofs);
-		WM_widget_set_flag(widget, WM_WIDGET_SCALE_3D, false);
-		WM_widget_set_property(widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, "strength");
+
+		WIDGET_arrow_set_direction(wwrapper->widget, ob->obmat[2]);
+		WM_widget_set_origin(wwrapper->widget, ob->obmat[3]);
+		WM_widget_set_offset(wwrapper->widget, ofs);
+		WM_widget_set_flag(wwrapper->widget, WM_WIDGET_HIDDEN, false);
+		WM_widget_set_property(wwrapper->widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, "strength");
+	}
+	else {
+		WM_widget_set_flag(wwrapper->widget, WM_WIDGET_HIDDEN, true);
 	}
 }
 

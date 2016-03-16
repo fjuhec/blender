@@ -749,16 +749,20 @@ static void view3d_widgets(void)
 	        WIDGETGROUP_armature_facemaps_init,
 	        WM_widgetgroup_keymap_common_sel,
 	        "Face Map Widgets");
-	WM_widgetgrouptype_register_ptr(
+	WM_widgetgrouptype_register_ptr_update(
 	        NULL, wmaptype,
 	        WIDGETGROUP_lamp_poll,
 	        WIDGETGROUP_lamp_init,
+	        WIDGETGROUP_lamp_refresh,
+	        NULL,
 	        WM_widgetgroup_keymap_common,
 	        "Lamp Widgets");
-	WM_widgetgrouptype_register_ptr(
+	WM_widgetgrouptype_register_ptr_update(
 	        NULL, wmaptype,
 	        WIDGETGROUP_forcefield_poll,
 	        WIDGETGROUP_forcefield_init,
+	        WIDGETGROUP_forcefield_refresh,
+	        NULL,
 	        WM_widgetgroup_keymap_common,
 	        "Force Field Widgets");
 	WM_widgetgrouptype_register_ptr_update(
@@ -1037,6 +1041,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 					break;
 				case ND_LIGHTING_DRAW:
 					ED_region_tag_redraw(ar);
+					WM_widgetmap_tag_refresh(wmap);
 					break;
 			}
 			break;

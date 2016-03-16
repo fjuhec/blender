@@ -120,6 +120,13 @@ struct wmWidgetMapType_Params {
 	const int flag;
 };
 
+/**
+ * Simple utility wrapper for storing a single widget as wmWidgetGroup.customdata
+ */
+typedef struct wmWidgetWrapper {
+	struct wmWidget *widget;
+} wmWidgetWrapper;
+
 
 /* -------------------------------------------------------------------- */
 
