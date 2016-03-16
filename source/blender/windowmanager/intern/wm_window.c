@@ -619,7 +619,7 @@ wmWindow *WM_window_open(bContext *C, const rcti *rect)
  * Uses `screen->temp` tag to define what to do, currently it limits
  * to only one "temp" window for render out, preferences, filewindow, etc...
  *
- * \param type: WM_WINDOW_RENDER, WM_WINDOW_USERPREFS...
+ * \param type: WM_WINDOW_RENDER, WM_WINDOW_USERPREFS, WM_WINDOW_HMD...
  * \return the window or NULL.
  */
 wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
@@ -682,25 +682,30 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	/* ensure it shows the right spacetype editor */
 	sa = win->screen->areabase.first;
 	CTX_wm_area_set(C, sa);
-	
-	if (type == WM_WINDOW_RENDER) {
-		ED_area_newspace(C, sa, SPACE_IMAGE, false);
+
+	int spacetype;
+	switch (type) {
+		case WM_WINDOW_RENDER:
+			spacetype = SPACE_IMAGE;
+			title = IFACE_("Blender Render");
+			break;
+		case WM_WINDOW_USERPREFS:
+			spacetype = SPACE_IMAGE;
+			title = IFACE_("Blender User Preferences");
+			break;
+		case WM_WINDOW_HMD:
+			spacetype = SPACE_VIEW3D;
+			title = IFACE_("HMD View");
+			break;
+		default:
+			title = IFACE_("Blender");
+			BLI_assert(0);
+			break;
 	}
-	else {
-		ED_area_newspace(C, sa, SPACE_USERPREF, false);
-	}
-	
+	ED_area_newspace(C, sa, spacetype, false);
+
 	ED_screen_set(C, win->screen);
 	ED_screen_refresh(CTX_wm_manager(C), win); /* test scale */
-	
-	if (sa->spacetype == SPACE_IMAGE)
-		title = IFACE_("Blender Render");
-	else if (ELEM(sa->spacetype, SPACE_OUTLINER, SPACE_USERPREF))
-		title = IFACE_("Blender User Preferences");
-	else if (sa->spacetype == SPACE_FILE)
-		title = IFACE_("Blender File View");
-	else
-		title = "Blender";
 
 	if (win->ghostwin) {
 		GHOST_SetTitle(win->ghostwin, title);

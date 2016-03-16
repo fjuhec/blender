@@ -95,7 +95,7 @@ bool		WM_window_is_fullscreen	(struct wmWindow *win);
 enum {
 	WM_WINDOW_RENDER = 1,
 	WM_WINDOW_USERPREFS,
-	// WM_WINDOW_FILESEL // UNUSED
+	WM_WINDOW_HMD,
 };
 
 struct wmWindow	*WM_window_open(struct bContext *C, const struct rcti *rect);
