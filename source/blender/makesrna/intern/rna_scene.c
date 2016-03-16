@@ -808,6 +808,14 @@ static void rna_RenderSettings_stereoViews_begin(CollectionPropertyIterator *ite
 	rna_iterator_listbase_begin(iter, &rd->views, rna_RenderSettings_stereoViews_skip);
 }
 
+static void rna_RenderSettings_hmd_camlock_update(
+        struct Main *UNUSED(main), struct Scene *scene,
+        struct PointerRNA *UNUSED(ptr))
+{
+	Object *camera_ob = scene->camera;
+	DAG_id_tag_update(&camera_ob->id, OB_RECALC_OB);
+}
+
 static char *rna_RenderSettings_path(PointerRNA *UNUSED(ptr))
 {
 	return BLI_sprintfN("render");
@@ -4403,6 +4411,14 @@ static void rna_def_gpu_ssao_fx(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 }
 
+static void rna_def_gpu_lens_dist_fx(BlenderRNA *brna)
+{
+	StructRNA *srna;
+
+	srna = RNA_def_struct(brna, "GPULensDistortionSettings", NULL);
+	RNA_def_struct_ui_text(srna, "GPU LENS_DISTORTION", "Settings for GPU based Lens Distortion settings");
+	RNA_def_struct_ui_icon(srna, ICON_RENDERLAYERS);
+}
 
 static void rna_def_gpu_fx(BlenderRNA *brna)
 {
@@ -4411,6 +4427,7 @@ static void rna_def_gpu_fx(BlenderRNA *brna)
 
 	rna_def_gpu_ssao_fx(brna);
 	rna_def_gpu_dof_fx(brna);
+	rna_def_gpu_lens_dist_fx(brna);
 
 	srna = RNA_def_struct(brna, "GPUFXSettings", NULL);
 	RNA_def_struct_ui_text(srna, "GPU FX Settings", "Settings for GPU based compositing");
@@ -4436,6 +4453,16 @@ static void rna_def_gpu_fx(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_ssao", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "fx_flag", GPU_FX_FLAG_SSAO);
 	RNA_def_property_ui_text(prop, "SSAO", "Use screen space ambient occlusion of field on viewport");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPUFXSettings_fx_update");
+
+    prop = RNA_def_property(srna, "lens_dist", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_struct_type(prop, "GPULensDistortionSettings");
+	RNA_def_property_ui_text(prop, "Lens Distortion settings", "");
+
+	prop = RNA_def_property(srna, "use_lens_dist", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "fx_flag", GPU_FX_FLAG_LensDist);
+	RNA_def_property_ui_text(prop, "Lens Distortion", "Use screen space Lens Distortion on viewport for HMD correction");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPUFXSettings_fx_update");
 }
 
@@ -5221,6 +5248,7 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 		                        "Single stereo camera system, adjust the stereo settings in the camera panel"},
 		{SCE_VIEWS_FORMAT_MULTIVIEW, "MULTIVIEW", 0, "Multi-View",
 		                        "Multi camera system, adjust the cameras individually"},
+        {SCE_VIEWS_FORMAT_HMD, "HMD", 0, "HMD View", "Side-by-Side view for head mounted displays (virtual reality)"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -5925,6 +5953,11 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	                                        NULL, NULL, NULL, NULL);
 	RNA_def_property_struct_type(prop, "SceneRenderView");
 	RNA_def_property_ui_text(prop, "Render Views", "");
+
+	prop = RNA_def_property(srna, "hmd_camlock", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "scemode", R_HMD_IGNORE_ROT);
+	RNA_def_property_ui_text(prop, "HMD Rotation", "Use the rotation of a head mounted display if available");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_RenderSettings_hmd_camlock_update");
 
 	prop = RNA_def_property(srna, "use_multiview", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_MULTIVIEW);
@@ -6700,6 +6733,12 @@ void RNA_def_scene(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "depsgraph", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "Depsgraph");
 	RNA_def_property_ui_text(prop, "Dependency Graph", "Dependencies in the scene data");
+
+	prop = RNA_def_property(srna, "hmd_running", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", SCE_HMD_RUNNING);
+	RNA_def_property_ui_text(prop, "HMD Running", "");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	/* Nestled Data  */
 	/* *** Non-Animated *** */

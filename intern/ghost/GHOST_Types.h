@@ -76,7 +76,7 @@ typedef enum {
 	GHOST_kSuccess
 } GHOST_TSuccess;
 
-/* Xtilt and Ytilt represent how much the pen is tilted away from 
+/* Xtilt and Ytilt represent how much the pen is tilted away from
  * vertically upright in either the X or Y direction, with X and Y the
  * axes of the tablet surface.
  * In other words, Xtilt and Ytilt are components of a vector created by projecting
@@ -186,12 +186,12 @@ typedef enum {
 	GHOST_kEventWindowUpdate,
 	GHOST_kEventWindowSize,
 	GHOST_kEventWindowMove,
-	
+
 	GHOST_kEventDraggingEntered,
 	GHOST_kEventDraggingUpdated,
 	GHOST_kEventDraggingExited,
 	GHOST_kEventDraggingDropDone,
-	
+
 	GHOST_kEventOpenMainFile, // Needed for Cocoa to open double-clicked .blend file at startup
 	GHOST_kEventNativeResolutionChange, // Needed for Cocoa when window moves to other display
 
@@ -200,6 +200,8 @@ typedef enum {
 	GHOST_kEventImeCompositionStart,
 	GHOST_kEventImeComposition,
 	GHOST_kEventImeCompositionEnd,
+
+	GHOST_kEventHMD, // HMD - head mounted device (virtual reality)
 
 	GHOST_kNumEventTypes
 } GHOST_TEventType;
@@ -210,9 +212,9 @@ typedef enum {
 	GHOST_kStandardCursorDefault = 0,
 	GHOST_kStandardCursorRightArrow,
 	GHOST_kStandardCursorLeftArrow,
-	GHOST_kStandardCursorInfo, 
+	GHOST_kStandardCursorInfo,
 	GHOST_kStandardCursorDestroy,
-	GHOST_kStandardCursorHelp,    
+	GHOST_kStandardCursorHelp,
 	GHOST_kStandardCursorCycle,
 	GHOST_kStandardCursorSpray,
 	GHOST_kStandardCursorWait,
@@ -229,7 +231,7 @@ typedef enum {
 	GHOST_kStandardCursorBottomRightCorner,
 	GHOST_kStandardCursorBottomLeftCorner,
 	GHOST_kStandardCursorCopy,
-	GHOST_kStandardCursorCustom, 
+	GHOST_kStandardCursorCustom,
 	GHOST_kStandardCursorPencil,
 
 	GHOST_kStandardCursorNumCursors
@@ -243,7 +245,7 @@ typedef enum {
 	GHOST_kKeyLinefeed,
 	GHOST_kKeyClear,
 	GHOST_kKeyEnter  = 0x0D,
-	
+
 	GHOST_kKeyEsc    = 0x1B,
 	GHOST_kKeySpace  = ' ',
 	GHOST_kKeyQuote  = 0x27,
@@ -300,7 +302,7 @@ typedef enum {
 	GHOST_kKeyBackslash    = 0x5C,
 	GHOST_kKeyAccentGrave  = '`',
 
-	
+
 	GHOST_kKeyLeftShift = 0x100,
 	GHOST_kKeyRightShift,
 	GHOST_kKeyLeftControl,
@@ -372,7 +374,7 @@ typedef enum {
 	GHOST_kKeyF22,
 	GHOST_kKeyF23,
 	GHOST_kKeyF24,
-	
+
 	// Multimedia keypad buttons
 	GHOST_kKeyMediaPlay,
 	GHOST_kKeyMediaStop,
@@ -413,7 +415,7 @@ typedef enum {
 	GHOST_kTrackpadEventSwipe, /* Reserved, not used for now */
 	GHOST_kTrackpadEventMagnify
 } GHOST_TTrackpadEventSubTypes;
-	
+
 
 typedef struct {
 	/** The event subtype */
@@ -514,6 +516,10 @@ typedef struct {
 	/** The unicode character. if the length is 6, not NULL terminated if all 6 are set */
 	char utf8_buf[6];
 } GHOST_TEventKeyData;
+
+typedef struct {
+    float orientation[4]; //orientation quaternion of the HMD
+} GHOST_TEventOpenHMDData;
 
 typedef struct {
 	/** Number of pixels on a line. */

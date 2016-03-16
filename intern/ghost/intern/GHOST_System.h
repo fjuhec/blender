@@ -49,6 +49,7 @@ class GHOST_TimerManager;
 class GHOST_Window;
 class GHOST_WindowManager;
 class GHOST_NDOFManager;
+class GHOST_OpenHMDManager;
 
 /**
  * Implementation of platform independent functionality of the GHOST_ISystem
@@ -89,7 +90,7 @@ public:
 
 	/**
 	 * Installs a timer.
-	 * Note that, on most operating systems, messages need to be processed in order 
+	 * Note that, on most operating systems, messages need to be processed in order
 	 * for the timer callbacks to be invoked.
 	 * \param delay		The time to wait for the first call to the timerProc (in milliseconds)
 	 * \param interval	The interval between calls to the timerProc
@@ -112,7 +113,7 @@ public:
 	/***************************************************************************************
 	 * Display/window management functionality
 	 ***************************************************************************************/
-	
+
 	/**
 	 * Inherited from GHOST_ISystem but left pure virtual
 	 *
@@ -145,7 +146,7 @@ public:
 	 */
 	GHOST_TSuccess beginFullScreen(const GHOST_DisplaySetting& setting, GHOST_IWindow **window,
 	                                       const bool stereoVisual, const GHOST_TUns16 numOfAASamples = 0);
-		
+
 	/**
 	 * Updates the resolution while in fullscreen mode.
 	 * \param setting	The new setting of the display.
@@ -167,7 +168,7 @@ public:
 	 */
 	bool getFullScreen(void);
 
-	
+
 	/**
 	 * Native pixel size support (MacBook 'retina').
 	 * \return The pixel size in float.
@@ -235,7 +236,7 @@ public:
 	 * \return			Indication of success.
 	 */
 	GHOST_TSuccess getButtonState(GHOST_TButtonMask mask, bool& isDown) const;
-	
+
 	/***************************************************************************************
 	 * Access to 3D mouse.
 	 ***************************************************************************************/
@@ -280,6 +281,11 @@ public:
 	inline GHOST_NDOFManager *getNDOFManager() const;
 #endif
 
+    /**
+     * \return A pointer to our OpenHMD manager.
+     */
+    inline GHOST_OpenHMDManager *getOpenHMDManager() const;
+
 	/**
 	 * Returns the state of all modifier keys.
 	 * \param keys	The state of all modifier keys (true == pressed).
@@ -301,7 +307,7 @@ public:
 	 *
 	 */
 	virtual GHOST_TUns8 *getClipboard(bool selection) const = 0;
-	  
+
 	/**
 	 * Put data to the Clipboard
 	 * \param buffer		The buffer to copy to the clipboard
@@ -316,7 +322,7 @@ public:
 	virtual int confirmQuit(GHOST_IWindow *window) const;
 
 
-	
+
 protected:
 	/**
 	 * Initialize the system.
@@ -354,7 +360,9 @@ protected:
 	/** The N-degree of freedom device manager */
 	GHOST_NDOFManager *m_ndofManager;
 #endif
-	
+
+    GHOST_OpenHMDManager *m_openHMDManager;
+
 	/** Prints all the events. */
 #ifdef GHOST_DEBUG
 	GHOST_EventPrinter *m_eventPrinter;
@@ -362,7 +370,7 @@ protected:
 
 	/** Settings of the display before the display went fullscreen. */
 	GHOST_DisplaySetting m_preFullScreenSetting;
-	
+
 };
 
 inline GHOST_TimerManager *GHOST_System::getTimerManager() const
@@ -384,6 +392,11 @@ inline GHOST_WindowManager *GHOST_System::getWindowManager() const
 inline GHOST_NDOFManager *GHOST_System::getNDOFManager() const
 {
 	return m_ndofManager;
+}
+
+inline GHOST_OpenHMDManager *GHOST_System::getOpenHMDManager() const
+{
+    return m_openHMDManager;
 }
 #endif
 

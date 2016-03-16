@@ -206,15 +206,14 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
         row = layout.row()
         row.prop(rd, "views_format", expand=True)
 
-        if basic_stereo:
+        if rd.views_format == 'STEREO_3D':
             row = layout.row()
             row.template_list("RENDERLAYER_UL_renderviews", "name", rd, "stereo_views", rd.views, "active_index", rows=2)
 
             row = layout.row()
             row.label(text="File Suffix:")
             row.prop(rv, "file_suffix", text="")
-
-        else:
+        elif rd.views_format == 'MULTIVIEW':
             row = layout.row()
             row.template_list("RENDERLAYER_UL_renderviews", "name", rd, "views", rd.views, "active_index", rows=2)
 
@@ -225,6 +224,14 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
             row = layout.row()
             row.label(text="Camera Suffix:")
             row.prop(rv, "camera_suffix", text="")
+        else:
+            icon = 'PAUSE' if scene.hmd_running else 'PLAY'
+            col = layout.column()
+            col.prop(rd, "hmd_camlock")
+            row = col.row(align=True)
+
+            row.operator("wm.hmd_view_open")
+            row.operator("view3d.hmd_session_run", text="", icon=icon)
 
 
 if __name__ == "__main__":  # only for live edit.

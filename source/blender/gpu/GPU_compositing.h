@@ -65,10 +65,15 @@ typedef enum GPUFXShaderEffect {
 	GPU_SHADER_FX_DEPTH_OF_FIELD_HQ_PASS_THREE = 9,
 
 	GPU_SHADER_FX_DEPTH_RESOLVE = 10,
+
+	/* lens distortion for HMD viewport use */
+	GPU_SHADER_FX_LENS_DISTORTION = 11,
+
+	GPU_MAX_SHADER, //Size of enum +1
 } GPUFXShaderEffect;
 
 /* keep in synch with enum above! */
-#define MAX_FX_SHADERS 11
+#define MAX_FX_SHADERS GPU_MAX_SHADER
 
 /* generate a new FX compositor */
 GPUFX *GPU_fx_compositor_create(void);

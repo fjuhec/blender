@@ -476,6 +476,9 @@ function(setup_liblinks
 		endif()
 	endif()
 
+	#FIXMELIKEABAWS
+	target_link_libraries(${target} "/usr/local/lib/libopenhmd.a" "/usr/lib/x86_64-linux-gnu/libhidapi-libusb.a" "/usr/lib/x86_64-linux-gnu/libusb-1.0.a" "/lib/x86_64-linux-gnu/libudev.so.1")
+
 	# We put CLEW and CUEW here because OPENSUBDIV_LIBRARIES dpeends on them..
 	if(WITH_CYCLES OR WITH_COMPOSITOR OR WITH_OPENSUBDIV)
 		target_link_libraries(${target} "extern_clew")

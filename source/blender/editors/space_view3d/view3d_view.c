@@ -416,6 +416,7 @@ static int view3d_smoothview_invoke(bContext *C, wmOperator *UNUSED(op), const w
 		WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
 	}
 	else {
+		WM_event_add_mousemove(C);
 		ED_region_tag_redraw(CTX_wm_region(C));
 	}
 	

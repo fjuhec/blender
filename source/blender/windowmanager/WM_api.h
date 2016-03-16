@@ -100,11 +100,13 @@ enum {
 
 struct wmWindow	*WM_window_open(struct bContext *C, const struct rcti *rect);
 struct wmWindow *WM_window_open_temp(struct bContext *C, const struct rcti *rect_init, int type);
-			
+
+void WM_window_fullscreen_toggle(const struct wmWindow *win, const bool force_full, const bool force_normal);
+
 			/* returns true if draw method is triple buffer */
 bool		WM_is_draw_triple(struct wmWindow *win);
 
-bool		WM_stereo3d_enabled(struct wmWindow *win, bool only_fullscreen_test);
+bool		WM_stereo3d_enabled(const struct bContext *C, struct wmWindow *win, bool only_fullscreen_test);
 
 
 			/* files */

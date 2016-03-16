@@ -53,6 +53,12 @@ set(SRC
 	intern/GHOST_Window.cpp
 	intern/GHOST_WindowManager.cpp
 
+# TODO koen made it compile, ugly
+	intern/GHOST_OpenHMDManager.h
+	intern/GHOST_OpenHMDManager.cpp
+	intern/GHOST_EventOpenHMD.h
+
+
 	GHOST_C-api.h
 	GHOST_IEvent.h
 	GHOST_IEventConsumer.h
