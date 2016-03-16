@@ -476,8 +476,9 @@ function(setup_liblinks
 		endif()
 	endif()
 
-	#FIXMELIKEABAWS
-	target_link_libraries(${target} "/usr/local/lib/libopenhmd.a" "/usr/lib/x86_64-linux-gnu/libhidapi-libusb.a" "/usr/lib/x86_64-linux-gnu/libusb-1.0.a" "/lib/x86_64-linux-gnu/libudev.so.1")
+    if(WITH_OPENHMD)
+		target_link_libraries(${target} ${OPENHMD_LIBRARIES} ${HIDAPI_LIBRARY})
+    endif()
 
 	# We put CLEW and CUEW here because OPENSUBDIV_LIBRARIES dpeends on them..
 	if(WITH_CYCLES OR WITH_COMPOSITOR OR WITH_OPENSUBDIV)
@@ -686,6 +687,10 @@ function(SETUP_BLENDER_SORTED_LIBS)
 
 	if(WITH_INPUT_NDOF)
 		list(APPEND BLENDER_SORTED_LIBS bf_intern_ghostndof3dconnexion)
+	endif()
+
+	if(WITH_OPENHMD)
+		list(APPEND BLENDER_SORTED_LIBS extern_openhmd)
 	endif()
 	
 	if(WITH_MOD_BOOLEAN)

@@ -21,7 +21,7 @@
 #include "GHOST_OpenHMDManager.h"
 
 // TODO replace with blender internal openhmd files
-#include <openhmd/openhmd.h>
+#include "include/openhmd.h"
 
 #include "GHOST_EventOpenHMD.h"
 #include "GHOST_WindowManager.h"

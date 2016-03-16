@@ -53,12 +53,6 @@ set(SRC
 	intern/GHOST_Window.cpp
 	intern/GHOST_WindowManager.cpp
 
-# TODO koen made it compile, ugly
-	intern/GHOST_OpenHMDManager.h
-	intern/GHOST_OpenHMDManager.cpp
-	intern/GHOST_EventOpenHMD.h
-
-
 	GHOST_C-api.h
 	GHOST_IEvent.h
 	GHOST_IEventConsumer.h
@@ -117,6 +111,26 @@ if(WITH_INPUT_NDOF)
 		${NDOF_INCLUDE_DIRS}
 	)
 endif()
+
+
+if(WITH_OPENHMD)
+	add_definitions(-DWITH_OPENHMD)
+
+	list(APPEND INC
+		../../extern/openhmd
+	)
+
+	list(APPEND SRC
+	    intern/GHOST_OpenHMDManager.h
+	    intern/GHOST_OpenHMDManager.cpp
+	    intern/GHOST_EventOpenHMD.h
+	)
+
+	list(APPEND INC_SYS
+		${OPENHMD_INCLUDE_DIRS}
+	)
+endif()
+
 
 if(WITH_HEADLESS OR WITH_GHOST_SDL)
 	if(WITH_HEADLESS)
