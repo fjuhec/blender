@@ -290,21 +290,28 @@ static void wm_method_draw_stereo3d_topbottom(wmWindow *win)
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	}
 }
+
 static void wm_method_draw_stereo3d_hmd(wmWindow *win)
 {
 	wmDrawData *drawdata;
 	int view;
 
-	for (view = 0; view < 1; view ++) {
+	for (view = 0; view < 2; view ++) {
+		const int win_x_h = WM_window_pixels_x(win) / 2;
+		const int win_y = WM_window_pixels_y(win);
+
 		drawdata = BLI_findlink(&win->drawdata, (view * 2) + 1);
-		glScissor(0, 0, WM_window_pixels_x(win) * 0.5f, WM_window_pixels_y(win));
+
+		glScissor(view * win_x_h, 0, win_x_h, win_y);
+		glPushMatrix();
 		if (view == 0) {
-			glTranslatef(-WM_window_pixels_x(win) / 2.0f, 0.0f, 0.0f);
+			glTranslatef(-win_x_h / 2.0f, 0.0f, 0.0f);
 		}
 		else {
-			glTranslatef(WM_window_pixels_x(win) / 2.0f, 0.0f, 0.0f);
+			glTranslatef(win_x_h / 2.0f, 0.0f, 0.0f);
 		}
-		wm_triple_draw_textures(win, drawdata->triple, 0.5f);
+		wm_triple_draw_textures(win, drawdata->triple, 1.0f);
+		glPopMatrix();
 	}
 }
 
