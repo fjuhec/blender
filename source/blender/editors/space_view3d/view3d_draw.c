@@ -3762,7 +3762,7 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
 	viewname = names[is_left ? STEREO_LEFT_ID : STEREO_RIGHT_ID];
 
 	/* update the viewport matrices with the new camera */
-	if (scene->r.views_format == SCE_VIEWS_FORMAT_STEREO_3D) {
+	if (ELEM(scene->r.views_format, SCE_VIEWS_FORMAT_STEREO_3D, SCE_VIEWS_FORMAT_HMD)) {
 		Camera *data;
 		float viewmat[4][4];
 		float shiftx;
