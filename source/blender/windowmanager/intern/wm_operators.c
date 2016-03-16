@@ -5097,53 +5097,57 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-static int wm_hmd_view_open_poll(bContext *C)
-{
-	wmWindowManager *wm = CTX_wm_manager(C);
-	for (wmWindow *win = wm->windows.first; win; win = win->next) {
-		if (UNLIKELY(win->screen->flag & SCREEN_FLAG_HMD_SCREEN)) {
-			return false;
-		}
-	}
-	return true;
-}
-
 static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
-	wmWindow *win = wm_window_copy_test(C, CTX_wm_window(C));
-	ScrArea *sa;
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *win;
 
-	/* XXX this is assuming there's already a 3d view, we should create a new one instead */
-	for (sa = win->screen->areabase.first; sa; sa = sa->next) {
-		if (sa->spacetype == SPACE_VIEW3D) {
-			break;
+	/* close */
+	if ((win = wm->win_hmd)) {
+		wm_window_close(C, wm, win);
+		wm->win_hmd = NULL;
+	}
+	/* open */
+	else {
+		ScrArea *sa;
+
+		win = wm_window_copy_test(C, CTX_wm_window(C));
+
+		/* XXX this is assuming there's already a 3d view, we should create a new one instead */
+		for (sa = win->screen->areabase.first; sa; sa = sa->next) {
+			if (sa->spacetype == SPACE_VIEW3D) {
+				break;
+			}
 		}
+
+		if (!sa) {
+			BLI_assert(0);
+			return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+		}
+
+		wm->win_hmd = win;
+		wm_window_title(wm, win, "Blender HMD View");
+
+		wmWindow *prevwin = CTX_wm_window(C);
+		ScrArea *prevsa = CTX_wm_area(C);
+		ARegion *prevar = CTX_wm_region(C);
+
+		CTX_wm_window_set(C, win);
+		CTX_wm_area_set(C, sa);
+		CTX_wm_region_set(C, NULL);
+		ED_screen_state_toggle(C, win, sa, SCREENFULL);
+
+		ED_area_tag_redraw(sa);
+
+		/* It is possible that new layers becomes visible. */
+		if (sa->spacetype == SPACE_VIEW3D) {
+			DAG_on_visible_update(CTX_data_main(C), false);
+		}
+
+		CTX_wm_window_set(C, prevwin);
+		CTX_wm_area_set(C, prevsa);
+		CTX_wm_region_set(C, prevar);
 	}
-
-	if (!sa) {
-		BLI_assert(0);
-		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
-	}
-	wmWindow *prevwin = CTX_wm_window(C);
-	ScrArea *prevsa = CTX_wm_area(C);
-	ARegion *prevar = CTX_wm_region(C);
-
-	CTX_wm_window_set(C, win);
-	CTX_wm_area_set(C, sa);
-	CTX_wm_region_set(C, NULL);
-	ED_screen_state_toggle(C, win, sa, SCREENFULL);
-
-	ED_area_tag_redraw(sa);
-	win->screen->flag |= SCREEN_FLAG_HMD_SCREEN;
-
-	/* It is possible that new layers becomes visible. */
-	if (sa->spacetype == SPACE_VIEW3D) {
-		DAG_on_visible_update(CTX_data_main(C), false);
-	}
-
-	CTX_wm_window_set(C, prevwin);
-	CTX_wm_area_set(C, prevsa);
-	CTX_wm_region_set(C, prevar);
 
 	return OPERATOR_FINISHED;
 }
@@ -5152,10 +5156,9 @@ static void WM_OT_hmd_view_open(wmOperatorType *ot)
 {
 	ot->name = "Open HMD View Window";
 	ot->idname = "WM_OT_hmd_view_open";
-	ot->description = "Open a separate window for display on a head mounted display";
+	ot->description = "Open a separate window for a head mounted display";
 
 	ot->invoke = wm_hmd_view_open_invoke;
-	ot->poll = wm_hmd_view_open_poll;
 }
 
 /* ******************************************************* */

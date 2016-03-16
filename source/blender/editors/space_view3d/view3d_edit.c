@@ -4810,6 +4810,10 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 {
 	if (scene->r.scemode & R_HMD_IGNORE_ROT)
 		return;
+	if (!hmd_win) {
+		scene->flag &= ~SCE_HMD_RUNNING;
+		return;
+	}
 
 	View3D *v3d = CTX_wm_view3d(C);
 	Object *camera_ob = v3d ? v3d->camera : scene->camera;
@@ -4826,38 +4830,27 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 	ED_region_tag_redraw(ar);
 }
 
-static wmWindow *hmd_window_find(bContext *C)
-{
-	wmWindowManager *wm = CTX_wm_manager(C);
-	wmWindow *hmd_win = CTX_wm_window(C);
-
-	if (hmd_win->screen->flag & SCREEN_FLAG_HMD_SCREEN)
-		return hmd_win;
-
-	for (hmd_win = wm->windows.first; hmd_win; hmd_win = hmd_win->next) {
-		if (hmd_win->screen->flag & SCREEN_FLAG_HMD_SCREEN) {
-			return hmd_win;
-		}
-	}
-
-	return NULL;
-}
-
 static void hmd_run_exit(wmWindow *hmd_win, Scene *scene)
 {
 	scene->flag &= ~SCE_HMD_RUNNING;
 	WM_window_fullscreen_toggle(hmd_win, false, true);
 }
 
-static int hmd_session_run_modal(bContext *C, wmOperator *op, const wmEvent *event)
+static int hmd_session_run_poll(bContext *C)
 {
-	wmWindow *hmd_win = op->customdata;
+	return (CTX_wm_manager(C)->win_hmd != NULL);
+}
+
+static int hmd_session_run_modal(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+{
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *hmd_win = wm->win_hmd;
 	Scene *scene = CTX_data_scene(C);
 
 	switch (event->type) {
 		case EVT_HMD_TRANSFORM:
 			hmd_session_refresh(C, hmd_win, scene, event->customdata);
-			return OPERATOR_RUNNING_MODAL;
+			return (OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH);
 		case ESCKEY:
 			hmd_run_exit(hmd_win, scene);
 			return OPERATOR_FINISHED;
@@ -4869,7 +4862,8 @@ static int hmd_session_run_modal(bContext *C, wmOperator *op, const wmEvent *eve
 static int hmd_session_run_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	Scene *scene = CTX_data_scene(C);
-	wmWindow *hmd_win = hmd_window_find(C);
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *hmd_win = wm->win_hmd;
 	const bool was_hmd_running = (scene->flag & SCE_HMD_RUNNING);
 
 	if (!hmd_win) {
@@ -4912,7 +4906,6 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *op, const wmEvent *UN
 				rv3d->persp = RV3D_CAMOB;
 		}
 
-		op->customdata = hmd_win;
 		WM_window_fullscreen_toggle(hmd_win, true, false);
 
 		WM_event_add_modal_handler(C, op);
@@ -4930,6 +4923,7 @@ void VIEW3D_OT_hmd_session_run(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = hmd_session_run_invoke;
 	ot->modal = hmd_session_run_modal;
+	ot->poll = hmd_session_run_poll;
 }
 
 static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
@@ -4938,7 +4932,8 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	if ((scene->flag & SCE_HMD_RUNNING) == 0)
 		return OPERATOR_CANCELLED; /* no pass through, we don't need to keep that event in queue */
 
-	wmWindow *hmd_win = hmd_window_find(C);
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *hmd_win = wm->win_hmd;
 	hmd_session_refresh(C, hmd_win, CTX_data_scene(C), event->customdata);
 	return OPERATOR_FINISHED;
 }

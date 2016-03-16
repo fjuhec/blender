@@ -308,18 +308,18 @@ static void wm_method_draw_stereo3d_hmd(wmWindow *win)
 	}
 }
 
-BLI_INLINE bool wm_stere3d_is_hmd_view(const wmWindow *win, const Scene *scene)
+BLI_INLINE bool wm_stere3d_is_hmd_view(const wmWindowManager *wm, const wmWindow *win, const Scene *scene)
 {
-	return ((scene->r.views_format == SCE_VIEWS_FORMAT_HMD) &&
-	        (scene->flag & SCE_HMD_RUNNING) &&
-	        (win->screen->flag & SCREEN_FLAG_HMD_SCREEN));
+	return ((wm->win_hmd == win) &&
+	        (scene->r.views_format == SCE_VIEWS_FORMAT_HMD) &&
+	        (scene->flag & SCE_HMD_RUNNING));
 }
 
 void wm_method_draw_stereo3d(const bContext *C, wmWindow *win)
 {
 	Scene *scene = CTX_data_scene(C);
 
-	if (wm_stere3d_is_hmd_view(win, scene)) {
+	if (wm_stere3d_is_hmd_view(CTX_wm_manager(C), win, scene)) {
 		wm_method_draw_stereo3d_hmd(win);
 		return;
 	}
@@ -363,7 +363,7 @@ bool WM_stereo3d_enabled(const bContext *C, wmWindow *win, bool skip_stereo3d_ch
 {
 	bScreen *screen = win->screen;
 
-	if (wm_stere3d_is_hmd_view(win, CTX_data_scene(C)))
+	if (wm_stere3d_is_hmd_view(CTX_wm_manager(C), win, CTX_data_scene(C)))
 		return true;
 
 	/* some 3d methods change the window arrangement, thus they shouldn't

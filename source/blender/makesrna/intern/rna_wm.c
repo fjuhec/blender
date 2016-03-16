@@ -934,6 +934,12 @@ static void rna_wmClipboard_set(PointerRNA *UNUSED(ptr), const char *value)
 	WM_clipboard_text_set((void *) value, false);
 }
 
+static int rna_has_hmd_window_get(PointerRNA *ptr)
+{
+	wmWindowManager *wm = ptr->data;
+	return (wm->win_hmd != NULL);
+}
+
 #ifdef WITH_PYTHON
 static void rna_Operator_unregister(struct Main *bmain, StructRNA *type)
 {
@@ -1973,6 +1979,10 @@ static void rna_def_windowmanager(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "clipboard", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_funcs(prop, "rna_wmClipboard_get", "rna_wmClipboard_length", "rna_wmClipboard_set");
 	RNA_def_property_ui_text(prop, "Text Clipboard", "");
+
+	prop = RNA_def_property(srna, "has_hmd_window", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_boolean_funcs(prop, "rna_has_hmd_window_get", NULL);
 
 	RNA_api_wm(srna);
 }
