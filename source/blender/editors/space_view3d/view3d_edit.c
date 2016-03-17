@@ -4806,6 +4806,8 @@ typedef struct HMDData {
 	float orientation[4];
 } HMDData;
 
+static float pref_quat[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+
 static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HMDData *data)
 {
 	if (scene->r.scemode & R_HMD_IGNORE_ROT)
@@ -4816,14 +4818,27 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 	}
 
 	View3D *v3d = CTX_wm_view3d(C);
-	Object *camera_ob = v3d ? v3d->camera : scene->camera;
-	static float quad[4] = {M_SQRT1_2, M_SQRT1_2, 0.0f, 0.0f};
+	Object *ob = v3d ? v3d->camera : scene->camera;
+	float delta_quat[4];
+	float quat[4];
 
-	mul_qt_qtqt(camera_ob->quat, quad, data->orientation);
-	normalize_qt(camera_ob->quat);
-	loc_quat_size_to_mat4(camera_ob->obmat, camera_ob->loc, camera_ob->quat, camera_ob->size);
+	/* get rotation delta */
+	sub_qt_qtqt(delta_quat, data->orientation, pref_quat);
+	/* store orientation for next update */
+	copy_qt_qt(pref_quat, data->orientation);
+	mul_qt_qtqt(quat, ob->quat, delta_quat);
 
-	DAG_id_tag_update(&camera_ob->id, 0);  /* sets recalc flags */
+	if (ob->rotmode == ROT_MODE_QUAT) {
+		copy_qt_qt(ob->quat, quat);
+	}
+	else if (ob->rotmode == ROT_MODE_AXISANGLE) {
+		quat_to_axis_angle(ob->rotAxis, &ob->rotAngle, quat);
+	}
+	else {
+		quat_to_eulO(ob->rot, ob->rotmode, quat);
+	}
+
+	DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
 	/* tag hmd region for update */
 	ScrArea *sa = hmd_win->screen->areabase.first;
 	ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
@@ -4873,7 +4888,6 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *op, const wmEvent *UN
 	scene->flag ^= SCE_HMD_RUNNING;
 	if (was_hmd_running) {
 		WM_window_fullscreen_toggle(hmd_win, false, true);
-		BLI_assert(0);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 	else {
