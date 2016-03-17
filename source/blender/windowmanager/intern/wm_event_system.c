@@ -3505,7 +3505,9 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, int U
 			GHOST_TEventOpenHMDData *e = customdata;
 
 			event.type = EVT_HMD_TRANSFORM;
-			event.customdata = e->orientation;
+			event.customdata = MEM_mallocN(sizeof(GHOST_TEventOpenHMDData), "GHOST_TEventOpenHMDData");
+			event.customdatafree = true;
+			memcpy(event.customdata, e, sizeof(*e));
 
 			wm_event_add(win, &event);
 

@@ -5103,6 +5103,7 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 
 /**
  * Same as #GHOST_TEventOpenHMDData.
+ * \warning Keep in sync!
  */
 typedef struct HMDData {
 	float orientation[4];
@@ -5264,7 +5265,7 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *hmd_win = wm->win_hmd;
 	hmd_session_refresh(C, hmd_win, CTX_data_scene(C), event->customdata);
-	return OPERATOR_FINISHED;
+	return (OPERATOR_FINISHED | OPERATOR_PASS_THROUGH);
 }
 
 /**
@@ -5282,7 +5283,7 @@ static void WM_OT_hmd_session_refresh(wmOperatorType *ot)
 	ot->invoke = hmd_session_refresh_invoke;
 
 	/* flags */
-	ot->flag = OPTYPE_INTERNAL;
+	ot->flag = (OPTYPE_INTERNAL | OPTYPE_BLOCKING);
 }
 
 /* ******************************************************* */
