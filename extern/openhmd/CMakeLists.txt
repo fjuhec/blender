@@ -3,6 +3,10 @@ set(CMAKE_C_FLAGS "-std=c99")
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}/include)
 
+if(WIN32)
+	set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -DOHMD_STATIC)
+endif(WIN32)
+
 #source files set just for Android
 set(openhmd_source_files
 	${CMAKE_CURRENT_LIST_DIR}/src/openhmd.c
