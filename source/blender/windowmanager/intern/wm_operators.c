@@ -5097,6 +5097,23 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
+
+/* ******************************************************* */
+/* Head Mounted Display */
+
+/**
+ * Same as #GHOST_TEventOpenHMDData.
+ */
+typedef struct HMDData {
+	float orientation[4];
+} HMDData;
+
+/**
+ * Previous HMD rotation value (quaternion).
+ * A bit ugly, but we need to calculate the rotation delta since the last event.
+ */
+static float prev_quat[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+
 static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	wmWindow *prevwin = CTX_wm_window(C);
@@ -5126,6 +5143,142 @@ static void WM_OT_hmd_view_open(wmOperatorType *ot)
 	ot->description = "Open a separate window for a head mounted display";
 
 	ot->invoke = wm_hmd_view_open_invoke;
+}
+
+static int hmd_session_run_poll(bContext *C)
+{
+	return (CTX_wm_manager(C)->win_hmd != NULL);
+}
+
+static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+{
+	Scene *scene = CTX_data_scene(C);
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *hmd_win = wm->win_hmd;
+	const bool was_hmd_running = (scene->flag & SCE_HMD_RUNNING);
+
+	if (!hmd_win) {
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+	}
+
+	scene->flag ^= SCE_HMD_RUNNING;
+	if (was_hmd_running) {
+		WM_window_fullscreen_toggle(hmd_win, false, true);
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+	}
+	else {
+		ScrArea *sa = hmd_win->screen->areabase.first;
+		ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
+		View3D *v3d = sa->spacedata.first;
+		RegionView3D *rv3d = ar->regiondata;
+		BLI_assert(sa->spacetype = SPACE_VIEW3D);
+
+		/* XXX duplicated code from viewnumpad_exec */
+		if (rv3d->persp != RV3D_CAMOB) {
+			Object *ob = OBACT;
+			/* first get the default camera for the view lock type */
+			if (v3d->scenelock) {
+				/* sets the camera view if available */
+				v3d->camera = scene->camera;
+			}
+			else {
+				/* use scene camera if one is not set (even though we're unlocked) */
+				if (v3d->camera == NULL) {
+					v3d->camera = scene->camera;
+				}
+			}
+			/* if the camera isn't found, check a number of options */
+			if (v3d->camera == NULL && ob && ob->type == OB_CAMERA)
+				v3d->camera = ob;
+			if (v3d->camera == NULL)
+				v3d->camera = BKE_scene_camera_find(scene);
+			if (v3d->camera)
+				rv3d->persp = RV3D_CAMOB;
+		}
+
+		WM_window_fullscreen_toggle(hmd_win, true, false);
+
+		return OPERATOR_FINISHED;
+	}
+}
+
+static void WM_OT_hmd_session_run(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Run HMD Session";
+	ot->description = "Start/Stop a head mounted display (virtual reality) session";
+	ot->idname = "WM_OT_hmd_session_run";
+
+	/* api callbacks */
+	ot->invoke = hmd_session_run_invoke;
+	ot->poll = hmd_session_run_poll;
+}
+
+static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HMDData *data)
+{
+	if (scene->r.scemode & R_HMD_IGNORE_ROT)
+		return;
+	if (!hmd_win) {
+		scene->flag &= ~SCE_HMD_RUNNING;
+		return;
+	}
+
+	View3D *v3d = CTX_wm_view3d(C);
+	Object *ob = v3d ? v3d->camera : scene->camera;
+	float delta_quat[4];
+	float quat[4];
+
+	/* get rotation delta */
+	sub_qt_qtqt(delta_quat, data->orientation, prev_quat);
+	/* store orientation for next update */
+	copy_qt_qt(prev_quat, data->orientation);
+	mul_qt_qtqt(quat, ob->quat, delta_quat);
+
+	if (ob->rotmode == ROT_MODE_QUAT) {
+		copy_qt_qt(ob->quat, quat);
+	}
+	else if (ob->rotmode == ROT_MODE_AXISANGLE) {
+		quat_to_axis_angle(ob->rotAxis, &ob->rotAngle, quat);
+	}
+	else {
+		quat_to_eulO(ob->rot, ob->rotmode, quat);
+	}
+
+	DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
+	/* tag hmd region for update */
+	ScrArea *sa = hmd_win->screen->areabase.first;
+	ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
+	ED_region_tag_redraw(ar);
+}
+
+static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+{
+	Scene *scene = CTX_data_scene(C);
+	if ((scene->flag & SCE_HMD_RUNNING) == 0)
+		return OPERATOR_CANCELLED; /* no pass through, we don't need to keep that event in queue */
+
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *hmd_win = wm->win_hmd;
+	hmd_session_refresh(C, hmd_win, CTX_data_scene(C), event->customdata);
+	return OPERATOR_FINISHED;
+}
+
+/**
+ * Only needed since VIEW3D_OT_hmd_session_run modal can only update while
+ * mouse is inside initial window. For other windows, this is called.
+ */
+static void WM_OT_hmd_session_refresh(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Refresh HMD Session";
+	ot->description = "Refresh data for a head mounted display (virtual reality) session";
+	ot->idname = "WM_OT_hmd_session_refresh";
+
+	/* api callbacks */
+	ot->invoke = hmd_session_refresh_invoke;
+
+	/* flags */
+	ot->flag = OPTYPE_INTERNAL;
 }
 
 /* ******************************************************* */
@@ -5173,6 +5326,8 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_radial_control);
 	WM_operatortype_append(WM_OT_stereo3d_set);
 	WM_operatortype_append(WM_OT_hmd_view_open);
+	WM_operatortype_append(WM_OT_hmd_session_run);
+	WM_operatortype_append(WM_OT_hmd_session_refresh);
 #if defined(WIN32)
 	WM_operatortype_append(WM_OT_console_toggle);
 #endif
@@ -5414,6 +5569,9 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	/* menus that can be accessed anywhere in blender */
 	WM_keymap_verify_item(keymap, "WM_OT_search_menu", SPACEKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_menu(keymap, "USERPREF_MT_ndof_settings", NDOF_BUTTON_MENU, KM_PRESS, 0, 0);
+
+	/* HMD */
+	WM_keymap_add_item(keymap, "WM_OT_hmd_session_refresh", EVT_HMD_TRANSFORM, KM_ANY, KM_ANY, 0);
 
 	/* Space switching */
 	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", F2KEY, KM_PRESS, KM_SHIFT, 0); /* new in 2.5x, was DXF export */
