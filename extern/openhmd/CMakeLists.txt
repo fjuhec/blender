@@ -47,4 +47,13 @@ if (OPENHMD_DRIVER_ANDROID)
 	add_definitions(-DDRIVER_ANDROID)
 endif(OPENHMD_DRIVER_ANDROID)
 
-blender_add_lib(extern_openhmd "${openhmd_source_files}" "${openhmd_source_files}" "${LIBS}")
+set(INC
+	.
+	src
+)
+
+set(INC_SYS
+
+)
+
+blender_add_lib(extern_openhmd "${openhmd_source_files}" "${INC}" "${INC_SYS}")

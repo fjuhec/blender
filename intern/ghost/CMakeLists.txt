@@ -116,6 +116,10 @@ endif()
 if(WITH_OPENHMD)
 	add_definitions(-DWITH_OPENHMD)
 
+	if (WIN32)
+		add_definitions(-DOHMD_STATIC)
+	endif(WIN32)
+
 	list(APPEND INC
 		../../extern/openhmd
 	)

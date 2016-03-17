@@ -217,9 +217,11 @@ bool GHOST_System::getFullScreen(void)
 bool GHOST_System::processEvents(bool waitForEvent)
 {
 	bool anyProcessed = false;
+#ifdef WITH_OPENHMD
 	if (m_openHMDManager->processEvents()) {
 			anyProcessed = true;
 	}
+#endif
 
 	return anyProcessed;
 }
