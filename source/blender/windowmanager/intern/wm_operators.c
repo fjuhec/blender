@@ -90,6 +90,7 @@
 #include "BKE_screen.h" /* BKE_ST_MAXNAME */
 #include "BKE_unit.h"
 #include "BKE_utildefines.h"
+#include "BKE_object.h"
 
 #include "BKE_idcode.h"
 
@@ -5164,7 +5165,12 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 
 	scene->flag ^= SCE_HMD_RUNNING;
 	if (was_hmd_running) {
+		View3D *v3d = CTX_wm_view3d(C);
+		Object *ob = v3d ? v3d->camera : scene->camera;
 		WM_window_fullscreen_toggle(hmd_win, false, true);
+		/* reset initial camera rotation */
+		BKE_object_quat_to_rot(ob, init_rot);
+		DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 	else {
@@ -5196,15 +5202,7 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 			if (v3d->camera)
 				rv3d->persp = RV3D_CAMOB;
 
-			if (ob->rotmode == ROT_MODE_QUAT) {
-				copy_qt_qt(init_rot, ob->quat);
-			}
-			else if (ob->rotmode == ROT_MODE_AXISANGLE) {
-				axis_angle_to_quat(init_rot, ob->rotAxis, ob->rotAngle);
-			}
-			else {
-				eulO_to_quat(init_rot, v3d->camera->rot, v3d->camera->rotmode);
-			}
+			BKE_object_rot_to_quat(v3d->camera, init_rot);
 		}
 
 		WM_window_fullscreen_toggle(hmd_win, true, false);
@@ -5239,15 +5237,7 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 	float quat[4];
 
 	mul_qt_qtqt(quat, init_rot, data->orientation);
-	if (ob->rotmode == ROT_MODE_QUAT) {
-		copy_qt_qt(ob->quat, quat);
-	}
-	else if (ob->rotmode == ROT_MODE_AXISANGLE) {
-		quat_to_axis_angle(ob->rotAxis, &ob->rotAngle, quat);
-	}
-	else {
-		quat_to_eulO(ob->rot, ob->rotmode, quat);
-	}
+	BKE_object_quat_to_rot(ob, quat);
 
 	DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
 	/* tag hmd region for update */

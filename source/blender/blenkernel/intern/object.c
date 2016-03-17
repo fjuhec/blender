@@ -1998,6 +1998,32 @@ void BKE_object_mat3_to_rot(Object *ob, float mat[3][3], bool use_compat)
 	}
 }
 
+void BKE_object_rot_to_quat(Object *ob, float r_quat[4])
+{
+	if (ob->rotmode == ROT_MODE_QUAT) {
+		copy_qt_qt(r_quat, ob->quat);
+	}
+	else if (ob->rotmode == ROT_MODE_AXISANGLE) {
+		axis_angle_to_quat(r_quat, ob->rotAxis, ob->rotAngle);
+	}
+	else {
+		eulO_to_quat(r_quat, ob->rot, ob->rotmode);
+	}
+}
+
+void BKE_object_quat_to_rot(Object *ob, float quat[4])
+{
+	if (ob->rotmode == ROT_MODE_QUAT) {
+		copy_qt_qt(ob->quat, quat);
+	}
+	else if (ob->rotmode == ROT_MODE_AXISANGLE) {
+		quat_to_axis_angle(ob->rotAxis, &ob->rotAngle, quat);
+	}
+	else {
+		quat_to_eulO(ob->rot, ob->rotmode, quat);
+	}
+}
+
 void BKE_object_tfm_protected_backup(const Object *ob,
                                      ObjectTfmProtectedChannels *obtfm)
 {
