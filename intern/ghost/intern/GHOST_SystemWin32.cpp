@@ -298,6 +298,9 @@ bool GHOST_SystemWin32::processEvents(bool waitForEvent)
 			::DispatchMessageW(&msg);
 			anyProcessed = true;
 		}
+
+		/* Call base class to update os independent events */
+		GHOST_System::processEvents(false);
 	} while (waitForEvent && !anyProcessed);
 
 	return anyProcessed;

@@ -181,12 +181,10 @@ public:
 	 ***************************************************************************************/
 
 	/**
-	 * Inherited from GHOST_ISystem but left pure virtual
-	 *
-	 *  virtual bool processEvents(bool waitForEvent) = 0;
+	 * Implemented for operating system independent event handling
 	 */
 
-
+	virtual bool processEvents(bool waitForEvent);
 
 	/**
 	 * Dispatches all the events on the stack.

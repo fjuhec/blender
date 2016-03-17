@@ -47,7 +47,6 @@
 #include "GHOST_EventWheel.h"
 #include "GHOST_DisplayManagerX11.h"
 #include "GHOST_EventDragnDrop.h"
-#include "GHOST_OpenHMDManager.h"
 #ifdef WITH_INPUT_NDOF
 #  include "GHOST_NDOFManagerUnix.h"
 #endif
@@ -598,10 +597,8 @@ processEvents(
 			anyProcessed = true;
 		}
 #endif
-        if (m_openHMDManager->processEvents()) {
-            anyProcessed = true;
-        }
-
+		/* Call base class to update os independent events */
+		GHOST_System::processEvents(false);
 	} while (waitForEvent && !anyProcessed);
 
 	return anyProcessed;

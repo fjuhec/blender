@@ -596,6 +596,9 @@ GHOST_SystemSDL::processEvents(bool waitForEvent)
 		if (generateWindowExposeEvents()) {
 			anyProcessed = true;
 		}
+
+		/* Call base class to update os independent events */
+		GHOST_System::processEvents(false);
 	} while (waitForEvent && !anyProcessed);
 
 	return anyProcessed;
