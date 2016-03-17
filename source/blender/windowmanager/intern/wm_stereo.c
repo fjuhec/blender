@@ -315,19 +315,15 @@ static void wm_method_draw_stereo3d_hmd(wmWindow *win)
 	}
 }
 
-BLI_INLINE bool wm_stere3d_is_hmd_view(const wmWindowManager *wm, const wmWindow *win, const Scene *scene)
-{
-	return ((wm->win_hmd == win) &&
-	        (scene->r.views_format == SCE_VIEWS_FORMAT_HMD) &&
-	        (scene->flag & SCE_HMD_RUNNING));
-}
-
 void wm_method_draw_stereo3d(const bContext *C, wmWindow *win)
 {
 	Scene *scene = CTX_data_scene(C);
 
-	if (wm_stere3d_is_hmd_view(CTX_wm_manager(C), win, scene)) {
-		wm_method_draw_stereo3d_hmd(win);
+	if (scene->r.views_format == SCE_VIEWS_FORMAT_HMD) {
+		wmWindowManager *wm = CTX_wm_manager(C);
+		if (wm->win_hmd == win && scene->flag & SCE_HMD_RUNNING) {
+			wm_method_draw_stereo3d_hmd(win);
+		}
 		return;
 	}
 
@@ -359,6 +355,13 @@ static bool wm_stereo3d_quadbuffer_supported(void)
 	return gl_stereo != 0;
 }
 
+BLI_INLINE bool wm_stereo3d_is_hmd_enabled(wmWindowManager *wm, wmWindow *win, Scene *scene)
+{
+	return ((wm->win_hmd == win) &&
+	        (scene->r.views_format == SCE_VIEWS_FORMAT_HMD) &&
+	        (scene->flag & SCE_HMD_RUNNING));
+}
+
 static bool wm_stereo3d_is_fullscreen_required(eStereoDisplayMode stereo_display)
 {
 	return ELEM(stereo_display,
@@ -370,7 +373,7 @@ bool WM_stereo3d_enabled(const bContext *C, wmWindow *win, bool skip_stereo3d_ch
 {
 	bScreen *screen = win->screen;
 
-	if (wm_stere3d_is_hmd_view(CTX_wm_manager(C), win, CTX_data_scene(C)))
+	if (wm_stereo3d_is_hmd_enabled(CTX_wm_manager(C), win, CTX_data_scene(C)))
 		return true;
 
 	/* some 3d methods change the window arrangement, thus they shouldn't
