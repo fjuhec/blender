@@ -336,6 +336,9 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 		if (win->screen) {
 			ED_screen_exit(C, win, win->screen);
 		}
+		if (wm->win_hmd == win) {
+			wm->win_hmd = NULL;
+		}
 		
 		wm_window_free(C, wm, win);
 	
