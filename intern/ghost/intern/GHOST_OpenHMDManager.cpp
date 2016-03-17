@@ -78,7 +78,8 @@ bool GHOST_OpenHMDManager::processEvents()
 		GHOST_TEventOpenHMDData* data = (GHOST_TEventOpenHMDData*) event->getData();
 
 		ohmd_ctx_update(m_context);
-		getRotationQuat(data->orientation);
+		if (!getRotationQuat(data->orientation))
+			return false;
 
 		m_system.pushEvent(event);
 		return true;
@@ -171,19 +172,22 @@ const char *GHOST_OpenHMDManager::getPath() const
 	return ohmd_list_gets(m_context, m_deviceIndex, OHMD_PATH);
 }
 
-void GHOST_OpenHMDManager::getRotationQuat(float orientation[4]) const
+bool GHOST_OpenHMDManager::getRotationQuat(float orientation[4]) const
 {
 	if (!m_available) {
-		return;
+		return false;
 	}
 
 	float tmp[4];
-	ohmd_device_getf(m_device, OHMD_ROTATION_QUAT, tmp);
+	if (ohmd_device_getf(m_device, OHMD_ROTATION_QUAT, tmp) < 0)
+		return false;
 
 	orientation[0] = tmp[3];
 	orientation[1] = tmp[0];
 	orientation[2] = tmp[1];
 	orientation[3] = tmp[2];
+
+	return true;
 }
 
 void GHOST_OpenHMDManager::getLeftEyeGLModelviewMatrix(float mat[16]) const

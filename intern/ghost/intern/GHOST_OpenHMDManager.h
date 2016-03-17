@@ -98,7 +98,7 @@ public:
 	 * \param orientation   The absolute orientation of the device, as quaternion, in blender format (w,x,y,z)
 	 *  Nothing is written if available() is false.
 	 */
-	void    getRotationQuat(float orientation[4]) const;
+	bool    getRotationQuat(float orientation[4]) const;
 
 	/**
 	 * \param mat   A "ready to use" OpenGL style 4x4 matrix with a modelview matrix for the left eye of the HMD.

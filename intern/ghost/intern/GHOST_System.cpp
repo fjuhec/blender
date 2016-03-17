@@ -223,6 +223,8 @@ bool GHOST_System::processEvents(bool waitForEvent)
 	}
 #endif
 
+	(void)waitForEvent; //silence!
+
 	return anyProcessed;
 }
 
