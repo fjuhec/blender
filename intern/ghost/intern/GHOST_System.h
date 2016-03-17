@@ -184,7 +184,7 @@ public:
 	 * Implemented for operating system independent event handling
 	 */
 
-	virtual bool processEvents(bool waitForEvent);
+	bool processEvents(bool waitForEvent);
 
 	/**
 	 * Dispatches all the events on the stack.
