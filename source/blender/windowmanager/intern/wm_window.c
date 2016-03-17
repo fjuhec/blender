@@ -693,7 +693,7 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 			title = IFACE_("Blender Render");
 			break;
 		case WM_WINDOW_USERPREFS:
-			spacetype = SPACE_IMAGE;
+			spacetype = SPACE_USERPREF;
 			title = IFACE_("Blender User Preferences");
 			break;
 		case WM_WINDOW_HMD:
