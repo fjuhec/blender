@@ -5109,10 +5109,10 @@ typedef struct HMDData {
 } HMDData;
 
 /**
- * Previous HMD rotation value (quaternion).
- * A bit ugly, but we need to calculate the rotation delta since the last event.
+ * Initial camera rotation (quaternion).
+ * A bit ugly, but we need to calculate the rotation delta since session start.
  */
-static float prev_quat[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+static float init_rot[4];
 
 static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
@@ -5194,6 +5194,16 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 				v3d->camera = BKE_scene_camera_find(scene);
 			if (v3d->camera)
 				rv3d->persp = RV3D_CAMOB;
+
+			if (ob->rotmode == ROT_MODE_QUAT) {
+				copy_qt_qt(init_rot, ob->quat);
+			}
+			else if (ob->rotmode == ROT_MODE_AXISANGLE) {
+				axis_angle_to_quat(init_rot, ob->rotAxis, ob->rotAngle);
+			}
+			else {
+				eulO_to_quat(init_rot, v3d->camera->rot, v3d->camera->rotmode);
+			}
 		}
 
 		WM_window_fullscreen_toggle(hmd_win, true, false);
@@ -5225,15 +5235,9 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 
 	View3D *v3d = CTX_wm_view3d(C);
 	Object *ob = v3d ? v3d->camera : scene->camera;
-	float delta_quat[4];
 	float quat[4];
 
-	/* get rotation delta */
-	sub_qt_qtqt(delta_quat, data->orientation, prev_quat);
-	/* store orientation for next update */
-	copy_qt_qt(prev_quat, data->orientation);
-	mul_qt_qtqt(quat, ob->quat, delta_quat);
-
+	mul_qt_qtqt(quat, init_rot, data->orientation);
 	if (ob->rotmode == ROT_MODE_QUAT) {
 		copy_qt_qt(ob->quat, quat);
 	}
