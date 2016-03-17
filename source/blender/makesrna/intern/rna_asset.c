@@ -663,6 +663,7 @@ static void rna_AssetEngine_is_dirty_filtering_set(PointerRNA *ptr, int val)
 static void rna_def_asset_uuid(BlenderRNA *brna)
 {
 	StructRNA *srna;
+	PropertyRNA *prop;
 
 	int null_uuid[4] = {0};
 
@@ -679,8 +680,14 @@ static void rna_def_asset_uuid(BlenderRNA *brna)
 	RNA_def_int_vector(srna, "uuid_revision", 4, null_uuid, INT_MIN, INT_MAX,
 	                   "Revision UUID", "Unique identifier of this asset's revision", INT_MIN, INT_MAX);
 
-	prop = RNA_def_boolean(srna, "is_unknown_engine", 0, "Unknown Asset Engine",
+	prop = RNA_def_boolean(srna, "is_unknown_engine", false, "Unknown Asset Engine",
 	                       "This AssetUUID is referencing an unknown asset engine");
+	RNA_def_property_boolean_sdna(prop, NULL, "tag", UUID_TAG_ENGINE_MISSING);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+	prop = RNA_def_boolean(srna, "is_asset_missing", false, "Missing Asset",
+	                       "This AssetUUID is no more known by its asset engine");
+	RNA_def_property_boolean_sdna(prop, NULL, "tag", UUID_TAG_ASSET_MISSING);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 }
 
