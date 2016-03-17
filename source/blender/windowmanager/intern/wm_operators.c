@@ -5116,12 +5116,11 @@ typedef struct HMDData {
  */
 static float init_rot[4];
 
-static void hmd_view_exit(const bContext *C, wmWindow *hmd_win, Scene *scene)
+static void hmd_view_exit(const bContext *C, Scene *scene)
 {
 	View3D *v3d = CTX_wm_view3d(C);
 	Object *ob = v3d ? v3d->camera : scene->camera;
 
-	WM_window_fullscreen_toggle(hmd_win, false, true);
 	/* reset initial camera rotation */
 	BKE_object_quat_to_rot(ob, init_rot);
 	DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
@@ -5135,7 +5134,7 @@ static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wm
 
 	/* close */
 	if ((win = wm->win_hmd)) {
-		hmd_view_exit(C, win, CTX_data_scene(C));
+		hmd_view_exit(C, CTX_data_scene(C));
 		wm_window_close(C, wm, win);
 		wm->win_hmd = NULL;
 	}
@@ -5172,12 +5171,13 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	const bool was_hmd_running = (scene->flag & SCE_HMD_RUNNING);
 
 	if (!hmd_win) {
-		hmd_view_exit(C, hmd_win, scene);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 
 	scene->flag ^= SCE_HMD_RUNNING;
 	if (was_hmd_running) {
+		hmd_view_exit(C, scene);
+		WM_window_fullscreen_toggle(hmd_win, false, true);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 	else {
