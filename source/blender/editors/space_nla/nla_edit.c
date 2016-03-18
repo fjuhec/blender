@@ -1899,6 +1899,8 @@ void NLA_OT_make_single_user(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /* ******************** Apply Scale Operator ***************************** */

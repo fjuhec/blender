@@ -354,6 +354,8 @@ void TEXT_OT_reload(wmOperatorType *ot)
 	ot->exec = text_reload_exec;
 	ot->invoke = WM_operator_confirm;
 	ot->poll = text_edit_poll;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /******************* delete operator *********************/
@@ -407,6 +409,8 @@ void TEXT_OT_unlink(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /******************* make internal operator *********************/

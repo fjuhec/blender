@@ -1836,6 +1836,7 @@ void FILE_OT_directory_new(struct wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 	prop = RNA_def_boolean(ot->srna, "open", false, "Open", "Open new directory");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+	RNA_def_boolean(ot->srna, "ask_confirmation", 0, "Ask Confirmation", "Ask confirmation");
 }
 
 
@@ -2307,6 +2308,8 @@ void FILE_OT_delete(struct wmOperatorType *ot)
 	ot->invoke = WM_operator_confirm;
 	ot->exec = file_delete_exec;
 	ot->poll = file_delete_poll; /* <- important, handler is on window level */
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 

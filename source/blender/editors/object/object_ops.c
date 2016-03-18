@@ -391,14 +391,18 @@ void ED_keymap_object(wmKeyConfig *keyconf)
 	
 	kmi = WM_keymap_add_item(keymap, "OBJECT_OT_delete", XKEY, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "use_global", false);
+	RNA_boolean_set(kmi->ptr, "ask_confirmation", true);
 
 	kmi = WM_keymap_add_item(keymap, "OBJECT_OT_delete", XKEY, KM_PRESS, KM_SHIFT, 0);
 	RNA_boolean_set(kmi->ptr, "use_global", true);
+	RNA_boolean_set(kmi->ptr, "ask_confirmation", true);
 
 	kmi = WM_keymap_add_item(keymap, "OBJECT_OT_delete", DELKEY, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "use_global", false);
+	RNA_boolean_set(kmi->ptr, "ask_confirmation", false);
 	kmi = WM_keymap_add_item(keymap, "OBJECT_OT_delete", DELKEY, KM_PRESS, KM_SHIFT, 0);
 	RNA_boolean_set(kmi->ptr, "use_global", true);
+	RNA_boolean_set(kmi->ptr, "ask_confirmation", false);
 
 	WM_keymap_add_menu(keymap, "INFO_MT_add", AKEY, KM_PRESS, KM_SHIFT, 0);
 

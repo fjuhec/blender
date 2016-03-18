@@ -1294,6 +1294,8 @@ void ARMATURE_OT_delete(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 static bool armature_dissolve_ebone_cb(const char *bone_name, void *arm_p)
