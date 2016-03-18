@@ -40,6 +40,7 @@
 #include "GHOST_IWindow.h"
 
 class GHOST_IEventConsumer;
+class GHOST_OpenHMDManager;
 
 /**
  * \page GHOSTPage GHOST
@@ -382,6 +383,11 @@ public:
 	 * \param deadzone: Deadzone of the 3D mouse (both for rotation and pan) relative to full range
 	 */
 	virtual void setNDOFDeadZone(float deadzone) = 0;
+
+	/**
+	 * \return A pointer to our OpenHMD manager.
+	 */
+	virtual GHOST_OpenHMDManager *getOpenHMDManager() const = 0;
 
 	/**
 	 * Toggles console

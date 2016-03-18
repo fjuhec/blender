@@ -38,6 +38,7 @@
 #include "GHOST_ISystem.h"
 #include "GHOST_IEvent.h"
 #include "GHOST_IEventConsumer.h"
+#include "GHOST_OpenHMDManager.h"
 #include "intern/GHOST_CallbackEventConsumer.h"
 
 GHOST_SystemHandle GHOST_CreateSystem(void)
@@ -931,3 +932,21 @@ void GHOST_EndIME(GHOST_WindowHandle windowhandle)
 }
 
 #endif  /* WITH_INPUT_IME */
+
+#ifdef WITH_OPENHMD
+
+void GHOST_HMDopenDevice(int index)
+{
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	ohmd->openDevice(index);
+}
+
+void GHOST_HMDcloseDevice()
+{
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	ohmd->closeDevice();
+}
+
+#endif

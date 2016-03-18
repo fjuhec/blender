@@ -55,14 +55,21 @@ public:
 	 *  \param requested_device_name    The exact name of the requested device.
 	 *  \return A boolean indicating success.
 	 */
-	bool setDevice(const char *requested_vendor_name, const char *requested_device_name);
+	bool openDevice(const char *requested_vendor_name, const char *requested_device_name);
 
 	/**
 	 *  Select a device by index
 	 *  \param index    The index of the requested device
-	 *  See setDevice(const char*, const char*) for more information.
+	 *  See openDevice(const char*, const char*) for more information.
 	 */
-	bool setDevice(int index);
+	bool openDevice(int index);
+
+	/** 
+	 *	Close the currently opened device (if available)
+	 *  This means no more events will be generated until another device is opened using openDevice.
+	 * 	Has no effect is available() is false.
+	 */
+	void closeDevice();
 
 	/**
 	 *  \return The number of connected devices.
@@ -70,11 +77,14 @@ public:
 	 */
 	int getNumDevices() const;
 
+	///TODO add a function to retrieve a list of connected devices, or the data of a single device by index.
+	//the data should contain at least the device name and vendor name.
+
 	/**
 	 *  \return A c-style string containing the last error as a human-readable message
 	 *  NULL is returned if available() is false.
 	 */
-	 const char *getError() const;
+	const char *getError() const;
 
 	/**
 	 *  \return A c-style string with the human-readable name of the current device.
@@ -98,121 +108,121 @@ public:
 	 * \param orientation   The absolute orientation of the device, as quaternion, in blender format (w,x,y,z)
 	 *  Nothing is written if available() is false.
 	 */
-	bool    getRotationQuat(float orientation[4]) const;
+	bool getRotationQuat(float orientation[4]) const;
 
 	/**
 	 * \param mat   A "ready to use" OpenGL style 4x4 matrix with a modelview matrix for the left eye of the HMD.
 	 *  Nothing is written if available() is false.
 	 */
-	void    getLeftEyeGLModelviewMatrix(float mat[16]) const;
+	void getLeftEyeGLModelviewMatrix(float mat[16]) const;
 
 	/**
 	 * \param mat   A "ready to use" OpenGL style 4x4 matrix with a modelview matrix for the right eye of the HMD.
 	 *  Nothing is written if available() is false.
 	 */
-	void    getRightEyeGLModelviewMatrix(float mat[16]) const;
+	void getRightEyeGLModelviewMatrix(float mat[16]) const;
 
 	/**
 	 * \param mat   A "ready to use" OpenGL style 4x4 matrix with a projection matrix for the left eye of the HMD.
 	 *  Nothing is written if available() is false.
 	 */
-	void    getLeftEyeGLProjectionMatrix(float mat[16]) const;
+	void getLeftEyeGLProjectionMatrix(float mat[16]) const;
 
 	/**
 	 * \param mat   A "ready to use" OpenGL style 4x4 matrix with a projection matrix for the right eye of the HMD.
 	 *  Nothing is written if available() is false.
 	 */
-	void    getRightEyeGLProjectionMatrix(float mat[16]) const;
+	void getRightEyeGLProjectionMatrix(float mat[16]) const;
 
 	 /**
 	 * \param position  A 3-D vector representing the absolute position of the device, in space.
 	 *  Nothing is written if available() is false.
 	 */
-	void    getPositionVector(float position[3]) const;
+	void getPositionVector(float position[3]) const;
 
 	/**
 	 * \return  Physical width of the device screen in metres.
 	 *  -1 is returned if available() is false.
 	 */
-	float   getScreenHorizontalSize() const;
+	float getScreenHorizontalSize() const;
 
 	/**
 	 * \return  Physical height of the device screen in metres.
 	 *  -1 is returned if available() is false.
 	 */
-	float   getScreenVerticalSize() const;
+	float getScreenVerticalSize() const;
 
 	/**
 	 * \return  Physical separation of the device lenses in metres.
 	 *  -1 is returned if available() is false.
 	 */
-	float   getLensHorizontalSeparation() const;
+	float getLensHorizontalSeparation() const;
 
 	/**
 	 * \return  Physical vertical position of the lenses in metres.
 	 *  -1 is returned if available() is false.
 	 */
-	float   getLensVerticalPosition() const;
+	float getLensVerticalPosition() const;
 
 	/**
 	 * \return  Physical field of view for the left eye in degrees.
 	 *  -1 is returned if available() is false.
 	 */
-	float   getLeftEyeFOV() const;
+	float getLeftEyeFOV() const;
 
 	/**
 	 * \return  Physical display aspect ratio for the left eye screen.
 	 *  -1 is returned if available() is false.
 	 */
-	float   getLeftEyeAspectRatio() const;
+	float getLeftEyeAspectRatio() const;
 
 	/**
 	 * \return  Physical display aspect ratio for the left eye screen.
 	 *  -1 is returned if available() is false.
 	 */
-	float   getRightEyeFOV() const;
+	float getRightEyeFOV() const;
 
 	/**
 	 * \return  Physical display aspect ratio for the right eye screen.
 	 *  -1 is returned if available() is false.
 	 */
-	float   getRightEyeAspectRatio() const;
+	float getRightEyeAspectRatio() const;
 
 	/**
 	 * \return  Physical interpupillary distance of the user in metres.
 	 *  -1 is returned if available() is false.
 	 */
-	float   getEyeIPD() const;
+	float getEyeIPD() const;
 
 	/**
 	 * \return   Z-far value for the projection matrix calculations (i.e. drawing distance).
 	 *  -1 is returned if available() is false.
 	 */
-	float   getProjectionZFar() const;
+	float getProjectionZFar() const;
 
 	/**
 	 * \return  Z-near value for the projection matrix calculations (i.e. close clipping distance).
 	 *  -1 is returned if available() is false.
 	 */
-	float   getProjectionZNear() const;
+	float getProjectionZNear() const;
 
 	/**
 	 * \param distortion    Device specific distortion value.
 	 *  Nothing is written if available() is false.
 	 */
-	void    getDistortion(float distortion[6]) const;
+	void getDistortion(float distortion[6]) const;
 
 	/**
 	 *  \return Physical horizontal resolution of the device screen.
 	 *  -1 is returned if available() is false.
 	 */
-	int     getScreenHorizontalResolution() const;
+	int getScreenHorizontalResolution() const;
 
 	/**
 	 *  \return Physical vertical resolution of the device screen.
 	 *  -1 is returned if available() is false.
 	 */
-	int     getScreenVerticalResolution() const;
+	int getScreenVerticalResolution() const;
 
 	/**
 	 *  Sets the physical interpupillary distance of the user in metres.
@@ -263,6 +273,13 @@ protected:
 	GHOST_System& m_system;
 
 private:
+
+	/** 
+	 * 	Create the context if it hasn't been created yet
+	 * 	\return True if a context was created or was already available.
+	 */
+	bool createContext();
+
 	bool m_available;
 
 	ohmd_context *m_context;

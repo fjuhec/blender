@@ -598,7 +598,8 @@ processEvents(
 		}
 #endif
 		/* Call base class to update os independent events */
-		anyProcessed = GHOST_System::processEvents(anyProcessed);
+		if(GHOST_System::processEvents(anyProcessed))
+			anyProcessed = true;
 	} while (waitForEvent && !anyProcessed);
 
 	return anyProcessed;

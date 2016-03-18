@@ -106,6 +106,8 @@
 #include "ED_util.h"
 #include "ED_view3d.h"
 
+#include "GHOST_C-api.h"
+
 #include "GPU_basic_shader.h"
 #include "GPU_material.h"
 
@@ -127,6 +129,7 @@
 #include "wm_files.h"
 #include "wm_subwindow.h"
 #include "wm_window.h"
+
 
 static GHash *global_ops_hash = NULL;
 
@@ -5158,6 +5161,16 @@ static void WM_OT_hmd_view_open(wmOperatorType *ot)
 	ot->invoke = wm_hmd_view_open_invoke;
 }
 
+static void wm_hmd_state_change(const bool enable)
+{
+	if (enable) {
+		GHOST_HMDopenDevice(0);
+	}
+	else {
+		GHOST_HMDcloseDevice();
+	}
+}
+
 static int hmd_session_run_poll(bContext *C)
 {
 	return (CTX_wm_manager(C)->win_hmd != NULL);
@@ -5178,6 +5191,7 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	if (was_hmd_running) {
 		hmd_view_exit(C, scene);
 		WM_window_fullscreen_toggle(hmd_win, false, true);
+		wm_hmd_state_change(false);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 	else {
@@ -5186,6 +5200,8 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 		View3D *v3d = sa->spacedata.first;
 		RegionView3D *rv3d = ar->regiondata;
 		BLI_assert(sa->spacetype = SPACE_VIEW3D);
+
+		wm_hmd_state_change(true);
 
 		/* XXX duplicated code from viewnumpad_exec */
 		if (rv3d->persp != RV3D_CAMOB) {

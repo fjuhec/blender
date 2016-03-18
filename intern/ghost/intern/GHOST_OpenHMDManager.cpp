@@ -31,37 +31,13 @@ GHOST_OpenHMDManager::GHOST_OpenHMDManager(GHOST_System& sys)
 	  m_device(NULL),
 	  m_deviceIndex(-1)
 {
-	m_context = ohmd_ctx_create();
-	if (m_context != NULL) {
-
-		int num_devices = ohmd_ctx_probe(m_context);
-		if (num_devices > 0) {
-			m_available = true;
-
-			//can't fail?
-			m_deviceIndex = 0;
-			m_device = ohmd_list_open_device(m_context, m_deviceIndex);
-		}
-		else {
-			printf("No available devices in OpenHMD Context\n");
-
-			ohmd_ctx_destroy(m_context);
-			m_context = NULL;
-		}
-	}
-	else {
-		printf("Failed to create OpenHMD Context\n");
-	}
+	//context can be pre-created. the device can be opened later at will
+	createContext(); 
 }
 
 GHOST_OpenHMDManager::~GHOST_OpenHMDManager()
 {
-	if (m_available) {
-		ohmd_ctx_destroy(m_context);
-		m_context = NULL;
-		m_device = NULL;
-		m_available = false;
-	}
+	closeDevice();
 }
 
 bool GHOST_OpenHMDManager::processEvents()
@@ -94,9 +70,20 @@ bool GHOST_OpenHMDManager::available() const
 	return m_available;
 }
 
-bool GHOST_OpenHMDManager::setDevice(const char *requested_vendor_name, const char *requested_device_name)
+bool GHOST_OpenHMDManager::createContext()
 {
-	if (!m_available) {
+	if (m_context != NULL)
+		return true;
+
+	m_context = ohmd_ctx_create();
+	return (m_context != NULL);
+}
+
+bool GHOST_OpenHMDManager::openDevice(const char *requested_vendor_name, const char *requested_device_name)
+{
+	//create the context if it hasn't been created yet.
+	//do not check for m_available as that indicates both the context and device are valid, which isn't the case if the context isn't available
+	if (!createContext()) {
 		return false;
 	}
 
@@ -107,7 +94,7 @@ bool GHOST_OpenHMDManager::setDevice(const char *requested_vendor_name, const ch
 		const char* vendor_name = ohmd_list_gets(m_context, i, OHMD_VENDOR);
 
 		if (strcmp(device_name, requested_device_name) == 0 && strcmp(vendor_name, requested_vendor_name) == 0) {
-			success = setDevice(i);
+			success = openDevice(i);
 			break;
 		}
 	}
@@ -115,9 +102,11 @@ bool GHOST_OpenHMDManager::setDevice(const char *requested_vendor_name, const ch
 	return success;
 }
 
-bool GHOST_OpenHMDManager::setDevice(int index)
+bool GHOST_OpenHMDManager::openDevice(int index)
 {
-	if (!m_available) {
+	//create the context if it hasn't been created yet
+	//do not check for m_available as that indicates both the context and device are valid, which isn't the case if the context isn't available
+	if (!createContext()) {
 		return false;
 	}
 
@@ -126,9 +115,24 @@ bool GHOST_OpenHMDManager::setDevice(int index)
 		return false;
 	}
 
+	//can't fail to open the device
 	m_deviceIndex = index;
 	m_device = ohmd_list_open_device(m_context, index);
+	m_available = true;
 	return true;
+}
+
+void GHOST_OpenHMDManager::closeDevice()
+{
+	if (!m_available) {
+		return;
+	}
+
+	ohmd_ctx_destroy(m_context);
+	m_context = NULL;
+	m_device = NULL;
+	m_deviceIndex = -1;
+	m_available = false;
 }
 
 int GHOST_OpenHMDManager::getNumDevices() const

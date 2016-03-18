@@ -279,10 +279,10 @@ public:
 	inline GHOST_NDOFManager *getNDOFManager() const;
 #endif
 
-    /**
-     * \return A pointer to our OpenHMD manager.
-     */
-    inline GHOST_OpenHMDManager *getOpenHMDManager() const;
+	/**
+	 * \return A pointer to our OpenHMD manager.
+	 */
+	virtual GHOST_OpenHMDManager *getOpenHMDManager() const;
 
 	/**
 	 * Returns the state of all modifier keys.
@@ -391,12 +391,12 @@ inline GHOST_NDOFManager *GHOST_System::getNDOFManager() const
 {
 	return m_ndofManager;
 }
+#endif
 
 inline GHOST_OpenHMDManager *GHOST_System::getOpenHMDManager() const
 {
     return m_openHMDManager;
 }
-#endif
 
 #endif // __GHOST_SYSTEM_H__
 
