@@ -74,6 +74,11 @@ elseif(APPLE)
 		MACOSX_BUNDLE_SHORT_VERSION_STRING ${BLENDER_VERSION}
 		MACOSX_BUNDLE_LONG_VERSION_STRING "${BLENDER_VERSION} ${BLENDER_DATE}")
 
+	install(
+		TARGETS blenderplayer
+		DESTINATION "."
+	)
+
 else()
 	add_executable(blenderplayer bad_level_call_stubs/stubs.c)
 
