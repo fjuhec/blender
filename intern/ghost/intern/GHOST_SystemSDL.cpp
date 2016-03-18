@@ -598,7 +598,8 @@ GHOST_SystemSDL::processEvents(bool waitForEvent)
 		}
 
 		/* Call base class to update os independent events */
-		GHOST_System::processEvents(false);
+		if(GHOST_System::processEvents(anyProcessed))
+			anyProcessed = true;
 	} while (waitForEvent && !anyProcessed);
 
 	return anyProcessed;
