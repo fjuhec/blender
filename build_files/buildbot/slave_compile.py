@@ -71,6 +71,7 @@ if 'cmake' in builder:
 
     if builder.startswith('mac'):
         install_dir = None
+        cmake_config_file = "build_files/buildbot/config/blender_mac.cmake"
         # Set up OSX architecture
         if builder.endswith('x86_64_10_6_cmake'):
             cmake_extra_options.append('-DCMAKE_OSX_ARCHITECTURES:STRING=x86_64')
