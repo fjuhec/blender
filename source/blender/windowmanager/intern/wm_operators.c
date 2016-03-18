@@ -5266,6 +5266,7 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 	/* tag hmd region for update */
 	ScrArea *sa = hmd_win->screen->areabase.first;
 	ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
+	ED_view3d_update_viewmat(scene, sa->spacedata.first, ar, NULL, NULL);
 	ED_region_tag_redraw(ar);
 }
 
