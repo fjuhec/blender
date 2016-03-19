@@ -296,6 +296,8 @@ protected:
 	 * Needed because cocoa event delta cursor move takes setCursorPosition changes too.
 	 */
 	GHOST_TInt32 m_cursorDelta_x, m_cursorDelta_y;
+	GHOST_TInt32 m_cursorPrevDelta_x, m_cursorPrevDelta_y;
+	float m_cursorPrevLocation_x, m_cursorPrevLocation_y;
 	
 	/** Temporarily ignore momentum scroll events */
 	bool m_ignoreMomentumScroll;

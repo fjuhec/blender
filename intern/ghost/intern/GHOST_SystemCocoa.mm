@@ -349,6 +349,10 @@ GHOST_SystemCocoa::GHOST_SystemCocoa()
 	m_modifierMask =0;
 	m_cursorDelta_x=0;
 	m_cursorDelta_y=0;
+	m_cursorPrevDelta_x=0;
+	m_cursorPrevDelta_y=0;
+	m_cursorPrevLocation_x=0;
+	m_cursorPrevLocation_y=0;
 	m_outsideLoopEventProcessed = false;
 	m_needDelayedApplicationBecomeActiveEventProcessing = false;
 	m_displayManager = new GHOST_DisplayManagerCocoa ();
@@ -1309,6 +1313,29 @@ GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 					grab_mode = GHOST_kGrabDisable;
 				}
 
+				NSPoint mousePos = [cocoawindow mouseLocationOutsideOfEventStream];
+				GHOST_TInt32 x_mouseDiff = mousePos.x - m_cursorPrevLocation_x;
+				GHOST_TInt32 y_mouseDiff = mousePos.y - m_cursorPrevLocation_y;
+				// Check if the mouse has been hijacked by an external program like Remote desktop
+				// When the mouse is hijacked mouseDiff is not 0 but there are cases where the hijacked event
+				// is split in two, that is handled by cursorPrevDelta
+				if ((x_mouseDiff != 0 || y_mouseDiff != 0 || m_cursorPrevDelta_x != 0 || m_cursorPrevDelta_y != 0)
+						&& window->getCursorGrabModeIsWarp()) {
+					grab_mode = GHOST_kGrabDisable;
+					window->setCursorGrabAccum(0, 0);
+					if (x_mouseDiff != 0 || y_mouseDiff != 0) {
+						m_cursorPrevDelta_x=x_mouseDiff - [event deltaX];
+						m_cursorPrevDelta_y=y_mouseDiff + [event deltaY];
+					} else {
+						m_cursorPrevDelta_x=0;
+						m_cursorPrevDelta_y=0;
+					}
+					m_cursorDelta_x=0;
+					m_cursorDelta_y=0;
+				}
+				m_cursorPrevLocation_x=mousePos.x;
+				m_cursorPrevLocation_y=mousePos.y;
+
 				switch (grab_mode) {
 					case GHOST_kGrabHide: //Cursor hidden grab operation : no cursor move
 					{
@@ -1328,7 +1355,6 @@ GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 					}
 					case GHOST_kGrabWrap: //Wrap cursor at area/window boundaries
 					{
-						NSPoint mousePos = [cocoawindow mouseLocationOutsideOfEventStream];
 						GHOST_TInt32 x_mouse= mousePos.x;
 						GHOST_TInt32 y_mouse= mousePos.y;
 						GHOST_TInt32 x_accum, y_accum, x_cur, y_cur, x, y;
@@ -1364,6 +1390,8 @@ GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 						//Set new cursor position
 						window->clientToScreenIntern(x_mouse, y_mouse, x_cur, y_cur);
 						setMouseCursorPosition(x_cur, y_cur); /* wrap */
+						m_cursorPrevLocation_x=x_mouse;
+						m_cursorPrevLocation_y=y_mouse;
 						
 						//Post event
 						window->getCursorGrabInitPos(x_cur, y_cur);
@@ -1375,7 +1403,6 @@ GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 					default:
 					{
 						//Normal cursor operation: send mouse position in window
-						NSPoint mousePos = [cocoawindow mouseLocationOutsideOfEventStream];
 						GHOST_TInt32 x, y;
 						
 						window->clientToScreenIntern(mousePos.x, mousePos.y, x, y);
