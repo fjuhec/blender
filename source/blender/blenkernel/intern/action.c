@@ -500,6 +500,7 @@ bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
 	unit_m4(chan->constinv);
 	
 	chan->protectflag = OB_LOCK_ROT4D;  /* lock by components by default */
+	chan->rotmode = ROT_MODE_XYZ;  /* set rotmode to XYZ Euler by default */
 	
 	BLI_addtail(&pose->chanbase, chan);
 	BKE_pose_channels_hash_free(pose);

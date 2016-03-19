@@ -50,8 +50,8 @@
 /* XXX: this RNA enum define is currently duplicated for objects,
  * since there is some text here which is not applicable */
 EnumPropertyItem rna_enum_posebone_rotmode_items[] = {
-	{ROT_MODE_QUAT, "QUATERNION", 0, "Quaternion (WXYZ)", "No Gimbal Lock (default)"},
-	{ROT_MODE_XYZ, "XYZ", 0, "XYZ Euler", "XYZ Rotation Order (prone to Gimbal Lock)"},
+	{ROT_MODE_QUAT, "QUATERNION", 0, "Quaternion (WXYZ)", "No Gimbal Lock"},
+	{ROT_MODE_XYZ, "XYZ", 0, "XYZ Euler", "XYZ Rotation Order (prone to Gimbal Lock) (default)"},
 	{ROT_MODE_XZY, "XZY", 0, "XZY Euler", "XZY Rotation Order (prone to Gimbal Lock)"},
 	{ROT_MODE_YXZ, "YXZ", 0, "YXZ Euler", "YXZ Rotation Order (prone to Gimbal Lock)"},
 	{ROT_MODE_YZX, "YZX", 0, "YZX Euler", "YZX Rotation Order (prone to Gimbal Lock)"},
