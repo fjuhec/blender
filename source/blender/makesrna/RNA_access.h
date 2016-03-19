@@ -745,6 +745,8 @@ StructRegisterFunc RNA_struct_register(StructRNA *type);
 StructUnregisterFunc RNA_struct_unregister(StructRNA *type);
 void **RNA_struct_instance(PointerRNA *ptr);
 
+StructPostregisterFunc RNA_struct_postregister(StructRNA *type);
+
 void *RNA_struct_py_type_get(StructRNA *srna);
 void RNA_struct_py_type_set(StructRNA *srna, void *py_type);
 

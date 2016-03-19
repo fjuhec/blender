@@ -3259,6 +3259,7 @@ static void rna_generate_struct(BlenderRNA *UNUSED(brna), StructRNA *srna, FILE 
 	fprintf(f, "\t%s,\n", rna_function_string(srna->reg));
 	fprintf(f, "\t%s,\n", rna_function_string(srna->unreg));
 	fprintf(f, "\t%s,\n", rna_function_string(srna->instance));
+	fprintf(f, "\t%s,\n", rna_function_string(srna->postreg));
 	fprintf(f, "\t%s,\n", rna_function_string(srna->idproperties));
 
 	if (srna->reg && !srna->refine) {

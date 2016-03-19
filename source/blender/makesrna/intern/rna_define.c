@@ -949,6 +949,16 @@ void RNA_def_struct_register_funcs(StructRNA *srna, const char *reg, const char 
 	if (instance) srna->instance = (StructInstanceFunc)instance;
 }
 
+void RNA_def_struct_postregister_func(StructRNA *srna, const char *postreg)
+{
+	if (!DefRNA.preprocess) {
+		fprintf(stderr, "%s: only during preprocessing.\n", __func__);
+		return;
+	}
+
+	if (postreg) srna->postreg = (StructPostregisterFunc)postreg;
+}
+
 void RNA_def_struct_path_func(StructRNA *srna, const char *path)
 {
 	if (!DefRNA.preprocess) {

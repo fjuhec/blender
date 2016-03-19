@@ -7646,6 +7646,7 @@ static PyObject *pyrna_register_class(PyObject *UNUSED(self), PyObject *py_class
 	bContext *C = NULL;
 	ReportList reports;
 	StructRegisterFunc reg;
+	StructPostregisterFunc postreg;
 	StructRNA *srna;
 	StructRNA *srna_new;
 	const char *identifier;
@@ -7746,6 +7747,12 @@ static PyObject *pyrna_register_class(PyObject *UNUSED(self), PyObject *py_class
 		else {
 			return NULL;
 		}
+	}
+
+	/* finish it up now that deferred properties are registered */
+	postreg = RNA_struct_postregister(srna);
+	if (postreg) {
+		postreg(srna_new);
 	}
 
 	Py_RETURN_NONE;
