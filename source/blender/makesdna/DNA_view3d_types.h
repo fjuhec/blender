@@ -342,6 +342,7 @@ enum {
 #define V3D_SHOW_X				2
 #define V3D_SHOW_Y				4
 #define V3D_SHOW_Z				8
+#define V3D_HIDE_2DGRID			(1 << 7)		/* Custom flag for hiding 2D grid */
 
 /* View3d->twtype (bits, we can combine them) */
 #define V3D_MANIP_TRANSLATE		1
