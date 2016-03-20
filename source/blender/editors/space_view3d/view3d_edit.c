@@ -2955,7 +2955,9 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 		curs = ED_view3d_cursor3d_get(scene, v3d);
 		zero_v3(min);
 		zero_v3(max);
-		zero_v3(curs);
+		if ((v3d->flag3 & V3D_LOCK_CURSOR) == 0) {
+			zero_v3(curs);
+		}
 	}
 	else {
 		INIT_MINMAX(min, max);
@@ -4687,6 +4689,10 @@ void ED_view3d_cursor3d_update(bContext *C, const int mval[2])
 	float *fp_curr = ED_view3d_cursor3d_get(scene, v3d);
 	float  fp_prev[3];
 
+	if (v3d->flag3 & V3D_LOCK_CURSOR) {
+		return;
+	}
+
 	copy_v3_v3(fp_prev, fp_curr);
 
 	ED_view3d_cursor3d_position(C, fp_curr, mval);
@@ -4737,6 +4743,66 @@ void VIEW3D_OT_cursor3d(wmOperatorType *ot)
 
 	/* rna later */
 
+}
+
+static int view3d_hide_cursor3d_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+{
+	View3D *v3d = CTX_wm_view3d(C);
+
+	if (v3d->flag3 & V3D_HIDE_CURSOR) {
+		v3d->flag3 &= ~V3D_HIDE_CURSOR;
+	}
+	else {
+		v3d->flag3 |= V3D_HIDE_CURSOR;
+	}
+
+	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
+
+	return OPERATOR_FINISHED;
+}
+
+void VIEW3D_OT_hide_cursor3d(wmOperatorType *ot)
+{
+
+	/* identifiers */
+	ot->name = "Show/Hide 3D Cursor";
+	ot->description = "Toggle display of the 3D cursor";
+	ot->idname = "VIEW3D_OT_hide_cursor3d";
+
+	/* api callbacks */
+	ot->invoke = view3d_hide_cursor3d_invoke;
+
+	ot->poll = ED_operator_view3d_active;
+}
+
+static int view3d_lock_cursor3d_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+{
+	View3D *v3d = CTX_wm_view3d(C);
+
+	if (v3d->flag3 & V3D_LOCK_CURSOR) {
+		v3d->flag3 &= ~V3D_LOCK_CURSOR;
+	}
+	else {
+		v3d->flag3 |= V3D_LOCK_CURSOR;
+	}
+
+	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
+
+	return OPERATOR_FINISHED;
+}
+
+void VIEW3D_OT_lock_cursor3d(wmOperatorType *ot)
+{
+
+	/* identifiers */
+	ot->name = "Lock/Unlock 3D Cursor";
+	ot->description = "Toggle lock of the 3D cursor";
+	ot->idname = "VIEW3D_OT_lock_cursor3d";
+
+	/* api callbacks */
+	ot->invoke = view3d_lock_cursor3d_invoke;
+
+	ot->poll = ED_operator_view3d_active;
 }
 
 /* ***************** manipulator op ******************* */

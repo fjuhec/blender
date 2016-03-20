@@ -312,6 +312,8 @@ typedef struct View3D {
 
 /* View3d->flag3 (short) */
 #define V3D_SHOW_WORLD			(1 << 0)
+#define V3D_LOCK_CURSOR			(1 << 14)		/* Custom flag for locking the 3D cursor */
+#define V3D_HIDE_CURSOR			(1 << 15)		/* Custom flag for hiding the 3D cursor */
 
 /* View3D->around */
 enum {

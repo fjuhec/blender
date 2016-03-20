@@ -3923,7 +3923,7 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 
 }
 
-static bool is_cursor_visible(Scene *scene)
+bool is_cursor_visible(Scene *scene)
 {
 	Object *ob = OBACT;
 
@@ -3951,6 +3951,16 @@ static bool is_cursor_visible(Scene *scene)
 	}
 
 	return true;
+}
+
+static bool view3d_is_cursor_visible(Scene *scene, View3D *v3d)
+{
+	if (v3d->flag3 & V3D_HIDE_CURSOR) {
+		return false;
+	}
+	else {
+		return is_cursor_visible(scene);
+	}
 }
 
 static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
@@ -3986,7 +3996,7 @@ static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
 		Object *ob;
 
 		/* 3d cursor */
-		if (is_cursor_visible(scene)) {
+		if (view3d_is_cursor_visible(scene, v3d)) {
 			drawcursor(scene, ar, v3d);
 		}
 
