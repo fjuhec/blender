@@ -247,7 +247,7 @@ static void rna_userdef_select_mouse_set(PointerRNA *ptr, int value)
 
 	if (value) {
 		userdef->flag |= USER_LMOUSESELECT;
-		userdef->flag &= ~USER_TWOBUTTONMOUSE;
+		/* userdef->flag &= ~USER_TWOBUTTONMOUSE; */
 	}
 	else
 		userdef->flag &= ~USER_LMOUSESELECT;

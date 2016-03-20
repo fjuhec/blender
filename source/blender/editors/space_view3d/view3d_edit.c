@@ -1129,10 +1129,17 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	short event_code = VIEW_PASS;
 	bool use_autokey = false;
 	int ret = OPERATOR_RUNNING_MODAL;
+	static bool view_changed = false;
+	static double last_time = 0.0f;
+
+	if (!view_changed) {
+		last_time = PIL_check_seconds_timer();
+	}
 
 	/* execute the events */
 	if (event->type == MOUSEMOVE) {
 		event_code = VIEW_APPLY;
+		view_changed = true;
 	}
 	else if (event->type == EVT_MODAL_MAP) {
 		switch (event->val) {
@@ -1142,18 +1149,22 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			case VIEWROT_MODAL_AXIS_SNAP_ENABLE:
 				vod->axis_snap = true;
 				event_code = VIEW_APPLY;
+				view_changed = true;
 				break;
 			case VIEWROT_MODAL_AXIS_SNAP_DISABLE:
 				vod->axis_snap = false;
 				event_code = VIEW_APPLY;
+				view_changed = true;
 				break;
 			case VIEWROT_MODAL_SWITCH_ZOOM:
 				WM_operator_name_call(C, "VIEW3D_OT_zoom", WM_OP_INVOKE_DEFAULT, NULL);
 				event_code = VIEW_CONFIRM;
+				view_changed = true;
 				break;
 			case VIEWROT_MODAL_SWITCH_MOVE:
 				WM_operator_name_call(C, "VIEW3D_OT_move", WM_OP_INVOKE_DEFAULT, NULL);
 				event_code = VIEW_CONFIRM;
+				view_changed = true;
 				break;
 		}
 	}
@@ -1171,6 +1182,12 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		ED_view3d_depth_tag_update(vod->rv3d);
 		use_autokey = true;
 		ret = OPERATOR_FINISHED;
+		if (event->emulated) {
+			double time = PIL_check_seconds_timer();
+			float time_step = (float)(time - last_time);
+			if (!view_changed || time_step < 0.6f)
+				ret |= ( OPERATOR_PASS_THROUGH | OPERATOR_TRY_UNEMULATED );
+		}
 	}
 
 	if (use_autokey) {
@@ -1179,6 +1196,7 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 	if (ret & OPERATOR_FINISHED) {
 		viewops_data_free(C, op);
+		view_changed = false;
 	}
 
 	return ret;

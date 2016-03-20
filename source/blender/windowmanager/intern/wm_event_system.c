@@ -1750,6 +1750,15 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 	}
 	/* Finished and pass through flag as handled */
 
+	/* Pass through and try continue with unemulated flag if event is emulated */
+	if (event->emulated && event->type == MIDDLEMOUSE
+	    && retval & (OPERATOR_PASS_THROUGH | OPERATOR_TRY_UNEMULATED)) {
+		event->type = LEFTMOUSE;
+		event->val = KM_PRESS;
+		event->alt = 1;
+		return WM_HANDLER_CONTINUE;
+	}
+
 	/* Finished and pass through flag as handled */
 	if (retval == (OPERATOR_FINISHED | OPERATOR_PASS_THROUGH))
 		return WM_HANDLER_HANDLED;
@@ -2982,12 +2991,14 @@ static void wm_eventemulation(wmEvent *event)
 			if (event->val == KM_PRESS && event->alt) {
 				event->type = MIDDLEMOUSE;
 				event->alt = 0;
+				event->emulated = 1;
 				emulating_event = MIDDLEMOUSE;
 			}
 #ifdef __APPLE__
 			else if (event->val == KM_PRESS && event->oskey) {
 				event->type = RIGHTMOUSE;
 				event->oskey = 0;
+				event->emulated = 1;
 				emulating_event = RIGHTMOUSE;
 			}
 #endif
@@ -2996,10 +3007,12 @@ static void wm_eventemulation(wmEvent *event)
 				if (emulating_event == MIDDLEMOUSE) {
 					event->type = MIDDLEMOUSE;
 					event->alt = 0;
+					event->emulated = 1;
 				}
 				else if (emulating_event == RIGHTMOUSE) {
 					event->type = RIGHTMOUSE;
 					event->oskey = 0;
+					event->emulated = 1;
 				}
 				emulating_event = EVENT_NONE;
 			}
