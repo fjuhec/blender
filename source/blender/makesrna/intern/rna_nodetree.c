@@ -70,8 +70,8 @@ EnumPropertyItem rna_enum_node_socket_in_out_items[] = {
 	{ 0, NULL, 0, NULL, NULL }
 };
 
-#ifndef RNA_RUNTIME
-static EnumPropertyItem node_socket_type_items[] = {
+EnumPropertyItem node_socket_type_items[] = {
+	{SOCK_UNDEFINED,  "UNDEFINED",    0,    "Undefined",    ""},
 	{SOCK_CUSTOM,  "CUSTOM",    0,    "Custom",    ""},
 	{SOCK_FLOAT,   "VALUE",     0,    "Value",     ""},
 	{SOCK_INT,     "INT",       0,    "Int",       ""},
@@ -83,6 +83,7 @@ static EnumPropertyItem node_socket_type_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+#ifndef RNA_RUNTIME
 static EnumPropertyItem node_quality_items[] = {
 	{NTREE_QUALITY_HIGH,   "HIGH",     0,    "High",     "High quality"},
 	{NTREE_QUALITY_MEDIUM, "MEDIUM",   0,    "Medium",   "Medium quality"},
@@ -1779,6 +1780,66 @@ static void rna_NodeSocket_draw_color(bContext *C, PointerRNA *ptr, PointerRNA *
 	copy_v4_v4(r_color, (float *)ret);
 
 	RNA_parameter_list_free(&list);
+}
+
+static void rna_NodeSocket_postregister(StructRNA *type)
+{
+	bNodeSocketType *st = RNA_struct_blender_type_get(type);
+	if (!st)
+		return;
+	
+	if (st->type == SOCK_UNDEFINED) {
+		PropertyRNA *prop = RNA_struct_type_find_property(type, "default_value");
+		if (prop) {
+			if (prop->type == PROP_FLOAT) {
+				FloatPropertyRNA *fprop = (FloatPropertyRNA *)prop;
+				st->type = SOCK_FLOAT;
+				switch (prop->subtype) {
+					case PROP_COLOR:
+						st->type = SOCK_RGBA;
+						break;
+					case PROP_TRANSLATION:
+					case PROP_DIRECTION:
+					case PROP_VELOCITY:
+					case PROP_ACCELERATION:
+					case PROP_EULER:
+					case PROP_XYZ:
+						st->type = SOCK_VECTOR;
+						break;
+					case PROP_UNSIGNED:
+					case PROP_PERCENTAGE:
+					case PROP_FACTOR:
+					case PROP_ANGLE:
+					case PROP_TIME:
+						st->type = SOCK_FLOAT;
+						break;
+					case PROP_NONE:
+					default:
+						if (prop->totarraylength == 3) {
+							st->type = SOCK_VECTOR;
+						}
+						else {
+							st->type = SOCK_FLOAT;
+						}
+				}
+			}
+			else if (prop->type == PROP_INT) {
+				st->type = SOCK_INT;
+			}
+			else if (prop->type == PROP_BOOLEAN) {
+				st->type = SOCK_BOOLEAN;
+			}
+			else if (prop->type == PROP_STRING) {
+				st->type = SOCK_STRING;
+			}
+			else {
+				st->type = SOCK_CUSTOM;
+			}
+		}
+		else {
+			st->type = SOCK_CUSTOM;
+		}
+	}
 }
 
 static void rna_NodeSocket_unregister(Main *UNUSED(bmain), StructRNA *type)
@@ -6798,6 +6859,7 @@ static void rna_def_node_socket(BlenderRNA *brna)
 	RNA_def_struct_ui_icon(srna, ICON_PLUG);
 	RNA_def_struct_path_func(srna, "rna_NodeSocket_path");
 	RNA_def_struct_register_funcs(srna, "rna_NodeSocket_register", "rna_NodeSocket_unregister", NULL);
+	RNA_def_struct_postregister_func(srna, "rna_NodeSocket_postregister");
 	RNA_def_struct_idprops_func(srna, "rna_NodeSocket_idprops");
 
 	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
@@ -6871,6 +6933,14 @@ static void rna_def_node_socket(BlenderRNA *brna)
 	RNA_def_property_string_sdna(prop, NULL, "typeinfo->idname");
 	RNA_def_property_flag(prop, PROP_REGISTER);
 	RNA_def_property_ui_text(prop, "ID Name", "");
+
+	prop = RNA_def_property(srna, "bl_static_type", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "typeinfo->type");
+	RNA_def_property_enum_items(prop, node_socket_type_items);
+	RNA_def_property_enum_default(prop, SOCK_UNDEFINED);
+	RNA_def_property_flag(prop, PROP_REGISTER_OPTIONAL);
+	RNA_def_property_ui_text(prop, "Type", "Data type");
+	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_NodeSocket_update");
 
 	/* draw socket */
 	func = RNA_def_function(srna, "draw", NULL);
