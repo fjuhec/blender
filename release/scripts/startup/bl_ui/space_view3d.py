@@ -3249,6 +3249,9 @@ class VIEW3D_PT_view3d_shading(Panel):
         if not scene.render.use_shading_nodes:
             col.prop(gs, "material_mode", text="")
 
+        if view.viewport_shade in {'BOUNDBOX', 'WIREFRAME', 'SOLID'}:
+            col.prop(view, "use_wire_color")
+
         if view.viewport_shade == 'SOLID':
             col.prop(view, "show_textured_solid")
             col.prop(view, "use_matcap")

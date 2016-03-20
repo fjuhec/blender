@@ -264,6 +264,8 @@ void             BKE_object_groups_clear(struct Scene *scene, struct Base *base,
 
 struct KDTree *BKE_object_as_kdtree(struct Object *ob, int *r_tot);
 
+void BKE_object_wire_colors_sync(struct Object *ob);
+
 bool BKE_object_modifier_use_time(struct Object *ob, struct ModifierData *md);
 
 bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob, bool update_mesh,
