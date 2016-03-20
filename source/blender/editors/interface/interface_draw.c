@@ -1177,6 +1177,7 @@ void ui_draw_but_UNITVEC(uiBut *but, uiWidgetColors *wcol, const rcti *rect)
 	/* sphere color */
 	glCullFace(GL_BACK);
 	glEnable(GL_CULL_FACE);
+	glFrontFace(GL_CCW);
 	
 	/* setup lights */
 	GPULightData light = {0};
