@@ -569,6 +569,11 @@ static void rna_NodeTree_get_from_context(const bContext *C, bNodeTreeType *ntre
 	RNA_parameter_list_free(&list);
 }
 
+static void rna_NodeTree_foreach_nodeclass(Scene *scene, void *calldata, bNodeClassCallback func)
+{
+	func(calldata, NODE_CLASS_CUSTOM, N_("Custom Nodes"));
+}
+
 static void rna_NodeTree_unregister(Main *UNUSED(bmain), StructRNA *type)
 {
 	bNodeTreeType *nt = RNA_struct_blender_type_get(type);
@@ -634,6 +639,7 @@ static StructRNA *rna_NodeTree_register(
 	nt->poll = (have_function[0]) ? rna_NodeTree_poll : NULL;
 	nt->update = (have_function[1]) ? rna_NodeTree_update_reg : NULL;
 	nt->get_from_context = (have_function[2]) ? rna_NodeTree_get_from_context : NULL;
+	nt->foreach_nodeclass = rna_NodeTree_foreach_nodeclass;
 
 	ntreeTypeAdd(nt);
 
@@ -1362,12 +1368,21 @@ static bNodeType *rna_Node_register_base(Main *bmain, ReportList *reports, Struc
 	RNA_pointer_create(NULL, basetype, &dummynode, &dummyptr);
 
 	/* validate the python class */
-	if (validate(&dummyptr, data, have_function) != 0)
+	if (validate(&dummyptr, data, have_function) != 0) {
+		if (dummynode.prop) {
+			IDP_FreeProperty(dummynode.prop);
+			MEM_freeN(dummynode.prop);
+		}
 		return NULL;
+	}
 
 	if (strlen(identifier) >= sizeof(dummynt.idname)) {
 		BKE_reportf(reports, RPT_ERROR, "Registering node class: '%s' is too long, maximum length is %d",
 		            identifier, (int)sizeof(dummynt.idname));
+		if (dummynode.prop) {
+			IDP_FreeProperty(dummynode.prop);
+			MEM_freeN(dummynode.prop);
+		}
 		return NULL;
 	}
 
@@ -1419,6 +1434,13 @@ static bNodeType *rna_Node_register_base(Main *bmain, ReportList *reports, Struc
 	CLAMP(nt->width, nt->minwidth, nt->maxwidth);
 	CLAMP(nt->height, nt->minheight, nt->maxheight);
 	
+	if (dummynode.prop) {
+		nt->nclass = NODE_CLASS_CUSTOM;
+		nt->prop = dummynode.prop;
+		node_type_custom_sockets(nt, SOCK_OUT);
+		node_type_custom_sockets(nt, SOCK_IN);
+	}
+
 	return nt;
 }
 
@@ -2006,6 +2028,15 @@ static void rna_NodeSocket_hide_set(PointerRNA *ptr, int value)
 		sock->flag &= ~SOCK_HIDDEN;
 }
 
+static IDProperty *rna_NodeSocketCustom_idprops(PointerRNA *ptr, bool create)
+{
+	if (create && !ptr->data) {
+		IDPropertyTemplate val = {0};
+		ptr->data = IDP_New(IDP_GROUP, &val, "RNA_NodeSocketCustom ID properties");
+	}
+	
+	return ptr->data;
+}
 
 static void rna_NodeSocketInterface_draw(bContext *C, struct uiLayout *layout, PointerRNA *ptr)
 {
@@ -6843,6 +6874,24 @@ static void rna_def_texture_node(BlenderRNA *brna)
 
 /* -------------------------------------------------------------------------- */
 
+static void rna_def_node_socket_custom(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	srna = RNA_def_struct(brna, "NodeSocketCustom", NULL);
+	RNA_def_struct_ui_text(srna, "Custom Node Socket", "Input or output custom socket of a node");
+	RNA_def_struct_idprops_func(srna, "rna_NodeSocketCustom_idprops");
+
+	prop = RNA_def_property(srna, "type", PROP_STRING, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_IDPROPERTY);
+	RNA_def_property_ui_text(prop, "Type", "Socket type");
+
+	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_IDPROPERTY);
+	RNA_def_property_ui_text(prop, "Name", "Socket name");
+}
+
 static void rna_def_node_socket(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -7800,6 +7849,17 @@ static void rna_def_node(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_REGISTER_OPTIONAL);
 	RNA_def_property_ui_text(prop, "Static Type", "Node type (deprecated, use with care)");
 
+	/* custom sockets */
+	prop = RNA_def_property(srna, "custom_inputs", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_struct_type(prop, "NodeSocketCustom");
+	RNA_def_property_flag(prop, PROP_IDPROPERTY | PROP_REGISTER_OPTIONAL | PROP_HIDDEN);
+	RNA_def_property_ui_text(prop, "Custom Inputs", "");
+	
+	prop = RNA_def_property(srna, "custom_outputs", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_struct_type(prop, "NodeSocketCustom");
+	RNA_def_property_flag(prop, PROP_IDPROPERTY | PROP_REGISTER_OPTIONAL | PROP_HIDDEN);
+	RNA_def_property_ui_text(prop, "Custom Outputs", "");
+
 	/* type-based size properties */
 	prop = RNA_def_property(srna, "bl_width_default", PROP_FLOAT, PROP_UNSIGNED);
 	RNA_def_property_float_sdna(prop, NULL, "typeinfo->width");
@@ -8341,6 +8401,7 @@ void RNA_def_nodetree(BlenderRNA *brna)
 	StructRNA *srna;
 	
 	rna_def_node_socket(brna);
+	rna_def_node_socket_custom(brna);
 	rna_def_node_socket_interface(brna);
 	
 	rna_def_node(brna);

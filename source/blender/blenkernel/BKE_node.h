@@ -220,6 +220,11 @@ typedef struct bNodeType {
 	
 	/* RNA integration */
 	ExtensionRNA ext;
+
+	/* Used to register user-defined sockets */
+	IDProperty *prop;
+	/* Custom socket templates created from user-defined sockets */
+	bNodeSocketTemplate *custom_inputs, *custom_outputs;
 } bNodeType;
 
 /* nodetype->nclass, for add-menu and themes */
@@ -248,6 +253,7 @@ typedef struct bNodeType {
 #define NODE_CLASS_SCRIPT			32
 #define NODE_CLASS_INTERFACE		33
 #define NODE_CLASS_SHADER 			40
+#define NODE_CLASS_CUSTOM			99
 #define NODE_CLASS_LAYOUT			100
 
 /* nodetype->compatibility */
@@ -403,6 +409,7 @@ void			nodeRegisterType(struct bNodeType *ntype);
 void			nodeUnregisterType(struct bNodeType *ntype);
 bool			nodeIsRegistered(struct bNode *node);
 struct GHashIterator *nodeTypeGetIterator(void);
+struct ListBase *nodeTypeGetListBase(void);
 
 /* helper macros for iterating over node types */
 #define NODE_TYPES_BEGIN(ntype) \
@@ -585,6 +592,7 @@ int				nodeGroupPoll(struct bNodeTree *nodetree, struct bNodeTree *grouptree);
 void            node_type_base(struct bNodeType *ntype, int type, const char *name, short nclass, short flag);
 void            node_type_base_custom(struct bNodeType *ntype, const char *idname, const char *name, short nclass, short flag);
 void            node_type_socket_templates(struct bNodeType *ntype, struct bNodeSocketTemplate *inputs, struct bNodeSocketTemplate *outputs);
+void            node_type_custom_sockets(struct bNodeType *ntype, int in_out);
 void            node_type_size(struct bNodeType *ntype, int width, int minwidth, int maxwidth);
 void            node_type_size_preset(struct bNodeType *ntype, eNodeSizePreset size);
 void            node_type_init(struct bNodeType *ntype, void (*initfunc)(struct bNodeTree *ntree, struct bNode *node));

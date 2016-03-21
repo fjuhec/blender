@@ -138,6 +138,9 @@ static void node_init(const struct bContext *C, bNodeTree *ntree, bNode *node)
 	if (ntree->typeinfo->node_add_init != NULL)
 		ntree->typeinfo->node_add_init(ntree, node);
 
+	if (ntype->prop)
+		node->prop = IDP_CopyProperty(ntype->prop);
+
 	/* extra init callback */
 	if (ntype->initfunc_api) {
 		PointerRNA ptr;
@@ -290,6 +293,9 @@ static GHash *nodetypes_hash = NULL;
 static GHash *nodesockettypes_hash = NULL;
 static SpinLock spin;
 
+/* Used for storing the registered node types in order of registration */
+static ListBase nodetypes_list = {NULL, NULL};
+
 bNodeTreeType *ntreeTypeFind(const char *idname)
 {
 	bNodeTreeType *nt;
@@ -359,6 +365,22 @@ static void free_dynamic_typeinfo(bNodeType *ntype)
 	}
 }
 
+static void free_custom_typeinfo(bNodeType *ntype)
+{
+	if (ntype->type == NODE_CUSTOM) {
+		if (ntype->custom_inputs) {
+			MEM_freeN(ntype->custom_inputs);
+		}
+		if (ntype->custom_outputs) {
+			MEM_freeN(ntype->custom_outputs);
+		}
+		if (ntype->prop) {
+			IDP_FreeProperty(ntype->prop);
+			MEM_freeN(ntype->prop);
+		}
+	}
+}
+
 /* callback for hash value free function */
 static void node_free_type(void *nodetype_v)
 {
@@ -366,9 +388,14 @@ static void node_free_type(void *nodetype_v)
 	/* XXX pass Main to unregister function? */
 	update_typeinfo(G.main, NULL, NULL, nodetype, NULL, true);
 	
+	BLI_remlink(&nodetypes_list, nodetype);
+	
 	/* XXX deprecated */
 	if (nodetype->type == NODE_DYNAMIC)
 		free_dynamic_typeinfo(nodetype);
+	
+	if (nodetype->type == NODE_CUSTOM)
+		free_custom_typeinfo(nodetype);
 	
 	if (nodetype->needs_free)
 		MEM_freeN(nodetype);
@@ -380,6 +407,7 @@ void nodeRegisterType(bNodeType *nt)
 	BLI_assert(nt->idname[0] != '\0');
 	BLI_assert(nt->poll != NULL);
 	
+	BLI_addtail(&nodetypes_list, nt);
 	BLI_ghash_insert(nodetypes_hash, nt->idname, nt);
 	/* XXX pass Main to register function? */
 	update_typeinfo(G.main, NULL, NULL, nt, NULL, false);
@@ -398,6 +426,11 @@ bool nodeIsRegistered(bNode *node)
 GHashIterator *nodeTypeGetIterator(void)
 {
 	return BLI_ghashIterator_new(nodetypes_hash);
+}
+
+ListBase *nodeTypeGetListBase(void)
+{
+	return &nodetypes_list;
 }
 
 bNodeSocketType *nodeSocketTypeFind(const char *idname)
@@ -3401,6 +3434,53 @@ void node_type_socket_templates(struct bNodeType *ntype, struct bNodeSocketTempl
 			BLI_strncpy(ntemp->identifier, ntemp->name, sizeof(ntemp->identifier));
 			unique_socket_template_identifier(outputs, ntemp, ntemp->identifier, '_');
 		}
+	}
+}
+
+void node_type_custom_sockets(struct bNodeType *ntype, int in_out)
+{
+	IDProperty *idprop = IDP_GetPropertyFromGroup(ntype->prop, (in_out == SOCK_IN ? "custom_inputs" : "custom_outputs"));
+
+	if (idprop && idprop->len > 0) {
+		IDProperty *loop, *nprop;
+		bNodeSocketTemplate *custom_sockets, *stemp;
+		bNodeSocketType *sock_type;
+		int totitems = 0, idx = 0, a;
+
+		for (a = 0; a < idprop->len; a++) {
+			loop = IDP_GetIndexArray(idprop, a);
+
+			nprop = IDP_GetPropertyFromGroup(loop, "type");
+			sock_type = nodeSocketTypeFind(nprop->data.pointer);
+
+			if (sock_type)
+				totitems++;
+		}
+
+		custom_sockets = MEM_callocN(sizeof(bNodeSocketTemplate) * (totitems + 1), "custom sockets");
+
+		for (a = 0; a < idprop->len; a++) {
+			loop = IDP_GetIndexArray(idprop, a);
+
+			nprop = IDP_GetPropertyFromGroup(loop, "type");
+			sock_type = nodeSocketTypeFind(nprop->data.pointer);
+
+			if (sock_type) {
+				stemp = &custom_sockets[idx];
+				nprop = IDP_GetPropertyFromGroup(loop, "name");
+				BLI_strncpy(stemp->name, nprop->data.pointer, sizeof(stemp->name));
+				stemp->type = sock_type->type;
+
+				idx++;
+			}
+		}
+
+		stemp = &custom_sockets[idx];
+		stemp->type =  -1;
+		if (in_out == SOCK_IN)
+			ntype->custom_inputs = custom_sockets;
+		else
+			ntype->custom_outputs = custom_sockets;
 	}
 }
 

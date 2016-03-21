@@ -63,6 +63,7 @@ typedef struct NodeLinkItem {
 	int socket_type;			/* socket type for compatibility check */
 	const char *socket_name;	/* ui label of the socket */
 	const char *node_name;		/* ui label of the node */
+	const char *node_idname;		/* id name of the node */
 	
 	/* extra settings */
 	bNodeTree *ngroup;		/* group node tree */
@@ -76,6 +77,9 @@ static bool node_link_item_compare(bNode *node, NodeLinkItem *item)
 {
 	if (node->type == NODE_GROUP) {
 		return (node->id == (ID *)item->ngroup);
+	}
+	else if (node->type == NODE_CUSTOM) {
+		return (STREQ(node->idname, item->node_idname));
 	}
 	else
 		return true;
@@ -214,7 +218,11 @@ static void node_socket_add_replace(const bContext *C, bNodeTree *ntree, bNode *
 		node_from = node_prev;
 	}
 	else if (!node_from) {
-		node_from = nodeAddStaticNode(C, ntree, type);
+		if ((type == NODE_CUSTOM) && (item->node_idname))
+			node_from = nodeAddNode(C, ntree, item->node_idname);
+		else
+			node_from = nodeAddStaticNode(C, ntree, type);
+		
 		if (node_prev != NULL) {
 			/* If we're replacing existing node, use it's location. */
 			node_from->locx = node_prev->locx;
@@ -339,6 +347,29 @@ static void ui_node_link_items(NodeLinkArg *arg, int in_out, NodeLinkItem **r_it
 			}
 		}
 	}
+	else if (arg->node_type->type == NODE_CUSTOM) {
+		bNodeSocketTemplate *socket_templates = (in_out == SOCK_IN ? arg->node_type->custom_inputs : arg->node_type->custom_outputs);
+		bNodeSocketTemplate *stemp;
+		int i;
+		
+		for (stemp = socket_templates; stemp && stemp->type != -1; ++stemp)
+			++totitems;
+		
+		if (totitems > 0) {
+			items = MEM_callocN(sizeof(NodeLinkItem) * totitems, "ui node link items");
+			
+			i = 0;
+			for (stemp = socket_templates; stemp && stemp->type != -1; ++stemp, ++i) {
+				NodeLinkItem *item = &items[i];
+				
+				item->socket_index = i;
+				item->socket_type = stemp->type;
+				item->socket_name = stemp->name;
+				item->node_name = arg->node_type->ui_name;
+				item->node_idname = arg->node_type->idname;
+			}
+		}
+	}
 	else {
 		bNodeSocketTemplate *socket_templates = (in_out == SOCK_IN ? arg->node_type->inputs : arg->node_type->outputs);
 		bNodeSocketTemplate *stemp;
@@ -422,6 +453,8 @@ static int ui_compatible_sockets(int typeA, int typeB)
 
 static void ui_node_menu_column(NodeLinkArg *arg, int nclass, const char *cname)
 {
+	ListBase *ntypes_list = nodeTypeGetListBase();
+	bNodeType *ntype;
 	bNodeTree *ntree = arg->ntree;
 	bNodeSocket *sock = arg->sock;
 	uiLayout *layout = arg->layout;
@@ -439,7 +472,7 @@ static void ui_node_menu_column(NodeLinkArg *arg, int nclass, const char *cname)
 			compatibility = NODE_OLD_SHADING;
 	}
 
-	NODE_TYPES_BEGIN(ntype) {
+	for (ntype = ntypes_list->first; ntype; ntype = ntype->next) {
 		NodeLinkItem *items;
 		int totitems;
 		char name[UI_MAX_NAME_STR];
@@ -502,7 +535,6 @@ static void ui_node_menu_column(NodeLinkArg *arg, int nclass, const char *cname)
 		if (items)
 			MEM_freeN(items);
 	}
-	NODE_TYPES_END
 }
 
 static void node_menu_column_foreach_cb(void *calldata, int nclass, const char *name)
