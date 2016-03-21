@@ -3470,6 +3470,8 @@ void node_type_custom_sockets(struct bNodeType *ntype, int in_out)
 				nprop = IDP_GetPropertyFromGroup(loop, "name");
 				BLI_strncpy(stemp->name, nprop->data.pointer, sizeof(stemp->name));
 				stemp->type = sock_type->type;
+				if (sock_type->custom_type[0] != '\0')
+					BLI_strncpy(stemp->custom_type, sock_type->custom_type, sizeof(stemp->custom_type));
 
 				idx++;
 			}

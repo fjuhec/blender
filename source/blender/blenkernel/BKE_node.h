@@ -99,6 +99,7 @@ typedef struct bNodeSocketTemplate {
 	float min, max;
 	int subtype;  /* would use PropertySubType but this is a bad level include to use RNA */
 	int flag;
+	char custom_type[64];		/* used to hold user defined custom socket types */
 	
 	/* after this line is used internal only */
 	struct bNodeSocket *sock;		/* used to hold verified socket */
@@ -127,6 +128,7 @@ typedef struct bNodeSocketType {
 	
 	/* for standard socket types in C */
 	int type, subtype;
+	char custom_type[64];			/* user defined custom type */
 } bNodeSocketType;
 
 typedef void *(*NodeInitExecFunction)(struct bNodeExecContext *context, struct bNode *node, bNodeInstanceKey key);

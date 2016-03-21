@@ -61,6 +61,7 @@
 typedef struct NodeLinkItem {
 	int socket_index;			/* index for linking */
 	int socket_type;			/* socket type for compatibility check */
+	const char *socket_custom_type;	/* socket custom type for compatibility check */
 	const char *socket_name;	/* ui label of the socket */
 	const char *node_name;		/* ui label of the node */
 	const char *node_idname;		/* id name of the node */
@@ -364,6 +365,7 @@ static void ui_node_link_items(NodeLinkArg *arg, int in_out, NodeLinkItem **r_it
 				
 				item->socket_index = i;
 				item->socket_type = stemp->type;
+				item->socket_custom_type = stemp->custom_type;
 				item->socket_name = stemp->name;
 				item->node_name = arg->node_type->ui_name;
 				item->node_idname = arg->node_type->idname;
@@ -451,6 +453,22 @@ static int ui_compatible_sockets(int typeA, int typeB)
 	return (typeA == typeB);
 }
 
+static int ui_compatible_sockets_ex(NodeLinkItem item, bNodeSocket *sock)
+{
+	if (sock->typeinfo->custom_type[0] != '\0') {
+		if (item.socket_custom_type)
+			return (STREQ(item.socket_custom_type, sock->typeinfo->custom_type));
+		else
+			return false;
+	}
+	else {
+		if (item.socket_custom_type)
+			return false;
+		else
+			return (ui_compatible_sockets(item.socket_type, sock->type));
+	}
+}
+
 static void ui_node_menu_column(NodeLinkArg *arg, int nclass, const char *cname)
 {
 	ListBase *ntypes_list = nodeTypeGetListBase();
@@ -491,11 +509,11 @@ static void ui_node_menu_column(NodeLinkArg *arg, int nclass, const char *cname)
 		ui_node_link_items(arg, SOCK_OUT, &items, &totitems);
 		
 		for (i = 0; i < totitems; ++i)
-			if (ui_compatible_sockets(items[i].socket_type, sock->type))
+			if (ui_compatible_sockets_ex(items[i], sock))
 				num++;
 		
 		for (i = 0; i < totitems; ++i) {
-			if (!ui_compatible_sockets(items[i].socket_type, sock->type))
+			if (!ui_compatible_sockets_ex(items[i], sock))
 				continue;
 			
 			if (first) {
