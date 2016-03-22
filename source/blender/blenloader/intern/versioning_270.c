@@ -1068,4 +1068,12 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 	}
+
+	{
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			if (scene->r.hmd_view_shade == 0) {
+				scene->r.hmd_view_shade = OB_MATERIAL;
+			}
+		}
+	}
 }

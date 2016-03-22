@@ -5143,10 +5143,17 @@ static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wm
 	}
 	/* open */
 	else {
+		Scene *scene = CTX_data_scene(C);
 		rcti rect = {0, prevwin->sizex, 0, prevwin->sizey};
 		win = WM_window_open_temp(C, &rect, WM_WINDOW_HMD);
-		ED_screen_state_toggle(C, win, win->screen->areabase.first, SCREENFULL);
 		wm->win_hmd = win;
+
+		/* prepare area */
+		ScrArea *sa = win->screen->areabase.first;
+		View3D *v3d = sa->spacedata.first;
+		BLI_assert(sa->spacetype == SPACE_VIEW3D);
+		ED_screen_state_toggle(C, win, sa, SCREENFULL);
+		v3d->drawtype = scene->r.hmd_view_shade;
 	}
 
 	return OPERATOR_FINISHED;

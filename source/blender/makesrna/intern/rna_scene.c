@@ -411,7 +411,10 @@ EnumPropertyItem rna_enum_bake_pass_filter_type_items[] = {
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_screen_types.h"
+#include "DNA_space_types.h"
 #include "DNA_text_types.h"
+#include "DNA_view3d_types.h"
 
 #include "RNA_access.h"
 
@@ -439,6 +442,7 @@ EnumPropertyItem rna_enum_bake_pass_filter_type_items[] = {
 #include "ED_mesh.h"
 #include "ED_keyframing.h"
 #include "ED_image.h"
+#include "ED_screen.h"
 
 #ifdef WITH_FREESTYLE
 #include "FRS_freestyle.h"
@@ -814,6 +818,27 @@ static void rna_RenderSettings_hmd_camlock_update(
 {
 	Object *camera_ob = scene->camera;
 	DAG_id_tag_update(&camera_ob->id, OB_RECALC_OB);
+}
+
+static void rna_RenderSettings_hmd_view_shade_set(PointerRNA *ptr, int value)
+{
+	RenderData *rd = (RenderData *)ptr->data;
+	wmWindowManager *wm = G.main->wm.first;
+	wmWindow *win = wm->win_hmd;
+
+	rd->hmd_view_shade = value;
+
+	if (win) {
+		ScrArea *sa;
+		for (sa = win->screen->areabase.first; sa; sa = sa->next)
+			if (sa->spacetype == SPACE_VIEW3D)
+				break;
+		if (sa) {
+			View3D *v3d = sa->spacedata.first;
+			v3d->drawtype = value;
+			ED_area_tag_redraw(sa);
+		}
+	}
 }
 
 static char *rna_RenderSettings_path(PointerRNA *UNUSED(ptr))
@@ -5958,6 +5983,11 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "scemode", R_HMD_IGNORE_ROT);
 	RNA_def_property_ui_text(prop, "HMD Rotation", "Use the rotation of a head mounted display if available");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_RenderSettings_hmd_camlock_update");
+
+	prop = RNA_def_property(srna, "hmd_view_shade", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, rna_enum_viewport_shade_items);
+	RNA_def_property_enum_funcs(prop, NULL, "rna_RenderSettings_hmd_view_shade_set", NULL);
+	RNA_def_property_ui_text(prop, "HMD View Shading", "Method to draw in the HMD view");
 
 	prop = RNA_def_property(srna, "use_multiview", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_MULTIVIEW);
