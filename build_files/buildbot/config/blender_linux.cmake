@@ -139,5 +139,14 @@ set(OPENVDB_LIBRARY
 	CACHE BOOL "" FORCE
 )
 
+# HMD
+if(GLIBC EQUAL "2.19")
+	set(HIDAPI_LIBRARY
+		/usr/lib${MULTILIB}/libhidapi-hidraw.a
+		/usr/lib/x86_64-linux-gnu/libudev.so
+		CACHE STRING "" FORCE
+	)
+endif()
+
 # Additional linking libraries
 set(CMAKE_EXE_LINKER_FLAGS   "-lrt -static-libstdc++"  CACHE STRING "" FORCE)
