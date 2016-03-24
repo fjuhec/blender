@@ -502,11 +502,14 @@ ccl_device void svm_node_tex_environment(KernelGlobals *kg,
 		uv = direction_to_equirectangular(co);
 	else if(projection == 1)
 		uv = direction_to_mirrorball(co);
-	else {
+	else if(projection == 2) {
 		uint4 node = read_node(kg, offset);
 		float raster_width = (float)(node.y);
 		float raster_height = (float)(node.z);
 		uv = direction_to_cubemap(co, raster_width, raster_height);
+	}
+	else {
+		uv = direction_to_lambert(co);
 	}
 
 	uint use_alpha = stack_valid(alpha_offset);

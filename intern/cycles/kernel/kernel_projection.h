@@ -83,6 +83,38 @@ ccl_device float3 equirectangular_to_direction(float u, float v)
 	return equirectangular_range_to_direction(u, v, make_float4(-M_2PI_F, M_PI_F, -M_PI_F, M_PI_F));
 }
 
+/* Lambert coordinates <-> Cartesian direction */
+
+#define LAMBERT_CLAMP (1.0f - 0.01f)
+#define LAMBERT_SCALE (1.0990301169315693f)
+
+ccl_device_inline float lambert_asinf_clamped(float x)
+{
+	return asinf(x * LAMBERT_CLAMP) * LAMBERT_SCALE;
+}
+
+ccl_device_inline float lambert_sinf_clamped(float x)
+{
+	return sinf(x / LAMBERT_SCALE) / LAMBERT_CLAMP;
+}
+
+ccl_device float2 direction_to_lambert(float3 dir)
+{
+	float u = -atan2f(dir.y, dir.x) / (M_2PI_F) + 0.5f;
+	float v = lambert_sinf_clamped(atan2f(dir.z, hypotf(dir.x, dir.y))) * 0.5f + 0.5f;
+
+	return make_float2(u, v);
+}
+
+ccl_device float3 lambert_to_direction(float u, float v)
+{
+	const float phi = M_PI_F*(1.0f - 2.0f*u);
+	const float theta = lambert_asinf_clamped(1.0f - 2.0f*v) + M_PI_2_F;
+	return make_float3(sinf(theta)*cosf(phi),
+	                   sinf(theta)*sinf(phi),
+	                   cosf(theta));
+}
+
 /* Fisheye <-> Cartesian direction */
 
 ccl_device float2 direction_to_fisheye(float3 dir, float fov)
@@ -376,6 +408,8 @@ ccl_device float3 panorama_to_direction(KernelGlobals *kg,
 			return fisheye_to_direction(u, v, kernel_data.cam.fisheye_fov);
 		case PANORAMA_CUBEMAP:
 			return cubemap_to_direction(x, y, raster_width, raster_height, u, v);
+		case PANORAMA_LAMBERT:
+			return lambert_to_direction(u, v);
 		case PANORAMA_FISHEYE_EQUISOLID:
 		default:
 			return fisheye_equisolid_to_direction(u, v, kernel_data.cam.fisheye_lens,
@@ -403,6 +437,8 @@ ccl_device float2 direction_to_panorama(KernelGlobals *kg, float3 dir)
 			return direction_to_cubemap(dir,
 			                            kernel_data.cam.width,
 			                            kernel_data.cam.height);
+		case PANORAMA_LAMBERT:
+			return direction_to_lambert(dir);
 		case PANORAMA_FISHEYE_EQUISOLID:
 		default:
 			return direction_to_fisheye_equisolid(dir, kernel_data.cam.fisheye_lens,

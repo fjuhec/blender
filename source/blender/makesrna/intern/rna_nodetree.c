@@ -3665,6 +3665,8 @@ static void def_sh_tex_environment(StructRNA *srna)
 		                       "Projection from an orthographic photo of a mirror ball"},
 		{SHD_PROJ_CUBEMAP, "CUBEMAP", 0, "Cubemap",
 		                   "Projection onto a cube map"},
+		{SHD_PROJ_LAMBERT, "LAMBERT", 0, "Lambert",
+		                   "Lambert or cylindrical equal-area projection"},
 		{0, NULL, 0, NULL, NULL}
 	};
 

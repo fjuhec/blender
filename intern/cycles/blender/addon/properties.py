@@ -69,6 +69,7 @@ enum_panorama_types = (
                           "Similar to most fisheye modern lens, takes sensor dimensions into consideration"),
     ('MIRRORBALL', "Mirror Ball", "Uses the mirror ball mapping"),
     ('CUBEMAP', "Cubemap", "Render the scene using cube map projection"),
+    ('LAMBERT', "Lambert", "Render the scene with a spherical camera, having more precision in the center"),
     )
 
 enum_curve_primitives = (

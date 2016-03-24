@@ -406,6 +406,7 @@ static ShaderEnum env_projection_init()
 	enm.insert("Equirectangular", 0);
 	enm.insert("Mirror Ball", 1);
 	enm.insert("Cubemap", 2);
+	enm.insert("Lambert", 3);
 
 	return enm;
 }
