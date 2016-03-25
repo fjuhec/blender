@@ -24,6 +24,10 @@
 
 #include "include/openhmd.h"
 
+#ifdef WITH_OPENHMD_DYNLOAD
+#  include "udew.h"
+#endif
+
 GHOST_OpenHMDManager::GHOST_OpenHMDManager(GHOST_System& sys)
 	: m_system(sys),
 	  m_available(false),
@@ -74,6 +78,22 @@ bool GHOST_OpenHMDManager::createContext()
 {
 	if (m_context != NULL)
 		return true;
+
+#ifdef WITH_OPENHMD_DYNLOAD
+	static bool udew_initialized = false;
+	static bool udew_success = true;
+	if (!udew_initialized) {
+		udew_initialized = true;
+		int result = udewInit();
+		if (result != UDEW_SUCCESS) {
+			udew_success = false;
+			fprintf(stderr, "Failed to open udev library\n");
+		}
+	}
+	if (!udew_success) {
+		return false;
+	}
+#endif
 
 	m_context = ohmd_ctx_create();
 	return (m_context != NULL);

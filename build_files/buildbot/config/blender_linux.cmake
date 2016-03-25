@@ -139,13 +139,13 @@ set(OPENVDB_LIBRARY
 	CACHE BOOL "" FORCE
 )
 
-# HMD
+# OpenHMD
 if(GLIBC EQUAL "2.19")
 	set(HIDAPI_LIBRARY
 		/usr/lib${MULTILIB}/libhidapi-hidraw.a
-		/usr/lib/x86_64-linux-gnu/libudev.so
 		CACHE STRING "" FORCE
 	)
+	set(WITH_OPENHMD_DYNLOAD ON CACHE BOOL "" FORCE)
 endif()
 
 # Additional linking libraries

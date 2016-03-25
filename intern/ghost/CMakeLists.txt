@@ -115,8 +115,14 @@ endif()
 
 if(WITH_OPENHMD)
 	add_definitions(-DWITH_OPENHMD)
+	if(WITH_OPENHMD_DYNLOAD)
+		add_definitions(-DWITH_OPENHMD_DYNLOAD)
+		list(APPEND INC
+			../../extern/udew/include
+		)
+	endif()
 
-	if (WIN32)
+	if(WIN32)
 		add_definitions(-DOHMD_STATIC)
 	endif(WIN32)
 
@@ -125,9 +131,9 @@ if(WITH_OPENHMD)
 	)
 
 	list(APPEND SRC
-	    intern/GHOST_OpenHMDManager.h
-	    intern/GHOST_OpenHMDManager.cpp
-	    intern/GHOST_EventOpenHMD.h
+		intern/GHOST_OpenHMDManager.h
+		intern/GHOST_OpenHMDManager.cpp
+		intern/GHOST_EventOpenHMD.h
 	)
 
 	list(APPEND INC_SYS

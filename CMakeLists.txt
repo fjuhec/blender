@@ -353,7 +353,11 @@ if(WIN32)
 	option(WITH_INPUT_IME "Enable Input Method Editor (IME) for complex Asian character input" ON)
 endif()
 option(WITH_INPUT_NDOF "Enable NDOF input devices (SpaceNavigator and friends)" ${_init_INPUT_NDOF})
+
 option(WITH_OPENHMD "Enable OpenHMD support in Blender (Head Mounted Displays for VR support)" ON)
+option(WITH_OPENHMD_DYNLOAD "Dynamically load OpenHMD dependencies at runtime" OFF)
+mark_as_advanced(WITH_OPENHMD_DYNLOAD)
+
 option(WITH_RAYOPTIMIZATION	"Enable use of SIMD (SSE) optimizations for the raytracer" ON)
 if(UNIX AND NOT APPLE)
 	option(WITH_INSTALL_PORTABLE "Install redistributeable runtime, otherwise install into CMAKE_INSTALL_PREFIX" ON)

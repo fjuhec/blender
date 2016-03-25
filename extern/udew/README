@@ -1,0 +1,14 @@
+The udev Extension Wrangler Library (UDEW) is a cross-platform open-source
+C/C++ extension loading library. UDEW provides efficient run-time mechanisms
+for determining which udev functions and extensions extensions are supported
+on the target platform.
+
+LICENSE
+
+UDEW library is released under the Apache 2.0 license.
+
+LIMITATIONS
+
+- udev_device_get_parent_with_subsystem_devtype() need to be merged to a single
+  line in the geader before generating the wrangler with stubs support
+- udev_set_log_fn() is not included into the stubs at all.
