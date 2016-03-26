@@ -988,6 +988,7 @@ typedef struct NodeSunBeams {
 /* environment texture */
 #define SHD_PROJ_EQUIRECTANGULAR	0
 #define SHD_PROJ_MIRROR_BALL		1
+#define SHD_PROJ_CUBEMAP		2
 
 #define SHD_IMAGE_EXTENSION_REPEAT	0
 #define SHD_IMAGE_EXTENSION_EXTEND	1

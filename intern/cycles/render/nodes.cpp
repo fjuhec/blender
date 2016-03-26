@@ -405,6 +405,7 @@ static ShaderEnum env_projection_init()
 
 	enm.insert("Equirectangular", 0);
 	enm.insert("Mirror Ball", 1);
+	enm.insert("Cubemap", 2);
 
 	return enm;
 }
@@ -503,14 +504,19 @@ void EnvironmentTextureNode::compile(SVMCompiler& compiler)
 		}
 
 		compiler.add_node(NODE_TEX_ENVIRONMENT,
-			slot,
-			compiler.encode_uchar4(
-				vector_offset,
-				color_out->stack_offset,
-				alpha_out->stack_offset,
-				srgb),
-			projection_enum[projection]);
-	
+		                  slot,
+		                  compiler.encode_uchar4(vector_offset,
+		                                         color_out->stack_offset,
+		                                         alpha_out->stack_offset,
+		                                         srgb),
+		                  projection_enum[projection]);
+		/* TODO(sergey): Get rid of hardcoded constant. */
+		if(projection_enum[projection] == 2) {
+			int2 resolution = image_manager->get_image_resolution(slot);
+			compiler.add_node(NODE_TEX_ENVIRONMENT,
+			                  resolution.x,
+			                  resolution.y);
+		}
 		if(vector_offset != vector_in->stack_offset)
 			compiler.stack_clear_offset(vector_in->type, vector_offset);
 	}

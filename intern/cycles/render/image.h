@@ -112,6 +112,9 @@ public:
 		int users;
 	};
 
+	/* Get resolution of an image denoted by it's slot.. */
+	int2 get_image_resolution(int slot);
+
 private:
 	int tex_num_images;
 	int tex_num_float_images;

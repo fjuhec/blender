@@ -355,6 +355,8 @@ static void xml_read_camera(const XMLReadState& state, pugi::xml_node node)
 		cam->panorama_type = PANORAMA_FISHEYE_EQUIDISTANT;
 	else if(xml_equal_string(node, "panorama_type", "fisheye_equisolid"))
 		cam->panorama_type = PANORAMA_FISHEYE_EQUISOLID;
+	else if(xml_equal_string(node, "panorama_type", "cubemap"))
+		cam->panorama_type = PANORAMA_CUBEMAP;
 
 	xml_read_float(&cam->fisheye_fov, node, "fisheye_fov");
 	xml_read_float(&cam->fisheye_lens, node, "fisheye_lens");

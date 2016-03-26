@@ -211,10 +211,17 @@ ccl_device void camera_sample_orthographic(KernelGlobals *kg, float raster_x, fl
 
 /* Panorama Camera */
 
-ccl_device void camera_sample_panorama(KernelGlobals *kg, float raster_x, float raster_y, float lens_u, float lens_v, ccl_addr_space Ray *ray)
+ccl_device void camera_sample_panorama(KernelGlobals *kg,
+                                       float x, float y,
+                                       float raster_x, float raster_y,
+                                       float lens_u, float lens_v,
+                                       ccl_addr_space Ray *ray)
 {
 	Transform rastertocamera = kernel_data.cam.rastertocamera;
-	float3 Pcamera = transform_perspective(&rastertocamera, make_float3(raster_x, raster_y, 0.0f));
+	const float3 P = transform_perspective(&rastertocamera,
+	                                       make_float3(x, y, 0.0f));
+	float3 Pcamera = transform_perspective(&rastertocamera,
+	                                       make_float3(raster_x, raster_y, 0.0f));
 
 	/* create ray form raster position */
 	ray->P = make_float3(0.0f, 0.0f, 0.0f);
@@ -226,7 +233,10 @@ ccl_device void camera_sample_panorama(KernelGlobals *kg, float raster_x, float 
 	ray->t = FLT_MAX;
 #endif
 
-	ray->D = panorama_to_direction(kg, Pcamera.x, Pcamera.y);
+	ray->D = panorama_to_direction(kg,
+	                               P.x, P.y,
+	                               kernel_data.cam.width, kernel_data.cam.height,
+	                               Pcamera.x, Pcamera.y);
 
 	/* indicates ray should not receive any light, outside of the lens */
 	if(is_zero(ray->D)) {	
@@ -283,18 +293,33 @@ ccl_device void camera_sample_panorama(KernelGlobals *kg, float raster_x, float 
 	ray->dP = differential3_zero();
 
 	tP = transform_perspective(&rastertocamera, make_float3(raster_x, raster_y, 0.0f));
-	tD = transform_direction(&cameratoworld, panorama_to_direction(kg, tP.x, tP.y));
+	tD = transform_direction(&cameratoworld,
+	                         panorama_to_direction(kg,
+	                                               P.x, P.y,
+	                                               kernel_data.cam.width,
+	                                               kernel_data.cam.height,
+	                                               tP.x, tP.y));
 	float3 Pdiff = spherical_stereo_position(kg, tD, tP);
 	float3 Ddiff = spherical_stereo_direction(kg, tD, tP, Pdiff);
 
 	tP = transform_perspective(&rastertocamera, make_float3(raster_x + 1.0f, raster_y, 0.0f));
-	tD = transform_direction(&cameratoworld, panorama_to_direction(kg, tP.x, tP.y));
+	tD = transform_direction(&cameratoworld,
+	                         panorama_to_direction(kg,
+	                                               P.x, P.y,
+	                                               kernel_data.cam.width,
+	                                               kernel_data.cam.height,
+	                                               tP.x, tP.y));
 	Pcamera = spherical_stereo_position(kg, tD, tP);
 	ray->dD.dx = spherical_stereo_direction(kg, tD, tP, Pcamera) - Ddiff;
 	ray->dP.dx = Pcamera - Pdiff;
 
 	tP = transform_perspective(&rastertocamera, make_float3(raster_x, raster_y + 1.0f, 0.0f));
-	tD = transform_direction(&cameratoworld, panorama_to_direction(kg, tP.x, tP.y));
+	tD = transform_direction(&cameratoworld,
+	                         panorama_to_direction(kg,
+	                                               P.x, P.y,
+	                                               kernel_data.cam.width,
+	                                               kernel_data.cam.height,
+	                                               tP.x, tP.y));
 	Pcamera = spherical_stereo_position(kg, tD, tP);
 	ray->dD.dy = spherical_stereo_direction(kg, tD, tP, Pcamera) - Ddiff;
 	/* dP.dy is zero, since the omnidirectional panorama only shift the eyes horizontally */
@@ -357,7 +382,7 @@ ccl_device void camera_sample(KernelGlobals *kg, int x, int y, float filter_u, f
 	else if(kernel_data.cam.type == CAMERA_ORTHOGRAPHIC)
 		camera_sample_orthographic(kg, raster_x, raster_y, lens_u, lens_v, ray);
 	else
-		camera_sample_panorama(kg, raster_x, raster_y, lens_u, lens_v, ray);
+		camera_sample_panorama(kg, x, y, raster_x, raster_y, lens_u, lens_v, ray);
 }
 
 /* Utilities */

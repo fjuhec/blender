@@ -969,5 +969,45 @@ void ImageManager::device_free(Device *device, DeviceScene *dscene)
 	float_images.clear();
 }
 
+int2 ImageManager::get_image_resolution(int slot)
+{
+	assert(slot >= 0);
+	Image *image;
+	if(slot >= tex_image_byte_start) {
+		image = images[slot - tex_image_byte_start];
+	}
+	else {
+		image = float_images[slot];
+	}
+
+	assert(image != NULL);
+
+	int width = -1, height = -1;
+	if(image->builtin_data) {
+		bool is_float;
+		int depth, channels;
+		builtin_image_info_cb(image->filename,
+		                      image->builtin_data,
+		                      is_float,
+		                      width, height,
+		                      depth,
+		                      channels);
+	}
+	else {
+		ImageInput *in = ImageInput::create(image->filename);
+		if(in != NULL) {
+			ImageSpec spec;
+			if(in->open(image->filename, spec)) {
+				width = spec.width;
+				height = spec.height;
+				in->close();
+			}
+			delete in;
+		}
+	}
+
+	return make_int2(width, height);
+}
+
 CCL_NAMESPACE_END
 

@@ -3663,6 +3663,8 @@ static void def_sh_tex_environment(StructRNA *srna)
 		                           "Equirectangular or latitude-longitude projection"},
 		{SHD_PROJ_MIRROR_BALL, "MIRROR_BALL", 0, "Mirror Ball",
 		                       "Projection from an orthographic photo of a mirror ball"},
+		{SHD_PROJ_CUBEMAP, "CUBEMAP", 0, "Cubemap",
+		                   "Projection onto a cube map"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
