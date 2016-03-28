@@ -320,7 +320,9 @@ GHOST_TSuccess GHOST_System::init()
 	m_timerManager = new GHOST_TimerManager();
 	m_windowManager = new GHOST_WindowManager();
 	m_eventManager = new GHOST_EventManager();
-    m_openHMDManager = new GHOST_OpenHMDManager(*this);
+#ifdef WITH_OPENHMD
+	m_openHMDManager = new GHOST_OpenHMDManager(*this);
+#endif
 
 #ifdef GHOST_DEBUG
 	if (m_eventManager) {
