@@ -5156,9 +5156,13 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 
 	/* close */
 	if ((win = wm->win_hmd)) {
-		hmd_view_exit(C, CTX_data_scene(C));
+		Scene *sc = CTX_data_scene(C);
+		sc->flag &= ~SCE_HMD_RUNNING;
+		hmd_view_exit(C, sc);
 		wm_window_close(C, wm, win);
 		wm->win_hmd = NULL;
+		/* close HMD */
+		WM_device_HMD_state_set(U.hmd_device, false);
 	}
 	/* open */
 	else {
