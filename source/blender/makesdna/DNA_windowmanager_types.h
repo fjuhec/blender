@@ -122,6 +122,13 @@ typedef struct ReportTimerInfo {
 
 /* reports need to be before wmWindowManager */
 
+#ifdef WITH_INPUT_HMD
+#  define win_hmd win_hmd
+#else
+#  ifdef __GNUC__
+#    define win_hmd win_hmd __attribute__ ((deprecated))
+#  endif
+#endif
 
 /* windowmanager is saved, tag WMAN */
 typedef struct wmWindowManager {
@@ -158,6 +165,10 @@ typedef struct wmWindowManager {
 	char is_interface_locked;		/* indicates whether interface is locked for user interaction */
 	char par[7];
 } wmWindowManager;
+
+#ifdef win_hmd
+#  undef win_hmd
+#endif
 
 /* wmWindowManager.initialized */
 enum {

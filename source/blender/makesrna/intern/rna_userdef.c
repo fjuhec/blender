@@ -88,10 +88,12 @@ static EnumPropertyItem audio_device_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+#ifdef WITH_INPUT_HMD
 static EnumPropertyItem hmd_device_items[] = {
 	{-1, "NONE", 0, "None", "Don't use any HMD device"},
 	{0, NULL, 0, NULL, NULL}
 };
+#endif
 
 EnumPropertyItem rna_enum_navigation_mode_items[] = {
 	{VIEW_NAVIGATION_WALK, "WALK", 0, "Walk", "Interactively walk or free navigate around the scene"},
@@ -643,6 +645,7 @@ static EnumPropertyItem *rna_userdef_audio_device_itemf(bContext *UNUSED(C), Poi
 	return item;
 }
 
+#ifdef WITH_INPUT_HMD
 static EnumPropertyItem *rna_userdef_hmd_device_itemf(
         bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
         bool *r_free)
@@ -680,6 +683,7 @@ static void rna_userdef_hmd_device_update(Main *UNUSED(bmain), Scene *UNUSED(sce
 		}
 	}
 }
+#endif
 
 #ifdef WITH_INTERNATIONAL
 static EnumPropertyItem *rna_lang_enum_properties_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
@@ -4345,12 +4349,14 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_PROPERTIES, "rna_userdef_opensubdiv_update");
 #endif
 
+#ifdef WITH_INPUT_HMD
 	prop = RNA_def_property(srna, "hmd_device", PROP_ENUM, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_ENUM_NO_CONTEXT);
 	RNA_def_property_enum_items(prop, hmd_device_items);
 	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_userdef_hmd_device_itemf");
 	RNA_def_property_ui_text(prop, "HMD Device", "Device to use for HMD view interaction");
 	RNA_def_property_update(prop, 0, "rna_userdef_hmd_device_update");
+#endif
 }
 
 static void rna_def_userdef_input(BlenderRNA *brna)

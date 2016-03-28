@@ -223,6 +223,10 @@ if(WITH_IMAGE_FRAMESERVER)
 	add_definitions(-DWITH_FRAMESERVER)
 endif()
 
+if(WITH_INPUT_HMD)
+	add_definitions(-DWITH_INPUT_HMD)
+endif()
+
 if(WITH_AUDASPACE)
 	add_definitions(${AUDASPACE_DEFINITIONS})
 

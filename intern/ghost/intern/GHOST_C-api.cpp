@@ -933,48 +933,68 @@ void GHOST_EndIME(GHOST_WindowHandle windowhandle)
 
 #endif  /* WITH_INPUT_IME */
 
-#ifdef WITH_OPENHMD
+#ifdef WITH_INPUT_HMD
 
 int GHOST_HMDgetNumDevices()
 {
+#ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	return ohmd->getNumDevices();
+#else
+	return 0;
+#endif
 }
 
 void GHOST_HMDopenDevice(int index)
 {
+#ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	ohmd->openDevice(index);
+#endif
 }
 
 void GHOST_HMDcloseDevice()
 {
+#ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	ohmd->closeDevice();
+#endif
 }
 
 int GHOST_HMDgetOpenDeviceIndex()
 {
+#ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	return ohmd->getDeviceIndex();
+#else
+	return -1;
+#endif
 }
 
 const char *GHOST_HMDgetDeviceName(int index)
 {
+#ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	return ohmd->getDeviceName(index);
+#else
+	return NULL;
+#endif
 }
 
 float GHOST_HMDgetDeviceIPD()
 {
+#ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	return ohmd->getEyeIPD();
+#else
+	return 0.0f;
+#endif
 }
 
 #endif

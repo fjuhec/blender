@@ -5121,6 +5121,8 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 }
 
 
+#ifdef WITH_INPUT_HMD
+
 /* ******************************************************* */
 /* Head Mounted Display */
 
@@ -5318,6 +5320,9 @@ static void WM_OT_hmd_session_refresh(wmOperatorType *ot)
 	ot->flag = (OPTYPE_INTERNAL | OPTYPE_BLOCKING);
 }
 
+#endif /* WITH_INPUT_HMD */
+
+
 /* ******************************************************* */
 /* called on initialize WM_exit() */
 void wm_operatortype_free(void)
@@ -5362,9 +5367,11 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_call_menu_pie);
 	WM_operatortype_append(WM_OT_radial_control);
 	WM_operatortype_append(WM_OT_stereo3d_set);
+#ifdef WITH_INPUT_HMD
 	WM_operatortype_append(WM_OT_hmd_view_toggle);
 	WM_operatortype_append(WM_OT_hmd_session_toggle);
 	WM_operatortype_append(WM_OT_hmd_session_refresh);
+#endif
 #if defined(WIN32)
 	WM_operatortype_append(WM_OT_console_toggle);
 #endif
@@ -5595,7 +5602,6 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "copy", true);
 
 	WM_keymap_verify_item(keymap, "WM_OT_window_fullscreen_toggle", F11KEY, KM_PRESS, KM_ALT, 0);
-	kmi = WM_keymap_add_item(keymap, "WM_OT_hmd_view_toggle", EVT_ACTIONZONE_FULLSCREEN, 0, 0, 0);
 	WM_keymap_add_item(keymap, "WM_OT_quit_blender", QKEY, KM_PRESS, KM_CTRL, 0);
 
 	WM_keymap_add_item(keymap, "WM_OT_doc_view_manual_ui_context", F1KEY, KM_PRESS, KM_ALT, 0);
@@ -5608,8 +5614,10 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	WM_keymap_verify_item(keymap, "WM_OT_search_menu", SPACEKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_menu(keymap, "USERPREF_MT_ndof_settings", NDOF_BUTTON_MENU, KM_PRESS, 0, 0);
 
-	/* HMD */
+#ifdef WITH_INPUT_HMD
+	kmi = WM_keymap_add_item(keymap, "WM_OT_hmd_view_toggle", EVT_ACTIONZONE_FULLSCREEN, 0, 0, 0);
 	WM_keymap_add_item(keymap, "WM_OT_hmd_session_refresh", EVT_HMD_TRANSFORM, KM_ANY, KM_ANY, 0);
+#endif
 
 	/* Space switching */
 	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", F2KEY, KM_PRESS, KM_SHIFT, 0); /* new in 2.5x, was DXF export */

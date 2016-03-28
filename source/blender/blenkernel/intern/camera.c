@@ -725,11 +725,15 @@ static void camera_stereo3d_model_matrix(Object *camera, const bool is_left, flo
 	float fac = 1.0f;
 	float fac_signed;
 
-	const bool use_device_ipd = data->stereo.flag & CAM_S3D_CUSTOM_IPD;
-	float interocular_distance = use_device_ipd ? WM_device_HMD_IPD_get() : data->stereo.interocular_distance;
-	float convergence_distance = data->stereo.convergence_distance;
-	short convergence_mode = data->stereo.convergence_mode;
-	short pivot = data->stereo.pivot;
+	const float interocular_distance =
+#ifdef WITH_INPUT_HMD
+	        (data->stereo.flag & CAM_S3D_CUSTOM_IPD) ? WM_device_HMD_IPD_get() : data->stereo.interocular_distance;
+#else
+	        data->stereo.interocular_distance;
+#endif
+	const float convergence_distance = data->stereo.convergence_distance;
+	const short convergence_mode = data->stereo.convergence_mode;
+	const short pivot = data->stereo.pivot;
 
 	if (((pivot == CAM_S3D_PIVOT_LEFT) && is_left) ||
 	    ((pivot == CAM_S3D_PIVOT_RIGHT) && !is_left))

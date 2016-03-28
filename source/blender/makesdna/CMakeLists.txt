@@ -27,4 +27,8 @@ if(WITH_FREESTYLE)
 	add_definitions(-DWITH_FREESTYLE)
 endif()
 
+if(WITH_INPUT_HMD)
+	add_definitions(-DWITH_INPUT_HMD)
+endif()
+
 add_subdirectory(intern)

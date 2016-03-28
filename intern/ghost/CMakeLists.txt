@@ -113,6 +113,9 @@ if(WITH_INPUT_NDOF)
 endif()
 
 
+if (WITH_INPUT_HMD)
+	add_definitions(-DWITH_INPUT_HMD)
+endif()
 if(WITH_OPENHMD)
 	add_definitions(-DWITH_OPENHMD)
 	if(WITH_OPENHMD_DYNLOAD)

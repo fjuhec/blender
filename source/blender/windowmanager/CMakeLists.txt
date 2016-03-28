@@ -146,6 +146,10 @@ if(WITH_OPENSUBDIV)
 	add_definitions(-DWITH_OPENSUBDIV)
 endif()
 
+if(WITH_INPUT_HMD)
+	add_definitions(-DWITH_INPUT_HMD)
+endif()
+
 if(WIN32)
 	if(WITH_INPUT_IME)
 		add_definitions(-DWITH_INPUT_IME)

@@ -26,6 +26,8 @@
  * Data functions for physical devices (GHOST wrappers).
  */
 
+#ifdef WITH_INPUT_HMD
+
 #include "BKE_context.h"
 
 #include "DNA_userdef_types.h"
@@ -47,11 +49,7 @@
 
 int WM_device_HMD_num_devices_get(void)
 {
-#ifdef WITH_OPENHMD
 	return GHOST_HMDgetNumDevices();
-#else
-	return 0.0f;
-#endif
 }
 
 /**
@@ -59,7 +57,6 @@ int WM_device_HMD_num_devices_get(void)
  */
 void WM_device_HMD_state_set(const int device, const bool enable)
 {
-#ifdef WITH_OPENHMD
 	if (enable && (device >= 0)) {
 		/* GHOST closes previously opened device if needed */
 		GHOST_HMDopenDevice(device);
@@ -67,9 +64,6 @@ void WM_device_HMD_state_set(const int device, const bool enable)
 	else {
 		GHOST_HMDcloseDevice();
 	}
-#else
-	UNUSED_VARS(device, enable);
-#endif
 }
 
 /**
@@ -77,21 +71,12 @@ void WM_device_HMD_state_set(const int device, const bool enable)
  */
 int WM_device_HMD_current_get(void)
 {
-#ifdef WITH_OPENHMD
 	return GHOST_HMDgetOpenDeviceIndex();
-#else
-	return -1;
-#endif
 }
 
 const char *WM_device_HMD_name_get(int index)
 {
-#ifdef WITH_OPENHMD
 	return GHOST_HMDgetDeviceName(index);
-#else
-	UNUSED_VARS(index);
-	return "";
-#endif
 }
 
 /**
@@ -99,11 +84,9 @@ const char *WM_device_HMD_name_get(int index)
  */
 float WM_device_HMD_IPD_get(void)
 {
-#ifdef WITH_OPENHMD
 	return GHOST_HMDgetDeviceIPD();
-#else
-	return 0.0f;
-#endif
 }
 
 /** \} */
+
+#endif

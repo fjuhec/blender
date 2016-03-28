@@ -368,6 +368,10 @@ if(WITH_IMAGE_HDR)
 	add_definitions(-DWITH_HDR)
 endif()
 
+if(WITH_INPUT_HMD)
+	add_definitions(-DWITH_INPUT_HMD)
+endif()
+
 if(WITH_CODEC_AVI)
 	list(APPEND INC
 		../avi

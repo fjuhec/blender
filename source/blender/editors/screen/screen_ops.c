@@ -2443,8 +2443,12 @@ static void SCREEN_OT_screen_set(wmOperatorType *ot)
 
 static int screen_maximize_area_poll(bContext *C)
 {
-	wmWindowManager *wm = CTX_wm_manager(C);
-	return ED_operator_areaactive(C) && !(wm->win_hmd && wm->win_hmd == CTX_wm_window(C));
+	return ED_operator_areaactive(C) &&
+#ifdef WITH_INPUT_HMD
+	        !(CTX_wm_manager(C)->win_hmd == CTX_wm_window(C));
+#else
+	        true;
+#endif
 }
 
 /* function to be called outside UI context, or for redo */

@@ -82,6 +82,10 @@ endif()
 
 add_definitions(${GL_DEFINITIONS})
 
+if(WITH_INPUT_HMD)
+	add_definitions(-DWITH_INPUT_HMD)
+endif()
+
 if(WITH_INTERNATIONAL)
 	add_definitions(-DWITH_INTERNATIONAL)
 endif()

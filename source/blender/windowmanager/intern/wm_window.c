@@ -336,10 +336,12 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 		if (win->screen) {
 			ED_screen_exit(C, win, win->screen);
 		}
+#ifdef WITH_INPUT_HMD
 		if (wm->win_hmd == win) {
 			wm->win_hmd = NULL;
 		}
-		
+#endif
+
 		wm_window_free(C, wm, win);
 	
 		/* if temp screen, delete it after window free (it stops jobs that can access it) */
@@ -768,10 +770,15 @@ void WM_window_fullscreen_toggle(const wmWindow *win, const bool force_full, con
 /* fullscreen operator callback */
 int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
+	const bool is_hmd_win =
+#ifdef WITH_INPUT_HMD
+	        win == CTX_wm_manager(C)->win_hmd;
+#else
+	        false;
+#endif
 
-	if (G.background || win == wm->win_hmd)
+	if (G.background || is_hmd_win)
 		return OPERATOR_CANCELLED;
 
 	WM_window_fullscreen_toggle(win, false, false);

@@ -3500,6 +3500,7 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, int U
 			break;
 		}
 
+#ifdef WITH_INPUT_HMD
 		case GHOST_kEventHMD:
 		{
 			GHOST_TEventOpenHMDData *e = customdata;
@@ -3513,6 +3514,7 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, int U
 
 			break;
 		}
+#endif /* WITH_INPUT_HMD */
 
 		case GHOST_kEventUnknown:
 		case GHOST_kNumEventTypes:
