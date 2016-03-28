@@ -5615,7 +5615,7 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	WM_keymap_add_menu(keymap, "USERPREF_MT_ndof_settings", NDOF_BUTTON_MENU, KM_PRESS, 0, 0);
 
 #ifdef WITH_INPUT_HMD
-	kmi = WM_keymap_add_item(keymap, "WM_OT_hmd_view_toggle", EVT_ACTIONZONE_FULLSCREEN, 0, 0, 0);
+	WM_keymap_add_item(keymap, "WM_OT_hmd_view_toggle", EVT_ACTIONZONE_FULLSCREEN, 0, 0, 0);
 	WM_keymap_add_item(keymap, "WM_OT_hmd_session_refresh", EVT_HMD_TRANSFORM, KM_ANY, KM_ANY, 0);
 #endif
 
