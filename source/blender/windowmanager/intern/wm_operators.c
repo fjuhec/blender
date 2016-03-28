@@ -5595,6 +5595,7 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "copy", true);
 
 	WM_keymap_verify_item(keymap, "WM_OT_window_fullscreen_toggle", F11KEY, KM_PRESS, KM_ALT, 0);
+	kmi = WM_keymap_add_item(keymap, "WM_OT_hmd_view_toggle", EVT_ACTIONZONE_FULLSCREEN, 0, 0, 0);
 	WM_keymap_add_item(keymap, "WM_OT_quit_blender", QKEY, KM_PRESS, KM_CTRL, 0);
 
 	WM_keymap_add_item(keymap, "WM_OT_doc_view_manual_ui_context", F1KEY, KM_PRESS, KM_ALT, 0);

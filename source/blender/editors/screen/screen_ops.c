@@ -2441,6 +2441,11 @@ static void SCREEN_OT_screen_set(wmOperatorType *ot)
 
 /* ************** screen full-area operator ***************************** */
 
+static int screen_maximize_area_poll(bContext *C)
+{
+	wmWindowManager *wm = CTX_wm_manager(C);
+	return ED_operator_areaactive(C) && !(wm->win_hmd && wm->win_hmd == CTX_wm_window(C));
+}
 
 /* function to be called outside UI context, or for redo */
 static int screen_maximize_area_exec(bContext *C, wmOperator *op)
@@ -2484,7 +2489,7 @@ static void SCREEN_OT_screen_full_area(wmOperatorType *ot)
 	ot->idname = "SCREEN_OT_screen_full_area";
 	
 	ot->exec = screen_maximize_area_exec;
-	ot->poll = ED_operator_areaactive;
+	ot->poll = screen_maximize_area_poll;
 	ot->flag = 0;
 
 	prop = RNA_def_boolean(ot->srna, "use_hide_panels", false, "Hide Panels", "Hide all the panels");

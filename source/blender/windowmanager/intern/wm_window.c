@@ -768,12 +768,13 @@ void WM_window_fullscreen_toggle(const wmWindow *win, const bool force_full, con
 /* fullscreen operator callback */
 int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	wmWindow *window = CTX_wm_window(C);
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *win = CTX_wm_window(C);
 
-	if (G.background)
+	if (G.background || win == wm->win_hmd)
 		return OPERATOR_CANCELLED;
 
-	WM_window_fullscreen_toggle(window, false, false);
+	WM_window_fullscreen_toggle(win, false, false);
 
 	return OPERATOR_FINISHED;
 }
