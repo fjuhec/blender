@@ -93,6 +93,12 @@ public:
 	const char *getDeviceName() const;
 
 	/**
+	 *  \return A c-style string with the human-readable name of the device at \a index.
+	 *  NULL is returned if available() is false.
+	 */
+	const char *getDeviceName(int index) const;
+
+	/**
 	 *  \return A c-style string with the human-readable name of the vendor of the the current device.
 	 *  NULL is returned if available() is false.
 	 */

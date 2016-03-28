@@ -105,8 +105,6 @@
 #include "ED_util.h"
 #include "ED_view3d.h"
 
-#include "GHOST_C-api.h"
-
 #include "GPU_basic_shader.h"
 #include "GPU_material.h"
 
@@ -5189,16 +5187,6 @@ static void WM_OT_hmd_view_open(wmOperatorType *ot)
 	ot->invoke = wm_hmd_view_open_invoke;
 }
 
-static void wm_hmd_state_change(const bool enable)
-{
-	if (enable) {
-		GHOST_HMDopenDevice(0);
-	}
-	else {
-		GHOST_HMDcloseDevice();
-	}
-}
-
 static int hmd_session_run_poll(bContext *C)
 {
 	return (CTX_wm_manager(C)->win_hmd != NULL);
@@ -5219,7 +5207,7 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	if (was_hmd_running) {
 		hmd_view_exit(C, scene);
 		WM_window_fullscreen_toggle(hmd_win, false, true);
-		wm_hmd_state_change(false);
+		WM_device_HMD_state_set(U.hmd_device, false);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 	else {
@@ -5229,7 +5217,7 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 		RegionView3D *rv3d = ar->regiondata;
 		BLI_assert(sa->spacetype = SPACE_VIEW3D);
 
-		wm_hmd_state_change(true);
+		WM_device_HMD_state_set(U.hmd_device, true);
 
 		/* XXX duplicated code from viewnumpad_exec */
 		if (rv3d->persp != RV3D_CAMOB) {
@@ -5254,6 +5242,7 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 				rv3d->persp = RV3D_CAMOB;
 
 			BKE_object_rot_to_quat(v3d->camera, init_rot);
+			ED_view3d_update_viewmat(scene, sa->spacedata.first, ar, NULL, NULL);
 		}
 
 		WM_window_fullscreen_toggle(hmd_win, true, false);
@@ -5294,7 +5283,6 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 	/* tag hmd region for update */
 	ScrArea *sa = hmd_win->screen->areabase.first;
 	ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
-	ED_view3d_update_viewmat(scene, sa->spacedata.first, ar, NULL, NULL);
 	ED_region_tag_redraw(ar);
 }
 
@@ -5310,10 +5298,6 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	return (OPERATOR_FINISHED | OPERATOR_PASS_THROUGH);
 }
 
-/**
- * Only needed since VIEW3D_OT_hmd_session_run modal can only update while
- * mouse is inside initial window. For other windows, this is called.
- */
 static void WM_OT_hmd_session_refresh(wmOperatorType *ot)
 {
 	/* identifiers */

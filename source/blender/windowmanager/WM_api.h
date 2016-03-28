@@ -108,8 +108,6 @@ bool		WM_is_draw_triple(struct wmWindow *win);
 
 bool		WM_stereo3d_enabled(const struct bContext *C, struct wmWindow *win, bool only_fullscreen_test);
 
-float		WM_HMD_device_IPD_get(void);
-
 
 			/* files */
 void		WM_file_autoexec_init(const char *filepath);
@@ -517,6 +515,16 @@ bool        WM_event_is_tablet(const struct wmEvent *event);
 #ifdef WITH_INPUT_IME
 bool        WM_event_is_ime_switch(const struct wmEvent *event);
 #endif
+
+
+/* wm_device.c */
+
+/* HMD */
+int         WM_device_HMD_num_devices_get(void);
+void        WM_device_HMD_state_set(const int device, const bool enable);
+int         WM_device_HMD_current_get(void);
+const char *WM_device_HMD_name_get(const int index);
+float       WM_device_HMD_IPD_get(void);
 
 #ifdef __cplusplus
 }

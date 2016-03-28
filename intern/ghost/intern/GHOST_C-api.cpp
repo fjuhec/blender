@@ -935,6 +935,13 @@ void GHOST_EndIME(GHOST_WindowHandle windowhandle)
 
 #ifdef WITH_OPENHMD
 
+int GHOST_HMDgetNumDevices()
+{
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getNumDevices();
+}
+
 void GHOST_HMDopenDevice(int index)
 {
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
@@ -947,6 +954,20 @@ void GHOST_HMDcloseDevice()
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	ohmd->closeDevice();
+}
+
+int GHOST_HMDgetOpenDeviceIndex()
+{
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getDeviceIndex();
+}
+
+const char *GHOST_HMDgetDeviceName(int index)
+{
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getDeviceName(index);
 }
 
 float GHOST_HMDgetDeviceIPD()

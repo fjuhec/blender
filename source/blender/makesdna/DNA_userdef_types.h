@@ -566,7 +566,9 @@ typedef struct UserDef {
 	struct WalkNavigation walk_navigation;
 
 	short opensubdiv_compute_type;
-	char pad5[6];
+
+	short hmd_device; /* HMD device index */
+	char pad5[4];
 } UserDef;
 
 extern UserDef U; /* from blenkernel blender.c */

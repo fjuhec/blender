@@ -135,6 +135,11 @@ bool GHOST_OpenHMDManager::openDevice(int index)
 		return false;
 	}
 
+	/* Blender only allows one opened device at a time */
+	if (getOpenHMDDevice()) {
+		closeDevice();
+	}
+
 	//can't fail to open the device
 	m_deviceIndex = index;
 	m_device = ohmd_list_open_device(m_context, index);
@@ -178,6 +183,14 @@ const char *GHOST_OpenHMDManager::getDeviceName() const
 		return NULL;
 
 	return ohmd_list_gets(m_context, m_deviceIndex, OHMD_PRODUCT);
+}
+
+const char *GHOST_OpenHMDManager::getDeviceName(int index) const
+{
+	if (!m_available)
+		return NULL;
+
+	return ohmd_list_gets(m_context, index, OHMD_PRODUCT);
 }
 
 const char *GHOST_OpenHMDManager::getVendorName() const

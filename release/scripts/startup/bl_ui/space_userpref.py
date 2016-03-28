@@ -440,6 +440,11 @@ class USERPREF_PT_system(Panel):
             col.label(text="OpenSubdiv compute:")
             col.row().prop(system, "opensubdiv_compute_type", text="")
 
+        col.separator()
+
+        col.label(text="Head Mounted Displays:")
+        col.prop(system, "hmd_device")
+
         # 2. Column
         column = split.column()
         colsplit = column.split(percentage=0.85)

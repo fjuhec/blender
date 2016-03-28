@@ -395,20 +395,6 @@ bool WM_stereo3d_enabled(const bContext *C, wmWindow *win, bool skip_stereo3d_ch
 	return true;
 }
 
-/**
- * Wrapper around ghost function to get IPD from currently opened HMD.
- *
- * Review note: Maybe worth adding wm_device.c?
- */
-float WM_HMD_device_IPD_get()
-{
-#ifdef WITH_OPENHMD
-	return GHOST_HMDgetDeviceIPD();
-#else
-	return 0.0f;
-#endif
-}
-
 /************************** Stereo 3D operator **********************************/
 typedef struct Stereo3dData {
 	Stereo3dFormat stereo3d_format;

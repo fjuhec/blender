@@ -88,6 +88,11 @@ static EnumPropertyItem audio_device_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+static EnumPropertyItem hmd_device_items[] = {
+	{-1, "NONE", 0, "None", "Don't use any HMD device"},
+	{0, NULL, 0, NULL, NULL}
+};
+
 EnumPropertyItem rna_enum_navigation_mode_items[] = {
 	{VIEW_NAVIGATION_WALK, "WALK", 0, "Walk", "Interactively walk or free navigate around the scene"},
 	{VIEW_NAVIGATION_FLY, "FLY", 0, "Fly", "Use fly dynamics to navigate the scene"},
@@ -636,6 +641,44 @@ static EnumPropertyItem *rna_userdef_audio_device_itemf(bContext *UNUSED(C), Poi
 	*r_free = true;
 
 	return item;
+}
+
+static EnumPropertyItem *rna_userdef_hmd_device_itemf(
+        bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
+        bool *r_free)
+{
+	EnumPropertyItem *item = NULL;
+	int totitem = 0;
+
+	/* 'None' element */
+	RNA_enum_item_add(&item, &totitem, &hmd_device_items[0]);
+	/* add devices */
+	for (int i = 0; i < WM_device_HMD_num_devices_get(); i++) {
+		EnumPropertyItem tmp = {i, "", 0, "", ""};
+		tmp.identifier = tmp.name = WM_device_HMD_name_get(i);
+		RNA_enum_item_add(&item, &totitem, &tmp);
+	}
+
+	RNA_enum_item_end(&item, &totitem);
+	*r_free = true;
+
+	return item;
+}
+
+static void rna_userdef_hmd_device_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
+{
+	const int act_device = WM_device_HMD_current_get();
+
+	/* a device is already open */
+	if (act_device >= 0) {
+		if (U.hmd_device < 0) {
+			WM_device_HMD_state_set(U.hmd_device, false);
+		}
+		/* change device */
+		else if (act_device != U.hmd_device) {
+			WM_device_HMD_state_set(U.hmd_device, true);
+		}
+	}
 }
 
 #ifdef WITH_INTERNATIONAL
@@ -4305,6 +4348,13 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "OpenSubdiv Compute Type", "Type of computer back-end used with OpenSubdiv");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_PROPERTIES, "rna_userdef_opensubdiv_update");
 #endif
+
+	prop = RNA_def_property(srna, "hmd_device", PROP_ENUM, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_ENUM_NO_CONTEXT);
+	RNA_def_property_enum_items(prop, hmd_device_items);
+	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_userdef_hmd_device_itemf");
+	RNA_def_property_ui_text(prop, "HMD Device", "Device to use for HMD view interaction");
+	RNA_def_property_update(prop, 0, "rna_userdef_hmd_device_update");
 }
 
 static void rna_def_userdef_input(BlenderRNA *brna)
