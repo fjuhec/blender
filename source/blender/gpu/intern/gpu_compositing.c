@@ -404,9 +404,6 @@ bool GPU_fx_compositor_initialize_passes(
 	if (!fx_settings->ssao || fx_settings->ssao->samples < 1) {
 		fx_flag &= ~GPU_FX_FLAG_SSAO;
 	}
-    if (!fx_settings->lens_dist) {
-		fx_flag &= ~GPU_FX_FLAG_LensDist;
-	}
 
 	if (!fx_flag) {
 		cleanup_fx_gl_data(fx, true);

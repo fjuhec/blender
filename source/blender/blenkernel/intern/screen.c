@@ -679,13 +679,4 @@ void BKE_screen_gpu_fx_validate(GPUFXSettings *fx_settings)
 
 		GPU_fx_compositor_init_ssao_settings(fx_ssao);
 	}
-
-    if ((fx_settings->lens_dist == NULL) &&
-	    (fx_settings->fx_flag & GPU_FX_FLAG_LensDist))
-	{
-		GPULensDistortionSettings *fx_lens_dist;
-		fx_lens_dist = fx_settings->lens_dist = MEM_callocN(sizeof(GPULensDistortionSettings), __func__);
-
-		//GPU_fx_compositor_init_ssao_settings(fx_ssao);
-	}
 }

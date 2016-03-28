@@ -432,8 +432,6 @@ static void view3d_free(SpaceLink *sl)
 		MEM_freeN(vd->fx_settings.ssao);
 	if (vd->fx_settings.dof)
 		MEM_freeN(vd->fx_settings.dof);
-	if (vd->fx_settings.lens_dist)
-		MEM_freeN(vd->fx_settings.lens_dist);
 }
 
 
@@ -479,8 +477,6 @@ static SpaceLink *view3d_duplicate(SpaceLink *sl)
 		v3dn->fx_settings.dof = MEM_dupallocN(v3do->fx_settings.dof);
 	if (v3dn->fx_settings.ssao)
 		v3dn->fx_settings.ssao = MEM_dupallocN(v3do->fx_settings.ssao);
-    if (v3dn->fx_settings.lens_dist)
-		v3dn->fx_settings.lens_dist = MEM_dupallocN(v3do->fx_settings.lens_dist);
 
 	return (SpaceLink *)v3dn;
 }
