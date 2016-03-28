@@ -5176,7 +5176,9 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		View3D *v3d = sa->spacedata.first;
 		BLI_assert(sa->spacetype == SPACE_VIEW3D);
 		ED_screen_state_toggle(C, win, sa, SCREENFULL);
+		/* sync view options */
 		v3d->drawtype = scene->r.hmd_view_shade;
+		v3d->fx_settings.fx_flag = scene->r.hmd_fx_flags;
 	}
 
 	return OPERATOR_FINISHED;

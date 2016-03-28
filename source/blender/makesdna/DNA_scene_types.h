@@ -730,10 +730,11 @@ typedef struct RenderData {
 	ListBase views;  /* SceneRenderView */
 	short actview;
 	short views_format;
-	char pad8[3];
+	char pad8[2];
 
 	/* HMD */
 	char hmd_view_shade;
+	char hmd_fx_flags; /* eGPUFXFlags */
 
 	/* Motion blur shutter */
 	struct CurveMapping mblur_shutter_curve;

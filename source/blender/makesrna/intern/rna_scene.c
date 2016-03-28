@@ -841,6 +841,32 @@ static void rna_RenderSettings_hmd_view_shade_set(PointerRNA *ptr, int value)
 	}
 }
 
+static void rna_RenderSettings_hmd_view_lensdist_set(PointerRNA *ptr, int value)
+{
+	RenderData *rd = (RenderData *)ptr->data;
+	wmWindowManager *wm = G.main->wm.first;
+	wmWindow *win = wm->win_hmd;
+
+	if (value) {
+		rd->hmd_fx_flags |= GPU_FX_FLAG_LensDist;
+	}
+	else {
+		rd->hmd_fx_flags &= ~GPU_FX_FLAG_LensDist;
+	}
+
+	if (win) {
+		ScrArea *sa;
+		for (sa = win->screen->areabase.first; sa; sa = sa->next)
+			if (sa->spacetype == SPACE_VIEW3D)
+				break;
+		if (sa) {
+			View3D *v3d = sa->spacedata.first;
+			v3d->fx_settings.fx_flag = rd->hmd_fx_flags;
+			ED_area_tag_redraw(sa);
+		}
+	}
+}
+
 static char *rna_RenderSettings_path(PointerRNA *UNUSED(ptr))
 {
 	return BLI_sprintfN("render");
@@ -5988,6 +6014,11 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, rna_enum_viewport_shade_items);
 	RNA_def_property_enum_funcs(prop, NULL, "rna_RenderSettings_hmd_view_shade_set", NULL);
 	RNA_def_property_ui_text(prop, "HMD View Shading", "Method to draw in the HMD view");
+
+	prop = RNA_def_property(srna, "use_hmd_view_lensdist", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "hmd_fx_flags", GPU_FX_FLAG_LensDist);
+	RNA_def_property_boolean_funcs(prop, NULL, "rna_RenderSettings_hmd_view_lensdist_set");
+	RNA_def_property_ui_text(prop, "HMD View Lens Distortion", "Draw the HMD viewport using a distorted lens");
 
 	prop = RNA_def_property(srna, "use_multiview", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_MULTIVIEW);
