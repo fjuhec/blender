@@ -949,4 +949,11 @@ void GHOST_HMDcloseDevice()
 	ohmd->closeDevice();
 }
 
+float GHOST_HMDgetDeviceIPD()
+{
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getEyeIPD();
+}
+
 #endif

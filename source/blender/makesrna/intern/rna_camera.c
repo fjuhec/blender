@@ -130,6 +130,12 @@ static void rna_def_camera_stereo_data(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Pivot", "");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
 
+	prop = RNA_def_property(srna, "use_device_ipd", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", CAM_S3D_CUSTOM_IPD);
+	RNA_def_property_ui_text(prop, "Interocular Distance from HMD",
+	                         "Request the interocular distance (distance between eyes) from the HMD driver");
+	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
+
 	prop = RNA_def_property(srna, "interocular_distance", PROP_FLOAT, PROP_DISTANCE);
 	RNA_def_property_range(prop, 0.0f, 100.0f);
 	RNA_def_property_ui_range(prop, 0.0f, 1.f, 1, 2);

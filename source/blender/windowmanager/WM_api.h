@@ -108,6 +108,8 @@ bool		WM_is_draw_triple(struct wmWindow *win);
 
 bool		WM_stereo3d_enabled(const struct bContext *C, struct wmWindow *win, bool only_fullscreen_test);
 
+float		WM_HMD_device_IPD_get(void);
+
 
 			/* files */
 void		WM_file_autoexec_init(const char *filepath);

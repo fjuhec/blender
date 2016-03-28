@@ -930,8 +930,9 @@ extern void GHOST_BeginIME(GHOST_WindowHandle windowhandle,
  */
 extern void GHOST_EndIME(GHOST_WindowHandle windowhandle);
 
-extern void GHOST_HMDopenDevice(int index);
-extern void GHOST_HMDcloseDevice(void);
+extern void  GHOST_HMDopenDevice(int index);
+extern void  GHOST_HMDcloseDevice(void);
+extern float GHOST_HMDgetDeviceIPD(void);
 
 #ifdef __cplusplus
 }

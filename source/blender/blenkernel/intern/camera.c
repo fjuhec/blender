@@ -55,6 +55,8 @@
 
 #include "GPU_compositing.h"
 
+#include "WM_api.h"
+
 /****************************** Camera Datablock *****************************/
 
 void BKE_camera_init(Camera *cam)
@@ -718,17 +720,16 @@ static void camera_model_matrix(Object *camera, float r_modelmat[4][4])
 static void camera_stereo3d_model_matrix(Object *camera, const bool is_left, float r_modelmat[4][4])
 {
 	Camera *data = (Camera *)camera->data;
-	float interocular_distance, convergence_distance;
-	short convergence_mode, pivot;
 	float sizemat[4][4];
 
 	float fac = 1.0f;
 	float fac_signed;
 
-	interocular_distance = data->stereo.interocular_distance;
-	convergence_distance = data->stereo.convergence_distance;
-	convergence_mode = data->stereo.convergence_mode;
-	pivot = data->stereo.pivot;
+	const bool use_device_ipd = data->stereo.flag & CAM_S3D_CUSTOM_IPD;
+	float interocular_distance = use_device_ipd ? WM_HMD_device_IPD_get() : data->stereo.interocular_distance;
+	float convergence_distance = data->stereo.convergence_distance;
+	short convergence_mode = data->stereo.convergence_mode;
+	short pivot = data->stereo.pivot;
 
 	if (((pivot == CAM_S3D_PIVOT_LEFT) && is_left) ||
 	    ((pivot == CAM_S3D_PIVOT_RIGHT) && !is_left))

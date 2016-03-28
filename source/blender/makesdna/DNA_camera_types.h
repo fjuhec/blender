@@ -152,6 +152,7 @@ enum {
 /* stereo->flag */
 enum {
 	CAM_S3D_SPHERICAL       = (1 << 0),
+	CAM_S3D_CUSTOM_IPD      = (1 << 1),
 };
 
 #ifdef __cplusplus

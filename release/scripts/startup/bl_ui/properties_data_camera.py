@@ -151,21 +151,28 @@ class DATA_PT_camera_stereoscopy(CameraButtonsPanel, Panel):
         st = context.camera.stereo
         cam = context.camera
 
+        col = layout.column()
+
         is_spherical_stereo = cam.type != 'ORTHO' and render.use_spherical_stereo
         use_spherical_stereo = is_spherical_stereo and st.use_spherical_stereo
 
-        col = layout.column()
-        col.row().prop(st, "convergence_mode", expand=True)
+        if render.views_format == 'HMD':
+            col.prop(st, "use_device_ipd")
+            subcol = col.column()
+            subcol.active = not st.use_device_ipd
+            subcol.prop(st, "interocular_distance")
+        else:
+            col.row().prop(st, "convergence_mode", expand=True)
 
-        sub = col.column()
-        sub.active = st.convergence_mode != 'PARALLEL'
-        sub.prop(st, "convergence_distance")
+            sub = col.column()
+            sub.active = st.convergence_mode != 'PARALLEL'
+            sub.prop(st, "convergence_distance")
 
-        col.prop(st, "interocular_distance")
+            col.prop(st, "interocular_distance")
 
-        if is_spherical_stereo:
-            col.separator()
-            col.prop(st, "use_spherical_stereo")
+            if is_spherical_stereo:
+                col.separator()
+                col.prop(st, "use_spherical_stereo")
 
         col.label(text="Pivot:")
         row = col.row()
