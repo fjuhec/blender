@@ -5148,7 +5148,7 @@ static void hmd_view_exit(const bContext *C, Scene *scene)
 	DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
 }
 
-static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	wmWindow *prevwin = CTX_wm_window(C);
 	wmWindowManager *wm = CTX_wm_manager(C);
@@ -5178,21 +5178,21 @@ static int wm_hmd_view_open_invoke(bContext *C, wmOperator *UNUSED(op), const wm
 	return OPERATOR_FINISHED;
 }
 
-static void WM_OT_hmd_view_open(wmOperatorType *ot)
+static void WM_OT_hmd_view_toggle(wmOperatorType *ot)
 {
-	ot->name = "Open HMD View Window";
-	ot->idname = "WM_OT_hmd_view_open";
-	ot->description = "Open a separate window for a head mounted display";
+	ot->name = "Open/Close HMD View Window";
+	ot->idname = "WM_OT_hmd_view_toggle";
+	ot->description = "Open/Close a separate window for a head mounted display";
 
-	ot->invoke = wm_hmd_view_open_invoke;
+	ot->invoke = wm_hmd_view_toggle_invoke;
 }
 
-static int hmd_session_run_poll(bContext *C)
+static int hmd_session_toggle_poll(bContext *C)
 {
 	return (CTX_wm_manager(C)->win_hmd != NULL);
 }
 
-static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	Scene *scene = CTX_data_scene(C);
 	wmWindowManager *wm = CTX_wm_manager(C);
@@ -5251,16 +5251,16 @@ static int hmd_session_run_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	}
 }
 
-static void WM_OT_hmd_session_run(wmOperatorType *ot)
+static void WM_OT_hmd_session_toggle(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Run HMD Session";
-	ot->description = "Start/Stop a head mounted display (virtual reality) session";
+	ot->description = "Start/Stop a head mounted display session";
 	ot->idname = "WM_OT_hmd_session_run";
 
 	/* api callbacks */
-	ot->invoke = hmd_session_run_invoke;
-	ot->poll = hmd_session_run_poll;
+	ot->invoke = hmd_session_toggle_invoke;
+	ot->poll = hmd_session_toggle_poll;
 }
 
 static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HMDData *data)
@@ -5356,8 +5356,8 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_call_menu_pie);
 	WM_operatortype_append(WM_OT_radial_control);
 	WM_operatortype_append(WM_OT_stereo3d_set);
-	WM_operatortype_append(WM_OT_hmd_view_open);
-	WM_operatortype_append(WM_OT_hmd_session_run);
+	WM_operatortype_append(WM_OT_hmd_view_toggle);
+	WM_operatortype_append(WM_OT_hmd_session_toggle);
 	WM_operatortype_append(WM_OT_hmd_session_refresh);
 #if defined(WIN32)
 	WM_operatortype_append(WM_OT_console_toggle);

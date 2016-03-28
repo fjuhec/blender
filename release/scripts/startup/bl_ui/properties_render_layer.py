@@ -235,7 +235,7 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
             col = layout.column()
 
             row = col.row(align=True)
-            row.operator("wm.hmd_view_open", text=text_win)
+            row.operator("wm.hmd_view_toggle", text=text_win)
             row.operator("wm.hmd_session_run", text=text_run, icon=icon)
 
             col.prop(rd, "hmd_camlock")
