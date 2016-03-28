@@ -533,10 +533,12 @@ class CyclesRender_PT_views(CyclesButtonsPanel, Panel):
             col = layout.column()
 
             row = col.row(align=True)
-            row.operator("wm.hmd_view_open", text=text_win)
-            row.operator("view3d.hmd_session_run", text=text_run, icon=icon)
+            row.operator("wm.hmd_view_toggle", text=text_win)
+            row.operator("wm.hmd_session_run", text=text_run, icon=icon)
 
             col.prop(rd, "hmd_camlock")
+            col.prop(rd, "use_hmd_view_lensdist", text="Lens Distortion")
+            col.prop(rd, "hmd_view_shade", text="Shading")
 
 
 class Cycles_PT_post_processing(CyclesButtonsPanel, Panel):
