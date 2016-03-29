@@ -909,6 +909,12 @@ void wm_draw_update(bContext *C)
 	wmWindow *win;
 	int drawmethod;
 
+#ifdef WITH_INPUT_HMD
+	BLI_assert(wm->win_hmd == NULL ||
+	           wm->win_hmd->screen->state == SCREENFULL ||
+	           !"BUG: HMD window should always be fullscreen!");
+#endif
+
 #ifdef WITH_OPENSUBDIV
 	BKE_subsurf_free_unused_buffers();
 #endif
