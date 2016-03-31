@@ -368,7 +368,7 @@ bool Session::acquire_tile(Device *tile_device, RenderTile& rtile)
 
 	if(!tile_manager.next_tile(tile, device_num))
 		return false;
-	
+
 	/* fill render tile */
 	rtile.x = tile_manager.state.buffer.full_x + tile.x;
 	rtile.y = tile_manager.state.buffer.full_y + tile.y;
@@ -377,6 +377,26 @@ bool Session::acquire_tile(Device *tile_device, RenderTile& rtile)
 	rtile.start_sample = tile_manager.state.sample;
 	rtile.num_samples = tile_manager.state.num_samples;
 	rtile.resolution = tile_manager.state.resolution_divider;
+
+	if(params.background &&
+	   !params.progressive_refine &&
+	   scene->camera->type == CAMERA_PANORAMA &&
+	   scene->camera->panorama_type == PANORAMA_EQUIRECTANGULAR &&
+	   params.pole_samples != 0)
+	{
+		const int tot_samples = params.samples;
+		const int min_samples = params.pole_samples;
+		const int full_height = tile_manager.state.buffer.full_height;
+		const int2 tile_size = params.tile_size;
+		int aligned_height = (int)ceilf((float)full_height / tile_size.y) * tile_size.y;
+		float v = (float)rtile.y / (aligned_height - tile_size.y);
+		float fac = sinf(v * M_PI_F);
+		fac = clamp(fac, 0.0f, 1.0f);
+		rtile.num_samples = min_samples + (int)((tot_samples - min_samples) * fac);
+		VLOG(1) << "Using panorama tile sampling hack for tile at ("
+		        << rtile.x << "), " << rtile.y << ", "
+		        << "samples " << rtile.num_samples;
+	}
 
 	tile_lock.unlock();
 

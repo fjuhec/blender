@@ -174,10 +174,12 @@ class CyclesRender_PT_sampling(CyclesButtonsPanel, Panel):
             sub.label(text="Samples:")
             sub.prop(cscene, "samples", text="Render")
             sub.prop(cscene, "preview_samples", text="Preview")
+            sub.prop(cscene, "pole_samples", text="Pole")
         else:
             sub.label(text="AA Samples:")
             sub.prop(cscene, "aa_samples", text="Render")
             sub.prop(cscene, "preview_aa_samples", text="Preview")
+            sub.prop(cscene, "pole_samples", text="Pole")
             sub.separator()
             sub.prop(cscene, "sample_all_lights_direct")
             sub.prop(cscene, "sample_all_lights_indirect")

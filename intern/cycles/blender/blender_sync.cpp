@@ -536,6 +536,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 	/* samples */
 	int samples = get_int(cscene, "samples");
 	int aa_samples = get_int(cscene, "aa_samples");
+	int pole_samples = get_int(cscene, "pole_samples");
 	int preview_samples = get_int(cscene, "preview_samples");
 	int preview_aa_samples = get_int(cscene, "preview_aa_samples");
 	
@@ -545,6 +546,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 
 		samples = samples * samples;
 		preview_samples = preview_samples * preview_samples;
+		pole_samples = pole_samples * pole_samples;
 	}
 
 	if(get_enum(cscene, "progressive") == 0) {
@@ -567,6 +569,8 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 				params.samples = INT_MAX;
 		}
 	}
+
+	params.pole_samples = pole_samples;
 
 	/* tiles */
 	if(params.device.type != DEVICE_CPU && !background) {

@@ -169,6 +169,12 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
                 min=1, max=2147483647,
                 default=128,
                 )
+        cls.pole_samples = IntProperty(
+                name="Pole Samples",
+                description="Number of samples to fade to on the poles when rendering equirectangular panorama (0 disables fade)",
+                min=0, max=2147483647,
+                default=0,
+                )
         cls.preview_samples = IntProperty(
                 name="Preview Samples",
                 description="Number of samples to render in the viewport, unlimited if 0",

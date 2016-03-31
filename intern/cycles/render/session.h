@@ -50,6 +50,7 @@ public:
 	bool progressive;
 	bool experimental;
 	int samples;
+	int pole_samples;
 	int2 tile_size;
 	TileOrder tile_order;
 	int start_resolution;
@@ -73,6 +74,7 @@ public:
 		progressive = false;
 		experimental = false;
 		samples = USHRT_MAX;
+		pole_samples = 0;
 		tile_size = make_int2(64, 64);
 		start_resolution = INT_MAX;
 		threads = 0;
@@ -95,6 +97,7 @@ public:
 		&& progressive_refine == params.progressive_refine
 		&& output_path == params.output_path
 		/* && samples == params.samples */
+		&& pole_samples == params.pole_samples
 		&& progressive == params.progressive
 		&& experimental == params.experimental
 		&& tile_size == params.tile_size
