@@ -118,6 +118,10 @@ typedef bool (*ae_load_post)(struct AssetEngine *engine, struct ID *items, const
  * (ae_load_pre, then actual lib loading, then ae_load_post). */
 typedef bool (*ae_update_check)(struct AssetEngine *engine, struct AssetUUIDList *uuids);
 
+/* Check if given dirpath is valid for current asset engine, it can also modify it.
+ * r_dir is assumed to be least FILE_MAX. */
+typedef void (*ae_check_dir)(struct AssetEngine *engine, char *r_dir);
+
 typedef struct AssetEngineType {
 	struct AssetEngineType *next, *prev;
 
@@ -143,6 +147,7 @@ typedef struct AssetEngineType {
 	ae_load_pre load_pre;
 	ae_load_post load_post;
 	ae_update_check update_check;
+	ae_check_dir check_dir;
 
 	/* RNA integration */
 	struct ExtensionRNA ext;

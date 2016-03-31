@@ -434,6 +434,31 @@ static bool rna_ae_load_pre(AssetEngine *engine, AssetUUIDList *uuids, struct Fi
 	return ret_success;
 }
 
+static void rna_ae_check_dir(AssetEngine *engine, char *r_dir)
+{
+	extern FunctionRNA rna_AssetEngine_check_dir_func;
+	PointerRNA ptr;
+	PropertyRNA *parm;
+	ParameterList list;
+	FunctionRNA *func;
+
+	/* XXX Hacking around bpyrna incapacity to handle strings as return values... To be fixed... some day... */
+	FileDirEntryArr entries = {0};
+	FileDirEntryArr *entries_p = &entries;
+	BLI_strncpy(entries.root, r_dir, FILE_MAX);
+
+	RNA_pointer_create(NULL, engine->type->ext.srna, engine, &ptr);
+	func = &rna_AssetEngine_check_dir_func;
+
+	RNA_parameter_list_create(&list, &ptr, func);
+	RNA_parameter_set_lookup(&list, "entries", &entries_p);
+	engine->type->ext.call(NULL, &ptr, func, &list);
+
+	BLI_strncpy(r_dir, entries.root, FILE_MAX);
+
+	RNA_parameter_list_free(&list);
+}
+
 static bool rna_ae_sort_filter(
         AssetEngine *engine, const bool use_sort, const bool use_filter,
         FileSelectParams *params, FileDirEntryArr *entries_r)
@@ -550,7 +575,7 @@ static StructRNA *rna_AssetEngine_register(Main *bmain, ReportList *reports, voi
 	AssetEngineType *aet, dummyaet = {NULL};
 	AssetEngine dummyengine = {NULL};
 	PointerRNA dummyptr;
-	int have_function[8];
+	int have_function[9];
 
 	/* setup dummy engine & engine type to store static properties in */
 	dummyengine.type = &dummyaet;
@@ -591,9 +616,11 @@ static StructRNA *rna_AssetEngine_register(Main *bmain, ReportList *reports, voi
 
 	aet->load_pre = (have_function[4]) ? rna_ae_load_pre : NULL;
 
-	aet->sort_filter = (have_function[5]) ? rna_ae_sort_filter : NULL;
-	aet->entries_block_get = (have_function[6]) ? rna_ae_entries_block_get : NULL;
-	aet->entries_uuid_get = (have_function[7]) ? rna_ae_entries_uuid_get : NULL;
+	aet->check_dir = (have_function[5]) ? rna_ae_check_dir : NULL;
+
+	aet->sort_filter = (have_function[6]) ? rna_ae_sort_filter : NULL;
+	aet->entries_block_get = (have_function[7]) ? rna_ae_entries_block_get : NULL;
+	aet->entries_uuid_get = (have_function[8]) ? rna_ae_entries_uuid_get : NULL;
 
 	BLI_addtail(&asset_engines, aet);
 
@@ -1060,6 +1087,12 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	RNA_def_pointer(func, "entries", "AssetList", "", "List of actual, existing paths that Blender can load");
 	parm = RNA_def_boolean(func, "success_return", 0, "", "Success");
 	RNA_def_function_output(func, parm);
+
+	/* Pre-load callback */
+	func = RNA_def_function(srna, "check_dir", NULL);
+	RNA_def_function_ui_description(func, "Check if given path is valid (as in, can be listed) for this engine");
+	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
+	RNA_def_pointer(func, "entries", "AssetList", "", "Fake List of asset entries (only use/modify its root_path!)");
 
 	/* Sorting/filtering callback */
 	func = RNA_def_function(srna, "sort_filter", NULL);

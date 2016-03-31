@@ -470,6 +470,12 @@ class AssetEngineAmber(AssetEngine):
             return True
         return False
 
+    def check_dir(self, entries):
+        # Stupid code just for test...
+        #~ entries.root_path = entries.root_path + "../"
+        #~ print(entries.root_path)
+        pass
+
     def sort_filter(self, use_sort, use_filter, params, entries):
 #        print(use_sort, use_filter)
         if use_filter:
