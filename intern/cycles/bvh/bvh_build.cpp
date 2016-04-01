@@ -31,6 +31,7 @@
 #include "util_logging.h"
 #include "util_progress.h"
 #include "util_stack_allocator.h"
+#include "util_simd.h"
 #include "util_time.h"
 
 CCL_NAMESPACE_BEGIN
@@ -243,10 +244,8 @@ BVHNode* BVHBuild::run()
 		spatial_storage.resize(1);
 		size_t num_bins = max(root.size(), (int)BVHParams::NUM_SPATIAL_BINS) - 1;
 		foreach(BVHSpatialStorage &storage, spatial_storage) {
-			storage.spatial_right_bounds.clear();
-			storage.spatial_right_bounds.resize(num_bins);
-			storage.spatial_indices.clear();
-			storage.spatial_indices.reserve(num_bins);
+			storage.right_bounds.clear();
+			storage.right_bounds.resize(num_bins);
 		}
 	}
 
@@ -424,7 +423,7 @@ BVHNode* BVHBuild::build_node(const BVHRange& range, int level)
 	}
 
 	/* splitting test */
-	BVHMixedSplit split(*this, &spatial_storage[0], range, level);
+	BVHMixedSplit split(this, &spatial_storage[0], range, level);
 
 	if(!(range.size() > 0 && params.top_level && level == 0)) {
 		if(split.no_split) {
