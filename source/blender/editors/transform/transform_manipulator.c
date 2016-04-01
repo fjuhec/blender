@@ -1198,6 +1198,7 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 				WIDGET_dial_set_up_vector(axis, rv3d->twmat[aidx_norm]);
 				/* increased line width for better display */
 				WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH + 1.0f);
+				WM_widget_set_flag(axis, WM_WIDGET_DRAW_VALUE, true);
 				break;
 			case MAN_AXIS_TRANS_XY:
 			case MAN_AXIS_TRANS_YZ:
@@ -1229,7 +1230,10 @@ void WIDGETGROUP_manipulator_create(const struct bContext *C, struct wmWidgetGro
 				if (axis_idx == MAN_AXIS_ROT_T) {
 					WM_widget_set_flag(axis, WM_WIDGET_DRAW_HOVER, true);
 				}
-				else if (axis_idx != MAN_AXIS_ROT_C) {
+				else if (axis_idx == MAN_AXIS_ROT_C) {
+					WM_widget_set_flag(axis, WM_WIDGET_DRAW_VALUE, true);
+				}
+				else {
 					WM_widget_set_scale(axis, 0.2f);
 				}
 				break;
