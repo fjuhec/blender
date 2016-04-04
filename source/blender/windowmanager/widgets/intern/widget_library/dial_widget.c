@@ -124,20 +124,20 @@ static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[
 	glPopMatrix();
 }
 
-static void dial_ghostarc_draw(const DialWidget *dial, const float ofs_angle, const float angle)
+static void dial_ghostarc_draw(const DialWidget *dial, const float angle_ofs, const float angle_delta)
 {
 	GLUquadricObj *qobj = gluNewQuadric();
 	const float width_inner = DIAL_WIDTH - dial->widget.line_width * 0.5f / U.widget_scale;
 
 	gluQuadricDrawStyle(qobj, GLU_FILL);
-	gluPartialDisk(qobj, 0.0, width_inner, DIAL_RESOLUTION, 1, RAD2DEGF(ofs_angle), RAD2DEGF(angle));
+	gluPartialDisk(qobj, 0.0, width_inner, DIAL_RESOLUTION, 1, RAD2DEGF(angle_ofs), RAD2DEGF(angle_delta));
 	gluDeleteQuadric(qobj);
 }
 
 static void dial_ghostarc_get_angles(
         const DialWidget *dial, const wmEvent *event, const ARegion *ar,
         float mat[4][4], const float co_outer[3],
-        float *r_start, float *r_angle)
+        float *r_start, float *r_delta)
 {
 	DialInteraction *inter = dial->widget.interaction_data;
 	const RegionView3D *rv3d = ar->regiondata;
@@ -166,12 +166,12 @@ static void dial_ghostarc_get_angles(
 
 	/* return angles */
 	const float start = angle_signed_v2v2(rel_co, rel_initmval) * (inv ? -1 : 1);
-	const float angle = angle_signed_v2v2(rel_initmval, rel_mval) * (inv ? -1 : 1);
+	const float delta = angle_signed_v2v2(rel_initmval, rel_mval) * (inv ? -1 : 1);
 
 	/* Change of sign, we passed the 180 degree threshold. This means we need to add a turn
 	 * to distinguish between transition from 0 to -1 and -PI to +PI, use comparison with PI/2.
 	 * Logic taken from BLI_dial_angle */
-	if ((angle * inter->last_angle < 0.0f) &&
+	if ((delta * inter->last_angle < 0.0f) &&
 	    (fabsf(inter->last_angle) > (float)M_PI_2))
 	{
 		if (inter->last_angle < 0.0f)
@@ -179,10 +179,10 @@ static void dial_ghostarc_get_angles(
 		else
 			inter->rotations++;
 	}
-	inter->last_angle = angle;
+	inter->last_angle = delta;
 
 	*r_start = start;
-	*r_angle = fmod(angle + 2.0f * (float)M_PI * inter->rotations, 2 * (float)M_PI);
+	*r_delta = fmod(delta + 2.0f * (float)M_PI * inter->rotations, 2 * (float)M_PI);
 }
 
 static void dial_draw_intern(const bContext *C, DialWidget *dial, const bool select, const bool highlight)
@@ -207,16 +207,16 @@ static void dial_draw_intern(const bContext *C, DialWidget *dial, const bool sel
 	if ((dial->widget.flag & WM_WIDGET_DRAW_VALUE) && (dial->widget.flag & WM_WIDGET_ACTIVE)) {
 		wmWindow *win = CTX_wm_window(C);
 		const float co_outer[4] = {0.0f, DIAL_WIDTH, 0.0f}; /* coordinate at which the arc drawing will be started */
-		float angle_ofs, angle;
+		float angle_ofs, angle_delta;
 
-		dial_ghostarc_get_angles(dial, win->eventstate, CTX_wm_region(C), mat, co_outer, &angle_ofs, &angle);
+		dial_ghostarc_get_angles(dial, win->eventstate, CTX_wm_region(C), mat, co_outer, &angle_ofs, &angle_delta);
 		/* draw! */
 		glColor4f(0.8f, 0.8f, 0.8f, 0.4f);
-		dial_ghostarc_draw(dial, angle_ofs, angle);
+		dial_ghostarc_draw(dial, angle_ofs, angle_delta);
 
 		glColor4fv(col);
 		dial_ghostarc_draw_helpline(angle_ofs, co_outer); /* starting position */
-		dial_ghostarc_draw_helpline(angle_ofs + angle, co_outer); /* starting position + current value */
+		dial_ghostarc_draw_helpline(angle_ofs + angle_delta, co_outer); /* starting position + current value */
 	}
 
 	/* draw actual dial widget */
