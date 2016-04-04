@@ -257,7 +257,7 @@ void WM_widgetmap_widgets_draw(
 
 	/* draw active widget */
 	if (widget && in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH)) {
-		if (widget->flag & WM_WIDGET_DRAW_ACTIVE) {
+		if (widget->flag & (WM_WIDGET_DRAW_ACTIVE | WM_WIDGET_DRAW_VALUE)) {
 			/* notice that we don't update the widgetgroup, widget is now on
 			 * its own, it should have all relevant data to update itself */
 			widget->draw(C, widget);

@@ -139,10 +139,11 @@ enum eWidgetFlag {
 	/* settings */
 	WM_WIDGET_DRAW_HOVER  = (1 << 3),
 	WM_WIDGET_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
-	WM_WIDGET_SCALE_3D    = (1 << 5),
-	WM_WIDGET_SCENE_DEPTH = (1 << 6), /* widget is depth culled with scene objects*/
-	WM_WIDGET_HIDDEN      = (1 << 7),
-	WM_WIDGET_SELECTABLE  = (1 << 8),
+	WM_WIDGET_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
+	WM_WIDGET_SCALE_3D    = (1 << 6),
+	WM_WIDGET_SCENE_DEPTH = (1 << 7), /* widget is depth culled with scene objects*/
+	WM_WIDGET_HIDDEN      = (1 << 8),
+	WM_WIDGET_SELECTABLE  = (1 << 9),
 };
 
 /* wmWidgetMapType->flag */
