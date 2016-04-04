@@ -4221,6 +4221,7 @@ void BKE_curve_nurb_active_set(Curve *cu, const Nurb *nu)
 		cu->actnu = CU_ACT_NONE;
 	}
 	else {
+		BLI_assert(!nu->hide);
 		ListBase *nurbs = BKE_curve_editNurbs_get(cu);
 		cu->actnu = BLI_findindex(nurbs, nu);
 	}
@@ -4323,6 +4324,10 @@ void BKE_curve_nurb_vert_active_validate(Curve *cu)
 			if ((bp->f1 & SELECT) == 0) {
 				cu->actvert = CU_ACT_NONE;
 			}
+		}
+
+		if (nu->hide) {
+			cu->actnu = CU_ACT_NONE;
 		}
 	}
 }

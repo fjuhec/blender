@@ -30,24 +30,11 @@
 #include "util_foreach.h"
 #include "util_logging.h"
 #include "util_progress.h"
+#include "util_stack_allocator.h"
+#include "util_simd.h"
 #include "util_time.h"
 
 CCL_NAMESPACE_BEGIN
-
-#if !defined(__KERNEL_SSE2__)
-/* TODO(sergey): Move to some generic header so all code
- * can use bitscan on non-SSE processors.
- */
-ccl_device_inline int bitscan(int value)
-{
-	assert(value != 0);
-	int bit = 0;
-	while(value >>= 1) {
-		++bit;
-	}
-	return bit;
-}
-#endif
 
 /* BVH Build Task */
 
@@ -244,8 +231,23 @@ BVHNode* BVHBuild::run()
 	}
 
 	spatial_min_overlap = root.bounds().safe_area() * params.spatial_split_alpha;
-	spatial_right_bounds.clear();
-	spatial_right_bounds.resize(max(root.size(), (int)BVHParams::NUM_SPATIAL_BINS) - 1);
+
+	if(params.use_spatial_split) {
+		/* NOTE: The API here tries to be as much ready for multi-threaded build
+		 * as possible, but at the same time it tries not to introduce any
+		 * changes in behavior for until all refactoring needed for threading is
+		 * finished.
+		 *
+		 * So we currently allocate single storage for now, which is only used by
+		 * the only thread working on the spatial BVH build.
+		 */
+		spatial_storage.resize(1);
+		size_t num_bins = max(root.size(), (int)BVHParams::NUM_SPATIAL_BINS) - 1;
+		foreach(BVHSpatialStorage &storage, spatial_storage) {
+			storage.right_bounds.clear();
+			storage.right_bounds.resize(num_bins);
+		}
+	}
 
 	/* init progress updates */
 	double build_start_time;
@@ -291,7 +293,11 @@ BVHNode* BVHBuild::run()
 			        << "  Number of inner nodes: "
 			        << rootnode->getSubtreeSize(BVH_STAT_INNER_COUNT)  << "\n"
 			        << "  Number of leaf nodes: "
-			        << rootnode->getSubtreeSize(BVH_STAT_LEAF_COUNT)  << "\n";
+			        << rootnode->getSubtreeSize(BVH_STAT_LEAF_COUNT)  << "\n"
+			        << "  Allocation slop factor: "
+			               << ((prim_type.capacity() != 0)
+			                       ? (float)prim_type.size() / prim_type.capacity()
+			                       : 1.0f) << "\n";
 		}
 	}
 
@@ -336,7 +342,7 @@ void BVHBuild::thread_build_node(InnerNode *inner, int child, BVHObjectBinning *
 	}
 }
 
-bool BVHBuild::range_within_max_leaf_size(const BVHRange& range)
+bool BVHBuild::range_within_max_leaf_size(const BVHRange& range) const
 {
 	size_t size = range.size();
 	size_t max_leaf_size = max(params.max_triangle_leaf_size, params.max_curve_leaf_size);
@@ -349,7 +355,7 @@ bool BVHBuild::range_within_max_leaf_size(const BVHRange& range)
 	size_t num_motion_curves = 0;
 
 	for(int i = 0; i < size; i++) {
-		BVHReference& ref = references[range.start() + i];
+		const BVHReference& ref = references[range.start() + i];
 
 		if(ref.prim_type() & PRIMITIVE_CURVE)
 			num_curves++;
@@ -421,7 +427,7 @@ BVHNode* BVHBuild::build_node(const BVHRange& range, int level)
 	}
 
 	/* splitting test */
-	BVHMixedSplit split(this, range, level);
+	BVHMixedSplit split(this, &spatial_storage[0], range, level);
 
 	if(!(range.size() > 0 && params.top_level && level == 0)) {
 		if(split.no_split) {
@@ -496,12 +502,26 @@ BVHNode *BVHBuild::create_primitive_leaf_node(const int *p_type,
 
 BVHNode* BVHBuild::create_leaf_node(const BVHRange& range)
 {
-	/* TODO(sergey): Consider writing own allocator which would
-	 * not do heap allocation if number of elements is relatively small.
+	/* This is a bit overallocating here (considering leaf size into account),
+	 * but chunk-based re-allocation in vector makes it difficult to use small
+	 * size of stack storage here. Some tweaks are possible tho.
+	 *
+	 * NOTES:
+	 *  - If the size is too big, we'll have inefficient stack usage,
+	 *    and lots of cache misses.
+	 *  - If the size is too small, then we can run out of memory
+	 *    allowed to be used by vector.
+	 *    In practice it wouldn't mean crash, just allocator will fallback
+	 *    to heap which is slower.
+	 *  - Optimistic re-allocation in STL could jump us out of stack usage
+	 *    because re-allocation happens in chunks and size of those chunks we
+	 *    can not control.
 	 */
-	vector<int> p_type[PRIMITIVE_NUM_TOTAL];
-	vector<int> p_index[PRIMITIVE_NUM_TOTAL];
-	vector<int> p_object[PRIMITIVE_NUM_TOTAL];
+	typedef StackAllocator<256, int> LeafStackAllocator;
+
+	vector<int, LeafStackAllocator> p_type[PRIMITIVE_NUM_TOTAL];
+	vector<int, LeafStackAllocator> p_index[PRIMITIVE_NUM_TOTAL];
+	vector<int, LeafStackAllocator> p_object[PRIMITIVE_NUM_TOTAL];
 	uint visibility[PRIMITIVE_NUM_TOTAL] = {0};
 	/* NOTE: Keep initializtion in sync with actual number of primitives. */
 	BoundBox bounds[PRIMITIVE_NUM_TOTAL] = {BoundBox::empty,
