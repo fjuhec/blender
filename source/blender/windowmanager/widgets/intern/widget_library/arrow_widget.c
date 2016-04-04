@@ -422,7 +422,12 @@ static void widget_arrow_exit(bContext *C, wmWidget *widget, const bool cancel)
 	if (!cancel)
 		return;
 
-	widget_property_value_reset(C, widget, (WidgetInteraction *)widget->interaction_data, ARROW_SLOT_OFFSET_WORLD_SPACE);
+	ArrowWidget *arrow = (ArrowWidget *)widget;
+	WidgetCommonData *data = &arrow->data;
+	WidgetInteraction *inter = widget->interaction_data;
+
+	widget_property_value_reset(C, widget, inter, ARROW_SLOT_OFFSET_WORLD_SPACE);
+	data->offset = inter->init_offset;
 }
 
 
