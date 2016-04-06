@@ -384,8 +384,9 @@ bool Session::acquire_tile(Device *tile_device, RenderTile& rtile)
 	   scene->camera->panorama_type == PANORAMA_EQUIRECTANGULAR &&
 	   params.pole_samples != 0)
 	{
-		const int tot_samples = params.samples;
-		const int min_samples = params.pole_samples;
+		const float mult = (float)rtile.num_samples / params.samples;
+		const int tot_samples = rtile.num_samples;
+		const int min_samples = (int)((float)params.pole_samples * mult);
 		const int full_height = tile_manager.state.buffer.full_height;
 		const int2 tile_size = params.tile_size;
 		int aligned_height = (int)ceilf((float)full_height / tile_size.y) * tile_size.y;
