@@ -459,6 +459,33 @@ static void rna_ae_check_dir(AssetEngine *engine, char *r_dir)
 	RNA_parameter_list_free(&list);
 }
 
+static bool rna_ae_update_check(AssetEngine *engine, AssetUUIDList *uuids)
+{
+	extern FunctionRNA rna_AssetEngine_update_check_func;
+	PointerRNA ptr;
+	PropertyRNA *parm;
+	ParameterList list;
+	FunctionRNA *func;
+
+	void *ret;
+	bool ret_success;
+
+	RNA_pointer_create(NULL, engine->type->ext.srna, engine, &ptr);
+	func = &rna_AssetEngine_update_check_func;
+
+	RNA_parameter_list_create(&list, &ptr, func);
+	RNA_parameter_set_lookup(&list, "uuids", &uuids);
+	engine->type->ext.call(NULL, &ptr, func, &list);
+
+	parm = RNA_function_find_parameter(NULL, func, "success_return");
+	RNA_parameter_get(&list, parm, &ret);
+	ret_success = ((*(int *)ret) != 0);
+
+	RNA_parameter_list_free(&list);
+
+	return ret_success;
+}
+
 static bool rna_ae_sort_filter(
         AssetEngine *engine, const bool use_sort, const bool use_filter,
         FileSelectParams *params, FileDirEntryArr *entries_r)
@@ -575,7 +602,7 @@ static StructRNA *rna_AssetEngine_register(Main *bmain, ReportList *reports, voi
 	AssetEngineType *aet, dummyaet = {NULL};
 	AssetEngine dummyengine = {NULL};
 	PointerRNA dummyptr;
-	int have_function[9];
+	int have_function[10];
 
 	/* setup dummy engine & engine type to store static properties in */
 	dummyengine.type = &dummyaet;
@@ -618,9 +645,11 @@ static StructRNA *rna_AssetEngine_register(Main *bmain, ReportList *reports, voi
 
 	aet->check_dir = (have_function[5]) ? rna_ae_check_dir : NULL;
 
-	aet->sort_filter = (have_function[6]) ? rna_ae_sort_filter : NULL;
-	aet->entries_block_get = (have_function[7]) ? rna_ae_entries_block_get : NULL;
-	aet->entries_uuid_get = (have_function[8]) ? rna_ae_entries_uuid_get : NULL;
+	aet->update_check = (have_function[6]) ? rna_ae_update_check : NULL;
+
+	aet->sort_filter = (have_function[7]) ? rna_ae_sort_filter : NULL;
+	aet->entries_block_get = (have_function[8]) ? rna_ae_entries_block_get : NULL;
+	aet->entries_uuid_get = (have_function[9]) ? rna_ae_entries_uuid_get : NULL;
 
 	BLI_addtail(&asset_engines, aet);
 
@@ -716,6 +745,10 @@ static void rna_def_asset_uuid(BlenderRNA *brna)
 	                       "This AssetUUID is no more known by its asset engine");
 	RNA_def_property_boolean_sdna(prop, NULL, "tag", UUID_TAG_ASSET_MISSING);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+	prop = RNA_def_boolean(srna, "use_asset_reload", false, "Reload Asset",
+	                       "The data matching this AssetUUID should be reloaded");
+	RNA_def_property_boolean_sdna(prop, NULL, "tag", UUID_TAG_ASSET_RELOAD);
 }
 
 static void rna_def_asset_uuid_list(BlenderRNA *brna)
@@ -1088,11 +1121,19 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	parm = RNA_def_boolean(func, "success_return", 0, "", "Success");
 	RNA_def_function_output(func, parm);
 
-	/* Pre-load callback */
+	/* Dir-validating callback */
 	func = RNA_def_function(srna, "check_dir", NULL);
 	RNA_def_function_ui_description(func, "Check if given path is valid (as in, can be listed) for this engine");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
 	RNA_def_pointer(func, "entries", "AssetList", "", "Fake List of asset entries (only use/modify its root_path!)");
+
+	/* Update callback */
+	func = RNA_def_function(srna, "update_check", NULL);
+	RNA_def_function_ui_description(func, "Check for already loaded asset status (is updated, still valid, etc.)");
+	RNA_def_function_flag(func, FUNC_ALLOW_WRITE);
+	RNA_def_pointer(func, "uuids", "AssetUUIDList", "", "Identifiers of assets to check (do not modify list itself)");
+	parm = RNA_def_boolean(func, "success_return", 0, "", "Success");
+	RNA_def_function_output(func, parm);
 
 	/* Sorting/filtering callback */
 	func = RNA_def_function(srna, "sort_filter", NULL);

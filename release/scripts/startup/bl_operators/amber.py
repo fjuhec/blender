@@ -476,6 +476,12 @@ class AssetEngineAmber(AssetEngine):
         #~ print(entries.root_path)
         pass
 
+    def update_check(self, uuids):
+        # do nothing for now...
+        for uuid in uuids.uuids:
+            uuid.use_asset_reload = True
+        return True
+
     def sort_filter(self, use_sort, use_filter, params, entries):
 #        print(use_sort, use_filter)
         if use_filter:

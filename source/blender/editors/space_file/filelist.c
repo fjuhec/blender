@@ -1715,24 +1715,20 @@ FileDirEntry *filelist_entry_find_uuid(struct FileList *filelist, const int uuid
 
 		if (engine->type->entries_uuid_get) {
 			FileDirEntryArr r_entries;
-			AssetUUIDList *uuids = MEM_mallocN(sizeof(*uuids), __func__);
-			AssetUUID *asset_uuid;
+			AssetUUIDList uuids = {0};
+			AssetUUID asset_uuid = {0};
 			FileDirEntry *en = NULL;
 
-			uuids->uuids = MEM_callocN(sizeof(*uuids->uuids), __func__);
-			uuids->nbr_uuids = 1;
-			uuids->asset_engine_version = engine->type->version;
-			asset_uuid = &uuids->uuids[0];
+			uuids.uuids = &asset_uuid;
+			uuids.nbr_uuids = 1;
+			uuids.asset_engine_version = engine->type->version;
 
-			memcpy(asset_uuid->uuid_asset, uuid, sizeof(asset_uuid->uuid_asset));
+			memcpy(asset_uuid.uuid_asset, uuid, sizeof(asset_uuid.uuid_asset));
 			/* Variants and revision uuids remain NULL here. */
 
-			if (engine->type->entries_uuid_get(engine, uuids, &r_entries)) {
+			if (engine->type->entries_uuid_get(engine, &uuids, &r_entries)) {
 				en = r_entries.entries.first;
 			}
-
-			MEM_freeN(uuids->uuids);
-			MEM_freeN(uuids);
 
 			return en;
 		}

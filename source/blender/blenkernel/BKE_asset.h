@@ -68,6 +68,7 @@ typedef float (*ae_progress)(struct AssetEngine *engine, const int job_id);
 typedef void (*ae_kill)(struct AssetEngine *engine, const int job_id);
 
 /* ***** All callbacks below shall be non-blocking (i.e. return immediately). ***** */
+
 /* Those callbacks will be called from a 'fake-job' start *and* update functions (i.e. main thread, working one will
  * just sleep).
  * If given id is not null, engine should update from a running job if available, otherwise it should start a new one.
@@ -112,15 +113,17 @@ typedef bool (*ae_load_pre)(struct AssetEngine *engine, struct AssetUUIDList *uu
  * E.g. allows an advanced engine to make fancy scripted operations over loaded items. */
 typedef bool (*ae_load_post)(struct AssetEngine *engine, struct ID *items, const int *num_items);
 
-/* 'update' hook, called to prepare updating of given entries (typically after a file (re)load).
- * Engine should check whether given assets are still valid, if they should be updated, etc.
- * uuids tagged as needing reload will then be reloaded as new ones
- * (ae_load_pre, then actual lib loading, then ae_load_post). */
-typedef bool (*ae_update_check)(struct AssetEngine *engine, struct AssetUUIDList *uuids);
-
 /* Check if given dirpath is valid for current asset engine, it can also modify it.
  * r_dir is assumed to be least FILE_MAX. */
 typedef void (*ae_check_dir)(struct AssetEngine *engine, char *r_dir);
+
+/* 'update' hook, called to prepare updating of given entries (typically after a file (re)load).
+ * Engine should check whether given assets are still valid, if they should be updated, etc.
+ * uuids tagged as needing reload will then be reloaded as new ones
+ * (ae_load_pre, then actual lib loading, then ae_load_post).
+ * \warning DO NOT add or remove (or alter order of) uuids from the list in this callback! */
+/* XXX Should we make this non-blocking too? */
+typedef bool (*ae_update_check)(struct AssetEngine *engine, struct AssetUUIDList *uuids);
 
 typedef struct AssetEngineType {
 	struct AssetEngineType *next, *prev;
