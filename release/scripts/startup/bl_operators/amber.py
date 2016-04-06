@@ -204,7 +204,7 @@ class AmberJobList(AmberJob):
                 self.nbr += 1
                 if is_dir:
                     # We only list dirs from real file system.
-                    uuid = uuid_unpack_bytes((path.encode()[:8] + b"|" + bytes([self.nbr])))
+                    uuid = uuid_unpack_bytes((path.encode()[:8] + b"|" + self.nbr.to_bytes(4, 'little')))
                     dirs.append((path, size, timestamp, uuid))
                 done.add(tsk)
         self.stat_tasks -= done
