@@ -75,7 +75,7 @@ public:
 	 *  \return The number of connected devices.
 	 *  -1 is returned if available() is false.
 	 */
-	int getNumDevices() const;
+	int getNumDevices();
 
 	///TODO add a function to retrieve a list of connected devices, or the data of a single device by index.
 	//the data should contain at least the device name and vendor name.
@@ -96,7 +96,7 @@ public:
 	 *  \return A c-style string with the human-readable name of the device at \a index.
 	 *  NULL is returned if available() is false.
 	 */
-	const char *getDeviceName(int index) const;
+	const char *getDeviceName(int index);
 
 	/**
 	 *  \return A c-style string with the human-readable name of the vendor of the the current device.

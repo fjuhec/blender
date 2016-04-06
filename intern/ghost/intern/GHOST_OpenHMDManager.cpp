@@ -160,12 +160,19 @@ void GHOST_OpenHMDManager::closeDevice()
 	m_available = false;
 }
 
-int GHOST_OpenHMDManager::getNumDevices() const
+int GHOST_OpenHMDManager::getNumDevices()
 {
-	if (!m_available)
-		return -1;
+	if (!m_context)
+		if (!createContext()) {
+			return false;
+		}
 
-	return ohmd_ctx_probe(m_context);
+	int numDevices = ohmd_ctx_probe(m_context);
+
+	ohmd_ctx_destroy(m_context);
+	m_context = NULL;
+
+	return numDevices;
 }
 
 const char *GHOST_OpenHMDManager::getError() const
@@ -185,12 +192,21 @@ const char *GHOST_OpenHMDManager::getDeviceName() const
 	return ohmd_list_gets(m_context, m_deviceIndex, OHMD_PRODUCT);
 }
 
-const char *GHOST_OpenHMDManager::getDeviceName(int index) const
+const char *GHOST_OpenHMDManager::getDeviceName(int index)
 {
-	if (!m_available)
-		return NULL;
+	if (!m_context)
+		if (!createContext()) {
+			return "";
+		}
+	//You need to probe to fetch the device information from the hardware
+	ohmd_ctx_probe(m_context);
 
-	return ohmd_list_gets(m_context, index, OHMD_PRODUCT);
+	const char* deviceName = ohmd_list_gets(m_context, index, OHMD_PRODUCT);
+
+	ohmd_ctx_destroy(m_context);
+	m_context = NULL;
+
+	return deviceName;
 }
 
 const char *GHOST_OpenHMDManager::getVendorName() const

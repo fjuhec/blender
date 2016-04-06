@@ -2705,7 +2705,7 @@ void init_userdef_do_versions(void)
 	}
 
 	if (!USER_VERSION_ATLEAST(277, 1)) {
-		U.hmd_device = -1;
+		U.hmd_device = 0;
 	}
 
 	/**

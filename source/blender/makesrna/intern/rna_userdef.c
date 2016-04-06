@@ -655,6 +655,7 @@ static EnumPropertyItem *rna_userdef_hmd_device_itemf(
 
 	/* 'None' element */
 	RNA_enum_item_add(&item, &totitem, &hmd_device_items[0]);
+
 	/* add devices */
 	for (int i = 0; i < WM_device_HMD_num_devices_get(); i++) {
 		EnumPropertyItem tmp = {i, "", 0, "", ""};
