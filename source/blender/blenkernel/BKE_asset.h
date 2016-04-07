@@ -52,7 +52,7 @@ struct ListBase;
 struct uiLayout;
 
 enum {
-	AE_STATUS_VALID   = 1 << 0,
+	AE_STATUS_VALID   = 1 << 0,  /* Asset engine is "OK" (if unset engine won't be used). */
 	AE_STATUS_RUNNING = 1 << 1,  /* Asset engine is performing some background tasks... */
 };
 
@@ -62,6 +62,8 @@ extern ListBase asset_engines;
 
 /* AE instance/job is valid, is running, is idle, etc. */
 typedef int (*ae_status)(struct AssetEngine *engine, const int job_id);
+
+/* Report progress ([0.0, 1.0] range) of given job. */
 typedef float (*ae_progress)(struct AssetEngine *engine, const int job_id);
 
 /* To force end of given job (e.g. because it was cancelled by user...). */
@@ -75,26 +77,26 @@ typedef void (*ae_kill)(struct AssetEngine *engine, const int job_id);
  * It is the responsability of the engine to start/stop background processes to actually perform tasks as/if needed.
  */
 
-/* List everything available at given root path - only returns numbers of entries! */
+/* FILEBROWSER - List everything available at given root path - only returns numbers of entries! */
 typedef int (*ae_list_dir)(struct AssetEngine *engine, const int job_id, struct FileDirEntryArr *entries_r);
 
-/* Ensure given direntries are really available for append/link (some kind of 'anticipated loading'...). */
+/* Ensure given assets (uuids) are really available for append/link (some kind of 'anticipated loading'...). */
 typedef int (*ae_ensure_entries)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
 
 /* ***** All callbacks below are blocking. They shall be completed upon return. ***** */
 
-/* Perform sorting and/or filtering on engines' side.
+/* FILEBROWSER - Perform sorting and/or filtering on engines' side.
  * Note that engine is assumed to feature its own sorting/filtering settings!
  * Number of available filtered entries is to be set in entries_r.
  */
 typedef bool (*ae_sort_filter)(struct AssetEngine *engine, const bool sort, const bool filter,
                                struct FileSelectParams *params, struct FileDirEntryArr *entries_r);
 
-/* Return specified block of entries in entries_r. */
+/* FILEBROWSER - Return specified block of entries in entries_r. */
 typedef bool (*ae_entries_block_get)(struct AssetEngine *engine, const int start_index, const int end_index,
                                      struct FileDirEntryArr *entries_r);
 
-/* Return specified entries from their uuids, in entries_r. */
+/* FILEBROWSER - Return specified entries from their uuids, in entries_r. */
 typedef bool (*ae_entries_uuid_get)(struct AssetEngine *engine, struct AssetUUIDList *uuids,
                                     struct FileDirEntryArr *entries_r);
 
@@ -111,6 +113,7 @@ typedef bool (*ae_load_pre)(struct AssetEngine *engine, struct AssetUUIDList *uu
 
 /* 'post-loading' hook, called after opening/appending/linking/updating given entries.
  * E.g. allows an advanced engine to make fancy scripted operations over loaded items. */
+/* TODO */
 typedef bool (*ae_load_post)(struct AssetEngine *engine, struct ID *items, const int *num_items);
 
 /* Check if given dirpath is valid for current asset engine, it can also modify it.
