@@ -544,7 +544,7 @@ static void read_file_update_assets(bContext *C)
 				printf("ERROR! Unknown asset engine!\n");
 			}
 			else {
-				ae = BKE_asset_engine_create(ae_type);
+				ae = BKE_asset_engine_create(ae_type, NULL);
 			}
 
 			/* Note: we assume update check callback does not add, remove or alter order of uuids in that list! */

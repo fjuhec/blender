@@ -49,6 +49,7 @@ struct ExtensionRNA;
 struct ID;
 struct IDProperty;
 struct ListBase;
+struct ReportList;
 struct uiLayout;
 
 enum {
@@ -186,7 +187,7 @@ AssetEngineType *BKE_asset_engines_find(const char *idname);
 AssetEngineType *BKE_asset_engines_get_default(char *r_idname, const size_t len);
 
 /* Engine Instances */
-AssetEngine *BKE_asset_engine_create(AssetEngineType *type);
+AssetEngine *BKE_asset_engine_create(AssetEngineType *type, struct ReportList *reports);
 AssetEngine *BKE_asset_engine_copy(AssetEngine *engine);
 void BKE_asset_engine_free(AssetEngine *engine);
 

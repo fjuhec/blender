@@ -305,6 +305,13 @@ static void rna_AssetList_entries_clear(FileDirEntryArr *dirlist)
 	BKE_filedir_entryarr_clear(dirlist);
 }
 
+/* AssetEngine API. */
+
+static void rna_ae_report(AssetEngine *engine, int type, const char *msg)
+{
+	BKE_report(engine->reports, type, msg);
+}
+
 /* AssetEngine callbacks. */
 
 static int rna_ae_status(AssetEngine *engine, const int id)
@@ -438,7 +445,6 @@ static void rna_ae_check_dir(AssetEngine *engine, char *r_dir)
 {
 	extern FunctionRNA rna_AssetEngine_check_dir_func;
 	PointerRNA ptr;
-	PropertyRNA *parm;
 	ParameterList list;
 	FunctionRNA *func;
 
@@ -1078,6 +1084,16 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	                               "rna_AssetEngine_is_dirty_filtering_set");
 	RNA_def_property_ui_text(prop, "Dirty Filtering", "FileBrowser shall call AE's filtering function on next draw");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_FILE_PARAMS, NULL);
+
+	/* Utilities, not for registering. */
+	func = RNA_def_function(srna, "report", "rna_ae_report");
+	RNA_def_function_ui_description(func, "Generate a report (error, info, warning, etc.)");
+	parm = RNA_def_enum_flag(func, "type", rna_enum_wm_report_items, 0, "", "");
+	RNA_def_property_flag(parm, PROP_REQUIRED);
+	parm = RNA_def_string(func, "message", NULL, 0, "", "");
+	RNA_def_property_flag(parm, PROP_REQUIRED);
+
+	/* API */
 
 	/* Status callback */
 	func = RNA_def_function(srna, "status", NULL);

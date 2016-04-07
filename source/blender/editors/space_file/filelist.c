@@ -1454,7 +1454,7 @@ void filelist_assetengine_set(struct FileList *filelist, struct AssetEngineType 
 	}
 
 	if (aet) {
-		filelist->ae = BKE_asset_engine_create(aet);
+		filelist->ae = BKE_asset_engine_create(aet, NULL);
 	}
 	filelist->flags |= FL_FORCE_RESET;
 }

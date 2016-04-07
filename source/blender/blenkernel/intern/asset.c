@@ -117,7 +117,7 @@ AssetEngineType *BKE_asset_engines_get_default(char *r_idname, const size_t len)
 
 /* Create, Free */
 
-AssetEngine *BKE_asset_engine_create(AssetEngineType *type)
+AssetEngine *BKE_asset_engine_create(AssetEngineType *type, ReportList *reports)
 {
 	AssetEngine *engine;
 
@@ -126,6 +126,15 @@ AssetEngine *BKE_asset_engine_create(AssetEngineType *type)
 	engine = MEM_callocN(sizeof(AssetEngine), __func__);
 	engine->type = type;
 	engine->refcount = 1;
+
+	/* initialize error reports */
+	if (reports) {
+		engine->reports = reports; /* must be initialized already */
+	}
+	else {
+		engine->reports = MEM_mallocN(sizeof(ReportList), __func__);
+		BKE_reports_init(engine->reports, RPT_STORE | RPT_FREE);
+	}
 
 	return engine;
 }
@@ -149,6 +158,11 @@ void BKE_asset_engine_free(AssetEngine *engine)
 		if (engine->properties) {
 			IDP_FreeProperty(engine->properties);
 			MEM_freeN(engine->properties);
+		}
+
+		if (engine->reports && (engine->reports->flag & RPT_FREE)) {
+			BKE_reports_clear(engine->reports);
+			MEM_freeN(engine->reports);
 		}
 
 		MEM_freeN(engine);
