@@ -204,7 +204,7 @@ class AmberJobList(AmberJob):
                 self.nbr += 1
                 if is_dir:
                     # We only list dirs from real file system.
-                    uuid = uuid_unpack_bytes((path.encode()[:8] + b"|" + bytes([self.nbr])))
+                    uuid = uuid_unpack_bytes((path.encode()[:8] + b"|" + self.nbr.to_bytes(4, 'little')))
                     dirs.append((path, size, timestamp, uuid))
                 done.add(tsk)
         self.stat_tasks -= done
@@ -469,6 +469,18 @@ class AssetEngineAmber(AssetEngine):
             entries.root_path = self.root
             return True
         return False
+
+    def check_dir(self, entries):
+        # Stupid code just for test...
+        #~ entries.root_path = entries.root_path + "../"
+        #~ print(entries.root_path)
+        pass
+
+    def update_check(self, uuids):
+        # do nothing for now...
+        for uuid in uuids.uuids:
+            uuid.use_asset_reload = True
+        return True
 
     def sort_filter(self, use_sort, use_filter, params, entries):
 #        print(use_sort, use_filter)

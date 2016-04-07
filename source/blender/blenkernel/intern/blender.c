@@ -59,10 +59,13 @@
 #include "BLI_utildefines.h"
 #include "BLI_callbacks.h"
 
+#include "RNA_access.h"
+
 #include "IMB_imbuf.h"
 #include "IMB_moviecache.h"
 
 #include "BKE_appdir.h"
+#include "BKE_asset.h"
 #include "BKE_blender.h"
 #include "BKE_bpath.h"
 #include "BKE_brush.h"
@@ -89,8 +92,6 @@
 #include "BLO_undofile.h"
 #include "BLO_readfile.h" 
 #include "BLO_writefile.h" 
-
-#include "RNA_access.h"
 
 #include "WM_api.h" // XXXXX BAD, very BAD dependency (bad level call) - remove asap, elubie
 
@@ -523,24 +524,95 @@ void BKE_userdef_state(void)
 static void read_file_update_assets(bContext *C)
 {
 	Main *bmain = CTX_data_main(C);
-	ListBase *lb_array[MAX_LIBARRAY];
-	int i = set_listbasepointers(bmain, lb_array);
+
+	BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
 
 	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
 		if (lib->asset_repository) {
-			printf("Handling lib file %s (engine %s, %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
+			printf("Handling lib file %s (engine %s, ver. %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
+
+			AssetUUIDList uuids = {0};
+			AssetUUID *uuid;
+			AssetEngineType *ae_type = BKE_asset_engines_find(lib->asset_repository->asset_engine);
+			AssetEngine *ae = NULL;
+
+			uuids.asset_engine_version = lib->asset_repository->asset_engine_version;
+
+			printf("Handling lib file %s (engine %s, ver. %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
+
+			if (ae_type == NULL) {
+				printf("ERROR! Unknown asset engine!\n");
+			}
+			else {
+				ae = BKE_asset_engine_create(ae_type);
+			}
+
+			/* Note: we assume update check callback does not add, remove or alter order of uuids in that list! */
+
 			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
 				for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
 					ID *id = ld->data;
 
+					if (ae_type == NULL) {
+						if (id->uuid) {
+							id->uuid->tag = UUID_TAG_ENGINE_MISSING;
+						}
+						continue;
+					}
+
 					if (id->uuid) {
 						printf("\tWe need to check for updated asset %s...\n", id->name);
+						id->uuid->tag = 0;
+
+						/* XXX horrible, need to use some mempool, stack or something :) */
+						uuids.nbr_uuids++;
+						if (uuids.uuids) {
+							uuids.uuids = MEM_reallocN_id(uuids.uuids, sizeof(*uuids.uuids) * (size_t)uuids.nbr_uuids, __func__);
+						}
+						else {
+							uuids.uuids = MEM_mallocN(sizeof(*uuids.uuids) * (size_t)uuids.nbr_uuids, __func__);
+						}
+						uuids.uuids[uuids.nbr_uuids - 1] = *id->uuid;
 					}
 					else {
 						printf("\t\tWe need to check for updated asset sub-data %s...\n", id->name);
 					}
+					id->tag |= LIB_TAG_DOIT;
 				}
 			}
+
+			if (ae == NULL) {
+				continue;  /* uuids.uuids has not been allocated either, we can skip to next lib safely. */
+			}
+
+			const int nbr_uuids = uuids.nbr_uuids;
+			ae_type->update_check(ae, &uuids);
+
+			BLI_assert(nbr_uuids == uuids.nbr_uuids);
+
+			uuid = uuids.uuids;
+			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
+				for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
+					ID *id = ld->data;
+					if (id->uuid) {
+						*id->uuid = *uuid;
+						uuid++;
+
+						if (id->uuid->tag & UUID_TAG_ENGINE_MISSING) {
+							printf("\t%s uses a currently unknown asset engine!\n", id->name);
+						}
+						else if (id->uuid->tag & UUID_TAG_ASSET_MISSING) {
+							printf("\t%s is currently unknown by asset engine!\n", id->name);
+						}
+						else if (id->uuid->tag & UUID_TAG_ASSET_RELOAD) {
+							printf("\t%s needs to be reloaded/updated!\n", id->name);
+						}
+					}
+				}
+			}
+
+			MEM_freeN(uuids.uuids);
+			BKE_asset_engine_free(ae);
 		}
 	}
 }
@@ -564,7 +636,7 @@ int BKE_read_file(bContext *C, const char *filepath, ReportList *reports)
 			retval = BKE_READ_FILE_FAIL;
 		}
 		else {
-			setup_app_data(C, bfd, filepath, reports);  // frees BFD
+			setup_app_data(C, bfd, filepath, reports);
 
 			printf("Updating assets for: %s\n", filepath);
 			read_file_update_assets(C);

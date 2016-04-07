@@ -982,17 +982,27 @@ int filelist_geticon(struct FileList *filelist, const int index, const bool is_m
 
 /* ********** Main ********** */
 
-static void filelist_checkdir_dir(struct FileList *UNUSED(filelist), char *r_dir)
+static void filelist_checkdir_dir(struct FileList *filelist, char *r_dir)
 {
-	BLI_make_exist(r_dir);
+	if (filelist->ae && filelist->ae->type->check_dir) {
+		filelist->ae->type->check_dir(filelist->ae, r_dir);
+	}
+	else {
+		BLI_make_exist(r_dir);
+	}
 }
 
-static void filelist_checkdir_lib(struct FileList *UNUSED(filelist), char *r_dir)
+static void filelist_checkdir_lib(struct FileList *filelist, char *r_dir)
 {
-	char dir[FILE_MAXDIR];
-	if (!BLO_library_path_explode(r_dir, dir, NULL, NULL)) {
-		/* if not a valid library, we need it to be a valid directory! */
-		BLI_make_exist(r_dir);
+	if (filelist->ae && filelist->ae->type->check_dir) {
+		filelist->ae->type->check_dir(filelist->ae, r_dir);
+	}
+	else {
+		char dir[FILE_MAXDIR];
+		if (!BLO_library_path_explode(r_dir, dir, NULL, NULL)) {
+			/* if not a valid library, we need it to be a valid directory! */
+			BLI_make_exist(r_dir);
+		}
 	}
 }
 
@@ -1705,24 +1715,20 @@ FileDirEntry *filelist_entry_find_uuid(struct FileList *filelist, const int uuid
 
 		if (engine->type->entries_uuid_get) {
 			FileDirEntryArr r_entries;
-			AssetUUIDList *uuids = MEM_mallocN(sizeof(*uuids), __func__);
-			AssetUUID *asset_uuid;
+			AssetUUIDList uuids = {0};
+			AssetUUID asset_uuid = {0};
 			FileDirEntry *en = NULL;
 
-			uuids->uuids = MEM_callocN(sizeof(*uuids->uuids), __func__);
-			uuids->nbr_uuids = 1;
-			uuids->asset_engine_version = engine->type->version;
-			asset_uuid = &uuids->uuids[0];
+			uuids.uuids = &asset_uuid;
+			uuids.nbr_uuids = 1;
+			uuids.asset_engine_version = engine->type->version;
 
-			memcpy(asset_uuid->uuid_asset, uuid, sizeof(asset_uuid->uuid_asset));
+			memcpy(asset_uuid.uuid_asset, uuid, sizeof(asset_uuid.uuid_asset));
 			/* Variants and revision uuids remain NULL here. */
 
-			if (engine->type->entries_uuid_get(engine, uuids, &r_entries)) {
+			if (engine->type->entries_uuid_get(engine, &uuids, &r_entries)) {
 				en = r_entries.entries.first;
 			}
-
-			MEM_freeN(uuids->uuids);
-			MEM_freeN(uuids);
 
 			return en;
 		}
