@@ -50,6 +50,9 @@
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
 
+#include "RNA_access.h"
+
+#include "BKE_asset.h"
 #include "BKE_context.h"
 #include "BKE_idprop.h"
 #include "BKE_global.h"
@@ -65,8 +68,6 @@
 #include "ED_screen.h"
 #include "ED_view3d.h"
 #include "ED_util.h"
-
-#include "RNA_access.h"
 
 #include "GPU_debug.h"
 
@@ -1810,6 +1811,10 @@ static int wm_handler_fileselect_do(bContext *C, ListBase *handlers, wmEventHand
 			/* settings for filebrowser, sfile is not operator owner but sends events */
 			sfile = (SpaceFile *)sa->spacedata.first;
 			sfile->op = handler->op;
+
+			/* Note: This may not be optimal, but for now always reset to default engine when opening a new browser.
+			 *       Otherwise, we get previous engine even when we want to save .blend, yuck. */
+			BLI_strncpy(sfile->asset_engine, AE_FAKE_ENGINE_ID, sizeof(sfile->asset_engine));
 
 			ED_fileselect_set_params(sfile);
 				
