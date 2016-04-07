@@ -3775,6 +3775,22 @@ bool BKE_object_is_animated(Scene *scene, Object *ob)
 	return false;
 }
 
+void BKE_object_properties_relink(Object *ob)
+{
+	if (ob->id.lib)
+		return;
+
+	if (ob->pose) {
+		bPoseChannel *chan;
+		for (chan = ob->pose->chanbase.first; chan; chan = chan->next) {
+			IDP_RelinkProperty(chan->prop);
+		}
+	}
+
+	/* Hope the relinking is done correctly on BKE_libblock_relink's id_relink_looper */
+	/* IDP_RelinkProperty(ob->id.properties); */
+}
+
 MovieClip *BKE_object_movieclip_get(Scene *scene, Object *ob, bool use_default)
 {
 	MovieClip *clip = use_default ? scene->clip : NULL;

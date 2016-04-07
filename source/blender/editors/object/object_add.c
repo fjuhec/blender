@@ -1204,6 +1204,7 @@ static void copy_object_set_idnew(bContext *C)
 	CTX_DATA_BEGIN (C, Object *, ob, selected_editable_objects)
 	{
 		BKE_libblock_relink(&ob->id);
+		BKE_object_properties_relink(ob);
 	}
 	CTX_DATA_END;
 
@@ -2117,6 +2118,7 @@ Base *ED_object_add_duplicate(Main *bmain, Scene *scene, Base *base, int dupflag
 
 	/* link own references to the newly duplicated data [#26816] */
 	BKE_libblock_relink(&ob->id);
+	BKE_object_properties_relink(ob);
 	set_sca_new_poins_ob(ob);
 
 	/* DAG_relations_tag_update(bmain); */ /* caller must do */

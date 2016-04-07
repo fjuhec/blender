@@ -1073,6 +1073,8 @@ static bool id_relink_looper(void *UNUSED(user_data), ID **id_pointer, const int
 		/* See: NEW_ID macro */
 		if (id->newid) {
 			BKE_library_update_ID_link_user(id->newid, id, cd_flag);
+			/* Not sure of this */
+			IDP_RelinkProperty(id->newid->properties);
 			*id_pointer = id->newid;
 		}
 		else if (id->tag & LIB_TAG_NEW) {
@@ -1267,6 +1269,8 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, bool do_id_user)
 			BKE_paint_curve_free((PaintCurve *)id);
 			break;
 	}
+
+	IDP_unlinkIDLinks(id);
 
 	/* avoid notifying on removed data */
 	BKE_main_lock(bmain);
