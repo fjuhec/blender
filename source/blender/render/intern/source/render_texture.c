@@ -1270,8 +1270,13 @@ static int multitex_nodes_intern(Tex *tex,
 				ImBuf *ibuf = BKE_image_pool_acquire_ibuf(tex->ima, &tex->iuser, pool);
 				
 				/* don't linearize float buffers, assumed to be linear */
-				if (ibuf && !(ibuf->rect_float) && scene_color_manage)
+				if (ibuf != NULL &&
+				    ibuf->rect_float == NULL &&
+				    (rgbnor & TEX_RGB) &&
+				    scene_color_manage)
+				{
 					IMB_colormanagement_colorspace_to_scene_linear_v3(&texres->tr, ibuf->rect_colorspace);
+				}
 
 				BKE_image_pool_release_ibuf(tex->ima, ibuf, pool);
 			}
@@ -1312,8 +1317,13 @@ static int multitex_nodes_intern(Tex *tex,
 				ImBuf *ibuf = BKE_image_pool_acquire_ibuf(tex->ima, &tex->iuser, pool);
 
 				/* don't linearize float buffers, assumed to be linear */
-				if (ibuf && !(ibuf->rect_float) && scene_color_manage)
+				if (ibuf != NULL &&
+				    ibuf->rect_float == NULL &&
+				    (rgbnor & TEX_RGB) &&
+				    scene_color_manage)
+				{
 					IMB_colormanagement_colorspace_to_scene_linear_v3(&texres->tr, ibuf->rect_colorspace);
+				}
 
 				BKE_image_pool_release_ibuf(tex->ima, ibuf, pool);
 			}
@@ -2501,8 +2511,13 @@ void do_material_tex(ShadeInput *shi, Render *re)
 					ImBuf *ibuf = BKE_image_pool_acquire_ibuf(ima, &tex->iuser, re->pool);
 					
 					/* don't linearize float buffers, assumed to be linear */
-					if (ibuf && !(ibuf->rect_float) && R.scene_color_manage)
+					if (ibuf != NULL &&
+					    ibuf->rect_float == NULL &&
+					    (rgbnor & TEX_RGB) &&
+					    R.scene_color_manage)
+					{
 						IMB_colormanagement_colorspace_to_scene_linear_v3(tcol, ibuf->rect_colorspace);
+					}
 
 					BKE_image_pool_release_ibuf(ima, ibuf, re->pool);
 				}
@@ -3109,14 +3124,15 @@ void do_halo_tex(HaloRen *har, float xn, float yn, float col_r[4])
 /* ------------------------------------------------------------------------- */
 
 /* hor and zen are RGB vectors, blend is 1 float, should all be initialized */
-void do_sky_tex(const float rco[3], const float lo[3], const float dxyview[2], float hor[3], float zen[3], float *blend, int skyflag, short thread)
+void do_sky_tex(
+        const float rco[3], const float view[3], const float lo[3], const float dxyview[2],
+        float hor[3], float zen[3], float *blend, int skyflag, short thread)
 {
 	const bool skip_load_image = (R.r.scemode & R_NO_IMAGE_LOAD) != 0;
 	const bool texnode_preview = (R.r.scemode & R_TEXNODE_PREVIEW) != 0;
 	MTex *mtex;
 	Tex *tex;
 	TexResult texres= {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, NULL};
-	const float *co;
 	float fact, stencilTin=1.0;
 	float tempvec[3], texvec[3], dxt[3], dyt[3];
 	int tex_nr, rgb= 0;
@@ -3127,6 +3143,8 @@ void do_sky_tex(const float rco[3], const float lo[3], const float dxyview[2], f
 	
 	for (tex_nr=0; tex_nr<MAX_MTEX; tex_nr++) {
 		if (R.wrld.mtex[tex_nr]) {
+			const float *co;
+
 			mtex= R.wrld.mtex[tex_nr];
 			
 			tex= mtex->tex;
@@ -3188,8 +3206,8 @@ void do_sky_tex(const float rco[3], const float lo[3], const float dxyview[2], f
 				}
 				break;
 			case TEXCO_EQUIRECTMAP:
-				tempvec[0]= atan2f(lo[0], lo[2]) / (float)M_PI;
-				tempvec[1]= 1.0f - 2.0f*saacos(lo[1]) / (float)M_PI;
+				tempvec[0]= -atan2f(lo[2], lo[0]) / (float)M_PI;
+				tempvec[1]=  atan2f(lo[1], hypot(lo[0], lo[2])) / (float)M_PI_2;
 				tempvec[2]= 0.0f;
 				co= tempvec;
 				break;
@@ -3214,6 +3232,9 @@ void do_sky_tex(const float rco[3], const float lo[3], const float dxyview[2], f
 //				mul_m3_v3(R.imat, shi->dxco);
 //				copy_v3_v3(shi->dygl, shi->dyco);
 //				mul_m3_v3(R.imat, shi->dyco);
+				break;
+			case TEXCO_VIEW:
+				co = view;
 				break;
 			}
 			
