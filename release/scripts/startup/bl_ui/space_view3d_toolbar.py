@@ -546,6 +546,31 @@ class VIEW3D_PT_tools_add_curve_edit(View3DPanel, Panel):
 
         VIEW3D_PT_tools_add_object.draw_add_curve(col, label=True)
 
+
+class VIEW3D_PT_tools_curveedit_options(View3DPanel, Panel):
+    bl_category = "Options"
+    bl_context = "curve_edit"
+    bl_label = "Curve Options"
+
+    def draw(self, context):
+        layout = self.layout
+
+        ob = context.active_object
+
+        tool_settings = context.tool_settings
+        mesh = ob.data
+
+        col = layout.column()
+
+        col.label("Curve Stroke:")
+        cps = tool_settings.curve_paint_settings
+        col.prop(cps, "error_threshold")
+        col.prop(cps, "use_corners_detect")
+        col = layout.column()
+        col.active = cps.use_corners_detect
+        col.prop(cps, "corner_angle")
+
+
 # ********** default tools for editmode_surface ****************
 
 
