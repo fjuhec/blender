@@ -30,13 +30,11 @@
 
 GHOST_OpenHMDManager::GHOST_OpenHMDManager(GHOST_System& sys)
 	: m_system(sys),
-	  m_available(false),
-	  m_context(NULL),
 	  m_device(NULL),
 	  m_deviceIndex(-1)
 {
-	//context can be pre-created. the device can be opened later at will
-	createContext(); 
+	// context can be pre-created. the device can be opened later at will
+	createContext();
 }
 
 GHOST_OpenHMDManager::~GHOST_OpenHMDManager()
@@ -46,7 +44,7 @@ GHOST_OpenHMDManager::~GHOST_OpenHMDManager()
 
 bool GHOST_OpenHMDManager::processEvents()
 {
-	if (m_available) {
+	if (m_device) {
 		GHOST_IWindow *window = m_system.getWindowManager()->getActiveWindow();
 
 		if (!window)
@@ -71,7 +69,7 @@ bool GHOST_OpenHMDManager::processEvents()
 
 bool GHOST_OpenHMDManager::available() const
 {
-	return m_available;
+	return (m_device != NULL);
 }
 
 bool GHOST_OpenHMDManager::createContext()
@@ -95,8 +93,17 @@ bool GHOST_OpenHMDManager::createContext()
 	}
 #endif
 
-	m_context = ohmd_ctx_create();
-	return (m_context != NULL);
+	if ((m_context = ohmd_ctx_create())) {
+		return true;
+	}
+
+	return false;
+}
+
+void GHOST_OpenHMDManager::destroyContext()
+{
+	ohmd_ctx_destroy(m_context);
+	m_context = NULL;
 }
 
 bool GHOST_OpenHMDManager::openDevice(const char *requested_vendor_name, const char *requested_device_name)
@@ -143,41 +150,29 @@ bool GHOST_OpenHMDManager::openDevice(int index)
 	//can't fail to open the device
 	m_deviceIndex = index;
 	m_device = ohmd_list_open_device(m_context, index);
-	m_available = true;
 	return true;
 }
 
 void GHOST_OpenHMDManager::closeDevice()
 {
-	if (!m_available) {
+	if (!m_device) {
 		return;
 	}
 
-	ohmd_ctx_destroy(m_context);
-	m_context = NULL;
+	destroyContext();
 	m_device = NULL;
 	m_deviceIndex = -1;
-	m_available = false;
 }
 
 int GHOST_OpenHMDManager::getNumDevices()
 {
-	if (!m_context)
-		if (!createContext()) {
-			return false;
-		}
-
-	int numDevices = ohmd_ctx_probe(m_context);
-
-	ohmd_ctx_destroy(m_context);
-	m_context = NULL;
-
-	return numDevices;
+	GHOST_ASSERT(m_context, "No OpenHMD context found");
+	return ohmd_ctx_probe(m_context);
 }
 
 const char *GHOST_OpenHMDManager::getError() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return NULL;
 	}
 
@@ -186,7 +181,7 @@ const char *GHOST_OpenHMDManager::getError() const
 
 const char *GHOST_OpenHMDManager::getDeviceName() const
 {
-	if (!m_available)
+	if (!m_device)
 		return NULL;
 
 	return ohmd_list_gets(m_context, m_deviceIndex, OHMD_PRODUCT);
@@ -194,24 +189,15 @@ const char *GHOST_OpenHMDManager::getDeviceName() const
 
 const char *GHOST_OpenHMDManager::getDeviceName(int index)
 {
-	if (!m_context)
-		if (!createContext()) {
-			return "";
-		}
-	//You need to probe to fetch the device information from the hardware
+	GHOST_ASSERT(m_context, "No OpenHMD context found");
+	// You need to probe to fetch the device information from the hardware
 	ohmd_ctx_probe(m_context);
-
-	const char* deviceName = ohmd_list_gets(m_context, index, OHMD_PRODUCT);
-
-	ohmd_ctx_destroy(m_context);
-	m_context = NULL;
-
-	return deviceName;
+	return ohmd_list_gets(m_context, index, OHMD_PRODUCT);
 }
 
 const char *GHOST_OpenHMDManager::getVendorName() const
 {
-	if (!m_available)
+	if (!m_device)
 		return NULL;
 
 	return ohmd_list_gets(m_context, m_deviceIndex, OHMD_VENDOR);
@@ -219,7 +205,7 @@ const char *GHOST_OpenHMDManager::getVendorName() const
 
 const char *GHOST_OpenHMDManager::getPath() const
 {
-	if (!m_available)
+	if (!m_device)
 		return NULL;
 
 	return ohmd_list_gets(m_context, m_deviceIndex, OHMD_PATH);
@@ -227,7 +213,7 @@ const char *GHOST_OpenHMDManager::getPath() const
 
 bool GHOST_OpenHMDManager::getRotationQuat(float orientation[4]) const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return false;
 	}
 
@@ -245,7 +231,7 @@ bool GHOST_OpenHMDManager::getRotationQuat(float orientation[4]) const
 
 void GHOST_OpenHMDManager::getLeftEyeGLModelviewMatrix(float mat[16]) const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return;
 	}
 
@@ -254,7 +240,7 @@ void GHOST_OpenHMDManager::getLeftEyeGLModelviewMatrix(float mat[16]) const
 
 void GHOST_OpenHMDManager::getRightEyeGLModelviewMatrix(float mat[16]) const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return;
 	}
 
@@ -263,7 +249,7 @@ void GHOST_OpenHMDManager::getRightEyeGLModelviewMatrix(float mat[16]) const
 
 void GHOST_OpenHMDManager::getLeftEyeGLProjectionMatrix(float mat[16]) const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return;
 	}
 
@@ -272,7 +258,7 @@ void GHOST_OpenHMDManager::getLeftEyeGLProjectionMatrix(float mat[16]) const
 
 void GHOST_OpenHMDManager::getRightEyeGLProjectionMatrix(float mat[16]) const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return;
 	}
 
@@ -281,7 +267,7 @@ void GHOST_OpenHMDManager::getRightEyeGLProjectionMatrix(float mat[16]) const
 
 void GHOST_OpenHMDManager::getPositionVector(float position[3]) const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return;
 	}
 
@@ -290,7 +276,7 @@ void GHOST_OpenHMDManager::getPositionVector(float position[3]) const
 
 float GHOST_OpenHMDManager::getScreenHorizontalSize() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -301,7 +287,7 @@ float GHOST_OpenHMDManager::getScreenHorizontalSize() const
 
 float GHOST_OpenHMDManager::getScreenVerticalSize() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -312,7 +298,7 @@ float GHOST_OpenHMDManager::getScreenVerticalSize() const
 
 float GHOST_OpenHMDManager::getLensHorizontalSeparation() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -324,7 +310,7 @@ float GHOST_OpenHMDManager::getLensHorizontalSeparation() const
 
 float GHOST_OpenHMDManager::getLensVerticalPosition() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -335,7 +321,7 @@ float GHOST_OpenHMDManager::getLensVerticalPosition() const
 
 float GHOST_OpenHMDManager::getLeftEyeFOV() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -346,7 +332,7 @@ float GHOST_OpenHMDManager::getLeftEyeFOV() const
 
 float GHOST_OpenHMDManager::getLeftEyeAspectRatio() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -357,7 +343,7 @@ float GHOST_OpenHMDManager::getLeftEyeAspectRatio() const
 
 float GHOST_OpenHMDManager::getRightEyeFOV() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -368,7 +354,7 @@ float GHOST_OpenHMDManager::getRightEyeFOV() const
 
 float GHOST_OpenHMDManager::getRightEyeAspectRatio() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -379,7 +365,7 @@ float GHOST_OpenHMDManager::getRightEyeAspectRatio() const
 
 float GHOST_OpenHMDManager::getEyeIPD() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -390,7 +376,7 @@ float GHOST_OpenHMDManager::getEyeIPD() const
 
 float GHOST_OpenHMDManager::getProjectionZFar() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -401,7 +387,7 @@ float GHOST_OpenHMDManager::getProjectionZFar() const
 
 float GHOST_OpenHMDManager::getProjectionZNear() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -412,7 +398,7 @@ float GHOST_OpenHMDManager::getProjectionZNear() const
 
 void GHOST_OpenHMDManager::getDistortion(float distortion[6]) const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return;
 	}
 
@@ -421,7 +407,7 @@ void GHOST_OpenHMDManager::getDistortion(float distortion[6]) const
 
 int GHOST_OpenHMDManager::getScreenHorizontalResolution() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -432,7 +418,7 @@ int GHOST_OpenHMDManager::getScreenHorizontalResolution() const
 
 int GHOST_OpenHMDManager::getScreenVerticalResolution() const
 {
-	if (!m_available) {
+	if (!m_device) {
 		return -1;
 	}
 
@@ -443,7 +429,7 @@ int GHOST_OpenHMDManager::getScreenVerticalResolution() const
 
 bool GHOST_OpenHMDManager::setEyeIPD(float val)
 {
-	if (!m_available) {
+	if (!m_device) {
 		return false;
 	}
 
@@ -452,7 +438,7 @@ bool GHOST_OpenHMDManager::setEyeIPD(float val)
 
 bool GHOST_OpenHMDManager::setProjectionZFar(float val)
 {
-	if (!m_available) {
+	if (!m_device) {
 		return false;
 	}
 
@@ -461,7 +447,7 @@ bool GHOST_OpenHMDManager::setProjectionZFar(float val)
 
 bool GHOST_OpenHMDManager::setProjectionZNear(float val)
 {
-	if (!m_available) {
+	if (!m_device) {
 		return false;
 	}
 

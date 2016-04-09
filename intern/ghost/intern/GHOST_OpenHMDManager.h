@@ -285,8 +285,10 @@ private:
 	 * 	\return True if a context was created or was already available.
 	 */
 	bool createContext();
-
-	bool m_available;
+	/**
+	 * Destroy and NULL #m_context.
+	 */
+	void destroyContext();
 
 	ohmd_context *m_context;
 	ohmd_device *m_device;
