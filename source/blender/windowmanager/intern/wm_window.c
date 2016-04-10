@@ -1237,6 +1237,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
 
 				break;
+#ifdef WITH_INPUT_HMD
 			case GHOST_kEventHMD:
 			{
 				GHOST_TEventOpenHMDData *hmdd = data;
@@ -1256,6 +1257,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				}
 				break;
 			}
+#endif
 			case GHOST_kEventTrackpad:
 			{
 				GHOST_TEventTrackpadData *pd = data;
