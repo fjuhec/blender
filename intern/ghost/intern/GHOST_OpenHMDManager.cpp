@@ -30,6 +30,7 @@
 
 GHOST_OpenHMDManager::GHOST_OpenHMDManager(GHOST_System& sys)
 	: m_system(sys),
+	  m_context(NULL),
 	  m_device(NULL),
 	  m_deviceIndex(-1)
 {
