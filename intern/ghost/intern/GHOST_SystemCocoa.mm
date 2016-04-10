@@ -731,8 +731,9 @@ bool GHOST_SystemCocoa::processEvents(bool waitForEvent)
 			[pool drain];
 
 			/* Call base class to update os independent events */
-			if(GHOST_System::processEvents(anyProcessed))
+			if (GHOST_System::processEvents(anyProcessed)) {
 				anyProcessed = true;
+			}
 		} while (event != nil);
 #if 0
 	} while (waitForEvent && !anyProcessed); // Needed only for timer implementation

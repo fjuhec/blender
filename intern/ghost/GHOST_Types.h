@@ -518,7 +518,7 @@ typedef struct {
 } GHOST_TEventKeyData;
 
 typedef struct {
-    float orientation[4]; //orientation quaternion of the HMD
+	float orientation[4]; // Orientation quaternion of the HMD
 } GHOST_TEventOpenHMDData;
 
 typedef struct {

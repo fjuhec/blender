@@ -45,18 +45,15 @@ GHOST_OpenHMDManager::~GHOST_OpenHMDManager()
 
 bool GHOST_OpenHMDManager::processEvents()
 {
-	if (!m_device)
-		return false;
+	GHOST_IWindow *window;
 
-	GHOST_IWindow *window = m_system.getWindowManager()->getActiveWindow();
-
-	if (!window)
+	if (!m_device || !(window = m_system.getWindowManager()->getActiveWindow()))
 		return false;
 
 
 	GHOST_TUns64 now = m_system.getMilliSeconds();
 	GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, window);
-	GHOST_TEventOpenHMDData* data = (GHOST_TEventOpenHMDData*) event->getData();
+	GHOST_TEventOpenHMDData* data = (GHOST_TEventOpenHMDData*)event->getData();
 
 	ohmd_ctx_update(m_context);
 	if (!getRotationQuat(data->orientation))
