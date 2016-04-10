@@ -952,6 +952,8 @@ void GHOST_HMDopenDevice(int index)
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	ohmd->openDevice(index);
+#else
+	(void)index;
 #endif
 }
 
@@ -982,6 +984,7 @@ const char *GHOST_HMDgetDeviceName(int index)
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	return ohmd->getDeviceName(index);
 #else
+	(void)index;
 	return NULL;
 #endif
 }
