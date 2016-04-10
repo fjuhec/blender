@@ -73,4 +73,8 @@ if(WITH_CODEC_FFMPEG)
 	add_definitions(-DWITH_FFMPEG)
 endif()
 
+if(WITH_INPUT_HMD)
+	add_definitions(-DWITH_INPUT_HMD)
+endif()
+
 blender_add_lib(bf_blenloader "${SRC}" "${INC}" "${INC_SYS}")

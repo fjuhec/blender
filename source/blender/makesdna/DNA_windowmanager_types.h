@@ -122,9 +122,7 @@ typedef struct ReportTimerInfo {
 
 /* reports need to be before wmWindowManager */
 
-#ifdef WITH_INPUT_HMD
-#  define win_hmd win_hmd
-#else
+#ifndef WITH_INPUT_HMD
 #  ifdef __GNUC__
 #    define win_hmd win_hmd __attribute__ ((deprecated))
 #  endif
