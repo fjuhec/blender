@@ -5126,13 +5126,9 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 /* ******************************************************* */
 /* Head Mounted Display */
 
-/**
- * Same as #GHOST_TEventOpenHMDData.
- * \warning Keep in sync!
- */
-typedef struct HMDData {
+typedef struct HMDOrientationData {
 	float orientation[4];
-} HMDData;
+} HMDOrientationData;
 
 /**
  * Initial camera rotation (quaternion).
@@ -5271,7 +5267,7 @@ static void WM_OT_hmd_session_toggle(wmOperatorType *ot)
 	ot->poll = hmd_session_toggle_poll;
 }
 
-static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HMDData *data)
+static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HMDOrientationData *data)
 {
 	if (scene->r.scemode & R_HMD_IGNORE_ROT)
 		return;

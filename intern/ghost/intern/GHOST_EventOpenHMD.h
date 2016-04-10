@@ -6,14 +6,15 @@
 class GHOST_EventOpenHMD : public GHOST_Event
 {
 public:
-	GHOST_EventOpenHMD(GHOST_TUns64 time, GHOST_IWindow *window)
+	GHOST_EventOpenHMD(GHOST_TUns64 time, GHOST_TEventOpenHMDSubTypes subtype, GHOST_IWindow *window)
 		: GHOST_Event(time, GHOST_kEventHMD, window)
 	{
-		m_data = &m_orientationData;
+		m_OpenHMDEventData.subtype = subtype;
+		m_data = &m_OpenHMDEventData;
 	}
 
 protected:
-	GHOST_TEventOpenHMDData m_orientationData;
+	GHOST_TEventOpenHMDData m_OpenHMDEventData;
 };
 
 #endif // __GHOST_EVENTOPENHMD_H_

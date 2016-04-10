@@ -46,21 +46,35 @@ GHOST_OpenHMDManager::~GHOST_OpenHMDManager()
 bool GHOST_OpenHMDManager::processEvents()
 {
 	GHOST_IWindow *window;
-
-	if (!m_device || !(window = m_system.getWindowManager()->getActiveWindow()))
-		return false;
-
-
 	GHOST_TUns64 now = m_system.getMilliSeconds();
-	GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, window);
-	GHOST_TEventOpenHMDData* data = (GHOST_TEventOpenHMDData*)event->getData();
+	static int num_devices_prev = 0;
+	const int num_devices = getNumDevices();
+	bool anyProcessed = false;
 
-	ohmd_ctx_update(m_context);
-	if (!getRotationQuat(data->orientation))
-		return false;
+	/* DeviceNumChanged event
+	 * Would be nicer if OpenHMD could handle this for us. */
+	if (num_devices_prev != num_devices && (window = m_system.getWindowManager()->getActiveWindow())) {
+		GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, GHOST_kDeviceNumChanged, window);
+		m_system.pushEvent(event);
 
-	m_system.pushEvent(event);
-	return true;
+		num_devices_prev = num_devices;
+		anyProcessed = true;
+	}
+	/* OrientationUpdate event
+	 * We might want to add a timeout check here to avoid too many updates. */
+	if (1 && m_device && (window = m_system.getWindowManager()->getActiveWindow())) {
+		GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, GHOST_kOrientationUpdate, window);
+		GHOST_TEventOpenHMDData *data = (GHOST_TEventOpenHMDData*)event->getData();
+
+		ohmd_ctx_update(m_context);
+		if (!getRotationQuat(data->orientation))
+			return false;
+
+		m_system.pushEvent(event);
+		anyProcessed = true;
+	}
+
+	return anyProcessed;
 }
 
 bool GHOST_OpenHMDManager::available() const

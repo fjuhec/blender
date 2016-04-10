@@ -517,8 +517,14 @@ typedef struct {
 	char utf8_buf[6];
 } GHOST_TEventKeyData;
 
+typedef enum {
+	GHOST_kOrientationUpdate,
+	GHOST_kDeviceNumChanged,
+} GHOST_TEventOpenHMDSubTypes;
+
 typedef struct {
-	float orientation[4]; // Orientation quaternion of the HMD
+	GHOST_TEventOpenHMDSubTypes subtype;
+	float orientation[4]; // Orientation quaternion of the HMD (only for subtype GHOST_kOrientationUpdate)
 } GHOST_TEventOpenHMDData;
 
 typedef struct {

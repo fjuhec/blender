@@ -292,6 +292,7 @@ enum {
 
 	/* VR Viewport transform event */
 	EVT_HMD_TRANSFORM,
+	EVT_HMD_DEVICENUM_CHANGE,
 
 	/* ********** End of Input devices. ********** */
 
