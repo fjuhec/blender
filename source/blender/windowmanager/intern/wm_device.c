@@ -45,8 +45,6 @@
 /** \name Head Mounted Displays
  * \{ */
 
-/* XXX doing WITH_OPENHMD checks here is ugly */
-
 int WM_device_HMD_num_devices_get(void)
 {
 	return GHOST_HMDgetNumDevices();
@@ -77,6 +75,11 @@ int WM_device_HMD_current_get(void)
 const char *WM_device_HMD_name_get(int index)
 {
 	return GHOST_HMDgetDeviceName(index);
+}
+
+const char *WM_device_HMD_vendor_get(int index)
+{
+	return GHOST_HMDgetVendorName(index);
 }
 
 /**

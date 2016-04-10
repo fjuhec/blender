@@ -28,6 +28,8 @@
 #  include "udew.h"
 #endif
 
+#define CONTEXT_ASSERT GHOST_ASSERT(m_context, "No OpenHMD context found")
+
 GHOST_OpenHMDManager::GHOST_OpenHMDManager(GHOST_System& sys)
 	: m_system(sys),
 	  m_context(NULL),
@@ -179,7 +181,7 @@ void GHOST_OpenHMDManager::closeDevice()
 
 int GHOST_OpenHMDManager::getNumDevices()
 {
-	GHOST_ASSERT(m_context, "No OpenHMD context found");
+	CONTEXT_ASSERT;
 	return ohmd_ctx_probe(m_context);
 }
 
@@ -202,8 +204,8 @@ const char *GHOST_OpenHMDManager::getDeviceName() const
 
 const char *GHOST_OpenHMDManager::getDeviceName(int index)
 {
-	GHOST_ASSERT(m_context, "No OpenHMD context found");
-	// You need to probe to fetch the device information from the hardware
+	CONTEXT_ASSERT;
+	// Probe to fetch the device information from the hardware
 	ohmd_ctx_probe(m_context);
 	return ohmd_list_gets(m_context, index, OHMD_PRODUCT);
 }
@@ -214,6 +216,14 @@ const char *GHOST_OpenHMDManager::getVendorName() const
 		return NULL;
 
 	return ohmd_list_gets(m_context, m_deviceIndex, OHMD_VENDOR);
+}
+
+const char *GHOST_OpenHMDManager::getVendorName(int index)
+{
+	CONTEXT_ASSERT;
+	// Probe to fetch the device information from the hardware
+	ohmd_ctx_probe(m_context);
+	return ohmd_list_gets(m_context, index, OHMD_VENDOR);
 }
 
 const char *GHOST_OpenHMDManager::getPath() const

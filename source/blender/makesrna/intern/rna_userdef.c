@@ -114,6 +114,8 @@ EnumPropertyItem rna_enum_navigation_mode_items[] = {
 #include "BKE_pbvh.h"
 #include "BKE_paint.h"
 
+#include "BLI_string.h"
+
 #include "GPU_draw.h"
 #include "GPU_select.h"
 
@@ -658,8 +660,11 @@ static EnumPropertyItem *rna_userdef_hmd_device_itemf(
 
 	/* add devices */
 	for (int i = 0; i < WM_device_HMD_num_devices_get(); i++) {
+		static char name[MAX_NAME];
 		EnumPropertyItem tmp = {i, "", 0, "", ""};
-		tmp.identifier = tmp.name = WM_device_HMD_name_get(i);
+
+		BLI_snprintf(name, sizeof(name), "%s %s", WM_device_HMD_vendor_get(i), WM_device_HMD_name_get(i));
+		tmp.identifier = tmp.name = name;
 		RNA_enum_item_add(&item, &totitem, &tmp);
 	}
 

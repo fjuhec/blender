@@ -524,7 +524,8 @@ bool        WM_event_is_ime_switch(const struct wmEvent *event);
 int         WM_device_HMD_num_devices_get(void);
 void        WM_device_HMD_state_set(const int device, const bool enable);
 int         WM_device_HMD_current_get(void);
-const char *WM_device_HMD_name_get(const int index);
+const char *WM_device_HMD_name_get(int index);
+const char *WM_device_HMD_vendor_get(int index);
 float       WM_device_HMD_IPD_get(void);
 #endif
 

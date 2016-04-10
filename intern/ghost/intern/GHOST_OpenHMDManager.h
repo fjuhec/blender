@@ -105,6 +105,12 @@ public:
 	const char *getVendorName() const;
 
 	/**
+	 *  \return A c-style string with the human-readable name of the vendor at \a index.
+	 *  NULL is returned if available() is false.
+	 */
+	const char *getVendorName(int index);
+
+	/**
 	 *  \return A c-style string with the driver-specific path where the current device is attached.
 	 *  NULL is returned if available() is false.
 	 */

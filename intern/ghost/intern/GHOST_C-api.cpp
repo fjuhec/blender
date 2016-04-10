@@ -989,6 +989,18 @@ const char *GHOST_HMDgetDeviceName(int index)
 #endif
 }
 
+const char *GHOST_HMDgetVendorName(int index)
+{
+#ifdef WITH_OPENHMD
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getVendorName(index);
+#else
+	(void)index;
+	return NULL;
+#endif
+}
+
 float GHOST_HMDgetDeviceIPD()
 {
 #ifdef WITH_OPENHMD

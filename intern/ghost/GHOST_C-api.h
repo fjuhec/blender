@@ -935,6 +935,7 @@ extern void        GHOST_HMDopenDevice(int index);
 extern void        GHOST_HMDcloseDevice(void);
 extern int         GHOST_HMDgetOpenDeviceIndex(void);
 extern const char *GHOST_HMDgetDeviceName(int index);
+extern const char *GHOST_HMDgetVendorName(int index);
 extern float       GHOST_HMDgetDeviceIPD(void);
 
 #ifdef __cplusplus
