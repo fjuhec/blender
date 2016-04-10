@@ -45,27 +45,25 @@ GHOST_OpenHMDManager::~GHOST_OpenHMDManager()
 
 bool GHOST_OpenHMDManager::processEvents()
 {
-	if (m_device) {
-		GHOST_IWindow *window = m_system.getWindowManager()->getActiveWindow();
-
-		if (!window)
-			return false;
-
-
-		GHOST_TUns64 now = m_system.getMilliSeconds();
-		GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, window);
-		GHOST_TEventOpenHMDData* data = (GHOST_TEventOpenHMDData*) event->getData();
-
-		ohmd_ctx_update(m_context);
-		if (!getRotationQuat(data->orientation))
-			return false;
-
-		m_system.pushEvent(event);
-		return true;
-	}
-	else {
+	if (!m_device)
 		return false;
-	}
+
+	GHOST_IWindow *window = m_system.getWindowManager()->getActiveWindow();
+
+	if (!window)
+		return false;
+
+
+	GHOST_TUns64 now = m_system.getMilliSeconds();
+	GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, window);
+	GHOST_TEventOpenHMDData* data = (GHOST_TEventOpenHMDData*) event->getData();
+
+	ohmd_ctx_update(m_context);
+	if (!getRotationQuat(data->orientation))
+		return false;
+
+	m_system.pushEvent(event);
+	return true;
 }
 
 bool GHOST_OpenHMDManager::available() const
@@ -94,11 +92,7 @@ bool GHOST_OpenHMDManager::createContext()
 	}
 #endif
 
-	if ((m_context = ohmd_ctx_create())) {
-		return true;
-	}
-
-	return false;
+	return (m_context = ohmd_ctx_create());
 }
 
 void GHOST_OpenHMDManager::destroyContext()
@@ -109,8 +103,9 @@ void GHOST_OpenHMDManager::destroyContext()
 
 bool GHOST_OpenHMDManager::openDevice(const char *requested_vendor_name, const char *requested_device_name)
 {
-	//create the context if it hasn't been created yet.
-	//do not check for m_available as that indicates both the context and device are valid, which isn't the case if the context isn't available
+	// Create the context if it hasn't been created yet.
+	// Do not check for m_available as that indicates both the context and device
+	// are valid, which isn't the case if the context isn't available.
 	if (!createContext()) {
 		return false;
 	}
@@ -132,23 +127,24 @@ bool GHOST_OpenHMDManager::openDevice(const char *requested_vendor_name, const c
 
 bool GHOST_OpenHMDManager::openDevice(int index)
 {
-	//create the context if it hasn't been created yet
-	//do not check for m_available as that indicates both the context and device are valid, which isn't the case if the context isn't available
+	// Create the context if it hasn't been created yet
+	// Do not check for m_available as that indicates both the context and device
+	// are valid, which isn't the case if the context isn't available.
 	if (!createContext()) {
 		return false;
 	}
 
-	//out of bounds
+	// out of bounds
 	if (index >= ohmd_ctx_probe(m_context)) {
 		return false;
 	}
 
-	/* Blender only allows one opened device at a time */
+	// Blender only allows one opened device at a time
 	if (getOpenHMDDevice()) {
-		closeDevice();
+	closeDevice();
 	}
 
-	//can't fail to open the device
+	// can't fail to open the device
 	m_deviceIndex = index;
 	m_device = ohmd_list_open_device(m_context, index);
 	return true;
