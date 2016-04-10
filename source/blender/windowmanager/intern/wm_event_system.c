@@ -3505,23 +3505,13 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, int U
 		{
 			GHOST_TEventOpenHMDData *e = customdata;
 
-			switch (e->subtype) {
-				case GHOST_kOrientationUpdate:
-					event.type = EVT_HMD_TRANSFORM;
-					event.customdata = MEM_mallocN(sizeof(e->orientation), "HMD orientation event data");
-					event.customdatafree = true;
-					memcpy(event.customdata, e->orientation, sizeof(e->orientation));
-					break;
-				case GHOST_kDeviceNumChanged:
-					event.type = EVT_HMD_DEVICENUM_CHANGE;
-					break;
-				default:
-					BLI_assert(0);
-					break;
+			if (e->subtype == GHOST_kOrientationUpdate) {
+				event.type = EVT_HMD_TRANSFORM;
+				event.customdata = MEM_mallocN(sizeof(e->orientation), "HMD orientation event data");
+				event.customdatafree = true;
+				memcpy(event.customdata, e->orientation, sizeof(e->orientation));
+				wm_event_add(win, &event);
 			}
-
-			wm_event_add(win, &event);
-
 			break;
 		}
 #endif /* WITH_INPUT_HMD */

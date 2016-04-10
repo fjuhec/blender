@@ -1237,6 +1237,25 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				WM_event_add_notifier(C, NC_WINDOW | NA_EDITED, NULL);
 
 				break;
+			case GHOST_kEventHMD:
+			{
+				GHOST_TEventOpenHMDData *hmdd = data;
+
+				if (hmdd->subtype == GHOST_kDeviceNumChanged) {
+					if (WM_device_HMD_num_devices_get() > 0) {
+						if (U.hmd_device == -1) { /* Only if 'None' item is selected */
+							U.hmd_device = 0; /* last device plugged in */
+						}
+					}
+					else {
+						U.hmd_device = -1;
+					}
+				}
+				else {
+					wm_event_add_ghostevent(wm, win, type, time, data);
+				}
+				break;
+			}
 			case GHOST_kEventTrackpad:
 			{
 				GHOST_TEventTrackpadData *pd = data;
