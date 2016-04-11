@@ -583,10 +583,11 @@ static void read_file_update_assets(bContext *C)
 				continue;  /* uuids.uuids has not been allocated either, we can skip to next lib safely. */
 			}
 
-			const int nbr_uuids = uuids.nbr_uuids;
-			ae_type->update_check(ae, &uuids);
-
-			BLI_assert(nbr_uuids == uuids.nbr_uuids);
+			const int job_id = ae_type->update_check(ae, AE_JOB_ID_UNSET, &uuids);
+			if (job_id != AE_JOB_ID_INVALID) {
+				while (ae_type->status(ae, job_id) & AE_STATUS_RUNNING);
+				ae_type->kill(ae, job_id);
+			}
 
 			/* Note: UUIDs list itself is not editable from py (adding/removing/reordering items), so we can use mere
 			 *       order to map returned uuid data to their IDs. */

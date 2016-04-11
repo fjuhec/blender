@@ -74,15 +74,30 @@ typedef void (*ae_kill)(struct AssetEngine *engine, const int job_id);
 
 /* Those callbacks will be called from a 'fake-job' start *and* update functions (i.e. main thread, working one will
  * just sleep).
- * If given id is not null, engine should update from a running job if available, otherwise it should start a new one.
+ *
+ * If given id is not AE_JOB_ID_UNSET, engine should update from a running job if available, otherwise it should
+ * start a new one.
  * It is the responsability of the engine to start/stop background processes to actually perform tasks as/if needed.
+ *
+ * If the engine returns AE_JOB_ID_INVALID as job id, then code assumes whole execution was done in that single first
+ * call (i.e. allows engine that do not need it to not bother with whole async crap - they should then process
+ * the whole request in a very short amount of time (typically below 100ms).
  */
+#define AE_JOB_ID_UNSET 0
+#define AE_JOB_ID_INVALID -1
 
 /* FILEBROWSER - List everything available at given root path - only returns numbers of entries! */
 typedef int (*ae_list_dir)(struct AssetEngine *engine, const int job_id, struct FileDirEntryArr *entries_r);
 
 /* Ensure given assets (uuids) are really available for append/link (some kind of 'anticipated loading'...). */
 typedef int (*ae_ensure_entries)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
+
+/* 'update' hook, called to prepare updating of given entries (typically after a file (re)load).
+ * Engine should check whether given assets are still valid, if they should be updated, etc.
+ * uuids tagged as needing reload will then be reloaded as new ones
+ * (ae_load_pre, then actual lib loading, then ae_load_post).
+ * \warning DO NOT add or remove (or alter order of) uuids from the list in this callback! */
+typedef int (*ae_update_check)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
 
 /* ***** All callbacks below are blocking. They shall be completed upon return. ***** */
 
@@ -120,14 +135,6 @@ typedef bool (*ae_load_post)(struct AssetEngine *engine, struct ID *items, const
 /* Check if given dirpath is valid for current asset engine, it can also modify it.
  * r_dir is assumed to be least FILE_MAX. */
 typedef void (*ae_check_dir)(struct AssetEngine *engine, char *r_dir);
-
-/* 'update' hook, called to prepare updating of given entries (typically after a file (re)load).
- * Engine should check whether given assets are still valid, if they should be updated, etc.
- * uuids tagged as needing reload will then be reloaded as new ones
- * (ae_load_pre, then actual lib loading, then ae_load_post).
- * \warning DO NOT add or remove (or alter order of) uuids from the list in this callback! */
-/* XXX Should we make this non-blocking too? */
-typedef bool (*ae_update_check)(struct AssetEngine *engine, struct AssetUUIDList *uuids);
 
 typedef struct AssetEngineType {
 	struct AssetEngineType *next, *prev;

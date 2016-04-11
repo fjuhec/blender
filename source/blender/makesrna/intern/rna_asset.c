@@ -341,7 +341,7 @@ static int rna_ae_status(AssetEngine *engine, const int id)
 	return ret_status;
 }
 
-static float rna_ae_progress(AssetEngine *engine, const int id)
+static float rna_ae_progress(AssetEngine *engine, const int job_id)
 {
 	extern FunctionRNA rna_AssetEngine_progress_func;
 	PointerRNA ptr;
@@ -352,11 +352,13 @@ static float rna_ae_progress(AssetEngine *engine, const int id)
 	void *ret;
 	float ret_progress;
 
+	BLI_assert(job_id != AE_JOB_ID_INVALID);
+
 	RNA_pointer_create(NULL, engine->type->ext.srna, engine, &ptr);
 	func = &rna_AssetEngine_progress_func;
 
 	RNA_parameter_list_create(&list, &ptr, func);
-	RNA_parameter_set_lookup(&list, "job_id", &id);
+	RNA_parameter_set_lookup(&list, "job_id", &job_id);
 	engine->type->ext.call(NULL, &ptr, func, &list);
 
 	parm = RNA_function_find_parameter(NULL, func, "progress_return");
@@ -368,24 +370,26 @@ static float rna_ae_progress(AssetEngine *engine, const int id)
 	return ret_progress;
 }
 
-static void rna_ae_kill(AssetEngine *engine, const int id)
+static void rna_ae_kill(AssetEngine *engine, const int job_id)
 {
 	extern FunctionRNA rna_AssetEngine_kill_func;
 	PointerRNA ptr;
 	ParameterList list;
 	FunctionRNA *func;
 
+	BLI_assert(job_id != AE_JOB_ID_INVALID);
+
 	RNA_pointer_create(NULL, engine->type->ext.srna, engine, &ptr);
 	func = &rna_AssetEngine_kill_func;
 
 	RNA_parameter_list_create(&list, &ptr, func);
-	RNA_parameter_set_lookup(&list, "job_id", &id);
+	RNA_parameter_set_lookup(&list, "job_id", &job_id);
 	engine->type->ext.call(NULL, &ptr, func, &list);
 
 	RNA_parameter_list_free(&list);
 }
 
-static int rna_ae_list_dir(AssetEngine *engine, const int id, FileDirEntryArr *entries_r)
+static int rna_ae_list_dir(AssetEngine *engine, const int job_id, FileDirEntryArr *entries_r)
 {
 	extern FunctionRNA rna_AssetEngine_list_dir_func;
 	PointerRNA ptr;
@@ -396,11 +400,13 @@ static int rna_ae_list_dir(AssetEngine *engine, const int id, FileDirEntryArr *e
 	void *ret;
 	int ret_job_id;
 
+	BLI_assert(job_id != AE_JOB_ID_INVALID);
+
 	RNA_pointer_create(NULL, engine->type->ext.srna, engine, &ptr);
 	func = &rna_AssetEngine_list_dir_func;
 
 	RNA_parameter_list_create(&list, &ptr, func);
-	RNA_parameter_set_lookup(&list, "job_id", &id);
+	RNA_parameter_set_lookup(&list, "job_id", &job_id);
 	RNA_parameter_set_lookup(&list, "entries", &entries_r);
 	engine->type->ext.call(NULL, &ptr, func, &list);
 
@@ -465,7 +471,7 @@ static void rna_ae_check_dir(AssetEngine *engine, char *r_dir)
 	RNA_parameter_list_free(&list);
 }
 
-static bool rna_ae_update_check(AssetEngine *engine, AssetUUIDList *uuids)
+static int rna_ae_update_check(AssetEngine *engine, const int job_id, AssetUUIDList *uuids)
 {
 	extern FunctionRNA rna_AssetEngine_update_check_func;
 	PointerRNA ptr;
@@ -474,22 +480,25 @@ static bool rna_ae_update_check(AssetEngine *engine, AssetUUIDList *uuids)
 	FunctionRNA *func;
 
 	void *ret;
-	bool ret_success;
+	int ret_job_id;
+
+	BLI_assert(job_id != AE_JOB_ID_INVALID);
 
 	RNA_pointer_create(NULL, engine->type->ext.srna, engine, &ptr);
 	func = &rna_AssetEngine_update_check_func;
 
 	RNA_parameter_list_create(&list, &ptr, func);
+	RNA_parameter_set_lookup(&list, "job_id", &job_id);
 	RNA_parameter_set_lookup(&list, "uuids", &uuids);
 	engine->type->ext.call(NULL, &ptr, func, &list);
 
-	parm = RNA_function_find_parameter(NULL, func, "success_return");
+	parm = RNA_function_find_parameter(NULL, func, "job_id_return");
 	RNA_parameter_get(&list, parm, &ret);
-	ret_success = ((*(int *)ret) != 0);
+	ret_job_id = *(int *)ret;
 
 	RNA_parameter_list_free(&list);
 
-	return ret_success;
+	return ret_job_id;
 }
 
 static bool rna_ae_sort_filter(
@@ -647,11 +656,11 @@ static StructRNA *rna_AssetEngine_register(Main *bmain, ReportList *reports, voi
 
 	aet->list_dir = (have_function[3]) ? rna_ae_list_dir : NULL;
 
-	aet->load_pre = (have_function[4]) ? rna_ae_load_pre : NULL;
+	aet->update_check = (have_function[4]) ? rna_ae_update_check : NULL;
 
-	aet->check_dir = (have_function[5]) ? rna_ae_check_dir : NULL;
+	aet->load_pre = (have_function[5]) ? rna_ae_load_pre : NULL;
 
-	aet->update_check = (have_function[6]) ? rna_ae_update_check : NULL;
+	aet->check_dir = (have_function[6]) ? rna_ae_check_dir : NULL;
 
 	aet->sort_filter = (have_function[7]) ? rna_ae_sort_filter : NULL;
 	aet->entries_block_get = (have_function[8]) ? rna_ae_entries_block_get : NULL;
@@ -683,6 +692,16 @@ static IDProperty *rna_AssetEngine_idprops(PointerRNA *ptr, bool create)
 	}
 
 	return ae->properties;
+}
+
+static int rna_AssetEngine_const_job_id_invalid_get(PointerRNA *UNUSED(ptr))
+{
+	return AE_JOB_ID_INVALID;
+}
+
+static int rna_AssetEngine_const_job_id_unset_get(PointerRNA *UNUSED(ptr))
+{
+	return AE_JOB_ID_UNSET;
 }
 
 static int rna_AssetEngine_is_dirty_sorting_get(PointerRNA *ptr)
@@ -1072,6 +1091,19 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	                              "rna_AssetEngine_instance");
 	RNA_def_struct_idprops_func(srna, "rna_AssetEngine_idprops");
 
+	/* Constants (sigh). */
+	prop = RNA_def_int(srna, "job_id_invalid", AE_JOB_ID_INVALID, AE_JOB_ID_INVALID, AE_JOB_ID_INVALID + 1, "",
+	                   "'Invalid' constant for job id, return this when a job callback did not start a job",
+	                   AE_JOB_ID_INVALID, AE_JOB_ID_INVALID + 1);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_int_funcs(prop, "rna_AssetEngine_const_job_id_invalid_get", NULL, NULL);
+
+	prop = RNA_def_int(srna, "job_id_unset", AE_JOB_ID_UNSET, AE_JOB_ID_UNSET, AE_JOB_ID_UNSET + 1, "",
+	                   "'Unset' constant for job id, passed when blender wants to create a new job e.g.",
+	                   AE_JOB_ID_UNSET, AE_JOB_ID_UNSET + 1);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_int_funcs(prop, "rna_AssetEngine_const_job_id_unset_get", NULL, NULL);
+
 	/* AssetEngine state. */
 	prop = RNA_def_property(srna, "is_dirty_sorting", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_funcs(prop, "rna_AssetEngine_is_dirty_sorting_get",
@@ -1099,7 +1131,8 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	func = RNA_def_function(srna, "status", NULL);
 	RNA_def_function_ui_description(func, "Get status of whole engine, or a given job");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	RNA_def_int(func, "job_id", 0, 0, INT_MAX, "", "Job ID (zero to get engine status itself)", 0, INT_MAX);
+	RNA_def_int(func, "job_id", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
+	            "Job ID (JOB_ID_UNSET to get engine status itself)", AE_JOB_ID_INVALID, INT_MAX);
 	parm = RNA_def_enum(func, "status_return", asset_engine_status_types, 0, "", "Status of given job or whole engine");
 	RNA_def_property_flag(parm, PROP_ENUM_FLAG);
 	RNA_def_function_output(func, parm);
@@ -1108,8 +1141,8 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	func = RNA_def_function(srna, "progress", NULL);
 	RNA_def_function_ui_description(func, "Get progress of a given job, or all running ones (between 0.0 and 1.0)");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	RNA_def_int(func, "job_id", 0, 0, INT_MAX, "",
-	            "Job ID (zero to get average progress of all running jobs)", 0, INT_MAX);
+	RNA_def_int(func, "job_id", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
+	            "Job ID (JOB_ID_UNSET to get average progress of all running jobs)", AE_JOB_ID_INVALID, INT_MAX);
 	parm = RNA_def_float(func, "progress_return", 0.0f, 0.0f, 1.0f, "", "Progress", 0.0f, 1.0f);
 	RNA_def_function_output(func, parm);
 
@@ -1117,24 +1150,38 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	func = RNA_def_function(srna, "kill", NULL);
 	RNA_def_function_ui_description(func, "Unconditionnaly stop a given job, or all running ones");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL);
-	RNA_def_int(func, "job_id", 0, 0, INT_MAX, "", "Job ID (zero to kill all)", 0, INT_MAX);
+	RNA_def_int(func, "job_id", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
+	            "Job ID (JOB_ID_UNSET to kill all)", AE_JOB_ID_INVALID, INT_MAX);
 
 	/* Main listing callback */
 	func = RNA_def_function(srna, "list_dir", NULL);
 	RNA_def_function_ui_description(func, "Start/update the list of available entries (assets)");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
-	RNA_def_int(func, "job_id", 0, 0, INT_MAX, "", "Job ID (zero to start a new one)", 0, INT_MAX);
+	RNA_def_int(func, "job_id", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
+	            "Job ID (JOB_ID_UNSET to start a new one)", AE_JOB_ID_INVALID, INT_MAX);
 	RNA_def_pointer(func, "entries", "AssetList", "", "List of asset entries proposed to user by the asset engine");
-	parm = RNA_def_int(func, "job_id_return", 0, 0, INT_MAX, "", "Job ID", 0, INT_MAX);
+	parm = RNA_def_int(func, "job_id_return", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
+	                   "Job ID (if JOB_ID_INVALID, job is assumed already finished)", AE_JOB_ID_INVALID, INT_MAX);
+	RNA_def_function_output(func, parm);
+
+	/* Update callback */
+	func = RNA_def_function(srna, "update_check", NULL);
+	RNA_def_function_ui_description(func, "Check for already loaded asset status (is updated, still valid, etc.)");
+	RNA_def_function_flag(func, FUNC_ALLOW_WRITE);
+	RNA_def_int(func, "job_id", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
+	            "Job ID (JOB_ID_UNSET to start a new one)", AE_JOB_ID_INVALID, INT_MAX);
+	RNA_def_pointer(func, "uuids", "AssetUUIDList", "", "Identifiers of assets to check");
+	parm = RNA_def_int(func, "job_id_return", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
+	                   "Job ID (if JOB_ID_INVALID, job is assumed already finished)", AE_JOB_ID_INVALID, INT_MAX);
 	RNA_def_function_output(func, parm);
 
 	/* Pre-load callback */
 	func = RNA_def_function(srna, "load_pre", NULL);
-	RNA_def_function_ui_description(func, "Pre-process given assets to make them loadable by Blender");
+	RNA_def_function_ui_description(func, "Pre-process given assets identifiers to make them loadable by Blender");
 	RNA_def_function_flag(func, FUNC_ALLOW_WRITE);
 	RNA_def_pointer(func, "uuids", "AssetUUIDList", "", "Identifiers of assets to 'make real'");
 	RNA_def_pointer(func, "entries", "AssetList", "", "List of actual, existing paths that Blender can load");
-	parm = RNA_def_boolean(func, "success_return", 0, "", "Success");
+	parm = RNA_def_boolean(func, "success_return", false, "", "Success");
 	RNA_def_function_output(func, parm);
 
 	/* Dir-validating callback */
@@ -1142,14 +1189,6 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Check if given path is valid (as in, can be listed) for this engine");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
 	RNA_def_pointer(func, "entries", "AssetList", "", "Fake List of asset entries (only use/modify its root_path!)");
-
-	/* Update callback */
-	func = RNA_def_function(srna, "update_check", NULL);
-	RNA_def_function_ui_description(func, "Check for already loaded asset status (is updated, still valid, etc.)");
-	RNA_def_function_flag(func, FUNC_ALLOW_WRITE);
-	RNA_def_pointer(func, "uuids", "AssetUUIDList", "", "Identifiers of assets to check (do not modify list itself)");
-	parm = RNA_def_boolean(func, "success_return", 0, "", "Success");
-	RNA_def_function_output(func, parm);
 
 	/* Sorting/filtering callback */
 	func = RNA_def_function(srna, "sort_filter", NULL);
@@ -1160,7 +1199,7 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	parm = RNA_def_pointer(func, "params", "FileSelectParams", "",
 	                       "Generic filtering/sorting parameters from FileBrowser");
 	RNA_def_pointer(func, "entries", "AssetList", "", "List of asset entries proposed to user by the asset engine");
-	parm = RNA_def_boolean(func, "changed_return", 0, "", "Whether list of available entries was changed");
+	parm = RNA_def_boolean(func, "changed_return", false, "", "Whether list of available entries was changed");
 	RNA_def_function_output(func, parm);
 
 	/* Block of entries by-index getter callback */
@@ -1170,16 +1209,16 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	RNA_def_int(func, "start_index", 0, 0, INT_MAX, "", "Index of first entry (asset) to get (included)", 0, INT_MAX);
 	RNA_def_int(func, "end_index", 0, 0, INT_MAX, "", "Index of last entry (asset) to get (excluded)", 0, INT_MAX);
 	RNA_def_pointer(func, "entries", "AssetList", "", "List of asset entries proposed to user by the asset engine");
-	parm = RNA_def_boolean(func, "success_return", 0, "", "Success");
+	parm = RNA_def_boolean(func, "success_return", false, "", "Success");
 	RNA_def_function_output(func, parm);
 
 	/* Set of entries by-uuids getter callback */
 	func = RNA_def_function(srna, "entries_uuid_get", NULL);
-	RNA_def_function_ui_description(func, "Get a set of entries/assets by their uuids start/end index");
+	RNA_def_function_ui_description(func, "Get a set of entries/assets by their uuids");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
-	RNA_def_pointer(func, "uuids", "AssetUUIDList", "", "Identifiers of assets to 'make real'");
+	RNA_def_pointer(func, "uuids", "AssetUUIDList", "", "Identifiers of assets");
 	RNA_def_pointer(func, "entries", "AssetList", "", "List of asset entries matching given uuids");
-	parm = RNA_def_boolean(func, "success_return", 0, "", "Success");
+	parm = RNA_def_boolean(func, "success_return", false, "", "Success");
 	RNA_def_function_output(func, parm);
 
 	RNA_define_verify_sdna(false);
