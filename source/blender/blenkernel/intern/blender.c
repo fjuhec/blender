@@ -547,8 +547,6 @@ static void read_file_update_assets(bContext *C)
 				ae = BKE_asset_engine_create(ae_type, NULL);
 			}
 
-			/* Note: we assume update check callback does not add, remove or alter order of uuids in that list! */
-
 			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
 				for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
 					ID *id = ld->data;
@@ -589,6 +587,9 @@ static void read_file_update_assets(bContext *C)
 			ae_type->update_check(ae, &uuids);
 
 			BLI_assert(nbr_uuids == uuids.nbr_uuids);
+
+			/* Note: UUIDs list itself is not editable from py (adding/removing/reordering items), so we can use mere
+			 *       order to map returned uuid data to their IDs. */
 
 			uuid = uuids.uuids;
 			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {

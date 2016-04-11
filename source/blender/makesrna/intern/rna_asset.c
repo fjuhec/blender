@@ -1131,7 +1131,7 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	/* Pre-load callback */
 	func = RNA_def_function(srna, "load_pre", NULL);
 	RNA_def_function_ui_description(func, "Pre-process given assets to make them loadable by Blender");
-	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
+	RNA_def_function_flag(func, FUNC_ALLOW_WRITE);
 	RNA_def_pointer(func, "uuids", "AssetUUIDList", "", "Identifiers of assets to 'make real'");
 	RNA_def_pointer(func, "entries", "AssetList", "", "List of actual, existing paths that Blender can load");
 	parm = RNA_def_boolean(func, "success_return", 0, "", "Success");
