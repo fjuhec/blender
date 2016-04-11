@@ -296,6 +296,7 @@ typedef struct uiHandleButtonData {
 	/* tooltip */
 	ARegion *tooltip;
 	wmTimer *tooltiptimer;
+	unsigned int tooltip_force : 1;
 	
 	/* auto open */
 	bool used_mouse;
@@ -396,7 +397,6 @@ static bool ui_but_is_interactive(const uiBut *but, const bool labeledit);
 static bool ui_but_contains_pt(uiBut *but, float mx, float my);
 static bool ui_but_contains_point_px(ARegion *ar, uiBut *but, int x, int y);
 static uiBut *ui_but_find_mouse_over_ex(ARegion *ar, const int x, const int y, const bool labeledit);
-static uiBut *ui_but_find_mouse_over(ARegion *ar, const wmEvent *event);
 static void button_activate_init(bContext *C, ARegion *ar, uiBut *but, uiButtonActivateType type);
 static void button_activate_state(bContext *C, uiBut *but, uiHandleButtonState state);
 static void button_activate_exit(
@@ -760,7 +760,7 @@ static void ui_apply_but_funcs_after(bContext *C)
 
 		if (after.opptr) {
 			/* free in advance to avoid leak on exit */
-			opptr = *after.opptr,
+			opptr = *after.opptr;
 			MEM_freeN(after.opptr);
 		}
 
@@ -822,7 +822,7 @@ static void ui_apply_but_BLOCK(bContext *C, uiBut *but, uiHandleButtonData *data
 	if (but->type == UI_BTYPE_MENU)
 		ui_but_value_set(but, data->value);
 
-	ui_but_update(but);
+	ui_but_update_edited(but);
 	ui_apply_but_func(C, but);
 	data->retval = but->retval;
 	data->applied = true;
@@ -842,7 +842,9 @@ static void ui_apply_but_TOG(bContext *C, uiBut *but, uiHandleButtonData *data)
 		else   lvalue = UI_BITBUT_SET(lvalue, but->bitnr);
 		
 		ui_but_value_set(but, (double)lvalue);
-		if (but->type == UI_BTYPE_ICON_TOGGLE || but->type == UI_BTYPE_ICON_TOGGLE_N) ui_but_update(but);
+		if (but->type == UI_BTYPE_ICON_TOGGLE || but->type == UI_BTYPE_ICON_TOGGLE_N) {
+			ui_but_update_edited(but);
+		}
 	}
 	else {
 		
@@ -851,7 +853,9 @@ static void ui_apply_but_TOG(bContext *C, uiBut *but, uiHandleButtonData *data)
 		
 		if (ELEM(but->type, UI_BTYPE_TOGGLE_N, UI_BTYPE_ICON_TOGGLE_N, UI_BTYPE_CHECKBOX_N)) push = !push;
 		ui_but_value_set(but, (double)push);
-		if (but->type == UI_BTYPE_ICON_TOGGLE || but->type == UI_BTYPE_ICON_TOGGLE_N) ui_but_update(but);
+		if (but->type == UI_BTYPE_ICON_TOGGLE || but->type == UI_BTYPE_ICON_TOGGLE_N) {
+			ui_but_update_edited(but);
+		}
 	}
 	
 	ui_apply_but_func(C, but);
@@ -869,9 +873,11 @@ static void ui_apply_but_ROW(bContext *C, uiBlock *block, uiBut *but, uiHandleBu
 	ui_apply_but_func(C, but);
 
 	/* states of other row buttons */
-	for (bt = block->buttons.first; bt; bt = bt->next)
-		if (bt != but && bt->poin == but->poin && ELEM(bt->type, UI_BTYPE_ROW, UI_BTYPE_LISTROW))
-			ui_but_update(bt);
+	for (bt = block->buttons.first; bt; bt = bt->next) {
+		if (bt != but && bt->poin == but->poin && ELEM(bt->type, UI_BTYPE_ROW, UI_BTYPE_LISTROW)) {
+			ui_but_update_edited(bt);
+		}
+	}
 
 	data->retval = but->retval;
 	data->applied = true;
@@ -883,7 +889,7 @@ static void ui_apply_but_TEX(bContext *C, uiBut *but, uiHandleButtonData *data)
 		return;
 
 	ui_but_string_set(C, but, data->str);
-	ui_but_update(but);
+	ui_but_update_edited(but);
 
 	/* give butfunc a copy of the original text too.
 	 * feature used for bone renaming, channels, etc.
@@ -914,10 +920,11 @@ static void ui_apply_but_NUM(bContext *C, uiBut *but, uiHandleButtonData *data)
 			return;
 		}
 	}
-	else
+	else {
 		ui_but_value_set(but, data->value);
+	}
 
-	ui_but_update(but);
+	ui_but_update_edited(but);
 	ui_apply_but_func(C, but);
 
 	data->retval = but->retval;
@@ -927,7 +934,7 @@ static void ui_apply_but_NUM(bContext *C, uiBut *but, uiHandleButtonData *data)
 static void ui_apply_but_VEC(bContext *C, uiBut *but, uiHandleButtonData *data)
 {
 	ui_but_v3_set(but, data->vec);
-	ui_but_update(but);
+	ui_but_update_edited(but);
 	ui_apply_but_func(C, but);
 
 	data->retval = but->retval;
@@ -1238,7 +1245,7 @@ static bool ui_drag_toggle_set_xy_xy(
 						if (is_set_but != is_set) {
 							UI_but_execute(C, but);
 							if (do_check) {
-								ui_but_update(but);
+								ui_but_update_edited(but);
 							}
 							changed = true;
 						}
@@ -3059,7 +3066,7 @@ static void ui_textedit_begin(bContext *C, uiBut *but, uiHandleButtonData *data)
 
 	/* optional searchbox */
 	if (but->type ==  UI_BTYPE_SEARCH_MENU) {
-		data->searchbox = ui_searchbox_create(C, data->region, but);
+		data->searchbox = but->search_create_func(C, data->region, but);
 		ui_searchbox_update(C, data->searchbox, but, true); /* true = reset */
 	}
 
@@ -3462,7 +3469,7 @@ static void ui_do_but_textedit(bContext *C, uiBlock *block, uiBut *but, uiHandle
 			ui_apply_but(C, block, but, data, true);
 		}
 		else {
-			ui_but_update(but);
+			ui_but_update_edited(but);
 		}
 		but->changed = true;
 		
@@ -4164,9 +4171,23 @@ static bool ui_numedit_but_NUM(
 		data->draglastx = mx;
 	}
 	else {
+		float non_linear_range_limit;
+		float non_linear_pixel_map;
+		float non_linear_scale;
+
 		/* Use a non-linear mapping of the mouse drag especially for large floats (normal behavior) */
 		deler = 500;
-		if (!is_float) {
+		if (is_float) {
+			/* not needed for smaller float buttons */
+			non_linear_range_limit = 11.0f;
+			non_linear_pixel_map = 500.0f;
+		}
+		else {
+			/* only scale large int buttons */
+			non_linear_range_limit = 129.0f;
+			/* larger for ints, we dont need to fine tune them */
+			non_linear_pixel_map = 250.0f;
+
 			/* prevent large ranges from getting too out of control */
 			if      (softrange > 600) deler = powf(softrange, 0.75f);
 			else if (softrange <  25) deler = 50.0;
@@ -4174,18 +4195,19 @@ static bool ui_numedit_but_NUM(
 		}
 		deler /= fac;
 
-		if ((is_float == true) && (softrange > 11)) {
-			/* non linear change in mouse input- good for high precicsion */
-			data->dragf += (((float)(mx - data->draglastx)) / deler) * ((float)abs(mx - data->dragstartx) / 500.0f);
-		}
-		else if ((is_float == false) && (softrange > 129)) { /* only scale large int buttons */
-			/* non linear change in mouse input- good for high precicsionm ints need less fine tuning */
-			data->dragf += (((float)(mx - data->draglastx)) / deler) * ((float)abs(mx - data->dragstartx) / 250.0f);
+		if (softrange > non_linear_range_limit) {
+			non_linear_scale = (float)abs(mx - data->dragstartx) / non_linear_pixel_map;
 		}
 		else {
-			/*no scaling */
-			data->dragf += ((float)(mx - data->draglastx)) / deler;
+			non_linear_scale = 1.0f;
 		}
+
+		if (is_float == false) {
+			/* at minimum, moving cursor 2 pixels should change an int button. */
+			CLAMP_MIN(non_linear_scale, 0.5f * U.pixelsize);
+		}
+
+		data->dragf += (((float)(mx - data->draglastx)) / deler) * non_linear_scale;
 	
 		CLAMP(data->dragf, 0.0f, 1.0f);
 		data->draglastx = mx;
@@ -6619,7 +6641,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			/* replace/delete keyfraemes */
 			if (is_array_component) {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Replace Keyframes"),
-				               ICON_NONE, "ANIM_OT_keyframe_insert_button", "all", 1);
+				               ICON_KEY_HLT, "ANIM_OT_keyframe_insert_button", "all", 1);
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Replace Single Keyframe"),
 				               ICON_NONE, "ANIM_OT_keyframe_insert_button", "all", 0);
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Delete Keyframes"),
@@ -6629,7 +6651,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			}
 			else {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Replace Keyframe"),
-				               ICON_NONE, "ANIM_OT_keyframe_insert_button", "all", 1);
+				               ICON_KEY_HLT, "ANIM_OT_keyframe_insert_button", "all", 1);
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Delete Keyframe"),
 				               ICON_NONE, "ANIM_OT_keyframe_delete_button", "all", 1);
 			}
@@ -6645,26 +6667,26 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 		else if (is_anim) {
 			if (is_array_component) {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Insert Keyframes"),
-				               ICON_NONE, "ANIM_OT_keyframe_insert_button", "all", 1);
+				               ICON_KEY_HLT, "ANIM_OT_keyframe_insert_button", "all", 1);
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Insert Single Keyframe"),
 				               ICON_NONE, "ANIM_OT_keyframe_insert_button", "all", 0);
 			}
 			else {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Insert Keyframe"),
-				               ICON_NONE, "ANIM_OT_keyframe_insert_button", "all", 1);
+				               ICON_KEY_HLT, "ANIM_OT_keyframe_insert_button", "all", 1);
 			}
 		}
 		
 		if ((but->flag & UI_BUT_ANIMATED) && (but->rnapoin.type != &RNA_NlaStrip)) {
 			if (is_array_component) {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Clear Keyframes"),
-				               ICON_NONE, "ANIM_OT_keyframe_clear_button", "all", 1);
+				               ICON_KEY_DEHLT, "ANIM_OT_keyframe_clear_button", "all", 1);
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Clear Single Keyframes"),
 				               ICON_NONE, "ANIM_OT_keyframe_clear_button", "all", 0);
 			}
 			else {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Clear Keyframes"),
-				               ICON_NONE, "ANIM_OT_keyframe_clear_button", "all", 1);
+				               ICON_KEY_DEHLT, "ANIM_OT_keyframe_clear_button", "all", 1);
 			}
 		}
 
@@ -6674,13 +6696,13 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 
 			if (is_array_component) {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Delete Drivers"),
-				               ICON_NONE, "ANIM_OT_driver_button_remove", "all", 1);
+				               ICON_X, "ANIM_OT_driver_button_remove", "all", 1);
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Delete Single Driver"),
 				               ICON_NONE, "ANIM_OT_driver_button_remove", "all", 0);
 			}
 			else {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Delete Driver"),
-				               ICON_NONE, "ANIM_OT_driver_button_remove", "all", 1);
+				               ICON_X, "ANIM_OT_driver_button_remove", "all", 1);
 			}
 
 			uiItemO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy Driver"),
@@ -6697,14 +6719,14 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			uiItemS(layout);
 
 			if (is_array_component) {
-				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add Drivers"),
-				               ICON_NONE, "ANIM_OT_driver_button_add", "all", 1);
-				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add Single Driver"),
-				               ICON_NONE, "ANIM_OT_driver_button_add", "all", 0);
+				uiItemMenuEnumO(layout, C, "ANIM_OT_driver_button_add", "mapping_type", 
+				                CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add Drivers"), 
+				                ICON_DRIVER);
 			}
 			else {
-				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add Driver"),
-				               ICON_NONE, "ANIM_OT_driver_button_add", "all", 1);
+				uiItemMenuEnumO(layout, C, "ANIM_OT_driver_button_add", "mapping_type", 
+				                CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add Driver"), 
+				                ICON_DRIVER);
 			}
 
 			if (ANIM_driver_can_paste()) {
@@ -6720,7 +6742,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 
 			if (is_array_component) {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add All to Keying Set"),
-				               ICON_NONE, "ANIM_OT_keyingset_button_add", "all", 1);
+				               ICON_KEYINGSET, "ANIM_OT_keyingset_button_add", "all", 1);
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add Single to Keying Set"),
 				               ICON_NONE, "ANIM_OT_keyingset_button_add", "all", 0);
 				uiItemO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Remove from Keying Set"),
@@ -6728,7 +6750,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			}
 			else {
 				uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add to Keying Set"),
-				               ICON_NONE, "ANIM_OT_keyingset_button_add", "all", 1);
+				               ICON_KEYINGSET, "ANIM_OT_keyingset_button_add", "all", 1);
 				uiItemO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Remove from Keying Set"),
 				        ICON_NONE, "ANIM_OT_keyingset_button_remove");
 			}
@@ -6743,13 +6765,13 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 		
 		if (is_array_component) {
 			uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Reset All to Default Values"),
-			               ICON_NONE, "UI_OT_reset_default_button", "all", 1);
+			               ICON_LOOP_BACK, "UI_OT_reset_default_button", "all", 1);
 			uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Reset Single to Default Value"),
 			               ICON_NONE, "UI_OT_reset_default_button", "all", 0);
 		}
 		else {
 			uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Reset to Default Value"),
-			        ICON_NONE, "UI_OT_reset_default_button", "all", 1);
+			        ICON_LOOP_BACK, "UI_OT_reset_default_button", "all", 1);
 		}
 		if (is_editable /*&& is_idprop*/ && is_set) {
 			uiItemO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Unset"),
@@ -6782,7 +6804,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 				              0, 0, uiLayoutGetWidth(layout), UI_UNIT_Y, "");
 #endif
 
-				but2 = uiDefIconTextBut(block, UI_BTYPE_BUT, 0, ICON_NONE,
+				but2 = uiDefIconTextBut(block, UI_BTYPE_BUT, 0, ICON_HAND,
 				                        CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Change Shortcut"),
 				                        0, 0, w, UI_UNIT_Y, NULL, 0, 0, 0, 0, "");
 				UI_but_func_set(but2, popup_change_shortcut_func, but, NULL);
@@ -6793,7 +6815,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 				UI_but_func_set(but2, remove_shortcut_func, but, NULL);
 			}
 			else {
-				but2 = uiDefIconTextBut(block, UI_BTYPE_BUT, 0, ICON_NONE, IFACE_("Non-Keyboard Shortcut"),
+				but2 = uiDefIconTextBut(block, UI_BTYPE_BUT, 0, ICON_HAND, IFACE_("Non-Keyboard Shortcut"),
 				                        0, 0, w, UI_UNIT_Y, NULL, 0, 0, 0, 0,
 				                        TIP_("Only keyboard shortcuts can be edited that way, "
 				                             "please use User Preferences otherwise"));
@@ -6802,7 +6824,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 		}
 		/* only show 'add' if there's a suitable key map for it to go in */
 		else if (WM_keymap_guess_opname(C, but->optype->idname)) {
-			but2 = uiDefIconTextBut(block, UI_BTYPE_BUT, 0, ICON_NONE,
+			but2 = uiDefIconTextBut(block, UI_BTYPE_BUT, 0, ICON_HAND,
 			                        CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add Shortcut"),
 			                        0, 0, w, UI_UNIT_Y, NULL, 0, 0, 0, 0, "");
 			UI_but_func_set(but2, popup_add_shortcut_func, but, NULL);
@@ -6826,7 +6848,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 
 		if (UI_but_online_manual_id(but, buf, sizeof(buf))) {
 			uiItemO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Online Manual"),
-			        ICON_NONE, "WM_OT_doc_view_manual_ui_context");
+			        ICON_URL, "WM_OT_doc_view_manual_ui_context");
 
 			WM_operator_properties_create(&ptr_props, "WM_OT_doc_view");
 			RNA_string_set(&ptr_props, "doc_id", buf);
@@ -6842,6 +6864,11 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			uiItemFullO(layout, "WM_OT_doc_edit", "Submit Description", ICON_NONE, ptr_props.data, WM_OP_INVOKE_DEFAULT, 0);
 #endif
 		}
+	}
+
+	if (but->optype) {
+		uiItemO(layout, NULL,
+		        ICON_NONE, "UI_OT_copy_python_command_button");
 	}
 
 	/* perhaps we should move this into (G.debug & G_DEBUG) - campbell */
@@ -6950,12 +6977,12 @@ static int ui_do_button(bContext *C, uiBlock *block, uiBut *but, const wmEvent *
 		}
 		/* handle drivers */
 		else if ((event->type == DKEY) &&
-		         !IS_EVENT_MOD(event, shift, ctrl, oskey) &&
+		         !IS_EVENT_MOD(event, shift, oskey) &&
 		         (event->val == KM_PRESS))
 		{
 			if (event->alt)
 				ui_but_anim_remove_driver(C);
-			else
+			else if (event->ctrl)
 				ui_but_anim_add_driver(C);
 				
 			ED_region_tag_redraw(data->region);
@@ -7478,7 +7505,7 @@ static uiBut *ui_but_find_mouse_over_ex(ARegion *ar, const int x, const int y, c
 	return butover;
 }
 
-static uiBut *ui_but_find_mouse_over(ARegion *ar, const wmEvent *event)
+uiBut *ui_but_find_mouse_over(ARegion *ar, const wmEvent *event)
 {
 	return ui_but_find_mouse_over_ex(ar, event->x, event->y, event->ctrl != 0);
 }
@@ -7576,7 +7603,7 @@ static void button_tooltip_timer_reset(bContext *C, uiBut *but)
 		data->tooltiptimer = NULL;
 	}
 
-	if ((U.flag & USER_TOOLTIPS) || (but->flag & UI_BUT_TIP_FORCE)) {
+	if ((U.flag & USER_TOOLTIPS) || (data->tooltip_force)) {
 		if (!but->block->tooltipdisabled) {
 			if (!wm->drags.first) {
 				data->tooltiptimer = WM_event_add_timer(data->wm, data->window, TIMER, BUTTON_TOOLTIP_DELAY);
@@ -7742,7 +7769,9 @@ static void button_activate_init(bContext *C, ARegion *ar, uiBut *but, uiButtonA
 		/* XXX curve is temp */
 	}
 	else {
-		data->interactive = true;
+		if ((but->flag & UI_BUT_UPDATE_DELAY) == 0) {
+			data->interactive = true;
+		}
 	}
 	
 	data->state = BUTTON_STATE_INIT;
@@ -8102,14 +8131,12 @@ static int ui_handle_button_over(bContext *C, const wmEvent *event, ARegion *ar)
 	if (event->type == MOUSEMOVE) {
 		but = ui_but_find_mouse_over(ar, event);
 		if (but) {
-			if (event->alt) {
-				/* display tooltips if holding alt on mouseover when tooltips are off in prefs */
-				but->flag |= UI_BUT_TIP_FORCE;
-			}
-			else {
-				but->flag &= ~UI_BUT_TIP_FORCE;
-			}
 			button_activate_init(C, ar, but, BUTTON_ACTIVATE_OVER);
+
+			if (event->alt && but->active) {
+				/* display tooltips if holding alt on mouseover when tooltips are off in prefs */
+				but->active->tooltip_force = true;
+			}
 		}
 	}
 	else if (event->type == EVT_BUT_OPEN) {
@@ -9927,10 +9954,14 @@ static int ui_popup_handler(bContext *C, const wmEvent *event, void *userdata)
 	menu_region = CTX_wm_menu(C);
 	CTX_wm_menu_set(C, menu->region);
 
-	if (event->type == EVT_DROP) {
-		/* if we're handling drop event we'll want it to be handled by popup callee as well,
-		 * so it'll be possible to perform such operations as opening .blend files by dropping
-		 * them into blender even if there's opened popup like splash screen (sergey)
+	if (event->type == EVT_DROP || event->val == KM_DBL_CLICK) {
+		/* EVT_DROP:
+		 *   If we're handling drop event we'll want it to be handled by popup callee as well,
+		 *   so it'll be possible to perform such operations as opening .blend files by dropping
+		 *   them into blender, even if there's opened popup like splash screen (sergey).
+		 * KM_DBL_CLICK:
+		 *   Continue in case of double click so wm_handlers_do calls handler again with KM_PRESS
+		 *   event. This is needed to ensure correct button handling for fast clicking (T47532).
 		 */
 
 		retval = WM_UI_HANDLER_CONTINUE;

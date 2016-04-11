@@ -1470,6 +1470,12 @@ static int rna_RenderSettings_use_shading_nodes_get(PointerRNA *ptr)
 	return BKE_scene_use_new_shading_nodes(scene);
 }
 
+static int rna_RenderSettings_use_spherical_stereo_get(PointerRNA *ptr)
+{
+	Scene *scene = (Scene *)ptr->id.data;
+	return BKE_scene_use_spherical_stereo(scene);
+}
+
 static int rna_RenderSettings_use_game_engine_get(PointerRNA *ptr)
 {
 	RenderData *rd = (RenderData *)ptr->data;
@@ -2372,6 +2378,12 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Auto Keyframe Insert Keying Set",
 	                         "Automatic keyframe insertion using active Keying Set only");
 	RNA_def_property_ui_icon(prop, ICON_KEYINGSET, 0);
+	
+	/* Keyframing */
+	prop = RNA_def_property(srna, "keyframe_type", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "keyframe_type");
+	RNA_def_property_enum_items(prop, rna_enum_beztriple_keyframe_type_items);
+	RNA_def_property_ui_text(prop, "New Keyframe Type", "Type of keyframes to create when inserting keyframes");
 	
 	/* UV */
 	prop = RNA_def_property(srna, "uv_select_mode", PROP_ENUM, PROP_NONE);
@@ -3553,6 +3565,13 @@ static void rna_def_scene_game_recast_data(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
+	static EnumPropertyItem rna_enum_partitioning_items[] = {
+		{RC_PARTITION_WATERSHED, "WATERSHED", 0, "Watershed", "Classic Recast partitioning method generating the nicest tessellation"},
+		{RC_PARTITION_MONOTONE, "MONOTONE", 0, "Monotone", "Fastest navmesh generation method, may create long thin polygons"},
+		{RC_PARTITION_LAYERS, "LAYERS", 0, "Layers", "Reasonably fast method that produces better triangles than monotone partitioning"},
+		{0, NULL, 0, NULL, NULL}
+	};
+
 	srna = RNA_def_struct(brna, "SceneGameRecastData", NULL);
 	RNA_def_struct_sdna(srna, "RecastData");
 	RNA_def_struct_nested(brna, srna, "Scene");
@@ -3613,6 +3632,13 @@ static void rna_def_scene_game_recast_data(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0, 150, 1, 2);
 	RNA_def_property_float_default(prop, 20.0f);
 	RNA_def_property_ui_text(prop, "Merged Region Size", "Minimum regions size (smaller regions will be merged)");
+	RNA_def_property_update(prop, NC_SCENE, NULL);
+
+	prop = RNA_def_property(srna, "partitioning", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "partitioning");
+	RNA_def_property_enum_items(prop, rna_enum_partitioning_items);
+	RNA_def_property_enum_default(prop, RC_PARTITION_WATERSHED);
+	RNA_def_property_ui_text(prop, "Partitioning", "Choose partitioning method");
 	RNA_def_property_update(prop, NC_SCENE, NULL);
 
 	prop = RNA_def_property(srna, "edge_max_len", PROP_FLOAT, PROP_NONE);
@@ -5617,12 +5643,6 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	                         "Free all image textures from memory after render, to save memory before compositing");
 	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 
-	prop = RNA_def_property(srna, "use_free_unused_nodes", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_COMP_FREE);
-	RNA_def_property_ui_text(prop, "Free Unused Nodes",
-	                         "Free Nodes that are not used while compositing, to save memory");
-	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
-
 	prop = RNA_def_property(srna, "use_save_buffers", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_EXR_TILE_FILE);
 	RNA_def_property_boolean_funcs(prop, "rna_RenderSettings_save_buffers_get", NULL);
@@ -5950,6 +5970,11 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	RNA_def_property_boolean_funcs(prop, "rna_RenderSettings_use_shading_nodes_get", NULL);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Use Shading Nodes", "Active render engine uses new shading nodes system");
+
+	prop = RNA_def_property(srna, "use_spherical_stereo", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_RenderSettings_use_spherical_stereo_get", NULL);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "Use Spherical Stereo", "Active render engine supports spherical stereo rendering");
 
 	prop = RNA_def_property(srna, "use_game_engine", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_funcs(prop, "rna_RenderSettings_use_game_engine_get", NULL);

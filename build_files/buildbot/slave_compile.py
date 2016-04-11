@@ -74,6 +74,7 @@ if 'cmake' in builder:
         # Set up OSX architecture
         if builder.endswith('x86_64_10_6_cmake'):
             cmake_extra_options.append('-DCMAKE_OSX_ARCHITECTURES:STRING=x86_64')
+        cmake_extra_options.append('-DCUDA_NVCC_EXECUTABLE=/usr/local/cuda-hack/bin/nvcc')
 
     elif builder.startswith('win'):
         install_dir = None
@@ -84,16 +85,22 @@ if 'cmake' in builder:
             cmake_options.append(['-G', '"Visual Studio 12 2013"'])
 
     elif builder.startswith('linux'):
+        tokens = builder.split("_")
+        glibc = tokens[1]
+        if glibc == 'glibc219':
+            deb_name = "jessie"
+        elif glibc == 'glibc211':
+            deb_name = "squeeze"
         remove_install_dir = True
         cmake_config_file = "build_files/buildbot/config/blender_linux.cmake"
         cmake_player_config_file = "build_files/buildbot/config/blender_linux_player.cmake"
         if builder.endswith('x86_64_cmake'):
-            chroot_name = 'buildbot_squeeze_x86_64'
+            chroot_name = 'buildbot_' + deb_name + '_x86_64'
             targets = ['player', 'blender']
-        elif builder.endswith('i386_cmake'):
+        elif builder.endswith('i686_cmake'):
             bits = 32
-            chroot_name = 'buildbot_squeeze_i686'
-            cuda_chroot_name = 'buildbot_squeeze_x86_64'
+            chroot_name = 'buildbot_' + deb_name + '_i686'
+            cuda_chroot_name = 'buildbot_' + deb_name + '_x86_64'
             targets = ['player', 'blender', 'cuda']
 
     cmake_options.append("-C" + os.path.join(blender_dir, cmake_config_file))

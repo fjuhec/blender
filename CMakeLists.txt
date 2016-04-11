@@ -364,18 +364,22 @@ if(UNIX AND NOT APPLE)
 		mark_as_advanced(WITH_BOOST_ICU)
 	endif()
 endif()
+
 option(WITH_PYTHON_INSTALL       "Copy system python into the blender install folder" ON)
-option(WITH_PYTHON_INSTALL_NUMPY "Copy system numpy into the blender install folder"  ON)
-set(PYTHON_NUMPY_PATH            "" CACHE PATH "Path to python site-packages or dist-packages containing 'numpy' module")
-mark_as_advanced(PYTHON_NUMPY_PATH)
+if(WITH_PYTHON_INSTALL)
+	option(WITH_PYTHON_INSTALL_NUMPY "Copy system numpy into the blender install folder"  ON)
+	set(PYTHON_NUMPY_PATH            "" CACHE PATH "Path to python site-packages or dist-packages containing 'numpy' module")
+	mark_as_advanced(PYTHON_NUMPY_PATH)
+
+	if(UNIX AND NOT APPLE)
+		option(WITH_PYTHON_INSTALL_REQUESTS "Copy system requests into the blender install folder" ON)
+		set(PYTHON_REQUESTS_PATH "" CACHE PATH "Path to python site-packages or dist-packages containing 'requests' module")
+		mark_as_advanced(PYTHON_REQUESTS_PATH)
+	endif()
+endif()
+
 option(WITH_CPU_SSE              "Enable SIMD instruction if they're detected on the host machine" ON)
 mark_as_advanced(WITH_CPU_SSE)
-
-if(UNIX AND NOT APPLE)
-	option(WITH_PYTHON_INSTALL_REQUESTS "Copy system requests into the blender install folder" ON)
-	set(PYTHON_REQUESTS_PATH "" CACHE PATH "Path to python site-packages or dist-packages containing 'requests' module")
-	mark_as_advanced(PYTHON_REQUESTS_PATH)
-endif()
 
 # Cycles
 option(WITH_CYCLES					"Enable Cycles Render Engine" ON)
@@ -388,8 +392,10 @@ mark_as_advanced(CYCLES_CUDA_BINARIES_ARCH)
 unset(PLATFORM_DEFAULT)
 option(WITH_CYCLES_LOGGING	"Build Cycles with logging support" ON)
 option(WITH_CYCLES_DEBUG	"Build Cycles with extra debug capabilities" OFF)
+option(WITH_CYCLES_NATIVE_ONLY	"Build Cycles with native kernel only (which fits current CPU, use for development only)" OFF)
 mark_as_advanced(WITH_CYCLES_LOGGING)
 mark_as_advanced(WITH_CYCLES_DEBUG)
+mark_as_advanced(WITH_CYCLES_NATIVE_ONLY)
 
 option(WITH_CUDA_DYNLOAD "Dynamically load CUDA libraries at runtime" ON)
 mark_as_advanced(WITH_CUDA_DYNLOAD)
@@ -469,9 +475,11 @@ if(WIN32)
 	set(CPACK_INSTALL_PREFIX ${CMAKE_GENERIC_PROGRAM_FILES}/${})
 endif()
 
-# Experimental support of C++11
-option(WITH_CPP11 "Build with C++11 standard enabled, for development use only!" OFF)
-mark_as_advanced(WITH_CPP11)
+# Experimental support of C11 and C++11
+option(WITH_C11 "Build with C11 standard enabled, for development use only!" OFF)
+mark_as_advanced(WITH_C11)
+option(WITH_CXX11 "Build with C++11 standard enabled, for development use only!" OFF)
+mark_as_advanced(WITH_CXX11)
 
 # Dependency graph
 option(WITH_LEGACY_DEPSGRAPH "Build Blender with legacy dependency graph" ON)
@@ -503,40 +511,23 @@ endif()
 # Apple
 
 if(APPLE)
-	if(${CMAKE_VERSION} VERSION_LESS 3.0) # else breaks setting CMP0043 policy
-		cmake_minimum_required(VERSION 2.8.8)
-		cmake_policy(VERSION 2.8.8)
-	endif()
+	# require newer cmake on osx because of version handling,
+	# older cmake cannot handle 2 digit subversion!
+	cmake_minimum_required(VERSION 3.0.0)
 
 	if(NOT CMAKE_OSX_ARCHITECTURES)
 		set(CMAKE_OSX_ARCHITECTURES x86_64 CACHE STRING
 		"Choose the architecture you want to build Blender for: i386, x86_64 or ppc"
 		FORCE)
 	endif()
-	
-	execute_process(COMMAND uname -r OUTPUT_VARIABLE MAC_SYS) # check for actual system-version
-	if(${MAC_SYS} MATCHES 15)
-		set(OSX_SYSTEM 10.11)
-		# throw an error here, older cmake cannot handle 2 digit subversion!
-		cmake_minimum_required(VERSION 3.0.0)
-	elseif(${MAC_SYS} MATCHES 14)
-		set(OSX_SYSTEM 10.10)
-		# throw an error here, older cmake cannot handle 2 digit subversion!
-		cmake_minimum_required(VERSION 3.0.0)
-	elseif(${MAC_SYS} MATCHES 13)
-		set(OSX_SYSTEM 10.9)
-	elseif(${MAC_SYS} MATCHES 12)
-		set(OSX_SYSTEM 10.8)
-	elseif(${MAC_SYS} MATCHES 11)
-		set(OSX_SYSTEM 10.7)
-	elseif(${MAC_SYS} MATCHES 10)
-		set(OSX_SYSTEM 10.6)
-	elseif(${MAC_SYS} MATCHES 9)
-		set(OSX_SYSTEM 10.5)
-	else()
-		set(OSX_SYSTEM unsupported)
+
+	if(NOT DEFINED OSX_SYSTEM)
+		execute_process(
+		        COMMAND xcodebuild -version -sdk macosx SDKVersion
+		        OUTPUT_VARIABLE OSX_SYSTEM
+		        OUTPUT_STRIP_TRAILING_WHITESPACE)
 	endif()
-	
+
 	# workaround for incorrect cmake xcode lookup for developer previews - XCODE_VERSION does not take xcode-select path into accout
 	# but would always look into /Applications/Xcode.app while dev versions are named Xcode<version>-DP<preview_number>
 	execute_process(COMMAND xcode-select --print-path  OUTPUT_VARIABLE XCODE_CHECK OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -676,7 +667,7 @@ elseif(WITH_CYCLES OR WITH_OPENIMAGEIO OR WITH_AUDASPACE OR WITH_INTERNATIONAL O
 	# Keep enabled
 else()
 	# New dependency graph needs either Boost or C++11 for function bindings.
-	if(NOT USE_CPP11)
+	if(NOT USE_CXX11)
 		# Enabled but we don't need it
 		set(WITH_BOOST OFF)
 	endif()
@@ -720,6 +711,14 @@ else()
 	message(STATUS "SSE and SSE2 optimizations are DISABLED!")
 	set(COMPILER_SSE_FLAG)
 	set(COMPILER_SSE2_FLAG)
+endif()
+
+if(WITH_BUILDINFO)
+	find_package(Git)
+	if(NOT GIT_FOUND)
+		message(WARNING "Git was not found, disabling WITH_BUILDINFO")
+		set(WITH_BUILDINFO OFF)
+	endif()
 endif()
 
 TEST_SHARED_PTR_SUPPORT()
@@ -1255,6 +1254,14 @@ elseif(WIN32)
 	add_definitions(-DWIN32)
 
 	if(MSVC)
+		# Minimum MSVC Version
+		set(_min_ver "18.0.31101")
+		if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${_min_ver})
+			message(FATAL_ERROR
+			        "Visual Studio 2013 (Update 4, ${_min_ver}) required, "
+			        "found (${CMAKE_CXX_COMPILER_VERSION})")
+		endif()
+		unset(_min_ver)
 
 		# needed for some MSVC installations
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
@@ -1314,6 +1321,17 @@ elseif(WIN32)
 
 		set(PLATFORM_LINKFLAGS_DEBUG "/IGNORE:4099 /NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:libc.lib")
 
+		# Use dynamic loading for OpenMP
+		if(WITH_OPENMP)
+			if(MSVC_VERSION EQUAL 1800)
+				set(OPENMP_DLL_NAME "vcomp120")
+			else()
+				set(OPENMP_DLL_NAME "vcomp140")
+			endif()
+			set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} /DELAYLOAD:${OPENMP_DLL_NAME}.dll delayimp.lib")
+			set(PLATFORM_LINKFLAGS_DEBUG "${PLATFORM_LINKFLAGS_DEBUG} /DELAYLOAD:${OPENMP_DLL_NAME}d.dll delayimp.lib")
+		endif()
+
 		if(NOT DEFINED LIBDIR)
 
 			# Setup 64bit and 64bit windows systems
@@ -1333,7 +1351,10 @@ elseif(WIN32)
 				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/${LIBDIR_BASE}_vc12)
 			endif()
 		else()
-			message(STATUS using LIBDIR  ${LIBDIR})
+			message(STATUS "Using pre-compiled LIBDIR: ${LIBDIR}")
+		endif()
+		if(NOT EXISTS "${LIBDIR}/")
+			message(FATAL_ERROR "Windows requires pre-compiled libs at: '${LIBDIR}'")
 		endif()
 
 		# Add each of our libraries to our cmake_prefix_path so find_package() could work
@@ -1446,11 +1467,11 @@ elseif(WIN32)
 				set(OPENEXR_INCLUDE_DIRS ${OPENEXR_INCLUDE_DIR} ${OPENEXR}/include/OpenEXR)
 				set(OPENEXR_LIBPATH ${OPENEXR}/lib)
 				set(OPENEXR_LIBRARIES
-					${OPENEXR_LIBPATH}/Iex-2_2.lib
-					${OPENEXR_LIBPATH}/Half.lib
-					${OPENEXR_LIBPATH}/IlmImf-2_2.lib
-					${OPENEXR_LIBPATH}/Imath-2_2.lib
-					${OPENEXR_LIBPATH}/IlmThread-2_2.lib
+					optimized ${OPENEXR_LIBPATH}/Iex-2_2.lib debug ${OPENEXR_LIBPATH}/Iex-2_2_d.lib
+					optimized ${OPENEXR_LIBPATH}/Half.lib debug ${OPENEXR_LIBPATH}/Half_d.lib
+					optimized ${OPENEXR_LIBPATH}/IlmImf-2_2.lib debug ${OPENEXR_LIBPATH}/IlmImf-2_2_d.lib
+					optimized ${OPENEXR_LIBPATH}/Imath-2_2.lib debug ${OPENEXR_LIBPATH}/Imath-2_2_d.lib
+					optimized ${OPENEXR_LIBPATH}/IlmThread-2_2.lib debug ${OPENEXR_LIBPATH}/IlmThread-2_2_d.lib
 				)
 			endif()
 		endif()
@@ -1589,11 +1610,12 @@ elseif(WIN32)
 		endif()
 
 		if(WITH_OPENVDB)
-			set(TBB_LIBRARIES ${LIBDIR}/tbb/lib/tbb.lib)
+			set(BLOSC_LIBRARIES optimized ${LIBDIR}/blosc/lib/libblosc.lib debug ${LIBDIR}/blosc/lib/libblosc_d.lib)
+			set(TBB_LIBRARIES optimized ${LIBDIR}/tbb/lib/tbb.lib debug ${LIBDIR}/tbb/lib/tbb_debug.lib)
 			set(TBB_INCLUDE_DIR ${LIBDIR}/tbb/include)
 			set(OPENVDB ${LIBDIR}/openvdb)
 			set(OPENVDB_INCLUDE_DIRS ${OPENVDB}/include ${TBB_INCLUDE_DIR})
-			set(OPENVDB_LIBRARIES openvdb ${TBB_LIBRARIES})
+			set(OPENVDB_LIBRARIES optimized openvdb debug openvdb_d ${TBB_LIBRARIES} ${BLOSC_LIBRARIES})
 			set(OPENVDB_LIBPATH ${LIBDIR}/openvdb/lib)
 		endif()
 
@@ -1652,18 +1674,25 @@ elseif(WIN32)
 			" 
 			WITH_MINGW64)
 		
-		if(WITH_MINGW64)
-			message(STATUS "Compiling for 64 bit with MinGW-w64.")
-			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/mingw64)
-		else()
-			message(STATUS "Compiling for 32 bit with MinGW-w32.")
-			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/mingw32)
-			
-			if(WITH_RAYOPTIMIZATION)
-				message(WARNING "MinGW-w32 is known to be unstable with 'WITH_RAYOPTIMIZATION' option enabled.")
+		if(NOT DEFINED LIBDIR)
+			if(WITH_MINGW64)
+				message(STATUS "Compiling for 64 bit with MinGW-w64.")
+				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/mingw64)
+			else()
+				message(STATUS "Compiling for 32 bit with MinGW-w32.")
+				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/mingw32)
+
+				if(WITH_RAYOPTIMIZATION)
+					message(WARNING "MinGW-w32 is known to be unstable with 'WITH_RAYOPTIMIZATION' option enabled.")
+				endif()
 			endif()
+		else()
+			message(STATUS "Using pre-compiled LIBDIR: ${LIBDIR}")
 		endif()
-		
+		if(NOT EXISTS "${LIBDIR}/")
+			message(FATAL_ERROR "Windows requires pre-compiled libs at: '${LIBDIR}'")
+		endif()
+
 		list(APPEND PLATFORM_LINKLIBS -lshell32 -lshfolder -lgdi32 -lmsvcrt -lwinmm -lmingw32 -lm -lws2_32 -lz -lstdc++ -lole32 -luuid -lwsock32 -lpsapi -ldbghelp)
 
 		if(WITH_INPUT_IME)
@@ -1938,16 +1967,22 @@ elseif(APPLE)
 		set(WITH_LIBS10.5 ON CACHE BOOL "Use 10.5 libs" FORCE) # valid also for 10.6/7/8/9
 	endif()
 
-	if(WITH_LIBS10.5)
-		set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-9.x.universal)
-	else()
-		if(CMAKE_OSX_ARCHITECTURES MATCHES i386)
-			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-8.x.i386)
+	if(NOT DEFINED LIBDIR)
+		if(WITH_LIBS10.5)
+			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-9.x.universal)
 		else()
-			set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-8.0.0-powerpc)
+			if(CMAKE_OSX_ARCHITECTURES MATCHES i386)
+				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-8.x.i386)
+			else()
+				set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/darwin-8.0.0-powerpc)
+			endif()
 		endif()
+	else()
+		message(STATUS "Using pre-compiled LIBDIR: ${LIBDIR}")
 	endif()
-
+	if(NOT EXISTS "${LIBDIR}/")
+		message(FATAL_ERROR "Mac OSX requires pre-compiled libs at: '${LIBDIR}'")
+	endif()
 
 	if(WITH_OPENAL)
 		find_package(OpenAL)
@@ -1993,14 +2028,14 @@ elseif(APPLE)
 		if(NOT WITH_PYTHON_MODULE AND NOT WITH_PYTHON_FRAMEWORK)
 			# normally cached but not since we include them with blender
 			set(PYTHON_INCLUDE_DIR "${LIBDIR}/python/include/python${PYTHON_VERSION}m")
-			# set(PYTHON_EXECUTABLE "${LIBDIR}/python/bin/python${PYTHON_VERSION}") # not used yet
+			set(PYTHON_EXECUTABLE "${LIBDIR}/python/bin/python${PYTHON_VERSION}m")
 			set(PYTHON_LIBRARY python${PYTHON_VERSION}m)
 			set(PYTHON_LIBPATH "${LIBDIR}/python/lib/python${PYTHON_VERSION}")
 			# set(PYTHON_LINKFLAGS "-u _PyMac_Error")  # won't  build with this enabled
 		else()
 			# module must be compiled against Python framework
 			set(PYTHON_INCLUDE_DIR "/Library/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/include/python${PYTHON_VERSION}m")
-			set(PYTHON_EXECUTABLE "/Library/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/bin/python${PYTHON_VERSION}")
+			set(PYTHON_EXECUTABLE "/Library/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/bin/python${PYTHON_VERSION}m")
 			#set(PYTHON_LIBRARY python${PYTHON_VERSION})
 			set(PYTHON_LIBPATH "/Library/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib/python${PYTHON_VERSION}/config-${PYTHON_VERSION}m")
 			#set(PYTHON_LINKFLAGS "-u _PyMac_Error -framework Python")  # won't  build with this enabled
@@ -2009,6 +2044,10 @@ elseif(APPLE)
 		# uncached vars
 		set(PYTHON_INCLUDE_DIRS "${PYTHON_INCLUDE_DIR}")
 		set(PYTHON_LIBRARIES  "${PYTHON_LIBRARY}")
+
+		if(NOT EXISTS "${PYTHON_EXECUTABLE}")
+			message(FATAL_ERROR "Python executable missing: ${PYTHON_EXECUTABLE}")
+		endif()
 	endif()
 
 	if(WITH_FFTW3)
@@ -2297,12 +2336,6 @@ endif()
 
 #-----------------------------------------------------------------------------
 # Common.
-
-if(APPLE OR WIN32)
-	if(NOT EXISTS "${LIBDIR}/")
-		message(FATAL_ERROR "Apple and Windows require pre-compiled libs at: '${LIBDIR}'")
-	endif()
-endif()
 
 if(NOT WITH_FFTW3 AND WITH_MOD_OCEANSIM)
 	message(FATAL_ERROR "WITH_MOD_OCEANSIM requires WITH_FFTW3 to be ON")
@@ -2884,7 +2917,7 @@ if(WITH_PYTHON)
 	endif()
 endif()
 
-if(WITH_CPP11)
+if(WITH_CXX11)
 	if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 	elseif(MSVC12)
@@ -2897,7 +2930,11 @@ endif()
 # Visual Studio has all standards it supports available by default
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_C_COMPILER_ID MATCHES "Intel")
 	# Use C99 + GNU extensions, works with GCC, Clang, ICC
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
+	if(WITH_C11)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11")
+	else()
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
+	endif()
 endif()
 
 # Include warnings first, so its possible to disable them with user defined flags

@@ -145,9 +145,15 @@ static bool ED_uvedit_ensure_uvs(bContext *C, Scene *scene, Object *obedit)
 	if (ima)
 		ED_uvedit_assign_image(bmain, scene, obedit, ima, NULL);
 	
-	/* select new UV's */
+	/* select new UV's (ignore UV_SYNC_SELECTION in this case) */
 	BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-		uvedit_face_select_enable(scene, em, efa, false, cd_loop_uv_offset);
+		BMIter liter;
+		BMLoop *l;
+
+		BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
+			MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
+			luv->flag |= MLOOPUV_VERTSEL;
+		}
 	}
 
 	return 1;
@@ -217,7 +223,7 @@ void ED_uvedit_get_aspect(Scene *scene, Object *ob, BMesh *bm, float *aspx, floa
 }
 
 static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
-                                            BMFace *efa, const int cd_loop_uv_offset)
+                                            BMFace *efa, int face_index, const int cd_loop_uv_offset)
 {
 	ParamKey key;
 	ParamKey *vkeys = BLI_array_alloca(vkeys, efa->len);
@@ -230,7 +236,7 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 	BMIter liter;
 	BMLoop *l;
 
-	key = (ParamKey)efa;
+	key = (ParamKey)face_index;
 
 	/* let parametrizer split the ngon, it can make better decisions
 	 * about which split is best for unwrapping than scanfill */
@@ -256,6 +262,7 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 	BMLoop *l;
 	BMEdge *eed;
 	BMIter iter, liter;
+	int i;
 	
 	const int cd_loop_uv_offset = CustomData_get_offset(&bm->ldata, CD_MLOOPUV);
 
@@ -273,7 +280,7 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 	/* we need the vert indices */
 	BM_mesh_elem_index_ensure(bm, BM_VERT);
 	
-	BM_ITER_MESH (efa, &iter, bm, BM_FACES_OF_MESH) {
+	BM_ITER_MESH_INDEX (efa, &iter, bm, BM_FACES_OF_MESH, i) {
 
 		if ((BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) || (sel && BM_elem_flag_test(efa, BM_ELEM_SELECT) == 0)) {
 			continue;
@@ -293,7 +300,7 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 			}
 		}
 
-		construct_param_handle_face_add(handle, scene, efa, cd_loop_uv_offset);
+		construct_param_handle_face_add(handle, scene, efa, i, cd_loop_uv_offset);
 	}
 
 	if (!implicit) {
@@ -449,7 +456,7 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 
 		/* We will not check for v4 here. Subsurfed mfaces always have 4 vertices. */
 		BLI_assert(mpoly->totloop == 4);
-		key = (ParamKey)mpoly;
+		key = (ParamKey)i;
 		vkeys[0] = (ParamKey)mloop[0].v;
 		vkeys[1] = (ParamKey)mloop[1].v;
 		vkeys[2] = (ParamKey)mloop[2].v;

@@ -3120,14 +3120,17 @@ void BKE_curve_bevelList_make(Object *ob, ListBase *nurbs, bool for_render)
 
 /* ****************** HANDLES ************** */
 
-static void calchandleNurb_intern(BezTriple *bezt, BezTriple *prev, BezTriple *next,
-                                  bool is_fcurve, bool skip_align)
+static void calchandleNurb_intern(
+        BezTriple *bezt, const BezTriple *prev, const BezTriple *next,
+        bool is_fcurve, bool skip_align)
 {
 	/* defines to avoid confusion */
 #define p2_h1 ((p2) - 3)
 #define p2_h2 ((p2) + 3)
 
-	float *p1, *p2, *p3, pt[3];
+	const float *p1, *p3;
+	float *p2;
+	float pt[3];
 	float dvec_a[3], dvec_b[3];
 	float len, len_a, len_b;
 	float len_ratio;
@@ -4253,6 +4256,7 @@ void BKE_curve_nurb_active_set(Curve *cu, const Nurb *nu)
 		cu->actnu = CU_ACT_NONE;
 	}
 	else {
+		BLI_assert(!nu->hide);
 		ListBase *nurbs = BKE_curve_editNurbs_get(cu);
 		cu->actnu = BLI_findindex(nurbs, nu);
 	}
@@ -4355,6 +4359,10 @@ void BKE_curve_nurb_vert_active_validate(Curve *cu)
 			if ((bp->f1 & SELECT) == 0) {
 				cu->actvert = CU_ACT_NONE;
 			}
+		}
+
+		if (nu->hide) {
+			cu->actnu = CU_ACT_NONE;
 		}
 	}
 }
