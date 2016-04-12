@@ -1300,11 +1300,11 @@ bool GPU_fx_do_composite_pass(
 		if (lensdist_shader) {
 			const int color_uniform = GPU_shader_get_uniform(lensdist_shader, "warpTexture");
 			const int regionsize_uniform = GPU_shader_get_uniform(lensdist_shader, "RegionSize");
-			const float region_size_f[2] = {UNPACK2(region_size)};
+			const int region_size_i[2] = {UNPACK2(region_size)};
 
 			GPU_shader_bind(lensdist_shader);
 
-			GPU_shader_uniform_vector(lensdist_shader, regionsize_uniform, 2, 1, region_size_f);
+			GPU_shader_uniform_vector_int(lensdist_shader, regionsize_uniform, 2, 1, region_size_i);
 
 			GPU_texture_bind(src, numslots++);
 			GPU_shader_uniform_texture(lensdist_shader, color_uniform, src);

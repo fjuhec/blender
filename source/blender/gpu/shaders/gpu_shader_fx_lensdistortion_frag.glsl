@@ -1,4 +1,4 @@
-uniform vec2 RegionSize;
+uniform ivec2 RegionSize;
 uniform sampler2D warpTexture;
 
 const vec2 LeftLensCenter = vec2(0.25, 0.5);
