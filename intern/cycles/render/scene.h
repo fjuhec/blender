@@ -70,6 +70,16 @@ public:
 	device_vector<uint> prim_index;
 	device_vector<uint> prim_object;
 
+	device_vector<float4> bvh_curve_nodes;
+	device_vector<float4> bvh_curve_leaf_nodes;
+
+	/* TODO(sergey): With some smart trickery this arrays are avoidable. */
+	device_vector<uint> object_curve_node;
+	device_vector<uint> prim_curve_type;
+	device_vector<uint> prim_curve_visibility;
+	device_vector<uint> prim_curve_index;
+	device_vector<uint> prim_curve_object;
+
 	/* mesh */
 	device_vector<uint> tri_shader;
 	device_vector<float4> tri_vnormal;

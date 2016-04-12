@@ -88,7 +88,8 @@ Mesh::Mesh()
 	motion_steps = 3;
 	use_motion_blur = false;
 
-	bvh = NULL;
+	triangle_bvh = NULL;
+	curve_bvh = NULL;
 
 	tri_offset = 0;
 	vert_offset = 0;
@@ -105,7 +106,8 @@ Mesh::Mesh()
 
 Mesh::~Mesh()
 {
-	delete bvh;
+	delete triangle_bvh;
+	delete curve_bvh;
 }
 
 void Mesh::reserve(int numverts, int numtris, int numcurves, int numcurvekeys)
@@ -494,6 +496,35 @@ void Mesh::pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, s
 	}
 }
 
+void Mesh::refit_bvh(Progress *progress, BVH *bvh)
+{
+	Object object;
+	object.mesh = this;
+	vector<Object*> objects;
+	objects.push_back(&object);
+
+	bvh->objects = objects;
+	bvh->refit(*progress);
+}
+
+BVH *Mesh::create_bvh(SceneParams *params,
+                      Progress *progress,
+                      int primitive_mask)
+{
+	Object object;
+	object.mesh = this;
+	vector<Object*> objects;
+	objects.push_back(&object);
+
+	BVHParams bparams;
+	bparams.use_spatial_split = params->use_bvh_spatial_split;
+	bparams.use_qbvh = params->use_qbvh;
+	bparams.primitive_mask = primitive_mask;
+	BVH *bvh = BVH::create(bparams, objects);
+	bvh->build(*progress);
+	return bvh;
+}
+
 void Mesh::compute_bvh(SceneParams *params, Progress *progress, int n, int total)
 {
 	if(progress->get_cancel())
@@ -508,27 +539,21 @@ void Mesh::compute_bvh(SceneParams *params, Progress *progress, int n, int total
 		else
 			msg += string_printf("%s %u/%u", name.c_str(), (uint)(n+1), (uint)total);
 
-		Object object;
-		object.mesh = this;
-
-		vector<Object*> objects;
-		objects.push_back(&object);
-
-		if(bvh && !need_update_rebuild) {
-			progress->set_status(msg, "Refitting BVH");
-			bvh->objects = objects;
-			bvh->refit(*progress);
+		const bool has_bvh = (triangle_bvh != NULL) || (curve_bvh != NULL);
+		if(has_bvh && !need_update_rebuild) {
+			progress->set_status(msg, "Refitting Triangle BVH");
+			refit_bvh(progress, triangle_bvh);
+			progress->set_status(msg, "Refitting Curve BVH");
+			refit_bvh(progress, curve_bvh);
 		}
 		else {
-			progress->set_status(msg, "Building BVH");
+			progress->set_status(msg, "Building Triangle BVH");
+			delete triangle_bvh;
+			triangle_bvh = create_bvh(params, progress, PRIMITIVE_ALL_TRIANGLE);
 
-			BVHParams bparams;
-			bparams.use_spatial_split = params->use_bvh_spatial_split;
-			bparams.use_qbvh = params->use_qbvh;
-
-			delete bvh;
-			bvh = BVH::create(bparams, objects);
-			bvh->build(*progress);
+			progress->set_status(msg, "Building Curve BVH");
+			delete curve_bvh;
+			curve_bvh = create_bvh(params, progress, PRIMITIVE_ALL_CURVE);
 		}
 	}
 
@@ -580,14 +605,16 @@ bool Mesh::is_instanced() const
 
 MeshManager::MeshManager()
 {
-	bvh = NULL;
+	triangle_bvh = NULL;
+	curve_bvh = NULL;
 	need_update = true;
 	need_flags_update = true;
 }
 
 MeshManager::~MeshManager()
 {
-	delete bvh;
+	delete triangle_bvh;
+	delete curve_bvh;
 }
 
 void MeshManager::update_osl_attributes(Device *device, Scene *scene, vector<AttributeRequestSet>& mesh_attributes)
@@ -1099,8 +1126,6 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress)
 {
 	/* bvh build */
-	progress.set_status("Updating Scene BVH", "Building");
-
 	VLOG(1) << (scene->params.use_qbvh ? "Using QBVH optimization structure"
 	                                   : "Using regular BVH optimization structure");
 
@@ -1108,52 +1133,105 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 	bparams.top_level = true;
 	bparams.use_qbvh = scene->params.use_qbvh;
 	bparams.use_spatial_split = scene->params.use_bvh_spatial_split;
+	bparams.primitive_mask = PRIMITIVE_ALL_TRIANGLE;
 
-	delete bvh;
-	bvh = BVH::create(bparams, scene->objects);
-	bvh->build(progress);
+	progress.set_status("Updating Scene Triangle BVH", "Building");
+	delete triangle_bvh;
+	triangle_bvh = BVH::create(bparams, scene->objects);
+	triangle_bvh->build(progress);
 
 	if(progress.get_cancel()) return;
+
+	progress.set_status("Updating Scene Curve BVH", "Building");
+	delete curve_bvh;
+	bparams.primitive_mask = PRIMITIVE_ALL_CURVE;
+	curve_bvh = BVH::create(bparams, scene->objects);
+	curve_bvh->build(progress);
 
 	/* copy to device */
 	progress.set_status("Updating Scene BVH", "Copying BVH to device");
 
-	PackedBVH& pack = bvh->pack;
-
-	if(pack.nodes.size()) {
-		dscene->bvh_nodes.reference((float4*)&pack.nodes[0], pack.nodes.size());
+	PackedBVH& triangle_pack = triangle_bvh->pack;
+	if(triangle_pack.nodes.size()) {
+		dscene->bvh_nodes.reference((float4*)&triangle_pack.nodes[0],
+		                            triangle_pack.nodes.size());
 		device->tex_alloc("__bvh_nodes", dscene->bvh_nodes);
 	}
-	if(pack.leaf_nodes.size()) {
-		dscene->bvh_leaf_nodes.reference((float4*)&pack.leaf_nodes[0], pack.leaf_nodes.size());
+	if(triangle_pack.leaf_nodes.size()) {
+		dscene->bvh_leaf_nodes.reference((float4*)&triangle_pack.leaf_nodes[0],
+		                                 triangle_pack.leaf_nodes.size());
 		device->tex_alloc("__bvh_leaf_nodes", dscene->bvh_leaf_nodes);
 	}
-	if(pack.object_node.size()) {
-		dscene->object_node.reference((uint*)&pack.object_node[0], pack.object_node.size());
+	if(triangle_pack.object_node.size()) {
+		dscene->object_node.reference((uint*)&triangle_pack.object_node[0],
+		                              triangle_pack.object_node.size());
 		device->tex_alloc("__object_node", dscene->object_node);
 	}
-	if(pack.tri_storage.size()) {
-		dscene->tri_storage.reference(&pack.tri_storage[0], pack.tri_storage.size());
+	if(triangle_pack.tri_storage.size()) {
+		dscene->tri_storage.reference(&triangle_pack.tri_storage[0],
+		                              triangle_pack.tri_storage.size());
 		device->tex_alloc("__tri_storage", dscene->tri_storage);
 	}
-	if(pack.prim_type.size()) {
-		dscene->prim_type.reference((uint*)&pack.prim_type[0], pack.prim_type.size());
+	if(triangle_pack.prim_type.size()) {
+		dscene->prim_type.reference((uint*)&triangle_pack.prim_type[0],
+		                            triangle_pack.prim_type.size());
 		device->tex_alloc("__prim_type", dscene->prim_type);
 	}
-	if(pack.prim_visibility.size()) {
-		dscene->prim_visibility.reference((uint*)&pack.prim_visibility[0], pack.prim_visibility.size());
+	if(triangle_pack.prim_visibility.size()) {
+		dscene->prim_visibility.reference((uint*)&triangle_pack.prim_visibility[0],
+		                                  triangle_pack.prim_visibility.size());
 		device->tex_alloc("__prim_visibility", dscene->prim_visibility);
 	}
-	if(pack.prim_index.size()) {
-		dscene->prim_index.reference((uint*)&pack.prim_index[0], pack.prim_index.size());
+	if(triangle_pack.prim_index.size()) {
+		dscene->prim_index.reference((uint*)&triangle_pack.prim_index[0],
+		                             triangle_pack.prim_index.size());
 		device->tex_alloc("__prim_index", dscene->prim_index);
 	}
-	if(pack.prim_object.size()) {
-		dscene->prim_object.reference((uint*)&pack.prim_object[0], pack.prim_object.size());
+	if(triangle_pack.prim_object.size()) {
+		dscene->prim_object.reference((uint*)&triangle_pack.prim_object[0],
+		                              triangle_pack.prim_object.size());
 		device->tex_alloc("__prim_object", dscene->prim_object);
 	}
 
-	dscene->data.bvh.root = pack.root_index;
+	PackedBVH& curve_pack = curve_bvh->pack;
+	if(curve_pack.nodes.size()) {
+		dscene->bvh_curve_nodes.reference((float4*)&curve_pack.nodes[0],
+		                                  curve_pack.nodes.size());
+		device->tex_alloc("__bvh_curve_nodes", dscene->bvh_curve_nodes);
+	}
+	if(curve_pack.leaf_nodes.size()) {
+		dscene->bvh_curve_leaf_nodes.reference((float4*)&curve_pack.leaf_nodes[0],
+		                                       curve_pack.leaf_nodes.size());
+		device->tex_alloc("__bvh_curve_leaf_nodes", dscene->bvh_curve_leaf_nodes);
+	}
+	if(curve_pack.object_node.size()) {
+		dscene->object_curve_node.reference((uint*)&curve_pack.object_node[0],
+		                                    curve_pack.object_node.size());
+		device->tex_alloc("__object_curve_node", dscene->object_curve_node);
+	}
+	if(curve_pack.prim_type.size()) {
+		dscene->prim_curve_type.reference((uint*)&curve_pack.prim_type[0],
+		                                  curve_pack.prim_type.size());
+		device->tex_alloc("__prim_curve_type", dscene->prim_curve_type);
+	}
+	if(curve_pack.prim_visibility.size()) {
+		dscene->prim_curve_visibility.reference((uint*)&curve_pack.prim_visibility[0],
+		                                        curve_pack.prim_visibility.size());
+		device->tex_alloc("__prim_curve_visibility", dscene->prim_curve_visibility);
+	}
+	if(curve_pack.prim_index.size()) {
+		dscene->prim_curve_index.reference((uint*)&curve_pack.prim_index[0],
+		                                   curve_pack.prim_index.size());
+		device->tex_alloc("__prim_curve_index", dscene->prim_curve_index);
+	}
+	if(curve_pack.prim_object.size()) {
+		dscene->prim_curve_object.reference((uint*)&curve_pack.prim_object[0],
+		                                    curve_pack.prim_object.size());
+		device->tex_alloc("__prim_curve_object", dscene->prim_curve_object);
+	}
+
+	dscene->data.bvh.triangle_root = triangle_pack.root_index;
+	dscene->data.bvh.curve_root = curve_pack.root_index;
 	dscene->data.bvh.use_qbvh = scene->params.use_qbvh;
 }
 
@@ -1374,6 +1452,15 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 	device->tex_free(dscene->prim_visibility);
 	device->tex_free(dscene->prim_index);
 	device->tex_free(dscene->prim_object);
+
+	device->tex_free(dscene->bvh_curve_nodes);
+	device->tex_free(dscene->bvh_curve_leaf_nodes);
+	device->tex_free(dscene->object_curve_node);
+	device->tex_free(dscene->prim_curve_type);
+	device->tex_free(dscene->prim_curve_visibility);
+	device->tex_free(dscene->prim_curve_index);
+	device->tex_free(dscene->prim_curve_object);
+
 	device->tex_free(dscene->tri_shader);
 	device->tex_free(dscene->tri_vnormal);
 	device->tex_free(dscene->tri_vindex);

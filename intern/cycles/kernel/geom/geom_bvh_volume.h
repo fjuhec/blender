@@ -48,7 +48,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 
 	/* traversal variables in registers */
 	int stackPtr = 0;
-	int nodeAddr = kernel_data.bvh.root;
+	int nodeAddr = kernel_data.bvh.triangle_root;
 
 	/* ray parameters in registers */
 	float3 P = ray->P;

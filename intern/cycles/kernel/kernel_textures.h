@@ -32,6 +32,16 @@ KERNEL_TEX(uint, texture_uint, __prim_index)
 KERNEL_TEX(uint, texture_uint, __prim_object)
 KERNEL_TEX(uint, texture_uint, __object_node)
 
+KERNEL_TEX(float4, texture_float4, __bvh_curve_nodes)
+KERNEL_TEX(float4, texture_float4, __bvh_curve_leaf_nodes)
+
+/* TODO(sergey): With some smart trickery this arrays are avoidable. */
+KERNEL_TEX(uint, texture_uint, __prim_curve_type)
+KERNEL_TEX(uint, texture_uint, __prim_curve_visibility)
+KERNEL_TEX(uint, texture_uint, __prim_curve_index)
+KERNEL_TEX(uint, texture_uint, __prim_curve_object)
+KERNEL_TEX(uint, texture_uint, __object_curve_node)
+
 /* objects */
 KERNEL_TEX(float4, texture_float4, __objects)
 KERNEL_TEX(float4, texture_float4, __objects_vector)

@@ -20,6 +20,8 @@
 
 #include "util_boundbox.h"
 
+#include "kernel_types.h"
+
 CCL_NAMESPACE_BEGIN
 
 /* BVH Parameters */
@@ -46,6 +48,9 @@ public:
 	/* QBVH */
 	bool use_qbvh;
 
+	/* Mask of primitives to be included into the BVH. */
+	int primitive_mask;
+
 	/* fixed parameters */
 	enum {
 		MAX_DEPTH = 64,
@@ -69,6 +74,8 @@ public:
 
 		top_level = false;
 		use_qbvh = false;
+
+		primitive_mask = PRIMITIVE_ALL;
 	}
 
 	/* SAH costs */

@@ -138,8 +138,10 @@ set(SRC_GEOM_HEADERS
 	geom/geom_attribute.h
 	geom/geom_bvh.h
 	geom/geom_bvh_shadow.h
+	geom/geom_bvh_shadow_hair.h
 	geom/geom_bvh_subsurface.h
 	geom/geom_bvh_traversal.h
+	geom/geom_bvh_traversal_hair.h
 	geom/geom_bvh_volume.h
 	geom/geom_bvh_volume_all.h
 	geom/geom_curve.h
@@ -149,8 +151,10 @@ set(SRC_GEOM_HEADERS
 	geom/geom_primitive.h
 	geom/geom_qbvh.h
 	geom/geom_qbvh_shadow.h
+	geom/geom_qbvh_shadow_hair.h
 	geom/geom_qbvh_subsurface.h
 	geom/geom_qbvh_traversal.h
+	geom/geom_qbvh_traversal_hair.h
 	geom/geom_qbvh_volume.h
 	geom/geom_qbvh_volume_all.h
 	geom/geom_triangle.h

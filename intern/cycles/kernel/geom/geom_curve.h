@@ -235,7 +235,7 @@ ccl_device_inline bool bvh_cardinal_curve_intersect(KernelGlobals *kg, Intersect
 
 	int depth = kernel_data.curve.subdivisions;
 	int flags = kernel_data.curve.curveflags;
-	int prim = kernel_tex_fetch(__prim_index, curveAddr);
+	int prim = kernel_tex_fetch(__prim_curve_index, curveAddr);
 
 #ifdef __KERNEL_SSE2__
 	ssef vdir = load4f(dir);
@@ -264,7 +264,7 @@ ccl_device_inline bool bvh_cardinal_curve_intersect(KernelGlobals *kg, Intersect
 			P_curve[3] = load4f(&kg->__curve_keys.data[kb].x);
 		}
 		else {
-			int fobject = (object == OBJECT_NONE)? kernel_tex_fetch(__prim_object, curveAddr): object;
+			int fobject = (object == OBJECT_NONE)? kernel_tex_fetch(__prim_curve_object, curveAddr): object;
 			motion_cardinal_curve_keys(kg, fobject, prim, time, ka, k0, k1, kb, (float4*)&P_curve);
 		}
 
@@ -329,7 +329,7 @@ ccl_device_inline bool bvh_cardinal_curve_intersect(KernelGlobals *kg, Intersect
 			P_curve[3] = kernel_tex_fetch(__curve_keys, kb);
 		}
 		else {
-			int fobject = (object == OBJECT_NONE)? kernel_tex_fetch(__prim_object, curveAddr): object;
+			int fobject = (object == OBJECT_NONE)? kernel_tex_fetch(__prim_curve_object, curveAddr): object;
 			motion_cardinal_curve_keys(kg, fobject, prim, time, ka, k0, k1, kb, P_curve);
 		}
 
@@ -596,7 +596,7 @@ ccl_device_inline bool bvh_cardinal_curve_intersect(KernelGlobals *kg, Intersect
 #ifdef __VISIBILITY_FLAG__
 			/* visibility flag test. we do it here under the assumption
 			 * that most triangles are culled by node flags */
-			if(kernel_tex_fetch(__prim_visibility, curveAddr) & visibility)
+			if(kernel_tex_fetch(__prim_curve_visibility, curveAddr) & visibility)
 #endif
 			{
 				/* record intersection */
@@ -635,7 +635,7 @@ ccl_device_inline bool bvh_curve_intersect(KernelGlobals *kg, Intersection *isec
 	/* curve Intersection check */
 	int flags = kernel_data.curve.curveflags;
 
-	int prim = kernel_tex_fetch(__prim_index, curveAddr);
+	int prim = kernel_tex_fetch(__prim_curve_index, curveAddr);
 	float4 v00 = kernel_tex_fetch(__curves, prim);
 
 	int cnum = __float_as_int(v00.x);
@@ -650,7 +650,7 @@ ccl_device_inline bool bvh_curve_intersect(KernelGlobals *kg, Intersection *isec
 		P_curve[1] = kernel_tex_fetch(__curve_keys, k1);
 	}
 	else {
-		int fobject = (object == OBJECT_NONE)? kernel_tex_fetch(__prim_object, curveAddr): object;
+		int fobject = (object == OBJECT_NONE)? kernel_tex_fetch(__prim_curve_object, curveAddr): object;
 		motion_curve_keys(kg, fobject, prim, time, k0, k1, P_curve);
 	}
 
@@ -685,7 +685,7 @@ ccl_device_inline bool bvh_curve_intersect(KernelGlobals *kg, Intersection *isec
 		P_curve[1] = load4f(&kg->__curve_keys.data[k1].x);
 	}
 	else {
-		int fobject = (object == OBJECT_NONE)? kernel_tex_fetch(__prim_object, curveAddr): object;
+		int fobject = (object == OBJECT_NONE)? kernel_tex_fetch(__prim_curve_object, curveAddr): object;
 		motion_curve_keys(kg, fobject, prim, time, k0, k1, (float4*)&P_curve);
 	}
 
@@ -831,7 +831,7 @@ ccl_device_inline bool bvh_curve_intersect(KernelGlobals *kg, Intersection *isec
 #ifdef __VISIBILITY_FLAG__
 			/* visibility flag test. we do it here under the assumption
 			 * that most triangles are culled by node flags */
-			if(kernel_tex_fetch(__prim_visibility, curveAddr) & visibility)
+			if(kernel_tex_fetch(__prim_curve_visibility, curveAddr) & visibility)
 #endif
 			{
 				/* record intersection */
@@ -900,7 +900,7 @@ ccl_device_inline float3 bvh_curve_refine(KernelGlobals *kg, ShaderData *sd, con
 		D = normalize_len(D, &t);
 	}
 
-	int prim = kernel_tex_fetch(__prim_index, isect->prim);
+	int prim = kernel_tex_fetch(__prim_curve_index, isect->prim);
 	float4 v00 = kernel_tex_fetch(__curves, prim);
 
 	int k0 = __float_as_int(v00.x) + PRIMITIVE_UNPACK_SEGMENT(ccl_fetch(sd, type));

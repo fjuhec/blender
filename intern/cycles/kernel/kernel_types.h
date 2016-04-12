@@ -1109,13 +1109,14 @@ typedef struct KernelIntegrator {
 
 typedef struct KernelBVH {
 	/* root node */
-	int root;
+	int triangle_root;
+	int curve_root;
 	int attributes_map_stride;
 	int have_motion;
 	int have_curves;
 	int have_instancing;
 	int use_qbvh;
-	int pad1, pad2;
+	int pad;
 } KernelBVH;
 
 typedef enum CurveFlag {

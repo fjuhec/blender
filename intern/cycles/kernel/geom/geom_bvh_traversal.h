@@ -26,8 +26,6 @@
  * without new features slowing things down.
  *
  * BVH_INSTANCING: object instancing
- * BVH_HAIR: hair curve rendering
- * BVH_HAIR_MINIMUM_WIDTH: hair curve rendering with minimum width
  * BVH_MOTION: motion blur rendering
  *
  */
@@ -35,13 +33,7 @@
 ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
                                             const Ray *ray,
                                             Intersection *isect,
-                                            const uint visibility
-#if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-                                            , uint *lcg_state,
-                                            float difl,
-                                            float extmax
-#endif
-                                            )
+                                            const uint visibility)
 {
 	/* todo:
 	 * - test if pushing distance on the stack helps (for non shadow rays)
@@ -56,7 +48,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 
 	/* traversal variables in registers */
 	int stackPtr = 0;
-	int nodeAddr = kernel_data.bvh.root;
+	int nodeAddr = kernel_data.bvh.triangle_root;
 
 	/* ray parameters in registers */
 	float3 P = ray->P;
@@ -136,21 +128,6 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				NO_EXTENDED_PRECISION float c1min = max4(min(c1lox, c1hix), min(c1loy, c1hiy), min(c1loz, c1hiz), 0.0f);
 				NO_EXTENDED_PRECISION float c1max = min4(max(c1lox, c1hix), max(c1loy, c1hiy), max(c1loz, c1hiz), t);
 
-#  if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-				if(difl != 0.0f) {
-					float hdiff = 1.0f + difl;
-					float ldiff = 1.0f - difl;
-					if(__float_as_int(cnodes.z) & PATH_RAY_CURVE) {
-						c0min = max(ldiff * c0min, c0min - extmax);
-						c0max = min(hdiff * c0max, c0max + extmax);
-					}
-					if(__float_as_int(cnodes.w) & PATH_RAY_CURVE) {
-						c1min = max(ldiff * c1min, c1min - extmax);
-						c1max = min(hdiff * c1max, c1max + extmax);
-					}
-				}
-#  endif
-
 				/* decide which nodes to traverse next */
 #  ifdef __VISIBILITY_FLAG__
 				/* this visibility test gives a 5% performance hit, how to solve? */
@@ -176,26 +153,6 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				/* calculate { c0min, c1min, -c0max, -c1max} */
 				ssef minmax = max(max(tminmaxx, tminmaxy), max(tminmaxz, tsplat));
 				const ssef tminmax = minmax ^ pn;
-
-#  if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-				if(difl != 0.0f) {
-					float4 *tminmaxview = (float4*)&tminmax;
-					float &c0min = tminmaxview->x, &c1min = tminmaxview->y;
-					float &c0max = tminmaxview->z, &c1max = tminmaxview->w;
-
-					float hdiff = 1.0f + difl;
-					float ldiff = 1.0f - difl;
-					if(__float_as_int(cnodes.z) & PATH_RAY_CURVE) {
-						c0min = max(ldiff * c0min, c0min - extmax);
-						c0max = min(hdiff * c0max, c0max + extmax);
-					}
-					if(__float_as_int(cnodes.w) & PATH_RAY_CURVE) {
-						c1min = max(ldiff * c1min, c1min - extmax);
-						c1max = min(hdiff * c1max, c1max + extmax);
-					}
-				}
-#  endif
-
 				const sseb lrhit = tminmax <= shuffle<2, 3, 0, 1>(tminmax);
 
 				/* decide which nodes to traverse next */
@@ -306,34 +263,6 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 							break;
 						}
 #endif  /* BVH_FEATURE(BVH_MOTION) */
-#if BVH_FEATURE(BVH_HAIR)
-						case PRIMITIVE_CURVE:
-						case PRIMITIVE_MOTION_CURVE: {
-							for(; primAddr < primAddr2; primAddr++) {
-#  if defined(__KERNEL_DEBUG__)
-								isect->num_traversal_steps++;
-#  endif
-								kernel_assert(kernel_tex_fetch(__prim_type, primAddr) == type);
-								bool hit;
-								if(kernel_data.curve.curveflags & CURVE_KN_INTERPOLATE)
-									hit = bvh_cardinal_curve_intersect(kg, isect, P, dir, visibility, object, primAddr, ray->time, type, lcg_state, difl, extmax);
-								else
-									hit = bvh_curve_intersect(kg, isect, P, dir, visibility, object, primAddr, ray->time, type, lcg_state, difl, extmax);
-								if(hit) {
-									/* shadow ray early termination */
-#  if defined(__KERNEL_SSE2__)
-									if(visibility == PATH_RAY_SHADOW_OPAQUE)
-										return true;
-									tsplat = ssef(0.0f, 0.0f, -isect->t, -isect->t);
-#  else
-									if(visibility == PATH_RAY_SHADOW_OPAQUE)
-										return true;
-#  endif
-								}
-							}
-							break;
-						}
-#endif  /* BVH_FEATURE(BVH_HAIR) */
 					}
 				}
 #if BVH_FEATURE(BVH_INSTANCING)
@@ -407,26 +336,14 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
                                          const Ray *ray,
                                          Intersection *isect,
-                                         const uint visibility
-#if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-                                         , uint *lcg_state,
-                                         float difl,
-                                         float extmax
-#endif
-                                         )
+                                         const uint visibility)
 {
 #ifdef __QBVH__
 	if(kernel_data.bvh.use_qbvh) {
 		return BVH_FUNCTION_FULL_NAME(QBVH)(kg,
 		                                    ray,
 		                                    isect,
-		                                    visibility
-#if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-		                                    , lcg_state,
-		                                    difl,
-		                                    extmax
-#endif
-		                                    );
+		                                    visibility);
 	}
 	else
 #endif
@@ -435,13 +352,7 @@ ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
 		return BVH_FUNCTION_FULL_NAME(BVH)(kg,
 		                                   ray,
 		                                   isect,
-		                                   visibility
-#if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-		                                   , lcg_state,
-		                                   difl,
-		                                   extmax
-#endif
-		                                   );
+		                                   visibility);
 	}
 }
 

@@ -111,8 +111,14 @@ public:
 	bool need_update;
 	bool need_update_rebuild;
 
-	/* BVH */
-	BVH *bvh;
+	/* **** BVH **** */
+
+	/* BVH which holds triangle primitives. */
+	BVH *triangle_bvh;
+
+	/* BVH which holds curve primitives. */
+	BVH *curve_bvh;
+
 	size_t tri_offset;
 	size_t vert_offset;
 
@@ -138,6 +144,9 @@ public:
 	void pack_normals(Scene *scene, uint *shader, float4 *vnormal);
 	void pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset);
 	void pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, size_t curvekey_offset);
+
+	void refit_bvh(Progress *progress, BVH *bvh);
+	BVH *create_bvh(SceneParams *params, Progress *progress, int primitive_mask);
 	void compute_bvh(SceneParams *params, Progress *progress, int n, int total);
 
 	bool need_attribute(Scene *scene, AttributeStandard std);
@@ -167,7 +176,11 @@ public:
 
 class MeshManager {
 public:
-	BVH *bvh;
+	/* BVH which holds triangle primitives. */
+	BVH *triangle_bvh;
+
+	/* BVH which holds curve primitives. */
+	BVH *curve_bvh;
 
 	bool need_update;
 	bool need_flags_update;

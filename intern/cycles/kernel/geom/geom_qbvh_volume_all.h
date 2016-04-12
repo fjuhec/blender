@@ -44,7 +44,7 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 
 	/* Traversal variables in registers. */
 	int stackPtr = 0;
-	int nodeAddr = kernel_data.bvh.root;
+	int nodeAddr = kernel_data.bvh.triangle_root;
 
 	/* Ray parameters in registers. */
 	const float tmax = ray->t;

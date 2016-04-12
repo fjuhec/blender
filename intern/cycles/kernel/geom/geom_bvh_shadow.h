@@ -26,7 +26,6 @@
  * without new features slowing things down.
  *
  * BVH_INSTANCING: object instancing
- * BVH_HAIR: hair curve rendering
  * BVH_MOTION: motion blur rendering
  *
  */
@@ -48,7 +47,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 
 	/* traversal variables in registers */
 	int stackPtr = 0;
-	int nodeAddr = kernel_data.bvh.root;
+	int nodeAddr = kernel_data.bvh.triangle_root;
 
 	/* ray parameters in registers */
 	const float tmax = ray->t;
@@ -235,16 +234,6 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 								break;
 							}
 #endif
-#if BVH_FEATURE(BVH_HAIR)
-							case PRIMITIVE_CURVE:
-							case PRIMITIVE_MOTION_CURVE: {
-								if(kernel_data.curve.curveflags & CURVE_KN_INTERPOLATE) 
-									hit = bvh_cardinal_curve_intersect(kg, isect_array, P, dir, PATH_RAY_SHADOW, object, primAddr, ray->time, type, NULL, 0, 0);
-								else
-									hit = bvh_curve_intersect(kg, isect_array, P, dir, PATH_RAY_SHADOW, object, primAddr, ray->time, type, NULL, 0, 0);
-								break;
-							}
-#endif
 							default: {
 								hit = false;
 								break;
@@ -258,20 +247,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 							/* todo: optimize so primitive visibility flag indicates if
 							 * the primitive has a transparent shadow shader? */
 							int prim = kernel_tex_fetch(__prim_index, isect_array->prim);
-							int shader = 0;
-
-#ifdef __HAIR__
-							if(kernel_tex_fetch(__prim_type, isect_array->prim) & PRIMITIVE_ALL_TRIANGLE)
-#endif
-							{
-								shader = kernel_tex_fetch(__tri_shader, prim);
-							}
-#ifdef __HAIR__
-							else {
-								float4 str = kernel_tex_fetch(__curves, prim);
-								shader = __float_as_int(str.z);
-							}
-#endif
+							int shader =  kernel_tex_fetch(__tri_shader, prim);
 							int flag = kernel_tex_fetch(__shader_flag, (shader & SHADER_MASK)*2);
 
 							/* if no transparent shadows, all light is blocked */

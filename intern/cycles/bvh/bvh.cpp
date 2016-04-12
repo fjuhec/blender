@@ -145,34 +145,40 @@ void BVH::pack_primitives()
 	size_t tidx_size = pack.prim_index.size();
 
 	pack.tri_storage.clear();
-	pack.tri_storage.resize(tidx_size * nsize);
+	if(params.primitive_mask & PRIMITIVE_ALL_TRIANGLE) {
+		pack.tri_storage.resize(tidx_size * nsize);
+	}
 	pack.prim_visibility.clear();
 	pack.prim_visibility.resize(tidx_size);
 
 	for(unsigned int i = 0; i < tidx_size; i++) {
 		if(pack.prim_index[i] != -1) {
-			float4 storage[3];
+			if(params.primitive_mask & PRIMITIVE_ALL_TRIANGLE) {
+				float4 storage[3];
+				if(pack.prim_type[i] & PRIMITIVE_TRIANGLE) {
+					pack_triangle(i, storage);
+				}
+				else {
+					/* Avoid use of uninitialized memory. */
+					memset(&storage, 0, sizeof(storage));
+				}
 
-			if(pack.prim_type[i] & PRIMITIVE_TRIANGLE) {
-				pack_triangle(i, storage);
+				memcpy(&pack.tri_storage[i * nsize], storage, sizeof(float4)*3);
 			}
-			else {
-				/* Avoid use of uninitialized memory. */
-				memset(&storage, 0, sizeof(storage));
-			}
-
-			memcpy(&pack.tri_storage[i * nsize], storage, sizeof(float4)*3);
 
 			int tob = pack.prim_object[i];
 			Object *ob = objects[tob];
 			pack.prim_visibility[i] = ob->visibility;
 
-			if(pack.prim_type[i] & PRIMITIVE_ALL_CURVE)
+			if(pack.prim_type[i] & PRIMITIVE_ALL_CURVE) {
 				pack.prim_visibility[i] |= PATH_RAY_CURVE;
+			}
 		}
 		else {
-			memset(&pack.tri_storage[i * nsize], 0, sizeof(float4)*3);
-			pack.prim_visibility[i] = 0;
+			if(params.primitive_mask & PRIMITIVE_ALL_TRIANGLE) {
+				memset(&pack.tri_storage[i * nsize], 0, sizeof(float4)*3);
+				pack.prim_visibility[i] = 0;
+			}
 		}
 	}
 }
@@ -220,7 +226,14 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 
 	foreach(Object *ob, objects) {
 		Mesh *mesh = ob->mesh;
-		BVH *bvh = mesh->bvh;
+		BVH *bvh;
+		if(params.primitive_mask & PRIMITIVE_ALL_TRIANGLE) {
+			bvh = mesh->triangle_bvh;
+		}
+		else {
+			assert(params.primitive_mask & PRIMITIVE_ALL_CURVE);
+			bvh = mesh->curve_bvh;
+		}
 
 		if(mesh->need_build_bvh()) {
 			if(mesh_map.find(mesh) == mesh_map.end()) {
@@ -275,7 +288,14 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 			continue;
 		}
 
-		BVH *bvh = mesh->bvh;
+		BVH *bvh;
+		if(params.primitive_mask & PRIMITIVE_ALL_TRIANGLE) {
+			bvh = mesh->triangle_bvh;
+		}
+		else {
+			assert(params.primitive_mask & PRIMITIVE_ALL_CURVE);
+			bvh = mesh->curve_bvh;
+		}
 
 		int noffset = nodes_offset/nsize;
 		int noffset_leaf = nodes_leaf_offset/nsize_leaf;

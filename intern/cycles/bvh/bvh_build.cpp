@@ -112,68 +112,72 @@ BVHBuild::~BVHBuild()
 
 void BVHBuild::add_reference_mesh(BoundBox& root, BoundBox& center, Mesh *mesh, int i)
 {
-	Attribute *attr_mP = NULL;
-	
-	if(mesh->has_motion_blur())
-		attr_mP = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
+	if(params.primitive_mask & PRIMITIVE_ALL_TRIANGLE) {
+		Attribute *attr_mP = NULL;
 
-	for(uint j = 0; j < mesh->triangles.size(); j++) {
-		Mesh::Triangle t = mesh->triangles[j];
-		BoundBox bounds = BoundBox::empty;
-		PrimitiveType type = PRIMITIVE_TRIANGLE;
+		if(mesh->has_motion_blur())
+			attr_mP = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
 
-		t.bounds_grow(&mesh->verts[0], bounds);
-
-		/* motion triangles */
-		if(attr_mP) {
-			size_t mesh_size = mesh->verts.size();
-			size_t steps = mesh->motion_steps - 1;
-			float3 *vert_steps = attr_mP->data_float3();
-
-			for(size_t i = 0; i < steps; i++)
-				t.bounds_grow(vert_steps + i*mesh_size, bounds);
-
-			type = PRIMITIVE_MOTION_TRIANGLE;
-		}
-
-		if(bounds.valid()) {
-			references.push_back(BVHReference(bounds, j, i, type));
-			root.grow(bounds);
-			center.grow(bounds.center2());
-		}
-	}
-
-	Attribute *curve_attr_mP = NULL;
-
-	if(mesh->has_motion_blur())
-		curve_attr_mP = mesh->curve_attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
-
-	for(uint j = 0; j < mesh->curves.size(); j++) {
-		Mesh::Curve curve = mesh->curves[j];
-		PrimitiveType type = PRIMITIVE_CURVE;
-
-		for(int k = 0; k < curve.num_keys - 1; k++) {
+		for(uint j = 0; j < mesh->triangles.size(); j++) {
+			Mesh::Triangle t = mesh->triangles[j];
 			BoundBox bounds = BoundBox::empty;
-			curve.bounds_grow(k, &mesh->curve_keys[0], bounds);
+			PrimitiveType type = PRIMITIVE_TRIANGLE;
 
-			/* motion curve */
-			if(curve_attr_mP) {
-				size_t mesh_size = mesh->curve_keys.size();
+			t.bounds_grow(&mesh->verts[0], bounds);
+
+			/* motion triangles */
+			if(attr_mP) {
+				size_t mesh_size = mesh->verts.size();
 				size_t steps = mesh->motion_steps - 1;
-				float4 *key_steps = curve_attr_mP->data_float4();
+				float3 *vert_steps = attr_mP->data_float3();
 
 				for(size_t i = 0; i < steps; i++)
-					curve.bounds_grow(k, key_steps + i*mesh_size, bounds);
+					t.bounds_grow(vert_steps + i*mesh_size, bounds);
 
-				type = PRIMITIVE_MOTION_CURVE;
+				type = PRIMITIVE_MOTION_TRIANGLE;
 			}
 
 			if(bounds.valid()) {
-				int packed_type = PRIMITIVE_PACK_SEGMENT(type, k);
-				
-				references.push_back(BVHReference(bounds, j, i, packed_type));
+				references.push_back(BVHReference(bounds, j, i, type));
 				root.grow(bounds);
 				center.grow(bounds.center2());
+			}
+		}
+	}
+
+	if(params.primitive_mask & PRIMITIVE_ALL_CURVE) {
+		Attribute *curve_attr_mP = NULL;
+
+		if(mesh->has_motion_blur())
+			curve_attr_mP = mesh->curve_attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
+
+		for(uint j = 0; j < mesh->curves.size(); j++) {
+			Mesh::Curve curve = mesh->curves[j];
+			PrimitiveType type = PRIMITIVE_CURVE;
+
+			for(int k = 0; k < curve.num_keys - 1; k++) {
+				BoundBox bounds = BoundBox::empty;
+				curve.bounds_grow(k, &mesh->curve_keys[0], bounds);
+
+				/* motion curve */
+				if(curve_attr_mP) {
+					size_t mesh_size = mesh->curve_keys.size();
+					size_t steps = mesh->motion_steps - 1;
+					float4 *key_steps = curve_attr_mP->data_float4();
+
+					for(size_t i = 0; i < steps; i++)
+						curve.bounds_grow(k, key_steps + i*mesh_size, bounds);
+
+					type = PRIMITIVE_MOTION_CURVE;
+				}
+
+				if(bounds.valid()) {
+					int packed_type = PRIMITIVE_PACK_SEGMENT(type, k);
+
+					references.push_back(BVHReference(bounds, j, i, packed_type));
+					root.grow(bounds);
+					center.grow(bounds.center2());
+				}
 			}
 		}
 	}
@@ -204,15 +208,23 @@ void BVHBuild::add_references(BVHRange& root)
 	foreach(Object *ob, objects) {
 		if(params.top_level) {
 			if(!ob->mesh->is_instanced()) {
-				num_alloc_references += ob->mesh->triangles.size();
-				num_alloc_references += count_curve_segments(ob->mesh);
+				if(params.primitive_mask & PRIMITIVE_ALL_TRIANGLE) {
+					num_alloc_references += ob->mesh->triangles.size();
+				}
+				if(params.primitive_mask & PRIMITIVE_ALL_CURVE) {
+					num_alloc_references += count_curve_segments(ob->mesh);
+				}
 			}
 			else
 				num_alloc_references++;
 		}
 		else {
-			num_alloc_references += ob->mesh->triangles.size();
-			num_alloc_references += count_curve_segments(ob->mesh);
+			if(params.primitive_mask & PRIMITIVE_ALL_TRIANGLE) {
+				num_alloc_references += ob->mesh->triangles.size();
+			}
+			if(params.primitive_mask & PRIMITIVE_ALL_CURVE) {
+				num_alloc_references += count_curve_segments(ob->mesh);
+			}
 		}
 	}
 

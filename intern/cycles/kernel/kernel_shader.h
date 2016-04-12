@@ -54,7 +54,12 @@ ccl_device_noinline void shader_setup_from_ray(KernelGlobals *kg,
                                                const Ray *ray)
 {
 #ifdef __INSTANCING__
-	ccl_fetch(sd, object) = (isect->object == PRIM_NONE)? kernel_tex_fetch(__prim_object, isect->prim): isect->object;
+	if(isect->type & PRIMITIVE_ALL_TRIANGLE) {
+		ccl_fetch(sd, object) = (isect->object == PRIM_NONE)? kernel_tex_fetch(__prim_object, isect->prim): isect->object;
+	}
+	else {
+		ccl_fetch(sd, object) = (isect->object == PRIM_NONE)? kernel_tex_fetch(__prim_curve_object, isect->prim): isect->object;
+	}
 #endif
 
 	ccl_fetch(sd, type) = isect->type;
@@ -66,7 +71,12 @@ ccl_device_noinline void shader_setup_from_ray(KernelGlobals *kg,
 	ccl_fetch(sd, time) = ray->time;
 #endif
 
-	ccl_fetch(sd, prim) = kernel_tex_fetch(__prim_index, isect->prim);
+	if(isect->type & PRIMITIVE_ALL_TRIANGLE) {
+		ccl_fetch(sd, prim) = kernel_tex_fetch(__prim_index, isect->prim);
+	}
+	else {
+		ccl_fetch(sd, prim) = kernel_tex_fetch(__prim_curve_index, isect->prim);
+	}
 	ccl_fetch(sd, ray_length) = isect->t;
 
 #ifdef __UV__
@@ -155,7 +165,12 @@ ccl_device_inline void shader_setup_from_subsurface(KernelGlobals *kg, ShaderDat
 
 	/* object, matrices, time, ray_length stay the same */
 	sd->flag = kernel_tex_fetch(__object_flag, sd->object);
-	sd->prim = kernel_tex_fetch(__prim_index, isect->prim);
+	if(isect->type & PRIMITIVE_ALL_TRIANGLE) {
+		sd->prim = kernel_tex_fetch(__prim_index, isect->prim);
+	}
+	else {
+		sd->prim = kernel_tex_fetch(__prim_curve_index, isect->prim);
+	}
 	sd->type = isect->type;
 
 #  ifdef __UV__
@@ -1064,11 +1079,17 @@ ccl_device void shader_eval_displacement(KernelGlobals *kg, ShaderData *sd, ccl_
 #ifdef __TRANSPARENT_SHADOWS__
 ccl_device bool shader_transparent_shadow(KernelGlobals *kg, Intersection *isect)
 {
-	int prim = kernel_tex_fetch(__prim_index, isect->prim);
+	int prim;
+	if(isect->type & PRIMITIVE_ALL_TRIANGLE) {
+		prim = kernel_tex_fetch(__prim_index, isect->prim);
+	}
+	else {
+		prim = kernel_tex_fetch(__prim_curve_index, isect->prim);
+	}
 	int shader = 0;
 
 #ifdef __HAIR__
-	if(kernel_tex_fetch(__prim_type, isect->prim) & PRIMITIVE_ALL_TRIANGLE) {
+	if(isect->type & PRIMITIVE_ALL_TRIANGLE) {
 #endif
 		shader = kernel_tex_fetch(__tri_shader, prim);
 #ifdef __HAIR__

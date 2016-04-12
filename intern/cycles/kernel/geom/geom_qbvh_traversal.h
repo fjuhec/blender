@@ -22,8 +22,6 @@
  * without new features slowing things down.
  *
  * BVH_INSTANCING: object instancing
- * BVH_HAIR: hair curve rendering
- * BVH_HAIR_MINIMUM_WIDTH: hair curve rendering with minimum width
  * BVH_MOTION: motion blur rendering
  *
  */
@@ -31,13 +29,7 @@
 ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
                                              const Ray *ray,
                                              Intersection *isect,
-                                             const uint visibility
-#if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-                                             ,uint *lcg_state,
-                                             float difl,
-                                             float extmax
-#endif
-                                             )
+                                             const uint visibility)
 {
 	/* TODO(sergey):
 	 * - Test if pushing distance on the stack helps (for non shadow rays).
@@ -53,7 +45,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 
 	/* Traversal variables in registers. */
 	int stackPtr = 0;
-	int nodeAddr = kernel_data.bvh.root;
+	int nodeAddr = kernel_data.bvh.triangle_root;
 	float nodeDist = -FLT_MAX;
 
 	/* Ray parameters in registers. */
@@ -123,46 +115,19 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 #if defined(__KERNEL_DEBUG__)
 				isect->num_traversal_steps++;
 #endif
-
-#if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-				if(difl != 0.0f) {
-					/* NOTE: We extend all the child BB instead of fetching
-					 * and checking visibility flags for each of the,
-					 *
-					 * Need to test if doing opposite would be any faster.
-					 */
-					traverseChild = qbvh_node_intersect_robust(kg,
-					                                           tnear,
-					                                           tfar,
-#  ifdef __KERNEL_AVX2__
-					                                           P_idir4,
-#  else
-					                                           org,
-#  endif
-					                                           idir4,
-					                                           near_x, near_y, near_z,
-					                                           far_x, far_y, far_z,
-					                                           nodeAddr,
-					                                           difl,
-					                                           &dist);
-				}
-				else
-#endif  /* BVH_HAIR_MINIMUM_WIDTH */
-				{
-					traverseChild = qbvh_node_intersect(kg,
-					                                    tnear,
-					                                    tfar,
+				traverseChild = qbvh_node_intersect(kg,
+				                                    tnear,
+				                                    tfar,
 #ifdef __KERNEL_AVX2__
-					                                    P_idir4,
+				                                    P_idir4,
 #else
-					                                    org,
+				                                    org,
 #endif
-					                                    idir4,
-					                                    near_x, near_y, near_z,
-					                                    far_x, far_y, far_z,
-					                                    nodeAddr,
-					                                    &dist);
-				}
+				                                    idir4,
+				                                    near_x, near_y, near_z,
+				                                    far_x, far_y, far_z,
+				                                    nodeAddr,
+				                                    &dist);
 
 				if(traverseChild != 0) {
 					float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr*BVH_QNODE_SIZE+6);
@@ -325,29 +290,6 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 							break;
 						}
 #endif  /* BVH_FEATURE(BVH_MOTION) */
-#if BVH_FEATURE(BVH_HAIR)
-						case PRIMITIVE_CURVE:
-						case PRIMITIVE_MOTION_CURVE: {
-							for(; primAddr < primAddr2; primAddr++) {
-#  if defined(__KERNEL_DEBUG__)
-								isect->num_traversal_steps++;
-#  endif
-								kernel_assert(kernel_tex_fetch(__prim_type, primAddr) == type);
-								bool hit;
-								if(kernel_data.curve.curveflags & CURVE_KN_INTERPOLATE)
-									hit = bvh_cardinal_curve_intersect(kg, isect, P, dir, visibility, object, primAddr, ray->time, type, lcg_state, difl, extmax);
-								else
-									hit = bvh_curve_intersect(kg, isect, P, dir, visibility, object, primAddr, ray->time, type, lcg_state, difl, extmax);
-								if(hit) {
-									tfar = ssef(isect->t);
-									/* Shadow ray early termination. */
-									if(visibility == PATH_RAY_SHADOW_OPAQUE)
-										return true;
-								}
-							}
-							break;
-						}
-#endif  /* BVH_FEATURE(BVH_HAIR) */
 					}
 				}
 #if BVH_FEATURE(BVH_INSTANCING)

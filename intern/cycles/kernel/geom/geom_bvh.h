@@ -65,22 +65,24 @@ CCL_NAMESPACE_BEGIN
 #  include "geom_bvh_traversal.h"
 #endif
 
-#if defined(__HAIR__)
-#  define BVH_FUNCTION_NAME bvh_intersect_hair
-#  define BVH_FUNCTION_FEATURES BVH_INSTANCING|BVH_HAIR|BVH_HAIR_MINIMUM_WIDTH
-#  include "geom_bvh_traversal.h"
-#endif
-
 #if defined(__OBJECT_MOTION__)
 #  define BVH_FUNCTION_NAME bvh_intersect_motion
 #  define BVH_FUNCTION_FEATURES BVH_INSTANCING|BVH_MOTION
 #  include "geom_bvh_traversal.h"
 #endif
 
+/* Regular Hair BVH traversal */
+
+#if defined(__HAIR__)
+#  define BVH_FUNCTION_NAME bvh_intersect_hair
+#  define BVH_FUNCTION_FEATURES BVH_INSTANCING|BVH_HAIR|BVH_HAIR_MINIMUM_WIDTH
+#  include "geom_bvh_traversal_hair.h"
+#endif
+
 #if defined(__HAIR__) && defined(__OBJECT_MOTION__)
 #  define BVH_FUNCTION_NAME bvh_intersect_hair_motion
 #  define BVH_FUNCTION_FEATURES BVH_INSTANCING|BVH_HAIR|BVH_HAIR_MINIMUM_WIDTH|BVH_MOTION
-#  include "geom_bvh_traversal.h"
+#  include "geom_bvh_traversal_hair.h"
 #endif
 
 /* Subsurface scattering BVH traversal */
@@ -131,22 +133,24 @@ CCL_NAMESPACE_BEGIN
 #  include "geom_bvh_shadow.h"
 #endif
 
-#if defined(__SHADOW_RECORD_ALL__) && defined(__HAIR__)
-#  define BVH_FUNCTION_NAME bvh_intersect_shadow_all_hair
-#  define BVH_FUNCTION_FEATURES BVH_INSTANCING|BVH_HAIR
-#  include "geom_bvh_shadow.h"
-#endif
-
 #if defined(__SHADOW_RECORD_ALL__) && defined(__OBJECT_MOTION__)
 #  define BVH_FUNCTION_NAME bvh_intersect_shadow_all_motion
 #  define BVH_FUNCTION_FEATURES BVH_INSTANCING|BVH_MOTION
 #  include "geom_bvh_shadow.h"
 #endif
 
+/* Record all intersections - Shadow Hair BVH traversal */
+
+#if defined(__SHADOW_RECORD_ALL__) && defined(__HAIR__)
+#  define BVH_FUNCTION_NAME bvh_intersect_shadow_all_hair
+#  define BVH_FUNCTION_FEATURES BVH_INSTANCING|BVH_HAIR|BVH_HAIR_MINIMUM_WIDTH
+#  include "geom_bvh_shadow_hair.h"
+#endif
+
 #if defined(__SHADOW_RECORD_ALL__) && defined(__HAIR__) && defined(__OBJECT_MOTION__)
 #  define BVH_FUNCTION_NAME bvh_intersect_shadow_all_hair_motion
-#  define BVH_FUNCTION_FEATURES BVH_INSTANCING|BVH_HAIR|BVH_MOTION
-#  include "geom_bvh_shadow.h"
+#  define BVH_FUNCTION_FEATURES BVH_INSTANCING|BVH_HAIR|BVH_HAIR_MINIMUM_WIDTH|BVH_MOTION
+#  include "geom_bvh_shadow_hair.h"
 #endif
 
 /* Record all intersections - Volume BVH traversal  */
@@ -182,39 +186,45 @@ ccl_device_intersect bool scene_intersect(KernelGlobals *kg,
                                           float difl,
                                           float extmax)
 {
+	bool hit;
 #ifdef __OBJECT_MOTION__
 	if(kernel_data.bvh.have_motion) {
+		hit = bvh_intersect_motion(kg, ray, isect, visibility);
 #  ifdef __HAIR__
-		if(kernel_data.bvh.have_curves)
-			return bvh_intersect_hair_motion(kg, ray, isect, visibility, lcg_state, difl, extmax);
+		if(kernel_data.bvh.have_curves) {
+			hit |= bvh_intersect_hair_motion(kg, ray, isect, visibility, lcg_state, difl, extmax);
+		}
 #  endif /* __HAIR__ */
-
-		return bvh_intersect_motion(kg, ray, isect, visibility);
+		return hit;
 	}
 #endif /* __OBJECT_MOTION__ */
-
-#ifdef __HAIR__
-	if(kernel_data.bvh.have_curves)
-		return bvh_intersect_hair(kg, ray, isect, visibility, lcg_state, difl, extmax);
-#endif /* __HAIR__ */
 
 #ifdef __KERNEL_CPU__
 
 #  ifdef __INSTANCING__
 	if(kernel_data.bvh.have_instancing)
-		return bvh_intersect_instancing(kg, ray, isect, visibility);
+		hit = bvh_intersect_instancing(kg, ray, isect, visibility);
+	else
 #  endif /* __INSTANCING__ */
+		hit = bvh_intersect(kg, ray, isect, visibility);
 
-	return bvh_intersect(kg, ray, isect, visibility);
 #else /* __KERNEL_CPU__ */
 
 #  ifdef __INSTANCING__
-	return bvh_intersect_instancing(kg, ray, isect, visibility);
+	hit = bvh_intersect_instancing(kg, ray, isect, visibility);
 #  else
-	return bvh_intersect(kg, ray, isect, visibility);
+	hit = bvh_intersect(kg, ray, isect, visibility);
 #  endif /* __INSTANCING__ */
 
 #endif /* __KERNEL_CPU__ */
+
+#ifdef __HAIR__
+	if(kernel_data.bvh.have_curves) {
+		hit |= bvh_intersect_hair(kg, ray, isect, visibility, lcg_state, difl, extmax);
+	}
+#endif /* __HAIR__ */
+
+	return hit;
 }
 
 #ifdef __SUBSURFACE__
@@ -245,30 +255,47 @@ ccl_device_intersect void scene_intersect_subsurface(KernelGlobals *kg,
 #endif
 
 #ifdef __SHADOW_RECORD_ALL__
-ccl_device_intersect bool scene_intersect_shadow_all(KernelGlobals *kg, const Ray *ray, Intersection *isect, uint max_hits, uint *num_hits)
+ccl_device_intersect bool scene_intersect_shadow_all(KernelGlobals *kg,
+                                                     const Ray *ray,
+                                                     Intersection *isect,
+                                                     uint max_hits,
+                                                     uint *num_hits)
 {
+	bool occluded;
 #  ifdef __OBJECT_MOTION__
 	if(kernel_data.bvh.have_motion) {
+		occluded = bvh_intersect_shadow_all_motion(kg, ray, isect, max_hits, num_hits);
 #    ifdef __HAIR__
-		if(kernel_data.bvh.have_curves)
-			return bvh_intersect_shadow_all_hair_motion(kg, ray, isect, max_hits, num_hits);
+		if(!occluded && kernel_data.bvh.have_curves) {
+			 occluded = bvh_intersect_shadow_all_hair_motion(kg,
+			                                                 ray,
+			                                                 isect + *num_hits,
+			                                                 max_hits,
+			                                                 num_hits);
+		}
 #    endif /* __HAIR__ */
-
-		return bvh_intersect_shadow_all_motion(kg, ray, isect, max_hits, num_hits);
+		return occluded;
 	}
 #  endif /* __OBJECT_MOTION__ */
 
-#  ifdef __HAIR__
-	if(kernel_data.bvh.have_curves)
-		return bvh_intersect_shadow_all_hair(kg, ray, isect, max_hits, num_hits);
-#  endif /* __HAIR__ */
-
 #  ifdef __INSTANCING__
 	if(kernel_data.bvh.have_instancing)
-		return bvh_intersect_shadow_all_instancing(kg, ray, isect, max_hits, num_hits);
+		occluded = bvh_intersect_shadow_all_instancing(kg, ray, isect, max_hits, num_hits);
+	else
 #  endif /* __INSTANCING__ */
+		occluded = bvh_intersect_shadow_all(kg, ray, isect, max_hits, num_hits);
 
-	return bvh_intersect_shadow_all(kg, ray, isect, max_hits, num_hits);
+#  ifdef __HAIR__
+	if(!occluded && kernel_data.bvh.have_curves) {
+		occluded = bvh_intersect_shadow_all_hair(kg,
+		                                         ray,
+		                                         isect + *num_hits,
+		                                         max_hits,
+		                                         num_hits);
+	}
+#  endif /* __HAIR__ */
+
+	return occluded;
 }
 #endif  /* __SHADOW_RECORD_ALL__ */
 
