@@ -731,7 +731,8 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx)
 
 bool GPU_fx_do_composite_pass(
         GPUFX *fx, float projmat[4][4], bool is_persp,
-        struct Scene *scene, struct GPUOffScreen *ofs)
+        struct Scene *scene, struct GPUOffScreen *ofs,
+        const short region_size[2])
 {
 	GPUTexture *src, *target;
 	int numslots = 0;
@@ -1291,21 +1292,24 @@ bool GPU_fx_do_composite_pass(
 			}
 		}
 	}
-    /* third pass, Lens Distortion */
-    if(fx->effects & GPU_FX_FLAG_LensDist) {
-        GPUShader *lensdist_shader;
-		lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp);
+
+	/* third pass, Lens Distortion */
+	if(fx->effects & GPU_FX_FLAG_LensDist) {
+		GPUShader *lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp);
+
 		if (lensdist_shader) {
+			const int color_uniform = GPU_shader_get_uniform(lensdist_shader, "warpTexture");
+			const int regionsize_uniform = GPU_shader_get_uniform(lensdist_shader, "RegionSize");
+			const float region_size_f[2] = {UNPACK2(region_size)};
 
-            int color_uniform;
-            color_uniform = GPU_shader_get_uniform(lensdist_shader, "warpTexture");
+			GPU_shader_bind(lensdist_shader);
 
-            GPU_shader_bind(lensdist_shader);
+			GPU_shader_uniform_vector(lensdist_shader, regionsize_uniform, 2, 1, region_size_f);
 
 			GPU_texture_bind(src, numslots++);
 			GPU_shader_uniform_texture(lensdist_shader, color_uniform, src);
 
-            /* draw */
+			/* draw */
 			gpu_fx_bind_render_target(&passes_left, fx, ofs, target);
 
 			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -1313,7 +1317,7 @@ bool GPU_fx_do_composite_pass(
 			/* disable bindings */
 			GPU_texture_unbind(src);
 
-            /* may not be attached, in that case this just returns */
+			/* may not be attached, in that case this just returns */
 			if (target) {
 				GPU_framebuffer_texture_detach(target);
 				if (ofs) {
@@ -1327,9 +1331,8 @@ bool GPU_fx_do_composite_pass(
 			/* swap here, after src/target have been unbound */
 			SWAP(GPUTexture *, target, src);
 			numslots = 0;
-        }
-
-    }
+		}
+	}
 
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);

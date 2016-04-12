@@ -3265,7 +3265,7 @@ void ED_view3d_draw_offscreen(
 	if (do_compositing) {
 		if (!winmat)
 			is_persp = rv3d->is_persp;
-		GPU_fx_do_composite_pass(fx, winmat, is_persp, scene, ofs);
+		GPU_fx_do_composite_pass(fx, winmat, is_persp, scene, ofs, &ar->winx);
 	}
 
 	if ((v3d->flag2 & V3D_RENDER_SHADOW) == 0) {
@@ -3906,7 +3906,7 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 
 	/* post process */
 	if (do_compositing) {
-		GPU_fx_do_composite_pass(rv3d->compositor, rv3d->winmat, rv3d->is_persp, scene, NULL);
+		GPU_fx_do_composite_pass(rv3d->compositor, rv3d->winmat, rv3d->is_persp, scene, NULL, &ar->winx);
 	}
 
 	/* Disable back anti-aliasing */

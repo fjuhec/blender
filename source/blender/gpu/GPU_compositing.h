@@ -90,7 +90,8 @@ bool GPU_fx_compositor_initialize_passes(
 /* do compositing on the fx passes that have been initialized */
 bool GPU_fx_do_composite_pass(
         GPUFX *fx, float projmat[4][4], bool is_persp,
-        struct Scene *scene, struct GPUOffScreen *ofs);
+        struct Scene *scene, struct GPUOffScreen *ofs,
+        const short region_size[2]);
 
 /* bind new depth buffer for XRay pass */
 void GPU_fx_compositor_setup_XRay_pass(GPUFX *fx, bool do_xray);
