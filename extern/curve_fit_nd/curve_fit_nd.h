@@ -28,8 +28,12 @@
 #ifndef __SPLINE_FIT__
 #define __SPLINE_FIT__
 
+/** \file curve_fit_nd.h
+ *  \ingroup curve_fit
+ */
 
-/* spline_fit_cubic.c */
+
+/* curve_fit_cubic.c */
 
 /**
  * Takes a flat array of points:
@@ -40,7 +44,6 @@
  *
  * Where each cubic has 0 and 3 for the points and indices 1 and 2 for the handles.
  */
-
 int spline_fit_cubic_to_points_db(
         const double *points,
         const unsigned int points_len,
@@ -62,7 +65,8 @@ int spline_fit_cubic_to_points_fl(
         float **r_cubic_array, unsigned int *r_cubic_array_len);
 
 
-/* spline_fit_corners_detect.c */
+/* curve_fit_corners_detect.c */
+
 int spline_fit_corners_detect_db(
         const double      *points,
         const unsigned int points_len,
@@ -88,4 +92,3 @@ int spline_fit_corners_detect_fl(
         unsigned int  *r_corners_len);
 
 #endif  /* __SPLINE_FIT__ */
-

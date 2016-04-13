@@ -25,6 +25,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/** \file curve_fit_cubic.c
+ *  \ingroup curve_fit
+ */
+
 #include <math.h>
 #include <float.h>
 #include <stdbool.h>

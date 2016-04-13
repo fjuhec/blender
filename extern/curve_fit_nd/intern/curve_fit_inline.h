@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+/** \file curve_fit_inline.h
+ *  \ingroup curve_fit
+ */
+
 /** \name Simple Vector Math Lib
  * \{ */
 
