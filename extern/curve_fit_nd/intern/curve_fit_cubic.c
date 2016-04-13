@@ -42,6 +42,10 @@
 /* avoid re-calculating lengths multiple times */
 #define USE_LENGTH_CACHE
 
+/* store the indices in the cubic data so we can return the original indices,
+ * useful when the caller has data assosiated with the curve. */
+#define USE_ORIG_INDEX_DATA
+
 typedef unsigned int uint;
 
 #include "curve_fit_inline.h"
@@ -76,6 +80,9 @@ typedef unsigned int uint;
 typedef struct Cubic {
 	/* single linked lists */
 	struct Cubic *next;
+#ifdef USE_ORIG_INDEX_DATA
+	uint orig_span;
+#endif
 	/* 0: point_0, 1: handle_0, 2: handle_1, 3: point_1,
 	 * each one is offset by 'dims' */
 	double pt_data[0];
@@ -140,14 +147,26 @@ static void cubic_list_prepend(CubicList *clist, Cubic *cubic)
 	clist->len++;
 }
 
-static double *cubic_list_as_array(const CubicList *clist)
+static double *cubic_list_as_array(
+        const CubicList *clist
+#ifdef USE_ORIG_INDEX_DATA
+        ,
+        const uint index_last,
+        uint *r_orig_index
+#endif
+        )
 {
 	const uint dims = clist->dims;
 	const uint array_flat_len = (clist->len + 1) * 3 * dims;
 
 	double *array = malloc(sizeof(double) * array_flat_len);
-
 	const double *handle_prev = &((Cubic *)clist->items)->pt_data[dims];
+
+#ifdef USE_ORIG_INDEX_DATA
+	uint orig_index_value = index_last;
+	uint orig_index_index = clist->len;
+	bool use_orig_index = (r_orig_index != NULL);
+#endif
 
 	/* fill the array backwards */
 	const size_t array_chunk = 3 * dims;
@@ -157,7 +176,23 @@ static double *cubic_list_as_array(const CubicList *clist)
 		memcpy(array_iter, &citer->pt_data[2 * dims], sizeof(double) * 2 * dims);
 		memcpy(&array_iter[2 * dims], &handle_prev[dims], sizeof(double) * dims);
 		handle_prev = citer->pt_data;
+
+#ifdef USE_ORIG_INDEX_DATA
+		if (use_orig_index) {
+			r_orig_index[orig_index_index--] = orig_index_value;
+			orig_index_value -= citer->orig_span;
+		}
+#endif
 	}
+
+#ifdef USE_ORIG_INDEX_DATA
+	if (use_orig_index) {
+		assert(orig_index_index == 0);
+		assert(orig_index_value == 0 || index_last == 0);
+		r_orig_index[orig_index_index] = index_last ? orig_index_value : 0;
+
+	}
+#endif
 
 	/* flip tangent for first and last (we could leave at zero, but set to something useful) */
 
@@ -437,6 +472,9 @@ static void cubic_from_points(
 	copy_vnvn(CUBIC_PT(r_cubic, 0, dims), p0, dims);
 	copy_vnvn(CUBIC_PT(r_cubic, 3, dims), p3, dims);
 
+#ifdef USE_ORIG_INDEX_DATA
+	r_cubic->orig_span = (points_offset_len - 1);
+#endif
 
 	/* p1 = p0 - (tan_l * alpha_l);
 	 * p2 = p3 + (tan_r * alpha_r);
@@ -675,6 +713,10 @@ static void fit_cubic_to_points(
 		msub_vn_vnvn_fl(p1, p0, tan_l, dist, dims);
 		madd_vn_vnvn_fl(p2, p3, tan_r, dist, dims);
 
+#ifdef USE_ORIG_INDEX_DATA
+		cubic->orig_span = 1;
+#endif
+
 		cubic_list_prepend(clist, cubic);
 		return;
 	}
@@ -802,6 +844,7 @@ int spline_fit_cubic_to_points_db(
         uint          corners_len,
 
         double **r_cubic_array, uint *r_cubic_array_len,
+        uint **r_cubic_orig_index,
         uint **r_corner_index_array, uint *r_corner_index_len)
 {
 	uint corners_buf[2];
@@ -894,12 +937,31 @@ int spline_fit_cubic_to_points_db(
 	}
 #endif
 
+#ifdef USE_ORIG_INDEX_DATA
+	uint *cubic_orig_index = NULL;
+	if (r_cubic_orig_index) {
+		cubic_orig_index = malloc(sizeof(uint) * (clist.len + 1));
+	}
+#else
+	*r_cubic_orig_index = NULL;
+#endif
+
 	/* allocate a contiguous array and free the linked list */
-	*r_cubic_array = cubic_list_as_array(&clist);
+	*r_cubic_array = cubic_list_as_array(
+	        &clist
+#ifdef USE_ORIG_INDEX_DATA
+	        , corners[corners_len - 1], cubic_orig_index
+#endif
+	        );
 	*r_cubic_array_len = clist.len + 1;
 
 	cubic_list_clear(&clist);
 
+#ifdef USE_ORIG_INDEX_DATA
+	if (cubic_orig_index) {
+		*r_cubic_orig_index = cubic_orig_index;
+	}
+#endif
 
 	if (corner_index_array) {
 		assert(corner_index == corners_len);
@@ -922,6 +984,7 @@ int spline_fit_cubic_to_points_fl(
         const uint    corners_len,
 
         float **r_cubic_array, uint *r_cubic_array_len,
+        uint **r_cubic_orig_index,
         uint **r_corner_index_array, uint *r_corner_index_len)
 {
 	const uint points_flat_len = points_len * dims;
@@ -938,6 +1001,7 @@ int spline_fit_cubic_to_points_fl(
 	int result = spline_fit_cubic_to_points_db(
 	        points_db, points_len, dims, error_threshold, corners, corners_len,
 	        &cubic_array_db, &cubic_array_len,
+	        r_cubic_orig_index,
 	        r_corner_index_array, r_corner_index_len);
 	free(points_db);
 

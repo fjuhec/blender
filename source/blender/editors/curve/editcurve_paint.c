@@ -429,6 +429,8 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 			        &corners, &corners_len);
 		}
 
+		unsigned int *cubic_orig_index = NULL;
+
 		unsigned int *corners_index = NULL;
 		unsigned int  corners_index_len = 0;
 
@@ -436,6 +438,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		        (const float *)coords, stroke_len, DIMS, error_threshold,
 		        corners, corners_len,
 		        &cubic_spline, &cubic_spline_len,
+		        &cubic_orig_index,
 		        &corners_index, &corners_index_len);
 		MEM_freeN(coords);
 		if (corners) {
@@ -475,6 +478,10 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 					bezt->h1 = bezt->h2 = HD_FREE;
 				}
 			}
+		}
+
+		if (cubic_orig_index) {
+			free(cubic_orig_index);
 		}
 
 		if (corners_index) {
