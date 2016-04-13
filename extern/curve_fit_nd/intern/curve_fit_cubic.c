@@ -801,7 +801,8 @@ int spline_fit_cubic_to_points_db(
         const uint   *corners,
         uint          corners_len,
 
-        double **r_cubic_array, uint *r_cubic_array_len)
+        double **r_cubic_array, uint *r_cubic_array_len,
+        uint **r_corner_index_array, uint *r_corner_index_len)
 {
 	uint corners_buf[2];
 	if (corners == NULL) {
@@ -827,6 +828,13 @@ int spline_fit_cubic_to_points_db(
 	double *points_length_cache = NULL;
 	uint    points_length_cache_len_alloc = 0;
 #endif
+
+	uint *corner_index_array = NULL;
+	uint  corner_index = 0;
+	if (r_corner_index_array && (corners != corners_buf)) {
+		corner_index_array = malloc(sizeof(uint) * corners_len);
+		corner_index_array[corner_index++] = corners[0];
+	}
 
 	for (uint i = 1; i < corners_len; i++) {
 		const uint points_offset_len = corners[i] - corners[i - 1] + 1;
@@ -874,6 +882,10 @@ int spline_fit_cubic_to_points_db(
 			cubic_init(cubic, pt, pt, pt, pt, dims);
 			cubic_list_prepend(&clist, cubic);
 		}
+
+		if (corner_index_array) {
+			corner_index_array[corner_index++] = clist.len;
+		}
 	}
 
 #ifdef USE_LENGTH_CACHE
@@ -887,6 +899,13 @@ int spline_fit_cubic_to_points_db(
 	*r_cubic_array_len = clist.len + 1;
 
 	cubic_list_clear(&clist);
+
+
+	if (corner_index_array) {
+		assert(corner_index == corners_len);
+		*r_corner_index_array = corner_index_array;
+		*r_corner_index_len = corner_index;
+	}
 
 	return 0;
 }
@@ -902,7 +921,8 @@ int spline_fit_cubic_to_points_fl(
         const uint   *corners,
         const uint    corners_len,
 
-        float **r_cubic_array, uint *r_cubic_array_len)
+        float **r_cubic_array, uint *r_cubic_array_len,
+        uint **r_corner_index_array, uint *r_corner_index_len)
 {
 	const uint points_flat_len = points_len * dims;
 	double *points_db = malloc(sizeof(double) * points_flat_len);
@@ -917,7 +937,8 @@ int spline_fit_cubic_to_points_fl(
 
 	int result = spline_fit_cubic_to_points_db(
 	        points_db, points_len, dims, error_threshold, corners, corners_len,
-	        &cubic_array_db, &cubic_array_len);
+	        &cubic_array_db, &cubic_array_len,
+	        r_corner_index_array, r_corner_index_len);
 	free(points_db);
 
 	if (!result) {

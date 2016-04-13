@@ -36,37 +36,66 @@
 /* curve_fit_cubic.c */
 
 /**
- * Takes a flat array of points:
- * `points[dims]`
+ * Takes a flat array of points and evalues that to calculate a bezier spline.
  *
- * And calculates cubic (bezier) splines:
- * `r_cubic_array[r_cubic_array_len][3][dims]`.
+ * \param points, points_len: The array of points to calculate a cubics from.
+ * \param dims: The number of dimensions for for each element in \a points.
+ * \param error_threshold: the error threshold to allow for,
+ * the curve will be within this distance from \a points.
+ * \param corners, corners_len: indices for points which will not have aligned tangents (optional).
+ * This can use the output of #spline_fit_corners_detect_db which has been included
+ * to evaluate a line to detect corner indices.
  *
- * Where each point has 0 and 2 for the tangents and the middle index 1 for the knot.
+ * \param r_cubic_array, r_cubic_array_len: Resulting array of tangents and knots, formatted as follows:
+ * ``r_cubic_array[r_cubic_array_len][3][dims]``,
+ * where each point has 0 and 2 for the tangents and the middle index 1 for the knot.
+ * The size of the *flat* array will be ``r_cubic_array_len * 3 * dims``.
+ * \param r_corner_index_array, r_corner_index_len: Corner indices in in \a r_cubic_array (optional).
+ * This allows you to access corners on the resulting curve.
+ *
+ * \returns zero on success, nonzero is reserved for error values.
  */
 int spline_fit_cubic_to_points_db(
-        const double *points,
-        const unsigned int points_len,
-        const unsigned int    dims,
-        const double  error,
-        const unsigned int   *corners,
-        const unsigned int    corners_len,
+        const double       *points,
+        const unsigned int  points_len,
+        const unsigned int  dims,
+        const double        error_threshold,
+        const unsigned int *corners,
+        const unsigned int  corners_len,
 
-        double **r_cubic_array, unsigned int *r_cubic_array_len);
+        double **r_cubic_array, unsigned int *r_cubic_array_len,
+        unsigned int **r_corner_index_array, unsigned int *r_corner_index_len);
 
 int spline_fit_cubic_to_points_fl(
-        const float  *points,
-        const unsigned int    points_len,
-        const unsigned int    dims,
-        const float   error,
-        const unsigned int   *corners,
-        const unsigned int    corners_len,
+        const float        *points,
+        const unsigned int  points_len,
+        const unsigned int  dims,
+        const float         error_threshold,
+        const unsigned int *corners,
+        const unsigned int  corners_len,
 
-        float **r_cubic_array, unsigned int *r_cubic_array_len);
+        float **r_cubic_array, unsigned int *r_cubic_array_len,
+        unsigned int **r_corners_index_array, unsigned int *r_corners_index_len);
 
 
 /* curve_fit_corners_detect.c */
 
+/**
+ * A helper function that takes a line and outputs its corner indices.
+ *
+ * \param points, points_len: Curve to evaluate.
+ * \param dims: The number of dimensions for for each element in \a points.
+ * \param radius_min: Corners on the curve between points below this radius are ignored.
+ * \param radius_max: Corners on the curve above this radius are ignored.
+ * \param samples_max: Prevent testing corners beyond this many points
+ * (prevents a large radius taking excessive time to compute).
+ * \param angle_threshold: Angles above this value are considered corners
+ * (higher value for fewer corners).
+ *
+ * \param r_corners, r_corners_len: Resulting array of corners.
+ *
+ * \returns zero on success, nonzero is reserved for error values.
+ */
 int spline_fit_corners_detect_db(
         const double      *points,
         const unsigned int points_len,
@@ -74,7 +103,7 @@ int spline_fit_corners_detect_db(
         const double       radius_min,
         const double       radius_max,
         const unsigned int samples_max,
-        const double       angle_limit,
+        const double       angle_threshold,
 
         unsigned int **r_corners,
         unsigned int  *r_corners_len);
@@ -86,7 +115,7 @@ int spline_fit_corners_detect_fl(
         const float        radius_min,
         const float        radius_max,
         const unsigned int samples_max,
-        const float        angle_limit,
+        const float        angle_threshold,
 
         unsigned int **r_corners,
         unsigned int  *r_corners_len);

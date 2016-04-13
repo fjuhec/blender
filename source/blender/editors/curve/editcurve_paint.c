@@ -429,10 +429,14 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 			        &corners, &corners_len);
 		}
 
+		unsigned int *corners_index = NULL;
+		unsigned int  corners_index_len = 0;
+
 		const int result = spline_fit_cubic_to_points_fl(
 		        (const float *)coords, stroke_len, DIMS, error_threshold,
 		        corners, corners_len,
-		        &cubic_spline, &cubic_spline_len);
+		        &cubic_spline, &cubic_spline_len,
+		        &corners_index, &corners_index_len);
 		MEM_freeN(coords);
 		if (corners) {
 			free(corners);
@@ -460,28 +464,23 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 					bezt->radius = radius_max;
 				}
 
-				/* check handle alignment */
-
-				{
-					float tan[2][3];
-
-					sub_v3_v3v3(tan[0], bezt->vec[0], bezt->vec[1]);
-					sub_v3_v3v3(tan[1], bezt->vec[2], bezt->vec[1]);
-					float cross[3];
-
-					cross_v3_v3v3(cross, tan[0], tan[1]);
-					if (len_squared_v3(cross) < 1e-4f) {
-						bezt->h1 = bezt->h2 = HD_ALIGN;
-					}
-					else {
-						bezt->h1 = bezt->h2 = HD_FREE;
-					}
-
-					bezt->f1 = bezt->f2 = bezt->f3 = SELECT;
-				}
+				bezt->h1 = bezt->h2 = HD_ALIGN;  /* will set to free in second pass */
+				bezt->f1 = bezt->f2 = bezt->f3 = SELECT;
 			}
 
+			if (corners_index) {
+				/* ignore the first and last */
+				for (unsigned int i = 1; i < corners_index_len - 1; i++) {
+					bezt = &nu->bezt[corners_index[i]];
+					bezt->h1 = bezt->h2 = HD_FREE;
+				}
+			}
 		}
+
+		if (corners_index) {
+			free(corners_index);
+		}
+
 		if (cubic_spline) {
 			free(cubic_spline);
 		}

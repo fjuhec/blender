@@ -235,8 +235,8 @@ static double point_corner_angle(
         const uint i,
         const double radius_mid,
         const double radius_max,
-        const double angle_limit,
-        const double angle_limit_cos,
+        const double angle_threshold,
+        const double angle_threshold_cos,
         /* prevent locking up when for example `radius_min` is very large
          * (possibly larger then the curve).
          * In this case we would end up checking every point from every other point,
@@ -247,7 +247,7 @@ static double point_corner_angle(
 
         const uint dims)
 {
-	assert(angle_limit_cos == cos(angle_limit));
+	assert(angle_threshold_cos == cos(angle_threshold));
 
 	const double *p = &points[i * dims];
 
@@ -274,8 +274,8 @@ static double point_corner_angle(
 
 		/* compare as cos and flip direction */
 
-		/* if (angle_mid > angle_limit) { */
-		if (angle_mid_cos < angle_limit_cos) {
+		/* if (angle_mid > angle_threshold) { */
+		if (angle_mid_cos < angle_threshold_cos) {
 #ifdef USE_VLA
 			double p_max_prev[dims];
 			double p_max_next[dims];
@@ -297,7 +297,7 @@ static double point_corner_angle(
 			{
 				const double angle_max = angle_vnvnvn(p_max_prev, p, p_max_next, dims) / 2.0;
 				const double angle_diff = acos(angle_mid_cos) - angle_max;
-				if (angle_diff > angle_limit) {
+				if (angle_diff > angle_threshold) {
 					return angle_diff;
 				}
 			}
@@ -315,12 +315,12 @@ int spline_fit_corners_detect_db(
         const double radius_min,  /* ignore values below this */
         const double radius_max,  /* ignore values above this */
         const uint samples_max,
-        const double angle_limit,
+        const double angle_threshold,
 
         uint **r_corners,
         uint  *r_corners_len)
 {
-	const double angle_limit_cos = cos(angle_limit);
+	const double angle_threshold_cos = cos(angle_threshold);
 	uint corners_len = 0;
 
 	/* Use the difference in angle between the mid-max radii
@@ -331,11 +331,14 @@ int spline_fit_corners_detect_db(
 	double *points_angle = malloc(sizeof(double) * points_len);
 	points_angle[0] = 0.0;
 
+	*r_corners = NULL;
+	*r_corners_len = 0;
+
 	for (uint i = 0; i < points_len; i++) {
 		points_angle[i] =  point_corner_angle(
 		        points, points_len, i,
 		        radius_mid, radius_max,
-		        angle_limit, angle_limit_cos,
+		        angle_threshold, angle_threshold_cos,
 		        samples_max,
 		        dims);
 
@@ -346,7 +349,7 @@ int spline_fit_corners_detect_db(
 
 	if (corners_len == 0) {
 		free(points_angle);
-		return false;
+		return 0;
 	}
 
 	/* Clean angle limits!
@@ -415,7 +418,7 @@ int spline_fit_corners_detect_db(
 	*r_corners = corners;
 	*r_corners_len = corners_len;
 
-	return 1;
+	return 0;
 }
 
 int spline_fit_corners_detect_fl(
@@ -425,7 +428,7 @@ int spline_fit_corners_detect_fl(
         const float radius_min,  /* ignore values below this */
         const float radius_max,  /* ignore values above this */
         const uint samples_max,
-        const float angle_limit,
+        const float angle_threshold,
 
         uint **r_corners,
         uint  *r_corners_len)
@@ -437,15 +440,15 @@ int spline_fit_corners_detect_fl(
 		points_db[i] = (double)points[i];
 	}
 
-	int ok = spline_fit_corners_detect_db(
+	int result = spline_fit_corners_detect_db(
 	        points_db, points_len,
 	        dims,
 	        radius_min, radius_max,
 	        samples_max,
-	        angle_limit,
+	        angle_threshold,
 	        r_corners, r_corners_len);
 
 	free(points_db);
 
-	return ok;
+	return result;
 }
