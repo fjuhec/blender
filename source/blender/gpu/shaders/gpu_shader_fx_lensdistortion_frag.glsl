@@ -1,10 +1,7 @@
 uniform ivec2 RegionSize;
 uniform sampler2D warpTexture;
 
-const vec2 LeftLensCenter = vec2(0.25, 0.5);
-const vec2 RightLensCenter = vec2(0.75, 0.5);
-const vec2 LeftScreenCenter = vec2(0.25, 0.5);
-const vec2 RightScreenCenter = vec2(0.75, 0.5);
+const vec2 LensCenter = vec2(0.5, 0.5);
 const vec2 Scale = vec2(0.1469278, 0.2350845);
 const vec2 ScaleIn = vec2(4, 2.5);
 const vec4 HmdWarpParam = vec4(1, 0.2, 0.1, 0);
@@ -15,11 +12,6 @@ const float aberr_b = 1.015;
 
 void main()
 {
-	vec2 RegionSize_h = RegionSize / 2;
-	// The following two variables need to be set per eye
-	vec2 LensCenter = gl_FragCoord.x < RegionSize_h.x ? LeftLensCenter : RightLensCenter;
-	vec2 ScreenCenter = gl_FragCoord.x < RegionSize_h.x ? LeftScreenCenter : RightScreenCenter;
-
 	vec2 oTexCoord = gl_FragCoord.xy / RegionSize;
 	oTexCoord = vec2(oTexCoord.x, 1.0 - oTexCoord.y);
 
@@ -31,14 +23,11 @@ void main()
 	vec2 tc_r = LensCenter + aberr_r * Scale * rvector;
 	vec2 tc_g = LensCenter +           Scale * rvector;
 	vec2 tc_b = LensCenter + aberr_b * Scale * rvector;
-	tc_r.x = gl_FragCoord.x < RegionSize_h.x ? (2.0 * tc_r.x) : (2.0 * (tc_r.x - 0.5));
-	tc_g.x = gl_FragCoord.x < RegionSize_h.x ? (2.0 * tc_g.x) : (2.0 * (tc_g.x - 0.5));
-	tc_b.x = gl_FragCoord.x < RegionSize_h.x ? (2.0 * tc_b.x) : (2.0 * (tc_b.x - 0.5));
 
 	float rval = 0.0;
 	float gval = 0.0;
 	float bval = 0.0;
-	
+
 	tc_r.y = (1 - tc_r.y);
 	tc_g.y = (1 - tc_g.y);
 	tc_b.y = (1 - tc_b.y);
