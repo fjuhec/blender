@@ -286,13 +286,14 @@ protected:
 
 private:
 
-	/** 
-	 * 	Create the context if it hasn't been created yet
-	 * 	\return True if a context was created or was already available.
+	/**
+	 * Create the context if it hasn't been created yet.
+	 * The context lives as long as the #GHOST_OpenHMDManager lives.
+	 * \return True if a context was created or was already available.
 	 */
 	bool createContext();
 	/**
-	 * Destroy and NULL #m_context.
+	 * Destroy and NULL #m_context. Should only be done when deleting #GHOST_OpenHMDManager.
 	 */
 	void destroyContext();
 

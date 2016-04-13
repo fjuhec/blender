@@ -43,6 +43,7 @@ GHOST_OpenHMDManager::GHOST_OpenHMDManager(GHOST_System& sys)
 GHOST_OpenHMDManager::~GHOST_OpenHMDManager()
 {
 	closeDevice();
+	destroyContext();
 }
 
 bool GHOST_OpenHMDManager::processEvents()
@@ -159,7 +160,7 @@ bool GHOST_OpenHMDManager::openDevice(int index)
 
 	// Blender only allows one opened device at a time
 	if (getOpenHMDDevice()) {
-	closeDevice();
+		closeDevice();
 	}
 
 	// can't fail to open the device
@@ -174,7 +175,6 @@ void GHOST_OpenHMDManager::closeDevice()
 		return;
 	}
 
-	destroyContext();
 	m_device = NULL;
 	m_deviceIndex = -1;
 }
