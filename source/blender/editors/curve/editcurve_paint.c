@@ -419,8 +419,8 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 
 		if (cps->flag & CURVE_PAINT_FLAG_CORNERS_DETECT) {
 			/* this could be configurable... */
-			const float corner_radius_min = error_threshold;
-			const float corner_radius_max = error_threshold * 3;
+			const float corner_radius_min = error_threshold / 8;
+			const float corner_radius_max = error_threshold * 2;
 			const unsigned int samples_max = 16;
 			spline_fit_corners_detect_fl(
 			        (const float *)coords, stroke_len, DIMS,

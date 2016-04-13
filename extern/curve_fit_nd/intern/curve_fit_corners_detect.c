@@ -249,7 +249,16 @@ static double point_corner_angle(
 {
 	assert(angle_threshold_cos == cos(angle_threshold));
 
+	if (i == 0 || i == points_len - 1) {
+		return 0.0;
+	}
+
 	const double *p = &points[i * dims];
+
+	/* initial test */
+	if (angle_vnvnvn_cos(&points[(i - 1) * dims], p, &points[(i + 1) * dims], dims) > angle_threshold_cos) {
+		return 0.0;
+	}
 
 #ifdef USE_VLA
 	double p_mid_prev[dims];
@@ -295,8 +304,9 @@ static double point_corner_angle(
 			        p_max_prev, &i_max_prev_next,
 			        p_max_next, &i_max_next_prev))
 			{
+				const double angle_mid = acos(angle_mid_cos);
 				const double angle_max = angle_vnvnvn(p_max_prev, p, p_max_next, dims) / 2.0;
-				const double angle_diff = acos(angle_mid_cos) - angle_max;
+				const double angle_diff = angle_mid - angle_max;
 				if (angle_diff > angle_threshold) {
 					return angle_diff;
 				}
