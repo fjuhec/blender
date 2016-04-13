@@ -332,6 +332,7 @@ static void curve_draw_exit(wmOperator *op)
 static int curve_draw_exec(bContext *C, wmOperator *op)
 {
 	struct CurveDrawData *cdd = op->customdata;
+	const CurvePaintSettings *cps = &cdd->scene->toolsettings->curve_paint_settings;
 	Object *obedit = cdd->scene->obedit;
 	Curve *cu = obedit->data;
 	ListBase *nurblist = object_editcurve_get(obedit);
@@ -339,6 +340,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 	int stroke_len = BLI_mempool_count(cdd->stroke_elem_pool);
 
 	const bool is_3d = (cu->flag & CU_3D) != 0;
+	const bool use_pressure_radius = (cps->flag & CURVE_PAINT_FLAG_PRESSURE_RADIUS) != 0;
 	invert_m4_m4(obedit->imat, obedit->obmat);
 
 	if (BLI_mempool_count(cdd->stroke_elem_pool) == 0) {
@@ -347,6 +349,10 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 	}
 
 	ED_curve_deselect_all(cu->editnurb);
+
+	const double radius_min = cps->radius_min;
+	const double radius_max = cps->radius_max;
+	const double radius_range = cps->radius_max - cps->radius_min;
 
 	Nurb *nu = MEM_callocN(sizeof(Nurb), __func__);
 	nu->pntsv = 1;
@@ -359,7 +365,6 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		nu->type = CU_BEZIER;
 
 #ifdef USE_SPLINE_FIT
-		const CurvePaintSettings *curve_paint_settings = &cdd->scene->toolsettings->curve_paint_settings;
 
 #define DIMS 4
 
@@ -392,7 +397,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 				selem_prev = selem;
 			}
 			scale_px = len_3d / len_2d;
-			error_threshold = (float)curve_paint_settings->error_threshold * scale_px;
+			error_threshold = (float)cps->error_threshold * scale_px;
 			RNA_property_float_set(op->ptr, prop_error, error_threshold);
 			printf("%.6f ~ %.6f ~ %.6f\n", scale_px, len_3d, len_2d);
 		}
@@ -412,7 +417,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		unsigned int *corners = NULL;
 		unsigned int  corners_len = 0;
 
-		if (curve_paint_settings->flag & CURVE_PAINT_FLAG_CORNERS_DETECT) {
+		if (cps->flag & CURVE_PAINT_FLAG_CORNERS_DETECT) {
 			/* this could be configurable... */
 			const float corner_radius_min = error_threshold;
 			const float corner_radius_max = error_threshold * 3;
@@ -420,7 +425,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 			spline_fit_corners_detect_fl(
 			        (const float *)coords, stroke_len, DIMS,
 			        corner_radius_min, corner_radius_max,
-			        samples_max, curve_paint_settings->corner_angle,
+			        samples_max, cps->corner_angle,
 			        &corners, &corners_len);
 		}
 
@@ -436,8 +441,6 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		if (result == 0) {
 			nu->pntsu = cubic_spline_len + 1;
 			nu->bezt = MEM_callocN(sizeof(BezTriple) * nu->pntsu, __func__);
-
-float rad_fac = 1.0f;
 
 			float *fl = cubic_spline;
 			for (int j = 0; j < cubic_spline_len; j++, fl += (DIMS * 4)) {
@@ -456,8 +459,14 @@ float rad_fac = 1.0f;
 				copy_v3_v3(nu->bezt[j + 1].vec[0], handle_r);
 				copy_v3_v3(nu->bezt[j + 1].vec[1], pt_r);
 
-				nu->bezt[j + 0].radius = pt_l[3] * rad_fac;
-				nu->bezt[j + 1].radius = pt_r[3] * rad_fac;
+				if (use_pressure_radius) {
+					nu->bezt[j + 0].radius = (pt_l[3] * radius_range) + radius_min;
+					nu->bezt[j + 1].radius = (pt_r[3] * radius_range) + radius_min;
+				}
+				else {
+					nu->bezt[j + 0].radius = radius_max;
+					nu->bezt[j + 1].radius = radius_max;
+				}
 			}
 
 			{
@@ -511,7 +520,14 @@ float rad_fac = 1.0f;
 				if (!is_3d) {
 					bezt->vec[1][2] = 0.0f;
 				}
-				bezt->radius = selem->pressure;
+
+				if (use_pressure_radius) {
+					bezt->radius = selem->pressure;
+				}
+				else {
+					bezt->radius = cps->radius_max;
+				}
+
 
 				bezt->h1 = bezt->h2 = HD_AUTO;
 
@@ -542,7 +558,13 @@ float rad_fac = 1.0f;
 			if (!is_3d) {
 				bp->vec[2] = 0.0f;
 			}
-			bp->radius = selem->pressure;
+
+			if (use_pressure_radius) {
+				bp->radius = (selem->pressure * radius_range) + radius_min;
+			}
+			else {
+				bp->radius = cps->radius_max;
+			}
 			bp->f1 = SELECT;
 			bp->vec[3] = 1.0f;
 

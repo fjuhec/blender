@@ -566,13 +566,25 @@ class VIEW3D_PT_tools_curveedit_options(View3DPanel, Panel):
         cps = tool_settings.curve_paint_settings
         col.prop(cps, "error_threshold")
         col.prop(cps, "use_corners_detect")
+
         col = layout.column()
         col.active = cps.use_corners_detect
         col.prop(cps, "corner_angle")
 
+        col.label("Radius/Pressure:")
+        row = layout.row(align=True)
+        rowsub = row.row(align=True)
+        if cps.use_pressure_radius:
+            rowsub.active = cps.use_pressure_radius
+            rowsub.prop(cps, "radius_min", text="Min")
+            rowsub.prop(cps, "radius_max", text="Max")
+        else:
+            rowsub.prop(cps, "radius_max", text="Radius")
+
+        row.prop(cps, "use_pressure_radius", text="", icon_only=True)
+
 
 # ********** default tools for editmode_surface ****************
-
 
 class VIEW3D_PT_tools_transform_surface(View3DPanel, Panel):
     bl_category = "Tools"

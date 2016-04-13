@@ -2616,10 +2616,14 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_struct_path_func(srna, "rna_CurvePaintSettings_path");
 	RNA_def_struct_ui_text(srna, "Curve Paint Settings", "");
 
-	/* high-level flags to enable or disable unified paint settings */
 	prop = RNA_def_property(srna, "use_corners_detect", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", CURVE_PAINT_FLAG_CORNERS_DETECT);
 	RNA_def_property_ui_text(prop, "Detect Corners", "");
+
+	prop = RNA_def_property(srna, "use_pressure_radius", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", CURVE_PAINT_FLAG_PRESSURE_RADIUS);
+	RNA_def_property_ui_icon(prop, ICON_STYLUS_PRESSURE, 0);
+	RNA_def_property_ui_text(prop, "Use Pressure", "Map tablet pressure to curve radius");
 
 	prop = RNA_def_property(srna, "error_threshold", PROP_INT, PROP_PIXEL);
 	RNA_def_property_range(prop, 1, 100);
@@ -2628,6 +2632,16 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	prop = RNA_def_property(srna, "corner_angle", PROP_FLOAT, PROP_ANGLE);
 	RNA_def_property_range(prop, 0, M_PI);
 	RNA_def_property_ui_text(prop, "Corner Angle", "Angles above this are considered corners");
+
+	prop = RNA_def_property(srna, "radius_min", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop, 0.0, 1000.0);
+	RNA_def_property_ui_range(prop, 0.0f, 10.0, 0.001, 2);
+	RNA_def_property_ui_text(prop, "Radius Min", "");
+
+	prop = RNA_def_property(srna, "radius_max", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop, 0.0, 10.0);
+	RNA_def_property_ui_range(prop, 0.0f, 10.0, 0.001, 1);
+	RNA_def_property_ui_text(prop, "Radius Max", "");
 }
 
 static void rna_def_statvis(BlenderRNA  *brna)

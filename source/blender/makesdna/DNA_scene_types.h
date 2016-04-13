@@ -1277,7 +1277,8 @@ typedef struct CurvePaintSettings {
 } CurvePaintSettings;
 
 enum {
-	CURVE_PAINT_FLAG_CORNERS_DETECT  = (1 << 0),
+	CURVE_PAINT_FLAG_CORNERS_DETECT			= (1 << 0),
+	CURVE_PAINT_FLAG_PRESSURE_RADIUS		= (1 << 1),
 };
 
 enum {
