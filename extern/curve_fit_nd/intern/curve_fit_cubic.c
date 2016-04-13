@@ -143,19 +143,33 @@ static void cubic_list_prepend(CubicList *clist, Cubic *cubic)
 static double *cubic_list_as_array(const CubicList *clist)
 {
 	const uint dims = clist->dims;
-	const uint array_flat_len = clist->len * 4 * dims;
+	const uint array_flat_len = (clist->len + 1) * 3 * dims;
 
 	double *array = malloc(sizeof(double) * array_flat_len);
 
+	const double *handle_prev = &((Cubic *)clist->items)->pt_data[dims];
+
 	/* fill the array backwards */
-	const size_t array_chunk = 4 * dims;
-	const size_t array_chunk_size = sizeof(double) * array_chunk;
+	const size_t array_chunk = 3 * dims;
 	double *array_iter = array + array_flat_len;
 	for (Cubic *citer = clist->items; citer; citer = citer->next) {
 		array_iter -= array_chunk;
-		memcpy(array_iter, citer->pt_data, array_chunk_size);
+		memcpy(array_iter, &citer->pt_data[2 * dims], sizeof(double) * 2 * dims);
+		memcpy(&array_iter[2 * dims], &handle_prev[dims], sizeof(double) * dims);
+		handle_prev = citer->pt_data;
 	}
+
+	/* flip tangent for first and last (we could leave at zero, but set to something useful) */
+
+	/* first */
+	array_iter -= array_chunk;
+	memcpy(&array_iter[dims], handle_prev, sizeof(double) * 2 * dims);
+	flip_vn_vnvn(&array_iter[0 * dims], &array_iter[1 * dims], &array_iter[2 * dims], dims);
 	assert(array == array_iter);
+
+	/* last */
+	array_iter += array_flat_len - (3 * dims);
+	flip_vn_vnvn(&array_iter[2 * dims], &array_iter[1 * dims], &array_iter[0 * dims], dims);
 
 	return array;
 }
@@ -870,7 +884,7 @@ int spline_fit_cubic_to_points_db(
 
 	/* allocate a contiguous array and free the linked list */
 	*r_cubic_array = cubic_list_as_array(&clist);
-	*r_cubic_array_len = clist.len;
+	*r_cubic_array_len = clist.len + 1;
 
 	cubic_list_clear(&clist);
 
@@ -907,7 +921,7 @@ int spline_fit_cubic_to_points_fl(
 	free(points_db);
 
 	if (!result) {
-		uint cubic_array_flat_len = cubic_array_len * 4 * dims;
+		uint cubic_array_flat_len = cubic_array_len * 3 * dims;
 		cubic_array_fl = malloc(sizeof(float) * cubic_array_flat_len);
 		for (uint i = 0; i < cubic_array_flat_len; i++) {
 			cubic_array_fl[i] = (float)cubic_array_db[i];

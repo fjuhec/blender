@@ -439,62 +439,46 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		}
 
 		if (result == 0) {
-			nu->pntsu = cubic_spline_len + 1;
+			nu->pntsu = cubic_spline_len;
 			nu->bezt = MEM_callocN(sizeof(BezTriple) * nu->pntsu, __func__);
 
 			float *fl = cubic_spline;
-			for (int j = 0; j < cubic_spline_len; j++, fl += (DIMS * 4)) {
-				const float *pt_l     = fl + (DIMS * 0);
-				const float *handle_l = fl + (DIMS * 1);
+			BezTriple *bezt = nu->bezt;
+			for (int j = 0; j < cubic_spline_len; j++, bezt++, fl += (DIMS * 3)) {
+				const float *handle_l = fl + (DIMS * 0);
+				const float *pt       = fl + (DIMS * 1);
 				const float *handle_r = fl + (DIMS * 2);
-				const float *pt_r     = fl + (DIMS * 3);
 
-				zero_v3(nu->bezt[j + 0].vec[1]);
-				zero_v3(nu->bezt[j + 0].vec[2]);
-				zero_v3(nu->bezt[j + 1].vec[0]);
-				zero_v3(nu->bezt[j + 1].vec[1]);
-
-				copy_v3_v3(nu->bezt[j + 0].vec[1], pt_l);
-				copy_v3_v3(nu->bezt[j + 0].vec[2], handle_l);
-				copy_v3_v3(nu->bezt[j + 1].vec[0], handle_r);
-				copy_v3_v3(nu->bezt[j + 1].vec[1], pt_r);
+				copy_v3_v3(bezt->vec[0], handle_l);
+				copy_v3_v3(bezt->vec[1], pt);
+				copy_v3_v3(bezt->vec[2], handle_r);
 
 				if (use_pressure_radius) {
-					nu->bezt[j + 0].radius = (pt_l[3] * radius_range) + radius_min;
-					nu->bezt[j + 1].radius = (pt_r[3] * radius_range) + radius_min;
+					bezt->radius = (pt[3] * radius_range) + radius_min;
 				}
 				else {
-					nu->bezt[j + 0].radius = radius_max;
-					nu->bezt[j + 1].radius = radius_max;
-				}
-			}
-
-			{
-				BezTriple *bezt;
-				bezt = &nu->bezt[0];
-				flip_v3_v3v3(bezt->vec[0], bezt->vec[1], bezt->vec[2]);
-
-				bezt = &nu->bezt[nu->pntsu - 1];
-				flip_v3_v3v3(bezt->vec[2], bezt->vec[1], bezt->vec[0]);
-			}
-
-			for (int j = 0; j < nu->pntsu; j++) {
-				BezTriple *bezt = &nu->bezt[j];
-				float tan[2][3];
-
-				sub_v3_v3v3(tan[0], bezt->vec[0], bezt->vec[1]);
-				sub_v3_v3v3(tan[1], bezt->vec[2], bezt->vec[1]);
-				float cross[3];
-
-				cross_v3_v3v3(cross, tan[0], tan[1]);
-				if (len_squared_v3(cross) < 1e-4f) {
-					bezt->h1 = bezt->h2 = HD_ALIGN;
-				}
-				else {
-					bezt->h1 = bezt->h2 = HD_FREE;
+					bezt->radius = radius_max;
 				}
 
-				bezt->f1 = bezt->f2 = bezt->f3 = SELECT;
+				/* check handle alignment */
+
+				{
+					float tan[2][3];
+
+					sub_v3_v3v3(tan[0], bezt->vec[0], bezt->vec[1]);
+					sub_v3_v3v3(tan[1], bezt->vec[2], bezt->vec[1]);
+					float cross[3];
+
+					cross_v3_v3v3(cross, tan[0], tan[1]);
+					if (len_squared_v3(cross) < 1e-4f) {
+						bezt->h1 = bezt->h2 = HD_ALIGN;
+					}
+					else {
+						bezt->h1 = bezt->h2 = HD_FREE;
+					}
+
+					bezt->f1 = bezt->f2 = bezt->f3 = SELECT;
+				}
 			}
 
 		}

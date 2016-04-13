@@ -49,10 +49,18 @@ static inline double max(const double a, const double b)
 }
 
 static inline void zero_vn(
-		double *v0, const uint dims)
+		double v0[], const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
 		v0[j] = 0.0;
+	}
+}
+
+static inline void flip_vn_vnvn(
+		double v_out[], const double v0[], const double v1[], const uint dims)
+{
+	for (uint j = 0; j < dims; j++) {
+		v_out[j] = v0[j] + (v0[j] - v1[j]);
 	}
 }
 

@@ -40,9 +40,9 @@
  * `points[dims]`
  *
  * And calculates cubic (bezier) splines:
- * `r_cubic_array[r_cubic_array_len][4][dims]`.
+ * `r_cubic_array[r_cubic_array_len][3][dims]`.
  *
- * Where each cubic has 0 and 3 for the points and indices 1 and 2 for the handles.
+ * Where each point has 0 and 2 for the tangents and the middle index 1 for the knot.
  */
 int spline_fit_cubic_to_points_db(
         const double *points,
