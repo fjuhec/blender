@@ -61,10 +61,10 @@ int spline_fit_cubic_to_points_db(
         const unsigned int  dims,
         const double        error_threshold,
         const unsigned int *corners,
-        const unsigned int  corners_len,
+        unsigned int        corners_len,
 
         double **r_cubic_array, unsigned int *r_cubic_array_len,
-        uint  **r_cubic_orig_index,
+        unsigned int **r_cubic_orig_index,
         unsigned int **r_corner_index_array, unsigned int *r_corner_index_len);
 
 int spline_fit_cubic_to_points_fl(
@@ -76,7 +76,7 @@ int spline_fit_cubic_to_points_fl(
         const unsigned int  corners_len,
 
         float **r_cubic_array, unsigned int *r_cubic_array_len,
-        uint  **r_cubic_orig_index,
+        unsigned int **r_cubic_orig_index,
         unsigned int **r_corners_index_array, unsigned int *r_corners_index_len);
 
 

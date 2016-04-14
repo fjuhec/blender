@@ -50,6 +50,10 @@ typedef unsigned int uint;
 
 #include "curve_fit_inline.h"
 
+#ifdef _MSC_VER
+#  define alloca(size) _alloca(size)
+#endif
+
 #if !defined(_MSC_VER)
 #  define USE_VLA
 #endif

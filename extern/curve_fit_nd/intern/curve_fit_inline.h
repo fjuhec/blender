@@ -33,22 +33,30 @@
 /** \name Simple Vector Math Lib
  * \{ */
 
-static inline double sq(const double d)
+#ifdef _MSC_VER
+#  define MINLINE static __forceinline
+#else
+#  define MINLINE static inline
+#endif
+
+MINLINE double sq(const double d)
 {
 	return d * d;
 }
 
-static inline double min(const double a, const double b)
+#ifndef _MSC_VER
+MINLINE double min(const double a, const double b)
 {
 	return b < a ? b : a;
 }
 
-static inline double max(const double a, const double b)
+MINLINE double max(const double a, const double b)
 {
 	return a < b ? b : a;
 }
+#endif
 
-static inline void zero_vn(
+MINLINE void zero_vn(
 		double v0[], const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
@@ -56,7 +64,7 @@ static inline void zero_vn(
 	}
 }
 
-static inline void flip_vn_vnvn(
+MINLINE void flip_vn_vnvn(
 		double v_out[], const double v0[], const double v1[], const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
@@ -64,7 +72,7 @@ static inline void flip_vn_vnvn(
 	}
 }
 
-static inline void copy_vnvn(
+MINLINE void copy_vnvn(
         double v0[], const double v1[], const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
@@ -72,7 +80,7 @@ static inline void copy_vnvn(
 	}
 }
 
-static inline double dot_vnvn(
+MINLINE double dot_vnvn(
         const double v0[], const double v1[], const uint dims)
 {
 	double d = 0.0;
@@ -82,7 +90,7 @@ static inline double dot_vnvn(
 	return d;
 }
 
-static inline void add_vn_vnvn(
+MINLINE void add_vn_vnvn(
         double v_out[], const double v0[], const double v1[], const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
@@ -90,7 +98,7 @@ static inline void add_vn_vnvn(
 	}
 }
 
-static inline void sub_vn_vnvn(
+MINLINE void sub_vn_vnvn(
         double v_out[], const double v0[], const double v1[], const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
@@ -98,7 +106,7 @@ static inline void sub_vn_vnvn(
 	}
 }
 
-static inline void iadd_vnvn(
+MINLINE void iadd_vnvn(
         double v0[], const double v1[], const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
@@ -106,7 +114,7 @@ static inline void iadd_vnvn(
 	}
 }
 
-static inline void isub_vnvn(
+MINLINE void isub_vnvn(
         double v0[], const double v1[], const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
@@ -114,7 +122,7 @@ static inline void isub_vnvn(
 	}
 }
 
-static inline void madd_vn_vnvn_fl(
+MINLINE void madd_vn_vnvn_fl(
         double v_out[],
         const double v0[], const double v1[],
         const double f, const uint dims)
@@ -124,7 +132,7 @@ static inline void madd_vn_vnvn_fl(
 	}
 }
 
-static inline void msub_vn_vnvn_fl(
+MINLINE void msub_vn_vnvn_fl(
         double v_out[],
         const double v0[], const double v1[],
         const double f, const uint dims)
@@ -134,7 +142,7 @@ static inline void msub_vn_vnvn_fl(
 	}
 }
 
-static inline void miadd_vn_vn_fl(
+MINLINE void miadd_vn_vn_fl(
         double v_out[], const double v0[], double f, const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
@@ -143,7 +151,7 @@ static inline void miadd_vn_vn_fl(
 }
 
 #if 0
-static inline void misub_vn_vn_fl(
+MINLINE void misub_vn_vn_fl(
         double v_out[], const double v0[], double f, const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
@@ -152,7 +160,7 @@ static inline void misub_vn_vn_fl(
 }
 #endif
 
-static inline void mul_vnvn_fl(
+MINLINE void mul_vnvn_fl(
         double v_out[],
         const double v0[], const double f, const uint dims)
 {
@@ -161,7 +169,7 @@ static inline void mul_vnvn_fl(
 	}
 }
 
-static inline void imul_vn_fl(double v0[], const double f, const uint dims)
+MINLINE void imul_vn_fl(double v0[], const double f, const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
 		v0[j] *= f;
@@ -169,7 +177,7 @@ static inline void imul_vn_fl(double v0[], const double f, const uint dims)
 }
 
 
-static inline double len_squared_vnvn(
+MINLINE double len_squared_vnvn(
 		const double v0[], const double v1[], const uint dims)
 {
 	double d = 0.0;
@@ -179,7 +187,7 @@ static inline double len_squared_vnvn(
 	return d;
 }
 
-static inline double len_squared_vn(
+MINLINE double len_squared_vn(
         const double v0[], const uint dims)
 {
 	double d = 0.0;
@@ -189,7 +197,7 @@ static inline double len_squared_vn(
 	return d;
 }
 
-static inline double len_vnvn(
+MINLINE double len_vnvn(
         const double v0[], const double v1[], const uint dims)
 {
 	return sqrt(len_squared_vnvn(v0, v1, dims));
@@ -202,7 +210,7 @@ static double len_vn(
 	return sqrt(len_squared_vn(v0, dims));
 }
 
-static inline double normalize_vn(
+MINLINE double normalize_vn(
         double v0[], const uint dims)
 {
 	double d = len_squared_vn(v0, dims);
@@ -214,7 +222,7 @@ static inline double normalize_vn(
 #endif
 
 /* v_out = (v0 - v1).normalized() */
-static inline double normalize_vn_vnvn(
+MINLINE double normalize_vn_vnvn(
         double v_out[],
         const double v0[], const double v1[], const uint dims)
 {
@@ -230,17 +238,17 @@ static inline double normalize_vn_vnvn(
 	return d;
 }
 
-static inline bool is_almost_zero_ex(double val, double eps)
+MINLINE bool is_almost_zero_ex(double val, double eps)
 {
 	return (-eps < val) && (val < eps);
 }
 
-static inline bool is_almost_zero(double val)
+MINLINE bool is_almost_zero(double val)
 {
 	return is_almost_zero_ex(val, 1e-8);
 }
 
-static inline bool equals_vnvn(
+MINLINE bool equals_vnvn(
 		const double v0[], const double v1[], const uint dims)
 {
 	for (uint j = 0; j < dims; j++) {
