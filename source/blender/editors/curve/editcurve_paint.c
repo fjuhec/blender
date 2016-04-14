@@ -100,7 +100,7 @@ struct StrokeElem {
 
 struct CurveDrawData {
 	short init_event_type;
-	short nurbs_type;
+	short curve_type;
 
 	/* projecting 2D into 3D space */
 	struct {
@@ -251,7 +251,8 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 			        selem->location_local[1] - location_prev[1],
 			        selem->location_local[2] - location_prev[2]);
 			location_prev = selem->location_local;
-			gluSphere(qobj, stroke_elem_radius(cdd, selem), 16, 12);
+			const float radius = stroke_elem_radius(cdd, selem);
+			gluSphere(qobj, radius , 12, 8);
 
 			location_prev = selem->location_local;
 		}
@@ -592,7 +593,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 	nu->flag |= CU_SMOOTH;
 
 
-	if (cdd->nurbs_type == CU_BEZIER) {
+	if (cdd->curve_type == CU_BEZIER) {
 		nu->type = CU_BEZIER;
 
 #ifdef USE_SPLINE_FIT
@@ -815,11 +816,11 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	cdd->init_event_type = event->type;
 
-	cdd->nurbs_type = RNA_enum_get(op->ptr, "type");
-
 	view3d_set_viewcontext(C, &cdd->vc);
 
 	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
+
+	cdd->curve_type = cps->curve_type;
 
 	cdd->radius.min = cps->radius_min;
 	cdd->radius.max = cps->radius_max;
@@ -870,13 +871,15 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 				cdd->project.use_depth = (cdd->vc.rv3d->depths != NULL);
 			}
 
-			if (cdd->project.use_depth) {
-				cdd->sample.use_substeps = true;
-			}
-			else {
+			/* use view plane (when set or as fallback when surface can't be found) */
+			if (cdd->project.use_depth == false) {
 				plane_co = ED_view3d_cursor3d_get(cdd->vc.scene, v3d);;
 				plane_no = rv3d->viewinv[2];
 				cdd->project.use_plane = true;
+			}
+
+			if (cdd->project.use_depth && (cdd->curve_type != CU_POLY)) {
+				cdd->sample.use_substeps = true;
 			}
 		}
 
@@ -963,12 +966,6 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	return ret;
 }
 
-static EnumPropertyItem prop_curve_draw_types[] = {
-	{CU_POLY, "POLY", 0, "Polygon", ""},
-	{CU_BEZIER, "BEZIER", 0, "Bezier", ""},
-	{0, NULL, 0, NULL, NULL}
-};
-
 void CURVE_OT_draw(wmOperatorType *ot)
 {
 	/* identifiers */
@@ -987,8 +984,6 @@ void CURVE_OT_draw(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* properties */
-	ot->prop = RNA_def_enum(ot->srna, "type", prop_curve_draw_types, CU_BEZIER, "Type", "");
-
 	RNA_def_float(ot->srna, "error", 0.0f, 0.0f, 10.0f, "Error", "", 0.0001f, 10.0f);
 
 	RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");

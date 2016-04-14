@@ -1268,10 +1268,10 @@ typedef enum {
 
 
 typedef struct CurvePaintSettings {
-	char flag;
+	char curve_type;
 	char depth_mode;
 	char surface_plane;
-	char _pad[1];
+	char flag;
 	int error_threshold;
 	float radius_min, radius_max;
 	float radius_offset;

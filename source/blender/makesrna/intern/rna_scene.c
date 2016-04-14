@@ -2616,6 +2616,16 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_struct_path_func(srna, "rna_CurvePaintSettings_path");
 	RNA_def_struct_ui_text(srna, "Curve Paint Settings", "");
 
+	static EnumPropertyItem curve_type_items[] = {
+		{CU_POLY, "POLY", 0, "Poly", ""},
+		{CU_BEZIER, "BEZIER", 0, "Bezier", ""},
+		{0, NULL, 0, NULL, NULL}};
+
+	prop = RNA_def_property(srna, "curve_type", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "curve_type");
+	RNA_def_property_enum_items(prop, curve_type_items);
+	RNA_def_property_ui_text(prop, "Type", "Type of curve to use for new strokes");
+
 	prop = RNA_def_property(srna, "use_corners_detect", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", CURVE_PAINT_FLAG_CORNERS_DETECT);
 	RNA_def_property_ui_text(prop, "Detect Corners", "");
@@ -2628,7 +2638,6 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	prop = RNA_def_property(srna, "use_stroke_endpoints", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", CURVE_PAINT_FLAG_DEPTH_STROKE_ENDPOINTS);
 	RNA_def_property_ui_text(prop, "Only First", "Use the start of the stroke for the depth");
-
 
 	prop = RNA_def_property(srna, "error_threshold", PROP_INT, PROP_PIXEL);
 	RNA_def_property_range(prop, 1, 100);

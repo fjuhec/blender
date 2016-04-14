@@ -555,14 +555,12 @@ class VIEW3D_PT_tools_curveedit_options_stroke(View3DPanel, Panel):
     def draw(self, context):
         layout = self.layout
 
-        ob = context.active_object
-
         tool_settings = context.tool_settings
-        mesh = ob.data
 
         col = layout.column()
 
         cps = tool_settings.curve_paint_settings
+        col.prop(cps, "curve_type")
         col.prop(cps, "error_threshold")
         col.prop(cps, "use_corners_detect")
 
