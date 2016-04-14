@@ -634,7 +634,6 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 	int stroke_len = BLI_mempool_count(cdd->stroke_elem_pool);
 
 	const bool is_3d = (cu->flag & CU_3D) != 0;
-	const bool use_pressure_radius = (cps->flag & CURVE_PAINT_FLAG_PRESSURE_RADIUS) != 0;
 	invert_m4_m4(obedit->imat, obedit->obmat);
 
 	if (BLI_mempool_count(cdd->stroke_elem_pool) == 0) {
@@ -660,9 +659,14 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 
 #ifdef USE_SPLINE_FIT
 
-#define DIMS 4
+		/* Allow to interpolate multiple channels */
+		int dims = 3;
+		struct {
+			int radius;
+		} coords_indices;
+		coords_indices.radius = (cps->flag & CURVE_PAINT_FLAG_PRESSURE_RADIUS) ? dims++ : -1;
 
-		float (*coords)[DIMS] = MEM_mallocN(sizeof(*coords) * stroke_len, __func__);
+		float *coords = MEM_mallocN(sizeof(*coords) * stroke_len * dims, __func__);
 
 		float       *cubic_spline = NULL;
 		unsigned int cubic_spline_len = 0;
@@ -673,12 +677,14 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		{
 			BLI_mempool_iter iter;
 			const struct StrokeElem *selem;
+			float *co = coords;
 
-			int i = 0;
 			BLI_mempool_iternew(cdd->stroke_elem_pool, &iter);
-			for (selem = BLI_mempool_iterstep(&iter); selem; selem = BLI_mempool_iterstep(&iter), i++) {
-				copy_v3_v3(coords[i], selem->location_local);
-				coords[i][3] = selem->pressure;
+			for (selem = BLI_mempool_iterstep(&iter); selem; selem = BLI_mempool_iterstep(&iter), co += dims) {
+				copy_v3_v3(co, selem->location_local);
+				if (coords_indices.radius != -1) {
+					co[coords_indices.radius] = selem->pressure;
+				}
 			}
 		}
 
@@ -690,8 +696,9 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 			const float corner_radius_min = error_threshold / 8;
 			const float corner_radius_max = error_threshold * 2;
 			const unsigned int samples_max = 16;
+
 			spline_fit_corners_detect_fl(
-			        (const float *)coords, stroke_len, DIMS,
+			        (const float *)coords, stroke_len, dims,
 			        corner_radius_min, corner_radius_max,
 			        samples_max, cps->corner_angle,
 			        &corners, &corners_len);
@@ -703,11 +710,12 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		unsigned int  corners_index_len = 0;
 
 		const int result = spline_fit_cubic_to_points_fl(
-		        (const float *)coords, stroke_len, DIMS, error_threshold,
+		        coords, stroke_len, dims, error_threshold,
 		        corners, corners_len,
 		        &cubic_spline, &cubic_spline_len,
 		        &cubic_orig_index,
 		        &corners_index, &corners_index_len);
+
 		MEM_freeN(coords);
 		if (corners) {
 			free(corners);
@@ -717,19 +725,19 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 			nu->pntsu = cubic_spline_len;
 			nu->bezt = MEM_callocN(sizeof(BezTriple) * nu->pntsu, __func__);
 
-			float *fl = cubic_spline;
+			float *co = cubic_spline;
 			BezTriple *bezt = nu->bezt;
-			for (int j = 0; j < cubic_spline_len; j++, bezt++, fl += (DIMS * 3)) {
-				const float *handle_l = fl + (DIMS * 0);
-				const float *pt       = fl + (DIMS * 1);
-				const float *handle_r = fl + (DIMS * 2);
+			for (int j = 0; j < cubic_spline_len; j++, bezt++, co += (dims * 3)) {
+				const float *handle_l = co + (dims * 0);
+				const float *pt       = co + (dims * 1);
+				const float *handle_r = co + (dims * 2);
 
 				copy_v3_v3(bezt->vec[0], handle_l);
 				copy_v3_v3(bezt->vec[1], pt);
 				copy_v3_v3(bezt->vec[2], handle_r);
 
-				if (use_pressure_radius) {
-					bezt->radius = (pt[3] * cdd->radius.range) + cdd->radius.min;
+				if (coords_indices.radius != -1) {
+					bezt->radius = (pt[coords_indices.radius] * cdd->radius.range) + cdd->radius.min;
 				}
 				else {
 					bezt->radius = radius_max;
@@ -760,8 +768,6 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 			free(cubic_spline);
 		}
 
-#undef DIMS
-
 #else
 		nu->pntsu = stroke_len;
 		nu->bezt = MEM_callocN(nu->pntsu * sizeof(BezTriple), __func__);
@@ -779,7 +785,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 					bezt->vec[1][2] = 0.0f;
 				}
 
-				if (use_pressure_radius) {
+				if (cps->flag & CURVE_PAINT_FLAG_PRESSURE_RADIUS) {
 					bezt->radius = selem->pressure;
 				}
 				else {
@@ -816,7 +822,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 				bp->vec[2] = 0.0f;
 			}
 
-			if (use_pressure_radius) {
+			if (cps->flag & CURVE_PAINT_FLAG_PRESSURE_RADIUS) {
 				bp->radius = (selem->pressure * radius_range) + radius_min;
 			}
 			else {
