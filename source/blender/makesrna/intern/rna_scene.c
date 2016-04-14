@@ -2627,7 +2627,7 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 
 	prop = RNA_def_property(srna, "use_stroke_endpoints", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", CURVE_PAINT_FLAG_DEPTH_STROKE_ENDPOINTS);
-	RNA_def_property_ui_text(prop, "Only First", "Only use the first part of the stroke for snapping");
+	RNA_def_property_ui_text(prop, "Only First", "Use the start of the stroke for the depth");
 
 
 	prop = RNA_def_property(srna, "error_threshold", PROP_INT, PROP_PIXEL);
@@ -2649,7 +2649,7 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Radius Max", "");
 
 	static EnumPropertyItem depth_mode_items[] = {
-		{CURVE_PAINT_PROJECT_VIEW,  "VIEW",  0, "View",  ""},
+		{CURVE_PAINT_PROJECT_CURSOR,  "CURSOR",  0, "Cursor",  ""},
 		{CURVE_PAINT_PROJECT_SURFACE, "SURFACE", 0, "Surface", ""},
 		{0, NULL, 0, NULL, NULL}};
 
@@ -2657,6 +2657,17 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_property_enum_sdna(prop, NULL, "depth_mode");
 	RNA_def_property_enum_items(prop, depth_mode_items);
 	RNA_def_property_ui_text(prop, "Depth", "Method of projecting depth");
+
+	static EnumPropertyItem depth_plane_items[] = {
+		{CURVE_PAINT_PLANE_NORMAL_VIEW,  "NORMAL_VIEW", 0, "Normal/View", "Draw perpendicular to the surface"},
+		{CURVE_PAINT_PLANE_NORMAL_SURFACE, "NORMAL_SURFACE", 0, "Normal/Surfave", "Draw aligned to the surface"},
+		{CURVE_PAINT_PLANE_VIEW, "VIEW", 0, "View", "Draw aligned to the viewport"},
+		{0, NULL, 0, NULL, NULL}};
+
+	prop = RNA_def_property(srna, "depth_plane", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "depth_plane");
+	RNA_def_property_enum_items(prop, depth_plane_items);
+	RNA_def_property_ui_text(prop, "Plane", "Plane for projected stroke");
 }
 
 static void rna_def_statvis(BlenderRNA  *brna)

@@ -869,15 +869,21 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		cdd->project.use_depth = false;
 		cdd->project.use_plane = true;
 
-		/* calculate the plane from the surface normal */
-		float normal[3];
-		if (depth_read_normal(&cdd->vc, &cdd->mats, event->mval, normal)) {
-			float cross_a[3], cross_b[3];
-			cross_v3_v3v3(cross_a, rv3d->viewinv[2], normal);
-			cross_v3_v3v3(cross_b, normal, cross_a);
-			copy_v3_v3(normal, cross_b);
+		float normal[3] = {0.0f};
+		if (ELEM(cps->depth_plane, CURVE_PAINT_PLANE_NORMAL_VIEW, CURVE_PAINT_PLANE_NORMAL_SURFACE)) {
+			if (depth_read_normal(&cdd->vc, &cdd->mats, event->mval, normal)) {
+				if (cps->depth_plane == CURVE_PAINT_PLANE_NORMAL_VIEW) {
+					float cross_a[3], cross_b[3];
+					cross_v3_v3v3(cross_a, rv3d->viewinv[2], normal);
+					cross_v3_v3v3(cross_b, normal, cross_a);
+					copy_v3_v3(normal, cross_b);
+				}
+
+			}
 		}
-		else {
+
+		/* CURVE_PAINT_PLANE_VIEW or fallback */
+		if (is_zero_v3(normal)) {
 			copy_v3_v3(normal, rv3d->viewinv[2]);
 		}
 
