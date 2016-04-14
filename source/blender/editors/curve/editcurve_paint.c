@@ -587,6 +587,37 @@ static void curve_draw_exit(wmOperator *op)
 	}
 }
 
+/**
+ * Initialize values before calling 'exec' (when running interactively).
+ */
+static void curve_draw_exec_precalc(wmOperator *op)
+{
+	PropertyRNA *prop_error = RNA_struct_find_property(op->ptr, "error_threshold");
+	if (!RNA_property_is_set(op->ptr, prop_error)) {
+		struct CurveDrawData *cdd = op->customdata;
+		const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
+
+		/* error isnt set so we'll have to calculate it from the pixel values */
+		BLI_mempool_iter iter;
+		const struct StrokeElem *selem, *selem_prev;
+
+		float len_3d = 0.0f, len_2d = 0.0f;
+		float scale_px;  /* pixel to local space scale */
+
+		int i = 0;
+		BLI_mempool_iternew(cdd->stroke_elem_pool, &iter);
+		selem_prev = BLI_mempool_iterstep(&iter);
+		for (selem = BLI_mempool_iterstep(&iter); selem; selem = BLI_mempool_iterstep(&iter), i++) {
+			len_3d += len_v3v3(selem->location_local, selem_prev->location_local);
+			len_2d += len_v2v2(selem->mval, selem_prev->mval);
+			selem_prev = selem;
+		}
+		scale_px = ((len_3d > 0.0f) && (len_2d > 0.0f)) ?  (len_3d / len_2d) : 0.0f;
+		float error_threshold = (cps->error_threshold * U.pixelsize) * scale_px;
+		RNA_property_float_set(op->ptr, prop_error, error_threshold);
+	}
+}
+
 static int curve_draw_exec(bContext *C, wmOperator *op)
 {
 	if (op->customdata == NULL) {
@@ -636,33 +667,8 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		float       *cubic_spline = NULL;
 		unsigned int cubic_spline_len = 0;
 
-		PropertyRNA *prop_error = RNA_struct_find_property(op->ptr, "error");
-		float error_threshold;  /* error in object local space */
-
-
-		if (RNA_property_is_set(op->ptr, prop_error)) {
-			error_threshold = RNA_property_float_get(op->ptr, prop_error);
-		}
-		else {
-			/* error isnt set so we'll have to calculate it from the */
-			BLI_mempool_iter iter;
-			const struct StrokeElem *selem, *selem_prev;
-
-			float len_3d = 0.0f, len_2d = 0.0f;
-			float scale_px;  /* pixel to local space scale */
-
-			int i = 0;
-			BLI_mempool_iternew(cdd->stroke_elem_pool, &iter);
-			selem_prev = BLI_mempool_iterstep(&iter);
-			for (selem = BLI_mempool_iterstep(&iter); selem; selem = BLI_mempool_iterstep(&iter), i++) {
-				len_3d += len_v3v3(selem->location_local, selem_prev->location_local);
-				len_2d += len_v2v2(selem->mval, selem_prev->mval);
-				selem_prev = selem;
-			}
-			scale_px = ((len_3d > 0.0f) && (len_2d > 0.0f)) ?  (len_3d / len_2d) : 0.0f;
-			error_threshold = (cps->error_threshold * U.pixelsize) * scale_px;
-			RNA_property_float_set(op->ptr, prop_error, error_threshold);
-		}
+		/* error in object local space */
+		const float error_threshold = RNA_float_get(op->ptr, "error_threshold");
 
 		{
 			BLI_mempool_iter iter;
@@ -969,6 +975,7 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 			curve_draw_stroke_to_operator(op);
 
+			curve_draw_exec_precalc(op);
 			curve_draw_exec(C, op);
 
 			return OPERATOR_FINISHED;
@@ -1004,7 +1011,11 @@ void CURVE_OT_draw(wmOperatorType *ot)
 	/* properties */
 	PropertyRNA *prop;
 
-	RNA_def_float(ot->srna, "error", 0.0f, 0.0f, 10.0f, "Error", "", 0.0001f, 10.0f);
+	prop = RNA_def_float_distance(
+	        ot->srna, "error_threshold", 0.0f, 0.0f, 10.0f, "Error",
+	        "Error distance threshold (in object units)",
+	        0.0001f, 10.0f);
+	RNA_def_property_ui_range(prop, 0.0, 10, 1, 4);
 
 	prop = RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
