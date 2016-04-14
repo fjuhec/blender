@@ -540,6 +540,36 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 }
 
 
+static void curve_draw_init(bContext *C, wmOperator *op, bool is_invoke)
+{
+	BLI_assert(op->customdata == NULL);
+
+	struct CurveDrawData *cdd = MEM_callocN(sizeof(*cdd), __func__);
+
+	op->customdata = cdd;
+
+	if (is_invoke) {
+		view3d_set_viewcontext(C, &cdd->vc);
+	}
+	else {
+		cdd->vc.scene = CTX_data_scene(C);
+		cdd->vc.obedit = CTX_data_edit_object(C);
+	}
+
+	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
+
+	cdd->curve_type = cps->curve_type;
+
+	cdd->radius.min = cps->radius_min;
+	cdd->radius.max = cps->radius_max;
+	cdd->radius.range = cps->radius_max - cps->radius_min;
+	cdd->radius.offset = cps->radius_offset;
+
+	cdd->stroke_elem_pool = BLI_mempool_create(
+	        sizeof(struct StrokeElem), 0, 512, BLI_MEMPOOL_ALLOW_ITER);
+}
+
+
 static void curve_draw_exit(wmOperator *op)
 {
 	struct CurveDrawData *cdd = op->customdata;
@@ -559,7 +589,12 @@ static void curve_draw_exit(wmOperator *op)
 
 static int curve_draw_exec(bContext *C, wmOperator *op)
 {
+	if (op->customdata == NULL) {
+		curve_draw_init(C, op, false);
+	}
+
 	struct CurveDrawData *cdd = op->customdata;
+
 	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
 	Object *obedit = cdd->vc.scene->obedit;
 	Curve *cu = obedit->data;
@@ -799,29 +834,20 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 	DAG_id_tag_update(obedit->data, 0);
 
+	curve_draw_exit(op);
+
 	return OPERATOR_FINISHED;
 }
 
 static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	UNUSED_VARS(event);
-	struct CurveDrawData *cdd;
+	curve_draw_init(C, op, true);
 
-	cdd = MEM_callocN(sizeof(*cdd), __func__);
-	op->customdata = cdd;
-
-	cdd->init_event_type = event->type;
-
-	view3d_set_viewcontext(C, &cdd->vc);
+	struct CurveDrawData *cdd = op->customdata;
 
 	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
 
-	cdd->curve_type = cps->curve_type;
-
-	cdd->radius.min = cps->radius_min;
-	cdd->radius.max = cps->radius_max;
-	cdd->radius.range = cps->radius_max - cps->radius_min;
-	cdd->radius.offset = cps->radius_offset;
+	cdd->init_event_type = event->type;
 
 	/* fallback (incase we can't find the depth on first test) */
 	{
@@ -831,9 +857,6 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		ED_view3d_win_to_3d(cdd->vc.ar, center, mval_fl, cdd->prev.location_world);
 		copy_v3_v3(cdd->prev.location_world_valid, cdd->prev.location_world);
 	}
-
-	cdd->stroke_elem_pool = BLI_mempool_create(
-	        sizeof(struct StrokeElem), 0, 512, BLI_MEMPOOL_ALLOW_ITER);
 
 	cdd->draw_handle_view = ED_region_draw_cb_activate(
 	        cdd->vc.ar->type, curve_draw_stroke_3d, op, REGION_DRAW_POST_VIEW);
@@ -943,12 +966,12 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 	if (event->type == cdd->init_event_type) {
 		if (event->val == KM_RELEASE) {
+			ED_region_tag_redraw(cdd->vc.ar);
+
 			curve_draw_stroke_to_operator(op);
 
 			curve_draw_exec(C, op);
 
-			ED_region_tag_redraw(cdd->vc.ar);
-			curve_draw_exit(op);
 			return OPERATOR_FINISHED;
 		}
 	}
@@ -980,9 +1003,12 @@ void CURVE_OT_draw(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* properties */
+	PropertyRNA *prop;
+
 	RNA_def_float(ot->srna, "error", 0.0f, 0.0f, 10.0f, "Error", "", 0.0001f, 10.0f);
 
-	RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
+	prop = RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 /** \} */
