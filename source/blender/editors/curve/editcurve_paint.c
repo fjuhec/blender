@@ -981,6 +981,11 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			return OPERATOR_FINISHED;
 		}
 	}
+	else if (ELEM(event->type, ESCKEY, RIGHTMOUSE)) {
+		ED_region_tag_redraw(cdd->vc.ar);
+		curve_draw_cancel(C, op);
+		return OPERATOR_CANCELLED;
+	}
 	else if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
 		const float mval_fl[2] = {UNPACK2(event->mval)};
 		if (len_squared_v2v2(mval_fl, cdd->prev.location_world) > SQUARE(STROKE_SAMPLE_DIST_MIN_PX)) {
