@@ -35,6 +35,7 @@
 #include "BKE_curve.h"
 #include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
+#include "BKE_report.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -889,7 +890,7 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		}
 		else {
 			if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) &&
-			    V3D_IS_ZBUF(cdd->vc.v3d))
+			    (v3d->drawtype > OB_WIRE))
 			{
 				view3d_get_transformation(cdd->vc.ar, cdd->vc.rv3d, NULL, &cdd->mats);
 
@@ -897,8 +898,20 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 				view3d_operator_needs_opengl(C);
 
 				ED_view3d_autodist_init(cdd->vc.scene, cdd->vc.ar, cdd->vc.v3d, 0);
+
+				if (cdd->vc.rv3d->depths) {
+					cdd->vc.rv3d->depths->damaged = true;
+				}
+
 				ED_view3d_depth_update(cdd->vc.ar);
-				cdd->project.use_depth = (cdd->vc.rv3d->depths != NULL);
+
+				if (cdd->vc.rv3d->depths != NULL) {
+					cdd->project.use_depth = true;
+				}
+				else {
+					BKE_report(op->reports, RPT_WARNING, "Unable to access depth buffer, using view plane.");
+					cdd->project.use_depth = false;
+				}
 			}
 
 			/* use view plane (when set or as fallback when surface can't be found) */
