@@ -105,12 +105,16 @@ struct CurveDrawData {
 	bool use_project_plane;
 	float    project_plane[4];
 
-	ViewDepths *project_depths;
+	/* use 'rv3d->depths', note that this will become 'damaged' while drawing, but thats OK. */
+	bool use_project_depth;
 
 	struct {
 		float mouse[2];
 		/* used incase we can't calculate the depth */
 		float location_world[3];
+
+		float location_world_valid[3];
+
 	} prev;
 
 	ViewContext vc;
@@ -273,9 +277,8 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 {
 	struct CurveDrawData *cdd = op->customdata;
-//	RegionView3D *rv3d = cdd->ar->regiondata;
 	Object *obedit = cdd->vc.obedit;
-	const float mval_fl[2] = {event->mval[0] + 0.5f, event->mval[1] + 0.5f};
+	const float mval_fl[2] = {event->mval[0], event->mval[1]};
 	View3D *v3d = cdd->vc.v3d;
 
 	invert_m4_m4(obedit->imat, obedit->obmat);
@@ -297,18 +300,16 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 		}
 	}
 	else {
-		if (cdd->project_depths &&
-		    ((unsigned int)event->mval[0] < cdd->project_depths->h) &&
-		    ((unsigned int)event->mval[1] < cdd->project_depths->w)
-		    )
+		const ViewDepths *depths = cdd->vc.rv3d->depths;
+		if (depths &&
+		    ((unsigned int)event->mval[0] < depths->w) &&
+		    ((unsigned int)event->mval[1] < depths->h))
 		{
-			SWAP(ViewDepths *, cdd->vc.rv3d->depths, cdd->project_depths);
 			float depth = ED_view3d_depth_read_cached(&cdd->vc, event->x, event->y);
-			SWAP(ViewDepths *, cdd->vc.rv3d->depths, cdd->project_depths);
 			ED_view3d_autodist_simple(cdd->vc.ar, event->mval, selem->location_world, 0, &depth);
 
-			if ((depth > cdd->project_depths->depth_range[0]) &&
-			    (depth < cdd->project_depths->depth_range[1]))
+			if ((depth > depths->depth_range[0]) &&
+			    (depth < depths->depth_range[1]))
 			{
 				double p[3];
 				if (gluUnProject((double)event->x + 0.5, event->y + 0.5, depth,
@@ -323,7 +324,10 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 
 	/* fallback to previous depth */
 	if (!is_location_world_set) {
-		ED_view3d_win_to_3d(cdd->vc.ar, cdd->prev.location_world, mval_fl, selem->location_world);
+		ED_view3d_win_to_3d(cdd->vc.ar, cdd->prev.location_world_valid, mval_fl, selem->location_world);
+	}
+	else {
+		copy_v3_v3(cdd->prev.location_world_valid, selem->location_world);
 	}
 	copy_v3_v3(cdd->prev.location_world, selem->location_world);
 
@@ -629,6 +633,7 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		float center[3];
 		negate_v3_v3(center, cdd->vc.rv3d->ofs);
 		ED_view3d_win_to_3d(cdd->vc.ar, center, mval_fl, cdd->prev.location_world);
+		copy_v3_v3(cdd->prev.location_world_valid, cdd->prev.location_world);
 	}
 
 	cdd->stroke_elem_pool = BLI_mempool_create(
@@ -654,33 +659,24 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			plane_no = obedit->obmat[2];
 			cdd->use_project_plane = true;
 		}
-		else if (cps->depth_mode == CURVE_PAINT_PROJECT_VIEW) {
-			plane_co = ED_view3d_cursor3d_get(cdd->vc.scene, v3d);;
-			plane_no = rv3d->viewinv[2];
-			cdd->use_project_plane = true;
-		}
 		else {
-			/* get depth info */
+			if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) &&
+			    V3D_IS_ZBUF(cdd->vc.v3d))
+			{
+				view3d_get_transformation(cdd->vc.ar, cdd->vc.rv3d, NULL, &cdd->mats);
 
-			/* note, the object argument means the modelview matrix does not account for the objects matrix, use viewmat rather than (obmat * viewmat) */
-			view3d_get_transformation(cdd->vc.ar, cdd->vc.rv3d, NULL, &cdd->mats);
+				/* needed or else the draw matrix can be incorrect */
+				view3d_operator_needs_opengl(C);
 
-			if (V3D_IS_ZBUF(cdd->vc.v3d)) {
-//				if (cdd->vc.v3d->flag & V3D_INVALID_BACKBUF)
-				{
-					/* needed or else the draw matrix can be incorrect */
-					view3d_operator_needs_opengl(C);
+				ED_view3d_autodist_init(cdd->vc.scene, cdd->vc.ar, cdd->vc.v3d, 0);
+				ED_view3d_depth_update(cdd->vc.ar);
+				cdd->use_project_depth = (cdd->vc.rv3d->depths != NULL);
+			}
 
-//					ED_view3d_backbuf_validate(&cdd->vc);
-					/* we may need to force an update here by setting the rv3d as dirty
-					 * for now it seems ok, but take care!:
-					 * rv3d->depths->dirty = 1; */
-					ED_view3d_autodist_init(cdd->vc.scene, cdd->vc.ar, cdd->vc.v3d, 0);
-					ED_view3d_depth_update(cdd->vc.ar);
-
-					cdd->project_depths = cdd->vc.rv3d->depths;
-					cdd->vc.rv3d->depths = NULL;
-				}
+			if (cdd->use_project_depth == false) {
+				plane_co = ED_view3d_cursor3d_get(cdd->vc.scene, v3d);;
+				plane_no = rv3d->viewinv[2];
+				cdd->use_project_plane = true;
 			}
 		}
 

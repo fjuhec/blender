@@ -611,6 +611,8 @@ static void points_calc_coord_length(
  * \param cubic: Current fitted curve.
  * \param p: Point to test against.
  * \param u: Parameter value for \a p.
+ *
+ * \note Return value may be `nan` caller must check for this.
  */
 static double cubic_find_root(
 		const Cubic *cubic,
@@ -662,8 +664,8 @@ static bool cubic_reparameterize(
         double       *r_u_prime)
 {
 	/*
-	* Recalculate the values of u[] based on the Newton Raphson method
-	*/
+	 * Recalculate the values of u[] based on the Newton Raphson method
+	 */
 
 	const double *pt = points_offset;
 	for (uint i = 0; i < points_offset_len; i++, pt += dims) {
