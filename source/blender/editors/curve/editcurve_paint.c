@@ -83,7 +83,8 @@
 #endif
 
 /* Distance between input samples */
-#define STROKE_SAMPLE_DIST_PX 3
+#define STROKE_SAMPLE_DIST_MIN_PX 3
+#define STROKE_SAMPLE_DIST_MAX_PX 6
 
 /* -------------------------------------------------------------------- */
 
@@ -91,7 +92,7 @@
  * \{ */
 
 struct StrokeElem {
-	float mouse[2];
+	float mval[2];
 	float location_world[3];
 	float location_local[3];
 	float pressure;
@@ -101,12 +102,22 @@ struct CurveDrawData {
 	short init_event_type;
 	short nurbs_type;
 
-	/* use a plane or project to the surface */
-	bool use_project_plane;
-	float    project_plane[4];
+	/* projecting 2D into 3D space */
+	struct {
+		/* use a plane or project to the surface */
+		bool use_plane;
+		float    plane[4];
 
-	/* use 'rv3d->depths', note that this will become 'damaged' while drawing, but thats OK. */
-	bool use_project_depth;
+		/* use 'rv3d->depths', note that this will become 'damaged' while drawing, but thats OK. */
+		bool use_depth;
+	} project;
+
+	/* cursor sampling */
+	struct {
+		/* use substeps, needed for nicely interpolating depth */
+		bool use_substeps;
+	} sample;
+
 
 	struct {
 		float mouse[2];
@@ -115,6 +126,7 @@ struct CurveDrawData {
 
 		float location_world_valid[3];
 
+		const struct StrokeElem *selem;
 	} prev;
 
 	ViewContext vc;
@@ -126,13 +138,23 @@ struct CurveDrawData {
 	void *draw_handle_view;
 };
 
+static void stroke_elem_interp(
+        struct StrokeElem *selem_out,
+        const struct StrokeElem *selem_a,  const struct StrokeElem *selem_b, float t)
+{
+	interp_v2_v2v2(selem_out->mval, selem_a->mval, selem_b->mval, t);
+	interp_v3_v3v3(selem_out->location_world, selem_a->location_world, selem_b->location_world, t);
+	interp_v3_v3v3(selem_out->location_local, selem_a->location_local, selem_b->location_local, t);
+	selem_out->pressure = interpf(selem_a->pressure, selem_b->pressure, t);
+}
+
 static void curve_draw_stroke_to_operator_elem(
         wmOperator *op, const struct StrokeElem *selem)
 {
 	PointerRNA itemptr;
 	RNA_collection_add(op->ptr, "stroke", &itemptr);
 
-	RNA_float_set_array(&itemptr, "mouse", selem->mouse);
+	RNA_float_set_array(&itemptr, "mouse", selem->mval);
 	RNA_float_set_array(&itemptr, "location", selem->location_world);
 	RNA_float_set(&itemptr, "pressure", selem->pressure);
 }
@@ -144,7 +166,7 @@ static void curve_draw_stroke_from_operator_elem(
 
 	struct StrokeElem *selem = BLI_mempool_calloc(cdd->stroke_elem_pool);
 
-	RNA_float_get_array(itemptr, "mouse", selem->mouse);
+	RNA_float_get_array(itemptr, "mouse", selem->mval);
 	RNA_float_get_array(itemptr, "location", selem->location_world);
 	mul_v3_m4v3(selem->location_local, cdd->vc.obedit->imat, selem->location_world);
 	selem->pressure = RNA_float_get(itemptr, "pressure");
@@ -273,7 +295,7 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 	}
 }
 
-static float depth_read(const ViewContext *vc, int x, int y)
+static float depth_read_zbuf(const ViewContext *vc, int x, int y)
 {
 	ViewDepths *vd = vc->rv3d->depths;
 
@@ -281,6 +303,24 @@ static float depth_read(const ViewContext *vc, int x, int y)
 		return vd->depths[y * vd->w + x];
 	else
 		return -1.0f;
+}
+
+static bool depth_unproject(
+        const ARegion *ar, const bglMats *mats,
+        const int mval[2], const float depth,
+        float r_location_world[3])
+{
+	double p[3];
+	if (gluUnProject(
+	        (double)ar->winrct.xmin + mval[0] + 0.5,
+	        (double)ar->winrct.ymin + mval[1] + 0.5,
+	        depth, mats->modelview, mats->projection, (const GLint *)mats->viewport,
+	        &p[0], &p[1], &p[2]))
+	{
+		copy_v3fl_v3db(r_location_world, p);
+		return true;
+	}
+	return false;
 }
 
 static bool depth_read_normal(
@@ -291,24 +331,18 @@ static bool depth_read_normal(
 	bool  depths_valid[9] = {false};
 	float coords[9][3] = {{0}};
 
+	ARegion *ar = vc->ar;
 	const ViewDepths *depths = vc->rv3d->depths;
 
 	for (int x = 0, i = 0; x < 2; x++) {
 		for (int y = 0; y < 2; y++) {
 			const int mval_ofs[2] = {mval[0] + (x - 1), mval[1] + (y - 1)};
-			float depth = depth_read(vc, mval_ofs[0], mval_ofs[1]);
+
+			float depth = depth_read_zbuf(vc, mval_ofs[0], mval_ofs[1]);
 			if ((depth > depths->depth_range[0]) && (depth < depths->depth_range[1])) {
-				double p[3];
-				if (gluUnProject(
-				        (double)vc->ar->winrct.xmin + mval_ofs[0] + 0.5,
-				        (double)vc->ar->winrct.ymin + mval_ofs[1] + 0.5,
-				        depth, mats->modelview, mats->projection, (const GLint *)mats->viewport,
-				        &p[0], &p[1], &p[2]))
-				{
-					copy_v3fl_v3db(coords[i], p);
+				if (depth_unproject(ar, mats, mval_ofs, depth, coords[i])) {
 					depths_valid[i] = true;
 				}
-
 			}
 			i++;
 		}
@@ -347,65 +381,97 @@ static bool depth_read_normal(
 	}
 }
 
-static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
+/**
+ * Sets the depth from #StrokeElem.mval
+ */
+static bool stroke_elem_project(
+        const struct CurveDrawData *cdd,
+        const int mval_i[2], const float mval_fl[2],
+        float r_location_world[3])
 {
-	struct CurveDrawData *cdd = op->customdata;
-	Object *obedit = cdd->vc.obedit;
-	const float mval_fl[2] = {event->mval[0], event->mval[1]};
 	View3D *v3d = cdd->vc.v3d;
-
-	invert_m4_m4(obedit->imat, obedit->obmat);
-
-	struct StrokeElem *selem = BLI_mempool_calloc(cdd->stroke_elem_pool);
+	ARegion *ar = cdd->vc.ar;
+	RegionView3D *rv3d = cdd->vc.rv3d;
 
 	bool is_location_world_set = false;
 
 	/* project to 'location_world' */
-	if (cdd->use_project_plane) {
+	if (cdd->project.use_plane) {
 		/* get the view vector to 'location' */
 		float ray_origin[3], ray_direction[3];
 		ED_view3d_win_to_ray(cdd->vc.ar, v3d, mval_fl, ray_origin, ray_direction, false);
 
 		float lambda;
-		if (isect_ray_plane_v3(ray_origin, ray_direction, cdd->project_plane, &lambda, true)) {
-			madd_v3_v3v3fl(selem->location_world, ray_origin, ray_direction, lambda);
+		if (isect_ray_plane_v3(ray_origin, ray_direction, cdd->project.plane, &lambda, true)) {
+			madd_v3_v3v3fl(r_location_world, ray_origin, ray_direction, lambda);
 			is_location_world_set = true;
 		}
 	}
 	else {
-		const ViewDepths *depths = cdd->vc.rv3d->depths;
+		const ViewDepths *depths = rv3d->depths;
 		if (depths &&
-		    ((unsigned int)event->mval[0] < depths->w) &&
-		    ((unsigned int)event->mval[1] < depths->h))
+		    ((unsigned int)mval_i[0] < depths->w) &&
+		    ((unsigned int)mval_i[1] < depths->h))
 		{
-			float depth = depth_read(&cdd->vc, event->mval[0], event->mval[1]);
+			float depth = depth_read_zbuf(&cdd->vc, mval_i[0], mval_i[1]);
 			if ((depth > depths->depth_range[0]) && (depth < depths->depth_range[1])) {
-				is_location_world_set = true;
-				double p[3];
-				if (gluUnProject(
-				        (double)event->x + 0.5, event->y + 0.5, depth,
-				        cdd->mats.modelview, cdd->mats.projection, (GLint *)cdd->mats.viewport,
-				        &p[0], &p[1], &p[2]))
-				{
-					copy_v3fl_v3db(selem->location_world, p);
+				if (depth_unproject(ar, &cdd->mats, mval_i, depth, r_location_world)) {
 					is_location_world_set = true;
 				}
 			}
 		}
 	}
 
-	/* fallback to previous depth */
-	if (!is_location_world_set) {
-		ED_view3d_win_to_3d(cdd->vc.ar, cdd->prev.location_world_valid, mval_fl, selem->location_world);
+	return is_location_world_set;
+}
+
+static bool stroke_elem_project_fallback(
+        const struct CurveDrawData *cdd,
+        const int mval_i[2], const float mval_fl[2],
+        const float location_fallback_depth[3],
+        float r_location_world[3], float r_location_local[3])
+{
+	bool is_depth_found = stroke_elem_project(cdd, mval_i, mval_fl, r_location_world);
+	if (is_depth_found == false) {
+		ED_view3d_win_to_3d(cdd->vc.ar, location_fallback_depth, mval_fl, r_location_world);
 	}
-	else {
+	mul_v3_m4v3(r_location_local, cdd->vc.obedit->imat, r_location_world);
+
+	return is_depth_found;
+}
+
+static bool stroke_elem_project_fallback_elem(
+        const struct CurveDrawData *cdd,
+        const float location_fallback_depth[3],
+        struct StrokeElem *selem)
+{
+	const int mval_i[2] = {UNPACK2(selem->mval)};
+	return stroke_elem_project_fallback(
+	        cdd, mval_i, selem->mval, location_fallback_depth,
+	        selem->location_world, selem->location_local);
+}
+
+
+static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
+{
+	struct CurveDrawData *cdd = op->customdata;
+	Object *obedit = cdd->vc.obedit;
+
+	invert_m4_m4(obedit->imat, obedit->obmat);
+
+	struct StrokeElem *selem = BLI_mempool_calloc(cdd->stroke_elem_pool);
+
+	ARRAY_SET_ITEMS(selem->mval, event->mval[0], event->mval[1]);
+
+	bool is_depth_found = stroke_elem_project_fallback_elem(
+	        cdd, cdd->prev.location_world_valid, selem);
+
+	if (is_depth_found) {
+		/* use the depth if a fallback wasn't used */
 		copy_v3_v3(cdd->prev.location_world_valid, selem->location_world);
 	}
 	copy_v3_v3(cdd->prev.location_world, selem->location_world);
 
-
-	copy_v2_v2(selem->mouse, mval_fl);
-	mul_v3_m4v3(selem->location_local, obedit->imat, selem->location_world);
 
 	/* handle pressure sensitivity (which is supplied by tablets) */
 	if (event->tablet_data) {
@@ -416,8 +482,35 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 		selem->pressure = 1.0f;
 	}
 
-	copy_v2_v2(cdd->prev.mouse, mval_fl);
-	copy_v3_v3(cdd->prev.mouse, selem->location_world);
+	float len_sq = len_squared_v2v2(cdd->prev.mouse, selem->mval);
+	copy_v2_v2(cdd->prev.mouse, selem->mval);
+
+	if (cdd->sample.use_substeps && cdd->prev.selem) {
+		const struct StrokeElem selem_target = *selem;
+		struct StrokeElem *selem_new_last = selem;
+		if (len_sq >= SQUARE(STROKE_SAMPLE_DIST_MAX_PX)) {
+			int n = (int)ceil(sqrt((double)len_sq)) / STROKE_SAMPLE_DIST_MAX_PX ;
+
+			for (int i = 1; i < n; i++) {
+				struct StrokeElem *selem_new = selem_new_last;
+				stroke_elem_interp(selem_new, cdd->prev.selem, &selem_target, (float)i / n);
+
+				const bool is_depth_found_substep = stroke_elem_project_fallback_elem(
+				        cdd, cdd->prev.location_world_valid, selem_new);
+				if (is_depth_found == false) {
+					if (is_depth_found_substep) {
+						copy_v3_v3(cdd->prev.location_world_valid, selem_new->location_world);
+					}
+				}
+
+				selem_new_last = BLI_mempool_calloc(cdd->stroke_elem_pool);
+			}
+		}
+		selem = selem_new_last;
+		*selem_new_last = selem_target;
+	}
+
+	cdd->prev.selem = selem;
 
 	ED_region_tag_redraw(cdd->vc.ar);
 }
@@ -504,7 +597,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 			selem_prev = BLI_mempool_iterstep(&iter);
 			for (selem = BLI_mempool_iterstep(&iter); selem; selem = BLI_mempool_iterstep(&iter), i++) {
 				len_3d += len_v3v3(selem->location_local, selem_prev->location_local);
-				len_2d += len_v2v2(selem->mouse, selem_prev->mouse);
+				len_2d += len_v2v2(selem->mval, selem_prev->mval);
 				selem_prev = selem;
 			}
 			scale_px = ((len_3d > 0.0f) && (len_2d > 0.0f)) ?  (len_3d / len_2d) : 0.0f;
@@ -730,7 +823,7 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			/* 2D overrides other options */
 			plane_co = obedit->obmat[3];
 			plane_no = obedit->obmat[2];
-			cdd->use_project_plane = true;
+			cdd->project.use_plane = true;
 		}
 		else {
 			if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) &&
@@ -743,19 +836,22 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 				ED_view3d_autodist_init(cdd->vc.scene, cdd->vc.ar, cdd->vc.v3d, 0);
 				ED_view3d_depth_update(cdd->vc.ar);
-				cdd->use_project_depth = (cdd->vc.rv3d->depths != NULL);
+				cdd->project.use_depth = (cdd->vc.rv3d->depths != NULL);
 			}
 
-			if (cdd->use_project_depth == false) {
+			if (cdd->project.use_depth) {
+				cdd->sample.use_substeps = true;
+			}
+			else {
 				plane_co = ED_view3d_cursor3d_get(cdd->vc.scene, v3d);;
 				plane_no = rv3d->viewinv[2];
-				cdd->use_project_plane = true;
+				cdd->project.use_plane = true;
 			}
 		}
 
-		if (cdd->use_project_plane) {
-			normalize_v3_v3(cdd->project_plane, plane_no);
-			cdd->project_plane[3] = -dot_v3v3(cdd->project_plane, plane_co);
+		if (cdd->project.use_plane) {
+			normalize_v3_v3(cdd->project.plane, plane_no);
+			cdd->project.plane[3] = -dot_v3v3(cdd->project.plane, plane_co);
 		}
 	}
 
@@ -765,13 +861,13 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	/* add first point */
 	curve_draw_event_add(op, event);
 
-	if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) && cdd->use_project_depth &&
+	if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) && cdd->project.use_depth &&
 	    (cps->flag & CURVE_PAINT_FLAG_DEPTH_STROKE_ENDPOINTS))
 	{
 		RegionView3D *rv3d = cdd->vc.rv3d;
 
-		cdd->use_project_depth = false;
-		cdd->use_project_plane = true;
+		cdd->project.use_depth = false;
+		cdd->project.use_plane = true;
 
 		/* calculate the plane from the surface normal */
 		float normal[3];
@@ -785,8 +881,8 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			copy_v3_v3(normal, rv3d->viewinv[2]);
 		}
 
-		normalize_v3_v3(cdd->project_plane, normal);
-		cdd->project_plane[3] = -dot_v3v3(cdd->project_plane, cdd->prev.location_world_valid);
+		normalize_v3_v3(cdd->project.plane, normal);
+		cdd->project.plane[3] = -dot_v3v3(cdd->project.plane, cdd->prev.location_world_valid);
 
 	}
 
@@ -820,7 +916,7 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	}
 	else if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
 		const float mval_fl[2] = {UNPACK2(event->mval)};
-		if (len_squared_v2v2(mval_fl, cdd->prev.location_world) > SQUARE(STROKE_SAMPLE_DIST_PX)) {
+		if (len_squared_v2v2(mval_fl, cdd->prev.location_world) > SQUARE(STROKE_SAMPLE_DIST_MIN_PX)) {
 			curve_draw_event_add(op, event);
 		}
 	}
