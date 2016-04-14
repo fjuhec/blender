@@ -591,7 +591,7 @@ class VIEW3D_PT_tools_curveedit_options_stroke(View3DPanel, Panel):
             col.prop(cps, "use_stroke_endpoints")
             if cps.use_stroke_endpoints:
                 colsub = layout.column(align=True)
-                colsub.prop(cps, "depth_plane", expand=True)
+                colsub.prop(cps, "surface_plane", expand=True)
 
 
 # ********** default tools for editmode_surface ****************

@@ -1270,7 +1270,7 @@ typedef enum {
 typedef struct CurvePaintSettings {
 	char flag;
 	char depth_mode;
-	char depth_plane;
+	char surface_plane;
 	char _pad[5];
 	int error_threshold;
 	float radius_min, radius_max;
@@ -1289,9 +1289,9 @@ enum {
 };
 
 enum {
-	CURVE_PAINT_PLANE_NORMAL_VIEW		= 0,
-	CURVE_PAINT_PLANE_NORMAL_SURFACE	= 1,
-	CURVE_PAINT_PLANE_VIEW				= 2,
+	CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW		= 0,
+	CURVE_PAINT_SURFACE_PLANE_NORMAL_SURFACE	= 1,
+	CURVE_PAINT_SURFACE_PLANE_VIEW				= 2,
 };
 
 

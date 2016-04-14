@@ -118,6 +118,9 @@ struct CurveDrawData {
 		bool use_substeps;
 	} sample;
 
+	struct {
+		float min, max, range;
+	} radius;
 
 	struct {
 		float mouse[2];
@@ -241,7 +244,8 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 			        selem->location_local[1] - location_prev[1],
 			        selem->location_local[2] - location_prev[2]);
 			location_prev = selem->location_local;
-			gluSphere(qobj, (selem->pressure * cu->ext2), 16, 12);
+			const float radius = ((selem->pressure * cdd->radius.range) + cdd->radius.min) * cu->ext2;
+			gluSphere(qobj, radius, 16, 12);
 
 			location_prev = selem->location_local;
 		}
@@ -665,7 +669,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 				copy_v3_v3(bezt->vec[2], handle_r);
 
 				if (use_pressure_radius) {
-					bezt->radius = (pt[3] * radius_range) + radius_min;
+					bezt->radius = (pt[3] * cdd->radius.range) + cdd->radius.min;
 				}
 				else {
 					bezt->radius = radius_max;
@@ -794,6 +798,10 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
 
+	cdd->radius.min = cps->radius_min;
+	cdd->radius.max = cps->radius_max;
+	cdd->radius.range = cps->radius_max - cps->radius_min;
+
 	/* fallback (incase we can't find the depth on first test) */
 	{
 		const float mval_fl[2] = {UNPACK2(event->mval)};
@@ -808,7 +816,6 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	cdd->draw_handle_view = ED_region_draw_cb_activate(
 	        cdd->vc.ar->type, curve_draw_stroke_3d, op, REGION_DRAW_POST_VIEW);
-
 
 	{
 		View3D *v3d = cdd->vc.v3d;
@@ -870,19 +877,21 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		cdd->project.use_plane = true;
 
 		float normal[3] = {0.0f};
-		if (ELEM(cps->depth_plane, CURVE_PAINT_PLANE_NORMAL_VIEW, CURVE_PAINT_PLANE_NORMAL_SURFACE)) {
+		if (ELEM(cps->surface_plane,
+		         CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW,
+		         CURVE_PAINT_SURFACE_PLANE_NORMAL_SURFACE))
+		{
 			if (depth_read_normal(&cdd->vc, &cdd->mats, event->mval, normal)) {
-				if (cps->depth_plane == CURVE_PAINT_PLANE_NORMAL_VIEW) {
+				if (cps->surface_plane == CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW) {
 					float cross_a[3], cross_b[3];
 					cross_v3_v3v3(cross_a, rv3d->viewinv[2], normal);
 					cross_v3_v3v3(cross_b, normal, cross_a);
 					copy_v3_v3(normal, cross_b);
 				}
-
 			}
 		}
 
-		/* CURVE_PAINT_PLANE_VIEW or fallback */
+		/* CURVE_PAINT_SURFACE_PLANE_VIEW or fallback */
 		if (is_zero_v3(normal)) {
 			copy_v3_v3(normal, rv3d->viewinv[2]);
 		}

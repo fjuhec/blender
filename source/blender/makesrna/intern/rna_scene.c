@@ -2639,13 +2639,13 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Corner Angle", "Angles above this are considered corners");
 
 	prop = RNA_def_property(srna, "radius_min", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop, 0.0, 1000.0);
-	RNA_def_property_ui_range(prop, 0.0f, 10.0, 0.001, 2);
+	RNA_def_property_range(prop, 0.0, 100.0);
+	RNA_def_property_ui_range(prop, 0.0f, 10.0, 0.1, 2);
 	RNA_def_property_ui_text(prop, "Radius Min", "");
 
 	prop = RNA_def_property(srna, "radius_max", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_range(prop, 0.0, 10.0);
-	RNA_def_property_ui_range(prop, 0.0f, 10.0, 0.001, 1);
+	RNA_def_property_ui_range(prop, 0.0f, 10.0, 0.1, 2);
 	RNA_def_property_ui_text(prop, "Radius Max", "");
 
 	static EnumPropertyItem depth_mode_items[] = {
@@ -2658,15 +2658,15 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_property_enum_items(prop, depth_mode_items);
 	RNA_def_property_ui_text(prop, "Depth", "Method of projecting depth");
 
-	static EnumPropertyItem depth_plane_items[] = {
-		{CURVE_PAINT_PLANE_NORMAL_VIEW,  "NORMAL_VIEW", 0, "Normal/View", "Draw perpendicular to the surface"},
-		{CURVE_PAINT_PLANE_NORMAL_SURFACE, "NORMAL_SURFACE", 0, "Normal/Surfave", "Draw aligned to the surface"},
-		{CURVE_PAINT_PLANE_VIEW, "VIEW", 0, "View", "Draw aligned to the viewport"},
+	static EnumPropertyItem surface_plane_items[] = {
+		{CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW,  "NORMAL_VIEW", 0, "Normal/View", "Draw perpendicular to the surface"},
+		{CURVE_PAINT_SURFACE_PLANE_NORMAL_SURFACE, "NORMAL_SURFACE", 0, "Normal/Surface", "Draw aligned to the surface"},
+		{CURVE_PAINT_SURFACE_PLANE_VIEW, "VIEW", 0, "View", "Draw aligned to the viewport"},
 		{0, NULL, 0, NULL, NULL}};
 
-	prop = RNA_def_property(srna, "depth_plane", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "depth_plane");
-	RNA_def_property_enum_items(prop, depth_plane_items);
+	prop = RNA_def_property(srna, "surface_plane", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "surface_plane");
+	RNA_def_property_enum_items(prop, surface_plane_items);
 	RNA_def_property_ui_text(prop, "Plane", "Plane for projected stroke");
 }
 
