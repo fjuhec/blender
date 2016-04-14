@@ -462,7 +462,10 @@ static void cubic_from_points(
 	 * so only problems absurd of approximation and not for bugs in the code.
 	 */
 
-	if (alpha_l < 0.0 || alpha_r < 0.0) {
+	/* flip check to catch nan values */
+	if (!(alpha_l >= 0.0) ||
+	    !(alpha_r >= 0.0))
+	{
 		alpha_l = alpha_r = len_vnvn(p0, p3, dims) / 3.0;
 	}
 
