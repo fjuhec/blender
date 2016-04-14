@@ -587,6 +587,10 @@ class VIEW3D_PT_tools_curveedit_options(View3DPanel, Panel):
         row = layout.row(align=True)
         row.prop(cps, "depth_mode", expand=True)
 
+        col = layout.column()
+        if cps.depth_mode == 'SURFACE':
+            col.prop(cps, "use_stroke_endpoints")
+
 
 # ********** default tools for editmode_surface ****************
 

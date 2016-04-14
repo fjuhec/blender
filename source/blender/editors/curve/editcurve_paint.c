@@ -273,6 +273,79 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 	}
 }
 
+static float depth_read(const ViewContext *vc, int x, int y)
+{
+	ViewDepths *vd = vc->rv3d->depths;
+
+	if (vd && vd->depths && x > 0 && y > 0 && x < vd->w && y < vd->h)
+		return vd->depths[y * vd->w + x];
+	else
+		return -1.0f;
+}
+
+static bool depth_read_normal(
+        const ViewContext *vc, const bglMats *mats, const int mval[2],
+        float r_normal[3])
+{
+	/* pixels surrounding */
+	bool  depths_valid[9] = {false};
+	float coords[9][3] = {{0}};
+
+	const ViewDepths *depths = vc->rv3d->depths;
+
+	for (int x = 0, i = 0; x < 2; x++) {
+		for (int y = 0; y < 2; y++) {
+			const int mval_ofs[2] = {mval[0] + (x - 1), mval[1] + (y - 1)};
+			float depth = depth_read(vc, mval_ofs[0], mval_ofs[1]);
+			if ((depth > depths->depth_range[0]) && (depth < depths->depth_range[1])) {
+				double p[3];
+				if (gluUnProject(
+				        (double)vc->ar->winrct.xmin + mval_ofs[0] + 0.5,
+				        (double)vc->ar->winrct.ymin + mval_ofs[1] + 0.5,
+				        depth, mats->modelview, mats->projection, (const GLint *)mats->viewport,
+				        &p[0], &p[1], &p[2]))
+				{
+					copy_v3fl_v3db(coords[i], p);
+					depths_valid[i] = true;
+				}
+
+			}
+			i++;
+		}
+	}
+
+	const int edges[2][6][2] = {
+	    /* x edges */
+	    {{0, 1}, {1, 2},
+	     {3, 4}, {4, 5},
+	     {6, 7}, {7, 8}},
+	    /* y edges */
+	    {{0, 3}, {3, 6},
+	     {1, 4}, {4, 7},
+	     {2, 5}, {5, 8}},
+	};
+
+	float cross[2][3] = {{0.0f}};
+
+	for (int i = 0; i < 6; i++) {
+		for (int axis = 0; axis < 2; axis++) {
+			if (depths_valid[edges[axis][i][0]] && depths_valid[edges[axis][i][1]]) {
+				float delta[3];
+				sub_v3_v3v3(delta, coords[edges[axis][i][0]], coords[edges[axis][i][1]]);
+				add_v3_v3(cross[axis], delta);
+			}
+		}
+	}
+
+	cross_v3_v3v3(r_normal, cross[0], cross[1]);
+
+	if (normalize_v3(r_normal) != 0.0f) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
 
 static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 {
@@ -305,15 +378,14 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 		    ((unsigned int)event->mval[0] < depths->w) &&
 		    ((unsigned int)event->mval[1] < depths->h))
 		{
-			float depth = ED_view3d_depth_read_cached(&cdd->vc, event->x, event->y);
-			ED_view3d_autodist_simple(cdd->vc.ar, event->mval, selem->location_world, 0, &depth);
-
-			if ((depth > depths->depth_range[0]) &&
-			    (depth < depths->depth_range[1]))
-			{
+			float depth = depth_read(&cdd->vc, event->mval[0], event->mval[1]);
+			if ((depth > depths->depth_range[0]) && (depth < depths->depth_range[1])) {
+				is_location_world_set = true;
 				double p[3];
-				if (gluUnProject((double)event->x + 0.5, event->y + 0.5, depth,
-				                 cdd->mats.modelview, cdd->mats.projection, (GLint *)cdd->mats.viewport, &p[0], &p[1], &p[2]))
+				if (gluUnProject(
+				        (double)event->x + 0.5, event->y + 0.5, depth,
+				        cdd->mats.modelview, cdd->mats.projection, (GLint *)cdd->mats.viewport,
+				        &p[0], &p[1], &p[2]))
 				{
 					copy_v3fl_v3db(selem->location_world, p);
 					is_location_world_set = true;
@@ -627,6 +699,8 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	view3d_set_viewcontext(C, &cdd->vc);
 
+	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
+
 	/* fallback (incase we can't find the depth on first test) */
 	{
 		const float mval_fl[2] = {UNPACK2(event->mval)};
@@ -644,7 +718,6 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 
 	{
-		const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
 		View3D *v3d = cdd->vc.v3d;
 		RegionView3D *rv3d = cdd->vc.rv3d;
 		Object *obedit = cdd->vc.obedit;
@@ -691,6 +764,31 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	/* add first point */
 	curve_draw_event_add(op, event);
+
+	if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) && cdd->use_project_depth &&
+	    (cps->flag & CURVE_PAINT_FLAG_DEPTH_STROKE_ENDPOINTS))
+	{
+		RegionView3D *rv3d = cdd->vc.rv3d;
+
+		cdd->use_project_depth = false;
+		cdd->use_project_plane = true;
+
+		/* calculate the plane from the surface normal */
+		float normal[3];
+		if (depth_read_normal(&cdd->vc, &cdd->mats, event->mval, normal)) {
+			float cross_a[3], cross_b[3];
+			cross_v3_v3v3(cross_a, rv3d->viewinv[2], normal);
+			cross_v3_v3v3(cross_b, normal, cross_a);
+			copy_v3_v3(normal, cross_b);
+		}
+		else {
+			copy_v3_v3(normal, rv3d->viewinv[2]);
+		}
+
+		normalize_v3_v3(cdd->project_plane, normal);
+		cdd->project_plane[3] = -dot_v3v3(cdd->project_plane, cdd->prev.location_world_valid);
+
+	}
 
 	return OPERATOR_RUNNING_MODAL;
 }

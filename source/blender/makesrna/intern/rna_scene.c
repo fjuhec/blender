@@ -2625,6 +2625,11 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_icon(prop, ICON_STYLUS_PRESSURE, 0);
 	RNA_def_property_ui_text(prop, "Use Pressure", "Map tablet pressure to curve radius");
 
+	prop = RNA_def_property(srna, "use_stroke_endpoints", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", CURVE_PAINT_FLAG_DEPTH_STROKE_ENDPOINTS);
+	RNA_def_property_ui_text(prop, "Only First", "Only use the first part of the stroke for snapping");
+
+
 	prop = RNA_def_property(srna, "error_threshold", PROP_INT, PROP_PIXEL);
 	RNA_def_property_range(prop, 1, 100);
 	RNA_def_property_ui_text(prop, "Tolerance", "Allow deviation for a smoother, less preceise line");
