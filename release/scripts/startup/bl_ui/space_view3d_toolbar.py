@@ -556,17 +556,20 @@ class VIEW3D_PT_tools_curveedit_options_stroke(View3DPanel, Panel):
         layout = self.layout
 
         tool_settings = context.tool_settings
-
-        col = layout.column()
-
         cps = tool_settings.curve_paint_settings
-        col.prop(cps, "curve_type")
-        col.prop(cps, "error_threshold")
-        col.prop(cps, "use_corners_detect")
 
         col = layout.column()
-        col.active = cps.use_corners_detect
-        col.prop(cps, "corner_angle")
+
+        col.prop(cps, "curve_type")
+
+        if cps.curve_type == 'BEZIER':
+            col.label("Bezier Options:")
+            col.prop(cps, "error_threshold")
+            col.prop(cps, "use_corners_detect")
+
+            col = layout.column()
+            col.active = cps.use_corners_detect
+            col.prop(cps, "corner_angle")
 
         col.label("Radius/Pressure:")
         row = layout.row(align=True)
@@ -581,6 +584,7 @@ class VIEW3D_PT_tools_curveedit_options_stroke(View3DPanel, Panel):
         row.prop(cps, "use_pressure_radius", text="", icon_only=True)
 
         col = layout.column()
+        col.label("Projection/Depth:")
         row = layout.row(align=True)
         row.prop(cps, "depth_mode", expand=True)
 
