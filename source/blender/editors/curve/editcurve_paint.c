@@ -65,6 +65,7 @@
 #include "ED_curve.h"
 
 #include "BIF_gl.h"
+#include "BIF_glutil.h"
 
 #include "curve_intern.h"
 
@@ -100,15 +101,20 @@ struct CurveDrawData {
 	short init_event_type;
 	short nurbs_type;
 
-	float    project_plane[4];
+	/* use a plane or project to the surface */
 	bool use_project_plane;
+	float    project_plane[4];
 
-	float mouse_prev[2];
+	ViewDepths *project_depths;
 
-	Scene *scene;
+	struct {
+		float mouse[2];
+		/* used incase we can't calculate the depth */
+		float location_world[3];
+	} prev;
 
-	struct ScrArea	*sa;
-	struct ARegion	*ar;
+	ViewContext vc;
+	bglMats mats;
 
 	/* StrokeElem */
 	BLI_mempool *stroke_elem_pool;
@@ -136,7 +142,7 @@ static void curve_draw_stroke_from_operator_elem(
 
 	RNA_float_get_array(itemptr, "mouse", selem->mouse);
 	RNA_float_get_array(itemptr, "location", selem->location_world);
-	mul_v3_m4v3(selem->location_local, cdd->scene->obedit->imat, selem->location_world);
+	mul_v3_m4v3(selem->location_local, cdd->vc.obedit->imat, selem->location_world);
 	selem->pressure = RNA_float_get(itemptr, "pressure");
 }
 
@@ -181,8 +187,8 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 		return;
 	}
 
-	View3D *v3d = cdd->sa->spacedata.first;
-	Object *obedit = cdd->scene->obedit;
+	View3D *v3d = cdd->vc.v3d;
+	Object *obedit = cdd->vc.obedit;
 	Curve *cu = obedit->data;
 
 	UI_ThemeColor(TH_WIRE);
@@ -268,31 +274,59 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 {
 	struct CurveDrawData *cdd = op->customdata;
 //	RegionView3D *rv3d = cdd->ar->regiondata;
-	Object *obedit = cdd->scene->obedit;
-	const float mval_fl[2] = {UNPACK2(event->mval)};
-	View3D *v3d = cdd->sa->spacedata.first;
+	Object *obedit = cdd->vc.obedit;
+	const float mval_fl[2] = {event->mval[0] + 0.5f, event->mval[1] + 0.5f};
+	View3D *v3d = cdd->vc.v3d;
 
 	invert_m4_m4(obedit->imat, obedit->obmat);
 
 	struct StrokeElem *selem = BLI_mempool_calloc(cdd->stroke_elem_pool);
 
+	bool is_location_world_set = false;
+
 	/* project to 'location_world' */
-//	if (cdd->use_project_plane)
-	{
+	if (cdd->use_project_plane) {
 		/* get the view vector to 'location' */
 		float ray_origin[3], ray_direction[3];
-		ED_view3d_win_to_ray(cdd->ar, v3d, mval_fl, ray_origin, ray_direction, false);
+		ED_view3d_win_to_ray(cdd->vc.ar, v3d, mval_fl, ray_origin, ray_direction, false);
 
 		float lambda;
-		if (isect_ray_plane_v3(ray_origin, ray_direction, cdd->project_plane, &lambda, false)) {
+		if (isect_ray_plane_v3(ray_origin, ray_direction, cdd->project_plane, &lambda, true)) {
 			madd_v3_v3v3fl(selem->location_world, ray_origin, ray_direction, lambda);
+			is_location_world_set = true;
 		}
 	}
-//	else {
-////		ED_view3d_win_to_3d(cdd->ar, cursor, mval_fl, selem->location_world);
-//	}
+	else {
+		if (cdd->project_depths &&
+		    ((unsigned int)event->mval[0] < cdd->project_depths->h) &&
+		    ((unsigned int)event->mval[1] < cdd->project_depths->w)
+		    )
+		{
+			SWAP(ViewDepths *, cdd->vc.rv3d->depths, cdd->project_depths);
+			float depth = ED_view3d_depth_read_cached(&cdd->vc, event->x, event->y);
+			SWAP(ViewDepths *, cdd->vc.rv3d->depths, cdd->project_depths);
+			ED_view3d_autodist_simple(cdd->vc.ar, event->mval, selem->location_world, 0, &depth);
 
-	// ED_view3d_win_to_3d(cdd->ar, cursor, mval_fl, selem->location_world);
+			if ((depth > cdd->project_depths->depth_range[0]) &&
+			    (depth < cdd->project_depths->depth_range[1]))
+			{
+				double p[3];
+				if (gluUnProject((double)event->x + 0.5, event->y + 0.5, depth,
+				                 cdd->mats.modelview, cdd->mats.projection, (GLint *)cdd->mats.viewport, &p[0], &p[1], &p[2]))
+				{
+					copy_v3fl_v3db(selem->location_world, p);
+					is_location_world_set = true;
+				}
+			}
+		}
+	}
+
+	/* fallback to previous depth */
+	if (!is_location_world_set) {
+		ED_view3d_win_to_3d(cdd->vc.ar, cdd->prev.location_world, mval_fl, selem->location_world);
+	}
+	copy_v3_v3(cdd->prev.location_world, selem->location_world);
+
 
 	copy_v2_v2(selem->mouse, mval_fl);
 	mul_v3_m4v3(selem->location_local, obedit->imat, selem->location_world);
@@ -306,9 +340,10 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 		selem->pressure = 1.0f;
 	}
 
-	copy_v2_v2(cdd->mouse_prev, mval_fl);
+	copy_v2_v2(cdd->prev.mouse, mval_fl);
+	copy_v3_v3(cdd->prev.mouse, selem->location_world);
 
-	ED_region_tag_redraw(cdd->ar);
+	ED_region_tag_redraw(cdd->vc.ar);
 }
 
 
@@ -317,7 +352,7 @@ static void curve_draw_exit(wmOperator *op)
 	struct CurveDrawData *cdd = op->customdata;
 	if (cdd) {
 		if (cdd->draw_handle_view) {
-			ED_region_draw_cb_exit(cdd->ar->type, cdd->draw_handle_view);
+			ED_region_draw_cb_exit(cdd->vc.ar->type, cdd->draw_handle_view);
 		}
 
 		if (cdd->stroke_elem_pool) {
@@ -332,8 +367,8 @@ static void curve_draw_exit(wmOperator *op)
 static int curve_draw_exec(bContext *C, wmOperator *op)
 {
 	struct CurveDrawData *cdd = op->customdata;
-	const CurvePaintSettings *cps = &cdd->scene->toolsettings->curve_paint_settings;
-	Object *obedit = cdd->scene->obedit;
+	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
+	Object *obedit = cdd->vc.scene->obedit;
 	Curve *cu = obedit->data;
 	ListBase *nurblist = object_editcurve_get(obedit);
 
@@ -515,9 +550,8 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 					bezt->radius = selem->pressure;
 				}
 				else {
-					bezt->radius = cps->radius_max;
+					bezt->radius = radius_max;
 				}
-
 
 				bezt->h1 = bezt->h2 = HD_AUTO;
 
@@ -580,39 +614,79 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	UNUSED_VARS(event);
 	struct CurveDrawData *cdd;
 
-	cdd = MEM_mallocN(sizeof(*cdd), __func__);
+	cdd = MEM_callocN(sizeof(*cdd), __func__);
 	op->customdata = cdd;
 
 	cdd->init_event_type = event->type;
 
 	cdd->nurbs_type = RNA_enum_get(op->ptr, "type");
 
-	cdd->scene = CTX_data_scene(C);
-	cdd->sa = CTX_wm_area(C);
-	cdd->ar = CTX_wm_region(C);
+	view3d_set_viewcontext(C, &cdd->vc);
+
+	/* fallback (incase we can't find the depth on first test) */
+	{
+		const float mval_fl[2] = {UNPACK2(event->mval)};
+		float center[3];
+		negate_v3_v3(center, cdd->vc.rv3d->ofs);
+		ED_view3d_win_to_3d(cdd->vc.ar, center, mval_fl, cdd->prev.location_world);
+	}
 
 	cdd->stroke_elem_pool = BLI_mempool_create(
 	        sizeof(struct StrokeElem), 0, 512, BLI_MEMPOOL_ALLOW_ITER);
 
 	cdd->draw_handle_view = ED_region_draw_cb_activate(
-	        cdd->ar->type, curve_draw_stroke_3d, op, REGION_DRAW_POST_VIEW);
+	        cdd->vc.ar->type, curve_draw_stroke_3d, op, REGION_DRAW_POST_VIEW);
 
 
 	{
-		View3D *v3d = cdd->sa->spacedata.first;
-		RegionView3D *rv3d = cdd->ar->regiondata;
-		Object *obedit = cdd->scene->obedit;
+		const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
+		View3D *v3d = cdd->vc.v3d;
+		RegionView3D *rv3d = cdd->vc.rv3d;
+		Object *obedit = cdd->vc.obedit;
 		Curve *cu = obedit->data;
+
+		const float *plane_no = NULL;
+		const float *plane_co = NULL;
 
 		if ((cu->flag & CU_3D) == 0) {
 			/* 2D overrides other options */
-			normalize_v3_v3(cdd->project_plane, obedit->obmat[2]);
-			cdd->project_plane[3] = -dot_v3v3(cdd->project_plane, obedit->obmat[3]);
+			plane_co = obedit->obmat[3];
+			plane_no = obedit->obmat[2];
+			cdd->use_project_plane = true;
+		}
+		else if (cps->depth_mode == CURVE_PAINT_PROJECT_VIEW) {
+			plane_co = ED_view3d_cursor3d_get(cdd->vc.scene, v3d);;
+			plane_no = rv3d->viewinv[2];
+			cdd->use_project_plane = true;
 		}
 		else {
-			const float *cursor = ED_view3d_cursor3d_get(cdd->scene, v3d);
-			normalize_v3_v3(cdd->project_plane, rv3d->viewinv[2]);
-			cdd->project_plane[3] = -dot_v3v3(cdd->project_plane, cursor);
+			/* get depth info */
+
+			/* note, the object argument means the modelview matrix does not account for the objects matrix, use viewmat rather than (obmat * viewmat) */
+			view3d_get_transformation(cdd->vc.ar, cdd->vc.rv3d, NULL, &cdd->mats);
+
+			if (V3D_IS_ZBUF(cdd->vc.v3d)) {
+//				if (cdd->vc.v3d->flag & V3D_INVALID_BACKBUF)
+				{
+					/* needed or else the draw matrix can be incorrect */
+					view3d_operator_needs_opengl(C);
+
+//					ED_view3d_backbuf_validate(&cdd->vc);
+					/* we may need to force an update here by setting the rv3d as dirty
+					 * for now it seems ok, but take care!:
+					 * rv3d->depths->dirty = 1; */
+					ED_view3d_autodist_init(cdd->vc.scene, cdd->vc.ar, cdd->vc.v3d, 0);
+					ED_view3d_depth_update(cdd->vc.ar);
+
+					cdd->project_depths = cdd->vc.rv3d->depths;
+					cdd->vc.rv3d->depths = NULL;
+				}
+			}
+		}
+
+		if (cdd->use_project_plane) {
+			normalize_v3_v3(cdd->project_plane, plane_no);
+			cdd->project_plane[3] = -dot_v3v3(cdd->project_plane, plane_co);
 		}
 	}
 
@@ -645,14 +719,14 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 			curve_draw_exec(C, op);
 
-			ED_region_tag_redraw(cdd->ar);
+			ED_region_tag_redraw(cdd->vc.ar);
 			curve_draw_exit(op);
 			return OPERATOR_FINISHED;
 		}
 	}
 	else if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
 		const float mval_fl[2] = {UNPACK2(event->mval)};
-		if (len_squared_v2v2(mval_fl, cdd->mouse_prev) > SQUARE(STROKE_SAMPLE_DIST_PX)) {
+		if (len_squared_v2v2(mval_fl, cdd->prev.location_world) > SQUARE(STROKE_SAMPLE_DIST_PX)) {
 			curve_draw_event_add(op, event);
 		}
 	}

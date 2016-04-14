@@ -2642,6 +2642,16 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_property_range(prop, 0.0, 10.0);
 	RNA_def_property_ui_range(prop, 0.0f, 10.0, 0.001, 1);
 	RNA_def_property_ui_text(prop, "Radius Max", "");
+
+	static EnumPropertyItem depth_mode_items[] = {
+		{CURVE_PAINT_PROJECT_VIEW,  "VIEW",  0, "View",  ""},
+		{CURVE_PAINT_PROJECT_SURFACE, "SURFACE", 0, "Surface", ""},
+		{0, NULL, 0, NULL, NULL}};
+
+	prop = RNA_def_property(srna, "depth_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "depth_mode");
+	RNA_def_property_enum_items(prop, depth_mode_items);
+	RNA_def_property_ui_text(prop, "Depth", "Method of projecting depth");
 }
 
 static void rna_def_statvis(BlenderRNA  *brna)

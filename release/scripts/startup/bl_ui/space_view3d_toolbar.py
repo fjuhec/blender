@@ -583,6 +583,10 @@ class VIEW3D_PT_tools_curveedit_options(View3DPanel, Panel):
 
         row.prop(cps, "use_pressure_radius", text="", icon_only=True)
 
+        col = layout.column()
+        row = layout.row(align=True)
+        row.prop(cps, "depth_mode", expand=True)
+
 
 # ********** default tools for editmode_surface ****************
 
