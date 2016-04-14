@@ -507,7 +507,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 				len_2d += len_v2v2(selem->mouse, selem_prev->mouse);
 				selem_prev = selem;
 			}
-			scale_px = len_3d / len_2d;
+			scale_px = ((len_3d > 0.0f) && (len_2d > 0.0f)) ?  (len_3d / len_2d) : 0.0f;
 			error_threshold = (float)cps->error_threshold * scale_px;
 			RNA_property_float_set(op->ptr, prop_error, error_threshold);
 			printf("%.6f ~ %.6f ~ %.6f\n", scale_px, len_3d, len_2d);

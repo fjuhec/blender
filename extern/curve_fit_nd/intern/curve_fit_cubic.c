@@ -452,6 +452,7 @@ static void cubic_from_points(
 			det_C0_C1 = c[0][0] * c[1][1] * 10e-12;
 		}
 
+		/* may still divide-by-zero, check below will catch nan values */
 		alpha_l = det_X_C1 / det_C0_C1;
 		alpha_r = det_C_0X / det_C0_C1;
 	}
@@ -640,6 +641,7 @@ static double cubic_find_root(
 	cubic_calc_speed(cubic, u, dims, q1_u);
 	cubic_calc_acceleration(cubic, u, dims, q2_u);
 
+	/* may divide-by-zero, caller must check for that case */
 	/* u - ((q0_u - p) * q1_u) / (q1_u.length_squared() + (q0_u - p) * q2_u) */
 	isub_vnvn(q0_u, p, dims);
 	return u - dot_vnvn(q0_u, q1_u, dims) /
