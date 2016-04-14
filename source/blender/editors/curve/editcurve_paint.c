@@ -120,6 +120,7 @@ struct CurveDrawData {
 
 	struct {
 		float min, max, range;
+		float offset;
 	} radius;
 
 	struct {
@@ -140,6 +141,12 @@ struct CurveDrawData {
 
 	void *draw_handle_view;
 };
+
+static float stroke_elem_radius(const struct CurveDrawData *cdd, const struct StrokeElem *selem)
+{
+	const Curve *cu = cdd->vc.obedit->data;
+	return ((selem->pressure * cdd->radius.range) + cdd->radius.min) * cu->ext2;
+}
 
 static void stroke_elem_interp(
         struct StrokeElem *selem_out,
@@ -244,8 +251,7 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 			        selem->location_local[1] - location_prev[1],
 			        selem->location_local[2] - location_prev[2]);
 			location_prev = selem->location_local;
-			const float radius = ((selem->pressure * cdd->radius.range) + cdd->radius.min) * cu->ext2;
-			gluSphere(qobj, radius, 16, 12);
+			gluSphere(qobj, stroke_elem_radius(cdd, selem), 16, 12);
 
 			location_prev = selem->location_local;
 		}
@@ -391,6 +397,7 @@ static bool depth_read_normal(
 static bool stroke_elem_project(
         const struct CurveDrawData *cdd,
         const int mval_i[2], const float mval_fl[2],
+        const float radius_offset, const float radius,
         float r_location_world[3])
 {
 	View3D *v3d = cdd->vc.v3d;
@@ -421,6 +428,13 @@ static bool stroke_elem_project(
 			if ((depth > depths->depth_range[0]) && (depth < depths->depth_range[1])) {
 				if (depth_unproject(ar, &cdd->mats, mval_i, depth, r_location_world)) {
 					is_location_world_set = true;
+
+					if (radius_offset != 0.0f) {
+						float normal[3];
+						if (depth_read_normal(&cdd->vc, &cdd->mats, mval_i, normal)) {
+							madd_v3_v3fl(r_location_world, normal, radius_offset * radius);
+						}
+					}
 				}
 			}
 		}
@@ -432,10 +446,14 @@ static bool stroke_elem_project(
 static bool stroke_elem_project_fallback(
         const struct CurveDrawData *cdd,
         const int mval_i[2], const float mval_fl[2],
+        const float radius_offset, const float radius,
         const float location_fallback_depth[3],
         float r_location_world[3], float r_location_local[3])
 {
-	bool is_depth_found = stroke_elem_project(cdd, mval_i, mval_fl, r_location_world);
+	bool is_depth_found = stroke_elem_project(
+	        cdd, mval_i, mval_fl,
+	        radius_offset, radius,
+	        r_location_world);
 	if (is_depth_found == false) {
 		ED_view3d_win_to_3d(cdd->vc.ar, location_fallback_depth, mval_fl, r_location_world);
 	}
@@ -444,14 +462,20 @@ static bool stroke_elem_project_fallback(
 	return is_depth_found;
 }
 
+/**
+ * \note #StrokeElem.mval & #StrokeElem.pressure must be set first.
+ */
 static bool stroke_elem_project_fallback_elem(
         const struct CurveDrawData *cdd,
         const float location_fallback_depth[3],
         struct StrokeElem *selem)
 {
 	const int mval_i[2] = {UNPACK2(selem->mval)};
+	const float radius = stroke_elem_radius(cdd, selem);
 	return stroke_elem_project_fallback(
-	        cdd, mval_i, selem->mval, location_fallback_depth,
+	        cdd, mval_i, selem->mval,
+	        cdd->radius.offset, radius,
+	        location_fallback_depth,
 	        selem->location_world, selem->location_local);
 }
 
@@ -467,16 +491,6 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 
 	ARRAY_SET_ITEMS(selem->mval, event->mval[0], event->mval[1]);
 
-	bool is_depth_found = stroke_elem_project_fallback_elem(
-	        cdd, cdd->prev.location_world_valid, selem);
-
-	if (is_depth_found) {
-		/* use the depth if a fallback wasn't used */
-		copy_v3_v3(cdd->prev.location_world_valid, selem->location_world);
-	}
-	copy_v3_v3(cdd->prev.location_world, selem->location_world);
-
-
 	/* handle pressure sensitivity (which is supplied by tablets) */
 	if (event->tablet_data) {
 		const wmTabletData *wmtab = event->tablet_data;
@@ -485,6 +499,15 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 	else {
 		selem->pressure = 1.0f;
 	}
+
+	bool is_depth_found = stroke_elem_project_fallback_elem(
+	        cdd, cdd->prev.location_world_valid, selem);
+
+	if (is_depth_found) {
+		/* use the depth if a fallback wasn't used */
+		copy_v3_v3(cdd->prev.location_world_valid, selem->location_world);
+	}
+	copy_v3_v3(cdd->prev.location_world, selem->location_world);
 
 	float len_sq = len_squared_v2v2(cdd->prev.mouse, selem->mval);
 	copy_v2_v2(cdd->prev.mouse, selem->mval);
@@ -801,6 +824,7 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	cdd->radius.min = cps->radius_min;
 	cdd->radius.max = cps->radius_max;
 	cdd->radius.range = cps->radius_max - cps->radius_min;
+	cdd->radius.offset = cps->radius_offset;
 
 	/* fallback (incase we can't find the depth on first test) */
 	{

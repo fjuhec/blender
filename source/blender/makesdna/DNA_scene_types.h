@@ -1271,9 +1271,10 @@ typedef struct CurvePaintSettings {
 	char flag;
 	char depth_mode;
 	char surface_plane;
-	char _pad[5];
+	char _pad[1];
 	int error_threshold;
 	float radius_min, radius_max;
+	float radius_offset;
 	float corner_angle;
 } CurvePaintSettings;
 

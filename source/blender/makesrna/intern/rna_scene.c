@@ -2648,6 +2648,11 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_range(prop, 0.0f, 10.0, 0.1, 2);
 	RNA_def_property_ui_text(prop, "Radius Max", "");
 
+	prop = RNA_def_property(srna, "radius_offset", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop, -10.0, 10.0);
+	RNA_def_property_ui_range(prop, -1.0f, 1.0, 0.1, 2);
+	RNA_def_property_ui_text(prop, "Offset", "Offset the stroke from the surface");
+
 	static EnumPropertyItem depth_mode_items[] = {
 		{CURVE_PAINT_PROJECT_CURSOR,  "CURSOR",  0, "Cursor",  ""},
 		{CURVE_PAINT_PROJECT_SURFACE, "SURFACE", 0, "Surface", ""},
