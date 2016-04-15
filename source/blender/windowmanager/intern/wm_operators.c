@@ -2388,6 +2388,29 @@ static void WM_OT_revert_mainfile(wmOperatorType *ot)
 	ot->poll = wm_revert_mainfile_poll;
 }
 
+/* ****************** assets ****************** */
+
+static int wm_assets_update_check_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Main *bmain = CTX_data_main(C);
+
+	BKE_assets_update_check(bmain);
+
+	return OPERATOR_FINISHED;
+}
+
+static void WM_OT_assets_update_check(wmOperatorType *ot)
+{
+	ot->name = "Check Assets Update";
+	ot->idname = "WM_OT_assets_update_check";
+	ot->description = "Check/refresh status of assets (in a background job)";
+
+//	RNA_def_boolean(ot->srna, "use_scripts", true, "Trusted Source",
+//	                "Allow .blend file to execute scripts automatically, default available from system preferences");
+
+	ot->exec = wm_assets_update_check_exec;
+}
+
 /* **************** link/append *************** */
 
 static int wm_link_append_poll(bContext *C)
@@ -5179,6 +5202,7 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_quit_blender);
 	WM_operatortype_append(WM_OT_open_mainfile);
 	WM_operatortype_append(WM_OT_revert_mainfile);
+	WM_operatortype_append(WM_OT_assets_update_check);
 	WM_operatortype_append(WM_OT_link);
 	WM_operatortype_append(WM_OT_append);
 	WM_operatortype_append(WM_OT_recover_last_session);
