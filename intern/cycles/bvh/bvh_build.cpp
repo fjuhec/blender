@@ -280,8 +280,8 @@ BVHNode* BVHBuild::run()
 		size_t num_bins = max(root.size(), (int)BVHParams::NUM_SPATIAL_BINS) - 1;
 		foreach(BVHSpatialStorage &storage, spatial_storage) {
 			storage.right_bounds.clear();
-			storage.right_bounds.resize(num_bins);
 		}
+		spatial_storage[0].right_bounds.resize(num_bins);
 	}
 	spatial_free_index = 0;
 
@@ -305,7 +305,7 @@ BVHNode* BVHBuild::run()
 		task_pool.wait_work();
 	}
 	else {
-		/* Perrform multithreaded binning build. */
+		/* Perform multithreaded binning build. */
 		BVHObjectBinning rootbin(root, (references.size())? &references[0]: NULL);
 		rootnode = build_node(rootbin, 0);
 		task_pool.wait_work();
@@ -638,7 +638,7 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 
 	/* Create leaf nodes for every existing primitive.
 	 *
-	 * Here we write otimitive types, indices and objects a to temporary array.
+	 * Here we write primitive types, indices and objects to a temporary array.
 	 * This way we keep all the heavy memory allocation code outside of the
 	 * thread lock in the case of spatial split building.
 	 *
@@ -706,6 +706,7 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 			prim_index.resize(range_end);
 			prim_object.resize(range_end);
 		}
+		spatial_spin_lock.unlock();
 
 		/* Perform actual data copy. */
 		if(new_leaf_data_size > 0) {
@@ -713,8 +714,6 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 			memcpy(&prim_index[start_index], &local_prim_index[0], new_leaf_data_size);
 			memcpy(&prim_object[start_index], &local_prim_object[0], new_leaf_data_size);
 		}
-
-		spatial_spin_lock.unlock();
 	}
 	else {
 		/* For the regular BVH builder we simply copy new data starting at the
