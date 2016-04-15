@@ -586,7 +586,7 @@ class VIEW3D_PT_tools_curveedit_options_stroke(View3DPanel, Panel):
         row.prop(cps, "radius_taper_end", text="End")
 
         col = layout.column()
-        col.label("Projection/Depth:")
+        col.label("Projection Depth:")
         row = layout.row(align=True)
         row.prop(cps, "depth_mode", expand=True)
 
