@@ -571,17 +571,19 @@ class VIEW3D_PT_tools_curveedit_options_stroke(View3DPanel, Panel):
             col.active = cps.use_corners_detect
             col.prop(cps, "corner_angle")
 
-        col.label("Radius/Pressure:")
+        col.label("Pressure Radius:")
         row = layout.row(align=True)
         rowsub = row.row(align=True)
-        if cps.use_pressure_radius:
-            rowsub.active = cps.use_pressure_radius
-            rowsub.prop(cps, "radius_min", text="Min")
-            rowsub.prop(cps, "radius_max", text="Max")
-        else:
-            rowsub.prop(cps, "radius_max", text="Radius")
+        rowsub.prop(cps, "radius_min", text="Min")
+        rowsub.prop(cps, "radius_max", text="Max")
 
         row.prop(cps, "use_pressure_radius", text="", icon_only=True)
+
+        col = layout.column()
+        col.label("Taper Radius:")
+        row = layout.row(align=True)
+        row.prop(cps, "radius_taper_start", text="Stard")
+        row.prop(cps, "radius_taper_end", text="End")
 
         col = layout.column()
         col.label("Projection/Depth:")

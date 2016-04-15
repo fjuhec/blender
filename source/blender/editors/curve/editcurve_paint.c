@@ -593,10 +593,11 @@ static void curve_draw_exit(wmOperator *op)
  */
 static void curve_draw_exec_precalc(wmOperator *op)
 {
+	struct CurveDrawData *cdd = op->customdata;
+	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
+
 	PropertyRNA *prop_error = RNA_struct_find_property(op->ptr, "error_threshold");
 	if (!RNA_property_is_set(op->ptr, prop_error)) {
-		struct CurveDrawData *cdd = op->customdata;
-		const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
 
 		/* error isnt set so we'll have to calculate it from the pixel values */
 		BLI_mempool_iter iter;
@@ -616,6 +617,54 @@ static void curve_draw_exec_precalc(wmOperator *op)
 		scale_px = ((len_3d > 0.0f) && (len_2d > 0.0f)) ?  (len_3d / len_2d) : 0.0f;
 		float error_threshold = (cps->error_threshold * U.pixelsize) * scale_px;
 		RNA_property_float_set(op->ptr, prop_error, error_threshold);
+	}
+
+	if ((cps->radius_taper_start != 0.0f) ||
+	    (cps->radius_taper_end   != 0.0f))
+	{
+		/* note, we could try to de-duplicate the length calculations above */
+		const int stroke_len = BLI_mempool_count(cdd->stroke_elem_pool);
+
+		BLI_mempool_iter iter;
+		struct StrokeElem *selem, *selem_prev;
+
+		float *lengths = MEM_mallocN(sizeof(float) * stroke_len, __func__);
+		struct StrokeElem **selem_array = MEM_mallocN(sizeof(*selem_array) * stroke_len, __func__);
+		lengths[0] = 0.0f;
+
+		float len_3d = 0.0f;
+
+		int i = 1;
+		BLI_mempool_iternew(cdd->stroke_elem_pool, &iter);
+		selem_prev = BLI_mempool_iterstep(&iter);
+		selem_array[0] = selem_prev;
+		for (selem = BLI_mempool_iterstep(&iter); selem; selem = BLI_mempool_iterstep(&iter), i++) {
+			const float len_3d_segment = len_v3v3(selem->location_local, selem_prev->location_local);
+			len_3d += len_3d_segment;
+			lengths[i] = len_3d;
+			selem_array[i] = selem;
+			selem_prev = selem;
+		}
+
+		if (cps->radius_taper_start != 0.0) {
+			selem_array[0]->pressure = 0.0f;
+			const float len_taper_max = cps->radius_taper_start * len_3d;
+			for (i = 1; i < stroke_len && lengths[i] < len_taper_max; i++) {
+				selem_array[i]->pressure *=   lengths[i] / len_taper_max;
+			}
+		}
+
+		if (cps->radius_taper_end != 0.0) {
+			selem_array[stroke_len - 1]->pressure = 0.0f;
+			const float len_taper_max = cps->radius_taper_end * len_3d;
+			const float len_taper_min = len_3d - len_taper_max;
+			for (i = stroke_len - 2; i > 0 && lengths[i] > len_taper_min; i--) {
+				selem_array[i]->pressure *= (len_3d - lengths[i]) / len_taper_max;
+			}
+		}
+
+		MEM_freeN(lengths);
+		MEM_freeN(selem_array);
 	}
 }
 
@@ -654,6 +703,10 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 	nu->resolv = cu->resolv;
 	nu->flag |= CU_SMOOTH;
 
+	const bool use_pressure_radius =
+	        (cps->flag & CURVE_PAINT_FLAG_PRESSURE_RADIUS) ||
+	        ((cps->radius_taper_start != 0.0f) ||
+	         (cps->radius_taper_end   != 0.0f));
 
 	if (cdd->curve_type == CU_BEZIER) {
 		nu->type = CU_BEZIER;
@@ -665,7 +718,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		struct {
 			int radius;
 		} coords_indices;
-		coords_indices.radius = (cps->flag & CURVE_PAINT_FLAG_PRESSURE_RADIUS) ? dims++ : -1;
+		coords_indices.radius = use_pressure_radius ? dims++ : -1;
 
 		float *coords = MEM_mallocN(sizeof(*coords) * stroke_len * dims, __func__);
 
@@ -786,7 +839,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 					bezt->vec[1][2] = 0.0f;
 				}
 
-				if (cps->flag & CURVE_PAINT_FLAG_PRESSURE_RADIUS) {
+				if (use_pressure_radius) {
 					bezt->radius = selem->pressure;
 				}
 				else {
@@ -823,7 +876,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 				bp->vec[2] = 0.0f;
 			}
 
-			if (cps->flag & CURVE_PAINT_FLAG_PRESSURE_RADIUS) {
+			if (use_pressure_radius) {
 				bp->radius = (selem->pressure * radius_range) + radius_min;
 			}
 			else {

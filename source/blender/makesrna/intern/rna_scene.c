@@ -2653,8 +2653,18 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Radius Min", "");
 
 	prop = RNA_def_property(srna, "radius_max", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop, 0.0, 10.0);
+	RNA_def_property_range(prop, 0.0, 100.0);
 	RNA_def_property_ui_range(prop, 0.0f, 10.0, 0.1, 2);
+	RNA_def_property_ui_text(prop, "Radius Max", "");
+
+	prop = RNA_def_property(srna, "radius_taper_start", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop, 0.0, 1.0);
+	RNA_def_property_ui_range(prop, 0.0f, 1.0, 0.1, 2);
+	RNA_def_property_ui_text(prop, "Radius Min", "");
+
+	prop = RNA_def_property(srna, "radius_taper_end", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_range(prop, 0.0, 10.0);
+	RNA_def_property_ui_range(prop, 0.0f, 1.0, 0.1, 2);
 	RNA_def_property_ui_text(prop, "Radius Max", "");
 
 	prop = RNA_def_property(srna, "radius_offset", PROP_FLOAT, PROP_NONE);
