@@ -136,6 +136,7 @@ class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
 
     @staticmethod
     def draw_add_curve(layout, label=False):
+
         if label:
             layout.label(text="Bezier:")
         layout.operator("curve.primitive_bezier_curve_add", text="Bezier", icon='CURVE_BEZCURVE')
@@ -148,6 +149,10 @@ class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
         layout.operator("curve.primitive_nurbs_curve_add", text="Nurbs Curve", icon='CURVE_NCURVE')
         layout.operator("curve.primitive_nurbs_circle_add", text="Nurbs Circle", icon='CURVE_NCIRCLE')
         layout.operator("curve.primitive_nurbs_path_add", text="Path", icon='CURVE_PATH')
+
+        layout.separator()
+
+        layout.operator("curve.draw", icon='LINE_DATA')
 
     @staticmethod
     def draw_add_surface(layout):

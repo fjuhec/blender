@@ -210,6 +210,10 @@ struct CurveDrawData {
 
 	ViewContext vc;
 	bglMats mats;
+	enum {
+		CURVE_DRAW_IDLE = 0,
+		CURVE_DRAW_PAINTING = 1,
+	} state;
 
 	/* StrokeElem */
 	BLI_mempool *stroke_elem_pool;
@@ -540,6 +544,49 @@ static void curve_draw_event_add(wmOperator *op, const wmEvent *event)
 	ED_region_tag_redraw(cdd->vc.ar);
 }
 
+static void curve_draw_event_add_first(wmOperator *op, const wmEvent *event)
+{
+	struct CurveDrawData *cdd = op->customdata;
+	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
+
+	/* add first point */
+	curve_draw_event_add(op, event);
+
+	if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) && cdd->project.use_depth &&
+	    (cps->flag & CURVE_PAINT_FLAG_DEPTH_STROKE_ENDPOINTS))
+	{
+		RegionView3D *rv3d = cdd->vc.rv3d;
+
+		cdd->project.use_depth = false;
+		cdd->project.use_plane = true;
+
+		float normal[3] = {0.0f};
+		if (ELEM(cps->surface_plane,
+		         CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW,
+		         CURVE_PAINT_SURFACE_PLANE_NORMAL_SURFACE))
+		{
+			if (depth_read_normal(&cdd->vc, &cdd->mats, event->mval, normal)) {
+				if (cps->surface_plane == CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW) {
+					float cross_a[3], cross_b[3];
+					cross_v3_v3v3(cross_a, rv3d->viewinv[2], normal);
+					cross_v3_v3v3(cross_b, normal, cross_a);
+					copy_v3_v3(normal, cross_b);
+				}
+			}
+		}
+
+		/* CURVE_PAINT_SURFACE_PLANE_VIEW or fallback */
+		if (is_zero_v3(normal)) {
+			copy_v3_v3(normal, rv3d->viewinv[2]);
+		}
+
+		normalize_v3_v3(cdd->project.plane, normal);
+		cdd->project.plane[3] = -dot_v3v3(cdd->project.plane, cdd->prev.location_world_valid);
+	}
+
+	cdd->init_event_type = event->type;
+	cdd->state = CURVE_DRAW_PAINTING;
+}
 
 static void curve_draw_init(bContext *C, wmOperator *op, bool is_invoke)
 {
@@ -912,7 +959,7 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
 
-	cdd->init_event_type = event->type;
+	const bool is_modal = RNA_boolean_get(op->ptr, "wait_for_input");
 
 	/* fallback (incase we can't find the depth on first test) */
 	{
@@ -985,44 +1032,12 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		}
 	}
 
+	if (is_modal == false) {
+		curve_draw_event_add_first(op, event);
+	}
+
 	/* add temp handler */
 	WM_event_add_modal_handler(C, op);
-
-	/* add first point */
-	curve_draw_event_add(op, event);
-
-	if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) && cdd->project.use_depth &&
-	    (cps->flag & CURVE_PAINT_FLAG_DEPTH_STROKE_ENDPOINTS))
-	{
-		RegionView3D *rv3d = cdd->vc.rv3d;
-
-		cdd->project.use_depth = false;
-		cdd->project.use_plane = true;
-
-		float normal[3] = {0.0f};
-		if (ELEM(cps->surface_plane,
-		         CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW,
-		         CURVE_PAINT_SURFACE_PLANE_NORMAL_SURFACE))
-		{
-			if (depth_read_normal(&cdd->vc, &cdd->mats, event->mval, normal)) {
-				if (cps->surface_plane == CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW) {
-					float cross_a[3], cross_b[3];
-					cross_v3_v3v3(cross_a, rv3d->viewinv[2], normal);
-					cross_v3_v3v3(cross_b, normal, cross_a);
-					copy_v3_v3(normal, cross_b);
-				}
-			}
-		}
-
-		/* CURVE_PAINT_SURFACE_PLANE_VIEW or fallback */
-		if (is_zero_v3(normal)) {
-			copy_v3_v3(normal, rv3d->viewinv[2]);
-		}
-
-		normalize_v3_v3(cdd->project.plane, normal);
-		cdd->project.plane[3] = -dot_v3v3(cdd->project.plane, cdd->prev.location_world_valid);
-
-	}
 
 	return OPERATOR_RUNNING_MODAL;
 }
@@ -1058,10 +1073,17 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		curve_draw_cancel(C, op);
 		return OPERATOR_CANCELLED;
 	}
+	else if (ELEM(event->type, LEFTMOUSE)) {
+		if (event->val == KM_PRESS) {
+			curve_draw_event_add_first(op, event);
+		}
+	}
 	else if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
-		const float mval_fl[2] = {UNPACK2(event->mval)};
-		if (len_squared_v2v2(mval_fl, cdd->prev.location_world) > SQUARE(STROKE_SAMPLE_DIST_MIN_PX)) {
-			curve_draw_event_add(op, event);
+		if (cdd->state == CURVE_DRAW_PAINTING) {
+			const float mval_fl[2] = {UNPACK2(event->mval)};
+			if (len_squared_v2v2(mval_fl, cdd->prev.location_world) > SQUARE(STROKE_SAMPLE_DIST_MIN_PX)) {
+				curve_draw_event_add(op, event);
+			}
 		}
 	}
 
@@ -1096,6 +1118,9 @@ void CURVE_OT_draw(wmOperatorType *ot)
 
 	prop = RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+	prop = RNA_def_boolean(ot->srna, "wait_for_input", true, "Wait for Input", "");
+	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
 /** \} */
