@@ -961,6 +961,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_DATA:
 				case ND_VERTEX_GROUP:
 				case ND_SELECT:
+					WM_widgetmap_tag_refresh(wmap);
 					ED_region_tag_redraw(ar);
 					break;
 			}

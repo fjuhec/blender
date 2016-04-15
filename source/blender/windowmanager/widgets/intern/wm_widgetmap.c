@@ -183,6 +183,12 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 	if (!wmap || BLI_listbase_is_empty(&wmap->widgetgroups))
 		return;
 
+	/* only active widget needs updating */
+	if (wmap->wmap_context.active_widget) {
+		wm_widget_calculate_scale(wmap->wmap_context.active_widget, C);
+		goto done;
+	}
+
 	for (wmWidgetGroup *wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup->next) {
 		if (wgroup->type->poll && !wgroup->type->poll(C, wgroup->type))
 			continue;
@@ -209,6 +215,8 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 		}
 	}
 
+
+done:
 	/* done updating */
 	wmap->update_flag = 0;
 }
