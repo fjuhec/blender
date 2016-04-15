@@ -214,12 +214,17 @@ static void object_fmap_remove_object_mode(Object *ob, bFaceMap *fmap, bool purg
 	}
 }
 
+static void fmap_remove_exec(Object *ob, bFaceMap *fmap, const bool is_edit_mode, const bool purge)
+{
+	if (is_edit_mode)
+		object_fmap_remove_edit_mode(ob, fmap, false, purge);
+	else
+		object_fmap_remove_object_mode(ob, fmap, purge);
+}
+
 void BKE_object_facemap_remove(Object *ob, bFaceMap *fmap)
 {
-	if (BKE_object_is_in_editmode(ob))
-		object_fmap_remove_edit_mode(ob, fmap, false, true);
-	else
-		object_fmap_remove_object_mode(ob, fmap, true);
+	fmap_remove_exec(ob, fmap, BKE_object_is_in_editmode(ob), true);
 }
 
 void BKE_object_fmap_remove_all(Object *ob)
@@ -231,12 +236,7 @@ void BKE_object_fmap_remove_all(Object *ob)
 
 		while (fmap) {
 			bFaceMap *next_fmap = fmap->next;
-
-			if (edit_mode)
-				object_fmap_remove_edit_mode(ob, fmap, false, false);
-			else
-				object_fmap_remove_object_mode(ob, fmap, false);
-
+			fmap_remove_exec(ob, fmap, edit_mode, false);
 			fmap = next_fmap;
 		}
 	}

@@ -54,6 +54,7 @@ typedef struct wmWidgetGroup {
 	struct ReportList *reports;   /* errors and warnings storage */
 
 	void *customdata;
+	void (*customdata_free)(void *); /* for freeing customdata from above */
 	int flag;
 	int pad;
 } wmWidgetGroup;

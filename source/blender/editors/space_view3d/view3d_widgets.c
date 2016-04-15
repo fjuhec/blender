@@ -26,6 +26,7 @@
 
 
 #include "BLI_blenlib.h"
+#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
@@ -293,6 +294,15 @@ void WIDGETGROUP_forcefield_refresh(const bContext *C, wmWidgetGroup *wgroup)
 /* draw facemaps depending on the selected bone in pose mode */
 #define USE_FACEMAP_FROM_BONE
 
+/**
+ * Storage of all visible armature face map widgets.
+ * We need to access this without having access to wmWidgetGroup.customdata, so storing as global.
+ */
+static GHash *armature_facemaps = NULL;
+
+#define MAX_ARMATURE_FACEMAP_NAME (2 * MAX_NAME + 1) /* "OBJECTNAME_FACEMAPNAME" */
+
+
 int WIDGETGROUP_armature_facemaps_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
@@ -347,6 +357,65 @@ static void WIDGET_armature_facemaps_select(bContext *C, wmWidget *widget, const
 	}
 }
 
+/**
+ * Get a string that equals a string generated using
+ * #armature_facemap_hashname_create, but without allocating it.
+ */
+BLI_INLINE void armature_facemap_hashname_get(
+        Object *fmap_ob, bFaceMap *fmap, size_t maxname,
+        char *r_name)
+{
+	BLI_snprintf_rlen(r_name, maxname, "%s_%s", fmap_ob->id.name + 2, fmap->name);
+}
+
+/**
+ * Same as #armature_facemap_hashname_get but allocates a new string.
+ * \return A string using "OBJECTNAME_FACEMAPNAME" format.
+ */
+BLI_INLINE char *armature_facemap_hashname_create(Object *fmap_ob, bFaceMap *fmap)
+{
+	return BLI_sprintfN("%s_%s", fmap_ob->id.name + 2, fmap->name);
+}
+
+static wmWidget *armature_facemap_widget_create(wmWidgetGroup *wgroup, GHash *hash, Object *fmap_ob, bFaceMap *fmap)
+{
+	wmWidget *widget = WIDGET_facemap_new(wgroup, fmap->name, 0, fmap_ob, BLI_findindex(&fmap_ob->fmaps, fmap));
+
+	WM_widget_set_operator(widget, "TRANSFORM_OT_translate");
+	WM_widget_set_flag(widget, WM_WIDGET_DRAW_HOVER, true);
+	WM_widget_set_func_select(widget, WIDGET_armature_facemaps_select);
+	PointerRNA *opptr = WM_widget_set_operator(widget, "TRANSFORM_OT_translate");
+	RNA_boolean_set(opptr, "release_confirm", true);
+
+	BLI_ghash_insert(hash, armature_facemap_hashname_create(fmap_ob, fmap), widget);
+
+	return widget;
+}
+
+void ED_armature_facemap_widget_remove(Object *fmap_ob, bFaceMap *fmap)
+{
+	if (!armature_facemaps) {
+		BLI_assert(0);
+		return;
+	}
+
+	char idname[MAX_ARMATURE_FACEMAP_NAME];
+	armature_facemap_hashname_get(fmap_ob, fmap, sizeof(idname), idname);
+
+	wmWidget *widget = BLI_ghash_popkey(armature_facemaps, idname, MEM_freeN);
+	if (widget) {
+		WM_widget_set_flag(widget, WM_WIDGET_HIDDEN, true);
+	}
+}
+
+/**
+ * Callback for freeing ghash stored in wmWidgetGroup.customdata.
+ */
+static void armature_facemap_customdata_free(void *customdata)
+{
+	BLI_ghash_free(customdata, MEM_freeN, NULL);
+}
+
 void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
@@ -354,31 +423,15 @@ void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmWidgetGroup *wgroup
 
 #ifdef USE_FACEMAP_FROM_BONE
 	bPoseChannel *pchan;
+	armature_facemaps = BLI_ghash_str_new(__func__);
 
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 		if (pchan->fmap && (pchan->bone->layer & arm->layer)) {
-			ThemeWireColor *bcol = ED_pchan_get_colorset(arm, ob->pose, pchan);
-			Object *fmap_ob = pchan->fmap_object;
-			bFaceMap *fmap = pchan->fmap;
-			float col[4] = {0.8f, 0.8f, 0.45f, 0.2f};
-			float col_hi[4] = {0.8f, 0.8f, 0.45f, 0.4f};
-
-			/* get custom bone group color */
-			if (bcol) {
-				rgb_uchar_to_float(col, (unsigned char *)bcol->solid);
-				rgb_uchar_to_float(col_hi, (unsigned char *)bcol->active);
-			}
-
-			wmWidget *widget = WIDGET_facemap_new(wgroup, fmap->name, 0, fmap_ob, BLI_findindex(&fmap_ob->fmaps, fmap));
-
-			WM_widget_set_operator(widget, "TRANSFORM_OT_translate");
-			WM_widget_set_colors(widget, col, col_hi);
-			WM_widget_set_flag(widget, WM_WIDGET_DRAW_HOVER, true);
-			WM_widget_set_func_select(widget, WIDGET_armature_facemaps_select);
-			PointerRNA *opptr = WM_widget_set_operator(widget, "TRANSFORM_OT_translate");
-			RNA_boolean_set(opptr, "release_confirm", true);
+			armature_facemap_widget_create(wgroup, armature_facemaps, pchan->fmap_object, pchan->fmap);
 		}
 	}
+	wgroup->customdata = armature_facemaps;
+	wgroup->customdata_free = armature_facemap_customdata_free;
 #else
 	Object *armature;
 	ModifierData *md;
@@ -414,6 +467,46 @@ void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmWidgetGroup *wgroup
 			if ((prop = RNA_struct_find_property(opptr, "release_confirm"))) {
 				RNA_property_boolean_set(opptr, prop, true);
 			}
+		}
+	}
+#endif
+}
+
+void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmWidgetGroup *wgroup)
+{
+	if (!wgroup->customdata)
+		return;
+	BLI_assert(wgroup->customdata == armature_facemaps);
+
+	Object *ob = CTX_data_active_object(C);
+	bArmature *arm = (bArmature *)ob->data;
+
+#ifdef USE_FACEMAP_FROM_BONE
+	bPoseChannel *pchan;
+	GHash *hash = wgroup->customdata;
+
+	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+		if (pchan->fmap && (pchan->bone->layer & arm->layer)) {
+			char idname[MAX_ARMATURE_FACEMAP_NAME];
+			armature_facemap_hashname_get(pchan->fmap_object, pchan->fmap, sizeof(idname), idname);
+
+			wmWidget *widget = BLI_ghash_lookup(hash, idname);
+			const ThemeWireColor *bcol = ED_pchan_get_colorset(arm, ob->pose, pchan);
+			float col[4] = {0.8f, 0.8f, 0.45f, 0.2f};
+			float col_hi[4] = {0.8f, 0.8f, 0.45f, 0.4f};
+
+			/* create new widget for newly assigned facemap */
+			if (!widget) {
+				widget = armature_facemap_widget_create(wgroup, hash, pchan->fmap_object, pchan->fmap);
+				BLI_assert(widget);
+			}
+
+			/* get custom bone group color */
+			if (bcol) {
+				rgb_uchar_to_float(col, (unsigned char *)bcol->solid);
+				rgb_uchar_to_float(col_hi, (unsigned char *)bcol->active);
+			}
+			WM_widget_set_colors(widget, col, col_hi);
 		}
 	}
 #endif

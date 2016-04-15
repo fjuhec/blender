@@ -268,7 +268,10 @@ void WM_widgetmap_widgets_draw(
 	if (wmap->wmap_context.selected_widgets) {
 		for (int i = 0; i < wmap->wmap_context.tot_selected; i++) {
 			widget = wmap->wmap_context.selected_widgets[i];
-			if (widget && (in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH))) {
+			if ((widget != NULL) &&
+			    (widget->flag & WM_WIDGET_HIDDEN) == 0 &&
+			    (in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH)))
+			{
 				/* notice that we don't update the widgetgroup, widget is now on
 				 * its own, it should have all relevant data to update itself */
 				widget->draw(C, widget);

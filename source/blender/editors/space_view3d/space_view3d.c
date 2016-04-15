@@ -743,10 +743,12 @@ static void view3d_widgets(void)
 
 	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
 
-	WM_widgetgrouptype_register_ptr(
+	WM_widgetgrouptype_register_ptr_update(
 	        NULL, wmaptype,
 	        WIDGETGROUP_armature_facemaps_poll,
 	        WIDGETGROUP_armature_facemaps_init,
+	        WIDGETGROUP_armature_facemaps_refresh,
+	        NULL,
 	        WM_widgetgroup_keymap_common_sel,
 	        "Face Map Widgets");
 	WM_widgetgrouptype_register_ptr_update(

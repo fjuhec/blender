@@ -89,7 +89,12 @@ void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
 		MEM_freeN(wgroup->reports);
 	}
 
-	MEM_SAFE_FREE(wgroup->customdata);
+	if (wgroup->customdata_free) {
+		wgroup->customdata_free(wgroup->customdata);
+	}
+	else {
+		MEM_SAFE_FREE(wgroup->customdata);
+	}
 
 	BLI_remlink(&wmap->widgetgroups, wgroup);
 	MEM_freeN(wgroup);

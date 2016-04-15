@@ -285,8 +285,9 @@ void WIDGETGROUP_camera_draw_prepare(const struct bContext *C, struct wmWidgetGr
 int  WIDGETGROUP_forcefield_poll    (const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
 void WIDGETGROUP_forcefield_init    (const struct bContext *C, struct wmWidgetGroup *wgroup);
 void WIDGETGROUP_forcefield_refresh (const struct bContext *C, struct wmWidgetGroup *wgroup);
-int  WIDGETGROUP_armature_facemaps_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
-void WIDGETGROUP_armature_facemaps_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
+int  WIDGETGROUP_armature_facemaps_poll   (const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
+void WIDGETGROUP_armature_facemaps_init   (const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_armature_facemaps_refresh(const struct bContext *C, struct wmWidgetGroup *wgroup);
 
 /* draw_volume.c */
 void draw_smoke_volume(struct SmokeDomainSettings *sds, struct Object *ob,
