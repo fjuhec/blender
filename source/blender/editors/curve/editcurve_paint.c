@@ -624,6 +624,7 @@ static void curve_draw_exit(wmOperator *op)
 	if (cdd) {
 		if (cdd->draw_handle_view) {
 			ED_region_draw_cb_exit(cdd->vc.ar->type, cdd->draw_handle_view);
+			WM_cursor_modal_restore(cdd->vc.win);
 		}
 
 		if (cdd->stroke_elem_pool) {
@@ -972,6 +973,7 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	cdd->draw_handle_view = ED_region_draw_cb_activate(
 	        cdd->vc.ar->type, curve_draw_stroke_3d, op, REGION_DRAW_POST_VIEW);
+	WM_cursor_modal_set(cdd->vc.win, BC_PAINTBRUSHCURSOR);
 
 	{
 		View3D *v3d = cdd->vc.v3d;
