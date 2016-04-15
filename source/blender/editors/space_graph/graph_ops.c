@@ -459,6 +459,10 @@ void graphedit_operatortypes(void)
 	WM_operatortype_append(GRAPH_OT_fmodifier_copy);
 	WM_operatortype_append(GRAPH_OT_fmodifier_paste);
 	
+	/* Drivers */
+	WM_operatortype_append(GRAPH_OT_driver_variables_copy);
+	WM_operatortype_append(GRAPH_OT_driver_variables_paste);
+
 	WM_operatortype_append(GRAPH_OT_widget_backdrop_transform);
 }
 
