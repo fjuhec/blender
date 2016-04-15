@@ -643,9 +643,16 @@ static void curve_draw_exec_precalc(wmOperator *op)
 {
 	struct CurveDrawData *cdd = op->customdata;
 	const CurvePaintSettings *cps = &cdd->vc.scene->toolsettings->curve_paint_settings;
+	PropertyRNA *prop;
 
-	PropertyRNA *prop_error = RNA_struct_find_property(op->ptr, "error_threshold");
-	if (!RNA_property_is_set(op->ptr, prop_error)) {
+	prop = RNA_struct_find_property(op->ptr, "corner_angle");
+	if (!RNA_property_is_set(op->ptr, prop)) {
+		const float corner_angle = (cps->flag & CURVE_PAINT_FLAG_CORNERS_DETECT) ? cps->corner_angle : M_PI;
+		RNA_property_float_set(op->ptr, prop, corner_angle);
+	}
+
+	prop = RNA_struct_find_property(op->ptr, "error_threshold");
+	if (!RNA_property_is_set(op->ptr, prop)) {
 
 		/* error isnt set so we'll have to calculate it from the pixel values */
 		BLI_mempool_iter iter;
@@ -664,7 +671,7 @@ static void curve_draw_exec_precalc(wmOperator *op)
 		}
 		scale_px = ((len_3d > 0.0f) && (len_2d > 0.0f)) ?  (len_3d / len_2d) : 0.0f;
 		float error_threshold = (cps->error_threshold * U.pixelsize) * scale_px;
-		RNA_property_float_set(op->ptr, prop_error, error_threshold);
+		RNA_property_float_set(op->ptr, prop, error_threshold);
 	}
 
 	if ((cps->radius_taper_start != 0.0f) ||
@@ -775,6 +782,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 
 		/* error in object local space */
 		const float error_threshold = RNA_float_get(op->ptr, "error_threshold");
+		const float corner_angle = RNA_float_get(op->ptr, "corner_angle");
 
 		{
 			BLI_mempool_iter iter;
@@ -793,7 +801,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 		unsigned int *corners = NULL;
 		unsigned int  corners_len = 0;
 
-		if (cps->flag & CURVE_PAINT_FLAG_CORNERS_DETECT) {
+		if (corner_angle < M_PI) {
 			/* this could be configurable... */
 			const float corner_radius_min = error_threshold / 8;
 			const float corner_radius_max = error_threshold * 2;
@@ -802,7 +810,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 			spline_fit_corners_detect_fl(
 			        (const float *)coords, stroke_len, dims,
 			        corner_radius_min, corner_radius_max,
-			        samples_max, cps->corner_angle,
+			        samples_max, corner_angle,
 			        &corners, &corners_len);
 		}
 
@@ -1062,9 +1070,10 @@ static int curve_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		if (event->val == KM_RELEASE) {
 			ED_region_tag_redraw(cdd->vc.ar);
 
+			curve_draw_exec_precalc(op);
+
 			curve_draw_stroke_to_operator(op);
 
-			curve_draw_exec_precalc(op);
 			curve_draw_exec(C, op);
 
 			return OPERATOR_FINISHED;
@@ -1117,6 +1126,10 @@ void CURVE_OT_draw(wmOperatorType *ot)
 	        "Error distance threshold (in object units)",
 	        0.0001f, 10.0f);
 	RNA_def_property_ui_range(prop, 0.0, 10, 1, 4);
+
+	prop = RNA_def_float_distance(
+	        ot->srna, "corner_angle", DEG2RADF(70.0f), 0.0f, M_PI, "Corner Angle", "", 0.0f, M_PI);
+	RNA_def_property_subtype(prop, PROP_ANGLE);
 
 	prop = RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);

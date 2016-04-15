@@ -1080,7 +1080,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				cps->flag |= CURVE_PAINT_FLAG_CORNERS_DETECT;
 				cps->error_threshold = 8;
 				cps->radius_max = 1.0f;
-				cps->corner_angle = DEG2RAD(70);
+				cps->corner_angle = DEG2RADF(70.0f);
 			}
 		}
 
