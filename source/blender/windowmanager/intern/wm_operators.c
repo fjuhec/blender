@@ -1154,6 +1154,14 @@ int WM_operator_confirm_message_ex(bContext *C, wmOperator *op,
 	uiPopupMenu *pup;
 	uiLayout *layout;
 	IDProperty *properties = op->ptr->data;
+	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "ask_confirmation");
+
+	if (prop) {
+		const float ask_user = RNA_property_boolean_get(op->ptr, prop);
+		if (!ask_user) {
+			return op->type->exec(C, op);
+		}
+	}
 
 	if (properties && properties->len)
 		properties = IDP_CopyProperty(op->ptr->data);
@@ -2112,6 +2120,8 @@ static void WM_OT_quit_blender(wmOperatorType *ot)
 
 	ot->invoke = WM_operator_confirm;
 	ot->exec = wm_exit_blender_exec;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /* *********************** */
