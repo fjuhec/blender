@@ -319,19 +319,19 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C)
 	row = uiLayoutRow(layout, false);
 	{
 		EnumPropertyItem *item = rna_enum_object_mode_items;
-		const char *name = "";
+		/* const char *name = ""; */
 		int icon = ICON_OBJECT_DATAMODE;
 
 		while (item->identifier) {
 			if (item->value == modeselect && item->identifier[0]) {
-				name = IFACE_(item->name);
+				/* name = IFACE_(item->name); */
 				icon = item->icon;
 				break;
 			}
 			item++;
 		}
 
-		uiItemMenuEnumO(row, C, "OBJECT_OT_mode_set", "mode", name, icon);
+		uiItemMenuEnumO(row, C, "OBJECT_OT_mode_set", "mode", "", icon);
 	}
 
 	/* Draw type */
