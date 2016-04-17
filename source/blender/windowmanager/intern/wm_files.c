@@ -1300,6 +1300,8 @@ void WM_OT_save_homefile(wmOperatorType *ot)
 
 	ot->invoke = WM_operator_confirm;
 	ot->exec = wm_homefile_write_exec;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 static int wm_userpref_autoexec_add_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
@@ -1373,6 +1375,8 @@ void WM_OT_save_userpref(wmOperatorType *ot)
 
 	ot->invoke = WM_operator_confirm;
 	ot->exec = wm_userpref_write_exec;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 static int wm_history_file_read_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
@@ -1393,6 +1397,8 @@ void WM_OT_read_history(wmOperatorType *ot)
 
 	/* this operator is only used for loading settings from a previous blender install */
 	ot->flag = OPTYPE_INTERNAL;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 static int wm_homefile_read_exec(bContext *C, wmOperator *op)
@@ -1447,6 +1453,8 @@ void WM_OT_read_homefile(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
 	/* omit poll to run in background mode */
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 void WM_OT_read_factory_settings(wmOperatorType *ot)
@@ -1458,6 +1466,8 @@ void WM_OT_read_factory_settings(wmOperatorType *ot)
 	ot->invoke = WM_operator_confirm;
 	ot->exec = wm_homefile_read_exec;
 	/* omit poll to run in background mode */
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /** \} */
@@ -1671,6 +1681,8 @@ void WM_OT_revert_mainfile(wmOperatorType *ot)
 
 	ot->exec = wm_revert_mainfile_exec;
 	ot->poll = wm_revert_mainfile_poll;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /** \} */
@@ -1717,6 +1729,8 @@ void WM_OT_recover_last_session(wmOperatorType *ot)
 	ot->invoke = WM_operator_confirm;
 
 	ot->exec = wm_recover_last_session_exec;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 static int wm_recover_auto_save_exec(bContext *C, wmOperator *op)
