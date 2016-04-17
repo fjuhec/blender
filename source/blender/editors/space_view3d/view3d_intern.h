@@ -144,6 +144,7 @@ void draw_motion_paths_cleanup(View3D *v3d);
 
 
 /* drawobject.c */
+bool set_wire_colorset(Scene *scene, View3D *v3d, Base *base, unsigned char r_ob_wire_col[4]);
 void draw_object(Scene *scene, struct ARegion *ar, View3D *v3d, Base *base, const short dflag);
 void draw_object_select(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short dflag);
 
