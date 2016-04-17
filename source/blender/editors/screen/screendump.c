@@ -560,4 +560,5 @@ void SCREEN_OT_screencast(wmOperatorType *ot)
 	RNA_def_property(ot->srna, "filepath", PROP_STRING, PROP_FILEPATH);
 	RNA_def_boolean(ot->srna, "full", 1, "Full Screen",
 	                "Capture the whole window (otherwise only capture the active area)");
+	RNA_def_boolean(ot->srna, "ask_confirmation", 0, "Ask Confirmation", "Ask confirmation");
 }

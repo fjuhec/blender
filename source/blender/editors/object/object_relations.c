@@ -284,6 +284,8 @@ void OBJECT_OT_vertex_parent_set(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /********************** Make Proxy Operator *************************/
@@ -1039,6 +1041,8 @@ void OBJECT_OT_parent_no_inverse_set(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /************************ Clear Slow Parent Operator *********************/
@@ -1079,6 +1083,8 @@ void OBJECT_OT_slow_parent_clear(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /********************** Make Slow Parent Operator *********************/
@@ -1115,6 +1121,8 @@ void OBJECT_OT_slow_parent_set(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "ask_confirmation", 1, "Ask Confirmation", "Ask confirmation");
 }
 
 /* ******************** Clear Track Operator ******************* */
