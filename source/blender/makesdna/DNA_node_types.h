@@ -132,6 +132,7 @@ typedef struct bNodeSocket {
 
 /* sock->type */
 typedef enum eNodeSocketDatatype {
+	SOCK_UNDEFINED			= -2,	/* socket has no defined type */
 	SOCK_CUSTOM			= -1,	/* socket has no integer type */
 	SOCK_FLOAT			= 0,
 	SOCK_VECTOR			= 1,
