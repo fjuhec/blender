@@ -384,6 +384,9 @@ struct StructRNA {
 	StructUnregisterFunc unreg;
 	StructInstanceFunc instance;
 
+	/* function to do some post registration */
+	StructPostregisterFunc postreg;
+
 	/* callback to get id properties */
 	IDPropertiesFunc idproperties;
 

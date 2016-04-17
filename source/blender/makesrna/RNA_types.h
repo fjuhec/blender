@@ -445,6 +445,8 @@ typedef struct StructRNA *(*StructRegisterFunc)(
 typedef void (*StructUnregisterFunc)(struct Main *bmain, struct StructRNA *type);
 typedef void **(*StructInstanceFunc)(PointerRNA *ptr);
 
+typedef void (*StructPostregisterFunc)(struct StructRNA *srna);
+
 typedef struct StructRNA StructRNA;
 
 /* Blender RNA

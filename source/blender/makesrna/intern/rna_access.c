@@ -762,6 +762,11 @@ void **RNA_struct_instance(PointerRNA *ptr)
 	return NULL;
 }
 
+StructPostregisterFunc RNA_struct_postregister(StructRNA *type)
+{
+	return type->postreg;
+}
+
 void *RNA_struct_py_type_get(StructRNA *srna)
 {
 	return srna->py_type;
