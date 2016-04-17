@@ -123,6 +123,14 @@ static EnumPropertyItem stereo3d_eye_items[] = {
 };
 #endif
 
+static EnumPropertyItem wire_color_source_items[] = {
+	{V3D_WIRE_COLOR_SOURCE_NORMAL, "NORMAL", ICON_NONE, "Normal", "Use normal wireframe color"},
+	{V3D_WIRE_COLOR_SOURCE_SELECT, "SELECT", ICON_NONE, "Select", "Use select wireframe color"},
+	{V3D_WIRE_COLOR_SOURCE_ACTIVE, "ACTIVE", ICON_NONE, "Active", "Use active wireframe color"},
+	{V3D_WIRE_COLOR_SOURCE_OBJECT, "OBJECT", ICON_NONE, "Object", "Use object color"},
+	{0, NULL, 0, NULL, NULL}
+};
+
 static EnumPropertyItem pivot_items_full[] = {
 	{V3D_AROUND_CENTER_BOUNDS, "BOUNDING_BOX_CENTER", ICON_ROTATE, "Bounding Box Center",
 	             "Pivot around bounding box center of selected object(s)"},
@@ -2584,6 +2592,27 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "lock_3d_cursor", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag3", V3D_LOCK_CURSOR);
 	RNA_def_property_ui_text(prop, "Lock 3D Cursor", "Lock the 3D Cursor");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+
+	prop = RNA_def_property(srna, "use_wire_color", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "wire_color_flag", V3D_WIRE_COLOR_NOCUSTOM);
+	RNA_def_property_ui_text(prop, "Color Wire", "Draw wireframes using object wireframe color");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+
+	prop = RNA_def_property(srna, "wire_color_noactive", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "wire_color_flag", V3D_WIRE_COLOR_EXCLUDE_ACTIVE);
+	RNA_def_property_ui_text(prop, "Exclude Active", "Exclude active object from wireframe coloring");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+
+	prop = RNA_def_property(srna, "wire_color_noselect", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "wire_color_flag", V3D_WIRE_COLOR_EXCLUDE_SELECT);
+	RNA_def_property_ui_text(prop, "Exclude Selected", "Exclude all selected objects from wireframe coloring");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+
+	prop = RNA_def_property(srna, "wire_color_source", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "wire_color_source");
+	RNA_def_property_enum_items(prop, wire_color_source_items);
+	RNA_def_property_ui_text(prop, "Wire Color Source", "Select source color property to use in wireframe color when Exclude Selected is enabled");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "use_occlude_geometry", PROP_BOOLEAN, PROP_NONE);

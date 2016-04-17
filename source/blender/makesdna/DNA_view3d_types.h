@@ -244,6 +244,11 @@ typedef struct View3D {
 	short prev_drawtype;
 	short pad1;
 	float pad2;
+
+	/* wireframe color */
+	short wire_color_flag;
+	short wire_color_source;
+	char pad5[4];
 } View3D;
 
 
@@ -322,6 +327,23 @@ typedef struct View3D {
 #define V3D_LOCK_CURSOR			(1 << 14)		/* Custom flag for locking the 3D cursor */
 #define V3D_HIDE_CURSOR			(1 << 15)		/* Custom flag for hiding the 3D cursor */
 
+/* View3d->wire_color_flag (short) */
+#define V3D_WIRE_COLOR_NOCUSTOM	(1 << 0)
+#define V3D_WIRE_COLOR_EXCLUDE_ACTIVE	(1 << 1)
+#define V3D_WIRE_COLOR_EXCLUDE_SELECT	(1 << 2)		/* Implies exclude active */
+
+/* View3d->wire_color_source */
+enum {
+	/* Use wire color set normal color */
+	V3D_WIRE_COLOR_SOURCE_NORMAL	= 0,
+	/* Use wire color set select color */
+	V3D_WIRE_COLOR_SOURCE_SELECT	= 1,
+	/* Use wire color set active color */
+	V3D_WIRE_COLOR_SOURCE_ACTIVE	= 2,
+	/* Use object color */
+	V3D_WIRE_COLOR_SOURCE_OBJECT	= 3,
+};
+
 /* View3D->around */
 enum {
 	/* center of the bounding box */
@@ -390,6 +412,10 @@ enum {
 };
 
 #define V3D_BGPIC_EXPANDED (V3D_BGPIC_EXPANDED | V3D_BGPIC_CAMERACLIP)
+
+#define V3D_IS_WIRECOLOR(scene, v3d) \
+	(((v3d)->drawtype <= OB_SOLID) && \
+	 (((v3d)->wire_color_flag & V3D_WIRE_COLOR_NOCUSTOM) == 0))
 
 /* BGPic->source */
 /* may want to use 1 for select ?*/
