@@ -282,6 +282,7 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 	double wx, wy, x, y, fw, fx, fy, dx;
 	double vec4[4];
 	unsigned char col[3], col2[3];
+	const bool draw_grid = (v3d->gridflag & V3D_HIDE_2DGRID) == 0;
 
 	fx = rv3d->persmat[3][0];
 	fy = rv3d->persmat[3][1];
@@ -312,6 +313,7 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 	/* check zoom out */
 	UI_ThemeColor(TH_GRID);
 	
+	if (draw_grid) { /* Not indenting nested block to minimize diff */
 	if (unit->system) {
 		/* Use GRID_MIN_PX * 2 for units because very very small grid
 		 * items are less useful when dealing with units */
@@ -421,6 +423,7 @@ static void drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **
 			}
 		}
 	}
+	} /* End of draw_grid condition */
 
 
 	x += (wx);

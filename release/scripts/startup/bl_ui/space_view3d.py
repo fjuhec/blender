@@ -3210,6 +3210,10 @@ class VIEW3D_PT_view3d_display(Panel):
 
         col = layout.column()
         col.active = display_all
+        col.prop(view, "show_2d_grid", text="2D Grid")
+
+        col = layout.column()
+        col.active = display_all
         split = col.split(percentage=0.55)
         split.prop(view, "show_floor", text="Grid Floor")
 
