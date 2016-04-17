@@ -377,6 +377,7 @@ enum {
 	/* used for operators that act indirectly (eg. popup menu)
 	 * note: this isn't great design (using operators to trigger UI) avoid where possible. */
 	OPERATOR_INTERFACE      = (1 << 5),
+	OPERATOR_TRY_UNEMULATED = (1 << 6),
 };
 #define OPERATOR_FLAGS_ALL ( \
 	OPERATOR_RUNNING_MODAL | \
@@ -385,6 +386,7 @@ enum {
 	OPERATOR_PASS_THROUGH | \
 	OPERATOR_HANDLED | \
 	OPERATOR_INTERFACE | \
+	OPERATOR_TRY_UNEMULATED | \
 	0)
 
 /* sanity checks for debug mode only */

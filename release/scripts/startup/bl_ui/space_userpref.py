@@ -1113,7 +1113,7 @@ class USERPREF_PT_input(Panel):
 
         sub.label(text="Mouse:")
         sub1 = sub.column()
-        sub1.active = (inputs.select_mouse == 'RIGHT')
+        #sub1.active = (inputs.select_mouse == 'RIGHT')
         sub1.prop(inputs, "use_mouse_emulate_3_button")
         sub.prop(inputs, "use_mouse_continuous")
         sub.prop(inputs, "drag_threshold")

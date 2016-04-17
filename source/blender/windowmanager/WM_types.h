@@ -467,6 +467,10 @@ typedef struct wmEvent {
 	int pad2;
 	void *customdata;	/* ascii, unicode, mouse coords, angles, vectors, dragdrop info */
 	
+	/* emulated data */
+	short emulated;		/* type is emulated */
+	short realtype;		/* not used */
+	int pad3;
 } wmEvent;
 
 /* ************** custom wmEvent data ************** */
