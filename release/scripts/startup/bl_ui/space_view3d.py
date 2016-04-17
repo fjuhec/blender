@@ -3294,6 +3294,30 @@ class VIEW3D_PT_view3d_stereo(Panel):
         split.prop(view, "stereo_3d_volume_alpha", text="Alpha")
 
 
+class VIEW3D_PT_view3d_wireframe(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "Wireframe"
+
+    def draw(self, context):
+        layout = self.layout
+
+        view = context.space_data
+
+        col = layout.column()
+
+        if view.viewport_shade in {'BOUNDBOX', 'WIREFRAME', 'SOLID'}:
+            col.prop(view, "use_wire_color")
+
+            row = col.row()
+            row.active = view.use_wire_color
+            row.prop(view, "wire_color_noselect")
+
+            row = col.row()
+            row.active = view.use_wire_color and view.wire_color_noselect
+            row.prop(view, "wire_color_source")
+
+
 class VIEW3D_PT_view3d_shading(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
