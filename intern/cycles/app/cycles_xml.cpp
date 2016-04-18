@@ -514,6 +514,9 @@ static void xml_read_shader_graph(XMLReadState& state, Shader *shader, pugi::xml
 		else if(string_iequals(node.name(), "diffuse_bsdf")) {
 			snode = new DiffuseBsdfNode();
 		}
+		/*else if(string_iequals(node.name(), "disney_bsdf")) {
+			snode = new DisneyBsdfNode();
+		}*/
 		else if(string_iequals(node.name(), "translucent_bsdf")) {
 			snode = new TranslucentBsdfNode();
 		}

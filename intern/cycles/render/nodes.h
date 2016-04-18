@@ -414,6 +414,11 @@ public:
 	SHADER_NODE_CLASS(DiffuseBsdfNode)
 };
 
+/*class DisneyBsdfNode : public BsdfNode {
+public:
+	SHADER_NODE_CLASS(DisneyBsdfNode)
+};*/
+
 class TranslucentBsdfNode : public BsdfNode {
 public:
 	SHADER_NODE_CLASS(TranslucentBsdfNode)

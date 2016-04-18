@@ -88,6 +88,7 @@ set(SRC_CLOSURE_HEADERS
 	closure/bssrdf.h
 	closure/emissive.h
 	closure/volume.h
+    closure/bsdf_disney_diffuse.h
 )
 
 set(SRC_SVM_HEADERS
