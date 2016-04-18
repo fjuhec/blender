@@ -39,6 +39,8 @@
 
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_library.h"
+#include "BKE_main.h"
 #include "BKE_node.h"
 
 #include "ED_node.h"  /* own include */
@@ -93,12 +95,61 @@ static bool ntree_check_nodes_connected(bNodeTree *ntree, bNode *from, bNode *to
 	return ntree_check_nodes_connected_dfs(ntree, from, to);
 }
 
+static bool node_group_has_output_dfs(bNode *node)
+{
+	bNodeTree *ntree = (bNodeTree *)node->id;
+	if (ntree->id.tag & LIB_TAG_DOIT) {
+		return false;
+	}
+	ntree->id.tag |= LIB_TAG_DOIT;
+	for (bNode *current_node = ntree->nodes.first;
+	     current_node != NULL;
+	     current_node = current_node->next)
+	{
+		if (current_node->type == NODE_GROUP) {
+			if (node_group_has_output_dfs(current_node)) {
+				return true;
+			}
+		}
+		if (current_node->flag & NODE_DO_OUTPUT &&
+		    current_node->type != NODE_GROUP_OUTPUT)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool node_group_has_output(bNode *node)
+{
+	Main *bmain = G.main;
+	BLI_assert(node->type == NODE_GROUP);
+	bNodeTree *ntree = (bNodeTree *)node->id;
+	if (ntree == NULL) {
+		return false;
+	}
+	BKE_main_id_tag_listbase(&bmain->nodetree, LIB_TAG_DOIT, false);
+	return node_group_has_output_dfs(node);
+}
+
 bool node_connected_to_output(bNodeTree *ntree, bNode *node)
 {
 	for (bNode *current_node = ntree->nodes.first;
 	     current_node != NULL;
 	     current_node = current_node->next)
 	{
+		/* Special case for group nodes -- if modified node connected to a group
+		 * with active output inside we consider refresh is needed.
+		 *
+		 * We could make check more grained here by taking which socket the node
+		 * is connected to and so eventually.
+		 */
+		if (current_node->type == NODE_GROUP &&
+		    ntree_check_nodes_connected(ntree, node, current_node) &&
+		    node_group_has_output(current_node))
+		{
+			return true;
+		}
 		if (current_node->flag & NODE_DO_OUTPUT) {
 			if (ntree_check_nodes_connected(ntree, node, current_node)) {
 				return true;

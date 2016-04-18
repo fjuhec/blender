@@ -1390,7 +1390,9 @@ void CURVE_OT_split(wmOperatorType *ot)
 
 /* ******************* FLAGS ********************* */
 
-static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
+static bool isNurbselUV(
+        const Nurb *nu, int flag,
+        int *r_u, int *r_v)
 {
 	/* return (u != -1): 1 row in u-direction selected. U has value between 0-pntsv
 	 * return (v != -1): 1 column in v-direction selected. V has value between 0-pntsu
@@ -1398,7 +1400,7 @@ static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
 	BPoint *bp;
 	int a, b, sel;
 
-	*u = *v = -1;
+	*r_u = *r_v = -1;
 
 	bp = nu->bp;
 	for (b = 0; b < nu->pntsv; b++) {
@@ -1407,7 +1409,7 @@ static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
 			if (bp->f1 & flag) sel++;
 		}
 		if (sel == nu->pntsu) {
-			if (*u == -1) *u = b;
+			if (*r_u == -1) *r_u = b;
 			else return 0;
 		}
 		else if (sel > 1) {
@@ -1422,7 +1424,7 @@ static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
 			if (bp->f1 & flag) sel++;
 		}
 		if (sel == nu->pntsv) {
-			if (*v == -1) *v = a;
+			if (*r_v == -1) *r_v = a;
 			else return 0;
 		}
 		else if (sel > 1) {
@@ -1430,8 +1432,8 @@ static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
 		}
 	}
 
-	if (*u == -1 && *v > -1) return 1;
-	if (*v == -1 && *u > -1) return 1;
+	if (*r_u == -1 && *r_v > -1) return 1;
+	if (*r_v == -1 && *r_u > -1) return 1;
 	return 0;
 }
 
@@ -1851,7 +1853,7 @@ bool ed_editnurb_extrude_flag(EditNurb *editnurb, const short flag)
 		else {
 			/* which row or column is selected */
 
-			if (isNurbselUV(nu, &u, &v, flag)) {
+			if (isNurbselUV(nu, flag, &u, &v)) {
 
 				/* deselect all */
 				bp = nu->bp;
@@ -4767,7 +4769,7 @@ static bool ed_editcurve_extrude(Curve *cu, EditNurb *editnurb)
 
 /***************** add vertex operator **********************/
 
-static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float location[3])
+static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float location_init[3])
 {
 	Nurb *nu;
 
@@ -4808,7 +4810,7 @@ static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float locat
 		int i;
 
 		mid_v3_v3v3(center, minmax[0], minmax[1]);
-		sub_v3_v3v3(ofs, location, center);
+		sub_v3_v3v3(ofs, location_init, center);
 
 		if ((cu->flag & CU_3D) == 0) {
 			ofs[2] = 0.0f;
@@ -4830,6 +4832,8 @@ static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float locat
 						}
 					}
 				}
+
+				BKE_nurb_handles_calc(nu);
 			}
 			else {
 				BPoint *bp;
@@ -4844,6 +4848,14 @@ static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float locat
 		changed = true;
 	}
 	else {
+		float location[3];
+
+		copy_v3_v3(location, location_init);
+
+		if ((cu->flag & CU_3D) == 0) {
+			location[2] = 0.0f;
+		}
+
 		/* nothing selected: create a new curve */
 		nu = BKE_curve_nurb_active_get(cu);
 
@@ -4861,6 +4873,10 @@ static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float locat
 				nurb_new->orderu = 4;
 				nurb_new->flag |= CU_SMOOTH;
 				BKE_nurb_bezierPoints_add(nurb_new, 1);
+
+				if ((cu->flag & CU_3D) == 0) {
+					nurb_new->flag |= CU_2D;
+				}
 			}
 			BLI_addtail(&editnurb->nurbs, nurb_new);
 
@@ -4892,6 +4908,10 @@ static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float locat
 				nurb_new->flag |= CU_SMOOTH;
 				nurb_new->orderu = 4;
 				BKE_nurb_points_add(nurb_new, 1);
+
+				if ((cu->flag & CU_3D) == 0) {
+					nurb_new->flag |= CU_2D;
+				}
 			}
 			BLI_addtail(&editnurb->nurbs, nurb_new);
 
@@ -4978,6 +4998,37 @@ static int add_vertex_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			snapObjectsContext(
 			        C, mval, SNAP_NOT_OBEDIT,
 			        location, no_dummy, &dist_px_dummy);
+		}
+
+		if ((cu->flag & CU_3D) == 0) {
+			const float eps = 1e-6f;
+
+			/* get the view vector to 'location' */
+			float view_dir[3];
+			ED_view3d_global_to_vector(vc.rv3d, location, view_dir);
+
+			/* get the plane */
+			float plane[4];
+			/* only normalize to avoid precision errors */
+			normalize_v3_v3(plane, vc.obedit->obmat[2]);
+			plane[3] = -dot_v3v3(plane, vc.obedit->obmat[3]);
+
+			if (fabsf(dot_v3v3(view_dir, plane)) < eps) {
+				/* can't project on an aligned plane. */
+			}
+			else {
+				float lambda;
+				if (isect_ray_plane_v3(location, view_dir, plane, &lambda, false)) {
+					/* check if we're behind the viewport */
+					float location_test[3];
+					madd_v3_v3v3fl(location_test, location, view_dir, lambda);
+					if ((vc.rv3d->is_persp == false) ||
+					    (mul_project_m4_v3_zfac(vc.rv3d->persmat, location_test) > 0.0f))
+					{
+						copy_v3_v3(location, location_test);
+					}
+				}
+			}
 		}
 
 		RNA_float_set_array(op->ptr, "location", location);

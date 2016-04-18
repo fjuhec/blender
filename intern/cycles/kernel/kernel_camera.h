@@ -92,16 +92,16 @@ ccl_device void camera_sample_perspective(KernelGlobals *kg, float raster_x, flo
 
 #ifdef __CAMERA_MOTION__
 	if(kernel_data.cam.have_motion) {
-#ifdef __KERNEL_OPENCL__
+#  ifdef __KERNEL_OPENCL__
 		const MotionTransform tfm = kernel_data.cam.motion;
 		transform_motion_interpolate(&cameratoworld,
 		                             ((const DecompMotionTransform*)&tfm),
 		                             ray->time);
-#else
+#  else
 		transform_motion_interpolate(&cameratoworld,
 		                             ((const DecompMotionTransform*)&kernel_data.cam.motion),
 		                             ray->time);
-#endif
+#  endif
 	}
 #endif
 
@@ -109,26 +109,27 @@ ccl_device void camera_sample_perspective(KernelGlobals *kg, float raster_x, flo
 	float3 tD = transform_direction(&cameratoworld, ray->D);
 	ray->P = spherical_stereo_position(kg, tD, tP);
 	ray->D = spherical_stereo_direction(kg, tD, tP, ray->P);
-	ray->D = normalize(ray->D);
 
 #ifdef __RAY_DIFFERENTIALS__
 	/* ray differential */
 	ray->dP = differential3_zero();
 
-	tD = transform_direction(&cameratoworld, Pcamera);
-	float3 Pdiff = spherical_stereo_position(kg, tD, Pcamera);
-	float3 Ddiff = normalize(spherical_stereo_direction(kg, tD, Pcamera, Pdiff));
+	float3 tD_diff = transform_direction(&cameratoworld, Pcamera);
+	float3 Pdiff = spherical_stereo_position(kg, tD_diff, Pcamera);
+	float3 Ddiff = spherical_stereo_direction(kg, tD_diff, Pcamera, Pdiff);
 
-	tP = transform_perspective(&rastertocamera, make_float3(raster_x + 1.0f, raster_y, 0.0f));
-	tD = transform_direction(&cameratoworld, tP);
+	tP = transform_perspective(&rastertocamera,
+	                           make_float3(raster_x + 1.0f, raster_y, 0.0f));
+	tD = tD_diff + float4_to_float3(kernel_data.cam.dx);
 	Pcamera = spherical_stereo_position(kg, tD, tP);
-	ray->dD.dx = normalize(spherical_stereo_direction(kg, tD, tP, Pcamera)) - Ddiff;
+	ray->dD.dx = spherical_stereo_direction(kg, tD, tP, Pcamera) - Ddiff;
 	ray->dP.dx = Pcamera - Pdiff;
 
-	tP = transform_perspective(&rastertocamera, make_float3(raster_x, raster_y + 1.0f, 0.0f));
-	tD = transform_direction(&cameratoworld, tP);
+	tP = transform_perspective(&rastertocamera,
+	                           make_float3(raster_x, raster_y + 1.0f, 0.0f));
+	tD = tD_diff + float4_to_float3(kernel_data.cam.dy);
 	Pcamera = spherical_stereo_position(kg, tD, tP);
-	ray->dD.dy = normalize(spherical_stereo_direction(kg, tD, tP, Pcamera)) - Ddiff;
+	ray->dD.dy = spherical_stereo_direction(kg, tD, tP, Pcamera) - Ddiff;
 	/* dP.dy is zero, since the omnidirectional panorama only shift the eyes horizontally */
 #endif
 
@@ -175,16 +176,16 @@ ccl_device void camera_sample_orthographic(KernelGlobals *kg, float raster_x, fl
 
 #ifdef __CAMERA_MOTION__
 	if(kernel_data.cam.have_motion) {
-#ifdef __KERNEL_OPENCL__
+#  ifdef __KERNEL_OPENCL__
 		const MotionTransform tfm = kernel_data.cam.motion;
 		transform_motion_interpolate(&cameratoworld,
 		                             (const DecompMotionTransform*)&tfm,
 		                             ray->time);
-#else
+#  else
 		transform_motion_interpolate(&cameratoworld,
 		                             (const DecompMotionTransform*)&kernel_data.cam.motion,
 		                             ray->time);
-#endif
+#  endif
 	}
 #endif
 
@@ -259,16 +260,16 @@ ccl_device void camera_sample_panorama(KernelGlobals *kg, float raster_x, float 
 
 #ifdef __CAMERA_MOTION__
 	if(kernel_data.cam.have_motion) {
-#ifdef __KERNEL_OPENCL__
+#  ifdef __KERNEL_OPENCL__
 		const MotionTransform tfm = kernel_data.cam.motion;
 		transform_motion_interpolate(&cameratoworld,
 		                             (const DecompMotionTransform*)&tfm,
 		                             ray->time);
-#else
+#  else
 		transform_motion_interpolate(&cameratoworld,
 		                             (const DecompMotionTransform*)&kernel_data.cam.motion,
 		                             ray->time);
-#endif
+#  endif
 	}
 #endif
 
@@ -276,7 +277,6 @@ ccl_device void camera_sample_panorama(KernelGlobals *kg, float raster_x, float 
 	float3 tD = transform_direction(&cameratoworld, ray->D);
 	ray->P = spherical_stereo_position(kg, tD, tP);
 	ray->D = spherical_stereo_direction(kg, tD, tP, ray->P);
-	ray->D = normalize(ray->D);
 
 #ifdef __RAY_DIFFERENTIALS__
 	/* ray differential */
@@ -285,18 +285,18 @@ ccl_device void camera_sample_panorama(KernelGlobals *kg, float raster_x, float 
 	tP = transform_perspective(&rastertocamera, make_float3(raster_x, raster_y, 0.0f));
 	tD = transform_direction(&cameratoworld, panorama_to_direction(kg, tP.x, tP.y));
 	float3 Pdiff = spherical_stereo_position(kg, tD, tP);
-	float3 Ddiff = normalize(spherical_stereo_direction(kg, tD, tP, Pdiff));
+	float3 Ddiff = spherical_stereo_direction(kg, tD, tP, Pdiff);
 
 	tP = transform_perspective(&rastertocamera, make_float3(raster_x + 1.0f, raster_y, 0.0f));
 	tD = transform_direction(&cameratoworld, panorama_to_direction(kg, tP.x, tP.y));
 	Pcamera = spherical_stereo_position(kg, tD, tP);
-	ray->dD.dx = normalize(spherical_stereo_direction(kg, tD, tP, Pcamera)) - Ddiff;
+	ray->dD.dx = spherical_stereo_direction(kg, tD, tP, Pcamera) - Ddiff;
 	ray->dP.dx = Pcamera - Pdiff;
 
 	tP = transform_perspective(&rastertocamera, make_float3(raster_x, raster_y + 1.0f, 0.0f));
 	tD = transform_direction(&cameratoworld, panorama_to_direction(kg, tP.x, tP.y));
 	Pcamera = spherical_stereo_position(kg, tD, tP);
-	ray->dD.dy = normalize(spherical_stereo_direction(kg, tD, tP, Pcamera)) - Ddiff;
+	ray->dD.dy = spherical_stereo_direction(kg, tD, tP, Pcamera) - Ddiff;
 	/* dP.dy is zero, since the omnidirectional panorama only shift the eyes horizontally */
 #endif
 }

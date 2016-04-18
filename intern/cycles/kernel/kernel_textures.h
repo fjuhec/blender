@@ -15,17 +15,17 @@
  */
 
 #ifndef KERNEL_TEX
-#define KERNEL_TEX(type, ttype, name)
+#  define KERNEL_TEX(type, ttype, name)
 #endif
 
 #ifndef KERNEL_IMAGE_TEX
-#define KERNEL_IMAGE_TEX(type, ttype, name)
+#  define KERNEL_IMAGE_TEX(type, ttype, name)
 #endif
 
 /* bvh */
 KERNEL_TEX(float4, texture_float4, __bvh_nodes)
 KERNEL_TEX(float4, texture_float4, __bvh_leaf_nodes)
-KERNEL_TEX(float4, texture_float4, __tri_woop)
+KERNEL_TEX(float4, texture_float4, __tri_storage)
 KERNEL_TEX(uint, texture_uint, __prim_type)
 KERNEL_TEX(uint, texture_uint, __prim_visibility)
 KERNEL_TEX(uint, texture_uint, __prim_index)

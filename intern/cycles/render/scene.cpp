@@ -167,13 +167,13 @@ void Scene::device_update(Device *device_, Progress& progress)
 
 	if(progress.get_cancel() || device->have_error()) return;
 
-	progress.set_status("Updating Objects");
-	object_manager->device_update(device, &dscene, this, progress);
+	progress.set_status("Updating Meshes Flags");
+	mesh_manager->device_update_flags(device, &dscene, this, progress);
 
 	if(progress.get_cancel() || device->have_error()) return;
 
-	progress.set_status("Updating Meshes Flags");
-	mesh_manager->device_update_flags(device, &dscene, this, progress);
+	progress.set_status("Updating Objects");
+	object_manager->device_update(device, &dscene, this, progress);
 
 	if(progress.get_cancel() || device->have_error()) return;
 
@@ -217,13 +217,13 @@ void Scene::device_update(Device *device_, Progress& progress)
 
 	if(progress.get_cancel() || device->have_error()) return;
 
-	progress.set_status("Updating Film");
-	film->device_update(device, &dscene, this);
+	progress.set_status("Updating Integrator");
+	integrator->device_update(device, &dscene, this);
 
 	if(progress.get_cancel() || device->have_error()) return;
 
-	progress.set_status("Updating Integrator");
-	integrator->device_update(device, &dscene, this);
+	progress.set_status("Updating Film");
+	film->device_update(device, &dscene, this);
 
 	if(progress.get_cancel() || device->have_error()) return;
 

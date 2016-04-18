@@ -47,10 +47,10 @@ ccl_device float2 direction_to_spherical(float3 dir)
 
 ccl_device float3 spherical_to_direction(float theta, float phi)
 {
-	return make_float3(
-		sinf(theta)*cosf(phi),
-		sinf(theta)*sinf(phi),
-		cosf(theta));
+	float sin_theta = sinf(theta);
+	return make_float3(sin_theta*cosf(phi),
+	                   sin_theta*sinf(phi),
+	                   cosf(theta));
 }
 
 /* Equirectangular coordinates <-> Cartesian direction */
@@ -67,11 +67,10 @@ ccl_device float3 equirectangular_range_to_direction(float u, float v, float4 ra
 {
 	float phi = range.x*u + range.y;
 	float theta = range.z*v + range.w;
-
-	return make_float3(
-		sinf(theta)*cosf(phi),
-		sinf(theta)*sinf(phi),
-		cosf(theta));
+	float sin_theta = sinf(theta);
+	return make_float3(sin_theta*cosf(phi),
+	                   sin_theta*sinf(phi),
+	                   cosf(theta));
 }
 
 ccl_device float2 direction_to_equirectangular(float3 dir)
@@ -241,20 +240,27 @@ ccl_device float3 spherical_stereo_position(KernelGlobals *kg,
 	return pos + (side * interocular_offset);
 }
 
+/* NOTE: Ensures direction is normalized. */
 ccl_device float3 spherical_stereo_direction(KernelGlobals *kg,
                                              float3 dir,
                                              float3 pos,
                                              float3 newpos)
 {
+	const float convergence_distance = kernel_data.cam.convergence_distance;
+	const float3 normalized_dir = normalize(dir);
 	/* Interocular offset of zero means either no stereo, or stereo without
 	 * spherical stereo.
+	 * Convergence distance is FLT_MAX in the case of parallel convergence mode,
+	 * no need to mdify direction in this case either.
 	 */
-	if(kernel_data.cam.interocular_offset == 0.0f) {
-		return dir;
+	if(kernel_data.cam.interocular_offset == 0.0f ||
+	   convergence_distance == FLT_MAX)
+	{
+		return normalized_dir;
 	}
 
-	float3 screenpos = pos + (normalize(dir) * kernel_data.cam.convergence_distance);
-	return screenpos - newpos;
+	float3 screenpos = pos + (normalized_dir * convergence_distance);
+	return normalize(screenpos - newpos);
 }
 
 CCL_NAMESPACE_END

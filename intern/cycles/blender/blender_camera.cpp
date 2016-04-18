@@ -175,7 +175,12 @@ static void blender_camera_from_object(BlenderCamera *bcam,
 		bcam->longitude_max = RNA_float_get(&ccamera, "longitude_max");
 
 		bcam->interocular_distance = b_camera.stereo().interocular_distance();
-		bcam->convergence_distance = b_camera.stereo().convergence_distance();
+		if(b_camera.stereo().convergence_mode() == BL::CameraStereoData::convergence_mode_PARALLEL) {
+			bcam->convergence_distance = FLT_MAX;
+		}
+		else {
+			bcam->convergence_distance = b_camera.stereo().convergence_distance();
+		}
 		bcam->use_spherical_stereo = b_engine.use_spherical_stereo(b_ob);
 
 		bcam->ortho_scale = b_camera.ortho_scale();
@@ -354,6 +359,12 @@ static void blender_camera_sync(Camera *cam, BlenderCamera *bcam, int width, int
 	/* viewplane */
 	blender_camera_viewplane(bcam, width, height,
 		&cam->viewplane, &aspectratio, &sensor_size);
+
+	cam->width = bcam->full_width;
+	cam->height = bcam->full_height;
+
+	cam->full_width = width;
+	cam->full_height = height;
 
 	/* panorama sensor */
 	if(bcam->type == CAMERA_PANORAMA && bcam->panorama_type == PANORAMA_FISHEYE_EQUISOLID) {

@@ -68,6 +68,7 @@ set(SRC_HEADERS
 	util_sseb.h
 	util_ssef.h
 	util_ssei.h
+	util_stack_allocator.h
 	util_stats.h
 	util_string.h
 	util_system.h
@@ -77,6 +78,7 @@ set(SRC_HEADERS
 	util_transform.h
 	util_types.h
 	util_vector.h
+	util_version.h
 	util_view.h
 	util_windows.h
 	util_xml.h
