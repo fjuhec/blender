@@ -21,6 +21,7 @@ set(SRC
 	osl_closures.cpp
 	osl_services.cpp
 	osl_shader.cpp
+	bsdf_disney_diffuse.cpp
 )
 
 set(HEADER_SRC

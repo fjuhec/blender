@@ -2067,6 +2067,12 @@ void DiffuseBsdfNode::compile(OSLCompiler& compiler)
 	compiler.add(this, "node_diffuse_bsdf");
 }
 
+/* Disney BSDF Closure */
+/*DisneyBsdfNode::DisneyBsdfNode()
+{
+	closure = CLOSURE_BSDF_DISNEY_DIFFUSE_ID;
+}*/
+
 /* Translucent BSDF Closure */
 
 TranslucentBsdfNode::TranslucentBsdfNode()

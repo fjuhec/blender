@@ -238,6 +238,8 @@ void OSLShader::register_closures(OSLShadingSystem *ss_)
 		closure_bssrdf_gaussian_params(), closure_bssrdf_gaussian_prepare);
 	register_closure(ss, "bssrdf_burley", id++,
 		closure_bssrdf_burley_params(), closure_bssrdf_burley_prepare);
+	register_closure(ss, "disney_diffuse", id++,
+		closure_bsdf_disney_diffuse_params(), closure_bsdf_disney_diffuse_prepare);
 
 	register_closure(ss, "hair_reflection", id++,
 		bsdf_hair_reflection_params(), bsdf_hair_reflection_prepare);

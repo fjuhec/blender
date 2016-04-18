@@ -26,6 +26,7 @@
 #include "../closure/bsdf_ashikhmin_shirley.h"
 #include "../closure/bsdf_toon.h"
 #include "../closure/bsdf_hair.h"
+#include "../closure/bsdf_disney_diffuse.h"
 #ifdef __SUBSURFACE__
 #  include "../closure/bssrdf.h"
 #endif
