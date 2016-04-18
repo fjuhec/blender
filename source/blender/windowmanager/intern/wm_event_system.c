@@ -1752,7 +1752,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 
 	/* Pass through and try continue with unemulated flag if event is emulated */
 	if (event->emulated && event->type == MIDDLEMOUSE
-	    && retval & (OPERATOR_PASS_THROUGH | OPERATOR_TRY_UNEMULATED)) {
+	    && (retval & OPERATOR_TRY_UNEMULATED)) {
 		event->type = LEFTMOUSE;
 		event->val = KM_PRESS;
 		event->alt = 1;
