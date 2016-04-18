@@ -47,7 +47,7 @@ using namespace OSL;
 
 class DisneyDiffuseClosure : public CBSDFClosure {
 public:
-    float3 color;
+    DisneyDiffuseBRDFParams dp;
 
 	DisneyDiffuseClosure() : CBSDFClosure(LABEL_DIFFUSE)
 	{}
@@ -56,21 +56,22 @@ public:
 	{
 		sc.prim = this;
 		m_shaderdata_flag = bsdf_disney_diffuse_setup(&sc);
+
+        dp.precompute_values();
 	}
 
 	void blur(float roughness)
 	{
-		//bsdf_disney_diffuse_blur(&sc, roughness);
 	}
 
 	float3 eval_reflect(const float3 &omega_out, const float3 &omega_in, float& pdf) const
 	{
-		return bsdf_disney_diffuse_eval_reflect(&sc, color, omega_out, omega_in, &pdf);
+		return bsdf_disney_diffuse_eval_reflect(&sc, &dp, omega_out, omega_in, &pdf);
 	}
 
 	float3 eval_transmit(const float3 &omega_out, const float3 &omega_in, float& pdf) const
 	{
-		return bsdf_disney_diffuse_eval_transmit(&sc, color, omega_out, omega_in, &pdf);
+		return bsdf_disney_diffuse_eval_transmit(&sc, omega_out, omega_in, &pdf);
 	}
 
 	int sample(const float3 &Ng,
@@ -79,7 +80,7 @@ public:
 	           float3 &omega_in, float3 &domega_in_dx, float3 &domega_in_dy,
 	           float &pdf, float3 &eval) const
 	{
-		return bsdf_disney_diffuse_sample(&sc, color, Ng, omega_out, domega_out_dx, domega_out_dy,
+		return bsdf_disney_diffuse_sample(&sc, &dp, Ng, omega_out, domega_out_dx, domega_out_dy,
 			randu, randv, &eval, &omega_in, &domega_in_dx, &domega_in_dy, &pdf);
 	}
 };
@@ -88,7 +89,16 @@ ClosureParam *closure_bsdf_disney_diffuse_params()
 {
 	static ClosureParam params[] = {
 		CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.N),
-		CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, color),
+		CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, dp.m_base_color),
+        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_subsurface),
+        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_roughness),
+        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_sheen),
+        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_sheen_tint),
+        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_withNdotL),
+        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_brightness),
+        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_gamma),
+        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_exposure),
+        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_mon2lingamma),
 		CLOSURE_STRING_KEYPARAM(DisneyDiffuseClosure, label, "label"),
 		CLOSURE_FINISH_PARAM(DisneyDiffuseClosure)
 	};
