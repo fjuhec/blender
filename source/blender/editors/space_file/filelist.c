@@ -2874,7 +2874,7 @@ static void filelist_readjob_update(void *flrjv)
 
 		flrj->filelist->flags |= (FL_NEED_SORTING | FL_NEED_FILTERING);
 
-		if (flrj->ae_job_id == AE_JOB_ID_INVALID) {
+		if (flrj->ae_job_id == AE_JOB_ID_INVALID) {  /* Immediate execution. */
 			*flrj->progress = 1.0f;
 			*flrj->stop = true;
 		}
@@ -2932,7 +2932,7 @@ static void filelist_readjob_endjob(void *flrjv)
 	flrj->filelist->flags &= ~FL_IS_PENDING;
 	flrj->filelist->flags |= FL_IS_READY;
 
-	if (flrj->filelist->ae && flrj->ae_job_id != 0) {
+	if (flrj->filelist->ae && !ELEM(flrj->ae_job_id, AE_JOB_ID_INVALID, AE_JOB_ID_UNSET)) {
 		AssetEngine *ae = flrj->filelist->ae;
 		ae->type->kill(ae, flrj->ae_job_id);
 	}

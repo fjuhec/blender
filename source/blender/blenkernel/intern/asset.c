@@ -235,7 +235,7 @@ AssetUUIDList *BKE_asset_engine_load_pre(AssetEngine *engine, FileDirEntryArr *r
 	return uuids;
 }
 
-
+/* Note: this is a blocking version! */
 void BKE_assets_update_check(Main *bmain)
 {
 	BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);

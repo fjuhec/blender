@@ -97,7 +97,9 @@ typedef int (*ae_ensure_entries)(struct AssetEngine *engine, const int job_id, s
  * Engine should check whether given assets are still valid, if they should be updated, etc.
  * uuids tagged as needing reload will then be reloaded as new ones
  * (ae_load_pre, then actual lib loading, then ae_load_post).
- * \warning DO NOT add or remove (or alter order of) uuids from the list in this callback! */
+ * \warning This callback is expected to handle **real** UUIDS (not 'users' filebrowser ones),
+ *          i.e. calling ae_load_pre with those shall **not** alters them in returned direntries
+ *          (else 'link' between old IDs and reloaded ones would be broken). */
 typedef int (*ae_update_check)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
 
 /* ***** All callbacks below are blocking. They shall be completed upon return. ***** */
@@ -222,11 +224,13 @@ struct FileDirEntry *BKE_filedir_entry_copy(struct FileDirEntry *entry);
 
 void BKE_filedir_entryarr_clear(struct FileDirEntryArr *array);
 
-#define ASSETUUID_SUB_COMPARE(_uuida, _uuidb, _member)                         \
-	(memcmp((_uuida)->#_member, (_uuidb)->#_member, sizeof((_uuida)->#_member)) == 0)
+#define ASSETUUID_SUB_COMPARE(_uuida, _uuidb, _member) \
+	(memcmp((_uuida)->_member, (_uuidb)->_member, sizeof((_uuida)->_member)) == 0)
 
-#define ASSETUUID_COMPARE(_uuida, _uuidb)                                      \
-	(memcmp((_uuida), (_uuidb), sizeof(*(_uuida))) == 0)
+#define ASSETUUID_COMPARE(_uuida, _uuidb) \
+	(ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_asset) && \
+	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_variant) && \
+	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_revision))
 
 /* GHash helpers */
 unsigned int BKE_asset_uuid_hash(const void *key);

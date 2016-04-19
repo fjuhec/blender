@@ -2390,6 +2390,256 @@ static void WM_OT_revert_mainfile(wmOperatorType *ot)
 
 /* ****************** assets ****************** */
 
+
+typedef struct AssetUpdateCheckEngine {
+	struct AssetUpdateCheckEngine *next, *prev;
+	AssetEngine *ae;
+
+	/* Note: We cannot store IDs themselves in non-locking async task... so we'll have to check again for
+	 *       UUID/IDs mapping on each update call... Not ideal, but don't think it will be that big of an override
+	 *       in practice. */
+	AssetUUIDList uuids;
+	int ae_job_id;
+	short status;
+} AssetUpdateCheckEngine;
+
+typedef struct AssetUpdateCheckJob {
+	ListBase engines;
+	short flag;
+
+	float *progress;
+	short *stop;
+} AssetUpdateCheckJob;
+
+/* AssetUpdateCheckEngine.status */
+enum {
+	AUCE_UPDATE_CHECK_DONE  = 1 << 0,  /* Update check is finished for this engine. */
+	AUCE_ENSURE_ASSETS_DONE = 1 << 1,  /* Asset ensure is finished for this engine (if applicable). */
+};
+
+/* AssetUpdateCheckJob.flag */
+enum {
+	AUCJ_ENSURE_ASSETS = 1 << 0,  /* Try to perform the 'ensure' task too. */
+};
+
+static void asset_updatecheck_startjob(void *aucjv, short *stop, short *do_update, float *progress)
+{
+	AssetUpdateCheckJob *aucj = aucjv;
+
+	aucj->progress = progress;
+	aucj->stop = stop;
+	/* Using AE engine, worker thread here is just sleeping! */
+	while (!*stop) {
+		*do_update = true;
+		PIL_sleep_ms(100);
+	}
+}
+
+static void asset_updatecheck_update(void *aucjv)
+{
+	AssetUpdateCheckJob *aucj = aucjv;
+	Main *bmain = G.main;
+
+	const bool do_ensure = ((aucj->flag & AUCJ_ENSURE_ASSETS) != 0);
+	bool is_finished = true;
+	int nbr_engines = 0;
+
+	*aucj->progress = 0.0f;
+
+	for (AssetUpdateCheckEngine *auce = aucj->engines.first; auce; auce = auce->next, nbr_engines++) {
+		AssetEngine *ae = auce->ae;
+		AssetEngineType *ae_type = ae->type;
+
+		/* Step 1: we ask asset engine about status of all asset IDs from it. */
+		if (!(auce->status & AUCE_UPDATE_CHECK_DONE)) {
+			auce->ae_job_id = ae_type->update_check(ae, auce->ae_job_id, &auce->uuids);
+			if (auce->ae_job_id == AE_JOB_ID_INVALID) {  /* Immediate execution. */
+				*aucj->progress += 1.0f;
+				auce->status |= AUCE_UPDATE_CHECK_DONE;
+			}
+			else {
+				*aucj->progress += ae_type->progress(ae, auce->ae_job_id);
+				if ((ae_type->status(ae, auce->ae_job_id) & (AE_STATUS_RUNNING | AE_STATUS_VALID)) !=
+					(AE_STATUS_RUNNING | AE_STATUS_VALID))
+				{
+					auce->status |= AUCE_UPDATE_CHECK_DONE;
+				}
+			}
+
+			if (auce->status & AUCE_UPDATE_CHECK_DONE) {
+				auce->ae_job_id = AE_JOB_ID_UNSET;
+
+				for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
+					if (!lib->asset_repository ||
+					    (BKE_asset_engines_find(lib->asset_repository->asset_engine) != ae_type))
+					{
+						continue;
+					}
+
+					int i = auce->uuids.nbr_uuids;
+					for (AssetUUID *uuid = auce->uuids.uuids; i--; uuid++) {
+						bool done = false;
+						for (AssetRef *aref = lib->asset_repository->assets.first; aref && !done; aref = aref->next) {
+							for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
+								ID *id = ld->data;
+								if (id->uuid && ASSETUUID_COMPARE(id->uuid, uuid)) {
+									*id->uuid = *uuid;
+
+									if (id->uuid->tag & UUID_TAG_ENGINE_MISSING) {
+										printf("\t%s uses a currently unknown asset engine!\n", id->name);
+									}
+									else if (id->uuid->tag & UUID_TAG_ASSET_MISSING) {
+										printf("\t%s is currently unknown by asset engine!\n", id->name);
+									}
+									else if (id->uuid->tag & UUID_TAG_ASSET_RELOAD) {
+										printf("\t%s needs to be reloaded/updated!\n", id->name);
+									}
+									done = true;
+									break;
+								}
+							}
+						}
+					}
+				}
+
+			}
+		}
+
+		/* Step 2: If required and supported, we 'ensure' assets tagged as to be reloaded. */
+		if (do_ensure && !(auce->status & AUCE_ENSURE_ASSETS_DONE) && ae_type->ensure_entries != NULL) {
+			/* TODO ensure entries! */
+			*aucj->progress += 1.0f;
+			auce->status |= AUCE_ENSURE_ASSETS_DONE;
+			if (auce->status & AUCE_ENSURE_ASSETS_DONE) {
+				auce->ae_job_id = AE_JOB_ID_UNSET;
+			}
+		}
+
+		if ((auce->status & (AUCE_UPDATE_CHECK_DONE | AUCE_ENSURE_ASSETS_DONE)) !=
+		    (AUCE_UPDATE_CHECK_DONE | AUCE_ENSURE_ASSETS_DONE))
+		{
+			is_finished = false;
+		}
+	}
+
+	*aucj->progress /= (float)(do_ensure ? nbr_engines * 2 : nbr_engines);
+	*aucj->stop = is_finished;
+}
+
+static void asset_updatecheck_endjob(void *aucjv)
+{
+	AssetUpdateCheckJob *aucj = aucjv;
+
+	/* In case there would be some dangling update. */
+	asset_updatecheck_update(aucjv);
+
+	for (AssetUpdateCheckEngine *auce = aucj->engines.first; auce; auce = auce->next) {
+		AssetEngine *ae = auce->ae;
+		if (!ELEM(auce->ae_job_id, AE_JOB_ID_INVALID, AE_JOB_ID_UNSET)) {
+			ae->type->kill(ae, auce->ae_job_id);
+		}
+	}
+}
+
+static void asset_updatecheck_free(void *aucjv)
+{
+	AssetUpdateCheckJob *aucj = aucjv;
+
+	for (AssetUpdateCheckEngine *auce = aucj->engines.first; auce; auce = auce->next) {
+		BKE_asset_engine_free(auce->ae);
+		MEM_freeN(auce->uuids.uuids);
+	}
+	BLI_freelistN(&aucj->engines);
+
+	MEM_freeN(aucj);
+}
+
+static void asset_updatecheck_start(const bContext *C)
+{
+	wmJob *wm_job;
+	AssetUpdateCheckJob *aucj;
+
+	Main *bmain = CTX_data_main(C);
+
+	/* prepare job data */
+	aucj = MEM_callocN(sizeof(*aucj), __func__);
+
+	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
+		if (lib->asset_repository) {
+			printf("Handling lib file %s (engine %s, ver. %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
+
+			AssetUpdateCheckEngine *auce = NULL;
+			AssetEngineType *ae_type = BKE_asset_engines_find(lib->asset_repository->asset_engine);
+			bool copy_engine = false;
+
+			if (ae_type == NULL) {
+				printf("ERROR! Unknown asset engine!\n");
+			}
+			else {
+				for (auce = aucj->engines.first; auce; auce = auce->next) {
+					if (auce->ae->type == ae_type) {
+						/* In case we have several engine versions for the same engine, we create several
+						 * AssetUpdateCheckEngine structs (since an uuid list can only handle one ae version), using
+						 * the same (shallow) copy of the actual asset engine. */
+						copy_engine = (auce->uuids.asset_engine_version != lib->asset_repository->asset_engine_version);
+						break;
+					}
+				}
+				if (copy_engine || auce == NULL) {
+					AssetUpdateCheckEngine *auce_prev = auce;
+					auce = MEM_callocN(sizeof(*auce), __func__);
+					auce->ae = copy_engine ? BKE_asset_engine_copy(auce_prev->ae) : BKE_asset_engine_create(ae_type, NULL);
+					auce->ae_job_id = AE_JOB_ID_UNSET;
+					auce->uuids.asset_engine_version = lib->asset_repository->asset_engine_version;
+					BLI_addtail(&aucj->engines, auce);
+				}
+			}
+
+			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
+				for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
+					ID *id = ld->data;
+
+					if (ae_type == NULL) {
+						if (id->uuid) {
+							id->uuid->tag = UUID_TAG_ENGINE_MISSING;
+						}
+						continue;
+					}
+
+					if (id->uuid) {
+						printf("\tWe need to check for updated asset %s...\n", id->name);
+						id->uuid->tag = 0;
+
+						/* XXX horrible, need to use some mempool, stack or something :) */
+						auce->uuids.nbr_uuids++;
+						if (auce->uuids.uuids) {
+							auce->uuids.uuids = MEM_reallocN_id(auce->uuids.uuids, sizeof(*auce->uuids.uuids) * (size_t)auce->uuids.nbr_uuids, __func__);
+						}
+						else {
+							auce->uuids.uuids = MEM_mallocN(sizeof(*auce->uuids.uuids) * (size_t)auce->uuids.nbr_uuids, __func__);
+						}
+						auce->uuids.uuids[auce->uuids.nbr_uuids - 1] = *id->uuid;
+					}
+					else {
+						printf("\t\tWe need to check for updated asset sub-data %s...\n", id->name);
+					}
+				}
+			}
+		}
+	}
+
+	/* setup job */
+	wm_job = WM_jobs_get(CTX_wm_manager(C), CTX_wm_window(C), CTX_wm_area(C), "Checking for asset updates...",
+	                     WM_JOB_PROGRESS, WM_JOB_TYPE_ASSET_UPDATECHECK);
+	WM_jobs_customdata_set(wm_job, aucj, asset_updatecheck_free);
+	WM_jobs_timer(wm_job, 0.1, 0, 0/*NC_SPACE | ND_SPACE_FILE_LIST, NC_SPACE | ND_SPACE_FILE_LIST*/);  /* TODO probably outliner stuff once UI is defined for this! */
+	WM_jobs_callbacks(wm_job, asset_updatecheck_startjob, NULL, asset_updatecheck_update, asset_updatecheck_endjob);
+
+	/* start the job */
+	WM_jobs_start(CTX_wm_manager(C), wm_job);
+}
+
+
 static int wm_assets_update_check_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Main *bmain = CTX_data_main(C);
