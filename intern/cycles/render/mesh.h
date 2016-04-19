@@ -60,6 +60,10 @@ public:
 		int num_segments() { return num_keys - 1; }
 
 		void bounds_grow(const int k, const float4 *curve_keys, BoundBox& bounds) const;
+		void bounds_grow(const int k,
+		                 const float4 *curve_keys,
+		                 const Transform& aligned_space,
+		                 BoundBox& bounds) const;
 	};
 
 	/* Displacement */

@@ -33,6 +33,7 @@
 #include "util_stack_allocator.h"
 #include "util_simd.h"
 #include "util_time.h"
+#include "util_queue.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -99,7 +100,8 @@ BVHBuild::BVHBuild(const vector<Object*>& objects_,
    prim_object(prim_object_),
    params(params_),
    progress(progress_),
-   progress_start_time(0.0)
+   progress_start_time(0.0),
+   unaligned_heuristic(objects_)
 {
 	spatial_min_overlap = 0.0f;
 }
@@ -343,6 +345,8 @@ BVHNode* BVHBuild::run()
 			        << rootnode->getSubtreeSize(BVH_STAT_INNER_COUNT)  << "\n"
 			        << "  Number of leaf nodes: "
 			        << rootnode->getSubtreeSize(BVH_STAT_LEAF_COUNT)  << "\n"
+			        << "  Number of unaligned nodes: "
+			        << rootnode->getSubtreeSize(BVH_STAT_UNALIGNED_COUNT)  << "\n"
 			        << "  Allocation slop factor: "
 			               << ((prim_type.capacity() != 0)
 			                       ? (float)prim_type.size() / prim_type.capacity()
@@ -448,10 +452,11 @@ BVHNode* BVHBuild::build_node(const BVHObjectBinning& range, int level)
 	float leafSAH = params.sah_primitive_cost * range.leafSAH;
 	float splitSAH = params.sah_node_cost * range.bounds().half_area() + params.sah_primitive_cost * range.splitSAH;
 
-	/* have at least one inner node on top level, for performance and correct
-	 * visibility tests, since object instances do not check visibility flag */
+	/* Have at least one inner node on top level, for performance and correct
+	 * visibility tests, since object instances do not check visibility flag.
+	 */
 	if(!(range.size() > 0 && params.top_level && level == 0)) {
-		/* make leaf node when threshold reached or SAH tells us */
+		/* Make leaf node when threshold reached or SAH tells us. */
 		if((params.small_enough_for_leaf(size, level)) ||
 		   (range_within_max_leaf_size(range, references) && leafSAH < splitSAH))
 		{
@@ -459,26 +464,72 @@ BVHNode* BVHBuild::build_node(const BVHObjectBinning& range, int level)
 		}
 	}
 
-	/* perform split */
+	BVHObjectBinning unaligned_range;
+	float unalignedSplitSAH = FLT_MAX;
+	float unalignedLeafSAH = FLT_MAX;
+	Transform aligned_space;
+	if (params.use_unaligned_nodes && splitSAH > 0.7f*leafSAH) {
+		aligned_space = unaligned_heuristic.compute_aligned_space(range,
+		                                                          references);
+		unaligned_range = BVHObjectBinning(unaligned_heuristic,
+		                                   aligned_space,
+		                                   range,
+		                                   &references[0]);
+		unalignedSplitSAH = params.sah_node_cost * unaligned_range.bounds().half_area() +
+		                    params.sah_primitive_cost * unaligned_range.splitSAH;
+		unalignedLeafSAH = params.sah_primitive_cost * unaligned_range.leafSAH;
+		if(!(range.size() > 0 && params.top_level && level == 0)) {
+			if((params.small_enough_for_leaf(size, level)) ||
+			   (range_within_max_leaf_size(range, references) &&
+			    unalignedLeafSAH < unalignedSplitSAH))
+			{
+				return create_leaf_node(range, references);
+			}
+		}
+	}
+
+	/* Perform split. */
 	BVHObjectBinning left, right;
-	range.split(&references[0], left, right);
+	if(unalignedSplitSAH < splitSAH) {
+		unaligned_range.split(unaligned_heuristic,
+		                      aligned_space,
+		                      &references[0],
+		                      left,
+		                      right);
+	}
+	else {
+		range.split(&references[0], left, right);
+	}
 
-	/* create inner node. */
+	BoundBox bounds;
+	if(unalignedSplitSAH < splitSAH) {
+		bounds = unaligned_heuristic.compute_aligned_boundbox(range,
+		                                                      references,
+		                                                      aligned_space);
+	}
+	else {
+		bounds = range.bounds();
+	}
+
+	/* Create inner node. */
 	InnerNode *inner;
-
 	if(range.size() < THREAD_TASK_SIZE) {
 		/* local build */
 		BVHNode *leftnode = build_node(left, level + 1);
 		BVHNode *rightnode = build_node(right, level + 1);
 
-		inner = new InnerNode(range.bounds(), leftnode, rightnode);
+		inner = new InnerNode(bounds, leftnode, rightnode);
 	}
 	else {
-		/* threaded build */
-		inner = new InnerNode(range.bounds());
+		/* Threaded build */
+		inner = new InnerNode(bounds);
 
 		task_pool.push(new BVHBuildTask(this, inner, 0, left, level + 1), true);
 		task_pool.push(new BVHBuildTask(this, inner, 1, right, level + 1), true);
+	}
+
+	if(unalignedSplitSAH < splitSAH) {
+		inner->set_aligned_space(aligned_space);
 	}
 
 	return inner;
@@ -619,6 +670,7 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 	vector<int, LeafStackAllocator> p_type[PRIMITIVE_NUM_TOTAL];
 	vector<int, LeafStackAllocator> p_index[PRIMITIVE_NUM_TOTAL];
 	vector<int, LeafStackAllocator> p_object[PRIMITIVE_NUM_TOTAL];
+	vector<BVHReference, LeafStackAllocator> p_ref[PRIMITIVE_NUM_TOTAL];
 	/* TODO(sergey): In theory we should be able to store references. */
 	vector<BVHReference, LeafStackAllocator> object_references;
 
@@ -635,6 +687,7 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 		const BVHReference& ref = references[range.start() + i];
 		if(ref.prim_index() != -1) {
 			int type_index = bitscan(ref.prim_type() & PRIMITIVE_ALL);
+			p_ref[type_index].push_back(ref);
 			p_type[type_index].push_back(ref.prim_type());
 			p_index[type_index].push_back(ref.prim_index());
 			p_object[type_index].push_back(ref.prim_object());
@@ -671,16 +724,38 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 		if(num != 0) {
 			assert(p_type[i].size() == p_index[i].size());
 			assert(p_type[i].size() == p_object[i].size());
+			Transform aligned_space;
+			bool alignment_found = false;
 			for(int j = 0; j < num; ++j) {
 				const int index = start_index + j;
 				local_prim_type[index] = p_type[i][j];
 				local_prim_index[index] = p_index[i][j];
 				local_prim_object[index] = p_object[i][j];
+				if(params.use_unaligned_nodes && !alignment_found) {
+					alignment_found =
+						unaligned_heuristic.compute_aligned_space(p_ref[i][j],
+						                                           &aligned_space);
+				}
 			}
-			leaves[num_leaves++] = new LeafNode(bounds[i],
-			                                    visibility[i],
-			                                    start_index,
-			                                    start_index + num);
+			LeafNode *leaf_node = new LeafNode(bounds[i],
+			                                   visibility[i],
+			                                   start_index,
+			                                   start_index + num);
+			if(alignment_found) {
+				/* Need to recalculate leaf bounds with new alignment. */
+				leaf_node->m_bounds = BoundBox::empty;
+				for(int j = 0; j < num; ++j) {
+					const BVHReference &ref = p_ref[i][j];
+					BoundBox ref_bounds =
+					        unaligned_heuristic.compute_aligned_prim_boundbox(
+					                ref,
+					                aligned_space);
+					leaf_node->m_bounds.grow(ref_bounds);
+				}
+				/* Set alignment space. */
+				leaf_node->set_aligned_space(aligned_space);
+			}
+			leaves[num_leaves++] = leaf_node;
 			start_index += num;
 		}
 	}
@@ -762,6 +837,9 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 		++num_leaves;
 	}
 
+	/* TODO(sergey): Need to take care of alignment when number of leaves
+	 * is more than 1.
+	 */
 	if(num_leaves == 1) {
 		/* Simplest case: single leaf, just return it.
 		 * In all the rest cases we'll be creating intermediate inner node with

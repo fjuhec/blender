@@ -31,6 +31,8 @@ enum BVH_STAT {
 	BVH_STAT_TRIANGLE_COUNT,
 	BVH_STAT_CHILDNODE_COUNT,
 	BVH_STAT_QNODE_COUNT,
+	BVH_STAT_ALIGNED_COUNT,
+	BVH_STAT_UNALIGNED_COUNT,
 };
 
 class BVHParams;
@@ -38,7 +40,7 @@ class BVHParams;
 class BVHNode
 {
 public:
-	BVHNode()
+	BVHNode() : m_is_unaligned(false)
 	{
 	}
 
@@ -48,6 +50,13 @@ public:
 	virtual BVHNode *get_child(int i) const = 0;
 	virtual int num_triangles() const { return 0; }
 	virtual void print(int depth = 0) const = 0;
+	bool is_unaligned() const { return m_is_unaligned; }
+
+	void set_aligned_space(const Transform& aligned_space)
+	{
+		m_is_unaligned = true;
+		m_aligned_space = aligned_space;
+	}
 
 	BoundBox m_bounds;
 	uint m_visibility;
@@ -58,12 +67,17 @@ public:
 	void deleteSubtree();
 
 	uint update_visibility();
+
+	bool m_is_unaligned;
+	Transform m_aligned_space;
 };
 
 class InnerNode : public BVHNode
 {
 public:
-	InnerNode(const BoundBox& bounds, BVHNode* child0, BVHNode* child1)
+	InnerNode(const BoundBox& bounds,
+	          BVHNode* child0,
+	          BVHNode* child1)
 	{
 		m_bounds = bounds;
 		children[0] = child0;

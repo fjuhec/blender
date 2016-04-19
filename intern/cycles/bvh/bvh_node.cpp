@@ -61,6 +61,16 @@ int BVHNode::getSubtreeSize(BVH_STAT stat) const
 				}
 			}
 			return cnt;
+		case BVH_STAT_ALIGNED_COUNT:
+			if(!is_unaligned()) {
+				cnt = 1;
+			}
+			break;
+		case BVH_STAT_UNALIGNED_COUNT:
+			if(is_unaligned()) {
+				cnt = 1;
+			}
+			break;
 		default:
 			assert(0); /* unknown mode */
 	}

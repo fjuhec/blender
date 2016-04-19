@@ -73,6 +73,36 @@ void Mesh::Curve::bounds_grow(const int k, const float4 *curve_keys, BoundBox& b
 	bounds.grow(upper, mr);
 }
 
+void Mesh::Curve::bounds_grow(const int k,
+                              const float4 *curve_keys,
+                              const Transform& aligned_space,
+                              BoundBox& bounds) const
+{
+	float3 P[4];
+
+	P[0] = float4_to_float3(curve_keys[max(first_key + k - 1,first_key)]);
+	P[1] = float4_to_float3(curve_keys[first_key + k]);
+	P[2] = float4_to_float3(curve_keys[first_key + k + 1]);
+	P[3] = float4_to_float3(curve_keys[min(first_key + k + 2, first_key + num_keys - 1)]);
+
+	P[0] = transform_point(&aligned_space, P[0]);
+	P[1] = transform_point(&aligned_space, P[1]);
+	P[2] = transform_point(&aligned_space, P[2]);
+	P[3] = transform_point(&aligned_space, P[3]);
+
+	float3 lower;
+	float3 upper;
+
+	curvebounds(&lower.x, &upper.x, P, 0);
+	curvebounds(&lower.y, &upper.y, P, 1);
+	curvebounds(&lower.z, &upper.z, P, 2);
+
+	float mr = max(curve_keys[first_key + k].w, curve_keys[first_key + k + 1].w);
+
+	bounds.grow(lower, mr);
+	bounds.grow(upper, mr);
+}
+
 /* Mesh */
 
 Mesh::Mesh()
@@ -519,6 +549,10 @@ BVH *Mesh::create_bvh(SceneParams *params,
 	BVHParams bparams;
 	bparams.use_spatial_split = params->use_bvh_spatial_split;
 	bparams.use_qbvh = params->use_qbvh;
+	// TODO(sergey): Unaligned nodes are not finished yet, enabling them
+	// breaks all hair rendering.
+	// bparams.use_unaligned_nodes = (primitive_mask & PRIMITIVE_ALL_CURVE) != 0;
+	bparams.use_unaligned_nodes = false;
 	bparams.primitive_mask = primitive_mask;
 	BVH *bvh = BVH::create(bparams, objects);
 	MEM_GUARDED_CALL(progress, bvh->build, *progress);

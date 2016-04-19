@@ -19,10 +19,13 @@
 #define __BVH_BINNING_H__
 
 #include "bvh_params.h"
+#include "bvh_unaligned.h"
 
 #include "util_types.h"
 
 CCL_NAMESPACE_BEGIN
+
+class BVHBuild;
 
 /* Single threaded object binner. Finds the split with the best SAH heuristic
  * by testing for each dimension multiple partitionings for regular spaced
@@ -34,10 +37,24 @@ CCL_NAMESPACE_BEGIN
 class BVHObjectBinning : public BVHRange
 {
 public:
-	__forceinline BVHObjectBinning() {}
+	__forceinline BVHObjectBinning() : leafSAH(FLT_MAX) {}
+
 	BVHObjectBinning(const BVHRange& job, BVHReference *prims);
 
-	void split(BVHReference *prims, BVHObjectBinning& left_o, BVHObjectBinning& right_o) const;
+	BVHObjectBinning(const BVHUnaligned& unaligned_heuristic,
+	                 const Transform& aligned_space,
+	                 const BVHRange& job,
+	                 BVHReference *prims);
+
+	void split(BVHReference *prims,
+	           BVHObjectBinning& left_o,
+	           BVHObjectBinning& right_o) const;
+
+	void split(const BVHUnaligned& unaligned_heuristic,
+	           const Transform& aligned_space,
+	           BVHReference *prims,
+	           BVHObjectBinning& left_o,
+	           BVHObjectBinning& right_o) const;
 
 	float splitSAH;	/* SAH cost of the best split */
 	float leafSAH;	/* SAH cost of creating a leaf */
