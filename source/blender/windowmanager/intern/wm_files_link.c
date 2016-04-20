@@ -648,7 +648,7 @@ static void asset_updatecheck_update(void *aucjv)
 		}
 
 		/* Step 2: If required and supported, we 'ensure' assets tagged as to be reloaded. */
-		if (do_ensure && !(auce->status & AUCE_ENSURE_ASSETS_DONE) && ae_type->ensure_entries != NULL) {
+		if (do_ensure && !(auce->status & AUCE_ENSURE_ASSETS_DONE) && ae_type->ensure_uuids != NULL) {
 			/* TODO ensure entries! */
 			*aucj->progress += 1.0f;
 			auce->status |= AUCE_ENSURE_ASSETS_DONE;

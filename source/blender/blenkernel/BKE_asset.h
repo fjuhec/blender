@@ -90,9 +90,6 @@ typedef void (*ae_kill)(struct AssetEngine *engine, const int job_id);
 /* FILEBROWSER - List everything available at given root path - only returns numbers of entries! */
 typedef int (*ae_list_dir)(struct AssetEngine *engine, const int job_id, struct FileDirEntryArr *entries_r);
 
-/* Ensure given assets (uuids) are really available for append/link (some kind of 'anticipated loading'...). */
-typedef int (*ae_ensure_entries)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
-
 /* 'update' hook, called to prepare updating of given entries (typically after a file (re)load).
  * Engine should check whether given assets are still valid, if they should be updated, etc.
  * uuids tagged as needing reload will then be reloaded as new ones
@@ -101,6 +98,11 @@ typedef int (*ae_ensure_entries)(struct AssetEngine *engine, const int job_id, s
  *          i.e. calling ae_load_pre with those shall **not** alters them in returned direntries
  *          (else 'link' between old IDs and reloaded ones would be broken). */
 typedef int (*ae_update_check)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
+
+/* Ensure given assets (uuids) are really available for append/link (some kind of 'anticipated loading'...).
+ * Note: Engine should expect any kind of UUIDs it produced here
+ *       (i.e. real ones as well as 'virtual' filebrowsing ones). */
+typedef int (*ae_ensure_uuids)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
 
 /* ***** All callbacks below are blocking. They shall be completed upon return. ***** */
 
@@ -159,7 +161,8 @@ typedef struct AssetEngineType {
 	ae_sort_filter sort_filter;
 	ae_entries_block_get entries_block_get;
 	ae_entries_uuid_get entries_uuid_get;
-	ae_ensure_entries ensure_entries;
+
+	ae_ensure_uuids ensure_uuids;
 
 	ae_load_pre load_pre;
 	ae_load_post load_post;
