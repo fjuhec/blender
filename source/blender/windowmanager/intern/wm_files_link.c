@@ -784,9 +784,8 @@ static void asset_updatecheck_start(const bContext *C)
 
 static int wm_assets_update_check_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	Main *bmain = CTX_data_main(C);
-
-	BKE_assets_update_check(bmain);
+//	BKE_assets_update_check(CTX_data_main(C));
+	asset_updatecheck_start(C);
 
 	return OPERATOR_FINISHED;
 }
