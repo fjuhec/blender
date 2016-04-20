@@ -235,11 +235,9 @@ AssetUUIDList *BKE_asset_engine_load_pre(AssetEngine *engine, FileDirEntryArr *r
 	return uuids;
 }
 
-/* Note: this is a blocking version! */
+/* Note: this is a blocking version! We probably won't need it in the end. */
 void BKE_assets_update_check(Main *bmain)
 {
-	BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
-
 	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
 		if (lib->asset_repository) {
 			printf("Handling lib file %s (engine %s, ver. %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
@@ -288,7 +286,6 @@ void BKE_assets_update_check(Main *bmain)
 					else {
 						printf("\t\tWe need to check for updated asset sub-data %s...\n", id->name);
 					}
-					id->tag |= LIB_TAG_DOIT;
 				}
 			}
 

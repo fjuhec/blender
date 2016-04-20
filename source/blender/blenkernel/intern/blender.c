@@ -541,9 +541,6 @@ int BKE_read_file(bContext *C, const char *filepath, ReportList *reports)
 		}
 		else {
 			setup_app_data(C, bfd, filepath, reports);
-
-			printf("Updating assets for: %s\n", filepath);
-			BKE_assets_update_check(CTX_data_main(C));
 		}
 	}
 	else
