@@ -16,6 +16,15 @@
 
 CCL_NAMESPACE_BEGIN
 
+/* Float textures on various devices. */
+#if defined(__KERNEL_CPU__)
+  #define TEX_NUM_FLOAT_IMAGES	TEX_NUM_FLOAT_IMAGES_CPU
+#elif defined(__KERNEL_CUDA__)
+  #define TEX_NUM_FLOAT_IMAGES	TEX_NUM_FLOAT_IMAGES_CUDA
+#else
+  #define TEX_NUM_FLOAT_IMAGES	TEX_NUM_FLOAT_IMAGES_OPENCL
+#endif
+
 #ifdef __KERNEL_OPENCL__
 
 /* For OpenCL all images are packed in a single array, and we do manual lookup
@@ -50,12 +59,6 @@ ccl_device_inline float svm_image_texture_frac(float x, int *ix)
 
 ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y, uint srgb, uint use_alpha)
 {
-	/* first slots are used by float textures, which are not supported here */
-	if(id < TEX_NUM_FLOAT_IMAGES)
-		return make_float4(1.0f, 0.0f, 1.0f, 1.0f);
-
-	id -= TEX_NUM_FLOAT_IMAGES;
-
 	uint4 info = kernel_tex_fetch(__tex_image_packed_info, id);
 	uint width = info.x;
 	uint height = info.y;
@@ -133,13 +136,13 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y, uint srgb, uint use_alpha)
 {
 #ifdef __KERNEL_CPU__
-#ifdef __KERNEL_SSE2__
+#  ifdef __KERNEL_SSE2__
 	ssef r_ssef;
 	float4 &r = (float4 &)r_ssef;
 	r = kernel_tex_image_interp(id, x, y);
-#else
+#  else
 	float4 r = kernel_tex_image_interp(id, x, y);
-#endif
+#  endif
 #else
 	float4 r;
 
@@ -246,13 +249,13 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 		case 90: r = kernel_tex_image_interp(__tex_image_090, x, y); break;
 		case 91: r = kernel_tex_image_interp(__tex_image_091, x, y); break;
 		case 92: r = kernel_tex_image_interp(__tex_image_092, x, y); break;
+
+#  if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 300)
 		case 93: r = kernel_tex_image_interp(__tex_image_093, x, y); break;
 		case 94: r = kernel_tex_image_interp(__tex_image_094, x, y); break;
 		case 95: r = kernel_tex_image_interp(__tex_image_095, x, y); break;
 		case 96: r = kernel_tex_image_interp(__tex_image_096, x, y); break;
 		case 97: r = kernel_tex_image_interp(__tex_image_097, x, y); break;
-
-#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 300)
 		case 98: r = kernel_tex_image_interp(__tex_image_098, x, y); break;
 		case 99: r = kernel_tex_image_interp(__tex_image_099, x, y); break;
 		case 100: r = kernel_tex_image_interp(__tex_image_100, x, y); break;
@@ -306,7 +309,7 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 		case 148: r = kernel_tex_image_interp(__tex_image_148, x, y); break;
 		case 149: r = kernel_tex_image_interp(__tex_image_149, x, y); break;
 		case 150: r = kernel_tex_image_interp(__tex_image_150, x, y); break;
-#endif
+#  endif
 
 		default:
 			kernel_assert(0);

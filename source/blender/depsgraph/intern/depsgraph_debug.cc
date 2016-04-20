@@ -59,8 +59,6 @@ extern "C" {
 /* ****************** */
 /* Graphviz Debugging */
 
-static SpinLock lock;
-
 #define NL "\r\n"
 
 /* Only one should be enabled, defines whether graphviz nodes
@@ -145,6 +143,7 @@ static int deg_debug_node_color_index(const DepsNode *node)
 			OperationDepsNode *op_node = (OperationDepsNode *)node;
 			if (op_node->is_noop())
 				return 8;
+			break;
 		}
 
 		default:
@@ -328,7 +327,8 @@ static void deg_debug_graphviz_node_fillcolor(const DebugContext &ctx,
 	int color_index = deg_debug_node_color_index(node);
 	const char *base_color = color_index < 0 ? defaultcolor : deg_debug_colors_light[color_index % deg_debug_max_colors];
 	if (ctx.show_tags &&
-	    (node->flag & (DEPSNODE_FLAG_DIRECTLY_MODIFIED | DEPSNODE_FLAG_NEEDS_UPDATE))) {
+	    (node->flag & (DEPSNODE_FLAG_DIRECTLY_MODIFIED | DEPSNODE_FLAG_NEEDS_UPDATE)))
+	{
 		deg_debug_fprintf(ctx, "\"");
 		for (int i = 0; i < num_stripes; ++i) {
 			if (i > 0) {
@@ -514,6 +514,7 @@ static void deg_debug_graphviz_node(const DebugContext &ctx,
 		case DEPSNODE_TYPE_EVAL_POSE:
 		case DEPSNODE_TYPE_BONE:
 		case DEPSNODE_TYPE_SHADING:
+		case DEPSNODE_TYPE_EVAL_PARTICLES:
 		{
 			ComponentDepsNode *comp_node = (ComponentDepsNode *)node;
 			if (!comp_node->operations.empty()) {

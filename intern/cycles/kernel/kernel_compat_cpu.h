@@ -22,7 +22,7 @@
 /* Release kernel has too much false-positive maybe-uninitialized warnings,
  * which makes it possible to miss actual warnings.
  */
-#if defined(__GNUC__) && defined(NDEBUG)
+#if (defined(__GNUC__) && !defined(__clang__)) && defined(NDEBUG)
 #  pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #  pragma GCC diagnostic ignored "-Wuninitialized"
 #endif
@@ -144,7 +144,7 @@ template<typename T> struct texture_image  {
 					iy = wrap_periodic(iy, height);
 					break;
 				case EXTENSION_CLIP:
-					if (x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
+					if(x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
 						return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 					}
 					/* Fall through. */
@@ -152,6 +152,9 @@ template<typename T> struct texture_image  {
 					ix = wrap_clamp(ix, width);
 					iy = wrap_clamp(iy, height);
 					break;
+				default:
+					kernel_assert(0);
+					return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			}
 			return read(data[ix + iy*width]);
 		}
@@ -168,7 +171,7 @@ template<typename T> struct texture_image  {
 					niy = wrap_periodic(iy+1, height);
 					break;
 				case EXTENSION_CLIP:
-					if (x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
+					if(x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
 						return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 					}
 					/* Fall through. */
@@ -179,6 +182,9 @@ template<typename T> struct texture_image  {
 					ix = wrap_clamp(ix, width);
 					iy = wrap_clamp(iy, height);
 					break;
+				default:
+					kernel_assert(0);
+					return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			}
 
 			float4 r = (1.0f - ty)*(1.0f - tx)*read(data[ix + iy*width]);
@@ -208,7 +214,7 @@ template<typename T> struct texture_image  {
 					nniy = wrap_periodic(iy+2, height);
 					break;
 				case EXTENSION_CLIP:
-					if (x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
+					if(x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
 						return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 					}
 					/* Fall through. */
@@ -225,6 +231,9 @@ template<typename T> struct texture_image  {
 					ix = wrap_clamp(ix, width);
 					iy = wrap_clamp(iy, height);
 					break;
+				default:
+					kernel_assert(0);
+					return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			}
 
 			const int xc[4] = {pix, ix, nix, nnix};
@@ -279,7 +288,9 @@ template<typename T> struct texture_image  {
 					iz = wrap_periodic(iz, depth);
 					break;
 				case EXTENSION_CLIP:
-					if (x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
+					if(x < 0.0f || y < 0.0f || z < 0.0f ||
+					   x > 1.0f || y > 1.0f || z > 1.0f)
+					{
 						return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 					}
 					/* Fall through. */
@@ -288,6 +299,9 @@ template<typename T> struct texture_image  {
 					iy = wrap_clamp(iy, height);
 					iz = wrap_clamp(iz, depth);
 					break;
+				default:
+					kernel_assert(0);
+					return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			}
 
 			return read(data[ix + iy*width + iz*width*height]);
@@ -308,7 +322,9 @@ template<typename T> struct texture_image  {
 					niz = wrap_periodic(iz+1, depth);
 					break;
 				case EXTENSION_CLIP:
-					if (x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
+					if(x < 0.0f || y < 0.0f || z < 0.0f ||
+					   x > 1.0f || y > 1.0f || z > 1.0f)
+					{
 						return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 					}
 					/* Fall through. */
@@ -321,6 +337,9 @@ template<typename T> struct texture_image  {
 					iy = wrap_clamp(iy, height);
 					iz = wrap_clamp(iz, depth);
 					break;
+				default:
+					kernel_assert(0);
+					return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			}
 
 			float4 r;
@@ -363,7 +382,9 @@ template<typename T> struct texture_image  {
 					nniz = wrap_periodic(iz+2, depth);
 					break;
 				case EXTENSION_CLIP:
-					if (x < 0.0f || y < 0.0f || x > 1.0f || y > 1.0f) {
+					if(x < 0.0f || y < 0.0f || z < 0.0f ||
+					   x > 1.0f || y > 1.0f || z > 1.0f)
+					{
 						return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 					}
 					/* Fall through. */
@@ -384,6 +405,9 @@ template<typename T> struct texture_image  {
 					iy = wrap_clamp(iy, height);
 					iz = wrap_clamp(iz, depth);
 					break;
+				default:
+					kernel_assert(0);
+					return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			}
 
 			const int xc[4] = {pix, ix, nix, nnix};

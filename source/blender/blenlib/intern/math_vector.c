@@ -397,6 +397,19 @@ float angle_v2v2v2(const float v1[2], const float v2[2], const float v3[2])
 	return angle_normalized_v2v2(vec1, vec2);
 }
 
+/* Quicker than full angle computation */
+float cos_v2v2v2(const float p1[2], const float p2[2], const float p3[2])
+{
+	float vec1[2], vec2[2];
+
+	sub_v2_v2v2(vec1, p2, p1);
+	sub_v2_v2v2(vec2, p2, p3);
+	normalize_v2(vec1);
+	normalize_v2(vec2);
+
+	return dot_v2v2(vec1, vec2);
+}
+
 /* Return the shortest angle in radians between the 2 vectors */
 float angle_v2v2(const float v1[2], const float v2[2])
 {
@@ -785,7 +798,7 @@ void minmax_v2v2_v2(float min[2], float max[2], const float vec[2])
 	if (max[1] < vec[1]) max[1] = vec[1];
 }
 
-void minmax_v3v3_v3_array(float r_min[3], float r_max[3], float (*vec_arr)[3], int nbr)
+void minmax_v3v3_v3_array(float r_min[3], float r_max[3], const float (*vec_arr)[3], int nbr)
 {
 	while (nbr--) {
 		minmax_v3v3_v3(r_min, r_max, *vec_arr++);

@@ -56,7 +56,7 @@ static EnumPropertyItem beztriple_handle_type_items[] = {
 };
 #endif
 		
-EnumPropertyItem keyframe_handle_type_items[] = {
+EnumPropertyItem rna_enum_keyframe_handle_type_items[] = {
 	{HD_FREE, "FREE", 0, "Free", ""},
 	{HD_VECT, "VECTOR", 0, "Vector", ""},
 	{HD_ALIGN, "ALIGNED", 0, "Aligned", ""},
@@ -65,7 +65,7 @@ EnumPropertyItem keyframe_handle_type_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem beztriple_interpolation_mode_items[] = {
+EnumPropertyItem rna_enum_beztriple_interpolation_mode_items[] = {
 	/* interpolation */
 	{0, "", 0, N_("Interpolation"), "Standard transitions between keyframes"},
 	{BEZT_IPO_CONST, "CONSTANT", ICON_IPO_CONSTANT, "Constant", "No interpolation, value of A gets held until B is encountered"},
@@ -385,6 +385,7 @@ static void rna_Curve_bevelObject_set(PointerRNA *ptr, PointerRNA value)
 		/* set as bevobj, there could be infinity loop in displist calculation */
 		if (ob->type == OB_CURVE && ob->data != cu) {
 			cu->bevobj = ob;
+			id_lib_extern((ID *)ob);
 		}
 	}
 	else {
@@ -427,6 +428,7 @@ static void rna_Curve_taperObject_set(PointerRNA *ptr, PointerRNA value)
 		/* set as bevobj, there could be infinity loop in displist calculation */
 		if (ob->type == OB_CURVE && ob->data != cu) {
 			cu->taperobj = ob;
+			id_lib_extern((ID *)ob);
 		}
 	}
 	else {
@@ -1044,8 +1046,8 @@ static void rna_def_font(BlenderRNA *UNUSED(brna), StructRNA *srna)
 	RNA_def_property_string_maxlength(prop, MAX_ID_NAME - 2);
 	RNA_def_property_ui_text(prop, "Object Font",
 	                         "Use Objects as font characters (give font objects a common name "
-	                         "followed by the character they represent, eg. 'family_a', 'family_b', etc, "
-	                         "set this setting to 'family_', and turn on Vertex Duplication)");
+	                         "followed by the character they represent, eg. 'family-a', 'family-b', etc, "
+	                         "set this setting to 'family-', and turn on Vertex Duplication)");
 	RNA_def_property_update(prop, 0, "rna_Curve_update_data");
 	
 	prop = RNA_def_property(srna, "body", PROP_STRING, PROP_NONE);
@@ -1191,7 +1193,7 @@ static void rna_def_surface(BlenderRNA *brna)
 	
 	srna = RNA_def_struct(brna, "SurfaceCurve", "Curve");
 	RNA_def_struct_sdna(srna, "Curve");
-	RNA_def_struct_ui_text(srna, "Surface Curve", "Curve datablock used for storing surfaces");
+	RNA_def_struct_ui_text(srna, "Surface Curve", "Curve data-block used for storing surfaces");
 	RNA_def_struct_ui_icon(srna, ICON_SURFACE_DATA);
 
 	rna_def_nurbs(brna, srna);
@@ -1203,7 +1205,7 @@ static void rna_def_text(BlenderRNA *brna)
 	
 	srna = RNA_def_struct(brna, "TextCurve", "Curve");
 	RNA_def_struct_sdna(srna, "Curve");
-	RNA_def_struct_ui_text(srna, "Text Curve", "Curve datablock used for storing text");
+	RNA_def_struct_ui_text(srna, "Text Curve", "Curve data-block used for storing text");
 	RNA_def_struct_ui_icon(srna, ICON_FONT_DATA);
 
 	rna_def_font(brna, srna);
@@ -1334,7 +1336,7 @@ static void rna_def_curve(BlenderRNA *brna)
 	};
 
 	srna = RNA_def_struct(brna, "Curve", "ID");
-	RNA_def_struct_ui_text(srna, "Curve", "Curve datablock storing curves, splines and NURBS");
+	RNA_def_struct_ui_text(srna, "Curve", "Curve data-block storing curves, splines and NURBS");
 	RNA_def_struct_ui_icon(srna, ICON_CURVE_DATA);
 	RNA_def_struct_refine_func(srna, "rna_Curve_refine");
 
