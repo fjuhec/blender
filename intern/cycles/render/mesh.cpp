@@ -521,7 +521,7 @@ BVH *Mesh::create_bvh(SceneParams *params,
 	bparams.use_qbvh = params->use_qbvh;
 	bparams.primitive_mask = primitive_mask;
 	BVH *bvh = BVH::create(bparams, objects);
-	bvh->build(*progress);
+	MEM_GUARDED_CALL(progress, bvh->build, *progress);
 	return bvh;
 }
 
