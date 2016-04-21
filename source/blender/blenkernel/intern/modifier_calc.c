@@ -870,8 +870,8 @@ static DerivedMesh *mesh_calc_create_input_dm(Object *ob, const ModifierEvalCont
 	
 	if (dm) {
 		/* add an orco layer if needed by this modifier */
-		CustomDataMask mask = mti->requiredDataMask ? mti->requiredDataMask(ob, md) : 0;
-		if (mask & CD_MASK_ORCO)
+		CustomDataMask required_mask = mti->requiredDataMask ? mti->requiredDataMask(ob, md) : 0;
+		if (required_mask & CD_MASK_ORCO)
 			add_orco_dm(ob, NULL, dm, orcodm, CD_ORCO);
 		
 		/* apply vertex coordinates or build a DerivedMesh as necessary */
