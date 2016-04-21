@@ -79,6 +79,7 @@
 #include "BKE_scene.h"
 #include "BKE_tracking.h"
 #include "BKE_movieclip.h"
+#include "BKE_modifier_calc.h"
 
 #include "BIK_api.h"
 

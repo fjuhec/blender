@@ -49,6 +49,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_editmesh.h"
 #include "BKE_material.h"
+#include "BKE_modifier_calc.h"
 
 #include "BKE_scene.h"
 

@@ -83,6 +83,7 @@
 #include "BKE_pointcache.h"
 #include "BKE_scene.h"
 #include "BKE_deform.h"
+#include "BKE_modifier_calc.h"
 
 #include "RE_render_ext.h"
 

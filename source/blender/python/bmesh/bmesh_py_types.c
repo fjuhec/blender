@@ -37,6 +37,7 @@
 #include "BKE_depsgraph.h"
 #include "BKE_customdata.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_modifier_calc.h"
 
 #include "bmesh.h"
 

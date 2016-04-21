@@ -37,6 +37,7 @@
 
 #include "BKE_appdir.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_sound.h"
 #include "BKE_addon.h"
 

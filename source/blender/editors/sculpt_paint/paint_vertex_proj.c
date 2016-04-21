@@ -41,6 +41,7 @@
 
 #include "BKE_DerivedMesh.h"
 #include "BKE_context.h"
+#include "BKE_modifier_calc.h"
 
 #include "ED_screen.h"
 #include "ED_view3d.h"

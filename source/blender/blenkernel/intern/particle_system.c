@@ -89,6 +89,7 @@
 #include "BKE_scene.h"
 #include "BKE_bvhutils.h"
 #include "BKE_depsgraph.h"
+#include "BKE_modifier_calc.h"
 
 #include "PIL_time.h"
 

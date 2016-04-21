@@ -61,6 +61,7 @@ extern "C"{
 	#include "BKE_DerivedMesh.h"
 	#include "BKE_lattice.h"
 	#include "BKE_modifier.h"
+	#include "BKE_modifier_calc.h"
 }
 
 #include "BLI_blenlib.h"

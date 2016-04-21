@@ -40,6 +40,7 @@ extern "C" {
 #include "BKE_customdata.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_navmesh_conversion.h"
 }
 

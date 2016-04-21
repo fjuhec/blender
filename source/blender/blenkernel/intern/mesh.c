@@ -51,6 +51,7 @@
 #include "BKE_library.h"
 #include "BKE_material.h"
 #include "BKE_modifier.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_multires.h"
 #include "BKE_key.h"
 #include "BKE_mball.h"

@@ -49,6 +49,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_texture.h"
 
 #include "BIF_gl.h"

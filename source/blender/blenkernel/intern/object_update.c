@@ -59,6 +59,7 @@
 #include "BKE_image.h"
 #include "BKE_mball.h"
 #include "BKE_curve.h"
+#include "BKE_modifier_calc.h"
 
 #include "DEG_depsgraph.h"
 

@@ -50,6 +50,7 @@
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_material.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_paint.h"
 #include "BKE_property.h"
 #include "BKE_editmesh.h"

@@ -47,6 +47,7 @@
 #include "BKE_report.h"
 #include "BKE_subsurf.h"
 #include "BKE_modifier.h"
+#include "BKE_modifier_calc.h"
 
 #include "ED_armature.h"
 #include "ED_mesh.h"

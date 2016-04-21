@@ -46,6 +46,7 @@
 #include "BKE_editmesh.h"
 #include "BKE_key.h"
 #include "BKE_modifier.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
 #include "BKE_object_deform.h"

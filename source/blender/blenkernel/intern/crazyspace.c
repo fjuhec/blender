@@ -44,6 +44,7 @@
 #include "BKE_crazyspace.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_modifier.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_multires.h"
 #include "BKE_mesh.h"
 #include "BKE_editmesh.h"

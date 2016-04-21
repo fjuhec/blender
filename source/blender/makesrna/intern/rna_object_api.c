@@ -75,6 +75,7 @@ static EnumPropertyItem space_items[] = {
 #include "BKE_mesh.h"
 #include "BKE_mball.h"
 #include "BKE_modifier.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
 

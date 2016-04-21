@@ -52,6 +52,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_lattice.h"
 #include "BKE_main.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_scene.h"

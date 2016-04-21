@@ -59,6 +59,7 @@
 #include "BKE_library.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"

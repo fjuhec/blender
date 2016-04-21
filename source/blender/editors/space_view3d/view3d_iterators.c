@@ -40,6 +40,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_displist.h"
 #include "BKE_editmesh.h"
+#include "BKE_modifier_calc.h"
 
 #include "bmesh.h"
 

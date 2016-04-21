@@ -661,9 +661,6 @@ void DM_interp_poly_data(
         int *src_indices,
         float *weights, int count, int dest_index);
 
-/* Temporary? A function to give a colorband to derivedmesh for vertexcolor ranges */
-void vDM_ColorBand_store(const struct ColorBand *coba, const char alert_color[4]);
-
 /* UNUSED */
 #if 0
 /** Simple function to get me->totvert amount of vertices/normals,
@@ -672,84 +669,6 @@ void vDM_ColorBand_store(const struct ColorBand *coba, const char alert_color[4]
 DMCoNo *mesh_get_mapped_verts_nors(struct Scene *scene, struct Object *ob);
 #endif
 void mesh_get_mapped_verts_coords(DerivedMesh *dm, float (*r_cos)[3], const int totcos);
-
-/* */
-DerivedMesh *mesh_get_derived_final(
-        struct Scene *scene, struct Object *ob,
-        CustomDataMask dataMask);
-DerivedMesh *mesh_get_derived_deform(
-        struct Scene *scene, struct Object *ob,
-        CustomDataMask dataMask);
-
-DerivedMesh *mesh_create_derived_for_modifier(
-        struct Scene *scene, struct Object *ob,
-        struct ModifierData *md, int build_shapekey_layers);
-
-DerivedMesh *mesh_create_derived_render(
-        struct Scene *scene, struct Object *ob,
-        CustomDataMask dataMask);
-
-DerivedMesh *getEditDerivedBMesh(
-        struct BMEditMesh *em, struct Object *ob,
-        float (*vertexCos)[3]);
-
-DerivedMesh *mesh_create_derived_index_render(
-        struct Scene *scene, struct Object *ob,
-        CustomDataMask dataMask, int index);
-
-/* same as above but wont use render settings */
-DerivedMesh *mesh_create_derived(struct Mesh *me, float (*vertCos)[3]);
-DerivedMesh *mesh_create_derived_view(
-        struct Scene *scene, struct Object *ob,
-        CustomDataMask dataMask);
-DerivedMesh *mesh_create_derived_no_deform(
-        struct Scene *scene, struct Object *ob,
-        float (*vertCos)[3],
-        CustomDataMask dataMask);
-DerivedMesh *mesh_create_derived_no_deform_render(
-        struct Scene *scene, struct Object *ob,
-        float (*vertCos)[3],
-        CustomDataMask dataMask);
-/* for gameengine */
-DerivedMesh *mesh_create_derived_no_virtual(
-        struct Scene *scene, struct Object *ob, float (*vertCos)[3],
-        CustomDataMask dataMask);
-DerivedMesh *mesh_create_derived_physics(
-        struct Scene *scene, struct Object *ob, float (*vertCos)[3],
-        CustomDataMask dataMask);
-
-DerivedMesh *editbmesh_get_derived_base(
-        struct Object *, struct BMEditMesh *em);
-DerivedMesh *editbmesh_get_derived_cage(
-        struct Scene *scene, struct Object *,
-        struct BMEditMesh *em, CustomDataMask dataMask);
-DerivedMesh *editbmesh_get_derived_cage_and_final(
-        struct Scene *scene, struct Object *,
-        struct BMEditMesh *em, CustomDataMask dataMask,
-        DerivedMesh **r_final);
-
-DerivedMesh *object_get_derived_final(struct Object *ob, const bool for_render);
-
-float (*editbmesh_get_vertex_cos(struct BMEditMesh *em, int *r_numVerts))[3];
-bool editbmesh_modifier_is_enabled(struct Scene *scene, struct ModifierData *md, DerivedMesh *dm);
-void makeDerivedMesh(
-        struct Scene *scene, struct Object *ob, struct BMEditMesh *em,
-        CustomDataMask dataMask, const bool build_shapekey_layers);
-
-void BKE_object_eval_mesh(struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);
-void BKE_object_eval_editmesh(struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);
-
-void weight_to_rgb(float r_rgb[3], const float weight);
-/** Update the weight MCOL preview layer.
- * If weights are NULL, use object's active vgroup(s).
- * Else, weights must be an array of weight float values.
- *     If indices is NULL, it must be of numVerts length.
- *     Else, it must be of num length, as indices, which contains vertices' idx to apply weights to.
- *         (other vertices are assumed zero weight).
- */
-void DM_update_weight_mcol(
-        struct Object *ob, struct DerivedMesh *dm, int const draw_flag,
-        float *weights, int num, const int *indices);
 
 /** convert layers requested by a GLSL material to actually available layers in
  * the DerivedMesh, with both a pointer for arrays and an offset for editmesh */

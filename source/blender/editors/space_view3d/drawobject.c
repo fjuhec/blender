@@ -68,6 +68,7 @@
 #include "BKE_material.h"
 #include "BKE_mball.h"
 #include "BKE_modifier.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_movieclip.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"

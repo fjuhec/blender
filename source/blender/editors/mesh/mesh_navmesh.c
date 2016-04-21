@@ -44,6 +44,7 @@
 #include "BKE_depsgraph.h"
 #include "BKE_context.h"
 #include "BKE_mesh.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_scene.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_report.h"

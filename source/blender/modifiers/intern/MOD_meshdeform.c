@@ -44,6 +44,7 @@
 #include "BKE_global.h"
 #include "BKE_library_query.h"
 #include "BKE_modifier.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_deform.h"
 #include "BKE_editmesh.h"
 

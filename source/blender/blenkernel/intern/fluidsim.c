@@ -56,6 +56,7 @@
 #include "BKE_fluidsim.h"
 #include "BKE_global.h"
 #include "BKE_modifier.h"
+#include "BKE_modifier_calc.h"
 #include "BKE_mesh.h"
 
 /* ************************* fluidsim bobj file handling **************************** */

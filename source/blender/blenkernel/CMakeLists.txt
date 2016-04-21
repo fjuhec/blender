@@ -249,6 +249,7 @@ set(SRC
 	BKE_mesh_mapping.h
 	BKE_mesh_remap.h
 	BKE_modifier.h
+	BKE_modifier_calc.h
 	BKE_movieclip.h
 	BKE_multires.h
 	BKE_nla.h
