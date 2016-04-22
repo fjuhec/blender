@@ -26,6 +26,8 @@
 #define BVH_QNODE_SIZE 7
 #define BVH_QNODE_LEAF_SIZE 1
 #define TRI_NODE_SIZE 3
+#define BVH_UNALIGNED_NODE_SIZE 7
+#define BVH_UNALIGNED_NODE_LEAF_SIZE 7
 
 /* silly workaround for float extended precision that happens when compiling
  * without sse support on x86, it results in different results for float ops

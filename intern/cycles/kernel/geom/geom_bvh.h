@@ -53,6 +53,8 @@ CCL_NAMESPACE_BEGIN
 #  include "geom_qbvh.h"
 #endif
 
+#include "geom_bvh_hair.h"
+
 /* Regular BVH traversal */
 
 #define BVH_FUNCTION_NAME bvh_intersect

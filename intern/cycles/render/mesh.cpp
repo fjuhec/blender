@@ -548,11 +548,13 @@ BVH *Mesh::create_bvh(SceneParams *params,
 
 	BVHParams bparams;
 	bparams.use_spatial_split = params->use_bvh_spatial_split;
-	bparams.use_qbvh = params->use_qbvh;
-	// TODO(sergey): Unaligned nodes are not finished yet, enabling them
-	// breaks all hair rendering.
-	// bparams.use_unaligned_nodes = (primitive_mask & PRIMITIVE_ALL_CURVE) != 0;
-	bparams.use_unaligned_nodes = false;
+	if(primitive_mask & PRIMITIVE_ALL_TRIANGLE) {
+		bparams.use_qbvh = params->use_qbvh;
+	}
+	else {
+		bparams.use_qbvh = false;
+	}
+	bparams.use_unaligned_nodes = (primitive_mask & PRIMITIVE_ALL_CURVE) != 0;
 	bparams.primitive_mask = primitive_mask;
 	BVH *bvh = BVH::create(bparams, objects);
 	MEM_GUARDED_CALL(progress, bvh->build, *progress);
@@ -1167,6 +1169,7 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 	bparams.top_level = true;
 	bparams.use_qbvh = scene->params.use_qbvh;
 	bparams.use_spatial_split = scene->params.use_bvh_spatial_split;
+	bparams.use_unaligned_nodes = false;
 	bparams.primitive_mask = PRIMITIVE_ALL_TRIANGLE;
 
 	progress.set_status("Updating Scene Triangle BVH", "Building");
@@ -1178,7 +1181,9 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 
 	progress.set_status("Updating Scene Curve BVH", "Building");
 	delete curve_bvh;
+	bparams.use_qbvh = false;
 	bparams.primitive_mask = PRIMITIVE_ALL_CURVE;
+	bparams.use_unaligned_nodes = true;
 	curve_bvh = BVH::create(bparams, scene->objects);
 	curve_bvh->build(progress);
 

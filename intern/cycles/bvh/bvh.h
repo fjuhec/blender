@@ -39,6 +39,8 @@ class Progress;
 #define BVH_QNODE_LEAF_SIZE	1
 #define BVH_ALIGN		4096
 #define TRI_NODE_SIZE	3
+#define BVH_UNALIGNED_NODE_SIZE 7
+#define BVH_UNALIGNED_NODE_LEAF_SIZE 7
 
 /* Packed BVH
  *
@@ -115,9 +117,28 @@ protected:
 
 	/* pack */
 	void pack_nodes(const BVHNode *root);
-	void pack_leaf(const BVHStackEntry& e, const LeafNode *leaf);
-	void pack_inner(const BVHStackEntry& e, const BVHStackEntry& e0, const BVHStackEntry& e1);
-	void pack_node(int idx, const BoundBox& b0, const BoundBox& b1, int c0, int c1, uint visibility0, uint visibility1);
+
+	void pack_leaf(const BVHStackEntry& e,
+	               const LeafNode *leaf);
+	void pack_inner(const BVHStackEntry& e,
+	                const BVHStackEntry& e0,
+	                const BVHStackEntry& e1);
+	void pack_node(int idx,
+	               const BoundBox& b0,
+	               const BoundBox& b1,
+	               int c0, int c1,
+	               uint visibility0, uint visibility1);
+
+	void pack_unaligned_leaf(const BVHStackEntry& e,
+	                         const LeafNode *leaf);
+	void pack_unaligned_inner(const BVHStackEntry& e,
+	                          const BVHStackEntry& e0,
+	                          const BVHStackEntry& e1);
+	void pack_unaligned_node(int idx,
+	                         const Transform& aligned_space,
+	                         const BoundBox& bounds,
+	                         int c0, int c1,
+	                         uint visibility0, uint visibility1);
 
 	/* refit */
 	void refit_nodes();

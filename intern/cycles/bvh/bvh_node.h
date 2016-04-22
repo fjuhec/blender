@@ -42,6 +42,7 @@ class BVHNode
 public:
 	BVHNode() : m_is_unaligned(false)
 	{
+		m_aligned_space = transform_identity();
 	}
 
 	virtual ~BVHNode() {}
