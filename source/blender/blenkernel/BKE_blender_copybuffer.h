@@ -15,44 +15,33 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
  * ***** END GPL LICENSE BLOCK *****
  */
-#ifndef __BKE_BLENDER_H__
-#define __BKE_BLENDER_H__
+#ifndef __BKE_BLENDER_COPYBUFFER_H__
+#define __BKE_BLENDER_COPYBUFFER_H__
 
-/** \file BKE_blender.h
+/** \file BKE_blender_copybuffer.h
  *  \ingroup bke
- *  \since March 2001
- *  \author nzc
- *  \brief Blender util stuff
  */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void BKE_blender_free(void);
-void BKE_blender_globals_init(void);
-void BKE_blender_globals_clear(void);
+struct bContext;
+struct ReportList;
+struct Scene;
+struct Main;
+struct ID;
 
-/* load new userdef from file, exit blender */
-void BKE_userdef_free(void);
-/* handle changes in userdef */
-void BKE_userdef_state(void);
-	
-/* set this callback when a UI is running */
-void BKE_blender_callback_test_break_set(void (*func)(void));
-int  BKE_blender_test_break(void);
+/* copybuffer (wrapper for BKE_blendfile_write_partial) */
+void BKE_copybuffer_begin(struct Main *bmain_src);
+void BKE_copybuffer_tag_ID(struct ID *id);
+bool BKE_copybuffer_save(struct Main *bmain_src, const char *filename, struct ReportList *reports);
+bool BKE_copybuffer_paste(struct bContext *C, const char *libname, const short flag, struct ReportList *reports);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  /* __BKE_BLENDER_H__ */
+#endif  /* __BKE_BLENDER_COPYBUFFER_H__ */

@@ -74,6 +74,8 @@
 #include "BKE_utildefines.h"
 #include "BKE_autoexec.h"
 #include "BKE_blender.h"
+#include "BKE_blendfile.h"
+#include "BKE_blender_undo.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_global.h"
@@ -551,7 +553,7 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 		
 		/* confusing this global... */
 		G.relbase_valid = 1;
-		retval = BKE_read_file(C, filepath, reports);
+		retval = BKE_blendfile_read(C, filepath, reports);
 		/* when loading startup.blend's, we can be left with a blank path */
 		if (G.main->name[0]) {
 			G.save_over = 1;
@@ -690,7 +692,7 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 	
 	if (!from_memory) {
 		if (BLI_access(startstr, R_OK) == 0) {
-			success = (BKE_read_file(C, startstr, NULL) != BKE_READ_FILE_FAIL);
+			success = (BKE_blendfile_read(C, startstr, NULL) != BKE_READ_FILE_FAIL);
 		}
 		if (BLI_listbase_is_empty(&U.themes)) {
 			if (G.debug & G_DEBUG)
@@ -705,7 +707,7 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 	}
 
 	if (success == 0) {
-		success = BKE_read_file_from_memory(C, datatoc_startup_blend, datatoc_startup_blend_size, NULL, true);
+		success = BKE_blendfile_read_from_memory(C, datatoc_startup_blend, datatoc_startup_blend_size, NULL, true);
 		if (BLI_listbase_is_empty(&wmbase)) {
 			wm_clear_default_size(C);
 		}
@@ -720,7 +722,7 @@ int wm_homefile_read(bContext *C, ReportList *reports, bool from_memory, const c
 	
 	/* check new prefs only after startup.blend was finished */
 	if (!from_memory && BLI_exists(prefstr)) {
-		int done = BKE_read_file_userdef(prefstr, NULL);
+		int done = BKE_blendfile_read_userdef(prefstr, NULL);
 		if (done != BKE_READ_FILE_FAIL) {
 			read_userdef_from_memory = false;
 			printf("Read new prefs: %s\n", prefstr);
@@ -1352,7 +1354,7 @@ static int wm_userpref_write_exec(bContext *C, wmOperator *op)
 	BLI_make_file_string("/", filepath, BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL), BLENDER_USERPREF_FILE);
 	printf("trying to save userpref at %s ", filepath);
 
-	if (BKE_write_file_userdef(filepath, op->reports) == 0) {
+	if (BKE_blendfile_write_userdef(filepath, op->reports) == 0) {
 		printf("fail\n");
 		return OPERATOR_CANCELLED;
 	}
