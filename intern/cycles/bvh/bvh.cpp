@@ -363,7 +363,7 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 			 */
 			size_t nsize_bbox = (use_qbvh)? 6: 3;
 			if(params.use_unaligned_nodes) {
-				nsize_bbox = 4;
+				nsize_bbox = 6;
 			}
 			int4 *bvh_nodes = &bvh->pack.nodes[0];
 			size_t bvh_nodes_size = bvh->pack.nodes.size(); 

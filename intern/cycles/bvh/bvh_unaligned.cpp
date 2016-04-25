@@ -92,7 +92,7 @@ BoundBox BVHUnaligned::compute_aligned_prim_boundbox(
 		curve.bounds_grow(segment, &mesh->curve_keys[0], aligned_space, bounds);
 	}
 	else {
-		assert(!"Unsupported situation");
+		bounds = prim.bounds().transformed(&aligned_space);
 	}
 	return bounds;
 }
