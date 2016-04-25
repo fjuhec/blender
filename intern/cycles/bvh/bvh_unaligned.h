@@ -55,6 +55,11 @@ public:
 	        const vector<BVHReference>& references,
 	        const Transform& aligned_space) const;
 
+	/* Calculate affine transform for node packing.
+	 * Bounds will be in the range of 0..1.
+	 */
+	static Transform compute_node_transform(const BoundBox& bounds,
+	                                        const Transform& aligned_space);
 protected:
 	/* List of objects BVH is being created for. */
 	const vector<Object*>& objects_;

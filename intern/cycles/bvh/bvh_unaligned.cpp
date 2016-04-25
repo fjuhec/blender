@@ -111,4 +111,18 @@ BoundBox BVHUnaligned::compute_aligned_boundbox(
 	return bounds;
 }
 
+Transform BVHUnaligned::compute_node_transform(
+        const BoundBox& bounds,
+        const Transform& aligned_space)
+{
+	Transform space = aligned_space;
+	space.x.w -= bounds.min.x;
+	space.y.w -= bounds.min.y;
+	space.z.w -= bounds.min.z;
+	float3 dim = bounds.max - bounds.min;
+	return transform_scale(1.0f / max(1e-18f, dim.x),
+	                       1.0f / max(1e-18f, dim.y),
+	                       1.0f / max(1e-18f, dim.z)) * space;
+}
+
 CCL_NAMESPACE_END

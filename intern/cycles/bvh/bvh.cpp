@@ -24,6 +24,7 @@
 #include "bvh_build.h"
 #include "bvh_node.h"
 #include "bvh_params.h"
+#include "bvh_unaligned.h"
 
 #include "util_debug.h"
 #include "util_foreach.h"
@@ -366,7 +367,7 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 			 */
 			size_t nsize_bbox = (use_qbvh)? 6: 3;
 			if(params.use_unaligned_nodes) {
-				nsize_bbox = 6;
+				nsize_bbox = 4;
 			}
 			int4 *bvh_nodes = &bvh->pack.nodes[0];
 			size_t bvh_nodes_size = bvh->pack.nodes.size(); 
@@ -466,15 +467,15 @@ void RegularBVH::pack_unaligned_leaf(const BVHStackEntry& e,
 {
 	const Transform& aligned_space = e.node->m_aligned_space;
 	const BoundBox& bounds = e.node->m_bounds;
+	Transform space = BVHUnaligned::compute_node_transform(bounds,
+	                                                       aligned_space);
 	float4 data[BVH_UNALIGNED_NODE_LEAF_SIZE] =
 	{
 		make_float4(0.0f, 0.0f, 0.0f, 0.0f),
-		aligned_space.x,
-		aligned_space.y,
-		aligned_space.z,
-		aligned_space.w,
-		float3_to_float4(bounds.min),
-		float3_to_float4(bounds.max)
+		space.x,
+		space.y,
+		space.z,
+		space.w,
 	};
 
 	if(leaf->num_triangles() == 1 && pack.prim_index[leaf->m_lo] == -1) {
@@ -514,14 +515,14 @@ void RegularBVH::pack_unaligned_node(int idx,
                                      int c0, int c1,
                                      uint visibility0, uint visibility1)
 {
+	Transform space = BVHUnaligned::compute_node_transform(bounds,
+	                                                       aligned_space);
 	int4 data[BVH_UNALIGNED_NODE_SIZE] =
 	{
-		make_int4(__float_as_int(aligned_space.x.x), __float_as_int(aligned_space.x.y), __float_as_int(aligned_space.x.z), __float_as_int(aligned_space.x.w)),
-		make_int4(__float_as_int(aligned_space.y.x), __float_as_int(aligned_space.y.y), __float_as_int(aligned_space.y.z), __float_as_int(aligned_space.y.w)),
-		make_int4(__float_as_int(aligned_space.z.x), __float_as_int(aligned_space.z.y), __float_as_int(aligned_space.z.z), __float_as_int(aligned_space.z.w)),
-		make_int4(__float_as_int(aligned_space.w.x), __float_as_int(aligned_space.w.y), __float_as_int(aligned_space.w.z), __float_as_int(aligned_space.w.w)),
-		make_int4(__float_as_int(bounds.min.x), __float_as_int(bounds.min.y), __float_as_int(bounds.min.z), 0),
-		make_int4(__float_as_int(bounds.max.x), __float_as_int(bounds.max.y), __float_as_int(bounds.max.z), 0),
+		make_int4(__float_as_int(space.x.x), __float_as_int(space.x.y), __float_as_int(space.x.z), __float_as_int(space.x.w)),
+		make_int4(__float_as_int(space.y.x), __float_as_int(space.y.y), __float_as_int(space.y.z), __float_as_int(space.y.w)),
+		make_int4(__float_as_int(space.z.x), __float_as_int(space.z.y), __float_as_int(space.z.z), __float_as_int(space.z.w)),
+		make_int4(__float_as_int(space.w.x), __float_as_int(space.w.y), __float_as_int(space.w.z), __float_as_int(space.w.w)),
 		make_int4(c0, c1, visibility0, visibility1)
 	};
 

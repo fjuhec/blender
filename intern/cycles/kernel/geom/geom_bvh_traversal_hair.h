@@ -68,15 +68,12 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 	Transform ob_itfm;
 #endif
 
-	IsectPrecalc isect_precalc;
-	triangle_intersect_precalc(dir, &isect_precalc);
-
 	/* traversal loop */
 	do {
 		do {
 			/* traverse internal nodes */
 			while(nodeAddr >= 0 && nodeAddr != ENTRYPOINT_SENTINEL) {
-				float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+6);
+				float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+4);
 				float dist[2];
 				int mask = bvh_hair_intersect_node(kg,
 				                                   P,
@@ -171,7 +168,6 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #  else
 					bvh_instance_push(kg, object, ray, &P, &dir, &idir, &isect->t);
 #  endif
-					triangle_intersect_precalc(dir, &isect_precalc);
 
 					++stackPtr;
 					kernel_assert(stackPtr < BVH_STACK_SIZE);
@@ -197,7 +193,6 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #  else
 			bvh_instance_pop(kg, object, ray, &P, &dir, &idir, &isect->t);
 #  endif
-			triangle_intersect_precalc(dir, &isect_precalc);
 
 			object = OBJECT_NONE;
 			nodeAddr = traversalStack[stackPtr];
