@@ -165,3 +165,23 @@ void SCRIPT_OT_autoexec_warn_clear(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = script_autoexec_warn_clear_exec;
 }
+
+static int script_assets_warn_clear_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
+{
+	G.f |= G_ASSETS_QUIET;
+	return OPERATOR_FINISHED;
+}
+
+void SCRIPT_OT_assets_warn_clear(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Silence Assets Warnings";
+	ot->description = "Ignore assets warning and errors";
+	ot->idname = "SCRIPT_OT_assets_warn_clear";
+
+	/* flags */
+	ot->flag = OPTYPE_INTERNAL;
+
+	/* api callbacks */
+	ot->exec = script_assets_warn_clear_exec;
+}

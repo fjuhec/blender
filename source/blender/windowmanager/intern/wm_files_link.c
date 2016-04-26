@@ -628,12 +628,15 @@ static void asset_updatecheck_update(void *aucjv)
 									*id->uuid = *uuid;
 
 									if (id->uuid->tag & UUID_TAG_ENGINE_MISSING) {
+										G.f |= G_ASSETS_FAIL;
 										printf("\t%s uses a currently unknown asset engine!\n", id->name);
 									}
 									else if (id->uuid->tag & UUID_TAG_ASSET_MISSING) {
+										G.f |= G_ASSETS_FAIL;
 										printf("\t%s is currently unknown by asset engine!\n", id->name);
 									}
 									else if (id->uuid->tag & UUID_TAG_ASSET_RELOAD) {
+										G.f |= G_ASSETS_NEED_RELOAD;
 										printf("\t%s needs to be reloaded/updated!\n", id->name);
 									}
 									done = true;
@@ -744,6 +747,7 @@ static void asset_updatecheck_start(const bContext *C)
 					if (ae_type == NULL) {
 						if (id->uuid) {
 							id->uuid->tag = UUID_TAG_ENGINE_MISSING;
+							G.f |= G_ASSETS_FAIL;
 						}
 						continue;
 					}
@@ -769,6 +773,7 @@ static void asset_updatecheck_start(const bContext *C)
 			}
 		}
 	}
+	G.f &= ~(G_ASSETS_FAIL | G_ASSETS_NEED_RELOAD | G_ASSETS_QUIET);
 
 	/* setup job */
 	wm_job = WM_jobs_get(CTX_wm_manager(C), CTX_wm_window(C), CTX_wm_area(C), "Checking for asset updates...",
