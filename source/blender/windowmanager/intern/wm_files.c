@@ -1640,6 +1640,7 @@ void WM_OT_open_mainfile(wmOperatorType *ot)
 static int wm_revert_mainfile_exec(bContext *C, wmOperator *op)
 {
 	bool success;
+	char filepath[FILE_MAX];
 
 	wm_open_init_use_scripts(op, false);
 
@@ -1648,7 +1649,8 @@ static int wm_revert_mainfile_exec(bContext *C, wmOperator *op)
 	else
 		G.f &= ~G_SCRIPT_AUTOEXEC;
 
-	success = wm_file_read_opwrap(C, G.main->name, op->reports, !(G.f & G_SCRIPT_AUTOEXEC));
+	BLI_strncpy(filepath, G.main->name, sizeof(filepath));
+	success = wm_file_read_opwrap(C, filepath, op->reports, !(G.f & G_SCRIPT_AUTOEXEC));
 
 	if (success) {
 		return OPERATOR_FINISHED;
