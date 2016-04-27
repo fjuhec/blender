@@ -588,6 +588,8 @@ static void asset_updatecheck_update(void *aucjv)
 
 	*aucj->progress = 0.0f;
 
+	/* TODO need to take care of 'broken' engines that error - in this case we probably want to cancel the whole
+	 * update process over effected libraries' data... */
 	for (AssetUpdateCheckEngine *auce = aucj->engines.first; auce; auce = auce->next, nbr_engines++) {
 		AssetEngine *ae = auce->ae;
 		AssetEngineType *ae_type = ae->type;
@@ -617,6 +619,10 @@ static void asset_updatecheck_update(void *aucjv)
 					{
 						continue;
 					}
+
+					/* UUIDs returned by update_check are assumed to be valid (one way or the other) in current
+					 * asset engine version. */
+					lib->asset_repository->asset_engine_version = ae_type->version;
 
 					int i = auce->uuids.nbr_uuids;
 					for (AssetUUID *uuid = auce->uuids.uuids; i--; uuid++) {
@@ -754,7 +760,7 @@ static void asset_updatecheck_start(const bContext *C)
 
 					if (id->uuid) {
 						printf("\tWe need to check for updated asset %s...\n", id->name);
-						id->uuid->tag = 0;
+						id->uuid->tag = (id->tag & LIB_TAG_MISSING) ? UUID_TAG_ASSET_MISSING : 0;
 
 						/* XXX horrible, need to use some mempool, stack or something :) */
 						auce->uuids.nbr_uuids++;

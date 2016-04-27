@@ -253,7 +253,7 @@ class AmberTag(PropertyGroup):
 
 class AssetEngineAmber(AssetEngine):
     bl_label = "Amber"
-    bl_version = 1
+    bl_version = (0 << 16) + (0 << 8) + 2  # Usual maj.min.rev version scheme...
 
     tags = CollectionProperty(name="Tags", type=AmberTag, description="Filtering tags")
     active_tag_index = IntProperty(name="Active Tag", options={'HIDDEN'})
@@ -340,6 +340,11 @@ class AssetEngineAmber(AssetEngine):
         if act_rev:
             entry.relpath = act_rev["path"]
 #        print("added entry for", entry.relpath)
+
+    def pretty_version(self, v=None):
+        if v is None:
+            v = self.bl_version
+        return "%d.%d.%d" % ((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF)
 
     ########## PY-API only ##########
     # UI header
@@ -443,12 +448,20 @@ class AssetEngineAmber(AssetEngine):
 
     def update_check(self, job_id, uuids):
         # do nothing for now, no need to use actual job...
+        if uuids.asset_engine_version != self.bl_version:
+            print("Updating asset uuids from Amber v.%s to amber v.%s" %
+                  (self.pretty_version(uuids.asset_engine_version), self.pretty_version()))
+        # We could also check for uuid.is_asset_missing (in case our .blend lib files would be cached locally and
+        # gone missing e.g.).
         for uuid in uuids.uuids:
             uuid.use_asset_reload = True
         return self.job_id_invalid
 
     def load_pre(self, uuids, entries):
         # Not quite sure this engine will need it in the end, but for sake of testing...
+        if uuids.asset_engine_version != self.bl_version:
+            print("Updating asset uuids from Amber v.%s to amber v.%s" %
+                  (self.pretty_version(uuids.asset_engine_version), self.pretty_version()))
         if self.repo:
 #            print(entries.entries[:])
             for uuid in uuids.uuids:
