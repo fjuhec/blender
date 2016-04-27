@@ -530,6 +530,9 @@ void WM_OT_append(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "set_fake", false, "Fake User", "Set Fake User for appended items (except Objects and Groups)");
 }
 
+/** \name Reload/relocate libraries.
+ *
+ * \{ */
 
 static int wm_lib_relocate_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
@@ -876,7 +879,7 @@ static int wm_lib_relocate_exec(bContext *C, wmOperator *op)
 	return wm_lib_relocate_exec_do(C, op, false);
 }
 
-static void WM_OT_lib_relocate(wmOperatorType *ot)
+void WM_OT_lib_relocate(wmOperatorType *ot)
 {
 	PropertyRNA *prop;
 
@@ -903,7 +906,7 @@ static int wm_lib_reload_exec(bContext *C, wmOperator *op)
 	return wm_lib_relocate_exec_do(C, op, true);
 }
 
-static void WM_OT_lib_reload(wmOperatorType *ot)
+void WM_OT_lib_reload(wmOperatorType *ot)
 {
 	PropertyRNA *prop;
 
