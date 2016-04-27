@@ -1454,7 +1454,7 @@ void filelist_assetengine_set(struct FileList *filelist, struct AssetEngineType 
 	}
 
 	if (aet) {
-		filelist->ae = BKE_asset_engine_create(aet);
+		filelist->ae = BKE_asset_engine_create(aet, NULL);
 	}
 	filelist->flags |= FL_FORCE_RESET;
 }
@@ -2821,6 +2821,7 @@ static void filelist_readjob_startjob(void *flrjv, short *stop, short *do_update
 	if (flrj->filelist->ae) {
 		flrj->progress = progress;
 		flrj->stop = stop;
+		flrj->ae_job_id = AE_JOB_ID_UNSET;
 		/* When using AE engine, worker thread here is just sleeping! */
 		while ((flrj->filelist->flags & FL_IS_PENDING) && !*stop) {
 			PIL_sleep_ms(10);
@@ -2862,13 +2863,28 @@ static void filelist_readjob_update(void *flrjv)
 		/* We only communicate with asset engine from main thread! */
 		AssetEngine *ae = flrj->filelist->ae;
 
+		if (flrj->ae_job_id == AE_JOB_ID_INVALID) {
+			BLI_assert(0);  /* Should never reach this point... */
+			*flrj->progress = 1.0f;
+			*flrj->stop = true;
+			return;
+		}
+
 		flrj->ae_job_id = ae->type->list_dir(ae, flrj->ae_job_id, &flrj->filelist->filelist);
 
 		flrj->filelist->flags |= (FL_NEED_SORTING | FL_NEED_FILTERING);
 
-		*flrj->progress = ae->type->progress(ae, flrj->ae_job_id);
-		if ((ae->type->status(ae, flrj->ae_job_id) & (AE_STATUS_RUNNING | AE_STATUS_VALID)) != (AE_STATUS_RUNNING | AE_STATUS_VALID)) {
+		if (flrj->ae_job_id == AE_JOB_ID_INVALID) {  /* Immediate execution. */
+			*flrj->progress = 1.0f;
 			*flrj->stop = true;
+		}
+		else {
+			*flrj->progress = ae->type->progress(ae, flrj->ae_job_id);
+			if ((ae->type->status(ae, flrj->ae_job_id) & (AE_STATUS_RUNNING | AE_STATUS_VALID)) !=
+			    (AE_STATUS_RUNNING | AE_STATUS_VALID))
+			{
+				*flrj->stop = true;
+			}
 		}
 	}
 	else {
@@ -2907,13 +2923,16 @@ static void filelist_readjob_endjob(void *flrjv)
 {
 	FileListReadJob *flrj = flrjv;
 
-	/* In case there would be some dangling update... */
-	filelist_readjob_update(flrjv);
+	/* In case there would be some dangling update.
+	 * Do not do this in case of ae job returning AE_JOB_ID_INVALID as job_id (immediate execution). */
+	if (flrj->filelist->ae == NULL || flrj->ae_job_id != AE_JOB_ID_INVALID) {
+		filelist_readjob_update(flrjv);
+	}
 
 	flrj->filelist->flags &= ~FL_IS_PENDING;
 	flrj->filelist->flags |= FL_IS_READY;
 
-	if (flrj->filelist->ae) {
+	if (flrj->filelist->ae && !ELEM(flrj->ae_job_id, AE_JOB_ID_INVALID, AE_JOB_ID_UNSET)) {
 		AssetEngine *ae = flrj->filelist->ae;
 		ae->type->kill(ae, flrj->ae_job_id);
 	}

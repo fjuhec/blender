@@ -44,6 +44,8 @@ BVHObjectSplit::BVHObjectSplit(BVHBuild *builder,
 	const BVHReference *ref_ptr = &references_->at(range.start());
 	float min_sah = FLT_MAX;
 
+	storage_->right_bounds.resize(range.size());
+
 	for(int dim = 0; dim < 3; dim++) {
 		/* Sort references. */
 		bvh_reference_sort(range.start(),
@@ -53,7 +55,6 @@ BVHObjectSplit::BVHObjectSplit(BVHBuild *builder,
 
 		/* sweep right to left and determine bounds. */
 		BoundBox right_bounds = BoundBox::empty;
-
 		for(int i = range.size() - 1; i > 0; i--) {
 			right_bounds.grow(ref_ptr[i].bounds());
 			storage_->right_bounds[i - 1] = right_bounds;
@@ -156,10 +157,10 @@ BVHSpatialSplit::BVHSpatialSplit(const BVHBuild& builder,
 	}
 
 	/* select best split plane. */
+	storage_->right_bounds.resize(BVHParams::NUM_SPATIAL_BINS);
 	for(int dim = 0; dim < 3; dim++) {
 		/* sweep right to left and determine bounds. */
 		BoundBox right_bounds = BoundBox::empty;
-
 		for(int i = BVHParams::NUM_SPATIAL_BINS - 1; i > 0; i--) {
 			right_bounds.grow(storage_->bins[dim][i].bounds);
 			storage_->right_bounds[i - 1] = right_bounds;

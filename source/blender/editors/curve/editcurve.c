@@ -1390,7 +1390,9 @@ void CURVE_OT_split(wmOperatorType *ot)
 
 /* ******************* FLAGS ********************* */
 
-static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
+static bool isNurbselUV(
+        const Nurb *nu, int flag,
+        int *r_u, int *r_v)
 {
 	/* return (u != -1): 1 row in u-direction selected. U has value between 0-pntsv
 	 * return (v != -1): 1 column in v-direction selected. V has value between 0-pntsu
@@ -1398,7 +1400,7 @@ static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
 	BPoint *bp;
 	int a, b, sel;
 
-	*u = *v = -1;
+	*r_u = *r_v = -1;
 
 	bp = nu->bp;
 	for (b = 0; b < nu->pntsv; b++) {
@@ -1407,7 +1409,7 @@ static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
 			if (bp->f1 & flag) sel++;
 		}
 		if (sel == nu->pntsu) {
-			if (*u == -1) *u = b;
+			if (*r_u == -1) *r_u = b;
 			else return 0;
 		}
 		else if (sel > 1) {
@@ -1422,7 +1424,7 @@ static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
 			if (bp->f1 & flag) sel++;
 		}
 		if (sel == nu->pntsv) {
-			if (*v == -1) *v = a;
+			if (*r_v == -1) *r_v = a;
 			else return 0;
 		}
 		else if (sel > 1) {
@@ -1430,8 +1432,8 @@ static short isNurbselUV(Nurb *nu, int *u, int *v, int flag)
 		}
 	}
 
-	if (*u == -1 && *v > -1) return 1;
-	if (*v == -1 && *u > -1) return 1;
+	if (*r_u == -1 && *r_v > -1) return 1;
+	if (*r_v == -1 && *r_u > -1) return 1;
 	return 0;
 }
 
@@ -1851,7 +1853,7 @@ bool ed_editnurb_extrude_flag(EditNurb *editnurb, const short flag)
 		else {
 			/* which row or column is selected */
 
-			if (isNurbselUV(nu, &u, &v, flag)) {
+			if (isNurbselUV(nu, flag, &u, &v)) {
 
 				/* deselect all */
 				bp = nu->bp;
@@ -4991,11 +4993,22 @@ static int add_vertex_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 		if (use_proj) {
 			const float mval[2] = {UNPACK2(event->mval)};
-			float no_dummy[3];
-			float dist_px_dummy;
-			snapObjectsContext(
-			        C, mval, SNAP_NOT_OBEDIT,
-			        location, no_dummy, &dist_px_dummy);
+
+			struct SnapObjectContext *snap_context = ED_transform_snap_object_context_create_view3d(
+			        CTX_data_main(C), vc.scene, 0,
+			        vc.ar, vc.v3d);
+
+			ED_transform_snap_object_project_view3d_mixed(
+			        snap_context,
+			        &(const struct SnapObjectParams){
+			            .snap_select = SNAP_NOT_OBEDIT,
+			            .snap_to_flag = SCE_SELECT_FACE,
+			        },
+			        mval, NULL, true,
+			        location, NULL);
+
+
+			ED_transform_snap_object_context_destroy(snap_context);
 		}
 
 		if ((cu->flag & CU_3D) == 0) {

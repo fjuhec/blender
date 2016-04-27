@@ -46,10 +46,14 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
+#include "PIL_time.h"
+
+#include "BKE_asset.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
+#include "BKE_library.h"
+#include "BKE_main.h"
 #include "BKE_report.h"
-#include "BKE_asset.h"
 
 #include "IMB_imbuf.h"
 
@@ -117,7 +121,7 @@ AssetEngineType *BKE_asset_engines_get_default(char *r_idname, const size_t len)
 
 /* Create, Free */
 
-AssetEngine *BKE_asset_engine_create(AssetEngineType *type)
+AssetEngine *BKE_asset_engine_create(AssetEngineType *type, ReportList *reports)
 {
 	AssetEngine *engine;
 
@@ -126,6 +130,15 @@ AssetEngine *BKE_asset_engine_create(AssetEngineType *type)
 	engine = MEM_callocN(sizeof(AssetEngine), __func__);
 	engine->type = type;
 	engine->refcount = 1;
+
+	/* initialize error reports */
+	if (reports) {
+		engine->reports = reports; /* must be initialized already */
+	}
+	else {
+		engine->reports = MEM_mallocN(sizeof(ReportList), __func__);
+		BKE_reports_init(engine->reports, RPT_STORE | RPT_FREE);
+	}
 
 	return engine;
 }
@@ -149,6 +162,11 @@ void BKE_asset_engine_free(AssetEngine *engine)
 		if (engine->properties) {
 			IDP_FreeProperty(engine->properties);
 			MEM_freeN(engine->properties);
+		}
+
+		if (engine->reports && (engine->reports->flag & RPT_FREE)) {
+			BKE_reports_clear(engine->reports);
+			MEM_freeN(engine->reports);
 		}
 
 		MEM_freeN(engine);
@@ -217,6 +235,99 @@ AssetUUIDList *BKE_asset_engine_load_pre(AssetEngine *engine, FileDirEntryArr *r
 	return uuids;
 }
 
+/* Note: this is a blocking version! We probably won't need it in the end. */
+void BKE_assets_update_check(Main *bmain)
+{
+	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
+		if (lib->asset_repository) {
+			printf("Handling lib file %s (engine %s, ver. %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
+
+			AssetUUIDList uuids = {0};
+			AssetUUID *uuid;
+			AssetEngineType *ae_type = BKE_asset_engines_find(lib->asset_repository->asset_engine);
+			AssetEngine *ae = NULL;
+
+			uuids.asset_engine_version = lib->asset_repository->asset_engine_version;
+
+			printf("Handling lib file %s (engine %s, ver. %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
+
+			if (ae_type == NULL) {
+				printf("ERROR! Unknown asset engine!\n");
+			}
+			else {
+				ae = BKE_asset_engine_create(ae_type, NULL);
+			}
+
+			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
+				for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
+					ID *id = ld->data;
+
+					if (ae_type == NULL) {
+						if (id->uuid) {
+							id->uuid->tag = UUID_TAG_ENGINE_MISSING;
+						}
+						continue;
+					}
+
+					if (id->uuid) {
+						printf("\tWe need to check for updated asset %s...\n", id->name);
+						id->uuid->tag = 0;
+
+						/* XXX horrible, need to use some mempool, stack or something :) */
+						uuids.nbr_uuids++;
+						if (uuids.uuids) {
+							uuids.uuids = MEM_reallocN_id(uuids.uuids, sizeof(*uuids.uuids) * (size_t)uuids.nbr_uuids, __func__);
+						}
+						else {
+							uuids.uuids = MEM_mallocN(sizeof(*uuids.uuids) * (size_t)uuids.nbr_uuids, __func__);
+						}
+						uuids.uuids[uuids.nbr_uuids - 1] = *id->uuid;
+					}
+					else {
+						printf("\t\tWe need to check for updated asset sub-data %s...\n", id->name);
+					}
+				}
+			}
+
+			if (ae == NULL) {
+				continue;  /* uuids.uuids has not been allocated either, we can skip to next lib safely. */
+			}
+
+			const int job_id = ae_type->update_check(ae, AE_JOB_ID_UNSET, &uuids);
+			if (job_id != AE_JOB_ID_INVALID) {
+				while (ae_type->status(ae, job_id) & AE_STATUS_RUNNING) PIL_sleep_ms(50);
+				ae_type->kill(ae, job_id);
+			}
+
+			/* Note: UUIDs list itself is not editable from py (adding/removing/reordering items), so we can use mere
+			 *       order to map returned uuid data to their IDs. */
+
+			uuid = uuids.uuids;
+			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
+				for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
+					ID *id = ld->data;
+					if (id->uuid) {
+						*id->uuid = *uuid;
+						uuid++;
+
+						if (id->uuid->tag & UUID_TAG_ENGINE_MISSING) {
+							printf("\t%s uses a currently unknown asset engine!\n", id->name);
+						}
+						else if (id->uuid->tag & UUID_TAG_ASSET_MISSING) {
+							printf("\t%s is currently unknown by asset engine!\n", id->name);
+						}
+						else if (id->uuid->tag & UUID_TAG_ASSET_RELOAD) {
+							printf("\t%s needs to be reloaded/updated!\n", id->name);
+						}
+					}
+				}
+			}
+
+			MEM_freeN(uuids.uuids);
+			BKE_asset_engine_free(ae);
+		}
+	}
+}
 
 /* FileDirxxx handling. */
 

@@ -441,6 +441,12 @@ class AssetEngineAmber(AssetEngine):
             self.tags.clear()
         return job_id
 
+    def update_check(self, job_id, uuids):
+        # do nothing for now, no need to use actual job...
+        for uuid in uuids.uuids:
+            uuid.use_asset_reload = True
+        return self.job_id_invalid
+
     def load_pre(self, uuids, entries):
         # Not quite sure this engine will need it in the end, but for sake of testing...
         if self.repo:
@@ -475,12 +481,6 @@ class AssetEngineAmber(AssetEngine):
         #~ entries.root_path = entries.root_path + "../"
         #~ print(entries.root_path)
         pass
-
-    def update_check(self, uuids):
-        # do nothing for now...
-        for uuid in uuids.uuids:
-            uuid.use_asset_reload = True
-        return True
 
     def sort_filter(self, use_sort, use_filter, params, entries):
 #        print(use_sort, use_filter)

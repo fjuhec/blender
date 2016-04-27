@@ -104,6 +104,10 @@ typedef struct Global {
 
 /* #define G_FACESELECT	(1 <<  8) use (mesh->editflag & ME_EDIT_PAINT_FACE_SEL) */
 
+#define G_ASSETS_NEED_RELOAD (1 << 10)
+#define G_ASSETS_FAIL (1 << 11)
+#define G_ASSETS_QUIET (1 << 12)
+
 #define G_SCRIPT_AUTOEXEC (1 << 13)
 #define G_SCRIPT_OVERRIDE_PREF (1 << 14) /* when this flag is set ignore the userprefs */
 #define G_SCRIPT_AUTOEXEC_FAIL (1 << 15)
