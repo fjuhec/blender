@@ -206,8 +206,6 @@ void BKE_asset_engine_free(AssetEngine *engine);
 
 AssetUUIDList *BKE_asset_engine_load_pre(AssetEngine *engine, struct FileDirEntryArr *r_entries);
 
-void BKE_assets_update_check(struct Main *bmain);
-
 /* File listing utils... */
 
 typedef enum FileCheckType {
