@@ -492,6 +492,8 @@ void RegularBVH::pack_unaligned_inner(const BVHStackEntry& e,
                                       const BVHStackEntry& e1)
 {
 	pack_unaligned_node(e.idx,
+	                    e0.node->is_unaligned(),
+	                    e1.node->is_unaligned(),
 	                    e0.node->m_aligned_space,
 	                    e1.node->m_aligned_space,
 	                    e0.node->m_bounds,
@@ -501,6 +503,8 @@ void RegularBVH::pack_unaligned_inner(const BVHStackEntry& e,
 }
 
 void RegularBVH::pack_unaligned_node(int idx,
+                                     const bool is_unaligned0,
+                                     const bool is_unaligned1,
                                      const Transform& aligned_space0,
                                      const Transform& aligned_space1,
                                      const BoundBox& bounds0,
@@ -508,17 +512,39 @@ void RegularBVH::pack_unaligned_node(int idx,
                                      int c0, int c1,
                                      uint visibility0, uint visibility1)
 {
-	Transform space0 = BVHUnaligned::compute_node_transform(bounds0,
-	                                                        aligned_space0);
-	Transform space1 = BVHUnaligned::compute_node_transform(bounds1,
-	                                                        aligned_space1);
-	float4 data[BVH_UNALIGNED_NODE_SIZE] =
-	{
-		space0.x, space0.y, space0.z, space0.w,
-		space1.x, space1.y, space1.z, space1.w,
-		make_float4(__int_as_float(c0), __int_as_float(c1),
-		            __int_as_float(visibility0), __int_as_float(visibility1))
-	};
+	float4 data[BVH_UNALIGNED_NODE_SIZE];
+	if (is_unaligned0 || is_unaligned1) {
+		Transform space0 = BVHUnaligned::compute_node_transform(bounds0,
+		                                                        aligned_space0);
+		Transform space1 = BVHUnaligned::compute_node_transform(bounds1,
+		                                                        aligned_space1);
+		data[0] = space0.x;
+		data[1] = space0.y;
+		data[2] = space0.z;
+		data[3] = space0.w;
+		data[4] = space1.x;
+		data[5] = space1.y;
+		data[6] = space1.z;
+		data[7] = space1.w;
+	}
+	else {
+		data[0] = make_float4(bounds0.min.x, bounds1.min.x,
+		                      bounds0.max.x, bounds1.max.x);
+		data[1] = make_float4(bounds0.min.y, bounds1.min.y,
+		                      bounds0.max.y, bounds1.max.y);
+		data[2] = make_float4(bounds0.min.z, bounds1.min.z,
+		                      bounds0.max.z, bounds1.max.z);
+		data[3] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+		data[4] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+		data[5] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+		data[6] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+		data[7] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+	}
+
+	data[8] = make_float4(__int_as_float(c0),
+	                      __int_as_float(c1),
+	                      __int_as_float(visibility0),
+	                      __int_as_float(visibility1));
 
 	memcpy(&pack.nodes[idx * BVH_UNALIGNED_NODE_SIZE],
 	       data,

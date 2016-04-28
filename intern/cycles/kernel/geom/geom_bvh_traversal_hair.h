@@ -68,6 +68,26 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 	Transform ob_itfm;
 #endif
 
+#if defined(__KERNEL_SSE2__)
+	ssef tnear(0.0f), tfar(ray->t);
+
+	const shuffle_swap_t shuf_identity = shuffle_swap_identity();
+	const shuffle_swap_t shuf_swap = shuffle_swap_swap();
+
+	const ssef pn = cast(ssei(0, 0, 0x80000000, 0x80000000));
+	ssef Psplat[3], idirsplat[3];
+	shuffle_swap_t shufflexyz[3];
+
+	Psplat[0] = ssef(P.x);
+	Psplat[1] = ssef(P.y);
+	Psplat[2] = ssef(P.z);
+
+	ssef tsplat(0.0f, 0.0f, -isect->t, -isect->t);
+
+	gen_idirsplat_swap(pn, shuf_identity, shuf_swap, idir, idirsplat, shufflexyz);
+
+#endif
+
 	/* traversal loop */
 	do {
 		do {
@@ -78,7 +98,16 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				int mask = bvh_hair_intersect_node(kg,
 				                                   P,
 				                                   dir,
+#if defined(__KERNEL_SSE2__)
+				                                   tnear,
+				                                   tfar,
+				                                   tsplat,
+				                                   Psplat,
+				                                   idirsplat,
+				                                   shufflexyz,
+#else
 				                                   isect->t,
+#endif
 #if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
 				                                   difl,
 				                                   extmax,
@@ -152,6 +181,10 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 									/* shadow ray early termination */
 									if(visibility == PATH_RAY_SHADOW_OPAQUE)
 										return true;
+#if defined(__KERNEL_SSE2__)
+									tfar = ssef(isect->t);
+									tsplat = ssef(0.0f, 0.0f, -isect->t, -isect->t);
+#endif
 								}
 							}
 							break;
@@ -168,6 +201,16 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #  else
 					bvh_instance_push(kg, object, ray, &P, &dir, &idir, &isect->t);
 #  endif
+#if defined(__KERNEL_SSE2__)
+					Psplat[0] = ssef(P.x);
+					Psplat[1] = ssef(P.y);
+					Psplat[2] = ssef(P.z);
+
+					tfar = ssef(isect->t);
+					tsplat = ssef(0.0f, 0.0f, -isect->t, -isect->t);
+
+					gen_idirsplat_swap(pn, shuf_identity, shuf_swap, idir, idirsplat, shufflexyz);
+#endif
 
 					++stackPtr;
 					kernel_assert(stackPtr < BVH_STACK_SIZE);
@@ -193,6 +236,16 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #  else
 			bvh_instance_pop(kg, object, ray, &P, &dir, &idir, &isect->t);
 #  endif
+#if defined(__KERNEL_SSE2__)
+			Psplat[0] = ssef(P.x);
+			Psplat[1] = ssef(P.y);
+			Psplat[2] = ssef(P.z);
+
+			tfar = ssef(isect->t);
+			tsplat = ssef(0.0f, 0.0f, -isect->t, -isect->t);
+
+			gen_idirsplat_swap(pn, shuf_identity, shuf_swap, idir, idirsplat, shufflexyz);
+#endif
 
 			object = OBJECT_NONE;
 			nodeAddr = traversalStack[stackPtr];

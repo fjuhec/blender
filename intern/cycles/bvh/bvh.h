@@ -135,6 +135,8 @@ protected:
 	                          const BVHStackEntry& e0,
 	                          const BVHStackEntry& e1);
 	void pack_unaligned_node(int idx,
+	                         const bool is_unaligned0,
+	                         const bool is_unaligned1,
 	                         const Transform& aligned_space0,
 	                         const Transform& aligned_space1,
 	                         const BoundBox& b0,
