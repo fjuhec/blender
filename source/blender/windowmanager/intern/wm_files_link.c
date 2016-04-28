@@ -962,6 +962,98 @@ enum {
 	AUCJ_ENSURE_ASSETS = 1 << 0,  /* Try to perform the 'ensure' task too. */
 };
 
+/* Helper to fetch a set of assets to handle, regrouped by asset engine. */
+static void asset_update_engines_uuids_fetch(
+        ListBase *engines,
+        Main *bmain, AssetUUIDList *uuids, const short uuid_tags,
+        const bool do_reset_tags)
+{
+	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
+		if (lib->asset_repository) {
+			printf("Checking lib file %s (engine %s, ver. %d)\n", lib->filepath,
+			       lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
+
+			AssetUpdateCheckEngine *auce = NULL;
+			AssetEngineType *ae_type = BKE_asset_engines_find(lib->asset_repository->asset_engine);
+			bool copy_engine = false;
+
+			if (ae_type == NULL) {
+				printf("ERROR! Unknown asset engine!\n");
+			}
+
+			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
+				ID *id = ((LinkData *)aref->id_list.first)->data;
+				BLI_assert(id->uuid);
+
+				if (uuid_tags && !(id->uuid->tag & uuid_tags)) {
+					continue;
+				}
+
+				if (uuids) {
+					int i = uuids->nbr_uuids;
+					bool skip = true;
+					for (AssetUUID *uuid = uuids->uuids; i--; uuid++) {
+						if (ASSETUUID_COMPARE(id->uuid, uuid)) {
+							skip = false;
+							break;
+						}
+					}
+					if (skip) {
+						continue;
+					}
+				}
+
+				if (ae_type == NULL) {
+					if (do_reset_tags) {
+						id->uuid->tag = UUID_TAG_ENGINE_MISSING;
+					}
+					else {
+						id->uuid->tag |= UUID_TAG_ENGINE_MISSING;
+					}
+					G.f |= G_ASSETS_FAIL;
+					continue;
+				}
+
+				if (auce == NULL) {
+					for (auce = engines->first; auce; auce = auce->next) {
+						if (auce->ae->type == ae_type) {
+							/* In case we have several engine versions for the same engine, we create several
+							 * AssetUpdateCheckEngine structs (since an uuid list can only handle one ae version), using
+							 * the same (shallow) copy of the actual asset engine. */
+							copy_engine = (auce->uuids.asset_engine_version != lib->asset_repository->asset_engine_version);
+							break;
+						}
+					}
+					if (copy_engine || auce == NULL) {
+						AssetUpdateCheckEngine *auce_prev = auce;
+						auce = MEM_callocN(sizeof(*auce), __func__);
+						auce->ae = copy_engine ? BKE_asset_engine_copy(auce_prev->ae) :
+						                         BKE_asset_engine_create(ae_type, NULL);
+						auce->ae_job_id = AE_JOB_ID_UNSET;
+						auce->uuids.asset_engine_version = lib->asset_repository->asset_engine_version;
+						BLI_addtail(engines, auce);
+					}
+				}
+
+				printf("\tWe need to check for updated asset %s...\n", id->name);
+				if (do_reset_tags) {
+					id->uuid->tag = (id->tag & LIB_TAG_MISSING) ? UUID_TAG_ASSET_MISSING : 0;
+				}
+
+				/* XXX horrible, need to use some mempool, stack or something :) */
+				auce->uuids.nbr_uuids++;
+				if (auce->uuids.uuids) {
+					auce->uuids.uuids = MEM_reallocN_id(auce->uuids.uuids, sizeof(*auce->uuids.uuids) * (size_t)auce->uuids.nbr_uuids, __func__);
+				}
+				else {
+					auce->uuids.uuids = MEM_mallocN(sizeof(*auce->uuids.uuids) * (size_t)auce->uuids.nbr_uuids, __func__);
+				}
+				auce->uuids.uuids[auce->uuids.nbr_uuids - 1] = *id->uuid;
+			}
+		}
+	}
+}
+
 static void asset_updatecheck_startjob(void *aucjv, short *stop, short *do_update, float *progress)
 {
 	AssetUpdateCheckJob *aucj = aucjv;
@@ -1024,28 +1116,25 @@ static void asset_updatecheck_update(void *aucjv)
 
 					int i = auce->uuids.nbr_uuids;
 					for (AssetUUID *uuid = auce->uuids.uuids; i--; uuid++) {
-						bool done = false;
-						for (AssetRef *aref = lib->asset_repository->assets.first; aref && !done; aref = aref->next) {
-							for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
-								ID *id = ld->data;
-								if (id->uuid && ASSETUUID_COMPARE(id->uuid, uuid)) {
-									*id->uuid = *uuid;
+						for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
+							ID *id = ((LinkData *)aref->id_list.first)->data;
+							BLI_assert(id->uuid);
+							if (ASSETUUID_COMPARE(id->uuid, uuid)) {
+								*id->uuid = *uuid;
 
-									if (id->uuid->tag & UUID_TAG_ENGINE_MISSING) {
-										G.f |= G_ASSETS_FAIL;
-										printf("\t%s uses a currently unknown asset engine!\n", id->name);
-									}
-									else if (id->uuid->tag & UUID_TAG_ASSET_MISSING) {
-										G.f |= G_ASSETS_FAIL;
-										printf("\t%s is currently unknown by asset engine!\n", id->name);
-									}
-									else if (id->uuid->tag & UUID_TAG_ASSET_RELOAD) {
-										G.f |= G_ASSETS_NEED_RELOAD;
-										printf("\t%s needs to be reloaded/updated!\n", id->name);
-									}
-									done = true;
-									break;
+								if (id->uuid->tag & UUID_TAG_ENGINE_MISSING) {
+									G.f |= G_ASSETS_FAIL;
+									printf("\t%s uses a currently unknown asset engine!\n", id->name);
 								}
+								else if (id->uuid->tag & UUID_TAG_ASSET_MISSING) {
+									G.f |= G_ASSETS_FAIL;
+									printf("\t%s is currently unknown by asset engine!\n", id->name);
+								}
+								else if (id->uuid->tag & UUID_TAG_ASSET_RELOAD) {
+									G.f |= G_ASSETS_NEED_RELOAD;
+									printf("\t%s needs to be reloaded/updated!\n", id->name);
+								}
+								break;
 							}
 						}
 					}
@@ -1113,71 +1202,16 @@ static void asset_updatecheck_start(const bContext *C)
 	/* prepare job data */
 	aucj = MEM_callocN(sizeof(*aucj), __func__);
 
-	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
-		if (lib->asset_repository) {
-			printf("Handling lib file %s (engine %s, ver. %d)\n", lib->filepath, lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
-
-			AssetUpdateCheckEngine *auce = NULL;
-			AssetEngineType *ae_type = BKE_asset_engines_find(lib->asset_repository->asset_engine);
-			bool copy_engine = false;
-
-			if (ae_type == NULL) {
-				printf("ERROR! Unknown asset engine!\n");
-			}
-			else {
-				for (auce = aucj->engines.first; auce; auce = auce->next) {
-					if (auce->ae->type == ae_type) {
-						/* In case we have several engine versions for the same engine, we create several
-						 * AssetUpdateCheckEngine structs (since an uuid list can only handle one ae version), using
-						 * the same (shallow) copy of the actual asset engine. */
-						copy_engine = (auce->uuids.asset_engine_version != lib->asset_repository->asset_engine_version);
-						break;
-					}
-				}
-				if (copy_engine || auce == NULL) {
-					AssetUpdateCheckEngine *auce_prev = auce;
-					auce = MEM_callocN(sizeof(*auce), __func__);
-					auce->ae = copy_engine ? BKE_asset_engine_copy(auce_prev->ae) : BKE_asset_engine_create(ae_type, NULL);
-					auce->ae_job_id = AE_JOB_ID_UNSET;
-					auce->uuids.asset_engine_version = lib->asset_repository->asset_engine_version;
-					BLI_addtail(&aucj->engines, auce);
-				}
-			}
-
-			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
-				for (LinkData *ld = aref->id_list.first; ld; ld = ld->next) {
-					ID *id = ld->data;
-
-					if (ae_type == NULL) {
-						if (id->uuid) {
-							id->uuid->tag = UUID_TAG_ENGINE_MISSING;
-							G.f |= G_ASSETS_FAIL;
-						}
-						continue;
-					}
-
-					if (id->uuid) {
-						printf("\tWe need to check for updated asset %s...\n", id->name);
-						id->uuid->tag = (id->tag & LIB_TAG_MISSING) ? UUID_TAG_ASSET_MISSING : 0;
-
-						/* XXX horrible, need to use some mempool, stack or something :) */
-						auce->uuids.nbr_uuids++;
-						if (auce->uuids.uuids) {
-							auce->uuids.uuids = MEM_reallocN_id(auce->uuids.uuids, sizeof(*auce->uuids.uuids) * (size_t)auce->uuids.nbr_uuids, __func__);
-						}
-						else {
-							auce->uuids.uuids = MEM_mallocN(sizeof(*auce->uuids.uuids) * (size_t)auce->uuids.nbr_uuids, __func__);
-						}
-						auce->uuids.uuids[auce->uuids.nbr_uuids - 1] = *id->uuid;
-					}
-					else {
-						printf("\t\tWe need to check for updated asset sub-data %s...\n", id->name);
-					}
-				}
-			}
-		}
-	}
 	G.f &= ~(G_ASSETS_FAIL | G_ASSETS_NEED_RELOAD | G_ASSETS_QUIET);
+
+	/* Get all assets' uuids, grouped by asset engine/versions - and with cleared status tags. */
+	asset_update_engines_uuids_fetch(&aucj->engines, bmain, NULL, 0, true);
+
+	/* Early out if there is nothing to do! */
+	if (BLI_listbase_is_empty(&aucj->engines)) {
+		asset_updatecheck_free(aucj);
+		return;
+	}
 
 	/* setup job */
 	wm_job = WM_jobs_get(CTX_wm_manager(C), CTX_wm_window(C), CTX_wm_area(C), "Checking for asset updates...",
@@ -1193,7 +1227,6 @@ static void asset_updatecheck_start(const bContext *C)
 
 static int wm_assets_update_check_exec(bContext *C, wmOperator *UNUSED(op))
 {
-//	BKE_assets_update_check(CTX_data_main(C));
 	asset_updatecheck_start(C);
 
 	return OPERATOR_FINISHED;
