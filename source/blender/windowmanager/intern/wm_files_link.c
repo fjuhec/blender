@@ -1261,8 +1261,21 @@ static int wm_assets_reload_exec(bContext *C, wmOperator *op)
 	asset_update_engines_uuids_fetch(&engines, bmain, NULL, UUID_TAG_ASSET_RELOAD, false);
 
 	for (AssetUpdateCheckEngine *auce = engines.first; auce; auce = auce->next) {
+		FileDirEntryArr *paths = BKE_asset_engine_uuids_load_pre(auce->ae, &auce->uuids);
+
+		printf("Engine %s (ver. %d) returned root path '%s'\n", auce->ae->type->name, auce->ae->type->version, paths->root);
+		for (FileDirEntry *en = paths->entries.first; en; en = en->next) {
+			printf("\t-> %s\n", en->relpath);
+		}
+
+		BKE_filedir_entryarr_clear(paths);
+		MEM_freeN(paths);
+	}
+
+	/* Cleanup. */
+	for (AssetUpdateCheckEngine *auce = engines.first; auce; auce = auce->next) {
 		BKE_asset_engine_free(auce->ae);
-		MEM_freeN(auce->uuids.uuids);
+		MEM_SAFE_FREE(auce->uuids.uuids);
 	}
 	BLI_freelistN(&engines);
 

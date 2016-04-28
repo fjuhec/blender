@@ -208,6 +208,7 @@ static void asset_engine_load_pre(AssetEngine *engine, AssetUUIDList *r_uuids, F
 		BKE_filedir_entryarr_clear(r_entries);
 
 		MEM_freeN(r_uuids->uuids);
+		r_uuids->uuids = NULL;
 		r_uuids->nbr_uuids = 0;
 		return;
 	}
