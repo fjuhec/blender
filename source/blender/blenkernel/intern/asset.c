@@ -176,63 +176,79 @@ void BKE_asset_engine_free(AssetEngine *engine)
 
 /* API helpers. */
 
-AssetUUIDList *BKE_asset_engine_load_pre(AssetEngine *engine, FileDirEntryArr *r_entries)
+static void asset_engine_load_pre(AssetEngine *engine, AssetUUIDList *r_uuids, FileDirEntryArr *r_entries)
 {
-	AssetUUIDList *uuids = MEM_mallocN(sizeof(*uuids), __func__);
 	FileDirEntry *en;
-	const int nbr_entries = r_entries->nbr_entries;
-	int i;
+	AssetUUID *uuid;
+	const int nbr_entries = r_entries->nbr_entries ? r_entries->nbr_entries : r_uuids->nbr_uuids;
 
-	uuids->uuids = MEM_mallocN(sizeof(*uuids->uuids) * nbr_entries, __func__);
-	uuids->nbr_uuids = nbr_entries;
-	uuids->asset_engine_version = engine->type->version;
+	if (r_entries->nbr_entries) {
+		BLI_assert(r_uuids->uuids == NULL);
+		r_uuids->uuids = MEM_mallocN(sizeof(*r_uuids->uuids) * nbr_entries, __func__);
+		r_uuids->nbr_uuids = nbr_entries;
+		r_uuids->asset_engine_version = engine->type->version;
 
-	for (i = 0, en = r_entries->entries.first; en; i++, en = en->next) {
-		FileDirEntryVariant *var = BLI_findlink(&en->variants, en->act_variant);
-		AssetUUID *uuid = &uuids->uuids[i];
-
-		memcpy(uuid->uuid_asset, en->uuid, sizeof(uuid->uuid_asset));
-
-		BLI_assert(var);
-		memcpy(uuid->uuid_variant, var->uuid, sizeof(uuid->uuid_variant));
-
-		memcpy(uuid->uuid_revision, en->entry->uuid, sizeof(uuid->uuid_revision));
-	}
-
-	if (engine->type->load_pre) {
-		BKE_filedir_entryarr_clear(r_entries);
-
-		if (!engine->type->load_pre(engine, uuids, r_entries)) {
-			/* If load_pre returns false (i.e. fails), clear all paths! */
-			/* TODO: report!!! */
-			BKE_filedir_entryarr_clear(r_entries);
-
-			MEM_freeN(uuids->uuids);
-			MEM_freeN(uuids);
-			return NULL;
-		}
-
-		/* load_pre may change things, we have to rebuild our uuids list from returned entries. */
-		r_entries->nbr_entries = uuids->nbr_uuids = BLI_listbase_count(&r_entries->entries);
-		uuids->uuids = MEM_reallocN(uuids->uuids, sizeof(*uuids->uuids) * uuids->nbr_uuids);
-		for (i = 0, en = r_entries->entries.first; en; i++, en = en->next) {
-			FileDirEntryVariant *var;
-			FileDirEntryRevision *rev;
-			AssetUUID *uuid = &uuids->uuids[i];
+		for (en = r_entries->entries.first, uuid = r_uuids->uuids; en; en = en->next, uuid++) {
+			FileDirEntryVariant *var = BLI_findlink(&en->variants, en->act_variant);
 
 			memcpy(uuid->uuid_asset, en->uuid, sizeof(uuid->uuid_asset));
 
-			var = BLI_findlink(&en->variants, en->act_variant);
 			BLI_assert(var);
 			memcpy(uuid->uuid_variant, var->uuid, sizeof(uuid->uuid_variant));
 
-			rev = BLI_findlink(&var->revisions, var->act_revision);
-			BLI_assert(rev);
-			memcpy(uuid->uuid_revision, rev->uuid, sizeof(uuid->uuid_revision));
+			memcpy(uuid->uuid_revision, en->entry->uuid, sizeof(uuid->uuid_revision));
 		}
 	}
 
+	BKE_filedir_entryarr_clear(r_entries);
+
+	if (!engine->type->load_pre(engine, r_uuids, r_entries)) {
+		/* If load_pre returns false (i.e. fails), clear all paths! */
+		/* TODO: report!!! */
+		BKE_filedir_entryarr_clear(r_entries);
+
+		MEM_freeN(r_uuids->uuids);
+		r_uuids->nbr_uuids = 0;
+		return;
+	}
+
+	/* load_pre may change things, we have to rebuild our uuids list from returned entries. */
+	r_entries->nbr_entries = r_uuids->nbr_uuids = BLI_listbase_count(&r_entries->entries);
+	r_uuids->uuids = MEM_reallocN(r_uuids->uuids, sizeof(*r_uuids->uuids) * r_uuids->nbr_uuids);
+	for (en = r_entries->entries.first, uuid = r_uuids->uuids; en; en = en->next, uuid++) {
+		FileDirEntryVariant *var;
+		FileDirEntryRevision *rev;
+
+		memcpy(uuid->uuid_asset, en->uuid, sizeof(uuid->uuid_asset));
+
+		var = BLI_findlink(&en->variants, en->act_variant);
+		BLI_assert(var);
+		memcpy(uuid->uuid_variant, var->uuid, sizeof(uuid->uuid_variant));
+
+		rev = BLI_findlink(&var->revisions, var->act_revision);
+		BLI_assert(rev);
+		memcpy(uuid->uuid_revision, rev->uuid, sizeof(uuid->uuid_revision));
+	}
+}
+
+/** Call load_pre for given entries, and return new uuids/entries. */
+AssetUUIDList *BKE_asset_engine_entries_load_pre(AssetEngine *engine, FileDirEntryArr *r_entries)
+{
+	AssetUUIDList *uuids = MEM_callocN(sizeof(*uuids), __func__);
+
+	asset_engine_load_pre(engine, uuids, r_entries);
+
 	return uuids;
+}
+
+/** Call load_pre for given uuids, and return new uuids/entries. */
+FileDirEntryArr *BKE_asset_engine_uuids_load_pre(AssetEngine *engine, AssetUUIDList *r_uuids)
+{
+	FileDirEntryArr *entries = MEM_callocN(sizeof(*entries), __func__);
+
+	asset_engine_load_pre(engine, r_uuids, entries);
+
+	return entries;
 }
 
 /* FileDirxxx handling. */
