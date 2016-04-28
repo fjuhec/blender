@@ -204,7 +204,8 @@ AssetEngine *BKE_asset_engine_create(AssetEngineType *type, struct ReportList *r
 AssetEngine *BKE_asset_engine_copy(AssetEngine *engine);
 void BKE_asset_engine_free(AssetEngine *engine);
 
-AssetUUIDList *BKE_asset_engine_load_pre(AssetEngine *engine, struct FileDirEntryArr *r_entries);
+struct AssetUUIDList *BKE_asset_engine_entries_load_pre(AssetEngine *engine, struct FileDirEntryArr *r_entries);
+struct FileDirEntryArr *BKE_asset_engine_uuids_load_pre(AssetEngine *engine, struct AssetUUIDList *r_uuids);
 
 /* File listing utils... */
 

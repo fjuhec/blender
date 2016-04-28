@@ -2353,7 +2353,7 @@ FileDirEntryArr *filelist_selection_get(
 
 	if (use_ae && filelist->ae) {
 		/* This will 'rewrite' selection list, returned paths are expected to be valid! */
-		*r_uuids = BKE_asset_engine_load_pre(filelist->ae, selection);
+		*r_uuids = BKE_asset_engine_entries_load_pre(filelist->ae, selection);
 	}
 	else {
 		*r_uuids = NULL;
