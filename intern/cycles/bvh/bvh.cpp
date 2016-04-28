@@ -367,7 +367,7 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 			 */
 			size_t nsize_bbox = (use_qbvh)? 6: 3;
 			if(params.use_unaligned_nodes) {
-				nsize_bbox = 4;
+				nsize_bbox = 8;
 			}
 			int4 *bvh_nodes = &bvh->pack.nodes[0];
 			size_t bvh_nodes_size = bvh->pack.nodes.size(); 
@@ -465,18 +465,7 @@ void RegularBVH::pack_node(int idx,
 void RegularBVH::pack_unaligned_leaf(const BVHStackEntry& e,
                                      const LeafNode *leaf)
 {
-	const Transform& aligned_space = e.node->m_aligned_space;
-	const BoundBox& bounds = e.node->m_bounds;
-	Transform space = BVHUnaligned::compute_node_transform(bounds,
-	                                                       aligned_space);
-	float4 data[BVH_UNALIGNED_NODE_LEAF_SIZE] =
-	{
-		make_float4(0.0f, 0.0f, 0.0f, 0.0f),
-		space.x,
-		space.y,
-		space.z,
-		space.w,
-	};
+	float4 data[BVH_UNALIGNED_NODE_LEAF_SIZE];
 
 	if(leaf->num_triangles() == 1 && pack.prim_index[leaf->m_lo] == -1) {
 		/* Object. */
@@ -503,32 +492,37 @@ void RegularBVH::pack_unaligned_inner(const BVHStackEntry& e,
                                       const BVHStackEntry& e1)
 {
 	pack_unaligned_node(e.idx,
-	                    e.node->m_aligned_space,
-	                    e.node->m_bounds,
+	                    e0.node->m_aligned_space,
+	                    e1.node->m_aligned_space,
+	                    e0.node->m_bounds,
+	                    e1.node->m_bounds,
 	                    e0.encodeIdx(), e1.encodeIdx(),
 	                    e0.node->m_visibility, e1.node->m_visibility);
 }
 
 void RegularBVH::pack_unaligned_node(int idx,
-                                     const Transform& aligned_space,
-                                     const BoundBox& bounds,
+                                     const Transform& aligned_space0,
+                                     const Transform& aligned_space1,
+                                     const BoundBox& bounds0,
+                                     const BoundBox& bounds1,
                                      int c0, int c1,
                                      uint visibility0, uint visibility1)
 {
-	Transform space = BVHUnaligned::compute_node_transform(bounds,
-	                                                       aligned_space);
-	int4 data[BVH_UNALIGNED_NODE_SIZE] =
+	Transform space0 = BVHUnaligned::compute_node_transform(bounds0,
+	                                                        aligned_space0);
+	Transform space1 = BVHUnaligned::compute_node_transform(bounds1,
+	                                                        aligned_space1);
+	float4 data[BVH_UNALIGNED_NODE_SIZE] =
 	{
-		make_int4(__float_as_int(space.x.x), __float_as_int(space.x.y), __float_as_int(space.x.z), __float_as_int(space.x.w)),
-		make_int4(__float_as_int(space.y.x), __float_as_int(space.y.y), __float_as_int(space.y.z), __float_as_int(space.y.w)),
-		make_int4(__float_as_int(space.z.x), __float_as_int(space.z.y), __float_as_int(space.z.z), __float_as_int(space.z.w)),
-		make_int4(__float_as_int(space.w.x), __float_as_int(space.w.y), __float_as_int(space.w.z), __float_as_int(space.w.w)),
-		make_int4(c0, c1, visibility0, visibility1)
+		space0.x, space0.y, space0.z, space0.w,
+		space1.x, space1.y, space1.z, space1.w,
+		make_float4(__int_as_float(c0), __int_as_float(c1),
+		            __int_as_float(visibility0), __int_as_float(visibility1))
 	};
 
 	memcpy(&pack.nodes[idx * BVH_UNALIGNED_NODE_SIZE],
 	       data,
-	       sizeof(int4)*BVH_UNALIGNED_NODE_SIZE);
+	       sizeof(float4)*BVH_UNALIGNED_NODE_SIZE);
 }
 
 void RegularBVH::pack_nodes(const BVHNode *root)
@@ -542,7 +536,7 @@ void RegularBVH::pack_nodes(const BVHNode *root)
 
 	/* for top level BVH, first merge existing BVH's so we know the offsets */
 	const int nsize = params.use_unaligned_nodes? BVH_UNALIGNED_NODE_SIZE: BVH_NODE_SIZE;
-	const int nsize_leaf = params.use_unaligned_nodes? BVH_UNALIGNED_NODE_SIZE: BVH_NODE_LEAF_SIZE;
+	const int nsize_leaf = params.use_unaligned_nodes? BVH_UNALIGNED_NODE_LEAF_SIZE: BVH_NODE_LEAF_SIZE;
 	if(params.top_level) {
 		pack_instances(node_size*nsize, leaf_node_size*nsize_leaf);
 	}

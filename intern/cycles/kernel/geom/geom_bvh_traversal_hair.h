@@ -73,7 +73,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 		do {
 			/* traverse internal nodes */
 			while(nodeAddr >= 0 && nodeAddr != ENTRYPOINT_SENTINEL) {
-				float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+4);
+				float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+8);
 				float dist[2];
 				int mask = bvh_hair_intersect_node(kg,
 				                                   P,

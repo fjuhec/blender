@@ -39,8 +39,8 @@ class Progress;
 #define BVH_QNODE_LEAF_SIZE	1
 #define BVH_ALIGN		4096
 #define TRI_NODE_SIZE	3
-#define BVH_UNALIGNED_NODE_SIZE 5
-#define BVH_UNALIGNED_NODE_LEAF_SIZE 5
+#define BVH_UNALIGNED_NODE_SIZE 9
+#define BVH_UNALIGNED_NODE_LEAF_SIZE 1
 
 /* Packed BVH
  *
@@ -135,8 +135,10 @@ protected:
 	                          const BVHStackEntry& e0,
 	                          const BVHStackEntry& e1);
 	void pack_unaligned_node(int idx,
-	                         const Transform& aligned_space,
-	                         const BoundBox& bounds,
+	                         const Transform& aligned_space0,
+	                         const Transform& aligned_space1,
+	                         const BoundBox& b0,
+	                         const BoundBox& b1,
 	                         int c0, int c1,
 	                         uint visibility0, uint visibility1);
 

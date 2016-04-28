@@ -15,35 +15,36 @@
  */
 
 ccl_device_inline Transform bvh_hair_fetch_aligned_space(KernelGlobals *kg,
-                                                         int nodeAddr)
+                                                         int nodeAddr,
+                                                         int child)
 {
 	Transform aligned_space;
-	if(nodeAddr >= 0) {
+	if(child == 0) {
 		aligned_space.x = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+0);
 		aligned_space.y = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+1);
 		aligned_space.z = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+2);
 		aligned_space.w = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+3);
 	}
 	else {
-		int leafAddr = -nodeAddr-1;
-		aligned_space.x = kernel_tex_fetch(__bvh_curve_leaf_nodes, leafAddr*BVH_UNALIGNED_NODE_LEAF_SIZE+1);
-		aligned_space.y = kernel_tex_fetch(__bvh_curve_leaf_nodes, leafAddr*BVH_UNALIGNED_NODE_LEAF_SIZE+2);
-		aligned_space.z = kernel_tex_fetch(__bvh_curve_leaf_nodes, leafAddr*BVH_UNALIGNED_NODE_LEAF_SIZE+3);
-		aligned_space.w = kernel_tex_fetch(__bvh_curve_leaf_nodes, leafAddr*BVH_UNALIGNED_NODE_LEAF_SIZE+4);
+		aligned_space.x = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+4);
+		aligned_space.y = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+5);
+		aligned_space.z = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+6);
+		aligned_space.w = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+7);
 	}
 	return aligned_space;
 }
 
-ccl_device_inline bool bvh_hair_intersect_single_node(KernelGlobals *kg,
-                                                      const float3 P,
-                                                      const float3 dir,
-                                                      const float t,
-                                                      const float difl,
-                                                      const float extmax,
-                                                      int nodeAddr,
-                                                      float *dist)
+ccl_device_inline bool bvh_hair_intersect_child(KernelGlobals *kg,
+                                                const float3 P,
+                                                const float3 dir,
+                                                const float t,
+                                                const float difl,
+                                                const float extmax,
+                                                int nodeAddr,
+                                                int child,
+                                                float *dist)
 {
-	Transform aligned_space  = bvh_hair_fetch_aligned_space(kg, nodeAddr);
+	Transform aligned_space  = bvh_hair_fetch_aligned_space(kg, nodeAddr, child);
 	float3 aligned_dir = transform_direction(&aligned_space, dir);
 	float3 aligned_P = transform_point(&aligned_space, P);
 	float3 nrdir = -1.0f * bvh_inverse_direction(aligned_dir);
@@ -85,20 +86,11 @@ int ccl_device bvh_hair_intersect_node(KernelGlobals *kg,
                                        float dist[2])
 {
 	int mask = 0;
-	if(bvh_hair_intersect_single_node(kg, P, dir, t, difl, extmax, nodeAddr, NULL)) {
-		float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+4);
-		int nodeAddrChild0 = __float_as_int(cnodes.x);
-		int nodeAddrChild1 = __float_as_int(cnodes.y);
-		if(bvh_hair_intersect_single_node(kg, P, dir, t, difl, extmax, nodeAddrChild0, &dist[0])) {
-			if(__float_as_uint(cnodes.z) & visibility) {
-				mask |= 1;
-			}
-		}
-		if(bvh_hair_intersect_single_node(kg, P, dir, t, difl, extmax, nodeAddrChild1, &dist[1])) {
-			if(__float_as_uint(cnodes.w) & visibility) {
-				mask |= 2;
-			}
-		}
+	if(bvh_hair_intersect_child(kg, P, dir, t, difl, extmax, nodeAddr, 0, &dist[0])) {
+		mask |= 1;
+	}
+	if(bvh_hair_intersect_child(kg, P, dir, t, difl, extmax, nodeAddr, 1, &dist[1])) {
+		mask |= 2;
 	}
 	return mask;
 }
