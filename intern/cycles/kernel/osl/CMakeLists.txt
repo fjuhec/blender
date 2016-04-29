@@ -23,6 +23,7 @@ set(SRC
 	osl_services.cpp
 	osl_shader.cpp
 	bsdf_disney_diffuse.cpp
+	bsdf_disney_specular.cpp
 )
 
 set(HEADER_SRC
