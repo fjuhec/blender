@@ -143,12 +143,21 @@ int ccl_device bvh_hair_intersect_node_unaligned(KernelGlobals *kg,
 	const ssef tNear = max4(tnear_x, tnear_y, tnear_z, tnear);
 	const ssef tFar = min4(tfar_x, tfar_y, tfar_z, tfar);
 	const sseb vmask = tNear <= tFar;
-	int mask = (int)movemask(vmask);
 
 	dist[0] = tNear.f[0];
 	dist[1] = tNear.f[1];
 
+	int mask = (int)movemask(vmask);
+
+#  ifdef __VISIBILITY_FLAG__
+	/* this visibility test gives a 5% performance hit, how to solve? */
+	float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+8);
+	int cmask = (((mask & 1) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
+	            (((mask & 2) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
+	return cmask;
+#  else
 	return mask & 3;
+#  endif
 }
 
 int ccl_device_inline bvh_hair_intersect_node_aligned(KernelGlobals *kg,
@@ -180,12 +189,20 @@ int ccl_device_inline bvh_hair_intersect_node_aligned(KernelGlobals *kg,
 	const ssef tminmax = minmax ^ pn;
 	const sseb lrhit = tminmax <= shuffle<2, 3, 0, 1>(tminmax);
 
-	int mask = movemask(lrhit);
-
 	dist[0] = tminmax[0];
 	dist[1] = tminmax[1];
 
+	int mask = movemask(lrhit);
+
+#  ifdef __VISIBILITY_FLAG__
+	/* this visibility test gives a 5% performance hit, how to solve? */
+	float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+8);
+	int cmask = (((mask & 1) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
+	            (((mask & 2) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
+	return cmask;
+#  else
 	return mask & 3;
+#  endif
 }
 
 int ccl_device_inline bvh_hair_intersect_node(KernelGlobals *kg,
