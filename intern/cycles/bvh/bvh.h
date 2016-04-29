@@ -39,8 +39,11 @@ class Progress;
 #define BVH_QNODE_LEAF_SIZE	1
 #define BVH_ALIGN		4096
 #define TRI_NODE_SIZE	3
+
 #define BVH_UNALIGNED_NODE_SIZE 9
 #define BVH_UNALIGNED_NODE_LEAF_SIZE 1
+#define BVH_UNALIGNED_QNODE_SIZE 14
+#define BVH_UNALIGNED_QNODE_LEAF_SIZE 1
 
 /* Packed BVH
  *
@@ -161,8 +164,15 @@ protected:
 
 	/* pack */
 	void pack_nodes(const BVHNode *root);
+
 	void pack_leaf(const BVHStackEntry& e, const LeafNode *leaf);
 	void pack_inner(const BVHStackEntry& e, const BVHStackEntry *en, int num);
+
+	void pack_unaligned_leaf(const BVHStackEntry& e,
+	                         const LeafNode *leaf);
+	void pack_unaligned_inner(const BVHStackEntry& e,
+	                          const BVHStackEntry *en,
+	                          int num);
 
 	/* refit */
 	void refit_nodes();

@@ -18,7 +18,7 @@
  */
 
 #ifdef __QBVH__
-#  include "geom_qbvh_shadow_hair.h"
+#  include "geom_qbvh_shadow_curve.h"
 #endif
 
 /* This is a template BVH traversal function, where various features can be

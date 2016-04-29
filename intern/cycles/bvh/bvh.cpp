@@ -193,11 +193,14 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 	 * top level BVH, adjusting indexes and offsets where appropriate.
 	 */
 	const bool use_qbvh = params.use_qbvh;
-	size_t nsize = (use_qbvh)? BVH_QNODE_SIZE: BVH_NODE_SIZE;
-	size_t nsize_leaf = (use_qbvh)? BVH_QNODE_LEAF_SIZE: BVH_NODE_LEAF_SIZE;
+	size_t nsize, nsize_leaf;
 	if(params.use_unaligned_nodes) {
-		nsize = BVH_UNALIGNED_NODE_SIZE;
-		nsize_leaf = BVH_UNALIGNED_NODE_LEAF_SIZE;
+		nsize = (use_qbvh)? BVH_UNALIGNED_QNODE_SIZE: BVH_UNALIGNED_NODE_SIZE;
+		nsize_leaf = (use_qbvh)? BVH_UNALIGNED_QNODE_LEAF_SIZE: BVH_UNALIGNED_NODE_LEAF_SIZE;
+	}
+	else {
+		nsize = (use_qbvh)? BVH_QNODE_SIZE: BVH_NODE_SIZE;
+		nsize_leaf = (use_qbvh)? BVH_QNODE_LEAF_SIZE: BVH_NODE_LEAF_SIZE;
 	}
 
 	/* Adjust primitive index to point to the triangle in the global array, for
@@ -365,9 +368,12 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 			/* For QBVH we're packing a child bbox into 6 float4,
 			 * and for regular BVH they're packed into 3 float4.
 			 */
-			size_t nsize_bbox = (use_qbvh)? 6: 3;
+			size_t nsize_bbox;
 			if(params.use_unaligned_nodes) {
-				nsize_bbox = 8;
+				nsize_bbox = (use_qbvh)? 13: 8;
+			}
+			else {
+				nsize_bbox = (use_qbvh)? 6: 3;
 			}
 			int4 *bvh_nodes = &bvh->pack.nodes[0];
 			size_t bvh_nodes_size = bvh->pack.nodes.size(); 
@@ -789,6 +795,122 @@ void QBVH::pack_inner(const BVHStackEntry& e, const BVHStackEntry *en, int num)
 	memcpy(&pack.nodes[e.idx * BVH_QNODE_SIZE], data, sizeof(float4)*BVH_QNODE_SIZE);
 }
 
+void QBVH::pack_unaligned_leaf(const BVHStackEntry& e, const LeafNode *leaf)
+{
+	float4 data[BVH_UNALIGNED_QNODE_LEAF_SIZE];
+	memset(data, 0, sizeof(data));
+	if(leaf->num_triangles() == 1 && pack.prim_index[leaf->m_lo] == -1) {
+		/* object */
+		data[0].x = __int_as_float(~(leaf->m_lo));
+		data[0].y = __int_as_float(0);
+	}
+	else {
+		/* triangle */
+		data[0].x = __int_as_float(leaf->m_lo);
+		data[0].y = __int_as_float(leaf->m_hi);
+	}
+	data[0].z = __uint_as_float(leaf->m_visibility);
+	if(leaf->num_triangles() != 0) {
+		data[0].w = __uint_as_float(pack.prim_type[leaf->m_lo]);
+	}
+	memcpy(&pack.leaf_nodes[e.idx * BVH_UNALIGNED_QNODE_LEAF_SIZE],
+	       data,
+	       sizeof(float4)*BVH_UNALIGNED_QNODE_LEAF_SIZE);
+}
+
+void QBVH::pack_unaligned_inner(const BVHStackEntry& e,
+                                const BVHStackEntry *en,
+                                int num)
+{
+	float4 data[BVH_UNALIGNED_QNODE_SIZE];
+	memset(data, 0, sizeof(data));
+
+	bool has_unaligned = false;
+	for(int i = 0; i < num; i++) {
+		if(en[i].node->is_unaligned()) {
+			has_unaligned = true;
+			break;
+		}
+	}
+
+	if(has_unaligned) {
+		for(int i = 0; i < num; i++) {
+			Transform space = BVHUnaligned::compute_node_transform(
+			        en[i].node->m_bounds,
+			        en[i].node->m_aligned_space);
+
+			data[0][i] = 1.0f;
+
+			data[1][i] = space.x.x;
+			data[2][i] = space.x.y;
+			data[3][i] = space.x.z;
+
+			data[4][i] = space.y.x;
+			data[5][i] = space.y.y;
+			data[6][i] = space.y.z;
+
+			data[7][i] = space.z.x;
+			data[8][i] = space.z.y;
+			data[9][i] = space.z.z;
+
+			data[10][i] = space.x.w;
+			data[11][i] = space.y.w;
+			data[12][i] = space.z.w;
+
+			data[13][i] = __int_as_float(en[i].encodeIdx());
+		}
+		for(int i = num; i < 4; i++) {
+			data[0][i] = 1.0f;
+			/* We store BB which would never be recorded as intersection
+			 * so kernel might safely assume there are always 4 child nodes.
+			 */
+			for(int j = 1; j < 13; ++j) {
+				data[j][i] = 0.0f;
+			}
+			data[13][i] = __int_as_float(0);
+		}
+	}
+	else {
+		for(int i = 0; i < num; i++) {
+			float3 bb_min = en[i].node->m_bounds.min;
+			float3 bb_max = en[i].node->m_bounds.max;
+
+			data[0][i] = -1.0f;
+
+			data[1][i] = bb_min.x;
+			data[2][i] = bb_max.x;
+			data[3][i] = bb_min.y;
+			data[4][i] = bb_max.y;
+			data[5][i] = bb_min.z;
+			data[6][i] = bb_max.z;
+
+			data[13][i] = __int_as_float(en[i].encodeIdx());
+		}
+
+		for(int i = num; i < 4; i++) {
+			/* We store BB which would never be recorded as intersection
+			 * so kernel might safely assume there are always 4 child nodes.
+			 */
+			data[0][i] = -1.0f;
+
+			data[1][i] = FLT_MAX;
+			data[2][i] = -FLT_MAX;
+
+			data[3][i] = FLT_MAX;
+			data[4][i] = -FLT_MAX;
+
+			data[5][i] = FLT_MAX;
+			data[6][i] = -FLT_MAX;
+
+			data[13][i] = __int_as_float(0);
+		}
+	}
+
+	memcpy(&pack.nodes[e.idx * BVH_UNALIGNED_QNODE_SIZE],
+	       data,
+	       sizeof(float4)*BVH_UNALIGNED_QNODE_SIZE);
+}
+
 /* Quad SIMD Nodes */
 
 void QBVH::pack_nodes(const BVHNode *root)
@@ -802,13 +924,14 @@ void QBVH::pack_nodes(const BVHNode *root)
 	pack.leaf_nodes.clear();
 
 	/* for top level BVH, first merge existing BVH's so we know the offsets */
+	const int nsize = params.use_unaligned_nodes? BVH_UNALIGNED_QNODE_SIZE: BVH_QNODE_SIZE;
+	const int nsize_leaf = params.use_unaligned_nodes? BVH_UNALIGNED_QNODE_LEAF_SIZE: BVH_QNODE_LEAF_SIZE;
 	if(params.top_level) {
-		pack_instances(node_size*BVH_QNODE_SIZE,
-		               leaf_node_size*BVH_QNODE_LEAF_SIZE);
+		pack_instances(node_size*nsize, leaf_node_size*nsize_leaf);
 	}
 	else {
-		pack.nodes.resize(node_size*BVH_QNODE_SIZE);
-		pack.leaf_nodes.resize(leaf_node_size*BVH_QNODE_LEAF_SIZE);
+		pack.nodes.resize(node_size*nsize);
+		pack.leaf_nodes.resize(leaf_node_size*nsize_leaf);
 	}
 
 	int nextNodeIdx = 0, nextLeafNodeIdx = 0;
@@ -829,7 +952,12 @@ void QBVH::pack_nodes(const BVHNode *root)
 		if(e.node->is_leaf()) {
 			/* leaf node */
 			const LeafNode* leaf = reinterpret_cast<const LeafNode*>(e.node);
-			pack_leaf(e, leaf);
+			if(params.use_unaligned_nodes) {
+				pack_unaligned_leaf(e, leaf);
+			}
+			else {
+				pack_leaf(e, leaf);
+			}
 		}
 		else {
 			/* inner node */
@@ -870,7 +998,12 @@ void QBVH::pack_nodes(const BVHNode *root)
 			}
 
 			/* set node */
-			pack_inner(e, &stack[stack.size()-numnodes], numnodes);
+			if(params.use_unaligned_nodes) {
+				pack_unaligned_inner(e, &stack[stack.size()-numnodes], numnodes);
+			}
+			else {
+				pack_inner(e, &stack[stack.size()-numnodes], numnodes);
+			}
 		}
 	}
 

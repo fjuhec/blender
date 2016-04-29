@@ -18,7 +18,7 @@
  */
 
 #ifdef __QBVH__
-#  include "geom_qbvh_traversal_hair.h"
+#  include "geom_qbvh_traversal_curve.h"
 #endif
 
 /* This is a template BVH traversal function, where various features can be
@@ -95,26 +95,28 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 			while(nodeAddr >= 0 && nodeAddr != ENTRYPOINT_SENTINEL) {
 				float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+8);
 				float dist[2];
-				int mask = bvh_hair_intersect_node(kg,
-				                                   P,
-				                                   dir,
+				int mask = bvh_curve_intersect_node(kg,
+				                                    P,
+				                                    dir,
 #if defined(__KERNEL_SSE2__)
-				                                   tnear,
-				                                   tfar,
-				                                   tsplat,
-				                                   Psplat,
-				                                   idirsplat,
-				                                   shufflexyz,
+				                                    tnear,
+				                                    tfar,
+				                                    tsplat,
+				                                    Psplat,
+				                                    idirsplat,
+				                                    shufflexyz,
 #else
-				                                   isect->t,
+				                                    idir,
+				                                    isect->t,
 #endif
 #if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
-				                                   difl,
-				                                   extmax,
+				                                    difl,
+#else
+				                                    0.0f,
 #endif
-				                                   visibility,
-				                                   nodeAddr,
-				                                   dist);
+				                                    visibility,
+				                                    nodeAddr,
+				                                    dist);
 
 				if(mask == 0) {
 					/* neither child was intersected */
@@ -269,7 +271,7 @@ ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
                                          )
 {
 #ifdef __QBVH__
-	if(kernel_data.bvh.use_qbvh && false) {
+	if(kernel_data.bvh.use_qbvh) {
 		return BVH_FUNCTION_FULL_NAME(QBVH)(kg,
 		                                    ray,
 		                                    isect,
@@ -284,7 +286,7 @@ ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
 	else
 #endif
 	{
-		//kernel_assert(kernel_data.bvh.use_qbvh == false);
+		kernel_assert(kernel_data.bvh.use_qbvh == false);
 		return BVH_FUNCTION_FULL_NAME(BVH)(kg,
 		                                   ray,
 		                                   isect,

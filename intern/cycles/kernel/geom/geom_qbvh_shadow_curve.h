@@ -71,13 +71,13 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 #endif
 
 	ssef tnear(0.0f), tfar(tmax);
+	sse3f org4(ssef(P.x), ssef(P.y), ssef(P.z));
+	sse3f dir4(ssef(dir.x), ssef(dir.y), ssef(dir.z));
 	sse3f idir4(ssef(idir.x), ssef(idir.y), ssef(idir.z));
 
 #ifdef __KERNEL_AVX2__
 	float3 P_idir = P*idir;
 	sse3f P_idir4 = sse3f(P_idir.x, P_idir.y, P_idir.z);
-#else
-	sse3f org = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #endif
 
 	/* Offsets to select the side that becomes the lower or upper bound. */
@@ -102,9 +102,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 				                                             tfar,
 #ifdef __KERNEL_AVX2__
 				                                             P_idir4,
-#else
-				                                             org,
 #endif
+				                                             org4,
+				                                             dir4,
 				                                             idir4,
 				                                             near_x, near_y, near_z,
 				                                             far_x, far_y, far_z,
@@ -304,12 +304,12 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 					if(idir.y >= 0.0f) { near_y = 2; far_y = 3; } else { near_y = 3; far_y = 2; }
 					if(idir.z >= 0.0f) { near_z = 4; far_z = 5; } else { near_z = 5; far_z = 4; }
 					tfar = ssef(isect_t);
+					org4 = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
+					dir4 = sse3f(ssef(dir.x), ssef(dir.y), ssef(dir.z));
 					idir4 = sse3f(ssef(idir.x), ssef(idir.y), ssef(idir.z));
 #  ifdef __KERNEL_AVX2__
 					P_idir = P*idir;
 					P_idir4 = sse3f(P_idir.x, P_idir.y, P_idir.z);
-#  else
-					org = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
 					triangle_intersect_precalc(dir, &isect_precalc);
 
@@ -358,12 +358,12 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 			if(idir.y >= 0.0f) { near_y = 2; far_y = 3; } else { near_y = 3; far_y = 2; }
 			if(idir.z >= 0.0f) { near_z = 4; far_z = 5; } else { near_z = 5; far_z = 4; }
 			tfar = ssef(tmax);
+			org4 = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
+			dir4 = sse3f(ssef(dir.x), ssef(dir.y), ssef(dir.z));
 			idir4 = sse3f(ssef(idir.x), ssef(idir.y), ssef(idir.z));
 #  ifdef __KERNEL_AVX2__
 			P_idir = P*idir;
 			P_idir4 = sse3f(P_idir.x, P_idir.y, P_idir.z);
-#  else
-			org = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
 			triangle_intersect_precalc(dir, &isect_precalc);
 
