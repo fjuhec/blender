@@ -127,8 +127,8 @@ struct DisneyDiffuseBRDFParams {
 		m_ctint = m_cdlum > 0.0f ? m_cdlin / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 		m_csheen = diff_mix(make_float3(1.0f, 1.0f, 1.0f), m_ctint, m_sheen_tint);
 
-		m_gamma = clamp(m_gamma, 0.0f, 5.0f);
-		m_exposure = clamp(m_exposure, -6.0f, 6.0f);
+		//m_gamma = clamp(m_gamma, 0.0f, 5.0f);
+		//m_exposure = clamp(m_exposure, -6.0f, 6.0f);
 		m_withNdotL_b = (m_withNdotL > 0.5f);
 	}
 };
@@ -138,7 +138,7 @@ typedef struct DisneyDiffuseBRDFParams DisneyDiffuseBRDFParams;
 /* brdf */
 ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
 	const DisneyDiffuseBRDFParams *params, float3 N, float3 V, float3 L,
-	float3 H, float *pdf)
+	float3 H, float *pdf, bool withNdotL = true)
 {
 	float NdotL = dot(N, L);
 	float NdotV = dot(N, V);
@@ -166,15 +166,46 @@ ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
     }
 
 	float3 value = M_1_PI_F * Fd * params->m_cdlin;
-	*pdf = NdotL * M_1_PI_F * params->m_cdlum;
+
+	//if (params->m_gamma > 0.5f)
+		*pdf = M_1_PI_F;
+
+	/*if (params->m_exposure > 0.95f)
+		*pdf *= params->m_cdlum;
+	else if (params->m_exposure > 0.85f)
+		*pdf *= params->m_cdlum * NdotL;
+	else if (params->m_exposure > 0.75f)
+		*pdf *= params->m_cdlum * 0.5f;
+	else if (params->m_exposure > 0.65f)
+		*pdf *= params->m_cdlum * NdotL * 0.5f;
+	else if (params->m_exposure > 0.55f)
+		*pdf *= NdotL;
+	else if (params->m_exposure > 0.45f)
+		*pdf *= NdotL * 0.5f;
+	else if (params->m_exposure > 0.35f)*/
+		*pdf *= 0.5f;
 
 	// sheen component
 	if (params->m_sheen != 0.0f) {
 	    float FH = diff_SchlickFresnel(LdotH);
 
 		value += FH * params->m_sheen * params->m_csheen;
-		*pdf += (1.0f / M_2PI_F) * params->m_sheen;
+		//*pdf += 0.5f * M_1_PI_F * params->m_sheen;
 	}
+
+	if (withNdotL)
+		value *= NdotL;
+
+	// brightness
+	//value *= params->m_brightness;
+
+	// exposure
+	//value *= pow(2.0f, params->m_exposure);
+
+	// gamma
+	/*value[0] = pow(value[0], 1.0f / params->m_gamma);
+	value[1] = pow(value[1], 1.0f / params->m_gamma);
+	value[2] = pow(value[2], 1.0f / params->m_gamma);*/
 
 	return value;
 }
@@ -197,19 +228,6 @@ ccl_device float3 bsdf_disney_diffuse_eval_reflect(const ShaderClosure *sc,
     if (dot(sc->N, omega_in) > 0.0f) {
         float3 value = calculate_disney_diffuse_brdf(sc, params, N, V, L, H, pdf);
 
-        value *= dot(N, L);
-
-        // brightness
-        value *= params->m_brightness;
-
-        // exposure
-        value *= pow(2.0f, params->m_exposure);
-
-        // gamma
-        value[0] = pow(value[0], 1.0f / params->m_gamma);
-        value[1] = pow(value[1], 1.0f / params->m_gamma);
-        value[2] = pow(value[2], 1.0f / params->m_gamma);
-
 		return value;
     }
     else {
@@ -230,30 +248,18 @@ ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc, const DisneyD
 {
 	float3 N = normalize(sc->N);
 
-	sample_uniform_hemisphere(N, randu, randv, omega_in, pdf);
+	/*if (params->m_brightness > 0.5f)
+		sample_cos_hemisphere(N, randu, randv, omega_in, pdf);
+	else*/
+		sample_uniform_hemisphere(N, randu, randv, omega_in, pdf);
 
 	if (dot(Ng, *omega_in) > 0) {
 		float3 V = I; // outgoing
 		float3 L = *omega_in; // incoming
 		float3 H = normalize(L + V);
 
-		float3 value = calculate_disney_diffuse_brdf(sc, params, N, V, L, H, pdf);
-
-		if (params->m_withNdotL_b)
-			value *= dot(N, L);
-
-		// brightness
-		value *= params->m_brightness;
-
-		// exposure
-		value *= pow(2.0f, params->m_exposure);
-
-		// gamma
-		value[0] = pow(value[0], 1.0f / params->m_gamma);
-		value[1] = pow(value[1], 1.0f / params->m_gamma);
-		value[2] = pow(value[2], 1.0f / params->m_gamma);
-
-		*eval = make_float3(value[0], value[1], value[2]);
+		float pon;
+		*eval = calculate_disney_diffuse_brdf(sc, params, N, V, L, H, pdf, true);
 
 #ifdef __RAY_DIFFERENTIALS__
 		// TODO: find a better approximation for the diffuse bounce
@@ -264,86 +270,7 @@ ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc, const DisneyD
 	else {
 		*pdf = 0;
 	}
-
-	/*// we are viewing the surface from the right side - send a ray out with cosine
-	// distribution over the hemisphere
-	sample_cos_hemisphere(-N, randu, randv, omega_in, pdf);
-	if(dot(Ng, *omega_in) < 0) {
-		float3 H = normalize(*omega_in - I);
-		*eval = calculate_disney_diffuse_brdf(sc, params, -N, -I, *omega_in, H, pdf);
-
-        // multiply with NdotL
-        //if (params->m_withNdotL_b)
-        //	*eval *= dot(N, L);
-
-        // brightness
-        *eval *= params->m_brightness;
-
-        // exposure
-        *eval *= pow(2.0f, params->m_exposure);
-
-        // gamma
-        (*eval)[0] = pow((*eval)[0], 1.0f / params->m_gamma);
-        (*eval)[1] = pow((*eval)[1], 1.0f / params->m_gamma);
-        (*eval)[2] = pow((*eval)[2], 1.0f / params->m_gamma);
-		//*eval = make_float3(*pdf, *pdf, *pdf);
-
-#ifdef __RAY_DIFFERENTIALS__
-		// TODO: find a better approximation for the diffuse bounce
-		*domega_in_dx = -((2 * dot(N, dIdx)) * N - dIdx);
-		*domega_in_dy = -((2 * dot(N, dIdy)) * N - dIdy);
-#endif
-	}
-	else {
-		*pdf = 0;
-	}*/
-	return LABEL_DIFFUSE;
-
-	/*float3 N = normalize(sc->N);
-	float3 T = normalize(sc->T);
-	float3 X, Y;
-
-	float cos_theta, phi, theta, sin_phi, cos_phi;
-
-	make_orthonormals_tangent(N, T, &X, &Y);
-
-	phi = 2.0f * M_PI_F * randu;
-	theta = 2.0f * M_PI_F * randv;
-	cos_theta = cosf(theta);
-	sin_phi = sinf(phi);
-	cos_phi = cosf(phi);
-
-	float sin_theta = sqrtf(fmaxf(0.0f, 1.0f - cos_theta * cos_theta));
-	float3 H = normalize(sin_theta * cos_phi * X + sin_theta * sin_phi * Y + cos_theta * N);
-
-	*omega_in = 2.0f * dot(I, H) * H - I;
-
-	float3 V = I; // outgoing
-	float3 L = *omega_in; // incoming
-
-	*eval = calculate_disney_diffuse_brdf(sc, params, N, V, L, H, pdf);
-
-	// multiply with NdotL
-	//if (params->m_withNdotL_b)
-	//	*eval *= dot(N, L);
-
-	// brightness
-	*eval *= params->m_brightness;
-
-	// exposure
-	*eval *= pow(2.0f, params->m_exposure);
-
-	// gamma
-	(*eval)[0] = pow((*eval)[0], 1.0f / params->m_gamma);
-	(*eval)[1] = pow((*eval)[1], 1.0f / params->m_gamma);
-	(*eval)[2] = pow((*eval)[2], 1.0f / params->m_gamma);
-
-#ifdef __RAY_DIFFERENTIALS__
-	*domega_in_dx = 2 * dot(N, dIdx) * N - dIdx;
-	*domega_in_dy = 2 * dot(N, dIdy) * N - dIdy;
-#endif
-
-	return LABEL_REFLECT|LABEL_DIFFUSE;*/
+	return LABEL_REFLECT|LABEL_DIFFUSE;
 }
 
 CCL_NAMESPACE_END

@@ -538,6 +538,9 @@ closure color holdout() BUILTIN;
 closure color ambient_occlusion() BUILTIN;
 closure color disney_diffuse(normal N, color baseColor, float subsurface, float roughness, float sheen,
         float sheenTint, float withNdotL, float brightness, float gamma, float exposure, float mon2lingamma) BUILTIN;
+closure color disney_specular(normal N, normal T, color baseColor, float metallic, float specular, float specularTint,
+        float roughness, float anisotropic, float withNdotL, float brightness, float gamma, float exposure,
+        float mon2lingamma) BUILTIN;
 
 // BSSRDF
 closure color bssrdf_cubic(normal N, vector radius, float texture_blur, float sharpness) BUILTIN;
