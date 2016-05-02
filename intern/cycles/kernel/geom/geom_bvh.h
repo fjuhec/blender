@@ -195,6 +195,9 @@ ccl_device_intersect bool scene_intersect(KernelGlobals *kg,
 		hit = bvh_intersect_motion(kg, ray, isect, visibility);
 #  ifdef __HAIR__
 		if(kernel_data.bvh.have_curves) {
+			if(hit && visibility == PATH_RAY_SHADOW_OPAQUE) {
+				return true;
+			}
 			hit |= bvh_intersect_curve_motion(kg, ray, isect, visibility, lcg_state, difl, extmax);
 		}
 #  endif /* __HAIR__ */
@@ -223,6 +226,9 @@ ccl_device_intersect bool scene_intersect(KernelGlobals *kg,
 
 #ifdef __HAIR__
 	if(kernel_data.bvh.have_curves) {
+		if(hit && visibility == PATH_RAY_SHADOW_OPAQUE) {
+			return true;
+		}
 		hit |= bvh_intersect_curve(kg, ray, isect, visibility, lcg_state, difl, extmax);
 	}
 #endif /* __HAIR__ */
@@ -273,7 +279,7 @@ ccl_device_intersect bool scene_intersect_shadow_all(KernelGlobals *kg,
 			 occluded = bvh_intersect_shadow_all_curve_motion(kg,
 			                                                  ray,
 			                                                  isect + *num_hits,
-			                                                  max_hits,
+			                                                  max_hits - *num_hits,
 			                                                  num_hits);
 		}
 #    endif /* __HAIR__ */
@@ -293,7 +299,7 @@ ccl_device_intersect bool scene_intersect_shadow_all(KernelGlobals *kg,
 		occluded = bvh_intersect_shadow_all_curve(kg,
 		                                          ray,
 		                                          isect + *num_hits,
-		                                          max_hits,
+		                                          max_hits - *num_hits,
 		                                          num_hits);
 	}
 #  endif /* __HAIR__ */
