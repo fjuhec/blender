@@ -29,9 +29,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_object_types.h"
-#include "DNA_scene_types.h"
-
 #include "BLI_math.h"
 #include "BLI_kdopbvh.h"
 #include "BLI_memarena.h"
@@ -56,9 +53,6 @@
 #include "ED_transform.h"
 #include "ED_view3d.h"
 #include "ED_armature.h"
-#include "ED_view3d.h"
-
-#include "MEM_guardedalloc.h"
 
 #include "transform.h"
 
@@ -67,7 +61,7 @@ typedef struct SnapObjectData {
 } SnapObjectData;
 
 
-typedef struct SnapObjectContext {
+struct SnapObjectContext {
 	Main *bmain;
 	Scene *scene;
 	int flag;
@@ -87,7 +81,7 @@ typedef struct SnapObjectContext {
 		MemArena *mem_arena;
 	} cache;
 
-} SnapObjectContext;
+};
 
 /* -------------------------------------------------------------------- */
 
