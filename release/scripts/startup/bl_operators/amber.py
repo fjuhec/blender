@@ -99,16 +99,39 @@ def uuid_revision_gen(used_uuids, variant_uuid, number, size, time):
     return _uuid_gen_single(used_uuids, uuid_root, variant_uuid, str(number), str(size), str(timestamp))
 
 
-def uuid_unpack(uuid_hexstr):
-    return struct.unpack("!iiii", binascii.unhexlify(uuid_hexstr).ljust(16, b'\0'))
-
-
 def uuid_unpack_bytes(uuid_bytes):
     return struct.unpack("!iiii", uuid_bytes.ljust(16, b'\0'))
 
 
+def uuid_unpack(uuid_hexstr):
+    return uuid_unpack_bytes(binascii.unhexlify(uuid_hexstr))
+
+
+def uuid_unpack_asset(uuid_repo_hexstr, uuid_asset_hexstr):
+    return uuid_unpack_bytes(binascii.unhexlify(uuid_repo_hexstr).ljust(8, b'\0') +
+                             binascii.unhexlify(uuid_asset_hexstr).ljust(8, b'\0'))
+
+
 def uuid_pack(uuid_iv4):
-    return binascii.hexlify(struct.pack("!iiii", uuid_iv4))
+    print(uuid_iv4)
+    return binascii.hexlify(struct.pack("!iiii", *uuid_iv4))
+
+
+# XXX Hack, once this becomes a real addon we'll just use addons' config system, for now store that in some own config.
+amber_repos_path = os.path.join(bpy.utils.user_resource('CONFIG', create=True), "amber_repos.json")
+amber_repos = None
+if not os.path.exists(amber_repos_path):
+    with open(amber_repos_path, 'w') as ar_f:
+        json.dump({}, ar_f)
+with open(amber_repos_path, 'r') as ar_f:
+    amber_repos = {uuid_unpack(uuid): path for uuid, path in json.load(ar_f).items()}
+assert(amber_repos != None)
+
+
+def save_amber_repos():
+    ar = {uuid_pack(uuid).decode(): path for uuid, path in amber_repos.items()}
+    with open(amber_repos_path, 'w') as ar_f:
+        json.dump(ar, ar_f)
 
 
 #############
@@ -129,7 +152,7 @@ class AmberJobList(AmberJob):
             repo = json.load(db_f)
         if isinstance(repo, dict):
             repo_ver = repo.get(AMBER_DBK_VERSION, "")
-            if repo_ver != "1.0.0":
+            if repo_ver != "1.0.1":
                 # Unsupported...
                 print("WARNING: unsupported Amber repository version '%s'." % repo_ver)
                 repo = None
@@ -138,6 +161,8 @@ class AmberJobList(AmberJob):
         if repo is not None:
             # Convert hexa string to array of four uint32...
             # XXX will have to check endianess mess here, for now always use same one ('network' one).
+            repo_uuid = repo["uuid"]
+            repo["uuid"] = uuid_unpack(repo_uuid)
             new_entries = {}
             for euuid, e in repo["entries"].items():
                 new_variants = {}
@@ -149,12 +174,12 @@ class AmberJobList(AmberJob):
                     v["revisions"] = new_revisions
                     ruuid = v["revision_default"]
                     v["revision_default"] = uuid_unpack(ruuid)
-                new_entries[uuid_unpack(euuid)] = e
+                new_entries[uuid_unpack_asset(repo_uuid, euuid)] = e
                 e["variants"] = new_variants
                 vuuid = e["variant_default"]
                 e["variant_default"] = uuid_unpack(vuuid)
             repo["entries"] = new_entries
-        print(repo)
+        #~ print(repo)
         return repo
 
     @staticmethod
@@ -253,7 +278,7 @@ class AmberTag(PropertyGroup):
 
 class AssetEngineAmber(AssetEngine):
     bl_label = "Amber"
-    bl_version = (0 << 16) + (0 << 8) + 2  # Usual maj.min.rev version scheme...
+    bl_version = (0 << 16) + (0 << 8) + 3  # Usual maj.min.rev version scheme...
 
     tags = CollectionProperty(name="Tags", type=AmberTag, description="Filtering tags")
     active_tag_index = IntProperty(name="Active Tag", options={'HIDDEN'})
@@ -261,6 +286,7 @@ class AssetEngineAmber(AssetEngine):
     def __init__(self):
         self.executor = futures.ThreadPoolExecutor(8)  # Using threads for now, if issues arise we'll switch to process.
         self.jobs = {}
+        self.repos = {}
 
         self.reset()
 
@@ -430,6 +456,11 @@ class AssetEngineAmber(AssetEngine):
             self.jobs[job_id] = AmberJobList(self.executor, job_id, entries.root_path)
             self.root = entries.root_path
         if self.repo:
+            uuid_repo = self.repo["uuid"]
+            if amber_repos.get(uuid_repo, None) != self.root:
+                amber_repos[uuid_repo] = self.root  # XXX Not resistant to uuids collisions (use a set instead)...
+                save_amber_repos()
+            self.repos[uuid_repo] = self.repo
             entries.nbr_entries = len(self.repo["entries"])
             valid_tags = set()
             for name, prio in sorted(self.repo["tags"].items(), key=lambda i: i[1], reverse=True):
@@ -451,9 +482,12 @@ class AssetEngineAmber(AssetEngine):
         if uuids.asset_engine_version != self.bl_version:
             print("Updating asset uuids from Amber v.%s to amber v.%s" %
                   (self.pretty_version(uuids.asset_engine_version), self.pretty_version()))
-        # We could also check for uuid.is_asset_missing (in case our .blend lib files would be cached locally and
-        # gone missing e.g.).
         for uuid in uuids.uuids:
+            repo_uuid = uuid.uuid_asset[:2] + (0, 0)
+            if repo_uuid not in amber_repos or not os.path.exists(os.path.join(amber_repos[repo_uuid], AMBER_DB_NAME)):
+                uuid.is_asset_missing = True
+                continue
+            # Here in theory here we'd reload given repo (async process) and check for asset's status...
             uuid.use_asset_reload = True
         return self.job_id_invalid
 
@@ -462,32 +496,36 @@ class AssetEngineAmber(AssetEngine):
         if uuids.asset_engine_version != self.bl_version:
             print("Updating asset uuids from Amber v.%s to amber v.%s" %
                   (self.pretty_version(uuids.asset_engine_version), self.pretty_version()))
-        if self.repo:
 #            print(entries.entries[:])
-            for uuid in uuids.uuids:
-                euuid = tuple(uuid.uuid_asset)
-                vuuid = tuple(uuid.uuid_variant)
-                ruuid = tuple(uuid.uuid_revision)
-                e = self.repo["entries"][euuid]
-                v = e["variants"][vuuid]
-                r = v["revisions"][ruuid]
+        for uuid in uuids.uuids:
+            repo_uuid = tuple(uuid.uuid_asset)[:2] + (0, 0)
+            assert(repo_uuid in amber_repos)
+            repo = self.repos.get(repo_uuid, None)
+            if repo is None:
+                repo = self.repos[repo_uuid] = AmberJobList.ls_repo(os.path.join(amber_repos[repo_uuid], AMBER_DB_NAME))
+            euuid = tuple(uuid.uuid_asset)
+            vuuid = tuple(uuid.uuid_variant)
+            ruuid = tuple(uuid.uuid_revision)
+            e = self.repo["entries"][euuid]
+            v = e["variants"][vuuid]
+            r = v["revisions"][ruuid]
 
-                entry = entries.entries.add()
-                entry.type = {e["file_type"]}
-                entry.blender_type = e["blen_type"]
-                # archive part not yet implemented!
-                entry.relpath = r["path"]
+            entry = entries.entries.add()
+            entry.type = {e["file_type"]}
+            entry.blender_type = e["blen_type"]
+            # archive part not yet implemented!
+            entry.relpath = os.path.join(amber_repos[repo_uuid], r["path"])
 #                print("added entry for", entry.relpath)
-                entry.uuid = euuid
-                var = entry.variants.add()
-                var.uuid = vuuid
-                rev = var.revisions.add()
-                rev.uuid = ruuid
-                var.revisions.active = rev
-                entry.variants.active = var
-            entries.root_path = self.root
-            return True
-        return False
+            entry.uuid = euuid
+            var = entry.variants.add()
+            var.uuid = vuuid
+            rev = var.revisions.add()
+            rev.uuid = ruuid
+            var.revisions.active = rev
+            entry.variants.active = var
+        entries.root_path = ""
+        return True
+
 
     def check_dir(self, entries):
         # Stupid code just for test...
@@ -575,11 +613,11 @@ class AssetEngineAmber(AssetEngine):
     def entries_block_get(self, start_index, end_index, entries):
 #        print(entries.entries[:])
         if self.repo:
-            print("self repo", len(self.sortedfiltered), start_index, end_index)
+            #~ print("self repo", len(self.sortedfiltered), start_index, end_index)
             for euuid, e in self.sortedfiltered[start_index:end_index]:
                 self.entry_from_uuid(entries, euuid, (0, 0, 0, 0), (0, 0, 0, 0))
         else:
-            print("self dirs", len(self.sortedfiltered), start_index, end_index)
+            #~ print("self dirs", len(self.sortedfiltered), start_index, end_index)
             for path, size, timestamp, uuid in self.sortedfiltered[start_index:end_index]:
                 entry = entries.entries.add()
                 entry.type = {'DIR'}
