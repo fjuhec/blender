@@ -727,7 +727,7 @@ void filelist_sort_filter(struct FileList *filelist, FileSelectParams *params)
 			const bool need_filtering = filelist_need_filtering(filelist);
 			const bool changed = filelist->ae->type->sort_filter(
 			                         filelist->ae, need_sorting, need_filtering, params, &filelist->filelist);
-			printf("%s: changed: %d (%d - %d)\n", __func__, changed, need_sorting, need_filtering);
+//			printf("%s: changed: %d (%d - %d)\n", __func__, changed, need_sorting, need_filtering);
 			if (changed) {
 				filelist_cache_clear(&filelist->filelist_cache, filelist->filelist_cache.size);
 			}

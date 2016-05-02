@@ -801,7 +801,6 @@ static void rna_def_asset_uuid(BlenderRNA *brna)
 	prop = RNA_def_boolean(srna, "is_asset_missing", false, "Missing Asset",
 	                       "This AssetUUID is no more known by its asset engine");
 	RNA_def_property_boolean_sdna(prop, NULL, "tag", UUID_TAG_ASSET_MISSING);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
 	prop = RNA_def_boolean(srna, "use_asset_reload", false, "Reload Asset",
 	                       "The data matching this AssetUUID should be reloaded");
