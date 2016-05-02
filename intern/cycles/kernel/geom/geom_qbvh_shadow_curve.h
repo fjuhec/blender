@@ -112,7 +112,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 				                                             &dist);
 
 				if(traverseChild != 0) {
-					float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_QNODE_SIZE+6);
+					float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_QNODE_SIZE+13);
 
 					/* One child is hit, continue with that child. */
 					int r = __bscf(traverseChild);
