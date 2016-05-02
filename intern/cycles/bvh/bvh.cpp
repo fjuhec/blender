@@ -630,8 +630,17 @@ void RegularBVH::refit_nodes()
 
 void RegularBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility)
 {
+	size_t nsize, nsize_leaf;
+	if(params.use_unaligned_nodes) {
+		nsize = BVH_UNALIGNED_NODE_SIZE;
+		nsize_leaf = BVH_UNALIGNED_NODE_LEAF_SIZE;
+	}
+	else {
+		nsize = BVH_NODE_SIZE;
+		nsize_leaf = BVH_NODE_LEAF_SIZE;
+	}
 	if(leaf) {
-		int4 *data = &pack.leaf_nodes[idx*BVH_NODE_LEAF_SIZE];
+		int4 *data = &pack.leaf_nodes[idx*nsize_leaf];
 		int c0 = data[0].x;
 		int c1 = data[0].y;
 		/* refit leaf node */
@@ -700,19 +709,20 @@ void RegularBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility
 		}
 
 		/* TODO(sergey): De-duplicate with pack_leaf(). */
-		float4 leaf_data[BVH_NODE_LEAF_SIZE];
+		float4 leaf_data[nsize_leaf];
 		leaf_data[0].x = __int_as_float(c0);
 		leaf_data[0].y = __int_as_float(c1);
 		leaf_data[0].z = __uint_as_float(visibility);
 		leaf_data[0].w = __uint_as_float(data[0].w);
-		memcpy(&pack.leaf_nodes[idx * BVH_NODE_LEAF_SIZE],
+		memcpy(&pack.leaf_nodes[idx * nsize_leaf],
 		       leaf_data,
-		       sizeof(float4)*BVH_NODE_LEAF_SIZE);
+		       sizeof(float4)*nsize_leaf);
 	}
 	else {
-		int4 *data = &pack.nodes[idx*BVH_NODE_SIZE];
-		int c0 = data[3].x;
-		int c1 = data[3].y;
+		const int cnode_offset = params.use_unaligned_nodes? 8: 3;
+		int4 *data = &pack.nodes[idx*nsize];
+		int c0 = data[cnode_offset].x;
+		int c1 = data[cnode_offset].y;
 		/* refit inner node, set bbox from children */
 		BoundBox bbox0 = BoundBox::empty, bbox1 = BoundBox::empty;
 		uint visibility0 = 0, visibility1 = 0;
@@ -720,7 +730,19 @@ void RegularBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility
 		refit_node((c0 < 0)? -c0-1: c0, (c0 < 0), bbox0, visibility0);
 		refit_node((c1 < 0)? -c1-1: c1, (c1 < 0), bbox1, visibility1);
 
-		pack_node(idx, bbox0, bbox1, c0, c1, visibility0, visibility1);
+		if(params.use_unaligned_nodes) {
+			Transform dummy_transform = transform_identity();
+			pack_unaligned_node(idx,
+			                    false, false,
+			                    dummy_transform, dummy_transform,
+			                    bbox0, bbox1,
+			                    c0, c1,
+			                    visibility0,
+			                    visibility1);
+		}
+		else {
+			pack_node(idx, bbox0, bbox1, c0, c1, visibility0, visibility1);
+		}
 
 		bbox.grow(bbox0);
 		bbox.grow(bbox1);
@@ -1022,8 +1044,18 @@ void QBVH::refit_nodes()
 
 void QBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility)
 {
+	size_t nsize, nsize_leaf;
+	if(params.use_unaligned_nodes) {
+		nsize = BVH_UNALIGNED_QNODE_SIZE;
+		nsize_leaf = BVH_UNALIGNED_QNODE_LEAF_SIZE;
+	}
+	else {
+		nsize = BVH_QNODE_SIZE;
+		nsize_leaf = BVH_QNODE_LEAF_SIZE;
+	}
+
 	if(leaf) {
-		int4 *data = &pack.leaf_nodes[idx*BVH_QNODE_LEAF_SIZE];
+		int4 *data = &pack.leaf_nodes[idx*nsize_leaf];
 		int4 c = data[0];
 		/* Refit leaf node. */
 		for(int prim = c.x; prim < c.y; prim++) {
@@ -1100,18 +1132,20 @@ void QBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility)
 		 *
 		 * Same applies to the inner nodes case below.
 		 */
-		float4 leaf_data[BVH_QNODE_LEAF_SIZE];
+		float4 leaf_data[nsize_leaf];
 		leaf_data[0].x = __int_as_float(c.x);
 		leaf_data[0].y = __int_as_float(c.y);
 		leaf_data[0].z = __uint_as_float(visibility);
 		leaf_data[0].w = __uint_as_float(c.w);
-		memcpy(&pack.leaf_nodes[idx * BVH_QNODE_LEAF_SIZE],
+		memcpy(&pack.leaf_nodes[idx * nsize_leaf],
 		       leaf_data,
-		       sizeof(float4)*BVH_QNODE_LEAF_SIZE);
+		       sizeof(float4)*nsize_leaf);
 	}
 	else {
-		int4 *data = &pack.nodes[idx*BVH_QNODE_SIZE];
-		int4 c = data[6];
+		const int cnode_offset = params.use_unaligned_nodes? 13: 6;
+		const int bbox_offset = params.use_unaligned_nodes? 1: 0;
+		int4 *data = &pack.nodes[idx*nsize];
+		int4 c = data[cnode_offset];
 		/* Refit inner node, set bbox from children. */
 		BoundBox child_bbox[4] = {BoundBox::empty,
 		                          BoundBox::empty,
@@ -1130,21 +1164,23 @@ void QBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility)
 			}
 		}
 
-		float4 inner_data[BVH_QNODE_SIZE];
+		float4 inner_data[nsize];
+		memset(inner_data, 0, sizeof(inner_data));
 		for(int i = 0; i < 4; ++i) {
 			float3 bb_min = child_bbox[i].min;
 			float3 bb_max = child_bbox[i].max;
-			inner_data[0][i] = bb_min.x;
-			inner_data[1][i] = bb_max.x;
-			inner_data[2][i] = bb_min.y;
-			inner_data[3][i] = bb_max.y;
-			inner_data[4][i] = bb_min.z;
-			inner_data[5][i] = bb_max.z;
-			inner_data[6][i] = __int_as_float(c[i]);
+			inner_data[0][i] = -1.0f;
+			inner_data[bbox_offset+0][i] = bb_min.x;
+			inner_data[bbox_offset+1][i] = bb_max.x;
+			inner_data[bbox_offset+2][i] = bb_min.y;
+			inner_data[bbox_offset+3][i] = bb_max.y;
+			inner_data[bbox_offset+4][i] = bb_min.z;
+			inner_data[bbox_offset+5][i] = bb_max.z;
+			inner_data[cnode_offset][i] = __int_as_float(c[i]);
 		}
-		memcpy(&pack.nodes[idx * BVH_QNODE_SIZE],
+		memcpy(&pack.nodes[idx * nsize],
 		       inner_data,
-		       sizeof(float4)*BVH_QNODE_SIZE);
+		       sizeof(float4)*nsize);
 	}
 }
 
