@@ -278,7 +278,7 @@ class AmberTag(PropertyGroup):
 
 class AssetEngineAmber(AssetEngine):
     bl_label = "Amber"
-    bl_version = (0 << 16) + (0 << 8) + 3  # Usual maj.min.rev version scheme...
+    bl_version = (0 << 16) + (0 << 8) + 4  # Usual maj.min.rev version scheme...
 
     tags = CollectionProperty(name="Tags", type=AmberTag, description="Filtering tags")
     active_tag_index = IntProperty(name="Active Tag", options={'HIDDEN'})
@@ -588,7 +588,7 @@ class AssetEngineAmber(AssetEngine):
                         continue
                     self.sortedfiltered.append((path, size, timestamp, uuid))
             use_sort = True
-        entries.nbr_entries_filtered = len(self.sortedfiltered)
+        entries.nbr_entries_filtered = len(self.sortedfiltered) + (1 if self.repo else 0)
 
         if use_sort:
             if self.repo:
@@ -613,6 +613,17 @@ class AssetEngineAmber(AssetEngine):
     def entries_block_get(self, start_index, end_index, entries):
 #        print(entries.entries[:])
         if self.repo:
+            if start_index == 0:
+                entry = entries.entries.add()
+                entry.type = {'DIR'}
+                entry.relpath = '..'
+                variant = entry.variants.add()
+                entry.variants.active = variant
+                rev = variant.revisions.add()
+                variant.revisions.active = rev
+            else:
+                start_index -= 1
+            end_index -= 1
             #~ print("self repo", len(self.sortedfiltered), start_index, end_index)
             for euuid, e in self.sortedfiltered[start_index:end_index]:
                 self.entry_from_uuid(entries, euuid, (0, 0, 0, 0), (0, 0, 0, 0))
