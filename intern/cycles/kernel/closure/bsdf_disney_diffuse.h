@@ -107,29 +107,17 @@ struct DisneyDiffuseBRDFParams {
 	float m_sheen;
 	float m_sheen_tint;
 
-	// color correction
-	float m_withNdotL;
-	float m_brightness;
-	float m_gamma;
-	float m_exposure;
-	float m_mon2lingamma;
-
 	// precomputed values
 	float3 m_cdlin, m_ctint, m_csheen;
 	float m_cdlum;
 	float m_weights[4];
-	bool m_withNdotL_b;
 
 	void precompute_values() {
-		m_cdlin = diff_mon2lin(m_base_color, m_mon2lingamma); //make_float3(1.0f, 0.795f, 0.0f));
+		m_cdlin = m_base_color;
 		m_cdlum = 0.3f * m_cdlin[0] + 0.6f * m_cdlin[1] + 0.1f * m_cdlin[2]; // luminance approx.
 
 		m_ctint = m_cdlum > 0.0f ? m_cdlin / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 		m_csheen = diff_mix(make_float3(1.0f, 1.0f, 1.0f), m_ctint, m_sheen_tint);
-
-		//m_gamma = clamp(m_gamma, 0.0f, 5.0f);
-		//m_exposure = clamp(m_exposure, -6.0f, 6.0f);
-		m_withNdotL_b = (m_withNdotL > 0.5f);
 	}
 };
 
@@ -258,7 +246,6 @@ ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc, const DisneyD
 		float3 L = *omega_in; // incoming
 		float3 H = normalize(L + V);
 
-		float pon;
 		*eval = calculate_disney_diffuse_brdf(sc, params, N, V, L, H, pdf, true);
 
 #ifdef __RAY_DIFFERENTIALS__

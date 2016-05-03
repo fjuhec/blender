@@ -94,11 +94,6 @@ ClosureParam *closure_bsdf_disney_diffuse_params()
         CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_roughness),
         CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_sheen),
         CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_sheen_tint),
-        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_withNdotL),
-        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_brightness),
-        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_gamma),
-        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_exposure),
-        CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, dp.m_mon2lingamma),
 		CLOSURE_STRING_KEYPARAM(DisneyDiffuseClosure, label, "label"),
 		CLOSURE_FINISH_PARAM(DisneyDiffuseClosure)
 	};

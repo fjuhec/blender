@@ -242,6 +242,8 @@ void OSLShader::register_closures(OSLShadingSystem *ss_)
 		closure_bsdf_disney_diffuse_params(), closure_bsdf_disney_diffuse_prepare);
 	register_closure(ss, "disney_specular", id++,
 		closure_bsdf_disney_specular_params(), closure_bsdf_disney_specular_prepare);
+	register_closure(ss, "disney_clearcoat", id++,
+		closure_bsdf_disney_clearcoat_params(), closure_bsdf_disney_clearcoat_prepare);
 
 	register_closure(ss, "hair_reflection", id++,
 		bsdf_hair_reflection_params(), bsdf_hair_reflection_prepare);

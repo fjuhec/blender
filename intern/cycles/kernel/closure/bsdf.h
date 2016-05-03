@@ -28,6 +28,7 @@
 #include "../closure/bsdf_hair.h"
 #include "../closure/bsdf_disney_diffuse.h"
 #include "../closure/bsdf_disney_specular.h"
+#include "../closure/bsdf_disney_clearcoat.h"
 #ifdef __SUBSURFACE__
 #  include "../closure/bssrdf.h"
 #endif
