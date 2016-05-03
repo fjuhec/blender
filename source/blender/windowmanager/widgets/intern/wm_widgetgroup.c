@@ -319,7 +319,7 @@ void WIDGETGROUP_OT_widget_tweak(wmOperatorType *ot)
 static wmKeyMap *widgetgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char *wgroupname)
 {
 	wmKeyMap *keymap;
-	char name[MAX_NAME];
+	char name[KMAP_MAX_NAME];
 
 	static EnumPropertyItem modal_items[] = {
 		{TWEAK_MODAL_CANCEL, "CANCEL", 0, "Cancel", ""},

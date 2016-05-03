@@ -782,7 +782,7 @@ static void view3d_widgets(void)
 	        WIDGETGROUP_manipulator_refresh,
 	        WIDGETGROUP_manipulator_draw_prepare,
 	        WM_widgetgroup_keymap_common,
-	        "Manipulator Widgets");
+	        "Transform Manipulator");
 }
 
 

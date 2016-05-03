@@ -595,7 +595,7 @@ static void image_widgets(void)
 	        WIDGETGROUP_manipulator2d_poll,
 	        WIDGETGROUP_manipulator2d_init,
 	        WM_widgetgroup_keymap_common,
-	        "Manipulator Widgets");
+	        "UV Transform Manipulator");
 }
 
 /************************** main region ***************************/
