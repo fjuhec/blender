@@ -2838,6 +2838,8 @@ static void view3d_from_minmax(bContext *C, View3D *v3d, ARegion *ar,
 	float afm[3];
 	float size;
 
+	ED_view3d_smooth_view_finish(C, v3d, ar);
+
 	/* SMOOTHVIEW */
 	float new_ofs[3];
 	float new_dist;
@@ -3196,6 +3198,8 @@ static int viewcenter_cursor_exec(bContext *C, wmOperator *op)
 		ARegion *ar = CTX_wm_region(C);
 		const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
 
+		ED_view3d_smooth_view_finish(C, v3d, ar);
+
 		/* non camera center */
 		float new_ofs[3];
 		negate_v3_v3(new_ofs, ED_view3d_cursor3d_get(scene, v3d));
@@ -3234,6 +3238,8 @@ static int viewcenter_pick_invoke(bContext *C, wmOperator *op, const wmEvent *ev
 	if (rv3d) {
 		float new_ofs[3];
 		const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
+
+		ED_view3d_smooth_view_finish(C, v3d, ar);
 
 		view3d_operator_needs_opengl(C);
 
@@ -3840,6 +3846,8 @@ static int viewnumpad_exec(bContext *C, wmOperator *op)
 	ED_view3d_context_user_region(C, &v3d, &ar);
 	rv3d = ar->regiondata;
 
+	ED_view3d_smooth_view_finish(C, v3d, ar);
+
 	viewnum = RNA_enum_get(op->ptr, "type");
 	align_active = RNA_boolean_get(op->ptr, "align_active");
 
@@ -3989,6 +3997,8 @@ static int vieworbit_exec(bContext *C, wmOperator *op)
 		ED_view3d_context_user_region(C, &v3d, &ar);
 		rv3d = ar->regiondata;
 	}
+
+	ED_view3d_smooth_view_finish(C, v3d, ar);
 
 	if ((rv3d->viewlock & RV3D_LOCKED) == 0 || (view_opposite != RV3D_VIEW_USER)) {
 		if ((rv3d->persp != RV3D_CAMOB) || ED_view3d_camera_lock_check(v3d, rv3d)) {
@@ -4195,6 +4205,9 @@ static int viewroll_exec(bContext *C, wmOperator *op)
 
 	rv3d = ar->regiondata;
 	if ((rv3d->persp != RV3D_CAMOB) || ED_view3d_camera_lock_check(v3d, rv3d)) {
+
+		ED_view3d_smooth_view_finish(C, v3d, ar);
+
 		int type = RNA_enum_get(op->ptr, "type");
 		float angle = (type == 0) ? RNA_float_get(op->ptr, "angle") : DEG2RADF(U.pad_rot_angle);
 		float mousevec[3];
@@ -5133,86 +5146,4 @@ void ED_view3D_lock_clear(View3D *v3d)
 	v3d->ob_centre_bone[0] = '\0';
 	v3d->ob_centre_cursor = false;
 	v3d->flag2 &= ~V3D_LOCK_CAMERA;
-}
-
-/**
- * Convenience function for snap ray-casting.
- *
- * Given a ray, cast it into the scene (snapping to faces).
- *
- * \return Snap success
- */
-bool ED_view3d_snap_from_ray(
-        Scene *scene,
-        const float ray_start[3], const float ray_normal[3],
-        float r_co[3])
-{
-	float r_no_dummy[3];
-	float ray_dist = BVH_RAYCAST_DIST_MAX;
-	bool ret;
-
-	struct Object *obedit = scene->obedit;
-
-	/* try snap edge, then face if it fails */
-	ret = snapObjectsRayEx(
-	        scene, NULL, NULL, NULL, obedit,
-	        NULL, SNAP_ALL, SCE_SNAP_MODE_FACE,
-	        ray_start, ray_normal, &ray_dist,
-	        r_co, r_no_dummy, NULL, NULL,
-	        NULL, NULL);
-
-	return ret;
-}
-
-/**
- * Convenience function for performing snapping.
- *
- * Given a 2D region value, snap to vert/edge/face.
- *
- * \param mval: Screenspace coordinate.
- * \param dist_px: Maximum distance to snap (in pixels).
- * \param use_depth: Snap to the closest element, use when using more than one snap type.
- * \param use_obedit: Use editmode cage.
- * \param use_vert: Snap to verts.
- * \param use_edge: Snap to edges.
- * \param use_face: Snap to faces.
- * \param r_co: hit location.
- * \param r_no: hit normal (optional).
- * \return Snap success
- */
-bool ED_view3d_snap_from_region(
-        Scene *scene, View3D *v3d, ARegion *ar,
-        const float mval[2], float dist_px,
-        bool use_depth, bool use_obedit,
-        bool use_vert, bool use_edge, bool use_face,
-        float r_co[3], float r_no[3])
-{
-	float r_no_dummy[3];
-	float ray_dist = BVH_RAYCAST_DIST_MAX;
-	bool is_hit = false;
-	float *r_no_ptr = r_no ? r_no : r_no_dummy;
-
-	struct Object *obedit = use_obedit ? scene->obedit : NULL;
-	const int  elem_type[3] = {SCE_SNAP_MODE_VERTEX, SCE_SNAP_MODE_EDGE, SCE_SNAP_MODE_FACE};
-	const bool elem_test[3] = {use_vert, use_edge, use_face};
-
-	BLI_assert(use_vert || use_edge || use_face);
-
-	for (int i = 0; i < 3; i++) {
-		if (elem_test[i] && (is_hit == false || use_depth)) {
-			if (use_depth == false) {
-				ray_dist = BVH_RAYCAST_DIST_MAX;
-			}
-			if (snapObjectsEx(
-			        scene, v3d, ar, NULL, obedit,
-			        mval, SNAP_ALL, elem_type[i],
-			        &ray_dist,
-			        r_co, r_no_ptr, &dist_px))
-			{
-				is_hit = true;
-			}
-		}
-	}
-
-	return is_hit;
 }
