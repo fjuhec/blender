@@ -506,7 +506,7 @@ class AssetEngineAmber(AssetEngine):
             euuid = tuple(uuid.uuid_asset)
             vuuid = tuple(uuid.uuid_variant)
             ruuid = tuple(uuid.uuid_revision)
-            e = self.repo["entries"][euuid]
+            e = repo["entries"][euuid]
             v = e["variants"][vuuid]
             r = v["revisions"][ruuid]
 
