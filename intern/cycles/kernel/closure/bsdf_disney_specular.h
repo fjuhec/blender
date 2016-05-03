@@ -112,22 +112,14 @@ struct DisneySpecularBRDFParams {
     float m_roughness;
     float m_anisotropic;
 
-    // color correction
-    float m_withNdotL;
-    float m_brightness;
-    float m_gamma;
-    float m_exposure;
-    float m_mon2lingamma;
-
     // precomputed values
     float3 m_cdlin, m_ctint, m_cspec0;
     float m_cdlum;
     float m_ax, m_ay;
     float m_roughg;
-    bool m_withNdotL_b;
 
     void precompute_values() {
-        m_cdlin = spec_mon2lin(m_base_color, m_mon2lingamma); //make_float3(1.0f, 0.795f, 0.0f));
+        m_cdlin = m_base_color;
         m_cdlum = 0.3f * m_cdlin[0] + 0.6f * m_cdlin[1] + 0.1f * m_cdlin[2]; // luminance approx.
 
         m_ctint = m_cdlum > 0.0f ? m_cdlin / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
@@ -140,74 +132,11 @@ struct DisneySpecularBRDFParams {
         m_ay = spec_max(0.001f, spec_sqr(m_roughness) * aspect);
 
         m_roughg = spec_sqr(m_roughness * 0.5f + 0.5f);
-
-        //m_gamma = clamp(m_gamma, 0.0f, 5.0f);
-		//m_exposure = clamp(m_exposure, -6.0f, 6.0f);
-        m_withNdotL_b = (m_withNdotL != 0.0f);
     }
 };
 
 typedef struct DisneySpecularBRDFParams DisneySpecularBRDFParams;
 
-/*brdf*/
-ccl_device float3 calculate_disney_specular_brdf(const ShaderClosure *sc,
-    const DisneySpecularBRDFParams *params, float3 N, float3 X, float3 Y,
-	float3 V, float3 L, float3 H, float *pdf, bool withNdotL = false)
-{
-    float NdotL = dot(N, L);
-    float NdotV = dot(N, V);
-
-	if (NdotL < 0.0f || NdotV < 0.0f) {
-        *pdf = 0.0f;
-        return make_float3(0.0f, 0.0f, 0.0f);
-    }
-
-    float NdotH = dot(N, H);
-    float LdotH = dot(L, H);
-    float FH = spec_SchlickFresnel(LdotH);
-
-    float Ds;
-    if (params->m_anisotropic > 0.0f)
-        Ds = spec_GTR2_aniso(NdotH, dot(H, X), dot(H, Y), params->m_ax, params->m_ay);
-    else
-		Ds = spec_GTR2(NdotH, params->m_ax);
-    float3 Fs = spec_mix(params->m_cspec0, make_float3(1.0f, 1.0f, 1.0f), FH);
-    float Go = spec_smithG_GGX(NdotV, params->m_roughg);
-    float Gi = spec_smithG_GGX(NdotL, params->m_roughg);
-    float Gs = Go * Gi;
-
-    float common = Go * Ds;
-    if (params->m_exposure > 0.5f)
-        common *= std::fabs(dot(V, H)) / spec_max(1e-6, NdotV);
-    else
-        common *= 0.25f / spec_max(1e-6, NdotV);
-
-    *pdf = common;
-	/*if (params->m_withNdotL > 0.75f)
-		*pdf = spec_mix(*pdf, params->m_exposure, spec_SchlickFresnel(NdotV));
-	else if (params->m_withNdotL > 0.5f)
-		*pdf = spec_mix(*pdf, params->m_exposure, spec_sqr(params->m_roughness));
-	else if (params->m_withNdotL > 0.25f)
-		*pdf = spec_mix(spec_mix(*pdf, params->m_exposure, spec_sqr(params->m_roughness)), params->m_exposure, spec_SchlickFresnel(NdotV));*/
-
-    float3 value = Gs * Ds * Fs;
-
-	if (withNdotL)
-		value *= NdotL;
-
-    // brightness
-    //value *= params->m_brightness;
-
-    // exposure
-    //value *= pow(2.f, params->m_exposure);
-
-    // gamma
-    /*value[0] = pow(value[0], 1.f / params->m_gamma);
-    value[1] = pow(value[1], 1.f / params->m_gamma);
-    value[2] = pow(value[2], 1.f / params->m_gamma);*/
-
-    return value;
-}
 
 ccl_device_inline void spec_microfacet_ggx_sample_slopes(
 	const float cos_theta_i, const float sin_theta_i,
@@ -311,24 +240,6 @@ ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc,
     const DisneySpecularBRDFParams *params, const float3 I,
     const float3 omega_in, float *pdf)
 {
-    /*float3 N = normalize(sc->N);
-    float3 V = normalize(I); // outgoing
-    float3 L = normalize(omega_in); // incoming
-    float3 H = normalize(L + V);
-
-    float3 T = normalize(sc->T);
-    float3 X, Y;
-	if (params->m_anisotropic > 0.0f) {
-		make_orthonormals_tangent(N, T, &X, &Y);
-	}
-	else {
-		make_orthonormals(N, &X, &Y);
-	}
-
-    float3 value = calculate_disney_specular_brdf(sc, params, N, X, Y, V, L, H, pdf, params->m_withNdotL_b);
-
-    return value;*/
-
     float alpha_x = params->m_ax;
 	float alpha_y = params->m_ay;
 	float3 N = sc->N;
@@ -349,26 +260,15 @@ ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc,
 			/* isotropic
 			 * eq. 20: (F*G*D)/(4*in*on)
 			 * eq. 33: first we calculate D(m) */
-            //if (params->m_brightness > 0.5f) {
-                float cosThetaM = dot(N, m);
-                float cosThetaM2 = cosThetaM * cosThetaM;
-                float cosThetaM4 = cosThetaM2 * cosThetaM2;
-                float tanThetaM2 = (1 - cosThetaM2) / cosThetaM2;
-                D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
-            /*}
-            else {
-                D = spec_GTR2(dot(N, m), params->m_ax);
-            }*/
+            float cosThetaM = dot(N, m);
+            float cosThetaM2 = cosThetaM * cosThetaM;
+            float cosThetaM4 = cosThetaM2 * cosThetaM2;
+            float tanThetaM2 = (1 - cosThetaM2) / cosThetaM2;
+            D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
 
 			/* eq. 34: now calculate G1(i,m) and G1(o,m) */
-            //if (params->m_exposure > 0.5f) {
-                G1o = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNO * cosNO) / (cosNO * cosNO)));
-                G1i = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNI * cosNI) / (cosNI * cosNI)));
-            /*}
-            else {
-                G1o = spec_smithG_GGX(cosNO, params->m_roughg);
-                G1i = spec_smithG_GGX(cosNI, params->m_roughg);
-            }*/
+            G1o = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNO * cosNO) / (cosNO * cosNO)));
+            G1i = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNI * cosNI) / (cosNI * cosNI)));
 		}
 		else {
 			/* anisotropic */
@@ -376,46 +276,35 @@ ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc,
             make_orthonormals_tangent(Z, sc->T, &X, &Y);
 
             // distribution
-            //if (params->m_brightness > 0.5f) {
-                float3 local_m = make_float3(dot(X, m), dot(Y, m), dot(Z, m));
-                float slope_x = -local_m.x/(local_m.z*alpha_x);
-                float slope_y = -local_m.y/(local_m.z*alpha_y);
-                float slope_len = 1 + slope_x*slope_x + slope_y*slope_y;
+            float3 local_m = make_float3(dot(X, m), dot(Y, m), dot(Z, m));
+            float slope_x = -local_m.x/(local_m.z*alpha_x);
+            float slope_y = -local_m.y/(local_m.z*alpha_y);
+            float slope_len = 1 + slope_x*slope_x + slope_y*slope_y;
 
-                float cosThetaM = local_m.z;
-                float cosThetaM2 = cosThetaM * cosThetaM;
-                float cosThetaM4 = cosThetaM2 * cosThetaM2;
+            float cosThetaM = local_m.z;
+            float cosThetaM2 = cosThetaM * cosThetaM;
+            float cosThetaM4 = cosThetaM2 * cosThetaM2;
 
-                D = 1 / ((slope_len * slope_len) * M_PI_F * alpha2 * cosThetaM4);
-            /*}
-            else {
-                D = spec_GTR2_aniso(dot(N, m), dot(X, m), dot(Y, m), params->m_ax, params->m_ay);
-            }*/
+            D = 1 / ((slope_len * slope_len) * M_PI_F * alpha2 * cosThetaM4);
 
 			/* G1(i,m) and G1(o,m) */
-            //if (params->m_exposure > 0.5f) {
-                float tanThetaO2 = (1 - cosNO * cosNO) / (cosNO * cosNO);
-                float cosPhiO = dot(I, X);
-                float sinPhiO = dot(I, Y);
+            float tanThetaO2 = (1 - cosNO * cosNO) / (cosNO * cosNO);
+            float cosPhiO = dot(I, X);
+            float sinPhiO = dot(I, Y);
 
-                float alphaO2 = (cosPhiO*cosPhiO)*(alpha_x*alpha_x) + (sinPhiO*sinPhiO)*(alpha_y*alpha_y);
-                alphaO2 /= cosPhiO*cosPhiO + sinPhiO*sinPhiO;
+            float alphaO2 = (cosPhiO*cosPhiO)*(alpha_x*alpha_x) + (sinPhiO*sinPhiO)*(alpha_y*alpha_y);
+            alphaO2 /= cosPhiO*cosPhiO + sinPhiO*sinPhiO;
 
-                G1o = 2 / (1 + safe_sqrtf(1 + alphaO2 * tanThetaO2));
+            G1o = 2 / (1 + safe_sqrtf(1 + alphaO2 * tanThetaO2));
 
-                float tanThetaI2 = (1 - cosNI * cosNI) / (cosNI * cosNI);
-                float cosPhiI = dot(omega_in, X);
-                float sinPhiI = dot(omega_in, Y);
+            float tanThetaI2 = (1 - cosNI * cosNI) / (cosNI * cosNI);
+            float cosPhiI = dot(omega_in, X);
+            float sinPhiI = dot(omega_in, Y);
 
-                float alphaI2 = (cosPhiI*cosPhiI)*(alpha_x*alpha_x) + (sinPhiI*sinPhiI)*(alpha_y*alpha_y);
-                alphaI2 /= cosPhiI*cosPhiI + sinPhiI*sinPhiI;
+            float alphaI2 = (cosPhiI*cosPhiI)*(alpha_x*alpha_x) + (sinPhiI*sinPhiI)*(alpha_y*alpha_y);
+            alphaI2 /= cosPhiI*cosPhiI + sinPhiI*sinPhiI;
 
-                G1i = 2 / (1 + safe_sqrtf(1 + alphaI2 * tanThetaI2));
-            /*}
-            else {
-                G1o = spec_smithG_GGX(cosNO, params->m_roughg);
-                G1i = spec_smithG_GGX(cosNI, params->m_roughg);
-            }*/
+            G1i = 2 / (1 + safe_sqrtf(1 + alphaI2 * tanThetaI2));
 		}
 
 		float G = G1o * G1i;
@@ -447,99 +336,11 @@ ccl_device float3 bsdf_disney_specular_eval_transmit(const ShaderClosure *sc, co
     return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device void importance_sample_ggx_aniso(float3 N, float u, float v, float3 *omega_in,
-	float ax, float ay, float3 TangentX, float3 TangentY, float *pdf)
-{
-	float a = sqrt(v) / sqrt(1 - v);
-
-	float Phi = 2.0f * M_PI_F * u;
-
-	float3 H;
-	H.x = ax * a * cos(Phi);
-	H.y = ay * a * sin(Phi);
-	H.z = 1.0f;
-
-	*omega_in = normalize(TangentX * H.x + TangentY * H.y + N * H.z);
-
-	float CosTheta = sqrt(1.0f - (ax * a) * (ax * a) - (ay * a) * (ay * a));
-	*pdf = CosTheta * M_1_PI_F;
-}
-
-ccl_device void importance_sample_ggx(float3 N, float u, float v, float3 *omega_in,
-	float Roughness, float3 TangentX, float3 TangentY, float *pdf)
-{
-	float a = Roughness * Roughness;
-
-	float Phi = 2.0f * M_PI_F * u;
-	float CosTheta = sqrt((1.0f - v) / (1.0f + (a*a - 1.0f) * v));
-	float SinTheta = sqrt(1.0f - CosTheta * CosTheta);
-
-	float3 H;
-	H.x = SinTheta * cos(Phi);
-	H.y = SinTheta * sin(Phi);
-	H.z = CosTheta;
-
-	// Tangent to world space
-	*omega_in = normalize(TangentX * H.x + TangentY * H.y + N * H.z);
-	*pdf = CosTheta * M_1_PI_F;
-}
-
 ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc, const DisneySpecularBRDFParams *params,
     float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv,
     float3 *eval, float3 *omega_in, float3 *domega_in_dx,
     float3 *domega_in_dy, float *pdf)
 {
-    /*float3 N = normalize(sc->N);
-	float3 T = normalize(sc->T);
-	float3 X, Y;
-	if (params->m_anisotropic > 0.0f)
-		make_orthonormals_tangent(N, T, &X, &Y);
-	else
-		make_orthonormals(N, &X, &Y);
-
-	float3 R = -I - 2.0f * dot(-I, N) * N;
-
-	float3 H;
-	if (params->m_brightness <= 0.5f) {
-		if (params->m_anisotropic > 0.0f)
-			importance_sample_ggx_aniso(R, randu, randv, omega_in, params->m_ax, params->m_ay, X, Y, pdf);
-		else
-			importance_sample_ggx(R, randu, randv, omega_in, params->m_roughness, X, Y, pdf);
-		H = normalize(I + *omega_in);
-	}
-	else {
-		if (params->m_anisotropic > 0.0f)
-			importance_sample_ggx_aniso(N, randu, randv, &H, params->m_ax, params->m_ay, X, Y, pdf);
-		else
-			importance_sample_ggx(N, randu, randv, &H, params->m_roughness, X, Y, pdf);
-		*omega_in = -I - 2.0f * dot(-I, H) * H;
-	}
-
-	if (params->m_brightness > 0.2f && params->m_brightness < 0.8f) {
-		if (dot(Ng, *omega_in) < 0.0f) {
-			*omega_in = -(*omega_in) - 2.0f * dot(-(*omega_in), R) * R;
-			H = normalize(*omega_in + I);
-		}
-	}
-
-    if (dot(Ng, *omega_in) > 0.0f) {
-        float3 V = I; // outgoing
-        float3 L = *omega_in; // incoming
-
-		*eval = calculate_disney_specular_brdf(sc, params, N, X, Y, V, L, H, pdf, params->m_withNdotL > 0.75f);
-
-#ifdef __RAY_DIFFERENTIALS__
-        *domega_in_dx = 2 * dot(H, dIdx) * H - dIdx;
-        *domega_in_dy = 2 * dot(H, dIdy) * H - dIdy;
-#endif
-    }
-    else {
-        *pdf = 0.0f;
-        *eval = make_float3(0.0f, 0.0f, 0.0f);
-    }
-
-    return LABEL_REFLECT|LABEL_GLOSSY;*/
-
     float alpha_x = params->m_ax;
 	float alpha_y = params->m_ay;
 	float3 N = sc->N;
@@ -560,16 +361,10 @@ ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc, const Disney
         float3 m;
 		float G1o;
 
-        //if (params->m_exposure > 0.5f) {
-		    local_m = spec_microfacet_sample_stretched(local_I, alpha_x, alpha_y,
-			        randu, randv, false, &G1o);
+		local_m = spec_microfacet_sample_stretched(local_I, alpha_x, alpha_y,
+			    randu, randv, false, &G1o);
 
-		    m = X*local_m.x + Y*local_m.y + Z*local_m.z;
-        /*}
-        else {
-            importance_sample_ggx_aniso(N, randu, randv, &m, alpha_x, alpha_y, X, Y, pdf);
-            local_m = make_float3(dot(X, m), dot(Y, m), dot(Z, m));
-        }*/
+		m = X*local_m.x + Y*local_m.y + Z*local_m.z;
 		float cosThetaM = local_m.z;
 
 		/* reflection or refraction? */
@@ -592,64 +387,40 @@ ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc, const Disney
                     float D, G1i;
 
                     if(alpha_x == alpha_y) {
-                        /* isotropic */
-                        //if (params->m_brightness > 0.5f) {
-                            float cosThetaM2 = cosThetaM * cosThetaM;
-                            float cosThetaM4 = cosThetaM2 * cosThetaM2;
-                            float tanThetaM2 = 1/(cosThetaM2) - 1;
-                            D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
-                        /*}
-                        else {
-                            D = spec_GTR2(dot(N, m), params->m_ax);
-                        }*/
+                        float cosThetaM2 = cosThetaM * cosThetaM;
+                        float cosThetaM4 = cosThetaM2 * cosThetaM2;
+                        float tanThetaM2 = 1/(cosThetaM2) - 1;
+                        D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
 
                         /* eval BRDF*cosNI */
                         float cosNI = dot(N, *omega_in);
 
                         /* eq. 34: now calculate G1(i,m) */
-                        //if (params->m_exposure > 0.5f) {
-                            G1i = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNI * cosNI) / (cosNI * cosNI)));
-                        /*}
-                        else {
-                            G1i = spec_smithG_GGX(cosNI, params->m_roughg);
-                            G1o = spec_smithG_GGX(cosNO, params->m_roughg);
-                        }*/
+                        G1i = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNI * cosNI) / (cosNI * cosNI)));
                     }
                     else {
                         /* anisotropic distribution */
-                        //if (params->m_brightness > 0.5f) {
-                            //float3 local_m = make_float3(dot(X, m), dot(Y, m), dot(Z, m));
-                            float slope_x = -local_m.x/(local_m.z*alpha_x);
-                            float slope_y = -local_m.y/(local_m.z*alpha_y);
-                            float slope_len = 1 + slope_x*slope_x + slope_y*slope_y;
+                        float slope_x = -local_m.x/(local_m.z*alpha_x);
+                        float slope_y = -local_m.y/(local_m.z*alpha_y);
+                        float slope_len = 1 + slope_x*slope_x + slope_y*slope_y;
 
-                            float cosThetaM = local_m.z;
-                            float cosThetaM2 = cosThetaM * cosThetaM;
-                            float cosThetaM4 = cosThetaM2 * cosThetaM2;
+                        float cosThetaM = local_m.z;
+                        float cosThetaM2 = cosThetaM * cosThetaM;
+                        float cosThetaM4 = cosThetaM2 * cosThetaM2;
 
-                            D = 1 / ((slope_len * slope_len) * M_PI_F * alpha2 * cosThetaM4);
-                        /*}
-                        else {
-                            D = spec_GTR2_aniso(dot(N, m), dot(X, m), dot(Y, m), params->m_ax, params->m_ay);
-                        }*/
+                        D = 1 / ((slope_len * slope_len) * M_PI_F * alpha2 * cosThetaM4);
 
                         /* calculate G1(i,m) */
                         float cosNI = dot(N, *omega_in);
 
-                        //if (params->m_exposure > 0.5f) {
-                            float tanThetaI2 = (1 - cosNI * cosNI) / (cosNI * cosNI);
-                            float cosPhiI = dot(*omega_in, X);
-                            float sinPhiI = dot(*omega_in, Y);
+                        float tanThetaI2 = (1 - cosNI * cosNI) / (cosNI * cosNI);
+                        float cosPhiI = dot(*omega_in, X);
+                        float sinPhiI = dot(*omega_in, Y);
 
-                            float alphaI2 = (cosPhiI*cosPhiI)*(alpha_x*alpha_x) + (sinPhiI*sinPhiI)*(alpha_y*alpha_y);
-                            alphaI2 /= cosPhiI*cosPhiI + sinPhiI*sinPhiI;
+                        float alphaI2 = (cosPhiI*cosPhiI)*(alpha_x*alpha_x) + (sinPhiI*sinPhiI)*(alpha_y*alpha_y);
+                        alphaI2 /= cosPhiI*cosPhiI + sinPhiI*sinPhiI;
 
-                            G1i = 2 / (1 + safe_sqrtf(1 + alphaI2 * tanThetaI2));
-                        /*}
-                        else {
-                            G1i = spec_smithG_GGX(cosNI, params->m_roughg);
-                            G1o = spec_smithG_GGX(cosNO, params->m_roughg);
-                        }*/
+                        G1i = 2 / (1 + safe_sqrtf(1 + alphaI2 * tanThetaI2));
                     }
 
                     /* see eval function for derivation */

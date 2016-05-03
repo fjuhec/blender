@@ -23,6 +23,7 @@ set(SRC
 	osl_shader.cpp
 	bsdf_disney_diffuse.cpp
 	bsdf_disney_specular.cpp
+	bsdf_disney_clearcoat.cpp
 )
 
 set(HEADER_SRC
