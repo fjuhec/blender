@@ -36,6 +36,7 @@
 
 #include "kernel_compat_cpu.h"
 #include "osl_closures.h"
+#include "closure/bsdf_util.h"
 
 #include "kernel_types.h"
 #include "kernel_montecarlo.h"
