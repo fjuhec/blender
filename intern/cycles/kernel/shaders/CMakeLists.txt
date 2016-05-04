@@ -81,7 +81,7 @@ set(SRC_OSL
 	node_wireframe.osl
 	node_hair_bsdf.osl
 	node_uv_map.osl
-    #node_disney_bsdf.osl
+    node_disney_bsdf.osl
 )
 
 set(SRC_OSL_HEADERS

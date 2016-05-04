@@ -2068,10 +2068,32 @@ void DiffuseBsdfNode::compile(OSLCompiler& compiler)
 }
 
 /* Disney BSDF Closure */
-/*DisneyBsdfNode::DisneyBsdfNode()
+DisneyBsdfNode::DisneyBsdfNode()
 {
 	closure = CLOSURE_BSDF_DISNEY_DIFFUSE_ID;
-}*/
+
+	add_input("BaseColor", SHADER_SOCKET_COLOR, make_float3(0.646f, 0.415f, 0.017f));
+	add_input("Metallic", SHADER_SOCKET_FLOAT, 0.0f);
+	add_input("Subsurface", SHADER_SOCKET_FLOAT, 0.0f);
+	add_input("Specular", SHADER_SOCKET_FLOAT, 0.5f);
+	add_input("Roughness", SHADER_SOCKET_FLOAT, 0.5f);
+	add_input("SpecularTint", SHADER_SOCKET_FLOAT, 0.0f);
+	add_input("Anisotropic", SHADER_SOCKET_FLOAT, 0.0f);
+	add_input("Sheen", SHADER_SOCKET_FLOAT, 0.0f);
+	add_input("SheenTint", SHADER_SOCKET_FLOAT, 0.5f);
+	add_input("Clearcoat", SHADER_SOCKET_FLOAT, 0.0f);
+	add_input("ClearcoatGloss", SHADER_SOCKET_FLOAT, 1.0f);
+	add_input("Tangent", SHADER_SOCKET_VECTOR, ShaderInput::TANGENT);
+}
+
+void DisneyBsdfNode::compile(SVMCompiler& compiler)
+{
+}
+
+void DisneyBsdfNode::compile(OSLCompiler& compiler)
+{
+	compiler.add(this, "node_disney_bsdf");
+}
 
 /* Translucent BSDF Closure */
 

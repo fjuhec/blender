@@ -527,9 +527,9 @@ static ShaderNode *add_node(Scene *scene,
 		}
 		node = hair;
 	}
-	/*else if(b_node.is_a(&RNA_ShaderNodeBsdfDisney)) {
+	else if(b_node.is_a(&RNA_ShaderNodeBsdfDisney)) {
 		node = new DisneyBsdfNode();
-    }*/
+    }
 	else if(b_node.is_a(&RNA_ShaderNodeBsdfTranslucent)) {
 		node = new TranslucentBsdfNode();
 	}
