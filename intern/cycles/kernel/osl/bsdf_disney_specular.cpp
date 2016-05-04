@@ -74,11 +74,9 @@ public:
 		return bsdf_disney_specular_eval_transmit(&sc, omega_out, omega_in, &pdf);
 	}
 
-	int sample(const float3 &Ng,
-	           const float3 &omega_out, const float3 &domega_out_dx, const float3 &domega_out_dy,
-	           float randu, float randv,
-	           float3 &omega_in, float3 &domega_in_dx, float3 &domega_in_dy,
-	           float &pdf, float3 &eval) const
+	int sample(const float3 &Ng, const float3 &omega_out, const float3 &domega_out_dx,
+		const float3 &domega_out_dy, float randu, float randv, float3 &omega_in,
+		float3 &domega_in_dx, float3 &domega_in_dy, float &pdf, float3 &eval) const
 	{
 		return bsdf_disney_specular_sample(&sc, &dp, Ng, omega_out, domega_out_dx, domega_out_dy,
 			randu, randv, &eval, &omega_in, &domega_in_dx, &domega_in_dy, &pdf);

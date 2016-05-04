@@ -30,9 +30,23 @@ shader node_disney_bsdf(
     float ClearcoatGloss = 1.0,
 	normal Normal = N,
 	normal Tangent = normalize(dPdu),
-    normal AnisotropicRotation = normal(0, 0, 0),
+    //normal AnisotropicRotation = normal(0, 0, 0),
 	output closure color BSDF = 0)
 {
-	BSDF = disney_diffuse(Normal, BaseColor);
+	if (Metallic == 1.0) {
+        BSDF =  disney_specular(Normal, Tangent, BaseColor, Metallic, Specular,
+                                  SpecularTint, Roughness, Anisotropic)
+                + disney_clearcoat(Normal, Clearcoat, ClearcoatGloss);
+    } else if (Specular == 0.0) {
+        BSDF =  disney_diffuse(Normal, BaseColor, Subsurface, Roughness,
+                               Sheen, SheenTint) * (1.0 - Metallic)
+                + disney_clearcoat(Normal, Clearcoat, ClearcoatGloss);
+    } else {
+        BSDF =  disney_diffuse(Normal, BaseColor, Subsurface, Roughness,
+                               Sheen, SheenTint) * (1.0 - Metallic)
+                + disney_specular(Normal, Tangent, BaseColor, Metallic, Specular,
+                                  SpecularTint, Roughness, Anisotropic)
+                + disney_clearcoat(Normal, Clearcoat, ClearcoatGloss);
+    }
 }
 
