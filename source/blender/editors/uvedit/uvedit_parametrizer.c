@@ -4657,6 +4657,52 @@ void param_scale(ParamHandle *handle, float x, float y)
 	}
 }
 
+void param_scale_bounds(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	int i;
+	
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+		
+		float tot_width, tot_height, scale;
+		float minv[2], maxv[2], trans[2];
+		
+		/* Compute bounds of chart */
+		p_chart_uv_bbox(chart, minv, maxv);
+		
+		/* Move center to 0,0 */
+		trans[0] = (minv[0] + maxv[0]) / -2.0f;
+		trans[1] = (minv[1] + maxv[1]) / -2.0f;
+		p_chart_uv_translate(chart, trans);
+		
+		/* Compute width/height of bounds */
+		if (signf(minv[0]) != signf(maxv[0]))
+			tot_width = fabsf(minv[0]) + fabsf(maxv[0]);
+		else
+			tot_width = maxv[0] - minv[0];
+		
+		if (signf(minv[1]) != signf(maxv[1]))
+			tot_height = fabsf(minv[1]) + fabsf(maxv[1]);
+		else
+			tot_height = maxv[1] - minv[1];
+		
+		if (tot_height > tot_width)
+			scale = 1.0f / tot_height;
+		else
+			scale = 1.0f / tot_width;
+		
+		/* Scale to fit UV area */
+		p_chart_uv_scale(chart, scale);
+		
+		/* Move chart to center of UV Space*/
+		trans[0] = 0.5f;
+		trans[1] = 0.5f;
+		p_chart_uv_translate(chart, trans);
+	}
+}
+
 void param_flush(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;

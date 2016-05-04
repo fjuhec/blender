@@ -109,6 +109,10 @@ void param_average(ParamHandle *handle);
 
 void param_scale(ParamHandle *handle, float x, float y);
 
+/* Scale to bounds */
+
+void param_scale_bounds(ParamHandle *handle);
+
 /* Flushing */
 
 void param_flush(ParamHandle *handle);

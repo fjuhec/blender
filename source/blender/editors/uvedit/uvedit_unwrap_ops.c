@@ -1146,6 +1146,7 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 
 	const bool fill_holes = (scene->toolsettings->uvcalc_flag & UVCALC_FILLHOLES) != 0;
 	const bool correct_aspect = (scene->toolsettings->uvcalc_flag & UVCALC_NO_ASPECT_CORRECT) == 0;
+	const bool pack_islands = (scene->toolsettings->uvcalc_flag & UVCALC_PACKISLANDS) != 0;
 	bool use_subsurf;
 
 	modifier_unwrap_state(obedit, scene, &use_subsurf);
@@ -1160,7 +1161,10 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	param_lscm_end(handle);
 
 	param_average(handle);
-	param_pack(handle, scene->toolsettings->uvcalc_margin, false);
+	if (pack_islands)
+		param_pack(handle, scene->toolsettings->uvcalc_margin, false);
+	else
+		param_scale_bounds(handle);
 
 	param_flush(handle);
 
@@ -1175,6 +1179,7 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	int method = RNA_enum_get(op->ptr, "method");
 	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
 	const bool correct_aspect = RNA_boolean_get(op->ptr, "correct_aspect");
+	const bool pack_islands = RNA_boolean_get(op->ptr, "pack_islands");
 	const bool use_subsurf = RNA_boolean_get(op->ptr, "use_subsurf_data");
 	bool use_subsurf_final;
 	float obsize[3];
@@ -1214,6 +1219,9 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 
 	if (correct_aspect) scene->toolsettings->uvcalc_flag &= ~UVCALC_NO_ASPECT_CORRECT;
 	else scene->toolsettings->uvcalc_flag |=  UVCALC_NO_ASPECT_CORRECT;
+
+	if (pack_islands) scene->toolsettings->uvcalc_flag |= UVCALC_PACKISLANDS;
+	else scene->toolsettings->uvcalc_flag &= ~UVCALC_PACKISLANDS;
 
 	if (use_subsurf) scene->toolsettings->uvcalc_flag |= UVCALC_USESUBSURF;
 	else scene->toolsettings->uvcalc_flag &= ~UVCALC_USESUBSURF;
@@ -1258,6 +1266,8 @@ void UV_OT_unwrap(wmOperatorType *ot)
 	                "Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry");
 	RNA_def_boolean(ot->srna, "correct_aspect", 1, "Correct Aspect",
 	                "Map UVs taking image aspect ratio into account");
+	RNA_def_boolean(ot->srna, "pack_islands", 1, "Pack Islands",
+					"Pack UV islands after unwrapping");
 	RNA_def_boolean(ot->srna, "use_subsurf_data", 0, "Use Subsurf Modifier",
 	                "Map UVs taking vertex position after subsurf into account");
 	RNA_def_float_factor(ot->srna, "margin", 0.001f, 0.0f, 1.0f, "Margin", "Space between islands", 0.0f, 1.0f);
