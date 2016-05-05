@@ -108,7 +108,6 @@ EnumPropertyItem rna_enum_color_sets_items[] = {
 
 #include "ED_object.h"
 #include "ED_armature.h"
-#include "ED_view3d.h"
 
 #include "WM_api.h"
 
@@ -291,10 +290,6 @@ static void rna_PoseChannel_bone_fmap_object_set(PointerRNA *ptr, PointerRNA val
 {
 	bPoseChannel *pchan = (bPoseChannel *)ptr->data;
 
-	if (pchan->fmap_object && pchan->fmap) {
-		ED_armature_facemap_widget_remove(pchan->fmap_object, pchan->fmap);
-	}
-
 	if (pchan->fmap_object) {
 		id_us_min(&pchan->fmap_object->id);
 		pchan->fmap_object = NULL;
@@ -305,15 +300,6 @@ static void rna_PoseChannel_bone_fmap_object_set(PointerRNA *ptr, PointerRNA val
 
 	pchan->fmap_object = value.data;
 	id_us_plus(&pchan->fmap_object->id);
-}
-
-static void rna_PoseChannel_bone_fmap_set(PointerRNA *ptr, PointerRNA value)
-{
-	bPoseChannel *pchan = (bPoseChannel *)ptr->data;
-	if (pchan->fmap_object && pchan->fmap) {
-		ED_armature_facemap_widget_remove(pchan->fmap_object, pchan->fmap);
-	}
-	pchan->fmap = value.data;
 }
 
 static int rna_PoseChannel_has_ik_get(PointerRNA *ptr)
@@ -866,7 +852,6 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 	RNA_def_property_pointer_sdna(prop, NULL, "fmap");
 	RNA_def_property_struct_type(prop, "FaceMap");
 	RNA_def_property_flag(prop, PROP_EDITABLE);
-	RNA_def_property_pointer_funcs(prop, NULL, "rna_PoseChannel_bone_fmap_set", NULL, NULL);
 	RNA_def_property_ui_text(prop, "Face Map", "Use a face map of the custom object to manipulate this bone");
 	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
 	

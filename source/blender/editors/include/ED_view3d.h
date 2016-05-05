@@ -413,7 +413,4 @@ void ED_view3d_shade_update(struct Main *bmain, struct Scene *scene, struct View
 #define V3D_IS_ZBUF(v3d) \
 	(((v3d)->flag & V3D_ZBUF_SELECT) && ((v3d)->drawtype > OB_WIRE))
 
-/* view3d_widgets.c */
-void ED_armature_facemap_widget_remove(struct Object *fmap_ob, struct bFaceMap *fmap);
-
 #endif /* __ED_VIEW3D_H__ */

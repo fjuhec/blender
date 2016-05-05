@@ -634,7 +634,7 @@ bool WM_widgetmap_cursor_set(const wmWidgetMap *wmap, wmWindow *win)
 	return false;
 }
 
-void wm_widgetmap_set_highlighted_widget(wmWidgetMap *wmap, bContext *C, wmWidget *widget, unsigned char part)
+void wm_widgetmap_set_highlighted_widget(wmWidgetMap *wmap, const bContext *C, wmWidget *widget, unsigned char part)
 {
 	if ((widget != wmap->wmap_context.highlighted_widget) || (widget && part != widget->highlighted_part)) {
 		if (wmap->wmap_context.highlighted_widget) {

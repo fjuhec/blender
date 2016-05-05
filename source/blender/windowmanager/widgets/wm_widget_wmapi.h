@@ -150,7 +150,7 @@ wmWidget *wm_widgetmap_find_highlighted_3D(struct wmWidgetMap *wmap, bContext *C
                                         const struct wmEvent *event, unsigned char *part);
 wmWidget *wm_widgetmap_find_highlighted_widget(struct wmWidgetMap *wmap, bContext *C,
                                      const struct wmEvent *event, unsigned char *part);
-void      wm_widgetmap_set_highlighted_widget(struct wmWidgetMap *wmap, bContext *C,
+void      wm_widgetmap_set_highlighted_widget(struct wmWidgetMap *wmap, const bContext *C,
                                               wmWidget *widget, unsigned char part);
 wmWidget *wm_widgetmap_get_highlighted_widget(struct wmWidgetMap *wmap);
 void      wm_widgetmap_set_active_widget(struct wmWidgetMap *wmap, bContext *C,

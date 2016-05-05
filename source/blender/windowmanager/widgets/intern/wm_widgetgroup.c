@@ -65,13 +65,7 @@ void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
 {
 	for (wmWidget *widget = wgroup->widgets.first; widget;) {
 		wmWidget *widget_next = widget->next;
-		if (widget->flag & WM_WIDGET_HIGHLIGHT) {
-			wm_widgetmap_set_highlighted_widget(wmap, C, NULL, 0);
-		}
-		if (widget->flag & WM_WIDGET_ACTIVE) {
-			wm_widgetmap_set_active_widget(wmap, C, NULL, NULL);
-		}
-		wm_widget_delete(&wgroup->widgets, widget);
+		WM_widget_delete(&wgroup->widgets, wmap, widget, C);
 		widget = widget_next;
 	}
 	BLI_assert(BLI_listbase_is_empty(&wgroup->widgets));
@@ -153,6 +147,7 @@ static int widget_select_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 
 		if (highlighted) {
 			const bool is_selected = (highlighted->flag & WM_WIDGET_SELECTED);
+			bool redraw = false;
 
 			if (toggle) {
 				/* toggle: deselect if already selected, else select */
@@ -160,11 +155,16 @@ static int widget_select_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 			}
 
 			if (deselect) {
-				if (is_selected)
-					wm_widget_deselect(C, wmap, highlighted);
+				if (is_selected && wm_widget_deselect(wmap, highlighted)) {
+					redraw = true;
+				}
 			}
-			else {
-				wm_widget_select(C, wmap, highlighted);
+			else if (wm_widget_select(C, wmap, highlighted)) {
+				redraw = true;
+			}
+
+			if (redraw) {
+				ED_region_tag_redraw(ar);
 			}
 
 			return OPERATOR_FINISHED;

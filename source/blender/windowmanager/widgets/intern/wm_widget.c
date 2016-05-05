@@ -179,6 +179,7 @@ bool wm_widget_register(wmWidgetGroup *wgroup, wmWidget *widget, const char *nam
 
 /**
  * Free widget data, not widget itself.
+ * TODO Not needed anymore?
  */
 void wm_widget_data_free(wmWidget *widget)
 {
@@ -194,8 +195,18 @@ void wm_widget_data_free(wmWidget *widget)
  * Free and NULL \a widget.
  * \a widgetlist is allowed to be NULL.
  */
-void wm_widget_delete(ListBase *widgetlist, wmWidget *widget)
+void WM_widget_delete(ListBase *widgetlist, wmWidgetMap *wmap, wmWidget *widget, bContext *C)
 {
+	if (widget->flag & WM_WIDGET_HIGHLIGHT) {
+		wm_widgetmap_set_highlighted_widget(wmap, C, NULL, 0);
+	}
+	if (widget->flag & WM_WIDGET_ACTIVE) {
+		wm_widgetmap_set_active_widget(wmap, C, NULL, NULL);
+	}
+	if (widget->flag & WM_WIDGET_SELECTED) {
+		wm_widget_deselect(wmap, widget);
+	}
+
 	wm_widget_data_free(widget);
 	if (widgetlist)
 		BLI_remlink(widgetlist, widget);
@@ -308,11 +319,17 @@ void WM_widget_set_colors(wmWidget *widget, const float col[4], const float col_
 /**
  * Remove \a widget from selection.
  * Reallocates memory for selected widgets so better not call for selecting multiple ones.
+ *
+ * \return if the selection has changed.
  */
-void wm_widget_deselect(const bContext *C, wmWidgetMap *wmap, wmWidget *widget)
+bool wm_widget_deselect(wmWidgetMap *wmap, wmWidget *widget)
 {
+	if (!wmap->wmap_context.selected_widgets)
+		return false;
+
 	wmWidget ***sel = &wmap->wmap_context.selected_widgets;
 	int *tot_selected = &wmap->wmap_context.tot_selected;
+	bool changed = false;
 
 	/* caller should check! */
 	BLI_assert(widget->flag & WM_WIDGET_SELECTED);
@@ -323,6 +340,7 @@ void wm_widget_deselect(const bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 			for (int j = i; j < ((*tot_selected) - 1); j++) {
 				(*sel)[j] = (*sel)[j + 1];
 			}
+			changed = true;
 			break;
 		}
 	}
@@ -337,21 +355,22 @@ void wm_widget_deselect(const bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 	}
 
 	widget->flag &= ~WM_WIDGET_SELECTED;
-
-	ED_region_tag_redraw(CTX_wm_region(C));
+	return changed;
 }
 
 /**
  * Add \a widget to selection.
  * Reallocates memory for selected widgets so better not call for selecting multiple ones.
+ *
+ * \return if the selection has changed.
  */
-void wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
+bool wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 {
 	wmWidget ***sel = &wmap->wmap_context.selected_widgets;
 	int *tot_selected = &wmap->wmap_context.tot_selected;
 
 	if (!widget || (widget->flag & WM_WIDGET_SELECTED))
-		return;
+		return false;
 
 	(*tot_selected)++;
 
@@ -364,9 +383,10 @@ void wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 	}
 	wm_widgetmap_set_highlighted_widget(wmap, C, widget, widget->highlighted_part);
 
-	ED_region_tag_redraw(CTX_wm_region(C));
+	return true;
 }
 
+/* XXX shouldn't be needed since we don't recreate widgets on redraw anymore? */
 bool wm_widget_compare(const wmWidget *a, const wmWidget *b)
 {
 	return STREQ(a->idname, b->idname);

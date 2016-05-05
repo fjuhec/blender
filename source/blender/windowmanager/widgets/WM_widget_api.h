@@ -56,6 +56,7 @@ struct wmWidget *WM_widget_new(
         void (*render_3d_intersection)(const struct bContext *, struct wmWidget *, int),
         int  (*intersect)(struct bContext *, const struct wmEvent *, struct wmWidget *),
         int  (*handler)(struct bContext *, const struct wmEvent *, struct wmWidget *, const int));
+void WM_widget_delete(ListBase *widgetlist, struct wmWidgetMap *wmap, struct wmWidget *widget, struct bContext *C);
 
 void WM_widget_set_property(struct wmWidget *, int slot, struct PointerRNA *ptr, const char *propname);
 struct PointerRNA *WM_widget_set_operator(struct wmWidget *, const char *opname);
