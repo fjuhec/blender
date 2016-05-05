@@ -352,18 +352,18 @@ static void WIDGET_armature_facemaps_select(bContext *C, wmWidget *widget, const
 }
 
 /**
- * Get a string that equals a string generated using
- * #armature_facemap_hashname_create, but without allocating it.
+ * Get a string that equals a string generated using #armature_facemap_hashname_create,
+ * but without allocating it. Only use for comparing with string stored as hash key.
  */
 BLI_INLINE void armature_facemap_hashkey_get(
         Object *fmap_ob, bFaceMap *fmap, size_t maxname,
-        char *r_name)
+        char *r_hashkey)
 {
-	BLI_snprintf_rlen(r_name, maxname, "%s_%s", fmap_ob->id.name + 2, fmap->name);
+	BLI_snprintf_rlen(r_hashkey, maxname, "%s_%s", fmap_ob->id.name + 2, fmap->name);
 }
 
 /**
- * Same as #armature_facemap_hashname_get but allocates a new string.
+ * Same as #armature_facemap_hashname_get but allocates a new string. Use for storing string as hash key.
  * \return A string using "OBJECTNAME_FACEMAPNAME" format.
  */
 BLI_INLINE char *armature_facemap_hashkey_create(Object *fmap_ob, bFaceMap *fmap)
@@ -474,21 +474,23 @@ void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmWidgetGroup *wgr
 	/* we create a new hash from the visible members of the old hash */
 	GHash *oldhash = wgroup->customdata;
 	GHash *newhash = BLI_ghash_str_new(__func__);
+	wmWidget *widget;
 
 	for (bPoseChannel *pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-		if (pchan->fmap && (pchan->bone->layer & arm->layer)) {
-			wmWidget *widget;
-			char idname[MAX_ARMATURE_FACEMAP_NAME];
-			armature_facemap_hashkey_get(pchan->fmap_object, pchan->fmap, sizeof(idname), idname);
+		if (!pchan->fmap)
+			continue;
 
-			/* create new widget for newly assigned facemap, add it to new hash */
-			if (!(widget = BLI_ghash_lookup(oldhash, idname))) {
-				widget = armature_facemap_widget_create(wgroup, pchan->fmap_object, pchan->fmap);
-				BLI_assert(widget);
-			}
-			armature_facemap_ghash_insert(newhash, widget, pchan->fmap_object, pchan->fmap);
+		char widgetkey[MAX_ARMATURE_FACEMAP_NAME];
+		armature_facemap_hashkey_get(pchan->fmap_object, pchan->fmap, sizeof(widgetkey), widgetkey);
 
+		/* create new widget for newly assigned facemap, add it to new hash */
+		if (!(widget = BLI_ghash_lookup(oldhash, widgetkey))) {
+			widget = armature_facemap_widget_create(wgroup, pchan->fmap_object, pchan->fmap);
+			BLI_assert(widget);
+		}
+		armature_facemap_ghash_insert(newhash, widget, pchan->fmap_object, pchan->fmap);
 
+		if ((pchan->bone->layer & arm->layer)) {
 			const ThemeWireColor *bcol = ED_pchan_get_colorset(arm, ob->pose, pchan);
 			float col[4] = {0.8f, 0.8f, 0.45f, 0.2f};
 			float col_hi[4] = {0.8f, 0.8f, 0.45f, 0.4f};
@@ -498,10 +500,14 @@ void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmWidgetGroup *wgr
 				rgb_uchar_to_float(col_hi, (unsigned char *)bcol->active);
 			}
 			WM_widget_set_colors(widget, col, col_hi);
-
-			/* remove from old hash */
-			BLI_ghash_remove(oldhash, idname, MEM_freeN, NULL);
+			WM_widget_set_flag(widget, WM_WIDGET_HIDDEN, false);
 		}
+		else {
+			WM_widget_set_flag(widget, WM_WIDGET_HIDDEN, true);
+		}
+
+		/* remove from old hash */
+		BLI_ghash_remove(oldhash, widgetkey, MEM_freeN, NULL);
 	}
 
 	/* remove remaining widgets from old hash */
