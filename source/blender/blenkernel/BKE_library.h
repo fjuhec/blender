@@ -39,6 +39,7 @@ extern "C" {
 #include "BLI_compiler_attrs.h"
 
 struct AssetEngineType;
+struct AssetUUID;
 struct BlendThumbnail;
 struct ListBase;
 struct ID;
@@ -164,6 +165,7 @@ void BKE_library_asset_repository_subdata_remove(struct AssetRef *aref, const vo
 void BKE_libraries_asset_subdata_remove(struct Main *bmain, const void *idv);
 void BKE_libraries_asset_repositories_clear(struct Main *bmain);
 void BKE_libraries_asset_repositories_rebuild(struct Main *bmain);
+struct AssetRef *BKE_libraries_asset_repository_uuid_find(struct Main *bmain, const struct AssetUUID *uuid);
 
 typedef void (*BKE_library_free_window_manager_cb)(struct bContext *, struct wmWindowManager *);
 typedef void (*BKE_library_free_notifier_reference_cb)(const void *);

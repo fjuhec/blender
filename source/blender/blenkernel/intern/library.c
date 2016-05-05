@@ -2454,6 +2454,23 @@ void BKE_libraries_asset_repositories_rebuild(Main *bmain)
 	}
 }
 
+AssetRef *BKE_libraries_asset_repository_uuid_find(Main *bmain, const AssetUUID *uuid)
+{
+	ListBase *lb = which_libbase(bmain, ID_LI);
+	for (Library *lib = lb->first; lib; lib = lib->id.next) {
+		for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
+			if (ASSETUUID_COMPARE(&aref->uuid, uuid)) {
+#ifndef NDEBUG
+				LinkData *link = aref->id_list.first;
+				BLI_assert(link && ((ID *)link->data)->uuid && ASSETUUID_COMPARE(((ID *)link->data)->uuid, uuid));
+#endif
+				return aref;
+			}
+		}
+	}
+	return NULL;
+}
+
 /**
  * Use after setting the ID's name
  * When name exists: call 'new_id'
