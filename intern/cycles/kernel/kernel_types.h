@@ -902,9 +902,10 @@ typedef struct KernelCamera {
 	float4 equirectangular_range;
 
 	/* stereo */
-	int pad1, pad2;
 	float interocular_offset;
 	float convergence_distance;
+	int use_pole_merge;
+	float pole_merge_angle;
 
 	/* matrices */
 	Transform cameratoworld;

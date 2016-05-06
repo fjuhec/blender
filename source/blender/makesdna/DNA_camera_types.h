@@ -52,7 +52,10 @@ typedef struct CameraStereoSettings {
 	short convergence_mode;
 	short pivot;
 	short flag;
+	/* Cut-off angle at which interocular distance starts to fade to 0. */
 	short pad;
+	float pole_merge_angle;
+	float pad2;
 } CameraStereoSettings;
 
 typedef struct Camera {
@@ -152,6 +155,7 @@ enum {
 /* stereo->flag */
 enum {
 	CAM_S3D_SPHERICAL       = (1 << 0),
+	CAM_S3D_POLE_MERGE      = (1 << 1),
 };
 
 #ifdef __cplusplus

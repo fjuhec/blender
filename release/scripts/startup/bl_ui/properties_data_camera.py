@@ -166,6 +166,12 @@ class DATA_PT_camera_stereoscopy(CameraButtonsPanel, Panel):
         if is_spherical_stereo:
             col.separator()
             col.prop(st, "use_spherical_stereo")
+            sub = col.column()
+            sub.active = st.use_spherical_stereo
+            sub.prop(st, "use_pole_merge")
+            row = sub.row()
+            row.active = st.use_pole_merge
+            row.prop(st, "pole_merge_angle")
 
         col.label(text="Pivot:")
         row = col.row()

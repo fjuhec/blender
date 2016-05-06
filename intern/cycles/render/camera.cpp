@@ -76,6 +76,8 @@ Camera::Camera()
 	stereo_eye = STEREO_NONE;
 	interocular_distance = 0.065f;
 	convergence_distance = 30.0f * 0.065f;
+	use_pole_merge = false;
+	pole_merge_angle = M_PI_F / 4.0f;
 
 	sensorwidth = 0.036f;
 	sensorheight = 0.024f;
@@ -370,6 +372,8 @@ void Camera::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 	}
 
 	kcam->convergence_distance = convergence_distance;
+	kcam->use_pole_merge = use_pole_merge;
+	kcam->pole_merge_angle = pole_merge_angle;
 
 	/* sensor size */
 	kcam->sensorwidth = sensorwidth;
