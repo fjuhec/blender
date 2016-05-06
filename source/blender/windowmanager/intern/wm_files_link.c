@@ -1219,12 +1219,61 @@ static int wm_assets_reload_exec(bContext *C, wmOperator *op)
 
 	for (AssetUpdateCheckEngine *auce = engines.first; auce; auce = auce->next) {
 		FileDirEntryArr *paths = BKE_asset_engine_uuids_load_pre(auce->ae, &auce->uuids);
+		FileDirEntry *en;
+		AssetUUID *uuid;
+
+		char path[FILE_MAX_LIBEXTRA], libname[FILE_MAX];
+		char *group, *name;
+
+		short flag = 0;
+		bool do_reload = true;
+
+		WMLinkAppendData *lapp_data = wm_link_append_data_new(flag);
+		lapp_data->root = paths->root;
+
+		GHash *libraries = BLI_ghash_new(BLI_ghashutil_strhash_p, BLI_ghashutil_strcmp, __func__);
+		int lib_idx = 0;
 
 		printf("Engine %s (ver. %d) returned root path '%s'\n", auce->ae->type->name, auce->ae->type->version, paths->root);
-		for (FileDirEntry *en = paths->entries.first; en; en = en->next) {
+		for (en = paths->entries.first; en; en = en->next) {
 			printf("\t-> %s\n", en->relpath);
+
+			BLI_join_dirfile(path, sizeof(path), paths->root, en->relpath);
+
+			if (BLO_library_path_explode(path, libname, &group, &name)) {
+				BLI_assert(group && name);
+
+				if (!BLI_ghash_haskey(libraries, libname)) {
+					BLI_ghash_insert(libraries, BLI_strdup(libname), SET_INT_IN_POINTER(lib_idx));
+					lib_idx++;
+					wm_link_append_data_library_add(lapp_data, libname);
+				}
+			}
+			else {
+				BLI_assert(0);
+			}
 		}
 
+		for (en = paths->entries.first, uuid = auce->uuids.uuids; en; en = en->next, uuid++) {
+			if (BLO_library_path_explode(path, libname, &group, &name)) {
+				WMLinkAppendDataItem *item;
+
+				AssetRef *aref = BKE_libraries_asset_repository_uuid_find(bmain, uuid);
+				ID *old_id = aref ? ((LinkData *)aref->id_list.first)->data : NULL;
+				BLI_assert(!old_id || (old_id->uuid && ASSETUUID_COMPARE(old_id->uuid, uuid)));
+
+				lib_idx = GET_INT_FROM_POINTER(BLI_ghash_lookup(libraries, libname));
+
+				BLI_remlink(which_libbase(bmain, GS(old_id->name)), old_id);
+				item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), uuid, old_id);
+				BLI_BITMAP_ENABLE(item->libraries, lib_idx);
+			}
+		}
+
+		lib_relocate_do(bmain, lapp_data, op->reports, do_reload);
+
+		wm_link_append_data_free(lapp_data);
+		BLI_ghash_free(libraries, MEM_freeN, NULL);
 		BKE_filedir_entryarr_clear(paths);
 		MEM_freeN(paths);
 	}
@@ -1236,323 +1285,23 @@ static int wm_assets_reload_exec(bContext *C, wmOperator *op)
 	}
 	BLI_freelistN(&engines);
 
+	BKE_main_lib_objects_recalc_all(bmain);
+	IMB_colormanagement_check_file_config(bmain);
+
+	/* important we unset, otherwise these object wont
+	 * link into other scenes from this blend file */
+	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, false);
+
+	/* recreate dependency graph to include new objects */
+	DAG_scene_relations_rebuild(bmain, CTX_data_scene(C));
+
+	/* free gpu materials, some materials depend on existing objects, such as lamps so freeing correctly refreshes */
+	GPU_materials_free();
+
+	WM_event_add_notifier(C, NC_WINDOW, NULL);
 	G.f &= ~G_ASSETS_NEED_RELOAD;
-	return OPERATOR_CANCELLED;
 
-#if 0
-	Library *lib;
-	char lib_name[MAX_NAME];
-
-	RNA_string_get(op->ptr, "library", lib_name);
-	lib = (Library *)BKE_libblock_find_name_ex(CTX_data_main(C), ID_LI, lib_name);
-
-	if (lib) {
-		Main *bmain = CTX_data_main(C);
-		Scene *scene = CTX_data_scene(C);
-		PropertyRNA *prop;
-		WMLinkAppendData *lapp_data;
-
-		ListBase *lbarray[MAX_LIBARRAY];
-		int lba_idx;
-
-		LinkNode *itemlink;
-		int item_idx;
-
-		int num_ids;
-		char path[FILE_MAX], root[FILE_MAXDIR], libname[FILE_MAX], relname[FILE_MAX];
-		short flag = 0;
-
-		if (RNA_boolean_get(op->ptr, "relative_path")) {
-			flag |= FILE_RELPATH;
-		}
-
-		if (lib->parent && !reload) {
-			BKE_reportf(op->reports, RPT_ERROR_INVALID_INPUT,
-			            "Cannot relocate indirectly linked library '%s'", lib->filepath);
-			return OPERATOR_CANCELLED;
-		}
-
-		RNA_string_get(op->ptr, "directory", root);
-		RNA_string_get(op->ptr, "filename", libname);
-
-		if (!BLO_has_bfile_extension(libname)) {
-			BKE_report(op->reports, RPT_ERROR, "Not a library");
-			return OPERATOR_CANCELLED;
-		}
-
-		BLI_join_dirfile(path, sizeof(path), root, libname);
-
-		if (BLI_path_cmp(lib->filepath, path) == 0) {
-			printf("We are supposed to reload '%s' lib (%d)...\n", lib->filepath, lib->id.us);
-
-			lapp_data = wm_link_append_data_new(flag);
-			wm_link_append_data_library_add(lapp_data, path);
-
-			BKE_main_lock(bmain);
-
-			lba_idx = set_listbasepointers(bmain, lbarray);
-			while (lba_idx--) {
-				ID *id = lbarray[lba_idx]->first;
-				const short idcode = id ? GS(id->name) : 0;
-
-				if (!id || !BKE_idcode_is_linkable(idcode)) {
-					/* No need to reload non-linkable datatypes, those will get relinked with their 'users ID'. */
-					continue;
-				}
-
-				for (; id; id = id->next) {
-					if (id->lib == lib) {
-						WMLinkAppendDataItem *item;
-
-						/* We remove it from current Main, and add it to items to link... */
-						/* Note that non-linkable IDs (like e.g. shapekeys) are also explicitely linked here... */
-						BLI_remlink(lbarray[lba_idx], id);
-						item = wm_link_append_data_item_add(lapp_data, id->name + 2, idcode, NULL, id);
-						BLI_BITMAP_SET_ALL(item->libraries, true, lapp_data->num_libraries);
-
-						printf("\tdatablock to seek for: %s\n", id->name);
-					}
-				}
-			}
-
-			BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
-
-			/* XXX For now, locking is not reentrant so it's not safe to call core linking code with locked Main. */
-			BKE_main_unlock(bmain);
-
-			/* We do not want any instanciation here! */
-			wm_link_do(lapp_data, op->reports, bmain, NULL, NULL, NULL, true, true);
-
-			BKE_main_lock(bmain);
-
-			/* We add back old id to bmain.
-			 * We need to do this in a first, separated loop, otherwise some of those may not be handled by
-			 * ID remapping, which means they would still reference old data to be deleted... */
-			for (item_idx = 0, itemlink = lapp_data->items.list; itemlink; item_idx++, itemlink = itemlink->next) {
-				WMLinkAppendDataItem *item = itemlink->link;
-				ID *old_id = item->customdata;
-
-				BLI_assert(old_id);
-				BLI_addtail(which_libbase(bmain, GS(old_id->name)), old_id);
-			}
-
-			for (item_idx = 0, itemlink = lapp_data->items.list; itemlink; item_idx++, itemlink = itemlink->next) {
-				WMLinkAppendDataItem *item = itemlink->link;
-				ID *old_id = item->customdata;
-				ID *new_id = item->new_id;
-
-				/* Since we asked for placeholders in case of missing IDs, we expect to always get a valid one. */
-				BLI_assert(new_id);
-				if (new_id) {
-//					printf("before remap, old_id users: %d (%p), new_id users: %d (%p)\n", old_id->us, old_id, new_id->us, new_id);
-					/* Note that here, we also want to replace indirect usages. */
-					BKE_libblock_remap_locked(bmain, old_id, new_id, ID_REMAP_SKIP_NEVER_NULL_USAGE);
-
-//					printf("after remap, old_id users: %d, new_id users: %d\n", old_id->us, new_id->us);
-
-					/* In some cases, new_id might become direct link, remove parent of library in this case. */
-					if (new_id->lib->parent && (new_id->tag & LIB_TAG_INDIRECT) == 0) {
-						BLI_assert(0);  /* Should not happen in reload case... */
-						new_id->lib->parent = NULL;
-					}
-				}
-
-				if (old_id->us > 0 && new_id) {
-					size_t len = strlen(old_id->name);
-
-					/* XXX TODO This is utterly weak!!! */
-					if (len > MAX_ID_NAME - 3 && old_id->name[len - 4] == '.') {
-						old_id->name[len - 6] = '.';
-						old_id->name[len - 5] = 'P';
-					}
-					else {
-						len = MIN2(len, MAX_ID_NAME - 3);
-						old_id->name[len] = '.';
-						old_id->name[len + 1] = 'P';
-						old_id->name[len + 2] = '\0';
-					}
-
-					id_sort_by_name(which_libbase(bmain, GS(old_id->name)), old_id);
-
-					BKE_reportf(op->reports, RPT_WARNING,
-					            "Lib Reload: Replacing all references to old datablock '%s' by reloaded one failed, "
-					            "old one (%d remaining users) had to be kept and was renamed to '%s'",
-					            new_id->name, old_id->us, old_id->name);
-				}
-			}
-
-			BKE_main_unlock(bmain);
-
-			for (item_idx = 0, itemlink = lapp_data->items.list; itemlink; item_idx++, itemlink = itemlink->next) {
-				WMLinkAppendDataItem *item = itemlink->link;
-				ID *old_id = item->customdata;
-
-//				printf("%p\n", old_id);
-
-				if (old_id->us == 0) {
-					BKE_libblock_free(bmain, old_id);
-					num_ids--;
-				}
-			}
-
-			wm_link_append_data_free(lapp_data);
-		}
-		else {
-			int totfiles = 0;
-
-			printf("We are supposed to relocate '%s' lib to new '%s' one...\n", lib->filepath, libname);
-
-			/* Check if something is indicated for relocate. */
-			prop = RNA_struct_find_property(op->ptr, "files");
-			if (prop) {
-				totfiles = RNA_property_collection_length(op->ptr, prop);
-				if (totfiles == 0) {
-					if (!libname[0]) {
-						BKE_report(op->reports, RPT_ERROR, "Nothing indicated");
-						return OPERATOR_CANCELLED;
-					}
-				}
-			}
-
-			lapp_data = wm_link_append_data_new(flag);
-
-			if (totfiles) {
-				RNA_BEGIN (op->ptr, itemptr, "files")
-				{
-					RNA_string_get(&itemptr, "name", relname);
-
-					BLI_join_dirfile(path, sizeof(path), root, relname);
-
-					if (BLI_path_cmp(path, lib->filepath) == 0 || !BLO_has_bfile_extension(relname)) {
-						continue;
-					}
-
-					printf("\t candidate new lib to reload datablocks from: %s\n", path);
-					wm_link_append_data_library_add(lapp_data, path);
-				}
-				RNA_END;
-			}
-			else {
-				printf("\t candidate new lib to reload datablocks from: %s\n", path);
-				wm_link_append_data_library_add(lapp_data, path);
-			}
-
-			BKE_main_lock(bmain);
-
-			lba_idx = set_listbasepointers(bmain, lbarray);
-			while (lba_idx--) {
-				ID *id = lbarray[lba_idx]->first;
-				const int idcode = id ? GS(id->name) : 0;
-
-				if (!id || !BKE_idcode_is_linkable(idcode)) {
-					continue;
-				}
-				for (; id; id = id->next) {
-					if (id->lib == lib) {
-						WMLinkAppendDataItem *item = wm_link_append_data_item_add(
-						                                 lapp_data, id->name + 2, idcode, NULL, id);
-						BLI_BITMAP_SET_ALL(item->libraries, true, lapp_data->num_libraries);
-
-						printf("\tdatablock to seek for: %s\n", id->name);
-					}
-				}
-			}
-
-			BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
-
-			/* XXX For now, locking is not reentrant so it's not safe to call core linking code with locked Main. */
-			BKE_main_unlock(bmain);
-
-			/* We do not want any instanciation here! */
-			wm_link_do(lapp_data, op->reports, bmain, NULL, NULL, NULL, false, false);
-
-			BKE_main_lock(bmain);
-
-			for (item_idx = 0, itemlink = lapp_data->items.list; itemlink; item_idx++, itemlink = itemlink->next) {
-				WMLinkAppendDataItem *item = itemlink->link;
-				ID *old_id = item->customdata;
-				ID *new_id = item->new_id;
-
-				BLI_assert(old_id);
-				if (new_id) {
-//					printf("before remap, old_id users: %d, new_id users: %d\n", old_id->us, new_id->us);
-					BKE_libblock_remap_locked(bmain, old_id, new_id,
-					                          ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_NEVER_NULL_USAGE);
-
-					if (old_id->flag & LIB_FAKEUSER) {
-						id_fake_user_clear(old_id);
-						id_fake_user_set(new_id);
-					}
-
-//					printf("after remap, old_id users: %d, new_id users: %d\n", old_id->us, new_id->us);
-
-					/* In some cases, new_id might become direct link, remove parent of library in this case. */
-					if (new_id->lib->parent && (new_id->tag & LIB_TAG_INDIRECT) == 0) {
-						new_id->lib->parent = NULL;
-					}
-				}
-			}
-
-			BKE_main_unlock(bmain);
-
-			num_ids = lapp_data->num_items;
-			for (item_idx = 0, itemlink = lapp_data->items.list; itemlink; item_idx++, itemlink = itemlink->next) {
-				WMLinkAppendDataItem *item = itemlink->link;
-				ID *old_id = item->customdata;
-
-				if (old_id->us == 0) {
-					BKE_libblock_free(bmain, old_id);
-					num_ids--;
-				}
-			}
-
-			if (num_ids == 0) {
-				/* Nothing uses old lib anymore, we can get rid of it. */
-				id_us_min(&lib->id);
-				if (lib->id.us == 0) {
-					BKE_libblock_free(bmain, (ID *)lib);
-				}
-			}
-
-			wm_link_append_data_free(lapp_data);
-		}
-
-		/* Some datablocks can get reloaded/replaced 'silently' because they are not linkable (shape keys e.g.),
-		 * so we need another loop here to clear old ones if possible. */
-		lba_idx = set_listbasepointers(bmain, lbarray);
-		while (lba_idx--) {
-			ID *id = lbarray[lba_idx]->first;
-
-			for (; id; id = id->next) {
-				if (id->lib == lib && (id->flag & LIB_TAG_PRE_EXISTING) && id->us == 0) {
-					BKE_libblock_free(bmain, id);
-				}
-			}
-		}
-
-		BKE_main_lib_objects_recalc_all(bmain);
-		IMB_colormanagement_check_file_config(bmain);
-
-		/* important we unset, otherwise these object wont
-		 * link into other scenes from this blend file */
-		BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, false);
-
-		/* recreate dependency graph to include new objects */
-		DAG_scene_relations_rebuild(bmain, scene);
-
-		/* free gpu materials, some materials depend on existing objects, such as lamps so freeing correctly refreshes */
-		GPU_materials_free();
-
-		/* XXX TODO: align G.lib with other directory storage (like last opened image etc...) */
-		BLI_strncpy(G.lib, root, FILE_MAX);
-
-		WM_event_add_notifier(C, NC_WINDOW, NULL);
-
-		return OPERATOR_FINISHED;
-	}
-
-	return OPERATOR_CANCELLED;
-#endif
+	return OPERATOR_FINISHED;
 }
 
 void WM_OT_assets_reload(wmOperatorType *ot)

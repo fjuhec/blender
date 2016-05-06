@@ -71,9 +71,9 @@ class INFO_HT_header(Header):
         if (bpy.app.assets_fail or bpy.app.assets_need_reload) and not bpy.app.assets_quiet:
             row.operator("script.assets_warn_clear", text="Ignore")
             if bpy.app.assets_need_reload is True and bpy.app.assets_quiet is False:
-                row.label("Some assets have to be reloaded", icon='INFO')
                 #~ row.label(icon='SCREEN_BACK', text="Reload Assets")
                 row.operator("wm.assets_reload", icon='SCREEN_BACK', text="Reload Assets")
+                row.label("Some assets have to be reloaded", icon='INFO')
             if bpy.app.assets_fail is True and bpy.app.assets_quiet is False:
                 row.label("Some asset engine(s) failed to retrieve updated data about their assets...", icon='ERROR')
             return
