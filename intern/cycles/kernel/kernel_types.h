@@ -905,7 +905,9 @@ typedef struct KernelCamera {
 	float interocular_offset;
 	float convergence_distance;
 	int use_pole_merge;
-	float pole_merge_angle;
+	float pole_merge_angle_from;
+	float pole_merge_angle_to;
+	float pad1;
 
 	/* matrices */
 	Transform cameratoworld;

@@ -77,7 +77,8 @@ Camera::Camera()
 	interocular_distance = 0.065f;
 	convergence_distance = 30.0f * 0.065f;
 	use_pole_merge = false;
-	pole_merge_angle = M_PI_F / 4.0f;
+	pole_merge_angle_from = M_PI_F / 4.0f;
+	pole_merge_angle_to = 2 * M_PI_F / 3.0f;
 
 	sensorwidth = 0.036f;
 	sensorheight = 0.024f;
@@ -373,7 +374,8 @@ void Camera::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 
 	kcam->convergence_distance = convergence_distance;
 	kcam->use_pole_merge = use_pole_merge;
-	kcam->pole_merge_angle = pole_merge_angle;
+	kcam->pole_merge_angle_from = pole_merge_angle_from;
+	kcam->pole_merge_angle_to = pole_merge_angle_to;
 
 	/* sensor size */
 	kcam->sensorwidth = sensorwidth;

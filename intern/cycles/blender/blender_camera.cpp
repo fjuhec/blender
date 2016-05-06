@@ -66,7 +66,8 @@ struct BlenderCamera {
 	float interocular_distance;
 	float convergence_distance;
 	bool use_pole_merge;
-	float pole_merge_angle;
+	float pole_merge_angle_from;
+	float pole_merge_angle_to;
 
 	enum { AUTO, HORIZONTAL, VERTICAL } sensor_fit;
 	float sensor_width;
@@ -186,7 +187,8 @@ static void blender_camera_from_object(BlenderCamera *bcam,
 		bcam->use_spherical_stereo = b_engine.use_spherical_stereo(b_ob);
 
 		bcam->use_pole_merge = b_camera.stereo().use_pole_merge();
-		bcam->pole_merge_angle = b_camera.stereo().pole_merge_angle();
+		bcam->pole_merge_angle_from = b_camera.stereo().pole_merge_angle_from();
+		bcam->pole_merge_angle_to = b_camera.stereo().pole_merge_angle_to();
 
 		bcam->ortho_scale = b_camera.ortho_scale();
 
@@ -433,7 +435,8 @@ static void blender_camera_sync(Camera *cam, BlenderCamera *bcam, int width, int
 	}
 
 	cam->use_pole_merge = bcam->use_pole_merge;
-	cam->pole_merge_angle = bcam->pole_merge_angle;
+	cam->pole_merge_angle_from = bcam->pole_merge_angle_from;
+	cam->pole_merge_angle_to = bcam->pole_merge_angle_to;
 
 	/* anamorphic lens bokeh */
 	cam->aperture_ratio = bcam->aperture_ratio;

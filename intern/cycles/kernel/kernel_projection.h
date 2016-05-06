@@ -460,10 +460,14 @@ ccl_device float3 spherical_stereo_position(KernelGlobals *kg,
 	}
 
 	if(kernel_data.cam.use_pole_merge) {
-		const float pole_merge_angle = kernel_data.cam.pole_merge_angle;
+		const float pole_merge_angle_from = kernel_data.cam.pole_merge_angle_from,
+		            pole_merge_angle_to = kernel_data.cam.pole_merge_angle_to;
 		float altitude = fabsf(safe_asinf(dir.z));
-		if(altitude > pole_merge_angle) {
-			float fac = (altitude - pole_merge_angle) / (M_PI_2_F - pole_merge_angle);
+		if(altitude > pole_merge_angle_to) {
+			interocular_offset = 0.0f;
+		}
+		else if(altitude > pole_merge_angle_from) {
+			float fac = (altitude - pole_merge_angle_from) / (pole_merge_angle_to - pole_merge_angle_from);
 			float fade = cosf(fac * M_PI_2_F);
 			interocular_offset *= fade;
 		}
