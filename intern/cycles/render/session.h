@@ -73,7 +73,7 @@ public:
 
 		progressive = false;
 		experimental = false;
-		samples = USHRT_MAX;
+		samples = INT_MAX;
 		pole_samples = 0;
 		tile_size = make_int2(64, 64);
 		start_resolution = INT_MAX;
