@@ -210,6 +210,9 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 		for (wmWidget *widget = wgroup->widgets.first; widget; widget = widget->next) {
 			if (widget->flag & WM_WIDGET_HIDDEN)
 				continue;
+			if (wmap->update_flag & WIDGETMAP_REFRESH) {
+				wm_widget_update_prop_data(widget);
+			}
 			wm_widget_calculate_scale(widget, C);
 			BLI_addhead(&draw_widgets, BLI_genericNodeN(widget));
 		}

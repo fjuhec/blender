@@ -98,7 +98,7 @@ float widget_value_from_offset(
 	return value;
 }
 
-void widget_property_bind(
+void widget_property_data_update(
         wmWidget *widget, WidgetCommonData *data, const int slot,
         const bool constrained, const bool inverted)
 {

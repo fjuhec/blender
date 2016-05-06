@@ -332,7 +332,7 @@ typedef struct RectTransformInteraction {
 	float orig_scale[2];
 } RectTransformInteraction;
 
-static bool widget_rect_transform_get_property(wmWidget *widget, const int slot, float *value)
+static bool widget_rect_transform_get_prop_value(wmWidget *widget, const int slot, float *value)
 {
 	PropertyType type = RNA_property_type(widget->props[slot]);
 
@@ -474,14 +474,14 @@ static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmWi
 	return OPERATOR_PASS_THROUGH;
 }
 
-static void widget_rect_transform_bind_to_prop(wmWidget *widget, const int slot)
+static void widget_rect_transform_prop_data_update(wmWidget *widget, const int slot)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 
 	if (slot == RECT_TRANSFORM_SLOT_OFFSET)
-		widget_rect_transform_get_property(widget, RECT_TRANSFORM_SLOT_OFFSET, widget->offset);
+		widget_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_OFFSET, widget->offset);
 	if (slot == RECT_TRANSFORM_SLOT_SCALE)
-		widget_rect_transform_get_property(widget, RECT_TRANSFORM_SLOT_SCALE, cage->scale);
+		widget_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_SCALE, cage->scale);
 }
 
 static void widget_rect_transform_exit(bContext *C, wmWidget *widget, const bool cancel)
@@ -528,7 +528,7 @@ wmWidget *WIDGET_rect_transform_new(
 
 	cage->widget.draw = widget_rect_transform_draw;
 	cage->widget.invoke = widget_rect_transform_invoke;
-	cage->widget.bind_to_prop = widget_rect_transform_bind_to_prop;
+	cage->widget.prop_data_update = widget_rect_transform_prop_data_update;
 	cage->widget.handler = widget_rect_transform_handler;
 	cage->widget.intersect = widget_rect_transform_intersect;
 	cage->widget.exit = widget_rect_transform_exit;

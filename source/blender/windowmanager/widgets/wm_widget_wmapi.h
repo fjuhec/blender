@@ -65,8 +65,8 @@ typedef struct wmWidget {
 	/* handler used by the widget. Usually handles interaction tied to a widget type */
 	int  (*handler)(struct bContext *C, const struct wmEvent *event, struct wmWidget *widget, const int flag);
 
-	/* widget-specific handler to update widget attributes when a property is bound */
-	void (*bind_to_prop)(struct wmWidget *widget, int slot);
+	/* widget-specific handler to update widget attributes based on the property value */
+	void (*prop_data_update)(struct wmWidget *widget, int slot);
 
 	/* returns the final position which may be different from the origin, depending on the widget.
 	 * used in calculations of scale */

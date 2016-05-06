@@ -53,6 +53,7 @@ bool wm_widget_select(bContext *C, struct wmWidgetMap *wmap, struct wmWidget *wi
 
 bool wm_widget_compare(const struct wmWidget *a, const struct wmWidget *b);
 void wm_widget_calculate_scale(struct wmWidget *widget, const bContext *C);
+void wm_widget_update_prop_data(struct wmWidget *widget);
 
 void fix_linking_widget_arrow(void);
 void fix_linking_widget_arrow2d(void);

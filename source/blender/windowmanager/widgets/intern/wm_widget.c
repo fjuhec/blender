@@ -233,8 +233,8 @@ void WM_widget_set_property(wmWidget *widget, const int slot, PointerRNA *ptr, c
 	widget->ptr[slot] = *ptr;
 	widget->props[slot] = RNA_struct_find_property(ptr, propname);
 
-	if (widget->bind_to_prop)
-		widget->bind_to_prop(widget, slot);
+	if (widget->prop_data_update)
+		widget->prop_data_update(widget, slot);
 }
 
 PointerRNA *WM_widget_set_operator(wmWidget *widget, const char *opname)
@@ -415,5 +415,17 @@ void wm_widget_calculate_scale(wmWidget *widget, const bContext *C)
 	}
 
 	widget->scale = scale * widget->user_scale;
+}
+
+void wm_widget_update_prop_data(wmWidget *widget)
+{
+	/* widget property might have been changed, so update widget */
+	if (widget->props && widget->prop_data_update) {
+		for (int i = 0; i < widget->max_prop; i++) {
+			if (widget->props[i]) {
+				widget->prop_data_update(widget, i);
+			}
+		}
+	}
 }
 
