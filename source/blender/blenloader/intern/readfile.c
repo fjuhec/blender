@@ -9808,7 +9808,6 @@ static ID *link_named_part_ex(
 		if (!mainl->curlib->asset_repository) {
 			BKE_library_asset_repository_init(mainl->curlib, aet, root);
 		}
-		BKE_library_asset_repository_asset_add(mainl->curlib, id);
 	}
 
 	return id;
