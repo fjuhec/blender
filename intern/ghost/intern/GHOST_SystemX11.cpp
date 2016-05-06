@@ -705,16 +705,12 @@ GHOST_SystemX11::processEvent(XEvent *xe)
 			XMotionEvent &xme = xe->xmotion;
 
 #ifdef WITH_X11_XINPUT
-			const bool is_tablet = window->GetTabletData()->Active != GHOST_kTabletModeNone;
+			bool is_tablet = window->GetTabletData()->Active != GHOST_kTabletModeNone;
 #else
-			const bool is_tablet = false;
+			bool is_tablet = false;
 #endif
 
-			if (is_tablet == true) {
-				/* Do Nothing (c)
-				 * See T48204 and comment in tablet handling code (default case below). */
-			}
-			if (window->getCursorGrabModeIsWarp()) {
+			if (is_tablet == false && window->getCursorGrabModeIsWarp()) {
 				GHOST_TInt32 x_new = xme.x_root;
 				GHOST_TInt32 y_new = xme.y_root;
 				GHOST_TInt32 x_accum, y_accum;
@@ -1244,31 +1240,6 @@ GHOST_SystemX11::processEvent(XEvent *xe)
 				 */
 
 #define AXIS_VALUE_GET(axis, val)  ((axis_first <= axis && axes_end > axis) && ((void)(val = data->axis_data[axis]), true))
-
-				if (axis_first < 2) {
-					/* There are some movement.
-					 * Note: maybe we could use X/Y valuator values themselves, but it's not that interesting
-					 * for us here, and converting them to root coordinates is not trivial.
-					 * However, we suffer again here from some drivers (generic evdev...) which only output a subset
-					 * of whole data - specifically, it may give Y value without X value (the reverse is not possible),
-					 * and looks like even x_root of main motion event gets corrupted in this case!
-					 * So we do as with pressure etc. - cache locations 'root' data. */
-					if (AXIS_VALUE_GET(0, axis_value)) {
-						window->GetTabletData()->x_root = data->x_root;
-					}
-					if (AXIS_VALUE_GET(1, axis_value)) {
-						window->GetTabletData()->y_root = data->y_root;
-					}
-
-					g_event = new
-					          GHOST_EventCursor(
-					    getMilliSeconds(),
-					    GHOST_kEventCursorMove,
-					    window,
-					    window->GetTabletData()->x_root,
-					    window->GetTabletData()->y_root
-					    );
-				}
 
 				if (AXIS_VALUE_GET(2, axis_value)) {
 					window->GetTabletData()->Pressure = axis_value / ((float)m_xtablet.PressureLevels);
