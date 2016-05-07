@@ -1243,6 +1243,12 @@ GHOST_SystemX11::processEvent(XEvent *xe)
 				 *       events). So we have to check which values this event actually contains!
 				 */
 
+				printf("handling tablet event: ");
+				for (int i = axis_first; i < axes_end; i++) {
+					printf("%d: %d;  ", i, i == 0 ? data->x_root : (i == 1 ? data->y_root : data->axis_data[i]));
+				}
+				printf("\n");
+
 #define AXIS_VALUE_GET(axis, val)  ((axis_first <= axis && axes_end > axis) && ((void)(val = data->axis_data[axis]), true))
 
 				if (axis_first < 2) {
@@ -1289,6 +1295,12 @@ GHOST_SystemX11::processEvent(XEvent *xe)
 					window->GetTabletData()->Ytilt = (short)(axis_value & 0xffff) /
 					                                 ((float)m_xtablet.YtiltLevels);
 				}
+
+				printf("Resulting tablet data: %d: %d;  %d: %d;  %d: %f;  %d: %f;  %d: %f\n",
+				       0, window->GetTabletData()->x_root, 1, window->GetTabletData()->y_root,
+				       2, window->GetTabletData()->Pressure,
+				       3, window->GetTabletData()->Xtilt, 4, window->GetTabletData()->Ytilt);
+				printf("\n");
 
 #undef AXIS_VALUE_GET
 
