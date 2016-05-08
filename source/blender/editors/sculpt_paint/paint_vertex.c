@@ -2803,6 +2803,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	int *indexar = vpd->indexar;
 	int totindex, index;
 	float mval[2];
+	const bool use_depth = (vc->v3d->flag & V3D_ZBUF_SELECT) != 0;
 
 	const float pressure = RNA_float_get(itemptr, "pressure");
 	const float brush_size_pressure =
@@ -2819,17 +2820,22 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	mul_m4_m4m4(mat, vc->rv3d->persmat, ob->obmat);
 
 	/* which faces are involved */
-	totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure);
+	if (use_depth) {
+		totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure);
 
-	if ((me->editflag & ME_EDIT_PAINT_FACE_SEL) && me->mpoly) {
-		for (index = 0; index < totindex; index++) {
-			if (indexar[index] && indexar[index] <= me->totpoly) {
-				const MPoly *mpoly = &me->mpoly[indexar[index] - 1];
+		if ((me->editflag & ME_EDIT_PAINT_FACE_SEL) && me->mpoly) {
+			for (index = 0; index < totindex; index++) {
+				if (indexar[index] && indexar[index] <= me->totpoly) {
+					const MPoly *mpoly = &me->mpoly[indexar[index] - 1];
 
-				if ((mpoly->flag & ME_FACE_SEL) == 0)
-					indexar[index] = 0;
+					if ((mpoly->flag & ME_FACE_SEL) == 0)
+						indexar[index] = 0;
+				}
 			}
 		}
+	}
+	else {
+		indexar = NULL;
 	}
 	
 	swap_m4m4(vc->rv3d->persmat, mat);
@@ -2841,9 +2847,29 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	if (vpd->mlooptag)
 		memset(vpd->mlooptag, 0, sizeof(bool) * me->totloop);
 
-	for (index = 0; index < totindex; index++) {
-		if (indexar[index] && indexar[index] <= me->totpoly) {
-			vpaint_paint_poly(vp, vpd, me, indexar[index] - 1, mval, brush_size_pressure, brush_alpha_pressure);
+	if (use_depth) {
+		for (index = 0; index < totindex; index++) {
+			if (indexar[index] && indexar[index] <= me->totpoly) {
+				vpaint_paint_poly(vp, vpd, me, indexar[index] - 1, mval, brush_size_pressure, brush_alpha_pressure);
+			}
+		}
+	}
+	else if (me->mpoly) {
+		const unsigned int totpoly = me->totpoly;
+		unsigned int       i;
+
+		if ((me->editflag & ME_EDIT_PAINT_FACE_SEL)) {
+			for (i = 0; i < totpoly; i++) {
+				const MPoly *mpoly = &me->mpoly[i];
+
+				if (mpoly->flag & ME_FACE_SEL)
+					vpaint_paint_poly(vp, vpd, me, i, mval, brush_size_pressure, brush_alpha_pressure);
+			}
+		}
+		else {
+			for (i = 0; i < totpoly; i++) {
+				vpaint_paint_poly(vp, vpd, me, i, mval, brush_size_pressure, brush_alpha_pressure);
+			}
 		}
 	}
 		
