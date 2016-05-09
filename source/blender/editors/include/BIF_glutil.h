@@ -143,17 +143,22 @@ void glaDrawPixelsSafe(float x, float y, int img_w, int img_h, int row_w, int fo
  */
 
 void glaDrawPixelsTex(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect);
+void glaDrawPixelsTex_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect,
+                               float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y);
 
 /**
  * glaDrawPixelsAuto - Switches between texture or pixel drawing using UserDef.
  * only RGBA
  * needs glaDefine2DArea to be set.
  */
-void glaDrawPixelsAuto(float x, float y, int img_w, int img_h, int format,
-                       int type, int zoomfilter, float alpha, void *rect);
+void glaDrawPixelsAuto(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, float alpha, void *rect);
+void glaDrawPixelsAuto_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, float alpha, void *rect,
+                                float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y);
 
 
 void glaDrawPixelsTexScaled(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY);
+void glaDrawPixelsTexScaled_clipping(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect, float scaleX, float scaleY,
+                                     float clip_min_x, float clip_min_y, float clip_max_x, float clip_max_y);
 
 /* 2D Drawing Assistance */
 
@@ -206,9 +211,21 @@ void bgl_get_mats(bglMats *mats);
 void glaDrawImBuf_glsl(struct ImBuf *ibuf, float x, float y, int zoomfilter, float alpha,
                        struct ColorManagedViewSettings *view_settings,
                        struct ColorManagedDisplaySettings *display_settings);
+void glaDrawImBuf_glsl_clipping(struct ImBuf *ibuf, float x, float y, int zoomfilter, float alpha,
+                                struct ColorManagedViewSettings *view_settings,
+                                struct ColorManagedDisplaySettings *display_settings,
+                                float clip_min_x, float clip_min_y,
+                                float clip_max_x, float clip_max_y);
+
 
 /* Draw imbuf on a screen, preferably using GLSL display transform */
 void glaDrawImBuf_glsl_ctx(const struct bContext *C, struct ImBuf *ibuf, float x, float y, int zoomfilter, float alpha);
+void glaDrawImBuf_glsl_ctx_clipping(const struct bContext *C,
+                                    struct ImBuf *ibuf,
+                                    float x, float y,
+                                    int zoomfilter, float alpha,
+                                    float clip_min_x, float clip_min_y,
+                                    float clip_max_x, float clip_max_y);
 
 void glaDrawBorderCorners(const struct rcti *border, float zoomx, float zoomy);
 
