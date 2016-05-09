@@ -248,8 +248,12 @@ static void schedule_node(TaskPool *pool, Depsgraph *graph, int layers,
 		}
 
 		if (node->num_links_pending == 0) {
-			bool is_scheduled = atomic_fetch_and_or_uint8((uint8_t*)&node->scheduled, (uint8_t)true);
-			if (!is_scheduled) {
+			BLI_spin_lock(&graph->lock);
+			bool need_schedule = !node->scheduled;
+			node->scheduled = true;
+			BLI_spin_unlock(&graph->lock);
+
+			if (need_schedule) {
 				if (node->is_noop()) {
 					/* skip NOOP node, schedule children right away */
 					schedule_children(pool, graph, node, layers);
@@ -281,17 +285,21 @@ static void schedule_children(TaskPool *pool,
                               OperationDepsNode *node,
                               const int layers)
 {
-	DEPSNODE_RELATIONS_ITER_BEGIN(node->outlinks, rel)
+	for (OperationDepsNode::Relations::const_iterator it = node->outlinks.begin();
+	     it != node->outlinks.end();
+	     ++it)
 	{
+		DepsRelation *rel = *it;
 		OperationDepsNode *child = (OperationDepsNode *)rel->to;
 		BLI_assert(child->type == DEPSNODE_TYPE_OPERATION);
+
 		if (child->scheduled) {
 			/* Happens when having cyclic dependencies. */
 			continue;
 		}
+
 		schedule_node(pool, graph, layers, child, (rel->flag & DEPSREL_FLAG_CYCLIC) == 0);
 	}
-	DEPSNODE_RELATIONS_ITER_END;
 }
 
 /**

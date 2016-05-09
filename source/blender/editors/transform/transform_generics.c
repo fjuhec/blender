@@ -969,16 +969,6 @@ static void recalcData_sequencer(TransInfo *t)
 	flushTransSeq(t);
 }
 
-/* force recalculation of triangles during transformation */
-static void recalcData_gpencil_strokes(TransInfo *t)
- {
-	TransData *td = t->data;
-	for (int i = 0; i < t->total; i++, td++) {
-		bGPDstroke *gps = td->extra;
-		gps->flag |= GP_STROKE_RECALC_CACHES;
-	}
-}
-
 /* called for updating while transform acts, once per redraw */
 void recalcData(TransInfo *t)
 {
@@ -993,8 +983,7 @@ void recalcData(TransInfo *t)
 		flushTransPaintCurve(t);
 	}
 	else if (t->options & CTX_GPENCIL_STROKES) {
-		/* set recalc triangle cache flag */
-		recalcData_gpencil_strokes(t);
+		/* pass? */
 	}
 	else if (t->spacetype == SPACE_IMAGE) {
 		recalcData_image(t);

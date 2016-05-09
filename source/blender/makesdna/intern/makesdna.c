@@ -720,28 +720,6 @@ static int arraysize(const char *str)
 	return mul;
 }
 
-static bool check_field_alignment(int firststruct, int structtype, int type, int len,
-                                  const char *name, const char *detail)
-{
-	bool result = true;
-	if (type < firststruct && typelens_native[type] > 4 && (len % 8)) {
-		fprintf(stderr, "Align 8 error (%s) in struct: %s %s (add %d padding bytes)\n",
-		        detail, types[structtype], name, len % 8);
-		result = false;
-	}
-	if (typelens_native[type] > 3 && (len % 4) ) {
-		fprintf(stderr, "Align 4 error (%s) in struct: %s %s (add %d padding bytes)\n",
-		        detail, types[structtype], name, len % 4);
-		result = false;
-	}
-	if (typelens_native[type] == 2 && (len % 2) ) {
-		fprintf(stderr, "Align 2 error (%s) in struct: %s %s (add %d padding bytes)\n",
-		        detail, types[structtype], name, len % 2);
-		result = false;
-	}
-	return result;
-}
-
 static int calculate_structlens(int firststruct)
 {
 	int unknown = nr_structs, lastunknown;
@@ -837,11 +815,20 @@ static int calculate_structlens(int firststruct)
 							}
 						}
 						
-						/* Check 2-4-8 aligned. */
-						if (!check_field_alignment(firststruct, structtype, type, len_32, cp, "32 bit")) {
+						/* 2-4-8 aligned/ */
+						if (type < firststruct && typelens_native[type] > 4 && (len_native % 8)) {
+							fprintf(stderr, "Align 8 error in struct: %s %s (add %d padding bytes)\n",
+							        types[structtype], cp, len_native % 8);
 							dna_error = 1;
 						}
-						if (!check_field_alignment(firststruct, structtype, type, len_64, cp, "64 bit")) {
+						if (typelens_native[type] > 3 && (len_native % 4) ) {
+							fprintf(stderr, "Align 4 error in struct: %s %s (add %d padding bytes)\n",
+							        types[structtype], cp, len_native % 4);
+							dna_error = 1;
+						}
+						else if (typelens_native[type] == 2 && (len_native % 2) ) {
+							fprintf(stderr, "Align 2 error in struct: %s %s (add %d padding bytes)\n",
+							        types[structtype], cp, len_native % 2);
 							dna_error = 1;
 						}
 

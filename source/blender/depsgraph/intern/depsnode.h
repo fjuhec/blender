@@ -73,7 +73,7 @@ struct DepsNode {
 	 * from basic serialization benefits - from the typeinfo) is that we can have
 	 * relationships between these nodes!
 	 */
-	typedef vector<DepsRelation *> Relations;
+	typedef unordered_set<DepsRelation *> Relations;
 
 	/* Nodes which this one depends on. */
 	Relations inlinks;

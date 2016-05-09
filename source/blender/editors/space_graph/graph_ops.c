@@ -610,11 +610,7 @@ static void graphedit_keymap_keyframes(wmKeyConfig *keyconf, wmKeyMap *keymap)
 	
 	/* insertkey */
 	WM_keymap_add_item(keymap, "GRAPH_OT_keyframe_insert", IKEY, KM_PRESS, 0, 0);
-	
-	kmi = WM_keymap_add_item(keymap, "GRAPH_OT_click_insert", ACTIONMOUSE, KM_CLICK, KM_CTRL, 0);
-	RNA_boolean_set(kmi->ptr, "extend", false);
-	kmi = WM_keymap_add_item(keymap, "GRAPH_OT_click_insert", ACTIONMOUSE, KM_CLICK, KM_CTRL | KM_SHIFT, 0);
-	RNA_boolean_set(kmi->ptr, "extend", true);
+	WM_keymap_add_item(keymap, "GRAPH_OT_click_insert", ACTIONMOUSE, KM_CLICK, KM_CTRL, 0);
 	
 	/* copy/paste */
 	WM_keymap_add_item(keymap, "GRAPH_OT_copy", CKEY, KM_PRESS, KM_CTRL, 0);

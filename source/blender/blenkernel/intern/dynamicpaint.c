@@ -3466,11 +3466,8 @@ static int dynamicPaint_paintMesh(DynamicPaintSurface *surface,
 								sampleColor[2] = brush->b;
 
 								/* Get material+textures color on hit point if required	*/
-								if (brush_usesMaterial(brush, scene)) {
-										dynamicPaint_doMaterialTex(bMats, sampleColor, &alpha_factor, brushOb,
-										                           bData->realCoord[bData->s_pos[index] + ss].v,
-										                           hitCoord, hitTri, dm);
-								}
+								if (brush_usesMaterial(brush, scene))
+									dynamicPaint_doMaterialTex(bMats, sampleColor, &alpha_factor, brushOb, bData->realCoord[bData->s_pos[index] + ss].v, hitCoord, hitTri, brush->dm);
 
 								/* Sample proximity colorband if required	*/
 								if ((hit_found == HIT_PROXIMITY) && (brush->proximity_falloff == MOD_DPAINT_PRFALL_RAMP)) {

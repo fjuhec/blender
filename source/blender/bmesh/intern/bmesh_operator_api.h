@@ -285,9 +285,6 @@ enum {
 	DEL_ONLYFACES,
 	DEL_EDGESFACES,
 	DEL_FACES,
-	/* A version of 'DEL_FACES' that keeps edges on face boundaries,
-	 * allowing the surrounding edge-loop to be kept from removed face regions. */
-	DEL_FACES_KEEP_BOUNDARY,
 	DEL_ONLYTAGGED
 };
 

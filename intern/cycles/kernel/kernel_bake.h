@@ -16,7 +16,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-#ifdef __BAKING__
+#ifndef __NO_BAKING__
 
 ccl_device void compute_light_pass(KernelGlobals *kg, ShaderData *sd, PathRadiance *L, RNG rng,
                                    int pass_filter, int sample)
@@ -483,7 +483,7 @@ ccl_device void kernel_bake_evaluate(KernelGlobals *kg, ccl_global uint4 *input,
 		output[i] += make_float4(out.x, out.y, out.z, 1.0f) * output_fac;
 }
 
-#endif  /* __BAKING__ */
+#endif  /* __NO_BAKING__ */
 
 ccl_device void kernel_shader_evaluate(KernelGlobals *kg,
                                        ccl_global uint4 *input,
