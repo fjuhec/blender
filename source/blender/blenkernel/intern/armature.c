@@ -719,7 +719,9 @@ static void pchan_b_bone_defmats(bPoseChannel *pchan, bPoseChanDeform *pdef_info
 		print_m4("tmat", tmat);
 		print_m4("b_bone_mats[0].mat", b_bone_mats[0].mat);
 		*/
-		mul_m4_series(b_bone_mats[a + 1].mat, pchan->chan_mat, bone->arm_mat, b_bone[a].mat, b_bone_mats[0].mat);//, tmat, b_bone_mats[0].mat);
+		//mul_m4_series(b_bone_mats[a + 1].mat, pchan->chan_mat, bone->arm_mat, b_bone[a].mat, b_bone_mats[0].mat);//, tmat, b_bone_mats[0].mat);  /* <-- patch version; breaks old deform, but new works */
+		mul_m4_series(b_bone_mats[a + 1].mat, pchan->chan_mat, bone->arm_mat, b_bone[a].mat, tmat, b_bone_mats[0].mat);  /* <--- original version */
+
 		//print_m4("b_bone_mats[a + 1].mat", b_bone_mats[a + 1].mat);
 		if (use_quaternion)
 			mat4_to_dquat(&b_bone_dual_quats[a], bone->arm_mat, b_bone_mats[a + 1].mat);
