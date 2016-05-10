@@ -592,10 +592,12 @@ static void image_widgets(void)
 
 	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
 
-	WM_widgetgrouptype_register_ptr(
+	WM_widgetgrouptype_register_ptr_update(
 	        NULL, wmaptype,
 	        WIDGETGROUP_manipulator2d_poll,
 	        WIDGETGROUP_manipulator2d_init,
+	        WIDGETGROUP_manipulator2d_refresh,
+	        WIDGETGROUP_manipulator2d_draw_prepare,
 	        WM_widgetgroup_keymap_common,
 	        "UV Transform Manipulator");
 }
@@ -826,8 +828,15 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 
 static void image_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion *ar, wmNotifier *wmn)
 {
+	wmWidgetMap *wmap = WM_widgetmap_find(ar, &(const struct wmWidgetMapType_Params) {
+	        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
+
 	/* context changes */
 	switch (wmn->category) {
+		case NC_GEOM:
+			if (ELEM(wmn->data, ND_DATA, ND_SELECT))
+				WM_widgetmap_tag_refresh(wmap);
+			break;
 		case NC_GPENCIL:
 			if (ELEM(wmn->action, NA_EDITED, NA_SELECTED))
 				ED_region_tag_redraw(ar);
@@ -837,6 +846,7 @@ static void image_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion
 		case NC_IMAGE:
 			if (wmn->action == NA_PAINTING)
 				ED_region_tag_redraw(ar);
+			WM_widgetmap_tag_refresh(wmap);
 			break;
 		case NC_MATERIAL:
 			if (wmn->data == ND_SHADING_LINKS) {

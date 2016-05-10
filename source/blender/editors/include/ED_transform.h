@@ -170,8 +170,10 @@ void WIDGETGROUP_manipulator_draw_prepare(const struct bContext *C, struct wmWid
 void WIDGETGROUP_object_manipulator_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
 int WIDGETGROUP_object_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
 
-void WIDGETGROUP_manipulator2d_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
 int WIDGETGROUP_manipulator2d_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
+void WIDGETGROUP_manipulator2d_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_manipulator2d_refresh(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_manipulator2d_draw_prepare(const struct bContext *C, struct wmWidgetGroup *wgroup);
 
 
 /* Snapping */

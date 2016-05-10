@@ -1352,6 +1352,7 @@ void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmWidgetGroup *wgro
 	MAN_ITER_AXES_BEGIN(axis, axis_idx)
 	{
 		const short axis_type = manipulator_get_axis_type(man, axis);
+		/* XXX maybe unset _HIDDEN flag on redraw? */
 		if (manipulator_is_axis_visible(v3d, rv3d, axis_type, axis_idx)) {
 			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, false);
 		}
