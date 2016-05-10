@@ -82,10 +82,10 @@ struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
         const struct Main *bmain, struct wmWidgetMapType *wmaptype,
-        int (*poll)(const struct bContext *, struct wmWidgetGroupType *),
-        void (*init)(const struct bContext *, struct wmWidgetGroup *),
-        void (*refresh)(const struct bContext *, struct wmWidgetGroup *),
-        void (*draw_prepare)(const struct bContext *, struct wmWidgetGroup *),
+        int (*poll)(const struct bContext *, struct wmWidgetGroupType *),      /* wmWidgetGroupPollFunc */
+        void (*init)(const struct bContext *, struct wmWidgetGroup *),         /* wmWidgetGroupInitFunc */
+        void (*refresh)(const struct bContext *, struct wmWidgetGroup *),      /* wmWidgetGroupRefreshFunc */
+        void (*draw_prepare)(const struct bContext *, struct wmWidgetGroup *), /* wmWidgetGroupDrawPrepareFunc */
         struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register(
@@ -96,10 +96,10 @@ struct wmWidgetGroupType *WM_widgetgrouptype_register(
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register_update(
         const struct Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        int (*poll)(const struct bContext *C, struct wmWidgetGroupType *),
-        void (*init)(const struct bContext *, struct wmWidgetGroup *),
-        void (*refresh)(const struct bContext *, struct wmWidgetGroup *),
-        void (*draw_prepare)(const struct bContext *, struct wmWidgetGroup *),
+        int (*poll)(const struct bContext *, struct wmWidgetGroupType *),      /* wmWidgetGroupPollFunc */
+        void (*init)(const struct bContext *, struct wmWidgetGroup *),         /* wmWidgetGroupInitFunc */
+        void (*refresh)(const struct bContext *, struct wmWidgetGroup *),      /* wmWidgetGroupRefreshFunc */
+        void (*draw_prepare)(const struct bContext *, struct wmWidgetGroup *), /* wmWidgetGroupDrawPrepareFunc */
         wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 void WM_widgetgrouptype_init_runtime(

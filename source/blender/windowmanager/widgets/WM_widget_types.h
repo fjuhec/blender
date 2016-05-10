@@ -42,8 +42,10 @@ struct wmWidgetGroupType;
 struct wmWidgetGroup;
 struct wmKeyConfig;
 
-typedef int (*wmWidgetGroupPollFunc)(const struct bContext *, struct wmWidgetGroupType *) ATTR_WARN_UNUSED_RESULT; /* TODO use bool */
+typedef int  (*wmWidgetGroupPollFunc)(const struct bContext *, struct wmWidgetGroupType *) ATTR_WARN_UNUSED_RESULT; /* TODO use bool */
 typedef void (*wmWidgetGroupInitFunc)(const struct bContext *, struct wmWidgetGroup *);
+typedef void (*wmWidgetGroupRefreshFunc)(const struct bContext *, struct wmWidgetGroup *);
+typedef void (*wmWidgetGroupDrawPrepareFunc)(const struct bContext *, struct wmWidgetGroup *);
 
 
 /* -------------------------------------------------------------------- */
@@ -57,13 +59,12 @@ typedef struct wmWidgetGroupType {
 
 	/* poll if widgetmap should be active */
 	wmWidgetGroupPollFunc poll;
-
 	/* initially create widgets, set permanent data stuff you only need to do once */
 	wmWidgetGroupInitFunc init;
 	/* refresh data, only called if recreate flag is set (WM_widgetmap_tag_refresh) */
-	void (*refresh)(const struct bContext *C, struct wmWidgetGroup *wgroup);
+	wmWidgetGroupRefreshFunc refresh;
 	/* refresh data for drawing, called before each redraw */
-	void (*draw_prepare)(const struct bContext *C, struct wmWidgetGroup *wgroup);
+	wmWidgetGroupDrawPrepareFunc draw_prepare;
 
 	/* keymap init callback for this widgetgroup */
 	struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *, struct wmKeyConfig *);

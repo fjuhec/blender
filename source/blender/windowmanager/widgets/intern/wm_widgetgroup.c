@@ -438,8 +438,7 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
         const Main *bmain, wmWidgetMapType *wmaptype,
         wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
-        void (*refresh)(const bContext *, wmWidgetGroup *),
-        void (*draw_prepare)(const bContext *, wmWidgetGroup *),
+        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
@@ -473,8 +472,7 @@ wmWidgetGroupType *WM_widgetgrouptype_register(
 wmWidgetGroupType *WM_widgetgrouptype_register_update(
         const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
         wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
-        void (*refresh)(const bContext *, wmWidgetGroup *),
-        void (*draw_prepare)(const bContext *, wmWidgetGroup *),
+        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
