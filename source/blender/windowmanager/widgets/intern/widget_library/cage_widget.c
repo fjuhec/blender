@@ -520,8 +520,7 @@ static void widget_rect_transform_exit(bContext *C, wmWidget *widget, const bool
  *
  * \{ */
 
-wmWidget *WIDGET_rect_transform_new(
-        wmWidgetGroup *wgroup, const char *name, const int style)
+wmWidget *WIDGET_rect_transform_new(wmWidgetGroup *wgroup, const char *name, const int style)
 {
 	RectTransformWidget *cage = MEM_callocN(sizeof(RectTransformWidget), name);
 
