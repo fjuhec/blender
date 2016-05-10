@@ -139,7 +139,7 @@ static ManipulatorGroup2D *manipulatorgroup2d_init(wmWidgetGroup *wgroup)
 }
 
 /**
- * Calculates origin in view space, use with #manipulator2d_origin_to_view.
+ * Calculates origin in view space, use with #manipulator2d_origin_to_region.
  */
 static void manipulator2d_calc_origin(const bContext *C, float *r_origin)
 {
