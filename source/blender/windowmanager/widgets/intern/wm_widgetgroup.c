@@ -400,8 +400,7 @@ wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmWidgetGroupType *wgrou
  */
 wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const Main *bmain, wmWidgetMapType *wmaptype,
-        int (*poll)(const bContext *C, wmWidgetGroupType *),
-        void (*create)(const bContext *, wmWidgetGroup *),
+        wmWidgetGroupPollFunc poll, wmWidgetGroupCreateFunc create,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
@@ -431,8 +430,7 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 
 wmWidgetGroupType *WM_widgetgrouptype_register(
         const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        int (*poll)(const bContext *C, wmWidgetGroupType *),
-        void (*create)(const bContext *, wmWidgetGroup *),
+        wmWidgetGroupPollFunc poll, wmWidgetGroupCreateFunc create,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {

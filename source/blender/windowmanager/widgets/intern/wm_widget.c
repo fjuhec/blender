@@ -252,7 +252,7 @@ PointerRNA *WM_widget_set_operator(wmWidget *widget, const char *opname)
  *
  * Callback is called when widget gets selected/deselected.
  */
-void WM_widget_set_func_select(wmWidget *widget, void (*select)(bContext *, wmWidget *, const int action))
+void WM_widget_set_func_select(wmWidget *widget, wmWidgetSelectFunc select)
 {
 	widget->flag |= WM_WIDGET_SELECTABLE;
 	widget->select = select;

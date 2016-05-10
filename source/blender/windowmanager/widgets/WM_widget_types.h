@@ -38,9 +38,15 @@
 
 #include "BLI_compiler_attrs.h"
 
+struct wmWidgetGroupType;
 struct wmWidgetGroup;
 struct wmKeyConfig;
 
+typedef int (*wmWidgetGroupPollFunc)(const struct bContext *, struct wmWidgetGroupType *) ATTR_WARN_UNUSED_RESULT;
+typedef void (*wmWidgetGroupCreateFunc)(const struct bContext *, struct wmWidgetGroup *);
+
+
+/* -------------------------------------------------------------------- */
 
 /* factory class for a widgetgroup type, gets called every time a new area is spawned */
 typedef struct wmWidgetGroupType {
@@ -50,13 +56,12 @@ typedef struct wmWidgetGroupType {
 	char name[64]; /* widget group name - displayed in UI (keymap editor) */
 
 	/* poll if widgetmap should be active */
-	int (*poll)(const struct bContext *C, struct wmWidgetGroupType *wgrouptype) ATTR_WARN_UNUSED_RESULT;
-
+	wmWidgetGroupPollFunc poll;
 	/* update widgets, called right before drawing */
-	void (*create)(const struct bContext *C, struct wmWidgetGroup *wgroup);
+	wmWidgetGroupCreateFunc create;
 
 	/* keymap init callback for this widgetgroup */
-	struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *);
+	struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *, struct wmKeyConfig *);
 
 	/* keymap created with callback from above */
 	struct wmKeyMap *keymap;
