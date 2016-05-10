@@ -62,7 +62,7 @@ void WM_widget_set_property(struct wmWidget *, int slot, struct PointerRNA *ptr,
 struct PointerRNA *WM_widget_set_operator(struct wmWidget *, const char *opname);
 void WM_widget_set_func_select(
         struct wmWidget *widget,
-        void (*select)(struct bContext *, struct wmWidget *, const int action));
+        void (*select)(struct bContext *, struct wmWidget *, const int action)); /* wmWidgetSelectFunc */
 void WM_widget_set_origin(struct wmWidget *widget, const float origin[3]);
 void WM_widget_set_offset(struct wmWidget *widget, const float offset[3]);
 void WM_widget_set_flag(struct wmWidget *widget, const int flag, const bool enable);
@@ -76,8 +76,8 @@ void WM_widget_set_colors(struct wmWidget *widget, const float col[4], const flo
 
 struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const struct Main *bmain, struct wmWidgetMapType *wmaptype,
-        int (*poll)(const struct bContext *, struct wmWidgetGroupType *),
-        void (*init)(const struct bContext *, struct wmWidgetGroup *),
+        int (*poll)(const struct bContext *, struct wmWidgetGroupType *), /* wmWidgetGroupPollFunc */
+        void (*create)(const struct bContext *, struct wmWidgetGroup *),  /* wmWidgetGroupInitFunc */
         struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
@@ -90,8 +90,8 @@ struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register(
         const struct Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        int (*poll)(const struct bContext *, struct wmWidgetGroupType *),
-        void (*init)(const struct bContext *, struct wmWidgetGroup *),
+        int (*poll)(const struct bContext *, struct wmWidgetGroupType *), /* wmWidgetGroupPollFunc */
+        void (*create)(const struct bContext *, struct wmWidgetGroup *),  /* wmWidgetGroupInitFunc */
         struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register_update(

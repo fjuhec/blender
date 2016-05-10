@@ -44,6 +44,9 @@ struct wmOperator;
 /* -------------------------------------------------------------------- */
 /* wmWidget */
 
+typedef void (*wmWidgetSelectFunc)(struct bContext *, struct wmWidget *, const int);
+
+
 /* widgets are set per region by registering them on widgetmaps */
 typedef struct wmWidget {
 	struct wmWidget *next, *prev;
@@ -53,6 +56,7 @@ typedef struct wmWidget {
 	/* pointer back to parent widget group */
 	struct wmWidgetGroup *wgroup;
 
+	/* could become wmWidgetType */
 	/* draw widget */
 	void (*draw)(const struct bContext *C, struct wmWidget *widget);
 
@@ -81,7 +85,7 @@ typedef struct wmWidget {
 	int (*get_cursor)(struct wmWidget *widget);
 
 	/* called when widget selection state changes */
-	void (*select)(struct bContext *C, struct wmWidget *widget, const int action);
+	wmWidgetSelectFunc select;
 
 	int flag; /* flags set by drawing and interaction, such as highlighting */
 

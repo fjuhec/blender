@@ -407,8 +407,7 @@ wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmWidgetGroupType *wgrou
  */
 wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const Main *bmain, wmWidgetMapType *wmaptype,
-        int (*poll)(const bContext *C, wmWidgetGroupType *),
-        void (*init)(const bContext *, wmWidgetGroup *),
+        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
@@ -438,8 +437,7 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 /* XXX tmp */
 wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
         const Main *bmain, wmWidgetMapType *wmaptype,
-        int (*poll)(const bContext *, wmWidgetGroupType *),
-        void (*init)(const bContext *, wmWidgetGroup *),
+        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
         void (*refresh)(const bContext *, wmWidgetGroup *),
         void (*draw_prepare)(const bContext *, wmWidgetGroup *),
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
@@ -454,8 +452,7 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
 
 wmWidgetGroupType *WM_widgetgrouptype_register(
         const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        int (*poll)(const bContext *C, wmWidgetGroupType *),
-        void (*init)(const bContext *, wmWidgetGroup *),
+        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
@@ -475,8 +472,7 @@ wmWidgetGroupType *WM_widgetgrouptype_register(
 /* XXX tmp */
 wmWidgetGroupType *WM_widgetgrouptype_register_update(
         const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        int (*poll)(const bContext *C, wmWidgetGroupType *),
-        void (*init)(const bContext *, wmWidgetGroup *),
+        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
         void (*refresh)(const bContext *, wmWidgetGroup *),
         void (*draw_prepare)(const bContext *, wmWidgetGroup *),
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
