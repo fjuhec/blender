@@ -29,7 +29,7 @@
  * \name Widgets Window Manager API
  * \brief API for usage in window manager code only.
  *
- * Only included in wm.h
+ * Only included in wm.h and lower level files.
  */
 
 

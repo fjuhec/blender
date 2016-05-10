@@ -25,7 +25,7 @@
  *
  * \name Generic Widget Library
  *
- * Only included in WM_api.h.
+ * Only included in WM_api.h and lower level files.
  */
 
 

@@ -29,7 +29,7 @@
  * \name Widget Types
  * \brief Widget defines for external use.
  *
- * Only included in WM_types.h
+ * Only included in WM_types.h and lower level files.
  */
 
 
