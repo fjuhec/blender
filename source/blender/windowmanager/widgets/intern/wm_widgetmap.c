@@ -190,7 +190,8 @@ void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 	}
 
 	for (wmWidgetGroup *wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup->next) {
-		if (wgroup->type->poll && !wgroup->type->poll(C, wgroup->type))
+		if ((wgroup->type->flag & WM_WIDGETGROUPTYPE_OP && !wgroup->type->op) || /* only while operator runs */
+		    (wgroup->type->poll && !wgroup->type->poll(C, wgroup->type)))
 			continue;
 
 		/* prepare for first draw */

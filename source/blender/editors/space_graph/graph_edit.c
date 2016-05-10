@@ -2762,35 +2762,47 @@ static int graph_widget_backdrop_transform_poll(bContext *C)
 	        (sipo->backdrop_camera));
 }
 
-static void widgetgroup_backdrop_init(const struct bContext *C, struct wmWidgetGroup *wgroup)
+static void widgetgroup_backdrop_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
 {
-	ARegion *ar = CTX_wm_region(C);
-	wmOperator *op = wgroup->type->op;
-	Scene *scene = CTX_data_scene(C);
-	int width = (scene->r.size * scene->r.xsch) / 150.0f;
-	int height = (scene->r.size * scene->r.ysch) / 150.0f;
-	float origin[3];
+	wmWidgetWrapper *wwrapper = MEM_mallocN(sizeof(wmWidgetWrapper), __func__);
+	wgroup->customdata = wwrapper;
 
-	wmWidget *cage = WIDGET_rect_transform_new(
+	wwrapper->widget = WIDGET_rect_transform_new(
 	                     wgroup, "backdrop_cage",
-	                     WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM | WIDGET_RECT_TRANSFORM_STYLE_TRANSLATE,
-	                     width, height);
-	WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, op->ptr, "offset");
-	WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, op->ptr, "scale");
+	                     WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM | WIDGET_RECT_TRANSFORM_STYLE_TRANSLATE);
+}
+
+static void widgetgroup_backdrop_refresh(const struct bContext *C, wmWidgetGroup *wgroup)
+{
+	wmWidget *cage = ((wmWidgetWrapper *)wgroup->customdata)->widget;
+	ARegion *ar = CTX_wm_region(C);
+	const Scene *scene = CTX_data_scene(C);
+	const int width = (scene->r.size * scene->r.xsch) / 150.0f;
+	const int height = (scene->r.size * scene->r.ysch) / 150.0f;
+	float origin[3];
 
 	origin[0] = BLI_rcti_size_x(&ar->winrct) / 2.0f;
 	origin[1] = BLI_rcti_size_y(&ar->winrct) / 2.0f;
 
 	WM_widget_set_origin(cage, origin);
+	WIDGET_rect_transform_set_dimensions(cage, width, height);
+
+	/* XXX hmmm, can't we do this in _init somehow? Issue is op->ptr is freed after OP is done. */
+	wmOperator *op = wgroup->type->op;
+	WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, op->ptr, "offset");
+	WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, op->ptr, "scale");
 }
 
 static wmWidgetGroupType *graph_widget_backdrop_transform_widgets(void)
 {
 	/* no poll, lives always for the duration of the operator */
-	return WM_widgetgrouptype_register(
+	return WM_widgetgrouptype_register_update(
 	            NULL,
 	            &(const struct wmWidgetMapType_Params) {"Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0},
-	            NULL, widgetgroup_backdrop_init,
+	            NULL,
+	            widgetgroup_backdrop_init,
+	            widgetgroup_backdrop_refresh,
+	            NULL,
 	            WM_widgetgroup_keymap_common,
 	            "Backdrop Transform Widgets");
 }
@@ -2831,6 +2843,8 @@ static void graph_widget_backdrop_transform_cancel(struct bContext *C, struct wm
 
 static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
+	ARegion *ar = CTX_wm_region(C);
+	wmWidgetMap *wmap = ar->widgetmaps.first;
 	BackDropTransformData *data = op->customdata;
 
 	if (event->type == data->event_type && event->val == KM_PRESS) {
@@ -2849,7 +2863,6 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 		case RKEY:
 		{
 			SpaceIpo *sipo = CTX_wm_space_graph(C);
-			ARegion *ar = CTX_wm_region(C);
 			float zero[2] = {0.0f};
 			RNA_float_set_array(op->ptr, "offset", zero);
 			RNA_float_set(op->ptr, "scale", 1.0f);
@@ -2870,8 +2883,6 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 		case ESCKEY:
 		case RIGHTMOUSE:
 		{
-			ARegion *ar = CTX_wm_region(C);
-			wmWidgetMap *wmap = ar->widgetmaps.first;
 			SpaceIpo *sipo = CTX_wm_space_graph(C);
 
 			/* only end modal if we're not dragging a widget */
@@ -2884,6 +2895,7 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 			}
 		}
 	}
+	WM_widgetmap_tag_refresh(wmap);
 
 	return OPERATOR_RUNNING_MODAL;
 }

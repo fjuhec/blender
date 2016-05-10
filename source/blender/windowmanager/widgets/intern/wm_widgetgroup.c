@@ -472,6 +472,29 @@ wmWidgetGroupType *WM_widgetgrouptype_register(
 	        name);
 }
 
+/* XXX tmp */
+wmWidgetGroupType *WM_widgetgrouptype_register_update(
+        const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
+        int (*poll)(const bContext *C, wmWidgetGroupType *),
+        void (*init)(const bContext *, wmWidgetGroup *),
+        void (*refresh)(const bContext *, wmWidgetGroup *),
+        void (*draw_prepare)(const bContext *, wmWidgetGroup *),
+        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
+        const char *name)
+{
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(wmap_params);
+
+	if (!wmaptype) {
+		fprintf(stderr, "widgetgrouptype creation: widgetmap type does not exist");
+		return NULL;
+	}
+
+	return WM_widgetgrouptype_register_ptr_update(
+	        bmain, wmaptype,
+	        poll, init, refresh, draw_prepare, keymap_init,
+	        name);
+}
+
 void WM_widgetgrouptype_init_runtime(
         const Main *bmain, wmWidgetMapType *wmaptype,
         wmWidgetGroupType *wgrouptype)

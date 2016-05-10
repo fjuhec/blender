@@ -874,11 +874,11 @@ static void WIDGETGROUP_node_transform_init(const struct bContext *C, struct wmW
 
 		cage = WIDGET_rect_transform_new(
 		           wgroup, "backdrop_cage",
-		           WIDGET_RECT_TRANSFORM_STYLE_TRANSLATE | WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM,
-		           w, h);
+		           WIDGET_RECT_TRANSFORM_STYLE_TRANSLATE | WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM);
 		RNA_pointer_create(snode->id, &RNA_SpaceNodeEditor, snode, &nodeptr);
 		
 		WM_widget_set_origin(cage, origin);
+		WIDGET_rect_transform_set_dimensions(cage, w, h);
 		WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, &nodeptr, "backdrop_offset");
 		WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, &nodeptr, "backdrop_zoom");
 	}

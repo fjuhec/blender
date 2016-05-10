@@ -94,6 +94,14 @@ struct wmWidgetGroupType *WM_widgetgrouptype_register(
         void (*init)(const struct bContext *, struct wmWidgetGroup *),
         struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
+struct wmWidgetGroupType *WM_widgetgrouptype_register_update(
+        const struct Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
+        int (*poll)(const struct bContext *C, struct wmWidgetGroupType *),
+        void (*init)(const struct bContext *, struct wmWidgetGroup *),
+        void (*refresh)(const struct bContext *, struct wmWidgetGroup *),
+        void (*draw_prepare)(const struct bContext *, struct wmWidgetGroup *),
+        wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
+        const char *name);
 void WM_widgetgrouptype_init_runtime(
         const struct Main *bmain, struct wmWidgetMapType *wmaptype,
         struct wmWidgetGroupType *wgrouptype);

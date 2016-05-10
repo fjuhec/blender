@@ -521,8 +521,7 @@ static void widget_rect_transform_exit(bContext *C, wmWidget *widget, const bool
  * \{ */
 
 wmWidget *WIDGET_rect_transform_new(
-        wmWidgetGroup *wgroup, const char *name, const int style,
-        const float width, const float height)
+        wmWidgetGroup *wgroup, const char *name, const int style)
 {
 	RectTransformWidget *cage = MEM_callocN(sizeof(RectTransformWidget), name);
 
@@ -537,12 +536,17 @@ wmWidget *WIDGET_rect_transform_new(
 	cage->widget.flag |= WM_WIDGET_DRAW_ACTIVE;
 	cage->scale[0] = cage->scale[1] = 1.0f;
 	cage->style = style;
-	cage->w = width;
-	cage->h = height;
 
 	wm_widget_register(wgroup, &cage->widget, name);
 
 	return (wmWidget *)cage;
+}
+
+void WIDGET_rect_transform_set_dimensions(wmWidget *widget, const float width, const float height)
+{
+	RectTransformWidget *cage = (RectTransformWidget *)widget;
+	cage->w = width;
+	cage->h = height;
 }
 
 /** \} */ // Cage Widget API
