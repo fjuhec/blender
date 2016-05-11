@@ -23,6 +23,7 @@ CCL_NAMESPACE_BEGIN
 
 class BoundBox;
 class BVHObjectBinning;
+class BVHRange;
 class BVHReference;
 class Transform;
 class Object;
@@ -35,6 +36,9 @@ public:
 	/* Calculate alignment for the oriented node for a given range. */
 	Transform compute_aligned_space(
 	        const BVHObjectBinning& range,
+	        const vector<BVHReference>& references) const;
+	Transform compute_aligned_space(
+	        const BVHRange& range,
 	        const vector<BVHReference>& references) const;
 
 	/* Calculate alignment for the oriented node for a given reference.
@@ -54,6 +58,19 @@ public:
 	        const BVHObjectBinning& range,
 	        const vector<BVHReference>& references,
 	        const Transform& aligned_space) const;
+	BoundBox compute_aligned_boundbox(
+	        const BVHObjectBinning& range,
+	        const BVHReference* references,
+	        const Transform& aligned_space) const;
+	BoundBox compute_aligned_boundbox(
+	        const BVHRange& range,
+	        const vector<BVHReference>& references,
+	        const Transform& aligned_space) const;
+	BoundBox compute_aligned_boundbox(
+	        const BVHRange& range,
+	        const BVHReference *references,
+	        const Transform& aligned_space,
+	        BoundBox *cent_bounds) const;
 
 	/* Calculate affine transform for node packing.
 	 * Bounds will be in the range of 0..1.

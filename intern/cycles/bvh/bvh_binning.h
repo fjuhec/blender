@@ -65,13 +65,17 @@ protected:
 	size_t num_bins;	/* actual number of bins to use */
 	float3 scale;		/* scaling factor to compute bin */
 
+	/* Effective bounds and centroid bounds. */
+	BoundBox bounds_;
+	BoundBox cent_bounds_;
+
 	enum { MAX_BINS = 32 };
 	enum { LOG_BLOCK_SIZE = 2 };
 
 	/* computes the bin numbers for each dimension for a box. */
 	__forceinline int4 get_bin(const BoundBox& box) const
 	{
-		int4 a = make_int4((box.center2() - cent_bounds().min)*scale - make_float3(0.5f));
+		int4 a = make_int4((box.center2() - cent_bounds_.min)*scale - make_float3(0.5f));
 		int4 mn = make_int4(0);
 		int4 mx = make_int4((int)num_bins-1);
 
@@ -81,7 +85,7 @@ protected:
 	/* computes the bin numbers for each dimension for a point. */
 	__forceinline int4 get_bin(const float3& c) const
 	{
-		return make_int4((c - cent_bounds().min)*scale - make_float3(0.5f));
+		return make_int4((c - cent_bounds_.min)*scale - make_float3(0.5f));
 	}
 
 	/* compute the number of blocks occupied for each dimension. */

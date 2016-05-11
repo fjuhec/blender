@@ -21,6 +21,7 @@
 #include "object.h"
 
 #include "bvh_binning.h"
+#include "bvh_params.h"
 
 #include "util_boundbox.h"
 #include "util_debug.h"
@@ -37,6 +38,23 @@ BVHUnaligned::BVHUnaligned(const vector<Object*>& objects)
 Transform BVHUnaligned::compute_aligned_space(
         const BVHObjectBinning& range,
         const vector<BVHReference>& references) const
+{
+	for(int i = range.start(); i < range.end(); ++i) {
+		const BVHReference& ref = references[i];
+		Transform aligned_space;
+		/* Use first primitive which defines correct direction to define
+		 * the orientation space.
+		 */
+		if(compute_aligned_space(ref, &aligned_space)) {
+			return aligned_space;
+		}
+	}
+	return make_trasnform_frame(make_float3(0.0f, 0.0f, 1.0f));
+}
+
+Transform BVHUnaligned::compute_aligned_space(
+    const BVHRange& range,
+    const vector<BVHReference>& references) const
 {
 	for(int i = range.start(); i < range.end(); ++i) {
 		const BVHReference& ref = references[i];
@@ -99,7 +117,7 @@ BoundBox BVHUnaligned::compute_aligned_prim_boundbox(
 
 BoundBox BVHUnaligned::compute_aligned_boundbox(
         const BVHObjectBinning& range,
-        const vector<BVHReference>& references,
+        const BVHReference *references,
         const Transform& aligned_space) const
 {
 	BoundBox bounds = BoundBox::empty;
@@ -109,6 +127,43 @@ BoundBox BVHUnaligned::compute_aligned_boundbox(
 		bounds.grow(ref_bounds);
 	}
 	return bounds;
+}
+
+BoundBox BVHUnaligned::compute_aligned_boundbox(
+        const BVHObjectBinning& range,
+        const vector<BVHReference>& references,
+        const Transform& aligned_space) const
+{
+	return compute_aligned_boundbox(range, &references[0], aligned_space);
+}
+
+BoundBox BVHUnaligned::compute_aligned_boundbox(
+        const BVHRange& range,
+        const BVHReference *references,
+        const Transform& aligned_space,
+        BoundBox *cent_bounds) const
+{
+	BoundBox bounds = BoundBox::empty;
+	if(cent_bounds != NULL) {
+		*cent_bounds = BoundBox::empty;
+	}
+	for(int i = range.start(); i < range.end(); ++i) {
+		const BVHReference& ref = references[i];
+		BoundBox ref_bounds = compute_aligned_prim_boundbox(ref, aligned_space);
+		bounds.grow(ref_bounds);
+		if(cent_bounds != NULL) {
+			cent_bounds->grow(ref_bounds.center2());
+		}
+	}
+	return bounds;
+}
+
+BoundBox BVHUnaligned::compute_aligned_boundbox(
+        const BVHRange& range,
+        const vector<BVHReference>& references,
+        const Transform& aligned_space) const
+{
+	return compute_aligned_boundbox(range, &references[0], aligned_space, NULL);
 }
 
 Transform BVHUnaligned::compute_node_transform(

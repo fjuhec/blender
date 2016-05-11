@@ -55,9 +55,12 @@ __forceinline int get_best_dimension(const float4& bestSAH)
 BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 : BVHRange(job), splitSAH(FLT_MAX), dim(0), pos(0)
 {
+	bounds_ = bounds();
+	cent_bounds_ = cent_bounds();
+
 	/* compute number of bins to use and precompute scaling factor for binning */
 	num_bins = min(size_t(MAX_BINS), size_t(4.0f + 0.05f*size()));
-	scale = rcp(cent_bounds().size()) * make_float3((float)num_bins);
+	scale = rcp(cent_bounds_.size()) * make_float3((float)num_bins);
 
 	/* initialize binning counter and bounds */
 	BoundBox bin_bounds[MAX_BINS][4];	/* bounds for every bin in every dimension */
@@ -101,7 +104,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 			/* map primitive to bin */
 			const BVHReference& prim0 = prims[start() + i];
 			BoundBox bounds0 = prim0.bounds();
-			int4 bin0 = get_bin(prim0.bounds());
+			int4 bin0 = get_bin(bounds0);
 
 			/* increase bounds of bins */
 			int b00 = (int)extract<0>(bin0); bin_count[b00][0]++; bin_bounds[b00][0].grow(bounds0);
@@ -155,14 +158,14 @@ BVHObjectBinning::BVHObjectBinning(const BVHRange& job, BVHReference *prims)
 		bestSAH = min(sah,bestSAH);
 	}
 
-	int4 mask = float3_to_float4(cent_bounds().size()) <= make_float4(0.0f);
+	int4 mask = float3_to_float4(cent_bounds_.size()) <= make_float4(0.0f);
 	bestSAH = insert<3>(select(mask, make_float4(FLT_MAX), bestSAH), FLT_MAX);
 
 	/* find best dimension */
 	dim = get_best_dimension(bestSAH);
 	splitSAH = bestSAH[dim];
 	pos = bestSplit[dim];
-	leafSAH	= bounds().half_area() * blocks(size());
+	leafSAH = bounds_.half_area() * blocks(size());
 }
 
 BVHObjectBinning::BVHObjectBinning(const BVHUnaligned& unaligned_heuristic,
@@ -174,9 +177,15 @@ BVHObjectBinning::BVHObjectBinning(const BVHUnaligned& unaligned_heuristic,
   dim(0),
   pos(0)
 {
+	bounds_ = unaligned_heuristic.compute_aligned_boundbox(
+	        *this,
+	        prims,
+	        aligned_space,
+	        &cent_bounds_);
+
 	/* compute number of bins to use and precompute scaling factor for binning */
 	num_bins = min(size_t(MAX_BINS), size_t(4.0f + 0.05f*size()));
-	scale = rcp(cent_bounds().size()) * make_float3((float)num_bins);
+	scale = rcp(cent_bounds_.size()) * make_float3((float)num_bins);
 
 	/* initialize binning counter and bounds */
 	BoundBox bin_bounds[MAX_BINS][4];	/* bounds for every bin in every dimension */
@@ -220,7 +229,7 @@ BVHObjectBinning::BVHObjectBinning(const BVHUnaligned& unaligned_heuristic,
 			/* map primitive to bin */
 			const BVHReference& prim0 = prims[start() + i];
 			BoundBox bounds0 = unaligned_heuristic.compute_aligned_prim_boundbox(prim0, aligned_space);
-			int4 bin0 = get_bin(prim0.bounds());
+			int4 bin0 = get_bin(bounds0);
 
 			/* increase bounds of bins */
 			int b00 = (int)extract<0>(bin0); bin_count[b00][0]++; bin_bounds[b00][0].grow(bounds0);
@@ -274,15 +283,14 @@ BVHObjectBinning::BVHObjectBinning(const BVHUnaligned& unaligned_heuristic,
 		bestSAH = min(sah,bestSAH);
 	}
 
-	int4 mask = float3_to_float4(cent_bounds().size()) <= make_float4(0.0f);
+	int4 mask = float3_to_float4(cent_bounds_.size()) <= make_float4(0.0f);
 	bestSAH = insert<3>(select(mask, make_float4(FLT_MAX), bestSAH), FLT_MAX);
 
 	/* find best dimension */
 	dim = get_best_dimension(bestSAH);
 	splitSAH = bestSAH[dim];
 	pos = bestSplit[dim];
-	/* TODO(sergey): Transform full bounds to aligned space. */
-	leafSAH = bounds().half_area() * blocks(size());
+	leafSAH = bounds_.half_area() * blocks(size());
 }
 
 void BVHObjectBinning::split(BVHReference* prims,
@@ -382,7 +390,6 @@ void BVHObjectBinning::split(const BVHUnaligned& unaligned_heuristic,
 			r--;
 		}
 	}
-
 	/* finish */
 	if(l != 0 && N-1-r != 0) {
 		right_o = BVHObjectBinning(BVHRange(rgeom_bounds, rcent_bounds, start() + l, N-1-r), prims);
