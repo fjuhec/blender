@@ -606,7 +606,7 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		roll2 = 0.0;
 	}
 
-	/* add extra effects? */
+	/* add extra effects (bbone properties)? */
 	if (!rest) {
 		/* add extra rolls */
 		roll1 += bone->roll1;
@@ -638,10 +638,10 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 	for (a = 0, fp = data[0]; a < bone->segments; a++, fp += 4) {
 		sub_v3_v3v3(h1, fp + 4, fp);
 		vec_roll_to_mat3(h1, fp[3], mat3); /* fp[3] is roll */
-
+		
 		copy_m4_m3(result_array[a].mat, mat3);
 		copy_v3_v3(result_array[a].mat[3], fp);
-
+		
 		if (do_scale) {
 			/* correct for scaling when this matrix is used in scaled space */
 			mul_m4_series(result_array[a].mat, iscalemat, result_array[a].mat, scalemat);
@@ -652,31 +652,23 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 			if (a <= bone->segments - 1) {
 				scaleFactorIn = 1.0f + (bone->scaleIn - 1.0f)  * ((1.0f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
 			}
-
+			
 			float scaleFactorOut = 1.0f;
 			if (a >= 0) {
 				scaleFactorOut = 1.0 + (bone->scaleOut - 1.0f) * ((1.0f * (a + 1))                  / (1.0f * (bone->segments - 1)));
 			}
-
+			
 			float bscalemat[4][4], ibscalemat[4][4];
 			float bscale[3];
-
+			
 			bscale[0] = 1.0f * scaleFactorIn * scaleFactorOut;
-			//bscale[1] = 1.0f / bone->segments;  // <--- this breaks drawing lengths, but changing to 1 breaks deforms
 			bscale[1] = 1.0f;
 			bscale[2] = 1.0f * scaleFactorIn * scaleFactorOut;
-
 			
 			size_to_mat4(bscalemat, bscale);
 			invert_m4_m4(ibscalemat, bscalemat);
-		
-			//mul_m4_m4m4(result_array[a].mat, result_array[a].mat, bscalemat);  /* <--- from patch */
-			mul_m4_series(result_array[a].mat, ibscalemat, result_array[a].mat, bscalemat); /* <--- this just makes things explode, or go lumpy in middle + crazy at 0 if yscale=1 | It might be because location is getting affected */
 			
-			//printf("a %d",a);
-			//print_m4("result_array[a].mat", result_array[a].mat);
-
-			//copy_m4_m4(bone->bbone_mat[a], result_array[a].mat);
+			mul_m4_series(result_array[a].mat, ibscalemat, result_array[a].mat, bscalemat);
 		}
 		
 	}
@@ -724,19 +716,8 @@ static void pchan_b_bone_defmats(bPoseChannel *pchan, bPoseChanDeform *pdef_info
 		float tmat[4][4];
 
 		invert_m4_m4(tmat, b_bone_rest[a].mat);
-		/*
-		printf("####################  %d #######################",a);
-		print_m4("b_bone_mats[a + 1].mat", b_bone_mats[a + 1].mat);
-		print_m4("pchan->chan_mat", pchan->chan_mat);
-		print_m4("bone->arm_mat", bone->arm_mat);
-		print_m4("b_bone[a].mat", b_bone[a].mat);
-		print_m4("tmat", tmat);
-		print_m4("b_bone_mats[0].mat", b_bone_mats[0].mat);
-		*/
-		//mul_m4_series(b_bone_mats[a + 1].mat, pchan->chan_mat, bone->arm_mat, b_bone[a].mat, b_bone_mats[0].mat);//, tmat, b_bone_mats[0].mat);  /* <-- patch version; breaks old deform, but new works */
-		mul_m4_series(b_bone_mats[a + 1].mat, pchan->chan_mat, bone->arm_mat, b_bone[a].mat, tmat, b_bone_mats[0].mat);  /* <--- original version */
+		mul_m4_series(b_bone_mats[a + 1].mat, pchan->chan_mat, bone->arm_mat, b_bone[a].mat, tmat, b_bone_mats[0].mat);
 
-		//print_m4("b_bone_mats[a + 1].mat", b_bone_mats[a + 1].mat);
 		if (use_quaternion)
 			mat4_to_dquat(&b_bone_dual_quats[a], bone->arm_mat, b_bone_mats[a + 1].mat);
 	}

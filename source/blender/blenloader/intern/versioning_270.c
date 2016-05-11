@@ -1165,7 +1165,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 
 
 	if (!DNA_struct_elem_find(fd->filesdna, "Bone", "float", "scaleIn")) {
-		printf("fixing bones\n");
+		printf("VERSION PATCHING FOR SUPER BONES --> POST-MERGE FIXME REMINDER...\n");
 		for (bArmature *arm = main->armature.first; arm; arm = arm->id.next) {
 			do_version_bones_super_bbone(&arm->bonebase);
 		}
