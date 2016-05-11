@@ -3393,7 +3393,7 @@ static void ui_do_but_textedit(bContext *C, uiBlock *block, uiBut *but, uiHandle
 #ifdef WITH_INPUT_IME
 		    &&
 		    !is_ime_composing &&
-			(!WM_event_is_ime_switch(event) || !BLT_lang_is_ime_supported())
+		    (!WM_event_is_ime_switch(event) || !BLT_lang_is_ime_supported())
 #endif
 		    )
 		{
@@ -7371,7 +7371,6 @@ static void ui_blocks_set_tooltips(ARegion *ar, const bool enable)
 
 static bool ui_region_contains_point_px(ARegion *ar, int x, int y)
 {
-	uiBlock *block = ar->uiblocks.first;
 	rcti winrct;
 
 	/* scale down area rect to exclude shadow */
@@ -7379,7 +7378,7 @@ static bool ui_region_contains_point_px(ARegion *ar, int x, int y)
 
 	/* check if the mouse is in the region */
 	if (!BLI_rcti_isect_pt(&winrct, x, y)) {
-		for (block = ar->uiblocks.first; block; block = block->next)
+		for (uiBlock *block = ar->uiblocks.first; block; block = block->next)
 			block->auto_open = false;
 		
 		return false;
@@ -7872,6 +7871,19 @@ static void button_activate_exit(
 		/* autokey & undo push */
 		ui_apply_but_undo(but);
 		ui_apply_but_autokey(C, but);
+
+#ifdef USE_ALLSELECT
+		{
+			/* only RNA from this button is used */
+			uiBut but_temp = *but;
+			uiSelectContextStore  *selctx_data = &data->select_others;
+			for (int i = 0; i < selctx_data->elems_len; i++) {
+				uiSelectContextElem *other = &selctx_data->elems[i];
+				but_temp.rnapoin = other->ptr;
+				ui_apply_but_autokey(C, &but_temp);
+			}
+		}
+#endif
 
 		/* popup menu memory */
 		if (block->flag & UI_BLOCK_POPUP_MEMORY)
