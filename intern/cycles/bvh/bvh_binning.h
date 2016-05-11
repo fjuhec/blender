@@ -39,20 +39,12 @@ class BVHObjectBinning : public BVHRange
 public:
 	__forceinline BVHObjectBinning() : leafSAH(FLT_MAX) {}
 
-	BVHObjectBinning(const BVHRange& job, BVHReference *prims);
-
-	BVHObjectBinning(const BVHUnaligned& unaligned_heuristic,
-	                 const Transform& aligned_space,
-	                 const BVHRange& job,
-	                 BVHReference *prims);
+	BVHObjectBinning(const BVHRange& job,
+	                 BVHReference *prims,
+	                 const BVHUnaligned *unaligned_heuristic = NULL,
+	                 const Transform *aligned_space = NULL);
 
 	void split(BVHReference *prims,
-	           BVHObjectBinning& left_o,
-	           BVHObjectBinning& right_o) const;
-
-	void split(const BVHUnaligned& unaligned_heuristic,
-	           const Transform& aligned_space,
-	           BVHReference *prims,
 	           BVHObjectBinning& left_o,
 	           BVHObjectBinning& right_o) const;
 
@@ -70,6 +62,9 @@ protected:
 	/* Effective bounds and centroid bounds. */
 	BoundBox bounds_;
 	BoundBox cent_bounds_;
+
+	const BVHUnaligned *unaligned_heuristic_;
+	const Transform *aligned_space_;
 
 	enum { MAX_BINS = 32 };
 	enum { LOG_BLOCK_SIZE = 2 };
@@ -100,6 +95,17 @@ protected:
 	__forceinline int blocks(size_t a) const
 	{
 		return (int)((a+((1LL << LOG_BLOCK_SIZE)-1)) >> LOG_BLOCK_SIZE);
+	}
+
+	__forceinline BoundBox get_prim_bounds(const BVHReference& prim) const
+	{
+		if(aligned_space_ == NULL) {
+			return prim.bounds();
+		}
+		else {
+			return unaligned_heuristic_->compute_aligned_prim_boundbox(
+			        prim, *aligned_space_);
+		}
 	}
 };
 

@@ -471,10 +471,10 @@ BVHNode* BVHBuild::build_node(const BVHObjectBinning& range, int level)
 	if(params.use_unaligned_nodes && splitSAH > 0.7f*leafSAH) {
 		aligned_space = unaligned_heuristic.compute_aligned_space(
 		        range, &references[0]);
-		unaligned_range = BVHObjectBinning(unaligned_heuristic,
-		                                   aligned_space,
-		                                   range,
-		                                   &references[0]);
+		unaligned_range = BVHObjectBinning(range,
+		                                   &references[0],
+		                                   &unaligned_heuristic,
+		                                   &aligned_space);
 		unalignedSplitSAH = params.sah_node_cost * unaligned_range.unaligned_bounds().half_area() +
 		                    params.sah_primitive_cost * unaligned_range.splitSAH;
 		unalignedLeafSAH = params.sah_primitive_cost * unaligned_range.leafSAH;
@@ -490,11 +490,7 @@ BVHNode* BVHBuild::build_node(const BVHObjectBinning& range, int level)
 	/* Perform split. */
 	BVHObjectBinning left, right;
 	if(unalignedSplitSAH < splitSAH) {
-		unaligned_range.split(unaligned_heuristic,
-		                      aligned_space,
-		                      &references[0],
-		                      left,
-		                      right);
+		unaligned_range.split(&references[0], left, right);
 	}
 	else {
 		range.split(&references[0], left, right);
