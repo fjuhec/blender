@@ -469,8 +469,8 @@ BVHNode* BVHBuild::build_node(const BVHObjectBinning& range, int level)
 	float unalignedLeafSAH = FLT_MAX;
 	Transform aligned_space;
 	if(params.use_unaligned_nodes && splitSAH > 0.7f*leafSAH) {
-		aligned_space = unaligned_heuristic.compute_aligned_space(range,
-		                                                          references);
+		aligned_space = unaligned_heuristic.compute_aligned_space(
+		        range, &references[0]);
 		unaligned_range = BVHObjectBinning(unaligned_heuristic,
 		                                   aligned_space,
 		                                   range,
@@ -503,9 +503,8 @@ BVHNode* BVHBuild::build_node(const BVHObjectBinning& range, int level)
 
 	BoundBox bounds;
 	if(unalignedSplitSAH < splitSAH) {
-		bounds = unaligned_heuristic.compute_aligned_boundbox(range,
-		                                                      references,
-		                                                      aligned_space);
+		bounds = unaligned_heuristic.compute_aligned_boundbox(
+		        range, &references[0], aligned_space);
 	}
 	else {
 		bounds = range.bounds();
