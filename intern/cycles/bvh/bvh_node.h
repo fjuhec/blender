@@ -90,7 +90,7 @@ public:
 			m_visibility = 0; /* happens on build cancel */
 	}
 
-	InnerNode(const BoundBox& bounds)
+	explicit InnerNode(const BoundBox& bounds)
 	{
 		m_bounds = bounds;
 		m_visibility = 0;
