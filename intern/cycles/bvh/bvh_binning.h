@@ -56,6 +56,8 @@ public:
 	           BVHObjectBinning& left_o,
 	           BVHObjectBinning& right_o) const;
 
+	__forceinline const BoundBox& unaligned_bounds() { return bounds_; }
+
 	float splitSAH;	/* SAH cost of the best split */
 	float leafSAH;	/* SAH cost of creating a leaf */
 
