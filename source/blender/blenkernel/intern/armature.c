@@ -496,8 +496,13 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		}
 	}
 
-	hlength1 = bone->ease1 * length * 0.390464f; /* 0.5f * sqrt(2) * kappa, the handle length for near-perfect circles */
-	hlength2 = bone->ease2 * length * 0.390464f;
+	hlength1 = length * 0.390464f; /* 0.5f * sqrt(2) * kappa, the handle length for near-perfect circles */
+	hlength2 = length * 0.390464f;
+	
+	if (!rest) {
+		hlength1 *= bone->ease1;
+		hlength2 *= bone->ease2;
+	}
 
 	/* evaluate next and prev bones */
 	if (bone->flag & BONE_CONNECTED)
@@ -601,19 +606,22 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		roll2 = 0.0;
 	}
 
-	/* add extra rolls */
-	roll1 += bone->roll1;
-	roll2 += bone->roll2;
-	
-	if (bone->flag & BONE_ADD_PARENT_END_ROLL)
-		roll1 += prev->bone->roll2;
-	
-	/* extra curve x / y */
-	h1[0] += bone->curveInX;
-	h1[2] += bone->curveInY;
+	/* add extra effects? */
+	if (!rest) {
+		/* add extra rolls */
+		roll1 += bone->roll1;
+		roll2 += bone->roll2;
+		
+		if (bone->flag & BONE_ADD_PARENT_END_ROLL)
+			roll1 += prev->bone->roll2;
+		
+		/* extra curve x / y */
+		h1[0] += bone->curveInX;
+		h1[2] += bone->curveInY;
 
-	h2[0] += bone->curveOutX;
-	h2[2] += bone->curveOutY;
+		h2[0] += bone->curveOutX;
+		h2[2] += bone->curveOutY;
+	}
 	
 	/* make curve */
 	if (bone->segments > MAX_BBONE_SUBDIV)
@@ -639,31 +647,37 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 			mul_m4_series(result_array[a].mat, iscalemat, result_array[a].mat, scalemat);
 		}
 		
-		float scaleFactorIn = 1.0;
-		if (a <= bone->segments - 1) {
-			scaleFactorIn = 1.0f + (bone->scaleIn - 1.0f)  * ((1.0f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
-		}
+		if (!rest) {
+			float scaleFactorIn = 1.0;
+			if (a <= bone->segments - 1) {
+				scaleFactorIn = 1.0f + (bone->scaleIn - 1.0f)  * ((1.0f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
+			}
 
-		float scaleFactorOut = 1.0f;
-		if (a >= 0) {
-			scaleFactorOut = 1.0 + (bone->scaleOut - 1.0f) * ((1.0f * (a + 1))                  / (1.0f * (bone->segments - 1)));
-		}
+			float scaleFactorOut = 1.0f;
+			if (a >= 0) {
+				scaleFactorOut = 1.0 + (bone->scaleOut - 1.0f) * ((1.0f * (a + 1))                  / (1.0f * (bone->segments - 1)));
+			}
 
-		float bscalemat[4][4], ibscalemat[4][4];
-		float bscale[3];
+			float bscalemat[4][4], ibscalemat[4][4];
+			float bscale[3];
 
-		bscale[0] = 1.0f * scaleFactorIn * scaleFactorOut;
-		bscale[1] = 1.0f / bone->segments;  // <--- this breaks drawing lengths, but changing to 1 breaks deforms
-		bscale[2] = 1.0f * scaleFactorIn * scaleFactorOut;
+			bscale[0] = 1.0f * scaleFactorIn * scaleFactorOut;
+			//bscale[1] = 1.0f / bone->segments;  // <--- this breaks drawing lengths, but changing to 1 breaks deforms
+			bscale[1] = 1.0f;
+			bscale[2] = 1.0f * scaleFactorIn * scaleFactorOut;
 
+			
+			size_to_mat4(bscalemat, bscale);
+			invert_m4_m4(ibscalemat, bscalemat);
 		
-		size_to_mat4(bscalemat, bscale);
-		mul_m4_m4m4(result_array[a].mat, result_array[a].mat, bscalemat);
-		
-		//printf("a %d",a);
-		//print_m4("result_array[a].mat", result_array[a].mat);
+			//mul_m4_m4m4(result_array[a].mat, result_array[a].mat, bscalemat);  /* <--- from patch */
+			mul_m4_series(result_array[a].mat, ibscalemat, result_array[a].mat, bscalemat); /* <--- this just makes things explode, or go lumpy in middle + crazy at 0 if yscale=1 | It might be because location is getting affected */
+			
+			//printf("a %d",a);
+			//print_m4("result_array[a].mat", result_array[a].mat);
 
-		//copy_m4_m4(bone->bbone_mat[a], result_array[a].mat);
+			//copy_m4_m4(bone->bbone_mat[a], result_array[a].mat);
+		}
 		
 	}
 }
