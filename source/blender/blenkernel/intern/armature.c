@@ -612,8 +612,11 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		roll1 += bone->roll1;
 		roll2 += bone->roll2;
 		
-		if (bone->flag & BONE_ADD_PARENT_END_ROLL)
-			roll1 += prev->bone->roll2;
+		if (bone->flag & BONE_ADD_PARENT_END_ROLL) {
+			if (prev && prev->bone) {
+				roll1 += prev->bone->roll2;
+			}
+		}
 		
 		/* extra curve x / y */
 		h1[0] += bone->curveInX;
