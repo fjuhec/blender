@@ -53,8 +53,8 @@ Transform BVHUnaligned::compute_aligned_space(
 }
 
 Transform BVHUnaligned::compute_aligned_space(
-    const BVHRange& range,
-    const BVHReference *references) const
+        const BVHRange& range,
+        const BVHReference *references) const
 {
 	for(int i = range.start(); i < range.end(); ++i) {
 		const BVHReference& ref = references[i];

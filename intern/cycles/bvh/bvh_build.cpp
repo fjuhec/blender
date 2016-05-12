@@ -564,16 +564,54 @@ BVHNode* BVHBuild::build_node(const BVHRange& range,
 			return create_leaf_node(range, *references);
 		}
 	}
+	float leafSAH = params.sah_primitive_cost * split.leafSAH;
+	float splitSAH = params.sah_node_cost * range.bounds().half_area() +
+	                 params.sah_primitive_cost * split.nodeSAH;
+
+	BVHMixedSplit unaligned_split;
+	float unalignedSplitSAH = FLT_MAX;
+	/* float unalignedLeafSAH = FLT_MAX; */
+	Transform aligned_space;
+	if(params.use_unaligned_nodes && splitSAH > 0.7f*leafSAH) {
+		aligned_space =
+		        unaligned_heuristic.compute_aligned_space(range, &references->at(0));
+		unaligned_split = BVHMixedSplit(this,
+		                                storage,
+		                                range,
+		                                references,
+		                                level,
+		                                &unaligned_heuristic,
+		                                &aligned_space);
+		/* unalignedLeafSAH = params.sah_primitive_cost * split.leafSAH; */
+		unalignedSplitSAH = params.sah_node_cost * unaligned_split.bounds.half_area() +
+		                    params.sah_primitive_cost * unaligned_split.nodeSAH;
+		/* TOOD(sergey): Check we can create leaf already. */
+
+		unalignedSplitSAH = splitSAH - 1.0f;
+	}
 
 	/* Do split. */
 	BVHRange left, right;
-	split.split(this, left, right, range);
+	if(unalignedSplitSAH < splitSAH) {
+		unaligned_split.split(this, left, right, range);
+	}
+	else {
+		split.split(this, left, right, range);
+	}
 
 	progress_total += left.size() + right.size() - range.size();
 
+	BoundBox bounds;
+	if(unalignedSplitSAH < splitSAH) {
+		bounds = unaligned_heuristic.compute_aligned_boundbox(
+		        range, &references->at(0), aligned_space);
+	}
+	else {
+		bounds = range.bounds();
+	}
+
 	/* Create inner node. */
 	InnerNode *inner;
-
 	if(range.size() < THREAD_TASK_SIZE) {
 		/* Local build. */
 
@@ -587,11 +625,11 @@ BVHNode* BVHBuild::build_node(const BVHRange& range,
 		/* Build right node. */
 		BVHNode *rightnode = build_node(right, &copy, level + 1, thread_id);
 
-		inner = new InnerNode(range.bounds(), leftnode, rightnode);
+		inner = new InnerNode(bounds, leftnode, rightnode);
 	}
 	else {
 		/* Threaded build. */
-		inner = new InnerNode(range.bounds());
+		inner = new InnerNode(bounds);
 		task_pool.push(new BVHSpatialSplitBuildTask(this,
 		                                            inner,
 		                                            0,
@@ -606,6 +644,10 @@ BVHNode* BVHBuild::build_node(const BVHRange& range,
 		                                            *references,
 		                                            level + 1),
 		               true);
+	}
+
+	if(unalignedSplitSAH < splitSAH) {
+		inner->set_aligned_space(aligned_space);
 	}
 
 	return inner;
