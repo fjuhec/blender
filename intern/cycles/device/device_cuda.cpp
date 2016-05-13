@@ -1269,7 +1269,7 @@ void device_cuda_info(vector<DeviceInfo>& devices)
 		info.num = num;
 
 		info.advanced_shading = (major >= 2);
-		info.extended_images = (major >= 3);
+		info.bindless_textures = (major >= 3);
 		info.pack_images = false;
 
 		/* if device has a kernel timeout, assume it is used for display */
