@@ -496,13 +496,8 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		}
 	}
 
-	hlength1 = length * 0.390464f; /* 0.5f * sqrt(2) * kappa, the handle length for near-perfect circles */
-	hlength2 = length * 0.390464f;
-	
-	if (!rest) {
-		hlength1 *= bone->ease1;
-		hlength2 *= bone->ease2;
-	}
+	hlength1 = bone->ease1 * length * 0.390464f; /* 0.5f * sqrt(2) * kappa, the handle length for near-perfect circles */
+	hlength2 = bone->ease2 * length * 0.390464f;
 
 	/* evaluate next and prev bones */
 	if (bone->flag & BONE_CONNECTED)
