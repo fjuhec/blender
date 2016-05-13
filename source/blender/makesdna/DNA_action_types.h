@@ -242,7 +242,13 @@ typedef struct bPoseChannel {
 	float ikstretch;
 	float ikrotweight;              /* weight of joint rotation constraint */
 	float iklinweight;              /* weight of joint stretch constraint */
-
+	
+	/* curved bones settings - these are for animating, and are applied on top of the copies in pchan->bone */
+	float roll1, roll2;
+	float curveInX, curveInY;
+	float curveOutX, curveOutY;
+	float scaleIn, scaleOut;
+	
 	void        *temp;              /* use for outliner */
 } bPoseChannel;
 

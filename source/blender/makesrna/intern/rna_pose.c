@@ -872,6 +872,9 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Rotation Mode", "");
 	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
 	
+	/* Curved bones settings - Applied on top of restpose values */
+	rna_def_bone_curved_common(srna, true);
+	
 	/* transform matrices - should be read-only since these are set directly by AnimSys evaluation */
 	prop = RNA_def_property(srna, "matrix_channel", PROP_FLOAT, PROP_MATRIX);
 	RNA_def_property_float_sdna(prop, NULL, "chan_mat");

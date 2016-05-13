@@ -429,7 +429,7 @@ int bone_autoside_name(char name[MAXBONENAME], int UNUSED(strip_number), short a
 /* ************* B-Bone support ******************* */
 
 /* data has MAX_BBONE_SUBDIV+1 interpolated points, will become desired amount with equal distances */
-static void equalize_bezier(float *data, int desired)
+void equalize_bezier(float *data, int desired)
 {
 	float *fp, totdist, ddist, dist, fac1, fac2;
 	float pdist[MAX_BBONE_SUBDIV + 1];
@@ -604,21 +604,24 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 	/* add extra effects (bbone properties)? */
 	if (!rest) {
 		/* add extra rolls */
-		roll1 += bone->roll1;
-		roll2 += bone->roll2;
+		roll1 += bone->roll1 + pchan->roll1;
+		roll2 += bone->roll2 + pchan->roll2;
 		
 		if (bone->flag & BONE_ADD_PARENT_END_ROLL) {
-			if (prev && prev->bone) {
-				roll1 += prev->bone->roll2;
+			if (prev) {
+				if (prev->bone)
+					roll1 += prev->bone->roll2;
+				
+				roll1 += prev->roll2;
 			}
 		}
 		
 		/* extra curve x / y */
-		h1[0] += bone->curveInX;
-		h1[2] += bone->curveInY;
+		h1[0] += bone->curveInX + pchan->curveInX;
+		h1[2] += bone->curveInY + pchan->curveInY;
 
-		h2[0] += bone->curveOutX;
-		h2[2] += bone->curveOutY;
+		h2[0] += bone->curveOutX + pchan->curveOutX;
+		h2[2] += bone->curveOutY + pchan->curveOutY;
 	}
 	
 	/* make curve */
@@ -648,12 +651,14 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		if (!rest) {
 			float scaleFactorIn = 1.0;
 			if (a <= bone->segments - 1) {
-				scaleFactorIn = 1.0f + (bone->scaleIn - 1.0f)  * ((1.0f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
+				const float scaleIn = bone->scaleIn * pchan->scaleIn;
+				scaleFactorIn = 1.0f + (scaleIn - 1.0f)  * ((1.0f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
 			}
 			
 			float scaleFactorOut = 1.0f;
 			if (a >= 0) {
-				scaleFactorOut = 1.0 + (bone->scaleOut - 1.0f) * ((1.0f * (a + 1))                  / (1.0f * (bone->segments - 1)));
+				const float scaleOut = bone->scaleOut * pchan->scaleOut;
+				scaleFactorOut = 1.0 + (scaleOut - 1.0f) * ((1.0f * (a + 1))                  / (1.0f * (bone->segments - 1)));
 			}
 			
 			float bscalemat[4][4], ibscalemat[4][4];

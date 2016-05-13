@@ -482,6 +482,70 @@ static void rna_Armature_transform(struct bArmature *arm, float *mat)
 
 #else
 
+/* Settings for curved bbone settings - The posemode values get applied over the top of the editmode ones */
+void rna_def_bone_curved_common(StructRNA *srna, bool is_posebone)
+{
+#define RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone)                                \
+	{                                                                              \
+		if (is_posebone)                                                           \
+			RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update"); \
+		else                                                                       \
+			RNA_def_property_update(prop, 0, "rna_Armature_update_data");          \
+	} (void)0;
+	
+	PropertyRNA *prop;
+
+	prop = RNA_def_property(srna, "bbone_rollin", PROP_FLOAT, PROP_ANGLE);
+	RNA_def_property_float_sdna(prop, NULL, "roll1");
+	RNA_def_property_range(prop, -M_PI * 2, M_PI * 2);
+	RNA_def_property_ui_text(prop, "B-Bone Roll In", "Extra roll in (for B-Bones only)");
+	RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone);
+
+	prop = RNA_def_property(srna, "bbone_rollout", PROP_FLOAT, PROP_ANGLE);
+	RNA_def_property_float_sdna(prop, NULL, "roll2");
+	RNA_def_property_range(prop, -M_PI * 2, M_PI * 2);
+	RNA_def_property_ui_text(prop, "B-Bone Roll Out", "Extra roll out (for B-Bones only)");
+	RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone);
+
+	prop = RNA_def_property(srna, "bbone_curveinx", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "curveInX");
+	RNA_def_property_range(prop, -2.0, 2.0);
+	RNA_def_property_ui_text(prop, "B-Bone curve In X pos", "Position curve In X");
+	RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone);
+
+	prop = RNA_def_property(srna, "bbone_curveiny", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "curveInY");
+	RNA_def_property_range(prop, -2.0, 2.0);
+	RNA_def_property_ui_text(prop, "B-Bone curve In Y pos", "Position curve In Y");
+	RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone);
+
+	prop = RNA_def_property(srna, "bbone_curveoutx", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "curveOutX");
+	RNA_def_property_range(prop, -2.0, 2.0);
+	RNA_def_property_ui_text(prop, "B-Bone curve Out X pos", "Position curve Out X");
+	RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone);
+
+	prop = RNA_def_property(srna, "bbone_curveouty", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "curveOutY");
+	RNA_def_property_range(prop, -2.0, 2.0);
+	RNA_def_property_ui_text(prop, "B-Bone curve Out Y pos", "Position curve Out Y");
+	RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone);
+
+	prop = RNA_def_property(srna, "bbone_scalein", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "scaleIn");
+	RNA_def_property_range(prop, 0.0, 3.0);
+	RNA_def_property_ui_text(prop, "B-Bone scale In", "B-Bone scale In");
+	RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone);
+
+	prop = RNA_def_property(srna, "bbone_scaleout", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "scaleOut");
+	RNA_def_property_range(prop, 0.0, 3.0);
+	RNA_def_property_ui_text(prop, "B-Bone scale Out", "B-Bone scale Out");
+	RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone);
+	
+#undef RNA_DEF_CURVEBONE_UPDATE
+}
+
 static void rna_def_bone_common(StructRNA *srna, int editbone)
 {
 	PropertyRNA *prop;
@@ -629,54 +693,6 @@ static void rna_def_bone_common(StructRNA *srna, int editbone)
 	RNA_def_property_range(prop, 0.0f, 1000.0f);
 	RNA_def_property_ui_text(prop, "B-Bone Display Z Width", "B-Bone Z size");
 	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
-	
-	prop = RNA_def_property(srna, "bbone_rollin", PROP_FLOAT, PROP_ANGLE);
-	RNA_def_property_float_sdna(prop, NULL, "roll1");
-	RNA_def_property_range(prop, -M_PI * 2, M_PI * 2);
-	RNA_def_property_ui_text(prop, "B-Bone Roll In", "Extra roll in (for B-Bones only)");
-	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
-
-	prop = RNA_def_property(srna, "bbone_rollout", PROP_FLOAT, PROP_ANGLE);
-	RNA_def_property_float_sdna(prop, NULL, "roll2");
-	RNA_def_property_range(prop, -M_PI * 2, M_PI * 2);
-	RNA_def_property_ui_text(prop, "B-Bone Roll Out", "Extra roll out (for B-Bones only)");
-	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
-
-	prop = RNA_def_property(srna, "bbone_curveinx", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "curveInX");
-	RNA_def_property_range(prop, -2.0, 2.0);
-	RNA_def_property_ui_text(prop, "B-Bone curve In X pos", "Position curve In X");
-	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
-
-	prop = RNA_def_property(srna, "bbone_curveiny", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "curveInY");
-	RNA_def_property_range(prop, -2.0, 2.0);
-	RNA_def_property_ui_text(prop, "B-Bone curve In Y pos", "Position curve In Y");
-	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
-
-	prop = RNA_def_property(srna, "bbone_curveoutx", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "curveOutX");
-	RNA_def_property_range(prop, -2.0, 2.0);
-	RNA_def_property_ui_text(prop, "B-Bone curve Out X pos", "Position curve Out X");
-	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
-
-	prop = RNA_def_property(srna, "bbone_curveouty", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "curveOutY");
-	RNA_def_property_range(prop, -2.0, 2.0);
-	RNA_def_property_ui_text(prop, "B-Bone curve Out Y pos", "Position curve Out Y");
-	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
-
-	prop = RNA_def_property(srna, "bbone_scalein", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "scaleIn");
-	RNA_def_property_range(prop, 0.0, 3.0);
-	RNA_def_property_ui_text(prop, "B-Bone scale In", "B-Bone scale In");
-	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
-
-	prop = RNA_def_property(srna, "bbone_scaleout", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "scaleOut");
-	RNA_def_property_range(prop, 0.0, 3.0);
-	RNA_def_property_ui_text(prop, "B-Bone scale Out", "B-Bone scale Out");
-	RNA_def_property_update(prop, 0, "rna_Armature_update_data");
 }
 
 /* err... bones should not be directly edited (only editbones should be...) */
@@ -706,6 +722,7 @@ static void rna_def_bone(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Children", "Bones which are children of this bone");
 
 	rna_def_bone_common(srna, 0);
+	rna_def_bone_curved_common(srna, 0);
 
 	/* XXX should we define this in PoseChannel wrapping code instead?
 	 *     But PoseChannels directly get some of their flags from here... */
@@ -819,6 +836,7 @@ static void rna_def_edit_bone(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Armature_editbone_transform_update");
 
 	rna_def_bone_common(srna, 1);
+	rna_def_bone_curved_common(srna, 0);
 
 	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", BONE_HIDDEN_A);

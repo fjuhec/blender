@@ -146,6 +146,51 @@ class BONE_PT_transform_locks(BoneButtonsPanel, Panel):
             sub.prop(pchan, "lock_rotation_w", text="W")
 
 
+class BONE_PT_curved(BoneButtonsPanel, Panel):
+    bl_label = "Curved Bones"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        ob = context.object
+        bone = context.bone
+        arm = context.armature
+        pchan = None
+
+        if ob and bone:
+            pchan = ob.pose.bones[bone.name]
+            bbone = pchan
+        elif bone is None:
+            bone = context.edit_bone
+            bbone = bone
+        else:
+            bbone = bone
+
+        layout = self.layout
+        row = layout.row()
+
+        col = row.column()
+        col.prop(bone, "bbone_segments", text="Segments")
+
+        sub = col.column(align=True)
+        sub.prop(bone, "bbone_in", text="Ease In")    # XXX: have this also be an overlay?
+        sub.prop(bone, "bbone_out", text="Ease Out")  # XXX: have this also be an overlay?
+        sub.prop(bbone, "bbone_rollin", text="Roll In")
+        sub.prop(bbone, "bbone_rollout", text="Roll Out")
+
+        col = row.column()
+        sub = col.column(align=True)
+        sub.label(text="Curve XY Roll:")
+        sub.prop(bbone, "bbone_curveinx", text="In X")
+        sub.prop(bbone, "bbone_curveiny", text="In Y")
+        sub.prop(bbone, "bbone_curveoutx", text="Out X")
+        sub.prop(bbone, "bbone_curveouty", text="Out Y")
+
+        sub = col.column(align=True)
+        sub.label(text="Scale In/Out:")
+        sub.prop(bbone, "bbone_scalein", text="Scale In")
+        sub.prop(bbone, "bbone_scaleout", text="Scale Out")
+
+
 class BONE_PT_relations(BoneButtonsPanel, Panel):
     bl_label = "Relations"
 
@@ -372,18 +417,6 @@ class BONE_PT_deform(BoneButtonsPanel, Panel):
         sub.prop(bone, "bbone_segments", text="Segments")
         sub.prop(bone, "bbone_in", text="Ease In")
         sub.prop(bone, "bbone_out", text="Ease Out")
-        sub.prop(bone, "bbone_rollin", text="Roll In")
-        sub.prop(bone, "bbone_rollout", text="Roll Out")
-        
-        sub.label(text="Curve XY Roll:")
-        sub.prop(bone, "bbone_curveinx", text="In X")
-        sub.prop(bone, "bbone_curveiny", text="In Y")
-        sub.prop(bone, "bbone_curveoutx", text="Out X")
-        sub.prop(bone, "bbone_curveouty", text="Out Y")
-        
-        sub.label(text="Scale In/Out:")
-        sub.prop(bone, "bbone_scalein", text="Scale In")
-        sub.prop(bone, "bbone_scaleout", text="Scale Out")
 
 
 class BONE_PT_custom_props(BoneButtonsPanel, PropertyPanel, Panel):

@@ -1170,4 +1170,16 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			do_version_bones_super_bbone(&arm->bonebase);
 		}
 	}
+	if (!DNA_struct_elem_find(fd->filesdna, "bPoseChannel", "float", "scaleIn")) {
+		printf("VERSION PATCHING FOR SUPER POSEBONES --> POST-MERGE FIXME REMINDER...\n");
+		for (Object *ob = main->object.first; ob; ob = ob->id.next) {
+			if (ob->pose) {
+				for (bPoseChannel *pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+					/* see do_version_bones_super_bbone()... */
+					pchan->scaleIn = 1.0f;
+					pchan->scaleOut = 1.0f;
+				}
+			}
+		}
+	}
 }
