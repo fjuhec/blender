@@ -367,9 +367,25 @@ static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bo
 				axis_angle_to_quat(pchan->quat, chan->rotAxis, pchan->rotAngle);
 		}
 		
+		/* B-Bone posing options should also be included... */
+		pchan->curveInX = chan->curveInX;
+		pchan->curveInY = chan->curveInY;
+		pchan->curveOutX = chan->curveOutX;
+		pchan->curveOutY = chan->curveOutY;
+		
+		pchan->roll1 = chan->roll1;
+		pchan->roll2 = chan->roll2;
+		pchan->scaleIn = chan->scaleIn;
+		pchan->scaleOut = chan->scaleOut;
+		
 		/* paste flipped pose? */
 		if (flip) {
 			pchan->loc[0] *= -1;
+			
+			pchan->curveInX *= -1;
+			pchan->curveOutX *= -1;
+			pchan->roll1 *= -1; // XXX?
+			pchan->roll2 *= -1; // XXX?
 			
 			/* has to be done as eulers... */
 			if (pchan->rotmode > 0) {
