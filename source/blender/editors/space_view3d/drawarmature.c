@@ -1098,9 +1098,6 @@ static void draw_line_bone(int armflag, int boneflag, short constflag, unsigned 
 #define BENDY_BONES_EDITMODE_PREVIEW
 
 #ifdef BENDY_BONES_EDITMODE_PREVIEW
-/* XXX: This is not exported for now, so just patching this over in the meantime... */
-extern void equalize_bezier(float *data, int desired);
-
 /* A partial copy of b_bone_spline_setup(), with just the parts for previewing editmode curve settings 
  *
  * This assumes that prev/next bones don't have any impact (since they should all still be in the "straight"
@@ -1143,7 +1140,7 @@ static void ebone_spline_preview(EditBone *ebone, Mat4 result_array[MAX_BBONE_SU
 	BKE_curve_forward_diff_bezier(0.0f,  h1[2],                               h2[2],                               0.0f,   data[0] + 2, MAX_BBONE_SUBDIV, 4 * sizeof(float));
 	BKE_curve_forward_diff_bezier(roll1, roll1 + 0.390464f * (roll2 - roll1), roll2 - 0.390464f * (roll2 - roll1), roll2,  data[0] + 3, MAX_BBONE_SUBDIV, 4 * sizeof(float));
 
-	equalize_bezier(data[0], ebone->segments); /* note: does stride 4! */
+	equalize_bbone_bezier(data[0], ebone->segments); /* note: does stride 4! */
 
 	/* make transformation matrices for the segments for drawing */
 	for (a = 0, fp = data[0]; a < ebone->segments; a++, fp += 4) {
