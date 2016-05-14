@@ -493,6 +493,8 @@ bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
 	unit_axis_angle(chan->rotAxis, &chan->rotAngle);
 	chan->size[0] = chan->size[1] = chan->size[2] = 1.0f;
 	
+	chan->scaleIn = chan->scaleOut = 1.0f;
+	
 	chan->limitmin[0] = chan->limitmin[1] = chan->limitmin[2] = -180.0f;
 	chan->limitmax[0] = chan->limitmax[1] = chan->limitmax[2] = 180.0f;
 	chan->stiffness[0] = chan->stiffness[1] = chan->stiffness[2] = 0.0f;
