@@ -535,7 +535,7 @@ static void contarget_get_lattice_mat(Object *ob, const char *substring, float m
 
 /* generic function to get the appropriate matrix for most target cases */
 /* The cases where the target can be object data have not been implemented */
-static void constraint_target_to_mat4(Object *ob, const char *substring, float mat[4][4], short from, short to, float headtail)
+static void constraint_target_to_mat4(Object *ob, const char *substring, float mat[4][4], short from, short to, short flag, float headtail)
 {
 	/*	Case OBJECT */
 	if (substring[0] == '\0') {
@@ -573,7 +573,7 @@ static void constraint_target_to_mat4(Object *ob, const char *substring, float m
 				/* skip length interpolation if set to head */
 				mul_m4_m4m4(mat, ob->obmat, pchan->pose_mat);
 			}
-			else if ((pchan->bone) && (pchan->bone->segments > 1)) {
+			else if ((pchan->bone) && (pchan->bone->segments > 1) && (flag & CONSTRAINT_BBONE_SHAPE)) {
 				/* use point along bbone */
 				Mat4 bbone[MAX_BBONE_SUBDIV];
 				float tempmat[4][4];
@@ -686,7 +686,7 @@ static bConstraintTypeInfo CTI_CONSTRNAME = {
 static void default_get_tarmat(bConstraint *con, bConstraintOb *UNUSED(cob), bConstraintTarget *ct, float UNUSED(ctime))
 {
 	if (VALID_CONS_TARGET(ct))
-		constraint_target_to_mat4(ct->tar, ct->subtarget, ct->matrix, CONSTRAINT_SPACE_WORLD, ct->space, con->headtail);
+		constraint_target_to_mat4(ct->tar, ct->subtarget, ct->matrix, CONSTRAINT_SPACE_WORLD, ct->space, con->flag, con->headtail);
 	else if (ct)
 		unit_m4(ct->matrix);
 }
@@ -1154,7 +1154,7 @@ static void kinematic_get_tarmat(bConstraint *con, bConstraintOb *cob, bConstrai
 	bKinematicConstraint *data = con->data;
 	
 	if (VALID_CONS_TARGET(ct)) 
-		constraint_target_to_mat4(ct->tar, ct->subtarget, ct->matrix, CONSTRAINT_SPACE_WORLD, ct->space, con->headtail);
+		constraint_target_to_mat4(ct->tar, ct->subtarget, ct->matrix, CONSTRAINT_SPACE_WORLD, ct->space, con->flag, con->headtail);
 	else if (ct) {
 		if (data->flag & CONSTRAINT_IK_AUTO) {
 			Object *ob = cob->ob;
@@ -2037,7 +2037,7 @@ static void pycon_get_tarmat(bConstraint *con, bConstraintOb *cob, bConstraintTa
 		/* firstly calculate the matrix the normal way, then let the py-function override
 		 * this matrix if it needs to do so
 		 */
-		constraint_target_to_mat4(ct->tar, ct->subtarget, ct->matrix, CONSTRAINT_SPACE_WORLD, ct->space, con->headtail);
+		constraint_target_to_mat4(ct->tar, ct->subtarget, ct->matrix, CONSTRAINT_SPACE_WORLD, ct->space, con->flag, con->headtail);
 		
 		/* only execute target calculation if allowed */
 #ifdef WITH_PYTHON
@@ -2149,7 +2149,7 @@ static void actcon_get_tarmat(bConstraint *con, bConstraintOb *cob, bConstraintT
 		unit_m4(ct->matrix);
 		
 		/* get the transform matrix of the target */
-		constraint_target_to_mat4(ct->tar, ct->subtarget, tempmat, CONSTRAINT_SPACE_WORLD, ct->space, con->headtail);
+		constraint_target_to_mat4(ct->tar, ct->subtarget, tempmat, CONSTRAINT_SPACE_WORLD, ct->space, con->flag, con->headtail);
 		
 		/* determine where in transform range target is */
 		/* data->type is mapped as follows for backwards compatibility:
