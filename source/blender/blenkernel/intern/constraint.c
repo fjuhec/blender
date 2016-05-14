@@ -573,6 +573,41 @@ static void constraint_target_to_mat4(Object *ob, const char *substring, float m
 				/* skip length interpolation if set to head */
 				mul_m4_m4m4(mat, ob->obmat, pchan->pose_mat);
 			}
+			else if ((pchan->bone) && (pchan->bone->segments > 1)) {
+				/* use point along bbone */
+				Mat4 bbone[MAX_BBONE_SUBDIV];
+				float pt_a[3], pt_b[3], pt[3], loc[3];
+				int   index_a, index_b;
+				float fac;
+				float tempmat[4][4];
+				
+				/* get bbone segments */
+				b_bone_spline_setup(pchan, 0, bbone);
+				
+				/* figure out which segment(s) the headtail value falls in */
+				fac = (float)pchan->bone->segments * headtail;
+				
+				index_a = floorf(fac);
+				CLAMP(index_a, 0, MAX_BBONE_SUBDIV - 1);
+				
+				index_b = ceilf(fac);
+				CLAMP(index_b, 0, MAX_BBONE_SUBDIV - 1);
+				
+				/* interpolate between these points */
+				copy_v3_v3(pt_a, bbone[index_a].mat[3]);
+				copy_v3_v3(pt_b, bbone[index_b].mat[3]);
+				
+				interp_v3_v3v3(pt, pt_a, pt_b, fac - floorf(fac));
+				
+				/* move the point from bone local space to pose space... */
+				mul_v3_m4v3(loc, pchan->pose_mat, pt);
+				
+				/* use interpolated distance for subtarget */
+				copy_m4_m4(tempmat, pchan->pose_mat);
+				copy_v3_v3(tempmat[3], loc);
+				
+				mul_m4_m4m4(mat, ob->obmat, tempmat);
+			}
 			else {
 				float tempmat[4][4], loc[3];
 				
