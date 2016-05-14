@@ -147,8 +147,8 @@ class BONE_PT_transform_locks(BoneButtonsPanel, Panel):
 
 
 class BONE_PT_curved(BoneButtonsPanel, Panel):
-    bl_label = "Curved Bones"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_label = "Bendy Bones"
+    #bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         ob = context.object
@@ -166,29 +166,37 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
             bbone = bone
 
         layout = self.layout
-        row = layout.row()
+        layout.prop(bone, "bbone_segments", text="Segments")
 
-        col = row.column()
-        col.prop(bone, "bbone_segments", text="Segments")
+        col = layout.column()
+        col.active = bone.bbone_segments > 1
 
-        sub = col.column(align=True)
-        sub.prop(bone, "bbone_in", text="Ease In")    # XXX: have this also be an overlay?
-        sub.prop(bone, "bbone_out", text="Ease Out")  # XXX: have this also be an overlay?
-        sub.prop(bbone, "bbone_rollin", text="Roll In")
-        sub.prop(bbone, "bbone_rollout", text="Roll Out")
-
-        col = row.column()
-        sub = col.column(align=True)
-        sub.label(text="Curve XY Roll:")
+        row = col.row()
+        sub = row.column(align=True)
+        sub.label(text="Curve XY Offsets:")
         sub.prop(bbone, "bbone_curveinx", text="In X")
         sub.prop(bbone, "bbone_curveiny", text="In Y")
         sub.prop(bbone, "bbone_curveoutx", text="Out X")
         sub.prop(bbone, "bbone_curveouty", text="Out Y")
 
-        sub = col.column(align=True)
-        sub.label(text="Scale In/Out:")
+        sub = row.column(align=True)
+        sub.label("Roll:")
+        sub.prop(bbone, "bbone_rollin", text="In")
+        sub.prop(bbone, "bbone_rollout", text="Out")
+        sub.prop(bone, "use_endroll_as_inroll")
+
+        row = col.row()
+        sub = row.column(align=True)
+        sub.label(text="Scale:")
         sub.prop(bbone, "bbone_scalein", text="Scale In")
         sub.prop(bbone, "bbone_scaleout", text="Scale Out")
+
+        sub = row.column(align=True)
+        sub.label("Easing:")
+        sub.prop(bone, "bbone_in", text="Ease In")    # XXX: have this also be an overlay?
+        sub.prop(bone, "bbone_out", text="Ease Out")  # XXX: have this also be an overlay?
+
+
 
 
 class BONE_PT_relations(BoneButtonsPanel, Panel):
@@ -233,7 +241,6 @@ class BONE_PT_relations(BoneButtonsPanel, Panel):
         sub.prop(bone, "use_connect")
         sub.prop(bone, "use_inherit_rotation")
         sub.prop(bone, "use_inherit_scale")
-        sub.prop(bone, "use_endroll_as_inroll")
         sub = col.column()
         sub.active = (not bone.parent or not bone.use_connect)
         sub.prop(bone, "use_local_location")
