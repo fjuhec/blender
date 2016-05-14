@@ -576,10 +576,8 @@ static void constraint_target_to_mat4(Object *ob, const char *substring, float m
 			else if ((pchan->bone) && (pchan->bone->segments > 1)) {
 				/* use point along bbone */
 				Mat4 bbone[MAX_BBONE_SUBDIV];
-				float pt_a[3], pt_b[3], pt[3], loc[3];
-				int   index_a, index_b;
-				float fac;
 				float tempmat[4][4];
+				float loc[3], fac;
 				
 				/* get bbone segments */
 				b_bone_spline_setup(pchan, 0, bbone);
@@ -587,20 +585,39 @@ static void constraint_target_to_mat4(Object *ob, const char *substring, float m
 				/* figure out which segment(s) the headtail value falls in */
 				fac = (float)pchan->bone->segments * headtail;
 				
-				index_a = floorf(fac);
-				CLAMP(index_a, 0, MAX_BBONE_SUBDIV - 1);
-				
-				index_b = ceilf(fac);
-				CLAMP(index_b, 0, MAX_BBONE_SUBDIV - 1);
-				
-				/* interpolate between these points */
-				copy_v3_v3(pt_a, bbone[index_a].mat[3]);
-				copy_v3_v3(pt_b, bbone[index_b].mat[3]);
-				
-				interp_v3_v3v3(pt, pt_a, pt_b, fac - floorf(fac));
-				
-				/* move the point from bone local space to pose space... */
-				mul_v3_m4v3(loc, pchan->pose_mat, pt);
+				if (fac >= pchan->bone->segments - 1) {
+					/* special case: end segment doesn't get created properly... */
+					float pt[3], sfac;
+					int index;
+					
+					/* bbone points are in bonespace, so need to move to posespace first */
+					index = pchan->bone->segments - 1;
+					mul_v3_m4v3(pt, pchan->pose_mat, bbone[index].mat[3]);
+					
+					/* interpolate between last segment point and the endpoint */
+					sfac = fac - (float)(pchan->bone->segments - 1); /* fac is just the "leftover" between penultimate and last points */
+					interp_v3_v3v3(loc, pt, pchan->pose_tail, sfac);
+				}
+				else {
+					/* get indices for finding interpolating between points along the bbone */
+					float pt_a[3], pt_b[3], pt[3];
+					int   index_a, index_b;
+					
+					index_a = floorf(fac);
+					CLAMP(index_a, 0, MAX_BBONE_SUBDIV - 1);
+					
+					index_b = ceilf(fac);
+					CLAMP(index_b, 0, MAX_BBONE_SUBDIV - 1);
+					
+					/* interpolate between these points */
+					copy_v3_v3(pt_a, bbone[index_a].mat[3]);
+					copy_v3_v3(pt_b, bbone[index_b].mat[3]);
+					
+					interp_v3_v3v3(pt, pt_a, pt_b, fac - floorf(fac));
+					
+					/* move the point from bone local space to pose space... */
+					mul_v3_m4v3(loc, pchan->pose_mat, pt);
+				}
 				
 				/* use interpolated distance for subtarget */
 				copy_m4_m4(tempmat, pchan->pose_mat);
