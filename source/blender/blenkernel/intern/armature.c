@@ -649,27 +649,26 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		}
 		
 		if (!rest) {
-			float scaleFactorIn = 1.0;
+			float scaleFactorIn = 1.0f;
 			if (a <= bone->segments - 1) {
 				const float scaleIn = bone->scaleIn * pchan->scaleIn;
-				scaleFactorIn = 1.0f + (scaleIn - 1.0f)  * ((1.0f * (bone->segments - a - 1)) / (1.0f * (bone->segments - 1)));
+				scaleFactorIn = 1.0f + (scaleIn - 1.0f)  * ((float)(bone->segments - a - 1) / (float)(bone->segments - 1));
 			}
 			
 			float scaleFactorOut = 1.0f;
 			if (a >= 0) {
 				const float scaleOut = bone->scaleOut * pchan->scaleOut;
-				scaleFactorOut = 1.0 + (scaleOut - 1.0f) * ((1.0f * (a + 1))                  / (1.0f * (bone->segments - 1)));
+				scaleFactorOut = 1.0 + (scaleOut - 1.0f) * ((float)(a + 1)                  / (float)(bone->segments - 1));
 			}
 			
-			float bscalemat[4][4], ibscalemat[4][4];
-			float bscale[3];
+			float scalefac = scaleFactorIn * scaleFactorOut;
+			float bscalemat[4][4], bscale[3];
 			
-			bscale[0] = 1.0f * scaleFactorIn * scaleFactorOut;
+			bscale[0] = scalefac;
 			bscale[1] = 1.0f;
-			bscale[2] = 1.0f * scaleFactorIn * scaleFactorOut;
+			bscale[2] = scalefac;
 			
 			size_to_mat4(bscalemat, bscale);
-			invert_m4_m4(ibscalemat, bscalemat);
 			
 			/* Note: don't multiply by inverse scale mat here, as it causes problems with scaling shearing and breaking segment chains */
 			/*mul_m4_series(result_array[a].mat, ibscalemat, result_array[a].mat, bscalemat);*/

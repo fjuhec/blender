@@ -1152,28 +1152,26 @@ static void ebone_spline_preview(EditBone *ebone, Mat4 result_array[MAX_BBONE_SU
 		
 		/* "extra" scale facs... */
 		{
-			float scaleFactorIn = 1.0;
+			float scaleFactorIn = 1.0f;
 			if (a <= ebone->segments - 1) {
-				scaleFactorIn = 1.0f + (ebone->scaleIn - 1.0f)  * ((1.0f * (ebone->segments - a - 1)) / (1.0f * (ebone->segments - 1)));
+				scaleFactorIn = 1.0f + (ebone->scaleIn - 1.0f)  * ((float)(ebone->segments - a - 1) / (float)(ebone->segments - 1));
 			}
 			
 			float scaleFactorOut = 1.0f;
 			if (a >= 0) {
-				scaleFactorOut = 1.0 + (ebone->scaleOut - 1.0f) * ((1.0f * (a + 1))                  / (1.0f * (ebone->segments - 1)));
+				scaleFactorOut = 1.0 + (ebone->scaleOut - 1.0f) * ((float)(a + 1)                  / (float)(ebone->segments - 1));
 			}
 			
-			float bscalemat[4][4], ibscalemat[4][4];
-			float bscale[3];
+			float scalefac = scaleFactorIn * scaleFactorOut;
+			float bscalemat[4][4], bscale[3];
 			
-			bscale[0] = 1.0f * scaleFactorIn * scaleFactorOut;
+			bscale[0] = scalefac;
 			bscale[1] = 1.0f;
-			bscale[2] = 1.0f * scaleFactorIn * scaleFactorOut;
+			bscale[2] = scalefac;
 			
 			size_to_mat4(bscalemat, bscale);
-			invert_m4_m4(ibscalemat, bscalemat);
 			
 			/* Note: don't multiply by inverse scale mat here, as it causes problems with scaling shearing and breaking segment chains */
-			/*mul_m4_series(result_array[a].mat, ibscalemat, result_array[a].mat, bscalemat);*/
 			mul_m4_series(result_array[a].mat, result_array[a].mat, bscalemat);
 		}
 	}
