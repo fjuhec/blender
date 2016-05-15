@@ -1172,7 +1172,9 @@ static void ebone_spline_preview(EditBone *ebone, Mat4 result_array[MAX_BBONE_SU
 			size_to_mat4(bscalemat, bscale);
 			invert_m4_m4(ibscalemat, bscalemat);
 			
-			mul_m4_series(result_array[a].mat, ibscalemat, result_array[a].mat, bscalemat);
+			/* Note: don't multiply by inverse scale mat here, as it causes problems with scaling shearing and breaking segment chains */
+			/*mul_m4_series(result_array[a].mat, ibscalemat, result_array[a].mat, bscalemat);*/
+			mul_m4_series(result_array[a].mat, result_array[a].mat, bscalemat);
 		}
 	}
 }
