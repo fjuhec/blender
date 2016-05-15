@@ -602,26 +602,28 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 	}
 
 	/* add extra effects (bbone properties)? */
-	if (!rest) {
+	{
 		/* add extra rolls */
-		roll1 += bone->roll1 + pchan->roll1;
-		roll2 += bone->roll2 + pchan->roll2;
+		roll1 += bone->roll1 + (!rest ? pchan->roll1 : 0.0f);
+			
+		roll2 += bone->roll2 + (!rest ? pchan->roll2 : 0.0f);
 		
 		if (bone->flag & BONE_ADD_PARENT_END_ROLL) {
 			if (prev) {
 				if (prev->bone)
 					roll1 += prev->bone->roll2;
 				
-				roll1 += prev->roll2;
+				if (!rest)
+					roll1 += prev->roll2;
 			}
 		}
 		
 		/* extra curve x / y */
-		h1[0] += bone->curveInX + pchan->curveInX;
-		h1[2] += bone->curveInY + pchan->curveInY;
-
-		h2[0] += bone->curveOutX + pchan->curveOutX;
-		h2[2] += bone->curveOutY + pchan->curveOutY;
+		h1[0] += bone->curveInX + (!rest ? pchan->curveInX : 0.0f);
+		h1[2] += bone->curveInY + (!rest ? pchan->curveInY : 0.0f);
+		
+		h2[0] += bone->curveOutX + (!rest ? pchan->curveOutX : 0.0f);
+		h2[2] += bone->curveOutY + (!rest ? pchan->curveOutY : 0.0f);
 	}
 	
 	/* make curve */
@@ -648,13 +650,14 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 			mul_m4_series(result_array[a].mat, iscalemat, result_array[a].mat, scalemat);
 		}
 		
-		if (!rest) {
+		/* BBone scale... */
+		{
 			const int num_segments = bone->segments;
 			
-			float scaleIn = bone->scaleIn * pchan->scaleIn;
+			float scaleIn = bone->scaleIn * (!rest ? pchan->scaleIn : 1.0f);
 			float scaleFactorIn  = 1.0f + (scaleIn  - 1.0f) * ((float)(num_segments - a) / (float)num_segments);
 		
-			float scaleOut = bone->scaleOut * pchan->scaleOut;
+			float scaleOut = bone->scaleOut * (!rest ? pchan->scaleOut : 1.0f);
 			float scaleFactorOut = 1.0f + (scaleOut - 1.0f) * ((float)(a + 1)            / (float)num_segments);
 			
 			float scalefac = scaleFactorIn * scaleFactorOut;
