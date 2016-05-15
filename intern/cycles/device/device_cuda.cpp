@@ -510,7 +510,13 @@ public:
 
 			/* Texture Storage */
 			else {
-				; /* TODO(dingto): Implement Bindless textures */
+				/* TODO(dingto): Complete Bindless textures */
+				CUDA_RESOURCE_DESC resDesc;
+
+				CUDA_TEXTURE_DESC texDesc;
+
+				CUtexObject* tex;
+				cuda_assert(cuTexObjectCreate(tex, &resDesc, &texDesc, NULL));
 			}
 		}
 		/* Geforce 4xx and 5xx */
