@@ -259,17 +259,17 @@ typedef enum ePchan_Flag {
 	POSE_LOC        =   (1 << 0),
 	POSE_ROT        =   (1 << 1),
 	POSE_SIZE       =   (1 << 2),
-	/* old IK/cache stuff... */
-#if 0
-	POSE_IK_MAT     =   (1 << 3),
-	POSE_UNUSED2    =   (1 << 4),
-	POSE_UNUSED3    =   (1 << 5),
-	POSE_UNUSED4    =   (1 << 6),
-	POSE_UNUSED5    =   (1 << 7),
-	/* has Standard IK */
-	POSE_HAS_IK     =   (1 << 8),
-#endif
-	/* IK/Pose solving*/
+	
+	/* old IK/cache stuff
+	 * - used to be here from (1 << 3) to (1 << 8) 
+	 *   but has been repurposed since 2.77.2
+	 *   as they haven't been used in over 10 years
+	 */
+	
+	/* has BBone deforms */
+	POSE_BBONE_SHAPE =  (1 << 3),
+	
+	/* IK/Pose solving */
 	POSE_CHAIN      =   (1 << 9),
 	POSE_DONE       =   (1 << 10),
 	/* visualization */

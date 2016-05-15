@@ -1178,6 +1178,15 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 					/* see do_version_bones_super_bbone()... */
 					pchan->scaleIn = 1.0f;
 					pchan->scaleOut = 1.0f;
+					
+					/* also make sure some legacy (unused for over a decade) flags are unset,
+					 * so that we can reuse them for stuff that matters now...
+					 * (i.e. POSE_IK_MAT, (unknown/unused x 4), POSE_HAS_IK)
+					 *
+					 * These seem to have been runtime flags used by the IK solver, but that stuff
+					 * should be able to be recalculated automatically anyway, so it should be fine.
+					 */
+					pchan->flag &= ~((1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8));
 				}
 			}
 		}

@@ -1282,6 +1282,18 @@ short action_get_item_transforms(bAction *act, Object *ob, bPoseChannel *pchan, 
 				}
 			}
 			
+			if ((curves) || (flags & ACT_TRANS_BBONE) == 0) {
+				/* bbone shape properties */
+				pPtr = strstr(bPtr, "bbone_");
+				if (pPtr) {
+					flags |= ACT_TRANS_BBONE;
+					
+					if (curves)
+						BLI_addtail(curves, BLI_genericNodeN(fcu));
+					continue;
+				}
+			}
+			
 			if ((curves) || (flags & ACT_TRANS_PROP) == 0) {
 				/* custom properties only */
 				pPtr = strstr(bPtr, "[\""); /* extra '"' comment here to keep my texteditor functionlist working :) */
