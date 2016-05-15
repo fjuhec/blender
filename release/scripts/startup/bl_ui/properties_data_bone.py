@@ -402,28 +402,18 @@ class BONE_PT_deform(BoneButtonsPanel, Panel):
 
         layout.active = bone.use_deform
 
-        split = layout.split()
+        row = layout.row()
 
-        col = split.column()
+        col = row.column(align=True)
         col.label(text="Envelope:")
-
-        sub = col.column(align=True)
-        sub.prop(bone, "envelope_distance", text="Distance")
-        sub.prop(bone, "envelope_weight", text="Weight")
+        col.prop(bone, "envelope_distance", text="Distance")
+        col.prop(bone, "envelope_weight", text="Weight")
         col.prop(bone, "use_envelope_multiply", text="Multiply")
 
-        sub = col.column(align=True)
-        sub.label(text="Radius:")
-        sub.prop(bone, "head_radius", text="Head")
-        sub.prop(bone, "tail_radius", text="Tail")
-
-        col = split.column()
-        col.label(text="Curved Bones:")
-
-        sub = col.column(align=True)
-        sub.prop(bone, "bbone_segments", text="Segments")
-        sub.prop(bone, "bbone_in", text="Ease In")
-        sub.prop(bone, "bbone_out", text="Ease Out")
+        col = row.column(align=True)
+        col.label(text="Envelope Radius:")
+        col.prop(bone, "head_radius", text="Head")
+        col.prop(bone, "tail_radius", text="Tail")
 
 
 class BONE_PT_custom_props(BoneButtonsPanel, PropertyPanel, Panel):
