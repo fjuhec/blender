@@ -1185,7 +1185,8 @@ public:
 	void tex_alloc(const char *name,
 	               device_memory& mem,
 	               InterpolationType /*interpolation*/,
-	               ExtensionType /*extension*/)
+	               ExtensionType /*extension*/,
+	               int /*flat_slot*/)
 	{
 		VLOG(1) << "Texture allocate: " << name << ", " << mem.memory_size() << " bytes.";
 		mem_alloc(mem, MEM_READ_ONLY);

@@ -166,7 +166,8 @@ public:
 	void tex_alloc(const char *name,
 	               device_memory& mem,
 	               InterpolationType interpolation,
-	               ExtensionType extension)
+	               ExtensionType extension,
+	               int *flat_slot)
 	{
 		VLOG(1) << "Texture allocate: " << name << ", " << mem.memory_size() << " bytes.";
 
@@ -182,6 +183,7 @@ public:
 		snd.add(mem);
 		snd.add(interpolation);
 		snd.add(extension);
+		snd.add(flat_slot);
 		snd.write();
 		snd.write_buffer((void*)mem.data_pointer, mem.memory_size());
 	}
@@ -581,6 +583,7 @@ protected:
 			rcv.read(mem);
 			rcv.read(interpolation);
 			rcv.read(extension_type);
+			rcv.read(flat_slot);
 			lock.unlock();
 
 			client_pointer = mem.device_pointer;
@@ -596,7 +599,7 @@ protected:
 
 			rcv.read_buffer((uint8_t*)mem.data_pointer, data_size);
 
-			device->tex_alloc(name.c_str(), mem, interpolation, extension_type);
+			device->tex_alloc(name.c_str(), mem, interpolation, extension_type, flat_slot);
 
 			pointer_mapping_insert(client_pointer, mem.device_pointer);
 		}

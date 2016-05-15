@@ -468,7 +468,8 @@ public:
 	void tex_alloc(const char *name,
 	               device_memory& mem,
 	               InterpolationType interpolation,
-	               ExtensionType extension)
+	               ExtensionType extension,
+	               int *flat_slot)
 	{
 		VLOG(1) << "Texture allocate: " << name << ", " << mem.memory_size() << " bytes.";
 
@@ -511,12 +512,113 @@ public:
 			/* Texture Storage */
 			else {
 				/* TODO(dingto): Complete Bindless textures */
+
+				CUarray_format_enum format;
+				switch(mem.data_type) {
+					case TYPE_UCHAR: format = CU_AD_FORMAT_UNSIGNED_INT8; break;
+					case TYPE_UINT: format = CU_AD_FORMAT_UNSIGNED_INT32; break;
+					case TYPE_INT: format = CU_AD_FORMAT_SIGNED_INT32; break;
+					case TYPE_FLOAT: format = CU_AD_FORMAT_FLOAT; break;
+					default: assert(0); return;
+				}
+
+				CUarray handle = NULL;
+
+				cuda_push_context();
+
+				if(mem.data_depth > 1) {
+					CUDA_ARRAY3D_DESCRIPTOR desc;
+
+					desc.Width = mem.data_width;
+					desc.Height = mem.data_height;
+					desc.Depth = mem.data_depth;
+					desc.Format = format;
+					desc.NumChannels = mem.data_elements;
+					desc.Flags = 0;
+
+					cuda_assert(cuArray3DCreate(&handle, &desc));
+				}
+				else {
+					CUDA_ARRAY_DESCRIPTOR desc;
+
+					desc.Width = mem.data_width;
+					desc.Height = mem.data_height;
+					desc.Format = format;
+					desc.NumChannels = mem.data_elements;
+
+					cuda_assert(cuArrayCreate(&handle, &desc));
+				}
+
+				if(!handle) {
+					cuda_pop_context();
+					return;
+				}
+
+				if(mem.data_depth > 1) {
+					CUDA_MEMCPY3D param;
+					memset(&param, 0, sizeof(param));
+					param.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+					param.dstArray = handle;
+					param.srcMemoryType = CU_MEMORYTYPE_HOST;
+					param.srcHost = (void*)mem.data_pointer;
+					param.srcPitch = mem.data_width*dsize*mem.data_elements;
+					param.WidthInBytes = param.srcPitch;
+					param.Height = mem.data_height;
+					param.Depth = mem.data_depth;
+
+					cuda_assert(cuMemcpy3D(&param));
+				}
+				if(mem.data_height > 1) {
+					CUDA_MEMCPY2D param;
+					memset(&param, 0, sizeof(param));
+					param.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+					param.dstArray = handle;
+					param.srcMemoryType = CU_MEMORYTYPE_HOST;
+					param.srcHost = (void*)mem.data_pointer;
+					param.srcPitch = mem.data_width*dsize*mem.data_elements;
+					param.WidthInBytes = param.srcPitch;
+					param.Height = mem.data_height;
+
+					cuda_assert(cuMemcpy2D(&param));
+				}
+				else
+					cuda_assert(cuMemcpyHtoA(handle, 0, (void*)mem.data_pointer, size));
+
 				CUDA_RESOURCE_DESC resDesc;
+				memset(&resDesc, 0, sizeof(resDesc));
+				resDesc.resType = CU_RESOURCE_TYPE_ARRAY;
+				resDesc.res.array.hArray = handle;
+				resDesc.flags = 0;
+
+				CUaddress_mode address_mode = CU_TR_ADDRESS_MODE_WRAP;
+				switch(extension) {
+					case EXTENSION_REPEAT:
+						address_mode = CU_TR_ADDRESS_MODE_WRAP;
+						break;
+					case EXTENSION_EXTEND:
+						address_mode = CU_TR_ADDRESS_MODE_CLAMP;
+						break;
+					case EXTENSION_CLIP:
+						address_mode = CU_TR_ADDRESS_MODE_BORDER;
+						break;
+					default:
+						assert(0);
+						break;
+				}
 
 				CUDA_TEXTURE_DESC texDesc;
+				memset(&texDesc, 0, sizeof(texDesc));
+				texDesc.addressMode[0] = address_mode;
+				texDesc.addressMode[1] = address_mode;
+				texDesc.addressMode[2] = address_mode;
+				texDesc.filterMode = CU_TR_FILTER_MODE_LINEAR;
+				texDesc.flags = 0;
 
-				CUtexObject* tex;
-				cuda_assert(cuTexObjectCreate(tex, &resDesc, &texDesc, NULL));
+				CUtexObject tex = 0;
+				cuda_assert(cuTexObjectCreate(&tex, &resDesc, &texDesc, NULL));
+
+				printf("Tex: %i - Slot: %i\n\n", tex, *flat_slot);
+				*flat_slot = (int)tex;
 			}
 		}
 		/* Geforce 4xx and 5xx */

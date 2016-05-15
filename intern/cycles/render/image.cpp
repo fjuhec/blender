@@ -791,7 +791,8 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_alloc(name.c_str(),
 			                  tex_img,
 			                  img->interpolation,
-			                  img->extension);
+			                  img->extension,
+			                  &flat_slot);
 		}
 	}
 	else if(type == IMAGE_DATA_TYPE_FLOAT) {
@@ -814,7 +815,8 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_alloc(name.c_str(),
 			                  tex_img,
 			                  img->interpolation,
-			                  img->extension);
+			                  img->extension,
+			                  &flat_slot);
 		}
 	}
 	else if(type == IMAGE_DATA_TYPE_BYTE4){
@@ -840,7 +842,8 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_alloc(name.c_str(),
 			                  tex_img,
 			                  img->interpolation,
-			                  img->extension);
+			                  img->extension,
+			                  &flat_slot);
 		}
 	}
 	else {
@@ -863,9 +866,16 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_alloc(name.c_str(),
 			                  tex_img,
 			                  img->interpolation,
-			                  img->extension);
+			                  img->extension,
+			                  &flat_slot);
 		}
 	}
+
+	int flat_slot_again = type_index_to_flattened_slot(slot, type);
+
+	dscene->data.bindless_mapping[flat_slot_again] = flat_slot;
+
+	printf("%i, %i", again, flat_slot);
 
 	img->need_load = false;
 }

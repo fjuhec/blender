@@ -1157,6 +1157,7 @@ typedef struct KernelData {
 	KernelBVH bvh;
 	KernelCurves curve;
 	KernelTables tables;
+	int bindless_mapping[4096];
 } KernelData;
 
 #ifdef __KERNEL_DEBUG__
