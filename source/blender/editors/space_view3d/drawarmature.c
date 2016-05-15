@@ -1152,14 +1152,16 @@ static void ebone_spline_preview(EditBone *ebone, Mat4 result_array[MAX_BBONE_SU
 		
 		/* "extra" scale facs... */
 		{
+			const int num_segments = ebone->segments - 1; // XXX: why n - 1, and not n?
+			
 			float scaleFactorIn = 1.0f;
-			if (a <= ebone->segments - 1) {
-				scaleFactorIn = 1.0f + (ebone->scaleIn - 1.0f)  * ((float)(ebone->segments - a - 1) / (float)(ebone->segments - 1));
+			if (a <= num_segments) {
+				scaleFactorIn  = 1.0f + (ebone->scaleIn  - 1.0f) * ((float)(num_segments - a) / (float)num_segments);
 			}
 			
 			float scaleFactorOut = 1.0f;
 			if (a >= 0) {
-				scaleFactorOut = 1.0 + (ebone->scaleOut - 1.0f) * ((float)(a + 1)                  / (float)(ebone->segments - 1));
+				scaleFactorOut = 1.0f + (ebone->scaleOut - 1.0f) * ((float)(a + 1)            / (float)num_segments);
 			}
 			
 			float scalefac = scaleFactorIn * scaleFactorOut;
