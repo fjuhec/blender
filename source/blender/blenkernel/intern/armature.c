@@ -601,11 +601,23 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		roll2 = 0.0;
 	}
 
-	/* add extra effects (bbone properties)? */
+	/* Add effects from bbone properties over the top
+	 * - These properties allow users to hand-animate the
+	 *   bone curve/shape, without having to resort to using
+	 *   extra bones
+	 * - The "bone" level offsets are for defining the restpose
+	 *   shape of the bone (e.g. for curved eyebrows for example).
+	 *   -> In the viewport, it's needed to define what the rest pose
+	 *      looks like
+	 *   -> For "rest == 0", we also still need to have it present
+	 *      so that we can "cancel out" this restpose when it comes
+	 *      time to deform some geometry, it won't cause double transforms.
+	 * - The "pchan" level offsets are the ones that animators actually
+	 *   end up animating
+	 */
 	{
 		/* add extra rolls */
 		roll1 += bone->roll1 + (!rest ? pchan->roll1 : 0.0f);
-			
 		roll2 += bone->roll2 + (!rest ? pchan->roll2 : 0.0f);
 		
 		if (bone->flag & BONE_ADD_PARENT_END_ROLL) {
