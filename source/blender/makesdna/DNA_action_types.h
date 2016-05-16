@@ -199,7 +199,8 @@ typedef struct bPoseChannel {
 	char constflag;                 /* for quick detecting which constraints affect this channel */
 	char selectflag;                /* copy of bone flag, so you can work with library armatures, not for runtime use */
 	char drawflag;
-	char pad0[5];
+	char bboneflag;
+	char pad0[4];
 
 	struct Bone         *bone;      /* set on read file or rebuild pose */
 	struct bPoseChannel *parent;    /* set on read file or rebuild pose */
@@ -248,6 +249,9 @@ typedef struct bPoseChannel {
 	float curveInX, curveInY;
 	float curveOutX, curveOutY;
 	float scaleIn, scaleOut;
+	
+	struct bPoseChannel *bbone_prev; /* next/prev bones to use as handle references when calculating bbones (optional) */
+	struct bPoseChannel *bbone_next;
 	
 	void        *temp;              /* use for outliner */
 } bPoseChannel;
@@ -323,6 +327,12 @@ typedef enum ePchan_DrawFlag {
 
 #define PCHAN_CUSTOM_DRAW_SIZE(pchan) \
 	(pchan)->custom_scale * (((pchan)->drawflag & PCHAN_DRAW_NO_CUSTOM_BONE_SIZE) ? 1.0f : (pchan)->bone->length)
+
+/* PoseChannel->bboneflag */
+typedef enum ePchan_BBoneFlag {
+	/* Use custom reference bones (for roll and handle alignment), instead of immediate neighbours */
+	PCHAN_BBONE_CUSTOM_HANDLES    = (1 << 1),
+} ePchan_BBoneFlag;
 
 /* PoseChannel->rotmode and Object->rotmode */
 typedef enum eRotationModes {

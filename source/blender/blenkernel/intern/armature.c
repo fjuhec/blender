@@ -499,13 +499,21 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 	hlength1 = bone->ease1 * length * 0.390464f; /* 0.5f * sqrt(2) * kappa, the handle length for near-perfect circles */
 	hlength2 = bone->ease2 * length * 0.390464f;
 
-	/* evaluate next and prev bones */
-	if (bone->flag & BONE_CONNECTED)
-		prev = pchan->parent;
-	else
-		prev = NULL;
+	/* get "next" and "prev" bones - these are used for handle calculations */
+	if (pchan->bboneflag & PCHAN_BBONE_CUSTOM_HANDLES) {
+		/* use the provided bones as the next/prev - leave blank to eliminate this effect altogether */
+		prev = pchan->bbone_prev;
+		next = pchan->bbone_next;
+	}
+	else {
+		/* evaluate next and prev bones */
+		if (bone->flag & BONE_CONNECTED)
+			prev = pchan->parent;
+		else
+			prev = NULL;
 
-	next = pchan->child;
+		next = pchan->child;
+	}
 
 	/* find the handle points, since this is inside bone space, the
 	 * first point = (0, 0, 0)

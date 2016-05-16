@@ -193,8 +193,24 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
 
         sub = row.column(align=True)
         sub.label("Easing:")
-        sub.prop(bone, "bbone_in", text="Ease In")    # XXX: have this also be an overlay?
-        sub.prop(bone, "bbone_out", text="Ease Out")  # XXX: have this also be an overlay?
+        if pchan:
+            # XXX: have these also be an overlay?
+            sub.prop(bbone.bone, "bbone_in", text="Ease In")
+            sub.prop(bbone.bone, "bbone_out", text="Ease Out")
+        else:
+            sub.prop(bone, "bbone_in", text="Ease In")
+            sub.prop(bone, "bbone_out", text="Ease Out")
+
+        if pchan:
+            layout.separator()
+
+            col = layout.column()
+            col.prop(pchan, "use_bbone_custom_handles")
+
+            row = col.row()
+            row.active = pchan.use_bbone_custom_handles
+            row.prop_search(pchan, "bbone_custom_handle_start", ob.pose, "bones", text="In")
+            row.prop_search(pchan, "bbone_custom_handle_end", ob.pose, "bones", text="Out")
 
 
 
