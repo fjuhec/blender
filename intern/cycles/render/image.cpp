@@ -1108,14 +1108,9 @@ void ImageManager::device_free(Device *device, DeviceScene *dscene)
 int2 ImageManager::get_image_resolution(int slot)
 {
 	assert(slot >= 0);
-	Image *image;
-	if(slot >= tex_image_byte_start) {
-		image = images[slot - tex_image_byte_start];
-	}
-	else {
-		image = float_images[slot];
-	}
-
+	ImageDataType type;
+	int index = flattened_slot_to_type_index(slot, &type);
+	Image *image = images[type][index];
 	assert(image != NULL);
 
 	int width = -1, height = -1;
