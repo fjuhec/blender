@@ -332,6 +332,10 @@ typedef enum ePchan_DrawFlag {
 typedef enum ePchan_BBoneFlag {
 	/* Use custom reference bones (for roll and handle alignment), instead of immediate neighbours */
 	PCHAN_BBONE_CUSTOM_HANDLES    = (1 << 1),
+	/* Evaluate start handle as being "relative" */
+	PCHAN_BBONE_CUSTOM_START_REL  = (1 << 2),
+	/* Evaluate end handle as being "relative" */
+	PCHAN_BBONE_CUSTOM_END_REL    = (1 << 3),
 } ePchan_BBoneFlag;
 
 /* PoseChannel->rotmode and Object->rotmode */

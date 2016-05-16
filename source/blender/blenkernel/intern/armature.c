@@ -533,10 +533,27 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		float difmat[4][4], result[3][3], imat3[3][3];
 
 		/* transform previous point inside this bone space */
-		if (rest)
-			copy_v3_v3(h1, prev->bone->arm_head);
-		else
-			copy_v3_v3(h1, prev->pose_head);
+		if ((pchan->bboneflag & PCHAN_BBONE_CUSTOM_HANDLES) &&
+		    (pchan->bboneflag & PCHAN_BBONE_CUSTOM_START_REL))
+		{
+			/* Use delta movement (from restpose), and apply this relative to the current bone's head */
+			if (rest) {
+				/* in restpose, arm_head == pose_head */
+				h1[0] = h1[1] = h1[2] = 0.0f;
+			}
+			else {
+				float delta[3];
+				sub_v3_v3v3(delta, prev->pose_head, prev->bone->arm_head);
+				sub_v3_v3v3(h1, pchan->pose_head, delta);
+			}
+		}
+		else {
+			/* Use bone head as absolute position */
+			if (rest)
+				copy_v3_v3(h1, prev->bone->arm_head);
+			else
+				copy_v3_v3(h1, prev->pose_head);
+		}
 		mul_m4_v3(imat, h1);
 
 		if (prev->bone->segments > 1) {
@@ -572,10 +589,27 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		float difmat[4][4], result[3][3], imat3[3][3];
 
 		/* transform next point inside this bone space */
-		if (rest)
-			copy_v3_v3(h2, next->bone->arm_tail);
-		else
-			copy_v3_v3(h2, next->pose_tail);
+		if ((pchan->bboneflag & PCHAN_BBONE_CUSTOM_HANDLES) &&
+		    (pchan->bboneflag & PCHAN_BBONE_CUSTOM_END_REL))
+		{
+			/* Use delta movement (from restpose), and apply this relative to the current bone's tail */
+			if (rest) {
+				/* in restpose, arm_tail == pose_tail */
+				h2[0] = h2[1] = h2[2] = 0.0f;
+			}
+			else {
+				float delta[3];
+				sub_v3_v3v3(delta, next->pose_tail, next->bone->arm_tail);
+				add_v3_v3v3(h2, pchan->pose_tail, delta);
+			}
+		}
+		else {
+			/* Use bone tail as absolute position */
+			if (rest)
+				copy_v3_v3(h2, next->bone->arm_tail);
+			else
+				copy_v3_v3(h2, next->pose_tail);
+		}
 		mul_m4_v3(imat, h2);
 
 		/* if next bone is B-bone too, use average handle direction */

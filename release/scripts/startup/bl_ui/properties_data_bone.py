@@ -212,6 +212,11 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
             row.prop_search(pchan, "bbone_custom_handle_start", ob.pose, "bones", text="In")
             row.prop_search(pchan, "bbone_custom_handle_end", ob.pose, "bones", text="Out")
 
+            row = col.row()
+            row.active = pchan.use_bbone_custom_handles
+            row.prop(pchan, "use_bbone_relative_start_handle", text="Relative")
+            row.prop(pchan, "use_bbone_relative_end_handle", text="Relative")
+
 
 
 
