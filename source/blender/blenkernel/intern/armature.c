@@ -631,11 +631,18 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		}
 		
 		/* extra curve x / y */
-		h1[0] += bone->curveInX + (!rest ? pchan->curveInX : 0.0f);
-		h1[2] += bone->curveInY + (!rest ? pchan->curveInY : 0.0f);
+		/* NOTE: Scale correction factors here are to compensate for some random floating-point glitches
+		 *       when scaling up the bone or it's parent by a factor of approximately 8.15/6, which results
+		 *       in the bone length getting scaled up too (from 1 to 8), causing the curve to flatten out.
+		 */
+		const float xscale_correction = (do_scale) ? scale[0] : 1.0f;
+		const float yscale_correction = (do_scale) ? scale[2] : 1.0f;
 		
-		h2[0] += bone->curveOutX + (!rest ? pchan->curveOutX : 0.0f);
-		h2[2] += bone->curveOutY + (!rest ? pchan->curveOutY : 0.0f);
+		h1[0] += (bone->curveInX + (!rest ? pchan->curveInX : 0.0f)) * xscale_correction;
+		h1[2] += (bone->curveInY + (!rest ? pchan->curveInY : 0.0f)) * yscale_correction;
+		
+		h2[0] += (bone->curveOutX + (!rest ? pchan->curveOutX : 0.0f)) * xscale_correction;
+		h2[2] += (bone->curveOutY + (!rest ? pchan->curveOutY : 0.0f)) * yscale_correction;
 	}
 	
 	/* make curve */
