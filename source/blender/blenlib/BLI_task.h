@@ -21,6 +21,9 @@
 #ifndef __BLI_TASK_H__
 #define __BLI_TASK_H__ 
 
+struct Link;
+struct ListBase;
+
 /** \file BLI_task.h
  *  \ingroup bli
  */
@@ -84,7 +87,9 @@ void BLI_task_pool_push_ex(
         TaskPool *pool, TaskRunFunction run, void *taskdata,
         bool free_taskdata, TaskFreeFunction freedata, TaskPriority priority);
 void BLI_task_pool_push(TaskPool *pool, TaskRunFunction run,
-	void *taskdata, bool free_taskdata, TaskPriority priority);
+        void *taskdata, bool free_taskdata, TaskPriority priority);
+void BLI_task_pool_push_from_thread(TaskPool *pool, TaskRunFunction run,
+        void *taskdata, bool free_taskdata, TaskPriority priority, int thread_id);
 
 /* work and wait until all tasks are done */
 void BLI_task_pool_work_and_wait(TaskPool *pool);
@@ -125,6 +130,15 @@ void BLI_task_parallel_range(
         int start, int stop,
         void *userdata,
         TaskParallelRangeFunc func,
+        const bool use_threading);
+
+typedef void (*TaskParallelListbaseFunc)(void *userdata,
+                                         struct Link *iter,
+                                         int index);
+void BLI_task_parallel_listbase(
+        struct ListBase *listbase,
+        void *userdata,
+        TaskParallelListbaseFunc func,
         const bool use_threading);
 
 #ifdef __cplusplus
