@@ -566,7 +566,7 @@ public:
 
 					cuda_assert(cuMemcpy3D(&param));
 				}
-				if(mem.data_height > 1) {
+				else if(mem.data_height > 1) {
 					CUDA_MEMCPY2D param;
 					memset(&param, 0, sizeof(param));
 					param.dstMemoryType = CU_MEMORYTYPE_ARRAY;
@@ -623,6 +623,11 @@ public:
 				CUtexObject tex = 0;
 				cuda_assert(cuTexObjectCreate(&tex, &resDesc, &texDesc, NULL));
 				*bindless_slot = tex;
+
+				mem.device_pointer = (device_ptr)handle;
+				mem.device_size = size;
+
+				stats.mem_alloc(size);
 			}
 		}
 		/* Geforce 4xx and 5xx */
