@@ -460,9 +460,10 @@ ccl_device float3 spherical_stereo_position(KernelGlobals *kg,
 	}
 
 	if(kernel_data.cam.use_pole_merge) {
+		float3 normalized_direction = normalize(dir);
 		const float pole_merge_angle_from = kernel_data.cam.pole_merge_angle_from,
 		            pole_merge_angle_to = kernel_data.cam.pole_merge_angle_to;
-		float altitude = fabsf(safe_asinf(dir.z));
+		float altitude = fabsf(safe_asinf(normalized_direction.z));
 		if(altitude > pole_merge_angle_to) {
 			interocular_offset = 0.0f;
 		}
