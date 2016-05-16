@@ -174,13 +174,13 @@ public:
 	               InterpolationType
 	               interpolation,
 	               ExtensionType extension,
-	               int *flat_slot)
+	               uint *bindless_slot)
 	{
 		VLOG(1) << "Texture allocate: " << name << ", " << mem.memory_size() << " bytes.";
 
 		foreach(SubDevice& sub, devices) {
 			mem.device_pointer = 0;
-			sub.device->tex_alloc(name, mem, interpolation, extension, flat_slot);
+			sub.device->tex_alloc(name, mem, interpolation, extension, bindless_slot);
 			sub.ptr_map[unique_ptr] = mem.device_pointer;
 		}
 

@@ -260,12 +260,12 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 			return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
 #else
-	CUtexObject tex = (uint)kernel_data.bindless_mapping[id];
-	if(id < 5)
+	CUtexObject tex = kernel_data.bindless_mapping[id];
+	if(id < 2048) /* TODO(dingto): Make this a variable */
 		r = tex2D<float4>(tex, x, y);
 	else {
-		uchar4 f = tex2D<uchar4>(tex, x, y);
-		r = make_float4(f.x/255, f.y/255, f.z/255, f.w/255);
+		float g = tex2D<float>(tex, x, y);
+		r = make_float4(g, g, g, 1.0);
 	}
 #endif
 #endif

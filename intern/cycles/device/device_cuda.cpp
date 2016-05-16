@@ -469,7 +469,7 @@ public:
 	               device_memory& mem,
 	               InterpolationType interpolation,
 	               ExtensionType extension,
-	               int *flat_slot)
+	               uint *bindless_slot)
 	{
 		VLOG(1) << "Texture allocate: " << name << ", " << mem.memory_size() << " bytes.";
 
@@ -509,10 +509,8 @@ public:
 				cuda_pop_context();
 			}
 
-			/* Texture Storage */
+			/* Bindless Texture Storage */
 			else {
-				/* TODO(dingto): Complete Bindless textures */
-
 				CUarray_format_enum format;
 				switch(mem.data_type) {
 					case TYPE_UCHAR: format = CU_AD_FORMAT_UNSIGNED_INT8; break;
@@ -606,19 +604,25 @@ public:
 						break;
 				}
 
+				CUfilter_mode filter_mode;
+				if(interpolation == INTERPOLATION_CLOSEST) {
+					filter_mode = CU_TR_FILTER_MODE_POINT;
+				}
+				else {
+					filter_mode = CU_TR_FILTER_MODE_LINEAR;
+				}
+
 				CUDA_TEXTURE_DESC texDesc;
 				memset(&texDesc, 0, sizeof(texDesc));
 				texDesc.addressMode[0] = address_mode;
 				texDesc.addressMode[1] = address_mode;
 				texDesc.addressMode[2] = address_mode;
-				texDesc.filterMode = CU_TR_FILTER_MODE_LINEAR;
-				texDesc.flags = 0;
+				texDesc.filterMode = filter_mode;
+				texDesc.flags = CU_TRSF_NORMALIZED_COORDINATES;
 
 				CUtexObject tex = 0;
 				cuda_assert(cuTexObjectCreate(&tex, &resDesc, &texDesc, NULL));
-
-				printf("Tex: %i - Slot: %i\n\n", tex, *flat_slot);
-				*flat_slot = (int)tex;
+				*bindless_slot = tex;
 			}
 		}
 		/* Geforce 4xx and 5xx */

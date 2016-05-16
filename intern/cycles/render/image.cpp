@@ -296,7 +296,7 @@ int ImageManager::add_image(const string& filename,
 	if(type == IMAGE_DATA_TYPE_FLOAT || type == IMAGE_DATA_TYPE_FLOAT4)
 		is_float = true;
 
-	/* No float and byte textures on GPU yet */
+	/* No single channel textures on Fermi GPUs, use available slots */
 	if(type == IMAGE_DATA_TYPE_FLOAT && tex_num_images[type] == 0)
 		type = IMAGE_DATA_TYPE_FLOAT4;
 	if(type == IMAGE_DATA_TYPE_BYTE && tex_num_images[type] == 0)
@@ -768,6 +768,9 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 	else
 		name = string_printf("__tex_image_%s_00%d", name_from_type(type).c_str(), flat_slot);
 
+	/* Bindless slot for CUDA */
+	uint bindless_slot = 0;
+
 	if(type == IMAGE_DATA_TYPE_FLOAT4) {
 		device_vector<float4>& tex_img = dscene->tex_float4_image[slot];
 
@@ -792,7 +795,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			                  tex_img,
 			                  img->interpolation,
 			                  img->extension,
-			                  &flat_slot);
+			                  &bindless_slot);
 		}
 	}
 	else if(type == IMAGE_DATA_TYPE_FLOAT) {
@@ -816,7 +819,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			                  tex_img,
 			                  img->interpolation,
 			                  img->extension,
-			                  &flat_slot);
+			                  &bindless_slot);
 		}
 	}
 	else if(type == IMAGE_DATA_TYPE_BYTE4){
@@ -843,7 +846,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			                  tex_img,
 			                  img->interpolation,
 			                  img->extension,
-			                  &flat_slot);
+			                  &bindless_slot);
 		}
 	}
 	else {
@@ -867,15 +870,14 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			                  tex_img,
 			                  img->interpolation,
 			                  img->extension,
-			                  &flat_slot);
+			                  &bindless_slot);
 		}
 	}
 
-	int flat_slot_again = type_index_to_flattened_slot(slot, type);
-
-	dscene->data.bindless_mapping[flat_slot_again] = flat_slot;
-
-	printf("%i, %i", again, flat_slot);
+	/* Save mapping for Bindless Texture IDs */
+	if(device->info.bindless_textures) {
+		dscene->data.bindless_mapping[flat_slot] = bindless_slot;
+	}
 
 	img->need_load = false;
 }
