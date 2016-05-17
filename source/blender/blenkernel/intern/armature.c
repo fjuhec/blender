@@ -715,13 +715,13 @@ void b_bone_spline_setup(bPoseChannel *pchan, int rest, Mat4 result_array[MAX_BB
 		{
 			const int num_segments = bone->segments;
 			
-			float scaleIn = bone->scaleIn * (!rest ? pchan->scaleIn : 1.0f);
-			float scaleFactorIn  = 1.0f + (scaleIn  - 1.0f) * ((float)(num_segments - a) / (float)num_segments);
-		
-			float scaleOut = bone->scaleOut * (!rest ? pchan->scaleOut : 1.0f);
-			float scaleFactorOut = 1.0f + (scaleOut - 1.0f) * ((float)(a + 1)            / (float)num_segments);
+			const float scaleIn = bone->scaleIn * (!rest ? pchan->scaleIn : 1.0f);
+			const float scaleFactorIn  = 1.0f + (scaleIn  - 1.0f) * ((float)(num_segments - a) / (float)num_segments);
 			
-			float scalefac = scaleFactorIn * scaleFactorOut;
+			const float scaleOut = bone->scaleOut * (!rest ? pchan->scaleOut : 1.0f);
+			const float scaleFactorOut = 1.0f + (scaleOut - 1.0f) * ((float)(a + 1)            / (float)num_segments);
+			
+			const float scalefac = scaleFactorIn * scaleFactorOut;
 			float bscalemat[4][4], bscale[3];
 			
 			bscale[0] = scalefac;

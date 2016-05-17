@@ -1094,10 +1094,6 @@ static void draw_line_bone(int armflag, int boneflag, short constflag, unsigned 
 	glPopMatrix();
 }
 
-/* XXX Hack - Refactor/Move/Reconsider how this can be best implemented... */
-#define BENDY_BONES_EDITMODE_PREVIEW
-
-#ifdef BENDY_BONES_EDITMODE_PREVIEW
 /* A partial copy of b_bone_spline_setup(), with just the parts for previewing editmode curve settings 
  *
  * This assumes that prev/next bones don't have any impact (since they should all still be in the "straight"
@@ -1154,10 +1150,10 @@ static void ebone_spline_preview(EditBone *ebone, Mat4 result_array[MAX_BBONE_SU
 		{
 			const int num_segments = ebone->segments;
 			
-			float scaleFactorIn  = 1.0f + (ebone->scaleIn  - 1.0f) * ((float)(num_segments - a) / (float)num_segments);
-			float scaleFactorOut = 1.0f + (ebone->scaleOut - 1.0f) * ((float)(a + 1)            / (float)num_segments);
+			const float scaleFactorIn  = 1.0f + (ebone->scaleIn  - 1.0f) * ((float)(num_segments - a) / (float)num_segments);
+			const float scaleFactorOut = 1.0f + (ebone->scaleOut - 1.0f) * ((float)(a + 1)            / (float)num_segments);
 			
-			float scalefac = scaleFactorIn * scaleFactorOut;
+			const float scalefac = scaleFactorIn * scaleFactorOut;
 			float bscalemat[4][4], bscale[3];
 			
 			bscale[0] = scalefac;
@@ -1171,8 +1167,6 @@ static void ebone_spline_preview(EditBone *ebone, Mat4 result_array[MAX_BBONE_SU
 		}
 	}
 }
-
-#endif
 
 static void draw_b_bone_boxes(const short dt, bPoseChannel *pchan, EditBone *ebone, float xwidth, float length, float zwidth)
 {
@@ -1191,12 +1185,10 @@ static void draw_b_bone_boxes(const short dt, bPoseChannel *pchan, EditBone *ebo
 		if (pchan) {
 			b_bone_spline_setup(pchan, 0, bbone);
 		}
-#ifdef BENDY_BONES_EDITMODE_PREVIEW
 		else if (ebone) {
 			ebone_spline_preview(ebone, bbone);
 		}
-#endif
-
+		
 		for (a = 0; a < segments; a++) {
 			glPushMatrix();
 			glMultMatrixf(bbone[a].mat);
