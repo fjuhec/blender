@@ -2201,16 +2201,20 @@ void OBJECT_OT_game_physics_copy(struct wmOperatorType *ot)
 static int object_widget_add_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *ob = ED_object_active_context((bContext *)C);
-	wmWidgetGroupType *wgrouptype = WM_widgetgrouptype_register(
+	wmWidgetGroupType *wgrouptype = WM_widgetgrouptype_register_update(
 	        CTX_data_main(C),
 	        &(const struct wmWidgetMapType_Params) {"View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_WIDGETMAPTYPE_3D},
 	        WIDGETGROUP_object_manipulator_poll,
 	        WIDGETGROUP_object_manipulator_init,
+	        WIDGETGROUP_manipulator_refresh,
+	        WIDGETGROUP_manipulator_draw_prepare,
 	        WM_widgetgroup_keymap_common,
 	        "Object Widgets");
 
 	/* assign the objects id name to the widget */
 	strcpy(wgrouptype->idname, ob->id.name);
+
+	WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
 
 	return OPERATOR_FINISHED;
 }
