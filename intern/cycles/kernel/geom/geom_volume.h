@@ -67,8 +67,8 @@ ccl_device float volume_attribute_float(KernelGlobals *kg, const ShaderData *sd,
 #ifdef __KERNEL_GPU__
 #  if __CUDA_ARCH__ >= 300
 	CUtexObject tex = kernel_data.bindless_mapping[id];
-	float g = tex3D<float>(tex, P.x, P.y, P.z);
-	float4 r = make_float4(g, g, g, 1.0);
+	float f = kernel_tex_image_interp_3d_float(tex, x, y, z);
+	float4 r = make_float4(f, f, f, 1.0);
 #  else
 	float4 r = volume_image_texture_3d(id, P.x, P.y, P.z);
 #  endif
@@ -92,7 +92,7 @@ ccl_device float3 volume_attribute_float3(KernelGlobals *kg, const ShaderData *s
 #ifdef __KERNEL_GPU__
 #  if __CUDA_ARCH__ >= 300
 	CUtexObject tex = kernel_data.bindless_mapping[id];
-	float4 r = tex3D<float4>(tex, P.x, P.y, P.z);
+	float4 r = kernel_tex_image_interp_3d_float4(tex, P.x, P.y, P.z);
 #  else
 	float4 r = volume_image_texture_3d(id, P.x, P.y, P.z);
 #  endif

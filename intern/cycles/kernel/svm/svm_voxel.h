@@ -47,10 +47,10 @@ ccl_device void svm_node_tex_voxel(KernelGlobals *kg,
 #    if __CUDA_ARCH__ >= 300
 	CUtexObject tex = kernel_data.bindless_mapping[id];
 	if(id < 2048) /* TODO(dingto): Make this a variable */
-		r = tex3D<float4>(tex, co.x, co.y, co.z);
+		r = kernel_tex_image_interp_3d_float4(tex, co.x, co.y, co.z);
 	else {
-		float g = tex3D<float>(tex, co.x, co.y, co.z);
-		r = make_float4(g, g, g, 1.0);
+		float f = kernel_tex_image_interp_3d_float(tex, co.x, co.y, co.z);
+		r = make_float4(f, f, f, 1.0);
 	}
 #    else /* __CUDA_ARCH__ >= 300 */
 	r = volume_image_texture_3d(id, co.x, co.y, co.z);
