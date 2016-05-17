@@ -556,9 +556,9 @@ static void pchan_clear_scale(bPoseChannel *pchan)
 		pchan->size[1] = 1.0f;
 	if ((pchan->protectflag & OB_LOCK_SCALEZ) == 0)
 		pchan->size[2] = 1.0f;
-
-	pchan->bone->scaleIn = 1.0f;
-	pchan->bone->scaleOut = 1.0f;
+	
+	pchan->scaleIn = 1.0f;
+	pchan->scaleOut = 1.0f;
 }
 
 /* clear location of pose-channel */
@@ -669,8 +669,15 @@ static void pchan_clear_rot(bPoseChannel *pchan)
 			zero_v3(pchan->eul);
 		}
 	}
-	pchan->bone->roll1 = 0.0f;
-	pchan->bone->roll2 = 0.0f;
+	
+	/* Clear also Bendy Bone stuff - Roll is obvious, but Curve X/Y stuff is also kindof rotational in nature... */
+	pchan->roll1 = 0.0f;
+	pchan->roll2 = 0.0f;
+	
+	pchan->curveInX = 0.0f;
+	pchan->curveInY = 0.0f;
+	pchan->curveOutX = 0.0f;
+	pchan->curveOutY = 0.0f;
 }
 
 /* clear loc/rot/scale of pose-channel */
