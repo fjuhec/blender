@@ -415,9 +415,19 @@ public:
 };
 
 /* Disney BRDF */
-class DisneyBsdfNode : public BsdfNode {
+class DisneyBsdfNode : public ShaderNode {
 public:
 	SHADER_NODE_CLASS(DisneyBsdfNode)
+
+	bool has_spatial_varying() { return true; }
+
+	ClosureType closure;
+
+	virtual bool equals(const ShaderNode * /*other*/)
+	{
+		/* TODO(sergey): With some care BSDF nodes can be de-duplicated. */
+		return false;
+	}
 };
 
 class TranslucentBsdfNode : public BsdfNode {
