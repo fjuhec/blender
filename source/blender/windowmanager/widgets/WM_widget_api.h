@@ -76,12 +76,6 @@ void WM_widget_set_colors(struct wmWidget *widget, const float col[4], const flo
 
 struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const struct Main *bmain, struct wmWidgetMapType *wmaptype,
-        int (*poll)(const struct bContext *, struct wmWidgetGroupType *), /* wmWidgetGroupPollFunc */
-        void (*create)(const struct bContext *, struct wmWidgetGroup *),  /* wmWidgetGroupInitFunc */
-        struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
-        const char *name);
-struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
-        const struct Main *bmain, struct wmWidgetMapType *wmaptype,
         int (*poll)(const struct bContext *, struct wmWidgetGroupType *),      /* wmWidgetGroupPollFunc */
         void (*init)(const struct bContext *, struct wmWidgetGroup *),         /* wmWidgetGroupInitFunc */
         void (*refresh)(const struct bContext *, struct wmWidgetGroup *),      /* wmWidgetGroupRefreshFunc */
@@ -89,12 +83,6 @@ struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
         struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register(
-        const struct Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        int (*poll)(const struct bContext *, struct wmWidgetGroupType *), /* wmWidgetGroupPollFunc */
-        void (*create)(const struct bContext *, struct wmWidgetGroup *),  /* wmWidgetGroupInitFunc */
-        struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
-        const char *name);
-struct wmWidgetGroupType *WM_widgetgrouptype_register_update(
         const struct Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
         int (*poll)(const struct bContext *, struct wmWidgetGroupType *),      /* wmWidgetGroupPollFunc */
         void (*init)(const struct bContext *, struct wmWidgetGroup *),         /* wmWidgetGroupInitFunc */

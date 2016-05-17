@@ -592,7 +592,7 @@ static void image_widgets(void)
 
 	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
 
-	WM_widgetgrouptype_register_ptr_update(
+	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_manipulator2d_poll,
 	        WIDGETGROUP_manipulator2d_init,

@@ -296,7 +296,7 @@ static void widgetgroup_overdrop_refresh(const bContext *C, wmWidgetGroup *wgrou
 static wmWidgetGroupType *sequencer_overdrop_widgets(void)
 {
 	/* no poll, lives always for the duration of the operator */
-	return WM_widgetgrouptype_register_update(
+	return WM_widgetgrouptype_register(
 	        NULL,
 	        &(const struct wmWidgetMapType_Params) {"Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0},
 	        NULL,
@@ -473,7 +473,7 @@ static void widgetgroup_image_transform_refresh(const bContext *C, wmWidgetGroup
 static wmWidgetGroupType *sequencer_image_transform_widgets(void)
 {
 	/* no poll, lives always for the duration of the operator */
-	return WM_widgetgrouptype_register_update(
+	return WM_widgetgrouptype_register(
 	        NULL,
 	        &(const struct wmWidgetMapType_Params) {"Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, 0},
 	        NULL,

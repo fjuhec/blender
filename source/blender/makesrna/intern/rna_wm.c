@@ -1612,6 +1612,7 @@ static StructRNA *rna_WidgetGroup_register(
 	        NULL, wmaptype,
 	        (have_function[0]) ? widgetgroup_poll : NULL,
 	        (have_function[2]) ? widgetgroup_draw : NULL,
+	        NULL, NULL, /* TODO */
 	        (have_function[1]) ? widgetgroup_keymap_init : NULL,
 	        dummywgt.name);
 

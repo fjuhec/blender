@@ -920,7 +920,7 @@ static void node_widgets(void)
 	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&(const struct wmWidgetMapType_Params) {
 	        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, 0});
 	
-	WM_widgetgrouptype_register_ptr_update(
+	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_node_transform_poll,
 	        WIDGETGROUP_node_transform_init,

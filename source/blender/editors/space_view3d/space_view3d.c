@@ -743,7 +743,7 @@ static void view3d_widgets(void)
 
 	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
 
-	WM_widgetgrouptype_register_ptr_update(
+	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_armature_facemaps_poll,
 	        WIDGETGROUP_armature_facemaps_init,
@@ -751,7 +751,7 @@ static void view3d_widgets(void)
 	        NULL,
 	        WM_widgetgroup_keymap_common_sel,
 	        "Face Map Widgets");
-	WM_widgetgrouptype_register_ptr_update(
+	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_lamp_poll,
 	        WIDGETGROUP_lamp_init,
@@ -759,7 +759,7 @@ static void view3d_widgets(void)
 	        NULL,
 	        WM_widgetgroup_keymap_common,
 	        "Lamp Widgets");
-	WM_widgetgrouptype_register_ptr_update(
+	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_forcefield_poll,
 	        WIDGETGROUP_forcefield_init,
@@ -767,7 +767,7 @@ static void view3d_widgets(void)
 	        NULL,
 	        WM_widgetgroup_keymap_common,
 	        "Force Field Widgets");
-	WM_widgetgrouptype_register_ptr_update(
+	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_camera_poll,
 	        WIDGETGROUP_camera_init,
@@ -775,7 +775,7 @@ static void view3d_widgets(void)
 	        NULL,
 	        WM_widgetgroup_keymap_common,
 	        "Camera Widgets");
-	WM_widgetgrouptype_register_ptr_update(
+	WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        WIDGETGROUP_manipulator_poll,
 	        WIDGETGROUP_manipulator_init,

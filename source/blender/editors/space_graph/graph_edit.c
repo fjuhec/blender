@@ -2796,7 +2796,7 @@ static void widgetgroup_backdrop_refresh(const struct bContext *C, wmWidgetGroup
 static wmWidgetGroupType *graph_widget_backdrop_transform_widgets(void)
 {
 	/* no poll, lives always for the duration of the operator */
-	return WM_widgetgrouptype_register_update(
+	return WM_widgetgrouptype_register(
 	            NULL,
 	            &(const struct wmWidgetMapType_Params) {"Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0},
 	            NULL,

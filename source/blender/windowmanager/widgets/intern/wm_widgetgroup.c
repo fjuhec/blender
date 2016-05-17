@@ -408,6 +408,7 @@ wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmWidgetGroupType *wgrou
 wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const Main *bmain, wmWidgetMapType *wmaptype,
         wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
+        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
@@ -415,6 +416,8 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 
 	wgrouptype->poll = poll;
 	wgrouptype->init = init;
+	wgrouptype->refresh = refresh;
+	wgrouptype->draw_prepare = draw_prepare;
 	wgrouptype->keymap_init = keymap_init;
 	wgrouptype->spaceid = wmaptype->spaceid;
 	wgrouptype->regionid = wmaptype->regionid;
@@ -434,24 +437,10 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 	return wgrouptype;
 }
 
-/* XXX tmp */
-wmWidgetGroupType *WM_widgetgrouptype_register_ptr_update(
-        const Main *bmain, wmWidgetMapType *wmaptype,
-        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
-        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
-        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
-        const char *name)
-{
-	wmWidgetGroupType *wgrouptype = WM_widgetgrouptype_register_ptr(bmain, wmaptype, poll, init, keymap_init, name);
-	wgrouptype->refresh = refresh;
-	wgrouptype->draw_prepare = draw_prepare;
-
-	return wgrouptype;
-}
-
 wmWidgetGroupType *WM_widgetgrouptype_register(
         const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
         wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
+        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
@@ -464,28 +453,9 @@ wmWidgetGroupType *WM_widgetgrouptype_register(
 
 	return WM_widgetgrouptype_register_ptr(
 	        bmain, wmaptype,
-	        poll, init, keymap_init,
-	        name);
-}
-
-/* XXX tmp */
-wmWidgetGroupType *WM_widgetgrouptype_register_update(
-        const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
-        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
-        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
-        const char *name)
-{
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(wmap_params);
-
-	if (!wmaptype) {
-		fprintf(stderr, "widgetgrouptype creation: widgetmap type does not exist");
-		return NULL;
-	}
-
-	return WM_widgetgrouptype_register_ptr_update(
-	        bmain, wmaptype,
-	        poll, init, refresh, draw_prepare, keymap_init,
+	        poll, init,
+	        refresh, draw_prepare,
+	        keymap_init,
 	        name);
 }
 

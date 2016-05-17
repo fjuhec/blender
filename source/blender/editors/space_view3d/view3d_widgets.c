@@ -166,16 +166,16 @@ void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
 		const float color_hi[4] = {1.0f, 1.0, 0.27f, 1.0f};
 
 		camgroup->focallen = WIDGET_arrow_new(
-								 wgroup, "focal_len",
-								 (WIDGET_ARROW_STYLE_CONE | WIDGET_ARROW_STYLE_CONSTRAINED));
+		                         wgroup, "focal_len",
+		                         (WIDGET_ARROW_STYLE_CONE | WIDGET_ARROW_STYLE_CONSTRAINED));
 		WM_widget_set_flag(camgroup->focallen, WM_WIDGET_SCALE_3D, false);
 		WM_widget_set_colors(camgroup->focallen, color, color_hi);
 		cameragroup_property_setup(camgroup->focallen, ob, ca, false);
 		WM_widget_set_property(camgroup->focallen, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "lens");
 
 		camgroup->ortho_scale = WIDGET_arrow_new(
-								 wgroup, "ortho_scale",
-								 (WIDGET_ARROW_STYLE_CONE | WIDGET_ARROW_STYLE_CONSTRAINED));
+		                            wgroup, "ortho_scale",
+		                            (WIDGET_ARROW_STYLE_CONE | WIDGET_ARROW_STYLE_CONSTRAINED));
 		WM_widget_set_flag(camgroup->ortho_scale, WM_WIDGET_SCALE_3D, false);
 		WM_widget_set_colors(camgroup->ortho_scale, color, color_hi);
 		cameragroup_property_setup(camgroup->ortho_scale, ob, ca, true);
@@ -212,7 +212,7 @@ void WIDGETGROUP_camera_refresh(const bContext *C, wmWidgetGroup *wgroup)
 		const float scale[3] = {1.0f / len_v3(ob->obmat[0]), 1.0f / len_v3(ob->obmat[1]), 1.0f / len_v3(ob->obmat[2])};
 		const float scale_fac = ca->drawsize;
 		const float drawsize = is_ortho ? (0.5f * ca->ortho_scale) :
-										  (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
+		                                  (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
 		float offset[3];
 		float asp[2];
 
