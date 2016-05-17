@@ -1089,6 +1089,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 						bScreen *sc_ref = wmn->reference;
 						view3d_recalc_used_layers(ar, wmn, sc_ref->scene);
 					}
+					WM_widgetmap_tag_refresh(wmap);
 					ED_region_tag_redraw(ar);
 					break;
 			}
