@@ -2088,10 +2088,40 @@ DisneyBsdfNode::DisneyBsdfNode()
 	add_input("Normal", SHADER_SOCKET_NORMAL, ShaderInput::NORMAL);
 	add_input("Tangent", SHADER_SOCKET_VECTOR, ShaderInput::TANGENT);
 	add_input("SurfaceMixWeight", SHADER_SOCKET_FLOAT, 0.0f, ShaderInput::USE_SVM);
+
+	add_output("BSDF", SHADER_SOCKET_CLOSURE);
+}
+
+void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *param1, ShaderInput *param2, ShaderInput *param3, ShaderInput *param4)
+{
+	ShaderInput *base_color_in = input("BaseColor");
+	ShaderInput *normal_in = input("Normal");
+	ShaderInput *tangent_in = input("Tangent");
+
+	if (base_color_in->link)
+		compiler.add_node(NODE_CLOSURE_WEIGHT, compiler.stack_assign(base_color_in));
+	else
+		compiler.add_node(NODE_CLOSURE_SET_WEIGHT, base_color_in->value);
+
+	int normal_offset = compiler.stack_assign_if_linked(normal_in);
+	int tangent_offset = (tangent_in) ? compiler.stack_assign_if_linked(tangent_in) : SVM_STACK_INVALID;
+	int param3_offset = (param3) ? compiler.stack_assign(param3) : SVM_STACK_INVALID;
+	int param4_offset = (param4) ? compiler.stack_assign(param4) : SVM_STACK_INVALID;
+
+	compiler.add_node(NODE_CLOSURE_BSDF,
+		compiler.encode_uchar4(closure,
+		(param1) ? compiler.stack_assign(param1) : SVM_STACK_INVALID,
+		(param2) ? compiler.stack_assign(param2) : SVM_STACK_INVALID,
+		compiler.closure_mix_weight_offset()),
+		__float_as_int((param1) ? param1->value.x : 0.0f),
+		__float_as_int((param2) ? param2->value.x : 0.0f));
+
+	compiler.add_node(normal_offset, tangent_offset, param3_offset, param4_offset);
 }
 
 void DisneyBsdfNode::compile(SVMCompiler& compiler)
 {
+	compile(compiler, NULL, NULL);
 }
 
 void DisneyBsdfNode::compile(OSLCompiler& compiler)

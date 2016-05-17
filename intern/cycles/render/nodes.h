@@ -416,6 +416,7 @@ public:
 	SHADER_NODE_CLASS(DisneyBsdfNode)
 
 	bool has_spatial_varying() { return true; }
+	void compile(SVMCompiler& compiler, ShaderInput *param1, ShaderInput *param2, ShaderInput *param3 = NULL, ShaderInput *param4 = NULL);
 
 	ClosureType closure;
 
