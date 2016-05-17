@@ -29,7 +29,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Return position normalized to 0..1 in mesh bounds */
 
-#ifdef __KERNEL_GPU__
+#if defined(__KERNEL_GPU__) && __CUDA_ARCH__ < 300
 ccl_device float4 volume_image_texture_3d(int id, float x, float y, float z)
 {
 	float4 r;
@@ -67,7 +67,7 @@ ccl_device float volume_attribute_float(KernelGlobals *kg, const ShaderData *sd,
 #ifdef __KERNEL_GPU__
 #  if __CUDA_ARCH__ >= 300
 	CUtexObject tex = kernel_data.bindless_mapping[id];
-	float f = kernel_tex_image_interp_3d_float(tex, x, y, z);
+	float f = kernel_tex_image_interp_3d_float(tex, P.x, P.y, P.z);
 	float4 r = make_float4(f, f, f, 1.0);
 #  else
 	float4 r = volume_image_texture_3d(id, P.x, P.y, P.z);

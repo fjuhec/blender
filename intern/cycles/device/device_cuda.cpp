@@ -473,18 +473,73 @@ public:
 	{
 		VLOG(1) << "Texture allocate: " << name << ", " << mem.memory_size() << " bytes.";
 
+		bool is_kepler_card = info.bindless_textures;
+
 		/* General variables for both architectures */
 		string bind_name = name;
 		size_t dsize = datatype_size(mem.data_type);
 		size_t size = mem.memory_size();
 
-		/* We differenciate between Fermi cards and Kepler & above */
-		bool is_kepler_card = info.bindless_textures;
+		CUaddress_mode address_mode = CU_TR_ADDRESS_MODE_WRAP;
+		switch(extension) {
+			case EXTENSION_REPEAT:
+				address_mode = CU_TR_ADDRESS_MODE_WRAP;
+				break;
+			case EXTENSION_EXTEND:
+				address_mode = CU_TR_ADDRESS_MODE_CLAMP;
+				break;
+			case EXTENSION_CLIP:
+				address_mode = CU_TR_ADDRESS_MODE_BORDER;
+				break;
+			default:
+				assert(0);
+				break;
+		}
 
-		/* Geforce 6xx and above */
-		if(is_kepler_card) {
-			/* Data Storage */
-			if(interpolation == INTERPOLATION_NONE) {
+		CUfilter_mode filter_mode;
+		if(interpolation == INTERPOLATION_CLOSEST) {
+			filter_mode = CU_TR_FILTER_MODE_POINT;
+		}
+		else {
+			filter_mode = CU_TR_FILTER_MODE_LINEAR;
+		}
+
+		CUarray_format_enum format;
+		switch(mem.data_type) {
+			case TYPE_UCHAR: format = CU_AD_FORMAT_UNSIGNED_INT8; break;
+			case TYPE_UINT: format = CU_AD_FORMAT_UNSIGNED_INT32; break;
+			case TYPE_INT: format = CU_AD_FORMAT_SIGNED_INT32; break;
+			case TYPE_FLOAT: format = CU_AD_FORMAT_FLOAT; break;
+			default: assert(0); return;
+		}
+
+		/* General variables for Fermi */
+		CUtexref texref = NULL;
+
+		if(!is_kepler_card) {
+			if(mem.data_depth > 1) {
+				/* Kernel uses different bind names for 2d and 3d float textures,
+				 * so we have to adjust couple of things here.
+				 */
+				vector<string> tokens;
+				string_split(tokens, name, "_");
+				bind_name = string_printf("__tex_image_%s_3d_%s",
+										  tokens[2].c_str(),
+										  tokens[3].c_str());
+			}
+
+			cuda_push_context();
+			cuda_assert(cuModuleGetTexRef(&texref, cuModule, bind_name.c_str()));
+
+			if(!texref) {
+				cuda_pop_context();
+				return;
+			}
+		}
+
+		/* Data Storage */
+		if(interpolation == INTERPOLATION_NONE) {
+			if(is_kepler_card) {
 				mem_alloc(mem, MEM_READ_ONLY);
 				mem_copy_to(mem);
 
@@ -508,241 +563,6 @@ public:
 
 				cuda_pop_context();
 			}
-
-			/* Bindless Texture Storage */
-			else {
-				CUarray_format_enum format;
-				switch(mem.data_type) {
-					case TYPE_UCHAR: format = CU_AD_FORMAT_UNSIGNED_INT8; break;
-					case TYPE_UINT: format = CU_AD_FORMAT_UNSIGNED_INT32; break;
-					case TYPE_INT: format = CU_AD_FORMAT_SIGNED_INT32; break;
-					case TYPE_FLOAT: format = CU_AD_FORMAT_FLOAT; break;
-					default: assert(0); return;
-				}
-
-				CUarray handle = NULL;
-
-				cuda_push_context();
-
-				if(mem.data_depth > 1) {
-					CUDA_ARRAY3D_DESCRIPTOR desc;
-
-					desc.Width = mem.data_width;
-					desc.Height = mem.data_height;
-					desc.Depth = mem.data_depth;
-					desc.Format = format;
-					desc.NumChannels = mem.data_elements;
-					desc.Flags = 0;
-
-					cuda_assert(cuArray3DCreate(&handle, &desc));
-				}
-				else {
-					CUDA_ARRAY_DESCRIPTOR desc;
-
-					desc.Width = mem.data_width;
-					desc.Height = mem.data_height;
-					desc.Format = format;
-					desc.NumChannels = mem.data_elements;
-
-					cuda_assert(cuArrayCreate(&handle, &desc));
-				}
-
-				if(!handle) {
-					cuda_pop_context();
-					return;
-				}
-
-				if(mem.data_depth > 1) {
-					CUDA_MEMCPY3D param;
-					memset(&param, 0, sizeof(param));
-					param.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-					param.dstArray = handle;
-					param.srcMemoryType = CU_MEMORYTYPE_HOST;
-					param.srcHost = (void*)mem.data_pointer;
-					param.srcPitch = mem.data_width*dsize*mem.data_elements;
-					param.WidthInBytes = param.srcPitch;
-					param.Height = mem.data_height;
-					param.Depth = mem.data_depth;
-
-					cuda_assert(cuMemcpy3D(&param));
-				}
-				else if(mem.data_height > 1) {
-					CUDA_MEMCPY2D param;
-					memset(&param, 0, sizeof(param));
-					param.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-					param.dstArray = handle;
-					param.srcMemoryType = CU_MEMORYTYPE_HOST;
-					param.srcHost = (void*)mem.data_pointer;
-					param.srcPitch = mem.data_width*dsize*mem.data_elements;
-					param.WidthInBytes = param.srcPitch;
-					param.Height = mem.data_height;
-
-					cuda_assert(cuMemcpy2D(&param));
-				}
-				else
-					cuda_assert(cuMemcpyHtoA(handle, 0, (void*)mem.data_pointer, size));
-
-				CUDA_RESOURCE_DESC resDesc;
-				memset(&resDesc, 0, sizeof(resDesc));
-				resDesc.resType = CU_RESOURCE_TYPE_ARRAY;
-				resDesc.res.array.hArray = handle;
-				resDesc.flags = 0;
-
-				CUaddress_mode address_mode = CU_TR_ADDRESS_MODE_WRAP;
-				switch(extension) {
-					case EXTENSION_REPEAT:
-						address_mode = CU_TR_ADDRESS_MODE_WRAP;
-						break;
-					case EXTENSION_EXTEND:
-						address_mode = CU_TR_ADDRESS_MODE_CLAMP;
-						break;
-					case EXTENSION_CLIP:
-						address_mode = CU_TR_ADDRESS_MODE_BORDER;
-						break;
-					default:
-						assert(0);
-						break;
-				}
-
-				CUfilter_mode filter_mode;
-				if(interpolation == INTERPOLATION_CLOSEST) {
-					filter_mode = CU_TR_FILTER_MODE_POINT;
-				}
-				else {
-					filter_mode = CU_TR_FILTER_MODE_LINEAR;
-				}
-
-				CUDA_TEXTURE_DESC texDesc;
-				memset(&texDesc, 0, sizeof(texDesc));
-				texDesc.addressMode[0] = address_mode;
-				texDesc.addressMode[1] = address_mode;
-				texDesc.addressMode[2] = address_mode;
-				texDesc.filterMode = filter_mode;
-				texDesc.flags = CU_TRSF_NORMALIZED_COORDINATES;
-
-				CUtexObject tex = 0;
-				cuda_assert(cuTexObjectCreate(&tex, &resDesc, &texDesc, NULL));
-				*bindless_slot = tex;
-
-				mem.device_pointer = (device_ptr)handle;
-				mem.device_size = size;
-
-				stats.mem_alloc(size);
-			}
-		}
-		/* Geforce 4xx and 5xx */
-		else {
-			CUarray_format_enum format;
-			switch(mem.data_type) {
-				case TYPE_UCHAR: format = CU_AD_FORMAT_UNSIGNED_INT8; break;
-				case TYPE_UINT: format = CU_AD_FORMAT_UNSIGNED_INT32; break;
-				case TYPE_INT: format = CU_AD_FORMAT_SIGNED_INT32; break;
-				case TYPE_FLOAT: format = CU_AD_FORMAT_FLOAT; break;
-				default: assert(0); return;
-			}
-
-			if(mem.data_depth > 1) {
-				/* Kernel uses different bind names for 2d and 3d float textures,
-				 * so we have to adjust couple of things here.
-				 */
-				vector<string> tokens;
-				string_split(tokens, name, "_");
-				bind_name = string_printf("__tex_image_%s_3d_%s",
-				                          tokens[2].c_str(),
-				                          tokens[3].c_str());
-			}
-
-			CUtexref texref = NULL;
-
-			cuda_push_context();
-			cuda_assert(cuModuleGetTexRef(&texref, cuModule, bind_name.c_str()));
-
-			if(!texref) {
-				cuda_pop_context();
-				return;
-			}
-
-			/* Texture Storage */
-			if(interpolation != INTERPOLATION_NONE) {
-				CUarray handle = NULL;
-
-				if(mem.data_depth > 1) {
-					CUDA_ARRAY3D_DESCRIPTOR desc;
-
-					desc.Width = mem.data_width;
-					desc.Height = mem.data_height;
-					desc.Depth = mem.data_depth;
-					desc.Format = format;
-					desc.NumChannels = mem.data_elements;
-					desc.Flags = 0;
-
-					cuda_assert(cuArray3DCreate(&handle, &desc));
-				}
-				else {
-					CUDA_ARRAY_DESCRIPTOR desc;
-
-					desc.Width = mem.data_width;
-					desc.Height = mem.data_height;
-					desc.Format = format;
-					desc.NumChannels = mem.data_elements;
-
-					cuda_assert(cuArrayCreate(&handle, &desc));
-				}
-
-				if(!handle) {
-					cuda_pop_context();
-					return;
-				}
-
-				if(mem.data_depth > 1) {
-					CUDA_MEMCPY3D param;
-					memset(&param, 0, sizeof(param));
-					param.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-					param.dstArray = handle;
-					param.srcMemoryType = CU_MEMORYTYPE_HOST;
-					param.srcHost = (void*)mem.data_pointer;
-					param.srcPitch = mem.data_width*dsize*mem.data_elements;
-					param.WidthInBytes = param.srcPitch;
-					param.Height = mem.data_height;
-					param.Depth = mem.data_depth;
-
-					cuda_assert(cuMemcpy3D(&param));
-				}
-				else if(mem.data_height > 1) {
-					CUDA_MEMCPY2D param;
-					memset(&param, 0, sizeof(param));
-					param.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-					param.dstArray = handle;
-					param.srcMemoryType = CU_MEMORYTYPE_HOST;
-					param.srcHost = (void*)mem.data_pointer;
-					param.srcPitch = mem.data_width*dsize*mem.data_elements;
-					param.WidthInBytes = param.srcPitch;
-					param.Height = mem.data_height;
-
-					cuda_assert(cuMemcpy2D(&param));
-				}
-				else
-					cuda_assert(cuMemcpyHtoA(handle, 0, (void*)mem.data_pointer, size));
-
-				cuda_assert(cuTexRefSetArray(texref, handle, CU_TRSA_OVERRIDE_FORMAT));
-
-				if(interpolation == INTERPOLATION_CLOSEST) {
-					cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_POINT));
-				}
-				else if(interpolation == INTERPOLATION_LINEAR) {
-					cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_LINEAR));
-				}
-				else {/* CUBIC and SMART are unsupported for CUDA */
-					cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_LINEAR));
-				}
-				cuda_assert(cuTexRefSetFlags(texref, CU_TRSF_NORMALIZED_COORDINATES));
-
-				mem.device_pointer = (device_ptr)handle;
-				mem.device_size = size;
-
-				stats.mem_alloc(size);
-			}
-			/* Data Storage */
 			else {
 				cuda_pop_context();
 
@@ -755,22 +575,108 @@ public:
 				cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_POINT));
 				cuda_assert(cuTexRefSetFlags(texref, CU_TRSF_READ_AS_INTEGER));
 			}
+		}
+		/* Texture Storage */
+		else {
+			CUarray handle = NULL;
 
-			CUaddress_mode address_mode = CU_TR_ADDRESS_MODE_WRAP;
-			switch(extension) {
-				case EXTENSION_REPEAT:
-					address_mode = CU_TR_ADDRESS_MODE_WRAP;
-					break;
-				case EXTENSION_EXTEND:
-					address_mode = CU_TR_ADDRESS_MODE_CLAMP;
-					break;
-				case EXTENSION_CLIP:
-					address_mode = CU_TR_ADDRESS_MODE_BORDER;
-					break;
-				default:
-					assert(0);
-					break;
+			cuda_push_context();
+
+			if(mem.data_depth > 1) {
+				CUDA_ARRAY3D_DESCRIPTOR desc;
+
+				desc.Width = mem.data_width;
+				desc.Height = mem.data_height;
+				desc.Depth = mem.data_depth;
+				desc.Format = format;
+				desc.NumChannels = mem.data_elements;
+				desc.Flags = 0;
+
+				cuda_assert(cuArray3DCreate(&handle, &desc));
 			}
+			else {
+				CUDA_ARRAY_DESCRIPTOR desc;
+
+				desc.Width = mem.data_width;
+				desc.Height = mem.data_height;
+				desc.Format = format;
+				desc.NumChannels = mem.data_elements;
+
+				cuda_assert(cuArrayCreate(&handle, &desc));
+			}
+
+			if(!handle) {
+				cuda_pop_context();
+				return;
+			}
+
+			/* Allocate 3D, 2D or 1D memory */
+			if(mem.data_depth > 1) {
+				CUDA_MEMCPY3D param;
+				memset(&param, 0, sizeof(param));
+				param.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+				param.dstArray = handle;
+				param.srcMemoryType = CU_MEMORYTYPE_HOST;
+				param.srcHost = (void*)mem.data_pointer;
+				param.srcPitch = mem.data_width*dsize*mem.data_elements;
+				param.WidthInBytes = param.srcPitch;
+				param.Height = mem.data_height;
+				param.Depth = mem.data_depth;
+
+				cuda_assert(cuMemcpy3D(&param));
+			}
+			else if(mem.data_height > 1) {
+				CUDA_MEMCPY2D param;
+				memset(&param, 0, sizeof(param));
+				param.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+				param.dstArray = handle;
+				param.srcMemoryType = CU_MEMORYTYPE_HOST;
+				param.srcHost = (void*)mem.data_pointer;
+				param.srcPitch = mem.data_width*dsize*mem.data_elements;
+				param.WidthInBytes = param.srcPitch;
+				param.Height = mem.data_height;
+
+				cuda_assert(cuMemcpy2D(&param));
+			}
+			else
+				cuda_assert(cuMemcpyHtoA(handle, 0, (void*)mem.data_pointer, size));
+
+			/* Bindless Textures - Kepler */
+			if(is_kepler_card) {
+				CUDA_RESOURCE_DESC resDesc;
+				memset(&resDesc, 0, sizeof(resDesc));
+				resDesc.resType = CU_RESOURCE_TYPE_ARRAY;
+				resDesc.res.array.hArray = handle;
+				resDesc.flags = 0;
+
+				CUDA_TEXTURE_DESC texDesc;
+				memset(&texDesc, 0, sizeof(texDesc));
+				texDesc.addressMode[0] = address_mode;
+				texDesc.addressMode[1] = address_mode;
+				texDesc.addressMode[2] = address_mode;
+				texDesc.filterMode = filter_mode;
+				texDesc.flags = CU_TRSF_NORMALIZED_COORDINATES;
+
+				CUtexObject tex = 0;
+				cuda_assert(cuTexObjectCreate(&tex, &resDesc, &texDesc, NULL));
+				*bindless_slot = tex;
+			}
+			/* Regular Textures - Fermi */
+			else {
+				cuda_assert(cuTexRefSetArray(texref, handle, CU_TRSA_OVERRIDE_FORMAT));
+				cuda_assert(cuTexRefSetFilterMode(texref, filter_mode));
+				cuda_assert(cuTexRefSetFlags(texref, CU_TRSF_NORMALIZED_COORDINATES));
+			}
+
+			/* Fermi and Kepler */
+			mem.device_pointer = (device_ptr)handle;
+			mem.device_size = size;
+
+			stats.mem_alloc(size);
+		}
+
+		/* Fermi, Data and Image Textures */
+		if(!is_kepler_card) {
 			cuda_assert(cuTexRefSetAddressMode(texref, 0, address_mode));
 			cuda_assert(cuTexRefSetAddressMode(texref, 1, address_mode));
 			if(mem.data_depth > 1) {
@@ -782,6 +688,7 @@ public:
 			cuda_pop_context();
 		}
 
+		/* Fermi and Kepler */
 		tex_interp_map[mem.device_pointer] = (interpolation != INTERPOLATION_NONE);
 	}
 
