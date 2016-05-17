@@ -2069,7 +2069,9 @@ void DiffuseBsdfNode::compile(OSLCompiler& compiler)
 
 /* Disney BSDF Closure */
 DisneyBsdfNode::DisneyBsdfNode()
+	: ShaderNode("bsdf")
 {
+	special_type = SHADER_SPECIAL_TYPE_CLOSURE;
 	closure = CLOSURE_BSDF_DISNEY_DIFFUSE_ID;
 
 	add_input("BaseColor", SHADER_SOCKET_COLOR, make_float3(0.646f, 0.415f, 0.017f));
@@ -2083,7 +2085,9 @@ DisneyBsdfNode::DisneyBsdfNode()
 	add_input("SheenTint", SHADER_SOCKET_FLOAT, 0.5f);
 	add_input("Clearcoat", SHADER_SOCKET_FLOAT, 0.0f);
 	add_input("ClearcoatGloss", SHADER_SOCKET_FLOAT, 1.0f);
+	add_input("Normal", SHADER_SOCKET_NORMAL, ShaderInput::NORMAL);
 	add_input("Tangent", SHADER_SOCKET_VECTOR, ShaderInput::TANGENT);
+	add_input("SurfaceMixWeight", SHADER_SOCKET_FLOAT, 0.0f, ShaderInput::USE_SVM);
 }
 
 void DisneyBsdfNode::compile(SVMCompiler& compiler)
