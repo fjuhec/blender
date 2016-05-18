@@ -29,7 +29,7 @@
  * \name Widgets Window Manager API
  * \brief API for usage in window manager code only.
  *
- * Only included in wm.h
+ * Only included in wm.h and lower level files.
  */
 
 
@@ -69,8 +69,8 @@ typedef struct wmWidget {
 	/* handler used by the widget. Usually handles interaction tied to a widget type */
 	int  (*handler)(struct bContext *C, const struct wmEvent *event, struct wmWidget *widget, const int flag);
 
-	/* widget-specific handler to update widget attributes when a property is bound */
-	void (*bind_to_prop)(struct wmWidget *widget, int slot);
+	/* widget-specific handler to update widget attributes based on the property value */
+	void (*prop_data_update)(struct wmWidget *widget, int slot);
 
 	/* returns the final position which may be different from the origin, depending on the widget.
 	 * used in calculations of scale */
@@ -134,6 +134,7 @@ enum {
 	WM_WIDGETGROUPTYPE_3D      = (1 << 0), /* WARNING: Don't change this! Bit used for wmWidgetMapType comparisons! */
 	/* widget group is attached to operator, and is only accessible as long as this runs */
 	WM_WIDGETGROUPTYPE_OP      = (1 << 10),
+	WM_WIDGETGROUP_INITIALIZED = (1 << 11), /* wgroup has been initialized */
 };
 
 
@@ -153,7 +154,7 @@ wmWidget *wm_widgetmap_find_highlighted_3D(struct wmWidgetMap *wmap, bContext *C
                                         const struct wmEvent *event, unsigned char *part);
 wmWidget *wm_widgetmap_find_highlighted_widget(struct wmWidgetMap *wmap, bContext *C,
                                      const struct wmEvent *event, unsigned char *part);
-void      wm_widgetmap_set_highlighted_widget(struct wmWidgetMap *wmap, bContext *C,
+void      wm_widgetmap_set_highlighted_widget(struct wmWidgetMap *wmap, const bContext *C,
                                               wmWidget *widget, unsigned char part);
 wmWidget *wm_widgetmap_get_highlighted_widget(struct wmWidgetMap *wmap);
 void      wm_widgetmap_set_active_widget(struct wmWidgetMap *wmap, bContext *C,

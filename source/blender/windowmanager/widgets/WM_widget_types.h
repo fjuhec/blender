@@ -29,7 +29,7 @@
  * \name Widget Types
  * \brief Widget defines for external use.
  *
- * Only included in WM_types.h
+ * Only included in WM_types.h and lower level files.
  */
 
 
@@ -42,8 +42,10 @@ struct wmWidgetGroupType;
 struct wmWidgetGroup;
 struct wmKeyConfig;
 
-typedef int (*wmWidgetGroupPollFunc)(const struct bContext *, struct wmWidgetGroupType *) ATTR_WARN_UNUSED_RESULT;
-typedef void (*wmWidgetGroupCreateFunc)(const struct bContext *, struct wmWidgetGroup *);
+typedef int  (*wmWidgetGroupPollFunc)(const struct bContext *, struct wmWidgetGroupType *) ATTR_WARN_UNUSED_RESULT; /* TODO use bool */
+typedef void (*wmWidgetGroupInitFunc)(const struct bContext *, struct wmWidgetGroup *);
+typedef void (*wmWidgetGroupRefreshFunc)(const struct bContext *, struct wmWidgetGroup *);
+typedef void (*wmWidgetGroupDrawPrepareFunc)(const struct bContext *, struct wmWidgetGroup *);
 
 
 /* -------------------------------------------------------------------- */
@@ -57,12 +59,15 @@ typedef struct wmWidgetGroupType {
 
 	/* poll if widgetmap should be active */
 	wmWidgetGroupPollFunc poll;
-	/* update widgets, called right before drawing */
-	wmWidgetGroupCreateFunc create;
+	/* initially create widgets, set permanent data stuff you only need to do once */
+	wmWidgetGroupInitFunc init;
+	/* refresh data, only called if recreate flag is set (WM_widgetmap_tag_refresh) */
+	wmWidgetGroupRefreshFunc refresh;
+	/* refresh data for drawing, called before each redraw */
+	wmWidgetGroupDrawPrepareFunc draw_prepare;
 
 	/* keymap init callback for this widgetgroup */
 	struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *, struct wmKeyConfig *);
-
 	/* keymap created with callback from above */
 	struct wmKeyMap *keymap;
 
@@ -89,6 +94,8 @@ typedef struct wmWidgetMap {
 
 	struct wmWidgetMapType *type;
 	ListBase widgetgroups;
+
+	char update_flag; /* private, update tagging */
 
 	/**
 	 * \brief Widget map runtime context
@@ -118,6 +125,13 @@ struct wmWidgetMapType_Params {
 	const int regionid;
 	const int flag;
 };
+
+/**
+ * Simple utility wrapper for storing a single widget as wmWidgetGroup.customdata (which gets freed).
+ */
+typedef struct wmWidgetWrapper {
+	struct wmWidget *widget;
+} wmWidgetWrapper;
 
 
 /* -------------------------------------------------------------------- */

@@ -178,25 +178,27 @@ bool wm_widget_register(wmWidgetGroup *wgroup, wmWidget *widget, const char *nam
 }
 
 /**
- * Free widget data, not widget itself.
+ * Free \a widget and unlink from \a widgetlist.
+ * \a widgetlist is allowed to be NULL.
  */
-void wm_widget_data_free(wmWidget *widget)
+void WM_widget_delete(ListBase *widgetlist, wmWidgetMap *wmap, wmWidget *widget, bContext *C)
 {
+	if (widget->flag & WM_WIDGET_HIGHLIGHT) {
+		wm_widgetmap_set_highlighted_widget(wmap, C, NULL, 0);
+	}
+	if (widget->flag & WM_WIDGET_ACTIVE) {
+		wm_widgetmap_set_active_widget(wmap, C, NULL, NULL);
+	}
+	if (widget->flag & WM_WIDGET_SELECTED) {
+		wm_widget_deselect(wmap, widget);
+	}
+
 	if (widget->opptr.data) {
 		WM_operator_properties_free(&widget->opptr);
 	}
-
 	MEM_freeN(widget->props);
 	MEM_freeN(widget->ptr);
-}
 
-/**
- * Free and NULL \a widget.
- * \a widgetlist is allowed to be NULL.
- */
-void wm_widget_delete(ListBase *widgetlist, wmWidget *widget)
-{
-	wm_widget_data_free(widget);
 	if (widgetlist)
 		BLI_remlink(widgetlist, widget);
 	MEM_freeN(widget);
@@ -222,8 +224,8 @@ void WM_widget_set_property(wmWidget *widget, const int slot, PointerRNA *ptr, c
 	widget->ptr[slot] = *ptr;
 	widget->props[slot] = RNA_struct_find_property(ptr, propname);
 
-	if (widget->bind_to_prop)
-		widget->bind_to_prop(widget, slot);
+	if (widget->prop_data_update)
+		widget->prop_data_update(widget, slot);
 }
 
 PointerRNA *WM_widget_set_operator(wmWidget *widget, const char *opname)
@@ -308,21 +310,28 @@ void WM_widget_set_colors(wmWidget *widget, const float col[4], const float col_
 /**
  * Remove \a widget from selection.
  * Reallocates memory for selected widgets so better not call for selecting multiple ones.
+ *
+ * \return if the selection has changed.
  */
-void wm_widget_deselect(const bContext *C, wmWidgetMap *wmap, wmWidget *widget)
+bool wm_widget_deselect(wmWidgetMap *wmap, wmWidget *widget)
 {
+	if (!wmap->wmap_context.selected_widgets)
+		return false;
+
 	wmWidget ***sel = &wmap->wmap_context.selected_widgets;
 	int *tot_selected = &wmap->wmap_context.tot_selected;
+	bool changed = false;
 
 	/* caller should check! */
 	BLI_assert(widget->flag & WM_WIDGET_SELECTED);
 
 	/* remove widget from selected_widgets array */
 	for (int i = 0; i < (*tot_selected); i++) {
-		if (wm_widget_compare((*sel)[i], widget)) {
+		if ((*sel)[i] == widget) {
 			for (int j = i; j < ((*tot_selected) - 1); j++) {
 				(*sel)[j] = (*sel)[j + 1];
 			}
+			changed = true;
 			break;
 		}
 	}
@@ -337,21 +346,22 @@ void wm_widget_deselect(const bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 	}
 
 	widget->flag &= ~WM_WIDGET_SELECTED;
-
-	ED_region_tag_redraw(CTX_wm_region(C));
+	return changed;
 }
 
 /**
  * Add \a widget to selection.
  * Reallocates memory for selected widgets so better not call for selecting multiple ones.
+ *
+ * \return if the selection has changed.
  */
-void wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
+bool wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 {
 	wmWidget ***sel = &wmap->wmap_context.selected_widgets;
 	int *tot_selected = &wmap->wmap_context.tot_selected;
 
 	if (!widget || (widget->flag & WM_WIDGET_SELECTED))
-		return;
+		return false;
 
 	(*tot_selected)++;
 
@@ -364,12 +374,7 @@ void wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 	}
 	wm_widgetmap_set_highlighted_widget(wmap, C, widget, widget->highlighted_part);
 
-	ED_region_tag_redraw(CTX_wm_region(C));
-}
-
-bool wm_widget_compare(const wmWidget *a, const wmWidget *b)
-{
-	return STREQ(a->idname, b->idname);
+	return true;
 }
 
 void wm_widget_calculate_scale(wmWidget *widget, const bContext *C)
@@ -395,5 +400,17 @@ void wm_widget_calculate_scale(wmWidget *widget, const bContext *C)
 	}
 
 	widget->scale = scale * widget->user_scale;
+}
+
+void wm_widget_update_prop_data(wmWidget *widget)
+{
+	/* widget property might have been changed, so update widget */
+	if (widget->props && widget->prop_data_update) {
+		for (int i = 0; i < widget->max_prop; i++) {
+			if (widget->props[i]) {
+				widget->prop_data_update(widget, i);
+			}
+		}
+	}
 }
 

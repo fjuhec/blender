@@ -408,10 +408,10 @@ static int widget_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidg
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static void widget_arrow_bind_to_prop(wmWidget *widget, const int slot)
+static void widget_arrow_prop_data_update(wmWidget *widget, const int slot)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
-	widget_property_bind(
+	widget_property_data_update(
 	            widget, &arrow->data, slot,
 	            arrow->style & WIDGET_ARROW_STYLE_CONSTRAINED,
 	            arrow->style & WIDGET_ARROW_STYLE_INVERTED);
@@ -422,7 +422,12 @@ static void widget_arrow_exit(bContext *C, wmWidget *widget, const bool cancel)
 	if (!cancel)
 		return;
 
-	widget_property_value_reset(C, widget, (WidgetInteraction *)widget->interaction_data, ARROW_SLOT_OFFSET_WORLD_SPACE);
+	ArrowWidget *arrow = (ArrowWidget *)widget;
+	WidgetCommonData *data = &arrow->data;
+	WidgetInteraction *inter = widget->interaction_data;
+
+	widget_property_value_reset(C, widget, inter, ARROW_SLOT_OFFSET_WORLD_SPACE);
+	data->offset = inter->init_offset;
 }
 
 
@@ -469,7 +474,7 @@ wmWidget *WIDGET_arrow_new(wmWidgetGroup *wgroup, const char *name, const int st
 	arrow->widget.handler = widget_arrow_handler;
 	arrow->widget.invoke = widget_arrow_invoke;
 	arrow->widget.render_3d_intersection = widget_arrow_render_3d_intersect;
-	arrow->widget.bind_to_prop = widget_arrow_bind_to_prop;
+	arrow->widget.prop_data_update = widget_arrow_prop_data_update;
 	arrow->widget.exit = widget_arrow_exit;
 	arrow->widget.flag |= (WM_WIDGET_SCALE_3D | WM_WIDGET_DRAW_ACTIVE);
 

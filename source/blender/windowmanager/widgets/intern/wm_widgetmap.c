@@ -59,10 +59,20 @@
 static ListBase widgetmaptypes = {NULL, NULL};
 
 /**
- * Hash table of all visible widgets to avoid unnecessary loops and wmWidgetGroupType->poll checks.
- * Collected in WM_widgets_update, freed in WM_widgets_draw.
+ * List of all visible widgets to avoid unnecessary loops and wmWidgetGroupType->poll checks.
+ * Collected in WM_widgets_update.
  */
-static GHash *draw_widgets = NULL;
+static ListBase draw_widgets = {NULL, NULL};
+
+/**
+ * Widget map update/init tagging.
+ */
+enum eWidgetMapUpdateFlags {
+	/* Set to init widget map. Should only be the case on first draw. */
+	WIDGETMAP_INIT    = (1 << 0),
+	/* Tag widget map for refresh. */
+	WIDGETMAP_REFRESH = (1 << 1),
+};
 
 
 /* -------------------------------------------------------------------- */
@@ -80,6 +90,7 @@ wmWidgetMap *WM_widgetmap_from_type(const struct wmWidgetMapType_Params *wmap_pa
 
 	wmap = MEM_callocN(sizeof(wmWidgetMap), "WidgetMap");
 	wmap->type = wmaptype;
+	wmap->update_flag |= (WIDGETMAP_INIT | WIDGETMAP_REFRESH);
 
 	/* create all widgetgroups for this widgetmap. We may create an empty one
 	 * too in anticipation of widgets from operators etc */
@@ -114,6 +125,23 @@ void WM_widgetmap_delete(wmWidgetMap *wmap)
 	MEM_freeN(wmap);
 }
 
+wmWidgetMap *WM_widgetmap_find(
+        const ARegion *ar, const struct wmWidgetMapType_Params *wmap_params)
+{
+	for (wmWidgetMap *wmap = ar->widgetmaps.first; wmap; wmap = wmap->next) {
+		const wmWidgetMapType *wmaptype = wmap->type;
+
+		if (wmaptype->spaceid == wmap_params->spaceid &&
+		    wmaptype->regionid == wmap_params->regionid &&
+		    STREQ(wmaptype->idname, wmap_params->idname))
+		{
+			return wmap;
+		}
+	}
+
+	return NULL;
+}
+
 /**
  * Creates and returns idname hash table for (visible) widgets in \a wmap
  *
@@ -143,140 +171,82 @@ static GHash *wm_widgetmap_widget_hash_new(
 	return hash;
 }
 
-static void widget_highlight_update(wmWidgetMap *wmap, const wmWidget *old_, wmWidget *new_)
+void WM_widgetmap_tag_refresh(wmWidgetMap *wmap)
 {
-	new_->flag |= WM_WIDGET_HIGHLIGHT;
-	wmap->wmap_context.highlighted_widget = new_;
-	new_->highlighted_part = old_->highlighted_part;
+	if (wmap) {
+		wmap->update_flag |= WIDGETMAP_REFRESH;
+	}
 }
 
 void WM_widgetmap_widgets_update(const bContext *C, wmWidgetMap *wmap)
 {
-	wmWidget *widget = wmap->wmap_context.active_widget;
-
-	if (!wmap)
+	if (!wmap || BLI_listbase_is_empty(&wmap->widgetgroups))
 		return;
 
-	if (!draw_widgets) {
-		draw_widgets = BLI_ghash_str_new(__func__);
+	/* only active widget needs updating */
+	if (wmap->wmap_context.active_widget) {
+		wm_widget_calculate_scale(wmap->wmap_context.active_widget, C);
+		goto done;
 	}
 
-	if (widget) {
-		if ((widget->flag & WM_WIDGET_HIDDEN) == 0) {
-			wm_widget_calculate_scale(widget, C);
-			BLI_ghash_reinsert(draw_widgets, widget->idname, widget, NULL, NULL);
+	for (wmWidgetGroup *wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup->next) {
+		if ((wgroup->type->flag & WM_WIDGETGROUPTYPE_OP && !wgroup->type->op) || /* only while operator runs */
+		    (wgroup->type->poll && !wgroup->type->poll(C, wgroup->type)))
+			continue;
+
+		/* prepare for first draw */
+		if (UNLIKELY((wgroup->flag & WM_WIDGETGROUP_INITIALIZED) == 0)) {
+			wgroup->type->init(C, wgroup);
+			wgroup->flag |= WM_WIDGETGROUP_INITIALIZED;
 		}
-	}
-	else if (!BLI_listbase_is_empty(&wmap->widgetgroups)) {
-		wmWidget *highlighted_old = NULL;
+		/* update data if needed */
+		if (wmap->update_flag & WIDGETMAP_REFRESH && wgroup->type->refresh) {
+			wgroup->type->refresh(C, wgroup);
+		}
+		/* prepare drawing */
+		if (wgroup->type->draw_prepare) {
+			wgroup->type->draw_prepare(C, wgroup);
+		}
 
-		for (wmWidgetGroup *wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup->next) {
-			/* skip if group is attached to an operator which doesn't run */
-			if (wgroup->type->flag & WM_WIDGETGROUPTYPE_OP && !wgroup->type->op)
+		for (wmWidget *widget = wgroup->widgets.first; widget; widget = widget->next) {
+			if (widget->flag & WM_WIDGET_HIDDEN)
 				continue;
-
-			if (!wgroup->type->poll || wgroup->type->poll(C, wgroup->type)) {
-				/* first delete and recreate the widgets */
-				for (widget = wgroup->widgets.first; widget;) {
-					wmWidget *widget_next = widget->next;
-
-					/* do not delete selected and highlighted widgets,
-					 * keep them to compare with new ones */
-					if (widget->flag & WM_WIDGET_SELECTED) {
-						BLI_remlink(&wgroup->widgets, widget);
-						widget->next = widget->prev = NULL;
-					}
-					else if (widget->flag & WM_WIDGET_HIGHLIGHT) {
-						highlighted_old = widget;
-						BLI_remlink(&wgroup->widgets, widget);
-						widget->next = widget->prev = NULL;
-					}
-					else {
-						wm_widget_delete(&wgroup->widgets, widget);
-					}
-					widget = widget_next;
-				}
-
-				if (wgroup->type->create) {
-					wgroup->type->create(C, wgroup);
-				}
-
-				for (widget = wgroup->widgets.first; widget; widget = widget->next) {
-					if (widget->flag & WM_WIDGET_HIDDEN)
-						continue;
-
-					wm_widget_calculate_scale(widget, C);
-					/* insert newly created widget into hash table */
-					BLI_ghash_reinsert(draw_widgets, widget->idname, widget, NULL, NULL);
-				}
-
-				/* *** From now on, draw_widgets hash table can be used! *** */
-
+			if (wmap->update_flag & WIDGETMAP_REFRESH) {
+				wm_widget_update_prop_data(widget);
 			}
-		}
-
-		if (highlighted_old) {
-			wmWidget *highlighted_new = BLI_ghash_lookup(draw_widgets, highlighted_old->idname);
-			if (highlighted_new) {
-				BLI_assert(wm_widget_compare(highlighted_old, highlighted_new));
-				widget_highlight_update(wmap, highlighted_old, highlighted_new);
-			}
-			else {
-				/* if we didn't find a highlighted widget, delete the old one here,
-				 * happens when switching modes while the cursor is hovering over a widget for eg. */
-				wmap->wmap_context.highlighted_widget = NULL;
-			}
-
-			wm_widget_delete(NULL, highlighted_old);
-			highlighted_old = NULL;
-		}
-
-		if (wmap->wmap_context.selected_widgets) {
-			for (int i = 0; i < wmap->wmap_context.tot_selected; i++) {
-				wmWidget *sel_old = wmap->wmap_context.selected_widgets[i];
-				wmWidget *sel_new = BLI_ghash_lookup(draw_widgets, sel_old->idname);
-
-				/* fails if wgtype->poll state changed */
-				if (!sel_new)
-					continue;
-
-				BLI_assert(wm_widget_compare(sel_old, sel_new));
-
-				/* widget was selected and highlighted */
-				if (sel_old->flag & WM_WIDGET_HIGHLIGHT) {
-					widget_highlight_update(wmap, sel_old, sel_new);
-				}
-				wm_widget_delete(NULL, sel_old);
-
-				sel_new->flag |= WM_WIDGET_SELECTED;
-				wmap->wmap_context.selected_widgets[i] = sel_new;
-			}
+			wm_widget_calculate_scale(widget, C);
+			BLI_addhead(&draw_widgets, BLI_genericNodeN(widget));
 		}
 	}
+
+
+done:
+	/* done updating */
+	wmap->update_flag = 0;
 }
 
 /**
  * Draw all visible widgets in \a wmap.
- * Uses global draw_widgets hash table.
+ * Uses global draw_widgets listbase.
  *
  * \param in_scene  draw depth-culled widgets (wmWidget->flag WM_WIDGET_SCENE_DEPTH) - TODO
- * \param free_drawwidgets  free global draw_widgets hash table (always enable for last draw call in region!).
+ * \param free_drawwidgets  free global draw_widgets listbase (always enable for last draw call in region!).
  */
 void WM_widgetmap_widgets_draw(
         const bContext *C, const wmWidgetMap *wmap,
         const bool in_scene, const bool free_drawwidgets)
 {
-	const bool draw_multisample = (U.ogl_multisamples != USER_MULTISAMPLE_NONE);
-	const bool use_lighting = (U.widget_flag & V3D_SHADED_WIDGETS) != 0;
-
+	BLI_assert(!BLI_listbase_is_empty(&wmap->widgetgroups));
 	if (!wmap)
 		return;
+
+	const bool draw_multisample = (U.ogl_multisamples != USER_MULTISAMPLE_NONE);
+	const bool use_lighting = (U.widget_flag & V3D_SHADED_WIDGETS) != 0;
 
 	/* enable multisampling */
 	if (draw_multisample) {
 		glEnable(GL_MULTISAMPLE);
 	}
-
 	if (use_lighting) {
 		const float lightpos[4] = {0.0, 0.0, 1.0, 0.0};
 		const float diffuse[4] = {1.0, 1.0, 1.0, 0.0};
@@ -309,8 +279,11 @@ void WM_widgetmap_widgets_draw(
 	/* draw selected widgets */
 	if (wmap->wmap_context.selected_widgets) {
 		for (int i = 0; i < wmap->wmap_context.tot_selected; i++) {
-			widget = BLI_ghash_lookup(draw_widgets, wmap->wmap_context.selected_widgets[i]->idname);
-			if (widget && (in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH))) {
+			widget = wmap->wmap_context.selected_widgets[i];
+			if ((widget != NULL) &&
+			    (widget->flag & WM_WIDGET_HIDDEN) == 0 &&
+			    (in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH)))
+			{
 				/* notice that we don't update the widgetgroup, widget is now on
 				 * its own, it should have all relevant data to update itself */
 				widget->draw(C, widget);
@@ -319,14 +292,13 @@ void WM_widgetmap_widgets_draw(
 	}
 
 	/* draw other widgets */
-	if (!wmap->wmap_context.active_widget && !BLI_listbase_is_empty(&wmap->widgetgroups)) {
-		GHashIterator gh_iter;
-
-		GHASH_ITER (gh_iter, draw_widgets) { /* draw_widgets excludes hidden widgets */
-			widget = BLI_ghashIterator_getValue(&gh_iter);
+	if (!wmap->wmap_context.active_widget) {
+		/* draw_widgets excludes hidden widgets */
+		for (LinkData *link = draw_widgets.first; link; link = link->next) {
+			widget = link->data;
 			if ((in_scene == (widget->flag & WM_WIDGET_SCENE_DEPTH)) &&
-			    ((widget->flag & WM_WIDGET_SELECTED) == 0) && /* selected were drawn already */
-			    ((widget->flag & WM_WIDGET_DRAW_HOVER) == 0 || (widget->flag & WM_WIDGET_HIGHLIGHT)))
+				((widget->flag & WM_WIDGET_SELECTED) == 0) && /* selected were drawn already */
+				((widget->flag & WM_WIDGET_DRAW_HOVER) == 0 || (widget->flag & WM_WIDGET_HIGHLIGHT)))
 			{
 				widget->draw(C, widget);
 			}
@@ -339,9 +311,8 @@ void WM_widgetmap_widgets_draw(
 	if (use_lighting)
 		glPopAttrib();
 
-	if (free_drawwidgets && draw_widgets) {
-		BLI_ghash_free(draw_widgets, NULL, NULL);
-		draw_widgets = NULL;
+	if (free_drawwidgets) {
+		BLI_freelistN(&draw_widgets);
 	}
 }
 
@@ -667,7 +638,7 @@ bool WM_widgetmap_cursor_set(const wmWidgetMap *wmap, wmWindow *win)
 	return false;
 }
 
-void wm_widgetmap_set_highlighted_widget(wmWidgetMap *wmap, bContext *C, wmWidget *widget, unsigned char part)
+void wm_widgetmap_set_highlighted_widget(wmWidgetMap *wmap, const bContext *C, wmWidget *widget, unsigned char part)
 {
 	if ((widget != wmap->wmap_context.highlighted_widget) || (widget && part != widget->highlighted_part)) {
 		if (wmap->wmap_context.highlighted_widget) {

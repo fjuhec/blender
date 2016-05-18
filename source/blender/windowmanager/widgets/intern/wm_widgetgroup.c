@@ -65,13 +65,7 @@ void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
 {
 	for (wmWidget *widget = wgroup->widgets.first; widget;) {
 		wmWidget *widget_next = widget->next;
-		if (widget->flag & WM_WIDGET_HIGHLIGHT) {
-			wm_widgetmap_set_highlighted_widget(wmap, C, NULL, 0);
-		}
-		if (widget->flag & WM_WIDGET_ACTIVE) {
-			wm_widgetmap_set_active_widget(wmap, C, NULL, NULL);
-		}
-		wm_widget_delete(&wgroup->widgets, widget);
+		WM_widget_delete(&wgroup->widgets, wmap, widget, C);
 		widget = widget_next;
 	}
 	BLI_assert(BLI_listbase_is_empty(&wgroup->widgets));
@@ -87,6 +81,13 @@ void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
 	if (wgroup->reports && (wgroup->reports->flag & RPT_FREE)) {
 		BKE_reports_clear(wgroup->reports);
 		MEM_freeN(wgroup->reports);
+	}
+
+	if (wgroup->customdata_free) {
+		wgroup->customdata_free(wgroup->customdata);
+	}
+	else {
+		MEM_SAFE_FREE(wgroup->customdata);
 	}
 
 	BLI_remlink(&wmap->widgetgroups, wgroup);
@@ -146,6 +147,7 @@ static int widget_select_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 
 		if (highlighted) {
 			const bool is_selected = (highlighted->flag & WM_WIDGET_SELECTED);
+			bool redraw = false;
 
 			if (toggle) {
 				/* toggle: deselect if already selected, else select */
@@ -153,11 +155,16 @@ static int widget_select_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 			}
 
 			if (deselect) {
-				if (is_selected)
-					wm_widget_deselect(C, wmap, highlighted);
+				if (is_selected && wm_widget_deselect(wmap, highlighted)) {
+					redraw = true;
+				}
 			}
-			else {
-				wm_widget_select(C, wmap, highlighted);
+			else if (wm_widget_select(C, wmap, highlighted)) {
+				redraw = true;
+			}
+
+			if (redraw) {
+				ED_region_tag_redraw(ar);
 			}
 
 			return OPERATOR_FINISHED;
@@ -312,7 +319,7 @@ void WIDGETGROUP_OT_widget_tweak(wmOperatorType *ot)
 static wmKeyMap *widgetgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char *wgroupname)
 {
 	wmKeyMap *keymap;
-	char name[MAX_NAME];
+	char name[KMAP_MAX_NAME];
 
 	static EnumPropertyItem modal_items[] = {
 		{TWEAK_MODAL_CANCEL, "CANCEL", 0, "Cancel", ""},
@@ -400,15 +407,17 @@ wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmWidgetGroupType *wgrou
  */
 wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const Main *bmain, wmWidgetMapType *wmaptype,
-        wmWidgetGroupPollFunc poll, wmWidgetGroupCreateFunc create,
+        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
+        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
-
 	wmWidgetGroupType *wgrouptype = MEM_callocN(sizeof(wmWidgetGroupType), "widgetgroup");
 
 	wgrouptype->poll = poll;
-	wgrouptype->create = create;
+	wgrouptype->init = init;
+	wgrouptype->refresh = refresh;
+	wgrouptype->draw_prepare = draw_prepare;
 	wgrouptype->keymap_init = keymap_init;
 	wgrouptype->spaceid = wmaptype->spaceid;
 	wgrouptype->regionid = wmaptype->regionid;
@@ -430,7 +439,8 @@ wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
 
 wmWidgetGroupType *WM_widgetgrouptype_register(
         const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        wmWidgetGroupPollFunc poll, wmWidgetGroupCreateFunc create,
+        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
+        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
         wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
         const char *name)
 {
@@ -443,7 +453,9 @@ wmWidgetGroupType *WM_widgetgrouptype_register(
 
 	return WM_widgetgrouptype_register_ptr(
 	        bmain, wmaptype,
-	        poll, create, keymap_init,
+	        poll, init,
+	        refresh, draw_prepare,
+	        keymap_init,
 	        name);
 }
 

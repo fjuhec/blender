@@ -111,8 +111,7 @@ typedef struct RegionView3D {
 	struct wmTimer *smooth_timer;
 
 
-	/* transform widget matrix */
-	float twmat[4][4];
+	float twmat[4][4];          /* transform widget matrix (no scale applied) */
 
 	float viewquat[4];			/* view rotation, must be kept normalized */
 	float dist;					/* distance from 'ofs' along -viewinv[2] vector, where result is negative as is 'ofs' */
@@ -130,7 +129,7 @@ typedef struct RegionView3D {
 	char pad[3];
 	float ofs_lock[2];			/* normalized offset for locked view: (-1, -1) bottom left, (1, 1) upper right */
 
-	short twdrawflag;
+	short twdrawflag; /* XXX can easily get rid of this (Julian) */
 	short rflag;
 
 
@@ -139,13 +138,13 @@ typedef struct RegionView3D {
 	short lpersp, lview; /* lpersp can never be set to 'RV3D_CAMOB' */
 
 	float gridview;
-	float tw_idot[3];  /* manipulator runtime: (1 - dot) product with view vector (used to check view alignment) */
 
 
 	/* active rotation from NDOF or elsewhere */
 	float rot_angle;
 	float rot_axis[3];
 
+	int pad2;
 	struct GPUFX *compositor;
 } RegionView3D;
 

@@ -25,7 +25,7 @@
  *
  * \name Generic Widget Library
  *
- * Only included in WM_api.h.
+ * Only included in WM_api.h and lower level files.
  */
 
 
@@ -85,9 +85,8 @@ enum {
 	RECT_TRANSFORM_SLOT_SCALE = 1
 };
 
-struct wmWidget *WIDGET_rect_transform_new(
-        struct wmWidgetGroup *wgroup, const char *name, const int style,
-        const float width, const float height);
+struct wmWidget *WIDGET_rect_transform_new(struct wmWidgetGroup *wgroup, const char *name, const int style);
+void WIDGET_rect_transform_set_dimensions(struct wmWidget *widget, const float width, const float height);
 
 
 /* -------------------------------------------------------------------- */

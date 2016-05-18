@@ -402,7 +402,8 @@ void ED_view3d_operator_properties_viewmat_get(struct wmOperator *op, int *winx,
 #endif
 
 int WIDGETGROUP_lamp_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
-void WIDGETGROUP_lamp_create(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_lamp_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
+void WIDGETGROUP_lamp_refresh(const struct bContext *C, struct wmWidgetGroup *wgroup);
 
 /* render */
 void ED_view3d_stop_render_preview(struct wmWindowManager *wm, struct ARegion *ar);

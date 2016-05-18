@@ -29,13 +29,8 @@
  *  \ingroup DNA
  */
 
-#ifndef __DNA_WM_WIDGET_TYPES_H__
-#define __DNA_WM_WIDGET_TYPES_H__
-
-#include "DNA_vec_types.h"
-
-struct bContext;
-struct wmEvent;
+#ifndef __DNA_WIDGET_TYPES_H__
+#define __DNA_WIDGET_TYPES_H__
 
 typedef enum WidgetType {
 	WT_TRANSLATE = 0,
@@ -53,8 +48,10 @@ typedef struct wmWidgetGroup {
 	void *py_instance;            /* python stores the class instance here */
 	struct ReportList *reports;   /* errors and warnings storage */
 
+	void *customdata;
+	void (*customdata_free)(void *); /* for freeing customdata from above */
 	int flag;
 	int pad;
 } wmWidgetGroup;
 
-#endif
+#endif /* __DNA_WIDGET_TYPES_H__ */

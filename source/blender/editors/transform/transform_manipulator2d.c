@@ -72,8 +72,25 @@ enum {
 typedef struct ManipulatorGroup2D {
 	wmWidget *translate_x,
 	         *translate_y;
+
+	/* Current origin in view space, used to update widget origin for possible view changes */
+	float origin[2];
 } ManipulatorGroup2D;
 
+
+/* **************** Utilities **************** */
+
+/* loop over axes */
+#define MAN2D_ITER_AXES_BEGIN(axis, axis_idx) \
+	{ \
+		wmWidget *axis; \
+		int axis_idx; \
+		for (axis_idx = 0; axis_idx < MAN2D_AXIS_LAST; axis_idx++) { \
+			axis = manipulator2d_get_axis_from_index(man, axis_idx);
+
+#define MAN2D_ITER_AXES_END \
+		} \
+	} ((void)0)
 
 static wmWidget *manipulator2d_get_axis_from_index(const ManipulatorGroup2D *man, const short axis_idx)
 {
@@ -121,9 +138,11 @@ static ManipulatorGroup2D *manipulatorgroup2d_init(wmWidgetGroup *wgroup)
 	return man;
 }
 
+/**
+ * Calculates origin in view space, use with #manipulator2d_origin_to_region.
+ */
 static void manipulator2d_calc_origin(const bContext *C, float *r_origin)
 {
-	ARegion *ar = CTX_wm_region(C);
 	SpaceImage *sima = CTX_wm_space_image(C);
 	Image *ima = ED_space_image(sima);
 
@@ -133,7 +152,13 @@ static void manipulator2d_calc_origin(const bContext *C, float *r_origin)
 	else {
 		ED_uvedit_center(CTX_data_scene(C), ima, CTX_data_edit_object(C), r_origin, sima->around);
 	}
-	/* view space coordinates */
+}
+
+/**
+ * Convert origin (or any other point) from view to region space.
+ */
+BLI_INLINE void manipulator2d_origin_to_region(ARegion *ar, float *r_origin)
+{
 	UI_view2d_view_to_region_fl(&ar->v2d, r_origin[0], r_origin[1], &r_origin[0], &r_origin[1]);
 }
 
@@ -146,6 +171,7 @@ static int manipulator2d_handler(bContext *C, const wmEvent *UNUSED(event), wmWi
 	float origin[3];
 
 	manipulator2d_calc_origin(C, origin);
+	manipulator2d_origin_to_region(ar, origin);
 	WM_widget_set_origin(widget, origin);
 
 	ED_region_tag_redraw(ar);
@@ -153,18 +179,16 @@ static int manipulator2d_handler(bContext *C, const wmEvent *UNUSED(event), wmWi
 	return OPERATOR_PASS_THROUGH;
 }
 
-void WIDGETGROUP_manipulator2d_create(const bContext *C, wmWidgetGroup *wgroup)
+void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
 {
 	ManipulatorGroup2D *man = manipulatorgroup2d_init(wgroup);
-	float col[4], col_hi[4];
-	float origin[3];
+	wgroup->customdata = man;
 
-	manipulator2d_calc_origin(C, origin);
-
-	for (int axis_idx = 0; axis_idx < MAN2D_AXIS_LAST; axis_idx++) {
-		wmWidget *axis = manipulator2d_get_axis_from_index(man, axis_idx);
+	MAN2D_ITER_AXES_BEGIN(axis, axis_idx)
+	{
 		const float offset[3] = {0.0f, 0.2f};
 
+		float col[4], col_hi[4];
 		manipulator2d_get_axis_color(axis_idx, col, col_hi);
 
 		/* custom handler! */
@@ -175,22 +199,46 @@ void WIDGETGROUP_manipulator2d_create(const bContext *C, wmWidgetGroup *wgroup)
 		WM_widget_set_offset(axis, offset);
 		WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
 		WM_widget_set_scale(axis, U.widget_scale);
-		WM_widget_set_origin(axis, origin);
 		WM_widget_set_colors(axis, col, col_hi);
 
 		/* assign operator */
 		PointerRNA *ptr = WM_widget_set_operator(axis, "TRANSFORM_OT_translate");
-		int constraint[3];
-		zero_v3_int(constraint);
+		int constraint[3] = {0.0f};
 		constraint[(axis_idx + 1) % 2] = 1;
 		if (RNA_struct_find_property(ptr, "constraint_axis"))
 			RNA_boolean_set_array(ptr, "constraint_axis", constraint);
 		RNA_boolean_set(ptr, "release_confirm", 1);
 	}
-
-	MEM_freeN(man);
+	MAN2D_ITER_AXES_END;
 }
 
+void WIDGETGROUP_manipulator2d_refresh(const bContext *C, wmWidgetGroup *wgroup)
+{
+	ManipulatorGroup2D *man = wgroup->customdata;
+	float origin[3];
+
+	manipulator2d_calc_origin(C, origin);
+	copy_v2_v2(man->origin, origin);
+}
+
+void WIDGETGROUP_manipulator2d_draw_prepare(const bContext *C, wmWidgetGroup *wgroup)
+{
+	ManipulatorGroup2D *man = wgroup->customdata;
+	float origin[3] = {UNPACK2(man->origin), 0.0f};
+
+	manipulator2d_origin_to_region(CTX_wm_region(C), origin);
+
+	MAN2D_ITER_AXES_BEGIN(axis, axis_idx)
+	{
+		WM_widget_set_origin(axis, origin);
+	}
+	MAN2D_ITER_AXES_END;
+}
+
+/* TODO (Julian)
+ * - Called on every redraw, better to do a more simple poll and check for selection in _refresh
+ * - UV editing only, could be expanded for other things.
+ */
 int WIDGETGROUP_manipulator2d_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
 {
 	SpaceImage *sima = CTX_wm_space_image(C);

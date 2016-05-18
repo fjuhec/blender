@@ -46,14 +46,12 @@ enum {
 };
 
 bool wm_widget_register(wmWidgetGroup *wgroup, struct wmWidget *widget, const char *name);
-void wm_widget_data_free(struct wmWidget *widget);
-void wm_widget_delete(ListBase *widgetlist, struct wmWidget *widget);
 
-void wm_widget_deselect(const bContext *C, struct wmWidgetMap *wmap, struct wmWidget *widget);
-void wm_widget_select(bContext *C, struct wmWidgetMap *wmap, struct wmWidget *widget);
+bool wm_widget_deselect(struct wmWidgetMap *wmap, struct wmWidget *widget);
+bool wm_widget_select(bContext *C, struct wmWidgetMap *wmap, struct wmWidget *widget);
 
-bool wm_widget_compare(const struct wmWidget *a, const struct wmWidget *b);
 void wm_widget_calculate_scale(struct wmWidget *widget, const bContext *C);
+void wm_widget_update_prop_data(struct wmWidget *widget);
 
 void fix_linking_widget_arrow(void);
 void fix_linking_widget_arrow2d(void);

@@ -332,7 +332,7 @@ typedef struct RectTransformInteraction {
 	float orig_scale[2];
 } RectTransformInteraction;
 
-static bool widget_rect_transform_get_property(wmWidget *widget, const int slot, float *value)
+static bool widget_rect_transform_get_prop_value(wmWidget *widget, const int slot, float *value)
 {
 	PropertyType type = RNA_property_type(widget->props[slot]);
 
@@ -474,14 +474,14 @@ static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmWi
 	return OPERATOR_PASS_THROUGH;
 }
 
-static void widget_rect_transform_bind_to_prop(wmWidget *widget, const int slot)
+static void widget_rect_transform_prop_data_update(wmWidget *widget, const int slot)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 
 	if (slot == RECT_TRANSFORM_SLOT_OFFSET)
-		widget_rect_transform_get_property(widget, RECT_TRANSFORM_SLOT_OFFSET, widget->offset);
+		widget_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_OFFSET, widget->offset);
 	if (slot == RECT_TRANSFORM_SLOT_SCALE)
-		widget_rect_transform_get_property(widget, RECT_TRANSFORM_SLOT_SCALE, cage->scale);
+		widget_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_SCALE, cage->scale);
 }
 
 static void widget_rect_transform_exit(bContext *C, wmWidget *widget, const bool cancel)
@@ -520,15 +520,13 @@ static void widget_rect_transform_exit(bContext *C, wmWidget *widget, const bool
  *
  * \{ */
 
-wmWidget *WIDGET_rect_transform_new(
-        wmWidgetGroup *wgroup, const char *name, const int style,
-        const float width, const float height)
+wmWidget *WIDGET_rect_transform_new(wmWidgetGroup *wgroup, const char *name, const int style)
 {
 	RectTransformWidget *cage = MEM_callocN(sizeof(RectTransformWidget), name);
 
 	cage->widget.draw = widget_rect_transform_draw;
 	cage->widget.invoke = widget_rect_transform_invoke;
-	cage->widget.bind_to_prop = widget_rect_transform_bind_to_prop;
+	cage->widget.prop_data_update = widget_rect_transform_prop_data_update;
 	cage->widget.handler = widget_rect_transform_handler;
 	cage->widget.intersect = widget_rect_transform_intersect;
 	cage->widget.exit = widget_rect_transform_exit;
@@ -537,12 +535,17 @@ wmWidget *WIDGET_rect_transform_new(
 	cage->widget.flag |= WM_WIDGET_DRAW_ACTIVE;
 	cage->scale[0] = cage->scale[1] = 1.0f;
 	cage->style = style;
-	cage->w = width;
-	cage->h = height;
 
 	wm_widget_register(wgroup, &cage->widget, name);
 
 	return (wmWidget *)cage;
+}
+
+void WIDGET_rect_transform_set_dimensions(wmWidget *widget, const float width, const float height)
+{
+	RectTransformWidget *cage = (RectTransformWidget *)widget;
+	cage->w = width;
+	cage->h = height;
 }
 
 /** \} */ // Cage Widget API

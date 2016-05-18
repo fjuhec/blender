@@ -76,7 +76,7 @@ float widget_value_from_offset(
         WidgetCommonData *data, WidgetInteraction *inter, const float offset,
         const bool constrained, const bool inverted, const bool use_precision);
 
-void widget_property_bind(
+void widget_property_data_update(
         wmWidget *widget, WidgetCommonData *data, const int slot,
         const bool constrained, const bool inverted);
 

@@ -56,6 +56,7 @@ struct wmWidget *WM_widget_new(
         void (*render_3d_intersection)(const struct bContext *, struct wmWidget *, int),
         int  (*intersect)(struct bContext *, const struct wmEvent *, struct wmWidget *),
         int  (*handler)(struct bContext *, const struct wmEvent *, struct wmWidget *, const int));
+void WM_widget_delete(ListBase *widgetlist, struct wmWidgetMap *wmap, struct wmWidget *widget, struct bContext *C);
 
 void WM_widget_set_property(struct wmWidget *, int slot, struct PointerRNA *ptr, const char *propname);
 struct PointerRNA *WM_widget_set_operator(struct wmWidget *, const char *opname);
@@ -75,15 +76,19 @@ void WM_widget_set_colors(struct wmWidget *widget, const float col[4], const flo
 
 struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
         const struct Main *bmain, struct wmWidgetMapType *wmaptype,
-        int (*poll)(const struct bContext *, struct wmWidgetGroupType *), /* wmWidgetGroupPollFunc */
-        void (*create)(const struct bContext *, struct wmWidgetGroup *),  /* wmWidgetGroupCreateFunc */
+        int (*poll)(const struct bContext *, struct wmWidgetGroupType *),      /* wmWidgetGroupPollFunc */
+        void (*init)(const struct bContext *, struct wmWidgetGroup *),         /* wmWidgetGroupInitFunc */
+        void (*refresh)(const struct bContext *, struct wmWidgetGroup *),      /* wmWidgetGroupRefreshFunc */
+        void (*draw_prepare)(const struct bContext *, struct wmWidgetGroup *), /* wmWidgetGroupDrawPrepareFunc */
         struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 struct wmWidgetGroupType *WM_widgetgrouptype_register(
         const struct Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        int (*poll)(const struct bContext *, struct wmWidgetGroupType *), /* wmWidgetGroupPollFunc */
-        void (*create)(const struct bContext *, struct wmWidgetGroup *),  /* wmWidgetGroupCreateFunc */
-        struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
+        int (*poll)(const struct bContext *, struct wmWidgetGroupType *),      /* wmWidgetGroupPollFunc */
+        void (*init)(const struct bContext *, struct wmWidgetGroup *),         /* wmWidgetGroupInitFunc */
+        void (*refresh)(const struct bContext *, struct wmWidgetGroup *),      /* wmWidgetGroupRefreshFunc */
+        void (*draw_prepare)(const struct bContext *, struct wmWidgetGroup *), /* wmWidgetGroupDrawPrepareFunc */
+        wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
         const char *name);
 void WM_widgetgrouptype_init_runtime(
         const struct Main *bmain, struct wmWidgetMapType *wmaptype,
@@ -102,13 +107,16 @@ struct wmKeyMap *WM_widgetgroup_keymap_common_sel(
 struct wmWidgetMapType *WM_widgetmaptype_find(const struct wmWidgetMapType_Params *wmap_params);
 struct wmWidgetMapType *WM_widgetmaptype_ensure(const struct wmWidgetMapType_Params *wmap_params);
 struct wmWidgetMap *WM_widgetmap_from_type(const struct wmWidgetMapType_Params *wmap_params);
+struct wmWidgetMap *WM_widgetmap_find(const struct ARegion *ar, const struct wmWidgetMapType_Params *wmap_params);
 
 void WM_widgetmap_delete(struct wmWidgetMap *wmap);
 void WM_widgetmaptypes_free(void);
 
+void WM_widgetmap_tag_refresh(struct wmWidgetMap *wmap);
 void WM_widgetmap_widgets_update(const struct bContext *C, struct wmWidgetMap *wmap);
-void WM_widgetmap_widgets_draw(const struct bContext *C, const struct wmWidgetMap *wmap,
-                               const bool in_scene, const bool free_drawwidgets);
+void WM_widgetmap_widgets_draw(
+        const struct bContext *C, const struct wmWidgetMap *wmap,
+        const bool in_scene, const bool free_drawwidgets);
 
 void WM_widgetmaps_add_handlers(struct ARegion *ar);
 

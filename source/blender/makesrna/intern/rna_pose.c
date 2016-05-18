@@ -853,6 +853,7 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 	RNA_def_property_struct_type(prop, "FaceMap");
 	RNA_def_property_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Face Map", "Use a face map of the custom object to manipulate this bone");
+	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
 	
 	/* Transformation settings */
 	prop = RNA_def_property(srna, "location", PROP_FLOAT, PROP_TRANSLATION);
