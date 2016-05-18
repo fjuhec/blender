@@ -54,7 +54,7 @@ public:
 	bool display_device;
 	bool advanced_shading;
 	bool pack_images;
-	bool bindless_textures; /* flag for GPU and Multi device */
+	bool has_bindless_textures; /* flag for GPU and Multi device */
 	bool use_split_kernel; /* Denotes if the device is going to run cycles using split-kernel */
 	vector<DeviceInfo> multi_devices;
 
@@ -66,7 +66,7 @@ public:
 		display_device = false;
 		advanced_shading = true;
 		pack_images = false;
-		bindless_textures = false;
+		has_bindless_textures = false;
 		use_split_kernel = false;
 	}
 };

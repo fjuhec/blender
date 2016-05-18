@@ -473,7 +473,9 @@ public:
 	{
 		VLOG(1) << "Texture allocate: " << name << ", " << mem.memory_size() << " bytes.";
 
-		bool is_kepler_card = info.bindless_textures;
+		/* Check if we are on sm_30 or above.
+		 * We use arrays and bindles textures for storage there */
+		bool has_bindless_textures = info.has_bindless_textures;
 
 		/* General variables for both architectures */
 		string bind_name = name;
@@ -516,7 +518,7 @@ public:
 		/* General variables for Fermi */
 		CUtexref texref = NULL;
 
-		if(!is_kepler_card) {
+		if(!has_bindless_textures) {
 			if(mem.data_depth > 1) {
 				/* Kernel uses different bind names for 2d and 3d float textures,
 				 * so we have to adjust couple of things here.
@@ -524,8 +526,8 @@ public:
 				vector<string> tokens;
 				string_split(tokens, name, "_");
 				bind_name = string_printf("__tex_image_%s_3d_%s",
-										  tokens[2].c_str(),
-										  tokens[3].c_str());
+				                          tokens[2].c_str(),
+				                          tokens[3].c_str());
 			}
 
 			cuda_push_context();
@@ -539,7 +541,7 @@ public:
 
 		/* Data Storage */
 		if(interpolation == INTERPOLATION_NONE) {
-			if(is_kepler_card) {
+			if(has_bindless_textures) {
 				mem_alloc(mem, MEM_READ_ONLY);
 				mem_copy_to(mem);
 
@@ -642,7 +644,7 @@ public:
 				cuda_assert(cuMemcpyHtoA(handle, 0, (void*)mem.data_pointer, size));
 
 			/* Bindless Textures - Kepler */
-			if(is_kepler_card) {
+			if(has_bindless_textures) {
 				CUDA_RESOURCE_DESC resDesc;
 				memset(&resDesc, 0, sizeof(resDesc));
 				resDesc.resType = CU_RESOURCE_TYPE_ARRAY;
@@ -676,7 +678,7 @@ public:
 		}
 
 		/* Fermi, Data and Image Textures */
-		if(!is_kepler_card) {
+		if(!has_bindless_textures) {
 			cuda_assert(cuTexRefSetAddressMode(texref, 0, address_mode));
 			cuda_assert(cuTexRefSetAddressMode(texref, 1, address_mode));
 			if(mem.data_depth > 1) {
@@ -1299,7 +1301,7 @@ void device_cuda_info(vector<DeviceInfo>& devices)
 		info.num = num;
 
 		info.advanced_shading = (major >= 2);
-		info.bindless_textures = (major >= 3);
+		info.has_bindless_textures = (major >= 3);
 		info.pack_images = false;
 
 		/* if device has a kernel timeout, assume it is used for display */

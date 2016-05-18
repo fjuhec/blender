@@ -49,7 +49,7 @@ ImageManager::ImageManager(const DeviceInfo& info)
 		tex_image_byte_start = TEX_IMAGE_BYTE_START_CPU;
 	}
 	/* CUDA (Fermi) */
-	else if((info.type == DEVICE_CUDA || info.type == DEVICE_MULTI) && !info.bindless_textures) {
+	else if((info.type == DEVICE_CUDA || info.type == DEVICE_MULTI) && !info.has_bindless_textures) {
 		tex_num_images[IMAGE_DATA_TYPE_BYTE4] = TEX_NUM_BYTE4_IMAGES_CUDA;
 		tex_num_images[IMAGE_DATA_TYPE_FLOAT4] = TEX_NUM_FLOAT4_IMAGES_CUDA;
 		tex_num_images[IMAGE_DATA_TYPE_FLOAT] = TEX_NUM_FLOAT_IMAGES_CUDA;
@@ -59,7 +59,7 @@ ImageManager::ImageManager(const DeviceInfo& info)
 		tex_image_byte_start = TEX_IMAGE_BYTE_START_CUDA;
 	}
 	/* CUDA (Kepler and above) */
-	else if((info.type == DEVICE_CUDA || info.type == DEVICE_MULTI) && info.bindless_textures) {
+	else if((info.type == DEVICE_CUDA || info.type == DEVICE_MULTI) && info.has_bindless_textures) {
 		tex_num_images[IMAGE_DATA_TYPE_BYTE4] = TEX_NUM_BYTE4_IMAGES_CUDA_KEPLER;
 		tex_num_images[IMAGE_DATA_TYPE_FLOAT4] = TEX_NUM_FLOAT4_IMAGES_CUDA_KEPLER;
 		tex_num_images[IMAGE_DATA_TYPE_FLOAT] = TEX_NUM_FLOAT_IMAGES_CUDA_KEPLER;
@@ -873,7 +873,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 	}
 
 	/* Save mapping for Bindless Texture IDs */
-	if(device->info.bindless_textures) {
+	if(device->info.has_bindless_textures) {
 		dscene->data.bindless_mapping[flat_slot] = bindless_slot;
 	}
 

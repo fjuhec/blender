@@ -353,7 +353,7 @@ static bool device_multi_add(vector<DeviceInfo>& devices, DeviceType type, bool 
 
 	info.advanced_shading = with_advanced_shading;
 	info.pack_images = false;
-	info.bindless_textures = true;
+	info.has_bindless_textures = true;
 
 	foreach(DeviceInfo& subinfo, devices) {
 		if(subinfo.type == type) {
@@ -377,7 +377,7 @@ static bool device_multi_add(vector<DeviceInfo>& devices, DeviceType type, bool 
 			if(subinfo.display_device)
 				info.display_device = true;
 			info.pack_images = info.pack_images || subinfo.pack_images;
-			info.bindless_textures = info.bindless_textures && subinfo.bindless_textures;
+			info.has_bindless_textures = info.has_bindless_textures && subinfo.has_bindless_textures;
 			num_added++;
 		}
 	}
