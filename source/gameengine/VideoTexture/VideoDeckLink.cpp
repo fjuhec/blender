@@ -784,11 +784,11 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	BMDTimeScale					frameTimescale;
 	IDeckLink*						pDL;
 	u_int displayFlags, inputFlags; 
-    char *pPixel, *p3D, *pEnd;
+	char *pPixel, *p3D, *pEnd, *pSize;
 	size_t len;
-    int i, modeIdx;
+	int i, modeIdx, cacheSize;
 
-	// format is constructed as <displayMode>/<pixelFormat>[/3D]
+	// format is constructed as <displayMode>/<pixelFormat>[/3D][:<cacheSize>]
 	// <displayMode> takes the form of BMDDisplayMode identifier minus the 'bmdMode' prefix.
 	//               This implementation understands all the modes defined in SDK 10.3.1 but you can alternatively
 	//               use the 4 characters internal representation of the mode (e.g. 'HD1080p24' == '24ps')
@@ -801,10 +801,23 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	// "HD1080p24/10BitRGB/3D"  (same as "24ps/r210/3D")
 	// (this will be the normal capture format for FullHD on the DeckLink 4k extreme)
 
+	if ((pSize = strchr(format, ':')) != NULL)
+	{
+		cacheSize = strtol(pSize+1, &pEnd, 10);
+	}
+	else
+	{
+		cacheSize = 4;
+		pSize = format + strlen(format);
+	}
 	if ((pPixel = strchr(format, '/')) == NULL ||
-		((p3D = strchr(pPixel + 1, '/')) != NULL && strcmp(p3D, "/3D")))
+		((p3D = strchr(pPixel + 1, '/')) != NULL && strncmp(p3D, "/3D", pSize-p3D)))
 		THRWEXCP(VideoDeckLinkBadFormat, S_OK);
 	mUse3D = (p3D) ? true : false;
+	// to simplify pixel format parsing
+	if (!p3D)
+		p3D = pSize;
+
 	// read the mode
 	len = (size_t)(pPixel - format);
     // accept integer display mode
@@ -827,7 +840,7 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 
 	// skip /
 	pPixel++;
-	len = ((mUse3D) ? (size_t)(p3D - pPixel) : strlen(pPixel));
+	len = (size_t)(p3D - pPixel);
 	// throws if bad format
 	decklink_ReadPixelFormat(pPixel, len, &mPixelFormat);
 
@@ -967,7 +980,7 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	// custom allocator, 3 frame in cache should be enough
     // make sure we allow up to 5 frame in memory for pinning
 	// note: some pixel format take more than 4 bytes but the difference is small (9/8 versus 1)
-    mpAllocator = new PinnedMemoryAllocator(3, mFrameWidth*mTextureDesc.height * 4 * 4);
+	mpAllocator = new PinnedMemoryAllocator(cacheSize, mFrameWidth*mTextureDesc.height * 4 * (1+cacheSize*9/8));
 
 	if (mDLInput->SetVideoInputFrameMemoryAllocator(mpAllocator) != S_OK)
 		THRWEXCP(DeckLinkInternalError, S_OK);
