@@ -1379,7 +1379,7 @@ void PointDensityTextureNode::compile(SVMCompiler& compiler)
 								  __float_as_int(0.0f),
 								  compiler.stack_assign(density_out));
 			}
-			if (use_color) {
+			if(use_color) {
 				compiler.add_node(NODE_VALUE_V, compiler.stack_assign(color_out));
 				compiler.add_node(NODE_VALUE_V, make_float3(TEX_IMAGE_MISSING_R,
 															TEX_IMAGE_MISSING_G,
@@ -3351,7 +3351,7 @@ bool MixNode::constant_fold(ShaderGraph *graph, ShaderOutput * /*socket*/, float
 	if(!fac_in->link) {
 		/* factor 0.0 */
 		if(fac_in->value.x == 0.0f) {
-			if (color1_in->link)
+			if(color1_in->link)
 				graph->relink(this, color_out, color1_in->link);
 			else
 				*optimized_value = color1_in->value;
@@ -3359,7 +3359,7 @@ bool MixNode::constant_fold(ShaderGraph *graph, ShaderOutput * /*socket*/, float
 		}
 		/* factor 1.0 */
 		else if(fac_in->value.x == 1.0f) {
-			if (color2_in->link)
+			if(color2_in->link)
 				graph->relink(this, color_out, color2_in->link);
 			else
 				*optimized_value = color2_in->value;
@@ -4322,6 +4322,9 @@ RGBCurvesNode::RGBCurvesNode()
 
 void RGBCurvesNode::compile(SVMCompiler& compiler)
 {
+	if(curves.size() == 0)
+		return;
+
 	ShaderInput *fac_in = input("Fac");
 	ShaderInput *color_in = input("Color");
 	ShaderOutput *color_out = output("Color");
@@ -4332,20 +4335,18 @@ void RGBCurvesNode::compile(SVMCompiler& compiler)
 	                                         compiler.stack_assign(color_out)),
 	                  __float_as_int(min_x),
 	                  __float_as_int(max_x));
-	compiler.add_array(curves, RAMP_TABLE_SIZE);
+
+	compiler.add_node(curves.size());
+	for(int i = 0; i < curves.size(); i++)
+		compiler.add_node(float3_to_float4(curves[i]));
 }
 
 void RGBCurvesNode::compile(OSLCompiler& compiler)
 {
-	float ramp[RAMP_TABLE_SIZE][3];
+	if(curves.size() == 0)
+		return;
 
-	for(int i = 0; i < RAMP_TABLE_SIZE; ++i) {
-		ramp[i][0] = curves[i].x;
-		ramp[i][1] = curves[i].y;
-		ramp[i][2] = curves[i].z;
-	}
-
-	compiler.parameter_color_array("ramp", ramp, RAMP_TABLE_SIZE);
+	compiler.parameter_color_array("ramp", curves);
 	compiler.parameter("min_x", min_x);
 	compiler.parameter("max_x", max_x);
 	compiler.add(this, "node_rgb_curves");
@@ -4366,6 +4367,9 @@ VectorCurvesNode::VectorCurvesNode()
 
 void VectorCurvesNode::compile(SVMCompiler& compiler)
 {
+	if(curves.size() == 0)
+		return;
+
 	ShaderInput *fac_in = input("Fac");
 	ShaderInput *vector_in = input("Vector");
 	ShaderOutput *vector_out = output("Vector");
@@ -4376,20 +4380,18 @@ void VectorCurvesNode::compile(SVMCompiler& compiler)
 	                                         compiler.stack_assign(vector_out)),
 	                  __float_as_int(min_x),
 	                  __float_as_int(max_x));
-	compiler.add_array(curves, RAMP_TABLE_SIZE);
+
+	compiler.add_node(curves.size());
+	for(int i = 0; i < curves.size(); i++)
+		compiler.add_node(float3_to_float4(curves[i]));
 }
 
 void VectorCurvesNode::compile(OSLCompiler& compiler)
 {
-	float ramp[RAMP_TABLE_SIZE][3];
+	if(curves.size() == 0)
+		return;
 
-	for(int i = 0; i < RAMP_TABLE_SIZE; ++i) {
-		ramp[i][0] = curves[i].x;
-		ramp[i][1] = curves[i].y;
-		ramp[i][2] = curves[i].z;
-	}
-
-	compiler.parameter_color_array("ramp", ramp, RAMP_TABLE_SIZE);
+	compiler.parameter_color_array("ramp", curves);
 	compiler.parameter("min_x", min_x);
 	compiler.parameter("max_x", max_x);
 	compiler.add(this, "node_vector_curves");
@@ -4409,6 +4411,9 @@ RGBRampNode::RGBRampNode()
 
 void RGBRampNode::compile(SVMCompiler& compiler)
 {
+	if(ramp.size() == 0 || ramp.size() != ramp_alpha.size())
+		return;
+
 	ShaderInput *fac_in = input("Fac");
 	ShaderOutput *color_out = output("Color");
 	ShaderOutput *alpha_out = output("Alpha");
@@ -4419,25 +4424,19 @@ void RGBRampNode::compile(SVMCompiler& compiler)
 			compiler.stack_assign_if_linked(color_out),
 			compiler.stack_assign_if_linked(alpha_out)),
 		interpolate);
-	compiler.add_array(ramp, RAMP_TABLE_SIZE);
+
+	compiler.add_node(ramp.size());
+	for(int i = 0; i < ramp.size(); i++)
+		compiler.add_node(make_float4(ramp[i].x, ramp[i].y, ramp[i].z, ramp_alpha[i]));
 }
 
 void RGBRampNode::compile(OSLCompiler& compiler)
 {
-	/* OSL shader only takes separate RGB and A array, split the RGBA base array */
-	/* NB: cycles float3 type is actually 4 floats! need to use an explicit array */
-	float ramp_color[RAMP_TABLE_SIZE][3];
-	float ramp_alpha[RAMP_TABLE_SIZE];
+	if(ramp.size() == 0 || ramp.size() != ramp_alpha.size())
+		return;
 
-	for(int i = 0; i < RAMP_TABLE_SIZE; ++i) {
-		ramp_color[i][0] = ramp[i].x;
-		ramp_color[i][1] = ramp[i].y;
-		ramp_color[i][2] = ramp[i].z;
-		ramp_alpha[i] = ramp[i].w;
-	}
-
-	compiler.parameter_color_array("ramp_color", ramp_color, RAMP_TABLE_SIZE);
-	compiler.parameter_array("ramp_alpha", ramp_alpha, RAMP_TABLE_SIZE);
+	compiler.parameter_color_array("ramp_color", ramp);
+	compiler.parameter_array("ramp_alpha", ramp_alpha.data(), ramp_alpha.size());
 	compiler.parameter("ramp_interpolate", interpolate);
 	
 	compiler.add(this, "node_rgb_ramp");
