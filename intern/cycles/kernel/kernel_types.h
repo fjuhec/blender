@@ -648,11 +648,15 @@ typedef ccl_addr_space struct ShaderClosure {
 	float3 N;
 	float3 T;
 
+	float3 color0;
+
 	ClosureType type;
 	float sample_weight;
 	float data0;
 	float data1;
 	float data2;
+	float data3;
+	float data4;
 
 	/* Following fields could be used to store pre-calculated
 	 * values by various BSDF closures for more effective sampling
@@ -661,6 +665,7 @@ typedef ccl_addr_space struct ShaderClosure {
 	float custom1;
 	float custom2;
 	float custom3;
+	float3 custom_color0;
 
 #ifdef __OSL__
 	void *prim, *pad4;
