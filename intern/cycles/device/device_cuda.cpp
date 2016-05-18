@@ -99,8 +99,7 @@ public:
 	map<device_ptr, PixelMem> pixel_mem_map;
 
 	/* Bindless Textures */
-	CUtexObject bindless_mapping[4096];
-	device_vector<uint> bindless_mapping_device;
+	device_vector<uint> bindless_mapping;
 	bool sync_bindless_mapping;
 
 	CUdeviceptr cuda_device_ptr(device_ptr mem)
@@ -223,7 +222,7 @@ public:
 	{
 		task_pool.stop();
 
-		tex_free(bindless_mapping_device);
+		tex_free(bindless_mapping);
 
 		cuda_assert(cuCtxDestroy(cuContext));
 	}
@@ -400,6 +399,14 @@ public:
 		cuda_pop_context();
 
 		return (result == CUDA_SUCCESS);
+	}
+
+	void load_bindless_mapping()
+	{
+		if(sync_bindless_mapping) {
+			tex_alloc("__bindless_mapping", bindless_mapping, INTERPOLATION_NONE, EXTENSION_REPEAT, 0);
+			sync_bindless_mapping = false;
+		}
 	}
 
 	void mem_alloc(device_memory& mem, MemoryType /*type*/)
@@ -670,7 +677,9 @@ public:
 
 				CUtexObject tex = 0;
 				cuda_assert(cuTexObjectCreate(&tex, &resDesc, &texDesc, NULL));
-				bindless_mapping[flat_slot] = tex;
+				if(flat_slot >= bindless_mapping.size())
+					bindless_mapping.resize(4096); /*TODO(dingto): Make this a variable */
+				bindless_mapping.get_data()[flat_slot] = (uint)tex;
 
 				sync_bindless_mapping = true;
 			}
@@ -732,16 +741,7 @@ public:
 			return;
 
 		/* Upload bindless_mapping vector */
-		if(cuDevArchitecture >= 300) {
-			if(sync_bindless_mapping) {
-				uint *tmp = bindless_mapping_device.resize(4096);
-				for(size_t i = 0; i < 4096; i++) {
-					tmp[i] = (uint)bindless_mapping[i];
-				}
-				tex_alloc("__bindless_mapping", bindless_mapping_device, INTERPOLATION_NONE, EXTENSION_REPEAT, 0);
-				sync_bindless_mapping = false;
-			}
-		}
+		load_bindless_mapping();
 
 		cuda_push_context();
 
@@ -856,6 +856,9 @@ public:
 	{
 		if(have_error())
 			return;
+
+		/* Upload bindless_mapping vector */
+		load_bindless_mapping();
 
 		cuda_push_context();
 

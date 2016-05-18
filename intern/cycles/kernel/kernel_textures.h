@@ -176,7 +176,9 @@ KERNEL_IMAGE_TEX(uchar4, texture_image_uchar4, __tex_image_byte4_091)
 KERNEL_IMAGE_TEX(uchar4, texture_image_uchar4, __tex_image_byte4_092)
 
 /* bindless textures */
+#if defined(__KERNEL_CUDA__) && __CUDA_ARCH__ >= 300
 KERNEL_TEX(uint, texture_uint, __bindless_mapping)
+#endif
 
 /* packed image (opencl) */
 KERNEL_TEX(uchar4, texture_uchar4, __tex_image_byte4_packed)
