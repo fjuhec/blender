@@ -73,7 +73,6 @@ typedef texture<uchar4, 2, cudaReadModeNormalizedFloat> texture_image_uchar4;
  * Arrays are necessary in order to use the full VRAM on newer cards, and it's slightly faster.
  * Using Arrays on Fermi turned out to be slower.*/
 
-
 /* Fermi */
 #if __CUDA_ARCH__ < 300
 #  define __KERNEL_CUDA_TEX_STORAGE__

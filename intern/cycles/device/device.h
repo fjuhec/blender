@@ -226,11 +226,11 @@ public:
 	                       device_memory& /*mem*/,
 	                       InterpolationType interpolation = INTERPOLATION_NONE,
 	                       ExtensionType extension = EXTENSION_REPEAT,
-	                       uint *bindless_slot = 0)
+	                       int flat_slot = 0)
 	{
 		(void)interpolation;  /* Ignored. */
 		(void)extension;  /* Ignored. */
-		(void)bindless_slot; /* Ignored. */
+		(void)flat_slot; /* Ignored. */
 	};
 
 	virtual void tex_free(device_memory& /*mem*/) {};

@@ -98,6 +98,11 @@ public:
 
 	map<device_ptr, PixelMem> pixel_mem_map;
 
+	/* Bindless Textures */
+	CUtexObject bindless_mapping[4096];
+	device_vector<uint> bindless_mapping_device;
+	bool sync_bindless_mapping;
+
 	CUdeviceptr cuda_device_ptr(device_ptr mem)
 	{
 		return (CUdeviceptr)mem;
@@ -180,6 +185,8 @@ public:
 		cuDevice = 0;
 		cuContext = 0;
 
+		sync_bindless_mapping = false;
+
 		/* intialize */
 		if(cuda_error(cuInit(0)))
 			return;
@@ -215,6 +222,8 @@ public:
 	~CUDADevice()
 	{
 		task_pool.stop();
+
+		tex_free(bindless_mapping_device);
 
 		cuda_assert(cuCtxDestroy(cuContext));
 	}
@@ -469,7 +478,7 @@ public:
 	               device_memory& mem,
 	               InterpolationType interpolation,
 	               ExtensionType extension,
-	               uint *bindless_slot)
+	               int flat_slot)
 	{
 		VLOG(1) << "Texture allocate: " << name << ", " << mem.memory_size() << " bytes.";
 
@@ -661,7 +670,9 @@ public:
 
 				CUtexObject tex = 0;
 				cuda_assert(cuTexObjectCreate(&tex, &resDesc, &texDesc, NULL));
-				*bindless_slot = tex;
+				bindless_mapping[flat_slot] = tex;
+
+				sync_bindless_mapping = true;
 			}
 			/* Regular Textures - Fermi */
 			else {
@@ -719,6 +730,18 @@ public:
 	{
 		if(have_error())
 			return;
+
+		/* Upload bindless_mapping vector */
+		if(cuDevArchitecture >= 300) {
+			if(sync_bindless_mapping) {
+				uint *tmp = bindless_mapping_device.resize(4096);
+				for(size_t i = 0; i < 4096; i++) {
+					tmp[i] = (uint)bindless_mapping[i];
+				}
+				tex_alloc("__bindless_mapping", bindless_mapping_device, INTERPOLATION_NONE, EXTENSION_REPEAT, 0);
+				sync_bindless_mapping = false;
+			}
+		}
 
 		cuda_push_context();
 

@@ -175,6 +175,9 @@ KERNEL_IMAGE_TEX(uchar4, texture_image_uchar4, __tex_image_byte4_090)
 KERNEL_IMAGE_TEX(uchar4, texture_image_uchar4, __tex_image_byte4_091)
 KERNEL_IMAGE_TEX(uchar4, texture_image_uchar4, __tex_image_byte4_092)
 
+/* bindless textures */
+KERNEL_TEX(uint, texture_uint, __bindless_mapping)
+
 /* packed image (opencl) */
 KERNEL_TEX(uchar4, texture_uchar4, __tex_image_byte4_packed)
 KERNEL_TEX(float4, texture_float4, __tex_image_float4_packed)

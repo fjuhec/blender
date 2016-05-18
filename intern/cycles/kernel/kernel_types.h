@@ -1158,7 +1158,6 @@ typedef struct KernelData {
 	KernelBVH bvh;
 	KernelCurves curve;
 	KernelTables tables;
-	uint bindless_mapping[4096]; /*TODO(dingto): Dynamic alloc */
 } KernelData;
 
 #ifdef __KERNEL_DEBUG__
