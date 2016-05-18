@@ -35,6 +35,9 @@
 #include "util_progress.h"
 #include "util_set.h"
 
+#include "subd_split.h"
+#include "subd_patch.h"
+
 CCL_NAMESPACE_BEGIN
 
 /* Triangle */
@@ -112,6 +115,9 @@ void Mesh::reserve(int numverts, int numtris, int numcurves, int numcurvekeys)
 	triangles.resize(numtris);
 	shader.resize(numtris);
 	smooth.resize(numtris);
+
+	forms_quad.resize(numtris);
+
 	curve_keys.resize(numcurvekeys);
 	curves.resize(numcurves);
 
@@ -126,6 +132,8 @@ void Mesh::clear()
 	triangles.clear();
 	shader.clear();
 	smooth.clear();
+
+	forms_quad.clear();
 
 	curve_keys.clear();
 	curves.clear();
@@ -156,7 +164,7 @@ int Mesh::split_vertex(int vertex)
 	return verts.size() - 1;
 }
 
-void Mesh::set_triangle(int i, int v0, int v1, int v2, int shader_, bool smooth_)
+void Mesh::set_triangle(int i, int v0, int v1, int v2, int shader_, bool smooth_, bool forms_quad_)
 {
 	Triangle tri;
 	tri.v[0] = v0;
@@ -166,9 +174,10 @@ void Mesh::set_triangle(int i, int v0, int v1, int v2, int shader_, bool smooth_
 	triangles[i] = tri;
 	shader[i] = shader_;
 	smooth[i] = smooth_;
+	forms_quad[i] = forms_quad_;
 }
 
-void Mesh::add_triangle(int v0, int v1, int v2, int shader_, bool smooth_)
+void Mesh::add_triangle(int v0, int v1, int v2, int shader_, bool smooth_, bool forms_quad_)
 {
 	Triangle tri;
 	tri.v[0] = v0;
@@ -178,6 +187,7 @@ void Mesh::add_triangle(int v0, int v1, int v2, int shader_, bool smooth_)
 	triangles.push_back(tri);
 	shader.push_back(shader_);
 	smooth.push_back(smooth_);
+	forms_quad.push_back(forms_quad_);
 }
 
 void Mesh::add_curve_key(float3 co, float radius)
@@ -403,7 +413,9 @@ void Mesh::pack_normals(Scene *scene, uint *tri_shader, float4 *vnormal)
 		if(shader_ptr[i] != last_shader || last_smooth != smooth[i]) {
 			last_shader = shader_ptr[i];
 			last_smooth = smooth[i];
-			shader_id = scene->shader_manager->get_shader_id(last_shader, this, last_smooth);
+			Shader *shader = (last_shader < used_shaders.size()) ?
+				used_shaders[last_shader] : scene->default_surface;
+			shader_id = scene->shader_manager->get_shader_id(shader, this, last_smooth);
 		}
 
 		tri_shader[i] = shader_id;
@@ -473,7 +485,9 @@ void Mesh::pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, s
 		
 		for(size_t i = 0; i < curve_num; i++) {
 			Curve curve = curve_ptr[i];
-			shader_id = scene->shader_manager->get_shader_id(curve.shader, this, false);
+			Shader *shader = (curve.shader < used_shaders.size()) ?
+				used_shaders[curve.shader] : scene->default_surface;
+			shader_id = scene->shader_manager->get_shader_id(shader, this, false);
 
 			curve_data[i] = make_float4(
 				__int_as_float(curve.first_key + curvekey_offset),
@@ -518,7 +532,7 @@ void Mesh::compute_bvh(SceneParams *params, Progress *progress, int n, int total
 
 			delete bvh;
 			bvh = BVH::create(bparams, objects);
-			bvh->build(*progress);
+			MEM_GUARDED_CALL(progress, bvh->build, *progress);
 		}
 	}
 
@@ -535,8 +549,8 @@ void Mesh::tag_update(Scene *scene, bool rebuild)
 		scene->light_manager->need_update = true;
 	}
 	else {
-		foreach(uint sindex, used_shaders)
-			if(scene->shaders[sindex]->has_surface_emission)
+		foreach(Shader *shader, used_shaders)
+			if(shader->has_surface_emission)
 				scene->light_manager->need_update = true;
 	}
 
@@ -911,8 +925,7 @@ void MeshManager::device_update_attributes(Device *device, DeviceScene *dscene, 
 
 		scene->need_global_attributes(mesh_attributes[i]);
 
-		foreach(uint sindex, mesh->used_shaders) {
-			Shader *shader = scene->shaders[sindex];
+		foreach(Shader *shader, mesh->used_shaders) {
 			mesh_attributes[i].add(shader->attributes);
 		}
 	}
@@ -1158,8 +1171,7 @@ void MeshManager::device_update_flags(Device * /*device*/,
 	/* update flags */
 	foreach(Mesh *mesh, scene->meshes) {
 		mesh->has_volume = false;
-		foreach(uint shader_index, mesh->used_shaders) {
-			const Shader *shader = scene->shaders[shader_index];
+		foreach(const Shader *shader, mesh->used_shaders) {
 			if(shader->has_volume) {
 				mesh->has_volume = true;
 			}
@@ -1182,8 +1194,7 @@ void MeshManager::device_update_displacement_images(Device *device,
 	set<int> bump_images;
 	foreach(Mesh *mesh, scene->meshes) {
 		if(mesh->need_update) {
-			foreach(uint shader_index, mesh->used_shaders) {
-				Shader *shader = scene->shaders[shader_index];
+			foreach(Shader *shader, mesh->used_shaders) {
 				if(shader->graph_bump == NULL) {
 					continue;
 				}
@@ -1200,7 +1211,7 @@ void MeshManager::device_update_displacement_images(Device *device,
 						                             progress);
 						return;
 					}
-					ImageSlotNode *image_node = static_cast<ImageSlotNode*>(node);
+					ImageSlotTextureNode *image_node = static_cast<ImageSlotTextureNode*>(node);
 					int slot = image_node->slot;
 					if(slot != -1) {
 						bump_images.insert(slot);
@@ -1222,15 +1233,15 @@ void MeshManager::device_update_displacement_images(Device *device,
 
 void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress)
 {
-	VLOG(1) << "Total " << scene->meshes.size() << " meshes.";
-
 	if(!need_update)
 		return;
 
+	VLOG(1) << "Total " << scene->meshes.size() << " meshes.";
+
 	/* update normals */
 	foreach(Mesh *mesh, scene->meshes) {
-		foreach(uint shader, mesh->used_shaders) {
-			if(scene->shaders[shader]->need_update_attributes)
+		foreach(Shader *shader, mesh->used_shaders) {
+			if(shader->need_update_attributes)
 				mesh->need_update = true;
 		}
 
@@ -1418,23 +1429,92 @@ bool Mesh::need_attribute(Scene *scene, AttributeStandard std)
 	if(scene->need_global_attribute(std))
 		return true;
 
-	foreach(uint shader, used_shaders)
-		if(scene->shaders[shader]->attributes.find(std))
+	foreach(Shader *shader, used_shaders)
+		if(shader->attributes.find(std))
 			return true;
 	
 	return false;
 }
 
-bool Mesh::need_attribute(Scene *scene, ustring name)
+bool Mesh::need_attribute(Scene * /*scene*/, ustring name)
 {
 	if(name == ustring())
 		return false;
 
-	foreach(uint shader, used_shaders)
-		if(scene->shaders[shader]->attributes.find(name))
+	foreach(Shader *shader, used_shaders)
+		if(shader->attributes.find(name))
 			return true;
 	
 	return false;
+}
+
+void Mesh::tessellate(DiagSplit *split)
+{
+	int num_faces = triangles.size();
+
+	add_face_normals();
+	add_vertex_normals();
+
+	Attribute *attr_fN = attributes.find(ATTR_STD_FACE_NORMAL);
+	float3 *fN = attr_fN->data_float3();
+
+	Attribute *attr_vN = attributes.find(ATTR_STD_VERTEX_NORMAL);
+	float3 *vN = attr_vN->data_float3();
+
+	for(int f = 0; f < num_faces; f++) {
+		if(!forms_quad[f]) {
+			/* triangle */
+			LinearTrianglePatch patch;
+			float3 *hull = patch.hull;
+			float3 *normals = patch.normals;
+
+			for(int i = 0; i < 3; i++) {
+				hull[i] = verts[triangles[f].v[i]];
+			}
+
+			if(smooth[f]) {
+				for(int i = 0; i < 3; i++) {
+					normals[i] = vN[triangles[f].v[i]];
+				}
+			}
+			else {
+				for(int i = 0; i < 3; i++) {
+					normals[i] = fN[f];
+				}
+			}
+
+			split->split_triangle(&patch);
+		}
+		else {
+			/* quad */
+			LinearQuadPatch patch;
+			float3 *hull = patch.hull;
+			float3 *normals = patch.normals;
+
+			hull[0] = verts[triangles[f  ].v[0]];
+			hull[1] = verts[triangles[f  ].v[1]];
+			hull[3] = verts[triangles[f  ].v[2]];
+			hull[2] = verts[triangles[f+1].v[2]];
+
+			if(smooth[f]) {
+				normals[0] = vN[triangles[f  ].v[0]];
+				normals[1] = vN[triangles[f  ].v[1]];
+				normals[3] = vN[triangles[f  ].v[2]];
+				normals[2] = vN[triangles[f+1].v[2]];
+			}
+			else {
+				for(int i = 0; i < 4; i++) {
+					normals[i] = fN[f];
+				}
+			}
+
+			split->split_quad(&patch);
+
+			// consume second triangle in quad
+			f++;
+		}
+
+	}
 }
 
 CCL_NAMESPACE_END

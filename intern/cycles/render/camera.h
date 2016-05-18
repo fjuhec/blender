@@ -104,6 +104,9 @@ public:
 	bool use_spherical_stereo;
 	float interocular_distance;
 	float convergence_distance;
+	bool use_pole_merge;
+	float pole_merge_angle_from;
+	float pole_merge_angle_to;
 
 	/* anamorphic lens bokeh */
 	float aperture_ratio;
@@ -120,6 +123,8 @@ public:
 	int width, height;
 	int resolution;
 	BoundBox2D viewplane;
+	/* width and height change during preview, so we need these for calculating dice rates. */
+	int full_width, full_height;
 
 	/* border */
 	BoundBox2D border;
@@ -151,6 +156,9 @@ public:
 	float3 dx;
 	float3 dy;
 
+	float3 full_dx;
+	float3 full_dy;
+
 	/* update */
 	bool need_update;
 	bool need_device_update;
@@ -175,6 +183,9 @@ public:
 
 	/* Public utility functions. */
 	BoundBox viewplane_bounds_get();
+
+	/* Calculates the width of a pixel at point in world space. */
+	float world_to_raster_size(float3 P);
 
 private:
 	/* Private utility functions. */

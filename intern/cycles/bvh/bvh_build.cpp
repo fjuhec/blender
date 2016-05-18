@@ -280,8 +280,8 @@ BVHNode* BVHBuild::run()
 		size_t num_bins = max(root.size(), (int)BVHParams::NUM_SPATIAL_BINS) - 1;
 		foreach(BVHSpatialStorage &storage, spatial_storage) {
 			storage.right_bounds.clear();
-			storage.right_bounds.resize(num_bins);
 		}
+		spatial_storage[0].right_bounds.resize(num_bins);
 	}
 	spatial_free_index = 0;
 
@@ -607,8 +607,10 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 	vector<int, LeafStackAllocator> p_type[PRIMITIVE_NUM_TOTAL];
 	vector<int, LeafStackAllocator> p_index[PRIMITIVE_NUM_TOTAL];
 	vector<int, LeafStackAllocator> p_object[PRIMITIVE_NUM_TOTAL];
+
 	/* TODO(sergey): In theory we should be able to store references. */
-	vector<BVHReference, LeafStackAllocator> object_references;
+	typedef StackAllocator<256, BVHReference> LeafReferenceStackAllocator;
+	vector<BVHReference, LeafReferenceStackAllocator> object_references;
 
 	uint visibility[PRIMITIVE_NUM_TOTAL] = {0};
 	/* NOTE: Keep initializtion in sync with actual number of primitives. */
@@ -617,7 +619,7 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 	                                        BoundBox::empty,
 	                                        BoundBox::empty};
 	int ob_num = 0;
-
+	int num_new_prims = 0;
 	/* Fill in per-type type/index array. */
 	for(int i = 0; i < range.size(); i++) {
 		const BVHReference& ref = references[range.start() + i];
@@ -629,10 +631,14 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 
 			bounds[type_index].grow(ref.bounds());
 			visibility[type_index] |= objects[ref.prim_object()]->visibility;
+			if(ref.prim_type() & PRIMITIVE_ALL_CURVE) {
+				visibility[type_index] |= PATH_RAY_CURVE;
+			}
+			++num_new_prims;
 		}
 		else {
 			object_references.push_back(ref);
-			ob_num++;
+			++ob_num;
 		}
 	}
 
@@ -651,11 +657,11 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 	vector<int, LeafStackAllocator> local_prim_type,
 	                                local_prim_index,
 	                                local_prim_object;
+	local_prim_type.resize(num_new_prims);
+	local_prim_index.resize(num_new_prims);
+	local_prim_object.resize(num_new_prims);
 	for(int i = 0; i < PRIMITIVE_NUM_TOTAL; ++i) {
 		int num = (int)p_type[i].size();
-		local_prim_type.resize(start_index + num);
-		local_prim_index.resize(start_index + num);
-		local_prim_object.resize(start_index + num);
 		if(num != 0) {
 			assert(p_type[i].size() == p_index[i].size());
 			assert(p_type[i].size() == p_object[i].size());
@@ -706,6 +712,7 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 			prim_index.resize(range_end);
 			prim_object.resize(range_end);
 		}
+		spatial_spin_lock.unlock();
 
 		/* Perform actual data copy. */
 		if(new_leaf_data_size > 0) {
@@ -713,8 +720,6 @@ BVHNode* BVHBuild::create_leaf_node(const BVHRange& range,
 			memcpy(&prim_index[start_index], &local_prim_index[0], new_leaf_data_size);
 			memcpy(&prim_object[start_index], &local_prim_object[0], new_leaf_data_size);
 		}
-
-		spatial_spin_lock.unlock();
 	}
 	else {
 		/* For the regular BVH builder we simply copy new data starting at the
