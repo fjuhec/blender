@@ -311,6 +311,8 @@ void WIDGETGROUP_OT_widget_tweak(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = widget_tweak_invoke;
 	ot->modal = widget_tweak_modal;
+
+	ot->flag = OPTYPE_UNDO;
 }
 
 /** \} */ // Widget operators

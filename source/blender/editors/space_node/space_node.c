@@ -871,21 +871,15 @@ static int WIDGETGROUP_node_transform_poll(const struct bContext *C, struct wmWi
 	return false;
 }
 
-static void WIDGETGROUP_node_transform_init(const struct bContext *C, struct wmWidgetGroup *wgroup)
+static void WIDGETGROUP_node_transform_init(const struct bContext *UNUSED(C), struct wmWidgetGroup *wgroup)
 {
 	wmWidgetWrapper *wwrapper = MEM_mallocN(sizeof(wmWidgetWrapper), __func__);
-	SpaceNode *snode = CTX_wm_space_node(C);
-	PointerRNA nodeptr;
 
 	wwrapper->widget = WIDGET_rect_transform_new(
 	                       wgroup, "backdrop_cage",
 	                       WIDGET_RECT_TRANSFORM_STYLE_TRANSLATE | WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM);
 	wgroup->customdata = wwrapper;
 
-	RNA_pointer_create(snode->id, &RNA_SpaceNodeEditor, snode, &nodeptr);
-
-	WM_widget_set_property(wwrapper->widget, RECT_TRANSFORM_SLOT_OFFSET, &nodeptr, "backdrop_offset");
-	WM_widget_set_property(wwrapper->widget, RECT_TRANSFORM_SLOT_SCALE, &nodeptr, "backdrop_zoom");
 }
 
 static void WIDGETGROUP_node_transform_refresh(const struct bContext *C, struct wmWidgetGroup *wgroup)
@@ -906,6 +900,13 @@ static void WIDGETGROUP_node_transform_refresh(const struct bContext *C, struct 
 		WIDGET_rect_transform_set_dimensions(cage, w, h);
 		WM_widget_set_origin(cage, origin);
 		WM_widget_set_flag(cage, WM_WIDGET_HIDDEN, false);
+
+		/* need to set property here for undo. TODO would prefer to do this in _init */
+		SpaceNode *snode = CTX_wm_space_node(C);
+		PointerRNA nodeptr;
+		RNA_pointer_create(snode->id, &RNA_SpaceNodeEditor, snode, &nodeptr);
+		WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, &nodeptr, "backdrop_offset");
+		WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, &nodeptr, "backdrop_zoom");
 	}
 	else {
 		WM_widget_set_flag(cage, WM_WIDGET_HIDDEN, true);

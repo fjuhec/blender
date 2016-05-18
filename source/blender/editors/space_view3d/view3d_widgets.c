@@ -70,11 +70,8 @@ int WIDGETGROUP_lamp_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptyp
 	return false;
 }
 
-void WIDGETGROUP_lamp_init(const bContext *C, wmWidgetGroup *wgroup)
+void WIDGETGROUP_lamp_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
 {
-	Object *ob = CTX_data_active_object(C);
-	Lamp *la = ob->data;
-	PointerRNA ptr;
 	const char *propname = "spot_size";
 
 	const float color[4] = {0.5f, 0.5f, 1.0f, 1.0f};
@@ -85,22 +82,27 @@ void WIDGETGROUP_lamp_init(const bContext *C, wmWidgetGroup *wgroup)
 	wwrapper->widget = WIDGET_arrow_new(wgroup, propname, WIDGET_ARROW_STYLE_INVERTED);
 	wgroup->customdata = wwrapper;
 
-	RNA_pointer_create(&la->id, &RNA_Lamp, la, &ptr);
 	WIDGET_arrow_set_range_fac(wwrapper->widget, 4.0f);
 	WM_widget_set_colors(wwrapper->widget, color, color_hi);
-	WM_widget_set_property(wwrapper->widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, propname);
 }
 
 void WIDGETGROUP_lamp_refresh(const bContext *C, wmWidgetGroup *wgroup)
 {
 	wmWidgetWrapper *wwrapper = wgroup->customdata;
 	Object *ob = CTX_data_active_object(C);
+	Lamp *la = ob->data;
 	float dir[3];
 
 	negate_v3_v3(dir, ob->obmat[2]);
 
 	WIDGET_arrow_set_direction(wwrapper->widget, dir);
 	WM_widget_set_origin(wwrapper->widget, ob->obmat[3]);
+
+	/* need to set property here for undo. TODO would prefer to do this in _init */
+	PointerRNA ptr;
+	const char *propname = "spot_size";
+	RNA_pointer_create(&la->id, &RNA_Lamp, la, &ptr);
+	WM_widget_set_property(wwrapper->widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, propname);
 }
 
 int WIDGETGROUP_camera_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
@@ -137,26 +139,22 @@ void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	Camera *ca = ob->data;
-	PointerRNA cameraptr;
 	float dir[3];
 
 	CameraWidgetGroup *camgroup = MEM_callocN(sizeof(CameraWidgetGroup), __func__);
 	wgroup->customdata = camgroup;
 
-	RNA_pointer_create(&ca->id, &RNA_Camera, ca, &cameraptr);
 	negate_v3_v3(dir, ob->obmat[2]);
 
 	/* dof distance */
 	{
 		const float color[4] = {1.0f, 0.3f, 0.0f, 1.0f};
 		const float color_hi[4] = {1.0f, 0.3f, 0.0f, 1.0f};
-		const char *propname = "dof_distance";
 
-		camgroup->dop_dist = WIDGET_arrow_new(wgroup, propname, WIDGET_ARROW_STYLE_CROSS);
+		camgroup->dop_dist = WIDGET_arrow_new(wgroup, "dof_distance", WIDGET_ARROW_STYLE_CROSS);
 		WM_widget_set_flag(camgroup->dop_dist, WM_WIDGET_DRAW_HOVER, true);
 		WM_widget_set_flag(camgroup->dop_dist, WM_WIDGET_SCALE_3D, false);
 		WM_widget_set_colors(camgroup->dop_dist, color, color_hi);
-		WM_widget_set_property(camgroup->dop_dist, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, propname);
 	}
 
 	/* focal length
@@ -171,7 +169,6 @@ void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
 		WM_widget_set_flag(camgroup->focallen, WM_WIDGET_SCALE_3D, false);
 		WM_widget_set_colors(camgroup->focallen, color, color_hi);
 		cameragroup_property_setup(camgroup->focallen, ob, ca, false);
-		WM_widget_set_property(camgroup->focallen, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "lens");
 
 		camgroup->ortho_scale = WIDGET_arrow_new(
 		                            wgroup, "ortho_scale",
@@ -179,7 +176,6 @@ void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
 		WM_widget_set_flag(camgroup->ortho_scale, WM_WIDGET_SCALE_3D, false);
 		WM_widget_set_colors(camgroup->ortho_scale, color, color_hi);
 		cameragroup_property_setup(camgroup->ortho_scale, ob, ca, true);
-		WM_widget_set_property(camgroup->ortho_scale, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "ortho_scale");
 	}
 }
 
@@ -191,7 +187,10 @@ void WIDGETGROUP_camera_refresh(const bContext *C, wmWidgetGroup *wgroup)
 	CameraWidgetGroup *camgroup = wgroup->customdata;
 	Object *ob = CTX_data_active_object(C);
 	Camera *ca = ob->data;
+	PointerRNA cameraptr;
 	float dir[3];
+
+	RNA_pointer_create(&ca->id, &RNA_Camera, ca, &cameraptr);
 
 	negate_v3_v3(dir, ob->obmat[2]);
 
@@ -201,6 +200,9 @@ void WIDGETGROUP_camera_refresh(const bContext *C, wmWidgetGroup *wgroup)
 		WM_widget_set_origin(camgroup->dop_dist, ob->obmat[3]);
 		WM_widget_set_scale(camgroup->dop_dist, ca->drawsize);
 		WM_widget_set_flag(camgroup->dop_dist, WM_WIDGET_HIDDEN, false);
+
+		/* need to set property here for undo. TODO would prefer to do this in _init */
+		WM_widget_set_property(camgroup->dop_dist, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "dof_distance");
 	}
 	else {
 		WM_widget_set_flag(camgroup->dop_dist, WM_WIDGET_HIDDEN, true);
@@ -240,6 +242,10 @@ void WIDGETGROUP_camera_refresh(const bContext *C, wmWidgetGroup *wgroup)
 		WM_widget_set_origin(widget, ob->obmat[3]);
 		WM_widget_set_offset(widget, offset);
 		WM_widget_set_scale(widget, drawsize);
+
+		/* need to set property here for undo. TODO would prefer to do this in _init */
+		WM_widget_set_property(camgroup->focallen, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "lens");
+		WM_widget_set_property(camgroup->ortho_scale, ARROW_SLOT_OFFSET_WORLD_SPACE, &cameraptr, "ortho_scale");
 	}
 }
 

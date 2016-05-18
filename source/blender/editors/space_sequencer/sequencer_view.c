@@ -462,6 +462,7 @@ static void widgetgroup_image_transform_refresh(const bContext *C, wmWidgetGroup
 	sequencer_display_size(CTX_data_scene(C), CTX_wm_space_seq(C), viewrect);
 	UI_view2d_scale_get(v2d, &scale[0], &scale[1]);
 
+	/* XXX hmmm, can't we do this in _init somehow? Issue is op->ptr is freed after OP is done. */
 	wmOperator *op = wgroup->type->op;
 	WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, op->ptr, "scale");
 
