@@ -35,8 +35,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-/* structures */
-struct DisneyClearcoatBRDFParams {
+/*struct DisneyClearcoatBRDFParams {
     // brdf parameters
     float m_clearcoat;
     float m_clearcoatGloss;
@@ -49,21 +48,24 @@ struct DisneyClearcoatBRDFParams {
     }
 };
 
-typedef struct DisneyClearcoatBRDFParams DisneyClearcoatBRDFParams;
+typedef struct DisneyClearcoatBRDFParams DisneyClearcoatBRDFParams;*/
 
 
 ccl_device int bsdf_disney_clearcoat_setup(ShaderClosure *sc)
 {
+	/* clearcoat roughness */
+	sc->custom1 = mix(0.1f, 0.001f, sc->data1);
+
     sc->type = CLOSURE_BSDF_DISNEY_CLEARCOAT_ID;
     return SD_BSDF|SD_BSDF_HAS_EVAL;
 }
 
 ccl_device float3 bsdf_disney_clearcoat_eval_reflect(const ShaderClosure *sc,
-    const DisneyClearcoatBRDFParams *params, const float3 I,
+    /*const DisneyClearcoatBRDFParams *params, */const float3 I,
     const float3 omega_in, float *pdf)
 {
-	if (params->m_clearcoat > 0.0f) {
-		float alpha = params->m_clearcoatRoughness;
+	if (sc->data0 > 0.0f) {
+		float alpha = sc->custom1;
 		float3 N = sc->N;
 
 		if (alpha <= 1e-4f)
@@ -100,7 +102,7 @@ ccl_device float3 bsdf_disney_clearcoat_eval_reflect(const ShaderClosure *sc,
 			float FH = schlick_fresnel(dot(omega_in, m));
 			float3 F = mix(make_float3(0.04f, 0.04f, 0.04f), make_float3(1.0f, 1.0f, 1.0f), FH);
 
-			float3 out = F * G * common * 0.25f * params->m_clearcoat;
+			float3 out = F * G * common * 0.25f * sc->data0;
 
 			/* eq. 2 in distribution of visible normals sampling
 			 * pm = Dw = G1o * dot(m, I) * D / dot(N, I); */
@@ -122,13 +124,13 @@ ccl_device float3 bsdf_disney_clearcoat_eval_transmit(const ShaderClosure *sc, c
     return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_disney_clearcoat_sample(const ShaderClosure *sc, const DisneyClearcoatBRDFParams *params,
+ccl_device int bsdf_disney_clearcoat_sample(const ShaderClosure *sc, /*const DisneyClearcoatBRDFParams *params,*/
     float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv,
     float3 *eval, float3 *omega_in, float3 *domega_in_dx,
     float3 *domega_in_dy, float *pdf)
 {
-	if (params->m_clearcoat > 0.0f) {
-		float alpha = params->m_clearcoatRoughness;
+	if (sc->data0 > 0.0f) {
+		float alpha = sc->custom1;
 		float3 N = sc->N;
 
 		float cosNO = dot(N, I);
@@ -189,7 +191,7 @@ ccl_device int bsdf_disney_clearcoat_sample(const ShaderClosure *sc, const Disne
 						float FH = schlick_fresnel(dot(*omega_in, m));
 						float3 F = mix(make_float3(0.04f, 0.04f, 0.04f), make_float3(1.0f, 1.0f, 1.0f), FH);
 
-						*eval = G1i * common * F * 0.25f * params->m_clearcoat;
+						*eval = G1i * common * F * 0.25f * sc->data0;
 					}
 
 #ifdef __RAY_DIFFERENTIALS__

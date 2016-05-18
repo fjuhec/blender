@@ -36,7 +36,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-struct DisneyDiffuseBRDFParams {
+/*struct DisneyDiffuseBRDFParams {
 	// brdf parameters
 	float3 m_base_color;
 	float m_subsurface;
@@ -45,23 +45,21 @@ struct DisneyDiffuseBRDFParams {
 	float m_sheen_tint;
 
 	// precomputed values
-	float3 m_cdlin, m_ctint, m_csheen;
-	float m_cdlum;
+	float3 m_csheen;
 
 	void precompute_values() {
-		m_cdlin = m_base_color;
-		m_cdlum = 0.3f * m_cdlin[0] + 0.6f * m_cdlin[1] + 0.1f * m_cdlin[2]; // luminance approx.
+		float m_cdlum = 0.3f * m_base_color[0] + 0.6f * m_base_color[1] + 0.1f * m_base_color[2]; // luminance approx.
 
-		m_ctint = m_cdlum > 0.0f ? m_cdlin / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
+		float3 m_ctint = m_cdlum > 0.0f ? m_base_color / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 		m_csheen = mix(make_float3(1.0f, 1.0f, 1.0f), m_ctint, m_sheen_tint);
 	}
 };
 
-typedef struct DisneyDiffuseBRDFParams DisneyDiffuseBRDFParams;
+typedef struct DisneyDiffuseBRDFParams DisneyDiffuseBRDFParams;*/
 
 
 ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
-	const DisneyDiffuseBRDFParams *params, float3 N, float3 V, float3 L,
+	/*const DisneyDiffuseBRDFParams *params, */float3 N, float3 V, float3 L,
 	float3 H, float *pdf)
 {
 	float NdotL = dot(N, L);
@@ -77,27 +75,27 @@ ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
     float Fd = 0.0f;
 	float FL = schlick_fresnel(NdotL), FV = schlick_fresnel(NdotV);
 
-    if (params->m_subsurface != 1.0f) {
-	    const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * params->m_roughness;
+	if (sc->data0 != 1.0f) {
+	    const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * sc->data1;
 	    Fd = mix(1.0f, Fd90, FL) * mix(1.0f, Fd90, FV);
     }
 
-    if (params->m_subsurface > 0.0f) {
-	    float Fss90 = LdotH*LdotH * params->m_roughness;
+    if (sc->data0 > 0.0f) {
+	    float Fss90 = LdotH*LdotH * sc->data1;
 	    float Fss = mix(1.0f, Fss90, FL) * mix(1.0f, Fss90, FV);
 	    float ss = 1.25f * (Fss * (1.0f / (NdotL + NdotV) - 0.5f) + 0.5f);
-        Fd = mix(Fd, ss, params->m_subsurface);
+        Fd = mix(Fd, ss, sc->data0);
     }
 
-	float3 value = M_1_PI_F * Fd * params->m_cdlin;
+	float3 value = M_1_PI_F * Fd * sc->color0;
 
 	*pdf = M_1_PI_F * 0.5f;
 
 	// sheen component
-	if (params->m_sheen != 0.0f) {
+	if (sc->data2 != 0.0f) {
 		float FH = schlick_fresnel(LdotH);
 
-		value += FH * params->m_sheen * params->m_csheen;
+		value += FH * sc->data2 * sc->custom_color0;
 	}
 
 	value *= NdotL;
@@ -107,12 +105,19 @@ ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
 
 ccl_device int bsdf_disney_diffuse_setup(ShaderClosure *sc)
 {
+	float m_cdlum = 0.3f * sc->color0[0] + 0.6f * sc->color0[1] + 0.1f * sc->color0[2]; // luminance approx.
+
+	float3 m_ctint = m_cdlum > 0.0f ? sc->color0 / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
+
+	/* csheen0 */
+	sc->custom_color0 = mix(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data3);
+
 	sc->type = CLOSURE_BSDF_DISNEY_DIFFUSE_ID;
 	return SD_BSDF|SD_BSDF_HAS_EVAL;
 }
 
 ccl_device float3 bsdf_disney_diffuse_eval_reflect(const ShaderClosure *sc,
-	const DisneyDiffuseBRDFParams *params, const float3 I,
+	/*const DisneyDiffuseBRDFParams *params, */const float3 I,
 	const float3 omega_in, float *pdf)
 {
 	float3 N = normalize(sc->N);
@@ -121,7 +126,7 @@ ccl_device float3 bsdf_disney_diffuse_eval_reflect(const ShaderClosure *sc,
 	float3 H = normalize(L + V);
 
     if (dot(sc->N, omega_in) > 0.0f) {
-        float3 value = calculate_disney_diffuse_brdf(sc, params, N, V, L, H, pdf);
+        float3 value = calculate_disney_diffuse_brdf(sc, /*params, */N, V, L, H, pdf);
 
 		return value;
     }
@@ -136,7 +141,7 @@ ccl_device float3 bsdf_disney_diffuse_eval_transmit(const ShaderClosure *sc, con
 	return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc, const DisneyDiffuseBRDFParams *params,
+ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc, /*const DisneyDiffuseBRDFParams *params,*/
 	float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv,
 	float3 *eval, float3 *omega_in, float3 *domega_in_dx,
 	float3 *domega_in_dy, float *pdf)
@@ -148,7 +153,7 @@ ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc, const DisneyD
 	if (dot(Ng, *omega_in) > 0) {
 		float3 H = normalize(I + *omega_in);
 
-		*eval = calculate_disney_diffuse_brdf(sc, params, N, I, *omega_in, H, pdf);
+		*eval = calculate_disney_diffuse_brdf(sc, /*params, */N, I, *omega_in, H, pdf);
 
 #ifdef __RAY_DIFFERENTIALS__
 		// TODO: find a better approximation for the diffuse bounce
