@@ -740,49 +740,13 @@ static void view3d_widgets(void)
 		.spaceid = SPACE_VIEW3D, .regionid = RGN_TYPE_WINDOW,
 		.flag = WM_WIDGETMAPTYPE_3D,
 	};
-
 	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
 
-	WM_widgetgrouptype_register_ptr(
-	        NULL, wmaptype,
-	        WIDGETGROUP_armature_facemaps_poll,
-	        WIDGETGROUP_armature_facemaps_init,
-	        WIDGETGROUP_armature_facemaps_refresh,
-	        NULL,
-	        WM_widgetgroup_keymap_common_sel,
-	        "Face Map Widgets");
-	WM_widgetgrouptype_register_ptr(
-	        NULL, wmaptype,
-	        WIDGETGROUP_lamp_poll,
-	        WIDGETGROUP_lamp_init,
-	        WIDGETGROUP_lamp_refresh,
-	        NULL,
-	        WM_widgetgroup_keymap_common,
-	        "Lamp Widgets");
-	WM_widgetgrouptype_register_ptr(
-	        NULL, wmaptype,
-	        WIDGETGROUP_forcefield_poll,
-	        WIDGETGROUP_forcefield_init,
-	        WIDGETGROUP_forcefield_refresh,
-	        NULL,
-	        WM_widgetgroup_keymap_common,
-	        "Force Field Widgets");
-	WM_widgetgrouptype_register_ptr(
-	        NULL, wmaptype,
-	        WIDGETGROUP_camera_poll,
-	        WIDGETGROUP_camera_init,
-	        WIDGETGROUP_camera_refresh,
-	        NULL,
-	        WM_widgetgroup_keymap_common,
-	        "Camera Widgets");
-	WM_widgetgrouptype_register_ptr(
-	        NULL, wmaptype,
-	        WIDGETGROUP_manipulator_poll,
-	        WIDGETGROUP_manipulator_init,
-	        WIDGETGROUP_manipulator_refresh,
-	        WIDGETGROUP_manipulator_draw_prepare,
-	        WM_widgetgroup_keymap_common,
-	        "Transform Manipulator");
+	WM_widgetgrouptype_append(wmaptype, VIEW3D_WGT_armature_facemaps);
+	WM_widgetgrouptype_append(wmaptype, VIEW3D_WGT_lamp);
+	WM_widgetgrouptype_append(wmaptype, VIEW3D_WGT_force_field);
+	WM_widgetgrouptype_append(wmaptype, VIEW3D_WGT_camera);
+	WM_widgetgrouptype_append(wmaptype, TRANSFORM_WGT_manipulator);
 }
 
 

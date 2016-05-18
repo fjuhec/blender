@@ -59,7 +59,7 @@ typedef struct CameraWidgetGroup {
 } CameraWidgetGroup;
 
 
-int WIDGETGROUP_lamp_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
+static int WIDGETGROUP_lamp_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -70,7 +70,7 @@ int WIDGETGROUP_lamp_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptyp
 	return false;
 }
 
-void WIDGETGROUP_lamp_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
+static void WIDGETGROUP_lamp_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
 {
 	const char *propname = "spot_size";
 
@@ -86,7 +86,7 @@ void WIDGETGROUP_lamp_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
 	WM_widget_set_colors(wwrapper->widget, color, color_hi);
 }
 
-void WIDGETGROUP_lamp_refresh(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_lamp_refresh(const bContext *C, wmWidgetGroup *wgroup)
 {
 	wmWidgetWrapper *wwrapper = wgroup->customdata;
 	Object *ob = CTX_data_active_object(C);
@@ -105,7 +105,16 @@ void WIDGETGROUP_lamp_refresh(const bContext *C, wmWidgetGroup *wgroup)
 	WM_widget_set_property(wwrapper->widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, propname);
 }
 
-int WIDGETGROUP_camera_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
+void VIEW3D_WGT_lamp(wmWidgetGroupType *wgt)
+{
+	wgt->name = "Lamp Widgets";
+
+	wgt->poll = WIDGETGROUP_lamp_poll;
+	wgt->init = WIDGETGROUP_lamp_init;
+	wgt->refresh = WIDGETGROUP_lamp_refresh;
+}
+
+static int WIDGETGROUP_camera_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -135,7 +144,7 @@ static void cameragroup_property_setup(wmWidget *widget, Object *ob, Camera *ca,
 	WIDGET_arrow_set_range_fac(widget, is_ortho ? (scale_fac * range) : (drawsize * range / half_sensor));
 }
 
-void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	Camera *ca = ob->data;
@@ -179,7 +188,7 @@ void WIDGETGROUP_camera_init(const bContext *C, wmWidgetGroup *wgroup)
 	}
 }
 
-void WIDGETGROUP_camera_refresh(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_camera_refresh(const bContext *C, wmWidgetGroup *wgroup)
 {
 	if (!wgroup->customdata)
 		return;
@@ -249,14 +258,23 @@ void WIDGETGROUP_camera_refresh(const bContext *C, wmWidgetGroup *wgroup)
 	}
 }
 
-int WIDGETGROUP_forcefield_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
+void VIEW3D_WGT_camera(wmWidgetGroupType *wgt)
+{
+	wgt->name = "Camera Widgets";
+
+	wgt->poll = WIDGETGROUP_camera_poll;
+	wgt->init = WIDGETGROUP_camera_init;
+	wgt->refresh = WIDGETGROUP_camera_refresh;
+}
+
+static int WIDGETGROUP_forcefield_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
 
 	return (ob && ob->pd && ob->pd->forcefield);
 }
 
-void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
+static void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
 {
 	const float col[4] = {0.8f, 0.8f, 0.45f, 0.5f};
 	const float col_hi[4] = {0.8f, 0.8f, 0.45f, 1.0f};
@@ -273,7 +291,7 @@ void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmWidgetGroup *wgrou
 	WM_widget_set_flag(wwrapper->widget, WM_WIDGET_SCALE_3D, false);
 }
 
-void WIDGETGROUP_forcefield_refresh(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmWidgetGroup *wgroup)
 {
 	wmWidgetWrapper *wwrapper = wgroup->customdata;
 	Object *ob = CTX_data_active_object(C);
@@ -297,13 +315,22 @@ void WIDGETGROUP_forcefield_refresh(const bContext *C, wmWidgetGroup *wgroup)
 	}
 }
 
+void VIEW3D_WGT_force_field(wmWidgetGroupType *wgt)
+{
+	wgt->name = "Force Field Widgets";
+
+	wgt->poll = WIDGETGROUP_forcefield_poll;
+	wgt->init = WIDGETGROUP_forcefield_init;
+	wgt->refresh = WIDGETGROUP_forcefield_refresh;
+}
+
 /* draw facemaps depending on the selected bone in pose mode */
 #define USE_FACEMAP_FROM_BONE
 
 #define MAX_ARMATURE_FACEMAP_NAME (2 * MAX_NAME + 1) /* "OBJECTNAME_FACEMAPNAME" */
 
 
-int WIDGETGROUP_armature_facemaps_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
+static int WIDGETGROUP_armature_facemaps_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -403,7 +430,7 @@ static wmWidget *armature_facemap_widget_create(wmWidgetGroup *wgroup, Object *f
 	return widget;
 }
 
-void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = CTX_data_active_object(C);
 	bArmature *arm = (bArmature *)ob->data;
@@ -468,7 +495,7 @@ void WIDGETGROUP_armature_facemaps_init(const bContext *C, wmWidgetGroup *wgroup
  * * The remaining widgets in the old hash table get completely deleted, the old hash table gets deleted, the new
  *   one is stored (wmWidgetGroup.customdata) and becomes the old one on next refresh.
  */
-void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmWidgetGroup *wgroup)
 {
 	if (!wgroup->customdata)
 		return;
@@ -528,4 +555,15 @@ void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmWidgetGroup *wgr
 
 	wgroup->customdata = newhash;
 #endif
+}
+
+void VIEW3D_WGT_armature_facemaps(wmWidgetGroupType *wgt)
+{
+	wgt->name = "Face Map Widgets";
+
+	wgt->poll = WIDGETGROUP_armature_facemaps_poll;
+	wgt->init = WIDGETGROUP_armature_facemaps_init;
+	wgt->refresh = WIDGETGROUP_armature_facemaps_refresh;
+
+	wgt->keymap_init = WM_widgetgroup_keymap_common_sel;
 }

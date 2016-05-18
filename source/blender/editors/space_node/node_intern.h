@@ -220,6 +220,10 @@ void NODE_OT_shader_script_update(struct wmOperatorType *ot);
 void NODE_OT_viewer_border(struct wmOperatorType *ot);
 void NODE_OT_clear_viewer_border(struct wmOperatorType *ot);
 
+/* node_widgets.c */
+void NODE_WGT_backdrop_transform(struct wmWidgetGroupType *wgt);
+
+
 extern const char *node_context_dir[];
 
 // XXXXXX

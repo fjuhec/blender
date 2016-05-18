@@ -54,8 +54,8 @@ typedef void (*wmWidgetGroupDrawPrepareFunc)(const struct bContext *, struct wmW
 typedef struct wmWidgetGroupType {
 	struct wmWidgetGroupType *next, *prev;
 
-	char idname[64]; /* MAX_NAME */
-	char name[64]; /* widget group name - displayed in UI (keymap editor) */
+	char idname[64];  /* MAX_NAME */
+	const char *name; /* widget group name - displayed in UI (keymap editor) */
 
 	/* poll if widgetmap should be active */
 	wmWidgetGroupPollFunc poll;

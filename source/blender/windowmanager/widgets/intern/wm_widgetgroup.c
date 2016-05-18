@@ -405,60 +405,41 @@ wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmWidgetGroupType *wgrou
  * \{ */
 
 /**
- * A version of #WM_widgetgrouptype_register when theres no need to search for the \a wmaptype.
+ * Use this for registering widgets on startup. For runtime, use #WM_widgetgrouptype_append_runtime.
  */
-wmWidgetGroupType *WM_widgetgrouptype_register_ptr(
-        const Main *bmain, wmWidgetMapType *wmaptype,
-        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
-        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
-        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
-        const char *name)
+wmWidgetGroupType *WM_widgetgrouptype_append(wmWidgetMapType *wmaptype, void (*wgrouptype_func)(wmWidgetGroupType *))
 {
 	wmWidgetGroupType *wgrouptype = MEM_callocN(sizeof(wmWidgetGroupType), "widgetgroup");
 
-	wgrouptype->poll = poll;
-	wgrouptype->init = init;
-	wgrouptype->refresh = refresh;
-	wgrouptype->draw_prepare = draw_prepare;
-	wgrouptype->keymap_init = keymap_init;
+	wgrouptype_func(wgrouptype);
 	wgrouptype->spaceid = wmaptype->spaceid;
 	wgrouptype->regionid = wmaptype->regionid;
 	wgrouptype->flag = wmaptype->flag;
-	BLI_strncpy(wgrouptype->name, name, MAX_NAME);
 	BLI_strncpy(wgrouptype->mapidname, wmaptype->idname, MAX_NAME);
+	/* if not set, use default */
+	if (!wgrouptype->keymap_init) {
+		wgrouptype->keymap_init = WM_widgetgroup_keymap_common;
+	}
 
 	/* add the type for future created areas of the same type  */
 	BLI_addtail(&wmaptype->widgetgrouptypes, wgrouptype);
-
-	/* Main is missing on startup when we create new areas.
-	 * So this is only called for widgets initialized on runtime */
-	if (bmain) {
-		WM_widgetgrouptype_init_runtime(bmain, wmaptype, wgrouptype);
-	}
-
 	return wgrouptype;
 }
 
-wmWidgetGroupType *WM_widgetgrouptype_register(
-        const Main *bmain, const struct wmWidgetMapType_Params *wmap_params,
-        wmWidgetGroupPollFunc poll, wmWidgetGroupInitFunc init,
-        wmWidgetGroupRefreshFunc refresh, wmWidgetGroupDrawPrepareFunc draw_prepare,
-        wmKeyMap *(*keymap_init)(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config),
-        const char *name)
+/**
+ * Use this for registering widgets on runtime.
+ */
+wmWidgetGroupType *WM_widgetgrouptype_append_runtime(
+        const Main *main, wmWidgetMapType *wmaptype,
+        void (*wgrouptype_func)(wmWidgetGroupType *))
 {
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(wmap_params);
+	wmWidgetGroupType *wgrouptype = WM_widgetgrouptype_append(wmaptype, wgrouptype_func);
 
-	if (!wmaptype) {
-		fprintf(stderr, "widgetgrouptype creation: widgetmap type does not exist");
-		return NULL;
-	}
+	/* Main is missing on startup when we create new areas.
+	 * So this is only called for widgets initialized on runtime */
+	WM_widgetgrouptype_init_runtime(main, wmaptype, wgrouptype);
 
-	return WM_widgetgrouptype_register_ptr(
-	        bmain, wmaptype,
-	        poll, init,
-	        refresh, draw_prepare,
-	        keymap_init,
-	        name);
+	return wgrouptype;
 }
 
 void WM_widgetgrouptype_init_runtime(

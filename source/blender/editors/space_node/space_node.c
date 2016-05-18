@@ -857,78 +857,12 @@ static int node_context(const bContext *C, const char *member, bContextDataResul
 	return 0;
 }
 
-static int WIDGETGROUP_node_transform_poll(const struct bContext *C, struct wmWidgetGroupType *UNUSED(wgrouptype))
-{
-	SpaceNode *snode = CTX_wm_space_node(C);
-
-	if (snode && snode->edittree && snode->edittree->type == NTREE_COMPOSIT) {
-		bNode *node = nodeGetActive(snode->edittree);
-
-		if (node && node->type == CMP_NODE_VIEWER)
-			return true;
-	}
-
-	return false;
-}
-
-static void WIDGETGROUP_node_transform_init(const struct bContext *UNUSED(C), struct wmWidgetGroup *wgroup)
-{
-	wmWidgetWrapper *wwrapper = MEM_mallocN(sizeof(wmWidgetWrapper), __func__);
-
-	wwrapper->widget = WIDGET_rect_transform_new(
-	                       wgroup, "backdrop_cage",
-	                       WIDGET_RECT_TRANSFORM_STYLE_TRANSLATE | WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM);
-	wgroup->customdata = wwrapper;
-
-}
-
-static void WIDGETGROUP_node_transform_refresh(const struct bContext *C, struct wmWidgetGroup *wgroup)
-{
-	wmWidget *cage = ((wmWidgetWrapper *)wgroup->customdata)->widget;
-	const ARegion *ar = CTX_wm_region(C);
-	/* center is always at the origin */
-	const float origin[3] = {ar->winx / 2, ar->winy / 2};
-
-	void *lock;
-	Image *ima = BKE_image_verify_viewer(IMA_TYPE_COMPOSITE, "Viewer Node");
-	ImBuf *ibuf = BKE_image_acquire_ibuf(ima, NULL, &lock);
-
-	if (ibuf) {
-		const float w = (ibuf->x > 0) ? ibuf->x : 64.0f;
-		const float h = (ibuf->y > 0) ? ibuf->y : 64.0f;
-
-		WIDGET_rect_transform_set_dimensions(cage, w, h);
-		WM_widget_set_origin(cage, origin);
-		WM_widget_set_flag(cage, WM_WIDGET_HIDDEN, false);
-
-		/* need to set property here for undo. TODO would prefer to do this in _init */
-		SpaceNode *snode = CTX_wm_space_node(C);
-		PointerRNA nodeptr;
-		RNA_pointer_create(snode->id, &RNA_SpaceNodeEditor, snode, &nodeptr);
-		WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, &nodeptr, "backdrop_offset");
-		WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, &nodeptr, "backdrop_zoom");
-	}
-	else {
-		WM_widget_set_flag(cage, WM_WIDGET_HIDDEN, true);
-	}
-
-	BKE_image_release_ibuf(ima, ibuf, lock);
-}
-
 static void node_widgets(void)
 {
 	/* create the widgetmap for the area here */
 	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&(const struct wmWidgetMapType_Params) {
 	        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, 0});
-	
-	WM_widgetgrouptype_register_ptr(
-	        NULL, wmaptype,
-	        WIDGETGROUP_node_transform_poll,
-	        WIDGETGROUP_node_transform_init,
-	        WIDGETGROUP_node_transform_refresh,
-	        NULL,
-	        WM_widgetgroup_keymap_common,
-	        "Backdrop Transform Widgets");
+	WM_widgetgrouptype_append(wmaptype, NODE_WGT_backdrop_transform);
 }
 
 /* only called once, from space/spacetypes.c */

@@ -401,10 +401,6 @@ void ED_view3d_operator_properties_viewmat_set(struct bContext *C, struct wmOper
 void ED_view3d_operator_properties_viewmat_get(struct wmOperator *op, int *winx, int *winy, float persmat[4][4]);
 #endif
 
-int WIDGETGROUP_lamp_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype);
-void WIDGETGROUP_lamp_init(const struct bContext *C, struct wmWidgetGroup *wgroup);
-void WIDGETGROUP_lamp_refresh(const struct bContext *C, struct wmWidgetGroup *wgroup);
-
 /* render */
 void ED_view3d_stop_render_preview(struct wmWindowManager *wm, struct ARegion *ar);
 void ED_view3d_shade_update(struct Main *bmain, struct Scene *scene, struct View3D *v3d, struct ScrArea *sa);

@@ -562,9 +562,9 @@ static int rna_WidgetGroup_name_length(PointerRNA *ptr)
 static void rna_WidgetGroup_bl_label_set(PointerRNA *ptr, const char *value)
 {
 	wmWidgetGroup *data = ptr->data;
-	char *str = data->type->name;
-	if (!str[0])
-		BLI_strncpy(str, value, sizeof(data->type->name));  /* utf8 already ensured */
+	const char *str = data->type->name;
+	if (!str)
+		str = value;
 	else
 		assert(!"setting the bl_label on a non-builtin operator");
 }
@@ -1608,6 +1608,9 @@ static StructRNA *rna_WidgetGroup_register(
 	/* XXX, this doubles up with the widgetgroup name [#29666]
 	 * for now just remove from dir(bpy.types) */
 
+	/* We used to register widget group types like this, now we do it similar to
+	 * operator types. Thus we should be able to do the same as operator types now. */
+#if 0
 	wgrouptype = WM_widgetgrouptype_register_ptr(
 	        NULL, wmaptype,
 	        (have_function[0]) ? widgetgroup_poll : NULL,
@@ -1615,6 +1618,13 @@ static StructRNA *rna_WidgetGroup_register(
 	        NULL, NULL, /* TODO */
 	        (have_function[1]) ? widgetgroup_keymap_init : NULL,
 	        dummywgt.name);
+#else
+	/* XXX needs updating */
+	dummywgt.poll = (have_function[0]) ? widgetgroup_poll : NULL;
+	dummywgt.init = (have_function[2]) ? widgetgroup_draw : NULL;
+	dummywgt.keymap_init = (have_function[1]) ? widgetgroup_keymap_init : NULL;
+	wgrouptype = &dummywgt; /* XXX incorrect, just to avoid uninitialized value warning */
+#endif
 
 	/* create a new widgetgroup type */
 	wgrouptype->ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, wgrouptype->idname, &RNA_WidgetGroup);

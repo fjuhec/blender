@@ -2793,18 +2793,12 @@ static void widgetgroup_backdrop_refresh(const struct bContext *C, wmWidgetGroup
 	WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, op->ptr, "scale");
 }
 
-static wmWidgetGroupType *graph_widget_backdrop_transform_widgets(void)
+static void GRAPH_WGT_backdrop_transform(wmWidgetGroupType *wgt)
 {
-	/* no poll, lives always for the duration of the operator */
-	return WM_widgetgrouptype_register(
-	            NULL,
-	            &(const struct wmWidgetMapType_Params) {"Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0},
-	            NULL,
-	            widgetgroup_backdrop_init,
-	            widgetgroup_backdrop_refresh,
-	            NULL,
-	            WM_widgetgroup_keymap_common,
-	            "Backdrop Transform Widgets");
+	wgt->name = "Backdrop Transform Widgets";
+
+	wgt->init = widgetgroup_backdrop_init;
+	wgt->refresh = widgetgroup_backdrop_refresh;
 }
 
 static int graph_widget_backdrop_transform_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -2903,6 +2897,8 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 void GRAPH_OT_widget_backdrop_transform(struct wmOperatorType *ot)
 {
 	float default_offset[2] = {0.0f, 0.0f};
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(&(const struct wmWidgetMapType_Params) {
+	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
 
 	/* identifiers */
 	ot->name = "Transform Backdrop";
@@ -2918,7 +2914,7 @@ void GRAPH_OT_widget_backdrop_transform(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->wgrouptype = graph_widget_backdrop_transform_widgets();
+	ot->wgrouptype = WM_widgetgrouptype_append(wmaptype, GRAPH_WGT_backdrop_transform);
 
 	RNA_def_float_array(ot->srna, "offset", 2, default_offset, FLT_MIN, FLT_MAX, "Offset", "Offset of the backdrop", FLT_MIN, FLT_MAX);
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, FLT_MAX, "Scale", "Scale of the backdrop", 0.0f, FLT_MAX);

@@ -293,18 +293,12 @@ static void widgetgroup_overdrop_refresh(const bContext *C, wmWidgetGroup *wgrou
 	WIDGET_rect_transform_set_dimensions(cage, sizex, sizey);
 }
 
-static wmWidgetGroupType *sequencer_overdrop_widgets(void)
+static void SEQUENCER_WGT_overdrop_transform(wmWidgetGroupType *wgt)
 {
-	/* no poll, lives always for the duration of the operator */
-	return WM_widgetgrouptype_register(
-	        NULL,
-	        &(const struct wmWidgetMapType_Params) {"Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0},
-	        NULL,
-	        widgetgroup_overdrop_init,
-	        widgetgroup_overdrop_refresh,
-	        NULL,
-	        WM_widgetgroup_keymap_common,
-	        "Backdrop Transform Widgets");
+	wgt->name = "Backdrop Transform Widgets";
+
+	wgt->init = widgetgroup_overdrop_init;
+	wgt->refresh = widgetgroup_overdrop_refresh;
 }
 
 static int sequencer_overdrop_transform_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -419,7 +413,9 @@ void SEQUENCER_OT_overdrop_transform(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->wgrouptype = sequencer_overdrop_widgets();
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(&(const struct wmWidgetMapType_Params) {
+	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0});
+	ot->wgrouptype = WM_widgetgrouptype_append(wmaptype, SEQUENCER_WGT_overdrop_transform);
 
 	RNA_def_float_array(ot->srna, "offset", 2, default_offset, FLT_MIN, FLT_MAX, "Offset", "Offset of the backdrop", FLT_MIN, FLT_MAX);
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, FLT_MAX, "Scale", "Scale of the backdrop", 0.0f, FLT_MAX);
@@ -471,18 +467,12 @@ static void widgetgroup_image_transform_refresh(const bContext *C, wmWidgetGroup
 	WIDGET_rect_transform_set_dimensions(cage, viewrect[0] * scale[0], viewrect[1] * scale[1]);
 }
 
-static wmWidgetGroupType *sequencer_image_transform_widgets(void)
+static void SEQUENCER_WGT_image_transform(wmWidgetGroupType *wgt)
 {
-	/* no poll, lives always for the duration of the operator */
-	return WM_widgetgrouptype_register(
-	        NULL,
-	        &(const struct wmWidgetMapType_Params) {"Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, 0},
-	        NULL,
-	        widgetgroup_image_transform_init,
-	        widgetgroup_image_transform_refresh,
-	        NULL,
-	        WM_widgetgroup_keymap_common,
-	        "Image Transform Widgets");
+	wgt->name = "Image Transform Widgets";
+
+	wgt->init = widgetgroup_image_transform_init;
+	wgt->refresh = widgetgroup_image_transform_refresh;
 }
 
 static int sequencer_image_transform_widget_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -610,7 +600,9 @@ void SEQUENCER_OT_image_transform_widget(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->wgrouptype = sequencer_image_transform_widgets();
+	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(&(const struct wmWidgetMapType_Params) {
+	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, 0});
+	ot->wgrouptype = WM_widgetgrouptype_append(wmaptype, SEQUENCER_WGT_image_transform);
 
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, FLT_MAX, "Scale", "Scale of the backdrop", 0.0f, FLT_MAX);
 }

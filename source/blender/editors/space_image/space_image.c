@@ -582,6 +582,16 @@ static int image_context(const bContext *C, const char *member, bContextDataResu
 	return 0;
 }
 
+static void IMAGE_WGT_manipulator2d(wmWidgetGroupType *wgt)
+{
+	wgt->name = "UV Transform Manipulator";
+
+	wgt->poll = WIDGETGROUP_manipulator2d_poll;
+	wgt->init = WIDGETGROUP_manipulator2d_init;
+	wgt->refresh = WIDGETGROUP_manipulator2d_refresh;
+	wgt->draw_prepare = WIDGETGROUP_manipulator2d_draw_prepare;
+}
+
 static void image_widgets(void)
 {
 	const struct wmWidgetMapType_Params wmap_params = {
@@ -589,17 +599,9 @@ static void image_widgets(void)
 		.spaceid = SPACE_IMAGE, .regionid = RGN_TYPE_WINDOW,
 		.flag = 0,
 	};
-
 	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
 
-	WM_widgetgrouptype_register_ptr(
-	        NULL, wmaptype,
-	        WIDGETGROUP_manipulator2d_poll,
-	        WIDGETGROUP_manipulator2d_init,
-	        WIDGETGROUP_manipulator2d_refresh,
-	        WIDGETGROUP_manipulator2d_draw_prepare,
-	        WM_widgetgroup_keymap_common,
-	        "UV Transform Manipulator");
+	WM_widgetgrouptype_append(wmaptype, IMAGE_WGT_manipulator2d);
 }
 
 /************************** main region ***************************/

@@ -1180,7 +1180,7 @@ static int manipulator_handler(bContext *C, const wmEvent *UNUSED(event), wmWidg
 	return OPERATOR_PASS_THROUGH;
 }
 
-void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
+static void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
 {
 	ManipulatorGroup *man = manipulatorgroup_init(wgroup);
 	wgroup->customdata = man;
@@ -1264,7 +1264,7 @@ void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmWidgetGroup *wgro
 	MAN_ITER_AXES_END;
 }
 
-void WIDGETGROUP_manipulator_refresh(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmWidgetGroup *wgroup)
 {
 	ManipulatorGroup *man = wgroup->customdata;
 	ScrArea *sa = CTX_wm_area(C);
@@ -1326,7 +1326,7 @@ void WIDGETGROUP_manipulator_refresh(const bContext *C, wmWidgetGroup *wgroup)
 	MAN_ITER_AXES_END;
 }
 
-void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmWidgetGroup *wgroup)
 {
 	ManipulatorGroup *man = wgroup->customdata;
 	ScrArea *sa = CTX_wm_area(C);
@@ -1377,7 +1377,7 @@ void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmWidgetGroup *wgro
 	MAN_ITER_AXES_END;
 }
 
-int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *UNUSED(wgrouptype))
+static int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *UNUSED(wgrouptype))
 {
 	/* it's a given we only use this in 3D view */
 	const ScrArea *sa = CTX_wm_area(C);
@@ -1387,11 +1387,21 @@ int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupT
 	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0));
 }
 
+void TRANSFORM_WGT_manipulator(wmWidgetGroupType *wgt)
+{
+	wgt->name = "Transform Manipulator";
+
+	wgt->poll = WIDGETGROUP_manipulator_poll;
+	wgt->init = WIDGETGROUP_manipulator_init;
+	wgt->refresh = WIDGETGROUP_manipulator_refresh;
+	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
+}
+
 
 /* -------------------------------------------------------------------- */
 /* Custom Object Manipulator (unfinished - unsure if this will stay) */
 
-void WIDGETGROUP_object_manipulator_init(const struct bContext *C, struct wmWidgetGroup *wgroup)
+static void WIDGETGROUP_object_manipulator_init(const bContext *C, wmWidgetGroup *wgroup)
 {
 	Object *ob = ED_object_active_context((bContext *)C);
 
@@ -1402,8 +1412,7 @@ void WIDGETGROUP_object_manipulator_init(const struct bContext *C, struct wmWidg
 	WIDGETGROUP_manipulator_init(C, wgroup);
 }
 
-
-int WIDGETGROUP_object_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *wgrouptype)
+static int WIDGETGROUP_object_manipulator_poll(const bContext *C, wmWidgetGroupType *wgrouptype)
 {
 	Object *ob = ED_object_active_context((bContext *)C);
 
@@ -1413,5 +1422,16 @@ int WIDGETGROUP_object_manipulator_poll(const struct bContext *C, struct wmWidge
 		}
 	}
 	return false;
+}
+
+/* XXX should this really be in transform_manipulator.c? */
+void TRANSFORM_WGT_object(wmWidgetGroupType *wgt)
+{
+	wgt->name = "Object Widgets";
+
+	wgt->poll = WIDGETGROUP_object_manipulator_poll;
+	wgt->init = WIDGETGROUP_object_manipulator_init;
+	wgt->refresh = WIDGETGROUP_manipulator_refresh;
+	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
 }
 
