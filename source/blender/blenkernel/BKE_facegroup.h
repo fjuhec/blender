@@ -18,7 +18,7 @@
  * The Original Code is Copyright (C) 2014 Blender Foundation.
  * All rights reserved.
  *
- * Contributor(s): none yet.
+ * Contributor(s): Blender Foundation
  *
  * ***** END GPL LICENSE BLOCK *****
  */
