@@ -12,6 +12,7 @@
 
 #include "openhmd.h"
 #include "omath.h"
+#include "platform.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -71,6 +72,11 @@ typedef struct {
 		mat4x4f proj_right; // adjusted projection matrix for right screen
 } ohmd_device_properties;
 
+struct ohmd_device_settings
+{
+	bool automatic_update;
+};
+
 struct ohmd_device {
 	ohmd_device_properties properties;
 
@@ -78,16 +84,23 @@ struct ohmd_device {
 	vec3f position_correction;
 
 	int (*getf)(ohmd_device* device, ohmd_float_value type, float* out);
-	int (*setf)(ohmd_device* device, ohmd_float_value type, float* in);
-	int (*seti)(ohmd_device* device, ohmd_int_value type, int* in);
-	int (*set_data)(ohmd_device* device, ohmd_data_value type, void* in);
+	int (*setf)(ohmd_device* device, ohmd_float_value type, const float* in);
+	int (*seti)(ohmd_device* device, ohmd_int_value type, const int* in);
+	int (*set_data)(ohmd_device* device, ohmd_data_value type, const void* in);
 
 	void (*update)(ohmd_device* device);
 	void (*close)(ohmd_device* device);
 
 	ohmd_context* ctx;
+
+	ohmd_device_settings settings;
+
 	int active_device_idx; // index into ohmd_device->active_devices[]
+
+	quatf rotation;
+	vec3f position;
 };
+
 
 struct ohmd_context {
 	ohmd_driver* drivers[16];
@@ -97,6 +110,11 @@ struct ohmd_context {
 
 	ohmd_device* active_devices[256];
 	int num_active_devices;
+
+	ohmd_thread* update_thread;
+	ohmd_mutex* update_mutex;
+
+	bool update_request_quit;
 
 	char error_msg[OHMD_STR_SIZE];
 };
@@ -112,7 +130,6 @@ ohmd_driver* ohmd_create_external_drv(ohmd_context* ctx);
 ohmd_driver* ohmd_create_android_drv(ohmd_context* ctx);
 
 #include "log.h"
-#include "platform.h"
 #include "omath.h"
 #include "fusion.h"
 
