@@ -48,7 +48,7 @@ using namespace OSL;
 
 class DisneyClearcoatClosure : public CBSDFClosure {
 public:
-    DisneyClearcoatBRDFParams dp;
+    //DisneyClearcoatBRDFParams dp;
 
 	DisneyClearcoatClosure() : CBSDFClosure(LABEL_REFLECT|LABEL_GLOSSY)
 	{}
@@ -58,7 +58,7 @@ public:
 		sc.prim = this;
 		m_shaderdata_flag = bsdf_disney_clearcoat_setup(&sc);
 
-        dp.precompute_values();
+        //dp.precompute_values();
 	}
 
 	void blur(float roughness)
@@ -67,7 +67,7 @@ public:
 
 	float3 eval_reflect(const float3 &omega_out, const float3 &omega_in, float& pdf) const
 	{
-		return bsdf_disney_clearcoat_eval_reflect(&sc, &dp, omega_out, omega_in, &pdf);
+		return bsdf_disney_clearcoat_eval_reflect(&sc, /*&dp, */omega_out, omega_in, &pdf);
 	}
 
 	float3 eval_transmit(const float3 &omega_out, const float3 &omega_in, float& pdf) const
@@ -81,7 +81,7 @@ public:
 	           float3 &omega_in, float3 &domega_in_dx, float3 &domega_in_dy,
 	           float &pdf, float3 &eval) const
 	{
-		return bsdf_disney_clearcoat_sample(&sc, &dp, Ng, omega_out, domega_out_dx, domega_out_dy,
+		return bsdf_disney_clearcoat_sample(&sc, /*&dp, */Ng, omega_out, domega_out_dx, domega_out_dy,
 			randu, randv, &eval, &omega_in, &domega_in_dx, &domega_in_dy, &pdf);
 	}
 };
@@ -90,8 +90,8 @@ ClosureParam *closure_bsdf_disney_clearcoat_params()
 {
 	static ClosureParam params[] = {
 		CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, sc.N),
-        CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, dp.m_clearcoat),
-		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, dp.m_clearcoatGloss),
+        CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data0), /*clearcoat*/
+		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data1), /*clearcoat gloss*/
 		CLOSURE_STRING_KEYPARAM(DisneyClearcoatClosure, label, "label"),
 		CLOSURE_FINISH_PARAM(DisneyClearcoatClosure)
 	};

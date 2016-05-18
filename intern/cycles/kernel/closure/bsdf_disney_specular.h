@@ -35,7 +35,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-struct DisneySpecularBRDFParams {
+/*struct DisneySpecularBRDFParams {
     // brdf parameters
     float3 m_base_color;
     float m_metallic;
@@ -45,16 +45,15 @@ struct DisneySpecularBRDFParams {
     float m_anisotropic;
 
     // precomputed values
-    float3 m_cdlin, m_ctint, m_cspec0;
-    float m_cdlum;
+    float3 m_cspec0;
     float m_ax, m_ay;
     float m_roughg;
 
     void precompute_values() {
-        m_cdlin = m_base_color;
-        m_cdlum = 0.3f * m_cdlin[0] + 0.6f * m_cdlin[1] + 0.1f * m_cdlin[2]; // luminance approx.
+        float3 m_cdlin = m_base_color;
+        float m_cdlum = 0.3f * m_cdlin[0] + 0.6f * m_cdlin[1] + 0.1f * m_cdlin[2]; // luminance approx.
 
-        m_ctint = m_cdlum > 0.0f ? m_cdlin / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
+        float3 m_ctint = m_cdlum > 0.0f ? m_cdlin / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 
 		m_cspec0 = mix(m_specular * 0.08f * mix(make_float3(1.0f, 1.0f, 1.0f),
 			m_ctint, m_specular_tint), m_cdlin, m_metallic);
@@ -68,21 +67,40 @@ struct DisneySpecularBRDFParams {
     }
 };
 
-typedef struct DisneySpecularBRDFParams DisneySpecularBRDFParams;
+typedef struct DisneySpecularBRDFParams DisneySpecularBRDFParams;*/
 
 
 ccl_device int bsdf_disney_specular_setup(ShaderClosure *sc)
 {
+	float m_cdlum = 0.3f * sc->color0[0] + 0.6f * sc->color0[1] + 0.1f * sc->color0[2]; // luminance approx.
+
+	float3 m_ctint = m_cdlum > 0.0f ? sc->color0 / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
+
+	sc->custom_color0 = mix(sc->data1 * 0.08f * mix(make_float3(1.0f, 1.0f, 1.0f),
+		m_ctint, sc->data2), sc->color0, sc->data0);
+
+	float aspect = sqrt(1.0f - sc->data4 * 0.9f);
+	float r2 = sqr(sc->data3);
+	
+	/* ax */
+	sc->custom1 = fmaxf(0.001f, r2 / aspect);
+
+	/* ay */
+	sc->custom2 = fmaxf(0.001f, r2 * aspect);
+
+	/* rough_g */
+	sc->custom3 = sqr(sc->data3 * 0.5f + 0.5f);
+
     sc->type = CLOSURE_BSDF_DISNEY_SPECULAR_ID;
     return SD_BSDF|SD_BSDF_HAS_EVAL;
 }
 
 ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc,
-    const DisneySpecularBRDFParams *params, const float3 I,
+    /*const DisneySpecularBRDFParams *params, */const float3 I,
     const float3 omega_in, float *pdf)
 {
-    float alpha_x = params->m_ax;
-	float alpha_y = params->m_ay;
+	float alpha_x = sc->custom1;
+	float alpha_y = sc->custom2;
 	float3 N = sc->N;
 
 	if (fmaxf(alpha_x, alpha_y) <= 1e-4f)
@@ -154,7 +172,7 @@ ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc,
 		float common = D * 0.25f / cosNO;
 
         float FH = schlick_fresnel(dot(omega_in, m));
-		float3 F = mix(params->m_cspec0, make_float3(1.0f, 1.0f, 1.0f), FH);
+		float3 F = mix(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 
 		float3 out = F * G * common;
 
@@ -177,13 +195,13 @@ ccl_device float3 bsdf_disney_specular_eval_transmit(const ShaderClosure *sc, co
     return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc, const DisneySpecularBRDFParams *params,
+ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc, /*const DisneySpecularBRDFParams *params,*/
     float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv,
     float3 *eval, float3 *omega_in, float3 *domega_in_dx,
     float3 *domega_in_dy, float *pdf)
 {
-    float alpha_x = params->m_ax;
-	float alpha_y = params->m_ay;
+	float alpha_x = sc->custom1;
+	float alpha_y = sc->custom2;
 	float3 N = sc->N;
 
 	float cosNO = dot(N, I);
@@ -269,7 +287,7 @@ ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc, const Disney
                     *pdf = common;
 
 					float FH = schlick_fresnel(dot(*omega_in, m));
-					float3 F = mix(params->m_cspec0, make_float3(1.0f, 1.0f, 1.0f), FH);
+					float3 F = mix(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 
                     *eval = G1i * common * F;
                 }
