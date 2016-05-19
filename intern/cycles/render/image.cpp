@@ -872,8 +872,6 @@ void ImageManager::device_free_image(Device *device, DeviceScene *dscene, ImageD
 {
 	Image *img = images[type][slot];
 
-	int flat_slot = type_index_to_flattened_slot(slot, type);
-
 	if(img) {
 		if(osl_texture_system && !img->builtin_data) {
 #ifdef WITH_OSL

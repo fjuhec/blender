@@ -101,7 +101,7 @@ public:
 
 	/* Bindless Textures */
 	device_vector<uint> bindless_mapping;
-	bool sync_bindless_mapping;
+	bool need_bindless_mapping;
 
 	CUdeviceptr cuda_device_ptr(device_ptr mem)
 	{
@@ -185,7 +185,7 @@ public:
 		cuDevice = 0;
 		cuContext = 0;
 
-		sync_bindless_mapping = false;
+		need_bindless_mapping = false;
 
 		/* intialize */
 		if(cuda_error(cuInit(0)))
@@ -223,8 +223,9 @@ public:
 	{
 		task_pool.stop();
 
-		if(info.has_bindless_textures)
+		if(info.has_bindless_textures) {
 			tex_free(bindless_mapping);
+		}
 
 		cuda_assert(cuCtxDestroy(cuContext));
 	}
@@ -405,10 +406,10 @@ public:
 
 	void load_bindless_mapping()
 	{
-		if(info.has_bindless_textures && sync_bindless_mapping) {
+		if(info.has_bindless_textures && need_bindless_mapping) {
 			tex_free(bindless_mapping);
 			tex_alloc("__bindless_mapping", bindless_mapping, INTERPOLATION_NONE, EXTENSION_REPEAT);
-			sync_bindless_mapping = false;
+			need_bindless_mapping = false;
 		}
 	}
 
@@ -694,12 +695,20 @@ public:
 
 				CUtexObject tex = 0;
 				cuda_assert(cuTexObjectCreate(&tex, &resDesc, &texDesc, NULL));
+
+				/* Safety check */
+				if((uint)tex > UINT_MAX) {
+					assert(0);
+				}
+
+				/* Resize once */
 				if(flat_slot >= bindless_mapping.size())
 					bindless_mapping.resize(4096); /*TODO(dingto): Make this a variable */
-				bindless_mapping.get_data()[flat_slot] = (uint)tex;
 
-				sync_bindless_mapping = true;
+				/* Set Mapping and tag that we need to (re-)upload to device */
+				bindless_mapping.get_data()[flat_slot] = (uint)tex;
 				tex_bindless_map[mem.device_pointer] = (uint)tex;
+				need_bindless_mapping = true;
 			}
 			/* Regular Textures - Fermi */
 			else {
@@ -761,9 +770,6 @@ public:
 	{
 		if(have_error())
 			return;
-
-		/* Upload bindless_mapping vector */
-		load_bindless_mapping();
 
 		cuda_push_context();
 
@@ -878,9 +884,6 @@ public:
 	{
 		if(have_error())
 			return;
-
-		/* Upload bindless_mapping vector */
-		load_bindless_mapping();
 
 		cuda_push_context();
 
@@ -1191,6 +1194,9 @@ public:
 			RenderTile tile;
 			
 			bool branched = task->integrator_branched;
+
+			/* Upload Bindless Mapping */
+			load_bindless_mapping();
 			
 			/* keep rendering tiles until done */
 			while(task->acquire_tile(this, tile)) {
@@ -1214,6 +1220,9 @@ public:
 			}
 		}
 		else if(task->type == DeviceTask::SHADER) {
+			/* Upload Bindless Mapping */
+			load_bindless_mapping();
+
 			shader(*task);
 
 			cuda_push_context();
