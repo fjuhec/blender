@@ -407,7 +407,7 @@ public:
 	{
 		if(info.has_bindless_textures && sync_bindless_mapping) {
 			tex_free(bindless_mapping);
-			tex_alloc("__bindless_mapping", bindless_mapping, INTERPOLATION_NONE, EXTENSION_REPEAT, 0);
+			tex_alloc("__bindless_mapping", bindless_mapping, INTERPOLATION_NONE, EXTENSION_REPEAT);
 			sync_bindless_mapping = false;
 		}
 	}
@@ -487,8 +487,7 @@ public:
 	void tex_alloc(const char *name,
 	               device_memory& mem,
 	               InterpolationType interpolation,
-	               ExtensionType extension,
-	               int flat_slot)
+	               ExtensionType extension)
 	{
 		VLOG(1) << "Texture allocate: " << name << ", " << mem.memory_size() << " bytes.";
 
@@ -670,6 +669,15 @@ public:
 
 			/* Bindless Textures - Kepler */
 			if(has_bindless_textures) {
+				int flat_slot = 0;
+				if(string_startswith(name, "__tex_image")) {
+					int pos =  string(name).rfind("_");
+					flat_slot = atoi(name + pos + 1);
+				}
+				else {
+					assert(0);
+				}
+
 				CUDA_RESOURCE_DESC resDesc;
 				memset(&resDesc, 0, sizeof(resDesc));
 				resDesc.resType = CU_RESOURCE_TYPE_ARRAY;

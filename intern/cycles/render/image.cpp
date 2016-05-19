@@ -789,8 +789,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_alloc(name.c_str(),
 			                  tex_img,
 			                  img->interpolation,
-			                  img->extension,
-			                  flat_slot);
+			                  img->extension);
 		}
 	}
 	else if(type == IMAGE_DATA_TYPE_FLOAT) {
@@ -813,8 +812,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_alloc(name.c_str(),
 			                  tex_img,
 			                  img->interpolation,
-			                  img->extension,
-			                  flat_slot);
+			                  img->extension);
 		}
 	}
 	else if(type == IMAGE_DATA_TYPE_BYTE4) {
@@ -840,8 +838,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_alloc(name.c_str(),
 			                  tex_img,
 			                  img->interpolation,
-			                  img->extension,
-			                  flat_slot);
+			                  img->extension);
 		}
 	}
 	else {
@@ -864,8 +861,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_alloc(name.c_str(),
 			                  tex_img,
 			                  img->interpolation,
-			                  img->extension,
-			                  flat_slot);
+			                  img->extension);
 		}
 	}
 
