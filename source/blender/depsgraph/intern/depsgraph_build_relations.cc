@@ -244,6 +244,13 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 	 * created or not.
 	 */
 	BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+	/* XXX nested node trees are not included in tag-clearing above,
+	 * so we need to do this manually.
+	 */
+	FOREACH_NODETREE(bmain, nodetree, id) {
+		if (id != (ID *)nodetree)
+			nodetree->id.tag &= ~LIB_TAG_DOIT;
+	} FOREACH_NODETREE_END
 
 	if (scene->set) {
 		// TODO: link set to scene, especially our timesource...
@@ -1366,6 +1373,8 @@ void DepsgraphRelationBuilder::build_splineik_pose(Object *ob,
 void DepsgraphRelationBuilder::build_rig(Scene *scene, Object *ob)
 {
 	/* Armature-Data */
+	bArmature *arm = (bArmature *)ob->data;
+
 	// TODO: selection status?
 
 	/* attach links between pose operations */
@@ -1373,6 +1382,13 @@ void DepsgraphRelationBuilder::build_rig(Scene *scene, Object *ob)
 	OperationKey flush_key(&ob->id, DEPSNODE_TYPE_EVAL_POSE, DEG_OPCODE_POSE_DONE);
 
 	add_relation(init_key, flush_key, DEPSREL_TYPE_COMPONENT_ORDER, "[Pose Init -> Pose Cleanup]");
+
+	/* Make sure pose is up-to-date with armature updates. */
+	OperationKey armature_key(&arm->id,
+	                          DEPSNODE_TYPE_PARAMETERS,
+	                          DEG_OPCODE_PLACEHOLDER,
+	                          "Armature Eval");
+	add_relation(armature_key, init_key, DEPSREL_TYPE_COMPONENT_ORDER, "Data dependency");
 
 	if (ob->adt && (ob->adt->action || ob->adt->nla_tracks.first)) {
 		ComponentKey animation_key(&ob->id, DEPSNODE_TYPE_ANIMATION);
@@ -1674,7 +1690,9 @@ void DepsgraphRelationBuilder::build_obdata_geom(Main *bmain, Scene *scene, Obje
 			if (mom != ob) {
 				/* non-motherball -> cannot be directly evaluated! */
 				ComponentKey mom_key(&mom->id, DEPSNODE_TYPE_GEOMETRY);
+				ComponentKey transform_key(&ob->id, DEPSNODE_TYPE_TRANSFORM);
 				add_relation(geom_key, mom_key, DEPSREL_TYPE_GEOMETRY_EVAL, "Metaball Motherball");
+				add_relation(transform_key, mom_key, DEPSREL_TYPE_GEOMETRY_EVAL, "Metaball Motherball");
 			}
 			break;
 		}

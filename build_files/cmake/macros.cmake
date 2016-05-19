@@ -141,22 +141,6 @@ function(target_link_libraries_debug
 	endforeach()
 endfunction()
 
-function(target_link_libraries_decoupled
-	target
-	libraries_var
-	)
-
-	if(NOT MSVC)
-		target_link_libraries(${target} ${${libraries_var}})
-	else()
-		# For MSVC we link to different libraries depending whether
-		# release or debug target is being built.
-		file_list_suffix(_libraries_debug "${${libraries_var}}" "_d")
-		target_link_libraries_debug(${target} "${_libraries_debug}")
-		target_link_libraries_optimized(${target} "${${libraries_var}}")
-	endif()
-endfunction()
-
 # Nicer makefiles with -I/1/foo/ instead of -I/1/2/3/../../foo/
 # use it instead of include_directories()
 function(blender_include_dirs
@@ -256,6 +240,9 @@ endfunction()
 
 function(SETUP_LIBDIRS)
 
+	# NOTE: For all new libraries, use absolute library paths.
+	# This should eventually be phased out.
+
 	link_directories(${JPEG_LIBPATH} ${PNG_LIBPATH} ${ZLIB_LIBPATH} ${FREETYPE_LIBPATH})
 
 	if(WITH_PYTHON)  #  AND NOT WITH_PYTHON_MODULE  # WIN32 needs
@@ -285,12 +272,6 @@ function(SETUP_LIBDIRS)
 	if(WITH_OPENVDB)
 		link_directories(${OPENVDB_LIBPATH})
 	endif()
-	if(WITH_IMAGE_OPENJPEG AND WITH_SYSTEM_OPENJPEG)
-		link_directories(${OPENJPEG_LIBPATH})
-	endif()
-	if(WITH_CODEC_QUICKTIME)
-		link_directories(${QUICKTIME_LIBPATH})
-	endif()
 	if(WITH_OPENAL)
 		link_directories(${OPENAL_LIBPATH})
 	endif()
@@ -305,14 +286,12 @@ function(SETUP_LIBDIRS)
 	endif()
 	if(WITH_OPENCOLLADA)
 		link_directories(${OPENCOLLADA_LIBPATH})
-		link_directories(${PCRE_LIBPATH})
-		link_directories(${EXPAT_LIBPATH})
+		## Never set
+		# link_directories(${PCRE_LIBPATH})
+		# link_directories(${EXPAT_LIBPATH})
 	endif()
 	if(WITH_LLVM)
 		link_directories(${LLVM_LIBPATH})
-	endif()
-	if(WITH_MEM_JEMALLOC)
-		link_directories(${JEMALLOC_LIBPATH})
 	endif()
 
 	if(WIN32 AND NOT UNIX)
@@ -417,14 +396,7 @@ function(setup_liblinks
 	endif()
 	target_link_libraries(${target} ${JPEG_LIBRARIES})
 	if(WITH_IMAGE_OPENEXR)
-		if(WIN32 AND NOT UNIX AND NOT CMAKE_COMPILER_IS_GNUCC)
-			file_list_suffix(OPENEXR_LIBRARIES_DEBUG "${OPENEXR_LIBRARIES}" "_d")
-			target_link_libraries_debug(${target} "${OPENEXR_LIBRARIES_DEBUG}")
-			target_link_libraries_optimized(${target} "${OPENEXR_LIBRARIES}")
-			unset(OPENEXR_LIBRARIES_DEBUG)
-		else()
-			target_link_libraries(${target} ${OPENEXR_LIBRARIES})
-		endif()
+		target_link_libraries(${target} ${OPENEXR_LIBRARIES})
 	endif()
 	if(WITH_IMAGE_OPENJPEG AND WITH_SYSTEM_OPENJPEG)
 		target_link_libraries(${target} ${OPENJPEG_LIBRARIES})
@@ -606,6 +578,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		ge_phys_bullet
 		bf_intern_smoke
 		extern_lzma
+		extern_curve_fit_nd
 		ge_logic_ketsji
 		extern_recastnavigation
 		ge_logic
@@ -995,6 +968,7 @@ macro(remove_strict_flags)
 		remove_cc_flag(
 			"-Wstrict-prototypes"
 			"-Wmissing-prototypes"
+			"-Wmissing-declarations"
 			"-Wmissing-format-attribute"
 			"-Wunused-local-typedefs"
 			"-Wunused-macros"
@@ -1076,6 +1050,19 @@ macro(remove_strict_flags_file
 
 endmacro()
 
+# External libs may need 'signed char' to be default.
+macro(remove_cc_flag_unsigned_char)
+	if(CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|Intel)$")
+		remove_cc_flag("-funsigned-char")
+	elseif(MSVC)
+		remove_cc_flag("/J")
+	else()
+		message(WARNING
+			"Compiler '${CMAKE_C_COMPILER_ID}' failed to disable 'unsigned char' flag."
+			"Build files need updating."
+		)
+	endif()
+endmacro()
 
 function(ADD_CHECK_C_COMPILER_FLAG
 	_CFLAGS
@@ -1122,10 +1109,10 @@ function(get_blender_version)
 	# - BLENDER_VERSION_CYCLE (alpha, beta, rc, release)
 
 	# So cmake depends on BKE_blender.h, beware of inf-loops!
-	CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/source/blender/blenkernel/BKE_blender.h
-	               ${CMAKE_BINARY_DIR}/source/blender/blenkernel/BKE_blender.h.done)
+	CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/source/blender/blenkernel/BKE_blender_version.h
+	               ${CMAKE_BINARY_DIR}/source/blender/blenkernel/BKE_blender_version.h.done)
 
-	file(STRINGS ${CMAKE_SOURCE_DIR}/source/blender/blenkernel/BKE_blender.h _contents REGEX "^#define[ \t]+BLENDER_.*$")
+	file(STRINGS ${CMAKE_SOURCE_DIR}/source/blender/blenkernel/BKE_blender_version.h _contents REGEX "^#define[ \t]+BLENDER_.*$")
 
 	string(REGEX REPLACE ".*#define[ \t]+BLENDER_VERSION[ \t]+([0-9]+).*" "\\1" _out_version "${_contents}")
 	string(REGEX REPLACE ".*#define[ \t]+BLENDER_SUBVERSION[ \t]+([0-9]+).*" "\\1" _out_subversion "${_contents}")

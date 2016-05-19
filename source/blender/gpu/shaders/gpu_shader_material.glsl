@@ -135,6 +135,13 @@ void linearrgb_to_srgb(vec4 col_from, out vec4 col_to)
 	col_to.a = col_from.a;
 }
 
+void color_to_normal(vec3 color, out vec3 normal)
+{
+	normal.x =  2.0 * ((color.r) - 0.5);
+	normal.y = -2.0 * ((color.g) - 0.5);
+	normal.z =  2.0 * ((color.b) - 0.5);
+}
+
 #define M_PI 3.14159265358979323846
 #define M_1_PI 0.31830988618379069
 
@@ -368,6 +375,10 @@ void vec_math_average(vec3 v1, vec3 v2, out vec3 outvec, out float outval)
 	outvec = v1 + v2;
 	outval = length(outvec);
 	outvec = normalize(outvec);
+}
+void vec_math_mix(float strength, vec3 v1, vec3 v2, out vec3 outvec)
+{
+	outvec = strength*v1 + (1 - strength) * v2;
 }
 
 void vec_math_dot(vec3 v1, vec3 v2, out vec3 outvec, out float outval)
@@ -921,6 +932,11 @@ void shade_norm(vec3 normal, out vec3 outnormal)
 {
 	/* blender render normal is negated */
 	outnormal = -normalize(normal);
+}
+
+void mtex_mirror(vec3 tcol, vec4 refcol, float tin, float colmirfac, out vec4 outrefcol)
+{
+    outrefcol = mix(refcol, vec4(1.0, tcol), tin*colmirfac);
 }
 
 void mtex_rgb_blend(vec3 outcol, vec3 texcol, float fact, float facg, out vec3 incol)
@@ -1627,6 +1643,17 @@ void lamp_falloff_sliders(float lampdist, float ld1, float ld2, float dist, out 
 	visifac *= lampdistkw/(lampdistkw + ld2*dist*dist);
 }
 
+void lamp_falloff_invcoefficients(float coeff_const, float coeff_lin, float coeff_quad, float dist, out float visifac)
+{
+	vec3 coeff = vec3(coeff_const, coeff_lin, coeff_quad);
+	vec3 d_coeff = vec3(1.0, dist, dist*dist);
+	float visifac_r = dot(coeff, d_coeff);
+	if (visifac_r > 0.0)
+		visifac = 1.0 / visifac_r;
+	else
+		visifac = 0.0;
+}
+
 void lamp_falloff_curve(float lampdist, sampler2D curvemap, float dist, out float visifac)
 {
 	visifac = texture2D(curvemap, vec2(dist/lampdist, 0.0)).x;
@@ -2047,6 +2074,11 @@ void shade_add_spec(float t, vec3 lampcol, vec3 speccol, out vec3 outcol)
 	outcol = t*lampcol*speccol;
 }
 
+void shade_add_mirror(vec3 mir, vec4 refcol, vec3 combined, out vec3 result)
+{
+    result = mir*refcol.gba + (vec3(1.0) - mir*refcol.rrr)*combined;
+}
+
 void alpha_spec_correction(vec3 spec, float spectra, float alpha, out float outalpha)
 {
 	if (spectra > 0.0) {
@@ -2361,7 +2393,7 @@ void node_subsurface_scattering(vec4 color, float scale, vec3 radius, float shar
 	node_bsdf_diffuse(color, 0.0, N, result);
 }
 
-void node_bsdf_hair(vec4 color, float offset, float roughnessu, float roughnessv, out vec4 result)
+void node_bsdf_hair(vec4 color, float offset, float roughnessu, float roughnessv, vec3 tangent, out vec4 result)
 {
 	result = color;
 }
@@ -2413,29 +2445,27 @@ void node_add_shader(vec4 shader1, vec4 shader2, out vec4 shader)
 
 /* fresnel */
 
-void node_fresnel(float ior, vec3 N, vec3 I, mat4 toworld, out float result)
+void node_fresnel(float ior, vec3 N, vec3 I, out float result)
 {
 	/* handle perspective/orthographic */
 	vec3 I_view = (gl_ProjectionMatrix[3][3] == 0.0)? normalize(I): vec3(0.0, 0.0, -1.0);
-	vec3 normal = (toworld*vec4(N, 0.0)).xyz;
 
 	float eta = max(ior, 0.00001);
-	result = fresnel_dielectric(I_view, normal, (gl_FrontFacing)? eta: 1.0/eta);
+	result = fresnel_dielectric(I_view, N, (gl_FrontFacing)? eta: 1.0/eta);
 }
 
 /* layer_weight */
 
-void node_layer_weight(float blend, vec3 N, vec3 I, mat4 toworld, out float fresnel, out float facing)
+void node_layer_weight(float blend, vec3 N, vec3 I, out float fresnel, out float facing)
 {
 	/* fresnel */
 	float eta = max(1.0 - blend, 0.00001);
 	vec3 I_view = (gl_ProjectionMatrix[3][3] == 0.0)? normalize(I): vec3(0.0, 0.0, -1.0);
-	vec3 normal = (toworld*vec4(N, 0.0)).xyz;
 
-	fresnel = fresnel_dielectric(I_view, normal, (gl_FrontFacing)? 1.0/eta : eta );
+	fresnel = fresnel_dielectric(I_view, N, (gl_FrontFacing)? 1.0/eta : eta );
 
 	/* facing */
-	facing = abs(dot(I_view, normal));
+	facing = abs(dot(I_view, N));
 	if(blend != 0.5) {
 		blend = clamp(blend, 0.0, 0.99999);
 		blend = (blend < 0.5)? 2.0*blend: 0.5/(1.0 - blend);
@@ -2682,9 +2712,12 @@ void node_object_info(out vec3 location, out float object_index, out float mater
 	random = 0.0;
 }
 
-void node_normal_map(float strength, vec4 color, vec3 N, out vec3 result)
+void node_normal_map(vec4 tangent, vec3 normal, vec3 texnormal, out vec3 outnormal)
 {
-	result = N;
+	vec3 B = tangent.w * cross(normal, tangent.xyz);
+
+	outnormal = texnormal.x * tangent.xyz + texnormal.y * B + texnormal.z * normal;
+	outnormal = normalize(outnormal);
 }
 
 void node_bump(float strength, float dist, float height, vec3 N, out vec3 result)

@@ -16,6 +16,7 @@
 
 #include "device.h"
 #include "integrator.h"
+#include "film.h"
 #include "light.h"
 #include "scene.h"
 #include "shader.h"
@@ -125,7 +126,7 @@ void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene
 	kintegrator->layer_flag = layer_flag << PATH_RAY_LAYER_SHIFT;
 
 	kintegrator->use_ambient_occlusion =
-		((dscene->data.film.pass_flag & PASS_AO) || dscene->data.background.ao_factor != 0.0f);
+		((Pass::contains(scene->film->passes, PASS_AO)) || dscene->data.background.ao_factor != 0.0f);
 	
 	kintegrator->sample_clamp_direct = (sample_clamp_direct == 0.0f)? FLT_MAX: sample_clamp_direct*3.0f;
 	kintegrator->sample_clamp_indirect = (sample_clamp_indirect == 0.0f)? FLT_MAX: sample_clamp_indirect*3.0f;
@@ -173,6 +174,14 @@ void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene
 	sobol_generate_direction_vectors((uint(*)[SOBOL_BITS])directions, dimensions);
 
 	device->tex_alloc("__sobol_directions", dscene->sobol_directions);
+
+	/* Clamping. */
+	bool use_sample_clamp = (sample_clamp_direct != 0.0f ||
+	                         sample_clamp_indirect != 0.0f);
+	if(use_sample_clamp != scene->film->use_sample_clamp) {
+		scene->film->use_sample_clamp = use_sample_clamp;
+		scene->film->tag_update(scene);
+	}
 
 	need_update = false;
 }

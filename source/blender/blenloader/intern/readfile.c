@@ -1497,8 +1497,7 @@ static void *newlibadr_us(FileData *fd, void *lib, void *adr)	/* increases user 
 {
 	ID *id = newlibadr(fd, lib, adr);
 	
-	if (id)
-		id->us++;
+	id_us_plus_no_lib(id);
 	
 	return id;
 }
@@ -3309,7 +3308,7 @@ static void lib_link_camera(FileData *fd, Main *main)
 			
 			ca->ipo = newlibadr_us(fd, ca->id.lib, ca->ipo); // XXX deprecated - old animation system
 			
-			ca->dof_ob = newlibadr_us(fd, ca->id.lib, ca->dof_ob);
+			ca->dof_ob = newlibadr(fd, ca->id.lib, ca->dof_ob);
 			
 			ca->id.tag &= ~LIB_TAG_NEED_LINK;
 		}
@@ -3838,6 +3837,7 @@ static void direct_link_texture(FileData *fd, Tex *tex)
 		if (tex->pd->falloff_curve) {
 			direct_link_curvemapping(fd, tex->pd->falloff_curve);
 		}
+		tex->pd->point_data = NULL; /* runtime data */
 	}
 	
 	tex->vd = newdataadr(fd, tex->vd);
@@ -4011,7 +4011,7 @@ static void lib_link_partdeflect(FileData *fd, ID *id, PartDeflect *pd)
 	if (pd && pd->tex)
 		pd->tex = newlibadr_us(fd, id->lib, pd->tex);
 	if (pd && pd->f_source)
-		pd->f_source = newlibadr_us(fd, id->lib, pd->f_source);
+		pd->f_source = newlibadr(fd, id->lib, pd->f_source);
 }
 
 static void lib_link_particlesettings(FileData *fd, Main *main)
@@ -4640,7 +4640,7 @@ static void lib_link_modifiers__linkModifiers(
 
 	*idpoin = newlibadr(fd, ob->id.lib, *idpoin);
 	if (*idpoin != NULL && (cd_flag & IDWALK_USER) != 0) {
-		(*idpoin)->us++;
+		id_us_plus_no_lib(*idpoin);
 	}
 }
 static void lib_link_modifiers(FileData *fd, Object *ob)
@@ -4925,6 +4925,9 @@ static void direct_link_pose(FileData *fd, bPose *pose)
 		pchan->parent = newdataadr(fd, pchan->parent);
 		pchan->child = newdataadr(fd, pchan->child);
 		pchan->custom_tx = newdataadr(fd, pchan->custom_tx);
+		
+		pchan->bbone_prev = newdataadr(fd, pchan->bbone_prev);
+		pchan->bbone_next = newdataadr(fd, pchan->bbone_next);
 		
 		direct_link_constraints(fd, &pchan->constraints);
 		
@@ -5577,7 +5580,7 @@ static void lib_link_scene(FileData *fd, Main *main)
 
 			if (sce->toolsettings->sculpt)
 				sce->toolsettings->sculpt->gravity_object =
-						newlibadr_us(fd, sce->id.lib, sce->toolsettings->sculpt->gravity_object);
+						newlibadr(fd, sce->id.lib, sce->toolsettings->sculpt->gravity_object);
 
 			if (sce->toolsettings->imapaint.stencil)
 				sce->toolsettings->imapaint.stencil =
@@ -5638,7 +5641,7 @@ static void lib_link_scene(FileData *fd, Main *main)
 						seq->sound = newlibadr(fd, sce->id.lib, seq->sound);
 					}
 					if (seq->sound) {
-						seq->sound->id.us++;
+						id_us_plus_no_lib((ID *)seq->sound);
 						seq->scene_sound = BKE_sound_add_scene_sound_defaults(sce, seq);
 					}
 				}
@@ -6159,6 +6162,11 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 			
 			for (gps = gpf->strokes.first; gps; gps = gps->next) {
 				gps->points = newdataadr(fd, gps->points);
+				
+				/* the triangulation is not saved, so need to be recalculated */
+				gps->flag |= GP_STROKE_RECALC_CACHES;
+				gps->triangles = NULL;
+				gps->tot_triangles = 0;
 			}
 		}
 	}
@@ -7447,9 +7455,13 @@ static void direct_link_mask(FileData *fd, Mask *mask)
 		MaskSpline *spline;
 		MaskLayerShape *masklay_shape;
 
+		/* can't use newdataadr since it's a pointer within an array */
+		MaskSplinePoint *act_point_search = NULL;
+
 		link_list(fd, &masklay->splines);
 
 		for (spline = masklay->splines.first; spline; spline = spline->next) {
+			MaskSplinePoint *points_old = spline->points;
 			int i;
 
 			spline->points = newdataadr(fd, spline->points);
@@ -7459,6 +7471,14 @@ static void direct_link_mask(FileData *fd, Mask *mask)
 
 				if (point->tot_uw)
 					point->uw = newdataadr(fd, point->uw);
+			}
+
+			/* detect active point */
+			if ((act_point_search == NULL) &&
+			    (masklay->act_point >= points_old) &&
+			    (masklay->act_point <  points_old + spline->tot_point))
+			{
+				act_point_search = &spline->points[masklay->act_point - points_old];
 			}
 		}
 
@@ -7477,7 +7497,7 @@ static void direct_link_mask(FileData *fd, Mask *mask)
 		}
 
 		masklay->act_spline = newdataadr(fd, masklay->act_spline);
-		masklay->act_point = newdataadr(fd, masklay->act_point);
+		masklay->act_point = act_point_search;
 	}
 }
 
@@ -8206,7 +8226,7 @@ static void do_versions(FileData *fd, Library *lib, Main *main)
 	/* WATCH IT!!!: pointers from libdata have not been converted yet here! */
 	/* WATCH IT 2!: Userdef struct init see do_versions_userdef() above! */
 
-	/* don't forget to set version number in BKE_blender.h! */
+	/* don't forget to set version number in BKE_blender_version.h! */
 }
 
 #if 0 // XXX: disabled for now... we still don't have this in the right place in the loading code for it to work
@@ -9580,7 +9600,7 @@ static void give_base_to_objects(Main *mainvar, Scene *scene, View3D *v3d, Libra
 				base->flag = ob->flag;
 
 				CLAMP_MIN(ob->id.us, 0);
-				ob->id.us += 1;
+				id_us_plus_no_lib((ID *)ob);
 
 				ob->id.tag &= ~LIB_TAG_INDIRECT;
 				ob->id.tag |= LIB_TAG_EXTERN;
@@ -9704,7 +9724,7 @@ static void link_object_postprocess(ID *id, Scene *scene, View3D *v3d, const sho
 		base->lay = ob->lay;
 		base->object = ob;
 		base->flag = ob->flag;
-		ob->id.us++;
+		id_us_plus_no_lib((ID *)ob);
 
 		if (flag & FILE_AUTOSELECT) {
 			base->flag |= SELECT;

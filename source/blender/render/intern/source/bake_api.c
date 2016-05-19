@@ -425,7 +425,7 @@ static TriTessFace *mesh_calc_tri_tessface(
 
 	if (tangent) {
 		DM_ensure_normals(dm);
-		DM_calc_loop_tangents(dm);
+		DM_calc_loop_tangents(dm, true, NULL, 0);
 
 		tspace = dm->getLoopDataArray(dm, CD_TANGENT);
 		BLI_assert(tspace);
@@ -566,7 +566,7 @@ bool RE_bake_pixels_populate_from_objects(
 		}
 		else {
 			calc_point_from_barycentric_extrusion(tris_low, mat_low, imat_low, primitive_id, u, v, cage_extrusion, co, dir, false);
-			tri_low = &tris_cage[primitive_id];
+			tri_low = &tris_low[primitive_id];
 		}
 
 		/* cast ray */

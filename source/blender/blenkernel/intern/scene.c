@@ -101,11 +101,6 @@
 
 #include "bmesh.h"
 
-#ifdef WIN32
-#else
-#  include <sys/time.h>
-#endif
-
 const char *RE_engine_id_BLENDER_RENDER = "BLENDER_RENDER";
 const char *RE_engine_id_BLENDER_GAME = "BLENDER_GAME";
 const char *RE_engine_id_CYCLES = "CYCLES";
@@ -616,6 +611,12 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->skgen_subdivisions[1] = SKGEN_SUB_LENGTH;
 	sce->toolsettings->skgen_subdivisions[2] = SKGEN_SUB_ANGLE;
 
+	sce->toolsettings->curve_paint_settings.curve_type = CU_BEZIER;
+	sce->toolsettings->curve_paint_settings.flag |= CURVE_PAINT_FLAG_CORNERS_DETECT;
+	sce->toolsettings->curve_paint_settings.error_threshold = 8;
+	sce->toolsettings->curve_paint_settings.radius_max = 1.0f;
+	sce->toolsettings->curve_paint_settings.corner_angle = DEG2RADF(70.0f);
+
 	sce->toolsettings->statvis.overhang_axis = OB_NEGZ;
 	sce->toolsettings->statvis.overhang_min = 0;
 	sce->toolsettings->statvis.overhang_max = DEG2RADF(45.0f);
@@ -650,12 +651,12 @@ void BKE_scene_init(Scene *sce)
 	pset->fade_frames = 2;
 	pset->selectmode = SCE_SELECT_PATH;
 	for (a = 0; a < PE_TOT_BRUSH; a++) {
-		pset->brush[a].strength = 0.5;
+		pset->brush[a].strength = 0.5f;
 		pset->brush[a].size = 50;
 		pset->brush[a].step = 10;
 		pset->brush[a].count = 10;
 	}
-	pset->brush[PE_BRUSH_CUT].strength = 100;
+	pset->brush[PE_BRUSH_CUT].strength = 1.0f;
 
 	sce->r.ffcodecdata.audio_mixrate = 48000;
 	sce->r.ffcodecdata.audio_volume = 1.0f;
@@ -889,7 +890,7 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 	/* no full animation update, this to enable render code to work (render code calls own animation updates) */
 }
 
-/* called from creator.c */
+/* called from creator_args.c */
 Scene *BKE_scene_set_name(Main *bmain, const char *name)
 {
 	Scene *sce = (Scene *)BKE_libblock_find_name_ex(bmain, ID_SCE, name);
@@ -1768,7 +1769,7 @@ static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
 		{
 			if (check_rendered_viewport_visible(bmain)) {
 				BMesh *bm = mesh->edit_btmesh->bm;
-				BM_mesh_bm_to_me(bm, mesh, false);
+				BM_mesh_bm_to_me(bm, mesh, (&(struct BMeshToMeshParams){0}));
 				DAG_id_tag_update(&mesh->id, 0);
 			}
 		}
@@ -2192,6 +2193,12 @@ bool BKE_scene_use_shading_nodes_custom(Scene *scene)
 	return (type && type->flag & RE_USE_SHADING_NODES_CUSTOM);
 }
 
+bool BKE_scene_use_spherical_stereo(Scene *scene)
+{
+	RenderEngineType *type = RE_engines_find(scene->r.engine);
+	return (type && type->flag & RE_USE_SPHERICAL_STEREO);
+}
+
 bool BKE_scene_uses_blender_internal(const  Scene *scene)
 {
 	return STREQ(scene->r.engine, RE_engine_id_BLENDER_RENDER);
@@ -2417,7 +2424,6 @@ SceneRenderView *BKE_scene_multiview_render_view_findindex(const RenderData *rd,
 	if ((rd->scemode & R_MULTIVIEW) == 0)
 		return NULL;
 
-	nr = 0;
 	for (srv = rd->views.first, nr = 0; srv; srv = srv->next) {
 		if (BKE_scene_multiview_is_render_view_active(rd, srv)) {
 			if (nr++ == view_id)
@@ -2448,7 +2454,6 @@ int BKE_scene_multiview_view_id_get(const RenderData *rd, const char *viewname)
 	if ((!viewname) || (!viewname[0]))
 		return 0;
 
-	nr = 0;
 	for (srv = rd->views.first, nr = 0; srv; srv = srv->next) {
 		if (BKE_scene_multiview_is_render_view_active(rd, srv)) {
 			if (STREQ(viewname, srv->name)) {

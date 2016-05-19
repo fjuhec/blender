@@ -969,6 +969,16 @@ static void recalcData_sequencer(TransInfo *t)
 	flushTransSeq(t);
 }
 
+/* force recalculation of triangles during transformation */
+static void recalcData_gpencil_strokes(TransInfo *t)
+ {
+	TransData *td = t->data;
+	for (int i = 0; i < t->total; i++, td++) {
+		bGPDstroke *gps = td->extra;
+		gps->flag |= GP_STROKE_RECALC_CACHES;
+	}
+}
+
 /* called for updating while transform acts, once per redraw */
 void recalcData(TransInfo *t)
 {
@@ -983,7 +993,8 @@ void recalcData(TransInfo *t)
 		flushTransPaintCurve(t);
 	}
 	else if (t->options & CTX_GPENCIL_STROKES) {
-		/* pass? */
+		/* set recalc triangle cache flag */
+		recalcData_gpencil_strokes(t);
 	}
 	else if (t->spacetype == SPACE_IMAGE) {
 		recalcData_image(t);
@@ -1421,8 +1432,8 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	}
 #endif
 
-	setTransformViewMatrices(t);
 	setTransformViewAspect(t, t->aspect);
+	setTransformViewMatrices(t);
 	initNumInput(&t->num);
 }
 
@@ -1502,6 +1513,8 @@ void postTrans(bContext *C, TransInfo *t)
 	if (t->mouse.data) {
 		MEM_freeN(t->mouse.data);
 	}
+
+	freeSnapping(t);
 }
 
 void applyTransObjects(TransInfo *t)
@@ -1582,6 +1595,8 @@ void restoreTransObjects(TransInfo *t)
 
 void calculateCenter2D(TransInfo *t)
 {
+	BLI_assert(!is_zero_v3(t->aspect));
+
 	if (t->flag & (T_EDIT | T_POSE)) {
 		Object *ob = t->obedit ? t->obedit : t->poseobj;
 		float vec[3];

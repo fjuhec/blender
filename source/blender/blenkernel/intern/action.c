@@ -493,6 +493,8 @@ bPoseChannel *BKE_pose_channel_verify(bPose *pose, const char *name)
 	unit_axis_angle(chan->rotAxis, &chan->rotAngle);
 	chan->size[0] = chan->size[1] = chan->size[2] = 1.0f;
 	
+	chan->scaleIn = chan->scaleOut = 1.0f;
+	
 	chan->limitmin[0] = chan->limitmin[1] = chan->limitmin[2] = -180.0f;
 	chan->limitmax[0] = chan->limitmax[1] = chan->limitmax[2] = 180.0f;
 	chan->stiffness[0] = chan->stiffness[1] = chan->stiffness[2] = 0.0f;
@@ -824,26 +826,35 @@ void BKE_pose_channels_free(bPose *pose)
 	BKE_pose_channels_free_ex(pose, true);
 }
 
+void BKE_pose_free_data_ex(bPose *pose, bool do_id_user)
+{
+	/* free pose-channels */
+	BKE_pose_channels_free_ex(pose, do_id_user);
+
+	/* free pose-groups */
+	if (pose->agroups.first)
+		BLI_freelistN(&pose->agroups);
+
+	/* free IK solver state */
+	BIK_clear_data(pose);
+
+	/* free IK solver param */
+	if (pose->ikparam)
+		MEM_freeN(pose->ikparam);
+}
+
+void BKE_pose_free_data(bPose *pose)
+{
+	BKE_pose_free_data_ex(pose, true);
+}
+
 /**
  * Removes and deallocates all data from a pose, and also frees the pose.
  */
 void BKE_pose_free_ex(bPose *pose, bool do_id_user)
 {
 	if (pose) {
-		/* free pose-channels */
-		BKE_pose_channels_free_ex(pose, do_id_user);
-		
-		/* free pose-groups */
-		if (pose->agroups.first)
-			BLI_freelistN(&pose->agroups);
-		
-		/* free IK solver state */
-		BIK_clear_data(pose);
-		
-		/* free IK solver param */
-		if (pose->ikparam)
-			MEM_freeN(pose->ikparam);
-		
+		BKE_pose_free_data_ex(pose, do_id_user);
 		/* free pose */
 		MEM_freeN(pose);
 	}
@@ -922,6 +933,8 @@ void BKE_pose_channel_copy_data(bPoseChannel *pchan, const bPoseChannel *pchan_f
 	if (pchan->custom) {
 		id_us_plus(&pchan->custom->id);
 	}
+
+	pchan->custom_scale = pchan_from->custom_scale;
 }
 
 
@@ -1269,6 +1282,18 @@ short action_get_item_transforms(bAction *act, Object *ob, bPoseChannel *pchan, 
 				}
 			}
 			
+			if ((curves) || (flags & ACT_TRANS_BBONE) == 0) {
+				/* bbone shape properties */
+				pPtr = strstr(bPtr, "bbone_");
+				if (pPtr) {
+					flags |= ACT_TRANS_BBONE;
+					
+					if (curves)
+						BLI_addtail(curves, BLI_genericNodeN(fcu));
+					continue;
+				}
+			}
+			
 			if ((curves) || (flags & ACT_TRANS_PROP) == 0) {
 				/* custom properties only */
 				pPtr = strstr(bPtr, "[\""); /* extra '"' comment here to keep my texteditor functionlist working :) */
@@ -1412,6 +1437,18 @@ void what_does_obaction(Object *ob, Object *workob, bPose *pose, bAction *act, c
 	workob->constraints.last = ob->constraints.last;
 	
 	workob->pose = pose; /* need to set pose too, since this is used for both types of Action Constraint */
+	if (pose) {
+		/* This function is most likely to be used with a temporary pose with a single bone in there.
+		 * For such cases it makes no sense to create hash since it'll only waste CPU ticks on memory
+		 * allocation and also will make lookup slower.
+		 */
+		if (pose->chanbase.first != pose->chanbase.last) {
+			BKE_pose_channels_hash_make(pose);
+		}
+		if (pose->flag & POSE_CONSTRAINTS_NEED_UPDATE_FLAGS) {
+			BKE_pose_update_constraint_flags(pose);
+		}
+	}
 
 	BLI_strncpy(workob->parsubstr, ob->parsubstr, sizeof(workob->parsubstr));
 	BLI_strncpy(workob->id.name, "OB<ConstrWorkOb>", sizeof(workob->id.name)); /* we don't use real object name, otherwise RNA screws with the real thing */
