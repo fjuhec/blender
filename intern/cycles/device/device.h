@@ -233,11 +233,7 @@ public:
 		(void)flat_slot; /* Ignored. */
 	};
 
-	virtual void tex_free(device_memory& /*mem*/,
-	                      int flat_slot = -1)
-	{
-		(void)flat_slot; /* Ignored. */
-	};
+	virtual void tex_free(device_memory& /*mem*/) {};
 
 	/* pixel memory */
 	virtual void pixels_alloc(device_memory& mem);

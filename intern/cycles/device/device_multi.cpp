@@ -187,13 +187,13 @@ public:
 		mem.device_pointer = unique_ptr++;
 	}
 
-	void tex_free(device_memory& mem, int flat_slot)
+	void tex_free(device_memory& mem)
 	{
 		device_ptr tmp = mem.device_pointer;
 
 		foreach(SubDevice& sub, devices) {
 			mem.device_pointer = sub.ptr_map[tmp];
-			sub.device->tex_free(mem, flat_slot);
+			sub.device->tex_free(mem);
 			sub.ptr_map.erase(sub.ptr_map.find(tmp));
 		}
 

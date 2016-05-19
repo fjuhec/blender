@@ -85,6 +85,7 @@ public:
 	CUcontext cuContext;
 	CUmodule cuModule;
 	map<device_ptr, bool> tex_interp_map;
+	map<device_ptr, uint> tex_bindless_map;
 	int cuDevId;
 	int cuDevArchitecture;
 	bool first_error;
@@ -223,7 +224,7 @@ public:
 		task_pool.stop();
 
 		if(info.has_bindless_textures)
-			tex_free(bindless_mapping, -1);
+			tex_free(bindless_mapping);
 
 		cuda_assert(cuCtxDestroy(cuContext));
 	}
@@ -405,7 +406,7 @@ public:
 	void load_bindless_mapping()
 	{
 		if(info.has_bindless_textures && sync_bindless_mapping) {
-			tex_free(bindless_mapping, -1);
+			tex_free(bindless_mapping);
 			tex_alloc("__bindless_mapping", bindless_mapping, INTERPOLATION_NONE, EXTENSION_REPEAT, 0);
 			sync_bindless_mapping = false;
 		}
@@ -661,6 +662,12 @@ public:
 			else
 				cuda_assert(cuMemcpyHtoA(handle, 0, (void*)mem.data_pointer, size));
 
+			/* Fermi and Kepler */
+			mem.device_pointer = (device_ptr)handle;
+			mem.device_size = size;
+
+			stats.mem_alloc(size);
+
 			/* Bindless Textures - Kepler */
 			if(has_bindless_textures) {
 				CUDA_RESOURCE_DESC resDesc;
@@ -684,6 +691,7 @@ public:
 				bindless_mapping.get_data()[flat_slot] = (uint)tex;
 
 				sync_bindless_mapping = true;
+				tex_bindless_map[mem.device_pointer] = (uint)tex;
 			}
 			/* Regular Textures - Fermi */
 			else {
@@ -693,12 +701,6 @@ public:
 			}
 
 			cuda_pop_context();
-
-			/* Fermi and Kepler */
-			mem.device_pointer = (device_ptr)handle;
-			mem.device_size = size;
-
-			stats.mem_alloc(size);
 		}
 
 		/* Fermi, Data and Image Textures */
@@ -720,13 +722,19 @@ public:
 		tex_interp_map[mem.device_pointer] = (interpolation != INTERPOLATION_NONE);
 	}
 
-	void tex_free(device_memory& mem, int flat_slot)
+	void tex_free(device_memory& mem)
 	{
 		if(mem.device_pointer) {
 			if(tex_interp_map[mem.device_pointer]) {
 				cuda_push_context();
 				cuArrayDestroy((CUarray)mem.device_pointer);
 				cuda_pop_context();
+
+				/* Free CUtexObject (Bindless Textures) */
+				if(info.has_bindless_textures && tex_bindless_map[mem.device_pointer]) {
+					uint flat_slot = tex_bindless_map[mem.device_pointer];
+					cuTexObjectDestroy(flat_slot);
+				}
 
 				tex_interp_map.erase(tex_interp_map.find(mem.device_pointer));
 				mem.device_pointer = 0;
@@ -738,11 +746,6 @@ public:
 				tex_interp_map.erase(tex_interp_map.find(mem.device_pointer));
 				mem_free(mem);
 			}
-		}
-
-		/* Free CUtexObject (Bindless Textures) */
-		if(info.has_bindless_textures && flat_slot != -1) {
-			cuTexObjectDestroy(bindless_mapping.get_data()[flat_slot]);
 		}
 	}
 

@@ -1195,7 +1195,7 @@ public:
 		mem_map.insert(MemMap::value_type(name, mem.device_pointer));
 	}
 
-	void tex_free(device_memory& mem, int /*flat_slot*/)
+	void tex_free(device_memory& mem)
 	{
 		if(mem.device_pointer) {
 			foreach(const MemMap::value_type& value, mem_map) {

@@ -188,7 +188,7 @@ public:
 		snd.write_buffer((void*)mem.data_pointer, mem.memory_size());
 	}
 
-	void tex_free(device_memory& mem, int flat_slot)
+	void tex_free(device_memory& mem)
 	{
 		if(mem.device_pointer) {
 			thread_scoped_lock lock(rpc_lock);
@@ -196,7 +196,6 @@ public:
 			RPCSend snd(socket, &error_func, "tex_free");
 
 			snd.add(mem);
-			snd.add(flat_slot);
 			snd.write();
 
 			mem.device_pointer = 0;
