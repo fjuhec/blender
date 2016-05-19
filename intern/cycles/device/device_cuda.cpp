@@ -405,6 +405,7 @@ public:
 	void load_bindless_mapping()
 	{
 		if(info.has_bindless_textures && sync_bindless_mapping) {
+			tex_free(bindless_mapping, -1);
 			tex_alloc("__bindless_mapping", bindless_mapping, INTERPOLATION_NONE, EXTENSION_REPEAT, 0);
 			sync_bindless_mapping = false;
 		}
@@ -549,20 +550,16 @@ public:
 
 			cuda_push_context();
 			cuda_assert(cuModuleGetTexRef(&texref, cuModule, bind_name.c_str()));
+			cuda_pop_context();
 
 			if(!texref) {
-				cuda_pop_context();
 				return;
 			}
-
-			cuda_pop_context();
 		}
 
 		/* Data Storage */
 		if(interpolation == INTERPOLATION_NONE) {
 			if(has_bindless_textures) {
-				cuda_pop_context();
-
 				mem_alloc(mem, MEM_READ_ONLY);
 				mem_copy_to(mem);
 
@@ -587,8 +584,6 @@ public:
 				cuda_pop_context();
 			}
 			else {
-				cuda_pop_context();
-
 				mem_alloc(mem, MEM_READ_ONLY);
 				mem_copy_to(mem);
 
