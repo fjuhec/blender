@@ -33,11 +33,12 @@
 
 // implementation
 
+#include "atomic_ops.h"
+
 #include "EXP_PyObjectPlus.h"
 #include "KX_KetsjiEngine.h"
 #include "KX_PythonInit.h"
 #include "DeckLink.h"
-#include "atomic_ops.h"
 
 #include <memory.h>
 

@@ -43,6 +43,8 @@
 #include <sys/mman.h>
 #endif
 
+#include "atomic_ops.h"
+
 #include "MEM_guardedalloc.h"
 #include "PIL_time.h"
 #include "VideoDeckLink.h"
@@ -50,7 +52,6 @@
 #include "Exception.h"
 #include "KX_KetsjiEngine.h"
 #include "KX_PythonInit.h"
-#include "atomic_ops.h"
 
 extern ExceptionID DeckLinkInternalError;
 ExceptionID SourceVideoOnlyCapture, VideoDeckLinkBadFormat, VideoDeckLinkOpenCard, VideoDeckLinkDvpInternalError, VideoDeckLinkPinMemoryError;
