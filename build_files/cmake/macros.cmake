@@ -585,6 +585,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		ge_phys_bullet
 		bf_intern_smoke
 		extern_lzma
+		extern_curve_fit_nd
 		ge_logic_ketsji
 		extern_recastnavigation
 		ge_logic
@@ -978,6 +979,7 @@ macro(remove_strict_flags)
 		remove_cc_flag(
 			"-Wstrict-prototypes"
 			"-Wmissing-prototypes"
+			"-Wmissing-declarations"
 			"-Wmissing-format-attribute"
 			"-Wunused-local-typedefs"
 			"-Wunused-macros"
@@ -1059,6 +1061,19 @@ macro(remove_strict_flags_file
 
 endmacro()
 
+# External libs may need 'signed char' to be default.
+macro(remove_cc_flag_unsigned_char)
+	if(CMAKE_C_COMPILER_ID MATCHES "^(GNU|Clang|Intel)$")
+		remove_cc_flag("-funsigned-char")
+	elseif(MSVC)
+		remove_cc_flag("/J")
+	else()
+		message(WARNING
+			"Compiler '${CMAKE_C_COMPILER_ID}' failed to disable 'unsigned char' flag."
+			"Build files need updating."
+		)
+	endif()
+endmacro()
 
 function(ADD_CHECK_C_COMPILER_FLAG
 	_CFLAGS
@@ -1105,10 +1120,10 @@ function(get_blender_version)
 	# - BLENDER_VERSION_CYCLE (alpha, beta, rc, release)
 
 	# So cmake depends on BKE_blender.h, beware of inf-loops!
-	CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/source/blender/blenkernel/BKE_blender.h
-	               ${CMAKE_BINARY_DIR}/source/blender/blenkernel/BKE_blender.h.done)
+	CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/source/blender/blenkernel/BKE_blender_version.h
+	               ${CMAKE_BINARY_DIR}/source/blender/blenkernel/BKE_blender_version.h.done)
 
-	file(STRINGS ${CMAKE_SOURCE_DIR}/source/blender/blenkernel/BKE_blender.h _contents REGEX "^#define[ \t]+BLENDER_.*$")
+	file(STRINGS ${CMAKE_SOURCE_DIR}/source/blender/blenkernel/BKE_blender_version.h _contents REGEX "^#define[ \t]+BLENDER_.*$")
 
 	string(REGEX REPLACE ".*#define[ \t]+BLENDER_VERSION[ \t]+([0-9]+).*" "\\1" _out_version "${_contents}")
 	string(REGEX REPLACE ".*#define[ \t]+BLENDER_SUBVERSION[ \t]+([0-9]+).*" "\\1" _out_subversion "${_contents}")

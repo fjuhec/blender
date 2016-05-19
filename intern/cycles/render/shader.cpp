@@ -157,6 +157,7 @@ Shader::Shader()
 	has_object_dependency = false;
 	has_integrator_dependency = false;
 
+	id = -1;
 	used = false;
 
 	need_update = true;
@@ -175,7 +176,7 @@ void Shader::set_graph(ShaderGraph *graph_)
 	 * are needed, since the node attribute callbacks check if their sockets
 	 * are connected but proxy nodes should not count */
 	if(graph_)
-		graph_->remove_unneeded_nodes();
+		graph_->remove_proxy_nodes();
 
 	/* assign graph */
 	delete graph;
@@ -287,10 +288,10 @@ uint ShaderManager::get_attribute_id(AttributeStandard std)
 	return (uint)std;
 }
 
-int ShaderManager::get_shader_id(uint shader, Mesh *mesh, bool smooth)
+int ShaderManager::get_shader_id(Shader *shader, Mesh *mesh, bool smooth)
 {
 	/* get a shader id to pass to the kernel */
-	int id = shader*2;
+	int id = shader->id*2;
 	
 	/* index depends bump since this setting is not in the shader */
 	if(mesh && mesh->displacement_method != Mesh::DISPLACE_TRUE)
@@ -309,21 +310,27 @@ void ShaderManager::device_update_shaders_used(Scene *scene)
 {
 	/* figure out which shaders are in use, so SVM/OSL can skip compiling them
 	 * for speed and avoid loading image textures into memory */
-	foreach(Shader *shader, scene->shaders)
+	uint id = 0;
+	foreach(Shader *shader, scene->shaders) {
 		shader->used = false;
+		shader->id = id++;
+	}
 
-	scene->shaders[scene->background->shader]->used = true;
-	scene->shaders[scene->default_surface]->used = true;
-	scene->shaders[scene->default_light]->used = true;
-	scene->shaders[scene->default_background]->used = true;
-	scene->shaders[scene->default_empty]->used = true;
+	scene->default_surface->used = true;
+	scene->default_light->used = true;
+	scene->default_background->used = true;
+	scene->default_empty->used = true;
+
+	if(scene->background->shader)
+		scene->background->shader->used = true;
 
 	foreach(Mesh *mesh, scene->meshes)
-		foreach(uint shader, mesh->used_shaders)
-			scene->shaders[shader]->used = true;
+		foreach(Shader *shader, mesh->used_shaders)
+			shader->used = true;
 
 	foreach(Light *light, scene->lights)
-		scene->shaders[light->shader]->used = true;
+		if(light->shader)
+			light->shader->used = true;
 }
 
 void ShaderManager::device_update_common(Device *device,
@@ -404,8 +411,8 @@ void ShaderManager::device_update_common(Device *device,
 			}
 		}
 		beckmann_table_offset = scene->lookup_tables->add_table(dscene, beckmann_table);
-		ktables->beckmann_offset = (int)beckmann_table_offset;
 	}
+	ktables->beckmann_offset = (int)beckmann_table_offset;
 
 	/* integrator */
 	KernelIntegrator *kintegrator = &dscene->data.integrator;
@@ -418,10 +425,7 @@ void ShaderManager::device_update_common(Device *device,
 
 void ShaderManager::device_free_common(Device *device, DeviceScene *dscene, Scene *scene)
 {
-	if(beckmann_table_offset != TABLE_OFFSET_INVALID) {
-		scene->lookup_tables->remove_table(beckmann_table_offset);
-		beckmann_table_offset = TABLE_OFFSET_INVALID;
-	}
+	scene->lookup_tables->remove_table(&beckmann_table_offset);
 
 	device->tex_free(dscene->shader_flag);
 	dscene->shader_flag.clear();
@@ -429,13 +433,11 @@ void ShaderManager::device_free_common(Device *device, DeviceScene *dscene, Scen
 
 void ShaderManager::add_default(Scene *scene)
 {
-	Shader *shader;
-	ShaderGraph *graph;
 	ShaderNode *closure, *out;
 
 	/* default surface */
 	{
-		graph = new ShaderGraph();
+		ShaderGraph *graph = new ShaderGraph();
 
 		closure = graph->add(new DiffuseBsdfNode());
 		closure->input("Color")->value = make_float3(0.8f, 0.8f, 0.8f);
@@ -443,16 +445,16 @@ void ShaderManager::add_default(Scene *scene)
 
 		graph->connect(closure->output("BSDF"), out->input("Surface"));
 
-		shader = new Shader();
+		Shader *shader = new Shader();
 		shader->name = "default_surface";
 		shader->graph = graph;
 		scene->shaders.push_back(shader);
-		scene->default_surface = scene->shaders.size() - 1;
+		scene->default_surface = shader;
 	}
 
 	/* default light */
 	{
-		graph = new ShaderGraph();
+		ShaderGraph *graph = new ShaderGraph();
 
 		closure = graph->add(new EmissionNode());
 		closure->input("Color")->value = make_float3(0.8f, 0.8f, 0.8f);
@@ -461,33 +463,33 @@ void ShaderManager::add_default(Scene *scene)
 
 		graph->connect(closure->output("Emission"), out->input("Surface"));
 
-		shader = new Shader();
+		Shader *shader = new Shader();
 		shader->name = "default_light";
 		shader->graph = graph;
 		scene->shaders.push_back(shader);
-		scene->default_light = scene->shaders.size() - 1;
+		scene->default_light = shader;
 	}
 
 	/* default background */
 	{
-		graph = new ShaderGraph();
+		ShaderGraph *graph = new ShaderGraph();
 
-		shader = new Shader();
+		Shader *shader = new Shader();
 		shader->name = "default_background";
 		shader->graph = graph;
 		scene->shaders.push_back(shader);
-		scene->default_background = scene->shaders.size() - 1;
+		scene->default_background = shader;
 	}
 
 	/* default empty */
 	{
-		graph = new ShaderGraph();
+		ShaderGraph *graph = new ShaderGraph();
 
-		shader = new Shader();
+		Shader *shader = new Shader();
 		shader->name = "default_empty";
 		shader->graph = graph;
 		scene->shaders.push_back(shader);
-		scene->default_empty = scene->shaders.size() - 1;
+		scene->default_empty = shader;
 	}
 }
 
@@ -528,6 +530,10 @@ void ShaderManager::get_requested_features(Scene *scene,
 		if(output_node->input("Displacement")->link != NULL) {
 			requested_features->nodes_features |= NODE_FEATURE_BUMP;
 		}
+		/* On top of volume nodes, also check if we need volume sampling because
+		 * e.g. an Emission node would slip through the NODE_FEATURE_VOLUME check */
+		if(shader->has_volume)
+			requested_features->use_volume |= true;
 	}
 }
 
