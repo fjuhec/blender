@@ -35,6 +35,9 @@
 /* Include the OS specific Declink headers */
 
 #ifdef WIN32
+	#include <windows.h>
+	#include <objbase.h>
+	#include <comutil.h>
 	#include "win/DeckLinkAPI_h.h"
     typedef unsigned int   dl_size_t;
 #elif defined(__APPLE__)

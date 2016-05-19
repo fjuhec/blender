@@ -58,10 +58,10 @@ class PinnedMemoryAllocator;
 
 struct TextureDesc
 {
-	u_int		width;
-	u_int		height;
-	u_int		stride;
-	u_int		size;
+	uint32_t	width;
+	uint32_t	height;
+	uint32_t	stride;
+	uint32_t	size;
 	GLenum		internalFormat;
 	GLenum		format;
 	GLenum		type;
@@ -129,8 +129,8 @@ private:
 	BMDDisplayMode			mDisplayMode;
 	BMDPixelFormat			mPixelFormat;
 	bool					mUse3D;
-	u_int					mFrameWidth;
-	u_int					mFrameHeight;
+	uint32_t				mFrameWidth;
+	uint32_t				mFrameHeight;
 	TextureDesc				mTextureDesc;
 	PinnedMemoryAllocator*	mpAllocator;
 	CaptureDelegate*		mpCaptureDelegate;
@@ -159,8 +159,8 @@ public:
 
 	virtual void PerformTransfer() = 0;
 protected:
-	static bool _PinBuffer(void *address, u_int size);
-	static void _UnpinBuffer(void* address, u_int size);
+	static bool _PinBuffer(void *address, uint32_t size);
+	static void _UnpinBuffer(void* address, uint32_t size);
 };
 
 ////////////////////////////////////////////
@@ -219,7 +219,7 @@ private:
 	// protect the cache and the allocated map, 
 	// not the pinnedBuffer map as it is only used from main thread
 	pthread_mutex_t						mMutex;
-	std::map<void*, u_int>				mAllocatedSize;
+	std::map<void*, uint32_t>			mAllocatedSize;
 	std::vector<void*>					mBufferCache;
 	std::map<void *, TextureTransfer*>	mPinnedBuffer;
 #ifdef WIN32
@@ -227,7 +227,7 @@ private:
 #endif
 	// target texture in GPU
 	GLuint								mTexId;
-	u_int								mBufferCacheSize;
+	uint32_t							mBufferCacheSize;
 };
 
 ////////////////////////////////////////////

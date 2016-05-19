@@ -29,12 +29,6 @@
 *  \ingroup decklink
 */
 
-#ifdef WIN32
-#include <windows.h>
-#include <objbase.h>
-#include <comutil.h>
-#endif
-
 #include "DeckLinkAPI.h"
 
 #ifdef WIN32

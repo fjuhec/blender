@@ -31,9 +31,15 @@
 
 #ifdef WITH_DECKLINK
 
-// INT64_C fix for some linux machines (C99ism)
+// FFmpeg defines its own version of stdint.h on Windows.
+// Decklink needs FFmpeg, so it uses its version of stdint.h
+// this is necessary for INT64_C macro
 #ifndef __STDC_CONSTANT_MACROS
 #define __STDC_CONSTANT_MACROS
+#endif
+// this is necessary for UINTPTR_MAX (used by atomic-ops)
+#ifndef __STDC_LIMIT_MACROS
+#define __STDC_LIMIT_MACROS
 #endif
 #include <stdint.h>
 #include <string.h>
@@ -115,7 +121,7 @@ struct SyncInfo
 class TextureTransferDvp : public TextureTransfer
 {
 public:
-	TextureTransferDvp(DVPBufferHandle dvpTextureHandle, TextureDesc *pDesc, void *address, u_int allocatedSize)
+	TextureTransferDvp(DVPBufferHandle dvpTextureHandle, TextureDesc *pDesc, void *address, uint32_t allocatedSize)
 	{
 		DVPSysmemBufferDesc sysMemBuffersDesc;
 
@@ -234,8 +240,8 @@ private:
 	SyncInfo*				mGpuSync;
 	DVPBufferHandle			mDvpSysMemHandle;
 	DVPBufferHandle			mDvpTextureHandle;
-	u_int					mTextureHeight;
-	u_int					mAllocatedSize;
+	uint32_t				mTextureHeight;
+	uint32_t				mAllocatedSize;
 	void*					mBuffer;
 };
 
@@ -300,7 +306,7 @@ private:
 class TextureTransferPMD : public TextureTransfer
 {
 public:
-    TextureTransferPMD(GLuint texId, TextureDesc *pDesc, void *address, u_int allocatedSize)
+    TextureTransferPMD(GLuint texId, TextureDesc *pDesc, void *address, uint32_t allocatedSize)
 	{
 		memcpy(&mDesc, pDesc, sizeof(mDesc));
 		mTexId = texId;
@@ -343,12 +349,12 @@ private:
 	// buffer
 	void *mBuffer;
     // the allocated size
-    u_int mAllocatedSize;
+    uint32_t mAllocatedSize;
     // characteristic of the image
 	TextureDesc mDesc;
 };
 
-bool TextureTransfer::_PinBuffer(void *address, u_int size)
+bool TextureTransfer::_PinBuffer(void *address, uint32_t size)
 {
 #ifdef WIN32
 	return VirtualLock(address, size);
@@ -357,7 +363,7 @@ bool TextureTransfer::_PinBuffer(void *address, u_int size)
 #endif
 }
 
-void TextureTransfer::_UnpinBuffer(void* address, u_int size)
+void TextureTransfer::_UnpinBuffer(void* address, uint32_t size)
 {
 #ifdef WIN32
 	VirtualUnlock(address, size);
@@ -480,7 +486,7 @@ PinnedMemoryAllocator::~PinnedMemoryAllocator()
 
 void PinnedMemoryAllocator::TransferBuffer(void* address, TextureDesc* texDesc, GLuint texId)
 {
-	u_int allocatedSize = 0;
+	uint32_t allocatedSize = 0;
 	TextureTransfer *pTransfer = NULL;
 
 	Lock();
@@ -784,7 +790,7 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	BMDTimeValue					frameDuration;
 	BMDTimeScale					frameTimescale;
 	IDeckLink*						pDL;
-	u_int displayFlags, inputFlags; 
+	uint32_t displayFlags, inputFlags; 
 	char *pPixel, *p3D, *pEnd, *pSize;
 	size_t len;
 	int i, modeIdx, cacheSize;
@@ -830,7 +836,7 @@ void VideoDeckLink::openCam (char *format, short camIdx)
         // found a valid mode, remember that we do not look for an index
         modeIdx = -1;
     }
-    catch (Exception & exp)
+    catch (Exception &)
     {
         // accept also purely numerical mode as a mode index
         modeIdx = strtol(format, &pEnd, 10);
@@ -1077,8 +1083,8 @@ void VideoDeckLink::calcImage (unsigned int texId, double ts)
 		// it is crucial that we release the frame to keep the reference count right on the DeckLink device
 		try
 		{
-			u_int rowSize = pFrame->GetRowBytes();
-			u_int textureSize = rowSize * pFrame->GetHeight();
+			uint32_t rowSize = pFrame->GetRowBytes();
+			uint32_t textureSize = rowSize * pFrame->GetHeight();
 			void* videoPixels = NULL;
 			void* rightEyePixels = NULL;
 			if (!mTextureDesc.stride)

@@ -33,6 +33,17 @@
 
 // implementation
 
+// FFmpeg defines its own version of stdint.h on Windows.
+// Decklink needs FFmpeg, so it uses its version of stdint.h
+// this is necessary for INT64_C macro
+#ifndef __STDC_CONSTANT_MACROS
+#define __STDC_CONSTANT_MACROS
+#endif
+// this is necessary for UINTPTR_MAX (used by atomic-ops)
+#ifndef __STDC_LIMIT_MACROS
+#define __STDC_LIMIT_MACROS
+#endif
+
 #include "atomic_ops.h"
 
 #include "EXP_PyObjectPlus.h"
@@ -142,7 +153,7 @@ HRESULT decklink_ReadDisplayMode(const char *format, size_t len, BMDDisplayMode 
 	if (len != 4)
 		THRWEXCP(DeckLinkBadDisplayMode, S_OK);
 	// assume the user entered directly the mode value as a 4 char string
-	*displayMode = (BMDDisplayMode)((((u_int)format[0]) << 24) + (((u_int)format[1]) << 16) + (((u_int)format[2]) << 8) + ((u_int)format[3]));
+	*displayMode = (BMDDisplayMode)((((uint32_t)format[0]) << 24) + (((uint32_t)format[1]) << 16) + (((uint32_t)format[2]) << 8) + ((uint32_t)format[3]));
 	return S_OK;
 }
 
@@ -164,7 +175,7 @@ HRESULT decklink_ReadPixelFormat(const char *format, size_t len, BMDPixelFormat 
 	if (len != 4)
 		THRWEXCP(DeckLinkBadPixelFormat, S_OK);
 	// assume the user entered directly the mode value as a 4 char string
-	*pixelFormat = (BMDPixelFormat)((((u_int)format[0]) << 24) + (((u_int)format[1]) << 16) + (((u_int)format[2]) << 8) + ((u_int)format[3]));
+	*pixelFormat = (BMDPixelFormat)((((uint32_t)format[0]) << 24) + (((uint32_t)format[1]) << 16) + (((uint32_t)format[2]) << 8) + ((uint32_t)format[3]));
 	return S_OK;
 }
 
@@ -279,11 +290,11 @@ static void decklink_Reset(DeckLink *self)
 
 // adapt the pixel format from VideoTexture (RGBA) to DeckLink (BGRA)
 // return false if no conversion at all is necessary
-static bool decklink_ConvImage(u_int *dest, const short *destSize, const u_int *source, const short *srcSize, bool extend, bool swap)
+static bool decklink_ConvImage(uint32_t *dest, const short *destSize, const uint32_t *source, const short *srcSize, bool extend, bool swap)
 {
 	short w, h, x, y;
-	const u_int *s;
-	u_int *d, p;
+	const uint32_t *s;
+	uint32_t *d, p;
 	bool sameSize = (destSize[0] == srcSize[0] && destSize[1] == srcSize[1]);
 
 	if (sameSize || !extend)
@@ -416,10 +427,10 @@ static int DeckLink_init(DeckLink *self, PyObject *args, PyObject *kwds)
 	BOOL							flag;
 	size_t							len;
 	int								i;
-	u_int							displayFlags;
+	uint32_t						displayFlags;
 	BMDVideoOutputFlags				outputFlags;
 	BMDDisplayModeSupport			support;
-	u_int*							bytes;
+	uint32_t*						bytes;
 
 
 	// material ID
@@ -600,7 +611,7 @@ static PyObject *DeckLink_refresh(DeckLink *self, PyObject *args)
 				// we must adapt the image to the frame 1) in size 2) in byte order
 				// VideoTexture frame are RGBA, DecklinkBGRA
 				short * srcSize = self->m_leftEye->m_image->getSize();
-				u_int *dest;
+				uint32_t *dest;
 				self->mLeftFrame->GetBytes((void **)&dest);
 				bool leftConverted = decklink_ConvImage(dest, self->mSize, leftEye, srcSize, self->mUseExtend, self->mUseSwap);
 				if (self->mUse3D)
