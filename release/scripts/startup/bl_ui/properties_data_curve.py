@@ -172,6 +172,11 @@ class DATA_PT_geometry_curve(CurveButtonsPanelCurve, Panel):
         col.label(text="Modification:")
         col.prop(curve, "offset")
         col.prop(curve, "extrude")
+        sub = col.row()
+        sub.prop(curve, "extrude_bezier_symmetric")
+        sub = col.row()
+        sub.active = curve.extrude_bezier_symmetric is False
+        sub.prop(curve, "reverse_direction")
         col.label(text="Taper Object:")
         col.prop(curve, "taper_object", text="")
 

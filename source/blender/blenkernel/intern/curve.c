@@ -1778,12 +1778,29 @@ void BKE_curve_bevel_make(Scene *scene, Object *ob, ListBase *disp,
 		dl->parts = 1;
 		dl->flag = DL_FRONT_CURVE | DL_BACK_CURVE;
 		dl->nr = 2;
-
-		fp = dl->verts;
-		fp[0] = fp[1] = 0.0;
-		fp[2] = -cu->ext1;
-		fp[3] = fp[4] = 0.0;
-		fp[5] = cu->ext1;
+        
+        fp = dl->verts;
+        fp[0] = fp[1] = 0.0;
+        
+        if (!(cu->flag & CU_SYM_EXTRUDE)) { /* If user wants to extrude in both directions */
+            
+            fp[2] = -cu->ext1;
+            fp[5] = cu->ext1;
+        }
+        else if (cu->flag & CU_EXTRUDE_REV) { /* If user wants to extrude in the negative direction */
+            
+            fp[2] = 0.0;
+            fp[5] = -cu->ext1;
+            
+        }
+        else { /* Simple Bezier curve extrusion by the specified amount in the positive local z direction */
+            
+            fp[2] = cu->ext1;
+            
+        }
+        
+        fp[3] = fp[4] = 0.0;
+        
 	}
 	else if ( (cu->flag & (CU_FRONT | CU_BACK)) == 0 && cu->ext1 == 0.0f) { // we make a full round bevel in that case
 		nr = 4 + 2 * cu->bevresol;
@@ -1837,6 +1854,22 @@ void BKE_curve_bevel_make(Scene *scene, Object *ob, ListBase *disp,
 				fp[0] = 0.0;
 				fp[1] = (float)(cosf(angle) * (cu->ext2));
 				fp[2] = (float)(sinf(angle) * (cu->ext2)) - cu->ext1;
+
+				/* if (!(cu->flag & CU_SYM_EXTRUDE)) { /* If user wants to extrude in both directions /
+
+					fp[2] = -cu->ext1;
+				}
+				else if (cu->flag & CU_EXTRUDE_REV) { /* If user wants to extrude in the negative direction /
+
+					fp[2] = 0.0;
+
+				}
+				else { /* Simple Bezier curve extrusion by the specified amount in the positive local z direction /
+
+					fp[2] = 0.0;
+
+				} */
+
 				angle += dangle;
 				fp += 3;
 			}

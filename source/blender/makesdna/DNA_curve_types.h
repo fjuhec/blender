@@ -299,6 +299,8 @@ enum {
 	CU_DEFORM_FILL        = 1 << 13,  /* fill 2d curve after deformation */
 	CU_FILL_CAPS          = 1 << 14,  /* fill bevel caps */
 	CU_MAP_TAPER          = 1 << 15,  /* map taper object to beveled area */
+    CU_SYM_EXTRUDE        = 1 << 16,  /* in case the user wants the Bezier curve to be extruded in both directions */
+    CU_EXTRUDE_REV        = 1 << 17   /* equivalent to a negative extrude */
 };
 
 /* Curve.twist_mode */
