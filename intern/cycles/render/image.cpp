@@ -771,7 +771,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 
 		if(tex_img.device_pointer) {
 			thread_scoped_lock device_lock(device_mutex);
-			device->tex_free(tex_img);
+			device->tex_free(tex_img, flat_slot);
 		}
 
 		if(!file_load_float4_image(img, tex_img)) {
@@ -798,7 +798,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 
 		if(tex_img.device_pointer) {
 			thread_scoped_lock device_lock(device_mutex);
-			device->tex_free(tex_img);
+			device->tex_free(tex_img, flat_slot);
 		}
 
 		if(!file_load_float_image(img, tex_img)) {
@@ -822,7 +822,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 
 		if(tex_img.device_pointer) {
 			thread_scoped_lock device_lock(device_mutex);
-			device->tex_free(tex_img);
+			device->tex_free(tex_img, flat_slot);
 		}
 
 		if(!file_load_byte4_image(img, tex_img)) {
@@ -849,7 +849,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 
 		if(tex_img.device_pointer) {
 			thread_scoped_lock device_lock(device_mutex);
-			device->tex_free(tex_img);
+			device->tex_free(tex_img, flat_slot);
 		}
 
 		if(!file_load_byte_image(img, tex_img)) {
@@ -876,6 +876,8 @@ void ImageManager::device_free_image(Device *device, DeviceScene *dscene, ImageD
 {
 	Image *img = images[type][slot];
 
+	int flat_slot = type_index_to_flattened_slot(slot, type);
+
 	if(img) {
 		if(osl_texture_system && !img->builtin_data) {
 #ifdef WITH_OSL
@@ -888,7 +890,7 @@ void ImageManager::device_free_image(Device *device, DeviceScene *dscene, ImageD
 
 			if(tex_img.device_pointer) {
 				thread_scoped_lock device_lock(device_mutex);
-				device->tex_free(tex_img);
+				device->tex_free(tex_img, flat_slot);
 			}
 
 			tex_img.clear();
@@ -898,7 +900,7 @@ void ImageManager::device_free_image(Device *device, DeviceScene *dscene, ImageD
 
 			if(tex_img.device_pointer) {
 				thread_scoped_lock device_lock(device_mutex);
-				device->tex_free(tex_img);
+				device->tex_free(tex_img, flat_slot);
 			}
 
 			tex_img.clear();
@@ -908,7 +910,7 @@ void ImageManager::device_free_image(Device *device, DeviceScene *dscene, ImageD
 
 			if(tex_img.device_pointer) {
 				thread_scoped_lock device_lock(device_mutex);
-				device->tex_free(tex_img);
+				device->tex_free(tex_img, flat_slot);
 			}
 
 			tex_img.clear();
@@ -918,7 +920,7 @@ void ImageManager::device_free_image(Device *device, DeviceScene *dscene, ImageD
 
 			if(tex_img.device_pointer) {
 				thread_scoped_lock device_lock(device_mutex);
-				device->tex_free(tex_img);
+				device->tex_free(tex_img, flat_slot);
 			}
 
 			tex_img.clear();

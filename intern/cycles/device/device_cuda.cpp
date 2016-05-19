@@ -222,7 +222,7 @@ public:
 	{
 		task_pool.stop();
 
-		tex_free(bindless_mapping);
+		tex_free(bindless_mapping, -1);
 
 		cuda_assert(cuCtxDestroy(cuContext));
 	}
@@ -714,7 +714,7 @@ public:
 		tex_interp_map[mem.device_pointer] = (interpolation != INTERPOLATION_NONE);
 	}
 
-	void tex_free(device_memory& mem)
+	void tex_free(device_memory& mem, int flat_slot)
 	{
 		if(mem.device_pointer) {
 			if(tex_interp_map[mem.device_pointer]) {
@@ -732,6 +732,11 @@ public:
 				tex_interp_map.erase(tex_interp_map.find(mem.device_pointer));
 				mem_free(mem);
 			}
+		}
+
+		/* Free CUtexObject (Bindless Textures) */
+		if(flat_slot != -1) {
+			cuTexObjectDestroy(bindless_mapping.get_data()[flat_slot]);
 		}
 	}
 

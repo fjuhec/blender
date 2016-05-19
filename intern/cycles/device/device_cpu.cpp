@@ -170,7 +170,7 @@ public:
 		stats.mem_alloc(mem.device_size);
 	}
 
-	void tex_free(device_memory& mem)
+	void tex_free(device_memory& mem, int /*flat_slot*/)
 	{
 		if(mem.device_pointer) {
 			mem.device_pointer = 0;
