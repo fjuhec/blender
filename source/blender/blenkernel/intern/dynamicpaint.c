@@ -32,6 +32,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_kdtree.h"
+#include "BLI_task.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
@@ -78,6 +79,8 @@
 /* to read material/texture color	*/
 #include "RE_render_ext.h"
 #include "RE_shader_ext.h"
+
+#include "atomic_ops.h"
 
 #ifdef _OPENMP
 #  include <omp.h>
@@ -3274,7 +3277,7 @@ static int dynamicPaint_paintMesh(DynamicPaintSurface *surface,
 							nearest.dist_sq = brush_radius * brush_radius; /* find_nearest uses squared distance */
 
 							/* Check volume collision	*/
-							if (brush->collision == MOD_DPAINT_COL_VOLUME || brush->collision == MOD_DPAINT_COL_VOLDIST)
+							if (ELEM(brush->collision, MOD_DPAINT_COL_VOLUME, MOD_DPAINT_COL_VOLDIST)) {
 								BLI_bvhtree_ray_cast(treeData.tree, ray_start, ray_dir, 0.0f,
 								                     &hit, mesh_tris_spherecast_dp, &treeData);
 								if (hit.index != -1) {
@@ -3318,9 +3321,10 @@ static int dynamicPaint_paintMesh(DynamicPaintSurface *surface,
 										}
 									}
 								}
+							}
 
 							/* Check proximity collision	*/
-							if ((brush->collision == MOD_DPAINT_COL_DIST || brush->collision == MOD_DPAINT_COL_VOLDIST) &&
+							if (ELEM(brush->collision, MOD_DPAINT_COL_DIST, MOD_DPAINT_COL_VOLDIST) &&
 							    (!hit_found || (brush->flags & MOD_DPAINT_INVERSE_PROX)))
 							{
 								float proxDist = -1.0f;
@@ -3975,10 +3979,10 @@ static void dynamicPaint_prepareAdjacencyData(DynamicPaintSurface *surface, cons
 
 /* find two adjacency points (closest_id) and influence (closest_d) to move paint towards when affected by a force  */
 static void surface_determineForceTargetPoints(
-        PaintSurfaceData *sData, int index, float force[3], float closest_d[2], int closest_id[2])
+        const PaintSurfaceData *sData, const int index, const float force[3], float closest_d[2], int closest_id[2])
 {
 	BakeAdjPoint *bNeighs = sData->bData->bNeighs;
-	int numOfNeighs = sData->adj_data->n_num[index];
+	const int numOfNeighs = sData->adj_data->n_num[index];
 	int i;
 
 	closest_id[0] = closest_id[1] = -1;
@@ -3986,8 +3990,8 @@ static void surface_determineForceTargetPoints(
 
 	/* find closest neigh */
 	for (i = 0; i < numOfNeighs; i++) {
-		int n_index = sData->adj_data->n_index[index] + i;
-		float dir_dot = dot_v3v3(bNeighs[n_index].dir, force);
+		const int n_index = sData->adj_data->n_index[index] + i;
+		const float dir_dot = dot_v3v3(bNeighs[n_index].dir, force);
 
 		if (dir_dot > closest_d[0] && dir_dot > 0.0f) {
 			closest_d[0] = dir_dot;
@@ -4000,26 +4004,28 @@ static void surface_determineForceTargetPoints(
 
 	/* find second closest neigh */
 	for (i = 0; i < numOfNeighs; i++) {
-		int n_index = sData->adj_data->n_index[index] + i;
-		float dir_dot = dot_v3v3(bNeighs[n_index].dir, force);
-		float closest_dot = dot_v3v3(bNeighs[n_index].dir, bNeighs[closest_id[0]].dir);
+		const int n_index = sData->adj_data->n_index[index] + i;
 
 		if (n_index == closest_id[0])
 			continue;
 
+		const float dir_dot = dot_v3v3(bNeighs[n_index].dir, force);
+		const float closest_dot = dot_v3v3(bNeighs[n_index].dir, bNeighs[closest_id[0]].dir);
+
 		/* only accept neighbor at "other side" of the first one in relation to force dir
 		 *  so make sure angle between this and closest neigh is greater than first angle */
 		if (dir_dot > closest_d[1] && closest_dot < closest_d[0] && dir_dot > 0.0f) {
-			closest_d[1] = dir_dot; closest_id[1] = n_index;
+			closest_d[1] = dir_dot;
+			closest_id[1] = n_index;
 		}
 	}
 
-	/* if two valid neighs found, calculate how force effect is divided
-	 *  evenly between them (so that d[0]+d[1] = 1.0)*/
+	/* if two valid neighs found, calculate how force effect is divided evenly between them
+	 * (so that d[0] + d[1] = 1.0) */
 	if (closest_id[1] != -1) {
 		float force_proj[3];
 		float tangent[3];
-		float neigh_diff = acosf(dot_v3v3(bNeighs[closest_id[0]].dir, bNeighs[closest_id[1]].dir));
+		const float neigh_diff = acosf(dot_v3v3(bNeighs[closest_id[0]].dir, bNeighs[closest_id[1]].dir));
 		float force_intersect;
 		float temp;
 
@@ -4113,6 +4119,18 @@ static void dynamicPaint_doSmudge(DynamicPaintSurface *surface, DynamicPaintBrus
 		}
 	}
 }
+
+typedef struct DynamicPaintEffectData {
+	DynamicPaintSurface *surface;
+	Scene *scene;
+
+	float *force;
+	ListBase *effectors;
+	const PaintPoint *prevPoint;
+	const float eff_scale;
+
+	uint8_t *point_locks;
+} DynamicPaintEffectData;
 
 /*
  *	Prepare data required by effects for current frame.
@@ -4210,6 +4228,91 @@ static int dynamicPaint_prepareEffectStep(
 /**
  *	Processes active effect step.
  */
+static void dynamic_paint_effect_drip_cb(void *userdata, const int index)
+{
+	DynamicPaintEffectData *data = userdata;
+
+	DynamicPaintSurface *surface = data->surface;
+	PaintSurfaceData *sData = surface->data;
+
+	BakeAdjPoint *bNeighs = sData->bData->bNeighs;
+	PaintPoint *pPoint = &((PaintPoint *)sData->type_data)[index];
+	const PaintPoint *prevPoint = data->prevPoint;
+	const PaintPoint *pPoint_prev = &prevPoint[index];
+	const float *force = data->force;
+	const float eff_scale = data->eff_scale;
+
+	const int *n_target = sData->adj_data->n_target;
+
+	uint8_t *point_locks = data->point_locks;
+
+	int closest_id[2];
+	float closest_d[2];
+
+	/* adjust drip speed depending on wetness */
+	float w_factor = pPoint_prev->wetness - 0.025f;
+	if (w_factor <= 0)
+		return;
+	CLAMP(w_factor, 0.0f, 1.0f);
+
+	/* get force affect points */
+	surface_determineForceTargetPoints(sData, index, &force[index * 4], closest_d, closest_id);
+
+	/* Apply movement towards those two points */
+	for (int i = 0; i < 2; i++) {
+		const int n_idx = closest_id[i];
+		if (n_idx != -1 && closest_d[i] > 0.0f) {
+			const float dir_dot = closest_d[i];
+
+			/* just skip if angle is too extreme */
+			if (dir_dot <= 0.0f)
+				continue;
+
+			float dir_factor, a_factor;
+			const float speed_scale = eff_scale * force[index * 4 + 3] / bNeighs[n_idx].dist;
+
+			const unsigned int n_trgt = (unsigned int)n_target[n_idx];
+
+			/* Sort of spinlock, but only for given ePoint.
+			 * Since the odds a same ePoint is modified at the same time by several threads is very low, this is
+			 * much more eficient than a global spin lock. */
+			const unsigned int pointlock_idx = n_trgt / 8;
+			const uint8_t pointlock_bitmask = 1 << (n_trgt & 7);  /* 7 == 0b111 */
+			while (atomic_fetch_and_or_uint8(&point_locks[pointlock_idx], pointlock_bitmask) & pointlock_bitmask);
+
+			PaintPoint *ePoint = &((PaintPoint *)sData->type_data)[n_trgt];
+			const float e_wet = ePoint->wetness;
+
+			dir_factor = min_ff(0.5f, dir_dot * min_ff(speed_scale, 1.0f) * w_factor);
+
+			/* mix new wetness */
+			ePoint->wetness += dir_factor;
+			CLAMP(ePoint->wetness, 0.0f, MAX_WETNESS);
+
+			/* mix new color */
+			a_factor = dir_factor / pPoint_prev->wetness;
+			CLAMP(a_factor, 0.0f, 1.0f);
+			mixColors(ePoint->e_color, ePoint->e_color[3], pPoint_prev->e_color, pPoint_prev->e_color[3], a_factor);
+			/* dripping is supposed to preserve alpha level */
+			if (pPoint_prev->e_color[3] > ePoint->e_color[3]) {
+				ePoint->e_color[3] += a_factor * pPoint_prev->e_color[3];
+				CLAMP_MAX(ePoint->e_color[3], pPoint_prev->e_color[3]);
+			}
+
+			/* decrease paint wetness on current point */
+			pPoint->wetness -= (ePoint->wetness - e_wet);
+			CLAMP(pPoint->wetness, 0.0f, MAX_WETNESS);
+
+#ifndef NDEBUG
+			uint8_t ret = atomic_fetch_and_and_uint8(&point_locks[pointlock_idx], ~pointlock_bitmask);
+			BLI_assert(ret & pointlock_bitmask);
+#else
+			atomic_fetch_and_and_uint8(&point_locks[pointlock_idx], ~pointlock_bitmask);
+#endif
+		}
+	}
+}
+
 static void dynamicPaint_doEffectStep(
         DynamicPaintSurface *surface, float *force, PaintPoint *prevPoint, float timescale, float steps)
 {
@@ -4271,7 +4374,7 @@ static void dynamicPaint_doEffectStep(
 	 *	Shrink Effect
 	 */
 	if (surface->effect & MOD_DPAINT_EFFECT_DO_SHRINK) {
-		float eff_scale = distance_scale * EFF_MOVEMENT_PER_FRAME * surface->shrink_speed * timescale;
+		const float eff_scale = distance_scale * EFF_MOVEMENT_PER_FRAME * surface->shrink_speed * timescale;
 
 		/* Copy current surface to the previous points array to read unmodified values	*/
 		memcpy(prevPoint, sData->type_data, sData->total_points * sizeof(struct PaintPoint));
@@ -4320,64 +4423,24 @@ static void dynamicPaint_doEffectStep(
 	 *	Drip Effect
 	 */
 	if (surface->effect & MOD_DPAINT_EFFECT_DO_DRIP && force) {
-		float eff_scale = distance_scale * EFF_MOVEMENT_PER_FRAME * timescale / 2.0f;
+		const float eff_scale = distance_scale * EFF_MOVEMENT_PER_FRAME * timescale / 2.0f;
+
+		/* Same as BLI_bitmask, but handled atomicaly as 'ePoint' locks. */
+		const size_t point_locks_size = (sData->total_points / 8) + 1;
+		uint8_t *point_locks = MEM_callocN(sizeof(*point_locks) * point_locks_size, __func__);
+
 		/* Copy current surface to the previous points array to read unmodified values	*/
 		memcpy(prevPoint, sData->type_data, sData->total_points * sizeof(struct PaintPoint));
 
-		for (index = 0; index < sData->total_points; index++) {
-			int i;
-			PaintPoint *pPoint = &((PaintPoint *)sData->type_data)[index];
-			PaintPoint *pPoint_prev = &prevPoint[index];
+		DynamicPaintEffectData data = {
+			.surface = surface, .prevPoint = prevPoint,
+		    .eff_scale = eff_scale, .force = force,
+		    .point_locks = point_locks,
+		};
+		BLI_task_parallel_range(
+		            0, sData->total_points, &data, dynamic_paint_effect_drip_cb, sData->total_points > 1000);
 
-			int closest_id[2];
-			float closest_d[2];
-
-			/* adjust drip speed depending on wetness */
-			float w_factor = pPoint_prev->wetness - 0.025f;
-			if (w_factor <= 0)
-				continue;
-			CLAMP(w_factor, 0.0f, 1.0f);
-
-			/* get force affect points */
-			surface_determineForceTargetPoints(sData, index, &force[index * 4], closest_d, closest_id);
-
-			/* Apply movement towards those two points */
-			for (i = 0; i < 2; i++) {
-				int n_index = closest_id[i];
-				if (n_index != -1 && closest_d[i] > 0.0f) {
-					float dir_dot = closest_d[i], dir_factor, a_factor;
-					float speed_scale = eff_scale * force[index * 4 + 3] / bNeighs[n_index].dist;
-					PaintPoint *ePoint = &((PaintPoint *)sData->type_data)[sData->adj_data->n_target[n_index]];
-					float e_wet = ePoint->wetness;
-
-					/* just skip if angle is too extreme */
-					if (dir_dot <= 0.0f)
-						continue;
-
-					dir_factor = dir_dot * MIN2(speed_scale, 1.0f) * w_factor;
-					CLAMP_MAX(dir_factor, 0.5f);
-
-					/* mix new wetness */
-					ePoint->wetness += dir_factor;
-					CLAMP(ePoint->wetness, 0.0f, MAX_WETNESS);
-
-					/* mix new color */
-					a_factor = dir_factor / pPoint_prev->wetness;
-					CLAMP(a_factor, 0.0f, 1.0f);
-					mixColors(ePoint->e_color, ePoint->e_color[3], pPoint_prev->e_color, pPoint_prev->e_color[3],
-					          a_factor);
-					/* dripping is supposed to preserve alpha level */
-					if (pPoint_prev->e_color[3] > ePoint->e_color[3]) {
-						ePoint->e_color[3] += a_factor * pPoint_prev->e_color[3];
-						CLAMP_MAX(ePoint->e_color[3], pPoint_prev->e_color[3]);
-					}
-
-					/* decrease paint wetness on current point */
-					pPoint->wetness -= (ePoint->wetness - e_wet);
-					CLAMP(pPoint->wetness, 0.0f, MAX_WETNESS);
-				}
-			}
-		}
+		MEM_freeN(point_locks);
 	}
 }
 
@@ -4718,6 +4781,8 @@ static int dynamicPaint_generateBakeData(DynamicPaintSurface *surface, const Sce
 #pragma omp parallel for schedule(static)
 	for (index = 0; index < sData->total_points; index++) {
 		float prev_point[3] = {0.0f, 0.0f, 0.0f};
+		float temp_nor[3];
+
 		if (do_velocity_data && !new_bdata) {
 			copy_v3_v3(prev_point, bData->realCoord[bData->s_pos[index]].v);
 		}
@@ -4726,15 +4791,14 @@ static int dynamicPaint_generateBakeData(DynamicPaintSurface *surface, const Sce
 		 */
 		if (surface->format == MOD_DPAINT_SURFACE_F_IMAGESEQ) {
 			float n1[3], n2[3], n3[3];
-			ImgSeqFormatData *f_data = (ImgSeqFormatData *)sData->format_data;
-			PaintUVPoint *tPoint = &((PaintUVPoint *)f_data->uv_p)[index];
-			int ss;
+			const ImgSeqFormatData *f_data = (ImgSeqFormatData *)sData->format_data;
+			const PaintUVPoint *tPoint = &((PaintUVPoint *)f_data->uv_p)[index];
 
 			bData->s_num[index] = (surface->flags & MOD_DPAINT_ANTIALIAS) ? 5 : 1;
 			bData->s_pos[index] = index * bData->s_num[index];
 
 			/* per sample coordinates */
-			for (ss = 0; ss < bData->s_num[index]; ss++) {
+			for (int ss = 0; ss < bData->s_num[index]; ss++) {
 				interp_v3_v3v3v3(bData->realCoord[bData->s_pos[index] + ss].v,
 				                 canvas_verts[tPoint->v1].v,
 				                 canvas_verts[tPoint->v2].v,
@@ -4747,11 +4811,18 @@ static int dynamicPaint_generateBakeData(DynamicPaintSurface *surface, const Sce
 			normal_short_to_float_v3(n2, mvert[tPoint->v2].no);
 			normal_short_to_float_v3(n3, mvert[tPoint->v3].no);
 
-			interp_v3_v3v3v3(bData->bNormal[index].invNorm,
-			                 n1, n2, n3, f_data->barycentricWeights[index * bData->s_num[index]].v);
-			mul_mat3_m4_v3(ob->obmat, bData->bNormal[index].invNorm);
-			normalize_v3(bData->bNormal[index].invNorm);
-			negate_v3(bData->bNormal[index].invNorm);
+			interp_v3_v3v3v3(temp_nor, n1, n2, n3, f_data->barycentricWeights[index * bData->s_num[index]].v);
+			normalize_v3(temp_nor);
+			if (ELEM(surface->type, MOD_DPAINT_SURFACE_T_DISPLACE, MOD_DPAINT_SURFACE_T_WAVE)) {
+				/* Prepare surface normal directional scale to easily convert
+				 * brush intersection amount between global and local space */
+				float scaled_nor[3];
+				mul_v3_v3v3(scaled_nor, temp_nor, ob->size);
+				bData->bNormal[index].normal_scale = len_v3(scaled_nor);
+			}
+			mul_mat3_m4_v3(ob->obmat, temp_nor);
+			normalize_v3(temp_nor);
+			negate_v3_v3(bData->bNormal[index].invNorm, temp_nor);
 		}
 		else if (surface->format == MOD_DPAINT_SURFACE_F_VERTEX) {
 			int ss;
@@ -4778,35 +4849,17 @@ static int dynamicPaint_generateBakeData(DynamicPaintSurface *surface, const Sce
 			}
 
 			/* normal */
-			normal_short_to_float_v3(bData->bNormal[index].invNorm, mvert[index].no);
-			mul_mat3_m4_v3(ob->obmat, bData->bNormal[index].invNorm);
-			normalize_v3(bData->bNormal[index].invNorm);
-			negate_v3(bData->bNormal[index].invNorm);
-		}
-
-		/* Prepare surface normal directional scale to easily convert
-		 *  brush intersection amount between global and local space */
-		if (surface->type == MOD_DPAINT_SURFACE_T_DISPLACE ||
-		    surface->type == MOD_DPAINT_SURFACE_T_WAVE)
-		{
-			float temp_nor[3];
-			if (surface->format == MOD_DPAINT_SURFACE_F_VERTEX) {
-				normal_short_to_float_v3(temp_nor, mvert[index].no);
-				normalize_v3(temp_nor);
+			normal_short_to_float_v3(temp_nor, mvert[index].no);
+			if (ELEM(surface->type, MOD_DPAINT_SURFACE_T_DISPLACE, MOD_DPAINT_SURFACE_T_WAVE)) {
+				/* Prepare surface normal directional scale to easily convert
+				 * brush intersection amount between global and local space */
+				float scaled_nor[3];
+				mul_v3_v3v3(scaled_nor, temp_nor, ob->size);
+				bData->bNormal[index].normal_scale = len_v3(scaled_nor);
 			}
-			else {
-				float n1[3], n2[3], n3[3];
-				ImgSeqFormatData *f_data = (ImgSeqFormatData *)sData->format_data;
-				PaintUVPoint *tPoint = &((PaintUVPoint *)f_data->uv_p)[index];
-
-				normal_short_to_float_v3(n1, mvert[tPoint->v1].no);
-				normal_short_to_float_v3(n2, mvert[tPoint->v2].no);
-				normal_short_to_float_v3(n3, mvert[tPoint->v3].no);
-				interp_v3_v3v3v3(temp_nor, n1, n2, n3, f_data->barycentricWeights[index * bData->s_num[index]].v);
-			}
-
-			mul_v3_v3(temp_nor, ob->size);
-			bData->bNormal[index].normal_scale = len_v3(temp_nor);
+			mul_mat3_m4_v3(ob->obmat, temp_nor);
+			normalize_v3(temp_nor);
+			negate_v3_v3(bData->bNormal[index].invNorm, temp_nor);
 		}
 
 		/* calculate speed vector */
