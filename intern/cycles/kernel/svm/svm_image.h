@@ -155,7 +155,7 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 #else
 	float4 r;
 
-#if __CUDA_ARCH__ < 300
+#  if __CUDA_ARCH__ < 300
 	/* not particularly proud of this massive switch, what are the
 	 * alternatives?
 	 * - use a single big 1D texture, and do our own lookup/filtering
@@ -263,7 +263,7 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 			kernel_assert(0);
 			return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
-#else
+#  else
 	CUtexObject tex = kernel_tex_fetch(__bindless_mapping, id);
 	if(id < 2048) /* TODO(dingto): Make this a variable */
 		r = kernel_tex_image_interp_float4(tex, x, y);
@@ -271,7 +271,7 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 		float f = kernel_tex_image_interp_float(tex, x, y);
 		r = make_float4(f, f, f, 1.0);
 	}
-#endif
+#  endif
 #endif
 
 #ifdef __KERNEL_SSE2__
