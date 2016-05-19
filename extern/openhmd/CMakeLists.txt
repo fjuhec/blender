@@ -57,14 +57,14 @@ if(OPENHMD_DRIVER_OCULUS_RIFT)
 endif()
 
 if(OPENHMD_DRIVER_EXTERNAL)
-	list(append SRC
+	list(APPEND SRC
 		src/drv_external/external.c
 	)
 	add_definitions(-DDRIVER_EXTERNAL)
 endif()
 
 if(OPENHMD_DRIVER_ANDROID)
-	list(append SRC
+	list(APPEND SRC
 		src/drv_android/android.c
 	)
 	add_definitions(-DDRIVER_ANDROID)
