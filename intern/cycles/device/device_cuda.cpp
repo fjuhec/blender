@@ -222,7 +222,8 @@ public:
 	{
 		task_pool.stop();
 
-		tex_free(bindless_mapping, -1);
+		if(info.has_bindless_textures)
+			tex_free(bindless_mapping, -1);
 
 		cuda_assert(cuCtxDestroy(cuContext));
 	}
@@ -403,7 +404,7 @@ public:
 
 	void load_bindless_mapping()
 	{
-		if(sync_bindless_mapping) {
+		if(info.has_bindless_textures && sync_bindless_mapping) {
 			tex_alloc("__bindless_mapping", bindless_mapping, INTERPOLATION_NONE, EXTENSION_REPEAT, 0);
 			sync_bindless_mapping = false;
 		}
@@ -745,7 +746,7 @@ public:
 		}
 
 		/* Free CUtexObject (Bindless Textures) */
-		if(flat_slot != -1) {
+		if(info.has_bindless_textures && flat_slot != -1) {
 			cuTexObjectDestroy(bindless_mapping.get_data()[flat_slot]);
 		}
 	}
