@@ -553,11 +553,15 @@ public:
 				cuda_pop_context();
 				return;
 			}
+
+			cuda_pop_context();
 		}
 
 		/* Data Storage */
 		if(interpolation == INTERPOLATION_NONE) {
 			if(has_bindless_textures) {
+				cuda_pop_context();
+
 				mem_alloc(mem, MEM_READ_ONLY);
 				mem_copy_to(mem);
 
@@ -592,6 +596,8 @@ public:
 				cuda_assert(cuTexRefSetAddress(NULL, texref, cuda_device_ptr(mem.device_pointer), size));
 				cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_POINT));
 				cuda_assert(cuTexRefSetFlags(texref, CU_TRSF_READ_AS_INTEGER));
+
+				cuda_pop_context();
 			}
 		}
 		/* Texture Storage */
@@ -690,6 +696,8 @@ public:
 				cuda_assert(cuTexRefSetFlags(texref, CU_TRSF_NORMALIZED_COORDINATES));
 			}
 
+			cuda_pop_context();
+
 			/* Fermi and Kepler */
 			mem.device_pointer = (device_ptr)handle;
 			mem.device_size = size;
@@ -699,6 +707,8 @@ public:
 
 		/* Fermi, Data and Image Textures */
 		if(!has_bindless_textures) {
+			cuda_push_context();
+
 			cuda_assert(cuTexRefSetAddressMode(texref, 0, address_mode));
 			cuda_assert(cuTexRefSetAddressMode(texref, 1, address_mode));
 			if(mem.data_depth > 1) {
