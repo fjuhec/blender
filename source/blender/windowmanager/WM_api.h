@@ -521,6 +521,9 @@ bool        WM_event_is_ime_switch(const struct wmEvent *event);
 /* wm_device.c */
 
 #ifdef WITH_INPUT_HMD
+
+#define MAX_HMD_DEVICES 12
+
 int         WM_device_HMD_num_devices_get(void);
 void        WM_device_HMD_state_set(const int device, const bool enable);
 int         WM_device_HMD_current_get(void);
