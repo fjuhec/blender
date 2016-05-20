@@ -32,9 +32,6 @@
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
 
-#include "WM_types.h"
-#include "WM_api.h"
-
 #include "BKE_context.h"
 #include "BKE_customdata.h"
 #include "BKE_facegroup.h"

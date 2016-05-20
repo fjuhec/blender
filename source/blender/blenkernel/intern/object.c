@@ -86,6 +86,7 @@
 #include "BKE_curve.h"
 #include "BKE_displist.h"
 #include "BKE_effect.h"
+#include "BKE_facegroup.h"
 #include "BKE_fcurve.h"
 #include "BKE_group.h"
 #include "BKE_icons.h"
@@ -1539,6 +1540,7 @@ Object *BKE_object_copy_ex(Main *bmain, Object *ob, bool copy_caches)
 			BKE_pose_rebuild(obn, obn->data);
 	}
 	defgroup_copy_list(&obn->defbase, &ob->defbase);
+	fmap_copy_list(&obn->fmaps, &ob->fmaps);
 	BKE_constraints_copy(&obn->constraints, &ob->constraints, true);
 
 	obn->mode = OB_MODE_OBJECT;

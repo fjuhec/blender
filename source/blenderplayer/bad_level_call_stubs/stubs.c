@@ -507,6 +507,8 @@ void ED_object_constraint_tag_update(struct Object *ob, struct bConstraint *con)
 void ED_vgroup_vert_add(struct Object *ob, struct bDeformGroup *dg, int vertnum, float weight, int assignmode) RET_NONE
 void ED_vgroup_vert_remove(struct Object *ob, struct bDeformGroup *dg, int vertnum) RET_NONE
 float ED_vgroup_vert_weight(struct Object *ob, struct bDeformGroup *dg, int vertnum) RET_ZERO
+void ED_fmap_face_add(struct Object *ob, struct bFaceMap *fmap, int facenum) RET_NONE
+void ED_fmap_face_remove(struct Object *ob, struct bFaceMap *fmap, int facenum) RET_NONE
 int ED_mesh_mirror_topo_table(struct Object *ob, struct DerivedMesh *dm, char mode) RET_ZERO
 int ED_mesh_mirror_spatial_table(struct Object *ob, struct BMEditMesh *em, struct DerivedMesh *dm, const float co[3], char mode) RET_ZERO
 
