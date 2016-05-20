@@ -530,7 +530,8 @@ int         WM_device_HMD_current_get(void);
 const char *WM_device_HMD_name_get(int index);
 const char *WM_device_HMD_vendor_get(int index);
 float       WM_device_HMD_IPD_get(void);
-#endif
+
+#endif /* WITH_INPUT_HMD */
 
 #ifdef __cplusplus
 }
