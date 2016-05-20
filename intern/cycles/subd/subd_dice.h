@@ -40,6 +40,7 @@ struct SubdParams {
 	int test_steps;
 	int split_threshold;
 	float dicing_rate;
+	int max_level;
 	Camera *camera;
 	Transform objecttoworld;
 
@@ -53,6 +54,7 @@ struct SubdParams {
 		test_steps = 3;
 		split_threshold = 1;
 		dicing_rate = 0.1f;
+		max_level = 12;
 		camera = NULL;
 	}
 
@@ -68,7 +70,7 @@ public:
 	size_t vert_offset;
 	size_t tri_offset;
 
-	EdgeDice(const SubdParams& params);
+	explicit EdgeDice(const SubdParams& params);
 
 	void reserve(int num_verts, int num_tris);
 
@@ -109,7 +111,7 @@ public:
 		int tv1;
 	};
 
-	QuadDice(const SubdParams& params);
+	explicit QuadDice(const SubdParams& params);
 
 	void reserve(EdgeFactors& ef, int Mu, int Mv);
 	float3 eval_projected(SubPatch& sub, float u, float v);
@@ -163,7 +165,7 @@ public:
 		int tw;
 	};
 
-	TriangleDice(const SubdParams& params);
+	explicit TriangleDice(const SubdParams& params);
 
 	void reserve(EdgeFactors& ef, int M);
 
