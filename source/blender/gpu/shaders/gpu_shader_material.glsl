@@ -2310,6 +2310,25 @@ float hypot(float x, float y)
 	return sqrt(x*x + y*y);
 }
 
+void generated_from_orco(vec3 orco, out vec3 generated)
+{
+	generated = orco * 0.5 + vec3(0.5);
+}
+
+float integer_noise(int n)
+{
+	int nn;
+	n = (n + 1013) & 0x7fffffff;
+	n = (n >> 13) ^ n;
+	nn = (n * (n * n * 60493 + 19990303) + 1376312589) & 0x7fffffff;
+	return 0.5f * (float(nn) / 1073741824.0);
+}
+
+int floor_to_int(float x)
+{
+	return int(floor(x));
+}
+
 /*********** NEW SHADER NODES ***************/
 
 #define NUM_LIGHTS 3
@@ -2568,22 +2587,119 @@ void node_tex_coord_background(vec3 I, vec3 N, mat4 viewinvmat, mat4 obinvmat, v
 
 /* textures */
 
-void node_tex_gradient(vec3 co, out vec4 color, out float fac)
+float calc_gradient(vec3 p, int gradient_type)
 {
-	color = vec4(1.0);
-	fac = 1.0;
+	float x, y, z;
+	x = p.x;
+	y = p.y;
+	z = p.z;
+	if(gradient_type == 0) {  /* linear */
+		return x;
+	}
+	else if(gradient_type == 1) {  /* quadratic */
+		float r = max(x, 0.0);
+		return r*r;
+	}
+	else if(gradient_type == 2) {  /* easing */
+		float r = min(max(x, 0.0), 1.0);
+		float t = r*r;
+		return (3.0*t - 2.0*t*r);
+	}
+	else if(gradient_type == 3) {  /* diagonal */
+		return (x + y) * 0.5;
+	}
+	else if(gradient_type == 4) {  /* radial */
+		return atan(y, x) / (M_PI * 2) + 0.5;
+	}
+	else {
+		float r = max(1.0 - sqrt(x*x + y*y + z*z), 0.0);
+		if(gradient_type == 5) {  /* quadratic sphere */
+			return r*r;
+		}
+		else if(gradient_type == 6) {  /* sphere */
+			return r;
+		}
+	}
+	return 0.0;
+}
+
+void node_tex_gradient(vec3 co, float gradient_type, out vec4 color, out float fac)
+{
+	float f = calc_gradient(co, int(gradient_type));
+	f = clamp(f, 0.0, 1.0);
+
+	color = vec4(f, f, f, 1.0);
+	fac = f;
 }
 
 void node_tex_checker(vec3 co, vec4 color1, vec4 color2, float scale, out vec4 color, out float fac)
 {
-	color = vec4(1.0);
-	fac = 1.0;
+	vec3 p = co * scale;
+
+	/* Prevent precision issues on unit coordinates. */
+	p.x = (p.x + 0.000001)*0.999999;
+	p.y = (p.y + 0.000001)*0.999999;
+	p.z = (p.z + 0.000001)*0.999999;
+
+	int xi = abs(int(floor(p.x)));
+	int yi = abs(int(floor(p.y)));
+	int zi = abs(int(floor(p.z)));
+
+	bool check = ((xi % 2 == yi % 2) == bool(zi % 2));
+
+	color = check ? color1 : color2;
+	fac = check ? 1.0 : 0.0;
 }
 
-void node_tex_brick(vec3 co, vec4 color1, vec4 color2, vec4 mortar, float scale, float mortar_size, float bias, float brick_width, float row_height, out vec4 color, out float fac)
+vec2 calc_brick_texture(vec3 p, float mortar_size, float bias,
+                        float brick_width, float row_height,
+                        float offset_amount, int offset_frequency,
+                        float squash_amount, int squash_frequency)
 {
-	color = vec4(1.0);
-	fac = 1.0;
+	int bricknum, rownum;
+	float offset = 0.0;
+	float x, y;
+
+	rownum = floor_to_int(p.y / row_height);
+
+	if(offset_frequency != 0 && squash_frequency != 0) {
+		brick_width *= (rownum % squash_frequency != 0) ? 1.0 : squash_amount; /* squash */
+		offset = (rownum % offset_frequency != 0) ? 0.0 : (brick_width*offset_amount); /* offset */
+	}
+
+	bricknum = floor_to_int((p.x+offset) / brick_width);
+
+	x = (p.x+offset) - brick_width*bricknum;
+	y = p.y - row_height*rownum;
+
+	return vec2(clamp((integer_noise((rownum << 16) + (bricknum & 0xFFFF)) + bias), 0.0, 1.0),
+	            (x < mortar_size || y < mortar_size ||
+	             x > (brick_width - mortar_size) ||
+	             y > (row_height - mortar_size)) ? 1.0 : 0.0);
+}
+
+void node_tex_brick(vec3 co,
+                    vec4 color1, vec4 color2,
+                    vec4 mortar, float scale,
+                    float mortar_size, float bias,
+                    float brick_width, float row_height,
+                    float offset_amount, float offset_frequency,
+                    float squash_amount, float squash_frequency,
+                    out vec4 color, out float fac)
+{
+	vec2 f2 = calc_brick_texture(co*scale,
+	                             mortar_size, bias,
+	                             brick_width, row_height,
+	                             offset_amount, int(offset_frequency),
+	                             squash_amount, int(squash_frequency));
+	float tint = f2.x;
+	float f = f2.y;
+	if(f != 1.0) {
+		float facm = 1.0 - tint;
+		color1 = facm * color1 + tint * color2;
+	}
+	color = (f == 1.0) ? mortar : color1;
+	fac = f;
 }
 
 void node_tex_clouds(vec3 co, float size, out vec4 color, out float fac)
@@ -2634,10 +2750,65 @@ void node_tex_image_empty(vec3 co, out vec4 color, out float alpha)
 	alpha = 0.0;
 }
 
-void node_tex_magic(vec3 p, float scale, float distortion, out vec4 color, out float fac)
+void node_tex_magic(vec3 co, float scale, float distortion, float depth, out vec4 color, out float fac)
 {
-	color = vec4(1.0);
-	fac = 1.0;
+	vec3 p = co * scale;
+	float x = sin((p.x + p.y + p.z)*5.0);
+	float y = cos((-p.x + p.y - p.z)*5.0);
+	float z = -cos((-p.x - p.y + p.z)*5.0);
+
+	if(depth > 0) {
+		x *= distortion;
+		y *= distortion;
+		z *= distortion;
+		y = -cos(x-y+z);
+		y *= distortion;
+		if(depth > 1) {
+			x = cos(x-y-z);
+			x *= distortion;
+			if(depth > 2) {
+				z = sin(-x-y-z);
+				z *= distortion;
+				if(depth > 3) {
+					x = -cos(-x+y-z);
+					x *= distortion;
+					if(depth > 4) {
+						y = -sin(-x+y+z);
+						y *= distortion;
+						if(depth > 5) {
+							y = -cos(-x+y+z);
+							y *= distortion;
+							if(depth > 6) {
+								x = cos(x+y+z);
+								x *= distortion;
+								if(depth > 7) {
+									z = sin(x+y-z);
+									z *= distortion;
+									if(depth > 8) {
+										x = -cos(-x-y+z);
+										x *= distortion;
+										if(depth > 9) {
+											y = -sin(x-y+z);
+											y *= distortion;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if(distortion != 0.0) {
+		distortion *= 2.0;
+		x /= distortion;
+		y /= distortion;
+		z /= distortion;
+	}
+
+	color = vec4(0.5f - x, 0.5f - y, 0.5f - z, 1.0);
+	fac = (color.x + color.y + color.z) / 3.0;
 }
 
 void node_tex_musgrave(vec3 co, float scale, float detail, float dimension, float lacunarity, float offset, float gain, out vec4 color, out float fac)
