@@ -55,6 +55,7 @@ int WM_device_HMD_num_devices_get(void)
  */
 void WM_device_HMD_state_set(const int device, const bool enable)
 {
+	BLI_assert(device < MAX_HMD_DEVICES);
 	if (enable && (device >= 0)) {
 		/* GHOST closes previously opened device if needed */
 		GHOST_HMDopenDevice(device);
@@ -74,11 +75,13 @@ int WM_device_HMD_current_get(void)
 
 const char *WM_device_HMD_name_get(int index)
 {
+	BLI_assert(index < MAX_HMD_DEVICES);
 	return GHOST_HMDgetDeviceName(index);
 }
 
 const char *WM_device_HMD_vendor_get(int index)
 {
+	BLI_assert(index < MAX_HMD_DEVICES);
 	return GHOST_HMDgetVendorName(index);
 }
 

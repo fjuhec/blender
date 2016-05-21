@@ -652,6 +652,7 @@ static EnumPropertyItem *rna_userdef_hmd_device_itemf(
         bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
         bool *r_free)
 {
+	static char names[MAX_HMD_DEVICES][MAX_NAME];
 	EnumPropertyItem *item = NULL;
 	int totitem = 0;
 
@@ -659,12 +660,11 @@ static EnumPropertyItem *rna_userdef_hmd_device_itemf(
 	RNA_enum_item_add(&item, &totitem, &hmd_device_items[0]);
 
 	/* add devices */
-	for (int i = 0; i < WM_device_HMD_num_devices_get(); i++) {
-		static char name[MAX_NAME];
+	for (int i = 0; i < WM_device_HMD_num_devices_get() && i < MAX_HMD_DEVICES; i++) {
 		EnumPropertyItem tmp = {i, "", 0, "", ""};
 
-		BLI_snprintf(name, sizeof(name), "%s %s", WM_device_HMD_vendor_get(i), WM_device_HMD_name_get(i));
-		tmp.identifier = tmp.name = name;
+		BLI_snprintf(names[i], sizeof(names[i]), "%s %s", WM_device_HMD_vendor_get(i), WM_device_HMD_name_get(i));
+		tmp.identifier = tmp.name = names[i];
 		RNA_enum_item_add(&item, &totitem, &tmp);
 	}
 

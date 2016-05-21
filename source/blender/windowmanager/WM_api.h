@@ -521,13 +521,17 @@ bool        WM_event_is_ime_switch(const struct wmEvent *event);
 /* wm_device.c */
 
 #ifdef WITH_INPUT_HMD
-int         WM_device_HMD_num_devices_get(void);
+
+#define MAX_HMD_DEVICES 12
+
+int         WM_device_HMD_num_devices_get(void) ATTR_WARN_UNUSED_RESULT;
 void        WM_device_HMD_state_set(const int device, const bool enable);
-int         WM_device_HMD_current_get(void);
-const char *WM_device_HMD_name_get(int index);
-const char *WM_device_HMD_vendor_get(int index);
-float       WM_device_HMD_IPD_get(void);
-#endif
+int         WM_device_HMD_current_get(void) ATTR_WARN_UNUSED_RESULT;
+const char *WM_device_HMD_name_get(int index) ATTR_WARN_UNUSED_RESULT;
+const char *WM_device_HMD_vendor_get(int index) ATTR_WARN_UNUSED_RESULT;
+float       WM_device_HMD_IPD_get(void) ATTR_WARN_UNUSED_RESULT;
+
+#endif /* WITH_INPUT_HMD */
 
 #ifdef __cplusplus
 }
