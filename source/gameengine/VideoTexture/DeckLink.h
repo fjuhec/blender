@@ -63,10 +63,10 @@ struct DeckLink
 	bool mUseExtend;
 	bool mKeyingSupported;
 	bool mHDKeyingSupported;
-	bool mUseSwap;
 	uint8_t mKeyingLevel;
 	BMDDisplayMode mDisplayMode;
 	short mSize[2];
+	uint32_t mFrameSize;
 
 	// image source
 	PyImage * m_leftEye;

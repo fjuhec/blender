@@ -179,37 +179,6 @@ HRESULT decklink_ReadPixelFormat(const char *format, size_t len, BMDPixelFormat 
 	return S_OK;
 }
 
-class DeckLinkFrameWrapper : public IDeckLinkVideoFrame
-{
-public:
-	// From IUknown
-	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, LPVOID *ppv)	{ return E_NOTIMPL;	}
-	virtual ULONG STDMETHODCALLTYPE AddRef(void)	{ return 1U; }
-	virtual ULONG STDMETHODCALLTYPE Release(void)	{ return 1U; }
-	// From IDeckLinkVideoFrame
-	virtual long STDMETHODCALLTYPE GetWidth(void) { return mpFrame->GetWidth(); }
-	virtual long STDMETHODCALLTYPE GetHeight(void) { return mpFrame->GetHeight(); }
-	virtual long STDMETHODCALLTYPE GetRowBytes(void) { return mpFrame->GetRowBytes(); }
-	virtual BMDPixelFormat STDMETHODCALLTYPE GetPixelFormat(void) { return mpFrame->GetPixelFormat(); }
-	virtual BMDFrameFlags STDMETHODCALLTYPE GetFlags(void) { return mpFrame->GetFlags(); }
-	// this is the only function that is modified: return our buffer instead
-	virtual HRESULT STDMETHODCALLTYPE GetBytes(void **buffer) { *buffer = mpBuffer; return S_OK; }
-	virtual HRESULT STDMETHODCALLTYPE GetTimecode(BMDTimecodeFormat format, IDeckLinkTimecode **timecode) 
-		{ return mpFrame->GetTimecode(format, timecode); }
-	virtual HRESULT STDMETHODCALLTYPE GetAncillaryData(IDeckLinkVideoFrameAncillary **ancillary)
-		{ return mpFrame->GetAncillaryData(ancillary); }
-	// constructor
-	DeckLinkFrameWrapper(IDeckLinkVideoFrame *theFrame, void *theBuffer)
-	{
-		mpBuffer = theBuffer;
-		mpFrame = theFrame;
-	}
-	// no destructor, it's just a wrapper
-private:
-	IDeckLinkVideoFrame *mpFrame;
-	void *mpBuffer;
-};
-
 class DeckLink3DFrameWrapper : public IDeckLinkVideoFrame, IDeckLinkVideoFrame3DExtensions
 {
 public:
@@ -273,13 +242,13 @@ static void decklink_Reset(DeckLink *self)
 	self->mHDKeyingSupported = false;
 	self->mSize[0] = 0;
 	self->mSize[1] = 0;
+	self->mFrameSize = 0;
 	self->mLeftFrame = NULL;
 	self->mRightFrame = NULL;
 	self->mKeyer = NULL;
 	self->mUseKeying = false;
 	self->mKeyingLevel = 255;
 	self->mUseExtend = false;
-	self->mUseSwap = false;
 }
 
 #ifdef __BIG_ENDIAN__
@@ -288,9 +257,8 @@ static void decklink_Reset(DeckLink *self)
 #define CONV_PIXEL(i)	((((i)&0xFF)<<16)+(((i)>>16)&0xFF)+((i)&0xFF00FF00))
 #endif
 
-// adapt the pixel format from VideoTexture (RGBA) to DeckLink (BGRA)
-// return false if no conversion at all is necessary
-static bool decklink_ConvImage(uint32_t *dest, const short *destSize, const uint32_t *source, const short *srcSize, bool extend, bool swap)
+// adapt the pixel format and picture size from VideoTexture (RGBA) to DeckLink (BGRA)
+static void decklink_ConvImage(uint32_t *dest, const short *destSize, const uint32_t *source, const short *srcSize, bool extend)
 {
 	short w, h, x, y;
 	const uint32_t *s;
@@ -299,31 +267,15 @@ static bool decklink_ConvImage(uint32_t *dest, const short *destSize, const uint
 
 	if (sameSize || !extend)
 	{
-		if (sameSize && !swap)
+		// here we convert pixel by pixel
+		w = (destSize[0] < srcSize[0]) ? destSize[0] : srcSize[0];
+		h = (destSize[1] < srcSize[1]) ? destSize[1] : srcSize[1];
+		for (y = 0; y < h; ++y)
 		{
-			//memcpy(dest, source, 4 * srcSize[0] * srcSize[1]);
-			//return true;
-			return false;
-		}
-		else
-		{
-			// here we convert pixel by pixel
-			w = (destSize[0] < srcSize[0]) ? destSize[0] : srcSize[0];
-			h = (destSize[1] < srcSize[1]) ? destSize[1] : srcSize[1];
-			for (y = 0; y < h; ++y)
-			{
-				s = source + y*srcSize[0];
-				d = dest + y*destSize[0];
-				if (swap)
-				{
-					for (x = 0; x < w; ++x, ++s, ++d)
-						*d = CONV_PIXEL(*s);
-				}
-				else
-				{
-					memcpy(d, s, 4 * w);
-				}
-			}
+			s = source + y*srcSize[0];
+			d = dest + y*destSize[0];
+			for (x = 0; x < w; ++x, ++s, ++d)
+				*d = CONV_PIXEL(*s);
 		}
 	}
 	else
@@ -351,7 +303,7 @@ static bool decklink_ConvImage(uint32_t *dest, const short *destSize, const uint
 					// increase width accum
 					accWidth += destSize[0];
 					// convert pixel
-					p = (swap) ? CONV_PIXEL(*s) : *s;
+					p = CONV_PIXEL(*s);
 					// if pixel has to be drown one or more times
 					while (accWidth >= srcSize[0])
 					{
@@ -374,7 +326,6 @@ static bool decklink_ConvImage(uint32_t *dest, const short *destSize, const uint
 				s += srcSize[0];
 		}
 	}
-	return true;
 }
 
 // DeckLink object allocation
@@ -527,6 +478,7 @@ static int DeckLink_init(DeckLink *self, PyObject *args, PyObject *kwds)
 			THRWEXCP(DeckLinkBadFormat, S_OK);
 		self->mSize[0] = pDisplayMode->GetWidth();
 		self->mSize[1] = pDisplayMode->GetHeight();
+		self->mFrameSize = 4*self->mSize[0]*self->mSize[1];
 		pDisplayMode->Release();
 		if (self->mDLOutput->EnableVideoOutput(self->mDisplayMode, outputFlags) != S_OK)
 			// this shouldn't fail
@@ -536,14 +488,14 @@ static int DeckLink_init(DeckLink *self, PyObject *args, PyObject *kwds)
 			THRWEXCP(DeckLinkInternalError, S_OK);
 		// clear alpha channel in the frame buffer
 		self->mLeftFrame->GetBytes((void **)&bytes);
-		memset(bytes, 0, 4 * self->mSize[0] * self->mSize[1]);
+		memset(bytes, 0, self->mFrameSize);
 		if (self->mUse3D)
 		{
 			if (self->mDLOutput->CreateVideoFrame(self->mSize[0], self->mSize[1], self->mSize[0] * 4, bmdFormat8BitBGRA, bmdFrameFlagFlipVertical, &self->mRightFrame) != S_OK)
 				THRWEXCP(DeckLinkInternalError, S_OK);
 			// clear alpha channel in the frame buffer
 			self->mRightFrame->GetBytes((void **)&bytes);
-			memset(bytes, 0, 4 * self->mSize[0] * self->mSize[1]);
+			memset(bytes, 0, self->mFrameSize);
 		}
 	}
 	catch (Exception & exp)
@@ -595,50 +547,67 @@ static PyObject *DeckLink_refresh(DeckLink *self, PyObject *args)
 		self->m_lastClock = engine->GetClockTime();
 		// set source refresh
 		bool refreshSource = (param == Py_True);
-		unsigned int *leftEye = NULL;
-		unsigned int *rightEye = NULL;
+		uint32_t *leftEye = NULL;
+		uint32_t *rightEye = NULL;
 		// try to process key frame from source
 		try
 		{
-			// if source is available
+			// check if optimization is possible
 			if (self->m_leftEye != NULL)
-				leftEye = self->m_leftEye->m_image->getImage(0, ts);
-			if (self->m_rightEye != NULL)
-				rightEye = self->m_rightEye->m_image->getImage(0, ts);
-			if (leftEye != NULL)
 			{
-				DeckLinkFrameWrapper leftFrame(self->mLeftFrame, leftEye);
-				// we must adapt the image to the frame 1) in size 2) in byte order
-				// VideoTexture frame are RGBA, DecklinkBGRA
-				short * srcSize = self->m_leftEye->m_image->getSize();
-				uint32_t *dest;
-				self->mLeftFrame->GetBytes((void **)&dest);
-				bool leftConverted = decklink_ConvImage(dest, self->mSize, leftEye, srcSize, self->mUseExtend, self->mUseSwap);
-				if (self->mUse3D)
+				ImageBase *leftImage = self->m_leftEye->m_image;
+				short * srcSize = leftImage->getSize();
+				self->mLeftFrame->GetBytes((void **)&leftEye);
+				if (srcSize[0] == self->mSize[0] && srcSize[1] == self->mSize[1])
 				{
-					DeckLinkFrameWrapper rightFrame(self->mRightFrame, rightEye);
-					bool rightConverted = false;
-					if (rightEye != NULL)
+					// buffer has same size, can load directly
+					if (!leftImage->loadImage(leftEye, self->mFrameSize, GL_BGRA, ts))
+						leftEye = NULL;
+				}
+				else
+				{
+					// scaling is required, go the hard way
+					unsigned int *src = leftImage->getImage(0, ts);
+					if (src != NULL)
+						decklink_ConvImage(leftEye, self->mSize, src, srcSize, self->mUseExtend);
+					else
+						leftEye = NULL;
+				}
+			}
+			if (leftEye)
+			{
+				if (self->mUse3D && self->m_rightEye != NULL)
+				{
+					ImageBase *rightImage = self->m_rightEye->m_image;
+					short * srcSize = rightImage->getSize();
+					self->mRightFrame->GetBytes((void **)&rightEye);
+					if (srcSize[0] == self->mSize[0] && srcSize[1] == self->mSize[1])
 					{
-						self->mRightFrame->GetBytes((void **)&dest);
-						srcSize = self->m_rightEye->m_image->getSize();
-						rightConverted = decklink_ConvImage(dest, self->mSize, rightEye, srcSize, self->mUseExtend, self->mUseSwap);
+						// buffer has same size, can load directly
+						rightImage->loadImage(rightEye, self->mFrameSize, GL_BGRA, ts);
 					}
+					else
 					{
-						DeckLink3DFrameWrapper frame(
-							((leftConverted) ? (IDeckLinkVideoFrame*)self->mLeftFrame : (IDeckLinkVideoFrame*)&leftFrame),
-							((rightConverted) ? (IDeckLinkVideoFrame*)self->mRightFrame :
-							(IDeckLinkVideoFrame*)((rightEye) ? &rightFrame : NULL)));
-						self->mDLOutput->DisplayVideoFrameSync(&frame);
+						// scaling is required, go the hard way
+						unsigned int *src = rightImage->getImage(0, ts);
+						if (src != NULL)
+							decklink_ConvImage(rightEye, self->mSize, src, srcSize, self->mUseExtend);
 					}
 				}
-				else 
+				if (self->mUse3D)
 				{
-					self->mDLOutput->DisplayVideoFrameSync((leftConverted) ? (IDeckLinkVideoFrame*)self->mLeftFrame : (IDeckLinkVideoFrame*)&leftFrame);
+					DeckLink3DFrameWrapper frame3D(
+						(IDeckLinkVideoFrame*)self->mLeftFrame,
+						(IDeckLinkVideoFrame*)self->mRightFrame);
+					self->mDLOutput->DisplayVideoFrameSync(&frame3D);
+				}
+				else
+				{
+					self->mDLOutput->DisplayVideoFrameSync((IDeckLinkVideoFrame*)self->mLeftFrame);
 				}
 			}
 			// refresh texture source, if required
-			if (refreshSource) 
+			if (refreshSource)
 			{
 				if (self->m_leftEye)
 					self->m_leftEye->m_image->refresh();
@@ -803,23 +772,6 @@ static int DeckLink_setExtend(DeckLink *self, PyObject *value, void *closure)
 	return 0;
 }
 
-static PyObject *DeckLink_getSwap(DeckLink *self, PyObject *value, void *closure)
-{
-	if (self->mUseSwap) Py_RETURN_TRUE;
-	else Py_RETURN_FALSE;
-}
-
-static int DeckLink_setSwap(DeckLink *self, PyObject *value, void *closure)
-{
-	if (value == NULL || !PyBool_Check(value))
-	{
-		PyErr_SetString(PyExc_TypeError, "The value must be a bool");
-		return -1;
-	}
-	self->mUseSwap = (value == Py_True);
-	return 0;
-}
-
 // class DeckLink methods
 static PyMethodDef decklinkMethods[] =
 {
@@ -836,7 +788,6 @@ static PyGetSetDef decklinkGetSets[] =
 	{ (char*)"keying", (getter)DeckLink_getKeying, (setter)DeckLink_setKeying, (char*)"whether keying is enabled (frame is alpha-composited with passthrough output)", NULL },
 	{ (char*)"level", (getter)DeckLink_getLevel, (setter)DeckLink_setLevel, (char*)"change the level of keying (overall alpha level of key frame, 0 to 255)", NULL },
 	{ (char*)"extend", (getter)DeckLink_getExtend, (setter)DeckLink_setExtend, (char*)"whether image should stretched to fit frame", NULL },
-	{ (char*)"swap", (getter)DeckLink_getSwap, (setter)DeckLink_setSwap, (char*)"whether R & B channel should be swaped", NULL },
 	{ NULL }
 };
 
