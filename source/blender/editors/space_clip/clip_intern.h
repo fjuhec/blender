@@ -201,6 +201,9 @@ void CLIP_OT_slide_plane_marker(struct wmOperatorType *ot);
 void CLIP_OT_keyframe_insert(struct wmOperatorType *ot);
 void CLIP_OT_keyframe_delete(struct wmOperatorType *ot);
 
+void CLIP_OT_add_correspondence(wmOperatorType *ot);
+void CLIP_OT_delete_correspondence(wmOperatorType *ot);
+
 /* tracking_select.c */
 void CLIP_OT_select(struct wmOperatorType *ot);
 void CLIP_OT_select_all(struct wmOperatorType *ot);

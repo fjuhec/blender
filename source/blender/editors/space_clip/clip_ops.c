@@ -906,16 +906,21 @@ static int change_frame_poll(bContext *C)
 
 static void change_frame_apply(bContext *C, wmOperator *op)
 {
-	Scene *scene = CTX_data_scene(C);
+	//Scene *scene = CTX_data_scene(C);
 
 	/* set the new frame number */
-	CFRA = RNA_int_get(op->ptr, "frame");
-	FRAMENUMBER_MIN_CLAMP(CFRA);
-	SUBFRA = 0.0f;
+	//CFRA = RNA_int_get(op->ptr, "frame");
+	//FRAMENUMBER_MIN_CLAMP(CFRA);
+	//SUBFRA = 0.0f;
 
 	/* do updates */
-	BKE_sound_seek_scene(CTX_data_main(C), scene);
-	WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
+	//BKE_sound_seek_scene(CTX_data_main(C), scene);
+	//WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
+
+	// Todo(Tianwei): decouple frame for now, find a better way
+	SpaceClip *sc = CTX_wm_space_clip(C);
+	BKE_movieclip_user_set_frame(&sc->user, RNA_int_get(op->ptr, "frame"));
+	WM_event_add_notifier(C, NC_MOVIECLIP | ND_DISPLAY, NULL);
 }
 
 static int change_frame_exec(bContext *C, wmOperator *op)
