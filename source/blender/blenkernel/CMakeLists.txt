@@ -529,8 +529,9 @@ if(WITH_LEGACY_DEPSGRAPH)
 	add_definitions(-DWITH_LEGACY_DEPSGRAPH)
 endif()
 
-if (WITH_ADVANCED_LAYERS)
-	list (APPEND SRC
+if(WITH_ADVANCED_LAYERS)
+	add_definitions(-DWITH_ADVANCED_LAYERS)
+	list(APPEND SRC
 		intern/layer.c
 		BKE_layer.h
 	)

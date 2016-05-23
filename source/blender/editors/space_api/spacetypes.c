@@ -96,6 +96,9 @@ void ED_spacetypes_init(void)
 	ED_spacetype_console();
 	ED_spacetype_userpref();
 	ED_spacetype_clip();
+#ifdef WITH_ADVANCED_LAYERS
+	ED_spacetype_layers();
+#endif
 //	...
 	
 	/* register operator types for screen and all spaces */

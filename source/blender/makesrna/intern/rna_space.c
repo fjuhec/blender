@@ -79,6 +79,9 @@ EnumPropertyItem rna_enum_space_type_items[] = {
 	{0, "", ICON_NONE, NULL, NULL},
 	{SPACE_BUTS, "PROPERTIES", ICON_BUTS, "Properties", "Edit properties of active object and related data-blocks"},
 	{SPACE_OUTLINER, "OUTLINER", ICON_OOPS, "Outliner", "Overview of scene graph and all available data-blocks"},
+#ifdef WITH_ADVANCED_LAYERS
+	{SPACE_LAYERS, "LAYER_MANAGER", ICON_COLLAPSEMENU, "Layer Manager", "Organize scene content and adjust its view options"},
+#endif
 	{SPACE_USERPREF, "USER_PREFERENCES", ICON_PREFERENCES, "User Preferences", "Edit persistent configuration settings"},
 	{SPACE_INFO, "INFO", ICON_INFO, "Info", "Main menu bar and list of error messages (drag down to expand and display)"},
 	{0, "", ICON_NONE, NULL, NULL},
@@ -315,6 +318,8 @@ static StructRNA *rna_Space_refine(struct PointerRNA *ptr)
 			return &RNA_SpaceUserPreferences;
 		case SPACE_CLIP:
 			return &RNA_SpaceClipEditor;
+		case SPACE_LAYERS:
+			return &RNA_SpaceLayerManager;
 		default:
 			return &RNA_Space;
 	}
@@ -4724,6 +4729,15 @@ static void rna_def_space_clip(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_CLIP, NULL);
 }
 
+static void rna_def_space_layers(BlenderRNA *brna)
+{
+	StructRNA *srna;
+
+	srna = RNA_def_struct(brna, "SpaceLayerManager", "Space");
+	RNA_def_struct_sdna(srna, "SpaceLayers");
+	RNA_def_struct_ui_text(srna, "Space Layer Manager", "Layer Manager space data");
+}
+
 
 void RNA_def_space(BlenderRNA *brna)
 {
@@ -4750,6 +4764,7 @@ void RNA_def_space(BlenderRNA *brna)
 	rna_def_space_node(brna);
 	rna_def_space_logic(brna);
 	rna_def_space_clip(brna);
+	rna_def_space_layers(brna);
 }
 
 #endif

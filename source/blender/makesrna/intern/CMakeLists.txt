@@ -319,6 +319,10 @@ if(WITH_OPENVDB)
 	endif()
 endif()
 
+if(WITH_ADVANCED_LAYERS)
+	add_definitions(-DWITH_ADVANCED_LAYERS)
+endif()
+
 # Build makesrna executable
 blender_include_dirs(
 	.

@@ -20,7 +20,6 @@
 
 set(INC
 	../include
-	../io
 	../../blenkernel
 	../../blenlib
 	../../makesdna
@@ -30,15 +29,11 @@ set(INC
 )
 
 set(INC_SYS
-
+	
 )
 
 set(SRC
-	spacetypes.c
+	space_layers.c
 )
 
-if(WITH_ADVANCED_LAYERS)
-	add_definitions(-DWITH_ADVANCED_LAYERS)
-endif()
-
-blender_add_lib(bf_editor_space_api "${SRC}" "${INC}" "${INC_SYS}")
+blender_add_lib(bf_editor_space_layers "${SRC}" "${INC}" "${INC_SYS}")

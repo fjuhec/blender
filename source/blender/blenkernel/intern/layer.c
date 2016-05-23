@@ -28,7 +28,7 @@
  *
  * \brief Functions for a generic layer managment system.
  *
- * TODO sorting, renaming, drawing
+ * TODO sorting, renaming, drawing, filtering
  */
 
 #include "BKE_context.h"

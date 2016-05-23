@@ -58,6 +58,9 @@ void ED_spacetype_logic(void);
 void ED_spacetype_console(void);
 void ED_spacetype_userpref(void);
 void ED_spacetype_clip(void);
+//#ifdef WITH_ADVANCED_LAYERS /* TODO */
+void ED_spacetype_layers(void);
+//#endif
 
 /* calls for instancing and freeing spacetype static data 
  * called in WM_init_exit */
