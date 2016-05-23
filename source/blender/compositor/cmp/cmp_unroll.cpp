@@ -15,19 +15,19 @@ namespace Compositor {
     return NULL;
   }
 
-  static Node* unroll_b_node(bNodeTree *node_tree, bNode * node) {
-    Node* result = new Node(node_tree, node);
+  static Node* unroll_b_node(bNodeTree *node_tree, bNode * node, RenderContext * render_context) {
+    Node* result = new Node(node_tree, node, render_context);
     return result;
   }
 
-  Node* unroll(bNodeTree *node_tree) {
+  Node* unroll(bNodeTree *node_tree, RenderContext *render_context) {
     bNode* viewer_node = find_active_viewer_node(node_tree);
     if (viewer_node == NULL) {
       return NULL;
     }
 
 
-    Node* result = unroll_b_node(node_tree, viewer_node);
+    Node* result = unroll_b_node(node_tree, viewer_node, render_context);
     return result;
   }
 }

@@ -6,14 +6,14 @@
 #include "RNA_access.h"
 
 namespace Compositor {
-  NodeSocket::NodeSocket(Node* node, bNodeSocket * socket) {
+  NodeSocket::NodeSocket(Node* node, bNodeSocket * socket, RenderContext * render_context) {
     this->node = node;
     this->b_socket = socket;
 
     bNodeTree* node_tree = node->node_tree;
     for (bNodeLink *link = (bNodeLink*)node_tree->links.first; link; link = (bNodeLink*)link->next) {
       if (link->tosock == socket) {
-        this->connected_node = new Node(node_tree, link->fromnode);
+        this->connected_node = new Node(node_tree, link->fromnode, render_context);
         return;
       }
     }

@@ -6,12 +6,19 @@ namespace Compositor {
 
 #include "DNA_node_types.h"
 #include "cmp_nodesocket.hpp"
+#include "cmp_rendercontext.hpp"
 #include <list>
 
 namespace Compositor {
   struct Node {
     bNodeTree * node_tree;
+
+    /**
+     * Reference to the (optional) bNode for this Node instance.
+     * This is for debugging and possible (not likely) future enhancements.
+     */
     bNode* b_node;
+
     int type;
     int stack_index;
 
@@ -22,14 +29,22 @@ namespace Compositor {
     float var_float_2;
     float var_float_3;
 
+    int var_int_0;
+    int var_int_1;
+    int var_int_2;
+    int var_int_3;
+
+    float* buffer;
+    // TODO: Make int2
+    int buffer_width;
+    int buffer_height;
+
     std::list<NodeSocket*> inputs;
 
-    Node(bNodeTree* node_tree, bNode *node);
+    // TODO: Needs optional parameter with output socket you are evaluating.
+    Node(bNodeTree* node_tree, bNode *node, RenderContext * render_context);
     Node();
     ~Node();
-
-    void add_input_socket(NodeSocket* socket);
-
   };
 }
 #endif

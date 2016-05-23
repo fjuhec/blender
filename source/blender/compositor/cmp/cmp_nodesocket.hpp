@@ -6,6 +6,7 @@ namespace Compositor {
 
 #include "DNA_node_types.h"
 #include "cmp_node.hpp"
+#include "cmp_rendercontext.hpp"
 
 namespace Compositor {
   struct NodeSocket {
@@ -13,7 +14,7 @@ namespace Compositor {
     bNodeSocket *b_socket;
     Node* connected_node;
 
-    NodeSocket(Node* node, bNodeSocket *socket);
+    NodeSocket(Node* node, bNodeSocket *socket, RenderContext * render_context);
     ~NodeSocket();
   };
 }

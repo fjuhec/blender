@@ -7,10 +7,10 @@ __cvm_inline float4 make_float4(float x, float y, float z, float w) { return (fl
 
 
 __cvm_inline float4 operator*(const float4 a, float f) { return make_float4(a.x*f, a.y*f, a.z*f, a.w*f); }
-__cvm_inline float4 operator/(const float4 a, int i) { return make_float4(a.x/i, a.y*i, a.z*i, a.w*i); }
+__cvm_inline float4 operator/(const float4 a, int i) { return make_float4(a.x/i, a.y/i, a.z/i, a.w/i); }
 __cvm_inline float4 operator/(const float4 a, float f) { return make_float4(a.x/f, a.y*f, a.z*f, a.w*f); }
 __cvm_inline float4 operator+(const float4 a, const float4 b) { return make_float4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w); }
-//__cvm_inline float4 operator+=(const float4& a, const float4& b) { return a = a + b; }
+__cvm_inline float4 operator+=(float4& a, const float4& b) { return a = a + b; }
 
 #ifndef node_stack
 Node node_stack[CMP_MAX_NODE_STACK];

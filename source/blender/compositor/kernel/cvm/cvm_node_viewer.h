@@ -6,7 +6,7 @@ CVM_float4_node_start(viewer)
     for (float addy = inset; addy < 1.0 ; addy += add_sample ) {
       float2 sample_coord = make_float2(xy.x+addx, xy.y+addy);
       float4 new_result = CVM_float4_node_call(0, sample_coord);
-      color_result = color_result + new_result;
+      color_result += new_result;
     }
   }
 

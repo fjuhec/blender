@@ -41,6 +41,7 @@ struct Node {
   float var_float_1;
   float var_float_2;
   float var_float_3;
+  int texture_index;
 };
 
 struct Texture {

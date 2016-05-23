@@ -7,6 +7,7 @@ extern "C" {
 
 #include "cmp_unroll.hpp"
 #include "cmp_output.hpp"
+#include "cmp_rendercontext.hpp"
 #include "device_cpu.hpp"
 #include <iostream>
 
@@ -30,10 +31,12 @@ void COM_execute(RenderData *rd, Scene *scene, bNodeTree *editingtree, int rende
    BLI_mutex_lock(&s_compositorMutex);
 
 
-
+  // Create render context
+  Compositor::RenderContext *render_context = new Compositor::RenderContext();
+  render_context->view_name = viewName;
 
   // UNROLL editingtree
-  Compositor::Node* node = Compositor::unroll(editingtree);
+  Compositor::Node* node = Compositor::unroll(editingtree, render_context);
   if (node != NULL) {
     // SELECT DEVICE
     Compositor::Device::Device *device = new Compositor::Device::DeviceCPU();
@@ -77,7 +80,7 @@ void COM_execute(RenderData *rd, Scene *scene, bNodeTree *editingtree, int rende
     device->stop();
 
 
-    output.update_subimage(0, 0, output.width, output.height);
+    // output.update_subimage(0, 0, output.width, output.height);
 
     delete device;
     for (int i = 0 ; i < num_tiles; i ++) {
@@ -87,7 +90,10 @@ void COM_execute(RenderData *rd, Scene *scene, bNodeTree *editingtree, int rende
       }
     }
   }
+
+  delete render_context;
   BLI_mutex_unlock(&s_compositorMutex);
+
 
 
 }

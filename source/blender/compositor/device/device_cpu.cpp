@@ -16,7 +16,7 @@ namespace Compositor {
       node->stack_index = *next_stack_index;
       (*next_stack_index) ++;
 
-      if (node->type == CMP_NODE_R_LAYERS) {
+      if (node->buffer != NULL) {
         node->texture_index = *next_texture_index;
         (*next_texture_index) ++;
       }
@@ -35,6 +35,11 @@ namespace Compositor {
       node_stack[index].var_float_1 = node->var_float_1;
       node_stack[index].var_float_2 = node->var_float_2;
       node_stack[index].var_float_3 = node->var_float_3;
+      node_stack[index].var_int_0 = node->var_int_0;
+      node_stack[index].var_int_1 = node->var_int_1;
+      node_stack[index].var_int_2 = node->var_int_2;
+      node_stack[index].var_int_3 = node->var_int_3;
+      node_stack[index].texture_index = node->texture_index;
 
       int input_index = 0;
       for (std::list<NodeSocket*>::const_iterator iterator = node->inputs.begin(), end = node->inputs.end(); iterator != end; ++iterator) {
@@ -61,7 +66,9 @@ namespace Compositor {
       int index = node->stack_index;
       int texture_index = node->texture_index;
       if (texture_index != -1) {
-        // TODO: upload texture
+        textures[texture_index].buffer = node->buffer;
+        textures[texture_index].width = node->buffer_width;
+        textures[texture_index].height = node->buffer_height;
       }
       int input_index = 0;
       for (std::list<NodeSocket*>::const_iterator iterator = node->inputs.begin(), end = node->inputs.end(); iterator != end; ++iterator) {
@@ -85,7 +92,7 @@ namespace Compositor {
       // perform task
       KernelGlobal globals;
       globals.phase = KG_PHASE_REFINE;
-      globals.subpixel_samples_xy = 8;
+      globals.subpixel_samples_xy = 2;
 
       Node* node = task->node;
       const int curr_iteration = task->iteration;
