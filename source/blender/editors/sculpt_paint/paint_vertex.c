@@ -1725,6 +1725,16 @@ static void do_weight_paint_vertex(
 	}
 }
 
+
+/**** Toggle operator for turning vertex paint mode on or off     /
+/       copied from sculpt.c                                  ****/
+static void vertex_paint_init_session(Scene *scene, Object *ob)
+{
+	ob->sculpt = MEM_callocN(sizeof(SculptSession), "sculpt session");
+
+	BKE_sculpt_update_mesh_elements(scene, scene->toolsettings->sculpt, ob, 0, false);
+}
+
 /* *************** set wpaint operator ****************** */
 
 /**
@@ -1786,6 +1796,12 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 	DAG_id_tag_update(&me->id, 0);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, scene);
+
+	/* Create vertex/weight paint mode session data */
+	if (ob->sculpt)
+		BKE_sculptsession_free(ob);
+
+	vertex_paint_init_session(scene, ob);
 
 	return OPERATOR_FINISHED;
 }
@@ -2116,8 +2132,9 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	Brush *brush = BKE_paint_brush(&wp->paint);
 	struct WPaintData *wpd = paint_stroke_mode_data(stroke);
 	ViewContext *vc;
-	Object *ob;
+	Object *ob = CTX_data_active_object(C);
 	Mesh *me;
+	
 	float mat[4][4];
 	float paintweight;
 	int *indexar;
