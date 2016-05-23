@@ -163,7 +163,7 @@ void BKE_curve_init(Curve *cu)
 	/* BLI_assert(MEMCMP_STRUCT_OFS_IS_ZERO(cu, id)); */  /* cu->type is already initialized... */
 
 	copy_v3_fl(cu->size, 1.0f);
-	cu->flag = CU_FRONT | CU_BACK | CU_DEFORM_BOUNDS_OFF | CU_PATH_RADIUS;
+	cu->flag = CU_FRONT | CU_BACK | CU_DEFORM_BOUNDS_OFF | CU_PATH_RADIUS | CU_SYM_EXTRUDE;
 	cu->pathlen = 100;
 	cu->resolu = cu->resolv = (cu->type == OB_SURF) ? 4 : 12;
 	cu->width = 1.0;
@@ -1782,26 +1782,19 @@ void BKE_curve_bevel_make(Scene *scene, Object *ob, ListBase *disp,
         fp = dl->verts;
         fp[0] = fp[1] = 0.0;
         
-        if (!(cu->flag & CU_SYM_EXTRUDE)) { /* if user wants to extrude in both directions */
-            
+        if (cu->flag & CU_SYM_EXTRUDE) { /* if user wants to extrude in both directions */
             fp[2] = -cu->ext1;
             fp[5] = cu->ext1;
         }
         else if (cu->flag & CU_EXTRUDE_REV) { /* if user wants to extrude in the negative direction */
-            
             fp[2] = 0.0;
             fp[5] = -cu->ext1;
-            
         }
         else { /* simple Bezier curve extrusion by the specified amount in the positive local z direction */
-            
             fp[2] = cu->ext1;
 			fp[5] = 0.0;
-            
         }
-        
         fp[3] = fp[4] = 0.0;
-        
 	}
 	else if ( (cu->flag & (CU_FRONT | CU_BACK)) == 0 && cu->ext1 == 0.0f) { // we make a full round bevel in that case
 		nr = 4 + 2 * cu->bevresol;
@@ -1856,21 +1849,15 @@ void BKE_curve_bevel_make(Scene *scene, Object *ob, ListBase *disp,
 				fp[1] = (float)(cosf(angle) * (cu->ext2));
 				fp[2] = (float)(sinf(angle) * (cu->ext2));
 
-				if (!(cu->flag & CU_SYM_EXTRUDE)) { /* if user wants to extrude in both directions */
-
+				if (cu->flag & CU_SYM_EXTRUDE) { /* if user wants to extrude in both directions */
 					fp[2] -= cu->ext1;
 				}
 				else if (cu->flag & CU_EXTRUDE_REV) { /* if user wants to extrude in the negative direction */
-
 					fp[2] -= cu->ext1;
-
 				}
 				else { /* simple Bezier curve extrusion by the specified amount in the positive local z direction */
-
 					fp[2] -= 0.0;
-
 				}
-
 				angle += dangle;
 				fp += 3;
 			}
@@ -1893,22 +1880,17 @@ void BKE_curve_bevel_make(Scene *scene, Object *ob, ListBase *disp,
 			fp[4] = cu->ext2;
 			fp[5] = cu->ext1;
 
-			if (!(cu->flag & CU_SYM_EXTRUDE)) { /* if user wants to extrude in both directions */
-
+			if (cu->flag & CU_SYM_EXTRUDE) { /* if user wants to extrude in both directions */
 				fp[2] = -cu->ext1;
 				fp[5] = cu->ext1;
 			}
 			else if (cu->flag & CU_EXTRUDE_REV) { /* if user wants to extrude in the negative direction */
-
 				fp[2] = 0.0;
 				fp[5] = -cu->ext1;
-
 			}
 			else { /* simple Bezier curve extrusion by the specified amount in the positive local z direction */
-
 				fp[2] = cu->ext1;
 				fp[5] = 0.0;
-
 			}
 
 			if ( (cu->flag & (CU_FRONT | CU_BACK)) == 0) {
@@ -1922,22 +1904,17 @@ void BKE_curve_bevel_make(Scene *scene, Object *ob, ListBase *disp,
 				fp[4] = -fp[4];
 				fp[5] = -fp[5];
 
-				if (!(cu->flag & CU_SYM_EXTRUDE)) { /* if user wants to extrude in both directions */
-
+				if (cu->flag & CU_SYM_EXTRUDE) { /* if user wants to extrude in both directions */
 					fp[2] = -fp[2];
 					fp[5] = -fp[5];
 				}
 				else if (cu->flag & CU_EXTRUDE_REV) { /* if user wants to extrude in the negative direction */
-
 					fp[2] = 0.0;
 					fp[5] = -cu->ext1;
-
 				}
 				else { /* simple Bezier curve extrusion by the specified amount in the positive local z direction */
-
 					fp[2] = cu->ext1;
 					fp[5] = 0.0;
-					
 				}
 			}
 		}
@@ -1966,20 +1943,16 @@ void BKE_curve_bevel_make(Scene *scene, Object *ob, ListBase *disp,
 				fp[1] = (float)(cosf(angle) * (cu->ext2));
 				fp[2] = (float)(sinf(angle) * (cu->ext2));
 
-				if (!(cu->flag & CU_SYM_EXTRUDE)) { /* if user wants to extrude in both directions */
-
+				if (cu->flag & CU_SYM_EXTRUDE) { /* if user wants to extrude in both directions */
 					fp[2] += cu->ext1;
 				}
 				else if (cu->flag & CU_EXTRUDE_REV) { /* if user wants to extrude in the negative direction */
-
 					fp[2] += 0.0;
 
 				}
 				else { /* simple Bezier curve extrusion by the specified amount in the positive local z direction */
-
 					fp[2] += cu->ext1;
 				}
-
 				angle += dangle;
 				fp += 3;
 			}
