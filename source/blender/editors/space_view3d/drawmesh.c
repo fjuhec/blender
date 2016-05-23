@@ -69,6 +69,8 @@
 
 #include "ED_uvedit.h"
 
+#include "BKE_pbvh.h"
+
 #include "view3d_intern.h"  /* own include */
 
 /* user data structures for derived mesh callbacks */
@@ -1365,6 +1367,19 @@ void draw_mesh_paint(View3D *v3d, RegionView3D *rv3d,
 
 		if (use_alpha == false) {
 			set_inverted_drawing(0);
+		}
+	}
+
+	/* For drawing the PBVH */
+	if (ob->sculpt){
+		if (ob->sculpt->pbvh) {
+			if (BKE_pbvh_has_faces(ob->sculpt->pbvh)) {
+				float(*face_nors)[3] = CustomData_get_layer(&dm->polyData, CD_NORMAL);
+
+				BKE_pbvh_draw(ob->sculpt->pbvh, NULL, face_nors,
+					GPU_object_material_bind, false, false);
+				glShadeModel(GL_FLAT);
+			}
 		}
 	}
 }
