@@ -528,6 +528,10 @@ static void clip_operatortypes(void)
 	WM_operatortype_append(CLIP_OT_keyframe_insert);
 	WM_operatortype_append(CLIP_OT_keyframe_delete);
 
+	/* Correspondence */
+	WM_operatortype_append(CLIP_OT_add_correspondence);
+	WM_operatortype_append(CLIP_OT_delete_correspondence);
+
 	/* ** clip_graph_ops.c  ** */
 
 	/* graph editing */
@@ -885,7 +889,7 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *window = CTX_wm_window(C);
-	Scene *scene = CTX_data_scene(C);
+	//Scene *scene = CTX_data_scene(C);
 	SpaceClip *sc = (SpaceClip *)sa->spacedata.first;
 	ARegion *ar_main = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
 	ARegion *ar_tools = BKE_area_find_region_type(sa, RGN_TYPE_TOOLS);
@@ -1079,7 +1083,7 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 		ED_area_tag_redraw(sa);
 	}
 
-	BKE_movieclip_user_set_frame(&sc->user, scene->r.cfra);
+	//BKE_movieclip_user_set_frame(&sc->user, scene->r.cfra);
 }
 
 /********************* main region ********************/

@@ -53,6 +53,7 @@ set(SRC
 	clip_utils.c
 	space_clip.c
 	tracking_ops.c
+	tracking_ops_correspondence.c
 	tracking_ops_detect.c
 	tracking_ops_orient.c
 	tracking_ops_plane.c
