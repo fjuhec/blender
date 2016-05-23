@@ -37,6 +37,7 @@
 #include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -74,6 +75,7 @@
 #include "ED_screen.h"
 #include "ED_transform.h"
 #include "ED_mesh.h"
+#include "ED_gpencil.h"
 #include "ED_view3d.h"
 
 #include "UI_resources.h"
@@ -3019,6 +3021,8 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	Scene *scene = CTX_data_scene(C);
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
 	Object *ob = OBACT;
 	Object *obedit = CTX_data_edit_object(C);
 	float min[3], max[3];
@@ -3030,6 +3034,10 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
 
 	INIT_MINMAX(min, max);
+
+	if (is_gp_edit) {
+		ob = NULL;
+	}
 
 	if (ob && (ob->mode & OB_MODE_WEIGHT_PAINT)) {
 		/* hard-coded exception, we look for the one selected armature */
@@ -3047,7 +3055,19 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	}
 
 
-	if (obedit) {
+	if (is_gp_edit) {
+		CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+		{
+			/* we're only interested in selected points here... */
+			if ((gps->flag & GP_STROKE_SELECT) && (gps->flag & GP_STROKE_3DSPACE)) {
+				if (ED_gpencil_stroke_minmax(gps, true, min, max)) {
+					ok = true;
+				}
+			}
+		}
+		CTX_DATA_END;
+	}
+	else if (obedit) {
 		ok = ED_view3d_minmax_verts(obedit, min, max);    /* only selected */
 	}
 	else if (ob && (ob->mode & OB_MODE_POSE)) {
@@ -4826,6 +4846,35 @@ void VIEW3D_OT_enable_manipulator(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 	prop = RNA_def_boolean(ot->srna, "scale", 0, "Scale", "Enable the scale manipulator");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+}
+
+/* ************************* Toggle rendered shading *********************** */
+
+static int toggle_render_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	View3D *v3d = CTX_wm_view3d(C);
+	if (v3d->drawtype == OB_RENDER) {
+		v3d->drawtype = v3d->prev_drawtype;
+	}
+	else {
+		v3d->prev_drawtype = v3d->drawtype;
+		v3d->drawtype = OB_RENDER;
+	}
+	ED_view3d_shade_update(CTX_data_main(C), CTX_data_scene(C), v3d, CTX_wm_area(C));
+	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
+	return OPERATOR_FINISHED;
+}
+
+void VIEW3D_OT_toggle_render(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Toggle Rendered Shading";
+	ot->description = "Toggle rendered shading mode of the viewport";
+	ot->idname = "VIEW3D_OT_toggle_render";
+
+	/* api callbacks */
+	ot->exec = toggle_render_exec;
+	ot->poll = ED_operator_view3d_active;
 }
 
 /* ************************* below the line! *********************** */

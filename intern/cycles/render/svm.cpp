@@ -66,9 +66,7 @@ void SVMShaderManager::device_update(Device *device, DeviceScene *dscene, Scene 
 		svm_nodes.push_back(make_int4(NODE_SHADER_JUMP, 0, 0, 0));
 	}
 	
-	for(i = 0; i < scene->shaders.size(); i++) {
-		Shader *shader = scene->shaders[i];
-
+	foreach(Shader *shader, scene->shaders) {
 		if(progress.get_cancel()) return;
 
 		assert(shader->graph);
@@ -78,10 +76,10 @@ void SVMShaderManager::device_update(Device *device, DeviceScene *dscene, Scene 
 
 		SVMCompiler::Summary summary;
 		SVMCompiler compiler(scene->shader_manager, scene->image_manager);
-		compiler.background = ((int)i == scene->default_background);
-		compiler.compile(scene, shader, svm_nodes, i, &summary);
+		compiler.background = (shader == scene->default_background);
+		compiler.compile(scene, shader, svm_nodes, shader->id, &summary);
 
-		VLOG(1) << "Compilation summary:\n"
+		VLOG(2) << "Compilation summary:\n"
 		        << "Shader name: " << shader->name << "\n"
 		        << summary.full_report();
 	}
@@ -316,12 +314,12 @@ void SVMCompiler::add_node(int a, int b, int c, int d)
 	svm_nodes.push_back(make_int4(a, b, c, d));
 }
 
-void SVMCompiler::add_node(NodeType type, int a, int b, int c)
+void SVMCompiler::add_node(ShaderNodeType type, int a, int b, int c)
 {
 	svm_nodes.push_back(make_int4(type, a, b, c));
 }
 
-void SVMCompiler::add_node(NodeType type, const float3& f)
+void SVMCompiler::add_node(ShaderNodeType type, const float3& f)
 {
 	svm_nodes.push_back(make_int4(type,
 		__float_as_int(f.x),
@@ -336,12 +334,6 @@ void SVMCompiler::add_node(const float4& f)
 		__float_as_int(f.y),
 		__float_as_int(f.z),
 		__float_as_int(f.w)));
-}
-
-void SVMCompiler::add_array(float4 *f, int num)
-{
-	for(int i = 0; i < num; i++)
-		add_node(f[i]);
 }
 
 uint SVMCompiler::attribute(ustring name)
@@ -506,7 +498,7 @@ void SVMCompiler::generate_multi_closure(ShaderNode *root_node,
 
 	state->closure_done.insert(node);
 
-	if(node->name == ustring("mix_closure") || node->name == ustring("add_closure")) {
+	if(node->special_type == SHADER_SPECIAL_TYPE_COMBINE_CLOSURE) {
 		/* weighting is already taken care of in ShaderGraph::transform_multi_closure */
 		ShaderInput *cl1in = node->input("Closure1");
 		ShaderInput *cl2in = node->input("Closure2");
