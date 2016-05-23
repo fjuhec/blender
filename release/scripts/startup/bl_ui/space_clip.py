@@ -398,6 +398,22 @@ class CLIP_PT_tools_tracking(CLIP_PT_tracking_panel, Panel):
         row.operator("clip.join_tracks", text="Join Tracks")
 
 
+class CLIP_PT_tools_correspondence(CLIP_PT_tracking_panel, Panel):
+    bl_space_type = 'CLIP_EDITOR'
+    bl_region_type = 'TOOLS'
+    bl_label = "Correspondence"
+    bl_category = "Track"
+
+    def draw(self, context):
+        layout = self.layout
+
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.operator("clip.add_correspondence", text="Link")
+        row.operator("clip.delete_correspondence", text="Unlink")
+        #col.operator("clip.detect_features")
+
+
 class CLIP_PT_tools_plane_tracking(CLIP_PT_tracking_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'TOOLS'
