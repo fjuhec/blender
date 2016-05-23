@@ -497,6 +497,10 @@ mark_as_advanced(WITH_CXX11)
 option(WITH_LEGACY_DEPSGRAPH "Build Blender with legacy dependency graph" ON)
 mark_as_advanced(WITH_LEGACY_DEPSGRAPH)
 
+# Layer manager
+option(WITH_ADVANCED_LAYERS "Use the advanced layer manager system for the build (WIP feature)" ON)
+mark_as_advanced(WITH_ADVANCED_LAYERS)
+
 # avoid using again
 option_defaults_clear()
 
