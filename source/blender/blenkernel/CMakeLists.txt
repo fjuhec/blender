@@ -529,4 +529,11 @@ if(WITH_LEGACY_DEPSGRAPH)
 	add_definitions(-DWITH_LEGACY_DEPSGRAPH)
 endif()
 
+if (WITH_ADVANCED_LAYERS)
+	list (APPEND SRC
+		intern/layer.c
+		BKE_layer.h
+	)
+endif()
+
 blender_add_lib(bf_blenkernel "${SRC}" "${INC}" "${INC_SYS}")
