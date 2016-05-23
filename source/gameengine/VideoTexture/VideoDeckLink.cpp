@@ -927,7 +927,7 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	case bmdFormat10BitYUV:
 		// 6 pixels in 4 words, rounded to 48 pixels
 		mTextureDesc.stride = ((mFrameWidth + 47) / 48) * 128;
-		mTextureDesc.width = ((mFrameWidth + 5) / 6) * 4;
+		mTextureDesc.width = mTextureDesc.stride/4;
 		mTextureDesc.internalFormat = GL_RGB10_A2;
 		mTextureDesc.format = GL_BGRA;
 		mTextureDesc.type = GL_UNSIGNED_INT_2_10_10_10_REV;
@@ -947,24 +947,27 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 		mTextureDesc.type = GL_UNSIGNED_BYTE;
 		break;
 	case bmdFormat10BitRGBXLE:
+		// 1 pixel per word, rounded to 64 pixels
 		mTextureDesc.stride = ((mFrameWidth + 63) / 64) * 256;
-		mTextureDesc.width = mFrameWidth;
+		mTextureDesc.width = mTextureDesc.stride/4;
 		mTextureDesc.internalFormat = GL_RGB10_A2;
 		mTextureDesc.format = GL_RGBA;
 		mTextureDesc.type = GL_UNSIGNED_INT_10_10_10_2;
 		break;
 	case bmdFormat10BitRGBX:
 	case bmdFormat10BitRGB:
+		// 1 pixel per word, rounded to 64 pixels
 		mTextureDesc.stride = ((mFrameWidth + 63) / 64) * 256;
-		mTextureDesc.width = mFrameWidth;
+		mTextureDesc.width = mTextureDesc.stride/4;
 		mTextureDesc.internalFormat = GL_R32UI;
 		mTextureDesc.format = GL_RED_INTEGER;
 		mTextureDesc.type = GL_UNSIGNED_INT;
 		break;
 	case bmdFormat12BitRGB:
 	case bmdFormat12BitRGBLE:
+		// 8 pixels in 9 word
 		mTextureDesc.stride = (mFrameWidth * 36) / 8;
-		mTextureDesc.width = (mFrameWidth / 8) * 9;
+		mTextureDesc.width = mTextureDesc.stride/4;
 		mTextureDesc.internalFormat = GL_R32UI;
 		mTextureDesc.format = GL_RED_INTEGER;
 		mTextureDesc.type = GL_UNSIGNED_INT;
@@ -975,18 +978,10 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 		mTextureDesc.type = GL_UNSIGNED_INT;
 		break;
 	}
-	// check that the pixel format is consistent with display mode (no padding)
-	if (mTextureDesc.stride)
-	{
-		// each OGL pixel is 4 bytes (either RGBA or RED_INTEGER)
-		// stride is the size of a row in bytes
-		// make sure there is no padding
-		if (mTextureDesc.stride != mTextureDesc.width * 4)
-			THRWEXCP(VideoDeckLinkBadFormat, S_OK);
-	}
-	// custom allocator, 3 frame in cache should be enough
-    // make sure we allow up to 5 frame in memory for pinning
-	// note: some pixel format take more than 4 bytes but the difference is small (9/8 versus 1)
+	// reserve memory for cache frame + 1 to accomodate for pixel format that we don't know yet
+	// note: we can't use stride as it is not yet known if the pixel format is unknown
+	//       use instead the frame width as in worst case it's not much different (e.g. HD720/10BITYUV: 1296 pixels versus 1280)
+	// note: some pixel format take more than 4 bytes take that into account (9/8 versus 1)
 	mpAllocator = new PinnedMemoryAllocator(cacheSize, mFrameWidth*mTextureDesc.height * 4 * (1+cacheSize*9/8));
 
 	if (mDLInput->SetVideoInputFrameMemoryAllocator(mpAllocator) != S_OK)
