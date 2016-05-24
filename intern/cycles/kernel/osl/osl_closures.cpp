@@ -168,7 +168,7 @@ BSDF_CLOSURE_CLASS_BEGIN(HairTransmission, hair_transmission, hair_transmission,
 	CLOSURE_FLOAT_PARAM(HairReflectionClosure, sc.data2),
 BSDF_CLOSURE_CLASS_END(HairTransmission, hair_transmission)
 
-BSDF_CLOSURE_CLASS_BEGIN(DisneyDiffuse, disney_diffuse, disney_diffuse, LABEL_DIFFUSE|LABEL_REFLECT)
+/*BSDF_CLOSURE_CLASS_BEGIN(DisneyDiffuse, disney_diffuse, disney_diffuse, LABEL_DIFFUSE|LABEL_REFLECT)
 	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.N),
 	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.color0),	// baseColor
 	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data0),	// subsurface
@@ -192,7 +192,7 @@ BSDF_CLOSURE_CLASS_BEGIN(DisneyClearcoat, disney_clearcoat, disney_clearcoat, LA
 	CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, sc.N),
 	CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data0),	// clearcoat
 	CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data1),	// clearcoatGloss
-BSDF_CLOSURE_CLASS_END(DisneyClearcoat, disney_clearcoat)
+BSDF_CLOSURE_CLASS_END(DisneyClearcoat, disney_clearcoat)*/
 
 VOLUME_CLOSURE_CLASS_BEGIN(VolumeHenyeyGreenstein, henyey_greenstein, LABEL_VOLUME_SCATTER)
 	CLOSURE_FLOAT_PARAM(VolumeHenyeyGreensteinClosure, sc.data0),
@@ -201,7 +201,7 @@ VOLUME_CLOSURE_CLASS_END(VolumeHenyeyGreenstein, henyey_greenstein)
 VOLUME_CLOSURE_CLASS_BEGIN(VolumeAbsorption, absorption, LABEL_SINGULAR)
 VOLUME_CLOSURE_CLASS_END(VolumeAbsorption, absorption)
 
-/*class DisneyClearcoatClosure : public CBSDFClosure {
+class DisneyClearcoatClosure : public CBSDFClosure {
 public:
 	DisneyClearcoatClosure() : CBSDFClosure(LABEL_REFLECT | LABEL_GLOSSY)
 	{}
@@ -237,7 +237,7 @@ public:
 	}
 };
 
-ClosureParam *closure_bsdf_disney_clearcoat_params()
+ClosureParam *bsdf_disney_clearcoat_params()
 {
 	static ClosureParam params[] = {
 		CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, sc.N),
@@ -249,7 +249,7 @@ ClosureParam *closure_bsdf_disney_clearcoat_params()
 	return params;
 }
 
-CCLOSURE_PREPARE(closure_bsdf_disney_clearcoat_prepare, DisneyClearcoatClosure)
+CCLOSURE_PREPARE(bsdf_disney_clearcoat_prepare, DisneyClearcoatClosure)
 
 class DisneyDiffuseClosure : public CBSDFClosure {
 public:
@@ -285,7 +285,7 @@ public:
 	}
 };
 
-ClosureParam *closure_bsdf_disney_diffuse_params()
+ClosureParam *bsdf_disney_diffuse_params()
 {
 	static ClosureParam params[] = {
 		CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.N),
@@ -300,7 +300,7 @@ ClosureParam *closure_bsdf_disney_diffuse_params()
 	return params;
 }
 
-CCLOSURE_PREPARE(closure_bsdf_disney_diffuse_prepare, DisneyDiffuseClosure)
+CCLOSURE_PREPARE(bsdf_disney_diffuse_prepare, DisneyDiffuseClosure)
 
 class DisneySpecularClosure : public CBSDFClosure {
 public:
@@ -336,7 +336,7 @@ public:
 	}
 };
 
-ClosureParam *closure_bsdf_disney_specular_params()
+ClosureParam *bsdf_disney_specular_params()
 {
 	static ClosureParam params[] = {
 		CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, sc.N),
@@ -353,7 +353,7 @@ ClosureParam *closure_bsdf_disney_specular_params()
 	return params;
 }
 
-CCLOSURE_PREPARE(closure_bsdf_disney_specular_prepare, DisneySpecularClosure)*/
+CCLOSURE_PREPARE(bsdf_disney_specular_prepare, DisneySpecularClosure)
 
 /* Registration */
 

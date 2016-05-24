@@ -34,8 +34,6 @@
 #ifndef __BSDF_DISNEY_DIFFUSE_H__
 #define __BSDF_DISNEY_DIFFUSE_H__
 
-#include "closure/bsdf_util.h"
-
 CCL_NAMESPACE_BEGIN
 
 
@@ -55,27 +53,27 @@ ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
     float Fd = 0.0f;
 	float FL = schlick_fresnel(NdotL), FV = schlick_fresnel(NdotV);
 
-	if (sc->data0 != 1.0f) {
-	    const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * sc->data1;
-	    Fd = (1.0f * (1.0f - FL) + Fd90 * FL) * (1.0f * (1.0f - FV) + Fd90 * FV); // mix(1.0f, Fd90, FL) * mix(1.0f, Fd90, FV)
+	if (sc->data0/*subsurface*/ != 1.0f) {
+	    const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * sc->data1/*roughness*/;
+		Fd = lerp(1.0f, Fd90, FL) * lerp(1.0f, Fd90, FV); // (1.0f * (1.0f - FL) + Fd90 * FL) * (1.0f * (1.0f - FV) + Fd90 * FV);
     }
 
-    if (sc->data0 > 0.0f) {
-	    float Fss90 = LdotH*LdotH * sc->data1;
-	    float Fss = (1.0f * (1.0f - FL) + Fss90 * FL) * (1.0f * (1.0f - FV) + Fss90 * FV); // mix(1.0f, Fss90, FL) * mix(1.0f, Fss90, FV)
+    if (sc->data0/*subsurface*/ > 0.0f) {
+	    float Fss90 = LdotH*LdotH * sc->data1/*roughness*/;
+		float Fss = lerp(1.0f, Fss90, FL) * lerp(1.0f, Fss90, FV); // (1.0f * (1.0f - FL) + Fss90 * FL) * (1.0f * (1.0f - FV) + Fss90 * FV);
 	    float ss = 1.25f * (Fss * (1.0f / (NdotL + NdotV) - 0.5f) + 0.5f);
-        Fd = (Fd * (1.0f - sc->data0) + ss * sc->data0); // mix(Fd, ss, sc->data0)
+		Fd = lerp(Fd, ss, sc->data0/*subsurface*/); // (Fd * (1.0f - sc->data0) + ss * sc->data0);
     }
 
-	float3 value = M_1_PI_F * Fd * sc->color0;
+	float3 value = M_1_PI_F * Fd * sc->color0/*baseColor*/;
 
 	*pdf = M_1_PI_F * 0.5f;
 
 	// sheen component
-	if (sc->data2 != 0.0f) {
+	if (sc->data2/*sheen*/ != 0.0f) {
 		float FH = schlick_fresnel(LdotH);
 
-		value += FH * sc->data2 * sc->custom_color0;
+		value += FH * sc->data2/*sheen*/ * sc->custom_color0/*baseColor*/;
 	}
 
 	value *= NdotL;
@@ -90,7 +88,7 @@ ccl_device int bsdf_disney_diffuse_setup(ShaderClosure *sc)
 	float3 m_ctint = m_cdlum > 0.0f ? sc->color0 / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 
 	/* csheen0 */
-	sc->custom_color0 = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sc->data3) + m_ctint * sc->data3; // mix(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data3)
+	sc->custom_color0 = lerp(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data3/*sheenTint*/); //  make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sc->data3) + m_ctint * sc->data3;
 
 	sc->type = CLOSURE_BSDF_DISNEY_DIFFUSE_ID;
 	return SD_BSDF|SD_BSDF_HAS_EVAL;

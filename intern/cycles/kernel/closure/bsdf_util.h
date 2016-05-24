@@ -126,14 +126,15 @@ ccl_device float3 fresnel_conductor(float cosi, const float3 eta, const float3 k
 }
 #endif
 
-ccl_device_inline float schlick_fresnel(float u)
+ccl_device float schlick_fresnel(float u)
 {
 	float m = clamp(1.0f - u, 0.0f, 1.0f);
 	float m2 = m * m;
+	//printf("%f, %f, %f, %f\n\r", u, m, m2, m2 * m2 * m);
 	return m2 * m2 * m; // pow(m, 5)
 }
 
-ccl_device_inline float sqr(float a)
+ccl_device float sqr(float a)
 {
 	return a * a;
 }
@@ -150,7 +151,7 @@ ccl_device float smooth_step(float edge0, float edge1, float x)
 	return result;
 }
 
-ccl_device_inline void importance_sample_ggx_slopes(
+ccl_device void importance_sample_ggx_slopes(
 	const float cos_theta_i, const float sin_theta_i,
 	float randu, float randv, float *slope_x, float *slope_y,
 	float *G1i)
@@ -199,7 +200,7 @@ ccl_device_inline void importance_sample_ggx_slopes(
 	*slope_y = S * z * safe_sqrtf(1.0f + (*slope_x)*(*slope_x));
 }
 
-ccl_device_inline float3 importance_sample_microfacet_stretched(
+ccl_device float3 importance_sample_microfacet_stretched(
 	const float3 omega_i, const float alpha_x, const float alpha_y,
 	const float randu, const float randv,
 	bool beckmann, float *G1i)

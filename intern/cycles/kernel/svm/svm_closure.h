@@ -180,7 +180,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 
 			/* specular */
-			if (specular > 0.0f) {
+			if (specular > 0.0f || metallic > 0.0f) {
 				if (num_closure + 1 < MAX_CLOSURE) {
 					sc = ccl_fetch_array(sd, closure, num_closure + 1);
 					sc->weight = weight;
@@ -205,21 +205,23 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 
 			/* clearcoat */
-			printf("%d\n\r", num_closure + 1);
-			if (num_closure + 1 < MAX_CLOSURE) {
-				sc = ccl_fetch_array(sd, closure, num_closure + 1);
-				sc->weight = weight;
-				sc->sample_weight = sample_weight;
+			if (clearcoat > 0.0f) {
+				printf("%d\n\r", num_closure + 1);
+				if (num_closure + 1 < MAX_CLOSURE) {
+					sc = ccl_fetch_array(sd, closure, num_closure + 1);
+					sc->weight = weight;
+					sc->sample_weight = sample_weight;
 
-				sc = svm_node_closure_get_bsdf(sd, mix_weight/* * mix(0.333f, 0.5f, clamp(metallic, 0.0f, 1.0f))*/);
+					sc = svm_node_closure_get_bsdf(sd, mix_weight/* * mix(0.333f, 0.5f, clamp(metallic, 0.0f, 1.0f))*/);
 
-				if (sc) {
-					sc->N = N;
+					if (sc) {
+						sc->N = N;
 
-					sc->data0 = clearcoat;
-					sc->data1 = clearcoatGloss;
+						sc->data0 = clearcoat;
+						sc->data1 = clearcoatGloss;
 
-					ccl_fetch(sd, flag) |= bsdf_disney_clearcoat_setup(sc);
+						ccl_fetch(sd, flag) |= bsdf_disney_clearcoat_setup(sc);
+					}
 				}
 			}
 

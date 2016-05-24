@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "../closure/bsdf_util.h"
 #include "../closure/bsdf_ashikhmin_velvet.h"
 #include "../closure/bsdf_diffuse.h"
 #include "../closure/bsdf_oren_nayar.h"
