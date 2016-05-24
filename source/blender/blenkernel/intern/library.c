@@ -228,7 +228,7 @@ void id_us_plus(ID *id)
 void id_us_min(ID *id)
 {
 	if (id) {
-        const int limit = ID_FAKE_USERS(id);
+		const int limit = ID_FAKE_USERS(id);
 
 		if (id->us <= limit) {
 			printf("ID user decrement error: %s (from '%s'): %d <= %d\n",
