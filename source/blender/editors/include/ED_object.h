@@ -179,7 +179,7 @@ void undo_push_lattice(struct bContext *C, const char *name);
 void ED_lattice_flags_set(struct Object *obedit, int flag);
 
 /* object_layer.c */
-void ED_object_layer_add(struct LayerTree *ltree);
+void ED_object_layer_add(struct LayerTree *ltree, const char *name);
 
 /* object_modifier.c */
 enum {
