@@ -3026,6 +3026,19 @@ static void rna_def_userdef_theme_space_clip(BlenderRNA *brna)
 	rna_def_userdef_theme_spaces_curves(srna, false, false, false, true);
 }
 
+static void rna_def_userdef_theme_space_layers(BlenderRNA *brna)
+{
+	StructRNA *srna;
+
+	srna = RNA_def_struct(brna, "ThemeLayerManager", NULL);
+	RNA_def_struct_sdna(srna, "ThemeSpace");
+	RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
+	RNA_def_struct_ui_text(srna, "Theme Layer Manager", "Theme settings for the Layer Manager");
+
+	rna_def_userdef_theme_spaces_main(srna);
+	rna_def_userdef_theme_spaces_list_main(srna);
+}
+
 static void rna_def_userdef_themes(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -3052,6 +3065,7 @@ static void rna_def_userdef_themes(BlenderRNA *brna)
 		{16, "FILE_BROWSER", ICON_FILESEL, "File Browser", ""},
 		{17, "CONSOLE", ICON_CONSOLE, "Python Console", ""},
 		{20, "CLIP_EDITOR", ICON_CLIP, "Movie Clip Editor", ""},
+		{21, "LAYER_MANAGER", ICON_COLLAPSEMENU, "Layer Manager", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -3185,6 +3199,12 @@ static void rna_def_userdef_themes(BlenderRNA *brna)
 	RNA_def_property_pointer_sdna(prop, NULL, "tclip");
 	RNA_def_property_struct_type(prop, "ThemeClipEditor");
 	RNA_def_property_ui_text(prop, "Clip Editor", "");
+
+	prop = RNA_def_property(srna, "layer_manager", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_pointer_sdna(prop, NULL, "tlayers");
+	RNA_def_property_struct_type(prop, "ThemeLayerManager");
+	RNA_def_property_ui_text(prop, "Layer Manager", "");
 }
 
 static void rna_def_userdef_addon(BlenderRNA *brna)
@@ -3275,6 +3295,7 @@ static void rna_def_userdef_dothemes(BlenderRNA *brna)
 	rna_def_userdef_theme_space_console(brna);
 	rna_def_userdef_theme_space_logic(brna);
 	rna_def_userdef_theme_space_clip(brna);
+	rna_def_userdef_theme_space_layers(brna);
 	rna_def_userdef_theme_colorset(brna);
 	rna_def_userdef_themes(brna);
 }

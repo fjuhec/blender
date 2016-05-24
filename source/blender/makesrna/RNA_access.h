@@ -635,6 +635,7 @@ extern StructRNA RNA_ThemeFontStyle;
 extern StructRNA RNA_ThemeGraphEditor;
 extern StructRNA RNA_ThemeImageEditor;
 extern StructRNA RNA_ThemeInfo;
+extern StructRNA RNA_ThemeLayerManager;
 extern StructRNA RNA_ThemeLogicEditor;
 extern StructRNA RNA_ThemeNLAEditor;
 extern StructRNA RNA_ThemeNodeEditor;
