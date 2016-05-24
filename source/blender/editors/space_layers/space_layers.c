@@ -58,16 +58,16 @@ static SpaceLink *layers_new(const bContext *UNUSED(C))
 
 	/* header */
 	ar = MEM_callocN(sizeof(ARegion), "header for layer manager");
-
 	BLI_addtail(&slayer->regionbase, ar);
 	ar->regiontype = RGN_TYPE_HEADER;
 	ar->alignment = RGN_ALIGN_BOTTOM;
 
 	/* main region */
 	ar = MEM_callocN(sizeof(ARegion), "main region for layer manager");
-
 	BLI_addtail(&slayer->regionbase, ar);
 	ar->regiontype = RGN_TYPE_WINDOW;
+	ar->v2d.scroll = (V2D_SCROLL_RIGHT | V2D_SCROLL_BOTTOM | V2D_SCROLL_HORIZONTAL_HIDE | V2D_SCROLL_VERTICAL_HIDE);
+	ar->v2d.align = (V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_POS_Y);
 
 	return (SpaceLink *)slayer;
 }
@@ -99,15 +99,16 @@ static void layer_init(wmWindowManager *wm, ScrArea *sa)
 /* add handlers, stuff you only do once or on area/region changes */
 static void layer_main_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
 {
-	/* do not use here, the properties changed in userprefs do a system-wide refresh, then scroller jumps back */
-	/*	ar->v2d.flag &= ~V2D_IS_INITIALISED; */
-	
-	ar->v2d.scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_VERTICAL_HIDE;
+	UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_LIST, ar->winx, ar->winy);
+	ar->v2d.scroll |= (V2D_SCROLL_VERTICAL_FULLR | V2D_SCROLL_HORIZONTAL_FULLR);
 }
 
 static void layers_main_region_draw(const bContext *C, ARegion *ar)
 {
 	View2D *v2d = &ar->v2d;
+
+	/* v2d has initialized flag, so this call will only set the mask correct */
+	UI_view2d_region_reinit(v2d, V2D_COMMONVIEW_LIST, ar->winx, ar->winy);
 
 	UI_ThemeClearColor(TH_BACK);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -168,7 +169,7 @@ void ED_spacetype_layers(void)
 	art->init = layer_main_region_init;
 	art->draw = layers_main_region_draw;
 	art->listener = layers_main_region_listener;
-	art->keymapflag = ED_KEYMAP_UI;
+	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_VIEW2D;
 	BLI_addhead(&st->regiontypes, art);
 
 	/* regions: header */

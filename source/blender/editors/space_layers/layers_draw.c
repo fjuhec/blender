@@ -23,6 +23,7 @@
  */
 
 #include "BLI_listbase.h"
+#include "BLI_rect.h"
 
 #include "BKE_context.h"
 #include "BKE_layer.h"
@@ -41,7 +42,6 @@ void layers_draw_tiles(const bContext *C, ARegion *ar)
 	uiStyle *style = UI_style_get_dpi();
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	View2D *v2d = &ar->v2d;
-	float size_x = ar->winx;
 	float size_y = 0.0f;
 
 	uiBlock *block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
@@ -52,7 +52,8 @@ void layers_draw_tiles(const bContext *C, ARegion *ar)
 		if (litem->draw) {
 			uiLayout *layout = UI_block_layout(
 			                       block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-			                       0, ar->winy - size_y, litem->height, 0, 0, style);
+			                       -v2d->cur.xmin, -v2d->cur.ymin - size_y,
+			                       litem->height, 0, 0, style);
 			litem->draw(litem, layout);
 			UI_block_layout_resolve(block, NULL, NULL);
 		}
@@ -63,5 +64,5 @@ void layers_draw_tiles(const bContext *C, ARegion *ar)
 	UI_block_draw(C, block);
 
 	/* update size of tot-rect (extents of data/viewable area) */
-	UI_view2d_totRect_set(v2d, size_x, size_y);
+	UI_view2d_totRect_set(v2d, ar->winx - BLI_rcti_size_x(&v2d->vert), size_y);
 }
