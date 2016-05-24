@@ -69,6 +69,7 @@ _modules = [
     "space_graph",
     "space_image",
     "space_info",
+    "space_layers", # TODO only for WITH_ADVANCED_LAYERS
     "space_logic",
     "space_nla",
     "space_node",
