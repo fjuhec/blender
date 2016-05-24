@@ -39,6 +39,15 @@ namespace Compositor {
         this->var_int_0 = node->custom1;
         break;
 
+      case CMP_NODE_BLUR:
+        {
+          NodeBlurData *data = (NodeBlurData *)node->storage;
+          // TODO: other elemetns in the data including needed conversions.
+          this->var_float_0 = data->percentx/100.f;
+          this->var_float_1 = data->percenty/100.f;
+        }
+        break;
+
       case CMP_NODE_VALUE:
         PointerRNA ptr;
         RNA_pointer_create((ID *)node_tree, &RNA_NodeSocket, node->outputs.first, &ptr);

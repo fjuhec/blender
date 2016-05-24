@@ -92,7 +92,7 @@ namespace Compositor {
       // perform task
       KernelGlobal globals;
       globals.phase = KG_PHASE_REFINE;
-      globals.subpixel_samples_xy = 2;
+      globals.subpixel_samples_xy = 1;
 
       Node* node = task->node;
       const int curr_iteration = task->iteration;

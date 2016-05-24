@@ -21,6 +21,7 @@ float4 node_execute_float4(KernelGlobal global, int node_offset, float2 xy);
 #include "cvm_node_mix.h"
 #include "cvm_node_viewer.h"
 #include "cvm_node_dummy.h"
+#include "cvm_node_blur.h"
 #include "cvm_node_renderlayer.h"
 
 #ifdef CMP_DEVICE_CPU
@@ -39,7 +40,10 @@ float4 node_execute_float4(KernelGlobal global, int node_offset, float2 xy) {
       return node_execute_color(global, node, xy);
 
     case CMP_NODE_MIX_RGB:
-        return node_execute_mix(global, node, xy);
+      return node_execute_mix(global, node, xy);
+
+    case CMP_NODE_BLUR:
+      return node_execute_blur(global, node, xy);
 
     default:
       return CVM_ERROR;
