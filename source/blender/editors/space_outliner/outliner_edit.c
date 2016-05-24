@@ -632,7 +632,7 @@ void OUTLINER_OT_lib_relocate(wmOperatorType *ot)
 }
 
 /* XXX This does not work with several items
- *     (ot is only called once in the end, due to the 'deffered' filebrowser invocation through event system...). */
+ *     (it is only called once in the end, due to the 'deffered' filebrowser invocation through event system...). */
 void lib_relocate_cb(
         bContext *C, Scene *UNUSED(scene), TreeElement *te,
         TreeStoreElem *UNUSED(tsep), TreeStoreElem *tselem, void *UNUSED(user_data))
