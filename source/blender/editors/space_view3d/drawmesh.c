@@ -1377,7 +1377,7 @@ void draw_mesh_paint(View3D *v3d, RegionView3D *rv3d,
 				float(*face_nors)[3] = CustomData_get_layer(&dm->polyData, CD_NORMAL);
 
 				BKE_pbvh_draw(ob->sculpt->pbvh, NULL, face_nors,
-					GPU_object_material_bind, false, false);
+					GPU_object_material_visible, false, false);
 				glShadeModel(GL_FLAT);
 			}
 		}
