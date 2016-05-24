@@ -88,7 +88,7 @@ typedef struct LayerTreeItem {
 	struct LayerTreeItem *next, *prev;
 
 	eLayerTreeItem_Type type;
-	const char *name;
+	char name[64]; /* MAX_NAME */
 	int height; /* the height of this item */
 
 	LayerTree *tree; /* pointer back to layer tree - TODO check if needed */

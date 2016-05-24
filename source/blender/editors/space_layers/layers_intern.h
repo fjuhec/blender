@@ -30,6 +30,7 @@ struct wmKeyConfig;
 
 typedef enum eLayerTileFlag {
 	LAYERTILE_SELECTED = (1 << 0),
+	LAYERTILE_RENAME   = (1 << 1),
 } eLayerTileFlag;
 
 /**
@@ -44,7 +45,7 @@ typedef struct LayerTile {
 } LayerTile;
 
 /* layers_draw.c */
-void layers_draw_tiles(const struct bContext *C, struct ARegion *ar);
+void layers_tiles_draw(const struct bContext *C, struct ARegion *ar);
 
 /* layers_util.c */
 LayerTile *layers_tile_add(struct SpaceLayers *slayer, struct LayerTreeItem *litem);

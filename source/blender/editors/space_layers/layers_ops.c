@@ -72,6 +72,35 @@ static void LAYERS_OT_layer_add(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+static int layer_rename_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+{
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	ARegion *ar = CTX_wm_region(C);
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
+	if (tile) {
+		tile->flag |= LAYERTILE_RENAME;
+
+		ED_region_tag_redraw(ar);
+		return OPERATOR_FINISHED;
+	}
+	return OPERATOR_CANCELLED;
+}
+
+static void LAYERS_OT_layer_rename(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Rename Layer";
+	ot->idname = "LAYERS_OT_layer_rename";
+	ot->description = "Rename the layer under the cursor";
+
+	/* api callbacks */
+	ot->invoke = layer_rename_invoke;
+	ot->poll = ED_operator_layers_active;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
 static void layers_deselect_all(const SpaceLayers *slayer)
 {
 	for (LayerTile *tile = slayer->layer_tiles.first; tile; tile = tile->next) {
@@ -111,8 +140,11 @@ static void LAYERS_OT_layer_select(wmOperatorType *ot)
 
 void layers_operatortypes(void)
 {
+	/* organization */
 	WM_operatortype_append(LAYERS_OT_layer_add);
+	WM_operatortype_append(LAYERS_OT_layer_rename);
 
+	/* states (activating selecting, highlighting) */
 	WM_operatortype_append(LAYERS_OT_layer_select);
 }
 
@@ -120,4 +152,7 @@ void layers_keymap(wmKeyConfig *keyconf)
 {
 	wmKeyMap *keymap = WM_keymap_find(keyconf, "Layer Manager", SPACE_LAYERS, 0);
 	WM_keymap_add_item(keymap, "LAYERS_OT_layer_select", LEFTMOUSE, KM_CLICK, 0, 0);
+
+	WM_keymap_add_item(keymap, "LAYERS_OT_layer_rename", LEFTMOUSE, KM_DBL_CLICK, 0, 0);
+	WM_keymap_add_item(keymap, "LAYERS_OT_layer_rename", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
 }

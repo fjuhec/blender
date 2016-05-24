@@ -35,6 +35,7 @@
 #include "BKE_layer.h" /* own include */
 
 #include "BLI_listbase.h"
+#include "BLI_string.h"
 
 #include "DNA_defs.h"
 #include "DNA_userdef_types.h"
@@ -96,11 +97,11 @@ LayerTreeItem *BKE_layeritem_add(
 	BLI_assert(!parent || ELEM(parent->type, LAYER_ITEMTYPE_GROUP));
 	BLI_assert(!parent || parent->tree == tree);
 
-	litem->name = name;
 	litem->type = type;
 	litem->height = LAYERITEM_DEFAULT_HEIGHT;
 	litem->parent = parent;
 	litem->tree = tree;
+	BLI_strncpy(litem->name, name, sizeof(litem->name));
 
 	/* callbacks */
 	litem->poll = poll;

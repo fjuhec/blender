@@ -109,7 +109,7 @@ static void layers_main_region_draw(const bContext *C, ARegion *ar)
 	UI_ThemeClearColor(TH_BACK);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	layers_draw_tiles(C, ar);
+	layers_tiles_draw(C, ar);
 
 	/* reset view matrix */
 	UI_view2d_view_restore(C);
@@ -140,6 +140,10 @@ static void layers_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa)
 				ED_region_tag_redraw(ar);
 			}
 			break;
+		case NC_SPACE:
+			if (wmn->data == ND_SPACE_LAYERS) {
+				ED_region_tag_redraw(ar);
+			}
 	}
 }
 
