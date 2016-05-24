@@ -3029,6 +3029,7 @@ static void rna_def_userdef_theme_space_clip(BlenderRNA *brna)
 static void rna_def_userdef_theme_space_layers(BlenderRNA *brna)
 {
 	StructRNA *srna;
+	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "ThemeLayerManager", NULL);
 	RNA_def_struct_sdna(srna, "ThemeSpace");
@@ -3037,6 +3038,12 @@ static void rna_def_userdef_theme_space_layers(BlenderRNA *brna)
 
 	rna_def_userdef_theme_spaces_main(srna);
 	rna_def_userdef_theme_spaces_list_main(srna);
+
+	prop = RNA_def_property(srna, "selected_layer", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "hilite");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Selected Layer", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
 }
 
 static void rna_def_userdef_themes(BlenderRNA *brna)

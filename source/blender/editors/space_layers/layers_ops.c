@@ -72,16 +72,52 @@ static void LAYERS_OT_layer_add(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+static void layers_deselect_all(const SpaceLayers *slayer)
+{
+	for (LayerTile *tile = slayer->layer_tiles.first; tile; tile = tile->next) {
+		tile->flag &= ~LAYERTILE_SELECTED;
+	}
+}
+
+static int layer_select_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+{
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	ARegion *ar = CTX_wm_region(C);
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
+	if (tile) {
+		layers_deselect_all(slayer);
+		tile->flag |= LAYERTILE_SELECTED;
+
+		ED_region_tag_redraw(ar);
+		return OPERATOR_FINISHED;
+	}
+	return OPERATOR_CANCELLED;
+}
+
+static void LAYERS_OT_layer_select(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Select Layer";
+	ot->idname = "LAYERS_OT_layer_select";
+	ot->description = "Select/activate the layer under the cursor";
+
+	/* api callbacks */
+	ot->invoke = layer_select_invoke;
+	ot->poll = ED_operator_layers_active;
+}
+
 
 /* ************************** registration - operator types **********************************/
 
 void layers_operatortypes(void)
 {
 	WM_operatortype_append(LAYERS_OT_layer_add);
+
+	WM_operatortype_append(LAYERS_OT_layer_select);
 }
 
 void layers_keymap(wmKeyConfig *keyconf)
 {
 	wmKeyMap *keymap = WM_keymap_find(keyconf, "Layer Manager", SPACE_LAYERS, 0);
-	(void)keymap;
+	WM_keymap_add_item(keymap, "LAYERS_OT_layer_select", LEFTMOUSE, KM_CLICK, 0, 0);
 }

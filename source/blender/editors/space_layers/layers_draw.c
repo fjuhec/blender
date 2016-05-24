@@ -34,6 +34,7 @@
 
 #include "UI_interface.h"
 #include "UI_view2d.h"
+#include "UI_resources.h"
 
 #include "layers_intern.h" /* own include */
 
@@ -49,11 +50,22 @@ void layers_draw_tiles(const bContext *C, ARegion *ar)
 	/* draw items */
 	for (LayerTile *tile = slayer->layer_tiles.first; tile; tile = tile->next) {
 		LayerTreeItem *litem = tile->litem;
+
+		/* draw selection */
+		if (tile->flag & LAYERTILE_SELECTED) {
+			const float padx = 4.0f * UI_DPI_FAC;
+			rctf rect = {padx, ar->winx - padx, -v2d->cur.ymin - size_y - litem->height};
+			rect.ymax = rect.ymin + litem->height;
+
+			UI_draw_roundbox_corner_set(UI_CNR_ALL);
+			UI_ThemeColor(TH_HILITE);
+			UI_draw_roundbox(rect.xmin, rect.ymin, rect.xmax, rect.ymax, 5.0f);
+		}
+		/* draw item itself */
 		if (litem->draw) {
 			uiLayout *layout = UI_block_layout(
 			                       block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-			                       -v2d->cur.xmin, -v2d->cur.ymin - size_y,
-			                       litem->height, 0, 0, style);
+			                       -v2d->cur.xmin, -v2d->cur.ymin - size_y, litem->height, 0, 0, style);
 			litem->draw(litem, layout);
 			UI_block_layout_resolve(block, NULL, NULL);
 		}

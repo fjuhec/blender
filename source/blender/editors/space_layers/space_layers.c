@@ -88,19 +88,15 @@ static SpaceLink *layers_duplicate(SpaceLink *sl)
 	return (SpaceLink *)slayer;
 }
 
-/* add handlers, stuff you only do once or on area changes */
-static void layer_init(wmWindowManager *wm, ScrArea *sa)
-{
-	/* own keymap */
-	wmKeyMap *keymap = WM_keymap_find(wm->defaultconf, "Layer Manager", SPACE_LAYERS, 0);
-	WM_event_add_keymap_handler(&sa->handlers, keymap);
-}
-
 /* add handlers, stuff you only do once or on area/region changes */
-static void layer_main_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
+static void layer_main_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_LIST, ar->winx, ar->winy);
 	ar->v2d.scroll |= (V2D_SCROLL_VERTICAL_FULLR | V2D_SCROLL_HORIZONTAL_FULLR);
+
+	/* own keymap */
+	wmKeyMap *keymap = WM_keymap_find(wm->defaultconf, "Layer Manager", SPACE_LAYERS, 0);
+	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
 }
 
 static void layers_main_region_draw(const bContext *C, ARegion *ar)
@@ -159,7 +155,6 @@ void ED_spacetype_layers(void)
 	st->new = layers_new;
 	st->free = layers_free;
 	st->duplicate = layers_duplicate;
-	st->init = layer_init;
 	st->operatortypes = layers_operatortypes;
 	st->keymap = layers_keymap;
 

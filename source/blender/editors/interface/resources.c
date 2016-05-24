@@ -1204,6 +1204,7 @@ void ui_theme_init_default(void)
 	/* space layer manager */
 	btheme->tlayers = btheme->tv3d;
 	rgba_char_args_set_fl(btheme->tlayers.back,    0.42, 0.42, 0.42, 1.0);
+	rgba_char_args_set(btheme->tlayers.hilite, 255, 140, 25, 255);  /* selected files */
 #endif
 }
 
@@ -2714,6 +2715,7 @@ void init_userdef_do_versions(void)
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
 			btheme->tlayers = btheme->tv3d;
 			rgba_char_args_set_fl(btheme->tlayers.back,    0.42, 0.42, 0.42, 1.0);
+			rgba_char_args_set(btheme->tlayers.hilite, 255, 140, 25, 255);  /* selected files */
 		}
 	}
 #endif

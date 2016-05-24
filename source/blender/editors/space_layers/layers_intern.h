@@ -28,6 +28,10 @@
 struct ARegion;
 struct wmKeyConfig;
 
+typedef enum eLayerTileFlag {
+	LAYERTILE_SELECTED = (1 << 0),
+} eLayerTileFlag;
+
 /**
  * Wrapper around LayerTreeItem with extra info for drawing in layer manager editor.
  */
@@ -35,6 +39,8 @@ typedef struct LayerTile {
 	struct LayerTile *next, *prev;
 
 	LayerTreeItem *litem;
+
+	eLayerTileFlag flag;
 } LayerTile;
 
 /* layers_draw.c */
@@ -42,6 +48,7 @@ void layers_draw_tiles(const struct bContext *C, struct ARegion *ar);
 
 /* layers_util.c */
 LayerTile *layers_tile_add(struct SpaceLayers *slayer, struct LayerTreeItem *litem);
+LayerTile *layers_tile_find_at_coordinate(const SpaceLayers *slayer, const ARegion *ar, const int co[2]);
 
 /* layers_ops.c */
 void layers_operatortypes(void);

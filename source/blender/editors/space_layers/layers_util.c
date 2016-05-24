@@ -28,6 +28,7 @@
 
 #include "BKE_layer.h"
 
+#include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 
 #include "MEM_guardedalloc.h"
@@ -46,4 +47,20 @@ LayerTile *layers_tile_add(SpaceLayers *slayer, LayerTreeItem *litem)
 	BLI_addhead(&slayer->layer_tiles, tile);
 
 	return tile;
+}
+
+/**
+ * Find the tile at coordinate \a co (regionspace).
+ */
+LayerTile *layers_tile_find_at_coordinate(const SpaceLayers *slayer, const ARegion *ar, const int co[2])
+{
+	int ofsx = 0;
+
+	for (LayerTile *tile = slayer->layer_tiles.first; tile; tile = tile->next) {
+		ofsx += tile->litem->height;
+		if (co[1] >= -ar->v2d.cur.ymin - ofsx) {
+			return tile;
+		}
+	}
+	return NULL;
 }
