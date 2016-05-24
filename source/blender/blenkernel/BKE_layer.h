@@ -31,6 +31,7 @@
 #define __BKE_LAYER_H__
 
 struct bContext;
+struct uiLayout;
 
 typedef struct LayerTree LayerTree;
 typedef struct LayerTreeItem LayerTreeItem;
@@ -50,6 +51,19 @@ typedef enum eLayerTree_Type {
 //	...
 } eLayerTree_Type;
 
+#define MAX_LAYER_FILTER_STR 64
+
+typedef struct LayerTree {
+	eLayerTree_Type type;
+
+	ListBase items; /* LayerTreeItem - TODO check if worth using array instead */
+
+	/* filtering */
+	short filterflag;
+	char filter_str[MAX_LAYER_FILTER_STR];
+} LayerTree;
+
+
 struct LayerTree *BKE_layertree_new(const eLayerTree_Type type);
 void BKE_layertree_delete(struct LayerTree *ltree);
 
@@ -57,8 +71,8 @@ void BKE_layertree_delete(struct LayerTree *ltree);
 /* Layer Tree Item */
 
 typedef short (*LayerItemPollFunc)(const struct bContext *, struct LayerTreeItem *);
-typedef void  (*LayerItemDrawFunc)(struct LayerTreeItem *);
-typedef void  (*LayerItemDrawSettingsFunc)(struct LayerTreeItem *);
+typedef void  (*LayerItemDrawFunc)(struct LayerTreeItem *, struct uiLayout *layout);
+typedef void  (*LayerItemDrawSettingsFunc)(struct LayerTreeItem *, struct uiLayout *layout);
 
 typedef enum eLayerTreeItem_Type {
 	LAYER_ITEMTYPE_LAYER,
@@ -66,12 +80,33 @@ typedef enum eLayerTreeItem_Type {
 	LAYER_ITEMTYPE_COMP,  /* compositing layer (wireframes, SSAO, blending type, etc) */
 } eLayerTreeItem_Type;
 
+/**
+ * \brief An item of the layer tree.
+ * Used as a base struct for the individual layer tree item types (layer, layer group, compositing layer, etc).
+ */
+typedef struct LayerTreeItem {
+	struct LayerTreeItem *next, *prev;
+
+	eLayerTreeItem_Type type;
+	const char *name;
+	int height; /* the height of this item */
+
+	LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
+	struct LayerTreeItem *parent; /* the group this item belongs to */
+
+	/* item is grayed out if this check fails */
+	LayerItemPollFunc poll;
+	/* drawing of the item in the list */
+	LayerItemDrawFunc draw;
+	/* drawing of the expanded layer settings (gear wheel icon) */
+	LayerItemDrawSettingsFunc draw_settings;
+} LayerTreeItem;
+
 struct LayerTreeItem *BKE_layeritem_add(
-        struct LayerTree *tree, struct LayerTreeItem *parent, const eLayerTreeItem_Type type,
+        struct LayerTree *tree, struct LayerTreeItem *parent,
+        const eLayerTreeItem_Type type, const char *name,
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
 void BKE_layeritem_remove(struct LayerTree *tree, struct LayerTreeItem *litem);
-
-const char *BKE_layeritem_name_get(struct LayerTreeItem *litem);
 
 #endif  /* __BKE_LAYER_H__ */
 

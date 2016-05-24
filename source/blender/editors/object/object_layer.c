@@ -29,24 +29,32 @@
  * Functions to define object layer data and UI.
  */
 
+#include "BLI_compiler_attrs.h"
+#include "BLI_listbase.h"
+#include "BLI_utildefines.h"
+
 #include "BKE_layer.h"
 
-#include "BLI_compiler_attrs.h"
-#include "BLI_utildefines.h"
+#include "DNA_ID.h"
 
 #include "ED_object.h"
 
-static void object_layer_draw(LayerTreeItem *litem)
+#include "UI_interface.h"
+
+
+static void object_layer_draw(LayerTreeItem *litem, uiLayout *layout)
 {
-	printf("%s\n", BKE_layeritem_name_get(litem));
+	uiItemL(layout, litem->name, 0);
 }
 
-static void object_layer_draw_settings(LayerTreeItem *UNUSED(litem))
+static void object_layer_draw_settings(LayerTreeItem *UNUSED(litem), uiLayout *UNUSED(layout))
 {
 	/* TODO */
 }
 
 void ED_object_layer_add(LayerTree *ltree)
 {
-	BKE_layeritem_add(ltree, NULL, LAYER_TREETYPE_OBJECT, NULL, object_layer_draw, object_layer_draw_settings);
+	BKE_layeritem_add(
+	            ltree, NULL, LAYER_TREETYPE_OBJECT, "Layer",
+	            NULL, object_layer_draw, object_layer_draw_settings);
 }

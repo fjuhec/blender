@@ -43,6 +43,9 @@ static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *
 		Scene *scene = CTX_data_scene(C);
 		ED_object_layer_add(scene->object_layers);
 	}
+
+	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
+
 	return OPERATOR_FINISHED;
 }
 

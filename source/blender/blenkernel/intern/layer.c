@@ -37,42 +37,9 @@
 #include "BLI_listbase.h"
 
 #include "DNA_defs.h"
+#include "DNA_userdef_types.h"
 
 #include "MEM_guardedalloc.h"
-
-
-#define MAX_LAYER_FILTER_STR 64
-
-typedef struct LayerTree {
-	eLayerTree_Type type;
-
-	ListBase items; /* LayerTreeItem - TODO check if worth using array instead */
-
-	/* filtering */
-	short filterflag;
-	char filter_str[MAX_LAYER_FILTER_STR];
-} LayerTree;
-
-/**
- * \brief An item of the layer tree.
- * Used as a base struct for the individual layer tree item types (layer, layer group, compositing layer, etc).
- */
-typedef struct LayerTreeItem {
-	struct LayerTreeItem *next, *prev;
-
-	eLayerTreeItem_Type type;
-	char name[MAX_NAME]; /* name displayed in GUI */
-
-	LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
-	struct LayerTreeItem *parent; /* the group this item belongs to */
-
-	/* item is grayed out if this check fails */
-	LayerItemPollFunc poll;
-	/* drawing of the item in the list */
-	LayerItemDrawFunc draw;
-	/* drawing of the expanded layer settings (gear wheel icon) */
-	LayerItemDrawSettingsFunc draw_settings;
-} LayerTreeItem;
 
 
 /* -------------------------------------------------------------------- */
@@ -111,6 +78,8 @@ void BKE_layertree_delete(LayerTree *ltree)
  *
  * \{ */
 
+#define LAYERITEM_DEFAULT_HEIGHT U.widget_unit
+
 /**
  * Allocate a new layer item of \a type and add it to the layer tree \a tree. Sorting happens later.
  *
@@ -118,7 +87,8 @@ void BKE_layertree_delete(LayerTree *ltree)
  * \return The newly created layer item.
  */
 LayerTreeItem *BKE_layeritem_add(
-        LayerTree *tree, LayerTreeItem *parent, const eLayerTreeItem_Type type,
+        LayerTree *tree, LayerTreeItem *parent,
+        const eLayerTreeItem_Type type, const char *name,
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
 {
 	LayerTreeItem *litem = MEM_callocN(sizeof(LayerTreeItem), __func__);
@@ -126,7 +96,9 @@ LayerTreeItem *BKE_layeritem_add(
 	BLI_assert(!parent || ELEM(parent->type, LAYER_ITEMTYPE_GROUP));
 	BLI_assert(!parent || parent->tree == tree);
 
+	litem->name = name;
 	litem->type = type;
+	litem->height = LAYERITEM_DEFAULT_HEIGHT;
 	litem->parent = parent;
 	litem->tree = tree;
 
@@ -147,11 +119,6 @@ void BKE_layeritem_remove(LayerTree *tree, LayerTreeItem *litem)
 {
 	BLI_remlink(&tree->items, litem);
 	MEM_freeN(litem);
-}
-
-const char *BKE_layeritem_name_get(LayerTreeItem *litem)
-{
-	return litem->name;
 }
 
 /** \} */ /* Layer Tree Item */

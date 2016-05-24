@@ -26,7 +26,10 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BIF_gl.h"
+
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_screen.h"
 
 #include "BLI_listbase.h"
@@ -37,6 +40,10 @@
 
 #include "ED_screen.h"
 #include "ED_space_api.h"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
+#include "UI_view2d.h"
 
 #include "WM_types.h"
 
@@ -87,9 +94,44 @@ static void layer_main_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
 	ar->v2d.scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_VERTICAL_HIDE;
 }
 
-static void layers_main_region_draw(const bContext *UNUSED(C), ARegion *UNUSED(ar))
+static void layers_main_region_draw(const bContext *C, ARegion *ar)
 {
-	printf("DRAW!\n");
+	Scene *scene = CTX_data_scene(C);
+	uiStyle *style = UI_style_get_dpi();
+	View2D *v2d = &ar->v2d;
+	float size_x = ar->winx;
+	float size_y = 0.0f;
+
+	UI_ThemeClearColor(TH_BACK);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	uiBlock *block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
+	/* draw items */
+	for (LayerTreeItem *litem = scene->object_layers->items.first; litem; litem = litem->next) {
+		if (litem->draw) {
+			uiLayout *layout = UI_block_layout(
+			                       block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
+			                       0, ar->winy - size_y, litem->height, 0, 0, style);
+			litem->draw(litem, layout);
+			UI_block_layout_resolve(block, NULL, NULL);
+		}
+		size_y += litem->height;
+	}
+
+	UI_block_end(C, block);
+	UI_block_draw(C, block);
+
+	/* update size of tot-rect (extents of data/viewable area) */
+	UI_view2d_totRect_set(v2d, size_x, size_y);
+
+	/* reset view matrix */
+	UI_view2d_view_restore(C);
+
+	/* scrollers */
+	View2DScrollers *scrollers;
+	scrollers = UI_view2d_scrollers_calc(C, v2d, V2D_ARG_DUMMY, V2D_ARG_DUMMY, V2D_ARG_DUMMY, V2D_ARG_DUMMY);
+	UI_view2d_scrollers_draw(C, v2d, scrollers);
+	UI_view2d_scrollers_free(scrollers);
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
@@ -103,9 +145,15 @@ static void layers_header_region_draw(const bContext *C, ARegion *ar)
 	ED_region_header(C, ar);
 }
 
-static void layers_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar), wmNotifier *UNUSED(wmn))
+static void layers_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
-	/* context changes */
+	switch (wmn->category) {
+		case NC_SCENE:
+			if (wmn->data == ND_LAYER) {
+				ED_region_tag_redraw(ar);
+			}
+			break;
+	}
 }
 
 /* only called once, from space/spacetypes.c */

@@ -1205,7 +1205,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 
 #ifdef WITH_ADVANCED_LAYERS
 	/* Convert to new layer system */
-	{
+	if (!MAIN_VERSION_ATLEAST(main, 277, 2)) {
 		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "LayerTree", "object_layers")) {
 			for (Scene *sce = main->scene.first; sce; sce = sce->id.next) {
 				sce->object_layers = BKE_layertree_new(LAYER_TREETYPE_OBJECT);
