@@ -779,6 +779,11 @@ static int edbm_shortest_path_select_exec(bContext *C, wmOperator *op)
 	}
 }
 
+int EDBM_shortest_path_select(struct bContext *C, struct wmOperator *op)
+{
+	return edbm_shortest_path_select_exec(C, op);
+}
+
 void MESH_OT_shortest_path_select(wmOperatorType *ot)
 {
 	/* identifiers */

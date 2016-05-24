@@ -1472,6 +1472,36 @@ static void UV_OT_select_less(wmOperatorType *ot)
 	ot->poll = ED_operator_uvedit_space_image;
 }
 
+/*********************** shortest path ***********************/
+static int uv_shortest_path_exec(bContext *C, wmOperator *op)
+{
+	Scene *scene = CTX_data_scene(C);
+	Object *obedit = CTX_data_edit_object(C);
+	ToolSettings *ts = scene->toolsettings;
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);	
+
+	if (ts->uv_flag & UV_SYNC_SELECTION) {
+		return EDBM_shortest_path_select(C, op);
+	}
+		 
+	/* TODO(SaphireS): implementation of operator based on UV islands*/
+
+	return OPERATOR_FINISHED;
+}
+
+static void UV_OT_shortest_path(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Select Shortest Path";
+	ot->description = "Select the shortest path between the current selection";
+	ot->idname = "UV_OT_shortest_path";
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+	
+	/* api callbacks */
+	ot->exec = uv_shortest_path_exec;
+	ot->poll = ED_operator_uvedit_space_image;
+}
+
 /* ******************** align operator **************** */
 
 static void uv_weld_align(bContext *C, int tool)
@@ -4246,6 +4276,7 @@ void ED_operatortypes_uvedit(void)
 	WM_operatortype_append(UV_OT_circle_select);
 	WM_operatortype_append(UV_OT_select_more);
 	WM_operatortype_append(UV_OT_select_less);
+	WM_operatortype_append(UV_OT_shortest_path);
 
 	WM_operatortype_append(UV_OT_snap_cursor);
 	WM_operatortype_append(UV_OT_snap_selected);
