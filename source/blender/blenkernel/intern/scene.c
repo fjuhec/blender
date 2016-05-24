@@ -75,6 +75,7 @@
 #include "BKE_icons.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_linestyle.h"
 #include "BKE_main.h"
@@ -454,6 +455,11 @@ void BKE_scene_free(Scene *sce)
 	if (sce->fps_info)
 		MEM_freeN(sce->fps_info);
 
+#ifdef WITH_ADVANCED_LAYERS
+	BLI_assert(sce->object_layers != NULL);
+	BKE_layertree_delete(sce->object_layers);
+#endif
+
 	BKE_sound_destroy_scene(sce);
 
 	BKE_color_managed_view_settings_free(&sce->view_settings);
@@ -739,6 +745,10 @@ void BKE_scene_init(Scene *sce)
 	sce->gm.scehysteresis = 10;
 
 	sce->gm.exitkey = 218; // Blender key code for ESC
+
+#ifdef WITH_ADVANCED_LAYERS
+	sce->object_layers = BKE_layertree_new(LAYER_TREETYPE_OBJECT);
+#endif
 
 	BKE_sound_create_scene(sce);
 

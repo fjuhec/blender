@@ -30,6 +30,7 @@
 #ifndef __BKE_LAYER_H__
 #define __BKE_LAYER_H__
 
+struct bContext;
 struct LayerTree;
 struct LayerTreeItem;
 

@@ -56,6 +56,7 @@
 #include "DNA_genfile.h"
 
 #include "BKE_colortools.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
@@ -1201,4 +1202,16 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 	}
+
+#ifdef WITH_ADVANCED_LAYERS
+	/* Convert to new layer system */
+	{
+		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "LayerTree", "object_layers")) {
+			for (Scene *sce = main->scene.first; sce; sce = sce->id.next) {
+				sce->object_layers = BKE_layertree_new(LAYER_TREETYPE_OBJECT);
+				/* TODO convert old layers to new ones */
+			}
+		}
+	}
+#endif
 }
