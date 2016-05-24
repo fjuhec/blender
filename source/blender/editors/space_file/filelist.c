@@ -1519,7 +1519,7 @@ int filelist_files_ensure(FileList *filelist, FileSelectParams *params)
 		filelist_sort_filter(filelist, params);
 	}
 
-	return filelist->filelist.nbr_entries_filtered;;
+	return filelist->filelist.nbr_entries_filtered;
 }
 
 

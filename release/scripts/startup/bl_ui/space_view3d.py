@@ -992,6 +992,11 @@ class VIEW3D_MT_select_gpencil(Menu):
 
         layout.separator()
 
+        layout.operator("gpencil.select_first")
+        layout.operator("gpencil.select_last")
+
+        layout.separator()
+
         layout.operator("gpencil.select_more")
         layout.operator("gpencil.select_less")
 
@@ -2609,6 +2614,10 @@ class VIEW3D_MT_edit_gpencil_delete(Menu):
         layout.separator()
 
         layout.operator("gpencil.dissolve")
+
+        layout.separator()
+
+        layout.operator("gpencil.active_frame_delete")
 
 
 # Edit Curve
