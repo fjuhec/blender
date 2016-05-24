@@ -320,6 +320,12 @@ int ED_operator_info_active(bContext *C)
 	return ed_spacetype_test(C, SPACE_INFO);
 }
 
+#ifdef WITH_ADVANCED_LAYERS
+int ED_operator_layers_active(bContext *C)
+{
+	return ed_spacetype_test(C, SPACE_LAYERS);
+}
+#endif
 
 int ED_operator_console_active(bContext *C)
 {

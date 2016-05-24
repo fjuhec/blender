@@ -33,7 +33,10 @@ set(INC_SYS
 )
 
 set(SRC
+	layers_ops.c
 	space_layers.c
+
+	layers_intern.h
 )
 
 blender_add_lib(bf_editor_space_layers "${SRC}" "${INC}" "${INC_SYS}")

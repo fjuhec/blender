@@ -40,6 +40,8 @@
 
 #include "WM_types.h"
 
+#include "layers_intern.h" /* own include */
+
 
 /* ******************** default callbacks for layer manager space ***************** */
 
@@ -117,6 +119,7 @@ void ED_spacetype_layers(void)
 
 	st->new = layers_new;
 	st->duplicate = layers_duplicate;
+	st->operatortypes = layers_operatortypes;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype layers region");
