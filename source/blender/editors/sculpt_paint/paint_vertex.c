@@ -1771,6 +1771,8 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		ED_mesh_mirror_spatial_table(NULL, NULL, NULL, NULL, 'e');
 		ED_mesh_mirror_topo_table(NULL, NULL, 'e');
 
+		BKE_sculptsession_free(ob);
+
 		paint_cursor_delete_textures();
 	}
 	else {
@@ -1786,6 +1788,12 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		/* weight paint specific */
 		ED_mesh_mirror_spatial_table(ob, NULL, NULL, NULL, 's');
 		ED_vgroup_sync_from_pose(ob);
+
+		/* Create vertex/weight paint mode session data */
+		if (ob->sculpt)
+			BKE_sculptsession_free(ob);
+
+		vertex_paint_init_session(scene, ob);
 	}
 	
 	/* Weightpaint works by overriding colors in mesh,
@@ -1796,12 +1804,6 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 	DAG_id_tag_update(&me->id, 0);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, scene);
-
-	/* Create vertex/weight paint mode session data */
-	if (ob->sculpt)
-		BKE_sculptsession_free(ob);
-
-	vertex_paint_init_session(scene, ob);
 
 	return OPERATOR_FINISHED;
 }
@@ -2544,6 +2546,8 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			BKE_mesh_flush_select_from_polys(me);
 		}
 
+		BKE_sculptsession_free(ob);
+
 		paint_cursor_delete_textures();
 	}
 	else {
@@ -2559,6 +2563,12 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		paint_cursor_start(C, vertex_paint_poll);
 
 		BKE_paint_init(scene, ePaintVertex, PAINT_CURSOR_VERTEX_PAINT);
+
+		/* Create vertex/weight paint mode session data */
+		if (ob->sculpt)
+			BKE_sculptsession_free(ob);
+
+		vertex_paint_init_session(scene, ob);
 	}
 	
 	/* update modifier stack for mapping requirements */

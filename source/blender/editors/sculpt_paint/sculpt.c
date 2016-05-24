@@ -5420,6 +5420,7 @@ static void SCULPT_OT_sculptmode_toggle(wmOperatorType *ot)
 	ot->exec = sculpt_mode_toggle_exec;
 	ot->poll = ED_operator_object_active_editable_mesh;
 	
+	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
