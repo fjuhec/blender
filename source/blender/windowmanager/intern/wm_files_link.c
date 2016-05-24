@@ -610,18 +610,32 @@ static void lib_relocate_do(Main *bmain, WMLinkAppendData *lapp_data, ReportList
 		}
 
 		if (old_id->us > 0 && new_id && old_id->lib == new_id->lib) {
+			/* Note that this *should* not happen - but better be safe than sorry in this area, at least until we are
+			 * 100% sure this cannot ever happen.
+			 * Also, we can safely assume names were unique so far, so just replacing '.' by '~' should work,
+			 * but this does not totally rules out the possibility of name collision. */
 			size_t len = strlen(old_id->name);
+			size_t dot_pos;
+			bool has_num = false;
 
-			/* XXX TODO This is utterly weak!!! */
-			if (len > MAX_ID_NAME - 3 && old_id->name[len - 4] == '.') {
-				old_id->name[len - 6] = '.';
-				old_id->name[len - 5] = 'P';
+			for (dot_pos = len; dot_pos--;) {
+				char c = old_id->name[dot_pos];
+				if (c == '.') {
+					break;
+				}
+				else if (c < '0' || c > '9') {
+					has_num = false;
+					break;
+				}
+				has_num = true;
+			}
+
+			if (has_num) {
+				old_id->name[dot_pos] = '~';
 			}
 			else {
-				len = MIN2(len, MAX_ID_NAME - 3);
-				old_id->name[len] = '.';
-				old_id->name[len + 1] = 'P';
-				old_id->name[len + 2] = '\0';
+				len = MIN2(len, MAX_ID_NAME - 7);
+				BLI_strncpy(&old_id->name[len], "~000", 7);
 			}
 
 			id_sort_by_name(which_libbase(bmain, GS(old_id->name)), old_id);
