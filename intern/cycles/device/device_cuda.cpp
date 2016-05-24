@@ -251,23 +251,26 @@ public:
 
 	string compile_kernel(const DeviceRequestedFeatures& requested_features)
 	{
-		/* compute cubin name */
+		/* Compute cubin name. */
 		int major, minor;
 		cuDeviceComputeCapability(&major, &minor, cuDevId);
 		string cubin;
 
-		/* adaptive compile */
+		/* Adaptive Compile.
+		 * If enabled, always use that */
 		bool use_adaptive_compile = use_adaptive_compilation();
 
-		/* attempt to use kernel provided with blender */
-		cubin = path_get(string_printf("lib/kernel_sm_%d%d.cubin", major, minor));
-		VLOG(1) << "Testing for pre-compiled kernel " << cubin;
-		if(path_exists(cubin)) {
-			VLOG(1) << "Using precompiled kernel";
-			return cubin;
+		/* Attempt to use kernel provided with Blender. */
+		if(!use_adaptive_compile) {
+			cubin = path_get(string_printf("lib/kernel_sm_%d%d.cubin", major, minor));
+			VLOG(1) << "Testing for pre-compiled kernel " << cubin;
+			if(path_exists(cubin)) {
+				VLOG(1) << "Using precompiled kernel";
+				return cubin;
+			}
 		}
 
-		/* not found, try to use locally compiled kernel */
+		/* Try to use locally compiled kernel. */
 		string kernel_path = path_get("kernel");
 		string md5 = path_files_md5_hash(kernel_path);
 
@@ -286,7 +289,7 @@ public:
 
 		cubin = path_user_get(path_join("cache", cubin));
 		VLOG(1) << "Testing for locally compiled kernel " << cubin;
-		/* if exists already, use it */
+		/* If exists already, use it. */
 		if(path_exists(cubin)) {
 			VLOG(1) << "Using locally compiled kernel";
 			return cubin;
@@ -302,7 +305,7 @@ public:
 		}
 #endif
 
-		/* if not, find CUDA compiler */
+		/* If not, find CUDA compiler. */
 		const char *nvcc = cuewCompilerPath();
 
 		if(nvcc == NULL) {
@@ -324,7 +327,7 @@ public:
 		else if(cuda_version != 75)
 			printf("CUDA version %d.%d detected, build may succeed but only CUDA 7.5 is officially supported.\n", cuda_version/10, cuda_version%10);
 
-		/* compile */
+		/* Compile. */
 		string kernel = path_join(kernel_path, path_join("kernels", path_join("cuda", "kernel.cu")));
 		string include = kernel_path;
 		const int machine = system_cpu_bits();
@@ -358,7 +361,7 @@ public:
 			return "";
 		}
 
-		/* verify if compilation succeeded */
+		/* Verify if compilation succeeded */
 		if(!path_exists(cubin)) {
 			cuda_error_message("CUDA kernel compilation failed, see console for details.");
 			return "";
@@ -809,8 +812,8 @@ public:
 		printf("threads_per_block %d\n", threads_per_block);
 		printf("num_registers %d\n", num_registers);*/
 
-		int xthreads = (int)sqrt((float)threads_per_block);
-		int ythreads = (int)sqrt((float)threads_per_block);
+		int xthreads = (int)sqrt(threads_per_block);
+		int ythreads = (int)sqrt(threads_per_block);
 		int xblocks = (rtile.w + xthreads - 1)/xthreads;
 		int yblocks = (rtile.h + ythreads - 1)/ythreads;
 
@@ -863,8 +866,8 @@ public:
 		int threads_per_block;
 		cuda_assert(cuFuncGetAttribute(&threads_per_block, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, cuFilmConvert));
 
-		int xthreads = (int)sqrt((float)threads_per_block);
-		int ythreads = (int)sqrt((float)threads_per_block);
+		int xthreads = (int)sqrt(threads_per_block);
+		int ythreads = (int)sqrt(threads_per_block);
 		int xblocks = (task.w + xthreads - 1)/xthreads;
 		int yblocks = (task.h + ythreads - 1)/ythreads;
 

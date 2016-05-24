@@ -478,9 +478,19 @@ if(WIN32)
 endif()
 
 # Experimental support of C11 and C++11
-option(WITH_C11 "Build with C11 standard enabled, for development use only!" OFF)
+#
+# We default options to whatever default standard in the current compiler.
+if(CMAKE_COMPILER_IS_GNUCC AND (NOT "${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "6.0") AND (NOT WITH_CXX11))
+	set(_c11_init ON)
+	set(_cxx11_init ON)
+else()
+	set(_c11_init OFF)
+	set(_cxx11_init OFF)
+endif()
+
+option(WITH_C11 "Build with C11 standard enabled, for development use only!" ${_c11_init})
 mark_as_advanced(WITH_C11)
-option(WITH_CXX11 "Build with C++11 standard enabled, for development use only!" OFF)
+option(WITH_CXX11 "Build with C++11 standard enabled, for development use only!" ${_cxx11_init})
 mark_as_advanced(WITH_CXX11)
 
 # Dependency graph
@@ -822,21 +832,6 @@ set(PLATFORM_LINKLIBS "")
 set(PLATFORM_LINKFLAGS "")
 set(PLATFORM_LINKFLAGS_DEBUG "")
 
-
-# For alternate Python locations the commandline can be used to override detected/default cache settings, e.g:
-# On Unix:
-#   cmake ../blender \
-#         -D PYTHON_VERSION=3.5 \
-#         -D PYTHON_INCLUDE_DIR=/opt/py35/include/python3.5d \
-#         -D PYTHON_LIBRARY=/opt/py35/lib/libpython3.5d.so
-#
-# On Macs:
-#   cmake ../blender \
-#         -D PYTHON_INCLUDE_DIR=/System/Library/Frameworks/Python.framework/Versions/3.5/include/python3.5 \
-#         -D PYTHON_LIBPATH=/System/Library/Frameworks/Python.framework/Versions/3.5/lib/python3.5/config \
-#         -G Xcode
-#
-# When changing any of this remember to update the notes in doc/build_systems/cmake.txt
 
 #-----------------------------------------------------------------------------
 #Platform specifics
@@ -2160,24 +2155,6 @@ elseif(APPLE)
 		list(APPEND PLATFORM_LINKLIBS stdc++)
 	endif()
 
-	# XXX - SOME MAC DEV PLEASE TEST WITH THE SDK INSTALLED!
-	# ALSO SHOULD BE MOVED INTO OWN MODULE WHEN FUNCTIONAL
-	if(WITH_INPUT_NDOF)
-		# This thread it *should* work and check the framework - campbell
-		# http://www.cmake.org/pipermail/cmake/2005-December/007740.html
-		find_library(3DCONNEXION_CLIENT_FRAMEWORK
-			NAMES 3DconnexionClient
-		)
-		if(NOT 3DCONNEXION_CLIENT_FRAMEWORK)
-			set(WITH_INPUT_NDOF OFF)
-		endif()
-
-		if(WITH_INPUT_NDOF)
-			set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} -F/Library/Frameworks -weak_framework 3DconnexionClient")
-			set(NDOF_INCLUDE_DIRS /Library/Frameworks/3DconnexionClient.framework/Headers )
-		endif()
-	endif()
-
 	if(WITH_JACK)
 		set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} -F/Library/Frameworks -weak_framework jackmp")
 	endif()
@@ -2243,10 +2220,6 @@ elseif(APPLE)
 		set(TIFF_INCLUDE_DIR ${TIFF}/include)
 		set(TIFF_LIBRARY tiff)
 		set(TIFF_LIBPATH ${TIFF}/lib)
-	endif()
-
-	if(WITH_INPUT_NDOF)
-		# linker needs "-weak_framework 3DconnexionClient"
 	endif()
 
 	if(WITH_BOOST)
@@ -3061,11 +3034,21 @@ endif()
 
 if(WITH_CXX11)
 	if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
+		# TODO(sergey): Do we want c++11 or gnu-c++11 here?
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 	elseif(MSVC12)
 		# Nothing special is needed, C++11 features are available by default.
 	else()
 		message(FATAL_ERROR "Compiler ${CMAKE_C_COMPILER_ID} is not supported for C++11 build yet")
+	endif()
+else()
+	# GCC-6 switched to C++11 by default, which would break linking with existing libraries
+	# by default. So we explicitly disable C++11 for a new GCC so no linking issues happens.
+	if(CMAKE_COMPILER_IS_GNUCC AND (NOT "${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "6.0"))
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++98")
+		# We also disable any of C++11 ABI from usage, so we wouldn't even try to
+		# link to stuff from std::__cxx11 namespace.
+		add_definitions("-D_GLIBCXX_USE_CXX11_ABI=0")
 	endif()
 endif()
 
