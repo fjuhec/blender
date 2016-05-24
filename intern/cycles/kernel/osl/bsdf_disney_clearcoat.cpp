@@ -30,16 +30,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <OpenImageIO/fmath.h>
+/*#include <OpenImageIO/fmath.h>
 
 #include <OSL/genclosure.h>
 
 #include "kernel_compat_cpu.h"
 #include "osl_closures.h"
-#include "closure/bsdf_util.h"
 
 #include "kernel_types.h"
-#include "kernel_montecarlo.h"
 #include "closure/bsdf_disney_clearcoat.h"
 
 CCL_NAMESPACE_BEGIN
@@ -48,8 +46,6 @@ using namespace OSL;
 
 class DisneyClearcoatClosure : public CBSDFClosure {
 public:
-    //DisneyClearcoatBRDFParams dp;
-
 	DisneyClearcoatClosure() : CBSDFClosure(LABEL_REFLECT|LABEL_GLOSSY)
 	{}
 
@@ -57,8 +53,6 @@ public:
 	{
 		sc.prim = this;
 		m_shaderdata_flag = bsdf_disney_clearcoat_setup(&sc);
-
-        //dp.precompute_values();
 	}
 
 	void blur(float roughness)
@@ -67,7 +61,7 @@ public:
 
 	float3 eval_reflect(const float3 &omega_out, const float3 &omega_in, float& pdf) const
 	{
-		return bsdf_disney_clearcoat_eval_reflect(&sc, /*&dp, */omega_out, omega_in, &pdf);
+		return bsdf_disney_clearcoat_eval_reflect(&sc, omega_out, omega_in, &pdf);
 	}
 
 	float3 eval_transmit(const float3 &omega_out, const float3 &omega_in, float& pdf) const
@@ -81,7 +75,7 @@ public:
 	           float3 &omega_in, float3 &domega_in_dx, float3 &domega_in_dy,
 	           float &pdf, float3 &eval) const
 	{
-		return bsdf_disney_clearcoat_sample(&sc, /*&dp, */Ng, omega_out, domega_out_dx, domega_out_dy,
+		return bsdf_disney_clearcoat_sample(&sc, Ng, omega_out, domega_out_dx, domega_out_dy,
 			randu, randv, &eval, &omega_in, &domega_in_dx, &domega_in_dy, &pdf);
 	}
 };
@@ -90,8 +84,8 @@ ClosureParam *closure_bsdf_disney_clearcoat_params()
 {
 	static ClosureParam params[] = {
 		CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, sc.N),
-        CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data0), /*clearcoat*/
-		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data1), /*clearcoat gloss*/
+        CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data0), // clearcoat
+		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data1), // clearcoatGloss
 		CLOSURE_STRING_KEYPARAM(DisneyClearcoatClosure, label, "label"),
 		CLOSURE_FINISH_PARAM(DisneyClearcoatClosure)
 	};
@@ -100,5 +94,5 @@ ClosureParam *closure_bsdf_disney_clearcoat_params()
 
 CCLOSURE_PREPARE(closure_bsdf_disney_clearcoat_prepare, DisneyClearcoatClosure)
 
-CCL_NAMESPACE_END
+CCL_NAMESPACE_END*/
 

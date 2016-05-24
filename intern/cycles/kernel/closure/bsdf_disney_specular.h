@@ -33,41 +33,9 @@
 #ifndef __BSDF_DISNEY_SPECULAR_H__
 #define __BSDF_DISNEY_SPECULAR_H__
 
+#include "closure/bsdf_util.h"
+
 CCL_NAMESPACE_BEGIN
-
-/*struct DisneySpecularBRDFParams {
-    // brdf parameters
-    float3 m_base_color;
-    float m_metallic;
-    float m_specular;
-    float m_specular_tint;
-    float m_roughness;
-    float m_anisotropic;
-
-    // precomputed values
-    float3 m_cspec0;
-    float m_ax, m_ay;
-    float m_roughg;
-
-    void precompute_values() {
-        float3 m_cdlin = m_base_color;
-        float m_cdlum = 0.3f * m_cdlin[0] + 0.6f * m_cdlin[1] + 0.1f * m_cdlin[2]; // luminance approx.
-
-        float3 m_ctint = m_cdlum > 0.0f ? m_cdlin / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
-
-		m_cspec0 = mix(m_specular * 0.08f * mix(make_float3(1.0f, 1.0f, 1.0f),
-			m_ctint, m_specular_tint), m_cdlin, m_metallic);
-
-        float aspect = sqrt(1.0f - m_anisotropic * 0.9f);
-		float r2 = sqr(m_roughness);
-		m_ax = fmaxf(0.001f, r2 / aspect);
-		m_ay = fmaxf(0.001f, r2 * aspect);
-
-		m_roughg = sqr(m_roughness * 0.5f + 0.5f);
-    }
-};
-
-typedef struct DisneySpecularBRDFParams DisneySpecularBRDFParams;*/
 
 
 ccl_device int bsdf_disney_specular_setup(ShaderClosure *sc)
@@ -76,8 +44,8 @@ ccl_device int bsdf_disney_specular_setup(ShaderClosure *sc)
 
 	float3 m_ctint = m_cdlum > 0.0f ? sc->color0 / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 
-	sc->custom_color0 = mix(sc->data1 * 0.08f * mix(make_float3(1.0f, 1.0f, 1.0f),
-		m_ctint, sc->data2), sc->color0, sc->data0);
+	float3 tmp_col = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sc->data2) + m_ctint * sc->data2; // mix(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data2);
+	sc->custom_color0 = (sc->data1 * 0.08f * tmp_col) * (1.0f - sc->data0) + sc->color0 * sc->data0; // mix(sc->data1 * 0.08f * tmp_col, sc->color0, sc->data0);
 
 	float aspect = sqrt(1.0f - sc->data4 * 0.9f);
 	float r2 = sqr(sc->data3);
@@ -95,8 +63,7 @@ ccl_device int bsdf_disney_specular_setup(ShaderClosure *sc)
     return SD_BSDF|SD_BSDF_HAS_EVAL;
 }
 
-ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc,
-    /*const DisneySpecularBRDFParams *params, */const float3 I,
+ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc, const float3 I,
     const float3 omega_in, float *pdf)
 {
 	float alpha_x = sc->custom1;
@@ -172,7 +139,7 @@ ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc,
 		float common = D * 0.25f / cosNO;
 
         float FH = schlick_fresnel(dot(omega_in, m));
-		float3 F = mix(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
+		float3 F = sc->custom_color0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // mix(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 
 		float3 out = F * G * common;
 
@@ -190,12 +157,13 @@ ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc,
 	return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device float3 bsdf_disney_specular_eval_transmit(const ShaderClosure *sc, const float3 I, const float3 omega_in, float *pdf)
+ccl_device float3 bsdf_disney_specular_eval_transmit(const ShaderClosure *sc, const float3 I,
+	const float3 omega_in, float *pdf)
 {
     return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc, /*const DisneySpecularBRDFParams *params,*/
+ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc,
     float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv,
     float3 *eval, float3 *omega_in, float3 *domega_in_dx,
     float3 *domega_in_dy, float *pdf)
@@ -287,7 +255,7 @@ ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc, /*const Disn
                     *pdf = common;
 
 					float FH = schlick_fresnel(dot(*omega_in, m));
-					float3 F = mix(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
+					float3 F = sc->custom_color0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // mix(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 
                     *eval = G1i * common * F;
                 }

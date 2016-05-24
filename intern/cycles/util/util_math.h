@@ -77,10 +77,10 @@ CCL_NAMESPACE_BEGIN
 
 /* Scalar */
 
-ccl_device_inline float mix(float a, float b, float alpha)
+/*ccl_device_inline float mix(float a, float b, float alpha)
 {
 	return a * (1.0f - alpha) + b * alpha;
-}
+}*/
 
 #ifdef _WIN32
 
@@ -226,11 +226,11 @@ ccl_device_inline float smoothstepf(float f)
 
 /* Float2 Vector */
 
-ccl_device_inline float2 mix(float2 a, float2 b, float alpha)
+/*ccl_device_inline float2 mix(float2 a, float2 b, float alpha)
 {
 	float inv_alpha = 1.0f - alpha;
 	return make_float2(a[0] * inv_alpha + b[0] * alpha, a[1] * inv_alpha + b[1] * alpha);
-}
+}*/
 
 #ifndef __KERNEL_OPENCL__
 
@@ -423,11 +423,11 @@ ccl_device_inline float2 interp(float2 a, float2 b, float t)
 
 /* Float3 Vector */
 
-ccl_device_inline float3 mix(float3 a, float3 b, float alpha)
+/*ccl_device_inline float3 mix(float3 a, float3 b, float alpha)
 {
 	float inv_alpha = 1.0f - alpha;
 	return make_float3(a[0] * inv_alpha + b[0] * alpha, a[1] * inv_alpha + b[1] * alpha, a[2] * inv_alpha + b[2] * alpha);
-}
+}*/
 
 #ifndef __KERNEL_OPENCL__
 
@@ -686,11 +686,11 @@ ccl_device_inline float average(const float3 a)
 /* Float4 Vector */
 
 
-ccl_device_inline float4 mix(float4 a, float4 b, float alpha)
+/*ccl_device_inline float4 mix(float4 a, float4 b, float alpha)
 {
 	float inv_alpha = 1.0f - alpha;
 	return make_float4(a[0] * inv_alpha + b[0] * alpha, a[1] * inv_alpha + b[1] * alpha, a[2] * inv_alpha + b[2] * alpha, a[3] * inv_alpha + b[3] * alpha);
-}
+}*/
 
 #ifdef __KERNEL_SSE__
 

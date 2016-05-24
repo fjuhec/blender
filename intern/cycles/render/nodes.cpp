@@ -2112,7 +2112,7 @@ DisneyBsdfNode::DisneyBsdfNode()
 	: ShaderNode("bsdf")
 {
 	special_type = SHADER_SPECIAL_TYPE_CLOSURE;
-	closure = CLOSURE_BSDF_DISNEY_DIFFUSE_ID;
+	closure = CLOSURE_BSDF_DISNEY_ID;
 
 	add_input("BaseColor", SHADER_SOCKET_COLOR, make_float3(0.646f, 0.415f, 0.017f));
 	add_input("Metallic", SHADER_SOCKET_FLOAT, 0.0f);
@@ -2132,36 +2132,56 @@ DisneyBsdfNode::DisneyBsdfNode()
 	add_output("BSDF", SHADER_SOCKET_CLOSURE);
 }
 
-void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *param1, ShaderInput *param2, ShaderInput *param3, ShaderInput *param4)
+void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *metallic, ShaderInput *subsurface,
+	ShaderInput *specular, ShaderInput *roughness, ShaderInput *specularTint, ShaderInput *anisotropic,
+	ShaderInput *sheen, ShaderInput *sheenTint, ShaderInput *clearcoat, ShaderInput *clearcoatGloss)
 {
 	ShaderInput *base_color_in = input("BaseColor");
 	ShaderInput *normal_in = input("Normal");
 	ShaderInput *tangent_in = input("Tangent");
 
-	if (base_color_in->link)
+	float3 weight = make_float3(1.0f, 1.0f, 1.0f);
+
+	/*if (base_color_in->link)
 		compiler.add_node(NODE_CLOSURE_WEIGHT, compiler.stack_assign(base_color_in));
 	else
-		compiler.add_node(NODE_CLOSURE_SET_WEIGHT, base_color_in->value);
+		compiler.add_node(NODE_CLOSURE_SET_WEIGHT, base_color_in->value);*/
+	compiler.add_node(NODE_CLOSURE_SET_WEIGHT, weight);
 
 	int normal_offset = compiler.stack_assign_if_linked(normal_in);
-	int tangent_offset = (tangent_in) ? compiler.stack_assign_if_linked(tangent_in) : SVM_STACK_INVALID;
-	int param3_offset = (param3) ? compiler.stack_assign(param3) : SVM_STACK_INVALID;
-	int param4_offset = (param4) ? compiler.stack_assign(param4) : SVM_STACK_INVALID;
+	int tangent_offset = compiler.stack_assign_if_linked(tangent_in);
+	int specular_offset = compiler.stack_assign(specular);
+	int roughness_offset = compiler.stack_assign(roughness);
+	int specularTint_offset = compiler.stack_assign(specularTint);
+	int anisotropic_offset = compiler.stack_assign(anisotropic);
+	int sheen_offset = compiler.stack_assign(sheen);
+	int sheenTint_offset = compiler.stack_assign(sheenTint);
+	int clearcoat_offset = compiler.stack_assign(clearcoat);
+	int clearcoatGloss_offset = compiler.stack_assign(clearcoatGloss);
 
 	compiler.add_node(NODE_CLOSURE_BSDF,
 		compiler.encode_uchar4(closure,
-		(param1) ? compiler.stack_assign(param1) : SVM_STACK_INVALID,
-		(param2) ? compiler.stack_assign(param2) : SVM_STACK_INVALID,
+		compiler.stack_assign(metallic),
+		compiler.stack_assign(subsurface),
 		compiler.closure_mix_weight_offset()),
-		__float_as_int((param1) ? param1->value.x : 0.0f),
-		__float_as_int((param2) ? param2->value.x : 0.0f));
+		__float_as_int(metallic->value.x),
+		__float_as_int(subsurface->value.x));
 
-	compiler.add_node(normal_offset, tangent_offset, param3_offset, param4_offset);
+	compiler.add_node(normal_offset, tangent_offset,
+		compiler.encode_uchar4(specular_offset, roughness_offset, specularTint_offset, anisotropic_offset),
+		compiler.encode_uchar4(sheen_offset, sheenTint_offset, clearcoat_offset, clearcoatGloss_offset));
+	//compiler.add_node(specularTint_offset, anisotropy_offset, sheen_offset, sheenTint_offset);
+	//compiler.add_node(clearcoat_offset, clearcoatGloss_offset, SVM_STACK_INVALID, SVM_STACK_INVALID);
+
+	compiler.add_node(((base_color_in->link) ? compiler.stack_assign(base_color_in) : SVM_STACK_INVALID),
+		__float_as_int(base_color_in->value.x), __float_as_int(base_color_in->value.y), __float_as_int(base_color_in->value.z));
 }
 
 void DisneyBsdfNode::compile(SVMCompiler& compiler)
 {
-	compile(compiler, NULL, NULL);
+	compile(compiler, input("Metallic"), input("Subsurface"), input("Specular"), input("Roughness"),
+		input("SpecularTint"), input("Anisotropic"), input("Sheen"), input("SheenTint"),
+		input("Clearcoat"), input("ClearcoatGloss"));
 }
 
 void DisneyBsdfNode::compile(OSLCompiler& compiler)

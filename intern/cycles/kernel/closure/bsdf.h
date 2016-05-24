@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "../closure/bsdf_util.h"
 #include "../closure/bsdf_ashikhmin_velvet.h"
 #include "../closure/bsdf_diffuse.h"
 #include "../closure/bsdf_oren_nayar.h"
@@ -119,6 +120,18 @@ ccl_device int bsdf_sample(KernelGlobals *kg, const ShaderData *sd, const Shader
 			label = bsdf_hair_transmission_sample(sc, ccl_fetch(sd, Ng), ccl_fetch(sd, I), ccl_fetch(sd, dI).dx, ccl_fetch(sd, dI).dy, randu, randv,
 				eval, omega_in, &domega_in->dx, &domega_in->dy, pdf);
 			break;
+		case CLOSURE_BSDF_DISNEY_DIFFUSE_ID:
+			label = bsdf_disney_diffuse_sample(sc, ccl_fetch(sd, Ng), ccl_fetch(sd, I), ccl_fetch(sd, dI).dx, ccl_fetch(sd, dI).dy, randu, randv,
+				eval, omega_in, &domega_in->dx, &domega_in->dy, pdf);
+			break;
+		case CLOSURE_BSDF_DISNEY_SPECULAR_ID:
+			label = bsdf_disney_specular_sample(sc, ccl_fetch(sd, Ng), ccl_fetch(sd, I), ccl_fetch(sd, dI).dx, ccl_fetch(sd, dI).dy, randu, randv,
+				eval, omega_in, &domega_in->dx, &domega_in->dy, pdf);
+			break;
+		case CLOSURE_BSDF_DISNEY_CLEARCOAT_ID:
+			label = bsdf_disney_clearcoat_sample(sc, ccl_fetch(sd, Ng), ccl_fetch(sd, I), ccl_fetch(sd, dI).dx, ccl_fetch(sd, dI).dy, randu, randv,
+				eval, omega_in, &domega_in->dx, &domega_in->dy, pdf);
+			break;
 #endif
 #ifdef __VOLUME__
 		case CLOSURE_VOLUME_HENYEY_GREENSTEIN_ID:
@@ -199,6 +212,15 @@ ccl_device float3 bsdf_eval(KernelGlobals *kg, const ShaderData *sd, const Shade
 			case CLOSURE_BSDF_HAIR_TRANSMISSION_ID:
 				eval = bsdf_hair_transmission_eval_reflect(sc, ccl_fetch(sd, I), omega_in, pdf);
 				break;
+			case CLOSURE_BSDF_DISNEY_DIFFUSE_ID:
+				eval = bsdf_disney_diffuse_eval_reflect(sc, ccl_fetch(sd, I), omega_in, pdf);
+				break;
+			case CLOSURE_BSDF_DISNEY_SPECULAR_ID:
+				eval = bsdf_disney_specular_eval_reflect(sc, ccl_fetch(sd, I), omega_in, pdf);
+				break;
+			case CLOSURE_BSDF_DISNEY_CLEARCOAT_ID:
+				eval = bsdf_disney_clearcoat_eval_reflect(sc, ccl_fetch(sd, I), omega_in, pdf);
+				break;
 #endif
 #ifdef __VOLUME__
 			case CLOSURE_VOLUME_HENYEY_GREENSTEIN_ID:
@@ -260,6 +282,15 @@ ccl_device float3 bsdf_eval(KernelGlobals *kg, const ShaderData *sd, const Shade
 				break;
 			case CLOSURE_BSDF_HAIR_TRANSMISSION_ID:
 				eval = bsdf_hair_transmission_eval_transmit(sc, ccl_fetch(sd, I), omega_in, pdf);
+				break;
+			case CLOSURE_BSDF_DISNEY_DIFFUSE_ID:
+				eval = bsdf_disney_diffuse_eval_transmit(sc, ccl_fetch(sd, I), omega_in, pdf);
+				break;
+			case CLOSURE_BSDF_DISNEY_SPECULAR_ID:
+				eval = bsdf_disney_specular_eval_transmit(sc, ccl_fetch(sd, I), omega_in, pdf);
+				break;
+			case CLOSURE_BSDF_DISNEY_CLEARCOAT_ID:
+				eval = bsdf_disney_clearcoat_eval_transmit(sc, ccl_fetch(sd, I), omega_in, pdf);
 				break;
 #endif
 #ifdef __VOLUME__

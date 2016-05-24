@@ -30,13 +30,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <OpenImageIO/fmath.h>
+/*#include <OpenImageIO/fmath.h>
 
 #include <OSL/genclosure.h>
 
 #include "kernel_compat_cpu.h"
 #include "osl_closures.h"
-#include "closure/bsdf_util.h"
 
 #include "kernel_types.h"
 #include "kernel_montecarlo.h"
@@ -48,8 +47,6 @@ using namespace OSL;
 
 class DisneySpecularClosure : public CBSDFClosure {
 public:
-    //DisneySpecularBRDFParams dp;
-
 	DisneySpecularClosure() : CBSDFClosure(LABEL_REFLECT|LABEL_GLOSSY)
 	{}
 
@@ -57,8 +54,6 @@ public:
 	{
 		sc.prim = this;
 		m_shaderdata_flag = bsdf_disney_specular_setup(&sc);
-
-        //dp.precompute_values();
 	}
 
 	void blur(float roughness)
@@ -67,7 +62,7 @@ public:
 
 	float3 eval_reflect(const float3 &omega_out, const float3 &omega_in, float& pdf) const
 	{
-		return bsdf_disney_specular_eval_reflect(&sc, /*&dp, */omega_out, omega_in, &pdf);
+		return bsdf_disney_specular_eval_reflect(&sc, omega_out, omega_in, &pdf);
 	}
 
 	float3 eval_transmit(const float3 &omega_out, const float3 &omega_in, float& pdf) const
@@ -79,7 +74,7 @@ public:
 		const float3 &domega_out_dy, float randu, float randv, float3 &omega_in,
 		float3 &domega_in_dx, float3 &domega_in_dy, float &pdf, float3 &eval) const
 	{
-		return bsdf_disney_specular_sample(&sc, /*&dp, */Ng, omega_out, domega_out_dx, domega_out_dy,
+		return bsdf_disney_specular_sample(&sc, Ng, omega_out, domega_out_dx, domega_out_dy,
 			randu, randv, &eval, &omega_in, &domega_in_dx, &domega_in_dy, &pdf);
 	}
 };
@@ -89,12 +84,12 @@ ClosureParam *closure_bsdf_disney_specular_params()
 	static ClosureParam params[] = {
 		CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, sc.N),
 		CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, sc.T),
-		CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, sc.color0), /*base color*/
-        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data0), /*metallic*/
-        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data1), /*specular*/
-        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data2), /*specular tint*/
-        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data3), /*roughness*/
-        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data4), /*anisotropic*/
+		CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, sc.color0), // base color
+        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data0),	// metallic
+        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data1),	// specular
+        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data2),	// specularTint
+        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data3),	// roughness
+        CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data4),	// anisotropic
 		CLOSURE_STRING_KEYPARAM(DisneySpecularClosure, label, "label"),
 		CLOSURE_FINISH_PARAM(DisneySpecularClosure)
 	};
@@ -103,5 +98,5 @@ ClosureParam *closure_bsdf_disney_specular_params()
 
 CCLOSURE_PREPARE(closure_bsdf_disney_specular_prepare, DisneySpecularClosure)
 
-CCL_NAMESPACE_END
+CCL_NAMESPACE_END*/
 

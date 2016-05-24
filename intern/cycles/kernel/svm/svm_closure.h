@@ -136,6 +136,95 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 	float param2 = (stack_valid(param2_offset))? stack_load_float(stack, param2_offset): __uint_as_float(node.w);
 
 	switch(type) {
+		case CLOSURE_BSDF_DISNEY_ID: {
+			int num_closure = ccl_fetch(sd, num_closure);
+
+			uint specular_offset, roughness_offset, specularTint_offset, anisotropic_offset,
+				sheen_offset, sheenTint_offset, clearcoat_offset, clearcoatGloss_offset;
+			decode_node_uchar4(data_node.z, &specular_offset, &roughness_offset, &specularTint_offset, &anisotropic_offset);
+			decode_node_uchar4(data_node.w, &sheen_offset, &sheenTint_offset, &clearcoat_offset, &clearcoatGloss_offset);
+
+			float metallic = param1;
+			float subsurface = param2;
+			float specular = stack_load_float(stack, specular_offset);
+			float roughness = stack_load_float(stack, roughness_offset);
+			float specularTint = stack_load_float(stack, specularTint_offset);
+			float anisotropic = stack_load_float(stack, anisotropic_offset);
+			float sheen = stack_load_float(stack, sheen_offset);
+			float sheenTint = stack_load_float(stack, sheenTint_offset);
+			float clearcoat = stack_load_float(stack, clearcoat_offset);
+			float clearcoatGloss = stack_load_float(stack, clearcoatGloss_offset);
+
+			uint4 data_base_color = read_node(kg, offset);
+			float3 baseColor = stack_valid(data_base_color.x) ? stack_load_float3(stack, data_base_color.x) :
+				make_float3(__uint_as_float(data_base_color.y), __uint_as_float(data_base_color.z), __uint_as_float(data_base_color.w));
+
+			/* diffuse */
+			ShaderClosure *sc = ccl_fetch_array(sd, closure, num_closure);
+			float3 weight = sc->weight;
+			float sample_weight = sc->sample_weight;
+
+			sc = svm_node_closure_get_bsdf(sd, mix_weight * (1.0f - clamp(metallic, 0.0f, 1.0f)));
+			if (metallic < 1.0f) {
+				if (sc) {
+					sc->N = N;
+
+					sc->color0 = baseColor;
+					sc->data0 = subsurface;
+					sc->data1 = roughness;
+					sc->data2 = sheen;
+					sc->data3 = sheenTint;
+
+					ccl_fetch(sd, flag) |= bsdf_disney_diffuse_setup(sc);
+				}
+			}
+
+			/* specular */
+			if (specular > 0.0f) {
+				if (num_closure + 1 < MAX_CLOSURE) {
+					sc = ccl_fetch_array(sd, closure, num_closure + 1);
+					sc->weight = weight;
+					sc->sample_weight = sample_weight;
+
+					sc = svm_node_closure_get_bsdf(sd, mix_weight/* * mix(0.333f, 0.5f, clamp(metallic, 0.0f, 1.0f))*/);
+
+					if (sc) {
+						sc->N = N;
+						sc->T = stack_load_float3(stack, data_node.y);
+
+						sc->color0 = baseColor;
+						sc->data0 = metallic;
+						sc->data1 = specular;
+						sc->data2 = specularTint;
+						sc->data3 = roughness;
+						sc->data4 = anisotropic;
+
+						ccl_fetch(sd, flag) |= bsdf_disney_specular_setup(sc);
+					}
+				}
+			}
+
+			/* clearcoat */
+			printf("%d\n\r", num_closure + 1);
+			if (num_closure + 1 < MAX_CLOSURE) {
+				sc = ccl_fetch_array(sd, closure, num_closure + 1);
+				sc->weight = weight;
+				sc->sample_weight = sample_weight;
+
+				sc = svm_node_closure_get_bsdf(sd, mix_weight/* * mix(0.333f, 0.5f, clamp(metallic, 0.0f, 1.0f))*/);
+
+				if (sc) {
+					sc->N = N;
+
+					sc->data0 = clearcoat;
+					sc->data1 = clearcoatGloss;
+
+					ccl_fetch(sd, flag) |= bsdf_disney_clearcoat_setup(sc);
+				}
+			}
+
+			break;
+		}
 		case CLOSURE_BSDF_DIFFUSE_ID: {
 			ShaderClosure *sc = svm_node_closure_get_bsdf(sd, mix_weight);
 
