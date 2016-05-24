@@ -62,6 +62,7 @@ typedef struct Text {
 	int undo_pos, undo_len;
 	
 	void *compiled;
+	void *pad_v1;
 	double mtime;
 } Text;
 
