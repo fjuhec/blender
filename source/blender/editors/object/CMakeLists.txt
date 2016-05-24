@@ -49,6 +49,7 @@ set(SRC
 	object_group.c
 	object_hook.c
 	object_lattice.c
+	object_layer.c
 	object_lod.c
 	object_modifier.c
 	object_ops.c

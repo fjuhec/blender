@@ -31,8 +31,9 @@
 #define __BKE_LAYER_H__
 
 struct bContext;
-struct LayerTree;
-struct LayerTreeItem;
+
+typedef struct LayerTree LayerTree;
+typedef struct LayerTreeItem LayerTreeItem;
 
 
 /* -------------------------------------------------------------------- */
@@ -69,6 +70,8 @@ struct LayerTreeItem *BKE_layeritem_add(
         struct LayerTree *tree, struct LayerTreeItem *parent, const eLayerTreeItem_Type type,
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
 void BKE_layeritem_remove(struct LayerTree *tree, struct LayerTreeItem *litem);
+
+const char *BKE_layeritem_name_get(struct LayerTreeItem *litem);
 
 #endif  /* __BKE_LAYER_H__ */
 

@@ -149,4 +149,9 @@ void BKE_layeritem_remove(LayerTree *tree, LayerTreeItem *litem)
 	MEM_freeN(litem);
 }
 
+const char *BKE_layeritem_name_get(LayerTreeItem *litem)
+{
+	return litem->name;
+}
+
 /** \} */ /* Layer Tree Item */

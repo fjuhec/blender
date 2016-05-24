@@ -53,6 +53,7 @@ struct wmOperatorType;
 struct PointerRNA;
 struct PropertyRNA;
 struct EnumPropertyItem;
+struct LayerTree;
 
 /* object_edit.c */
 struct Object *ED_object_context(struct bContext *C);               /* context.object */
@@ -176,6 +177,9 @@ void undo_push_lattice(struct bContext *C, const char *name);
 /* object_lattice.c */
 
 void ED_lattice_flags_set(struct Object *obedit, int flag);
+
+/* object_layer.c */
+void ED_object_layer_add(struct LayerTree *ltree);
 
 /* object_modifier.c */
 enum {
