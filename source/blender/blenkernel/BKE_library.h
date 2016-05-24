@@ -121,7 +121,8 @@ void BKE_main_lib_objects_recalc_all(struct Main *bmain);
 /* (MAX_ID_NAME - 2) + 3 */
 void BKE_id_ui_prefix(char name[66 + 1], const struct ID *id);
 
-void BKE_library_make_local(struct Main *bmain, struct Library *lib, bool untagged_only, bool set_fake);
+void BKE_library_make_local(
+        struct Main *bmain, const struct Library *lib, const bool untagged_only, const bool set_fake);
 
 void BKE_library_asset_repository_init(struct Library *lib, const struct AssetEngineType *aet, const char *repo_root);
 void BKE_library_asset_repository_clear(struct Library *lib);

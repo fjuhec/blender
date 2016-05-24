@@ -30,6 +30,46 @@ CCL_NAMESPACE_BEGIN
 
 /* Texture Mapping */
 
+static ShaderEnum texture_mapping_type_init()
+{
+	ShaderEnum enm;
+
+	enm.insert("Point", TextureMapping::POINT);
+	enm.insert("Texture", TextureMapping::TEXTURE);
+	enm.insert("Vector", TextureMapping::VECTOR);
+	enm.insert("Normal", TextureMapping::NORMAL);
+
+	return enm;
+}
+
+static ShaderEnum texture_mapping_mapping_init()
+{
+	ShaderEnum enm;
+
+	enm.insert("None", TextureMapping::NONE);
+	enm.insert("X", TextureMapping::X);
+	enm.insert("Y", TextureMapping::Y);
+	enm.insert("Z", TextureMapping::Z);
+
+	return enm;
+}
+
+static ShaderEnum texture_mapping_projection_init()
+{
+	ShaderEnum enm;
+
+	enm.insert("Flat", TextureMapping::FLAT);
+	enm.insert("Cube", TextureMapping::CUBE);
+	enm.insert("Tube", TextureMapping::TUBE);
+	enm.insert("Sphere", TextureMapping::SPHERE);
+
+	return enm;
+}
+
+ShaderEnum TextureMapping::type_enum = texture_mapping_type_init();
+ShaderEnum TextureMapping::mapping_enum = texture_mapping_mapping_init();
+ShaderEnum TextureMapping::projection_enum = texture_mapping_projection_init();
+
 TextureMapping::TextureMapping()
 {
 	translation = make_float3(0.0f, 0.0f, 0.0f);
@@ -349,7 +389,10 @@ void ImageTextureNode::compile(OSLCompiler& compiler)
 	image_manager = compiler.image_manager;
 	if(is_float == -1) {
 		if(builtin_data == NULL) {
-			is_float = (int)image_manager->is_float_image(filename, NULL, is_linear);
+			ImageManager::ImageDataType type;
+			type = image_manager->get_image_metadata(filename, NULL, is_linear);
+			if(type == ImageManager::IMAGE_DATA_TYPE_FLOAT || type == ImageManager::IMAGE_DATA_TYPE_FLOAT4)
+				is_float = 1;
 		}
 		else {
 			bool is_float_bool;
@@ -533,7 +576,10 @@ void EnvironmentTextureNode::compile(OSLCompiler& compiler)
 	image_manager = compiler.image_manager;
 	if(is_float == -1) {
 		if(builtin_data == NULL) {
-			is_float = (int)image_manager->is_float_image(filename, NULL, is_linear);
+			ImageManager::ImageDataType type;
+			type = image_manager->get_image_metadata(filename, NULL, is_linear);
+			if(type == ImageManager::IMAGE_DATA_TYPE_FLOAT || type == ImageManager::IMAGE_DATA_TYPE_FLOAT4)
+				is_float = 1;
 		}
 		else {
 			bool is_float_bool;
@@ -672,11 +718,11 @@ static void sky_texture_precompute_new(SunSky *sunsky, float3 dir, float turbidi
 	sunsky->theta = theta;
 	sunsky->phi = phi;
 
-	double solarElevation = M_PI_2_F - theta;
+	float solarElevation = M_PI_2_F - theta;
 
 	/* Initialize Sky Model */
 	ArHosekSkyModelState *sky_state;
-	sky_state = arhosek_xyz_skymodelstate_alloc_init(turbidity, ground_albedo, solarElevation);
+	sky_state = arhosek_xyz_skymodelstate_alloc_init((double)turbidity, (double)ground_albedo, (double)solarElevation);
 
 	/* Copy values from sky_state to SunSky */
 	for(int i = 0; i < 9; ++i) {
@@ -1373,7 +1419,7 @@ void PointDensityTextureNode::compile(SVMCompiler& compiler)
 								  __float_as_int(0.0f),
 								  compiler.stack_assign(density_out));
 			}
-			if (use_color) {
+			if(use_color) {
 				compiler.add_node(NODE_VALUE_V, compiler.stack_assign(color_out));
 				compiler.add_node(NODE_VALUE_V, make_float3(TEX_IMAGE_MISSING_R,
 															TEX_IMAGE_MISSING_G,
@@ -2430,8 +2476,8 @@ void GeometryNode::attributes(Shader *shader, AttributeRequestSet *attributes)
 void GeometryNode::compile(SVMCompiler& compiler)
 {
 	ShaderOutput *out;
-	NodeType geom_node = NODE_GEOMETRY;
-	NodeType attr_node = NODE_ATTR;
+	ShaderNodeType geom_node = NODE_GEOMETRY;
+	ShaderNodeType attr_node = NODE_ATTR;
 
 	if(bump == SHADER_BUMP_DX) {
 		geom_node = NODE_GEOMETRY_BUMP_DX;
@@ -2547,9 +2593,9 @@ void TextureCoordinateNode::attributes(Shader *shader, AttributeRequestSet *attr
 void TextureCoordinateNode::compile(SVMCompiler& compiler)
 {
 	ShaderOutput *out;
-	NodeType texco_node = NODE_TEX_COORD;
-	NodeType attr_node = NODE_ATTR;
-	NodeType geom_node = NODE_GEOMETRY;
+	ShaderNodeType texco_node = NODE_TEX_COORD;
+	ShaderNodeType attr_node = NODE_ATTR;
+	ShaderNodeType geom_node = NODE_GEOMETRY;
 
 	if(bump == SHADER_BUMP_DX) {
 		texco_node = NODE_TEX_COORD_BUMP_DX;
@@ -2680,8 +2726,8 @@ void UVMapNode::attributes(Shader *shader, AttributeRequestSet *attributes)
 void UVMapNode::compile(SVMCompiler& compiler)
 {
 	ShaderOutput *out = output("UV");
-	NodeType texco_node = NODE_TEX_COORD;
-	NodeType attr_node = NODE_ATTR;
+	ShaderNodeType texco_node = NODE_TEX_COORD;
+	ShaderNodeType attr_node = NODE_ATTR;
 	int attr;
 
 	if(bump == SHADER_BUMP_DX) {
@@ -3126,6 +3172,8 @@ void ColorNode::compile(OSLCompiler& compiler)
 AddClosureNode::AddClosureNode()
 : ShaderNode("add_closure")
 {
+	special_type = SHADER_SPECIAL_TYPE_COMBINE_CLOSURE;
+
 	add_input("Closure1", SHADER_SOCKET_CLOSURE);
 	add_input("Closure2", SHADER_SOCKET_CLOSURE);
 	add_output("Closure",  SHADER_SOCKET_CLOSURE);
@@ -3146,6 +3194,8 @@ void AddClosureNode::compile(OSLCompiler& compiler)
 MixClosureNode::MixClosureNode()
 : ShaderNode("mix_closure")
 {
+	special_type = SHADER_SPECIAL_TYPE_COMBINE_CLOSURE;
+
 	add_input("Fac", SHADER_SOCKET_FLOAT, 0.5f);
 	add_input("Closure1", SHADER_SOCKET_CLOSURE);
 	add_input("Closure2", SHADER_SOCKET_CLOSURE);
@@ -3320,7 +3370,7 @@ void MixNode::compile(OSLCompiler& compiler)
 	compiler.add(this, "node_mix");
 }
 
-bool MixNode::constant_fold(ShaderGraph *graph, ShaderOutput * /*socket*/, float3 * /*optimized_value*/)
+bool MixNode::constant_fold(ShaderGraph *graph, ShaderOutput * /*socket*/, float3 * optimized_value)
 {
 	if(type != ustring("Mix")) {
 		return false;
@@ -3332,22 +3382,27 @@ bool MixNode::constant_fold(ShaderGraph *graph, ShaderOutput * /*socket*/, float
 	ShaderOutput *color_out = output("Color");
 
 	/* remove useless mix colors nodes */
-	if(color1_in->link == color2_in->link) {
+	if(color1_in->link && color1_in->link == color2_in->link) {
 		graph->relink(this, color_out, color1_in->link);
 		return true;
 	}
 
 	/* remove unused mix color input when factor is 0.0 or 1.0 */
-	/* check for color links and make sure factor link is disconnected */
-	if(color1_in->link && color2_in->link && !fac_in->link) {
+	if(!fac_in->link) {
 		/* factor 0.0 */
 		if(fac_in->value.x == 0.0f) {
-			graph->relink(this, color_out, color1_in->link);
+			if(color1_in->link)
+				graph->relink(this, color_out, color1_in->link);
+			else
+				*optimized_value = color1_in->value;
 			return true;
 		}
 		/* factor 1.0 */
 		else if(fac_in->value.x == 1.0f) {
-			graph->relink(this, color_out, color2_in->link);
+			if(color2_in->link)
+				graph->relink(this, color_out, color2_in->link);
+			else
+				*optimized_value = color2_in->value;
 			return true;
 		}
 	}
@@ -3702,7 +3757,7 @@ void AttributeNode::compile(SVMCompiler& compiler)
 	ShaderOutput *color_out = output("Color");
 	ShaderOutput *vector_out = output("Vector");
 	ShaderOutput *fac_out = output("Fac");
-	NodeType attr_node = NODE_ATTR;
+	ShaderNodeType attr_node = NODE_ATTR;
 	AttributeStandard std = Attribute::name_standard(attribute.c_str());
 	int attr;
 
@@ -3958,6 +4013,8 @@ void BlackbodyNode::compile(OSLCompiler& compiler)
 OutputNode::OutputNode()
 : ShaderNode("output")
 {
+	special_type = SHADER_SPECIAL_TYPE_OUTPUT;
+
 	add_input("Surface", SHADER_SOCKET_CLOSURE);
 	add_input("Volume", SHADER_SOCKET_CLOSURE);
 	add_input("Displacement", SHADER_SOCKET_FLOAT);
@@ -4305,6 +4362,9 @@ RGBCurvesNode::RGBCurvesNode()
 
 void RGBCurvesNode::compile(SVMCompiler& compiler)
 {
+	if(curves.size() == 0)
+		return;
+
 	ShaderInput *fac_in = input("Fac");
 	ShaderInput *color_in = input("Color");
 	ShaderOutput *color_out = output("Color");
@@ -4315,20 +4375,18 @@ void RGBCurvesNode::compile(SVMCompiler& compiler)
 	                                         compiler.stack_assign(color_out)),
 	                  __float_as_int(min_x),
 	                  __float_as_int(max_x));
-	compiler.add_array(curves, RAMP_TABLE_SIZE);
+
+	compiler.add_node(curves.size());
+	for(int i = 0; i < curves.size(); i++)
+		compiler.add_node(float3_to_float4(curves[i]));
 }
 
 void RGBCurvesNode::compile(OSLCompiler& compiler)
 {
-	float ramp[RAMP_TABLE_SIZE][3];
+	if(curves.size() == 0)
+		return;
 
-	for(int i = 0; i < RAMP_TABLE_SIZE; ++i) {
-		ramp[i][0] = curves[i].x;
-		ramp[i][1] = curves[i].y;
-		ramp[i][2] = curves[i].z;
-	}
-
-	compiler.parameter_color_array("ramp", ramp, RAMP_TABLE_SIZE);
+	compiler.parameter_color_array("ramp", curves);
 	compiler.parameter("min_x", min_x);
 	compiler.parameter("max_x", max_x);
 	compiler.add(this, "node_rgb_curves");
@@ -4349,6 +4407,9 @@ VectorCurvesNode::VectorCurvesNode()
 
 void VectorCurvesNode::compile(SVMCompiler& compiler)
 {
+	if(curves.size() == 0)
+		return;
+
 	ShaderInput *fac_in = input("Fac");
 	ShaderInput *vector_in = input("Vector");
 	ShaderOutput *vector_out = output("Vector");
@@ -4359,20 +4420,18 @@ void VectorCurvesNode::compile(SVMCompiler& compiler)
 	                                         compiler.stack_assign(vector_out)),
 	                  __float_as_int(min_x),
 	                  __float_as_int(max_x));
-	compiler.add_array(curves, RAMP_TABLE_SIZE);
+
+	compiler.add_node(curves.size());
+	for(int i = 0; i < curves.size(); i++)
+		compiler.add_node(float3_to_float4(curves[i]));
 }
 
 void VectorCurvesNode::compile(OSLCompiler& compiler)
 {
-	float ramp[RAMP_TABLE_SIZE][3];
+	if(curves.size() == 0)
+		return;
 
-	for(int i = 0; i < RAMP_TABLE_SIZE; ++i) {
-		ramp[i][0] = curves[i].x;
-		ramp[i][1] = curves[i].y;
-		ramp[i][2] = curves[i].z;
-	}
-
-	compiler.parameter_color_array("ramp", ramp, RAMP_TABLE_SIZE);
+	compiler.parameter_color_array("ramp", curves);
 	compiler.parameter("min_x", min_x);
 	compiler.parameter("max_x", max_x);
 	compiler.add(this, "node_vector_curves");
@@ -4392,6 +4451,9 @@ RGBRampNode::RGBRampNode()
 
 void RGBRampNode::compile(SVMCompiler& compiler)
 {
+	if(ramp.size() == 0 || ramp.size() != ramp_alpha.size())
+		return;
+
 	ShaderInput *fac_in = input("Fac");
 	ShaderOutput *color_out = output("Color");
 	ShaderOutput *alpha_out = output("Alpha");
@@ -4402,25 +4464,19 @@ void RGBRampNode::compile(SVMCompiler& compiler)
 			compiler.stack_assign_if_linked(color_out),
 			compiler.stack_assign_if_linked(alpha_out)),
 		interpolate);
-	compiler.add_array(ramp, RAMP_TABLE_SIZE);
+
+	compiler.add_node(ramp.size());
+	for(int i = 0; i < ramp.size(); i++)
+		compiler.add_node(make_float4(ramp[i].x, ramp[i].y, ramp[i].z, ramp_alpha[i]));
 }
 
 void RGBRampNode::compile(OSLCompiler& compiler)
 {
-	/* OSL shader only takes separate RGB and A array, split the RGBA base array */
-	/* NB: cycles float3 type is actually 4 floats! need to use an explicit array */
-	float ramp_color[RAMP_TABLE_SIZE][3];
-	float ramp_alpha[RAMP_TABLE_SIZE];
+	if(ramp.size() == 0 || ramp.size() != ramp_alpha.size())
+		return;
 
-	for(int i = 0; i < RAMP_TABLE_SIZE; ++i) {
-		ramp_color[i][0] = ramp[i].x;
-		ramp_color[i][1] = ramp[i].y;
-		ramp_color[i][2] = ramp[i].z;
-		ramp_alpha[i] = ramp[i].w;
-	}
-
-	compiler.parameter_color_array("ramp_color", ramp_color, RAMP_TABLE_SIZE);
-	compiler.parameter_array("ramp_alpha", ramp_alpha, RAMP_TABLE_SIZE);
+	compiler.parameter_color_array("ramp_color", ramp);
+	compiler.parameter_array("ramp_alpha", ramp_alpha.data(), ramp_alpha.size());
 	compiler.parameter("ramp_interpolate", interpolate);
 	
 	compiler.add(this, "node_rgb_ramp");
