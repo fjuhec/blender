@@ -26,6 +26,8 @@ class LAYERS_HT_header(Header):
 
     def draw(self, context):
         layout = self.layout
+
+        layout.template_header()
         layout.operator("layers.layer_add", text="", icon='NEW')
 
 if __name__ == "__main__":  # only for live edit.
