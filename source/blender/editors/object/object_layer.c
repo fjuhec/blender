@@ -57,9 +57,9 @@ static void object_layer_draw_settings(LayerTreeItem *UNUSED(litem), uiLayout *U
  * Add an object layer to \a ltree.
  * \param name: Name of the layer to add. NULL for default ("Untitled Layer").
  */
-void ED_object_layer_add(LayerTree *ltree, const char *name)
+LayerTreeItem *ED_object_layer_add(LayerTree *ltree, const char *name)
 {
-	BKE_layeritem_add(
+	return BKE_layeritem_add(
 	            ltree, NULL, LAYER_TREETYPE_OBJECT, name ? name : OBJECTLAYER_DEFAULT_NAME,
 	            NULL, object_layer_draw, object_layer_draw_settings);
 }

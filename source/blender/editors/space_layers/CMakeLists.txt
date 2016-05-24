@@ -35,7 +35,9 @@ set(INC_SYS
 )
 
 set(SRC
+	layers_draw.c
 	layers_ops.c
+	layers_util.c
 	space_layers.c
 
 	layers_intern.h

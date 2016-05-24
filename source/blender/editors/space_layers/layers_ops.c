@@ -23,6 +23,7 @@
  */
 
 #include "BKE_context.h"
+#include "BKE_layer.h"
 
 #include "BLI_compiler_attrs.h"
 
@@ -39,10 +40,17 @@
 
 static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	LayerTreeItem *new_item;
+
 	if (true) { /* context check (like: slayer->context == SLAYER_CONTEXT_OBJECT) */
 		Scene *scene = CTX_data_scene(C);
-		ED_object_layer_add(scene->object_layers, NULL);
+		new_item = ED_object_layer_add(scene->object_layers, NULL);
 	}
+	else {
+		BLI_assert(0);
+	}
+	layers_tile_add(slayer, new_item);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
 
@@ -70,4 +78,10 @@ static void LAYERS_OT_layer_add(wmOperatorType *ot)
 void layers_operatortypes(void)
 {
 	WM_operatortype_append(LAYERS_OT_layer_add);
+}
+
+void layers_keymap(wmKeyConfig *keyconf)
+{
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Layer Manager", SPACE_LAYERS, 0);
+	(void)keymap;
 }

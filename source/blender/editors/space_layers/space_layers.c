@@ -33,18 +33,14 @@
 #include "BKE_screen.h"
 
 #include "BLI_listbase.h"
-#include "BLI_utildefines.h"
-
-#include "DNA_space_types.h"
-#include "DNA_windowmanager_types.h"
 
 #include "ED_screen.h"
 #include "ED_space_api.h"
 
-#include "UI_interface.h"
 #include "UI_resources.h"
 #include "UI_view2d.h"
 
+#include "WM_api.h"
 #include "WM_types.h"
 
 #include "layers_intern.h" /* own include */
@@ -76,6 +72,13 @@ static SpaceLink *layers_new(const bContext *UNUSED(C))
 	return (SpaceLink *)slayer;
 }
 
+/* not spacelink itself */
+static void layers_free(SpaceLink *sl)
+{
+	SpaceLayers *slayer = (SpaceLayers *)sl;
+	BLI_freelistN(&slayer->layer_tiles);
+}
+
 static SpaceLink *layers_duplicate(SpaceLink *sl)
 {
 	SpaceLayers *slayer = MEM_dupallocN(sl);
@@ -83,6 +86,14 @@ static SpaceLink *layers_duplicate(SpaceLink *sl)
 	/* clear or remove stuff from old */
 
 	return (SpaceLink *)slayer;
+}
+
+/* add handlers, stuff you only do once or on area changes */
+static void layer_init(wmWindowManager *wm, ScrArea *sa)
+{
+	/* own keymap */
+	wmKeyMap *keymap = WM_keymap_find(wm->defaultconf, "Layer Manager", SPACE_LAYERS, 0);
+	WM_event_add_keymap_handler(&sa->handlers, keymap);
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
@@ -96,33 +107,12 @@ static void layer_main_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
 
 static void layers_main_region_draw(const bContext *C, ARegion *ar)
 {
-	Scene *scene = CTX_data_scene(C);
-	uiStyle *style = UI_style_get_dpi();
 	View2D *v2d = &ar->v2d;
-	float size_x = ar->winx;
-	float size_y = 0.0f;
 
 	UI_ThemeClearColor(TH_BACK);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	uiBlock *block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
-	/* draw items */
-	for (LayerTreeItem *litem = scene->object_layers->items.first; litem; litem = litem->next) {
-		if (litem->draw) {
-			uiLayout *layout = UI_block_layout(
-			                       block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-			                       0, ar->winy - size_y, litem->height, 0, 0, style);
-			litem->draw(litem, layout);
-			UI_block_layout_resolve(block, NULL, NULL);
-		}
-		size_y += litem->height;
-	}
-
-	UI_block_end(C, block);
-	UI_block_draw(C, block);
-
-	/* update size of tot-rect (extents of data/viewable area) */
-	UI_view2d_totRect_set(v2d, size_x, size_y);
+	layers_draw_tiles(C, ar);
 
 	/* reset view matrix */
 	UI_view2d_view_restore(C);
@@ -166,8 +156,11 @@ void ED_spacetype_layers(void)
 	strncpy(st->name, "LayerManager", BKE_ST_MAXNAME);
 
 	st->new = layers_new;
+	st->free = layers_free;
 	st->duplicate = layers_duplicate;
+	st->init = layer_init;
 	st->operatortypes = layers_operatortypes;
+	st->keymap = layers_keymap;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype layers region");

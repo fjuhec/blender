@@ -18,34 +18,32 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_layers/layers_intern.h
+/** \file blender/editors/space_layers/layers_util.c
  *  \ingroup splayers
+ *
+ * Utility functions for layer manager editor.
  */
 
-#ifndef __LAYERS_INTERN_H__
-#define __LAYERS_INTERN_H__
+#include "BLI_listbase.h"
 
-struct ARegion;
-struct wmKeyConfig;
+#include "BKE_layer.h"
+
+#include "DNA_space_types.h"
+
+#include "MEM_guardedalloc.h"
+
+#include "layers_intern.h"
+
 
 /**
- * Wrapper around LayerTreeItem with extra info for drawing in layer manager editor.
+ * Allocate and register a LayerTile entry for \a litem in layer_item list of \a slayer.
  */
-typedef struct LayerTile {
-	struct LayerTile *next, *prev;
+LayerTile *layers_tile_add(SpaceLayers *slayer, LayerTreeItem *litem)
+{
+	LayerTile *tile = MEM_callocN(sizeof(LayerTile), __func__);
 
-	LayerTreeItem *litem;
-} LayerTile;
+	tile->litem = litem;
+	BLI_addhead(&slayer->layer_tiles, tile);
 
-/* layers_draw.c */
-void layers_draw_tiles(const struct bContext *C, struct ARegion *ar);
-
-/* layers_util.c */
-LayerTile *layers_tile_add(struct SpaceLayers *slayer, struct LayerTreeItem *litem);
-
-/* layers_ops.c */
-void layers_operatortypes(void);
-void layers_keymap(struct wmKeyConfig *keyconf);
-
-#endif  /* __LAYERS_INTERN_H__ */
-
+	return tile;
+}

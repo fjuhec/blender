@@ -1339,6 +1339,8 @@ typedef struct SpaceLayers {
 	ListBase regionbase;        /* storage of regions for inactive spaces */
 	int spacetype;
 	int pad;
+
+	ListBase layer_tiles; /* LayerTile */
 } SpaceLayers;
 
 /* **************** SPACE DEFINES ********************* */
