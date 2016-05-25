@@ -62,84 +62,54 @@
 
 /********************** add correspondence operator *********************/
 
-static bool add_correspondence(const bContext *C, float x, float y)
+static int add_correspondence_exec(bContext *C, wmOperator *op)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	MovieClip *clip = ED_space_clip_get_clip(sc);
 	MovieTracking *tracking = &clip->tracking;
 	ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
-	ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(tracking);
+
+	// get one track from each clip and link them
+	MovieTrackingTrack *primary_track = NULL, *witness_track = NULL;
 	MovieTrackingTrack *track;
-	int width, height;
-	int framenr = ED_space_clip_get_clip_frame_number(sc);
+	int num_primary_selected = 0, num_witness_selected = 0;
 
-	ED_space_clip_get_size(sc, &width, &height);
-
-	if (width == 0 || height == 0) {
-		return false;
-	}
-
-	track = BKE_tracking_track_add(tracking, tracksbase, x, y, framenr, width, height);
-
-	BKE_tracking_track_select(tracksbase, track, TRACK_AREA_ALL, 0);
-	BKE_tracking_plane_tracks_deselect_all(plane_tracks_base);
-
-	clip->tracking.act_track = track;
-	clip->tracking.act_plane_track = NULL;
-
-	return true;
-}
-
-static int add_correspondence_invoke(bContext *C,
-                                     wmOperator *op,
-                                     const wmEvent *UNUSED(event))
-{
-	ED_area_headerprint(
-	        CTX_wm_area(C),
-	        IFACE_("Use RMB click to define tracker correspondence in primary and witness camera"));
-
-	/* Add modal handler for ESC. */
-	WM_event_add_modal_handler(C, op);
-
-	return OPERATOR_RUNNING_MODAL;
-}
-
-static int add_correspondence_modal(bContext *C,
-                                    wmOperator *UNUSED(op),
-                                    const wmEvent *event)
-{
-	switch (event->type) {
-		case MOUSEMOVE:
-			return OPERATOR_RUNNING_MODAL;
-
-		case LEFTMOUSE:
-		{
-			SpaceClip *sc = CTX_wm_space_clip(C);
-			MovieClip *clip = ED_space_clip_get_clip(sc);
-			ARegion *ar = CTX_wm_region(C);
-			float pos[2];
-
-			ED_area_headerprint(CTX_wm_area(C), NULL);
-
-			ED_clip_point_stable_pos(sc, ar,
-			                         event->x - ar->winrct.xmin,
-			                         event->y - ar->winrct.ymin,
-			                         &pos[0], &pos[1]);
-
-			if (!add_correspondence(C, pos[0], pos[1])) {
-				return OPERATOR_CANCELLED;
-			}
-
-			WM_event_add_notifier(C, NC_MOVIECLIP | NA_EDITED, clip);
-			return OPERATOR_FINISHED;
+	// get number of selected tracks in the primary camera
+	for (track = tracksbase->first; track; track = track->next) {
+		if (TRACK_VIEW_SELECTED(sc, track)) {
+			primary_track = track;
+			num_primary_selected++;
 		}
-
-		case ESCKEY:
-			ED_area_headerprint(CTX_wm_area(C), NULL);
-			return OPERATOR_CANCELLED;
 	}
 
-	return OPERATOR_PASS_THROUGH;
+	// get number of selected tracks in the witness camera
+	// TODO(tianwei): there might be multiple witness cameras, now just work with one witness camera
+	wmWindow *window = CTX_wm_window(C);
+	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
+		if (sa->spacetype == SPACE_CLIP) {
+			SpaceClip *second_sc = sa->spacedata.first;
+			if(second_sc != sc) {
+				MovieClip *second_clip = ED_space_clip_get_clip(second_sc);
+				MovieTracking *second_tracking = &second_clip->tracking;
+				ListBase *second_tracksbase = BKE_tracking_get_active_tracks(second_tracking);
+				for (track = second_tracksbase->first; track; track = track->next) {
+					if (TRACK_VIEW_SELECTED(second_sc, track)) {
+						witness_track = track;
+						num_witness_selected++;
+					}
+				}
+			}
+		}
+	}
+
+	if(!primary_track || !witness_track || num_primary_selected != 1 || num_witness_selected != 1) {
+		BKE_report(op->reports, RPT_ERROR, "Select exactly one track in each clip");
+		return OPERATOR_CANCELLED;
+	}
+
+	// link two tracks
+
+	return OPERATOR_FINISHED;
 }
 
 void CLIP_OT_add_correspondence(wmOperatorType *ot)
@@ -150,12 +120,11 @@ void CLIP_OT_add_correspondence(wmOperatorType *ot)
 	ot->description = "Add correspondence between primary camera and witness camera";
 
 	/* api callbacks */
-	ot->invoke = add_correspondence_invoke;
+	ot->exec = add_correspondence_exec;
 	ot->poll = ED_space_clip_tracking_poll;
-	ot->modal = add_correspondence_modal;
 
 	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /********************** delete correspondence operator *********************/
