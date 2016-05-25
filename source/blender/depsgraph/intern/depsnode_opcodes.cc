@@ -30,7 +30,7 @@
 
 DepsOperationStringifier DEG_OPNAMES;
 
-static const char *stringify_opcode(int opcode)
+static const char *stringify_opcode(eDepsOperation_Code opcode)
 {
 	switch (opcode) {
 #define STRINGIFY_OPCODE(name) case DEG_OPCODE_##name: return #name
@@ -67,6 +67,8 @@ static const char *stringify_opcode(int opcode)
 		STRINGIFY_OPCODE(BONE_READY);
 		STRINGIFY_OPCODE(BONE_DONE);
 		STRINGIFY_OPCODE(PSYS_EVAL);
+
+		case DEG_NUM_OPCODES: return "SpecialCase";
 #undef STRINGIFY_OPCODE
 	}
 	return "UNKNOWN";
@@ -74,11 +76,11 @@ static const char *stringify_opcode(int opcode)
 
 DepsOperationStringifier::DepsOperationStringifier() {
 	for (int i = 0; i < DEG_NUM_OPCODES; ++i) {
-		names_[i] = stringify_opcode(i);
+		names_[i] = stringify_opcode((eDepsOperation_Code)i);
 	}
 }
 
-const char *DepsOperationStringifier::operator[](int opcode) {
+const char *DepsOperationStringifier::operator[](eDepsOperation_Code opcode) {
 	BLI_assert((opcode > 0) && (opcode < DEG_NUM_OPCODES));
 	if (opcode >= 0 && opcode < DEG_NUM_OPCODES) {
 		return names_[opcode];

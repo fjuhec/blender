@@ -152,7 +152,7 @@ typedef enum eDepsOperation_Code {
 class DepsOperationStringifier {
 public:
 	DepsOperationStringifier();
-	const char *operator[](int opcodex);
+	const char *operator[](eDepsOperation_Code opcodex);
 protected:
 	const char *names_[DEG_NUM_OPCODES];
 };
