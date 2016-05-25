@@ -26,6 +26,8 @@
 
 #include "depsnode_opcodes.h"
 
+#include <cstdlib>  // for BLI_assert()
+
 #include "BLI_utildefines.h"
 
 DepsOperationStringifier DEG_OPNAMES;
