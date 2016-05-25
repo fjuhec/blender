@@ -95,16 +95,8 @@ typedef enum eDepsNode_Type {
 	DEPSNODE_TYPE_SHADING          = 24,       /* Material Shading Component */
 } eDepsNode_Type;
 
-/* Identifiers for common operations (as an enum) */
-typedef enum eDepsOperation_Code {
-#define DEF_DEG_OPCODE(label) DEG_OPCODE_##label,
+/* Identifiers for common operations (as an enum). */
 #include "depsnode_opcodes.h"
-#undef DEF_DEG_OPCODE
-} eDepsOperation_Code;
-
-/* String defines for these opcodes, defined in depsnode_operation.cpp */
-extern const char *DEG_OPNAMES[];
-
 
 /* Type of operation */
 typedef enum eDepsOperation_Type {

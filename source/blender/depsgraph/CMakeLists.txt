@@ -55,6 +55,7 @@ set(SRC
 	intern/depsgraph_queue.cc
 	intern/depsgraph_tag.cc
 	intern/depsgraph_type_defines.cc
+	intern/depsnode_opcodes.cc
 	util/depsgraph_util_cycle.cc
 	util/depsgraph_util_pchanmap.cc
 	util/depsgraph_util_transitive.cc

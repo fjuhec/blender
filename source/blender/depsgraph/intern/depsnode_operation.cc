@@ -39,18 +39,6 @@ extern "C" {
 #include "depsgraph.h"
 #include "depsgraph_intern.h"
 
-/* ******************************************************************* */
-/* OpNode Identifiers Array - Exported to other depsgraph files too... */
-
-/* identifiers for operations */
-const char *DEG_OPNAMES[] = {
-#define DEF_DEG_OPCODE(label) #label,
-#include "depsnode_opcodes.h"
-#undef DEF_DEG_OPCODE
-
-	"<Invalid>"
-};
-
 /* *********** */
 /* Inner Nodes */
 
@@ -67,7 +55,6 @@ OperationDepsNode::~OperationDepsNode()
 
 string OperationDepsNode::identifier() const
 {
-	BLI_assert((opcode > 0) && (opcode < ARRAY_SIZE(DEG_OPNAMES)));
 	return string(DEG_OPNAMES[opcode]) + "(" + name + ")";
 }
 

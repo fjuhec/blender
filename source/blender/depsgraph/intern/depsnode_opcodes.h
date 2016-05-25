@@ -41,105 +41,121 @@
  */
 
 
-/* Example macro define: */
-/* #define DEF_DEG_OPCODE(label) DEG_OPCODE_##label, */
+typedef enum eDepsOperation_Code {
+	/* Generic Operations ------------------------------ */
 
-/* Generic Operations ------------------------------ */
+	/* Placeholder for operations which don't need special mention */
+	DEG_OPCODE_OPERATION = 0,
 
-/* Placeholder for operations which don't need special mention */
-DEF_DEG_OPCODE(OPERATION)
+	// XXX: Placeholder while porting depsgraph code
+	DEG_OPCODE_PLACEHOLDER,
 
-// XXX: Placeholder while porting depsgraph code
-DEF_DEG_OPCODE(PLACEHOLDER)
+	DEG_OPCODE_NOOP,
 
-DEF_DEG_OPCODE(NOOP)
+	/* Animation, Drivers, etc. ------------------------ */
 
-/* Animation, Drivers, etc. ------------------------ */
+	/* NLA + Action */
+	DEG_OPCODE_ANIMATION,
 
-/* NLA + Action */
-DEF_DEG_OPCODE(ANIMATION)
+	/* Driver */
+	DEG_OPCODE_DRIVER,
 
-/* Driver */
-DEF_DEG_OPCODE(DRIVER)
+	/* Proxy Inherit? */
+	//DEG_OPCODE_PROXY,
 
-/* Proxy Inherit? */
-//DEF_DEG_OPCODE(PROXY)
+	/* Transform --------------------------------------- */
 
-/* Transform --------------------------------------- */
+	/* Transform entry point - local transforms only */
+	DEG_OPCODE_TRANSFORM_LOCAL,
 
-/* Transform entry point - local transforms only */
-DEF_DEG_OPCODE(TRANSFORM_LOCAL)
+	/* Parenting */
+	DEG_OPCODE_TRANSFORM_PARENT,
 
-/* Parenting */
-DEF_DEG_OPCODE(TRANSFORM_PARENT)
+	/* Constraints */
+	DEG_OPCODE_TRANSFORM_CONSTRAINTS,
+	//DEG_OPCODE_TRANSFORM_CONSTRAINTS_INIT,
+	//DEG_OPCODE_TRANSFORM_CONSTRAINT,
+	//DEG_OPCODE_TRANSFORM_CONSTRAINTS_DONE,
 
-/* Constraints */
-DEF_DEG_OPCODE(TRANSFORM_CONSTRAINTS)
-//DEF_DEG_OPCODE(TRANSFORM_CONSTRAINTS_INIT)
-//DEF_DEG_OPCODE(TRANSFORM_CONSTRAINT)
-//DEF_DEG_OPCODE(TRANSFORM_CONSTRAINTS_DONE)
+	/* Rigidbody Sim - Perform Sim */
+	DEG_OPCODE_RIGIDBODY_REBUILD,
+	DEG_OPCODE_RIGIDBODY_SIM,
 
-/* Rigidbody Sim - Perform Sim */
-DEF_DEG_OPCODE(RIGIDBODY_REBUILD)
-DEF_DEG_OPCODE(RIGIDBODY_SIM)
+	/* Rigidbody Sim - Copy Results to Object */
+	DEG_OPCODE_TRANSFORM_RIGIDBODY,
 
-/* Rigidbody Sim - Copy Results to Object */
-DEF_DEG_OPCODE(TRANSFORM_RIGIDBODY)
+	/* Transform exitpoint */
+	DEG_OPCODE_TRANSFORM_FINAL,
 
-/* Transform exitpoint */
-DEF_DEG_OPCODE(TRANSFORM_FINAL)
+	/* XXX: ubereval is for temporary porting purposes only */
+	DEG_OPCODE_OBJECT_UBEREVAL,
 
-/* XXX: ubereval is for temporary porting purposes only */
-DEF_DEG_OPCODE(OBJECT_UBEREVAL)
+	/* Geometry ---------------------------------------- */
 
-/* Geometry ---------------------------------------- */
+	/* XXX: Placeholder - UberEval */
+	DEG_OPCODE_GEOMETRY_UBEREVAL,
 
-/* XXX: Placeholder - UberEval */
-DEF_DEG_OPCODE(GEOMETRY_UBEREVAL)
+	/* Modifier */
+	DEG_OPCODE_GEOMETRY_MODIFIER,
 
-/* Modifier */
-DEF_DEG_OPCODE(GEOMETRY_MODIFIER)
+	/* Curve Objects - Path Calculation (used for path-following tools, */
+	DEG_OPCODE_GEOMETRY_PATH,
 
-/* Curve Objects - Path Calculation (used for path-following tools) */
-DEF_DEG_OPCODE(GEOMETRY_PATH)
+	/* Pose -------------------------------------------- */
 
-/* Pose -------------------------------------------- */
+	/* Init IK Trees, etc. */
+	DEG_OPCODE_POSE_INIT,
 
-/* Init IK Trees, etc. */
-DEF_DEG_OPCODE(POSE_INIT)
+	/* Free IK Trees + Compute Deform Matrices */
+	DEG_OPCODE_POSE_DONE,
 
-/* Free IK Trees + Compute Deform Matrices */
-DEF_DEG_OPCODE(POSE_DONE)
+	/* IK/Spline Solvers */
+	DEG_OPCODE_POSE_IK_SOLVER,
+	DEG_OPCODE_POSE_SPLINE_IK_SOLVER,
 
-/* IK/Spline Solvers */
-DEF_DEG_OPCODE(POSE_IK_SOLVER)
-DEF_DEG_OPCODE(POSE_SPLINE_IK_SOLVER)
+	/* Bone -------------------------------------------- */
 
-/* Bone -------------------------------------------- */
+	/* Bone local transforms - Entrypoint */
+	DEG_OPCODE_BONE_LOCAL,
 
-/* Bone local transforms - Entrypoint */
-DEF_DEG_OPCODE(BONE_LOCAL)
+	/* Pose-space conversion (includes parent + restpose, */
+	DEG_OPCODE_BONE_POSE_PARENT,
 
-/* Pose-space conversion (includes parent + restpose) */
-DEF_DEG_OPCODE(BONE_POSE_PARENT)
+	/* Constraints */
+	DEG_OPCODE_BONE_CONSTRAINTS,
+	//DEG_OPCODE_BONE_CONSTRAINTS_INIT,
+	//DEG_OPCODE_BONE_CONSTRAINT,
+	//DEG_OPCODE_BONE_CONSTRAINTS_DONE,
 
-/* Constraints */
-DEF_DEG_OPCODE(BONE_CONSTRAINTS)
-//DEF_DEG_OPCODE(BONE_CONSTRAINTS_INIT)
-//DEF_DEG_OPCODE(BONE_CONSTRAINT)
-//DEF_DEG_OPCODE(BONE_CONSTRAINTS_DONE)
+	/* Bone transforms are ready
+	 *
+	 * - "READY"  This (internal, noop is used to signal that all pre-IK
+	 *            operations are done. Its role is to help mediate situations
+	 *            where cyclic relations may otherwise form (i.e. one bone in
+	 *            chain targetting another in same chain,
+	 *
+	 * - "DONE"   This noop is used to signal that the bone's final pose
+	 *            transform can be read by others
+	 */
+	// TODO: deform mats could get calculated in the final_transform ops...
+	DEG_OPCODE_BONE_READY,
+	DEG_OPCODE_BONE_DONE,
 
-/* Bone transforms are ready
- * - "READY"             This (internal) noop is used to signal that all pre-IK operations are done.
- *                       Its role is to help mediate situations where cyclic relations may otherwise form
- *                       (i.e. one bone in chain targetting another in same chain)
- * - "DONE"              This noop is used to signal that the bone's final pose transform can be read by others
- */
-// TODO: deform mats could get calculated in the final_transform ops...
-DEF_DEG_OPCODE(BONE_READY)
-DEF_DEG_OPCODE(BONE_DONE)
+	/* Particles --------------------------------------- */
 
-/* Particles --------------------------------------- */
+	/* XXX: placeholder - Particle System eval */
+	DEG_OPCODE_PSYS_EVAL,
 
-/* XXX: placeholder - Particle System eval */
-DEF_DEG_OPCODE(PSYS_EVAL)
+	DEG_NUM_OPCODES,
+} eDepsOperation_Code;
+
+class DepsOperationStringifier {
+public:
+	DepsOperationStringifier();
+	const char *operator[](int opcodex);
+protected:
+	const char *names_[DEG_NUM_OPCODES];
+};
+
+/* String defines for these opcodes, defined in depsnode_operation.cpp */
+extern DepsOperationStringifier DEG_OPNAMES;
