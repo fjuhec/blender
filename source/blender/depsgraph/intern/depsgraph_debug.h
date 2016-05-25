@@ -36,46 +36,6 @@ extern "C" {
 #include "BKE_global.h"
 }
 
-struct DepsgraphStats;
-struct DepsgraphStatsID;
-struct DepsgraphStatsComponent;
-struct DepsgraphSettings;
-struct EvaluationContext;
-struct OperationDepsNode;
-
-struct Depsgraph;
-
-struct DepsgraphDebug {
-	static DepsgraphStats *stats;
-
-	static void stats_init();
-	static void stats_free();
-
-	static void verify_stats();
-	static void reset_stats();
-
-	static void eval_begin(const EvaluationContext *eval_ctx);
-	static void eval_end(const EvaluationContext *eval_ctx);
-	static void eval_step(const EvaluationContext *eval_ctx,
-	                      const char *message);
-
-	static void task_started(Depsgraph *graph, const OperationDepsNode *node);
-	static void task_completed(Depsgraph *graph,
-	                           const OperationDepsNode *node,
-	                           double time);
-
-	static DepsgraphStatsID *get_id_stats(ID *id, bool create);
-	static DepsgraphStatsComponent *get_component_stats(DepsgraphStatsID *id_stats,
-	                                                    const string &name,
-	                                                    bool create);
-	static DepsgraphStatsComponent *get_component_stats(ID *id,
-	                                                    const string &name,
-	                                                    bool create)
-	{
-		return get_component_stats(get_id_stats(id, create), name, create);
-	}
-};
-
 #define DEG_DEBUG_PRINTF(...) \
 	do { \
 		if (G.debug & G_DEBUG_DEPSGRAPH) { \

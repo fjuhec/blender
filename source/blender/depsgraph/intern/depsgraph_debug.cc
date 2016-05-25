@@ -30,26 +30,15 @@
  * Implementation of tools for debugging the depsgraph
  */
 
-//#include <stdlib.h>
-#include <string.h>
-
 extern "C" {
-#include "BLI_utildefines.h"
-#include "BLI_listbase.h"
-#include "BLI_ghash.h"
-#include "BLI_string.h"
-
 #include "DNA_scene_types.h"
-#include "DNA_userdef_types.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_debug.h"
 #include "DEG_depsgraph_build.h"
-
-#include "WM_api.h"
-#include "WM_types.h"
 }  /* extern "C" */
 
+#include "eval/deg_eval_debug.h"
 #include "depsgraph_debug.h"
 #include "depsnode.h"
 #include "depsnode_component.h"
@@ -362,7 +351,7 @@ static void deg_debug_graphviz_relation_color(const DebugContext &ctx,
 #else
 	if (rel->flag & DEPSREL_FLAG_CYCLIC)
 		color = color_error;
-	
+
 	deg_debug_fprintf(ctx, "%s", color);
 #endif
 }
@@ -600,7 +589,7 @@ static void deg_debug_graphviz_node_relations(const DebugContext &ctx,
 {
 	foreach (DepsRelation *rel, node->inlinks) {
 		float penwidth = 2.0f;
-		
+
 		const DepsNode *tail = rel->to; /* same as node */
 		const DepsNode *head = rel->from;
 		deg_debug_fprintf(ctx, "// %s -> %s\n",
@@ -783,202 +772,22 @@ void DEG_debug_graphviz(const Depsgraph *graph, FILE *f, const char *label, bool
 
 /* ************************************************ */
 
-static string get_component_name(eDepsNode_Type type, const string &name = "")
-{
-	DepsNodeFactory *factory = DEG_get_node_factory(type);
-	if (name.empty()) {
-		return string(factory->tname());
-	}
-	else {
-		return string(factory->tname()) + " | " + name;
-	}
-}
-
-static void times_clear(DepsgraphStatsTimes &times)
-{
-	times.duration_last = 0.0f;
-}
-
-static void times_add(DepsgraphStatsTimes &times, float time)
-{
-	times.duration_last += time;
-}
-
-void DepsgraphDebug::eval_begin(const EvaluationContext *UNUSED(eval_ctx))
-{
-	/* TODO(sergey): Stats are currently globally disabled. */
-	/* verify_stats(); */
-	reset_stats();
-}
-
-void DepsgraphDebug::eval_end(const EvaluationContext *UNUSED(eval_ctx))
-{
-	WM_main_add_notifier(NC_SPACE | ND_SPACE_INFO_REPORT, NULL);
-}
-
-void DepsgraphDebug::eval_step(const EvaluationContext *UNUSED(eval_ctx),
-                               const char *message)
-{
-#ifdef DEG_DEBUG_BUILD
-	if (deg_debug_eval_cb)
-		deg_debug_eval_cb(deg_debug_eval_userdata, message);
-#else
-	(void)message;  /* Ignored. */
-#endif
-}
-
-void DepsgraphDebug::task_started(Depsgraph *graph,
-                                  const OperationDepsNode *node)
-{
-	if (stats) {
-		BLI_spin_lock(&graph->lock);
-
-		ComponentDepsNode *comp = node->owner;
-		ID *id = comp->owner->id;
-
-		DepsgraphStatsID *id_stats = get_id_stats(id, true);
-		times_clear(id_stats->times);
-
-		/* XXX TODO use something like: if (id->flag & ID_DEG_DETAILS) {...} */
-		if (0) {
-			/* XXX component name usage needs cleanup! currently mixes identifier and description strings! */
-			DepsgraphStatsComponent *comp_stats = get_component_stats(id, get_component_name(comp->type, comp->name), true);
-			times_clear(comp_stats->times);
-		}
-
-		BLI_spin_unlock(&graph->lock);
-	}
-}
-
-void DepsgraphDebug::task_completed(Depsgraph *graph,
-                                    const OperationDepsNode *node,
-                                    double time)
-{
-	if (stats) {
-		BLI_spin_lock(&graph->lock);
-
-		ComponentDepsNode *comp = node->owner;
-		ID *id = comp->owner->id;
-
-		DepsgraphStatsID *id_stats = get_id_stats(id, true);
-		times_add(id_stats->times, time);
-
-		/* XXX TODO use something like: if (id->flag & ID_DEG_DETAILS) {...} */
-		if (0) {
-			/* XXX component name usage needs cleanup! currently mixes identifier and description strings! */
-			DepsgraphStatsComponent *comp_stats = get_component_stats(id, get_component_name(comp->type, comp->name), true);
-			times_add(comp_stats->times, time);
-		}
-
-		BLI_spin_unlock(&graph->lock);
-	}
-}
-
-/* ********** */
-/* Statistics */
-
-DepsgraphStats *DepsgraphDebug::stats = NULL;
-
-/* GHash callback */
-static void deg_id_stats_free(void *val)
-{
-	DepsgraphStatsID *id_stats = (DepsgraphStatsID *)val;
-
-	if (id_stats) {
-		BLI_freelistN(&id_stats->components);
-		MEM_freeN(id_stats);
-	}
-}
-
-void DepsgraphDebug::stats_init()
-{
-	if (!stats) {
-		stats = (DepsgraphStats *)MEM_callocN(sizeof(DepsgraphStats), "Depsgraph Stats");
-		stats->id_stats = BLI_ghash_new(BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, "Depsgraph ID Stats Hash");
-	}
-}
-
-void DepsgraphDebug::stats_free()
-{
-	if (stats) {
-		BLI_ghash_free(stats->id_stats, NULL, deg_id_stats_free);
-		MEM_freeN(stats);
-		stats = NULL;
-	}
-}
-
-void DepsgraphDebug::verify_stats()
-{
-	stats_init();
-}
-
-void DepsgraphDebug::reset_stats()
-{
-	if (!stats) {
-		return;
-	}
-
-	/* XXX this doesn't work, will immediately clear all info,
-	 * since most depsgraph updates have none or very few updates to handle.
-	 *
-	 * Could consider clearing only zero-user ID blocks here
-	 */
-//	BLI_ghash_clear(stats->id_stats, NULL, deg_id_stats_free);
-}
-
-DepsgraphStatsID *DepsgraphDebug::get_id_stats(ID *id, bool create)
-{
-	DepsgraphStatsID *id_stats = (DepsgraphStatsID *)BLI_ghash_lookup(stats->id_stats, id);
-
-	if (!id_stats && create) {
-		id_stats = (DepsgraphStatsID *)MEM_callocN(sizeof(DepsgraphStatsID), "Depsgraph ID Stats");
-		id_stats->id = id;
-
-		BLI_ghash_insert(stats->id_stats, id, id_stats);
-	}
-
-	return id_stats;
-}
-
-DepsgraphStatsComponent *DepsgraphDebug::get_component_stats(
-        DepsgraphStatsID *id_stats,
-        const string &name,
-        bool create)
-{
-	DepsgraphStatsComponent *comp_stats;
-	for (comp_stats = (DepsgraphStatsComponent *)id_stats->components.first;
-	     comp_stats != NULL;
-	     comp_stats = comp_stats->next)
-	{
-		if (STREQ(comp_stats->name, name.c_str()))
-			break;
-	}
-	if (!comp_stats && create) {
-		comp_stats = (DepsgraphStatsComponent *)MEM_callocN(sizeof(DepsgraphStatsComponent), "Depsgraph Component Stats");
-		BLI_strncpy(comp_stats->name, name.c_str(), sizeof(comp_stats->name));
-		BLI_addtail(&id_stats->components, comp_stats);
-	}
-	return comp_stats;
-}
-
-/* ------------------------------------------------ */
-
 DepsgraphStats *DEG_stats(void)
 {
-	return DepsgraphDebug::stats;
+	return DEG::DepsgraphDebug::stats;
 }
 
 void DEG_stats_verify()
 {
-	DepsgraphDebug::verify_stats();
+	DEG::DepsgraphDebug::verify_stats();
 }
 
 DepsgraphStatsID *DEG_stats_id(ID *id)
 {
-	if (!DepsgraphDebug::stats) {
+	if (!DEG::DepsgraphDebug::stats) {
 		return NULL;
 	}
-	return DepsgraphDebug::get_id_stats(id, false);
+	return DEG::DepsgraphDebug::get_id_stats(id, false);
 }
 
 bool DEG_debug_compare(const struct Depsgraph *graph1,
@@ -1159,4 +968,3 @@ void DEG_stats_simple(const Depsgraph *graph, size_t *r_outer,
 		if (r_outer)     *r_outer     = tot_outer;
 	}
 }
-
