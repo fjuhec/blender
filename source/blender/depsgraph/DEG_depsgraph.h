@@ -141,11 +141,6 @@ void DEG_ids_check_recalc(struct Main *bmain,
                           struct Scene *scene,
                           bool time);
 
-/* Clear all update tags
- * - For aborted updates, or after successful evaluation
- */
-void DEG_graph_clear_tags(Depsgraph *graph);
-
 /* ************************************************ */
 /* Evaluation Engine API */
 

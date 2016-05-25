@@ -188,4 +188,23 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 	}
 }
 
+static void graph_clear_func(void *data_v, int i)
+{
+	Depsgraph *graph = (Depsgraph *)data_v;
+	OperationDepsNode *node = graph->operations[i];
+	/* Clear node's "pending update" settings. */
+	node->flag &= ~(DEPSOP_FLAG_DIRECTLY_MODIFIED | DEPSOP_FLAG_NEEDS_UPDATE);
+}
+
+/* Clear tags from all operation nodes. */
+void deg_graph_clear_tags(Depsgraph *graph)
+{
+	/* Go over all operation nodes, clearing tags. */
+	const int num_operations = graph->operations.size();
+	const bool do_threads = num_operations > 256;
+	BLI_task_parallel_range(0, num_operations, graph, graph_clear_func, do_threads);
+	/* Clear any entry tags which haven't been flushed. */
+	graph->entry_tags.clear();
+}
+
 }  // namespace DEG

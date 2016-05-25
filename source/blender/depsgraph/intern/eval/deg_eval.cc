@@ -403,7 +403,7 @@ void deg_evaluate_on_refresh(EvaluationContext *eval_ctx,
 	DepsgraphDebug::eval_end(eval_ctx);
 
 	/* Clear any uncleared tags - just in case. */
-	DEG_graph_clear_tags(graph);
+	deg_graph_clear_tags(graph);
 }
 
 }  // namespace DEG
