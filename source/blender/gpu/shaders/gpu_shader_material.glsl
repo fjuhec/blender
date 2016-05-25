@@ -142,6 +142,20 @@ void color_to_normal(vec3 color, out vec3 normal)
 	normal.z =  2.0 * ((color.b) - 0.5);
 }
 
+void color_to_normal_new_shading(vec3 color, out vec3 normal)
+{
+	normal.x =  2.0 * ((color.r) - 0.5);
+	normal.y =  2.0 * ((color.g) - 0.5);
+	normal.z =  2.0 * ((color.b) - 0.5);
+}
+
+void color_to_blender_normal_new_shading(vec3 color, out vec3 normal)
+{
+	normal.x =  2.0 * ((color.r) - 0.5);
+	normal.y = -2.0 * ((color.g) - 0.5);
+	normal.z = -2.0 * ((color.b) - 0.5);
+}
+
 #define M_PI 3.14159265358979323846
 #define M_1_PI 0.31830988618379069
 
@@ -2614,6 +2628,9 @@ void node_gamma(vec4 col, float gamma, out vec4 outcol)
 
 void node_attribute(vec3 attr, out vec4 outcol, out vec3 outvec, out float outf)
 {
+	/* TODO(sergey): This needs linearization for vertex color.
+	 * But how to detect cases when input is linear and when it's srgb?
+	 */
 	outcol = vec4(attr, 1.0);
 	outvec = attr;
 	outf = (attr.x + attr.y + attr.z)/3.0;
