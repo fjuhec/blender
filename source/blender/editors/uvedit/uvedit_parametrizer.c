@@ -4687,18 +4687,18 @@ void param_scale_bounds(ParamHandle *handle)
 			tot_height = fabsf(minv[1]) + fabsf(maxv[1]);
 		else
 			tot_height = maxv[1] - minv[1];
-		
-		if (tot_height > tot_width)
-			scale = 1.0f / tot_height;
+
+		if (tot_height >= tot_width)
+			scale = phandle->aspy / tot_height;
 		else
-			scale = 1.0f / tot_width;
-		
+			scale = phandle->aspx / tot_width;
+	
 		/* Scale to fit UV area */
 		p_chart_uv_scale(chart, scale);
 		
 		/* Move chart to center of UV Space*/
-		trans[0] = 0.5f;
-		trans[1] = 0.5f;
+		trans[0] = phandle->aspx / 2.0f;
+		trans[1] = phandle->aspy / 2.0f;
 		p_chart_uv_translate(chart, trans);
 	}
 }
