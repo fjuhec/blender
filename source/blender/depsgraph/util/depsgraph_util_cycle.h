@@ -27,11 +27,13 @@
  *  \ingroup depsgraph
  */
 
-#ifndef __DEPSGRAPH_UTIL_CYCLE_H__
-#define __DEPSGRAPH_UTIL_CYCLE_H__
+
+#pragma once
 
 struct Depsgraph;
 
+namespace DEG {
+
 void deg_graph_detect_cycles(Depsgraph *graph);
 
-#endif  /* __DEPSGRAPH_UTIL_CYCLE_H__ */
+}  // namespace DEG

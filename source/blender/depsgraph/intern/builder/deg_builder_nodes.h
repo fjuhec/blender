@@ -62,7 +62,6 @@ struct IDDepsNode;
 struct TimeSourceDepsNode;
 struct ComponentDepsNode;
 struct OperationDepsNode;
-struct RootPChanMap;
 
 namespace DEG {
 

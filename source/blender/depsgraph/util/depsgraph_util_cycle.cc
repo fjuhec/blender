@@ -27,6 +27,7 @@
  *  \ingroup depsgraph
  */
 
+// TOO(sergey): Use some wrappers over those?
 #include <cstdio>
 #include <cstdlib>
 #include <stack>
@@ -41,10 +42,14 @@ extern "C" {
 }
 
 #include "depsgraph_util_cycle.h"
+#include "depsgraph_util_foreach.h"
+
 #include "depsgraph.h"
 #include "depsnode.h"
 #include "depsnode_component.h"
 #include "depsnode_operation.h"
+
+namespace DEG {
 
 struct StackEntry {
 	OperationDepsNode *node;
@@ -62,17 +67,9 @@ void deg_graph_detect_cycles(Depsgraph *graph)
 	const int NODE_IN_STACK = 2;
 
 	std::stack<StackEntry> traversal_stack;
-	for (Depsgraph::OperationNodes::const_iterator it_op = graph->operations.begin();
-	     it_op != graph->operations.end();
-	     ++it_op)
-	{
-		OperationDepsNode *node = *it_op;
+	foreach (OperationDepsNode *node, graph->operations) {
 		bool has_inlinks = false;
-		for (OperationDepsNode::Relations::const_iterator it_rel = node->inlinks.begin();
-		     it_rel != node->inlinks.end();
-		     ++it_rel)
-		{
-			DepsRelation *rel = *it_rel;
+		foreach (DepsRelation *rel, node->inlinks) {
 			if (rel->from->type == DEPSNODE_TYPE_OPERATION) {
 				has_inlinks = true;
 			}
@@ -94,11 +91,7 @@ void deg_graph_detect_cycles(Depsgraph *graph)
 		StackEntry &entry = traversal_stack.top();
 		OperationDepsNode *node = entry.node;
 		bool all_child_traversed = true;
-		for (OperationDepsNode::Relations::const_iterator it_rel = node->outlinks.begin();
-		     it_rel != node->outlinks.end();
-		     ++it_rel)
-		{
-			DepsRelation *rel = *it_rel;
+		foreach (DepsRelation *rel, node->outlinks) {
 			if (rel->to->type == DEPSNODE_TYPE_OPERATION) {
 				OperationDepsNode *to = (OperationDepsNode *)rel->to;
 				if (to->done == NODE_IN_STACK) {
@@ -138,3 +131,5 @@ void deg_graph_detect_cycles(Depsgraph *graph)
 		}
 	}
 }
+
+}  // namespace DEG

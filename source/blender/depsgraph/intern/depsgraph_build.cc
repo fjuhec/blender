@@ -203,8 +203,12 @@ void DEG_add_special_eval_flag(Depsgraph *graph, ID *id, short flag)
 /* ******************** */
 /* Graph Building API's */
 
-/* Build depsgraph for the given scene, and dump results in given graph container */
-// XXX: assume that this is called from outside, given the current scene as the "main" scene
+/* Build depsgraph for the given scene, and dump results in given
+ * graph container.
+ */
+/* XXX: assume that this is called from outside, given the current scene as
+ * the "main" scene.
+ */
 void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 {
 	/* 1) Generate all the nodes in the graph first */
@@ -216,22 +220,33 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 	node_builder.add_root_node();
 	node_builder.build_scene(bmain, scene);
 
-	/* 2) Hook up relationships between operations - to determine evaluation order */
-	DEG::DepsgraphRelationBuilder relation_builder(graph);
-	/* hook scene up to the root node as entrypoint to graph */
-	/* XXX what does this relation actually mean?
-	 * it doesnt add any operations anyway and is not clear what part of the scene is to be connected.
+	/* 2) Hook up relationships between operations - to determine evaluation
+	 *    order.
 	 */
-	//relation_builder.add_relation(RootKey(), IDKey(scene), DEPSREL_TYPE_ROOT_TO_ACTIVE, "Root to Active Scene");
+	DEG::DepsgraphRelationBuilder relation_builder(graph);
+	/* Hook scene up to the root node as entrypoint to graph. */
+	/* XXX what does this relation actually mean?
+	 * it doesnt add any operations anyway and is not clear what part of the
+	 * scene is to be connected.
+	 */
+#if 0
+	relation_builder.add_relation(RootKey(),
+	                              IDKey(scene),
+	                              DEPSREL_TYPE_ROOT_TO_ACTIVE,
+	                              "Root to Active Scene");
+#endif
 	relation_builder.build_scene(bmain, scene);
 
 	/* Detect and solve cycles. */
-	deg_graph_detect_cycles(graph);
+	DEG::deg_graph_detect_cycles(graph);
 
-	/* 3) Simplify the graph by removing redundant relations (to optimise traversal later) */
-	// TODO: it would be useful to have an option to disable this in cases where it is causing trouble
+	/* 3) Simplify the graph by removing redundant relations (to optimize
+	 *    traversal later). */
+	/* TODO: it would be useful to have an option to disable this in cases where
+	 *       it is causing trouble.
+	 */
 	if (G.debug_value == 799) {
-		deg_graph_transitive_reduction(graph);
+		DEG::deg_graph_transitive_reduction(graph);
 	}
 
 	/* 4) Flush visibility layer and re-schedule nodes for update. */

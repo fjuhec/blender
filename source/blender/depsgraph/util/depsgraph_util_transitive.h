@@ -28,11 +28,12 @@
  *  \ingroup depsgraph
  */
 
-#ifndef __DEPSGRAPH_UTIL_TRANSITIVE_H__
-#define __DEPSGRAPH_UTIL_TRANSITIVE_H__
+#pragma once
 
 struct Depsgraph;
 
+namespace DEG {
+
 void deg_graph_transitive_reduction(Depsgraph *graph);
 
-#endif  /* __DEPSGRAPH_UTIL_TRANSITIVE_H__ */
+}  // namespace DEG

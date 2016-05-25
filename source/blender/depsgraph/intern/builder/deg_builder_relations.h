@@ -75,11 +75,11 @@ struct IDDepsNode;
 struct TimeSourceDepsNode;
 struct ComponentDepsNode;
 struct OperationDepsNode;
-struct RootPChanMap;
 
 namespace DEG {
 
 struct DepsNodeHandle;
+struct RootPChanMap;
 
 struct RootKey
 {
