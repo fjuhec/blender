@@ -4168,7 +4168,7 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 		}
 	}
 	else if (dt == OB_PAINT) {
-		draw_mesh_paint(v3d, rv3d, ob, dm, draw_flags, NULL, GPU_object_material_bind);
+		draw_mesh_paint(v3d, rv3d, ob, dm, draw_flags);
 
 		/* since we already draw wire as wp guide, don't draw over the top */
 		draw_wire = OBDRAW_WIRE_OFF;

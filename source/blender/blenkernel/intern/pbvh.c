@@ -1156,7 +1156,7 @@ static void pbvh_update_draw_buffers(PBVH *bvh, PBVHNode **nodes, int totnode)
 	}
 }
 
-static void pbvh_draw_BB(PBVH *bvh)
+void BKE_pbvh_draw_BB(PBVH *bvh)
 {
 	GPU_init_draw_pbvh_BB();
 
@@ -1850,7 +1850,7 @@ void BKE_pbvh_draw(PBVH *bvh, float (*planes)[4], float (*fnors)[3],
 	}
 
 	if (G.debug_value == 14)
-		pbvh_draw_BB(bvh);
+		BKE_pbvh_draw_BB(bvh);
 }
 
 void BKE_pbvh_grids_update(PBVH *bvh, CCGElem **grids, void **gridfaces,

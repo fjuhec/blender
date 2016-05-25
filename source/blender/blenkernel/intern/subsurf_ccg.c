@@ -3564,6 +3564,11 @@ static void ccgDM_drawMappedFaces(DerivedMesh *dm,
 	int gridFaces = gridSize - 1, totface;
 	int prev_mat_nr = -1;
 
+	if (ccgdm->pbvh) {
+		if (G.debug_value == 14)
+			BKE_pbvh_draw_BB(ccgdm->pbvh);
+	}
+
 #ifdef WITH_OPENSUBDIV
 	if (ccgdm->useGpuBackend) {
 		int new_matnr;
