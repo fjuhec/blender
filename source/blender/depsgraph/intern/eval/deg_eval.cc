@@ -56,6 +56,11 @@ extern "C" {
 /* Unfinished and unused, and takes quite some pre-processing time. */
 #undef USE_EVAL_PRIORITY
 
+/* Use integrated debugger to keep track how much each of the nodes was
+ * evaluating.
+ */
+#undef USE_DEBUGGER
+
 namespace DEG {
 
 /* ********************** */
@@ -102,17 +107,21 @@ static void deg_task_run_func(TaskPool *pool,
 		 */
 		if (node->evaluate) {
 			/* Take note of current time. */
+#ifdef USE_DEBUGGER
 			double start_time = PIL_check_seconds_timer();
 			DepsgraphDebug::task_started(state->graph, node);
+#endif
 
 			/* Perform operation. */
 			node->evaluate(state->eval_ctx);
 
 			/* Note how long this took. */
+#ifdef USE_DEBUGGER
 			double end_time = PIL_check_seconds_timer();
 			DepsgraphDebug::task_completed(state->graph,
 			                               node,
 			                               end_time - start_time);
+#endif
 		}
 
 		/* If there's only one outgoing link we try to immediately switch to
