@@ -106,7 +106,6 @@ struct ComponentDepsNode : public DepsNode {
 	~ComponentDepsNode();
 
 	void init(const ID *id, const string &subdata);
-	void copy(DepsgraphCopyContext *dcc, const ComponentDepsNode *src);
 
 	string identifier() const;
 

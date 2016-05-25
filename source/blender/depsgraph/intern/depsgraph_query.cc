@@ -33,16 +33,11 @@
 #include "MEM_guardedalloc.h"
 
 extern "C" {
-#include "BLI_utildefines.h"
-#include "BLI_ghash.h"
-
 #include "BKE_main.h"
 
 #include "DEG_depsgraph_query.h"
 } /* extern "C" */
 
-#include "depsnode.h"
-#include "depsnode_operation.h"
 #include "depsgraph_intern.h"
 
 bool DEG_id_type_tagged(Main *bmain, short idtype)

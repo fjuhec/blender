@@ -63,33 +63,6 @@ void ComponentDepsNode::init(const ID * /*id*/,
 	// XXX: maybe this needs a special API?
 }
 
-/* Copy 'component' node */
-void ComponentDepsNode::copy(DepsgraphCopyContext * /*dcc*/,
-                             const ComponentDepsNode * /*src*/)
-{
-#if 0 // XXX: remove all this
-	/* duplicate list of operation nodes */
-	this->operations.clear();
-
-	for (OperationMap::const_iterator it = src->operations.begin(); it != src->operations.end(); ++it) {
-		const string &pchan_name = it->first;
-		OperationDepsNode *src_op = it->second;
-
-		/* recursive copy */
-		DepsNodeFactory *factory = DEG_node_get_factory(src_op);
-		OperationDepsNode *dst_op = (OperationDepsNode *)factory->copy_node(dcc, src_op);
-		this->operations[pchan_name] = dst_op;
-
-		/* fix links... */
-		// ...
-	}
-
-	/* copy evaluation contexts */
-	//
-#endif
-	BLI_assert(!"Not expected to be called");
-}
-
 /* Free 'component' node */
 ComponentDepsNode::~ComponentDepsNode()
 {

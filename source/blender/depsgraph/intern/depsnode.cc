@@ -158,30 +158,6 @@ IDDepsNode::~IDDepsNode()
 	clear_components();
 }
 
-/* Copy 'id' node. */
-void IDDepsNode::copy(DepsgraphCopyContext *dcc, const IDDepsNode *src)
-{
-	(void)src;  /* Ignored. */
-	/* Iterate over items in original hash, adding them to new hash. */
-	for (IDDepsNode::ComponentMap::const_iterator it = this->components.begin();
-	     it != this->components.end();
-	     ++it)
-	{
-		/* Get current <type : component> mapping. */
-		ComponentIDKey c_key    = it->first;
-		DepsNode *old_component = it->second;
-
-		/* Make a copy of component. */
-		ComponentDepsNode *component = (ComponentDepsNode *)DEG_copy_node(dcc, old_component);
-
-		/* Add new node to hash... */
-		this->components[c_key] = component;
-	}
-
-	// TODO: perform a second loop to fix up links?
-	BLI_assert(!"Not expected to be used");
-}
-
 ComponentDepsNode *IDDepsNode::find_component(eDepsNode_Type type,
                                               const string &name) const
 {
@@ -281,20 +257,8 @@ SubgraphDepsNode::~SubgraphDepsNode()
 	}
 }
 
-/* Copy 'subgraph' node - Assume that the subgraph doesn't get copied for now... */
-void SubgraphDepsNode::copy(DepsgraphCopyContext * /*dcc*/,
-                            const SubgraphDepsNode * /*src*/)
-{
-	//const SubgraphDepsNode *src_node = (const SubgraphDepsNode *)src;
-	//SubgraphDepsNode *dst_node       = (SubgraphDepsNode *)dst;
-
-	/* for now, subgraph itself isn't copied... */
-	BLI_assert(!"Not expected to be used");
-}
-
 DEG_DEPSNODE_DEFINE(SubgraphDepsNode, DEPSNODE_TYPE_SUBGRAPH, "Subgraph Node");
 static DepsNodeFactoryImpl<SubgraphDepsNode> DNTI_SUBGRAPH;
-
 
 void DEG_register_base_depsnodes()
 {

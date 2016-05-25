@@ -55,41 +55,6 @@ void DEG_graph_build_from_group(Depsgraph *graph, struct Main *bmain, struct Gro
 /* Build subgraph for group */
 DepsNode *DEG_graph_build_group_subgraph(Depsgraph *graph_main, struct Main *bmain, struct Group *group);
 
-/* Graph Copying ========================================================= */
-/* (Part of the Filtering API) */
-
-/**
- * Depsgraph Copying Context (dcc)
- *
- * Keeps track of node relationships/links/etc. during the copy
- * operation so that they can be safely remapped...
- */
-typedef struct DepsgraphCopyContext {
-	struct GHash *nodes_hash;   /* <DepsNode, DepsNode> mapping from src node to dst node */
-	struct GHash *rels_hash;    // XXX: same for relationships?
-
-	// XXX: filtering criteria...
-} DepsgraphCopyContext;
-
-/* Internal Filtering API ---------------------------------------------- */
-
-/* Create filtering context */
-// XXX: needs params for conditions?
-DepsgraphCopyContext *DEG_filter_init(void);
-
-/* Free filtering context once filtering is done */
-void DEG_filter_cleanup(DepsgraphCopyContext *dcc);
-
-
-/* Data Copy Operations ------------------------------------------------ */
-
-/**
- * Make a (deep) copy of provided node and it's little subgraph
- * \warning Newly created node is not added to the existing graph
- * \param dcc: Context info for helping resolve links
- */
-DepsNode *DEG_copy_node(DepsgraphCopyContext *dcc, const DepsNode *src);
-
 /* Node Types Handling ================================================= */
 
 /* "Typeinfo" for Node Types ------------------------------------------- */
@@ -101,7 +66,6 @@ struct DepsNodeFactory {
 	virtual const char *tname() const = 0;
 
 	virtual DepsNode *create_node(const ID *id, const string &subdata, const string &name) const = 0;
-	virtual DepsNode *copy_node(DepsgraphCopyContext *dcc, const DepsNode *copy) const = 0;
 };
 
 template <class NodeType>
@@ -126,22 +90,6 @@ struct DepsNodeFactoryImpl : public DepsNodeFactory {
 			node->name = tname();
 
 		node->init(id, subdata);
-
-		return node;
-	}
-
-	virtual DepsNode *copy_node(DepsgraphCopyContext *dcc, const DepsNode *copy) const
-	{
-		BLI_assert(copy->type == type());
-		DepsNode *node = OBJECT_GUARDED_NEW(NodeType);
-
-		/* populate base node settings */
-		node->type = type();
-		node->tclass = tclass();
-		// XXX: need to review the name here, as we can't have exact duplicates...
-		node->name = copy->name;
-
-		node->copy(dcc, static_cast<const NodeType *>(copy));
 
 		return node;
 	}

@@ -93,8 +93,6 @@ struct DepsNode {
 
 	virtual void init(const ID * /*id*/,
 	                  const string &/*subdata*/) {}
-	virtual void copy(DepsgraphCopyContext * /*dcc*/,
-	                  const DepsNode * /*src*/) {}
 
 	virtual void tag_update(Depsgraph * /*graph*/) {}
 
@@ -176,7 +174,6 @@ struct IDDepsNode : public DepsNode {
 	                      component_key_hash> ComponentMap;
 
 	void init(const ID *id, const string &subdata);
-	void copy(DepsgraphCopyContext *dcc, const IDDepsNode *src);
 	~IDDepsNode();
 
 	ComponentDepsNode *find_component(eDepsNode_Type type,
@@ -209,7 +206,6 @@ struct IDDepsNode : public DepsNode {
 /* Subgraph Reference. */
 struct SubgraphDepsNode : public DepsNode {
 	void init(const ID *id, const string &subdata);
-	void copy(DepsgraphCopyContext *dcc, const SubgraphDepsNode *src);
 	~SubgraphDepsNode();
 
 	/* Instanced graph. */
