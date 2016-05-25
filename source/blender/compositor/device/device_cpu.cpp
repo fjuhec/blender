@@ -2,6 +2,9 @@
 
 #define CMP_DEVICE_CPU
 #define __cvm_inline inline
+#define __cvm_inout_post *
+#define __cvm_out_set *
+#define __cvm_in_ref &
 #include "kernel.h"
 extern "C" {
   #include "BKE_node.h"
@@ -92,7 +95,8 @@ namespace Compositor {
       // perform task
       KernelGlobal globals;
       globals.phase = KG_PHASE_REFINE;
-      globals.subpixel_samples_xy = 1;
+      globals.subpixel_samples_xy = 4;
+      globals.width = 960;
 
       Node* node = task->node;
       const int curr_iteration = task->iteration;
@@ -104,7 +108,7 @@ namespace Compositor {
         int offset = (y*width + task->x_min)*4;
         for (int x = task->x_min; x < task->x_max ; x ++) {
           float2 xy = make_float2((float)x, (float)y);
-          float4 color = node_execute_float4(globals, node->stack_index, xy);
+          float4 color = node_execute_float4(globals, node->stack_index, xy, NULL);
           buffer[offset] = ((buffer[offset]*prev_iteration)+color.x)/curr_iteration;
           buffer[offset+1] = ((buffer[offset+1]*prev_iteration)+color.y)/curr_iteration;
           buffer[offset+2] = ((buffer[offset+2]*prev_iteration)+color.z)/curr_iteration;

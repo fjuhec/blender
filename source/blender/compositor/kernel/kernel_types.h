@@ -25,6 +25,7 @@ struct float4 {
 struct KernelGlobal {
   int phase;
   int subpixel_samples_xy;
+  int width;
 };
 
 struct Node {

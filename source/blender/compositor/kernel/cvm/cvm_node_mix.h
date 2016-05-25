@@ -18,10 +18,14 @@
 #define MA_RAMP_LINEAR      17
 
 CVM_float4_node_start(mix)
-  float value = CVM_float_node_call(0, xy);
+  float weight_value;
+  float weight_color1;
+  float weight_color2;
+  float value = CVM_float_node_call(0, xy, __cvm_in_ref weight_value);
   float inverse = 1.0 - value;
-  float4 color1 = CVM_float4_node_call(1, xy);
-  float4 color2 = CVM_float4_node_call(2, xy);
+  float4 color1 = CVM_float4_node_call(1, xy, __cvm_in_ref weight_color1);
+  float4 color2 = CVM_float4_node_call(2, xy, __cvm_in_ref weight_color2);
+  __cvm_out_set sample_weight = min(weight_color1, weight_color2);
 
   const int mix_type = node.var_int_0;
   if (mix_type == MA_RAMP_BLEND) {

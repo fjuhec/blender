@@ -64,7 +64,7 @@ void COM_execute(RenderData *rd, Scene *scene, bNodeTree *editingtree, int rende
         if (y_max > height) y_max = height;
 
         Compositor::Device::Task* task = new Compositor::Device::Task(node, x, y, x_max, y_max, &output);
-        task->max_iteration = 100;
+        task->max_iteration = 1000;
         tasks[tile_index++] = task;
       }
     }
