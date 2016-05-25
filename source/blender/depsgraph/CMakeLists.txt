@@ -58,7 +58,6 @@ set(SRC
 	intern/depsgraph_query.cc
 	intern/depsgraph_tag.cc
 	intern/depsgraph_type_defines.cc
-	intern/depsnode_opcodes.cc
 	util/depsgraph_util_cycle.cc
 	util/depsgraph_util_pchanmap.cc
 	util/depsgraph_util_transitive.cc
@@ -78,7 +77,6 @@ set(SRC
 	intern/depsnode.h
 	intern/depsnode_component.h
 	intern/depsnode_operation.h
-	intern/depsnode_opcodes.h
 	intern/depsgraph_debug.h
 	intern/depsgraph_intern.h
 	intern/depsgraph_types.h
