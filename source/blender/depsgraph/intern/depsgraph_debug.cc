@@ -62,14 +62,6 @@ static const char *deg_debug_graphviz_fontname = "helvetica";
 static float deg_debug_graphviz_graph_label_size = 20.0f;
 static float deg_debug_graphviz_node_label_size = 14.0f;
 static const int deg_debug_max_colors = 12;
-#if 0
-static const char *deg_debug_colors_dark[] = {
-    "#6e8997", "#144f77", "#76945b",
-    "#216a1d", "#a76665", "#971112",
-    "#a87f49", "#0a9540", "#86768e",
-    "#462866", "#a9a965", "#753b1a",
-};
-#endif
 #ifdef COLOR_SCHEME_NODE_TYPE
 static const char *deg_debug_colors[] = {
     "#a6cee3", "#1f78b4", "#b2df8a",
@@ -101,24 +93,6 @@ static const int deg_debug_node_type_color_map[][2] = {
     {DEPSNODE_TYPE_SEQUENCER,    9},
     {DEPSNODE_TYPE_SHADING,      10},
     {-1,                         0}
-};
-#endif
-
-#if 0 /* unused */
-static const int deg_debug_relation_type_color_map[][2] = {
-    {DEPSREL_TYPE_STANDARD,         0},
-    {DEPSREL_TYPE_ROOT_TO_ACTIVE,   1},
-    {DEPSREL_TYPE_DATABLOCK,        2},
-    {DEPSREL_TYPE_TIME,             3},
-    {DEPSREL_TYPE_COMPONENT_ORDER,  4},
-    {DEPSREL_TYPE_OPERATION,        5},
-    {DEPSREL_TYPE_DRIVER,           6},
-    {DEPSREL_TYPE_DRIVER_TARGET,    7},
-    {DEPSREL_TYPE_TRANSFORM,        8},
-    {DEPSREL_TYPE_GEOMETRY_EVAL,    9},
-    {DEPSREL_TYPE_UPDATE,           10},
-    {DEPSREL_TYPE_UPDATE_UI,        11},
-    {-1,                            0}
 };
 #endif
 
@@ -187,30 +161,6 @@ static void deg_debug_graphviz_legend_color(const DebugContext &ctx,
 	deg_debug_fprintf(ctx, "</TR>" NL);
 }
 
-#if 0
-static void deg_debug_graphviz_legend_line(const DebugContext &ctx,
-                                           const char *name,
-                                           const char *color,
-                                           const char *style)
-{
-	/* XXX TODO */
-	deg_debug_fprintf(ctx, "" NL);
-}
-
-static void deg_debug_graphviz_legend_cluster(const DebugContext &ctx,
-                                              const char *name,
-                                              const char *color,
-                                              const char *style)
-{
-	deg_debug_fprintf(ctx, "<TR>");
-	deg_debug_fprintf(ctx, "<TD>%s</TD>", name);
-	deg_debug_fprintf(ctx, "<TD CELLPADDING=\"4\"><TABLE BORDER=\"1\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"0\">");
-	deg_debug_fprintf(ctx, "<TR><TD BGCOLOR=\"%s\"></TD></TR>", color);
-	deg_debug_fprintf(ctx, "</TABLE></TD>");
-	deg_debug_fprintf(ctx, "</TR>" NL);
-}
-#endif
-
 static void deg_debug_graphviz_legend(const DebugContext &ctx)
 {
 	deg_debug_fprintf(ctx, "{" NL);
@@ -243,19 +193,6 @@ static void deg_debug_graphviz_legend(const DebugContext &ctx)
 	deg_debug_fprintf(ctx, "];" NL);
 	deg_debug_fprintf(ctx, "}" NL);
 }
-
-#if 0 /* unused */
-static int deg_debug_relation_type_color_index(eDepsRelation_Type type)
-{
-	const int (*pair)[2];
-	for (pair = deg_debug_relation_type_color_map; (*pair)[0] >= 0; ++pair) {
-		if ((*pair)[0] == type) {
-			return (*pair)[1];
-		}
-	}
-	return -1;
-}
-#endif
 
 static void deg_debug_graphviz_node_color(const DebugContext &ctx,
                                           const DepsNode *node)
@@ -308,53 +245,16 @@ static void deg_debug_graphviz_node_fillcolor(const DebugContext &ctx,
 	deg_debug_fprintf(ctx, "\"%s\"", fillcolor);
 }
 
-#if 0 /* implementation using stripes, a bit too noisy ... */
-static void deg_debug_graphviz_node_fillcolor(const DebugContext &ctx,
-                                              const DepsNode *node)
-{
-	const char *defaultcolor = "gainsboro";
-	const char *color_needs_update = "orange";
-	const int num_stripes = 10;
-	int color_index = deg_debug_node_color_index(node);
-	const char *base_color = color_index < 0 ? defaultcolor : deg_debug_colors_light[color_index % deg_debug_max_colors];
-	if (ctx.show_tags &&
-	    (node->flag & (DEPSNODE_FLAG_DIRECTLY_MODIFIED | DEPSNODE_FLAG_NEEDS_UPDATE)))
-	{
-		deg_debug_fprintf(ctx, "\"");
-		for (int i = 0; i < num_stripes; ++i) {
-			if (i > 0) {
-				deg_debug_fprintf(ctx, ":");
-			}
-			deg_debug_fprintf(ctx, "%s:%s", base_color, color_needs_update);
-		}
-		deg_debug_fprintf(ctx, "\"");
-	}
-	else {
-		deg_debug_fprintf(ctx, "\"%s\"", base_color);
-	}
-}
-#endif
-
 static void deg_debug_graphviz_relation_color(const DebugContext &ctx,
                                               const DepsRelation *rel)
 {
 	const char *color_default = "black";
 	const char *color_error = "red4";
 	const char *color = color_default;
-#if 0 /* disabled for now, edge colors are hardly distinguishable */
-	int color = deg_debug_relation_type_color_index(rel->type);
-	if (color < 0) {
-		deg_debug_fprintf(ctx, "%s", defaultcolor);
-	}
-	else {
-		deg_debug_fprintf(ctx, "\"%s\"", deg_debug_colors_dark[color % deg_debug_max_colors]);
-	}
-#else
-	if (rel->flag & DEPSREL_FLAG_CYCLIC)
+	if (rel->flag & DEPSREL_FLAG_CYCLIC) {
 		color = color_error;
-
+	}
 	deg_debug_fprintf(ctx, "%s", color);
-#endif
 }
 
 static void deg_debug_graphviz_node_style(const DebugContext &ctx, const DepsNode *node)
@@ -601,18 +501,8 @@ static void deg_debug_graphviz_node_relations(const DebugContext &ctx,
 		deg_debug_fprintf(ctx, "\"node_%p\"", tail);
 
 		deg_debug_fprintf(ctx, "[");
-		/* XXX labels on relations are not very helpful:
-		 * - they tend to appear too far away to be associated with the edge lines
-		 * - names are mostly redundant, reflecting simply their from/to nodes
-		 * - no behavior or typing of relations themselves to justify labels
-		 */
-#if 0
-		deg_debug_fprintf(ctx, "label=\"%s\"", rel->name);
-		deg_debug_fprintf(ctx, ",fontname=\"%s\"", deg_debug_graphviz_fontname);
-#else
 		/* Note: without label an id seem necessary to avoid bugs in graphviz/dot */
 		deg_debug_fprintf(ctx, "id=\"%s\"", rel->name);
-#endif
 		deg_debug_fprintf(ctx, ",color="); deg_debug_graphviz_relation_color(ctx, rel);
 		deg_debug_fprintf(ctx, ",penwidth=\"%f\"", penwidth);
 		/* NOTE: edge from node to own cluster is not possible and gives graphviz
@@ -628,35 +518,6 @@ static void deg_debug_graphviz_node_relations(const DebugContext &ctx,
 		deg_debug_fprintf(ctx, "];" NL);
 		deg_debug_fprintf(ctx, NL);
 	}
-
-#if 0
-	if (node->tclass == DEPSNODE_CLASS_COMPONENT) {
-		const ComponentDepsNode *comp_node = (const ComponentDepsNode *)node;
-		for (ComponentDepsNode::OperationMap::const_iterator it = comp_node->operations.begin();
-		     it != comp_node->operations.end();
-		     ++it)
-		{
-			OperationDepsNode *op_node = it->second;
-			deg_debug_graphviz_node_relations(ctx, op_node);
-		}
-	}
-	else if (node->type == DEPSNODE_TYPE_ID_REF) {
-		const IDDepsNode *id_node = (const IDDepsNode *)node;
-		for (IDDepsNode::ComponentMap::const_iterator it = id_node->components.begin();
-		     it != id_node->components.end();
-		     ++it)
-		{
-			const ComponentDepsNode *comp = it->second;
-			deg_debug_graphviz_node_relations(ctx, comp);
-		}
-	}
-	else if (node->type == DEPSNODE_TYPE_SUBGRAPH) {
-		SubgraphDepsNode *sub_node = (SubgraphDepsNode *)node;
-		if (sub_node->graph) {
-			deg_debug_graphviz_graph_relations(ctx, sub_node->graph);
-		}
-	}
-#endif
 }
 
 static void deg_debug_graphviz_graph_nodes(const DebugContext &ctx,
@@ -681,26 +542,6 @@ static void deg_debug_graphviz_graph_nodes(const DebugContext &ctx,
 static void deg_debug_graphviz_graph_relations(const DebugContext &ctx,
                                                const Depsgraph *graph)
 {
-#if 0
-	if (graph->root_node) {
-		deg_debug_graphviz_node_relations(ctx, graph->root_node);
-	}
-	for (Depsgraph::IDNodeMap::const_iterator it = graph->id_hash.begin();
-	     it != graph->id_hash.end();
-	     ++it)
-	{
-		DepsNode *id_node = it->second;
-		deg_debug_graphviz_node_relations(ctx, id_node);
-	}
-#else
-	/* XXX not in use yet */
-//	for (Depsgraph::OperationNodes::const_iterator it = graph->all_opnodes.begin();
-//	     it != graph->all_opnodes.end();
-//	     ++it)
-//	{
-//		OperationDepsNode *op_node = *it;
-//		deg_debug_graphviz_node_relations(ctx, op_node);
-//	}
 	for (Depsgraph::IDNodeMap::const_iterator it = graph->id_hash.begin();
 	     it != graph->id_hash.end();
 	     ++it)
@@ -725,21 +566,10 @@ static void deg_debug_graphviz_graph_relations(const DebugContext &ctx,
 	if (time_source != NULL) {
 		deg_debug_graphviz_node_relations(ctx, time_source);
 	}
-#endif
 }
 
 void DEG_debug_graphviz(const Depsgraph *graph, FILE *f, const char *label, bool show_eval)
 {
-#if 0 /* generate shaded color set */
-	static char colors[][3] = {{0xa6, 0xce, 0xe3},{0x1f, 0x78, 0xb4},{0xb2, 0xdf, 0x8a},{0x33, 0xa0, 0x2c},
-	                           {0xfb, 0x9a, 0x99},{0xe3, 0x1a, 0x1c},{0xfd, 0xbf, 0x6f},{0xff, 0x7f, 0x00},
-	                           {0xca, 0xb2, 0xd6},{0x6a, 0x3d, 0x9a},{0xff, 0xff, 0x99},{0xb1, 0x59, 0x28}};
-	int i;
-	const float factor = 0.666f;
-	for (i=0; i < 12; ++i)
-		printf("\"#%x%x%x\"\n", (char)(colors[i][0] * factor), (char)(colors[i][1] * factor), (char)(colors[i][2] * factor));
-#endif
-
 	if (!graph) {
 		return;
 	}
