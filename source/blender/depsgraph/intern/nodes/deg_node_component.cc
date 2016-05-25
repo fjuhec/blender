@@ -28,6 +28,8 @@
  *  \ingroup depsgraph
  */
 
+#include "intern/nodes/deg_node_component.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -39,8 +41,7 @@ extern "C" {
 #include "BKE_action.h"
 } /* extern "C" */
 
-#include "depsnode_component.h" /* own include */
-#include "depsnode_operation.h"
+#include "intern/nodes/deg_node_operation.h"
 #include "depsgraph_intern.h"
 
 /* *********** */

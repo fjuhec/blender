@@ -39,10 +39,11 @@ extern "C" {
 #include "DEG_depsgraph.h"
 } /* extern "C" */
 
+#include "intern/nodes/deg_node.h"
+#include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_operation.h"
+
 #include "depsgraph_intern.h"
-#include "depsnode.h"
-#include "depsnode_component.h"
-#include "depsnode_operation.h"
 
 /* ************ */
 /* External API */

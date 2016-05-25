@@ -39,9 +39,9 @@
 
 #include "intern/depsgraph.h"
 #include "intern/depsgraph_types.h"
-#include "intern/depsnode.h"
-#include "intern/depsnode_component.h"
-#include "intern/depsnode_operation.h"
+#include "intern/nodes/deg_node.h"
+#include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_operation.h"
 
 #include "depsgraph_util_foreach.h"
 

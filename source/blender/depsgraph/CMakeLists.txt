@@ -48,10 +48,10 @@ set(SRC
 	intern/eval/deg_eval.cc
 	intern/eval/deg_eval_debug.cc
 	intern/eval/deg_eval_flush.cc
+	intern/nodes/deg_node.cc
+	intern/nodes/deg_node_component.cc
+	intern/nodes/deg_node_operation.cc
 	intern/depsgraph.cc
-	intern/depsnode.cc
-	intern/depsnode_component.cc
-	intern/depsnode_operation.cc
 	intern/depsgraph_build.cc
 	intern/depsgraph_debug.cc
 	intern/depsgraph_eval.cc
@@ -73,10 +73,10 @@ set(SRC
 	intern/eval/deg_eval.h
 	intern/eval/deg_eval_debug.h
 	intern/eval/deg_eval_flush.h
+	intern/nodes/deg_node.h
+	intern/nodes/deg_node_component.h
+	intern/nodes/deg_node_operation.h
 	intern/depsgraph.h
-	intern/depsnode.h
-	intern/depsnode_component.h
-	intern/depsnode_operation.h
 	intern/depsgraph_debug.h
 	intern/depsgraph_intern.h
 	intern/depsgraph_types.h

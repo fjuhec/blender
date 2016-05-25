@@ -37,8 +37,10 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "intern/nodes/deg_node.h"
+#include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_operation.h"
 #include "depsgraph.h"
-#include "depsnode.h"
 
 struct Main;
 struct Group;

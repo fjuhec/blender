@@ -48,10 +48,10 @@ extern "C" {
 
 #include "eval/deg_eval_debug.h"
 #include "eval/deg_eval_flush.h"
+#include "intern/nodes/deg_node.h"
+#include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_operation.h"
 #include "depsgraph.h"
-#include "depsnode.h"
-#include "depsnode_component.h"
-#include "depsnode_operation.h"
 #include "depsgraph_debug.h"
 #include "depsgraph_util_foreach.h"
 

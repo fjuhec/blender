@@ -95,11 +95,12 @@ extern "C" {
 #include "RNA_types.h"
 } /* extern "C" */
 
-#include "builder/deg_builder.h"
+#include "intern/builder/deg_builder.h"
 
-#include "depsnode.h"
-#include "depsnode_component.h"
-#include "depsnode_operation.h"
+#include "intern/nodes/deg_node.h"
+#include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_operation.h"
+
 #include "depsgraph_debug.h"
 #include "depsgraph_intern.h"
 #include "depsgraph_types.h"

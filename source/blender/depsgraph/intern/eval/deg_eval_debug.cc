@@ -42,9 +42,10 @@ extern "C" {
 #include "WM_types.h"
 }  /* extern "C" */
 
-#include "depsnode.h"
-#include "depsnode_component.h"
-#include "depsnode_operation.h"
+#include "intern/nodes/deg_node.h"
+#include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_operation.h"
+
 #include "depsgraph_intern.h"
 
 namespace DEG {

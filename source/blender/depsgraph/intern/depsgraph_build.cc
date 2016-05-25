@@ -48,10 +48,11 @@ extern "C" {
 #include "builder/deg_builder_nodes.h"
 #include "builder/deg_builder_relations.h"
 
-#include "depsnode.h"
-#include "depsnode_component.h"
+#include "intern/nodes/deg_node.h"
+#include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_operation.h"
+
 #include "depsgraph_debug.h"
-#include "depsnode_operation.h"
 #include "depsgraph_types.h"
 #include "depsgraph_intern.h"
 

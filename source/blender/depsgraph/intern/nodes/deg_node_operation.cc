@@ -28,14 +28,14 @@
  *  \ingroup depsgraph
  */
 
+#include "intern/nodes/deg_node_operation.h"
+
 #include "MEM_guardedalloc.h"
 
 extern "C" {
 #include "BLI_utildefines.h"
 } /* extern "C" */
 
-#include "depsnode_operation.h" /* own include */
-#include "depsnode_component.h"
 #include "depsgraph.h"
 #include "depsgraph_intern.h"
 

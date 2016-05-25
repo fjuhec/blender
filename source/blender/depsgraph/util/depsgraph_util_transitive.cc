@@ -28,6 +28,8 @@
  *  \ingroup depsgraph
  */
 
+#include "depsgraph_util_transitive.h"
+
 extern "C" {
 #include "MEM_guardedalloc.h"
 
@@ -39,14 +41,13 @@ extern "C" {
 #include "RNA_types.h"
 }
 
-#include "depsgraph_util_transitive.h"
-
 #include "depsgraph_util_foreach.h"
 
+#include "intern/nodes/deg_node.h"
+#include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_operation.h"
+
 #include "depsgraph.h"
-#include "depsnode.h"
-#include "depsnode_component.h"
-#include "depsnode_operation.h"
 
 namespace DEG {
 

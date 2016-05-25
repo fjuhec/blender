@@ -27,6 +27,8 @@
  *  \ingroup depsgraph
  */
 
+#include "depsgraph_util_cycle.h"
+
 // TOO(sergey): Use some wrappers over those?
 #include <cstdio>
 #include <cstdlib>
@@ -41,13 +43,13 @@ extern "C" {
 #include "RNA_types.h"
 }
 
-#include "depsgraph_util_cycle.h"
 #include "depsgraph_util_foreach.h"
 
+#include "intern/nodes/deg_node.h"
+#include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_operation.h"
+
 #include "depsgraph.h"
-#include "depsnode.h"
-#include "depsnode_component.h"
-#include "depsnode_operation.h"
 
 namespace DEG {
 
