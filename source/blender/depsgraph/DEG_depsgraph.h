@@ -131,9 +131,6 @@ void DEG_ids_clear_recalc(struct Main *bmain);
 
 /* Update Flushing ------------------------------- */
 
-/* Flush updates */
-void DEG_graph_flush_updates(struct Main *bmain, Depsgraph *graph);
-
 /* Flush updates for all IDs */
 void DEG_ids_flush_tagged(struct Main *bmain);
 

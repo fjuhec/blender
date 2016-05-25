@@ -47,6 +47,7 @@ extern "C" {
 #include "atomic_ops.h"
 
 #include "eval/deg_eval_debug.h"
+#include "eval/deg_eval_flush.h"
 #include "depsgraph.h"
 #include "depsnode.h"
 #include "depsnode_component.h"

@@ -55,6 +55,7 @@ extern "C" {
 #include "DEG_depsgraph.h"
 } /* extern "C" */
 
+#include "eval/deg_eval_flush.h"
 #include "depsgraph_debug.h"
 #include "depsnode.h"
 #include "depsnode_component.h"
@@ -260,123 +261,6 @@ void DEG_id_type_tag(Main *bmain, short idtype)
 	bmain->id_tag_update[((unsigned char *)&idtype)[0]] = 1;
 }
 
-/* Update Flushing ---------------------------------- */
-
-/* FIFO queue for tagged nodes that need flushing */
-/* XXX This may get a dedicated implementation later if needed - lukas */
-typedef std::queue<OperationDepsNode *> FlushQueue;
-
-static void flush_init_func(void *data_v, int i)
-{
-	/* ID node's done flag is used to avoid multiple editors update
-	 * for the same ID.
-	 */
-	Depsgraph *graph = (Depsgraph *)data_v;
-	OperationDepsNode *node = graph->operations[i];
-	IDDepsNode *id_node = node->owner->owner;
-	id_node->done = 0;
-	node->scheduled = false;
-	node->owner->flags &= ~DEPSCOMP_FULLY_SCHEDULED;
-}
-
-/* Flush updates from tagged nodes outwards until all affected nodes are tagged. */
-void DEG_graph_flush_updates(Main *bmain, Depsgraph *graph)
-{
-	/* sanity check */
-	if (graph == NULL)
-		return;
-
-	/* Nothing to update, early out. */
-	if (graph->entry_tags.size() == 0) {
-		return;
-	}
-
-	/* TODO(sergey): With a bit of flag magic we can get rid of this
-	 * extra loop.
-	 */
-	const int num_operations = graph->operations.size();
-	const bool do_threads = num_operations > 256;
-	BLI_task_parallel_range(0, num_operations, graph, flush_init_func, do_threads);
-
-	FlushQueue queue;
-	/* Starting from the tagged "entry" nodes, flush outwards... */
-	/* NOTE: Also need to ensure that for each of these, there is a path back to
-	 *       root, or else they won't be done.
-	 * NOTE: Count how many nodes we need to handle - entry nodes may be
-	 *       component nodes which don't count for this purpose!
-	 */
-	foreach (OperationDepsNode *node, graph->entry_tags) {
-		IDDepsNode *id_node = node->owner->owner;
-		queue.push(node);
-		if (id_node->done == 0) {
-			deg_editors_id_update(bmain, id_node->id);
-			id_node->done = 1;
-		}
-		node->scheduled = true;
-	}
-
-	while (!queue.empty()) {
-		OperationDepsNode *node = queue.front();
-		queue.pop();
-
-		IDDepsNode *id_node = node->owner->owner;
-		lib_id_recalc_tag(bmain, id_node->id);
-		/* TODO(sergey): For until we've got proper data nodes in the graph. */
-		lib_id_recalc_data_tag(bmain, id_node->id);
-
-		ID *id = id_node->id;
-		/* This code is used to preserve those areas which does direct
-		 * object update,
-		 *
-		 * Plus it ensures visibility changes and relations and layers
-		 * visibility update has proper flags to work with.
-		 */
-		if (GS(id->name) == ID_OB) {
-			Object *object = (Object *)id;
-			ComponentDepsNode *comp_node = node->owner;
-			if (comp_node->type == DEPSNODE_TYPE_ANIMATION) {
-				object->recalc |= OB_RECALC_TIME;
-			}
-			else if (comp_node->type == DEPSNODE_TYPE_TRANSFORM) {
-				object->recalc |= OB_RECALC_OB;
-			}
-			else {
-				object->recalc |= OB_RECALC_DATA;
-			}
-		}
-
-		/* Flush to nodes along links... */
-		foreach (DepsRelation *rel, node->outlinks) {
-			OperationDepsNode *to_node = (OperationDepsNode *)rel->to;
-			if (to_node->scheduled == false) {
-				to_node->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
-				queue.push(to_node);
-				to_node->scheduled = true;
-				if (id_node->done == 0) {
-					deg_editors_id_update(bmain, id_node->id);
-					id_node->done = 1;
-				}
-			}
-		}
-
-		/* TODO(sergey): For until incremental updates are possible
-		 * witin a component at least we tag the whole component
-		 * for update.
-		 */
-		ComponentDepsNode *component = node->owner;
-		if ((component->flags & DEPSCOMP_FULLY_SCHEDULED) == 0) {
-			for (ComponentDepsNode::OperationMap::iterator it = component->operations.begin();
-			     it != node->owner->operations.end();
-			     ++it)
-			{
-				OperationDepsNode *op = it->second;
-				op->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
-			}
-			component->flags |= DEPSCOMP_FULLY_SCHEDULED;
-		}
-	}
-}
-
 /* Recursively push updates out to all nodes dependent on this,
  * until all affected are tagged and/or scheduled up for eval
  */
@@ -388,7 +272,7 @@ void DEG_ids_flush_tagged(Main *bmain)
 	{
 		/* TODO(sergey): Only visible scenes? */
 		if (scene->depsgraph != NULL) {
-			DEG_graph_flush_updates(bmain, scene->depsgraph);
+			DEG::deg_graph_flush_updates(bmain, scene->depsgraph);
 		}
 	}
 }

@@ -42,6 +42,7 @@ extern "C" {
 } /* extern "C" */
 
 #include "eval/deg_eval.h"
+#include "eval/deg_eval_flush.h"
 #include "depsgraph.h"
 #include "depsnode_operation.h"
 
@@ -136,7 +137,7 @@ void DEG_evaluate_on_framechange(EvaluationContext *eval_ctx,
 
 	tsrc->tag_update(graph);
 
-	DEG_graph_flush_updates(bmain, graph);
+	DEG::deg_graph_flush_updates(bmain, graph);
 
 	/* Perform recalculation updates. */
 	DEG::deg_evaluate_on_refresh(eval_ctx, graph, layers);

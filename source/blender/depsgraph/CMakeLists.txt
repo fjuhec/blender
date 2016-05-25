@@ -47,6 +47,7 @@ set(SRC
 	intern/builder/deg_builder_relations.cc
 	intern/eval/deg_eval.cc
 	intern/eval/deg_eval_debug.cc
+	intern/eval/deg_eval_flush.cc
 	intern/depsgraph.cc
 	intern/depsnode.cc
 	intern/depsnode_component.cc
@@ -73,6 +74,7 @@ set(SRC
 	intern/builder/deg_builder_relations.h
 	intern/eval/deg_eval.h
 	intern/eval/deg_eval_debug.h
+	intern/eval/deg_eval_flush.h
 	intern/depsgraph.h
 	intern/depsnode.h
 	intern/depsnode_component.h
