@@ -55,6 +55,7 @@ static SpaceLink *layers_new(const bContext *UNUSED(C))
 
 	slayer = MEM_callocN(sizeof(SpaceLayers), __func__);
 	slayer->spacetype = SPACE_LAYERS;
+	slayer->last_selected = -1;
 
 	/* header */
 	ar = MEM_callocN(sizeof(ARegion), "header for layer manager");

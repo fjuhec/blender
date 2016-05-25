@@ -32,6 +32,9 @@
 #include "ED_object.h"
 #include "ED_screen.h"
 
+#include "RNA_access.h"
+#include "RNA_define.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -76,7 +79,7 @@ static int layer_rename_invoke(bContext *C, wmOperator *UNUSED(op), const wmEven
 {
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	ARegion *ar = CTX_wm_region(C);
-	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval, NULL);
 	if (tile) {
 		tile->flag |= LAYERTILE_RENAME;
 
@@ -101,21 +104,91 @@ static void LAYERS_OT_layer_rename(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-static void layers_deselect_all(const SpaceLayers *slayer)
+BLI_INLINE void layer_selection_set(SpaceLayers *slayer, LayerTile *tile, const int tile_idx, const bool enable)
 {
-	for (LayerTile *tile = slayer->layer_tiles.first; tile; tile = tile->next) {
+	if (enable) {
+		(tile->flag |= LAYERTILE_SELECTED);
+		slayer->last_selected = tile_idx;
+	}
+	else {
 		tile->flag &= ~LAYERTILE_SELECTED;
 	}
 }
 
-static int layer_select_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+/**
+ * Change the selection state of all layer tiles.
+ * \param enable: If true, tiles are selected, else they are deselected.
+ */
+static void layers_selection_set_all(SpaceLayers *slayer, const bool enable)
+{
+	int i = 0;
+	for (LayerTile *tile = slayer->layer_tiles.first; tile; tile = tile->next, i++) {
+		layer_selection_set(slayer, tile, i, enable);
+	}
+}
+
+/**
+ * Select everything within the range of \a from to \a to.
+ * \return if anything got selected. Nothing is selected if from == to or one of them is < 0.
+ */
+static bool layers_select_fill(SpaceLayers *slayer, const int from, const int to)
+{
+	const int min = MIN2(from, to);
+	const int max = MAX2(from, to);
+
+	if (min < 0 || min == max)
+		return false;
+
+	int i = 0;
+	for (LayerTile *tile = slayer->layer_tiles.first; tile && i <= max; tile = tile->next, i++) {
+		if (i >= min) {
+			layer_selection_set(slayer, tile, i, true);
+		}
+	}
+	return true;
+}
+
+static int layer_select_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	ARegion *ar = CTX_wm_region(C);
-	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
+	const bool extend = RNA_boolean_get(op->ptr, "extend");
+	const bool deselect = RNA_boolean_get(op->ptr, "deselect");
+	const bool toggle = RNA_boolean_get(op->ptr, "toggle");
+	const bool fill = RNA_boolean_get(op->ptr, "fill");
+
+	int tile_idx;
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval, &tile_idx);
+
+	/* little helper for setting/unsetting selection flag */
+#define TILE_SET_SELECTION(enable) layer_selection_set(slayer, tile, tile_idx, enable);
+
 	if (tile) {
-		layers_deselect_all(slayer);
-		tile->flag |= LAYERTILE_SELECTED;
+		/* deselect all, but only if extend, deselect and toggle are false */
+		if (((extend == deselect) == toggle) == false) {
+			layers_selection_set_all(slayer, false);
+		}
+		if (extend) {
+			if (fill && layers_select_fill(slayer, slayer->last_selected, tile_idx)) {
+				/* skip */
+			}
+			else {
+				TILE_SET_SELECTION(true);
+			}
+		}
+		else if (deselect) {
+			TILE_SET_SELECTION(false);
+		}
+		else {
+			if (!tile->flag & LAYERTILE_SELECTED) {
+				TILE_SET_SELECTION(true);
+			}
+			else if (toggle) {
+				TILE_SET_SELECTION(false);
+			}
+		}
+
+#undef TILE_SET_SELECTION
 
 		ED_region_tag_redraw(ar);
 		return OPERATOR_FINISHED;
@@ -123,15 +196,49 @@ static int layer_select_invoke(bContext *C, wmOperator *UNUSED(op), const wmEven
 	return OPERATOR_CANCELLED;
 }
 
-static void LAYERS_OT_layer_select(wmOperatorType *ot)
+static void LAYERS_OT_select(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Select Layer";
-	ot->idname = "LAYERS_OT_layer_select";
+	ot->idname = "LAYERS_OT_select";
 	ot->description = "Select/activate the layer under the cursor";
 
 	/* api callbacks */
 	ot->invoke = layer_select_invoke;
+	ot->poll = ED_operator_layers_active;
+
+	WM_operator_properties_mouse_select(ot);
+	PropertyRNA *prop = RNA_def_boolean(ot->srna, "fill", false, "Fill", "Select everything beginning "
+	                                                                     "with the last selection");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+}
+
+static int layer_select_all_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+{
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	LayerTile *tile;
+
+	for (tile = slayer->layer_tiles.first; tile; tile = tile->next) {
+		if (tile->flag & LAYERTILE_SELECTED) {
+			break;
+		}
+	}
+	/* if a tile was found we deselect all, else we select all */
+	layers_selection_set_all(slayer, tile == NULL);
+	ED_region_tag_redraw(CTX_wm_region(C));
+
+	return OPERATOR_FINISHED;
+}
+
+static void LAYERS_OT_select_all_toggle(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "(De)select All Layers";
+	ot->idname = "LAYERS_OT_select_all_toggle";
+	ot->description = "Select or deselect all layers";
+
+	/* api callbacks */
+	ot->invoke = layer_select_all_toggle_invoke;
 	ot->poll = ED_operator_layers_active;
 }
 
@@ -145,13 +252,23 @@ void layers_operatortypes(void)
 	WM_operatortype_append(LAYERS_OT_layer_rename);
 
 	/* states (activating selecting, highlighting) */
-	WM_operatortype_append(LAYERS_OT_layer_select);
+	WM_operatortype_append(LAYERS_OT_select);
+	WM_operatortype_append(LAYERS_OT_select_all_toggle);
 }
 
 void layers_keymap(wmKeyConfig *keyconf)
 {
 	wmKeyMap *keymap = WM_keymap_find(keyconf, "Layer Manager", SPACE_LAYERS, 0);
-	WM_keymap_add_item(keymap, "LAYERS_OT_layer_select", LEFTMOUSE, KM_CLICK, 0, 0);
+	wmKeyMapItem *kmi;
+
+	/* selection */
+	WM_keymap_add_item(keymap, "LAYERS_OT_select", LEFTMOUSE, KM_CLICK, 0, 0);
+	kmi = WM_keymap_add_item(keymap, "LAYERS_OT_select", LEFTMOUSE, KM_CLICK, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "LAYERS_OT_select", LEFTMOUSE, KM_CLICK, KM_CTRL | KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "extend", true);
+	RNA_boolean_set(kmi->ptr, "fill", true);
+	WM_keymap_add_item(keymap, "LAYERS_OT_select_all_toggle", AKEY, KM_PRESS, 0, 0);
 
 	WM_keymap_add_item(keymap, "LAYERS_OT_layer_rename", LEFTMOUSE, KM_DBL_CLICK, 0, 0);
 	WM_keymap_add_item(keymap, "LAYERS_OT_layer_rename", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);

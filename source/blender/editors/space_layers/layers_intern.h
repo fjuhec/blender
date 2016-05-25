@@ -49,7 +49,9 @@ void layers_tiles_draw(const struct bContext *C, struct ARegion *ar);
 
 /* layers_util.c */
 LayerTile *layers_tile_add(struct SpaceLayers *slayer, struct LayerTreeItem *litem);
-LayerTile *layers_tile_find_at_coordinate(const SpaceLayers *slayer, const ARegion *ar, const int co[2]);
+LayerTile *layers_tile_find_at_coordinate(
+        const struct SpaceLayers *slayer, const ARegion *ar, const int co[2],
+        int *r_tile_idx);
 
 /* layers_ops.c */
 void layers_operatortypes(void);

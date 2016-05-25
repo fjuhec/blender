@@ -51,16 +51,27 @@ LayerTile *layers_tile_add(SpaceLayers *slayer, LayerTreeItem *litem)
 
 /**
  * Find the tile at coordinate \a co (regionspace).
+ * \param r_tile_idx: Returns the index of the result, -1 if no tile was found.
  */
-LayerTile *layers_tile_find_at_coordinate(const SpaceLayers *slayer, const ARegion *ar, const int co[2])
+LayerTile *layers_tile_find_at_coordinate(
+        const SpaceLayers *slayer, const ARegion *ar, const int co[2],
+        int *r_tile_idx)
 {
+	LayerTile *tile;
 	int ofsx = 0;
+	unsigned int idx = 0;
 
-	for (LayerTile *tile = slayer->layer_tiles.first; tile; tile = tile->next) {
+	for (tile = slayer->layer_tiles.first; tile; tile = tile->next, idx++) {
 		ofsx += tile->litem->height;
 		if (co[1] >= -ar->v2d.cur.ymin - ofsx) {
-			return tile;
+			/* found tile */
+			break;
 		}
 	}
-	return NULL;
+
+	/* return values */
+	if (r_tile_idx) {
+		(*r_tile_idx) = (tile != NULL) ? idx : -1;
+	}
+	return tile;
 }

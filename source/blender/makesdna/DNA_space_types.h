@@ -1338,8 +1338,9 @@ typedef struct SpaceLayers {
 	SpaceLink *next, *prev;
 	ListBase regionbase;        /* storage of regions for inactive spaces */
 	int spacetype;
-	int pad;
 
+	/* index of last selected item, will likely become redundant when active layers are supported */
+	int last_selected;
 	ListBase layer_tiles; /* LayerTile */
 } SpaceLayers;
 
