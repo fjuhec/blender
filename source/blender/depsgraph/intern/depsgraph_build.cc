@@ -30,8 +30,6 @@
  * Methods for constructing depsgraph.
  */
 
-#include <stack>
-
 #include "MEM_guardedalloc.h"
 
 extern "C" {
@@ -91,12 +89,15 @@ extern "C" {
 #include "RNA_types.h"
 } /* extern "C" */
 
+#include "builder/deg_builder.h"
+#include "builder/deg_builder_nodes.h"
+#include "builder/deg_builder_relations.h"
+
 #include "depsnode.h"
 #include "depsnode_component.h"
 #include "depsgraph_debug.h"
 #include "depsnode_operation.h"
 #include "depsgraph_types.h"
-#include "depsgraph_build.h"
 #include "depsgraph_intern.h"
 
 #include "depsgraph_util_cycle.h"
@@ -106,7 +107,8 @@ extern "C" {
 /* ****************** */
 /* External Build API */
 
-static eDepsNode_Type deg_build_scene_component_type(eDepsSceneComponentType component)
+static eDepsNode_Type deg_build_scene_component_type(
+        eDepsSceneComponentType component)
 {
 	switch (component) {
 		case DEG_SCENE_COMP_PARAMETERS:     return DEPSNODE_TYPE_PARAMETERS;
@@ -116,7 +118,8 @@ static eDepsNode_Type deg_build_scene_component_type(eDepsSceneComponentType com
 	return DEPSNODE_TYPE_UNDEFINED;
 }
 
-static eDepsNode_Type deg_build_object_component_type(eDepsObjectComponentType component)
+static eDepsNode_Type deg_build_object_component_type(
+        eDepsObjectComponentType component)
 {
 	switch (component) {
 		case DEG_OB_COMP_PARAMETERS:        return DEPSNODE_TYPE_PARAMETERS;
@@ -132,27 +135,55 @@ static eDepsNode_Type deg_build_object_component_type(eDepsObjectComponentType c
 	return DEPSNODE_TYPE_UNDEFINED;
 }
 
-void DEG_add_scene_relation(DepsNodeHandle *handle, struct Scene *scene, eDepsSceneComponentType component, const char *description)
+static DEG::DepsNodeHandle *get_handle(DepsNodeHandle *handle)
+{
+	return reinterpret_cast<DEG::DepsNodeHandle *>(handle);
+}
+
+void DEG_add_scene_relation(DepsNodeHandle *handle,
+                            Scene *scene,
+                            eDepsSceneComponentType component,
+                            const char *description)
 {
 	eDepsNode_Type type = deg_build_scene_component_type(component);
-	ComponentKey comp_key(&scene->id, type);
-	handle->builder->add_node_handle_relation(comp_key, handle, DEPSREL_TYPE_GEOMETRY_EVAL, description);
+	DEG::ComponentKey comp_key(&scene->id, type);
+	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
+	deg_handle->builder->add_node_handle_relation(comp_key,
+	                                              deg_handle,
+	                                              DEPSREL_TYPE_GEOMETRY_EVAL,
+	                                              description);
 }
 
-void DEG_add_object_relation(DepsNodeHandle *handle, struct Object *ob, eDepsObjectComponentType component, const char *description)
+void DEG_add_object_relation(DepsNodeHandle *handle,
+                             Object *ob,
+                             eDepsObjectComponentType component,
+                             const char *description)
 {
 	eDepsNode_Type type = deg_build_object_component_type(component);
-	ComponentKey comp_key(&ob->id, type);
-	handle->builder->add_node_handle_relation(comp_key, handle, DEPSREL_TYPE_GEOMETRY_EVAL, description);
+	DEG::ComponentKey comp_key(&ob->id, type);
+	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
+	deg_handle->builder->add_node_handle_relation(comp_key,
+	                                              deg_handle,
+	                                              DEPSREL_TYPE_GEOMETRY_EVAL,
+	                                              description);
 }
 
-void DEG_add_bone_relation(DepsNodeHandle *handle, struct Object *ob, const char *bone_name, eDepsObjectComponentType component, const char *description)
+void DEG_add_bone_relation(DepsNodeHandle *handle,
+                           Object *ob,
+                           const char *bone_name,
+                           eDepsObjectComponentType component,
+                           const char *description)
 {
 	eDepsNode_Type type = deg_build_object_component_type(component);
-	ComponentKey comp_key(&ob->id, type, bone_name);
-
-	// XXX: "Geometry Eval" might not always be true, but this only gets called from modifier building now
-	handle->builder->add_node_handle_relation(comp_key, handle, DEPSREL_TYPE_GEOMETRY_EVAL, description);
+	DEG::ComponentKey comp_key(&ob->id, type, bone_name);
+	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
+	/* XXX: "Geometry Eval" might not always be true, but this only gets called
+	 * from modifier building now.
+	 */
+	deg_handle->builder->add_node_handle_relation(comp_key,
+	                                              deg_handle,
+	                                              DEPSREL_TYPE_GEOMETRY_EVAL,
+	                                              description);
 }
 
 void DEG_add_special_eval_flag(Depsgraph *graph, ID *id, short flag)
@@ -169,85 +200,6 @@ void DEG_add_special_eval_flag(Depsgraph *graph, ID *id, short flag)
 	id_node->eval_flags |= flag;
 }
 
-/* ********************** */
-/* Utilities for Builders */
-
-/* Get unique identifier for FCurves and Drivers */
-string deg_fcurve_id_name(const FCurve *fcu)
-{
-	char index_buf[32];
-	sprintf(index_buf, "[%d]", fcu->array_index);
-
-	return string(fcu->rna_path) + index_buf;
-}
-
-static void deg_graph_build_finalize(Depsgraph *graph)
-{
-	std::stack<OperationDepsNode *> stack;
-
-	foreach (OperationDepsNode *node, graph->operations) {
-		node->done = 0;
-		node->num_links_pending = 0;
-		foreach (DepsRelation *rel, node->inlinks) {
-			if ((rel->from->type == DEPSNODE_TYPE_OPERATION) &&
-			    (rel->flag & DEPSREL_FLAG_CYCLIC) == 0)
-			{
-				++node->num_links_pending;
-			}
-		}
-		if (node->num_links_pending == 0) {
-			stack.push(node);
-		}
-		IDDepsNode *id_node = node->owner->owner;
-		id_node->id->tag |= LIB_TAG_DOIT;
-	}
-
-	while (!stack.empty()) {
-		OperationDepsNode *node = stack.top();
-		if (node->done == 0 && node->outlinks.size() != 0) {
-			foreach (DepsRelation *rel, node->outlinks) {
-				if (rel->to->type == DEPSNODE_TYPE_OPERATION) {
-					OperationDepsNode *to = (OperationDepsNode *)rel->to;
-					if ((rel->flag & DEPSREL_FLAG_CYCLIC) == 0) {
-						BLI_assert(to->num_links_pending > 0);
-						--to->num_links_pending;
-					}
-					if (to->num_links_pending == 0) {
-						stack.push(to);
-					}
-				}
-			}
-			node->done = 1;
-		}
-		else {
-			stack.pop();
-			IDDepsNode *id_node = node->owner->owner;
-			foreach (DepsRelation *rel, node->outlinks) {
-				if (rel->to->type == DEPSNODE_TYPE_OPERATION) {
-					OperationDepsNode *to = (OperationDepsNode *)rel->to;
-					IDDepsNode *id_to = to->owner->owner;
-					id_node->layers |= id_to->layers;
-				}
-			}
-		}
-	}
-	
-	/* Re-tag IDs for update if it was tagged before the relations update tag. */
-	for (Depsgraph::IDNodeMap::const_iterator it = graph->id_hash.begin();
-	     it != graph->id_hash.end();
-	     ++it)
-	{
-		IDDepsNode *id_node = it->second;
-		ID *id = id_node->id;
-		if (id->tag & LIB_TAG_ID_RECALC_ALL &&
-		    id->tag & LIB_TAG_DOIT)
-		{
-			id_node->tag_update(graph);
-			id->tag &= ~LIB_TAG_DOIT;
-		}
-	}
-}
-
 /* ******************** */
 /* Graph Building API's */
 
@@ -256,7 +208,7 @@ static void deg_graph_build_finalize(Depsgraph *graph)
 void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 {
 	/* 1) Generate all the nodes in the graph first */
-	DepsgraphNodeBuilder node_builder(bmain, graph);
+	DEG::DepsgraphNodeBuilder node_builder(bmain, graph);
 	/* create root node for scene first
 	 * - this way it should be the first in the graph,
 	 *   reflecting its role as the entrypoint
@@ -265,7 +217,7 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 	node_builder.build_scene(bmain, scene);
 
 	/* 2) Hook up relationships between operations - to determine evaluation order */
-	DepsgraphRelationBuilder relation_builder(graph);
+	DEG::DepsgraphRelationBuilder relation_builder(graph);
 	/* hook scene up to the root node as entrypoint to graph */
 	/* XXX what does this relation actually mean?
 	 * it doesnt add any operations anyway and is not clear what part of the scene is to be connected.
@@ -283,7 +235,7 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 	}
 
 	/* 4) Flush visibility layer and re-schedule nodes for update. */
-	deg_graph_build_finalize(graph);
+	DEG::deg_graph_build_finalize(graph);
 
 #if 0
 	if (!DEG_debug_consistency_check(graph)) {

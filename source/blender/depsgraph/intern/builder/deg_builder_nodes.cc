@@ -24,11 +24,13 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/intern/depsgraph_build_nodes.cc
+/** \file blender/depsgraph/intern/builder/deg_build_nodes.cc
  *  \ingroup depsgraph
  *
  * Methods for constructing depsgraph's nodes
  */
+
+#include "builder/deg_builder_nodes.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,12 +99,14 @@ extern "C" {
 #include "RNA_types.h"
 } /* extern "C" */
 
+#include "builder/deg_builder.h"
 #include "depsnode.h"
 #include "depsnode_component.h"
 #include "depsnode_operation.h"
 #include "depsgraph_types.h"
-#include "depsgraph_build.h"
 #include "depsgraph_intern.h"
+
+namespace DEG {
 
 /* ************ */
 /* Node Builder */
@@ -1234,3 +1238,5 @@ void DepsgraphNodeBuilder::build_gpencil(bGPdata *gpd)
 	 */
 	build_animdata(gpd_id);
 }
+
+}  // namespace DEG

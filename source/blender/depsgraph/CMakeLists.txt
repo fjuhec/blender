@@ -42,13 +42,14 @@ set(INC_SYS
 )
 
 set(SRC
+	intern/builder/deg_builder.cc
+	intern/builder/deg_builder_nodes.cc
+	intern/builder/deg_builder_relations.cc
 	intern/depsgraph.cc
 	intern/depsnode.cc
 	intern/depsnode_component.cc
 	intern/depsnode_operation.cc
 	intern/depsgraph_build.cc
-	intern/depsgraph_build_nodes.cc
-	intern/depsgraph_build_relations.cc
 	intern/depsgraph_debug.cc
 	intern/depsgraph_eval.cc
 	intern/depsgraph_query.cc
@@ -64,12 +65,14 @@ set(SRC
 	DEG_depsgraph_build.h
 	DEG_depsgraph_debug.h
 	DEG_depsgraph_query.h
+	intern/builder/deg_builder.h
+	intern/builder/deg_builder_nodes.h
+	intern/builder/deg_builder_relations.h
 	intern/depsgraph.h
 	intern/depsnode.h
 	intern/depsnode_component.h
 	intern/depsnode_operation.h
 	intern/depsnode_opcodes.h
-	intern/depsgraph_build.h
 	intern/depsgraph_debug.h
 	intern/depsgraph_intern.h
 	intern/depsgraph_queue.h

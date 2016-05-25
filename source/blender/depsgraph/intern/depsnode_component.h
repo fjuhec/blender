@@ -36,6 +36,9 @@
 #include "depsgraph_util_map.h"
 #include "depsgraph_util_set.h"
 
+#include "BLI_utildefines.h"
+#include "BLI_string.h"
+
 struct ID;
 struct bPoseChannel;
 
@@ -74,7 +77,7 @@ struct ComponentDepsNode : public DepsNode {
 		string identifier() const
 		{
 			char codebuf[5];
-			sprintf(codebuf, "%d", opcode);
+			BLI_snprintf(codebuf, sizeof(codebuf), "%d", opcode);
 
 			return string("OperationIDKey(") + codebuf + ", " + name + ")";
 		}
