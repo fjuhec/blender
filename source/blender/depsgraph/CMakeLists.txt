@@ -56,7 +56,6 @@ set(SRC
 	intern/depsgraph_debug.cc
 	intern/depsgraph_eval.cc
 	intern/depsgraph_query.cc
-	intern/depsgraph_queue.cc
 	intern/depsgraph_tag.cc
 	intern/depsgraph_type_defines.cc
 	intern/depsnode_opcodes.cc
@@ -82,7 +81,6 @@ set(SRC
 	intern/depsnode_opcodes.h
 	intern/depsgraph_debug.h
 	intern/depsgraph_intern.h
-	intern/depsgraph_queue.h
 	intern/depsgraph_types.h
 
 	util/depsgraph_util_cycle.h
