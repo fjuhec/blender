@@ -85,8 +85,7 @@ void DEG_graph_traverse_from_node(Depsgraph *graph, OperationDepsNode *start_nod
 		op(graph, node, operation_data);
 
 		/* schedule up operations which depend on this */
-		DEPSNODE_RELATIONS_ITER_BEGIN(node->outlinks, rel)
-		{
+		foreach (DepsRelation *rel, node->outlinks) {
 			/* ensure that relationship is not tagged for ignoring (i.e. cyclic, etc.) */
 			// TODO: cyclic refs should probably all get clustered towards the end, so that we can just stop on the first one
 			if ((rel->flag & DEPSREL_FLAG_CYCLIC) == 0) {
@@ -100,7 +99,6 @@ void DEG_graph_traverse_from_node(Depsgraph *graph, OperationDepsNode *start_nod
 				}
 			}
 		}
-		DEPSNODE_RELATIONS_ITER_END;
 	} while (DEG_queue_is_empty(q) == false);
 
 	/* cleanup */

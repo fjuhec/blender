@@ -261,8 +261,7 @@ static void calculate_pending_func(void *data_v, int i)
 	if ((id_node->layers & layers) != 0 &&
 	    (node->flag & DEPSOP_FLAG_NEEDS_UPDATE) != 0)
 	{
-		DEPSNODE_RELATIONS_ITER_BEGIN(node->inlinks, rel)
-		{
+		foreach (DepsRelation *rel, node->inlinks) {
 			if (rel->from->type == DEPSNODE_TYPE_OPERATION &&
 			    (rel->flag & DEPSREL_FLAG_CYCLIC) == 0)
 			{
@@ -275,7 +274,6 @@ static void calculate_pending_func(void *data_v, int i)
 				}
 			}
 		}
-		DEPSNODE_RELATIONS_ITER_END;
 	}
 }
 
@@ -370,8 +368,7 @@ static void schedule_children(TaskPool *pool,
                               const int layers,
                               const int thread_id)
 {
-	DEPSNODE_RELATIONS_ITER_BEGIN(node->outlinks, rel)
-	{
+	foreach (DepsRelation *rel, node->outlinks) {
 		OperationDepsNode *child = (OperationDepsNode *)rel->to;
 		BLI_assert(child->type == DEPSNODE_TYPE_OPERATION);
 		if (child->scheduled) {
@@ -380,7 +377,6 @@ static void schedule_children(TaskPool *pool,
 		}
 		schedule_node(pool, graph, layers, child, (rel->flag & DEPSREL_FLAG_CYCLIC) == 0, thread_id);
 	}
-	DEPSNODE_RELATIONS_ITER_END;
 }
 
 /**

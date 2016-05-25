@@ -198,27 +198,4 @@ struct Depsgraph {
 	// XXX: additional stuff like eval contexts, mempools for allocating nodes from, etc.
 };
 
-/**
- * Helper macros for iterating over set of relationship links
- * incident on each node.
- *
- * \note it is safe to perform removal operations here...
- *
- * relations_set[in]: (DepsNode::Relations) set of relationships (in/out links)
- * relation[out]:  (DepsRelation *) identifier where DepsRelation that we're
- *              currently accessing comes up
- */
-#define DEPSNODE_RELATIONS_ITER_BEGIN(relations_set_, relation_) \
-	{ \
-		OperationDepsNode::Relations::const_iterator __rel_iter = relations_set_.begin();  \
-		while (__rel_iter != relations_set_.end()) { \
-			DepsRelation *relation_ = *__rel_iter; \
-			++__rel_iter; \
-
-			/* ... code for iterator body can be written here ... */
-
-#define DEPSNODE_RELATIONS_ITER_END \
-		} \
-	} ((void)0)
-
 #endif  /* __DEPSGRAPH_H__ */

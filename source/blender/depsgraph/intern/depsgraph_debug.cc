@@ -598,8 +598,7 @@ static bool deg_debug_graphviz_is_owner(const DepsNode *node,
 static void deg_debug_graphviz_node_relations(const DebugContext &ctx,
                                               const DepsNode *node)
 {
-	DEPSNODE_RELATIONS_ITER_BEGIN(node->inlinks, rel)
-	{
+	foreach (DepsRelation *rel, node->inlinks) {
 		float penwidth = 2.0f;
 		
 		const DepsNode *tail = rel->to; /* same as node */
@@ -639,7 +638,6 @@ static void deg_debug_graphviz_node_relations(const DebugContext &ctx,
 		deg_debug_fprintf(ctx, "];" NL);
 		deg_debug_fprintf(ctx, NL);
 	}
-	DEPSNODE_RELATIONS_ITER_END;
 
 #if 0
 	if (node->tclass == DEPSNODE_CLASS_COMPONENT) {

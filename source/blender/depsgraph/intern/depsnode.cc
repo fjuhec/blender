@@ -77,11 +77,9 @@ DepsNode::~DepsNode()
 	 * when we're trying to free same link from both it's sides. We don't have
 	 * dangling links so this is not a problem from memory leaks point of view.
 	 */
-	DEPSNODE_RELATIONS_ITER_BEGIN(this->inlinks, rel)
-	{
+	foreach (DepsRelation *rel, inlinks) {
 		OBJECT_GUARDED_DELETE(rel, DepsRelation);
 	}
-	DEPSNODE_RELATIONS_ITER_END;
 }
 
 

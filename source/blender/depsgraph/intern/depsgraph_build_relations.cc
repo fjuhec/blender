@@ -101,6 +101,7 @@ extern "C" {
 #include "depsgraph_intern.h"
 #include "depsgraph_types.h"
 
+#include "depsgraph_util_foreach.h"
 #include "depsgraph_util_pchanmap.h"
 
 /* ***************** */
@@ -786,8 +787,7 @@ void DepsgraphRelationBuilder::build_driver(ID *id, FCurve *fcu)
 
 		if (arm_node && bone_name) {
 			/* find objects which use this, and make their eval callbacks depend on this */
-			DEPSNODE_RELATIONS_ITER_BEGIN(arm_node->outlinks, rel)
-			{
+			foreach (DepsRelation *rel, arm_node->outlinks) {
 				IDDepsNode *to_node = (IDDepsNode *)rel->to;
 
 				/* we only care about objects with pose data which use this... */
@@ -801,7 +801,6 @@ void DepsgraphRelationBuilder::build_driver(ID *id, FCurve *fcu)
 					}
 				}
 			}
-			DEPSNODE_RELATIONS_ITER_END;
 
 			/* free temp data */
 			MEM_freeN(bone_name);
