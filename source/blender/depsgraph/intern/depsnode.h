@@ -28,8 +28,7 @@
  *  \ingroup depsgraph
  */
 
-#ifndef __DEPSNODE_H__
-#define __DEPSNODE_H__
+#pragma once
 
 #include "depsgraph_types.h"
 
@@ -244,5 +243,3 @@ typedef enum eSubgraphRef_Flag {
 } eSubgraphRef_Flag;
 
 void DEG_register_base_depsnodes();
-
-#endif  /* __DEPSNODE_H__ */

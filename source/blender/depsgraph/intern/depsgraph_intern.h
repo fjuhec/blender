@@ -31,8 +31,7 @@
  * - Also, defines for "Node Type Info"
  */
 
-#ifndef __DEPSGRAPH_INTERN_H__
-#define __DEPSGRAPH_INTERN_H__
+#pragma once
 
 #include <cstdlib>
 
@@ -164,5 +163,3 @@ DepsNodeFactory *DEG_node_get_factory(const DepsNode *node);
 void deg_editors_id_update(struct Main *bmain, struct ID *id);
 
 void deg_editors_scene_update(struct Main *bmain, struct Scene *scene, bool updated);
-
-#endif  /* __DEPSGRAPH_INTERN_H__ */

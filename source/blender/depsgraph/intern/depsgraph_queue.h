@@ -30,8 +30,7 @@
  * Defines for special queue type for use in Depsgraph traversals.
  */
 
-#ifndef __DEPSGRAPH_QUEUE_H__
-#define __DEPSGRAPH_QUEUE_H__
+#pragma once
 
 struct DepsNode;
 
@@ -87,5 +86,3 @@ bool DEG_queue_is_empty(DepsgraphQueue *q);
 /* Operations */
 void DEG_queue_push(DepsgraphQueue *q, void *dnode, float cost = 0.0f);
 void *DEG_queue_pop(DepsgraphQueue *q);
-
-#endif  /* DEPSGRAPH_QUEUE_H */

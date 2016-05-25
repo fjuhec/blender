@@ -28,8 +28,7 @@
  *  \ingroup depsgraph
  */
 
-#ifndef __DEPSGRAPH_DEBUG_H__
-#define __DEPSGRAPH_DEBUG_H__
+#pragma once
 
 #include "depsgraph_types.h"
 
@@ -78,10 +77,8 @@ struct DepsgraphDebug {
 };
 
 #define DEG_DEBUG_PRINTF(...) \
-	{ \
+	do { \
 		if (G.debug & G_DEBUG_DEPSGRAPH) { \
 			fprintf(stderr, __VA_ARGS__); \
 		} \
-	} \
-
-#endif  /* __DEPSGRAPH_DEBUG_H__ */
+	} while (0)

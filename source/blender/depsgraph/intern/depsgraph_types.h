@@ -34,8 +34,7 @@
  * in the graph.
  */
 
-#ifndef __DEPSGRAPH_TYPES_H__
-#define __DEPSGRAPH_TYPES_H__
+#pragma once
 
 #include "depsgraph_util_function.h"
 
@@ -169,5 +168,3 @@ typedef enum eDepsRelation_Type {
 	/* relationship is used to trigger editor/screen updates */
 	DEPSREL_TYPE_UPDATE_UI,
 } eDepsRelation_Type;
-
-#endif  /* __DEPSGRAPH_TYPES_H__ */

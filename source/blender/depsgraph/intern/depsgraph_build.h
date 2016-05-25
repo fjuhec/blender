@@ -28,8 +28,7 @@
  *  \ingroup depsgraph
  */
 
-#ifndef __DEPSGRAPH_BUILD_H__
-#define __DEPSGRAPH_BUILD_H__
+#pragma once
 
 struct Base;
 struct bGPdata;
@@ -413,5 +412,3 @@ DepsNodeHandle DepsgraphRelationBuilder::create_node_handle(const KeyType &key,
 {
 	return DepsNodeHandle(this, find_node(key), default_name);
 }
-
-#endif  /* __DEPSGRAPH_BUILD_H__ */

@@ -34,8 +34,7 @@
  * in the graph.
  */
 
-#ifndef __DEPSGRAPH_H__
-#define __DEPSGRAPH_H__
+#pragma once
 
 #include "BLI_threads.h"  /* for SpinLock */
 
@@ -197,5 +196,3 @@ struct Depsgraph {
 
 	// XXX: additional stuff like eval contexts, mempools for allocating nodes from, etc.
 };
-
-#endif  /* __DEPSGRAPH_H__ */
