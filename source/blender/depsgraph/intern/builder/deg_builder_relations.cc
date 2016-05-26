@@ -96,6 +96,7 @@ extern "C" {
 } /* extern "C" */
 
 #include "intern/builder/deg_builder.h"
+#include "intern/builder/deg_builder_pchanmap.h"
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
@@ -105,7 +106,6 @@ extern "C" {
 #include "intern/depsgraph_types.h"
 
 #include "util/depsgraph_util_foreach.h"
-#include "util/depsgraph_util_pchanmap.h"
 
 namespace DEG {
 

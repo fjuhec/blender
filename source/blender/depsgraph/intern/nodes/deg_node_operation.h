@@ -85,7 +85,7 @@ struct OperationDepsNode : public DepsNode {
 	bool scheduled;
 
 	/* Stage of evaluation */
-	eDepsOperation optype;
+	eDepsOperation_Type optype;
 
 	/* Identifier for the operation being performed. */
 	eDepsOperation_Code opcode;

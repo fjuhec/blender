@@ -43,6 +43,7 @@ set(SRC
 	intern/builder/deg_builder.cc
 	intern/builder/deg_builder_cycle.cc
 	intern/builder/deg_builder_nodes.cc
+	intern/builder/deg_builder_pchanmap.cc
 	intern/builder/deg_builder_relations.cc
 	intern/builder/deg_builder_transitive.cc
 	intern/debug/deg_debug_graphviz.cc
@@ -59,7 +60,6 @@ set(SRC
 	intern/depsgraph_query.cc
 	intern/depsgraph_tag.cc
 	intern/depsgraph_type_defines.cc
-	util/depsgraph_util_pchanmap.cc
 
 	DEG_depsgraph.h
 	DEG_depsgraph_build.h
@@ -69,6 +69,7 @@ set(SRC
 	intern/builder/deg_builder.h
 	intern/builder/deg_builder_cycle.h
 	intern/builder/deg_builder_nodes.h
+	intern/builder/deg_builder_pchanmap.h
 	intern/builder/deg_builder_relations.h
 	intern/builder/deg_builder_transitive.h
 	intern/eval/deg_eval.h
@@ -84,7 +85,6 @@ set(SRC
 	util/depsgraph_util_function.h
 	util/depsgraph_util_hash.h
 	util/depsgraph_util_map.h
-	util/depsgraph_util_pchanmap.h
 	util/depsgraph_util_set.h
 )
 
