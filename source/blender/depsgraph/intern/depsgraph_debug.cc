@@ -222,15 +222,13 @@ void DEG_stats_simple(const Depsgraph *graph, size_t *r_outer,
 		GHASH_ITER (gh_iter, deg_graph->id_hash) {
 			DEG::IDDepsNode *id_node = reinterpret_cast<DEG::IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 			tot_outer++;
-			for (DEG::IDDepsNode::ComponentMap::const_iterator it = id_node->components.begin();
-			     it != id_node->components.end();
-			     ++it)
-			{
-				DEG::ComponentDepsNode *comp_node = it->second;
+			GHashIterator gh_comp_iter;
+			GHASH_ITER (gh_iter, id_node->components) {
+				DEG::ComponentDepsNode *comp_node = reinterpret_cast<DEG::ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_comp_iter));
 				tot_outer++;
-				GHashIterator gh_iter;
-				GHASH_ITER (gh_iter, comp_node->operations) {
-					DEG::OperationDepsNode *op_node = reinterpret_cast<DEG::OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+				GHashIterator gh_op_iter;
+				GHASH_ITER (gh_op_iter, comp_node->operations) {
+					DEG::OperationDepsNode *op_node = reinterpret_cast<DEG::OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_op_iter));
 					tot_rels += op_node->inlinks.size();
 				}
 			}

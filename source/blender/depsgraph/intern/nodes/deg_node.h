@@ -37,6 +37,7 @@
 #include "util/deg_util_set.h"
 
 struct ID;
+struct GHash;
 struct Scene;
 
 namespace DEG {
@@ -158,23 +159,6 @@ struct IDDepsNode : public DepsNode {
 		string name;
 	};
 
-	/* XXX can't specialize std::hash for this purpose, because ComponentIDKey is
-	 * a nested type ...
-	 *
-	 *   http://stackoverflow.com/a/951245
-	 */
-	struct component_key_hash {
-		bool operator() (const ComponentIDKey &key) const
-		{
-			return hash_combine(BLI_ghashutil_uinthash(key.type),
-			                    BLI_ghashutil_strhash_p(key.name.c_str()));
-		}
-	};
-
-	typedef unordered_map<ComponentIDKey,
-	                      ComponentDepsNode *,
-	                      component_key_hash> ComponentMap;
-
 	void init(const ID *id, const string &subdata);
 	~IDDepsNode();
 
@@ -191,7 +175,7 @@ struct IDDepsNode : public DepsNode {
 	ID *id;
 
 	/* Hash to make it faster to look up components. */
-	ComponentMap components;
+	GHash *components;
 
 	/* Layers of this node with accumulated layers of it's output relations. */
 	int layers;

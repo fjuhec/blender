@@ -365,16 +365,14 @@ static void deg_debug_graphviz_node(const DebugContext &ctx,
 		case DEPSNODE_TYPE_ID_REF:
 		{
 			const IDDepsNode *id_node = (const IDDepsNode *)node;
-			if (id_node->components.empty()) {
+			if (BLI_ghash_size(id_node->components) == 0) {
 				deg_debug_graphviz_node_single(ctx, node);
 			}
 			else {
 				deg_debug_graphviz_node_cluster_begin(ctx, node);
-				for (IDDepsNode::ComponentMap::const_iterator it = id_node->components.begin();
-				     it != id_node->components.end();
-				     ++it)
-				{
-					const ComponentDepsNode *comp = it->second;
+				GHashIterator gh_iter;
+				GHASH_ITER (gh_iter, id_node->components) {
+					const ComponentDepsNode *comp = reinterpret_cast<const ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 					deg_debug_graphviz_node(ctx, comp);
 				}
 				deg_debug_graphviz_node_cluster_end(ctx);
@@ -431,7 +429,7 @@ static bool deg_debug_graphviz_is_cluster(const DepsNode *node)
 		case DEPSNODE_TYPE_ID_REF:
 		{
 			const IDDepsNode *id_node = (const IDDepsNode *)node;
-			return !id_node->components.empty();
+			return BLI_ghash_size(id_node->components) > 0;
 		}
 		case DEPSNODE_TYPE_SUBGRAPH:
 		{
@@ -538,14 +536,12 @@ static void deg_debug_graphviz_graph_relations(const DebugContext &ctx,
 	GHashIterator gh_iter;
 	GHASH_ITER (gh_iter, graph->id_hash) {
 		IDDepsNode *id_node = reinterpret_cast<IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
-		for (IDDepsNode::ComponentMap::const_iterator it = id_node->components.begin();
-		     it != id_node->components.end();
-		     ++it)
-		{
-			ComponentDepsNode *comp_node = it->second;
-			GHashIterator gh_iter;
-			GHASH_ITER (gh_iter, comp_node->operations) {
-				OperationDepsNode *op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+		GHashIterator gh_comp_iter;
+		GHASH_ITER (gh_comp_iter, id_node->components) {
+			ComponentDepsNode *comp_node = reinterpret_cast<ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_comp_iter));
+			GHashIterator gh_op_iter;
+			GHASH_ITER (gh_op_iter, comp_node->operations) {
+				OperationDepsNode *op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_op_iter));
 				deg_debug_graphviz_node_relations(ctx, op_node);
 			}
 		}

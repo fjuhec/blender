@@ -34,6 +34,7 @@
 #include <string.h>
 
 #include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 
 extern "C" {
 #include "DNA_ID.h"
@@ -70,7 +71,7 @@ DepsNode::TypeInfo::TypeInfo(eDepsNode_Type type, const char *tname)
 
 DepsNode::DepsNode()
 {
-	this->name[0] = '\0';
+	name[0] = '\0';
 }
 
 DepsNode::~DepsNode()
@@ -140,6 +141,30 @@ static DepsNodeFactoryImpl<TimeSourceDepsNode> DNTI_TIMESOURCE;
 
 /* ID Node ================================================ */
 
+static unsigned int id_deps_node_hash_key(const void *key_v)
+{
+    const IDDepsNode::ComponentIDKey *key =
+            reinterpret_cast<const IDDepsNode::ComponentIDKey *>(key_v);
+    return hash_combine(BLI_ghashutil_uinthash(key->type),
+                        BLI_ghashutil_strhash_p(key->name.c_str()));
+}
+
+static bool id_deps_node_hash_key_cmp(const void *a, const void *b)
+{
+    const IDDepsNode::ComponentIDKey *key_a =
+            reinterpret_cast<const IDDepsNode::ComponentIDKey *>(a);
+    const IDDepsNode::ComponentIDKey *key_b =
+            reinterpret_cast<const IDDepsNode::ComponentIDKey *>(b);
+    return !(*key_a == *key_b);
+}
+
+static void id_deps_node_hash_key_free(void *key_v)
+{
+    typedef IDDepsNode::ComponentIDKey ComponentIDKey;
+    ComponentIDKey *key = reinterpret_cast<ComponentIDKey *>(key_v);
+    OBJECT_GUARDED_DELETE(key, ComponentIDKey);
+}
+
 /* Initialize 'id' node - from pointer data given. */
 void IDDepsNode::init(const ID *id, const string &UNUSED(subdata))
 {
@@ -148,6 +173,10 @@ void IDDepsNode::init(const ID *id, const string &UNUSED(subdata))
 	this->id = (ID *)id;
 	this->layers = (1 << 20) - 1;
 	this->eval_flags = 0;
+
+	components = BLI_ghash_new(id_deps_node_hash_key,
+	                           id_deps_node_hash_key_cmp,
+	                           "depsgraph id components hash");
 
 	/* NOTE: components themselves are created if/when needed.
 	 * This prevents problems with components getting added
@@ -159,27 +188,27 @@ void IDDepsNode::init(const ID *id, const string &UNUSED(subdata))
 IDDepsNode::~IDDepsNode()
 {
 	clear_components();
+	BLI_ghash_free(components, id_deps_node_hash_key_free, NULL);
 }
 
 ComponentDepsNode *IDDepsNode::find_component(eDepsNode_Type type,
                                               const string &name) const
 {
 	ComponentIDKey key(type, name);
-	ComponentMap::const_iterator it = components.find(key);
-	return it != components.end() ? it->second : NULL;
+	return reinterpret_cast<ComponentDepsNode *>(BLI_ghash_lookup(components, &key));
 }
 
 ComponentDepsNode *IDDepsNode::add_component(eDepsNode_Type type,
                                              const string &name)
 {
-	ComponentIDKey key(type, name);
 	ComponentDepsNode *comp_node = find_component(type, name);
 	if (!comp_node) {
 		DepsNodeFactory *factory = deg_get_node_factory(type);
 		comp_node = (ComponentDepsNode *)factory->create_node(this->id, "", name);
 
 		/* Register. */
-		this->components[key] = comp_node;
+		ComponentIDKey *key = OBJECT_GUARDED_NEW(ComponentIDKey, type, name);
+		BLI_ghash_insert(components, key, comp_node);
 		comp_node->owner = this;
 	}
 	return comp_node;
@@ -187,34 +216,30 @@ ComponentDepsNode *IDDepsNode::add_component(eDepsNode_Type type,
 
 void IDDepsNode::remove_component(eDepsNode_Type type, const string &name)
 {
-	ComponentIDKey key(type, name);
 	ComponentDepsNode *comp_node = find_component(type, name);
 	if (comp_node) {
 		/* Unregister. */
-		this->components.erase(key);
+		ComponentIDKey key(type, name);
+		BLI_ghash_remove(components, &key, id_deps_node_hash_key_free, NULL);
 		OBJECT_GUARDED_DELETE(comp_node, ComponentDepsNode);
 	}
 }
 
 void IDDepsNode::clear_components()
 {
-	for (ComponentMap::const_iterator it = components.begin();
-	     it != components.end();
-	     ++it)
-	{
-		ComponentDepsNode *comp_node = it->second;
+	GHashIterator gh_iter;
+	GHASH_ITER (gh_iter, components) {
+		ComponentDepsNode *comp_node = reinterpret_cast<ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 		OBJECT_GUARDED_DELETE(comp_node, ComponentDepsNode);
 	}
-	components.clear();
+	BLI_ghash_clear(components, id_deps_node_hash_key_free, NULL);
 }
 
 void IDDepsNode::tag_update(Depsgraph *graph)
 {
-	for (ComponentMap::const_iterator it = components.begin();
-	     it != components.end();
-	     ++it)
-	{
-		ComponentDepsNode *comp_node = it->second;
+	GHashIterator gh_iter;
+	GHASH_ITER (gh_iter, components) {
+		ComponentDepsNode *comp_node = reinterpret_cast<ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 		/* TODO(sergey): What about drievrs? */
 		bool do_component_tag = comp_node->type != DEPSNODE_TYPE_ANIMATION;
 		if (comp_node->type == DEPSNODE_TYPE_ANIMATION) {
