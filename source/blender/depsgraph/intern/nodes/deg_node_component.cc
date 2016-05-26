@@ -42,7 +42,7 @@ extern "C" {
 } /* extern "C" */
 
 #include "intern/nodes/deg_node_operation.h"
-#include "depsgraph_intern.h"
+#include "intern/depsgraph_intern.h"
 
 namespace DEG {
 

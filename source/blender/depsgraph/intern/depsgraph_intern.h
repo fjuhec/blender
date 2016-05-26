@@ -44,7 +44,7 @@ extern "C" {
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
-#include "depsgraph.h"
+#include "intern/depsgraph.h"
 
 struct Main;
 struct Group;

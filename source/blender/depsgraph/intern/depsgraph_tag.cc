@@ -55,14 +55,14 @@ extern "C" {
 #include "DEG_depsgraph.h"
 } /* extern "C" */
 
-#include "eval/deg_eval_flush.h"
+#include "intern/eval/deg_eval_flush.h"
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "depsgraph_intern.h"
-#include "depsgraph_util_foreach.h"
+#include "intern/depsgraph_intern.h"
+#include "util/depsgraph_util_foreach.h"
 
 /* *********************** */
 /* Update Tagging/Flushing */

@@ -32,22 +32,15 @@
 
 extern "C" {
 #include "MEM_guardedalloc.h"
-
-#include "BLI_utildefines.h"
-
-#include "DNA_ID.h"
-
-#include "RNA_access.h"
-#include "RNA_types.h"
 }
-
-#include "depsgraph_util_foreach.h"
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "depsgraph.h"
+#include "intern/depsgraph.h"
+
+#include "util/depsgraph_util_foreach.h"
 
 namespace DEG {
 

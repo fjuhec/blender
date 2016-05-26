@@ -31,14 +31,14 @@
  */
 
 extern "C" {
-#include "DNA_scene_types.h"
+#include "DNA_listBase.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_debug.h"
 }  /* extern "C" */
 
-#include "depsgraph_intern.h"
-#include "depsgraph_util_foreach.h"
+#include "intern/depsgraph_intern.h"
+#include "util/depsgraph_util_foreach.h"
 
 /* ****************** */
 /* Graphviz Debugging */

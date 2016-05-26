@@ -30,7 +30,7 @@
  * Methods for constructing depsgraph
  */
 
-#include "builder/deg_builder_relations.h"
+#include "intern/builder/deg_builder_relations.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,11 +101,11 @@ extern "C" {
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "depsgraph_intern.h"
-#include "depsgraph_types.h"
+#include "intern/depsgraph_intern.h"
+#include "intern/depsgraph_types.h"
 
-#include "depsgraph_util_foreach.h"
-#include "depsgraph_util_pchanmap.h"
+#include "util/depsgraph_util_foreach.h"
+#include "util/depsgraph_util_pchanmap.h"
 
 namespace DEG {
 

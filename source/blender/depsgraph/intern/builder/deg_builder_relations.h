@@ -32,7 +32,7 @@
 
 #include <cstdio>
 
-#include "depsgraph_types.h"
+#include "intern/depsgraph_types.h"
 
 #include "DNA_ID.h"
 

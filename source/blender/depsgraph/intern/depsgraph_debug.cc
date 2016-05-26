@@ -38,9 +38,9 @@ extern "C" {
 #include "DEG_depsgraph_build.h"
 }  /* extern "C" */
 
-#include "eval/deg_eval_debug.h"
-#include "depsgraph_intern.h"
-#include "depsgraph_util_foreach.h"
+#include "intern/eval/deg_eval_debug.h"
+#include "intern/depsgraph_intern.h"
+#include "util/depsgraph_util_foreach.h"
 
 /* ************************************************ */
 

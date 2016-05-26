@@ -25,8 +25,6 @@
 
 set(INC
 	.
-	intern
-	util
 	../blenkernel
 	../blenlib
 	../bmesh

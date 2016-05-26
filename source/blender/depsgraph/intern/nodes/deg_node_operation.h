@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include "nodes/deg_node.h"
+#include "intern/nodes/deg_node.h"
 
 struct ID;
 

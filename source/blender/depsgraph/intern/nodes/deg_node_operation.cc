@@ -36,8 +36,8 @@ extern "C" {
 #include "BLI_utildefines.h"
 } /* extern "C" */
 
-#include "depsgraph.h"
-#include "depsgraph_intern.h"
+#include "intern/depsgraph.h"
+#include "intern/depsgraph_intern.h"
 
 namespace DEG {
 

@@ -30,7 +30,7 @@
  * Implementation of tools for debugging the depsgraph
  */
 
-#include "eval/deg_eval_debug.h"
+#include "intern/eval/deg_eval_debug.h"
 
 extern "C" {
 #include "BLI_listbase.h"
@@ -45,8 +45,7 @@ extern "C" {
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
-
-#include "depsgraph_intern.h"
+#include "intern/depsgraph_intern.h"
 
 namespace DEG {
 

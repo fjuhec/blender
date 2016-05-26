@@ -28,14 +28,12 @@
  *  \ingroup depsgraph
  */
 
+#include "intern/builder/deg_builder.h"
+
 // TODO(sergey): Use own wrapper over STD.
 #include <stack>
 
-#include "builder/deg_builder.h"
-
 #include "DNA_anim_types.h"
-
-#include "BLI_string.h"
 
 #include "intern/depsgraph.h"
 #include "intern/depsgraph_types.h"
@@ -43,7 +41,7 @@
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "depsgraph_util_foreach.h"
+#include "util/depsgraph_util_foreach.h"
 
 namespace DEG {
 

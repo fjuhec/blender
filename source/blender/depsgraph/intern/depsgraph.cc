@@ -30,6 +30,8 @@
  * Core routines for how the Depsgraph works.
  */
 
+#include "intern/depsgraph.h" /* own include */
+
 #include <string.h>
 
 #include "MEM_guardedalloc.h"
@@ -50,14 +52,13 @@ extern "C" {
 }
 
 #include "DEG_depsgraph.h"
-#include "depsgraph.h" /* own include */
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "depsgraph_intern.h"
-#include "depsgraph_util_foreach.h"
+#include "intern/depsgraph_intern.h"
+#include "util/depsgraph_util_foreach.h"
 
 namespace DEG {
 

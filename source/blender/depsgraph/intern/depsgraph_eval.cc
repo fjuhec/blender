@@ -41,13 +41,13 @@ extern "C" {
 #include "DEG_depsgraph.h"
 } /* extern "C" */
 
-#include "eval/deg_eval.h"
-#include "eval/deg_eval_flush.h"
+#include "intern/eval/deg_eval.h"
+#include "intern/eval/deg_eval_flush.h"
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "depsgraph.h"
+#include "intern/depsgraph.h"
 
 #ifdef WITH_LEGACY_DEPSGRAPH
 static bool use_legacy_depsgraph = true;

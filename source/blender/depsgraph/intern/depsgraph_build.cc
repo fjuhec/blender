@@ -54,10 +54,10 @@ extern "C" {
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "depsgraph_types.h"
-#include "depsgraph_intern.h"
+#include "intern/depsgraph_types.h"
+#include "intern/depsgraph_intern.h"
 
-#include "depsgraph_util_foreach.h"
+#include "util/depsgraph_util_foreach.h"
 
 /* ****************** */
 /* External Build API */

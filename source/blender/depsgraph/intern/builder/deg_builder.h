@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include "depsgraph_types.h"
+#include "intern/depsgraph_types.h"
 
 struct FCurve;
 

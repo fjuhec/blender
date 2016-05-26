@@ -30,7 +30,7 @@
  * Core routines for how the Depsgraph works.
  */
 
-#include "eval/deg_eval_flush.h"
+#include "intern/eval/deg_eval_flush.h"
 
 // TODO(sergey): Use some sort of wrapper.
 #include <queue>
@@ -47,8 +47,8 @@ extern "C" {
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "depsgraph_intern.h"
-#include "depsgraph_util_foreach.h"
+#include "intern/depsgraph_intern.h"
+#include "util/depsgraph_util_foreach.h"
 
 namespace DEG {
 

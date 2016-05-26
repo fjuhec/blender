@@ -30,30 +30,28 @@
  * Evaluation engine entrypoints for Depsgraph Engine.
  */
 
-#include "eval/deg_eval.h"
+#include "intern/eval/deg_eval.h"
 
 #include "PIL_time.h"
 
 extern "C" {
-#include "BLI_utildefines.h"
 #include "BLI_task.h"
 
 #include "BKE_depsgraph.h"
 #include "BKE_global.h"
-#include "BKE_scene.h"
 
 #include "DEG_depsgraph.h"
 } /* extern "C" */
 
 #include "atomic_ops.h"
 
-#include "eval/deg_eval_debug.h"
-#include "eval/deg_eval_flush.h"
+#include "intern/eval/deg_eval_debug.h"
+#include "intern/eval/deg_eval_flush.h"
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
-#include "depsgraph.h"
-#include "depsgraph_util_foreach.h"
+#include "intern/depsgraph.h"
+#include "util/depsgraph_util_foreach.h"
 
 /* Unfinished and unused, and takes quite some pre-processing time. */
 #undef USE_EVAL_PRIORITY

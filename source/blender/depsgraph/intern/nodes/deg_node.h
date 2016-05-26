@@ -30,11 +30,11 @@
 
 #pragma once
 
-#include "depsgraph_types.h"
+#include "intern/depsgraph_types.h"
 
-#include "depsgraph_util_hash.h"
-#include "depsgraph_util_map.h"
-#include "depsgraph_util_set.h"
+#include "util/depsgraph_util_hash.h"
+#include "util/depsgraph_util_map.h"
+#include "util/depsgraph_util_set.h"
 
 struct ID;
 struct Scene;
