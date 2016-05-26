@@ -45,8 +45,10 @@ extern "C" {
 } /* extern "C" */
 
 #include "builder/deg_builder.h"
+#include "builder/deg_builder_cycle.h"
 #include "builder/deg_builder_nodes.h"
 #include "builder/deg_builder_relations.h"
+#include "builder/deg_builder_transitive.h"
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
@@ -55,9 +57,7 @@ extern "C" {
 #include "depsgraph_types.h"
 #include "depsgraph_intern.h"
 
-#include "depsgraph_util_cycle.h"
 #include "depsgraph_util_foreach.h"
-#include "depsgraph_util_transitive.h"
 
 /* ****************** */
 /* External Build API */

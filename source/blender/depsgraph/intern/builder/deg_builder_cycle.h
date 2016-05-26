@@ -18,15 +18,15 @@
  * The Original Code is Copyright (C) 2015 Blender Foundation.
  * All rights reserved.
  *
- * Contributor(s): Lukas Toenne
- *                 Sergey Sharybin,
+ * Contributor(s): Sergey Sharybin
  *
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/util/depsgraph_util_transitive.h
+/** \file blender/depsgraph/intern/builder/deg_builder_cycle.h
  *  \ingroup depsgraph
  */
+
 
 #pragma once
 
@@ -34,6 +34,7 @@ namespace DEG {
 
 struct Depsgraph;
 
-void deg_graph_transitive_reduction(Depsgraph *graph);
+/* Detect and solve dependency cycles. */
+void deg_graph_detect_cycles(Depsgraph *graph);
 
 }  // namespace DEG

@@ -24,11 +24,11 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/util/depsgraph_util_transitive.cc
+/** \file blender/depsgraph/intern/builder/deg_builder_transitive.cc
  *  \ingroup depsgraph
  */
 
-#include "depsgraph_util_transitive.h"
+#include "intern/builder/deg_builder_transitive.h"
 
 extern "C" {
 #include "MEM_guardedalloc.h"

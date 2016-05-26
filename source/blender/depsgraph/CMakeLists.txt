@@ -43,8 +43,10 @@ set(INC_SYS
 
 set(SRC
 	intern/builder/deg_builder.cc
+	intern/builder/deg_builder_cycle.cc
 	intern/builder/deg_builder_nodes.cc
 	intern/builder/deg_builder_relations.cc
+	intern/builder/deg_builder_transitive.cc
 	intern/debug/deg_debug_graphviz.cc
 	intern/eval/deg_eval.cc
 	intern/eval/deg_eval_debug.cc
@@ -59,9 +61,7 @@ set(SRC
 	intern/depsgraph_query.cc
 	intern/depsgraph_tag.cc
 	intern/depsgraph_type_defines.cc
-	util/depsgraph_util_cycle.cc
 	util/depsgraph_util_pchanmap.cc
-	util/depsgraph_util_transitive.cc
 
 	DEG_depsgraph.h
 	DEG_depsgraph_build.h
@@ -69,8 +69,10 @@ set(SRC
 	DEG_depsgraph_query.h
 
 	intern/builder/deg_builder.h
+	intern/builder/deg_builder_cycle.h
 	intern/builder/deg_builder_nodes.h
 	intern/builder/deg_builder_relations.h
+	intern/builder/deg_builder_transitive.h
 	intern/eval/deg_eval.h
 	intern/eval/deg_eval_debug.h
 	intern/eval/deg_eval_flush.h
@@ -81,13 +83,11 @@ set(SRC
 	intern/depsgraph_intern.h
 	intern/depsgraph_types.h
 
-	util/depsgraph_util_cycle.h
 	util/depsgraph_util_function.h
 	util/depsgraph_util_hash.h
 	util/depsgraph_util_map.h
 	util/depsgraph_util_pchanmap.h
 	util/depsgraph_util_set.h
-	util/depsgraph_util_transitive.h
 )
 
 if(WITH_CXX11)

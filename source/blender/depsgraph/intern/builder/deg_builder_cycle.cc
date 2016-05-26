@@ -23,11 +23,11 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/util/depsgraph_util_cycle.cc
+/** \file blender/depsgraph/intern/builder/deg_builder_cycle.cc
  *  \ingroup depsgraph
  */
 
-#include "depsgraph_util_cycle.h"
+#include "intern/builder/deg_builder_cycle.h"
 
 // TOO(sergey): Use some wrappers over those?
 #include <cstdio>
