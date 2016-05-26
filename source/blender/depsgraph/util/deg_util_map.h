@@ -28,12 +28,9 @@
  *  \ingroup depsgraph
  */
 
-#ifndef __DEPSGRAPH_UTIL_MAP_H__
-#define __DEPSGRAPH_UTIL_MAP_H__
+#pragma once
 
 #include <map>
-
-#include "deg_util_hash.h"
 
 using std::map;
 using std::pair;
@@ -63,5 +60,3 @@ using std::tr1::unordered_map;
 #  error One of: DEG_NO_UNORDERED_MAP, DEG_TR1_UNORDERED_MAP,\
  DEG_STD_UNORDERED_MAP, DEG_STD_UNORDERED_MAP_IN_TR1_NAMESPACE must be defined!  // NOLINT
 #endif
-
-#endif  /* __DEPSGRAPH_UTIL_MAP_H__ */

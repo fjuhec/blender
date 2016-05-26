@@ -28,8 +28,7 @@
  *  \ingroup depsgraph
  */
 
-#ifndef __DEPSGRAPH_UTIL_FOREACH_H__
-#define __DEPSGRAPH_UTIL_FOREACH_H__
+#pragma once
 
 #if (__cplusplus > 199711L) || (defined(_MSC_VER) && _MSC_VER >= 1800)
 #  define foreach(x, y) for(x : y)
@@ -47,5 +46,3 @@
 
 #  define foreach(x, y) for (x; false; (void)y)
 #endif
-
-#endif  /* __DEPSGRAPH_UTIL_FOREACH_H__ */
