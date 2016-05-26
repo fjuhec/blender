@@ -45,6 +45,7 @@ set(SRC
 	intern/builder/deg_builder.cc
 	intern/builder/deg_builder_nodes.cc
 	intern/builder/deg_builder_relations.cc
+	intern/debug/deg_debug_graphviz.cc
 	intern/eval/deg_eval.cc
 	intern/eval/deg_eval_debug.cc
 	intern/eval/deg_eval_flush.cc

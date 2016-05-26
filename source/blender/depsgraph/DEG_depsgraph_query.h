@@ -19,7 +19,7 @@
  * All rights reserved.
  *
  * Original Author: Joshua Leung
- * Contributor(s): None Yet
+ * Contributor(s): Sergey Sharybin
  *
  * ***** END GPL LICENSE BLOCK *****
  */
@@ -33,12 +33,9 @@
 #ifndef __DEG_DEPSGRAPH_QUERY_H__
 #define __DEG_DEPSGRAPH_QUERY_H__
 
-struct ListBase;
 struct ID;
 
 struct Depsgraph;
-struct DepsNode;
-struct DepsRelation;
 
 #ifdef __cplusplus
 extern "C" {
