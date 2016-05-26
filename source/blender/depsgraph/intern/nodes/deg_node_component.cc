@@ -43,6 +43,7 @@ extern "C" {
 
 #include "intern/nodes/deg_node_operation.h"
 #include "intern/depsgraph_intern.h"
+#include "util/deg_util_foreach.h"
 #include "util/deg_util_hash.h"
 
 namespace DEG {
@@ -196,11 +197,11 @@ void ComponentDepsNode::remove_operation(eDepsOperation_Code opcode, const strin
 
 void ComponentDepsNode::clear_operations()
 {
-	GHashIterator gh_iter;
-	GHASH_ITER (gh_iter, operations) {
-		OperationDepsNode *op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+	GHASH_FOREACH_BEGIN(OperationDepsNode *, op_node, operations)
+	{
 		OBJECT_GUARDED_DELETE(op_node, OperationDepsNode);
 	}
+	GHASH_FOREACH_END();
 	BLI_ghash_clear(operations, comp_node_hash_key_free, NULL);
 }
 
@@ -210,11 +211,11 @@ void ComponentDepsNode::tag_update(Depsgraph *graph)
 	if (entry_op != NULL && entry_op->flag & DEPSOP_FLAG_NEEDS_UPDATE) {
 		return;
 	}
-	GHashIterator gh_iter;
-	GHASH_ITER (gh_iter, operations) {
-		OperationDepsNode *op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+	GHASH_FOREACH_BEGIN(OperationDepsNode *, op_node, operations)
+	{
 		op_node->tag_update(graph);
 	}
+	GHASH_FOREACH_END();
 }
 
 OperationDepsNode *ComponentDepsNode::get_entry_operation()
@@ -225,10 +226,10 @@ OperationDepsNode *ComponentDepsNode::get_entry_operation()
 	else if (BLI_ghash_size(operations) == 1) {
 		OperationDepsNode *op_node = NULL;
 		/* TODO(sergey): This is somewhat slow. */
-		GHashIterator gh_iter;
-		GHASH_ITER (gh_iter, operations) {
-			op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+		GHASH_FOREACH_BEGIN(OperationDepsNode *, tmp, operations) {
+			op_node = tmp;
 		}
+		GHASH_FOREACH_END();
 		/* Cache for the subsequent usage. */
 		entry_operation = op_node;
 		return op_node;
@@ -244,10 +245,10 @@ OperationDepsNode *ComponentDepsNode::get_exit_operation()
 	else if (BLI_ghash_size(operations) == 1) {
 		OperationDepsNode *op_node = NULL;
 		/* TODO(sergey): This is somewhat slow. */
-		GHashIterator gh_iter;
-		GHASH_ITER (gh_iter, operations) {
-			op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+		GHASH_FOREACH_BEGIN(OperationDepsNode *, tmp, operations) {
+			op_node = tmp;
 		}
+		GHASH_FOREACH_END();
 		/* Cache for the subsequent usage. */
 		exit_operation = op_node;
 		return op_node;

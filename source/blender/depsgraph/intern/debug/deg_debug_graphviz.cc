@@ -370,11 +370,11 @@ static void deg_debug_graphviz_node(const DebugContext &ctx,
 			}
 			else {
 				deg_debug_graphviz_node_cluster_begin(ctx, node);
-				GHashIterator gh_iter;
-				GHASH_ITER (gh_iter, id_node->components) {
-					const ComponentDepsNode *comp = reinterpret_cast<const ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+				GHASH_FOREACH_BEGIN(const ComponentDepsNode *, comp, id_node->components)
+				{
 					deg_debug_graphviz_node(ctx, comp);
 				}
+				GHASH_FOREACH_END();
 				deg_debug_graphviz_node_cluster_end(ctx);
 			}
 			break;
@@ -405,11 +405,11 @@ static void deg_debug_graphviz_node(const DebugContext &ctx,
 		{
 			ComponentDepsNode *comp_node = (ComponentDepsNode *)node;
 			if (BLI_ghash_size(comp_node->operations) > 0) {
-				GHashIterator gh_iter;
-				GHASH_ITER (gh_iter, comp_node->operations) {
-					const DepsNode *op_node = reinterpret_cast<const DepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+				GHASH_FOREACH_BEGIN(const DepsNode *, op_node, comp_node->operations)
+				{
 					deg_debug_graphviz_node(ctx, op_node);
 				}
+				GHASH_FOREACH_END();
 				deg_debug_graphviz_node_cluster_end(ctx);
 			}
 			else {
@@ -519,11 +519,11 @@ static void deg_debug_graphviz_graph_nodes(const DebugContext &ctx,
 	if (graph->root_node) {
 		deg_debug_graphviz_node(ctx, graph->root_node);
 	}
-	GHashIterator gh_iter;
-	GHASH_ITER (gh_iter, graph->id_hash) {
-		DepsNode *node = reinterpret_cast<DepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+	GHASH_FOREACH_BEGIN (DepsNode *, node, graph->id_hash)
+	{
 		deg_debug_graphviz_node(ctx, node);
 	}
+	GHASH_FOREACH_END();
 	TimeSourceDepsNode *time_source = graph->find_time_source(NULL);
 	if (time_source != NULL) {
 		deg_debug_graphviz_node(ctx, time_source);
@@ -533,19 +533,19 @@ static void deg_debug_graphviz_graph_nodes(const DebugContext &ctx,
 static void deg_debug_graphviz_graph_relations(const DebugContext &ctx,
                                                const Depsgraph *graph)
 {
-	GHashIterator gh_iter;
-	GHASH_ITER (gh_iter, graph->id_hash) {
-		IDDepsNode *id_node = reinterpret_cast<IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
-		GHashIterator gh_comp_iter;
-		GHASH_ITER (gh_comp_iter, id_node->components) {
-			ComponentDepsNode *comp_node = reinterpret_cast<ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_comp_iter));
-			GHashIterator gh_op_iter;
-			GHASH_ITER (gh_op_iter, comp_node->operations) {
-				OperationDepsNode *op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_op_iter));
+	GHASH_FOREACH_BEGIN(IDDepsNode *, id_node, graph->id_hash)
+	{
+		GHASH_FOREACH_BEGIN(ComponentDepsNode *, comp_node, id_node->components)
+		{
+			GHASH_FOREACH_BEGIN(OperationDepsNode *, op_node, comp_node->operations)
+			{
 				deg_debug_graphviz_node_relations(ctx, op_node);
 			}
+			GHASH_FOREACH_END();
 		}
+		GHASH_FOREACH_END();
 	}
+	GHASH_FOREACH_END();
 
 	TimeSourceDepsNode *time_source = graph->find_time_source(NULL);
 	if (time_source != NULL) {

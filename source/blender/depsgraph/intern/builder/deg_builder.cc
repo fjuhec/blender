@@ -108,9 +108,8 @@ void deg_graph_build_finalize(Depsgraph *graph)
 	}
 
 	/* Re-tag IDs for update if it was tagged before the relations update tag. */
-	GHashIterator gh_iter;
-	GHASH_ITER (gh_iter, graph->id_hash) {
-		IDDepsNode *id_node = reinterpret_cast<IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+	GHASH_FOREACH_BEGIN(IDDepsNode *, id_node, graph->id_hash)
+	{
 		ID *id = id_node->id;
 		if (id->tag & LIB_TAG_ID_RECALC_ALL &&
 		    id->tag & LIB_TAG_DOIT)
@@ -119,6 +118,7 @@ void deg_graph_build_finalize(Depsgraph *graph)
 			id->tag &= ~LIB_TAG_DOIT;
 		}
 	}
+	GHASH_FOREACH_END();
 }
 
 }  // namespace DEG

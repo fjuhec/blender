@@ -228,19 +228,18 @@ void IDDepsNode::remove_component(eDepsNode_Type type, const string &name)
 
 void IDDepsNode::clear_components()
 {
-	GHashIterator gh_iter;
-	GHASH_ITER (gh_iter, components) {
-		ComponentDepsNode *comp_node = reinterpret_cast<ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+	GHASH_FOREACH_BEGIN(ComponentDepsNode *, comp_node, components)
+	{
 		OBJECT_GUARDED_DELETE(comp_node, ComponentDepsNode);
 	}
+	GHASH_FOREACH_END();
 	BLI_ghash_clear(components, id_deps_node_hash_key_free, NULL);
 }
 
 void IDDepsNode::tag_update(Depsgraph *graph)
 {
-	GHashIterator gh_iter;
-	GHASH_ITER (gh_iter, components) {
-		ComponentDepsNode *comp_node = reinterpret_cast<ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+	GHASH_FOREACH_BEGIN(ComponentDepsNode *, comp_node, components)
+	{
 		/* TODO(sergey): What about drievrs? */
 		bool do_component_tag = comp_node->type != DEPSNODE_TYPE_ANIMATION;
 		if (comp_node->type == DEPSNODE_TYPE_ANIMATION) {
@@ -254,6 +253,7 @@ void IDDepsNode::tag_update(Depsgraph *graph)
 			comp_node->tag_update(graph);
 		}
 	}
+	GHASH_FOREACH_END();
 }
 
 DEG_DEPSNODE_DEFINE(IDDepsNode, DEPSNODE_TYPE_ID_REF, "ID Node");

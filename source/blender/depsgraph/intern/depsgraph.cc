@@ -309,11 +309,11 @@ void Depsgraph::remove_subgraph_node(SubgraphDepsNode *subgraph_node)
 
 void Depsgraph::clear_subgraph_nodes()
 {
-	GSetIterator gs_iter;
-	GSET_ITER (gs_iter, subgraphs) {
-		SubgraphDepsNode *subgraph_node = reinterpret_cast<SubgraphDepsNode *>(BLI_gsetIterator_getKey(&gs_iter));
+	GSET_FOREACH_BEGIN(SubgraphDepsNode *, subgraph_node, subgraphs)
+	{
 		OBJECT_GUARDED_DELETE(subgraph_node, SubgraphDepsNode);
 	}
+	GSET_FOREACH_END();
 	BLI_gset_clear(subgraphs, NULL);
 }
 
@@ -347,11 +347,11 @@ void Depsgraph::remove_id_node(const ID *id)
 
 void Depsgraph::clear_id_nodes()
 {
-	GHashIterator gh_iter;
-	GHASH_ITER (gh_iter, id_hash) {
-		IDDepsNode *id_node = reinterpret_cast<IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+	GHASH_FOREACH_BEGIN(IDDepsNode *, id_node, id_hash)
+	{
 		OBJECT_GUARDED_DELETE(id_node, IDDepsNode);
 	}
+	GHASH_FOREACH_END();
 	BLI_ghash_clear(id_hash, NULL, NULL);
 }
 

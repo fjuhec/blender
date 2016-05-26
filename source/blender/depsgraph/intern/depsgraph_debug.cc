@@ -218,21 +218,21 @@ void DEG_stats_simple(const Depsgraph *graph, size_t *r_outer,
 		size_t tot_outer = 0;
 		size_t tot_rels = 0;
 
-		GHashIterator gh_iter;
-		GHASH_ITER (gh_iter, deg_graph->id_hash) {
-			DEG::IDDepsNode *id_node = reinterpret_cast<DEG::IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+		GHASH_FOREACH_BEGIN(DEG::IDDepsNode *, id_node, deg_graph->id_hash)
+		{
 			tot_outer++;
-			GHashIterator gh_comp_iter;
-			GHASH_ITER (gh_iter, id_node->components) {
-				DEG::ComponentDepsNode *comp_node = reinterpret_cast<DEG::ComponentDepsNode *>(BLI_ghashIterator_getValue(&gh_comp_iter));
+			GHASH_FOREACH_BEGIN(DEG::ComponentDepsNode *, comp_node, id_node->components)
+			{
 				tot_outer++;
-				GHashIterator gh_op_iter;
-				GHASH_ITER (gh_op_iter, comp_node->operations) {
-					DEG::OperationDepsNode *op_node = reinterpret_cast<DEG::OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_op_iter));
+				GHASH_FOREACH_BEGIN(DEG::OperationDepsNode *, op_node, comp_node->operations)
+				{
 					tot_rels += op_node->inlinks.size();
 				}
+				GHASH_FOREACH_END();
 			}
+			GHASH_FOREACH_END();
 		}
+		GHASH_FOREACH_END();
 
 		DEG::TimeSourceDepsNode *time_source = deg_graph->find_time_source(NULL);
 		if (time_source != NULL) {

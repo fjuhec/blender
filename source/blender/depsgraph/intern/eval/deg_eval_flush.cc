@@ -119,9 +119,8 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 	 * NOTE: Count how many nodes we need to handle - entry nodes may be
 	 *       component nodes which don't count for this purpose!
 	 */
-	GSetIterator gs_iter;
-	GSET_ITER (gs_iter, graph->entry_tags) {
-		OperationDepsNode *node = reinterpret_cast<OperationDepsNode *>(BLI_gsetIterator_getKey(&gs_iter));
+	GSET_FOREACH_BEGIN(OperationDepsNode *, node, graph->entry_tags)
+	{
 		IDDepsNode *id_node = node->owner->owner;
 		queue.push(node);
 		if (id_node->done == 0) {
@@ -130,6 +129,7 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 		}
 		node->scheduled = true;
 	}
+	GSET_FOREACH_END();
 
 	while (!queue.empty()) {
 		OperationDepsNode *node = queue.front();
@@ -181,11 +181,11 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 		 */
 		ComponentDepsNode *component = node->owner;
 		if ((component->flags & DEPSCOMP_FULLY_SCHEDULED) == 0) {
-			GHashIterator gh_iter;
-			GHASH_ITER (gh_iter, component->operations) {
-				OperationDepsNode *op = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+			GHASH_FOREACH_BEGIN(OperationDepsNode *, op, component->operations)
+			{
 				op->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
 			}
+			GHASH_FOREACH_END();
 			component->flags |= DEPSCOMP_FULLY_SCHEDULED;
 		}
 	}
