@@ -406,13 +406,10 @@ static void deg_debug_graphviz_node(const DebugContext &ctx,
 		case DEPSNODE_TYPE_EVAL_PARTICLES:
 		{
 			ComponentDepsNode *comp_node = (ComponentDepsNode *)node;
-			if (!comp_node->operations.empty()) {
-				deg_debug_graphviz_node_cluster_begin(ctx, node);
-				for (ComponentDepsNode::OperationMap::const_iterator it = comp_node->operations.begin();
-				     it != comp_node->operations.end();
-				     ++it)
-				{
-					const DepsNode *op_node = it->second;
+			if (BLI_ghash_size(comp_node->operations) > 0) {
+				GHashIterator gh_iter;
+				GHASH_ITER (gh_iter, comp_node->operations) {
+					const DepsNode *op_node = reinterpret_cast<const DepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 					deg_debug_graphviz_node(ctx, op_node);
 				}
 				deg_debug_graphviz_node_cluster_end(ctx);
@@ -451,7 +448,7 @@ static bool deg_debug_graphviz_is_cluster(const DepsNode *node)
 		case DEPSNODE_TYPE_BONE:
 		{
 			ComponentDepsNode *comp_node = (ComponentDepsNode *)node;
-			return !comp_node->operations.empty();
+			return BLI_ghash_size(comp_node->operations) > 0;
 		}
 		default:
 			return false;
@@ -546,11 +543,9 @@ static void deg_debug_graphviz_graph_relations(const DebugContext &ctx,
 		     ++it)
 		{
 			ComponentDepsNode *comp_node = it->second;
-			for (ComponentDepsNode::OperationMap::const_iterator it = comp_node->operations.begin();
-			     it != comp_node->operations.end();
-			     ++it)
-			{
-				OperationDepsNode *op_node = it->second;
+			GHashIterator gh_iter;
+			GHASH_ITER (gh_iter, comp_node->operations) {
+				OperationDepsNode *op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 				deg_debug_graphviz_node_relations(ctx, op_node);
 			}
 		}

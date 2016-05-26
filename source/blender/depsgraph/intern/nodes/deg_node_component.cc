@@ -51,11 +51,38 @@ namespace DEG {
 
 /* Standard Component Methods ============================= */
 
+static unsigned int comp_node_hash_key(const void *key_v)
+{
+	const ComponentDepsNode::OperationIDKey *key =
+	        reinterpret_cast<const ComponentDepsNode::OperationIDKey *>(key_v);
+	return hash_combine(BLI_ghashutil_uinthash(key->opcode),
+	                    BLI_ghashutil_strhash_p(key->name.c_str()));
+}
+
+static bool comp_node_hash_key_cmp(const void *a, const void *b)
+{
+	const ComponentDepsNode::OperationIDKey *key_a =
+	        reinterpret_cast<const ComponentDepsNode::OperationIDKey *>(a);
+	const ComponentDepsNode::OperationIDKey *key_b =
+	        reinterpret_cast<const ComponentDepsNode::OperationIDKey *>(b);
+	return !(*key_a == *key_b);
+}
+
+static void comp_node_hash_key_free(void *key_v)
+{
+	typedef ComponentDepsNode::OperationIDKey OperationIDKey;
+	OperationIDKey *key = reinterpret_cast<OperationIDKey *>(key_v);
+	OBJECT_GUARDED_DELETE(key, OperationIDKey);
+}
+
 ComponentDepsNode::ComponentDepsNode() :
     entry_operation(NULL),
     exit_operation(NULL),
     flags(0)
 {
+	operations = BLI_ghash_new(comp_node_hash_key,
+	                           comp_node_hash_key_cmp,
+	                           "depsgraph id hash");
 }
 
 /* Initialize 'component' node - from pointer data given */
@@ -70,6 +97,7 @@ void ComponentDepsNode::init(const ID * /*id*/,
 ComponentDepsNode::~ComponentDepsNode()
 {
 	clear_operations();
+	BLI_ghash_free(operations, comp_node_hash_key_free, NULL);
 }
 
 string ComponentDepsNode::identifier() const
@@ -84,10 +112,9 @@ string ComponentDepsNode::identifier() const
 
 OperationDepsNode *ComponentDepsNode::find_operation(OperationIDKey key) const
 {
-	OperationMap::const_iterator it = this->operations.find(key);
-
-	if (it != this->operations.end()) {
-		return it->second;
+	OperationDepsNode *node = reinterpret_cast<OperationDepsNode *>(BLI_ghash_lookup(operations, &key));
+	if (node != NULL) {
+		return node;
 	}
 	else {
 		fprintf(stderr, "%s: find_operation(%s) failed\n",
@@ -105,11 +132,7 @@ OperationDepsNode *ComponentDepsNode::find_operation(eDepsOperation_Code opcode,
 
 OperationDepsNode *ComponentDepsNode::has_operation(OperationIDKey key) const
 {
-	OperationMap::const_iterator it = this->operations.find(key);
-	if (it != this->operations.end()) {
-		return it->second;
-	}
-	return NULL;
+	return reinterpret_cast<OperationDepsNode *>(BLI_ghash_lookup(operations, &key));
 }
 
 OperationDepsNode *ComponentDepsNode::has_operation(eDepsOperation_Code opcode,
@@ -127,8 +150,8 @@ OperationDepsNode *ComponentDepsNode::add_operation(eDepsOperation_Type optype, 
 		op_node = (OperationDepsNode *)factory->create_node(this->owner->id, "", name);
 
 		/* register opnode in this component's operation set */
-		OperationIDKey key(opcode, name);
-		this->operations[key] = op_node;
+		OperationIDKey *key = OBJECT_GUARDED_NEW(OperationIDKey, opcode, name);
+		BLI_ghash_insert(operations, key, op_node);
 
 		/* set as entry/exit node of component (if appropriate) */
 		if (optype == DEPSOP_TYPE_INIT) {
@@ -164,18 +187,20 @@ void ComponentDepsNode::remove_operation(eDepsOperation_Code opcode, const strin
 	OperationDepsNode *op_node = find_operation(opcode, name);
 	if (op_node) {
 		/* unregister */
-		this->operations.erase(OperationIDKey(opcode, name));
+		OperationIDKey key(opcode, name);
+		BLI_ghash_remove(operations, &key, comp_node_hash_key_free, NULL);
 		OBJECT_GUARDED_DELETE(op_node, OperationDepsNode);
 	}
 }
 
 void ComponentDepsNode::clear_operations()
 {
-	for (OperationMap::const_iterator it = operations.begin(); it != operations.end(); ++it) {
-		OperationDepsNode *op_node = it->second;
+	GHashIterator gh_iter;
+	GHASH_ITER (gh_iter, operations) {
+		OperationDepsNode *op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 		OBJECT_GUARDED_DELETE(op_node, OperationDepsNode);
 	}
-	operations.clear();
+	BLI_ghash_clear(operations, comp_node_hash_key_free, NULL);
 }
 
 void ComponentDepsNode::tag_update(Depsgraph *graph)
@@ -184,27 +209,48 @@ void ComponentDepsNode::tag_update(Depsgraph *graph)
 	if (entry_op != NULL && entry_op->flag & DEPSOP_FLAG_NEEDS_UPDATE) {
 		return;
 	}
-	for (OperationMap::const_iterator it = operations.begin(); it != operations.end(); ++it) {
-		OperationDepsNode *op_node = it->second;
+	GHashIterator gh_iter;
+	GHASH_ITER (gh_iter, operations) {
+		OperationDepsNode *op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 		op_node->tag_update(graph);
 	}
 }
 
 OperationDepsNode *ComponentDepsNode::get_entry_operation()
 {
-	if (entry_operation)
+	if (entry_operation) {
 		return entry_operation;
-	else if (operations.size() == 1)
-		return operations.begin()->second;
+	}
+	else if (BLI_ghash_size(operations) == 1) {
+		OperationDepsNode *op_node = NULL;
+		/* TODO(sergey): This is somewhat slow. */
+		GHashIterator gh_iter;
+		GHASH_ITER (gh_iter, operations) {
+			op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+		}
+		/* Cache for the subsequent usage. */
+		entry_operation = op_node;
+		return op_node;
+	}
 	return NULL;
 }
 
 OperationDepsNode *ComponentDepsNode::get_exit_operation()
 {
-	if (exit_operation)
+	if (exit_operation) {
 		return exit_operation;
-	else if (operations.size() == 1)
-		return operations.begin()->second;
+	}
+	else if (BLI_ghash_size(operations) == 1) {
+		OperationDepsNode *op_node = NULL;
+		/* TODO(sergey): This is somewhat slow. */
+		GHashIterator gh_iter;
+		GHASH_ITER (gh_iter, operations) {
+			op_node = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
+		}
+		/* Cache for the subsequent usage. */
+		exit_operation = op_node;
+		return op_node;
+	}
 	return NULL;
 }
 

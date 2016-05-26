@@ -41,12 +41,13 @@
 
 struct ID;
 struct bPoseChannel;
+struct GHash;
 
-struct Depsgraph;
 struct EvaluationContext;
 
 namespace DEG {
 
+struct Depsgraph;
 struct OperationDepsNode;
 struct BoneComponentDepsNode;
 
@@ -90,23 +91,7 @@ struct ComponentDepsNode : public DepsNode {
 		}
 	};
 
-	/* XXX can't specialize std::hash for this purpose, because ComponentKey
-	 * is a nested type.
-	 *
-	 * See http://stackoverflow.com/a/951245 for details.
-	 */
-	struct operation_key_hash {
-		bool operator() (const OperationIDKey &key) const
-		{
-			return hash_combine(BLI_ghashutil_uinthash(key.opcode),
-			                    BLI_ghashutil_strhash_p(key.name.c_str()));
-		}
-	};
-
 	/* Typedef for container of operations */
-	typedef unordered_map<OperationIDKey, OperationDepsNode *, operation_key_hash> OperationMap;
-
-
 	ComponentDepsNode();
 	~ComponentDepsNode();
 
@@ -166,7 +151,7 @@ struct ComponentDepsNode : public DepsNode {
 	IDDepsNode *owner;
 
 	/* Inner nodes for this component */
-	OperationMap operations;
+	GHash *operations;
 
 	OperationDepsNode *entry_operation;
 	OperationDepsNode *exit_operation;

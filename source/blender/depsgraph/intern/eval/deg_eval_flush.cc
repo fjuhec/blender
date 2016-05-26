@@ -177,11 +177,9 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 		 */
 		ComponentDepsNode *component = node->owner;
 		if ((component->flags & DEPSCOMP_FULLY_SCHEDULED) == 0) {
-			for (ComponentDepsNode::OperationMap::iterator it = component->operations.begin();
-			     it != node->owner->operations.end();
-			     ++it)
-			{
-				OperationDepsNode *op = it->second;
+			GHashIterator gh_iter;
+			GHASH_ITER (gh_iter, component->operations) {
+				OperationDepsNode *op = reinterpret_cast<OperationDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 				op->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
 			}
 			component->flags |= DEPSCOMP_FULLY_SCHEDULED;
