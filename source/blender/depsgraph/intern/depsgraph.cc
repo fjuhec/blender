@@ -75,6 +75,8 @@ Depsgraph::Depsgraph()
 {
 	BLI_spin_init(&lock);
 	id_hash = BLI_ghash_ptr_new("depsgraph id hash");
+	subgraphs = BLI_gset_ptr_new("depsgraph subgraphs");
+	entry_tags = BLI_gset_ptr_new("depsgraph entry_tags");
 }
 
 Depsgraph::~Depsgraph()
@@ -83,6 +85,8 @@ Depsgraph::~Depsgraph()
 	clear_id_nodes();
 	clear_subgraph_nodes();
 	BLI_ghash_free(id_hash, NULL, NULL);
+	BLI_gset_free(subgraphs, NULL);
+	BLI_gset_free(entry_tags, NULL);
 	if (this->root_node != NULL) {
 		OBJECT_GUARDED_DELETE(this->root_node, RootDepsNode);
 	}
@@ -282,7 +286,7 @@ SubgraphDepsNode *Depsgraph::add_subgraph_node(const ID *id)
 		(SubgraphDepsNode *)factory->create_node(id, "", id->name + 2);
 
 	/* Add to subnodes list. */
-	this->subgraphs.insert(subgraph_node);
+	BLI_gset_insert(subgraphs, subgraph_node);
 
 	/* if there's an ID associated, add to ID-nodes lookup too */
 	if (id) {
@@ -299,16 +303,18 @@ SubgraphDepsNode *Depsgraph::add_subgraph_node(const ID *id)
 
 void Depsgraph::remove_subgraph_node(SubgraphDepsNode *subgraph_node)
 {
-	subgraphs.erase(subgraph_node);
+	BLI_gset_remove(subgraphs, subgraph_node, NULL);
 	OBJECT_GUARDED_DELETE(subgraph_node, SubgraphDepsNode);
 }
 
 void Depsgraph::clear_subgraph_nodes()
 {
-	foreach (SubgraphDepsNode *subgraph_node, subgraphs) {
+	GSetIterator gs_iter;
+	GSET_ITER (gs_iter, subgraphs) {
+		SubgraphDepsNode *subgraph_node = reinterpret_cast<SubgraphDepsNode *>(BLI_gsetIterator_getKey(&gs_iter));
 		OBJECT_GUARDED_DELETE(subgraph_node, SubgraphDepsNode);
 	}
-	subgraphs.clear();
+	BLI_gset_clear(subgraphs, NULL);
 }
 
 IDDepsNode *Depsgraph::find_id_node(const ID *id) const
@@ -452,7 +458,7 @@ void Depsgraph::add_entry_tag(OperationDepsNode *node)
 	/* Add to graph-level set of directly modified nodes to start searching from.
 	 * NOTE: this is necessary since we have several thousand nodes to play with...
 	 */
-	this->entry_tags.insert(node);
+	BLI_gset_insert(entry_tags, node);
 }
 
 void Depsgraph::clear_all_nodes()

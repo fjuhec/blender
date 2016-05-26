@@ -95,7 +95,7 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 	}
 
 	/* Nothing to update, early out. */
-	if (graph->entry_tags.size() == 0) {
+	if (BLI_gset_size(graph->entry_tags) == 0) {
 		return;
 	}
 
@@ -117,7 +117,9 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 	 * NOTE: Count how many nodes we need to handle - entry nodes may be
 	 *       component nodes which don't count for this purpose!
 	 */
-	foreach (OperationDepsNode *node, graph->entry_tags) {
+	GSetIterator gs_iter;
+	GSET_ITER (gs_iter, graph->entry_tags) {
+		OperationDepsNode *node = reinterpret_cast<OperationDepsNode *>(BLI_gsetIterator_getKey(&gs_iter));
 		IDDepsNode *id_node = node->owner->owner;
 		queue.push(node);
 		if (id_node->done == 0) {
@@ -203,7 +205,7 @@ void deg_graph_clear_tags(Depsgraph *graph)
 	const bool do_threads = num_operations > 256;
 	BLI_task_parallel_range(0, num_operations, graph, graph_clear_func, do_threads);
 	/* Clear any entry tags which haven't been flushed. */
-	graph->entry_tags.clear();
+	BLI_gset_clear(graph->entry_tags, NULL);
 }
 
 }  // namespace DEG

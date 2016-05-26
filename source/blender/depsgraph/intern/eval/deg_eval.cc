@@ -356,7 +356,7 @@ void deg_evaluate_on_refresh(EvaluationContext *eval_ctx,
 	// TODO: this needs both main and scene access...
 
 	/* Nothing to update, early out. */
-	if (graph->entry_tags.size() == 0) {
+	if (BLI_gset_size(graph->entry_tags) == 0) {
 		return;
 	}
 

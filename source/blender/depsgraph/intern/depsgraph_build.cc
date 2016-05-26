@@ -259,7 +259,7 @@ void DEG_scene_relations_update(Main *bmain, Scene *scene)
 	/* Clear all previous nodes and operations. */
 	graph->clear_all_nodes();
 	graph->operations.clear();
-	graph->entry_tags.clear();
+	BLI_gset_clear(graph->entry_tags, NULL);
 
 	/* Build new nodes and relations. */
 	DEG_graph_build_from_scene(reinterpret_cast< ::Depsgraph * >(graph),

@@ -44,6 +44,7 @@
 
 struct ID;
 struct GHash;
+struct GSet;
 struct PointerRNA;
 struct PropertyRNA;
 
@@ -96,8 +97,6 @@ struct DepsRelation {
 
 /* Dependency Graph object */
 struct Depsgraph {
-	typedef unordered_set<SubgraphDepsNode *> Subgraphs;
-	typedef unordered_set<OperationDepsNode *> EntryTags;
 	typedef vector<OperationDepsNode *> OperationNodes;
 
 	Depsgraph();
@@ -170,7 +169,7 @@ struct Depsgraph {
 	RootDepsNode *root_node;
 
 	/* Subgraphs referenced in tree. */
-	Subgraphs subgraphs;
+	GSet *subgraphs;
 
 	/* Indicates whether relations needs to be updated. */
 	bool need_update;
@@ -178,7 +177,7 @@ struct Depsgraph {
 	/* Quick-Access Temp Data ............. */
 
 	/* Nodes which have been tagged as "directly modified". */
-	EntryTags entry_tags;
+	GSet *entry_tags;
 
 	/* Convenience Data ................... */
 
