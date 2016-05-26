@@ -30,40 +30,12 @@
 
 #pragma once
 
-#if defined(DEG_NO_UNORDERED_MAP)
-#  define DEG_HASH_NAMESPACE_BEGIN
-#  define DEG_HASH_NAMESPACE_END
-#endif
+#include "BLI_utildefines.h"
 
-#if defined(DEG_TR1_UNORDERED_MAP)
-#  include <tr1/unordered_map>
-#  define DEG_HASH_NAMESPACE_BEGIN namespace std { namespace tr1 {
-#  define DEG_HASH_NAMESPACE_END } }
-using std::tr1::hash;
-#endif
-
-#if defined(DEG_STD_UNORDERED_MAP)
-#  include <unordered_map>
-#  define DEG_HASH_NAMESPACE_BEGIN namespace std {
-#  define DEG_HASH_NAMESPACE_END }
-using std::hash;
-#endif
-
-#if defined(DEG_STD_UNORDERED_MAP_IN_TR1_NAMESPACE)
-#  include <unordered_map>
-#  define DEG_HASH_NAMESPACE_BEGIN namespace std { namespace tr1 {
-#  define DEG_HASH_NAMESPACE_END } }
-using std::tr1::hash;
-#endif
-
-#if !defined(DEG_NO_UNORDERED_MAP) && !defined(DEG_TR1_UNORDERED_MAP) && \
-    !defined(DEG_STD_UNORDERED_MAP) && !defined(DEG_STD_UNORDERED_MAP_IN_TR1_NAMESPACE)  // NOLINT
-#  error One of: DEG_NO_UNORDERED_MAP, DEG_TR1_UNORDERED_MAP,\
- DEG_STD_UNORDERED_MAP, DEG_STD_UNORDERED_MAP_IN_TR1_NAMESPACE must be defined!  // NOLINT
-#endif
+#include "BLI_ghash.h"
 
 /* XXX this might require 2 different variants for sizeof(size_t) (32 vs 64 bit) */
-inline size_t hash_combine(size_t hash_a, size_t hash_b)
+BLI_INLINE size_t hash_combine(size_t hash_a, size_t hash_b)
 {
 	return hash_a ^ (hash_b + 0x9e3779b9 + (hash_a << 6) + (hash_a >> 2));
 }

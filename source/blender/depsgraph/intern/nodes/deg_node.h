@@ -166,7 +166,8 @@ struct IDDepsNode : public DepsNode {
 	struct component_key_hash {
 		bool operator() (const ComponentIDKey &key) const
 		{
-			return hash_combine(hash<int>()(key.type), hash<string>()(key.name));
+			return hash_combine(BLI_ghashutil_uinthash(key.type),
+			                    BLI_ghashutil_strhash_p(key.name.c_str()));
 		}
 	};
 

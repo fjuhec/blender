@@ -98,7 +98,8 @@ struct ComponentDepsNode : public DepsNode {
 	struct operation_key_hash {
 		bool operator() (const OperationIDKey &key) const
 		{
-			return hash_combine(hash<int>()(key.opcode), hash<string>()(key.name));
+			return hash_combine(BLI_ghashutil_uinthash(key.opcode),
+			                    BLI_ghashutil_strhash_p(key.name.c_str()));
 		}
 	};
 
