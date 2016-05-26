@@ -33,9 +33,10 @@
 #pragma once
 
 struct EvaluationContext;
-struct Depsgraph;
 
 namespace DEG {
+
+struct Depsgraph;
 
 /**
  * Evaluate all nodes tagged for updating,

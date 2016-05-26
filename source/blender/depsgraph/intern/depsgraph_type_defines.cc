@@ -45,6 +45,8 @@ extern "C" {
 
 #include "depsgraph_intern.h"
 
+namespace DEG {
+
 /* ************ */
 /* External API */
 
@@ -66,24 +68,6 @@ void DEG_register_node_typeinfo(DepsNodeFactory *factory)
 {
 	BLI_assert(factory != NULL);
 	BLI_ghash_insert(_depsnode_typeinfo_registry, SET_INT_IN_POINTER(factory->type()), factory);
-}
-
-/* Register all node types */
-void DEG_register_node_types(void)
-{
-	/* initialise registry */
-	_depsnode_typeinfo_registry = BLI_ghash_int_new("Depsgraph Node Type Registry");
-
-	/* register node types */
-	DEG_register_base_depsnodes();
-	DEG_register_component_depsnodes();
-	DEG_register_operation_depsnodes();
-}
-
-/* Free registry on exit */
-void DEG_free_node_types(void)
-{
-	BLI_ghash_free(_depsnode_typeinfo_registry, NULL, NULL);
 }
 
 /* Getters ------------------------------------------------- */
@@ -164,4 +148,24 @@ const char *DepsOperationStringifier::operator[](eDepsOperation_Code opcode) {
 		return names_[opcode];
 	}
 	return "UnknownOpcode";
+}
+
+}  // namespace DEG
+
+/* Register all node types */
+void DEG_register_node_types(void)
+{
+	/* initialise registry */
+	DEG::_depsnode_typeinfo_registry = BLI_ghash_int_new("Depsgraph Node Type Registry");
+
+	/* register node types */
+	DEG::DEG_register_base_depsnodes();
+	DEG::DEG_register_component_depsnodes();
+	DEG::DEG_register_operation_depsnodes();
+}
+
+/* Free registry on exit */
+void DEG_free_node_types(void)
+{
+	BLI_ghash_free(DEG::_depsnode_typeinfo_registry, NULL, NULL);
 }

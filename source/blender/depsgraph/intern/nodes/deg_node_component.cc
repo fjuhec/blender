@@ -44,6 +44,8 @@ extern "C" {
 #include "intern/nodes/deg_node_operation.h"
 #include "depsgraph_intern.h"
 
+namespace DEG {
+
 /* *********** */
 /* Outer Nodes */
 
@@ -291,3 +293,5 @@ void DEG_register_component_depsnodes()
 	DEG_register_node_typeinfo(&DNTI_EVAL_PARTICLES);
 	DEG_register_node_typeinfo(&DNTI_SHADING);
 }
+
+}  // namespace DEG

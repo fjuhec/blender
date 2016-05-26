@@ -39,6 +39,8 @@ extern "C" {
 #include "depsgraph.h"
 #include "depsgraph_intern.h"
 
+namespace DEG {
+
 /* *********** */
 /* Inner Nodes */
 
@@ -90,3 +92,5 @@ void DEG_register_operation_depsnodes()
 {
 	DEG_register_node_typeinfo(&DNTI_OPERATION);
 }
+
+}  // namespace DEG

@@ -35,7 +35,8 @@
 struct ID;
 
 struct Depsgraph;
-struct DepsgraphCopyContext;
+
+namespace DEG {
 
 /* Flags for Depsgraph Nodes */
 typedef enum eDepsOperation_Flag {
@@ -88,3 +89,5 @@ struct OperationDepsNode : public DepsNode {
 };
 
 void DEG_register_operation_depsnodes();
+
+}  // namespace DEG

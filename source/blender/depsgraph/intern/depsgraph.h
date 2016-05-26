@@ -46,6 +46,8 @@
 struct PointerRNA;
 struct PropertyRNA;
 
+namespace DEG {
+
 struct DepsNode;
 struct RootDepsNode;
 struct TimeSourceDepsNode;
@@ -196,3 +198,5 @@ struct Depsgraph {
 
 	// XXX: additional stuff like eval contexts, mempools for allocating nodes from, etc.
 };
+
+}  // namespace DEG

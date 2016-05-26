@@ -50,6 +50,8 @@ extern "C" {
 /* ****************** */
 /* Graphviz Debugging */
 
+namespace DEG {
+
 #define NL "\r\n"
 
 /* Only one should be enabled, defines whether graphviz nodes
@@ -568,35 +570,39 @@ static void deg_debug_graphviz_graph_relations(const DebugContext &ctx,
 	}
 }
 
+}  // namespace DEG
+
 void DEG_debug_graphviz(const Depsgraph *graph, FILE *f, const char *label, bool show_eval)
 {
 	if (!graph) {
 		return;
 	}
 
-	DebugContext ctx;
+	const DEG::Depsgraph *deg_graph = reinterpret_cast<const DEG::Depsgraph *>(graph);
+
+	DEG::DebugContext ctx;
 	ctx.file = f;
 	ctx.show_tags = show_eval;
 	ctx.show_eval_priority = show_eval;
 
-	deg_debug_fprintf(ctx, "digraph depgraph {" NL);
-	deg_debug_fprintf(ctx, "rankdir=LR;" NL);
-	deg_debug_fprintf(ctx, "graph [");
-	deg_debug_fprintf(ctx, "compound=true");
-	deg_debug_fprintf(ctx, ",labelloc=\"t\"");
-	deg_debug_fprintf(ctx, ",fontsize=%f", deg_debug_graphviz_graph_label_size);
-	deg_debug_fprintf(ctx, ",fontname=\"%s\"", deg_debug_graphviz_fontname);
-	deg_debug_fprintf(ctx, ",label=\"%s\"", label);
-	deg_debug_fprintf(ctx, ",splines=ortho");
-	deg_debug_fprintf(ctx, ",overlap=scalexy"); // XXX: only when using neato
-	deg_debug_fprintf(ctx, "];" NL);
+	DEG::deg_debug_fprintf(ctx, "digraph depgraph {" NL);
+	DEG::deg_debug_fprintf(ctx, "rankdir=LR;" NL);
+	DEG::deg_debug_fprintf(ctx, "graph [");
+	DEG::deg_debug_fprintf(ctx, "compound=true");
+	DEG::deg_debug_fprintf(ctx, ",labelloc=\"t\"");
+	DEG::deg_debug_fprintf(ctx, ",fontsize=%f", DEG::deg_debug_graphviz_graph_label_size);
+	DEG::deg_debug_fprintf(ctx, ",fontname=\"%s\"", DEG::deg_debug_graphviz_fontname);
+	DEG::deg_debug_fprintf(ctx, ",label=\"%s\"", label);
+	DEG::deg_debug_fprintf(ctx, ",splines=ortho");
+	DEG::deg_debug_fprintf(ctx, ",overlap=scalexy"); // XXX: only when using neato
+	DEG::deg_debug_fprintf(ctx, "];" NL);
 
-	deg_debug_graphviz_graph_nodes(ctx, graph);
-	deg_debug_graphviz_graph_relations(ctx, graph);
+	DEG::deg_debug_graphviz_graph_nodes(ctx, deg_graph);
+	DEG::deg_debug_graphviz_graph_relations(ctx, deg_graph);
 
-	deg_debug_graphviz_legend(ctx);
+	DEG::deg_debug_graphviz_legend(ctx);
 
-	deg_debug_fprintf(ctx, "}" NL);
+	DEG::deg_debug_fprintf(ctx, "}" NL);
 }
 
 #undef NL
@@ -626,7 +632,9 @@ bool DEG_debug_compare(const struct Depsgraph *graph1,
 {
 	BLI_assert(graph1 != NULL);
 	BLI_assert(graph2 != NULL);
-	if (graph1->operations.size() != graph2->operations.size()) {
+	const DEG::Depsgraph *deg_graph1 = reinterpret_cast<const DEG::Depsgraph *>(graph1);
+	const DEG::Depsgraph *deg_graph2 = reinterpret_cast<const DEG::Depsgraph *>(graph2);
+	if (deg_graph1->operations.size() != deg_graph2->operations.size()) {
 		return false;
 	}
 	/* TODO(sergey): Currently we only do real stupid check,
@@ -656,18 +664,20 @@ bool DEG_debug_scene_relations_validate(Main *bmain,
 
 bool DEG_debug_consistency_check(Depsgraph *graph)
 {
+	const DEG::Depsgraph *deg_graph = reinterpret_cast<const DEG::Depsgraph *>(graph);
+
 	/* Validate links exists in both directions. */
-	foreach (OperationDepsNode *node, graph->operations) {
-		foreach (DepsRelation *rel, node->outlinks) {
+	foreach (DEG::OperationDepsNode *node, deg_graph->operations) {
+		foreach (DEG::DepsRelation *rel, node->outlinks) {
 			int counter1 = 0;
-			foreach (DepsRelation *tmp_rel, node->outlinks) {
+			foreach (DEG::DepsRelation *tmp_rel, node->outlinks) {
 				if (tmp_rel == rel) {
 					++counter1;
 				}
 			}
 
 			int counter2 = 0;
-			foreach (DepsRelation *tmp_rel, rel->to->inlinks) {
+			foreach (DEG::DepsRelation *tmp_rel, rel->to->inlinks) {
 				if (tmp_rel == rel) {
 					++counter2;
 				}
@@ -681,17 +691,17 @@ bool DEG_debug_consistency_check(Depsgraph *graph)
 		}
 	}
 
-	foreach (OperationDepsNode *node, graph->operations) {
-		foreach (DepsRelation *rel, node->inlinks) {
+	foreach (DEG::OperationDepsNode *node, deg_graph->operations) {
+		foreach (DEG::DepsRelation *rel, node->inlinks) {
 			int counter1 = 0;
-			foreach (DepsRelation *tmp_rel, node->inlinks) {
+			foreach (DEG::DepsRelation *tmp_rel, node->inlinks) {
 				if (tmp_rel == rel) {
 					++counter1;
 				}
 			}
 
 			int counter2 = 0;
-			foreach (DepsRelation *tmp_rel, rel->from->outlinks) {
+			foreach (DEG::DepsRelation *tmp_rel, rel->from->outlinks) {
 				if (tmp_rel == rel) {
 					++counter2;
 				}
@@ -705,20 +715,20 @@ bool DEG_debug_consistency_check(Depsgraph *graph)
 	}
 
 	/* Validate node valency calculated in both directions. */
-	foreach (OperationDepsNode *node, graph->operations) {
+	foreach (DEG::OperationDepsNode *node, deg_graph->operations) {
 		node->num_links_pending = 0;
 		node->done = 0;
 	}
 
-	foreach (OperationDepsNode *node, graph->operations) {
+	foreach (DEG::OperationDepsNode *node, deg_graph->operations) {
 		if (node->done) {
 			printf("Node %s is twice in the operations!\n",
 			       node->identifier().c_str());
 			return false;
 		}
-		foreach (DepsRelation *rel, node->outlinks) {
-			if (rel->to->type == DEPSNODE_TYPE_OPERATION) {
-				OperationDepsNode *to = (OperationDepsNode *)rel->to;
+		foreach (DEG::DepsRelation *rel, node->outlinks) {
+			if (rel->to->type == DEG::DEPSNODE_TYPE_OPERATION) {
+				DEG::OperationDepsNode *to = (DEG::OperationDepsNode *)rel->to;
 				BLI_assert(to->num_links_pending < to->inlinks.size());
 				++to->num_links_pending;
 			}
@@ -726,10 +736,10 @@ bool DEG_debug_consistency_check(Depsgraph *graph)
 		node->done = 1;
 	}
 
-	foreach (OperationDepsNode *node, graph->operations) {
+	foreach (DEG::OperationDepsNode *node, deg_graph->operations) {
 		int num_links_pending = 0;
-		foreach (DepsRelation *rel, node->inlinks) {
-			if (rel->from->type == DEPSNODE_TYPE_OPERATION) {
+		foreach (DEG::DepsRelation *rel, node->inlinks) {
+			if (rel->from->type == DEG::DEPSNODE_TYPE_OPERATION) {
 				++num_links_pending;
 			}
 		}
@@ -755,12 +765,14 @@ bool DEG_debug_consistency_check(Depsgraph *graph)
 void DEG_stats_simple(const Depsgraph *graph, size_t *r_outer,
                       size_t *r_operations, size_t *r_relations)
 {
+	const DEG::Depsgraph *deg_graph = reinterpret_cast<const DEG::Depsgraph *>(graph);
+
 	/* number of operations */
 	if (r_operations) {
 		/* All operations should be in this list, allowing us to count the total
 		 * number of nodes.
 		 */
-		*r_operations = graph->operations.size();
+		*r_operations = deg_graph->operations.size();
 	}
 
 	/* Count number of outer nodes and/or relations between these. */
@@ -768,29 +780,29 @@ void DEG_stats_simple(const Depsgraph *graph, size_t *r_outer,
 		size_t tot_outer = 0;
 		size_t tot_rels = 0;
 
-		for (Depsgraph::IDNodeMap::const_iterator it = graph->id_hash.begin();
-		     it != graph->id_hash.end();
+		for (DEG::Depsgraph::IDNodeMap::const_iterator it = deg_graph->id_hash.begin();
+		     it != deg_graph->id_hash.end();
 		     ++it)
 		{
-			IDDepsNode *id_node = it->second;
+			DEG::IDDepsNode *id_node = it->second;
 			tot_outer++;
-			for (IDDepsNode::ComponentMap::const_iterator it = id_node->components.begin();
+			for (DEG::IDDepsNode::ComponentMap::const_iterator it = id_node->components.begin();
 			     it != id_node->components.end();
 			     ++it)
 			{
-				ComponentDepsNode *comp_node = it->second;
+				DEG::ComponentDepsNode *comp_node = it->second;
 				tot_outer++;
-				for (ComponentDepsNode::OperationMap::const_iterator it = comp_node->operations.begin();
+				for (DEG::ComponentDepsNode::OperationMap::const_iterator it = comp_node->operations.begin();
 				     it != comp_node->operations.end();
 				     ++it)
 				{
-					OperationDepsNode *op_node = it->second;
+					DEG::OperationDepsNode *op_node = it->second;
 					tot_rels += op_node->inlinks.size();
 				}
 			}
 		}
 
-		TimeSourceDepsNode *time_source = graph->find_time_source(NULL);
+		DEG::TimeSourceDepsNode *time_source = deg_graph->find_time_source(NULL);
 		if (time_source != NULL) {
 			tot_rels += time_source->inlinks.size();
 		}

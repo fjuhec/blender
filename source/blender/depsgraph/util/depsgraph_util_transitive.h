@@ -30,9 +30,9 @@
 
 #pragma once
 
-struct Depsgraph;
-
 namespace DEG {
+
+struct Depsgraph;
 
 void deg_graph_transitive_reduction(Depsgraph *graph);
 

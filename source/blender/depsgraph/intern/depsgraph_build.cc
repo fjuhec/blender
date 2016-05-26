@@ -63,32 +63,32 @@ extern "C" {
 /* ****************** */
 /* External Build API */
 
-static eDepsNode_Type deg_build_scene_component_type(
+static DEG::eDepsNode_Type deg_build_scene_component_type(
         eDepsSceneComponentType component)
 {
 	switch (component) {
-		case DEG_SCENE_COMP_PARAMETERS:     return DEPSNODE_TYPE_PARAMETERS;
-		case DEG_SCENE_COMP_ANIMATION:      return DEPSNODE_TYPE_ANIMATION;
-		case DEG_SCENE_COMP_SEQUENCER:      return DEPSNODE_TYPE_SEQUENCER;
+		case DEG_SCENE_COMP_PARAMETERS:     return DEG::DEPSNODE_TYPE_PARAMETERS;
+		case DEG_SCENE_COMP_ANIMATION:      return DEG::DEPSNODE_TYPE_ANIMATION;
+		case DEG_SCENE_COMP_SEQUENCER:      return DEG::DEPSNODE_TYPE_SEQUENCER;
 	}
-	return DEPSNODE_TYPE_UNDEFINED;
+	return DEG::DEPSNODE_TYPE_UNDEFINED;
 }
 
-static eDepsNode_Type deg_build_object_component_type(
+static DEG::eDepsNode_Type deg_build_object_component_type(
         eDepsObjectComponentType component)
 {
 	switch (component) {
-		case DEG_OB_COMP_PARAMETERS:        return DEPSNODE_TYPE_PARAMETERS;
-		case DEG_OB_COMP_PROXY:             return DEPSNODE_TYPE_PROXY;
-		case DEG_OB_COMP_ANIMATION:         return DEPSNODE_TYPE_ANIMATION;
-		case DEG_OB_COMP_TRANSFORM:         return DEPSNODE_TYPE_TRANSFORM;
-		case DEG_OB_COMP_GEOMETRY:          return DEPSNODE_TYPE_GEOMETRY;
-		case DEG_OB_COMP_EVAL_POSE:         return DEPSNODE_TYPE_EVAL_POSE;
-		case DEG_OB_COMP_BONE:              return DEPSNODE_TYPE_BONE;
-		case DEG_OB_COMP_EVAL_PARTICLES:    return DEPSNODE_TYPE_EVAL_PARTICLES;
-		case DEG_OB_COMP_SHADING:           return DEPSNODE_TYPE_SHADING;
+		case DEG_OB_COMP_PARAMETERS:        return DEG::DEPSNODE_TYPE_PARAMETERS;
+		case DEG_OB_COMP_PROXY:             return DEG::DEPSNODE_TYPE_PROXY;
+		case DEG_OB_COMP_ANIMATION:         return DEG::DEPSNODE_TYPE_ANIMATION;
+		case DEG_OB_COMP_TRANSFORM:         return DEG::DEPSNODE_TYPE_TRANSFORM;
+		case DEG_OB_COMP_GEOMETRY:          return DEG::DEPSNODE_TYPE_GEOMETRY;
+		case DEG_OB_COMP_EVAL_POSE:         return DEG::DEPSNODE_TYPE_EVAL_POSE;
+		case DEG_OB_COMP_BONE:              return DEG::DEPSNODE_TYPE_BONE;
+		case DEG_OB_COMP_EVAL_PARTICLES:    return DEG::DEPSNODE_TYPE_EVAL_PARTICLES;
+		case DEG_OB_COMP_SHADING:           return DEG::DEPSNODE_TYPE_SHADING;
 	}
-	return DEPSNODE_TYPE_UNDEFINED;
+	return DEG::DEPSNODE_TYPE_UNDEFINED;
 }
 
 static DEG::DepsNodeHandle *get_handle(DepsNodeHandle *handle)
@@ -101,12 +101,12 @@ void DEG_add_scene_relation(DepsNodeHandle *handle,
                             eDepsSceneComponentType component,
                             const char *description)
 {
-	eDepsNode_Type type = deg_build_scene_component_type(component);
+	DEG::eDepsNode_Type type = deg_build_scene_component_type(component);
 	DEG::ComponentKey comp_key(&scene->id, type);
 	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
 	deg_handle->builder->add_node_handle_relation(comp_key,
 	                                              deg_handle,
-	                                              DEPSREL_TYPE_GEOMETRY_EVAL,
+	                                              DEG::DEPSREL_TYPE_GEOMETRY_EVAL,
 	                                              description);
 }
 
@@ -115,12 +115,12 @@ void DEG_add_object_relation(DepsNodeHandle *handle,
                              eDepsObjectComponentType component,
                              const char *description)
 {
-	eDepsNode_Type type = deg_build_object_component_type(component);
+	DEG::eDepsNode_Type type = deg_build_object_component_type(component);
 	DEG::ComponentKey comp_key(&ob->id, type);
 	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
 	deg_handle->builder->add_node_handle_relation(comp_key,
 	                                              deg_handle,
-	                                              DEPSREL_TYPE_GEOMETRY_EVAL,
+	                                              DEG::DEPSREL_TYPE_GEOMETRY_EVAL,
 	                                              description);
 }
 
@@ -130,7 +130,7 @@ void DEG_add_bone_relation(DepsNodeHandle *handle,
                            eDepsObjectComponentType component,
                            const char *description)
 {
-	eDepsNode_Type type = deg_build_object_component_type(component);
+	DEG::eDepsNode_Type type = deg_build_object_component_type(component);
 	DEG::ComponentKey comp_key(&ob->id, type, bone_name);
 	DEG::DepsNodeHandle *deg_handle = get_handle(handle);
 	/* XXX: "Geometry Eval" might not always be true, but this only gets called
@@ -138,17 +138,18 @@ void DEG_add_bone_relation(DepsNodeHandle *handle,
 	 */
 	deg_handle->builder->add_node_handle_relation(comp_key,
 	                                              deg_handle,
-	                                              DEPSREL_TYPE_GEOMETRY_EVAL,
+	                                              DEG::DEPSREL_TYPE_GEOMETRY_EVAL,
 	                                              description);
 }
 
 void DEG_add_special_eval_flag(Depsgraph *graph, ID *id, short flag)
 {
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
 	if (graph == NULL) {
 		BLI_assert(!"Graph should always be valid");
 		return;
 	}
-	IDDepsNode *id_node = graph->find_id_node(id);
+	DEG::IDDepsNode *id_node = deg_graph->find_id_node(id);
 	if (id_node == NULL) {
 		BLI_assert(!"ID should always be valid");
 		return;
@@ -167,8 +168,10 @@ void DEG_add_special_eval_flag(Depsgraph *graph, ID *id, short flag)
  */
 void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 {
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
+
 	/* 1) Generate all the nodes in the graph first */
-	DEG::DepsgraphNodeBuilder node_builder(bmain, graph);
+	DEG::DepsgraphNodeBuilder node_builder(bmain, deg_graph);
 	/* create root node for scene first
 	 * - this way it should be the first in the graph,
 	 *   reflecting its role as the entrypoint
@@ -179,7 +182,7 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 	/* 2) Hook up relationships between operations - to determine evaluation
 	 *    order.
 	 */
-	DEG::DepsgraphRelationBuilder relation_builder(graph);
+	DEG::DepsgraphRelationBuilder relation_builder(deg_graph);
 	/* Hook scene up to the root node as entrypoint to graph. */
 	/* XXX what does this relation actually mean?
 	 * it doesnt add any operations anyway and is not clear what part of the
@@ -194,7 +197,7 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 	relation_builder.build_scene(bmain, scene);
 
 	/* Detect and solve cycles. */
-	DEG::deg_graph_detect_cycles(graph);
+	DEG::deg_graph_detect_cycles(deg_graph);
 
 	/* 3) Simplify the graph by removing redundant relations (to optimize
 	 *    traversal later). */
@@ -202,14 +205,14 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 	 *       it is causing trouble.
 	 */
 	if (G.debug_value == 799) {
-		DEG::deg_graph_transitive_reduction(graph);
+		DEG::deg_graph_transitive_reduction(deg_graph);
 	}
 
 	/* 4) Flush visibility layer and re-schedule nodes for update. */
-	DEG::deg_graph_build_finalize(graph);
+	DEG::deg_graph_build_finalize(deg_graph);
 
 #if 0
-	if (!DEG_debug_consistency_check(graph)) {
+	if (!DEG_debug_consistency_check(deg_graph)) {
 		printf("Consistency validation failed, ABORTING!\n");
 		abort();
 	}
@@ -219,7 +222,8 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 /* Tag graph relations for update. */
 void DEG_graph_tag_relations_update(Depsgraph *graph)
 {
-	graph->need_update = true;
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
+	deg_graph->need_update = true;
 }
 
 /* Tag all relations for update. */
@@ -247,7 +251,7 @@ void DEG_scene_relations_update(Main *bmain, Scene *scene)
 		return;
 	}
 
-	Depsgraph *graph = scene->depsgraph;
+	DEG::Depsgraph *graph = reinterpret_cast<DEG::Depsgraph *>(scene->depsgraph);
 	if (!graph->need_update) {
 		/* Graph is up to date, nothing to do. */
 		return;
@@ -259,7 +263,9 @@ void DEG_scene_relations_update(Main *bmain, Scene *scene)
 	graph->entry_tags.clear();
 
 	/* Build new nodes and relations. */
-	DEG_graph_build_from_scene(graph, bmain, scene);
+	DEG_graph_build_from_scene(reinterpret_cast< ::Depsgraph * >(graph),
+	                           bmain,
+	                           scene);
 
 	graph->need_update = false;
 }

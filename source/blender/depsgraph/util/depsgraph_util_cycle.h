@@ -30,9 +30,9 @@
 
 #pragma once
 
-struct Depsgraph;
-
 namespace DEG {
+
+struct Depsgraph;
 
 void deg_graph_detect_cycles(Depsgraph *graph);
 

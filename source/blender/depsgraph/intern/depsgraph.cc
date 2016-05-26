@@ -59,6 +59,8 @@ extern "C" {
 #include "depsgraph_intern.h"
 #include "depsgraph_util_foreach.h"
 
+namespace DEG {
+
 static DEG_EditorUpdateIDCb deg_editor_update_id_cb = NULL;
 static DEG_EditorUpdateSceneCb deg_editor_update_scene_cb = NULL;
 static DEG_EditorUpdateScenePreCb deg_editor_update_scene_pre_cb = NULL;
@@ -462,38 +464,6 @@ void Depsgraph::clear_all_nodes()
 	}
 }
 
-/* **************** */
-/* Public Graph API */
-
-/* Initialize a new Depsgraph */
-Depsgraph *DEG_graph_new()
-{
-	return OBJECT_GUARDED_NEW(Depsgraph);
-}
-
-/* Free graph's contents and graph itself */
-void DEG_graph_free(Depsgraph *graph)
-{
-	OBJECT_GUARDED_DELETE(graph, Depsgraph);
-}
-
-/* Set callbacks which are being called when depsgraph changes. */
-void DEG_editors_set_update_cb(DEG_EditorUpdateIDCb id_func,
-                               DEG_EditorUpdateSceneCb scene_func,
-                               DEG_EditorUpdateScenePreCb scene_pre_func)
-{
-	deg_editor_update_id_cb = id_func;
-	deg_editor_update_scene_cb = scene_func;
-	deg_editor_update_scene_pre_cb = scene_pre_func;
-}
-
-void DEG_editors_update_pre(Main *bmain, Scene *scene, bool time)
-{
-	if (deg_editor_update_scene_pre_cb != NULL) {
-		deg_editor_update_scene_pre_cb(bmain, scene, time);
-	}
-}
-
 void deg_editors_id_update(Main *bmain, ID *id)
 {
 	if (deg_editor_update_id_cb != NULL) {
@@ -505,5 +475,42 @@ void deg_editors_scene_update(Main *bmain, Scene *scene, bool updated)
 {
 	if (deg_editor_update_scene_cb != NULL) {
 		deg_editor_update_scene_cb(bmain, scene, updated);
+	}
+}
+
+}  // namespace DEG
+
+/* **************** */
+/* Public Graph API */
+
+/* Initialize a new Depsgraph */
+Depsgraph *DEG_graph_new()
+{
+	DEG::Depsgraph *deg_depsgraph = OBJECT_GUARDED_NEW(DEG::Depsgraph);
+	return reinterpret_cast<Depsgraph *>(deg_depsgraph);
+}
+
+/* Free graph's contents and graph itself */
+void DEG_graph_free(Depsgraph *graph)
+{
+	using DEG::Depsgraph;
+	DEG::Depsgraph *deg_depsgraph = reinterpret_cast<DEG::Depsgraph *>(graph);
+	OBJECT_GUARDED_DELETE(deg_depsgraph, Depsgraph);
+}
+
+/* Set callbacks which are being called when depsgraph changes. */
+void DEG_editors_set_update_cb(DEG_EditorUpdateIDCb id_func,
+                               DEG_EditorUpdateSceneCb scene_func,
+                               DEG_EditorUpdateScenePreCb scene_pre_func)
+{
+	DEG::deg_editor_update_id_cb = id_func;
+	DEG::deg_editor_update_scene_cb = scene_func;
+	DEG::deg_editor_update_scene_pre_cb = scene_pre_func;
+}
+
+void DEG_editors_update_pre(Main *bmain, Scene *scene, bool time)
+{
+	if (DEG::deg_editor_update_scene_pre_cb != NULL) {
+		DEG::deg_editor_update_scene_pre_cb(bmain, scene, time);
 	}
 }

@@ -54,6 +54,8 @@ struct PointerRNA;
 struct EvaluationContext;
 struct FCurve;
 
+namespace DEG {
+
 /* Evaluation Operation for atomic operation */
 // XXX: move this to another header that can be exposed?
 typedef function<void(struct EvaluationContext *)> DepsEvalOperationCb;
@@ -278,3 +280,5 @@ typedef enum eDepsRelation_Type {
 	/* relationship is used to trigger editor/screen updates */
 	DEPSREL_TYPE_UPDATE_UI,
 } eDepsRelation_Type;
+
+}  // namespace DEG

@@ -39,9 +39,10 @@
 struct ID;
 struct Scene;
 
+namespace DEG {
+
 struct Depsgraph;
 struct DepsRelation;
-struct DepsgraphCopyContext;
 struct OperationDepsNode;
 
 /* *********************************** */
@@ -239,3 +240,5 @@ typedef enum eSubgraphRef_Flag {
 } eSubgraphRef_Flag;
 
 void DEG_register_base_depsnodes();
+
+}  // namespace DEG

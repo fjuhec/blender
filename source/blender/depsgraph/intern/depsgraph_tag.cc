@@ -158,19 +158,21 @@ void depsgraph_legacy_handle_update_tag(Main *bmain, ID *id, short flag)
  */
 void DEG_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id)
 {
-	IDDepsNode *node = graph->find_id_node(id);
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
+	DEG::IDDepsNode *node = deg_graph->find_id_node(id);
 	lib_id_recalc_tag(bmain, id);
 	if (node != NULL) {
-		node->tag_update(graph);
+		node->tag_update(deg_graph);
 	}
 }
 
 /* Tag nodes related to a specific piece of data */
 void DEG_graph_data_tag_update(Depsgraph *graph, const PointerRNA *ptr)
 {
-	DepsNode *node = graph->find_node_from_pointer(ptr, NULL);
-	if (node) {
-		node->tag_update(graph);
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
+	DEG::DepsNode *node = deg_graph->find_node_from_pointer(ptr, NULL);
+	if (node != NULL) {
+		node->tag_update(deg_graph);
 	}
 	else {
 		printf("Missing node in %s\n", __func__);
@@ -183,9 +185,10 @@ void DEG_graph_property_tag_update(Depsgraph *graph,
                                    const PointerRNA *ptr,
                                    const PropertyRNA *prop)
 {
-	DepsNode *node = graph->find_node_from_pointer(ptr, prop);
-	if (node) {
-		node->tag_update(graph);
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
+	DEG::DepsNode *node = deg_graph->find_node_from_pointer(ptr, prop);
+	if (node != NULL) {
+		node->tag_update(deg_graph);
 	}
 	else {
 		printf("Missing node in %s\n", __func__);
@@ -274,7 +277,9 @@ void DEG_ids_flush_tagged(Main *bmain)
 	{
 		/* TODO(sergey): Only visible scenes? */
 		if (scene->depsgraph != NULL) {
-			DEG::deg_graph_flush_updates(bmain, scene->depsgraph);
+			DEG::deg_graph_flush_updates(
+			        bmain,
+			        reinterpret_cast<DEG::Depsgraph *>(scene->depsgraph));
 		}
 	}
 }
@@ -282,7 +287,7 @@ void DEG_ids_flush_tagged(Main *bmain)
 /* Update dependency graph when visible scenes/layers changes. */
 void DEG_graph_on_visible_update(Main *bmain, Scene *scene)
 {
-	Depsgraph *graph = scene->depsgraph;
+	DEG::Depsgraph *graph = reinterpret_cast<DEG::Depsgraph *>(scene->depsgraph);
 	wmWindowManager *wm = (wmWindowManager *)bmain->wm.first;
 	int old_layers = graph->layers;
 	if (wm != NULL) {
@@ -310,11 +315,11 @@ void DEG_graph_on_visible_update(Main *bmain, Scene *scene)
 		 * This is mainly needed on file load only, after that updates of invisible objects
 		 * will be stored in the pending list.
 		 */
-		for (Depsgraph::IDNodeMap::const_iterator it = graph->id_hash.begin();
+		for (DEG::Depsgraph::IDNodeMap::const_iterator it = graph->id_hash.begin();
 		     it != graph->id_hash.end();
 		     ++it)
 		{
-			IDDepsNode *id_node = it->second;
+			DEG::IDDepsNode *id_node = it->second;
 			ID *id = id_node->id;
 			if ((id->tag & LIB_TAG_ID_RECALC_ALL) != 0 ||
 			    (id_node->layers & scene->lay_updated) == 0)
@@ -332,8 +337,8 @@ void DEG_graph_on_visible_update(Main *bmain, Scene *scene)
 				    (object->recalc & OB_RECALC_ALL) != 0)
 				{
 					id_node->tag_update(graph);
-					ComponentDepsNode *anim_comp =
-					        id_node->find_component(DEPSNODE_TYPE_ANIMATION);
+					DEG::ComponentDepsNode *anim_comp =
+					        id_node->find_component(DEG::DEPSNODE_TYPE_ANIMATION);
 					if (anim_comp != NULL && object->recalc & OB_RECALC_TIME) {
 						anim_comp->tag_update(graph);
 					}
@@ -380,7 +385,7 @@ void DEG_ids_check_recalc(Main *bmain, Scene *scene, bool time)
 		}
 	}
 
-	deg_editors_scene_update(bmain, scene, (updated || time));
+	DEG::deg_editors_scene_update(bmain, scene, (updated || time));
 }
 
 void DEG_ids_clear_recalc(Main *bmain)

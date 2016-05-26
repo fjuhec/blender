@@ -46,16 +46,7 @@ struct Main;
 struct Group;
 struct Scene;
 
-/* Graph Building ======================================================== */
-
-/**
- * Build depsgraph for the given group, and dump results in given graph container
- * This is usually used for building subgraphs for groups to use...
- */
-void DEG_graph_build_from_group(Depsgraph *graph, struct Main *bmain, struct Group *group);
-
-/* Build subgraph for group */
-DepsNode *DEG_graph_build_group_subgraph(Depsgraph *graph_main, struct Main *bmain, struct Group *group);
+namespace DEG {
 
 /* Node Types Handling ================================================= */
 
@@ -67,7 +58,9 @@ struct DepsNodeFactory {
 	virtual eDepsNode_Class tclass() const = 0;
 	virtual const char *tname() const = 0;
 
-	virtual DepsNode *create_node(const ID *id, const string &subdata, const string &name) const = 0;
+	virtual DepsNode *create_node(const ID *id,
+	                              const string &subdata,
+	                              const string &name) const = 0;
 };
 
 template <class NodeType>
@@ -113,3 +106,5 @@ DepsNodeFactory *DEG_node_get_factory(const DepsNode *node);
 void deg_editors_id_update(struct Main *bmain, struct ID *id);
 
 void deg_editors_scene_update(struct Main *bmain, struct Scene *scene, bool updated);
+
+}  // namespace DEG

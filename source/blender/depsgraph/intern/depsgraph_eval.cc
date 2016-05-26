@@ -120,11 +120,11 @@ void DEG_evaluate_on_refresh(EvaluationContext *eval_ctx,
                              Depsgraph *graph,
                              Scene *scene)
 {
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
 	/* Update time on primary timesource. */
-	TimeSourceDepsNode *tsrc = graph->find_time_source();
+	DEG::TimeSourceDepsNode *tsrc = deg_graph->find_time_source();
 	tsrc->cfra = BKE_scene_frame_get(scene);
-
-	DEG::deg_evaluate_on_refresh(eval_ctx, graph, graph->layers);
+	DEG::deg_evaluate_on_refresh(eval_ctx, deg_graph, deg_graph->layers);
 }
 
 /* Frame-change happened for root scene that graph belongs to. */
@@ -134,19 +134,18 @@ void DEG_evaluate_on_framechange(EvaluationContext *eval_ctx,
                                  float ctime,
                                  const int layers)
 {
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
 	/* Update time on primary timesource. */
-	TimeSourceDepsNode *tsrc = graph->find_time_source();
+	DEG::TimeSourceDepsNode *tsrc = deg_graph->find_time_source();
 	tsrc->cfra = ctime;
-
-	tsrc->tag_update(graph);
-
-	DEG::deg_graph_flush_updates(bmain, graph);
-
+	tsrc->tag_update(deg_graph);
+	DEG::deg_graph_flush_updates(bmain, deg_graph);
 	/* Perform recalculation updates. */
-	DEG::deg_evaluate_on_refresh(eval_ctx, graph, layers);
+	DEG::deg_evaluate_on_refresh(eval_ctx, deg_graph, layers);
 }
 
 bool DEG_needs_eval(Depsgraph *graph)
 {
-	return graph->entry_tags.size() != 0;
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
+	return deg_graph->entry_tags.size() != 0;
 }

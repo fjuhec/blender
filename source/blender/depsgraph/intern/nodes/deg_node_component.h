@@ -43,8 +43,10 @@ struct ID;
 struct bPoseChannel;
 
 struct Depsgraph;
-struct DepsgraphCopyContext;
 struct EvaluationContext;
+
+namespace DEG {
+
 struct OperationDepsNode;
 struct BoneComponentDepsNode;
 
@@ -206,3 +208,5 @@ struct ShadingComponentDepsNode : public ComponentDepsNode {
 
 
 void DEG_register_component_depsnodes();
+
+}  // namespace DEG

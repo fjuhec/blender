@@ -32,10 +32,11 @@
 
 #pragma once
 
-struct Depsgraph;
 struct Main;
 
 namespace DEG {
+
+struct Depsgraph;
 
 /* Flush updates from tagged nodes outwards until all affected nodes
  * are tagged.

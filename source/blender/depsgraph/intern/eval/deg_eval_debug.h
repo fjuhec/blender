@@ -33,17 +33,17 @@
 #include "depsgraph_types.h"
 
 struct ID;
+struct EvaluationContext;
 
 struct DepsgraphStats;
 struct DepsgraphStatsID;
 struct DepsgraphStatsComponent;
-struct DepsgraphSettings;
-struct EvaluationContext;
-struct OperationDepsNode;
-
-struct Depsgraph;
 
 namespace DEG {
+
+struct Depsgraph;
+struct DepsgraphSettings;
+struct OperationDepsNode;
 
 struct DepsgraphDebug {
 	static DepsgraphStats *stats;

@@ -53,17 +53,16 @@ struct World;
 
 struct PropertyRNA;
 
+namespace DEG {
+
 struct Depsgraph;
 struct DepsNode;
-struct DepsNodeHandle;
 struct RootDepsNode;
 struct SubgraphDepsNode;
 struct IDDepsNode;
 struct TimeSourceDepsNode;
 struct ComponentDepsNode;
 struct OperationDepsNode;
-
-namespace DEG {
 
 struct DepsgraphNodeBuilder {
 	DepsgraphNodeBuilder(Main *bmain, Depsgraph *graph);

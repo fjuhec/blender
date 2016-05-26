@@ -347,7 +347,7 @@ SubgraphDepsNode *DepsgraphNodeBuilder::build_subgraph(Group *group)
 		return NULL;
 
 	/* create new subgraph's data */
-	Depsgraph *subgraph = DEG_graph_new();
+	Depsgraph *subgraph = reinterpret_cast<Depsgraph *>(DEG_graph_new());
 
 	DepsgraphNodeBuilder subgraph_builder(m_bmain, subgraph);
 

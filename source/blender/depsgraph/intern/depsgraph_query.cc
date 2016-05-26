@@ -57,7 +57,9 @@ short DEG_get_eval_flags_for_id(Depsgraph *graph, ID *id)
 		return 0;
 	}
 
-	IDDepsNode *id_node = graph->find_id_node(id);
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
+
+	DEG::IDDepsNode *id_node = deg_graph->find_id_node(id);
 	if (id_node == NULL) {
 		/* TODO(sergey): Does it mean we need to check set scene? */
 		return 0;

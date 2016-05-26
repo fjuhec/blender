@@ -49,6 +49,8 @@ extern "C" {
 #include "depsgraph_intern.h"
 #include "depsgraph_util_foreach.h"
 
+namespace DEG {
+
 /* *************** */
 /* Node Management */
 
@@ -253,8 +255,8 @@ SubgraphDepsNode::~SubgraphDepsNode()
 	// XXX: prune these flags a bit...
 	if ((this->flag & SUBGRAPH_FLAG_FIRSTREF) || !(this->flag & SUBGRAPH_FLAG_SHARED)) {
 		/* Free the referenced graph. */
-		DEG_graph_free(this->graph);
-		this->graph = NULL;
+		DEG_graph_free(reinterpret_cast< ::Depsgraph* >(graph));
+		graph = NULL;
 	}
 }
 
@@ -269,3 +271,5 @@ void DEG_register_base_depsnodes()
 	DEG_register_node_typeinfo(&DNTI_ID_REF);
 	DEG_register_node_typeinfo(&DNTI_SUBGRAPH);
 }
+
+}  // namespace DEG
