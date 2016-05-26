@@ -144,26 +144,32 @@ static DepsNodeFactoryImpl<TimeSourceDepsNode> DNTI_TIMESOURCE;
 
 static unsigned int id_deps_node_hash_key(const void *key_v)
 {
-    const IDDepsNode::ComponentIDKey *key =
-            reinterpret_cast<const IDDepsNode::ComponentIDKey *>(key_v);
-    return hash_combine(BLI_ghashutil_uinthash(key->type),
-                        BLI_ghashutil_strhash_p(key->name.c_str()));
+	const IDDepsNode::ComponentIDKey *key =
+	        reinterpret_cast<const IDDepsNode::ComponentIDKey *>(key_v);
+	return hash_combine(BLI_ghashutil_uinthash(key->type),
+	                    BLI_ghashutil_strhash_p(key->name.c_str()));
 }
 
 static bool id_deps_node_hash_key_cmp(const void *a, const void *b)
 {
-    const IDDepsNode::ComponentIDKey *key_a =
-            reinterpret_cast<const IDDepsNode::ComponentIDKey *>(a);
-    const IDDepsNode::ComponentIDKey *key_b =
-            reinterpret_cast<const IDDepsNode::ComponentIDKey *>(b);
-    return !(*key_a == *key_b);
+	const IDDepsNode::ComponentIDKey *key_a =
+	        reinterpret_cast<const IDDepsNode::ComponentIDKey *>(a);
+	const IDDepsNode::ComponentIDKey *key_b =
+	        reinterpret_cast<const IDDepsNode::ComponentIDKey *>(b);
+	return !(*key_a == *key_b);
 }
 
 static void id_deps_node_hash_key_free(void *key_v)
 {
-    typedef IDDepsNode::ComponentIDKey ComponentIDKey;
-    ComponentIDKey *key = reinterpret_cast<ComponentIDKey *>(key_v);
-    OBJECT_GUARDED_DELETE(key, ComponentIDKey);
+	typedef IDDepsNode::ComponentIDKey ComponentIDKey;
+	ComponentIDKey *key = reinterpret_cast<ComponentIDKey *>(key_v);
+	OBJECT_GUARDED_DELETE(key, ComponentIDKey);
+}
+
+static void id_deps_node_hash_value_free(void *value_v)
+{
+	ComponentDepsNode *comp_node = reinterpret_cast<ComponentDepsNode *>(value_v);
+	OBJECT_GUARDED_DELETE(comp_node, ComponentDepsNode);
 }
 
 /* Initialize 'id' node - from pointer data given. */
@@ -228,12 +234,9 @@ void IDDepsNode::remove_component(eDepsNode_Type type, const string &name)
 
 void IDDepsNode::clear_components()
 {
-	GHASH_FOREACH_BEGIN(ComponentDepsNode *, comp_node, components)
-	{
-		OBJECT_GUARDED_DELETE(comp_node, ComponentDepsNode);
-	}
-	GHASH_FOREACH_END();
-	BLI_ghash_clear(components, id_deps_node_hash_key_free, NULL);
+	BLI_ghash_clear(components,
+	                id_deps_node_hash_key_free,
+	                id_deps_node_hash_value_free);
 }
 
 void IDDepsNode::tag_update(Depsgraph *graph)

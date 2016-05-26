@@ -77,6 +77,12 @@ static void comp_node_hash_key_free(void *key_v)
 	OBJECT_GUARDED_DELETE(key, OperationIDKey);
 }
 
+static void comp_node_hash_value_free(void *value_v)
+{
+	OperationDepsNode *op_node = reinterpret_cast<OperationDepsNode *>(value_v);
+	OBJECT_GUARDED_DELETE(op_node, OperationDepsNode);
+}
+
 ComponentDepsNode::ComponentDepsNode() :
     entry_operation(NULL),
     exit_operation(NULL),
@@ -197,12 +203,9 @@ void ComponentDepsNode::remove_operation(eDepsOperation_Code opcode, const strin
 
 void ComponentDepsNode::clear_operations()
 {
-	GHASH_FOREACH_BEGIN(OperationDepsNode *, op_node, operations)
-	{
-		OBJECT_GUARDED_DELETE(op_node, OperationDepsNode);
-	}
-	GHASH_FOREACH_END();
-	BLI_ghash_clear(operations, comp_node_hash_key_free, NULL);
+	BLI_ghash_clear(operations,
+	                comp_node_hash_key_free,
+	                comp_node_hash_value_free);
 }
 
 void ComponentDepsNode::tag_update(Depsgraph *graph)

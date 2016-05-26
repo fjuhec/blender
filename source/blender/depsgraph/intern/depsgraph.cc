@@ -249,6 +249,12 @@ DepsNode *Depsgraph::find_node_from_pointer(const PointerRNA *ptr,
 
 /* Node Management ---------------------------- */
 
+static void id_node_deleter(void *value)
+{
+	IDDepsNode *id_node = reinterpret_cast<IDDepsNode *>(value);
+	OBJECT_GUARDED_DELETE(id_node, IDDepsNode);
+}
+
 RootDepsNode *Depsgraph::add_root_node()
 {
 	if (!root_node) {
@@ -347,12 +353,7 @@ void Depsgraph::remove_id_node(const ID *id)
 
 void Depsgraph::clear_id_nodes()
 {
-	GHASH_FOREACH_BEGIN(IDDepsNode *, id_node, id_hash)
-	{
-		OBJECT_GUARDED_DELETE(id_node, IDDepsNode);
-	}
-	GHASH_FOREACH_END();
-	BLI_ghash_clear(id_hash, NULL, NULL);
+	BLI_ghash_clear(id_hash, NULL, id_node_deleter);
 }
 
 /* Add new relationship between two nodes. */
