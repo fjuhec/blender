@@ -82,10 +82,10 @@ set(SRC
 	intern/depsgraph_intern.h
 	intern/depsgraph_types.h
 
-	util/depsgraph_util_function.h
-	util/depsgraph_util_hash.h
-	util/depsgraph_util_map.h
-	util/depsgraph_util_set.h
+	util/deg_util_function.h
+	util/deg_util_hash.h
+	util/deg_util_map.h
+	util/deg_util_set.h
 )
 
 if(WITH_CXX11)

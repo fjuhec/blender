@@ -38,7 +38,7 @@ extern "C" {
 }  /* extern "C" */
 
 #include "intern/depsgraph_intern.h"
-#include "util/depsgraph_util_foreach.h"
+#include "util/deg_util_foreach.h"
 
 /* ****************** */
 /* Graphviz Debugging */

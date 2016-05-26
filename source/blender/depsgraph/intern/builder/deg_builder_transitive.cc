@@ -40,7 +40,7 @@ extern "C" {
 
 #include "intern/depsgraph.h"
 
-#include "util/depsgraph_util_foreach.h"
+#include "util/deg_util_foreach.h"
 
 namespace DEG {
 

@@ -41,7 +41,7 @@
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "util/depsgraph_util_foreach.h"
+#include "util/deg_util_foreach.h"
 
 namespace DEG {
 

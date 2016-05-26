@@ -51,7 +51,7 @@ extern "C" {
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 #include "intern/depsgraph.h"
-#include "util/depsgraph_util_foreach.h"
+#include "util/deg_util_foreach.h"
 
 /* Unfinished and unused, and takes quite some pre-processing time. */
 #undef USE_EVAL_PRIORITY

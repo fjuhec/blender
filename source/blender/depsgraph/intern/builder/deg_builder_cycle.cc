@@ -38,7 +38,7 @@ extern "C" {
 #include "BLI_utildefines.h"
 }
 
-#include "util/depsgraph_util_foreach.h"
+#include "util/deg_util_foreach.h"
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"

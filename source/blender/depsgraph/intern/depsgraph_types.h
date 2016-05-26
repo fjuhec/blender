@@ -36,7 +36,7 @@
 
 #pragma once
 
-#include "util/depsgraph_util_function.h"
+#include "util/deg_util_function.h"
 
 /* TODO(sergey): Ideally we'll just use char* and statically allocated strings
  * to avoid any possible overhead caused by string (re)allocation/formatting.

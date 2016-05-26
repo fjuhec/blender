@@ -58,7 +58,7 @@ extern "C" {
 #include "intern/nodes/deg_node_operation.h"
 
 #include "intern/depsgraph_intern.h"
-#include "util/depsgraph_util_foreach.h"
+#include "util/deg_util_foreach.h"
 
 namespace DEG {
 

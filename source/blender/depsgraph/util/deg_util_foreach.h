@@ -24,7 +24,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/util/depsgraph_util_foreach.h
+/** \file blender/depsgraph/util/deg_util_foreach.h
  *  \ingroup depsgraph
  */
 

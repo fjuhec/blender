@@ -24,7 +24,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/util/depsgraph_util_set.h
+/** \file blender/depsgraph/util/deg_util_set.h
  *  \ingroup depsgraph
  */
 
@@ -33,7 +33,7 @@
 
 #include <set>
 
-#include "depsgraph_util_hash.h"
+#include "deg_util_hash.h"
 
 using std::set;
 
