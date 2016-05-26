@@ -207,6 +207,6 @@ struct ShadingComponentDepsNode : public ComponentDepsNode {
 };
 
 
-void DEG_register_component_depsnodes();
+void deg_register_component_depsnodes();
 
 }  // namespace DEG

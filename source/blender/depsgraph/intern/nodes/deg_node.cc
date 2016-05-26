@@ -123,7 +123,7 @@ RootDepsNode::~RootDepsNode()
 TimeSourceDepsNode *RootDepsNode::add_time_source(const string &name)
 {
 	if (!time_source) {
-		DepsNodeFactory *factory = DEG_get_node_factory(DEPSNODE_TYPE_TIMESOURCE);
+		DepsNodeFactory *factory = deg_get_node_factory(DEPSNODE_TYPE_TIMESOURCE);
 		time_source = (TimeSourceDepsNode *)factory->create_node(NULL, "", name);
 		/*time_source->owner = this;*/ // XXX
 	}
@@ -175,7 +175,7 @@ ComponentDepsNode *IDDepsNode::add_component(eDepsNode_Type type,
 	ComponentIDKey key(type, name);
 	ComponentDepsNode *comp_node = find_component(type, name);
 	if (!comp_node) {
-		DepsNodeFactory *factory = DEG_get_node_factory(type);
+		DepsNodeFactory *factory = deg_get_node_factory(type);
 		comp_node = (ComponentDepsNode *)factory->create_node(this->id, "", name);
 
 		/* Register. */
@@ -263,13 +263,13 @@ SubgraphDepsNode::~SubgraphDepsNode()
 DEG_DEPSNODE_DEFINE(SubgraphDepsNode, DEPSNODE_TYPE_SUBGRAPH, "Subgraph Node");
 static DepsNodeFactoryImpl<SubgraphDepsNode> DNTI_SUBGRAPH;
 
-void DEG_register_base_depsnodes()
+void deg_register_base_depsnodes()
 {
-	DEG_register_node_typeinfo(&DNTI_ROOT);
-	DEG_register_node_typeinfo(&DNTI_TIMESOURCE);
+	deg_register_node_typeinfo(&DNTI_ROOT);
+	deg_register_node_typeinfo(&DNTI_TIMESOURCE);
 
-	DEG_register_node_typeinfo(&DNTI_ID_REF);
-	DEG_register_node_typeinfo(&DNTI_SUBGRAPH);
+	deg_register_node_typeinfo(&DNTI_ID_REF);
+	deg_register_node_typeinfo(&DNTI_SUBGRAPH);
 }
 
 }  // namespace DEG

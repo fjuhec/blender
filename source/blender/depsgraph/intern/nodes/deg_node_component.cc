@@ -123,7 +123,7 @@ OperationDepsNode *ComponentDepsNode::add_operation(eDepsOperation_Type optype, 
 {
 	OperationDepsNode *op_node = has_operation(opcode, name);
 	if (!op_node) {
-		DepsNodeFactory *factory = DEG_get_node_factory(DEPSNODE_TYPE_OPERATION);
+		DepsNodeFactory *factory = deg_get_node_factory(DEPSNODE_TYPE_OPERATION);
 		op_node = (OperationDepsNode *)factory->create_node(this->owner->id, "", name);
 
 		/* register opnode in this component's operation set */
@@ -278,20 +278,20 @@ static DepsNodeFactoryImpl<ShadingComponentDepsNode> DNTI_SHADING;
 
 /* Node Types Register =================================== */
 
-void DEG_register_component_depsnodes()
+void deg_register_component_depsnodes()
 {
-	DEG_register_node_typeinfo(&DNTI_PARAMETERS);
-	DEG_register_node_typeinfo(&DNTI_PROXY);
-	DEG_register_node_typeinfo(&DNTI_ANIMATION);
-	DEG_register_node_typeinfo(&DNTI_TRANSFORM);
-	DEG_register_node_typeinfo(&DNTI_GEOMETRY);
-	DEG_register_node_typeinfo(&DNTI_SEQUENCER);
+	deg_register_node_typeinfo(&DNTI_PARAMETERS);
+	deg_register_node_typeinfo(&DNTI_PROXY);
+	deg_register_node_typeinfo(&DNTI_ANIMATION);
+	deg_register_node_typeinfo(&DNTI_TRANSFORM);
+	deg_register_node_typeinfo(&DNTI_GEOMETRY);
+	deg_register_node_typeinfo(&DNTI_SEQUENCER);
 
-	DEG_register_node_typeinfo(&DNTI_EVAL_POSE);
-	DEG_register_node_typeinfo(&DNTI_BONE);
+	deg_register_node_typeinfo(&DNTI_EVAL_POSE);
+	deg_register_node_typeinfo(&DNTI_BONE);
 
-	DEG_register_node_typeinfo(&DNTI_EVAL_PARTICLES);
-	DEG_register_node_typeinfo(&DNTI_SHADING);
+	deg_register_node_typeinfo(&DNTI_EVAL_PARTICLES);
+	deg_register_node_typeinfo(&DNTI_SHADING);
 }
 
 }  // namespace DEG

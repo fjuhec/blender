@@ -88,9 +88,9 @@ void OperationDepsNode::tag_update(Depsgraph *graph)
 DEG_DEPSNODE_DEFINE(OperationDepsNode, DEPSNODE_TYPE_OPERATION, "Operation");
 static DepsNodeFactoryImpl<OperationDepsNode> DNTI_OPERATION;
 
-void DEG_register_operation_depsnodes()
+void deg_register_operation_depsnodes()
 {
-	DEG_register_node_typeinfo(&DNTI_OPERATION);
+	deg_register_node_typeinfo(&DNTI_OPERATION);
 }
 
 }  // namespace DEG

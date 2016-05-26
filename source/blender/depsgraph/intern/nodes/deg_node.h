@@ -239,6 +239,6 @@ typedef enum eSubgraphRef_Flag {
 	SUBGRAPH_FLAG_FIRSTREF    = (1 << 1),
 } eSubgraphRef_Flag;
 
-void DEG_register_base_depsnodes();
+void deg_register_base_depsnodes();
 
 }  // namespace DEG

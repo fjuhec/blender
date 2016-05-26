@@ -88,6 +88,6 @@ struct OperationDepsNode : public DepsNode {
 	DEG_DEPSNODE_DECLARE;
 };
 
-void DEG_register_operation_depsnodes();
+void deg_register_operation_depsnodes();
 
 }  // namespace DEG

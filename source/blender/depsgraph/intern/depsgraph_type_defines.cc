@@ -64,7 +64,7 @@ static GHash *_depsnode_typeinfo_registry = NULL;
 /* Registration ------------------------------------------- */
 
 /* Register node type */
-void DEG_register_node_typeinfo(DepsNodeFactory *factory)
+void deg_register_node_typeinfo(DepsNodeFactory *factory)
 {
 	BLI_assert(factory != NULL);
 	BLI_ghash_insert(_depsnode_typeinfo_registry, SET_INT_IN_POINTER(factory->type()), factory);
@@ -73,19 +73,19 @@ void DEG_register_node_typeinfo(DepsNodeFactory *factory)
 /* Getters ------------------------------------------------- */
 
 /* Get typeinfo for specified type */
-DepsNodeFactory *DEG_get_node_factory(const eDepsNode_Type type)
+DepsNodeFactory *deg_get_node_factory(const eDepsNode_Type type)
 {
 	/* look up type - at worst, it doesn't exist in table yet, and we fail */
 	return (DepsNodeFactory *)BLI_ghash_lookup(_depsnode_typeinfo_registry, SET_INT_IN_POINTER(type));
 }
 
 /* Get typeinfo for provided node */
-DepsNodeFactory *DEG_node_get_factory(const DepsNode *node)
+DepsNodeFactory *deg_node_get_factory(const DepsNode *node)
 {
-	if (!node)
+	if (node != NULL) {
 		return NULL;
-
-	return DEG_get_node_factory(node->type);
+	}
+	return deg_get_node_factory(node->type);
 }
 
 /* Stringified opcodes ------------------------------------- */
@@ -159,9 +159,9 @@ void DEG_register_node_types(void)
 	DEG::_depsnode_typeinfo_registry = BLI_ghash_int_new("Depsgraph Node Type Registry");
 
 	/* register node types */
-	DEG::DEG_register_base_depsnodes();
-	DEG::DEG_register_component_depsnodes();
-	DEG::DEG_register_operation_depsnodes();
+	DEG::deg_register_base_depsnodes();
+	DEG::deg_register_component_depsnodes();
+	DEG::deg_register_operation_depsnodes();
 }
 
 /* Free registry on exit */

@@ -243,7 +243,7 @@ DepsNode *Depsgraph::find_node_from_pointer(const PointerRNA *ptr,
 RootDepsNode *Depsgraph::add_root_node()
 {
 	if (!root_node) {
-		DepsNodeFactory *factory = DEG_get_node_factory(DEPSNODE_TYPE_ROOT);
+		DepsNodeFactory *factory = deg_get_node_factory(DEPSNODE_TYPE_ROOT);
 		root_node = (RootDepsNode *)factory->create_node(NULL, "", "Root (Scene)");
 	}
 	return root_node;
@@ -272,7 +272,7 @@ TimeSourceDepsNode *Depsgraph::find_time_source(const ID *id) const
 
 SubgraphDepsNode *Depsgraph::add_subgraph_node(const ID *id)
 {
-	DepsNodeFactory *factory = DEG_get_node_factory(DEPSNODE_TYPE_SUBGRAPH);
+	DepsNodeFactory *factory = deg_get_node_factory(DEPSNODE_TYPE_SUBGRAPH);
 	SubgraphDepsNode *subgraph_node =
 		(SubgraphDepsNode *)factory->create_node(id, "", id->name + 2);
 
@@ -316,7 +316,7 @@ IDDepsNode *Depsgraph::add_id_node(ID *id, const string &name)
 {
 	IDDepsNode *id_node = find_id_node(id);
 	if (!id_node) {
-		DepsNodeFactory *factory = DEG_get_node_factory(DEPSNODE_TYPE_ID_REF);
+		DepsNodeFactory *factory = deg_get_node_factory(DEPSNODE_TYPE_ID_REF);
 		id_node = (IDDepsNode *)factory->create_node(id, "", name);
 		id->tag |= LIB_TAG_DOIT;
 		/* register */

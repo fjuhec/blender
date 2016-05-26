@@ -54,7 +54,7 @@ DepsgraphStats *DepsgraphDebug::stats = NULL;
 
 static string get_component_name(eDepsNode_Type type, const string &name = "")
 {
-	DepsNodeFactory *factory = DEG_get_node_factory(type);
+	DepsNodeFactory *factory = deg_get_node_factory(type);
 	if (name.empty()) {
 		return string(factory->tname());
 	}
