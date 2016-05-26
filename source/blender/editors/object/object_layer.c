@@ -60,6 +60,6 @@ static void object_layer_draw_settings(LayerTreeItem *UNUSED(litem), uiLayout *U
 LayerTreeItem *ED_object_layer_add(LayerTree *ltree, const char *name)
 {
 	return BKE_layeritem_add(
-	            ltree, NULL, LAYER_TREETYPE_OBJECT, name ? name : OBJECTLAYER_DEFAULT_NAME,
+	            ltree, NULL, LAYER_ITEMTYPE_LAYER, name ? name : OBJECTLAYER_DEFAULT_NAME,
 	            NULL, object_layer_draw, object_layer_draw_settings);
 }

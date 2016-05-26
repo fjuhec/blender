@@ -122,4 +122,13 @@ void BKE_layeritem_remove(LayerTree *tree, LayerTreeItem *litem)
 	MEM_freeN(litem);
 }
 
+/**
+ * Assign \a item to \a group.
+ */
+void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item)
+{
+	BLI_assert(group->type == LAYER_ITEMTYPE_GROUP);
+	item->parent = group;
+}
+
 /** \} */ /* Layer Tree Item */

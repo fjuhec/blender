@@ -108,5 +108,7 @@ struct LayerTreeItem *BKE_layeritem_add(
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
 void BKE_layeritem_remove(struct LayerTree *tree, struct LayerTreeItem *litem);
 
+void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item);
+
 #endif  /* __BKE_LAYER_H__ */
 

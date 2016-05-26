@@ -43,6 +43,23 @@
 
 #include "layers_intern.h" /* own include */
 
+/* Using icon size makes items align nicely with icons */
+#define LAYERITEM_INDENT_SIZE UI_DPI_ICON_SIZE
+
+
+static int layer_tile_indent_level_get(const LayerTile *tile)
+{
+	LayerTreeItem *parent = tile->litem->parent;
+	int indent_level = 0;
+
+	while (parent) {
+		parent = parent->parent;
+		indent_level++;
+	}
+
+	return indent_level;
+}
+
 static void layer_tile_draw(
         LayerTile *tile, const bContext *C, ARegion *ar,
         uiBlock *block, uiStyle *style,
@@ -51,7 +68,8 @@ static void layer_tile_draw(
 	View2D *v2d = &ar->v2d;
 	LayerTreeItem *litem = tile->litem;
 	const float padx = 4.0f * UI_DPI_FAC;
-	rctf rect = {padx, ar->winx - padx, -v2d->cur.ymin - ofs_y - litem->height};
+	const float ofs_x = layer_tile_indent_level_get(tile) * LAYERITEM_INDENT_SIZE;
+	rctf rect = {padx + ofs_x, ar->winx - padx, -v2d->cur.ymin - ofs_y - litem->height};
 	rect.ymax = rect.ymin + litem->height;
 
 	/* draw selection */
@@ -64,7 +82,7 @@ static void layer_tile_draw(
 	if (litem->draw) {
 		uiLayout *layout = UI_block_layout(
 		                       block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-		                       -v2d->cur.xmin, -v2d->cur.ymin - ofs_y, litem->height, 0, 0, style);
+		                       -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y, litem->height, 0, 0, style);
 		if (tile->flag & LAYERTILE_RENAME) {
 			uiBut *but = uiDefBut(
 			        block, UI_BTYPE_TEXT, 1, "", rect.xmin, rect.ymin,
@@ -106,4 +124,13 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 
 	/* update size of tot-rect (extents of data/viewable area) */
 	UI_view2d_totRect_set(&ar->v2d, ar->winx - BLI_rcti_size_x(&ar->v2d.vert), size_y);
+}
+
+
+/* -------------------------------------------------------------------- */
+/* Layer draw callbacks */
+
+void layer_group_draw(LayerTreeItem *litem, uiLayout *layout)
+{
+	uiItemL(layout, litem->name, ICON_FILE_FOLDER);
 }

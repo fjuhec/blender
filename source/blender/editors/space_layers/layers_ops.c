@@ -26,6 +26,7 @@
 #include "BKE_layer.h"
 
 #include "BLI_compiler_attrs.h"
+#include "BLI_listbase.h"
 
 #include "DNA_windowmanager_types.h"
 
@@ -39,6 +40,8 @@
 #include "WM_types.h"
 
 #include "layers_intern.h" /* own include */
+
+#define LAYERGROUP_DEFAULT_NAME "Untitled Group"
 
 
 static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
@@ -69,6 +72,48 @@ static void LAYERS_OT_layer_add(wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->invoke = layer_add_invoke;
+	ot->poll = ED_operator_layers_active;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+{
+	Scene *scene = CTX_data_scene(C);
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+
+	LayerTreeItem *new_group = BKE_layeritem_add(
+		            scene->object_layers, NULL, LAYER_ITEMTYPE_GROUP, LAYERGROUP_DEFAULT_NAME,
+		            NULL, layer_group_draw, NULL);
+	LayerTile *new_tile = layers_tile_add(slayer, new_group);
+
+	LayerTile *last_in_group = NULL; /* the last item added to the group, the next one is placed after it */
+	/* Add selected items to group */
+	for (LayerTile *tile = slayer->layer_tiles.first, *next_tile; tile; tile = next_tile) {
+		next_tile = tile->next; /* we change listbase so store old pointer */
+		if (tile->flag & LAYERTILE_SELECTED) {
+			BKE_layeritem_group_assign(new_group, tile->litem);
+			BLI_remlink(&slayer->layer_tiles, tile);
+			BLI_insertlinkafter(&slayer->layer_tiles, last_in_group ? last_in_group : new_tile, tile);
+			last_in_group = tile;
+		}
+	}
+
+	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+static void LAYERS_OT_group_add(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Add Layer Group";
+	ot->idname = "LAYERS_OT_group_add";
+	ot->description = "Add a new layer group to the layer list and place selected elements inside of it";
+
+	/* api callbacks */
+	ot->invoke = layer_group_add_invoke;
 	ot->poll = ED_operator_layers_active;
 
 	/* flags */
@@ -249,6 +294,7 @@ void layers_operatortypes(void)
 {
 	/* organization */
 	WM_operatortype_append(LAYERS_OT_layer_add);
+	WM_operatortype_append(LAYERS_OT_group_add);
 	WM_operatortype_append(LAYERS_OT_layer_rename);
 
 	/* states (activating selecting, highlighting) */

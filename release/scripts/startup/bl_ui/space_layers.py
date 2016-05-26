@@ -29,6 +29,7 @@ class LAYERS_HT_header(Header):
 
         layout.template_header()
         layout.operator("layers.layer_add", text="", icon='NEW')
+        layout.operator("layers.group_add", text="", icon='NEWFOLDER')
 
 if __name__ == "__main__":  # only for live edit.
     bpy.utils.register_module(__name__)

@@ -46,6 +46,7 @@ typedef struct LayerTile {
 
 /* layers_draw.c */
 void layers_tiles_draw(const struct bContext *C, struct ARegion *ar);
+void layer_group_draw(struct LayerTreeItem *litem, struct uiLayout *layout);
 
 /* layers_util.c */
 LayerTile *layers_tile_add(struct SpaceLayers *slayer, struct LayerTreeItem *litem);
