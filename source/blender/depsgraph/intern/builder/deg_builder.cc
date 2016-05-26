@@ -35,6 +35,9 @@
 
 #include "DNA_anim_types.h"
 
+#include "BLI_utildefines.h"
+#include "BLI_ghash.h"
+
 #include "intern/depsgraph.h"
 #include "intern/depsgraph_types.h"
 #include "intern/nodes/deg_node.h"
@@ -105,11 +108,9 @@ void deg_graph_build_finalize(Depsgraph *graph)
 	}
 
 	/* Re-tag IDs for update if it was tagged before the relations update tag. */
-	for (Depsgraph::IDNodeMap::const_iterator it = graph->id_hash.begin();
-	     it != graph->id_hash.end();
-	     ++it)
-	{
-		IDDepsNode *id_node = it->second;
+	GHashIterator gh_iter;
+	GHASH_ITER (gh_iter, graph->id_hash) {
+		IDDepsNode *id_node = reinterpret_cast<IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 		ID *id = id_node->id;
 		if (id->tag & LIB_TAG_ID_RECALC_ALL &&
 		    id->tag & LIB_TAG_DOIT)

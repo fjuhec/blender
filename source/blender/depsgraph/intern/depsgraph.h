@@ -40,10 +40,10 @@
 
 #include "intern/depsgraph_types.h"
 
-#include "util/deg_util_map.h"
 #include "util/deg_util_set.h"
 
 struct ID;
+struct GHash;
 struct PointerRNA;
 struct PropertyRNA;
 
@@ -96,7 +96,6 @@ struct DepsRelation {
 
 /* Dependency Graph object */
 struct Depsgraph {
-	typedef unordered_map<const ID *, IDDepsNode *> IDNodeMap;
 	typedef unordered_set<SubgraphDepsNode *> Subgraphs;
 	typedef unordered_set<OperationDepsNode *> EntryTags;
 	typedef vector<OperationDepsNode *> OperationNodes;
@@ -165,7 +164,7 @@ struct Depsgraph {
 
 	/* <ID : IDDepsNode> mapping from ID blocks to nodes representing these blocks
 	 * (for quick lookups). */
-	IDNodeMap id_hash;
+	GHash *id_hash;
 
 	/* "root" node - the one where all evaluation enters from. */
 	RootDepsNode *root_node;

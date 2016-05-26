@@ -32,8 +32,8 @@
 
 #include <map>
 
-using std::map;
-using std::pair;
+//using std::map;
+//using std::pair;
 
 #if defined(DEG_NO_UNORDERED_MAP)
 #  include <map>

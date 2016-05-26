@@ -36,6 +36,8 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 #include "BLI_listbase.h"
 
 extern "C" {
@@ -72,6 +74,7 @@ Depsgraph::Depsgraph()
     layers(0)
 {
 	BLI_spin_init(&lock);
+	id_hash = BLI_ghash_ptr_new("depsgraph id hash");
 }
 
 Depsgraph::~Depsgraph()
@@ -79,6 +82,7 @@ Depsgraph::~Depsgraph()
 	/* Free root node - it won't have been freed yet... */
 	clear_id_nodes();
 	clear_subgraph_nodes();
+	BLI_ghash_free(id_hash, NULL, NULL);
 	if (this->root_node != NULL) {
 		OBJECT_GUARDED_DELETE(this->root_node, RootDepsNode);
 	}
@@ -309,8 +313,7 @@ void Depsgraph::clear_subgraph_nodes()
 
 IDDepsNode *Depsgraph::find_id_node(const ID *id) const
 {
-	IDNodeMap::const_iterator it = this->id_hash.find(id);
-	return it != this->id_hash.end() ? it->second : NULL;
+	return reinterpret_cast<IDDepsNode *>(BLI_ghash_lookup(id_hash, id));
 }
 
 IDDepsNode *Depsgraph::add_id_node(ID *id, const string &name)
@@ -321,7 +324,7 @@ IDDepsNode *Depsgraph::add_id_node(ID *id, const string &name)
 		id_node = (IDDepsNode *)factory->create_node(id, "", name);
 		id->tag |= LIB_TAG_DOIT;
 		/* register */
-		this->id_hash[id] = id_node;
+		BLI_ghash_insert(id_hash, id, id_node);
 	}
 	return id_node;
 }
@@ -331,21 +334,19 @@ void Depsgraph::remove_id_node(const ID *id)
 	IDDepsNode *id_node = find_id_node(id);
 	if (id_node) {
 		/* unregister */
-		this->id_hash.erase(id);
+		BLI_ghash_remove(id_hash, id, NULL, NULL);
 		OBJECT_GUARDED_DELETE(id_node, IDDepsNode);
 	}
 }
 
 void Depsgraph::clear_id_nodes()
 {
-	for (IDNodeMap::const_iterator it = id_hash.begin();
-	     it != id_hash.end();
-	     ++it)
-	{
-		IDDepsNode *id_node = it->second;
+	GHashIterator gh_iter;
+	GHASH_ITER (gh_iter, id_hash) {
+		IDDepsNode *id_node = reinterpret_cast<IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 		OBJECT_GUARDED_DELETE(id_node, IDDepsNode);
 	}
-	id_hash.clear();
+	BLI_ghash_clear(id_hash, NULL, NULL);
 }
 
 /* Add new relationship between two nodes. */
@@ -458,7 +459,7 @@ void Depsgraph::clear_all_nodes()
 {
 	clear_id_nodes();
 	clear_subgraph_nodes();
-	id_hash.clear();
+	BLI_ghash_clear(id_hash, NULL, NULL);
 	if (this->root_node) {
 		OBJECT_GUARDED_DELETE(this->root_node, RootDepsNode);
 		root_node = NULL;

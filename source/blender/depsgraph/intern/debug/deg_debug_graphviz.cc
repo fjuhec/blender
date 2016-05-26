@@ -30,6 +30,9 @@
  * Implementation of tools for debugging the depsgraph
  */
 
+#include "BLI_utildefines.h"
+#include "BLI_ghash.h"
+
 extern "C" {
 #include "DNA_listBase.h"
 
@@ -521,11 +524,9 @@ static void deg_debug_graphviz_graph_nodes(const DebugContext &ctx,
 	if (graph->root_node) {
 		deg_debug_graphviz_node(ctx, graph->root_node);
 	}
-	for (Depsgraph::IDNodeMap::const_iterator it = graph->id_hash.begin();
-	     it != graph->id_hash.end();
-	     ++it)
-	{
-		DepsNode *node = it->second;
+	GHashIterator gh_iter;
+	GHASH_ITER (gh_iter, graph->id_hash) {
+		DepsNode *node = reinterpret_cast<DepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 		deg_debug_graphviz_node(ctx, node);
 	}
 	TimeSourceDepsNode *time_source = graph->find_time_source(NULL);
@@ -537,11 +538,9 @@ static void deg_debug_graphviz_graph_nodes(const DebugContext &ctx,
 static void deg_debug_graphviz_graph_relations(const DebugContext &ctx,
                                                const Depsgraph *graph)
 {
-	for (Depsgraph::IDNodeMap::const_iterator it = graph->id_hash.begin();
-	     it != graph->id_hash.end();
-	     ++it)
-	{
-		IDDepsNode *id_node = it->second;
+	GHashIterator gh_iter;
+	GHASH_ITER (gh_iter, graph->id_hash) {
+		IDDepsNode *id_node = reinterpret_cast<IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 		for (IDDepsNode::ComponentMap::const_iterator it = id_node->components.begin();
 		     it != id_node->components.end();
 		     ++it)

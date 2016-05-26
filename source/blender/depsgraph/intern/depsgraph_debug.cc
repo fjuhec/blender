@@ -30,6 +30,9 @@
  * Implementation of tools for debugging the depsgraph
  */
 
+#include "BLI_utildefines.h"
+#include "BLI_ghash.h"
+
 extern "C" {
 #include "DNA_scene_types.h"
 
@@ -215,11 +218,9 @@ void DEG_stats_simple(const Depsgraph *graph, size_t *r_outer,
 		size_t tot_outer = 0;
 		size_t tot_rels = 0;
 
-		for (DEG::Depsgraph::IDNodeMap::const_iterator it = deg_graph->id_hash.begin();
-		     it != deg_graph->id_hash.end();
-		     ++it)
-		{
-			DEG::IDDepsNode *id_node = it->second;
+		GHashIterator gh_iter;
+		GHASH_ITER (gh_iter, deg_graph->id_hash) {
+			DEG::IDDepsNode *id_node = reinterpret_cast<DEG::IDDepsNode *>(BLI_ghashIterator_getValue(&gh_iter));
 			tot_outer++;
 			for (DEG::IDDepsNode::ComponentMap::const_iterator it = id_node->components.begin();
 			     it != id_node->components.end();
