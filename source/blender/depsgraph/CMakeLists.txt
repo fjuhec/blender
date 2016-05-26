@@ -84,7 +84,6 @@ set(SRC
 
 	util/deg_util_function.h
 	util/deg_util_hash.h
-	util/deg_util_map.h
 	util/deg_util_set.h
 )
 

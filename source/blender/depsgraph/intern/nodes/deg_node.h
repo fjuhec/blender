@@ -33,7 +33,6 @@
 #include "intern/depsgraph_types.h"
 
 #include "util/deg_util_hash.h"
-#include "util/deg_util_map.h"
 #include "util/deg_util_set.h"
 
 struct ID;
