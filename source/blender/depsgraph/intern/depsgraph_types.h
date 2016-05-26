@@ -60,41 +60,79 @@ namespace DEG {
 // XXX: move this to another header that can be exposed?
 typedef function<void(struct EvaluationContext *)> DepsEvalOperationCb;
 
-/* Metatype of Nodes - The general "level" in the graph structure the node serves */
+/* Metatype of Nodes - The general "level" in the graph structure
+ * the node serves.
+ */
 typedef enum eDepsNode_Class {
-	DEPSNODE_CLASS_GENERIC         = 0,        /* Types generally unassociated with user-visible entities, but needed for graph functioning */
-
-	DEPSNODE_CLASS_COMPONENT       = 1,        /* [Outer Node] An "aspect" of evaluating/updating an ID-Block, requiring certain types of evaluation behaviours */
-	DEPSNODE_CLASS_OPERATION       = 2,        /* [Inner Node] A glorified function-pointer/callback for scheduling up evaluation operations for components, subject to relationship requirements */
+	/* Types generally unassociated with user-visible entities,
+	 * but needed for graph functioning.
+	 */
+	DEPSNODE_CLASS_GENERIC         = 0,
+	/* [Outer Node] An "aspect" of evaluating/updating an ID-Block, requiring
+	 * certain types of evaluation behavior.
+	 */
+	DEPSNODE_CLASS_COMPONENT       = 1,
+	/* [Inner Node] A glorified function-pointer/callback for scheduling up
+	 * evaluation operations for components, subject to relationship
+	 * requirements.
+	 */
+	DEPSNODE_CLASS_OPERATION       = 2,
 } eDepsNode_Class;
 
 /* Types of Nodes */
 typedef enum eDepsNode_Type {
-	DEPSNODE_TYPE_UNDEFINED        = -1,       /* fallback type for invalid return value */
+	/* Fallback type for invalid return value */
+	DEPSNODE_TYPE_UNDEFINED        = -1,
+	/* Inner Node (Operation) */
+	DEPSNODE_TYPE_OPERATION        = 0,
 
-	DEPSNODE_TYPE_OPERATION        = 0,        /* Inner Node (Operation) */
+	/* **** Generic Types **** */
 
-	/* Generic Types */
-	DEPSNODE_TYPE_ROOT             = 1,        /* "Current Scene" - basically whatever kicks off the evaluation process */
-	DEPSNODE_TYPE_TIMESOURCE       = 2,        /* Time-Source */
+	/* "Current Scene" - basically whatever kicks off the evaluation process. */
+	DEPSNODE_TYPE_ROOT             = 1,
+	/* Time-Source */
+	DEPSNODE_TYPE_TIMESOURCE       = 2,
+	/* ID-Block reference - used as landmarks/collection point for components,
+	 * but not usually part of main graph.
+	 */
+	DEPSNODE_TYPE_ID_REF           = 3,
+	/* Isolated sub-graph - used for keeping instanced data separate from
+	 * instances using them.
+	 */
+	DEPSNODE_TYPE_SUBGRAPH         = 4,
 
-	DEPSNODE_TYPE_ID_REF           = 3,        /* ID-Block reference - used as landmarks/collection point for components, but not usually part of main graph */
-	DEPSNODE_TYPE_SUBGRAPH         = 4,        /* Isolated sub-graph - used for keeping instanced data separate from instances using them */
+	/* **** Outer Types **** */
 
-	/* Outer Types */
-	DEPSNODE_TYPE_PARAMETERS       = 11,       /* Parameters Component - Default when nothing else fits (i.e. just SDNA property setting) */
-	DEPSNODE_TYPE_PROXY            = 12,       /* Generic "Proxy-Inherit" Component */   // XXX: Also for instancing of subgraphs?
-	DEPSNODE_TYPE_ANIMATION        = 13,       /* Animation Component */                 // XXX: merge in with parameters?
-	DEPSNODE_TYPE_TRANSFORM        = 14,       /* Transform Component (Parenting/Constraints) */
-	DEPSNODE_TYPE_GEOMETRY         = 15,       /* Geometry Component (DerivedMesh/Displist) */
-	DEPSNODE_TYPE_SEQUENCER        = 16,       /* Sequencer Component (Scene Only) */
+	/* Parameters Component - Default when nothing else fits
+	 * (i.e. just SDNA property setting).
+	 */
+	DEPSNODE_TYPE_PARAMETERS       = 11,
+	/* Generic "Proxy-Inherit" Component
+	 * XXX: Also for instancing of subgraphs?
+	 */
+	DEPSNODE_TYPE_PROXY            = 12,
+	/* Animation Component
+	 *
+	 * XXX: merge in with parameters?
+	 */
+	DEPSNODE_TYPE_ANIMATION        = 13,
+	/* Transform Component (Parenting/Constraints) */
+	DEPSNODE_TYPE_TRANSFORM        = 14,
+	/* Geometry Component (DerivedMesh/Displist) */
+	DEPSNODE_TYPE_GEOMETRY         = 15,
+	/* Sequencer Component (Scene Only) */
+	DEPSNODE_TYPE_SEQUENCER        = 16,
 
-	/* Evaluation-Related Outer Types (with Subdata) */
-	DEPSNODE_TYPE_EVAL_POSE        = 21,       /* Pose Component - Owner/Container of Bones Eval */
-	DEPSNODE_TYPE_BONE             = 22,       /* Bone Component - Child/Subcomponent of Pose */
+	/* **** Evaluation-Related Outer Types (with Subdata) **** */
 
-	DEPSNODE_TYPE_EVAL_PARTICLES   = 23,       /* Particle Systems Component */
-	DEPSNODE_TYPE_SHADING          = 24,       /* Material Shading Component */
+	/* Pose Component - Owner/Container of Bones Eval */
+	DEPSNODE_TYPE_EVAL_POSE        = 21,
+	/* Bone Component - Child/Subcomponent of Pose */
+	DEPSNODE_TYPE_BONE             = 22,
+	/* Particle Systems Component */
+	DEPSNODE_TYPE_EVAL_PARTICLES   = 23,
+	/* Material Shading Component */
+	DEPSNODE_TYPE_SHADING          = 24,
 } eDepsNode_Type;
 
 /* Identifiers for common operations (as an enum). */
@@ -220,15 +258,28 @@ extern DepsOperationStringifier DEG_OPNAMES;
 
 /* Type of operation */
 typedef enum eDepsOperation_Type {
-	/* Primary operation types */
-	DEPSOP_TYPE_INIT    = 0, /* initialise evaluation data */
-	DEPSOP_TYPE_EXEC    = 1, /* standard evaluation step */
-	DEPSOP_TYPE_POST    = 2, /* cleanup evaluation data + flush results */
+	/* **** Primary operation types **** */
 
-	/* Additional operation types */
-	DEPSOP_TYPE_OUT     = 3, /* indicator for outputting a temporary result that other components can use */ // XXX?
-	DEPSOP_TYPE_SIM     = 4, /* indicator for things like IK Solvers and Rigidbody Sim steps which modify final results of separate entities at once */
-	DEPSOP_TYPE_REBUILD = 5, /* rebuild internal evaluation data - used for Rigidbody Reset and Armature Rebuild-On-Load */
+	/* Initialise evaluation data */
+	DEPSOP_TYPE_INIT    = 0,
+	/* Standard evaluation step */
+	DEPSOP_TYPE_EXEC    = 1,
+	/* Cleanup evaluation data + flush results */
+	DEPSOP_TYPE_POST    = 2,
+
+	/* **** Additional operation types **** */
+	/* Indicator for outputting a temporary result that other components
+	 * can use. // XXX?
+	 */
+	DEPSOP_TYPE_OUT     = 3,
+	/* Indicator for things like IK Solvers and Rigidbody Sim steps which
+	 * modify final results of separate entities at once.
+	 */
+	DEPSOP_TYPE_SIM     = 4,
+	/* Rebuild internal evaluation data - used for Rigidbody Reset and
+	 * Armature Rebuild-On-Load.
+	 */
+	DEPSOP_TYPE_REBUILD = 5,
 } eDepsOperation_Type;
 
 /* Types of relationships between nodes

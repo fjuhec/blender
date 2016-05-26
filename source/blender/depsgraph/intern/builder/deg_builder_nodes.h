@@ -72,20 +72,34 @@ struct DepsgraphNodeBuilder {
 	IDDepsNode *add_id_node(ID *id);
 	TimeSourceDepsNode *add_time_source(ID *id);
 
-	ComponentDepsNode *add_component_node(ID *id, eDepsNode_Type comp_type, const string &comp_name = "");
+	ComponentDepsNode *add_component_node(ID *id,
+	                                      eDepsNode_Type comp_type,
+	                                      const string& comp_name = "");
 
-	OperationDepsNode *add_operation_node(ComponentDepsNode *comp_node, eDepsOperation_Type optype,
-	                                      DepsEvalOperationCb op, eDepsOperation_Code opcode, const string &description = "");
-	OperationDepsNode *add_operation_node(ID *id, eDepsNode_Type comp_type, const string &comp_name, eDepsOperation_Type optype,
-	                                      DepsEvalOperationCb op, eDepsOperation_Code opcode, const string &description = "");
-	OperationDepsNode *add_operation_node(ID *id, eDepsNode_Type comp_type, eDepsOperation_Type optype,
-	                                      DepsEvalOperationCb op, eDepsOperation_Code opcode, const string &description = "")
-	{
-		return add_operation_node(id, comp_type, "", optype, op, opcode, description);
-	}
+	OperationDepsNode *add_operation_node(ComponentDepsNode *comp_node,
+	                                      eDepsOperation_Type optype,
+	                                      DepsEvalOperationCb op,
+	                                      eDepsOperation_Code opcode,
+	                                      const string& description = "");
+	OperationDepsNode *add_operation_node(ID *id,
+	                                      eDepsNode_Type comp_type,
+	                                      const string& comp_name,
+	                                      eDepsOperation_Type optype,
+	                                      DepsEvalOperationCb op,
+	                                      eDepsOperation_Code opcode,
+	                                      const string& description = "");
+	OperationDepsNode *add_operation_node(ID *id,
+	                                      eDepsNode_Type comp_type,
+	                                      eDepsOperation_Type optype,
+	                                      DepsEvalOperationCb op,
+	                                      eDepsOperation_Code opcode,
+	                                      const string& description = "");
 
-	bool has_operation_node(ID *id, eDepsNode_Type comp_type, const string &comp_name,
-	                        eDepsOperation_Code opcode, const string &description = "");
+	bool has_operation_node(ID *id,
+	                        eDepsNode_Type comp_type,
+	                        const string& comp_name,
+	                        eDepsOperation_Code opcode,
+	                        const string& description = "");
 
 	OperationDepsNode *find_operation_node(ID *id,
 	                                       eDepsNode_Type comp_type,
@@ -96,10 +110,7 @@ struct DepsgraphNodeBuilder {
 	OperationDepsNode *find_operation_node(ID *id,
 	                                       eDepsNode_Type comp_type,
 	                                       eDepsOperation_Code opcode,
-	                                       const string &description = "")
-	{
-		return find_operation_node(id, comp_type, "", opcode, description);
-	}
+	                                       const string &description = "");
 
 	void build_scene(Main *bmain, Scene *scene);
 	SubgraphDepsNode *build_subgraph(Group *group);
@@ -112,8 +123,14 @@ struct DepsgraphNodeBuilder {
 	void build_particles(Scene *scene, Object *ob);
 	void build_animdata(ID *id);
 	OperationDepsNode *build_driver(ID *id, FCurve *fcurve);
-	void build_ik_pose(Scene *scene, Object *ob, bPoseChannel *pchan, bConstraint *con);
-	void build_splineik_pose(Scene *scene, Object *ob, bPoseChannel *pchan, bConstraint *con);
+	void build_ik_pose(Scene *scene,
+	                   Object *ob,
+	                   bPoseChannel *pchan,
+	                   bConstraint *con);
+	void build_splineik_pose(Scene *scene,
+	                         Object *ob,
+	                         bPoseChannel *pchan,
+	                         bConstraint *con);
 	void build_rig(Scene *scene, Object *ob);
 	void build_proxy_rig(Object *ob);
 	void build_shapekeys(Key *key);

@@ -193,30 +193,45 @@ struct DepsgraphRelationBuilder
 	DepsgraphRelationBuilder(Depsgraph *graph);
 
 	template <typename KeyFrom, typename KeyTo>
-	void add_relation(const KeyFrom &key_from, const KeyTo &key_to,
-	                  eDepsRelation_Type type, const char *description);
+	void add_relation(const KeyFrom& key_from,
+	                  const KeyTo& key_to,
+	                  eDepsRelation_Type type,
+	                  const char *description);
 
 	template <typename KeyTo>
-	void add_relation(const TimeSourceKey &key_from, const KeyTo &key_to,
-	                  eDepsRelation_Type type, const char *description);
+	void add_relation(const TimeSourceKey& key_from,
+	                  const KeyTo& key_to,
+	                  eDepsRelation_Type type,
+	                  const char *description);
 
 	template <typename KeyType>
-	void add_node_handle_relation(const KeyType &key_from, const DepsNodeHandle *handle,
-	                              eDepsRelation_Type type, const char *description);
+	void add_node_handle_relation(const KeyType& key_from,
+	                              const DepsNodeHandle *handle,
+	                              eDepsRelation_Type type,
+	                              const char *description);
 
 	void build_scene(Main *bmain, Scene *scene);
 	void build_group(Main *bmain, Scene *scene, Object *object, Group *group);
 	void build_object(Main *bmain, Scene *scene, Object *ob);
 	void build_object_parent(Object *ob);
-	void build_constraints(Scene *scene, ID *id, eDepsNode_Type component_type, const char *component_subdata,
-	                       ListBase *constraints, RootPChanMap *root_map);
+	void build_constraints(Scene *scene, ID *id,
+	                       eDepsNode_Type component_type,
+	                       const char *component_subdata,
+	                       ListBase *constraints,
+	                       RootPChanMap *root_map);
 	void build_animdata(ID *id);
 	void build_driver(ID *id, FCurve *fcurve);
 	void build_world(World *world);
 	void build_rigidbody(Scene *scene);
 	void build_particles(Scene *scene, Object *ob);
-	void build_ik_pose(Object *ob, bPoseChannel *pchan, bConstraint *con, RootPChanMap *root_map);
-	void build_splineik_pose(Object *ob, bPoseChannel *pchan, bConstraint *con, RootPChanMap *root_map);
+	void build_ik_pose(Object *ob,
+	                   bPoseChannel *pchan,
+	                   bConstraint *con,
+	                   RootPChanMap *root_map);
+	void build_splineik_pose(Object *ob,
+	                         bPoseChannel *pchan,
+	                         bConstraint *con,
+	                         RootPChanMap *root_map);
 	void build_rig(Scene *scene, Object *ob);
 	void build_proxy_rig(Object *ob);
 	void build_shapekeys(ID *obdata, Key *key);
@@ -241,12 +256,17 @@ protected:
 	DepsNode *find_node(const RNAPathKey &key) const;
 	OperationDepsNode *has_node(const OperationKey &key) const;
 
-	void add_time_relation(TimeSourceDepsNode *timesrc, DepsNode *node_to, const char *description);
-	void add_operation_relation(OperationDepsNode *node_from, OperationDepsNode *node_to,
-	                            eDepsRelation_Type type, const char *description);
+	void add_time_relation(TimeSourceDepsNode *timesrc,
+	                       DepsNode *node_to,
+	                       const char *description);
+	void add_operation_relation(OperationDepsNode *node_from,
+	                            OperationDepsNode *node_to,
+	                            eDepsRelation_Type type,
+	                            const char *description);
 
 	template <typename KeyType>
-	DepsNodeHandle create_node_handle(const KeyType &key, const string &default_name = "");
+	DepsNodeHandle create_node_handle(const KeyType& key,
+	                                  const string& default_name = "");
 
 	bool needs_animdata_node(ID *id);
 
@@ -331,10 +351,11 @@ void DepsgraphRelationBuilder::add_relation(const TimeSourceKey &key_from,
 }
 
 template <typename KeyType>
-void DepsgraphRelationBuilder::add_node_handle_relation(const KeyType &key_from,
-                                                        const DepsNodeHandle *handle,
-                                                        eDepsRelation_Type type,
-                                                        const char *description)
+void DepsgraphRelationBuilder::add_node_handle_relation(
+        const KeyType &key_from,
+        const DepsNodeHandle *handle,
+        eDepsRelation_Type type,
+        const char *description)
 {
 	DepsNode *node_from = find_node(key_from);
 	OperationDepsNode *op_from = node_from ? node_from->get_exit_operation() : NULL;
@@ -353,8 +374,9 @@ void DepsgraphRelationBuilder::add_node_handle_relation(const KeyType &key_from,
 }
 
 template <typename KeyType>
-DepsNodeHandle DepsgraphRelationBuilder::create_node_handle(const KeyType &key,
-                                                            const string &default_name)
+DepsNodeHandle DepsgraphRelationBuilder::create_node_handle(
+        const KeyType &key,
+        const string &default_name)
 {
 	return DepsNodeHandle(this, find_node(key), default_name);
 }
