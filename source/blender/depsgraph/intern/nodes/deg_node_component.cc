@@ -90,7 +90,7 @@ ComponentDepsNode::ComponentDepsNode() :
 {
 	operations = BLI_ghash_new(comp_node_hash_key,
 	                           comp_node_hash_key_cmp,
-	                           "depsgraph id hash");
+	                           "Depsgraph id hash");
 }
 
 /* Initialize 'component' node - from pointer data given */

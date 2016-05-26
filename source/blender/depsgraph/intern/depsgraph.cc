@@ -74,9 +74,9 @@ Depsgraph::Depsgraph()
     layers(0)
 {
 	BLI_spin_init(&lock);
-	id_hash = BLI_ghash_ptr_new("depsgraph id hash");
-	subgraphs = BLI_gset_ptr_new("depsgraph subgraphs");
-	entry_tags = BLI_gset_ptr_new("depsgraph entry_tags");
+	id_hash = BLI_ghash_ptr_new("Depsgraph id hash");
+	subgraphs = BLI_gset_ptr_new("Depsgraph subgraphs");
+	entry_tags = BLI_gset_ptr_new("Depsgraph entry_tags");
 }
 
 Depsgraph::~Depsgraph()

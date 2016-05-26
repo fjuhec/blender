@@ -183,7 +183,7 @@ void IDDepsNode::init(const ID *id, const string &UNUSED(subdata))
 
 	components = BLI_ghash_new(id_deps_node_hash_key,
 	                           id_deps_node_hash_key_cmp,
-	                           "depsgraph id components hash");
+	                           "Depsgraph id components hash");
 
 	/* NOTE: components themselves are created if/when needed.
 	 * This prevents problems with components getting added
