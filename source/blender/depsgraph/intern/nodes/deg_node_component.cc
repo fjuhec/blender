@@ -196,8 +196,9 @@ void ComponentDepsNode::remove_operation(eDepsOperation_Code opcode, const strin
 	if (op_node) {
 		/* unregister */
 		OperationIDKey key(opcode, name);
-		BLI_ghash_remove(operations, &key, comp_node_hash_key_free, NULL);
-		OBJECT_GUARDED_DELETE(op_node, OperationDepsNode);
+		BLI_ghash_remove(operations, &key,
+		                 comp_node_hash_key_free,
+		                 comp_node_hash_key_free);
 	}
 }
 

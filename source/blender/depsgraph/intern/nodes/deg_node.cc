@@ -227,8 +227,10 @@ void IDDepsNode::remove_component(eDepsNode_Type type, const string &name)
 	if (comp_node) {
 		/* Unregister. */
 		ComponentIDKey key(type, name);
-		BLI_ghash_remove(components, &key, id_deps_node_hash_key_free, NULL);
-		OBJECT_GUARDED_DELETE(comp_node, ComponentDepsNode);
+		BLI_ghash_remove(components,
+		                 &key,
+		                 id_deps_node_hash_key_free,
+		                 id_deps_node_hash_value_free);
 	}
 }
 
