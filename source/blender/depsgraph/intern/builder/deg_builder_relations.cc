@@ -101,7 +101,6 @@ extern "C" {
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
-#include "depsgraph_debug.h"
 #include "depsgraph_intern.h"
 #include "depsgraph_types.h"
 

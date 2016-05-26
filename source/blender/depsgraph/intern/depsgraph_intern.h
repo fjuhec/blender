@@ -37,6 +37,10 @@
 
 #include "MEM_guardedalloc.h"
 
+extern "C" {
+#include "BKE_global.h"
+}
+
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
@@ -106,5 +110,12 @@ DepsNodeFactory *deg_node_get_factory(const DepsNode *node);
 void deg_editors_id_update(struct Main *bmain, struct ID *id);
 
 void deg_editors_scene_update(struct Main *bmain, struct Scene *scene, bool updated);
+
+#define DEG_DEBUG_PRINTF(...) \
+	do { \
+		if (G.debug & G_DEBUG_DEPSGRAPH) { \
+			fprintf(stderr, __VA_ARGS__); \
+		} \
+	} while (0)
 
 }  // namespace DEG
