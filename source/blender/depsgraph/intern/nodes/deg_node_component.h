@@ -32,9 +32,6 @@
 
 #include "intern/nodes/deg_node.h"
 
-#include "util/deg_util_hash.h"
-#include "util/deg_util_set.h"
-
 #include "BLI_utildefines.h"
 #include "BLI_string.h"
 

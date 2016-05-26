@@ -38,6 +38,7 @@ extern "C" {
 
 #include "intern/depsgraph.h"
 #include "intern/depsgraph_intern.h"
+#include "util/deg_util_hash.h"
 
 namespace DEG {
 

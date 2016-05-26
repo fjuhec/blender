@@ -34,6 +34,7 @@
 
 extern "C" {
 #include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 
 #include "BKE_depsgraph.h"
 #include "BKE_scene.h"

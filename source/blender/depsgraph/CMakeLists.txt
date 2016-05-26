@@ -84,7 +84,6 @@ set(SRC
 
 	util/deg_util_function.h
 	util/deg_util_hash.h
-	util/deg_util_set.h
 )
 
 if(WITH_CXX11)

@@ -36,6 +36,9 @@ extern "C" {
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
+#include "BLI_utildefines.h"
+#include "BLI_ghash.h"
+
 #include "BKE_main.h"
 
 #include "DEG_depsgraph.h"

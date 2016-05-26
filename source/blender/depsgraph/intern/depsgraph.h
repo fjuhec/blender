@@ -40,8 +40,6 @@
 
 #include "intern/depsgraph_types.h"
 
-#include "util/deg_util_set.h"
-
 struct ID;
 struct GHash;
 struct GSet;

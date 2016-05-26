@@ -38,7 +38,9 @@
 extern "C" {
 #include "DNA_object_types.h"
 
+#include "BLI_utildefines.h"
 #include "BLI_task.h"
+#include "BLI_ghash.h"
 
 #include "DEG_depsgraph.h"
 } /* extern "C" */
