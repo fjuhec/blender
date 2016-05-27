@@ -144,10 +144,21 @@ struct ComponentDepsNode : public DepsNode {
 	OperationDepsNode *get_entry_operation();
 	OperationDepsNode *get_exit_operation();
 
+	void finalize_build();
+
 	IDDepsNode *owner;
 
-	/* Inner nodes for this component */
-	GHash *operations;
+	/* ** Inner nodes for this component ** */
+
+	/* Operations stored as a hash map, for faster build.
+	 * This hash map will be freed when graph is fully built.
+	 */
+	GHash *operations_map;
+
+	/* This is a "normal" list of operations, used by evaluation
+	 * and other routines after construction.
+	 */
+	vector<OperationDepsNode *> operations;
 
 	OperationDepsNode *entry_operation;
 	OperationDepsNode *exit_operation;

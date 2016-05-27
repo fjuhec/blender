@@ -167,6 +167,8 @@ struct IDDepsNode : public DepsNode {
 
 	void tag_update(Depsgraph *graph);
 
+	void finalize_build();
+
 	/* ID Block referenced. */
 	ID *id;
 

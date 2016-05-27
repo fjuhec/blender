@@ -181,11 +181,9 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 		 */
 		ComponentDepsNode *component = node->owner;
 		if ((component->flags & DEPSCOMP_FULLY_SCHEDULED) == 0) {
-			GHASH_FOREACH_BEGIN(OperationDepsNode *, op, component->operations)
-			{
+			foreach (OperationDepsNode *op, component->operations) {
 				op->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
 			}
-			GHASH_FOREACH_END();
 			component->flags |= DEPSCOMP_FULLY_SCHEDULED;
 		}
 	}

@@ -117,6 +117,7 @@ void deg_graph_build_finalize(Depsgraph *graph)
 			id_node->tag_update(graph);
 			id->tag &= ~LIB_TAG_DOIT;
 		}
+		id_node->finalize_build();
 	}
 	GHASH_FOREACH_END();
 }

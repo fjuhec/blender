@@ -224,11 +224,9 @@ void DEG_stats_simple(const Depsgraph *graph, size_t *r_outer,
 			GHASH_FOREACH_BEGIN(DEG::ComponentDepsNode *, comp_node, id_node->components)
 			{
 				tot_outer++;
-				GHASH_FOREACH_BEGIN(DEG::OperationDepsNode *, op_node, comp_node->operations)
-				{
+				foreach (DEG::OperationDepsNode *op_node, comp_node->operations) {
 					tot_rels += op_node->inlinks.size();
 				}
-				GHASH_FOREACH_END();
 			}
 			GHASH_FOREACH_END();
 		}

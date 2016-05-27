@@ -404,12 +404,10 @@ static void deg_debug_graphviz_node(const DebugContext &ctx,
 		case DEPSNODE_TYPE_EVAL_PARTICLES:
 		{
 			ComponentDepsNode *comp_node = (ComponentDepsNode *)node;
-			if (BLI_ghash_size(comp_node->operations) > 0) {
-				GHASH_FOREACH_BEGIN(const DepsNode *, op_node, comp_node->operations)
-				{
+			if (!comp_node->operations.empty()) {
+				foreach (DepsNode *op_node, comp_node->operations) {
 					deg_debug_graphviz_node(ctx, op_node);
 				}
-				GHASH_FOREACH_END();
 				deg_debug_graphviz_node_cluster_end(ctx);
 			}
 			else {
@@ -446,7 +444,7 @@ static bool deg_debug_graphviz_is_cluster(const DepsNode *node)
 		case DEPSNODE_TYPE_BONE:
 		{
 			ComponentDepsNode *comp_node = (ComponentDepsNode *)node;
-			return BLI_ghash_size(comp_node->operations) > 0;
+			return !comp_node->operations.empty();
 		}
 		default:
 			return false;
@@ -537,11 +535,9 @@ static void deg_debug_graphviz_graph_relations(const DebugContext &ctx,
 	{
 		GHASH_FOREACH_BEGIN(ComponentDepsNode *, comp_node, id_node->components)
 		{
-			GHASH_FOREACH_BEGIN(OperationDepsNode *, op_node, comp_node->operations)
-			{
+			foreach (OperationDepsNode *op_node, comp_node->operations) {
 				deg_debug_graphviz_node_relations(ctx, op_node);
 			}
-			GHASH_FOREACH_END();
 		}
 		GHASH_FOREACH_END();
 	}

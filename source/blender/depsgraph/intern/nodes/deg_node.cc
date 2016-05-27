@@ -261,6 +261,15 @@ void IDDepsNode::tag_update(Depsgraph *graph)
 	GHASH_FOREACH_END();
 }
 
+void IDDepsNode::finalize_build()
+{
+	GHASH_FOREACH_BEGIN(ComponentDepsNode *, comp_node, components)
+	{
+		comp_node->finalize_build();
+	}
+	GHASH_FOREACH_END();
+}
+
 DEG_DEPSNODE_DEFINE(IDDepsNode, DEPSNODE_TYPE_ID_REF, "ID Node");
 static DepsNodeFactoryImpl<IDDepsNode> DNTI_ID_REF;
 
