@@ -486,8 +486,10 @@ typedef texture<uint4> texture_uint4;
 typedef texture<uchar4> texture_uchar4;
 typedef texture_image<float> texture_image_float;
 typedef texture_image<uchar> texture_image_uchar;
+typedef texture_image<half> texture_image_half;
 typedef texture_image<float4> texture_image_float4;
 typedef texture_image<uchar4> texture_image_uchar4;
+typedef texture_image<half4> texture_image_half4;
 
 /* Macros to handle different memory storage on different devices */
 
