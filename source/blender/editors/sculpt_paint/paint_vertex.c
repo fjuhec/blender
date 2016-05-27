@@ -75,6 +75,7 @@
 #include "ED_screen.h"
 #include "ED_view3d.h"
 
+#include "sculpt_intern.h"
 #include "paint_intern.h"  /* own include */
 
 /* small structure to defer applying weight-paint results */
@@ -1748,7 +1749,6 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	VPaint *wp = scene->toolsettings->wpaint;
 	Mesh *me;
-
 	if (!is_mode_set) {
 		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
 			return OPERATOR_CANCELLED;
