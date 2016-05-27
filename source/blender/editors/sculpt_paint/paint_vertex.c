@@ -1771,6 +1771,13 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		ED_mesh_mirror_spatial_table(NULL, NULL, NULL, NULL, 'e');
 		ED_mesh_mirror_topo_table(NULL, NULL, 'e');
 
+
+		/* If the cache is not released by a cancel or a done, free it now. */
+		if (ob->sculpt->cache){
+			sculpt_cache_free(ob->sculpt->cache);
+			ob->sculpt->cache = NULL;
+		}
+
 		BKE_sculptsession_free(ob);
 
 		paint_cursor_delete_textures();
@@ -1794,6 +1801,10 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			BKE_sculptsession_free(ob);
 
 		vertex_paint_init_session(scene, ob);
+
+		/* Cache needs to be initialized before mesh_build_data is called. */
+		ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
+
 	}
 	
 	/* Weightpaint works by overriding colors in mesh,
@@ -2546,6 +2557,12 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			BKE_mesh_flush_select_from_polys(me);
 		}
 
+		/* If the cache is not released by a cancel or a done, free it now. */
+		if (ob->sculpt->cache){
+			sculpt_cache_free(ob->sculpt->cache);
+			ob->sculpt->cache = NULL;
+		}
+
 		BKE_sculptsession_free(ob);
 
 		paint_cursor_delete_textures();
@@ -2569,6 +2586,9 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			BKE_sculptsession_free(ob);
 
 		vertex_paint_init_session(scene, ob);
+
+		/* Cache needs to be initialized before mesh_build_data is called. */
+		ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
 	}
 	
 	/* update modifier stack for mapping requirements */

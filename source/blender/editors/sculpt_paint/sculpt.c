@@ -3842,7 +3842,7 @@ static const char *sculpt_tool_name(Sculpt *sd)
  * Operator for applying a stroke (various attributes including mouse path)
  * using the current brush. */
 
-static void sculpt_cache_free(StrokeCache *cache)
+void sculpt_cache_free(StrokeCache *cache)
 {
 	if (cache->dial)
 		MEM_freeN(cache->dial);
@@ -3885,7 +3885,7 @@ static void sculpt_init_mirror_clipping(Object *ob, SculptSession *ss)
 /* Initialize the stroke cache invariants from operator properties */
 static void sculpt_update_cache_invariants(bContext *C, Sculpt *sd, SculptSession *ss, wmOperator *op, const float mouse[2])
 {
-	StrokeCache *cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
+	StrokeCache *cache;
 	Scene *scene = CTX_data_scene(C);
 	UnifiedPaintSettings *ups = &CTX_data_tool_settings(C)->unified_paint_settings;
 	Brush *brush = BKE_paint_brush(&sd->paint);
@@ -3897,7 +3897,14 @@ static void sculpt_update_cache_invariants(bContext *C, Sculpt *sd, SculptSessio
 	int i;
 	int mode;
 
-	ss->cache = cache;
+	// VW paint needs to allocate stroke cache before update is called.
+	if (!ss->cache) {
+		cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
+		ss->cache = cache;
+	}
+	else {
+		cache = ss->cache;
+	}
 
 	/* Set scaling adjustment */
 	if (brush->sculpt_tool == SCULPT_TOOL_LAYER) {

@@ -219,6 +219,8 @@ typedef struct StrokeCache {
 	rcti current_r; /* current redraw rectangle */
 } StrokeCache;
 
+void sculpt_cache_free(StrokeCache *cache);
+
 SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType type);
 SculptUndoNode *sculpt_undo_get_node(PBVHNode *node);
 void sculpt_undo_push_begin(const char *name);
