@@ -61,11 +61,40 @@ void BKE_layertree_delete(LayerTree *ltree)
 {
 	for (LayerTreeItem *litem = ltree->items.first, *next_litem; litem; litem = next_litem) {
 		next_litem = litem->next;
-		BKE_layeritem_remove(ltree, litem);
+		BKE_layeritem_remove(litem, true);
 	}
 	BLI_assert(BLI_listbase_is_empty(&ltree->items));
 
 	MEM_freeN(ltree);
+}
+
+/**
+ * Iterate over \a itemlist and all of its children, wrapped by #BKE_layertree_iterate.
+ * \note Recursive
+ */
+static bool layertree_iterate_list(const ListBase *itemlist, LayerTreeIterFunc foreach, void *customdata)
+{
+	for (LayerTreeItem *litem = itemlist->first, *litem_next; litem; litem = litem_next) {
+		litem_next = litem->next; /* in case list order is changed in callback */
+		if (foreach(litem, customdata) == false || /* execute callback for current item */
+		    layertree_iterate_list(&litem->childs, foreach, customdata) == false) /* iterate over childs */
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+/**
+ * Iterate over all items (including children) in the layer tree, executing \a foreach callback for each element.
+ * (Pre-order traversal)
+ *
+ * \param foreach: Callback that can return false to stop the iteration.
+ * \return if the iteration has been stopped because of a callback returning false.
+ */
+bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, void *customdata)
+{
+	return layertree_iterate_list(&ltree->items, foreach, customdata);
 }
 
 /** \} */ /* Layer Tree */
@@ -94,12 +123,8 @@ LayerTreeItem *BKE_layeritem_add(
 {
 	LayerTreeItem *litem = MEM_callocN(sizeof(LayerTreeItem), __func__);
 
-	BLI_assert(!parent || ELEM(parent->type, LAYER_ITEMTYPE_GROUP));
-	BLI_assert(!parent || parent->tree == tree);
-
 	litem->type = type;
 	litem->height = LAYERITEM_DEFAULT_HEIGHT;
-	litem->parent = parent;
 	litem->tree = tree;
 	BLI_strncpy(litem->name, name, sizeof(litem->name));
 
@@ -108,17 +133,41 @@ LayerTreeItem *BKE_layeritem_add(
 	litem->draw = draw;
 	litem->draw_settings = draw_settings;
 
-	BLI_addhead(&tree->items, litem);
+	if (parent) {
+		BLI_assert(ELEM(parent->type, LAYER_ITEMTYPE_GROUP));
+		BLI_assert(parent->tree == tree);
+
+		litem->parent = parent;
+		/* add to child list of parent, not to item list of tree */
+		BLI_addtail(&parent->childs, litem);
+	}
+	else {
+		BLI_addhead(&tree->items, litem);
+	}
 
 	return litem;
 }
 
 /**
- * Free and unlink \a litem from \a tree.
+ * Free and unlink \a litem from the list it's stored in.
+ *
+ * \param remove_children: Free and unlink all children (and their children, etc) of \a litem as well.
+ * \note Recursive
  */
-void BKE_layeritem_remove(LayerTree *tree, LayerTreeItem *litem)
+void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children)
 {
-	BLI_remlink(&tree->items, litem);
+	BLI_remlink(litem->parent ? &litem->parent->childs : &litem->tree->items, litem);
+	if (litem->drawdata) {
+		MEM_freeN(litem->drawdata);
+	}
+
+	if (remove_children) {
+		for (LayerTreeItem *child = litem->childs.first, *child_next; child; child = child_next) {
+			child_next = child->next;
+			BKE_layeritem_remove(child, true);
+		}
+	}
+
 	MEM_freeN(litem);
 }
 
@@ -127,8 +176,14 @@ void BKE_layeritem_remove(LayerTree *tree, LayerTreeItem *litem)
  */
 void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item)
 {
+	ListBase *oldlist = item->parent ? &item->parent->childs : &item->tree->items;
+
 	BLI_assert(group->type == LAYER_ITEMTYPE_GROUP);
+	BLI_assert(BLI_findindex(oldlist, item) != -1);
+
 	item->parent = group;
+	BLI_remlink(oldlist, item);
+	BLI_addtail(&group->childs, item);
 }
 
 /** \} */ /* Layer Tree Item */

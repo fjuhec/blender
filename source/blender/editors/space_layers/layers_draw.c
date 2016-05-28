@@ -47,9 +47,9 @@
 #define LAYERITEM_INDENT_SIZE UI_DPI_ICON_SIZE
 
 
-static int layer_tile_indent_level_get(const LayerTile *tile)
+static int layer_tile_indent_level_get(const LayerTreeItem *litem)
 {
-	LayerTreeItem *parent = tile->litem->parent;
+	LayerTreeItem *parent = litem->parent;
 	int indent_level = 0;
 
 	while (parent) {
@@ -60,17 +60,27 @@ static int layer_tile_indent_level_get(const LayerTile *tile)
 	return indent_level;
 }
 
-static void layer_tile_draw(
-        LayerTile *tile, const bContext *C, ARegion *ar,
-        uiBlock *block, uiStyle *style,
-        const float ofs_y)
+typedef struct TileDrawInfo {
+	const bContext *C;
+	ARegion *ar;
+	uiBlock *block;
+	uiStyle *style;
+
+	float size_y;
+} TileDrawInfo;
+
+static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 {
-	View2D *v2d = &ar->v2d;
-	LayerTreeItem *litem = tile->litem;
+	TileDrawInfo *drawinfo = userdata;
+	View2D *v2d = &drawinfo->ar->v2d;
+	LayerTile *tile = litem->drawdata;
 	const float padx = 4.0f * UI_DPI_FAC;
-	const float ofs_x = layer_tile_indent_level_get(tile) * LAYERITEM_INDENT_SIZE;
-	rctf rect = {padx + ofs_x, ar->winx - padx, -v2d->cur.ymin - ofs_y - litem->height};
+
+	const float ofs_x = layer_tile_indent_level_get(litem) * LAYERITEM_INDENT_SIZE;
+	const float ofs_y = drawinfo->size_y;
+	rctf rect = {padx + ofs_x, drawinfo->ar->winx - padx, -v2d->cur.ymin - ofs_y - litem->height};
 	rect.ymax = rect.ymin + litem->height;
+
 
 	/* draw selection */
 	if (tile->flag & LAYERTILE_SELECTED) {
@@ -80,9 +90,10 @@ static void layer_tile_draw(
 	}
 	/* draw item itself */
 	if (litem->draw) {
+		uiBlock *block = drawinfo->block;
 		uiLayout *layout = UI_block_layout(
 		                       block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-		                       -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y, litem->height, 0, 0, style);
+		                       -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y, litem->height, 0, 0, drawinfo->style);
 		if (tile->flag & LAYERTILE_RENAME) {
 			uiBut *but = uiDefBut(
 			        block, UI_BTYPE_TEXT, 1, "", rect.xmin, rect.ymin,
@@ -92,11 +103,11 @@ static void layer_tile_draw(
 			UI_but_flag_disable(but, UI_BUT_UNDO);
 
 			/* returns false if button got removed */
-			if (UI_but_active_only(C, ar, block, but) == false) {
+			if (UI_but_active_only(drawinfo->C, drawinfo->ar, block, but) == false) {
 				tile->flag &= ~LAYERTILE_RENAME;
 				/* Yuk! Sending notifier during draw. Need to
 				 * do that so item uses regular drawing again. */
-				WM_event_add_notifier(C, NC_SPACE | ND_SPACE_LAYERS, NULL);
+				WM_event_add_notifier(drawinfo->C, NC_SPACE | ND_SPACE_LAYERS, NULL);
 			}
 		}
 		else {
@@ -105,25 +116,25 @@ static void layer_tile_draw(
 		uiItemL(layout, "", 0); /* XXX without this editing last item causes crashes */
 		UI_block_layout_resolve(block, NULL, NULL);
 	}
+	drawinfo->size_y += litem->height;
+
+	return true;
 }
 
 void layers_tiles_draw(const bContext *C, ARegion *ar)
 {
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
-	uiStyle *style = UI_style_get_dpi();
-	float size_y = 0.0f;
 
 	uiBlock *block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
-	/* draw items */
-	for (LayerTile *tile = slayer->layer_tiles.first; tile; tile = tile->next) {
-		layer_tile_draw(tile, C, ar, block, style, size_y);
-		size_y += tile->litem->height;
-	}
+	TileDrawInfo drawinfo = {C, ar, block, UI_style_get_dpi()};
+
+	BKE_layertree_iterate(slayer->act_tree, layer_tile_draw_cb, &drawinfo);
+
 	UI_block_end(C, block);
 	UI_block_draw(C, block);
 
 	/* update size of tot-rect (extents of data/viewable area) */
-	UI_view2d_totRect_set(&ar->v2d, ar->winx - BLI_rcti_size_x(&ar->v2d.vert), size_y);
+	UI_view2d_totRect_set(&ar->v2d, ar->winx - BLI_rcti_size_x(&ar->v2d.vert), drawinfo.size_y);
 }
 
 

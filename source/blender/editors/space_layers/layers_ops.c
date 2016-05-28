@@ -49,14 +49,13 @@ static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	LayerTreeItem *new_item;
 
-	if (true) { /* context check (like: slayer->context == SLAYER_CONTEXT_OBJECT) */
-		Scene *scene = CTX_data_scene(C);
-		new_item = ED_object_layer_add(scene->object_layers, NULL);
+	if (slayer->act_tree->type == LAYER_TREETYPE_OBJECT) {
+		new_item = ED_object_layer_add(slayer->act_tree, NULL);
 	}
 	else {
 		BLI_assert(0);
 	}
-	layers_tile_add(slayer, new_item);
+	layers_tile_add(new_item);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
 
@@ -78,6 +77,18 @@ static void LAYERS_OT_layer_add(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+static bool layer_group_add_selected_cb(LayerTreeItem *litem, void *customdata)
+{
+	LayerTreeItem *group = customdata;
+	LayerTile *tile = litem->drawdata;
+
+	if (tile->flag & LAYERTILE_SELECTED) {
+		BKE_layeritem_group_assign(group, litem);
+	}
+
+	return true;
+}
+
 static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	Scene *scene = CTX_data_scene(C);
@@ -86,22 +97,12 @@ static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	LayerTreeItem *new_group = BKE_layeritem_add(
 		            scene->object_layers, NULL, LAYER_ITEMTYPE_GROUP, LAYERGROUP_DEFAULT_NAME,
 		            NULL, layer_group_draw, NULL);
-	LayerTile *new_tile = layers_tile_add(slayer, new_group);
+	layers_tile_add(new_group);
 
-	LayerTile *last_in_group = NULL; /* the last item added to the group, the next one is placed after it */
 	/* Add selected items to group */
-	for (LayerTile *tile = slayer->layer_tiles.first, *next_tile; tile; tile = next_tile) {
-		next_tile = tile->next; /* we change listbase so store old pointer */
-		if (tile->flag & LAYERTILE_SELECTED) {
-			BKE_layeritem_group_assign(new_group, tile->litem);
-			BLI_remlink(&slayer->layer_tiles, tile);
-			BLI_insertlinkafter(&slayer->layer_tiles, last_in_group ? last_in_group : new_tile, tile);
-			last_in_group = tile;
-		}
-	}
+	BKE_layertree_iterate(slayer->act_tree, layer_group_add_selected_cb, new_group);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
-
 	return OPERATOR_FINISHED;
 }
 
@@ -160,16 +161,39 @@ BLI_INLINE void layer_selection_set(SpaceLayers *slayer, LayerTile *tile, const 
 	}
 }
 
+typedef struct LayerSelectData {
+	/* input variables */
+	SpaceLayers *slayer;
+	int from, to; /* from must be smaller than two, or both -1 */
+	bool enable;
+
+	/* helper variable */
+	int idx;
+} LayerSelectData;
+
+static bool layer_select_cb(LayerTreeItem *litem, void *customdata)
+{
+	LayerSelectData *sdata = customdata;
+	LayerTile *tile = litem->drawdata;
+
+	BLI_assert((sdata->from == -1 && sdata->to == -1) || sdata->from < sdata->to);
+
+	if ((sdata->from == -1) || (sdata->idx >= sdata->from && sdata->idx <= sdata->to)) {
+		layer_selection_set(sdata->slayer, tile, sdata->idx, sdata->enable);
+	}
+	sdata->idx++;
+
+	return true;
+}
+
 /**
  * Change the selection state of all layer tiles.
  * \param enable: If true, tiles are selected, else they are deselected.
  */
 static void layers_selection_set_all(SpaceLayers *slayer, const bool enable)
 {
-	int i = 0;
-	for (LayerTile *tile = slayer->layer_tiles.first; tile; tile = tile->next, i++) {
-		layer_selection_set(slayer, tile, i, enable);
-	}
+	LayerSelectData sdata = {slayer, -1, -1, enable};
+	BKE_layertree_iterate(slayer->act_tree, layer_select_cb, &sdata);
 }
 
 /**
@@ -180,16 +204,13 @@ static bool layers_select_fill(SpaceLayers *slayer, const int from, const int to
 {
 	const int min = MIN2(from, to);
 	const int max = MAX2(from, to);
+	LayerSelectData sdata = {slayer, min, max, true};
 
 	if (min < 0 || min == max)
 		return false;
 
-	int i = 0;
-	for (LayerTile *tile = slayer->layer_tiles.first; tile && i <= max; tile = tile->next, i++) {
-		if (i >= min) {
-			layer_selection_set(slayer, tile, i, true);
-		}
-	}
+	BKE_layertree_iterate(slayer->act_tree, layer_select_cb, &sdata);
+
 	return true;
 }
 
@@ -261,15 +282,9 @@ static void LAYERS_OT_select(wmOperatorType *ot)
 static int layer_select_all_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
-	LayerTile *tile;
 
-	for (tile = slayer->layer_tiles.first; tile; tile = tile->next) {
-		if (tile->flag & LAYERTILE_SELECTED) {
-			break;
-		}
-	}
 	/* if a tile was found we deselect all, else we select all */
-	layers_selection_set_all(slayer, tile == NULL);
+	layers_selection_set_all(slayer, !layers_any_selected(slayer->act_tree));
 	ED_region_tag_redraw(CTX_wm_region(C));
 
 	return OPERATOR_FINISHED;

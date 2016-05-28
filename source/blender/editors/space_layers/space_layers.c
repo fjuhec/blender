@@ -48,14 +48,16 @@
 
 /* ******************** default callbacks for layer manager space ***************** */
 
-static SpaceLink *layers_new(const bContext *UNUSED(C))
+static SpaceLink *layers_new(const bContext *C)
 {
+	Scene *scene = CTX_data_scene(C);
 	ARegion *ar;
 	SpaceLayers *slayer; /* hmm, that's actually a good band name... */
 
 	slayer = MEM_callocN(sizeof(SpaceLayers), __func__);
 	slayer->spacetype = SPACE_LAYERS;
 	slayer->last_selected = -1;
+	slayer->act_tree = scene->object_layers;
 
 	/* header */
 	ar = MEM_callocN(sizeof(ARegion), "header for layer manager");
@@ -71,13 +73,6 @@ static SpaceLink *layers_new(const bContext *UNUSED(C))
 	ar->v2d.align = (V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_POS_Y);
 
 	return (SpaceLink *)slayer;
-}
-
-/* not spacelink itself */
-static void layers_free(SpaceLink *sl)
-{
-	SpaceLayers *slayer = (SpaceLayers *)sl;
-	BLI_freelistN(&slayer->layer_tiles);
 }
 
 static SpaceLink *layers_duplicate(SpaceLink *sl)
@@ -158,7 +153,6 @@ void ED_spacetype_layers(void)
 	strncpy(st->name, "LayerManager", BKE_ST_MAXNAME);
 
 	st->new = layers_new;
-	st->free = layers_free;
 	st->duplicate = layers_duplicate;
 	st->operatortypes = layers_operatortypes;
 	st->keymap = layers_keymap;

@@ -37,10 +37,6 @@ typedef enum eLayerTileFlag {
  * Wrapper around LayerTreeItem with extra info for drawing in layer manager editor.
  */
 typedef struct LayerTile {
-	struct LayerTile *next, *prev;
-
-	LayerTreeItem *litem;
-
 	eLayerTileFlag flag;
 } LayerTile;
 
@@ -49,10 +45,11 @@ void layers_tiles_draw(const struct bContext *C, struct ARegion *ar);
 void layer_group_draw(struct LayerTreeItem *litem, struct uiLayout *layout);
 
 /* layers_util.c */
-LayerTile *layers_tile_add(struct SpaceLayers *slayer, struct LayerTreeItem *litem);
+LayerTile *layers_tile_add(struct LayerTreeItem *litem);
 LayerTile *layers_tile_find_at_coordinate(
-        const struct SpaceLayers *slayer, const ARegion *ar, const int co[2],
+        const struct SpaceLayers *slayer, ARegion *ar, const int co[2],
         int *r_tile_idx);
+bool layers_any_selected(const struct LayerTree *ltree);
 
 /* layers_ops.c */
 void layers_operatortypes(void);

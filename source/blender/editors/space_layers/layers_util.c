@@ -37,16 +37,41 @@
 
 
 /**
- * Allocate and register a LayerTile entry for \a litem in layer_item list of \a slayer.
+ * Allocate and register a LayerTile for \a litem.
  */
-LayerTile *layers_tile_add(SpaceLayers *slayer, LayerTreeItem *litem)
+LayerTile *layers_tile_add(LayerTreeItem *litem)
 {
 	LayerTile *tile = MEM_callocN(sizeof(LayerTile), __func__);
-
-	tile->litem = litem;
-	BLI_addhead(&slayer->layer_tiles, tile);
-
+	litem->drawdata = tile;
 	return tile;
+}
+
+typedef struct LayerIsectData {
+	/* input values */
+	View2D *v2d;
+	int co_x, co_y;
+
+	/* helper values for callback */
+	int ofs_y;
+
+	/* return values */
+	LayerTile *r_result;
+	int r_idx; /* index of r_result */
+} LayerIsectData;
+
+static bool layers_tile_find_at_coordinate_cb(LayerTreeItem *litem, void *customdata)
+{
+	LayerIsectData *idata = customdata;
+
+	idata->ofs_y += litem->height;
+	if (idata->co_y >= -idata->v2d->cur.ymin - idata->ofs_y) {
+		idata->r_result = litem->drawdata;
+		/* found tile, stop iterating */
+		return false;
+	}
+	idata->r_idx++;
+
+	return true;
 }
 
 /**
@@ -54,24 +79,31 @@ LayerTile *layers_tile_add(SpaceLayers *slayer, LayerTreeItem *litem)
  * \param r_tile_idx: Returns the index of the result, -1 if no tile was found.
  */
 LayerTile *layers_tile_find_at_coordinate(
-        const SpaceLayers *slayer, const ARegion *ar, const int co[2],
+        const SpaceLayers *slayer, ARegion *ar, const int co[2],
         int *r_tile_idx)
 {
-	LayerTile *tile;
-	int ofsx = 0;
-	unsigned int idx = 0;
-
-	for (tile = slayer->layer_tiles.first; tile; tile = tile->next, idx++) {
-		ofsx += tile->litem->height;
-		if (co[1] >= -ar->v2d.cur.ymin - ofsx) {
-			/* found tile */
-			break;
-		}
-	}
+	LayerIsectData idata = {&ar->v2d, co[0], co[1]};
+	BKE_layertree_iterate(slayer->act_tree, layers_tile_find_at_coordinate_cb, &idata);
 
 	/* return values */
 	if (r_tile_idx) {
-		(*r_tile_idx) = (tile != NULL) ? idx : -1;
+		(*r_tile_idx) = (idata.r_result != NULL) ? idata.r_idx : -1;
 	}
-	return tile;
+	return idata.r_result;
+}
+
+static bool layers_has_selected_cb(LayerTreeItem *litem, void *UNUSED(customdata))
+{
+	LayerTile *tile = litem->drawdata;
+	if (tile->flag & LAYERTILE_SELECTED) {
+		/* false tells iterator to stop */
+		return false;
+	}
+	return true;
+}
+
+bool layers_any_selected(const LayerTree *ltree)
+{
+	/* returns false if iterator was stopped because layers_has_selected_cb found a selected tile */
+	return BKE_layertree_iterate(ltree, layers_has_selected_cb, NULL) == false;
 }

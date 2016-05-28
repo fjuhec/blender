@@ -1339,9 +1339,13 @@ typedef struct SpaceLayers {
 	ListBase regionbase;        /* storage of regions for inactive spaces */
 	int spacetype;
 
+	int pad;
+	/* the currently shown layer tree (only object_layer tree righ now) */
+	struct LayerTree *act_tree;
+	int pad2;
+
 	/* index of last selected item, will likely become redundant when active layers are supported */
 	int last_selected;
-	ListBase layer_tiles; /* LayerTile */
 } SpaceLayers;
 
 /* **************** SPACE DEFINES ********************* */

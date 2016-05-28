@@ -31,14 +31,14 @@
 #define __BKE_LAYER_H__
 
 struct bContext;
+struct LayerTreeItem;
 struct uiLayout;
-
-typedef struct LayerTree LayerTree;
-typedef struct LayerTreeItem LayerTreeItem;
 
 
 /* -------------------------------------------------------------------- */
 /* Layer Tree */
+
+typedef bool (*LayerTreeIterFunc)(struct LayerTreeItem *, void *);
 
 /**
  * LayerTree.type
@@ -56,7 +56,9 @@ typedef enum eLayerTree_Type {
 typedef struct LayerTree {
 	eLayerTree_Type type;
 
-	ListBase items; /* LayerTreeItem - TODO check if worth using array instead */
+	/* LayerTreeItem - Only items of the first level in the hierarchy, these may have children then.
+	 * TODO check if worth using array instead */
+	ListBase items;
 
 	/* filtering */
 	short filterflag;
@@ -66,6 +68,8 @@ typedef struct LayerTree {
 
 struct LayerTree *BKE_layertree_new(const eLayerTree_Type type);
 void BKE_layertree_delete(struct LayerTree *ltree);
+
+bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, void *customdata);
 
 /* -------------------------------------------------------------------- */
 /* Layer Tree Item */
@@ -93,6 +97,7 @@ typedef struct LayerTreeItem {
 
 	LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
 	struct LayerTreeItem *parent; /* the group this item belongs to */
+	ListBase childs;
 
 	/* item is grayed out if this check fails */
 	LayerItemPollFunc poll;
@@ -100,13 +105,16 @@ typedef struct LayerTreeItem {
 	LayerItemDrawFunc draw;
 	/* drawing of the expanded layer settings (gear wheel icon) */
 	LayerItemDrawSettingsFunc draw_settings;
+
+	/* Ugly, but we use this to store LayerTile data for drawing in layer manager editor. */
+	void *drawdata;
 } LayerTreeItem;
 
 struct LayerTreeItem *BKE_layeritem_add(
-        struct LayerTree *tree, struct LayerTreeItem *parent,
+        LayerTree *tree, LayerTreeItem *parent,
         const eLayerTreeItem_Type type, const char *name,
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
-void BKE_layeritem_remove(struct LayerTree *tree, struct LayerTreeItem *litem);
+void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children);
 
 void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item);
 
