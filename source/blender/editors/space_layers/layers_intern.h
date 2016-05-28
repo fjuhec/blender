@@ -38,6 +38,9 @@ typedef enum eLayerTileFlag {
  */
 typedef struct LayerTile {
 	eLayerTileFlag flag;
+
+	/* LayerTreeItem this tile represents */
+	struct LayerTreeItem *litem;
 } LayerTile;
 
 /* layers_draw.c */
@@ -46,6 +49,7 @@ void layer_group_draw(struct LayerTreeItem *litem, struct uiLayout *layout);
 
 /* layers_util.c */
 LayerTile *layers_tile_add(const struct SpaceLayers *slayer, struct LayerTreeItem *litem);
+void       layers_tile_remove(const struct SpaceLayers *slayer, LayerTile *tile, const bool remove_children);
 LayerTile *layers_tile_find_at_coordinate(
         struct SpaceLayers *slayer, ARegion *ar, const int co[2],
         int *r_tile_idx);

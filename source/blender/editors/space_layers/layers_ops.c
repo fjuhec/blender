@@ -79,6 +79,54 @@ static void LAYERS_OT_layer_add(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+static int layer_remove_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+{
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	ListBase remlist = {NULL};
+
+	/* First iterate over tiles. Ghash iterator doesn't allow removing items
+	 * while iterating, so temporarily store selected items in a list */
+	GHashIterator gh_iter;
+	GHASH_ITER(gh_iter, slayer->tiles) {
+		LayerTile *tile = BLI_ghashIterator_getValue(&gh_iter);
+		if (tile->flag & LAYERTILE_SELECTED) {
+			LinkData *tile_link = BLI_genericNodeN(tile);
+			BLI_addhead(&remlist, tile_link);
+		}
+	}
+	/* Now, delete all items in the list. */
+	for (LinkData *tile_link = remlist.first, *next_link; tile_link; tile_link = next_link) {
+		LayerTile *tile = tile_link->data;
+		LayerTreeItem *litem = tile->litem;
+
+		layers_tile_remove(slayer, tile, true);
+		BKE_layeritem_remove(litem, true);
+
+		next_link = tile_link->next;
+		BLI_freelinkN(&remlist, tile_link);
+	}
+	BLI_assert(BLI_listbase_is_empty(&remlist));
+
+	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+static void LAYERS_OT_remove(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Remove Layers";
+	ot->idname = "LAYERS_OT_remove";
+	ot->description = "Remove selected layers";
+
+	/* api callbacks */
+	ot->invoke = layer_remove_invoke;
+	ot->poll = ED_operator_layers_active;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
 typedef struct {
 	SpaceLayers *slayer;
 	LayerTreeItem *group;
@@ -318,6 +366,7 @@ void layers_operatortypes(void)
 	/* organization */
 	WM_operatortype_append(LAYERS_OT_layer_add);
 	WM_operatortype_append(LAYERS_OT_group_add);
+	WM_operatortype_append(LAYERS_OT_remove);
 	WM_operatortype_append(LAYERS_OT_layer_rename);
 
 	/* states (activating selecting, highlighting) */

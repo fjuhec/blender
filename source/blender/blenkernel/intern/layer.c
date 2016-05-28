@@ -85,6 +85,7 @@ static bool layertree_iterate_list(const ListBase *itemlist, LayerTreeIterFunc f
 	return true;
 }
 
+
 /**
  * Iterate over all items (including children) in the layer tree, executing \a foreach callback for each element.
  * (Pre-order traversal)
@@ -181,6 +182,18 @@ void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item)
 	item->parent = group;
 	BLI_remlink(oldlist, item);
 	BLI_addtail(&group->childs, item);
+}
+
+/**
+ * Iterate over all children (and their children, etc) of \a litem, executing \a foreach callback for each element.
+ * (Pre-order traversal)
+ *
+ * \param foreach: Callback that can return false to stop the iteration.
+ * \return if the iteration has been stopped because of a callback returning false.
+ */
+bool BKE_layeritem_iterate_childs(LayerTreeItem *litem, LayerTreeIterFunc foreach, void *customdata)
+{
+	return layertree_iterate_list(&litem->childs, foreach, customdata);
 }
 
 /** \} */ /* Layer Tree Item */

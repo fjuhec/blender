@@ -115,5 +115,7 @@ void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children);
 
 void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item);
 
+bool BKE_layeritem_iterate_childs(LayerTreeItem *litem, LayerTreeIterFunc foreach, void *customdata);
+
 #endif  /* __BKE_LAYER_H__ */
 

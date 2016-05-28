@@ -44,8 +44,31 @@
 LayerTile *layers_tile_add(const SpaceLayers *slayer, LayerTreeItem *litem)
 {
 	LayerTile *tile = MEM_callocN(sizeof(LayerTile), __func__);
+
+	tile->litem = litem;
 	BLI_ghash_insert(slayer->tiles, litem, tile);
+
 	return tile;
+}
+
+static bool layer_tile_remove_children_cb(LayerTreeItem *litem, void *customdata)
+{
+	SpaceLayers *slayer = customdata;
+	BLI_ghash_remove(slayer->tiles, litem, NULL, MEM_freeN);
+	return true;
+}
+
+/**
+ * \note Call before removing corresponding LayerTreeItem!
+ */
+void layers_tile_remove(const SpaceLayers *slayer, LayerTile *tile, const bool remove_children)
+{
+	/* remove tiles of children first */
+	if (remove_children) {
+		BKE_layeritem_iterate_childs(tile->litem, layer_tile_remove_children_cb, (void *)slayer);
+	}
+	/* remove tile */
+	BLI_ghash_remove(slayer->tiles, tile->litem, NULL, MEM_freeN);
 }
 
 typedef struct {
