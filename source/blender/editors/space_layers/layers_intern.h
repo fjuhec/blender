@@ -45,11 +45,11 @@ void layers_tiles_draw(const struct bContext *C, struct ARegion *ar);
 void layer_group_draw(struct LayerTreeItem *litem, struct uiLayout *layout);
 
 /* layers_util.c */
-LayerTile *layers_tile_add(struct LayerTreeItem *litem);
+LayerTile *layers_tile_add(const struct SpaceLayers *slayer, struct LayerTreeItem *litem);
 LayerTile *layers_tile_find_at_coordinate(
-        const struct SpaceLayers *slayer, ARegion *ar, const int co[2],
+        struct SpaceLayers *slayer, ARegion *ar, const int co[2],
         int *r_tile_idx);
-bool layers_any_selected(const struct LayerTree *ltree);
+bool layers_any_selected(struct SpaceLayers *slayer, const struct LayerTree *ltree);
 
 /* layers_ops.c */
 void layers_operatortypes(void);

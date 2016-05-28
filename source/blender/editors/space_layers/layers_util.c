@@ -24,6 +24,8 @@
  * Utility functions for layer manager editor.
  */
 
+#include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 #include "BLI_listbase.h"
 
 #include "BKE_layer.h"
@@ -39,15 +41,16 @@
 /**
  * Allocate and register a LayerTile for \a litem.
  */
-LayerTile *layers_tile_add(LayerTreeItem *litem)
+LayerTile *layers_tile_add(const SpaceLayers *slayer, LayerTreeItem *litem)
 {
 	LayerTile *tile = MEM_callocN(sizeof(LayerTile), __func__);
-	litem->drawdata = tile;
+	BLI_ghash_insert(slayer->tiles, litem, tile);
 	return tile;
 }
 
-typedef struct LayerIsectData {
+typedef struct {
 	/* input values */
+	SpaceLayers *slayer;
 	View2D *v2d;
 	int co_x, co_y;
 
@@ -57,15 +60,15 @@ typedef struct LayerIsectData {
 	/* return values */
 	LayerTile *r_result;
 	int r_idx; /* index of r_result */
-} LayerIsectData;
+} LayerIsectCheckData;
 
 static bool layers_tile_find_at_coordinate_cb(LayerTreeItem *litem, void *customdata)
 {
-	LayerIsectData *idata = customdata;
+	LayerIsectCheckData *idata = customdata;
 
 	idata->ofs_y += litem->height;
 	if (idata->co_y >= -idata->v2d->cur.ymin - idata->ofs_y) {
-		idata->r_result = litem->drawdata;
+		idata->r_result = BLI_ghash_lookup(idata->slayer->tiles, litem);
 		/* found tile, stop iterating */
 		return false;
 	}
@@ -79,10 +82,10 @@ static bool layers_tile_find_at_coordinate_cb(LayerTreeItem *litem, void *custom
  * \param r_tile_idx: Returns the index of the result, -1 if no tile was found.
  */
 LayerTile *layers_tile_find_at_coordinate(
-        const SpaceLayers *slayer, ARegion *ar, const int co[2],
+        SpaceLayers *slayer, ARegion *ar, const int co[2],
         int *r_tile_idx)
 {
-	LayerIsectData idata = {&ar->v2d, co[0], co[1]};
+	LayerIsectCheckData idata = {slayer, &ar->v2d, co[0], co[1]};
 	BKE_layertree_iterate(slayer->act_tree, layers_tile_find_at_coordinate_cb, &idata);
 
 	/* return values */
@@ -92,9 +95,11 @@ LayerTile *layers_tile_find_at_coordinate(
 	return idata.r_result;
 }
 
-static bool layers_has_selected_cb(LayerTreeItem *litem, void *UNUSED(customdata))
+static bool layers_has_selected_cb(LayerTreeItem *litem, void *customdata)
 {
-	LayerTile *tile = litem->drawdata;
+	SpaceLayers *slayer = customdata;
+	LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
+
 	if (tile->flag & LAYERTILE_SELECTED) {
 		/* false tells iterator to stop */
 		return false;
@@ -102,8 +107,8 @@ static bool layers_has_selected_cb(LayerTreeItem *litem, void *UNUSED(customdata
 	return true;
 }
 
-bool layers_any_selected(const LayerTree *ltree)
+bool layers_any_selected(SpaceLayers *slayer, const LayerTree *ltree)
 {
 	/* returns false if iterator was stopped because layers_has_selected_cb found a selected tile */
-	return BKE_layertree_iterate(ltree, layers_has_selected_cb, NULL) == false;
+	return BKE_layertree_iterate(ltree, layers_has_selected_cb, slayer) == false;
 }

@@ -1337,15 +1337,17 @@ typedef enum eSpaceClip_GPencil_Source {
 typedef struct SpaceLayers {
 	SpaceLink *next, *prev;
 	ListBase regionbase;        /* storage of regions for inactive spaces */
-	int spacetype;
+	int spacetype, pad;
 
-	int pad;
-	/* the currently shown layer tree (only object_layer tree righ now) */
+	/* The currently shown layer tree (only object_layer tree righ now). */
 	struct LayerTree *act_tree;
-	int pad2;
+	/* Pointer hash table to access LayerTile from LayerTreeItem without expensive lookups.
+	 * The item order is *not* synced with the LayerTree items. */
+	struct GHash *tiles;
 
-	/* index of last selected item, will likely become redundant when active layers are supported */
+	/* Index of last selected item, will likely become redundant when active layers are supported. */
 	int last_selected;
+	int pad2;
 } SpaceLayers;
 
 /* **************** SPACE DEFINES ********************* */

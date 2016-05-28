@@ -26,6 +26,8 @@
 #include "BKE_layer.h"
 
 #include "BLI_compiler_attrs.h"
+#include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 #include "BLI_listbase.h"
 
 #include "DNA_windowmanager_types.h"
@@ -55,7 +57,7 @@ static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *
 	else {
 		BLI_assert(0);
 	}
-	layers_tile_add(new_item);
+	layers_tile_add(slayer, new_item);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
 
@@ -77,13 +79,18 @@ static void LAYERS_OT_layer_add(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+typedef struct {
+	SpaceLayers *slayer;
+	LayerTreeItem *group;
+} GroupAddSelectedData;
+
 static bool layer_group_add_selected_cb(LayerTreeItem *litem, void *customdata)
 {
-	LayerTreeItem *group = customdata;
-	LayerTile *tile = litem->drawdata;
+	GroupAddSelectedData *gadata = customdata;
+	LayerTile *tile = BLI_ghash_lookup(gadata->slayer->tiles, litem);
 
 	if (tile->flag & LAYERTILE_SELECTED) {
-		BKE_layeritem_group_assign(group, litem);
+		BKE_layeritem_group_assign(gadata->group, litem);
 	}
 
 	return true;
@@ -97,10 +104,11 @@ static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	LayerTreeItem *new_group = BKE_layeritem_add(
 		            scene->object_layers, NULL, LAYER_ITEMTYPE_GROUP, LAYERGROUP_DEFAULT_NAME,
 		            NULL, layer_group_draw, NULL);
-	layers_tile_add(new_group);
+	layers_tile_add(slayer, new_group);
 
 	/* Add selected items to group */
-	BKE_layertree_iterate(slayer->act_tree, layer_group_add_selected_cb, new_group);
+	GroupAddSelectedData gadata = {slayer, new_group};
+	BKE_layertree_iterate(slayer->act_tree, layer_group_add_selected_cb, &gadata);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
 	return OPERATOR_FINISHED;
@@ -174,7 +182,7 @@ typedef struct LayerSelectData {
 static bool layer_select_cb(LayerTreeItem *litem, void *customdata)
 {
 	LayerSelectData *sdata = customdata;
-	LayerTile *tile = litem->drawdata;
+	LayerTile *tile = BLI_ghash_lookup(sdata->slayer->tiles, litem);
 
 	BLI_assert((sdata->from == -1 && sdata->to == -1) || sdata->from < sdata->to);
 
@@ -284,7 +292,7 @@ static int layer_select_all_toggle_invoke(bContext *C, wmOperator *UNUSED(op), c
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 
 	/* if a tile was found we deselect all, else we select all */
-	layers_selection_set_all(slayer, !layers_any_selected(slayer->act_tree));
+	layers_selection_set_all(slayer, !layers_any_selected(slayer, slayer->act_tree));
 	ED_region_tag_redraw(CTX_wm_region(C));
 
 	return OPERATOR_FINISHED;

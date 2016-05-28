@@ -32,6 +32,7 @@
 #include "BKE_layer.h"
 #include "BKE_screen.h"
 
+#include "BLI_ghash.h"
 #include "BLI_listbase.h"
 
 #include "ED_screen.h"
@@ -58,6 +59,7 @@ static SpaceLink *layers_new(const bContext *C)
 	slayer->spacetype = SPACE_LAYERS;
 	slayer->last_selected = -1;
 	slayer->act_tree = scene->object_layers;
+	slayer->tiles = BLI_ghash_ptr_new("SpaceLayers.tiles hash");
 
 	/* header */
 	ar = MEM_callocN(sizeof(ARegion), "header for layer manager");
@@ -73,6 +75,12 @@ static SpaceLink *layers_new(const bContext *C)
 	ar->v2d.align = (V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_POS_Y);
 
 	return (SpaceLink *)slayer;
+}
+
+static void layers_free(SpaceLink *sl)
+{
+	SpaceLayers *slayer = (SpaceLayers *)sl;
+	BLI_ghash_free(slayer->tiles, NULL, MEM_freeN);
 }
 
 static SpaceLink *layers_duplicate(SpaceLink *sl)
@@ -153,6 +161,7 @@ void ED_spacetype_layers(void)
 	strncpy(st->name, "LayerManager", BKE_ST_MAXNAME);
 
 	st->new = layers_new;
+	st->free = layers_free;
 	st->duplicate = layers_duplicate;
 	st->operatortypes = layers_operatortypes;
 	st->keymap = layers_keymap;

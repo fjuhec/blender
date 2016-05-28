@@ -157,9 +157,6 @@ LayerTreeItem *BKE_layeritem_add(
 void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children)
 {
 	BLI_remlink(litem->parent ? &litem->parent->childs : &litem->tree->items, litem);
-	if (litem->drawdata) {
-		MEM_freeN(litem->drawdata);
-	}
 
 	if (remove_children) {
 		for (LayerTreeItem *child = litem->childs.first, *child_next; child; child = child_next) {

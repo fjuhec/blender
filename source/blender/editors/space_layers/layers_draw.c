@@ -22,6 +22,8 @@
  *  \ingroup splayers
  */
 
+#include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 #include "BLI_listbase.h"
 #include "BLI_rect.h"
 
@@ -63,6 +65,7 @@ static int layer_tile_indent_level_get(const LayerTreeItem *litem)
 typedef struct TileDrawInfo {
 	const bContext *C;
 	ARegion *ar;
+	SpaceLayers *slayer;
 	uiBlock *block;
 	uiStyle *style;
 
@@ -73,7 +76,7 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 {
 	TileDrawInfo *drawinfo = userdata;
 	View2D *v2d = &drawinfo->ar->v2d;
-	LayerTile *tile = litem->drawdata;
+	LayerTile *tile = BLI_ghash_lookup(drawinfo->slayer->tiles, litem);
 	const float padx = 4.0f * UI_DPI_FAC;
 
 	const float ofs_x = layer_tile_indent_level_get(litem) * LAYERITEM_INDENT_SIZE;
@@ -126,7 +129,7 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 
 	uiBlock *block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
-	TileDrawInfo drawinfo = {C, ar, block, UI_style_get_dpi()};
+	TileDrawInfo drawinfo = {C, ar, slayer, block, UI_style_get_dpi()};
 
 	BKE_layertree_iterate(slayer->act_tree, layer_tile_draw_cb, &drawinfo);
 

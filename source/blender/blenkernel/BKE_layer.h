@@ -105,9 +105,6 @@ typedef struct LayerTreeItem {
 	LayerItemDrawFunc draw;
 	/* drawing of the expanded layer settings (gear wheel icon) */
 	LayerItemDrawSettingsFunc draw_settings;
-
-	/* Ugly, but we use this to store LayerTile data for drawing in layer manager editor. */
-	void *drawdata;
 } LayerTreeItem;
 
 struct LayerTreeItem *BKE_layeritem_add(
