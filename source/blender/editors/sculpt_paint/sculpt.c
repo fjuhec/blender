@@ -3885,7 +3885,7 @@ static void sculpt_init_mirror_clipping(Object *ob, SculptSession *ss)
 /* Initialize the stroke cache invariants from operator properties */
 static void sculpt_update_cache_invariants(bContext *C, Sculpt *sd, SculptSession *ss, wmOperator *op, const float mouse[2])
 {
-	StrokeCache *cache;
+	StrokeCache *cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
 	Scene *scene = CTX_data_scene(C);
 	UnifiedPaintSettings *ups = &CTX_data_tool_settings(C)->unified_paint_settings;
 	Brush *brush = BKE_paint_brush(&sd->paint);
@@ -3896,15 +3896,6 @@ static void sculpt_update_cache_invariants(bContext *C, Sculpt *sd, SculptSessio
 	float max_scale;
 	int i;
 	int mode;
-
-	// VW paint needs to allocate stroke cache before update is called.
-	if (!ss->cache) {
-		cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
-		ss->cache = cache;
-	}
-	else {
-		cache = ss->cache;
-	}
 
 	/* Set scaling adjustment */
 	if (brush->sculpt_tool == SCULPT_TOOL_LAYER) {

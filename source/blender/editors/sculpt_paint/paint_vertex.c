@@ -1967,7 +1967,146 @@ static bool wpaint_ensure_data(
 	return true;
 }
 
-static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float UNUSED(mouse[2]))
+/* Initialize the stroke cache invariants from operator properties */
+static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSession *ss, wmOperator *op, const float mouse[2])
+{
+	StrokeCache *cache;
+	Scene *scene = CTX_data_scene(C);
+	UnifiedPaintSettings *ups = &CTX_data_tool_settings(C)->unified_paint_settings;
+	Brush *brush = BKE_paint_brush(&vd->paint);
+	ViewContext *vc = paint_stroke_view_context(op->customdata);
+	Object *ob = CTX_data_active_object(C);
+	float mat[3][3];
+	float viewDir[3] = { 0.0f, 0.0f, 1.0f };
+	float max_scale;
+	int i;
+	int mode;
+
+	// VW paint needs to allocate stroke cache before update is called.
+	if (!ss->cache) {
+		cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
+		ss->cache = cache;
+	}
+	else {
+		cache = ss->cache;
+	}
+
+	/* Initial mouse location */
+	if (mouse)
+		copy_v2_v2(cache->initial_mouse, mouse);
+	else
+		zero_v2(cache->initial_mouse);
+
+	mode = RNA_enum_get(op->ptr, "mode");
+	cache->invert = mode == BRUSH_STROKE_INVERT;
+	cache->alt_smooth = mode == BRUSH_STROKE_SMOOTH;
+	/* not very nice, but with current events system implementation
+	* we can't handle brush appearance inversion hotkey separately (sergey) */
+	if (cache->invert) ups->draw_inverted = true;
+	else ups->draw_inverted = false;
+
+	copy_v2_v2(cache->mouse, cache->initial_mouse);
+//	/* Truly temporary data that isn't stored in properties */
+	cache->vc = vc;
+
+	cache->brush = brush;
+
+	/* cache projection matrix */
+	ED_view3d_ob_project_mat_get(cache->vc->rv3d, ob, cache->projection_mat);
+
+	invert_m4_m4(ob->imat, ob->obmat);
+	copy_m3_m4(mat, cache->vc->rv3d->viewinv);
+	mul_m3_v3(mat, viewDir);
+	copy_m3_m4(mat, ob->imat);
+	mul_m3_v3(mat, viewDir);
+	normalize_v3_v3(cache->true_view_normal, viewDir);
+}
+
+/* Initialize the stroke cache variants from operator properties */
+static void vwpaint_update_cache_variants(bContext *C, VPaint *vd, Object *ob,
+	PointerRNA *ptr)
+{
+	Scene *scene = CTX_data_scene(C);
+	UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
+	SculptSession *ss = ob->sculpt;
+	StrokeCache *cache = ss->cache;
+	Brush *brush = BKE_paint_brush(&vd->paint);
+
+	/* RNA_float_get_array(ptr, "location", cache->traced_location); */
+
+	//if (cache->first_time ||
+	//	!((brush->flag & BRUSH_ANCHORED) ||
+	//	(brush->sculpt_tool == SCULPT_TOOL_SNAKE_HOOK) ||
+	//	(brush->sculpt_tool == SCULPT_TOOL_ROTATE))
+	//	)
+	//{
+	//	RNA_float_get_array(ptr, "location", cache->true_location);
+	//}
+
+	//cache->pen_flip = RNA_boolean_get(ptr, "pen_flip");
+	RNA_float_get_array(ptr, "mouse", cache->mouse);
+
+	///* XXX: Use pressure value from first brush step for brushes which don't
+	//*      support strokes (grab, thumb). They depends on initial state and
+	//*      brush coord/pressure/etc.
+	//*      It's more an events design issue, which doesn't split coordinate/pressure/angle
+	//*      changing events. We should avoid this after events system re-design */
+	//if (paint_supports_dynamic_size(brush, ePaintSculpt) || cache->first_time) {
+	//	cache->pressure = RNA_float_get(ptr, "pressure");
+	//}
+
+	/* Truly temporary data that isn't stored in properties */
+	if (cache->first_time) {
+		if (!BKE_brush_use_locked_size(scene, brush)) {
+			cache->initial_radius = paint_calc_object_space_radius(cache->vc,
+				cache->true_location,
+				BKE_brush_size_get(scene, brush));
+			BKE_brush_unprojected_radius_set(scene, brush, cache->initial_radius);
+		}
+		else {
+			cache->initial_radius = BKE_brush_unprojected_radius_get(scene, brush);
+		}
+	}
+
+	if (BKE_brush_use_size_pressure(scene, brush) && paint_supports_dynamic_size(brush, ePaintSculpt)) {
+		cache->radius = cache->initial_radius * cache->pressure;
+	}
+	else {
+		cache->radius = cache->initial_radius;
+	}
+
+	cache->radius_squared = cache->radius * cache->radius;
+
+	//if (brush->flag & BRUSH_ANCHORED) {
+	//	/* true location has been calculated as part of the stroke system already here */
+	//	if (brush->flag & BRUSH_EDGE_TO_EDGE) {
+	//		RNA_float_get_array(ptr, "location", cache->true_location);
+	//	}
+
+	//	cache->radius = paint_calc_object_space_radius(cache->vc,
+	//		cache->true_location,
+	//		ups->pixel_radius);
+	//	cache->radius_squared = cache->radius * cache->radius;
+
+	//	copy_v3_v3(cache->anchored_location, cache->true_location);
+	//}
+
+	//sculpt_update_brush_delta(ups, ob, brush);
+
+	//if (brush->sculpt_tool == SCULPT_TOOL_ROTATE) {
+	//	cache->vertex_rotation = -BLI_dial_angle(cache->dial, cache->mouse) * cache->bstrength;
+
+	//	ups->draw_anchored = true;
+	//	copy_v2_v2(ups->anchored_initial_mouse, cache->initial_mouse);
+	//	copy_v3_v3(cache->anchored_location, cache->true_location);
+	//	ups->anchored_size = ups->pixel_radius;
+	//}
+
+	//cache->special_rotation = ups->brush_rotation;
+}
+
+
+static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mouse[2])
 {
 	Scene *scene = CTX_data_scene(C);
 	struct PaintStroke *stroke = op->customdata;
@@ -1980,7 +2119,9 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float UN
 	int defbase_tot, defbase_tot_sel;
 	bool *defbase_sel;
 	const Brush *brush = BKE_paint_brush(&wp->paint);
-
+	SculptSession *ss = ob->sculpt;
+	VPaint *vd = CTX_data_tool_settings(C)->wpaint;
+	
 	float mat[4][4], imat[4][4];
 
 	if (wpaint_ensure_data(C, op, WPAINT_ENSURE_MIRROR, &vgroup_index) == false) {
@@ -2101,6 +2242,8 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float UN
 	invert_m4_m4(imat, mat);
 	copy_m3_m4(wpd->wpimat, imat);
 
+	vwpaint_update_cache_invariants(C, vd, ss, op, mouse);
+
 	return true;
 }
 
@@ -2148,6 +2291,11 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	Object *ob = CTX_data_active_object(C);
 	Mesh *me;
 	
+	SculptSession *ss = ob->sculpt;
+	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
+
+	vwpaint_update_cache_variants(C, sd, ob, itemptr);
+
 	float mat[4][4];
 	float paintweight;
 	int *indexar;
@@ -2429,6 +2577,9 @@ static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 	DAG_id_tag_update(ob->data, 0);
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
+
+	sculpt_cache_free(ob->sculpt->cache);
+	ob->sculpt->cache = NULL;
 }
 
 
@@ -2467,6 +2618,10 @@ static int wpaint_exec(bContext *C, wmOperator *op)
 
 static void wpaint_cancel(bContext *C, wmOperator *op)
 {
+	Object *ob = CTX_data_active_object(C);
+	sculpt_cache_free(ob->sculpt->cache);
+	ob->sculpt->cache = NULL;
+
 	paint_stroke_cancel(C, op);
 }
 
