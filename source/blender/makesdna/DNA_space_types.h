@@ -1342,7 +1342,8 @@ typedef struct SpaceLayers {
 	/* The currently shown layer tree (only object_layer tree righ now). */
 	struct LayerTree *act_tree;
 	/* Pointer hash table to access LayerTile from LayerTreeItem without expensive lookups.
-	 * The item order is *not* synced with the LayerTree items. */
+	 * The item order is *not* synced with the LayerTree items.
+	 * Use to get the LayerTile from a LayerTreeItem or for iterating over layer tree where order doesn't matter. */
 	struct GHash *tiles;
 
 	/* Index of last selected item, will likely become redundant when active layers are supported. */

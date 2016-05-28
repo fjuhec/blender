@@ -85,7 +85,6 @@ static bool layertree_iterate_list(const ListBase *itemlist, LayerTreeIterFunc f
 	return true;
 }
 
-
 /**
  * Iterate over all items (including children) in the layer tree, executing \a foreach callback for each element.
  * (Pre-order traversal)

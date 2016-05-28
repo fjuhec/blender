@@ -131,6 +131,7 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 	uiBlock *block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
 	TileDrawInfo drawinfo = {C, ar, slayer, block, UI_style_get_dpi()};
 
+	/* draw tiles */
 	BKE_layertree_iterate(slayer->act_tree, layer_tile_draw_cb, &drawinfo);
 
 	UI_block_end(C, block);
