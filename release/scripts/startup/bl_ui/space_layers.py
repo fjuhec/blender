@@ -28,9 +28,11 @@ class LAYERS_HT_header(Header):
         layout = self.layout
 
         layout.template_header()
-        layout.operator("layers.layer_add", text="", icon='NEW')
-        layout.operator("layers.group_add", text="", icon='NEWFOLDER')
-        layout.operator("layers.remove", text="", icon='X')
+
+        row = layout.row(align=True)
+        row.operator("layers.layer_add", text="", icon='NEW')
+        row.operator("layers.group_add", text="", icon='NEWFOLDER')
+        row.operator("layers.remove", text="", icon='X')
 
 if __name__ == "__main__":  # only for live edit.
     bpy.utils.register_module(__name__)
