@@ -37,10 +37,11 @@ typedef enum eLayerTileFlag {
  * Wrapper around LayerTreeItem with extra info for drawing in layer manager editor.
  */
 typedef struct LayerTile {
-	eLayerTileFlag flag;
-
 	/* LayerTreeItem this tile represents */
 	struct LayerTreeItem *litem;
+
+	eLayerTileFlag flag;
+	int height; /* the height of this item */
 } LayerTile;
 
 /* layers_draw.c */

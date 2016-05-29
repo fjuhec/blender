@@ -37,6 +37,8 @@
 
 #include "layers_intern.h"
 
+#define LAYERITEM_DEFAULT_HEIGHT U.widget_unit
+
 
 /**
  * Allocate and register a LayerTile for \a litem.
@@ -46,6 +48,7 @@ LayerTile *layers_tile_add(const SpaceLayers *slayer, LayerTreeItem *litem)
 	LayerTile *tile = MEM_callocN(sizeof(LayerTile), __func__);
 
 	tile->litem = litem;
+	tile->height = LAYERITEM_DEFAULT_HEIGHT;
 	BLI_ghash_insert(slayer->tiles, litem, tile);
 
 	return tile;
@@ -88,10 +91,11 @@ typedef struct {
 static bool layers_tile_find_at_coordinate_cb(LayerTreeItem *litem, void *customdata)
 {
 	LayerIsectCheckData *idata = customdata;
+	LayerTile *tile = BLI_ghash_lookup(idata->slayer->tiles, litem);
 
-	idata->ofs_y += litem->height;
+	idata->ofs_y += tile->height;
 	if (idata->co_y >= -idata->v2d->cur.ymin - idata->ofs_y) {
-		idata->r_result = BLI_ghash_lookup(idata->slayer->tiles, litem);
+		idata->r_result = tile;
 		/* found tile, stop iterating */
 		return false;
 	}

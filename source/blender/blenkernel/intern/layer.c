@@ -38,7 +38,6 @@
 #include "BLI_string.h"
 
 #include "DNA_defs.h"
-#include "DNA_userdef_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -57,6 +56,9 @@ LayerTree *BKE_layertree_new(const eLayerTree_Type type)
 	return ltree;
 }
 
+/**
+ * \note Recursive
+ */
 void BKE_layertree_delete(LayerTree *ltree)
 {
 	for (LayerTreeItem *litem = ltree->items.first, *next_litem; litem; litem = next_litem) {
@@ -108,8 +110,6 @@ bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, vo
  *
  * \{ */
 
-#define LAYERITEM_DEFAULT_HEIGHT U.widget_unit
-
 /**
  * Allocate a new layer item of \a type and add it to the layer tree \a tree. Sorting happens later.
  *
@@ -124,7 +124,6 @@ LayerTreeItem *BKE_layeritem_add(
 	LayerTreeItem *litem = MEM_callocN(sizeof(LayerTreeItem), __func__);
 
 	litem->type = type;
-	litem->height = LAYERITEM_DEFAULT_HEIGHT;
 	litem->tree = tree;
 	BLI_strncpy(litem->name, name, sizeof(litem->name));
 

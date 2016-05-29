@@ -51,18 +51,12 @@ typedef enum eLayerTree_Type {
 //	...
 } eLayerTree_Type;
 
-#define MAX_LAYER_FILTER_STR 64
-
 typedef struct LayerTree {
 	eLayerTree_Type type;
 
 	/* LayerTreeItem - Only items of the first level in the hierarchy, these may have children then.
 	 * TODO check if worth using array instead */
 	ListBase items;
-
-	/* filtering */
-	short filterflag;
-	char filter_str[MAX_LAYER_FILTER_STR];
 } LayerTree;
 
 
@@ -93,7 +87,6 @@ typedef struct LayerTreeItem {
 
 	eLayerTreeItem_Type type;
 	char name[64]; /* MAX_NAME */
-	int height; /* the height of this item */
 
 	LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
 	struct LayerTreeItem *parent; /* the group this item belongs to */

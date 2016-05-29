@@ -78,11 +78,12 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 	View2D *v2d = &drawinfo->ar->v2d;
 	LayerTile *tile = BLI_ghash_lookup(drawinfo->slayer->tiles, litem);
 	const float padx = 4.0f * UI_DPI_FAC;
+	const float height = tile->height;
 
 	const float ofs_x = layer_tile_indent_level_get(litem) * LAYERITEM_INDENT_SIZE;
 	const float ofs_y = drawinfo->size_y;
-	rctf rect = {padx + ofs_x, drawinfo->ar->winx - padx, -v2d->cur.ymin - ofs_y - litem->height};
-	rect.ymax = rect.ymin + litem->height;
+	rctf rect = {padx + ofs_x, drawinfo->ar->winx - padx, -v2d->cur.ymin - ofs_y - height};
+	rect.ymax = rect.ymin + height;
 
 
 	/* draw selection */
@@ -96,7 +97,7 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 		uiBlock *block = drawinfo->block;
 		uiLayout *layout = UI_block_layout(
 		                       block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-		                       -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y, litem->height, 0, 0, drawinfo->style);
+		                       -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y, height, 0, 0, drawinfo->style);
 		if (tile->flag & LAYERTILE_RENAME) {
 			uiBut *but = uiDefBut(
 			        block, UI_BTYPE_TEXT, 1, "", rect.xmin, rect.ymin,
@@ -119,7 +120,7 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 		uiItemL(layout, "", 0); /* XXX without this editing last item causes crashes */
 		UI_block_layout_resolve(block, NULL, NULL);
 	}
-	drawinfo->size_y += litem->height;
+	drawinfo->size_y += height;
 
 	return true;
 }

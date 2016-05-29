@@ -1348,7 +1348,10 @@ typedef struct SpaceLayers {
 
 	/* Index of last selected item, will likely become redundant when active layers are supported. */
 	int last_selected;
-	int pad2;
+
+	/* filtering (unused still) */
+	short filterflag, pad2;
+	char filter_str[64]; /* MAX_NAME */
 } SpaceLayers;
 
 /* **************** SPACE DEFINES ********************* */

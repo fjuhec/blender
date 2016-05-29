@@ -49,7 +49,7 @@
 static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
-	LayerTreeItem *new_item;
+	LayerTreeItem *new_item = NULL;
 
 	if (slayer->act_tree->type == LAYER_TREETYPE_OBJECT) {
 		new_item = ED_object_layer_add(slayer->act_tree, NULL);
