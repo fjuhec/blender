@@ -28,6 +28,8 @@
 struct ARegion;
 struct wmKeyConfig;
 
+#define LAYERTILE_DEFAULT_HEIGHT U.widget_unit
+
 typedef enum eLayerTileFlag {
 	LAYERTILE_SELECTED = (1 << 0),
 	LAYERTILE_RENAME   = (1 << 1),

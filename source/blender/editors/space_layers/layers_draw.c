@@ -22,6 +22,8 @@
  *  \ingroup splayers
  */
 
+#include "BIF_glutil.h"
+
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
@@ -70,6 +72,7 @@ typedef struct TileDrawInfo {
 	uiStyle *style;
 
 	float size_y;
+	int idx;
 } TileDrawInfo;
 
 static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
@@ -77,20 +80,25 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 	TileDrawInfo *drawinfo = userdata;
 	View2D *v2d = &drawinfo->ar->v2d;
 	LayerTile *tile = BLI_ghash_lookup(drawinfo->slayer->tiles, litem);
-	const float padx = 4.0f * UI_DPI_FAC;
+	const float pad_x = 4.0f * UI_DPI_FAC;
 	const float height = tile->height;
 
 	const float ofs_x = layer_tile_indent_level_get(litem) * LAYERITEM_INDENT_SIZE;
 	const float ofs_y = drawinfo->size_y;
-	rctf rect = {padx + ofs_x, drawinfo->ar->winx - padx, -v2d->cur.ymin - ofs_y - height};
+	rctf rect = {ofs_x, drawinfo->ar->winx, -v2d->cur.ymin - ofs_y - height};
 	rect.ymax = rect.ymin + height;
 
 
+	/* draw background */
+	if (drawinfo->idx % 2) {
+		UI_ThemeColorShade(TH_BACK, 10);
+		fdrawbox_filled(0, rect.ymin, rect.xmax, rect.ymax);
+	}
 	/* draw selection */
 	if (tile->flag & LAYERTILE_SELECTED) {
 		UI_draw_roundbox_corner_set(UI_CNR_ALL);
 		UI_ThemeColor(TH_HILITE);
-		UI_draw_roundbox(rect.xmin, rect.ymin, rect.xmax, rect.ymax, 5.0f);
+		UI_draw_roundbox(rect.xmin + pad_x, rect.ymin, rect.xmax - pad_x, rect.ymax, 5.0f);
 	}
 	/* draw item itself */
 	if (litem->draw) {
@@ -121,6 +129,7 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 		UI_block_layout_resolve(block, NULL, NULL);
 	}
 	drawinfo->size_y += height;
+	drawinfo->idx++;
 
 	return true;
 }
@@ -134,6 +143,16 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 
 	/* draw tiles */
 	BKE_layertree_iterate(slayer->act_tree, layer_tile_draw_cb, &drawinfo);
+
+	/* fill remaining space with empty boxes */
+	const float tot_fill_tiles = (-ar->v2d.cur.ymin - drawinfo.size_y) / LAYERTILE_DEFAULT_HEIGHT + 1;
+	for (int i = 0; i < tot_fill_tiles; i++) {
+		if ((i + drawinfo.idx - 1) % 2) {
+			const float pos[2] = {0, -ar->v2d.cur.ymin - drawinfo.size_y - (LAYERTILE_DEFAULT_HEIGHT * i)};
+			UI_ThemeColorShade(TH_BACK, 10);
+			fdrawbox_filled(pos[0], pos[1], pos[0] + ar->winx, pos[1] + LAYERTILE_DEFAULT_HEIGHT);
+		}
+	}
 
 	UI_block_end(C, block);
 	UI_block_draw(C, block);

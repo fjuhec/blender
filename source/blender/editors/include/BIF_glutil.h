@@ -41,6 +41,7 @@ struct ColorManagedDisplaySettings;
 void fdrawbezier(float vec[4][3]);
 void fdrawline(float x1, float y1, float x2, float y2);
 void fdrawbox(float x1, float y1, float x2, float y2);
+void fdrawbox_filled(float x1, float y1, float x2, float y2);
 void sdrawline(int x1, int y1, int x2, int y2);
 #if 0
 void sdrawtri(int x1, int y1, int x2, int y2);

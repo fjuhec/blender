@@ -37,8 +37,6 @@
 
 #include "layers_intern.h"
 
-#define LAYERITEM_DEFAULT_HEIGHT U.widget_unit
-
 
 /**
  * Allocate and register a LayerTile for \a litem.
@@ -48,7 +46,7 @@ LayerTile *layers_tile_add(const SpaceLayers *slayer, LayerTreeItem *litem)
 	LayerTile *tile = MEM_callocN(sizeof(LayerTile), __func__);
 
 	tile->litem = litem;
-	tile->height = LAYERITEM_DEFAULT_HEIGHT;
+	tile->height = LAYERTILE_DEFAULT_HEIGHT;
 	BLI_ghash_insert(slayer->tiles, litem, tile);
 
 	return tile;
