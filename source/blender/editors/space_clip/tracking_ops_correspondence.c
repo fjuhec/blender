@@ -108,7 +108,7 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 	}
 
 	// link two tracks, mark these two tracks in a different color
-	ed_tracking_delect_all_tracks(tracksbase);
+	//ed_tracking_delect_all_tracks(tracksbase);
 
 	return OPERATOR_FINISHED;
 }
