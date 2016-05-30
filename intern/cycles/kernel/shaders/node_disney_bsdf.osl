@@ -34,7 +34,7 @@ shader node_disney_bsdf(
 	output closure color BSDF = 0)
 {
     if (Metallic != 1.0) {
-        BSDF = (disney_diffuse(Normal, BaseColor, Subsurface, Roughness)
+        BSDF = (((Subsurface * BaseColor * bssrdf_burley(Normal, vector(1.0, 1.0, 1.0), 0.0, BaseColor)) + disney_diffuse(Normal, BaseColor, Roughness) * (1.0 - Subsurface))
                 + disney_sheen(Normal, BaseColor, Sheen, SheenTint)) * (1.0 - Metallic);
     }
 

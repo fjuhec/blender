@@ -269,8 +269,7 @@ ClosureParam *bsdf_disney_diffuse_params()
 	static ClosureParam params[] = {
 		CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.N),
 		CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.color0),	// base color
-		CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data0),	// subsurface
-		CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data1),	// roughness
+		CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data0),	// roughness
 		CLOSURE_STRING_KEYPARAM(DisneyDiffuseClosure, label, "label"),
 		CLOSURE_FINISH_PARAM(DisneyDiffuseClosure)
 	};
