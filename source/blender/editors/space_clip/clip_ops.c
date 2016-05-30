@@ -917,7 +917,7 @@ static void change_frame_apply(bContext *C, wmOperator *op)
 	//BKE_sound_seek_scene(CTX_data_main(C), scene);
 	//WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
 
-	// Todo(Tianwei): decouple frame for now, find a better way
+	// TODO(Tianwei): decouple frame for now, find a better way
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	BKE_movieclip_user_set_frame(&sc->user, RNA_int_get(op->ptr, "frame"));
 	WM_event_add_notifier(C, NC_MOVIECLIP | ND_DISPLAY, NULL);

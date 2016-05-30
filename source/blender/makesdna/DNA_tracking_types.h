@@ -48,6 +48,7 @@ struct MovieReconstructedCamera;
 struct MovieTrackingCamera;
 struct MovieTrackingMarker;
 struct MovieTrackingTrack;
+struct MovieTrackingCorrespondence;
 struct MovieTracking;
 
 typedef struct MovieReconstructedCamera {
@@ -160,6 +161,12 @@ typedef struct MovieTrackingTrack {
 	 */
 	float weight, pad;
 } MovieTrackingTrack;
+
+typedef struct MovieTrackingCorrespondence {
+	//TODO(tianwei): expand the fields, now only two tracks
+	MovieTrackingTrack *primary_track;
+	MovieTrackingTrack *witness_track;
+} MovieTrackingCorrespondence;
 
 typedef struct MovieTrackingPlaneMarker {
 	/* Corners of the plane in the following order:

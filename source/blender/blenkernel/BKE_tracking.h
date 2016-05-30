@@ -287,6 +287,8 @@ void BKE_tracking_stabilization_data_to_mat4(int width, int height, float aspect
 void BKE_tracking_dopesheet_tag_update(struct MovieTracking *tracking);
 void BKE_tracking_dopesheet_update(struct MovieTracking *tracking);
 
+/* Correspondence */
+
 #define TRACK_SELECTED(track)               ((track)->flag & SELECT || (track)->pat_flag & SELECT || (track)->search_flag & SELECT)
 
 #define TRACK_AREA_SELECTED(track, area)    ((area) == TRACK_AREA_POINT ? (track)->flag & SELECT : \

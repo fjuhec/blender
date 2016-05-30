@@ -1083,6 +1083,7 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 		ED_area_tag_redraw(sa);
 	}
 
+	// TODO(tianwei): find a better way to decouple frames
 	//BKE_movieclip_user_set_frame(&sc->user, scene->r.cfra);
 }
 
