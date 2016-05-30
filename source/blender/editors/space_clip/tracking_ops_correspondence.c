@@ -60,6 +60,36 @@
 #include "clip_intern.h"
 #include "tracking_ops_intern.h"
 
+// TODO(tianwei): may move these functions to tracking.c in the future
+/* Ensure specified correspondence has got unique name,
+ * if it's not name of specified correspondence will be changed
+ * keeping names of all other correspondence unchanged.
+ */
+void BKE_tracking_correspondence_unique_name(ListBase *tracksbase, MovieTrackingCorrespondence *corr)
+{
+	BLI_uniquename(tracksbase, corr, CTX_DATA_(BLT_I18NCONTEXT_ID_MOVIECLIP, "Correspondence"), '.',
+	               offsetof(MovieTrackingCorrespondence, name), sizeof(corr->name));
+}
+
+/* Add new correspondence to a specified correspondence base.
+ */
+MovieTrackingCorrespondence *BKE_tracking_correspondence_add(MovieTracking *tracking, ListBase *corr_base,
+                                                             MovieTrackingTrack *primary_track,
+                                                             MovieTrackingTrack *witness_track)
+{
+	MovieTrackingCorrespondence *corr;
+
+	corr = MEM_callocN(sizeof(MovieTrackingCorrespondence), "add correspondence");
+	strcpy(corr->name, "Correspondence");
+	corr->primary_track = primary_track;
+	corr->witness_track = witness_track;
+
+	BLI_addtail(corr_base, corr);
+	BKE_tracking_correspondence_unique_name(corr_base, corr);
+
+	return corr;
+}
+
 /********************** add correspondence operator *********************/
 
 static int add_correspondence_exec(bContext *C, wmOperator *op)
@@ -107,8 +137,10 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	// link two tracks, mark these two tracks in a different color
-	//ed_tracking_delect_all_tracks(tracksbase);
+	// TODO(tianwei): link two tracks, mark these two tracks in a different color
+
+	// add these correspondence
+	BKE_tracking_correspondence_add(tracking, &(tracking->correspondences), primary_track, witness_track);
 
 	return OPERATOR_FINISHED;
 }

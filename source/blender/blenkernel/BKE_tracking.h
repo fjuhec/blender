@@ -37,6 +37,7 @@ struct ImBuf;
 struct ListBase;
 struct MovieReconstructContext;
 struct MovieTrackingTrack;
+struct MovieTrackingCorrespondence;
 struct MovieTrackingMarker;
 struct MovieTrackingPlaneTrack;
 struct MovieTrackingPlaneMarker;
@@ -288,6 +289,10 @@ void BKE_tracking_dopesheet_tag_update(struct MovieTracking *tracking);
 void BKE_tracking_dopesheet_update(struct MovieTracking *tracking);
 
 /* Correspondence */
+void BKE_tracking_correspondence_unique_name(struct ListBase *tracksbase, struct MovieTrackingCorrespondence *corr);
+struct MovieTrackingCorrespondence *BKE_tracking_correspondence_add(struct MovieTracking *tracking, struct ListBase *corr_base,
+                                                                    struct MovieTrackingTrack *primary_track,
+                                                                    struct MovieTrackingTrack *witness_track);
 
 #define TRACK_SELECTED(track)               ((track)->flag & SELECT || (track)->pat_flag & SELECT || (track)->search_flag & SELECT)
 

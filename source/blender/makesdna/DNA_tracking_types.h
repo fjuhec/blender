@@ -162,8 +162,12 @@ typedef struct MovieTrackingTrack {
 	float weight, pad;
 } MovieTrackingTrack;
 
+//TODO(tianwei): expand the fields, now only two tracks
 typedef struct MovieTrackingCorrespondence {
-	//TODO(tianwei): expand the fields, now only two tracks
+	struct MovieTrackingCorrespondence *next, *prev;
+
+	char name[64];  /* MAX_NAME */
+
 	MovieTrackingTrack *primary_track;
 	MovieTrackingTrack *witness_track;
 } MovieTrackingCorrespondence;
@@ -347,6 +351,7 @@ typedef struct MovieTracking {
 	MovieTrackingCamera camera;     /* camera intrinsics */
 	ListBase tracks;                /* list of tracks used for camera object */
 	ListBase plane_tracks;          /* list of plane tracks used by camera object */
+	ListBase correspondences;		/* list of correspondence for multi-view support */
 	MovieTrackingReconstruction reconstruction; /* reconstruction data for camera object */
 	MovieTrackingStabilization stabilization;   /* stabilization data */
 	MovieTrackingTrack *act_track;             /* active track */
