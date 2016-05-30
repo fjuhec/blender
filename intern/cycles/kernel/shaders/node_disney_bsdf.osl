@@ -29,6 +29,7 @@ shader node_disney_bsdf(
     float Clearcoat = 0.0,
     float ClearcoatGloss = 1.0,
 	normal Normal = N,
+	normal ClearcoatNormal = N,
 	normal Tangent = normalize(dPdu),
     //normal AnisotropicRotation = normal(0, 0, 0),
 	output closure color BSDF = 0)
@@ -44,7 +45,7 @@ shader node_disney_bsdf(
     }
 
     if (Clearcoat != 0.0) {
-        BSDF = BSDF + disney_clearcoat(Normal, Clearcoat, ClearcoatGloss);
+        BSDF = BSDF + disney_clearcoat(ClearcoatNormal, Clearcoat, ClearcoatGloss);
     }
 
 	/*if (Metallic == 1.0) {

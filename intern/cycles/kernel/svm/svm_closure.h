@@ -156,6 +156,9 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			uint4 data_base_color = read_node(kg, offset);
 			float3 baseColor = stack_valid(data_base_color.x) ? stack_load_float3(stack, data_base_color.x) :
 				make_float3(__uint_as_float(data_base_color.y), __uint_as_float(data_base_color.z), __uint_as_float(data_base_color.w));
+
+			uint4 data_clearcoat_normal = read_node(kg, offset);
+			float3 CN = stack_valid(data_clearcoat_normal.x) ? stack_load_float3(stack, data_clearcoat_normal.x) : ccl_fetch(sd, N);
             
 			ShaderClosure *sc = ccl_fetch_array(sd, closure, ccl_fetch(sd, num_closure));
 			float3 weight = sc->weight;
@@ -304,7 +307,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					sc = svm_node_closure_get_bsdf(sd, mix_weight/* * mix(0.333f, 0.5f, clamp(metallic, 0.0f, 1.0f))*/);
 
 					if (sc) {
-						sc->N = N;
+						sc->N = CN;
 
 						sc->data0 = clearcoat;
 						sc->data1 = clearcoatGloss;
