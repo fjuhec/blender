@@ -57,6 +57,7 @@
 #include "closure/bsdf_toon.h"
 #include "closure/bsdf_hair.h"
 #include "closure/bsdf_disney_diffuse.h"
+#include "closure/bsdf_disney_sheen.h"
 #include "closure/bsdf_disney_specular.h"
 #include "closure/bsdf_disney_clearcoat.h"
 #include "closure/volume.h"
@@ -168,32 +169,6 @@ BSDF_CLOSURE_CLASS_BEGIN(HairTransmission, hair_transmission, hair_transmission,
 	CLOSURE_FLOAT_PARAM(HairReflectionClosure, sc.data2),
 BSDF_CLOSURE_CLASS_END(HairTransmission, hair_transmission)
 
-/*BSDF_CLOSURE_CLASS_BEGIN(DisneyDiffuse, disney_diffuse, disney_diffuse, LABEL_DIFFUSE|LABEL_REFLECT)
-	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.N),
-	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.color0),	// baseColor
-	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data0),	// subsurface
-	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data1),	// roughness
-	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data2),	// sheen
-	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data3),	// sheenTint
-BSDF_CLOSURE_CLASS_END(DisneyDiffuse, disney_diffuse)
-
-BSDF_CLOSURE_CLASS_BEGIN(DisneySpecular, disney_specular, disney_specular, LABEL_GLOSSY|LABEL_REFLECT)
-	CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, sc.N),
-	CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, sc.T),
-	CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, sc.color0), // baseColor
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data0),	// metallic
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data1),	// specular
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data2),	// specularTint
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data3),	// roughness
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, sc.data4),	// anisotropic
-BSDF_CLOSURE_CLASS_END(DisneySpecular, disney_specular)
-
-BSDF_CLOSURE_CLASS_BEGIN(DisneyClearcoat, disney_clearcoat, disney_clearcoat, LABEL_GLOSSY|LABEL_REFLECT)
-	CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, sc.N),
-	CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data0),	// clearcoat
-	CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data1),	// clearcoatGloss
-BSDF_CLOSURE_CLASS_END(DisneyClearcoat, disney_clearcoat)*/
-
 VOLUME_CLOSURE_CLASS_BEGIN(VolumeHenyeyGreenstein, henyey_greenstein, LABEL_VOLUME_SCATTER)
 	CLOSURE_FLOAT_PARAM(VolumeHenyeyGreensteinClosure, sc.data0),
 VOLUME_CLOSURE_CLASS_END(VolumeHenyeyGreenstein, henyey_greenstein)
@@ -201,6 +176,8 @@ VOLUME_CLOSURE_CLASS_END(VolumeHenyeyGreenstein, henyey_greenstein)
 VOLUME_CLOSURE_CLASS_BEGIN(VolumeAbsorption, absorption, LABEL_SINGULAR)
 VOLUME_CLOSURE_CLASS_END(VolumeAbsorption, absorption)
 
+
+/* DISNEY CLEARCOAT */
 class DisneyClearcoatClosure : public CBSDFClosure {
 public:
 	DisneyClearcoatClosure() : CBSDFClosure(LABEL_REFLECT | LABEL_GLOSSY)
@@ -251,6 +228,8 @@ ClosureParam *bsdf_disney_clearcoat_params()
 
 CCLOSURE_PREPARE(bsdf_disney_clearcoat_prepare, DisneyClearcoatClosure)
 
+
+/* DISNEY DIFFUSE */
 class DisneyDiffuseClosure : public CBSDFClosure {
 public:
 	DisneyDiffuseClosure() : CBSDFClosure(LABEL_DIFFUSE)
@@ -292,8 +271,6 @@ ClosureParam *bsdf_disney_diffuse_params()
 		CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.color0),	// base color
 		CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data0),	// subsurface
 		CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data1),	// roughness
-		CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data2),	// sheen
-		CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data3),	// sheenTint
 		CLOSURE_STRING_KEYPARAM(DisneyDiffuseClosure, label, "label"),
 		CLOSURE_FINISH_PARAM(DisneyDiffuseClosure)
 	};
@@ -302,6 +279,59 @@ ClosureParam *bsdf_disney_diffuse_params()
 
 CCLOSURE_PREPARE(bsdf_disney_diffuse_prepare, DisneyDiffuseClosure)
 
+
+/* DISNEY SHEEN */
+class DisneySheenClosure : public CBSDFClosure {
+public:
+	DisneySheenClosure() : CBSDFClosure(LABEL_DIFFUSE)
+	{}
+
+	void setup()
+	{
+		sc.prim = this;
+		m_shaderdata_flag = bsdf_disney_sheen_setup(&sc);
+	}
+
+	void blur(float roughness)
+	{
+	}
+
+	float3 eval_reflect(const float3 &omega_out, const float3 &omega_in, float& pdf) const
+	{
+		return bsdf_disney_sheen_eval_reflect(&sc, omega_out, omega_in, &pdf);
+	}
+
+	float3 eval_transmit(const float3 &omega_out, const float3 &omega_in, float& pdf) const
+	{
+		return bsdf_disney_sheen_eval_transmit(&sc, omega_out, omega_in, &pdf);
+	}
+
+	int sample(const float3 &Ng, const float3 &omega_out, const float3 &domega_out_dx,
+		const float3 &domega_out_dy, float randu, float randv, float3 &omega_in,
+		float3 &domega_in_dx, float3 &domega_in_dy, float &pdf, float3 &eval) const
+	{
+		return bsdf_disney_sheen_sample(&sc, Ng, omega_out, domega_out_dx, domega_out_dy,
+			randu, randv, &eval, &omega_in, &domega_in_dx, &domega_in_dy, &pdf);
+	}
+};
+
+ClosureParam *bsdf_disney_sheen_params()
+{
+	static ClosureParam params[] = {
+		CLOSURE_FLOAT3_PARAM(DisneySheenClosure, sc.N),
+		CLOSURE_FLOAT3_PARAM(DisneySheenClosure, sc.color0),	// base color
+		CLOSURE_FLOAT_PARAM(DisneySheenClosure, sc.data0),	// sheen
+		CLOSURE_FLOAT_PARAM(DisneySheenClosure, sc.data1),	// sheenTint
+		CLOSURE_STRING_KEYPARAM(DisneySheenClosure, label, "label"),
+		CLOSURE_FINISH_PARAM(DisneySheenClosure)
+	};
+	return params;
+}
+
+CCLOSURE_PREPARE(bsdf_disney_sheen_prepare, DisneySheenClosure)
+
+
+/* DISNEY SPECULAR */
 class DisneySpecularClosure : public CBSDFClosure {
 public:
 	DisneySpecularClosure() : CBSDFClosure(LABEL_REFLECT | LABEL_GLOSSY)
@@ -404,6 +434,8 @@ void OSLShader::register_closures(OSLShadingSystem *ss_)
 		bsdf_glossy_toon_params(), bsdf_glossy_toon_prepare);
 	register_closure(ss, "disney_diffuse", id++,
 		bsdf_disney_diffuse_params(), bsdf_disney_diffuse_prepare);
+	register_closure(ss, "disney_sheen", id++,
+		bsdf_disney_sheen_params(), bsdf_disney_sheen_prepare);
 	register_closure(ss, "disney_specular", id++,
 		bsdf_disney_specular_params(), bsdf_disney_specular_prepare);
 	register_closure(ss, "disney_clearcoat", id++,

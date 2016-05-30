@@ -52,9 +52,6 @@ OSL::ClosureParam *closure_bssrdf_cubic_params();
 OSL::ClosureParam *closure_bssrdf_gaussian_params();
 OSL::ClosureParam *closure_bssrdf_burley_params();
 OSL::ClosureParam *closure_henyey_greenstein_volume_params();
-/*OSL::ClosureParam *bsdf_disney_diffuse_params();
-OSL::ClosureParam *bsdf_disney_specular_params();
-OSL::ClosureParam *bsdf_disney_clearcoat_params();*/
 
 void closure_emission_prepare(OSL::RendererServices *, int id, void *data);
 void closure_background_prepare(OSL::RendererServices *, int id, void *data);
@@ -66,9 +63,6 @@ void closure_bssrdf_cubic_prepare(OSL::RendererServices *, int id, void *data);
 void closure_bssrdf_gaussian_prepare(OSL::RendererServices *, int id, void *data);
 void closure_bssrdf_burley_prepare(OSL::RendererServices *, int id, void *data);
 void closure_henyey_greenstein_volume_prepare(OSL::RendererServices *, int id, void *data);
-/*void bsdf_disney_diffuse_prepare(OSL::RendererServices *, int id, void *data);
-void bsdf_disney_specular_prepare(OSL::RendererServices *, int id, void *data);
-void bsdf_disney_clearcoat_prepare(OSL::RendererServices *, int id, void *data);*/
 
 #define CCLOSURE_PREPARE(name, classname)          \
 void name(RendererServices *, int id, void *data) \
