@@ -29,6 +29,8 @@
 #include "BLI_listbase.h"
 #include "BLI_rect.h"
 
+#include "BLT_translation.h"
+
 #include "BKE_context.h"
 #include "BKE_layer.h"
 
@@ -75,24 +77,71 @@ typedef struct TileDrawInfo {
 	int idx;
 } TileDrawInfo;
 
+#define LAYERTILE_HEADER_HEIGHT UI_UNIT_Y
+
 static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 {
+	if (!litem->draw)
+		return true; /* skip this item, but continue iterating */
+
 	TileDrawInfo *drawinfo = userdata;
 	View2D *v2d = &drawinfo->ar->v2d;
 	LayerTile *tile = BLI_ghash_lookup(drawinfo->slayer->tiles, litem);
+	const bool expanded = litem->draw_settings && (tile->flag & LAYERTILE_EXPANDED);
+
 	const float pad_x = 4.0f * UI_DPI_FAC;
-	const float height = tile->height;
+	const float header_y = LAYERTILE_HEADER_HEIGHT;
 
 	const float ofs_x = layer_tile_indent_level_get(litem) * LAYERITEM_INDENT_SIZE;
 	const float ofs_y = drawinfo->size_y;
-	rctf rect = {ofs_x, drawinfo->ar->winx, -v2d->cur.ymin - ofs_y - height};
-	rect.ymax = rect.ymin + height;
+	rctf rect = {ofs_x, drawinfo->ar->winx, -v2d->cur.ymin - ofs_y - header_y};
+	rect.ymax = rect.ymin + header_y;
+	int size_y = 0;
+	int tile_size_y = 0;
 
+	/* draw item itself */
+	uiBlock *block = drawinfo->block;
+
+	if (tile->flag & LAYERTILE_RENAME) {
+		uiBut *but = uiDefBut(
+		        block, UI_BTYPE_TEXT, 1, "", rect.xmin, rect.ymin,
+		        UI_UNIT_X * 7.0f, BLI_rctf_size_y(&rect),
+		        litem->name, 1.0f, (float)sizeof(litem->name), 0, 0, "");
+		UI_but_flag_enable(but, UI_BUT_NO_UTF8); /* allow non utf8 names */
+		UI_but_flag_disable(but, UI_BUT_UNDO);
+
+		/* returns false if button got removed */
+		if (UI_but_active_only(drawinfo->C, drawinfo->ar, block, but) == false) {
+			tile->flag &= ~LAYERTILE_RENAME;
+			/* Yuk! Sending notifier during draw. Need to
+			 * do that so item uses regular drawing again. */
+			WM_event_add_notifier(drawinfo->C, NC_SPACE | ND_SPACE_LAYERS, NULL);
+		}
+	}
+	else {
+		uiLayout *layout = UI_block_layout(
+		        block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
+		        -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y, header_y, 0, 0, drawinfo->style);
+		litem->draw(drawinfo->C, litem, layout);
+		uiItemL(layout, "", 0); /* XXX without this editing last item causes crashes */
+		UI_block_layout_resolve(block, NULL, NULL);
+	}
+	tile_size_y = header_y;
+
+	if (expanded) {
+		uiLayout *layout = UI_block_layout(
+		        block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL,
+		        -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y - header_y, BLI_rctf_size_x(&rect), 0, 0, drawinfo->style);
+		litem->draw_settings(drawinfo->C, litem, layout);
+
+		UI_block_layout_resolve(block, NULL, &size_y);
+		tile_size_y = -(size_y + drawinfo->size_y + v2d->cur.ymin);
+	}
 
 	/* draw background */
 	if (drawinfo->idx % 2) {
 		UI_ThemeColorShade(TH_BACK, 10);
-		fdrawbox_filled(0, rect.ymin, rect.xmax, rect.ymax);
+		fdrawbox_filled(0, rect.ymax - tile_size_y, rect.xmax, rect.ymax);
 	}
 	/* draw selection */
 	if (tile->flag & LAYERTILE_SELECTED) {
@@ -100,36 +149,11 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 		UI_ThemeColor(TH_HILITE);
 		UI_draw_roundbox(rect.xmin + pad_x, rect.ymin, rect.xmax - pad_x, rect.ymax, 5.0f);
 	}
-	/* draw item itself */
-	if (litem->draw) {
-		uiBlock *block = drawinfo->block;
-		uiLayout *layout = UI_block_layout(
-		                       block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-		                       -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y, height, 0, 0, drawinfo->style);
-		if (tile->flag & LAYERTILE_RENAME) {
-			uiBut *but = uiDefBut(
-			        block, UI_BTYPE_TEXT, 1, "", rect.xmin, rect.ymin,
-			        UI_UNIT_X * 7.0f, BLI_rctf_size_y(&rect),
-			        litem->name, 1.0f, (float)sizeof(litem->name), 0, 0, "");
-			UI_but_flag_enable(but, UI_BUT_NO_UTF8); /* allow non utf8 names */
-			UI_but_flag_disable(but, UI_BUT_UNDO);
 
-			/* returns false if button got removed */
-			if (UI_but_active_only(drawinfo->C, drawinfo->ar, block, but) == false) {
-				tile->flag &= ~LAYERTILE_RENAME;
-				/* Yuk! Sending notifier during draw. Need to
-				 * do that so item uses regular drawing again. */
-				WM_event_add_notifier(drawinfo->C, NC_SPACE | ND_SPACE_LAYERS, NULL);
-			}
-		}
-		else {
-			litem->draw(litem, layout);
-		}
-		uiItemL(layout, "", 0); /* XXX without this editing last item causes crashes */
-		UI_block_layout_resolve(block, NULL, NULL);
-	}
-	drawinfo->size_y += height;
+	drawinfo->size_y += tile_size_y;
 	drawinfo->idx++;
+	/* set tile height */
+	tile->height = tile_size_y;
 
 	return true;
 }
@@ -145,12 +169,12 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 	BKE_layertree_iterate(slayer->act_tree, layer_tile_draw_cb, &drawinfo);
 
 	/* fill remaining space with empty boxes */
-	const float tot_fill_tiles = (-ar->v2d.cur.ymin - drawinfo.size_y) / LAYERTILE_DEFAULT_HEIGHT + 1;
+	const float tot_fill_tiles = (-ar->v2d.cur.ymin - drawinfo.size_y) / LAYERTILE_HEADER_HEIGHT + 1;
 	for (int i = 0; i < tot_fill_tiles; i++) {
 		if ((i + drawinfo.idx - 1) % 2) {
-			const float pos[2] = {0, -ar->v2d.cur.ymin - drawinfo.size_y - (LAYERTILE_DEFAULT_HEIGHT * i)};
+			const float pos[2] = {0, -ar->v2d.cur.ymin - drawinfo.size_y - (LAYERTILE_HEADER_HEIGHT * i)};
 			UI_ThemeColorShade(TH_BACK, 10);
-			fdrawbox_filled(pos[0], pos[1], pos[0] + ar->winx, pos[1] + LAYERTILE_DEFAULT_HEIGHT);
+			fdrawbox_filled(pos[0], pos[1], pos[0] + ar->winx, pos[1] + LAYERTILE_HEADER_HEIGHT);
 		}
 	}
 
@@ -165,7 +189,31 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 /* -------------------------------------------------------------------- */
 /* Layer draw callbacks */
 
-void layer_group_draw(LayerTreeItem *litem, uiLayout *layout)
+void layer_group_draw(const bContext *UNUSED(C), LayerTreeItem *litem, uiLayout *layout)
 {
 	uiItemL(layout, litem->name, ICON_FILE_FOLDER);
+}
+
+void object_layer_draw(const bContext *C, LayerTreeItem *litem, uiLayout *layout)
+{
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
+	uiBlock *block = uiLayoutGetBlock(layout);
+	const bool draw_settingbut = litem->draw_settings && tile->flag & (LAYERTILE_SELECTED | LAYERTILE_EXPANDED);
+
+	uiItemL(layout, litem->name, 0);
+	if (draw_settingbut) {
+		UI_block_emboss_set(block, UI_EMBOSS_NONE);
+		uiDefIconButBitI(block, UI_BTYPE_TOGGLE, LAYERTILE_EXPANDED, 0,
+		                 ICON_SCRIPTWIN, 0, 0, UI_UNIT_X, UI_UNIT_Y, (int *)&tile->flag,
+		                 0.0f, 0.0f, 0.0f, 0.0f, TIP_("Toggle layer settings"));
+		UI_block_emboss_set(block, UI_EMBOSS);
+	}
+}
+
+void object_layer_draw_settings(const bContext *UNUSED(C), LayerTreeItem *UNUSED(litem), uiLayout *layout)
+{
+	/* TODO */
+	uiItemL(layout, "Add stuff here!", 0);
+	uiItemL(layout, "Test", 0);
 }

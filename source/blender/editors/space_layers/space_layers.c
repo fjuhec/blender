@@ -72,7 +72,7 @@ static SpaceLink *layers_new(const bContext *C)
 	BLI_addtail(&slayer->regionbase, ar);
 	ar->regiontype = RGN_TYPE_WINDOW;
 	ar->v2d.scroll = (V2D_SCROLL_RIGHT | V2D_SCROLL_BOTTOM | V2D_SCROLL_HORIZONTAL_HIDE | V2D_SCROLL_VERTICAL_HIDE);
-	ar->v2d.align = (V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_POS_Y);
+	ar->v2d.align = (V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_NEG_Y);
 
 	return (SpaceLink *)slayer;
 }

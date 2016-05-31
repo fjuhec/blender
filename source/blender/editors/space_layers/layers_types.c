@@ -15,18 +15,11 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2016 Blender Foundation.
- * All rights reserved.
- *
- * Contributor(s): none yet.
- *
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/object/object_layer.c
- *  \ingroup edobj
- *
- * Functions to define object layer data and UI.
+/** \file blender/editors/space_layers/layers_types.c
+ *  \ingroup splayers
  */
 
 #include "BLI_compiler_attrs.h"
@@ -41,25 +34,26 @@
 
 #include "UI_interface.h"
 
+#include "layers_intern.h"
+
 #define OBJECTLAYER_DEFAULT_NAME "Untitled Layer"
+#define LAYERGROUP_DEFAULT_NAME  "Untitled Group"
 
-static void object_layer_draw(LayerTreeItem *litem, uiLayout *layout)
-{
-	uiItemL(layout, litem->name, 0);
-}
-
-static void object_layer_draw_settings(LayerTreeItem *UNUSED(litem), uiLayout *UNUSED(layout))
-{
-	/* TODO */
-}
 
 /**
  * Add an object layer to \a ltree.
  * \param name: Name of the layer to add. NULL for default ("Untitled Layer").
  */
-LayerTreeItem *ED_object_layer_add(LayerTree *ltree, const char *name)
+LayerTreeItem *layers_object_add(LayerTree *ltree, const char *name)
 {
 	return BKE_layeritem_add(
 	            ltree, NULL, LAYER_ITEMTYPE_LAYER, name ? name : OBJECTLAYER_DEFAULT_NAME,
 	            NULL, object_layer_draw, object_layer_draw_settings);
+}
+
+LayerTreeItem *layers_group_add(LayerTree *ltree, const char *name)
+{
+	return BKE_layeritem_add(
+	            ltree, NULL, LAYER_ITEMTYPE_GROUP, name ? name : LAYERGROUP_DEFAULT_NAME,
+	            NULL, layer_group_draw, NULL);
 }

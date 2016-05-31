@@ -22,6 +22,7 @@ set(INC
 	../include
 	../../blenkernel
 	../../blenlib
+	../../blentranslation
 	../../gpu
 	../../makesdna
 	../../makesrna
@@ -37,6 +38,7 @@ set(INC_SYS
 set(SRC
 	layers_draw.c
 	layers_ops.c
+	layers_types.c
 	layers_util.c
 	space_layers.c
 

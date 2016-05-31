@@ -69,8 +69,8 @@ bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, vo
 /* Layer Tree Item */
 
 typedef short (*LayerItemPollFunc)(const struct bContext *, struct LayerTreeItem *);
-typedef void  (*LayerItemDrawFunc)(struct LayerTreeItem *, struct uiLayout *layout);
-typedef void  (*LayerItemDrawSettingsFunc)(struct LayerTreeItem *, struct uiLayout *layout);
+typedef void  (*LayerItemDrawFunc)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *layout);
+typedef void  (*LayerItemDrawSettingsFunc)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *layout);
 
 typedef enum eLayerTreeItem_Type {
 	LAYER_ITEMTYPE_LAYER,

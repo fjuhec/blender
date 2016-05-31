@@ -26,13 +26,13 @@
 #define __LAYERS_INTERN_H__
 
 struct ARegion;
+struct SpaceLayers;
 struct wmKeyConfig;
-
-#define LAYERTILE_DEFAULT_HEIGHT U.widget_unit
 
 typedef enum eLayerTileFlag {
 	LAYERTILE_SELECTED = (1 << 0),
 	LAYERTILE_RENAME   = (1 << 1),
+	LAYERTILE_EXPANDED = (1 << 2),
 } eLayerTileFlag;
 
 /**
@@ -43,24 +43,32 @@ typedef struct LayerTile {
 	struct LayerTreeItem *litem;
 
 	eLayerTileFlag flag;
-	int height; /* the height of this item */
+	/* The height of this item. Set right after drawing,
+	 * so should always reflect what's on the screen */
+	int height;
 } LayerTile;
 
 /* layers_draw.c */
 void layers_tiles_draw(const struct bContext *C, struct ARegion *ar);
-void layer_group_draw(struct LayerTreeItem *litem, struct uiLayout *layout);
+void layer_group_draw(const struct bContext *C, struct LayerTreeItem *litem, struct uiLayout *layout);
+void object_layer_draw(const struct bContext *C, struct LayerTreeItem *litem, struct uiLayout *layout);
+void object_layer_draw_settings(const struct bContext *C, struct LayerTreeItem *litem, struct uiLayout *layout);
 
 /* layers_util.c */
 LayerTile *layers_tile_add(const struct SpaceLayers *slayer, struct LayerTreeItem *litem);
 void       layers_tile_remove(const struct SpaceLayers *slayer, LayerTile *tile, const bool remove_children);
 LayerTile *layers_tile_find_at_coordinate(
-        struct SpaceLayers *slayer, ARegion *ar, const int co[2],
+        struct SpaceLayers *slayer, struct ARegion *ar, const int co[2],
         int *r_tile_idx);
 bool layers_any_selected(struct SpaceLayers *slayer, const struct LayerTree *ltree);
 
 /* layers_ops.c */
 void layers_operatortypes(void);
 void layers_keymap(struct wmKeyConfig *keyconf);
+
+/* layers_types.c */
+struct LayerTreeItem *layers_object_add(struct LayerTree *ltree, const char *name);
+struct LayerTreeItem *layers_group_add(struct LayerTree *ltree, const char *name);
 
 #endif  /* __LAYERS_INTERN_H__ */
 

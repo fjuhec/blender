@@ -43,8 +43,6 @@
 
 #include "layers_intern.h" /* own include */
 
-#define LAYERGROUP_DEFAULT_NAME "Untitled Group"
-
 
 static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
@@ -52,7 +50,7 @@ static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *
 	LayerTreeItem *new_item = NULL;
 
 	if (slayer->act_tree->type == LAYER_TREETYPE_OBJECT) {
-		new_item = ED_object_layer_add(slayer->act_tree, NULL);
+		new_item = layers_object_add(slayer->act_tree, NULL);
 	}
 	else {
 		BLI_assert(0);
@@ -149,9 +147,7 @@ static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	Scene *scene = CTX_data_scene(C);
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 
-	LayerTreeItem *new_group = BKE_layeritem_add(
-		            scene->object_layers, NULL, LAYER_ITEMTYPE_GROUP, LAYERGROUP_DEFAULT_NAME,
-		            NULL, layer_group_draw, NULL);
+	LayerTreeItem *new_group = layers_group_add(scene->object_layers, NULL);
 	layers_tile_add(slayer, new_group);
 
 	/* Add selected items to group */
