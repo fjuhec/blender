@@ -171,8 +171,8 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 	/* fill remaining space with empty boxes */
 	const float tot_fill_tiles = (-ar->v2d.cur.ymin - drawinfo.size_y) / LAYERTILE_HEADER_HEIGHT + 1;
 	for (int i = 0; i < tot_fill_tiles; i++) {
-		if ((i + drawinfo.idx - 1) % 2) {
-			const float pos[2] = {0, -ar->v2d.cur.ymin - drawinfo.size_y - (LAYERTILE_HEADER_HEIGHT * i)};
+		if ((i + drawinfo.idx) % 2) {
+			const float pos[2] = {0, -ar->v2d.cur.ymin - drawinfo.size_y - (LAYERTILE_HEADER_HEIGHT * (i + 1))};
 			UI_ThemeColorShade(TH_BACK, 10);
 			fdrawbox_filled(pos[0], pos[1], pos[0] + ar->winx, pos[1] + LAYERTILE_HEADER_HEIGHT);
 		}
