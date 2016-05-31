@@ -77,8 +77,6 @@ typedef struct TileDrawInfo {
 	int idx;
 } TileDrawInfo;
 
-#define LAYERTILE_HEADER_HEIGHT UI_UNIT_Y
-
 static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 {
 	if (!litem->draw)
@@ -153,7 +151,7 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 	drawinfo->size_y += tile_size_y;
 	drawinfo->idx++;
 	/* set tile height */
-	tile->height = tile_size_y;
+	tile->tot_height = tile_size_y;
 
 	return true;
 }

@@ -37,6 +37,8 @@
 
 #include "layers_intern.h"
 
+#include "UI_interface.h"
+
 /**
  * Allocate and register a LayerTile for \a litem.
  */
@@ -89,12 +91,14 @@ static bool layers_tile_find_at_coordinate_cb(LayerTreeItem *litem, void *custom
 	LayerIsectCheckData *idata = customdata;
 	LayerTile *tile = BLI_ghash_lookup(idata->slayer->tiles, litem);
 
-	idata->ofs_y += tile->height;
-	if (idata->co_y >= -idata->v2d->cur.ymin - idata->ofs_y) {
-		idata->r_result = tile;
+	if (idata->co_y >= -idata->v2d->cur.ymin - (idata->ofs_y + tile->tot_height)) {
+		if ((idata->co_y >= -idata->v2d->cur.ymin - (idata->ofs_y + LAYERTILE_HEADER_HEIGHT))) {
+			idata->r_result = tile;
+		}
 		/* found tile, stop iterating */
 		return false;
 	}
+	idata->ofs_y += tile->tot_height;
 	idata->r_idx++;
 
 	return true;

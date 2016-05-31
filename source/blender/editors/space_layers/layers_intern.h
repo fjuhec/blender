@@ -29,6 +29,8 @@ struct ARegion;
 struct SpaceLayers;
 struct wmKeyConfig;
 
+#define LAYERTILE_HEADER_HEIGHT UI_UNIT_Y
+
 typedef enum eLayerTileFlag {
 	LAYERTILE_SELECTED = (1 << 0),
 	LAYERTILE_RENAME   = (1 << 1),
@@ -45,7 +47,7 @@ typedef struct LayerTile {
 	eLayerTileFlag flag;
 	/* The height of this item. Set right after drawing,
 	 * so should always reflect what's on the screen */
-	int height;
+	int tot_height;
 } LayerTile;
 
 /* layers_draw.c */

@@ -298,7 +298,7 @@ static int layer_select_invoke(bContext *C, wmOperator *op, const wmEvent *event
 			TILE_SET_SELECTION(false);
 		}
 		else {
-			if (!tile->flag & LAYERTILE_SELECTED) {
+			if (!(tile->flag & LAYERTILE_SELECTED)) {
 				TILE_SET_SELECTION(true);
 			}
 			else if (toggle) {
