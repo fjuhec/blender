@@ -411,7 +411,11 @@ class CLIP_PT_tools_correspondence(CLIP_PT_tracking_panel, Panel):
         row = col.row(align=True)
         row.operator("clip.add_correspondence", text="Link")
         row.operator("clip.delete_correspondence", text="Unlink")
-        #col.operator("clip.detect_features")
+        
+        col = layout.column(align=True)
+        col.scale_y = 2.0
+
+        col.operator("clip.solve_multiview", text="Solve Multiview Camera")
 
 
 class CLIP_PT_tools_plane_tracking(CLIP_PT_tracking_panel, Panel):

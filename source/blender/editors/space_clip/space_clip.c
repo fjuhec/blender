@@ -531,6 +531,7 @@ static void clip_operatortypes(void)
 	/* Correspondence */
 	WM_operatortype_append(CLIP_OT_add_correspondence);
 	WM_operatortype_append(CLIP_OT_delete_correspondence);
+	WM_operatortype_append(CLIP_OT_solve_multiview);
 
 	/* ** clip_graph_ops.c  ** */
 
