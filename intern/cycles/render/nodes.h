@@ -422,7 +422,8 @@ public:
 	bool has_spatial_varying() { return true; }
 	void compile(SVMCompiler& compiler, ShaderInput *metallic, ShaderInput *subsurface,
 		ShaderInput *specular, ShaderInput *roughness, ShaderInput *specularTint, ShaderInput *anisotropic,
-		ShaderInput *sheen, ShaderInput *sheenTint, ShaderInput *clearcoat, ShaderInput *clearcoatGloss);
+		ShaderInput *sheen, ShaderInput *sheenTint, ShaderInput *clearcoat, ShaderInput *clearcoatGloss,
+		ShaderInput *ior, ShaderInput *transparency);
 
 	ClosureType closure;
 

@@ -15,6 +15,7 @@
  */
 
 #include "stdosl.h"
+#include "node_fresnel.h"
 
 shader node_disney_bsdf(
 	color BaseColor = color(0.64555527, 0.41514809, 0.01698805),
@@ -28,40 +29,37 @@ shader node_disney_bsdf(
     float SheenTint = 0.5,
     float Clearcoat = 0.0,
     float ClearcoatGloss = 1.0,
+    float IOR = 1.45,
+    float Transparency = 0.0,
 	normal Normal = N,
 	normal ClearcoatNormal = N,
 	normal Tangent = normalize(dPdu),
     //normal AnisotropicRotation = normal(0, 0, 0),
 	output closure color BSDF = 0)
 {
-    if (Metallic != 1.0) {
+	float f = max(IOR, 1e-5);
+	float eta = backfacing() ? 1.0 / f : f;
+	float cosi = dot(I, Normal);
+	float Fr = fresnel_dielectric_cos(cosi, eta);
+    float trans = clamp(Transparency, 0.0, 1.0);
+    float metal = clamp(Metallic, 0.0, 1.0);
+    float specWeight = mix(1.0, Fr, mix(trans, 0.0, metal));
+    
+    if (metal < 1.0) {
         BSDF = (((Subsurface * BaseColor * bssrdf_burley(Normal, vector(1.0, 1.0, 1.0), 0.0, BaseColor)) + disney_diffuse(Normal, BaseColor, Roughness) * (1.0 - Subsurface))
-                + disney_sheen(Normal, BaseColor, Sheen, SheenTint)) * (1.0 - Metallic);
+                + disney_sheen(Normal, BaseColor, Sheen, SheenTint)) * (1.0 - metal) * (1.0 - trans);
     }
 
     if (Specular != 0.0 || Metallic != 0.0) {
-        BSDF = BSDF + disney_specular(Normal, Tangent, BaseColor, Metallic, Specular,
-                                      SpecularTint, Roughness, Anisotropic);
+        BSDF = BSDF + specWeight * disney_specular(Normal, Tangent, BaseColor, Metallic, Specular,
+                                      SpecularTint, Roughness, Anisotropic)
+                    + (1.0 - specWeight) * BaseColor * microfacet_ggx_refraction(Normal, Roughness * Roughness, eta);
+    } else if (trans > 0.0) {
+        BSDF = BSDF + trans * microfacet_ggx_refraction(Normal, Roughness * Roughness, eta);
     }
 
     if (Clearcoat != 0.0) {
         BSDF = BSDF + disney_clearcoat(ClearcoatNormal, Clearcoat, ClearcoatGloss);
     }
-
-	/*if (Metallic == 1.0) {
-        BSDF =  disney_specular(Normal, Tangent, BaseColor, Metallic, Specular,
-                                  SpecularTint, Roughness, Anisotropic)
-                + disney_clearcoat(Normal, Clearcoat, ClearcoatGloss);
-    } else if (Specular == 0.0 && Metallic == 0.0) {
-        BSDF =  disney_diffuse(Normal, BaseColor, Subsurface, Roughness,
-                               Sheen, SheenTint) * (1.0 - Metallic)
-                + disney_clearcoat(Normal, Clearcoat, ClearcoatGloss);
-    } else {
-        BSDF =  disney_diffuse(Normal, BaseColor, Subsurface, Roughness,
-                               Sheen, SheenTint) * (1.0 - Metallic)
-                + disney_specular(Normal, Tangent, BaseColor, Metallic, Specular,
-                                  SpecularTint, Roughness, Anisotropic)
-                + disney_clearcoat(Normal, Clearcoat, ClearcoatGloss);
-    }*/
 }
 

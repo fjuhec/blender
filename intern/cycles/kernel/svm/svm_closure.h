@@ -138,10 +138,15 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 	switch(type) {
 		case CLOSURE_BSDF_DISNEY_ID: {
 			uint specular_offset, roughness_offset, specularTint_offset, anisotropic_offset,
-				sheen_offset, sheenTint_offset, clearcoat_offset, clearcoatGloss_offset;
+				sheen_offset, sheenTint_offset, clearcoat_offset, clearcoatGloss_offset, eta_offset, transparency_offset;
+			uint tmp0, tmp1;
+			uint4 data_node2 = read_node(kg, offset);
+
 			decode_node_uchar4(data_node.z, &specular_offset, &roughness_offset, &specularTint_offset, &anisotropic_offset);
 			decode_node_uchar4(data_node.w, &sheen_offset, &sheenTint_offset, &clearcoat_offset, &clearcoatGloss_offset);
+			decode_node_uchar4(data_node2.x, &eta_offset, &transparency_offset, &tmp0, &tmp1);
 
+			// get disney parameters
 			float metallic = param1;
 			float subsurface = param2;
 			float specular = stack_load_float(stack, specular_offset);
@@ -152,11 +157,28 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float sheenTint = stack_load_float(stack, sheenTint_offset);
 			float clearcoat = stack_load_float(stack, clearcoat_offset);
 			float clearcoatGloss = stack_load_float(stack, clearcoatGloss_offset);
+			float transparency = stack_load_float(stack, transparency_offset);
+			float eta = fmaxf(stack_load_float(stack, eta_offset), 1e-5f);
 
+			eta = (ccl_fetch(sd, flag) & SD_BACKFACING) ? 1.0f / eta : eta;
+
+			// calculate fresnel for refraction
+			float cosNO = dot(N, ccl_fetch(sd, I));
+			float fresnel = fresnel_dielectric_cos(cosNO, eta);
+
+			// calculate weights of the diffuse and specular part
+			float diffuse_weight = (1.0f - clamp(metallic, 0.0f, 1.0f)) * (1.0f - clamp(transparency, 0.0f, 1.0f)); // lerp(1.0f - clamp(metallic, 0.0f, 1.0f), 0.0f, lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f)));
+			float specular_weight = lerp(1.0f, fresnel, lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f)));
+			if (specular == 0.0f && metallic == 0.0f) {
+				specular_weight = 1.0f - transparency;
+			}
+
+			// get the base color
 			uint4 data_base_color = read_node(kg, offset);
 			float3 baseColor = stack_valid(data_base_color.x) ? stack_load_float3(stack, data_base_color.x) :
 				make_float3(__uint_as_float(data_base_color.y), __uint_as_float(data_base_color.z), __uint_as_float(data_base_color.w));
 
+			// get the additional clearcoat normal
 			uint4 data_clearcoat_normal = read_node(kg, offset);
 			float3 CN = stack_valid(data_clearcoat_normal.x) ? stack_load_float3(stack, data_clearcoat_normal.x) : ccl_fetch(sd, N);
             
@@ -166,7 +188,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 			/* subsurface */
 			float3 albedo = baseColor;
-			float3 subsurf_weight = baseColor * sc->weight * mix_weight * subsurface * (1.0f - clamp(metallic, 0.0f, 1.0f));
+			float3 subsurf_weight = baseColor * sc->weight * mix_weight * subsurface * diffuse_weight;
 			float subsurf_sample_weight = fabsf(average(subsurf_weight));
 
 			if (subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF && ccl_fetch(sd, num_closure) + 2 < MAX_CLOSURE) {
@@ -238,7 +260,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					sc->weight = weight;
 					sc->sample_weight = sample_weight;
 
-					sc = svm_node_closure_get_bsdf(sd, mix_weight * (1.0f - clamp(subsurface, 0.0f, 1.0f)) * (1.0f - clamp(metallic, 0.0f, 1.0f)));
+					sc = svm_node_closure_get_bsdf(sd, mix_weight * (1.0f - clamp(subsurface, 0.0f, 1.0f)) * diffuse_weight);
 
 					if (sc) {
 						sc->N = N;
@@ -258,7 +280,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					sc->weight = weight;
 					sc->sample_weight = sample_weight;
 
-                    sc = svm_node_closure_get_bsdf(sd, mix_weight * (1.0f - clamp(metallic, 0.0f, 1.0f)));
+					sc = svm_node_closure_get_bsdf(sd, mix_weight * diffuse_weight);
                     
                     if (sc) {
                         sc->N = N;
@@ -272,14 +294,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
                 }
 			}
 
-			/* specular */
-			if (specular > 0.0f || metallic > 0.0f) {
+			/* specular reflection */
+			if (specular != 0.0f || metallic != 0.0f) {
 				if (ccl_fetch(sd, num_closure) < MAX_CLOSURE) {
 					sc = ccl_fetch_array(sd, closure, ccl_fetch(sd, num_closure));
 					sc->weight = weight;
 					sc->sample_weight = sample_weight;
 
-					sc = svm_node_closure_get_bsdf(sd, mix_weight/* * mix(0.333f, 0.5f, clamp(metallic, 0.0f, 1.0f))*/);
+					sc = svm_node_closure_get_bsdf(sd, mix_weight * specular_weight);
 
 					if (sc) {
 						sc->N = N;
@@ -297,6 +319,27 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				}
 			}
 
+			/* specular refraction */
+			if (specular_weight < 1.0f) {
+				if (ccl_fetch(sd, num_closure) < MAX_CLOSURE) {
+					sc = ccl_fetch_array(sd, closure, ccl_fetch(sd, num_closure));
+					sc->weight = weight * baseColor;
+					sc->sample_weight = sample_weight;
+
+					sc = svm_node_closure_get_bsdf(sd, mix_weight * (1.0f - specular_weight));
+
+					if (sc) {
+						sc->N = N;
+
+						sc->data0 = roughness * roughness;
+						sc->data1 = roughness * roughness;
+						sc->data2 = eta;
+
+						ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_refraction_setup(sc);
+					}
+				}
+			}
+
 			/* clearcoat */
 			if (clearcoat > 0.0f) {
 				if (ccl_fetch(sd, num_closure) < MAX_CLOSURE) {
@@ -304,7 +347,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					sc->weight = weight;
 					sc->sample_weight = sample_weight;
 
-					sc = svm_node_closure_get_bsdf(sd, mix_weight/* * mix(0.333f, 0.5f, clamp(metallic, 0.0f, 1.0f))*/);
+					sc = svm_node_closure_get_bsdf(sd, mix_weight);
 
 					if (sc) {
 						sc->N = CN;
