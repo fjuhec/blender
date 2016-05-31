@@ -37,8 +37,6 @@
 
 #include "layers_intern.h"
 
-#include "UI_interface.h"
-
 /**
  * Allocate and register a LayerTile for \a litem.
  */
