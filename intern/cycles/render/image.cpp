@@ -676,7 +676,6 @@ bool ImageManager::file_load_half_image(Image *img, ImageDataType type, device_v
 	if(pixels == NULL) {
 		return false;
 	}
-	bool cmyk = false;
 
 	if(in) {
 		half *readpixels = pixels;
@@ -712,12 +711,12 @@ bool ImageManager::file_load_half_image(Image *img, ImageDataType type, device_v
 			tmppixels.clear();
 		}
 
-		cmyk = strcmp(in->format_name(), "jpeg") == 0 && components == 4; /*TODO(dingto): kick, we wont have jpeg in half format ? */
-
 		in->close();
 		delete in;
 	}
-#if 0 /* TODO(dingto): add support for half here ? */
+#if 0
+	/* TODO(dingto): ImBuf doesn't support half.
+	 * Either leave builtin textures float, or convert buffer. */
 	else {
 		builtin_image_float_pixels_cb(img->filename, img->builtin_data, pixels);
 	}
@@ -725,18 +724,9 @@ bool ImageManager::file_load_half_image(Image *img, ImageDataType type, device_v
 
 	/* Check if we actually have a half4 slot, in case components == 1, but device
 	 * doesn't support single channel textures. */
-	if(type == IMAGE_DATA_TYPE_FLOAT4) {
+	if(type == IMAGE_DATA_TYPE_HALF4) {
 		size_t num_pixels = ((size_t)width) * height * depth;
-		if(cmyk) {
-			/* CMYK */
-			for(size_t i = num_pixels-1, pixel = 0; pixel < num_pixels; pixel++, i--) {
-				pixels[i*4+3] = 255;
-				pixels[i*4+2] = (pixels[i*4+2]*pixels[i*4+3])/255;
-				pixels[i*4+1] = (pixels[i*4+1]*pixels[i*4+3])/255;
-				pixels[i*4+0] = (pixels[i*4+0]*pixels[i*4+3])/255;
-			}
-		}
-		else if(components == 2) {
+		if(components == 2) {
 			/* grayscale + alpha */
 			for(size_t i = num_pixels-1, pixel = 0; pixel < num_pixels; pixel++, i--) {
 				pixels[i*4+3] = pixels[i*2+1];
@@ -906,14 +896,12 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 
 		if(!file_load_float_image(img, type, tex_img)) {
 			/* on failure to load, we set a 1x1 pixels pink image */
-			half4 *pixels = (half4*)tex_img.resize(1, 1);
+			half *pixels = (half*)tex_img.resize(1, 1);
 
-#if 0 /* TODO(dingto): Fix this... */
-			pixels[0] = (half)TEX_IMAGE_MISSING_R;
-			pixels[1] = (half)TEX_IMAGE_MISSING_G;
-			pixels[2] = (half)TEX_IMAGE_MISSING_B;
-			pixels[3] = (half)TEX_IMAGE_MISSING_A;
-#endif
+			pixels[0] = TEX_IMAGE_MISSING_R;
+			pixels[1] = TEX_IMAGE_MISSING_G;
+			pixels[2] = TEX_IMAGE_MISSING_B;
+			pixels[3] = TEX_IMAGE_MISSING_A;
 		}
 
 		if(!pack_images) {
@@ -936,7 +924,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			/* on failure to load, we set a 1x1 pixels pink image */
 			half *pixels = (half*)tex_img.resize(1, 1);
 
-			pixels[0] = (half)TEX_IMAGE_MISSING_R;
+			pixels[0] = TEX_IMAGE_MISSING_R;
 		}
 
 		if(!pack_images) {
