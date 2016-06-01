@@ -113,6 +113,10 @@ void param_scale(ParamHandle *handle, float x, float y);
 
 void param_scale_bounds(ParamHandle *handle);
 
+/* Select shortest Path */
+
+void param_shortest_path(ParamHandle *handle);
+
 /* Flushing */
 
 void param_flush(ParamHandle *handle);

@@ -153,7 +153,8 @@ enum PVertFlag {
 	PVERT_SELECT = 2,
 	PVERT_INTERIOR = 4,
 	PVERT_COLLAPSE = 8,
-	PVERT_SPLIT = 16
+	PVERT_SPLIT = 16,
+	PVERT_MARKED = 32
 };
 
 enum PEdgeFlag {
@@ -165,7 +166,8 @@ enum PEdgeFlag {
 	PEDGE_FILLED = 32,
 	PEDGE_COLLAPSE = 64,
 	PEDGE_COLLAPSE_EDGE = 128,
-	PEDGE_COLLAPSE_PAIR = 256
+	PEDGE_COLLAPSE_PAIR = 256,
+	PEDGE_MARKED = 512
 };
 
 /* for flipping faces */
@@ -4701,6 +4703,11 @@ void param_scale_bounds(ParamHandle *handle)
 		trans[1] = phandle->aspy / 2.0f;
 		p_chart_uv_translate(chart, trans);
 	}
+}
+
+void param_shortest_path(ParamHandle *handle)
+{
+	/* TODO (SaphireS): Shortest Path computation here */
 }
 
 void param_flush(ParamHandle *handle)

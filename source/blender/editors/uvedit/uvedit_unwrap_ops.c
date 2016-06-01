@@ -712,6 +712,17 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 100);
 }
 
+/* ******************** Select Shortest Path operator **************** */
+bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm) 
+{
+	ParamHandle *handle;
+	handle = construct_param_handle(scene, ob, bm, false, false, false, true);
+	param_shortest_path(handle);
+	param_flush(handle);
+	param_delete(handle);
+	return true; /* TODO (SaphireS): WIP Code, return true only if a valid path was found*/
+}
+
 /* ******************** Pack Islands operator **************** */
 
 void ED_uvedit_pack_islands(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect, bool do_rotate)

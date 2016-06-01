@@ -1477,16 +1477,128 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
+	Image *ima = CTX_data_edit_image(C);
+	SpaceImage *sima = CTX_wm_space_image(C);
 	ToolSettings *ts = scene->toolsettings;
-	BMEditMesh *em = BKE_editmesh_from_object(obedit);	
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+	BMFace *efa;
+	BMEdge *e;
+	BMIter iter, liter;
+	BMLoop *l;
+	BMEditSelection *ese_src, *ese_dst;
+	BMElem *ele_src = NULL, *ele_dst = NULL, *ele;
+	MLoopUV *luv_src = NULL, *luv_dst = NULL;
+	int elem_sel = 0;
+	
 
 	if (ts->uv_flag & UV_SYNC_SELECTION) {
 		return EDBM_shortest_path_select(C, op);
 	}
-		 
-	/* TODO(SaphireS): implementation of operator based on UV islands*/
 
-	return OPERATOR_FINISHED;
+	const int cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
+	const int cd_poly_tex_offset = CustomData_get_offset(&em->bm->pdata, CD_MTEXPOLY);
+		 
+	/* -------- Check for 2 selected elements of same type on the same UV island ---------- */
+	
+	if (ts->uv_selectmode & UV_SELECT_FACE) {
+		/* clear tags */
+		BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
+			BM_elem_flag_disable(efa, BM_ELEM_TAG);
+		}
+
+		BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
+			MTexPoly *tf = BM_ELEM_CD_GET_VOID_P(efa, cd_poly_tex_offset);
+
+			if (uvedit_face_visible_test(scene, ima, efa, tf)) {
+				if (uvedit_face_select_test(scene, efa, cd_loop_uv_offset)) {
+					elem_sel++;
+
+					if (luv_src == NULL) {
+						luv_src = efa;
+					}
+					else if ((luv_dst == NULL)) {
+						luv_dst = efa;
+					}
+				}
+			}
+		}
+	}
+	else if (ts->uv_selectmode & UV_SELECT_EDGE) {
+		/* clear tags */
+		BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+			BM_elem_flag_disable(e, BM_ELEM_TAG);
+		}
+
+		BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+			if (uvedit_edge_select_test(scene, e->l, cd_loop_uv_offset)) {
+
+				elem_sel++;
+
+				if (luv_src == NULL) {
+					luv_src = e;
+				}
+				else if ((luv_dst == NULL)) {
+					luv_dst = e;
+				}
+			}
+		}
+	}
+
+	else if (ts->uv_selectmode & UV_SELECT_VERTEX) {
+		/* clear tags */
+		BM_ITER_MESH (efa, &iter, bm, BM_FACES_OF_MESH) {
+			BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
+				BM_elem_flag_disable(l, BM_ELEM_TAG);
+			}
+		}
+
+		BM_ITER_MESH (efa, &iter, bm, BM_FACES_OF_MESH) {
+			MTexPoly *tf = BM_ELEM_CD_GET_VOID_P(efa, cd_poly_tex_offset);
+
+			if (uvedit_face_visible_test(scene, ima, efa, tf)) {
+				BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE)  {
+					
+					MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
+
+					if ((luv->flag & MLOOPUV_VERTSEL) != 0) {
+						if (luv_src == NULL) {
+							luv_src = luv;
+							elem_sel++;
+						}
+						else if ((luv_dst == NULL) && (!compare_v2v2(luv->uv, luv_src->uv, 0.000003f))) {
+							luv_dst = luv;
+							elem_sel++;
+						}
+						else if ((!compare_v2v2(luv->uv, luv_src->uv, 0.000003f)) && (!compare_v2v2(luv->uv, luv_dst->uv, 0.000003f))) {
+							elem_sel++;
+						}	
+					}
+				}
+			}
+		}
+	}
+
+	if (elem_sel != 2) {
+		/* Not exactly 2 elements of same typ selected */
+		BKE_report(op->reports, RPT_WARNING, "Path selection requires exactly two matching elements of the same island to be selected");
+		return OPERATOR_CANCELLED;
+	}
+	
+	/* -------- Now select shortest path between the 2 found elements ---------- */
+
+	if (ED_uvedit_shortest_path_select(scene, obedit, bm)) {
+
+		DAG_id_tag_update(obedit->data, 0);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
+
+		return OPERATOR_FINISHED;
+	}
+	else {
+		/* No path found because the selected elements aren't part of the same uv island */
+		BKE_report(op->reports, RPT_WARNING, "Path selection requires exactly two matching elements of the same island to be selected");
+		return OPERATOR_CANCELLED;
+	}
 }
 
 static void UV_OT_shortest_path(wmOperatorType *ot)
