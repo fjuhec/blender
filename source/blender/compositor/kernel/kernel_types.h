@@ -2,6 +2,11 @@
 #define CMP_KERNEL_TYPES_H
 
 #ifdef CMP_DEVICE_CPU
+struct int2 {
+    int x;
+    int y;
+};
+
 struct float2 {
   float x;
   float y;

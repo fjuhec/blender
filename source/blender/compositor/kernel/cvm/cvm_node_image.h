@@ -1,4 +1,4 @@
-CVM_float4_node_start(renderlayer)
+CVM_float4_node_start(image)
   // TODO: make generic for GLSL and CPU.
   int width = textures[node.texture_index].width;
   int height = textures[node.texture_index].height;

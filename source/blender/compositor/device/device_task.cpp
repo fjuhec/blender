@@ -11,6 +11,7 @@ namespace Compositor {
       this->y_max = y_max;
       this->iteration = 0;
       this->max_iteration = 1;
+      this->xy_subsamples = 8;
     }
   }
 }

@@ -18,8 +18,10 @@ namespace Compositor {
       int x_max;
       int y_max;
       Compositor::Output *output;
+
       int iteration;
       int max_iteration;
+      int xy_subsamples;
 
       Task(Compositor::Node *node, int x_min, int y_min, int x_max, int y_max, Compositor::Output *output);
 

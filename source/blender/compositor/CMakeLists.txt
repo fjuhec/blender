@@ -60,12 +60,28 @@ set(SRC
 	cmp/cmp_nodesocket.cpp
 	cmp/cmp_unroll.cpp
 	cmp/cmp_output.cpp
+	cmp/cmp_tilemanager.cpp
 
 	device/device.cpp
 	device/device_task.cpp
 	device/device_cpu.cpp
 	device/device_glsl.cpp
 )
+
+# Kernels
+data_to_c_simple(kernel/kernel.h SRC)
+data_to_c_simple(kernel/kernel_types.h SRC)
+data_to_c_simple(kernel/kernel_functions.h SRC)
+data_to_c_simple(kernel/kernel_constants.h SRC)
+
+# CVM Nodes
+data_to_c_simple(kernel/cvm/cvm_node_blur.h SRC)
+data_to_c_simple(kernel/cvm/cvm_node_color.h SRC)
+data_to_c_simple(kernel/cvm/cvm_node_dummy.h SRC)
+data_to_c_simple(kernel/cvm/cvm_node_mix.h SRC)
+data_to_c_simple(kernel/cvm/cvm_node_image.h SRC)
+data_to_c_simple(kernel/cvm/cvm_node_value.h SRC)
+data_to_c_simple(kernel/cvm/cvm_node_viewer.h SRC)
 
 #list(APPEND INC
 #	${CMAKE_CURRENT_BINARY_DIR}/operations

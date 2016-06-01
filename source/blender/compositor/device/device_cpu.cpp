@@ -94,8 +94,8 @@ namespace Compositor {
       if (task->is_cancelled()) { return; }
       // perform task
       KernelGlobal globals;
-      globals.phase = KG_PHASE_REFINE;
-      globals.subpixel_samples_xy = 4;
+      globals.phase = task->iteration < task->max_iteration?KG_PHASE_REFINE: KG_PHASE_FINAL;
+      globals.subpixel_samples_xy = task->xy_subsamples;
       globals.width = 960;
 
       Node* node = task->node;
@@ -109,18 +109,26 @@ namespace Compositor {
         for (int x = task->x_min; x < task->x_max ; x ++) {
           float2 xy = make_float2((float)x, (float)y);
           float4 color = node_execute_float4(globals, node->stack_index, xy, NULL);
-          buffer[offset] = ((buffer[offset]*prev_iteration)+color.x)/curr_iteration;
-          buffer[offset+1] = ((buffer[offset+1]*prev_iteration)+color.y)/curr_iteration;
-          buffer[offset+2] = ((buffer[offset+2]*prev_iteration)+color.z)/curr_iteration;
-          buffer[offset+3] = ((buffer[offset+3]*prev_iteration)+color.w)/curr_iteration;
-          offset += 4;
 
+          if (globals.phase == KG_PHASE_REFINE) {
+            buffer[offset] = ((buffer[offset]*prev_iteration)+color.x)/curr_iteration;
+            buffer[offset+1] = ((buffer[offset+1]*prev_iteration)+color.y)/curr_iteration;
+            buffer[offset+2] = ((buffer[offset+2]*prev_iteration)+color.z)/curr_iteration;
+            buffer[offset+3] = ((buffer[offset+3]*prev_iteration)+color.w)/curr_iteration;
+
+          } else {
+            // FINAL just override the refinement samples
+            buffer[offset] = color.x;
+            buffer[offset+1] = color.y;
+            buffer[offset+2] = color.z;
+            buffer[offset+3] = color.w;
+          }
+          offset += 4;
         }
       }
     }
     void DeviceCPU::task_finished(Task* task) {
       task->output->update_subimage(task->x_min, task->y_min, task->x_max, task->y_max);
     }
-
   }
 }

@@ -33,6 +33,10 @@ CVM_float4_node_start(mix)
 
   } else if (mix_type == MA_RAMP_ADD) {
     return color1 + color2 * value;
+
+  } else if (mix_type == MA_RAMP_MULT) {
+    return color1 * inverse + color1 * color2 * value;
+
   } else {
     return CVM_ERROR;
   }

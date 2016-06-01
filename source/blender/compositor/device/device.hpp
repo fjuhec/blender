@@ -37,6 +37,16 @@ namespace Compositor {
       virtual void start();
       virtual void stop();
       virtual void wait();
+
+      /**
+       * Create a device that is capable to calculate the given node(tree).
+       * DeviceGLSL is (more) limited in Memory and number of textures.
+       * this function counts the number of needed texture slots and try to reserve the
+       * space for it. When it worked this DeviceGLSL will be returned.
+       * otherwise a DeviceCPU instance will be returned.
+       */
+      static Device* create_device(Node* node);
+      static void destroy_device(Device* device);
     };
   }
 }

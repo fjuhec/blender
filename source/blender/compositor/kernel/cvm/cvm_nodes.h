@@ -24,7 +24,7 @@ float4 node_execute_float4(KernelGlobal global, int node_offset, float2 xy, floa
 #include "cvm_node_viewer.h"
 #include "cvm_node_dummy.h"
 #include "cvm_node_blur.h"
-#include "cvm_node_renderlayer.h"
+#include "cvm_node_image.h"
 
 #ifdef CMP_DEVICE_CPU
 // Include  the defines
@@ -36,7 +36,7 @@ float4 node_execute_float4(KernelGlobal global, int node_offset, float2 xy, floa
       return node_execute_viewer(global, node, xy, sample_weight);
 
     case CMP_NODE_R_LAYERS:
-      return node_execute_renderlayer(global, node, xy, sample_weight);
+      return node_execute_image(global, node, xy, sample_weight);
 
     case CMP_NODE_RGB:
       return node_execute_color(global, node, xy, sample_weight);

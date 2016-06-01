@@ -8,7 +8,8 @@ extern "C" {
 #include "cmp_unroll.hpp"
 #include "cmp_output.hpp"
 #include "cmp_rendercontext.hpp"
-#include "device_cpu.hpp"
+#include "cmp_tilemanager.hpp"
+#include "device.hpp"
 #include <iostream>
 
 static ThreadMutex s_compositorMutex;
@@ -35,68 +36,63 @@ void COM_execute(RenderData *rd, Scene *scene, bNodeTree *editingtree, int rende
   Compositor::RenderContext *render_context = new Compositor::RenderContext();
   render_context->view_name = viewName;
 
+  int default_iteration = 1;
+  int default_xy_subsamples = 8;
+
+  if (!rendering) {
+    switch (editingtree->edit_quality) {
+      case NTREE_QUALITY_LOW:
+        default_iteration = 2;
+        default_xy_subsamples = 2;
+        break;
+  
+      case NTREE_QUALITY_MEDIUM:
+        default_iteration = 4;
+        default_xy_subsamples = 4;
+        break;
+
+      case NTREE_QUALITY_HIGH:
+        default_iteration = 8;
+        default_xy_subsamples = 8;
+        break;
+    }
+  }
+
   // UNROLL editingtree
   Compositor::Node* node = Compositor::unroll(editingtree, render_context);
   if (node != NULL) {
     // SELECT DEVICE
-    Compositor::Device::Device *device = new Compositor::Device::DeviceCPU();
-    device->init(node);
+    Compositor::Device::Device *device = Compositor::Device::Device::create_device(node);
 
     // ALLOCATE output
     Compositor::Output output(editingtree, node, rd, viewName, viewSettings, displaySettings);
 
     // Generate Tiles
-    const int width = output.width;
-    const int height = output.height;
-    const int tile_size = editingtree->chunksize;
-    int num_x_tiles = (width + tile_size) / tile_size;
-    int num_y_tiles = (height + tile_size) / tile_size;
-    int num_tiles = num_x_tiles * num_y_tiles;
-    Compositor::Device::Task** tasks = new Compositor::Device::Task*[num_x_tiles*num_y_tiles];
-    for (int i = 0 ; i < num_tiles; i ++) tasks[i] = NULL;
+    Compositor::TileManager tile_manager(&output);
+    std::list<Compositor::Device::Task*> tiles;
+    tile_manager.generate_tiles(tiles);
 
-    int tile_index = 0;
-    for (int x = 0 ; x <= width; x += tile_size) {
-      int x_max = x+tile_size;
-      if (x_max > width) x_max = width;
-      for (int y = 0;y <= height; y += tile_size) {
-        int y_max = y+tile_size;
-        if (y_max > height) y_max = height;
-
-        Compositor::Device::Task* task = new Compositor::Device::Task(node, x, y, x_max, y_max, &output);
-        task->max_iteration = 1000;
-        tasks[tile_index++] = task;
-      }
-    }
     // Schedule
     device->start();
-    for (int i = 0 ; i < num_tiles; i ++) {
-      Compositor::Device::Task *task = tasks[i];
-      if (task != NULL) {
-        device->add_task(task);
-      }
+    for (std::list<Compositor::Device::Task*>::iterator it=tiles.begin(); it != tiles.end(); ++it) {
+      Compositor::Device::Task *task = *it;
+      task->max_iteration = default_iteration;
+      task->xy_subsamples = default_xy_subsamples;
+      device->add_task(task);
     }
     device->wait();
     device->stop();
 
 
     // output.update_subimage(0, 0, output.width, output.height);
-
-    delete device;
-    for (int i = 0 ; i < num_tiles; i ++) {
-      Compositor::Device::Task *task = tasks[i];
-      if (task != NULL) {
-        delete(task);
-      }
-    }
+    Compositor::Device::Device::destroy_device(device);
+    tile_manager.delete_tiles(tiles);
   }
 
   delete render_context;
   BLI_mutex_unlock(&s_compositorMutex);
-
-
-
 }
+
 
 void COM_deinitialize(void) {
   if (is_compositorMutex_init) {

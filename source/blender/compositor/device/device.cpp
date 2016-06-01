@@ -1,4 +1,7 @@
 #include "device.hpp"
+
+#include "device_cpu.hpp"
+
 namespace Compositor {
   namespace Device {
     Device::~Device() {
@@ -40,6 +43,16 @@ namespace Compositor {
     }
     void Device::wait() {
       BLI_thread_queue_wait_finish(this->queue);
+    }
+
+    // FACTORY methods
+    Device* Device::create_device(Node* node) {
+      Device* device = new DeviceCPU();
+      device->init(node);
+      return device;
+    }
+    void Device::destroy_device(Device* device) {
+      delete device;
     }
   }
 }
