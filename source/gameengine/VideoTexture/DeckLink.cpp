@@ -440,7 +440,9 @@ static int DeckLink_init(DeckLink *self, PyObject *args, PyObject *kwds)
 			{
 				self->mKeyingSupported = true;
 				if (pAttributes->GetFlag(BMDDeckLinkSupportsHDKeying, &flag) == S_OK && flag)
+				{
 					self->mHDKeyingSupported = true;
+				}
 			}
 			pAttributes->Release();
 		}
@@ -448,7 +450,9 @@ static int DeckLink_init(DeckLink *self, PyObject *args, PyObject *kwds)
 		if (pDL->QueryInterface(IID_IDeckLinkOutput, (void**)&self->mDLOutput) != S_OK)
 			self->mDLOutput = NULL;
 		if (self->mKeyingSupported)
+		{
 			pDL->QueryInterface(IID_IDeckLinkKeyer, (void **)&self->mKeyer);
+		}
 		// we don't need the device anymore, release to avoid leaking
 		pDL->Release();
 
@@ -461,17 +465,21 @@ static int DeckLink_init(DeckLink *self, PyObject *args, PyObject *kwds)
 		displayFlags = (self->mUse3D) ? bmdDisplayModeSupports3D : 0;
 		outputFlags = (self->mUse3D) ? bmdVideoOutputDualStream3D : bmdVideoOutputFlagDefault;
 		pDisplayMode = NULL;
+		i = 0;
 		while (pDisplayModeIterator->Next(&pDisplayMode) == S_OK)
 		{
 			if (pDisplayMode->GetDisplayMode() == self->mDisplayMode
-				&& (pDisplayMode->GetFlags() & displayFlags) == displayFlags
-				&& self->mDLOutput->DoesSupportVideoMode(self->mDisplayMode, bmdFormat8BitBGRA, outputFlags, &support, NULL) == S_OK
-				&& (support == bmdDisplayModeSupported || support == bmdDisplayModeSupportedWithConversion))
-			{
+				&& (pDisplayMode->GetFlags() & displayFlags) == displayFlags) {
+				if (self->mDLOutput->DoesSupportVideoMode(self->mDisplayMode, bmdFormat8BitBGRA, outputFlags, &support, NULL) != S_OK
+					|| support == bmdDisplayModeNotSupported)
+				{
+					printf("Warning: DeckLink card %d reports no BGRA support, proceed anyway\n", cardIdx);
+				}
 				break;
 			}
 			pDisplayMode->Release();
 			pDisplayMode = NULL;
+			i++;
 		}
 		pDisplayModeIterator->Release();
 
@@ -501,6 +509,7 @@ static int DeckLink_init(DeckLink *self, PyObject *args, PyObject *kwds)
 	}
 	catch (Exception & exp)
 	{ 
+		printf("DeckLink: exception when opening card %d: %s\n", cardIdx, exp.what());
 		exp.report(); 
 		// normally, the object should be deallocated
 		return -1;

@@ -814,7 +814,7 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	}
 	else
 	{
-		cacheSize = 4;
+		cacheSize = 8;
 		pSize = format + strlen(format);
 	}
 	if ((pPixel = strchr(format, '/')) == NULL ||

@@ -795,9 +795,17 @@ Image classes
    :arg capture: Card number from which the input video must be captured.
    :type capture: int
 
-   The format argument must be written as “<displayMode>/<pixelFormat>[/3D]” where <displayMode> 
+   The format argument must be written as “<displayMode>/<pixelFormat>[/3D][:<cacheSize>]” where <displayMode> 
    describes the frame size and rate and <pixelFormat> the encoding of the pixels. 
    The optional /3D suffix is to be used if the video stream is stereo with a left and right eye feed.
+   The optional :<cacheSize> suffix determines the number of the video frames kept in cache, by default 8. 
+   Some DeckLink cards won't work below a certain cache size.  The default value 8 should be sufficient for all cards.
+   You may try to reduce the cache size to reduce the memory footprint. For example the The 4K Extreme is known
+   to work with 3 frames only, the Extreme 2 needs 4 frames and the Intensity Shuttle needs 6 frames, etc. 
+   Reducing the cache size may be useful when Decklink is used in conjunction with GPUDirect: all frames must be locked
+   in memory in that case and that puts a lot of pressure on memory.  If you reduce the cache size too much, 
+   you'll get no error but no video feed either.
+   
    The valid <displayMode> values are copied from the 'BMDDisplayMode' enum in the DeckLink API 
    without the 'bmdMode' prefix. In case a mode that is not in this list is added in a later version 
    of the SDK, it is also possible to specify the 4 letters of the internal code for that mode. 
@@ -853,19 +861,19 @@ Image classes
    Refer to the DeckLink SDK documentation for a full description of these pixel format. 
    It is important to understand them as the decoding of the pixels is NOT done in VideoTexture 
    for performance reason. Instead a specific shader must be used to decode the pixel in the GPU. 
-   Only the ' 8BitARGB' and '8BitBGRA' pixel format have an equivalent in OpenGL. 
-   Other formats are sent to the GPU as a 'GL_RED_INTEGER' texture (i.e. a texture with only the 
-   red channel coded as an unsigned 32 bit integer). This helps extracting the color channels 
-   in a shader.
+   Only the '8BitARGB', '8BitBGRA' and '10BitRGBXLE' pixel formats are mapped directly to OpenGL RGB float textures.
+   The '8BitYUV' and '10BitYUV' pixel formats are mapped to openGL RGB float texture but require a shader to decode.
+   The other pixel formats are sent as a 'GL_RED_INTEGER' texture (i.e. a texture with only the 
+   red channel coded as an unsigned 32 bit integer) and are not recommended for use.
 
-   Example: “HD1080p24/10BitRGB/3D” is equivalent to “24ps/r210/3D” and represents a full HD stereo feed at 24 frame per second.
+   Example: “HD1080p24/10BitYUV/3D:4” is equivalent to “24ps/v210/3D:4” and represents a full HD stereo feed at 24 frame per second and 4 frames cache size.
 
    Although video format auto detection is possible with certain DeckLink devices, the corresponding 
    API is NOT implemented in the BGE. Therefore it is important to specify the format string that 
    matches exactly the video feed. If the format is wrong, no frame will be captured. 
    It should be noted that the pixel format that you need to specify is not necessarily the actual 
    format in the video feed. For example, the 4K Extreme card delivers 8bit RGBs pixels in the 
-   '10BitRGB' format. Use the 'Media Express' application included in 'Desktop Video' to discover 
+   '10BitRGBXLE' format. Use the 'Media Express' application included in 'Desktop Video' to discover 
    which pixel format works for a particular video stream.
 
    .. attribute:: status
