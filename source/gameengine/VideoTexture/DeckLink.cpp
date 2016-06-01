@@ -337,6 +337,7 @@ static PyObject *DeckLink_new(PyTypeObject *type, PyObject *args, PyObject *kwds
 	decklink_Reset(self);
 	// m_leftEye is a python object, it's handled by python
 	self->m_leftEye = NULL;
+	self->m_rightEye = NULL;
 	// return allocated object
 	return reinterpret_cast<PyObject*>(self);
 }
