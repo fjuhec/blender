@@ -136,7 +136,7 @@ ImageManager::ImageDataType ImageManager::get_image_metadata(const string& filen
                                                              void *builtin_data,
                                                              bool& is_linear)
 {
-	bool is_float = false;
+	bool is_float = false, is_half = false;
 	is_linear = false;
 	int channels = 4;
 
@@ -175,6 +175,10 @@ ImageManager::ImageDataType ImageManager::get_image_metadata(const string& filen
 				}
 			}
 
+			/* check if it's half float */
+			if(spec.format == TypeDesc::HALF)
+				is_half = true;
+
 			channels = spec.nchannels;
 
 			/* basic color space detection, not great but better than nothing
@@ -200,7 +204,10 @@ ImageManager::ImageDataType ImageManager::get_image_metadata(const string& filen
 		delete in;
 	}
 
-	if(is_float) {
+	if(is_half) {
+		return IMAGE_DATA_TYPE_HALF4;
+	}
+	else if(is_float) {
 		return (channels > 1) ? IMAGE_DATA_TYPE_FLOAT4 : IMAGE_DATA_TYPE_FLOAT;
 	}
 	else {
@@ -894,7 +901,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_free(tex_img);
 		}
 
-		if(!file_load_float_image(img, type, tex_img)) {
+		if(!file_load_half_image(img, type, tex_img)) {
 			/* on failure to load, we set a 1x1 pixels pink image */
 			half *pixels = (half*)tex_img.resize(1, 1);
 
@@ -920,7 +927,7 @@ void ImageManager::device_load_image(Device *device, DeviceScene *dscene, ImageD
 			device->tex_free(tex_img);
 		}
 
-		if(!file_load_float_image(img, type, tex_img)) {
+		if(!file_load_half_image(img, type, tex_img)) {
 			/* on failure to load, we set a 1x1 pixels pink image */
 			half *pixels = (half*)tex_img.resize(1, 1);
 

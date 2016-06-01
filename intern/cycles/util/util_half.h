@@ -30,6 +30,7 @@ CCL_NAMESPACE_BEGIN
 #ifdef __KERNEL_OPENCL__
 
 #define float4_store_half(h, f, scale) vstore_half4(f * (scale), 0, h);
+#define half4_to_float4(h) vload_half4(0, h);
 
 #else
 
@@ -44,6 +45,11 @@ ccl_device_inline void float4_store_half(half *h, float4 f, float scale)
 	h[1] = __float2half_rn(f.y * scale);
 	h[2] = __float2half_rn(f.z * scale);
 	h[3] = __float2half_rn(f.w * scale);
+}
+
+ccl_device_inline float4 half4_to_float4(half *h)
+{
+    return make_float4(__half2float(h[0]), __half2float(h[1]), __half2float(h[2]), __half2float(h[3]));
 }
 
 #else
@@ -83,6 +89,28 @@ ccl_device_inline void float4_store_half(half *h, float4 f, float scale)
 
 	_mm_storel_pi((__m64*)h, _mm_castsi128_ps(rpack));
 #endif
+}
+
+/* TODO(dingto) Verify this */
+ccl_device_inline float4 half4_to_float4(half4 h)
+{
+	float4 f;
+
+	*((int*) &f.x) = ((h.x & 0x8000) << 16) | (((h.x & 0x7c00) + 0x1C000) << 13) | ((h.x & 0x03FF) << 13);
+	*((int*) &f.y) = ((h.y & 0x8000) << 16) | (((h.y & 0x7c00) + 0x1C000) << 13) | ((h.y & 0x03FF) << 13);
+	*((int*) &f.z) = ((h.z & 0x8000) << 16) | (((h.z & 0x7c00) + 0x1C000) << 13) | ((h.z & 0x03FF) << 13);
+	*((int*) &f.w) = ((h.w & 0x8000) << 16) | (((h.w & 0x7c00) + 0x1C000) << 13) | ((h.w & 0x03FF) << 13);
+
+	return f;
+}
+
+ccl_device_inline float half_to_float(half h)
+{
+	float f;
+
+	*((int*) &f) = ((h & 0x8000) << 16) | (((h & 0x7c00) + 0x1C000) << 13) | ((h & 0x03FF) << 13);
+
+	return f;
 }
 
 #endif

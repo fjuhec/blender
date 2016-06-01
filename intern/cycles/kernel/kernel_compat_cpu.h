@@ -122,6 +122,17 @@ template<typename T> struct texture_image  {
 		return make_float4(r, r, r, 1.0f);
 	}
 
+	ccl_always_inline float4 read(half4 r)
+	{
+		return half4_to_float4(r);
+	}
+
+	ccl_always_inline float4 read(half r)
+	{
+		float f = half_to_float(r);
+		return make_float4(f, f, f, 1.0f);
+	}
+
 	ccl_always_inline int wrap_periodic(int x, int width)
 	{
 		x %= width;
