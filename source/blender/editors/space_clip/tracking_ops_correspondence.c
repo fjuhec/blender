@@ -231,6 +231,7 @@ void CLIP_OT_delete_correspondence(wmOperatorType *ot)
 }
 
 /********************** solve multiview operator *********************/
+
 typedef struct {
 	Scene *scene;
 	MovieClip *clip;
@@ -240,14 +241,14 @@ typedef struct {
 
 	char stats_message[256];
 
-	struct MovieReconstructContext *context;
+	struct MovieMultiviewReconstructContext *context;
 } SolveMultiviewJob;
 
 static bool solve_multiview_initjob(bContext *C,
-                                 SolveMultiviewJob *scj,
-                                 wmOperator *op,
-                                 char *error_msg,
-                                 int max_error)
+                                    SolveMultiviewJob *scj,
+                                    wmOperator *op,
+                                    char *error_msg,
+                                    int max_error)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	MovieClip *clip = ED_space_clip_get_clip(sc);
@@ -272,6 +273,7 @@ static bool solve_multiview_initjob(bContext *C,
 	scj->reports = op->reports;
 	scj->user = sc->user;
 
+	// create multiview reconstruction context and pass the tracks and markers to libmv
 	scj->context = BKE_tracking_reconstruction_context_new(clip,
 	                                                       object,
 	                                                       object->keyframe1,

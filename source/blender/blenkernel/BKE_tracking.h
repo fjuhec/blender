@@ -36,6 +36,7 @@ struct bGPDlayer;
 struct ImBuf;
 struct ListBase;
 struct MovieReconstructContext;
+struct MovieMultiviewReconstructContext;
 struct MovieTrackingTrack;
 struct MovieTrackingCorrespondence;
 struct MovieTrackingMarker;
