@@ -9,6 +9,7 @@ __cvm_inline float4 make_float4(float x, float y, float z, float w) { return (fl
 __cvm_inline int2 operator+(const int2 a, const int2 b) { return make_int2(a.x+b.x, a.y+b.y); }
 __cvm_inline int2 operator-(const int2 a, const int2 b) { return make_int2(a.x-b.x, a.y-b.y); }
 __cvm_inline int2 operator*(const int2 a, const int2 b) { return make_int2(a.x*b.x, a.y*b.y); }
+__cvm_inline int2 operator/(const int2 a, const int2 b) { return make_int2(a.x/b.x, a.y/b.y); }
 __cvm_inline int2 operator+=(int2& a, const int2& b) { return a = a + b; }
 
 
@@ -19,6 +20,8 @@ __cvm_inline float2 operator-(const float2 a, float f) { return make_float2(a.x-
 
 #include <algorithm>
 using std::swap;
+using std::max;
+using std::min;
 
 __cvm_inline float length_squared(float2 a) { return a.x*a.x + a.y*a.y; }
 __cvm_inline float length(float2 a) { return std::sqrt(length_squared(a)); }
