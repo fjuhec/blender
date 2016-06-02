@@ -57,15 +57,17 @@ namespace Compositor {
     }
 
     // FACTORY methods
-//#define SELECT_DEVICE_GLSL
+#define SELECT_DEVICE_GLSL
 
     Device* Device::create_device(Node* node) {
-#ifdef SELECT_DEVICE_GLSL
-      Device* device = new DeviceGLSL();
-#else
-      Device* device = new DeviceCPU();
-#endif
+      Device *device;
 
+#ifdef SELECT_DEVICE_GLSL
+      device = new DeviceGLSL();
+      device->init(node);
+      destroy_device(device);
+#endif
+      device = new DeviceCPU();
       device->init(node);
       return device;
     }
