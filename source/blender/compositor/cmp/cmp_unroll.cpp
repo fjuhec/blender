@@ -6,7 +6,7 @@ namespace Compositor {
 
   static bNode* find_active_viewer_node(bNodeTree* node_tree) {
     for (bNode *node = (bNode *)node_tree->nodes.first; node; node = node->next) {
-      if (node->type == CMP_NODE_VIEWER && node->flag & NODE_ACTIVE) {
+      if (node->type == CMP_NODE_VIEWER && node->flag & NODE_DO_OUTPUT) {
         return node;
         }
     }

@@ -64,7 +64,6 @@ void COM_execute(RenderData *rd, Scene *scene, bNodeTree *editingtree, int rende
   // UNROLL editingtree
   Compositor::Node* node = Compositor::unroll(editingtree, render_context);
   if (node != NULL) {
-
     // ALLOCATE output
     Compositor::Output output(editingtree, node, rd, viewName, viewSettings, displaySettings);
     if (output.buffer == NULL) {

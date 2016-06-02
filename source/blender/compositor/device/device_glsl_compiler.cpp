@@ -55,18 +55,18 @@ namespace Compositor {
       return source.str();
     }
 
-    GLuint compile_vertex_shader(std::string vertex_source) {
+    //GLuint compile_vertex_shader(std::string vertex_source) {
       // std::cout << "version" << glGetString(GL_VERSION) << "\n";
-      return 0;
+      //return 0;
       // GLuint shader = glCreateShader(GL_VERTEX_SHADER);
       // return shader;
-    }
+   // }
 
-    GLuint compile_fragment_shader(std::string vertex_source) {
+    //GLuint compile_fragment_shader(std::string vertex_source) {
       // std::cout << "version" << glGetString(GL_VERSION) << "\n";
-      return 0;
+     // return 0;
       // GLuint shader = glCreateShader(GL_FRAGMENT_SHADER);
       // return shader;
-    }
+    //}
   }
 }
