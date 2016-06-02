@@ -1,12 +1,23 @@
 #include "device.hpp"
 
 #include "device_cpu.hpp"
+#include "device_glsl.hpp"
+#include <iostream>
 
 namespace Compositor {
   namespace Device {
     Device::~Device() {
 
     }
+
+    void Device::set_num_workers(int num_workers) {
+      this->num_workers = num_workers;
+    }
+
+    int Device::get_num_workers() {
+      return this->num_workers;
+    }
+
     void *Device::thread_execute(void *data) {
       Device *device = (Device*) data;
       Task * task;
@@ -22,7 +33,6 @@ namespace Compositor {
     }
 
     void Device::init(Compositor::Node* node) {
-
     }
 
     void Device::add_task(Task* task) {
@@ -31,8 +41,9 @@ namespace Compositor {
 
     void Device::start() {
       this->queue  = BLI_thread_queue_init();
-      BLI_init_threads(&this->threads, thread_execute, 4);
-      for (int i = 0 ; i < 4 ; i ++ ) {
+
+      BLI_init_threads(&this->threads, thread_execute, num_workers);
+      for (int i = 0 ; i < num_workers ; i ++ ) {
         BLI_insert_thread(&this->threads, this);
       }
     }
@@ -46,11 +57,19 @@ namespace Compositor {
     }
 
     // FACTORY methods
+//#define SELECT_DEVICE_GLSL
+
     Device* Device::create_device(Node* node) {
+#ifdef SELECT_DEVICE_GLSL
+      Device* device = new DeviceGLSL();
+#else
       Device* device = new DeviceCPU();
+#endif
+
       device->init(node);
       return device;
     }
+
     void Device::destroy_device(Device* device) {
       delete device;
     }

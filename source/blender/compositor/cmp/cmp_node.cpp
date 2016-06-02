@@ -9,16 +9,35 @@ extern "C" {
 #  include "RE_pipeline.h"
 #  include "RE_shader_ext.h"
 #  include "RE_render_ext.h"
+
+  extern char datatoc_cvm_node_viewer_h[];
+  extern char datatoc_cvm_node_value_h[];
+  extern char datatoc_cvm_node_color_h[];
+  extern char datatoc_cvm_node_dummy_h[];
+  extern char datatoc_cvm_node_blur_h[];
+  extern char datatoc_cvm_node_image_h[];
 }
 
 
 namespace Compositor {
-  Node::Node() {
+  Node::Node(int type) {
+    this->type = type;
     this->node_tree = NULL;
     this->b_node = NULL;
     this->stack_index = -1;
     this->texture_index = -1;
     this->buffer = NULL;
+    this->glsl_template = "// UNKNOWN\n";
+
+    switch (type) {
+      case CMP_NODE_VALUE:
+        this->glsl_template = std::string(datatoc_cvm_node_value_h);
+        break;
+
+      case CMP_NODE_MIX_RGB:
+        this->glsl_template = std::string(datatoc_cvm_node_color_h);
+        break;
+      }
   }
 
   Node::Node(bNodeTree* node_tree, bNode *node, RenderContext * render_context) {
@@ -27,6 +46,7 @@ namespace Compositor {
     this->stack_index = -1;
     this->texture_index = -1;
     this->buffer = NULL;
+    this->glsl_template = std::string(datatoc_cvm_node_dummy_h);
 
     this->type = node->type;
 
@@ -35,12 +55,18 @@ namespace Compositor {
     }
 
     switch (node->type) {
+      case CMP_NODE_VIEWER:
+        this->glsl_template = std::string(datatoc_cvm_node_viewer_h);
+        break;
+
       case CMP_NODE_MIX_RGB:
+      this->glsl_template = std::string(datatoc_cvm_node_color_h);
         this->var_int_0 = node->custom1;
         break;
 
       case CMP_NODE_BLUR:
         {
+          this->glsl_template = std::string(datatoc_cvm_node_blur_h);
           NodeBlurData *data = (NodeBlurData *)node->storage;
           // TODO: other elemetns in the data including needed conversions.
           this->var_float_0 = data->percentx/100.f;
@@ -49,12 +75,14 @@ namespace Compositor {
         break;
 
       case CMP_NODE_VALUE:
+        this->glsl_template = std::string(datatoc_cvm_node_value_h);
         PointerRNA ptr;
         RNA_pointer_create((ID *)node_tree, &RNA_NodeSocket, node->outputs.first, &ptr);
         this->var_float_0 = RNA_float_get(&ptr, "default_value");
         break;
 
       case CMP_NODE_R_LAYERS:
+      this->glsl_template = std::string(datatoc_cvm_node_image_h);
         short layer_id = node->custom1;
         Scene* scene = (Scene*)node->id;
 

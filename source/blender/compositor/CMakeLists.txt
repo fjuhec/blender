@@ -66,6 +66,7 @@ set(SRC
 	device/device_task.cpp
 	device/device_cpu.cpp
 	device/device_glsl.cpp
+	device/device_glsl_compiler.cpp
 )
 
 # Kernels

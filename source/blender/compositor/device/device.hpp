@@ -24,6 +24,11 @@ namespace Compositor {
       ThreadQueue *queue;
       ListBase threads;
       static void *thread_execute(void *data);
+      int num_workers;
+
+    protected:
+      void set_num_workers(int num_workers);
+      int get_num_workers();
 
     public:
       virtual ~Device();

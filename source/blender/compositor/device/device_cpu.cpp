@@ -83,6 +83,7 @@ namespace Compositor {
     }
 
     void DeviceCPU::init(Node* node) {
+      set_num_workers(BLI_system_thread_count());
       int next_stack_index = 0;
       int next_texture_index = 0;
       set_stack_index(node, &next_stack_index, &next_texture_index);

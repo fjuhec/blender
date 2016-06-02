@@ -5,8 +5,13 @@
 
 namespace Compositor {
   namespace Device {
-    class DeviceGLSL {
+    class DeviceGLSL: public Device {
 
+    public:
+      void init(Compositor::Node* node);
+
+      void execute_task(Task* task);
+      void task_finished(Task* task);
     };
   }
 }

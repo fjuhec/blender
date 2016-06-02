@@ -8,6 +8,7 @@ namespace Compositor {
 #include "cmp_nodesocket.hpp"
 #include "cmp_rendercontext.hpp"
 #include <list>
+#include <string>
 
 namespace Compositor {
   struct Node {
@@ -39,11 +40,13 @@ namespace Compositor {
     int buffer_width;
     int buffer_height;
 
+    std::string glsl_template;
+
     std::list<NodeSocket*> inputs;
 
     // TODO: Needs optional parameter with output socket you are evaluating.
     Node(bNodeTree* node_tree, bNode *node, RenderContext * render_context);
-    Node();
+    Node(int type);
     ~Node();
   };
 }
