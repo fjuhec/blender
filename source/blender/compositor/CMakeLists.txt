@@ -42,9 +42,12 @@ set(INC
 	../nodes/intern
 	../render/extern/include
 	../render/intern/include
+	../gpu
 	../../../extern/clew/include
 	../../../intern/guardedalloc
 	../../../intern/atomic
+	../../../intern/glew-mx
+
 )
 
 set(INC_SYS
@@ -70,10 +73,9 @@ set(SRC
 )
 
 # Kernels
-data_to_c_simple(kernel/kernel.h SRC)
-data_to_c_simple(kernel/kernel_types.h SRC)
-data_to_c_simple(kernel/kernel_functions.h SRC)
-data_to_c_simple(kernel/kernel_constants.h SRC)
+data_to_c_simple(kernel/kernel_fragment_header.glsl SRC)
+data_to_c_simple(kernel/kernel_fragment_main.glsl SRC)
+data_to_c_simple(kernel/kernel_vertex.glsl SRC)
 
 # CVM Nodes
 data_to_c_simple(kernel/cvm/cvm_node_blur.h SRC)
