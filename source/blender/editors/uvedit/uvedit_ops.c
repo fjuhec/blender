@@ -1590,7 +1590,7 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 	if (ED_uvedit_shortest_path_select(scene, obedit, bm)) {
 
 		DAG_id_tag_update(obedit->data, 0);
-		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT | ND_DATA, obedit->data);
 
 		return OPERATOR_FINISHED;
 	}

@@ -131,6 +131,7 @@ typedef struct PEdge {
 	struct PEdge *next;
 	struct PFace *face;
 	float *orig_uv, old_uv[2];
+	int *orig_flag;
 	unsigned short flag;
 
 } PEdge;
@@ -679,11 +680,26 @@ static void p_vert_load_pin_select_uvs(PHandle *handle, PVert *v)
 static void p_flush_uvs(PHandle *handle, PChart *chart)
 {
 	PEdge *e;
+	int sel_flag = 0;
+	/* ToDo (SaphireS): Find sensible variable names*/
+	int MLOOPEDGE_SELECTED = (1 << 0); /* MLOOPUV_EDGESEL*/
+	int MLOOPVERT_SELECTED = (1 << 1); /* MLOOPUV_VERTSEL*/
 
 	for (e = chart->edges; e; e = e->nextlink) {
 		if (e->orig_uv) {
 			e->orig_uv[0] = e->vert->uv[0] / handle->aspx;
 			e->orig_uv[1] = e->vert->uv[1] / handle->aspy;
+		}
+
+		/* ToDo (SaphireS): Move to own p_flush_uvs_selection() function ?*/
+		if (e->flag & PEDGE_SELECT) {
+			//if (e->orig_flag) {
+				//printf("---param_flush_uvs: orig_flag found\n");
+				sel_flag = e->orig_flag;
+				sel_flag |= MLOOPEDGE_SELECTED;/* MLOOPUV_EDGESEL*/
+				sel_flag |= MLOOPVERT_SELECTED; /* MLOOPUV_VERTSEL*/
+				e->orig_flag = sel_flag; //sel_flag
+			//}
 		}
 	}
 }
@@ -1101,7 +1117,7 @@ static PFace *p_face_add(PHandle *handle)
 
 static PFace *p_face_add_construct(PHandle *handle, ParamKey key, ParamKey *vkeys,
                                    float *co[4], float *uv[4], int i1, int i2, int i3,
-                                   ParamBool *pin, ParamBool *select)
+                                   ParamBool *pin, ParamBool *select, int flag[4])
 {
 	PFace *f = p_face_add(handle);
 	PEdge *e1 = f->edge, *e2 = e1->next, *e3 = e2->next;
@@ -1113,6 +1129,10 @@ static PFace *p_face_add_construct(PHandle *handle, ParamKey key, ParamKey *vkey
 	e1->orig_uv = uv[i1];
 	e2->orig_uv = uv[i2];
 	e3->orig_uv = uv[i3];
+
+	e1->orig_flag = flag[i1];
+	e2->orig_flag = flag[i2];
+	e3->orig_flag = flag[i3];
 
 	if (pin) {
 		if (pin[i1]) e1->flag |= PEDGE_PIN;
@@ -4158,7 +4178,7 @@ void param_delete(ParamHandle *handle)
 
 static void p_add_ngon(ParamHandle *handle, ParamKey key, int nverts,
                        ParamKey *vkeys, float **co, float **uv,
-                       ParamBool *pin, ParamBool *select, const float normal[3])
+					   ParamBool *pin, ParamBool *select, const float normal[3], int *flag)
 {
 	int *boundary = BLI_array_alloca(boundary, nverts);
 
@@ -4212,10 +4232,11 @@ static void p_add_ngon(ParamHandle *handle, ParamKey key, int nverts,
 			ParamKey tri_vkeys[3] = {vkeys[v0], vkeys[v1], vkeys[v2]};
 			float *tri_co[3] = {co[v0], co[v1], co[v2]};
 			float *tri_uv[3] = {uv[v0], uv[v1], uv[v2]};
+			int tri_flag[3] = {flag[v0], flag[v1], flag[v2]};
 			ParamBool tri_pin[3] = {pin[v0], pin[v1], pin[v2]};
 			ParamBool tri_select[3] = {select[v0], select[v1], select[v2]};
 
-			param_face_add(handle, key, 3, tri_vkeys, tri_co, tri_uv, tri_pin, tri_select, NULL);
+			param_face_add(handle, key, 3, tri_vkeys, tri_co, tri_uv, tri_pin, tri_select, NULL, tri_flag);
 		}
 
 		/* remove corner */
@@ -4228,7 +4249,7 @@ static void p_add_ngon(ParamHandle *handle, ParamKey key, int nverts,
 
 void param_face_add(ParamHandle *handle, ParamKey key, int nverts,
                     ParamKey *vkeys, float *co[4], float *uv[4],
-                    ParamBool *pin, ParamBool *select, float normal[3])
+                    ParamBool *pin, ParamBool *select, float normal[3], int flag[4])
 {
 	PHandle *phandle = (PHandle *)handle;
 
@@ -4238,22 +4259,22 @@ void param_face_add(ParamHandle *handle, ParamKey key, int nverts,
 
 	if (nverts > 4) {
 		/* ngon */
-		p_add_ngon(handle, key, nverts, vkeys, co, uv, pin, select, normal);
+		p_add_ngon(handle, key, nverts, vkeys, co, uv, pin, select, normal, flag);
 	}
 	else if (nverts == 4) {
 		/* quad */
 		if (p_quad_split_direction(phandle, co, vkeys)) {
-			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select);
-			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 2, 3, pin, select);
+			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select, flag);
+			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 2, 3, pin, select, flag);
 		}
 		else {
-			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 3, pin, select);
-			p_face_add_construct(phandle, key, vkeys, co, uv, 1, 2, 3, pin, select);
+			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 3, pin, select, flag);
+			p_face_add_construct(phandle, key, vkeys, co, uv, 1, 2, 3, pin, select, flag);
 		}
 	}
 	else if (!p_face_exists(phandle, vkeys, 0, 1, 2)) {
 		/* triangle */
-		p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select);
+		p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select, flag);
 	}
 }
 
@@ -4747,11 +4768,6 @@ LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst)
 		vert->u.id = index; /* Abuse lscm id field */
 	}
 
-	//src->flag &= ~PVERT_MARKED;
-	//printf(" src unmarked, index: %i \n", src->u.id);
-	//dst->flag &= ~PVERT_MARKED;
-	//printf(" src unmarked, index: %i \n", dst->u.id);
-
 	/* alloc */
 	totvert = chart->nverts;
 	verts_prev = MEM_callocN(sizeof(*verts_prev) * totvert, __func__);
@@ -4798,8 +4814,10 @@ void param_shortest_path(ParamHandle *handle, bool *p_found)
 	int i, j;
 	bool success = false;
 
-	if (phandle->ncharts == 0)
+	if (phandle->ncharts == 0) {
+		*p_found = success;
 		return;
+	}
 
 	/* Get src and dst */
 	for (i = 0; i < phandle->ncharts; i++) {
@@ -4819,16 +4837,27 @@ void param_shortest_path(ParamHandle *handle, bool *p_found)
 					}
 				}
 			}
+
+			/* ToDo (SaphireS): Possible that more than one instance of src selected in different charts */
 		}
 	}
 
 	/* Connect src and dst */
-
 	LinkNode* path = NULL;
 	if (vert_src && vert_dst){
+		//printf("start path computation!\n");
 		path = p_calc_path_vert(current_chart, vert_src, vert_dst);
 		if (path) {
-			/* TODO (SaphireS): Set *_SELECT tag for verts/edges */
+			printf("--- DEBUG (SaphireS): path found\n");
+			LinkNode *node = NULL;
+			node = path;
+			do {
+				//printf("---tagging vert/edge for selection\n");
+				PVert *v = node->link;
+				v->flag |= PVERT_SELECT; /* ToDo: Necessary to set vert selection since only edge has orig_flag ?*/
+				PEdge *e = v->edge;
+				e->flag |= PEDGE_SELECT;
+			} while (node = node->next);
 			success = true;
 		}
 	}

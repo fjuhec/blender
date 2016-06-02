@@ -235,6 +235,7 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 	ParamBool *select = BLI_array_alloca(select, efa->len);
 	float **co = BLI_array_alloca(co, efa->len);
 	float **uv = BLI_array_alloca(uv, efa->len);
+	int *flag = BLI_array_alloca(flag, efa->len);
 	int i;
 
 	BMIter liter;
@@ -251,10 +252,11 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 		co[i] = l->v->co;
 		uv[i] = luv->uv;
 		pin[i] = (luv->flag & MLOOPUV_PINNED) != 0;
+		flag[i] = luv->flag;
 		select[i] = uvedit_uv_select_test(scene, l, cd_loop_uv_offset);
 	}
 
-	param_face_add(handle, key, i, vkeys, co, uv, pin, select, efa->no);
+	param_face_add(handle, key, i, vkeys, co, uv, pin, select, efa->no, flag);
 }
 
 static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
@@ -325,7 +327,7 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 
 
 static void texface_from_original_index(BMFace *efa, int index, float **uv, ParamBool *pin, ParamBool *select,
-                                        Scene *scene, const int cd_loop_uv_offset)
+                                        int *flag, Scene *scene, const int cd_loop_uv_offset)
 {
 	BMLoop *l;
 	BMIter liter;
@@ -334,6 +336,7 @@ static void texface_from_original_index(BMFace *efa, int index, float **uv, Para
 	*uv = NULL;
 	*pin = 0;
 	*select = 1;
+	*flag = 0;
 
 	if (index == ORIGINDEX_NONE)
 		return;
@@ -344,6 +347,7 @@ static void texface_from_original_index(BMFace *efa, int index, float **uv, Para
 			*uv = luv->uv;
 			*pin = (luv->flag & MLOOPUV_PINNED) ? 1 : 0;
 			*select = uvedit_uv_select_test(scene, l, cd_loop_uv_offset);
+			*flag = luv->flag;
 			break;
 		}
 	}
@@ -445,6 +449,7 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		ParamBool pin[4], select[4];
 		float *co[4];
 		float *uv[4];
+		int flag[4];
 		BMFace *origFace = faceMap[i];
 
 		if (scene->toolsettings->uv_flag & UV_SYNC_SELECTION) {
@@ -473,12 +478,12 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		
 		/* This is where all the magic is done. If the vertex exists in the, we pass the original uv pointer to the solver, thus
 		 * flushing the solution to the edit mesh. */
-		texface_from_original_index(origFace, origVertIndices[mloop[0].v], &uv[0], &pin[0], &select[0], scene, cd_loop_uv_offset);
-		texface_from_original_index(origFace, origVertIndices[mloop[1].v], &uv[1], &pin[1], &select[1], scene, cd_loop_uv_offset);
-		texface_from_original_index(origFace, origVertIndices[mloop[2].v], &uv[2], &pin[2], &select[2], scene, cd_loop_uv_offset);
-		texface_from_original_index(origFace, origVertIndices[mloop[3].v], &uv[3], &pin[3], &select[3], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[0].v], &uv[0], &pin[0], &select[0], &flag[0], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[1].v], &uv[1], &pin[1], &select[1], &flag[1], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[2].v], &uv[2], &pin[2], &select[2], &flag[2], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[3].v], &uv[3], &pin[3], &select[3], &flag[3], scene, cd_loop_uv_offset);
 
-		param_face_add(handle, key, 4, vkeys, co, uv, pin, select, NULL);
+		param_face_add(handle, key, 4, vkeys, co, uv, pin, select, NULL, flag);
 	}
 
 	/* these are calculated from original mesh too */
@@ -721,7 +726,7 @@ bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm)
 	param_shortest_path(handle, &path_found);
 	param_flush(handle);
 	param_delete(handle);
-	return path_found; /* TODO (SaphireS): WIP Code, return true only if a valid path was found*/
+	return path_found; 
 }
 
 /* ******************** Pack Islands operator **************** */
