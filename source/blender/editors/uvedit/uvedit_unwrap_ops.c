@@ -716,11 +716,12 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm) 
 {
 	ParamHandle *handle;
+	bool path_found = false;
 	handle = construct_param_handle(scene, ob, bm, false, false, false, true);
-	param_shortest_path(handle);
+	param_shortest_path(handle, &path_found);
 	param_flush(handle);
 	param_delete(handle);
-	return true; /* TODO (SaphireS): WIP Code, return true only if a valid path was found*/
+	return path_found; /* TODO (SaphireS): WIP Code, return true only if a valid path was found*/
 }
 
 /* ******************** Pack Islands operator **************** */

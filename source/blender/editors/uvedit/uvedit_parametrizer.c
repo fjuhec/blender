@@ -34,6 +34,7 @@
 #include "BLI_heap.h"
 #include "BLI_boxpack2d.h"
 #include "BLI_convexhull2d.h"
+#include "BLI_linklist.h"
 
 #include "uvedit_parametrizer.h"
 
@@ -4705,9 +4706,134 @@ void param_scale_bounds(ParamHandle *handle)
 	}
 }
 
-void param_shortest_path(ParamHandle *handle)
+void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_prev, float *cost)
 {
-	/* TODO (SaphireS): Shortest Path computation here */
+	const int v_a_index = v_a->u.id;
+	PEdge *e;
+	e = v_a->edge->next;
+
+	do {
+		PVert *v_b = e->vert; 
+
+		if (!(v_b->flag & PVERT_MARKED)) {
+			/* v_b not visited yet, check it out! */
+			const int v_b_index = v_b->u.id;
+			const float cost_cut = len_v2v2(v_a->uv, v_b->uv); /* params->use_topology_distance ? 1.0f : len_v2v2(v_a->uv, v_b->uv); */
+			const float cost_new = cost[v_a_index] + cost_cut;
+
+			if (cost[v_b_index] > cost_new) {
+				cost[v_b_index] = cost_new;
+				v_prev[v_b_index] = v_a;
+				BLI_heap_insert(heap, cost_new, v_b);
+			}
+		}
+
+		e = p_wheel_edge_next(e);
+	} while (e && (e != v_a->edge));
+}
+
+LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst)
+{
+	LinkNode *path = NULL;
+	Heap *heap;
+	PVert *vert;
+	PVert **verts_prev;
+	float *cost;
+	int totvert, index;
+
+	/* Clear flags */
+	for (vert = chart->verts, index = 0; vert; vert = vert->nextlink, index++) {
+		vert->flag &= ~PVERT_MARKED;
+		vert->u.id = index; /* Abuse lscm id field */
+	}
+
+	//src->flag &= ~PVERT_MARKED;
+	//printf(" src unmarked, index: %i \n", src->u.id);
+	//dst->flag &= ~PVERT_MARKED;
+	//printf(" src unmarked, index: %i \n", dst->u.id);
+
+	/* alloc */
+	totvert = chart->nverts;
+	verts_prev = MEM_callocN(sizeof(*verts_prev) * totvert, __func__);
+	cost = MEM_mallocN(sizeof(*cost) * totvert, __func__);
+
+	copy_vn_fl(cost, totvert, 1e20f);
+
+	/* regular dijkstra shortest path */
+	heap = BLI_heap_new();
+	BLI_heap_insert(heap, 0.0f, src);
+	cost[src->u.id] = 0.0f;
+
+	while (!BLI_heap_is_empty(heap)) {
+		vert = BLI_heap_popmin(heap);
+
+		if (vert == dst) {
+			break;
+		}		
+
+		if (!(vert->flag & PVERT_MARKED)) {
+			vert->flag |= PVERT_MARKED;
+			p_verttag_add_adjacent(heap, chart, vert, verts_prev, cost);
+		}
+	}
+
+	if (vert == dst) {
+		do {
+			BLI_linklist_prepend(&path, vert);
+		} while (vert = verts_prev[vert->u.id]);
+	}
+
+	MEM_freeN(verts_prev);
+	MEM_freeN(cost);
+	BLI_heap_free(heap, NULL);
+
+	return path;
+}
+
+void param_shortest_path(ParamHandle *handle, bool *p_found)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart, *current_chart;
+	PVert *v, *vert_src = NULL, *vert_dst = NULL;
+	int i, j;
+	bool success = false;
+
+	if (phandle->ncharts == 0)
+		return;
+
+	/* Get src and dst */
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+
+		for (v = chart->verts; v; v = v->nextlink) {
+
+			if (v->flag & PVERT_SELECT) {
+
+				if (vert_src == NULL) {
+					vert_src = v;
+					current_chart = chart;
+				}
+				else if (vert_dst == NULL) {
+					if (current_chart == chart) {
+						vert_dst = v;
+					}
+				}
+			}
+		}
+	}
+
+	/* Connect src and dst */
+
+	LinkNode* path = NULL;
+	if (vert_src && vert_dst){
+		path = p_calc_path_vert(current_chart, vert_src, vert_dst);
+		if (path) {
+			/* TODO (SaphireS): Set *_SELECT tag for verts/edges */
+			success = true;
+		}
+	}
+
+	*p_found = success;
 }
 
 void param_flush(ParamHandle *handle)

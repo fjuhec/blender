@@ -115,7 +115,7 @@ void param_scale_bounds(ParamHandle *handle);
 
 /* Select shortest Path */
 
-void param_shortest_path(ParamHandle *handle);
+void param_shortest_path(ParamHandle *handle, bool *p_found);
 
 /* Flushing */
 
