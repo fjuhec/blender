@@ -12,6 +12,9 @@ extern "C" {
 #include "device.hpp"
 #include <iostream>
 
+#define FREE_OBJECTS  delete render_context;\
+BLI_mutex_unlock(&s_compositorMutex);
+
 static ThreadMutex s_compositorMutex;
 static bool is_compositorMutex_init = false;
 
@@ -61,11 +64,16 @@ void COM_execute(RenderData *rd, Scene *scene, bNodeTree *editingtree, int rende
   // UNROLL editingtree
   Compositor::Node* node = Compositor::unroll(editingtree, render_context);
   if (node != NULL) {
-    // SELECT DEVICE
-    Compositor::Device::Device *device = Compositor::Device::Device::create_device(node);
 
     // ALLOCATE output
     Compositor::Output output(editingtree, node, rd, viewName, viewSettings, displaySettings);
+    if (output.buffer == NULL) {
+        FREE_OBJECTS
+        return;
+    }
+
+    // SELECT DEVICE
+    Compositor::Device::Device *device = Compositor::Device::Device::create_device(node);
 
     // Generate Tiles
     Compositor::TileManager tile_manager(&output);
@@ -89,8 +97,7 @@ void COM_execute(RenderData *rd, Scene *scene, bNodeTree *editingtree, int rende
     tile_manager.delete_tiles(tiles);
   }
 
-  delete render_context;
-  BLI_mutex_unlock(&s_compositorMutex);
+  FREE_OBJECTS
 }
 
 
