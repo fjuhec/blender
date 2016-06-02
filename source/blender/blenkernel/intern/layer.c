@@ -31,6 +31,8 @@
  * TODO sorting, renaming, drawing, filtering
  */
 
+#include <stdlib.h>
+
 #include "BKE_context.h"
 #include "BKE_layer.h" /* own include */
 

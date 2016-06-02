@@ -22,6 +22,8 @@
  *  \ingroup splayers
  */
 
+#include <stdlib.h>
+
 #include "BKE_context.h"
 #include "BKE_layer.h"
 
