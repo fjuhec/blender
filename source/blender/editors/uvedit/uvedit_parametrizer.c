@@ -4862,6 +4862,7 @@ void param_shortest_path(ParamHandle *handle, bool *p_found)
 				e->flag |= PEDGE_SELECT;
 			} while (node = node->next);
 			success = true;
+			BLI_linklist_free(path, NULL);
 		}
 	}
 
