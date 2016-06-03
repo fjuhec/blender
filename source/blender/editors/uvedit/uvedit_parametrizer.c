@@ -684,7 +684,7 @@ static void p_flush_uvs(PHandle *handle, PChart *chart)
 	/* ToDo (SaphireS): Find sensible variable names*/
 	int MLOOPEDGE_SELECTED = (1 << 0); /* MLOOPUV_EDGESEL*/
 	int MLOOPVERT_SELECTED = (1 << 1); /* MLOOPUV_VERTSEL*/
-
+	printf("--- DEBUG (SaphireS): p_flush_uvs() reached\n");
 	for (e = chart->edges; e; e = e->nextlink) {
 		if (e->orig_uv) {
 			e->orig_uv[0] = e->vert->uv[0] / handle->aspx;
@@ -694,11 +694,14 @@ static void p_flush_uvs(PHandle *handle, PChart *chart)
 		/* ToDo (SaphireS): Move to own p_flush_uvs_selection() function ?*/
 		if (e->flag & PEDGE_SELECT) {
 			//if (e->orig_flag) {
+			printf("--- DEBUG (SaphireS): PEDGE_SELECT tagged edge found\n");
 				//printf("---param_flush_uvs: orig_flag found\n");
-				sel_flag = e->orig_flag;
+				sel_flag = *e->orig_flag;
 				sel_flag |= MLOOPEDGE_SELECTED;/* MLOOPUV_EDGESEL*/
 				sel_flag |= MLOOPVERT_SELECTED; /* MLOOPUV_VERTSEL*/
-				e->orig_flag = sel_flag; //sel_flag
+				printf("--- DEBUG (SaphireS): before *(e->orig_flag) = sel_flag;\n");
+				*(e->orig_flag) = sel_flag; //sel_flag
+				printf("--- DEBUG (SaphireS): after *(e->orig_flag) = sel_flag;\n");
 			//}
 		}
 	}
@@ -1117,7 +1120,7 @@ static PFace *p_face_add(PHandle *handle)
 
 static PFace *p_face_add_construct(PHandle *handle, ParamKey key, ParamKey *vkeys,
                                    float *co[4], float *uv[4], int i1, int i2, int i3,
-                                   ParamBool *pin, ParamBool *select, int flag[4])
+                                   ParamBool *pin, ParamBool *select, int **flag)
 {
 	PFace *f = p_face_add(handle);
 	PEdge *e1 = f->edge, *e2 = e1->next, *e3 = e2->next;
@@ -4178,7 +4181,7 @@ void param_delete(ParamHandle *handle)
 
 static void p_add_ngon(ParamHandle *handle, ParamKey key, int nverts,
                        ParamKey *vkeys, float **co, float **uv,
-					   ParamBool *pin, ParamBool *select, const float normal[3], int *flag)
+					   ParamBool *pin, ParamBool *select, const float normal[3], int **flag)
 {
 	int *boundary = BLI_array_alloca(boundary, nverts);
 
@@ -4232,7 +4235,7 @@ static void p_add_ngon(ParamHandle *handle, ParamKey key, int nverts,
 			ParamKey tri_vkeys[3] = {vkeys[v0], vkeys[v1], vkeys[v2]};
 			float *tri_co[3] = {co[v0], co[v1], co[v2]};
 			float *tri_uv[3] = {uv[v0], uv[v1], uv[v2]};
-			int tri_flag[3] = {flag[v0], flag[v1], flag[v2]};
+			int *tri_flag[3] = {flag[v0], flag[v1], flag[v2]};
 			ParamBool tri_pin[3] = {pin[v0], pin[v1], pin[v2]};
 			ParamBool tri_select[3] = {select[v0], select[v1], select[v2]};
 
@@ -4249,7 +4252,7 @@ static void p_add_ngon(ParamHandle *handle, ParamKey key, int nverts,
 
 void param_face_add(ParamHandle *handle, ParamKey key, int nverts,
                     ParamKey *vkeys, float *co[4], float *uv[4],
-                    ParamBool *pin, ParamBool *select, float normal[3], int flag[4])
+                    ParamBool *pin, ParamBool *select, float normal[3], int **flag)
 {
 	PHandle *phandle = (PHandle *)handle;
 

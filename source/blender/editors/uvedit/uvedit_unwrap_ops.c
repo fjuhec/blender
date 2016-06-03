@@ -235,7 +235,7 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 	ParamBool *select = BLI_array_alloca(select, efa->len);
 	float **co = BLI_array_alloca(co, efa->len);
 	float **uv = BLI_array_alloca(uv, efa->len);
-	int *flag = BLI_array_alloca(flag, efa->len);
+	int **flag = BLI_array_alloca(flag, efa->len);
 	int i;
 
 	BMIter liter;
@@ -252,7 +252,7 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 		co[i] = l->v->co;
 		uv[i] = luv->uv;
 		pin[i] = (luv->flag & MLOOPUV_PINNED) != 0;
-		flag[i] = luv->flag;
+		flag[i] = &(luv->flag);
 		select[i] = uvedit_uv_select_test(scene, l, cd_loop_uv_offset);
 	}
 
