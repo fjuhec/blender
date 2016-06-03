@@ -1511,9 +1511,9 @@ static void rna_def_curve(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Map Taper", "Map effect of taper object on actually beveled curve");
 	RNA_def_property_update(prop, 0, "rna_Curve_update_data");
     
-	prop = RNA_def_property(srna, "extrude_bezier_symmetric", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", CU_SYM_EXTRUDE);
-	RNA_def_property_ui_text(prop, "Extrude Symmetricaly", "Extrude the Bezier curve the same number of Blender Units in both directions");
+	prop = RNA_def_property(srna, "extrude_bezier_unidirectional", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", CU_UNI_EXTRUDE);
+	RNA_def_property_ui_text(prop, "Unidirectional Extrude", "Extrude the Bezier curve only in one direction");
 	RNA_def_property_update(prop, 0, "rna_Curve_update_data");
     
     prop = RNA_def_property(srna, "reverse_direction", PROP_BOOLEAN, PROP_NONE);
