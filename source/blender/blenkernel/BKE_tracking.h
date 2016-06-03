@@ -294,6 +294,8 @@ void BKE_tracking_correspondence_unique_name(struct ListBase *tracksbase, struct
 struct MovieTrackingCorrespondence *BKE_tracking_correspondence_add(struct MovieTracking *tracking, struct ListBase *corr_base,
                                                                     struct MovieTrackingTrack *primary_track,
                                                                     struct MovieTrackingTrack *witness_track);
+void BKE_tracking_multiview_reconstruction_solve(struct MovieMultiviewReconstructContext *context, short *stop, short *do_update,
+                                                 float *progress, char *stats_message, int message_size);
 
 #define TRACK_SELECTED(track)               ((track)->flag & SELECT || (track)->pat_flag & SELECT || (track)->search_flag & SELECT)
 

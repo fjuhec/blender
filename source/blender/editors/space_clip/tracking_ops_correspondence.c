@@ -299,12 +299,12 @@ static void solve_multiview_updatejob(void *scv)
 static void solve_multiview_startjob(void *scv, short *stop, short *do_update, float *progress)
 {
 	SolveMultiviewJob *scj = (SolveMultiviewJob *)scv;
-	BKE_tracking_reconstruction_solve(scj->context,
-	                                  stop,
-	                                  do_update,
-	                                  progress,
-	                                  scj->stats_message,
-	                                  sizeof(scj->stats_message));
+	BKE_tracking_multiview_reconstruction_solve(scj->context,
+	                                            stop,
+	                                            do_update,
+	                                            progress,
+	                                            scj->stats_message,
+	                                            sizeof(scj->stats_message));
 }
 
 static void solve_multiview_freejob(void *scv)
