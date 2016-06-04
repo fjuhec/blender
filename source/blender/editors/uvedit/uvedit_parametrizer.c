@@ -4733,12 +4733,24 @@ void param_scale_bounds(ParamHandle *handle)
 void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_prev, float *cost)
 {
 	const int v_a_index = v_a->u.id;
-	PEdge *e;
-	e = v_a->edge->next;
+	PEdge *e, *we, *lastwe = NULL;
+	e = v_a->edge;
 
+	//printf("add_adjacent for v_a: %i\n", v_a->u.id);
+	//printf("v_a->edge->next->vert: %i\n", v_a->edge->next->vert->u.id);
+
+	/* rewind to start */
+	lastwe = e;
+	for (we = p_wheel_edge_prev(e); we && (we != e); we = p_wheel_edge_prev(we)) {
+		lastwe = we;
+		//printf("rewind to edge of vert: %i\n", we->vert->u.id);
+	}
+	
+	we = lastwe;
+	//for (we = lastwe; we; we = p_wheel_edge_next(we)) {
 	do {
-		PVert *v_b = e->vert; 
-
+		PVert *v_b = we->next->vert; 
+		//printf("----add_adjacent considering v_b: %i\n", v_b->u.id);
 		if (!(v_b->flag & PVERT_MARKED)) {
 			/* v_b not visited yet, check it out! */
 			const int v_b_index = v_b->u.id;
@@ -4752,8 +4764,9 @@ void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_pre
 			}
 		}
 
-		e = p_wheel_edge_next(e);
-	} while (e && (e != v_a->edge));
+		we = p_wheel_edge_next(we);
+	} while (we && (we != lastwe));
+	//}
 }
 
 LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst)
@@ -4833,11 +4846,13 @@ void param_shortest_path(ParamHandle *handle, bool *p_found)
 				if (vert_src == NULL) {
 					vert_src = v;
 					current_chart = chart;
+					//printf("--- DEBUG (SaphireS): vert_src found\n");
 				}
 				else if (vert_dst == NULL) {
-					if (current_chart == chart) {
+					//if (current_chart == chart) {
 						vert_dst = v;
-					}
+						//printf("--- DEBUG (SaphireS): vet_dsc found\n");
+					//}
 				}
 			}
 
@@ -4851,7 +4866,7 @@ void param_shortest_path(ParamHandle *handle, bool *p_found)
 		//printf("start path computation!\n");
 		path = p_calc_path_vert(current_chart, vert_src, vert_dst);
 		if (path) {
-			printf("--- DEBUG (SaphireS): path found\n");
+			//printf("--- DEBUG (SaphireS): path found\n");
 			LinkNode *node = NULL;
 			node = path;
 			do {
