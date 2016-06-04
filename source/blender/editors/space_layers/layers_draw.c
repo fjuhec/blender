@@ -92,8 +92,8 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 
 	const float ofs_x = layer_tile_indent_level_get(litem) * LAYERITEM_INDENT_SIZE;
 	const float ofs_y = drawinfo->size_y;
-	rctf rect = {ofs_x, drawinfo->ar->winx, -v2d->cur.ymin - ofs_y - header_y};
-	rect.ymax = rect.ymin + header_y;
+	const rctf rect = {-v2d->cur.xmin + ofs_x, drawinfo->ar->winx,
+	                   -v2d->cur.ymin - ofs_y - header_y, -v2d->cur.ymin - ofs_y};
 	int size_y = 0;
 	int tile_size_y = 0;
 
@@ -119,7 +119,7 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 	else {
 		uiLayout *layout = UI_block_layout(
 		        block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-		        -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y, header_y, 0, 0, drawinfo->style);
+		        rect.xmin, rect.ymax, BLI_rctf_size_y(&rect), 0, 0, drawinfo->style);
 		litem->draw(drawinfo->C, litem, layout);
 		uiItemL(layout, "", 0); /* XXX without this editing last item causes crashes */
 		UI_block_layout_resolve(block, NULL, NULL);
@@ -129,7 +129,7 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 	if (expanded) {
 		uiLayout *layout = UI_block_layout(
 		        block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL,
-		        -v2d->cur.xmin + ofs_x, -v2d->cur.ymin - ofs_y - header_y, BLI_rctf_size_x(&rect), 0, 0, drawinfo->style);
+		        rect.xmin, rect.ymin, BLI_rctf_size_x(&rect), 0, 0, drawinfo->style);
 		litem->draw_settings(drawinfo->C, litem, layout);
 
 		UI_block_layout_resolve(block, NULL, &size_y);
