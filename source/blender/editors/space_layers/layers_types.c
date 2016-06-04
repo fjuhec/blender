@@ -29,6 +29,7 @@
 #include "BKE_layer.h"
 
 #include "DNA_ID.h"
+#include "DNA_space_types.h"
 
 #include "ED_object.h"
 

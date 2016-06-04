@@ -40,6 +40,7 @@
 #include "BLI_string.h"
 
 #include "DNA_defs.h"
+#include "DNA_space_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -58,9 +59,6 @@ LayerTree *BKE_layertree_new(const eLayerTree_Type type)
 	return ltree;
 }
 
-/**
- * \note Recursive
- */
 void BKE_layertree_delete(LayerTree *ltree)
 {
 	for (LayerTreeItem *litem = ltree->items.first, *next_litem; litem; litem = next_litem) {
@@ -101,6 +99,11 @@ bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, vo
 	return layertree_iterate_list(&ltree->items, foreach, customdata);
 }
 
+int BKE_layertree_get_totitems(const LayerTree *ltree)
+{
+	return ltree->tot_items;
+}
+
 /** \} */ /* Layer Tree */
 
 
@@ -134,6 +137,8 @@ LayerTreeItem *BKE_layeritem_add(
 	litem->draw = draw;
 	litem->draw_settings = draw_settings;
 
+	tree->tot_items++;
+
 	if (parent) {
 		BLI_assert(ELEM(parent->type, LAYER_ITEMTYPE_GROUP));
 		BLI_assert(parent->tree == tree);
@@ -158,12 +163,14 @@ LayerTreeItem *BKE_layeritem_add(
 void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children)
 {
 	BLI_remlink(litem->parent ? &litem->parent->childs : &litem->tree->items, litem);
+	litem->tree->tot_items--;
 
 	if (remove_children) {
 		for (LayerTreeItem *child = litem->childs.first, *child_next; child; child = child_next) {
 			child_next = child->next;
 			BKE_layeritem_remove(child, true);
 		}
+		BLI_assert(BLI_listbase_is_empty(&litem->childs));
 	}
 
 	MEM_freeN(litem);

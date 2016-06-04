@@ -58,8 +58,7 @@ static SpaceLink *layers_new(const bContext *C)
 	slayer = MEM_callocN(sizeof(SpaceLayers), __func__);
 	slayer->spacetype = SPACE_LAYERS;
 	slayer->last_selected = -1;
-	slayer->act_tree = scene->object_layers;
-	slayer->tiles = BLI_ghash_ptr_new("SpaceLayers.tiles hash");
+	layers_data_refresh(scene, slayer);
 
 	/* header */
 	ar = MEM_callocN(sizeof(ARegion), "header for layer manager");
@@ -80,7 +79,9 @@ static SpaceLink *layers_new(const bContext *C)
 static void layers_free(SpaceLink *sl)
 {
 	SpaceLayers *slayer = (SpaceLayers *)sl;
-	BLI_ghash_free(slayer->tiles, NULL, MEM_freeN);
+	if (slayer->tiles) {
+		layers_tilehash_delete(slayer);
+	}
 }
 
 static SpaceLink *layers_duplicate(SpaceLink *sl)
@@ -105,7 +106,12 @@ static void layer_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 static void layers_main_region_draw(const bContext *C, ARegion *ar)
 {
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	View2D *v2d = &ar->v2d;
+
+	if (slayer->flag & SL_LAYERDATA_REFRESH) {
+		layers_data_refresh(CTX_data_scene(C), slayer);
+	}
 
 	/* v2d has initialized flag, so this call will only set the mask correct */
 	UI_view2d_region_reinit(v2d, V2D_COMMONVIEW_LIST, ar->winx, ar->winy);

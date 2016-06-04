@@ -66,6 +66,9 @@ struct MovieClip;
 struct MovieClipScopes;
 struct Mask;
 struct BLI_mempool;
+struct bContext;
+struct LayerTreeItem;
+struct uiLayout;
 
 
 /* SpaceLink (Base) ==================================== */
@@ -1334,10 +1337,48 @@ typedef enum eSpaceClip_GPencil_Source {
 
 /* Layer Manager ======================================= */
 
+typedef struct LayerTree {
+	int type; /* eLayerTree_Type */
+
+	unsigned int tot_items; /* total items of *all hierarchy levels*, not only what's in "items" below */
+	/* LayerTreeItem - Only items of the first level in the hierarchy, these may have children then.
+	 * TODO check if worth using array instead */
+	ListBase items;
+} LayerTree;
+
+/**
+ * \brief An item of the layer tree.
+ * Used as a base struct for the individual layer tree item types (layer, layer group, compositing layer, etc).
+ */
+typedef struct LayerTreeItem {
+	struct LayerTreeItem *next, *prev;
+
+	int type, pad; /* eLayerTreeItem_Type */
+	char name[64]; /* MAX_NAME */
+
+	struct LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
+	struct LayerTreeItem *parent; /* the group this item belongs to */
+	ListBase childs;
+
+	/* item is grayed out if this check fails */
+	short (*poll)(const struct bContext *, struct LayerTreeItem *); /* LayerItemPollFunc */
+	/* drawing of the item in the list */
+	void (*draw)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawFunc */
+	/* drawing of the expanded layer settings (gear wheel icon) */
+	void (*draw_settings)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawSettingsFunc */
+} LayerTreeItem;
+
+/* SpaceLayers->flag */
+typedef enum eSpaceLayers_Flag {
+	SL_LAYERDATA_REFRESH = (1 << 0), /* recreate/update SpaceLayers layer data, needed for undo/read/write */
+} eSpaceLayers_Flag;
+
 typedef struct SpaceLayers {
 	SpaceLink *next, *prev;
 	ListBase regionbase;        /* storage of regions for inactive spaces */
-	int spacetype, pad;
+	int spacetype;
+
+	int flag; /* eSpaceLayers_Flag */
 
 	/* The currently shown layer tree (only object_layer tree righ now). */
 	struct LayerTree *act_tree;

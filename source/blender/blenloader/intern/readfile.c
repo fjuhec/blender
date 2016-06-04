@@ -5802,6 +5802,20 @@ static void direct_link_view_settings(FileData *fd, ColorManagedViewSettings *vi
 		direct_link_curvemapping(fd, view_settings->curve_mapping);
 }
 
+#ifdef WITH_ADVANCED_LAYERS
+/**
+ * \note Recursive.
+ */
+static void direct_link_layeritems(FileData *fd, ListBase *layeritems)
+{
+	link_list(fd, layeritems);
+	for (LayerTreeItem *litem = layeritems->first; litem; litem = litem->next) {
+		litem->parent = newdataadr(fd, litem->parent);
+		direct_link_layeritems(fd, &litem->childs);
+	}
+}
+#endif
+
 static void direct_link_scene(FileData *fd, Scene *sce)
 {
 	Editing *ed;
@@ -6031,6 +6045,12 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 			rbw->ltime = (float)rbw->pointcache->startframe;
 		}
 	}
+#ifdef WITH_ADVANCED_LAYERS
+	sce->object_layers = newdataadr(fd, sce->object_layers);
+	if (sce->object_layers) {
+		direct_link_layeritems(fd, &sce->object_layers->items);
+	}
+#endif
 
 	sce->preview = direct_link_preview_image(fd, sce->preview);
 
@@ -6370,6 +6390,12 @@ static void lib_link_screen(FileData *fd, Main *main)
 						
 						slogic->gpd = newlibadr_us(fd, sc->id.lib, slogic->gpd);
 					}
+#ifdef WITH_ADVANCED_LAYERS
+					else if (sl->spacetype == SPACE_LAYERS) {
+						SpaceLayers *slayer = (SpaceLayers *)sl;
+						slayer->flag |= SL_LAYERDATA_REFRESH;
+					}
+#endif
 				}
 			}
 			sc->id.tag &= ~LIB_TAG_NEED_LINK;
@@ -6725,6 +6751,12 @@ void blo_lib_link_screen_restore(Main *newmain, bScreen *curscreen, Scene *cursc
 					
 					slogic->gpd = restore_pointer_by_name(newmain, (ID *)slogic->gpd, USER_REAL);
 				}
+#ifdef WITH_ADVANCED_LAYERS
+				else if (sl->spacetype == SPACE_LAYERS) {
+					SpaceLayers *slayer = (SpaceLayers *)sl;
+					slayer->flag |= SL_LAYERDATA_REFRESH;
+				}
+#endif
 			}
 		}
 	}
@@ -7117,6 +7149,13 @@ static bool direct_link_screen(FileData *fd, bScreen *sc)
 				sclip->scopes.track_preview = NULL;
 				sclip->scopes.ok = 0;
 			}
+#ifdef WITH_ADVANCED_LAYERS
+			else if (sl->spacetype == SPACE_LAYERS) {
+				SpaceLayers *slayer = (SpaceLayers *)sl;
+				slayer->flag |= SL_LAYERDATA_REFRESH;
+				slayer->tiles = newdataadr(fd, slayer->tiles);
+			}
+#endif
 		}
 		
 		BLI_listbase_clear(&sa->actionzones);

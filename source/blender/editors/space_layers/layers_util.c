@@ -39,6 +39,35 @@
 
 #include "UI_interface.h"
 
+
+static bool layers_tile_recreate_cb(LayerTreeItem *litem, void *customdata)
+{
+	SpaceLayers *slayer = customdata;
+	layers_tile_add(slayer, litem);
+	return true;
+}
+
+/**
+ * Refresh data after undo/file read. Should be called before drawing if SL_LAYERDATA_REFRESH flag is set.
+ */
+void layers_data_refresh(const Scene *scene, SpaceLayers *slayer)
+{
+	slayer->act_tree = scene->object_layers;
+
+	if (slayer->tiles) {
+		layers_tilehash_delete(slayer);
+	}
+	slayer->tiles = BLI_ghash_ptr_new_ex("Layer tiles hash", BKE_layertree_get_totitems(slayer->act_tree));
+	BKE_layertree_iterate(slayer->act_tree, layers_tile_recreate_cb, slayer);
+	slayer->flag &= ~SL_LAYERDATA_REFRESH;
+}
+
+void layers_tilehash_delete(SpaceLayers *slayer)
+{
+	BLI_ghash_free(slayer->tiles, NULL, MEM_freeN);
+	slayer->tiles = NULL;
+}
+
 /**
  * Allocate and register a LayerTile for \a litem.
  */

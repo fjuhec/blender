@@ -57,6 +57,8 @@ void object_layer_draw(const struct bContext *C, struct LayerTreeItem *litem, st
 void object_layer_draw_settings(const struct bContext *C, struct LayerTreeItem *litem, struct uiLayout *layout);
 
 /* layers_util.c */
+void       layers_data_refresh(const struct Scene *scene, struct SpaceLayers *slayer);
+void       layers_tilehash_delete(SpaceLayers *slayer);
 LayerTile *layers_tile_add(const struct SpaceLayers *slayer, struct LayerTreeItem *litem);
 void       layers_tile_remove(const struct SpaceLayers *slayer, LayerTile *tile, const bool remove_children);
 LayerTile *layers_tile_find_at_coordinate(

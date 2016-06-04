@@ -2391,6 +2391,20 @@ static void write_paint(WriteData *wd, Paint *p)
 		write_curvemapping(wd, p->cavity_curve);
 }
 
+#ifdef WITH_ADVANCED_LAYERS
+/**
+ * \note Recursive.
+ */
+static void write_layeritems(WriteData *wd, Scene *scene, ListBase *layeritems)
+{
+	for (LayerTreeItem *litem = layeritems->first; litem; litem = litem->next) {
+		writestruct(wd, DATA, "LayerTreeItem", 1, litem);
+		litem->tree = scene->object_layers;
+		write_layeritems(wd, scene, &litem->childs);
+	}
+}
+#endif
+
 static void write_scenes(WriteData *wd, ListBase *scebase)
 {
 	Scene *sce;
@@ -2575,6 +2589,13 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 		
 		write_previews(wd, sce->preview);
 		write_curvemapping_curves(wd, &sce->r.mblur_shutter_curve);
+
+#ifdef WITH_ADVANCED_LAYERS
+		if (sce->object_layers) {
+			writestruct(wd, DATA, "LayerTree", 1, sce->object_layers);
+			write_layeritems(wd, sce, &sce->object_layers->items);
+		}
+#endif
 
 		sce= sce->id.next;
 	}
