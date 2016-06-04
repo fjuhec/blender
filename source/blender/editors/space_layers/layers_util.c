@@ -58,7 +58,7 @@ void layers_data_refresh(const Scene *scene, SpaceLayers *slayer)
 		layers_tilehash_delete(slayer);
 	}
 	slayer->tiles = BLI_ghash_ptr_new_ex("Layer tiles hash", BKE_layertree_get_totitems(slayer->act_tree));
-	BKE_layertree_iterate(slayer->act_tree, layers_tile_recreate_cb, slayer);
+	BKE_layertree_iterate(slayer->act_tree, layers_tile_recreate_cb, slayer, true);
 	slayer->flag &= ~SL_LAYERDATA_REFRESH;
 }
 
@@ -95,7 +95,7 @@ void layers_tile_remove(const SpaceLayers *slayer, LayerTile *tile, const bool r
 {
 	/* remove tiles of children first */
 	if (remove_children) {
-		BKE_layeritem_iterate_childs(tile->litem, layer_tile_remove_children_cb, (void *)slayer);
+		BKE_layeritem_iterate_childs(tile->litem, layer_tile_remove_children_cb, (void *)slayer, true);
 	}
 	/* remove tile */
 	BLI_ghash_remove(slayer->tiles, tile->litem, NULL, MEM_freeN);
@@ -142,7 +142,7 @@ LayerTile *layers_tile_find_at_coordinate(
         int *r_tile_idx)
 {
 	LayerIsectCheckData idata = {slayer, &ar->v2d, co[0], co[1]};
-	BKE_layertree_iterate(slayer->act_tree, layers_tile_find_at_coordinate_cb, &idata);
+	BKE_layertree_iterate(slayer->act_tree, layers_tile_find_at_coordinate_cb, &idata, true);
 
 	/* return values */
 	if (r_tile_idx) {
@@ -166,5 +166,5 @@ static bool layers_has_selected_cb(LayerTreeItem *litem, void *customdata)
 bool layers_any_selected(SpaceLayers *slayer, const LayerTree *ltree)
 {
 	/* returns false if iterator was stopped because layers_has_selected_cb found a selected tile */
-	return BKE_layertree_iterate(ltree, layers_has_selected_cb, slayer) == false;
+	return BKE_layertree_iterate(ltree, layers_has_selected_cb, slayer, true) == false;
 }

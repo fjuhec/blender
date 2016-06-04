@@ -164,7 +164,7 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 	TileDrawInfo drawinfo = {C, ar, slayer, block, UI_style_get_dpi()};
 
 	/* draw tiles */
-	BKE_layertree_iterate(slayer->act_tree, layer_tile_draw_cb, &drawinfo);
+	BKE_layertree_iterate(slayer->act_tree, layer_tile_draw_cb, &drawinfo, true);
 
 	/* fill remaining space with empty boxes */
 	const float tot_fill_tiles = (-ar->v2d.cur.ymin - drawinfo.size_y) / LAYERTILE_HEADER_HEIGHT + 1;

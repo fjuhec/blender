@@ -74,12 +74,17 @@ void BKE_layertree_delete(LayerTree *ltree)
  * Iterate over \a itemlist and all of its children, wrapped by #BKE_layertree_iterate.
  * \note Recursive
  */
-static bool layertree_iterate_list(const ListBase *itemlist, LayerTreeIterFunc foreach, void *customdata)
+static bool layertree_iterate_list(
+        const ListBase *itemlist, LayerTreeIterFunc foreach, void *customdata,
+        const bool inverse)
 {
-	for (LayerTreeItem *litem = itemlist->first, *litem_next; litem; litem = litem_next) {
-		litem_next = litem->next; /* in case list order is changed in callback */
+	for (LayerTreeItem *litem = (inverse ? itemlist->last : itemlist->first), *litem_next;
+	     litem;
+	     litem = litem_next)
+	{
+		litem_next = inverse ? litem->prev : litem->next; /* in case list order is changed in callback */
 		if (foreach(litem, customdata) == false || /* execute callback for current item */
-		    layertree_iterate_list(&litem->childs, foreach, customdata) == false) /* iterate over childs */
+		    layertree_iterate_list(&litem->childs, foreach, customdata, inverse) == false) /* iterate over childs */
 		{
 			return false;
 		}
@@ -94,9 +99,9 @@ static bool layertree_iterate_list(const ListBase *itemlist, LayerTreeIterFunc f
  * \param foreach: Callback that can return false to stop the iteration.
  * \return if the iteration has been stopped because of a callback returning false.
  */
-bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, void *customdata)
+bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, void *customdata, const bool inverse)
 {
-	return layertree_iterate_list(&ltree->items, foreach, customdata);
+	return layertree_iterate_list(&ltree->items, foreach, customdata, inverse);
 }
 
 int BKE_layertree_get_totitems(const LayerTree *ltree)
@@ -198,9 +203,11 @@ void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item)
  * \param foreach: Callback that can return false to stop the iteration.
  * \return if the iteration has been stopped because of a callback returning false.
  */
-bool BKE_layeritem_iterate_childs(LayerTreeItem *litem, LayerTreeIterFunc foreach, void *customdata)
+bool BKE_layeritem_iterate_childs(
+        LayerTreeItem *litem, LayerTreeIterFunc foreach, void *customdata,
+        const bool inverse)
 {
-	return layertree_iterate_list(&litem->childs, foreach, customdata);
+	return layertree_iterate_list(&litem->childs, foreach, customdata, inverse);
 }
 
 /** \} */ /* Layer Tree Item */

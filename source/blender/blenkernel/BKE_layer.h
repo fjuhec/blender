@@ -55,7 +55,7 @@ typedef enum eLayerTree_Type {
 LayerTree *BKE_layertree_new(const eLayerTree_Type type);
 void BKE_layertree_delete(LayerTree *ltree);
 
-bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, void *customdata);
+bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, void *customdata, const bool inverse);
 int  BKE_layertree_get_totitems(const LayerTree *ltree);
 
 /* -------------------------------------------------------------------- */
@@ -79,7 +79,9 @@ void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children);
 
 void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item);
 
-bool BKE_layeritem_iterate_childs(LayerTreeItem *litem, LayerTreeIterFunc foreach, void *customdata);
+bool BKE_layeritem_iterate_childs(
+        LayerTreeItem *litem, LayerTreeIterFunc foreach, void *customdata,
+        const bool inverse);
 
 #endif  /* __BKE_LAYER_H__ */
 

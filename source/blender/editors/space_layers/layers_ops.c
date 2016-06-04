@@ -154,7 +154,7 @@ static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 
 	/* Add selected items to group */
 	GroupAddSelectedData gadata = {slayer, new_group};
-	BKE_layertree_iterate(slayer->act_tree, layer_group_add_selected_cb, &gadata);
+	BKE_layertree_iterate(slayer->act_tree, layer_group_add_selected_cb, &gadata, true);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
 	return OPERATOR_FINISHED;
@@ -247,7 +247,7 @@ static bool layer_select_cb(LayerTreeItem *litem, void *customdata)
 static void layers_selection_set_all(SpaceLayers *slayer, const bool enable)
 {
 	LayerSelectData sdata = {slayer, -1, -1, enable};
-	BKE_layertree_iterate(slayer->act_tree, layer_select_cb, &sdata);
+	BKE_layertree_iterate(slayer->act_tree, layer_select_cb, &sdata, true);
 }
 
 /**
@@ -263,7 +263,7 @@ static bool layers_select_fill(SpaceLayers *slayer, const int from, const int to
 	if (min < 0 || min == max)
 		return false;
 
-	BKE_layertree_iterate(slayer->act_tree, layer_select_cb, &sdata);
+	BKE_layertree_iterate(slayer->act_tree, layer_select_cb, &sdata, true);
 
 	return true;
 }
