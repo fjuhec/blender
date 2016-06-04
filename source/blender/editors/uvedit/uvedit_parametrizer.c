@@ -4822,6 +4822,27 @@ LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst)
 	return path;
 }
 
+void p_vert_select_edges(PVert* v)
+{
+	v->flag |= PVERT_SELECT; 
+	PEdge *e = v->edge;
+	e->flag |= PEDGE_SELECT;
+
+	/* rewind to start */
+	PEdge *we, *lastwe = e;
+	for (we = p_wheel_edge_prev(e); we && (we != e); we = p_wheel_edge_prev(we)) {
+		lastwe = we;
+	}
+
+	we = lastwe;
+	do {
+		we->flag |= PEDGE_SELECT;
+		PVert *v_e = we->vert;
+		v_e->flag |= PVERT_SELECT;
+		we = p_wheel_edge_next(we);
+	} while (we && (we != lastwe));
+}
+
 void param_shortest_path(ParamHandle *handle, bool *p_found)
 {
 	PHandle *phandle = (PHandle *)handle;
@@ -4872,9 +4893,7 @@ void param_shortest_path(ParamHandle *handle, bool *p_found)
 			do {
 				//printf("---tagging vert/edge for selection\n");
 				PVert *v = node->link;
-				v->flag |= PVERT_SELECT; /* ToDo: Necessary to set vert selection since only edge has orig_flag ?*/
-				PEdge *e = v->edge;
-				e->flag |= PEDGE_SELECT;
+				p_vert_select_edges(v);
 			} while (node = node->next);
 			success = true;
 			BLI_linklist_free(path, NULL);
