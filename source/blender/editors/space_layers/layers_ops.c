@@ -388,4 +388,10 @@ void layers_keymap(wmKeyConfig *keyconf)
 
 	WM_keymap_add_item(keymap, "LAYERS_OT_layer_rename", LEFTMOUSE, KM_DBL_CLICK, 0, 0);
 	WM_keymap_add_item(keymap, "LAYERS_OT_layer_rename", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
+
+	WM_keymap_add_item(keymap, "LAYERS_OT_remove", XKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "LAYERS_OT_remove", DELKEY, KM_PRESS, 0, 0);
+
+	WM_keymap_add_item(keymap, "LAYERS_OT_layer_add", NKEY, KM_PRESS, KM_CTRL, 0);
+	WM_keymap_add_item(keymap, "LAYERS_OT_group_add", GKEY, KM_PRESS, KM_CTRL, 0);
 }
