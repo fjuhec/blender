@@ -105,7 +105,7 @@ static void layers_remove_layer_objects(bContext *C, SpaceLayers *slayer, LayerT
 		Base *base = base_link->data;
 		/* remove object from other layers */
 		/* XXX bases could have info about the layers they are in, then
-		 * we could avoid loop in loop and do this all on BKE_level */
+		 * we could avoid loop in loop and do this all on BKE_ level */
 		GHASH_ITER(gh_iter, slayer->tiles) {
 			BKE_objectlayer_base_unassign(base, BLI_ghashIterator_getKey(&gh_iter));
 		}

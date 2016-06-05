@@ -1369,7 +1369,6 @@ typedef struct LayerTreeItem {
 
 	/* Optional free callback. Don't free item itself! */
 	void (*free)(struct LayerTreeItem *);
-	void *free_customdata;
 } LayerTreeItem;
 
 /* SpaceLayers->flag */
