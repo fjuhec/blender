@@ -89,17 +89,22 @@ enum {
 
 static void layers_remove_layer_objects(bContext *C, SpaceLayers *slayer, LayerTreeItem *litem)
 {
+	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 	struct Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-	ListBase remlist = {NULL};
-	GHashIterator gh_iter;
 
-	GHASH_ITER(gh_iter, oblayer->basehash) {
+	ListBase remlist = {NULL};
+	const unsigned int tot_bases = BLI_ghash_size(oblayer->basehash);
+	LinkData *base_links = BLI_array_alloca(base_links, tot_bases);
+	GHashIterator gh_iter;
+	int i;
+
+	GHASH_ITER_INDEX(gh_iter, oblayer->basehash, i) {
 		Base *base = BLI_ghashIterator_getValue(&gh_iter);
-		LinkData *base_link = BLI_genericNodeN(base);
-		BLI_addhead(&remlist, base_link);
+		base_links[i].data = base;
+		BLI_addhead(&remlist, &base_links[i]);
 	}
+	BLI_assert(tot_bases == i);
 
 	for (LinkData *base_link = remlist.first, *baselink_next; base_link; base_link = baselink_next) {
 		Base *base = base_link->data;
@@ -112,7 +117,7 @@ static void layers_remove_layer_objects(bContext *C, SpaceLayers *slayer, LayerT
 		ED_base_object_free_and_unlink(bmain, scene, base);
 
 		baselink_next = base_link->next;
-		BLI_freelinkN(&remlist, base_link);
+		BLI_remlink(&remlist, base_link);
 	}
 	BLI_assert(BLI_listbase_is_empty(&remlist));
 
