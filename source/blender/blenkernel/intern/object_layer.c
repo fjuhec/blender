@@ -36,7 +36,10 @@
 static void objectlayer_free(LayerTreeItem *litem)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-	BLI_ghash_free(oblayer->basehash, NULL, NULL);
+	if (oblayer->basehash) {
+		BLI_ghash_free(oblayer->basehash, NULL, NULL);
+		oblayer->basehash = NULL;
+	}
 }
 
 LayerTreeItem *BKE_objectlayer_add(

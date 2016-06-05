@@ -5811,6 +5811,10 @@ static void direct_link_layeritems(FileData *fd, ListBase *layeritems)
 	link_list(fd, layeritems);
 	for (LayerTreeItem *litem = layeritems->first; litem; litem = litem->next) {
 		litem->parent = newdataadr(fd, litem->parent);
+		if (litem->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			oblayer->basehash = newdataadr(fd, oblayer->basehash);
+		}
 		direct_link_layeritems(fd, &litem->childs);
 	}
 }
