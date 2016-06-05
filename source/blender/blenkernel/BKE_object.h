@@ -270,6 +270,22 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
                                          int parent_recursion, float frame,
                                          int type);
 
+/* -------------------------------------------------------------------- */
+/* Object Layers */
+
+#include "BKE_layer.h" /* XXX */
+
+typedef struct LayerTypeObject {
+	LayerTreeItem litem;
+	struct GHash *basehash; /* The objects of this layer. */
+} LayerTypeObject;
+
+LayerTreeItem *BKE_objectlayer_add(
+        LayerTree *tree, LayerTreeItem *parent, const char *name,
+        const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
+void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem);
+void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem);
+
 #ifdef __cplusplus
 }
 #endif

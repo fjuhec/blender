@@ -27,6 +27,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_layer.h"
+#include "BKE_object.h"
 
 #include "DNA_ID.h"
 #include "DNA_space_types.h"
@@ -47,8 +48,8 @@
  */
 LayerTreeItem *layers_object_add(LayerTree *ltree, const char *name)
 {
-	return BKE_layeritem_add(
-	            ltree, NULL, LAYER_ITEMTYPE_LAYER, name ? name : OBJECTLAYER_DEFAULT_NAME,
+	return BKE_objectlayer_add(
+	            ltree, NULL, name ? name : OBJECTLAYER_DEFAULT_NAME,
 	            NULL, object_layer_draw, object_layer_draw_settings);
 }
 

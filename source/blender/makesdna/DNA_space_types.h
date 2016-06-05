@@ -1358,7 +1358,7 @@ typedef struct LayerTreeItem {
 
 	struct LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
 	struct LayerTreeItem *parent; /* the group this item belongs to */
-	ListBase childs;
+	ListBase childs; /* LayerTreeItem */
 
 	/* item is grayed out if this check fails */
 	short (*poll)(const struct bContext *, struct LayerTreeItem *); /* LayerItemPollFunc */
@@ -1366,6 +1366,10 @@ typedef struct LayerTreeItem {
 	void (*draw)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawFunc */
 	/* drawing of the expanded layer settings (gear wheel icon) */
 	void (*draw_settings)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawSettingsFunc */
+
+	/* Optional free callback. Don't free item itself! */
+	void (*free)(struct LayerTreeItem *);
+	void *free_customdata;
 } LayerTreeItem;
 
 /* SpaceLayers->flag */

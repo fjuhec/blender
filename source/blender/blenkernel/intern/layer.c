@@ -121,18 +121,13 @@ int BKE_layertree_get_totitems(const LayerTree *ltree)
  * \{ */
 
 /**
- * Allocate a new layer item of \a type and add it to the layer tree \a tree. Sorting happens later.
- *
- * \param parent: The parent layer group of the new item. NULL for ungrouped items
- * \return The newly created layer item.
+ * Register an already allocated \a litem.
  */
-LayerTreeItem *BKE_layeritem_add(
-        LayerTree *tree, LayerTreeItem *parent,
+void BKE_layeritem_register(
+        LayerTree *tree, LayerTreeItem *litem, LayerTreeItem *parent,
         const eLayerTreeItem_Type type, const char *name,
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
 {
-	LayerTreeItem *litem = MEM_callocN(sizeof(LayerTreeItem), __func__);
-
 	litem->type = type;
 	litem->tree = tree;
 	BLI_strncpy(litem->name, name, sizeof(litem->name));
@@ -155,7 +150,21 @@ LayerTreeItem *BKE_layeritem_add(
 	else {
 		BLI_addhead(&tree->items, litem);
 	}
+}
 
+/**
+ * Allocate a new layer item of \a type and add it to the layer tree \a tree. Sorting happens later.
+ *
+ * \param parent: The parent layer group of the new item. NULL for ungrouped items
+ * \return The newly created layer item.
+ */
+LayerTreeItem *BKE_layeritem_add(
+        LayerTree *tree, LayerTreeItem *parent,
+        const eLayerTreeItem_Type type, const char *name,
+        const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
+{
+	LayerTreeItem *litem = MEM_callocN(sizeof(LayerTreeItem), __func__);
+	BKE_layeritem_register(tree, litem, parent, type, name, poll, draw, draw_settings);
 	return litem;
 }
 
@@ -178,6 +187,9 @@ void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children)
 		BLI_assert(BLI_listbase_is_empty(&litem->childs));
 	}
 
+	if (litem->free) {
+		litem->free(litem);
+	}
 	MEM_freeN(litem);
 }
 

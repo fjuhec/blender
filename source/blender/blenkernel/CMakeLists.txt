@@ -533,6 +533,7 @@ if(WITH_ADVANCED_LAYERS)
 	add_definitions(-DWITH_ADVANCED_LAYERS)
 	list(APPEND SRC
 		intern/layer.c
+		intern/object_layer.c
 		BKE_layer.h
 	)
 endif()

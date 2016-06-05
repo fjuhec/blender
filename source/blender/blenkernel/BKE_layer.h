@@ -75,6 +75,10 @@ LayerTreeItem *BKE_layeritem_add(
         LayerTree *tree, LayerTreeItem *parent,
         const eLayerTreeItem_Type type, const char *name,
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
+void BKE_layeritem_register(
+        LayerTree *tree, LayerTreeItem *litem, LayerTreeItem *parent,
+        const eLayerTreeItem_Type type, const char *name,
+        const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
 void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children);
 
 void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item);

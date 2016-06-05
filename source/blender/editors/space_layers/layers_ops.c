@@ -25,8 +25,11 @@
 #include <stdlib.h>
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_layer.h"
+#include "BKE_object.h"
 
+#include "BLI_alloca.h"
 #include "BLI_compiler_attrs.h"
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
@@ -79,10 +82,48 @@ static void LAYERS_OT_layer_add(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-static int layer_remove_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+enum {
+	LAYER_DELETE_LAYER_ONLY,
+	LAYER_DELETE_WITH_CONTENT,
+};
+
+static void layers_remove_layer_objects(bContext *C, SpaceLayers *slayer, LayerTreeItem *litem)
+{
+	struct Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
+	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+	ListBase remlist = {NULL};
+	GHashIterator gh_iter;
+
+	GHASH_ITER(gh_iter, oblayer->basehash) {
+		Base *base = BLI_ghashIterator_getValue(&gh_iter);
+		LinkData *base_link = BLI_genericNodeN(base);
+		BLI_addhead(&remlist, base_link);
+	}
+
+	for (LinkData *base_link = remlist.first, *baselink_next; base_link; base_link = baselink_next) {
+		Base *base = base_link->data;
+		/* remove object from other layers */
+		/* XXX bases could have info about the layers they are in, then
+		 * we could avoid loop in loop and do this all on BKE_level */
+		GHASH_ITER(gh_iter, slayer->tiles) {
+			BKE_objectlayer_base_unassign(base, BLI_ghashIterator_getKey(&gh_iter));
+		}
+		ED_base_object_free_and_unlink(bmain, scene, base);
+
+		baselink_next = base_link->next;
+		BLI_freelinkN(&remlist, base_link);
+	}
+	BLI_assert(BLI_listbase_is_empty(&remlist));
+
+	DAG_relations_tag_update(bmain);
+}
+
+static int layer_remove_exec(bContext *C, wmOperator *op)
 {
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	ListBase remlist = {NULL};
+	const int rem_type = RNA_enum_get(op->ptr, "type");
 
 	/* First iterate over tiles. Ghash iterator doesn't allow removing items
 	 * while iterating, so temporarily store selected items in a list */
@@ -94,10 +135,19 @@ static int layer_remove_invoke(bContext *C, wmOperator *UNUSED(op), const wmEven
 			BLI_addhead(&remlist, tile_link);
 		}
 	}
-	/* Now, delete all items in the list. */
+	/* Now, delete all items in the list (and content if needed). */
 	for (LinkData *tile_link = remlist.first, *next_link; tile_link; tile_link = next_link) {
 		LayerTile *tile = tile_link->data;
 		LayerTreeItem *litem = tile->litem;
+
+		/* delete layer content */
+		if (rem_type == LAYER_DELETE_WITH_CONTENT) {
+			switch (slayer->act_tree->type) {
+				case LAYER_TREETYPE_OBJECT:
+					layers_remove_layer_objects(C, slayer, litem);
+					break;
+			}
+		}
 
 		layers_tile_remove(slayer, tile, true);
 		BKE_layeritem_remove(litem, true);
@@ -114,17 +164,27 @@ static int layer_remove_invoke(bContext *C, wmOperator *UNUSED(op), const wmEven
 
 static void LAYERS_OT_remove(wmOperatorType *ot)
 {
+	static EnumPropertyItem prop_layers_delete_types[] = {
+		{LAYER_DELETE_LAYER_ONLY,   "LAYER_ONLY",   0, "Only Layer",   "Delete layer(s), keept its content"},
+		{LAYER_DELETE_WITH_CONTENT, "WITH_CONTENT", 0, "With Content", "Delete layer(s) and its content"},
+		{0, NULL, 0, NULL, NULL}
+	};
+
 	/* identifiers */
 	ot->name = "Remove Layers";
 	ot->idname = "LAYERS_OT_remove";
 	ot->description = "Remove selected layers";
 
 	/* api callbacks */
-	ot->invoke = layer_remove_invoke;
+	ot->invoke = WM_menu_invoke;
+	ot->exec = layer_remove_exec;
 	ot->poll = ED_operator_layers_active;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_enum(ot->srna, "type", prop_layers_delete_types, LAYER_DELETE_LAYER_ONLY,
+	                        "Type", "Method used for deleting layers");
 }
 
 typedef struct {
@@ -356,6 +416,55 @@ static void LAYERS_OT_select_all_toggle(wmOperatorType *ot)
 	ot->poll = ED_operator_layers_active;
 }
 
+static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
+{
+	Scene *scene = CTX_data_scene(C);
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	int tot_sel = 0;
+
+	/* Count selected tiles (could be cached to avoid extra loop). */
+	GHashIterator gh_iter;
+	GHASH_ITER(gh_iter, slayer->tiles) {
+		LayerTile *tile = BLI_ghashIterator_getValue(&gh_iter);
+		if (tile->flag & LAYERTILE_SELECTED) {
+			tot_sel++;
+		}
+	}
+	/* Collect selected items in an array */
+	LayerTreeItem **litems = BLI_array_alloca(litems, tot_sel);
+	int i = 0;
+	GHASH_ITER(gh_iter, slayer->tiles) {
+		LayerTile *tile = BLI_ghashIterator_getValue(&gh_iter);
+		if (tile->flag & LAYERTILE_SELECTED) {
+			litems[i] = tile->litem;
+			i++;
+		}
+	}
+
+	for (Base *base = scene->base.first; base; base = base->next) {
+		if (base->flag & SELECT) {
+			/* Only iterate over selected items */
+			for (i = 0; i < tot_sel; i++) {
+				BKE_objectlayer_base_assign(base, litems[i]);
+			}
+		}
+	}
+
+	return OPERATOR_FINISHED;
+}
+
+static void LAYERS_OT_objects_assign(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Assign Objects";
+	ot->idname = "LAYERS_OT_objects_assign";
+	ot->description = "Assign selected objects to selected layers";
+
+	/* api callbacks */
+	ot->invoke = layer_objects_assign_invoke;
+	ot->poll = ED_operator_layers_active;
+}
+
 
 /* ************************** registration - operator types **********************************/
 
@@ -370,6 +479,8 @@ void layers_operatortypes(void)
 	/* states (activating selecting, highlighting) */
 	WM_operatortype_append(LAYERS_OT_select);
 	WM_operatortype_append(LAYERS_OT_select_all_toggle);
+
+	WM_operatortype_append(LAYERS_OT_objects_assign);
 }
 
 void layers_keymap(wmKeyConfig *keyconf)
@@ -394,4 +505,6 @@ void layers_keymap(wmKeyConfig *keyconf)
 
 	WM_keymap_add_item(keymap, "LAYERS_OT_layer_add", NKEY, KM_PRESS, KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "LAYERS_OT_group_add", GKEY, KM_PRESS, KM_CTRL, 0);
+
+	WM_keymap_add_item(keymap, "LAYERS_OT_objects_assign", MKEY, KM_PRESS, 0, 0);
 }
