@@ -450,6 +450,8 @@ static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), cons
 		}
 	}
 
+	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, NULL);
+
 	return OPERATOR_FINISHED;
 }
 
