@@ -2739,6 +2739,56 @@ typedef struct {
 	unsigned int r_lay_used;
 } ObjectDrawData;
 
+static void view3d_object_drawstep_draw(ObjectDrawData *ddata, Base *base)
+{
+#define DRAW_OBJECT draw_object(ddata->scene, ddata->ar, ddata->v3d, base, ddata->dflag)
+#define DRAW_DUPLI  draw_dupli_objects(ddata->scene, ddata->ar, ddata->v3d, base)
+
+	switch (ddata->drawstep) {
+		case OB_DRAWSTEP_SET:
+			UI_ThemeColorBlend(TH_WIRE, TH_BACK, 0.6f);
+			DRAW_OBJECT;
+
+			if (base->object->transflag & OB_DUPLI) {
+				draw_dupli_objects_color(ddata->scene, ddata->ar, ddata->v3d, base, ddata->dflag, TH_UNDEFINED);
+			}
+			break;
+
+		case OB_DRAWSTEP_DUPLI_UNSEL:
+			ddata->r_lay_used |= base->lay;
+
+			/* dupli drawing */
+			if (base->object->transflag & OB_DUPLI) {
+				DRAW_DUPLI;
+			}
+			if ((base->flag & SELECT) == 0) {
+				if (base->object != ddata->scene->obedit)
+					DRAW_OBJECT;
+			}
+			break;
+
+		case OB_DRAWSTEP_SEL_EDIT:
+			if (base->object == ddata->scene->obedit || (base->flag & SELECT)) {
+				DRAW_OBJECT;
+			}
+			break;
+
+		case OB_DRAWSTEP_OFFSCREEN:
+			/* dupli drawing */
+			if (base->object->transflag & OB_DUPLI)
+				DRAW_DUPLI;
+
+			DRAW_OBJECT;
+			break;
+		default:
+			BLI_assert(0);
+	}
+
+#undef DRAW_OBJECT
+#undef DRAW_DUPLI
+}
+
+#ifdef WITH_ADVANCED_LAYERS
 /**
  * \brief Main object layer draw callback.
  *
@@ -2750,59 +2800,15 @@ static bool view3d_layer_objects_draw_cb(LayerTreeItem *litem, void *customdata)
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 	ObjectDrawData *ddata = customdata;
 
-#define DRAW_OBJECT draw_object(ddata->scene, ddata->ar, ddata->v3d, base, ddata->dflag)
-#define DRAW_DUPLI  draw_dupli_objects(ddata->scene, ddata->ar, ddata->v3d, base)
-
 	GHashIterator gh_iter;
 	GHASH_ITER(gh_iter, oblayer->basehash) {
 		Base *base = BLI_ghashIterator_getValue(&gh_iter);
-
-		switch (ddata->drawstep) {
-			case OB_DRAWSTEP_SET:
-				UI_ThemeColorBlend(TH_WIRE, TH_BACK, 0.6f);
-				DRAW_OBJECT;
-
-				if (base->object->transflag & OB_DUPLI) {
-					draw_dupli_objects_color(ddata->scene, ddata->ar, ddata->v3d, base, ddata->dflag, TH_UNDEFINED);
-				}
-				break;
-
-			case OB_DRAWSTEP_DUPLI_UNSEL:
-				ddata->r_lay_used |= base->lay;
-
-				/* dupli drawing */
-				if (base->object->transflag & OB_DUPLI) {
-					DRAW_DUPLI;
-				}
-				if ((base->flag & SELECT) == 0) {
-					if (base->object != ddata->scene->obedit)
-						DRAW_OBJECT;
-				}
-				break;
-
-			case OB_DRAWSTEP_SEL_EDIT:
-				if (base->object == ddata->scene->obedit || (base->flag & SELECT)) {
-					DRAW_OBJECT;
-				}
-				break;
-
-			case OB_DRAWSTEP_OFFSCREEN:
-				/* dupli drawing */
-				if (base->object->transflag & OB_DUPLI)
-					DRAW_DUPLI;
-
-				DRAW_OBJECT;
-				break;
-			default:
-				BLI_assert(0);
-		}
+		view3d_object_drawstep_draw(ddata, base);
 	}
-
-#undef DRAW_OBJECT
-#undef DRAW_DUPLI
 
 	return true;
 }
+#endif
 
 /**
  * \brief Draw all object layers.
@@ -2815,7 +2821,18 @@ static bool view3d_layer_objects_draw_cb(LayerTreeItem *litem, void *customdata)
 static void view3d_objectlayers_drawstep_draw(ObjectDrawData *ddata, ObjectDrawStep step)
 {
 	ddata->drawstep = step;
+#ifdef WITH_ADVANCED_LAYERS
 	BKE_layertree_iterate(ddata->scene->object_layers, view3d_layer_objects_draw_cb, ddata, false);
+#else
+	for (Base *base = ddata->scene->base.first; base; base = base->next) {
+		if (ddata->v3d->lay & base->lay) {
+			view3d_object_drawstep_draw(ddata, base);
+		}
+		else if (ddata->drawstep == OB_DRAWSTEP_DUPLI_UNSEL) {
+			ddata->r_lay_used |= base->lay;
+		}
+	}
+#endif
 }
 
 /**
