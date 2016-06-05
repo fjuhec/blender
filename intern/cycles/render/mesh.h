@@ -89,6 +89,15 @@ public:
 		return curve_first_key.size();
 	}
 
+	/* Mesh Patch */
+	struct Patch {
+		int v[4];
+		int shader;
+		bool smooth;
+
+		bool is_quad() { return v[3] >= 0; }
+	};
+
 	/* Displacement */
 	enum DisplacementMethod {
 		DISPLACE_BUMP = 0,
@@ -120,6 +129,8 @@ public:
 	array<float> curve_radius;
 	array<int> curve_first_key;
 	array<int> curve_shader;
+
+	array<Patch> patches;
 
 	vector<Shader*> used_shaders;
 	AttributeSet attributes;
@@ -154,12 +165,16 @@ public:
 	void reserve_mesh(int numverts, int numfaces);
 	void resize_curves(int numcurves, int numkeys);
 	void reserve_curves(int numcurves, int numkeys);
+	void resize_patches(int numpatches);
+	void reserve_patches(int numpatches);
 	void clear();
 	void add_vertex(float3 P);
 	void add_vertex_slow(float3 P);
 	void add_triangle(int v0, int v1, int v2, int shader, bool smooth, bool forms_quad = false);
 	void add_curve_key(float3 loc, float radius);
 	void add_curve(int first_key, int shader);
+	void add_patch(int v0, int v1, int v2, int v3, int shader_, bool smooth_);
+	void add_patch(int v0, int v1, int v2, int shader_, bool smooth_);
 	int split_vertex(int vertex);
 
 	void compute_bounds();

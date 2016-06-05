@@ -178,6 +178,16 @@ void Mesh::reserve_curves(int numcurves, int numkeys)
 	curve_attributes.resize(true);
 }
 
+void Mesh::resize_patches(int numpatches)
+{
+	patches.resize(numpatches);
+}
+
+void Mesh::reserve_patches(int numpatches)
+{
+	patches.reserve(numpatches);
+}
+
 void Mesh::clear()
 {
 	/* clear all verts and triangles */
@@ -192,6 +202,8 @@ void Mesh::clear()
 	curve_radius.clear();
 	curve_first_key.clear();
 	curve_shader.clear();
+
+	patches.clear();
 
 	attributes.clear();
 	curve_attributes.clear();
@@ -249,6 +261,16 @@ void Mesh::add_curve(int first_key, int shader)
 {
 	curve_first_key.push_back_reserved(first_key);
 	curve_shader.push_back_reserved(shader);
+}
+
+void Mesh::add_patch(int v0, int v1, int v2, int v3, int shader_, bool smooth_)
+{
+	patches.push_back_reserved({v0, v1, v2, v3, shader_, smooth_});
+}
+
+void Mesh::add_patch(int v0, int v1, int v2, int shader_, bool smooth_)
+{
+	add_patch(v0, v1, v2, -1, shader_, smooth_);
 }
 
 void Mesh::compute_bounds()
