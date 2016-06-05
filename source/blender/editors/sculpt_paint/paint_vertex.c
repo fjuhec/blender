@@ -2818,7 +2818,7 @@ typedef struct VPaintData {
 	bool is_texbrush;
 } VPaintData;
 
-static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const float UNUSED(mouse[2]))
+static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const float mouse[2])
 {
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = scene->toolsettings;
@@ -2849,9 +2849,9 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
 	vpd->indexar = get_indexarray(me);
 	vpd->paintcol = vpaint_get_current_col(scene, vp);
-
 	vpd->is_texbrush = !(brush->vertexpaint_tool == PAINT_BLEND_BLUR) &&
 	                   brush->mtex.tex;
+
 
 	/* are we painting onto a modified mesh?,
 	 * if not we can skip face map trickiness */
@@ -2878,6 +2878,34 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	copy_m3_m4(vpd->vpimat, imat);
 
 	return 1;
+}
+
+static void vpaint_paint_leaf(Mesh *me, VPaintData *vpd, SculptSession *ss) {
+	StrokeCache* cache = ss->cache;
+	
+	int r_unique = 0;
+	int r_total = 0;
+	int* r_vert_indices;
+	MeshElemMap *r_map = NULL;
+
+	if (cache->didNodeChange == true) {
+		int *r_mem = NULL;
+		MVert* r_verts;
+		BKE_pbvh_node_num_verts(ss->pbvh, cache->node, &r_unique, &cache->totVerts);
+		BKE_pbvh_node_get_verts(ss->pbvh, cache->node, &cache->vert_indices, &r_verts);
+		BKE_mesh_vert_loop_map_create(&cache->vert_to_loop, &r_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+	}
+
+	unsigned int* lcol = (unsigned int*)me->mloopcol;
+
+	//Very ghetto. paints the same loop multiple times...
+	for (int i = 0; i < cache->totVerts; ++i) {
+		MLoop loop;
+		for (int j = 0; j < cache->vert_to_loop[cache->vert_indices[i]].count; ++j) {
+			//vpaint_paint_loop(me, r_map[r_vert_indices[i]].indices[j]);
+			lcol[cache->vert_to_loop[cache->vert_indices[i]].indices[j]] = vpd->paintcol;
+		}
+	}
 }
 
 static void vpaint_paint_poly(VPaint *vp, VPaintData *vpd, Mesh *me,
@@ -2951,73 +2979,75 @@ static void vpaint_paint_poly(VPaint *vp, VPaintData *vpd, Mesh *me,
 
 static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)
 {
-	Scene *scene = CTX_data_scene(C);
-	ToolSettings *ts = CTX_data_tool_settings(C);
+	//Scene *scene = CTX_data_scene(C);
+	//ToolSettings *ts = CTX_data_tool_settings(C);
 	struct VPaintData *vpd = paint_stroke_mode_data(stroke);
-	VPaint *vp = ts->vpaint;
-	Brush *brush = BKE_paint_brush(&vp->paint);
+	//VPaint *vp = ts->vpaint;
+	//Brush *brush = BKE_paint_brush(&vp->paint);
 	ViewContext *vc = &vpd->vc;
 	Object *ob = vc->obact;
 	Mesh *me = ob->data;
-	float mat[4][4];
-	int *indexar = vpd->indexar;
-	int totindex, index;
-	float mval[2];
+	//float mat[4][4];
+	//int *indexar = vpd->indexar;
+	//int totindex, index;
+	//float mval[2];
 
-	const float pressure = RNA_float_get(itemptr, "pressure");
-	const float brush_size_pressure =
-	        BKE_brush_size_get(scene, brush) * (BKE_brush_use_size_pressure(scene, brush) ? pressure : 1.0f);
-	const float brush_alpha_pressure =
-	        BKE_brush_alpha_get(scene, brush) * (BKE_brush_use_alpha_pressure(scene, brush) ? pressure : 1.0f);
+	//const float pressure = RNA_float_get(itemptr, "pressure");
+	//const float brush_size_pressure =
+	//        BKE_brush_size_get(scene, brush) * (BKE_brush_use_size_pressure(scene, brush) ? pressure : 1.0f);
+	//const float brush_alpha_pressure =
+	//        BKE_brush_alpha_get(scene, brush) * (BKE_brush_use_alpha_pressure(scene, brush) ? pressure : 1.0f);
 
-	RNA_float_get_array(itemptr, "mouse", mval);
+	//RNA_float_get_array(itemptr, "mouse", mval);
 
-	view3d_operator_needs_opengl(C);
-	ED_view3d_init_mats_rv3d(ob, vc->rv3d);
+	//view3d_operator_needs_opengl(C);
+	//ED_view3d_init_mats_rv3d(ob, vc->rv3d);
 
-	/* load projection matrix */
-	mul_m4_m4m4(mat, vc->rv3d->persmat, ob->obmat);
+	///* load projection matrix */
+	//mul_m4_m4m4(mat, vc->rv3d->persmat, ob->obmat);
 
-	/* which faces are involved */
-	totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure);
+	///* which faces are involved */
+	//totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure);
 
-	if ((me->editflag & ME_EDIT_PAINT_FACE_SEL) && me->mpoly) {
-		for (index = 0; index < totindex; index++) {
-			if (indexar[index] && indexar[index] <= me->totpoly) {
-				const MPoly *mpoly = &me->mpoly[indexar[index] - 1];
+	//if ((me->editflag & ME_EDIT_PAINT_FACE_SEL) && me->mpoly) {
+	//	for (index = 0; index < totindex; index++) {
+	//		if (indexar[index] && indexar[index] <= me->totpoly) {
+	//			const MPoly *mpoly = &me->mpoly[indexar[index] - 1];
 
-				if ((mpoly->flag & ME_FACE_SEL) == 0)
-					indexar[index] = 0;
-			}
-		}
-	}
-	
-	swap_m4m4(vc->rv3d->persmat, mat);
+	//			if ((mpoly->flag & ME_FACE_SEL) == 0)
+	//				indexar[index] = 0;
+	//		}
+	//	}
+	//}
+	//
+	//swap_m4m4(vc->rv3d->persmat, mat);
 
-	/* incase we have modifiers */
-	ED_vpaint_proj_handle_update(vpd->vp_handle, vc->ar, mval);
+	///* incase we have modifiers */
+	//ED_vpaint_proj_handle_update(vpd->vp_handle, vc->ar, mval);
 
-	/* clear modified tag for blur tool */
-	if (vpd->mlooptag)
-		memset(vpd->mlooptag, 0, sizeof(bool) * me->totloop);
+	///* clear modified tag for blur tool */
+	//if (vpd->mlooptag)
+	//	memset(vpd->mlooptag, 0, sizeof(bool) * me->totloop);
 
-	for (index = 0; index < totindex; index++) {
-		if (indexar[index] && indexar[index] <= me->totpoly) {
-			vpaint_paint_poly(vp, vpd, me, indexar[index] - 1, mval, brush_size_pressure, brush_alpha_pressure);
-		}
-	}
-		
-	swap_m4m4(vc->rv3d->persmat, mat);
+	//for (index = 0; index < totindex; index++) {
+	//	if (indexar[index] && indexar[index] <= me->totpoly) {
+	//		vpaint_paint_poly(vp, vpd, me, indexar[index] - 1, mval, brush_size_pressure, brush_alpha_pressure);
+	//	}
+	//}
+	//	
+	//swap_m4m4(vc->rv3d->persmat, mat);
 
-	/* was disabled because it is slow, but necessary for blur */
-	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-		do_shared_vertexcol(me, vpd->mlooptag);
-	}
+	///* was disabled because it is slow, but necessary for blur */
+	//if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+	//	do_shared_vertexcol(me, vpd->mlooptag);
+	//}
 
-	/* calculate pivot for rotation around seletion if needed */
-	if (U.uiflag & USER_ORBIT_SELECTION) {
-		paint_last_stroke_update(scene, vc->ar, mval);
-	}
+	///* calculate pivot for rotation around seletion if needed */
+	//if (U.uiflag & USER_ORBIT_SELECTION) {
+	//	paint_last_stroke_update(scene, vc->ar, mval);
+	//}
+
+	vpaint_paint_leaf(me, vpd, ob->sculpt);
 
 	ED_region_tag_redraw(vc->ar);
 
@@ -3030,6 +3060,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		/* If using new VBO drawing, mark mcol as dirty to force colors gpu buffer refresh! */
 		ob->derivedFinal->dirty |= DM_DIRTY_MCOL_UPDATE_DRAW;
 	}
+
 }
 
 static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
@@ -3059,7 +3090,7 @@ static int vpaint_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	int retval;
 
-	op->customdata = paint_stroke_new(C, op, NULL, vpaint_stroke_test_start,
+	op->customdata = paint_stroke_new(C, op, sculpt_stroke_get_location, vpaint_stroke_test_start,
 	                                  vpaint_stroke_update_step, NULL,
 	                                  vpaint_stroke_done, event->type);
 	
@@ -3079,12 +3110,13 @@ static int vpaint_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 static int vpaint_exec(bContext *C, wmOperator *op)
 {
-	op->customdata = paint_stroke_new(C, op, NULL, vpaint_stroke_test_start,
+	op->customdata = paint_stroke_new(C, op, sculpt_stroke_get_location, vpaint_stroke_test_start,
 	                                  vpaint_stroke_update_step, NULL,
 	                                  vpaint_stroke_done, 0);
 
 	/* frees op->customdata */
 	paint_stroke_exec(C, op);
+
 
 	return OPERATOR_FINISHED;
 }

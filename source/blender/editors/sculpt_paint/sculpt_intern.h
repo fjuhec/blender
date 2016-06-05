@@ -41,6 +41,7 @@
 #include "BLI_bitmap.h"
 #include "BLI_dial.h"
 #include "BKE_pbvh.h"
+#include "BKE_mesh_mapping.h"
 
 #include "ED_view3d.h"
 
@@ -217,6 +218,13 @@ typedef struct StrokeCache {
 
 	rcti previous_r; /* previous redraw rectangle */
 	rcti current_r; /* current redraw rectangle */
+
+	PBVHNode* node;
+	bool didNodeChange;
+	int totVerts;
+	int* vert_indices;
+	MeshElemMap* vert_to_loop;
+
 } StrokeCache;
 
 void sculpt_cache_free(StrokeCache *cache);

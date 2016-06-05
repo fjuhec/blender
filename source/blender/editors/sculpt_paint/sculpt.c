@@ -1526,6 +1526,22 @@ typedef struct SculptDoBrushSmoothGridDataChunk {
 	size_t tmpgrid_size;
 } SculptDoBrushSmoothGridDataChunk;
 
+typedef struct {
+	SculptSession *ss;
+	const float *ray_start, *ray_normal;
+	bool hit;
+	float dist;
+	bool original;
+	PBVHNode* node;
+} SculptRaycastData;
+
+typedef struct {
+	const float *ray_start, *ray_normal;
+	bool hit;
+	float dist;
+	float detail;
+} SculptDetailRaycastData;
+
 static void do_smooth_brush_mesh_task_cb_ex(
         void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -4289,21 +4305,6 @@ static void sculpt_stroke_modifiers_check(const bContext *C, Object *ob)
 	}
 }
 
-typedef struct {
-	SculptSession *ss;
-	const float *ray_start, *ray_normal;
-	bool hit;
-	float dist;
-	bool original;
-} SculptRaycastData;
-
-typedef struct {
-	const float *ray_start, *ray_normal;
-	bool hit;
-	float dist;
-	float detail;
-} SculptDetailRaycastData;
-
 static void sculpt_raycast_cb(PBVHNode *node, void *data_v, float *tmin)
 {
 	if (BKE_pbvh_node_get_tmin(node) < *tmin) {
@@ -4328,6 +4329,9 @@ static void sculpt_raycast_cb(PBVHNode *node, void *data_v, float *tmin)
 		{
 			srd->hit = 1;
 			*tmin = srd->dist;
+
+			//for vwpaint testing
+			srd->node = node;
 		}
 	}
 }
@@ -4410,11 +4414,22 @@ bool sculpt_stroke_get_location(bContext *C, float out[3], const float mouse[2])
 	srd.dist = dist;
 
 	BKE_pbvh_raycast(ss->pbvh, sculpt_raycast_cb, &srd,
-	                 ray_start, ray_normal, srd.original);
+		ray_start, ray_normal, srd.original);
+
+	/* for vwpaint */
+	if (cache && srd.hit) {
+		if (cache->node == srd.node) cache->didNodeChange = false;
+		else { 
+			cache->node = srd.node; 
+			cache->didNodeChange = true;
+		}
+	}
+	else if (cache) cache->node = NULL;
 
 	copy_v3_v3(out, ray_normal);
 	mul_v3_fl(out, srd.dist);
 	add_v3_v3(out, ray_start);
+
 
 	return srd.hit;
 }
