@@ -2713,7 +2713,8 @@ void ED_view3d_update_viewmat(Scene *scene, View3D *v3d, ARegion *ar, float view
 }
 
 /**
- * Values tell #view3d_layer_objects_draw_cb what and how to draw.
+ * We draw stuff in multiple iterations but don't want to add functions specific for each iteration.
+ * Values tell #view3d_object_drawstep_draw what iteration we're in, so it knows what/how to draw.
  * Not really generic, but simple :)
  */
 typedef enum {
@@ -2739,6 +2740,9 @@ typedef struct {
 	unsigned int r_lay_used;
 } ObjectDrawData;
 
+/**
+ * Low-level drawing function to draw an object based on ObjectDrawData.drawstep.
+ */
 static void view3d_object_drawstep_draw(ObjectDrawData *ddata, Base *base)
 {
 #define DRAW_OBJECT draw_object(ddata->scene, ddata->ar, ddata->v3d, base, ddata->dflag)
@@ -2792,8 +2796,7 @@ static void view3d_object_drawstep_draw(ObjectDrawData *ddata, Base *base)
 /**
  * \brief Main object layer draw callback.
  *
- * Callback for drawing objects of the active layer, based on
- * ObjectDrawData.drawstep (and other ObjectDrawData stuff).
+ * Callback for drawing objects of the active layer, based on ObjectDrawData.drawstep.
  */
 static bool view3d_layer_objects_draw_cb(LayerTreeItem *litem, void *customdata)
 {
