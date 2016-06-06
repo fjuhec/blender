@@ -1601,17 +1601,18 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 	}
 }
 
-static void UV_OT_shortest_path(wmOperatorType *ot)
+static void UV_OT_select_shortest_path(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Select Shortest Path";
 	ot->description = "Select the shortest path between the current selection";
-	ot->idname = "UV_OT_shortest_path";
+	ot->idname = "UV_OT_select_shortest_path";
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
 	/* api callbacks */
 	ot->exec = uv_shortest_path_exec;
-	ot->poll = ED_operator_uvedit_space_image;
+	//ot->poll = ED_operator_uvedit_space_image;
+	ot->poll = ED_operator_uvedit;
 }
 
 /* ******************** align operator **************** */
@@ -4388,7 +4389,7 @@ void ED_operatortypes_uvedit(void)
 	WM_operatortype_append(UV_OT_circle_select);
 	WM_operatortype_append(UV_OT_select_more);
 	WM_operatortype_append(UV_OT_select_less);
-	WM_operatortype_append(UV_OT_shortest_path);
+	WM_operatortype_append(UV_OT_select_shortest_path);
 
 	WM_operatortype_append(UV_OT_snap_cursor);
 	WM_operatortype_append(UV_OT_snap_selected);
