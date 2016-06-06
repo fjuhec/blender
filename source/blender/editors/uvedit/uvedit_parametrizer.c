@@ -104,7 +104,7 @@ typedef struct PVert {
 
 	union PVertUnion {
 		PHashKey key;           /* construct */
-		int id;                 /* abf/lscm matrix index */
+		int id;                 /* abf/lscm matrix index, also used for shortest path computation */
 		float distortion;       /* area smoothing */
 		HeapNode *heaplink;     /* edge collapsing */
 	} u;
@@ -169,7 +169,7 @@ enum PEdgeFlag {
 	PEDGE_COLLAPSE = 64,
 	PEDGE_COLLAPSE_EDGE = 128,
 	PEDGE_COLLAPSE_PAIR = 256,
-	PEDGE_MARKED = 512
+	PEDGE_DIAG = 512 
 };
 
 /* for flipping faces */
@@ -1120,7 +1120,7 @@ static PFace *p_face_add(PHandle *handle)
 
 static PFace *p_face_add_construct(PHandle *handle, ParamKey key, ParamKey *vkeys,
                                    float *co[4], float *uv[4], int i1, int i2, int i3,
-                                   ParamBool *pin, ParamBool *select, int **flag)
+                                   ParamBool *pin, ParamBool *select, int **flag, int diag_edge)
 {
 	PFace *f = p_face_add(handle);
 	PEdge *e1 = f->edge, *e2 = e1->next, *e3 = e2->next;
@@ -1160,6 +1160,29 @@ static PFace *p_face_add_construct(PHandle *handle, ParamKey key, ParamKey *vkey
 	phash_insert(handle->hash_edges, (PHashLink *)e1);
 	phash_insert(handle->hash_edges, (PHashLink *)e2);
 	phash_insert(handle->hash_edges, (PHashLink *)e3);
+
+	if (diag_edge != -1)
+	{
+		switch (diag_edge) {
+			case 0:
+			{
+				e1->flag |= PEDGE_DIAG;
+				break;
+			}
+			case 1:
+			{
+				e2->flag |= PEDGE_DIAG; 
+				break;
+			}
+			case 2: /* fall through */
+			case 3:
+			{
+				e3->flag |= PEDGE_DIAG;
+				break;
+			}
+			default: break;
+		}
+	}
 
 	return f;
 }
@@ -4267,17 +4290,17 @@ void param_face_add(ParamHandle *handle, ParamKey key, int nverts,
 	else if (nverts == 4) {
 		/* quad */
 		if (p_quad_split_direction(phandle, co, vkeys)) {
-			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select, flag);
-			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 2, 3, pin, select, flag);
+			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select, flag, 2);
+			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 2, 3, pin, select, flag, 0);
 		}
 		else {
-			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 3, pin, select, flag);
-			p_face_add_construct(phandle, key, vkeys, co, uv, 1, 2, 3, pin, select, flag);
+			p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 3, pin, select, flag, 1);
+			p_face_add_construct(phandle, key, vkeys, co, uv, 1, 2, 3, pin, select, flag, 3);
 		}
 	}
 	else if (!p_face_exists(phandle, vkeys, 0, 1, 2)) {
 		/* triangle */
-		p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select, flag);
+		p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select, flag, -1);
 	}
 }
 
