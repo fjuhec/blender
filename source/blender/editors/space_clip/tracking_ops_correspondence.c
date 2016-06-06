@@ -78,15 +78,19 @@ void BKE_tracking_correspondence_unique_name(ListBase *tracksbase, MovieTracking
 /* Add new correspondence to a specified correspondence base.
  */
 MovieTrackingCorrespondence *BKE_tracking_correspondence_add(MovieTracking *tracking, ListBase *corr_base,
-                                                             MovieTrackingTrack *primary_track,
-                                                             MovieTrackingTrack *witness_track)
+                                                             MovieTrackingTrack *self_track,
+                                                             MovieTrackingTrack *other_track,
+                                                             MovieClip* self_clip,
+                                                             MovieClip* other_clip)
 {
 	MovieTrackingCorrespondence *corr;
 
 	corr = MEM_callocN(sizeof(MovieTrackingCorrespondence), "add correspondence");
 	strcpy(corr->name, "Correspondence");
-	corr->primary_track = primary_track;
-	corr->witness_track = witness_track;
+	corr->self_track = self_track;
+	corr->other_track = other_track;
+	corr->self_clip = self_clip;
+	corr->other_clip = other_clip;
 
 	BLI_addtail(corr_base, corr);
 	BKE_tracking_correspondence_unique_name(corr_base, corr);
@@ -119,11 +123,12 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 	// get number of selected tracks in the witness camera
 	// TODO(tianwei): there might be multiple witness cameras, now just work with one witness camera
 	wmWindow *window = CTX_wm_window(C);
+	MovieClip *second_clip;
 	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 		if (sa->spacetype == SPACE_CLIP) {
 			SpaceClip *second_sc = sa->spacedata.first;
 			if(second_sc != sc) {
-				MovieClip *second_clip = ED_space_clip_get_clip(second_sc);
+				second_clip = ED_space_clip_get_clip(second_sc);
 				MovieTracking *second_tracking = &second_clip->tracking;
 				ListBase *second_tracksbase = BKE_tracking_get_active_tracks(second_tracking);
 				for (track = second_tracksbase->first; track; track = track->next) {
@@ -132,6 +137,7 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 						num_witness_selected++;
 					}
 				}
+				break;
 			}
 		}
 	}
@@ -144,7 +150,8 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 	// TODO(tianwei): link two tracks, mark these two tracks in a different color
 
 	// add these correspondence
-	BKE_tracking_correspondence_add(tracking, &(tracking->correspondences), primary_track, witness_track);
+	BKE_tracking_correspondence_add(tracking, &(tracking->correspondences), primary_track, witness_track,
+	                                clip, second_clip);
 
 	return OPERATOR_FINISHED;
 }
@@ -234,7 +241,8 @@ void CLIP_OT_delete_correspondence(wmOperatorType *ot)
 
 typedef struct {
 	Scene *scene;
-	MovieClip *clip;
+	//MovieClip *clip;
+	ListBase *clips;
 	MovieClipUser user;
 
 	ReportList *reports;
@@ -268,18 +276,20 @@ static bool solve_multiview_initjob(bContext *C,
 	/* Could fail if footage uses images with different sizes. */
 	BKE_movieclip_get_size(clip, &sc->user, &width, &height);
 
-	scj->clip = clip;
+	BLI_addtail(scj->clips, clip);
+	//BKE_tracking_clip_unique_name(scj->clips, clip);
+	//scj->clips = clip;
 	scj->scene = scene;
 	scj->reports = op->reports;
 	scj->user = sc->user;
 
 	// create multiview reconstruction context and pass the tracks and markers to libmv
-	scj->context = BKE_tracking_reconstruction_context_new(clip,
-	                                                       object,
-	                                                       object->keyframe1,
-	                                                       object->keyframe2,
-	                                                       width,
-	                                                       height);
+	scj->context = BKE_tracking_multiview_reconstruction_context_new(scj->clips,
+	                                                                 object,
+	                                                                 object->keyframe1,
+	                                                                 object->keyframe2,
+	                                                                 width,
+	                                                                 height);
 
 	tracking->stats = MEM_callocN(sizeof(MovieTrackingStats), "solve multiview stats");
 
@@ -289,7 +299,8 @@ static bool solve_multiview_initjob(bContext *C,
 static void solve_multiview_updatejob(void *scv)
 {
 	SolveMultiviewJob *scj = (SolveMultiviewJob *)scv;
-	MovieTracking *tracking = &scj->clip->tracking;
+	MovieClip *primary_clip = scj->clips->first;
+	MovieTracking *tracking = &primary_clip->tracking;
 
 	BLI_strncpy(tracking->stats->message,
 	            scj->stats_message,
@@ -310,9 +321,10 @@ static void solve_multiview_startjob(void *scv, short *stop, short *do_update, f
 static void solve_multiview_freejob(void *scv)
 {
 	SolveMultiviewJob *scj = (SolveMultiviewJob *)scv;
-	MovieTracking *tracking = &scj->clip->tracking;
+	MovieClip *clip = scj->clips->first;		// primary clip
+	MovieTracking *tracking = &clip->tracking;
 	Scene *scene = scj->scene;
-	MovieClip *clip = scj->clip;
+	//MovieClip *clip = scj->clip;
 	int solved;
 
 	if (!scj->context) {

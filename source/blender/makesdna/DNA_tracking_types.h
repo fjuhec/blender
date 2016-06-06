@@ -44,6 +44,7 @@
 
 struct bGPdata;
 struct Image;
+struct MovieClip;
 struct MovieReconstructedCamera;
 struct MovieTrackingCamera;
 struct MovieTrackingMarker;
@@ -162,14 +163,16 @@ typedef struct MovieTrackingTrack {
 	float weight, pad;
 } MovieTrackingTrack;
 
-//TODO(tianwei): expand the fields, now only two tracks
 typedef struct MovieTrackingCorrespondence {
 	struct MovieTrackingCorrespondence *next, *prev;
 
 	char name[64];  /* MAX_NAME */
 
-	MovieTrackingTrack *primary_track;
-	MovieTrackingTrack *witness_track;
+	MovieTrackingTrack *self_track;
+	MovieTrackingTrack *other_track;
+
+	struct MovieClip *self_clip;
+	struct MovieClip *other_clip;
 } MovieTrackingCorrespondence;
 
 typedef struct MovieTrackingPlaneMarker {

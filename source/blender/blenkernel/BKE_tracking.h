@@ -292,10 +292,16 @@ void BKE_tracking_dopesheet_update(struct MovieTracking *tracking);
 /* Correspondence */
 void BKE_tracking_correspondence_unique_name(struct ListBase *tracksbase, struct MovieTrackingCorrespondence *corr);
 struct MovieTrackingCorrespondence *BKE_tracking_correspondence_add(struct MovieTracking *tracking, struct ListBase *corr_base,
-                                                                    struct MovieTrackingTrack *primary_track,
-                                                                    struct MovieTrackingTrack *witness_track);
+                                                                    struct MovieTrackingTrack *self_track,
+                                                                    struct MovieTrackingTrack *other_track,
+                                                                    struct MovieClip *self_clip,
+                                                                    struct MovieClip *other_clip);
 void BKE_tracking_multiview_reconstruction_solve(struct MovieMultiviewReconstructContext *context, short *stop, short *do_update,
                                                  float *progress, char *stats_message, int message_size);
+struct MovieMultiviewReconstructContext *BKE_tracking_multiview_reconstruction_context_new(struct ListBase *clips,
+                                                                                           struct MovieTrackingObject *object,
+                                                                                           int keyframe1, int keyframe2,
+                                                                                           int width, int height);
 
 #define TRACK_SELECTED(track)               ((track)->flag & SELECT || (track)->pat_flag & SELECT || (track)->search_flag & SELECT)
 

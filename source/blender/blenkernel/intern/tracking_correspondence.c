@@ -58,7 +58,7 @@ struct ReconstructProgressData;
 typedef struct MovieMultiviewReconstructContext {
 	struct libmv_Tracks *tracks;
 	bool select_keyframes;
-	int keyframe1, keyframe2;
+	int keyframe1, keyframe2;		/* the key frames selected from the primary camera */
 	int refine_flags;
 
 	struct libmv_Reconstruction *reconstruction;
@@ -158,11 +158,12 @@ static struct libmv_Tracks *libmv_multiview_tracks_new(MovieClip *clip, ListBase
  * reconstruction job is in progress.
  */
 MovieMultiviewReconstructContext *
-BKE_tracking_multiview_reconstruction_context_new(MovieClip *clip,
+BKE_tracking_multiview_reconstruction_context_new(ListBase *clips,
                                                   MovieTrackingObject *object,
                                                   int keyframe1, int keyframe2,
                                                   int width, int height)
 {
+	MovieClip *clip = clips->first;		// the primary clip
 	MovieTracking *tracking = &clip->tracking;
 	MovieMultiviewReconstructContext *context = MEM_callocN(sizeof(MovieMultiviewReconstructContext),
 	                                                        "MovieMultiviewReconstructContext data");
