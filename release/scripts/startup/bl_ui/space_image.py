@@ -146,6 +146,7 @@ class IMAGE_MT_select(Menu):
 
         layout.operator("uv.select_pinned")
         layout.operator("uv.select_linked").extend = False
+        layout.operator("uv.select_shortest_path")
 
         layout.separator()
 
