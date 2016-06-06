@@ -51,6 +51,7 @@ extern "C" {
 #include "BKE_screen.h"
 #undef new
 
+#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
 
@@ -343,6 +344,7 @@ int ABC_export(Scene *scene, bContext *C, const char *filepath,
 
 static void visit_object(const IObject &object,
                          std::vector<AbcObjectReader *> &readers,
+                         GHash *parent_map,
                          ImportSettings &settings)
 {
 	if (!object.valid()) {
@@ -421,51 +423,14 @@ static void visit_object(const IObject &object,
 
 		if (reader) {
 			readers.push_back(reader);
+
+			/* Cast to `void *` explicitly to avoid compiler errors because it
+			 * is a `const char *` which the compiler cast to `const void *`
+			 * instead of the expected `void *`. */
+			BLI_ghash_insert(parent_map, (void *)child.getFullName().c_str(), reader);
 		}
 
-		visit_object(child, readers, settings);
-	}
-}
-
-static Object *find_object(Scene *scene, const std::string &name)
-{
-	Base *base;
-
-	for (base = static_cast<Base *>(scene->base.first); base; base = base->next) {
-		Object *ob = base->object;
-
-		if (ob->id.name + 2 == name) {
-			return ob;
-		}
-	}
-
-	return NULL;
-}
-
-static void create_hierarchy(Main *bmain, Scene *scene, AbcObjectReader *root)
-{
-	const IObject &iobjet = root->iobject();
-	const std::string &full_name = iobjet.getFullName();
-
-	std::vector<std::string> parts;
-	split(full_name, '/', parts);
-
-	Object *parent = NULL;
-
-	std::vector<std::string>::reverse_iterator iter;
-	for (iter = parts.rbegin() + 1; iter != parts.rend(); ++iter) {
-		parent = find_object(scene, *iter);
-
-		if (parent != NULL && root->object() != parent) {
-			Object *ob = root->object();
-			ob->parent = parent;
-
-			DAG_id_tag_update(&ob->id, OB_RECALC_OB);
-			DAG_relations_tag_update(bmain);
-			WM_main_add_notifier(NC_OBJECT | ND_PARENT, ob);
-
-			return;
-		}
+		visit_object(child, readers, parent_map, settings);
 	}
 }
 
@@ -499,7 +464,8 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 	*data->progress = 0.05f;
 
 	std::vector<AbcObjectReader *> readers;
-	visit_object(archive.getTop(), readers, data->settings);
+	GHash *parent_map = BLI_ghash_ptr_new("alembic parent ghash");
+	visit_object(archive.getTop(), readers, parent_map, data->settings);
 
 	*data->do_update = true;
 	*data->progress = 0.1f;
@@ -522,13 +488,44 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 
 	i = 0;
 	for (iter = readers.begin(); iter != readers.end(); ++iter) {
-		create_hierarchy(data->bmain, data->scene, *iter);
+		const AbcObjectReader *reader = *iter;
+		const AbcObjectReader *parent_reader = NULL;
+		const IObject &iobject = reader->iobject();
+
+		if (IXform::matches(iobject.getHeader())) {
+			parent_reader = reinterpret_cast<AbcObjectReader *>(
+			                    BLI_ghash_lookup(parent_map,
+			                                     iobject.getParent().getFullName().c_str()));
+		}
+		else {
+			/* In the case of an non XForm node, the parent is the transform
+			 * matrix of the data itself, so skip it. */
+			parent_reader = reinterpret_cast<AbcObjectReader *>(
+			                    BLI_ghash_lookup(parent_map,
+			                                     iobject.getParent().getParent().getFullName().c_str()));
+		}
+
+		if (parent_reader) {
+			Object *parent = parent_reader->object();
+
+			if (parent != NULL && reader->object() != parent) {
+				Object *ob = reader->object();
+				ob->parent = parent;
+
+				DAG_id_tag_update(&ob->id, OB_RECALC_OB);
+				DAG_relations_tag_update(data->bmain);
+				WM_main_add_notifier(NC_OBJECT | ND_PARENT, ob);
+			}
+		}
+
 		*data->progress = 0.7f + 0.3f * (++i / size);
 	}
 
 	for (iter = readers.begin(); iter != readers.end(); ++iter) {
 		delete *iter;
 	}
+
+	BLI_ghash_free(parent_map, NULL, NULL);
 
 	WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
 }
