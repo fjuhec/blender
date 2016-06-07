@@ -31,6 +31,8 @@ namespace mv {
 
 using libmv::CameraIntrinsics;
 using libmv::vector;
+using libmv::Mat3;
+using libmv::Vec3;
 
 class Model;
 

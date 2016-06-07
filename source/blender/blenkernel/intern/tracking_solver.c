@@ -581,3 +581,49 @@ void BKE_tracking_reconstruction_scale(MovieTracking *tracking, float scale[3])
 		tracking_scale_reconstruction(tracksbase, reconstruction, scale);
 	}
 }
+
+/********************** Multi-view reconstruction functions *********************/
+
+/* Perform early check on whether everything is fine to start reconstruction. */
+bool BKE_tracking_multiview_reconstruction_check(MovieClip **clips, MovieTrackingObject *object,
+                                                 int clip_num, char *error_msg, int error_size)
+{
+#ifndef WITH_LIBMV
+	BLI_strncpy(error_msg, N_("Blender is compiled without motion tracking library"), error_size);
+	return false;
+#endif
+	// count number of open video clips
+	if(clip_num < 2) {
+		BLI_strncpy(error_msg,
+		            N_("At least 2 video clips are needed for multi-view reconstruction"),
+		            error_size);
+		return false;
+	}
+	MovieClip *primary_clip = clips[0];
+	MovieTracking *tracking = &primary_clip->tracking;
+	ListBase *correspondence = &tracking->correspondences;
+	// count number of correspondences
+	if(BLI_listbase_count(correspondence) < 8) {
+		BLI_strncpy(error_msg,
+		            N_("At least 8 correspondences need to be specified across two clips"),
+		            error_size);
+		return false;
+	}
+
+	if (tracking->settings.motion_flag & TRACKING_MOTION_MODAL) {
+		/* TODO: check for number of tracks? */
+		return true;
+	}
+	else if ((tracking->settings.reconstruction_flag & TRACKING_USE_KEYFRAME_SELECTION) == 0) {
+		/* automatic keyframe selection does not require any pre-process checks */
+		if (reconstruct_count_tracks_on_both_keyframes(tracking, object) < 8) {
+			BLI_strncpy(error_msg,
+			            N_("At least 8 common tracks on both keyframes are needed for reconstruction"),
+			            error_size);
+
+			return false;
+		}
+	}
+
+	return true;
+}

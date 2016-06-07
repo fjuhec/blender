@@ -77,7 +77,7 @@ void BKE_tracking_correspondence_unique_name(ListBase *tracksbase, MovieTracking
 
 /* Add new correspondence to a specified correspondence base.
  */
-MovieTrackingCorrespondence *BKE_tracking_correspondence_add(MovieTracking *tracking, ListBase *corr_base,
+MovieTrackingCorrespondence *BKE_tracking_correspondence_add(ListBase *corr_base,
                                                              MovieTrackingTrack *self_track,
                                                              MovieTrackingTrack *other_track,
                                                              MovieClip* self_clip,
@@ -150,7 +150,7 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 	// TODO(tianwei): link two tracks, mark these two tracks in a different color
 
 	// add these correspondence
-	BKE_tracking_correspondence_add(tracking, &(tracking->correspondences), primary_track, witness_track,
+	BKE_tracking_correspondence_add(&(tracking->correspondences), primary_track, witness_track,
 	                                clip, second_clip);
 
 	return OPERATOR_FINISHED;
@@ -241,19 +241,19 @@ void CLIP_OT_delete_correspondence(wmOperatorType *ot)
 
 typedef struct {
 	Scene *scene;
-	//MovieClip *clip;
-	ListBase *clips;
+	int clip_num;					/* the number of active clips for multi-view reconstruction*/
+	MovieClip **clips;				/* a clip pointer array that records all the clip pointers */
 	MovieClipUser user;
-
 	ReportList *reports;
-
 	char stats_message[256];
-
 	struct MovieMultiviewReconstructContext *context;
 } SolveMultiviewJob;
 
+/* initialize multiview reconstruction solve
+ * which is assumed to be triggered only in the primary clip
+ */
 static bool solve_multiview_initjob(bContext *C,
-                                    SolveMultiviewJob *scj,
+                                    SolveMultiviewJob *smj,
                                     wmOperator *op,
                                     char *error_msg,
                                     int max_error)
@@ -265,10 +265,40 @@ static bool solve_multiview_initjob(bContext *C,
 	MovieTrackingObject *object = BKE_tracking_object_get_active(tracking);
 	int width, height;
 
-	if (!BKE_tracking_reconstruction_check(tracking,
-	                                       object,
-	                                       error_msg,
-	                                       max_error))
+	// count primary clip, will always be the first
+	smj->clip_num = 1;
+	// count other clips
+	wmWindow *window = CTX_wm_window(C);
+	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
+		if (sa->spacetype == SPACE_CLIP) {
+			SpaceClip *other_sc = sa->spacedata.first;
+			if(other_sc != sc) {
+				MovieClip *other_clip;
+				other_clip = ED_space_clip_get_clip(other_sc);
+				smj->clip_num++;
+			}
+		}
+	}
+	printf("%d active clips for multview reconstruction\n", smj->clip_num);
+	smj->clips = MEM_callocN(smj->clip_num * sizeof(MovieClip*), "multiview clip pointers");
+	smj->clips[0] = clip;
+	int count = 1;		// witness cameras start from 1
+	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
+		if (sa->spacetype == SPACE_CLIP) {
+			SpaceClip *other_sc = sa->spacedata.first;
+			if(other_sc != sc) {
+				MovieClip *other_clip;
+				other_clip = ED_space_clip_get_clip(other_sc);
+				smj->clips[count++] = other_clip;
+			}
+		}
+	}
+
+	if (!BKE_tracking_multiview_reconstruction_check(smj->clips,
+	                                                 object,
+	                                                 smj->clip_num,
+	                                                 error_msg,
+	                                                 max_error))
 	{
 		return false;
 	}
@@ -276,15 +306,13 @@ static bool solve_multiview_initjob(bContext *C,
 	/* Could fail if footage uses images with different sizes. */
 	BKE_movieclip_get_size(clip, &sc->user, &width, &height);
 
-	BLI_addtail(scj->clips, clip);
-	//BKE_tracking_clip_unique_name(scj->clips, clip);
-	//scj->clips = clip;
-	scj->scene = scene;
-	scj->reports = op->reports;
-	scj->user = sc->user;
+	smj->scene = scene;
+	smj->reports = op->reports;
+	smj->user = sc->user;
 
 	// create multiview reconstruction context and pass the tracks and markers to libmv
-	scj->context = BKE_tracking_multiview_reconstruction_context_new(scj->clips,
+	smj->context = BKE_tracking_multiview_reconstruction_context_new(smj->clips,
+	                                                                 smj->clip_num,
 	                                                                 object,
 	                                                                 object->keyframe1,
 	                                                                 object->keyframe2,
@@ -298,30 +326,30 @@ static bool solve_multiview_initjob(bContext *C,
 
 static void solve_multiview_updatejob(void *scv)
 {
-	SolveMultiviewJob *scj = (SolveMultiviewJob *)scv;
-	MovieClip *primary_clip = scj->clips->first;
+	SolveMultiviewJob *smj = (SolveMultiviewJob *)scv;
+	MovieClip *primary_clip = smj->clips[0];
 	MovieTracking *tracking = &primary_clip->tracking;
 
 	BLI_strncpy(tracking->stats->message,
-	            scj->stats_message,
+	            smj->stats_message,
 	            sizeof(tracking->stats->message));
 }
 
 static void solve_multiview_startjob(void *scv, short *stop, short *do_update, float *progress)
 {
-	SolveMultiviewJob *scj = (SolveMultiviewJob *)scv;
-	BKE_tracking_multiview_reconstruction_solve(scj->context,
+	SolveMultiviewJob *smj = (SolveMultiviewJob *)scv;
+	BKE_tracking_multiview_reconstruction_solve(smj->context,
 	                                            stop,
 	                                            do_update,
 	                                            progress,
-	                                            scj->stats_message,
-	                                            sizeof(scj->stats_message));
+	                                            smj->stats_message,
+	                                            sizeof(smj->stats_message));
 }
 
 static void solve_multiview_freejob(void *scv)
 {
 	SolveMultiviewJob *scj = (SolveMultiviewJob *)scv;
-	MovieClip *clip = scj->clips->first;		// primary clip
+	MovieClip *clip = scj->clips[0];	// primary camera
 	MovieTracking *tracking = &clip->tracking;
 	Scene *scene = scj->scene;
 	//MovieClip *clip = scj->clip;
@@ -421,9 +449,10 @@ static int solve_multiview_invoke(bContext *C,
 		if (error_msg[0]) {
 			BKE_report(op->reports, RPT_ERROR, error_msg);
 		}
-		solve_multiview_freejob(scj);
+		//solve_multiview_freejob(scj);
 		return OPERATOR_CANCELLED;
 	}
+	return OPERATOR_CANCELLED;
 
 	BLI_strncpy(tracking->stats->message,
 	            "Solving multiview| Preparing solve",

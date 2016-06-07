@@ -24,20 +24,34 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#ifndef LIBMV_C_API_H
-#define LIBMV_C_API_H
-
-#include "intern/autotrack.h"
-#include "intern/camera_intrinsics.h"
-#include "intern/detector.h"
-#include "intern/frame_accessor.h"
-#include "intern/homography.h"
-#include "intern/image.h"
-#include "intern/logging.h"
-#include "intern/reconstruction.h"
 #include "intern/reconstructionN.h"
-#include "intern/track_region.h"
-#include "intern/tracks.h"
+#include "intern/camera_intrinsics.h"
 #include "intern/tracksN.h"
+#include "intern/utildefines.h"
 
-#endif  // LIBMV_C_API_H
+#include "libmv/logging/logging.h"
+#include "libmv/autotrack/autotrack.h"
+#include "libmv/autotrack/frame_accessor.h"
+#include "libmv/autotrack/marker.h"
+#include "libmv/autotrack/model.h"
+#include "libmv/autotrack/predict_tracks.h"
+#include "libmv/autotrack/quad.h"
+#include "libmv/autotrack/reconstruction.h"
+#include "libmv/autotrack/region.h"
+#include "libmv/autotrack/tracks.h"
+
+using mv::Tracks;
+using mv::Reconstruction;
+
+using libmv::CameraIntrinsics;
+
+struct libmv_ReconstructionN {
+  mv::Reconstruction reconstruction;
+
+  /* Used for per-track average error calculation after reconstruction */
+  mv::Tracks tracks;
+  libmv::CameraIntrinsics *intrinsics;
+
+  double error;
+  bool is_valid;
+};

@@ -70,6 +70,7 @@ if(WITH_LIBMV)
 		intern/image.cc
 		intern/logging.cc
 		intern/reconstruction.cc
+		intern/reconstructionN.cc
 		intern/track_region.cc
 		intern/tracks.cc
 		intern/tracksN.cc
@@ -119,6 +120,7 @@ if(WITH_LIBMV)
 		intern/image.h
 		intern/logging.h
 		intern/reconstruction.h
+		intern/reconstructionN.h
 		intern/track_region.h
 		intern/tracks.h
 		intern/tracksN.h

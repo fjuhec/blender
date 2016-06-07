@@ -24,20 +24,17 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#ifndef LIBMV_C_API_H
-#define LIBMV_C_API_H
+#ifndef LIBMV_C_API_RECONSTRUCTION_H_
+#define LIBMV_C_API_RECONSTRUCTION_H_
 
-#include "intern/autotrack.h"
-#include "intern/camera_intrinsics.h"
-#include "intern/detector.h"
-#include "intern/frame_accessor.h"
-#include "intern/homography.h"
-#include "intern/image.h"
-#include "intern/logging.h"
-#include "intern/reconstruction.h"
-#include "intern/reconstructionN.h"
-#include "intern/track_region.h"
-#include "intern/tracks.h"
-#include "intern/tracksN.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#endif  // LIBMV_C_API_H
+typedef struct libmv_ReconstructionN libmv_ReconstructionN;
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif   // LIBMV_C_API_RECONSTRUCTION_H_
