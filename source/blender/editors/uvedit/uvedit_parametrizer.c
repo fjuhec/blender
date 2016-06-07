@@ -4747,7 +4747,7 @@ void param_scale_bounds(ParamHandle *handle)
 	}
 }
 
-void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_prev, float *cost)
+void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_prev, float *cost, bool use_topology_distance)
 {
 	const int v_a_index = v_a->u.id;
 	PEdge *e, *we, *lastwe = NULL;
@@ -4769,7 +4769,7 @@ void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_pre
 		if (!(v_b->flag & PVERT_MARKED) && !(we->flag & PEDGE_DIAG )) {
 			/* v_b not visited yet, check it out! */
 			const int v_b_index = v_b->u.id;
-			const float cost_cut = len_v2v2(v_a->uv, v_b->uv); /* params->use_topology_distance ? 1.0f : len_v2v2(v_a->uv, v_b->uv); */
+			const float cost_cut = use_topology_distance ? 1.0f : len_v2v2(v_a->uv, v_b->uv); 
 			const float cost_new = cost[v_a_index] + cost_cut;
 
 			if (cost[v_b_index] > cost_new) {
@@ -4783,7 +4783,7 @@ void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_pre
 	} while (we && (we != lastwe));
 }
 
-LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst)
+LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst, bool topological_distance)
 {
 	LinkNode *path = NULL;
 	Heap *heap;
@@ -4819,7 +4819,7 @@ LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst)
 
 		if (!(vert->flag & PVERT_MARKED)) {
 			vert->flag |= PVERT_MARKED;
-			p_verttag_add_adjacent(heap, chart, vert, verts_prev, cost);
+			p_verttag_add_adjacent(heap, chart, vert, verts_prev, cost, topological_distance);
 		}
 	}
 
@@ -4859,7 +4859,7 @@ void p_vert_select_edges(PVert* v, bool recursive)
 	} while (we && (we != lastwe));
 }
 
-void param_shortest_path(ParamHandle *handle, bool *p_found)
+void param_shortest_path(ParamHandle *handle, bool *p_found, bool topological_distance)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart, *current_chart;
@@ -4899,7 +4899,7 @@ void param_shortest_path(ParamHandle *handle, bool *p_found)
 	LinkNode* path = NULL;
 	if (vert_src && vert_dst){
 		//printf("start path computation!\n");
-		path = p_calc_path_vert(current_chart, vert_src, vert_dst);
+		path = p_calc_path_vert(current_chart, vert_src, vert_dst, topological_distance);
 		if (path) {
 			LinkNode *node = NULL;
 			node = path;

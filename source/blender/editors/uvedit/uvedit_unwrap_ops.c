@@ -718,12 +718,12 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 }
 
 /* ******************** Select Shortest Path operator **************** */
-bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm) 
+bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm, bool topo_dist) 
 {
 	ParamHandle *handle;
 	bool path_found = false;
 	handle = construct_param_handle(scene, ob, bm, false, false, false, true);
-	param_shortest_path(handle, &path_found);
+	param_shortest_path(handle, &path_found, topo_dist);
 	param_flush(handle);
 	param_delete(handle);
 	return path_found; 

@@ -1490,6 +1490,7 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 	BMElem *ele_src = NULL, *ele_dst = NULL, *ele;
 	MLoopUV *luv_src = NULL, *luv_dst = NULL;
 	int elem_sel = 0;
+	const bool topological_distance = RNA_boolean_get(op->ptr, "topological_distance");
 	
 
 	if (ts->uv_flag & UV_SYNC_SELECTION) {
@@ -1587,7 +1588,7 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 	
 	/* -------- Now select shortest path between the 2 found elements ---------- */
 
-	if (ED_uvedit_shortest_path_select(scene, obedit, bm)) {
+	if (ED_uvedit_shortest_path_select(scene, obedit, bm, topological_distance)) {
 
 		DAG_id_tag_update(obedit->data, 0);
 		WM_event_add_notifier(C, NC_GEOM | ND_SELECT | ND_DATA, obedit->data);
@@ -1612,6 +1613,9 @@ static void UV_OT_select_shortest_path(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = uv_shortest_path_exec;
 	ot->poll = ED_operator_uvedit;
+
+	/* properties */
+	RNA_def_boolean(ot->srna, "topological_distance", 0, "Topological Distance", "Find the minimum number of steps, ignoring spatial distance");
 }
 
 /* ******************** align operator **************** */
