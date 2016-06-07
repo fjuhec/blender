@@ -332,7 +332,7 @@ int ABC_export(Scene *scene, bContext *C, const char *filepath,
 
 	/* setup job */
 	WM_jobs_customdata_set(wm_job, job, MEM_freeN);
-	WM_jobs_timer(wm_job, 0.1, NC_SCENE | ND_COMPO_RESULT, NC_SCENE | ND_COMPO_RESULT);
+	WM_jobs_timer(wm_job, 0.1, NC_SCENE | ND_FRAME, NC_SCENE | ND_FRAME);
 	WM_jobs_callbacks(wm_job, export_startjob, NULL, NULL, export_endjob);
 
 	WM_jobs_start(CTX_wm_manager(C), wm_job);
@@ -562,7 +562,7 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 
 	/* setup job */
 	WM_jobs_customdata_set(wm_job, job, MEM_freeN);
-	WM_jobs_timer(wm_job, 0.1, NC_SCENE | ND_COMPO_RESULT, NC_SCENE | ND_COMPO_RESULT);
+	WM_jobs_timer(wm_job, 0.1, NC_SCENE | ND_FRAME, NC_SCENE | ND_FRAME);
 	WM_jobs_callbacks(wm_job, import_startjob, NULL, NULL, NULL);
 
 	WM_jobs_start(CTX_wm_manager(C), wm_job);
