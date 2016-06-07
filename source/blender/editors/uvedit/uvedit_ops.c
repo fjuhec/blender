@@ -1605,13 +1605,12 @@ static void UV_OT_select_shortest_path(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Select Shortest Path";
-	ot->description = "Select the shortest path between the current selection";
+	ot->description = "Select the shortest path between the current selected vertices";
 	ot->idname = "UV_OT_select_shortest_path";
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
 	/* api callbacks */
 	ot->exec = uv_shortest_path_exec;
-	//ot->poll = ED_operator_uvedit_space_image;
 	ot->poll = ED_operator_uvedit;
 }
 

@@ -684,7 +684,7 @@ static void p_flush_uvs(PHandle *handle, PChart *chart)
 	/* ToDo (SaphireS): Find sensible variable names*/
 	int MLOOPEDGE_SELECTED = (1 << 0); /* MLOOPUV_EDGESEL*/
 	int MLOOPVERT_SELECTED = (1 << 1); /* MLOOPUV_VERTSEL*/
-	printf("--- DEBUG (SaphireS): p_flush_uvs() reached\n");
+
 	for (e = chart->edges; e; e = e->nextlink) {
 		if (e->orig_uv) {
 			e->orig_uv[0] = e->vert->uv[0] / handle->aspx;
@@ -693,16 +693,10 @@ static void p_flush_uvs(PHandle *handle, PChart *chart)
 
 		/* ToDo (SaphireS): Move to own p_flush_uvs_selection() function ?*/
 		if (e->flag & PEDGE_SELECT) {
-			//if (e->orig_flag) {
-			printf("--- DEBUG (SaphireS): PEDGE_SELECT tagged edge found\n");
-				//printf("---param_flush_uvs: orig_flag found\n");
-				sel_flag = *e->orig_flag;
-				sel_flag |= MLOOPEDGE_SELECTED;/* MLOOPUV_EDGESEL*/
-				sel_flag |= MLOOPVERT_SELECTED; /* MLOOPUV_VERTSEL*/
-				printf("--- DEBUG (SaphireS): before *(e->orig_flag) = sel_flag;\n");
-				*(e->orig_flag) = sel_flag; //sel_flag
-				printf("--- DEBUG (SaphireS): after *(e->orig_flag) = sel_flag;\n");
-			//}
+			sel_flag = *e->orig_flag;
+			sel_flag |= MLOOPEDGE_SELECTED;/* MLOOPUV_EDGESEL*/
+			sel_flag |= MLOOPVERT_SELECTED; /* MLOOPUV_VERTSEL*/
+			*(e->orig_flag) = sel_flag; 
 		}
 	}
 }
@@ -4766,15 +4760,13 @@ void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_pre
 	lastwe = e;
 	for (we = p_wheel_edge_prev(e); we && (we != e); we = p_wheel_edge_prev(we)) {
 		lastwe = we;
-		//printf("rewind to edge of vert: %i\n", we->vert->u.id);
 	}
 	
 	we = lastwe;
-	//for (we = lastwe; we; we = p_wheel_edge_next(we)) {
 	do {
 		PVert *v_b = we->next->vert; 
 		//printf("----add_adjacent considering v_b: %i\n", v_b->u.id);
-		if (!(v_b->flag & PVERT_MARKED)) {
+		if (!(v_b->flag & PVERT_MARKED) && !(we->flag & PEDGE_DIAG )) {
 			/* v_b not visited yet, check it out! */
 			const int v_b_index = v_b->u.id;
 			const float cost_cut = len_v2v2(v_a->uv, v_b->uv); /* params->use_topology_distance ? 1.0f : len_v2v2(v_a->uv, v_b->uv); */
@@ -4789,7 +4781,6 @@ void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_pre
 
 		we = p_wheel_edge_next(we);
 	} while (we && (we != lastwe));
-	//}
 }
 
 LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst)
@@ -4804,7 +4795,7 @@ LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst)
 	/* Clear flags */
 	for (vert = chart->verts, index = 0; vert; vert = vert->nextlink, index++) {
 		vert->flag &= ~PVERT_MARKED;
-		vert->u.id = index; /* Abuse lscm id field */
+		vert->u.id = index; /* Re-use lscm id field */
 	}
 
 	/* alloc */
@@ -4845,8 +4836,10 @@ LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst)
 	return path;
 }
 
-void p_vert_select_edges(PVert* v)
+void p_vert_select_edges(PVert* v, bool recursive)
 {
+	//printf("reached p_vert_select_edges() for %i --\n", v->u.id);
+
 	v->flag |= PVERT_SELECT; 
 	PEdge *e = v->edge;
 	e->flag |= PEDGE_SELECT;
@@ -4899,8 +4892,6 @@ void param_shortest_path(ParamHandle *handle, bool *p_found)
 					//}
 				}
 			}
-
-			/* ToDo (SaphireS): Possible that more than one instance of src selected in different charts */
 		}
 	}
 
@@ -4910,14 +4901,15 @@ void param_shortest_path(ParamHandle *handle, bool *p_found)
 		//printf("start path computation!\n");
 		path = p_calc_path_vert(current_chart, vert_src, vert_dst);
 		if (path) {
-			//printf("--- DEBUG (SaphireS): path found\n");
 			LinkNode *node = NULL;
 			node = path;
+
 			do {
-				//printf("---tagging vert/edge for selection\n");
 				PVert *v = node->link;
-				p_vert_select_edges(v);
+				p_vert_select_edges(v, false);
+
 			} while (node = node->next);
+
 			success = true;
 			BLI_linklist_free(path, NULL);
 		}
