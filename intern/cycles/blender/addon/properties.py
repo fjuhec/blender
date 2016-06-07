@@ -518,12 +518,6 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
                             "but time can be saved by manually stopping the render when the noise is low enough)",
                 default=False,
                 )
-        cls.geom_cache_max_size = IntProperty(
-                name="Geometry Cache Size",
-                description="Maximum size of the geometry cache in MB",
-                min=128,
-                default=1024,
-                )
 
         cls.bake_type = EnumProperty(
             name="Bake Type",
@@ -964,12 +958,6 @@ class CyclesMeshSettings(bpy.types.PropertyGroup):
                 description="Method to use for the displacement",
                 items=enum_displacement_methods,
                 default='BUMP',
-                )
-        cls.displacement_scale = FloatProperty(
-                name="Displacement Scale",
-                description="",
-                min=-1000, max=1000.0,
-                default=1.0,
                 )
         cls.subdivision_type = EnumProperty(
                 name="Subdivision Type",

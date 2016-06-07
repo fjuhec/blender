@@ -31,12 +31,6 @@ struct OSLThreadData;
 struct OSLShadingSystem;
 #  endif
 
-struct GeomCache;
-struct GeomCacheThreadData;
-
-#  define MAX_BYTE_IMAGES   1024
-#  define MAX_FLOAT4_IMAGES  1024
-
 typedef struct KernelGlobals {
 	texture_image_uchar4 texture_byte4_images[TEX_NUM_BYTE4_IMAGES_CPU];
 	texture_image_float4 texture_float4_images[TEX_NUM_FLOAT4_IMAGES_CPU];
@@ -56,9 +50,6 @@ typedef struct KernelGlobals {
 	OSLShadingSystem *osl_ss;
 	OSLThreadData *osl_tdata;
 #  endif
-
-	GeomCache* geom_cache;
-	GeomCacheThreadData* geom_cache_tdata;
 
 } KernelGlobals;
 

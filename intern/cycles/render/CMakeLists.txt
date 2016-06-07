@@ -13,7 +13,6 @@ set(INC
 
 set(INC_SYS
 	${GLEW_INCLUDE_DIR}
-	${OPENSUBDIV_INCLUDE_DIR}
 )
 
 set(SRC
@@ -29,7 +28,6 @@ set(SRC
 	light.cpp
 	mesh.cpp
 	mesh_displace.cpp
-	mesh_subdivision.cpp
 	nodes.cpp
 	object.cpp
 	osl.cpp

@@ -404,11 +404,6 @@ class CyclesRender_PT_performance(CyclesButtonsPanel, Panel):
         col.label(text="Acceleration structure:")
         col.prop(cscene, "debug_use_spatial_splits")
 
-        col.separator()
-
-        col.label(text="Geometry Cache:")
-        col.prop(cscene, "geom_cache_max_size", text="Max Size")
-
 
 class CyclesRender_PT_layer_options(CyclesButtonsPanel, Panel):
     bl_label = "Layer"
@@ -711,7 +706,6 @@ class Cycles_PT_mesh_displacement(CyclesButtonsPanel, Panel):
         sub = col.column(align=True)
         sub.label(text="Displacment:")
         sub.prop(cdata, "displacement_method", text="")
-        sub.prop(cdata, "displacement_scale", text="Scale")
 
         col = split.column()
         sub = col.column(align=True)

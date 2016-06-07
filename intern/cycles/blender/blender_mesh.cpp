@@ -24,6 +24,7 @@
 #include "blender_session.h"
 #include "blender_util.h"
 
+#include "subd_mesh.h"
 #include "subd_patch.h"
 #include "subd_split.h"
 
@@ -190,8 +191,7 @@ static void mikk_compute_tangents(BL::Mesh& b_mesh,
                                   const vector<int>& nverts,
                                   const vector<int>& face_flags,
                                   bool need_sign,
-                                  bool active_render,
-                                  bool subdivision)
+                                  bool active_render)
 {
 	/* setup userdata */
 	MikkUserData userdata(b_mesh, b_layer, nverts.size());
@@ -216,7 +216,6 @@ static void mikk_compute_tangents(BL::Mesh& b_mesh,
 	genTangSpaceDefault(&context);
 
 	/* create tangent attributes */
-	AttributeSet& mesh_attributes = subdivision? mesh->subd_attributes: mesh->attributes;
 	Attribute *attr;
 	ustring name;
 	if(b_layer != NULL)
@@ -225,9 +224,9 @@ static void mikk_compute_tangents(BL::Mesh& b_mesh,
 		name = ustring("orco.tangent");
 
 	if(active_render)
-		attr = mesh_attributes.add(ATTR_STD_UV_TANGENT, name);
+		attr = mesh->attributes.add(ATTR_STD_UV_TANGENT, name);
 	else
-		attr = mesh_attributes.add(name, TypeDesc::TypeVector, ATTR_ELEMENT_CORNER);
+		attr = mesh->attributes.add(name, TypeDesc::TypeVector, ATTR_ELEMENT_CORNER);
 
 	float3 *tangent = attr->data_float3();
 
@@ -243,59 +242,40 @@ static void mikk_compute_tangents(BL::Mesh& b_mesh,
 			name_sign = ustring("orco.tangent_sign");
 
 		if(active_render)
-			attr_sign = mesh_attributes.add(ATTR_STD_UV_TANGENT_SIGN, name_sign);
+			attr_sign = mesh->attributes.add(ATTR_STD_UV_TANGENT_SIGN, name_sign);
 		else
-			attr_sign = mesh_attributes.add(name_sign, TypeDesc::TypeFloat, ATTR_ELEMENT_CORNER);
+			attr_sign = mesh->attributes.add(name_sign, TypeDesc::TypeFloat, ATTR_ELEMENT_CORNER);
 
 		tangent_sign = attr_sign->data_float();
 	}
 
-	if(!subdivision) {
-		for(int i = 0; i < nverts.size(); i++) {
-			int tri_a[3], tri_b[3];
-			face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
+	for(int i = 0; i < nverts.size(); i++) {
+		int tri_a[3], tri_b[3];
+		face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
 
-			tangent[0] = float4_to_float3(userdata.tangent[i*4 + tri_a[0]]);
-			tangent[1] = float4_to_float3(userdata.tangent[i*4 + tri_a[1]]);
-			tangent[2] = float4_to_float3(userdata.tangent[i*4 + tri_a[2]]);
+		tangent[0] = float4_to_float3(userdata.tangent[i*4 + tri_a[0]]);
+		tangent[1] = float4_to_float3(userdata.tangent[i*4 + tri_a[1]]);
+		tangent[2] = float4_to_float3(userdata.tangent[i*4 + tri_a[2]]);
+		tangent += 3;
+
+		if(tangent_sign) {
+			tangent_sign[0] = userdata.tangent[i*4 + tri_a[0]].w;
+			tangent_sign[1] = userdata.tangent[i*4 + tri_a[1]].w;
+			tangent_sign[2] = userdata.tangent[i*4 + tri_a[2]].w;
+			tangent_sign += 3;
+		}
+
+		if(nverts[i] == 4) {
+			tangent[0] = float4_to_float3(userdata.tangent[i*4 + tri_b[0]]);
+			tangent[1] = float4_to_float3(userdata.tangent[i*4 + tri_b[1]]);
+			tangent[2] = float4_to_float3(userdata.tangent[i*4 + tri_b[2]]);
 			tangent += 3;
 
 			if(tangent_sign) {
-				tangent_sign[0] = userdata.tangent[i*4 + tri_a[0]].w;
-				tangent_sign[1] = userdata.tangent[i*4 + tri_a[1]].w;
-				tangent_sign[2] = userdata.tangent[i*4 + tri_a[2]].w;
+				tangent_sign[0] = userdata.tangent[i*4 + tri_b[0]].w;
+				tangent_sign[1] = userdata.tangent[i*4 + tri_b[1]].w;
+				tangent_sign[2] = userdata.tangent[i*4 + tri_b[2]].w;
 				tangent_sign += 3;
-			}
-
-			if(nverts[i] == 4) {
-				tangent[0] = float4_to_float3(userdata.tangent[i*4 + tri_b[0]]);
-				tangent[1] = float4_to_float3(userdata.tangent[i*4 + tri_b[1]]);
-				tangent[2] = float4_to_float3(userdata.tangent[i*4 + tri_b[2]]);
-				tangent += 3;
-
-				if(tangent_sign) {
-					tangent_sign[0] = userdata.tangent[i*4 + tri_b[0]].w;
-					tangent_sign[1] = userdata.tangent[i*4 + tri_b[1]].w;
-					tangent_sign[2] = userdata.tangent[i*4 + tri_b[2]].w;
-					tangent_sign += 3;
-				}
-			}
-		}
-	}
-	else {
-		for(int i = 0; i < nverts.size(); i++) {
-			tangent[0] = float4_to_float3(userdata.tangent[i*4 + 0]);
-			tangent[1] = float4_to_float3(userdata.tangent[i*4 + 1]);
-			tangent[2] = float4_to_float3(userdata.tangent[i*4 + 2]);
-			tangent[3] = float4_to_float3(userdata.tangent[i*4 + 3]);
-			tangent += 4;
-
-			if(tangent_sign) {
-				tangent_sign[0] = userdata.tangent[i*4 + 0].w;
-				tangent_sign[1] = userdata.tangent[i*4 + 1].w;
-				tangent_sign[2] = userdata.tangent[i*4 + 2].w;
-				tangent_sign[3] = userdata.tangent[i*4 + 3].w;
-				tangent_sign += 4;
 			}
 		}
 	}
@@ -355,15 +335,14 @@ static void attr_create_vertex_color(Scene *scene,
                                      Mesh *mesh,
                                      BL::Mesh& b_mesh,
                                      const vector<int>& nverts,
-                                     const vector<int>& face_flags,
-                                     bool subdivision)
+                                     const vector<int>& face_flags)
 {
 	BL::Mesh::tessface_vertex_colors_iterator l;
 	for(b_mesh.tessface_vertex_colors.begin(l); l != b_mesh.tessface_vertex_colors.end(); ++l) {
 		if(!mesh->need_attribute(scene, ustring(l->name().c_str())))
 			continue;
 
-		Attribute *attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(
+		Attribute *attr = mesh->attributes.add(
 			ustring(l->name().c_str()), TypeDesc::TypeColor, ATTR_ELEMENT_CORNER_BYTE);
 
 		BL::MeshColorLayer::data_iterator c;
@@ -382,27 +361,18 @@ static void attr_create_vertex_color(Scene *scene,
 				colors[3] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color4())));
 			}
 
-			if(!subdivision) {
-				cdata[0] = colors[tri_a[0]];
-				cdata[1] = colors[tri_a[1]];
-				cdata[2] = colors[tri_a[2]];
+			cdata[0] = colors[tri_a[0]];
+			cdata[1] = colors[tri_a[1]];
+			cdata[2] = colors[tri_a[2]];
 
-				if(nverts[i] == 4) {
-					cdata[3] = colors[tri_b[0]];
-					cdata[4] = colors[tri_b[1]];
-					cdata[5] = colors[tri_b[2]];
-					cdata += 6;
-				}
-				else
-					cdata += 3;
+			if(nverts[i] == 4) {
+				cdata[3] = colors[tri_b[0]];
+				cdata[4] = colors[tri_b[1]];
+				cdata[5] = colors[tri_b[2]];
+				cdata += 6;
 			}
-			else {
-				cdata[0] = colors[0];
-				cdata[1] = colors[1];
-				cdata[2] = colors[2];
-				cdata[3] = colors[3];
-				cdata += 4;
-			}
+			else
+				cdata += 3;
 		}
 	}
 }
@@ -412,8 +382,7 @@ static void attr_create_uv_map(Scene *scene,
                                Mesh *mesh,
                                BL::Mesh& b_mesh,
                                const vector<int>& nverts,
-                               const vector<int>& face_flags,
-                               bool subdivision)
+                               const vector<int>& face_flags)
 {
 	if(b_mesh.tessface_uv_textures.length() != 0) {
 		BL::Mesh::tessface_uv_textures_iterator l;
@@ -428,9 +397,9 @@ static void attr_create_uv_map(Scene *scene,
 				Attribute *attr;
 
 				if(active_render)
-					attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(std, name);
+					attr = mesh->attributes.add(std, name);
 				else
-					attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(name, TypeDesc::TypePoint, ATTR_ELEMENT_CORNER);
+					attr = mesh->attributes.add(name, TypeDesc::TypePoint, ATTR_ELEMENT_CORNER);
 
 				BL::MeshTextureFaceLayer::data_iterator t;
 				float3 *fdata = attr->data_float3();
@@ -448,25 +417,16 @@ static void attr_create_uv_map(Scene *scene,
 						uvs[3] = get_float3(t->uv4());
 					}
 
-					if(!subdivision) {
-						fdata[0] = uvs[tri_a[0]];
-						fdata[1] = uvs[tri_a[1]];
-						fdata[2] = uvs[tri_a[2]];
-						fdata += 3;
+					fdata[0] = uvs[tri_a[0]];
+					fdata[1] = uvs[tri_a[1]];
+					fdata[2] = uvs[tri_a[2]];
+					fdata += 3;
 
-						if(nverts[i] == 4) {
-							fdata[0] = uvs[tri_b[0]];
-							fdata[1] = uvs[tri_b[1]];
-							fdata[2] = uvs[tri_b[2]];
-							fdata += 3;
-						}
-					}
-					else {
-						fdata[0] = uvs[0];
-						fdata[1] = uvs[1];
-						fdata[2] = uvs[2];
-						fdata[3] = uvs[3];
-						fdata += 4;
+					if(nverts[i] == 4) {
+						fdata[0] = uvs[tri_b[0]];
+						fdata[1] = uvs[tri_b[1]];
+						fdata[2] = uvs[tri_b[2]];
+						fdata += 3;
 					}
 				}
 			}
@@ -486,8 +446,7 @@ static void attr_create_uv_map(Scene *scene,
 				                      nverts,
 				                      face_flags,
 				                      need_sign,
-				                      active_render,
-				                      subdivision);
+				                      active_render);
 			}
 		}
 	}
@@ -499,20 +458,18 @@ static void attr_create_uv_map(Scene *scene,
 		                      nverts,
 		                      face_flags,
 		                      need_sign,
-		                      true,
-		                      subdivision);
+		                      true);
 	}
 }
 
 /* Create vertex pointiness attributes. */
 static void attr_create_pointiness(Scene *scene,
                                    Mesh *mesh,
-                                   BL::Mesh& b_mesh,
-                                   bool subdivision)
+                                   BL::Mesh& b_mesh)
 {
 	if(mesh->need_attribute(scene, ATTR_STD_POINTINESS)) {
 		const int numverts = b_mesh.vertices.length();
-		Attribute *attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(ATTR_STD_POINTINESS);
+		Attribute *attr = mesh->attributes.add(ATTR_STD_POINTINESS);
 		float *data = attr->data_float();
 		int *counter = new int[numverts];
 		float *raw_data = new float[numverts];
@@ -575,13 +532,12 @@ static void attr_create_pointiness(Scene *scene,
 static void create_mesh(Scene *scene,
                         Mesh *mesh,
                         BL::Mesh& b_mesh,
-                        const vector<uint>& used_shaders,
-                        bool subdivision=false)
+                        const vector<uint>& used_shaders)
 {
 	/* count vertices and faces */
 	int numverts = b_mesh.vertices.length();
 	int numfaces = b_mesh.tessfaces.length();
-	int numtris = 0, numpatches = 0;
+	int numtris = 0;
 	bool use_loop_normals = b_mesh.use_auto_smooth();
 
 	BL::Mesh::vertices_iterator v;
@@ -589,14 +545,11 @@ static void create_mesh(Scene *scene,
 
 	for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f) {
 		int4 vi = get_int4(f->vertices_raw());
-		if(!subdivision)
-			numtris += (vi[3] == 0)? 1: 2;
-		else
-			numpatches++;
+		numtris += (vi[3] == 0)? 1: 2;
 	}
 
 	/* reserve memory */
-	mesh->reserve(numverts, numtris, 0, 0, numpatches);
+	mesh->reserve(numverts, numtris, 0, 0);
 
 	/* create vertex coordinates and normals */
 	int i = 0;
@@ -612,7 +565,7 @@ static void create_mesh(Scene *scene,
 
 	/* create generated coordinates from undeformed coordinates */
 	if(mesh->need_attribute(scene, ATTR_STD_GENERATED)) {
-		Attribute *attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(ATTR_STD_GENERATED);
+		Attribute *attr = mesh->attributes.add(ATTR_STD_GENERATED);
 
 		float3 loc, size;
 		mesh_texture_space(b_mesh, loc, size);
@@ -625,7 +578,7 @@ static void create_mesh(Scene *scene,
 	}
 
 	/* Create needed vertex attributes. */
-	attr_create_pointiness(scene, mesh, b_mesh, subdivision);
+	attr_create_pointiness(scene, mesh, b_mesh);
 
 	/* create faces */
 	vector<int> nverts(numfaces);
@@ -660,32 +613,24 @@ static void create_mesh(Scene *scene,
 			}
 		}
 
-		if(!subdivision) {
-			/* create triangles */
-			if(n == 4) {
-				if(is_zero(cross(mesh->verts[vi[1]] - mesh->verts[vi[0]], mesh->verts[vi[2]] - mesh->verts[vi[0]])) ||
-				   is_zero(cross(mesh->verts[vi[2]] - mesh->verts[vi[0]], mesh->verts[vi[3]] - mesh->verts[vi[0]])))
-				{
-					mesh->set_triangle(ti++, vi[0], vi[1], vi[3], shader, smooth);
-					mesh->set_triangle(ti++, vi[2], vi[3], vi[1], shader, smooth);
-					face_flags[fi] |= FACE_FLAG_DIVIDE_24;
-				}
-				else {
-					mesh->set_triangle(ti++, vi[0], vi[1], vi[2], shader, smooth);
-					mesh->set_triangle(ti++, vi[0], vi[2], vi[3], shader, smooth);
-					face_flags[fi] |= FACE_FLAG_DIVIDE_13;
-				}
+		/* create triangles */
+		if(n == 4) {
+			if(is_zero(cross(mesh->verts[vi[1]] - mesh->verts[vi[0]], mesh->verts[vi[2]] - mesh->verts[vi[0]])) ||
+			   is_zero(cross(mesh->verts[vi[2]] - mesh->verts[vi[0]], mesh->verts[vi[3]] - mesh->verts[vi[0]])))
+			{
+				// TODO(mai): order here is probably wrong
+				mesh->set_triangle(ti++, vi[0], vi[1], vi[3], shader, smooth, true);
+				mesh->set_triangle(ti++, vi[2], vi[3], vi[1], shader, smooth, true);
+				face_flags[fi] |= FACE_FLAG_DIVIDE_24;
 			}
-			else
-				mesh->set_triangle(ti++, vi[0], vi[1], vi[2], shader, smooth);
+			else {
+				mesh->set_triangle(ti++, vi[0], vi[1], vi[2], shader, smooth, true);
+				mesh->set_triangle(ti++, vi[0], vi[2], vi[3], shader, smooth, true);
+				face_flags[fi] |= FACE_FLAG_DIVIDE_13;
+			}
 		}
-		else {
-			/* create patches */
-			if(n == 4)
-				mesh->set_patch(ti++, vi[0], vi[1], vi[2], vi[3], shader, smooth);
-			else
-				mesh->set_patch(ti++, vi[0], vi[1], vi[2], -1, shader, smooth);
-		}
+		else
+			mesh->set_triangle(ti++, vi[0], vi[1], vi[2], shader, smooth, false);
 
 		nverts[fi] = n;
 	}
@@ -693,8 +638,8 @@ static void create_mesh(Scene *scene,
 	/* Create all needed attributes.
 	 * The calculate functions will check whether they're needed or not.
 	 */
-	attr_create_vertex_color(scene, mesh, b_mesh, nverts, face_flags, subdivision);
-	attr_create_uv_map(scene, mesh, b_mesh, nverts, face_flags, subdivision);
+	attr_create_vertex_color(scene, mesh, b_mesh, nverts, face_flags);
+	attr_create_uv_map(scene, mesh, b_mesh, nverts, face_flags);
 
 	/* for volume objects, create a matrix to transform from object space to
 	 * mesh texture space. this does not work with deformations but that can
@@ -719,10 +664,10 @@ static void create_subd_mesh(Scene *scene,
                              float dicing_rate,
                              int max_subdivisions)
 {
-	mesh->subdivision_type = (Mesh::SubdivisionType)RNA_enum_get(cmesh, "subdivision_type");
-	create_mesh(scene, mesh, b_mesh, used_shaders, true);
+	Mesh basemesh;
+	create_mesh(scene, &basemesh, b_mesh, used_shaders);
 
-	SubdParams sdparams;
+	SubdParams sdparams(mesh, used_shaders[0], true, false);
 	sdparams.dicing_rate = max(0.1f, RNA_float_get(cmesh, "dicing_rate") * dicing_rate);
 	sdparams.max_level = max_subdivisions;
 
@@ -732,7 +677,7 @@ static void create_subd_mesh(Scene *scene,
 
 	/* tesselate */
 	DiagSplit dsplit(sdparams);
-	mesh->split_patches(&dsplit);
+	basemesh.tessellate(&dsplit);
 }
 
 /* Sync */
@@ -821,8 +766,6 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 	 * adjustments in dynamic BVH - other methods could probably do this better*/
 	vector<float4> oldcurve_keys = mesh->curve_keys;
 
-	vector<Mesh::SubPatch> oldsubpatches = mesh->subpatches;
-
 	mesh->clear();
 	mesh->used_shaders = used_shaders;
 	mesh->name = ustring(b_ob_data.name().c_str());
@@ -842,9 +785,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 
 		if(b_mesh) {
 			if(render_layer.use_surfaces && !hide_tris) {
-				mesh->displacement_scale = RNA_float_get(&cmesh, "displacement_scale");
-
-				if(cmesh.data && is_cpu && experimental && RNA_enum_get(&cmesh, "subdivision_type"))
+				if(cmesh.data && experimental && RNA_enum_get(&cmesh, "subdivision_type"))
 					create_subd_mesh(scene, mesh, b_ob, b_mesh, &cmesh, used_shaders,
 					                 dicing_rate, max_subdivisions);
 				else
@@ -896,17 +837,6 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 	else if(oldcurve_keys.size()) {
 		if(memcmp(&oldcurve_keys[0], &mesh->curve_keys[0], sizeof(float4)*oldcurve_keys.size()) != 0)
 			rebuild = true;
-	}
-
-	if(oldsubpatches.size() != mesh->subpatches.size())
-		rebuild = true;
-	else if(oldsubpatches.size()) {
-		for(int i = 0; i < oldsubpatches.size(); i++) {
-			if(oldsubpatches[i] != mesh->subpatches[i]) {
-				rebuild = true;
-				break;
-			}
-		}
 	}
 	
 	mesh->tag_update(scene, rebuild);
