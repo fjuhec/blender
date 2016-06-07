@@ -39,7 +39,7 @@ CCL_NAMESPACE_BEGIN
 ccl_device int bsdf_disney_clearcoat_setup(ShaderClosure *sc)
 {
 	/* clearcoat roughness */
-	sc->custom1 = lerp(0.1f, 0.001f, sc->data1/*clearcoatGloss*/); // 0.1f * (1.0f - sc->data1) + 0.001f * sc->data1;
+	sc->custom1 = 0.1f * (1.0f - sc->data1/*clearcoatGloss*/) + 0.001f * sc->data1/*clearcoatGloss*/; // lerp(0.1f, 0.001f, sc->data1/*clearcoatGloss*/); // 
 
     sc->type = CLOSURE_BSDF_DISNEY_CLEARCOAT_ID;
     return SD_BSDF|SD_BSDF_HAS_EVAL;
@@ -69,9 +69,6 @@ ccl_device float3 bsdf_disney_clearcoat_eval_reflect(const ShaderClosure *sc, co
 				* eq. 33: first we calculate D(m) */
 			float cosThetaM = dot(N, m);
 			float cosThetaM2 = cosThetaM * cosThetaM;
-			float cosThetaM4 = cosThetaM2 * cosThetaM2;
-			float tanThetaM2 = (1 - cosThetaM2) / cosThetaM2;
-			//D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
 			D = (alpha2 - 1) / (M_PI_F * logf(alpha2) * (1 + (alpha2 - 1) * cosThetaM2));
 
 			/* eq. 34: now calculate G1(i,m) and G1(o,m) */
@@ -83,13 +80,10 @@ ccl_device float3 bsdf_disney_clearcoat_eval_reflect(const ShaderClosure *sc, co
 			/* eq. 20 */
 			float common = D * 0.25f / cosNO;
 
-			/*float u = clamp(1.0f - dot(omega_in, m), 0.0f, 1.0f);
-			float u2 = u * u;
-			float FH = u2 * u2 * u;*/
 			float FH = schlick_fresnel(dot(omega_in, m));
-			float3 F = lerp(make_float3(0.04f, 0.04f, 0.04f), make_float3(1.0f, 1.0f, 1.0f), FH); // make_float3(0.04f, 0.04f, 0.04f) * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+			float3 F = (0.04f * (1.0f - FH) + 1.0f * FH) * 0.25f * sc->data0/*clearcoat*/ * make_float3(1.0f, 1.0f, 1.0f); // lerp(make_float3(0.04f, 0.04f, 0.04f), make_float3(1.0f, 1.0f, 1.0f), FH);
 
-			float3 out = F * G * common * 0.25f * sc->data0/*clearcoat*/;
+			float3 out = F * G * common;
 
 			/* eq. 2 in distribution of visible normals sampling
 			 * pm = Dw = G1o * dot(m, I) * D / dot(N, I); */
@@ -159,9 +153,6 @@ ccl_device int bsdf_disney_clearcoat_sample(const ShaderClosure *sc,
 						float D, G1i;
 
 						float cosThetaM2 = cosThetaM * cosThetaM;
-						//float cosThetaM4 = cosThetaM2 * cosThetaM2;
-						//float tanThetaM2 = 1/(cosThetaM2) - 1;
-						//D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
 						D = (alpha2 - 1) / (M_PI_F * logf(alpha2) * (1 + (alpha2 - 1) * cosThetaM2));
 
 						/* eval BRDF*cosNI */
@@ -175,11 +166,8 @@ ccl_device int bsdf_disney_clearcoat_sample(const ShaderClosure *sc,
 						float common = (G1o * D) * 0.25f / cosNO;
 						*pdf = common;
 
-						/*float u = clamp(1.0f - dot(*omega_in, m), 0.0f, 1.0f);
-						float u2 = u * u;
-						float FH = u2 * u2 * u;*/
 						float FH = schlick_fresnel(dot(*omega_in, m));
-						float3 F = lerp(make_float3(0.04f, 0.04f, 0.04f), make_float3(1.0f, 1.0f, 1.0f), FH); // make_float3(0.04f, 0.04f, 0.04f) * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+						float3 F = make_float3(0.04f, 0.04f, 0.04f) * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(make_float3(0.04f, 0.04f, 0.04f), make_float3(1.0f, 1.0f, 1.0f), FH);
 
 						*eval = G1i * common * F * 0.25f * sc->data0/*clearcoat*/;
 					}

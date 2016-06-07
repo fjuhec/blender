@@ -38,12 +38,12 @@ CCL_NAMESPACE_BEGIN
 
 ccl_device int bsdf_disney_specular_setup(ShaderClosure *sc)
 {
-	float m_cdlum = 0.3f * sc->color0[0] + 0.6f * sc->color0[1] + 0.1f * sc->color0[2]; // luminance approx.
+	float m_cdlum = 0.3f * sc->color0.x + 0.6f * sc->color0.y + 0.1f * sc->color0.z; // luminance approx.
 
 	float3 m_ctint = m_cdlum > 0.0f ? sc->color0/*baseColor*/ / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 
-	float3 tmp_col = lerp(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data2/*specularTint*/); // make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sc->data2) + m_ctint * sc->data2;
-	sc->custom_color0/*cspec0*/ = lerp(sc->data1/*specular*/ * 0.08f * tmp_col, sc->color0/*baseColor*/, sc->data0/*metallic*/); // (sc->data1 * 0.08f * tmp_col) * (1.0f - sc->data0) + sc->color0 * sc->data0;
+	float3 tmp_col = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sc->data2/*specularTint*/) + m_ctint * sc->data2/*specularTint*/; // lerp(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data2/*specularTint*/);
+	sc->custom_color0/*cspec0*/ = (sc->data1/*specular*/ * 0.08f * tmp_col) * (1.0f - sc->data0/*metallic*/) + sc->color0/*baseColor*/ * sc->data0/*metallic*/; // lerp(sc->data1/*specular*/ * 0.08f * tmp_col, sc->color0/*baseColor*/, sc->data0/*metallic*/);
 
 	float aspect = safe_sqrtf(1.0f - sc->data4/*anisotropic*/ * 0.9f);
 	float r2 = sqr(sc->data3/*roughness*/);
@@ -136,12 +136,8 @@ ccl_device float3 bsdf_disney_specular_eval_reflect(const ShaderClosure *sc, con
 		/* eq. 20 */
 		float common = D * 0.25f / cosNO;
 
-		/*float u = clamp(1.0f - dot(omega_in, m), 0.0f, 1.0f);
-		float u2 = u * u;
-		float FH = u2 * u2 * u;*/
         float FH = schlick_fresnel(dot(omega_in, m));
-		float3 F = lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH); // sc->custom_color0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
-		//printf("%f, %f\n\r", dot(omega_in, m), FH);
+		float3 F = sc->custom_color0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 
 		float3 out = F * G * common;
 
@@ -256,11 +252,8 @@ ccl_device int bsdf_disney_specular_sample(const ShaderClosure *sc,
                     float common = (G1o * D) * 0.25f / cosNO;
                     *pdf = common;
 
-					/*float u = clamp(1.0f - dot(*omega_in, m), 0.0f, 1.0f);
-					float u2 = u * u;
-					float FH = u2 * u2 * u;*/
 					float FH = schlick_fresnel(dot(*omega_in, m));
-					float3 F = lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH); // sc->custom_color0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+					float3 F = sc->custom_color0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 
                     *eval = G1i * common * F;
                 }

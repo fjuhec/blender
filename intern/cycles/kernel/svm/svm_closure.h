@@ -168,7 +168,9 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 			// calculate weights of the diffuse and specular part
 			float diffuse_weight = (1.0f - clamp(metallic, 0.0f, 1.0f)) * (1.0f - clamp(transparency, 0.0f, 1.0f)); // lerp(1.0f - clamp(metallic, 0.0f, 1.0f), 0.0f, lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f)));
-			float specular_weight = lerp(1.0f, fresnel, lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f)));
+			
+			float transp = clamp(transparency, 0.0f, 1.0f) * (1.0f - clamp(metallic, 0.0f, 1.0f)); // lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f));
+			float specular_weight = 1.0f * (1.0f - transp) + fresnel * transp; // lerp(1.0f, fresnel, transp);
 			if (specular == 0.0f && metallic == 0.0f) {
 				specular_weight = 1.0f - transparency;
 			}

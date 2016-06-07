@@ -52,7 +52,7 @@ ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
 
 	float FL = schlick_fresnel(NdotL), FV = schlick_fresnel(NdotV);
     const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * sc->data0/*roughness*/;
-    float Fd = lerp(1.0f, Fd90, FL) * lerp(1.0f, Fd90, FV);
+	float Fd = (1.0f * (1.0f - FL) + Fd90 * FL) * (1.0f * (1.0f - FV) + Fd90 * FV); //lerp(1.0f, Fd90, FL) * lerp(1.0f, Fd90, FV);
 
 	float3 value = M_1_PI_F * Fd * sc->color0/*baseColor*/;
 

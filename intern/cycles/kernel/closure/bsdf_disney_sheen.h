@@ -63,12 +63,12 @@ ccl_device float3 calculate_disney_sheen_brdf(const ShaderClosure *sc,
 
 ccl_device int bsdf_disney_sheen_setup(ShaderClosure *sc)
 {
-	float m_cdlum = 0.3f * sc->color0[0] + 0.6f * sc->color0[1] + 0.1f * sc->color0[2]; // luminance approx.
+	float m_cdlum = 0.3f * sc->color0.x + 0.6f * sc->color0.y + 0.1f * sc->color0.z; // luminance approx.
 
 	float3 m_ctint = m_cdlum > 0.0f ? sc->color0 / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 
 	/* csheen0 */
-	sc->custom_color0 = lerp(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data1/*sheenTint*/);
+	sc->custom_color0 = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sc->data1/*sheenTint*/) + m_ctint * sc->data1/*sheenTint*/; // lerp(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data1/*sheenTint*/);
 
 	sc->type = CLOSURE_BSDF_DISNEY_SHEEN_ID;
 	return SD_BSDF|SD_BSDF_HAS_EVAL;

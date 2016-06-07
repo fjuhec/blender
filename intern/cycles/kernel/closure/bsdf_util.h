@@ -130,7 +130,6 @@ ccl_device float schlick_fresnel(float u)
 {
 	float m = clamp(1.0f - u, 0.0f, 1.0f);
 	float m2 = m * m;
-	//printf("%f, %f, %f, %f\n\r", u, m, m2, m2 * m2 * m);
 	return m2 * m2 * m; // pow(m, 5)
 }
 
