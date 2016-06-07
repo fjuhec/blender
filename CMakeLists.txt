@@ -230,7 +230,7 @@ option(WITH_SYSTEM_BULLET "Use the systems bullet library (currently unsupported
 mark_as_advanced(WITH_SYSTEM_BULLET)
 option(WITH_GAMEENGINE    "Enable Game Engine" ${_init_GAMEENGINE})
 option(WITH_PLAYER        "Build Player" OFF)
-option(WITH_DECKLINK      "Support BlackMagicDesign DeckLink cards in the BGE" OFF)
+option(WITH_DECKLINK      "Support BlackMagicDesign DeckLink cards in the BGE" ON)
 option(WITH_OPENCOLORIO   "Enable OpenColorIO color management" ${_init_OPENCOLORIO})
 
 # Compositor
