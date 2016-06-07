@@ -304,6 +304,8 @@ AbcHairReader::AbcHairReader(const Alembic::Abc::IObject &object, ImportSettings
 {
 	ICurves abc_curves(object, kWrapExisting);
 	m_curves_schema = abc_curves.getSchema();
+
+	get_min_max_time(m_curves_schema, m_min_time, m_max_time);
 }
 
 bool AbcHairReader::valid() const

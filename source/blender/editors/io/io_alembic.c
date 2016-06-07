@@ -305,6 +305,9 @@ static void ui_alembic_import_settings(uiLayout *layout, PointerRNA *imfptr)
 	uiItemL(row, IFACE_("Options:"), ICON_NONE);
 
 	row = uiLayoutRow(box, false);
+	uiItemR(row, imfptr, "set_frame_range", 0, NULL, ICON_NONE);
+
+	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "is_sequence", 0, NULL, ICON_NONE);
 }
 
@@ -328,8 +331,9 @@ static int wm_alembic_import_exec(bContext *C, wmOperator *op)
 
 	const float scale = RNA_float_get(op->ptr, "scale");
 	const bool is_sequence = RNA_boolean_get(op->ptr, "is_sequence");
+	const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
 
-	ABC_import(C, filename, scale, is_sequence);
+	ABC_import(C, filename, scale, is_sequence, set_frame_range);
 
 	return OPERATOR_FINISHED;
 }
@@ -348,8 +352,13 @@ void WM_OT_alembic_import(wmOperatorType *ot)
 	                               FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, 1000.0f, "Scale", "", 0.0f, 1000.0f);
+
 	RNA_def_boolean(ot->srna, "is_sequence", false,
 	                "Sequence", "Whether the cache is separated in a series of file");
+
+	RNA_def_boolean(ot->srna, "set_frame_range", true,
+	                "Set Frame Range",
+	                "If checked, update scene's start and end frame to match those of the Alembic archive");
 }
 
 #endif

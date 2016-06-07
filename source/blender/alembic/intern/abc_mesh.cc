@@ -1074,6 +1074,8 @@ AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings, bo
 		IPolyMesh ipoly_mesh(m_iobject, kWrapExisting);
 		m_schema = ipoly_mesh.getSchema();
 	}
+
+	get_min_max_time(m_schema, m_min_time, m_max_time);
 }
 
 bool AbcMeshReader::valid() const

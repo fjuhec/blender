@@ -473,17 +473,29 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 	const float size = static_cast<float>(readers.size());
 	size_t i = 0;
 
-	std::vector<AbcObjectReader *>::iterator iter;
+	Scene *scene = data->scene;
 
+	chrono_t min_time = std::numeric_limits<chrono_t>::max();
+	chrono_t max_time = std::numeric_limits<chrono_t>::min();
+
+	std::vector<AbcObjectReader *>::iterator iter;
 	for (iter = readers.begin(); iter != readers.end(); ++iter) {
 		AbcObjectReader *reader = *iter;
 
 		if (reader->valid()) {
-			reader->readObjectData(data->bmain, data->scene, 0.0f);
+			reader->readObjectData(data->bmain, scene, 0.0f);
 			reader->readObjectMatrix(0.0f);
+			min_time = std::min(min_time, reader->minTime());
+			max_time = std::max(max_time, reader->maxTime());
 		}
 
 		*data->progress = 0.1f + 0.6f * (++i / size);
+	}
+
+	if (data->settings.set_frame_range && (min_time < max_time)) {
+		SFRA = min_time * FPS;
+		EFRA = max_time * FPS;
+		CFRA = SFRA;
 	}
 
 	i = 0;
@@ -527,10 +539,10 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 
 	BLI_ghash_free(parent_map, NULL, NULL);
 
-	WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
+	WM_main_add_notifier(NC_SCENE | ND_FRAME, scene);
 }
 
-void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence)
+void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence, bool set_frame_range)
 {
 	ImportJobData *job = static_cast<ImportJobData *>(MEM_mallocN(sizeof(ImportJobData), "ImportJobData"));
 	job->bmain = CTX_data_main(C);
@@ -539,6 +551,7 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 
 	job->settings.scale = scale;
 	job->settings.is_sequence = is_sequence;
+	job->settings.set_frame_range = set_frame_range;
 
 	wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),
 	                            CTX_wm_window(C),

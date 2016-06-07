@@ -94,9 +94,12 @@ struct ImportSettings {
 	int from_forward;
 	float scale;
 	bool is_sequence;
+	bool set_frame_range;
 };
 
 /* ************************************************************************** */
+
+using Alembic::AbcCoreAbstract::chrono_t;
 
 class AbcObjectReader {
 protected:
@@ -107,6 +110,9 @@ protected:
 	Alembic::Abc::IObject m_iobject;
 
 	ImportSettings *m_settings;
+
+	chrono_t m_min_time;
+	chrono_t m_max_time;
 
 public:
 	explicit AbcObjectReader(const Alembic::Abc::IObject &object, ImportSettings &settings);
@@ -124,4 +130,7 @@ public:
 	void readObjectMatrix(const float time);
 
 	void addDefaultModifier(Main *bmain) const;
+
+	chrono_t minTime() const;
+	chrono_t maxTime() const;
 };

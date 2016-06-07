@@ -347,6 +347,8 @@ AbcObjectReader::AbcObjectReader(const IObject &object, ImportSettings &settings
     , m_object(NULL)
     , m_iobject(object)
     , m_settings(&settings)
+    , m_min_time(std::numeric_limits<chrono_t>::max())
+    , m_max_time(std::numeric_limits<chrono_t>::min())
 {
 	m_name = object.getFullName();
 	std::vector<std::string> parts;
@@ -419,4 +421,14 @@ void AbcObjectReader::addDefaultModifier(Main *bmain) const
 
 	DAG_id_tag_update(&m_object->id, OB_RECALC_DATA);
 	DAG_relations_tag_update(bmain);
+}
+
+chrono_t AbcObjectReader::minTime() const
+{
+	return m_min_time;
+}
+
+chrono_t AbcObjectReader::maxTime() const
+{
+	return m_max_time;
 }

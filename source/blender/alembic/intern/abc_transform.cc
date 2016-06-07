@@ -116,7 +116,9 @@ bool AbcTransformWriter::hasAnimation(Object */*ob*/) const
 
 AbcEmptyReader::AbcEmptyReader(const Alembic::Abc::IObject &object, ImportSettings &settings)
     : AbcObjectReader(object, settings)
-{}
+{
+	get_min_max_time(m_schema, m_min_time, m_max_time);
+}
 
 bool AbcEmptyReader::valid() const
 {
