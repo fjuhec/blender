@@ -216,7 +216,6 @@ typedef struct AssetRepositoryRef {
  */
 typedef struct Library {
 	ID id;
-	ID *idblock;
 	struct FileData *filedata;
 	/* path name used for reading, can be relative and edited in the outliner. */
 	char name[1024];
@@ -232,6 +231,9 @@ typedef struct Library {
 	struct PackedFile *packedfile;
 
 	AssetRepositoryRef *asset_repository;
+
+	int temp_index;
+	int _pad;
 } Library;
 
 enum eIconSizes {
