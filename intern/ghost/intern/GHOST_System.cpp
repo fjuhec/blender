@@ -89,7 +89,7 @@ GHOST_ITimerTask *GHOST_System::installTimer(GHOST_TUns64 delay,
 		}
 		else {
 			delete timer;
-			timer = 0;
+			timer = NULL;
 		}
 	}
 	return timer;
@@ -345,27 +345,22 @@ GHOST_TSuccess GHOST_System::exit()
 	if (getFullScreen()) {
 		endFullScreen();
 	}
-	if (m_displayManager) {
-		delete m_displayManager;
-		m_displayManager = NULL;
-	}
-	if (m_windowManager) {
-		delete m_windowManager;
-		m_windowManager = NULL;
-	}
-	if (m_timerManager) {
-		delete m_timerManager;
-		m_timerManager = NULL;
-	}
-	if (m_eventManager) {
-		delete m_eventManager;
-		m_eventManager = NULL;
-	}
+
+	delete m_displayManager;
+	m_displayManager = NULL;
+
+	delete m_windowManager;
+	m_windowManager = NULL;
+
+	delete m_timerManager;
+	m_timerManager = NULL;
+
+	delete m_eventManager;
+	m_eventManager = NULL;
+
 #ifdef WITH_INPUT_NDOF
-	if (m_ndofManager) {
-		delete m_ndofManager;
-		m_ndofManager = 0;
-	}
+	delete m_ndofManager;
+	m_ndofManager = NULL;
 #endif
     if (m_openHMDManager) {
         delete m_openHMDManager;
