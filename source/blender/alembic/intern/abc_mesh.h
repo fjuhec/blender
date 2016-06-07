@@ -45,7 +45,6 @@ class AbcMeshWriter : public AbcObjectWriter {
 	ModifierData *m_subsurf_mod;
 
 	std::set<std::string> m_layers_written;
-	int m_num_face_verts;
 
 	std::vector<std::pair<int, Alembic::Abc::OArrayProperty> > m_vert_layers;
 	std::vector<std::pair<int, Alembic::Abc::OArrayProperty> > m_face_layers;
@@ -53,7 +52,7 @@ class AbcMeshWriter : public AbcObjectWriter {
 	bool m_has_vertex_weights;
 
 	bool m_is_fluid;
-	bool m_subd_type;
+	bool m_is_subd;
 	Alembic::Abc::OArrayProperty m_velocity;
 
 public:
@@ -69,7 +68,6 @@ private:
 	virtual void do_write();
 
     bool isAnimated() const;
-	bool isSubD() const;
 
 	void writeMesh();
 	void writeSubD();
@@ -77,7 +75,6 @@ private:
 	void getMeshInfo(DerivedMesh *dm, std::vector<float> &points,
 	                 std::vector<int32_t> &facePoints,
 	                 std::vector<int32_t> &faceCounts,
-	                 std::vector< std::vector<float> > &uvs,
 	                 std::vector<int32_t> &creaseIndices,
 	                 std::vector<int32_t> &creaseLengths,
 	                 std::vector<float> &creaseSharpness);
@@ -85,10 +82,6 @@ private:
 	DerivedMesh *getFinalMesh();
 	void freeMesh(DerivedMesh *dm);
 
-	void getPoints(DerivedMesh *dm, std::vector<float> &points);
-	void getTopology(DerivedMesh *dm, std::vector<int32_t> &facePoints, std::vector<int32_t> &pointCounts);
-	void getNormals(DerivedMesh *dm, std::vector<float> &norms);
-    void getUVs(DerivedMesh *dm, std::vector< Imath::V2f > &uvs, std::vector<uint32_t> &, int layer_idx);
     void getMaterialIndices(DerivedMesh *dm, std::vector<int32_t> &indices);
 
 	void createArbGeoParams(DerivedMesh *dm);
@@ -101,8 +94,10 @@ private:
 	void getGeoGroups(DerivedMesh *dm, std::map<std::string, std::vector<int32_t> > &geoGroups);
 	
 	/* fluid surfaces support */
-	ModifierData *getFluidSimModifier();
-    void getVelocities(DerivedMesh *dm, std::vector<float> &vels);
+	void getVelocities(DerivedMesh *dm, std::vector<float> &vels);
+
+	template <typename Schema>
+	void writeCommonData(DerivedMesh *dm, Schema &schema);
 };
 
 /* ************************************************************************** */

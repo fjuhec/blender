@@ -90,6 +90,277 @@ using Alembic::AbcGeom::UInt32ArraySample;
 
 /* ************************************************************************** */
 
+static void get_vertices(DerivedMesh *dm, std::vector<float> &points)
+{
+	points.clear();
+	points.reserve(dm->getNumVerts(dm) * 3);
+
+	MVert *verts = dm->getVertArray(dm);
+
+	for (int i = 0, e = dm->getNumVerts(dm); i < e; ++i) {
+		/* Convert Z-up to Y-up. */
+		points.push_back(verts[i].co[0]);
+		points.push_back(verts[i].co[2]);
+		points.push_back(-verts[i].co[1]);
+	}
+}
+
+static void get_topology(DerivedMesh *dm,
+                         std::vector<int32_t> &face_vertices,
+                         std::vector<int32_t> &loop_counts)
+{
+	face_vertices.clear();
+	loop_counts.clear();
+
+	const int num_poly = dm->getNumPolys(dm);
+	MLoop *loop_array = dm->getLoopArray(dm);
+	MPoly *polygons = dm->getPolyArray(dm);
+
+	loop_counts.reserve(num_poly);
+
+	for (int i = 0; i < num_poly; ++i) {
+		MPoly &current_poly = polygons[i];
+		MLoop *loop = loop_array + current_poly.loopstart + current_poly.totloop;
+		loop_counts.push_back(current_poly.totloop);
+
+		for (int j = 0; j < current_poly.totloop; ++j) {
+			loop--;
+			face_vertices.push_back(loop->v);
+		}
+	}
+}
+
+void get_material_indices(DerivedMesh *dm, std::vector<int32_t> &indices)
+{
+	indices.clear();
+	indices.reserve(dm->getNumTessFaces(dm));
+
+	MFace *faces = dm->getTessFaceArray(dm);
+
+	for (int i = 1, e = dm->getNumTessFaces(dm); i < e; ++i) {
+		MFace *face = &faces[i];
+		indices.push_back(face->mat_nr);
+	}
+}
+
+void get_creases(DerivedMesh *dm,
+                 std::vector<int32_t> &indices,
+                 std::vector<int32_t> &lengths,
+                 std::vector<float> &sharpnesses)
+{
+	const float factor = 1.0f / 255.0f;
+
+	indices.clear();
+	lengths.clear();
+	sharpnesses.clear();
+
+	MEdge *edge = dm->getEdgeArray(dm);
+
+	for (int i = 0, e = dm->getNumEdges(dm); i < e; ++i) {
+		float sharpness = (float) edge[i].crease * factor;
+
+		if (sharpness != 0.0f) {
+			indices.push_back(edge[i].v1);
+			indices.push_back(edge[i].v2);
+			sharpnesses.push_back(sharpness);
+		}
+	}
+
+	lengths.resize(sharpnesses.size(), 2);
+}
+
+
+static void get_uvs(DerivedMesh *dm,
+                           std::vector<Imath::V2f> &uvs,
+                           std::vector<uint32_t> &uvidx, int layer_idx, bool pack_uv)
+{
+	uvs.clear();
+	uvidx.clear();
+
+	MLoopUV *mloopuv_array = static_cast<MLoopUV *>(CustomData_get_layer_n(&dm->loopData, CD_MLOOPUV, layer_idx));
+
+	if (!mloopuv_array) {
+		return;
+	}
+
+	int num_poly = dm->getNumPolys(dm);
+	MPoly *polygons = dm->getPolyArray(dm);
+
+	if (!pack_uv) {
+		int cnt = 0;
+		for (int i = 0; i < num_poly; ++i) {
+			MPoly &current_poly = polygons[i];
+			MLoopUV *loopuvpoly = mloopuv_array + current_poly.loopstart + current_poly.totloop;
+
+			for (int j = 0; j < current_poly.totloop; ++j) {
+				loopuvpoly--;
+				uvidx.push_back(cnt++);
+				Imath::V2f uv(loopuvpoly->uv[0], loopuvpoly->uv[1]);
+				uvs.push_back(uv);
+			}
+		}
+	}
+	else {
+		for (int i = 0; i < num_poly; ++i) {
+			MPoly &current_poly = polygons[i];
+			MLoopUV *loopuvpoly = mloopuv_array + current_poly.loopstart + current_poly.totloop;
+
+			for (int j = 0; j < current_poly.totloop; ++j) {
+				loopuvpoly--;
+				Imath::V2f uv(loopuvpoly->uv[0], loopuvpoly->uv[1]);
+
+				std::vector<Imath::V2f>::iterator it = std::find(uvs.begin(), uvs.end(), uv);
+
+				if (it == uvs.end()) {
+					uvidx.push_back(uvs.size());
+					uvs.push_back(uv);
+				}
+				else {
+					uvidx.push_back(std::distance(uvs.begin(), it));
+				}
+			}
+		}
+	}
+}
+
+static void get_uv_sample(DerivedMesh *dm, OV2fGeomParam::Sample &uvSamp, bool pack_uv)
+{
+	const int active_uvlayer = CustomData_get_active_layer(&dm->loopData, CD_MLOOPUV);
+
+	if (active_uvlayer < 0) {
+		return;
+	}
+
+	std::vector<uint32_t> uvIdx;
+	std::vector<Imath::V2f> uvValArray;
+
+	get_uvs(dm, uvValArray, uvIdx, active_uvlayer, pack_uv);
+
+	if (!uvIdx.empty() && !uvValArray.empty()) {
+		uvSamp.setScope(kFacevaryingScope);
+
+		uvSamp.setVals(V2fArraySample(
+		                   (const Imath::V2f *) &uvValArray.front(),
+		                   uvValArray.size()));
+
+		UInt32ArraySample idxSamp(
+		            (const uint32_t *) &uvIdx.front(),
+		            uvIdx.size());
+
+		uvSamp.setIndices(idxSamp);
+	}
+}
+
+static void get_normals(DerivedMesh *dm, std::vector<float> &norms)
+{
+	norms.clear();
+	norms.reserve(dm->getNumVerts(dm));
+
+	const float nscale = 1.0f / 32767.0f;
+
+	MVert *verts = dm->getVertArray(dm);
+	MFace *faces = dm->getTessFaceArray(dm);
+
+	for (int i = 0, e = dm->getNumTessFaces(dm); i < e; ++i) {
+		MFace *face = &faces[i];
+
+		if (face->flag & ME_SMOOTH) {
+			int index = face->v4;
+
+			if (face->v4) {
+				norms.push_back(verts[index].no[0] * nscale);
+				norms.push_back(verts[index].no[1] * nscale);
+				norms.push_back(verts[index].no[2] * nscale);
+			}
+
+			index = face->v3;
+			norms.push_back(verts[index].no[0] * nscale);
+			norms.push_back(verts[index].no[1] * nscale);
+			norms.push_back(verts[index].no[2] * nscale);
+
+			index = face->v2;
+			norms.push_back(verts[index].no[0] * nscale);
+			norms.push_back(verts[index].no[1] * nscale);
+			norms.push_back(verts[index].no[2] * nscale);
+
+			index = face->v1;
+			norms.push_back(verts[index].no[0] * nscale);
+			norms.push_back(verts[index].no[1] * nscale);
+			norms.push_back(verts[index].no[2] * nscale);
+		}
+		else {
+			float no[3];
+
+			if (face->v4) {
+				normal_quad_v3(no, verts[face->v1].co, verts[face->v2].co,
+				        verts[face->v3].co, verts[face->v4].co);
+
+				norms.push_back(no[0]);
+				norms.push_back(no[1]);
+				norms.push_back(no[2]);
+			}
+			else
+				normal_tri_v3(no, verts[face->v1].co, verts[face->v2].co,
+				        verts[face->v3].co);
+
+			norms.push_back(no[0]);
+			norms.push_back(no[1]);
+			norms.push_back(no[2]);
+
+			norms.push_back(no[0]);
+			norms.push_back(no[1]);
+			norms.push_back(no[2]);
+
+			norms.push_back(no[0]);
+			norms.push_back(no[1]);
+			norms.push_back(no[2]);
+		}
+	}
+}
+
+/* check if the mesh is a subsurf, ignoring disabled modifiers and
+ * displace if it's after subsurf. */
+static ModifierData *get_subsurf_modifier(Scene *scene, Object *ob)
+{
+	ModifierData *md = static_cast<ModifierData *>(ob->modifiers.last);
+
+	for (; md; md = md->prev) {
+		if (!modifier_isEnabled(scene, md, eModifierMode_Render)) {
+			continue;
+		}
+
+		if (md->type == eModifierType_Subsurf) {
+			SubsurfModifierData *smd = reinterpret_cast<SubsurfModifierData*>(md);
+
+			if (smd->subdivType == ME_CC_SUBSURF) {
+				return md;
+			}
+		}
+
+		/* mesh is not a subsurf. break */
+		if ((md->type != eModifierType_Displace) && (md->type != eModifierType_ParticleSystem)) {
+			return NULL;
+		}
+	}
+
+	return NULL;
+}
+
+static ModifierData *get_fluid_sim_modifier(Scene *scene, Object *ob)
+{
+	ModifierData *md = modifiers_findByType(ob, eModifierType_Fluidsim);
+
+	if (md && (modifier_isEnabled(scene, md, eModifierMode_Render))) {
+		FluidsimModifierData *fsmd = reinterpret_cast<FluidsimModifierData *>(md);
+
+		if (fsmd->fss && fsmd->fss->type == OB_FLUIDSIM_DOMAIN) {
+			return md;
+		}
+	}
+
+	return NULL;
+}
+
 AbcMeshWriter::AbcMeshWriter(Scene *scene,
                              Object *ob,
                              AbcTransformWriter *parent,
@@ -101,7 +372,7 @@ AbcMeshWriter::AbcMeshWriter(Scene *scene,
 	m_subsurf_mod = NULL;
 	m_has_per_face_materials = false;
 	m_has_vertex_weights = false;
-	bool isSubd = false;
+	m_is_subd = false;
 
 	/* if the object is static, use the default static time sampling */
 	if (!m_is_animated) {
@@ -109,39 +380,17 @@ AbcMeshWriter::AbcMeshWriter(Scene *scene,
 	}
 
 	if (!m_settings.export_subsurfs_as_meshes) {
-		/* check if the mesh is a subsurf, ignoring disabled modifiers and
-		 * displace if it's after subsurf. */
-		ModifierData *md = static_cast<ModifierData *>(m_object->modifiers.last);
-
-		while (md) {
-			if (modifier_isEnabled(m_scene, md, eModifierMode_Render)) {
-				if (md->type == eModifierType_Subsurf) {
-					SubsurfModifierData *smd = reinterpret_cast<SubsurfModifierData*>(md);
-
-					if (smd->subdivType == ME_CC_SUBSURF) {
-						m_subsurf_mod = md;
-						isSubd = true;
-						break;
-					}
-				}
-
-				/* mesh is not a subsurf. break */
-				if ((md->type != eModifierType_Displace) && (md->type != eModifierType_ParticleSystem)) {
-					break;
-				}
-			}
-
-			md = md->prev;
-		}
+		m_subsurf_mod = get_subsurf_modifier(m_scene, m_object);
+		m_is_subd = (m_subsurf_mod != NULL);
 	}
 
-	m_is_fluid = (getFluidSimModifier() != NULL);
+	m_is_fluid = (get_fluid_sim_modifier(m_scene, m_object) != NULL);
 
 	while (parent->alembicXform().getChildHeader(m_name)) {
 		m_name.append("_");
 	}
 
-	if (m_settings.use_subdiv_schema && isSubd) {
+	if (m_settings.use_subdiv_schema && m_is_subd) {
 		OSubD subd(parent->alembicXform(), m_name, m_time_sampling);
 		m_subdiv_schema = subd.getSchema();
 	}
@@ -151,8 +400,7 @@ AbcMeshWriter::AbcMeshWriter(Scene *scene,
 
 		OCompoundProperty typeContainer = m_mesh_schema.getUserProperties();
 		OBoolProperty type(typeContainer, "meshtype");
-		m_subd_type = isSubd;
-		type.set(isSubd);
+		type.set(m_is_subd);
 	}
 }
 
@@ -161,11 +409,6 @@ AbcMeshWriter::~AbcMeshWriter()
 	if (m_subsurf_mod) {
 		m_subsurf_mod->mode &= ~eModifierMode_DisableTemporary;
 	}
-}
-
-bool AbcMeshWriter::isSubD() const
-{
-	return m_subd_type;
 }
 
 bool AbcMeshWriter::isAnimated() const
@@ -210,63 +453,24 @@ void AbcMeshWriter::writeMesh()
 	DerivedMesh *dm = getFinalMesh();
 
 	try {
-		std::vector<std::vector<float> > uvs;
-		std::vector<float> points, normals, creaseSharpness;
+		std::vector<float> points, normals;
 		std::vector<int32_t> facePoints, faceCounts;
-		std::vector<int32_t> creaseIndices, creaseLengths;
 
-		std::vector<uint32_t> uvIdx;
-		std::vector<Imath::V2f> uvValArray;
-
-		int active_uvlayer = CustomData_get_active_layer(&dm->loopData, CD_MLOOPUV);
-
-		if (active_uvlayer >= 0) {
-			getUVs(dm, uvValArray, uvIdx, active_uvlayer);
-		}
-
-		getMeshInfo(dm, points, facePoints, faceCounts, uvs, creaseIndices,
-		            creaseLengths, creaseSharpness);
+		get_vertices(dm, points);
+		get_topology(dm, facePoints, faceCounts);
 
 		if (m_first_frame) {
-			/* create materials' facesets */
-			std::map< std::string, std::vector<int32_t>  > geoGroups;
-			getGeoGroups(dm, geoGroups);
-
-			for (std::map< std::string, std::vector<int32_t>  >::iterator it = geoGroups.begin(); it != geoGroups.end(); ++it) {
-				OFaceSet faceSet;
-
-				faceSet = m_mesh_schema.createFaceSet(it->first);
-
-				OFaceSetSchema::Sample samp;
-				samp.setFaces(Int32ArraySample(it->second));
-				faceSet.getSchema().set(samp);
-			}
-
-			if (hasProperties(reinterpret_cast<ID *>(m_object->data))) {
-				if (m_settings.export_props_as_geo_params)
-					writeProperties(reinterpret_cast<ID *>(m_object->data),
-					                m_mesh_schema.getArbGeomParams(), false);
-				else
-					writeProperties(reinterpret_cast<ID *>(m_object->data),
-					                m_mesh_schema.getUserProperties(), true);
-			}
-			createArbGeoParams(dm);
+			writeCommonData(dm, m_mesh_schema);
 		}
 
-		/* Export UVs */
+		if (m_settings.export_normals) {
+			get_normals(dm, normals);
+		}
+
 		OV2fGeomParam::Sample uvSamp;
-		if (!uvIdx.empty() && !uvValArray.empty()) {
-			uvSamp.setScope(kFacevaryingScope);
 
-			uvSamp.setVals(V2fArraySample(
-			                   &uvValArray.front(),
-			                   uvValArray.size()));
-
-			UInt32ArraySample idxSamp(
-			            (const uint32_t *) &uvIdx.front(),
-			            uvIdx.size());
-
-			uvSamp.setIndices(idxSamp);
+		if (m_settings.export_uvs) {
+			get_uv_sample(dm, uvSamp, m_settings.pack_uv);
 		}
 
 		/* Normals export */
@@ -306,47 +510,24 @@ void AbcMeshWriter::writeSubD()
 
 	try {
 		std::vector<float> points, creaseSharpness;
-		std::vector<std::vector<float> > uvs;
 		std::vector<int32_t> facePoints, faceCounts;
 		std::vector<int32_t> creaseIndices, creaseLengths;
-		std::vector<uint32_t> uvIdx;
-		std::vector<Imath::V2f> uvValArray;
 
-		int active_uvlayer  = CustomData_get_active_layer(&dm->loopData, CD_MLOOPUV);
-
-		if (active_uvlayer >= 0)
-			getUVs(dm, uvValArray, uvIdx, active_uvlayer);
-
-		getMeshInfo(dm, points, facePoints, faceCounts, uvs, creaseIndices,
-		            creaseLengths, creaseSharpness);
+		get_vertices(dm, points);
+		get_topology(dm, facePoints, faceCounts);
+		get_creases(dm, creaseIndices, creaseLengths, creaseSharpness);
 
 		if (m_first_frame) {
-			std::map< std::string, std::vector<int32_t>  > geoGroups;
-			getGeoGroups(dm, geoGroups);
-
-			for (std::map< std::string, std::vector<int32_t>  >::iterator it = geoGroups.begin(); it != geoGroups.end(); ++it) {
-				OFaceSet faceSet;
-
-				faceSet = m_subdiv_schema.createFaceSet(it->first);
-
-				OFaceSetSchema::Sample samp;
-				samp.setFaces(Int32ArraySample(it->second));
-				faceSet.getSchema().set(samp);
-			}
-
-			if (hasProperties(reinterpret_cast<ID *>(m_object->data))) {
-				if (m_settings.export_props_as_geo_params)
-					writeProperties(reinterpret_cast<ID *>(m_object->data),
-					                m_subdiv_schema.getArbGeomParams(), false);
-				else
-					writeProperties(reinterpret_cast<ID *>(m_object->data),
-					                m_subdiv_schema.getUserProperties(), true);
-			}
-
-			createArbGeoParams(dm);
+			/* create materials' facesets */
+			writeCommonData(dm, m_subdiv_schema);
 		}
 
+		/* Export UVs */
 		OV2fGeomParam::Sample uvSamp;
+
+		if (m_settings.export_uvs) {
+			get_uv_sample(dm, uvSamp, m_settings.pack_uv);
+		}
 
 		m_subdiv_sample = OSubDSchema::Sample(
 		                      V3fArraySample(
@@ -355,25 +536,12 @@ void AbcMeshWriter::writeSubD()
 		                      Int32ArraySample(facePoints),
 		                      Int32ArraySample(faceCounts));
 
-		if (!uvIdx.empty() && !uvValArray.empty()) {
-			uvSamp.setScope(kFacevaryingScope);
-			uvSamp.setVals(V2fArraySample(
-			                   (const Imath::V2f *) &uvValArray.front(),
-			                   uvValArray.size()));
-			UInt32ArraySample idxSamp(
-			            (const uint32_t *) &uvIdx.front(),
-			            uvIdx.size());
-			uvSamp.setIndices(idxSamp);
-			m_subdiv_sample.setUVs(uvSamp);
-		}
+		m_subdiv_sample.setUVs(uvSamp);
 
 		if (!creaseIndices.empty()) {
-			m_subdiv_sample.setCreaseIndices(
-			            Int32ArraySample(creaseIndices));
-			m_subdiv_sample.setCreaseLengths(
-			            Int32ArraySample(creaseLengths));
-			m_subdiv_sample.setCreaseSharpnesses(
-			            FloatArraySample(creaseSharpness));
+			m_subdiv_sample.setCreaseIndices(Int32ArraySample(creaseIndices));
+			m_subdiv_sample.setCreaseLengths(Int32ArraySample(creaseLengths));
+			m_subdiv_sample.setCreaseSharpnesses(FloatArraySample(creaseSharpness));
 		}
 
 		m_subdiv_sample.setSelfBounds(bounds());
@@ -387,37 +555,32 @@ void AbcMeshWriter::writeSubD()
 	}
 }
 
-void AbcMeshWriter::getMeshInfo(DerivedMesh *dm,
-                                std::vector<float> &points,
-                                std::vector<int32_t> &facePoints,
-                                std::vector<int32_t> &faceCounts,
-                                std::vector<std::vector<float> > &uvs,
-                                std::vector<int32_t> &creaseIndices,
-                                std::vector<int32_t> &creaseLengths,
-                                std::vector<float> &creaseSharpness)
+template <typename Schema>
+void AbcMeshWriter::writeCommonData(DerivedMesh *dm, Schema &schema)
 {
-	getPoints(dm, points);
-	getTopology(dm, facePoints, faceCounts);
+	std::map< std::string, std::vector<int32_t>  > geoGroups;
+	getGeoGroups(dm, geoGroups);
 
-	const float creaseFactor = 1.0f / 255.0f;
+	std::map< std::string, std::vector<int32_t>  >::iterator it;
+	for (it = geoGroups.begin(); it != geoGroups.end(); ++it) {
+		OFaceSet faceSet = schema.createFaceSet(it->first);
+		OFaceSetSchema::Sample samp;
+		samp.setFaces(Int32ArraySample(it->second));
+		faceSet.getSchema().set(samp);
+	}
 
-	creaseIndices.clear();
-	creaseSharpness.clear();
-	creaseLengths.clear();
-
-	MEdge *edge = dm->getEdgeArray(dm);
-
-	for (int i = 0, e = dm->getNumEdges(dm); i < e; ++i) {
-		float sharpness = (float) edge[i].crease * creaseFactor;
-
-		if (sharpness != 0.0f) {
-			creaseIndices.push_back(edge[i].v1);
-			creaseIndices.push_back(edge[i].v2);
-			creaseSharpness.push_back(sharpness);
+	if (hasProperties(reinterpret_cast<ID *>(m_object->data))) {
+		if (m_settings.export_props_as_geo_params) {
+			writeProperties(reinterpret_cast<ID *>(m_object->data),
+			                schema.getArbGeomParams(), false);
+		}
+		else {
+			writeProperties(reinterpret_cast<ID *>(m_object->data),
+			                schema.getUserProperties(), true);
 		}
 	}
 
-	creaseLengths.resize(creaseSharpness.size(), 2);
+	createArbGeoParams(dm);
 }
 
 DerivedMesh *AbcMeshWriter::getFinalMesh()
@@ -439,184 +602,6 @@ DerivedMesh *AbcMeshWriter::getFinalMesh()
 void AbcMeshWriter::freeMesh(DerivedMesh *dm)
 {
 	dm->release(dm);
-}
-
-void AbcMeshWriter::getPoints(DerivedMesh *dm, std::vector<float> &points)
-{
-	points.clear();
-	points.reserve(dm->getNumVerts(dm) * 3);
-
-	MVert *verts = dm->getVertArray(dm);
-
-	for (int i = 0, e = dm->getNumVerts(dm); i < e; ++i) {
-		/* Convert Z-up to Y-up. */
-		points.push_back(verts[i].co[0]);
-		points.push_back(verts[i].co[2]);
-		points.push_back(-verts[i].co[1]);
-	}
-}
-
-void AbcMeshWriter::getTopology(DerivedMesh *dm,
-                                std::vector<int32_t> &facePoints,
-                                std::vector<int32_t> &pointCounts)
-{
-	facePoints.clear();
-	pointCounts.clear();
-
-	int num_poly = dm->getNumPolys(dm);
-	MLoop *loop_array = dm->getLoopArray(dm);
-	MPoly *polygons = dm->getPolyArray(dm);
-
-	pointCounts.reserve(num_poly);
-
-	for (int i = 0; i < num_poly; ++i) {
-		MPoly &current_poly = polygons[i];
-		MLoop *loop = loop_array + current_poly.loopstart + current_poly.totloop;
-		pointCounts.push_back(current_poly.totloop);
-
-		for (int j = 0; j < current_poly.totloop; j++) {
-			loop--;
-			facePoints.push_back(loop->v);
-		}
-	}
-}
-
-void AbcMeshWriter::getNormals(DerivedMesh *dm, std::vector<float> &norms)
-{
-	/* TODO: check if we need to reverse the normals. */
-
-	const float nscale = 1.0f / 32767.0f;
-	norms.clear();
-
-	if (m_settings.export_normals) {
-		norms.reserve(m_num_face_verts);
-
-		MVert *verts = dm->getVertArray(dm);
-		MFace *faces = dm->getTessFaceArray(dm);
-
-		for (int i = 0, e = dm->getNumTessFaces(dm); i < e; ++i) {
-			MFace *face = &faces[i];
-
-			if (face->flag & ME_SMOOTH) {
-				int index = face->v4;
-
-				if (face->v4) {
-					norms.push_back(verts[index].no[0] * nscale);
-					norms.push_back(verts[index].no[1] * nscale);
-					norms.push_back(verts[index].no[2] * nscale);
-				}
-
-				index = face->v3;
-				norms.push_back(verts[index].no[0] * nscale);
-				norms.push_back(verts[index].no[1] * nscale);
-				norms.push_back(verts[index].no[2] * nscale);
-
-				index = face->v2;
-				norms.push_back(verts[index].no[0] * nscale);
-				norms.push_back(verts[index].no[1] * nscale);
-				norms.push_back(verts[index].no[2] * nscale);
-
-				index = face->v1;
-				norms.push_back(verts[index].no[0] * nscale);
-				norms.push_back(verts[index].no[1] * nscale);
-				norms.push_back(verts[index].no[2] * nscale);
-			}
-			else {
-				float no[3];
-
-				if (face->v4) {
-					normal_quad_v3(no, verts[face->v1].co, verts[face->v2].co,
-					        verts[face->v3].co, verts[face->v4].co);
-
-					norms.push_back(no[0]);
-					norms.push_back(no[1]);
-					norms.push_back(no[2]);
-				}
-				else
-					normal_tri_v3(no, verts[face->v1].co, verts[face->v2].co,
-					        verts[face->v3].co);
-
-				norms.push_back(no[0]);
-				norms.push_back(no[1]);
-				norms.push_back(no[2]);
-
-				norms.push_back(no[0]);
-				norms.push_back(no[1]);
-				norms.push_back(no[2]);
-
-				norms.push_back(no[0]);
-				norms.push_back(no[1]);
-				norms.push_back(no[2]);
-			}
-		}
-	}
-}
-
-void AbcMeshWriter::getUVs(DerivedMesh *dm,
-                           std::vector<Imath::V2f> &uvs,
-                           std::vector<uint32_t> &uvidx, int layer_idx)
-{
-	uvs.clear();
-	uvidx.clear();
-
-	MLoopUV *mloopuv_array = static_cast<MLoopUV *>(CustomData_get_layer_n(&dm->loopData, CD_MLOOPUV, layer_idx));
-
-	if (!(m_settings.export_uvs && mloopuv_array)) {
-		return;
-	}
-
-	int num_poly = dm->getNumPolys(dm);
-	MPoly *polygons = dm->getPolyArray(dm);
-
-	if (!m_settings.pack_uv) {
-		int cnt = 0;
-		for (int i = 0; i < num_poly; ++i) {
-			MPoly &current_poly = polygons[i];
-			MLoopUV *loopuvpoly = mloopuv_array + current_poly.loopstart + current_poly.totloop;
-
-			for (int j = 0; j < current_poly.totloop; ++j) {
-				loopuvpoly--;
-				uvidx.push_back(cnt++);
-				Imath::V2f uv(loopuvpoly->uv[0], loopuvpoly->uv[1]);
-				uvs.push_back(uv);
-			}
-		}
-	}
-	else {
-		for (int i = 0; i < num_poly; ++i) {
-			MPoly &current_poly = polygons[i];
-			MLoopUV *loopuvpoly = mloopuv_array + current_poly.loopstart + current_poly.totloop;
-
-			for (int j = 0; j < current_poly.totloop; ++j) {
-				loopuvpoly--;
-				Imath::V2f uv(loopuvpoly->uv[0], loopuvpoly->uv[1]);
-
-				std::vector<Imath::V2f>::iterator it = std::find(uvs.begin(), uvs.end(), uv);
-
-				if (it == uvs.end()) {
-					uvidx.push_back(uvs.size());
-					uvs.push_back(uv);
-				}
-				else {
-					uvidx.push_back(std::distance(uvs.begin(), it));
-				}
-			}
-		}
-	}
-}
-
-void AbcMeshWriter::getMaterialIndices(DerivedMesh *dm,
-                                       std::vector<int32_t> &indices)
-{
-	indices.clear();
-	indices.reserve(dm->getNumTessFaces(dm));
-
-	MFace *faces = dm->getTessFaceArray(dm);
-
-	for (int i = 1, e = dm->getNumTessFaces(dm); i < e; ++i) {
-		MFace *face = &faces[i];
-		indices.push_back(face->mat_nr);
-	}
 }
 
 void AbcMeshWriter::createArbGeoParams(DerivedMesh *dm)
@@ -784,7 +769,7 @@ void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 		std::vector<int32_t> faceVals;
 
 		if (m_settings.export_face_sets || m_settings.export_mat_indices) {
-			getMaterialIndices(dm, faceVals);
+			get_material_indices(dm, faceVals);
 		}
 
 		if (m_settings.export_face_sets) {
@@ -853,27 +838,12 @@ void AbcMeshWriter::writeFaceLayerParam(DerivedMesh *dm, int index,
 
 			Alembic::AbcCoreAbstract::ArraySample samp(&buffer.front(),
 			                                           m_face_layers[index].second.getDataType(),
-			                                           Alembic::Util::Dimensions(m_num_face_verts));
+			                                           Alembic::Util::Dimensions(dm->getNumVerts(dm)));
 			break;
 		}
 		default:
 			break;
 	};
-}
-
-ModifierData *AbcMeshWriter::getFluidSimModifier()
-{
-	ModifierData *md = modifiers_findByType(m_object, eModifierType_Fluidsim);
-
-	if (md && (modifier_isEnabled(m_scene, md, eModifierMode_Render))) {
-		FluidsimModifierData *fsmd = reinterpret_cast<FluidsimModifierData *>(md);
-
-		if (fsmd->fss && fsmd->fss->type == OB_FLUIDSIM_DOMAIN) {
-			return md;
-		}
-	}
-
-	return NULL;
 }
 
 void AbcMeshWriter::getVelocities(DerivedMesh *dm, std::vector<float> &vels)
@@ -883,7 +853,7 @@ void AbcMeshWriter::getVelocities(DerivedMesh *dm, std::vector<float> &vels)
 	vels.clear();
 	vels.reserve(totverts);
 
-	ModifierData *md = getFluidSimModifier();
+	ModifierData *md = get_fluid_sim_modifier(m_scene, m_object);
 	FluidsimModifierData *fmd = reinterpret_cast<FluidsimModifierData *>(md);
 	FluidsimSettings *fss = fmd->fss;
 
