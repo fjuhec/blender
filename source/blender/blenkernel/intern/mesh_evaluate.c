@@ -433,9 +433,6 @@ MLoopNorSpace *BKE_lnor_space_create(MLoopNorSpaceArray *lnors_spacearr)
 	return BLI_memarena_calloc(lnors_spacearr->mem, sizeof(MLoopNorSpace));
 }
 
-/* This threshold is a bit touchy (usual float precision issue), this value seems OK. */
-#define LNOR_SPACE_TRIGO_THRESHOLD (1.0f - 1e-6f)
-
 /* Should only be called once.
  * Beware, this modifies ref_vec and other_vec in place!
  * In case no valid space can be generated, ref_alpha and ref_beta are set to zero (which means 'use auto lnors').
@@ -1370,6 +1367,7 @@ void BKE_mesh_normals_loop_split(
  * r_custom_loopnors is expected to have normalized normals, or zero ones, in which case they will be replaced
  * by default loop/vertex normal.
  */
+/* XXX Keep in sync with BMesh's bm_mesh_loops_normals_custom_set(). */
 static void mesh_normals_loop_custom_set(
         const MVert *mverts, const int numVerts, MEdge *medges, const int numEdges,
         MLoop *mloops, float (*r_custom_loopnors)[3], const int numLoops,

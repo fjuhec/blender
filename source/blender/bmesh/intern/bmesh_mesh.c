@@ -26,11 +26,14 @@
  * BM mesh level functions.
  */
 
+#include <limits.h>
+
 #include "MEM_guardedalloc.h"
 
 #include "DNA_listBase.h"
 #include "DNA_object_types.h"
 
+#include "BLI_bitmap.h"
 #include "BLI_linklist_stack.h"
 #include "BLI_listbase.h"
 #include "BLI_math.h"
@@ -39,6 +42,7 @@
 
 #include "BKE_cdderivedmesh.h"
 #include "BKE_editmesh.h"
+#include "BKE_global.h"
 #include "BKE_mesh.h"
 #include "BKE_multires.h"
 
@@ -901,6 +905,330 @@ void BM_loops_calc_normal_vcos(
 		BLI_assert(!r_lnors_spacearr);
 		bm_mesh_loops_calc_normals_no_autosmooth(bm, vnos, fnos, r_lnos);
 	}
+}
+
+/* BMesh version of mesh_normals_loop_custom_set() in mesh_evaluate.c, keep it in sync.
+ * Will use first clnors_data array, and fallback to cd_loop_clnors_offset (use NULL and -1 to not use clnors). */
+static void bm_mesh_loops_normals_custom_set(
+        BMesh *bm, const float (*vcos)[3], const float (*vnos)[3], const float (*fnos)[3], float (*r_lnos)[3],
+        short (*r_clnors_data)[2], const int cd_loop_clnors_offset, const bool use_vertices)
+{
+	BMIter viter;
+	BMVert *v_curr;
+	BMIter fiter;
+	BMFace *f_curr;
+	BMIter liter;
+	BMLoop *l_curr;
+
+	MLoopNorSpaceArray lnors_spacearr = {NULL};
+	BLI_bitmap *done_loops = BLI_BITMAP_NEW((size_t)bm->totloop, __func__);
+	float (*lnos)[3] = MEM_callocN(sizeof(*lnos) * (size_t)bm->totloop, __func__);
+	/* In this case we always consider split nors as ON, and do not want to use angle to define smooth fans! */
+	const bool use_split_normals = true;
+	const float split_angle = (float)M_PI;
+	int i;
+
+	{
+		char htype = BM_LOOP;
+		if (vcos || use_vertices) {
+			htype |= BM_VERT;
+		}
+		if (fnos) {
+			htype |= BM_FACE;
+		}
+		BM_mesh_elem_index_ensure(bm, htype);
+	}
+
+	/* Compute current lnor spacearr. */
+	BM_loops_calc_normal_vcos(bm, vcos, vnos, fnos, use_split_normals, split_angle, lnos, &lnors_spacearr, NULL, -1);
+
+	/* Set all given zero vectors to their default value. */
+	if (use_vertices) {
+		BM_ITER_MESH_INDEX(v_curr, &viter, bm, BM_VERTS_OF_MESH, i) {
+			if (is_zero_v3(r_lnos[i])) {
+				copy_v3_v3(r_lnos[i], v_curr->no);
+			}
+		}
+	}
+	else {
+		BM_ITER_MESH(f_curr, &fiter, bm, BM_FACES_OF_MESH) {
+			BM_ITER_ELEM(l_curr, &liter, f_curr, BM_LOOPS_OF_FACE) {
+				i = BM_elem_index_get(l_curr);
+				if (is_zero_v3(r_lnos[i])) {
+					copy_v3_v3(r_lnos[i], lnos[i]);
+				}
+			}
+		}
+	}
+
+	/* Now, check each current smooth fan (one lnor space per smooth fan!), and if all its matching custom lnors
+	 * are not (enough) equal, add sharp edges as needed.
+	 * This way, next time we run BM_mesh_loop_normals_update(), we'll get lnor spacearr/smooth fans matching
+	 * given custom lnors.
+	 * Note this code *will never* unsharp edges!
+	 * And quite obviously, when we set custom normals per vertices, running this is absolutely useless.
+	 */
+	if (!use_vertices) {
+		BM_ITER_MESH(f_curr, &fiter, bm, BM_FACES_OF_MESH) {
+			BM_ITER_ELEM(l_curr, &liter, f_curr, BM_LOOPS_OF_FACE) {
+				i = BM_elem_index_get(l_curr);
+				if (!lnors_spacearr.lspacearr[i]) {
+					/* This should not happen in theory, but in some rare case (probably ugly geometry)
+					 * we can get some NULL loopspacearr at this point. :/
+					 * Maybe we should set those loops' edges as sharp?
+					 */
+					BLI_BITMAP_ENABLE(done_loops, i);
+					if (G.debug & G_DEBUG) {
+						printf("WARNING! Getting invalid NULL loop space for loop %d!\n", i);
+					}
+					continue;
+				}
+
+				if (!BLI_BITMAP_TEST(done_loops, i)) {
+					/* Notes:
+					 *     * In case of mono-loop smooth fan, loops is NULL, so everything is fine (we have nothing to do).
+					 *     * Loops in this linklist are ordered (in reversed order compared to how they were discovered by
+					 *       BKE_mesh_normals_loop_split(), but this is not a problem). Which means if we find a
+					 *       mismatching clnor, we know all remaining loops will have to be in a new, different smooth fan/
+					 *       lnor space.
+					 *     * In smooth fan case, we compare each clnor against a ref one, to avoid small differences adding
+					 *       up into a real big one in the end!
+					 */
+					LinkNode *loops = lnors_spacearr.lspacearr[i]->loops;
+					BMLoop *l_prev = NULL;
+					const float *org_no = NULL;
+
+					if (loops) {
+						if (BM_elem_index_get(l_curr) != GET_INT_FROM_POINTER(loops->link)) {
+							/* l_curr is not first loop of our loop fan, just skip until we find that one.
+							 * Simpler than to go searching for the first loop immediately, since getting a BMLoop
+							 * from its index is not trivial currently.*/
+							continue;
+						}
+
+						BLI_assert(loops->next);
+
+						BMLoop *l = l_curr;
+						BMEdge *e_next;  /* Used to handle fan loop direction... */
+
+						/* Set e_next to loop along fan in matching direction with loop space's fan. */
+						{
+							const int lidx_next = GET_INT_FROM_POINTER(loops->next->link);
+							if (BM_elem_index_get(l->radial_next) == lidx_next) {
+								e_next = ELEM(l->e, l->radial_next->e, l->radial_next->prev->e) ? l->prev->e : l->e;
+							}
+							else {
+								BLI_assert(BM_elem_index_get(l->radial_prev) == lidx_next);
+								e_next = ELEM(l->e, l->radial_prev->e, l->radial_prev->prev->e) ? l->prev->e : l->e;
+							}
+						}
+
+						while (loops) {
+							const int lidx = GET_INT_FROM_POINTER(loops->link);
+							const int nidx = lidx;
+							float *no = r_lnos[nidx];
+
+							BLI_assert(l != NULL);
+							BLI_assert(BM_elem_index_get(l) == lidx);
+
+							if (!org_no) {
+								org_no = no;
+							}
+							else if (dot_v3v3(org_no, no) < LNOR_SPACE_TRIGO_THRESHOLD) {
+								/* Current normal differs too much from org one, we have to tag the edge between
+								 * previous loop's face and current's one as sharp.
+								 * We know those two loops do not point to the same edge, since we do not allow reversed winding
+								 * in a same smooth fan.
+								 */
+								const BMLoop *lp = l->prev;
+
+								BLI_assert(((l_prev->e == lp->e) ? l_prev->e : l->e) == e_next);
+
+								BM_elem_flag_disable(e_next, BM_ELEM_SMOOTH);
+								org_no = no;
+							}
+
+							l_prev = l;
+							l = BM_vert_step_fan_loop(l, &e_next);
+							loops = loops->next;
+							BLI_BITMAP_ENABLE(done_loops, lidx);
+						}
+
+						/* We also have to check between last and first loops, otherwise we may miss some sharp edges here!
+						 * This is just a simplified version of above while loop.
+						 * See T45984. */
+						loops = lnors_spacearr.lspacearr[i]->loops;
+						if (org_no) {
+							const int lidx = GET_INT_FROM_POINTER(loops->link);
+							l = l_curr;
+							const int nidx = lidx;
+							float *no = r_lnos[nidx];
+
+							if (dot_v3v3(org_no, no) < LNOR_SPACE_TRIGO_THRESHOLD) {
+								const BMLoop *lp = l->prev;
+								BM_elem_flag_disable((l_prev->e == lp->e) ? l_prev->e : l->e, BM_ELEM_SMOOTH);
+							}
+						}
+					}
+
+					/* For single loops, where lnors_spacearr.lspacearr[i]->loops is NULL. */
+					BLI_BITMAP_ENABLE(done_loops, i);
+				}
+			}
+		}
+
+		/* And now, recompute our new auto lnors and lnor spacearr! */
+		BKE_lnor_spacearr_clear(&lnors_spacearr);
+		BM_loops_calc_normal_vcos(bm, vcos, vnos, fnos, use_split_normals, split_angle, lnos, &lnors_spacearr, NULL, -1);
+	}
+	else {
+		BLI_BITMAP_SET_ALL(done_loops, true, (size_t)bm->totloop);
+	}
+
+	/* And we just have to convert plain object-space custom normals to our lnor space-encoded ones. */
+	BM_ITER_MESH(f_curr, &fiter, bm, BM_FACES_OF_MESH) {
+		BM_ITER_ELEM(l_curr, &liter, f_curr, BM_LOOPS_OF_FACE) {
+			i = BM_elem_index_get(l_curr);
+
+			if (!lnors_spacearr.lspacearr[i]) {
+				BLI_BITMAP_DISABLE(done_loops, i);
+				if (G.debug & G_DEBUG) {
+					printf("WARNING! Still getting invalid NULL loop space in second loop for loop %d!\n", i);
+				}
+				continue;
+			}
+
+			if (BLI_BITMAP_TEST_BOOL(done_loops, i)) {
+				/* Note we accumulate and average all custom normals in current smooth fan, to avoid getting different
+				 * clnors data (tiny differences in plain custom normals can give rather huge differences in
+				 * computed 2D factors).
+				 */
+				LinkNode *loops = lnors_spacearr.lspacearr[i]->loops;
+				if (loops) {
+					if (BM_elem_index_get(l_curr) != GET_INT_FROM_POINTER(loops->link)) {
+						/* l_curr is not first loop of our loop fan, just skip until we find that one.
+						 * Simpler than to go searching for the first loop immediately, since getting a BMLoop
+						 * from its index is not trivial currently.*/
+						continue;
+					}
+
+					BLI_assert(loops->next);
+
+					int nbr_nos = 0;
+					float avg_no[3] = {0.0f};
+					short clnor_data_tmp[2], *clnor_data;
+
+					BLI_SMALLSTACK_DECLARE(clnors_data, short *);
+
+					BMLoop *l = l_curr;
+					BMEdge *e_next;  /* Used to handle fan loop direction... */
+
+					/* Set e_next to loop along fan in matching direction with loop space's fan. */
+					{
+						const int lidx_next = GET_INT_FROM_POINTER(loops->next->link);
+						if (BM_elem_index_get(l->radial_next) == lidx_next) {
+							e_next = ELEM(l->e, l->radial_next->e, l->radial_next->prev->e) ? l->prev->e : l->e;
+						}
+						else {
+							BLI_assert(BM_elem_index_get(l->radial_prev) == lidx_next);
+							e_next = ELEM(l->e, l->radial_prev->e, l->radial_prev->prev->e) ? l->prev->e : l->e;
+						}
+					}
+
+					while (loops) {
+						const int lidx = GET_INT_FROM_POINTER(loops->link);
+
+						BLI_assert(l != NULL);
+						BLI_assert(BM_elem_index_get(l) == lidx);
+
+						const int nidx = use_vertices ? BM_elem_index_get(l->v) : lidx;
+						float *no = r_lnos[nidx];
+						clnor_data = r_clnors_data ? r_clnors_data[lidx] :
+						                             BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
+
+						nbr_nos++;
+						add_v3_v3(avg_no, no);
+						BLI_SMALLSTACK_PUSH(clnors_data, clnor_data);
+
+						l = BM_vert_step_fan_loop(l, &e_next);
+						loops = loops->next;
+						BLI_BITMAP_DISABLE(done_loops, lidx);
+					}
+
+					mul_v3_fl(avg_no, 1.0f / (float)nbr_nos);
+					BKE_lnor_space_custom_normal_to_data(lnors_spacearr.lspacearr[i], avg_no, clnor_data_tmp);
+
+					while ((clnor_data = BLI_SMALLSTACK_POP(clnors_data))) {
+						clnor_data[0] = clnor_data_tmp[0];
+						clnor_data[1] = clnor_data_tmp[1];
+					}
+				}
+				else {
+					const int nidx = use_vertices ? BM_elem_index_get(l_curr->v) : i;
+					float *no = r_lnos[nidx];
+					short *clnor_data = r_clnors_data ? r_clnors_data[i] :
+					                                    BM_ELEM_CD_GET_VOID_P(l_curr, cd_loop_clnors_offset);
+
+					BKE_lnor_space_custom_normal_to_data(lnors_spacearr.lspacearr[i], no, clnor_data);
+					BLI_BITMAP_DISABLE(done_loops, i);
+				}
+			}
+		}
+	}
+
+	MEM_freeN(lnos);
+	MEM_freeN(done_loops);
+	BKE_lnor_spacearr_free(&lnors_spacearr);
+}
+
+/**
+ * \brief BMesh Set custom Loop Normals.
+ *
+ * Store given custom per-loop normals.
+ * Caller must ensure a matching CD layer is already available, or feature its own array of clnors.
+ */
+void BM_loops_normal_custom_set(
+        BMesh *bm, float (*r_lnos)[3], short (*r_clnors_data)[2], const int cd_loop_clnors_offset)
+{
+	bm_mesh_loops_normals_custom_set(bm, NULL, NULL, NULL, r_lnos, r_clnors_data, cd_loop_clnors_offset, false);
+}
+
+/**
+ * \brief BMesh Set custom Loop Normals.
+ *
+ * Store given custom per-loop normals.
+ * Caller must ensure a matching CD layer is already available, or feature its own array of clnors.
+ */
+void BM_loops_normal_custom_set_vcos(
+        BMesh *bm, const float (*vcos)[3], const float (*vnos)[3], const float (*fnos)[3], float (*r_lnos)[3],
+        short (*r_clnors_data)[2], const int cd_loop_clnors_offset)
+{
+	bm_mesh_loops_normals_custom_set(bm, vcos, vnos, fnos, r_lnos, r_clnors_data, cd_loop_clnors_offset, false);
+}
+
+/**
+ * \brief BMesh Set custom Loop Normals from vertex normals.
+ *
+ * Store given custom per-vertex normals.
+ * Caller must ensure a matching CD layer is already available, or feature its own array of clnors.
+ */
+void BM_loops_normal_custom_set_from_vertices(
+        BMesh *bm, float (*r_lnos)[3], short (*r_clnors_data)[2], const int cd_loop_clnors_offset)
+{
+	bm_mesh_loops_normals_custom_set(bm, NULL, NULL, NULL, r_lnos, r_clnors_data, cd_loop_clnors_offset, true);
+}
+
+/**
+ * \brief BMesh Set custom Loop Normals from vertex normals.
+ *
+ * Store given custom per-vertex normals.
+ * Caller must ensure a matching CD layer is already available, or feature its own array of clnors.
+ */
+void BM_loops_normal_custom_set_from_vertices_vcos(
+        BMesh *bm, const float (*vcos)[3], const float (*vnos)[3], const float (*fnos)[3], float (*r_lnos)[3],
+        short (*r_clnors_data)[2], const int cd_loop_clnors_offset)
+{
+	bm_mesh_loops_normals_custom_set(bm, vcos, vnos, fnos, r_lnos, r_clnors_data, cd_loop_clnors_offset, true);
 }
 
 static void UNUSED_FUNCTION(bm_mdisps_space_set)(Object *ob, BMesh *bm, int from, int to)

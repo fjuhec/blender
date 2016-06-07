@@ -33,6 +33,9 @@
 #include <Python.h>
 
 #include "BLI_utildefines.h"
+#include "BLI_math.h"
+
+#include "BKE_customdata.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -799,6 +802,128 @@ static PyObject *bpy_bm_utils_loop_separate(PyObject *UNUSED(self), BPy_BMLoop *
 }
 
 
+PyDoc_STRVAR(bpy_bm_utils_custom_normals_set_doc,
+".. method:: custom_normals_set(bm, normals)\n"
+"\n"
+"   Set given normals into bmesh (can be per-loop or per-vertex normals).\n"
+"\n"
+"   :arg bm: The bmesh to set custom normals.\n"
+"   :type bm: :class:`bmesh.types.BMesh`\n"
+"   :arg normals: Normals to set (for each loop or each vertex, use null vectors or None to use default normal).\n"
+"   :type normals: sequence of None and/or float triplets, either one per loop or one per vertex\n"
+"   :return: The normals (with 'auto' ones set to their actual values).\n"
+"   :rtype: sequence of float triplets, either one per loop or one per vertex\n"
+);
+static PyObject *bpy_bm_utils_custom_normals_set(PyObject *UNUSED(self), PyObject *args, PyObject *kw)
+{
+    static const char *kwlist[] = {"bm", "normals", NULL};
+
+    BPy_BMesh *py_bm;
+    PyObject *py_nors = NULL;
+
+    float (*nors)[3];
+    Py_ssize_t nbr_nors;
+	int loop_clnors_offset;
+
+    BMesh *bm;
+
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kw,
+            "O!O:custom_normals_set", (char **)kwlist,
+            &BPy_BMesh_Type, &py_bm,
+            &py_nors))
+    {
+	    return NULL;
+    }
+
+	bm = py_bm->bm;
+
+	py_nors = PySequence_Fast(py_nors, "normals must be an iterable");
+	if (!py_nors) {
+		return NULL;
+	}
+
+	nbr_nors = PySequence_Fast_GET_SIZE(py_nors);
+
+	if (!ELEM(nbr_nors, bm->totloop, bm->totvert)) {
+		PyErr_Format(PyExc_TypeError, "custom_normals_set: There must be either one normal per vertex or one per loop");
+		Py_DECREF(py_nors);
+		return NULL;
+	}
+
+	nors = MEM_mallocN(sizeof(*nors) * nbr_nors, __func__);
+    for (Py_ssize_t i = 0; i < nbr_nors; i++) {
+		PyObject *py_vec = PySequence_Fast_GET_ITEM(py_nors, i);
+
+		if (py_vec == Py_None) {
+			zero_v3(nors[i]);
+		}
+		else {
+			py_vec = PySequence_Fast(py_vec, "");
+			if (!py_vec || PySequence_Fast_GET_SIZE(py_vec) != 3) {
+				PyErr_Format(PyExc_TypeError,
+				             "custom_normals_set: normals are expected to be triplets of floats, normal %d is not", i);
+				MEM_freeN(nors);
+				Py_DECREF(py_nors);
+				Py_XDECREF(py_vec);
+				return NULL;
+			}
+
+			for (int j = 0; j < 3; j++) {
+				PyObject *py_float = PyNumber_Float(PySequence_Fast_GET_ITEM(py_vec, j));
+
+				if (!py_float || !PyFloat_Check(py_float)) {
+					PyErr_Format(PyExc_TypeError,
+					             "custom_normals_set: normals are expected to be triplets of floats, normal %d is not", i);
+					MEM_freeN(nors);
+					Py_DECREF(py_nors);
+					Py_DECREF(py_vec);
+					Py_XDECREF(py_float);
+					return NULL;
+				}
+
+				nors[i][j] = (float)PyFloat_AS_DOUBLE(py_float);
+				Py_DECREF(py_float);
+			}
+			normalize_v3(nors[i]);  /* Just in case... */
+		}
+		Py_DECREF(py_vec);
+	}
+	Py_DECREF(py_nors);
+
+	if ((loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL)) == -1) {
+		BM_data_layer_add(bm, &bm->ldata, CD_CUSTOMLOOPNORMAL);
+		loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
+
+		if (loop_clnors_offset == -1) {
+			PyErr_Format(PyExc_TypeError,
+			             "custom_normals_set: Impossible to add a custom normal data layer to the bmesh");
+			MEM_freeN(nors);
+			return NULL;
+		}
+	}
+
+	if (nbr_nors == bm->totloop) {
+		BM_loops_normal_custom_set(bm, nors, NULL, loop_clnors_offset);
+	}
+	else {
+		BM_loops_normal_custom_set_from_vertices(bm, nors, NULL, loop_clnors_offset);
+	}
+
+	py_nors = PyTuple_New(nbr_nors);
+	for (Py_ssize_t i = 0; i < nbr_nors; i++) {
+		PyObject *py_vec = PyTuple_Pack(3,
+		                                PyFloat_FromDouble((double)nors[i][0]),
+		                                PyFloat_FromDouble((double)nors[i][1]),
+		                                PyFloat_FromDouble((double)nors[i][2]));
+
+		PyTuple_SET_ITEM(py_nors, i, py_vec);
+	}
+
+	MEM_freeN(nors);
+	return py_nors;
+}
+
 static struct PyMethodDef BPy_BM_utils_methods[] = {
 	{"vert_collapse_edge",  (PyCFunction)bpy_bm_utils_vert_collapse_edge,  METH_VARARGS, bpy_bm_utils_vert_collapse_edge_doc},
 	{"vert_collapse_faces", (PyCFunction)bpy_bm_utils_vert_collapse_faces, METH_VARARGS, bpy_bm_utils_vert_collapse_faces_doc},
@@ -813,6 +938,7 @@ static struct PyMethodDef BPy_BM_utils_methods[] = {
 	{"face_vert_separate",  (PyCFunction)bpy_bm_utils_face_vert_separate,  METH_VARARGS, bpy_bm_utils_face_vert_separate_doc},
 	{"face_flip",           (PyCFunction)bpy_bm_utils_face_flip,           METH_O,       bpy_bm_utils_face_flip_doc},
 	{"loop_separate",       (PyCFunction)bpy_bm_utils_loop_separate,       METH_O,       bpy_bm_utils_loop_separate_doc},
+	{"custom_normals_set",  (PyCFunction)bpy_bm_utils_custom_normals_set,  METH_VARARGS | METH_KEYWORDS, bpy_bm_utils_custom_normals_set_doc},
 	{NULL, NULL, 0, NULL}
 };
 

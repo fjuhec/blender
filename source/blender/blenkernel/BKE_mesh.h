@@ -194,6 +194,9 @@ void BKE_mesh_loop_tangents_ex(
 void BKE_mesh_loop_tangents(
         struct Mesh *mesh, const char *uvmap, float (*r_looptangents)[4], struct ReportList *reports);
 
+/* This threshold is a bit touchy (usual float precision issue), this value seems OK. */
+#define LNOR_SPACE_TRIGO_THRESHOLD (1.0f - 1e-6f)
+
 /**
  * References a contiguous loop-fan with normal offset vars.
  */

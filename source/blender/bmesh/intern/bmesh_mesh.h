@@ -44,6 +44,16 @@ void BM_loops_calc_normal_vcos(
         BMesh *bm, const float (*vcos)[3], const float (*vnos)[3], const float (*pnos)[3],
         const bool use_split_normals, const float split_angle, float (*r_lnos)[3],
         struct MLoopNorSpaceArray *r_lnors_spacearr, short (*clnors_data)[2], const int cd_loop_clnors_offset);
+void BM_loops_normal_custom_set(
+        BMesh *bm, float (*r_lnos)[3], short (*r_clnors_data)[2], const int cd_loop_clnors_offset);
+void BM_loops_normal_custom_set_vcos(
+		BMesh *bm, const float (*vcos)[3], const float (*vnos)[3], const float (*fnos)[3], float (*r_lnos)[3],
+		short (*r_clnors_data)[2], const int cd_loop_clnors_offset);
+void BM_loops_normal_custom_set_from_vertices(
+        BMesh *bm, float (*r_lnos)[3], short (*r_clnors_data)[2], const int cd_loop_clnors_offset);
+void BM_loops_normal_custom_set_from_vertices_vcos(
+        BMesh *bm, const float (*vcos)[3], const float (*vnos)[3], const float (*fnos)[3], float (*r_lnos)[3],
+        short (*r_clnors_data)[2], const int cd_loop_clnors_offset);
 
 void bmesh_edit_begin(BMesh *bm, const BMOpTypeFlag type_flag);
 void bmesh_edit_end(BMesh *bm, const BMOpTypeFlag type_flag);
