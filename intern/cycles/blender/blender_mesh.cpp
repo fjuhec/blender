@@ -532,12 +532,14 @@ static void attr_create_pointiness(Scene *scene,
 static void create_mesh(Scene *scene,
                         Mesh *mesh,
                         BL::Mesh& b_mesh,
-                        const vector<Shader*>& used_shaders)
+                        const vector<Shader*>& used_shaders,
+                        bool subdivision=false)
 {
 	/* count vertices and faces */
 	int numverts = b_mesh.vertices.length();
 	int numfaces = b_mesh.tessfaces.length();
 	int numtris = 0;
+	int numpatches = 0;
 	bool use_loop_normals = b_mesh.use_auto_smooth();
 
 	BL::Mesh::vertices_iterator v;
@@ -545,11 +547,15 @@ static void create_mesh(Scene *scene,
 
 	for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f) {
 		int4 vi = get_int4(f->vertices_raw());
-		numtris += (vi[3] == 0)? 1: 2;
+		if(!subdivision)
+			numtris += (vi[3] == 0)? 1: 2;
+		else
+			numpatches++;
 	}
 
 	/* allocate memory */
 	mesh->reserve_mesh(numverts, numtris);
+	mesh->reserve_patches(numpatches);
 
 	/* create vertex coordinates and normals */
 	for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end(); ++v)
@@ -611,24 +617,33 @@ static void create_mesh(Scene *scene,
 			}
 		}
 
-		/* create triangles */
-		if(n == 4) {
-			if(is_zero(cross(mesh->verts[vi[1]] - mesh->verts[vi[0]], mesh->verts[vi[2]] - mesh->verts[vi[0]])) ||
-			   is_zero(cross(mesh->verts[vi[2]] - mesh->verts[vi[0]], mesh->verts[vi[3]] - mesh->verts[vi[0]])))
-			{
-				// TODO(mai): order here is probably wrong
-				mesh->add_triangle(vi[0], vi[1], vi[3], shader, smooth, true);
-				mesh->add_triangle(vi[2], vi[3], vi[1], shader, smooth, true);
-				face_flags[fi] |= FACE_FLAG_DIVIDE_24;
+		if(!subdivision) {
+			/* create triangles */
+			if(n == 4) {
+				if(is_zero(cross(mesh->verts[vi[1]] - mesh->verts[vi[0]], mesh->verts[vi[2]] - mesh->verts[vi[0]])) ||
+				   is_zero(cross(mesh->verts[vi[2]] - mesh->verts[vi[0]], mesh->verts[vi[3]] - mesh->verts[vi[0]])))
+				{
+					// TODO(mai): order here is probably wrong
+					mesh->add_triangle(vi[0], vi[1], vi[3], shader, smooth, true);
+					mesh->add_triangle(vi[2], vi[3], vi[1], shader, smooth, true);
+					face_flags[fi] |= FACE_FLAG_DIVIDE_24;
+				}
+				else {
+					mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth, true);
+					mesh->add_triangle(vi[0], vi[2], vi[3], shader, smooth, true);
+					face_flags[fi] |= FACE_FLAG_DIVIDE_13;
+				}
 			}
-			else {
-				mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth, true);
-				mesh->add_triangle(vi[0], vi[2], vi[3], shader, smooth, true);
-				face_flags[fi] |= FACE_FLAG_DIVIDE_13;
-			}
+			else
+				mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth, false);
 		}
-		else
-			mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth, false);
+		else {
+			/* create patches */
+			if(n == 4)
+				mesh->add_patch(vi[0], vi[1], vi[2], vi[3], shader, smooth);
+			else
+				mesh->add_patch(vi[0], vi[1], vi[2], shader, smooth);
+		}
 
 		nverts[fi] = n;
 	}
@@ -662,8 +677,7 @@ static void create_subd_mesh(Scene *scene,
                              float dicing_rate,
                              int max_subdivisions)
 {
-	Mesh basemesh;
-	create_mesh(scene, &basemesh, b_mesh, used_shaders);
+	create_mesh(scene, mesh, b_mesh, used_shaders, true);
 
 	SubdParams sdparams(mesh, 0, true, false);
 	sdparams.dicing_rate = max(0.1f, RNA_float_get(cmesh, "dicing_rate") * dicing_rate);
@@ -675,7 +689,7 @@ static void create_subd_mesh(Scene *scene,
 
 	/* tesselate */
 	DiagSplit dsplit(sdparams);
-	basemesh.tessellate(&dsplit);
+	mesh->tessellate(&dsplit);
 }
 
 /* Sync */
@@ -788,7 +802,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 					create_subd_mesh(scene, mesh, b_ob, b_mesh, &cmesh, used_shaders,
 					                 dicing_rate, max_subdivisions);
 				else
-					create_mesh(scene, mesh, b_mesh, used_shaders);
+					create_mesh(scene, mesh, b_mesh, used_shaders, false);
 
 				create_mesh_volume_attributes(scene, b_ob, mesh, b_scene.frame_current());
 			}

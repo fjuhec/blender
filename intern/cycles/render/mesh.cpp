@@ -73,6 +73,17 @@ void Mesh::Curve::bounds_grow(const int k, const float3 *curve_keys, const float
 	bounds.grow(upper, mr);
 }
 
+/* Patch */
+
+float3 Mesh::Patch::normal(const float3 *verts) const
+{
+	float3 v0 = verts[v[0]];
+	float3 v1 = verts[v[1]];
+	float3 v2 = verts[v[2]];
+
+	return safe_normalize(cross(v1 - v0, v2 - v0));
+}
+
 /* Mesh */
 
 NODE_DEFINE(Mesh)
@@ -1507,37 +1518,34 @@ bool Mesh::need_attribute(Scene * /*scene*/, ustring name)
 
 void Mesh::tessellate(DiagSplit *split)
 {
-	int num_faces = num_triangles();
+	int num_faces = patches.size();
 
-	add_face_normals();
-	add_vertex_normals();
-
-	Attribute *attr_fN = attributes.find(ATTR_STD_FACE_NORMAL);
-	float3 *fN = attr_fN->data_float3();
-
+	/* make a copy of the vertex normals as subd code will write into them */
+	std::vector<float3> vN(verts.size());
 	Attribute *attr_vN = attributes.find(ATTR_STD_VERTEX_NORMAL);
-	float3 *vN = attr_vN->data_float3();
+	memcpy(&vN[0], attr_vN->data_float3(), sizeof(float3)*vN.size());
 
 	for(int f = 0; f < num_faces; f++) {
-		if(!forms_quad[f]) {
+		if(!patches[f].is_quad()) {
 			/* triangle */
 			LinearTrianglePatch patch;
-			Triangle triangle = get_triangle(f);
+			Patch p = patches[f];
 			float3 *hull = patch.hull;
 			float3 *normals = patch.normals;
 
 			for(int i = 0; i < 3; i++) {
-				hull[i] = verts[triangle.v[i]];
+				hull[i] = verts[p.v[i]];
 			}
 
-			if(smooth[f]) {
+			if(p.smooth) {
 				for(int i = 0; i < 3; i++) {
-					normals[i] = vN[triangle.v[i]];
+					normals[i] = vN[p.v[i]];
 				}
 			}
 			else {
+				float3 N = p.normal(&verts[0]);
 				for(int i = 0; i < 3; i++) {
-					normals[i] = fN[f];
+					normals[i] = N;
 				}
 			}
 
@@ -1546,34 +1554,31 @@ void Mesh::tessellate(DiagSplit *split)
 		else {
 			/* quad */
 			LinearQuadPatch patch;
-			Triangle triangle0 = get_triangle(f);
-			Triangle triangle1 = get_triangle(f+1);
+			Patch p = patches[f];
 			float3 *hull = patch.hull;
 			float3 *normals = patch.normals;
 
-			hull[0] = verts[triangle0.v[0]];
-			hull[1] = verts[triangle0.v[1]];
-			hull[3] = verts[triangle0.v[2]];
-			hull[2] = verts[triangle1.v[2]];
+			for(int i = 0; i < 4; i++) {
+				hull[i] = verts[p.v[i]];
+			}
 
-			if(smooth[f]) {
-				normals[0] = vN[triangle0.v[0]];
-				normals[1] = vN[triangle0.v[1]];
-				normals[3] = vN[triangle0.v[2]];
-				normals[2] = vN[triangle1.v[2]];
+			if(p.smooth) {
+				for(int i = 0; i < 4; i++) {
+					normals[i] = vN[p.v[i]];
+				}
 			}
 			else {
+				float3 N = p.normal(&verts[0]);
 				for(int i = 0; i < 4; i++) {
-					normals[i] = fN[f];
+					normals[i] = N;
 				}
 			}
 
+			swap(hull[2], hull[3]);
+			swap(normals[2], normals[3]);
+
 			split->split_quad(&patch);
-
-			// consume second triangle in quad
-			f++;
 		}
-
 	}
 }
 

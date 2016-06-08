@@ -96,6 +96,7 @@ public:
 		bool smooth;
 
 		bool is_quad() { return v[3] >= 0; }
+		float3 normal(const float3 *verts) const;
 	};
 
 	/* Displacement */
