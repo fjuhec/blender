@@ -82,6 +82,20 @@
 #include "uvedit_intern.h"
 #include "uvedit_parametrizer.h"
 
+static int set_handle_params(bool implicit, bool fill_holes, bool selected, bool correct_aspect, bool all_faces) 
+{
+	int hparams = 0;
+
+	/* Set flags fpr handle_params */
+	if (implicit) hparams |= HANDLE_IMPLICIT;
+	if (fill_holes) hparams |= HANDLE_FILL;
+	if (selected) hparams |= HANDLE_SELECTED;
+	if (correct_aspect) hparams |= HANDLE_CORRECT_ASPECT;
+	if (all_faces) hparams |= HANDLE_ALL_FACES;
+
+	return hparams;
+}
+
 static void modifier_unwrap_state(Object *obedit, Scene *scene, bool *r_use_subsurf)
 {
 	ModifierData *md;
@@ -259,9 +273,7 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 	param_face_add(handle, key, i, vkeys, co, uv, pin, select, efa->no, flag);
 }
 
-static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
-                                           const bool implicit, const bool fill, const bool sel,
-                                           const bool correct_aspect)
+static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm, const int handle_params)
 {
 	ParamHandle *handle;
 	BMFace *efa;
@@ -270,6 +282,12 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 	BMIter iter, liter;
 	int i;
 	
+	const bool implicit = handle_params & HANDLE_IMPLICIT;
+	const bool fill = handle_params & HANDLE_FILL;
+	const bool sel = handle_params & HANDLE_SELECTED;
+	const bool correct_aspect = handle_params & HANDLE_CORRECT_ASPECT;
+	const bool all_faces = handle_params & HANDLE_ALL_FACES;
+
 	const int cd_loop_uv_offset = CustomData_get_offset(&bm->ldata, CD_MLOOPUV);
 
 	handle = param_construct_begin();
@@ -292,7 +310,7 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 			continue;
 		}
 
-		if (implicit) {
+		if (implicit && !all_faces) {
 			bool is_loopsel = false;
 
 			BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
@@ -532,6 +550,8 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 		return false;
 	}
 
+	int hparams = set_handle_params(implicit, fill_holes, true, true, false);
+
 	ms = MEM_callocN(sizeof(MinStretch), "MinStretch");
 	ms->scene = scene;
 	ms->obedit = obedit;
@@ -539,7 +559,7 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	ms->blend = RNA_float_get(op->ptr, "blend");
 	ms->iterations = RNA_int_get(op->ptr, "iterations");
 	ms->i = 0;
-	ms->handle = construct_param_handle(scene, obedit, em->bm, implicit, fill_holes, 1, 1);
+	ms->handle = construct_param_handle(scene, obedit, em->bm, hparams);
 	ms->lasttime = PIL_check_seconds_timer();
 
 	param_stretch_begin(ms->handle);
@@ -722,7 +742,8 @@ bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm, bool to
 {
 	ParamHandle *handle;
 	bool path_found = false;
-	handle = construct_param_handle(scene, ob, bm, false, false, false, true);
+	int hparams = set_handle_params(true, false, false, true, true);
+	handle = construct_param_handle(scene, ob, bm, hparams);
 	param_shortest_path(handle, &path_found, topo_dist);
 	param_flush(handle);
 	param_delete(handle);
@@ -734,7 +755,8 @@ bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm, bool to
 void ED_uvedit_pack_islands(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect, bool do_rotate)
 {
 	ParamHandle *handle;
-	handle = construct_param_handle(scene, ob, bm, true, false, selected, correct_aspect);
+	int hparams = set_handle_params(true, false, selected, correct_aspect, false);
+	handle = construct_param_handle(scene, ob, bm, hparams);
 	param_pack(handle, scene->toolsettings->uvcalc_margin, do_rotate);
 	param_flush(handle);
 	param_delete(handle);
@@ -791,12 +813,14 @@ static int average_islands_scale_exec(bContext *C, wmOperator *UNUSED(op))
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	ParamHandle *handle;
 	bool implicit = true;
+	
+	int hparams = set_handle_params(implicit, false, true, true, false);
 
 	if (!uvedit_have_selection(scene, em, implicit)) {
 		return OPERATOR_CANCELLED;
 	}
 
-	handle = construct_param_handle(scene, obedit, em->bm, implicit, 0, 1, 1);
+	handle = construct_param_handle(scene, obedit, em->bm, hparams);
 	param_average(handle);
 	param_flush(handle);
 	param_delete(handle);
@@ -834,6 +858,8 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 
 	modifier_unwrap_state(obedit, scene, &use_subsurf);
 
+	int hparams = set_handle_params(false, fillholes, false, true, false);
+
 	if (!ED_uvedit_test(obedit)) {
 		return;
 	}
@@ -841,7 +867,7 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 	if (use_subsurf)
 		liveHandle = construct_param_handle_subsurfed(scene, obedit, em, fillholes, false, true);
 	else
-		liveHandle = construct_param_handle(scene, obedit, em->bm, false, fillholes, false, true);
+		liveHandle = construct_param_handle(scene, obedit, em->bm, hparams);
 
 	param_lscm_begin(liveHandle, PARAM_TRUE, abf);
 }
@@ -1166,12 +1192,14 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	const bool pack_islands = (scene->toolsettings->uvcalc_flag & UVCALC_PACKISLANDS) != 0;
 	bool use_subsurf;
 
+	int hparams = set_handle_params(false, fill_holes, sel, correct_aspect, false);
+
 	modifier_unwrap_state(obedit, scene, &use_subsurf);
 
 	if (use_subsurf)
 		handle = construct_param_handle_subsurfed(scene, obedit, em, fill_holes, sel, correct_aspect);
 	else
-		handle = construct_param_handle(scene, obedit, em->bm, false, fill_holes, sel, correct_aspect);
+		handle = construct_param_handle(scene, obedit, em->bm, hparams);
 
 	param_lscm_begin(handle, PARAM_FALSE, scene->toolsettings->unwrapper == 0);
 	param_lscm_solve(handle);
