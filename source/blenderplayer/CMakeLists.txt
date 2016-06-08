@@ -111,7 +111,6 @@ endif()
 		ge_player_common 
 		bf_intern_string 
 		bf_intern_ghost
-		bf_intern_ghostndof3dconnexion
 		bf_rna
 		bf_blenkernel
 		bf_depsgraph
@@ -202,6 +201,10 @@ endif()
 
 	if(WITH_GHOST_XDND)
 		list(APPEND BLENDER_SORTED_LIBS extern_xdnd)
+	endif()
+
+	if(WITH_OPENHMD)
+		list(APPEND BLENDER_SORTED_LIBS extern_openhmd)
 	endif()
 
 	if(WITH_CODEC_QUICKTIME)

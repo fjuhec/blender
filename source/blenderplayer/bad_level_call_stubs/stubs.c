@@ -320,6 +320,13 @@ void WM_cursor_warp(struct wmWindow *win, int x, int y) RET_NONE
 
 void WM_ndof_deadzone_set(float deadzone) RET_NONE
 
+int WM_device_HMD_num_devices_get(void) RET_ZERO
+int WM_device_HMD_current_get(void) RET_ZERO
+void WM_device_HMD_state_set(const int device, const bool enable) RET_NONE
+float WM_device_HMD_IPD_get(void) RET_ZERO
+const char *WM_device_HMD_name_get(int index) RET_NULL
+const char *WM_device_HMD_vendor_get(int index) RET_NULL
+
 void                WM_uilisttype_init(void) RET_NONE
 struct uiListType  *WM_uilisttype_find(const char *idname, bool quiet) RET_NULL
 bool                WM_uilisttype_add(struct uiListType *ult) RET_ZERO
@@ -530,6 +537,7 @@ SnapObjectContext *ED_transform_snap_object_context_create_view3d(
 void ED_transform_snap_object_context_destroy(SnapObjectContext *sctx) RET_NONE
 bool ED_transform_snap_object_project_ray_ex(
         struct SnapObjectContext *sctx,
+        const unsigned short snap_to,
         const struct SnapObjectParams *params,
         const float ray_start[3], const float ray_normal[3], float *ray_depth,
         /* return args */
@@ -712,6 +720,7 @@ int collada_export(struct Scene *sce,
 
                    int triangulate,
                    int use_object_instantiation,
+                   int use_blender_profile,
                    int sort_by_name,
                    BC_export_transformation_type export_transformation_type,
                    int open_sim) RET_ZERO
