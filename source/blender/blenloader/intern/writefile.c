@@ -3628,6 +3628,17 @@ static void write_linestyles(WriteData *wd, ListBase *idbase)
 	}
 }
 
+static void write_cachefiles(WriteData *wd, ListBase *idbase)
+{
+	CacheFile *cache_file;
+
+	for (cache_file = idbase->first; cache_file; cache_file = cache_file->id.next) {
+		if (cache_file->id.us > 0 || wd->current) {
+			writestruct(wd, ID_CF, "CacheFile", 1, cache_file);
+		}
+	}
+}
+
 /* context is usually defined by WM, two cases where no WM is available:
  * - for forward compatibility, curscreen has to be saved
  * - for undofile, curscene needs to be saved */
@@ -3756,6 +3767,7 @@ static int write_file_handle(
 	write_paintcurves (wd, &mainvar->paintcurves);
 	write_gpencils (wd, &mainvar->gpencil);
 	write_linestyles(wd, &mainvar->linestyle);
+	write_cachefiles(wd, &mainvar->cachefiles);
 	write_libraries(wd,  mainvar->next);
 
 	if (write_user_block) {

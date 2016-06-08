@@ -1546,10 +1546,18 @@ enum {
 	MOD_NORMALEDIT_MIX_MUL  = 3,
 };
 
+#include "DNA_ID.h"
+
+typedef struct CacheFile {
+	ID id;
+
+	char filepath[1024];
+} CacheFile;
+
 typedef struct MeshSeqCacheModifierData {
 	ModifierData modifier;
 
-	char filepath[1024];
+	struct CacheFile *cache_file;
 	char abc_object_path[1024];
 	char is_sequence;
 	char pad[7];

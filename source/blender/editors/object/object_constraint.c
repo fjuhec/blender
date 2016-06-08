@@ -419,7 +419,7 @@ static void test_constraint(Object *owner, bPoseChannel *pchan, bConstraint *con
 	else if (con->type == CONSTRAINT_TYPE_TRANSFORMCACHE) {
 		bTransformCacheConstraint *data = con->data;
 
-		if ((data->filepath[0] == '\0') || (data->abc_object_path[0] == '\0')) {
+		if ((data->cache_file == NULL) || (data->abc_object_path[0] == '\0')) {
 			con->flag |= CONSTRAINT_DISABLE;
 		}
 	}

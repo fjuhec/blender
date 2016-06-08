@@ -4230,6 +4230,18 @@ static void rna_def_modifier_meshcache(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void RNA_def_cachefile(BlenderRNA *brna)
+{
+	StructRNA *srna = RNA_def_struct(brna, "CacheFile", "ID");
+	RNA_def_struct_sdna(srna, "CacheFile");
+	RNA_def_struct_ui_text(srna, "CacheFile", "");
+	RNA_def_struct_ui_icon(srna, ICON_FILE);
+
+	PropertyRNA *prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
+	RNA_def_property_ui_text(prop, "File Path", "Path to external displacements file");
+	RNA_def_property_update(prop, 0, NULL);
+}
+
 static void rna_def_modifier_meshseqcache(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -4240,9 +4252,12 @@ static void rna_def_modifier_meshseqcache(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "MeshSeqCacheModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_MOD_MESHDEFORM);  /* XXX, needs own icon */
 
-	prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
-	RNA_def_property_ui_text(prop, "File Path", "Path to external displacements file");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	prop = RNA_def_property(srna, "cache_file", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "cache_file");
+	RNA_def_property_struct_type(prop, "CacheFile");
+	RNA_def_property_ui_text(prop, "Cache File", "");
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+	RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
 	prop = RNA_def_property(srna, "abc_object_path", PROP_STRING, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Object", "Path to the object in the Alembic archive");
@@ -4730,6 +4745,9 @@ void RNA_def_modifier(BlenderRNA *brna)
 	                         "on filled curve/surface");
 	RNA_def_property_ui_icon(prop, ICON_SURFACE_DATA, 0);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	// XXX
+	RNA_def_cachefile(brna);
 
 	/* types */
 	rna_def_modifier_subsurf(brna);

@@ -33,6 +33,7 @@
 #include "BLI_string.h"
 
 #include "BKE_DerivedMesh.h"
+#include "BKE_library_query.h"
 #include "BKE_scene.h"
 
 #include "MOD_modifiertypes.h"
@@ -45,7 +46,7 @@ static void initData(ModifierData *md)
 {
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *)md;
 
-	mcmd->filepath[0] = '\0';
+	mcmd->cache_file = NULL;
 	mcmd->abc_object_path[0] = '\0';
 	mcmd->is_sequence = false;
 }
@@ -64,7 +65,7 @@ static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
 
 	/* leave it up to the modifier to check the file is valid on calculation */
-	return (mcmd->filepath[0] == '\0') || (mcmd->abc_object_path[0] == '\0');
+	return (mcmd->cache_file == NULL) || (mcmd->abc_object_path[0] == '\0');
 }
 
 static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
@@ -79,7 +80,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	const float time = frame / FPS;
 
 	char filepath[1024];
-	BLI_strncpy(filepath, mcmd->filepath, 1024);
+	BLI_strncpy(filepath, mcmd->cache_file->filepath, 1024);
 
 	int fframe;
 	int frame_len;
@@ -121,7 +122,7 @@ static void deformVerts(ModifierData *md, Object *ob,
 	const float time = frame / FPS;
 
 	char filepath[1024];
-	BLI_strncpy(filepath, mcmd->filepath, 1024);
+	BLI_strncpy(filepath, mcmd->cache_file->filepath, 1024);
 
 	int fframe;
 	int frame_len;
@@ -152,6 +153,14 @@ static bool dependsOnTime(ModifierData *md)
 	return true;
 }
 
+static void foreachIDLink(ModifierData *md, Object *ob,
+                          IDWalkFunc walk, void *userData)
+{
+	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
+
+	walk(userData, ob, (ID **)&mcmd->cache_file, IDWALK_USER);
+}
+
 ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* name */              "Mesh Cache Seq",
     /* structName */        "MeshSeqCacheModifierData",
@@ -175,6 +184,6 @@ ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* dependsOnTime */     dependsOnTime,
     /* dependsOnNormals */  NULL,
     /* foreachObjectLink */ NULL,
-    /* foreachIDLink */     NULL,
+    /* foreachIDLink */     foreachIDLink,
     /* foreachTexLink */    NULL,
 };

@@ -403,7 +403,7 @@ void AbcObjectReader::readObjectMatrix(const float time)
 	if (!schema.isConstant()) {
 		bConstraint *con = BKE_constraint_add_for_object(m_object, NULL, CONSTRAINT_TYPE_TRANSFORMCACHE);
 		bTransformCacheConstraint *data = static_cast<bTransformCacheConstraint *>(con->data);
-		BLI_strncpy(data->filepath, m_iobject.getArchive().getName().c_str(), 1024);
+		data->cache_file = m_settings->cache_file;
 		BLI_strncpy(data->abc_object_path, m_iobject.getFullName().c_str(), 1024);
 		data->scale = m_settings->scale;
 	}
@@ -416,7 +416,7 @@ void AbcObjectReader::addDefaultModifier(Main *bmain) const
 
 	MeshSeqCacheModifierData *mcmd = reinterpret_cast<MeshSeqCacheModifierData *>(md);
 
-	BLI_strncpy(mcmd->filepath, m_iobject.getArchive().getName().c_str(), 1024);
+	mcmd->cache_file = m_settings->cache_file;
 	BLI_strncpy(mcmd->abc_object_path, m_iobject.getFullName().c_str(), 1024);
 	mcmd->is_sequence = m_settings->is_sequence;
 

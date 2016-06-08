@@ -120,6 +120,7 @@ bool BLT_lang_is_ime_supported(void);
 #define BLT_I18NCONTEXT_ID_ARMATURE             "Armature"
 #define BLT_I18NCONTEXT_ID_BRUSH                "Brush"
 #define BLT_I18NCONTEXT_ID_CAMERA               "Camera"
+#define BLT_I18NCONTEXT_ID_CACHEFILE            "CacheFile"
 #define BLT_I18NCONTEXT_ID_CURVE                "Curve"
 #define BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE   "FreestyleLineStyle"
 #define BLT_I18NCONTEXT_ID_GPENCIL              "GPencil"

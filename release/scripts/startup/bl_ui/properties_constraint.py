@@ -881,7 +881,7 @@ class ConstraintButtonsPanel:
         layout.operator("clip.constraint_to_fcurve")
 
     def TRANSFORMCACHE(self, context, layout, con):
-        layout.prop(con, "filepath")
+        layout.template_cache_file(con, "cache_file")
         layout.prop(con, "abc_object_path")
         layout.prop(con, "scale")
 

@@ -223,7 +223,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "flip_axis")
 
     def MESH_SEQUENCE_CACHE(self, layout, ob, md):
-        layout.prop(md, "filepath")
+        layout.template_cache_file(md, "cache_file")
         layout.prop(md, "abc_object_path")
 
     def CAST(self, layout, ob, md):

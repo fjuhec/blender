@@ -366,6 +366,7 @@ static const char *template_id_browse_tip(StructRNA *type)
 			case ID_MSK: return N_("Browse Mask to be linked");
 			case ID_PAL: return N_("Browse Palette Data to be linked");
 			case ID_PC:  return N_("Browse Paint Curve Data to be linked");
+			case ID_CF:  return N_("Browse Cache Files to be linked");
 		}
 	}
 	return N_("Browse ID data to be linked");
@@ -3835,4 +3836,46 @@ void uiTemplateNodeSocket(uiLayout *layout, bContext *UNUSED(C), float *color)
 	rgba_float_to_uchar(but->col, color);
 	
 	UI_block_align_end(block);
+}
+
+/********************************* Cache File *********************************/
+
+void uiTemplateCacheFile(uiLayout *layout, bContext *C, PointerRNA *ptr, const char *propname)
+{
+	if (!ptr->data) {
+		return;
+	}
+
+	PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
+
+	if (!prop) {
+		printf("%s: property not found: %s.%s\n",
+		       __func__, RNA_struct_identifier(ptr->type), propname);
+		return;
+	}
+
+	if (RNA_property_type(prop) != PROP_POINTER) {
+		printf("%s: expected pointer property for %s.%s\n",
+		       __func__, RNA_struct_identifier(ptr->type), propname);
+		return;
+	}
+
+	PointerRNA fileptr = RNA_property_pointer_get(ptr, prop);
+	CacheFile *file = fileptr.data;
+
+	uiTemplateID(layout, C, ptr, propname, NULL, "CACHEFILE_OT_open", NULL);
+
+	if (!file) {
+		return;
+	}
+
+	uiLayout *row = uiLayoutRow(layout, false);
+	uiBlock *block = uiLayoutGetBlock(row);
+	uiDefBut(block, UI_BTYPE_LABEL, 0, IFACE_("File Path:"), 0, 19, 145, 19, NULL, 0, 0, 0, 0, "");
+
+	row = uiLayoutRow(layout, false);
+	uiLayout *split = uiLayoutSplit(row, 0.0f, false);
+	row = uiLayoutRow(split, true);
+
+	uiItemR(row, &fileptr, "filepath", 0, "", ICON_NONE);
 }

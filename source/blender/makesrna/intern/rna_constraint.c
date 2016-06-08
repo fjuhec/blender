@@ -2584,9 +2584,12 @@ static void rna_def_constraint_transform_cache(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Transform Cache Constraint", "Look up transformation from an external file");
 	RNA_def_struct_sdna_from(srna, "bTransformCacheConstraint", "data");
 
-	prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
-	RNA_def_property_ui_text(prop, "File Path", "Path to external displacements file");
-	RNA_def_property_update(prop, 0, "rna_Constraint_update");
+	prop = RNA_def_property(srna, "cache_file", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "cache_file");
+	RNA_def_property_struct_type(prop, "CacheFile");
+	RNA_def_property_ui_text(prop, "Cache File", "");
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+	RNA_def_property_update(prop, 0, "rna_Constraint_dependency_update");
 
 	prop = RNA_def_property(srna, "abc_object_path", PROP_STRING, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Object Path", "Path to the object in the Alembic archive");

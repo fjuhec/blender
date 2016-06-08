@@ -4339,6 +4339,12 @@ static bConstraintTypeInfo CTI_OBJECTSOLVER = {
 #include "ABC_alembic.h"
 #endif
 
+static void transformcache_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata)
+{
+	bTransformCacheConstraint *data = con->data;
+	func(con, (ID **)&data->cache_file, false, userdata);
+}
+
 static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBase *targets)
 {
 	bTransformCacheConstraint *data = con->data;
@@ -4346,7 +4352,8 @@ static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBa
 
 	const float ctime = BKE_scene_frame_get(scene) / (float)scene->r.frs_sec;
 
-	ABC_get_transform(cob->ob, data->filepath, data->abc_object_path, cob->matrix, ctime, data->scale);
+	ABC_get_transform(cob->ob, data->cache_file->filepath, data->abc_object_path,
+	                  cob->matrix, ctime, data->scale);
 
 	UNUSED_VARS(targets);
 }
@@ -4357,7 +4364,7 @@ static bConstraintTypeInfo CTI_TRANSFORMCACHE = {
 	"Transform Cache", /* name */
 	"bTransformCacheConstraint", /* struct name */
 	NULL,  /* free data */
-	NULL,  /* id looper */
+	transformcache_id_looper,  /* id looper */
 	NULL,  /* copy data */
 	NULL,  /* new data */
 	NULL,  /* get constraint targets */

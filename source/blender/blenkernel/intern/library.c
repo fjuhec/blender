@@ -56,6 +56,7 @@
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_movieclip_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_node_types.h"
@@ -590,6 +591,8 @@ ListBase *which_libbase(Main *mainlib, short type)
 			return &(mainlib->palettes);
 		case ID_PC:
 			return &(mainlib->paintcurves);
+		case ID_CF:
+			return &(mainlib->cachefiles);
 	}
 	return NULL;
 }
@@ -713,6 +716,7 @@ int set_listbasepointers(Main *main, ListBase **lb)
 
 	lb[a++] = &(main->armature);
 
+	lb[a++] = &(main->cachefiles);
 	lb[a++] = &(main->mesh);
 	lb[a++] = &(main->curve);
 	lb[a++] = &(main->mball);
@@ -864,6 +868,9 @@ void *BKE_libblock_alloc_notest(short type)
 		case ID_PC:
 			id = MEM_callocN(sizeof(PaintCurve), "Paint Curve");
 			break;
+		case ID_CF:
+			id = MEM_callocN(sizeof(CacheFile), "Cache File");
+			break;
 	}
 	return id;
 }
@@ -1002,6 +1009,9 @@ void BKE_libblock_init_empty(ID *id)
 			break;
 		case ID_LS:
 			BKE_linestyle_init((FreestyleLineStyle *)id);
+			break;
+		case ID_CF:
+			/* Nothing to do. */
 			break;
 	}
 }
@@ -1286,6 +1296,9 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, bool do_id_user)
 		case ID_PC:
 			BKE_paint_curve_free((PaintCurve *)id);
 			break;
+		case ID_CF:
+			/* Nothing to do. */
+			break;
 	}
 
 	/* avoid notifying on removed data */
@@ -1402,6 +1415,7 @@ void BKE_main_free(Main *mainvar)
 				case  31: BKE_libblock_free_ex(mainvar, id, false); break;
 				case  32: BKE_libblock_free_ex(mainvar, id, false); break;
 				case  33: BKE_libblock_free_ex(mainvar, id, false); break;
+				case  34: BKE_libblock_free_ex(mainvar, id, false); break;
 				default:
 					BLI_assert(0);
 					break;

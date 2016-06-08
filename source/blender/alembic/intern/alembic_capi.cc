@@ -37,6 +37,7 @@
 extern "C" {
 #include "MEM_guardedalloc.h"
 
+#include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
@@ -44,6 +45,7 @@ extern "C" {
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_global.h"
+#include "BKE_library.h"
 
 /* SpaceType struct has a member called 'new' which obviously conflicts with C++
  * so temporarily redefining the new keyword to make it compile. */
@@ -53,6 +55,7 @@ extern "C" {
 
 #include "BLI_ghash.h"
 #include "BLI_math.h"
+#include "BLI_path_util.h"
 #include "BLI_string.h"
 
 #include "WM_api.h"
@@ -459,6 +462,9 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 	if (!archive.valid()) {
 		return;
 	}
+
+	data->settings.cache_file = static_cast<CacheFile *>(BKE_libblock_alloc(data->bmain, ID_CF, BLI_path_basename(data->filename)));
+	BLI_strncpy(data->settings.cache_file->filepath, data->filename, 1024);
 
 	*data->do_update = true;
 	*data->progress = 0.05f;
