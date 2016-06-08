@@ -394,7 +394,7 @@ void AbcObjectReader::readObjectMatrix(const float time)
 	Alembic::AbcGeom::XformSample xs;
 	schema.get(xs, sample_sel);
 
-	create_input_transform(sample_sel, ixform, m_object, m_object->obmat);
+	create_input_transform(sample_sel, ixform, m_object, m_object->obmat, m_settings->scale);
 
 	invert_m4_m4(m_object->imat, m_object->obmat);
 
@@ -405,6 +405,7 @@ void AbcObjectReader::readObjectMatrix(const float time)
 		bTransformCacheConstraint *data = static_cast<bTransformCacheConstraint *>(con->data);
 		BLI_strncpy(data->filepath, m_iobject.getArchive().getName().c_str(), 1024);
 		BLI_strncpy(data->abc_object_path, m_iobject.getFullName().c_str(), 1024);
+		data->scale = m_settings->scale;
 	}
 }
 

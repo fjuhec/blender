@@ -2605,6 +2605,12 @@ static void rna_def_constraint_transform_cache(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, rna_enum_object_axis_items);
 	RNA_def_property_ui_text(prop, "Up", "");
 	RNA_def_property_update(prop, 0, "rna_Constraint_update");
+
+	prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "scale");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_text(prop, "Scale", "");
+	RNA_def_property_update(prop, 0, "rna_Constraint_update");
 }
 
 /* base struct for constraints */

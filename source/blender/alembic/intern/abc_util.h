@@ -52,7 +52,7 @@ bool is_locator(const Alembic::AbcGeom::IObject &object);
 
 void create_input_transform(const Alembic::AbcGeom::ISampleSelector &sample_sel,
                             const Alembic::AbcGeom::IXform &ixform, Object *ob,
-                            float r_mat[4][4]);
+                            float r_mat[4][4], float scale);
 
 using Alembic::Abc::chrono_t;
 

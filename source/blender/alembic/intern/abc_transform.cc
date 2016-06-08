@@ -88,6 +88,14 @@ void AbcTransformWriter::do_write()
 		mul_m4_m4m4(mat, mat, rot_mat);
 	}
 
+	if (!m_object->parent) {
+		/* Only apply scaling to root objects, parenting will propagate it. */
+		float scale_mat[4][4];
+		scale_m4_fl(scale_mat, m_settings.global_scale);
+		mul_m4_m4m4(mat, mat, scale_mat);
+		mul_v3_fl(mat[3], m_settings.global_scale);
+	}
+
     m_matrix = convert_matrix(mat);
 
 	m_sample.setMatrix(m_matrix);

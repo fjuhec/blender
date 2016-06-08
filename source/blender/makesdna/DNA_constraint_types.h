@@ -466,6 +466,9 @@ typedef struct bTransformCacheConstraint {
 	char forward_axis;
 	char up_axis;
 	char pad[2];
+
+	float scale;
+	float pad2;
 } bTransformCacheConstraint;
 
 /* ------------------------------------------ */

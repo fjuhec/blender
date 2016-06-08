@@ -570,7 +570,7 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 
 /* ******************************* */
 
-void ABC_get_transform(Object *ob, const char *filepath, const char *object_path, float r_mat[4][4], float time)
+void ABC_get_transform(Object *ob, const char *filepath, const char *object_path, float r_mat[4][4], float time, float scale)
 {
 	IArchive archive = open_archive(filepath);
 
@@ -598,7 +598,7 @@ void ABC_get_transform(Object *ob, const char *filepath, const char *object_path
 
 	ISampleSelector sample_sel(time);
 
-	create_input_transform(sample_sel, ixform, ob, r_mat);
+	create_input_transform(sample_sel, ixform, ob, r_mat, scale);
 }
 
 /* ***************************************** */
