@@ -174,6 +174,11 @@ ccl_device_inline float clamp(float a, float mn, float mx)
 	return min(max(a, mn), mx);
 }
 
+ccl_device_inline float interp(float a, float b, float t)
+{
+    return a + t*(b - a);
+}
+
 #endif
 
 #ifndef __KERNEL_CUDA__
