@@ -1879,6 +1879,12 @@ static void drawcamera_stereo3d(
 	const bool is_stereo3d_cameras = (v3d->stereo3d_flag & V3D_S3D_DISPCAMERAS) && (scene->r.views_format == SCE_VIEWS_FORMAT_STEREO_3D);
 	const bool is_stereo3d_plane = (v3d->stereo3d_flag & V3D_S3D_DISPPLANE) && (scene->r.views_format == SCE_VIEWS_FORMAT_STEREO_3D);
 	const bool is_stereo3d_volume = (v3d->stereo3d_flag & V3D_S3D_DISPVOLUME);
+	const bool is_hmd =
+#ifdef WITH_INPUT_HMD
+	        scene->r.views_format == SCE_VIEWS_FORMAT_HMD;
+#else
+	        false;
+#endif
 
 	zero_v3(tvec);
 
@@ -1895,7 +1901,7 @@ static void drawcamera_stereo3d(
 		copy_m3_m3(vec_lr[i], vec);
 		copy_v3_v3(vec_lr[i][3], vec[3]);
 
-		if (cam->stereo.convergence_mode == CAM_S3D_OFFAXIS) {
+		if (cam->stereo.convergence_mode == CAM_S3D_OFFAXIS && !is_hmd) {
 			const float shift_x =
 			        ((BKE_camera_multiview_shift_x(&scene->r, ob, names[i]) - cam->shiftx) *
 			         (drawsize * scale[0] * fac));

@@ -742,6 +742,8 @@ static void camera_stereo3d_model_matrix(
 			interocular_distance = device_ipd;
 		}
 	}
+#else
+	UNUSED_VARS(is_hmd);
 #endif
 
 	if (((pivot == CAM_S3D_PIVOT_LEFT) && is_left) ||
@@ -762,7 +764,12 @@ static void camera_stereo3d_model_matrix(
 	fac_signed = is_left ? fac : -fac;
 
 	/* rotation */
-	if (convergence_mode == CAM_S3D_TOE) {
+	if (convergence_mode == CAM_S3D_TOE
+#ifdef WITH_INPUT_HMD
+	    && !is_hmd
+#endif
+	    )
+	{
 		float angle;
 		float angle_sin, angle_cos;
 		float toeinmat[4][4];
@@ -980,7 +987,7 @@ float BKE_camera_multiview_shift_x(RenderData *rd, Object *camera, const char *v
 	if (!is_multiview) {
 		return data->shiftx;
 	}
-	else if (rd->views_format == SCE_VIEWS_FORMAT_MULTIVIEW) {
+	else if (ELEM(rd->views_format, SCE_VIEWS_FORMAT_MULTIVIEW, SCE_VIEWS_FORMAT_HMD)) {
 		return data->shiftx;
 	}
 	else { /* SCE_VIEWS_SETUP_BASIC */
