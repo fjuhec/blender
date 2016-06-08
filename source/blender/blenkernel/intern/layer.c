@@ -44,6 +44,8 @@
 
 #include "MEM_guardedalloc.h"
 
+static void layeritem_free(LayerTreeItem *litem);
+
 
 /* -------------------------------------------------------------------- */
 /** \name Layer Tree
@@ -61,12 +63,16 @@ LayerTree *BKE_layertree_new(const eLayerTree_Type type)
 
 void BKE_layertree_delete(LayerTree *ltree)
 {
-	for (LayerTreeItem *litem = ltree->items.first, *next_litem; litem; litem = next_litem) {
-		next_litem = litem->next;
-		BKE_layeritem_remove(litem, true);
+	BKE_LAYERTREE_ITER_START(ltree, i, litem)
+	{
+		/* layeritem_free does all we need in this case. No un-registering needed */
+		layeritem_free(litem);
 	}
-	BLI_assert(BLI_listbase_is_empty(&ltree->items));
+	BKE_LAYERTREE_ITER_END;
 
+	if (ltree->items_all) {
+		MEM_freeN(ltree->items_all);
+	}
 	MEM_freeN(ltree);
 }
 
@@ -122,6 +128,9 @@ int BKE_layertree_get_totitems(const LayerTree *ltree)
 
 /**
  * Register an already allocated \a litem.
+ *
+ * \note Reallocates memory for item storage array, if you want to add many items at once,
+ * better do differently (e.g. _ex version that allows reserving memory)
  */
 void BKE_layeritem_register(
         LayerTree *tree, LayerTreeItem *litem, LayerTreeItem *parent,
@@ -129,6 +138,7 @@ void BKE_layeritem_register(
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
 {
 	litem->type = type;
+	litem->index = tree->tot_items;
 	litem->tree = tree;
 	BLI_strncpy(litem->name, name, sizeof(litem->name));
 
@@ -137,7 +147,9 @@ void BKE_layeritem_register(
 	litem->draw = draw;
 	litem->draw_settings = draw_settings;
 
-	tree->tot_items++;
+	/* add to item array */
+	tree->items_all = MEM_reallocN(tree->items_all, sizeof(*tree->items_all) * ++tree->tot_items);
+	tree->items_all[tree->tot_items - 1] = litem;
 
 	if (parent) {
 		BLI_assert(ELEM(parent->type, LAYER_ITEMTYPE_GROUP));
@@ -168,29 +180,52 @@ LayerTreeItem *BKE_layeritem_add(
 	return litem;
 }
 
+static void layeritem_free(LayerTreeItem *litem)
+{
+	if (litem->free) {
+		litem->free(litem);
+	}
+	MEM_freeN(litem);
+}
+
+
 /**
- * Free and unlink \a litem from the list it's stored in.
+ * Recursive function to remove \a litem. Used to avoid multiple realloc's
+ * for LayerTree.items_all, instead caller can simply realloc once (afterwards!).
  *
  * \param remove_children: Free and unlink all children (and their children, etc) of \a litem as well.
- * \note Recursive
  */
-void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children)
+static void layeritem_remove_ex(LayerTreeItem *litem, const bool remove_children)
 {
 	BLI_remlink(litem->parent ? &litem->parent->childs : &litem->tree->items, litem);
+
+	for (int i = litem->index + 1; i < litem->tree->tot_items; i++) {
+		litem->tree->items_all[i - 1] = litem->tree->items_all[i];
+		litem->tree->items_all[i - 1]->index--;
+	}
 	litem->tree->tot_items--;
 
 	if (remove_children) {
 		for (LayerTreeItem *child = litem->childs.first, *child_next; child; child = child_next) {
 			child_next = child->next;
-			BKE_layeritem_remove(child, true);
+			layeritem_remove_ex(child, true);
 		}
 		BLI_assert(BLI_listbase_is_empty(&litem->childs));
 	}
+	layeritem_free(litem);
+}
 
-	if (litem->free) {
-		litem->free(litem);
-	}
-	MEM_freeN(litem);
+/**
+ * Free and unlink \a litem from the list and the array it's stored in.
+ *
+ * \param remove_children: Free and unlink all children (and their children, etc) of \a litem as well.
+ * \note Calls recursive #layeritem_remove_ex.
+ */
+void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children)
+{
+	LayerTree *ltree = litem->tree; /* store before deleting litem */
+	layeritem_remove_ex(litem, remove_children);
+	ltree->items_all = MEM_reallocN(ltree->items_all, sizeof(*ltree->items_all) * ltree->tot_items);
 }
 
 /**

@@ -58,6 +58,11 @@ void BKE_layertree_delete(LayerTree *ltree);
 bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, void *customdata, const bool inverse);
 int  BKE_layertree_get_totitems(const LayerTree *ltree);
 
+#define BKE_LAYERTREE_ITER_START(ltree, idx_name, litem_name) \
+	for (int idx_name = 0; idx_name < BKE_layertree_get_totitems(ltree); idx_name++) { \
+		LayerTreeItem *litem_name = ltree->items_all[idx_name];
+#define BKE_LAYERTREE_ITER_END } (void)0
+
 /* -------------------------------------------------------------------- */
 /* Layer Tree Item */
 
