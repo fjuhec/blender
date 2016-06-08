@@ -192,23 +192,6 @@ static void LAYERS_OT_remove(wmOperatorType *ot)
 	                        "Type", "Method used for deleting layers");
 }
 
-typedef struct {
-	SpaceLayers *slayer;
-	LayerTreeItem *group;
-} GroupAddSelectedData;
-
-static bool layer_group_add_selected_cb(LayerTreeItem *litem, void *customdata)
-{
-	GroupAddSelectedData *gadata = customdata;
-	LayerTile *tile = BLI_ghash_lookup(gadata->slayer->tiles, litem);
-
-	if (tile->flag & LAYERTILE_SELECTED) {
-		BKE_layeritem_group_assign(gadata->group, litem);
-	}
-
-	return true;
-}
-
 static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	Scene *scene = CTX_data_scene(C);
@@ -218,8 +201,14 @@ static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	layers_tile_add(slayer, new_group);
 
 	/* Add selected items to group */
-	GroupAddSelectedData gadata = {slayer, new_group};
-	BKE_layertree_iterate(slayer->act_tree, layer_group_add_selected_cb, &gadata, true);
+	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, litem)
+	{
+		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
+		if (tile->flag & LAYERTILE_SELECTED) {
+			BKE_layeritem_group_assign(new_group, litem);
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
 	return OPERATOR_FINISHED;
@@ -244,7 +233,7 @@ static int layer_rename_invoke(bContext *C, wmOperator *UNUSED(op), const wmEven
 {
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	ARegion *ar = CTX_wm_region(C);
-	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval, NULL);
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
 	if (tile) {
 		tile->flag |= LAYERTILE_RENAME;
 
@@ -269,40 +258,15 @@ static void LAYERS_OT_layer_rename(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-BLI_INLINE void layer_selection_set(SpaceLayers *slayer, LayerTile *tile, const int tile_idx, const bool enable)
+BLI_INLINE void layer_selection_set(SpaceLayers *slayer, LayerTile *tile, const bool enable)
 {
 	if (enable) {
 		(tile->flag |= LAYERTILE_SELECTED);
-		slayer->last_selected = tile_idx;
+		slayer->last_selected = tile->litem->index;
 	}
 	else {
 		tile->flag &= ~LAYERTILE_SELECTED;
 	}
-}
-
-typedef struct LayerSelectData {
-	/* input variables */
-	SpaceLayers *slayer;
-	int from, to; /* from must be smaller than two, or both -1 */
-	bool enable;
-
-	/* helper variable */
-	int idx;
-} LayerSelectData;
-
-static bool layer_select_cb(LayerTreeItem *litem, void *customdata)
-{
-	LayerSelectData *sdata = customdata;
-	LayerTile *tile = BLI_ghash_lookup(sdata->slayer->tiles, litem);
-
-	BLI_assert((sdata->from == -1 && sdata->to == -1) || sdata->from < sdata->to);
-
-	if ((sdata->from == -1) || (sdata->idx >= sdata->from && sdata->idx <= sdata->to)) {
-		layer_selection_set(sdata->slayer, tile, sdata->idx, sdata->enable);
-	}
-	sdata->idx++;
-
-	return true;
 }
 
 /**
@@ -311,8 +275,11 @@ static bool layer_select_cb(LayerTreeItem *litem, void *customdata)
  */
 static void layers_selection_set_all(SpaceLayers *slayer, const bool enable)
 {
-	LayerSelectData sdata = {slayer, -1, -1, enable};
-	BKE_layertree_iterate(slayer->act_tree, layer_select_cb, &sdata, true);
+	GHashIterator gh_iter;
+	GHASH_ITER(gh_iter, slayer->tiles) {
+		LayerTile *tile = BLI_ghashIterator_getValue(&gh_iter);
+		layer_selection_set(slayer, tile, enable);
+	}
 }
 
 /**
@@ -323,12 +290,18 @@ static bool layers_select_fill(SpaceLayers *slayer, const int from, const int to
 {
 	const int min = MIN2(from, to);
 	const int max = MAX2(from, to);
-	LayerSelectData sdata = {slayer, min, max, true};
 
 	if (min < 0 || min == max)
 		return false;
 
-	BKE_layertree_iterate(slayer->act_tree, layer_select_cb, &sdata, true);
+	BKE_LAYERTREE_ITER_START(slayer->act_tree, min, i, litem)
+	{
+		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
+		layer_selection_set(slayer, tile, true);
+		if (i == max)
+			break;
+	}
+	BKE_LAYERTREE_ITER_END;
 
 	return true;
 }
@@ -342,11 +315,10 @@ static int layer_select_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	const bool toggle = RNA_boolean_get(op->ptr, "toggle");
 	const bool fill = RNA_boolean_get(op->ptr, "fill");
 
-	int tile_idx;
-	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval, &tile_idx);
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
 
 	/* little helper for setting/unsetting selection flag */
-#define TILE_SET_SELECTION(enable) layer_selection_set(slayer, tile, tile_idx, enable);
+#define TILE_SET_SELECTION(enable) layer_selection_set(slayer, tile, enable);
 
 	if (tile) {
 		/* deselect all, but only if extend, deselect and toggle are false */
@@ -354,7 +326,7 @@ static int layer_select_invoke(bContext *C, wmOperator *op, const wmEvent *event
 			layers_selection_set_all(slayer, false);
 		}
 		if (extend) {
-			if (fill && layers_select_fill(slayer, slayer->last_selected, tile_idx)) {
+			if (fill && layers_select_fill(slayer, slayer->last_selected, tile->litem->index)) {
 				/* skip */
 			}
 			else {
@@ -403,7 +375,7 @@ static int layer_select_all_toggle_invoke(bContext *C, wmOperator *UNUSED(op), c
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 
 	/* if a tile was found we deselect all, else we select all */
-	layers_selection_set_all(slayer, !layers_any_selected(slayer, slayer->act_tree));
+	layers_selection_set_all(slayer, !layers_any_selected(slayer));
 	ED_region_tag_redraw(CTX_wm_region(C));
 
 	return OPERATOR_FINISHED;

@@ -63,7 +63,7 @@ LayerTree *BKE_layertree_new(const eLayerTree_Type type)
 
 void BKE_layertree_delete(LayerTree *ltree)
 {
-	BKE_LAYERTREE_ITER_START(ltree, i, litem)
+	BKE_LAYERTREE_ITER_START(ltree, 0, i, litem)
 	{
 		/* layeritem_free does all we need in this case. No un-registering needed */
 		layeritem_free(litem);

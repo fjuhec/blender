@@ -40,13 +40,6 @@
 #include "UI_interface.h"
 
 
-static bool layers_tile_recreate_cb(LayerTreeItem *litem, void *customdata)
-{
-	SpaceLayers *slayer = customdata;
-	layers_tile_add(slayer, litem);
-	return true;
-}
-
 /**
  * Refresh data after undo/file read. Should be called before drawing if SL_LAYERDATA_REFRESH flag is set.
  */
@@ -58,7 +51,12 @@ void layers_data_refresh(const Scene *scene, SpaceLayers *slayer)
 		layers_tilehash_delete(slayer);
 	}
 	slayer->tiles = BLI_ghash_ptr_new_ex("Layer tiles hash", BKE_layertree_get_totitems(slayer->act_tree));
-	BKE_layertree_iterate(slayer->act_tree, layers_tile_recreate_cb, slayer, true);
+	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, litem)
+	{
+		layers_tile_add(slayer, litem);
+	}
+	BKE_LAYERTREE_ITER_END;
+
 	slayer->flag &= ~SL_LAYERDATA_REFRESH;
 }
 
@@ -101,70 +99,38 @@ void layers_tile_remove(const SpaceLayers *slayer, LayerTile *tile, const bool r
 	BLI_ghash_remove(slayer->tiles, tile->litem, NULL, MEM_freeN);
 }
 
-typedef struct {
-	/* input values */
-	SpaceLayers *slayer;
-	View2D *v2d;
-	int co_x, co_y;
-
-	/* helper values for callback */
-	int ofs_y;
-
-	/* return values */
-	LayerTile *r_result;
-	int r_idx; /* index of r_result */
-} LayerIsectCheckData;
-
-static bool layers_tile_find_at_coordinate_cb(LayerTreeItem *litem, void *customdata)
-{
-	LayerIsectCheckData *idata = customdata;
-	LayerTile *tile = BLI_ghash_lookup(idata->slayer->tiles, litem);
-
-	if (idata->co_y >= -idata->v2d->cur.ymin - (idata->ofs_y + tile->tot_height)) {
-		if ((idata->co_y >= -idata->v2d->cur.ymin - (idata->ofs_y + LAYERTILE_HEADER_HEIGHT))) {
-			idata->r_result = tile;
-		}
-		/* found tile, stop iterating */
-		return false;
-	}
-	idata->ofs_y += tile->tot_height;
-	idata->r_idx++;
-
-	return true;
-}
-
 /**
  * Find the tile at coordinate \a co (regionspace).
- * \param r_tile_idx: Returns the index of the result, -1 if no tile was found.
  */
-LayerTile *layers_tile_find_at_coordinate(
-        SpaceLayers *slayer, ARegion *ar, const int co[2],
-        int *r_tile_idx)
+LayerTile *layers_tile_find_at_coordinate(SpaceLayers *slayer, ARegion *ar, const int co[2])
 {
-	LayerIsectCheckData idata = {slayer, &ar->v2d, co[0], co[1]};
-	BKE_layertree_iterate(slayer->act_tree, layers_tile_find_at_coordinate_cb, &idata, true);
+	int ofs_y = 0;
 
-	/* return values */
-	if (r_tile_idx) {
-		(*r_tile_idx) = (idata.r_result != NULL) ? idata.r_idx : -1;
+	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, litem)
+	{
+		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
+		if (co[1] >= -ar->v2d.cur.ymin - (ofs_y + tile->tot_height)) {
+			if ((co[1] >= -ar->v2d.cur.ymin - (ofs_y + LAYERTILE_HEADER_HEIGHT))) {
+				return tile;
+			}
+		}
+		ofs_y += tile->tot_height;
 	}
-	return idata.r_result;
+	BKE_LAYERTREE_ITER_END;
+
+	return NULL;
 }
 
-static bool layers_has_selected_cb(LayerTreeItem *litem, void *customdata)
+bool layers_any_selected(SpaceLayers *slayer)
 {
-	SpaceLayers *slayer = customdata;
-	LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
-
-	if (tile->flag & LAYERTILE_SELECTED) {
-		/* false tells iterator to stop */
-		return false;
+	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, litem)
+	{
+		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
+		if (tile->flag & LAYERTILE_SELECTED) {
+			return true;
+		}
 	}
-	return true;
-}
+	BKE_LAYERTREE_ITER_END;
 
-bool layers_any_selected(SpaceLayers *slayer, const LayerTree *ltree)
-{
-	/* returns false if iterator was stopped because layers_has_selected_cb found a selected tile */
-	return BKE_layertree_iterate(ltree, layers_has_selected_cb, slayer, true) == false;
+	return false;
 }

@@ -66,40 +66,28 @@ static int layer_tile_indent_level_get(const LayerTreeItem *litem)
 	return indent_level;
 }
 
-typedef struct TileDrawInfo {
-	const bContext *C;
-	ARegion *ar;
-	SpaceLayers *slayer;
-	uiBlock *block;
-	uiStyle *style;
-
-	float size_y;
-	int idx;
-} TileDrawInfo;
-
-static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
+/**
+ * Draw the tile for \a litem.
+ * \return the height of the drawn tile.
+ */
+static float layer_tile_draw(
+        LayerTreeItem *litem,
+        const bContext *C, ARegion *ar, SpaceLayers *slayer, uiBlock *block, uiStyle *style,
+        float ofs_y, int idx)
 {
-	if (!litem->draw)
-		return true; /* skip this item, but continue iterating */
-
-	TileDrawInfo *drawinfo = userdata;
-	View2D *v2d = &drawinfo->ar->v2d;
-	LayerTile *tile = BLI_ghash_lookup(drawinfo->slayer->tiles, litem);
+	LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
 	const bool expanded = litem->draw_settings && (tile->flag & LAYERTILE_EXPANDED);
 
 	const float pad_x = 4.0f * UI_DPI_FAC;
 	const float header_y = LAYERTILE_HEADER_HEIGHT;
 
 	const float ofs_x = layer_tile_indent_level_get(litem) * LAYERITEM_INDENT_SIZE;
-	const float ofs_y = drawinfo->size_y;
-	const rctf rect = {-v2d->cur.xmin + ofs_x, drawinfo->ar->winx,
-	                   -v2d->cur.ymin - ofs_y - header_y, -v2d->cur.ymin - ofs_y};
+	const rctf rect = {-ar->v2d.cur.xmin + ofs_x, ar->winx,
+	                   -ar->v2d.cur.ymin - ofs_y - header_y, -ar->v2d.cur.ymin - ofs_y};
 	int size_y = 0;
 	int tile_size_y = 0;
 
 	/* draw item itself */
-	uiBlock *block = drawinfo->block;
-
 	if (tile->flag & LAYERTILE_RENAME) {
 		uiBut *but = uiDefBut(
 		        block, UI_BTYPE_TEXT, 1, "", rect.xmin, rect.ymin,
@@ -109,18 +97,18 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 		UI_but_flag_disable(but, UI_BUT_UNDO);
 
 		/* returns false if button got removed */
-		if (UI_but_active_only(drawinfo->C, drawinfo->ar, block, but) == false) {
+		if (UI_but_active_only(C, ar, block, but) == false) {
 			tile->flag &= ~LAYERTILE_RENAME;
 			/* Yuk! Sending notifier during draw. Need to
 			 * do that so item uses regular drawing again. */
-			WM_event_add_notifier(drawinfo->C, NC_SPACE | ND_SPACE_LAYERS, NULL);
+			WM_event_add_notifier(C, NC_SPACE | ND_SPACE_LAYERS, NULL);
 		}
 	}
 	else {
 		uiLayout *layout = UI_block_layout(
 		        block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-		        rect.xmin, rect.ymax, BLI_rctf_size_y(&rect), 0, 0, drawinfo->style);
-		litem->draw(drawinfo->C, litem, layout);
+		        rect.xmin, rect.ymax, BLI_rctf_size_y(&rect), 0, 0, style);
+		litem->draw(C, litem, layout);
 		uiItemL(layout, "", 0); /* XXX without this editing last item causes crashes */
 		UI_block_layout_resolve(block, NULL, NULL);
 	}
@@ -129,15 +117,15 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 	if (expanded) {
 		uiLayout *layout = UI_block_layout(
 		        block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL,
-		        rect.xmin, rect.ymin, BLI_rctf_size_x(&rect), 0, 0, drawinfo->style);
-		litem->draw_settings(drawinfo->C, litem, layout);
+		        rect.xmin, rect.ymin, BLI_rctf_size_x(&rect), 0, 0, style);
+		litem->draw_settings(C, litem, layout);
 
 		UI_block_layout_resolve(block, NULL, &size_y);
-		tile_size_y = -(size_y + drawinfo->size_y + v2d->cur.ymin);
+		tile_size_y = -(ofs_y + size_y + ar->v2d.cur.ymin);
 	}
 
 	/* draw background */
-	if (drawinfo->idx % 2) {
+	if (idx % 2) {
 		UI_ThemeColorShade(TH_BACK, 10);
 		fdrawbox_filled(0, rect.ymax - tile_size_y, rect.xmax, rect.ymax);
 	}
@@ -148,12 +136,11 @@ static bool layer_tile_draw_cb(LayerTreeItem *litem, void *userdata)
 		UI_draw_roundbox(rect.xmin + pad_x, rect.ymin, rect.xmax - pad_x, rect.ymax, 5.0f);
 	}
 
-	drawinfo->size_y += tile_size_y;
-	drawinfo->idx++;
+	idx++;
 	/* set tile height */
 	tile->tot_height = tile_size_y;
 
-	return true;
+	return tile_size_y;
 }
 
 void layers_tiles_draw(const bContext *C, ARegion *ar)
@@ -161,16 +148,25 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 
 	uiBlock *block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
-	TileDrawInfo drawinfo = {C, ar, slayer, block, UI_style_get_dpi()};
+	uiStyle *style = UI_style_get_dpi();
 
 	/* draw tiles */
-	BKE_layertree_iterate(slayer->act_tree, layer_tile_draw_cb, &drawinfo, true);
+	int idx = 0;
+	float ofs_y = 0.0f;
+	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, litem)
+	{
+		if (litem->draw) {
+			ofs_y += layer_tile_draw(litem, C, ar, slayer, block, style, ofs_y, idx);
+			idx++;
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
 
 	/* fill remaining space with empty boxes */
-	const float tot_fill_tiles = (-ar->v2d.cur.ymin - drawinfo.size_y) / LAYERTILE_HEADER_HEIGHT + 1;
+	const float tot_fill_tiles = (-ar->v2d.cur.ymin - ofs_y) / LAYERTILE_HEADER_HEIGHT + 1;
 	for (int i = 0; i < tot_fill_tiles; i++) {
-		if ((i + drawinfo.idx) % 2) {
-			const float pos[2] = {0, -ar->v2d.cur.ymin - drawinfo.size_y - (LAYERTILE_HEADER_HEIGHT * (i + 1))};
+		if ((i + idx) % 2) {
+			const float pos[2] = {0, -ar->v2d.cur.ymin - ofs_y - (LAYERTILE_HEADER_HEIGHT * (i + 1))};
 			UI_ThemeColorShade(TH_BACK, 10);
 			fdrawbox_filled(pos[0], pos[1], pos[0] + ar->winx, pos[1] + LAYERTILE_HEADER_HEIGHT);
 		}
@@ -180,7 +176,7 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 	UI_block_draw(C, block);
 
 	/* update size of tot-rect (extents of data/viewable area) */
-	UI_view2d_totRect_set(&ar->v2d, ar->winx - BLI_rcti_size_x(&ar->v2d.vert), drawinfo.size_y);
+	UI_view2d_totRect_set(&ar->v2d, ar->winx - BLI_rcti_size_x(&ar->v2d.vert), ofs_y);
 }
 
 
