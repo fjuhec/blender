@@ -130,6 +130,8 @@ Mesh::Mesh()
 	curve_offset = 0;
 	curvekey_offset = 0;
 
+	patch_offset = 0;
+
 	attributes.triangle_mesh = this;
 	curve_attributes.curve_mesh = this;
 
@@ -537,7 +539,7 @@ void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
 	if(triangles_size) {
 		for(size_t i = 0; i < triangles_size; i++) {
 			Triangle t = get_triangle(i);
-			int patch_index = (!patches.size()) ? -1 : triangle_patch[i];
+			uint patch_index = (!patches.size()) ? -1 : (triangle_patch[i] + patch_offset);
 
 			tri_vindex[i] = make_float4(
 				__int_as_float(t.v[0] + vert_offset),
@@ -577,6 +579,22 @@ void Mesh::pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, s
 				__int_as_float(curve.num_keys),
 				__int_as_float(shader_id),
 				0.0f);
+		}
+	}
+}
+
+void Mesh::pack_patches(uint4 *patch_data, uint vert_offset)
+{
+	size_t patches_size = patches.size();
+
+	if(patches_size) {
+		for(size_t i = 0; i < patches_size; i++) {
+			Patch p = patches[i];
+
+			patch_data[i] = {p.v[0] + vert_offset,
+				             p.v[1] + vert_offset,
+				             p.v[2] + vert_offset,
+				             p.v[3] >= 0 ? p.v[3] + vert_offset : -1};
 		}
 	}
 }
@@ -1127,6 +1145,8 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 	size_t curve_key_size = 0;
 	size_t curve_size = 0;
 
+	size_t patch_size = 0;
+
 	foreach(Mesh *mesh, scene->meshes) {
 		mesh->vert_offset = vert_size;
 		mesh->tri_offset = tri_size;
@@ -1134,11 +1154,15 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 		mesh->curvekey_offset = curve_key_size;
 		mesh->curve_offset = curve_size;
 
+		mesh->patch_offset = patch_size;
+
 		vert_size += mesh->verts.size();
 		tri_size += mesh->num_triangles();
 
 		curve_key_size += mesh->curve_keys.size();
 		curve_size += mesh->num_curves();
+
+		patch_size += mesh->patches.size();
 	}
 
 	if(tri_size != 0) {
@@ -1179,6 +1203,19 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 
 		device->tex_alloc("__curve_keys", dscene->curve_keys);
 		device->tex_alloc("__curves", dscene->curves);
+	}
+
+	if(patch_size != 0) {
+		progress.set_status("Updating Mesh", "Copying Patches to device");
+
+		uint4 *patch_data = dscene->patches.resize(patch_size);
+
+		foreach(Mesh *mesh, scene->meshes) {
+			mesh->pack_patches(&patch_data[mesh->patch_offset], mesh->vert_offset);
+			if(progress.get_cancel()) return;
+		}
+
+		device->tex_alloc("__patches", dscene->patches);
 	}
 }
 
@@ -1464,6 +1501,7 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 	device->tex_free(dscene->tri_verts);
 	device->tex_free(dscene->curves);
 	device->tex_free(dscene->curve_keys);
+	device->tex_free(dscene->patches);
 	device->tex_free(dscene->attributes_map);
 	device->tex_free(dscene->attributes_float);
 	device->tex_free(dscene->attributes_float3);
@@ -1482,6 +1520,7 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 	dscene->tri_verts.clear();
 	dscene->curves.clear();
 	dscene->curve_keys.clear();
+	dscene->patches.clear();
 	dscene->attributes_map.clear();
 	dscene->attributes_float.clear();
 	dscene->attributes_float3.clear();

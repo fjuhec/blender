@@ -78,6 +78,8 @@ public:
 	device_vector<float4> curves;
 	device_vector<float4> curve_keys;
 
+	device_vector<uint4> patches;
+
 	/* objects */
 	device_vector<float4> objects;
 	device_vector<float4> objects_vector;
