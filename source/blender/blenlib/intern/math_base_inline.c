@@ -33,6 +33,7 @@
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #ifdef __SSE2__
 #  include <emmintrin.h>
@@ -312,6 +313,17 @@ MINLINE int signum_i(float a)
 	if (a > 0.0f) return  1;
 	if (a < 0.0f) return -1;
 	else          return  0;
+}
+
+MINLINE float unit_short_to_float(const short val)
+{
+	return (float)val / (float)SHRT_MAX;
+}
+
+MINLINE short unit_float_to_short(const float val)
+{
+	/* Rounding... */
+	return (short)floorf(val * (float)SHRT_MAX + 0.5f);
 }
 
 /* Internal helpers for SSE2 implementation.

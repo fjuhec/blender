@@ -210,6 +210,10 @@ MINLINE int mod_i(int i, int n);
 int pow_i(int base, int exp);
 double double_round(double x, int ndigits);
 
+MINLINE float unit_short_to_float(const short val);
+MINLINE short unit_float_to_short(const float val);
+
+
 #ifdef BLI_MATH_GCC_WARN_PRAGMA
 #  pragma GCC diagnostic pop
 #endif

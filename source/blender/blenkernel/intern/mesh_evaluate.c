@@ -510,17 +510,6 @@ void BKE_lnor_space_add_loop(MLoopNorSpaceArray *lnors_spacearr, MLoopNorSpace *
 	}
 }
 
-MINLINE float unit_short_to_float(const short val)
-{
-	return (float)val / (float)SHRT_MAX;
-}
-
-MINLINE short unit_float_to_short(const float val)
-{
-	/* Rounding... */
-	return (short)floorf(val * (float)SHRT_MAX + 0.5f);
-}
-
 void BKE_lnor_space_custom_data_to_normal(MLoopNorSpace *lnor_space, const short clnor_data[2], float r_custom_lnor[3])
 {
 	/* NOP custom normal data or invalid lnor space, return. */

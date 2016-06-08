@@ -44,6 +44,8 @@
 #include "../mathutils/mathutils.h"
 #include "../generic/python_utildefines.h"
 
+#include "MEM_guardedalloc.h"
+
 #include "BKE_customdata.h"
 
 #include "DNA_meshdata_types.h"
@@ -112,6 +114,9 @@ PyDoc_STRVAR(bpy_bmlayeraccess_collection__uv_doc,
 );
 PyDoc_STRVAR(bpy_bmlayeraccess_collection__color_doc,
 "Accessor for vertex color layer.\n\ntype: :class:`BMLayerCollection`"
+);
+PyDoc_STRVAR(bpy_bmlayeraccess_collection__clnor_doc,
+"Accessor for custom loop normal layer.\n\ntype: :class:`BMLayerCollection`"
 );
 PyDoc_STRVAR(bpy_bmlayeraccess_collection__skin_doc,
 "Accessor for skin layer.\n\ntype: :class:`BMLayerCollection`"
@@ -239,6 +244,8 @@ static PyGetSetDef bpy_bmlayeraccess_loop_getseters[] = {
 	{(char *)"uv",    (getter)bpy_bmlayeraccess_collection_get, (setter)NULL, (char *)bpy_bmlayeraccess_collection__uv_doc, (void *)CD_MLOOPUV},
 	{(char *)"color", (getter)bpy_bmlayeraccess_collection_get, (setter)NULL, (char *)bpy_bmlayeraccess_collection__color_doc, (void *)CD_MLOOPCOL},
 
+    {(char *)"clnor", (getter)bpy_bmlayeraccess_collection_get, (setter)NULL, (char *)bpy_bmlayeraccess_collection__clnor_doc, (void *)CD_CUSTOMLOOPNORMAL},
+
 	{NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
@@ -309,6 +316,256 @@ static PyObject *bpy_bmlayeritem_copy_from(BPy_BMLayerItem *self, BPy_BMLayerIte
 	BM_data_layer_copy(self->bm, data, self->type, value->index, self->index);
 
 	Py_RETURN_NONE;
+}
+
+#define bpy_bmlayeritem_from_array__clnors_doc \
+"   clnor layer: Array may be either:\n" \
+"     - A sequence of num_loop tuples (float, float):\n" \
+"       Raw storage of custom normals, as (alpha, beta) factors in [-1.0, 1.0] range.\n" \
+"     - A sequence of num_loop vectors (float, float, float):\n" \
+"       Custom normals per loop, as (x, y, z) components (normalization is ensured internaly).\n" \
+"     - A sequence of num_vert vectors (float, float, float):\n" \
+"       Custom normals per vertex, as (x, y, z) components (normalization is ensured internaly).\n" \
+"   In all cases, items which are None or null vectors will use default auto-computed normal.\n" \
+"\n" \
+"   Returns an array of the same type as given one, with None/null-vector values replaced by actual ones.\n"
+static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObject *value)
+{
+	PyObject *ret;
+
+	float (*nors)[3] = NULL;
+	float (*clnors)[2] = NULL;
+    Py_ssize_t nbr_val;
+	Py_ssize_t vec_size;
+	int cd_loop_clnors_offset;
+
+    BMesh *bm = self->bm;
+
+	if ((cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL)) == -1) {
+		/* Should never ever happen! */
+		PyErr_Format(PyExc_SystemError,
+					 "clnor's from_array(): No custom normal data layer in the bmesh");
+		return NULL;
+	}
+
+	value = PySequence_Fast(value, "normals must be an iterable");
+	if (!value) {
+		return NULL;
+	}
+
+	nbr_val = PySequence_Fast_GET_SIZE(value);
+
+	if (!ELEM(nbr_val, bm->totloop, bm->totvert)) {
+		PyErr_Format(PyExc_TypeError, "clnor's from_array(): There must be either one data per vertex or one per loop");
+		Py_DECREF(value);
+		return NULL;
+	}
+
+	vec_size = 3;  /* In case value is an array of None's only. */
+	for (Py_ssize_t i = 0; i < nbr_val; i++) {
+		PyObject *py_vec = PySequence_Fast_GET_ITEM(value, i);
+
+		if (py_vec == Py_None) {
+			continue;
+		}
+		py_vec = PySequence_Fast(py_vec, "");
+		if (py_vec) {
+			vec_size = PySequence_Fast_GET_SIZE(py_vec);
+		}
+		if (!py_vec || (vec_size == 2 && nbr_val != bm->totloop) || vec_size != 3) {
+			PyErr_Format(PyExc_TypeError,
+						 "clnor's from_array(): array items must be either triplets of floats, "
+						 "or pair of floats factors for raw clnor data, first item is neither "
+			             "(or total number of items does match expected one, %d verts/%d loops)",
+			             bm->totvert, bm->totloop);
+			MEM_freeN(nors);
+			Py_DECREF(value);
+			Py_XDECREF(py_vec);
+			return NULL;
+		}
+		break;
+	}
+
+	if (vec_size == 2) {
+		clnors = MEM_mallocN(sizeof(*clnors) * nbr_val, __func__);
+		for (Py_ssize_t i = 0; i < nbr_val; i++) {
+			PyObject *py_vec = PySequence_Fast_GET_ITEM(value, i);
+
+			if (py_vec == Py_None) {
+				clnors[i][0] = clnors[i][1] = 0.0f;
+			}
+			else {
+				py_vec = PySequence_Fast(py_vec, "");
+				if (!py_vec || PySequence_Fast_GET_SIZE(py_vec) != 2) {
+					PyErr_Format(PyExc_TypeError,
+								 "clnor's from_array(): clnors are expected to be pairs of floats "
+					             "in [-1.0, 1.0] range, clnor %d is not", i);
+					MEM_freeN(clnors);
+					Py_DECREF(value);
+					Py_XDECREF(py_vec);
+					return NULL;
+				}
+
+				for (int j = 0; j < 2; j++) {
+					PyObject *py_float = PyNumber_Float(PySequence_Fast_GET_ITEM(py_vec, j));
+
+					if (!py_float || !PyFloat_Check(py_float)) {
+						PyErr_Format(PyExc_TypeError,
+									 "clnor's from_array(): clnors are expected to be pairs of floats "
+						             "in [-1.0, 1.0] range, clnor %d is not", i);
+						MEM_freeN(clnors);
+						Py_DECREF(value);
+						Py_DECREF(py_vec);
+						Py_XDECREF(py_float);
+						return NULL;
+					}
+
+					clnors[i][j] = (float)PyFloat_AS_DOUBLE(py_float);
+					if (clnors[i][j] < -1.0f || clnors[i][j] > 1.0f) {
+						PyErr_Format(PyExc_TypeError,
+									 "clnor's from_array(): clnors are expected to be pairs of floats "
+						             "in [-1.0, 1.0] range, clnor %d is not", i);
+						MEM_freeN(clnors);
+						Py_DECREF(value);
+						Py_DECREF(py_vec);
+						Py_DECREF(py_float);
+						return NULL;
+					}
+					Py_DECREF(py_float);
+				}
+			}
+			Py_DECREF(py_vec);
+		}
+	}
+	else {
+		nors = MEM_mallocN(sizeof(*nors) * nbr_val, __func__);
+		for (Py_ssize_t i = 0; i < nbr_val; i++) {
+			PyObject *py_vec = PySequence_Fast_GET_ITEM(value, i);
+
+			if (py_vec == Py_None) {
+				zero_v3(nors[i]);
+			}
+			else {
+				py_vec = PySequence_Fast(py_vec, "");
+				if (!py_vec || PySequence_Fast_GET_SIZE(py_vec) != 3) {
+					PyErr_Format(PyExc_TypeError,
+								 "clnor's from_array(): normals are expected to be triplets of floats, normal %d is not", i);
+					MEM_freeN(nors);
+					Py_DECREF(value);
+					Py_XDECREF(py_vec);
+					return NULL;
+				}
+
+				for (int j = 0; j < 3; j++) {
+					PyObject *py_float = PyNumber_Float(PySequence_Fast_GET_ITEM(py_vec, j));
+
+					if (!py_float || !PyFloat_Check(py_float)) {
+						PyErr_Format(PyExc_TypeError,
+									 "clnor's from_array(): normals are expected to be triplets of floats, normal %d is not", i);
+						MEM_freeN(nors);
+						Py_DECREF(value);
+						Py_DECREF(py_vec);
+						Py_XDECREF(py_float);
+						return NULL;
+					}
+
+					nors[i][j] = (float)PyFloat_AS_DOUBLE(py_float);
+					Py_DECREF(py_float);
+				}
+				normalize_v3(nors[i]);  /* Just in case... */
+			}
+			Py_DECREF(py_vec);
+		}
+	}
+
+	Py_DECREF(value);
+	ret = PyTuple_New(nbr_val);
+
+	if (vec_size == 2) {
+		BMIter fiter;
+		BMIter liter;
+		BMFace *f;
+		BMLoop *l;
+
+		BM_mesh_elem_index_ensure(bm, BM_LOOP);
+
+		BM_ITER_MESH (f, &fiter, bm, BM_FACES_OF_MESH) {
+			BM_ITER_ELEM (l, &liter, f, BM_LOOPS_OF_FACE) {
+				const int lidx = BM_elem_index_get(l);
+				short *clnor = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
+				clnor[0] = unit_float_to_short(clnors[lidx][0]);
+				clnor[1] = unit_float_to_short(clnors[lidx][1]);
+
+				PyObject *py_vec = PyTuple_Pack(2,
+												PyFloat_FromDouble((double)clnors[lidx][0]),
+												PyFloat_FromDouble((double)clnors[lidx][1]));
+
+				PyTuple_SET_ITEM(ret, lidx, py_vec);
+			}
+		}
+	}
+	else {
+		if (nbr_val == bm->totloop) {
+			BM_loops_normal_custom_set(bm, nors, NULL, cd_loop_clnors_offset);
+		}
+		else {
+			BM_loops_normal_custom_set_from_vertices(bm, nors, NULL, cd_loop_clnors_offset);
+		}
+
+		for (Py_ssize_t i = 0; i < nbr_val; i++) {
+			PyObject *py_vec = PyTuple_Pack(3,
+											PyFloat_FromDouble((double)nors[i][0]),
+											PyFloat_FromDouble((double)nors[i][1]),
+											PyFloat_FromDouble((double)nors[i][2]));
+
+			PyTuple_SET_ITEM(ret, i, py_vec);
+		}
+
+		MEM_freeN(nors);
+	}
+
+	return ret;
+}
+
+PyDoc_STRVAR(bpy_bmlayeritem_from_array_doc,
+".. method:: from_array(array)\n"
+"\n"
+"   Set whole layer data from values in given array (or any type of iterable).\n"
+"\n"
+"\n"
+bpy_bmlayeritem_from_array__clnors_doc
+"\n"
+"\n"
+"   :arg array: Iterable of data to set from.\n"
+);
+static PyObject *bpy_bmlayeritem_from_array(BPy_BMLayerItem *self, PyObject *value)
+{
+	PyObject *ret;
+
+	BPY_BM_CHECK_OBJ(self);
+
+	switch (self->htype) {
+		case BM_LOOP:
+			switch (self->type) {
+				case CD_CUSTOMLOOPNORMAL:
+					ret = bpy_bmlayeritem_from_array__clnors(self, value);
+					break;
+				default:
+					ret = Py_NotImplemented; /* TODO */
+					Py_INCREF(ret);
+			}
+			break;
+		case BM_VERT:
+		case BM_EDGE:
+		case BM_FACE:
+			ret = Py_NotImplemented; /* TODO */
+			Py_INCREF(ret);
+			break;
+		default:
+			ret = NULL;
+	}
+
+	return ret;
 }
 
 /* similar to new(), but no name arg. */
@@ -564,7 +821,10 @@ static PyObject *bpy_bmlayercollection_get(BPy_BMLayerCollection *self, PyObject
 }
 
 static struct PyMethodDef bpy_bmlayeritem_methods[] = {
-	{"copy_from", (PyCFunction)bpy_bmlayeritem_copy_from,    METH_O,       bpy_bmlayeritem_copy_from_doc},
+	{"copy_from",  (PyCFunction)bpy_bmlayeritem_copy_from,    METH_O,       bpy_bmlayeritem_copy_from_doc},
+
+	{"from_array", (PyCFunction)bpy_bmlayeritem_from_array,   METH_O,       bpy_bmlayeritem_from_array_doc},
+
 	{NULL, NULL, 0, NULL}
 };
 
@@ -1013,6 +1273,14 @@ PyObject *BPy_BMLayerItem_GetItem(BPy_BMElem *py_ele, BPy_BMLayerItem *py_layer)
 			ret = BPy_BMLoopColor_CreatePyObject(value);
 			break;
 		}
+		case CD_CUSTOMLOOPNORMAL:
+		{
+			float vec[2];
+			vec[0] = unit_short_to_float(((short *)value)[0]);
+			vec[1] = unit_short_to_float(((short *)value)[1]);
+			ret = Vector_CreatePyObject(vec, 2, NULL);
+			break;
+		}
 		case CD_SHAPEKEY:
 		{
 			ret = Vector_CreatePyObject_wrap((float *)value, 3, NULL);
@@ -1114,6 +1382,23 @@ int BPy_BMLayerItem_SetItem(BPy_BMElem *py_ele, BPy_BMLayerItem *py_layer, PyObj
 		case CD_MLOOPCOL:
 		{
 			ret = BPy_BMLoopColor_AssignPyObject(value, py_value);
+			break;
+		}
+		case CD_CUSTOMLOOPNORMAL:
+		{
+			float vec[2];
+			if (UNLIKELY(mathutils_array_parse(vec, 2, 2, py_value, "BMLoop[clnor] = value") == -1)) {
+				ret = -1;
+				break;
+			}
+			if (vec[0] < -1.0f || vec[0] > 1.0f || vec[1] < -1.0f || vec[1] > 1.0f) {
+				PyErr_Format(PyExc_ValueError, "expected float values between -1.0 and 1.0, not (%f, %f)",
+				             vec[0], vec[1]);
+				ret = -1;
+				break;
+			}
+			((short *)value)[0] = unit_float_to_short(vec[0]);
+			((short *)value)[1] = unit_float_to_short(vec[1]);
 			break;
 		}
 		case CD_SHAPEKEY:
