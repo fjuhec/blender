@@ -35,11 +35,17 @@ extern "C" {
 
 typedef struct libmv_ReconstructionN libmv_ReconstructionN;
 
+typedef struct libmv_MultiviewReconstructionOptions {
+	int select_keyframes;
+	int keyframe1, keyframe2;
+	int *all_refine_intrinsics;		/* this should be an array since each clip has its own refine_flags */
+} libmv_MultiviewReconstructionOptions;
+
 libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
         const int clip_num,
         const struct libmv_TracksN **all_libmv_tracks,
         const libmv_CameraIntrinsicsOptions *libmv_camera_intrinsics_options,
-        libmv_ReconstructionOptions* libmv_reconstruction_options,
+        libmv_MultiviewReconstructionOptions* libmv_reconstruction_options,
         reconstruct_progress_update_cb progress_update_callback,
         void* callback_customdata);
 

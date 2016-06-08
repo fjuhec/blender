@@ -64,11 +64,11 @@ typedef struct MovieMultiviewReconstructContext {
 	libmv_CameraIntrinsicsOptions *all_camera_intrinsics_options;	/* camera intrinsic of each camera */
 	TracksMap **all_tracks_map;				/* tracks_map of each clip */
 	int *all_sfra, *all_efra;				/* start and end frame of each clip */
+	int *all_refine_flags;				/* refine flags of each clip */
 	ListBase *corr_base;			/* a set of correspondence across clips */
 
 	bool select_keyframes;
 	int keyframe1, keyframe2;		/* the key frames selected from the primary camera */
-	int refine_flags;
 	char object_name[MAX_NAME];
 	bool is_camera;
 	short motion_flag;
@@ -172,6 +172,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 	context->all_camera_intrinsics_options = MEM_callocN(num_clips * sizeof(libmv_CameraIntrinsicsOptions), "MRC camera intrinsics");
 	context->all_sfra = MEM_callocN(num_clips * sizeof(int), "MRC start frames");
 	context->all_efra = MEM_callocN(num_clips * sizeof(int), "MRC end frames");
+	context->all_refine_flags = MEM_callocN(num_clips * sizeof(int), "MRC refine flags");
 	context->keyframe1 = keyframe1;
 	context->keyframe2 = keyframe2;
 	context->clip_num = num_clips;
@@ -199,7 +200,6 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 			context->motion_flag = tracking->settings.motion_flag;
 			context->select_keyframes =
 			        (tracking->settings.reconstruction_flag & TRACKING_USE_KEYFRAME_SELECTION) != 0;
-			context->refine_flags = multiview_refine_intrinsics_get_flags(tracking, object);
 		}
 
 		tracking_cameraIntrinscisOptionsFromTracking(tracking,
@@ -207,6 +207,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 		                                             &context->all_camera_intrinsics_options[i]);
 
 		context->all_tracks_map[i] = tracks_map_new(context->object_name, context->is_camera, num_tracks, 0);
+		context->all_refine_flags[i] = multiview_refine_intrinsics_get_flags(tracking, object);
 
 		track = tracksbase->first;
 		while (track) {
@@ -260,13 +261,14 @@ void BKE_tracking_multiview_reconstruction_context_free(MovieMultiviewReconstruc
 	MEM_freeN(context->all_tracks_map);
 	MEM_freeN(context->all_sfra);
 	MEM_freeN(context->all_efra);
+	MEM_freeN(context->all_refine_flags);
 
 	MEM_freeN(context);
 }
 
 
 /* Fill in multiview reconstruction options structure from reconstruction context. */
-static void reconstructionOptionsFromContext(libmv_ReconstructionOptions *reconstruction_options,
+static void multiviewReconstructionOptionsFromContext(libmv_MultiviewReconstructionOptions *reconstruction_options,
                                              MovieMultiviewReconstructContext *context)
 {
 	reconstruction_options->select_keyframes = context->select_keyframes;
@@ -274,7 +276,7 @@ static void reconstructionOptionsFromContext(libmv_ReconstructionOptions *recons
 	reconstruction_options->keyframe1 = context->keyframe1;
 	reconstruction_options->keyframe2 = context->keyframe2;
 
-	reconstruction_options->refine_intrinsics = context->refine_flags;
+	reconstruction_options->all_refine_intrinsics = context->all_refine_flags;
 }
 
 /* Callback which is called from libmv side to update progress in the interface. */
@@ -306,7 +308,7 @@ void BKE_tracking_multiview_reconstruction_solve(MovieMultiviewReconstructContex
 
 	MultiviewReconstructProgressData progressdata;
 
-	libmv_ReconstructionOptions reconstruction_options;
+	libmv_MultiviewReconstructionOptions reconstruction_options;
 
 	progressdata.stop = stop;
 	progressdata.do_update = do_update;
@@ -314,7 +316,7 @@ void BKE_tracking_multiview_reconstruction_solve(MovieMultiviewReconstructContex
 	progressdata.stats_message = stats_message;
 	progressdata.message_size = message_size;
 
-	reconstructionOptionsFromContext(&reconstruction_options, context);
+	multiviewReconstructionOptionsFromContext(&reconstruction_options, context);
 
 	if (context->motion_flag & TRACKING_MOTION_MODAL) {
 		// TODO(tianwei): leave tracking solve object for now
