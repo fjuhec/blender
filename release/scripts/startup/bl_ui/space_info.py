@@ -276,6 +276,7 @@ class INFO_MT_window(Menu):
         import sys
 
         layout = self.layout
+        rd = context.scene.render
 
         layout.operator("wm.window_duplicate")
         layout.operator("wm.window_fullscreen_toggle", icon='FULLSCREEN_ENTER')
@@ -289,7 +290,7 @@ class INFO_MT_window(Menu):
             layout.separator()
             layout.operator("wm.console_toggle", icon='CONSOLE')
 
-        if context.scene.render.use_multiview:
+        if rd.use_multiview and rd.views_format in {'STEREO_3D', 'MULTIVIEW'}:
             layout.separator()
             layout.operator("wm.set_stereo_3d", icon='CAMERA_STEREO')
 
