@@ -121,7 +121,6 @@ public:
 	array<float3> verts;
 	array<int> shader;
 	array<bool> smooth;
-	array<bool> forms_quad; /* used to tell if triangle is part of a quad patch */
 
 	bool has_volume;  /* Set in the device_update_flags(). */
 	bool has_surface_bssrdf;  /* Set in the device_update_flags(). */
@@ -171,7 +170,7 @@ public:
 	void clear();
 	void add_vertex(float3 P);
 	void add_vertex_slow(float3 P);
-	void add_triangle(int v0, int v1, int v2, int shader, bool smooth, bool forms_quad = false);
+	void add_triangle(int v0, int v1, int v2, int shader, bool smooth);
 	void add_curve_key(float3 loc, float radius);
 	void add_curve(int first_key, int shader);
 	void add_patch(int v0, int v1, int v2, int v3, int shader_, bool smooth_);

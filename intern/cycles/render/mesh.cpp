@@ -151,8 +151,6 @@ void Mesh::resize_mesh(int numverts, int numtris)
 	shader.resize(numtris);
 	smooth.resize(numtris);
 
-	forms_quad.resize(numtris);
-
 	attributes.resize();
 }
 
@@ -163,8 +161,6 @@ void Mesh::reserve_mesh(int numverts, int numtris)
 	triangles.reserve(numtris * 3);
 	shader.reserve(numtris);
 	smooth.reserve(numtris);
-
-	forms_quad.reserve(numtris);
 
 	attributes.resize(true);
 }
@@ -206,8 +202,6 @@ void Mesh::clear()
 	triangles.clear();
 	shader.clear();
 	smooth.clear();
-
-	forms_quad.clear();
 
 	curve_keys.clear();
 	curve_radius.clear();
@@ -252,14 +246,13 @@ void Mesh::add_vertex_slow(float3 P)
 	verts.push_back_slow(P);
 }
 
-void Mesh::add_triangle(int v0, int v1, int v2, int shader_, bool smooth_, bool forms_quad_)
+void Mesh::add_triangle(int v0, int v1, int v2, int shader_, bool smooth_)
 {
 	triangles.push_back_reserved(v0);
 	triangles.push_back_reserved(v1);
 	triangles.push_back_reserved(v2);
 	shader.push_back_reserved(shader_);
 	smooth.push_back_reserved(smooth_);
-	forms_quad.push_back_reserved(forms_quad_);
 }
 
 void Mesh::add_curve_key(float3 co, float radius)

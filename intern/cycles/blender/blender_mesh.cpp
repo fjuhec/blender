@@ -623,19 +623,18 @@ static void create_mesh(Scene *scene,
 				if(is_zero(cross(mesh->verts[vi[1]] - mesh->verts[vi[0]], mesh->verts[vi[2]] - mesh->verts[vi[0]])) ||
 				   is_zero(cross(mesh->verts[vi[2]] - mesh->verts[vi[0]], mesh->verts[vi[3]] - mesh->verts[vi[0]])))
 				{
-					// TODO(mai): order here is probably wrong
-					mesh->add_triangle(vi[0], vi[1], vi[3], shader, smooth, true);
-					mesh->add_triangle(vi[2], vi[3], vi[1], shader, smooth, true);
+					mesh->add_triangle(vi[0], vi[1], vi[3], shader, smooth);
+					mesh->add_triangle(vi[2], vi[3], vi[1], shader, smooth);
 					face_flags[fi] |= FACE_FLAG_DIVIDE_24;
 				}
 				else {
-					mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth, true);
-					mesh->add_triangle(vi[0], vi[2], vi[3], shader, smooth, true);
+					mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth);
+					mesh->add_triangle(vi[0], vi[2], vi[3], shader, smooth);
 					face_flags[fi] |= FACE_FLAG_DIVIDE_13;
 				}
 			}
 			else
-				mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth, false);
+				mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth);
 		}
 		else {
 			/* create patches */

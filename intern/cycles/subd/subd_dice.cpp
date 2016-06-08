@@ -86,7 +86,7 @@ void EdgeDice::add_triangle(Patch *patch, int v0, int v1, int v2)
 	if(mesh->triangles.size() == mesh->triangles.capacity())
 		mesh->reserve_mesh(mesh->verts.size(), size_t(max(mesh->num_triangles() + 1, 1) * 1.2));
 
-	mesh->add_triangle(v0, v1, v2, params.shader, params.smooth, false);
+	mesh->add_triangle(v0, v1, v2, params.shader, params.smooth);
 
 	if(params.ptex) {
 		Attribute *attr_ptex_face_id = params.mesh->attributes.add(ATTR_STD_PTEX_FACE_ID);
