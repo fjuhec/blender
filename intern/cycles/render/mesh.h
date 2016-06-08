@@ -122,6 +122,10 @@ public:
 	array<int> shader;
 	array<bool> smooth;
 
+	/* used for storing patch info for subd triangles, only allocated if there are patches */
+	array<int> triangle_patch; /* mush be < 0 for non subd triangles */
+	array<float2> vert_patch_uv;
+
 	bool has_volume;  /* Set in the device_update_flags(). */
 	bool has_surface_bssrdf;  /* Set in the device_update_flags(). */
 

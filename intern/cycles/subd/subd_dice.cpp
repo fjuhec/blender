@@ -66,6 +66,7 @@ int EdgeDice::add_vert(Patch *patch, float2 uv)
 
 	mesh_P[vert_offset] = P;
 	mesh_N[vert_offset] = N;
+	params.mesh->vert_patch_uv[vert_offset] = make_float2(uv.x, uv.y);
 
 	if(params.ptex) {
 		Attribute *attr_ptex_uv = params.mesh->attributes.add(ATTR_STD_PTEX_UV);
@@ -87,6 +88,7 @@ void EdgeDice::add_triangle(Patch *patch, int v0, int v1, int v2)
 		mesh->reserve_mesh(mesh->verts.size(), size_t(max(mesh->num_triangles() + 1, 1) * 1.2));
 
 	mesh->add_triangle(v0, v1, v2, params.shader, params.smooth);
+	params.mesh->triangle_patch[params.mesh->num_triangles()-1] = patch->patch_index;
 
 	if(params.ptex) {
 		Attribute *attr_ptex_face_id = params.mesh->attributes.add(ATTR_STD_PTEX_FACE_ID);

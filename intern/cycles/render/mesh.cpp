@@ -151,6 +151,11 @@ void Mesh::resize_mesh(int numverts, int numtris)
 	shader.resize(numtris);
 	smooth.resize(numtris);
 
+	if(patches.size()) {
+		triangle_patch.resize(numtris);
+		vert_patch_uv.resize(numverts);
+	}
+
 	attributes.resize();
 }
 
@@ -161,6 +166,11 @@ void Mesh::reserve_mesh(int numverts, int numtris)
 	triangles.reserve(numtris * 3);
 	shader.reserve(numtris);
 	smooth.reserve(numtris);
+
+	if(patches.size()) {
+		triangle_patch.reserve(numtris);
+		vert_patch_uv.reserve(numverts);
+	}
 
 	attributes.resize(true);
 }
@@ -202,6 +212,9 @@ void Mesh::clear()
 	triangles.clear();
 	shader.clear();
 	smooth.clear();
+
+	triangle_patch.clear();
+	vert_patch_uv.clear();
 
 	curve_keys.clear();
 	curve_radius.clear();
@@ -253,6 +266,10 @@ void Mesh::add_triangle(int v0, int v1, int v2, int shader_, bool smooth_)
 	triangles.push_back_reserved(v2);
 	shader.push_back_reserved(shader_);
 	smooth.push_back_reserved(smooth_);
+
+	if(patches.size()) {
+		triangle_patch.push_back_reserved(-1);
+	}
 }
 
 void Mesh::add_curve_key(float3 co, float radius)
@@ -494,7 +511,9 @@ void Mesh::pack_normals(Scene *scene, uint *tri_shader, float4 *vnormal)
 		if(do_transform)
 			vNi = normalize(transform_direction(&ntfm, vNi));
 
-		vnormal[i] = make_float4(vNi.x, vNi.y, vNi.z, 0.0f);
+		float patch_v = (!patches.size()) ? 0.0f : vert_patch_uv[i].y;
+
+		vnormal[i] = make_float4(vNi.x, vNi.y, vNi.z, patch_v);
 	}
 }
 
@@ -507,7 +526,9 @@ void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
 
 		for(size_t i = 0; i < verts_size; i++) {
 			float3 p = verts_ptr[i];
-			tri_verts[i] = make_float4(p.x, p.y, p.z, 0.0f);
+			float patch_u = (!patches.size()) ? 0.0f : vert_patch_uv[i].x;
+
+			tri_verts[i] = make_float4(p.x, p.y, p.z, patch_u);
 		}
 	}
 
@@ -516,12 +537,13 @@ void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
 	if(triangles_size) {
 		for(size_t i = 0; i < triangles_size; i++) {
 			Triangle t = get_triangle(i);
+			int patch_index = (!patches.size()) ? -1 : triangle_patch[i];
 
 			tri_vindex[i] = make_float4(
 				__int_as_float(t.v[0] + vert_offset),
 				__int_as_float(t.v[1] + vert_offset),
 				__int_as_float(t.v[2] + vert_offset),
-				0);
+				__int_as_float(patch_index));
 		}
 	}
 }
@@ -1526,6 +1548,8 @@ void Mesh::tessellate(DiagSplit *split)
 			float3 *hull = patch.hull;
 			float3 *normals = patch.normals;
 
+			patch.patch_index = f;
+
 			for(int i = 0; i < 3; i++) {
 				hull[i] = verts[p.v[i]];
 			}
@@ -1550,6 +1574,8 @@ void Mesh::tessellate(DiagSplit *split)
 			Patch p = patches[f];
 			float3 *hull = patch.hull;
 			float3 *normals = patch.normals;
+
+			patch.patch_index = f;
 
 			for(int i = 0; i < 4; i++) {
 				hull[i] = verts[p.v[i]];

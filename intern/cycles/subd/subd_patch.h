@@ -29,6 +29,8 @@ public:
 	virtual bool is_triangle() { return false; }
 	virtual BoundBox bound() = 0;
 	virtual int ptex_face_id() { return -1; }
+
+	int patch_index;
 };
 
 /* Linear Quad Patch */
