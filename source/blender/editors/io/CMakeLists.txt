@@ -29,6 +29,7 @@ set(INC
 	../../windowmanager
 	../../collada
 	../../alembic
+	../../../../intern/guardedalloc
 )
 
 set(INC_SYS
