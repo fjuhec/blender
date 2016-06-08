@@ -57,8 +57,8 @@
 struct ReconstructProgressData;
 
 typedef struct MovieMultiviewReconstructContext {
+	int clip_num;							/* number of clips in this reconstruction */
 	struct libmv_TracksN **all_tracks;		/* set of tracks from all clips (API in autotrack) */
-
 	// TODO(tianwei): might be proper to make it libmv_multiview_Reconstruction
 	struct libmv_ReconstructionN **all_reconstruction;	/* reconstruction for each clip (API in autotrack) */
 	libmv_CameraIntrinsicsOptions *all_camera_intrinsics_options;	/* camera intrinsic of each camera */
@@ -174,6 +174,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 	context->all_efra = MEM_callocN(num_clips * sizeof(int), "MRC end frames");
 	context->keyframe1 = keyframe1;
 	context->keyframe2 = keyframe2;
+	context->clip_num = num_clips;
 
 	for(int i = 0; i < num_clips; i++)
 	{
@@ -243,6 +244,27 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 	return context;
 }
 
+/* Free memory used by a reconstruction process. */
+void BKE_tracking_multiview_reconstruction_context_free(MovieMultiviewReconstructContext *context)
+{
+	for(int i = 0; i < context->clip_num; i++)
+	{
+		libmv_tracksDestroy(context->all_tracks[i]);
+		if (context->all_reconstruction[i])
+			libmv_reconstructionDestroy(context->all_reconstruction[i]);
+		tracks_map_free(context->all_tracks_map[i], NULL);
+	}
+	MEM_freeN(context->all_tracks);
+	MEM_freeN(context->all_reconstruction);
+	MEM_freeN(context->all_camera_intrinsics_options);
+	MEM_freeN(context->all_tracks_map);
+	MEM_freeN(context->all_sfra);
+	MEM_freeN(context->all_efra);
+
+	MEM_freeN(context);
+}
+
+
 /* Fill in multiview reconstruction options structure from reconstruction context. */
 static void reconstructionOptionsFromContext(libmv_ReconstructionOptions *reconstruction_options,
                                              MovieMultiviewReconstructContext *context)
@@ -268,7 +290,7 @@ static void multiview_reconstruct_update_solve_cb(void *customdata, double progr
 	BLI_snprintf(progressdata->stats_message, progressdata->message_size, "Solving cameras | %s", message);
 }
 
-/* Solve camera/object motion and reconstruct 3D markers position
+/* TODO(tianwei): Solve camera/object motion and reconstruct 3D markers position
  * from a prepared reconstruction context from multiple views.
  *
  * stop is not actually used at this moment, so reconstruction
@@ -317,4 +339,43 @@ void BKE_tracking_multiview_reconstruction_solve(MovieMultiviewReconstructContex
 
 	//context->reprojection_error = error;
 	context->reprojection_error = 0;
+}
+
+/* TODO(tianwei): Finish multiview reconstruction process by copying reconstructed data
+ * to the primary movie clip datablock.
+ */
+bool BKE_tracking_multiview_reconstruction_finish(MovieMultiviewReconstructContext *context, MovieTracking *tracking)
+{
+	MovieTrackingReconstruction *reconstruction;
+	MovieTrackingObject *object;
+
+	return false;
+	//if (!libmv_reconstructionIsValid(context->all_reconstruction)) {
+	//	printf("Failed solve the motion: most likely there are no good keyframes\n");
+	//	return false;
+	//}
+
+	//tracks_map_merge(context->all_tracks_map, tracking);
+	//BKE_tracking_dopesheet_tag_update(tracking);
+
+	//object = BKE_tracking_object_get_named(tracking, context->object_name);
+
+	//if (context->is_camera)
+	//	reconstruction = &tracking->reconstruction;
+	//else
+	//	reconstruction = &object->reconstruction;
+
+	///* update keyframe in the interface */
+	//if (context->select_keyframes) {
+	//	object->keyframe1 = context->keyframe1;
+	//	object->keyframe2 = context->keyframe2;
+	//}
+
+	//reconstruction->error = context->reprojection_error;
+	//reconstruction->flag |= TRACKING_RECONSTRUCTED;
+
+	//if (!reconstruct_retrieve_libmv(context, tracking))
+	//	return false;
+
+	//return true;
 }

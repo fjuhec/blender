@@ -311,6 +311,7 @@ static bool solve_multiview_initjob(bContext *C,
 	smj->user = sc->user;
 
 	// create multiview reconstruction context and pass the tracks and markers to libmv
+	printf("new multiview reconstruction context\n");
 	smj->context = BKE_tracking_multiview_reconstruction_context_new(smj->clips,
 	                                                                 smj->clip_num,
 	                                                                 object,
@@ -348,27 +349,26 @@ static void solve_multiview_startjob(void *scv, short *stop, short *do_update, f
 
 static void solve_multiview_freejob(void *scv)
 {
-	SolveMultiviewJob *scj = (SolveMultiviewJob *)scv;
-	MovieClip *clip = scj->clips[0];	// primary camera
+	SolveMultiviewJob *smj = (SolveMultiviewJob *)scv;
+	MovieClip *clip = smj->clips[0];	// primary camera
 	MovieTracking *tracking = &clip->tracking;
-	Scene *scene = scj->scene;
-	//MovieClip *clip = scj->clip;
+	Scene *scene = smj->scene;
 	int solved;
 
-	if (!scj->context) {
+	if (!smj->context) {
 		/* job weren't fully initialized due to some error */
-		MEM_freeN(scj);
+		MEM_freeN(smj);
 		return;
 	}
 
-	solved = BKE_tracking_reconstruction_finish(scj->context, tracking);
+	solved = BKE_tracking_multiview_reconstruction_finish(smj->context, tracking);
 	if (!solved) {
-		BKE_report(scj->reports,
+		BKE_report(smj->reports,
 		           RPT_WARNING,
 		           "Some data failed to reconstruct (see console for details)");
 	}
 	else {
-		BKE_reportf(scj->reports,
+		BKE_reportf(smj->reports,
 		            RPT_INFO,
 		            "Average re-projection error: %.3f",
 		            tracking->reconstruction.error);
@@ -388,7 +388,7 @@ static void solve_multiview_freejob(void *scv)
 	{
 		Camera *camera = (Camera *)scene->camera->data;
 		int width, height;
-		BKE_movieclip_get_size(clip, &scj->user, &width, &height);
+		BKE_movieclip_get_size(clip, &smj->user, &width, &height);
 		BKE_tracking_camera_to_blender(tracking, scene, camera, width, height);
 		WM_main_add_notifier(NC_OBJECT, camera);
 	}
@@ -404,8 +404,9 @@ static void solve_multiview_freejob(void *scv)
 	/* Update active clip displayed in scene buttons. */
 	WM_main_add_notifier(NC_SCENE, scene);
 
-	BKE_tracking_reconstruction_context_free(scj->context);
-	MEM_freeN(scj);
+	printf("free multiview reconstruction context\n");
+	BKE_tracking_multiview_reconstruction_context_free(smj->context);
+	MEM_freeN(smj);
 }
 
 static int solve_multiview_exec(bContext *C, wmOperator *op)
@@ -449,13 +450,12 @@ static int solve_multiview_invoke(bContext *C,
 		if (error_msg[0]) {
 			BKE_report(op->reports, RPT_ERROR, error_msg);
 		}
-		//solve_multiview_freejob(scj);
+		solve_multiview_freejob(scj);
 		return OPERATOR_CANCELLED;
 	}
-	return OPERATOR_CANCELLED;
 
 	BLI_strncpy(tracking->stats->message,
-	            "Solving multiview| Preparing solve",
+	            "Solving multiview | Preparing solve",
 	            sizeof(tracking->stats->message));
 
 	/* Hide reconstruction statistics from previous solve. */

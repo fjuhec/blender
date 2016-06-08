@@ -289,7 +289,7 @@ void BKE_tracking_stabilization_data_to_mat4(int width, int height, float aspect
 void BKE_tracking_dopesheet_tag_update(struct MovieTracking *tracking);
 void BKE_tracking_dopesheet_update(struct MovieTracking *tracking);
 
-/* Correspondence */
+/* Correspondence and multiview */
 void BKE_tracking_correspondence_unique_name(struct ListBase *tracksbase, struct MovieTrackingCorrespondence *corr);
 struct MovieTrackingCorrespondence *BKE_tracking_correspondence_add(struct ListBase *corr_base,
                                                                     struct MovieTrackingTrack *self_track,
@@ -303,8 +303,11 @@ struct MovieMultiviewReconstructContext *BKE_tracking_multiview_reconstruction_c
                                                                                            struct MovieTrackingObject *object,
                                                                                            int keyframe1, int keyframe2,
                                                                                            int width, int height);
+void BKE_tracking_multiview_reconstruction_context_free(struct MovieMultiviewReconstructContext *context);
 bool BKE_tracking_multiview_reconstruction_check(struct MovieClip **clips, struct MovieTrackingObject *object,
                                                  int clip_num, char *error_msg, int error_size);
+bool BKE_tracking_multiview_reconstruction_finish(struct MovieMultiviewReconstructContext *context,
+                                                  struct MovieTracking *tracking);
 
 #define TRACK_SELECTED(track)               ((track)->flag & SELECT || (track)->pat_flag & SELECT || (track)->search_flag & SELECT)
 
