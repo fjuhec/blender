@@ -314,28 +314,30 @@ void BKE_tracking_multiview_reconstruction_solve(MovieMultiviewReconstructContex
 	progressdata.stats_message = stats_message;
 	progressdata.message_size = message_size;
 
-	//reconstructionOptionsFromContext(&reconstruction_options, context);
+	reconstructionOptionsFromContext(&reconstruction_options, context);
 
-	//if (context->motion_flag & TRACKING_MOTION_MODAL) {
-	//	context->reconstruction = libmv_solveModal(context->tracks,
-	//	                                           &context->camera_intrinsics_options,
-	//	                                           &reconstruction_options,
-	//	                                           multiview_reconstruct_update_solve_cb, &progressdata);
-	//}
-	//else {
-	//	context->reconstruction = libmv_solveReconstruction(context->tracks,
-	//	                                                    &context->camera_intrinsics_options,
-	//	                                                    &reconstruction_options,
-	//	                                                    multiview_reconstruct_update_solve_cb, &progressdata);
+	if (context->motion_flag & TRACKING_MOTION_MODAL) {
+		// TODO(tianwei): leave tracking solve object for now
+		//context->reconstruction = libmv_solveModal(context->tracks,
+		//                                           &context->camera_intrinsics_options,
+		//                                           &reconstruction_options,
+		//                                           multiview_reconstruct_update_solve_cb, &progressdata);
+	}
+	else {
+		context->all_reconstruction = libmv_solveMultiviewReconstruction(context->clip_num,
+		                                                                 context->all_tracks,
+		                                                                 context->all_camera_intrinsics_options,
+		                                                                 &reconstruction_options,
+		                                                                 multiview_reconstruct_update_solve_cb, &progressdata);
 
-	//	if (context->select_keyframes) {
-	//		/* store actual keyframes used for reconstruction to update them in the interface later */
-	//		context->keyframe1 = reconstruction_options.keyframe1;
-	//		context->keyframe2 = reconstruction_options.keyframe2;
-	//	}
-	//}
+		if (context->select_keyframes) {
+			/* store actual keyframes used for reconstruction to update them in the interface later */
+			context->keyframe1 = reconstruction_options.keyframe1;
+			context->keyframe2 = reconstruction_options.keyframe2;
+		}
+	}
 
-	//error = libmv_reprojectionError(context->reconstruction);
+	//error = libmv_reprojectionError(context->all_reconstruction);
 
 	//context->reprojection_error = error;
 	context->reprojection_error = 0;

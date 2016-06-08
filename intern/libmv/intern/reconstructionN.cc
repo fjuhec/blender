@@ -19,7 +19,7 @@
  * All rights reserved.
  *
  * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
+ *                 Tianwei Shen
  *
  * ***** END GPL LICENSE BLOCK *****
  */
@@ -55,3 +55,14 @@ struct libmv_ReconstructionN {
   double error;
   bool is_valid;
 };
+
+libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
+        const int clip_num,
+        const libmv_TracksN **all_libmv_tracks,
+        const libmv_CameraIntrinsicsOptions *libmv_camera_intrinsics_options,
+        libmv_ReconstructionOptions *libmv_reconstruction_options,
+        reconstruct_progress_update_cb progress_update_callback,
+        void* callback_customdata)
+{
+	return (libmv_ReconstructionN**) NULL;
+}

@@ -19,13 +19,15 @@
  * All rights reserved.
  *
  * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
+ *                 Tianwei Shen
  *
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#ifndef LIBMV_C_API_RECONSTRUCTION_H_
-#define LIBMV_C_API_RECONSTRUCTION_H_
+#ifndef LIBMV_C_API_RECONSTRUCTIONN_H_
+#define LIBMV_C_API_RECONSTRUCTIONN_H_
+
+#include "intern/reconstruction.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,8 +35,16 @@ extern "C" {
 
 typedef struct libmv_ReconstructionN libmv_ReconstructionN;
 
+libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
+        const int clip_num,
+        const struct libmv_TracksN **all_libmv_tracks,
+        const libmv_CameraIntrinsicsOptions *libmv_camera_intrinsics_options,
+        libmv_ReconstructionOptions* libmv_reconstruction_options,
+        reconstruct_progress_update_cb progress_update_callback,
+        void* callback_customdata);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif   // LIBMV_C_API_RECONSTRUCTION_H_
+#endif   // LIBMV_C_API_RECONSTRUCTIONN_H_
