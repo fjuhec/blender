@@ -1640,10 +1640,8 @@ void Mesh::tessellate(DiagSplit *split)
 {
 	int num_faces = patches.size();
 
-	/* make a copy of the vertex normals as subd code will write into them */
-	std::vector<float3> vN(verts.size());
-	Attribute *attr_vN = attributes.find(ATTR_STD_VERTEX_NORMAL);
-	memcpy(&vN[0], attr_vN->data_float3(), sizeof(float3)*vN.size());
+	Attribute *attr_vN = subd_attributes.find(ATTR_STD_VERTEX_NORMAL);
+	float3* vN = attr_vN->data_float3();
 
 	for(int f = 0; f < num_faces; f++) {
 		if(!patches[f].is_quad()) {
