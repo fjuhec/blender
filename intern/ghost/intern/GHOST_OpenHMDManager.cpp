@@ -168,16 +168,16 @@ bool GHOST_OpenHMDManager::openDevice(int index)
 
 	ohmd_device_settings* settings = ohmd_device_settings_create(m_context);
 
-    // If OHMD_IDS_AUTOMATIC_UPDATE is set to 0, ohmd_ctx_update() must be called at least 10 times per second.
-    // It is enabled by default, runs in seperate thread.
-    // This allows for correct tracking on low framerates, needed for heavy scenes.
+	// If OHMD_IDS_AUTOMATIC_UPDATE is set to 0, ohmd_ctx_update() must be called at least 10 times per second.
+	// It is enabled by default, runs in seperate thread.
+	// This allows for correct tracking on low framerates, needed for heavy scenes.
 
-    int auto_update = 1;
-    ohmd_device_settings_seti(settings, OHMD_IDS_AUTOMATIC_UPDATE, &auto_update);
+	int auto_update = 1;
+	ohmd_device_settings_seti(settings, OHMD_IDS_AUTOMATIC_UPDATE, &auto_update);
 
-    m_device = ohmd_list_open_device_s(m_context, index, settings);
-    ohmd_device_settings_destroy(settings); //cleanup settings
-	
+	m_device = ohmd_list_open_device_s(m_context, index, settings);
+	ohmd_device_settings_destroy(settings); //cleanup settings
+
 	return true;
 }
 
@@ -186,6 +186,8 @@ void GHOST_OpenHMDManager::closeDevice()
 	if (!m_device) {
 		return;
 	}
+
+	ohmd_close_device(m_device);
 
 	m_device = NULL;
 	m_deviceIndex = -1;
