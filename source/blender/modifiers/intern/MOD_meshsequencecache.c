@@ -162,7 +162,7 @@ static void foreachIDLink(ModifierData *md, Object *ob,
 }
 
 ModifierTypeInfo modifierType_MeshSequenceCache = {
-    /* name */              "Mesh Cache Seq",
+    /* name */              "Mesh Sequence Cache",
     /* structName */        "MeshSeqCacheModifierData",
     /* structSize */        sizeof(MeshSeqCacheModifierData),
     /* type */              eModifierTypeType_DeformOrConstruct,
