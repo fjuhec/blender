@@ -402,6 +402,9 @@ float GHOST_OpenHMDManager::getRightEyeAspectRatio() const
 	return val;
 }
 
+/**
+ * \returns -1 if not found.
+ */
 float GHOST_OpenHMDManager::getEyeIPD() const
 {
 	if (!m_device) {

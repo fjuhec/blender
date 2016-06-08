@@ -719,7 +719,9 @@ static void camera_model_matrix(Object *camera, float r_modelmat[4][4])
 	copy_m4_m4(r_modelmat, camera->obmat);
 }
 
-static void camera_stereo3d_model_matrix(Object *camera, const bool is_left, float r_modelmat[4][4])
+static void camera_stereo3d_model_matrix(
+        Object *camera, const bool is_left, const bool is_hmd,
+        float r_modelmat[4][4])
 {
 	Camera *data = (Camera *)camera->data;
 	float sizemat[4][4];
@@ -727,15 +729,20 @@ static void camera_stereo3d_model_matrix(Object *camera, const bool is_left, flo
 	float fac = 1.0f;
 	float fac_signed;
 
-	const float interocular_distance =
-#ifdef WITH_INPUT_HMD
-	        (data->stereo.flag & CAM_S3D_CUSTOM_IPD) ? WM_device_HMD_IPD_get() : data->stereo.interocular_distance;
-#else
-	        data->stereo.interocular_distance;
-#endif
+	float interocular_distance = data->stereo.interocular_distance;
 	const float convergence_distance = data->stereo.convergence_distance;
 	const short convergence_mode = data->stereo.convergence_mode;
 	const short pivot = data->stereo.pivot;
+
+#ifdef WITH_INPUT_HMD
+	/* Try to get the interocular distance from the HMD */
+	if (is_hmd && U.hmd_device != -1 && !(data->stereo.flag & CAM_S3D_CUSTOM_IPD)) {
+		const float device_ipd = WM_device_HMD_IPD_get();
+		if (device_ipd != -1) {
+			interocular_distance = device_ipd;
+		}
+	}
+#endif
 
 	if (((pivot == CAM_S3D_PIVOT_LEFT) && is_left) ||
 	    ((pivot == CAM_S3D_PIVOT_RIGHT) && !is_left))
@@ -847,7 +854,7 @@ void BKE_camera_multiview_model_matrix(RenderData *rd, Object *camera, const cha
 	}
 	else { /* SCE_VIEWS_SETUP_BASIC */
 		const bool is_left = camera_is_left(viewname);
-		camera_stereo3d_model_matrix(camera, is_left, r_modelmat);
+		camera_stereo3d_model_matrix(camera, is_left, rd->views_format == SCE_VIEWS_FORMAT_HMD, r_modelmat);
 	}
 	normalize_m4(r_modelmat);
 }
