@@ -58,11 +58,14 @@ public:
 	Attribute() {}
 	~Attribute();
 	void set(ustring name, TypeDesc type, AttributeElement element);
-	void resize(int numverts, int numfaces, int numsteps, int numcurves, int numkeys, bool reserve_only);
+	void resize(int numverts, int numfaces, int numsteps, int numcurves, int numkeys,
+	            int numpatches, AttributePrimitive prim, bool reserve_only);
 
 	size_t data_sizeof() const;
-	size_t element_size(int numverts, int numfaces, int numsteps, int numcurves, int numkeys) const;
-	size_t buffer_size(int numverts, int numfaces, int numsteps, int numcurves, int numkeys) const;
+	size_t element_size(int numverts, int numfaces, int numsteps, int numcurves, int numkeys,
+	                    int numpatches, AttributePrimitive prim) const;
+	size_t buffer_size(int numverts, int numfaces, int numsteps, int numcurves, int numkeys,
+	                   int numpatches, AttributePrimitive prim) const;
 
 	char *data() { return (buffer.size())? &buffer[0]: NULL; };
 	float3 *data_float3() { return (float3*)data(); }
@@ -99,6 +102,7 @@ class AttributeSet {
 public:
 	Mesh *triangle_mesh;
 	Mesh *curve_mesh;
+	Mesh *subd_mesh;
 	list<Attribute> attributes;
 
 	AttributeSet();
@@ -130,9 +134,9 @@ public:
 	AttributeStandard std;
 
 	/* temporary variables used by MeshManager */
-	TypeDesc triangle_type, curve_type;
-	AttributeElement triangle_element, curve_element;
-	int triangle_offset, curve_offset;
+	TypeDesc triangle_type, curve_type, subd_type;
+	AttributeElement triangle_element, curve_element, subd_element;
+	int triangle_offset, curve_offset, subd_offset;
 
 	explicit AttributeRequest(ustring name_);
 	explicit AttributeRequest(AttributeStandard std);
