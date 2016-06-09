@@ -613,52 +613,6 @@ void ABC_get_transform(Object *ob, const char *filepath, const char *object_path
 
 /* ***************************************** */
 
-#ifdef PARALLEL_READ
-#include "BLI_task.h"
-
-struct MeshReadData {
-	MVert *mverts;
-	MPoly *mpolys;
-	MLoop *mloops;
-
-	Alembic::Abc::P3fArraySamplePtr positions;
-	Alembic::Abc::Int32ArraySamplePtr face_indices;
-	Alembic::Abc::Int32ArraySamplePtr face_counts;
-};
-
-static void read_verts_cb(void *userdata, const int x)
-{
-	MeshReadData *data = static_cast<MeshReadData *>(userdata);
-
-	MVert &mvert = data->mverts[x];
-	Imath::V3f pos_in = (*data->positions)[x];
-
-	/* Convert Y-up to Z-up. */
-	mvert.co[0] = pos_in[0];
-	mvert.co[1] = -pos_in[2];
-	mvert.co[2] = pos_in[1];
-	mvert.bweight = 0;
-}
-
-static void read_faces_cb(void *userdata, const int x)
-{
-	MeshReadData *data = static_cast<MeshReadData *>(userdata);
-
-	int face_size = (*data->face_counts)[x];
-	MPoly &poly = data->mpolys[x];
-
-	poly.loopstart = loopcount;
-	poly.totloop = face_size;
-
-	/* TODO: reverse */
-	int rev_loop = loopcount;
-	for (int f = face_size; f-- ;) {
-		MLoop &loop = data->mloops[rev_loop + f];
-		loop.v = (*data->face_indices)[loopcount++];
-	}
-}
-#endif
-
 static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, const float time)
 {
 	IPolyMesh mesh(iobject, kWrapExisting);
@@ -678,21 +632,8 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	MPoly *mpolys = dm->getPolyArray(dm);
 	MLoop *mloops = dm->getLoopArray(dm);
 
-#ifdef PARALLEL_READ
-	MeshReadData data;
-	data.mverts = mverts;
-	data.mpolys = mpolys;
-	data.mloops = mloops;
-	data.positions = positions;
-	data.face_indices = face_indices;
-	data.face_counts = face_counts;
-
-	BLI_task_parallel_range(0, num_verts, &data, read_verts_cb, num_verts > 10000);
-	BLI_task_parallel_range(0, num_polys, &data, read_faces_cb, num_verts > 10000);
-#else
 	read_mverts(mverts, positions);
 	read_mpolys(mpolys, mloops, NULL, face_indices, face_counts);
-#endif
 
 	CDDM_calc_edges(dm);
 	dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
