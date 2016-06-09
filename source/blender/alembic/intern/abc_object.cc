@@ -22,8 +22,6 @@
 
 #include "abc_object.h"
 
-#include <Alembic/AbcGeom/All.h>
-
 #include "abc_util.h"
 
 extern "C" {

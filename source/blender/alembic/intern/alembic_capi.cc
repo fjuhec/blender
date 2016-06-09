@@ -62,6 +62,8 @@ extern "C" {
 #include "WM_types.h"
 }
 
+using Alembic::Abc::ObjectHeader;
+
 using Alembic::AbcGeom::ErrorHandler;
 using Alembic::AbcGeom::Exception;
 using Alembic::AbcGeom::MetaData;
@@ -71,11 +73,13 @@ using Alembic::AbcGeom::kWrapExisting;
 using Alembic::AbcGeom::IArchive;
 using Alembic::AbcGeom::ICamera;
 using Alembic::AbcGeom::ICurves;
+using Alembic::AbcGeom::ICurvesSchema;
 using Alembic::AbcGeom::IFaceSet;
 using Alembic::AbcGeom::ILight;
 using Alembic::AbcGeom::INuPatch;
 using Alembic::AbcGeom::IObject;
 using Alembic::AbcGeom::IPoints;
+using Alembic::AbcGeom::IPointsSchema;
 using Alembic::AbcGeom::IPolyMesh;
 using Alembic::AbcGeom::IPolyMeshSchema;
 using Alembic::AbcGeom::ISampleSelector;
@@ -696,10 +700,6 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	return dm;
 }
 
-using Alembic::Abc::ObjectHeader;
-using Alembic::AbcGeom::IPointsSchema;
-using Alembic::AbcGeom::ICurvesSchema;
-
 static DerivedMesh *read_points_sample(DerivedMesh *dm, const IObject &iobject, const float time)
 {
 	IPoints points(iobject, kWrapExisting);
@@ -755,7 +755,7 @@ DerivedMesh *ABC_read_mesh(DerivedMesh *dm, const char *filepath, const char *ob
 		return NULL;
 	}
 
-	const Alembic::Abc::ObjectHeader &header = iobject.getHeader();
+	const ObjectHeader &header = iobject.getHeader();
 
 	if (IPolyMesh::matches(header)) {
 		return read_mesh_sample(dm, iobject, time);
@@ -783,7 +783,7 @@ void ABC_read_vertex_cache(const char *filepath, const char *object_path, const 
 		return;
 	}
 
-	const Alembic::Abc::ObjectHeader &header = iobject.getHeader();
+	const ObjectHeader &header = iobject.getHeader();
 
 	if (ICurves::matches(header)) {
 		return read_curves_sample(vertexCos, max_verts, iobject, time);

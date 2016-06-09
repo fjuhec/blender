@@ -25,6 +25,8 @@
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
 
+using Alembic::Abc::chrono_t;
+
 struct ID;
 struct Object;
 
@@ -54,14 +56,10 @@ void create_input_transform(const Alembic::AbcGeom::ISampleSelector &sample_sel,
                             const Alembic::AbcGeom::IXform &ixform, Object *ob,
                             float r_mat[4][4], float scale);
 
-using Alembic::Abc::chrono_t;
-
 template <typename Schema>
 void get_min_max_time(const Schema &schema, chrono_t &min, chrono_t &max)
 {
-	using Alembic::Abc::TimeSamplingPtr;
-
-	TimeSamplingPtr time_samp = schema.getTimeSampling();
+	const Alembic::Abc::TimeSamplingPtr &time_samp = schema.getTimeSampling();
 
 	if (!schema.isConstant()) {
 		const size_t num_samps = schema.getNumSamples();

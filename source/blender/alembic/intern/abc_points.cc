@@ -24,8 +24,6 @@
 
 #include "abc_points.h"
 
-#include <Alembic/Abc/All.h>
-
 #include "abc_mesh.h"
 #include "abc_transform.h"
 #include "abc_util.h"
