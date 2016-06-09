@@ -361,9 +361,11 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 		return NULL;
 	}
 
+	PyObject **value_items = PySequence_Fast_ITEMS(value);
+
 	vec_size = 3;  /* In case value is an array of None's only. */
 	for (Py_ssize_t i = 0; i < nbr_val; i++) {
-		PyObject *py_vec = PySequence_Fast_GET_ITEM(value, i);
+		PyObject *py_vec = value_items[i];
 
 		if (py_vec == Py_None) {
 			continue;
@@ -389,7 +391,7 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 	if (vec_size == 2) {
 		clnors = MEM_mallocN(sizeof(*clnors) * nbr_val, __func__);
 		for (Py_ssize_t i = 0; i < nbr_val; i++) {
-			PyObject *py_vec = PySequence_Fast_GET_ITEM(value, i);
+			PyObject *py_vec = value_items[i];
 
 			if (py_vec == Py_None) {
 				clnors[i][0] = clnors[i][1] = 0.0f;
@@ -440,7 +442,7 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 	else {
 		nors = MEM_mallocN(sizeof(*nors) * nbr_val, __func__);
 		for (Py_ssize_t i = 0; i < nbr_val; i++) {
-			PyObject *py_vec = PySequence_Fast_GET_ITEM(value, i);
+			PyObject *py_vec = value_items[i];
 
 			if (py_vec == Py_None) {
 				zero_v3(nors[i]);
