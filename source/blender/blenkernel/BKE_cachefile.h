@@ -23,32 +23,29 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_cachefile_types.h
- *  \ingroup DNA
+#ifndef __BKE_CACHEFILE_H__
+#define __BKE_CACHEFILE_H__
+
+/** \file BKE_cachefile.h
+ *  \ingroup bke
  */
-
-#ifndef __DNA_CACHEFILE_TYPES_H__
-#define __DNA_CACHEFILE_TYPES_H__
-
-#include "DNA_ID.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct CacheFile {
-	ID id;
+struct Main;
 
-	char filepath[1024];  /* 1024 = FILE_MAX */
-	char is_sequence;
-	char pad[7];
+void *BKE_cachefile_add(struct Main *bmain, const char *name);
 
-	float frame_start;
-	float frame_scale;
-} CacheFile;
+void BKE_cachefile_filepath_get(struct Scene *scene,
+                                struct CacheFile *cache_file,
+                                char *r_filename);
+
+float BKE_cachefile_time_offset(struct CacheFile *cache_file, float time);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  /* __DNA_CACHEFILE_TYPES_H__ */
+#endif  /* __BKE_CACHEFILE_H__ */

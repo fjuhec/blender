@@ -42,6 +42,7 @@ extern "C" {
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
+#include "BKE_cachefile.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
@@ -483,7 +484,7 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 		return;
 	}
 
-	CacheFile *cache_file = static_cast<CacheFile *>(BKE_libblock_alloc(data->bmain, ID_CF, BLI_path_basename(data->filename)));
+	CacheFile *cache_file = static_cast<CacheFile *>(BKE_cachefile_add(data->bmain, BLI_path_basename(data->filename)));
 
 	cache_file->is_sequence = data->settings.is_sequence;
 	BLI_strncpy(cache_file->filepath, data->filename, 1024);

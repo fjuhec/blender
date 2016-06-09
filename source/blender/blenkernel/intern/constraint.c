@@ -64,6 +64,7 @@
 #include "BKE_anim.h" /* for the curve calculation part */
 #include "BKE_armature.h"
 #include "BKE_bvhutils.h"
+#include "BKE_cachefile.h"
 #include "BKE_camera.h"
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
@@ -4351,10 +4352,11 @@ static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBa
 	bTransformCacheConstraint *data = con->data;
 	Scene *scene = cob->scene;
 
-	const float ctime = BKE_scene_frame_get(scene) / (float)scene->r.frs_sec;
+	const float frame = BKE_scene_frame_get(scene);
+	const float time = BKE_cachefile_time_offset(data->cache_file, frame / FPS);
 
 	ABC_get_transform(cob->ob, data->cache_file->filepath, data->abc_object_path,
-	                  cob->matrix, ctime, data->scale);
+	                  cob->matrix, time, data->scale);
 
 	UNUSED_VARS(targets);
 }

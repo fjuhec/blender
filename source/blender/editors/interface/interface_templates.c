@@ -3882,4 +3882,10 @@ void uiTemplateCacheFile(uiLayout *layout, bContext *C, PointerRNA *ptr, const c
 	row = uiLayoutRow(split, true);
 
 	uiItemR(row, &fileptr, "filepath", 0, "", ICON_NONE);
+
+	row = uiLayoutRow(layout, false);
+	uiItemR(row, &fileptr, "frame_start", 0, "Frame Start", ICON_NONE);
+
+	row = uiLayoutRow(layout, false);
+	uiItemR(row, &fileptr, "frame_scale", 0, "Frame Scale", ICON_NONE);
 }

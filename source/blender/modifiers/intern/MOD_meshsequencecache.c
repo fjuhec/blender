@@ -29,10 +29,7 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
-#include "BLI_fileops.h"
-#include "BLI_path_util.h"
-#include "BLI_string.h"
-
+#include "BKE_cachefile.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_library_query.h"
 #include "BKE_scene.h"
@@ -76,25 +73,12 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
 
 	Scene *scene = md->scene;
-	const float frame = BKE_scene_frame_get(scene);
-	const float time = frame / FPS;
 
 	char filepath[1024];
-	BLI_strncpy(filepath, mcmd->cache_file->filepath, 1024);
+	BKE_cachefile_filepath_get(scene, mcmd->cache_file, filepath);
 
-	int fframe;
-	int frame_len;
-
-	if (mcmd->cache_file->is_sequence && BLI_path_frame_get(filepath, &fframe, &frame_len)) {
-		char ext[32];
-		BLI_path_frame_strip(filepath, true, ext);
-		BLI_path_frame(filepath, frame, frame_len);
-		BLI_ensure_extension(filepath, 1024, ext);
-
-		if (!BLI_exists(filepath)) {
-			return dm;
-		}
-	}
+	const float frame = BKE_scene_frame_get(scene);
+	const float time = BKE_cachefile_time_offset(mcmd->cache_file, frame / FPS);
 
 	DerivedMesh *result = ABC_read_mesh(dm,
 	                                    filepath,
@@ -118,25 +102,12 @@ static void deformVerts(ModifierData *md, Object *ob,
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
 
 	Scene *scene = md->scene;
-	const float frame = BKE_scene_frame_get(scene);
-	const float time = frame / FPS;
 
 	char filepath[1024];
-	BLI_strncpy(filepath, mcmd->cache_file->filepath, 1024);
+	BKE_cachefile_filepath_get(scene, mcmd->cache_file, filepath);
 
-	int fframe;
-	int frame_len;
-
-	if (mcmd->cache_file->is_sequence && BLI_path_frame_get(filepath, &fframe, &frame_len)) {
-		char ext[32];
-		BLI_path_frame_strip(filepath, true, ext);
-		BLI_path_frame(filepath, frame, frame_len);
-		BLI_ensure_extension(filepath, 1024, ext);
-
-		if (!BLI_exists(filepath)) {
-			return;
-		}
-	}
+	const float frame = BKE_scene_frame_get(scene);
+	const float time = BKE_cachefile_time_offset(mcmd->cache_file, frame / FPS);
 
 	ABC_read_vertex_cache(filepath,
 	                      mcmd->abc_object_path,
