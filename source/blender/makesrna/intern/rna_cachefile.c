@@ -43,6 +43,10 @@ static void rna_def_cachefile(BlenderRNA *brna)
 	PropertyRNA *prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
 	RNA_def_property_ui_text(prop, "File Path", "Path to external displacements file");
 	RNA_def_property_update(prop, 0, NULL);
+
+	prop = RNA_def_property(srna, "is_sequence", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Sequence", "Whether the cache is separated in a series of files");
+	RNA_def_property_update(prop, 0, NULL);
 }
 
 void RNA_def_cachefile(BlenderRNA *brna)

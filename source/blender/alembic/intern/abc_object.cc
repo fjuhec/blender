@@ -416,7 +416,6 @@ void AbcObjectReader::addDefaultModifier(Main *bmain) const
 
 	mcmd->cache_file = m_settings->cache_file;
 	BLI_strncpy(mcmd->abc_object_path, m_iobject.getFullName().c_str(), 1024);
-	mcmd->is_sequence = m_settings->is_sequence;
 
 	DAG_id_tag_update(&m_object->id, OB_RECALC_DATA);
 	DAG_relations_tag_update(bmain);

@@ -40,6 +40,8 @@ typedef struct CacheFile {
 	ID id;
 
 	char filepath[1024];
+	char is_sequence;
+	char pad[7];
 } CacheFile;
 
 #ifdef __cplusplus

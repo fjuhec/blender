@@ -483,8 +483,12 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 		return;
 	}
 
-	data->settings.cache_file = static_cast<CacheFile *>(BKE_libblock_alloc(data->bmain, ID_CF, BLI_path_basename(data->filename)));
-	BLI_strncpy(data->settings.cache_file->filepath, data->filename, 1024);
+	CacheFile *cache_file = static_cast<CacheFile *>(BKE_libblock_alloc(data->bmain, ID_CF, BLI_path_basename(data->filename)));
+
+	cache_file->is_sequence = data->settings.is_sequence;
+	BLI_strncpy(cache_file->filepath, data->filename, 1024);
+
+	data->settings.cache_file = cache_file;
 
 	*data->do_update = true;
 	*data->progress = 0.05f;
