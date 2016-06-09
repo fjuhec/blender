@@ -356,7 +356,9 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 	nbr_val = PySequence_Fast_GET_SIZE(value);
 
 	if (!ELEM(nbr_val, bm->totloop, bm->totvert)) {
-		PyErr_Format(PyExc_TypeError, "clnor's from_array(): There must be either one data per vertex or one per loop");
+		PyErr_Format(PyExc_TypeError,
+		             "clnor's from_array(): "
+		             "There must be either one data per vertex or one per loop");
 		Py_DECREF(value);
 		return NULL;
 	}
@@ -376,8 +378,8 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 		}
 		if (!py_vec || (vec_size == 2 && nbr_val != bm->totloop) || vec_size != 3) {
 			PyErr_Format(PyExc_TypeError,
-						 "clnor's from_array(): array items must be either triplets of floats, "
-						 "or pair of floats factors for raw clnor data, first item is neither "
+			             "clnor's from_array(): array items must be either triplets of floats, "
+			             "or pair of floats factors for raw clnor data, first item is neither "
 			             "(or total number of items does match expected one, %d verts/%d loops)",
 			             bm->totvert, bm->totloop);
 			MEM_freeN(nors);
@@ -400,7 +402,7 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 				py_vec = PySequence_Fast(py_vec, "");
 				if (!py_vec || PySequence_Fast_GET_SIZE(py_vec) != 2) {
 					PyErr_Format(PyExc_TypeError,
-								 "clnor's from_array(): clnors are expected to be pairs of floats "
+					             "clnor's from_array(): clnors are expected to be pairs of floats "
 					             "in [-1.0, 1.0] range, clnor %d is not", i);
 					MEM_freeN(clnors);
 					Py_DECREF(value);
@@ -413,7 +415,7 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 
 					if (!py_float || !PyFloat_Check(py_float)) {
 						PyErr_Format(PyExc_TypeError,
-									 "clnor's from_array(): clnors are expected to be pairs of floats "
+						             "clnor's from_array(): clnors are expected to be pairs of floats "
 						             "in [-1.0, 1.0] range, clnor %d is not", i);
 						MEM_freeN(clnors);
 						Py_DECREF(value);
@@ -425,7 +427,7 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 					clnors[i][j] = (float)PyFloat_AS_DOUBLE(py_float);
 					if (clnors[i][j] < -1.0f || clnors[i][j] > 1.0f) {
 						PyErr_Format(PyExc_TypeError,
-									 "clnor's from_array(): clnors are expected to be pairs of floats "
+						             "clnor's from_array(): clnors are expected to be pairs of floats "
 						             "in [-1.0, 1.0] range, clnor %d is not", i);
 						MEM_freeN(clnors);
 						Py_DECREF(value);
@@ -451,7 +453,8 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 				py_vec = PySequence_Fast(py_vec, "");
 				if (!py_vec || PySequence_Fast_GET_SIZE(py_vec) != 3) {
 					PyErr_Format(PyExc_TypeError,
-								 "clnor's from_array(): normals are expected to be triplets of floats, normal %d is not", i);
+					             "clnor's from_array(): "
+					             "normals are expected to be triplets of floats, normal %d is not", i);
 					MEM_freeN(nors);
 					Py_DECREF(value);
 					Py_XDECREF(py_vec);
@@ -463,7 +466,8 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 
 					if (!py_float || !PyFloat_Check(py_float)) {
 						PyErr_Format(PyExc_TypeError,
-									 "clnor's from_array(): normals are expected to be triplets of floats, normal %d is not", i);
+						             "clnor's from_array(): "
+						             "normals are expected to be triplets of floats, normal %d is not", i);
 						MEM_freeN(nors);
 						Py_DECREF(value);
 						Py_DECREF(py_vec);
