@@ -25,6 +25,10 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
+#ifndef __RAS_OPENGLSYNC__
+#define __RAS_OPENGLSYNC__
+
+
 #include "RAS_ISync.h"
 
 struct __GLsync;
@@ -42,3 +46,5 @@ public:
 	virtual void Destroy();
 	virtual void Wait();
 };
+
+#endif  /* __RAS_OPENGLSYNC__ */

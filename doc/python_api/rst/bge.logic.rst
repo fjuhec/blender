@@ -385,9 +385,10 @@ General functions
    If False, the render is skipped and another logic frame starts immediately.
 
    .. note::
+
       GPU VSync no longer limits the number of frame per second when render is off, 
-      but the 'Use Frame Rate' option still regulates the fps. To run as many frames
-      as possible, untick this option (Render Properties, System panel)
+      but the *Use Frame Rate* option still regulates the fps. To run as many frames
+      as possible, untick this option (Render Properties, System panel).
 
    :arg render: the render flag
    :type render: bool

@@ -95,8 +95,9 @@ public:
 
 protected:
 	/// filter pixel, source byte buffer
-	virtual unsigned int filter (unsigned char *src, short x, short y,
-		short * size, unsigned int pixSize, unsigned int val)
+	virtual unsigned int filter(
+	        unsigned char *src, short x, short y,
+	        short * size, unsigned int pixSize, unsigned int val)
 	{
 		VT_RGBA(val,src[2],src[1],src[0],src[3]);
 		return val;

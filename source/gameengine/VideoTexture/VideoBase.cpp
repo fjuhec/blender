@@ -145,27 +145,21 @@ PyObject *Video_refresh(PyImage *self, PyObject *args)
 	double ts = -1.0;
 
 	memset(&buffer, 0, sizeof(buffer));
-	if (PyArg_ParseTuple(args, "|s*sd:refresh", &buffer, &mode, &ts))
-	{
-		if (buffer.buf)
-		{
+	if (PyArg_ParseTuple(args, "|s*sd:refresh", &buffer, &mode, &ts)) {
+		if (buffer.buf) {
 			// a target buffer is provided, verify its format
-			if (buffer.readonly)
-			{
+			if (buffer.readonly) {
 				PyErr_SetString(PyExc_TypeError, "Buffers passed in argument must be writable");
-			} else if (!PyBuffer_IsContiguous(&buffer, 'C'))
-			{
+			}
+			else if (!PyBuffer_IsContiguous(&buffer, 'C')) {
 				PyErr_SetString(PyExc_TypeError, "Buffers passed in argument must be contiguous in memory");
 			}
-			else if (((intptr_t)buffer.buf & 3) != 0)
-			{
+			else if (((intptr_t)buffer.buf & 3) != 0) {
 				PyErr_SetString(PyExc_TypeError, "Buffers passed in argument must be aligned to 4 bytes boundary");
 			}
-			else
-			{
+			else {
 				// ready to get the image into our buffer
-				try
-				{
+				try {
 					if (mode == NULL || !strcmp(mode, "RGBA"))
 						format = GL_RGBA;
 					else if (!strcmp(mode, "BGRA"))
@@ -173,17 +167,17 @@ PyObject *Video_refresh(PyImage *self, PyObject *args)
 					else
 						THRWEXCP(InvalidImageMode,S_OK);
 
-					if (!self->m_image->loadImage((unsigned int *)buffer.buf, buffer.len, format, ts))
+					if (!self->m_image->loadImage((unsigned int *)buffer.buf, buffer.len, format, ts)) {
 						PyErr_SetString(PyExc_TypeError, "Could not load the buffer, perhaps size is not compatible");
+					}
 				}
-				catch (Exception & exp)
-				{
+				catch (Exception & exp) {
 					exp.report();
 				}
 			}
 			PyBuffer_Release(&buffer);
 			if (PyErr_Occurred())
-		        return NULL;
+				return NULL;
 		}
 	}
 	else

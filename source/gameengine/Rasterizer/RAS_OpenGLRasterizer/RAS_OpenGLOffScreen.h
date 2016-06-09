@@ -25,6 +25,9 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
+#ifndef __RAS_OPENGLOFFSCREEN__
+#define __RAS_OPENGLOFFSCREEN__
+
 #include "RAS_IOffScreen.h"
 #include "GPU_extensions.h"
 
@@ -57,3 +60,6 @@ public:
 	void Unbind();
 	void MipMap();
 };
+
+#endif  /* __RAS_OPENGLOFFSCREEN__ */
+

@@ -54,40 +54,36 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 	GLint max_samples;
 	GLenum textarget;
 
-	if (m_fbo)
-	{
+	if (m_fbo) {
 		printf("RAS_OpenGLOffScreen::Create(): buffer exists already, destroy first\n");
 		return false;
 	}
-	if (target != RAS_IOffScreen::RAS_OFS_RENDER_BUFFER && target != RAS_IOffScreen::RAS_OFS_RENDER_TEXTURE)
+	if (target != RAS_IOffScreen::RAS_OFS_RENDER_BUFFER &&
+	    target != RAS_IOffScreen::RAS_OFS_RENDER_TEXTURE)
 	{
 		printf("RAS_OpenGLOffScreen::Create(): invalid offscren target\n");
 		return false;
 	}
-	if (!GLEW_EXT_framebuffer_object)
-	{
+	if (!GLEW_EXT_framebuffer_object) {
 		printf("RAS_OpenGLOffScreen::Create(): frame buffer not supported\n");
 		return false;
 	}
-	if (samples)
-	{
-		if (   !GLEW_EXT_framebuffer_multisample
-		    || !GLEW_EXT_framebuffer_blit)
+	if (samples) {
+		if (!GLEW_EXT_framebuffer_multisample ||
+		    !GLEW_EXT_framebuffer_blit)
 		{
 			samples = 0;
 		}
 	}
-	if (samples && target == RAS_OFS_RENDER_TEXTURE)
-	{
+	if (samples && target == RAS_OFS_RENDER_TEXTURE) {
 		// we need this in addition if we use multisample textures
-		if (   !GLEW_ARB_texture_multisample
-		    || !GLEW_EXT_framebuffer_multisample_blit_scaled)
+		if (!GLEW_ARB_texture_multisample ||
+		    !GLEW_EXT_framebuffer_multisample_blit_scaled)
 		{
 			samples = 0;
 		}
 	}
-	if (samples)
-	{
+	if (samples) {
 		max_samples = 0;
 		glGetIntegerv(GL_MAX_SAMPLES_EXT , &max_samples);
 		if (samples > max_samples)
@@ -96,25 +92,21 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 	m_target = target;
 	fbo = 0;
 	glGenFramebuffersEXT(1, &fbo);
-	if (fbo == 0)
-	{
+	if (fbo == 0) {
 		printf("RAS_OpenGLOffScreen::Create(): frame buffer creation failed: %d\n", (int)glGetError());
 		return false;
 	}
 	m_fbo = fbo;
 	glo[0] = glo[1] = 0;
-	if (target == RAS_OFS_RENDER_TEXTURE)
-	{
+	if (target == RAS_OFS_RENDER_TEXTURE) {
 		glGenTextures(2, glo);
-		if (glo[0] == 0 || glo[1] == 0)
-		{
+		if (glo[0] == 0 || glo[1] == 0) {
 			printf("RAS_OpenGLOffScreen::Create(): texture creation failed: %d\n", (int)glGetError());
 			goto L_ERROR;
 		}
 		m_depthtx = glo[0];
 		m_color = m_colortx = glo[1];
-		if (samples)
-		{
+		if (samples) {
 			textarget = GL_TEXTURE_2D_MULTISAMPLE;
 			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_depthtx);
 			glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, GL_DEPTH_COMPONENT, width, height, true);
@@ -126,8 +118,7 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 		}
-		else
-		{
+		else {
 			textarget = GL_TEXTURE_2D;
 			glBindTexture(GL_TEXTURE_2D, m_depthtx);
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
@@ -139,11 +130,9 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, textarget, m_depthtx, 0);
 		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, textarget, m_colortx, 0);
 	}
-	else
-	{
+	else {
 		glGenRenderbuffersEXT(2, glo);
-		if (glo[0] == 0 || glo[1] == 0)
-		{
+		if (glo[0] == 0 || glo[1] == 0) {
 			printf("RAS_OpenGLOffScreen::Create(): render buffer creation failed: %d\n", (int)glGetError());
 			goto L_ERROR;
 		}
@@ -169,8 +158,7 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 	m_width = width;
 	m_height = height;
 
-	if (samples > 0)
-	{
+	if (samples > 0) {
 		GLuint blit_tex;
 		GLuint blit_fbo;
 		// create a secondary FBO to blit to before the pixel can be read
@@ -183,8 +171,7 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 		}
 		m_blitfbo = blit_fbo;
 		blit_tex = 0;
-		if (target == RAS_OFS_RENDER_TEXTURE)
-		{
+		if (target == RAS_OFS_RENDER_TEXTURE) {
 			glGenTextures(1, &blit_tex);
 			if (!blit_tex) {
 				printf("RAS_OpenGLOffScreen::Create(): failed creating a texture for multi-sample offscreen buffer\n");
@@ -202,8 +189,7 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 			glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_blitfbo);
 			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, m_blittex, 0);
 		}
-		else
-		{
+		else {
 			/* create render buffer for new 'fbo_blit' */
 			glGenRenderbuffersEXT(1, &blit_tex);
 			if (!blit_tex) {
@@ -228,7 +214,7 @@ bool RAS_OpenGLOffScreen::Create(int width, int height, int samples, RAS_OFS_REN
 	}
 	return true;
 
-   L_ERROR:
+L_ERROR:
 	Destroy();
 	return false;
 }
@@ -237,18 +223,15 @@ void RAS_OpenGLOffScreen::Destroy()
 {
 	GLuint globj;
 	Unbind();
-	if (m_fbo)
-	{
+	if (m_fbo) {
 		globj = m_fbo;
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
-		if (m_target == RAS_OFS_RENDER_TEXTURE)
-		{
+		if (m_target == RAS_OFS_RENDER_TEXTURE) {
 			GLenum textarget = (m_samples) ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
 			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, textarget, 0, 0);
 			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, textarget, 0, 0);
 		}
-		else
-		{
+		else {
 			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, 0);
 			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, 0);
 		}
@@ -256,50 +239,45 @@ void RAS_OpenGLOffScreen::Destroy()
 		glDeleteFramebuffersEXT(1, &globj);
 		m_fbo = 0;
 	}
-	if (m_depthrb)
-	{
+	if (m_depthrb) {
 		globj = m_depthrb;
 		glDeleteRenderbuffers(1, &globj);
 		m_depthrb = 0;
 	}
-	if (m_colorrb)
-	{
+	if (m_colorrb) {
 		globj = m_colorrb;
 		glDeleteRenderbuffers(1, &globj);
 		m_colorrb = 0;
 	}
-	if (m_depthtx)
-	{
+	if (m_depthtx) {
 		globj = m_depthtx;
 		glDeleteTextures(1, &globj);
 		m_depthtx = 0;
 	}
-	if (m_colortx)
-	{
+	if (m_colortx) {
 		globj = m_colortx;
 		glDeleteTextures(1, &globj);
 		m_colortx = 0;
 	}
-	if (m_blitfbo)
-	{
+	if (m_blitfbo) {
 		globj = m_blitfbo;
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_blitfbo);
-		if (m_target == RAS_OFS_RENDER_TEXTURE)
+		if (m_target == RAS_OFS_RENDER_TEXTURE) {
 			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, 0, 0);
-		else
+		}
+		else {
 			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, 0);
+		}
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 		glDeleteFramebuffersEXT(1, &globj);
 		m_blitfbo = 0;
 	}
-	if (m_blitrbo)
-	{
+	if (m_blitrbo) {
 		globj = m_blitrbo;
 		glDeleteRenderbuffers(1, &globj);
 		m_blitrbo = 0;
 	}
-	if (m_blittex)
-	{
+	if (m_blittex) {
 		globj = m_blittex;
 		glDeleteTextures(1, &globj);
 		m_blittex = 0;
@@ -313,23 +291,19 @@ void RAS_OpenGLOffScreen::Destroy()
 
 void RAS_OpenGLOffScreen::Bind(RAS_OFS_BIND_MODE mode)
 {
-	if (m_fbo)
-	{
-		if (mode == RAS_OFS_BIND_RENDER)
-		{
+	if (m_fbo) {
+		if (mode == RAS_OFS_BIND_RENDER) {
 			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
 			glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 			glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 			glViewport(0, 0, m_width, m_height);
 			glDisable(GL_SCISSOR_TEST);
 		}
-		else if (!m_blitfbo)
-		{
+		else if (!m_blitfbo) {
 			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
 			glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 		}
-		else
-		{
+		else {
 			glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_blitfbo);
 			glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 		}
@@ -351,8 +325,7 @@ void RAS_OpenGLOffScreen::Unbind()
 
 void RAS_OpenGLOffScreen::MipMap()
 {
-	if (m_color)
-	{
+	if (m_color) {
 		glBindTexture(GL_TEXTURE_2D, m_color);
 		glGenerateMipmap(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -361,8 +334,7 @@ void RAS_OpenGLOffScreen::MipMap()
 
 void RAS_OpenGLOffScreen::Blit()
 {
-	if (m_bound && m_blitfbo)
-	{
+	if (m_bound && m_blitfbo) {
 		// set the draw target to the secondary FBO, the read target is still the multisample FBO
 		glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER, m_blitfbo);
 

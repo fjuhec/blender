@@ -609,8 +609,7 @@ RAS_IOffScreen *RAS_OpenGLRasterizer::CreateOffScreen(int width, int height, int
 
 	ofs = new RAS_OpenGLOffScreen(m_2DCanvas);
 
-	if (!ofs->Create(width, height, samples, (RAS_IOffScreen::RAS_OFS_RENDER_TARGET)target))
-	{
+	if (!ofs->Create(width, height, samples, (RAS_IOffScreen::RAS_OFS_RENDER_TARGET)target)) {
 		delete ofs;
 		return NULL;
 	}
@@ -623,8 +622,7 @@ RAS_ISync *RAS_OpenGLRasterizer::CreateSync(int type)
 
 	sync = new RAS_OpenGLSync();
 
-	if (!sync->Create((RAS_ISync::RAS_SYNC_TYPE)type))
-	{
+	if (!sync->Create((RAS_ISync::RAS_SYNC_TYPE)type)) {
 		delete sync;
 		return NULL;
 	}
@@ -1000,8 +998,7 @@ void RAS_OpenGLRasterizer::SetViewMatrix(const MT_Matrix4x4 &mat,
 	bool negX = (scale[0] < 0.0f);
 	bool negY = (scale[0] < 0.0f);
 	bool negZ = (scale[0] < 0.0f);
-	if (negX || negY || negZ)
-	{
+	if (negX || negY || negZ) {
 		m_viewmatrix.tscale((negX)?-1.0f:1.0f, (negY)?-1.0f:1.0f, (negZ)?-1.0f:1.0f, 1.0);
 	}
 	m_viewinvmatrix = m_viewmatrix;

@@ -1514,7 +1514,7 @@ static PyObject *RASOffScreen_color_get(PyRASOffScreen *self, void *UNUSED(type)
 static PyGetSetDef RASOffScreen_getseters[] = {
 	{(char *)"width", (getter)RASOffScreen_width_get, (setter)NULL, RASOffScreen_width_doc, NULL},
 	{(char *)"height", (getter)RASOffScreen_height_get, (setter)NULL, RASOffScreen_height_doc, NULL},
-    {(char *)"color", (getter)RASOffScreen_color_get, (setter)NULL, RASOffScreen_color_doc, NULL},
+	{(char *)"color", (getter)RASOffScreen_color_get, (setter)NULL, RASOffScreen_color_doc, NULL},
 	{NULL, NULL, NULL, NULL, NULL}  /* Sentinel */
 };
 
@@ -1684,6 +1684,8 @@ static struct PyMethodDef rasterizer_methods[] = {
 	{"offScreenCreate", (PyCFunction) gPyOffScreenCreate, METH_VARARGS, "create an offscreen buffer object, arguments are width and height in pixels"},
 	{ NULL, (PyCFunction) NULL, 0, NULL }
 };
+
+
 
 PyDoc_STRVAR(GameLogic_module_documentation,
 "This is the Python API for the game engine of bge.logic"

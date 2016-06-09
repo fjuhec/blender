@@ -121,17 +121,14 @@ unsigned int * ImageBase::getImage (unsigned int texId, double ts)
 bool ImageBase::loadImage(unsigned int *buffer, unsigned int size, unsigned int format, double ts)
 {
 	unsigned int *d, *s, v, len;
-	if (getImage(0, ts) != NULL && size >= getBuffSize())
-	{
-		switch (format)
-		{
+	if (getImage(0, ts) != NULL && size >= getBuffSize()) {
+		switch (format) {
 		case GL_RGBA:
 			memcpy(buffer, m_image, getBuffSize());
 			break;
 		case GL_BGRA:
 			len = (unsigned int)m_size[0] * m_size[1];
-			for (s=m_image, d=buffer; len; len--)
-			{
+			for (s=m_image, d=buffer; len; len--) {
 				v = *s++;
 				*d++ = VT_SWAPBR(v);
 			}
@@ -215,11 +212,9 @@ void ImageBase::swapImageBR()
 {
 	unsigned int size, v, *s;
 
-	if (m_avail)
-	{
+	if (m_avail) {
 		size = 1 * m_size[0] * m_size[1];
-		for (s=m_image; size; size--)
-		{
+		for (s=m_image; size; size--) {
 			v = *s;
 			*s++ = VT_SWAPBR(v);
 		}
@@ -387,6 +382,7 @@ unsigned int * ImageSource::getImage (double ts)
 	return m_image;
 }
 
+
 // refresh source
 void ImageSource::refresh (void)
 {
@@ -549,27 +545,21 @@ PyObject *Image_refresh (PyImage *self, PyObject *args)
 	unsigned int format;
 
 	memset(&buffer, 0, sizeof(buffer));
-	if (PyArg_ParseTuple(args, "|s*sd:refresh", &buffer, &mode, &ts))
-	{
-		if (buffer.buf)
-		{
+	if (PyArg_ParseTuple(args, "|s*sd:refresh", &buffer, &mode, &ts)) {
+		if (buffer.buf) {
 			// a target buffer is provided, verify its format
-			if (buffer.readonly)
-			{
+			if (buffer.readonly) {
 				PyErr_SetString(PyExc_TypeError, "Buffers passed in argument must be writable");
-			} else if (!PyBuffer_IsContiguous(&buffer, 'C'))
-			{
+			}
+			else if (!PyBuffer_IsContiguous(&buffer, 'C')) {
 				PyErr_SetString(PyExc_TypeError, "Buffers passed in argument must be contiguous in memory");
 			}
-			else if (((intptr_t)buffer.buf & 3) != 0)
-			{
+			else if (((intptr_t)buffer.buf & 3) != 0) {
 				PyErr_SetString(PyExc_TypeError, "Buffers passed in argument must be aligned to 4 bytes boundary");
 			}
-			else
-			{
+			else {
 				// ready to get the image into our buffer
-				try
-				{
+				try {
 					if (mode == NULL || !strcmp(mode, "RGBA"))
 						format = GL_RGBA;
 					else if (!strcmp(mode, "BGRA"))
@@ -579,18 +569,17 @@ PyObject *Image_refresh (PyImage *self, PyObject *args)
 
 					done = self->m_image->loadImage((unsigned int *)buffer.buf, buffer.len, format, ts);
 				}
-				catch (Exception & exp)
-				{
+				catch (Exception & exp) {
 					exp.report();
 				}
 			}
 			PyBuffer_Release(&buffer);
-			if (PyErr_Occurred())
-		        return NULL;
+			if (PyErr_Occurred()) {
+				return NULL;
+			}
 		}
 	}
-	else
-	{
+	else {
 		return NULL;
 	}
 

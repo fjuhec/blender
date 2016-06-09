@@ -173,18 +173,22 @@ Video classes
       :return: Whether the video was playing.
       :rtype: bool
 
-   .. method:: refresh(buffer=None, format="RGBA", ts=-1.0)
+   .. method:: refresh(buffer=None, format="RGBA", timestamp=-1.0)
 
       Refresh video - get its status and optionally copy the frame to an external buffer.
 
-      :arg buffer: An optional object that implements the buffer protocol. If specified, the image is copied to the buffer, which must be big enough or an exception is thrown.
+      :arg buffer: An optional object that implements the buffer protocol.
+         If specified, the image is copied to the buffer, which must be big enough or an exception is thrown.
       :type buffer: any buffer type
-      :arg format: An optional image format specifier for the image that will be copied to the buffer. Only valid values are "RGBA" or "BGRA"
+      :arg format: An optional image format specifier for the image that will be copied to the buffer.
+         Only valid values are "RGBA" or "BGRA"
       :type format: str
-      :arg ts: An optional timestamp (in seconds from the start of the movie) of the frame to be copied to the buffer.
-      :type ts: float
+      :arg timestamp: An optional timestamp (in seconds from the start of the movie)
+         of the frame to be copied to the buffer.
+      :type timestamp: float
       :return: see `FFmpeg Video and Image Status`_.
       :rtype: int
+
 
 *************
 Image classes
@@ -253,9 +257,11 @@ Image classes
 
       Refresh image, get its status and optionally copy the frame to an external buffer.
       
-      :arg buffer: An optional object that implements the buffer protocol. If specified, the image is copied to the buffer, which must be big enough or an exception is thrown.
+      :arg buffer: An optional object that implements the buffer protocol.
+         If specified, the image is copied to the buffer, which must be big enough or an exception is thrown.
       :type buffer: any buffer type
-      :arg format: An optional image format specifier for the image that will be copied to the buffer. Only valid values are "RGBA" or "BGRA"
+      :arg format: An optional image format specifier for the image that will be copied to the buffer.
+         Only valid values are "RGBA" or "BGRA"
       :type format: str
       :return: see `FFmpeg Video and Image Status`_.
       :rtype: int
@@ -421,11 +427,15 @@ Image classes
 
    .. method:: refresh(buffer=None, format="RGBA")
 
-      Refresh image - render and copy the image to an external buffer (optional) then invalidate its current content.
+      Refresh image - render and copy the image to an external buffer (optional)
+      then invalidate its current content.
 
-      :arg buffer: An optional object that implements the buffer protocol. If specified, the image is rendered and copied to the buffer, which must be big enough or an exception is thrown.
+      :arg buffer: An optional object that implements the buffer protocol.
+         If specified, the image is rendered and copied to the buffer,
+         which must be big enough or an exception is thrown.
       :type buffer: any buffer type
-      :arg format: An optional image format specifier for the image that will be copied to the buffer. Only valid values are "RGBA" or "BGRA"
+      :arg format: An optional image format specifier for the image that will be copied to the buffer.
+         Only valid values are "RGBA" or "BGRA"
       :type format: str
 
    .. attribute:: scale
@@ -515,9 +525,12 @@ Image classes
 
       Refresh image - calculate and copy the image to an external buffer (optional) then invalidate its current content.
 
-      :arg buffer: An optional object that implements the buffer protocol. If specified, the image is calculated and copied to the buffer, which must be big enough or an exception is thrown.
+      :arg buffer: An optional object that implements the buffer protocol.
+         If specified, the image is calculated and copied to the buffer,
+         which must be big enough or an exception is thrown.
       :type buffer: any buffer type
-      :arg format: An optional image format specifier for the image that will be copied to the buffer. Only valid values are "RGBA" or "BGRA"
+      :arg format: An optional image format specifier for the image that will be copied to the buffer.
+         Only valid values are "RGBA" or "BGRA"
       :type format: str
 
    .. attribute:: scale
@@ -565,8 +578,9 @@ Image classes
 
 .. class:: ImageRender(scene, camera, fbo=None)
 
-   Image source from render. The render is done on a custom framebuffer object if fbo is specified, otherwise on 
-   the default framebuffer.
+   Image source from render.
+   The render is done on a custom framebuffer object if fbo is specified,
+   otherwise on the default framebuffer.
    
    :arg scene: Scene in which the image has to be taken.
    :type scene: :class:`~bge.types.KX_Scene`
@@ -659,7 +673,14 @@ Image classes
 
    .. method:: render()
 
-      Render the scene but do not extract the pixels yet. The function returns as soon as the render commands have been send to the GPU. The render will proceed asynchronously in the GPU while the host can perform other tasks. To complete the render, you can either call :func:`refresh` directly of refresh the texture of which this object is the source. This method is useful to implement asynchronous render for optimal performance: call render() on frame n and refresh() on frame n+1 to give as much as time as possible to the GPU to render the frame while the game engine can perform other tasks.
+      Render the scene but do not extract the pixels yet.
+      The function returns as soon as the render commands have been send to the GPU.
+      The render will proceed asynchronously in the GPU while the host can perform other tasks.
+      To complete the render, you can either call :func:`refresh`
+      directly of refresh the texture of which this object is the source.
+      This method is useful to implement asynchronous render for optimal performance: call render()
+      on frame n and refresh() on frame n+1 to give as much as time as possible to the GPU
+      to render the frame while the game engine can perform other tasks.
 
       :return: True if the render was initiated, False if the render cannot be performed (e.g. the camera is active)
       :rtype: bool
@@ -667,11 +688,21 @@ Image classes
    .. method:: refresh()
    .. method:: refresh(buffer, format="RGBA")
 
-      Refresh video - render and optionally copy the image to an external buffer then invalidate its current content. The render may have been started earlier with the :func:`render` method, in which case this function simply waits for the render operations to complete. When called without argument, the pixels are not extracted but the render is guaranteed to be completed when the function returns. This only makes sense with offscreen render on texture target (see :func:`~bge.render.offScreenCreate`).
+      Refresh video - render and optionally copy the image to an external buffer then invalidate its current content.
+      The render may have been started earlier with the :func:`render` method,
+      in which case this function simply waits for the render operations to complete.
+      When called without argument, the pixels are not extracted but the render is guaranteed
+      to be completed when the function returns.
+      This only makes sense with offscreen render on texture target (see :func:`~bge.render.offScreenCreate`).
 
-      :arg buffer: An object that implements the buffer protocol. If specified, the image is copied to the buffer, which must be big enough or an exception is thrown. The transfer to the buffer is optimal if no processing of the image is needed. This is the case if flip=False, alpha=True, scale=False, whole=True, depth=False, zbuff=False and no filter is set.
+      :arg buffer: An object that implements the buffer protocol.
+         If specified, the image is copied to the buffer, which must be big enough or an exception is thrown.
+         The transfer to the buffer is optimal if no processing of the image is needed.
+         This is the case if ``flip=False, alpha=True, scale=False, whole=True, depth=False, zbuff=False``
+         and no filter is set.
       :type buffer: any buffer type of sufficient size
-      :arg format: An optional image format specifier for the image that will be copied to the buffer. Only valid values are "RGBA" or "BGRA"
+      :arg format: An optional image format specifier for the image that will be copied to the buffer.
+         Only valid values are "RGBA" or "BGRA"
       :type format: str
       :return: True if the render is complete, False if the render cannot be performed (e.g. the camera is active)
       :rtype: bool
@@ -729,9 +760,14 @@ Image classes
 
       Refresh video - copy the viewport to an external buffer (optional) then invalidate its current content.
 
-      :arg buffer: An optional object that implements the buffer protocol. If specified, the image is copied to the buffer, which must be big enough or an exception is thrown. The transfer to the buffer is optimal if no processing of the image is needed. This is the case if flip=False, alpha=True, scale=False, whole=True, depth=False, zbuff=False and no filter is set.
+      :arg buffer: An optional object that implements the buffer protocol.
+         If specified, the image is copied to the buffer, which must be big enough or an exception is thrown.
+         The transfer to the buffer is optimal if no processing of the image is needed.
+         This is the case if ``flip=False, alpha=True, scale=False, whole=True, depth=False, zbuff=False``
+         and no filter is set.
       :type buffer: any buffer type
-      :arg format: An optional image format specifier for the image that will be copied to the buffer. Only valid values are "RGBA" or "BGRA"
+      :arg format: An optional image format specifier for the image that will be copied to the buffer.
+         Only valid values are "RGBA" or "BGRA"
       :type format: str
 
    .. attribute:: scale

@@ -88,8 +88,7 @@ ImageRender::ImageRender (KX_Scene *scene, KX_Camera * camera, PyRASOffScreen * 
 	m_rasterizer = m_engine->GetRasterizer();
 	m_canvas = m_engine->GetCanvas();
 	// keep a reference to the offscreen buffer
-	if (m_offscreen)
-	{
+	if (m_offscreen) {
 		Py_INCREF(m_offscreen);
 	}
 }
@@ -138,23 +137,19 @@ void ImageRender::setBackgroundFromScene (KX_Scene *scene)
 void ImageRender::calcViewport (unsigned int texId, double ts, unsigned int format)
 {
 	// render the scene from the camera
-	if (!m_done)
-	{
-		if (!Render())
-		{
+	if (!m_done) {
+		if (!Render()) {
 			return;
 		}
 	}
-	else if (m_offscreen)
-	{
+	else if (m_offscreen) {
 		m_offscreen->ofs->Bind(RAS_IOffScreen::RAS_OFS_BIND_READ);
 	}
 	// wait until all render operations are completed
 	WaitSync();
 	// get image from viewport (or FBO)
 	ImageViewport::calcViewport(texId, ts, format);
-	if (m_offscreen)
-	{
+	if (m_offscreen) {
 		m_offscreen->ofs->Unbind();
 	}
 }
@@ -244,15 +239,13 @@ bool ImageRender::Render()
 	RAS_Rect area = m_canvas->GetWindowArea();
 
 	// The screen area that ImageViewport will copy is also the rendering zone
-	if (m_offscreen)
-	{
+	if (m_offscreen) {
 		// bind the fbo and set the viewport to full size
 		m_offscreen->ofs->Bind(RAS_IOffScreen::RAS_OFS_BIND_RENDER);
 		// this is needed to stop crashing in canvas check
 		m_canvas->UpdateViewPort(0, 0, m_offscreen->ofs->GetWidth(), m_offscreen->ofs->GetHeight());
 	}
-	else
-	{
+	else {
 		m_canvas->SetViewPort(m_position[0], m_position[1], m_position[0]+m_capSize[0]-1, m_position[1]+m_capSize[1]-1);
 	}
 	m_canvas->ClearColor(m_background[0], m_background[1], m_background[2], m_background[3]);
@@ -360,8 +353,7 @@ bool ImageRender::Render()
 	if (m_offscreen)
 		m_offscreen->ofs->Blit();
 	// end of all render operations, let's create a sync object just in case
-	if (m_sync)
-	{
+	if (m_sync) {
 		// a sync from a previous render, should not happen
 		delete m_sync;
 		m_sync = NULL;
@@ -384,15 +376,13 @@ void ImageRender::Unbind()
 
 void ImageRender::WaitSync()
 {
-	if (m_sync)
-	{
+	if (m_sync) {
 		m_sync->Wait();
 		// done with it, deleted it
 		delete m_sync;
 		m_sync = NULL;
 	}
-	if (m_offscreen)
-	{
+	if (m_offscreen) {
 		// this is needed to finalize the image if the target is a texture
 		m_offscreen->ofs->MipMap();
 	}
@@ -442,9 +432,10 @@ static int ImageRender_init(PyObject *pySelf, PyObject *args, PyObject *kwds)
 		// throw exception if camera is not available
 		if (cameraPtr == NULL) THRWEXCP(CameraInvalid, S_OK);
 
-		if (offscreen)
-		{
-			if (Py_TYPE(offscreen) != &PyRASOffScreen_Type) THRWEXCP(OffScreenInvalid, S_OK);
+		if (offscreen) {
+			if (Py_TYPE(offscreen) != &PyRASOffScreen_Type) {
+				THRWEXCP(OffScreenInvalid, S_OK);
+			}
 		}
 		// get pointer to image structure
 		PyImage *self = reinterpret_cast<PyImage*>(pySelf);
@@ -465,21 +456,17 @@ static PyObject *ImageRender_refresh(PyImage *self, PyObject *args)
 {
 	ImageRender *imageRender = getImageRender(self);
 
-	if (!imageRender)
-	{
+	if (!imageRender) {
 		PyErr_SetString(PyExc_TypeError, "Incomplete ImageRender() object");
 		return NULL;
 	}
-	if (PyArg_ParseTuple(args, ""))
-	{
+	if (PyArg_ParseTuple(args, "")) {
 		// refresh called with no argument.
 		// For other image objects it simply invalidates the image buffer
 		// For ImageRender it triggers a render+sync
 		// Note that this only makes sense when doing offscreen render on texture
-		if (!imageRender->isDone())
-		{
-			if (!imageRender->Render())
-			{
+		if (!imageRender->isDone()) {
+			if (!imageRender->Render()) {
 				Py_RETURN_FALSE;
 			}
 			// as we are not trying to read the pixels, just unbind
@@ -490,8 +477,7 @@ static PyObject *ImageRender_refresh(PyImage *self, PyObject *args)
 		imageRender->WaitSync();
 		Py_RETURN_TRUE;
 	}
-	else
-	{
+	else {
 		// fallback on standard processing
 		PyErr_Clear();
 		return Image_refresh(self, args);
@@ -503,13 +489,11 @@ static PyObject *ImageRender_render(PyImage *self)
 {
 	ImageRender *imageRender = getImageRender(self);
 
-	if (!imageRender)
-	{
+	if (!imageRender) {
 		PyErr_SetString(PyExc_TypeError, "Incomplete ImageRender() object");
 		return NULL;
 	}
-	if (!imageRender->Render())
-	{
+	if (!imageRender->Render()) {
 		Py_RETURN_FALSE;
 	}
 	// we are not reading the pixels now, unbind

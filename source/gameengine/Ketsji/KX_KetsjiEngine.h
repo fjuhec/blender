@@ -105,6 +105,7 @@ private:
 	bool				m_bFixedTime;
 	bool				m_useExternalClock;
 	
+	
 	bool				m_firstframe;
 	int					m_currentFrame;
 

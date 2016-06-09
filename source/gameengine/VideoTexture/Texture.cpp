@@ -395,7 +395,9 @@ static PyObject *Texture_refresh(Texture *self, PyObject *args)
 					loadTexture(self->m_actTex, texture, size, self->m_mipmap);
 				}
 				// refresh texture source, if required
-				if (refreshSource) self->m_source->m_image->refresh();
+				if (refreshSource) {
+					self->m_source->m_image->refresh();
+				}
 			}
 		}
 		CATCH_EXCP;

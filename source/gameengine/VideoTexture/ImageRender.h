@@ -105,6 +105,7 @@ protected:
 	RAS_IRasterizer* m_rasterizer;
 	/// engine
 	KX_KetsjiEngine* m_engine;
+
 	/// background color
 	float m_background[4];
 

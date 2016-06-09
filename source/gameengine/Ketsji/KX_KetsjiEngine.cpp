@@ -107,7 +107,7 @@ double KX_KetsjiEngine::m_suspendedtime = 0.0;
 double KX_KetsjiEngine::m_suspendeddelta = 0.0;
 double KX_KetsjiEngine::m_average_framerate = 0.0;
 bool   KX_KetsjiEngine::m_restrict_anim_fps = false;
-short  KX_KetsjiEngine::m_exitkey = 130; //ESC Key
+short  KX_KetsjiEngine::m_exitkey = 130; // ESC Key
 bool   KX_KetsjiEngine::m_doRender = true;
 
 /**
