@@ -54,6 +54,13 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
         multiview_reconstruct_progress_update_cb progress_update_callback,
         void* callback_customdata);
 
+bool libmv_multiviewReconstructionIsValid(const int clip_num,
+                                          const libmv_ReconstructionN **all_libmv_reconstruction);
+double libmv_multiviewReprojectionError(const int clip_num,
+                                        const libmv_ReconstructionN** all_libmv_reconstruction);
+
+libmv_CameraIntrinsics *libmv_reconstructionNExtractIntrinsics(libmv_ReconstructionN *libmv_reconstruction);
+
 #ifdef __cplusplus
 }
 #endif

@@ -306,8 +306,7 @@ struct MovieMultiviewReconstructContext *BKE_tracking_multiview_reconstruction_c
 void BKE_tracking_multiview_reconstruction_context_free(struct MovieMultiviewReconstructContext *context);
 bool BKE_tracking_multiview_reconstruction_check(struct MovieClip **clips, struct MovieTrackingObject *object,
                                                  int clip_num, char *error_msg, int error_size);
-bool BKE_tracking_multiview_reconstruction_finish(struct MovieMultiviewReconstructContext *context,
-                                                  struct MovieTracking *tracking);
+bool BKE_tracking_multiview_reconstruction_finish(struct MovieMultiviewReconstructContext *context, struct MovieClip** clips);
 
 #define TRACK_SELECTED(track)               ((track)->flag & SELECT || (track)->pat_flag & SELECT || (track)->search_flag & SELECT)
 

@@ -201,7 +201,35 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	//                     progress_update_callback,
 	//                     callback_customdata);
 
-	//libmv_reconstruction->is_valid = true;
+	for(int i = 0; i < clip_num; i++)
+	{
+		all_libmv_reconstruction[i]->is_valid = true;
+	}
 
 	return all_libmv_reconstruction;
+}
+
+bool libmv_multiviewReconstructionIsValid(const int clip_num,
+                                          const libmv_ReconstructionN **all_libmv_reconstruction)
+{
+	bool valid_flag = true;
+	for(int i = 0; i < clip_num; i++)
+		valid_flag &= all_libmv_reconstruction[i]->is_valid;
+	return valid_flag;
+}
+
+double libmv_multiviewReprojectionError(const int clip_num,
+                                        const libmv_ReconstructionN **all_libmv_reconstruction)
+{
+	double error = 0.0;
+	for(int i = 0; i < clip_num; i++)
+		error += all_libmv_reconstruction[i]->error;
+	error /= clip_num;
+
+	return error;
+}
+
+libmv_CameraIntrinsics *libmv_reconstructionNExtractIntrinsics(libmv_ReconstructionN *libmv_reconstruction)
+{
+	return (libmv_CameraIntrinsics *) libmv_reconstruction->intrinsics;
 }

@@ -347,6 +347,7 @@ static void solve_multiview_startjob(void *scv, short *stop, short *do_update, f
 	                                            sizeof(smj->stats_message));
 }
 
+// TODO(tianwei): setting status for witness camera is not finished
 static void solve_multiview_freejob(void *scv)
 {
 	SolveMultiviewJob *smj = (SolveMultiviewJob *)scv;
@@ -361,7 +362,7 @@ static void solve_multiview_freejob(void *scv)
 		return;
 	}
 
-	solved = BKE_tracking_multiview_reconstruction_finish(smj->context, tracking);
+	solved = BKE_tracking_multiview_reconstruction_finish(smj->context, smj->clips);
 	if (!solved) {
 		BKE_report(smj->reports,
 		           RPT_WARNING,
