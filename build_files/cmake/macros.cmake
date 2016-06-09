@@ -447,7 +447,7 @@ function(setup_liblinks
 		target_link_libraries(${target} ${LLVM_LIBRARY})
 	endif()
 	if(WITH_ALEMBIC)
-		target_link_libraries(${target} ${ALEMBIC_LIBRARIES} ${HDF5_LIBRARIES} ${PYTHON_LIBRARIES})
+		target_link_libraries(${target} ${ALEMBIC_LIBRARIES} ${HDF5_LIBRARIES})
 	endif()
 	if(WIN32 AND NOT UNIX)
 		target_link_libraries(${target} ${PTHREADS_LIBRARIES})

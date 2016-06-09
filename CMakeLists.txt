@@ -318,25 +318,17 @@ option(WITH_CODEC_FFMPEG        "Enable FFMPeg Support (http://ffmpeg.org)" ${_i
 option(WITH_CODEC_SNDFILE       "Enable libsndfile Support (http://www.mega-nerd.com/libsndfile)" OFF)
 
 # Alembic support
-option(WITH_ALEMBIC     		"Enable Alembic Support" OFF)
-if(WITH_HDF5)
-	find_package(HDF5)
-
-	if(NOT HDF5_FOUND)
-		set(WITH_HDF5 OFF)
-		set(WITH_ALEMBIC OFF)
-	endif()
-endif()
+option(WITH_ALEMBIC             "Enable Alembic Support" OFF)
 
 # alembic
 if(WITH_ALEMBIC)
-	find_package(ALEMBIC)
+	find_package(Alembic)
+	find_package(HDF5)
 
-    if(NOT ALEMBIC_FOUND)
+	if(NOT ALEMBIC_FOUND OR NOT HDF5_FOUND)
 		set(WITH_ALEMBIC OFF)
-   endif()
+	endif()
 endif()
-
 
 if(APPLE)
 	option(WITH_CODEC_QUICKTIME     "Enable Quicktime Support" ON)
