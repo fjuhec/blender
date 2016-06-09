@@ -40,17 +40,17 @@ struct Main;
 class AbcObjectWriter {
 protected:
 	Object *m_object;
-    ExportSettings &m_settings;
+	ExportSettings &m_settings;
 
 	Scene *m_scene;
 	uint32_t m_time_sampling;
 
-    Imath::Box3d m_bounds;
-    std::vector<AbcObjectWriter *> m_children;
+	Imath::Box3d m_bounds;
+	std::vector<AbcObjectWriter *> m_children;
 
-    std::vector< std::pair<std::string, IDProperty *> > m_props;
+	std::vector< std::pair<std::string, IDProperty *> > m_props;
 
-    bool m_first_frame;
+	bool m_first_frame;
 	std::string m_name;
 
 public:
@@ -60,16 +60,16 @@ public:
 	                ExportSettings &settings,
 	                AbcObjectWriter *parent = NULL);
 
-    virtual ~AbcObjectWriter();
+	virtual ~AbcObjectWriter();
 
 	void addChild(AbcObjectWriter *child);
 
-    virtual Imath::Box3d bounds();
+	virtual Imath::Box3d bounds();
 
-    void write();
+	void write();
 
 private:
-    virtual void do_write() = 0;
+	virtual void do_write() = 0;
 
 	void getAllProperties(IDProperty *group, std::vector<std::pair<std::string, IDProperty*> > &allProps, const std::string &parent);
 

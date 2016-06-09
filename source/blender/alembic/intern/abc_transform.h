@@ -30,8 +30,8 @@
 
 class AbcTransformWriter : public AbcObjectWriter {
 	Alembic::AbcGeom::OXform m_xform;
-    Alembic::AbcGeom::OXformSchema m_schema;
-    Alembic::AbcGeom::XformSample m_sample;
+	Alembic::AbcGeom::OXformSchema m_schema;
+	Alembic::AbcGeom::XformSample m_sample;
 	Alembic::AbcGeom::OVisibilityProperty m_visibility;
 	Alembic::Abc::M44d m_matrix;
 
@@ -47,8 +47,8 @@ public:
 	                   ExportSettings &settings);
 
 	Alembic::AbcGeom::OXform &alembicXform() { return m_xform;}
-    virtual Imath::Box3d bounds();
-    void setParent(Object *p) { m_parent = p; }
+	virtual Imath::Box3d bounds();
+	void setParent(Object *p) { m_parent = p; }
 
 private:
 	virtual void do_write();

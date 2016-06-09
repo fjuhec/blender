@@ -63,15 +63,15 @@ void get_min_max_time(const Schema &schema, chrono_t &min, chrono_t &max)
 
 	TimeSamplingPtr time_samp = schema.getTimeSampling();
 
-    if (!schema.isConstant()) {
-        const size_t num_samps = schema.getNumSamples();
+	if (!schema.isConstant()) {
+		const size_t num_samps = schema.getNumSamples();
 
-        if (num_samps > 0) {
-            const chrono_t min_time = time_samp->getSampleTime(0);
-            min = std::min(min, min_time);
+		if (num_samps > 0) {
+			const chrono_t min_time = time_samp->getSampleTime(0);
+			min = std::min(min, min_time);
 
-            const chrono_t max_time = time_samp->getSampleTime(num_samps - 1);
-            max = std::max(max, max_time);
-        }
-    }
+			const chrono_t max_time = time_samp->getSampleTime(num_samps - 1);
+			max = std::max(max, max_time);
+		}
+	}
 }

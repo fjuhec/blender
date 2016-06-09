@@ -65,7 +65,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{0, "", 0, N_("Modify"), ""},
 	{eModifierType_DataTransfer, "DATA_TRANSFER", ICON_MOD_DATA_TRANSFER, "Data Transfer", ""},
 	{eModifierType_MeshCache, "MESH_CACHE", ICON_MOD_MESHDEFORM, "Mesh Cache", ""},
-    {eModifierType_MeshSequenceCache, "MESH_SEQUENCE_CACHE", ICON_MOD_MESHDEFORM, "Mesh Sequence Cache", ""},
+	{eModifierType_MeshSequenceCache, "MESH_SEQUENCE_CACHE", ICON_MOD_MESHDEFORM, "Mesh Sequence Cache", ""},
 	{eModifierType_NormalEdit, "NORMAL_EDIT", ICON_MOD_NORMALEDIT, "Normal Edit", ""},
 	{eModifierType_UVProject, "UV_PROJECT", ICON_MOD_UVPROJECT, "UV Project", ""},
 	{eModifierType_UVWarp, "UV_WARP", ICON_MOD_UVPROJECT, "UV Warp", ""},
@@ -4084,7 +4084,7 @@ static void rna_def_modifier_meshcache(BlenderRNA *brna)
 		{MOD_MESHCACHE_TYPE_MDD, "MDD", 0, "MDD ", ""},
 		{MOD_MESHCACHE_TYPE_PC2, "PC2", 0, "PC2", ""},
 #ifdef WITH_ALEMBIC
-	    {MOD_MESHCACHE_TYPE_ABC, "ABC", 0, "Alembic", ""},
+		{MOD_MESHCACHE_TYPE_ABC, "ABC", 0, "Alembic", ""},
 #endif
 		{0, NULL, 0, NULL, NULL}
 	};

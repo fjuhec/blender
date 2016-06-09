@@ -52,7 +52,7 @@ EnumPropertyItem rna_enum_id_type_items[] = {
 	{ID_AR, "ARMATURE", ICON_ARMATURE_DATA, "Armature", ""},
 	{ID_BR, "BRUSH", ICON_BRUSH_DATA, "Brush", ""},
 	{ID_CA, "CAMERA", ICON_CAMERA_DATA, "Camera", ""},
-    {ID_CF, "CACHEFILE", ICON_FILE, "Cache File", ""},
+	{ID_CF, "CACHEFILE", ICON_FILE, "Cache File", ""},
 	{ID_CU, "CURVE", ICON_CURVE_DATA, "Curve", ""},
 	{ID_VF, "FONT", ICON_FONT_DATA, "Font", ""},
 	{ID_GD, "GREASEPENCIL", ICON_GREASEPENCIL, "Grease Pencil", ""},

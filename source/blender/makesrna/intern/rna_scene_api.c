@@ -52,7 +52,7 @@
 EnumPropertyItem rna_enum_abc_compression_items[] = {
 #ifdef WITH_ALEMBIC
 	{ ABC_ARCHIVE_OGAWA, "OGAWA", 0, "Ogawa", "" },
-    { ABC_ARCHIVE_HDF5, "HDF5", 0, "HDF5", "" },
+	{ ABC_ARCHIVE_HDF5, "HDF5", 0, "HDF5", "" },
 #endif
 	{ 0, NULL, 0, NULL, NULL }
 };

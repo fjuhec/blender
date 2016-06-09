@@ -28,10 +28,10 @@
 
 class AbcCameraWriter : public AbcObjectWriter {
 	Alembic::AbcGeom::OCameraSchema m_camera_schema;
-    Alembic::AbcGeom::CameraSample m_camera_sample;
-    Alembic::AbcGeom::OCompoundProperty m_custom_data_container;
-    Alembic::AbcGeom::OFloatProperty m_stereo_distance;
-    Alembic::AbcGeom::OFloatProperty m_eye_separation;
+	Alembic::AbcGeom::CameraSample m_camera_sample;
+	Alembic::AbcGeom::OCompoundProperty m_custom_data_container;
+	Alembic::AbcGeom::OFloatProperty m_stereo_distance;
+	Alembic::AbcGeom::OFloatProperty m_eye_separation;
 
 public:
 	AbcCameraWriter(Scene *scene,

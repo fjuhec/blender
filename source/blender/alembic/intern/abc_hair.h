@@ -31,7 +31,7 @@ struct ParticleSystem;
 /* ************************************************************************** */
 
 class AbcHairWriter : public AbcObjectWriter {
-    ParticleSystem *m_psys;
+	ParticleSystem *m_psys;
 
 	Alembic::AbcGeom::OCurvesSchema m_schema;
 	Alembic::AbcGeom::OCurvesSchema::Sample m_sample;
@@ -39,27 +39,27 @@ class AbcHairWriter : public AbcObjectWriter {
 public:
 	AbcHairWriter(Scene *scene,
 	              Object *ob,
-                  AbcTransformWriter *parent,
-                  uint32_t sampling_time,
-                  ExportSettings &settings,
-                  ParticleSystem *psys);
+	              AbcTransformWriter *parent,
+	              uint32_t sampling_time,
+	              ExportSettings &settings,
+	              ParticleSystem *psys);
 
 private:
 	virtual void do_write();
 
 	void write_hair_sample(DerivedMesh *dm,
-                           ParticleSettings *part,
-                           std::vector<Imath::V3f> &verts,
-                           std::vector<Imath::V3f> &norm_values,
-                           std::vector<Imath::V2f> &uv_values,
-                           std::vector<int32_t> &hvertices);
+	                       ParticleSettings *part,
+	                       std::vector<Imath::V3f> &verts,
+	                       std::vector<Imath::V3f> &norm_values,
+	                       std::vector<Imath::V2f> &uv_values,
+	                       std::vector<int32_t> &hvertices);
 
 	void write_hair_child_sample(DerivedMesh *dm,
 	                             ParticleSettings *part,
-                                 std::vector<Imath::V3f> &verts,
-                                 std::vector<Imath::V3f> &norm_values,
-                                 std::vector<Imath::V2f> &uv_values,
-                                 std::vector<int32_t> &hvertices);
+	                             std::vector<Imath::V3f> &verts,
+	                             std::vector<Imath::V3f> &norm_values,
+	                             std::vector<Imath::V2f> &uv_values,
+	                             std::vector<int32_t> &hvertices);
 };
 
 /* ************************************************************************** */

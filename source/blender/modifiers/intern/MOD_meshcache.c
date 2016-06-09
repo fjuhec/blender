@@ -49,7 +49,7 @@
 #include "MOD_modifiertypes.h"
 
 #ifdef WITH_ALEMBIC
-#include "ABC_alembic.h"
+#	include "ABC_alembic.h"
 #endif
 
 static void initData(ModifierData *md)

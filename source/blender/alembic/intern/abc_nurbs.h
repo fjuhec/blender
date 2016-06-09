@@ -33,14 +33,14 @@ class AbcNurbsWriter : public AbcObjectWriter {
 public:
 	AbcNurbsWriter(Scene *scene,
 	               Object *ob,
-                   AbcTransformWriter *parent,
-                   uint32_t sampling_time,
-                   ExportSettings &settings);
+	               AbcTransformWriter *parent,
+	               uint32_t sampling_time,
+	               ExportSettings &settings);
 
 private:
 	virtual void do_write();
 
-    bool isAnimated() const;
+	bool isAnimated() const;
 };
 
 /* ************************************************************************** */

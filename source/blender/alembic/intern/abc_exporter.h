@@ -33,8 +33,8 @@ class AbcExporter {
 
 	const char *m_filename;
 
-    Alembic::Abc::OArchive m_archive;
-    unsigned int m_trans_sampling_index, m_shape_sampling_index;
+	Alembic::Abc::OArchive m_archive;
+	unsigned int m_trans_sampling_index, m_shape_sampling_index;
 
 	Scene *m_scene;
 	double m_saved_frame;
@@ -61,11 +61,11 @@ private:
 
 	void createTransformWritersHierarchy();
 	void createTransformWritersFlat();
-    void createTransformWriter(Object *ob,  Object *parent, Object *dupliObParent);
-    void exploreTransform(Object *ob, Object *parent, Object *dupliObParent = NULL);
-    void exploreObject(Object *ob, Object *dupliObParent);
+	void createTransformWriter(Object *ob,  Object *parent, Object *dupliObParent);
+	void exploreTransform(Object *ob, Object *parent, Object *dupliObParent = NULL);
+	void exploreObject(Object *ob, Object *dupliObParent);
 	void createShapeWriters();
-    void createShapeWriter(Object *ob, Object *dupliObParent);
+	void createShapeWriter(Object *ob, Object *dupliObParent);
 
 	AbcTransformWriter *getXForm(const std::string &name);
 

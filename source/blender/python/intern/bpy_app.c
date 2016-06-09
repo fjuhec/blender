@@ -105,7 +105,7 @@ static PyStructSequence_Field app_info_fields[] = {
 	{(char *)"build_system", (char *)"Build system used"},
 
 	/* submodules */
-    {(char *)"alembic", (char *)"Alembic library information backend"},
+	{(char *)"alembic", (char *)"Alembic library information backend"},
 	{(char *)"ffmpeg", (char *)"FFmpeg library information backend"},
 	{(char *)"ocio", (char *)"OpenColorIO library information backend"},
 	{(char *)"oiio", (char *)"OpenImageIO library information backend"},

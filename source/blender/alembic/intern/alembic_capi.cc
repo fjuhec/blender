@@ -161,7 +161,7 @@ static size_t update_points(std::pair<IPolyMeshSchema, IObject> schema,
 }
 
 static void find_iobject(const IObject &object, IObject &ret,
-                        const std::string &path)
+                         const std::string &path)
 {
 	if (!object.valid()) {
 		return;
@@ -257,9 +257,9 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
 
 	/* XXX annoying hack: needed to prevent data corruption when changing
 	 * scene frame in separate threads
-     */
-    G.is_rendering = true;
-    BKE_spacedata_draw_locks(true);
+	 */
+	G.is_rendering = true;
+	BKE_spacedata_draw_locks(true);
 
 	try {
 		AbcExporter exporter(data->scene, data->filename, data->settings);
@@ -275,8 +275,8 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
 
 static void export_endjob(void */*customdata*/)
 {
-    G.is_rendering = false;
-    BKE_spacedata_draw_locks(false);
+	G.is_rendering = false;
+	BKE_spacedata_draw_locks(false);
 }
 
 int ABC_export(Scene *scene, bContext *C, const char *filepath,

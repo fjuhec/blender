@@ -38,10 +38,10 @@ class AbcPointsWriter : public AbcObjectWriter {
 public:
 	AbcPointsWriter(Scene *scene,
 	                Object *ob,
-                    AbcTransformWriter *parent,
-                    uint32_t sampling_time,
-                    ExportSettings &settings,
-                    ParticleSystem *psys);
+	                AbcTransformWriter *parent,
+	                uint32_t sampling_time,
+	                ExportSettings &settings,
+	                ParticleSystem *psys);
 
 	void do_write();
 };

@@ -53,7 +53,7 @@ AbcTransformWriter::AbcTransformWriter(Object *ob,
 		sampling_time = 0;
 	}
 
-    m_xform = OXform(abc_parent, get_id_name(m_object), sampling_time);
+	m_xform = OXform(abc_parent, get_id_name(m_object), sampling_time);
 	m_schema = m_xform.getSchema();
 }
 
@@ -96,7 +96,7 @@ void AbcTransformWriter::do_write()
 		mul_v3_fl(mat[3], m_settings.global_scale);
 	}
 
-    m_matrix = convert_matrix(mat);
+	m_matrix = convert_matrix(mat);
 
 	m_sample.setMatrix(m_matrix);
 	m_schema.set(m_sample);
