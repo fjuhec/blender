@@ -115,11 +115,13 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	libmv_ReconstructionN **all_libmv_reconstruction = LIBMV_STRUCT_NEW(libmv_ReconstructionN*, clip_num);
 	libmv::vector<Marker> keyframe_markers;
 	int keyframe1, keyframe2;
+
+	// make reconstrution on the primary clip reconstruction
+	Reconstruction &reconstruction = all_libmv_reconstruction[0]->reconstruction;
 	for(int i = 0; i < clip_num; i++)
 	{
 		all_libmv_reconstruction[i] = LIBMV_OBJECT_NEW(libmv_ReconstructionN);
 		Tracks &tracks = *((Tracks *) all_libmv_tracks[i]);
-		Reconstruction &reconstruction = all_libmv_reconstruction[i]->reconstruction;
 
 		///* Retrieve reconstruction options from C-API to libmv API. */
 		CameraIntrinsics *camera_intrinsics;
@@ -136,7 +138,6 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 			///* keyframe selection. */
 			keyframe1 = libmv_reconstruction_options->keyframe1, keyframe2 = libmv_reconstruction_options->keyframe2;
 			normalized_tracks.GetMarkersForTracksInBothImages(i, keyframe1, i, keyframe2, &keyframe_markers);
-
 		}
 	}
 
@@ -144,7 +145,8 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	printf("number of markers for init: %d\n", keyframe_markers.size());
 	if (keyframe_markers.size() < 8) {
 		LG << "No enough markers to initialize from";
-		all_libmv_reconstruction[0]->is_valid = false;
+		for(int i = 0; i < clip_num; i++)
+			all_libmv_reconstruction[i]->is_valid = false;
 		return all_libmv_reconstruction;
 	}
 
@@ -153,7 +155,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	        MultiviewReconstructUpdateCallback(progress_update_callback,
 	                                           callback_customdata);
 
-	// TODO(tianwei): skip the automatic keyframe selection
+	// TODO(tianwei): skip the automatic keyframe selection for now
 	//if (libmv_reconstruction_options->select_keyframes) {
 	//	LG << "Using automatic keyframe selection";
 
@@ -173,7 +175,14 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	///* Actual reconstruction. */
 	update_callback.invoke(0, "Initial reconstruction");
 
-	//EuclideanReconstructTwoFrames(keyframe_markers, &reconstruction);
+	///* TODO(tianwei): chain the tracks and correspondences */
+
+	if(!mv::ReconstructTwoFrames(keyframe_markers, &reconstruction)) {
+		printf("mv::ReconstrucTwoFrames failed\n");
+		for(int i = 0; i < clip_num; i++)
+			all_libmv_reconstruction[i]->is_valid = false;
+		return all_libmv_reconstruction;
+	}
 	//EuclideanBundle(normalized_tracks, &reconstruction);
 	//EuclideanCompleteReconstruction(normalized_tracks,
 	//                                &reconstruction,
@@ -202,9 +211,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	//                     callback_customdata);
 
 	for(int i = 0; i < clip_num; i++)
-	{
 		all_libmv_reconstruction[i]->is_valid = true;
-	}
 
 	return all_libmv_reconstruction;
 }

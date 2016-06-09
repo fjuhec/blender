@@ -1,4 +1,4 @@
-// Copyright (c) 2014 libmv authors.
+// Copyright (c) 2014, 2016 libmv authors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -19,6 +19,7 @@
 // IN THE SOFTWARE.
 //
 // Author: mierle@gmail.com (Keir Mierle)
+//         shentianweipku@gmail.com (Tianwei Shen)
 
 #ifndef LIBMV_AUTOTRACK_RECONSTRUCTION_H_
 #define LIBMV_AUTOTRACK_RECONSTRUCTION_H_
@@ -35,6 +36,8 @@ using libmv::Mat3;
 using libmv::Vec3;
 
 class Model;
+struct Marker;
+class Tracks;
 
 class CameraPose {
   int clip;
@@ -86,6 +89,8 @@ class Reconstruction {
   vector<Model*> models_;
 };
 
+bool ReconstructTwoFrames(const vector<Marker> &markers,
+                          Reconstruction *reconstruction);
 }  // namespace mv
 
 #endif  // LIBMV_AUTOTRACK_RECONSTRUCTION_H_

@@ -76,6 +76,7 @@ if(WITH_LIBMV)
 		intern/tracksN.cc
 		libmv/autotrack/autotrack.cc
 		libmv/autotrack/predict_tracks.cc
+		libmv/autotrack/reconstruction.cc
 		libmv/autotrack/tracks.cc
 		libmv/base/aligned_malloc.cc
 		libmv/image/array_nd.cc
