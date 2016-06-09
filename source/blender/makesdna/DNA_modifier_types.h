@@ -1550,7 +1550,7 @@ typedef struct MeshSeqCacheModifierData {
 	ModifierData modifier;
 
 	struct CacheFile *cache_file;
-	char abc_object_path[1024];
+	char abc_object_path[1024];  /* 1024 = FILE_MAX */
 } MeshSeqCacheModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */
