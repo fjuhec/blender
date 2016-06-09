@@ -43,7 +43,7 @@ public:
 	AbcTransformWriter(Object *ob,
 	                   const Alembic::AbcGeom::OObject &abc_parent,
 	                   AbcTransformWriter *parent,
-	                   unsigned int sampling_time,
+	                   unsigned int time_sampling,
 	                   ExportSettings &settings);
 
 	Alembic::AbcGeom::OXform &alembicXform() { return m_xform;}

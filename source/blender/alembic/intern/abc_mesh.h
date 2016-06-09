@@ -59,7 +59,7 @@ public:
 	AbcMeshWriter(Scene *scene,
 	              Object *ob,
                   AbcTransformWriter *parent,
-                  uint32_t sampling_time,
+                  uint32_t time_sampling,
                   ExportSettings &settings);
 
 	~AbcMeshWriter();

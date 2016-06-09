@@ -60,13 +60,13 @@ using Alembic::AbcGeom::OStringProperty;
 
 AbcObjectWriter::AbcObjectWriter(Scene *scene,
                                  Object *ob,
-                                 uint32_t sampling_time,
+                                 uint32_t time_sampling,
                                  ExportSettings &settings,
                                  AbcObjectWriter *parent)
     : m_object(ob)
     , m_settings(settings)
     , m_scene(scene)
-    , m_time_sampling(sampling_time)
+    , m_time_sampling(time_sampling)
     , m_first_frame(true)
 {
 	m_name = get_id_name(m_object) + "Shape";

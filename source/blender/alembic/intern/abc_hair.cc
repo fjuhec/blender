@@ -65,10 +65,10 @@ static const float nscale = 1.0f / 32767.0f;
 AbcHairWriter::AbcHairWriter(Scene *scene,
                              Object *ob,
                              AbcTransformWriter *parent,
-                             uint32_t sampling_time,
+                             uint32_t time_sampling,
                              ExportSettings &settings,
                              ParticleSystem *psys)
-    : AbcObjectWriter(scene, ob, sampling_time, settings, parent)
+    : AbcObjectWriter(scene, ob, time_sampling, settings, parent)
 {
 	m_psys = psys;
 

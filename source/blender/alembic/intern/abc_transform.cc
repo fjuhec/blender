@@ -42,18 +42,18 @@ using Alembic::AbcGeom::OXform;
 AbcTransformWriter::AbcTransformWriter(Object *ob,
                                        const OObject &abc_parent,
                                        AbcTransformWriter *parent,
-                                       unsigned int sampling_time,
+                                       unsigned int time_sampling,
                                        ExportSettings &settings)
-    : AbcObjectWriter(NULL, ob, sampling_time, settings, parent)
+    : AbcObjectWriter(NULL, ob, time_sampling, settings, parent)
 {
 	m_is_animated = hasAnimation(m_object);
 	m_parent = NULL;
 
 	if (!m_is_animated) {
-		sampling_time = 0;
+		time_sampling = 0;
 	}
 
-	m_xform = OXform(abc_parent, get_id_name(m_object), sampling_time);
+	m_xform = OXform(abc_parent, get_id_name(m_object), time_sampling);
 	m_schema = m_xform.getSchema();
 }
 

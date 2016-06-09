@@ -56,7 +56,7 @@ protected:
 public:
 	AbcObjectWriter(Scene *scene,
 	                Object *ob,
-	                uint32_t sampling_time,
+	                uint32_t time_sampling,
 	                ExportSettings &settings,
 	                AbcObjectWriter *parent = NULL);
 
