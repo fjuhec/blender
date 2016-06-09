@@ -335,16 +335,15 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 
 	float (*nors)[3] = NULL;
 	float (*clnors)[2] = NULL;
-    Py_ssize_t nbr_val;
 	Py_ssize_t vec_size;
 	int cd_loop_clnors_offset;
 
-    BMesh *bm = self->bm;
+	BMesh *bm = self->bm;
 
 	if ((cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL)) == -1) {
 		/* Should never ever happen! */
 		PyErr_Format(PyExc_SystemError,
-					 "clnor's from_array(): No custom normal data layer in the bmesh");
+		             "clnor's from_array(): No custom normal data layer in the bmesh");
 		return NULL;
 	}
 
@@ -353,9 +352,9 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 		return NULL;
 	}
 
-	nbr_val = PySequence_Fast_GET_SIZE(value);
+	const int value_len = PySequence_Fast_GET_SIZE(value);
 
-	if (!ELEM(nbr_val, bm->totloop, bm->totvert)) {
+	if (!ELEM(value_len, bm->totloop, bm->totvert)) {
 		PyErr_Format(PyExc_TypeError,
 		             "clnor's from_array(): "
 		             "There must be either one data per vertex or one per loop");
@@ -366,7 +365,7 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 	PyObject **value_items = PySequence_Fast_ITEMS(value);
 
 	vec_size = 3;  /* In case value is an array of None's only. */
-	for (Py_ssize_t i = 0; i < nbr_val; i++) {
+	for (Py_ssize_t i = 0; i < value_len; i++) {
 		PyObject *py_vec = value_items[i];
 
 		if (py_vec == Py_None) {
@@ -376,7 +375,7 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 		if (py_vec) {
 			vec_size = PySequence_Fast_GET_SIZE(py_vec);
 		}
-		if (!py_vec || (vec_size == 2 && nbr_val != bm->totloop) || vec_size != 3) {
+		if (!py_vec || (vec_size == 2 && value_len != bm->totloop) || vec_size != 3) {
 			PyErr_Format(PyExc_TypeError,
 			             "clnor's from_array(): array items must be either triplets of floats, "
 			             "or pair of floats factors for raw clnor data, first item is neither "
@@ -391,8 +390,8 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 	}
 
 	if (vec_size == 2) {
-		clnors = MEM_mallocN(sizeof(*clnors) * nbr_val, __func__);
-		for (Py_ssize_t i = 0; i < nbr_val; i++) {
+		clnors = MEM_mallocN(sizeof(*clnors) * value_len, __func__);
+		for (Py_ssize_t i = 0; i < value_len; i++) {
 			PyObject *py_vec = value_items[i];
 
 			if (py_vec == Py_None) {
@@ -442,8 +441,8 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 		}
 	}
 	else {
-		nors = MEM_mallocN(sizeof(*nors) * nbr_val, __func__);
-		for (Py_ssize_t i = 0; i < nbr_val; i++) {
+		nors = MEM_mallocN(sizeof(*nors) * value_len, __func__);
+		for (Py_ssize_t i = 0; i < value_len; i++) {
 			PyObject *py_vec = value_items[i];
 
 			if (py_vec == Py_None) {
@@ -485,7 +484,7 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 	}
 
 	Py_DECREF(value);
-	ret = PyTuple_New(nbr_val);
+	ret = PyTuple_New(value_len);
 
 	if (vec_size == 2) {
 		BMIter fiter;
@@ -502,27 +501,29 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 				clnor[0] = unit_float_to_short(clnors[lidx][0]);
 				clnor[1] = unit_float_to_short(clnors[lidx][1]);
 
-				PyObject *py_vec = PyTuple_Pack(2,
-												PyFloat_FromDouble((double)clnors[lidx][0]),
-												PyFloat_FromDouble((double)clnors[lidx][1]));
+				PyObject *py_vec = PyTuple_New(2);
+				PyTuple_SET_ITEMS(py_vec,
+				        PyFloat_FromDouble((double)clnors[lidx][0]),
+				        PyFloat_FromDouble((double)clnors[lidx][1]));
 
 				PyTuple_SET_ITEM(ret, lidx, py_vec);
 			}
 		}
 	}
 	else {
-		if (nbr_val == bm->totloop) {
+		if (value_len == bm->totloop) {
 			BM_loops_normal_custom_set(bm, nors, NULL, cd_loop_clnors_offset);
 		}
 		else {
 			BM_loops_normal_custom_set_from_vertices(bm, nors, NULL, cd_loop_clnors_offset);
 		}
 
-		for (Py_ssize_t i = 0; i < nbr_val; i++) {
-			PyObject *py_vec = PyTuple_Pack(3,
-											PyFloat_FromDouble((double)nors[i][0]),
-											PyFloat_FromDouble((double)nors[i][1]),
-											PyFloat_FromDouble((double)nors[i][2]));
+		for (Py_ssize_t i = 0; i < value_len; i++) {
+			PyObject *py_vec = PyTuple_New(3);
+			PyTuple_SET_ITEMS(py_vec,
+			        PyFloat_FromDouble((double)nors[i][0]),
+			        PyFloat_FromDouble((double)nors[i][1]),
+			        PyFloat_FromDouble((double)nors[i][2]));
 
 			PyTuple_SET_ITEM(ret, i, py_vec);
 		}
