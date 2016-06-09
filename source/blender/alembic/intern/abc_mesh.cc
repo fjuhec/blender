@@ -43,8 +43,6 @@ extern "C" {
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
-
-#include "ED_object.h"
 }
 
 using Alembic::Abc::FloatArraySample;
