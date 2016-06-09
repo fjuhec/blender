@@ -536,6 +536,7 @@ public:
 			case TYPE_UINT: format = CU_AD_FORMAT_UNSIGNED_INT32; break;
 			case TYPE_INT: format = CU_AD_FORMAT_SIGNED_INT32; break;
 			case TYPE_FLOAT: format = CU_AD_FORMAT_FLOAT; break;
+			case TYPE_HALF: format = CU_AD_FORMAT_HALF; break;
 			default: assert(0); return;
 		}
 
