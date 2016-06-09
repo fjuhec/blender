@@ -320,12 +320,13 @@ static PyObject *bpy_bmlayeritem_copy_from(BPy_BMLayerItem *self, BPy_BMLayerIte
 
 #define bpy_bmlayeritem_from_array__clnors_doc \
 "   clnor layer: Array may be either:\n" \
-"     - A sequence of num_loop tuples (float, float):\n" \
-"       Raw storage of custom normals, as (alpha, beta) factors in [-1.0, 1.0] range.\n" \
-"     - A sequence of num_loop vectors (float, float, float):\n" \
-"       Custom normals per loop, as (x, y, z) components (normalization is ensured internaly).\n" \
-"     - A sequence of num_vert vectors (float, float, float):\n" \
-"       Custom normals per vertex, as (x, y, z) components (normalization is ensured internaly).\n" \
+"   - A sequence of num_loop tuples (float, float):\n" \
+"     Raw storage of custom normals, as (alpha, beta) factors in [-1.0, 1.0] range.\n" \
+"   - A sequence of num_loop vectors (float, float, float):\n" \
+"     Custom normals per loop, as (x, y, z) components (normalization is ensured internaly).\n" \
+"   - A sequence of num_vert vectors (float, float, float):\n" \
+"     Custom normals per vertex, as (x, y, z) components (normalization is ensured internaly).\n" \
+"\n" \
 "   In all cases, items which are None or null vectors will use default auto-computed normal.\n" \
 "\n" \
 "   Returns an array of the same type as given one, with None/null-vector values replaced by actual ones.\n"
