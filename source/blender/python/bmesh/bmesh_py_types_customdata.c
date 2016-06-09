@@ -395,91 +395,43 @@ static PyObject *bpy_bmlayeritem_from_array__clnors(BPy_BMLayerItem *self, PyObj
 			PyObject *py_vec = value_items[i];
 
 			if (py_vec == Py_None) {
-				clnors[i][0] = clnors[i][1] = 0.0f;
+				zero_v2(clnors[i]);
 			}
 			else {
-				py_vec = PySequence_Fast(py_vec, "");
-				if (!py_vec || PySequence_Fast_GET_SIZE(py_vec) != 2) {
-					PyErr_Format(PyExc_TypeError,
-					             "clnor's from_array(): clnors are expected to be pairs of floats "
-					             "in [-1.0, 1.0] range, clnor %d is not", i);
+				if (mathutils_array_parse(
+				        clnors[i], 2, 2, py_vec,
+				        "clnor's from_array(): clnors are expected to be pairs of floats "
+				        "in [-1.0, 1.0] range") == -1)
+				{
 					MEM_freeN(clnors);
 					Py_DECREF(value);
-					Py_XDECREF(py_vec);
 					return NULL;
 				}
 
 				for (int j = 0; j < 2; j++) {
-					PyObject *py_float = PyNumber_Float(PySequence_Fast_GET_ITEM(py_vec, j));
-
-					if (!py_float || !PyFloat_Check(py_float)) {
-						PyErr_Format(PyExc_TypeError,
-						             "clnor's from_array(): clnors are expected to be pairs of floats "
-						             "in [-1.0, 1.0] range, clnor %d is not", i);
-						MEM_freeN(clnors);
-						Py_DECREF(value);
-						Py_DECREF(py_vec);
-						Py_XDECREF(py_float);
-						return NULL;
-					}
-
-					clnors[i][j] = (float)PyFloat_AS_DOUBLE(py_float);
-					if (clnors[i][j] < -1.0f || clnors[i][j] > 1.0f) {
-						PyErr_Format(PyExc_TypeError,
-						             "clnor's from_array(): clnors are expected to be pairs of floats "
-						             "in [-1.0, 1.0] range, clnor %d is not", i);
-						MEM_freeN(clnors);
-						Py_DECREF(value);
-						Py_DECREF(py_vec);
-						Py_DECREF(py_float);
-						return NULL;
-					}
-					Py_DECREF(py_float);
+					CLAMP(clnors[i][j], -1.0, 1.0f);
 				}
 			}
-			Py_DECREF(py_vec);
 		}
 	}
 	else {
 		nors = MEM_mallocN(sizeof(*nors) * value_len, __func__);
 		for (Py_ssize_t i = 0; i < value_len; i++) {
 			PyObject *py_vec = value_items[i];
-
 			if (py_vec == Py_None) {
 				zero_v3(nors[i]);
 			}
 			else {
-				py_vec = PySequence_Fast(py_vec, "");
-				if (!py_vec || PySequence_Fast_GET_SIZE(py_vec) != 3) {
-					PyErr_Format(PyExc_TypeError,
-					             "clnor's from_array(): "
-					             "normals are expected to be triplets of floats, normal %d is not", i);
-					MEM_freeN(nors);
+				if (mathutils_array_parse(
+				        nors[i], 3, 3, py_vec,
+				        "clnor's from_array(): clnors are expected to be triplets of floats") == -1)
+				{
+					MEM_freeN(clnors);
 					Py_DECREF(value);
-					Py_XDECREF(py_vec);
 					return NULL;
-				}
-
-				for (int j = 0; j < 3; j++) {
-					PyObject *py_float = PyNumber_Float(PySequence_Fast_GET_ITEM(py_vec, j));
-
-					if (!py_float || !PyFloat_Check(py_float)) {
-						PyErr_Format(PyExc_TypeError,
-						             "clnor's from_array(): "
-						             "normals are expected to be triplets of floats, normal %d is not", i);
-						MEM_freeN(nors);
-						Py_DECREF(value);
-						Py_DECREF(py_vec);
-						Py_XDECREF(py_float);
-						return NULL;
-					}
-
-					nors[i][j] = (float)PyFloat_AS_DOUBLE(py_float);
-					Py_DECREF(py_float);
 				}
 				normalize_v3(nors[i]);  /* Just in case... */
 			}
-			Py_DECREF(py_vec);
 		}
 	}
 
