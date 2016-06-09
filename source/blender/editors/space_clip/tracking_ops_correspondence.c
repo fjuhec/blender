@@ -311,7 +311,6 @@ static bool solve_multiview_initjob(bContext *C,
 	smj->user = sc->user;
 
 	// create multiview reconstruction context and pass the tracks and markers to libmv
-	printf("new multiview reconstruction context\n");
 	smj->context = BKE_tracking_multiview_reconstruction_context_new(smj->clips,
 	                                                                 smj->clip_num,
 	                                                                 object,
@@ -319,6 +318,7 @@ static bool solve_multiview_initjob(bContext *C,
 	                                                                 object->keyframe2,
 	                                                                 width,
 	                                                                 height);
+	printf("new multiview reconstruction context\n");
 
 	tracking->stats = MEM_callocN(sizeof(MovieTrackingStats), "solve multiview stats");
 
@@ -404,8 +404,8 @@ static void solve_multiview_freejob(void *scv)
 	/* Update active clip displayed in scene buttons. */
 	WM_main_add_notifier(NC_SCENE, scene);
 
-	printf("free multiview reconstruction context\n");
 	BKE_tracking_multiview_reconstruction_context_free(smj->context);
+	printf("free multiview reconstruction context\n");
 	MEM_freeN(smj);
 }
 

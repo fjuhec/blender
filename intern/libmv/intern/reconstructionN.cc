@@ -40,10 +40,15 @@
 #include "libmv/autotrack/region.h"
 #include "libmv/autotrack/tracks.h"
 
+// TODO(tianwei): still rely on simple_pipeline/callback for now, will be removed
+#include "libmv/simple_pipeline/callbacks.h"
+
 using mv::Tracks;
+using mv::Marker;
 using mv::Reconstruction;
 
 using libmv::CameraIntrinsics;
+using libmv::ProgressUpdateCallback;
 
 struct libmv_ReconstructionN {
 	mv::Reconstruction reconstruction;
@@ -56,37 +61,99 @@ struct libmv_ReconstructionN {
 	bool is_valid;
 };
 
+namespace {
+class MultiviewReconstructUpdateCallback : public ProgressUpdateCallback {
+public:
+	MultiviewReconstructUpdateCallback(
+	        multiview_reconstruct_progress_update_cb progress_update_callback,
+	        void *callback_customdata) {
+		progress_update_callback_ = progress_update_callback;
+		callback_customdata_ = callback_customdata;
+	}
+
+	void invoke(double progress, const char* message) {
+		if (progress_update_callback_) {
+			progress_update_callback_(callback_customdata_, progress, message);
+		}
+	}
+protected:
+	multiview_reconstruct_progress_update_cb progress_update_callback_;
+	void* callback_customdata_;
+};
+
+void mv_getNormalizedTracks(const Tracks &tracks,
+                            const CameraIntrinsics &camera_intrinsics,
+                            Tracks *normalized_tracks)
+{
+	libmv::vector<Marker> markers = tracks.markers();
+	for (int i = 0; i < markers.size(); ++i) {
+		Marker &marker = markers[i];
+		double normalized_x, normalized_y;
+		camera_intrinsics.InvertIntrinsics(marker.center[0], marker.center[1],
+		                                   &normalized_x, &normalized_y);
+		// TODO(tianwei): put the normalized value in marker instead? is this supposed to be like this?
+		marker.center[0] = normalized_x, marker.center[1] = normalized_y;
+		normalized_tracks->AddMarker(marker);
+	}
+}
+
+}	// end of anonymous namespace
+
+void libmv_reconstructionNDestroy(libmv_ReconstructionN* libmv_reconstructionN)
+{
+	LIBMV_OBJECT_DELETE(libmv_reconstructionN->intrinsics, CameraIntrinsics);
+	LIBMV_OBJECT_DELETE(libmv_reconstructionN, libmv_ReconstructionN);
+}
+
 libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
         const libmv_TracksN **all_libmv_tracks,
-        const libmv_CameraIntrinsicsOptions *libmv_camera_intrinsics_options,
+        const libmv_CameraIntrinsicsOptions *all_libmv_camera_intrinsics_options,
         libmv_MultiviewReconstructionOptions *libmv_reconstruction_options,
-        reconstruct_progress_update_cb progress_update_callback,
+        multiview_reconstruct_progress_update_cb progress_update_callback,
         void* callback_customdata)
 {
-	//libmv_ReconstructionN *libmv_reconstruction =
-	//        LIBMV_OBJECT_NEW(libmv_ReconstructionN);
+	libmv_ReconstructionN **all_libmv_reconstruction = LIBMV_STRUCT_NEW(libmv_ReconstructionN*, clip_num);
+	libmv::vector<Marker> keyframe_markers;
+	int keyframe1, keyframe2;
+	for(int i = 0; i < clip_num; i++)
+	{
+		all_libmv_reconstruction[i] = LIBMV_OBJECT_NEW(libmv_ReconstructionN);
+		Tracks &tracks = *((Tracks *) all_libmv_tracks[i]);
+		Reconstruction &reconstruction = all_libmv_reconstruction[i]->reconstruction;
 
-	//Tracks &tracks = *((Tracks *) libmv_tracks);
-	//EuclideanReconstruction &reconstruction =
-	//        libmv_reconstruction->reconstruction;
+		///* Retrieve reconstruction options from C-API to libmv API. */
+		CameraIntrinsics *camera_intrinsics;
+		camera_intrinsics = all_libmv_reconstruction[i]->intrinsics =
+		        libmv_cameraIntrinsicsCreateFromOptions(&all_libmv_camera_intrinsics_options[i]);
+		printf("camera %d size: %d, %d\n", i, camera_intrinsics->image_width(), camera_intrinsics->image_height());
 
-	//ReconstructUpdateCallback update_callback =
-	//        ReconstructUpdateCallback(progress_update_callback,
-	//                                  callback_customdata);
+		///* Invert the camera intrinsics/ */
+		Tracks normalized_tracks;
+		mv_getNormalizedTracks(tracks, *camera_intrinsics, &normalized_tracks);
 
-	///* Retrieve reconstruction options from C-API to libmv API. */
-	//CameraIntrinsics *camera_intrinsics;
-	//camera_intrinsics = libmv_reconstruction->intrinsics =
-	//        libmv_cameraIntrinsicsCreateFromOptions(libmv_camera_intrinsics_options);
+		if(i == 0)		// key frame from primary camera
+		{
+			///* keyframe selection. */
+			keyframe1 = libmv_reconstruction_options->keyframe1, keyframe2 = libmv_reconstruction_options->keyframe2;
+			normalized_tracks.GetMarkersForTracksInBothImages(i, keyframe1, i, keyframe2, &keyframe_markers);
 
-	///* Invert the camera intrinsics/ */
-	//Tracks normalized_tracks;
-	//libmv_getNormalizedTracks(tracks, *camera_intrinsics, &normalized_tracks);
+		}
+	}
 
-	///* keyframe selection. */
-	//int keyframe1 = libmv_reconstruction_options->keyframe1,
-	//        keyframe2 = libmv_reconstruction_options->keyframe2;
+	printf("frames to init from: %d %d\n", keyframe1, keyframe2);
+	printf("number of markers for init: %d\n", keyframe_markers.size());
+	if (keyframe_markers.size() < 8) {
+		LG << "No enough markers to initialize from";
+		all_libmv_reconstruction[0]->is_valid = false;
+		return all_libmv_reconstruction;
+	}
 
+	// create multiview reconstruct update callback
+	MultiviewReconstructUpdateCallback update_callback =
+	        MultiviewReconstructUpdateCallback(progress_update_callback,
+	                                           callback_customdata);
+
+	// TODO(tianwei): skip the automatic keyframe selection
 	//if (libmv_reconstruction_options->select_keyframes) {
 	//	LG << "Using automatic keyframe selection";
 
@@ -104,20 +171,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	//}
 
 	///* Actual reconstruction. */
-	//LG << "frames to init from: " << keyframe1 << " " << keyframe2;
-
-	//libmv::vector<Marker> keyframe_markers =
-	//        normalized_tracks.MarkersForTracksInBothImages(keyframe1, keyframe2);
-
-	//LG << "number of markers for init: " << keyframe_markers.size();
-
-	//if (keyframe_markers.size() < 8) {
-	//	LG << "No enough markers to initialize from";
-	//	libmv_reconstruction->is_valid = false;
-	//	return libmv_reconstruction;
-	//}
-
-	//update_callback.invoke(0, "Initial reconstruction");
+	update_callback.invoke(0, "Initial reconstruction");
 
 	//EuclideanReconstructTwoFrames(keyframe_markers, &reconstruction);
 	//EuclideanBundle(normalized_tracks, &reconstruction);
@@ -149,6 +203,5 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 
 	//libmv_reconstruction->is_valid = true;
 
-	//return (libmv_Reconstruction *) libmv_reconstruction;
-	return (libmv_ReconstructionN**) NULL;
+	return all_libmv_reconstruction;
 }

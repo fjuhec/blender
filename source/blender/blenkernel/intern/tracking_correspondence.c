@@ -110,11 +110,11 @@ static int multiview_refine_intrinsics_get_flags(MovieTracking *tracking, MovieT
 }
 
 /* Create new libmv Tracks structure from blender's tracks list. */
-static struct libmv_Tracks *libmv_multiview_tracks_new(MovieClip *clip, ListBase *tracksbase, int width, int height)
+static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int clip_id, ListBase *tracksbase, int width, int height)
 {
 	int tracknr = 0;
 	MovieTrackingTrack *track;
-	struct libmv_Tracks *tracks = libmv_tracksNew();
+	struct libmv_TracksN *tracks = libmv_tracksNewN();
 
 	track = tracksbase->first;
 	while (track) {
@@ -136,10 +136,44 @@ static struct libmv_Tracks *libmv_multiview_tracks_new(MovieClip *clip, ListBase
 					weight = evaluate_fcurve(weight_fcurve, scene_framenr);
 				}
 
-				libmv_tracksInsert(tracks, marker->framenr, tracknr,
-				                   (marker->pos[0] + track->offset[0]) * width,
-				                   (marker->pos[1] + track->offset[1]) * height,
-				                   weight);
+				libmv_Marker libmv_marker;
+				libmv_marker.clip = clip_id;
+				libmv_marker.frame = marker->framenr;
+				libmv_marker.track = tracknr;
+				libmv_marker.center[0] = (marker->pos[0] + track->offset[0]) * width;
+				libmv_marker.center[1] = (marker->pos[1] + track->offset[1]) * height;
+				for(int i = 0; i < 4; i++)
+				{
+					libmv_marker.patch[i][0] = marker->pattern_corners[i][0];
+					libmv_marker.patch[i][1] = marker->pattern_corners[i][1];
+				}
+				for(int i = 0; i < 2; i++)
+				{
+					libmv_marker.search_region_min[i] = marker->search_min[i];
+					libmv_marker.search_region_max[i] = marker->search_max[i];
+				}
+				libmv_marker.weight = weight;
+
+				// the following the unused in the current pipeline
+				// TODO(tianwei): figure out how to fill in reference clip and frame
+				if (marker->flag & MARKER_TRACKED) {
+					libmv_marker.source = LIBMV_MARKER_SOURCE_TRACKED;
+				}
+				else {
+					libmv_marker.source = LIBMV_MARKER_SOURCE_MANUAL;
+				}
+				libmv_marker.status = LIBMV_MARKER_STATUS_UNKNOWN;
+				libmv_marker.reference_clip = clip_id;
+				libmv_marker.reference_frame = -1;
+
+				libmv_marker.model_type = LIBMV_MARKER_MODEL_TYPE_POINT;
+				libmv_marker.model_id = 0;
+				libmv_marker.disabled_channels =
+				        ((track->flag & TRACK_DISABLE_RED)   ? LIBMV_MARKER_CHANNEL_R : 0) |
+				        ((track->flag & TRACK_DISABLE_GREEN) ? LIBMV_MARKER_CHANNEL_G : 0) |
+				        ((track->flag & TRACK_DISABLE_BLUE)  ? LIBMV_MARKER_CHANNEL_B : 0);
+
+				libmv_tracksAddMarkerN(tracks, &libmv_marker);
 			}
 		}
 
@@ -167,7 +201,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 	                                                        "MRC data");
 	// alloc memory for the field members
 	context->all_tracks = MEM_callocN(num_clips * sizeof(libmv_TracksN*), "MRC libmv_Tracks");
-	context->all_reconstruction = MEM_callocN(num_clips * sizeof(struct libmv_ReconstructionN*), "MRC libmv_Reconstruction");
+	context->all_reconstruction = MEM_callocN(num_clips * sizeof(struct libmv_ReconstructionN*), "MRC libmv reconstructions");
 	context->all_tracks_map = MEM_callocN(num_clips * sizeof(TracksMap*), "MRC TracksMap");
 	context->all_camera_intrinsics_options = MEM_callocN(num_clips * sizeof(libmv_CameraIntrinsicsOptions), "MRC camera intrinsics");
 	context->all_sfra = MEM_callocN(num_clips * sizeof(int), "MRC start frames");
@@ -187,7 +221,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 		if(i == 0)
 			printf("%d tracks in the primary clip\n", num_tracks);
 		else
-			printf("%d tracks in the witness camera %d", num_tracks, i);
+			printf("%d tracks in the witness camera %d\n", num_tracks, i);
 		int sfra = INT_MAX, efra = INT_MIN;
 		MovieTrackingTrack *track;
 
@@ -239,7 +273,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 		}
 		context->all_sfra[i] = sfra;
 		context->all_efra[i] = efra;
-		context->all_tracks[i] = libmv_multiview_tracks_new(clip, tracksbase, width, height * aspy);
+		context->all_tracks[i] = libmv_multiview_tracks_new(clip, i, tracksbase, width, height * aspy);
 	}
 
 	return context;
@@ -250,11 +284,12 @@ void BKE_tracking_multiview_reconstruction_context_free(MovieMultiviewReconstruc
 {
 	for(int i = 0; i < context->clip_num; i++)
 	{
-		libmv_tracksDestroy(context->all_tracks[i]);
+		libmv_tracksDestroyN(context->all_tracks[i]);
 		if (context->all_reconstruction[i])
-			libmv_reconstructionDestroy(context->all_reconstruction[i]);
+			libmv_reconstructionNDestroy(context->all_reconstruction[i]);
 		tracks_map_free(context->all_tracks_map[i], NULL);
 	}
+	printf("free per clip context");
 	MEM_freeN(context->all_tracks);
 	MEM_freeN(context->all_reconstruction);
 	MEM_freeN(context->all_camera_intrinsics_options);
@@ -326,11 +361,12 @@ void BKE_tracking_multiview_reconstruction_solve(MovieMultiviewReconstructContex
 		//                                           multiview_reconstruct_update_solve_cb, &progressdata);
 	}
 	else {
-		context->all_reconstruction = libmv_solveMultiviewReconstruction(context->clip_num,
-		                                                                 context->all_tracks,
-		                                                                 context->all_camera_intrinsics_options,
-		                                                                 &reconstruction_options,
-		                                                                 multiview_reconstruct_update_solve_cb, &progressdata);
+		context->all_reconstruction = libmv_solveMultiviewReconstruction(
+		                                  context->clip_num,
+		                                  (const libmv_TracksN **) context->all_tracks,
+		                                  (const libmv_CameraIntrinsicsOptions *) context->all_camera_intrinsics_options,
+		                                  &reconstruction_options,
+		                                  multiview_reconstruct_update_solve_cb, &progressdata);
 
 		if (context->select_keyframes) {
 			/* store actual keyframes used for reconstruction to update them in the interface later */
