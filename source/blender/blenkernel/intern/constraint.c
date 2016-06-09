@@ -46,6 +46,7 @@
 #include "BLT_translation.h"
 
 #include "DNA_armature_types.h"
+#include "DNA_cachefile_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
@@ -84,6 +85,10 @@
 
 #ifdef WITH_PYTHON
 #  include "BPY_extern.h"
+#endif
+
+#ifdef WITH_ALEMBIC
+#	include "ABC_alembic.h"
 #endif
 
 /* ---------------------------------------------------------------------------- */
@@ -4334,10 +4339,6 @@ static bConstraintTypeInfo CTI_OBJECTSOLVER = {
 };
 
 /* ----------- Transform Cache ------------- */
-
-#ifdef WITH_ALEMBIC
-#include "ABC_alembic.h"
-#endif
 
 static void transformcache_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata)
 {

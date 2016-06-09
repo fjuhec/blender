@@ -4230,18 +4230,6 @@ static void rna_def_modifier_meshcache(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
-static void RNA_def_cachefile(BlenderRNA *brna)
-{
-	StructRNA *srna = RNA_def_struct(brna, "CacheFile", "ID");
-	RNA_def_struct_sdna(srna, "CacheFile");
-	RNA_def_struct_ui_text(srna, "CacheFile", "");
-	RNA_def_struct_ui_icon(srna, ICON_FILE);
-
-	PropertyRNA *prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
-	RNA_def_property_ui_text(prop, "File Path", "Path to external displacements file");
-	RNA_def_property_update(prop, 0, NULL);
-}
-
 static void rna_def_modifier_meshseqcache(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -4745,9 +4733,6 @@ void RNA_def_modifier(BlenderRNA *brna)
 	                         "on filled curve/surface");
 	RNA_def_property_ui_icon(prop, ICON_SURFACE_DATA, 0);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	// XXX
-	RNA_def_cachefile(brna);
 
 	/* types */
 	rna_def_modifier_subsurf(brna);

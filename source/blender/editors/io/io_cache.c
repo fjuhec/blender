@@ -24,7 +24,7 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_modifier_types.h"
+#include "DNA_cachefile_types.h"
 #include "DNA_space_types.h"
 
 #include "BLI_path_util.h"
