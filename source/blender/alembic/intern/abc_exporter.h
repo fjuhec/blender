@@ -28,6 +28,8 @@
 #include "abc_object.h"
 #include "abc_transform.h"
 
+class EvaluationContext;
+
 class AbcExporter {
 	ExportSettings &m_settings;
 
@@ -37,7 +39,6 @@ class AbcExporter {
 	unsigned int m_trans_sampling_index, m_shape_sampling_index;
 
 	Scene *m_scene;
-	double m_saved_frame;
 
 	std::map<std::string, AbcTransformWriter *> m_xforms;
 	std::vector<AbcObjectWriter *> m_shapes;
@@ -46,11 +47,7 @@ public:
 	AbcExporter(Scene *scene, const char *filename, ExportSettings &settings);
 	~AbcExporter();
 
-	void operator()(float &progress);
-
-protected:
-	double getCurrentFrame() const;
-	void setCurrentFrame(double t);
+	void operator()(Main *bmain, float &progress);
 
 private:
 	void getShutterSamples(double step, bool time_relative, std::vector<double> &samples);
@@ -59,16 +56,18 @@ private:
 
 	void getFrameSet(double step, std::set<double> &frames);
 
-	void createTransformWritersHierarchy();
+	void createTransformWritersHierarchy(EvaluationContext *eval_ctx);
 	void createTransformWritersFlat();
 	void createTransformWriter(Object *ob,  Object *parent, Object *dupliObParent);
-	void exploreTransform(Object *ob, Object *parent, Object *dupliObParent = NULL);
-	void exploreObject(Object *ob, Object *dupliObParent);
-	void createShapeWriters();
+	void exploreTransform(EvaluationContext *eval_ctx, Object *ob, Object *parent, Object *dupliObParent = NULL);
+	void exploreObject(EvaluationContext *eval_ctx, Object *ob, Object *dupliObParent);
+	void createShapeWriters(EvaluationContext *eval_ctx);
 	void createShapeWriter(Object *ob, Object *dupliObParent);
 
 	AbcTransformWriter *getXForm(const std::string &name);
 
 	bool objectIsShape(Object *ob);
 	bool objectIsSmokeSim(Object *ob);
+
+	void setCurrentFrame(Main *bmain, double t);
 };

@@ -65,7 +65,6 @@ AbcExporter::AbcExporter(Scene *scene, const char *filename, ExportSettings &set
     : m_settings(settings)
     , m_filename(filename)
     , m_scene(scene)
-    , m_saved_frame(getCurrentFrame())
 {}
 
 AbcExporter::~AbcExporter()
@@ -75,10 +74,6 @@ AbcExporter::~AbcExporter()
 
 	for (int i = 0, e = m_shapes.size(); i != e; ++i) {
 		delete m_shapes[i];
-	}
-
-	if (getCurrentFrame() != m_saved_frame) {
-		setCurrentFrame(m_saved_frame);
 	}
 }
 
@@ -141,15 +136,15 @@ void AbcExporter::getFrameSet(double step, std::set<double> &frames)
 	}
 }
 
-void AbcExporter::operator()(float &progress)
+void AbcExporter::operator()(Main *bmain, float &progress)
 {
 	/* Create archive here */
 	std::string scene_name;
 
-	if (G.main->name[0] != '\0') {
-		char sceneFileName[FILE_MAX];
-		BLI_strncpy(sceneFileName, G.main->name, FILE_MAX);
-		scene_name = sceneFileName;
+	if (bmain->name[0] != '\0') {
+		char scene_file_name[FILE_MAX];
+		BLI_strncpy(scene_file_name, bmain->name, FILE_MAX);
+		scene_name = scene_file_name;
 	}
 	else {
 		scene_name = "untitled";
@@ -199,10 +194,10 @@ void AbcExporter::operator()(float &progress)
 		createTransformWritersFlat();
 	}
 	else {
-		createTransformWritersHierarchy();
+		createTransformWritersHierarchy(bmain->eval_ctx);
 	}
 
-	createShapeWriters();
+	createShapeWriters(bmain->eval_ctx);
 
 	/* make a list of frames to export */
 	std::set<double> xform_frames;
@@ -227,7 +222,7 @@ void AbcExporter::operator()(float &progress)
 		progress = (++i / size);
 
 		double f = *begin;
-		setCurrentFrame(f);
+		setCurrentFrame(bmain, f);
 
 		if (shape_frames.count(f) != 0) {
 			for (int i = 0, e = m_shapes.size(); i != e; ++i) {
@@ -256,7 +251,7 @@ void AbcExporter::operator()(float &progress)
 	}
 }
 
-void AbcExporter::createTransformWritersHierarchy()
+void AbcExporter::createTransformWritersHierarchy(EvaluationContext *eval_ctx)
 {
 	Base *base = static_cast<Base *>(m_scene->base.first);
 
@@ -273,7 +268,7 @@ void AbcExporter::createTransformWritersHierarchy()
 					break;
 
 				default:
-					exploreTransform(ob, ob->parent, NULL);
+					exploreTransform(eval_ctx, ob, ob->parent, NULL);
 			}
 		}
 
@@ -297,11 +292,11 @@ void AbcExporter::createTransformWritersFlat()
 	}
 }
 
-void AbcExporter::exploreTransform(Object *ob, Object *parent, Object *dupliObParent)
+void AbcExporter::exploreTransform(EvaluationContext *eval_ctx, Object *ob, Object *parent, Object *dupliObParent)
 {
 	createTransformWriter(ob, parent, dupliObParent);
 
-	ListBase *lb = object_duplilist(G.main->eval_ctx, m_scene, ob);
+	ListBase *lb = object_duplilist(eval_ctx, m_scene, ob);
 
 	if (lb) {
 		DupliObject *link = static_cast<DupliObject *>(lb->first);
@@ -309,15 +304,12 @@ void AbcExporter::exploreTransform(Object *ob, Object *parent, Object *dupliObPa
 		Object *dupli_parent = NULL;
 		
 		while (link) {
-			dupli_ob = link->ob;
+			if (link->type == OB_DUPLIGROUP) {
+				dupli_ob = link->ob;
+				dupli_parent = (dupli_ob->parent) ? dupli_ob->parent : ob;
 
-			if (dupli_ob->parent)
-				dupli_parent = dupli_ob->parent;
-			else
-				dupli_parent = ob;
-
-			if (link->type == OB_DUPLIGROUP)
-				exploreTransform(dupli_ob, dupli_parent, ob);
+				exploreTransform(eval_ctx, dupli_ob, dupli_parent, ob);
+			}
 
 			link = link->next;
 		}
@@ -363,21 +355,21 @@ void AbcExporter::createTransformWriter(Object *ob, Object *parent, Object *dupl
 	}
 }
 
-void AbcExporter::createShapeWriters()
+void AbcExporter::createShapeWriters(EvaluationContext *eval_ctx)
 {
 	Base *base = static_cast<Base *>(m_scene->base.first);
 
 	while (base) {
 		Object *ob = base->object;
-		exploreObject(ob, NULL);
+		exploreObject(eval_ctx, ob, NULL);
 
 		base = base->next;
 	}
 }
 
-void AbcExporter::exploreObject(Object *ob, Object *dupliObParent)
+void AbcExporter::exploreObject(EvaluationContext *eval_ctx, Object *ob, Object *dupliObParent)
 {
-	ListBase *lb = object_duplilist(G.main->eval_ctx, m_scene, ob);
+	ListBase *lb = object_duplilist(eval_ctx, m_scene, ob);
 	
 	createShapeWriter(ob, dupliObParent);
 	
@@ -389,7 +381,7 @@ void AbcExporter::exploreObject(Object *ob, Object *dupliObParent)
 			dupliob = link->ob;
 
 			if (link->type == OB_DUPLIGROUP) {
-				exploreObject(dupliob, ob);
+				exploreObject(eval_ctx, dupliob, ob);
 			}
 
 			link = link->next;
@@ -516,16 +508,11 @@ AbcTransformWriter *AbcExporter::getXForm(const std::string &name)
 	return it->second;
 }
 
-double AbcExporter::getCurrentFrame() const
-{
-	return m_scene->r.cfra + m_scene->r.subframe;
-}
-
-void AbcExporter::setCurrentFrame(double t)
+void AbcExporter::setCurrentFrame(Main *bmain, double t)
 {
 	m_scene->r.cfra = std::floor(t);
 	m_scene->r.subframe = t - m_scene->r.cfra;
-	BKE_scene_update_for_newframe(G.main->eval_ctx, G.main, m_scene, (1<<20)-1);
+	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, m_scene, m_scene->lay);
 }
 
 bool AbcExporter::objectIsShape(Object *ob)

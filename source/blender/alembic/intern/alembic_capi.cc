@@ -46,6 +46,8 @@ extern "C" {
 #include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_library.h"
+#include "BKE_main.h"
+#include "BKE_scene.h"
 
 /* SpaceType struct has a member called 'new' which obviously conflicts with C++
  * so temporarily redefining the new keyword to make it compile. */
@@ -242,6 +244,7 @@ int ABC_check_subobject_valid(const char *filepath, const char *object_path)
 
 struct ExportJobData {
 	Scene *scene;
+	Main *bmain;
 
 	char filename[1024];
 	ExportSettings settings;
@@ -266,8 +269,19 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
 	BKE_spacedata_draw_locks(true);
 
 	try {
-		AbcExporter exporter(data->scene, data->filename, data->settings);
-		exporter(*data->progress);
+		Scene *scene = data->scene;
+		AbcExporter exporter(scene, data->filename, data->settings);
+
+		const int orig_frame = CFRA;
+
+		exporter(data->bmain, *data->progress);
+
+		if (CFRA != orig_frame) {
+			CFRA = orig_frame;
+
+			BKE_scene_update_for_newframe(data->bmain->eval_ctx, data->bmain,
+			                              scene, scene->lay);
+		}
 	}
 	catch (const std::exception &e) {
 		std::cerr << "Abc Export error: " << e.what() << '\n';
@@ -299,6 +313,7 @@ int ABC_export(Scene *scene, bContext *C, const char *filepath,
 {
 	ExportJobData *job = static_cast<ExportJobData *>(MEM_mallocN(sizeof(ExportJobData), "ExportJobData"));
 	job->scene = scene;
+	job->bmain = CTX_data_main(C);
 	BLI_strncpy(job->filename, filepath, 1024);
 
 	job->settings.scene = job->scene;
