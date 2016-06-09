@@ -57,6 +57,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "GPU_glew.h"
+#include "GPU_buffers.h"
 #include "GPU_shader.h"
 #include "GPU_basic_shader.h"
 
@@ -1180,6 +1181,10 @@ static void emDM_drawMappedFaces(
 
 	/* if non zero we know a face was rendered */
 	if (poly_prev != GL_ZERO) glEnd();
+
+	if (draw_option_prev == DM_DRAW_OPTION_STIPPLE) {
+		GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
+	}
 }
 
 static void bmdm_get_tri_uv(BMLoop *ltri[3], MLoopUV *luv[3], const int cd_loop_uv_offset)
@@ -1405,6 +1410,24 @@ static void emDM_drawMappedFacesTex(
 	emDM_drawFacesTex_common(dm, NULL, setDrawOptions, compareDrawOptions, userData);
 }
 
+static void emdm_pass_attrib_update_uniforms(const DMVertexAttribs *attribs)
+{
+	int i;
+	if (attribs->totorco) {
+		glUniform1i(attribs->orco.gl_info_index, 0);
+	}
+	for (i = 0; i < attribs->tottface; i++) {
+		glUniform1i(attribs->tface[i].gl_info_index, 0);
+	}
+	for (i = 0; i < attribs->totmcol; i++) {
+		glUniform1i(attribs->mcol[i].gl_info_index, GPU_ATTR_INFO_SRGB);
+	}
+
+	for (i = 0; i < attribs->tottang; i++) {
+		glUniform1i(attribs->tang[i].gl_info_index, 0);
+	}
+}
+
 /**
  * \note
  *
@@ -1449,15 +1472,15 @@ static void emdm_pass_attrib_vertex_glsl(const DMVertexAttribs *attribs, const B
 			glVertexAttrib2fv(attribs->tface[i].gl_index, uv);
 	}
 	for (i = 0; i < attribs->totmcol; i++) {
-		GLubyte col[4];
+		float col[4];
 		if (attribs->mcol[i].em_offset != -1) {
 			const MLoopCol *cp = BM_ELEM_CD_GET_VOID_P(loop, attribs->mcol[i].em_offset);
-			copy_v4_v4_uchar(col, &cp->r);
+			rgba_uchar_to_float(col, &cp->r);
 		}
 		else {
-			col[0] = 0; col[1] = 0; col[2] = 0; col[3] = 0;
+			col[0] = 0.0f; col[1] = 0.0f; col[2] = 0.0f; col[3] = 0.0f;
 		}
-		glVertexAttrib4ubv(attribs->mcol[i].gl_index, col);
+		glVertexAttrib4fv(attribs->mcol[i].gl_index, col);
 	}
 
 	for (i = 0; i < attribs->tottang; i++) {
@@ -1527,6 +1550,7 @@ static void emDM_drawMappedFacesGLSL(
 			do_draw = setMaterial(matnr = new_matnr, &gattribs);
 			if (do_draw) {
 				DM_vertex_attributes_from_gpu(dm, &gattribs, &attribs);
+				emdm_pass_attrib_update_uniforms(&attribs);
 				if (UNLIKELY(attribs.tottang && bm->elem_index_dirty & BM_LOOP)) {
 					BM_mesh_elem_index_ensure(bm, BM_LOOP);
 				}

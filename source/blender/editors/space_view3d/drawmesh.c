@@ -369,15 +369,18 @@ static bool set_draw_settings_cached(int clearcache, MTexPoly *texface, Material
 	}
 
 	if (c_badtex) lit = 0;
-	if (lit != c_lit || ma != c_ma) {
+	if (lit != c_lit || ma != c_ma || textured != c_textured) {
+		int options = GPU_SHADER_USE_COLOR;
+
+		if (c_textured && !c_badtex) {
+			options |= GPU_SHADER_TEXTURE_2D;
+		}
+		if (gtexdraw.two_sided_lighting) {
+			options |= GPU_SHADER_TWO_SIDED;
+		}
+
 		if (lit) {
-			int options = GPU_SHADER_LIGHTING | GPU_SHADER_USE_COLOR;
-
-			if (gtexdraw.two_sided_lighting)
-				options |= GPU_SHADER_TWO_SIDED;
-			if (c_textured && !c_badtex)
-				options |= GPU_SHADER_TEXTURE_2D;
-
+			options |= GPU_SHADER_LIGHTING;
 			if (!ma)
 				ma = give_current_material_or_def(NULL, 0);  /* default material */
 
@@ -385,11 +388,9 @@ static bool set_draw_settings_cached(int clearcache, MTexPoly *texface, Material
 			mul_v3_v3fl(specular, &ma->specr, ma->spec);
 
 			GPU_basic_shader_colors(NULL, specular, ma->har, 1.0f);
-			GPU_basic_shader_bind(options);
 		}
-		else {
-			GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
-		}
+
+		GPU_basic_shader_bind(options);
 
 		c_lit = lit;
 		c_ma = ma;
@@ -1194,7 +1195,8 @@ void draw_mesh_textured(Scene *scene, View3D *v3d, RegionView3D *rv3d,
 		set_face_cb = NULL;
 
 	/* test if we can use glsl */
-	bool glsl = (v3d->drawtype == OB_MATERIAL) && !picking;
+	const int drawtype = view3d_effective_drawtype(v3d);
+	bool glsl = (drawtype == OB_MATERIAL) && !picking;
 
 	GPU_begin_object_materials(v3d, rv3d, scene, ob, glsl, NULL);
 

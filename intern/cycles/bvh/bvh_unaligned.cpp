@@ -79,10 +79,10 @@ bool BVHUnaligned::compute_aligned_space(const BVHReference& ref,
 		const int curve_index = ref.prim_index();
 		const int segment = PRIMITIVE_UNPACK_SEGMENT(packed_type);
 		const Mesh *mesh = object->mesh;
-		const Mesh::Curve& curve = mesh->curves[curve_index];
+		const Mesh::Curve& curve = mesh->get_curve(curve_index);
 		const int key = curve.first_key + segment;
-		const float3 v1 = float4_to_float3(mesh->curve_keys[key]),
-		             v2 = float4_to_float3(mesh->curve_keys[key + 1]);
+		const float3 v1 = mesh->curve_keys[key],
+		             v2 = mesh->curve_keys[key + 1];
 		float length;
 		const float3 axis = normalize_len(v2 - v1, &length);
 		if(length > 1e-6f) {
@@ -106,8 +106,12 @@ BoundBox BVHUnaligned::compute_aligned_prim_boundbox(
 		const int curve_index = prim.prim_index();
 		const int segment = PRIMITIVE_UNPACK_SEGMENT(packed_type);
 		const Mesh *mesh = object->mesh;
-		const Mesh::Curve& curve = mesh->curves[curve_index];
-		curve.bounds_grow(segment, &mesh->curve_keys[0], aligned_space, bounds);
+		const Mesh::Curve& curve = mesh->get_curve(curve_index);
+		curve.bounds_grow(segment,
+		                  &mesh->curve_keys[0],
+		                  &mesh->curve_radius[0],
+		                  aligned_space,
+		                  bounds);
 	}
 	else {
 		bounds = prim.bounds().transformed(&aligned_space);
