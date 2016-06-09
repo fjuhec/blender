@@ -348,6 +348,7 @@ class IMAGE_MT_uvs(Menu):
         layout.operator("uv.mark_seam", text="Clear Seam").clear = True
         layout.operator("uv.seams_from_islands")
         layout.operator("mesh.faces_mirror_uv")
+        layout.operator("uv.scale_to_bounds")
 
         layout.separator()
 

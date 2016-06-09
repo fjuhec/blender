@@ -750,6 +750,17 @@ bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm, bool to
 	return path_found; 
 }
 
+/* ******************** Scale To Bounds operator **************** */
+void ED_uvedit_scale_to_bounds(Scene *scene, Object *ob, BMesh *bm)
+{
+	ParamHandle *handle;
+	int hparams = set_handle_params(true, false, true, true, false);
+	handle = construct_param_handle(scene, ob, bm, hparams);
+	param_scale_bounds(handle);
+	param_flush(handle);
+	param_delete(handle);
+}
+
 /* ******************** Pack Islands operator **************** */
 
 void ED_uvedit_pack_islands(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect, bool do_rotate)

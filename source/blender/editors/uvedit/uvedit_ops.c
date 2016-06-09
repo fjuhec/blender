@@ -1617,6 +1617,99 @@ static void UV_OT_select_shortest_path(wmOperatorType *ot)
 	/* properties */
 	RNA_def_boolean(ot->srna, "topological_distance", 0, "Topological Distance", "Find the minimum number of steps, ignoring spatial distance");
 }
+/* ******************** scale to bounds operator **************** */
+
+static int uv_scale_to_bounds_exec(bContext *C, wmOperator *op)
+{
+	Scene *scene = CTX_data_scene(C);
+	Object *obedit = CTX_data_edit_object(C);
+	Image *ima = CTX_data_edit_image(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+
+	BMFace *efa;
+	BMLoop *l;
+	BMIter iter, liter;
+	MLoopUV *luv;
+	MTexPoly *tf;
+	float dx, dy, min[2], max[2];
+
+	const bool keep_aspect = RNA_boolean_get(op->ptr, "keep_aspect_ratio");
+	const bool individual = RNA_boolean_get(op->ptr, "individual_islands");
+
+	const int cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
+	const int cd_poly_tex_offset = CustomData_get_offset(&em->bm->pdata, CD_MTEXPOLY);
+	
+	if (individual){
+		ED_uvedit_scale_to_bounds(scene, obedit, bm);
+
+		return OPERATOR_FINISHED;
+	}
+
+	INIT_MINMAX2(min, max);
+
+	BM_ITER_MESH(efa, &iter, bm, BM_FACES_OF_MESH) {
+		tf = BM_ELEM_CD_GET_VOID_P(efa, cd_poly_tex_offset);
+
+		if (!uvedit_face_visible_test(scene, ima, efa, tf) || !uvedit_face_select_test(scene, efa, cd_loop_uv_offset))
+			continue;
+
+		BM_ITER_ELEM(l, &liter, efa, BM_LOOPS_OF_FACE) {
+			MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
+			minmax_v2v2_v2(min, max, luv->uv);
+		}
+	}
+
+	/* rescale UV to be in 1/1 */
+	dx = (max[0] - min[0]);
+	dy = (max[1] - min[1]);
+
+	if (dx > 0.0f)
+		dx = 1.0f / dx;
+	if (dy > 0.0f)
+		dy = 1.0f / dy;
+
+	if (keep_aspect) {
+		if (dx >= dy) dx = dy;
+		else if (dy > dx) dy = dx;
+	}
+
+	BM_ITER_MESH(efa, &iter, bm, BM_FACES_OF_MESH) {
+		tf = BM_ELEM_CD_GET_VOID_P(efa, cd_poly_tex_offset);
+
+		if (!uvedit_face_visible_test(scene, ima, efa, tf) || !uvedit_face_select_test(scene, efa, cd_loop_uv_offset))
+			continue;
+
+		BM_ITER_ELEM(l, &liter, efa, BM_LOOPS_OF_FACE) {
+			MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
+
+			luv->uv[0] = (luv->uv[0] - min[0]) * dx;
+			luv->uv[1] = (luv->uv[1] - min[1]) * dy;
+		}
+	}
+
+	DAG_id_tag_update(obedit->data, 0);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+
+	return OPERATOR_FINISHED;
+}
+
+static void UV_OT_scale_to_bounds(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Scale To Bounds";
+	ot->description = "Scale the selection to fit UV boundaries";
+	ot->idname = "UV_OT_scale_to_bounds";
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* api callbacks */
+	ot->exec = uv_scale_to_bounds_exec;
+	ot->poll = ED_operator_uvedit;
+
+	/* properties */
+	RNA_def_boolean(ot->srna, "keep_aspect_ratio", 1, "Keep Aspect Ratio", "Keep the current aspect ratio of the selection");
+	RNA_def_boolean(ot->srna, "individual_islands", 0, "Individual", "Scale individual islands or the selection as a whole");
+}
 
 /* ******************** align operator **************** */
 
@@ -4397,6 +4490,7 @@ void ED_operatortypes_uvedit(void)
 	WM_operatortype_append(UV_OT_snap_cursor);
 	WM_operatortype_append(UV_OT_snap_selected);
 
+	WM_operatortype_append(UV_OT_scale_to_bounds);
 	WM_operatortype_append(UV_OT_align);
 
 	WM_operatortype_append(UV_OT_stitch);
