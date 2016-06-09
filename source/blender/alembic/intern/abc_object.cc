@@ -196,7 +196,7 @@ void AbcObjectWriter::writeArrayProperty(IDProperty *p, const OCompoundProperty 
 {
 	std::string name(p->name);
 
-	switch(p->subtype) {
+	switch (p->subtype) {
 		case IDP_INT:
 		{
 			OInt32ArrayProperty op(abcProps, name);
@@ -220,8 +220,7 @@ void AbcObjectWriter::writeArrayProperty(IDProperty *p, const OCompoundProperty 
 
 void AbcObjectWriter::writeProperty(IDProperty *p, const std::string &name, const OCompoundProperty &abcProps)
 {
-	/* TODO: check this... */
-	switch(p->type) {
+	switch (p->type) {
 		case IDP_STRING:
 		{
 			OStringProperty op(abcProps, name);
@@ -260,7 +259,7 @@ void AbcObjectWriter::writeProperty(IDProperty *p, const std::string &name, cons
 
 void AbcObjectWriter::writeGeomProperty(IDProperty *p, const std::string &name, const OCompoundProperty &abcProps)
 {
-	switch(p->type) {
+	switch (p->type) {
 		case IDP_STRING:
 		{
 			std::string val = IDP_String(p);
@@ -319,7 +318,7 @@ bool AbcObjectWriter::getPropertyValue(ID *id, const std::string &name, double &
 	IDProperty *prop = IDP_GetPropertyFromGroup(idgroup, name.c_str());
 
 	if (prop) {
-		switch(prop->type) {
+		switch (prop->type) {
 			case IDP_FLOAT:
 				val = IDP_Float(prop);
 				return true;

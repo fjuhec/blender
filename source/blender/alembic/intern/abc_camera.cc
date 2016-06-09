@@ -101,8 +101,8 @@ void AbcCameraWriter::do_write()
 		m_camera_sample.setFocusDistance(cam->gpu_dof.focus_distance);
 	}
 
-	/* blender camera does not have an fstop param, so try to find a custom prop
-	 * instead */
+	/* Blender camera does not have an fstop param, so try to find a custom prop
+	 * instead. */
 	m_camera_sample.setFStop(cam->gpu_dof.fstop);
 
 	m_camera_sample.setLensSqueezeRatio(1.0);

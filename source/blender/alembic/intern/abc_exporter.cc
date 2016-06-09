@@ -46,7 +46,7 @@ extern "C" {
 
 #ifdef WIN32
 /* needed for MSCV because of snprintf from BLI_string */
-#include "BLI_winstuff.h"
+#	include "BLI_winstuff.h"
 #endif
 
 #include "BKE_anim.h"
@@ -138,7 +138,6 @@ void AbcExporter::getFrameSet(double step, std::set<double> &frames)
 
 void AbcExporter::operator()(Main *bmain, float &progress)
 {
-	/* Create archive here */
 	std::string scene_name;
 
 	if (bmain->name[0] != '\0') {
@@ -170,7 +169,8 @@ void AbcExporter::operator()(Main *bmain, float &progress)
 		                                               scene_name, Alembic::Abc::ErrorHandler::kThrowPolicy, arg);
 	}
 
-	/* Create time samplings for transforms and shapes */
+	/* Create time samplings for transforms and shapes. */
+
 	TimeSamplingPtr trans_time = createTimeSampling(m_settings.xform_frame_step);
 
 	m_trans_sampling_index = m_archive.addTimeSampling(*trans_time);
@@ -199,18 +199,20 @@ void AbcExporter::operator()(Main *bmain, float &progress)
 
 	createShapeWriters(bmain->eval_ctx);
 
-	/* make a list of frames to export */
+	/* Make a list of frames to export. */
+
 	std::set<double> xform_frames;
 	getFrameSet(m_settings.xform_frame_step, xform_frames);
 
 	std::set<double> shape_frames;
 	getFrameSet(m_settings.shape_frame_step, shape_frames);
 
-	/* merge all frames needed */
+	/* Merge all frames needed. */
+
 	std::set<double> frames(xform_frames);
 	frames.insert(shape_frames.begin(), shape_frames.end());
 
-	/* export all frames */
+	/* Export all frames. */
 
 	std::set<double>::const_iterator begin = frames.begin();
 	std::set<double>::const_iterator end = frames.end();
@@ -264,7 +266,7 @@ void AbcExporter::createTransformWritersHierarchy(EvaluationContext *eval_ctx)
 				case OB_LATTICE:
 				case OB_MBALL:
 				case OB_SPEAKER:
-					/* we do not export transforms for objects of these classes */
+					/* We do not export transforms for objects of these classes. */
 					break;
 
 				default:
@@ -417,7 +419,7 @@ void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 	ID *id = reinterpret_cast<ID *>(ob);
 	IDProperty *xport_props = IDP_GetProperties(id, 0);
 
-	/* Check for special export object flags */
+	/* Check for special export object flags. */
 	if (xport_props) {
 		IDProperty *enable_prop = IDP_GetPropertyFromGroup(xport_props, "abc_hair");
 		if (enable_prop) {
