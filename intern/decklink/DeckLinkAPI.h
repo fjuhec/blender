@@ -35,24 +35,22 @@
 /* Include the OS specific Declink headers */
 
 #ifdef WIN32
-	#include <windows.h>
-	#include <objbase.h>
-	#include <comutil.h>
-	#include "win/DeckLinkAPI_h.h"
-    typedef unsigned int   dl_size_t;
+#  include <windows.h>
+#  include <objbase.h>
+#  include <comutil.h>
+#  include "win/DeckLinkAPI_h.h"
+	typedef unsigned int   dl_size_t;
 #elif defined(__APPLE__)
-    #error "Decklink not supported in OSX"
+#  error "Decklink not supported in OSX"
 #else
-    #include "linux/DeckLinkAPI.h"
-    /* Windows COM API uses BOOL, linux uses bool */
-    #define BOOL bool
-    typedef uint32_t    dl_size_t;
+#  include "linux/DeckLinkAPI.h"
+	/* Windows COM API uses BOOL, linux uses bool */
+#  define BOOL bool
+	typedef uint32_t    dl_size_t;
 #endif
-
-
 
 
 /* OS independent function to get the device iterator */
 IDeckLinkIterator* BMD_CreateDeckLinkIterator(void);
 
-#endif
+#endif  /* __DECKLINKAPI_H__ */

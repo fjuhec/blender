@@ -81,11 +81,9 @@ DVPStatus dvpGetLibrayVersion(uint32_t *major, uint32_t *minor)
 DVPStatus dvpInitGLContext(uint32_t flags)
 {
 	DVPStatus status;
-	if (!__dvpLibrary)
-    {
+	if (!__dvpLibrary) {
 		__dvpLibrary = BLI_dynlib_open(KDVPAPI_Name);
-		if (!__dvpLibrary)
-		{
+		if (!__dvpLibrary) {
 			return DVP_STATUS_ERROR;
 		}
 //		"?dvpInitGLContext@@YA?AW4DVPStatus@@I@Z";
@@ -129,19 +127,21 @@ DVPStatus dvpInitGLContext(uint32_t flags)
 			!__dvpGetRequiredConstantsGLCtx ||
 			!__dvpCreateGPUTextureGL ||
 			!__dvpUnbindFromGLCtx)
-		   return DVP_STATUS_ERROR;
+		{
+			return DVP_STATUS_ERROR;
+		}
 		// check that the library version is what we want
 		if ((status = __dvpGetLibrayVersion(&__dvpMajorVersion, &__dvpMinorVersion)) != DVP_STATUS_OK)
 			return status;
 		if (__dvpMajorVersion != DVP_MAJOR_VERSION || __dvpMinorVersion < DVP_MINOR_VERSION)
 			return DVP_STATUS_ERROR;
-    }
-    return (!__dvpInitGLContext) ? DVP_STATUS_ERROR : __dvpInitGLContext(flags);
+	}
+	return (!__dvpInitGLContext) ? DVP_STATUS_ERROR : __dvpInitGLContext(flags);
 }
 
 DVPStatus dvpCloseGLContext(void)
 {
-   return (!__dvpCloseGLContext) ? DVP_STATUS_ERROR : __dvpCloseGLContext();
+	return (!__dvpCloseGLContext) ? DVP_STATUS_ERROR : __dvpCloseGLContext();
 }
 
 #endif // WIN32

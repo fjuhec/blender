@@ -96,8 +96,8 @@ public:
 
 	/// release video source
 	virtual bool release (void);
-    /// overwrite base refresh to handle fixed image
-    virtual void refresh(void);
+	/// overwrite base refresh to handle fixed image
+	virtual void refresh(void);
 	/// play video
 	virtual bool play (void);
 	/// pause video
@@ -193,7 +193,7 @@ public:
 	virtual ULONG STDMETHODCALLTYPE		Release(void);
 
 	// IDeckLinkMemoryAllocator methods
-    virtual HRESULT STDMETHODCALLTYPE	AllocateBuffer(dl_size_t bufferSize, void* *allocatedBuffer);
+	virtual HRESULT STDMETHODCALLTYPE	AllocateBuffer(dl_size_t bufferSize, void* *allocatedBuffer);
 	virtual HRESULT STDMETHODCALLTYPE	ReleaseBuffer(void* buffer);
 	virtual HRESULT STDMETHODCALLTYPE	Commit();
 	virtual HRESULT STDMETHODCALLTYPE	Decommit();

@@ -54,24 +54,23 @@
 typedef uint64_t DVPBufferHandle;
 typedef uint64_t DVPSyncObjectHandle;
 
-typedef enum
-{
-    DVP_STATUS_OK                        =  0, 
-    DVP_STATUS_INVALID_PARAMETER         =  1,
-    DVP_STATUS_UNSUPPORTED               =  2,
-    DVP_STATUS_END_ENUMERATION           =  3,
-    DVP_STATUS_INVALID_DEVICE            =  4,
-    DVP_STATUS_OUT_OF_MEMORY             =  5,
-    DVP_STATUS_INVALID_OPERATION         =  6,
-    DVP_STATUS_TIMEOUT                   =  7,
-    DVP_STATUS_INVALID_CONTEXT           =  8,
-    DVP_STATUS_INVALID_RESOURCE_TYPE     =  9,
-    DVP_STATUS_INVALID_FORMAT_OR_TYPE    =  10,
-    DVP_STATUS_DEVICE_UNINITIALIZED      =  11,
-    DVP_STATUS_UNSIGNALED                =  12,
-    DVP_STATUS_SYNC_ERROR                =  13,
-    DVP_STATUS_SYNC_STILL_BOUND          =  14,
-    DVP_STATUS_ERROR                     = -1, 
+typedef enum {
+	DVP_STATUS_OK                        =  0, 
+	DVP_STATUS_INVALID_PARAMETER         =  1,
+	DVP_STATUS_UNSUPPORTED               =  2,
+	DVP_STATUS_END_ENUMERATION           =  3,
+	DVP_STATUS_INVALID_DEVICE            =  4,
+	DVP_STATUS_OUT_OF_MEMORY             =  5,
+	DVP_STATUS_INVALID_OPERATION         =  6,
+	DVP_STATUS_TIMEOUT                   =  7,
+	DVP_STATUS_INVALID_CONTEXT           =  8,
+	DVP_STATUS_INVALID_RESOURCE_TYPE     =  9,
+	DVP_STATUS_INVALID_FORMAT_OR_TYPE    =  10,
+	DVP_STATUS_DEVICE_UNINITIALIZED      =  11,
+	DVP_STATUS_UNSIGNALED                =  12,
+	DVP_STATUS_SYNC_ERROR                =  13,
+	DVP_STATUS_SYNC_STILL_BOUND          =  14,
+	DVP_STATUS_ERROR                     = -1, 
 } DVPStatus;
 
 // Pixel component formats stored in the system memory buffer
@@ -83,74 +82,72 @@ typedef enum
 // for the transformation. The CUDA types are to be used when
 // copying to/from a system memory buffer from-to a CUDA array, as the 
 // CUDA array implies a memory layout that matches the array.
-typedef enum
-{
-    DVP_BUFFER,                   // Buffer treated as a raw buffer 
-                                  // and copied directly into GPU buffer
-                                  // without any interpretation of the
-                                  // stored bytes.
-    DVP_DEPTH_COMPONENT,
-    DVP_RGBA,
-    DVP_BGRA,
-    DVP_RED,
-    DVP_GREEN,
-    DVP_BLUE,
-    DVP_ALPHA,
-    DVP_RGB,
-    DVP_BGR,
-    DVP_LUMINANCE,
-    DVP_LUMINANCE_ALPHA,
-    DVP_CUDA_1_CHANNEL,
-    DVP_CUDA_2_CHANNELS,
-    DVP_CUDA_4_CHANNELS,
-    DVP_RGBA_INTEGER,
-    DVP_BGRA_INTEGER,
-    DVP_RED_INTEGER,
-    DVP_GREEN_INTEGER,
-    DVP_BLUE_INTEGER,
-    DVP_ALPHA_INTEGER,
-    DVP_RGB_INTEGER,
-    DVP_BGR_INTEGER,
-    DVP_LUMINANCE_INTEGER,
-    DVP_LUMINANCE_ALPHA_INTEGER,
+typedef enum {
+	DVP_BUFFER,                   // Buffer treated as a raw buffer 
+	                              // and copied directly into GPU buffer
+	                              // without any interpretation of the
+	                              // stored bytes.
+	DVP_DEPTH_COMPONENT,
+	DVP_RGBA,
+	DVP_BGRA,
+	DVP_RED,
+	DVP_GREEN,
+	DVP_BLUE,
+	DVP_ALPHA,
+	DVP_RGB,
+	DVP_BGR,
+	DVP_LUMINANCE,
+	DVP_LUMINANCE_ALPHA,
+	DVP_CUDA_1_CHANNEL,
+	DVP_CUDA_2_CHANNELS,
+	DVP_CUDA_4_CHANNELS,
+	DVP_RGBA_INTEGER,
+	DVP_BGRA_INTEGER,
+	DVP_RED_INTEGER,
+	DVP_GREEN_INTEGER,
+	DVP_BLUE_INTEGER,
+	DVP_ALPHA_INTEGER,
+	DVP_RGB_INTEGER,
+	DVP_BGR_INTEGER,
+	DVP_LUMINANCE_INTEGER,
+	DVP_LUMINANCE_ALPHA_INTEGER,
 } DVPBufferFormats;
 
 // Possible pixel component storage types for system memory buffers
-typedef enum
-{
-    DVP_UNSIGNED_BYTE,
-    DVP_BYTE,
-    DVP_UNSIGNED_SHORT,
-    DVP_SHORT,
-    DVP_UNSIGNED_INT,
-    DVP_INT,
-    DVP_FLOAT,
-    DVP_HALF_FLOAT,
-    DVP_UNSIGNED_BYTE_3_3_2,
-    DVP_UNSIGNED_BYTE_2_3_3_REV,
-    DVP_UNSIGNED_SHORT_5_6_5,
-    DVP_UNSIGNED_SHORT_5_6_5_REV,
-    DVP_UNSIGNED_SHORT_4_4_4_4,
-    DVP_UNSIGNED_SHORT_4_4_4_4_REV,
-    DVP_UNSIGNED_SHORT_5_5_5_1,
-    DVP_UNSIGNED_SHORT_1_5_5_5_REV,
-    DVP_UNSIGNED_INT_8_8_8_8,
-    DVP_UNSIGNED_INT_8_8_8_8_REV,
-    DVP_UNSIGNED_INT_10_10_10_2,
-    DVP_UNSIGNED_INT_2_10_10_10_REV,
+typedef enum {
+	DVP_UNSIGNED_BYTE,
+	DVP_BYTE,
+	DVP_UNSIGNED_SHORT,
+	DVP_SHORT,
+	DVP_UNSIGNED_INT,
+	DVP_INT,
+	DVP_FLOAT,
+	DVP_HALF_FLOAT,
+	DVP_UNSIGNED_BYTE_3_3_2,
+	DVP_UNSIGNED_BYTE_2_3_3_REV,
+	DVP_UNSIGNED_SHORT_5_6_5,
+	DVP_UNSIGNED_SHORT_5_6_5_REV,
+	DVP_UNSIGNED_SHORT_4_4_4_4,
+	DVP_UNSIGNED_SHORT_4_4_4_4_REV,
+	DVP_UNSIGNED_SHORT_5_5_5_1,
+	DVP_UNSIGNED_SHORT_1_5_5_5_REV,
+	DVP_UNSIGNED_INT_8_8_8_8,
+	DVP_UNSIGNED_INT_8_8_8_8_REV,
+	DVP_UNSIGNED_INT_10_10_10_2,
+	DVP_UNSIGNED_INT_2_10_10_10_REV,
 } DVPBufferTypes;
 
 // System memory descriptor describing the size and storage formats
 // of the buffer
 typedef struct DVPSysmemBufferDescRec {
-    uint32_t width;                     // Buffer Width
-    uint32_t height;                    // Buffer Height
-    uint32_t stride;                    // Stride
-    uint32_t size;                      // Specifies the surface size if 
-                                        // format == DVP_BUFFER
-    DVPBufferFormats format;            // see enum above
-    DVPBufferTypes type;                // see enum above
-    void *bufAddr;                      // Buffer memory address
+	uint32_t width;                     // Buffer Width
+	uint32_t height;                    // Buffer Height
+	uint32_t stride;                    // Stride
+	uint32_t size;                      // Specifies the surface size if 
+	                                    // format == DVP_BUFFER
+	DVPBufferFormats format;            // see enum above
+	DVPBufferTypes type;                // see enum above
+	void *bufAddr;                      // Buffer memory address
 } DVPSysmemBufferDesc;
 
 // Flags specified at sync object creation:
@@ -164,22 +161,22 @@ typedef struct DVPSysmemBufferDescRec {
 #define DVP_SYNC_OBJECT_FLAGS_USE_EVENTS      0x00000001
 
 typedef struct DVPSyncObjectDescRec {
-    uint32_t *sem;               // Location to write semaphore value
-    uint32_t  flags;             // See above DVP_SYNC_OBJECT_FLAGS_* bits
-    DVPStatus (*externalClientWaitFunc) (DVPSyncObjectHandle sync, 
-                                         uint32_t value,
-                                         bool GEQ, // If true then the function should wait for the sync value to be 
-                                                   // greater than or equal to the value parameter. Otherwise just a
-                                                   // straight forward equality comparison should be performed.
-                                         uint64_t timeout);
-                                         // If non-null, externalClientWaitFunc allows the DVP library
-                                         // to call the application to wait for a sync object to be
-                                         // released. This allows the application to create events, 
-                                         // which can be triggered on device interrupts instead of
-                                         // using spin loops inside the DVP library. Upon succeeding
-                                         // the function must return DVP_STATUS_OK, non-zero for failure 
-                                         // and DVP_STATUS_TIMEOUT on timeout. The externalClientWaitFunc should
-                                         // not alter the current GL or CUDA context state
+	uint32_t *sem;               // Location to write semaphore value
+	uint32_t  flags;             // See above DVP_SYNC_OBJECT_FLAGS_* bits
+	DVPStatus (*externalClientWaitFunc) (DVPSyncObjectHandle sync, 
+	                                     uint32_t value,
+	                                     bool GEQ, // If true then the function should wait for the sync value to be 
+	                                               // greater than or equal to the value parameter. Otherwise just a
+	                                               // straight forward equality comparison should be performed.
+	                                     uint64_t timeout);
+	                                     // If non-null, externalClientWaitFunc allows the DVP library
+	                                     // to call the application to wait for a sync object to be
+	                                     // released. This allows the application to create events, 
+	                                     // which can be triggered on device interrupts instead of
+	                                     // using spin loops inside the DVP library. Upon succeeding
+	                                     // the function must return DVP_STATUS_OK, non-zero for failure 
+	                                     // and DVP_STATUS_TIMEOUT on timeout. The externalClientWaitFunc should
+	                                     // not alter the current GL or CUDA context state
 } DVPSyncObjectDesc;
 
 // Time used when event timeouts should be ignored

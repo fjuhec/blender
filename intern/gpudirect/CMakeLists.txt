@@ -25,6 +25,7 @@
 
 set(INC
 	.
+	# XXX, bad level include!
 	../../source/blender/blenlib
 )
 

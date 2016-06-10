@@ -40,6 +40,8 @@
 // this is necessary for UINTPTR_MAX (used by atomic-ops)
 #ifndef __STDC_LIMIT_MACROS
 #define __STDC_LIMIT_MACROS
+#ifdef __STDC_LIMIT_MACROS  /* else it may be unused */
+#endif
 #endif
 #include <stdint.h>
 #include <string.h>
@@ -138,10 +140,8 @@ public:
 		mAllocatedSize = allocatedSize;
 		mBuffer = address;
 
-		try
-		{
-			if (!mBufferAddrAlignment)
-			{
+		try {
+			if (!mBufferAddrAlignment) {
 				DVP_CHECK(dvpGetRequiredConstantsGLCtx(&mBufferAddrAlignment, &mBufferGpuStrideAlignment,
 					&mSemaphoreAddrAlignment, &mSemaphoreAllocSize,
 					&mSemaphorePayloadOffset, &mSemaphorePayloadSize));
@@ -151,32 +151,30 @@ public:
 			sysMemBuffersDesc.width = pDesc->width;
 			sysMemBuffersDesc.height = pDesc->height;
 			sysMemBuffersDesc.stride = pDesc->stride;
-			switch (pDesc->format) 
-			{
-			case GL_RED_INTEGER:
-				sysMemBuffersDesc.format = DVP_RED_INTEGER;
-				break;
-			default:
-				sysMemBuffersDesc.format = DVP_BGRA;
-				break;
+			switch (pDesc->format) {
+				case GL_RED_INTEGER:
+					sysMemBuffersDesc.format = DVP_RED_INTEGER;
+					break;
+				default:
+					sysMemBuffersDesc.format = DVP_BGRA;
+					break;
 			}
-			switch (pDesc->type)
-			{
-			case GL_UNSIGNED_BYTE:
-				sysMemBuffersDesc.type = DVP_UNSIGNED_BYTE;
-				break;
-			case GL_UNSIGNED_INT_2_10_10_10_REV:
-				sysMemBuffersDesc.type = DVP_UNSIGNED_INT_2_10_10_10_REV;
-				break;
-			case GL_UNSIGNED_INT_8_8_8_8:
-				sysMemBuffersDesc.type = DVP_UNSIGNED_INT_8_8_8_8;
-				break;
-			case GL_UNSIGNED_INT_10_10_10_2:
-				sysMemBuffersDesc.type = DVP_UNSIGNED_INT_10_10_10_2;
-				break;
-			default:
-				sysMemBuffersDesc.type = DVP_UNSIGNED_INT;
-				break;
+			switch (pDesc->type) {
+				case GL_UNSIGNED_BYTE:
+					sysMemBuffersDesc.type = DVP_UNSIGNED_BYTE;
+					break;
+				case GL_UNSIGNED_INT_2_10_10_10_REV:
+					sysMemBuffersDesc.type = DVP_UNSIGNED_INT_2_10_10_10_REV;
+					break;
+				case GL_UNSIGNED_INT_8_8_8_8:
+					sysMemBuffersDesc.type = DVP_UNSIGNED_INT_8_8_8_8;
+					break;
+				case GL_UNSIGNED_INT_10_10_10_2:
+					sysMemBuffersDesc.type = DVP_UNSIGNED_INT_10_10_10_2;
+					break;
+				default:
+					sysMemBuffersDesc.type = DVP_UNSIGNED_INT;
+					break;
 			}
 			sysMemBuffersDesc.size = pDesc->width * pDesc->height * 4;
 			sysMemBuffersDesc.bufAddr = mBuffer;
@@ -185,8 +183,7 @@ public:
 			mDvpTextureHandle = dvpTextureHandle;
 			mTextureHeight = pDesc->height;
 		}
-		catch (Exception &)
-		{
+		catch (Exception &) {
 			clean();
 			throw;
 		}
@@ -224,8 +221,7 @@ private:
 
 	void clean()
 	{
-		if (mDvpSysMemHandle)
-		{
+		if (mDvpSysMemHandle) {
 			dvpUnbindFromGLCtx(mDvpSysMemHandle);
 			dvpDestroyBuffer(mDvpSysMemHandle);
 		}
@@ -306,14 +302,14 @@ private:
 class TextureTransferPMD : public TextureTransfer
 {
 public:
-    TextureTransferPMD(GLuint texId, TextureDesc *pDesc, void *address, uint32_t allocatedSize)
+	TextureTransferPMD(GLuint texId, TextureDesc *pDesc, void *address, uint32_t allocatedSize)
 	{
 		memcpy(&mDesc, pDesc, sizeof(mDesc));
 		mTexId = texId;
 		mBuffer = address;
-        mAllocatedSize = allocatedSize;
+		mAllocatedSize = allocatedSize;
 
-        _PinBuffer(address, allocatedSize);
+		_PinBuffer(address, allocatedSize);
 
 		// as we cache transfer object, we will create one texture to hold the buffer
 		glGenBuffers(1, &mPinnedTextureBuffer);
@@ -335,7 +331,7 @@ public:
 		glBindTexture(GL_TEXTURE_2D, mTexId);
 		// NULL for last arg indicates use current GL_PIXEL_UNPACK_BUFFER target as texture data
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mDesc.width, mDesc.height, mDesc.format, mDesc.type, NULL);
-        // wait for the trasnfer to complete
+		// wait for the trasnfer to complete
 		GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 		glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 40 * 1000 * 1000);	// timeout in nanosec
 		glDeleteSync(fence);
@@ -405,20 +401,18 @@ bool PinnedMemoryAllocator::ReserveMemory(size_t size)
 		return false;
 	mReservedProcessMemory = size;
 	CloseHandle(hProcess);
-    return true;
+	return true;
 #else
-    struct rlimit rlim;
-    if (getrlimit(RLIMIT_MEMLOCK, &rlim) == 0)
-    {
-        if (rlim.rlim_cur < size)
-        {
-            if (rlim.rlim_max < size)
-                rlim.rlim_max = size;
-            rlim.rlim_cur = size;
-            return !setrlimit(RLIMIT_MEMLOCK, &rlim);
-        }
-    }
-    return false;
+	struct rlimit rlim;
+	if (getrlimit(RLIMIT_MEMLOCK, &rlim) == 0) {
+		if (rlim.rlim_cur < size) {
+			if (rlim.rlim_max < size)
+				rlim.rlim_max = size;
+			rlim.rlim_cur = size;
+			return !setrlimit(RLIMIT_MEMLOCK, &rlim);
+		}
+	}
+	return false;
 #endif
 }
 
@@ -432,22 +426,19 @@ mBufferCacheSize(cacheSize)
 {
 	pthread_mutex_init(&mMutex, NULL);
 	// do it once
-	if (!mGPUDirectInitialized)
-	{
+	if (!mGPUDirectInitialized) {
 #ifdef WIN32
 		// In windows, AMD_pinned_memory option is not available, 
 		// we must use special DVP API only available for Quadro cards
 		const char* renderer = (const char *)glGetString(GL_RENDERER);
 		mHasDvp = (strstr(renderer, "Quadro") != NULL);
 
-		if (mHasDvp)
-		{
-            // In case the DLL is not in place, don't fail, just fallback on OpenGL
-            if (dvpInitGLContext(DVP_DEVICE_FLAGS_SHARE_APP_CONTEXT) != DVP_STATUS_OK)
-            {
-                printf("Warning: Could not initialize DVP context, fallback on OpenGL transfer.\nInstall dvp.dll to take advantage of nVidia GPUDirect.\n");
-                mHasDvp = false;
-            }
+		if (mHasDvp) {
+			// In case the DLL is not in place, don't fail, just fallback on OpenGL
+			if (dvpInitGLContext(DVP_DEVICE_FLAGS_SHARE_APP_CONTEXT) != DVP_STATUS_OK) {
+				printf("Warning: Could not initialize DVP context, fallback on OpenGL transfer.\nInstall dvp.dll to take advantage of nVidia GPUDirect.\n");
+				mHasDvp = false;
+			}
 		}
 #endif
 		if (GLEW_AMD_pinned_memory)
@@ -455,8 +446,7 @@ mBufferCacheSize(cacheSize)
 
 		mGPUDirectInitialized = true;
 	}
-	if (mHasDvp || mHasAMDPinnedMemory)
-	{
+	if (mHasDvp || mHasAMDPinnedMemory) {
 		ReserveMemory(memSize);
 	}
 }
@@ -465,15 +455,13 @@ PinnedMemoryAllocator::~PinnedMemoryAllocator()
 {
 	void *address;
 	// first clean the cache if not already done
-	while (!mBufferCache.empty())
-	{
+	while (!mBufferCache.empty()) {
 		address = mBufferCache.back();
 		mBufferCache.pop_back();
 		_ReleaseBuffer(address);
 	}
 	// clean preallocated buffers
-	while (!mAllocatedSize.empty())
-	{
+	while (!mAllocatedSize.empty()) {
 		address = mAllocatedSize.begin()->first;
 		_ReleaseBuffer(address);
 	}
@@ -531,12 +519,10 @@ void PinnedMemoryAllocator::TransferBuffer(void* address, TextureDesc* texDesc, 
 			pTransfer = new TextureTransferDvp(mDvpCaptureTextureHandle, texDesc, address, allocatedSize);
 		else
 #endif
-		if (mHasAMDPinnedMemory)
-		{
-            pTransfer = new TextureTransferPMD(texId, texDesc, address, allocatedSize);
+		if (mHasAMDPinnedMemory) {
+			pTransfer = new TextureTransferPMD(texId, texDesc, address, allocatedSize);
 		}
-		else
-		{
+		else {
 			pTransfer = new TextureTransferOGL(texId, texDesc, address);
 		}
 		if (pTransfer)
@@ -558,13 +544,13 @@ HRESULT STDMETHODCALLTYPE	PinnedMemoryAllocator::QueryInterface(REFIID /*iid*/, 
 
 ULONG STDMETHODCALLTYPE		PinnedMemoryAllocator::AddRef(void)
 {
-    return atomic_add_uint32(&mRefCount, 1U);
+	return atomic_add_uint32(&mRefCount, 1U);
 }
 
 ULONG STDMETHODCALLTYPE		PinnedMemoryAllocator::Release(void)
 {
 	uint32_t newCount = atomic_sub_uint32(&mRefCount, 1U);
-    if (newCount == 0)
+	if (newCount == 0)
 		delete this;
 	return (ULONG)newCount;
 }
@@ -577,12 +563,11 @@ HRESULT STDMETHODCALLTYPE	PinnedMemoryAllocator::AllocateBuffer(dl_size_t buffer
 	{
 		// Allocate memory on a page boundary
 		// Note: aligned alloc exist in Blender but only for small alignment, use direct allocation then.
-        // Note: the DeckLink API tries to allocate up to 65 buffer in advance, we will limit this to 3
+		// Note: the DeckLink API tries to allocate up to 65 buffer in advance, we will limit this to 3
 		//       because we don't need any caching
-        if (mAllocatedSize.size() >= mBufferCacheSize)
+		if (mAllocatedSize.size() >= mBufferCacheSize)
 			*allocatedBuffer = NULL;
-		else 
-		{
+		else {
 #ifdef WIN32
 			*allocatedBuffer = VirtualAlloc(NULL, bufferSize, MEM_COMMIT | MEM_RESERVE | MEM_WRITE_WATCH, PAGE_READWRITE);
 #else
@@ -592,8 +577,7 @@ HRESULT STDMETHODCALLTYPE	PinnedMemoryAllocator::AllocateBuffer(dl_size_t buffer
 			mAllocatedSize[*allocatedBuffer] = bufferSize;
 		}
 	}
-	else
-	{
+	else {
 		// Re-use most recently ReleaseBuffer'd address
 		*allocatedBuffer = mBufferCache.back();
 		mBufferCache.pop_back();
@@ -606,12 +590,10 @@ HRESULT STDMETHODCALLTYPE PinnedMemoryAllocator::ReleaseBuffer(void* buffer)
 {
 	HRESULT result = S_OK;
 	Lock();
-	if (mBufferCache.size() < mBufferCacheSize)
-	{
+	if (mBufferCache.size() < mBufferCacheSize) {
 		mBufferCache.push_back(buffer);
 	}
-	else
-	{
+	else {
 		result = _ReleaseBuffer(buffer);
 	}
 	Unlock();
@@ -622,16 +604,13 @@ HRESULT STDMETHODCALLTYPE PinnedMemoryAllocator::ReleaseBuffer(void* buffer)
 HRESULT PinnedMemoryAllocator::_ReleaseBuffer(void* buffer)
 {
 	TextureTransfer *pTransfer;
-	if (mAllocatedSize.count(buffer) == 0)
-	{
+	if (mAllocatedSize.count(buffer) == 0) {
 		// Internal error!!
 		return S_OK;
 	}
-	else
-	{
+	else {
 		// No room left in cache, so un-pin (if it was pinned) and free this buffer
-		if (mPinnedBuffer.count(buffer) > 0)
-		{
+		if (mPinnedBuffer.count(buffer) > 0) {
 			pTransfer = mPinnedBuffer[buffer];
 			mPinnedBuffer.erase(buffer);
 			delete pTransfer;
@@ -655,8 +634,7 @@ HRESULT STDMETHODCALLTYPE	PinnedMemoryAllocator::Decommit()
 {
 	void *buffer;
 	Lock();
-	while (!mBufferCache.empty())
-	{
+	while (!mBufferCache.empty()) {
 		// Cleanup any frames allocated and pinned in AllocateBuffer() but not freed in ReleaseBuffer()
 		buffer = mBufferCache.back();
 		mBufferCache.pop_back();
@@ -677,13 +655,11 @@ CaptureDelegate::CaptureDelegate(VideoDeckLink* pOwner) : mpOwner(pOwner)
 
 HRESULT	CaptureDelegate::VideoInputFrameArrived(IDeckLinkVideoInputFrame* inputFrame, IDeckLinkAudioInputPacket* /*audioPacket*/)
 {
-	if (!inputFrame)
-	{
+	if (!inputFrame) {
 		// It's possible to receive a NULL inputFrame, but a valid audioPacket. Ignore audio-only frame.
 		return S_OK;
 	}
-	if ((inputFrame->GetFlags() & bmdFrameHasNoInputSource) == bmdFrameHasNoInputSource)
-	{
+	if ((inputFrame->GetFlags() & bmdFrameHasNoInputSource) == bmdFrameHasNoInputSource) {
 		// let's not bother transferring frames if there is no source
 		return S_OK;
 	}
@@ -739,8 +715,8 @@ VideoDeckLink::~VideoDeckLink ()
 		mDLInput->StopStreams();
 		mDLInput->SetCallback(NULL);
 		mDLInput->DisableVideoInput();
-        mDLInput->DisableAudioInput();
-        mDLInput->FlushStreams();
+		mDLInput->DisableAudioInput();
+		mDLInput->FlushStreams();
 		if (mDLInput->Release() != 0)
 			THRWEXCP(DeckLinkInternalError, S_OK);
 		mDLInput = NULL;
@@ -762,7 +738,7 @@ VideoDeckLink::~VideoDeckLink ()
 
 void VideoDeckLink::refresh(void)
 {
-    m_avail = false;
+	m_avail = false;
 }
 
 // release components
@@ -808,12 +784,10 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	// "HD1080p24/10BitRGB/3D"  (same as "24ps/r210/3D")
 	// (this will be the normal capture format for FullHD on the DeckLink 4k extreme)
 
-	if ((pSize = strchr(format, ':')) != NULL)
-	{
+	if ((pSize = strchr(format, ':')) != NULL) {
 		cacheSize = strtol(pSize+1, &pEnd, 10);
 	}
-	else
-	{
+	else {
 		cacheSize = 8;
 		pSize = format + strlen(format);
 	}
@@ -827,23 +801,21 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 
 	// read the mode
 	len = (size_t)(pPixel - format);
-    // accept integer display mode
+	// accept integer display mode
 
-    try
-    {
-        // throws if bad mode
-        decklink_ReadDisplayMode(format, len, &mDisplayMode);
-        // found a valid mode, remember that we do not look for an index
-        modeIdx = -1;
-    }
-    catch (Exception &)
-    {
-        // accept also purely numerical mode as a mode index
-        modeIdx = strtol(format, &pEnd, 10);
-        if (pEnd != pPixel || modeIdx < 0)
-            // not a pure number, give up
-            throw;
-    }
+	try {
+		// throws if bad mode
+		decklink_ReadDisplayMode(format, len, &mDisplayMode);
+		// found a valid mode, remember that we do not look for an index
+		modeIdx = -1;
+	}
+	catch (Exception &) {
+		// accept also purely numerical mode as a mode index
+		modeIdx = strtol(format, &pEnd, 10);
+		if (pEnd != pPixel || modeIdx < 0)
+			// not a pure number, give up
+			throw;
+	}
 
 	// skip /
 	pPixel++;
@@ -854,13 +826,10 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	// Caution: DeckLink API used from this point, make sure entity are released before throwing
 	// open the card
 	pIterator = BMD_CreateDeckLinkIterator();
-	if (pIterator) 
-	{
+	if (pIterator)  {
 		i = 0;
-		while (pIterator->Next(&pDL) == S_OK) 
-		{
-			if (i == camIdx) 
-			{
+		while (pIterator->Next(&pDL) == S_OK) {
+			if (i == camIdx) {
 				if (pDL->QueryInterface(IID_IDeckLinkInput, (void**)&mDLInput) != S_OK)
 					mDLInput = NULL;
 				pDL->Release();
@@ -882,22 +851,24 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	pDLDisplayMode = NULL;
 	displayFlags = (mUse3D) ? bmdDisplayModeSupports3D : 0;
 	inputFlags = (mUse3D) ? bmdVideoInputDualStream3D : bmdVideoInputFlagDefault;
-    while (pDLDisplayModeIterator->Next(&pDLDisplayMode) == S_OK)
+	while (pDLDisplayModeIterator->Next(&pDLDisplayMode) == S_OK)
 	{
-        if (modeIdx == 0 || pDLDisplayMode->GetDisplayMode() == mDisplayMode)
-        {
-            // in case we get here because of modeIdx, make sure we have mDisplayMode set
-            mDisplayMode = pDLDisplayMode->GetDisplayMode();
-            if (   (pDLDisplayMode->GetFlags() & displayFlags) == displayFlags
-                && mDLInput->DoesSupportVideoMode(mDisplayMode, mPixelFormat, inputFlags, &modeSupport, NULL) == S_OK
-                && modeSupport == bmdDisplayModeSupported)
-                break;
-        }
+		if (modeIdx == 0 || pDLDisplayMode->GetDisplayMode() == mDisplayMode) {
+			// in case we get here because of modeIdx, make sure we have mDisplayMode set
+			mDisplayMode = pDLDisplayMode->GetDisplayMode();
+			if ((pDLDisplayMode->GetFlags() & displayFlags) == displayFlags &&
+			    mDLInput->DoesSupportVideoMode(mDisplayMode, mPixelFormat, inputFlags, &modeSupport, NULL) == S_OK &&
+			    modeSupport == bmdDisplayModeSupported)
+			{
+				break;
+			}
+		}
 		pDLDisplayMode->Release();
 		pDLDisplayMode = NULL;
-        if (modeIdx-- == 0)
-            // reached the correct mode index but it does not meet the pixel format, give up
-            break;
+		if (modeIdx-- == 0) {
+			// reached the correct mode index but it does not meet the pixel format, give up
+			break;
+		}
 	}
 	pDLDisplayModeIterator->Release();
 
@@ -912,7 +883,7 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	// for information, in case the application wants to know
 	m_size[0] = mFrameWidth;
 	m_size[1] = mTextureDesc.height;
-    m_frameRate = (float)frameTimescale / (float)frameDuration;
+	m_frameRate = (float)frameTimescale / (float)frameDuration;
 
 	switch (mPixelFormat)
 	{
@@ -987,15 +958,15 @@ void VideoDeckLink::openCam (char *format, short camIdx)
 	if (mDLInput->SetVideoInputFrameMemoryAllocator(mpAllocator) != S_OK)
 		THRWEXCP(DeckLinkInternalError, S_OK);
 
-    mpCaptureDelegate = new CaptureDelegate(this);
-    if (mDLInput->SetCallback(mpCaptureDelegate) != S_OK)
-        THRWEXCP(DeckLinkInternalError, S_OK);
+	mpCaptureDelegate = new CaptureDelegate(this);
+	if (mDLInput->SetCallback(mpCaptureDelegate) != S_OK)
+		THRWEXCP(DeckLinkInternalError, S_OK);
 
-    if (mDLInput->EnableVideoInput(mDisplayMode, mPixelFormat, ((mUse3D) ? bmdVideoInputDualStream3D : bmdVideoInputFlagDefault)) != S_OK)
+	if (mDLInput->EnableVideoInput(mDisplayMode, mPixelFormat, ((mUse3D) ? bmdVideoInputDualStream3D : bmdVideoInputFlagDefault)) != S_OK)
 		// this shouldn't failed, we tested above
 		THRWEXCP(DeckLinkInternalError, S_OK); 
 
-    // just in case it is needed to capture from certain cards, we don't check error because we don't need audio
+	// just in case it is needed to capture from certain cards, we don't check error because we don't need audio
 	mDLInput->EnableAudioInput(bmdAudioSampleRate48kHz, bmdAudioSampleType16bitInteger, 2);
 
 	// open base class
@@ -1070,37 +1041,32 @@ void VideoDeckLink::calcImage (unsigned int texId, double ts)
 	pFrame = mpCacheFrame;
 	mpCacheFrame = NULL;
 	UnlockCache();
-	if (pFrame)
-	{
+	if (pFrame) {
 		// BUG: the dvpBindToGLCtx function fails the first time it is used, don't know why.
 		// This causes an exception to be thrown.
 		// This should be fixed but in the meantime we will catch the exception because
 		// it is crucial that we release the frame to keep the reference count right on the DeckLink device
-		try
-		{
+		try {
 			uint32_t rowSize = pFrame->GetRowBytes();
 			uint32_t textureSize = rowSize * pFrame->GetHeight();
 			void* videoPixels = NULL;
 			void* rightEyePixels = NULL;
-			if (!mTextureDesc.stride)
-			{
+			if (!mTextureDesc.stride) {
 				// we could not compute the texture size earlier (unknown pixel size)
 				// let's do it now
 				mTextureDesc.stride = rowSize;
 				mTextureDesc.width = mTextureDesc.stride / 4;
 			}
-			if (mTextureDesc.stride != rowSize)
-			{
+			if (mTextureDesc.stride != rowSize) {
 				// unexpected frame size, ignore
 				// TBD: print a warning
 			}
-			else
-			{
+			else {
 				pFrame->GetBytes(&videoPixels);
 				if (mUse3D) {
 					IDeckLinkVideoFrame3DExtensions *if3DExtensions = NULL;
 					IDeckLinkVideoFrame *rightEyeFrame = NULL;
-                    if (pFrame->QueryInterface(IID_IDeckLinkVideoFrame3DExtensions, (void **)&if3DExtensions) == S_OK &&
+					if (pFrame->QueryInterface(IID_IDeckLinkVideoFrame3DExtensions, (void **)&if3DExtensions) == S_OK &&
 						if3DExtensions->GetFrameForRightEye(&rightEyeFrame) == S_OK) {
 						rightEyeFrame->GetBytes(&rightEyePixels);
 						textureSize += ((uint64_t)rightEyePixels - (uint64_t)videoPixels);
@@ -1110,17 +1076,15 @@ void VideoDeckLink::calcImage (unsigned int texId, double ts)
 					if (if3DExtensions)
 						if3DExtensions->Release();
 				}
-                mTextureDesc.size = mTextureDesc.width * mTextureDesc.height * 4;
-				if (mTextureDesc.size == textureSize)
-				{
+				mTextureDesc.size = mTextureDesc.width * mTextureDesc.height * 4;
+				if (mTextureDesc.size == textureSize) {
 					// this means that both left and right frame are contiguous and that there is no padding
 					// do the transfer
 					mpAllocator->TransferBuffer(videoPixels, &mTextureDesc, texId);
 				}
 			}
 		} 
-		catch (Exception &)
-		{
+		catch (Exception &) {
 			pFrame->Release();
 			throw;
 		}
@@ -1161,8 +1125,7 @@ static int VideoDeckLink_init(PyObject *pySelf, PyObject *args, PyObject *kwds)
 	// capture device number, i.e. DeckLink card number, default first one
 	short capt = 0;
 
-	if (!GLEW_VERSION_1_5)
-	{
+	if (!GLEW_VERSION_1_5) {
 		PyErr_SetString(PyExc_RuntimeError, "VideoDeckLink requires at least OpenGL 1.5");
 		return -1;
 	}
@@ -1171,16 +1134,14 @@ static int VideoDeckLink_init(PyObject *pySelf, PyObject *args, PyObject *kwds)
 		const_cast<char**>(kwlist), &format, &capt))
 		return -1; 
 
-	try
-	{
+	try {
 		// create video object
 		Video_init<VideoDeckLink>(self);
 
 		// open video source, control comes back to VideoDeckLink::openCam
 		Video_open(getVideo(self), format, capt);
 	}
-	catch (Exception & exp)
-	{
+	catch (Exception & exp) {
 		exp.report();
 		return -1;
 	}
