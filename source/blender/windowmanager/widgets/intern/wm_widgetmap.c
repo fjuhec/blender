@@ -718,9 +718,11 @@ void wm_widgetmap_set_active_widget(wmWidgetMap *wmap, bContext *C, const wmEven
 				widget->invoke(C, event, widget);
 			}
 		}
+		WM_cursor_grab_enable(CTX_wm_window(C), true, true, NULL);
 	}
 	else {
 		widget = wmap->wmap_context.active_widget;
+
 
 		/* deactivate, widget but first take care of some stuff */
 		if (widget) {
@@ -734,6 +736,7 @@ void wm_widgetmap_set_active_widget(wmWidgetMap *wmap, bContext *C, const wmEven
 		wmap->wmap_context.active_widget = NULL;
 
 		if (C) {
+			WM_cursor_grab_disable(CTX_wm_window(C), NULL);
 			ED_region_tag_redraw(CTX_wm_region(C));
 			WM_event_add_mousemove(C);
 		}
