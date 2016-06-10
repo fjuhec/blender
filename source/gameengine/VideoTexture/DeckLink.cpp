@@ -29,7 +29,7 @@
  *  \ingroup bgevideotex
  */
 
-#ifdef WITH_DECKLINK
+#ifdef WITH_GAMEENGINE_DECKLINK
 
 // implementation
 
@@ -810,4 +810,4 @@ PyTypeObject DeckLinkType =
 	DeckLink_new,               /* tp_new */
 };
 
-#endif	/* WITH_DECKLINK */
+#endif	/* WITH_GAMEENGINE_DECKLINK */

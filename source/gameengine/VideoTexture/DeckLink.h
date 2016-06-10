@@ -32,7 +32,7 @@
 #ifndef __DECKLINK_H__
 #define __DECKLINK_H__
 
-#ifdef WITH_DECKLINK
+#ifdef WITH_GAMEENGINE_DECKLINK
 
 #include "EXP_PyObjectPlus.h"
 #include <structmember.h>
@@ -81,6 +81,6 @@ extern PyTypeObject DeckLinkType;
 HRESULT decklink_ReadDisplayMode(const char *format, size_t len, BMDDisplayMode *displayMode);
 HRESULT decklink_ReadPixelFormat(const char *format, size_t len, BMDPixelFormat *displayMode);
 
-#endif	/* WITH_DECKLINK */
+#endif	/* WITH_GAMEENGINE_DECKLINK */
 
 #endif	/* __DECKLINK_H__ */

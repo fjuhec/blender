@@ -215,7 +215,7 @@ endif()
 		list(APPEND BLENDER_SORTED_LIBS bf_intern_locale)
 	endif()
 
-	if(WITH_DECKLINK)
+	if(WITH_GAMEENGINE_DECKLINK)
 		list(APPEND BLENDER_SORTED_LIBS bf_intern_decklink)
 	endif()
 

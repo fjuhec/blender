@@ -32,7 +32,7 @@
 #ifndef __VIDEODECKLINK_H__
 #define __VIDEODECKLINK_H__
 
-#ifdef WITH_DECKLINK
+#ifdef WITH_GAMEENGINE_DECKLINK
 
 /* this needs to be parsed with __cplusplus defined before included through DeckLink_compat.h */
 #if defined(__FreeBSD__)
@@ -251,6 +251,6 @@ public:
 };
 
 
-#endif	/* WITH_DECKLINK */
+#endif	/* WITH_GAMEENGINE_DECKLINK */
 
 #endif  /* __VIDEODECKLINK_H__ */

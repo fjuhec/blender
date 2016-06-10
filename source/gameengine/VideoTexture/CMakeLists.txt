@@ -112,8 +112,8 @@ if(WITH_CODEC_FFMPEG)
 	)
 endif()
 
-if(WITH_DECKLINK)
-	add_definitions(-DWITH_DECKLINK)
+if(WITH_GAMEENGINE_DECKLINK)
+	add_definitions(-DWITH_GAMEENGINE_DECKLINK)
 endif()
 
 blender_add_lib(ge_videotex "${SRC}" "${INC}" "${INC_SYS}")

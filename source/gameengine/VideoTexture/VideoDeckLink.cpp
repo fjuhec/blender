@@ -29,7 +29,7 @@
  *  \ingroup bgevideotex
  */
 
-#ifdef WITH_DECKLINK
+#ifdef WITH_GAMEENGINE_DECKLINK
 
 // FFmpeg defines its own version of stdint.h on Windows.
 // Decklink needs FFmpeg, so it uses its version of stdint.h
@@ -1222,5 +1222,5 @@ PyTypeObject VideoDeckLinkType =
 // DeckLink Capture Delegate Class
 ////////////////////////////////////////////
 
-#endif		// WITH_DECKLINK
+#endif		// WITH_GAMEENGINE_DECKLINK
 
