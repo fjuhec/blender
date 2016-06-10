@@ -1478,7 +1478,6 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Image *ima = CTX_data_edit_image(C);
-	SpaceImage *sima = CTX_wm_space_image(C);
 	ToolSettings *ts = scene->toolsettings;
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
@@ -1486,9 +1485,8 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 	BMEdge *e;
 	BMIter iter, liter;
 	BMLoop *l;
-	BMEditSelection *ese_src, *ese_dst;
-	BMElem *ele_src = NULL, *ele_dst = NULL, *ele;
 	MLoopUV *luv_src = NULL, *luv_dst = NULL;
+	BMElem *elem_src = NULL, *elem_dst = NULL;
 	int elem_sel = 0;
 	const bool topological_distance = RNA_boolean_get(op->ptr, "topological_distance");
 	
@@ -1501,7 +1499,7 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 	const int cd_poly_tex_offset = CustomData_get_offset(&em->bm->pdata, CD_MTEXPOLY);
 		 
 	/* -------- Check for 2 selected elements of same type on the same UV island ---------- */
-	
+	/* Note: Only vertex path computation implemented for now, but Edge/Face checks already there*/
 	if (ts->uv_selectmode & UV_SELECT_FACE) {
 		/* clear tags */
 		BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
@@ -1515,11 +1513,11 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 				if (uvedit_face_select_test(scene, efa, cd_loop_uv_offset)) {
 					elem_sel++;
 
-					if (luv_src == NULL) {
-						luv_src = efa;
+					if (elem_src == NULL) {
+						elem_src = efa;
 					}
-					else if ((luv_dst == NULL)) {
-						luv_dst = efa;
+					else if ((elem_dst == NULL)) {
+						elem_dst = efa;
 					}
 				}
 			}
@@ -1536,11 +1534,11 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 
 				elem_sel++;
 
-				if (luv_src == NULL) {
-					luv_src = e;
+				if (elem_src == NULL) {
+					elem_src = e;
 				}
-				else if ((luv_dst == NULL)) {
-					luv_dst = e;
+				else if ((elem_dst == NULL)) {
+					elem_dst = e;
 				}
 			}
 		}
@@ -1571,7 +1569,8 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 							luv_dst = luv;
 							elem_sel++;
 						}
-						else if ((!compare_v2v2(luv->uv, luv_src->uv, 0.000003f)) && (!compare_v2v2(luv->uv, luv_dst->uv, 0.000003f))) {
+						else if ((!compare_v2v2(luv->uv, luv_src->uv, 0.000003f)) && 
+							     (!compare_v2v2(luv->uv, luv_dst->uv, 0.000003f))) {
 							elem_sel++;
 						}	
 					}
@@ -1580,9 +1579,10 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	if (elem_sel != 2) {
+	if (elem_sel != 2 || !(ts->uv_selectmode & UV_SELECT_VERTEX)) {
 		/* Not exactly 2 elements of same typ selected */
-		BKE_report(op->reports, RPT_WARNING, "Path selection requires exactly two matching elements of the same island to be selected");
+		BKE_report(op->reports, RPT_WARNING, 
+			       "Path selection requires exactly two vertices of the same island to be selected");
 		return OPERATOR_CANCELLED;
 	}
 	
@@ -1597,7 +1597,8 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 	}
 	else {
 		/* No path found because the selected elements aren't part of the same uv island */
-		BKE_report(op->reports, RPT_WARNING, "Path selection requires exactly two matching elements of the same island to be selected");
+		BKE_report(op->reports, RPT_WARNING, 
+			       "Path selection requires exactly two vertices of the same island to be selected");
 		return OPERATOR_CANCELLED;
 	}
 }
@@ -1605,7 +1606,7 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 static void UV_OT_select_shortest_path(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Select Shortest Path";
+	ot->name = "Select Shortest Vertex Path";
 	ot->description = "Select the shortest path between the current selected vertices";
 	ot->idname = "UV_OT_select_shortest_path";
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -1615,7 +1616,8 @@ static void UV_OT_select_shortest_path(wmOperatorType *ot)
 	ot->poll = ED_operator_uvedit;
 
 	/* properties */
-	RNA_def_boolean(ot->srna, "topological_distance", 0, "Topological Distance", "Find the minimum number of steps, ignoring spatial distance");
+	RNA_def_boolean(ot->srna, "topological_distance", 0, "Topological Distance", 
+		            "Find the minimum number of steps, ignoring spatial distance");
 }
 /* ******************** scale to bounds operator **************** */
 
@@ -1630,7 +1632,6 @@ static int uv_scale_to_bounds_exec(bContext *C, wmOperator *op)
 	BMFace *efa;
 	BMLoop *l;
 	BMIter iter, liter;
-	MLoopUV *luv;
 	MTexPoly *tf;
 	float dx, dy, min[2], max[2];
 
@@ -1640,7 +1641,7 @@ static int uv_scale_to_bounds_exec(bContext *C, wmOperator *op)
 	const int cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
 	const int cd_poly_tex_offset = CustomData_get_offset(&em->bm->pdata, CD_MTEXPOLY);
 	
-	if (individual){
+	if (individual) {
 		ED_uvedit_scale_to_bounds(scene, obedit, bm);
 
 		return OPERATOR_FINISHED;

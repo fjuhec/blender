@@ -1155,8 +1155,7 @@ static PFace *p_face_add_construct(PHandle *handle, ParamKey key, ParamKey *vkey
 	phash_insert(handle->hash_edges, (PHashLink *)e2);
 	phash_insert(handle->hash_edges, (PHashLink *)e3);
 
-	if (diag_edge != -1)
-	{
+	if (diag_edge != -1) {
 		switch (diag_edge) {
 			case 0:
 			{
@@ -4747,14 +4746,12 @@ void param_scale_bounds(ParamHandle *handle)
 	}
 }
 
-void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_prev, float *cost, bool use_topology_distance)
+void p_verttag_add_adjacent(Heap *heap, PVert *v_a, PVert **v_prev, 
+	                        float *cost, bool use_topology_distance)
 {
 	const int v_a_index = v_a->u.id;
 	PEdge *e, *we, *lastwe = NULL;
 	e = v_a->edge;
-
-	//printf("add_adjacent for v_a: %i\n", v_a->u.id);
-	//printf("v_a->edge->next->vert: %i\n", v_a->edge->next->vert->u.id);
 
 	/* rewind to start */
 	lastwe = e;
@@ -4765,7 +4762,6 @@ void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_pre
 	we = lastwe;
 	do {
 		PVert *v_b = we->next->vert; 
-		//printf("----add_adjacent considering v_b: %i\n", v_b->u.id);
 		if (!(v_b->flag & PVERT_MARKED) && !(we->flag & PEDGE_DIAG )) {
 			/* v_b not visited yet, check it out! */
 			const int v_b_index = v_b->u.id;
@@ -4783,7 +4779,7 @@ void p_verttag_add_adjacent(Heap *heap, PChart *chart, PVert *v_a, PVert **v_pre
 	} while (we && (we != lastwe));
 }
 
-LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst, bool topological_distance)
+LinkNode *p_calc_path_vert(PChart *chart, PVert *src, PVert *dst, bool topological_distance)
 {
 	LinkNode *path = NULL;
 	Heap *heap;
@@ -4792,7 +4788,7 @@ LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst, bool topologic
 	float *cost;
 	int totvert, index;
 
-	/* Clear flags */
+	/* Clear flags, assign index */
 	for (vert = chart->verts, index = 0; vert; vert = vert->nextlink, index++) {
 		vert->flag &= ~PVERT_MARKED;
 		vert->u.id = index; /* Re-use lscm id field */
@@ -4819,7 +4815,7 @@ LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst, bool topologic
 
 		if (!(vert->flag & PVERT_MARKED)) {
 			vert->flag |= PVERT_MARKED;
-			p_verttag_add_adjacent(heap, chart, vert, verts_prev, cost, topological_distance);
+			p_verttag_add_adjacent(heap, vert, verts_prev, cost, topological_distance);
 		}
 	}
 
@@ -4836,10 +4832,8 @@ LinkNode* p_calc_path_vert(PChart *chart, PVert *src, PVert *dst, bool topologic
 	return path;
 }
 
-void p_vert_select_edges(PVert* v, bool recursive)
+void p_vert_select_edges(PVert *v)
 {
-	//printf("reached p_vert_select_edges() for %i --\n", v->u.id);
-
 	v->flag |= PVERT_SELECT; 
 	PEdge *e = v->edge;
 	e->flag |= PEDGE_SELECT;
@@ -4852,19 +4846,21 @@ void p_vert_select_edges(PVert* v, bool recursive)
 
 	we = lastwe;
 	do {
+
 		we->flag |= PEDGE_SELECT;
 		PVert *v_e = we->vert;
 		v_e->flag |= PVERT_SELECT;
 		we = p_wheel_edge_next(we);
+
 	} while (we && (we != lastwe));
 }
 
 void param_shortest_path(ParamHandle *handle, bool *p_found, bool topological_distance)
 {
 	PHandle *phandle = (PHandle *)handle;
-	PChart *chart, *current_chart;
+	PChart *chart, *current_chart = 0;
 	PVert *v, *vert_src = NULL, *vert_dst = NULL;
-	int i, j;
+	int i;
 	bool success = false;
 
 	if (phandle->ncharts == 0) {
@@ -4883,31 +4879,29 @@ void param_shortest_path(ParamHandle *handle, bool *p_found, bool topological_di
 				if (vert_src == NULL) {
 					vert_src = v;
 					current_chart = chart;
-					//printf("--- DEBUG (SaphireS): vert_src found\n");
 				}
 				else if (vert_dst == NULL) {
-					//if (current_chart == chart) {
+					if (current_chart == chart) {
 						vert_dst = v;
-						//printf("--- DEBUG (SaphireS): vet_dsc found\n");
-					//}
+					}
 				}
 			}
 		}
 	}
 
 	/* Connect src and dst */
-	LinkNode* path = NULL;
-	if (vert_src && vert_dst){
-		//printf("start path computation!\n");
+	LinkNode *path = NULL;
+	if (vert_src && vert_dst) {
+
 		path = p_calc_path_vert(current_chart, vert_src, vert_dst, topological_distance);
+		
 		if (path) {
 			LinkNode *node = NULL;
 			node = path;
 
 			do {
 				PVert *v = node->link;
-				p_vert_select_edges(v, false);
-
+				p_vert_select_edges(v);
 			} while (node = node->next);
 
 			success = true;
