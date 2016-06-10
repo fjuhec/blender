@@ -717,16 +717,18 @@ VideoDeckLink::~VideoDeckLink ()
 		mDLInput->DisableVideoInput();
 		mDLInput->DisableAudioInput();
 		mDLInput->FlushStreams();
-		if (mDLInput->Release() != 0)
-			THRWEXCP(DeckLinkInternalError, S_OK);
+		if (mDLInput->Release() != 0) {
+			printf("Reference count not NULL on DeckLink device when closing it, please report!\n");
+		}
 		mDLInput = NULL;
 	}
 	
 	if (mpAllocator)
 	{
 		// if the device was properly cleared, this should be 0
-		if (mpAllocator->Release() != 0)
-			THRWEXCP(DeckLinkInternalError, S_OK);
+		if (mpAllocator->Release() != 0) {
+			printf("Reference count not NULL on Allocator when closing it, please report!\n");
+		}
 		mpAllocator = NULL;
 	}
 	if (mpCaptureDelegate)
