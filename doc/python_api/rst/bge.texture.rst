@@ -831,78 +831,88 @@ Image classes
    :arg capture: Card number from which the input video must be captured.
    :type capture: int
 
-   The format argument must be written as “<displayMode>/<pixelFormat>[/3D][:<cacheSize>]” where <displayMode> 
+   The format argument must be written as ``<displayMode>/<pixelFormat>[/3D][:<cacheSize>]`` where ``<displayMode>``
    describes the frame size and rate and <pixelFormat> the encoding of the pixels. 
-   The optional /3D suffix is to be used if the video stream is stereo with a left and right eye feed.
-   The optional :<cacheSize> suffix determines the number of the video frames kept in cache, by default 8. 
-   Some DeckLink cards won't work below a certain cache size.  The default value 8 should be sufficient for all cards.
+   The optional ``/3D`` suffix is to be used if the video stream is stereo with a left and right eye feed.
+   The optional ``:<cacheSize>`` suffix determines the number of the video frames kept in cache, by default 8.
+   Some DeckLink cards won't work below a certain cache size.
+   The default value 8 should be sufficient for all cards.
    You may try to reduce the cache size to reduce the memory footprint. For example the The 4K Extreme is known
    to work with 3 frames only, the Extreme 2 needs 4 frames and the Intensity Shuttle needs 6 frames, etc. 
-   Reducing the cache size may be useful when Decklink is used in conjunction with GPUDirect: all frames must be locked
-   in memory in that case and that puts a lot of pressure on memory.  If you reduce the cache size too much, 
+   Reducing the cache size may be useful when Decklink is used in conjunction with GPUDirect:
+   all frames must be locked in memory in that case and that puts a lot of pressure on memory.
+   If you reduce the cache size too much, 
    you'll get no error but no video feed either.
    
-   The valid <displayMode> values are copied from the 'BMDDisplayMode' enum in the DeckLink API 
+   The valid ``<displayMode>`` values are copied from the ``BMDDisplayMode`` enum in the DeckLink API 
    without the 'bmdMode' prefix. In case a mode that is not in this list is added in a later version 
    of the SDK, it is also possible to specify the 4 letters of the internal code for that mode. 
-   You will find the internal code in the DeckLinkAPIModes.h file that is part of the SDK.
+   You will find the internal code in the ``DeckLinkAPIModes.h`` file that is part of the SDK.
    Here is for reference the full list of supported display modes with their equivalent internal code:
-    * NTSC 'ntsc'
-    * NTSC2398 	'nt23'
-    * PAL		'pal '
-    * NTSCp		'ntsp'
-    * PALp		'palp'
-   HD 1080 Modes:
-    * HD1080p2398	'23ps'
-    * HD1080p24	'24ps'
-    * HD1080p25	'Hp25'
-    * HD1080p2997	'Hp29'
-    * HD1080p30	'Hp30'
-    * HD1080i50	'Hi50'
-    * HD1080i5994	'Hi59'
-    * HD1080i6000	'Hi60'
-    * HD1080p50	'Hp50'
-    * HD1080p5994	'Hp59'
-    * HD1080p6000	'Hp60'
-   HD 720 Modes:
-    * HD720p50	'hp50'
-    * HD720p5994	'hp59'
-    * HD720p60	'hp60'
+
+   Internal Codes
+      - NTSC 'ntsc'
+      - NTSC2398 	'nt23'
+      - PAL		'pal '
+      - NTSCp		'ntsp'
+      - PALp		'palp'
+   HD 1080 Modes
+      - HD1080p2398	'23ps'
+      - HD1080p24	'24ps'
+      - HD1080p25	'Hp25'
+      - HD1080p2997	'Hp29'
+      - HD1080p30	'Hp30'
+      - HD1080i50	'Hi50'
+      - HD1080i5994	'Hi59'
+      - HD1080i6000	'Hi60'
+      - HD1080p50	'Hp50'
+      - HD1080p5994	'Hp59'
+      - HD1080p6000	'Hp60'
+   HD 720 Modes
+      - HD720p50	'hp50'
+      - HD720p5994	'hp59'
+      - HD720p60	'hp60'
    2k Modes
-    * 2k2398	'2k23'
-    * 2k24		'2k24'
-    * 2k25		'2k25'
+      - 2k2398	'2k23'
+      - 2k24		'2k24'
+      - 2k25		'2k25'
    4k Modes
-    * 4K2160p2398	'4k23'
-    * 4K2160p24	'4k24'
-    * 4K2160p25	'4k25'
-    * 4K2160p2997	'4k29'
-    * 4K2160p30	'4k30'
-    * 4K2160p50	'4k50'
-    * 4K2160p5994	'4k59'
-    * 4K2160p60	'4k60'
+      - 4K2160p2398	'4k23'
+      - 4K2160p24	'4k24'
+      - 4K2160p25	'4k25'
+      - 4K2160p2997	'4k29'
+      - 4K2160p30	'4k30'
+      - 4K2160p50	'4k50'
+      - 4K2160p5994	'4k59'
+      - 4K2160p60	'4k60'
+
    Most of names are self explanatory. If necessary refer to the DeckLink API documentation for more information.
 
    Similarly, <pixelFormat> is copied from the BMDPixelFormat enum. 
+
    Here is for reference the full list of supported pixel format and their equivalent internal code:
-    * 8BitYUV	'2vuy'
-    * 10BitYUV	'v210'
-    * 8BitARGB	* no equivalent code *
-    * 8BitBGRA	'BGRA'
-    * 10BitRGB	'r210'
-    * 12BitRGB	'R12B'
-    * 12BitRGBLE	'R12L'
-    * 10BitRGBXLE	'R10l'
-    * 10BitRGBX	'R10b'
+
+   Pixel Formats
+      - 8BitYUV	'2vuy'
+      - 10BitYUV	'v210'
+      - 8BitARGB	* no equivalent code *
+      - 8BitBGRA	'BGRA'
+      - 10BitRGB	'r210'
+      - 12BitRGB	'R12B'
+      - 12BitRGBLE	'R12L'
+      - 10BitRGBXLE	'R10l'
+      - 10BitRGBX	'R10b'
+
    Refer to the DeckLink SDK documentation for a full description of these pixel format. 
    It is important to understand them as the decoding of the pixels is NOT done in VideoTexture 
    for performance reason. Instead a specific shader must be used to decode the pixel in the GPU. 
    Only the '8BitARGB', '8BitBGRA' and '10BitRGBXLE' pixel formats are mapped directly to OpenGL RGB float textures.
    The '8BitYUV' and '10BitYUV' pixel formats are mapped to openGL RGB float texture but require a shader to decode.
-   The other pixel formats are sent as a 'GL_RED_INTEGER' texture (i.e. a texture with only the 
+   The other pixel formats are sent as a ``GL_RED_INTEGER`` texture (i.e. a texture with only the 
    red channel coded as an unsigned 32 bit integer) and are not recommended for use.
 
-   Example: “HD1080p24/10BitYUV/3D:4” is equivalent to “24ps/v210/3D:4” and represents a full HD stereo feed at 24 frame per second and 4 frames cache size.
+   Example: ``HD1080p24/10BitYUV/3D:4`` is equivalent to ``24ps/v210/3D:4``
+   and represents a full HD stereo feed at 24 frame per second and 4 frames cache size.
 
    Although video format auto detection is possible with certain DeckLink devices, the corresponding 
    API is NOT implemented in the BGE. Therefore it is important to specify the format string that 
@@ -1051,7 +1061,9 @@ Texture classes
    on the output interfaces.  Keying is supported: it allows to composite the frame with an 
    input video feed that transits through the DeckLink card.
 
-   :arg cardIdx: Number of the card to be used for output (0=first card). It should be noted that DeckLink devices are usually half duplex: they can either be used for capture or playback but not both at the same time.
+   :arg cardIdx: Number of the card to be used for output (0=first card).
+      It should be noted that DeckLink devices are usually half duplex:
+      they can either be used for capture or playback but not both at the same time.
    :type cardIdx: int
    :arg format: String representing the display mode of the output feed.
    :type format: str
@@ -1061,12 +1073,12 @@ Texture classes
    specified. If keying is the goal (see keying attributes), the format must match exactly the
    input video feed, otherwise it can be any format supported by the device (there will be a
    runtime error if not).
-   The format of the string is “<displayMode>[/3D]”. 
+   The format of the string is ``<displayMode>[/3D]``.
 
-   Refer to :class:`VideoDeckLink` to get the list of acceptable <displayMode>. 
-   The optional “/3D” suffix is used to create a stereo 3D feed. In that case the 'right' attribute
-   must also be set to specify the image source for the right eye.
-  
+   Refer to :class:`VideoDeckLink` to get the list of acceptable ``<displayMode>``.
+   The optional ``/3D`` suffix is used to create a stereo 3D feed.
+   In that case the 'right' attribute must also be set to specify the image source for the right eye.
+
    Note: The pixel format is not specified here because it is always BGRA. The alpha channel is
    used in keying to mix the source with the input video feed, otherwise it is not used.  
    If a conversion is needed to match the native video format, it is done inside the DeckLink driver
@@ -1084,14 +1096,14 @@ Texture classes
       copy inside VideoTexture). 
 
       :type: one of...
-         * :class:`VideoFFmpeg`
-         * :class:`VideoDeckLink`
-         * :class:`ImageFFmpeg`
-         * :class:`ImageBuff`
-         * :class:`ImageMirror`
-         * :class:`ImageMix`
-         * :class:`ImageRender`
-         * :class:`ImageViewport`
+         - :class:`VideoFFmpeg`
+         - :class:`VideoDeckLink`
+         - :class:`ImageFFmpeg`
+         - :class:`ImageBuff`
+         - :class:`ImageMirror`
+         - :class:`ImageMix`
+         - :class:`ImageRender`
+         - :class:`ImageViewport`
    
    .. attribute:: right
 
@@ -1101,14 +1113,14 @@ Texture classes
       render buffer that is just the size of the video frame.
 
       :type: one of...
-         * :class:`VideoFFmpeg`
-         * :class:`VideoDeckLink`
-         * :class:`ImageFFmpeg`
-         * :class:`ImageBuff`
-         * :class:`ImageMirror`
-         * :class:`ImageMix`
-         * :class:`ImageRender`
-         * :class:`ImageViewport`
+         - :class:`VideoFFmpeg`
+         - :class:`VideoDeckLink`
+         - :class:`ImageFFmpeg`
+         - :class:`ImageBuff`
+         - :class:`ImageMirror`
+         - :class:`ImageMix`
+         - :class:`ImageRender`
+         - :class:`ImageViewport`
 
    .. attribute:: keying
 
@@ -1150,15 +1162,17 @@ Texture classes
       This method must be called frequently to update the output frame in the DeckLink device.
 
       :arg refresh_source: True if the source objects image buffer should be invalidated after being
-                           used to compute the output frame. This triggers the recomputing of the
-                           source image on next refresh, which is normally the desired effect. 
-                           False if the image source buffer should stay valid and reused on next refresh.
-                           Note that the DeckLink device stores the output frame and replays until a
-                           new frame is sent from the host. Thus, it is not necessary to refresh the
-                           DeckLink object if it is known that the image source has not changed.
+         used to compute the output frame. This triggers the recomputing of the
+         source image on next refresh, which is normally the desired effect. 
+         False if the image source buffer should stay valid and reused on next refresh.
+         Note that the DeckLink device stores the output frame and replays until a
+         new frame is sent from the host. Thus, it is not necessary to refresh the
+         DeckLink object if it is known that the image source has not changed.
       :type refresh_source: bool
-      :arg ts: The timestamp value passed to the image source object to compute the image. If unspecified, the BGE clock is used.
+      :arg ts: The timestamp value passed to the image source object to compute the image.
+         If unspecified, the BGE clock is used.
       :type ts: float
+
 
 **************
 Filter classes
@@ -1489,4 +1503,5 @@ See Wikipedia's `Blend Modes <https://en.wikipedia.org/wiki/Blend_modes>`_ for r
 .. data:: IMB_BLEND_COPY_RGB
 
 .. data:: IMB_BLEND_COPY_ALPHA
+
 
