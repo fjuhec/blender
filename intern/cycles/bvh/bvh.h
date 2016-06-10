@@ -52,8 +52,8 @@ struct PackedBVH {
 	array<int4> leaf_nodes;
 	/* object index to BVH node index mapping for instances */
 	array<int> object_node; 
-	/* Aligned triangle storage for fatser lookup in the kernel. */
-	array<float4> tri_storage;
+	/* Mapping from pndex from primitive to triangle. */
+	array<uint> prim_tri_index;
 	/* primitive type - triangle or strand */
 	array<int> prim_type;
 	/* visibility visibilitys for primitives */
@@ -93,7 +93,6 @@ protected:
 
 	/* triangles and strands*/
 	void pack_primitives();
-	void pack_triangle(int idx, float4 storage[3]);
 
 	/* merge instance BVH's */
 	void pack_instances(size_t nodes_size, size_t leaf_nodes_size);

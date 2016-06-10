@@ -63,7 +63,7 @@ public:
 	device_vector<float4> bvh_nodes;
 	device_vector<float4> bvh_leaf_nodes;
 	device_vector<uint> object_node;
-	device_vector<float4> tri_storage;
+	device_vector<uint> prim_tri_index;
 	device_vector<uint> prim_type;
 	device_vector<uint> prim_visibility;
 	device_vector<uint> prim_index;
@@ -72,7 +72,7 @@ public:
 	/* mesh */
 	device_vector<uint> tri_shader;
 	device_vector<float4> tri_vnormal;
-	device_vector<float4> tri_vindex;
+	device_vector<uint4> tri_vindex;
 	device_vector<float4> tri_verts;
 
 	device_vector<float4> curves;

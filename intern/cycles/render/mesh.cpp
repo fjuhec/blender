@@ -472,30 +472,25 @@ void Mesh::pack_normals(Scene *scene, uint *tri_shader, float4 *vnormal)
 	}
 }
 
-void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
+void Mesh::pack_verts(float4 *tri_verts,
+                      uint4 *tri_vindex,
+                      size_t vert_offset,
+                      size_t tri_offset)
 {
-	size_t verts_size = verts.size();
-
-	if(verts_size) {
-		float3 *verts_ptr = &verts[0];
-
-		for(size_t i = 0; i < verts_size; i++) {
-			float3 p = verts_ptr[i];
-			tri_verts[i] = make_float4(p.x, p.y, p.z, 0.0f);
-		}
-	}
-
-	size_t triangles_size = num_triangles();
-
-	if(triangles_size) {
+	const size_t triangles_size = num_triangles();
+	const float3 *verts_ptr = &verts[0];
+	if(triangles_size != 0) {
 		for(size_t i = 0; i < triangles_size; i++) {
 			Triangle t = get_triangle(i);
-
-			tri_vindex[i] = make_float4(
-				__int_as_float(t.v[0] + vert_offset),
-				__int_as_float(t.v[1] + vert_offset),
-				__int_as_float(t.v[2] + vert_offset),
-				0);
+			const size_t tri_vert_index = i * 3,
+			             tri_vert_index_global = (i + tri_offset) * 3;
+			tri_vindex[i] = make_uint4(t.v[0] + vert_offset,
+			                           t.v[1] + vert_offset,
+			                           t.v[2] + vert_offset,
+			                           tri_vert_index_global);
+			tri_verts[tri_vert_index + 0] = float3_to_float4(verts_ptr[t.v[0]]);
+			tri_verts[tri_vert_index + 1] = float3_to_float4(verts_ptr[t.v[1]]);
+			tri_verts[tri_vert_index + 2] = float3_to_float4(verts_ptr[t.v[2]]);
 		}
 	}
 }
@@ -1099,12 +1094,15 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 
 		uint *tri_shader = dscene->tri_shader.resize(tri_size);
 		float4 *vnormal = dscene->tri_vnormal.resize(vert_size);
-		float4 *tri_verts = dscene->tri_verts.resize(vert_size);
-		float4 *tri_vindex = dscene->tri_vindex.resize(tri_size);
+		float4 *tri_verts = dscene->tri_verts.resize(3 * tri_size);
+		uint4 *tri_vindex = dscene->tri_vindex.resize(tri_size);
 
 		foreach(Mesh *mesh, scene->meshes) {
 			mesh->pack_normals(scene, &tri_shader[mesh->tri_offset], &vnormal[mesh->vert_offset]);
-			mesh->pack_verts(&tri_verts[mesh->vert_offset], &tri_vindex[mesh->tri_offset], mesh->vert_offset);
+			mesh->pack_verts(&tri_verts[mesh->tri_offset * 3],
+			                 &tri_vindex[mesh->tri_offset],
+			                 mesh->vert_offset,
+			                 mesh->tri_offset);
 
 			if(progress.get_cancel()) return;
 		}
@@ -1170,9 +1168,9 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 		dscene->object_node.reference((uint*)&pack.object_node[0], pack.object_node.size());
 		device->tex_alloc("__object_node", dscene->object_node);
 	}
-	if(pack.tri_storage.size()) {
-		dscene->tri_storage.reference(&pack.tri_storage[0], pack.tri_storage.size());
-		device->tex_alloc("__tri_storage", dscene->tri_storage);
+	if(pack.prim_tri_index.size()) {
+		dscene->prim_tri_index.reference((uint*)&pack.prim_tri_index[0], pack.prim_tri_index.size());
+		device->tex_alloc("__prim_tri_index", dscene->prim_tri_index);
 	}
 	if(pack.prim_type.size()) {
 		dscene->prim_type.reference((uint*)&pack.prim_type[0], pack.prim_type.size());
@@ -1405,7 +1403,7 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 	device->tex_free(dscene->bvh_nodes);
 	device->tex_free(dscene->bvh_leaf_nodes);
 	device->tex_free(dscene->object_node);
-	device->tex_free(dscene->tri_storage);
+	device->tex_free(dscene->prim_tri_index);
 	device->tex_free(dscene->prim_type);
 	device->tex_free(dscene->prim_visibility);
 	device->tex_free(dscene->prim_index);
@@ -1423,7 +1421,7 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 
 	dscene->bvh_nodes.clear();
 	dscene->object_node.clear();
-	dscene->tri_storage.clear();
+	dscene->prim_tri_index.clear();
 	dscene->prim_type.clear();
 	dscene->prim_visibility.clear();
 	dscene->prim_index.clear();
