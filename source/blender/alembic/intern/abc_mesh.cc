@@ -1231,6 +1231,8 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs,
                  const Alembic::AbcGeom::V2fArraySamplePtr &uvs)
 {
 	int loopcount = 0;
+	unsigned int vert_index;
+
 	for (int i = 0; i < face_counts->size(); ++i) {
 		int face_size = (*face_counts)[i];
 		MPoly &poly = mpolys[i];
@@ -1241,15 +1243,16 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs,
 		/* TODO: reverse */
 		int rev_loop = loopcount;
 		for (int f = face_size; f-- ;) {
-			MLoop &loop 	= mloops[rev_loop + f];
+			MLoop &loop = mloops[rev_loop + f];
+
+			vert_index = (*face_indices)[loopcount++];
+			loop.v = vert_index;
 
 			if (mloopuvs && uvs) {
 				MLoopUV &loopuv = mloopuvs[rev_loop + f];
-				loopuv.uv[0] = (*uvs)[loopcount][0];
-				loopuv.uv[1] = (*uvs)[loopcount][1];
+				loopuv.uv[0] = (*uvs)[vert_index][0];
+				loopuv.uv[1] = (*uvs)[vert_index][1];
 			}
-
-			loop.v = (*face_indices)[loopcount++];
 		}
 	}
 }
