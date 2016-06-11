@@ -6303,3 +6303,271 @@ void CURVE_OT_match_texture_space(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
+
+
+
+/******************** Extend curve operator ********************/
+
+static ListBase *get_selected_splines(ListBase *nubase, int *r_number_splines, bool return_cyclic)
+{
+	/* receives a list with all splines in a "curve" object
+	 * returns the first spline of a linked list with all the selected splines,
+	 * along with the number of selected splines
+	 * if "return_cyclic" is false, it ignores cyclic splines */
+
+	Nurb *nu, *nu_copy;
+	BezTriple *bezt;
+	ListBase spline_list = {NULL, NULL};
+	int handles;
+
+	for(nu=nubase->first; nu; nu = nu->next) {
+		handles = nu->pntsu;
+		bezt = nu->bezt;
+		while (handles--) { /* cycle through all the handles. see if any is selected */
+			if (BEZT_ISSEL_ANY(bezt) && (!nu->flagu || return_cyclic)) { /* this expression was deduced using truth tables */
+				*r_number_splines += 1;
+				nu_copy = BKE_nurb_duplicate(nu);
+				nu_copy->next = NULL;
+				nu_copy->prev = NULL;
+				BLI_addtail(&spline_list, nu_copy);
+				break;
+			}
+			bezt++;
+		}
+	}
+	return &spline_list;
+}
+
+static void get_selected_handles(Nurb* nu, BezTriple **r_handle_list)
+{
+	/* Takes in the first element of a linked list of nurbs
+	 * and returns an array with the BezTriple of the selected handles. */
+	BezTriple *bezt;
+	int i = 0, a;
+
+	while (nu) {
+		a = nu->pntsu;
+		bezt = nu->bezt;
+		while (a--) {
+			if (BEZT_ISSEL_ANY(bezt)) {
+				r_handle_list[i] = bezt;
+				i++;
+			}
+			bezt++;
+		}
+		nu = nu->next;
+	}
+}
+
+static void get_selected_endpoints(Nurb* nu, BezTriple **r_handle_list)
+{
+	/* Takes in a nurb and returns an array with the selected endpoints BezTriple */
+	BezTriple *first_bezt, *last_bezt;
+	int a;
+
+	a = nu->pntsu - 1;
+	first_bezt = last_bezt = nu->bezt;
+
+	while (a--) {
+		last_bezt++;
+	}
+
+	if (BEZT_ISSEL_ANY(first_bezt) && BEZT_ISSEL_ANY(last_bezt)) {
+		r_handle_list[0] = first_bezt;
+		r_handle_list[1] = last_bezt;
+	}
+	else if (BEZT_ISSEL_ANY(first_bezt)) {
+		r_handle_list[0] = first_bezt;
+		r_handle_list[1] = NULL;
+	}
+	else if (BEZT_ISSEL_ANY(last_bezt)) {
+		r_handle_list[0] = NULL;
+		r_handle_list[1] = last_bezt;
+	}
+}
+
+static void get_nurb_shape_bounds(Object *obedit, float r_bound_box[4])
+{
+	/* returns the coordinates of the XY-bounding box of obedit */
+	r_bound_box[0] = obedit->bb->vec[0][0]; /* min X */
+	r_bound_box[1] = obedit->bb->vec[4][0]; /* max X */
+	r_bound_box[2] = obedit->bb->vec[0][1]; /* min Y */
+	r_bound_box[3] = obedit->bb->vec[3][1]; /* max Y */
+}
+
+static void get_max_extent_2d(float p1[2], float p2[2], float bb[4], float r_result[2])
+{
+	/* TODO: Find out what this actually does */
+	if (fabsf(p1[0]-p2[0])) {
+		if (p1[0] < p2[0]) {
+			r_result[0] = bb[0];
+			r_result[1] = (p2[1]-p1[1])/(p2[0]-p1[0])*(bb[0]-p1[0])+p1[1];
+		}
+		else {
+			r_result[0] = bb[1];
+			r_result[1] = (p2[1]-p1[1])/(p2[0]-p1[0])*(bb[1]-p1[0])+p1[1];
+		}
+	}
+	else {
+		if (p1[1] < p2[1]) {
+			r_result[0] = (p2[0]-p1[0])/(p2[1]-p1[1])*(bb[2]-p1[1])+p1[0];
+			r_result[1] = bb[2];
+		}
+		else {
+			r_result[0] = (p2[0]-p1[0])/(p2[1]-p1[1])*(bb[3]-p1[1])+p1[0];
+			r_result[1] = bb[3];
+		}
+	}
+}
+
+static void nearest_point(float p[2], float **p_list, int p_list_size, float r_near[2])
+{
+	/* return the point from p_list nearer to p */
+	if (p_list_size == 0) {
+		r_near = NULL;
+	}
+	else if (p_list_size == 1) {
+		copy_v2_v2(r_near, p_list[0]);
+	}
+	else {
+		int pos = 0, i = 1;
+		float distance = len_v2v2(p, p_list[0]), smallest_distance = distance;
+		while (i < p_list_size) {
+			distance = len_v2v2(p, p_list[i]);
+			if (distance < smallest_distance) {
+				distance = smallest_distance;
+				pos = i;
+			}
+			i++;
+		}
+		copy_v2_v2(r_near, p_list[pos]);
+	}
+}
+
+static ListBase *interpolate_all_segments(Nurb *nu)
+{
+	/* return a listbase with all the points in the Bezier curve. Each element
+	 * of the ListBase is a segment between two handles.
+	 * If the cuve only has two handles, the final result is only on list
+	 * Otherwise, there is an overlap between the last element of a list and
+	 * the first of the next one */
+	int i = 0, dims = 3;
+	float *coord_array;
+	ListBase pl = {NULL,NULL};
+	LinkData link;
+
+	/* number of BezTriples */
+	int bezier_points = nu->pntsu;
+
+	while (i < bezier_points-1+nu->flagu) {
+		coord_array = MEM_callocN(dims * (nu->resolu) * sizeof(float), "interpolate_bezier2");
+		link.data = coord_array;
+		for (int j = 0; j < dims; j++) {
+			BKE_curve_forward_diff_bezier(nu->bezt[i%bezier_points].vec[1][j],
+										  nu->bezt[i%bezier_points].vec[2][j],
+										  nu->bezt[(i+1)%bezier_points].vec[0][j],
+										  nu->bezt[(i+1)%bezier_points].vec[1][j],
+										  coord_array + j, nu->resolu - 1, sizeof(float) * dims);
+		}
+		BLI_addtail(&pl, &link);
+		i++;
+	}
+
+	return &pl;
+}
+
+/*
+def interpolate_all_segments(spline_ob):
+'''
+> spline_ob:     bezier spline object
+< returns interpolated splinepoints
+'''
+point_range = len(spline_ob.bezier_points)
+pl = []
+
+for i in range (0, point_range-1+spline_ob.use_cyclic_u):
+if len(pl) > 0:
+pl.pop()
+seg = (interpolate_bezier(spline_ob.bezier_points[i%point_range].co,
+						  spline_ob.bezier_points[i%point_range].handle_right,
+						  spline_ob.bezier_points[(i+1)%point_range].handle_left,
+						  spline_ob.bezier_points[(i+1)%point_range].co,
+						  spline_ob.resolution_u+1))
+pl += seg
+return pl */
+
+static ListBase *linear_spline_list(ListBase *nubase)
+{
+	/* return a list with all the points of a curve object */
+	ListBase spline_list = {NULL, NULL};
+	LinkData link;
+	Nurb *nu;
+
+	for (nu=nubase->first; nu; nu=nu->next) {
+		link.data = interpolate_all_segments(nu);
+		BLI_addtail(&spline_list, &link);
+	}
+
+	return &spline_list;
+}
+
+static int extend_curve_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	Nurb *first_spline, *second_spline;
+	ListBase *nubase = object_editcurve_get(obedit), *spline_list, *intersections_list;
+	BezTriple **selected_endpoints = NULL;
+	int n_selected_splines = 0, result;
+	float p1[3], p2[3], p1_handle[3], bound_box[4], p1_extend[2];
+
+	spline_list = get_selected_splines(nubase, &n_selected_splines, false);
+
+	if ((n_selected_splines == 0 || n_selected_splines > 2)) {
+		BKE_report(op->reports, RPT_ERROR, "Cannot extend current selection");
+		return OPERATOR_CANCELLED;
+	}
+
+	first_spline = (Nurb *)spline_list->first;
+	second_spline = (Nurb *)spline_list->last;
+
+	if (n_selected_splines == 1) { /* one spline selected */
+		selected_endpoints = MEM_callocN(2 * sizeof(BezTriple), "extendcurve1");
+		get_selected_endpoints(first_spline, selected_endpoints);
+
+		if (selected_endpoints[0] && selected_endpoints[1]) { /* both endpoints are selected */
+			result = isect_line_line_v3(selected_endpoints[0]->vec[1], selected_endpoints[0]->vec[0],
+										selected_endpoints[1]->vec[1], selected_endpoints[1]->vec[2],
+										p1, p2); /* result serves to check the existence of the intersection;
+												  * the intersection point is on variables p1 and p2 */
+		}
+		else { /* only one endpoint selected */
+			if (selected_endpoints[0]) {
+				copy_v3_v3(p1, selected_endpoints[0]->vec[1]);
+				copy_v3_v3(p1_handle, selected_endpoints[0]->vec[2]);
+			}
+			else {
+				copy_v3_v3(p1, selected_endpoints[1]->vec[1]);
+				copy_v3_v3(p1_handle, selected_endpoints[1]->vec[0]);
+			}
+			get_nurb_shape_bounds(obedit, bound_box);
+			get_max_extent_2d(p1, p1_handle, bound_box, p1_extend);
+		}
+	}
+
+	return OPERATOR_FINISHED;
+}
+
+void CURVE_OT_extend_curve(wmOperatorType *ot)
+{
+
+	/* identifiers */
+	ot->name = "Extend";
+	ot->description = "Extend selected vertex/vertices to nearest intersection";
+	ot->idname = "CURVE_OT_extend_curve";
+
+	/* api callbacks */
+	ot->exec = extend_curve_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}

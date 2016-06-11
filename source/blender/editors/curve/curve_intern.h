@@ -128,6 +128,8 @@ void CURVE_OT_cyclic_toggle(struct wmOperatorType *ot);
 
 void CURVE_OT_match_texture_space(struct wmOperatorType *ot);
 
+void CURVE_OT_extend_curve(struct wmOperatorType *ot);
+
 bool ED_curve_pick_vert(
         struct ViewContext *vc, short sel, const int mval[2],
         struct Nurb **r_nurb, struct BezTriple **r_bezt, struct BPoint **r_bp, short *r_handle);

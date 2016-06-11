@@ -537,6 +537,7 @@ class VIEW3D_PT_tools_curveedit(View3DPanel, Panel):
         col.operator("curve.subdivide")
         col.operator("curve.smooth")
         col.operator("transform.vertex_random")
+        col.operator("curve.extend_curve")
 
 
 class VIEW3D_PT_tools_add_curve_edit(View3DPanel, Panel):
