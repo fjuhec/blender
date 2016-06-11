@@ -657,7 +657,6 @@ static void draw_rotation_guide(RegionView3D *rv3d)
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glShadeModel(GL_SMOOTH);
 	glPointSize(5);
 	glEnable(GL_POINT_SMOOTH);
 	glDepthMask(0);  /* don't overwrite zbuf */
@@ -1179,10 +1178,10 @@ static void drawviewborder(Scene *scene, ARegion *ar, View3D *v3d)
 	if (scene->r.mode & R_BORDER) {
 		float x3, y3, x4, y4;
 
-		x3 = x1i + 1 + roundf(scene->r.border.xmin * (x2 - x1));
-		y3 = y1i + 1 + roundf(scene->r.border.ymin * (y2 - y1));
-		x4 = x1i + 1 + roundf(scene->r.border.xmax * (x2 - x1));
-		y4 = y1i + 1 + roundf(scene->r.border.ymax * (y2 - y1));
+		x3 = floorf(x1 + (scene->r.border.xmin * (x2 - x1))) - 1;
+		y3 = floorf(y1 + (scene->r.border.ymin * (y2 - y1))) - 1;
+		x4 = floorf(x1 + (scene->r.border.xmax * (x2 - x1))) + (U.pixelsize - 1);
+		y4 = floorf(y1 + (scene->r.border.ymax * (y2 - y1))) + (U.pixelsize - 1);
 
 		cpack(0x4040FF);
 		sdrawbox(x3,  y3,  x4,  y4);
@@ -2999,18 +2998,16 @@ static void view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar)
 				glLoadIdentity();
 				glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
 			}
-
+			// Draw world
 			glEnable(GL_DEPTH_TEST);
 			glDepthFunc(GL_ALWAYS);
-			glShadeModel(GL_SMOOTH);
 			glBegin(GL_TRIANGLE_STRIP);
 			glVertex3f(-1.0, -1.0, 1.0);
 			glVertex3f(1.0, -1.0, 1.0);
 			glVertex3f(-1.0, 1.0, 1.0);
 			glVertex3f(1.0, 1.0, 1.0);
 			glEnd();
-			glShadeModel(GL_FLAT);
-
+			//
 			if (material_not_bound) {
 				glMatrixMode(GL_PROJECTION);
 				glPopMatrix();
@@ -3047,8 +3044,6 @@ static void view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar)
 			glMatrixMode(GL_MODELVIEW);
 			glPushMatrix();
 			glLoadIdentity();
-
-			glShadeModel(GL_SMOOTH);
 
 			/* calculate buffers the first time only */
 			if (!buf_calculated) {
@@ -3135,8 +3130,6 @@ static void view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar)
 			glMatrixMode(GL_MODELVIEW);
 			glPopMatrix();
 
-			glShadeModel(GL_FLAT);
-
 #undef VIEWGRAD_RES_X
 #undef VIEWGRAD_RES_Y
 		}
@@ -3160,7 +3153,6 @@ static void view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar)
 
 			glEnable(GL_DEPTH_TEST);
 			glDepthFunc(GL_ALWAYS);
-			glShadeModel(GL_SMOOTH);
 			glBegin(GL_QUADS);
 			UI_ThemeColor(TH_LOW_GRAD);
 			glVertex3f(-1.0, -1.0, 1.0);
@@ -3169,8 +3161,6 @@ static void view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar)
 			glVertex3f(1.0, 1.0, 1.0);
 			glVertex3f(-1.0, 1.0, 1.0);
 			glEnd();
-			glShadeModel(GL_FLAT);
-
 			glDepthFunc(GL_LEQUAL);
 			glDisable(GL_DEPTH_TEST);
 
