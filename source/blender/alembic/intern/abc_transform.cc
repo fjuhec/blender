@@ -39,6 +39,23 @@ using Alembic::AbcGeom::OXform;
 
 /* ************************************************************************** */
 
+static bool has_parent_camera(Object *ob)
+{
+	if (!ob->parent) {
+		return false;
+	}
+
+	Object *parent = ob->parent;
+
+	if (parent->type == OB_CAMERA) {
+		return true;
+	}
+
+	return has_parent_camera(parent);
+}
+
+/* ************************************************************************** */
+
 AbcTransformWriter::AbcTransformWriter(Object *ob,
                                        const OObject &abc_parent,
                                        AbcTransformWriter *parent,
@@ -81,7 +98,8 @@ void AbcTransformWriter::do_write()
 	float mat[4][4];
 	create_transform_matrix(m_object, mat);
 
-	if (m_object->type == OB_CAMERA) {
+	/* Only apply rotation to root camera, parenting will propagate it. */
+	if (m_object->type == OB_CAMERA && !has_parent_camera(m_object)) {
 		float rot_mat[4][4];
 		unit_m4(rot_mat);
 		rotate_m4(rot_mat, 'X', -M_PI_2);
