@@ -267,9 +267,13 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 	CUtexObject tex = kernel_tex_fetch(__bindless_mapping, id);
 	if(id < 2048) /* TODO(dingto): Make this a variable */
 		r = kernel_tex_image_interp_float4(tex, x, y);
-	else {
+	else if(id < 4096) {
 		float f = kernel_tex_image_interp_float(tex, x, y);
 		r = make_float4(f, f, f, 1.0);
+	}
+	else {
+		half g = kernel_tex_image_interp_half(tex, x, y);
+		r = half4_to_float4(&g);
 	}
 #  endif
 #endif

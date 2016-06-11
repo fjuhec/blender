@@ -27,24 +27,32 @@ CCL_NAMESPACE_BEGIN
 
 /* Half Floats */
 
-#ifdef __KERNEL_OPENCL__
-
-#define float4_store_half(h, f, scale) vstore_half4(f * (scale), 0, h);
-#define half4_to_float4(h) vload_half4(0, h);
-
-#else
-
+/* CUDA and OpenCL have inbuilt half data types,
+ * so we only need to declare them for CPU */
+#ifndef __KERNEL_GPU__
 typedef unsigned short half;
 struct half4 { half x, y, z, w; };
+#endif
 
-#ifdef __KERNEL_CUDA__
+/* Float <-> Half conversion.
+ * we define several functions:
+ * float4_store_half()
+ * half_to_float4() TODO
+ * half_to_float() TODO
+*/
+
+#if defined(__KERNEL_OPENCL__)
+#  define float4_store_half(h, f, scale) vstore_half4(f * (scale), 0, h);
+#  define half4_to_float4(h) vload_half4(0, h);
+
+#elif defined(__KERNEL_CUDA__)
 
 ccl_device_inline void float4_store_half(half *h, float4 f, float scale)
 {
-	h[0] = __float2half_rn(f.x * scale);
-	h[1] = __float2half_rn(f.y * scale);
-	h[2] = __float2half_rn(f.z * scale);
-	h[3] = __float2half_rn(f.w * scale);
+	h[0] = __float2half(f.x * scale);
+	h[1] = __float2half(f.y * scale);
+	h[2] = __float2half(f.z * scale);
+	h[3] = __float2half(f.w * scale);
 }
 
 ccl_device_inline float4 half4_to_float4(half *h)
@@ -52,7 +60,7 @@ ccl_device_inline float4 half4_to_float4(half *h)
     return make_float4(__half2float(h[0]), __half2float(h[1]), __half2float(h[2]), __half2float(h[3]));
 }
 
-#else
+#else /* __KERNEL_CPU__ */
 
 ccl_device_inline void float4_store_half(half *h, float4 f, float scale)
 {
@@ -112,8 +120,6 @@ ccl_device_inline float half_to_float(half h)
 
 	return f;
 }
-
-#endif
 
 #endif
 

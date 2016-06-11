@@ -31,6 +31,7 @@
 #endif
 
 #include <cuda.h>
+#include <cuda_fp16.h>
 #include <float.h>
 
 /* Qualifier wrappers for different names on different devices */
@@ -87,6 +88,7 @@ typedef texture<uchar4, 2, cudaReadModeNormalizedFloat> texture_image_uchar4;
 
 #  define kernel_tex_image_interp_float4(t, x, y) tex2D<float4>(t, x, y)
 #  define kernel_tex_image_interp_float(t, x, y) tex2D<float>(t, x, y)
+#  define kernel_tex_image_interp_half(t, x, y) tex2D<ushort4>(t, x, y)
 #  define kernel_tex_image_interp_3d_float4(t, x, y, z) tex3D<float4>(t, x, y, z)
 #  define kernel_tex_image_interp_3d_float(t, x, y, z) tex3D<float>(t, x, y, z)
 #endif
