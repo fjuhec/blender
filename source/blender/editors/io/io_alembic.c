@@ -24,7 +24,12 @@
 
 #ifdef WITH_ALEMBIC
 
-#include <dirent.h>
+/* needed for directory lookup */
+#ifndef WIN32
+#  include <dirent.h>
+#else
+#  include "BLI_winstuff.h"
+#endif
 
 #include "MEM_guardedalloc.h"
 
