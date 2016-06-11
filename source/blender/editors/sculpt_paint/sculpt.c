@@ -548,21 +548,12 @@ void ED_sculpt_redraw_planes_get(float planes[4][4], ARegion *ar,
 
 /************************ Brush Testing *******************/
 
-typedef struct SculptBrushTest {
-	float radius_squared;
-	float location[3];
-	float dist;
-	int mirror_symmetry_pass;
-
-	/* View3d clipping - only set rv3d for clipping */
-	RegionView3D *clip_rv3d;
-} SculptBrushTest;
-
-static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
+void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 {
 	RegionView3D *rv3d = ss->cache->vc->rv3d;
 
 	test->radius_squared = ss->cache->radius_squared;
+	
 	copy_v3_v3(test->location, ss->cache->location);
 	test->dist = 0.0f;   /* just for initialize */
 
@@ -587,10 +578,12 @@ BLI_INLINE bool sculpt_brush_test_clipping(const SculptBrushTest *test, const fl
 	return ED_view3d_clipping_test(rv3d, symm_co, true);
 }
 
-static bool sculpt_brush_test(SculptBrushTest *test, const float co[3])
+bool sculpt_brush_test(SculptBrushTest *test, const float co[3])
 {
 	float distsq = len_squared_v3v3(co, test->location);
-
+	//printf("3D brush location: %f %f %f\n", test->location[0], test->location[1], test->location[2]);
+	//printf("distance squared to vert %f\n", distsq);
+	//printf("radius squared %f\n", test->radius_squared);
 	if (distsq <= test->radius_squared) {
 		if (sculpt_brush_test_clipping(test, co)) {
 			return 0;
@@ -603,7 +596,7 @@ static bool sculpt_brush_test(SculptBrushTest *test, const float co[3])
 	}
 }
 
-static bool sculpt_brush_test_sq(SculptBrushTest *test, const float co[3])
+bool sculpt_brush_test_sq(SculptBrushTest *test, const float co[3])
 {
 	float distsq = len_squared_v3v3(co, test->location);
 
@@ -2717,6 +2710,7 @@ static void do_flatten_brush_task_cb_ex(
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		if (sculpt_brush_test_sq(&test, vd.co)) {
+
 			float intr[3];
 			float val[3];
 
@@ -4417,18 +4411,22 @@ bool sculpt_stroke_get_location(bContext *C, float out[3], const float mouse[2])
 		ray_start, ray_normal, srd.original);
 
 	/* for vwpaint */
+	// Needs to be moved. After getting 3D location, iterate through leaves and determine 
+	//which are within the brush region
 	if (cache && srd.hit) {
-		if (cache->node == srd.node) cache->didNodeChange = false;
+
+		if (cache->nodes[0] == srd.node) cache->didNodeChange = false;
 		else { 
-			cache->node = srd.node; 
+			cache->nodes[0] = srd.node;
 			cache->didNodeChange = true;
 		}
 	}
-	else if (cache) cache->node = NULL;
+	else if (cache) cache->nodes[0] = NULL;
 
 	copy_v3_v3(out, ray_normal);
 	mul_v3_fl(out, srd.dist);
 	add_v3_v3(out, ray_start);
+	copy_v3_v3(cache->location, out);
 
 
 	return srd.hit;

@@ -37,6 +37,7 @@
 #include "DNA_vec_types.h"
 #include "DNA_key_types.h"
 #include "DNA_brush_types.h"
+#include "DNA_view3d_types.h"
 
 #include "BLI_bitmap.h"
 #include "BLI_dial.h"
@@ -219,13 +220,29 @@ typedef struct StrokeCache {
 	rcti previous_r; /* previous redraw rectangle */
 	rcti current_r; /* current redraw rectangle */
 
-	PBVHNode* node;
+	PBVHNode** nodes;
+	int totNodes;
 	bool didNodeChange;
 	int totVerts;
 	int* vert_indices;
 	MeshElemMap* vert_to_loop;
 
 } StrokeCache;
+
+/*************** Brush testing declarations ****************/
+typedef struct SculptBrushTest {
+	float radius_squared;
+	float location[3];
+	float dist;
+	int mirror_symmetry_pass;
+
+	/* View3d clipping - only set rv3d for clipping */
+	RegionView3D *clip_rv3d;
+} SculptBrushTest;
+
+void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test);
+bool sculpt_brush_test(SculptBrushTest *test, const float co[3]);
+bool sculpt_brush_test_sq(SculptBrushTest *test, const float co[3]);
 
 void sculpt_cache_free(StrokeCache *cache);
 
