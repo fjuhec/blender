@@ -75,7 +75,9 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	Scene *scene = md->scene;
 
 	char filepath[1024];
-	BKE_cachefile_filepath_get(scene, mcmd->cache_file, filepath);
+	if (!BKE_cachefile_filepath_get(scene, mcmd->cache_file, filepath)) {
+		return dm;
+	}
 
 	const float frame = BKE_scene_frame_get(scene);
 	const float time = BKE_cachefile_time_offset(mcmd->cache_file, frame / FPS);

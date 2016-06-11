@@ -51,7 +51,7 @@ void *BKE_cachefile_add(Main *bmain, const char *name)
 	return cache_file;
 }
 
-void BKE_cachefile_filepath_get(Scene *scene, CacheFile *cache_file, char *r_filepath)
+bool BKE_cachefile_filepath_get(Scene *scene, CacheFile *cache_file, char *r_filepath)
 {
 	const float frame = BKE_scene_frame_get(scene);
 	BLI_strncpy(r_filepath, cache_file->filepath, 1024);
@@ -64,11 +64,9 @@ void BKE_cachefile_filepath_get(Scene *scene, CacheFile *cache_file, char *r_fil
 		BLI_path_frame_strip(r_filepath, true, ext);
 		BLI_path_frame(r_filepath, frame, frame_len);
 		BLI_ensure_extension(r_filepath, 1024, ext);
-
-		if (!BLI_exists(r_filepath)) {
-			return;
-		}
 	}
+
+	return BLI_exists(r_filepath);
 }
 
 float BKE_cachefile_time_offset(CacheFile *cache_file, float time)
