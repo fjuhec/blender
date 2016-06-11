@@ -61,6 +61,40 @@ extern "C" {
 using Alembic::Abc::TimeSamplingPtr;
 using Alembic::Abc::OBox3dProperty;
 
+/* ************************************************************************** */
+
+static bool object_is_smoke_sim(Object *ob)
+{
+	ModifierData *md = modifiers_findByType(ob, eModifierType_Smoke);
+
+	if (md) {
+		SmokeModifierData *smd = reinterpret_cast<SmokeModifierData *>(md);
+		return (smd->type == MOD_SMOKE_TYPE_DOMAIN);
+	}
+
+	return false;
+}
+
+static bool object_is_shape(Object *ob)
+{
+	switch (ob->type) {
+		case OB_MESH:
+			if (object_is_smoke_sim(ob)) {
+				return false;
+			}
+
+			return true;
+			break;
+		case OB_SURF:
+		case OB_CAMERA:
+			return true;
+		default:
+			return false;
+	}
+}
+
+/* ************************************************************************** */
+
 AbcExporter::AbcExporter(Scene *scene, const char *filename, ExportSettings &settings)
     : m_settings(settings)
     , m_filename(filename)
@@ -285,7 +319,7 @@ void AbcExporter::createTransformWritersFlat()
 	while (base) {
 		Object *ob = base->object;
 
-		if (m_settings.exportObject(ob) && objectIsShape(ob)) {
+		if (m_settings.exportObject(ob) && object_is_shape(ob)) {
 			std::string name = get_id_name(ob);
 			m_xforms[name] = new AbcTransformWriter(ob, m_archive.getTop(), 0, m_trans_sampling_index, m_settings);
 		}
@@ -395,7 +429,7 @@ void AbcExporter::exploreObject(EvaluationContext *eval_ctx, Object *ob, Object 
 
 void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 {
-	if (!objectIsShape(ob)) {
+	if (!object_is_shape(ob)) {
 		return;
 	}
 
@@ -522,34 +556,4 @@ void AbcExporter::setCurrentFrame(Main *bmain, double t)
 	m_scene->r.cfra = std::floor(t);
 	m_scene->r.subframe = t - m_scene->r.cfra;
 	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, m_scene, m_scene->lay);
-}
-
-bool AbcExporter::objectIsShape(Object *ob)
-{
-	switch(ob->type) {
-		case OB_MESH:
-			if (objectIsSmokeSim(ob)) {
-				return false;
-			}
-
-			return true;
-			break;
-		case OB_SURF:
-		case OB_CAMERA:
-			return true;
-		default:
-			return false;
-	}
-}
-
-bool AbcExporter::objectIsSmokeSim(Object *ob)
-{
-	ModifierData *md = modifiers_findByType(ob, eModifierType_Smoke);
-
-	if (md) {
-		SmokeModifierData *smd = reinterpret_cast<SmokeModifierData *>(md);
-		return (smd->type == MOD_SMOKE_TYPE_DOMAIN);
-	}
-
-	return false;
 }

@@ -66,8 +66,5 @@ private:
 
 	AbcTransformWriter *getXForm(const std::string &name);
 
-	bool objectIsShape(Object *ob);
-	bool objectIsSmokeSim(Object *ob);
-
 	void setCurrentFrame(Main *bmain, double t);
 };
