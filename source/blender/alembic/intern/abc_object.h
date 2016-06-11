@@ -98,6 +98,10 @@ struct ImportSettings {
 	bool is_sequence;
 	bool set_frame_range;
 
+	/* Length and frame offset of file sequences. */
+	int sequence_len;
+	int offset;
+
 	CacheFile *cache_file;
 };
 

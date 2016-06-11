@@ -516,6 +516,7 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 		if (reader->valid()) {
 			reader->readObjectData(data->bmain, scene, 0.0f);
 			reader->readObjectMatrix(0.0f);
+
 			min_time = std::min(min_time, reader->minTime());
 			max_time = std::max(max_time, reader->maxTime());
 		}
@@ -523,10 +524,17 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 		*data->progress = 0.1f + 0.6f * (++i / size);
 	}
 
-	if (data->settings.set_frame_range && (min_time < max_time)) {
-		SFRA = min_time * FPS;
-		EFRA = max_time * FPS;
-		CFRA = SFRA;
+	if (data->settings.set_frame_range) {
+		if (data->settings.is_sequence) {
+			SFRA = data->settings.offset;
+			EFRA = SFRA + (data->settings.sequence_len - 1);
+			CFRA = SFRA;
+		}
+		else if (min_time < max_time) {
+			SFRA = min_time * FPS;
+			EFRA = max_time * FPS;
+			CFRA = SFRA;
+		}
 	}
 
 	i = 0;
@@ -573,7 +581,7 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 	WM_main_add_notifier(NC_SCENE | ND_FRAME, scene);
 }
 
-void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence, bool set_frame_range)
+void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence, bool set_frame_range, int sequence_len, int offset)
 {
 	ImportJobData *job = static_cast<ImportJobData *>(MEM_mallocN(sizeof(ImportJobData), "ImportJobData"));
 	job->bmain = CTX_data_main(C);
@@ -583,6 +591,8 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	job->settings.scale = scale;
 	job->settings.is_sequence = is_sequence;
 	job->settings.set_frame_range = set_frame_range;
+	job->settings.sequence_len = sequence_len;
+	job->settings.offset = offset;
 
 	wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),
 	                            CTX_wm_window(C),

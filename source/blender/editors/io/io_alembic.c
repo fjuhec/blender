@@ -24,6 +24,10 @@
 
 #ifdef WITH_ALEMBIC
 
+#include <dirent.h>
+
+#include "MEM_guardedalloc.h"
+
 #include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -34,6 +38,7 @@
 #include "BKE_main.h"
 #include "BKE_report.h"
 
+#include "BLI_listbase.h"
 #include "BLI_math_vector.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
@@ -291,6 +296,89 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, 1000.0f, "Scale", "", 0.0f, 1000.0f);
 }
 
+/* ************************************************************************** */
+
+/* TODO(kevin): check on de-duplicating all this with code in image_ops.c */
+
+typedef struct CacheFrame {
+	struct CacheFrame *next, *prev;
+	int framenr;
+} CacheFrame;
+
+static int cmp_frame(const void *a, const void *b)
+{
+	const CacheFrame *frame_a = a;
+	const CacheFrame *frame_b = b;
+
+	if (frame_a->framenr < frame_b->framenr) return -1;
+	if (frame_a->framenr > frame_b->framenr) return 1;
+	return 0;
+}
+
+static int get_seqeunce_len(char *filename, int *ofs)
+{
+	int frame;
+	int numdigit;
+
+	if (!BLI_path_frame_get(filename, &frame, &numdigit)) {
+		return 1;
+	}
+
+	char path[FILE_MAX];
+	BLI_split_dir_part(filename, path, FILE_MAX);
+
+	DIR *dir = opendir(path);
+
+	const char *ext = ".abc";
+	const char *basename = BLI_path_basename(filename);
+	const int len = strlen(basename) - (numdigit + strlen(ext));
+
+	ListBase frames;
+	BLI_listbase_clear(&frames);
+
+	struct dirent *fname;
+	while ((fname = readdir(dir)) != NULL) {
+		/* do we have the right extension? */
+		if (!strstr(fname->d_name, ext)) {
+			continue;
+		}
+
+		if (!STREQLEN(basename, fname->d_name, len)) {
+			continue;
+		}
+
+		CacheFrame *cache_frame = MEM_callocN(sizeof(CacheFrame), "abc_frame");
+
+		BLI_path_frame_get(fname->d_name, &cache_frame->framenr, &numdigit);
+
+		BLI_addtail(&frames, cache_frame);
+	}
+
+	closedir(dir);
+
+	BLI_listbase_sort(&frames, cmp_frame);
+
+	CacheFrame *cache_frame = frames.first;
+
+	if (cache_frame) {
+		int frame_curr = cache_frame->framenr;
+		(*ofs) = frame_curr;
+
+		while (cache_frame && (cache_frame->framenr == frame_curr)) {
+			++frame_curr;
+			cache_frame = cache_frame->next;
+		}
+
+		BLI_freelistN(&frames);
+
+		return frame_curr - (*ofs);
+	}
+
+	return 1;
+}
+
+/* ************************************************************************** */
+
 static void ui_alembic_import_settings(uiLayout *layout, PointerRNA *imfptr)
 {
 	uiLayout *box = uiLayoutBox(layout);
@@ -306,9 +394,6 @@ static void ui_alembic_import_settings(uiLayout *layout, PointerRNA *imfptr)
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "set_frame_range", 0, NULL, ICON_NONE);
-
-	row = uiLayoutRow(box, false);
-	uiItemR(row, imfptr, "is_sequence", 0, NULL, ICON_NONE);
 }
 
 static void wm_alembic_import_draw(bContext *UNUSED(C), wmOperator *op)
@@ -330,10 +415,13 @@ static int wm_alembic_import_exec(bContext *C, wmOperator *op)
 	RNA_string_get(op->ptr, "filepath", filename);
 
 	const float scale = RNA_float_get(op->ptr, "scale");
-	const bool is_sequence = RNA_boolean_get(op->ptr, "is_sequence");
 	const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
 
-	ABC_import(C, filename, scale, is_sequence, set_frame_range);
+	int offset;
+	int sequence_len = get_seqeunce_len(filename, &offset);
+	const bool is_sequence = (sequence_len > 1);
+
+	ABC_import(C, filename, scale, is_sequence, set_frame_range, sequence_len, offset);
 
 	return OPERATOR_FINISHED;
 }
@@ -352,9 +440,6 @@ void WM_OT_alembic_import(wmOperatorType *ot)
 	                               FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, 1000.0f, "Scale", "", 0.0f, 1000.0f);
-
-	RNA_def_boolean(ot->srna, "is_sequence", false,
-	                "Sequence", "Whether the cache is separated in a series of file");
 
 	RNA_def_boolean(ot->srna, "set_frame_range", true,
 	                "Set Frame Range",
