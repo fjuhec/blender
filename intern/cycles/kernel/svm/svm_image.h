@@ -258,7 +258,6 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 		case 89: r = kernel_tex_image_interp(__tex_image_byte4_089, x, y); break;
 		case 90: r = kernel_tex_image_interp(__tex_image_byte4_090, x, y); break;
 		case 91: r = kernel_tex_image_interp(__tex_image_byte4_091, x, y); break;
-		case 92: r = kernel_tex_image_interp(__tex_image_byte4_092, x, y); break;
 		default:
 			kernel_assert(0);
 			return make_float4(0.0f, 0.0f, 0.0f, 0.0f);
