@@ -403,12 +403,19 @@ void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 		return;
 	}
 
-	std::string name = get_object_dag_path_name(ob, dupliObParent);
+	std::string name;
+
+	if (m_settings.flatten_hierarchy) {
+		name = get_id_name(ob);
+	}
+	else {
+		name = get_object_dag_path_name(ob, dupliObParent);
+	}
 	
 	AbcTransformWriter *xform = getXForm(name);
 
 	if (!xform) {
-		std::cerr << __func__ << ": xform " << name << "is NULL\n";
+		std::cerr << __func__ << ": xform " << name << " is NULL\n";
 		return;
 	}
 
