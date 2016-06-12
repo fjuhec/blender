@@ -37,8 +37,6 @@
 
 #include "BLI_math.h"
 #include "BLI_blenlib.h"
-#include "BLI_task.h"
-#include "BLI_threads.h"
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 
@@ -304,21 +302,6 @@ static void sculpt_project_v3_normal_align(SculptSession *ss, const float normal
 	madd_v3_v3fl(grab_delta, ss->cache->sculpt_normal_symm, (len_signed * normal_weight) * len_view_scale);
 }
 
-
-/** \name SculptProjectVector
- *
- * Fast-path for #project_plane_v3_v3v3
- *
- * \{ */
-
-typedef struct SculptProjectVector {
-	float plane[3];
-	float len_sq;
-	float len_sq_inv_neg;
-	bool  is_valid;
-
-} SculptProjectVector;
-
 /**
  * \param plane  Direction, can be any length.
  */
@@ -373,41 +356,6 @@ static bool sculpt_stroke_is_dynamic_topology(
 }
 
 /*** paint mesh ***/
-
-/* Single struct used by all BLI_task threaded callbacks, let's avoid adding 10's of those... */
-typedef struct SculptThreadedTaskData {
-	Sculpt *sd;
-	Object *ob;
-	Brush *brush;
-	PBVHNode **nodes;
-	int totnode;
-
-	/* Data specific to some callbacks. */
-	/* Note: even if only one or two of those are used at a time, keeping them separated, names help figuring out
-	 *       what it is, and memory overhead is ridiculous anyway... */
-	float flippedbstrength;
-	float angle;
-	float strength;
-	bool smooth_mask;
-	bool has_bm_orco;
-
-	SculptProjectVector *spvc;
-	float *offset;
-	float *grab_delta;
-	float *cono;
-	float *area_no;
-	float *area_no_sp;
-	float *area_co;
-	float (*mat)[4];
-	float (*vertCos)[3];
-
-	/* 0=towards view, 1=flipped */
-	float (*area_cos)[3];
-	float (*area_nos)[3];
-	int *count;
-
-	ThreadMutex mutex;
-} SculptThreadedTaskData;
 
 static void paint_mesh_restore_co_task_cb(void *userdata, const int n)
 {
@@ -581,9 +529,6 @@ BLI_INLINE bool sculpt_brush_test_clipping(const SculptBrushTest *test, const fl
 bool sculpt_brush_test(SculptBrushTest *test, const float co[3])
 {
 	float distsq = len_squared_v3v3(co, test->location);
-	//printf("3D brush location: %f %f %f\n", test->location[0], test->location[1], test->location[2]);
-	//printf("distance squared to vert %f\n", distsq);
-	//printf("radius squared %f\n", test->radius_squared);
 	if (distsq <= test->radius_squared) {
 		if (sculpt_brush_test_clipping(test, co)) {
 			return 0;
@@ -1127,7 +1072,7 @@ static float brush_strength(const Sculpt *sd, const StrokeCache *cache, const fl
 }
 
 /* Return a multiplier for brush strength on a particular vertex. */
-static float tex_strength(SculptSession *ss, Brush *br,
+float tex_strength(SculptSession *ss, Brush *br,
                           const float point[3],
                           const float len,
                           const short vno[3],
@@ -1194,24 +1139,17 @@ static float tex_strength(SculptSession *ss, Brush *br,
 
 	/* Falloff curve */
 	avg *= BKE_brush_curve_strength(br, len, cache->radius);
-
+	
 	avg *= frontface(br, cache->view_normal, vno, fno);
-
+	
 	/* Paint mask */
 	avg *= 1.0f - mask;
-
+	
 	return avg;
 }
 
-typedef struct {
-	Sculpt *sd;
-	SculptSession *ss;
-	float radius_squared;
-	bool original;
-} SculptSearchSphereData;
-
 /* Test AABB against sphere */
-static bool sculpt_search_sphere_cb(PBVHNode *node, void *data_v)
+bool sculpt_search_sphere_cb(PBVHNode *node, void *data_v)
 {
 	SculptSearchSphereData *data = data_v;
 	float *center = data->ss->cache->location, nearest[3];
@@ -1559,6 +1497,7 @@ static void do_smooth_brush_mesh_task_cb_ex(
 			                       ss, brush, vd.co, test.dist, vd.no, vd.fno,
 			                       smooth_mask ? 0.0f : (vd.mask ? *vd.mask : 0.0f),
 			                       thread_id);
+
 			if (smooth_mask) {
 				float val = neighbor_average_mask(ss, vd.vert_indices[vd.i]) - *vd.mask;
 				val *= fade * bstrength;
@@ -4413,21 +4352,22 @@ bool sculpt_stroke_get_location(bContext *C, float out[3], const float mouse[2])
 	/* for vwpaint */
 	// Needs to be moved. After getting 3D location, iterate through leaves and determine 
 	//which are within the brush region
-	if (cache && srd.hit) {
-
-		if (cache->nodes[0] == srd.node) cache->didNodeChange = false;
-		else { 
-			cache->nodes[0] = srd.node;
-			cache->didNodeChange = true;
-		}
-	}
-	else if (cache) cache->nodes[0] = NULL;
+	//if (cache && srd.hit) {
+	//	if (cache->nodes[0] == srd.node) cache->didNodeChange = false;
+		//else { 
+			//cache->nodes[0] = srd.node;
+			//cache->didNodeChange = true;
+		//}
+	//}
+	//else if (cache) cache->nodes[0] = NULL;
 
 	copy_v3_v3(out, ray_normal);
 	mul_v3_fl(out, srd.dist);
 	add_v3_v3(out, ray_start);
-	copy_v3_v3(cache->location, out);
 
+	if (cache && srd.hit){
+		copy_v3_v3(cache->location, out);
+	}
 
 	return srd.hit;
 }

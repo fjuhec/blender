@@ -2013,8 +2013,12 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 //	/* Truly temporary data that isn't stored in properties */
 	cache->vc = vc;
 
+	//brush = br;
+	//cache->saved_smooth_size = BKE_brush_size_get(scene, brush);
+	//BKE_brush_size_set(scene, brush, size);
 	cache->brush = brush;
-
+	curvemapping_initialize(cache->brush->curve);
+	//BKE_paint_brush_set(p, br);
 	cache->first_time = 1;
 
 	/* cache projection matrix */
@@ -2026,6 +2030,10 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 	copy_m3_m4(mat, ob->imat);
 	mul_m3_v3(mat, viewDir);
 	normalize_v3_v3(cache->true_view_normal, viewDir);
+	
+	//TEMPORARY. needs to be changed once we add mirroring.
+	copy_v3_v3(cache->view_normal, cache->true_view_normal);
+	cache->bstrength = BKE_brush_alpha_get(scene, brush);
 
 	cache->nodes = MEM_callocN(sizeof(PBVHNode*), "PBVH node ptr");
 }
@@ -2054,14 +2062,14 @@ static void vwpaint_update_cache_variants(bContext *C, VPaint *vd, Object *ob,
 	//cache->pen_flip = RNA_boolean_get(ptr, "pen_flip");
 	RNA_float_get_array(ptr, "mouse", cache->mouse);
 
-	///* XXX: Use pressure value from first brush step for brushes which don't
-	//*      support strokes (grab, thumb). They depends on initial state and
-	//*      brush coord/pressure/etc.
-	//*      It's more an events design issue, which doesn't split coordinate/pressure/angle
-	//*      changing events. We should avoid this after events system re-design */
-	//if (paint_supports_dynamic_size(brush, ePaintSculpt) || cache->first_time) {
-	//	cache->pressure = RNA_float_get(ptr, "pressure");
-	//}
+	/* XXX: Use pressure value from first brush step for brushes which don't
+	*      support strokes (grab, thumb). They depends on initial state and
+	*      brush coord/pressure/etc.
+	*      It's more an events design issue, which doesn't split coordinate/pressure/angle
+	*      changing events. We should avoid this after events system re-design */
+	if (paint_supports_dynamic_size(brush, ePaintSculpt) || cache->first_time) {
+		cache->pressure = RNA_float_get(ptr, "pressure");
+	}
 
 	/* Truly temporary data that isn't stored in properties */
 	if (cache->first_time) {
@@ -2808,27 +2816,6 @@ typedef struct PolyFaceMap {
 	int facenr;
 } PolyFaceMap;
 
-typedef struct VPaintData {
-	ViewContext vc;
-	unsigned int paintcol;
-	int *indexar;
-
-	struct VertProjHandle *vp_handle;
-	DMCoNo *vertexcosnos;
-
-	float vpimat[3][3];
-
-	/* modify 'me->mcol' directly, since the derived mesh is drawing from this
-	 * array, otherwise we need to refresh the modifier stack */
-	bool use_fast_update;
-
-	/* loops tagged as having been painted, to apply shared vertex color
-	 * blending only to modified loops */
-	bool *mlooptag;
-
-	bool is_texbrush;
-} VPaintData;
-
 static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const float mouse[2])
 {
 	Scene *scene = CTX_data_scene(C);
@@ -3036,6 +3023,70 @@ static void vpaint_paint_loop(VPaint *vp, VPaintData *vpd, Mesh *me,
 	}
 }
 
+static void do_mask_brush_draw_task_cb_ex(
+	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
+{
+	SculptThreadedTaskData *data = userdata;
+	SculptSession *ss = data->ob->sculpt;
+	Brush *brush = data->brush;
+	const float bstrength = ss->cache->bstrength;
+
+	//This should probably be put in the STTD struct.
+	Mesh *me = data->ob->data;
+	int r_unique = 0;
+	int r_total = 0;
+	int* r_vert_indices;
+	int *r_mem = NULL;
+	MeshElemMap *vert_to_loop = NULL;
+	MVert* r_verts;
+	BKE_pbvh_node_num_verts(ss->pbvh, data->nodes[n], &r_unique, &r_total);
+	BKE_pbvh_node_get_verts(ss->pbvh, data->nodes[n], &r_vert_indices, &r_verts);
+	BKE_mesh_vert_loop_map_create(&vert_to_loop, &r_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+
+	unsigned int *lcol = data->lcol;
+	unsigned int *lcolorig = data->vp->vpaint_prev;
+
+	PBVHVertexIter vd;
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	{
+		SculptBrushTest test;
+		sculpt_brush_test_init(ss, &test);
+		if (sculpt_brush_test(&test, vd.co)) {
+			const float fade = tex_strength(ss, brush, vd.co, test.dist, vd.no, vd.fno, 0.0f, thread_id);
+			
+			int vertexIndex = vd.vert_indices[vd.i];
+			MVert vert = me->mvert[vertexIndex];
+			//Test to see if the vertex coordinates are within the spherical brush region.
+			if (sculpt_brush_test(&test, vert.co)) {
+				unsigned int original[4] = { 0 };
+				//if a vertex is within the brush region, then paint each loop that vertex owns.
+				for (int j = 0; j < vert_to_loop[vertexIndex].count; ++j) {
+					int loopIndex = vert_to_loop[vertexIndex].indices[j];
+					//Mix the new color with the original based on the brush strength and the curve.
+					lcol[loopIndex] = vpaint_blend(data->vp, data->lcol[loopIndex], data->vp->vpaint_prev[loopIndex], data->vpd->paintcol, fade*255.0, bstrength*255);
+				}
+			}
+		}
+		BKE_pbvh_vertex_iter_end;
+	}
+}
+
+static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object *ob, Mesh *me, PBVHNode **nodes, int totnode)
+{
+	Brush *brush = ob->sculpt->cache->brush;//BKE_paint_brush(&sd->paint);
+	/* threaded loop over nodes */
+	SculptThreadedTaskData data = {
+		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
+	};
+	data.vp = vp;
+	data.vpd = vpd;
+	data.lcol = (unsigned int*)me->mloopcol;
+
+	BLI_task_parallel_range_ex(
+		0, totnode, &data, NULL, 0, do_mask_brush_draw_task_cb_ex,
+		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+}
+
 static void vpaint_paint_leaf(bContext *C, Mesh *me, VPaintData *vpd, SculptSession *ss, PointerRNA *itemptr) {
 	StrokeCache* cache = ss->cache;
 
@@ -3085,7 +3136,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 {
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
-	struct VPaintData *vpd = paint_stroke_mode_data(stroke);
+	VPaintData *vpd = paint_stroke_mode_data(stroke);
 	VPaint *vp = ts->vpaint;
 	Brush *brush = BKE_paint_brush(&vp->paint);
 	ViewContext *vc = &vpd->vc;
@@ -3140,7 +3191,20 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
 	
 	//Logic will change to "for each leaf within the brush region".
-	vpaint_paint_leaf(C, me, vpd, ob->sculpt, itemptr);
+	SculptSession *ss = ob->sculpt;
+	SculptSearchSphereData data;
+	PBVHNode **nodes = NULL;
+	int totnode;
+
+	/* Build a list of all nodes that are potentially within the brush's area of influence */
+	data.ss = ss;
+	data.sd = sd;
+	data.radius_squared = ss->cache->radius_squared;
+	data.original = true;// sculpt_tool_needs_original(brush->sculpt_tool) ? true : ss->cache->original;
+	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+
+	vpaint_paint_leaves(sd, vp, vpd, ob, me, nodes, totnode);
+	//vpaint_paint_leaf(C, me, vpd, ob->sculpt, itemptr);
 	
 	//for (index = 0; index < totindex; index++) {
 		//if (indexar[index] && indexar[index] <= me->totpoly) {

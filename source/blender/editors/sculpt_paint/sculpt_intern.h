@@ -41,10 +41,15 @@
 
 #include "BLI_bitmap.h"
 #include "BLI_dial.h"
+#include "BLI_task.h"
+#include "BLI_threads.h"
+
 #include "BKE_pbvh.h"
 #include "BKE_mesh_mapping.h"
 
 #include "ED_view3d.h"
+
+#include "paint_intern.h"
 
 struct bContext;
 struct KeyBlock;
@@ -229,6 +234,61 @@ typedef struct StrokeCache {
 
 } StrokeCache;
 
+/** \name SculptProjectVector
+*
+* Fast-path for #project_plane_v3_v3v3
+*
+* \{ */
+
+typedef struct SculptProjectVector {
+	float plane[3];
+	float len_sq;
+	float len_sq_inv_neg;
+	bool  is_valid;
+
+} SculptProjectVector;
+
+/* Single struct used by all BLI_task threaded callbacks, let's avoid adding 10's of those... */
+typedef struct SculptThreadedTaskData {
+	Sculpt *sd;
+	Object *ob;
+	Brush *brush;
+	PBVHNode **nodes;
+	int totnode;
+
+	VPaint *vp;
+	VPaintData *vpd;
+	unsigned int* lcol;
+	MeshElemMap **vertToLoopMaps;
+
+	/* Data specific to some callbacks. */
+	/* Note: even if only one or two of those are used at a time, keeping them separated, names help figuring out
+	*       what it is, and memory overhead is ridiculous anyway... */
+	float flippedbstrength;
+	float angle;
+	float strength;
+	bool smooth_mask;
+	bool has_bm_orco;
+
+	SculptProjectVector *spvc;
+	float *offset;
+	float *grab_delta;
+	float *cono;
+	float *area_no;
+	float *area_no_sp;
+	float *area_co;
+	float(*mat)[4];
+	float(*vertCos)[3];
+
+	/* 0=towards view, 1=flipped */
+	float(*area_cos)[3];
+	float(*area_nos)[3];
+	int *count;
+
+	ThreadMutex mutex;
+
+} SculptThreadedTaskData;
+
 /*************** Brush testing declarations ****************/
 typedef struct SculptBrushTest {
 	float radius_squared;
@@ -240,10 +300,24 @@ typedef struct SculptBrushTest {
 	RegionView3D *clip_rv3d;
 } SculptBrushTest;
 
+typedef struct {
+	Sculpt *sd;
+	SculptSession *ss;
+	float radius_squared;
+	bool original;
+} SculptSearchSphereData;
+
 void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test);
 bool sculpt_brush_test(SculptBrushTest *test, const float co[3]);
 bool sculpt_brush_test_sq(SculptBrushTest *test, const float co[3]);
-
+bool sculpt_search_sphere_cb(PBVHNode *node, void *data_v);
+float tex_strength(SculptSession *ss, Brush *br,
+	const float point[3],
+	const float len,
+	const short vno[3],
+	const float fno[3],
+	const float mask,
+	const int thread_id);
 void sculpt_cache_free(StrokeCache *cache);
 
 SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType type);

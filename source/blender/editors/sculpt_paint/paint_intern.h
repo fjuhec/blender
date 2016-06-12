@@ -28,6 +28,8 @@
  *  \ingroup edsculpt
  */
 
+#include "ED_view3d.h"
+#include "BKE_DerivedMesh.h"
 
 #ifndef __PAINT_INTERN_H__
 #define __PAINT_INTERN_H__
@@ -91,6 +93,27 @@ void paint_cursor_start_explicit(struct Paint *p, struct wmWindowManager *wm, in
 void paint_cursor_delete_textures(void);
 
 /* paint_vertex.c */
+typedef struct VPaintData {
+	ViewContext vc;
+	unsigned int paintcol;
+	int *indexar;
+
+	struct VertProjHandle *vp_handle;
+	DMCoNo *vertexcosnos;
+
+	float vpimat[3][3];
+
+	/* modify 'me->mcol' directly, since the derived mesh is drawing from this
+	* array, otherwise we need to refresh the modifier stack */
+	bool use_fast_update;
+
+	/* loops tagged as having been painted, to apply shared vertex color
+	* blending only to modified loops */
+	bool *mlooptag;
+
+	bool is_texbrush;
+} VPaintData;
+
 int weight_paint_poll(struct bContext *C);
 int weight_paint_mode_poll(struct bContext *C);
 int vertex_paint_poll(struct bContext *C);
