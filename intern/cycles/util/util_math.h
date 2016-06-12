@@ -174,7 +174,7 @@ ccl_device_inline float clamp(float a, float mn, float mx)
 	return min(max(a, mn), mx);
 }
 
-ccl_device_inline float interp(float a, float b, float t)
+ccl_device_inline float mix(float a, float b, float t)
 {
     return a + t*(b - a);
 }
@@ -651,6 +651,15 @@ ccl_device_inline float3 interp(float3 a, float3 b, float t)
 {
 	return a + t*(b - a);
 }
+
+#ifndef __KERNEL_OPENCL__
+
+ccl_device_inline float3 mix(float3 a, float3 b, float t)
+{
+	return a + t*(b - a);
+}
+
+#endif
 
 ccl_device_inline bool is_zero(const float3 a)
 {

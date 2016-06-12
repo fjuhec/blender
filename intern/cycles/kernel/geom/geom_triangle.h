@@ -252,9 +252,9 @@ ccl_device float subd_triangle_attribute_float(KernelGlobals *kg, const ShaderDa
 		if(v.w != ~0) {
 			float f3 = kernel_tex_fetch(__attributes_float, offset + v.w);
 
-			a = interp(interp(f0, f1, uv[0].x), interp(f3, f2, uv[0].x), uv[0].y);
-			b = interp(interp(f0, f1, uv[1].x), interp(f3, f2, uv[1].x), uv[1].y);
-			c = interp(interp(f0, f1, uv[2].x), interp(f3, f2, uv[2].x), uv[2].y);
+			a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
+			b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
+			c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
 		}
 		else {
 			a = uv[0].x*f0 + uv[0].y*f1 + (1.0f - uv[0].x - uv[0].y)*f2;
@@ -285,9 +285,9 @@ ccl_device float subd_triangle_attribute_float(KernelGlobals *kg, const ShaderDa
 		if(v.w != ~0) {
 			float f3 = kernel_tex_fetch(__attributes_float, patch + 3);
 
-			a = interp(interp(f0, f1, uv[0].x), interp(f3, f2, uv[0].x), uv[0].y);
-			b = interp(interp(f0, f1, uv[1].x), interp(f3, f2, uv[1].x), uv[1].y);
-			c = interp(interp(f0, f1, uv[2].x), interp(f3, f2, uv[2].x), uv[2].y);
+			a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
+			b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
+			c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
 		}
 		else {
 			a = uv[0].x*f0 + uv[0].y*f1 + (1.0f - uv[0].x - uv[0].y)*f2;
@@ -332,9 +332,9 @@ ccl_device float3 subd_triangle_attribute_float3(KernelGlobals *kg, const Shader
 		if(v.w != ~0) {
 			float3 f3 = float4_to_float3(kernel_tex_fetch(__attributes_float3, offset + v.w));
 
-			a = interp(interp(f0, f1, uv[0].x), interp(f3, f2, uv[0].x), uv[0].y);
-			b = interp(interp(f0, f1, uv[1].x), interp(f3, f2, uv[1].x), uv[1].y);
-			c = interp(interp(f0, f1, uv[2].x), interp(f3, f2, uv[2].x), uv[2].y);
+			a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
+			b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
+			c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
 		}
 		else {
 			a = uv[0].x*f0 + uv[0].y*f1 + (1.0f - uv[0].x - uv[0].y)*f2;
@@ -378,9 +378,9 @@ ccl_device float3 subd_triangle_attribute_float3(KernelGlobals *kg, const Shader
 				f3 = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, patch + 3));
 			}
 
-			a = interp(interp(f0, f1, uv[0].x), interp(f3, f2, uv[0].x), uv[0].y);
-			b = interp(interp(f0, f1, uv[1].x), interp(f3, f2, uv[1].x), uv[1].y);
-			c = interp(interp(f0, f1, uv[2].x), interp(f3, f2, uv[2].x), uv[2].y);
+			a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
+			b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
+			c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
 		}
 		else {
 			a = uv[0].x*f0 + uv[0].y*f1 + (1.0f - uv[0].x - uv[0].y)*f2;
