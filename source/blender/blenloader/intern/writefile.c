@@ -151,6 +151,7 @@
 #include "BKE_constraint.h"
 #include "BKE_global.h" // for G
 #include "BKE_idcode.h"
+#include "BKE_layer.h"
 #include "BKE_library.h" // for  set_listbasepointers
 #include "BKE_main.h"
 #include "BKE_node.h"
@@ -2398,7 +2399,17 @@ static void write_paint(WriteData *wd, Paint *p)
 static void write_layeritems(WriteData *wd, Scene *scene, ListBase *layeritems)
 {
 	for (LayerTreeItem *litem = layeritems->first; litem; litem = litem->next) {
-		writestruct(wd, DATA, "LayerTreeItem", 1, litem);
+		if (scene->object_layers->type == LAYER_TREETYPE_OBJECT && litem->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			writestruct(wd, DATA, "LayerTypeObject", 1, oblayer);
+#if 0
+			/* TODO hrmpf can't write hash */
+			writedata(wd, DATA, , oblayer->basehash);
+#endif
+		}
+		else {
+			writestruct(wd, DATA, "LayerTreeItem", 1, litem);
+		}
 		litem->tree = scene->object_layers;
 		write_layeritems(wd, scene, &litem->childs);
 	}
@@ -2593,6 +2604,7 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 #ifdef WITH_ADVANCED_LAYERS
 		if (sce->object_layers) {
 			writestruct(wd, DATA, "LayerTree", 1, sce->object_layers);
+			writedata(wd, DATA, sizeof(LayerTreeItem *) * sce->object_layers->tot_items, sce->object_layers->items_all);
 			write_layeritems(wd, sce, &sce->object_layers->items);
 		}
 #endif

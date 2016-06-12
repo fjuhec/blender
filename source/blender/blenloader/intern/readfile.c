@@ -5816,16 +5816,25 @@ static void direct_link_view_settings(FileData *fd, ColorManagedViewSettings *vi
 /**
  * \note Recursive.
  */
-static void direct_link_layeritems(FileData *fd, ListBase *layeritems)
+static void direct_link_layeritems(FileData *fd, ListBase *layeritems, LayerTree *ltree, int *counter)
 {
 	link_list(fd, layeritems);
 	for (LayerTreeItem *litem = layeritems->first; litem; litem = litem->next) {
+		ltree->items_all[*counter] = litem;
+		(*counter)++;
+		litem->free = newdataadr(fd, litem->free);
+		litem->tree = ltree;
 		litem->parent = newdataadr(fd, litem->parent);
 		if (litem->type == LAYER_ITEMTYPE_LAYER) {
 			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+#if 0
+			/* TODO */
 			oblayer->basehash = newdataadr(fd, oblayer->basehash);
+#else
+			oblayer->basehash = NULL;
+#endif
 		}
-		direct_link_layeritems(fd, &litem->childs);
+		direct_link_layeritems(fd, &litem->childs, ltree, counter);
 	}
 }
 #endif
@@ -6062,7 +6071,9 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 #ifdef WITH_ADVANCED_LAYERS
 	sce->object_layers = newdataadr(fd, sce->object_layers);
 	if (sce->object_layers) {
-		direct_link_layeritems(fd, &sce->object_layers->items);
+		int counter = 0;
+		sce->object_layers->items_all = newdataadr(fd, sce->object_layers->items_all);
+		direct_link_layeritems(fd, &sce->object_layers->items, sce->object_layers, &counter);
 	}
 #endif
 

@@ -277,11 +277,6 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 
 #include "BKE_layer.h" /* XXX */
 
-typedef struct LayerTypeObject {
-	LayerTreeItem litem;
-	struct GHash *basehash; /* The objects of this layer. */
-} LayerTypeObject;
-
 LayerTreeItem *BKE_objectlayer_add(
         LayerTree *tree, LayerTreeItem *parent, const char *name,
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);

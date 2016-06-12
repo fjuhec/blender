@@ -1374,6 +1374,11 @@ typedef struct LayerTreeItem {
 	void (*free)(struct LayerTreeItem *);
 } LayerTreeItem;
 
+typedef struct LayerTypeObject {
+	LayerTreeItem litem;
+	struct GHash *basehash; /* The objects of this layer. */
+} LayerTypeObject;
+
 /* SpaceLayers->flag */
 typedef enum eSpaceLayers_Flag {
 	SL_LAYERDATA_REFRESH = (1 << 0), /* recreate/update SpaceLayers layer data, needed for undo/read/write */
