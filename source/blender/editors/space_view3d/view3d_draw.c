@@ -2727,111 +2727,89 @@ typedef enum {
 	OB_DRAWSTEP_SEL_EDIT,
 } ObjectDrawStep;
 
-typedef struct {
-	Scene *scene;
-	View3D *v3d;
-	ARegion *ar;
-
-	ObjectDrawStep drawstep;
-	int dflag;
-
-	/* return values */
-	unsigned int r_lay_used;
-} ObjectDrawData;
-
 /**
  * Low-level drawing function to draw an object based on ObjectDrawData.drawstep.
  */
-static void view3d_object_drawstep_draw(ObjectDrawData *ddata, Base *base)
+static void view3d_object_drawstep_draw(
+        Scene *scene, View3D *v3d, ARegion *ar,
+        Base *base, ObjectDrawStep drawstep, int dflag,
+        unsigned int *r_lay_used)
 {
-#define DRAW_OBJECT draw_object(ddata->scene, ddata->ar, ddata->v3d, base, ddata->dflag)
-#define DRAW_DUPLI  draw_dupli_objects(ddata->scene, ddata->ar, ddata->v3d, base)
-
-	switch (ddata->drawstep) {
+	switch (drawstep) {
 		case OB_DRAWSTEP_SET:
 			UI_ThemeColorBlend(TH_WIRE, TH_BACK, 0.6f);
-			DRAW_OBJECT;
+			draw_object(scene, ar, v3d, base, dflag);
 
 			if (base->object->transflag & OB_DUPLI) {
-				draw_dupli_objects_color(ddata->scene, ddata->ar, ddata->v3d, base, ddata->dflag, TH_UNDEFINED);
+				draw_dupli_objects_color(scene, ar, v3d, base, dflag, TH_UNDEFINED);
 			}
 			break;
 
 		case OB_DRAWSTEP_DUPLI_UNSEL:
-			ddata->r_lay_used |= base->lay;
+			(*r_lay_used) |= base->lay;
 
 			/* dupli drawing */
 			if (base->object->transflag & OB_DUPLI) {
-				DRAW_DUPLI;
+				draw_dupli_objects(scene, ar, v3d, base);
 			}
 			if ((base->flag & SELECT) == 0) {
-				if (base->object != ddata->scene->obedit)
-					DRAW_OBJECT;
+				if (base->object != scene->obedit)
+					draw_object(scene, ar, v3d, base, dflag);
 			}
 			break;
 
 		case OB_DRAWSTEP_SEL_EDIT:
-			if (base->object == ddata->scene->obedit || (base->flag & SELECT)) {
-				DRAW_OBJECT;
+			if (base->object == scene->obedit || (base->flag & SELECT)) {
+				draw_object(scene, ar, v3d, base, dflag);
 			}
 			break;
 
 		case OB_DRAWSTEP_OFFSCREEN:
 			/* dupli drawing */
 			if (base->object->transflag & OB_DUPLI)
-				DRAW_DUPLI;
+				draw_dupli_objects(scene, ar, v3d, base);
 
-			DRAW_OBJECT;
+			draw_object(scene, ar, v3d, base, dflag);
 			break;
 		default:
 			BLI_assert(0);
 	}
-
-#undef DRAW_OBJECT
-#undef DRAW_DUPLI
 }
-
-#ifdef WITH_ADVANCED_LAYERS
-/**
- * \brief Main object layer draw callback.
- *
- * Callback for drawing objects of the active layer, based on ObjectDrawData.drawstep.
- */
-static bool view3d_layer_objects_draw_cb(LayerTreeItem *litem, void *customdata)
-{
-	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-	ObjectDrawData *ddata = customdata;
-
-	BKE_OBJECTLAYER_BASES_ITER_START(oblayer, i, base)
-	{
-		view3d_object_drawstep_draw(ddata, base);
-	}
-	BKE_OBJECTLAYER_BASES_ITER_END;
-
-	return true;
-}
-#endif
 
 /**
  * \brief Draw all object layers.
  *
  * Draw objects by iterating over object layers in the scene. Uses
- * #view3d_layer_objects_draw_cb to draw the individual layers.
+ * #view3d_object_drawstep_draw to draw the individual layers.
  *
- * \param step: Tells the layer draw callback what and how to draw.
+ * \param drawstep: Tells the layer draw callback what and how to draw.
  */
-static void view3d_objectlayers_drawstep_draw(ObjectDrawData *ddata, ObjectDrawStep step)
+static void view3d_objectlayers_drawstep_draw(
+        Scene *scene, View3D *v3d, ARegion *ar,
+        ObjectDrawStep drawstep, int drawflag,
+        unsigned int *r_lay_used)
 {
-	ddata->drawstep = step;
 #ifdef WITH_ADVANCED_LAYERS
-	BKE_layertree_iterate(ddata->scene->object_layers, view3d_layer_objects_draw_cb, ddata, false);
-#else
-	for (Base *base = ddata->scene->base.first; base; base = base->next) {
-		if (ddata->v3d->lay & base->lay) {
-			view3d_object_drawstep_draw(ddata, base);
+	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, i, litem)
+	{
+		if (litem->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
+			{
+				view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
+			}
+			BKE_OBJECTLAYER_BASES_ITER_END;
 		}
-		else if (ddata->drawstep == OB_DRAWSTEP_DUPLI_UNSEL) {
-			ddata->r_lay_used |= base->lay;
+	}
+	BKE_LAYERTREE_ITER_END;
+
+#else
+	for (Base *base = scene->base.first; base; base = base->next) {
+		if (v3d->lay & base->lay) {
+			view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
+		}
+		else if (drawstep == OB_DRAWSTEP_DUPLI_UNSEL) {
+			*r_lay_used |= base->lay;
 		}
 	}
 #endif
@@ -2850,7 +2828,7 @@ static void view3d_draw_objects(
         const bool do_bgpic, const bool draw_offscreen, GPUFX *fx)
 {
 	RegionView3D *rv3d = ar->regiondata;
-	ObjectDrawData ddata = {scene, v3d, ar, -1};
+	unsigned int lay_used = 0;
 	const bool do_camera_frame = !draw_offscreen;
 	const bool draw_grids = !draw_offscreen && (v3d->flag2 & V3D_RENDER_OVERRIDE) == 0;
 	const bool draw_floor = (rv3d->view == RV3D_VIEW_USER) || (rv3d->persp != RV3D_ORTHO);
@@ -2920,12 +2898,10 @@ static void view3d_draw_objects(
 
 	/* draw background set first */
 	if (scene->set) {
-		ObjectDrawData ddata_set = ddata;
-
-		ddata_set.dflag = DRAW_CONSTCOLOR | DRAW_SCENESET;
 		for (Scene *sce_iter = scene->set; sce_iter; sce_iter = sce_iter->set) {
-			ddata_set.scene = sce_iter;
-			view3d_objectlayers_drawstep_draw(&ddata_set, OB_DRAWSTEP_SET);
+			view3d_objectlayers_drawstep_draw(
+			            sce_iter, v3d, ar, OB_DRAWSTEP_SET, DRAW_CONSTCOLOR | DRAW_SCENESET,
+			            &lay_used);
 		}
 
 		/* Transp and X-ray afterdraw stuff for sets is done later */
@@ -2933,17 +2909,17 @@ static void view3d_draw_objects(
 
 
 	if (draw_offscreen) {
-		view3d_objectlayers_drawstep_draw(&ddata, OB_DRAWSTEP_OFFSCREEN);
+		view3d_objectlayers_drawstep_draw(scene, v3d, ar, OB_DRAWSTEP_OFFSCREEN, 0, &lay_used);
 	}
 	else {
 		/* then draw not selected and the duplis, but skip editmode object */
-		view3d_objectlayers_drawstep_draw(&ddata, OB_DRAWSTEP_DUPLI_UNSEL);
+		view3d_objectlayers_drawstep_draw(scene, v3d, ar, OB_DRAWSTEP_DUPLI_UNSEL, 0, &lay_used);
 
 		/* mask out localview */
-		v3d->lay_used = ddata.r_lay_used & ((1 << 20) - 1);
+		v3d->lay_used = lay_used & ((1 << 20) - 1);
 
 		/* draw selected and editmode */
-		view3d_objectlayers_drawstep_draw(&ddata, OB_DRAWSTEP_SEL_EDIT);
+		view3d_objectlayers_drawstep_draw(scene, v3d, ar, OB_DRAWSTEP_SEL_EDIT, 0, &lay_used);
 	}
 
 	/* perspective floor goes last to use scene depth and avoid writing to depth buffer */
