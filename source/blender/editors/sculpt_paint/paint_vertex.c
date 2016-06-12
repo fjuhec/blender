@@ -2036,6 +2036,7 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 	cache->bstrength = BKE_brush_alpha_get(scene, brush);
 
 	cache->nodes = MEM_callocN(sizeof(PBVHNode*), "PBVH node ptr");
+	cache->loopsGenerated = false;
 }
 
 /* Initialize the stroke cache variants from operator properties */
@@ -3046,6 +3047,7 @@ static void do_mask_brush_draw_task_cb_ex(
 	unsigned int *lcol = data->lcol;
 	unsigned int *lcolorig = data->vp->vpaint_prev;
 
+	//for each vertex
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
@@ -3069,6 +3071,8 @@ static void do_mask_brush_draw_task_cb_ex(
 		}
 		BKE_pbvh_vertex_iter_end;
 	}
+	//Free the map
+	MEM_freeN(vert_to_loop);
 }
 
 static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object *ob, Mesh *me, PBVHNode **nodes, int totnode)
@@ -3085,51 +3089,6 @@ static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object 
 	BLI_task_parallel_range_ex(
 		0, totnode, &data, NULL, 0, do_mask_brush_draw_task_cb_ex,
 		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-}
-
-static void vpaint_paint_leaf(bContext *C, Mesh *me, VPaintData *vpd, SculptSession *ss, PointerRNA *itemptr) {
-	StrokeCache* cache = ss->cache;
-
-	int r_unique = 0;
-	int r_total = 0;
-	int* r_vert_indices;
-	MeshElemMap *r_map = NULL;
-	Scene *scene = CTX_data_scene(C);
-	ToolSettings *ts = CTX_data_tool_settings(C);
-	VPaint *vp = ts->vpaint;
-	Brush *brush = BKE_paint_brush(&vp->paint);
-
-	const float pressure = RNA_float_get(itemptr, "pressure");
-	const float brush_size_pressure =
-	        BKE_brush_size_get(scene, brush) * (BKE_brush_use_size_pressure(scene, brush) ? pressure : 1.0f);
-	const float brush_alpha_pressure =
-	        BKE_brush_alpha_get(scene, brush) * (BKE_brush_use_alpha_pressure(scene, brush) ? pressure : 1.0f);
-
-	//Only recalculate the map if the PBVH nodes have changed. 
-	//Currently only setup to work with one selected PBVH node.
-	if (cache->didNodeChange == true) {
-		int *r_mem = NULL;
-		MVert* r_verts;
-		BKE_pbvh_node_num_verts(ss->pbvh, cache->nodes[0], &r_unique, &cache->totVerts);
-		BKE_pbvh_node_get_verts(ss->pbvh, cache->nodes[0], &cache->vert_indices, &r_verts);
-		BKE_mesh_vert_loop_map_create(&cache->vert_to_loop, &r_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
-	}
-
-	unsigned int* lcol = (unsigned int*)me->mloopcol;
-
-	SculptBrushTest test;
-	sculpt_brush_test_init(ss, &test);
-	for (int i = 0; i < cache->totVerts; ++i) {
-		MVert vert = me->mvert[cache->vert_indices[i]];
-		//Test to see if the vertex coordinates are within the spherical brush region.
-		if (sculpt_brush_test(&test, vert.co)) {
-			int vertexIndex = cache->vert_indices[i];
-			for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
-				int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
-				vpaint_paint_loop(vp, vpd, me, loopIndex, brush_size_pressure, brush_alpha_pressure);
-			}
-		}
-	}
 }
 
 static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)
@@ -3190,7 +3149,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		memset(vpd->mlooptag, 0, sizeof(bool) * me->totloop);
 
 	
-	//Logic will change to "for each leaf within the brush region".
+
 	SculptSession *ss = ob->sculpt;
 	SculptSearchSphereData data;
 	PBVHNode **nodes = NULL;
@@ -3200,18 +3159,13 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	data.ss = ss;
 	data.sd = sd;
 	data.radius_squared = ss->cache->radius_squared;
-	data.original = true;// sculpt_tool_needs_original(brush->sculpt_tool) ? true : ss->cache->original;
+	data.original = true;
 	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
 
+	//Paint those leaves.
 	vpaint_paint_leaves(sd, vp, vpd, ob, me, nodes, totnode);
-	//vpaint_paint_leaf(C, me, vpd, ob->sculpt, itemptr);
-	
-	//for (index = 0; index < totindex; index++) {
-		//if (indexar[index] && indexar[index] <= me->totpoly) {
-			//vpaint_paint_poly(vp, vpd, me, indexar[index] - 1, mval, brush_size_pressure, brush_alpha_pressure);
-		//}
-	//}
-		
+
+
 	swap_m4m4(vc->rv3d->persmat, mat);
 
 	/* was disabled because it is slow, but necessary for blur */

@@ -231,6 +231,8 @@ typedef struct StrokeCache {
 	int totVerts;
 	int* vert_indices;
 	MeshElemMap* vert_to_loop;
+	//Temporary fix to map generation.
+	bool loopsGenerated;
 
 } StrokeCache;
 
