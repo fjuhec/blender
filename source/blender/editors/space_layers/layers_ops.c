@@ -94,23 +94,21 @@ static void layers_remove_layer_objects(bContext *C, SpaceLayers *slayer, LayerT
 	Scene *scene = CTX_data_scene(C);
 
 	ListBase remlist = {NULL};
-	const unsigned int tot_bases = BLI_ghash_size(oblayer->basehash);
-	LinkData *base_links = BLI_array_alloca(base_links, tot_bases);
-	GHashIterator gh_iter;
-	int i;
+	LinkData *base_links = BLI_array_alloca(base_links, oblayer->tot_bases);
 
-	GHASH_ITER_INDEX(gh_iter, oblayer->basehash, i) {
-		Base *base = BLI_ghashIterator_getValue(&gh_iter);
+	BKE_OBJECTLAYER_BASES_ITER_START(oblayer, i, base)
+	{
 		base_links[i].data = base;
 		BLI_addhead(&remlist, &base_links[i]);
 	}
-	BLI_assert(tot_bases == i);
+	BKE_OBJECTLAYER_BASES_ITER_END;
 
 	for (LinkData *base_link = remlist.first, *baselink_next; base_link; base_link = baselink_next) {
 		Base *base = base_link->data;
 		/* remove object from other layers */
 		/* XXX bases could have info about the layers they are in, then
 		 * we could avoid loop in loop and do this all on BKE_ level */
+		GHashIterator gh_iter;
 		GHASH_ITER(gh_iter, slayer->tiles) {
 			BKE_objectlayer_base_unassign(base, BLI_ghashIterator_getKey(&gh_iter));
 		}

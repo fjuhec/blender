@@ -2402,10 +2402,6 @@ static void write_layeritems(WriteData *wd, Scene *scene, ListBase *layeritems)
 		if (scene->object_layers->type == LAYER_TREETYPE_OBJECT && litem->type == LAYER_ITEMTYPE_LAYER) {
 			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 			writestruct(wd, DATA, "LayerTypeObject", 1, oblayer);
-#if 0
-			/* TODO hrmpf can't write hash */
-			writedata(wd, DATA, , oblayer->basehash);
-#endif
 		}
 		else {
 			writestruct(wd, DATA, "LayerTreeItem", 1, litem);

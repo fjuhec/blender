@@ -36,9 +36,8 @@
 static void objectlayer_free(LayerTreeItem *litem)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-	if (oblayer->basehash) {
-		BLI_ghash_free(oblayer->basehash, NULL, NULL);
-		oblayer->basehash = NULL;
+	if (oblayer->bases) {
+		MEM_freeN(oblayer->bases);
 	}
 }
 
@@ -50,10 +49,20 @@ LayerTreeItem *BKE_objectlayer_add(
 
 	BLI_assert(tree->type == LAYER_TREETYPE_OBJECT);
 	BKE_layeritem_register(tree, &oblayer->litem, parent, LAYER_ITEMTYPE_LAYER, name, poll, draw, draw_settings);
-	oblayer->basehash = BLI_ghash_str_new(__func__);
 	oblayer->litem.free = objectlayer_free;
 
 	return &oblayer->litem;
+}
+
+static void objectlayer_array_resize(LayerTypeObject *oblayer, unsigned int new_tot_objects)
+{
+	if (new_tot_objects > 0) {
+		oblayer->bases = MEM_reallocN(oblayer->bases, sizeof(*oblayer->bases) * new_tot_objects);
+	}
+	else {
+		MEM_SAFE_FREE(oblayer->bases);
+	}
+	oblayer->tot_bases = new_tot_objects;
 }
 
 /**
@@ -62,9 +71,8 @@ LayerTreeItem *BKE_objectlayer_add(
 void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-	if (!BLI_ghash_haskey(oblayer->basehash, base->object->id.name)) {
-		BLI_ghash_insert(oblayer->basehash, base->object->id.name, base);
-	}
+	objectlayer_array_resize(oblayer, oblayer->tot_bases + 1);
+	oblayer->bases[oblayer->tot_bases - 1] = base;
 }
 
 /**
@@ -72,6 +80,17 @@ void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem)
  */
 void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem)
 {
-	const LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-	BLI_ghash_remove(oblayer->basehash, base->object->id.name, NULL, NULL);
+	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+
+	bool has_base = false;
+	for (int i = 0; i < oblayer->tot_bases; i++) {
+		if (has_base) {
+			oblayer->bases[i - 1] = oblayer->bases[i];
+		}
+		else if (oblayer->bases[i] == base) {
+			has_base = true;
+		}
+	}
+
+	objectlayer_array_resize(oblayer, oblayer->tot_bases - 1);
 }

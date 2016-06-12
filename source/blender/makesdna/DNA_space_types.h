@@ -1376,7 +1376,9 @@ typedef struct LayerTreeItem {
 
 typedef struct LayerTypeObject {
 	LayerTreeItem litem;
-	struct GHash *basehash; /* The objects of this layer. */
+	Base **bases;           /* Array of objects assigned to this layer. */
+	unsigned int tot_bases; /* amount of objects assigned to this layer */
+	int pad;
 } LayerTypeObject;
 
 /* SpaceLayers->flag */

@@ -5556,7 +5556,6 @@ static bool scene_validate_setscene__liblink(Scene *sce, const int totscene)
 static void lib_link_scene(FileData *fd, Main *main)
 {
 	Scene *sce;
-	Base *base, *next;
 	Sequence *seq;
 	SceneRenderLayer *srl;
 	TimeMarker *marker;
@@ -5608,7 +5607,7 @@ static void lib_link_scene(FileData *fd, Main *main)
 			
 			sce->toolsettings->particle.shape_object = newlibadr(fd, sce->id.lib, sce->toolsettings->particle.shape_object);
 			
-			for (base = sce->base.first; base; base = next) {
+			for (Base *base = sce->base.first, *next; base; base = next) {
 				next = base->next;
 				
 				/* base->object= newlibadr_us(fd, sce->id.lib, base->object); */
@@ -5822,17 +5821,15 @@ static void direct_link_layeritems(FileData *fd, ListBase *layeritems, LayerTree
 	for (LayerTreeItem *litem = layeritems->first; litem; litem = litem->next) {
 		ltree->items_all[*counter] = litem;
 		(*counter)++;
-		litem->free = newdataadr(fd, litem->free);
+
 		litem->tree = ltree;
 		litem->parent = newdataadr(fd, litem->parent);
+
 		if (litem->type == LAYER_ITEMTYPE_LAYER) {
 			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-#if 0
-			/* TODO */
-			oblayer->basehash = newdataadr(fd, oblayer->basehash);
-#else
-			oblayer->basehash = NULL;
-#endif
+			if (oblayer->bases) {
+				oblayer->bases = newdataadr(fd, oblayer->bases);
+			}
 		}
 		direct_link_layeritems(fd, &litem->childs, ltree, counter);
 	}
@@ -6068,6 +6065,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 			rbw->ltime = (float)rbw->pointcache->startframe;
 		}
 	}
+
 #ifdef WITH_ADVANCED_LAYERS
 	sce->object_layers = newdataadr(fd, sce->object_layers);
 	if (sce->object_layers) {

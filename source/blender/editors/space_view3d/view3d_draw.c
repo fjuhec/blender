@@ -2802,11 +2802,11 @@ static bool view3d_layer_objects_draw_cb(LayerTreeItem *litem, void *customdata)
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 	ObjectDrawData *ddata = customdata;
 
-	GHashIterator gh_iter;
-	GHASH_ITER(gh_iter, oblayer->basehash) {
-		Base *base = BLI_ghashIterator_getValue(&gh_iter);
+	BKE_OBJECTLAYER_BASES_ITER_START(oblayer, i, base)
+	{
 		view3d_object_drawstep_draw(ddata, base);
 	}
+	BKE_OBJECTLAYER_BASES_ITER_END;
 
 	return true;
 }
