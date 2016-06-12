@@ -94,4 +94,8 @@ if(WITH_LEGACY_DEPSGRAPH)
 	add_definitions(-DWITH_LEGACY_DEPSGRAPH)
 endif()
 
+if(WITH_ADVANCED_LAYERS)
+	add_definitions(-DWITH_ADVANCED_LAYERS)
+endif()
+
 blender_add_lib(bf_editor_space_view3d "${SRC}" "${INC}" "${INC_SYS}")
