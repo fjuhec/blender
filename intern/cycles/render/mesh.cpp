@@ -1081,19 +1081,18 @@ void MeshManager::mesh_calc_offset(Scene *scene)
 
 void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress)
 {
-	/* count */
+	/* Count. */
 	size_t vert_size = 0;
 	size_t tri_size = 0;
 	size_t curve_key_size = 0;
 	size_t curve_size = 0;
-
 	foreach(Mesh *mesh, scene->meshes) {
 		vert_size += mesh->verts.size();
 		tri_size += mesh->num_triangles();
 		curve_key_size += mesh->curve_keys.size();
 		curve_size += mesh->num_curves();
 	}
-
+	/* Create mapping from triangle to primitive triangle array. */
 	vector<uint> tri_prim_index;
 	PackedBVH& pack = bvh->pack;
 	tri_prim_index.resize(tri_size);
@@ -1103,7 +1102,7 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 	for(size_t i = 0; i < pack.prim_index.size(); ++i) {
 		tri_prim_index[pack.prim_index[i]] = pack.prim_tri_index[i];
 	}
-
+	/* Fill in all the arrays. */
 	if(tri_size != 0) {
 		/* normals */
 		progress.set_status("Updating Mesh", "Computing normals");
@@ -1130,7 +1129,6 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 		device->tex_alloc("__tri_vnormal", dscene->tri_vnormal);
 		device->tex_alloc("__tri_vindex", dscene->tri_vindex);
 	}
-
 	if(curve_size != 0) {
 		progress.set_status("Updating Mesh", "Copying Strands to device");
 
