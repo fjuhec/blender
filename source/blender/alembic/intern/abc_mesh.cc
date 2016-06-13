@@ -1361,9 +1361,6 @@ void read_uvs(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, size_t face_count
 			MLoop &loop = mloops[loop_index];
 			vert_index = (*indices)[loop.v];
 
-			BLI_assert(vert_index < uvs->size());
-			BLI_assert(loop_index < indices->size());
-
 			const Imath::V2f &uv = (*uvs)[vert_index];
 
 			MLoopUV &loopuv = mloopuvs[loop_index];
