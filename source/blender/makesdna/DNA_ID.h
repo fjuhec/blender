@@ -233,8 +233,15 @@ typedef struct Library {
 	AssetRepositoryRef *asset_repository;
 
 	int temp_index;
-	int _pad;
+
+	short flag;
+	short pad_s1;
 } Library;
+
+/* Library.flag */
+enum {
+	LIBRARY_FLAG_VIRTUAL,  /* The library does not actually exist, used to allow handling of files from asset engines. */
+};
 
 enum eIconSizes {
 	ICON_SIZE_ICON = 0,
@@ -354,6 +361,8 @@ typedef struct PreviewImage {
 #define ID_NEW(a)		if (      (a) && (a)->id.newid ) (a) = (void *)(a)->id.newid
 #define ID_NEW_US(a)	if (      (a)->id.newid)       { (a) = (void *)(a)->id.newid;       (a)->id.us++; }
 #define ID_NEW_US2(a)	if (((ID *)a)->newid)          { (a) = ((ID  *)a)->newid;     ((ID *)a)->us++;    }
+
+#define ID_VIRTUAL_LIBRARY_VALID(_id) (ELEM(GS((_id)->name), ID_IM, ID_VF, ID_TXT, ID_SO))
 
 /* id->flag (persitent). */
 enum {

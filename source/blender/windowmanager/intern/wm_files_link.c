@@ -595,7 +595,7 @@ static void asset_update_engines_uuids_fetch(
 {
 	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
 		if (lib->asset_repository) {
-			printf("Checking lib file %s (engine %s, ver. %d)\n", lib->filepath,
+			printf("Checking lib file '%s' (engine %s, ver. %d)\n", lib->filepath,
 			       lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
 
 			AssetUpdateCheckEngine *auce = NULL;

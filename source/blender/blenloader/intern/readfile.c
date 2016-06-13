@@ -8037,6 +8037,12 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 		return blo_nextbhead(fd, bhead);
 	}
 	
+	/* If we have a real ID from a virtual library, tag ID as extern. */
+	if (id->lib && (id->lib->flag & LIBRARY_FLAG_VIRTUAL)) {
+		BLI_assert(ID_VIRTUAL_LIBRARY_VALID(id));
+		id->tag |= LIB_TAG_EXTERN;
+	}
+
 	/* need a name for the mallocN, just for debugging and sane prints on leaks */
 	allocname = dataname(GS(id->name));
 	

@@ -2879,70 +2879,6 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 	mywrite(wd, MYWRITE_FLUSH, 0);
 }
 
-static void write_libraries(WriteData *wd, Main *main)
-{
-	ListBase *lbarray[MAX_LIBARRAY];
-	ID *id;
-	int a, tot;
-	bool found_one;
-
-	for (; main; main= main->next) {
-
-		a=tot= set_listbasepointers(main, lbarray);
-
-		/* test: is lib being used */
-		if (main->curlib && main->curlib->packedfile)
-			found_one = true;
-		else {
-			found_one = false;
-			while (tot--) {
-				for (id= lbarray[tot]->first; id; id= id->next) {
-					if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
-						found_one = true;
-						break;
-					}
-				}
-				if (found_one) break;
-			}
-		}
-		
-		/* to be able to restore quit.blend and temp saves, the packed blend has to be in undo buffers... */
-		/* XXX needs rethink, just like save UI in undo files now - would be nice to append things only for the]
-		 * quit.blend and temp saves */
-		if (found_one) {
-			writestruct(wd, ID_LI, "Library", 1, main->curlib);
-
-			if (main->curlib->packedfile) {
-				PackedFile *pf = main->curlib->packedfile;
-				writestruct(wd, DATA, "PackedFile", 1, pf);
-				writedata(wd, DATA, pf->size, pf->data);
-				if (wd->current == NULL)
-					printf("write packed .blend: %s\n", main->curlib->name);
-			}
-
-			if (main->curlib->asset_repository) {
-				writestruct(wd, DATA, "AssetRepositoryRef", 1, main->curlib->asset_repository);
-			}
-
-			while (a--) {
-				for (id= lbarray[a]->first; id; id= id->next) {
-					if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
-						if (!BKE_idcode_is_linkable(GS(id->name))) {
-							printf("ERROR: write file: datablock '%s' from lib '%s' is not linkable "
-							       "but is flagged as directly linked", id->name, main->curlib->filepath);
-							BLI_assert(0);
-						}
-						writestruct(wd, ID_ID, "ID", 1, id);
-						if (id->uuid) {
-							writestruct(wd, DATA, "AssetUUID", 1, id->uuid);
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
 static void write_bone(WriteData *wd, Bone *bone)
 {
 	Bone*	cbone;
@@ -3630,6 +3566,81 @@ static void write_linestyles(WriteData *wd, ListBase *idbase)
 			if (linestyle->nodetree) {
 				writestruct(wd, DATA, "bNodeTree", 1, linestyle->nodetree);
 				write_nodetree(wd, linestyle->nodetree);
+			}
+		}
+	}
+}
+
+static void write_libraries(WriteData *wd, Main *main)
+{
+	ListBase *lbarray[MAX_LIBARRAY];
+	ID *id;
+	int a, tot;
+	bool found_one;
+
+	for (; main; main= main->next) {
+		a = tot = set_listbasepointers(main, lbarray);
+
+		/* test: is lib being used */
+		if (main->curlib && main->curlib->packedfile)
+			found_one = true;
+		else {
+			found_one = false;
+			while (tot--) {
+				for (id= lbarray[tot]->first; id; id= id->next) {
+					if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
+						found_one = true;
+						break;
+					}
+				}
+				if (found_one) break;
+			}
+		}
+
+		/* to be able to restore quit.blend and temp saves, the packed blend has to be in undo buffers... */
+		/* XXX needs rethink, just like save UI in undo files now - would be nice to append things only for the]
+		 * quit.blend and temp saves */
+		if (found_one) {
+			writestruct(wd, ID_LI, "Library", 1, main->curlib);
+
+			BLI_assert(!(main->curlib->flag & LIBRARY_FLAG_VIRTUAL) ||
+			           (!main->curlib->packedfile && main->curlib->asset_repository));
+
+			if (main->curlib->packedfile) {
+				PackedFile *pf = main->curlib->packedfile;
+				writestruct(wd, DATA, "PackedFile", 1, pf);
+				writedata(wd, DATA, pf->size, pf->data);
+				if (wd->current == NULL)
+					printf("write packed .blend: %s\n", main->curlib->name);
+			}
+
+			if (main->curlib->asset_repository) {
+				writestruct(wd, DATA, "AssetRepositoryRef", 1, main->curlib->asset_repository);
+			}
+
+			if (main->curlib->flag & LIBRARY_FLAG_VIRTUAL) {
+				/* Those should be the only datatypes found in a virtual library! */
+				write_images   (wd, &main->image);
+				write_vfonts   (wd, &main->vfont);
+				write_texts    (wd, &main->text);
+				write_sounds   (wd, &main->sound);
+			}
+			else {
+				while (a--) {
+					for (id= lbarray[a]->first; id; id= id->next) {
+						if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
+							if (!BKE_idcode_is_linkable(GS(id->name))) {
+								printf("ERROR: write file: datablock '%s' from lib '%s' is not linkable "
+									   "but is flagged as directly linked", id->name, main->curlib->filepath);
+								BLI_assert(0);
+							}
+							writestruct(wd, ID_ID, "ID", 1, id);
+							if (id->uuid) {
+								writestruct(wd, DATA, "AssetUUID", 1, id->uuid);
+							}
+						}
+					}
+				}
 			}
 		}
 	}

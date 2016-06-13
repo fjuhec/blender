@@ -2043,7 +2043,7 @@ static int library_asset_dependencies_rebuild_cb(void *userdata, ID *id_self, ID
 static void library_asset_dependencies_rebuild(ID *asset)
 {
 	Library *lib = asset->lib;
-	BLI_assert(lib->asset_repository);
+	BLI_assert(lib && lib->asset_repository);
 
 	asset->tag |= LIB_TAG_ASSET;
 
@@ -2132,6 +2132,11 @@ void BKE_id_ui_prefix(char name[MAX_ID_NAME + 1], const ID *id)
 
 void BKE_library_filepath_set(Library *lib, const char *filepath)
 {
+	if (lib->flag & LIBRARY_FLAG_VIRTUAL) {
+		/* Setting path for virtual libraries makes no sense. */
+		return;
+	}
+
 	/* in some cases this is used to update the absolute path from the
 	 * relative */
 	if (lib->name != filepath) {
