@@ -1339,6 +1339,9 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 	/* update displacement */
 	bool displacement_done = false;
 
+	/* TODO(sergey): With current arrays formulation true displacement will
+	 * crash. Need some magic to avoid this.
+	 */
 	foreach(Mesh *mesh, scene->meshes)
 		if(mesh->need_update && displace(device, dscene, scene, mesh, progress))
 			displacement_done = true;
