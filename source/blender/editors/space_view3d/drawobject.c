@@ -1209,7 +1209,7 @@ static void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 
 	if ((drawcone || drawshadowbox) && !v3d->transp) {
 		/* in this case we need to draw delayed */
-		ED_view3d_after_add(&v3d->afterdraw_transp, base, dflag);
+		ED_view3d_after_add(v3d->xray ? &v3d->afterdraw_xraytransp : &v3d->afterdraw_transp, base, dflag);
 		return;
 	}
 	
@@ -5760,8 +5760,6 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glEnableClientState(GL_COLOR_ARRAY);
 
-	glShadeModel(GL_SMOOTH);
-
 	if (pset->brushtype == PE_BRUSH_WEIGHT)
 		glLineWidth(2.0f);
 
@@ -5876,7 +5874,6 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 	glDisableClientState(GL_COLOR_ARRAY);
 	glDisableClientState(GL_NORMAL_ARRAY);
 	glDisableClientState(GL_VERTEX_ARRAY);
-	glShadeModel(GL_FLAT);
 	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
 }
 
