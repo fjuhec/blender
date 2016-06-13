@@ -1115,6 +1115,41 @@ static void assign_materials(Main *bmain, Object *ob, const std::map<std::string
 
 /* ************************************************************************** */
 
+template <typename Schema>
+static bool has_animations(Schema &schema, ImportSettings *settings)
+{
+	if (settings->is_sequence) {
+		return true;
+	}
+
+	if (!schema.isConstant()) {
+		return true;
+	}
+
+	const ICompoundProperty &arb_geom_params = schema.getArbGeomParams();
+
+	if (!arb_geom_params.valid()) {
+		return false;
+	}
+
+	const size_t num_props = arb_geom_params.getNumProperties();
+
+	for (size_t i = 0; i < num_props; ++i) {
+		const Alembic::Abc::PropertyHeader &propHeader = arb_geom_params.getPropertyHeader(i);
+
+		/* Check for animated UVs. */
+		if (IV2fGeomParam::matches(propHeader) && Alembic::AbcGeom::isUV(propHeader)) {
+            IV2fGeomParam uv_geom_param(arb_geom_params, propHeader.getName());
+
+			if (!uv_geom_param.isConstant()) {
+				return true;
+			}
+        }
+	}
+
+	return false;
+}
+
 AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings, bool is_subd)
     : AbcObjectReader(object, settings)
 {
@@ -1145,7 +1180,7 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 	bool is_constant = true;
 
 	if (m_subd_schema.valid()) {
-		is_constant = m_subd_schema.isConstant();
+		is_constant = !has_animations(m_subd_schema, m_settings);
 
 		const ISubDSchema::Sample sample = m_subd_schema.getValue(sample_sel);
 
@@ -1153,7 +1188,7 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts());
 	}
 	else {
-		is_constant = m_schema.isConstant();
+		is_constant = !has_animations(m_schema, m_settings);
 
 		const IPolyMeshSchema::Sample sample = m_schema.getValue(sample_sel);
 
@@ -1173,7 +1208,7 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 		readFaceSetsSample(bmain, mesh, poly_start, sample_sel);
 	}
 
-	if (m_settings->is_sequence || !is_constant) {
+	if (!is_constant) {
 		addDefaultModifier(bmain);
 	}
 }
