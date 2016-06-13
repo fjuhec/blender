@@ -1100,7 +1100,9 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 		tri_prim_index[i] = -1;
 	}
 	for(size_t i = 0; i < pack.prim_index.size(); ++i) {
-		tri_prim_index[pack.prim_index[i]] = pack.prim_tri_index[i];
+		if ((pack.prim_type[i] & PRIMITIVE_ALL_TRIANGLE) != 0) {
+			tri_prim_index[pack.prim_index[i]] = pack.prim_tri_index[i];
+		}
 	}
 	/* Fill in all the arrays. */
 	if(tri_size != 0) {
