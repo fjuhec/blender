@@ -88,6 +88,7 @@ using Alembic::AbcGeom::IPolyMesh;
 using Alembic::AbcGeom::IPolyMeshSchema;
 using Alembic::AbcGeom::ISampleSelector;
 using Alembic::AbcGeom::ISubD;
+using Alembic::AbcGeom::IV2fGeomParam;
 using Alembic::AbcGeom::IXform;
 using Alembic::AbcGeom::IXformSchema;
 using Alembic::AbcGeom::XformSample;
@@ -659,12 +660,21 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		dm = CDDM_new(positions->size(), 0, 0, face_indices->size(), face_counts->size());
 	}
 
+	const IV2fGeomParam uv = schema.getUVsParam();
+	IV2fGeomParam::Sample::samp_ptr_type uvsamp_vals;
+
+	if (uv.valid()) {
+		IV2fGeomParam::Sample uvsamp = uv.getExpandedValue();
+		uvsamp_vals = uvsamp.getVals();
+	}
+
 	MVert *mverts = dm->getVertArray(dm);
 	MPoly *mpolys = dm->getPolyArray(dm);
 	MLoop *mloops = dm->getLoopArray(dm);
+	MLoopUV *mloopuvs = static_cast<MLoopUV *>(CustomData_get(&dm->loopData, 0, CD_MLOOPUV));
 
 	read_mverts(mverts, positions);
-	read_mpolys(mpolys, mloops, NULL, face_indices, face_counts);
+	read_mpolys(mpolys, mloops, mloopuvs, face_indices, face_counts, uvsamp_vals);
 
 	CDDM_calc_edges(dm);
 	dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
