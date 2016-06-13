@@ -52,8 +52,10 @@ struct PackedBVH {
 	array<int4> leaf_nodes;
 	/* object index to BVH node index mapping for instances */
 	array<int> object_node; 
-	/* Mapping from pndex from primitive to triangle. */
+	/* Mapping from primitive index to index in triangle array. */
 	array<uint> prim_tri_index;
+	/* Continuous storage of triangle vertices. */
+	array<float4> prim_tri_verts;
 	/* primitive type - triangle or strand */
 	array<int> prim_type;
 	/* visibility visibilitys for primitives */
@@ -91,8 +93,9 @@ public:
 protected:
 	BVH(const BVHParams& params, const vector<Object*>& objects);
 
-	/* triangles and strands*/
+	/* triangles and strands */
 	void pack_primitives();
+	void pack_triangle(int idx, float4 storage[3]);
 
 	/* merge instance BVH's */
 	void pack_instances(size_t nodes_size, size_t leaf_nodes_size);

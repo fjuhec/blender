@@ -472,25 +472,19 @@ void Mesh::pack_normals(Scene *scene, uint *tri_shader, float4 *vnormal)
 	}
 }
 
-void Mesh::pack_verts(float4 *tri_verts,
+void Mesh::pack_verts(const vector<uint>& tri_prim_index,
                       uint4 *tri_vindex,
                       size_t vert_offset,
                       size_t tri_offset)
 {
 	const size_t triangles_size = num_triangles();
-	const float3 *verts_ptr = &verts[0];
-	if(triangles_size != 0) {
+	if(triangles_size) {
 		for(size_t i = 0; i < triangles_size; i++) {
 			Triangle t = get_triangle(i);
-			const size_t tri_vert_index = i * 3,
-			             tri_vert_index_global = (i + tri_offset) * 3;
 			tri_vindex[i] = make_uint4(t.v[0] + vert_offset,
 			                           t.v[1] + vert_offset,
 			                           t.v[2] + vert_offset,
-			                           tri_vert_index_global);
-			tri_verts[tri_vert_index + 0] = float3_to_float4(verts_ptr[t.v[0]]);
-			tri_verts[tri_vert_index + 1] = float3_to_float4(verts_ptr[t.v[1]]);
-			tri_verts[tri_vert_index + 2] = float3_to_float4(verts_ptr[t.v[2]]);
+			                           tri_prim_index[i + tri_offset]);
 		}
 	}
 }
@@ -1065,27 +1059,49 @@ void MeshManager::device_update_attributes(Device *device, DeviceScene *dscene, 
 	}
 }
 
-void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress)
+void MeshManager::mesh_calc_offset(Scene *scene)
 {
-	/* count and update offsets */
 	size_t vert_size = 0;
 	size_t tri_size = 0;
-
 	size_t curve_key_size = 0;
 	size_t curve_size = 0;
 
 	foreach(Mesh *mesh, scene->meshes) {
 		mesh->vert_offset = vert_size;
 		mesh->tri_offset = tri_size;
-
 		mesh->curvekey_offset = curve_key_size;
 		mesh->curve_offset = curve_size;
 
 		vert_size += mesh->verts.size();
 		tri_size += mesh->num_triangles();
-
 		curve_key_size += mesh->curve_keys.size();
 		curve_size += mesh->num_curves();
+	}
+}
+
+void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress)
+{
+	/* count */
+	size_t vert_size = 0;
+	size_t tri_size = 0;
+	size_t curve_key_size = 0;
+	size_t curve_size = 0;
+
+	foreach(Mesh *mesh, scene->meshes) {
+		vert_size += mesh->verts.size();
+		tri_size += mesh->num_triangles();
+		curve_key_size += mesh->curve_keys.size();
+		curve_size += mesh->num_curves();
+	}
+
+	vector<uint> tri_prim_index;
+	PackedBVH& pack = bvh->pack;
+	tri_prim_index.resize(tri_size);
+	for(size_t i = 0; i < tri_size; ++i) {
+		tri_prim_index[i] = -1;
+	}
+	for(size_t i = 0; i < pack.prim_index.size(); ++i) {
+		tri_prim_index[pack.prim_index[i]] = pack.prim_tri_index[i];
 	}
 
 	if(tri_size != 0) {
@@ -1094,16 +1110,16 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 
 		uint *tri_shader = dscene->tri_shader.resize(tri_size);
 		float4 *vnormal = dscene->tri_vnormal.resize(vert_size);
-		float4 *tri_verts = dscene->tri_verts.resize(3 * tri_size);
 		uint4 *tri_vindex = dscene->tri_vindex.resize(tri_size);
 
 		foreach(Mesh *mesh, scene->meshes) {
-			mesh->pack_normals(scene, &tri_shader[mesh->tri_offset], &vnormal[mesh->vert_offset]);
-			mesh->pack_verts(&tri_verts[mesh->tri_offset * 3],
+			mesh->pack_normals(scene,
+			                   &tri_shader[mesh->tri_offset],
+			                   &vnormal[mesh->vert_offset]);
+			mesh->pack_verts(tri_prim_index,
 			                 &tri_vindex[mesh->tri_offset],
 			                 mesh->vert_offset,
 			                 mesh->tri_offset);
-
 			if(progress.get_cancel()) return;
 		}
 
@@ -1112,7 +1128,6 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 
 		device->tex_alloc("__tri_shader", dscene->tri_shader);
 		device->tex_alloc("__tri_vnormal", dscene->tri_vnormal);
-		device->tex_alloc("__tri_verts", dscene->tri_verts);
 		device->tex_alloc("__tri_vindex", dscene->tri_vindex);
 	}
 
@@ -1171,6 +1186,10 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 	if(pack.prim_tri_index.size()) {
 		dscene->prim_tri_index.reference((uint*)&pack.prim_tri_index[0], pack.prim_tri_index.size());
 		device->tex_alloc("__prim_tri_index", dscene->prim_tri_index);
+	}
+	if(pack.prim_tri_verts.size()) {
+		dscene->prim_tri_verts.reference((float4*)&pack.prim_tri_verts[0], pack.prim_tri_verts.size());
+		device->tex_alloc("__prim_tri_verts", dscene->prim_tri_verts);
 	}
 	if(pack.prim_type.size()) {
 		dscene->prim_type.reference((uint*)&pack.prim_type[0], pack.prim_type.size());
@@ -1311,7 +1330,7 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 	/* device update */
 	device_free(device, dscene);
 
-	device_update_mesh(device, dscene, scene, progress);
+	mesh_calc_offset(scene);
 	if(progress.get_cancel()) return;
 
 	device_update_attributes(device, dscene, scene, progress);
@@ -1384,6 +1403,10 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 	if(progress.get_cancel()) return;
 
 	device_update_bvh(device, dscene, scene, progress);
+	if(progress.get_cancel()) return;
+
+	device_update_mesh(device, dscene, scene, progress);
+	if(progress.get_cancel()) return;
 
 	need_update = false;
 
@@ -1403,6 +1426,7 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 	device->tex_free(dscene->bvh_nodes);
 	device->tex_free(dscene->bvh_leaf_nodes);
 	device->tex_free(dscene->object_node);
+	device->tex_free(dscene->prim_tri_verts);
 	device->tex_free(dscene->prim_tri_index);
 	device->tex_free(dscene->prim_type);
 	device->tex_free(dscene->prim_visibility);
@@ -1411,7 +1435,6 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 	device->tex_free(dscene->tri_shader);
 	device->tex_free(dscene->tri_vnormal);
 	device->tex_free(dscene->tri_vindex);
-	device->tex_free(dscene->tri_verts);
 	device->tex_free(dscene->curves);
 	device->tex_free(dscene->curve_keys);
 	device->tex_free(dscene->attributes_map);
@@ -1421,6 +1444,7 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 
 	dscene->bvh_nodes.clear();
 	dscene->object_node.clear();
+	dscene->prim_tri_verts.clear();
 	dscene->prim_tri_index.clear();
 	dscene->prim_type.clear();
 	dscene->prim_visibility.clear();
@@ -1429,7 +1453,6 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 	dscene->tri_shader.clear();
 	dscene->tri_vnormal.clear();
 	dscene->tri_vindex.clear();
-	dscene->tri_verts.clear();
 	dscene->curves.clear();
 	dscene->curve_keys.clear();
 	dscene->attributes_map.clear();
