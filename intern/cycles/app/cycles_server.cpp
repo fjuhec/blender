@@ -93,6 +93,10 @@ int main(int argc, const char **argv)
 
 	foreach(DeviceInfo& device, devices) {
 		if(device_type == device.type) {
+			/* Just in case, skip network multi device */
+			if (device.type == DEVICE_MULTI && device.id == "NETWORK")
+				continue;
+
 			device_info = device;
 			break;
 		}

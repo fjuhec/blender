@@ -126,7 +126,8 @@ enum_volume_interpolation = (
 enum_device_type = (
     ('CPU', "CPU", "CPU", 0),
     ('CUDA', "CUDA", "CUDA", 1),
-    ('OPENCL', "OpenCL", "OpenCL", 2)
+    ('OPENCL', "OpenCL", "OpenCL", 2),
+    ('NETWORK', "Network", "Network", 3)
     )
 
 enum_texture_limit = (
@@ -1206,6 +1207,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
             list.append(('CUDA', "CUDA", "Use CUDA for GPU acceleration", 1))
         if has_opencl:
             list.append(('OPENCL', "OpenCL", "Use OpenCL for GPU acceleration", 2))
+        list.append(('NETWORK', "Network", "Use Network for rendering", 3))
         return list
 
     compute_device_type = EnumProperty(

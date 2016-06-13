@@ -182,6 +182,8 @@ def do_versions(self):
                     prop.compute_device_type = 'OPENCL'
                 elif system.legacy_compute_device_type == 2:
                     prop.compute_device_type = 'CUDA'
+                elif system.legacy_compute_device_type == 3:
+                    prop.compute_device_type = 'NETWORK'
                 else:
                     prop.compute_device_type = 'NONE'
             except:

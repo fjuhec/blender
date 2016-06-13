@@ -94,6 +94,12 @@ macro(cycles_target_link_libraries target)
 	target_link_libraries(
 		${target}
 		${OPENIMAGEIO_LIBRARIES}
+	)
+	if(UNIX AND NOT APPLE)
+		target_link_libraries(${target} ${FREETYPE_LIBRARY} extern_openjpeg)
+	endif()
+	target_link_libraries(
+		${target}
 		${OPENEXR_LIBRARIES}
 		${PUGIXML_LIBRARIES}
 		${BOOST_LIBRARIES}
@@ -129,5 +135,6 @@ if(WITH_CYCLES_NETWORK)
 	if(UNIX AND NOT APPLE)
 		set_target_properties(cycles_server PROPERTIES INSTALL_RPATH $ORIGIN/lib)
 	endif()
+
 	unset(SRC)
 endif()
