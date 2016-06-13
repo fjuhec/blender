@@ -1209,6 +1209,10 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 	const ICompoundProperty &arb_geom_params = (m_schema.valid() ? m_schema.getArbGeomParams()
 	                                                             : m_subd_schema.getArbGeomParams());
 
+	if (!arb_geom_params.valid()) {
+		return;
+	}
+
 	const size_t num_props = arb_geom_params.getNumProperties();
 
 	for (size_t i = 0; i < num_props; ++i) {
