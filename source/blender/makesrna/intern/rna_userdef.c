@@ -57,6 +57,7 @@ static EnumPropertyItem compute_device_type_items[] = {
 	{USER_COMPUTE_DEVICE_NONE, "NONE", 0, "None", "Don't use compute device"},
 	{USER_COMPUTE_DEVICE_CUDA, "CUDA", 0, "CUDA", "Use CUDA for GPU acceleration"},
 	{USER_COMPUTE_DEVICE_OPENCL, "OPENCL", 0, "OpenCL", "Use OpenCL for GPU acceleration"},
+	{USER_COMPUTE_DEVICE_NETWORK, "NETWORK", 0, "Network", "Use Network rendering"},
 	{ 0, NULL, 0, NULL, NULL}
 };
 #endif
@@ -489,6 +490,9 @@ static EnumPropertyItem *rna_userdef_compute_device_type_itemf(bContext *UNUSED(
 		RNA_enum_items_add_value(&item, &totitem, compute_device_type_items, USER_COMPUTE_DEVICE_CUDA);
 	if (CCL_compute_device_list(1))
 		RNA_enum_items_add_value(&item, &totitem, compute_device_type_items, USER_COMPUTE_DEVICE_OPENCL);
+#ifdef WITH_CYCLES_NETWORK
+	RNA_enum_items_add_value(&item, &totitem, compute_device_type_items, USER_COMPUTE_DEVICE_NETWORK);
+#endif
 
 	RNA_enum_item_end(&item, &totitem);
 	*r_free = true;
@@ -519,11 +523,22 @@ static EnumPropertyItem *rna_userdef_compute_device_itemf(bContext *UNUSED(C), P
 		RNA_enum_item_add(&item, &totitem, &tmp);
 	}
 	else {
-		/* get device list from cycles. it would be good to make this generic
-		 * once we have more subsystems using opencl, for now this is easiest */
-		int opencl = (U.compute_device_type == USER_COMPUTE_DEVICE_OPENCL);
-		CCLDeviceInfo *devices = CCL_compute_device_list(opencl);
+		CCLDeviceInfo *devices = NULL;
 		int a;
+
+		switch(U.compute_device_type) {
+			case USER_COMPUTE_DEVICE_CUDA:
+				devices = CCL_compute_device_list(0);
+				break;
+
+			case USER_COMPUTE_DEVICE_OPENCL:
+				devices = CCL_compute_device_list(1);
+				break;
+
+			case USER_COMPUTE_DEVICE_NETWORK:
+				devices = CCL_compute_device_list(2);
+				break;
+		}
 
 		if (devices) {
 			for (a = 0; devices[a].identifier[0]; a++) {
@@ -532,6 +547,12 @@ static EnumPropertyItem *rna_userdef_compute_device_itemf(bContext *UNUSED(C), P
 				tmp.name = devices[a].name;
 				RNA_enum_item_add(&item, &totitem, &tmp);
 			}
+		}
+		else if (U.compute_device_type == USER_COMPUTE_DEVICE_NETWORK) {
+			tmp.value = 0;
+			tmp.name = "No network found!!";
+			tmp.identifier = "No network devices found";
+			RNA_enum_item_add(&item, &totitem, &tmp);
 		}
 		else {
 			tmp.value = 0;

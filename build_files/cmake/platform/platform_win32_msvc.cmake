@@ -309,6 +309,9 @@ if(WITH_BOOST)
 	if(WITH_CYCLES_OSL)
 		set(boost_extra_libs wave)
 	endif()
+	if(WITH_CYCLES_NETWORK)
+		list(APPEND boost_extra_libs serialization)
+	endif()
 	if(WITH_INTERNATIONAL)
 		list(APPEND boost_extra_libs locale)
 	endif()
@@ -351,10 +354,20 @@ if(WITH_BOOST)
 				optimized libboost_wave-${BOOST_POSTFIX}
 				debug libboost_wave-${BOOST_DEBUG_POSTFIX})
 		endif()
+		if(WITH_CYCLES_NETWORK)
+			set(BOOST_LIBRARIES ${BOOST_LIBRARIES}
+				optimized libboost_serialization-${BOOST_POSTFIX}
+				debug libboost_serialization-${BOOST_DEBUG_POSTFIX})
+		endif()
 		if(WITH_INTERNATIONAL)
 			set(BOOST_LIBRARIES ${BOOST_LIBRARIES}
 				optimized libboost_locale-${BOOST_POSTFIX}
 				debug libboost_locale-${BOOST_DEBUG_POSTFIX})
+		endif()
+		if(WITH_OPENVDB)
+			set(BOOST_LIBRARIES ${BOOST_LIBRARIES}
+				optimized libboost_iostreams-${BOOST_POSTFIX}
+				debug libboost_iostreams-${BOOST_DEBUG_POSTFIX})
 		endif()
 	else() # we found boost using find_package
 		set(BOOST_INCLUDE_DIR ${Boost_INCLUDE_DIRS})

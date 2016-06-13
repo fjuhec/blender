@@ -50,24 +50,55 @@ public:
 	{
 		Device *device;
 
+#ifdef WITH_NETWORK
+		if (info.id == "NETWORK") {
+			int num = 0;
+
+			/* refresh network devices list */
+			ServerDiscovery discovery(true);
+			time_sleep(1.0);
+
+			info.multi_devices.clear();
+
+			VLOG(1) << "Discovering: getting server list.";
+			vector<string> servers = discovery.get_server_list();
+
+			foreach(string& server, servers) {
+				DeviceInfo subinfo;
+
+				VLOG(1) << "Found Server: " << server;
+
+				subinfo.type = DEVICE_NETWORK;
+				subinfo.description = server.c_str();
+				subinfo.id = string_printf("NETWORK_%d", num);
+				subinfo.num = num;
+				subinfo.advanced_shading = true; /* todo: get this info from device */
+				subinfo.pack_images = false;
+
+				info.multi_devices.push_back(subinfo);
+				num++;
+			}
+
+			if (num == 0) {
+				DeviceInfo subinfo;
+
+				subinfo.type = DEVICE_NETWORK;
+				subinfo.description = "127.0.0.1";
+				subinfo.id = "LOCALHOST";
+				subinfo.num = 0;
+				subinfo.advanced_shading = true; /* todo: get this info from device */
+				subinfo.pack_images = false;
+
+				info.multi_devices.push_back(subinfo);
+			}
+		}
+#endif
+
 		foreach(DeviceInfo& subinfo, info.multi_devices) {
 			device = Device::create(subinfo, stats, background);
 			devices.push_back(SubDevice(device));
 		}
 
-#ifdef WITH_NETWORK
-		/* try to add network devices */
-		ServerDiscovery discovery(true);
-		time_sleep(1.0);
-
-		vector<string> servers = discovery.get_server_list();
-
-		foreach(string& server, servers) {
-			device = device_network_create(info, stats, server.c_str());
-			if(device)
-				devices.push_back(SubDevice(device));
-		}
-#endif
 	}
 
 	~MultiDevice()

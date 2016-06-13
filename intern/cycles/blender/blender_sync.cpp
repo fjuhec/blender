@@ -540,7 +540,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 	if(get_enum(cscene, "device") == 2) {
 		/* find network device */
 		foreach(DeviceInfo& info, devices)
-			if(info.type == DEVICE_NETWORK)
+			if(info.id == "NETWORK")
 				params.device = info;
 	}
 	else if(get_enum(cscene, "device") == 1) {

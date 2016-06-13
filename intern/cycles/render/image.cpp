@@ -67,6 +67,9 @@ ImageManager::ImageManager(const DeviceInfo& info)
 	if(device_type == DEVICE_CPU) {
 		SET_TEX_IMAGES_LIMITS(CPU);
 	}
+	else if(device_type == DEVICE_NETWORK) {
+		SET_TEX_IMAGES_LIMITS(CPU);
+	}
 	else if(device_type == DEVICE_CUDA) {
 		if(info.has_bindless_textures) {
 			SET_TEX_IMAGES_LIMITS(CUDA_KEPLER);

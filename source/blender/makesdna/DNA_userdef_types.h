@@ -872,6 +872,7 @@ typedef enum eCompute_Device_Type {
 	USER_COMPUTE_DEVICE_NONE	= 0,
 	USER_COMPUTE_DEVICE_OPENCL	= 1,
 	USER_COMPUTE_DEVICE_CUDA	= 2,
+	USER_COMPUTE_DEVICE_NETWORK	= 3,
 } eCompute_Device_Type;
 
 	

@@ -20,6 +20,7 @@
 
 #include "util_foreach.h"
 #include "util_logging.h"
+#include "util_time.h"
 
 #if defined(WITH_NETWORK)
 
@@ -44,14 +45,14 @@ static TileList::iterator tile_list_find(TileList& tile_list, RenderTile& tile)
 class NetworkDevice : public Device
 {
 public:
+	DedicatedTaskPool task_pool;
 	boost::asio::io_service io_service;
 	tcp::socket socket;
 	device_ptr mem_counter;
-	DeviceTask the_task; /* todo: handle multiple tasks */
 
 	thread_mutex rpc_lock;
 
-	NetworkDevice(DeviceInfo& info, Stats &stats, const char *address)
+	NetworkDevice(DeviceInfo& info, Stats &stats, bool background_)
 	: Device(info, stats, true), socket(io_service)
 	{
 		error_func = NetworkError();
@@ -59,7 +60,7 @@ public:
 		portstr << SERVER_PORT;
 
 		tcp::resolver resolver(io_service);
-		tcp::resolver::query query(address, portstr.str());
+		tcp::resolver::query query(info.description, portstr.str());
 		tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 		tcp::resolver::iterator end;
 
@@ -223,18 +224,7 @@ public:
 		return result;
 	}
 
-	void task_add(DeviceTask& task)
-	{
-		thread_scoped_lock lock(rpc_lock);
-
-		the_task = task;
-
-		RPCSend snd(socket, &error_func, "task_add");
-		snd.add(task);
-		snd.write();
-	}
-
-	void task_wait()
+	void thread_run(DeviceTask *task)
 	{
 		thread_scoped_lock lock(rpc_lock);
 
@@ -259,7 +249,7 @@ public:
 				lock.unlock();
 
 				/* todo: watch out for recursive calls! */
-				if(the_task.acquire_tile(this, tile)) { /* write return as bool */
+				if(task->acquire_tile(this, tile)) { /* write return as bool */
 					the_tiles.push_back(tile);
 
 					lock.lock();
@@ -287,7 +277,7 @@ public:
 
 				assert(tile.buffers != NULL);
 
-				the_task.release_tile(tile);
+				task->release_tile(tile);
 
 				lock.lock();
 				RPCSend snd(socket, &error_func, "release_tile");
@@ -303,11 +293,38 @@ public:
 		}
 	}
 
+	class NetworkDeviceTask : public DeviceTask {
+	public:
+		NetworkDeviceTask(NetworkDevice *device, DeviceTask& task)
+		: DeviceTask(task)
+		{
+			run = function_bind(&NetworkDevice::thread_run, device, this);
+		}
+	};
+
+	void task_add(DeviceTask& task)
+	{
+		thread_scoped_lock lock(rpc_lock);
+
+		RPCSend snd(socket, &error_func, "task_add");
+		snd.add(task);
+		snd.write();
+
+		task_pool.push(new NetworkDeviceTask(this, task));
+	}
+
+	void task_wait()
+	{
+		task_pool.wait();
+	}
+
 	void task_cancel()
 	{
 		thread_scoped_lock lock(rpc_lock);
 		RPCSend snd(socket, &error_func, "task_cancel");
 		snd.write();
+
+		task_pool.cancel();
 	}
 
 	int get_split_task_count(DeviceTask& task)
@@ -319,21 +336,31 @@ private:
 	NetworkError error_func;
 };
 
-Device *device_network_create(DeviceInfo& info, Stats &stats, const char *address)
+Device *device_network_create(DeviceInfo& info, Stats &stats, bool background)
 {
-	return new NetworkDevice(info, stats, address);
+	return new NetworkDevice(info, stats, background);
 }
 
 void device_network_info(vector<DeviceInfo>& devices)
 {
-	DeviceInfo info;
+	DeviceInfo info, subinfo;
 
-	info.type = DEVICE_NETWORK;
+	/* Create a multi device to hold discovered network servers */
+	info.type = DEVICE_MULTI;
 	info.description = "Network Device";
 	info.id = "NETWORK";
 	info.num = 0;
 	info.advanced_shading = true; /* todo: get this info from device */
 	info.pack_images = false;
+
+	subinfo.type = DEVICE_NETWORK;
+	subinfo.description = "127.0.0.1";
+	subinfo.id = "LOCALHOST";
+	subinfo.num = 0;
+	subinfo.advanced_shading = true; /* todo: get this info from device */
+	subinfo.pack_images = false;
+
+	info.multi_devices.push_back(subinfo);
 
 	devices.push_back(info);
 }

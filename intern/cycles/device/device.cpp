@@ -238,7 +238,7 @@ Device *Device::create(DeviceInfo& info, Stats &stats, bool background)
 #endif
 #ifdef WITH_NETWORK
 		case DEVICE_NETWORK:
-			device = device_network_create(info, stats, "127.0.0.1");
+			device = device_network_create(info, stats, background);
 			break;
 #endif
 #ifdef WITH_OPENCL
