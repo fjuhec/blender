@@ -43,9 +43,12 @@ extern "C" {
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
+
+#include "ED_mesh.h"
 }
 
 using Alembic::Abc::FloatArraySample;
+using Alembic::Abc::ICompoundProperty;
 using Alembic::Abc::Int32ArraySample;
 using Alembic::Abc::Int32ArraySamplePtr;
 using Alembic::Abc::P3fArraySamplePtr;
@@ -169,12 +172,10 @@ void get_creases(DerivedMesh *dm,
 
 
 static void get_uvs(DerivedMesh *dm,
-                           std::vector<Imath::V2f> &uvs,
-                           std::vector<uint32_t> &uvidx, int layer_idx, bool pack_uv)
+                    std::vector<Imath::V2f> &uvs,
+                    std::vector<uint32_t> &uvidx,
+                    int layer_idx, bool pack_uv)
 {
-	uvs.clear();
-	uvidx.clear();
-
 	MLoopUV *mloopuv_array = static_cast<MLoopUV *>(CustomData_get_layer_n(&dm->loopData, CD_MLOOPUV, layer_idx));
 
 	if (!mloopuv_array) {
@@ -221,7 +222,14 @@ static void get_uvs(DerivedMesh *dm,
 	}
 }
 
-static void get_uv_sample(DerivedMesh *dm, OV2fGeomParam::Sample &uvSamp, bool pack_uv)
+/* *************** UVs *************** */
+
+struct UVSample {
+	std::vector<Imath::V2f> uvs;
+	std::vector<uint32_t> indices;
+};
+
+static void get_uv_sample(UVSample &sample, DerivedMesh *dm, bool pack_uv)
 {
 	const int active_uvlayer = CustomData_get_active_layer(&dm->loopData, CD_MLOOPUV);
 
@@ -229,23 +237,49 @@ static void get_uv_sample(DerivedMesh *dm, OV2fGeomParam::Sample &uvSamp, bool p
 		return;
 	}
 
-	std::vector<uint32_t> uvIdx;
-	std::vector<Imath::V2f> uvValArray;
+	sample.uvs.reserve(dm->getNumVerts(dm));
 
-	get_uvs(dm, uvValArray, uvIdx, active_uvlayer, pack_uv);
+	get_uvs(dm, sample.uvs, sample.indices, active_uvlayer, pack_uv);
+}
 
-	if (!uvIdx.empty() && !uvValArray.empty()) {
-		uvSamp.setScope(kFacevaryingScope);
+template <typename Schema>
+void write_extra_uvs(Schema &schema, DerivedMesh *dm, bool pack_uv)
+{
+	if (!CustomData_has_layer(&dm->loopData, CD_MLOOPUV)) {
+		return;
+	}
 
-		uvSamp.setVals(V2fArraySample(
-		                   (const Imath::V2f *) &uvValArray.front(),
-		                   uvValArray.size()));
+	OCompoundProperty arb_props = schema.getArbGeomParams();
 
-		UInt32ArraySample idxSamp(
-		            (const uint32_t *) &uvIdx.front(),
-		            uvIdx.size());
+	const int active_uvlayer = CustomData_get_active_layer(&dm->loopData, CD_MLOOPUV);
 
-		uvSamp.setIndices(idxSamp);
+	int tot_uv_layers = CustomData_number_of_layers(&dm->loopData, CD_MLOOPUV);
+
+	for (int i = 0; i < tot_uv_layers; ++i) {
+		/* Already exported. */
+		if (i == active_uvlayer) {
+			continue;
+		}
+
+		const char *name = CustomData_get_layer_name(&dm->loopData, CD_MLOOPUV, i);
+
+		OV2fGeomParam param(arb_props, name, true, kFacevaryingScope, 1);
+
+		std::vector<uint32_t> indices;
+		std::vector<Imath::V2f> uvs;
+
+		get_uvs(dm, uvs, indices, i, pack_uv);
+
+		if (indices.empty() || uvs.empty()) {
+			continue;
+		}
+
+		OV2fGeomParam::Sample sample(
+			V2fArraySample((const Imath::V2f *)&uvs.front(), uvs.size()),
+			UInt32ArraySample((const uint32_t *)&indices.front(), indices.size()),
+			kFacevaryingScope);
+
+		param.set(sample);
 	}
 }
 
@@ -461,38 +495,50 @@ void AbcMeshWriter::writeMesh()
 			writeCommonData(dm, m_mesh_schema);
 		}
 
-		if (m_settings.export_normals) {
-			get_normals(dm, normals);
-		}
-
-		OV2fGeomParam::Sample uvSamp;
-
-		if (m_settings.export_uvs) {
-			get_uv_sample(dm, uvSamp, m_settings.pack_uv);
-		}
-
 		/* Normals export */
-		ON3fGeomParam::Sample normalsSamp;
-		if (!normals.empty()) {
-			normalsSamp.setScope(kFacevaryingScope);
-			normalsSamp.setVals(
-			            V3fArraySample(
-			                (const Imath::V3f *) &normals.front(),
-			                normals.size() / 3));
-		}
 
 		m_mesh_sample = OPolyMeshSchema::Sample(
 		                    V3fArraySample(
 		                        (const Imath::V3f *) &points.front(),
 		                        points.size() / 3),
 		                    Int32ArraySample(facePoints),
-		                    Int32ArraySample(faceCounts), uvSamp,
-		                    normalsSamp);
+		                    Int32ArraySample(faceCounts));
 
-		/* TODO : export all uvmaps */
+		UVSample sample;
+		if (m_settings.export_uvs) {
+			get_uv_sample(sample, dm, m_settings.pack_uv);
+
+			if (!sample.indices.empty() && !sample.uvs.empty()) {
+				OV2fGeomParam::Sample uv_sample;
+				uv_sample.setVals(V2fArraySample(&sample.uvs[0], sample.uvs.size()));
+				uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
+				uv_sample.setScope(kFacevaryingScope);
+
+				m_mesh_sample.setUVs(uv_sample);
+			}
+
+			write_extra_uvs(m_mesh_schema, dm, m_settings.pack_uv);
+		}
+
+		if (m_settings.export_normals) {
+			get_normals(dm, normals);
+
+			ON3fGeomParam::Sample normalsSamp;
+			if (!normals.empty()) {
+				normalsSamp.setScope(kFacevaryingScope);
+				normalsSamp.setVals(
+				            V3fArraySample(
+				                (const Imath::V3f *) &normals.front(),
+				                normals.size() / 3));
+			}
+
+			m_mesh_sample.setNormals(normalsSamp);
+		}
 
 		m_mesh_sample.setSelfBounds(bounds());
+
 		m_mesh_schema.set(m_mesh_sample);
+
 		writeArbGeoParams(dm);
 		freeMesh(dm);
 	}
@@ -520,13 +566,6 @@ void AbcMeshWriter::writeSubD()
 			writeCommonData(dm, m_subdiv_schema);
 		}
 
-		/* Export UVs */
-		OV2fGeomParam::Sample uvSamp;
-
-		if (m_settings.export_uvs) {
-			get_uv_sample(dm, uvSamp, m_settings.pack_uv);
-		}
-
 		m_subdiv_sample = OSubDSchema::Sample(
 		                      V3fArraySample(
 		                          (const Imath::V3f *) &points.front(),
@@ -534,7 +573,21 @@ void AbcMeshWriter::writeSubD()
 		                      Int32ArraySample(facePoints),
 		                      Int32ArraySample(faceCounts));
 
-		m_subdiv_sample.setUVs(uvSamp);
+		UVSample sample;
+		if (m_settings.export_uvs) {
+			get_uv_sample(sample, dm, m_settings.pack_uv);
+
+			if (!sample.indices.empty() && !sample.uvs.empty()) {
+				OV2fGeomParam::Sample uv_sample;
+				uv_sample.setVals(V2fArraySample(&sample.uvs[0], sample.uvs.size()));
+				uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
+				uv_sample.setScope(kFacevaryingScope);
+
+				m_subdiv_sample.setUVs(uv_sample);
+			}
+
+			write_extra_uvs(m_subdiv_schema, dm, m_settings.pack_uv);
+		}
 
 		if (!creaseIndices.empty()) {
 			m_subdiv_sample.setCreaseIndices(Int32ArraySample(creaseIndices));
@@ -544,6 +597,7 @@ void AbcMeshWriter::writeSubD()
 
 		m_subdiv_sample.setSelfBounds(bounds());
 		m_subdiv_schema.set(m_subdiv_sample);
+
 		writeArbGeoParams(dm);
 		freeMesh(dm);
 	}
@@ -1151,6 +1205,33 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 
 	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv,
 	            face_indices, face_counts, uvsamp_vals);
+
+	const ICompoundProperty &arb_geom_params = (m_schema.valid() ? m_schema.getArbGeomParams()
+	                                                             : m_subd_schema.getArbGeomParams());
+
+	const size_t num_props = arb_geom_params.getNumProperties();
+
+	for (size_t i = 0; i < num_props; ++i) {
+		const Alembic::Abc::PropertyHeader &propHeader = arb_geom_params.getPropertyHeader(i);
+
+		if (IV2fGeomParam::matches(propHeader) && Alembic::AbcGeom::isUV(propHeader)) {
+            IV2fGeomParam uvGeomParam(arb_geom_params, propHeader.getName());
+			const std::string &name = Alembic::Abc::GetSourceName(uvGeomParam.getMetaData());
+
+			int index = ED_mesh_uv_texture_add(mesh, name.c_str(), true);
+
+			if (index == -1) {
+				continue;
+			}
+
+			MLoopUV *mloop_uv = static_cast<MLoopUV *>(CustomData_get_layer(&mesh->ldata, CD_MLOOPUV));
+
+			IV2fGeomParam::Sample sample;
+			uvGeomParam.getIndexed(sample, Alembic::Abc::ISampleSelector(0.0f));
+
+			read_uvs(mesh->mpoly, mesh->mloop, mloop_uv, mesh->totpoly, sample.getVals(), sample.getIndices());
+        }
+	}
 }
 
 void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_start,
@@ -1253,6 +1334,37 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs,
 				loopuv.uv[0] = (*uvs)[vert_index][0];
 				loopuv.uv[1] = (*uvs)[vert_index][1];
 			}
+		}
+	}
+}
+
+void read_uvs(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, size_t face_count,
+              const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
+              const Alembic::AbcGeom::UInt32ArraySamplePtr &indices)
+{
+	if (!mloopuvs || !uvs) {
+		return;
+	}
+
+	unsigned int vert_index, loop_index;
+
+	for (int i = 0; i < face_count; ++i) {
+		MPoly &poly = mpolys[i];
+
+		for (int f = 0; f < poly.totloop; ++f) {
+			loop_index = poly.loopstart + f;
+
+			MLoop &loop = mloops[loop_index];
+			vert_index = (*indices)[loop.v];
+
+			BLI_assert(vert_index < uvs->size());
+			BLI_assert(loop_index < indices->size());
+
+			const Imath::V2f &uv = (*uvs)[vert_index];
+
+			MLoopUV &loopuv = mloopuvs[loop_index];
+			loopuv.uv[0] = uv[0];
+			loopuv.uv[1] = uv[1];
 		}
 	}
 }
