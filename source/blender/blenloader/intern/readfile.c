@@ -7182,6 +7182,8 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 {
 	Main *newmain;
 	
+	printf("adding lib %s (%s)\n", lib->id.name, lib->name);
+
 	/* check if the library was already read */
 	for (newmain = fd->mainlist->first; newmain; newmain = newmain->next) {
 		if (newmain->curlib) {

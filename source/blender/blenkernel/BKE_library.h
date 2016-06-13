@@ -137,6 +137,7 @@ void BKE_libraries_asset_subdata_remove(struct Main *bmain, const void *idv);
 void BKE_libraries_asset_repositories_clear(struct Main *bmain);
 void BKE_libraries_asset_repositories_rebuild(struct Main *bmain);
 struct AssetRef *BKE_libraries_asset_repository_uuid_find(struct Main *bmain, const struct AssetUUID *uuid);
+struct Library *BKE_library_asset_virtual_ensure(struct Main *bmain, const struct AssetEngineType *aet);
 
 typedef void (*BKE_library_free_window_manager_cb)(struct bContext *, struct wmWindowManager *);
 typedef void (*BKE_library_free_notifier_reference_cb)(const void *);

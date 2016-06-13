@@ -240,7 +240,8 @@ typedef struct Library {
 
 /* Library.flag */
 enum {
-	LIBRARY_FLAG_VIRTUAL,  /* The library does not actually exist, used to allow handling of files from asset engines. */
+	/* The library does not actually exist, used to allow handling of files from asset engines. */
+	LIBRARY_FLAG_VIRTUAL = 1 << 0,
 };
 
 enum eIconSizes {

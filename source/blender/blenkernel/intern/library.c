@@ -2045,6 +2045,13 @@ static void library_asset_dependencies_rebuild(ID *asset)
 	Library *lib = asset->lib;
 	BLI_assert(lib && lib->asset_repository);
 
+	if (!(lib && lib->asset_repository)) {
+		printf("lib: %p\n", lib);
+		printf("lib: %s\n", lib->id.name);
+		printf("lib: %s\n", lib->name);
+		printf("lib: %p\n", lib->asset_repository);
+	}
+
 	asset->tag |= LIB_TAG_ASSET;
 
 	AssetRef *aref = BKE_library_asset_repository_asset_add(lib, asset);
@@ -2086,6 +2093,31 @@ AssetRef *BKE_libraries_asset_repository_uuid_find(Main *bmain, const AssetUUID 
 	}
 	return NULL;
 }
+
+/** Find or add the 'virtual' library datablock matching this asset engine, used for non-blend-data assets. */
+Library *BKE_library_asset_virtual_ensure(Main *bmain, const AssetEngineType *aet)
+{
+	Library *lib;
+	ListBase *lb = which_libbase(bmain, ID_LI);
+
+	for (lib = lb->first; lib; lib = lib->id.next) {
+		if (!(lib->flag & LIBRARY_FLAG_VIRTUAL) || !lib->asset_repository) {
+			continue;
+		}
+
+		if (STREQ(lib->asset_repository->asset_engine, aet->idname) &&
+		    lib->asset_repository->asset_engine_version == aet->version)
+		{
+			return lib;
+		}
+	}
+
+	lib = BKE_libblock_alloc(bmain, ID_LI, "VirtualLib");
+	BKE_library_asset_repository_init(lib, aet, "");
+	lib->flag |= LIBRARY_FLAG_VIRTUAL;
+	return lib;
+}
+
 
 /**
  * Use after setting the ID's name
