@@ -1812,10 +1812,6 @@ static int wm_handler_fileselect_do(bContext *C, ListBase *handlers, wmEventHand
 			sfile = (SpaceFile *)sa->spacedata.first;
 			sfile->op = handler->op;
 
-			/* Note: This may not be optimal, but for now always reset to default engine when opening a new browser.
-			 *       Otherwise, we get previous engine even when we want to save .blend, yuck. */
-			BLI_strncpy(sfile->asset_engine, AE_FAKE_ENGINE_ID, sizeof(sfile->asset_engine));
-
 			ED_fileselect_set_params(sfile);
 				
 			action = WM_HANDLER_BREAK;

@@ -223,7 +223,8 @@ static void file_refresh(const bContext *C, ScrArea *sa)
 	struct FSMenu *fsmenu = ED_fsmenu_get();
 	AssetEngineType *aet = NULL;
 
-	if (!STREQ(sfile->asset_engine, AE_FAKE_ENGINE_ID)) {
+	if (!STREQ(sfile->asset_engine, AE_FAKE_ENGINE_ID) && (params->type == FILE_LOADLIB)) {
+		/* Only allow asset engine usage in 'loadlib' (i.e. link/append) case. */
 		aet = BKE_asset_engines_find(sfile->asset_engine);
 	}
 

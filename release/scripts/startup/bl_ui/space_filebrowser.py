@@ -28,12 +28,16 @@ class FILEBROWSER_HT_header(Header):
         layout = self.layout
 
         st = context.space_data
+        params = st.params
+        is_lib_browser = params and params.use_library_browsing
 
         layout.template_header()
+        layout.separator()
 
-        row = layout.row()
-        row.prop(st, "asset_engine_type", text="")
-        row.separator()
+        if is_lib_browser:
+            row = layout.row()
+            row.prop(st, "asset_engine_type", text="")
+            layout.separator()
 
         row = layout.row(align=True)
         row.operator("file.previous", text="", icon='BACK')
@@ -42,7 +46,7 @@ class FILEBROWSER_HT_header(Header):
         row.operator("file.refresh", text="", icon='FILE_REFRESH')
 
         layout.separator()
-        if st.asset_engine:
+        if st.asset_engine and is_lib_browser:
             draw_header = getattr(st.asset_engine, "draw_header", None)
             if draw_header:
                 draw_header(layout, context)
@@ -52,12 +56,9 @@ class FILEBROWSER_HT_header(Header):
             layout.separator()
 
             layout.operator_context = 'INVOKE_DEFAULT'
-            params = st.params
 
             # can be None when save/reload with a file selector open
             if params:
-                is_lib_browser = params.use_library_browsing
-
                 layout.prop(params, "recursion_level", text="")
 
                 layout.prop(params, "display_type", expand=True, text="")
