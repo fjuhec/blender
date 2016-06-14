@@ -422,7 +422,7 @@ static int wm_alembic_import_exec(bContext *C, wmOperator *op)
 	const float scale = RNA_float_get(op->ptr, "scale");
 	const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
 
-	int offset;
+	int offset = 0;
 	int sequence_len = get_seqeunce_len(filename, &offset);
 	const bool is_sequence = (sequence_len > 1);
 
