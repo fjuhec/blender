@@ -109,10 +109,10 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				float t = isect->t;
 
 				/* fetch node data */
-				float4 node0 = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
-				float4 node1 = kernel_tex_fetch(__bvh_nodes, nodeAddr+1);
-				float4 node2 = kernel_tex_fetch(__bvh_nodes, nodeAddr+2);
-				float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+3);
+				float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
+				float4 node0 = kernel_tex_fetch(__bvh_nodes, nodeAddr+1);
+				float4 node1 = kernel_tex_fetch(__bvh_nodes, nodeAddr+2);
+				float4 node2 = kernel_tex_fetch(__bvh_nodes, nodeAddr+3);
 
 				/* intersect ray against child nodes */
 				NO_EXTENDED_PRECISION float c0lox = (node0.x - P.x) * idir.x;
@@ -163,12 +163,12 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 
 				/* fetch node data */
 				const ssef *bvh_nodes = (ssef*)kg->__bvh_nodes.data + nodeAddr;
-				const float4 cnodes = ((float4*)bvh_nodes)[3];
+				const float4 cnodes = ((float4*)bvh_nodes)[0];
 
 				/* intersect ray against child nodes */
-				const ssef tminmaxx = (shuffle_swap(bvh_nodes[0], shufflexyz[0]) - Psplat[0]) * idirsplat[0];
-				const ssef tminmaxy = (shuffle_swap(bvh_nodes[1], shufflexyz[1]) - Psplat[1]) * idirsplat[1];
-				const ssef tminmaxz = (shuffle_swap(bvh_nodes[2], shufflexyz[2]) - Psplat[2]) * idirsplat[2];
+				const ssef tminmaxx = (shuffle_swap(bvh_nodes[1], shufflexyz[0]) - Psplat[0]) * idirsplat[0];
+				const ssef tminmaxy = (shuffle_swap(bvh_nodes[2], shufflexyz[1]) - Psplat[1]) * idirsplat[1];
+				const ssef tminmaxz = (shuffle_swap(bvh_nodes[3], shufflexyz[2]) - Psplat[2]) * idirsplat[2];
 
 				/* calculate { c0min, c1min, -c0max, -c1max} */
 				ssef minmax = max(max(tminmaxx, tminmaxy), max(tminmaxz, tsplat));

@@ -126,20 +126,20 @@ protected:
 	void pack_inner(const BVHStackEntry& e,
 	                const BVHStackEntry& e0,
 	                const BVHStackEntry& e1);
-	void pack_node(int idx,
-	               const BoundBox& b0,
-	               const BoundBox& b1,
-	               int c0, int c1,
-	               uint visibility0, uint visibility1);
 
-	void pack_unaligned_leaf(const BVHStackEntry& e,
-	                         const LeafNode *leaf);
+	void pack_aligned_inner(const BVHStackEntry& e,
+	                        const BVHStackEntry& e0,
+	                        const BVHStackEntry& e1);
+	void pack_aligned_node(int idx,
+	                       const BoundBox& b0,
+	                       const BoundBox& b1,
+	                       int c0, int c1,
+	                       uint visibility0, uint visibility1);
+
 	void pack_unaligned_inner(const BVHStackEntry& e,
 	                          const BVHStackEntry& e0,
 	                          const BVHStackEntry& e1);
 	void pack_unaligned_node(int idx,
-	                         const bool is_unaligned0,
-	                         const bool is_unaligned1,
 	                         const Transform& aligned_space0,
 	                         const Transform& aligned_space1,
 	                         const BoundBox& b0,
@@ -168,8 +168,9 @@ protected:
 	void pack_leaf(const BVHStackEntry& e, const LeafNode *leaf);
 	void pack_inner(const BVHStackEntry& e, const BVHStackEntry *en, int num);
 
-	void pack_unaligned_leaf(const BVHStackEntry& e,
-	                         const LeafNode *leaf);
+	void pack_aligned_inner(const BVHStackEntry& e,
+	                        const BVHStackEntry *en,
+	                        int num);
 	void pack_unaligned_inner(const BVHStackEntry& e,
 	                          const BVHStackEntry *en,
 	                          int num);
