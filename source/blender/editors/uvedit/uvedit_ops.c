@@ -407,7 +407,9 @@ bool uvedit_face_select_enable(Scene *scene, BMEditMesh *em, BMFace *efa, const 
 
 		BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
 			luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-			luv->flag |= MLOOPUV_VERTSEL;
+			if (!(luv->flag & MLOOPUV_HIDDEN)) {
+				luv->flag |= MLOOPUV_VERTSEL;
+			}
 		}
 
 		return true;
@@ -505,8 +507,12 @@ void uvedit_edge_select_enable(BMEditMesh *em, Scene *scene, BMLoop *l, const bo
 		luv1 = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
 		luv2 = BM_ELEM_CD_GET_VOID_P(l->next, cd_loop_uv_offset);
 		
-		luv1->flag |= MLOOPUV_VERTSEL;
-		luv2->flag |= MLOOPUV_VERTSEL;
+		if (!(luv1->flag & MLOOPUV_HIDDEN)) {
+			luv1->flag |= MLOOPUV_VERTSEL;
+		}
+		if (!(luv2->flag & MLOOPUV_HIDDEN)) {
+			luv2->flag |= MLOOPUV_VERTSEL;
+		}
 	}
 }
 
@@ -582,7 +588,9 @@ void uvedit_uv_select_enable(BMEditMesh *em, Scene *scene, BMLoop *l,
 	}
 	else {
 		MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-		luv->flag |= MLOOPUV_VERTSEL;
+		if (!(luv->flag & MLOOPUV_HIDDEN)) {
+			luv->flag |= MLOOPUV_VERTSEL;
+		}
 	}
 }
 
@@ -2243,13 +2251,19 @@ static void uv_select_all_perform(Scene *scene, Image *ima, BMEditMesh *em, int 
 
 				switch (action) {
 					case SEL_SELECT:
-						luv->flag |= MLOOPUV_VERTSEL;
+						if (!(luv->flag & MLOOPUV_HIDDEN)) { /* Skip hidden loops */
+							luv->flag |= MLOOPUV_VERTSEL;
+						}
 						break;
 					case SEL_DESELECT:
-						luv->flag &= ~MLOOPUV_VERTSEL;
+						if (!(luv->flag & MLOOPUV_HIDDEN)) {
+							luv->flag &= ~MLOOPUV_VERTSEL;
+						}
 						break;
 					case SEL_INVERT:
-						luv->flag ^= MLOOPUV_VERTSEL;
+						if (!(luv->flag & MLOOPUV_HIDDEN)) {
+							luv->flag ^= MLOOPUV_VERTSEL;
+						}
 						break;
 				}
 			}
@@ -3942,6 +3956,7 @@ static int uv_hide_exec(bContext *C, wmOperator *op)
 			luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
 			if ((luv->flag & MLOOPUV_VERTSEL && !swap) || (!(luv->flag & MLOOPUV_VERTSEL) && swap)) {
 				luv->flag |= MLOOPUV_HIDDEN;
+				luv->flag &= ~MLOOPUV_VERTSEL; /* Deselect after hiding to avoid unwanted behaviour */
 			}
 		}
 	}
@@ -3967,7 +3982,7 @@ static void UV_OT_hide(wmOperatorType *ot)
 	ot->poll = ED_operator_uvedit;
 
 	/* props */
-	RNA_def_boolean(ot->srna, "unselected", 0, "Unselected", "Hide unselected rather than selected");
+	RNA_def_boolean(ot->srna, "unselected", 0, "Hide Unselected", "Hide unselected rather than selected");
 }
 
 /****************** reveal operator ******************/
