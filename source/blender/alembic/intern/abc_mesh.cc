@@ -157,7 +157,7 @@ void get_creases(DerivedMesh *dm,
 	MEdge *edge = dm->getEdgeArray(dm);
 
 	for (int i = 0, e = dm->getNumEdges(dm); i < e; ++i) {
-		float sharpness = (float) edge[i].crease * factor;
+		const float sharpness = static_cast<float>(edge[i].crease) * factor;
 
 		if (sharpness != 0.0f) {
 			indices.push_back(edge[i].v1);
@@ -169,6 +169,12 @@ void get_creases(DerivedMesh *dm,
 	lengths.resize(sharpnesses.size(), 2);
 }
 
+/* *************** UVs *************** */
+
+struct UVSample {
+	std::vector<Imath::V2f> uvs;
+	std::vector<uint32_t> indices;
+};
 
 static void get_uvs(DerivedMesh *dm,
                     std::vector<Imath::V2f> &uvs,
@@ -220,13 +226,6 @@ static void get_uvs(DerivedMesh *dm,
 		}
 	}
 }
-
-/* *************** UVs *************** */
-
-struct UVSample {
-	std::vector<Imath::V2f> uvs;
-	std::vector<uint32_t> indices;
-};
 
 static void get_uv_sample(UVSample &sample, DerivedMesh *dm, bool pack_uv)
 {
@@ -320,6 +319,8 @@ static void get_normals(DerivedMesh *dm, std::vector<float> &normals)
 	}
 }
 
+/* *************** Modifiers *************** */
+
 /* check if the mesh is a subsurf, ignoring disabled modifiers and
  * displace if it's after subsurf. */
 static ModifierData *get_subsurf_modifier(Scene *scene, Object *ob)
@@ -363,6 +364,8 @@ static ModifierData *get_fluid_sim_modifier(Scene *scene, Object *ob)
 	return NULL;
 }
 
+/* ************************************************************************** */
+
 AbcMeshWriter::AbcMeshWriter(Scene *scene,
                              Object *ob,
                              AbcTransformWriter *parent,
@@ -376,7 +379,7 @@ AbcMeshWriter::AbcMeshWriter(Scene *scene,
 	m_has_vertex_weights = false;
 	m_is_subd = false;
 
-	/* if the object is static, use the default static time sampling */
+	/* If the object is static, use the default static time sampling. */
 	if (!m_is_animated) {
 		time_sampling = 0;
 	}
@@ -415,14 +418,14 @@ AbcMeshWriter::~AbcMeshWriter()
 
 bool AbcMeshWriter::isAnimated() const
 {
-	/* check if object has shape keys */
+	/* Check if object has shape keys. */
 	Mesh *me = static_cast<Mesh *>(m_object->data);
 
 	if (me->key) {
 		return true;
 	}
 
-	/* test modifiers */
+	/* Test modifiers. */
 	ModifierData *md = static_cast<ModifierData *>(m_object->modifiers.first);
 
 	while (md) {
@@ -438,7 +441,7 @@ bool AbcMeshWriter::isAnimated() const
 
 void AbcMeshWriter::do_write()
 {
-	/* we have already stored a sample for this object. */
+	/* We have already stored a sample for this object. */
 	if (!m_first_frame && !m_is_animated)
 		return;
 
@@ -464,8 +467,6 @@ void AbcMeshWriter::writeMesh()
 		if (m_first_frame) {
 			writeCommonData(dm, m_mesh_schema);
 		}
-
-		/* Normals export */
 
 		m_mesh_sample = OPolyMeshSchema::Sample(
 		                    V3fArraySample(
@@ -645,7 +646,7 @@ void AbcMeshWriter::createArbGeoParams(DerivedMesh *dm)
 
 		m_velocity = param.getValueProperty();
 
-		/* we don't need anything more for fluid meshes */
+		/* We don't need anything more for fluid meshes. */
 		return;
 	}
 
@@ -654,7 +655,7 @@ void AbcMeshWriter::createArbGeoParams(DerivedMesh *dm)
 	for (int i = 0; i < dm->vertData.totlayer; ++i) {
 		layer_name = dm->vertData.layers[i].name;
 
-		/* skip unnamed layers */
+		/* Skip unnamed layers. */
 		if (layer_name == "") {
 			continue;
 		}
@@ -669,7 +670,7 @@ void AbcMeshWriter::createArbGeoParams(DerivedMesh *dm)
 		CustomDataLayer *layer = &dm->polyData.layers[i];
 		layer_name = dm->polyData.layers[i].name;
 
-		/* skip unnamed layers */
+		/* Skip unnamed layers. */
 		if (layer_name == "") {
 			continue;
 		}
@@ -692,7 +693,7 @@ void AbcMeshWriter::createVertexLayerParam(DerivedMesh *dm, int index,
 	CustomDataLayer *layer = &dm->vertData.layers[index];
 	const std::string layer_name = layer->name;
 
-	/* we have already a layer named layerName. skip */
+	/* We have already a layer named `layer_name`. Skip. */
 	if (m_layers_written.count(layer_name) != 0) {
 		return;
 	}
@@ -729,7 +730,7 @@ void AbcMeshWriter::createFaceLayerParam(DerivedMesh *dm, int index,
 	CustomDataLayer *layer = &dm->polyData.layers[index];
 	const std::string layer_name = layer->name;
 
-	/* we have already a layer named layer_name, skip */
+	/* We have already a layer named `layer_name`. Skip. */
 	if (m_layers_written.count(layer_name) != 0) {
 		return;
 	}
@@ -763,11 +764,11 @@ void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 		                                           Alembic::Util::Dimensions(dm->getNumVerts(dm)));
 		m_velocity.set(samp);
 
-		/* we have all we need */
+		/* We have all we need. */
 		return;
 	}
 
-	/* vertex data */
+	/* Vertex data. */
 	for (int i = 0; i < m_vert_layers.size(); ++i) {
 		if (m_subdiv_schema.valid()) {
 			writeVertexLayerParam(dm, i, m_subdiv_schema.getArbGeomParams());
@@ -777,7 +778,7 @@ void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 		}
 	}
 
-	/* face varying data */
+	/* Face varying data. */
 	for (int i = 0; i < m_face_layers.size(); ++i) {
 		if (m_subdiv_schema.valid()) {
 			writeFaceLayerParam(dm, i, m_subdiv_schema.getArbGeomParams());
@@ -958,7 +959,6 @@ void mesh_add_verts(Mesh *mesh, size_t len)
 	mesh->vdata = vdata;
 	BKE_mesh_update_customdata_pointers(mesh, false);
 
-	/* set final vertex list size */
 	mesh->totvert = totvert;
 }
 
@@ -996,7 +996,6 @@ static void mesh_add_mpolygons(Mesh *mesh, size_t len)
 		return;
 	}
 
-	/* new face count */
 	const int totpolys = mesh->totpoly + len;
 
 	CustomData pdata;
@@ -1035,7 +1034,7 @@ static Material *find_material(Main *bmain, const char *name)
 
 static void assign_materials(Main *bmain, Object *ob, const std::map<std::string, int> &mat_map)
 {
-	/* Clean up slots */
+	/* Clean up slots. */
 	while (object_remove_material_slot(ob));
 
 	bool can_assign = true;
@@ -1339,7 +1338,7 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs,
 		poly.loopstart = loopcount;
 		poly.totloop = face_size;
 
-		/* TODO: reverse */
+		/* TODO: reverse. */
 		int rev_loop = loopcount;
 		for (int f = face_size; f-- ;) {
 			MLoop &loop = mloops[rev_loop + f];
