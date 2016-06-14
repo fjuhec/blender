@@ -464,7 +464,7 @@ void RegularBVH::pack_node(int idx,
 		make_int4(c0, c1, visibility0, visibility1)
 	};
 
-	memcpy(&pack.nodes[idx * BVH_NODE_SIZE], data, sizeof(int4)*BVH_NODE_SIZE);
+	memcpy(&pack.nodes[idx], data, sizeof(int4)*BVH_NODE_SIZE);
 }
 
 void RegularBVH::pack_unaligned_leaf(const BVHStackEntry& e,
@@ -549,9 +549,7 @@ void RegularBVH::pack_unaligned_node(int idx,
 	                      __int_as_float(visibility0),
 	                      __int_as_float(visibility1));
 
-	memcpy(&pack.nodes[idx * BVH_UNALIGNED_NODE_SIZE],
-	       data,
-	       sizeof(float4)*BVH_UNALIGNED_NODE_SIZE);
+	memcpy(&pack.nodes[idx], data, sizeof(float4)*BVH_UNALIGNED_NODE_SIZE);
 }
 
 void RegularBVH::pack_nodes(const BVHNode *root)
@@ -578,10 +576,13 @@ void RegularBVH::pack_nodes(const BVHNode *root)
 
 	vector<BVHStackEntry> stack;
 	stack.reserve(BVHParams::MAX_DEPTH*2);
-	if(root->is_leaf())
+	if(root->is_leaf()) {
 		stack.push_back(BVHStackEntry(root, nextLeafNodeIdx++));
-	else
-		stack.push_back(BVHStackEntry(root, nextNodeIdx++));
+	}
+	else {
+		stack.push_back(BVHStackEntry(root, nextNodeIdx));
+		nextNodeIdx += nsize;
+	}
 
 	while(stack.size()) {
 		BVHStackEntry e = stack.back();
@@ -599,10 +600,19 @@ void RegularBVH::pack_nodes(const BVHNode *root)
 		}
 		else {
 			/* innner node */
-			int idx0 = (e.node->get_child(0)->is_leaf())? (nextLeafNodeIdx++) : (nextNodeIdx++);
-			int idx1 = (e.node->get_child(1)->is_leaf())? (nextLeafNodeIdx++) : (nextNodeIdx++);
-			stack.push_back(BVHStackEntry(e.node->get_child(0), idx0));
-			stack.push_back(BVHStackEntry(e.node->get_child(1), idx1));
+			int idx[2];
+			for (int i = 0; i < 2; ++i) {
+				if (e.node->get_child(i)->is_leaf()) {
+					idx[i] = nextLeafNodeIdx++;
+				}
+				else {
+					idx[i] = nextNodeIdx;
+					nextNodeIdx += nsize;
+				}
+			}
+
+			stack.push_back(BVHStackEntry(e.node->get_child(0), idx[0]));
+			stack.push_back(BVHStackEntry(e.node->get_child(1), idx[1]));
 			if(params.use_unaligned_nodes) {
 				pack_unaligned_inner(e, stack[stack.size()-2], stack[stack.size()-1]);
 			}
