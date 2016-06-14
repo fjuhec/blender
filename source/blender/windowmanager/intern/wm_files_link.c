@@ -78,6 +78,7 @@
 #include "IMB_colormanagement.h"
 
 #include "ED_screen.h"
+#include "ED_fileselect.h"
 
 #include "GPU_material.h"
 
@@ -221,6 +222,25 @@ static WMLinkAppendDataItem *wm_link_append_data_item_add(
 	return item;
 }
 
+static int path_to_idcode(const char *path)
+{
+	const int filetype = ED_path_extension_type(path);
+	switch (filetype) {
+		case FILE_TYPE_IMAGE:
+		case FILE_TYPE_MOVIE:
+			return ID_IM;
+		case FILE_TYPE_FTFONT:
+			return ID_VF;
+		case FILE_TYPE_SOUND:
+			return ID_SO;
+		case FILE_TYPE_PYSCRIPT:
+		case FILE_TYPE_TEXT:
+			return ID_TXT;
+		default:
+			return 0;
+	}
+}
+
 static void wm_link_virtual_lib(WMLinkAppendData *lapp_data, Main *bmain, AssetEngineType *aet, const int lib_idx)
 {
 	LinkNode *itemlink;
@@ -341,76 +361,6 @@ static void wm_link_do(
 
 		BLO_library_link_end(mainl, &bh, flag, scene, v3d);
 		BLO_blendhandle_close(bh);
-	}
-}
-
-
-/* XXXXXX Copied from editors' filelist.c, needs to be moved to BLI probably? */
-#include "IMB_imbuf.h"
-#include "IMB_imbuf_types.h"
-static int path_extension_type(const char *path)
-{
-	if (BLO_has_bfile_extension(path)) {
-		return FILE_TYPE_BLENDER;
-	}
-//	else if (file_is_blend_backup(path)) {
-//		return FILE_TYPE_BLENDER_BACKUP;
-//	}
-	else if (BLI_testextensie(path, ".app")) {
-		return FILE_TYPE_APPLICATIONBUNDLE;
-	}
-	else if (BLI_testextensie(path, ".py")) {
-		return FILE_TYPE_PYSCRIPT;
-	}
-	else if (BLI_testextensie_n(path, ".txt", ".glsl", ".osl", ".data", NULL)) {
-		return FILE_TYPE_TEXT;
-	}
-	else if (BLI_testextensie_n(path, ".ttf", ".ttc", ".pfb", ".otf", ".otc", NULL)) {
-		return FILE_TYPE_FTFONT;
-	}
-	else if (BLI_testextensie(path, ".btx")) {
-		return FILE_TYPE_BTX;
-	}
-	else if (BLI_testextensie(path, ".dae")) {
-		return FILE_TYPE_COLLADA;
-	}
-	else if (BLI_testextensie_array(path, imb_ext_image) ||
-	         (G.have_quicktime && BLI_testextensie_array(path, imb_ext_image_qt)))
-	{
-		return FILE_TYPE_IMAGE;
-	}
-	else if (BLI_testextensie(path, ".ogg")) {
-		if (IMB_isanim(path)) {
-			return FILE_TYPE_MOVIE;
-		}
-		else {
-			return FILE_TYPE_SOUND;
-		}
-	}
-	else if (BLI_testextensie_array(path, imb_ext_movie)) {
-		return FILE_TYPE_MOVIE;
-	}
-	else if (BLI_testextensie_array(path, imb_ext_audio)) {
-		return FILE_TYPE_SOUND;
-	}
-	return 0;
-}
-static int path_to_idcode(const char *path)
-{
-	const int filetype = path_extension_type(path);
-	switch (filetype) {
-		case FILE_TYPE_IMAGE:
-		case FILE_TYPE_MOVIE:
-			return ID_IM;
-		case FILE_TYPE_FTFONT:
-			return ID_VF;
-		case FILE_TYPE_SOUND:
-			return ID_SO;
-		case FILE_TYPE_PYSCRIPT:
-		case FILE_TYPE_TEXT:
-			return ID_TXT;
-		default:
-			return 0;
 	}
 }
 
