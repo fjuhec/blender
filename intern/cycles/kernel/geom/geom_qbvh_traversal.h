@@ -28,7 +28,7 @@
  *
  */
 
-#if BVH_FEATURE(BVH_HAIR) || 1
+#if BVH_FEATURE(BVH_HAIR)
 #   define NODE_INTERSECT qbvh_curve_node_intersect
 #   define NODE_INTERSECT_ROBUST qbvh_curve_node_intersect_robust
 #else
@@ -179,10 +179,13 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 					 * gives a speedup (will be different cache pattern but will
 					 * avoid extra check here),
 					 */
+#if BVH_FEATURE(BVH_HAIR)
 					if(__float_as_uint(inodes.x) & PATH_RAY_NODE_UNALIGNED) {
 						cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+13);
 					}
-					else {
+					else
+#endif
+					{
 						cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+7);
 					}
 
