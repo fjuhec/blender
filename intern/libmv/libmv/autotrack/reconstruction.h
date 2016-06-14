@@ -39,12 +39,15 @@ class Model;
 struct Marker;
 class Tracks;
 
-class CameraPose {
-  int clip;
-  int frame;
-  int intrinsics;
-  Mat3 R;
-  Vec3 t;
+struct CameraPose {
+	CameraPose(int clip_, int frame_, int intrinsics_, Mat3 R_, Vec3 t_):
+	    clip(clip_), frame(frame_), intrinsics(intrinsics_), R(R_), t(t_) {}
+
+	int clip;
+	int frame;
+	int intrinsics;
+	Mat3 R;
+	Vec3 t;
 };
 
 class Point {
@@ -61,7 +64,7 @@ class Reconstruction {
  public:
   // All methods copy their input reference or take ownership of the pointer.
   void AddCameraPose(const CameraPose& pose);
-  int  AddCameraIntrinsics(CameraIntrinsics* intrinsics);
+  void AddCameraIntrinsics(CameraIntrinsics* intrinsics_ptr, const int intrinsic_index);
   int  AddPoint(const Point& point);
   int  AddModel(Model* model);
 
@@ -90,6 +93,8 @@ class Reconstruction {
 };
 
 bool ReconstructTwoFrames(const vector<Marker> &markers,
+                          const int clip,
+                          libmv::CameraIntrinsics &cam_intrinsics,
                           Reconstruction *reconstruction);
 }  // namespace mv
 

@@ -177,7 +177,9 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 
 	///* TODO(tianwei): chain the tracks and correspondences */
 
-	if(!mv::ReconstructTwoFrames(keyframe_markers, &reconstruction)) {
+	// reconstruct two views from the main clip
+	if(!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction))
+	{
 		printf("mv::ReconstrucTwoFrames failed\n");
 		for(int i = 0; i < clip_num; i++)
 			all_libmv_reconstruction[i]->is_valid = false;
