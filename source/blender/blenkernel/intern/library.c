@@ -2046,10 +2046,11 @@ static void library_asset_dependencies_rebuild(ID *asset)
 	BLI_assert(lib && lib->asset_repository);
 
 	if (!(lib && lib->asset_repository)) {
+		printf("asset: %s\n", asset->name);
 		printf("lib: %p\n", lib);
 		printf("lib: %s\n", lib->id.name);
 		printf("lib: %s\n", lib->name);
-		printf("lib: %p\n", lib->asset_repository);
+		printf("lib: %p\n\n\n", lib->asset_repository);
 	}
 
 	asset->tag |= LIB_TAG_ASSET;

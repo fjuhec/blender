@@ -2148,6 +2148,9 @@ static void direct_link_id(FileData *fd, ID *id)
 		/* this case means the data was written incorrectly, it should not happen */
 		IDP_DirectLinkGroup_OrFree(&id->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 	}
+	if (id->uuid) {
+		id->uuid = newdataadr(fd, id->uuid);
+	}
 }
 
 /* ************ READ CurveMapping *************** */
@@ -8019,6 +8022,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 		return blo_nextbhead(fd, bhead);
 	
 	id->tag = tag | LIB_TAG_NEED_LINK;
+	printf("id: %s (%p, %p), lib: %p\n", id->name, id, id->uuid, main->curlib);
 	id->lib = main->curlib;
 	id->us = ID_FAKE_USERS(id);
 	id->icon_id = 0;
@@ -8491,7 +8495,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 			bhead->code = ID_SCR;
 			/* deliberate pass on to default */
 		default:
-			bhead = read_libblock(fd, bfd->main, bhead, LIB_TAG_LOCAL, NULL);
+			bhead = read_libblock(fd, mainlist.last, bhead, LIB_TAG_LOCAL, NULL);
 		}
 	}
 	
