@@ -51,9 +51,8 @@ class AbcMeshWriter : public AbcObjectWriter {
 
 	bool m_has_vertex_weights;
 
-	bool m_is_fluid;
+	bool m_is_liquid;
 	bool m_is_subd;
-	Alembic::Abc::OArrayProperty m_velocity;
 
 public:
 	AbcMeshWriter(Scene *scene,

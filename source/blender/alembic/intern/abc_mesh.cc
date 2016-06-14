@@ -349,7 +349,7 @@ static ModifierData *get_subsurf_modifier(Scene *scene, Object *ob)
 	return NULL;
 }
 
-static ModifierData *get_fluid_sim_modifier(Scene *scene, Object *ob)
+static ModifierData *get_liquid_sim_modifier(Scene *scene, Object *ob)
 {
 	ModifierData *md = modifiers_findByType(ob, eModifierType_Fluidsim);
 
@@ -389,7 +389,7 @@ AbcMeshWriter::AbcMeshWriter(Scene *scene,
 		m_is_subd = (m_subsurf_mod != NULL);
 	}
 
-	m_is_fluid = (get_fluid_sim_modifier(m_scene, m_object) != NULL);
+	m_is_liquid = (get_liquid_sim_modifier(m_scene, m_object) != NULL);
 
 	while (parent->alembicXform().getChildHeader(m_name)) {
 		m_name.append("_");
@@ -504,6 +504,15 @@ void AbcMeshWriter::writeMesh()
 			}
 
 			m_mesh_sample.setNormals(normals_sample);
+		}
+
+		if (m_is_liquid) {
+			std::vector<float> velocities;
+			getVelocities(dm, velocities);
+
+			m_mesh_sample.setVelocities(V3fArraySample(
+			                                (const Imath::V3f *)&velocities.front(),
+							                velocities.size() / 3));
 		}
 
 		m_mesh_sample.setSelfBounds(bounds());
@@ -629,24 +638,8 @@ void AbcMeshWriter::freeMesh(DerivedMesh *dm)
 
 void AbcMeshWriter::createArbGeoParams(DerivedMesh *dm)
 {
-	if (m_is_fluid) {
-		/* TODO: replace this, when velocities are added by default to schemas. */
-		OV3fGeomParam param;
-
-		if (m_subdiv_schema.valid()) {
-			param = OV3fGeomParam(
-			            m_subdiv_schema.getArbGeomParams(), "velocity", false,
-			            kVertexScope, 1, m_time_sampling);
-		}
-		else {
-			param = OV3fGeomParam(
-			            m_mesh_schema.getArbGeomParams(), "velocity", false,
-			            kVertexScope, 1, m_time_sampling);
-		}
-
-		m_velocity = param.getValueProperty();
-
-		/* We don't need anything more for fluid meshes. */
+	if (m_is_liquid) {
+		/* We don't need anything more for liquid meshes. */
 		return;
 	}
 
@@ -755,16 +748,8 @@ void AbcMeshWriter::createFaceLayerParam(DerivedMesh *dm, int index,
 
 void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 {
-	if (m_is_fluid) {
-		std::vector<float> velocities;
-		getVelocities(dm, velocities);
-
-		Alembic::AbcCoreAbstract::ArraySample samp(&(velocities.front()),
-		                                           m_velocity.getDataType(),
-		                                           Alembic::Util::Dimensions(dm->getNumVerts(dm)));
-		m_velocity.set(samp);
-
-		/* We have all we need. */
+	if (m_is_liquid) {
+		/* We don't need anything more for liquid meshes. */
 		return;
 	}
 
@@ -876,7 +861,7 @@ void AbcMeshWriter::getVelocities(DerivedMesh *dm, std::vector<float> &vels)
 	vels.clear();
 	vels.resize(totverts * 3);
 
-	ModifierData *md = get_fluid_sim_modifier(m_scene, m_object);
+	ModifierData *md = get_liquid_sim_modifier(m_scene, m_object);
 	FluidsimModifierData *fmd = reinterpret_cast<FluidsimModifierData *>(md);
 	FluidsimSettings *fss = fmd->fss;
 
