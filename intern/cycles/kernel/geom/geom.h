@@ -21,14 +21,7 @@
 /* 64 object BVH + 64 mesh BVH + 64 object node splitting */
 #define BVH_STACK_SIZE 192
 #define BVH_QSTACK_SIZE 384
-#define BVH_NODE_SIZE 4
-#define BVH_NODE_LEAF_SIZE 1
-#define BVH_QNODE_SIZE 8
-#define BVH_QNODE_LEAF_SIZE 1
 #define TRI_NODE_SIZE 3
-
-#define BVH_UNALIGNED_NODE_SIZE 9
-#define BVH_UNALIGNED_QNODE_SIZE 14
 
 /* silly workaround for float extended precision that happens when compiling
  * without sse support on x86, it results in different results for float ops

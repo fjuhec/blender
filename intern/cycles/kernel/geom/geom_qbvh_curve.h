@@ -33,7 +33,7 @@ ccl_device_inline int qbvh_curve_node_intersect_aligned(
         const int nodeAddr,
         ssef *__restrict dist)
 {
-	const int offset = nodeAddr*BVH_UNALIGNED_QNODE_SIZE + 1;
+	const int offset = nodeAddr + 1;
 #ifdef __KERNEL_AVX2__
 	const ssef tnear_x = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_x), idir.x, org_idir.x);
 	const ssef tnear_y = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_y), idir.y, org_idir.y);
@@ -85,7 +85,7 @@ ccl_device_inline int qbvh_curve_node_intersect_robust_aligned(
         const float difl,
         ssef *__restrict dist)
 {
-	const int offset = nodeAddr*BVH_UNALIGNED_QNODE_SIZE + 1;
+	const int offset = nodeAddr + 1;
 #ifdef __KERNEL_AVX2__
 	const ssef tnear_x = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_x), idir.x, P_idir.x);
 	const ssef tnear_y = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_y), idir.y, P_idir.y);
@@ -130,7 +130,7 @@ ccl_device_inline int qbvh_curve_node_intersect(
         const int nodeAddr,
         ssef *__restrict dist)
 {
-	const int offset = nodeAddr*BVH_UNALIGNED_QNODE_SIZE;
+	const int offset = nodeAddr;
 	const float4 node = kernel_tex_fetch(__bvh_curve_nodes, offset);
 	if(node.x > 0.0f) {
 		const ssef tfm_x_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+1);
@@ -234,7 +234,7 @@ ccl_device_inline int qbvh_curve_node_intersect_robust(
         const float difl,
         ssef *__restrict dist)
 {
-	const int offset = nodeAddr*BVH_UNALIGNED_QNODE_SIZE;
+	const int offset = nodeAddr;
 	const float4 node = kernel_tex_fetch(__bvh_curve_nodes, offset);
 	if(node.x > 0.0f) {
 		const ssef tfm_x_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+1);

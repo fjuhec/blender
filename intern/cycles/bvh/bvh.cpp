@@ -297,8 +297,8 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 
 		BVH *bvh = mesh->bvh;
 
-		int noffset = nodes_offset/nsize;
-		int noffset_leaf = nodes_leaf_offset/nsize_leaf;
+		int noffset = nodes_offset;
+		int noffset_leaf = nodes_leaf_offset;
 		int mesh_tri_offset = mesh->tri_offset;
 		int mesh_curve_offset = mesh->curve_offset;
 
@@ -437,7 +437,7 @@ void RegularBVH::pack_leaf(const BVHStackEntry& e,
 		data[0].w = __uint_as_float(pack.prim_type[leaf->m_lo]);
 	}
 
-	memcpy(&pack.leaf_nodes[e.idx * BVH_NODE_LEAF_SIZE], data, sizeof(float4)*BVH_NODE_LEAF_SIZE);
+	memcpy(&pack.leaf_nodes[e.idx], data, sizeof(float4)*BVH_NODE_LEAF_SIZE);
 }
 
 void RegularBVH::pack_inner(const BVHStackEntry& e,
@@ -487,9 +487,7 @@ void RegularBVH::pack_unaligned_leaf(const BVHStackEntry& e,
 		data[0].w = __uint_as_float(pack.prim_type[leaf->m_lo]);
 	}
 
-	memcpy(&pack.leaf_nodes[e.idx * BVH_NODE_LEAF_SIZE],
-	       data,
-	       sizeof(int4)*BVH_NODE_LEAF_SIZE);
+	memcpy(&pack.leaf_nodes[e.idx], data, sizeof(int4)*BVH_NODE_LEAF_SIZE);
 }
 
 void RegularBVH::pack_unaligned_inner(const BVHStackEntry& e,
@@ -774,7 +772,7 @@ void QBVH::pack_leaf(const BVHStackEntry& e, const LeafNode *leaf)
 		data[0].w = __uint_as_float(pack.prim_type[leaf->m_lo]);
 	}
 
-	memcpy(&pack.leaf_nodes[e.idx * BVH_QNODE_LEAF_SIZE], data, sizeof(float4)*BVH_QNODE_LEAF_SIZE);
+	memcpy(&pack.leaf_nodes[e.idx], data, sizeof(float4)*BVH_QNODE_LEAF_SIZE);
 }
 
 void QBVH::pack_inner(const BVHStackEntry& e, const BVHStackEntry *en, int num)
@@ -812,7 +810,7 @@ void QBVH::pack_inner(const BVHStackEntry& e, const BVHStackEntry *en, int num)
 		data[7][i] = __int_as_float(0);
 	}
 
-	memcpy(&pack.nodes[e.idx * BVH_QNODE_SIZE], data, sizeof(float4)*BVH_QNODE_SIZE);
+	memcpy(&pack.nodes[e.idx], data, sizeof(float4)*BVH_QNODE_SIZE);
 }
 
 void QBVH::pack_unaligned_leaf(const BVHStackEntry& e, const LeafNode *leaf)
@@ -833,9 +831,7 @@ void QBVH::pack_unaligned_leaf(const BVHStackEntry& e, const LeafNode *leaf)
 	if(leaf->num_triangles() != 0) {
 		data[0].w = __uint_as_float(pack.prim_type[leaf->m_lo]);
 	}
-	memcpy(&pack.leaf_nodes[e.idx * BVH_QNODE_LEAF_SIZE],
-	       data,
-	       sizeof(float4)*BVH_QNODE_LEAF_SIZE);
+	memcpy(&pack.leaf_nodes[e.idx], data, sizeof(float4)*BVH_QNODE_LEAF_SIZE);
 }
 
 void QBVH::pack_unaligned_inner(const BVHStackEntry& e,
@@ -926,9 +922,7 @@ void QBVH::pack_unaligned_inner(const BVHStackEntry& e,
 		}
 	}
 
-	memcpy(&pack.nodes[e.idx * BVH_UNALIGNED_QNODE_SIZE],
-	       data,
-	       sizeof(float4)*BVH_UNALIGNED_QNODE_SIZE);
+	memcpy(&pack.nodes[e.idx], data, sizeof(float4)*BVH_UNALIGNED_QNODE_SIZE);
 }
 
 /* Quad SIMD Nodes */
@@ -962,7 +956,8 @@ void QBVH::pack_nodes(const BVHNode *root)
 		stack.push_back(BVHStackEntry(root, nextLeafNodeIdx++));
 	}
 	else {
-		stack.push_back(BVHStackEntry(root, nextNodeIdx++));
+		stack.push_back(BVHStackEntry(root, nextNodeIdx));
+		nextNodeIdx += nsize;
 	}
 
 	while(stack.size()) {
@@ -1012,7 +1007,8 @@ void QBVH::pack_nodes(const BVHNode *root)
 					idx = nextLeafNodeIdx++;
 				}
 				else {
-					idx = nextNodeIdx++;
+					idx = nextNodeIdx;
+					nextNodeIdx += nsize;
 				}
 				stack.push_back(BVHStackEntry(nodes[i], idx));
 			}

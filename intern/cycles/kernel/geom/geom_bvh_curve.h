@@ -20,16 +20,16 @@ ccl_device_inline Transform bvh_curve_fetch_aligned_space(KernelGlobals *kg,
 {
 	Transform aligned_space;
 	if(child == 0) {
-		aligned_space.x = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+0);
-		aligned_space.y = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+1);
-		aligned_space.z = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+2);
-		aligned_space.w = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+3);
+		aligned_space.x = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+0);
+		aligned_space.y = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+1);
+		aligned_space.z = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+2);
+		aligned_space.w = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+3);
 	}
 	else {
-		aligned_space.x = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+4);
-		aligned_space.y = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+5);
-		aligned_space.z = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+6);
-		aligned_space.w = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+7);
+		aligned_space.x = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+4);
+		aligned_space.y = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+5);
+		aligned_space.z = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+6);
+		aligned_space.w = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+7);
 	}
 	return aligned_space;
 }
@@ -84,10 +84,10 @@ ccl_device_inline int bvh_curve_intersect_aligned(KernelGlobals *kg,
 {
 
 	/* fetch node data */
-	float4 node0 = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+0);
-	float4 node1 = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+1);
-	float4 node2 = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+2);
-	float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+8);
+	float4 node0 = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+0);
+	float4 node1 = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+1);
+	float4 node2 = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+2);
+	float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+8);
 
 	/* intersect ray against child nodes */
 	NO_EXTENDED_PRECISION float c0lox = (node0.x - P.x) * idir.x;
@@ -145,9 +145,9 @@ int ccl_device bvh_curve_intersect_node(KernelGlobals *kg,
                                         float dist[2])
 {
 	int mask = 0;
-	float4 node = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+7);
+	float4 node = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+7);
 	if(node.w != 0.0f) {
-		float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+8);
+		float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+8);
 		if(bvh_curve_intersect_unaligned_child(kg, P, dir, t, difl, nodeAddr, 0, &dist[0])) {
 			if((__float_as_uint(cnodes.z) & visibility)) {
 				mask |= 1;
@@ -234,7 +234,7 @@ int ccl_device bvh_curve_intersect_node_unaligned(KernelGlobals *kg,
 
 #  ifdef __VISIBILITY_FLAG__
 	/* this visibility test gives a 5% performance hit, how to solve? */
-	float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+8);
+	float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+8);
 	int cmask = (((mask & 1) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
 	            (((mask & 2) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
 	return cmask;
@@ -258,7 +258,7 @@ int ccl_device_inline bvh_curve_intersect_node_aligned(KernelGlobals *kg,
 	const ssef pn = cast(ssei(0, 0, 0x80000000, 0x80000000));
 
 	/* fetch node data */
-	const ssef *bvh_nodes = (ssef*)kg->__bvh_curve_nodes.data + nodeAddr*BVH_UNALIGNED_NODE_SIZE;
+	const ssef *bvh_nodes = (ssef*)kg->__bvh_curve_nodes.data + nodeAddr;
 
 	/* intersect ray against child nodes */
 	const ssef tminmaxx = (shuffle_swap(bvh_nodes[0], shufflexyz[0]) - Psplat[0]) * idirsplat[0];
@@ -277,7 +277,7 @@ int ccl_device_inline bvh_curve_intersect_node_aligned(KernelGlobals *kg,
 
 #  ifdef __VISIBILITY_FLAG__
 	/* this visibility test gives a 5% performance hit, how to solve? */
-	float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+8);
+	float4 cnodes = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+8);
 	int cmask = (((mask & 1) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
 	            (((mask & 2) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
 	return cmask;
@@ -300,7 +300,7 @@ int ccl_device_inline bvh_curve_intersect_node(KernelGlobals *kg,
                                                int nodeAddr,
                                                float dist[2])
 {
-	float4 node = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr*BVH_UNALIGNED_NODE_SIZE+7);
+	float4 node = kernel_tex_fetch(__bvh_curve_nodes, nodeAddr+7);
 	if(node.w != 0.0f) {
 		return bvh_curve_intersect_node_unaligned(kg,
 		                                          P,
