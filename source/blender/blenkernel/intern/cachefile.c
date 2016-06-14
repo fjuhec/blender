@@ -35,6 +35,7 @@
 #include "BLI_string.h"
 
 #include "BKE_cachefile.h"
+#include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
@@ -56,6 +57,11 @@ bool BKE_cachefile_filepath_get(Scene *scene, CacheFile *cache_file, char *r_fil
 	const float frame = BKE_scene_frame_get(scene);
 	BLI_strncpy(r_filepath, cache_file->filepath, 1024);
 
+	/* Ensure absolute paths. */
+	if (BLI_path_is_rel(r_filepath)) {
+		BLI_path_abs(r_filepath, G.main->name);
+	}
+
 	int fframe;
 	int frame_len;
 
@@ -64,9 +70,12 @@ bool BKE_cachefile_filepath_get(Scene *scene, CacheFile *cache_file, char *r_fil
 		BLI_path_frame_strip(r_filepath, true, ext);
 		BLI_path_frame(r_filepath, frame, frame_len);
 		BLI_ensure_extension(r_filepath, 1024, ext);
+
+		/* TODO(kevin): store sequence range? */
+		return BLI_exists(r_filepath);
 	}
 
-	return BLI_exists(r_filepath);
+	return true;
 }
 
 float BKE_cachefile_time_offset(CacheFile *cache_file, float time)
