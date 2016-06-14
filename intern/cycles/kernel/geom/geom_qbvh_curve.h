@@ -14,103 +14,6 @@
  * limitations under the License.
  */
 
-ccl_device_inline int qbvh_curve_node_intersect_aligned(
-        KernelGlobals *__restrict kg,
-        const ssef& tnear,
-        const ssef& tfar,
-#ifdef __KERNEL_AVX2__
-        const sse3f& org_idir,
-#else
-        const sse3f& org,
-#endif
-        const sse3f& idir,
-        const int near_x,
-        const int near_y,
-        const int near_z,
-        const int far_x,
-        const int far_y,
-        const int far_z,
-        const int nodeAddr,
-        ssef *__restrict dist)
-{
-	const int offset = nodeAddr + 1;
-#ifdef __KERNEL_AVX2__
-	const ssef tnear_x = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_x), idir.x, org_idir.x);
-	const ssef tnear_y = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_y), idir.y, org_idir.y);
-	const ssef tnear_z = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_z), idir.z, org_idir.z);
-	const ssef tfar_x = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_x), idir.x, org_idir.x);
-	const ssef tfar_y = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_y), idir.y, org_idir.y);
-	const ssef tfar_z = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_z), idir.z, org_idir.z);
-#else
-	const ssef tnear_x = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_x) - org.x) * idir.x;
-	const ssef tnear_y = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_y) - org.y) * idir.y;
-	const ssef tnear_z = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_z) - org.z) * idir.z;
-	const ssef tfar_x = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_x) - org.x) * idir.x;
-	const ssef tfar_y = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_y) - org.y) * idir.y;
-	const ssef tfar_z = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_z) - org.z) * idir.z;
-#endif
-
-#ifdef __KERNEL_SSE41__
-	const ssef tNear = maxi(maxi(tnear_x, tnear_y), maxi(tnear_z, tnear));
-	const ssef tFar = mini(mini(tfar_x, tfar_y), mini(tfar_z, tfar));
-	const sseb vmask = cast(tNear) > cast(tFar);
-	int mask = (int)movemask(vmask)^0xf;
-#else
-	const ssef tNear = max4(tnear_x, tnear_y, tnear_z, tnear);
-	const ssef tFar = min4(tfar_x, tfar_y, tfar_z, tfar);
-	const sseb vmask = tNear <= tFar;
-	int mask = (int)movemask(vmask);
-#endif
-	*dist = tNear;
-	return mask;
-}
-
-ccl_device_inline int qbvh_curve_node_intersect_robust_aligned(
-        KernelGlobals *__restrict kg,
-        const ssef& tnear,
-        const ssef& tfar,
-#ifdef __KERNEL_AVX2__
-        const sse3f& P_idir,
-#else
-        const sse3f& P,
-#endif
-        const sse3f& idir,
-        const int near_x,
-        const int near_y,
-        const int near_z,
-        const int far_x,
-        const int far_y,
-        const int far_z,
-        const int nodeAddr,
-        const float difl,
-        ssef *__restrict dist)
-{
-	const int offset = nodeAddr + 1;
-#ifdef __KERNEL_AVX2__
-	const ssef tnear_x = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_x), idir.x, P_idir.x);
-	const ssef tnear_y = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_y), idir.y, P_idir.y);
-	const ssef tnear_z = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_z), idir.z, P_idir.z);
-	const ssef tfar_x = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_x), idir.x, P_idir.x);
-	const ssef tfar_y = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_y), idir.y, P_idir.y);
-	const ssef tfar_z = msub(kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_z), idir.z, P_idir.z);
-#else
-	const ssef tnear_x = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_x) - P.x) * idir.x;
-	const ssef tnear_y = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_y) - P.y) * idir.y;
-	const ssef tnear_z = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+near_z) - P.z) * idir.z;
-	const ssef tfar_x = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_x) - P.x) * idir.x;
-	const ssef tfar_y = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_y) - P.y) * idir.y;
-	const ssef tfar_z = (kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+far_z) - P.z) * idir.z;
-#endif
-
-	const float round_down = 1.0f - difl;
-	const float round_up = 1.0f + difl;
-	const ssef tNear = max4(tnear_x, tnear_y, tnear_z, tnear);
-	const ssef tFar = min4(tfar_x, tfar_y, tfar_z, tfar);
-	const sseb vmask = round_down*tNear <= round_up*tFar;
-	*dist = tNear;
-	return (int)movemask(vmask);
-}
-
 ccl_device_inline int qbvh_curve_node_intersect(
         KernelGlobals *__restrict kg,
         const ssef& tnear,
@@ -131,23 +34,23 @@ ccl_device_inline int qbvh_curve_node_intersect(
         ssef *__restrict dist)
 {
 	const int offset = nodeAddr;
-	const float4 node = kernel_tex_fetch(__bvh_curve_nodes, offset);
-	if(node.x > 0.0f) {
-		const ssef tfm_x_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+1);
-		const ssef tfm_x_y = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+2);
-		const ssef tfm_x_z = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+3);
+	const float4 node = kernel_tex_fetch(__bvh_nodes, offset);
+	if(__float_as_uint(node.x) & PATH_RAY_NODE_UNALIGNED) {
+		const ssef tfm_x_x = kernel_tex_fetch_ssef(__bvh_nodes, offset+1);
+		const ssef tfm_x_y = kernel_tex_fetch_ssef(__bvh_nodes, offset+2);
+		const ssef tfm_x_z = kernel_tex_fetch_ssef(__bvh_nodes, offset+3);
 
-		const ssef tfm_y_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+4);
-		const ssef tfm_y_y = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+5);
-		const ssef tfm_y_z = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+6);
+		const ssef tfm_y_x = kernel_tex_fetch_ssef(__bvh_nodes, offset+4);
+		const ssef tfm_y_y = kernel_tex_fetch_ssef(__bvh_nodes, offset+5);
+		const ssef tfm_y_z = kernel_tex_fetch_ssef(__bvh_nodes, offset+6);
 
-		const ssef tfm_z_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+7);
-		const ssef tfm_z_y = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+8);
-		const ssef tfm_z_z = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+9);
+		const ssef tfm_z_x = kernel_tex_fetch_ssef(__bvh_nodes, offset+7);
+		const ssef tfm_z_y = kernel_tex_fetch_ssef(__bvh_nodes, offset+8);
+		const ssef tfm_z_z = kernel_tex_fetch_ssef(__bvh_nodes, offset+9);
 
-		const ssef tfm_t_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+10);
-		const ssef tfm_t_y = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+11);
-		const ssef tfm_t_z = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+12);
+		const ssef tfm_t_x = kernel_tex_fetch_ssef(__bvh_nodes, offset+10);
+		const ssef tfm_t_y = kernel_tex_fetch_ssef(__bvh_nodes, offset+11);
+		const ssef tfm_t_z = kernel_tex_fetch_ssef(__bvh_nodes, offset+12);
 
 		const ssef aligned_dir_x = dir.x*tfm_x_x + dir.y*tfm_x_y + dir.z*tfm_x_z,
 		           aligned_dir_y = dir.x*tfm_y_x + dir.y*tfm_y_y + dir.z*tfm_y_z,
@@ -197,15 +100,15 @@ ccl_device_inline int qbvh_curve_node_intersect(
 #endif
 	}
 	else {
-		return qbvh_curve_node_intersect_aligned(
+		return qbvh_node_intersect(
 		        kg,
 		        tnear,
 		        tfar,
 #ifdef __KERNEL_AVX2__
 		        org_idir,
-#else
-		        org,
 #endif
+		        org,
+		        dir,
 		        idir,
 		        near_x, near_y, near_z,
 		        far_x, far_y, far_z,
@@ -235,23 +138,23 @@ ccl_device_inline int qbvh_curve_node_intersect_robust(
         ssef *__restrict dist)
 {
 	const int offset = nodeAddr;
-	const float4 node = kernel_tex_fetch(__bvh_curve_nodes, offset);
-	if(node.x > 0.0f) {
-		const ssef tfm_x_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+1);
-		const ssef tfm_x_y = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+2);
-		const ssef tfm_x_z = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+3);
+	const float4 node = kernel_tex_fetch(__bvh_nodes, offset);
+	if(__float_as_uint(node.x) & PATH_RAY_NODE_UNALIGNED) {
+		const ssef tfm_x_x = kernel_tex_fetch_ssef(__bvh_nodes, offset+1);
+		const ssef tfm_x_y = kernel_tex_fetch_ssef(__bvh_nodes, offset+2);
+		const ssef tfm_x_z = kernel_tex_fetch_ssef(__bvh_nodes, offset+3);
 
-		const ssef tfm_y_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+4);
-		const ssef tfm_y_y = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+5);
-		const ssef tfm_y_z = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+6);
+		const ssef tfm_y_x = kernel_tex_fetch_ssef(__bvh_nodes, offset+4);
+		const ssef tfm_y_y = kernel_tex_fetch_ssef(__bvh_nodes, offset+5);
+		const ssef tfm_y_z = kernel_tex_fetch_ssef(__bvh_nodes, offset+6);
 
-		const ssef tfm_z_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+7);
-		const ssef tfm_z_y = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+8);
-		const ssef tfm_z_z = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+9);
+		const ssef tfm_z_x = kernel_tex_fetch_ssef(__bvh_nodes, offset+7);
+		const ssef tfm_z_y = kernel_tex_fetch_ssef(__bvh_nodes, offset+8);
+		const ssef tfm_z_z = kernel_tex_fetch_ssef(__bvh_nodes, offset+9);
 
-		const ssef tfm_t_x = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+10);
-		const ssef tfm_t_y = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+11);
-		const ssef tfm_t_z = kernel_tex_fetch_ssef(__bvh_curve_nodes, offset+12);
+		const ssef tfm_t_x = kernel_tex_fetch_ssef(__bvh_nodes, offset+10);
+		const ssef tfm_t_y = kernel_tex_fetch_ssef(__bvh_nodes, offset+11);
+		const ssef tfm_t_z = kernel_tex_fetch_ssef(__bvh_nodes, offset+12);
 
 		const ssef aligned_dir_x = dir.x*tfm_x_x + dir.y*tfm_x_y + dir.z*tfm_x_z,
 		           aligned_dir_y = dir.x*tfm_y_x + dir.y*tfm_y_y + dir.z*tfm_y_z,
@@ -299,15 +202,15 @@ ccl_device_inline int qbvh_curve_node_intersect_robust(
 		return movemask(vmask);
 	}
 	else {
-		return qbvh_curve_node_intersect_robust_aligned(
+		return qbvh_node_intersect_robust(
 		        kg,
 		        tnear,
 		        tfar,
 #ifdef __KERNEL_AVX2__
 		        P_idir,
-#else
-		        P,
 #endif
+		        P,
+		        dir,
 		        idir,
 		        near_x, near_y, near_z,
 		        far_x, far_y, far_z,

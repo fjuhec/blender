@@ -180,7 +180,11 @@ public:
 	                size_t vert_offset,
 	                size_t tri_offset);
 	void pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, size_t curvekey_offset);
-	void compute_bvh(SceneParams *params, Progress *progress, int n, int total);
+	void compute_bvh(DeviceScene *dscene,
+	                 SceneParams *params,
+	                 Progress *progress,
+	                 int n,
+	                 int total);
 
 	bool need_attribute(Scene *scene, AttributeStandard std);
 	bool need_attribute(Scene *scene, ustring name);

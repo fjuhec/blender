@@ -68,14 +68,14 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 	isect->object = OBJECT_NONE;
 
 	ssef tnear(0.0f), tfar(ray->t);
+	sse3f dir4(ssef(dir.x), ssef(dir.y), ssef(dir.z));
 	sse3f idir4(ssef(idir.x), ssef(idir.y), ssef(idir.z));
 
 #ifdef __KERNEL_AVX2__
 	float3 P_idir = P*idir;
 	sse3f P_idir4 = sse3f(P_idir.x, P_idir.y, P_idir.z);
-#else
-	sse3f org = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #endif
+	sse3f org = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 
 	/* Offsets to select the side that becomes the lower or upper bound. */
 	int near_x, near_y, near_z;
@@ -104,19 +104,22 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 #endif
 
 				ssef dist;
-				int traverseChild = qbvh_node_intersect(kg,
+				int traverseChild = 0;
+				if (false) {
+				/*int */traverseChild = qbvh_node_intersect(kg,
 				                                        tnear,
 				                                        tfar,
 #ifdef __KERNEL_AVX2__
 				                                        P_idir4,
-#else
-				                                        org,
 #endif
+				                                        org,
+				                                        dir4,
 				                                        idir4,
 				                                        near_x, near_y, near_z,
 				                                        far_x, far_y, far_z,
 				                                        nodeAddr,
 				                                        &dist);
+				}
 
 				if(traverseChild != 0) {
 					float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+7);
@@ -282,9 +285,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 #  ifdef __KERNEL_AVX2__
 						P_idir = P*idir;
 						P_idir4 = sse3f(P_idir.x, P_idir.y, P_idir.z);
-#  else
-						org = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
+						org = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
+
 						triangle_intersect_precalc(dir, &isect_precalc);
 
 						++stackPtr;
@@ -323,9 +326,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 #  ifdef __KERNEL_AVX2__
 			P_idir = P*idir;
 			P_idir4 = sse3f(P_idir.x, P_idir.y, P_idir.z);
-#  else
-			org = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
 #  endif
+			org = sse3f(ssef(P.x), ssef(P.y), ssef(P.z));
+
 			triangle_intersect_precalc(dir, &isect_precalc);
 
 			object = OBJECT_NONE;
