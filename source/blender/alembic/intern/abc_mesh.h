@@ -68,8 +68,8 @@ private:
 
     bool isAnimated() const;
 
-	void writeMesh();
-	void writeSubD();
+	void writeMesh(DerivedMesh *dm);
+	void writeSubD(DerivedMesh *dm);
 
 	void getMeshInfo(DerivedMesh *dm, std::vector<float> &points,
 	                 std::vector<int32_t> &facePoints,

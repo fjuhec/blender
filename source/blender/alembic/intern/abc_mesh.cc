@@ -445,81 +445,16 @@ void AbcMeshWriter::do_write()
 	if (!m_first_frame && !m_is_animated)
 		return;
 
-	if (m_settings.use_subdiv_schema && m_subdiv_schema.valid()) {
-		writeSubD();
-	}
-	else {
-		writeMesh();
-	}
-}
-
-void AbcMeshWriter::writeMesh()
-{
 	DerivedMesh *dm = getFinalMesh();
 
 	try {
-		std::vector<float> points, normals;
-		std::vector<int32_t> facePoints, faceCounts;
-
-		get_vertices(dm, points);
-		get_topology(dm, facePoints, faceCounts);
-
-		if (m_first_frame) {
-			writeCommonData(dm, m_mesh_schema);
+		if (m_settings.use_subdiv_schema && m_subdiv_schema.valid()) {
+			writeSubD(dm);
+		}
+		else {
+			writeMesh(dm);
 		}
 
-		m_mesh_sample = OPolyMeshSchema::Sample(
-		                    V3fArraySample(
-		                        (const Imath::V3f *) &points.front(),
-		                        points.size() / 3),
-		                    Int32ArraySample(facePoints),
-		                    Int32ArraySample(faceCounts));
-
-		UVSample sample;
-		if (m_settings.export_uvs) {
-			get_uv_sample(sample, dm, m_settings.pack_uv);
-
-			if (!sample.indices.empty() && !sample.uvs.empty()) {
-				OV2fGeomParam::Sample uv_sample;
-				uv_sample.setVals(V2fArraySample(&sample.uvs[0], sample.uvs.size()));
-				uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
-				uv_sample.setScope(kFacevaryingScope);
-
-				m_mesh_sample.setUVs(uv_sample);
-			}
-
-			write_extra_uvs(m_mesh_schema, dm, m_settings.pack_uv);
-		}
-
-		if (m_settings.export_normals) {
-			get_normals(dm, normals);
-
-			ON3fGeomParam::Sample normals_sample;
-			if (!normals.empty()) {
-				normals_sample.setScope(kFacevaryingScope);
-				normals_sample.setVals(
-				            V3fArraySample(
-				                (const Imath::V3f *)&normals.front(),
-				                normals.size() / 3));
-			}
-
-			m_mesh_sample.setNormals(normals_sample);
-		}
-
-		if (m_is_liquid) {
-			std::vector<float> velocities;
-			getVelocities(dm, velocities);
-
-			m_mesh_sample.setVelocities(V3fArraySample(
-			                                (const Imath::V3f *)&velocities.front(),
-							                velocities.size() / 3));
-		}
-
-		m_mesh_sample.setSelfBounds(bounds());
-
-		m_mesh_schema.set(m_mesh_sample);
-
-		writeArbGeoParams(dm);
 		freeMesh(dm);
 	}
 	catch (...) {
@@ -528,63 +463,120 @@ void AbcMeshWriter::writeMesh()
 	}
 }
 
-void AbcMeshWriter::writeSubD()
+void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 {
-	DerivedMesh *dm = getFinalMesh();
+	std::vector<float> points, normals;
+	std::vector<int32_t> facePoints, faceCounts;
 
-	try {
-		std::vector<float> points, creaseSharpness;
-		std::vector<int32_t> facePoints, faceCounts;
-		std::vector<int32_t> creaseIndices, creaseLengths;
+	get_vertices(dm, points);
+	get_topology(dm, facePoints, faceCounts);
 
-		get_vertices(dm, points);
-		get_topology(dm, facePoints, faceCounts);
-		get_creases(dm, creaseIndices, creaseLengths, creaseSharpness);
-
-		if (m_first_frame) {
-			/* create materials' facesets */
-			writeCommonData(dm, m_subdiv_schema);
-		}
-
-		m_subdiv_sample = OSubDSchema::Sample(
-		                      V3fArraySample(
-		                          (const Imath::V3f *) &points.front(),
-		                          points.size() / 3),
-		                      Int32ArraySample(facePoints),
-		                      Int32ArraySample(faceCounts));
-
-		UVSample sample;
-		if (m_settings.export_uvs) {
-			get_uv_sample(sample, dm, m_settings.pack_uv);
-
-			if (!sample.indices.empty() && !sample.uvs.empty()) {
-				OV2fGeomParam::Sample uv_sample;
-				uv_sample.setVals(V2fArraySample(&sample.uvs[0], sample.uvs.size()));
-				uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
-				uv_sample.setScope(kFacevaryingScope);
-
-				m_subdiv_sample.setUVs(uv_sample);
-			}
-
-			write_extra_uvs(m_subdiv_schema, dm, m_settings.pack_uv);
-		}
-
-		if (!creaseIndices.empty()) {
-			m_subdiv_sample.setCreaseIndices(Int32ArraySample(creaseIndices));
-			m_subdiv_sample.setCreaseLengths(Int32ArraySample(creaseLengths));
-			m_subdiv_sample.setCreaseSharpnesses(FloatArraySample(creaseSharpness));
-		}
-
-		m_subdiv_sample.setSelfBounds(bounds());
-		m_subdiv_schema.set(m_subdiv_sample);
-
-		writeArbGeoParams(dm);
-		freeMesh(dm);
+	if (m_first_frame) {
+		writeCommonData(dm, m_mesh_schema);
 	}
-	catch (...) {
-		freeMesh(dm);
-		throw;
+
+	m_mesh_sample = OPolyMeshSchema::Sample(
+	                    V3fArraySample(
+	                        (const Imath::V3f *) &points.front(),
+	                        points.size() / 3),
+	                    Int32ArraySample(facePoints),
+	                    Int32ArraySample(faceCounts));
+
+	UVSample sample;
+	if (m_settings.export_uvs) {
+		get_uv_sample(sample, dm, m_settings.pack_uv);
+
+		if (!sample.indices.empty() && !sample.uvs.empty()) {
+			OV2fGeomParam::Sample uv_sample;
+			uv_sample.setVals(V2fArraySample(&sample.uvs[0], sample.uvs.size()));
+			uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
+			uv_sample.setScope(kFacevaryingScope);
+
+			m_mesh_sample.setUVs(uv_sample);
+		}
+
+		write_extra_uvs(m_mesh_schema, dm, m_settings.pack_uv);
 	}
+
+	if (m_settings.export_normals) {
+		get_normals(dm, normals);
+
+		ON3fGeomParam::Sample normals_sample;
+		if (!normals.empty()) {
+			normals_sample.setScope(kFacevaryingScope);
+			normals_sample.setVals(
+			            V3fArraySample(
+			                (const Imath::V3f *)&normals.front(),
+			                normals.size() / 3));
+		}
+
+		m_mesh_sample.setNormals(normals_sample);
+	}
+
+	if (m_is_liquid) {
+		std::vector<float> velocities;
+		getVelocities(dm, velocities);
+
+		m_mesh_sample.setVelocities(V3fArraySample(
+		                                (const Imath::V3f *)&velocities.front(),
+		                                velocities.size() / 3));
+	}
+
+	m_mesh_sample.setSelfBounds(bounds());
+
+	m_mesh_schema.set(m_mesh_sample);
+
+	writeArbGeoParams(dm);
+}
+
+void AbcMeshWriter::writeSubD(DerivedMesh *dm)
+{
+	std::vector<float> points, creaseSharpness;
+	std::vector<int32_t> facePoints, faceCounts;
+	std::vector<int32_t> creaseIndices, creaseLengths;
+
+	get_vertices(dm, points);
+	get_topology(dm, facePoints, faceCounts);
+	get_creases(dm, creaseIndices, creaseLengths, creaseSharpness);
+
+	if (m_first_frame) {
+		/* create materials' facesets */
+		writeCommonData(dm, m_subdiv_schema);
+	}
+
+	m_subdiv_sample = OSubDSchema::Sample(
+	                      V3fArraySample(
+	                          (const Imath::V3f *) &points.front(),
+	                          points.size() / 3),
+	                      Int32ArraySample(facePoints),
+	                      Int32ArraySample(faceCounts));
+
+	UVSample sample;
+	if (m_settings.export_uvs) {
+		get_uv_sample(sample, dm, m_settings.pack_uv);
+
+		if (!sample.indices.empty() && !sample.uvs.empty()) {
+			OV2fGeomParam::Sample uv_sample;
+			uv_sample.setVals(V2fArraySample(&sample.uvs[0], sample.uvs.size()));
+			uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
+			uv_sample.setScope(kFacevaryingScope);
+
+			m_subdiv_sample.setUVs(uv_sample);
+		}
+
+		write_extra_uvs(m_subdiv_schema, dm, m_settings.pack_uv);
+	}
+
+	if (!creaseIndices.empty()) {
+		m_subdiv_sample.setCreaseIndices(Int32ArraySample(creaseIndices));
+		m_subdiv_sample.setCreaseLengths(Int32ArraySample(creaseLengths));
+		m_subdiv_sample.setCreaseSharpnesses(FloatArraySample(creaseSharpness));
+	}
+
+	m_subdiv_sample.setSelfBounds(bounds());
+	m_subdiv_schema.set(m_subdiv_sample);
+
+	writeArbGeoParams(dm);
 }
 
 template <typename Schema>
