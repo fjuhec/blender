@@ -674,6 +674,11 @@ static int wm_lib_relocate_invoke(bContext *C, wmOperator *op, const wmEvent *UN
 			            "Cannot relocate indirectly linked library '%s'", lib->filepath);
 			return OPERATOR_CANCELLED;
 		}
+		if (lib->flag & LIBRARY_FLAG_VIRTUAL) {
+			BKE_reportf(op->reports, RPT_ERROR_INVALID_INPUT,
+			            "Cannot relocate virtual library '%s'", lib->id.name + 2);
+			return OPERATOR_CANCELLED;
+		}
 		RNA_string_set(op->ptr, "filepath", lib->filepath);
 
 		WM_event_add_fileselect(C, op);
@@ -685,7 +690,8 @@ static int wm_lib_relocate_invoke(bContext *C, wmOperator *op, const wmEvent *UN
 }
 
 /* Note that IDs listed in lapp_data items *must* have been removed from bmain by caller. */
-static void lib_relocate_do(Main *bmain, WMLinkAppendData *lapp_data, ReportList *reports, const bool do_reload)
+static void lib_relocate_do(
+        Main *bmain, WMLinkAppendData *lapp_data, ReportList *reports, AssetEngineType *aet, const bool do_reload)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
 	int lba_idx;
@@ -696,7 +702,7 @@ static void lib_relocate_do(Main *bmain, WMLinkAppendData *lapp_data, ReportList
 	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
 	/* We do not want any instanciation here! */
-	wm_link_do(lapp_data, reports, bmain, NULL, NULL, NULL, do_reload, do_reload);
+	wm_link_do(lapp_data, reports, bmain, aet, NULL, NULL, do_reload, do_reload);
 
 	BKE_main_lock(bmain);
 
@@ -858,6 +864,11 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 			            "Cannot relocate indirectly linked library '%s'", lib->filepath);
 			return OPERATOR_CANCELLED;
 		}
+		if (lib->flag & LIBRARY_FLAG_VIRTUAL) {
+			BKE_reportf(op->reports, RPT_ERROR_INVALID_INPUT,
+			            "Cannot relocate or reload virtual library '%s'", lib->id.name + 2);
+			return OPERATOR_CANCELLED;
+		}
 
 		RNA_string_get(op->ptr, "directory", root);
 		RNA_string_get(op->ptr, "filename", libname);
@@ -943,7 +954,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 			}
 		}
 
-		lib_relocate_do(bmain, lapp_data, op->reports, do_reload);
+		lib_relocate_do(bmain, lapp_data, op->reports, NULL, do_reload);
 
 		wm_link_append_data_free(lapp_data);
 
@@ -1386,28 +1397,49 @@ static int wm_assets_reload_exec(bContext *C, wmOperator *op)
 					wm_link_append_data_library_add(lapp_data, libname);
 				}
 			}
+			/* Non-blend paths are only valid in asset engine context (virtual libraries). */
+			else if (path_to_idcode(path)) {
+				if (!BLI_ghash_haskey(libraries, "")) {
+					BLI_ghash_insert(libraries, BLI_strdup(""), SET_INT_IN_POINTER(lib_idx));
+					lib_idx++;
+					wm_link_append_data_library_add(lapp_data, "");
+				}
+			}
 			else {
 				BLI_assert(0);
 			}
 		}
 
 		for (en = paths->entries.first, uuid = auce->uuids.uuids; en; en = en->next, uuid++) {
+			int idcode;
+			const char *libname_def, *name_def;
+
 			if (BLO_library_path_explode(path, libname, &group, &name)) {
+				idcode = BKE_idcode_from_name(group);
+				libname_def = libname;
+				name_def = name;
+			}
+			else {
+				idcode = path_to_idcode(path);
+				libname_def = "";
+				name_def = path;
+			}
+			if (idcode != 0) {
 				WMLinkAppendDataItem *item;
 
 				AssetRef *aref = BKE_libraries_asset_repository_uuid_find(bmain, uuid);
 				ID *old_id = aref ? ((LinkData *)aref->id_list.first)->data : NULL;
 				BLI_assert(!old_id || (old_id->uuid && ASSETUUID_COMPARE(old_id->uuid, uuid)));
 
-				lib_idx = GET_INT_FROM_POINTER(BLI_ghash_lookup(libraries, libname));
+				lib_idx = GET_INT_FROM_POINTER(BLI_ghash_lookup(libraries, libname_def));
 
 				BLI_remlink(which_libbase(bmain, GS(old_id->name)), old_id);
-				item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), uuid, old_id);
+				item = wm_link_append_data_item_add(lapp_data, name_def, idcode, uuid, old_id);
 				BLI_BITMAP_ENABLE(item->libraries, lib_idx);
 			}
 		}
 
-		lib_relocate_do(bmain, lapp_data, op->reports, do_reload);
+		lib_relocate_do(bmain, lapp_data, op->reports, auce->ae->type, do_reload);
 
 		wm_link_append_data_free(lapp_data);
 		BLI_ghash_free(libraries, MEM_freeN, NULL);
