@@ -271,9 +271,7 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 			}
 
 			/* Convert Y-up to Z-up. */
-			nu->bp[i].vec[0] = pos_in[0];
-			nu->bp[i].vec[1] = -pos_in[2];
-			nu->bp[i].vec[2] = pos_in[1];
+			copy_yup_zup(nu->bp[i].vec, pos_in.getValue());
 			nu->bp[i].vec[3] = posw_in;
 		}
 

@@ -189,9 +189,7 @@ void create_transform_matrix(float r_mat[4][4])
 	copy_m4_m3(transform_mat, rot_mat);
 
 	/* Add translation to transformation matrix. */
-	transform_mat[3][0] = loc[0];
-	transform_mat[3][1] = -loc[2];
-	transform_mat[3][2] = loc[1];
+	copy_yup_zup(transform_mat[3], loc);
 
 	/* Create scale matrix. */
 	scale_mat[0][0] = scale[0];
@@ -425,9 +423,7 @@ void create_transform_matrix(Object *obj, float transform_mat[4][4])
 	copy_m4_m3(transform_mat, rot_mat);
 
 	/* Add translation to transformation matrix. */
-	transform_mat[3][0] = loc[0];
-	transform_mat[3][1] = loc[2];
-	transform_mat[3][2] = -loc[1];
+	copy_zup_yup(transform_mat[3], loc);
 
 	/* Create scale matrix. */
 	scale_mat[0][0] = scale[0];

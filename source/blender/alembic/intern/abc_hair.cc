@@ -346,10 +346,7 @@ void AbcHairReader::readObjectData(Main *bmain, Scene *scene, float time)
 		for (int j = 0; j < steps; ++j, ++bp) {
 			Imath::V3f pos = (*positions)[idx++];
 
-			/* Convert Y-up to Z-up. */
-			bp->vec[0] = pos.x;
-			bp->vec[1] = -pos.z;
-			bp->vec[2] = pos.y;
+			copy_yup_zup(bp->vec, pos.getValue());
 			bp->vec[3] = 1.0;
 
 			bp->radius = bp->weight = 1.0;

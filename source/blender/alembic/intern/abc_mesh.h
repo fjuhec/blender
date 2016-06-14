@@ -122,7 +122,8 @@ private:
                             const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts);
 
 	void readVertexDataSample(Mesh *mesh,
-	                          const Alembic::AbcGeom::P3fArraySamplePtr &positions);
+	                          const Alembic::AbcGeom::P3fArraySamplePtr &positions,
+	                          const Alembic::AbcGeom::IN3fGeomParam &normals);
 };
 
 /* ************************************************************************** */
@@ -132,7 +133,10 @@ struct MLoopUV;
 struct MPoly;
 struct MVert;
 
-void read_mverts(MVert *mverts, const Alembic::AbcGeom::P3fArraySamplePtr &positions);
+void read_mverts(MVert *mverts,
+                 const Alembic::AbcGeom::P3fArraySamplePtr &positions,
+                 const Alembic::AbcGeom::N3fArraySamplePtr &normals);
+
 void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,

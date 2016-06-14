@@ -73,3 +73,51 @@ void get_min_max_time(const Schema &schema, chrono_t &min, chrono_t &max)
 		}
 	}
 }
+
+/* ************************** */
+
+/* TODO: this duplicates MINLINE from BLI_math, but then need to keep things
+ * separate somewhat. */
+
+#ifdef _MSC_VER
+#  define ABC_INLINE static __forceinline
+#else
+#  define ABC_INLINE static inline
+#endif
+
+/* TODO(kevin): for now keeping these transformations hardcoded to make sure
+ * everything works properly, and also because Alembic is almost exclusively
+ * used in Y-up software, but eventually they'll be set by the user in the UI
+ * like other importers/exporters do, to support other axis. */
+
+/* Copy from Y-up to Z-up. */
+
+ABC_INLINE void copy_yup_zup(float zup[3], float yup[3])
+{
+	zup[0] = yup[0];
+	zup[1] = -yup[2];
+	zup[2] = yup[1];
+}
+
+ABC_INLINE void copy_yup_zup(short zup[3], short yup[3])
+{
+	zup[0] = yup[0];
+	zup[1] = -yup[2];
+	zup[2] = yup[1];
+}
+
+/* Copy from Z-up to Y-up. */
+
+ABC_INLINE void copy_zup_yup(float yup[3], float zup[3])
+{
+	yup[0] = zup[0];
+	yup[1] = zup[2];
+	yup[2] = -zup[1];
+}
+
+ABC_INLINE void copy_zup_yup(short yup[3], short zup[3])
+{
+	yup[0] = zup[0];
+	yup[1] = zup[2];
+	yup[2] = -zup[1];
+}

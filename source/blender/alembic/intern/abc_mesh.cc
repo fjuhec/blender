@@ -88,21 +88,20 @@ using Alembic::AbcGeom::kVaryingScope;
 using Alembic::AbcGeom::kVertexScope;
 using Alembic::AbcGeom::kWrapExisting;
 using Alembic::AbcGeom::UInt32ArraySample;
+using Alembic::AbcGeom::N3fArraySamplePtr;
+using Alembic::AbcGeom::IN3fGeomParam;
 
 /* ************************************************************************** */
 
 static void get_vertices(DerivedMesh *dm, std::vector<float> &points)
 {
 	points.clear();
-	points.reserve(dm->getNumVerts(dm) * 3);
+	points.resize(dm->getNumVerts(dm) * 3);
 
 	MVert *verts = dm->getVertArray(dm);
 
 	for (int i = 0, e = dm->getNumVerts(dm); i < e; ++i) {
-		/* Convert Z-up to Y-up. */
-		points.push_back(verts[i].co[0]);
-		points.push_back(verts[i].co[2]);
-		points.push_back(-verts[i].co[1]);
+		copy_zup_yup(&points[i * 3], verts[i].co);
 	}
 }
 
@@ -283,69 +282,40 @@ void write_extra_uvs(Schema &schema, DerivedMesh *dm, bool pack_uv)
 	}
 }
 
-static void get_normals(DerivedMesh *dm, std::vector<float> &norms)
+static void get_normals(DerivedMesh *dm, std::vector<float> &normals)
 {
-	norms.clear();
-	norms.reserve(dm->getNumVerts(dm));
+	MPoly *mpoly = dm->getPolyArray(dm);
+	MPoly *mp = mpoly;
 
-	const float nscale = 1.0f / 32767.0f;
+	MLoop *mloop = dm->getLoopArray(dm);
+	MLoop *ml = mloop;
 
 	MVert *verts = dm->getVertArray(dm);
-	MFace *faces = dm->getTessFaceArray(dm);
 
-	for (int i = 0, e = dm->getNumTessFaces(dm); i < e; ++i) {
-		MFace *face = &faces[i];
+	const size_t num_normals = dm->getNumVerts(dm) * 3;
 
-		if (face->flag & ME_SMOOTH) {
-			int index = face->v4;
+	normals.clear();
+	normals.resize(num_normals);
 
-			if (face->v4) {
-				norms.push_back(verts[index].no[0] * nscale);
-				norms.push_back(verts[index].no[1] * nscale);
-				norms.push_back(verts[index].no[2] * nscale);
-			}
+	for (int i = 0, e = dm->getNumPolys(dm); i < e; ++i, ++mp) {
+		float no[3];
 
-			index = face->v3;
-			norms.push_back(verts[index].no[0] * nscale);
-			norms.push_back(verts[index].no[1] * nscale);
-			norms.push_back(verts[index].no[2] * nscale);
-
-			index = face->v2;
-			norms.push_back(verts[index].no[0] * nscale);
-			norms.push_back(verts[index].no[1] * nscale);
-			norms.push_back(verts[index].no[2] * nscale);
-
-			index = face->v1;
-			norms.push_back(verts[index].no[0] * nscale);
-			norms.push_back(verts[index].no[1] * nscale);
-			norms.push_back(verts[index].no[2] * nscale);
+		/* Flat shaded, use common normal for all verts. */
+		if ((mp->flag & ME_SMOOTH) == 0) {
+			BKE_mesh_calc_poly_normal(mp, ml, verts, no);
 		}
-		else {
-			float no[3];
 
-			if (face->v4) {
-				normal_quad_v3(no, verts[face->v1].co, verts[face->v2].co,
-				        verts[face->v3].co, verts[face->v4].co);
+		for (int j = 0; j < mp->totloop; ++ml, ++j) {
+			int index = ml->v;
 
-				norms.push_back(no[0]);
-				norms.push_back(no[1]);
-				norms.push_back(no[2]);
+			/* Smooth shaded, use individual vert normals. */
+			if (mp->flag & ME_SMOOTH) {
+				normal_short_to_float_v3(no, verts[index].no);
+				copy_zup_yup(&normals[index * 3], no);
 			}
-			else
-				normal_tri_v3(no, verts[face->v1].co, verts[face->v2].co,
-				        verts[face->v3].co);
-
-			norms.push_back(no[0]);
-			norms.push_back(no[1]);
-			norms.push_back(no[2]);
-
-			norms.push_back(no[0]);
-			norms.push_back(no[1]);
-			norms.push_back(no[2]);
-
-			norms.push_back(no[0]);
-			norms.push_back(no[1]);
-			norms.push_back(no[2]);
+			else {
+				copy_zup_yup(&normals[index * 3], no);
+			}
 		}
 	}
 }
@@ -523,16 +493,16 @@ void AbcMeshWriter::writeMesh()
 		if (m_settings.export_normals) {
 			get_normals(dm, normals);
 
-			ON3fGeomParam::Sample normalsSamp;
+			ON3fGeomParam::Sample normals_sample;
 			if (!normals.empty()) {
-				normalsSamp.setScope(kFacevaryingScope);
-				normalsSamp.setVals(
+				normals_sample.setScope(kFacevaryingScope);
+				normals_sample.setVals(
 				            V3fArraySample(
-				                (const Imath::V3f *) &normals.front(),
+				                (const Imath::V3f *)&normals.front(),
 				                normals.size() / 3));
 			}
 
-			m_mesh_sample.setNormals(normalsSamp);
+			m_mesh_sample.setNormals(normals_sample);
 		}
 
 		m_mesh_sample.setSelfBounds(bounds());
@@ -903,32 +873,22 @@ void AbcMeshWriter::getVelocities(DerivedMesh *dm, std::vector<float> &vels)
 	const int totverts = dm->getNumVerts(dm);
 
 	vels.clear();
-	vels.reserve(totverts);
+	vels.resize(totverts * 3);
 
 	ModifierData *md = get_fluid_sim_modifier(m_scene, m_object);
 	FluidsimModifierData *fmd = reinterpret_cast<FluidsimModifierData *>(md);
 	FluidsimSettings *fss = fmd->fss;
 
 	if (fss->meshVelocities) {
-		float *meshVels = reinterpret_cast<float *>(fss->meshVelocities);
-		float vel[3];
+		float *mesh_vels = reinterpret_cast<float *>(fss->meshVelocities);
 
 		for (int i = 0; i < totverts; ++i) {
-			copy_v3_v3(vel, meshVels);
-
-			/* Convert Z-up to Y-up. */
-			vels.push_back(vels[0]);
-			vels.push_back(vels[2]);
-			vels.push_back(-vels[1]);
-			meshVels += 3;
+			copy_zup_yup(&vels[i * 3], mesh_vels);
+			mesh_vels += 3;
 		}
 	}
 	else {
-		for (int i = 0; i < totverts; ++i) {
-			vels.push_back(0);
-			vels.push_back(0);
-			vels.push_back(0);
-		}
+		std::fill(vels.begin(), vels.end(), 0.0f);
 	}
 }
 
@@ -1184,7 +1144,7 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 		const ISubDSchema::Sample sample = m_subd_schema.getValue(sample_sel);
 
-		readVertexDataSample(mesh, sample.getPositions());
+		readVertexDataSample(mesh, sample.getPositions(), IN3fGeomParam());
 		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts());
 	}
 	else {
@@ -1192,7 +1152,7 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 		const IPolyMeshSchema::Sample sample = m_schema.getValue(sample_sel);
 
-		readVertexDataSample(mesh, sample.getPositions());
+		readVertexDataSample(mesh, sample.getPositions(), m_schema.getNormalsParam());
 		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts());
 	}
 
@@ -1213,10 +1173,20 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 	}
 }
 
-void AbcMeshReader::readVertexDataSample(Mesh *mesh, const P3fArraySamplePtr &positions)
+void AbcMeshReader::readVertexDataSample(Mesh *mesh,
+                                         const P3fArraySamplePtr &positions,
+                                         const IN3fGeomParam &normals)
 {
 	utils::mesh_add_verts(mesh, positions->size());
-	read_mverts(mesh->mvert, positions);
+
+	N3fArraySamplePtr normal_vals;
+
+	if (normals.valid()) {
+		IN3fGeomParam::Sample normsamp = normals.getExpandedValue();
+		normal_vals = normsamp.getVals();
+	}
+
+	read_mverts(mesh->mvert, positions, normal_vals);
 }
 
 void AbcMeshReader::readPolyDataSample(Mesh *mesh,
@@ -1331,17 +1301,26 @@ void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_star
 
 /* ************************************************************************** */
 
-void read_mverts(MVert *mverts, const Alembic::AbcGeom::P3fArraySamplePtr &positions)
+void read_mverts(MVert *mverts,
+                 const Alembic::AbcGeom::P3fArraySamplePtr &positions,
+                 const N3fArraySamplePtr &normals)
 {
 	for (int i = 0; i < positions->size(); ++i) {
 		MVert &mvert = mverts[i];
 		Imath::V3f pos_in = (*positions)[i];
 
-		/* Convert Y-up to Z-up. */
-		mvert.co[0] = pos_in[0];
-		mvert.co[1] = -pos_in[2];
-		mvert.co[2] = pos_in[1];
+		copy_yup_zup(mvert.co, pos_in.getValue());
+
 		mvert.bweight = 0;
+
+		if (normals) {
+			Imath::V3f nor_in = (*normals)[i];
+
+			short no[3];
+			normal_float_to_short_v3(no, nor_in.getValue());
+
+			copy_yup_zup(mvert.no, no);
+		}
 	}
 }
 

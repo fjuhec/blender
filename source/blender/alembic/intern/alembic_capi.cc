@@ -91,7 +91,11 @@ using Alembic::AbcGeom::ISubD;
 using Alembic::AbcGeom::IV2fGeomParam;
 using Alembic::AbcGeom::IXform;
 using Alembic::AbcGeom::IXformSchema;
+using Alembic::AbcGeom::N3fArraySamplePtr;
 using Alembic::AbcGeom::XformSample;
+using Alembic::AbcGeom::ICompoundProperty;
+using Alembic::AbcGeom::IN3fArrayProperty;
+using Alembic::AbcGeom::IN3fGeomParam;
 
 using Alembic::AbcMaterial::IMaterial;
 
@@ -668,12 +672,20 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		uvsamp_vals = uvsamp.getVals();
 	}
 
+	N3fArraySamplePtr normal_vals;
+	const IN3fGeomParam normals = schema.getNormalsParam();
+
+	if (normals.valid()) {
+		IN3fGeomParam::Sample normsamp = normals.getExpandedValue();
+		normal_vals = normsamp.getVals();
+	}
+
 	MVert *mverts = dm->getVertArray(dm);
 	MPoly *mpolys = dm->getPolyArray(dm);
 	MLoop *mloops = dm->getLoopArray(dm);
 	MLoopUV *mloopuvs = static_cast<MLoopUV *>(CustomData_get(&dm->loopData, 0, CD_MLOOPUV));
 
-	read_mverts(mverts, positions);
+	read_mverts(mverts, positions, normal_vals);
 	read_mpolys(mpolys, mloops, mloopuvs, face_indices, face_counts, uvsamp_vals);
 
 	CDDM_calc_edges(dm);
@@ -695,9 +707,18 @@ static DerivedMesh *read_points_sample(DerivedMesh *dm, const IObject &iobject, 
 		dm = CDDM_new(positions->size(), 0, 0, 0, 0);
 	}
 
+	ICompoundProperty prop = schema.getArbGeomParams();
+
+	const IN3fArrayProperty &normals_prop = IN3fArrayProperty(prop, "N", 0);
+	N3fArraySamplePtr vnormals;
+
+	if (normals_prop) {
+		vnormals = normals_prop.getValue(sample_sel);
+	}
+
 	MVert *mverts = dm->getVertArray(dm);
 
-	read_mverts(mverts, positions);
+	read_mverts(mverts, positions, vnormals);
 
 	return dm;
 }
@@ -714,11 +735,7 @@ void read_curves_sample(float (*vertexCos)[3], int max_verts, const IObject &iob
 	for (int i = 0; i < min_ff(max_verts, positions->size()); ++i) {
 		float *vert = vertexCos[i];
 		Imath::V3f pos_in = (*positions)[i];
-
-		/* Convert Y-up to Z-up. */
-		vert[0] = pos_in[0];
-		vert[1] = -pos_in[2];
-		vert[2] = pos_in[1];
+		copy_yup_zup(vert, pos_in.getValue());
 	}
 }
 

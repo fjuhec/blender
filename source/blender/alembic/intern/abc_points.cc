@@ -43,7 +43,10 @@ extern "C" {
 using Alembic::AbcGeom::kVertexScope;
 using Alembic::AbcGeom::kWrapExisting;
 using Alembic::AbcGeom::P3fArraySamplePtr;
+using Alembic::AbcGeom::N3fArraySamplePtr;
 
+using Alembic::AbcGeom::ICompoundProperty;
+using Alembic::AbcGeom::IN3fArrayProperty;
 using Alembic::AbcGeom::IPoints;
 using Alembic::AbcGeom::IPointsSchema;
 using Alembic::AbcGeom::ISampleSelector;
@@ -156,7 +159,17 @@ void AbcPointsReader::readObjectData(Main *bmain, Scene *scene, float time)
 	const P3fArraySamplePtr &positions = m_sample.getPositions();
 
 	utils::mesh_add_verts(mesh, positions->size());
-	read_mverts(mesh->mvert, positions);
+
+	ICompoundProperty prop = m_schema.getArbGeomParams();
+
+	const IN3fArrayProperty &normals_prop = IN3fArrayProperty(prop, "N", time);
+	N3fArraySamplePtr vnormals;
+
+	if (normals_prop) {
+		vnormals = normals_prop.getValue(sample_sel);
+	}
+
+	read_mverts(mesh->mvert, positions, vnormals);
 
 	BKE_mesh_validate(mesh, false, false);
 
