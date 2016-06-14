@@ -24,6 +24,7 @@
 #include "bvh_build.h"
 #include "bvh_node.h"
 #include "bvh_params.h"
+#include "bvh_unaligned.h"
 
 #include "util_debug.h"
 #include "util_foreach.h"
@@ -192,13 +193,21 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 {
 	/* The BVH's for instances are built separately, but for traversal all
 	 * BVH's are stored in global arrays. This function merges them into the
-	 * top level BVH, adjusting indexes and offsets where appropriate. */
-	bool use_qbvh = params.use_qbvh;
-	size_t nsize = (use_qbvh)? BVH_QNODE_SIZE: BVH_NODE_SIZE;
-	size_t nsize_leaf = (use_qbvh)? BVH_QNODE_LEAF_SIZE: BVH_NODE_LEAF_SIZE;
+	 * top level BVH, adjusting indexes and offsets where appropriate.
+	 */
+	const bool use_qbvh = params.use_qbvh;
+	const bool nsize_leaf = (use_qbvh)? BVH_QNODE_LEAF_SIZE: BVH_NODE_LEAF_SIZE;
+	size_t nsize;
+	if(params.use_unaligned_nodes) {
+		nsize = (use_qbvh)? BVH_UNALIGNED_QNODE_SIZE: BVH_UNALIGNED_NODE_SIZE;
+	}
+	else {
+		nsize = (use_qbvh)? BVH_QNODE_SIZE: BVH_NODE_SIZE;
+	}
 
-	/* adjust primitive index to point to the triangle in the global array, for
-	 * meshes with transform applied and already in the top level BVH */
+	/* Adjust primitive index to point to the triangle in the global array, for
+	 * meshes with transform applied and already in the top level BVH.
+	 */
 	for(size_t i = 0; i < pack.prim_index.size(); i++)
 		if(pack.prim_index[i] != -1) {
 			if(pack.prim_type[i] & PRIMITIVE_ALL_CURVE)
@@ -356,7 +365,13 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 			/* For QBVH we're packing a child bbox into 6 float4,
 			 * and for regular BVH they're packed into 3 float4.
 			 */
-			const size_t nsize_bbox = (use_qbvh)? 7: 3;
+			size_t nsize_bbox;
+			if(params.use_unaligned_nodes) {
+				nsize_bbox = (use_qbvh)? 13: 8;
+			}
+			else {
+				nsize_bbox = (use_qbvh)? 7: 3;
+			}
 			int4 *bvh_nodes = &bvh->pack.nodes[0];
 			size_t bvh_nodes_size = bvh->pack.nodes.size();
 
@@ -402,7 +417,8 @@ RegularBVH::RegularBVH(const BVHParams& params_, const vector<Object*>& objects_
 {
 }
 
-void RegularBVH::pack_leaf(const BVHStackEntry& e, const LeafNode *leaf)
+void RegularBVH::pack_leaf(const BVHStackEntry& e,
+                           const LeafNode *leaf)
 {
 	float4 data[BVH_NODE_LEAF_SIZE];
 	memset(data, 0, sizeof(data));
@@ -424,12 +440,21 @@ void RegularBVH::pack_leaf(const BVHStackEntry& e, const LeafNode *leaf)
 	memcpy(&pack.leaf_nodes[e.idx * BVH_NODE_LEAF_SIZE], data, sizeof(float4)*BVH_NODE_LEAF_SIZE);
 }
 
-void RegularBVH::pack_inner(const BVHStackEntry& e, const BVHStackEntry& e0, const BVHStackEntry& e1)
+void RegularBVH::pack_inner(const BVHStackEntry& e,
+                            const BVHStackEntry& e0,
+                            const BVHStackEntry& e1)
 {
-	pack_node(e.idx, e0.node->m_bounds, e1.node->m_bounds, e0.encodeIdx(), e1.encodeIdx(), e0.node->m_visibility, e1.node->m_visibility);
+	pack_node(e.idx,
+	          e0.node->m_bounds, e1.node->m_bounds,
+	          e0.encodeIdx(), e1.encodeIdx(),
+	          e0.node->m_visibility, e1.node->m_visibility);
 }
 
-void RegularBVH::pack_node(int idx, const BoundBox& b0, const BoundBox& b1, int c0, int c1, uint visibility0, uint visibility1)
+void RegularBVH::pack_node(int idx,
+                           const BoundBox& b0,
+                           const BoundBox& b1,
+                           int c0, int c1,
+                           uint visibility0, uint visibility1)
 {
 	int4 data[BVH_NODE_SIZE] =
 	{
@@ -442,6 +467,95 @@ void RegularBVH::pack_node(int idx, const BoundBox& b0, const BoundBox& b1, int 
 	memcpy(&pack.nodes[idx * BVH_NODE_SIZE], data, sizeof(int4)*BVH_NODE_SIZE);
 }
 
+void RegularBVH::pack_unaligned_leaf(const BVHStackEntry& e,
+                                     const LeafNode *leaf)
+{
+	float4 data[BVH_NODE_LEAF_SIZE];
+
+	if(leaf->num_triangles() == 1 && pack.prim_index[leaf->m_lo] == -1) {
+		/* Object. */
+		data[0].x = __int_as_float(~(leaf->m_lo));
+		data[0].y = __int_as_float(0);
+	}
+	else {
+		/* Curve. */
+		data[0].x = __int_as_float(leaf->m_lo);
+		data[0].y = __int_as_float(leaf->m_hi);
+	}
+	data[0].z = __uint_as_float(leaf->m_visibility);
+	if(leaf->num_triangles() != 0) {
+		data[0].w = __uint_as_float(pack.prim_type[leaf->m_lo]);
+	}
+
+	memcpy(&pack.leaf_nodes[e.idx * BVH_NODE_LEAF_SIZE],
+	       data,
+	       sizeof(int4)*BVH_NODE_LEAF_SIZE);
+}
+
+void RegularBVH::pack_unaligned_inner(const BVHStackEntry& e,
+                                      const BVHStackEntry& e0,
+                                      const BVHStackEntry& e1)
+{
+	pack_unaligned_node(e.idx,
+	                    e0.node->is_unaligned(),
+	                    e1.node->is_unaligned(),
+	                    e0.node->m_aligned_space,
+	                    e1.node->m_aligned_space,
+	                    e0.node->m_bounds,
+	                    e1.node->m_bounds,
+	                    e0.encodeIdx(), e1.encodeIdx(),
+	                    e0.node->m_visibility, e1.node->m_visibility);
+}
+
+void RegularBVH::pack_unaligned_node(int idx,
+                                     const bool is_unaligned0,
+                                     const bool is_unaligned1,
+                                     const Transform& aligned_space0,
+                                     const Transform& aligned_space1,
+                                     const BoundBox& bounds0,
+                                     const BoundBox& bounds1,
+                                     int c0, int c1,
+                                     uint visibility0, uint visibility1)
+{
+	float4 data[BVH_UNALIGNED_NODE_SIZE];
+	if (is_unaligned0 || is_unaligned1) {
+		Transform space0 = BVHUnaligned::compute_node_transform(bounds0,
+		                                                        aligned_space0);
+		Transform space1 = BVHUnaligned::compute_node_transform(bounds1,
+		                                                        aligned_space1);
+		data[0] = space0.x;
+		data[1] = space0.y;
+		data[2] = space0.z;
+		data[3] = space0.w;
+		data[4] = space1.x;
+		data[5] = space1.y;
+		data[6] = space1.z;
+		data[7] = space1.w;
+	}
+	else {
+		data[0] = make_float4(bounds0.min.x, bounds1.min.x,
+		                      bounds0.max.x, bounds1.max.x);
+		data[1] = make_float4(bounds0.min.y, bounds1.min.y,
+		                      bounds0.max.y, bounds1.max.y);
+		data[2] = make_float4(bounds0.min.z, bounds1.min.z,
+		                      bounds0.max.z, bounds1.max.z);
+		data[3] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+		data[4] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+		data[5] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+		data[6] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+		data[7] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+	}
+
+	data[8] = make_float4(__int_as_float(c0),
+	                      __int_as_float(c1),
+	                      __int_as_float(visibility0),
+	                      __int_as_float(visibility1));
+
+	memcpy(&pack.nodes[idx * BVH_UNALIGNED_NODE_SIZE],
+	       data,
+	       sizeof(float4)*BVH_UNALIGNED_NODE_SIZE);
+}
+
 void RegularBVH::pack_nodes(const BVHNode *root)
 {
 	size_t tot_node_size = root->getSubtreeSize(BVH_STAT_NODE_COUNT);
@@ -452,12 +566,13 @@ void RegularBVH::pack_nodes(const BVHNode *root)
 	pack.nodes.clear();
 
 	/* for top level BVH, first merge existing BVH's so we know the offsets */
+	const int nsize = params.use_unaligned_nodes? BVH_UNALIGNED_NODE_SIZE: BVH_NODE_SIZE;
 	if(params.top_level) {
-		pack_instances(node_size*BVH_NODE_SIZE,
+		pack_instances(node_size*nsize,
 		               leaf_node_size*BVH_NODE_LEAF_SIZE);
 	}
 	else {
-		pack.nodes.resize(node_size*BVH_NODE_SIZE);
+		pack.nodes.resize(node_size*nsize);
 		pack.leaf_nodes.resize(leaf_node_size*BVH_NODE_LEAF_SIZE);
 	}
 
@@ -476,8 +591,13 @@ void RegularBVH::pack_nodes(const BVHNode *root)
 
 		if(e.node->is_leaf()) {
 			/* leaf node */
-			const LeafNode* leaf = reinterpret_cast<const LeafNode*>(e.node);
-			pack_leaf(e, leaf);
+			const LeafNode *leaf = reinterpret_cast<const LeafNode*>(e.node);
+			if(params.use_unaligned_nodes) {
+				pack_unaligned_leaf(e, leaf);
+			}
+			else {
+				pack_leaf(e, leaf);
+			}
 		}
 		else {
 			/* innner node */
@@ -485,8 +605,12 @@ void RegularBVH::pack_nodes(const BVHNode *root)
 			int idx1 = (e.node->get_child(1)->is_leaf())? (nextLeafNodeIdx++) : (nextNodeIdx++);
 			stack.push_back(BVHStackEntry(e.node->get_child(0), idx0));
 			stack.push_back(BVHStackEntry(e.node->get_child(1), idx1));
-
-			pack_inner(e, stack[stack.size()-2], stack[stack.size()-1]);
+			if(params.use_unaligned_nodes) {
+				pack_unaligned_inner(e, stack[stack.size()-2], stack[stack.size()-1]);
+			}
+			else {
+				pack_inner(e, stack[stack.size()-2], stack[stack.size()-1]);
+			}
 		}
 	}
 
@@ -505,6 +629,13 @@ void RegularBVH::refit_nodes()
 
 void RegularBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility)
 {
+	size_t nsize;
+	if(params.use_unaligned_nodes) {
+		nsize = BVH_UNALIGNED_NODE_SIZE;
+	}
+	else {
+		nsize = BVH_NODE_SIZE;
+	}
 	if(leaf) {
 		int4 *data = &pack.leaf_nodes[idx*BVH_NODE_LEAF_SIZE];
 		int c0 = data[0].x;
@@ -585,9 +716,10 @@ void RegularBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility
 		       sizeof(float4)*BVH_NODE_LEAF_SIZE);
 	}
 	else {
-		int4 *data = &pack.nodes[idx*BVH_NODE_SIZE];
-		int c0 = data[3].x;
-		int c1 = data[3].y;
+		const int cnode_offset = params.use_unaligned_nodes? 8: 3;
+		int4 *data = &pack.nodes[idx*nsize];
+		int c0 = data[cnode_offset].x;
+		int c1 = data[cnode_offset].y;
 		/* refit inner node, set bbox from children */
 		BoundBox bbox0 = BoundBox::empty, bbox1 = BoundBox::empty;
 		uint visibility0 = 0, visibility1 = 0;
@@ -595,7 +727,19 @@ void RegularBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility
 		refit_node((c0 < 0)? -c0-1: c0, (c0 < 0), bbox0, visibility0);
 		refit_node((c1 < 0)? -c1-1: c1, (c1 < 0), bbox1, visibility1);
 
-		pack_node(idx, bbox0, bbox1, c0, c1, visibility0, visibility1);
+		if(params.use_unaligned_nodes) {
+			Transform dummy_transform = transform_identity();
+			pack_unaligned_node(idx,
+			                    false, false,
+			                    dummy_transform, dummy_transform,
+			                    bbox0, bbox1,
+			                    c0, c1,
+			                    visibility0,
+			                    visibility1);
+		}
+		else {
+			pack_node(idx, bbox0, bbox1, c0, c1, visibility0, visibility1);
+		}
 
 		bbox.grow(bbox0);
 		bbox.grow(bbox1);
@@ -671,6 +815,122 @@ void QBVH::pack_inner(const BVHStackEntry& e, const BVHStackEntry *en, int num)
 	memcpy(&pack.nodes[e.idx * BVH_QNODE_SIZE], data, sizeof(float4)*BVH_QNODE_SIZE);
 }
 
+void QBVH::pack_unaligned_leaf(const BVHStackEntry& e, const LeafNode *leaf)
+{
+	float4 data[BVH_QNODE_LEAF_SIZE];
+	memset(data, 0, sizeof(data));
+	if(leaf->num_triangles() == 1 && pack.prim_index[leaf->m_lo] == -1) {
+		/* object */
+		data[0].x = __int_as_float(~(leaf->m_lo));
+		data[0].y = __int_as_float(0);
+	}
+	else {
+		/* triangle */
+		data[0].x = __int_as_float(leaf->m_lo);
+		data[0].y = __int_as_float(leaf->m_hi);
+	}
+	data[0].z = __uint_as_float(leaf->m_visibility);
+	if(leaf->num_triangles() != 0) {
+		data[0].w = __uint_as_float(pack.prim_type[leaf->m_lo]);
+	}
+	memcpy(&pack.leaf_nodes[e.idx * BVH_QNODE_LEAF_SIZE],
+	       data,
+	       sizeof(float4)*BVH_QNODE_LEAF_SIZE);
+}
+
+void QBVH::pack_unaligned_inner(const BVHStackEntry& e,
+                                const BVHStackEntry *en,
+                                int num)
+{
+	float4 data[BVH_UNALIGNED_QNODE_SIZE];
+	memset(data, 0, sizeof(data));
+
+	bool has_unaligned = false;
+	for(int i = 0; i < num; i++) {
+		if(en[i].node->is_unaligned()) {
+			has_unaligned = true;
+			break;
+		}
+	}
+
+	if(has_unaligned) {
+		for(int i = 0; i < num; i++) {
+			Transform space = BVHUnaligned::compute_node_transform(
+			        en[i].node->m_bounds,
+			        en[i].node->m_aligned_space);
+
+			data[0][i] = 1.0f;
+
+			data[1][i] = space.x.x;
+			data[2][i] = space.x.y;
+			data[3][i] = space.x.z;
+
+			data[4][i] = space.y.x;
+			data[5][i] = space.y.y;
+			data[6][i] = space.y.z;
+
+			data[7][i] = space.z.x;
+			data[8][i] = space.z.y;
+			data[9][i] = space.z.z;
+
+			data[10][i] = space.x.w;
+			data[11][i] = space.y.w;
+			data[12][i] = space.z.w;
+
+			data[13][i] = __int_as_float(en[i].encodeIdx());
+		}
+		for(int i = num; i < 4; i++) {
+			data[0][i] = 1.0f;
+			/* We store BB which would never be recorded as intersection
+			 * so kernel might safely assume there are always 4 child nodes.
+			 */
+			for(int j = 1; j < 13; ++j) {
+				data[j][i] = 0.0f;
+			}
+			data[13][i] = __int_as_float(0);
+		}
+	}
+	else {
+		for(int i = 0; i < num; i++) {
+			float3 bb_min = en[i].node->m_bounds.min;
+			float3 bb_max = en[i].node->m_bounds.max;
+
+			data[0][i] = -1.0f;
+
+			data[1][i] = bb_min.x;
+			data[2][i] = bb_max.x;
+			data[3][i] = bb_min.y;
+			data[4][i] = bb_max.y;
+			data[5][i] = bb_min.z;
+			data[6][i] = bb_max.z;
+
+			data[13][i] = __int_as_float(en[i].encodeIdx());
+		}
+
+		for(int i = num; i < 4; i++) {
+			/* We store BB which would never be recorded as intersection
+			 * so kernel might safely assume there are always 4 child nodes.
+			 */
+			data[0][i] = -1.0f;
+
+			data[1][i] = FLT_MAX;
+			data[2][i] = -FLT_MAX;
+
+			data[3][i] = FLT_MAX;
+			data[4][i] = -FLT_MAX;
+
+			data[5][i] = FLT_MAX;
+			data[6][i] = -FLT_MAX;
+
+			data[13][i] = __int_as_float(0);
+		}
+	}
+
+	memcpy(&pack.nodes[e.idx * BVH_UNALIGNED_QNODE_SIZE],
+	       data,
+	       sizeof(float4)*BVH_UNALIGNED_QNODE_SIZE);
+}
+
 /* Quad SIMD Nodes */
 
 void QBVH::pack_nodes(const BVHNode *root)
@@ -684,12 +944,13 @@ void QBVH::pack_nodes(const BVHNode *root)
 	pack.leaf_nodes.clear();
 
 	/* for top level BVH, first merge existing BVH's so we know the offsets */
+	const int nsize = params.use_unaligned_nodes? BVH_UNALIGNED_QNODE_SIZE: BVH_QNODE_SIZE;
 	if(params.top_level) {
-		pack_instances(node_size*BVH_QNODE_SIZE,
+		pack_instances(node_size*nsize,
 		               leaf_node_size*BVH_QNODE_LEAF_SIZE);
 	}
 	else {
-		pack.nodes.resize(node_size*BVH_QNODE_SIZE);
+		pack.nodes.resize(node_size*nsize);
 		pack.leaf_nodes.resize(leaf_node_size*BVH_QNODE_LEAF_SIZE);
 	}
 
@@ -711,7 +972,12 @@ void QBVH::pack_nodes(const BVHNode *root)
 		if(e.node->is_leaf()) {
 			/* leaf node */
 			const LeafNode* leaf = reinterpret_cast<const LeafNode*>(e.node);
-			pack_leaf(e, leaf);
+			if(params.use_unaligned_nodes) {
+				pack_unaligned_leaf(e, leaf);
+			}
+			else {
+				pack_leaf(e, leaf);
+			}
 		}
 		else {
 			/* inner node */
@@ -752,7 +1018,12 @@ void QBVH::pack_nodes(const BVHNode *root)
 			}
 
 			/* set node */
-			pack_inner(e, &stack[stack.size()-numnodes], numnodes);
+			if(params.use_unaligned_nodes) {
+				pack_unaligned_inner(e, &stack[stack.size()-numnodes], numnodes);
+			}
+			else {
+				pack_inner(e, &stack[stack.size()-numnodes], numnodes);
+			}
 		}
 	}
 

@@ -20,6 +20,8 @@
 
 #include "util_boundbox.h"
 
+#include "kernel_types.h"
+
 CCL_NAMESPACE_BEGIN
 
 /* BVH Parameters */
@@ -46,6 +48,14 @@ public:
 	/* QBVH */
 	bool use_qbvh;
 
+	/* Mask of primitives to be included into the BVH. */
+	int primitive_mask;
+
+	/* Use unaligned bounding boxes.
+	 * Only used for curves BVH.
+	 */
+	bool use_unaligned_nodes;
+
 	/* fixed parameters */
 	enum {
 		MAX_DEPTH = 64,
@@ -69,6 +79,9 @@ public:
 
 		top_level = false;
 		use_qbvh = false;
+		use_unaligned_nodes = false;
+
+		primitive_mask = PRIMITIVE_ALL;
 	}
 
 	/* SAH costs */

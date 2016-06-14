@@ -72,7 +72,15 @@ public:
 
 		int num_segments() { return num_keys - 1; }
 
-		void bounds_grow(const int k, const float3 *curve_keys, const float *curve_radius, BoundBox& bounds) const;
+		void bounds_grow(const int k,
+		                 const float3 *curve_keys,
+		                 const float *curve_radius,
+		                 BoundBox& bounds) const;
+		void bounds_grow(const int k,
+		                 const float3 *curve_keys,
+		                 const float *curve_radius,
+		                 const Transform& aligned_space,
+		                 BoundBox& bounds) const;
 	};
 
 	Curve get_curve(size_t i) const

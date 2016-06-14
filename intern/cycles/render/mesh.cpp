@@ -73,6 +73,37 @@ void Mesh::Curve::bounds_grow(const int k, const float3 *curve_keys, const float
 	bounds.grow(upper, mr);
 }
 
+void Mesh::Curve::bounds_grow(const int k,
+                              const float3 *curve_keys,
+                              const float *curve_radius,
+                              const Transform& aligned_space,
+                              BoundBox& bounds) const
+{
+	float3 P[4];
+
+	P[0] = curve_keys[max(first_key + k - 1,first_key)];
+	P[1] = curve_keys[first_key + k];
+	P[2] = curve_keys[first_key + k + 1];
+	P[3] = curve_keys[min(first_key + k + 2, first_key + num_keys - 1)];
+
+	P[0] = transform_point(&aligned_space, P[0]);
+	P[1] = transform_point(&aligned_space, P[1]);
+	P[2] = transform_point(&aligned_space, P[2]);
+	P[3] = transform_point(&aligned_space, P[3]);
+
+	float3 lower;
+	float3 upper;
+
+	curvebounds(&lower.x, &upper.x, P, 0);
+	curvebounds(&lower.y, &upper.y, P, 1);
+	curvebounds(&lower.z, &upper.z, P, 2);
+
+	float mr = max(curve_radius[first_key + k], curve_radius[first_key + k + 1]);
+
+	bounds.grow(lower, mr);
+	bounds.grow(upper, mr);
+}
+
 /* Mesh */
 
 NODE_DEFINE(Mesh)
