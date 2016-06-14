@@ -42,6 +42,7 @@
 
 // TODO(tianwei): still rely on simple_pipeline/callback for now, will be removed
 #include "libmv/simple_pipeline/callbacks.h"
+#include "libmv/simple_pipeline/callbacks.h"
 
 using mv::Tracks;
 using mv::Marker;
@@ -116,8 +117,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	libmv::vector<Marker> keyframe_markers;
 	int keyframe1, keyframe2;
 
-	// make reconstrution on the primary clip reconstruction
-	Reconstruction &reconstruction = all_libmv_reconstruction[0]->reconstruction;
+	Tracks all_normalized_tracks;	// normalized tracks of all clips
 	for(int i = 0; i < clip_num; i++)
 	{
 		all_libmv_reconstruction[i] = LIBMV_OBJECT_NEW(libmv_ReconstructionN);
@@ -132,6 +132,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 		///* Invert the camera intrinsics/ */
 		Tracks normalized_tracks;
 		mv_getNormalizedTracks(tracks, *camera_intrinsics, &normalized_tracks);
+		all_normalized_tracks.AddTracks(normalized_tracks);
 
 		if(i == 0)		// key frame from primary camera
 		{
@@ -140,6 +141,9 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 			normalized_tracks.GetMarkersForTracksInBothImages(i, keyframe1, i, keyframe2, &keyframe_markers);
 		}
 	}
+	// make reconstrution on the primary clip reconstruction
+	Reconstruction &reconstruction = all_libmv_reconstruction[0]->reconstruction;
+	printf("all pose num %d\n", reconstruction.GetAllPoseNum());
 
 	printf("frames to init from: %d %d\n", keyframe1, keyframe2);
 	printf("number of markers for init: %d\n", keyframe_markers.size());
@@ -181,14 +185,21 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	if(!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction))
 	{
 		printf("mv::ReconstrucTwoFrames failed\n");
-		for(int i = 0; i < clip_num; i++)
-			all_libmv_reconstruction[i]->is_valid = false;
+		all_libmv_reconstruction[0]->is_valid = false;
 		return all_libmv_reconstruction;
 	}
-	//EuclideanBundle(normalized_tracks, &reconstruction);
-	//EuclideanCompleteReconstruction(normalized_tracks,
-	//                                &reconstruction,
-	//                                &update_callback);
+	if(!mv::EuclideanBundleAll(all_normalized_tracks, &reconstruction))
+	{
+		printf("mv::EuclideanBundleAll failed\n");
+		all_libmv_reconstruction[0]->is_valid = false;
+		return all_libmv_reconstruction;
+	}
+	if(!mv::EuclideanReconstructionComplete(all_normalized_tracks, &reconstruction, &update_callback))
+	{
+		printf("mv::EuclideanReconstructionComplete failed\n");
+		all_libmv_reconstruction[0]->is_valid = false;
+		return all_libmv_reconstruction;
+	}
 
 	///* Refinement/ */
 	//if (libmv_reconstruction_options->refine_intrinsics) {
@@ -205,13 +216,14 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	///* Set reconstruction scale to unity. */
 	//EuclideanScaleToUnity(&reconstruction);
 
-	///* Finish reconstruction. */
+	/* Finish reconstruction. */
 	//finishReconstruction(tracks,
 	//                     *camera_intrinsics,
 	//                     libmv_reconstruction,
 	//                     progress_update_callback,
 	//                     callback_customdata);
 
+	// a multi-view reconstruction is succesfuly iff all reconstruction falgs are set to true
 	for(int i = 0; i < clip_num; i++)
 		all_libmv_reconstruction[i]->is_valid = true;
 

@@ -19,6 +19,7 @@
 // IN THE SOFTWARE.
 //
 // Author: mierle@gmail.com (Keir Mierle)
+//         shentianweipku@gmail.com (Tianwei Shen)
 
 #ifndef LIBMV_AUTOTRACK_TRACKS_H_
 #define LIBMV_AUTOTRACK_TRACKS_H_
@@ -54,8 +55,12 @@ class Tracks {
   void GetMarkersForTracksInBothImages(int clip1, int frame1,
                                        int clip2, int frame2,
                                        vector<Marker>* markers) const;
+  void GetAllMarkers(vector<Marker>* markers) const;
 
+  // add a marker
   void AddMarker(const Marker& marker);
+  // add markers from another Tracks
+  void AddTracks(const Tracks& other_tracks);
 
   // Moves the contents of *markers over top of the existing markers. This
   // destroys *markers in the process (but avoids copies).

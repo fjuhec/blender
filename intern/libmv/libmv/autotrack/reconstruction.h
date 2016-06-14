@@ -27,6 +27,7 @@
 #include "libmv/base/vector.h"
 #include "libmv/numeric/numeric.h"
 #include "libmv/simple_pipeline/camera_intrinsics.h"
+#include "libmv/simple_pipeline/callbacks.h"
 
 namespace mv {
 
@@ -51,51 +52,60 @@ struct CameraPose {
 };
 
 class Point {
-  int track;
+	int track;
 
-  // The coordinates of the point. Note that not all coordinates are always
-  // used; for example points on a plane only use the first two coordinates.
-  Vec3 X;
+	// The coordinates of the point. Note that not all coordinates are always
+	// used; for example points on a plane only use the first two coordinates.
+	Vec3 X;
 };
 
 // A reconstruction for a set of tracks. The indexing for clip, frame, and
-// track should match that of a Tracs object, stored elsewhere.
+// track should match that of a Tracks object, stored elsewhere.
 class Reconstruction {
- public:
-  // All methods copy their input reference or take ownership of the pointer.
-  void AddCameraPose(const CameraPose& pose);
-  void AddCameraIntrinsics(CameraIntrinsics* intrinsics_ptr, const int intrinsic_index);
-  int  AddPoint(const Point& point);
-  int  AddModel(Model* model);
+public:
+	// All methods copy their input reference or take ownership of the pointer.
+	void AddCameraPose(const CameraPose& pose);
+	int AddCameraIntrinsics(CameraIntrinsics* intrinsics_ptr);
+	int  AddPoint(const Point& point);
+	int  AddModel(Model* model);
 
-  // Returns the corresponding pose or point or NULL if missing.
-        CameraPose* CameraPoseForFrame(int clip, int frame);
-  const CameraPose* CameraPoseForFrame(int clip, int frame) const;
-        Point* PointForTrack(int track);
-  const Point* PointForTrack(int track) const;
+	// Returns the corresponding pose or point or NULL if missing.
+	CameraPose* CameraPoseForFrame(int clip, int frame);
+	const CameraPose* CameraPoseForFrame(int clip, int frame) const;
+	Point* PointForTrack(int track);
+	const Point* PointForTrack(int track) const;
 
-  const vector<vector<CameraPose> >& camera_poses() const {
-    return camera_poses_;
-  }
+	const vector<vector<CameraPose> >& camera_poses() const {
+		return camera_poses_;
+	}
 
- private:
-  // Indexed by CameraPose::intrinsics. Owns the intrinsics objects.
-  vector<CameraIntrinsics*> camera_intrinsics_;
+	int GetClipNum() const;
+	int GetAllPoseNum() const;
 
-  // Indexed by Marker::clip then by Marker::frame.
-  vector<vector<CameraPose> > camera_poses_;
+private:
+	// Indexed by CameraPose::intrinsics. Owns the intrinsics objects.
+	vector<CameraIntrinsics*> camera_intrinsics_;
 
-  // Indexed by Marker::track.
-  vector<Point> points_;
+	// Indexed by Marker::clip then by Marker::frame.
+	vector<vector<CameraPose> > camera_poses_;
 
-  // Indexed by Marker::model_id. Owns model objects.
-  vector<Model*> models_;
+	// Indexed by Marker::track.
+	vector<Point> points_;
+
+	// Indexed by Marker::model_id. Owns model objects.
+	vector<Model*> models_;
 };
 
+// Reconstruct two frames from the same clip, used as the initial reconstruction
 bool ReconstructTwoFrames(const vector<Marker> &markers,
                           const int clip,
                           libmv::CameraIntrinsics &cam_intrinsics,
                           Reconstruction *reconstruction);
+bool EuclideanBundleAll(const Tracks &all_normalized_tracks,
+                        Reconstruction *reconstruction);
+bool EuclideanReconstructionComplete(const Tracks &tracks,
+                                     Reconstruction *reconstruction,
+                                     libmv::ProgressUpdateCallback *update_callback);
 }  // namespace mv
 
 #endif  // LIBMV_AUTOTRACK_RECONSTRUCTION_H_

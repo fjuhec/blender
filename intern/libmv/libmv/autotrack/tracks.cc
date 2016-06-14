@@ -118,6 +118,12 @@ void Tracks::GetMarkersForTracksInBothImages(int clip1, int frame1,
   }
 }
 
+void Tracks::GetAllMarkers(vector<Marker>* markers) const {
+	for (int i = 0; i < markers_.size(); ++i) {
+		markers->push_back(markers_[i]);
+	}
+}
+
 void Tracks::AddMarker(const Marker& marker) {
   // TODO(keir): This is quadratic for repeated insertions. Fix this by adding
   // a smarter data structure like a set<>.
@@ -130,6 +136,13 @@ void Tracks::AddMarker(const Marker& marker) {
     }
   }
   markers_.push_back(marker);
+}
+
+void Tracks::AddTracks(const Tracks& other_tracks) {
+	vector<Marker> markers;
+	other_tracks.GetAllMarkers(&markers);
+	for(int i = 0; i < markers.size(); ++i)
+		this->AddMarker(markers[i]);
 }
 
 void Tracks::SetMarkers(vector<Marker>* markers) {

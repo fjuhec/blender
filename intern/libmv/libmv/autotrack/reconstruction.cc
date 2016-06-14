@@ -68,8 +68,9 @@ void CoordinatesForMarkersInFrame(const vector<Marker> &markers,
 		coordinates->col(i) = coords[i];
 	}
 }
+
 /* markers come from two views in the same clip,
- * reconstruction should be empty
+ * reconstruction should be new and empty
  */
 bool ReconstructTwoFrames(const vector<Marker> &markers,
                           const int clip,
@@ -106,16 +107,46 @@ bool ReconstructTwoFrames(const vector<Marker> &markers,
 		return false;
 	}
 
+	printf("%d, %d, %d\n", cam_intrinsics.image_width(), cam_intrinsics.image_height(), cam_intrinsics.focal_length());
+
 	// frame 1 gets the reference frame, frame 2 gets the relative motion.
-	reconstruction->AddCameraIntrinsics(&cam_intrinsics, clip);
-	CameraPose pose1(clip, frame1, clip, Mat3::Identity(), Vec3::Zero());
-	CameraPose pose2(clip, frame2, clip, R, t);
+	int cam_intrinsic_index = reconstruction->AddCameraIntrinsics(&cam_intrinsics);
+	CameraPose pose1(clip, frame1, cam_intrinsic_index, Mat3::Identity(), Vec3::Zero());
+	CameraPose pose2(clip, frame2, cam_intrinsic_index, R, t);
 	reconstruction->AddCameraPose(pose1);
 	reconstruction->AddCameraPose(pose2);
 
 	LG << "From two frame reconstruction got:\nR:\n" << R
 	   << "\nt:" << t.transpose();
 	return true;
+}
+
+/**
+ * @brief EuclideanBundleAll: bundle all the clips and frames
+ * @param all_normalized_tracks: markers from all clips
+ * @param reconstruction: Reconstruction data structure
+ * @return
+ */
+bool EuclideanBundleAll(const Tracks &all_normalized_tracks,
+                        Reconstruction *reconstruction)
+{
+	return true;
+}
+
+bool EuclideanReconstructionComplete(const Tracks &tracks,
+                                     Reconstruction *reconstruction,
+                                     libmv::ProgressUpdateCallback *update_callback)
+{
+	//InternalCompleteReconstruction<EuclideanPipelineRoutines>(tracks, reconstruction, update_callback);
+	return true;
+}
+
+//	==================  mv::Reconstruction implementation ===================
+// push a new cameraIntrinsics and return the index
+int Reconstruction::AddCameraIntrinsics(CameraIntrinsics *intrinsics_ptr)
+{
+	camera_intrinsics_.push_back(intrinsics_ptr);
+	return camera_intrinsics_.size()-1;
 }
 
 void Reconstruction::AddCameraPose(const CameraPose& pose)
@@ -125,19 +156,15 @@ void Reconstruction::AddCameraPose(const CameraPose& pose)
 	camera_poses_[pose.clip].push_back(pose);
 }
 
-/**
- * @brief Reconstruction::AddCameraIntrinsics insert camera intrinsics into Reconstruction by index,
- * overwrite the old intrinsic if there is any, resize the CameraIntrinsics vector if the size is smaller
- * than index.
- * @param intrinsics_ptr: camera intrinsic pointer
- * @param intrisic_index: index
- * @return
- */
-void Reconstruction::AddCameraIntrinsics(CameraIntrinsics* intrinsics_ptr, const int intrinsic_index)
-{
-	if(camera_intrinsics_.size() < intrinsic_index+1)
-		camera_intrinsics_.resize(intrinsic_index+1);
-	camera_intrinsics_[intrinsic_index] = intrinsics_ptr;
+int Reconstruction::GetClipNum() const {
+	return camera_poses_.size();
+}
+
+int Reconstruction::GetAllPoseNum() const {
+	int all_pose = 0;
+	for(int i = 0; i < camera_poses_.size(); ++i) {
+		all_pose += camera_poses_[i].size();
+	}
 }
 
 }  // namespace mv
