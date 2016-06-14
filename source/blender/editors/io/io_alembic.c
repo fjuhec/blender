@@ -235,7 +235,8 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 	ot->poll = WM_operator_winactive;
 	ot->ui = wm_alembic_export_draw;
 
-	WM_operator_properties_filesel(ot, 0, FILE_BLENDER, FILE_SAVE, WM_FILESEL_FILEPATH,
+	WM_operator_properties_filesel(ot, FILE_TYPE_FOLDER | FILE_TYPE_ALEMBIC,
+	                               FILE_BLENDER, FILE_SAVE, WM_FILESEL_FILEPATH,
 	                               FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 
 	RNA_def_int(ot->srna, "start", 1, INT_MIN, INT_MAX,
@@ -441,7 +442,8 @@ void WM_OT_alembic_import(wmOperatorType *ot)
 	ot->poll = WM_operator_winactive;
 	ot->ui = wm_alembic_import_draw;
 
-	WM_operator_properties_filesel(ot, 0, FILE_BLENDER, FILE_SAVE, WM_FILESEL_FILEPATH,
+	WM_operator_properties_filesel(ot, FILE_TYPE_FOLDER | FILE_TYPE_ALEMBIC,
+	                               FILE_BLENDER, FILE_SAVE, WM_FILESEL_FILEPATH,
 	                               FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, 1000.0f, "Scale", "", 0.0f, 1000.0f);
