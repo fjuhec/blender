@@ -2149,6 +2149,9 @@ static void direct_link_id(FileData *fd, ID *id)
 		/* this case means the data was written incorrectly, it should not happen */
 		IDP_DirectLinkGroup_OrFree(&id->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 	}
+	if (id->uuid) {
+		id->uuid = newdataadr(fd, id->uuid);
+	}
 }
 
 /* ************ READ CurveMapping *************** */
@@ -7183,6 +7186,8 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 {
 	Main *newmain;
 	
+	printf("adding lib %s (%s)\n", lib->id.name, lib->name);
+
 	/* check if the library was already read */
 	for (newmain = fd->mainlist->first; newmain; newmain = newmain->next) {
 		if (newmain->curlib) {
@@ -8018,6 +8023,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 		return blo_nextbhead(fd, bhead);
 	
 	id->tag = tag | LIB_TAG_NEED_LINK;
+	printf("id: %s (%p, %p), lib: %p\n", id->name, id, id->uuid, main->curlib);
 	id->lib = main->curlib;
 	id->us = ID_FAKE_USERS(id);
 	id->icon_id = 0;
@@ -8038,6 +8044,12 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 		return blo_nextbhead(fd, bhead);
 	}
 	
+	/* If we have a real ID from a virtual library, tag ID as extern. */
+	if (id->lib && (id->lib->flag & LIBRARY_FLAG_VIRTUAL)) {
+		BLI_assert(ID_VIRTUAL_LIBRARY_VALID(id));
+		id->tag |= LIB_TAG_EXTERN;
+	}
+
 	/* need a name for the mallocN, just for debugging and sane prints on leaks */
 	allocname = dataname(GS(id->name));
 	
@@ -8487,7 +8499,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 			bhead->code = ID_SCR;
 			/* deliberate pass on to default */
 		default:
-			bhead = read_libblock(fd, bfd->main, bhead, LIB_TAG_LOCAL, NULL);
+			bhead = read_libblock(fd, mainlist.last, bhead, LIB_TAG_LOCAL, NULL);
 		}
 	}
 	

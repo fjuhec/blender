@@ -1774,7 +1774,7 @@ static bool filelist_file_cache_block_create(FileList *filelist, const int start
 		entry = filelist_file_create_entries_block(filelist, start_index, size);
 
 		for (i = 0; i < size; i++, cursor++, entry = entry->next) {
-			printf("%d, %p\n", i, entry);
+//			printf("%d, %p\n", i, entry);
 			cache->block_entries[cursor] = entry;
 			BLI_ghash_insert(cache->uuids, entry->uuid, entry);
 		}
@@ -2121,7 +2121,8 @@ static bool file_is_blend_backup(const char *str)
 	return (retval);
 }
 
-static int path_extension_type(const char *path)
+/* TODO: Maybe we should move this to BLI? On the other hand, it's using defines from spacefile area, so not sure... */
+int ED_path_extension_type(const char *path)
 {
 	if (BLO_has_bfile_extension(path)) {
 		return FILE_TYPE_BLENDER;
@@ -2173,12 +2174,12 @@ static int file_extension_type(const char *dir, const char *relpath)
 {
 	char path[FILE_MAX];
 	BLI_join_dirfile(path, sizeof(path), dir, relpath);
-	return path_extension_type(path);
+	return ED_path_extension_type(path);
 }
 
 int ED_file_extension_icon(const char *path)
 {
-	int type = path_extension_type(path);
+	const int type = ED_path_extension_type(path);
 	
 	switch (type) {
 		case FILE_TYPE_BLENDER:

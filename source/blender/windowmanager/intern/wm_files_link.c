@@ -67,6 +67,7 @@
 #include "BKE_depsgraph.h"
 #include "BKE_library.h"
 #include "BKE_global.h"
+#include "BKE_image.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -77,6 +78,7 @@
 #include "IMB_colormanagement.h"
 
 #include "ED_screen.h"
+#include "ED_fileselect.h"
 
 #include "GPU_material.h"
 
@@ -197,7 +199,7 @@ static WMLinkAppendDataItem *wm_link_append_data_item_add(
         WMLinkAppendData *lapp_data, const char *idname, const short idcode, const AssetUUID *uuid, void *customdata)
 {
 	WMLinkAppendDataItem *item = BLI_memarena_alloc(lapp_data->memarena, sizeof(*item));
-	size_t len = strlen(idname) + 1;
+	const size_t len = strlen(idname) + 1;
 
 	if (uuid) {
 		item->uuid = BLI_memarena_alloc(lapp_data->memarena, sizeof(*item->uuid));
@@ -220,6 +222,78 @@ static WMLinkAppendDataItem *wm_link_append_data_item_add(
 	return item;
 }
 
+static int path_to_idcode(const char *path)
+{
+	const int filetype = ED_path_extension_type(path);
+	switch (filetype) {
+		case FILE_TYPE_IMAGE:
+		case FILE_TYPE_MOVIE:
+			return ID_IM;
+		case FILE_TYPE_FTFONT:
+			return ID_VF;
+		case FILE_TYPE_SOUND:
+			return ID_SO;
+		case FILE_TYPE_PYSCRIPT:
+		case FILE_TYPE_TEXT:
+			return ID_TXT;
+		default:
+			return 0;
+	}
+}
+
+static void wm_link_virtual_lib(WMLinkAppendData *lapp_data, Main *bmain, AssetEngineType *aet, const int lib_idx)
+{
+	LinkNode *itemlink;
+	int item_idx;
+
+	BLI_assert(aet);
+
+	/* Find or add virtual library matching current asset engine. */
+	Library *virtlib = BKE_library_asset_virtual_ensure(bmain, aet);
+
+	for (item_idx = 0, itemlink = lapp_data->items.list; itemlink; item_idx++, itemlink = itemlink->next) {
+		WMLinkAppendDataItem *item = itemlink->link;
+		ID *new_id = NULL;
+		bool id_exists = false;
+
+		if (!BLI_BITMAP_TEST(item->libraries, lib_idx)) {
+			continue;
+		}
+
+		switch (item->idcode) {
+			case ID_IM:
+				new_id = (ID *)BKE_image_load_exists_ex(item->name, &id_exists);
+				if (id_exists) {
+					if (!new_id->uuid || !ASSETUUID_COMPARE(new_id->uuid, item->uuid)) {
+						/* Fake 'same ID' (same path, but different uuid or whatever), force loading into new ID. */
+						BLI_assert(new_id->lib != virtlib);
+						new_id = (ID *)BKE_image_load(bmain, item->name);
+						id_exists = false;
+					}
+				}
+				break;
+			default:
+				break;
+		}
+
+		if (new_id) {
+			new_id->lib = virtlib;
+			new_id->tag |= LIB_TAG_EXTERN | LIB_ASSET;
+
+			if (!id_exists) {
+				new_id->uuid = MEM_mallocN(sizeof(*new_id->uuid), __func__);
+				*new_id->uuid = *item->uuid;
+			}
+
+			/* If the link is sucessful, clear item's libs 'todo' flags.
+			 * This avoids trying to link same item with other libraries to come. */
+			BLI_BITMAP_SET_ALL(item->libraries, false, lapp_data->num_libraries);
+			item->new_id = new_id;
+		}
+	}
+	BKE_libraries_asset_repositories_rebuild(bmain);
+}
+
 static void wm_link_do(
         WMLinkAppendData *lapp_data, ReportList *reports, Main *bmain, AssetEngineType *aet, Scene *scene, View3D *v3d,
         const bool use_placeholders, const bool force_indirect)
@@ -237,6 +311,12 @@ static void wm_link_do(
 
 	for (lib_idx = 0, liblink = lapp_data->libraries.list; liblink; lib_idx++, liblink = liblink->next) {
 		char *libname = liblink->link;
+
+		if (libname[0] == '\0') {
+			/* Special 'virtual lib' cases. */
+			wm_link_virtual_lib(lapp_data, bmain, aet, lib_idx);
+			continue;
+		}
 
 		bh = BLO_blendhandle_from_file(libname, reports);
 
@@ -312,15 +392,15 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	}
 
 	/* test if we have a valid data */
-	if (!BLO_library_path_explode(path, libname, &group, &name)) {
+	if (!BLO_library_path_explode(path, libname, &group, &name) && (!aet || !path_to_idcode(path))) {
 		BKE_reportf(op->reports, RPT_ERROR, "'%s': not a library", path);
 		return OPERATOR_CANCELLED;
 	}
-	else if (!group) {
+	else if (!group && !aet) {
 		BKE_reportf(op->reports, RPT_ERROR, "'%s': nothing indicated", path);
 		return OPERATOR_CANCELLED;
 	}
-	else if (BLI_path_cmp(bmain->name, libname) == 0) {
+	else if (libname[0] && BLI_path_cmp(bmain->name, libname) == 0) {
 		BKE_reportf(op->reports, RPT_ERROR, "'%s': cannot use current file as library", path);
 		return OPERATOR_CANCELLED;
 	}
@@ -388,6 +468,14 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 					wm_link_append_data_library_add(lapp_data, libname);
 				}
 			}
+			/* Non-blend paths are only valid in asset engine context (virtual libraries). */
+			else if (aet && path_to_idcode(path)) {
+				if (!BLI_ghash_haskey(libraries, "")) {
+					BLI_ghash_insert(libraries, BLI_strdup(""), SET_INT_IN_POINTER(lib_idx));
+					lib_idx++;
+					wm_link_append_data_library_add(lapp_data, "");
+				}
+			}
 		}
 		RNA_END;
 
@@ -415,12 +503,27 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 				item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), &uuid, NULL);
 				BLI_BITMAP_ENABLE(item->libraries, lib_idx);
 			}
+			else if (aet) {  /* Non-blend paths are only valid in asset engine context (virtual libraries). */
+				const int idcode = path_to_idcode(path);
+
+				if (idcode != 0) {
+					WMLinkAppendDataItem *item;
+					lib_idx = GET_INT_FROM_POINTER(BLI_ghash_lookup(libraries, ""));
+
+					RNA_int_get_array(&itemptr, "asset_uuid", uuid.uuid_asset);
+					RNA_int_get_array(&itemptr, "variant_uuid", uuid.uuid_variant);
+					RNA_int_get_array(&itemptr, "revision_uuid", uuid.uuid_revision);
+
+					item = wm_link_append_data_item_add(lapp_data, path, idcode, &uuid, NULL);
+					BLI_BITMAP_ENABLE(item->libraries, lib_idx);
+				}
+			}
 		}
 		RNA_END;
 
 		BLI_ghash_free(libraries, MEM_freeN, NULL);
 	}
-	else {
+	else if (group && name) {
 		WMLinkAppendDataItem *item;
 
 		wm_link_append_data_library_add(lapp_data, libname);
@@ -964,7 +1067,7 @@ static void asset_update_engines_uuids_fetch(
 {
 	for (Library *lib = bmain->library.first; lib; lib = lib->id.next) {
 		if (lib->asset_repository) {
-			printf("Checking lib file %s (engine %s, ver. %d)\n", lib->filepath,
+			printf("Checking lib file '%s' (engine %s, ver. %d)\n", lib->filepath,
 			       lib->asset_repository->asset_engine, lib->asset_repository->asset_engine_version);
 
 			AssetUpdateCheckEngine *auce = NULL;
@@ -1231,9 +1334,6 @@ void WM_OT_assets_update_check(wmOperatorType *ot)
 	ot->name = "Check Assets Update";
 	ot->idname = "WM_OT_assets_update_check";
 	ot->description = "Check/refresh status of assets (in a background job)";
-
-//	RNA_def_boolean(ot->srna, "use_scripts", true, "Trusted Source",
-//	                "Allow .blend file to execute scripts automatically, default available from system preferences");
 
 	ot->exec = wm_assets_update_check_exec;
 }
