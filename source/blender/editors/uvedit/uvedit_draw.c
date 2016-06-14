@@ -222,7 +222,9 @@ static void draw_uvs_stretch(SpaceImage *sima, Scene *scene, BMEditMesh *em, MTe
 						glBegin(GL_POLYGON);
 						BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
 							luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-							glVertex2fv(luv->uv);
+							if (!(luv->flag & MLOOPUV_HIDDEN)) {
+								glVertex2fv(luv->uv);
+							}
 						}
 						glEnd();
 					}
@@ -260,7 +262,9 @@ static void draw_uvs_stretch(SpaceImage *sima, Scene *scene, BMEditMesh *em, MTe
 						glBegin(GL_POLYGON);
 						BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
 							luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-							glVertex2fv(luv->uv);
+							if (!(luv->flag & MLOOPUV_HIDDEN)) {
+								glVertex2fv(luv->uv);
+							}
 						}
 						glEnd();
 					}
@@ -323,10 +327,12 @@ static void draw_uvs_stretch(SpaceImage *sima, Scene *scene, BMEditMesh *em, MTe
 					glBegin(GL_POLYGON);
 					BM_ITER_ELEM_INDEX (l, &liter, efa, BM_LOOPS_OF_FACE, i) {
 						luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-						a = fabsf(uvang[i] - ang[i]) / (float)M_PI;
-						weight_to_rgb(col, 1.0f - pow2f(1.0f - a));
-						glColor3fv(col);
-						glVertex2fv(luv->uv);
+						if (!(luv->flag & MLOOPUV_HIDDEN)) {
+							a = fabsf(uvang[i] - ang[i]) / (float)M_PI;
+							weight_to_rgb(col, 1.0f - pow2f(1.0f - a));
+							glColor3fv(col);
+							glVertex2fv(luv->uv);
+						}
 					}
 					glEnd();
 				}
@@ -359,7 +365,9 @@ static void draw_uvs_lineloop_bmface(BMFace *efa, const int cd_loop_uv_offset)
 	glBegin(GL_LINE_LOOP);
 	BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
 		luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-		glVertex2fv(luv->uv);
+		if (!(luv->flag & MLOOPUV_HIDDEN)) {
+			glVertex2fv(luv->uv);
+		}
 	}
 	glEnd();
 }
@@ -372,7 +380,7 @@ static void draw_uvs_lineloop_mpoly(Mesh *me, MPoly *mpoly)
 	glBegin(GL_LINE_LOOP);
 	mloopuv = &me->mloopuv[mpoly->loopstart];
 	for (i = mpoly->totloop; i != 0; i--, mloopuv++) {
-		glVertex2fv(mloopuv->uv);
+		glVertex2fv(mloopuv->uv); /* We don't check MLOOPUV_HIDDEN here since we always want to see other UVs */
 	}
 	glEnd();
 }
@@ -525,7 +533,9 @@ static void draw_uvs_looptri(BMEditMesh *em, unsigned int *r_loop_index, const i
 		unsigned int j;
 		for (j = 0; j < 3; j++) {
 			MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(em->looptris[i][j], cd_loop_uv_offset);
-			glVertex2fv(luv->uv);
+			if (!(luv->flag & MLOOPUV_HIDDEN)) {
+				glVertex2fv(luv->uv);
+			}
 		}
 		i++;
 	} while (i != em->tottri && (f == em->looptris[i][0]->f));
@@ -801,7 +811,9 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, Object *obedit)
 							glColor4ubv(sel ? (GLubyte *)col1 : (GLubyte *)col2);
 
 							luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-							glVertex2fv(luv->uv);
+							if (!(luv->flag & MLOOPUV_HIDDEN)) {
+								glVertex2fv(luv->uv);
+							}
 						}
 						glEnd();
 					}
@@ -819,9 +831,13 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, Object *obedit)
 								lastsel = sel;
 							}
 							luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-							glVertex2fv(luv->uv);
+							if (!(luv->flag & MLOOPUV_HIDDEN)) {
+								glVertex2fv(luv->uv);
+							}
 							luv = BM_ELEM_CD_GET_VOID_P(l->next, cd_loop_uv_offset);
-							glVertex2fv(luv->uv);
+							if (!(luv->flag & MLOOPUV_HIDDEN)) {
+								glVertex2fv(luv->uv);
+							}
 						}
 						glEnd();
 					}
@@ -862,9 +878,13 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, Object *obedit)
 			if (!BM_elem_flag_test(efa, BM_ELEM_TAG))
 				continue;
 
+			tf = BM_ELEM_CD_GET_VOID_P(efa, cd_poly_tex_offset);
+
 			if (!uvedit_face_select_test(scene, efa, cd_loop_uv_offset)) {
-				uv_poly_center(efa, cent, cd_loop_uv_offset);
-				glVertex2fv(cent);
+				if (uv_poly_visible(efa, cd_loop_uv_offset)) {
+					uv_poly_center(efa, cent, cd_loop_uv_offset);
+					glVertex2fv(cent); 
+				}
 			}
 		}
 
@@ -875,9 +895,13 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, Object *obedit)
 			if (!BM_elem_flag_test(efa, BM_ELEM_TAG))
 				continue;
 
+			tf = BM_ELEM_CD_GET_VOID_P(efa, cd_poly_tex_offset);
+
 			if (uvedit_face_select_test(scene, efa, cd_loop_uv_offset)) {
-				uv_poly_center(efa, cent, cd_loop_uv_offset);
-				glVertex2fv(cent);
+				if (uv_poly_visible(efa, cd_loop_uv_offset)) {
+					uv_poly_center(efa, cent, cd_loop_uv_offset);
+					glVertex2fv(cent); 
+				}
 			}
 		}
 
@@ -899,7 +923,7 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, Object *obedit)
 
 			BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
 				luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-				if (!uvedit_uv_select_test(scene, l, cd_loop_uv_offset))
+				if (!uvedit_uv_select_test(scene, l, cd_loop_uv_offset) && !(luv->flag & MLOOPUV_HIDDEN))
 					glVertex2fv(luv->uv);
 			}
 		}
@@ -918,7 +942,7 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, Object *obedit)
 			BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
 				luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
 
-				if (luv->flag & MLOOPUV_PINNED)
+				if (luv->flag & MLOOPUV_PINNED && !(luv->flag & MLOOPUV_HIDDEN))
 					glVertex2fv(luv->uv);
 			}
 		}
@@ -936,7 +960,7 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, Object *obedit)
 			BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
 				luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
 
-				if (uvedit_uv_select_test(scene, l, cd_loop_uv_offset))
+				if (uvedit_uv_select_test(scene, l, cd_loop_uv_offset) && !(luv->flag & MLOOPUV_HIDDEN))
 					glVertex2fv(luv->uv);
 			}
 		}

@@ -631,6 +631,24 @@ void uv_poly_center(BMFace *f, float r_cent[2], const int cd_loop_uv_offset)
 	mul_v2_fl(r_cent, 1.0f / (float)f->len);
 }
 
+bool uv_poly_visible(BMFace *f, const int cd_loop_uv_offset)
+{
+	BMLoop *l;
+	MLoopUV *luv;
+	BMIter liter;
+	bool visible = false;
+
+	BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
+		luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
+		if (!(luv->flag & MLOOPUV_HIDDEN)) {
+			visible = true;
+			break;
+		}
+	}
+
+	return visible;
+}
+
 void uv_poly_copy_aspect(float uv_orig[][2], float uv[][2], float aspx, float aspy, int len)
 {
 	int i;
@@ -3922,61 +3940,14 @@ static int uv_hide_exec(bContext *C, wmOperator *op)
 
 		BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
 			luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-
-			if (UV_SEL_TEST(luv, !swap)) {
-				hide = 1;
-				break;
-			}
-		}
-
-		if (hide) {
-			/* note, a special case for edges could be used,
-			 * for now edges act like verts and get flushed */
-			if (use_face_center) {
-				if (em->selectmode == SCE_SELECT_FACE) {
-					/* check that every UV is selected */
-					if (bm_face_is_all_uv_sel(efa, true, cd_loop_uv_offset) == !swap) {
-						BM_face_select_set(em->bm, efa, false);
-					}
-					uvedit_face_select_disable(scene, em, efa, cd_loop_uv_offset);
-				}
-				else {
-					if (bm_face_is_all_uv_sel(efa, true, cd_loop_uv_offset) == !swap) {
-						BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
-							luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-							if (UV_SEL_TEST(luv, !swap)) {
-								BM_vert_select_set(em->bm, l->v, false);
-							}
-						}
-					}
-					if (!swap) uvedit_face_select_disable(scene, em, efa, cd_loop_uv_offset);
-				}
-			}
-			else if (em->selectmode == SCE_SELECT_FACE) {
-				/* check if a UV is de-selected */
-				if (bm_face_is_all_uv_sel(efa, false, cd_loop_uv_offset) != !swap) {
-					BM_face_select_set(em->bm, efa, false);
-					uvedit_face_select_disable(scene, em, efa, cd_loop_uv_offset);
-				}
-			}
-			else {
-				BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
-					luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-					if (UV_SEL_TEST(luv, !swap)) {
-						BM_vert_select_set(em->bm, l->v, false);
-						if (!swap) luv->flag &= ~MLOOPUV_VERTSEL;
-					}
-				}
+			if ((luv->flag & MLOOPUV_VERTSEL && !swap) || (!(luv->flag & MLOOPUV_VERTSEL) && swap)) {
+				luv->flag |= MLOOPUV_HIDDEN;
 			}
 		}
 	}
-
-	/* flush vertex selection changes */
-	if (em->selectmode != SCE_SELECT_FACE)
-		EDBM_selectmode_flush_ex(em, SCE_SELECT_VERTEX | SCE_SELECT_EDGE);
 	
 	BM_select_history_validate(em->bm);
-	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
+	WM_event_add_notifier(C, NC_GEOM | ND_SELECT | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
 }
@@ -4012,13 +3983,8 @@ static int uv_reveal_exec(bContext *C, wmOperator *UNUSED(op))
 	BMLoop *l;
 	BMIter iter, liter;
 	MLoopUV *luv;
-	const int use_face_center = (ts->uv_selectmode == UV_SELECT_FACE);
-	const int stickymode = sima ? (sima->sticky != SI_STICKY_DISABLE) : 1;
 
 	const int cd_loop_uv_offset  = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
-
-	/* note on tagging, selecting faces needs to be delayed so it doesn't select the verts and
-	 * confuse our checks on selected verts. */
 
 	/* call the mesh function if we are in mesh sync sel */
 	if (ts->uv_flag & UV_SYNC_SELECTION) {
@@ -4027,92 +3993,19 @@ static int uv_reveal_exec(bContext *C, wmOperator *UNUSED(op))
 
 		return OPERATOR_FINISHED;
 	}
-	if (use_face_center) {
-		if (em->selectmode == SCE_SELECT_FACE) {
-			BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-				BM_elem_flag_disable(efa, BM_ELEM_TAG);
-				if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN) && !BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
-					BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
-						luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-						luv->flag |= MLOOPUV_VERTSEL;
-					}
-					/* BM_face_select_set(em->bm, efa, true); */
-					BM_elem_flag_enable(efa, BM_ELEM_TAG);
-				}
-			}
-		}
-		else {
-			/* enable adjacent faces to have disconnected UV selections if sticky is disabled */
-			if (!stickymode) {
-				BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-					BM_elem_flag_disable(efa, BM_ELEM_TAG);
-					if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN) && !BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
-						int totsel = 0;
-						BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
-							totsel += BM_elem_flag_test(l->v, BM_ELEM_SELECT);
-						}
-						
-						if (!totsel) {
-							BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
-								luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-								luv->flag |= MLOOPUV_VERTSEL;
-							}
-							/* BM_face_select_set(em->bm, efa, true); */
-							BM_elem_flag_enable(efa, BM_ELEM_TAG);
-						}
-					}
-				}
-			}
-			else {
-				BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-					BM_elem_flag_disable(efa, BM_ELEM_TAG);
-					if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN) && !BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
-						BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
-							if (BM_elem_flag_test(l->v, BM_ELEM_SELECT) == 0) {
-								luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-								luv->flag |= MLOOPUV_VERTSEL;
-							}
-						}
-						/* BM_face_select_set(em->bm, efa, true); */
-						BM_elem_flag_enable(efa, BM_ELEM_TAG);
-					}
-				}
-			}
-		}
-	}
-	else if (em->selectmode == SCE_SELECT_FACE) {
-		BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-			BM_elem_flag_disable(efa, BM_ELEM_TAG);
-			if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN) && !BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
-				BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
-					luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-					luv->flag |= MLOOPUV_VERTSEL;
-				}
-				/* BM_face_select_set(em->bm, efa, true); */
-				BM_elem_flag_enable(efa, BM_ELEM_TAG);
-			}
-		}
-	}
-	else {
-		BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-			BM_elem_flag_disable(efa, BM_ELEM_TAG);
-			if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN) && !BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
-				BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
-					if (BM_elem_flag_test(l->v, BM_ELEM_SELECT) == 0) {
-						luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
-						luv->flag |= MLOOPUV_VERTSEL;
-					}
-				}
-				/* BM_face_select_set(em->bm, efa, true); */
-				BM_elem_flag_enable(efa, BM_ELEM_TAG);
-			}
-		}
-	}
-	
-	/* re-select tagged faces */
-	BM_mesh_elem_hflag_enable_test(em->bm, BM_FACE, BM_ELEM_SELECT, true, false, BM_ELEM_TAG);
 
-	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
+	
+	BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
+			
+		if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
+			BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
+				luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
+				luv->flag &= ~MLOOPUV_HIDDEN;
+			}
+		}
+	}
+
+	WM_event_add_notifier(C, NC_GEOM | ND_SELECT | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
 }

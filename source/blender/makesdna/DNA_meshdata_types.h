@@ -213,6 +213,7 @@ enum {
 	MLOOPUV_EDGESEL = (1 << 0),
 	MLOOPUV_VERTSEL = (1 << 1),
 	MLOOPUV_PINNED  = (1 << 2),
+	MLOOPUV_HIDDEN  = (1 << 3)
 };
 
 /**
