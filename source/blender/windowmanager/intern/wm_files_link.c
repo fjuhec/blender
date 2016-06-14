@@ -221,6 +221,59 @@ static WMLinkAppendDataItem *wm_link_append_data_item_add(
 	return item;
 }
 
+static void wm_link_virtual_lib(WMLinkAppendData *lapp_data, Main *bmain, AssetEngineType *aet, const int lib_idx)
+{
+	LinkNode *itemlink;
+	int item_idx;
+
+	BLI_assert(aet);
+
+	/* Find or add virtual library matching current asset engine. */
+	Library *virtlib = BKE_library_asset_virtual_ensure(bmain, aet);
+
+	for (item_idx = 0, itemlink = lapp_data->items.list; itemlink; item_idx++, itemlink = itemlink->next) {
+		WMLinkAppendDataItem *item = itemlink->link;
+		ID *new_id = NULL;
+		bool id_exists = false;
+
+		if (!BLI_BITMAP_TEST(item->libraries, lib_idx)) {
+			continue;
+		}
+
+		switch (item->idcode) {
+			case ID_IM:
+				new_id = (ID *)BKE_image_load_exists_ex(item->name, &id_exists);
+				if (id_exists) {
+					if (!new_id->uuid || !ASSETUUID_COMPARE(new_id->uuid, item->uuid)) {
+						/* Fake 'same ID' (same path, but different uuid or whatever), force loading into new ID. */
+						BLI_assert(new_id->lib != virtlib);
+						new_id = (ID *)BKE_image_load(bmain, item->name);
+						id_exists = false;
+					}
+				}
+				break;
+			default:
+				break;
+		}
+
+		if (new_id) {
+			new_id->lib = virtlib;
+			new_id->tag |= LIB_TAG_EXTERN | LIB_ASSET;
+
+			if (!id_exists) {
+				new_id->uuid = MEM_mallocN(sizeof(*new_id->uuid), __func__);
+				*new_id->uuid = *item->uuid;
+			}
+
+			/* If the link is sucessful, clear item's libs 'todo' flags.
+			 * This avoids trying to link same item with other libraries to come. */
+			BLI_BITMAP_SET_ALL(item->libraries, false, lapp_data->num_libraries);
+			item->new_id = new_id;
+		}
+	}
+	BKE_libraries_asset_repositories_rebuild(bmain);
+}
+
 static void wm_link_do(
         WMLinkAppendData *lapp_data, ReportList *reports, Main *bmain, AssetEngineType *aet, Scene *scene, View3D *v3d)
 {
@@ -240,51 +293,7 @@ static void wm_link_do(
 
 		if (libname[0] == '\0') {
 			/* Special 'virtual lib' cases. */
-			BLI_assert(aet);
-
-			/* Find or add virtual library matching current asset engine. */
-			Library *virtlib = BKE_library_asset_virtual_ensure(bmain, aet);
-
-			for (item_idx = 0, itemlink = lapp_data->items.list; itemlink; item_idx++, itemlink = itemlink->next) {
-				WMLinkAppendDataItem *item = itemlink->link;
-				ID *new_id = NULL;
-				bool id_exists = false;
-
-				if (!BLI_BITMAP_TEST(item->libraries, lib_idx)) {
-					continue;
-				}
-
-				switch (item->idcode) {
-					case ID_IM:
-						new_id = (ID *)BKE_image_load_exists_ex(item->name, &id_exists);
-						if (id_exists) {
-							if (!new_id->uuid || !ASSETUUID_COMPARE(new_id->uuid, item->uuid)) {
-								BLI_assert(new_id->lib != virtlib);
-								new_id = (ID *)BKE_image_load(bmain, item->name);
-								id_exists = false;
-							}
-						}
-						break;
-					default:
-						break;
-				}
-
-				if (new_id) {
-					new_id->lib = virtlib;
-					new_id->tag |= LIB_TAG_EXTERN | LIB_ASSET;
-
-					if (!id_exists) {
-						new_id->uuid = MEM_mallocN(sizeof(*new_id->uuid), __func__);
-						*new_id->uuid = *item->uuid;
-					}
-
-					/* If the link is sucessful, clear item's libs 'todo' flags.
-					 * This avoids trying to link same item with other libraries to come. */
-					BLI_BITMAP_SET_ALL(item->libraries, false, lapp_data->num_libraries);
-					item->new_id = new_id;
-				}
-			}
-			BKE_libraries_asset_repositories_rebuild(bmain);
+			wm_link_virtual_lib(lapp_data, bmain, aet, lib_idx);
 			continue;
 		}
 
