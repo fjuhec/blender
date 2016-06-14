@@ -6454,14 +6454,15 @@ static ListBase *interpolate_all_segments(Nurb *nu)
 	int i = 0, dims = 3;
 	float *coord_array;
 	ListBase pl = {NULL,NULL};
-	LinkData link;
+	LinkData *link;
 
 	/* number of BezTriples */
 	int bezier_points = nu->pntsu;
 
 	while (i < bezier_points-1+nu->flagu) {
 		coord_array = MEM_callocN(dims * (nu->resolu) * sizeof(float), "interpolate_bezier2");
-		link.data = coord_array;
+		link = MEM_callocN(sizeof(LinkData), "interpolate_bezier3");
+		link->data = coord_array;
 		for (int j = 0; j < dims; j++) {
 			BKE_curve_forward_diff_bezier(nu->bezt[i%bezier_points].vec[1][j],
 										  nu->bezt[i%bezier_points].vec[2][j],
@@ -6469,46 +6470,59 @@ static ListBase *interpolate_all_segments(Nurb *nu)
 										  nu->bezt[(i+1)%bezier_points].vec[1][j],
 										  coord_array + j, nu->resolu - 1, sizeof(float) * dims);
 		}
-		BLI_addtail(&pl, &link);
+		BLI_addtail(&pl, link);
 		i++;
 	}
 
 	return &pl;
 }
 
-/*
-def interpolate_all_segments(spline_ob):
-'''
-> spline_ob:     bezier spline object
-< returns interpolated splinepoints
-'''
-point_range = len(spline_ob.bezier_points)
-pl = []
-
-for i in range (0, point_range-1+spline_ob.use_cyclic_u):
-if len(pl) > 0:
-pl.pop()
-seg = (interpolate_bezier(spline_ob.bezier_points[i%point_range].co,
-						  spline_ob.bezier_points[i%point_range].handle_right,
-						  spline_ob.bezier_points[(i+1)%point_range].handle_left,
-						  spline_ob.bezier_points[(i+1)%point_range].co,
-						  spline_ob.resolution_u+1))
-pl += seg
-return pl */
-
 static ListBase *linear_spline_list(ListBase *nubase)
 {
 	/* return a list with all the points of a curve object */
 	ListBase spline_list = {NULL, NULL};
-	LinkData link;
+	LinkData *link;
 	Nurb *nu;
 
 	for (nu=nubase->first; nu; nu=nu->next) {
-		link.data = interpolate_all_segments(nu);
-		BLI_addtail(&spline_list, &link);
+		link = MEM_callocN(sizeof(LinkData), "linearspllist1");
+		link->data = interpolate_all_segments(nu);
+		BLI_addtail(&spline_list, link);
 	}
 
 	return &spline_list;
+}
+
+static ListBase *get_intersections(float *p1, float *p2, ListBase *nubase)
+{
+	/* return a list with all the intersection points of the segment p1p2 with the curve object */
+	ListBase il = {NULL, NULL}, *spline_list, *points_list;
+	LinkData *intersection, *link, *spl;
+	float *coord_array, vi[2], p3[2], p4[2];
+	Nurb *nu = nubase->first;
+	int dims = 3, result;
+	const float PRECISION = 1e-05;
+
+	spline_list = linear_spline_list(nubase);		/* all the points in a curve object */
+	for (spl=spline_list->first; spl; spl=spl->next) { /* selecting the points of a given spline */
+		points_list = spl->data;        /* output of interpolate_all_segments */
+		for (link = points_list->first; link; link=link->next) {
+			coord_array = (float *)link->data;
+			for (int i = 0; i < nu->resolu - 1; i++) {
+				p3[0] = coord_array[i * dims];
+				p3[1] = coord_array[i * dims + 1];
+				p4[0] = coord_array[(i + 1) * dims];
+				p4[1] = coord_array[(i + 1) * dims + 1];
+				result = isect_seg_seg_v2_point(p2, p1, p3, p4, vi);
+				if (result == 1 && len_v2v2(vi, p1) > PRECISION) {
+					intersection = MEM_callocN(sizeof(LinkData), "getintersections1");
+					intersection->data = vi;
+					BLI_addtail(&il, intersection);
+				}
+			}
+		}
+	}
+	return &il;
 }
 
 static int extend_curve_exec(bContext *C, wmOperator *op)
@@ -6551,6 +6565,8 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 			}
 			get_nurb_shape_bounds(obedit, bound_box);
 			get_max_extent_2d(p1, p1_handle, bound_box, p1_extend);
+			intersections_list = get_intersections(p1, p1_extend, nubase);
+			/* nearest_point(p1, get_intersections(p1, p1_extend, nubase), 0, p2); */
 		}
 	}
 
