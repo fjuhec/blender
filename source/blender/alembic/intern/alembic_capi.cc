@@ -708,12 +708,14 @@ static DerivedMesh *read_points_sample(DerivedMesh *dm, const IObject &iobject, 
 	}
 
 	ICompoundProperty prop = schema.getArbGeomParams();
-
-	const IN3fArrayProperty &normals_prop = IN3fArrayProperty(prop, "N", 0);
 	N3fArraySamplePtr vnormals;
 
-	if (normals_prop) {
-		vnormals = normals_prop.getValue(sample_sel);
+	if (prop.valid()) {
+		const IN3fArrayProperty &normals_prop = IN3fArrayProperty(prop, "N", 0);
+
+		if (normals_prop) {
+			vnormals = normals_prop.getValue(sample_sel);
+		}
 	}
 
 	MVert *mverts = dm->getVertArray(dm);

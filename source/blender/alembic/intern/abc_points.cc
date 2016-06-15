@@ -161,12 +161,14 @@ void AbcPointsReader::readObjectData(Main *bmain, Scene *scene, float time)
 	utils::mesh_add_verts(mesh, positions->size());
 
 	ICompoundProperty prop = m_schema.getArbGeomParams();
-
-	const IN3fArrayProperty &normals_prop = IN3fArrayProperty(prop, "N", time);
 	N3fArraySamplePtr vnormals;
 
-	if (normals_prop) {
-		vnormals = normals_prop.getValue(sample_sel);
+	if (prop.valid()) {
+		const IN3fArrayProperty &normals_prop = IN3fArrayProperty(prop, "N", time);
+
+		if (normals_prop) {
+			vnormals = normals_prop.getValue(sample_sel);
+		}
 	}
 
 	read_mverts(mesh->mvert, positions, vnormals);
