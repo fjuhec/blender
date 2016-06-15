@@ -304,16 +304,14 @@ static void get_normals(DerivedMesh *dm, std::vector<float> &normals)
 		}
 
 		for (int j = 0; j < mp->totloop; ++ml, ++j) {
-			int index = ml->v;
+			const int index = ml->v;
 
 			/* Smooth shaded, use individual vert normals. */
 			if (mp->flag & ME_SMOOTH) {
 				normal_short_to_float_v3(no, verts[index].no);
-				copy_zup_yup(&normals[index * 3], no);
 			}
-			else {
-				copy_zup_yup(&normals[index * 3], no);
-			}
+
+			copy_zup_yup(&normals[index * 3], no);
 		}
 	}
 }
