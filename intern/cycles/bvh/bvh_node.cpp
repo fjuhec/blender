@@ -71,13 +71,13 @@ int BVHNode::getSubtreeSize(BVH_STAT stat) const
 				cnt = 1;
 			}
 			break;
-		case BVH_STAT_ALIGNED_QNODE_COUNT:
+		case BVH_STAT_ALIGNED_INNER_QNODE_COUNT:
 			{
 				bool has_unaligned = false;
 				for(int i = 0; i < num_children(); i++) {
 					BVHNode *node = get_child(i);
 					if(node->is_leaf()) {
-						cnt += node->is_unaligned()? 0: 1;
+						has_unaligned |= node->is_unaligned();
 					}
 					else {
 						for(int j = 0; j < node->num_children(); j++) {
@@ -89,13 +89,13 @@ int BVHNode::getSubtreeSize(BVH_STAT stat) const
 				cnt += has_unaligned? 0: 1;
 			}
 			return cnt;
-		case BVH_STAT_UNALIGNED_QNODE_COUNT:
+		case BVH_STAT_UNALIGNED_INNER_QNODE_COUNT:
 			{
 				bool has_unaligned = false;
 				for(int i = 0; i < num_children(); i++) {
 					BVHNode *node = get_child(i);
 					if(node->is_leaf()) {
-						cnt += node->is_unaligned()? 1: 0;
+						has_unaligned |= node->is_unaligned();
 					}
 					else {
 						for(int j = 0; j < node->num_children(); j++) {
@@ -107,6 +107,12 @@ int BVHNode::getSubtreeSize(BVH_STAT stat) const
 				cnt += has_unaligned? 1: 0;
 			}
 			return cnt;
+		case BVH_STAT_ALIGNED_LEAF_COUNT:
+			cnt = (is_leaf() && !is_unaligned()) ? 1 : 0;
+			break;
+		case BVH_STAT_UNALIGNED_LEAF_COUNT:
+			cnt = (is_leaf() && is_unaligned()) ? 1 : 0;
+			break;
 		default:
 			assert(0); /* unknown mode */
 	}

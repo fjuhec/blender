@@ -873,15 +873,17 @@ void QBVH::pack_nodes(const BVHNode *root)
 	/* Calculate size of the arrays required. */
 	const size_t num_nodes = root->getSubtreeSize(BVH_STAT_QNODE_COUNT);
 	const size_t num_leaf_nodes = root->getSubtreeSize(BVH_STAT_LEAF_COUNT);
+	assert(num_leaf_nodes <= num_nodes);
+	const size_t num_inner_nodes = num_nodes - num_leaf_nodes;
 	size_t node_size;
 	if(params.use_unaligned_nodes) {
-		const size_t unaligned_node_size =
-		        root->getSubtreeSize(BVH_STAT_UNALIGNED_QNODE_COUNT);
-		node_size = (unaligned_node_size * BVH_UNALIGNED_QNODE_SIZE) +
-		            (num_nodes - unaligned_node_size) * BVH_QNODE_SIZE;
+		const size_t num_unaligned_nodes =
+		        root->getSubtreeSize(BVH_STAT_UNALIGNED_INNER_QNODE_COUNT);
+		node_size = (num_unaligned_nodes * BVH_UNALIGNED_QNODE_SIZE) +
+		            (num_inner_nodes - num_unaligned_nodes) * BVH_QNODE_SIZE;
 	}
 	else {
-		node_size = (num_nodes - num_leaf_nodes) * BVH_QNODE_SIZE;
+		node_size = num_inner_nodes * BVH_QNODE_SIZE;
 	}
 	/* Resize arrays. */
 	pack.nodes.clear();
@@ -958,6 +960,7 @@ void QBVH::pack_nodes(const BVHNode *root)
 			pack_inner(e, &stack[stack.size()-numnodes], numnodes);
 		}
 	}
+	assert(node_size == nextNodeIdx);
 	/* Root index to start traversal at, to handle case of single leaf node. */
 	pack.root_index = (root->is_leaf())? -1: 0;
 }

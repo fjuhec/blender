@@ -1056,7 +1056,7 @@ static int psys_thread_context_init_distribute(ParticleThreadContext *ctx, Parti
 			const float pos = BLI_frand() * element_sum[totmapped - 1];
 			const int eidx = distribute_binary_search(element_sum, totmapped, pos);
 			particle_element[p] = element_map[eidx];
-			BLI_assert(pos <= element_sum[eidx] && pos > (eidx ? element_sum[eidx - 1] : 0.0f));
+			//BLI_assert(pos <= element_sum[eidx] && pos > (eidx ? element_sum[eidx - 1] : 0.0f));
 			jitter_offset[particle_element[p]] = pos;
 		}
 	}
