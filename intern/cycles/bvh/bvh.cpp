@@ -362,9 +362,6 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 
 			for(size_t i = 0, j = 0; i < bvh_nodes_size; j++) {
 				size_t nsize, nsize_bbox;
-				if(use_qbvh) {
-					assert(bvh_nodes[i].y == 0);
-				}
 				if(bvh_nodes[i].x & PATH_RAY_NODE_UNALIGNED) {
 					nsize = use_qbvh
 					            ? BVH_UNALIGNED_QNODE_SIZE
@@ -1063,7 +1060,14 @@ void QBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility)
 	}
 	else {
 		int4 *data = &pack.nodes[idx];
-		int4 c = data[7];
+		bool is_unaligned = (data[0].x & PATH_RAY_NODE_UNALIGNED) != 0;
+		int4 c;
+		if(is_unaligned) {
+			c = data[13];
+		}
+		else {
+			c = data[7];
+		}
 		/* Refit inner node, set bbox from children. */
 		BoundBox child_bbox[4] = {BoundBox::empty,
 		                          BoundBox::empty,
@@ -1082,23 +1086,62 @@ void QBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility)
 			}
 		}
 
-		float4 inner_data[BVH_QNODE_SIZE];
-		inner_data[0] = make_float4(__int_as_float(data[0].x),
-		                            __int_as_float(data[1].y),
-		                            __int_as_float(data[2].z),
-		                            __int_as_float(data[3].w));
-		for(int i = 0; i < 4; ++i) {
-			float3 bb_min = child_bbox[i].min;
-			float3 bb_max = child_bbox[i].max;
-			inner_data[1][i] = bb_min.x;
-			inner_data[2][i] = bb_max.x;
-			inner_data[3][i] = bb_min.y;
-			inner_data[4][i] = bb_max.y;
-			inner_data[5][i] = bb_min.z;
-			inner_data[6][i] = bb_max.z;
-			inner_data[7][i] = __int_as_float(c[i]);
+		/* TODO(sergey): To be de-duplicated with pack_inner(),
+		 * but for that need some sort of pack_node(). which operates with
+		 * direct data, not stack element.
+		 */
+		if(is_unaligned) {
+			Transform aligned_space = transform_identity();
+			float4 inner_data[BVH_UNALIGNED_QNODE_SIZE];
+			inner_data[0] = make_float4(
+			        __int_as_float(visibility | PATH_RAY_NODE_UNALIGNED),
+			        0.0f,
+			        0.0f,
+			        0.0f);
+			for(int i = 0; i < 4; ++i) {
+				Transform space = BVHUnaligned::compute_node_transform(
+				        child_bbox[i],
+				        aligned_space);
+				inner_data[1][i] = space.x.x;
+				inner_data[2][i] = space.x.y;
+				inner_data[3][i] = space.x.z;
+
+				inner_data[4][i] = space.y.x;
+				inner_data[5][i] = space.y.y;
+				inner_data[6][i] = space.y.z;
+
+				inner_data[7][i] = space.z.x;
+				inner_data[8][i] = space.z.y;
+				inner_data[9][i] = space.z.z;
+
+				inner_data[10][i] = space.x.w;
+				inner_data[11][i] = space.y.w;
+				inner_data[12][i] = space.z.w;
+
+				inner_data[13][i] = __int_as_float(c[i]);
+			}
+			memcpy(&pack.nodes[idx], inner_data, sizeof(float4)*BVH_UNALIGNED_QNODE_SIZE);
 		}
-		memcpy(&pack.nodes[idx], inner_data, sizeof(float4)*BVH_QNODE_SIZE);
+		else {
+			float4 inner_data[BVH_QNODE_SIZE];
+			inner_data[0] = make_float4(
+			        __int_as_float(visibility & ~PATH_RAY_NODE_UNALIGNED),
+			        0.0f,
+			        0.0f,
+			        0.0f);
+			for(int i = 0; i < 4; ++i) {
+				float3 bb_min = child_bbox[i].min;
+				float3 bb_max = child_bbox[i].max;
+				inner_data[1][i] = bb_min.x;
+				inner_data[2][i] = bb_max.x;
+				inner_data[3][i] = bb_min.y;
+				inner_data[4][i] = bb_max.y;
+				inner_data[5][i] = bb_min.z;
+				inner_data[6][i] = bb_max.z;
+				inner_data[7][i] = __int_as_float(c[i]);
+			}
+			memcpy(&pack.nodes[idx], inner_data, sizeof(float4)*BVH_QNODE_SIZE);
+		}
 	}
 }
 
