@@ -217,6 +217,8 @@ def extend(obj, operator, EXTEND_MODE):
 def main(context, operator):
     obj = context.active_object
 
+    bpy.ops.uv.reveal()
+
     extend(obj, operator, operator.properties.mode)
 
 

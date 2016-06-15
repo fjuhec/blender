@@ -558,7 +558,9 @@ def lightmap_uvpack(meshes,
 def unwrap(operator, context, **kwargs):
 
     is_editmode = (context.object.mode == 'EDIT')
+
     if is_editmode:
+        bpy.ops.uv.reveal()
         bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
     PREF_ACT_ONLY = kwargs.pop("PREF_ACT_ONLY")

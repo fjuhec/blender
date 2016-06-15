@@ -746,6 +746,7 @@ def main(context,
     
     is_editmode = (context.active_object.mode == 'EDIT')
     if is_editmode:
+        bpy.ops.uv.reveal()
         obList =  [ob for ob in [context.active_object] if ob and ob.type == 'MESH']
     else:
         obList =  [ob for ob in context.selected_editable_objects if ob and ob.type == 'MESH']
