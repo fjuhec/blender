@@ -89,5 +89,6 @@ void UV_OT_reset(struct wmOperatorType *ot);
 void UV_OT_sphere_project(struct wmOperatorType *ot);
 void UV_OT_unwrap(struct wmOperatorType *ot);
 void UV_OT_stitch(struct wmOperatorType *ot);
+void UV_OT_reveal(struct wmOperatorType *ot);
 
 #endif /* __UVEDIT_INTERN_H__ */

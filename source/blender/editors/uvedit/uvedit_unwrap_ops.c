@@ -1250,6 +1250,9 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
+	/* Reveal hidden UVs since they're taken into account*/
+	ED_uvedit_reveal(em);
+
 	mat4_to_size(obsize, obedit->obmat);
 	if (!(fabsf(obsize[0] - obsize[1]) < 1e-4f && fabsf(obsize[1] - obsize[2]) < 1e-4f))
 		BKE_report(op->reports, RPT_INFO,
@@ -1369,6 +1372,9 @@ static int uv_from_view_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
+	/* Reveal hidden UVs since they're taken into account*/
+	ED_uvedit_reveal(em);
+
 	cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
 
 	if (RNA_boolean_get(op->ptr, "orthographic")) {
@@ -1471,6 +1477,9 @@ static int reset_exec(bContext *C, wmOperator *UNUSED(op))
 		return OPERATOR_CANCELLED;
 	}
 
+	/* Reveal hidden UVs since they're taken into account*/
+	ED_uvedit_reveal(me->edit_btmesh);
+
 	ED_mesh_uv_loop_reset(C, me);
 
 	DAG_id_tag_update(obedit->data, 0);
@@ -1557,6 +1566,9 @@ static int sphere_project_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
+	/* Reveal hidden UVs since they're taken into account*/
+	ED_uvedit_reveal(em);
+
 	cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
 
 	uv_map_transform(C, op, center, rotmat);
@@ -1635,6 +1647,9 @@ static int cylinder_project_exec(bContext *C, wmOperator *op)
 	if (!ED_uvedit_ensure_uvs(C, scene, obedit)) {
 		return OPERATOR_CANCELLED;
 	}
+
+	/* Reveal hidden UVs since they're taken into account*/
+	ED_uvedit_reveal(em);
 
 	cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
 
@@ -1742,6 +1757,9 @@ static int cube_project_exec(bContext *C, wmOperator *op)
 	if (!ED_uvedit_ensure_uvs(C, scene, obedit)) {
 		return OPERATOR_CANCELLED;
 	}
+	
+	/* Reveal hidden UVs since they're taken into account*/
+	ED_uvedit_reveal(em);
 
 	ED_uvedit_unwrap_cube_project(obedit, em->bm, cube_size, true);
 	uv_map_clip_correct(scene, obedit, em, op);

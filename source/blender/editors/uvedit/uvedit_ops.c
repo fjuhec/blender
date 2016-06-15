@@ -3979,7 +3979,7 @@ static void UV_OT_hide(wmOperatorType *ot)
 	
 	/* api callbacks */
 	ot->exec = uv_hide_exec;
-	ot->poll = ED_operator_uvedit;
+	ot->poll = ED_operator_uvmap;
 
 	/* props */
 	RNA_def_boolean(ot->srna, "unselected", 0, "Hide Unselected", "Hide unselected rather than selected");
@@ -3987,40 +3987,44 @@ static void UV_OT_hide(wmOperatorType *ot)
 
 /****************** reveal operator ******************/
 
-static int uv_reveal_exec(bContext *C, wmOperator *UNUSED(op))
+void ED_uvedit_reveal(BMEditMesh *em) 
 {
-	SpaceImage *sima = CTX_wm_space_image(C);
-	Object *obedit = CTX_data_edit_object(C);
-	Scene *scene = CTX_data_scene(C);
-	ToolSettings *ts = scene->toolsettings;
-	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMFace *efa;
 	BMLoop *l;
 	BMIter iter, liter;
 	MLoopUV *luv;
 
-	const int cd_loop_uv_offset  = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
+	const int cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
 
-	/* call the mesh function if we are in mesh sync sel */
-	if (ts->uv_flag & UV_SYNC_SELECTION) {
-		EDBM_mesh_reveal(em);
-		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
+	BM_ITER_MESH(efa, &iter, em->bm, BM_FACES_OF_MESH) {
 
-		return OPERATOR_FINISHED;
-	}
-
-	
-	BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-			
 		if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-			BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
+			BM_ITER_ELEM(l, &liter, efa, BM_LOOPS_OF_FACE) {
 				luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
 				luv->flag &= ~MLOOPUV_HIDDEN;
 			}
 		}
+	}	
+}
+
+static int uv_reveal_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Object *obedit = CTX_data_edit_object(C);
+	Scene *scene = CTX_data_scene(C);
+	ToolSettings *ts = scene->toolsettings;
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);	
+
+	/* call the mesh function if we are in mesh sync sel */
+	if (ts->uv_flag & UV_SYNC_SELECTION) {
+		EDBM_mesh_reveal(em);
+		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+
+		return OPERATOR_FINISHED;
 	}
 
-	WM_event_add_notifier(C, NC_GEOM | ND_SELECT | ND_DATA, obedit->data);
+	ED_uvedit_reveal(em);
+
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
 }
@@ -4035,7 +4039,7 @@ static void UV_OT_reveal(wmOperatorType *ot)
 	
 	/* api callbacks */
 	ot->exec = uv_reveal_exec;
-	ot->poll = ED_operator_uvedit;
+	ot->poll = ED_operator_uvmap;
 }
 
 /******************** set 3d cursor operator ********************/
