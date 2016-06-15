@@ -295,7 +295,6 @@ enum PathRayFlag {
 	/* Special flag to tag unaligned BVH nodes. */
 	PATH_RAY_NODE_UNALIGNED = 2048,
 
-	/* note that these can use maximum 12 bits, the other are for layers */
 	PATH_RAY_ALL_VISIBILITY = (1|2|4|8|16|32|64|128|256|512|1024|2048),
 
 	PATH_RAY_MIS_SKIP = 4096,
