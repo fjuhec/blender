@@ -1092,13 +1092,13 @@ AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings, bo
 	if (is_subd) {
 		ISubD isubd_mesh(m_iobject, kWrapExisting);
 		m_subd_schema = isubd_mesh.getSchema();
+		get_min_max_time(m_subd_schema, m_min_time, m_max_time);
 	}
 	else {
 		IPolyMesh ipoly_mesh(m_iobject, kWrapExisting);
 		m_schema = ipoly_mesh.getSchema();
+		get_min_max_time(m_schema, m_min_time, m_max_time);
 	}
-
-	get_min_max_time(m_schema, m_min_time, m_max_time);
 }
 
 bool AbcMeshReader::valid() const
