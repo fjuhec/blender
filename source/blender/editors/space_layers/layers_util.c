@@ -101,6 +101,7 @@ void layers_tile_remove(const SpaceLayers *slayer, LayerTile *tile, const bool r
 
 /**
  * Find the tile at coordinate \a co (regionspace).
+ * \note Does *not* account for LayerTile.ofs (could optionally do, layer dragging assumes it doesn't).
  */
 LayerTile *layers_tile_find_at_coordinate(SpaceLayers *slayer, ARegion *ar, const int co[2])
 {

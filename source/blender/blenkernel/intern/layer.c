@@ -229,6 +229,28 @@ void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children)
 }
 
 /**
+ * Move \a litem that's already in the layer tree to slot \a newidx.
+ */
+void BKE_layeritem_move(LayerTreeItem *litem, const int newidx)
+{
+	const bool is_higher = litem->index < newidx;
+
+	for (int i = is_higher ? litem->index + 1 : litem->index - 1;
+	     i < litem->tree->tot_items && i >= 0;
+	     is_higher ? i++ : i--)
+	{
+		const int iter_new_idx = i + (is_higher ? -1 : 1);
+		litem->tree->items_all[iter_new_idx] = litem->tree->items_all[i];
+		litem->tree->items_all[iter_new_idx]->index = iter_new_idx;
+		if (i == newidx) {
+			litem->tree->items_all[i] = litem;
+			litem->index = i;
+			break;
+		}
+	}
+}
+
+/**
  * Assign \a item to \a group.
  */
 void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item)

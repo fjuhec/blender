@@ -34,11 +34,14 @@
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
+#include "BLI_rect.h"
 
 #include "DNA_windowmanager_types.h"
 
 #include "ED_object.h"
 #include "ED_screen.h"
+
+#include "MEM_guardedalloc.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -47,6 +50,36 @@
 #include "WM_types.h"
 
 #include "layers_intern.h" /* own include */
+
+
+/**
+ * LayerTile wrapper for additional information needed for
+ * offsetting and animating tiles during drag & drop reordering.
+ */
+typedef struct {
+	LayerTile *tile;
+	/* With this we can substract the added offset when done. If we simply
+	 * set it to 0 LayerTile.ofs can't be reliably used elsewhere. */
+	int ofs_added;
+} LayerDragTile;
+
+/**
+ * Data for layer tile drag and drop reordering.
+ */
+typedef struct {
+	LayerDragTile dragged; /* info for the tile that's being dragged */
+	/* LayerDragTile hash table for all items that need special info while dragging */
+	GHash *tiledrags;
+	int insert_idx;
+	int init_mval_y;
+} LayerDragData;
+
+enum {
+	LAYERDRAG_CANCEL = 1,
+	LAYERDRAG_CONFIRM,
+};
+
+/* -------------------------------------------------------------------- */
 
 
 static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
@@ -221,6 +254,160 @@ static void LAYERS_OT_group_add(wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->invoke = layer_group_add_invoke;
+	ot->poll = ED_operator_layers_active;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static LayerDragTile *layer_drag_tile_data_init(LayerDragData *ldrag, LayerTile *tile)
+{
+	LayerDragTile *tiledata = MEM_callocN(sizeof(LayerDragTile), "LayerDragTile");
+	tiledata->tile = tile;
+	BLI_ghash_insert(ldrag->tiledrags, tile, tiledata);
+
+	return tiledata;
+}
+
+static void layer_drag_tile_add_offset(LayerDragTile *tiledata, const int offset, const bool delta)
+{
+	tiledata->tile->ofs[1] += delta ? offset - tiledata->ofs_added : offset;
+	tiledata->ofs_added += delta ? offset - tiledata->ofs_added : offset;
+}
+
+static void layer_drag_tile_remove_cb(void *val)
+{
+	LayerDragTile *tiledata = val;
+	tiledata->tile->ofs[1] -= tiledata->ofs_added;
+	MEM_freeN(tiledata);
+}
+
+static void layer_drag_update_offsets(SpaceLayers *slayer, LayerDragData *ldrag, const wmEvent *event)
+{
+	LayerTile *drag_tile = ldrag->dragged.tile;
+	const bool is_upwards = ldrag->init_mval_y < event->mval[1];
+
+	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, iter_litem)
+	{
+		LayerTile *iter_tile = BLI_ghash_lookup(slayer->tiles, iter_litem);
+		bool needs_offset = false;
+
+		if (iter_tile == drag_tile)
+			continue;
+
+		/* check if the tile is supposed to be offset */
+		if ((is_upwards && iter_tile->litem->index < drag_tile->litem->index) ||
+		    (!is_upwards && iter_tile->litem->index > drag_tile->litem->index))
+		{
+			const int iter_cent = BLI_rcti_cent_y(&iter_tile->rect);
+			const int cmp_yval = event->prevy < event->y ? drag_tile->rect.ymax : drag_tile->rect.ymin;
+
+			if ((is_upwards && cmp_yval > iter_cent) || (!is_upwards && cmp_yval < iter_cent)) {
+				needs_offset = true;
+			}
+		}
+
+		/* ldrag->tiledrags only contains offset tiles */
+		LayerDragTile *tiledata = BLI_ghash_lookup(ldrag->tiledrags, iter_tile);
+		if (needs_offset) {
+			/* ensure the tile is offset (is not the case if it's not in LayerDragData.tiledrags) */
+			if (!tiledata) {
+				tiledata = layer_drag_tile_data_init(ldrag, iter_tile);
+				layer_drag_tile_add_offset(tiledata, drag_tile->tot_height * (is_upwards ? 1 : -1), false);
+			}
+			if (ldrag->insert_idx == -1 || !is_upwards || ldrag->insert_idx > iter_litem->index) {
+				/* store where the tile should be inserted if key is released now */
+				ldrag->insert_idx = iter_litem->index;
+			}
+		}
+		else if (tiledata) {
+			if (ldrag->insert_idx == -1 || is_upwards || ldrag->insert_idx < iter_litem->index) {
+				/* store where the tile should be inserted if key is released now */
+				ldrag->insert_idx = iter_litem->index - (event->prevy < event->y ? 1 : 0);
+			}
+			/* remove offset from tile and remove it from LayerDragData.tiledrags
+			 * hash table since it should only contain offset tiles */
+			BLI_ghash_remove(ldrag->tiledrags, iter_tile, NULL, layer_drag_tile_remove_cb);
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
+
+	layer_drag_tile_add_offset(&ldrag->dragged, ldrag->init_mval_y - event->mval[1], true);
+}
+
+static void layer_drag_end(wmOperator *op)
+{
+	LayerDragData *ldrag = op->customdata;
+
+	/* unset data for dragged tile */
+	ldrag->dragged.tile->ofs[1] -= ldrag->dragged.ofs_added;
+	ldrag->dragged.tile->flag &= ~LAYERTILE_FLOATING;
+
+	BLI_ghash_free(ldrag->tiledrags, NULL, layer_drag_tile_remove_cb);
+	MEM_freeN(ldrag);
+}
+
+static int layer_drag_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	ARegion *ar = CTX_wm_region(C);
+	LayerDragData *ldrag = op->customdata;
+	LayerTile *drag_tile = ldrag->dragged.tile;
+
+	if (event->type == EVT_MODAL_MAP) {
+		switch (event->val) {
+			case LAYERDRAG_CANCEL:
+				layer_drag_end(op);
+				ED_region_tag_redraw(ar);
+				return OPERATOR_CANCELLED;
+			case LAYERDRAG_CONFIRM:
+				BKE_layeritem_move(drag_tile->litem, ldrag->insert_idx);
+				layer_drag_end(op);
+				ED_region_tag_redraw(ar);
+				return OPERATOR_FINISHED;
+		}
+	}
+	else if (event->type == MOUSEMOVE) {
+		layer_drag_update_offsets(slayer, ldrag, event);
+		ED_region_tag_redraw(ar);
+	}
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+static int layer_drag_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	ARegion *ar = CTX_wm_region(C);
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
+
+	if (!tile)
+		return OPERATOR_CANCELLED;
+
+	LayerDragData *ldrag = MEM_callocN(sizeof(LayerDragData), __func__);
+	ldrag->dragged.tile = tile;
+	ldrag->tiledrags = BLI_ghash_ptr_new("LayerDragData");
+	ldrag->insert_idx = -1;
+	ldrag->init_mval_y = event->mval[1];
+
+	op->customdata = ldrag;
+	tile->flag |= LAYERTILE_FLOATING;
+
+	WM_event_add_modal_handler(C, op);
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+static void LAYERS_OT_move_drag(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Move Layer";
+	ot->idname = "LAYERS_OT_move_drag";
+	ot->description = "Change the position of a layer in the layer list using drag and drop";
+
+	/* api callbacks */
+	ot->invoke = layer_drag_invoke;
+	ot->modal = layer_drag_modal;
 	ot->poll = ED_operator_layers_active;
 
 	/* flags */
@@ -451,6 +638,7 @@ void layers_operatortypes(void)
 	WM_operatortype_append(LAYERS_OT_layer_add);
 	WM_operatortype_append(LAYERS_OT_group_add);
 	WM_operatortype_append(LAYERS_OT_remove);
+	WM_operatortype_append(LAYERS_OT_move_drag);
 	WM_operatortype_append(LAYERS_OT_layer_rename);
 
 	/* states (activating selecting, highlighting) */
@@ -458,6 +646,36 @@ void layers_operatortypes(void)
 	WM_operatortype_append(LAYERS_OT_select_all_toggle);
 
 	WM_operatortype_append(LAYERS_OT_objects_assign);
+}
+
+static wmKeyMap *layer_drag_modal_keymap(wmKeyConfig *keyconf)
+{
+	static EnumPropertyItem modal_items[] = {
+		{LAYERDRAG_CANCEL, "CANCEL", 0, "Cancel", ""},
+		{LAYERDRAG_CONFIRM, "CONFIRM", 0, "Confirm Moving", ""},
+		{0, NULL, 0, NULL, NULL}
+	};
+
+	wmKeyMap *keymap = WM_modalkeymap_get(keyconf, "Layer Dragging Modal Map");
+
+	/* this function is called for each spacetype, only needs to add map once */
+	if (keymap && keymap->modal_items)
+		return NULL;
+
+	keymap = WM_modalkeymap_add(keyconf, "Layer Dragging Modal Map", modal_items);
+
+	/* items for modal map */
+	WM_modalkeymap_add_item(keymap, ESCKEY, KM_PRESS, KM_ANY, 0, LAYERDRAG_CANCEL);
+	WM_modalkeymap_add_item(keymap, RIGHTMOUSE, KM_PRESS, KM_ANY, 0, LAYERDRAG_CANCEL);
+
+	WM_modalkeymap_add_item(keymap, RETKEY, KM_RELEASE, KM_ANY, 0, LAYERDRAG_CONFIRM);
+	WM_modalkeymap_add_item(keymap, PADENTER, KM_RELEASE, KM_ANY, 0, LAYERDRAG_CONFIRM);
+	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_RELEASE, KM_ANY, 0, LAYERDRAG_CONFIRM);
+
+	/* assign to operators */
+	WM_modalkeymap_assign(keymap, "LAYERS_OT_move_drag");
+
+	return keymap;
 }
 
 void layers_keymap(wmKeyConfig *keyconf)
@@ -474,6 +692,7 @@ void layers_keymap(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "fill", true);
 	WM_keymap_add_item(keymap, "LAYERS_OT_select_all_toggle", AKEY, KM_PRESS, 0, 0);
 
+	WM_keymap_add_item(keymap, "LAYERS_OT_move_drag", EVT_TWEAK_L, KM_ANY, 0, 0);
 	WM_keymap_add_item(keymap, "LAYERS_OT_layer_rename", LEFTMOUSE, KM_DBL_CLICK, 0, 0);
 	WM_keymap_add_item(keymap, "LAYERS_OT_layer_rename", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
 
@@ -484,4 +703,6 @@ void layers_keymap(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "LAYERS_OT_group_add", GKEY, KM_PRESS, KM_CTRL, 0);
 
 	WM_keymap_add_item(keymap, "LAYERS_OT_objects_assign", MKEY, KM_PRESS, 0, 0);
+
+	layer_drag_modal_keymap(keyconf);
 }

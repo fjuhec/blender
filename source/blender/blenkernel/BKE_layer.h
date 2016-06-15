@@ -90,6 +90,7 @@ void BKE_layeritem_register(
         const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
 void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children);
 
+void BKE_layeritem_move(LayerTreeItem *litem, const int newidx);
 void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item);
 
 bool BKE_layeritem_iterate_childs(

@@ -35,6 +35,9 @@ typedef enum eLayerTileFlag {
 	LAYERTILE_SELECTED = (1 << 0),
 	LAYERTILE_RENAME   = (1 << 1),
 	LAYERTILE_EXPANDED = (1 << 2),
+	/* Draw the tile as if it was floating above others (for drag and drop).
+	 * Note: Currently only one floating tile at a time allowed. */
+	LAYERTILE_FLOATING = (1 << 3),
 } eLayerTileFlag;
 
 /**
@@ -48,6 +51,10 @@ typedef struct LayerTile {
 	/* The height of this item. Set right after drawing,
 	 * so should always reflect what's on the screen */
 	int tot_height;
+	struct rcti rect;
+
+	/* Offset applied for drawing, used for drag and drop preview */
+	int ofs[2];
 } LayerTile;
 
 /* layers_draw.c */
