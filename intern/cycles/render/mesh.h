@@ -238,11 +238,31 @@ protected:
 	/* Calculate verts/triangles/curves offsets in global arrays. */
 	void mesh_calc_offset(Scene *scene);
 
-	void device_update_object(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress);
-	void device_update_mesh(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress);
-	void device_update_attributes(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress);
-	void device_update_bvh(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress);
-	void device_update_displacement_images(Device *device, DeviceScene *dscene, Scene *scene, Progress& progress);
+	void device_update_object(Device *device,
+	                          DeviceScene *dscene,
+	                          Scene *scene,
+	                          Progress& progress);
+
+	void device_update_mesh(Device *device,
+	                        DeviceScene *dscene,
+	                        Scene *scene,
+	                        bool for_displacement,
+	                        Progress& progress);
+
+	void device_update_attributes(Device *device,
+	                              DeviceScene *dscene,
+	                              Scene *scene,
+	                              Progress& progress);
+
+	void device_update_bvh(Device *device,
+	                       DeviceScene *dscene,
+	                       Scene *scene,
+	                       Progress& progress);
+
+	void device_update_displacement_images(Device *device,
+	                                       DeviceScene *dscene,
+	                                       Scene *scene,
+	                                       Progress& progress);
 };
 
 CCL_NAMESPACE_END
