@@ -26,9 +26,9 @@
  */
 
 #if BVH_FEATURE(BVH_HAIR)
-#  define NODE_INTERSECT qbvh_curve_node_intersect
-#else
 #  define NODE_INTERSECT qbvh_node_intersect
+#else
+#  define NODE_INTERSECT qbvh_aligned_node_intersect
 #endif
 
 ccl_device void BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,

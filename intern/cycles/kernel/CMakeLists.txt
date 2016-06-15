@@ -150,7 +150,6 @@ set(SRC_GEOM_HEADERS
 	geom/geom_object.h
 	geom/geom_primitive.h
 	geom/geom_qbvh.h
-	geom/geom_qbvh_curve.h
 	geom/geom_qbvh_shadow.h
 	geom/geom_qbvh_subsurface.h
 	geom/geom_qbvh_traversal.h

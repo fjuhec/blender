@@ -73,7 +73,6 @@ CCL_NAMESPACE_BEGIN
 /* Common QBVH functions. */
 #ifdef __QBVH__
 #  include "geom_qbvh.h"
-#  include "geom_qbvh_curve.h"
 #endif
 
 /* Regular BVH traversal */
