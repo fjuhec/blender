@@ -154,8 +154,8 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				traverseChild1 = (movemask(lrhit) & 2);
 #endif // __KERNEL_SSE2__
 
-				nodeAddr = __float_as_int(cnodes.x);
-				nodeAddrChild1 = __float_as_int(cnodes.y);
+				nodeAddr = __float_as_int(cnodes.z);
+				nodeAddrChild1 = __float_as_int(cnodes.w);
 
 				if(traverseChild0 && traverseChild1) {
 					/* both children were intersected, push the farther one */

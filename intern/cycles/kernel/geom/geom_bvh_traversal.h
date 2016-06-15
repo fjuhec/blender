@@ -137,11 +137,11 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				if(difl != 0.0f) {
 					float hdiff = 1.0f + difl;
 					float ldiff = 1.0f - difl;
-					if(__float_as_int(cnodes.z) & PATH_RAY_CURVE) {
+					if(__float_as_int(cnodes.x) & PATH_RAY_CURVE) {
 						c0min = max(ldiff * c0min, c0min - extmax);
 						c0max = min(hdiff * c0max, c0max + extmax);
 					}
-					if(__float_as_int(cnodes.w) & PATH_RAY_CURVE) {
+					if(__float_as_int(cnodes.y) & PATH_RAY_CURVE) {
 						c1min = max(ldiff * c1min, c1min - extmax);
 						c1max = min(hdiff * c1max, c1max + extmax);
 					}
@@ -151,8 +151,8 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				/* decide which nodes to traverse next */
 #  ifdef __VISIBILITY_FLAG__
 				/* this visibility test gives a 5% performance hit, how to solve? */
-				traverseChild0 = (c0max >= c0min) && (__float_as_uint(cnodes.z) & visibility);
-				traverseChild1 = (c1max >= c1min) && (__float_as_uint(cnodes.w) & visibility);
+				traverseChild0 = (c0max >= c0min) && (__float_as_uint(cnodes.x) & visibility);
+				traverseChild1 = (c1max >= c1min) && (__float_as_uint(cnodes.y) & visibility);
 #  else
 				traverseChild0 = (c0max >= c0min);
 				traverseChild1 = (c1max >= c1min);
@@ -182,11 +182,11 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 
 					float hdiff = 1.0f + difl;
 					float ldiff = 1.0f - difl;
-					if(__float_as_int(cnodes.z) & PATH_RAY_CURVE) {
+					if(__float_as_int(cnodes.x) & PATH_RAY_CURVE) {
 						c0min = max(ldiff * c0min, c0min - extmax);
 						c0max = min(hdiff * c0max, c0max + extmax);
 					}
-					if(__float_as_int(cnodes.w) & PATH_RAY_CURVE) {
+					if(__float_as_int(cnodes.y) & PATH_RAY_CURVE) {
 						c1min = max(ldiff * c1min, c1min - extmax);
 						c1max = min(hdiff * c1max, c1max + extmax);
 					}
@@ -198,16 +198,16 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				/* decide which nodes to traverse next */
 #  ifdef __VISIBILITY_FLAG__
 				/* this visibility test gives a 5% performance hit, how to solve? */
-				traverseChild0 = (movemask(lrhit) & 1) && (__float_as_uint(cnodes.z) & visibility);
-				traverseChild1 = (movemask(lrhit) & 2) && (__float_as_uint(cnodes.w) & visibility);
+				traverseChild0 = (movemask(lrhit) & 1) && (__float_as_uint(cnodes.x) & visibility);
+				traverseChild1 = (movemask(lrhit) & 2) && (__float_as_uint(cnodes.y) & visibility);
 #  else
 				traverseChild0 = (movemask(lrhit) & 1);
 				traverseChild1 = (movemask(lrhit) & 2);
 #  endif
 #endif // __KERNEL_SSE2__
 
-				nodeAddr = __float_as_int(cnodes.x);
-				nodeAddrChild1 = __float_as_int(cnodes.y);
+				nodeAddr = __float_as_int(cnodes.z);
+				nodeAddrChild1 = __float_as_int(cnodes.w);
 
 				if(traverseChild0 && traverseChild1) {
 					/* both children were intersected, push the farther one */

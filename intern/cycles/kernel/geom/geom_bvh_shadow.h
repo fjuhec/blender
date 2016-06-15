@@ -129,8 +129,8 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				/* decide which nodes to traverse next */
 #  ifdef __VISIBILITY_FLAG__
 				/* this visibility test gives a 5% performance hit, how to solve? */
-				traverseChild0 = (c0max >= c0min) && (__float_as_uint(cnodes.z) & PATH_RAY_SHADOW);
-				traverseChild1 = (c1max >= c1min) && (__float_as_uint(cnodes.w) & PATH_RAY_SHADOW);
+				traverseChild0 = (c0max >= c0min) && (__float_as_uint(cnodes.x) & PATH_RAY_SHADOW);
+				traverseChild1 = (c1max >= c1min) && (__float_as_uint(cnodes.y) & PATH_RAY_SHADOW);
 #  else
 				traverseChild0 = (c0max >= c0min);
 				traverseChild1 = (c1max >= c1min);
@@ -156,16 +156,16 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				/* decide which nodes to traverse next */
 #  ifdef __VISIBILITY_FLAG__
 				/* this visibility test gives a 5% performance hit, how to solve? */
-				traverseChild0 = (movemask(lrhit) & 1) && (__float_as_uint(cnodes.z) & PATH_RAY_SHADOW);
-				traverseChild1 = (movemask(lrhit) & 2) && (__float_as_uint(cnodes.w) & PATH_RAY_SHADOW);
+				traverseChild0 = (movemask(lrhit) & 1) && (__float_as_uint(cnodes.x) & PATH_RAY_SHADOW);
+				traverseChild1 = (movemask(lrhit) & 2) && (__float_as_uint(cnodes.y) & PATH_RAY_SHADOW);
 #  else
 				traverseChild0 = (movemask(lrhit) & 1);
 				traverseChild1 = (movemask(lrhit) & 2);
 #  endif
 #endif // __KERNEL_SSE2__
 
-				nodeAddr = __float_as_int(cnodes.x);
-				nodeAddrChild1 = __float_as_int(cnodes.y);
+				nodeAddr = __float_as_int(cnodes.z);
+				nodeAddrChild1 = __float_as_int(cnodes.w);
 
 				if(traverseChild0 && traverseChild1) {
 					/* both children were intersected, push the farther one */

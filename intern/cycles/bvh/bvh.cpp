@@ -380,12 +380,12 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 				/* Modify offsets into arrays */
 				int4 data = bvh_nodes[i + nsize_bbox];
 
-				data.x += (data.x < 0)? -noffset_leaf: noffset;
-				data.y += (data.y < 0)? -noffset_leaf: noffset;
+				data.z += (data.z < 0)? -noffset_leaf: noffset;
+				data.w += (data.w < 0)? -noffset_leaf: noffset;
 
 				if(use_qbvh) {
-					data.z += (data.z < 0)? -noffset_leaf: noffset;
-					data.w += (data.w < 0)? -noffset_leaf: noffset;
+					data.x += (data.x < 0)? -noffset_leaf: noffset;
+					data.y += (data.y < 0)? -noffset_leaf: noffset;
 				}
 
 				pack_nodes[pack_nodes_offset + nsize_bbox] = data;
@@ -468,7 +468,7 @@ void RegularBVH::pack_aligned_node(int idx,
 {
 	int4 data[BVH_NODE_SIZE] =
 	{
-		make_int4(c0, c1, visibility0, visibility1),
+		make_int4(visibility0, visibility1, c0, c1),
 		make_int4(__float_as_int(b0.min.x), __float_as_int(b1.min.x), __float_as_int(b0.max.x), __float_as_int(b1.max.x)),
 		make_int4(__float_as_int(b0.min.y), __float_as_int(b1.min.y), __float_as_int(b0.max.y), __float_as_int(b1.max.y)),
 		make_int4(__float_as_int(b0.min.z), __float_as_int(b1.min.z), __float_as_int(b0.max.z), __float_as_int(b1.max.z)),
@@ -503,10 +503,10 @@ void RegularBVH::pack_unaligned_node(int idx,
 	                                                        aligned_space0);
 	Transform space1 = BVHUnaligned::compute_node_transform(bounds1,
 	                                                        aligned_space1);
-	data[0] = make_float4(__int_as_float(c0),
-	                      __int_as_float(c1),
-	                      __int_as_float(visibility0 | PATH_RAY_NODE_UNALIGNED),
-	                      __int_as_float(visibility1 | PATH_RAY_NODE_UNALIGNED));
+	data[0] = make_float4(__int_as_float(visibility0 | PATH_RAY_NODE_UNALIGNED),
+	                      __int_as_float(visibility1 | PATH_RAY_NODE_UNALIGNED),
+	                      __int_as_float(c0),
+	                      __int_as_float(c1));
 
 	data[1] = space0.x;
 	data[2] = space0.y;
@@ -677,8 +677,8 @@ void RegularBVH::refit_node(int idx, bool leaf, BoundBox& bbox, uint& visibility
 	}
 	else {
 		int4 *data = &pack.nodes[idx];
-		int c0 = data[0].x;
-		int c1 = data[0].y;
+		int c0 = data[0].z;
+		int c1 = data[0].w;
 		/* refit inner node, set bbox from children */
 		BoundBox bbox0 = BoundBox::empty, bbox1 = BoundBox::empty;
 		uint visibility0 = 0, visibility1 = 0;
