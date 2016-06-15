@@ -723,7 +723,7 @@ static DerivedMesh *read_points_sample(DerivedMesh *dm, const IObject &iobject, 
 	return dm;
 }
 
-void read_curves_sample(float (*vertexCos)[3], int max_verts, const IObject &iobject, const float time)
+DerivedMesh *read_curves_sample(DerivedMesh *dm, const IObject &iobject, const float time)
 {
 	ICurves points(iobject, kWrapExisting);
 	ICurvesSchema schema = points.getSchema();
@@ -732,11 +732,9 @@ void read_curves_sample(float (*vertexCos)[3], int max_verts, const IObject &iob
 
 	const P3fArraySamplePtr &positions = sample.getPositions();
 
-	for (int i = 0; i < min_ff(max_verts, positions->size()); ++i) {
-		float *vert = vertexCos[i];
-		Imath::V3f pos_in = (*positions)[i];
-		copy_yup_zup(vert, pos_in.getValue());
-	}
+	read_mverts(dm->getVertArray(dm), positions, N3fArraySamplePtr());
+
+	return dm;
 }
 
 DerivedMesh *ABC_read_mesh(DerivedMesh *dm, const char *filepath, const char *object_path, const float time)
@@ -762,29 +760,9 @@ DerivedMesh *ABC_read_mesh(DerivedMesh *dm, const char *filepath, const char *ob
 	else if (IPoints::matches(header)) {
 		return read_points_sample(dm, iobject, time);
 	}
+	else if (ICurves::matches(header)) {
+		return read_curves_sample(dm, iobject, time);
+	}
 
 	return NULL;
-}
-
-void ABC_read_vertex_cache(const char *filepath, const char *object_path, const float time,
-                           float (*vertexCos)[3], int max_verts)
-{
-	IArchive archive = open_archive(filepath);
-
-	if (!archive.valid()) {
-		return;
-	}
-
-	IObject iobject;
-	find_iobject(archive.getTop(), iobject, object_path);
-
-	if (!iobject.valid()) {
-		return;
-	}
-
-	const ObjectHeader &header = iobject.getHeader();
-
-	if (ICurves::matches(header)) {
-		return read_curves_sample(vertexCos, max_verts, iobject, time);
-	}
 }

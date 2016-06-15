@@ -95,31 +95,6 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 #endif
 }
 
-static void deformVerts(ModifierData *md, Object *ob,
-                        DerivedMesh *derivedData,
-                        float (*vertexCos)[3],
-                        int numVerts,
-                        ModifierApplyFlag flag)
-{
-	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
-
-	Scene *scene = md->scene;
-
-	char filepath[1024];
-	BKE_cachefile_filepath_get(scene, mcmd->cache_file, filepath);
-
-	const float frame = BKE_scene_frame_get(scene);
-	const float time = BKE_cachefile_time_offset(mcmd->cache_file, frame / FPS);
-
-	ABC_read_vertex_cache(filepath,
-	                      mcmd->abc_object_path,
-                          time,
-	                      vertexCos,
-	                      numVerts);
-
-	UNUSED_VARS(ob, derivedData, flag);
-}
-
 static bool dependsOnTime(ModifierData *md)
 {
 	UNUSED_VARS(md);
@@ -138,11 +113,11 @@ ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* name */              "Mesh Sequence Cache",
     /* structName */        "MeshSeqCacheModifierData",
     /* structSize */        sizeof(MeshSeqCacheModifierData),
-    /* type */              eModifierTypeType_DeformOrConstruct,
+    /* type */              eModifierTypeType_Constructive,
     /* flags */             eModifierTypeFlag_AcceptsMesh |
                             eModifierTypeFlag_AcceptsCVs,
     /* copyData */          copyData,
-    /* deformVerts */       deformVerts,
+    /* deformVerts */       NULL,
     /* deformMatrices */    NULL,
     /* deformVertsEM */     NULL,
     /* deformMatricesEM */  NULL,
