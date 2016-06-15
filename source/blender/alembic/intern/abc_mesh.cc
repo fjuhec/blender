@@ -423,7 +423,6 @@ AbcMeshWriter::AbcMeshWriter(Scene *scene,
 	m_is_animated = isAnimated();
 	m_subsurf_mod = NULL;
 	m_has_per_face_materials = false;
-	m_has_vertex_weights = false;
 	m_is_subd = false;
 
 	/* If the object is static, use the default static time sampling. */
@@ -650,8 +649,6 @@ void AbcMeshWriter::writeCommonData(DerivedMesh *dm, Schema &schema)
 			                schema.getUserProperties(), true);
 		}
 	}
-
-	createArbGeoParams(dm);
 }
 
 DerivedMesh *AbcMeshWriter::getFinalMesh()
@@ -675,116 +672,6 @@ void AbcMeshWriter::freeMesh(DerivedMesh *dm)
 	dm->release(dm);
 }
 
-void AbcMeshWriter::createArbGeoParams(DerivedMesh *dm)
-{
-	if (m_is_liquid) {
-		/* We don't need anything more for liquid meshes. */
-		return;
-	}
-
-	std::string layer_name;
-
-	for (int i = 0; i < dm->vertData.totlayer; ++i) {
-		layer_name = dm->vertData.layers[i].name;
-
-		/* Skip unnamed layers. */
-		if (layer_name == "") {
-			continue;
-		}
-
-		if (m_subdiv_schema.valid())
-			createVertexLayerParam(dm, i, m_subdiv_schema.getArbGeomParams());
-		else
-			createVertexLayerParam(dm, i, m_mesh_schema.getArbGeomParams());
-	}
-
-	for (int i = 0; i < dm->polyData.totlayer; ++i) {
-		CustomDataLayer *layer = &dm->polyData.layers[i];
-		layer_name = dm->polyData.layers[i].name;
-
-		/* Skip unnamed layers. */
-		if (layer_name == "") {
-			continue;
-		}
-
-		if (layer->type == CD_MCOL && !m_settings.export_vcols)
-			continue;
-
-		if (m_subdiv_schema.valid()) {
-			createFaceLayerParam(dm, i, m_subdiv_schema.getArbGeomParams());
-		}
-		else {
-			createFaceLayerParam(dm, i, m_mesh_schema.getArbGeomParams());
-		}
-	}
-}
-
-void AbcMeshWriter::createVertexLayerParam(DerivedMesh *dm, int index,
-                                           const OCompoundProperty &arbGeoParams)
-{
-	CustomDataLayer *layer = &dm->vertData.layers[index];
-	const std::string layer_name = layer->name;
-
-	/* We have already a layer named `layer_name`. Skip. */
-	if (m_layers_written.count(layer_name) != 0) {
-		return;
-	}
-
-	switch (layer->type) {
-		case CD_PROP_FLT:
-		{
-			OFloatGeomParam param(arbGeoParams, layer_name, false,
-			                      kVertexScope, 1, m_time_sampling);
-			m_layers_written.insert(layer_name);
-			m_vert_layers.push_back(
-			            std::pair<int, OArrayProperty>(index,
-			                                           param.getValueProperty()));
-
-			break;
-		}
-		case CD_PROP_INT:
-		{
-			OInt32GeomParam param(arbGeoParams, layer_name, false,
-			                      kVertexScope, 1, m_time_sampling);
-			m_layers_written.insert(layer_name);
-			m_vert_layers.push_back(
-			            std::pair<int, OArrayProperty>(index,
-			                                           param.getValueProperty()));
-
-			break;
-		}
-	}
-}
-
-void AbcMeshWriter::createFaceLayerParam(DerivedMesh *dm, int index,
-                                         const OCompoundProperty &arbGeoParams)
-{
-	CustomDataLayer *layer = &dm->polyData.layers[index];
-	const std::string layer_name = layer->name;
-
-	/* We have already a layer named `layer_name`. Skip. */
-	if (m_layers_written.count(layer_name) != 0) {
-		return;
-	}
-
-	switch (layer->type) {
-		case CD_MCOL:
-		{
-			OC3fGeomParam param(arbGeoParams, layer_name, false,
-			                    kFacevaryingScope, 1, m_time_sampling);
-
-			m_layers_written.insert(layer_name);
-			m_face_layers.push_back(
-			            std::pair<int, OArrayProperty>(index,
-			                                           param.getValueProperty()));
-
-			break;
-		}
-		default:
-			break;
-	};
-}
-
 void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 {
 	if (m_is_liquid) {
@@ -798,28 +685,6 @@ void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 		}
 		else {
 			write_vertex_colors(m_mesh_schema.getArbGeomParams(), dm);
-		}
-	}
-
-	return;
-
-	/* Vertex data. */
-	for (int i = 0; i < m_vert_layers.size(); ++i) {
-		if (m_subdiv_schema.valid()) {
-			writeVertexLayerParam(dm, i, m_subdiv_schema.getArbGeomParams());
-		}
-		else {
-			writeVertexLayerParam(dm, i, m_mesh_schema.getArbGeomParams());
-		}
-	}
-
-	/* Face varying data. */
-	for (int i = 0; i < m_face_layers.size(); ++i) {
-		if (m_subdiv_schema.valid()) {
-			writeFaceLayerParam(dm, i, m_subdiv_schema.getArbGeomParams());
-		}
-		else {
-			writeFaceLayerParam(dm, i, m_mesh_schema.getArbGeomParams());
 		}
 	}
 
@@ -843,67 +708,6 @@ void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 			m_mat_indices.set(samp);
 		}
 	}
-}
-
-void AbcMeshWriter::writeVertexLayerParam(DerivedMesh *dm, int index,
-                                          const OCompoundProperty &/*arbGeoParams*/)
-{
-	CustomDataLayer *layer = &dm->vertData.layers[m_vert_layers[index].first];
-	int totvert = dm->getNumVerts(dm);
-
-	switch (layer->type) {
-		case CD_PROP_FLT:
-		case CD_PROP_INT:
-		{
-			Alembic::AbcCoreAbstract::ArraySample samp(layer->data,
-			                                           m_vert_layers[index].second.getDataType(),
-			                                           Alembic::Util::Dimensions(totvert));
-
-			m_vert_layers[index].second.set(samp);
-			break;
-		}
-	};
-}
-
-void AbcMeshWriter::writeFaceLayerParam(DerivedMesh *dm, int index,
-                                        const OCompoundProperty &/*arbGeoParams*/)
-{
-	CustomDataLayer *layer = &dm->polyData.layers[m_face_layers[index].first];
-	const int totpolys = dm->getNumPolys(dm);
-
-	std::vector<float> buffer;
-
-	switch (layer->type) {
-		case CD_MCOL:
-		{
-			const float cscale = 1.0f / 255.0f;
-
-			buffer.clear();
-			MPoly *polys = dm->getPolyArray(dm);
-			MCol *cfaces = static_cast<MCol *>(layer->data);
-
-			for (int i = 0; i < totpolys; ++i) {
-				MPoly *p = &polys[i];
-				MCol *cface = &cfaces[p->loopstart + p->totloop];
-
-				for (int j = 0; j < p->totloop; ++j) {
-					cface--;
-					buffer.push_back(cface->b * cscale);
-					buffer.push_back(cface->g * cscale);
-					buffer.push_back(cface->r * cscale);
-				}
-			}
-
-			Alembic::AbcCoreAbstract::ArraySample samp(&buffer.front(),
-			                                           m_face_layers[index].second.getDataType(),
-			                                           Alembic::Util::Dimensions(dm->getNumVerts(dm)));
-
-			m_face_layers[index].second.set(samp);
-			break;
-		}
-		default:
-			break;
-	};
 }
 
 void AbcMeshWriter::getVelocities(DerivedMesh *dm, std::vector<float> &vels)

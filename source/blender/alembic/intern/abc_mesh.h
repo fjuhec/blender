@@ -44,13 +44,6 @@ class AbcMeshWriter : public AbcObjectWriter {
 	bool m_is_animated;
 	ModifierData *m_subsurf_mod;
 
-	std::set<std::string> m_layers_written;
-
-	std::vector<std::pair<int, Alembic::Abc::OArrayProperty> > m_vert_layers;
-	std::vector<std::pair<int, Alembic::Abc::OArrayProperty> > m_face_layers;
-
-	bool m_has_vertex_weights;
-
 	bool m_is_liquid;
 	bool m_is_subd;
 
@@ -83,13 +76,7 @@ private:
 
     void getMaterialIndices(DerivedMesh *dm, std::vector<int32_t> &indices);
 
-	void createArbGeoParams(DerivedMesh *dm);
-	void createVertexLayerParam(DerivedMesh *dm, int index, const Alembic::Abc::OCompoundProperty &arbGeoParams);
-	void createFaceLayerParam(DerivedMesh *dm, int index, const Alembic::Abc::OCompoundProperty &arbGeoParams);
-
 	void writeArbGeoParams(DerivedMesh *dm);
-	void writeVertexLayerParam(DerivedMesh *dm, int index, const Alembic::Abc::OCompoundProperty &arbGeoParams);
-	void writeFaceLayerParam(DerivedMesh *dm, int index, const Alembic::Abc::OCompoundProperty &arbGeoParams);
 	void getGeoGroups(DerivedMesh *dm, std::map<std::string, std::vector<int32_t> > &geoGroups);
 	
 	/* fluid surfaces support */
