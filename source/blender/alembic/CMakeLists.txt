@@ -46,6 +46,7 @@ set(INC_SYS
 
 set(SRC
 	intern/abc_camera.cc
+	intern/abc_customdata.cc
 	intern/abc_exporter.cc
 	intern/abc_export_options.cc
 	intern/abc_hair.cc
@@ -59,6 +60,7 @@ set(SRC
 
 	ABC_alembic.h
 	intern/abc_camera.h
+	intern/abc_customdata.h
 	intern/abc_exporter.h
 	intern/abc_export_options.h
 	intern/abc_hair.h

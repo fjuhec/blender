@@ -171,165 +171,6 @@ void get_creases(DerivedMesh *dm,
 	lengths.resize(sharpnesses.size(), 2);
 }
 
-/* *************** UVs *************** */
-
-struct UVSample {
-	std::vector<Imath::V2f> uvs;
-	std::vector<uint32_t> indices;
-};
-
-static void get_uvs(DerivedMesh *dm,
-                    std::vector<Imath::V2f> &uvs,
-                    std::vector<uint32_t> &uvidx,
-                    int layer_idx, bool pack_uv)
-{
-	MLoopUV *mloopuv_array = static_cast<MLoopUV *>(CustomData_get_layer_n(&dm->loopData, CD_MLOOPUV, layer_idx));
-
-	if (!mloopuv_array) {
-		return;
-	}
-
-	int num_poly = dm->getNumPolys(dm);
-	MPoly *polygons = dm->getPolyArray(dm);
-
-	if (!pack_uv) {
-		int cnt = 0;
-		for (int i = 0; i < num_poly; ++i) {
-			MPoly &current_poly = polygons[i];
-			MLoopUV *loopuvpoly = mloopuv_array + current_poly.loopstart + current_poly.totloop;
-
-			for (int j = 0; j < current_poly.totloop; ++j) {
-				loopuvpoly--;
-				uvidx.push_back(cnt++);
-				Imath::V2f uv(loopuvpoly->uv[0], loopuvpoly->uv[1]);
-				uvs.push_back(uv);
-			}
-		}
-	}
-	else {
-		for (int i = 0; i < num_poly; ++i) {
-			MPoly &current_poly = polygons[i];
-			MLoopUV *loopuvpoly = mloopuv_array + current_poly.loopstart + current_poly.totloop;
-
-			for (int j = 0; j < current_poly.totloop; ++j) {
-				loopuvpoly--;
-				Imath::V2f uv(loopuvpoly->uv[0], loopuvpoly->uv[1]);
-
-				std::vector<Imath::V2f>::iterator it = std::find(uvs.begin(), uvs.end(), uv);
-
-				if (it == uvs.end()) {
-					uvidx.push_back(uvs.size());
-					uvs.push_back(uv);
-				}
-				else {
-					uvidx.push_back(std::distance(uvs.begin(), it));
-				}
-			}
-		}
-	}
-}
-
-static void get_uv_sample(UVSample &sample, DerivedMesh *dm, bool pack_uv)
-{
-	const int active_uvlayer = CustomData_get_active_layer(&dm->loopData, CD_MLOOPUV);
-
-	if (active_uvlayer < 0) {
-		return;
-	}
-
-	sample.uvs.reserve(dm->getNumVerts(dm));
-
-	get_uvs(dm, sample.uvs, sample.indices, active_uvlayer, pack_uv);
-}
-
-static void write_extra_uvs(const OCompoundProperty &prop, DerivedMesh *dm, bool pack_uv)
-{
-	CustomData *data = &dm->loopData;
-	CustomDataType data_type = CD_MLOOPUV;
-
-	if (!CustomData_has_layer(data, data_type)) {
-		return;
-	}
-
-	const int active_uvlayer = CustomData_get_active_layer(data, data_type);
-
-	int tot_uv_layers = CustomData_number_of_layers(data, data_type);
-
-	for (int i = 0; i < tot_uv_layers; ++i) {
-		/* Already exported. */
-		if (i == active_uvlayer) {
-			continue;
-		}
-
-		std::vector<uint32_t> indices;
-		std::vector<Imath::V2f> uvs;
-
-		get_uvs(dm, uvs, indices, i, pack_uv);
-
-		if (indices.empty() || uvs.empty()) {
-			continue;
-		}
-
-		const char *name = CustomData_get_layer_name(data, data_type, i);
-
-		OV2fGeomParam param(prop, name, true, kFacevaryingScope, 1);
-
-		OV2fGeomParam::Sample sample(
-			V2fArraySample((const Imath::V2f *)&uvs.front(), uvs.size()),
-			UInt32ArraySample((const uint32_t *)&indices.front(), indices.size()),
-			kFacevaryingScope);
-
-		param.set(sample);
-	}
-}
-
-static void write_vertex_colors(const OCompoundProperty &prop, DerivedMesh *dm)
-{
-	CustomData *data = &dm->loopData;
-	CustomDataType data_type = CD_MLOOPCOL;
-
-	if (!CustomData_has_layer(data, data_type)) {
-		return;
-	}
-
-	const int tot_layers = CustomData_number_of_layers(data, data_type);
-
-	const float cscale = 1.0f / 255.0f;
-
-	const int totpolys = dm->getNumPolys(dm);
-	std::vector<float> buffer;
-
-	for (int l = 0; l < tot_layers; ++l) {
-		buffer.clear();
-
-		MPoly *polys = dm->getPolyArray(dm);
-		MCol *cfaces = static_cast<MCol *>(CustomData_get_layer_n(data, data_type, l));
-
-		for (int i = 0; i < totpolys; ++i) {
-			MPoly *p = &polys[i];
-			MCol *cface = &cfaces[p->loopstart + p->totloop];
-
-			for (int j = 0; j < p->totloop; ++j) {
-				cface--;
-				buffer.push_back(cface->b * cscale);
-				buffer.push_back(cface->g * cscale);
-				buffer.push_back(cface->r * cscale);
-				buffer.push_back(cface->a * cscale);
-			}
-		}
-
-		const char *name = CustomData_get_layer_name(data, data_type, l);
-
-		OC4fGeomParam param(prop, name, true, kFacevaryingScope, 1);
-
-		OC4fGeomParam::Sample sample(
-			C4fArraySample((const Imath::C4f *)&buffer.front(), buffer.size() / 4),
-			kFacevaryingScope);
-
-		param.set(sample);
-	}
-}
-
 static void get_normals(DerivedMesh *dm, std::vector<float> &normals)
 {
 	MPoly *mpoly = dm->getPolyArray(dm);
@@ -530,7 +371,7 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 
 	UVSample sample;
 	if (m_settings.export_uvs) {
-		get_uv_sample(sample, dm, m_settings.pack_uv);
+		get_uv_sample(sample, m_custom_data_config, &dm->loopData);
 
 		if (!sample.indices.empty() && !sample.uvs.empty()) {
 			OV2fGeomParam::Sample uv_sample;
@@ -541,7 +382,7 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 			m_mesh_sample.setUVs(uv_sample);
 		}
 
-		write_extra_uvs(m_mesh_schema.getArbGeomParams(), dm, m_settings.pack_uv);
+		write_custom_data(m_mesh_schema.getArbGeomParams(), m_custom_data_config, &dm->loopData, CD_MLOOPUV);
 	}
 
 	if (m_settings.export_normals) {
@@ -599,7 +440,7 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 
 	UVSample sample;
 	if (m_settings.export_uvs) {
-		get_uv_sample(sample, dm, m_settings.pack_uv);
+		get_uv_sample(sample, m_custom_data_config, &dm->loopData);
 
 		if (!sample.indices.empty() && !sample.uvs.empty()) {
 			OV2fGeomParam::Sample uv_sample;
@@ -610,7 +451,7 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 			m_subdiv_sample.setUVs(uv_sample);
 		}
 
-		write_extra_uvs(m_subdiv_schema.getArbGeomParams(), dm, m_settings.pack_uv);
+		write_custom_data(m_subdiv_schema.getArbGeomParams(), m_custom_data_config, &dm->loopData, CD_MLOOPUV);
 	}
 
 	if (!creaseIndices.empty()) {
@@ -664,6 +505,10 @@ DerivedMesh *AbcMeshWriter::getFinalMesh()
 		m_subsurf_mod->mode &= ~eModifierMode_DisableTemporary;
 	}
 
+	m_custom_data_config.pack_uvs = m_settings.pack_uv;
+	m_custom_data_config.mpoly = dm->getPolyArray(dm);
+	m_custom_data_config.totpoly = dm->getNumPolys(dm);
+
 	return dm;
 }
 
@@ -681,10 +526,10 @@ void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 
 	if (m_settings.export_vcols) {
 		if (m_subdiv_schema.valid()) {
-			write_vertex_colors(m_subdiv_schema.getArbGeomParams(), dm);
+			write_custom_data(m_subdiv_schema.getArbGeomParams(), m_custom_data_config, &dm->loopData, CD_MLOOPCOL);
 		}
 		else {
-			write_vertex_colors(m_mesh_schema.getArbGeomParams(), dm);
+			write_custom_data(m_mesh_schema.getArbGeomParams(), m_custom_data_config, &dm->loopData, CD_MLOOPCOL);
 		}
 	}
 
