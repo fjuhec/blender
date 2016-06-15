@@ -64,11 +64,11 @@ private:
 
 /* ************************************************************************** */
 
-class AbcHairReader : public AbcObjectReader {
+class AbcCurveReader : public AbcObjectReader {
 	Alembic::AbcGeom::ICurvesSchema m_curves_schema;
 
 public:
-	AbcHairReader(const Alembic::Abc::IObject &object, ImportSettings &settings);
+	AbcCurveReader(const Alembic::Abc::IObject &object, ImportSettings &settings);
 
 	bool valid() const;
 

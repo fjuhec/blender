@@ -299,7 +299,7 @@ void AbcHairWriter::write_hair_child_sample(DerivedMesh *dm,
 
 /* ************************************************************************** */
 
-AbcHairReader::AbcHairReader(const Alembic::Abc::IObject &object, ImportSettings &settings)
+AbcCurveReader::AbcCurveReader(const Alembic::Abc::IObject &object, ImportSettings &settings)
     : AbcObjectReader(object, settings)
 {
 	ICurves abc_curves(object, kWrapExisting);
@@ -308,12 +308,12 @@ AbcHairReader::AbcHairReader(const Alembic::Abc::IObject &object, ImportSettings
 	get_min_max_time(m_curves_schema, m_min_time, m_max_time);
 }
 
-bool AbcHairReader::valid() const
+bool AbcCurveReader::valid() const
 {
 	return m_curves_schema.valid();
 }
 
-void AbcHairReader::readObjectData(Main *bmain, Scene *scene, float time)
+void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 {
 	Curve *cu = BKE_curve_add(bmain, m_data_name.c_str(), OB_CURVE);
 	cu->flag |= CU_PATH | CU_3D;

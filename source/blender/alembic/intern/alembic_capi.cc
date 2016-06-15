@@ -444,7 +444,7 @@ static void visit_object(const IObject &object,
 			/* Pass, those are handled in the mesh reader. */
 		}
 		else if (ICurves::matches(md)) {
-			reader = new AbcHairReader(child, settings);
+			reader = new AbcCurveReader(child, settings);
 		}
 		else {
 			assert(false);
