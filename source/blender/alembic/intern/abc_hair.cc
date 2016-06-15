@@ -316,7 +316,7 @@ bool AbcHairReader::valid() const
 void AbcHairReader::readObjectData(Main *bmain, Scene *scene, float time)
 {
 	Curve *cu = BKE_curve_add(bmain, m_data_name.c_str(), OB_CURVE);
-	cu->flag |= CU_DEFORM_FILL | CU_PATH | CU_3D;
+	cu->flag |= CU_PATH | CU_3D;
 
 	const ISampleSelector sample_sel(time);
 
@@ -339,7 +339,8 @@ void AbcHairReader::readObjectData(Main *bmain, Scene *scene, float time)
 		nu->pntsu = steps;
 		nu->pntsv = 1;
 		nu->orderu = steps;
-		nu->flagu = CU_NURB_ENDPOINT; /* endpoint */
+		nu->flagu = CU_NURB_ENDPOINT;
+		nu->flagv = CU_NURB_ENDPOINT;
 
 		BPoint *bp = nu->bp;
 
@@ -351,9 +352,6 @@ void AbcHairReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 			bp->radius = bp->weight = 1.0;
 		}
-
-		nu->knotsu = NULL; /* nurbs_knot_calc_u allocates */
-		BKE_nurb_knot_calc_u(nu);
 
 		nu->flag |= CU_SMOOTH;
 
