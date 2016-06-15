@@ -138,6 +138,7 @@ ccl_device void BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 				                                   &dist);
 
 				if(traverseChild != 0) {
+					float4 inodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
 					float4 cnodes;
 #if BVH_FEATURE(BVH_HAIR)
 					if(__float_as_uint(inodes.x) & PATH_RAY_NODE_UNALIGNED) {
