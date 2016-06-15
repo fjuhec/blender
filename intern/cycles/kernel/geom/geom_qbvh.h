@@ -56,9 +56,9 @@ ccl_device_inline int qbvh_node_intersect(KernelGlobals *__restrict kg,
                                           const ssef& tfar,
 #ifdef __KERNEL_AVX2__
                                           const sse3f& org_idir,
-#endif
+#else
                                           const sse3f& org,
-                                          const sse3f& dir,
+#endif
                                           const sse3f& idir,
                                           const int near_x,
                                           const int near_y,
@@ -70,9 +70,7 @@ ccl_device_inline int qbvh_node_intersect(KernelGlobals *__restrict kg,
                                           ssef *__restrict dist)
 {
 	const int offset = nodeAddr + 1;
-	(void)dir;
 #ifdef __KERNEL_AVX2__
-	(void)org;
 	const ssef tnear_x = msub(kernel_tex_fetch_ssef(__bvh_nodes, offset+near_x), idir.x, org_idir.x);
 	const ssef tnear_y = msub(kernel_tex_fetch_ssef(__bvh_nodes, offset+near_y), idir.y, org_idir.y);
 	const ssef tnear_z = msub(kernel_tex_fetch_ssef(__bvh_nodes, offset+near_z), idir.z, org_idir.z);
@@ -108,9 +106,9 @@ ccl_device_inline int qbvh_node_intersect_robust(KernelGlobals *__restrict kg,
                                                  const ssef& tfar,
 #ifdef __KERNEL_AVX2__
                                                  const sse3f& P_idir,
-#endif
+#else
                                                  const sse3f& P,
-                                                 const sse3f& dir,
+#endif
                                                  const sse3f& idir,
                                                  const int near_x,
                                                  const int near_y,
@@ -123,9 +121,7 @@ ccl_device_inline int qbvh_node_intersect_robust(KernelGlobals *__restrict kg,
                                                  ssef *__restrict dist)
 {
 	const int offset = nodeAddr + 1;
-	(void)dir;
 #ifdef __KERNEL_AVX2__
-	(void)P;
 	const ssef tnear_x = msub(kernel_tex_fetch_ssef(__bvh_nodes, offset+near_x), idir.x, P_idir.x);
 	const ssef tnear_y = msub(kernel_tex_fetch_ssef(__bvh_nodes, offset+near_y), idir.y, P_idir.y);
 	const ssef tnear_z = msub(kernel_tex_fetch_ssef(__bvh_nodes, offset+near_z), idir.z, P_idir.z);

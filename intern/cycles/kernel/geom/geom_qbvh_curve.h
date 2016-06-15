@@ -106,9 +106,9 @@ ccl_device_inline int qbvh_curve_node_intersect(
 		        tfar,
 #ifdef __KERNEL_AVX2__
 		        org_idir,
-#endif
+#else
 		        org,
-		        dir,
+#endif
 		        idir,
 		        near_x, near_y, near_z,
 		        far_x, far_y, far_z,
@@ -208,9 +208,9 @@ ccl_device_inline int qbvh_curve_node_intersect_robust(
 		        tfar,
 #ifdef __KERNEL_AVX2__
 		        P_idir,
-#endif
+#else
 		        P,
-		        dir,
+#endif
 		        idir,
 		        near_x, near_y, near_z,
 		        far_x, far_y, far_z,
