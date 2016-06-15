@@ -49,7 +49,7 @@ Transform BVHUnaligned::compute_aligned_space(
 			return aligned_space;
 		}
 	}
-	return make_trasnform_frame(make_float3(0.0f, 0.0f, 1.0f));
+	return transform_identity();
 }
 
 Transform BVHUnaligned::compute_aligned_space(
@@ -66,7 +66,7 @@ Transform BVHUnaligned::compute_aligned_space(
 			return aligned_space;
 		}
 	}
-	return make_trasnform_frame(make_float3(0.0f, 0.0f, 1.0f));
+	return transform_identity();
 }
 
 bool BVHUnaligned::compute_aligned_space(const BVHReference& ref,
@@ -90,7 +90,7 @@ bool BVHUnaligned::compute_aligned_space(const BVHReference& ref,
 			return true;
 		}
 	}
-	*aligned_space = make_trasnform_frame(make_float3(0.0f, 0.0f, 1.0f));
+	*aligned_space = transform_identity();
 	return false;
 }
 
