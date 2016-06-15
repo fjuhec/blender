@@ -723,7 +723,7 @@ static DerivedMesh *read_points_sample(DerivedMesh *dm, const IObject &iobject, 
 	return dm;
 }
 
-DerivedMesh *read_curves_sample(DerivedMesh *dm, const IObject &iobject, const float time)
+static DerivedMesh *read_curves_sample(DerivedMesh *dm, const IObject &iobject, const float time)
 {
 	ICurves points(iobject, kWrapExisting);
 	ICurvesSchema schema = points.getSchema();
