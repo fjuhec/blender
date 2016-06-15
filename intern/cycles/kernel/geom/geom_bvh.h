@@ -77,6 +77,8 @@ CCL_NAMESPACE_BEGIN
 
 /* Regular BVH traversal */
 
+#include "geom_bvh_nodes.h"
+
 #define BVH_FUNCTION_NAME bvh_intersect
 #define BVH_FUNCTION_FEATURES 0
 #include "geom_bvh_traversal.h"
