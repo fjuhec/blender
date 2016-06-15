@@ -240,18 +240,17 @@ static void get_uv_sample(UVSample &sample, DerivedMesh *dm, bool pack_uv)
 	get_uvs(dm, sample.uvs, sample.indices, active_uvlayer, pack_uv);
 }
 
-template <typename Schema>
-void write_extra_uvs(Schema &schema, DerivedMesh *dm, bool pack_uv)
+static void write_extra_uvs(const OCompoundProperty &prop, DerivedMesh *dm, bool pack_uv)
 {
-	if (!CustomData_has_layer(&dm->loopData, CD_MLOOPUV)) {
+	CustomData *loop_data = &dm->loopData;
+
+	if (!CustomData_has_layer(loop_data, CD_MLOOPUV)) {
 		return;
 	}
 
-	OCompoundProperty arb_props = schema.getArbGeomParams();
+	const int active_uvlayer = CustomData_get_active_layer(loop_data, CD_MLOOPUV);
 
-	const int active_uvlayer = CustomData_get_active_layer(&dm->loopData, CD_MLOOPUV);
-
-	int tot_uv_layers = CustomData_number_of_layers(&dm->loopData, CD_MLOOPUV);
+	int tot_uv_layers = CustomData_number_of_layers(loop_data, CD_MLOOPUV);
 
 	for (int i = 0; i < tot_uv_layers; ++i) {
 		/* Already exported. */
@@ -259,9 +258,9 @@ void write_extra_uvs(Schema &schema, DerivedMesh *dm, bool pack_uv)
 			continue;
 		}
 
-		const char *name = CustomData_get_layer_name(&dm->loopData, CD_MLOOPUV, i);
+		const char *name = CustomData_get_layer_name(loop_data, CD_MLOOPUV, i);
 
-		OV2fGeomParam param(arb_props, name, true, kFacevaryingScope, 1);
+		OV2fGeomParam param(prop, name, true, kFacevaryingScope, 1);
 
 		std::vector<uint32_t> indices;
 		std::vector<Imath::V2f> uvs;
@@ -495,7 +494,7 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 			m_mesh_sample.setUVs(uv_sample);
 		}
 
-		write_extra_uvs(m_mesh_schema, dm, m_settings.pack_uv);
+		write_extra_uvs(m_mesh_schema.getArbGeomParams(), dm, m_settings.pack_uv);
 	}
 
 	if (m_settings.export_normals) {
@@ -564,7 +563,7 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 			m_subdiv_sample.setUVs(uv_sample);
 		}
 
-		write_extra_uvs(m_subdiv_schema, dm, m_settings.pack_uv);
+		write_extra_uvs(m_subdiv_schema.getArbGeomParams(), dm, m_settings.pack_uv);
 	}
 
 	if (!creaseIndices.empty()) {
