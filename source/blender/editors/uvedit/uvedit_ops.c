@@ -1540,10 +1540,10 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 					elem_sel++;
 
 					if (elem_src == NULL) {
-						elem_src = efa;
+						elem_src = (BMElem *)efa;
 					}
 					else if ((elem_dst == NULL)) {
-						elem_dst = efa;
+						elem_dst = (BMElem *)efa;
 					}
 				}
 			}
@@ -1561,10 +1561,10 @@ static int uv_shortest_path_exec(bContext *C, wmOperator *op)
 				elem_sel++;
 
 				if (elem_src == NULL) {
-					elem_src = e;
+					elem_src = (BMElem *)e;
 				}
 				else if ((elem_dst == NULL)) {
-					elem_dst = e;
+					elem_dst = (BMElem *)e;
 				}
 			}
 		}
@@ -3895,28 +3895,6 @@ static void UV_OT_select_pinned(wmOperatorType *ot)
 
 /********************** hide operator *********************/
 
-/* check if we are selected or unselected based on 'bool_test' arg,
- * needed for select swap support */
-#define UV_SEL_TEST(luv, bool_test) ((((luv)->flag & MLOOPUV_VERTSEL) == MLOOPUV_VERTSEL) == bool_test)
-
-/* is every UV vert selected or unselected depending on bool_test */
-static bool bm_face_is_all_uv_sel(BMFace *f, bool select_test,
-                                  const int cd_loop_uv_offset)
-{
-	BMLoop *l_iter;
-	BMLoop *l_first;
-
-	l_iter = l_first = BM_FACE_FIRST_LOOP(f);
-	do {
-		MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l_iter, cd_loop_uv_offset);
-		if (!UV_SEL_TEST(luv, select_test)) {
-			return false;
-		}
-	} while ((l_iter = l_iter->next) != l_first);
-
-	return true;
-}
-
 static int uv_hide_exec(bContext *C, wmOperator *op)
 {
 	SpaceImage *sima = CTX_wm_space_image(C);
@@ -3931,7 +3909,6 @@ static int uv_hide_exec(bContext *C, wmOperator *op)
 	MTexPoly *tf;
 	const bool swap = RNA_boolean_get(op->ptr, "unselected");
 	Image *ima = sima ? sima->image : NULL;
-	const int use_face_center = (ts->uv_selectmode == UV_SELECT_FACE);
 
 	const int cd_loop_uv_offset  = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
 	const int cd_poly_tex_offset = CustomData_get_offset(&em->bm->pdata, CD_MTEXPOLY);
@@ -3944,7 +3921,6 @@ static int uv_hide_exec(bContext *C, wmOperator *op)
 	}
 
 	BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-		int hide = 0;
 
 		tf = BM_ELEM_CD_GET_VOID_P(efa, cd_poly_tex_offset);
 
