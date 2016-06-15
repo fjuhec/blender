@@ -110,8 +110,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 				float4 inodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
 
 #ifdef __VISIBILITY_FLAG__
-				if((__float_as_uint(inodes.x) & PATH_RAY_SHADOW) == 0 ||
-		                   (__float_as_uint(inodes.x) & PATH_RAY_NODE_UNALIGNED)) {
+				if((__float_as_uint(inodes.x) & PATH_RAY_SHADOW) == 0) {
 					/* Pop. */
 					nodeAddr = traversalStack[stackPtr].addr;
 					--stackPtr;
