@@ -274,21 +274,17 @@ static void read_uvs(const CDStreamConfig &config, void *data,
                      const Alembic::AbcGeom::UInt32ArraySamplePtr &indices)
 {
 	MPoly *mpolys = config.mpoly;
-	MLoop *mloops = config.mloop;
 	MLoopUV *mloopuvs = static_cast<MLoopUV *>(data);
 
-	unsigned int vert_index, loop_index;
+	unsigned int uv_index, loop_index;
 
 	for (int i = 0; i < config.totpoly; ++i) {
 		MPoly &poly = mpolys[i];
 
 		for (int f = 0; f < poly.totloop; ++f) {
 			loop_index = poly.loopstart + f;
-
-			MLoop &loop = mloops[loop_index];
-			vert_index = (*indices)[loop.v];
-
-			const Imath::V2f &uv = (*uvs)[vert_index];
+			uv_index = (*indices)[loop_index];
+			const Imath::V2f &uv = (*uvs)[uv_index];
 
 			MLoopUV &loopuv = mloopuvs[loop_index];
 			loopuv.uv[0] = uv[0];

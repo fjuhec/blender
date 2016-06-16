@@ -906,6 +906,27 @@ static void *add_customdata_cb(void *user_data, const char *name, int data_type)
 	return cd_ptr;
 }
 
+#if 0
+void print_scope(const std::string &prefix, const int scope, std::ostream &os)
+{
+	os << prefix << ": ";
+
+	switch (scope) {
+		case kVaryingScope:
+			os << "Varying Scope";
+			break;
+		case kFacevaryingScope:
+			os << "Face Varying Scope";
+			break;
+		case kVertexScope:
+			os << "Vertex Scope";
+			break;
+	}
+
+	os << '\n';
+}
+#endif
+
 void AbcMeshReader::readPolyDataSample(Mesh *mesh,
                                        const Int32ArraySamplePtr &face_indices,
                                        const Int32ArraySamplePtr &face_counts,
@@ -917,19 +938,23 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 	utils::mesh_add_mpolygons(mesh, num_poly);
 	utils::mesh_add_mloops(mesh, num_loops);
 
-	IV2fGeomParam::Sample::samp_ptr_type uvsamp_vals;
+	Alembic::AbcGeom::V2fArraySamplePtr uvs;
+	Alembic::Abc::UInt32ArraySamplePtr uvs_indices;
 	const IV2fGeomParam uv = (m_subd_schema.valid() ? m_subd_schema.getUVsParam()
 	                                                : m_schema.getUVsParam());
 
 	if (uv.valid()) {
 		IV2fGeomParam::Sample uvsamp = uv.getExpandedValue();
-		uvsamp_vals = uvsamp.getVals();
+		uv.getIndexed(uvsamp, Alembic::Abc::ISampleSelector(0.0f));
+
+		uvs = uvsamp.getVals();
+		uvs_indices = uvsamp.getIndices();
 
 		ED_mesh_uv_texture_add(mesh, Alembic::Abc::GetSourceName(uv.getMetaData()).c_str(), true);
 	}
 
 	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv, &mesh->pdata,
-	            face_indices, face_counts, uvsamp_vals, normals);
+	            face_indices, face_counts, uvs, uvs_indices, normals);
 
 	const ICompoundProperty &arb_geom_params = (m_schema.valid() ? m_schema.getArbGeomParams()
 	                                                             : m_subd_schema.getArbGeomParams());
@@ -1026,10 +1051,11 @@ void read_mverts(MVert *mverts,
 	}
 }
 
-void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *pdata,
+void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData */*pdata*/,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
                  const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
+                 const Alembic::AbcGeom::UInt32ArraySamplePtr &uvs_indices,
                  const Alembic::AbcGeom::N3fArraySamplePtr &/*normals*/)
 {
 	int loopcount = 0;
@@ -1059,14 +1085,16 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *pd
 
 		/* TODO: reverse. */
 		int rev_loop = loopcount;
-		for (int f = face_size; f-- ;) {
+		for (int f = face_size; f-- ; ++loopcount) {
 			MLoop &loop = mloops[rev_loop + f];
 
-			vert_index = (*face_indices)[loopcount++];
+			vert_index = (*face_indices)[loopcount];
 			loop.v = vert_index;
 
-			if (mloopuvs && uvs) {
+			if (mloopuvs && uvs && uvs_indices) {
 				MLoopUV &loopuv = mloopuvs[rev_loop + f];
+
+				vert_index = (*uvs_indices)[loopcount];
 				loopuv.uv[0] = (*uvs)[vert_index][0];
 				loopuv.uv[1] = (*uvs)[vert_index][1];
 			}

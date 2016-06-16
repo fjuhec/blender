@@ -716,11 +716,13 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	}
 
 	const IV2fGeomParam uv = schema.getUVsParam();
-	IV2fGeomParam::Sample::samp_ptr_type uvsamp_vals;
+	Alembic::Abc::V2fArraySamplePtr uvs;
+	Alembic::Abc::UInt32ArraySamplePtr uvs_indices;
 
 	if (uv.valid()) {
 		IV2fGeomParam::Sample uvsamp = uv.getExpandedValue(sample_sel);
-		uvsamp_vals = uvsamp.getVals();
+		uvs = uvsamp.getVals();
+		uvs_indices = uvsamp.getIndices();
 	}
 
 	N3fArraySamplePtr vertex_normals, poly_normals;
@@ -746,7 +748,7 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	CustomData *pdata = dm->getPolyDataLayout(dm);
 
 	read_mverts(mverts, positions, vertex_normals);
-	read_mpolys(mpolys, mloops, mloopuvs, pdata, face_indices, face_counts, uvsamp_vals, poly_normals);
+	read_mpolys(mpolys, mloops, mloopuvs, pdata, face_indices, face_counts, uvs, uvs_indices, poly_normals);
 
 	CDDM_calc_edges(dm);
 	dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
