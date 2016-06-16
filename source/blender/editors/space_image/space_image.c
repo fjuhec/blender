@@ -997,6 +997,11 @@ static void image_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID
 		id_us_min(old_id);
 		id_us_plus(new_id);
 	}
+
+	if ((ID *)simg->mask_info.mask == old_id) {
+		simg->mask_info.mask = (Mask *)new_id;
+		id_us_ensure_real(new_id);
+	}
 }
 
 /**************************** spacetype *****************************/
