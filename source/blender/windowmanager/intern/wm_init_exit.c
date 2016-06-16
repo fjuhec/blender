@@ -61,6 +61,7 @@
 #include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_library.h"
+#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_mball_tessellate.h"
 #include "BKE_node.h"

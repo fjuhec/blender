@@ -93,6 +93,7 @@ EnumPropertyItem rna_enum_id_type_items[] = {
 #include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
+#include "BKE_library_remap.h"
 #include "BKE_animsys.h"
 #include "BKE_material.h"
 #include "BKE_depsgraph.h"

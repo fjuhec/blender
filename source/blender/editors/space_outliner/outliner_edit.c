@@ -55,6 +55,7 @@
 #include "BKE_global.h"
 #include "BKE_idcode.h"
 #include "BKE_library.h"
+#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_outliner_treehash.h"
 #include "BKE_report.h"

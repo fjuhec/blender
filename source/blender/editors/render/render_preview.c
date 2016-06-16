@@ -70,6 +70,7 @@
 #include "BKE_icons.h"
 #include "BKE_lamp.h"
 #include "BKE_library.h"
+#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_node.h"

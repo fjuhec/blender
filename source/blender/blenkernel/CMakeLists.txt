@@ -123,6 +123,7 @@ set(SRC
 	intern/library.c
 	intern/library_idmap.c
 	intern/library_query.c
+	intern/library_remap.c
 	intern/linestyle.c
 	intern/mask.c
 	intern/mask_evaluate.c
