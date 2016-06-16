@@ -45,7 +45,7 @@ class AbcMeshWriter : public AbcObjectWriter {
 	bool m_is_animated;
 	ModifierData *m_subsurf_mod;
 
-	CDWriterConfig m_custom_data_config;
+	CDStreamConfig m_custom_data_config;
 
 	bool m_is_liquid;
 	bool m_is_subd;

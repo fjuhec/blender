@@ -28,10 +28,17 @@
 #include <algorithm>
 
 extern "C" {
+#include "DNA_customdata_types.h"
 #include "DNA_meshdata_types.h"
 
 #include "BKE_customdata.h"
 }
+
+/* NOTE: for now only UVs and Vertex Colors are supported for streaming.
+ * Although Alembic only allows for a single UV layer per {I|O}Schema, and does
+ * not have a vertex color concept, there is a convention between DCCs to write
+ * such data in a way that lets other DCC know what they are for. See comments
+ * in the write code for the conventions. */
 
 using Alembic::AbcGeom::kFacevaryingScope;
 
@@ -42,7 +49,7 @@ using Alembic::Abc::V2fArraySample;
 using Alembic::AbcGeom::OV2fGeomParam;
 using Alembic::AbcGeom::OC4fGeomParam;
 
-static void get_uvs(const CDWriterConfig &config,
+static void get_uvs(const CDStreamConfig &config,
                     std::vector<Imath::V2f> &uvs,
                     std::vector<uint32_t> &uvidx,
                     void *cd_data)
@@ -93,20 +100,27 @@ static void get_uvs(const CDWriterConfig &config,
 	}
 }
 
-void get_uv_sample(UVSample &sample, const CDWriterConfig &config, CustomData *data)
+const char *get_uv_sample(UVSample &sample, const CDStreamConfig &config, CustomData *data)
 {
 	const int active_uvlayer = CustomData_get_active_layer(data, CD_MLOOPUV);
 
 	if (active_uvlayer < 0) {
-		return;
+		return "";
 	}
 
 	void *cd_data = CustomData_get_layer_n(data, CD_MLOOPUV, active_uvlayer);
 
 	get_uvs(config, sample.uvs, sample.indices, cd_data);
+
+	return CustomData_get_layer_name(data, CD_MLOOPUV, active_uvlayer);
 }
 
-static void write_uv(const OCompoundProperty &prop, const CDWriterConfig &config, void *data, const char *name)
+/* Convention to write UVs:
+ * - V2fGeomParam on the arbGeomParam
+ * - set scope as face varying
+ * - (optional due to its behaviour) tag as UV using Alembic::AbcGeom::SetIsUV
+ */
+static void write_uv(const OCompoundProperty &prop, const CDStreamConfig &config, void *data, const char *name)
 {
 	std::vector<uint32_t> indices;
 	std::vector<Imath::V2f> uvs;
@@ -127,37 +141,53 @@ static void write_uv(const OCompoundProperty &prop, const CDWriterConfig &config
 	param.set(sample);
 }
 
-static void write_mcol(const OCompoundProperty &prop, const CDWriterConfig &config, void *data, const char *name)
+/* Convention to write Vertex Colors:
+ * - C3fGeomParam/C4fGeomParam on the arbGeomParam
+ * - set scope as face varying
+ *
+ * The number of colors needs to match the number of vertices, not the number of
+ * loops, so other software can import the data; that is we write one color per
+ * vertex.
+ */
+static void write_mcol(const OCompoundProperty &prop, const CDStreamConfig &config, void *data, const char *name)
 {
 	const float cscale = 1.0f / 255.0f;
 	MPoly *polys = config.mpoly;
+	MLoop *mloops = config.mloop;
 	MCol *cfaces = static_cast<MCol *>(data);
 
-	std::vector<float> buffer;
+	std::vector<Imath::C4f> buffer(config.totvert);
+
+	Imath::C4f col;
 
 	for (int i = 0; i < config.totpoly; ++i) {
 		MPoly *p = &polys[i];
 		MCol *cface = &cfaces[p->loopstart + p->totloop];
+		MLoop *mloop = &mloops[p->loopstart + p->totloop];
 
 		for (int j = 0; j < p->totloop; ++j) {
 			cface--;
-			buffer.push_back(cface->b * cscale);
-			buffer.push_back(cface->g * cscale);
-			buffer.push_back(cface->r * cscale);
-			buffer.push_back(cface->a * cscale);
+			mloop--;
+
+			col[0] = cface->b * cscale;
+			col[1] = cface->g * cscale;
+			col[2] = cface->r * cscale;
+			col[3] = cface->a * cscale;
+
+			buffer[mloop->v] = col;
 		}
 	}
 
 	OC4fGeomParam param(prop, name, true, kFacevaryingScope, 1);
 
 	OC4fGeomParam::Sample sample(
-		C4fArraySample((const Imath::C4f *)&buffer.front(), buffer.size() / 4),
+		C4fArraySample(&buffer.front(), buffer.size()),
 		kFacevaryingScope);
 
 	param.set(sample);
 }
 
-void write_custom_data(const OCompoundProperty &prop, const CDWriterConfig &config, CustomData *data, int data_type)
+void write_custom_data(const OCompoundProperty &prop, const CDStreamConfig &config, CustomData *data, int data_type)
 {
 	CustomDataType cd_data_type = static_cast<CustomDataType>(data_type);
 
@@ -182,6 +212,171 @@ void write_custom_data(const OCompoundProperty &prop, const CDWriterConfig &conf
 		}
 		else if (cd_data_type == CD_MLOOPCOL) {
 			write_mcol(prop, config, cd_data, name);
+		}
+	}
+}
+
+/* ************************************************************************** */
+
+using Alembic::Abc::C3fArraySamplePtr;
+using Alembic::Abc::C4fArraySamplePtr;
+using Alembic::Abc::PropertyHeader;
+
+using Alembic::AbcGeom::IC3fGeomParam;
+using Alembic::AbcGeom::IC4fGeomParam;
+using Alembic::AbcGeom::IV2fGeomParam;
+
+static void read_mcols(const CDStreamConfig &config, void *data,
+                       const C3fArraySamplePtr &c3f_ptr, const C4fArraySamplePtr &c4f_ptr)
+{
+	MCol *cfaces = static_cast<MCol *>(data);
+	MPoly *polys = config.mpoly;
+	MLoop *mloops = config.mloop;
+
+	if (c3f_ptr) {
+		for (int i = 0; i < config.totpoly; ++i) {
+			MPoly *p = &polys[i];
+			MCol *cface = &cfaces[p->loopstart + p->totloop];
+			MLoop *mloop = &mloops[p->loopstart + p->totloop];
+
+			for (int j = 0; j < p->totloop; ++j) {
+				cface--;
+				mloop--;
+				const Imath::C3f &color = (*c3f_ptr)[mloop->v];
+				cface->b = FTOCHAR(color[0]);
+				cface->g = FTOCHAR(color[1]);
+				cface->r = FTOCHAR(color[2]);
+				cface->a = 255;
+			}
+		}
+	}
+	else if (c4f_ptr) {
+		for (int i = 0; i < config.totpoly; ++i) {
+			MPoly *p = &polys[i];
+			MCol *cface = &cfaces[p->loopstart + p->totloop];
+			MLoop *mloop = &mloops[p->loopstart + p->totloop];
+
+			for (int j = 0; j < p->totloop; ++j) {
+				cface--;
+				mloop--;
+				const Imath::C4f &color = (*c4f_ptr)[mloop->v];
+				cface->b = FTOCHAR(color[0]);
+				cface->g = FTOCHAR(color[1]);
+				cface->r = FTOCHAR(color[2]);
+				cface->a = FTOCHAR(color[3]);
+			}
+		}
+	}
+}
+
+static void read_uvs(const CDStreamConfig &config, void *data,
+                     const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
+                     const Alembic::AbcGeom::UInt32ArraySamplePtr &indices)
+{
+	MPoly *mpolys = config.mpoly;
+	MLoop *mloops = config.mloop;
+	MLoopUV *mloopuvs = static_cast<MLoopUV *>(data);
+
+	unsigned int vert_index, loop_index;
+
+	for (int i = 0; i < config.totpoly; ++i) {
+		MPoly &poly = mpolys[i];
+
+		for (int f = 0; f < poly.totloop; ++f) {
+			loop_index = poly.loopstart + f;
+
+			MLoop &loop = mloops[loop_index];
+			vert_index = (*indices)[loop.v];
+
+			const Imath::V2f &uv = (*uvs)[vert_index];
+
+			MLoopUV &loopuv = mloopuvs[loop_index];
+			loopuv.uv[0] = uv[0];
+			loopuv.uv[1] = uv[1];
+		}
+	}
+}
+
+static void read_custom_data_ex(const ICompoundProperty &prop, const PropertyHeader &prop_header, const CDStreamConfig &config, CustomData *data, int data_type)
+{
+	Alembic::Abc::ISampleSelector iss = Alembic::Abc::ISampleSelector(0.0f);
+
+	void *cd_data = config.add_customdata_cb(config.user_data,
+	                                         prop_header.getName().c_str(),
+	                                         data_type);
+
+	if (data_type == CD_MLOOPCOL) {
+		C3fArraySamplePtr c3f_ptr = C3fArraySamplePtr();
+		C4fArraySamplePtr c4f_ptr = C4fArraySamplePtr();
+
+		if (IC3fGeomParam::matches(prop_header)) {
+			IC3fGeomParam color_param(prop, prop_header.getName());
+			IC3fGeomParam::Sample sample;
+			color_param.getIndexed(sample, iss);
+
+			c3f_ptr = sample.getVals();
+		}
+		else if (IC4fGeomParam::matches(prop_header)) {
+			IC4fGeomParam color_param(prop, prop_header.getName());
+			IC4fGeomParam::Sample sample;
+			color_param.getIndexed(sample, iss);
+
+			c4f_ptr = sample.getVals();
+		}
+
+		read_mcols(config, cd_data, c3f_ptr, c4f_ptr);
+	}
+	else if (data_type == CD_MLOOPUV) {
+		IV2fGeomParam uv_param(prop, prop_header.getName());
+		IV2fGeomParam::Sample sample;
+		uv_param.getIndexed(sample, iss);
+
+		read_uvs(config, cd_data, sample.getVals(), sample.getIndices());
+	}
+}
+
+void read_custom_data(const ICompoundProperty &prop, const CDStreamConfig &config, CustomData *data)
+{
+	if (!prop.valid()) {
+		return;
+	}
+
+	int num_uvs = 0;
+	int num_colors = 0;
+
+	const size_t num_props = prop.getNumProperties();
+
+	for (size_t i = 0; i < num_props; ++i) {
+		const Alembic::Abc::PropertyHeader &prop_header = prop.getPropertyHeader(i);
+
+		/* Read UVs according to convention. */
+		if (IV2fGeomParam::matches(prop_header) && Alembic::AbcGeom::isUV(prop_header)) {
+			if (++num_uvs > MAX_MTFACE) {
+				continue;
+			}
+
+			read_custom_data_ex(prop, prop_header, config, data, CD_MLOOPUV);
+			continue;
+		}
+
+		/* TODO: check convention on vertex colors. */
+		if (IC3fGeomParam::matches(prop_header)) {
+			if (++num_colors > MAX_MCOL) {
+				continue;
+			}
+
+			read_custom_data_ex(prop, prop_header, config, data, CD_MLOOPCOL);
+			continue;
+		}
+
+		/* TODO: check convention on vertex colors. */
+		if (IC4fGeomParam::matches(prop_header)) {
+			if (++num_colors > MAX_MCOL) {
+				continue;
+			}
+
+			read_custom_data_ex(prop, prop_header, config, data, CD_MLOOPCOL);
+			continue;
 		}
 	}
 }

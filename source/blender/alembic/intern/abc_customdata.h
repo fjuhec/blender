@@ -27,8 +27,10 @@
 #include <Alembic/Abc/All.h>
 
 struct CustomData;
+struct MLoop;
 struct MPoly;
 
+using Alembic::Abc::ICompoundProperty;
 using Alembic::Abc::OCompoundProperty;
 
 struct UVSample {
@@ -36,16 +38,45 @@ struct UVSample {
 	std::vector<uint32_t> indices;
 };
 
-struct CDWriterConfig {
+struct CDStreamConfig {
+	MLoop *mloop;
+	int totloop;
+
 	MPoly *mpoly;
 	int totpoly;
 
+	int totvert;
+
 	bool pack_uvs;
+
+	/* XXX - might need a better to handle adding custom datas in a way that
+	 * updates the custom data holder and its pointers properly. */
+	void *user_data;
+	void *(*add_customdata_cb)(void *user_data, const char *name, int data_type);
+
+	CDStreamConfig()
+	    : mloop(NULL)
+	    , totloop(0)
+	    , mpoly(NULL)
+	    , totpoly(0)
+	    , totvert(0)
+	    , pack_uvs(false)
+	    , user_data(NULL)
+	    , add_customdata_cb(NULL)
+	{}
 };
 
-void get_uv_sample(UVSample &sample, const CDWriterConfig &config, CustomData *data);
+/* Get the UVs for the main UV property on a OSchema.
+ * Returns the name of the UV layer.
+ *
+ * For now the active layer is used, maybe needs a better way to choose this. */
+const char *get_uv_sample(UVSample &sample, const CDStreamConfig &config, CustomData *data);
 
 void write_custom_data(const OCompoundProperty &prop,
-                       const CDWriterConfig &config,
+                       const CDStreamConfig &config,
                        CustomData *data,
                        int data_type);
+
+void read_custom_data(const ICompoundProperty &prop,
+                      const CDStreamConfig &config,
+                      CustomData *data);

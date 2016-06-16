@@ -37,12 +37,16 @@ extern "C" {
 #include "BLI_math_geom.h"
 #include "BLI_string.h"
 
+#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
+
+#include "WM_api.h"
+#include "WM_types.h"
 
 #include "ED_mesh.h"
 }
@@ -371,7 +375,7 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 
 	UVSample sample;
 	if (m_settings.export_uvs) {
-		get_uv_sample(sample, m_custom_data_config, &dm->loopData);
+		const char *name = get_uv_sample(sample, m_custom_data_config, &dm->loopData);
 
 		if (!sample.indices.empty() && !sample.uvs.empty()) {
 			OV2fGeomParam::Sample uv_sample;
@@ -379,6 +383,7 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 			uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
 			uv_sample.setScope(kFacevaryingScope);
 
+			m_mesh_schema.setUVSourceName(name);
 			m_mesh_sample.setUVs(uv_sample);
 		}
 
@@ -440,7 +445,7 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 
 	UVSample sample;
 	if (m_settings.export_uvs) {
-		get_uv_sample(sample, m_custom_data_config, &dm->loopData);
+		const char *name = get_uv_sample(sample, m_custom_data_config, &dm->loopData);
 
 		if (!sample.indices.empty() && !sample.uvs.empty()) {
 			OV2fGeomParam::Sample uv_sample;
@@ -448,6 +453,7 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 			uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
 			uv_sample.setScope(kFacevaryingScope);
 
+			m_subdiv_schema.setUVSourceName(name);
 			m_subdiv_sample.setUVs(uv_sample);
 		}
 
@@ -507,7 +513,10 @@ DerivedMesh *AbcMeshWriter::getFinalMesh()
 
 	m_custom_data_config.pack_uvs = m_settings.pack_uv;
 	m_custom_data_config.mpoly = dm->getPolyArray(dm);
+	m_custom_data_config.mloop = dm->getLoopArray(dm);
 	m_custom_data_config.totpoly = dm->getNumPolys(dm);
+	m_custom_data_config.totloop = dm->getNumLoops(dm);
+	m_custom_data_config.totvert = dm->getNumVerts(dm);
 
 	return dm;
 }
@@ -665,10 +674,6 @@ static void mesh_add_mloops(Mesh *mesh, size_t len)
 		CustomData_add_layer(&ldata, CD_MLOOP, CD_CALLOC, NULL, totloops);
 	}
 
-	if (!CustomData_has_layer(&ldata, CD_MLOOPUV)) {
-		CustomData_add_layer(&ldata, CD_MLOOPUV, CD_CALLOC, NULL, totloops);
-	}
-
 	CustomData_free(&mesh->ldata, mesh->totloop);
 	mesh->ldata = ldata;
 	BKE_mesh_update_customdata_pointers(mesh, false);
@@ -690,10 +695,6 @@ static void mesh_add_mpolygons(Mesh *mesh, size_t len)
 
 	if (!CustomData_has_layer(&pdata, CD_MPOLY)) {
 		CustomData_add_layer(&pdata, CD_MPOLY, CD_CALLOC, NULL, totpolys);
-	}
-
-	if (!CustomData_has_layer(&pdata, CD_MTEXPOLY)) {
-		CustomData_add_layer(&pdata, CD_MTEXPOLY, CD_CALLOC, NULL, totpolys);
 	}
 
 	CustomData_free(&mesh->pdata, mesh->totpoly);
@@ -874,6 +875,29 @@ void AbcMeshReader::readVertexDataSample(Mesh *mesh,
 	read_mverts(mesh->mvert, positions, normal_vals);
 }
 
+static void *add_customdata_cb(void *user_data, const char *name, int data_type)
+{
+	Mesh *mesh = static_cast<Mesh *>(user_data);
+	CustomDataType cd_data_type = static_cast<CustomDataType>(data_type);
+	void *cd_ptr = NULL;
+
+	int index = -1;
+	if (cd_data_type == CD_MLOOPUV) {
+		index = ED_mesh_uv_texture_add(mesh, name, true);
+		cd_ptr = CustomData_get_layer(&mesh->ldata, cd_data_type);
+	}
+	else if (cd_data_type == CD_MLOOPCOL) {
+		index = ED_mesh_color_add(mesh, name, true);
+		cd_ptr = CustomData_get_layer(&mesh->ldata, cd_data_type);
+	}
+
+	if (index == -1) {
+		return NULL;
+	}
+
+	return cd_ptr;
+}
+
 void AbcMeshReader::readPolyDataSample(Mesh *mesh,
                                        const Int32ArraySamplePtr &face_indices,
                                        const Int32ArraySamplePtr &face_counts)
@@ -891,6 +915,8 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 	if (uv.valid()) {
 		IV2fGeomParam::Sample uvsamp = uv.getExpandedValue();
 		uvsamp_vals = uvsamp.getVals();
+
+		ED_mesh_uv_texture_add(mesh, Alembic::Abc::GetSourceName(uv.getMetaData()).c_str(), true);
 	}
 
 	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv,
@@ -899,109 +925,15 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 	const ICompoundProperty &arb_geom_params = (m_schema.valid() ? m_schema.getArbGeomParams()
 	                                                             : m_subd_schema.getArbGeomParams());
 
-	if (!arb_geom_params.valid()) {
-		return;
-	}
+	CDStreamConfig config;
+	config.mpoly = mesh->mpoly;
+	config.mloop = mesh->mloop;
+	config.totpoly = mesh->totpoly;
+	config.totloop = mesh->totloop;
+	config.user_data = mesh;
+	config.add_customdata_cb = add_customdata_cb;
 
-	const size_t num_props = arb_geom_params.getNumProperties();
-
-	for (size_t i = 0; i < num_props; ++i) {
-		const Alembic::Abc::PropertyHeader &prop_header = arb_geom_params.getPropertyHeader(i);
-
-		if (IV2fGeomParam::matches(prop_header) && Alembic::AbcGeom::isUV(prop_header)) {
-            IV2fGeomParam uvGeomParam(arb_geom_params, prop_header.getName());
-			const std::string &name = Alembic::Abc::GetSourceName(uvGeomParam.getMetaData());
-
-			int index = ED_mesh_uv_texture_add(mesh, name.c_str(), true);
-
-			if (index == -1) {
-				continue;
-			}
-
-			MLoopUV *mloop_uv = static_cast<MLoopUV *>(CustomData_get_layer(&mesh->ldata, CD_MLOOPUV));
-
-			IV2fGeomParam::Sample sample;
-			uvGeomParam.getIndexed(sample, Alembic::Abc::ISampleSelector(0.0f));
-
-			read_uvs(mesh->mpoly, mesh->mloop, mloop_uv, mesh->totpoly, sample.getVals(), sample.getIndices());
-        }
-
-		using Alembic::AbcGeom::IC3fGeomParam;
-		using Alembic::Abc::C3fArraySamplePtr;
-
-		using Alembic::AbcGeom::IC4fGeomParam;
-		using Alembic::Abc::C4fArraySamplePtr;
-
-		if (IC3fGeomParam::matches(prop_header)) {
-			IC3fGeomParam color_param(arb_geom_params, prop_header.getName());
-			const std::string &name = Alembic::Abc::GetSourceName(color_param.getMetaData());
-
-			int index = ED_mesh_color_add(mesh, name.c_str(), true);
-
-			if (index == -1) {
-				continue;
-			}
-
-			MCol *cfaces = static_cast<MCol *>(CustomData_get_layer(&mesh->ldata, CD_MLOOPCOL));
-			MPoly *polys = mesh->mpoly;
-
-			IC3fGeomParam::Sample sample;
-			color_param.getIndexed(sample, Alembic::Abc::ISampleSelector(0.0f));
-
-			C3fArraySamplePtr colors = sample.getVals();
-
-			int cindex = 0;
-
-			for (int i = 0; i < mesh->totpoly; ++i) {
-				MPoly *p = &polys[i];
-				MCol *cface = &cfaces[p->loopstart + p->totloop];
-
-				for (int j = 0; j < p->totloop; ++j) {
-					cface--;
-					const Imath::C3f &color = (*colors)[cindex++];
-					cface->b = FTOCHAR(color[0]);
-					cface->g = FTOCHAR(color[1]);
-					cface->r = FTOCHAR(color[2]);
-					cface->a = 255;
-				}
-			}
-		}
-
-		if (IC4fGeomParam::matches(prop_header)) {
-			IC4fGeomParam color_param(arb_geom_params, prop_header.getName());
-			const std::string &name = Alembic::Abc::GetSourceName(color_param.getMetaData());
-
-			int index = ED_mesh_color_add(mesh, name.c_str(), true);
-
-			if (index == -1) {
-				continue;
-			}
-
-			MCol *cfaces = static_cast<MCol *>(CustomData_get_layer(&mesh->ldata, CD_MLOOPCOL));
-			MPoly *polys = mesh->mpoly;
-
-			IC4fGeomParam::Sample sample;
-			color_param.getIndexed(sample, Alembic::Abc::ISampleSelector(0.0f));
-
-			C4fArraySamplePtr colors = sample.getVals();
-
-			int cindex = 0;
-
-			for (int i = 0; i < mesh->totpoly; ++i) {
-				MPoly *p = &polys[i];
-				MCol *cface = &cfaces[p->loopstart + p->totloop];
-
-				for (int j = 0; j < p->totloop; ++j) {
-					cface--;
-					const Imath::C4f &color = (*colors)[cindex++];
-					cface->b = FTOCHAR(color[0]);
-					cface->g = FTOCHAR(color[1]);
-					cface->r = FTOCHAR(color[2]);
-					cface->a = FTOCHAR(color[3]);
-				}
-			}
-		}
-	}
+	read_custom_data(arb_geom_params, config, &mesh->ldata);
 }
 
 void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_start,
