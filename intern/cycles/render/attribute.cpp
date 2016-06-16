@@ -51,14 +51,13 @@ void Attribute::set(ustring name_, TypeDesc type_, AttributeElement element_)
 		type == TypeDesc::TypeNormal || type == TypeDesc::TypeMatrix);
 }
 
-void Attribute::resize(int numverts, int numtris, int numsteps, int numcurves, int numkeys,
-                       int numpatches, AttributePrimitive prim, bool reserve_only)
+void Attribute::resize(Mesh *mesh, AttributePrimitive prim, bool reserve_only)
 {
 	if(reserve_only) {
-		buffer.reserve(buffer_size(numverts, numtris, numsteps, numcurves, numkeys, numpatches, prim));
+		buffer.reserve(buffer_size(mesh, prim));
 	}
 	else {
-		buffer.resize(buffer_size(numverts, numtris, numsteps, numcurves, numkeys, numpatches, prim), 0);
+		buffer.resize(buffer_size(mesh, prim), 0);
 	}
 }
 
@@ -127,11 +126,10 @@ size_t Attribute::data_sizeof() const
 		return sizeof(float3);
 }
 
-size_t Attribute::element_size(int numverts, int numtris, int numsteps, int numcurves, int numkeys,
-                               int numpatches, AttributePrimitive prim) const
+size_t Attribute::element_size(Mesh *mesh, AttributePrimitive prim) const
 {
 	size_t size;
-	
+
 	switch(element) {
 		case ATTR_ELEMENT_OBJECT:
 		case ATTR_ELEMENT_MESH:
@@ -139,32 +137,32 @@ size_t Attribute::element_size(int numverts, int numtris, int numsteps, int numc
 			size = 1;
 			break;
 		case ATTR_ELEMENT_VERTEX:
-			size = numverts;
+			size = mesh->verts.size();
 			break;
 		case ATTR_ELEMENT_VERTEX_MOTION:
-			size = numverts * (numsteps - 1);
+			size = mesh->verts.size() * (mesh->motion_steps - 1);
 			break;
 		case ATTR_ELEMENT_FACE:
 			if(prim == ATTR_PRIM_TRIANGLE)
-				size = numtris;
+				size = mesh->num_triangles();
 			else
-				size = numpatches;
+				size = mesh->patches.size();
 			break;
 		case ATTR_ELEMENT_CORNER:
 		case ATTR_ELEMENT_CORNER_BYTE:
 			if(prim == ATTR_PRIM_TRIANGLE)
-				size = numtris*3;
+				size = mesh->num_triangles()*3;
 			else
-				size = numpatches*4;
+				size = mesh->patches.size()*4;
 			break;
 		case ATTR_ELEMENT_CURVE:
-			size = numcurves;
+			size = mesh->num_curves();
 			break;
 		case ATTR_ELEMENT_CURVE_KEY:
-			size = numkeys;
+			size = mesh->curve_keys.size();
 			break;
 		case ATTR_ELEMENT_CURVE_KEY_MOTION:
-			size = numkeys * (numsteps - 1);
+			size = mesh->curve_keys.size() * (mesh->motion_steps - 1);
 			break;
 		default:
 			size = 0;
@@ -174,10 +172,9 @@ size_t Attribute::element_size(int numverts, int numtris, int numsteps, int numc
 	return size;
 }
 
-size_t Attribute::buffer_size(int numverts, int numtris, int numsteps, int numcurves, int numkeys,
-                              int numpatches, AttributePrimitive prim) const
+size_t Attribute::buffer_size(Mesh *mesh, AttributePrimitive prim) const
 {
-	return element_size(numverts, numtris, numsteps, numcurves, numkeys, numpatches, prim)*data_sizeof();
+	return element_size(mesh, prim)*data_sizeof();
 }
 
 bool Attribute::same_storage(TypeDesc a, TypeDesc b)
@@ -301,14 +298,12 @@ Attribute *AttributeSet::add(ustring name, TypeDesc type, AttributeElement eleme
 
 	/* this is weak .. */
 	if(triangle_mesh)
-		attr->resize(triangle_mesh->verts.size(), triangle_mesh->num_triangles(), triangle_mesh->motion_steps, 0, 0,
-		             0, ATTR_PRIM_TRIANGLE, false);
+		attr->resize(triangle_mesh, ATTR_PRIM_TRIANGLE, false);
 	if(curve_mesh)
-		attr->resize(0, 0, curve_mesh->motion_steps, curve_mesh->num_curves(), curve_mesh->curve_keys.size(),
-		             0, ATTR_PRIM_CURVE, false);
+		attr->resize(curve_mesh, ATTR_PRIM_CURVE, false);
 	if(subd_mesh)
-		attr->resize(subd_mesh->verts.size(), 0, 0, 0, 0, subd_mesh->patches.size(), ATTR_PRIM_SUBD, false);
-	
+		attr->resize(subd_mesh, ATTR_PRIM_SUBD, false);
+
 	return attr;
 }
 
@@ -466,12 +461,11 @@ void AttributeSet::resize(bool reserve_only)
 {
 	foreach(Attribute& attr, attributes) {
 		if(triangle_mesh)
-			attr.resize(triangle_mesh->verts.size(), triangle_mesh->num_triangles(), triangle_mesh->motion_steps, 0, 0,
-			            0, ATTR_PRIM_TRIANGLE, reserve_only);
+			attr.resize(triangle_mesh, ATTR_PRIM_TRIANGLE, reserve_only);
 		if(curve_mesh)
-			attr.resize(0, 0, 0, curve_mesh->num_curves(), curve_mesh->curve_keys.size(), 0, ATTR_PRIM_CURVE, reserve_only);
+			attr.resize(curve_mesh, ATTR_PRIM_CURVE, reserve_only);
 		if(subd_mesh)
-			attr.resize(subd_mesh->verts.size(), 0, 0, 0, 0, subd_mesh->patches.size(), ATTR_PRIM_SUBD, reserve_only);
+			attr.resize(subd_mesh, ATTR_PRIM_SUBD, reserve_only);
 	}
 }
 

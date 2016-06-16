@@ -58,14 +58,11 @@ public:
 	Attribute() {}
 	~Attribute();
 	void set(ustring name, TypeDesc type, AttributeElement element);
-	void resize(int numverts, int numfaces, int numsteps, int numcurves, int numkeys,
-	            int numpatches, AttributePrimitive prim, bool reserve_only);
+	void resize(Mesh *mesh, AttributePrimitive prim, bool reserve_only);
 
 	size_t data_sizeof() const;
-	size_t element_size(int numverts, int numfaces, int numsteps, int numcurves, int numkeys,
-	                    int numpatches, AttributePrimitive prim) const;
-	size_t buffer_size(int numverts, int numfaces, int numsteps, int numcurves, int numkeys,
-	                   int numpatches, AttributePrimitive prim) const;
+	size_t element_size(Mesh *mesh, AttributePrimitive prim) const;
+	size_t buffer_size(Mesh *mesh, AttributePrimitive prim) const;
 
 	char *data() { return (buffer.size())? &buffer[0]: NULL; };
 	float3 *data_float3() { return (float3*)data(); }

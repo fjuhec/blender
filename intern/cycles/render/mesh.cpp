@@ -932,14 +932,7 @@ static void update_attribute_element_size(Mesh *mesh,
                                           size_t *attr_uchar4_size)
 {
 	if(mattr) {
-		size_t size = mattr->element_size(
-			mesh->verts.size(),
-			mesh->num_triangles(),
-			mesh->motion_steps,
-			mesh->num_curves(),
-			mesh->curve_keys.size(),
-			mesh->patches.size(),
-			prim);
+		size_t size = mattr->element_size(mesh, prim);
 
 		if(mattr->element == ATTR_ELEMENT_VOXEL) {
 			/* pass */
@@ -978,14 +971,7 @@ static void update_attribute_element_offset(Mesh *mesh,
 		type = mattr->type;
 
 		/* store attribute data in arrays */
-		size_t size = mattr->element_size(
-			mesh->verts.size(),
-			mesh->num_triangles(),
-			mesh->motion_steps,
-			mesh->num_curves(),
-			mesh->curve_keys.size(),
-			mesh->patches.size(),
-			prim);
+		size_t size = mattr->element_size(mesh, prim);
 
 		if(mattr->element == ATTR_ELEMENT_VOXEL) {
 			/* store slot in offset value */
