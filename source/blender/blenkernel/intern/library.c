@@ -84,7 +84,6 @@
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_depsgraph.h"
-#include "BKE_fcurve.h"
 #include "BKE_font.h"
 #include "BKE_global.h"
 #include "BKE_group.h"
@@ -92,7 +91,6 @@
 #include "BKE_idcode.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
-#include "BKE_ipo.h"
 #include "BKE_key.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
@@ -103,16 +101,12 @@
 #include "BKE_material.h"
 #include "BKE_main.h"
 #include "BKE_mball.h"
-#include "BKE_movieclip.h"
 #include "BKE_mask.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
-#include "BKE_paint.h"
 #include "BKE_particle.h"
 #include "BKE_packedFile.h"
 #include "BKE_speaker.h"
-#include "BKE_sound.h"
-#include "BKE_screen.h"
 #include "BKE_scene.h"
 #include "BKE_text.h"
 #include "BKE_texture.h"
@@ -124,10 +118,6 @@
 
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
-
-#ifdef WITH_PYTHON
-#include "BPY_extern.h"
-#endif
 
 /* GS reads the memory pointed at in a specific ordering. 
  * only use this definition, makes little and big endian systems

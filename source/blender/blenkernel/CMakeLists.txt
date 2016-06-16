@@ -248,6 +248,7 @@ set(SRC
 	BKE_library.h
 	BKE_library_idmap.h
 	BKE_library_query.h
+	BKE_library_remap.h
 	BKE_linestyle.h
 	BKE_main.h
 	BKE_mask.h
