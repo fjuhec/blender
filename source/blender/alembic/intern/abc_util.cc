@@ -433,3 +433,12 @@ void create_transform_matrix(Object *obj, float transform_mat[4][4])
 	/* Add scale to transformation matrix. */
 	mul_m4_m4m4(transform_mat, transform_mat, scale_mat);
 }
+
+bool has_property(const Alembic::Abc::ICompoundProperty &prop, const std::string &name)
+{
+	if (!prop.valid()) {
+		return false;
+	}
+
+	return prop.getPropertyHeader(name) != NULL;
+}

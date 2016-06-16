@@ -163,7 +163,7 @@ void AbcPointsReader::readObjectData(Main *bmain, Scene *scene, float time)
 	ICompoundProperty prop = m_schema.getArbGeomParams();
 	N3fArraySamplePtr vnormals;
 
-	if (prop.valid()) {
+	if (has_property(prop, "N")) {
 		const IN3fArrayProperty &normals_prop = IN3fArrayProperty(prop, "N", time);
 
 		if (normals_prop) {

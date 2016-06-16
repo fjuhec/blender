@@ -74,6 +74,8 @@ void get_min_max_time(const Schema &schema, chrono_t &min, chrono_t &max)
 	}
 }
 
+bool has_property(const Alembic::Abc::ICompoundProperty &prop, const std::string &name);
+
 /* ************************** */
 
 /* TODO: this duplicates MINLINE from BLI_math, but then need to keep things
