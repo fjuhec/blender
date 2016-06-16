@@ -73,13 +73,13 @@ void Mesh::Curve::bounds_grow(const int k, const float3 *curve_keys, const float
 	bounds.grow(upper, mr);
 }
 
-/* Patch */
+/* SubdFace */
 
-float3 Mesh::Patch::normal(const float3 *verts) const
+float3 Mesh::SubdFace::normal(const Mesh *mesh) const
 {
-	float3 v0 = verts[v[0]];
-	float3 v1 = verts[v[1]];
-	float3 v2 = verts[v[2]];
+	float3 v0 = mesh->verts[mesh->subd_face_corners[start_corner+0]];
+	float3 v1 = mesh->verts[mesh->subd_face_corners[start_corner+1]];
+	float3 v2 = mesh->verts[mesh->subd_face_corners[start_corner+2]];
 
 	return safe_normalize(cross(v1 - v0, v2 - v0));
 }
@@ -154,7 +154,7 @@ void Mesh::resize_mesh(int numverts, int numtris)
 	shader.resize(numtris);
 	smooth.resize(numtris);
 
-	if(patches.size()) {
+	if(subd_faces.size()) {
 		triangle_patch.resize(numtris);
 		vert_patch_uv.resize(numverts);
 	}
@@ -170,7 +170,7 @@ void Mesh::reserve_mesh(int numverts, int numtris)
 	shader.reserve(numtris);
 	smooth.reserve(numtris);
 
-	if(patches.size()) {
+	if(subd_faces.size()) {
 		triangle_patch.reserve(numtris);
 		vert_patch_uv.reserve(numverts);
 	}
@@ -198,16 +198,18 @@ void Mesh::reserve_curves(int numcurves, int numkeys)
 	curve_attributes.resize(true);
 }
 
-void Mesh::resize_patches(int numpatches)
+void Mesh::resize_subd_faces(int numfaces, int numcorners)
 {
-	patches.resize(numpatches);
+	subd_faces.resize(numfaces);
+	subd_face_corners.resize(numcorners);
 
 	subd_attributes.resize();
 }
 
-void Mesh::reserve_patches(int numpatches)
+void Mesh::reserve_subd_faces(int numfaces, int numcorners)
 {
-	patches.reserve(numpatches);
+	subd_faces.reserve(numfaces);
+	subd_face_corners.reserve(numcorners);
 
 	subd_attributes.resize(true);
 }
@@ -228,7 +230,8 @@ void Mesh::clear()
 	curve_first_key.clear();
 	curve_shader.clear();
 
-	patches.clear();
+	subd_faces.clear();
+	subd_face_corners.clear();
 
 	attributes.clear();
 	curve_attributes.clear();
@@ -275,7 +278,7 @@ void Mesh::add_triangle(int v0, int v1, int v2, int shader_, bool smooth_)
 	shader.push_back_reserved(shader_);
 	smooth.push_back_reserved(smooth_);
 
-	if(patches.size()) {
+	if(subd_faces.size()) {
 		triangle_patch.push_back_reserved(-1);
 	}
 }
@@ -292,14 +295,20 @@ void Mesh::add_curve(int first_key, int shader)
 	curve_shader.push_back_reserved(shader);
 }
 
-void Mesh::add_patch(int v0, int v1, int v2, int v3, int shader_, bool smooth_)
+void Mesh::add_subd_face(int* corners, int num_corners, int shader_, bool smooth_)
 {
-	patches.push_back_reserved({v0, v1, v2, v3, shader_, smooth_});
-}
+	if(num_corners > 4) {
+		assert(!"ngons not supported yet");
+		return;
+	}
 
-void Mesh::add_patch(int v0, int v1, int v2, int shader_, bool smooth_)
-{
-	add_patch(v0, v1, v2, -1, shader_, smooth_);
+	size_t start_corner = subd_face_corners.size();
+
+	for(int i = 0; i < num_corners; i++) {
+		subd_face_corners.push_back_reserved(corners[i]);
+	}
+
+	subd_faces.push_back_reserved({start_corner, num_corners, shader_, smooth_});
 }
 
 void Mesh::compute_bounds()
@@ -519,7 +528,7 @@ void Mesh::pack_normals(Scene *scene, uint *tri_shader, float4 *vnormal)
 		if(do_transform)
 			vNi = normalize(transform_direction(&ntfm, vNi));
 
-		float patch_v = (!patches.size()) ? 0.0f : vert_patch_uv[i].y;
+		float patch_v = (!subd_faces.size()) ? 0.0f : vert_patch_uv[i].y;
 
 		vnormal[i] = make_float4(vNi.x, vNi.y, vNi.z, patch_v);
 	}
@@ -534,7 +543,7 @@ void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
 
 		for(size_t i = 0; i < verts_size; i++) {
 			float3 p = verts_ptr[i];
-			float patch_u = (!patches.size()) ? 0.0f : vert_patch_uv[i].x;
+			float patch_u = (!subd_faces.size()) ? 0.0f : vert_patch_uv[i].x;
 
 			tri_verts[i] = make_float4(p.x, p.y, p.z, patch_u);
 		}
@@ -545,7 +554,7 @@ void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
 	if(triangles_size) {
 		for(size_t i = 0; i < triangles_size; i++) {
 			Triangle t = get_triangle(i);
-			uint patch_index = (!patches.size()) ? -1 : (triangle_patch[i] + patch_offset);
+			uint patch_index = (!subd_faces.size()) ? -1 : (triangle_patch[i] + patch_offset);
 
 			tri_vindex[i] = make_float4(
 				__int_as_float(t.v[0] + vert_offset),
@@ -591,16 +600,19 @@ void Mesh::pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, s
 
 void Mesh::pack_patches(uint4 *patch_data, uint vert_offset)
 {
-	size_t patches_size = patches.size();
+	size_t patches_size = subd_faces.size();
 
 	if(patches_size) {
 		for(size_t i = 0; i < patches_size; i++) {
-			Patch p = patches[i];
+			SubdFace p = subd_faces[i];
 
-			patch_data[i] = {p.v[0] + vert_offset,
-				             p.v[1] + vert_offset,
-				             p.v[2] + vert_offset,
-				             p.v[3] >= 0 ? p.v[3] + vert_offset : -1};
+			int c[4];
+			memcpy(c, &subd_face_corners[p.start_corner], sizeof(int)*p.num_corners);
+
+			patch_data[i] = {c[0] + vert_offset,
+				             c[1] + vert_offset,
+				             c[2] + vert_offset,
+				             p.num_corners > 3 ? c[3] + vert_offset : -1};
 		}
 	}
 }
@@ -892,7 +904,7 @@ void MeshManager::update_svm_attributes(Device *device, DeviceScene *dscene, Sce
 
 			index++;
 
-			if(mesh->patches.size()) {
+			if(mesh->subd_faces.size()) {
 				attr_map[index].x = id;
 				attr_map[index].y = req.subd_element;
 				attr_map[index].z = as_uint(req.subd_offset);
@@ -1214,7 +1226,7 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 		curve_key_size += mesh->curve_keys.size();
 		curve_size += mesh->num_curves();
 
-		patch_size += mesh->patches.size();
+		patch_size += mesh->subd_faces.size();
 	}
 
 	if(tri_size != 0) {
@@ -1624,32 +1636,32 @@ bool Mesh::need_attribute(Scene * /*scene*/, ustring name)
 
 void Mesh::tessellate(DiagSplit *split)
 {
-	int num_faces = patches.size();
+	int num_faces = subd_faces.size();
 
 	Attribute *attr_vN = subd_attributes.find(ATTR_STD_VERTEX_NORMAL);
 	float3* vN = attr_vN->data_float3();
 
 	for(int f = 0; f < num_faces; f++) {
-		if(!patches[f].is_quad()) {
+		if(!subd_faces[f].is_quad()) {
 			/* triangle */
 			LinearTrianglePatch patch;
-			Patch p = patches[f];
+			SubdFace p = subd_faces[f];
 			float3 *hull = patch.hull;
 			float3 *normals = patch.normals;
 
 			patch.patch_index = f;
 
 			for(int i = 0; i < 3; i++) {
-				hull[i] = verts[p.v[i]];
+				hull[i] = verts[subd_face_corners[p.start_corner+i]];
 			}
 
 			if(p.smooth) {
 				for(int i = 0; i < 3; i++) {
-					normals[i] = vN[p.v[i]];
+					normals[i] = vN[subd_face_corners[p.start_corner+i]];
 				}
 			}
 			else {
-				float3 N = p.normal(&verts[0]);
+				float3 N = p.normal(this);
 				for(int i = 0; i < 3; i++) {
 					normals[i] = N;
 				}
@@ -1660,23 +1672,23 @@ void Mesh::tessellate(DiagSplit *split)
 		else {
 			/* quad */
 			LinearQuadPatch patch;
-			Patch p = patches[f];
+			SubdFace p = subd_faces[f];
 			float3 *hull = patch.hull;
 			float3 *normals = patch.normals;
 
 			patch.patch_index = f;
 
 			for(int i = 0; i < 4; i++) {
-				hull[i] = verts[p.v[i]];
+				hull[i] = verts[subd_face_corners[p.start_corner+i]];
 			}
 
 			if(p.smooth) {
 				for(int i = 0; i < 4; i++) {
-					normals[i] = vN[p.v[i]];
+					normals[i] = vN[subd_face_corners[p.start_corner+i]];
 				}
 			}
 			else {
-				float3 N = p.normal(&verts[0]);
+				float3 N = p.normal(this);
 				for(int i = 0; i < 4; i++) {
 					normals[i] = N;
 				}

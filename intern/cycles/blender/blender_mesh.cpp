@@ -583,7 +583,7 @@ static void create_mesh(Scene *scene,
 	int numverts = b_mesh.vertices.length();
 	int numfaces = b_mesh.tessfaces.length();
 	int numtris = 0;
-	int numpatches = 0;
+	int total_corners = 0;
 	bool use_loop_normals = b_mesh.use_auto_smooth();
 
 	BL::Mesh::vertices_iterator v;
@@ -591,15 +591,17 @@ static void create_mesh(Scene *scene,
 
 	for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f) {
 		int4 vi = get_int4(f->vertices_raw());
-		if(!subdivision)
+		if(!subdivision) {
 			numtris += (vi[3] == 0)? 1: 2;
-		else
-			numpatches++;
+		}
+		else {
+			total_corners += (vi[3] == 0)? 3: 4;
+		}
 	}
 
 	/* allocate memory */
 	mesh->reserve_mesh(numverts, numtris);
-	mesh->reserve_patches(numpatches);
+	mesh->reserve_subd_faces(numfaces, total_corners);
 
 	/* create vertex coordinates and normals */
 	for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end(); ++v)
@@ -681,11 +683,8 @@ static void create_mesh(Scene *scene,
 				mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth);
 		}
 		else {
-			/* create patches */
-			if(n == 4)
-				mesh->add_patch(vi[0], vi[1], vi[2], vi[3], shader, smooth);
-			else
-				mesh->add_patch(vi[0], vi[1], vi[2], shader, smooth);
+			/* create subd faces */
+			mesh->add_subd_face(&vi[0], n, shader, smooth);
 		}
 
 		nverts[fi] = n;

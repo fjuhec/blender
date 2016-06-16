@@ -89,14 +89,15 @@ public:
 		return curve_first_key.size();
 	}
 
-	/* Mesh Patch */
-	struct Patch {
-		int v[4];
+	/* Mesh SubdFace */
+	struct SubdFace {
+		int start_corner;
+		int num_corners;
 		int shader;
 		bool smooth;
 
-		bool is_quad() { return v[3] >= 0; }
-		float3 normal(const float3 *verts) const;
+		bool is_quad() { return num_corners == 4; }
+		float3 normal(const Mesh *mesh) const;
 	};
 
 	/* Displacement */
@@ -134,7 +135,8 @@ public:
 	array<int> curve_first_key;
 	array<int> curve_shader;
 
-	array<Patch> patches;
+	array<SubdFace> subd_faces;
+	array<int> subd_face_corners;
 
 	vector<Shader*> used_shaders;
 	AttributeSet attributes;
@@ -172,16 +174,15 @@ public:
 	void reserve_mesh(int numverts, int numfaces);
 	void resize_curves(int numcurves, int numkeys);
 	void reserve_curves(int numcurves, int numkeys);
-	void resize_patches(int numpatches);
-	void reserve_patches(int numpatches);
+	void resize_subd_faces(int numfaces, int numcorners);
+	void reserve_subd_faces(int numfaces, int numcorners);
 	void clear();
 	void add_vertex(float3 P);
 	void add_vertex_slow(float3 P);
 	void add_triangle(int v0, int v1, int v2, int shader, bool smooth);
 	void add_curve_key(float3 loc, float radius);
 	void add_curve(int first_key, int shader);
-	void add_patch(int v0, int v1, int v2, int v3, int shader_, bool smooth_);
-	void add_patch(int v0, int v1, int v2, int shader_, bool smooth_);
+	void add_subd_face(int* corners, int num_corners, int shader_, bool smooth_);
 	int split_vertex(int vertex);
 
 	void compute_bounds();

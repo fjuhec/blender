@@ -146,14 +146,14 @@ size_t Attribute::element_size(Mesh *mesh, AttributePrimitive prim) const
 			if(prim == ATTR_PRIM_TRIANGLE)
 				size = mesh->num_triangles();
 			else
-				size = mesh->patches.size();
+				size = mesh->subd_faces.size();
 			break;
 		case ATTR_ELEMENT_CORNER:
 		case ATTR_ELEMENT_CORNER_BYTE:
 			if(prim == ATTR_PRIM_TRIANGLE)
 				size = mesh->num_triangles()*3;
 			else
-				size = mesh->patches.size()*4;
+				size = mesh->subd_faces.size()*4;
 			break;
 		case ATTR_ELEMENT_CURVE:
 			size = mesh->num_curves();
