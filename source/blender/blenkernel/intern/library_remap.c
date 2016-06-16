@@ -180,12 +180,6 @@ static int foreach_libblock_remap_callback(void *user_data, ID *UNUSED(id_self),
 			id->tag |= LIB_TAG_DOIT;
 		}
 
-//		if (GS(old_id->name) == ID_TXT) {
-//			printf("\t\t %s (from %s) (%d)\n", old_id->name, old_id->lib ? old_id->lib->filepath : "<MAIN>", old_id->us);
-//			printf("\t\tIn %s (%p): remapping %s (%p) to %s (%p)\n",
-//			       id->name, id, old_id->name, old_id, new_id ? new_id->name : "<NONE>", new_id);
-//		}
-
 		/* Special hack in case it's Object->data and we are in edit mode (skipped_direct too). */
 		if ((is_never_null && skip_never_null) ||
 		    (is_obj_editmode && (((Object *)id)->data == *id_p)) ||
@@ -247,7 +241,6 @@ static int foreach_libblock_remap_callback(void *user_data, ID *UNUSED(id_self),
  * \param new_id the new datablock to replace \a old_id references with (may be NULL).
  * \param skip_indirect_usage if true, do not remap/unlink indirect usages of \a old_id datablock.
  * \param r_id_remap_data if non-NULL, the IDRemap struct to use (uselful to retrieve info about remapping process).
- * \return true is there was some 'user_one' users of \a old_id (needed to handle correctly #old_id->us count).
  */
 static void libblock_remap_data(
         Main *bmain, ID *id, ID *old_id, ID *new_id, const short remap_flags, IDRemap *r_id_remap_data)
@@ -268,12 +261,10 @@ static void libblock_remap_data(
 	r_id_remap_data->skipped_indirect = 0;
 	r_id_remap_data->skipped_refcounted = 0;
 
-//	if (old_id && GS(old_id->name) == ID_AC)
-//		printf("%s: %s (%p) replaced by %s (%p)\n", __func__,
-//			   old_id ? old_id->name : "", old_id, new_id ? new_id->name : "", new_id);
-
 	if (id) {
-//		printf("\tchecking id %s (%p, %p)\n", id->name, id, id->lib);
+#ifdef DEBUG_PRINT
+		printf("\tchecking id %s (%p, %p)\n", id->name, id, id->lib);
+#endif
 		r_id_remap_data->id = id;
 		BKE_library_foreach_ID_link(id, foreach_libblock_remap_callback, (void *)r_id_remap_data, IDWALK_NOP);
 	}
@@ -290,8 +281,6 @@ static void libblock_remap_data(
 				/* Note that we cannot skip indirect usages of old_id here (if requested), we still need to check it for
 				 * the user count handling...
 				 * XXX No more true (except for debug usage of those skipping counters). */
-//				if (GS(old_id->name) == ID_AC && STRCASEEQ(id_curr->name, "OBfranck_blenrig"))
-//					printf("\tchecking id %s (%p, %p)\n", id_curr->name, id_curr, id_curr->lib);
 				r_id_remap_data->id = id_curr;
 				BKE_library_foreach_ID_link(
 				            id_curr, foreach_libblock_remap_callback, (void *)r_id_remap_data, IDWALK_NOP);
@@ -313,9 +302,11 @@ static void libblock_remap_data(
 		new_id->tag |= LIB_TAG_EXTERN;
 	}
 
-//	printf("%s: %d occurences skipped (%d direct and %d indirect ones)\n", __func__,
-//	       r_id_remap_data->skipped_direct + r_id_remap_data->skipped_indirect,
-//	       r_id_remap_data->skipped_direct, r_id_remap_data->skipped_indirect);
+#ifdef DEBUG_PRINT
+	printf("%s: %d occurences skipped (%d direct and %d indirect ones)\n", __func__,
+	       r_id_remap_data->skipped_direct + r_id_remap_data->skipped_indirect,
+	       r_id_remap_data->skipped_direct, r_id_remap_data->skipped_indirect);
+#endif
 }
 
 /**
@@ -360,11 +351,6 @@ void BKE_libblock_remap_locked(
 			}
 		}
 	}
-
-//	if (GS(old_id->name) == ID_AC) {
-//		printf("%s: START %s (%p, %d) replaced by %s (%p, %d)\n",
-//		       __func__, old_id->name, old_id, old_id->us, new_id ? new_id->name : "", new_id, new_id ? new_id->us : 0);
-//	}
 
 	libblock_remap_data(bmain, NULL, old_id, new_id, remap_flags, &id_remap_data);
 
@@ -426,11 +412,6 @@ void BKE_libblock_remap_locked(
 			}
 		}
 	}
-
-//	if (GS(old_id->name) == ID_AC) {
-//		printf("%s: END   %s (%p, %d) replaced by %s (%p, %d)\n",
-//		       __func__, old_id->name, old_id, old_id->us, new_id ? new_id->name : "", new_id, new_id ? new_id->us : 0);
-//	}
 
 	/* Full rebuild of DAG! */
 	DAG_relations_tag_update(bmain);
@@ -712,7 +693,7 @@ void BKE_libblock_delete(Main *bmain, void *idv)
 	BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
 
 	/* First tag all datablocks directly from target lib.
-     * Note that we go forward here, since we want to check dependencies before users (e.g. meshes before objetcs).
+     * Note that we go forward here, since we want to check dependencies before users (e.g. meshes before objects).
      * Avoids to have to loop twice. */
 	for (i = 0; i < base_count; i++) {
 		ListBase *lb = lbarray[i];
@@ -743,7 +724,9 @@ void BKE_libblock_delete(Main *bmain, void *idv)
 			id_next = id->next;
 			if (id->tag & LIB_TAG_DOIT) {
 				if (id->us != 0) {
+#ifdef DEBUG_PRINT
 					printf("%s: deleting %s (%d)\n", __func__, id->name, id->us);
+#endif
 					BLI_assert(id->us == 0);
 				}
 				BKE_libblock_free(bmain, id);
