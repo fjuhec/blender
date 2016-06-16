@@ -557,7 +557,7 @@ bool sculpt_brush_test_sq(SculptBrushTest *test, const float co[3])
 	}
 }
 
-static bool sculpt_brush_test_fast(const SculptBrushTest *test, const float co[3])
+bool sculpt_brush_test_fast(const SculptBrushTest *test, const float co[3])
 {
 	if (sculpt_brush_test_clipping(test, co)) {
 		return 0;
@@ -565,7 +565,7 @@ static bool sculpt_brush_test_fast(const SculptBrushTest *test, const float co[3
 	return len_squared_v3v3(co, test->location) <= test->radius_squared;
 }
 
-static bool sculpt_brush_test_cube(SculptBrushTest *test, const float co[3], float local[4][4])
+bool sculpt_brush_test_cube(SculptBrushTest *test, const float co[3], float local[4][4])
 {
 	float side = M_SQRT1_2;
 	float local_co[3];
@@ -3795,6 +3795,8 @@ void sculpt_cache_free(StrokeCache *cache)
 {
 	if (cache->dial)
 		MEM_freeN(cache->dial);
+	if (cache->vert_to_loop)
+		MEM_freeN(cache->vert_to_loop);
 	MEM_freeN(cache);
 }
 
@@ -4166,6 +4168,8 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 			cache->initial_radius = paint_calc_object_space_radius(cache->vc,
 			                                                       cache->true_location,
 			                                                       BKE_brush_size_get(scene, brush));
+
+			printf("sculpt radius %f\n", cache->initial_radius);
 			BKE_brush_unprojected_radius_set(scene, brush, cache->initial_radius);
 		}
 		else {
@@ -4182,6 +4186,7 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 
 	cache->radius_squared = cache->radius * cache->radius;
 
+
 	if (brush->flag & BRUSH_ANCHORED) {
 		/* true location has been calculated as part of the stroke system already here */
 		if (brush->flag & BRUSH_EDGE_TO_EDGE) {
@@ -4192,6 +4197,7 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 		                                               cache->true_location,
 		                                               ups->pixel_radius);
 		cache->radius_squared = cache->radius * cache->radius;
+
 
 		copy_v3_v3(cache->anchored_location, cache->true_location);
 	}

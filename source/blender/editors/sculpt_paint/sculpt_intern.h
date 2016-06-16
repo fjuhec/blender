@@ -225,14 +225,10 @@ typedef struct StrokeCache {
 	rcti previous_r; /* previous redraw rectangle */
 	rcti current_r; /* current redraw rectangle */
 
-	PBVHNode** nodes;
-	int totNodes;
-	bool didNodeChange;
-	int totVerts;
-	int* vert_indices;
+	int tot_verts;
+	MVert *verts;
+	int *map_mem;
 	MeshElemMap* vert_to_loop;
-	//Temporary fix to map generation.
-	bool loopsGenerated;
 
 } StrokeCache;
 
@@ -312,6 +308,8 @@ typedef struct {
 void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test);
 bool sculpt_brush_test(SculptBrushTest *test, const float co[3]);
 bool sculpt_brush_test_sq(SculptBrushTest *test, const float co[3]);
+bool sculpt_brush_test_fast(const SculptBrushTest *test, const float co[3]);
+bool sculpt_brush_test_cube(SculptBrushTest *test, const float co[3], float local[4][4]);
 bool sculpt_search_sphere_cb(PBVHNode *node, void *data_v);
 float tex_strength(SculptSession *ss, Brush *br,
 	const float point[3],
