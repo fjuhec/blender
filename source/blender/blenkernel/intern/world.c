@@ -57,7 +57,7 @@ void BKE_world_free(World *wrld)
 {
 	int a;
 
-	BKE_animdata_free((ID *)wrld);
+	BKE_animdata_free((ID *)wrld, false);
 
 	for (a = 0; a < MAX_MTEX; a++) {
 		MEM_SAFE_FREE(wrld->mtex[a]);

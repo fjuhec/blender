@@ -109,7 +109,7 @@ void BKE_curve_editNurb_free(Curve *cu)
 /** Free (or release) any data used by this curve (does not free the curve itself). */
 void BKE_curve_free(Curve *cu)
 {
-	BKE_animdata_free((ID *)cu);
+	BKE_animdata_free((ID *)cu, false);
 
 	BKE_nurbList_free(&cu->nurb);
 	BKE_curve_editfont_free(cu);

@@ -566,7 +566,7 @@ void outliner_do_object_operation(
 static void clear_animdata_cb(int UNUSED(event), TreeElement *UNUSED(te),
                               TreeStoreElem *tselem, void *UNUSED(arg))
 {
-	BKE_animdata_free(tselem->id);
+	BKE_animdata_free(tselem->id, true);
 }
 
 

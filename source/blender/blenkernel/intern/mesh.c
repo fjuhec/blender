@@ -436,7 +436,7 @@ bool BKE_mesh_has_custom_loop_normals(Mesh *me)
 /** Free (or release) any data used by this mesh (does not free the mesh itself). */
 void BKE_mesh_free(Mesh *me)
 {
-	BKE_animdata_free(&me->id);
+	BKE_animdata_free(&me->id, false);
 
 	CustomData_free(&me->vdata, me->totvert);
 	CustomData_free(&me->edata, me->totedge);

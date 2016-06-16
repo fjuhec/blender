@@ -1795,7 +1795,7 @@ void ntreeFreeTree(bNodeTree *ntree)
 	bNode *node, *next;
 	bNodeSocket *sock, *nextsock;
 
-	BKE_animdata_free((ID *)ntree);
+	BKE_animdata_free((ID *)ntree, false);
 
 	/* XXX hack! node trees should not store execution graphs at all.
 	 * This should be removed when old tree types no longer require it.

@@ -396,7 +396,7 @@ void BKE_object_free_caches(Object *object)
 /** Free (or release) any data used by this object (does not free the object itself). */
 void BKE_object_free(Object *ob)
 {
-	BKE_animdata_free((ID *)ob);
+	BKE_animdata_free((ID *)ob, false);
 
 	BKE_object_free_modifiers(ob);
 

@@ -436,8 +436,8 @@ static void buttons_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, 
 
 	if (sbuts->texuser) {
 		ButsContextTexture *ct = sbuts->texuser;
-		if (ct->texture == old_id) {
-			ct->texture = new_id;
+		if ((ID *)ct->texture == old_id) {
+			ct->texture = (Tex *)new_id;
 		}
 		BLI_freelistN(&ct->users);
 		ct->user = NULL;

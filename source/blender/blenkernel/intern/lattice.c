@@ -303,7 +303,7 @@ Lattice *BKE_lattice_copy(Lattice *lt)
 /** Free (or release) any data used by this lattice (does not free the lattice itself). */
 void BKE_lattice_free(Lattice *lt)
 {
-	BKE_animdata_free(&lt->id);
+	BKE_animdata_free(&lt->id, false);
 
 	MEM_SAFE_FREE(lt->def);
 	if (lt->dvert) {

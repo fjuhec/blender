@@ -123,7 +123,7 @@ void BKE_armature_bonelist_free(ListBase *lb)
 /** Free (or release) any data used by this armature (does not free the armature itself). */
 void BKE_armature_free(bArmature *arm)
 {
-	BKE_animdata_free(&arm->id);
+	BKE_animdata_free(&arm->id, false);
 
 	BKE_armature_bonelist_free(&arm->bonebase);
 

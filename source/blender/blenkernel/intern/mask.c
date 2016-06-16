@@ -1013,7 +1013,7 @@ void BKE_mask_layer_free_list(ListBase *masklayers)
 /** Free (or release) any data used by this mask (does not free the mask itself). */
 void BKE_mask_free(Mask *mask)
 {
-	BKE_animdata_free((ID *)mask);
+	BKE_animdata_free((ID *)mask, false);
 
 	/* free mask data */
 	BKE_mask_layer_free_list(&mask->masklayers);

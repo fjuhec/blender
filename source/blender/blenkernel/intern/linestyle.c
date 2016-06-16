@@ -131,7 +131,7 @@ void BKE_linestyle_free(FreestyleLineStyle *linestyle)
 	LineStyleModifier *m;
 	int a;
 
-	BKE_animdata_free(&linestyle->id);
+	BKE_animdata_free(&linestyle->id, false);
 
 	for (a = 0; a < MAX_MTEX; a++) {
 		MEM_SAFE_FREE(linestyle->mtex[a]);
