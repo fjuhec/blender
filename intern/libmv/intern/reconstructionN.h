@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 typedef struct libmv_ReconstructionN libmv_ReconstructionN;
+typedef struct libmv_CorrespondencesN libmv_CorrespondencesN;
 
 typedef struct libmv_MultiviewReconstructionOptions {
 	int select_keyframes;
@@ -50,6 +51,7 @@ void libmv_reconstructionNDestroy(libmv_ReconstructionN* libmv_reconstructionN);
 libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
         const struct libmv_TracksN **all_libmv_tracks,
         const libmv_CameraIntrinsicsOptions *all_libmv_camera_intrinsics_options,
+        const libmv_CorrespondencesN *libmv_correspondences,
         libmv_MultiviewReconstructionOptions* libmv_reconstruction_options,
         multiview_reconstruct_progress_update_cb progress_update_callback,
         void* callback_customdata);

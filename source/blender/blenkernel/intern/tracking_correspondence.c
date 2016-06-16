@@ -65,7 +65,7 @@ typedef struct MovieMultiviewReconstructContext {
 	TracksMap **all_tracks_map;				/* tracks_map of each clip */
 	int *all_sfra, *all_efra;				/* start and end frame of each clip */
 	int *all_refine_flags;				/* refine flags of each clip */
-	ListBase *corr_base;			/* a set of correspondence across clips */
+	struct libmv_CorrespondencesN *correspondences;			/* libmv correspondence api*/
 
 	bool select_keyframes;
 	int keyframe1, keyframe2;		/* the key frames selected from the primary camera */
@@ -184,6 +184,67 @@ static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int cli
 	return tracks;
 }
 
+/* get correspondences from blender tracking to libmv correspondences
+ * return the number of correspondences converted
+ */
+static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
+                                             MovieClip **clips,
+                                             const int clip_num,
+                                             struct libmv_CorrespondencesN *libmv_correspondences)
+{
+	int num_valid_corrs = 0;
+	MovieTrackingCorrespondence *corr;
+	corr = tracking_correspondences->first;
+	while(corr)
+	{
+		int clip1 = -1, clip2 = -1, track1 = -1, track2 = -1;
+		MovieClip *self_clip = corr->self_clip;
+		MovieClip *other_clip = corr->other_clip;
+		// iterate through all the clips to get the local clip id
+		for(int i = 0; i < clip_num; i++) {
+			if(self_clip == clips[i]) {
+				clip1 = i;
+				MovieTracking *tracking = &clips[i]->tracking;
+				ListBase *tracksbase = &tracking->tracks;
+				MovieTrackingTrack *track = tracksbase->first;
+				int tracknr = 0;
+				while (track) {
+					if(corr->self_track == track)
+					{
+						track1 = tracknr;
+						break;
+					}
+					track = track->next;
+					tracknr++;
+				}
+			}
+			if(other_clip == clips[i]) {
+				clip2 = i;
+				MovieTracking *tracking = &clips[i]->tracking;
+				ListBase *tracksbase = &tracking->tracks;
+				MovieTrackingTrack *track = tracksbase->first;
+				int tracknr = 0;
+				while (track) {
+					if(corr->other_track == track)
+					{
+						track2 = tracknr;
+						break;
+					}
+					track = track->next;
+					tracknr++;
+				}
+			}
+		}
+		if(clip1 != -1 && clip2 != -1 && track1 != -1 && track2 != -1 && clip1 != clip2)
+		{
+			libmv_AddCorrespondenceN(libmv_correspondences, clip1, clip2, track1, track2);
+			num_valid_corrs++;
+		}
+		printf("%s %d %d %d %d\n", corr->name, clip1, clip2, track1, track2);
+		corr = corr->next;
+	}
+	return num_valid_corrs;
+}
 
 /* Create context for camera/object motion reconstruction.
  * Copies all data needed for reconstruction from movie
@@ -202,6 +263,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 	// alloc memory for the field members
 	context->all_tracks = MEM_callocN(num_clips * sizeof(libmv_TracksN*), "MRC libmv_Tracks");
 	context->all_reconstruction = MEM_callocN(num_clips * sizeof(struct libmv_ReconstructionN*), "MRC libmv reconstructions");
+	context->correspondences = libmv_correspondencesNewN();
 	context->all_tracks_map = MEM_callocN(num_clips * sizeof(TracksMap*), "MRC TracksMap");
 	context->all_camera_intrinsics_options = MEM_callocN(num_clips * sizeof(libmv_CameraIntrinsicsOptions), "MRC camera intrinsics");
 	context->all_sfra = MEM_callocN(num_clips * sizeof(int), "MRC start frames");
@@ -219,7 +281,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 		float aspy = 1.0f / tracking->camera.pixel_aspect;
 		int num_tracks = BLI_listbase_count(tracksbase);
 		if(i == 0)
-			printf("%d tracks in the primary clip\n", num_tracks);
+			printf("%d tracks in the primary clip 0\n", num_tracks);
 		else
 			printf("%d tracks in the witness camera %d\n", num_tracks, i);
 		int sfra = INT_MAX, efra = INT_MIN;
@@ -227,8 +289,12 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 
 		// setting context only from information in the primary clip
 		if(i == 0) {
-			// TODO(tianwei): make a proper correspondence DS in the libmv side
-			context->corr_base = &tracking->correspondences;	// correspondences are recorded in the primary clip
+			// correspondences are recorded in the primary clip
+			int num_valid_corrs = libmv_CorrespondencesFromTracking(&tracking->correspondences, clips,
+			                                                        num_clips, context->correspondences);
+			BLI_assert(num_valid_corrs == BLI_listbase_count(&tracking->correspondences));
+			printf("number of correspondences converted: %d\n", num_valid_corrs);
+
 			BLI_strncpy(context->object_name, object->name, sizeof(context->object_name));
 			context->is_camera = object->flag & TRACKING_OBJECT_CAMERA;
 			context->motion_flag = tracking->settings.motion_flag;
@@ -290,6 +356,7 @@ void BKE_tracking_multiview_reconstruction_context_free(MovieMultiviewReconstruc
 		tracks_map_free(context->all_tracks_map[i], NULL);
 	}
 	printf("free per clip context");
+	libmv_CorrespondencesDestroyN(context->correspondences);
 	MEM_freeN(context->all_tracks);
 	MEM_freeN(context->all_reconstruction);
 	MEM_freeN(context->all_camera_intrinsics_options);
@@ -304,7 +371,7 @@ void BKE_tracking_multiview_reconstruction_context_free(MovieMultiviewReconstruc
 
 /* Fill in multiview reconstruction options structure from reconstruction context. */
 static void multiviewReconstructionOptionsFromContext(libmv_MultiviewReconstructionOptions *reconstruction_options,
-                                             MovieMultiviewReconstructContext *context)
+                                                      MovieMultiviewReconstructContext *context)
 {
 	reconstruction_options->select_keyframes = context->select_keyframes;
 
@@ -365,6 +432,7 @@ void BKE_tracking_multiview_reconstruction_solve(MovieMultiviewReconstructContex
 		                                  context->clip_num,
 		                                  (const libmv_TracksN **) context->all_tracks,
 		                                  (const libmv_CameraIntrinsicsOptions *) context->all_camera_intrinsics_options,
+		                                  (const libmv_CorrespondencesN *) context->correspondences,
 		                                  &reconstruction_options,
 		                                  multiview_reconstruct_update_solve_cb, &progressdata);
 

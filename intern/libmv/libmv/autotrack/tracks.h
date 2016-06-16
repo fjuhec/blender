@@ -82,6 +82,22 @@ class Tracks {
   // linear lookup penalties for the accessors.
 };
 
+struct Correspondence {
+	Correspondence(int clip1_, int clip2_, int track1_, int track2_):
+	    clip1(clip1_), clip2(clip2_), track1(track1_), track2(track2_) {}
+	int clip1, clip2;		/* clip id is indexed by the order of clips when constructing context */
+	int track1, track2;		/* track id is the per clip id */
+};
+
+class Correspondences {
+public:
+	void AddCorrespondence(const Correspondence &corr);
+	void AddCorrespondence(int clip1, int clip2, int track1, int track2);
+	int GetCorrNum() const;
+private:
+	vector<Correspondence> corrs;
+};
+
 }  // namespace mv
 
 #endif  // LIBMV_AUTOTRACK_TRACKS_H_

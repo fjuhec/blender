@@ -47,6 +47,7 @@
 using mv::Tracks;
 using mv::Marker;
 using mv::Reconstruction;
+using mv::Correspondences;
 
 using libmv::CameraIntrinsics;
 using libmv::ProgressUpdateCallback;
@@ -106,9 +107,11 @@ void libmv_reconstructionNDestroy(libmv_ReconstructionN* libmv_reconstructionN)
 	LIBMV_OBJECT_DELETE(libmv_reconstructionN, libmv_ReconstructionN);
 }
 
-libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
+libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
+        const int clip_num,
         const libmv_TracksN **all_libmv_tracks,
         const libmv_CameraIntrinsicsOptions *all_libmv_camera_intrinsics_options,
+        const libmv_CorrespondencesN * libmv_correspondences,
         libmv_MultiviewReconstructionOptions *libmv_reconstruction_options,
         multiview_reconstruct_progress_update_cb progress_update_callback,
         void* callback_customdata)
@@ -180,6 +183,8 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
 	update_callback.invoke(0, "Initial reconstruction");
 
 	///* TODO(tianwei): chain the tracks and correspondences */
+	Correspondences &correspondences = *((Correspondences*) libmv_correspondences);
+	printf("corrs in the libmv %d\n", correspondences.GetCorrNum());
 
 	// reconstruct two views from the main clip
 	if(!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction))

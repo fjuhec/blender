@@ -107,8 +107,6 @@ bool ReconstructTwoFrames(const vector<Marker> &markers,
 		return false;
 	}
 
-	printf("%d, %d, %d\n", cam_intrinsics.image_width(), cam_intrinsics.image_height(), cam_intrinsics.focal_length());
-
 	// frame 1 gets the reference frame, frame 2 gets the relative motion.
 	int cam_intrinsic_index = reconstruction->AddCameraIntrinsics(&cam_intrinsics);
 	CameraPose pose1(clip, frame1, cam_intrinsic_index, Mat3::Identity(), Vec3::Zero());

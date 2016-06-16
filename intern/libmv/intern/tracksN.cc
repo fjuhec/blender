@@ -31,6 +31,7 @@
 
 using mv::Marker;
 using mv::Tracks;
+using mv::Correspondences;
 
 void libmv_apiMarkerToMarker(const libmv_Marker& libmv_marker,
                              Marker *marker) {
@@ -135,4 +136,19 @@ int libmv_tracksMaxTrackN(libmv_TracksN* libmv_tracks) {
 
 int libmv_tracksNumMarkersN(libmv_TracksN* libmv_tracks) {
   return ((Tracks*) libmv_tracks)->NumMarkers();
+}
+
+/* --------  	libmv_CorrespondencesN 	------------------- */
+libmv_CorrespondencesN* libmv_correspondencesNewN(void) {
+	Correspondences* corrs = LIBMV_OBJECT_NEW(Correspondences);
+	return (libmv_CorrespondencesN*) corrs;
+}
+
+void libmv_CorrespondencesDestroyN(libmv_CorrespondencesN* libmv_correspondences) {
+	LIBMV_OBJECT_DELETE(libmv_correspondences, Correspondences);
+}
+
+void libmv_AddCorrespondenceN(libmv_CorrespondencesN* libmv_correspondences,
+                              int clip1, int clip2, int track1, int track2) {
+	((Correspondences*) libmv_correspondences)->AddCorrespondence(clip1, clip2, track1, track2);
 }
