@@ -426,11 +426,22 @@ static void buttons_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, 
 		}
 		else {
 			RNA_id_pointer_create(new_id, &path->ptr[i]);
-			/* TODO_REMAP: Check path further down remains valid? Or nullify it systematically? */
+			/* There is no easy way to check/make path downwards valid, just nullify it.
+			 * Next redraw will rebuild this anyway. */
+			i++;
+			memset(&path->ptr[i], 0, sizeof(path->ptr[i]) * (path->len - i));
+			path->len = i;
 		}
 	}
 
-	/* TODO_REMAP: sbuts->texuser ? */
+	if (sbuts->texuser) {
+		ButsContextTexture *ct = sbuts->texuser;
+		if (ct->texture == old_id) {
+			ct->texture = new_id;
+		}
+		BLI_freelistN(&ct->users);
+		ct->user = NULL;
+	}
 }
 
 /* only called once, from space/spacetypes.c */
