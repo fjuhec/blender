@@ -1109,31 +1109,3 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData */*
 		}
 	}
 }
-
-void read_uvs(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, size_t face_count,
-              const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
-              const Alembic::AbcGeom::UInt32ArraySamplePtr &indices)
-{
-	if (!mloopuvs || !uvs) {
-		return;
-	}
-
-	unsigned int vert_index, loop_index;
-
-	for (int i = 0; i < face_count; ++i) {
-		MPoly &poly = mpolys[i];
-
-		for (int f = 0; f < poly.totloop; ++f) {
-			loop_index = poly.loopstart + f;
-
-			MLoop &loop = mloops[loop_index];
-			vert_index = (*indices)[loop.v];
-
-			const Imath::V2f &uv = (*uvs)[vert_index];
-
-			MLoopUV &loopuv = mloopuvs[loop_index];
-			loopuv.uv[0] = uv[0];
-			loopuv.uv[1] = uv[1];
-		}
-	}
-}

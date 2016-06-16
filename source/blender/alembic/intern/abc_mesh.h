@@ -134,10 +134,6 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *pd
                  const Alembic::AbcGeom::UInt32ArraySamplePtr &uvs_indices,
                  const Alembic::AbcGeom::N3fArraySamplePtr &normals);
 
-void read_uvs(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, size_t face_count,
-              const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
-              const Alembic::AbcGeom::UInt32ArraySamplePtr &indices);
-
 namespace utils {
 
 void mesh_add_verts(struct Mesh *mesh, size_t len);
