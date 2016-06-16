@@ -740,6 +740,12 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 
 		BLI_join_dirfile(path, sizeof(path), root, libname);
 
+		if (!BLI_exists(path)) {
+			BKE_reportf(op->reports, RPT_ERROR_INVALID_INPUT,
+			            "Trying to reload or relocate library '%s' to invalid path '%s'", lib->id.name, path);
+			return OPERATOR_CANCELLED;
+		}
+
 		if (BLI_path_cmp(lib->filepath, path) == 0) {
 #ifdef PRINT_DEBUG
 			printf("We are supposed to reload '%s' lib (%d)...\n", lib->filepath, lib->id.us);
