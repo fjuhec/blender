@@ -62,44 +62,15 @@ void  BKE_libblock_relink(struct ID *id);
 void  BKE_libblock_rename(struct Main *bmain, struct ID *id, const char *name) ATTR_NONNULL();
 void  BLI_libblock_ensure_unique_name(struct Main *bmain, const char *name) ATTR_NONNULL();
 
+struct ID *BKE_libblock_find_name_ex(struct Main *bmain, const short type, const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+struct ID *BKE_libblock_find_name(const short type, const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+
+/* library_remap.c (keep here since they're general functions) */
 void  BKE_libblock_free(struct Main *bmain, void *idv) ATTR_NONNULL();
 void  BKE_libblock_free_ex(struct Main *bmain, void *idv, bool do_id_user) ATTR_NONNULL();
 void  BKE_libblock_free_us(struct Main *bmain, void *idv) ATTR_NONNULL();
 void  BKE_libblock_free_data(struct Main *bmain, struct ID *id) ATTR_NONNULL();
-
 void  BKE_libblock_delete(struct Main *bmain, void *idv) ATTR_NONNULL();
-
-struct ID *BKE_libblock_find_name_ex(struct Main *bmain, const short type, const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
-struct ID *BKE_libblock_find_name(const short type, const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
-
-/* Also IDRemap->flag. */
-enum {
-	/* Do not remap indirect usages of IDs (that is, when user is some linked data). */
-	ID_REMAP_SKIP_INDIRECT_USAGE    = 1 << 0,
-	/* This flag should always be set, *except for 'unlink' scenarios* (only relevant when new_id == NULL).
-	 * Basically, when unset, NEVER_NULL ID usages will keep pointing to old_id, but (if needed) old_id user count
-	 * will still be decremented. This is mandatory for 'delete ID' case, but in all other situation this would lead
-	 * to invalid user counts! */
-	ID_REMAP_SKIP_NEVER_NULL_USAGE  = 1 << 1,
-	/* This tells the callback func to flag with LIB_DOIT all IDs using target one with a 'never NULL' pointer
-	 * (like e.g. Object->data). */
-	ID_REMAP_FLAG_NEVER_NULL_USAGE  = 1 << 2,
-	/* This tells the callback func to force setting IDs using target one with a 'never NULL' pointer to NULL.
-	 * WARNING! Use with extreme care, this will leave database in broken state! */
-	ID_REMAP_FORCE_NEVER_NULL_USAGE = 1 << 3,
-};
-
-/* Note: Requiring new_id to be non-null, this *may* not be the case ultimately, but makes things simpler for now. */
-void BKE_libblock_remap_locked(
-        struct Main *bmain, void *old_idv, void *new_idv,
-        const short remap_flags) ATTR_NONNULL(1, 2);
-void BKE_libblock_remap(
-        struct Main *bmain, void *old_idv, void *new_idv,
-        const short remap_flags) ATTR_NONNULL(1, 2);
-
-void BKE_libblock_unlink(struct Main *bmain, void *idv, const bool do_flag_never_null) ATTR_NONNULL();
-
-void BKE_libblock_relink_ex(void *idv, void *old_idv, void *new_idv, const bool us_min_never_null) ATTR_NONNULL(1);
 
 void BKE_id_lib_local_paths(struct Main *bmain, struct Library *lib, struct ID *id);
 void id_lib_extern(struct ID *id);
@@ -151,6 +122,8 @@ void BKE_main_lib_objects_recalc_all(struct Main *bmain);
 /* (MAX_ID_NAME - 2) + 3 */
 void BKE_id_ui_prefix(char name[66 + 1], const struct ID *id);
 
+void BKE_library_free(struct Library *lib);
+
 void BKE_library_make_local(
         struct Main *bmain, const struct Library *lib, const bool untagged_only, const bool set_fake);
 
@@ -168,14 +141,6 @@ void BKE_libraries_asset_repositories_clear(struct Main *bmain);
 void BKE_libraries_asset_repositories_rebuild(struct Main *bmain);
 struct AssetRef *BKE_libraries_asset_repository_uuid_find(struct Main *bmain, const struct AssetUUID *uuid);
 struct Library *BKE_library_asset_virtual_ensure(struct Main *bmain, const struct AssetEngineType *aet);
-
-typedef void (*BKE_library_free_window_manager_cb)(struct bContext *, struct wmWindowManager *);
-typedef void (*BKE_library_free_notifier_reference_cb)(const void *);
-typedef void (*BKE_library_remap_editor_id_reference_cb)(struct ID *, struct ID *);
-
-void BKE_library_callback_free_window_manager_set(BKE_library_free_window_manager_cb func);
-void BKE_library_callback_free_notifier_reference_set(BKE_library_free_notifier_reference_cb func);
-void BKE_library_callback_remap_editor_id_reference_set(BKE_library_remap_editor_id_reference_cb func);
 
 /* use when "" is given to new_id() */
 #define ID_FALLBACK_NAME N_("Untitled")

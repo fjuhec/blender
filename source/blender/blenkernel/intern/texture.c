@@ -560,7 +560,7 @@ int colorband_element_remove(struct ColorBand *coba, int index)
 /** Free (or release) any data used by this texture (does not free the texure itself). */
 void BKE_texture_free(Tex *tex)
 {
-	BKE_animdata_free((ID *)tex);
+	BKE_animdata_free((ID *)tex, false);
 
 	/* is no lib link block, but texture extension */
 	if (tex->nodetree) {

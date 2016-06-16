@@ -1287,7 +1287,7 @@ static void make_object_duplilist_real(bContext *C, Scene *scene, Base *base,
 		basen->object = ob;
 
 		/* make sure apply works */
-		BKE_animdata_free(&ob->id);
+		BKE_animdata_free(&ob->id, true);
 		ob->adt = NULL;
 
 		/* Proxies are not to be copied. */

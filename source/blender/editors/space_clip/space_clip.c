@@ -1521,6 +1521,11 @@ static void clip_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID 
 		sclip->clip = (MovieClip *)new_id;
 		id_us_ensure_real(new_id);
 	}
+
+	if ((ID *)sclip->mask_info.mask == old_id) {
+		sclip->mask_info.mask = (Mask *)new_id;
+		id_us_ensure_real(new_id);
+	}
 }
 
 /* only called once, from space/spacetypes.c */

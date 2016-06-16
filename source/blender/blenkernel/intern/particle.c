@@ -381,7 +381,7 @@ void BKE_particlesettings_free(ParticleSettings *part)
 {
 	int a;
 
-	BKE_animdata_free(&part->id);
+	BKE_animdata_free((ID *)part, false);
 	
 	for (a = 0; a < MAX_MTEX; a++) {
 		MEM_SAFE_FREE(part->mtex[a]);

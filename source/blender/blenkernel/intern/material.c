@@ -86,7 +86,7 @@ void BKE_material_free(Material *ma)
 {
 	int a;
 
-	BKE_animdata_free((ID *)ma);
+	BKE_animdata_free((ID *)ma, false);
 	
 	for (a = 0; a < MAX_MTEX; a++) {
 		MEM_SAFE_FREE(ma->mtex[a]);

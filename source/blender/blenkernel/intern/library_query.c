@@ -254,6 +254,14 @@ static void library_foreach_mtex(LibraryForeachIDData *data, MTex *mtex)
 	FOREACH_FINALIZE_VOID;
 }
 
+static void library_foreach_paint(LibraryForeachIDData *data, Paint *paint)
+{
+	FOREACH_CALLBACK_INVOKE(data, paint->brush, IDWALK_USER);
+	FOREACH_CALLBACK_INVOKE(data, paint->palette, IDWALK_USER);
+
+	FOREACH_FINALIZE_VOID;
+}
+
 
 /**
  * Loop over all of the ID's this datablock links to.
@@ -311,7 +319,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				CALLBACK_INVOKE(scene->camera, IDWALK_NOP);
 				CALLBACK_INVOKE(scene->world, IDWALK_USER);
 				CALLBACK_INVOKE(scene->set, IDWALK_NOP);
-				CALLBACK_INVOKE(scene->clip, IDWALK_NOP);
+				CALLBACK_INVOKE(scene->clip, IDWALK_USER);
 				if (scene->nodetree) {
 					/* nodetree **are owned by IDs**, treat them as mere sub-data and not real ID! */
 					BKE_library_foreach_ID_link((ID *)scene->nodetree, callback, user_data, flag);
@@ -354,6 +362,9 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 						CALLBACK_INVOKE(seq->clip, IDWALK_USER);
 						CALLBACK_INVOKE(seq->mask, IDWALK_USER);
 						CALLBACK_INVOKE(seq->sound, IDWALK_USER);
+						for (SequenceModifierData *smd = seq->modifiers.first; smd; smd = smd->next) {
+							CALLBACK_INVOKE(smd->mask_id, IDWALK_USER);
+						}
 					}
 					SEQ_END
 				}
@@ -366,28 +377,28 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 
 				if (toolsett) {
 					CALLBACK_INVOKE(toolsett->skgen_template, IDWALK_NOP);
+
 					CALLBACK_INVOKE(toolsett->particle.scene, IDWALK_NOP);
 					CALLBACK_INVOKE(toolsett->particle.object, IDWALK_NOP);
 					CALLBACK_INVOKE(toolsett->particle.shape_object, IDWALK_NOP);
-					CALLBACK_INVOKE(toolsett->imapaint.stencil, IDWALK_NOP);
-					CALLBACK_INVOKE(toolsett->imapaint.clone, IDWALK_NOP);
-					CALLBACK_INVOKE(toolsett->imapaint.canvas, IDWALK_NOP);
+
+					library_foreach_paint(&data, &toolsett->imapaint.paint);
+					CALLBACK_INVOKE(toolsett->imapaint.stencil, IDWALK_USER);
+					CALLBACK_INVOKE(toolsett->imapaint.clone, IDWALK_USER);
+					CALLBACK_INVOKE(toolsett->imapaint.canvas, IDWALK_USER);
+
 					if (toolsett->vpaint) {
-						CALLBACK_INVOKE(toolsett->vpaint->paint.brush, IDWALK_NOP);
-						CALLBACK_INVOKE(toolsett->vpaint->paint.palette, IDWALK_NOP);
+						library_foreach_paint(&data, &toolsett->vpaint->paint);
 					}
 					if (toolsett->wpaint) {
-						CALLBACK_INVOKE(toolsett->wpaint->paint.brush, IDWALK_NOP);
-						CALLBACK_INVOKE(toolsett->wpaint->paint.palette, IDWALK_NOP);
+						library_foreach_paint(&data, &toolsett->wpaint->paint);
 					}
 					if (toolsett->sculpt) {
-						CALLBACK_INVOKE(toolsett->sculpt->paint.brush, IDWALK_NOP);
-						CALLBACK_INVOKE(toolsett->sculpt->paint.palette, IDWALK_NOP);
+						library_foreach_paint(&data, &toolsett->sculpt->paint);
 						CALLBACK_INVOKE(toolsett->sculpt->gravity_object, IDWALK_NOP);
 					}
 					if (toolsett->uvsculpt) {
-						CALLBACK_INVOKE(toolsett->uvsculpt->paint.brush, IDWALK_NOP);
-						CALLBACK_INVOKE(toolsett->uvsculpt->paint.palette, IDWALK_NOP);
+						library_foreach_paint(&data, &toolsett->uvsculpt->paint);
 					}
 				}
 
@@ -434,6 +445,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 					CALLBACK_INVOKE(object->pd->tex, IDWALK_USER);
 					CALLBACK_INVOKE(object->pd->f_source, IDWALK_NOP);
 				}
+				/* Note that ob->effect is deprecated, so no need to handle it here. */
 
 				if (object->pose) {
 					bPoseChannel *pchan;
@@ -656,6 +668,15 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 					CALLBACK_INVOKE(psett->effector_weights->group, IDWALK_NOP);
 				}
 
+				if (psett->pd) {
+					CALLBACK_INVOKE(psett->pd->tex, IDWALK_USER);
+					CALLBACK_INVOKE(psett->pd->f_source, IDWALK_NOP);
+				}
+				if (psett->pd2) {
+					CALLBACK_INVOKE(psett->pd2->tex, IDWALK_USER);
+					CALLBACK_INVOKE(psett->pd2->f_source, IDWALK_NOP);
+				}
+
 				if (psett->boids) {
 					BoidState *state;
 					BoidRule *rule;
@@ -673,7 +694,6 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 						}
 					}
 				}
-
 				break;
 			}
 
@@ -682,15 +702,22 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				MovieClip *clip = (MovieClip *) id;
 				MovieTracking *tracking = &clip->tracking;
 				MovieTrackingObject *object;
+				MovieTrackingTrack *track;
+				MovieTrackingPlaneTrack *plane_track;
 
 				CALLBACK_INVOKE(clip->gpd, IDWALK_USER);
-				for (object = tracking->objects.first; object; object = object->next) {
-					ListBase *tracksbase = BKE_tracking_object_get_tracks(tracking, object);
-					MovieTrackingTrack *track;
 
-					for (track = tracksbase->first; track; track = track->next) {
+				for (track = tracking->tracks.first; track; track = track->next) {
+					CALLBACK_INVOKE(track->gpd, IDWALK_USER);
+				}
+				for (object = tracking->objects.first; object; object = object->next) {
+					for (track = object->tracks.first; track; track = track->next) {
 						CALLBACK_INVOKE(track->gpd, IDWALK_USER);
 					}
+				}
+
+				for (plane_track = tracking->plane_tracks.first; plane_track; plane_track = plane_track->next) {
+					CALLBACK_INVOKE(plane_track->image, IDWALK_USER);
 				}
 				break;
 			}

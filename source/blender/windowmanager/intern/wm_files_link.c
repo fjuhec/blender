@@ -66,6 +66,7 @@
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_library.h"
+#include "BKE_library_remap.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
@@ -730,7 +731,9 @@ static void lib_relocate_do(
 			BLI_assert(new_id);
 		}
 		if (new_id) {
-//					printf("before remap, old_id users: %d, new_id users: %d\n", old_id->us, new_id->us);
+#ifdef PRINT_DEBUG
+			printf("before remap, old_id users: %d, new_id users: %d\n", old_id->us, new_id->us);
+#endif
 			BKE_libblock_remap_locked(bmain, old_id, new_id, remap_flags);
 
 			if (old_id->flag & LIB_FAKEUSER) {
@@ -738,7 +741,9 @@ static void lib_relocate_do(
 				id_fake_user_set(new_id);
 			}
 
-//					printf("after remap, old_id users: %d, new_id users: %d\n", old_id->us, new_id->us);
+#ifdef PRINT_DEBUG
+			printf("after remap, old_id users: %d, new_id users: %d\n", old_id->us, new_id->us);
+#endif
 
 			/* In some cases, new_id might become direct link, remove parent of library in this case. */
 			if (new_id->lib->parent && (new_id->tag & LIB_TAG_INDIRECT) == 0) {
@@ -880,8 +885,16 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 
 		BLI_join_dirfile(path, sizeof(path), root, libname);
 
+		if (!BLI_exists(path)) {
+			BKE_reportf(op->reports, RPT_ERROR_INVALID_INPUT,
+			            "Trying to reload or relocate library '%s' to invalid path '%s'", lib->id.name, path);
+			return OPERATOR_CANCELLED;
+		}
+
 		if (BLI_path_cmp(lib->filepath, path) == 0) {
+#ifdef PRINT_DEBUG
 			printf("We are supposed to reload '%s' lib (%d)...\n", lib->filepath, lib->id.us);
+#endif
 
 			do_reload = true;
 
@@ -891,7 +904,9 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 		else {
 			int totfiles = 0;
 
+#ifdef PRINT_DEBUG
 			printf("We are supposed to relocate '%s' lib to new '%s' one...\n", lib->filepath, libname);
+#endif
 
 			/* Check if something is indicated for relocate. */
 			prop = RNA_struct_find_property(op->ptr, "files");
@@ -918,13 +933,17 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 						continue;
 					}
 
+#ifdef PRINT_DEBUG
 					printf("\t candidate new lib to reload datablocks from: %s\n", path);
+#endif
 					wm_link_append_data_library_add(lapp_data, path);
 				}
 				RNA_END;
 			}
 			else {
+#ifdef PRINT_DEBUG
 				printf("\t candidate new lib to reload datablocks from: %s\n", path);
+#endif
 				wm_link_append_data_library_add(lapp_data, path);
 			}
 		}
@@ -949,7 +968,9 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 					item = wm_link_append_data_item_add(lapp_data, id->name + 2, idcode, NULL, id);
 					BLI_BITMAP_SET_ALL(item->libraries, true, lapp_data->num_libraries);
 
+#ifdef PRINT_DEBUG
 					printf("\tdatablock to seek for: %s\n", id->name);
+#endif
 				}
 			}
 		}

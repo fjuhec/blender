@@ -492,8 +492,6 @@ void BKE_paint_init(Scene *sce, PaintMode mode, const char col[3])
 
 void BKE_paint_free(Paint *paint)
 {
-	id_us_min((ID *)paint->brush);
-	id_us_min((ID *)paint->palette);
 	curvemapping_free(paint->cavity_curve);
 }
 

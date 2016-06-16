@@ -69,7 +69,7 @@
 /** Free (or release) any data used by this mball (does not free the mball itself). */
 void BKE_mball_free(MetaBall *mb)
 {
-	BKE_animdata_free((ID *)mb);
+	BKE_animdata_free((ID *)mb, false);
 
 	MEM_SAFE_FREE(mb->mat);
 

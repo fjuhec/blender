@@ -80,7 +80,7 @@ void BKE_key_free(Key *key)
 {
 	KeyBlock *kb;
 
-	BKE_animdata_free((ID *)key);
+	BKE_animdata_free((ID *)key, false);
 
 	while ((kb = BLI_pophead(&key->block))) {
 		if (kb->data)

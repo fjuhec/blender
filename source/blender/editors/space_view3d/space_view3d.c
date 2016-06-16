@@ -1404,22 +1404,20 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 {
 	View3D *v3d;
 	ARegion *ar;
-	RegionView3D *rv3d = NULL;
-	BGpic *bgpic;
+	bool is_local = false;
 
-	if (sa->spacetype == SPACE_VIEW3D) {
-		for (ar = sa->regionbase.first; ar; ar = ar->next) {
-			if (ar->regiontype == RGN_TYPE_WINDOW) {
-				rv3d = (RegionView3D *)ar->regiondata;
-			}
-		}
-	}
-
-	for (v3d = (View3D *)slink; v3d; v3d = v3d->localvd) {
+	for (v3d = (View3D *)slink; v3d; v3d = v3d->localvd, is_local = true) {
 		if ((ID *)v3d->camera == old_id) {
 			v3d->camera = (Object *)new_id;
-			if (!new_id && rv3d && (rv3d->persp == RV3D_CAMOB)) {
-				rv3d->persp = RV3D_PERSP;
+			if (!new_id) {
+				for (ar = sa->regionbase.first; ar; ar = ar->next) {
+					if (ar->regiontype == RGN_TYPE_WINDOW) {
+						RegionView3D *rv3d = is_local ? ((RegionView3D *)ar->regiondata)->localvd : ar->regiondata;
+						if (rv3d && (rv3d->persp == RV3D_CAMOB)) {
+							rv3d->persp = RV3D_PERSP;
+						}
+					}
+				}
 			}
 		}
 		if ((ID *)v3d->ob_centre == old_id) {
@@ -1438,7 +1436,7 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 		}
 #endif
 
-		for (bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
+		for (BGpic *bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
 			if ((ID *)bgpic->ima == old_id) {
 				bgpic->ima = (Image *)new_id;
 				id_us_min(old_id);
@@ -1451,8 +1449,8 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 			}
 		}
 
-		if (rv3d) {
-			rv3d = rv3d->localvd;
+		if (is_local) {
+			break;
 		}
 	}
 }

@@ -116,7 +116,7 @@ void free_gpencil_layers(ListBase *list)
 /** Free (or release) any data used by this grease pencil (does not free the gpencil itself). */
 void BKE_gpencil_free(bGPdata *gpd)
 {
-	BKE_animdata_free(&gpd->id);
+	BKE_animdata_free(&gpd->id, false);
 
 	/* free layers */
 	free_gpencil_layers(&gpd->layers);

@@ -57,6 +57,7 @@
 #include "BKE_fcurve.h"
 #include "BKE_group.h"
 #include "BKE_library.h"
+#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -565,7 +566,7 @@ void outliner_do_object_operation(
 static void clear_animdata_cb(int UNUSED(event), TreeElement *UNUSED(te),
                               TreeStoreElem *tselem, void *UNUSED(arg))
 {
-	BKE_animdata_free(tselem->id);
+	BKE_animdata_free(tselem->id, true);
 }
 
 

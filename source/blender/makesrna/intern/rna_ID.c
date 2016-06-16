@@ -93,6 +93,7 @@ EnumPropertyItem rna_enum_id_type_items[] = {
 #include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
+#include "BKE_library_remap.h"
 #include "BKE_animsys.h"
 #include "BKE_material.h"
 #include "BKE_depsgraph.h"
@@ -357,7 +358,7 @@ static AnimData * rna_ID_animation_data_create(ID *id, Main *bmain)
 
 static void rna_ID_animation_data_free(ID *id, Main *bmain)
 {
-	BKE_animdata_free(id);
+	BKE_animdata_free(id, true);
 	DAG_relations_tag_update(bmain);
 }
 
