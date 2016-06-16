@@ -126,10 +126,11 @@ void read_mverts(MVert *mverts,
                  const Alembic::AbcGeom::P3fArraySamplePtr &positions,
                  const Alembic::AbcGeom::N3fArraySamplePtr &normals);
 
-void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs,
+void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *pdata,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
-                 const Alembic::AbcGeom::V2fArraySamplePtr &uvs = Alembic::AbcGeom::V2fArraySamplePtr());
+                 const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
+                 const Alembic::AbcGeom::N3fArraySamplePtr &normals);
 
 void read_uvs(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, size_t face_count,
               const Alembic::AbcGeom::V2fArraySamplePtr &uvs,

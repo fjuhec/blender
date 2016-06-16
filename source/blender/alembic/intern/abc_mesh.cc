@@ -919,8 +919,16 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 		ED_mesh_uv_texture_add(mesh, Alembic::Abc::GetSourceName(uv.getMetaData()).c_str(), true);
 	}
 
-	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv,
-	            face_indices, face_counts, uvsamp_vals);
+	const IN3fGeomParam normals = m_schema.valid() ? m_schema.getNormalsParam() : IN3fGeomParam();
+	N3fArraySamplePtr normal_vals;
+
+	if (normals.valid()) {
+		IN3fGeomParam::Sample normsamp = normals.getExpandedValue();
+		normal_vals = normsamp.getVals();
+	}
+
+	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv, &mesh->pdata,
+	            face_indices, face_counts, uvsamp_vals, normal_vals);
 
 	const ICompoundProperty &arb_geom_params = (m_schema.valid() ? m_schema.getArbGeomParams()
 	                                                             : m_subd_schema.getArbGeomParams());
@@ -1017,13 +1025,29 @@ void read_mverts(MVert *mverts,
 	}
 }
 
-void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs,
+void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *pdata,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
-                 const Alembic::AbcGeom::V2fArraySamplePtr &uvs)
+                 const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
+                 const Alembic::AbcGeom::N3fArraySamplePtr &/*normals*/)
 {
 	int loopcount = 0;
 	unsigned int vert_index;
+
+#if 0
+	float (*pnors)[3];
+
+	if (normals) {
+		pnors = (float (*)[3])CustomData_get_layer(pdata, CD_NORMAL);
+
+		if (!pnors) {
+			pnors = (float (*)[3])CustomData_add_layer(pdata, CD_NORMAL, CD_CALLOC, NULL, face_counts->size());
+		}
+	}
+
+	Imath::V3f nor;
+	float no[3];
+#endif
 
 	for (int i = 0; i < face_counts->size(); ++i) {
 		int face_size = (*face_counts)[i];
@@ -1045,6 +1069,14 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs,
 				loopuv.uv[0] = (*uvs)[vert_index][0];
 				loopuv.uv[1] = (*uvs)[vert_index][1];
 			}
+
+#if 0
+			/* TODO: figure this out. */
+			if (normals && pnors) {
+				nor = (*normals)[vert_index];
+				copy_yup_zup(pnors[i], nor.getValue());
+			}
+#endif
 		}
 	}
 }

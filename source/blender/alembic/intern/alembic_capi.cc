@@ -719,25 +719,32 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	IV2fGeomParam::Sample::samp_ptr_type uvsamp_vals;
 
 	if (uv.valid()) {
-		IV2fGeomParam::Sample uvsamp = uv.getExpandedValue();
+		IV2fGeomParam::Sample uvsamp = uv.getExpandedValue(sample_sel);
 		uvsamp_vals = uvsamp.getVals();
 	}
 
-	N3fArraySamplePtr normal_vals;
+	N3fArraySamplePtr vertex_normals, poly_normals;
 	const IN3fGeomParam normals = schema.getNormalsParam();
 
 	if (normals.valid()) {
-		IN3fGeomParam::Sample normsamp = normals.getExpandedValue();
-		normal_vals = normsamp.getVals();
+		IN3fGeomParam::Sample normsamp = normals.getExpandedValue(sample_sel);
+
+		if (normals.getScope() == Alembic::AbcGeom::kFacevaryingScope) {
+			poly_normals = normsamp.getVals();
+		}
+		else {
+			vertex_normals = normsamp.getVals();
+		}
 	}
 
 	MVert *mverts = dm->getVertArray(dm);
 	MPoly *mpolys = dm->getPolyArray(dm);
 	MLoop *mloops = dm->getLoopArray(dm);
 	MLoopUV *mloopuvs = static_cast<MLoopUV *>(CustomData_get(&dm->loopData, 0, CD_MLOOPUV));
+	CustomData *pdata = dm->getPolyDataLayout(dm);
 
-	read_mverts(mverts, positions, normal_vals);
-	read_mpolys(mpolys, mloops, mloopuvs, face_indices, face_counts, uvsamp_vals);
+	read_mverts(mverts, positions, vertex_normals);
+	read_mpolys(mpolys, mloops, mloopuvs, pdata, face_indices, face_counts, uvsamp_vals, poly_normals);
 
 	CDDM_calc_edges(dm);
 	dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
