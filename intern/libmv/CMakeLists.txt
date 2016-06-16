@@ -75,6 +75,7 @@ if(WITH_LIBMV)
 		intern/tracks.cc
 		intern/tracksN.cc
 		libmv/autotrack/autotrack.cc
+		libmv/autotrack/bundle.cc
 		libmv/autotrack/predict_tracks.cc
 		libmv/autotrack/reconstruction.cc
 		libmv/autotrack/tracks.cc
@@ -126,6 +127,7 @@ if(WITH_LIBMV)
 		intern/tracks.h
 		intern/tracksN.h
 		libmv/autotrack/autotrack.h
+		libmv/autotrack/bundle.h
 		libmv/autotrack/callbacks.h
 		libmv/autotrack/frame_accessor.h
 		libmv/autotrack/marker.h

@@ -26,6 +26,7 @@
 #include "libmv/autotrack/tracks.h"
 #include "libmv/numeric/numeric.h"
 #include "libmv/logging/logging.h"
+#include "libmv/simple_pipeline/camera_intrinsics.h"
 
 using mv::Marker;
 using mv::Tracks;
@@ -119,36 +120,14 @@ bool ReconstructTwoFrames(const vector<Marker> &markers,
 	return true;
 }
 
-/**
- * @brief EuclideanBundleAll: bundle all the clips and frames
- * @param all_normalized_tracks: markers from all clips
- * @param reconstruction: Reconstruction data structure
- * @return
- */
-bool EuclideanBundleAll(const Tracks &all_normalized_tracks,
-                        Reconstruction *reconstruction)
-{
-	return true;
-}
-
-bool EuclideanReconstructionComplete(const Tracks &tracks,
-                                     Reconstruction *reconstruction,
-                                     libmv::ProgressUpdateCallback *update_callback)
-{
-	//InternalCompleteReconstruction<EuclideanPipelineRoutines>(tracks, reconstruction, update_callback);
-	return true;
-}
-
 //	==================  mv::Reconstruction implementation ===================
 // push a new cameraIntrinsics and return the index
-int Reconstruction::AddCameraIntrinsics(CameraIntrinsics *intrinsics_ptr)
-{
+int Reconstruction::AddCameraIntrinsics(CameraIntrinsics *intrinsics_ptr) {
 	camera_intrinsics_.push_back(intrinsics_ptr);
 	return camera_intrinsics_.size()-1;
 }
 
-void Reconstruction::AddCameraPose(const CameraPose& pose)
-{
+void Reconstruction::AddCameraPose(const CameraPose& pose) {
 	if(camera_poses_.size() < pose.clip + 1)
 		camera_poses_.resize(pose.clip+1);
 	camera_poses_[pose.clip].push_back(pose);

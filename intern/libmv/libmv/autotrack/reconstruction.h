@@ -27,7 +27,6 @@
 #include "libmv/base/vector.h"
 #include "libmv/numeric/numeric.h"
 #include "libmv/simple_pipeline/camera_intrinsics.h"
-#include "libmv/simple_pipeline/callbacks.h"
 
 namespace mv {
 
@@ -101,11 +100,6 @@ bool ReconstructTwoFrames(const vector<Marker> &markers,
                           const int clip,
                           libmv::CameraIntrinsics &cam_intrinsics,
                           Reconstruction *reconstruction);
-bool EuclideanBundleAll(const Tracks &all_normalized_tracks,
-                        Reconstruction *reconstruction);
-bool EuclideanReconstructionComplete(const Tracks &tracks,
-                                     Reconstruction *reconstruction,
-                                     libmv::ProgressUpdateCallback *update_callback);
 }  // namespace mv
 
 #endif  // LIBMV_AUTOTRACK_RECONSTRUCTION_H_

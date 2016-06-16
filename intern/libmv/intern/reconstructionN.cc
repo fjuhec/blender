@@ -31,6 +31,7 @@
 
 #include "libmv/logging/logging.h"
 #include "libmv/autotrack/autotrack.h"
+#include "libmv/autotrack/bundle.h"
 #include "libmv/autotrack/frame_accessor.h"
 #include "libmv/autotrack/marker.h"
 #include "libmv/autotrack/model.h"
