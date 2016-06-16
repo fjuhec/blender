@@ -47,7 +47,7 @@ public:
 	AbcExporter(Scene *scene, const char *filename, ExportSettings &settings);
 	~AbcExporter();
 
-	void operator()(Main *bmain, float &progress);
+	void operator()(Main *bmain, float &progress, bool &was_canceled);
 
 private:
 	void getShutterSamples(double step, bool time_relative, std::vector<double> &samples);

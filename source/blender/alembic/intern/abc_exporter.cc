@@ -170,7 +170,7 @@ void AbcExporter::getFrameSet(double step, std::set<double> &frames)
 	}
 }
 
-void AbcExporter::operator()(Main *bmain, float &progress)
+void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 {
 	std::string scene_name;
 
@@ -256,6 +256,11 @@ void AbcExporter::operator()(Main *bmain, float &progress)
 
 	for (; begin != end; ++begin) {
 		progress = (++i / size);
+
+		if (G.is_break) {
+			was_canceled = true;
+			break;
+		}
 
 		double f = *begin;
 		setCurrentFrame(bmain, f);

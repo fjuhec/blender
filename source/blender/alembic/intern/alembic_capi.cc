@@ -57,6 +57,7 @@ extern "C" {
 #include "BKE_screen.h"
 #undef new
 
+#include "BLI_fileops.h"
 #include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_path_util.h"
@@ -259,6 +260,8 @@ struct ExportJobData {
 	short *stop;
 	short *do_update;
 	float *progress;
+
+	bool was_canceled;
 };
 
 static void export_startjob(void *customdata, short *stop, short *do_update, float *progress)
@@ -275,13 +278,16 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
 	G.is_rendering = true;
 	BKE_spacedata_draw_locks(true);
 
+	G.is_break = false;
+
 	try {
 		Scene *scene = data->scene;
 		AbcExporter exporter(scene, data->filename, data->settings);
 
 		const int orig_frame = CFRA;
 
-		exporter(data->bmain, *data->progress);
+		data->was_canceled = false;
+		exporter(data->bmain, *data->progress, data->was_canceled);
 
 		if (CFRA != orig_frame) {
 			CFRA = orig_frame;
@@ -298,8 +304,14 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
 	}
 }
 
-static void export_endjob(void */*customdata*/)
+static void export_endjob(void *customdata)
 {
+	ExportJobData *data = static_cast<ExportJobData *>(customdata);
+
+	if (data->was_canceled && BLI_exists(data->filename)) {
+		BLI_delete(data->filename, false, false);
+	}
+
 	G.is_rendering = false;
 	BKE_spacedata_draw_locks(false);
 }
@@ -470,14 +482,17 @@ struct ImportJobData {
 	char filename[1024];
 	ImportSettings settings;
 
+	GHash *parent_map;
+	std::vector<AbcObjectReader *> readers;
+
 	short *stop;
 	short *do_update;
 	float *progress;
 };
 
-static void import_startjob(void *cjv, short *stop, short *do_update, float *progress)
+static void import_startjob(void *user_data, short *stop, short *do_update, float *progress)
 {
-	ImportJobData *data = static_cast<ImportJobData *>(cjv);
+	ImportJobData *data = static_cast<ImportJobData *>(user_data);
 
 	data->stop = stop;
 	data->do_update = do_update;
@@ -499,14 +514,22 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 	*data->do_update = true;
 	*data->progress = 0.05f;
 
-	std::vector<AbcObjectReader *> readers;
-	GHash *parent_map = BLI_ghash_ptr_new("alembic parent ghash");
-	visit_object(archive.getTop(), readers, parent_map, data->settings);
+	data->parent_map = BLI_ghash_ptr_new("alembic parent ghash");
+
+	/* Parse Alembic Archive. */
+
+	visit_object(archive.getTop(), data->readers, data->parent_map, data->settings);
+
+	if (G.is_break) {
+		return;
+	}
 
 	*data->do_update = true;
 	*data->progress = 0.1f;
 
-	const float size = static_cast<float>(readers.size());
+	/* Create objects and set scene frame range. */
+
+	const float size = static_cast<float>(data->readers.size());
 	size_t i = 0;
 
 	Scene *scene = data->scene;
@@ -515,7 +538,7 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 	chrono_t max_time = std::numeric_limits<chrono_t>::min();
 
 	std::vector<AbcObjectReader *>::iterator iter;
-	for (iter = readers.begin(); iter != readers.end(); ++iter) {
+	for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
 		AbcObjectReader *reader = *iter;
 
 		if (reader->valid()) {
@@ -527,6 +550,10 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 		}
 
 		*data->progress = 0.1f + 0.6f * (++i / size);
+
+		if (G.is_break) {
+			return;
+		}
 	}
 
 	if (data->settings.set_frame_range) {
@@ -542,22 +569,24 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 		}
 	}
 
+	/* Setup parentship. */
+
 	i = 0;
-	for (iter = readers.begin(); iter != readers.end(); ++iter) {
+	for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
 		const AbcObjectReader *reader = *iter;
 		const AbcObjectReader *parent_reader = NULL;
 		const IObject &iobject = reader->iobject();
 
 		if (IXform::matches(iobject.getHeader())) {
 			parent_reader = reinterpret_cast<AbcObjectReader *>(
-			                    BLI_ghash_lookup(parent_map,
+			                    BLI_ghash_lookup(data->parent_map,
 			                                     iobject.getParent().getFullName().c_str()));
 		}
 		else {
 			/* In the case of an non XForm node, the parent is the transform
 			 * matrix of the data itself, so skip it. */
 			parent_reader = reinterpret_cast<AbcObjectReader *>(
-			                    BLI_ghash_lookup(parent_map,
+			                    BLI_ghash_lookup(data->parent_map,
 			                                     iobject.getParent().getParent().getFullName().c_str()));
 		}
 
@@ -575,20 +604,40 @@ static void import_startjob(void *cjv, short *stop, short *do_update, float *pro
 		}
 
 		*data->progress = 0.7f + 0.3f * (++i / size);
-	}
 
-	for (iter = readers.begin(); iter != readers.end(); ++iter) {
+		if (G.is_break) {
+			return;
+		}
+	}
+}
+
+static void import_endjob(void *user_data)
+{
+	ImportJobData *data = static_cast<ImportJobData *>(user_data);
+
+	/* TODO(kevin): remove objects from the scene on cancelation. */
+
+	std::vector<AbcObjectReader *>::iterator iter;
+	for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
 		delete *iter;
 	}
 
-	BLI_ghash_free(parent_map, NULL, NULL);
+	BLI_ghash_free(data->parent_map, NULL, NULL);
 
-	WM_main_add_notifier(NC_SCENE | ND_FRAME, scene);
+	WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
+}
+
+static void import_freejob(void *user_data)
+{
+	ImportJobData *data = static_cast<ImportJobData *>(user_data);
+	delete data;
 }
 
 void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence, bool set_frame_range, int sequence_len, int offset)
 {
-	ImportJobData *job = static_cast<ImportJobData *>(MEM_mallocN(sizeof(ImportJobData), "ImportJobData"));
+	/* Using new here since MEM_* funcs do not call ctor to properly initialize
+	 * data. */
+	ImportJobData *job = new ImportJobData();
 	job->bmain = CTX_data_main(C);
 	job->scene = CTX_data_scene(C);
 	BLI_strncpy(job->filename, filepath, 1024);
@@ -599,6 +648,8 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	job->settings.sequence_len = sequence_len;
 	job->settings.offset = offset;
 
+	G.is_break = false;
+
 	wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),
 	                            CTX_wm_window(C),
 	                            job->scene,
@@ -607,9 +658,9 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	                            WM_JOB_TYPE_ALEMBIC);
 
 	/* setup job */
-	WM_jobs_customdata_set(wm_job, job, MEM_freeN);
+	WM_jobs_customdata_set(wm_job, job, import_freejob);
 	WM_jobs_timer(wm_job, 0.1, NC_SCENE | ND_FRAME, NC_SCENE | ND_FRAME);
-	WM_jobs_callbacks(wm_job, import_startjob, NULL, NULL, NULL);
+	WM_jobs_callbacks(wm_job, import_startjob, NULL, NULL, import_endjob);
 
 	WM_jobs_start(CTX_wm_manager(C), wm_job);
 }
