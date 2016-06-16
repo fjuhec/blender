@@ -406,7 +406,9 @@ static void visit_object(const IObject &object,
 		if (IXform::matches(md)) {
 			bool create_xform = false;
 
-			if (is_locator(child)) {
+			/* Check whether or not this object is a Maya locator, which is
+			 * similar to empties used as parent object in Blender. */
+			if (has_property(child.getProperties(), "locator")) {
 				create_xform = true;
 			}
 			else {
