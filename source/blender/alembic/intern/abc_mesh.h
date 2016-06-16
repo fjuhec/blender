@@ -108,11 +108,12 @@ private:
 
 	void readPolyDataSample(Mesh *mesh,
 	                        const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
-                            const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts);
+                            const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
+	                        const Alembic::AbcGeom::N3fArraySamplePtr &normals);
 
 	void readVertexDataSample(Mesh *mesh,
 	                          const Alembic::AbcGeom::P3fArraySamplePtr &positions,
-	                          const Alembic::AbcGeom::IN3fGeomParam &normals);
+	                          const Alembic::AbcGeom::N3fArraySamplePtr &normals);
 };
 
 /* ************************************************************************** */

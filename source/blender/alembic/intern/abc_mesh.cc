@@ -395,7 +395,7 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 
 		ON3fGeomParam::Sample normals_sample;
 		if (!normals.empty()) {
-			normals_sample.setScope(kFacevaryingScope);
+			normals_sample.setScope(kVertexScope);
 			normals_sample.setVals(
 			            V3fArraySample(
 			                (const Imath::V3f *)&normals.front(),
@@ -830,16 +830,32 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 		const ISubDSchema::Sample sample = m_subd_schema.getValue(sample_sel);
 
-		readVertexDataSample(mesh, sample.getPositions(), IN3fGeomParam());
-		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts());
+		readVertexDataSample(mesh, sample.getPositions(), N3fArraySamplePtr());
+		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts(), N3fArraySamplePtr());
 	}
 	else {
 		is_constant = !has_animations(m_schema, m_settings);
 
 		const IPolyMeshSchema::Sample sample = m_schema.getValue(sample_sel);
 
-		readVertexDataSample(mesh, sample.getPositions(), m_schema.getNormalsParam());
-		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts());
+		N3fArraySamplePtr vertex_normals, poly_normals;
+		const IN3fGeomParam normals = m_schema.getNormalsParam();
+
+		if (normals.valid()) {
+			IN3fGeomParam::Sample normsamp = normals.getExpandedValue(sample_sel);
+
+			if (normals.getScope() == Alembic::AbcGeom::kFacevaryingScope) {
+				poly_normals = normsamp.getVals();
+			}
+			else if ((normals.getScope() == Alembic::AbcGeom::kVertexScope) ||
+			         (normals.getScope() == Alembic::AbcGeom::kVaryingScope))
+			{
+				vertex_normals = normsamp.getVals();
+			}
+		}
+
+		readVertexDataSample(mesh, sample.getPositions(), vertex_normals);
+		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts(), poly_normals);
 	}
 
 	BKE_mesh_validate(mesh, false, false);
@@ -861,18 +877,10 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 void AbcMeshReader::readVertexDataSample(Mesh *mesh,
                                          const P3fArraySamplePtr &positions,
-                                         const IN3fGeomParam &normals)
+                                         const N3fArraySamplePtr &normals)
 {
 	utils::mesh_add_verts(mesh, positions->size());
-
-	N3fArraySamplePtr normal_vals;
-
-	if (normals.valid()) {
-		IN3fGeomParam::Sample normsamp = normals.getExpandedValue();
-		normal_vals = normsamp.getVals();
-	}
-
-	read_mverts(mesh->mvert, positions, normal_vals);
+	read_mverts(mesh->mvert, positions, normals);
 }
 
 static void *add_customdata_cb(void *user_data, const char *name, int data_type)
@@ -900,7 +908,8 @@ static void *add_customdata_cb(void *user_data, const char *name, int data_type)
 
 void AbcMeshReader::readPolyDataSample(Mesh *mesh,
                                        const Int32ArraySamplePtr &face_indices,
-                                       const Int32ArraySamplePtr &face_counts)
+                                       const Int32ArraySamplePtr &face_counts,
+                                       const N3fArraySamplePtr &normals)
 {
 	const size_t num_poly = face_counts->size();
 	const size_t num_loops = face_indices->size();
@@ -919,16 +928,8 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 		ED_mesh_uv_texture_add(mesh, Alembic::Abc::GetSourceName(uv.getMetaData()).c_str(), true);
 	}
 
-	const IN3fGeomParam normals = m_schema.valid() ? m_schema.getNormalsParam() : IN3fGeomParam();
-	N3fArraySamplePtr normal_vals;
-
-	if (normals.valid()) {
-		IN3fGeomParam::Sample normsamp = normals.getExpandedValue();
-		normal_vals = normsamp.getVals();
-	}
-
 	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv, &mesh->pdata,
-	            face_indices, face_counts, uvsamp_vals, normal_vals);
+	            face_indices, face_counts, uvsamp_vals, normals);
 
 	const ICompoundProperty &arb_geom_params = (m_schema.valid() ? m_schema.getArbGeomParams()
 	                                                             : m_subd_schema.getArbGeomParams());

@@ -732,7 +732,9 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		if (normals.getScope() == Alembic::AbcGeom::kFacevaryingScope) {
 			poly_normals = normsamp.getVals();
 		}
-		else {
+		else if ((normals.getScope() == Alembic::AbcGeom::kVertexScope) ||
+		         (normals.getScope() == Alembic::AbcGeom::kVaryingScope))
+		{
 			vertex_normals = normsamp.getVals();
 		}
 	}
