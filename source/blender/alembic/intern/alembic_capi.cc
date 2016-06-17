@@ -747,7 +747,7 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	MPoly *mpolys = dm->getPolyArray(dm);
 	MLoop *mloops = dm->getLoopArray(dm);
 	MLoopUV *mloopuvs = static_cast<MLoopUV *>(CustomData_get(&dm->loopData, 0, CD_MLOOPUV));
-	CustomData *pdata = dm->getPolyDataLayout(dm);
+	CustomData *pdata = dm->getLoopDataLayout(dm);
 
 	read_mverts(mverts, positions, vertex_normals);
 	read_mpolys(mpolys, mloops, mloopuvs, pdata, face_indices, face_counts, uvs, uvs_indices, poly_normals);

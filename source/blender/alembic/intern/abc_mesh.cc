@@ -953,7 +953,7 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 		ED_mesh_uv_texture_add(mesh, Alembic::Abc::GetSourceName(uv.getMetaData()).c_str(), true);
 	}
 
-	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv, &mesh->pdata,
+	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv, &mesh->ldata,
 	            face_indices, face_counts, uvs, uvs_indices, normals);
 
 	const ICompoundProperty &arb_geom_params = (m_schema.valid() ? m_schema.getArbGeomParams()
@@ -1051,61 +1051,56 @@ void read_mverts(MVert *mverts,
 	}
 }
 
-void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData */*pdata*/,
+void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *ldata,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
                  const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
                  const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
                  const Alembic::AbcGeom::UInt32ArraySamplePtr &uvs_indices,
-                 const Alembic::AbcGeom::N3fArraySamplePtr &/*normals*/)
+                 const Alembic::AbcGeom::N3fArraySamplePtr &normals)
 {
-	int loopcount = 0;
-	unsigned int vert_index;
-
-#if 0
-	float (*pnors)[3];
+	float (*pnors)[3] = NULL;
 
 	if (normals) {
-		pnors = (float (*)[3])CustomData_get_layer(pdata, CD_NORMAL);
+		pnors = (float (*)[3])CustomData_get_layer(ldata, CD_NORMAL);
 
 		if (!pnors) {
-			pnors = (float (*)[3])CustomData_add_layer(pdata, CD_NORMAL, CD_CALLOC, NULL, face_counts->size());
+			pnors = (float (*)[3])CustomData_add_layer(ldata, CD_NORMAL, CD_CALLOC, NULL, normals->size());
 		}
 	}
 
+	const bool do_normals = (normals && pnors);
+	const bool do_uvs = (mloopuvs && uvs && uvs_indices);
+	unsigned int loop_index = 0;
+	unsigned int rev_loop_index = 0;
+	unsigned int uv_index = 0;
 	Imath::V3f nor;
-	float no[3];
-#endif
 
 	for (int i = 0; i < face_counts->size(); ++i) {
-		int face_size = (*face_counts)[i];
-		MPoly &poly = mpolys[i];
+		const int face_size = (*face_counts)[i];
 
-		poly.loopstart = loopcount;
+		MPoly &poly = mpolys[i];
+		poly.loopstart = loop_index;
 		poly.totloop = face_size;
 
-		/* TODO: reverse. */
-		int rev_loop = loopcount;
-		for (int f = face_size; f-- ; ++loopcount) {
-			MLoop &loop = mloops[rev_loop + f];
+		/* NOTE: Alembic data is stored in the reverse order. */
+		rev_loop_index = loop_index + (face_size - 1);
 
-			vert_index = (*face_indices)[loopcount];
-			loop.v = vert_index;
+		for (int f = 0; f < face_size; ++f, ++loop_index, --rev_loop_index) {
+			MLoop &loop = mloops[rev_loop_index];
+			loop.v = (*face_indices)[loop_index];
 
-			if (mloopuvs && uvs && uvs_indices) {
-				MLoopUV &loopuv = mloopuvs[rev_loop + f];
-
-				vert_index = (*uvs_indices)[loopcount];
-				loopuv.uv[0] = (*uvs)[vert_index][0];
-				loopuv.uv[1] = (*uvs)[vert_index][1];
+			if (do_normals) {
+				nor = (*normals)[loop_index];
+				copy_yup_zup(pnors[rev_loop_index], nor.getValue());
 			}
 
-#if 0
-			/* TODO: figure this out. */
-			if (normals && pnors) {
-				nor = (*normals)[vert_index];
-				copy_yup_zup(pnors[i], nor.getValue());
+			if (do_uvs) {
+				MLoopUV &loopuv = mloopuvs[rev_loop_index];
+
+				uv_index = (*uvs_indices)[loop_index];
+				loopuv.uv[0] = (*uvs)[uv_index][0];
+				loopuv.uv[1] = (*uvs)[uv_index][1];
 			}
-#endif
 		}
 	}
 }
