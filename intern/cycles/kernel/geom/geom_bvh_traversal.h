@@ -109,10 +109,27 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #if !defined(__KERNEL_SSE2__)
 #  if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
 				if(difl != 0.0f) {
+					traverse_mask = bvh_node_intersect_robust(kg,
+					                                          P,
+					                                          dir,
+					                                          idir,
+					                                          isect->t,
+					                                          difl,
+					                                          visibility,
+					                                          nodeAddr,
+					                                          dist);
 				}
 				else
 #  endif
 				{
+					traverse_mask = bvh_node_intersect(kg,
+					                                   P,
+					                                   dir,
+					                                   idir,
+					                                   isect->t,
+					                                   visibility,
+					                                   nodeAddr,
+					                                   dist);
 				}
 #else // __KERNEL_SSE2__
 #  if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)

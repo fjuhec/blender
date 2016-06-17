@@ -100,6 +100,14 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
 
 #if !defined(__KERNEL_SSE2__)
+				traverse_mask = bvh_node_intersect(kg,
+				                                   P,
+				                                   dir,
+				                                   idir,
+				                                   isect_t,
+				                                   PATH_RAY_SHADOW,
+				                                   nodeAddr,
+				                                   dist);
 #else // __KERNEL_SSE2__
 				traverse_mask = bvh_node_intersect(kg,
 				                                   P,

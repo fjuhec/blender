@@ -273,14 +273,14 @@ ccl_device_inline int bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
 	return mask;
 }
 
-ccl_device_inline int bvh_curve_intersect_node(KernelGlobals *kg,
-                                               const float3 P,
-                                               const float3 dir,
-                                               const float3 idir,
-                                               const float t,
-                                               const uint visibility,
-                                               int nodeAddr,
-                                               float dist[2])
+ccl_device_inline int bvh_node_intersect(KernelGlobals *kg,
+                                         const float3 P,
+                                         const float3 dir,
+                                         const float3 idir,
+                                         const float t,
+                                         const uint visibility,
+                                         int nodeAddr,
+                                         float dist[2])
 {
 	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
 	if(__float_as_uint(node.x) & PATH_RAY_NODE_UNALIGNED) {
@@ -304,15 +304,15 @@ ccl_device_inline int bvh_curve_intersect_node(KernelGlobals *kg,
 	}
 }
 
-ccl_device_inline int bvh_curve_intersect_node_robust(KernelGlobals *kg,
-                                                      const float3 P,
-                                                      const float3 dir,
-                                                      const float3 idir,
-                                                      const float t,
-                                                      const float difl,
-                                                      const uint visibility,
-                                                      int nodeAddr,
-                                                      float dist[2])
+ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
+                                                const float3 P,
+                                                const float3 dir,
+                                                const float3 idir,
+                                                const float t,
+                                                const float difl,
+                                                const uint visibility,
+                                                int nodeAddr,
+                                                float dist[2])
 {
 	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
 	if(__float_as_uint(node.x) & PATH_RAY_NODE_UNALIGNED) {
@@ -458,14 +458,14 @@ int ccl_device_inline bvh_aligned_node_intersect_robust(
 #  endif
 }
 
-int ccl_device bvh_unaligned_node_intersect(KernelGlobals *kg,
-                                            const float3 P,
-                                            const float3 dir,
-                                            const ssef& tnear,
-                                            const ssef& tfar,
-                                            const uint visibility,
-                                            int nodeAddr,
-                                            float dist[2])
+int ccl_device_inline bvh_unaligned_node_intersect(KernelGlobals *kg,
+                                                   const float3 P,
+                                                   const float3 dir,
+                                                   const ssef& tnear,
+                                                   const ssef& tfar,
+                                                   const uint visibility,
+                                                   int nodeAddr,
+                                                   float dist[2])
 {
 	Transform space0 = bvh_unaligned_node_fetch_space(kg, nodeAddr, 0);
 	Transform space1 = bvh_unaligned_node_fetch_space(kg, nodeAddr, 1);
@@ -519,15 +519,15 @@ int ccl_device bvh_unaligned_node_intersect(KernelGlobals *kg,
 #  endif
 }
 
-int ccl_device bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
-                                                   const float3 P,
-                                                   const float3 dir,
-                                                   const ssef& tnear,
-                                                   const ssef& tfar,
-                                                   const float difl,
-                                                   const uint visibility,
-                                                   int nodeAddr,
-                                                   float dist[2])
+int ccl_device_inline bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
+                                                          const float3 P,
+                                                          const float3 dir,
+                                                          const ssef& tnear,
+                                                          const ssef& tfar,
+                                                          const float difl,
+                                                          const uint visibility,
+                                                          int nodeAddr,
+                                                          float dist[2])
 {
 	Transform space0 = bvh_unaligned_node_fetch_space(kg, nodeAddr, 0);
 	Transform space1 = bvh_unaligned_node_fetch_space(kg, nodeAddr, 1);
