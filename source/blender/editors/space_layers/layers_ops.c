@@ -31,6 +31,8 @@
 
 #include "BLI_alloca.h"
 #include "BLI_compiler_attrs.h"
+#include "BLI_easing.h"
+#include "BLI_math.h"
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
@@ -52,6 +54,8 @@
 #include "layers_intern.h" /* own include */
 
 
+#define LAYERDRAG_DROP_ANIM_DURATION_FAC 0.05f
+
 /**
  * LayerTile wrapper for additional information needed for
  * offsetting and animating tiles during drag & drop reordering.
@@ -61,6 +65,10 @@ typedef struct {
 	/* With this we can substract the added offset when done. If we simply
 	 * set it to 0 LayerTile.ofs can't be reliably used elsewhere. */
 	int ofs_added;
+
+	/* anim data (note: only for LayerDragData.dragged currently) */
+	int anim_start_ofsy;
+	float anim_duration; /* tot duration the animation is supposed to take */
 } LayerDragTile;
 
 /**
@@ -70,8 +78,14 @@ typedef struct {
 	LayerDragTile dragged; /* info for the tile that's being dragged */
 	/* LayerDragTile hash table for all items that need special info while dragging */
 	GHash *tiledrags;
+
 	int insert_idx;
 	int init_mval_y;
+	bool is_dragging;
+	bool is_cancel;
+
+	/* anim data */
+	wmTimer *anim_timer;
 } LayerDragData;
 
 enum {
@@ -282,10 +296,17 @@ static void layer_drag_tile_remove_cb(void *val)
 	MEM_freeN(tiledata);
 }
 
-static void layer_drag_update_offsets(SpaceLayers *slayer, LayerDragData *ldrag, const wmEvent *event)
+/**
+ * Update offsets and information on where to insert the tile if key is released now. Note that
+ * items are *not* reordered here, this should only be done on key release to avoid updates in-between.
+ */
+static void layer_drag_update_positions(SpaceLayers *slayer, LayerDragData *ldrag, const wmEvent *event)
 {
 	LayerTile *drag_tile = ldrag->dragged.tile;
-	const bool is_upwards = ldrag->init_mval_y < event->mval[1];
+	/* will the tile be moved up or down in the list? */
+	const bool move_up = ldrag->init_mval_y < event->mval[1];
+	/* did mouse move up since last event? */
+	const bool upwards_motion = event->prevy < event->y;
 
 	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, iter_litem)
 	{
@@ -296,34 +317,41 @@ static void layer_drag_update_offsets(SpaceLayers *slayer, LayerDragData *ldrag,
 			continue;
 
 		/* check if the tile is supposed to be offset */
-		if ((is_upwards && iter_tile->litem->index < drag_tile->litem->index) ||
-		    (!is_upwards && iter_tile->litem->index > drag_tile->litem->index))
+		if ((move_up && iter_tile->litem->index < drag_tile->litem->index) ||
+		    (!move_up && iter_tile->litem->index > drag_tile->litem->index))
 		{
 			const int iter_cent = BLI_rcti_cent_y(&iter_tile->rect);
-			const int cmp_yval = event->prevy < event->y ? drag_tile->rect.ymax : drag_tile->rect.ymin;
+			const int cmp_yval = upwards_motion ? drag_tile->rect.ymax : drag_tile->rect.ymin;
 
-			if ((is_upwards && cmp_yval > iter_cent) || (!is_upwards && cmp_yval < iter_cent)) {
+			if ((move_up && cmp_yval > iter_cent) || (!move_up && cmp_yval < iter_cent)) {
 				needs_offset = true;
 			}
 		}
 
-		/* ldrag->tiledrags only contains offset tiles */
+		/* remember, ldrag->tiledrags only contains offset tiles */
 		LayerDragTile *tiledata = BLI_ghash_lookup(ldrag->tiledrags, iter_tile);
 		if (needs_offset) {
 			/* ensure the tile is offset (is not the case if it's not in LayerDragData.tiledrags) */
 			if (!tiledata) {
 				tiledata = layer_drag_tile_data_init(ldrag, iter_tile);
-				layer_drag_tile_add_offset(tiledata, drag_tile->tot_height * (is_upwards ? 1 : -1), false);
+				layer_drag_tile_add_offset(tiledata, drag_tile->tot_height * (move_up ? 1 : -1), false);
 			}
-			if (ldrag->insert_idx == -1 || !is_upwards || ldrag->insert_idx > iter_litem->index) {
+			if (ldrag->insert_idx == -1 || !move_up || ldrag->insert_idx > iter_litem->index) {
 				/* store where the tile should be inserted if key is released now */
 				ldrag->insert_idx = iter_litem->index;
 			}
 		}
 		else if (tiledata) {
-			if (ldrag->insert_idx == -1 || is_upwards || ldrag->insert_idx < iter_litem->index) {
-				/* store where the tile should be inserted if key is released now */
-				ldrag->insert_idx = iter_litem->index - (event->prevy < event->y ? 1 : 0);
+			if (ldrag->insert_idx == -1 || move_up || ldrag->insert_idx <= iter_litem->index) {
+				/* Store where the tile should be inserted if key is released now. It's
+				 * possible that this is the tile's initial position, so check for that. */
+				if (iter_litem->index + (upwards_motion ? -1 : 1) == drag_tile->litem->index) {
+					/* back to initial position */
+					ldrag->insert_idx = drag_tile->litem->index;
+				}
+				else {
+					ldrag->insert_idx = iter_litem->index - (upwards_motion ? 1 : 0);
+				}
 			}
 			/* remove offset from tile and remove it from LayerDragData.tiledrags
 			 * hash table since it should only contain offset tiles */
@@ -332,13 +360,53 @@ static void layer_drag_update_offsets(SpaceLayers *slayer, LayerDragData *ldrag,
 	}
 	BKE_LAYERTREE_ITER_END;
 
+	/* fallback to initial position */
+	if (ldrag->insert_idx == -1) {
+		ldrag->insert_idx = drag_tile->litem->index;
+	}
+
 	layer_drag_tile_add_offset(&ldrag->dragged, ldrag->init_mval_y - event->mval[1], true);
 }
 
-static void layer_drag_end(wmOperator *op)
+static void layer_drag_drop_anim_start(bContext *C, LayerDragData *ldrag, const wmEvent *event)
 {
-	LayerDragData *ldrag = op->customdata;
+	ldrag->anim_timer = WM_event_add_timer(CTX_wm_manager(C), CTX_wm_window(C), TIMER, 0.02);
 
+	BLI_assert(ldrag->insert_idx >= 0);
+	if (ldrag->is_cancel || ldrag->insert_idx == ldrag->dragged.tile->litem->index) {
+		ldrag->dragged.anim_start_ofsy = ldrag->dragged.ofs_added;
+	}
+	else {
+		SpaceLayers *slayer = CTX_wm_space_layers(C);
+		LayerTile *isert_tile = BLI_ghash_lookup(slayer->tiles, slayer->act_tree->items_all[ldrag->insert_idx]);
+		const bool is_upwards = ldrag->init_mval_y < event->mval[1];
+		ldrag->dragged.anim_start_ofsy = is_upwards ? (isert_tile->rect.ymax - ldrag->dragged.tile->rect.ymin) :
+		                                              (isert_tile->rect.ymin - ldrag->dragged.tile->rect.ymax);
+	}
+	/* duration is based on distance to end position */
+	ldrag->dragged.anim_duration = sqrt3f(ABS(ldrag->dragged.anim_start_ofsy)) * LAYERDRAG_DROP_ANIM_DURATION_FAC;
+
+	/* remove old offsets, tiles are reordered now */
+	GHashIterator gh_iter;
+	GHASH_ITER(gh_iter, ldrag->tiledrags) {
+		LayerDragTile *tiledata = BLI_ghashIterator_getValue(&gh_iter);
+		tiledata->tile->ofs[1] -= tiledata->ofs_added;
+		tiledata->ofs_added = 0;
+	}
+	ldrag->dragged.tile->ofs[1] -= ldrag->dragged.ofs_added - ldrag->dragged.anim_start_ofsy;
+	ldrag->dragged.ofs_added = ldrag->dragged.anim_start_ofsy;
+}
+
+static void layer_drag_drop_anim_step(LayerDragData *ldrag)
+{
+	/* animation for dragged item */
+	const int cur_ofs = BLI_easing_cubic_ease_in_out(ldrag->anim_timer->duration, 0.0f, ldrag->dragged.anim_start_ofsy,
+	                                                 ldrag->dragged.anim_duration);
+	layer_drag_tile_add_offset(&ldrag->dragged, ldrag->dragged.anim_start_ofsy - cur_ofs, true);
+}
+
+static void layer_drag_end(LayerDragData *ldrag)
+{
 	/* unset data for dragged tile */
 	ldrag->dragged.tile->ofs[1] -= ldrag->dragged.ofs_added;
 	ldrag->dragged.tile->flag &= ~LAYERTILE_FLOATING;
@@ -352,24 +420,38 @@ static int layer_drag_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	ARegion *ar = CTX_wm_region(C);
 	LayerDragData *ldrag = op->customdata;
-	LayerTile *drag_tile = ldrag->dragged.tile;
 
-	if (event->type == EVT_MODAL_MAP) {
+	if (event->type == EVT_MODAL_MAP && ldrag->is_dragging) {
 		switch (event->val) {
 			case LAYERDRAG_CANCEL:
-				layer_drag_end(op);
-				ED_region_tag_redraw(ar);
-				return OPERATOR_CANCELLED;
+				ldrag->is_cancel = true;
+				ldrag->is_dragging = false;
+				layer_drag_drop_anim_start(C, ldrag, event);
+				break;
 			case LAYERDRAG_CONFIRM:
-				BKE_layeritem_move(drag_tile->litem, ldrag->insert_idx);
-				layer_drag_end(op);
-				ED_region_tag_redraw(ar);
-				return OPERATOR_FINISHED;
+				ldrag->is_dragging = false;
+				layer_drag_drop_anim_start(C, ldrag, event);
+				/* apply new position before animation is done */
+				BKE_layeritem_move(ldrag->dragged.tile->litem, ldrag->insert_idx);
+				if (ldrag->insert_idx != ldrag->dragged.tile->litem->index) {
+					WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
+				}
+				break;
 		}
 	}
-	else if (event->type == MOUSEMOVE) {
-		layer_drag_update_offsets(slayer, ldrag, event);
+	else if (event->type == MOUSEMOVE && ldrag->is_dragging) {
+		layer_drag_update_positions(slayer, ldrag, event);
 		ED_region_tag_redraw(ar);
+	}
+	else if (event->type == TIMER && ldrag->anim_timer == event->customdata) {
+		ED_region_tag_redraw(ar);
+		layer_drag_drop_anim_step(ldrag);
+		if (ldrag->anim_timer->duration >= ldrag->dragged.anim_duration) {
+			layer_drag_end(ldrag);
+			WM_event_remove_timer(CTX_wm_manager(C), NULL, ldrag->anim_timer);
+
+			return ldrag->is_cancel ? OPERATOR_CANCELLED : OPERATOR_FINISHED;
+		}
 	}
 
 	return OPERATOR_RUNNING_MODAL;
@@ -389,6 +471,7 @@ static int layer_drag_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	ldrag->tiledrags = BLI_ghash_ptr_new("LayerDragData");
 	ldrag->insert_idx = -1;
 	ldrag->init_mval_y = event->mval[1];
+	ldrag->is_dragging = true;
 
 	op->customdata = ldrag;
 	tile->flag |= LAYERTILE_FLOATING;

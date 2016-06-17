@@ -235,6 +235,10 @@ void BKE_layeritem_move(LayerTreeItem *litem, const int newidx)
 {
 	const bool is_higher = litem->index < newidx;
 
+	/* Already where we want to move it to. */
+	if (litem->index == newidx)
+		return;
+
 	for (int i = is_higher ? litem->index + 1 : litem->index - 1;
 	     i < litem->tree->tot_items && i >= 0;
 	     is_higher ? i++ : i--)
