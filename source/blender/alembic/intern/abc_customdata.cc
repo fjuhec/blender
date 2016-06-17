@@ -145,9 +145,7 @@ static void write_uv(const OCompoundProperty &prop, const CDStreamConfig &config
  * - C3fGeomParam/C4fGeomParam on the arbGeomParam
  * - set scope as face varying
  *
- * The number of colors needs to match the number of vertices, not the number of
- * loops, so other software can import the data; that is we write one color per
- * vertex.
+ * TODO: check scope.
  */
 static void write_mcol(const OCompoundProperty &prop, const CDStreamConfig &config, void *data, const char *name)
 {
