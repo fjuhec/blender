@@ -99,6 +99,8 @@ using Alembic::AbcGeom::IN3fGeomParam;
 
 /* ************************************************************************** */
 
+/* NOTE: Alembic's polygon winding order is clockwise, to match with Renderman. */
+
 static void get_vertices(DerivedMesh *dm, std::vector<float> &points)
 {
 	points.clear();
@@ -112,26 +114,27 @@ static void get_vertices(DerivedMesh *dm, std::vector<float> &points)
 }
 
 static void get_topology(DerivedMesh *dm,
-                         std::vector<int32_t> &face_vertices,
+                         std::vector<int32_t> &poly_verts,
                          std::vector<int32_t> &loop_counts)
 {
-	face_vertices.clear();
-	loop_counts.clear();
-
 	const int num_poly = dm->getNumPolys(dm);
-	MLoop *loop_array = dm->getLoopArray(dm);
-	MPoly *polygons = dm->getPolyArray(dm);
+	const int num_loops = dm->getNumLoops(dm);
+	MLoop *mloop = dm->getLoopArray(dm);
+	MPoly *mpoly = dm->getPolyArray(dm);
 
+	poly_verts.clear();
+	loop_counts.clear();
+	poly_verts.reserve(num_loops);
 	loop_counts.reserve(num_poly);
 
 	for (int i = 0; i < num_poly; ++i) {
-		MPoly &current_poly = polygons[i];
-		MLoop *loop = loop_array + current_poly.loopstart + current_poly.totloop;
-		loop_counts.push_back(current_poly.totloop);
+		MPoly &poly = mpoly[i];
+		loop_counts.push_back(poly.totloop);
 
-		for (int j = 0; j < current_poly.totloop; ++j) {
-			loop--;
-			face_vertices.push_back(loop->v);
+		MLoop *loop = mloop + poly.loopstart + (poly.totloop - 1);
+
+		for (int j = 0; j < poly.totloop; ++j, --loop) {
+			poly_verts.push_back(loop->v);
 		}
 	}
 }
@@ -357,10 +360,10 @@ void AbcMeshWriter::do_write()
 void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 {
 	std::vector<float> points, normals;
-	std::vector<int32_t> facePoints, faceCounts;
+	std::vector<int32_t> poly_verts, loop_counts;
 
 	get_vertices(dm, points);
-	get_topology(dm, facePoints, faceCounts);
+	get_topology(dm, poly_verts, loop_counts);
 
 	if (m_first_frame) {
 		writeCommonData(dm, m_mesh_schema);
@@ -370,8 +373,8 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 	                    V3fArraySample(
 	                        (const Imath::V3f *) &points.front(),
 	                        points.size() / 3),
-	                    Int32ArraySample(facePoints),
-	                    Int32ArraySample(faceCounts));
+	                    Int32ArraySample(poly_verts),
+	                    Int32ArraySample(loop_counts));
 
 	UVSample sample;
 	if (m_settings.export_uvs) {
@@ -423,13 +426,13 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 
 void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 {
-	std::vector<float> points, creaseSharpness;
-	std::vector<int32_t> facePoints, faceCounts;
-	std::vector<int32_t> creaseIndices, creaseLengths;
+	std::vector<float> points, crease_sharpness;
+	std::vector<int32_t> poly_verts, loop_counts;
+	std::vector<int32_t> crease_indices, crease_lengths;
 
 	get_vertices(dm, points);
-	get_topology(dm, facePoints, faceCounts);
-	get_creases(dm, creaseIndices, creaseLengths, creaseSharpness);
+	get_topology(dm, poly_verts, loop_counts);
+	get_creases(dm, crease_indices, crease_lengths, crease_sharpness);
 
 	if (m_first_frame) {
 		/* create materials' facesets */
@@ -440,8 +443,8 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 	                      V3fArraySample(
 	                          (const Imath::V3f *) &points.front(),
 	                          points.size() / 3),
-	                      Int32ArraySample(facePoints),
-	                      Int32ArraySample(faceCounts));
+	                      Int32ArraySample(poly_verts),
+	                      Int32ArraySample(loop_counts));
 
 	UVSample sample;
 	if (m_settings.export_uvs) {
@@ -460,10 +463,10 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 		write_custom_data(m_subdiv_schema.getArbGeomParams(), m_custom_data_config, &dm->loopData, CD_MLOOPUV);
 	}
 
-	if (!creaseIndices.empty()) {
-		m_subdiv_sample.setCreaseIndices(Int32ArraySample(creaseIndices));
-		m_subdiv_sample.setCreaseLengths(Int32ArraySample(creaseLengths));
-		m_subdiv_sample.setCreaseSharpnesses(FloatArraySample(creaseSharpness));
+	if (!crease_indices.empty()) {
+		m_subdiv_sample.setCreaseIndices(Int32ArraySample(crease_indices));
+		m_subdiv_sample.setCreaseLengths(Int32ArraySample(crease_lengths));
+		m_subdiv_sample.setCreaseSharpnesses(FloatArraySample(crease_sharpness));
 	}
 
 	m_subdiv_sample.setSelfBounds(bounds());
@@ -475,15 +478,15 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 template <typename Schema>
 void AbcMeshWriter::writeCommonData(DerivedMesh *dm, Schema &schema)
 {
-	std::map< std::string, std::vector<int32_t>  > geoGroups;
-	getGeoGroups(dm, geoGroups);
+	std::map< std::string, std::vector<int32_t> > geo_groups;
+	getGeoGroups(dm, geo_groups);
 
 	std::map< std::string, std::vector<int32_t>  >::iterator it;
-	for (it = geoGroups.begin(); it != geoGroups.end(); ++it) {
-		OFaceSet faceSet = schema.createFaceSet(it->first);
+	for (it = geo_groups.begin(); it != geo_groups.end(); ++it) {
+		OFaceSet face_set = schema.createFaceSet(it->first);
 		OFaceSetSchema::Sample samp;
 		samp.setFaces(Int32ArraySample(it->second));
-		faceSet.getSchema().set(samp);
+		face_set.getSchema().set(samp);
 	}
 
 	if (hasProperties(reinterpret_cast<ID *>(m_object->data))) {
@@ -641,7 +644,7 @@ void mesh_add_verts(Mesh *mesh, size_t len)
 		return;
 	}
 
-	int totvert = mesh->totvert + len;
+	const int totvert = mesh->totvert + len;
 	CustomData vdata;
 	CustomData_copy(&mesh->vdata, &vdata, CD_MASK_MESH, CD_DEFAULT, totvert);
 	CustomData_copy_data(&mesh->vdata, &vdata, 0, 0, mesh->totvert);
@@ -706,10 +709,10 @@ static void mesh_add_mpolygons(Mesh *mesh, size_t len)
 
 static Material *find_material(Main *bmain, const char *name)
 {
-	Material *material, *found_material = NULL;
+	Material *material = static_cast<Material *>(bmain->mat.first);
+	Material *found_material = NULL;
 
-	for (material = (Material*)bmain->mat.first; material; material = (Material*)material->id.next) {
-
+	for (; material; material = static_cast<Material *>(material->id.next)) {
 		if (BLI_strcaseeq(material->id.name+2, name) == true) {
 			found_material = material;
 			break;
