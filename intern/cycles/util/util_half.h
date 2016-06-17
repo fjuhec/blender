@@ -27,10 +27,13 @@ CCL_NAMESPACE_BEGIN
 
 /* Half Floats */
 
-/* CUDA and OpenCL have inbuilt half data types,
- * so we only need to declare them for CPU */
+/* CUDA and OpenCL have inbuilt half data type, declare for CPU */
 #ifndef __KERNEL_GPU__
 typedef unsigned short half;
+#endif
+
+/* OpenCL knows half4, declare for CPU and CUDA */
+#ifndef __KERNEL_OPENCL__
 struct half4 { half x, y, z, w; };
 #endif
 
