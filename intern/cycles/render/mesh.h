@@ -95,6 +95,7 @@ public:
 		int num_corners;
 		int shader;
 		bool smooth;
+		int ptex_offset;
 
 		bool is_quad() { return num_corners == 4; }
 		float3 normal(const Mesh *mesh) const;

@@ -308,7 +308,14 @@ void Mesh::add_subd_face(int* corners, int num_corners, int shader_, bool smooth
 		subd_face_corners.push_back_reserved(corners[i]);
 	}
 
-	subd_faces.push_back_reserved({start_corner, num_corners, shader_, smooth_});
+	int ptex_offset = 0;
+
+	if(subd_faces.size()) {
+		SubdFace& s = subd_faces[subd_faces.size()-1];
+		ptex_offset = s.ptex_offset + (s.num_corners == 4 ? 1 : s.num_corners);
+	}
+
+	subd_faces.push_back_reserved({start_corner, num_corners, shader_, smooth_, ptex_offset});
 }
 
 void Mesh::compute_bounds()
