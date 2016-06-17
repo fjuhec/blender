@@ -1090,6 +1090,8 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *ld
 			loop.v = (*face_indices)[loop_index];
 
 			if (do_normals) {
+				poly.flag |= ME_SMOOTH;
+
 				nor = (*normals)[loop_index];
 				copy_yup_zup(pnors[rev_loop_index], nor.getValue());
 			}
