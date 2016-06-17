@@ -410,6 +410,13 @@ void BVH::pack_instances(size_t nodes_size, size_t leaf_nodes_size)
 
 /* Regular BVH */
 
+static bool node_bvh_is_unaligned(const BVHNode *node)
+{
+	const BVHNode *node0 = node->get_child(0),
+	              *node1 = node->get_child(1);
+	return node0->is_unaligned() || node1->is_unaligned();
+}
+
 RegularBVH::RegularBVH(const BVHParams& params_, const vector<Object*>& objects_)
 : BVH(params_, objects_)
 {
@@ -522,22 +529,30 @@ void RegularBVH::pack_unaligned_node(int idx,
 
 void RegularBVH::pack_nodes(const BVHNode *root)
 {
-	size_t tot_node_size = root->getSubtreeSize(BVH_STAT_NODE_COUNT);
-	size_t leaf_node_size = root->getSubtreeSize(BVH_STAT_LEAF_COUNT);
-	size_t node_size = tot_node_size - leaf_node_size;
-
-	/* resize arrays */
-	pack.nodes.clear();
-
-	/* for top level BVH, first merge existing BVH's so we know the offsets */
-	const int nsize = params.use_unaligned_nodes? BVH_UNALIGNED_NODE_SIZE: BVH_NODE_SIZE;
-	if(params.top_level) {
-		pack_instances(node_size*nsize,
-		               leaf_node_size*BVH_NODE_LEAF_SIZE);
+	const size_t num_nodes = root->getSubtreeSize(BVH_STAT_NODE_COUNT);
+	const size_t num_leaf_nodes = root->getSubtreeSize(BVH_STAT_LEAF_COUNT);
+	assert(num_leaf_nodes <= num_nodes);
+	const size_t num_inner_nodes = num_nodes - num_leaf_nodes;
+	size_t node_size;
+	if(params.use_unaligned_nodes) {
+		const size_t num_unaligned_nodes =
+		        root->getSubtreeSize(BVH_STAT_UNALIGNED_INNER_COUNT);
+		node_size = (num_unaligned_nodes * BVH_UNALIGNED_NODE_SIZE) +
+		            (num_inner_nodes - num_unaligned_nodes) * BVH_NODE_SIZE;
 	}
 	else {
-		pack.nodes.resize(node_size*nsize);
-		pack.leaf_nodes.resize(leaf_node_size*BVH_NODE_LEAF_SIZE);
+		node_size = num_inner_nodes * BVH_NODE_SIZE;
+	}
+	/* Resize arrays */
+	pack.nodes.clear();
+	pack.leaf_nodes.clear();
+	/* For top level BVH, first merge existing BVH's so we know the offsets. */
+	if(params.top_level) {
+		pack_instances(node_size, num_leaf_nodes*BVH_NODE_LEAF_SIZE);
+	}
+	else {
+		pack.nodes.resize(node_size);
+		pack.leaf_nodes.resize(num_leaf_nodes*BVH_NODE_LEAF_SIZE);
 	}
 
 	int nextNodeIdx = 0, nextLeafNodeIdx = 0;
@@ -549,7 +564,9 @@ void RegularBVH::pack_nodes(const BVHNode *root)
 	}
 	else {
 		stack.push_back(BVHStackEntry(root, nextNodeIdx));
-		nextNodeIdx += nsize;
+		nextNodeIdx += node_bvh_is_unaligned(root)
+		                       ? BVH_UNALIGNED_NODE_SIZE
+		                       : BVH_NODE_SIZE;
 	}
 
 	while(stack.size()) {
@@ -570,7 +587,9 @@ void RegularBVH::pack_nodes(const BVHNode *root)
 				}
 				else {
 					idx[i] = nextNodeIdx;
-					nextNodeIdx += nsize;
+					nextNodeIdx += node_bvh_is_unaligned(e.node->get_child(i))
+					                       ? BVH_UNALIGNED_NODE_SIZE
+					                       : BVH_NODE_SIZE;
 				}
 			}
 
@@ -580,7 +599,7 @@ void RegularBVH::pack_nodes(const BVHNode *root)
 			pack_inner(e, stack[stack.size()-2], stack[stack.size()-1]);
 		}
 	}
-
+	assert(node_size == nextNodeIdx);
 	/* root index to start traversal at, to handle case of single leaf node */
 	pack.root_index = (root->is_leaf())? -1: 0;
 }

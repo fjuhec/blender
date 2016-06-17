@@ -71,6 +71,24 @@ int BVHNode::getSubtreeSize(BVH_STAT stat) const
 				cnt = 1;
 			}
 			break;
+		case BVH_STAT_ALIGNED_INNER_COUNT:
+			if(!is_leaf()) {
+				bool has_unaligned = false;
+				for(int j = 0; j < num_children(); j++) {
+					has_unaligned |= get_child(j)->is_unaligned();
+				}
+				cnt += has_unaligned? 0: 1;
+			}
+			break;
+		case BVH_STAT_UNALIGNED_INNER_COUNT:
+			if(!is_leaf()) {
+				bool has_unaligned = false;
+				for(int j = 0; j < num_children(); j++) {
+					has_unaligned |= get_child(j)->is_unaligned();
+				}
+				cnt += has_unaligned? 1: 0;
+			}
+			break;
 		case BVH_STAT_ALIGNED_INNER_QNODE_COUNT:
 			{
 				bool has_unaligned = false;

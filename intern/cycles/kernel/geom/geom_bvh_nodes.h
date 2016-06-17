@@ -20,16 +20,16 @@ ccl_device_inline Transform bvh_unaligned_node_fetch_space(KernelGlobals *kg,
 {
 	Transform space;
 	if(child == 0) {
-		space.x = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
-		space.y = kernel_tex_fetch(__bvh_nodes, nodeAddr+1);
-		space.z = kernel_tex_fetch(__bvh_nodes, nodeAddr+2);
-		space.w = kernel_tex_fetch(__bvh_nodes, nodeAddr+3);
+		space.x = kernel_tex_fetch(__bvh_nodes, nodeAddr+1);
+		space.y = kernel_tex_fetch(__bvh_nodes, nodeAddr+2);
+		space.z = kernel_tex_fetch(__bvh_nodes, nodeAddr+3);
+		space.w = kernel_tex_fetch(__bvh_nodes, nodeAddr+4);
 	}
 	else {
-		space.x = kernel_tex_fetch(__bvh_nodes, nodeAddr+4);
-		space.y = kernel_tex_fetch(__bvh_nodes, nodeAddr+5);
-		space.z = kernel_tex_fetch(__bvh_nodes, nodeAddr+6);
-		space.w = kernel_tex_fetch(__bvh_nodes, nodeAddr+7);
+		space.x = kernel_tex_fetch(__bvh_nodes, nodeAddr+5);
+		space.y = kernel_tex_fetch(__bvh_nodes, nodeAddr+6);
+		space.z = kernel_tex_fetch(__bvh_nodes, nodeAddr+7);
+		space.w = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
 	}
 	return space;
 }
@@ -45,10 +45,10 @@ ccl_device_inline int bvh_aligned_node_intersect(KernelGlobals *kg,
 {
 
 	/* fetch node data */
-	float4 node0 = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
-	float4 node1 = kernel_tex_fetch(__bvh_nodes, nodeAddr+1);
-	float4 node2 = kernel_tex_fetch(__bvh_nodes, nodeAddr+2);
-	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
+	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
+	float4 node0 = kernel_tex_fetch(__bvh_nodes, nodeAddr+1);
+	float4 node1 = kernel_tex_fetch(__bvh_nodes, nodeAddr+2);
+	float4 node2 = kernel_tex_fetch(__bvh_nodes, nodeAddr+3);
 
 	/* intersect ray against child nodes */
 	NO_EXTENDED_PRECISION float c0lox = (node0.x - P.x) * idir.x;
@@ -74,8 +74,8 @@ ccl_device_inline int bvh_aligned_node_intersect(KernelGlobals *kg,
 
 #ifdef __VISIBILITY_FLAG__
 	/* this visibility test gives a 5% performance hit, how to solve? */
-	return (((c0max >= c0min) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
-	       (((c1max >= c1min) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
+	return (((c0max >= c0min) && (__float_as_uint(cnodes.x) & visibility))? 1: 0) |
+	       (((c1max >= c1min) && (__float_as_uint(cnodes.y) & visibility))? 2: 0);
 #else
 	return ((c0max >= c0min)? 1: 0) |
 	       ((c1max >= c1min)? 2: 0);
@@ -93,10 +93,10 @@ ccl_device_inline int bvh_aligned_node_intersect_robust(KernelGlobals *kg,
 {
 
 	/* fetch node data */
-	float4 node0 = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
-	float4 node1 = kernel_tex_fetch(__bvh_nodes, nodeAddr+1);
-	float4 node2 = kernel_tex_fetch(__bvh_nodes, nodeAddr+2);
-	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
+	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
+	float4 node0 = kernel_tex_fetch(__bvh_nodes, nodeAddr+1);
+	float4 node1 = kernel_tex_fetch(__bvh_nodes, nodeAddr+2);
+	float4 node2 = kernel_tex_fetch(__bvh_nodes, nodeAddr+3);
 
 	/* intersect ray against child nodes */
 	NO_EXTENDED_PRECISION float c0lox = (node0.x - P.x) * idir.x;
@@ -135,8 +135,8 @@ ccl_device_inline int bvh_aligned_node_intersect_robust(KernelGlobals *kg,
 
 #ifdef __VISIBILITY_FLAG__
 	/* this visibility test gives a 5% performance hit, how to solve? */
-	return (((c0max >= c0min) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
-	       (((c1max >= c1min) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
+	return (((c0max >= c0min) && (__float_as_uint(cnodes.x) & visibility))? 1: 0) |
+	       (((c1max >= c1min) && (__float_as_uint(cnodes.y) & visibility))? 2: 0);
 #else
 	return ((c0max >= c0min)? 1: 0) |
 	       ((c1max >= c1min)? 2: 0);
@@ -222,10 +222,10 @@ ccl_device_inline int bvh_unaligned_node_intersect(KernelGlobals *kg,
                                                    float *dist)
 {
 	int mask = 0;
-	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
+	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
 	if(bvh_unaligned_node_intersect_child(kg, P, dir, t, nodeAddr, 0, &dist[0])) {
 #ifdef __VISIBILITY_FLAG__
-		if((__float_as_uint(cnodes.z) & visibility))
+		if((__float_as_uint(cnodes.x) & visibility))
 #endif
 		{
 			mask |= 1;
@@ -233,7 +233,7 @@ ccl_device_inline int bvh_unaligned_node_intersect(KernelGlobals *kg,
 	}
 	if(bvh_unaligned_node_intersect_child(kg, P, dir, t, nodeAddr, 1, &dist[1])) {
 #ifdef __VISIBILITY_FLAG__
-		if((__float_as_uint(cnodes.w) & visibility))
+		if((__float_as_uint(cnodes.y) & visibility))
 #endif
 		{
 			mask |= 2;
@@ -253,10 +253,10 @@ ccl_device_inline int bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
                                                           float *dist)
 {
 	int mask = 0;
-	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
+	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
 	if(bvh_unaligned_node_intersect_child_robust(kg, P, dir, t, difl, nodeAddr, 0, &dist[0])) {
 #ifdef __VISIBILITY_FLAG__
-		if((__float_as_uint(cnodes.z) & visibility))
+		if((__float_as_uint(cnodes.x) & visibility))
 #endif
 		{
 			mask |= 1;
@@ -264,7 +264,7 @@ ccl_device_inline int bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
 	}
 	if(bvh_unaligned_node_intersect_child_robust(kg, P, dir, t, difl, nodeAddr, 1, &dist[1])) {
 #ifdef __VISIBILITY_FLAG__
-		if((__float_as_uint(cnodes.w) & visibility))
+		if((__float_as_uint(cnodes.y) & visibility))
 #endif
 		{
 			mask |= 2;
@@ -282,7 +282,7 @@ ccl_device_inline int bvh_curve_intersect_node(KernelGlobals *kg,
                                                int nodeAddr,
                                                float dist[2])
 {
-	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr+7);
+	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
 	if(__float_as_uint(node.x) & PATH_RAY_NODE_UNALIGNED) {
 		return bvh_unaligned_node_intersect(kg,
 		                                    P,
@@ -314,7 +314,7 @@ ccl_device_inline int bvh_curve_intersect_node_robust(KernelGlobals *kg,
                                                       int nodeAddr,
                                                       float dist[2])
 {
-	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr+7);
+	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
 	if(__float_as_uint(node.x) & PATH_RAY_NODE_UNALIGNED) {
 		return bvh_unaligned_node_intersect_robust(kg,
 		                                           P,
@@ -358,9 +358,9 @@ int ccl_device_inline bvh_aligned_node_intersect(
 	const ssef *bvh_nodes = (ssef*)kg->__bvh_nodes.data + nodeAddr;
 
 	/* intersect ray against child nodes */
-	const ssef tminmaxx = (shuffle_swap(bvh_nodes[0], shufflexyz[0]) - Psplat[0]) * idirsplat[0];
-	const ssef tminmaxy = (shuffle_swap(bvh_nodes[1], shufflexyz[1]) - Psplat[1]) * idirsplat[1];
-	const ssef tminmaxz = (shuffle_swap(bvh_nodes[2], shufflexyz[2]) - Psplat[2]) * idirsplat[2];
+	const ssef tminmaxx = (shuffle_swap(bvh_nodes[1], shufflexyz[0]) - Psplat[0]) * idirsplat[0];
+	const ssef tminmaxy = (shuffle_swap(bvh_nodes[2], shufflexyz[1]) - Psplat[1]) * idirsplat[1];
+	const ssef tminmaxz = (shuffle_swap(bvh_nodes[3], shufflexyz[2]) - Psplat[2]) * idirsplat[2];
 
 	/* calculate { c0min, c1min, -c0max, -c1max} */
 	ssef minmax = max(max(tminmaxx, tminmaxy), max(tminmaxz, tsplat));
@@ -374,9 +374,9 @@ int ccl_device_inline bvh_aligned_node_intersect(
 
 #  ifdef __VISIBILITY_FLAG__
 	/* this visibility test gives a 5% performance hit, how to solve? */
-	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
-	int cmask = (((mask & 1) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
-	            (((mask & 2) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
+	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
+	int cmask = (((mask & 1) && (__float_as_uint(cnodes.x) & visibility))? 1: 0) |
+	            (((mask & 2) && (__float_as_uint(cnodes.y) & visibility))? 2: 0);
 	return cmask;
 #  else
 	return mask & 3;
@@ -403,16 +403,16 @@ int ccl_device_inline bvh_aligned_node_intersect_robust(
 	const ssef *bvh_nodes = (ssef*)kg->__bvh_nodes.data + nodeAddr;
 
 	/* intersect ray against child nodes */
-	const ssef tminmaxx = (shuffle_swap(bvh_nodes[0], shufflexyz[0]) - Psplat[0]) * idirsplat[0];
-	const ssef tminmaxy = (shuffle_swap(bvh_nodes[1], shufflexyz[1]) - Psplat[1]) * idirsplat[1];
-	const ssef tminmaxz = (shuffle_swap(bvh_nodes[2], shufflexyz[2]) - Psplat[2]) * idirsplat[2];
+	const ssef tminmaxx = (shuffle_swap(bvh_nodes[1], shufflexyz[0]) - Psplat[0]) * idirsplat[0];
+	const ssef tminmaxy = (shuffle_swap(bvh_nodes[2], shufflexyz[1]) - Psplat[1]) * idirsplat[1];
+	const ssef tminmaxz = (shuffle_swap(bvh_nodes[3], shufflexyz[2]) - Psplat[2]) * idirsplat[2];
 
 	/* calculate { c0min, c1min, -c0max, -c1max} */
 	ssef minmax = max(max(tminmaxx, tminmaxy), max(tminmaxz, tsplat));
 	const ssef tminmax = minmax ^ pn;
 
 	if(difl != 0.0f) {
-		float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
+		float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
 		float4 *tminmaxview = (float4*)&tminmax;
 		float& c0min = tminmaxview->x, &c1min = tminmaxview->y;
 		float& c0max = tminmaxview->z, &c1max = tminmaxview->w;
@@ -449,9 +449,9 @@ int ccl_device_inline bvh_aligned_node_intersect_robust(
 
 #  ifdef __VISIBILITY_FLAG__
 	/* this visibility test gives a 5% performance hit, how to solve? */
-	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
-	int cmask = (((mask & 1) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
-	            (((mask & 2) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
+	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
+	int cmask = (((mask & 1) && (__float_as_uint(cnodes.x) & visibility))? 1: 0) |
+	            (((mask & 2) && (__float_as_uint(cnodes.y) & visibility))? 2: 0);
 	return cmask;
 #  else
 	return mask & 3;
@@ -510,9 +510,9 @@ int ccl_device bvh_unaligned_node_intersect(KernelGlobals *kg,
 
 #  ifdef __VISIBILITY_FLAG__
 	/* this visibility test gives a 5% performance hit, how to solve? */
-	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
-	int cmask = (((mask & 1) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
-	            (((mask & 2) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
+	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
+	int cmask = (((mask & 1) && (__float_as_uint(cnodes.x) & visibility))? 1: 0) |
+	            (((mask & 2) && (__float_as_uint(cnodes.y) & visibility))? 2: 0);
 	return cmask;
 #  else
 	return mask & 3;
@@ -581,9 +581,9 @@ int ccl_device bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
 
 #  ifdef __VISIBILITY_FLAG__
 	/* this visibility test gives a 5% performance hit, how to solve? */
-	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
-	int cmask = (((mask & 1) && (__float_as_uint(cnodes.z) & visibility))? 1: 0) |
-	            (((mask & 2) && (__float_as_uint(cnodes.w) & visibility))? 2: 0);
+	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
+	int cmask = (((mask & 1) && (__float_as_uint(cnodes.x) & visibility))? 1: 0) |
+	            (((mask & 2) && (__float_as_uint(cnodes.y) & visibility))? 2: 0);
 	return cmask;
 #  else
 	return mask & 3;
@@ -603,8 +603,8 @@ ccl_device_inline int bvh_node_intersect(KernelGlobals *kg,
                                          int nodeAddr,
                                          float dist[2])
 {
-	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr+7);
-	if(node.w != 0.0f) {
+	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
+	if(__float_as_uint(node.x) & PATH_RAY_NODE_UNALIGNED) {
 		return bvh_unaligned_node_intersect(kg,
 		                                    P,
 		                                    dir,
@@ -642,8 +642,8 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
                                                 int nodeAddr,
                                                 float dist[2])
 {
-	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr+7);
-	if(node.w != 0.0f) {
+	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
+	if(__float_as_uint(node.x) & PATH_RAY_NODE_UNALIGNED) {
 		return bvh_unaligned_node_intersect_robust(kg,
 		                                           P,
 		                                           dir,
