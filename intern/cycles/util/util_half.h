@@ -38,11 +38,14 @@ struct half4 { half x, y, z, w; };
 #endif
 
 /* Float <-> Half conversion.
- * We define three main functions for each architecture.
- * Half data is always loaded / written via pointers.
+ * We define three main functions for each architecture:
  * float4_store_half()
  * half_to_float()
  * half_to_float4()
+ *
+ * Additionally we have a function which only run on the CPU, and converts float to half data,
+ * as used for textures.
+ * float_to_half()
  */
 
 /* OpenCL */
@@ -138,6 +141,115 @@ ccl_device_inline float4 half4_to_float4(half4 h)
 	f.w = half_to_float(h.z);
 
 	return f;
+}
+#endif
+
+/* Float to half conversion, CPU only */
+#ifndef __KERNEL_GPU__
+
+/* Code from https://gist.github.com/rygorous/2156668, CC0 */
+union FP32
+{
+	uint u;
+	float f;
+	struct
+	{
+		uint Mantissa : 23;
+		uint Exponent : 8;
+		uint Sign : 1;
+	};
+};
+
+union FP16
+{
+	half u;
+	struct
+	{
+		uint Mantissa : 10;
+		uint Exponent : 5;
+		uint Sign : 1;
+	};
+};
+
+static FP16 float_to_half_fast(FP32 f)
+{
+	FP16 o = { 0 };
+
+	/* Based on ISPC reference code (with minor modifications) */
+	if(f.Exponent == 255) { /* Inf or NaN (all exponent bits set) */
+		o.Exponent = 31;
+		o.Mantissa = f.Mantissa ? 0x200 : 0; // NaN->qNaN and Inf->Inf
+	}
+	else { /* Normalized number */
+		/* Exponent unbias the single, then bias the halfp */
+		int newexp = f.Exponent - 127 + 15;
+
+		if(newexp >= 31) /* Overflow, return signed infinity */
+			o.Exponent = 31;
+		else if(newexp <= 0) { /* Underflow */
+			if((14 - newexp) <= 24) { /* Mantissa might be non-zero */
+				uint mant = f.Mantissa | 0x800000; /* Hidden 1 bit */
+				o.Mantissa = mant >> (14 - newexp);
+				if((mant >> (13 - newexp)) & 1) /* Check for rounding */
+					o.u++; /* Round, might overflow into exp bit, but this is OK */
+			}
+		}
+		else {
+			o.Exponent = newexp;
+			o.Mantissa = f.Mantissa >> 13;
+			if(f.Mantissa & 0x1000) /* Check for rounding */
+				o.u++; /* Round, might overflow to inf, this is OK */
+		}
+	}
+
+	o.Sign = f.Sign;
+	return o;
+}
+
+static FP16 float_to_half_fast2(FP32 f)
+{
+	FP32 infty = { 31 << 23 };
+	FP32 magic = { 15 << 23 };
+	FP16 o = { 0 };
+
+	uint sign = f.Sign;
+	f.Sign = 0;
+
+	/* Based on ISPC reference code (with minor modifications) */
+    if(f.Exponent == 255) { /* Inf or NaN (all exponent bits set) */
+		o.Exponent = 31;
+		o.Mantissa = f.Mantissa ? 0x200 : 0; // NaN->qNaN and Inf->Inf
+	}
+	else { /* (De)normalized number or zero */
+		f.u &= ~0xfff; // Make sure we don't get sticky bits
+
+		f.f *= magic.f;
+
+		f.u += 0x1000; /* Rounding bias */
+		if(f.u > infty.u) f.u = infty.u; /* Clamp to signed infinity if overflowed */
+
+		o.u = f.u >> 13; /* Take the bits! */
+	}
+
+	o.Sign = sign;
+	return o;
+}
+
+
+ccl_device_inline half float_to_half(float f)
+{
+	FP32 fp;
+	fp.f = f;
+
+	FP16 h = float_to_half_fast(fp);
+
+	return h.u;
+}
+
+ccl_device void print_half(float f)
+{
+	std::cout << "Float" << f << std::endl;
+	std::cout << "Half" << float_to_half(f) << std::endl;
 }
 
 #endif
