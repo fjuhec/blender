@@ -944,7 +944,7 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 	                                                : m_schema.getUVsParam());
 
 	if (uv.valid()) {
-		IV2fGeomParam::Sample uvsamp = uv.getExpandedValue();
+		IV2fGeomParam::Sample uvsamp;
 		uv.getIndexed(uvsamp, Alembic::Abc::ISampleSelector(0.0f));
 
 		uvs = uvsamp.getVals();
