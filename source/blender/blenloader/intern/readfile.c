@@ -1514,6 +1514,15 @@ void *blo_do_versions_newlibadr_us(FileData *fd, const void *lib, const void *ad
 	return newlibadr_us(fd, lib, adr);
 }
 
+static void *newlibadr_real_us(FileData *fd, const void *lib, const void *adr)	/* ensures real user */
+{
+	ID *id = newlibadr(fd, lib, adr);
+
+	id_us_ensure_real(id);
+
+	return id;
+}
+
 static void change_idid_adr_fd(FileData *fd, const void *old, void *new)
 {
 	int i;
@@ -2175,9 +2184,10 @@ static void lib_link_brush(FileData *fd, Main *main)
 		if (brush->id.tag & LIB_TAG_NEED_LINK) {
 			brush->id.tag &= ~LIB_TAG_NEED_LINK;
 			
+			/* brush->(mask_)mtex.obj is ignored on purpose? */
 			brush->mtex.tex = newlibadr_us(fd, brush->id.lib, brush->mtex.tex);
 			brush->mask_mtex.tex = newlibadr_us(fd, brush->id.lib, brush->mask_mtex.tex);
-			brush->clone.image = newlibadr_us(fd, brush->id.lib, brush->clone.image);
+			brush->clone.image = newlibadr(fd, brush->id.lib, brush->clone.image);
 			brush->toggle_brush = newlibadr(fd, brush->id.lib, brush->toggle_brush);
 			brush->paint_curve = newlibadr_us(fd, brush->id.lib, brush->paint_curve);
 		}
@@ -3807,7 +3817,7 @@ static void lib_link_texture(FileData *fd, Main *main)
 			lib_link_animdata(fd, &tex->id, tex->adt);
 			
 			tex->ima = newlibadr_us(fd, tex->id.lib, tex->ima);
-			tex->ipo = newlibadr_us(fd, tex->id.lib, tex->ipo);
+			tex->ipo = newlibadr_us(fd, tex->id.lib, tex->ipo);  // XXX deprecated - old animation system
 			if (tex->env)
 				tex->env->object = newlibadr(fd, tex->id.lib, tex->env->object);
 			if (tex->pd)
@@ -3891,7 +3901,7 @@ static void lib_link_material(FileData *fd, Main *main)
 			 * of library blocks that implement this.*/
 			IDP_LibLinkProperty(ma->id.properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 			
-			ma->ipo = newlibadr_us(fd, ma->id.lib, ma->ipo);
+			ma->ipo = newlibadr_us(fd, ma->id.lib, ma->ipo);  // XXX deprecated - old animation system
 			ma->group = newlibadr_us(fd, ma->id.lib, ma->group);
 			
 			for (a = 0; a < MAX_MTEX; a++) {
@@ -4294,8 +4304,7 @@ static void lib_link_mtface(FileData *fd, Mesh *me, MTFace *mtface, int totface)
 	 * little bogus; it would be better if each mesh consistently added one ref
 	 * to each image it used. - z0r */
 	for (i = 0; i < totface; i++, tf++) {
-		tf->tpage= newlibadr(fd, me->id.lib, tf->tpage);
-		id_us_ensure_real(&tf->tpage->id);
+		tf->tpage = newlibadr_real_us(fd, me->id.lib, tf->tpage);
 	}
 }
 
@@ -4323,8 +4332,7 @@ static void lib_link_customdata_mtpoly(FileData *fd, Mesh *me, CustomData *pdata
 			int j;
 			
 			for (j = 0; j < totface; j++, tf++) {
-				tf->tpage = newlibadr(fd, me->id.lib, tf->tpage);
-				id_us_ensure_real((ID *)tf->tpage);
+				tf->tpage = newlibadr_real_us(fd, me->id.lib, tf->tpage);
 			}
 		}
 	}
@@ -4874,7 +4882,7 @@ static void lib_link_object(FileData *fd, Main *main)
 				FluidsimModifierData *fluidmd = (FluidsimModifierData *)modifiers_findByType(ob, eModifierType_Fluidsim);
 				
 				if (fluidmd && fluidmd->fss)
-					fluidmd->fss->ipo = newlibadr_us(fd, ob->id.lib, fluidmd->fss->ipo);
+					fluidmd->fss->ipo = newlibadr_us(fd, ob->id.lib, fluidmd->fss->ipo);  // XXX deprecated - old animation system
 			}
 			
 			{
@@ -5610,7 +5618,6 @@ static void lib_link_scene(FileData *fd, Main *main)
 			for (Base *base = sce->base.first, *next; base; base = next) {
 				next = base->next;
 				
-				/* base->object= newlibadr_us(fd, sce->id.lib, base->object); */
 				base->object = newlibadr_us(fd, sce->id.lib, base->object);
 				
 				if (base->object == NULL) {
@@ -5624,7 +5631,7 @@ static void lib_link_scene(FileData *fd, Main *main)
 			
 			SEQ_BEGIN (sce->ed, seq)
 			{
-				if (seq->ipo) seq->ipo = newlibadr_us(fd, sce->id.lib, seq->ipo);
+				if (seq->ipo) seq->ipo = newlibadr_us(fd, sce->id.lib, seq->ipo);  // XXX deprecated - old animation system
 				seq->scene_sound = NULL;
 				if (seq->scene) {
 					seq->scene = newlibadr(fd, sce->id.lib, seq->scene);
@@ -6298,8 +6305,8 @@ static void lib_link_screen(FileData *fd, Main *main)
 					else if (sl->spacetype == SPACE_IMAGE) {
 						SpaceImage *sima = (SpaceImage *)sl;
 						
-						sima->image = newlibadr_us(fd, sc->id.lib, sima->image);
-						sima->mask_info.mask = newlibadr_us(fd, sc->id.lib, sima->mask_info.mask);
+						sima->image = newlibadr_real_us(fd, sc->id.lib, sima->image);
+						sima->mask_info.mask = newlibadr_real_us(fd, sc->id.lib, sima->mask_info.mask);
 
 						/* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
 						 * so fingers crossed this works fine!
@@ -6405,8 +6412,8 @@ static void lib_link_screen(FileData *fd, Main *main)
 					else if (sl->spacetype == SPACE_CLIP) {
 						SpaceClip *sclip = (SpaceClip *)sl;
 						
-						sclip->clip = newlibadr_us(fd, sc->id.lib, sclip->clip);
-						sclip->mask_info.mask = newlibadr_us(fd, sc->id.lib, sclip->mask_info.mask);
+						sclip->clip = newlibadr_real_us(fd, sc->id.lib, sclip->clip);
+						sclip->mask_info.mask = newlibadr_real_us(fd, sc->id.lib, sclip->mask_info.mask);
 					}
 					else if (sl->spacetype == SPACE_LOGIC) {
 						SpaceLogic *slogic = (SpaceLogic *)sl;
@@ -7397,12 +7404,11 @@ static void lib_link_group(FileData *fd, Main *main)
 			add_us = false;
 			
 			for (go = group->gobject.first; go; go = go->next) {
-				go->ob= newlibadr(fd, group->id.lib, go->ob);
+				go->ob = newlibadr_real_us(fd, group->id.lib, go->ob);
 				if (go->ob) {
 					go->ob->flag |= OB_FROMGROUP;
 					/* if group has an object, it increments user... */
 					add_us = true;
-					id_us_ensure_real(&go->ob->id);
 				}
 			}
 			if (add_us) {
