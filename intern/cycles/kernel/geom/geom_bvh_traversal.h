@@ -119,7 +119,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				if(difl != 0.0f) {
 					traverse_mask = NODE_INTERSECT_ROBUST(kg,
 					                                      P,
+#    if BVH_FEATURE(BVH_HAIR)
 					                                      dir,
+#    endif
 					                                      idir,
 					                                      isect->t,
 					                                      difl,
@@ -132,7 +134,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				{
 					traverse_mask = NODE_INTERSECT(kg,
 					                               P,
+#    if BVH_FEATURE(BVH_HAIR)
 					                               dir,
+#    endif
 					                               idir,
 					                               isect->t,
 					                               visibility,

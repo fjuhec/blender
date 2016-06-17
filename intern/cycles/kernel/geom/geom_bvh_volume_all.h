@@ -109,7 +109,9 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #if !defined(__KERNEL_SSE2__)
 				traverse_mask = NODE_INTERSECT(kg,
 				                               P,
+#  if BVH_FEATURE(BVH_HAIR)
 				                               dir,
+#  endif
 				                               idir,
 				                               isect_t,
 				                               visibility,
