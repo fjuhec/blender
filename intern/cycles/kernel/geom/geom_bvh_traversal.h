@@ -125,8 +125,8 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 					                                      idir,
 					                                      isect->t,
 					                                      difl,
-					                                      visibility,
 					                                      nodeAddr,
+					                                      visibility,
 					                                      dist);
 				}
 				else
@@ -139,8 +139,8 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #    endif
 					                               idir,
 					                               isect->t,
-					                               visibility,
 					                               nodeAddr,
+					                               visibility,
 					                               dist);
 				}
 #else // __KERNEL_SSE2__
@@ -158,8 +158,8 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 					                                      idirsplat,
 					                                      shufflexyz,
 					                                      difl,
-					                                      visibility,
 					                                      nodeAddr,
+					                                      visibility,
 					                                      dist);
 				}
 				else
@@ -176,8 +176,8 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 					                               Psplat,
 					                               idirsplat,
 					                               shufflexyz,
-					                               visibility,
 					                               nodeAddr,
+					                               visibility,
 					                               dist);
 				}
 #endif // __KERNEL_SSE2__

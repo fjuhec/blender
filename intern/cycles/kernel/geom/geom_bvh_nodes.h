@@ -39,7 +39,7 @@ ccl_device_inline int bvh_aligned_node_intersect(KernelGlobals *kg,
                                                  const float3 P,
                                                  const float3 idir,
                                                  const float t,
-                                                 int nodeAddr,
+                                                 const int nodeAddr,
                                                  const uint visibility,
                                                  float *dist)
 {
@@ -87,7 +87,7 @@ ccl_device_inline int bvh_aligned_node_intersect_robust(KernelGlobals *kg,
                                                         const float3 idir,
                                                         const float t,
                                                         const float difl,
-                                                        int nodeAddr,
+                                                        const int nodeAddr,
                                                         const uint visibility,
                                                         float *dist)
 {
@@ -217,7 +217,7 @@ ccl_device_inline int bvh_unaligned_node_intersect(KernelGlobals *kg,
                                                    const float3 dir,
                                                    const float3 idir,
                                                    const float t,
-                                                   int nodeAddr,
+                                                   const int nodeAddr,
                                                    const uint visibility,
                                                    float *dist)
 {
@@ -248,7 +248,7 @@ ccl_device_inline int bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
                                                           const float3 idir,
                                                           const float t,
                                                           const float difl,
-                                                          int nodeAddr,
+                                                          const int nodeAddr,
                                                           const uint visibility,
                                                           float *dist)
 {
@@ -278,8 +278,8 @@ ccl_device_inline int bvh_node_intersect(KernelGlobals *kg,
                                          const float3 dir,
                                          const float3 idir,
                                          const float t,
+                                         const int nodeAddr,
                                          const uint visibility,
-                                         int nodeAddr,
                                          float dist[2])
 {
 	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
@@ -310,8 +310,8 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
                                                 const float3 idir,
                                                 const float t,
                                                 const float difl,
+                                                const int nodeAddr,
                                                 const uint visibility,
-                                                int nodeAddr,
                                                 float dist[2])
 {
 	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
@@ -347,8 +347,8 @@ int ccl_device_inline bvh_aligned_node_intersect(
         const ssef Psplat[3],
         const ssef idirsplat[3],
         const shuffle_swap_t shufflexyz[3],
+        const int nodeAddr,
         const uint visibility,
-        int nodeAddr,
         float dist[2])
 {
 	/* Intersect two child bounding boxes, SSE3 version adapted from Embree */
@@ -392,8 +392,8 @@ int ccl_device_inline bvh_aligned_node_intersect_robust(
         const ssef idirsplat[3],
         const shuffle_swap_t shufflexyz[3],
         const float difl,
+        const int nodeAddr,
         const uint visibility,
-        int nodeAddr,
         float dist[2])
 {
 	/* Intersect two child bounding boxes, SSE3 version adapted from Embree */
@@ -463,8 +463,8 @@ int ccl_device_inline bvh_unaligned_node_intersect(KernelGlobals *kg,
                                                    const float3 dir,
                                                    const ssef& tnear,
                                                    const ssef& tfar,
+                                                   const int nodeAddr,
                                                    const uint visibility,
-                                                   int nodeAddr,
                                                    float dist[2])
 {
 	Transform space0 = bvh_unaligned_node_fetch_space(kg, nodeAddr, 0);
@@ -525,8 +525,8 @@ int ccl_device_inline bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
                                                           const ssef& tnear,
                                                           const ssef& tfar,
                                                           const float difl,
+                                                          const int nodeAddr,
                                                           const uint visibility,
-                                                          int nodeAddr,
                                                           float dist[2])
 {
 	Transform space0 = bvh_unaligned_node_fetch_space(kg, nodeAddr, 0);
@@ -599,8 +599,8 @@ ccl_device_inline int bvh_node_intersect(KernelGlobals *kg,
                                          const ssef Psplat[3],
                                          const ssef idirsplat[3],
                                          const shuffle_swap_t shufflexyz[3],
+                                         const int nodeAddr,
                                          const uint visibility,
-                                         int nodeAddr,
                                          float dist[2])
 {
 	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
@@ -610,8 +610,8 @@ ccl_device_inline int bvh_node_intersect(KernelGlobals *kg,
 		                                    dir,
 		                                    tnear,
 		                                    tfar,
-		                                    visibility,
 		                                    nodeAddr,
+		                                    visibility,
 		                                    dist);
 	}
 	else {
@@ -622,8 +622,8 @@ ccl_device_inline int bvh_node_intersect(KernelGlobals *kg,
 		                                  Psplat,
 		                                  idirsplat,
 		                                  shufflexyz,
-		                                  visibility,
 		                                  nodeAddr,
+		                                  visibility,
 		                                  dist);
 	}
 }
@@ -638,8 +638,8 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
                                                 const ssef idirsplat[3],
                                                 const shuffle_swap_t shufflexyz[3],
                                                 const float difl,
+                                                const int nodeAddr,
                                                 const uint visibility,
-                                                int nodeAddr,
                                                 float dist[2])
 {
 	float4 node = kernel_tex_fetch(__bvh_nodes, nodeAddr);
@@ -650,8 +650,8 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
 		                                           tnear,
 		                                           tfar,
 		                                           difl,
-		                                           visibility,
 		                                           nodeAddr,
+		                                           visibility,
 		                                           dist);
 	}
 	else {
@@ -663,8 +663,8 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
 		                                         idirsplat,
 		                                         shufflexyz,
 		                                         difl,
-		                                         visibility,
 		                                         nodeAddr,
+		                                         visibility,
 		                                         dist);
 	}
 }

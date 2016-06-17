@@ -113,8 +113,8 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #  endif
 				                               idir,
 				                               isect_t,
-				                               PATH_RAY_SHADOW,
 				                               nodeAddr,
+				                               PATH_RAY_SHADOW,
 				                               dist);
 #else // __KERNEL_SSE2__
 				traverse_mask = NODE_INTERSECT(kg,
@@ -128,8 +128,8 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				                               Psplat,
 				                               idirsplat,
 				                               shufflexyz,
-				                               PATH_RAY_SHADOW,
 				                               nodeAddr,
+				                               PATH_RAY_SHADOW,
 				                               dist);
 #endif // __KERNEL_SSE2__
 
