@@ -694,6 +694,10 @@ static void sequencer_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id
 {
 	SpaceSeq *sseq = (SpaceSeq *)slink;
 
+	if (!ELEM(GS(old_id->name), ID_GD)) {
+		return;
+	}
+
 	if ((ID *)sseq->gpd == old_id) {
 		sseq->gpd = (bGPdata *)new_id;
 		id_us_min(old_id);

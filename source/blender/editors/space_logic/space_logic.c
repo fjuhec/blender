@@ -307,6 +307,10 @@ static void logic_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID
 {
 	SpaceLogic *slog = (SpaceLogic *)slink;
 
+	if (!ELEM(GS(old_id->name), ID_GD)) {
+		return;
+	}
+
 	if ((ID *)slog->gpd == old_id) {
 		slog->gpd = (bGPdata *)new_id;
 		id_us_min(old_id);
