@@ -227,20 +227,19 @@ static int foreach_libblock_remap_callback(void *user_data, ID *UNUSED(id_self),
  * Execute the 'data' part of the remapping (that is, all ID pointers from other ID datablocks).
  *
  * Behavior differs depending on whether given \a id is NULL or not:
- *   - \a id NULL: \a old_id must be non-NULL, \a new_id may be NULL (unlinking \a old_id) or not
- *     (remapping \a old_id to \a new_id). The whole \a bmain database is checked, and all pointers to \a old_id
- *     are remapped to \a new_id.
- *   - \a id is non-NULL:
- *     + If \a old_id is NULL, \a new_id must also be NULL, and all ID pointers from \a id are cleared (i.e. \a id
- *       does not references any other datablock anymore).
- *     + If \a old_id is non-NULL, behavior is as with a NULL \a id, but only for given \a id.
+ * - \a id NULL: \a old_id must be non-NULL, \a new_id may be NULL (unlinking \a old_id) or not
+ *   (remapping \a old_id to \a new_id). The whole \a bmain database is checked, and all pointers to \a old_id
+ *   are remapped to \a new_id.
+ * - \a id is non-NULL:
+ *   + If \a old_id is NULL, \a new_id must also be NULL, and all ID pointers from \a id are cleared (i.e. \a id
+ *     does not references any other datablock anymore).
+ *   + If \a old_id is non-NULL, behavior is as with a NULL \a id, but only for given \a id.
  *
- * \param bmain the Main data storage to operate on (can be NULL if \a id is non-NULL).
- * \param id the datablock to operate on (can be NULL if \a bmain is non-NULL).
- * \param old_id the datablock to dereference (may be NULL if \a id is non-NULL).
- * \param new_id the new datablock to replace \a old_id references with (may be NULL).
- * \param skip_indirect_usage if true, do not remap/unlink indirect usages of \a old_id datablock.
- * \param r_id_remap_data if non-NULL, the IDRemap struct to use (uselful to retrieve info about remapping process).
+ * \param bmain: the Main data storage to operate on (can be NULL if \a id is non-NULL).
+ * \param id: the datablock to operate on (can be NULL if \a bmain is non-NULL).
+ * \param old_id: the datablock to dereference (may be NULL if \a id is non-NULL).
+ * \param new_id: the new datablock to replace \a old_id references with (may be NULL).
+ * \param r_id_remap_data: if non-NULL, the IDRemap struct to use (uselful to retrieve info about remapping process).
  */
 static void libblock_remap_data(
         Main *bmain, ID *id, ID *old_id, ID *new_id, const short remap_flags, IDRemap *r_id_remap_data)
@@ -310,11 +309,8 @@ static void libblock_remap_data(
 }
 
 /**
- * Replace all references in given Main to \a old_id by \a new_id (if \a new_id is NULL, it unlinks \a old_id).
- *
- * \param skip_indirect_usage If \a true, indirect usages (like e.g. by other linked datablocks) are not remapped.
- * \param do_flag_never_null If \a true, 'NEVER_NULL' ID users are flagged with LIB_TAG_DOIT (caller is expected
- *                           to ensure that flag is correctly unset first).
+ * Replace all references in given Main to \a old_id by \a new_id
+ * (if \a new_id is NULL, it unlinks \a old_id).
  */
 void BKE_libblock_remap_locked(
         Main *bmain, void *old_idv, void *new_idv,
@@ -429,8 +425,8 @@ void BKE_libblock_remap(Main *bmain, void *old_idv, void *new_idv, const short r
 /**
  * Unlink given \a id from given \a bmain (does not touch to indirect, i.e. library, usages of the ID).
  *
- * \param do_flag_never_null If true, all IDs using \a idv in a 'non-NULL' way are flagged by \a LIB_TAG_DOIT flag
- *                           (quite obviously, 'non-NULL' usages can never be unlinked by this function...).
+ * \param do_flag_never_null: If true, all IDs using \a idv in a 'non-NULL' way are flagged by \a LIB_TAG_DOIT flag
+ * (quite obviously, 'non-NULL' usages can never be unlinked by this function...).
  */
 void BKE_libblock_unlink(Main *bmain, void *idv, const bool do_flag_never_null)
 {
@@ -445,9 +441,11 @@ void BKE_libblock_unlink(Main *bmain, void *idv, const bool do_flag_never_null)
 
 /** Similar to libblock_remap, but only affects IDs used by given \a idv ID.
  *
- * \param old_id Unlike BKE_libblock_remap, can be NULL, in which case all ID usages by given \a idv will be cleared.
- * \param us_min_never_null If \a true and new_id is NULL, 'NEVER_NULL' ID usages keep their old id, but this one still
- *        gets its user count decremented (needed when given \a idv is going to be deleted right after being unlinked).
+ * \param old_idv: Unlike BKE_libblock_remap, can be NULL,
+ * in which case all ID usages by given \a idv will be cleared.
+ * \param us_min_never_null: If \a true and new_id is NULL,
+ * 'NEVER_NULL' ID usages keep their old id, but this one still gets its user count decremented
+ * (needed when given \a idv is going to be deleted right after being unlinked).
  */
 /* Should be able to replace all _relink() funcs (constraints, rigidbody, etc.) ? */
 /* XXX Arg! Naming... :(
@@ -516,7 +514,7 @@ void BKE_libblock_free_data(Main *bmain, ID *id)
 /**
  * used in headerbuttons.c image.c mesh.c screen.c sound.c and library.c
  *
- * \param do_id_user if \a true, try to release other ID's 'references' hold by \a idv.
+ * \param do_id_user: if \a true, try to release other ID's 'references' hold by \a idv.
  */
 void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user)
 {
