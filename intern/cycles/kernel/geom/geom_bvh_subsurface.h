@@ -21,6 +21,12 @@
 #  include "geom_qbvh_subsurface.h"
 #endif
 
+#if BVH_FEATURE(BVH_HAIR)
+#  define NODE_INTERSECT bvh_node_intersect
+#else
+#  define NODE_INTERSECT bvh_aligned_node_intersect
+#endif
+
 /* This is a template BVH traversal function for subsurface scattering, where
  * various features can be enabled/disabled. This way we can compile optimized
  * versions for each case without new features slowing things down.
@@ -109,27 +115,29 @@ ccl_device void BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
 
 #if !defined(__KERNEL_SSE2__)
-				traverse_mask = bvh_node_intersect(kg,
-				                                   P,
-				                                   dir,
-				                                   idir,
-				                                   isect_t,
-				                                   PATH_RAY_ALL_VISIBILITY,
-				                                   nodeAddr,
-				                                   dist);
+				traverse_mask = NODE_INTERSECT(kg,
+				                               P,
+				                               dir,
+				                               idir,
+				                               isect_t,
+				                               PATH_RAY_ALL_VISIBILITY,
+				                               nodeAddr,
+				                               dist);
 #else // __KERNEL_SSE2__
-				traverse_mask = bvh_node_intersect(kg,
-				                                   P,
-				                                   dir,
-				                                   tnear,
-				                                   tfar,
-				                                   tsplat,
-				                                   Psplat,
-				                                   idirsplat,
-				                                   shufflexyz,
-				                                   PATH_RAY_ALL_VISIBILITY,
-				                                   nodeAddr,
-				                                   dist);
+				traverse_mask = NODE_INTERSECT(kg,
+				                               P,
+				                               dir,
+#  if BVH_FEATURE(BVH_HAIR)
+				                               tnear,
+				                               tfar,
+#  endif
+				                               tsplat,
+				                               Psplat,
+				                               idirsplat,
+				                               shufflexyz,
+				                               PATH_RAY_ALL_VISIBILITY,
+				                               nodeAddr,
+				                               dist);
 #endif // __KERNEL_SSE2__
 
 				nodeAddr = __float_as_int(cnodes.z);
@@ -251,3 +259,4 @@ ccl_device_inline void BVH_FUNCTION_NAME(KernelGlobals *kg,
 
 #undef BVH_FUNCTION_NAME
 #undef BVH_FUNCTION_FEATURES
+#undef NODE_INTERSECT

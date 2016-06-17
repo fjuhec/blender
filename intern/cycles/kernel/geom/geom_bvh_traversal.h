@@ -21,6 +21,14 @@
 #  include "geom_qbvh_traversal.h"
 #endif
 
+#if BVH_FEATURE(BVH_HAIR)
+#  define NODE_INTERSECT bvh_node_intersect
+#  define NODE_INTERSECT_ROBUST bvh_node_intersect_robust
+#else
+#  define NODE_INTERSECT bvh_aligned_node_intersect
+#  define NODE_INTERSECT_ROBUST bvh_aligned_node_intersect_robust
+#endif
+
 /* This is a template BVH traversal function, where various features can be
  * enabled/disabled. This way we can compile optimized versions for each case
  * without new features slowing things down.
@@ -109,60 +117,64 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #if !defined(__KERNEL_SSE2__)
 #  if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
 				if(difl != 0.0f) {
-					traverse_mask = bvh_node_intersect_robust(kg,
-					                                          P,
-					                                          dir,
-					                                          idir,
-					                                          isect->t,
-					                                          difl,
-					                                          visibility,
-					                                          nodeAddr,
-					                                          dist);
+					traverse_mask = NODE_INTERSECT_ROBUST(kg,
+					                                      P,
+					                                      dir,
+					                                      idir,
+					                                      isect->t,
+					                                      difl,
+					                                      visibility,
+					                                      nodeAddr,
+					                                      dist);
 				}
 				else
 #  endif
 				{
-					traverse_mask = bvh_node_intersect(kg,
-					                                   P,
-					                                   dir,
-					                                   idir,
-					                                   isect->t,
-					                                   visibility,
-					                                   nodeAddr,
-					                                   dist);
+					traverse_mask = NODE_INTERSECT(kg,
+					                               P,
+					                               dir,
+					                               idir,
+					                               isect->t,
+					                               visibility,
+					                               nodeAddr,
+					                               dist);
 				}
 #else // __KERNEL_SSE2__
 #  if BVH_FEATURE(BVH_HAIR_MINIMUM_WIDTH)
 				if(difl != 0.0f) {
-					traverse_mask = bvh_node_intersect_robust(kg,
-					                                          P,
-					                                          dir,
-					                                          tnear,
-					                                          tfar,
-					                                          tsplat,
-					                                          Psplat,
-					                                          idirsplat,
-					                                          shufflexyz,
-					                                          difl,
-					                                          visibility,
-					                                          nodeAddr,
-					                                          dist);
+					traverse_mask = NODE_INTERSECT_ROBUST(kg,
+					                                      P,
+					                                      dir,
+#    if BVH_FEATURE(BVH_HAIR)
+					                                      tnear,
+					                                      tfar,
+#    endif
+					                                      tsplat,
+					                                      Psplat,
+					                                      idirsplat,
+					                                      shufflexyz,
+					                                      difl,
+					                                      visibility,
+					                                      nodeAddr,
+					                                      dist);
 				}
 				else
 #  endif
 				{
-					traverse_mask = bvh_node_intersect(kg,
-					                                   P,
-					                                   dir,
-					                                   tnear,
-					                                   tfar,
-					                                   tsplat,
-					                                   Psplat,
-					                                   idirsplat,
-					                                   shufflexyz,
-					                                   visibility,
-					                                   nodeAddr,
-					                                   dist);
+					traverse_mask = NODE_INTERSECT(kg,
+					                               P,
+					                               dir,
+#    if BVH_FEATURE(BVH_HAIR)
+					                               tnear,
+					                               tfar,
+#    endif
+					                               tsplat,
+					                               Psplat,
+					                               idirsplat,
+					                               shufflexyz,
+					                               visibility,
+					                               nodeAddr,
+					                               dist);
 				}
 #endif // __KERNEL_SSE2__
 
@@ -394,3 +406,5 @@ ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
 
 #undef BVH_FUNCTION_NAME
 #undef BVH_FUNCTION_FEATURES
+#undef NODE_INTERSECT
+#undef NODE_INTERSECT_ROBUST

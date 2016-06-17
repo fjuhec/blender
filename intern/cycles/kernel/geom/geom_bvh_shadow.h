@@ -21,6 +21,12 @@
 #  include "geom_qbvh_shadow.h"
 #endif
 
+#if BVH_FEATURE(BVH_HAIR)
+#  define NODE_INTERSECT bvh_node_intersect
+#else
+#  define NODE_INTERSECT bvh_aligned_node_intersect
+#endif
+
 /* This is a template BVH traversal function, where various features can be
  * enabled/disabled. This way we can compile optimized versions for each case
  * without new features slowing things down.
@@ -41,7 +47,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 	 * - likely and unlikely for if() statements
 	 * - test restrict attribute for pointers
 	 */
-	
+
 	/* traversal stack in CUDA thread-local memory */
 	int traversalStack[BVH_STACK_SIZE];
 	traversalStack[0] = ENTRYPOINT_SENTINEL;
@@ -72,7 +78,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #if defined(__KERNEL_SSE2__)
 	const shuffle_swap_t shuf_identity = shuffle_swap_identity();
 	const shuffle_swap_t shuf_swap = shuffle_swap_swap();
-	
+
 	const ssef pn = cast(ssei(0, 0, 0x80000000, 0x80000000));
 	ssef Psplat[3], idirsplat[3];
 	ssef tnear(0.0f), tfar(isect_t);
@@ -100,27 +106,29 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
 
 #if !defined(__KERNEL_SSE2__)
-				traverse_mask = bvh_node_intersect(kg,
-				                                   P,
-				                                   dir,
-				                                   idir,
-				                                   isect_t,
-				                                   PATH_RAY_SHADOW,
-				                                   nodeAddr,
-				                                   dist);
+				traverse_mask = NODE_INTERSECT(kg,
+				                               P,
+				                               dir,
+				                               idir,
+				                               isect_t,
+				                               PATH_RAY_SHADOW,
+				                               nodeAddr,
+				                               dist);
 #else // __KERNEL_SSE2__
-				traverse_mask = bvh_node_intersect(kg,
-				                                   P,
-				                                   dir,
-				                                   tnear,
-				                                   tfar,
-				                                   tsplat,
-				                                   Psplat,
-				                                   idirsplat,
-				                                   shufflexyz,
-				                                   PATH_RAY_SHADOW,
-				                                   nodeAddr,
-				                                   dist);
+				traverse_mask = NODE_INTERSECT(kg,
+				                               P,
+				                               dir,
+#  if BVH_FEATURE(BVH_HAIR)
+				                               tnear,
+				                               tfar,
+#  endif
+				                               tsplat,
+				                               Psplat,
+				                               idirsplat,
+				                               shufflexyz,
+				                               PATH_RAY_SHADOW,
+				                               nodeAddr,
+				                               dist);
 #endif // __KERNEL_SSE2__
 
 				nodeAddr = __float_as_int(cnodes.z);
@@ -193,7 +201,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #if BVH_FEATURE(BVH_HAIR)
 							case PRIMITIVE_CURVE:
 							case PRIMITIVE_MOTION_CURVE: {
-								if(kernel_data.curve.curveflags & CURVE_KN_INTERPOLATE) 
+								if(kernel_data.curve.curveflags & CURVE_KN_INTERPOLATE)
 									hit = bvh_cardinal_curve_intersect(kg, isect_array, P, dir, PATH_RAY_SHADOW, object, primAddr, ray->time, type, NULL, 0, 0);
 								else
 									hit = bvh_curve_intersect(kg, isect_array, P, dir, PATH_RAY_SHADOW, object, primAddr, ray->time, type, NULL, 0, 0);
@@ -367,3 +375,4 @@ ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
 
 #undef BVH_FUNCTION_NAME
 #undef BVH_FUNCTION_FEATURES
+#undef NODE_INTERSECT

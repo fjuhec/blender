@@ -18,7 +18,13 @@
  */
 
 #ifdef __QBVH__
-#include "geom_qbvh_volume.h"
+#  include "geom_qbvh_volume.h"
+#endif
+
+#if BVH_FEATURE(BVH_HAIR)
+#  define NODE_INTERSECT bvh_node_intersect
+#else
+#  define NODE_INTERSECT bvh_aligned_node_intersect
 #endif
 
 /* This is a template BVH traversal function for volumes, where
@@ -69,7 +75,7 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #if defined(__KERNEL_SSE2__)
 	const shuffle_swap_t shuf_identity = shuffle_swap_identity();
 	const shuffle_swap_t shuf_swap = shuffle_swap_swap();
-	
+
 	const ssef pn = cast(ssei(0, 0, 0x80000000, 0x80000000));
 	ssef Psplat[3], idirsplat[3];
 	ssef tnear(0.0f), tfar(isect->t);
@@ -97,27 +103,29 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
 
 #if !defined(__KERNEL_SSE2__)
-				traverse_mask = bvh_node_intersect(kg,
-				                                   P,
-				                                   dir,
-				                                   idir,
-				                                   isect->t,
-				                                   visibility,
-				                                   nodeAddr,
-				                                   dist);
+				traverse_mask = NODE_INTERSECT(kg,
+				                               P,
+				                               dir,
+				                               idir,
+				                               isect->t,
+				                               visibility,
+				                               nodeAddr,
+				                               dist);
 #else // __KERNEL_SSE2__
-				traverse_mask = bvh_node_intersect(kg,
-				                                   P,
-				                                   dir,
-				                                   tnear,
-				                                   tfar,
-				                                   tsplat,
-				                                   Psplat,
-				                                   idirsplat,
-				                                   shufflexyz,
-				                                   visibility,
-				                                   nodeAddr,
-				                                   dist);
+				traverse_mask = NODE_INTERSECT(kg,
+				                               P,
+				                               dir,
+#  if BVH_FEATURE(BVH_HAIR)
+				                               tnear,
+				                               tfar,
+#  endif
+				                               tsplat,
+				                               Psplat,
+				                               idirsplat,
+				                               shufflexyz,
+				                               visibility,
+				                               nodeAddr,
+				                               dist);
 #endif // __KERNEL_SSE2__
 
 				nodeAddr = __float_as_int(cnodes.z);
@@ -305,3 +313,4 @@ ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
 
 #undef BVH_FUNCTION_NAME
 #undef BVH_FUNCTION_FEATURES
+#undef NODE_INTERSECT
