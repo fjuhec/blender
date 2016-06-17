@@ -87,6 +87,7 @@ ccl_device_inline int bvh_aligned_node_intersect_robust(KernelGlobals *kg,
                                                         const float3 idir,
                                                         const float t,
                                                         const float difl,
+                                                        const float /*extmax*/,
                                                         const int nodeAddr,
                                                         const uint visibility,
                                                         float *dist)
@@ -178,7 +179,8 @@ ccl_device_inline bool bvh_unaligned_node_intersect_child_robust(
         const float3 P,
         const float3 dir,
         const float t,
-        float difl,
+        const float difl,
+        const float /*extmax*/,
         int nodeAddr,
         int child,
         float *dist)
@@ -248,13 +250,14 @@ ccl_device_inline int bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
                                                           const float3 idir,
                                                           const float t,
                                                           const float difl,
+                                                          const float extmax,
                                                           const int nodeAddr,
                                                           const uint visibility,
                                                           float *dist)
 {
 	int mask = 0;
 	float4 cnodes = kernel_tex_fetch(__bvh_nodes, nodeAddr+0);
-	if(bvh_unaligned_node_intersect_child_robust(kg, P, dir, t, difl, nodeAddr, 0, &dist[0])) {
+	if(bvh_unaligned_node_intersect_child_robust(kg, P, dir, t, difl, extmax, nodeAddr, 0, &dist[0])) {
 #ifdef __VISIBILITY_FLAG__
 		if((__float_as_uint(cnodes.x) & visibility))
 #endif
@@ -262,7 +265,7 @@ ccl_device_inline int bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
 			mask |= 1;
 		}
 	}
-	if(bvh_unaligned_node_intersect_child_robust(kg, P, dir, t, difl, nodeAddr, 1, &dist[1])) {
+	if(bvh_unaligned_node_intersect_child_robust(kg, P, dir, t, difl, extmax, nodeAddr, 1, &dist[1])) {
 #ifdef __VISIBILITY_FLAG__
 		if((__float_as_uint(cnodes.y) & visibility))
 #endif
@@ -310,6 +313,7 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
                                                 const float3 idir,
                                                 const float t,
                                                 const float difl,
+                                                const float extmax,
                                                 const int nodeAddr,
                                                 const uint visibility,
                                                 float dist[2])
@@ -322,6 +326,7 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
 		                                           idir,
 		                                           t,
 		                                           difl,
+		                                           extmax,
 		                                           nodeAddr,
 		                                           visibility,
 		                                           dist);
@@ -332,6 +337,7 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
 		                                         idir,
 		                                         t,
 		                                         difl,
+		                                         extmax,
 		                                         nodeAddr,
 		                                         visibility,
 		                                         dist);
@@ -392,6 +398,7 @@ int ccl_device_inline bvh_aligned_node_intersect_robust(
         const ssef idirsplat[3],
         const shuffle_swap_t shufflexyz[3],
         const float difl,
+        const float extmax,
         const int nodeAddr,
         const uint visibility,
         float dist[2])
@@ -418,8 +425,6 @@ int ccl_device_inline bvh_aligned_node_intersect_robust(
 		float& c0max = tminmaxview->z, &c1max = tminmaxview->w;
 		float hdiff = 1.0f + difl;
 		float ldiff = 1.0f - difl;
-#if 0
-		/* TODO(sergey): Need to bring back extmax. */
 		if(__float_as_int(cnodes.x) & PATH_RAY_CURVE) {
 			c0min = max(ldiff * c0min, c0min - extmax);
 			c0max = min(hdiff * c0max, c0max + extmax);
@@ -428,16 +433,6 @@ int ccl_device_inline bvh_aligned_node_intersect_robust(
 			c1min = max(ldiff * c1min, c1min - extmax);
 			c1max = min(hdiff * c1max, c1max + extmax);
 		}
-#else
-		if(__float_as_int(cnodes.x) & PATH_RAY_CURVE) {
-			c0min *= ldiff;
-			c0max *= hdiff;
-		}
-		if(__float_as_int(cnodes.y) & PATH_RAY_CURVE) {
-			c1min *= ldiff;
-			c1max *= hdiff;
-		}
-#endif
 	}
 
 	const sseb lrhit = tminmax <= shuffle<2, 3, 0, 1>(tminmax);
@@ -525,6 +520,7 @@ int ccl_device_inline bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
                                                           const ssef& tnear,
                                                           const ssef& tfar,
                                                           const float difl,
+                                                          const float /*extmax*/,
                                                           const int nodeAddr,
                                                           const uint visibility,
                                                           float dist[2])
@@ -638,6 +634,7 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
                                                 const ssef idirsplat[3],
                                                 const shuffle_swap_t shufflexyz[3],
                                                 const float difl,
+                                                const float extmax,
                                                 const int nodeAddr,
                                                 const uint visibility,
                                                 float dist[2])
@@ -650,6 +647,7 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
 		                                           tnear,
 		                                           tfar,
 		                                           difl,
+		                                           extmax,
 		                                           nodeAddr,
 		                                           visibility,
 		                                           dist);
@@ -663,6 +661,7 @@ ccl_device_inline int bvh_node_intersect_robust(KernelGlobals *kg,
 		                                         idirsplat,
 		                                         shufflexyz,
 		                                         difl,
+		                                         extmax,
 		                                         nodeAddr,
 		                                         visibility,
 		                                         dist);
