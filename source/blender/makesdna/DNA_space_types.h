@@ -1337,50 +1337,6 @@ typedef enum eSpaceClip_GPencil_Source {
 
 /* Layer Manager ======================================= */
 
-typedef struct LayerTree {
-	int type; /* eLayerTree_Type */
-
-	unsigned int tot_items; /* total items of *all hierarchy levels*, not only what's in "items" below */
-	/* LayerTreeItem - Only items of the first level in the hierarchy, these may have children then.
-	 * TODO check if worth using array instead */
-	ListBase items;
-	/* Array of all layer tree items, including all childs. Using array in hope it speeds up iterations. */
-	struct LayerTreeItem **items_all;
-} LayerTree;
-
-/**
- * \brief An item of the layer tree.
- * Used as a base struct for the individual layer tree item types (layer, layer group, compositing layer, etc).
- */
-typedef struct LayerTreeItem {
-	struct LayerTreeItem *next, *prev;
-
-	int type;      /* eLayerTreeItem_Type */
-	int index;     /* index of the item - stored to avoid loockups */
-	char name[64]; /* MAX_NAME */
-
-	struct LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
-	struct LayerTreeItem *parent; /* the group this item belongs to */
-	ListBase childs; /* LayerTreeItem */
-
-	/* item is grayed out if this check fails */
-	short (*poll)(const struct bContext *, struct LayerTreeItem *); /* LayerItemPollFunc */
-	/* drawing of the item in the list */
-	void (*draw)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawFunc */
-	/* drawing of the expanded layer settings (gear wheel icon) */
-	void (*draw_settings)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawSettingsFunc */
-
-	/* Optional free callback. Don't free item itself! */
-	void (*free)(struct LayerTreeItem *);
-} LayerTreeItem;
-
-typedef struct LayerTypeObject {
-	LayerTreeItem litem;
-	Base **bases;           /* Array of objects assigned to this layer. */
-	unsigned int tot_bases; /* amount of objects assigned to this layer */
-	int pad;
-} LayerTypeObject;
-
 /* SpaceLayers->flag */
 typedef enum eSpaceLayers_Flag {
 	SL_LAYERDATA_REFRESH = (1 << 0), /* recreate/update SpaceLayers layer data, needed for undo/read/write */

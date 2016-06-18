@@ -411,6 +411,7 @@ EnumPropertyItem rna_enum_bake_pass_filter_type_items[] = {
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_space_types.h"
 #include "DNA_text_types.h"
 
 #include "RNA_access.h"
@@ -786,6 +787,12 @@ static void rna_Scene_all_keyingsets_next(CollectionPropertyIterator *iter)
 		internal->link = (Link *)ks->next;
 		
 	iter->valid = (internal->link != NULL);
+}
+
+static void rna_layer_tree_items_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
+{
+	LayerTree *ltree = ptr->data;
+	rna_iterator_array_begin(iter, ltree->items_all, sizeof(LayerTreeItem *), ltree->tot_items, 0, NULL);
 }
 
 static int rna_RenderSettings_stereoViews_skip(CollectionPropertyIterator *iter, void *UNUSED(data))
@@ -6421,6 +6428,30 @@ static void rna_def_display_safe_areas(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SCENE | ND_DRAW_RENDER_VIEWPORT, NULL);
 }
 
+static void rna_def_layer_tree_item(BlenderRNA *brna)
+{
+	StructRNA *srna = RNA_def_struct(brna, "LayerTreeItem", NULL);
+	PropertyRNA *prop;
+
+	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Name", "Name of the item");
+}
+
+static void rna_def_layer_tree(BlenderRNA *brna)
+{
+	StructRNA *srna = RNA_def_struct(brna, "LayerTree", NULL);
+	PropertyRNA *prop;
+
+	prop = RNA_def_property(srna, "tree_items", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_collection_sdna(prop, NULL, "items_all", NULL);
+	RNA_def_property_struct_type(prop, "LayerTreeItem");
+	RNA_def_property_ui_text(prop, "Layer Items", "The items of the layer tree that represent the "
+	                         "layer types (object layer, layer group, compositing layer, ...)");
+	RNA_def_property_collection_funcs(prop, "rna_layer_tree_items_begin", "rna_iterator_array_next",
+	                                  "rna_iterator_array_end", "rna_iterator_array_get", NULL, NULL, NULL, NULL);
+
+	rna_def_layer_tree_item(brna);
+}
 
 void RNA_def_scene(BlenderRNA *brna)
 {
@@ -6512,6 +6543,9 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE | PROP_EDITABLE);
 	RNA_def_property_int_funcs(prop, "rna_Scene_active_layer_get", NULL, NULL);
 	RNA_def_property_ui_text(prop, "Active Layer", "Active scene layer index");
+
+	prop = RNA_def_property(srna, "object_layers", PROP_POINTER, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Object Layers", "Layer tree which contains the object layers");
 
 	/* Frame Range Stuff */
 	prop = RNA_def_property(srna, "frame_current", PROP_INT, PROP_TIME);
@@ -6847,6 +6881,7 @@ void RNA_def_scene(BlenderRNA *brna)
 	/* *** Animated *** */
 	rna_def_scene_render_data(brna);
 	rna_def_scene_render_layer(brna);
+	rna_def_layer_tree(brna);
 	rna_def_gpu_fx(brna);
 	rna_def_scene_render_view(brna);
 

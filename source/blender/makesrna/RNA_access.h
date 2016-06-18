@@ -311,6 +311,8 @@ extern StructRNA RNA_LaplacianSmoothModifier;
 extern StructRNA RNA_Lattice;
 extern StructRNA RNA_LatticeModifier;
 extern StructRNA RNA_LatticePoint;
+extern StructRNA RNA_LayerTree;
+extern StructRNA RNA_LayerTreeItem;
 extern StructRNA RNA_Library;
 extern StructRNA RNA_LimitDistanceConstraint;
 extern StructRNA RNA_LimitLocationConstraint;
