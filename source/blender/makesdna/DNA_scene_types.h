@@ -108,6 +108,9 @@ typedef struct LayerTreeItem {
 	struct LayerTreeItem *parent; /* the group this item belongs to */
 	ListBase childs; /* LayerTreeItem */
 
+	/* custom props */
+	IDProperty *prop;
+
 	/* item is grayed out if this check fails */
 	short (*poll)(const struct bContext *, struct LayerTreeItem *); /* LayerItemPollFunc */
 	/* drawing of the item in the list */

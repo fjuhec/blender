@@ -34,13 +34,11 @@
 #include <stdlib.h>
 
 #include "BKE_context.h"
+#include "BKE_idprop.h"
 #include "BKE_layer.h" /* own include */
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
-
-#include "DNA_defs.h"
-#include "DNA_space_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -185,6 +183,12 @@ static void layeritem_free(LayerTreeItem *litem)
 	if (litem->free) {
 		litem->free(litem);
 	}
+
+	if (litem->prop) {
+		IDP_FreeProperty(litem->prop);
+		MEM_freeN(litem->prop);
+	}
+
 	MEM_freeN(litem);
 }
 

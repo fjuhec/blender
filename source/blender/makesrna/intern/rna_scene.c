@@ -421,6 +421,7 @@ EnumPropertyItem rna_enum_bake_pass_filter_type_items[] = {
 #include "BKE_brush.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
@@ -787,6 +788,18 @@ static void rna_Scene_all_keyingsets_next(CollectionPropertyIterator *iter)
 		internal->link = (Link *)ks->next;
 		
 	iter->valid = (internal->link != NULL);
+}
+
+static IDProperty *rna_LayerTreeItem_idprops(PointerRNA *ptr, bool create)
+{
+	LayerTreeItem *litem = ptr->data;
+
+	if (create && !litem->prop) {
+		IDPropertyTemplate val = {0};
+		litem->prop = IDP_New(IDP_GROUP, &val, "RNA_LayerTreeItem ID properties");
+	}
+
+	return litem->prop;
 }
 
 static void rna_layer_tree_items_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
@@ -6431,6 +6444,8 @@ static void rna_def_display_safe_areas(BlenderRNA *brna)
 static void rna_def_layer_tree_item(BlenderRNA *brna)
 {
 	StructRNA *srna = RNA_def_struct(brna, "LayerTreeItem", NULL);
+	RNA_def_struct_idprops_func(srna, "rna_LayerTreeItem_idprops");
+
 	PropertyRNA *prop;
 
 	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
@@ -6444,11 +6459,11 @@ static void rna_def_layer_tree(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "tree_items", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "items_all", NULL);
-	RNA_def_property_struct_type(prop, "LayerTreeItem");
 	RNA_def_property_ui_text(prop, "Layer Items", "The items of the layer tree that represent the "
 	                         "layer types (object layer, layer group, compositing layer, ...)");
 	RNA_def_property_collection_funcs(prop, "rna_layer_tree_items_begin", "rna_iterator_array_next",
-	                                  "rna_iterator_array_end", "rna_iterator_array_get", NULL, NULL, NULL, NULL);
+	                                  "rna_iterator_array_end", "rna_iterator_array_dereference_get",
+	                                  NULL, NULL, NULL, NULL);
 
 	rna_def_layer_tree_item(brna);
 }

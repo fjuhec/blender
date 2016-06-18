@@ -2407,6 +2407,9 @@ static void write_layeritems(WriteData *wd, Scene *scene, ListBase *layeritems)
 		else {
 			writestruct(wd, DATA, "LayerTreeItem", 1, litem);
 		}
+		if (litem->prop) {
+			IDP_WriteProperty(litem->prop, wd);
+		}
 		litem->tree = scene->object_layers;
 		write_layeritems(wd, scene, &litem->childs);
 	}
