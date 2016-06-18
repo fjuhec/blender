@@ -4355,22 +4355,11 @@ bool sculpt_stroke_get_location(bContext *C, float out[3], const float mouse[2])
 	BKE_pbvh_raycast(ss->pbvh, sculpt_raycast_cb, &srd,
 		ray_start, ray_normal, srd.original);
 
-	/* for vwpaint */
-	// Needs to be moved. After getting 3D location, iterate through leaves and determine 
-	//which are within the brush region
-	//if (cache && srd.hit) {
-	//	if (cache->nodes[0] == srd.node) cache->didNodeChange = false;
-		//else { 
-			//cache->nodes[0] = srd.node;
-			//cache->didNodeChange = true;
-		//}
-	//}
-	//else if (cache) cache->nodes[0] = NULL;
-
 	copy_v3_v3(out, ray_normal);
 	mul_v3_fl(out, srd.dist);
 	add_v3_v3(out, ray_start);
 
+	//used in vwpaint
 	if (cache && srd.hit){
 		copy_v3_v3(cache->location, out);
 	}
