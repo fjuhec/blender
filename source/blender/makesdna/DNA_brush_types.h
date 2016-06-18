@@ -254,7 +254,8 @@ typedef enum BrushSculptTool {
 	SCULPT_TOOL_CREASE = 16,
 	SCULPT_TOOL_BLOB = 17,
 	SCULPT_TOOL_CLAY_STRIPS = 18,
-	SCULPT_TOOL_MASK = 19
+    SCULPT_TOOL_MASK = 19,
+    SCULPT_TOOL_SILHOUETTE = 20
 } BrushSculptTool;
 
 /** When #BRUSH_ACCUMULATE is used */

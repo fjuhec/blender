@@ -2214,7 +2214,7 @@ static void do_grab_brush_task_cb_ex(
 			                       ss, brush, orig_data.co, test.dist, orig_data.no, NULL, vd.mask ? *vd.mask : 0.0f,
 			                       thread_id);
 
-			mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
+            mul_v3_v3fl(proxy[vd.i], grab_delta, fade);
 
 			if (vd.mvert)
 				vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
@@ -3368,6 +3368,11 @@ static void sculpt_topology_update(Sculpt *sd, Object *ob, Brush *brush, Unified
 	}
 }
 
+static void do_silhouette_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
+{
+    /*TODO*/
+}
+
 static void do_brush_action_task_cb(void *userdata, const int n)
 {
 	SculptThreadedTaskData *data = userdata;
@@ -3390,6 +3395,8 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 	data.radius_squared = ss->cache->radius_squared;
 	data.original = sculpt_tool_needs_original(brush->sculpt_tool) ? true : ss->cache->original;
 	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+
+    /*inlinebool: need a way to find area for silhouette brush specifically*/
 
 	/* Only act if some verts are inside the brush area */
 	if (totnode) {
@@ -3465,6 +3472,9 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 			case SCULPT_TOOL_MASK:
 				do_mask_brush(sd, ob, nodes, totnode);
 				break;
+            /*should be called elsewhere, since the nodes are different from other brushes*/
+            case SCULPT_TOOL_SILHOUETTE:
+                do_silhouette_brush(sd, ob, nodes, totnode);
 		}
 
 		if (!ELEM(brush->sculpt_tool, SCULPT_TOOL_SMOOTH, SCULPT_TOOL_MASK) &&
@@ -3935,6 +3945,8 @@ static const char *sculpt_tool_name(Sculpt *sd)
 			return "Mask Brush";
 		case SCULPT_TOOL_SIMPLIFY:
 			return "Simplify Brush";
+        case SCULPT_TOOL_SILHOUETTE:
+            return "Silhouette Brush";
 	}
 
 	return "Sculpting";

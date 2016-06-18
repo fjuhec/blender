@@ -962,7 +962,7 @@ typedef struct TimeMarker {
 
 /* Paint Tool Base */
 typedef struct Paint {
-	struct Brush *brush;
+    struct Brush *brush;
 	struct Palette *palette;
 	struct CurveMapping *cavity_curve; /* cavity curve */
 

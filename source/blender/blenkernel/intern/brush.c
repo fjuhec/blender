@@ -140,7 +140,7 @@ void BKE_brush_init(Brush *brush)
 
 	brush_defaults(brush);
 
-	brush->sculpt_tool = SCULPT_TOOL_DRAW; /* sculpting defaults to the draw tool for new brushes */
+    brush->sculpt_tool = SCULPT_TOOL_DRAW; /* sculpting defaults to the draw tool for new brushes */
 
 	/* the default alpha falloff curve */
 	BKE_brush_curve_preset(brush, CURVE_PRESET_SMOOTH);

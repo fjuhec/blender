@@ -165,6 +165,9 @@ extern char datatoc_twist_png[];
 extern int datatoc_vertexdraw_png_size;
 extern char datatoc_vertexdraw_png[];
 
+//extern int datatoc_silhouette_png_size;
+//extern char datatoc_silhouette_png[];
+
 /* Matcap files */
 
 extern int datatoc_mc01_jpg_size;
