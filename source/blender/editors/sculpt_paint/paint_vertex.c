@@ -2062,7 +2062,8 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 	//cache->saved_smooth_size = BKE_brush_size_get(scene, brush);
 	//BKE_brush_size_set(scene, brush, size);
 	cache->brush = brush;
-	curvemapping_initialize(cache->brush->curve);
+
+
 	//BKE_paint_brush_set(p, br);
 	cache->first_time = 1;
 
@@ -2080,9 +2081,6 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 	copy_v3_v3(cache->view_normal, cache->true_view_normal);
 	cache->bstrength = BKE_brush_alpha_get(scene, brush);
 
-	//cache->nodes = MEM_callocN(sizeof(PBVHNode*), "PBVH node ptr");
-	//cache->loopsGenerated = false;
-
 
 	if (!cache->vert_to_loop) {
 		Mesh *me = ob->data;
@@ -2092,6 +2090,7 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 		cache->vert_to_loop = NULL;
 		BKE_mesh_vert_loop_map_create(&cache->vert_to_loop, &cache->map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
 	}
+
 }
 
 /* Initialize the stroke cache variants from operator properties */
@@ -2132,7 +2131,6 @@ static void vwpaint_update_cache_variants(bContext *C, VPaint *vd, Object *ob,
 																   cache->true_location,
 																   BKE_brush_size_get(scene, brush));
 			
-			printf("vpaint radius %f\n", cache->initial_radius);
 			BKE_brush_unprojected_radius_set(scene, brush, cache->initial_radius);
 		}
 		else {
@@ -2884,7 +2882,6 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	Mesh *me;
 	float mat[4][4], imat[4][4];
 	SculptSession *ss = ob->sculpt;
-	VPaint *vd = CTX_data_tool_settings(C)->wpaint;
 
 	/* context checks could be a poll() */
 	me = BKE_mesh_from_object(ob);
@@ -2933,7 +2930,7 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	invert_m4_m4(imat, mat);
 	copy_m3_m4(vpd->vpimat, imat);
 
-	vwpaint_update_cache_invariants(C, vd, ss, op, mouse);
+	vwpaint_update_cache_invariants(C, vp, ss, op, mouse);
 
 	return 1;
 }
@@ -3088,7 +3085,13 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	StrokeCache *cache = ss->cache;
 	const float bstrength = cache->bstrength;
 
-	unsigned int *lcol = data->lcol;
+	unsigned int *lcol;
+	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+		lcol = data->vp->vpaint_prev;
+		printf("Bluring currently unsupported.\n");
+	}
+	else
+		lcol = data->lcol;
 	unsigned int *lcolorig = data->vp->vpaint_prev;
 
 	//for each vertex
@@ -3109,7 +3112,9 @@ static void do_vpaint_brush_draw_task_cb_ex(
 				for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
 					int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
 					//Mix the new color with the original based on the brush strength and the curve.
-					lcol[loopIndex] = vpaint_blend(data->vp, data->lcol[loopIndex], data->vp->vpaint_prev[loopIndex], data->vpd->paintcol, fade*255.0, bstrength*255);
+					lcol[loopIndex] = vpaint_blend(data->vp, data->lcol[loopIndex], data->vp->vpaint_prev[loopIndex], data->vpd->paintcol, 255.0 * fade, 255.0 * bstrength);
+					//lcol[i] = vpaint_blend(vp, lcol[i], lcolorig[i], paintcol, alpha_i, brush_alpha_pressure_i);
+
 				}
 			}
 		}
@@ -3120,10 +3125,12 @@ static void do_vpaint_brush_draw_task_cb_ex(
 static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object *ob, Mesh *me, PBVHNode **nodes, int totnode)
 {
 	Brush *brush = ob->sculpt->cache->brush;//BKE_paint_brush(&sd->paint);
+	
 	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {
 		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
 	};
+
 	data.vp = vp;
 	data.vpd = vpd;
 	data.lcol = (unsigned int*)me->mloopcol;
@@ -3205,6 +3212,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
 
 	//Paint those leaves.
+	//ss->cache->brush = brush;
 	vpaint_paint_leaves(sd, vp, vpd, ob, me, nodes, totnode);
 
 	swap_m4m4(vc->rv3d->persmat, mat);
@@ -3233,6 +3241,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	}
 	if (nodes)
 		MEM_freeN(nodes);
+
 }
 
 static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)

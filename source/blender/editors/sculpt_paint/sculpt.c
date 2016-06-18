@@ -4169,7 +4169,6 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 			                                                       cache->true_location,
 			                                                       BKE_brush_size_get(scene, brush));
 
-			printf("sculpt radius %f\n", cache->initial_radius);
 			BKE_brush_unprojected_radius_set(scene, brush, cache->initial_radius);
 		}
 		else {
