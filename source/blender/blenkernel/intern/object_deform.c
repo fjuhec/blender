@@ -27,7 +27,7 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
@@ -163,7 +163,7 @@ MDeformVert *BKE_object_defgroup_data_create(ID *id)
 /**
  * Remove all verts (or only selected ones) from given vgroup. Work in Object and Edit modes.
  *
- * \param allverts If true, remove all vertices, else only selected ones.
+ * \param use_selection: Only operate on selection.
  * \return True if any vertex was removed, false otherwise.
  */
 bool BKE_object_defgroup_clear(Object *ob, bDeformGroup *dg, const bool use_selection)
@@ -203,12 +203,10 @@ bool BKE_object_defgroup_clear(Object *ob, bDeformGroup *dg, const bool use_sele
 				dv = me->dvert;
 
 				for (i = 0; i < me->totvert; i++, mv++, dv++) {
-					if (mv->flag & SELECT) {
-						if (dv->dw && (!use_selection || (mv->flag & SELECT))) {
-							MDeformWeight *dw = defvert_find_index(dv, def_nr);
-							defvert_remove_group(dv, dw);  /* dw can be NULL */
-							changed = true;
-						}
+					if (dv->dw && (!use_selection || (mv->flag & SELECT))) {
+						MDeformWeight *dw = defvert_find_index(dv, def_nr);
+						defvert_remove_group(dv, dw);  /* dw can be NULL */
+						changed = true;
 					}
 				}
 			}
@@ -241,7 +239,7 @@ bool BKE_object_defgroup_clear(Object *ob, bDeformGroup *dg, const bool use_sele
 /**
  * Remove all verts (or only selected ones) from all vgroups. Work in Object and Edit modes.
  *
- * \param allverts If true, remove all vertices, else only selected ones.
+ * \param use_selection: Only operate on selection.
  * \return True if any vertex was removed, false otherwise.
  */
 bool BKE_object_defgroup_clear_all(Object *ob, const bool use_selection)
@@ -598,6 +596,31 @@ bool *BKE_object_defgroup_selected_get(Object *ob, int defbase_tot, int *r_dg_fl
 	return dg_selection;
 }
 
+/* Marks mirror vgroups in output and counts them. Output and counter assumed to be already initialized.
+ * Designed to be usable after BKE_object_defgroup_selected_get to extend selection to mirror.
+ */
+void BKE_object_defgroup_mirror_selection(
+        struct Object *ob, int defbase_tot, const bool *dg_selection,
+        bool *dg_flags_sel, int *r_dg_flags_sel_tot)
+{
+	bDeformGroup *defgroup;
+	unsigned int i;
+	int i_mirr;
+
+	for (i = 0, defgroup = ob->defbase.first; i < defbase_tot && defgroup; defgroup = defgroup->next, i++) {
+		if (dg_selection[i]) {
+			char name_flip[MAXBONENAME];
+
+			BKE_deform_flip_side_name(name_flip, defgroup->name, false);
+			i_mirr = STREQ(name_flip, defgroup->name) ? i : defgroup_name_index(ob, name_flip);
+
+			if ((i_mirr >= 0 && i_mirr < defbase_tot) && (dg_flags_sel[i_mirr] == false)) {
+				dg_flags_sel[i_mirr] = true;
+				(*r_dg_flags_sel_tot) += 1;
+			}
+		}
+	}
+}
 
 /**
  * Return the subset type of the Vertex Group Selection

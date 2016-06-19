@@ -244,10 +244,12 @@ static void borderselect_action(bAnimContext *ac, const rcti rect, short mode, s
 		if (ELEM(mode, ACTKEYS_BORDERSEL_FRAMERANGE, ACTKEYS_BORDERSEL_ALLKEYS)) {
 			/* if channel is mapped in NLA, apply correction */
 			if (adt) {
+				ked.iterflags &= ~(KED_F1_NLA_UNMAP | KED_F2_NLA_UNMAP);
 				ked.f1 = BKE_nla_tweakedit_remap(adt, rectf.xmin, NLATIME_CONVERT_UNMAP);
 				ked.f2 = BKE_nla_tweakedit_remap(adt, rectf.xmax, NLATIME_CONVERT_UNMAP);
 			}
 			else {
+				ked.iterflags |= (KED_F1_NLA_UNMAP | KED_F2_NLA_UNMAP); /* for summary tracks */
 				ked.f1 = rectf.xmin;
 				ked.f2 = rectf.xmax;
 			}
@@ -632,7 +634,7 @@ void ACTION_OT_select_linked(wmOperatorType *ot)
 	ot->poll = ED_operator_action_active;
 	
 	/* flags */
-	ot->flag = OPTYPE_REGISTER /*|OPTYPE_UNDO*/;
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /* ******************** Select More/Less Operators *********************** */
@@ -709,7 +711,7 @@ void ACTION_OT_select_more(wmOperatorType *ot)
 	ot->poll = ED_operator_action_active;
 	
 	/* flags */
-	ot->flag = OPTYPE_REGISTER /*|OPTYPE_UNDO*/;
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /* ----------------- */
@@ -743,7 +745,7 @@ void ACTION_OT_select_less(wmOperatorType *ot)
 	ot->poll = ED_operator_action_active;
 	
 	/* flags */
-	ot->flag = OPTYPE_REGISTER /*|OPTYPE_UNDO*/;
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /* ******************** Select Left/Right Operator ************************* */
@@ -948,6 +950,7 @@ static void actkeys_mselect_single(bAnimContext *ac, bAnimListElem *ale, short s
 	select_cb = ANIM_editkeyframes_select(select_mode);
 	ok_cb = ANIM_editkeyframes_ok(BEZT_OK_FRAME);
 	ked.f1 = selx;
+	ked.iterflags |= KED_F1_NLA_UNMAP;
 	
 	/* select the nominated keyframe on the given frame */
 	if (ale->type == ANIMTYPE_GPLAYER) {

@@ -32,11 +32,10 @@
 #include "BLI_fileops.h"
 #include "BLI_path_util.h"
 
+#include "BKE_blender_version.h"
 #include "BKE_appdir.h"  /* own include */
 
 #include "GHOST_Path-api.h"
-
-#include "../blenkernel/BKE_blender.h"  /* BLENDER_VERSION, bad level include (no function call) */
 
 #include "MEM_guardedalloc.h"
 
@@ -512,33 +511,36 @@ const char *BKE_appdir_folder_id_version(const int folder_id, const int ver, con
  * (must be FILE_MAX minimum)
  * \param name The name of the executable (usually argv[0]) to be checked
  */
-static void bli_where_am_i(char *fullname, const size_t maxlen, const char *name)
+static void where_am_i(char *fullname, const size_t maxlen, const char *name)
 {
-	const char *path = NULL;
-
 #ifdef WITH_BINRELOC
 	/* linux uses binreloc since argv[0] is not reliable, call br_init( NULL ) first */
-	path = br_find_exe(NULL);
-	if (path) {
-		BLI_strncpy(fullname, path, maxlen);
-		free((void *)path);
-		return;
+	{
+		const char *path = NULL;
+		path = br_find_exe(NULL);
+		if (path) {
+			BLI_strncpy(fullname, path, maxlen);
+			free((void *)path);
+			return;
+		}
 	}
 #endif
 
 #ifdef _WIN32
-	wchar_t *fullname_16 = MEM_mallocN(maxlen * sizeof(wchar_t), "ProgramPath");
-	if (GetModuleFileNameW(0, fullname_16, maxlen)) {
-		conv_utf_16_to_8(fullname_16, fullname, maxlen);
-		if (!BLI_exists(fullname)) {
-			printf("path can't be found: \"%.*s\"\n", (int)maxlen, fullname);
-			MessageBox(NULL, "path contains invalid characters or is too long (see console)", "Error", MB_OK);
+	{
+		wchar_t *fullname_16 = MEM_mallocN(maxlen * sizeof(wchar_t), "ProgramPath");
+		if (GetModuleFileNameW(0, fullname_16, maxlen)) {
+			conv_utf_16_to_8(fullname_16, fullname, maxlen);
+			if (!BLI_exists(fullname)) {
+				printf("path can't be found: \"%.*s\"\n", (int)maxlen, fullname);
+				MessageBox(NULL, "path contains invalid characters or is too long (see console)", "Error", MB_OK);
+			}
+			MEM_freeN(fullname_16);
+			return;
 		}
-		MEM_freeN(fullname_16);
-		return;
-	}
 
-	MEM_freeN(fullname_16);
+		MEM_freeN(fullname_16);
+	}
 #endif
 
 	/* unix and non linux */
@@ -546,15 +548,7 @@ static void bli_where_am_i(char *fullname, const size_t maxlen, const char *name
 
 		BLI_strncpy(fullname, name, maxlen);
 		if (name[0] == '.') {
-			char wdir[FILE_MAX] = "";
-			BLI_current_working_dir(wdir, sizeof(wdir));     /* backup cwd to restore after */
-
-			// not needed but avoids annoying /./ in name
-			if (name[1] == SEP)
-				BLI_join_dirfile(fullname, maxlen, wdir, name + 2);
-			else
-				BLI_join_dirfile(fullname, maxlen, wdir, name);
-
+			BLI_path_cwd(fullname, maxlen);
 #ifdef _WIN32
 			BLI_path_program_extensions_add_win32(fullname, maxlen);
 #endif
@@ -579,7 +573,7 @@ static void bli_where_am_i(char *fullname, const size_t maxlen, const char *name
 
 void BKE_appdir_program_path_init(const char *argv0)
 {
-	bli_where_am_i(bprogname, sizeof(bprogname), argv0);
+	where_am_i(bprogname, sizeof(bprogname), argv0);
 	BLI_split_dir_part(bprogname, bprogdir, sizeof(bprogdir));
 }
 
@@ -603,31 +597,54 @@ bool BKE_appdir_program_python_search(
         char *fullpath, const size_t fullpath_len,
         const int version_major, const int version_minor)
 {
+#ifdef PYTHON_EXECUTABLE_NAME
+	/* passed in from the build-systems 'PYTHON_EXECUTABLE' */
+	const char *python_build_def = STRINGIFY(PYTHON_EXECUTABLE_NAME);
+#endif
 	const char *basename = "python";
+	char python_ver[16];
+	/* check both possible names */
+	const char *python_names[] = {
+#ifdef PYTHON_EXECUTABLE_NAME
+		python_build_def,
+#endif
+		python_ver,
+		basename,
+	};
+	int i;
+
 	bool is_found = false;
+
+	BLI_snprintf(python_ver, sizeof(python_ver), "%s%d.%d", basename, version_major, version_minor);
 
 	{
 		const char *python_bin_dir = BKE_appdir_folder_id(BLENDER_SYSTEM_PYTHON, "bin");
 		if (python_bin_dir) {
-			BLI_join_dirfile(fullpath, fullpath_len, python_bin_dir, basename);
-			if (
+
+			for (i = 0; i < ARRAY_SIZE(python_names); i++) {
+				BLI_join_dirfile(fullpath, fullpath_len, python_bin_dir, python_names[i]);
+
+				if (
 #ifdef _WIN32
-			    BLI_path_program_extensions_add_win32(fullpath, fullpath_len)
+				    BLI_path_program_extensions_add_win32(fullpath, fullpath_len)
 #else
-			    BLI_exists(fullpath)
+				    BLI_exists(fullpath)
 #endif
-			    )
-			{
-				is_found = true;
+				    )
+				{
+					is_found = true;
+					break;
+				}
 			}
 		}
 	}
 
 	if (is_found == false) {
-		char python_ver[16];
-		BLI_snprintf(python_ver, sizeof(python_ver), "%s%d.%d", basename, version_major, version_minor);
-		if (BLI_path_program_search(fullpath, fullpath_len, python_ver)) {
-			is_found = true;
+		for (i = 0; i < ARRAY_SIZE(python_names); i++) {
+			if (BLI_path_program_search(fullpath, fullpath_len, python_names[i])) {
+				is_found = true;
+				break;
+			}
 		}
 	}
 
@@ -649,7 +666,7 @@ bool BKE_appdir_program_python_search(
  * \param maxlen The size of the fullname buffer
  * \param userdir Directory specified in user preferences 
  */
-static void BLI_where_is_temp(char *fullname, char *basename, const size_t maxlen, char *userdir)
+static void where_is_temp(char *fullname, char *basename, const size_t maxlen, char *userdir)
 {
 	/* Clear existing temp dir, if needed. */
 	BKE_tempdir_session_purge();
@@ -737,7 +754,7 @@ static void BLI_where_is_temp(char *fullname, char *basename, const size_t maxle
  */
 void BKE_tempdir_init(char *userdir)
 {
-	BLI_where_is_temp(btempdir_session, btempdir_base, FILE_MAX, userdir);
+	where_is_temp(btempdir_session, btempdir_base, FILE_MAX, userdir);
 ;
 }
 
@@ -762,7 +779,7 @@ const char *BKE_tempdir_base(void)
  */
 void BKE_tempdir_system_init(char *dir)
 {
-	BLI_where_is_temp(dir, NULL, FILE_MAX, NULL);
+	where_is_temp(dir, NULL, FILE_MAX, NULL);
 }
 
 /**

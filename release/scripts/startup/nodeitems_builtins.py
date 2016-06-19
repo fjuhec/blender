@@ -24,27 +24,35 @@ from nodeitems_utils import NodeCategory, NodeItem, NodeItemCustom
 
 # Subclasses for standard node types
 
-class CompositorNodeCategory(NodeCategory):
+class SortedNodeCategory(NodeCategory):
+    def __init__(self, identifier, name, description="", items=None):
+        # for builtin nodes the convention is to sort by name
+        if isinstance(items, list):
+            items = sorted(items, key=lambda item: item.label.lower())
+
+        super().__init__(identifier, name, description, items)
+
+class CompositorNodeCategory(SortedNodeCategory):
     @classmethod
     def poll(cls, context):
         return (context.space_data.tree_type == 'CompositorNodeTree')
 
 
-class ShaderNewNodeCategory(NodeCategory):
+class ShaderNewNodeCategory(SortedNodeCategory):
     @classmethod
     def poll(cls, context):
         return (context.space_data.tree_type == 'ShaderNodeTree' and
                 context.scene.render.use_shading_nodes)
 
 
-class ShaderOldNodeCategory(NodeCategory):
+class ShaderOldNodeCategory(SortedNodeCategory):
     @classmethod
     def poll(cls, context):
         return (context.space_data.tree_type == 'ShaderNodeTree' and
                 not context.scene.render.use_shading_nodes)
 
 
-class TextureNodeCategory(NodeCategory):
+class TextureNodeCategory(SortedNodeCategory):
     @classmethod
     def poll(cls, context):
         return context.space_data.tree_type == 'TextureNodeTree'
@@ -66,6 +74,8 @@ node_tree_group_type = {
 
 # generic node group items generator for shader, compositor and texture node groups
 def node_group_items(context):
+    if context is None:
+        return
     space = context.space_data
     if not space:
         return
@@ -116,7 +126,7 @@ def line_style_shader_nodes_poll(context):
 def world_shader_nodes_poll(context):
     snode = context.space_data
     return (snode.tree_type == 'ShaderNodeTree' and
-                snode.shader_type == 'WORLD')
+            snode.shader_type == 'WORLD')
 
 
 # only show nodes working in object node trees
@@ -139,6 +149,7 @@ shader_node_categories = [
         NodeItem("ShaderNodeTexture"),
         NodeItem("ShaderNodeGeometry"),
         NodeItem("ShaderNodeExtendedMaterial"),
+        NodeItem("ShaderNodeParticleInfo"),
         NodeItem("NodeGroupInput", poll=group_input_output_item_poll),
         ]),
     ShaderOldNodeCategory("SH_OUTPUT", "Output", items=[
@@ -156,6 +167,8 @@ shader_node_categories = [
         NodeItem("ShaderNodeNormal"),
         NodeItem("ShaderNodeMapping"),
         NodeItem("ShaderNodeVectorCurve"),
+        NodeItem("ShaderNodeVectorTransform"),
+        NodeItem("ShaderNodeNormalMap"),
         ]),
     ShaderOldNodeCategory("SH_CONVERTOR", "Converter", items=[
         NodeItem("ShaderNodeValToRGB"),
@@ -234,6 +247,7 @@ shader_node_categories = [
         NodeItem("ShaderNodeTexMagic"),
         NodeItem("ShaderNodeTexChecker"),
         NodeItem("ShaderNodeTexBrick"),
+        NodeItem("ShaderNodeTexPointDensity"),
         ]),
     ShaderNewNodeCategory("SH_NEW_OP_COLOR", "Color", items=[
         NodeItem("ShaderNodeMixRGB"),

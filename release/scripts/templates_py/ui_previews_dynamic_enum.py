@@ -13,8 +13,8 @@
 #
 # For custom icons, see the template "ui_previews_custom_icon.py".
 #
-# For distributable addons, it is recommended to place the icons inside the
-# addon directory and access it relative to the py script file for portability:
+# For distributable scripts, it is recommended to place the icons inside the
+# script directory and access it relative to the py script file for portability:
 #
 #    os.path.join(os.path.dirname(__file__), "images")
 
@@ -25,9 +25,12 @@ import bpy
 
 def enum_previews_from_directory_items(self, context):
     """EnumProperty callback"""
-    wm = context.window_manager
-
     enum_items = []
+
+    if context is None:
+        return enum_items
+
+    wm = context.window_manager
     directory = wm.my_previews_dir
 
     # Get the preview collection (defined in register func).
@@ -41,17 +44,15 @@ def enum_previews_from_directory_items(self, context):
     if directory and os.path.exists(directory):
         # Scan the directory for png files
         image_paths = []
-        for fn in  os.listdir(directory):
+        for fn in os.listdir(directory):
             if fn.lower().endswith(".png"):
                 image_paths.append(fn)
 
         for i, name in enumerate(image_paths):
             # generates a thumbnail preview for a file.
-            # Also works with previews for 'MOVIE', 'BLEND' and 'FONT'
             filepath = os.path.join(directory, name)
             thumb = pcoll.load(filepath, filepath, 'IMAGE')
-            # enum item: (identifier, name, description, icon, number)
-            enum_items.append((name, name, name, thumb.icon_id, i))
+            enum_items.append((name, name, "", thumb.icon_id, i))
 
     pcoll.my_previews = enum_items
     pcoll.my_previews_dir = directory

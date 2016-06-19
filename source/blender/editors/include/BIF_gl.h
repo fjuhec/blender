@@ -34,6 +34,7 @@
 #define __BIF_GL_H__
 
 #include "GPU_glew.h"
+#include "BLI_utildefines.h"
 
 /*
  * these should be phased out. cpack should be replaced in
@@ -47,36 +48,17 @@
  * */
 void cpack(unsigned int x);
 
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
-#  define glMultMatrixf(x)  \
-	glMultMatrixf(_Generic((x), \
-	        float *:      (float *)(x), \
-	        float [16]:   (float *)(x), \
-	        float (*)[4]: (float *)(x), \
-	        float [4][4]: (float *)(x), \
-	        const float *:      (float *)(x), \
-	        const float [16]:   (float *)(x), \
-	        const float (*)[4]: (float *)(x), \
-	        const float [4][4]: (float *)(x)) \
-)
-#  define glLoadMatrixf(x)  \
-	glLoadMatrixf(_Generic((x), \
-	        float *:      (float *)(x), \
-	        float [16]:   (float *)(x), \
-	        float (*)[4]: (float *)(x), \
-	        float [4][4]: (float *)(x)) \
-)
 /* hacking pointsize and linewidth */
-#define glPointSize(f)  glPointSize(U.pixelsize * _Generic((f), double: (float)(f), default: (f)))
-#define glLineWidth(f)  glLineWidth(U.pixelsize * _Generic((f), double: (float)(f), default: (f)))
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
+#  define glPointSize(f)  glPointSize(U.pixelsize * _Generic((f), double: (float)(f), default: (f)))
+#  define glLineWidth(f)  glLineWidth(U.pixelsize * _Generic((f), double: (float)(f), default: (f)))
 #else
-#  define glMultMatrixf(x)  glMultMatrixf((float *)(x))
-#  define glLoadMatrixf(x)  glLoadMatrixf((float *)(x))
-#define glPointSize(f)  glPointSize(U.pixelsize * (f))
-#define glLineWidth(f)  glLineWidth(U.pixelsize * (f))
-#endif
+#  define glPointSize(f)  glPointSize(U.pixelsize * (f))
+#  define glLineWidth(f)  glLineWidth(U.pixelsize * (f))
+#endif  /* C11 */
 
 #define GLA_PIXEL_OFS 0.375f
+
 
 #endif /* #ifdef __BIF_GL_H__ */
 

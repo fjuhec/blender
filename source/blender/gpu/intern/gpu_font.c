@@ -38,6 +38,7 @@
 #include "GPU_debug.h"
 #include "GPU_font.h"
 #include "GPU_matrix.h"
+#include "GPU_shader.h"
 
 /* external */
 

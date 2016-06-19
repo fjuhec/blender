@@ -31,11 +31,6 @@
 
 #include <set>
 
-#include <openimageio_api.h>
-#include <OpenImageIO/imageio.h>
-
-OIIO_NAMESPACE_USING
-
 #if defined(WIN32) && !defined(FREE_WINDOWS)
 #include "utfconv.h"
 #endif
@@ -53,7 +48,12 @@ extern "C"
 #include "IMB_colormanagement_intern.h"
 }
 
-using namespace std;
+#include <openimageio_api.h>
+#include <OpenImageIO/imageio.h>
+
+OIIO_NAMESPACE_USING
+
+using std::string;
 
 typedef unsigned char uchar;
 
@@ -268,7 +268,7 @@ struct ImBuf *imb_load_photoshop(const char *filename, int flags, char colorspac
 		return NULL;
 
 	/* ImBuf always needs 4 channels */
-	ibuf->ftype = PSD;
+	ibuf->ftype = IMB_FTYPE_PSD;
 	ibuf->channels = 4;
 	ibuf->planes = (3 + (is_alpha ? 1 : 0)) * 4 << basesize;
 

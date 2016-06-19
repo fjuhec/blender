@@ -45,13 +45,16 @@
 
 
 #include "BKE_camera.h"
+#include "BKE_library_query.h"
 #include "BKE_mesh.h"
 #include "BKE_DerivedMesh.h"
 
 #include "MOD_modifiertypes.h"
 
 #include "MEM_guardedalloc.h"
+
 #include "depsgraph_private.h"
+#include "DEG_depsgraph_build.h"
 
 static void initData(ModifierData *md)
 {
@@ -89,7 +92,7 @@ static void foreachObjectLink(ModifierData *md, Object *ob,
 	int i;
 
 	for (i = 0; i < MOD_UVPROJECT_MAXPROJECTORS; ++i)
-		walk(userData, ob, &umd->projectors[i]);
+		walk(userData, ob, &umd->projectors[i], IDWALK_NOP);
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob,
@@ -97,10 +100,9 @@ static void foreachIDLink(ModifierData *md, Object *ob,
 {
 	UVProjectModifierData *umd = (UVProjectModifierData *) md;
 
-	walk(userData, ob, (ID **)&umd->image);
+	walk(userData, ob, (ID **)&umd->image, IDWALK_USER);
 
-	foreachObjectLink(md, ob, (ObjectWalkFunc)walk,
-	                  userData);
+	foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }
 
 static void updateDepgraph(ModifierData *md, DagForest *forest,
@@ -118,6 +120,21 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 
 			dag_add_relation(forest, curNode, obNode,
 			                 DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "UV Project Modifier");
+		}
+	}
+}
+
+static void updateDepsgraph(ModifierData *md,
+                            struct Main *UNUSED(bmain),
+                            struct Scene *UNUSED(scene),
+                            Object *UNUSED(ob),
+                            struct DepsNodeHandle *node)
+{
+	UVProjectModifierData *umd = (UVProjectModifierData *)md;
+	int i;
+	for (i = 0; i < umd->num_projectors; ++i) {
+		if (umd->projectors[i] != NULL) {
+			DEG_add_object_relation(node, umd->projectors[i], DEG_OB_COMP_TRANSFORM, "UV Project Modifier");
 		}
 	}
 }
@@ -369,6 +386,7 @@ ModifierTypeInfo modifierType_UVProject = {
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
 	/* updateDepgraph */    updateDepgraph,
+	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,
 	/* foreachObjectLink */ foreachObjectLink,

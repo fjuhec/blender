@@ -36,6 +36,7 @@
 #include "GPU_extensions.h"
 #include "GPU_immediate.h"
 #include "intern/gpu_private.h"
+#include "GPU_shader.h"
 
 /* external */
 #include "MEM_guardedalloc.h"
@@ -2420,6 +2421,13 @@ void GPUDrawElements(GLenum mode, int count, int type, const void *p)
 {
 	gpu_commit_matrix();
 	GPU_CHECK_ERRORS_AROUND(glDrawElements(mode, count, type, p));
+}
+
+
+void GPUDrawRangeElements(GLenum mode, unsigned int start, unsigned int end, int count, int type, const void *p)
+{
+	gpu_commit_matrix();
+	GPU_CHECK_ERRORS_AROUND(glDrawRangeElements(mode, start, end, count, type, p));
 }
 
 void GPURectf(float x1, float y1, float x2, float y2)

@@ -1782,7 +1782,7 @@ void LbmFsgrSolver::debugDisplayNode(int dispset, CellIdentifierInterface* cell 
 		case FLUIDDISPVelocities: {
 				// dont use cube display
 				LbmVec vel = this->getCellVelocity( cell, set );
-				glBegin(GL_LINES);
+				GPUBegin(GL_LINES);
 				glColor3f( 0.0,0.0,0.0 );
 				glVertex3f( org[0], org[1], org[2] );
 				org += vec2G(vel * 10.0 * cscale);

@@ -37,9 +37,9 @@ public:
 		tile = 0;
 		sample = 0;
 		start_time = time_dt();
-		total_time = 0.0f;
-		render_time = 0.0f;
-		tile_time = 0.0f;
+		total_time = 0.0;
+		render_time = 0.0;
+		tile_time = 0.0;
 		status = "Initializing";
 		substatus = "";
 		sync_status = "";
@@ -75,9 +75,9 @@ public:
 		sample = 0;
 		start_time = time_dt();
 		render_start_time = time_dt();
-		total_time = 0.0f;
-		render_time = 0.0f;
-		tile_time = 0.0f;
+		total_time = 0.0;
+		render_time = 0.0;
+		tile_time = 0.0;
 		status = "Initializing";
 		substatus = "";
 		sync_status = "";
@@ -171,6 +171,12 @@ public:
 		total_time_ = (total_time > 0.0)? total_time: 0.0;
 		render_time_ = (render_time > 0.0)? render_time: 0.0;
 		tile_time_ = tile_time;
+	}
+
+	void get_time(double& total_time_, double& render_time_)
+	{
+		total_time_ = (total_time > 0.0)? total_time: 0.0;
+		render_time_ = (render_time > 0.0)? render_time: 0.0;
 	}
 
 	void reset_sample()

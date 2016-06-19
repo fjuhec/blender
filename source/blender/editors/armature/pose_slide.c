@@ -43,6 +43,7 @@
 #include "BKE_context.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
+#include "BKE_unit.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -50,9 +51,12 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "UI_interface.h"
+
 #include "ED_armature.h"
 #include "ED_keyframes_draw.h"
 #include "ED_markers.h"
+#include "ED_numinput.h"
 #include "ED_screen.h"
 
 #include "armature_intern.h"
@@ -98,6 +102,8 @@ typedef struct tPoseSlideOp {
 	int flag;           /* unused for now, but can later get used for storing runtime settings.... */
 	
 	float percentage;   /* 0-1 value for determining the influence of whatever is relevant */
+	
+	NumInput num;       /* numeric input */
 } tPoseSlideOp;
 
 /* Pose Sliding Modes */
@@ -153,6 +159,12 @@ static int pose_slide_init(bContext *C, wmOperator *op, short mode)
 	 * to the caller of this (usually only invoke() will do it, to make things more efficient).
 	 */
 	BLI_dlrbTree_init(&pso->keys);
+	
+	/* initialise numeric input */
+	initNumInput(&pso->num);
+	pso->num.idx_max = 0; /* one axis */
+	pso->num.val_flag[0] |= NUM_NO_NEGATIVE;
+	pso->num.unit_type[0] = B_UNIT_NONE; /* percentages don't have any units... */
 	
 	/* return status is whether we've got all the data we were requested to get */
 	return 1;
@@ -291,8 +303,8 @@ static void pose_slide_apply_vec3(tPoseSlideOp *pso, tPChanFCurveLink *pfl, floa
 	MEM_freeN(path);
 }
 
-/* helper for apply() - perform sliding for custom properties */
-static void pose_slide_apply_props(tPoseSlideOp *pso, tPChanFCurveLink *pfl)
+/* helper for apply() - perform sliding for custom properties or bbone properties */
+static void pose_slide_apply_props(tPoseSlideOp *pso, tPChanFCurveLink *pfl, const char prop_prefix[])
 {
 	PointerRNA ptr = {{NULL}};
 	LinkData *ld;
@@ -301,8 +313,10 @@ static void pose_slide_apply_props(tPoseSlideOp *pso, tPChanFCurveLink *pfl)
 	/* setup pointer RNA for resolving paths */
 	RNA_pointer_create(NULL, &RNA_PoseBone, pfl->pchan, &ptr);
 	
-	/* custom properties are just denoted using ["..."][etc.] after the end of the base path, 
-	 * so just check for opening pair after the end of the path
+	/* - custom properties are just denoted using ["..."][etc.] after the end of the base path, 
+	 *   so just check for opening pair after the end of the path
+	 * - bbone properties are similar, but they always start with a prefix "bbone_*",
+	 *   so a similar method should work here for those too
 	 */
 	for (ld = pfl->fcurves.first; ld; ld = ld->next) {
 		FCurve *fcu = (FCurve *)ld->data;
@@ -316,7 +330,7 @@ static void pose_slide_apply_props(tPoseSlideOp *pso, tPChanFCurveLink *pfl)
 		 *	- pPtr is the chunk of the path which is left over
 		 */
 		bPtr = strstr(fcu->rna_path, pfl->pchan_path) + len;
-		pPtr = strstr(bPtr, "[\"");   /* dummy " for texteditor bugs */
+		pPtr = strstr(bPtr, prop_prefix);
 		
 		if (pPtr) {
 			/* use RNA to try and get a handle on this property, then, assuming that it is just
@@ -505,9 +519,16 @@ static void pose_slide_apply(bContext *C, tPoseSlideOp *pso)
 			}
 		}
 		
+		if (pchan->flag & POSE_BBONE_SHAPE) {
+			/* bbone properties - they all start a "bbone_" prefix */
+			pose_slide_apply_props(pso, pfl, "bbone_"); 
+		}
+		
 		if (pfl->oldprops) {
-			/* not strictly a transform, but contributes to the pose produced in many rigs */
-			pose_slide_apply_props(pso, pfl);
+			/* not strictly a transform, but custom properties contribute to the pose produced in many rigs
+			 * (e.g. the facial rigs used in Sintel)
+			 */
+			pose_slide_apply_props(pso, pfl, "[\"");  /* dummy " for texteditor bugs */
 		}
 	}
 	
@@ -534,7 +555,7 @@ static void pose_slide_reset(tPoseSlideOp *pso)
 /* draw percentage indicator in header */
 static void pose_slide_draw_status(tPoseSlideOp *pso)
 {
-	char status_str[32];
+	char status_str[UI_MAX_DRAW_STR];
 	char mode_str[32];
 	
 	switch (pso->mode) {
@@ -554,7 +575,18 @@ static void pose_slide_draw_status(tPoseSlideOp *pso)
 			break;
 	}
 	
-	BLI_snprintf(status_str, sizeof(status_str), "%s: %d %%", mode_str, (int)(pso->percentage * 100.0f));
+	if (hasNumInput(&pso->num)) {
+		Scene *scene = pso->scene;
+		char str_offs[NUM_STR_REP_LEN];
+		
+		outputNumInput(&pso->num, str_offs, &scene->unit);
+		
+		BLI_snprintf(status_str, sizeof(status_str), "%s: %s", mode_str, str_offs);
+	}
+	else {
+		BLI_snprintf(status_str, sizeof(status_str), "%s: %d %%", mode_str, (int)(pso->percentage * 100.0f));
+	}
+	
 	ED_area_headerprint(pso->sa, status_str);
 }
 
@@ -634,11 +666,21 @@ static int pose_slide_invoke_common(bContext *C, wmOperator *op, tPoseSlideOp *p
 	return OPERATOR_RUNNING_MODAL;
 }
 
+/* calculate percentage based on position of mouse (we only use x-axis for now.
+ * since this is more convenient for users to do), and store new percentage value
+ */
+static void pose_slide_mouse_update_percentage(tPoseSlideOp *pso, wmOperator *op, const wmEvent *event)
+{
+	pso->percentage = (event->x - pso->ar->winrct.xmin) / ((float)pso->ar->winx);
+	RNA_float_set(op->ptr, "percentage", pso->percentage);
+}
+
 /* common code for modal() */
 static int pose_slide_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tPoseSlideOp *pso = op->customdata;
 	wmWindow *win = CTX_wm_window(C);
+	const bool has_numinput = hasNumInput(&pso->num);
 	
 	switch (event->type) {
 		case LEFTMOUSE: /* confirm */
@@ -678,25 +720,51 @@ static int pose_slide_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			
 		case MOUSEMOVE: /* calculate new position */
 		{
-			/* calculate percentage based on position of mouse (we only use x-axis for now.
-			 * since this is more convenient for users to do), and store new percentage value
-			 */
-			pso->percentage = (event->x - pso->ar->winrct.xmin) / ((float)pso->ar->winx);
-			RNA_float_set(op->ptr, "percentage", pso->percentage);
-			
-			/* update percentage indicator in header */
-			pose_slide_draw_status(pso);
-			
-			/* reset transforms (to avoid accumulation errors) */
-			pose_slide_reset(pso);
-			
-			/* apply... */
-			pose_slide_apply(C, pso);
+			/* only handle mousemove if not doing numinput */
+			if (has_numinput == false) {
+				/* update percentage based on position of mouse */
+				pose_slide_mouse_update_percentage(pso, op, event);
+				
+				/* update percentage indicator in header */
+				pose_slide_draw_status(pso);
+				
+				/* reset transforms (to avoid accumulation errors) */
+				pose_slide_reset(pso);
+				
+				/* apply... */
+				pose_slide_apply(C, pso);
+			}
 			break;
 		}
-		default: /* unhandled event (maybe it was some view manip? */
-			/* allow to pass through */
-			return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
+		default:
+			if ((event->val == KM_PRESS) && handleNumInput(C, &pso->num, event)) {
+				float value;
+				
+				/* Grab percentage from numeric input, and store this new value for redo  
+				 * NOTE: users see ints, while internally we use a 0-1 float
+				 */
+				value = pso->percentage * 100.0f;
+				applyNumInput(&pso->num, &value);
+				
+				pso->percentage = value / 100.0f;
+				CLAMP(pso->percentage, 0.0f, 1.0f);
+				RNA_float_set(op->ptr, "percentage", pso->percentage);
+				
+				/* update percentage indicator in header */
+				pose_slide_draw_status(pso);
+				
+				/* reset transforms (to avoid accumulation errors) */
+				pose_slide_reset(pso);
+				
+				/* apply... */
+				pose_slide_apply(C, pso);
+				break;
+			}
+			else {
+				/* unhandled event - maybe it was some view manip? */
+				/* allow to pass through */
+				return OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH;
+			}
 	}
 	
 	/* still running... */
@@ -736,7 +804,7 @@ static void pose_slide_opdef_properties(wmOperatorType *ot)
 /* ------------------------------------ */
 
 /* invoke() - for 'push' mode */
-static int pose_slide_push_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int pose_slide_push_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tPoseSlideOp *pso;
 	
@@ -747,6 +815,9 @@ static int pose_slide_push_invoke(bContext *C, wmOperator *op, const wmEvent *UN
 	}
 	else
 		pso = op->customdata;
+		
+	/* initialise percentage so that it won't pop on first mouse move */
+	pose_slide_mouse_update_percentage(pso, op, event);
 	
 	/* do common setup work */
 	return pose_slide_invoke_common(C, op, pso);
@@ -793,7 +864,7 @@ void POSE_OT_push(wmOperatorType *ot)
 /* ........................ */
 
 /* invoke() - for 'relax' mode */
-static int pose_slide_relax_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int pose_slide_relax_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tPoseSlideOp *pso;
 	
@@ -804,6 +875,9 @@ static int pose_slide_relax_invoke(bContext *C, wmOperator *op, const wmEvent *U
 	}
 	else
 		pso = op->customdata;
+	
+	/* initialise percentage so that it won't pop on first mouse move */
+	pose_slide_mouse_update_percentage(pso, op, event);
 	
 	/* do common setup work */
 	return pose_slide_invoke_common(C, op, pso);
@@ -850,7 +924,7 @@ void POSE_OT_relax(wmOperatorType *ot)
 /* ........................ */
 
 /* invoke() - for 'breakdown' mode */
-static int pose_slide_breakdown_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int pose_slide_breakdown_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tPoseSlideOp *pso;
 	
@@ -861,6 +935,9 @@ static int pose_slide_breakdown_invoke(bContext *C, wmOperator *op, const wmEven
 	}
 	else
 		pso = op->customdata;
+	
+	/* initialise percentage so that it won't pop on first mouse move */
+	pose_slide_mouse_update_percentage(pso, op, event);
 	
 	/* do common setup work */
 	return pose_slide_invoke_common(C, op, pso);
@@ -1122,13 +1199,20 @@ static void pose_propagate_fcurve(wmOperator *op, Object *ob, FCurve *fcu,
 	 *	  since it may be as of yet unkeyed
 	 *  - if starting before the starting frame, don't touch the key, as it may have had some valid
 	 *	  values
+	 *  - if only doing selected keyframes, start from the first one
 	 */
-	match = binarysearch_bezt_index(fcu->bezt, startFrame, fcu->totvert, &keyExists);
-	
-	if (fcu->bezt[match].vec[1][0] < startFrame)
-		i = match + 1;
-	else
-		i = match;
+	if (mode != POSE_PROPAGATE_SELECTED_KEYS) {
+		match = binarysearch_bezt_index(fcu->bezt, startFrame, fcu->totvert, &keyExists);
+		
+		if (fcu->bezt[match].vec[1][0] < startFrame)
+			i = match + 1;
+		else
+			i = match;
+	}
+	else {
+		/* selected - start from first keyframe */
+		i = 0;
+	}
 	
 	for (bezt = &fcu->bezt[i]; i < fcu->totvert; i++, bezt++) {
 		/* additional termination conditions based on the operator 'mode' property go here... */
@@ -1163,7 +1247,7 @@ static void pose_propagate_fcurve(wmOperator *op, Object *ob, FCurve *fcu,
 		}
 		else if (mode == POSE_PROPAGATE_SELECTED_KEYS) {
 			/* only allow if this keyframe is already selected - skip otherwise */
-			if (BEZSELECTED(bezt) == 0)
+			if (BEZT_ISSEL_ANY(bezt) == 0)
 				continue;
 		}
 		

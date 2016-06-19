@@ -40,8 +40,9 @@
 #include "MT_Matrix3x3.h"
 
 #include "KX_GameObject.h" // ConvertPythonToGameObject()
+#include "KX_PythonInit.h"
 
-#include "PyObjectPlus.h" 
+#include "EXP_PyObjectPlus.h" 
 
 #ifdef WITH_BULLET
 #  include "LinearMath/btIDebugDraw.h"
@@ -472,7 +473,7 @@ static PyObject* gPyGetCharacter(PyObject* self,
 	if (!PyArg_ParseTuple(args,"O", &pyob))
 		return NULL;
 
-	if (!ConvertPythonToGameObject(pyob, &ob, false, "bge.constraints.getCharacter(value)"))
+	if (!ConvertPythonToGameObject(KX_GetActiveScene()->GetLogicManager(), pyob, &ob, false, "bge.constraints.getCharacter(value)"))
 		return NULL;
 
 	if (PHY_GetActiveEnvironment())
@@ -501,7 +502,7 @@ static PyObject *gPyCreateConstraint(PyObject *self,
 	float pivotX = 0.0f, pivotY = 0.0f, pivotZ = 0.0f, axisX = 0.0f, axisY = 0.0f, axisZ = 0.0f;
 
 	static const char *kwlist[] = {"physicsid_1", "physicsid_2", "constraint_type", "pivot_x", "pivot_y", "pivot_z",
-	                               "axis_X", "axis_y", "axis_z", "flag", NULL};
+	                               "axis_x", "axis_y", "axis_z", "flag", NULL};
 
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "KKi|ffffffi:createConstraint", (char **)kwlist,
 	                                 &physicsid, &physicsid2, &constrainttype,
@@ -583,7 +584,7 @@ static PyObject *gPyRemoveConstraint(PyObject *self,
 	{
 		if (PHY_GetActiveEnvironment())
 		{
-			PHY_GetActiveEnvironment()->RemoveConstraint(constraintid);
+			PHY_GetActiveEnvironment()->RemoveConstraintById(constraintid);
 		}
 	}
 	else {

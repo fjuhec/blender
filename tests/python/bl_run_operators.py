@@ -163,7 +163,7 @@ if USE_ATTRSET:
             if issubclass(cls, skip_classes):
                 continue
 
-            ## to support skip-save we cant get all props
+            # # to support skip-save we cant get all props
             # properties = cls.bl_rna.properties.keys()
             properties = []
             for prop_id, prop in cls.bl_rna.properties.items():
@@ -285,8 +285,8 @@ def run_ops(operators, setup_func=None, reset=True):
                 try:
                     op(mode)
                 except:
-                    #import traceback
-                    #traceback.print_exc()
+                    # import traceback
+                    # traceback.print_exc()
                     pass
 
                 if USE_ATTRSET:
@@ -445,7 +445,7 @@ def main():
     filter_op_list(operators)
 
     # for testing, mix the list up.
-    #operators.reverse()
+    # operators.reverse()
 
     if USE_RANDOM:
         import random

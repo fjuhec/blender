@@ -69,6 +69,8 @@ typedef struct Brush {
 	char icon_filepath[1024]; /* 1024 = FILE_MAX */
 
 	float normal_weight;
+	float rake_factor;  /* rake actual data (not texture), used for sculpt */
+	int pad;
 
 	short blend;        /* blend mode */
 	short ob_mode;      /* & with ob->mode to see if the brush is compatible, use for display only. */
@@ -181,7 +183,7 @@ typedef enum BrushGradientSourceFill {
 /* Brush.flag */
 typedef enum BrushFlags {
 	BRUSH_AIRBRUSH = (1 << 0),
-	BRUSH_TORUS = (1 << 1),
+//	BRUSH_TORUS = (1 << 1), deprecated, use paint->symmetry_flags & PAINT_TILE_*
 	BRUSH_ALPHA_PRESSURE = (1 << 2),
 	BRUSH_SIZE_PRESSURE = (1 << 3),
 	BRUSH_JITTER_PRESSURE = (1 << 4),
@@ -270,6 +272,10 @@ typedef enum BrushSculptTool {
 
 #define SCULPT_TOOL_HAS_NORMAL_WEIGHT(t) ELEM(t, \
 	SCULPT_TOOL_GRAB, \
+	SCULPT_TOOL_SNAKE_HOOK \
+	)
+
+#define SCULPT_TOOL_HAS_RAKE(t) ELEM(t, \
 	SCULPT_TOOL_SNAKE_HOOK \
 	)
 

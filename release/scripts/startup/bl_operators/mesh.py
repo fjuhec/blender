@@ -75,7 +75,6 @@ class MeshMirrorUV(Operator):
                 double_warn += co in mirror_lt
                 mirror_lt[co] = i
 
-        #for i, v in enumerate(mesh.vertices):
         vmap = {}
         for mirror_a, mirror_b in ((mirror_gt, mirror_lt),
                                    (mirror_lt, mirror_gt)):
@@ -147,5 +146,55 @@ class MeshMirrorUV(Operator):
             self.report({'WARNING'},
                         "%d duplicates found, mirror may be incomplete" %
                         double_warn)
+
+        return {'FINISHED'}
+
+
+class MeshSelectNext(Operator):
+    """Select the next element (using selection order)"""
+    bl_idname = "mesh.select_next_item"
+    bl_label = "Select Next Element"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'EDIT_MESH')
+
+    def execute(self, context):
+        import bmesh
+        from .bmesh import find_adjacent
+
+        obj = context.active_object
+        me = obj.data
+        bm = bmesh.from_edit_mesh(me)
+
+        if find_adjacent.select_next(bm, self.report):
+            bm.select_flush_mode()
+            bmesh.update_edit_mesh(me, False)
+
+        return {'FINISHED'}
+
+
+class MeshSelectPrev(Operator):
+    """Select the next element (using selection order)"""
+    bl_idname = "mesh.select_prev_item"
+    bl_label = "Select Previous Element"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'EDIT_MESH')
+
+    def execute(self, context):
+        import bmesh
+        from .bmesh import find_adjacent
+
+        obj = context.active_object
+        me = obj.data
+        bm = bmesh.from_edit_mesh(me)
+
+        if find_adjacent.select_prev(bm, self.report):
+            bm.select_flush_mode()
+            bmesh.update_edit_mesh(me, False)
 
         return {'FINISHED'}

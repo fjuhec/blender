@@ -296,10 +296,11 @@ static int logImageSetData10(LogImageFile *logImage, LogImageElement logElement,
 			row[index] = swap_uint(pixel, logImage->isMSB);
 
 		if (logimage_fwrite(row, rowLength, 1, logImage) == 0) {
-			if (verbose) printf("DPX/Cineon: Error while writing file.\n"); {
-				MEM_freeN(row);
-				return 1;
+			if (verbose) {
+				printf("DPX/Cineon: Error while writing file.\n");
 			}
+			MEM_freeN(row);
+			return 1;
 		}
 	}
 	MEM_freeN(row);
@@ -623,7 +624,7 @@ static int logImageElementGetData8(LogImageFile *logImage, LogImageElement logEl
 	for (y = 0; y < logImage->height; y++) {
 		/* 8 bits are 32-bits padded so we need to seek at each row */
 		if (logimage_fseek(logImage, logElement.dataOffset + y * rowLength, SEEK_SET) != 0) {
-			if (verbose) printf("DPX/Cineon: Couldn't seek at %d\n", logElement.dataOffset + y * rowLength);
+			if (verbose) printf("DPX/Cineon: Couldn't seek at %d\n", logElement.dataOffset + y * (int)rowLength);
 			return 1;
 		}
 

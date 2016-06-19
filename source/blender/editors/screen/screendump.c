@@ -30,6 +30,7 @@
 
 
 #include <string.h>
+#include <errno.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -178,6 +179,7 @@ static void screenshot_crop(ImBuf *ibuf, rcti crop)
 static int screenshot_exec(bContext *C, wmOperator *op)
 {
 	ScreenshotData *scd = op->customdata;
+	bool ok = false;
 
 	if (scd == NULL) {
 		/* when running exec directly */
@@ -205,14 +207,20 @@ static int screenshot_exec(bContext *C, wmOperator *op)
 				/* bw screenshot? - users will notice if it fails! */
 				IMB_color_to_bw(ibuf);
 			}
-			BKE_imbuf_write(ibuf, path, &scd->im_format);
+			if (BKE_imbuf_write(ibuf, path, &scd->im_format)) {
+				ok = true;
+			}
+			else {
+				BKE_reportf(op->reports, RPT_ERROR, "Could not write image: %s", strerror(errno));
+			}
 
 			IMB_freeImBuf(ibuf);
 		}
 	}
 
 	screenshot_data_free(op);
-	return OPERATOR_FINISHED;
+
+	return ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
 
 static int screenshot_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
@@ -222,7 +230,12 @@ static int screenshot_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(
 			return screenshot_exec(C, op);
 
 		/* extension is added by 'screenshot_check' after */
-		RNA_string_set(op->ptr, "filepath", G.relbase_valid ? G.main->name : "//screen");
+		char filepath[FILE_MAX] = "//screen";
+		if (G.relbase_valid) {
+			BLI_strncpy(filepath, G.main->name, sizeof(filepath));
+			BLI_replace_extension(filepath, sizeof(filepath), "");  /* strip '.blend' */
+		}
+		RNA_string_set(op->ptr, "filepath", filepath);
 		
 		WM_event_add_fileselect(C, op);
 	
@@ -287,8 +300,9 @@ void SCREEN_OT_screenshot(wmOperatorType *ot)
 	
 	ot->flag = 0;
 	
-	WM_operator_properties_filesel(ot, FILE_TYPE_FOLDER | FILE_TYPE_IMAGE, FILE_SPECIAL, FILE_SAVE,
-	                               WM_FILESEL_FILEPATH, FILE_DEFAULTDISPLAY);
+	WM_operator_properties_filesel(
+	        ot, FILE_TYPE_FOLDER | FILE_TYPE_IMAGE, FILE_SPECIAL, FILE_SAVE,
+	        WM_FILESEL_FILEPATH, FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 	RNA_def_boolean(ot->srna, "full", 1, "Full Screen",
 	                "Capture the whole window (otherwise only capture the active area)");
 }
@@ -304,6 +318,8 @@ typedef struct ScreenshotJob {
 	const short *stop;
 	const short *do_update;
 	ReportList reports;
+
+	bMovieHandle *movie_handle;
 	void *movie_ctx;
 } ScreenshotJob;
 
@@ -315,8 +331,11 @@ static void screenshot_freejob(void *sjv)
 	if (sj->dumprect)
 		MEM_freeN(sj->dumprect);
 
-	if (sj->movie_ctx)
-		MEM_freeN(sj->movie_ctx);
+	if (sj->movie_handle) {
+		bMovieHandle *mh = sj->movie_handle;
+		mh->end_movie(sj->movie_ctx);
+		mh->context_free(sj->movie_ctx);
+	}
 
 	MEM_freeN(sj);
 }
@@ -350,7 +369,12 @@ static void screenshot_startjob(void *sjv, short *stop, short *do_update, float 
 	
 	if (BKE_imtype_is_movie(rd.im_format.imtype)) {
 		mh = BKE_movie_handle_get(sj->scene->r.im_format.imtype);
+		if (mh == NULL) {
+			printf("Movie format unsupported\n");
+			return;
+		}
 		sj->movie_ctx = mh->context_create();
+		sj->movie_handle = mh;
 
 		if (!mh->start_movie(sj->movie_ctx, sj->scene, &rd, sj->dumpsx, sj->dumpsy, &sj->reports, false, "")) {
 			printf("screencast job stopped\n");
@@ -419,6 +443,7 @@ static void screenshot_startjob(void *sjv, short *stop, short *do_update, float 
 	if (mh) {
 		mh->end_movie(sj->movie_ctx);
 		mh->context_free(sj->movie_ctx);
+		sj->movie_handle = NULL;
 	}
 
 	BKE_report(&sj->reports, RPT_INFO, "Screencast job stopped");

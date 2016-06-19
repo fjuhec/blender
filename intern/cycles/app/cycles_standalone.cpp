@@ -21,6 +21,7 @@
 #include "device.h"
 #include "scene.h"
 #include "session.h"
+#include "integrator.h"
 
 #include "util_args.h"
 #include "util_foreach.h"
@@ -31,6 +32,7 @@
 #include "util_string.h"
 #include "util_time.h"
 #include "util_transform.h"
+#include "util_version.h"
 
 #ifdef WITH_CYCLES_STANDALONE_GUI
 #include "util_view.h"
@@ -272,6 +274,7 @@ static void keyboard(unsigned char key)
 	else if(key == 'i')
 		options.interactive = !(options.interactive);
 
+	/* Navigation */
 	else if(options.interactive && (key == 'w' || key == 'a' || key == 's' || key == 'd')) {
 		Transform matrix = options.session->scene->camera->matrix;
 		float3 translate;
@@ -291,6 +294,25 @@ static void keyboard(unsigned char key)
 		options.session->scene->camera->matrix = matrix;
 		options.session->scene->camera->need_update = true;
 		options.session->scene->camera->need_device_update = true;
+
+		options.session->reset(session_buffer_params(), options.session_params.samples);
+	}
+
+	/* Set Max Bounces */
+	else if(options.interactive && (key == '0' || key == '1' || key == '2' || key == '3')) {
+		int bounce;
+		switch(key) {
+			case '0': bounce = 0; break;
+			case '1': bounce = 1; break;
+			case '2': bounce = 2; break;
+			case '3': bounce = 3; break;
+			default: bounce = 0; break;
+		}
+
+		options.session->scene->integrator->max_bounce = bounce;
+
+		/* Update and Reset */
+		options.session->scene->integrator->need_update = true;
 
 		options.session->reset(session_buffer_params(), options.session_params.samples);
 	}
@@ -337,7 +359,7 @@ static void options_parse(int argc, const char **argv)
 
 	/* parse options */
 	ArgParse ap;
-	bool help = false, debug = false;
+	bool help = false, debug = false, version = false;
 	int verbosity = 1;
 
 	ap.options ("Usage: cycles [options] file.xml",
@@ -359,6 +381,7 @@ static void options_parse(int argc, const char **argv)
 		"--verbose %d", &verbosity, "Set verbosity of the logger",
 #endif
 		"--help", &help, "Print help message",
+		"--version", &version, "Print version number",
 		NULL);
 
 	if(ap.parse(argc, argv) < 0) {
@@ -377,11 +400,16 @@ static void options_parse(int argc, const char **argv)
 		printf("Devices:\n");
 
 		foreach(DeviceInfo& info, devices) {
-			printf("    %s%s\n",
+			printf("    %-10s%s%s\n",
+				Device::string_from_type(info.type).c_str(),
 				info.description.c_str(),
 				(info.display_device)? " (display)": "");
 		}
 
+		exit(EXIT_SUCCESS);
+	}
+	else if(version) {
+		printf("%s\n", CYCLES_VERSION_STRING);
 		exit(EXIT_SUCCESS);
 	}
 	else if(help || options.filepath == "") {

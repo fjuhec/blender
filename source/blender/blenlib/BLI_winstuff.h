@@ -90,7 +90,9 @@ extern "C" {
 #endif
 
 /* defines for using ISO C++ conformant names */
-#define snprintf _snprintf
+#if !defined(_MSC_VER) || _MSC_VER < 1900
+#  define snprintf _snprintf
+#endif
 
 #if defined(_MSC_VER) || (defined(FREE_WINDOWS) && !defined(FREE_WINDOWS64))
 #  define	R_OK	4
@@ -132,17 +134,8 @@ struct dirent {
 	char *d_name;
 };
 
-typedef struct _DIR {
-	HANDLE handle;
-	WIN32_FIND_DATAW data;
-	char path[MAX_PATH];
-	long dd_loc;
-	long dd_size;
-	char dd_buf[4096];
-	void *dd_direct;
-	
-	struct dirent direntry;
-} DIR;
+/* intentionally opaque to users */
+typedef struct __dirstream DIR;
 
 DIR *opendir(const char *path);
 struct dirent *readdir(DIR *dp);

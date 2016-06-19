@@ -248,6 +248,7 @@ class RENDER_PT_shading(RenderButtonsPanel, Panel):
         col = split.column()
         col.prop(rd, "use_raytrace", text="Ray Tracing")
         col.prop(rd, "alpha_mode", text="Alpha")
+        col.prop(rd, "use_world_space_shading", text="World Space Shading")
 
 
 class RENDER_PT_performance(RenderButtonsPanel, Panel):
@@ -284,7 +285,6 @@ class RENDER_PT_performance(RenderButtonsPanel, Panel):
         sub = col.column()
         sub.active = rd.use_compositing
         sub.prop(rd, "use_free_image_textures")
-        sub.prop(rd, "use_free_unused_nodes")
         sub = col.column()
         sub.active = rd.use_raytrace
         sub.label(text="Acceleration structure:")
@@ -343,7 +343,7 @@ class RENDER_PT_stamp(RenderButtonsPanel, Panel):
 
         rd = context.scene.render
 
-        layout.prop(rd, "use_stamp", text="Stamp Output")
+        layout.prop(rd, "use_stamp")
         col = layout.column()
         col.active = rd.use_stamp
         col.prop(rd, "stamp_font_size", text="Font Size")
@@ -361,6 +361,7 @@ class RENDER_PT_stamp(RenderButtonsPanel, Panel):
         col.prop(rd, "use_stamp_render_time", text="RenderTime")
         col.prop(rd, "use_stamp_frame", text="Frame")
         col.prop(rd, "use_stamp_scene", text="Scene")
+        col.prop(rd, "use_stamp_memory", text="Memory")
 
         col = split.column()
         col.prop(rd, "use_stamp_camera", text="Camera")
@@ -374,6 +375,9 @@ class RENDER_PT_stamp(RenderButtonsPanel, Panel):
         sub = row.row()
         sub.active = rd.use_stamp_note
         sub.prop(rd, "stamp_note_text", text="")
+        if rd.use_sequencer:
+            layout.label("Sequencer")
+            layout.prop(rd, "use_stamp_strip_meta")
 
 
 class RENDER_PT_output(RenderButtonsPanel, Panel):
@@ -456,8 +460,12 @@ class RENDER_PT_encoding(RenderButtonsPanel, Panel):
 
         split = layout.split()
         split.prop(rd.ffmpeg, "format")
-        if ffmpeg.format in {'AVI', 'QUICKTIME', 'MKV', 'OGG'}:
+        if ffmpeg.format in {'AVI', 'QUICKTIME', 'MKV', 'OGG', 'MPEG4'}:
             split.prop(ffmpeg, "codec")
+            if ffmpeg.codec == 'H264':
+                row = layout.row()
+                row.label()
+                row.prop(ffmpeg, "use_lossless_output")
         elif rd.ffmpeg.format == 'H264':
             split.prop(ffmpeg, "use_lossless_output")
         else:

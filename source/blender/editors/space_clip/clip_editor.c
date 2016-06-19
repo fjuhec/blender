@@ -52,6 +52,7 @@
 
 #include "BKE_global.h"
 #include "BKE_main.h"
+#include "BKE_mask.h"
 #include "BKE_movieclip.h"
 #include "BKE_context.h"
 #include "BKE_tracking.h"
@@ -64,6 +65,7 @@
 
 #include "ED_screen.h"
 #include "ED_clip.h"
+#include "ED_mask.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -219,6 +221,7 @@ int ED_space_clip_get_clip_frame_number(SpaceClip *sc)
 {
 	MovieClip *clip = ED_space_clip_get_clip(sc);
 
+	/* Caller must ensure space does have a valid clip, otherwise it will crash, see T45017. */
 	return BKE_movieclip_remap_scene_to_clip_frame(clip, sc->user.framenr);
 }
 
@@ -329,7 +332,7 @@ void ED_clip_update_frame(const Main *mainp, int cfra)
 	}
 }
 
-static bool selected_boundbox(SpaceClip *sc, float min[2], float max[2])
+static bool selected_tracking_boundbox(SpaceClip *sc, float min[2], float max[2])
 {
 	MovieClip *clip = ED_space_clip_get_clip(sc);
 	MovieTrackingTrack *track;
@@ -377,6 +380,29 @@ static bool selected_boundbox(SpaceClip *sc, float min[2], float max[2])
 	return ok;
 }
 
+static bool selected_boundbox(const bContext *C, float min[2], float max[2])
+{
+	SpaceClip *sc = CTX_wm_space_clip(C);
+	if (sc->mode == SC_MODE_TRACKING) {
+		return selected_tracking_boundbox(sc, min, max);
+	}
+	else {
+		if (ED_mask_selected_minmax(C, min, max)) {
+			MovieClip *clip = ED_space_clip_get_clip(sc);
+			int width, height;
+			ED_space_clip_get_size(sc, &width, &height);
+			BKE_mask_coord_to_movieclip(clip, &sc->user, min, min);
+			BKE_mask_coord_to_movieclip(clip, &sc->user, max, max);
+			min[0] *= width;
+			min[1] *= height;
+			max[0] *= width;
+			max[1] *= height;
+			return true;
+		}
+		return false;
+	}
+}
+
 bool ED_clip_view_selection(const bContext *C, ARegion *ar, bool fit)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
@@ -388,7 +414,7 @@ bool ED_clip_view_selection(const bContext *C, ARegion *ar, bool fit)
 	if ((frame_width == 0) || (frame_height == 0) || (sc->clip == NULL))
 		return false;
 
-	if (!selected_boundbox(sc, min, max))
+	if (!selected_boundbox(C, min, max))
 		return false;
 
 	/* center view */
@@ -753,7 +779,7 @@ static unsigned char *prefetch_thread_next_frame(
 	return mem;
 }
 
-static void prefetch_task_func(TaskPool *pool, void *task_data, int UNUSED(threadid))
+static void prefetch_task_func(TaskPool * __restrict pool, void *task_data, int UNUSED(threadid))
 {
 	PrefetchQueue *queue = (PrefetchQueue *)BLI_task_pool_userdata(pool);
 	MovieClip *clip = (MovieClip *)task_data;
@@ -767,13 +793,15 @@ static void prefetch_task_func(TaskPool *pool, void *task_data, int UNUSED(threa
 		int flag = IB_rect | IB_alphamode_detect;
 		int result;
 		char *colorspace_name = NULL;
+		const bool use_proxy = (clip->flag & MCLIP_USE_PROXY) &&
+		                       (queue->render_size != MCLIP_PROXY_RENDER_SIZE_FULL);
 
 		user.framenr = current_frame;
 		user.render_size = queue->render_size;
 		user.render_flag = queue->render_flag;
 
 		/* Proxies are stored in the display space. */
-		if (queue->render_flag & MCLIP_USE_PROXY) {
+		if (!use_proxy) {
 			colorspace_name = clip->colorspace_settings.name;
 		}
 

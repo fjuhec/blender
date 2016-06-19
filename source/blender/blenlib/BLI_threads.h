@@ -158,6 +158,7 @@ typedef pthread_cond_t ThreadCondition;
 
 void BLI_condition_init(ThreadCondition *cond);
 void BLI_condition_wait(ThreadCondition *cond, ThreadMutex *mutex);
+void BLI_condition_wait_global_mutex(ThreadCondition *cond, const int type);
 void BLI_condition_notify_one(ThreadCondition *cond);
 void BLI_condition_notify_all(ThreadCondition *cond);
 void BLI_condition_end(ThreadCondition *cond);
@@ -175,9 +176,31 @@ void BLI_thread_queue_push(ThreadQueue *queue, void *work);
 void *BLI_thread_queue_pop(ThreadQueue *queue);
 void *BLI_thread_queue_pop_timeout(ThreadQueue *queue, int ms);
 int BLI_thread_queue_size(ThreadQueue *queue);
+bool BLI_thread_queue_is_empty(ThreadQueue *queue);
 
 void BLI_thread_queue_wait_finish(ThreadQueue *queue);
 void BLI_thread_queue_nowait(ThreadQueue *queue);
+
+
+/* Thread local storage */
+
+#if defined(__APPLE__)
+#  define ThreadLocal(type) pthread_key_t
+#  define BLI_thread_local_create(name) pthread_key_create(&name, NULL)
+#  define BLI_thread_local_delete(name) pthread_key_delete(name)
+#  define BLI_thread_local_get(name) pthread_getspecific(name)
+#  define BLI_thread_local_set(name, value) pthread_setspecific(name, value)
+#else  /* defined(__APPLE__) */
+#  ifdef _MSC_VER
+#    define ThreadLocal(type) __declspec(thread) type
+#  else
+#    define ThreadLocal(type) __thread type
+#  endif
+#  define BLI_thread_local_create(name)
+#  define BLI_thread_local_delete(name)
+#  define BLI_thread_local_get(name) name
+#  define BLI_thread_local_set(name, value) name = value
+#endif  /* defined(__APPLE__) */
 
 #ifdef __cplusplus
 }

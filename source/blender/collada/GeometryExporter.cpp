@@ -532,8 +532,8 @@ void GeometryExporter::createTexcoordsSource(std::string geom_id, Mesh *me)
 	// each <source> will get id like meshName + "map-channel-1"
 	int active_uv_index = CustomData_get_active_layer_index(&me->ldata, CD_MLOOPUV);
 	for (int a = 0; a < num_layers; a++) {
-
-		if (!this->export_settings->active_uv_only || a == active_uv_index) {
+		int layer_index = CustomData_get_layer_index_n(&me->ldata, CD_MLOOPUV, a);
+		if (!this->export_settings->active_uv_only || layer_index == active_uv_index) {
 			MLoopUV *mloops = (MLoopUV *)CustomData_get_layer_n(&me->ldata, CD_MLOOPUV, a);
 			
 			COLLADASW::FloatSourceF source(mSW);
@@ -606,7 +606,7 @@ void GeometryExporter::create_normals(std::vector<Normal> &normals, std::vector<
 
 	MVert *verts  = me->mvert;
 	MLoop *mloops = me->mloop;
-	float(*lnors)[3];
+	float(*lnors)[3] = NULL;
 	bool use_custom_normals = false;
 
 	BKE_mesh_calc_normals_split(me);
@@ -630,14 +630,19 @@ void GeometryExporter::create_normals(std::vector<Normal> &normals, std::vector<
 			last_normal_index++;
 		}
 
-		MLoop *mloop = mloops + mpoly->loopstart;
 		BCPolygonNormalsIndices poly_indices;
 		for (int loop_index = 0; loop_index < mpoly->totloop; loop_index++) {
 			unsigned int loop_idx = mpoly->loopstart + loop_index;
 			if (use_vertex_normals) {
-
 				float normalized[3];
-				normalize_v3_v3(normalized, lnors[loop_idx]);
+
+				if (use_custom_normals) {
+					normalize_v3_v3(normalized, lnors[loop_idx]);
+				}
+				else {
+					normal_short_to_float_v3(normalized, verts[mloops[loop_index].v].no);
+					normalize_v3(normalized);
+				}
 				Normal n = { normalized[0], normalized[1], normalized[2] };
 
 				if (shared_normal_indices.find(n) != shared_normal_indices.end()) {

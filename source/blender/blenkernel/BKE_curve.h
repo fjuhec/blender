@@ -69,6 +69,7 @@ typedef struct CurveCache {
 void BKE_curve_unlink(struct Curve *cu);
 void BKE_curve_free(struct Curve *cu);
 void BKE_curve_editfont_free(struct Curve *cu);
+void BKE_curve_init(struct Curve *cu);
 struct Curve *BKE_curve_add(struct Main *bmain, const char *name, int type);
 struct Curve *BKE_curve_copy(struct Curve *cu);
 void BKE_curve_make_local(struct Curve *cu);
@@ -94,10 +95,11 @@ void BKE_curve_material_remap(struct Curve *cu, const unsigned int *remap, unsig
 
 ListBase    *BKE_curve_nurbs_get(struct Curve *cu);
 
-void         BKE_curve_nurb_active_set(struct Curve *cu, struct Nurb *nu);
+int          BKE_curve_nurb_vert_index_get(const struct Nurb *nu, const void *vert);
+void         BKE_curve_nurb_active_set(struct Curve *cu, const struct Nurb *nu);
 struct Nurb *BKE_curve_nurb_active_get(struct Curve *cu);
 void        *BKE_curve_vert_active_get(struct Curve *cu);
-void         BKE_curve_nurb_vert_active_set(struct Curve *cu, struct Nurb *nu,    void *vert);
+void         BKE_curve_nurb_vert_active_set(struct Curve *cu, const struct Nurb *nu, const void *vert);
 bool         BKE_curve_nurb_vert_active_get(struct Curve *cu, struct Nurb **r_nu, void **r_vert);
 void         BKE_curve_nurb_vert_active_validate(struct Curve *cu);
 
@@ -166,6 +168,9 @@ bool BKE_nurb_type_convert(struct Nurb *nu, const short type, const bool use_han
 void BKE_nurb_points_add(struct Nurb *nu, int number);
 void BKE_nurb_bezierPoints_add(struct Nurb *nu, int number);
 
+int  BKE_nurb_index_from_uv(struct Nurb *nu, int u, int v);
+void BKE_nurb_index_to_uv(struct Nurb *nu, int index, int *r_u, int *r_v);
+
 struct BezTriple *BKE_nurb_bezt_get_next(struct Nurb *nu, struct BezTriple *bezt);
 struct BezTriple *BKE_nurb_bezt_get_prev(struct Nurb *nu, struct BezTriple *bezt);
 struct BPoint    *BKE_nurb_bpoint_get_next(struct Nurb *nu, struct BPoint *bp);
@@ -173,6 +178,8 @@ struct BPoint    *BKE_nurb_bpoint_get_prev(struct Nurb *nu, struct BPoint *bp);
 
 void BKE_nurb_bezt_calc_normal(struct Nurb *nu, struct BezTriple *bezt, float r_normal[3]);
 void BKE_nurb_bezt_calc_plane(struct Nurb *nu, struct BezTriple *bezt, float r_plane[3]);
+
+void BKE_nurb_bpoint_calc_normal(struct Nurb *nu, struct BPoint *bp, float r_normal[3]);
 
 void BKE_nurb_handle_calc(struct BezTriple *bezt, struct BezTriple *prev,  struct BezTriple *next,
                           const bool is_fcurve);
@@ -183,5 +190,15 @@ void BKE_nurb_handles_calc(struct Nurb *nu);
 void BKE_nurb_handles_autocalc(struct Nurb *nu, int flag);
 void BKE_nurb_bezt_handle_test(struct BezTriple *bezt, const bool use_handle);
 void BKE_nurb_handles_test(struct Nurb *nu, const bool use_handles);
+
+/* **** Depsgraph evaluation **** */
+
+struct EvaluationContext;
+
+void BKE_curve_eval_geometry(struct EvaluationContext *eval_ctx,
+                             struct Curve *curve);
+
+void BKE_curve_eval_path(struct EvaluationContext *eval_ctx,
+                         struct Curve *curve);
 
 #endif  /* __BKE_CURVE_H__ */

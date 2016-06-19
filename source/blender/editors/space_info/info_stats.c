@@ -41,10 +41,10 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "BKE_anim.h"
-#include "BKE_blender.h"
+#include "BKE_blender_version.h"
 #include "BKE_curve.h"
 #include "BKE_displist.h"
 #include "BKE_DerivedMesh.h"

@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -358,110 +359,118 @@ static const char *name_from_passtype(int passtype, int channel)
 	return "Unknown";
 }
 
-static int passtype_from_name(const char *str)
+static int passtype_from_name(const char *str, int passflag)
 {
+	/* We do not really support several pass of the same types, so in case we are opening an EXR file with several pass
+	 * names detected as same pass type, only return that pass type the first time, and return 'uknown' for the others.
+	 * See T48466. */
+#define RETURN_PASS(_passtype) return (passflag & (_passtype)) ? 0 : (_passtype)
+
 	if (STRPREFIX(str, "Combined"))
-		return SCE_PASS_COMBINED;
+		RETURN_PASS(SCE_PASS_COMBINED);
 
 	if (STRPREFIX(str, "Depth"))
-		return SCE_PASS_Z;
+		RETURN_PASS(SCE_PASS_Z);
 
 	if (STRPREFIX(str, "Vector"))
-		return SCE_PASS_VECTOR;
+		RETURN_PASS(SCE_PASS_VECTOR);
 
 	if (STRPREFIX(str, "Normal"))
-		return SCE_PASS_NORMAL;
+		RETURN_PASS(SCE_PASS_NORMAL);
 
 	if (STRPREFIX(str, "UV"))
-		return SCE_PASS_UV;
+		RETURN_PASS(SCE_PASS_UV);
 
 	if (STRPREFIX(str, "Color"))
-		return SCE_PASS_RGBA;
+		RETURN_PASS(SCE_PASS_RGBA);
 
 	if (STRPREFIX(str, "Emit"))
-		return SCE_PASS_EMIT;
+		RETURN_PASS(SCE_PASS_EMIT);
 
 	if (STRPREFIX(str, "Diffuse"))
-		return SCE_PASS_DIFFUSE;
+		RETURN_PASS(SCE_PASS_DIFFUSE);
 
 	if (STRPREFIX(str, "Spec"))
-		return SCE_PASS_SPEC;
+		RETURN_PASS(SCE_PASS_SPEC);
 
 	if (STRPREFIX(str, "Shadow"))
-		return SCE_PASS_SHADOW;
+		RETURN_PASS(SCE_PASS_SHADOW);
 	
 	if (STRPREFIX(str, "AO"))
-		return SCE_PASS_AO;
+		RETURN_PASS(SCE_PASS_AO);
 
 	if (STRPREFIX(str, "Env"))
-		return SCE_PASS_ENVIRONMENT;
+		RETURN_PASS(SCE_PASS_ENVIRONMENT);
 
 	if (STRPREFIX(str, "Indirect"))
-		return SCE_PASS_INDIRECT;
+		RETURN_PASS(SCE_PASS_INDIRECT);
 
 	if (STRPREFIX(str, "Reflect"))
-		return SCE_PASS_REFLECT;
+		RETURN_PASS(SCE_PASS_REFLECT);
 
 	if (STRPREFIX(str, "Refract"))
-		return SCE_PASS_REFRACT;
+		RETURN_PASS(SCE_PASS_REFRACT);
 
 	if (STRPREFIX(str, "IndexOB"))
-		return SCE_PASS_INDEXOB;
+		RETURN_PASS(SCE_PASS_INDEXOB);
 
 	if (STRPREFIX(str, "IndexMA"))
-		return SCE_PASS_INDEXMA;
+		RETURN_PASS(SCE_PASS_INDEXMA);
 
 	if (STRPREFIX(str, "Mist"))
-		return SCE_PASS_MIST;
+		RETURN_PASS(SCE_PASS_MIST);
 	
 	if (STRPREFIX(str, "RayHits"))
-		return SCE_PASS_RAYHITS;
+		RETURN_PASS(SCE_PASS_RAYHITS);
 
 	if (STRPREFIX(str, "DiffDir"))
-		return SCE_PASS_DIFFUSE_DIRECT;
+		RETURN_PASS(SCE_PASS_DIFFUSE_DIRECT);
 
 	if (STRPREFIX(str, "DiffInd"))
-		return SCE_PASS_DIFFUSE_INDIRECT;
+		RETURN_PASS(SCE_PASS_DIFFUSE_INDIRECT);
 
 	if (STRPREFIX(str, "DiffCol"))
-		return SCE_PASS_DIFFUSE_COLOR;
+		RETURN_PASS(SCE_PASS_DIFFUSE_COLOR);
 
 	if (STRPREFIX(str, "GlossDir"))
-		return SCE_PASS_GLOSSY_DIRECT;
+		RETURN_PASS(SCE_PASS_GLOSSY_DIRECT);
 
 	if (STRPREFIX(str, "GlossInd"))
-		return SCE_PASS_GLOSSY_INDIRECT;
+		RETURN_PASS(SCE_PASS_GLOSSY_INDIRECT);
 
 	if (STRPREFIX(str, "GlossCol"))
-		return SCE_PASS_GLOSSY_COLOR;
+		RETURN_PASS(SCE_PASS_GLOSSY_COLOR);
 
 	if (STRPREFIX(str, "TransDir"))
-		return SCE_PASS_TRANSM_DIRECT;
+		RETURN_PASS(SCE_PASS_TRANSM_DIRECT);
 
 	if (STRPREFIX(str, "TransInd"))
-		return SCE_PASS_TRANSM_INDIRECT;
+		RETURN_PASS(SCE_PASS_TRANSM_INDIRECT);
 
 	if (STRPREFIX(str, "TransCol"))
-		return SCE_PASS_TRANSM_COLOR;
+		RETURN_PASS(SCE_PASS_TRANSM_COLOR);
 		
 	if (STRPREFIX(str, "SubsurfaceDir"))
-		return SCE_PASS_SUBSURFACE_DIRECT;
+		RETURN_PASS(SCE_PASS_SUBSURFACE_DIRECT);
 
 	if (STRPREFIX(str, "SubsurfaceInd"))
-		return SCE_PASS_SUBSURFACE_INDIRECT;
+		RETURN_PASS(SCE_PASS_SUBSURFACE_INDIRECT);
 
 	if (STRPREFIX(str, "SubsurfaceCol"))
-		return SCE_PASS_SUBSURFACE_COLOR;
+		RETURN_PASS(SCE_PASS_SUBSURFACE_COLOR);
 
 	return 0;
+
+#undef RETURN_PASS
 }
 
 
 static void set_pass_name(char *passname, int passtype, int channel, const char *view)
 {
-	const char *end;
+	const char delims[] = {'.', '\0'};
+	const char *sep;
 	const char *token;
-	int len;
+	size_t len;
 
 	const char *passtype_name = name_from_passtype(passtype, channel);
 
@@ -470,25 +479,25 @@ static void set_pass_name(char *passname, int passtype, int channel, const char 
 		return;
 	}
 
-	end = passtype_name + strlen(passtype_name);
-	len = IMB_exr_split_token(passtype_name, end, &token);
+	len = BLI_str_rpartition(passtype_name, delims, &sep, &token);
 
-	if (len == strlen(passtype_name))
-		sprintf(passname, "%s.%s", passtype_name, view);
-	else
-		sprintf(passname, "%.*s%s.%s", (int)(end-passtype_name) - len, passtype_name, view, token);
+	if (sep) {
+		BLI_snprintf(passname, EXR_PASS_MAXNAME, "%.*s.%s.%s", (int)len, passtype_name, view, token);
+	}
+	else {
+		BLI_snprintf(passname, EXR_PASS_MAXNAME, "%s.%s", passtype_name, view);
+	}
 }
 
 /********************************** New **************************************/
 
 static RenderPass *render_layer_add_pass(RenderResult *rr, RenderLayer *rl, int channels, int passtype, const char *viewname)
 {
-	const size_t view_id = BLI_findstringindex(&rr->views, viewname, offsetof(RenderView, name));
+	const int view_id = BLI_findstringindex(&rr->views, viewname, offsetof(RenderView, name));
 	const char *typestr = name_from_passtype(passtype, -1);
 	RenderPass *rpass = MEM_callocN(sizeof(RenderPass), typestr);
 	size_t rectsize = ((size_t)rr->rectx) * rr->recty * channels;
 	
-	BLI_addtail(&rl->passes, rpass);
 	rpass->passtype = passtype;
 	rpass->channels = channels;
 	rpass->rectx = rl->rectx;
@@ -502,13 +511,17 @@ static RenderPass *render_layer_add_pass(RenderResult *rr, RenderLayer *rl, int 
 	if (rl->exrhandle) {
 		int a;
 		for (a = 0; a < channels; a++)
-			IMB_exr_add_channel(rl->exrhandle, rl->name, name_from_passtype(passtype, a), viewname, 0, 0, NULL);
+			IMB_exr_add_channel(rl->exrhandle, rl->name, name_from_passtype(passtype, a), viewname, 0, 0, NULL, false);
 	}
 	else {
 		float *rect;
 		int x;
 		
 		rpass->rect = MEM_mapallocN(sizeof(float) * rectsize, typestr);
+		if (rpass->rect == NULL) {
+			MEM_freeN(rpass);
+			return NULL;
+		}
 		
 		if (passtype == SCE_PASS_VECTOR) {
 			/* initialize to max speed */
@@ -522,32 +535,55 @@ static RenderPass *render_layer_add_pass(RenderResult *rr, RenderLayer *rl, int 
 				rect[x] = 10e10;
 		}
 	}
+
+	BLI_addtail(&rl->passes, rpass);
+
 	return rpass;
 }
 
 #ifdef WITH_CYCLES_DEBUG
-static const char *debug_pass_type_name_get(int debug_type)
+const char *RE_debug_pass_name_get(int debug_type)
 {
 	switch (debug_type) {
 		case RENDER_PASS_DEBUG_BVH_TRAVERSAL_STEPS:
 			return "BVH Traversal Steps";
+		case RENDER_PASS_DEBUG_BVH_TRAVERSED_INSTANCES:
+			return "BVH Traversed Instances";
+		case RENDER_PASS_DEBUG_RAY_BOUNCES:
+			return "Ray Bounces";
 	}
 	return "Unknown";
 }
 
+int RE_debug_pass_num_channels_get(int UNUSED(debug_type))
+{
+	/* Only single case currently, might be handy for further debug passes. */
+	return 1;
+}
+
 static RenderPass *render_layer_add_debug_pass(RenderResult *rr,
                                                RenderLayer *rl,
-                                               int channels,
                                                int pass_type,
                                                int debug_type,
                                                const char *view)
 {
+	const char *name = RE_debug_pass_name_get(debug_type);
+	int channels = RE_debug_pass_num_channels_get(debug_type);
 	RenderPass *rpass = render_layer_add_pass(rr, rl, channels, pass_type, view);
+	if (rpass == NULL) {
+		return NULL;
+	}
 	rpass->debug_type = debug_type;
 	BLI_strncpy(rpass->name,
-	            debug_pass_type_name_get(debug_type),
+	            name,
 	            sizeof(rpass->name));
+	BLI_strncpy(rpass->internal_name, rpass->name, sizeof(rpass->internal_name));
 	return rpass;
+}
+
+int RE_debug_pass_type_get(Render *re)
+{
+	return re->r.debug_pass_type;
 }
 #endif
 
@@ -562,7 +598,7 @@ RenderResult *render_result_new(Render *re, rcti *partrct, int crop, int savebuf
 	RenderView *rv;
 	SceneRenderLayer *srl;
 	int rectx, recty;
-	int nr, i;
+	int nr;
 	
 	rectx = BLI_rcti_size_x(partrct);
 	recty = BLI_rcti_size_y(partrct);
@@ -621,7 +657,12 @@ RenderResult *render_result_new(Render *re, rcti *partrct, int crop, int savebuf
 		rl->recty = recty;
 		
 		if (rr->do_exr_tile) {
-			rl->display_buffer = MEM_mapallocN(rectx * recty * sizeof(unsigned int), "Combined display space rgba");
+			rl->display_buffer = MEM_mapallocN((size_t)rectx * recty * sizeof(unsigned int),
+			                                   "Combined display space rgba");
+			if (rl->display_buffer == NULL) {
+				render_result_free(rr);
+				return NULL;
+			}
 			rl->exrhandle = IMB_exr_get_handle();
 		}
 
@@ -635,76 +676,90 @@ RenderResult *render_result_new(Render *re, rcti *partrct, int crop, int savebuf
 			if (rr->do_exr_tile)
 				IMB_exr_add_view(rl->exrhandle, view);
 
+#define RENDER_LAYER_ADD_PASS_SAFE(rr, rl, channels, passtype, viewname) \
+			do { \
+				if (render_layer_add_pass(rr, rl, channels, passtype, viewname) == NULL) { \
+					render_result_free(rr); \
+					return NULL; \
+				} \
+			} while (false)
+
 			/* a renderlayer should always have a Combined pass*/
 			render_layer_add_pass(rr, rl, 4, SCE_PASS_COMBINED, view);
 
 			if (srl->passflag  & SCE_PASS_Z)
-				render_layer_add_pass(rr, rl, 1, SCE_PASS_Z, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 1, SCE_PASS_Z, view);
 			if (srl->passflag  & SCE_PASS_VECTOR)
-				render_layer_add_pass(rr, rl, 4, SCE_PASS_VECTOR, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 4, SCE_PASS_VECTOR, view);
 			if (srl->passflag  & SCE_PASS_NORMAL)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_NORMAL, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_NORMAL, view);
 			if (srl->passflag  & SCE_PASS_UV)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_UV, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_UV, view);
 			if (srl->passflag  & SCE_PASS_RGBA)
-				render_layer_add_pass(rr, rl, 4, SCE_PASS_RGBA, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 4, SCE_PASS_RGBA, view);
 			if (srl->passflag  & SCE_PASS_EMIT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_EMIT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_EMIT, view);
 			if (srl->passflag  & SCE_PASS_DIFFUSE)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_DIFFUSE, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_DIFFUSE, view);
 			if (srl->passflag  & SCE_PASS_SPEC)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_SPEC, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_SPEC, view);
 			if (srl->passflag  & SCE_PASS_AO)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_AO, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_AO, view);
 			if (srl->passflag  & SCE_PASS_ENVIRONMENT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_ENVIRONMENT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_ENVIRONMENT, view);
 			if (srl->passflag  & SCE_PASS_INDIRECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_INDIRECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_INDIRECT, view);
 			if (srl->passflag  & SCE_PASS_SHADOW)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_SHADOW, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_SHADOW, view);
 			if (srl->passflag  & SCE_PASS_REFLECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_REFLECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_REFLECT, view);
 			if (srl->passflag  & SCE_PASS_REFRACT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_REFRACT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_REFRACT, view);
 			if (srl->passflag  & SCE_PASS_INDEXOB)
-				render_layer_add_pass(rr, rl, 1, SCE_PASS_INDEXOB, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 1, SCE_PASS_INDEXOB, view);
 			if (srl->passflag  & SCE_PASS_INDEXMA)
-				render_layer_add_pass(rr, rl, 1, SCE_PASS_INDEXMA, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 1, SCE_PASS_INDEXMA, view);
 			if (srl->passflag  & SCE_PASS_MIST)
-				render_layer_add_pass(rr, rl, 1, SCE_PASS_MIST, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 1, SCE_PASS_MIST, view);
 			if (rl->passflag & SCE_PASS_RAYHITS)
-				render_layer_add_pass(rr, rl, 4, SCE_PASS_RAYHITS, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 4, SCE_PASS_RAYHITS, view);
 			if (srl->passflag  & SCE_PASS_DIFFUSE_DIRECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_DIFFUSE_DIRECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_DIFFUSE_DIRECT, view);
 			if (srl->passflag  & SCE_PASS_DIFFUSE_INDIRECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_DIFFUSE_INDIRECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_DIFFUSE_INDIRECT, view);
 			if (srl->passflag  & SCE_PASS_DIFFUSE_COLOR)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_DIFFUSE_COLOR, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_DIFFUSE_COLOR, view);
 			if (srl->passflag  & SCE_PASS_GLOSSY_DIRECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_GLOSSY_DIRECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_GLOSSY_DIRECT, view);
 			if (srl->passflag  & SCE_PASS_GLOSSY_INDIRECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_GLOSSY_INDIRECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_GLOSSY_INDIRECT, view);
 			if (srl->passflag  & SCE_PASS_GLOSSY_COLOR)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_GLOSSY_COLOR, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_GLOSSY_COLOR, view);
 			if (srl->passflag  & SCE_PASS_TRANSM_DIRECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_TRANSM_DIRECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_TRANSM_DIRECT, view);
 			if (srl->passflag  & SCE_PASS_TRANSM_INDIRECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_TRANSM_INDIRECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_TRANSM_INDIRECT, view);
 			if (srl->passflag  & SCE_PASS_TRANSM_COLOR)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_TRANSM_COLOR, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_TRANSM_COLOR, view);
 			if (srl->passflag  & SCE_PASS_SUBSURFACE_DIRECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_SUBSURFACE_DIRECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_SUBSURFACE_DIRECT, view);
 			if (srl->passflag  & SCE_PASS_SUBSURFACE_INDIRECT)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_SUBSURFACE_INDIRECT, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_SUBSURFACE_INDIRECT, view);
 			if (srl->passflag  & SCE_PASS_SUBSURFACE_COLOR)
-				render_layer_add_pass(rr, rl, 3, SCE_PASS_SUBSURFACE_COLOR, view);
+				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, SCE_PASS_SUBSURFACE_COLOR, view);
 
 #ifdef WITH_CYCLES_DEBUG
 			if (BKE_scene_use_new_shading_nodes(re->scene)) {
-				render_layer_add_debug_pass(rr, rl, 1, SCE_PASS_DEBUG,
-				        RENDER_PASS_DEBUG_BVH_TRAVERSAL_STEPS, view);
+				if (render_layer_add_debug_pass(rr, rl, SCE_PASS_DEBUG,
+				                                re->r.debug_pass_type, view) == NULL)
+				{
+					render_result_free(rr);
+					return NULL;
+				}
 			}
 #endif
+
+#undef RENDER_LAYER_ADD_PASS_SAFE
 		}
 	}
 	/* sss, previewrender and envmap don't do layers, so we make a default one */
@@ -728,15 +783,11 @@ RenderResult *render_result_new(Render *re, rcti *partrct, int crop, int savebuf
 				if (strcmp(view, viewname) != 0)
 					continue;
 
-			if (rr->do_exr_tile) {
+			if (rr->do_exr_tile)
 				IMB_exr_add_view(rl->exrhandle, view);
 
-				for (i=0; i < 4; i++)
-					IMB_exr_add_channel(rl->exrhandle, rl->name, name_from_passtype(SCE_PASS_COMBINED, i), view, 0, 0, NULL);
-			}
-			else {
-				render_layer_add_pass(rr, rl, 4, SCE_PASS_COMBINED, view);
-			}
+			/* a renderlayer should always have a Combined pass */
+			render_layer_add_pass(rr, rl, 4, SCE_PASS_COMBINED, view);
 		}
 
 		/* note, this has to be in sync with scene.c */
@@ -794,8 +845,9 @@ static void ml_addpass_cb(void *base, void *lay, const char *str, float *rect, i
 	
 	BLI_addtail(&rl->passes, rpass);
 	rpass->channels = totchan;
-	rpass->passtype = passtype_from_name(str);
-	if (rpass->passtype == 0) printf("unknown pass %s\n", str);
+	rpass->passtype = passtype_from_name(str, rl->passflag);
+	if (rpass->passtype == 0)
+		printf("unknown pass %s\n", str);
 	rl->passflag |= rpass->passtype;
 	
 	/* channel id chars */
@@ -890,14 +942,12 @@ RenderResult *render_result_new_from_exr(void *exrhandle, const char *colorspace
 	IMB_exr_multilayer_convert(exrhandle, rr, ml_addview_cb, ml_addlayer_cb, ml_addpass_cb);
 
 	for (rl = rr->layers.first; rl; rl = rl->next) {
-		int c=0;
 		rl->rectx = rectx;
 		rl->recty = recty;
 
 		BLI_listbase_sort(&rl->passes, order_render_passes);
 
 		for (rpass = rl->passes.first; rpass; rpass = rpass->next) {
-			printf("%d: %s\n", c++, rpass->name);
 			rpass->rectx = rectx;
 			rpass->recty = recty;
 
@@ -1037,6 +1087,7 @@ bool RE_WriteRenderResult(ReportList *reports, RenderResult *rr, const char *fil
 	size_t width, height;
 
 	const bool is_mono = view && !multiview;
+	const bool use_half_float = (imf != NULL) ? (imf->depth == R_IMF_CHAN_DEPTH_16) : false;
 
 	width = rr->rectx;
 	height = rr->recty;
@@ -1048,12 +1099,17 @@ bool RE_WriteRenderResult(ReportList *reports, RenderResult *rr, const char *fil
 			IMB_exr_add_view(exrhandle, rview->name);
 
 			if (rview->rectf) {
-				for (a = 0; a < 4; a++)
+				for (a = 0; a < 4; a++) {
 					IMB_exr_add_channel(exrhandle, "", RGBAZ[a],
-					                    rview->name, 4, 4 * width, rview->rectf + a);
-				if (rview->rectz)
+					                    rview->name, 4, 4 * width, rview->rectf + a,
+					                    use_half_float);
+				}
+				if (rview->rectz) {
+					/* Z pass is always stored as float. */
 					IMB_exr_add_channel(exrhandle, "", RGBAZ[4],
-					                    rview->name, 1, width, rview->rectz);
+					                    rview->name, 1, width, rview->rectz,
+					                    false);
+				}
 			}
 		}
 	}
@@ -1073,9 +1129,11 @@ bool RE_WriteRenderResult(ReportList *reports, RenderResult *rr, const char *fil
 			IMB_exr_add_view(exrhandle, rview->name);
 
 			if (rview->rectf) {
-				for (a = 0; a < 4; a++)
+				for (a = 0; a < 4; a++) {
 					IMB_exr_add_channel(exrhandle, "Composite", name_from_passtype(SCE_PASS_COMBINED, a),
-					                    chan_view, 4, 4 * width, rview->rectf + a);
+					                    chan_view, 4, 4 * width, rview->rectf + a,
+					                    use_half_float);
+				}
 			}
 		}
 
@@ -1098,29 +1156,32 @@ bool RE_WriteRenderResult(ReportList *reports, RenderResult *rr, const char *fil
 				}
 
 				for (a = 0; a < xstride; a++) {
-
 					if (rpass->passtype) {
 						IMB_exr_add_channel(exrhandle, rl->name, name_from_passtype(rpass->passtype, a), chan_view,
-						                    xstride, xstride * width, rpass->rect + a);
+						                    xstride, xstride * width, rpass->rect + a,
+						                    rpass->passtype == SCE_PASS_Z ? false : use_half_float);
 					}
 					else {
 						IMB_exr_add_channel(exrhandle, rl->name, make_pass_name(rpass, a), chan_view,
-						                    xstride, xstride * width, rpass->rect + a);
+						                    xstride, xstride * width, rpass->rect + a,
+						                    use_half_float);
 					}
 				}
 			}
 		}
 	}
 
+	errno = 0;
+
 	BLI_make_existing_file(filename);
 
-	if (IMB_exr_begin_write(exrhandle, filename, width, height, compress)) {
+	if (IMB_exr_begin_write(exrhandle, filename, width, height, compress, rr->stamp_data)) {
 		IMB_exr_write_channels(exrhandle);
 		success = true;
 	}
 	else {
 		/* TODO, get the error from openexr's exception */
-		BKE_report(reports, RPT_ERROR, "Error writing render result (see console)");
+		BKE_reportf(reports, RPT_ERROR, "Error writing render result, %s (see console)", strerror(errno));
 		success = false;
 	}
 
@@ -1243,7 +1304,7 @@ static void save_render_result_tile(RenderResult *rr, RenderResult *rrpart, cons
 	BLI_unlock_thread(LOCK_IMAGE);
 }
 
-static void save_empty_result_tiles(Render *re)
+void render_result_save_empty_result_tiles(Render *re)
 {
 	RenderPart *pa;
 	RenderResult *rr;
@@ -1286,8 +1347,6 @@ void render_result_exr_file_end(Render *re)
 	RenderResult *rr;
 	RenderLayer *rl;
 
-	save_empty_result_tiles(re);
-	
 	for (rr = re->result; rr; rr = rr->next) {
 		for (rl = rr->layers.first; rl; rl = rl->next) {
 			IMB_exr_close(rl->exrhandle);
@@ -1313,9 +1372,9 @@ void render_result_exr_file_merge(RenderResult *rr, RenderResult *rrpart, const 
 /* path to temporary exr file */
 void render_result_exr_file_path(Scene *scene, const char *layname, int sample, char *filepath)
 {
-	char name[FILE_MAXFILE + MAX_ID_NAME + MAX_ID_NAME + 100], fi[FILE_MAXFILE];
+	char name[FILE_MAXFILE + MAX_ID_NAME + MAX_ID_NAME + 100];
+	const char *fi = BLI_path_basename(G.main->name);
 	
-	BLI_split_file_part(G.main->name, fi, sizeof(fi));
 	if (sample == 0) {
 		BLI_snprintf(name, sizeof(name), "%s_%s_%s.exr", fi, scene->id.name + 2, layname);
 	}
@@ -1507,7 +1566,7 @@ ImBuf *render_result_rect_to_ibuf(RenderResult *rr, RenderData *rd, const int vi
 	return ibuf;
 }
 
-void render_result_rect_from_ibuf(RenderResult *rr, RenderData *UNUSED(rd), ImBuf *ibuf, const int view_id)
+void RE_render_result_rect_from_ibuf(RenderResult *rr, RenderData *UNUSED(rd), ImBuf *ibuf, const int view_id)
 {
 	RenderView *rv = RE_RenderViewGetById(rr, view_id);
 

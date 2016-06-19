@@ -35,7 +35,7 @@
 #include "KX_Scene.h"
 #include "KX_PythonInit.h"
 #include "BLI_math.h"
-#include "StringValue.h"
+#include "EXP_StringValue.h"
 #include "RAS_IRasterizer.h"
 
 /* paths needed for font load */
@@ -193,15 +193,14 @@ void KX_FontObject::DrawFontText()
 	const float aspect = m_fsize / size;
 
 	/* Get a working copy of the OpenGLMatrix to use */
-	double mat[16];
-	memcpy(mat, this->GetOpenGLMatrix(), sizeof(double)*16);
+	float *mat = GetOpenGLMatrix();
 
 	/* Account for offset */
 	MT_Vector3 offset = this->NodeGetWorldOrientation() * m_offset * this->NodeGetWorldScaling();
 	mat[12] += offset[0]; mat[13] += offset[1]; mat[14] += offset[2];
 
 	/* Orient the spacing vector */
-	MT_Vector3 spacing = MT_Vector3(0, m_fsize*m_line_spacing, 0);
+	MT_Vector3 spacing = MT_Vector3(0.0f, m_fsize*m_line_spacing, 0.0f);
 	spacing = this->NodeGetWorldOrientation() * spacing * this->NodeGetWorldScaling()[1];
 
 	/* Draw each line, taking spacing into consideration */

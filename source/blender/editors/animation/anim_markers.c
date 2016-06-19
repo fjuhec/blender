@@ -39,6 +39,8 @@
 #include "BLI_math_base.h"
 #include "BLI_utildefines.h"
 
+#include "BLT_translation.h"
+
 #include "BKE_context.h"
 #include "BKE_fcurve.h"
 #include "BKE_main.h"
@@ -524,7 +526,11 @@ static int ed_markers_poll_selected_no_locked_markers(bContext *C)
 static int ed_markers_poll_markers_exist(bContext *C)
 {
 	ListBase *markers = ED_context_get_markers(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
 	
+	if (ts->lock_markers)
+		return 0;
+
 	/* first things first: markers can only exist in timeline views */
 	if (ED_operator_animview_active(C) == 0)
 		return 0;
@@ -685,7 +691,7 @@ static void ed_marker_move_update_header(bContext *C, wmOperator *op)
 	MarkerMove *mm = op->customdata;
 	TimeMarker *marker, *selmarker = NULL;
 	const int offs = RNA_int_get(op->ptr, "frames");
-	char str[256];
+	char str[UI_MAX_DRAW_STR];
 	char str_offs[NUM_STR_REP_LEN];
 	int totmark;
 	const bool use_time = ed_marker_move_use_time(mm);
@@ -710,14 +716,14 @@ static void ed_marker_move_update_header(bContext *C, wmOperator *op)
 	if (totmark == 1 && selmarker) {
 		/* we print current marker value */
 		if (use_time) {
-			BLI_snprintf(str, sizeof(str), "Marker %.2f offset %s", FRA2TIME(selmarker->frame), str_offs);
+			BLI_snprintf(str, sizeof(str), IFACE_("Marker %.2f offset %s"), FRA2TIME(selmarker->frame), str_offs);
 		}
 		else {
-			BLI_snprintf(str, sizeof(str), "Marker %d offset %s", selmarker->frame, str_offs);
+			BLI_snprintf(str, sizeof(str), IFACE_("Marker %d offset %s"), selmarker->frame, str_offs);
 		}
 	}
 	else {
-		BLI_snprintf(str, sizeof(str), "Marker offset %s", str_offs);
+		BLI_snprintf(str, sizeof(str), IFACE_("Marker offset %s"), str_offs);
 	}
 
 	ED_area_headerprint(CTX_wm_area(C), str);
@@ -1541,7 +1547,7 @@ static void MARKER_OT_camera_bind(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Bind Camera to Markers";
-	ot->description = "Bind the active camera to selected markers(s)";
+	ot->description = "Bind the active camera to selected marker(s)";
 	ot->idname = "MARKER_OT_camera_bind";
 
 	/* api callbacks */

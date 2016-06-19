@@ -78,7 +78,7 @@ extern void ui_draw_anti_tria(float x1, float y1, float x2, float y2, float x3, 
 
 /* general area and region code */
 
-static void region_draw_emboss(ARegion *ar, rcti *scirct)
+static void region_draw_emboss(const ARegion *ar, const rcti *scirct)
 {
 	rcti rect;
 	
@@ -405,6 +405,7 @@ static void region_draw_azones(ScrArea *sa, ARegion *ar)
 	if (!sa)
 		return;
 
+	glLineWidth(1.0f);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -497,7 +498,7 @@ void ED_region_do_draw(bContext *C, ARegion *ar)
 	/* note; this sets state, so we can use wmOrtho and friends */
 	wmSubWindowScissorSet(win, ar->swinid, &ar->drawrct, scissor_pad);
 
-	wmOrtho2_region_ui(ar);
+	wmOrtho2_region_pixelspace(ar);
 	
 	UI_SetTheme(sa ? sa->spacetype : 0, at->regionid);
 	
@@ -533,8 +534,12 @@ void ED_region_do_draw(bContext *C, ARegion *ar)
 	
 	UI_blocklist_free_inactive(C, &ar->uiblocks);
 
-	if (sa && (win->screen->state != SCREENFULL)) {
-		region_draw_emboss(ar, &ar->winrct);
+	if (sa) {
+		/* disable emboss when the area is full,
+		 * unless we need to see division between regions (quad-split for eg) */
+		if (((win->screen->state == SCREENFULL) && (ar->alignment == RGN_ALIGN_NONE)) == 0) {
+			region_draw_emboss(ar, &ar->winrct);
+		}
 	}
 }
 
@@ -568,7 +573,7 @@ void ED_region_tag_refresh_ui(ARegion *ar)
 	}
 }
 
-void ED_region_tag_redraw_partial(ARegion *ar, rcti *rct)
+void ED_region_tag_redraw_partial(ARegion *ar, const rcti *rct)
 {
 	if (ar && !(ar->do_draw & RGN_DRAWING)) {
 		if (!(ar->do_draw & RGN_DRAW)) {
@@ -626,8 +631,8 @@ void ED_area_headerprint(ScrArea *sa, const char *str)
 		if (ar->regiontype == RGN_TYPE_HEADER) {
 			if (str) {
 				if (ar->headerstr == NULL)
-					ar->headerstr = MEM_mallocN(256, "headerprint");
-				BLI_strncpy(ar->headerstr, str, 256);
+					ar->headerstr = MEM_mallocN(UI_MAX_DRAW_STR, "headerprint");
+				BLI_strncpy(ar->headerstr, str, UI_MAX_DRAW_STR);
 			}
 			else if (ar->headerstr) {
 				MEM_freeN(ar->headerstr);
@@ -977,7 +982,7 @@ static void region_azone_add(ScrArea *sa, ARegion *ar, const int alignment, cons
 }
 
 /* dir is direction to check, not the splitting edge direction! */
-static int rct_fits(rcti *rect, char dir, int size)
+static int rct_fits(const rcti *rect, char dir, int size)
 {
 	if (dir == 'h') {
 		return BLI_rcti_size_x(rect) + 1 - size;
@@ -1259,16 +1264,22 @@ static void region_rect_recursive(wmWindow *win, ScrArea *sa, ARegion *ar, rcti 
 	if (ar->flag & (RGN_FLAG_HIDDEN | RGN_FLAG_TOO_SMALL)) {
 		ar->winrct = *remainder;
 		
-		if (alignment == RGN_ALIGN_TOP)
-			ar->winrct.ymin = ar->winrct.ymax;
-		else if (alignment == RGN_ALIGN_BOTTOM)
-			ar->winrct.ymax = ar->winrct.ymin;
-		else if (alignment == RGN_ALIGN_RIGHT)
-			ar->winrct.xmin = ar->winrct.xmax;
-		else if (alignment == RGN_ALIGN_LEFT)
-			ar->winrct.xmax = ar->winrct.xmin;
-		else /* prevent winrct to be valid */
-			ar->winrct.xmax = ar->winrct.xmin;
+		switch (alignment) {
+			case RGN_ALIGN_TOP:
+				ar->winrct.ymin = ar->winrct.ymax;
+				break;
+			case RGN_ALIGN_BOTTOM:
+				ar->winrct.ymax = ar->winrct.ymin;
+				break;
+			case RGN_ALIGN_RIGHT:
+				ar->winrct.xmin = ar->winrct.xmax;
+				break;
+			case RGN_ALIGN_LEFT:
+			default:
+				/* prevent winrct to be valid */
+				ar->winrct.xmax = ar->winrct.xmin;
+				break;
+		}
 	}
 
 	/* restore prev-split exception */
@@ -1324,7 +1335,7 @@ static void area_calc_totrct(ScrArea *sa, int sizex, int sizey)
 
 
 /* used for area initialize below */
-static void region_subwindow(wmWindow *win, ARegion *ar)
+static void region_subwindow(wmWindow *win, ARegion *ar, bool activate)
 {
 	bool hidden = (ar->flag & (RGN_FLAG_HIDDEN | RGN_FLAG_TOO_SMALL)) != 0;
 
@@ -1336,10 +1347,12 @@ static void region_subwindow(wmWindow *win, ARegion *ar)
 			wm_subwindow_close(win, ar->swinid);
 		ar->swinid = 0;
 	}
-	else if (ar->swinid == 0)
-		ar->swinid = wm_subwindow_open(win, &ar->winrct);
-	else 
-		wm_subwindow_position(win, ar->swinid, &ar->winrct);
+	else if (ar->swinid == 0) {
+		ar->swinid = wm_subwindow_open(win, &ar->winrct, activate);
+	}
+	else {
+		wm_subwindow_position(win, ar->swinid, &ar->winrct, activate);
+	}
 }
 
 static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ListBase *handlers, int flag)
@@ -1442,7 +1455,7 @@ void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 	
 	/* region windows, default and own handlers */
 	for (ar = sa->regionbase.first; ar; ar = ar->next) {
-		region_subwindow(win, ar);
+		region_subwindow(win, ar, false);
 		
 		if (ar->swinid) {
 			/* default region handlers */
@@ -1483,11 +1496,21 @@ void ED_region_update_rect(bContext *C, ARegion *ar)
 void ED_region_init(bContext *C, ARegion *ar)
 {
 //	ARegionType *at = ar->type;
-	
+
 	/* refresh can be called before window opened */
-	region_subwindow(CTX_wm_window(C), ar);
-	
+	region_subwindow(CTX_wm_window(C), ar, false);
+
 	region_update_rect(ar);
+}
+
+void ED_region_cursor_set(wmWindow *win, ScrArea *sa, ARegion *ar)
+{
+	if (ar && sa && ar->type && ar->type->cursor) {
+		ar->type->cursor(win, sa, ar);
+	}
+	else {
+		WM_cursor_set(win, CURSOR_STD);
+	}
 }
 
 /* for quick toggle, can skip fades */
@@ -1594,14 +1617,30 @@ void ED_area_swapspace(bContext *C, ScrArea *sa1, ScrArea *sa2)
 	ED_area_tag_refresh(sa2);
 }
 
-void ED_area_newspace(bContext *C, ScrArea *sa, int type)
+/**
+ * \param skip_ar_exit  Skip calling area exit callback. Set for opening temp spaces.
+ */
+void ED_area_newspace(bContext *C, ScrArea *sa, int type, const bool skip_ar_exit)
 {
 	if (sa->spacetype != type) {
 		SpaceType *st;
 		SpaceLink *slold;
 		SpaceLink *sl;
+		/* store sa->type->exit callback */
+		void *sa_exit = sa->type ? sa->type->exit : NULL;
+
+		/* in some cases (opening temp space) we don't want to
+		 * call area exit callback, so we temporarily unset it */
+		if (skip_ar_exit && sa->type) {
+			sa->type->exit = NULL;
+		}
 
 		ED_area_exit(C, sa);
+
+		/* restore old area exit callback */
+		if (skip_ar_exit && sa->type) {
+			sa->type->exit = sa_exit;
+		}
 
 		st = BKE_spacetype_from_id(type);
 		slold = sa->spacedata.first;
@@ -1669,12 +1708,12 @@ void ED_area_prevspace(bContext *C, ScrArea *sa)
 	SpaceLink *sl = sa->spacedata.first;
 
 	if (sl && sl->next) {
-		/* workaround for case of double prevspace, render window
-		 * with a file browser on top of it */
-		if (sl->next->spacetype == SPACE_FILE && sl->next->next)
-			ED_area_newspace(C, sa, sl->next->next->spacetype);
-		else
-			ED_area_newspace(C, sa, sl->next->spacetype);
+		ED_area_newspace(C, sa, sl->next->spacetype, false);
+
+		/* keep old spacedata but move it to end, so calling
+		 * ED_area_prevspace once more won't open it again */
+		BLI_remlink(&sa->spacedata, sl);
+		BLI_addtail(&sa->spacedata, sl);
 	}
 	else {
 		/* no change */
@@ -1706,7 +1745,7 @@ int ED_area_header_switchbutton(const bContext *C, uiBlock *block, int yco)
 
 /************************ standard UI regions ************************/
 
-void ED_region_panels(const bContext *C, ARegion *ar, int vertical, const char *context, int contextnr)
+void ED_region_panels(const bContext *C, ARegion *ar, const char *context, int contextnr, const bool vertical)
 {
 	ScrArea *sa = CTX_wm_area(C);
 	uiStyle *style = UI_style_get_dpi();
@@ -1720,7 +1759,7 @@ void ED_region_panels(const bContext *C, ARegion *ar, int vertical, const char *
 	int redo;
 	int scroll;
 
-	bool use_category_tabs = (ar->regiontype == RGN_TYPE_TOOLS);  /* XXX, should use some better check? */
+	bool use_category_tabs = (ELEM(ar->regiontype, RGN_TYPE_TOOLS, RGN_TYPE_UI));  /* XXX, should use some better check? */
 	/* offset panels for small vertical tab area */
 	const char *category = NULL;
 	const int category_tabs_width = UI_PANEL_CATEGORY_MARGIN_WIDTH;
@@ -1918,7 +1957,7 @@ void ED_region_panels(const bContext *C, ARegion *ar, int vertical, const char *
 		UI_view2d_view_restore(C);
 		glEnable(GL_BLEND);
 		UI_ThemeColor4((ar->type->regionid == RGN_TYPE_PREVIEW) ? TH_PREVIEW_BACK : TH_BACK);
-		GPURecti(0, 0, BLI_rcti_size_x(&ar->winrct), BLI_rcti_size_y(&ar->winrct));
+		GPURecti(0, 0, BLI_rcti_size_x(&ar->winrct), BLI_rcti_size_y(&ar->winrct) + 1);
 		glDisable(GL_BLEND);
 	}
 	else {
@@ -1926,6 +1965,8 @@ void ED_region_panels(const bContext *C, ARegion *ar, int vertical, const char *
 		glClear(GL_COLOR_BUFFER_BIT);
 	}
 	
+	/* reset line width for drawing tabs */
+	glLineWidth(1.0f);
 
 	/* set the view */
 	UI_view2d_view_ortho(v2d);
@@ -2020,7 +2061,7 @@ int ED_area_headersize(void)
 	return (int)(HEADERY * UI_DPI_FAC);
 }
 
-void ED_region_info_draw(ARegion *ar, const char *text, int block, float fill_color[4])
+void ED_region_info_draw(ARegion *ar, const char *text, float fill_color[4], const bool full_redraw)
 {
 	const int header_height = UI_UNIT_Y;
 	uiStyle *style = UI_style_get_dpi();
@@ -2033,7 +2074,7 @@ void ED_region_info_draw(ARegion *ar, const char *text, int block, float fill_co
 	rect.ymin = BLI_rcti_size_y(&ar->winrct) - header_height;
 
 	/* box fill entire width or just around text */
-	if (!block)
+	if (!full_redraw)
 		rect.xmax = min_ii(rect.xmax, rect.xmin + BLF_width(fontid, text, BLF_DRAW_STR_DUMMY_MAX) + 1.2f * U.widget_unit);
 
 	rect.ymax = BLI_rcti_size_y(&ar->winrct);
@@ -2069,9 +2110,9 @@ static const char *meta_data_list[] =
 {
 	"File",
 	"Strip",
-	"Note",
 	"Date",
 	"RenderTime",
+	"Note",
 	"Marker",
 	"Time",
 	"Frame",
@@ -2084,7 +2125,7 @@ BLI_INLINE bool metadata_is_valid(ImBuf *ibuf, char *r_str, short index, int off
 	return (IMB_metadata_get_field(ibuf, meta_data_list[index], r_str + offset, MAX_METADATA_STR - offset) && r_str[0]);
 }
 
-static void metadata_draw_imbuf(ImBuf *ibuf, rctf rect, int fontid, const bool is_top)
+static void metadata_draw_imbuf(ImBuf *ibuf, const rctf *rect, int fontid, const bool is_top)
 {
 	char temp_str[MAX_METADATA_STR];
 	int line_width;
@@ -2092,7 +2133,15 @@ static void metadata_draw_imbuf(ImBuf *ibuf, rctf rect, int fontid, const bool i
 	short i;
 	int len;
 	const float height = BLF_height_max(fontid);
-	const float vertical_offset = height + (0.1f * U.widget_unit);
+	const float margin = height / 8;
+	const float vertical_offset = (height + margin);
+
+	/* values taking margins into account */
+	const float descender = BLF_descender(fontid);
+	const float xmin = (rect->xmin + margin);
+	const float xmax = (rect->xmax - margin);
+	const float ymin = (rect->ymin + margin) - descender;
+	const float ymax = (rect->ymax - margin) - descender;
 
 	if (is_top) {
 		for (i = 0; i < 4; i++) {
@@ -2101,8 +2150,7 @@ static void metadata_draw_imbuf(ImBuf *ibuf, rctf rect, int fontid, const bool i
 				bool do_newline = false;
 				len = BLI_snprintf_rlen(temp_str, MAX_METADATA_STR, "%s: ", meta_data_list[0]);
 				if (metadata_is_valid(ibuf, temp_str, 0, len)) {
-					BLF_position(fontid, rect.xmin + (0.2f * U.widget_unit),
-					             rect.ymax - vertical_offset, 0.0f);
+					BLF_position(fontid, xmin, ymax - vertical_offset, 0.0f);
 					BLF_draw(fontid, temp_str, BLF_DRAW_STR_DUMMY_MAX);
 					do_newline = true;
 				}
@@ -2110,30 +2158,40 @@ static void metadata_draw_imbuf(ImBuf *ibuf, rctf rect, int fontid, const bool i
 				len = BLI_snprintf_rlen(temp_str, MAX_METADATA_STR, "%s: ", meta_data_list[1]);
 				if (metadata_is_valid(ibuf, temp_str, 1, len)) {
 					line_width = BLF_width(fontid, temp_str, BLF_DRAW_STR_DUMMY_MAX);
-					BLF_position(fontid, rect.xmax - line_width - (0.2f * U.widget_unit),
-					             rect.ymax - vertical_offset, 0.0f);
+					BLF_position(fontid, xmax - line_width, ymax - vertical_offset, 0.0f);
 					BLF_draw(fontid, temp_str, BLF_DRAW_STR_DUMMY_MAX);
 					do_newline = true;
 				}
 
 				if (do_newline)
 					ofs_y += vertical_offset;
-			}
-			else if (i == 1) {
+			} /* Strip */
+			else if (i == 1 || i == 2) {
 				len = BLI_snprintf_rlen(temp_str, MAX_METADATA_STR, "%s: ", meta_data_list[i + 1]);
 				if (metadata_is_valid(ibuf, temp_str, i + 1, len)) {
-					BLF_position(fontid, rect.xmin + (0.2f * U.widget_unit),
-					             rect.ymax - vertical_offset - ofs_y, 0.0f);
+					BLF_position(fontid, xmin, ymax - vertical_offset - ofs_y, 0.0f);
 					BLF_draw(fontid, temp_str, BLF_DRAW_STR_DUMMY_MAX);
 					ofs_y += vertical_offset;
+				}
+			} /* Note (wrapped) */
+			else if (i == 3) {
+				len = BLI_snprintf_rlen(temp_str, MAX_METADATA_STR, "%s: ", meta_data_list[i + 1]);
+				if (metadata_is_valid(ibuf, temp_str, i + 1, len)) {
+					struct ResultBLF info;
+					BLF_enable(fontid, BLF_WORD_WRAP);
+					BLF_wordwrap(fontid, ibuf->x - (margin * 2));
+					BLF_position(fontid, xmin, ymax - vertical_offset - ofs_y, 0.0f);
+					BLF_draw_ex(fontid, temp_str, BLF_DRAW_STR_DUMMY_MAX, &info);
+					BLF_wordwrap(fontid, 0);
+					BLF_disable(fontid, BLF_WORD_WRAP);
+					ofs_y += vertical_offset * info.lines;
 				}
 			}
 			else {
 				len = BLI_snprintf_rlen(temp_str, MAX_METADATA_STR, "%s: ", meta_data_list[i + 1]);
 				if (metadata_is_valid(ibuf, temp_str, i + 1, len)) {
 					line_width = BLF_width(fontid, temp_str, BLF_DRAW_STR_DUMMY_MAX);
-					BLF_position(fontid, rect.xmax  - line_width -  (0.2f * U.widget_unit),
-					             rect.ymax - vertical_offset - ofs_y, 0.0f);
+					BLF_position(fontid, xmax  - line_width, ymax - vertical_offset - ofs_y, 0.0f);
 					BLF_draw(fontid, temp_str, BLF_DRAW_STR_DUMMY_MAX);
 					ofs_y += vertical_offset;
 				}
@@ -2145,8 +2203,7 @@ static void metadata_draw_imbuf(ImBuf *ibuf, rctf rect, int fontid, const bool i
 		for (i = 5; i < 10; i++) {
 			len = BLI_snprintf_rlen(temp_str, MAX_METADATA_STR, "%s: ", meta_data_list[i]);
 			if (metadata_is_valid(ibuf, temp_str, i, len)) {
-				BLF_position(fontid, rect.xmin + (0.2f * U.widget_unit) + ofs_x,
-				             rect.ymin + (0.3f * U.widget_unit), 0.0f);
+				BLF_position(fontid, xmin + ofs_x, ymin, 0.0f);
 				BLF_draw(fontid, temp_str, BLF_DRAW_STR_DUMMY_MAX);
 	
 				ofs_x += BLF_width(fontid, temp_str, BLF_DRAW_STR_DUMMY_MAX) + UI_UNIT_X;
@@ -2157,9 +2214,10 @@ static void metadata_draw_imbuf(ImBuf *ibuf, rctf rect, int fontid, const bool i
 
 static float metadata_box_height_get(ImBuf *ibuf, int fontid, const bool is_top)
 {
-	char str[MAX_METADATA_STR];
+	const float height = BLF_height_max(fontid);
+	const float margin = (height / 8);
+	char str[MAX_METADATA_STR] = "";
 	short i, count = 0;
-	const float height = BLF_height_max(fontid) + 0.1f * U.widget_unit;
 
 	if (is_top) {
 		if (metadata_is_valid(ibuf, str, 0, 0) || metadata_is_valid(ibuf, str, 1, 0)) {
@@ -2167,7 +2225,23 @@ static float metadata_box_height_get(ImBuf *ibuf, int fontid, const bool is_top)
 		}
 		for (i = 2; i < 5; i++) {
 			if (metadata_is_valid(ibuf, str, i, 0)) {
-				count++;
+				if (i == 4) {
+					struct {
+						struct ResultBLF info;
+						rctf rect;
+					} wrap;
+
+					BLF_enable(fontid, BLF_WORD_WRAP);
+					BLF_wordwrap(fontid, ibuf->x - (margin * 2));
+					BLF_boundbox_ex(fontid, str, sizeof(str), &wrap.rect, &wrap.info);
+					BLF_wordwrap(fontid, 0);
+					BLF_disable(fontid, BLF_WORD_WRAP);
+
+					count += wrap.info.lines;
+				}
+				else {
+					count++;
+				}
 			}
 		}
 	}
@@ -2180,7 +2254,7 @@ static float metadata_box_height_get(ImBuf *ibuf, int fontid, const bool is_top)
 	}
 
 	if (count) {
-		return (height * count + (0.1f * U.widget_unit));
+		return (height + margin) * count;
 	}
 
 	return 0;
@@ -2188,7 +2262,7 @@ static float metadata_box_height_get(ImBuf *ibuf, int fontid, const bool is_top)
 
 #undef MAX_METADATA_STR
 
-void ED_region_image_metadata_draw(int x, int y, ImBuf *ibuf, rctf frame, float zoomx, float zoomy)
+void ED_region_image_metadata_draw(int x, int y, ImBuf *ibuf, const rctf *frame, float zoomx, float zoomy)
 {
 	float box_y;
 	rctf rect;
@@ -2204,7 +2278,7 @@ void ED_region_image_metadata_draw(int x, int y, ImBuf *ibuf, rctf frame, float 
 	glTranslatef(x, y, 0.0f);
 	glScalef(zoomx, zoomy, 1.0f);
 
-	BLF_size(blf_mono_font, style->widgetlabel.points * 1.5f, U.dpi);
+	BLF_size(blf_mono_font, style->widgetlabel.points * 1.5f * U.pixelsize, U.dpi);
 
 	/* *** upper box*** */
 
@@ -2215,7 +2289,7 @@ void ED_region_image_metadata_draw(int x, int y, ImBuf *ibuf, rctf frame, float 
 		UI_ThemeColor(TH_METADATA_BG);
 
 		/* set up rect */
-		BLI_rctf_init(&rect, frame.xmin, frame.xmax, frame.ymax, frame.ymax + box_y);
+		BLI_rctf_init(&rect, frame->xmin, frame->xmax, frame->ymax, frame->ymax + box_y);
 		/* draw top box */
 		GPURectf(rect.xmin, rect.ymin, rect.xmax, rect.ymax);
 
@@ -2223,7 +2297,7 @@ void ED_region_image_metadata_draw(int x, int y, ImBuf *ibuf, rctf frame, float 
 		BLF_enable(blf_mono_font, BLF_CLIPPING);
 
 		UI_ThemeColor(TH_METADATA_TEXT);
-		metadata_draw_imbuf(ibuf, rect, blf_mono_font, true);
+		metadata_draw_imbuf(ibuf, &rect, blf_mono_font, true);
 
 		BLF_disable(blf_mono_font, BLF_CLIPPING);
 	}
@@ -2237,7 +2311,7 @@ void ED_region_image_metadata_draw(int x, int y, ImBuf *ibuf, rctf frame, float 
 		UI_ThemeColor(TH_METADATA_BG);
 
 		/* set up box rect */
-		BLI_rctf_init(&rect, frame.xmin, frame.xmax, frame.ymin - box_y, frame.ymin);
+		BLI_rctf_init(&rect, frame->xmin, frame->xmax, frame->ymin - box_y, frame->ymin);
 		/* draw top box */
 		GPURectf(rect.xmin, rect.ymin, rect.xmax, rect.ymax);
 
@@ -2245,7 +2319,7 @@ void ED_region_image_metadata_draw(int x, int y, ImBuf *ibuf, rctf frame, float 
 		BLF_enable(blf_mono_font, BLF_CLIPPING);
 
 		UI_ThemeColor(TH_METADATA_TEXT);
-		metadata_draw_imbuf(ibuf, rect, blf_mono_font, false);
+		metadata_draw_imbuf(ibuf, &rect, blf_mono_font, false);
 
 		BLF_disable(blf_mono_font, BLF_CLIPPING);
 	}

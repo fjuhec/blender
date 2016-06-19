@@ -52,6 +52,7 @@ class btBroadphaseInterface;
 struct btDbvtBroadphase;
 class btOverlappingPairCache;
 class btIDebugDraw;
+class btDynamicsWorld;
 class PHY_IVehicle;
 class CcdOverlapFilterCallBack;
 class CcdShapeConstructionInfo;
@@ -65,6 +66,9 @@ class CcdPhysicsEnvironment : public PHY_IPhysicsEnvironment
 {
 	friend class CcdOverlapFilterCallBack;
 	btVector3 m_gravity;
+
+	// Removes the constraint and his references from the owner and the target.
+	void RemoveConstraint(btTypedConstraint *con);
 
 protected:
 	btIDebugDraw*	m_debugDrawer;
@@ -86,6 +90,11 @@ protected:
 	int	m_solverType;
 	int	m_profileTimings;
 	bool m_enableSatCollisionDetection;
+
+	float m_deactivationTime;
+	float m_linearDeactivationThreshold;
+	float m_angularDeactivationThreshold;
+	float m_contactBreakingThreshold;
 
 	void	ProcessFhSprings(double curTime,float timeStep);
 
@@ -129,6 +138,14 @@ protected:
 		/// Perform an integration step of duration 'timeStep'.
 		virtual	bool		ProceedDeltaTime(double curTime,float timeStep,float interval);
 
+		/**
+		 * Called by Bullet for every physical simulation (sub)tick.
+		 * Our constructor registers this callback to Bullet, which stores a pointer to 'this' in
+		 * the btDynamicsWorld::getWorldUserInfo() pointer.
+		 */
+		static void StaticSimulationSubtickCallback(btDynamicsWorld *world, btScalar timeStep);
+		void SimulationSubtickCallback(btScalar timeStep);
+
 		virtual void		DebugDrawWorld();
 //		virtual bool		proceedDeltaTimeOneStep(float timeStep);
 
@@ -171,7 +188,7 @@ protected:
 		
 		virtual float	GetConstraintParam(int constraintId,int param);
 
-		virtual void		RemoveConstraint(int	constraintid);
+		virtual void RemoveConstraintById(int constraintid);
 
 		virtual float		getAppliedImpulse(int	constraintid);
 
@@ -194,7 +211,7 @@ protected:
 		btTypedConstraint*	GetConstraintById(int constraintId);
 
 		virtual PHY_IPhysicsController* RayTest(PHY_IRayCastFilterCallback &filterCallback, float fromX,float fromY,float fromZ, float toX,float toY,float toZ);
-		virtual bool CullingTest(PHY_CullingCallback callback, void* userData, MT_Vector4* planes, int nplanes, int occlusionRes, const int *viewport, double modelview[16], double projection[16]);
+		virtual bool CullingTest(PHY_CullingCallback callback, void* userData, MT_Vector4* planes, int nplanes, int occlusionRes, const int *viewport, float modelview[16], float projection[16]);
 
 
 		//Methods for gamelogic collision/physics callbacks
@@ -291,7 +308,6 @@ protected:
 		
 
 		std::set<CcdPhysicsController*> m_controllers;
-		std::set<CcdPhysicsController*> m_triggerControllers;
 
 		PHY_ResponseCallback	m_triggerCallbacks[PHY_NUM_RESPONSE];
 		void*			m_triggerCallbacksUserPtrs[PHY_NUM_RESPONSE];

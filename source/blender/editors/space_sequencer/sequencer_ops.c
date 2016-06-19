@@ -77,11 +77,14 @@ void sequencer_operatortypes(void)
 	WM_operatortype_append(SEQUENCER_OT_swap_data);
 	WM_operatortype_append(SEQUENCER_OT_rendersize);
 
+	WM_operatortype_append(SEQUENCER_OT_export_subtitles);
+
 	WM_operatortype_append(SEQUENCER_OT_copy);
 	WM_operatortype_append(SEQUENCER_OT_paste);
 
 	WM_operatortype_append(SEQUENCER_OT_view_all);
 	WM_operatortype_append(SEQUENCER_OT_view_selected);
+	WM_operatortype_append(SEQUENCER_OT_view_frame);
 	WM_operatortype_append(SEQUENCER_OT_view_all_preview);
 	WM_operatortype_append(SEQUENCER_OT_view_toggle);
 	WM_operatortype_append(SEQUENCER_OT_view_zoom_ratio);
@@ -121,6 +124,7 @@ void sequencer_operatortypes(void)
 	WM_operatortype_append(SEQUENCER_OT_strip_modifier_add);
 	WM_operatortype_append(SEQUENCER_OT_strip_modifier_remove);
 	WM_operatortype_append(SEQUENCER_OT_strip_modifier_move);
+	WM_operatortype_append(SEQUENCER_OT_strip_modifier_copy);
 
 	/* sequencer_view.h */
 	WM_operatortype_append(SEQUENCER_OT_sample);
@@ -199,6 +203,7 @@ void sequencer_keymap(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "SEQUENCER_OT_view_all", HOMEKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_item(keymap, "SEQUENCER_OT_view_all", NDOF_BUTTON_FIT, KM_PRESS, 0, 0);
 	WM_keymap_add_item(keymap, "SEQUENCER_OT_view_selected", PADPERIOD, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "SEQUENCER_OT_view_frame", PAD0, KM_PRESS, 0, 0);
 
 	kmi = WM_keymap_add_item(keymap, "SEQUENCER_OT_strip_jump", PAGEUPKEY, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "next", true);

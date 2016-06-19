@@ -145,11 +145,12 @@
 #include "BLI_mempool.h"
 
 #include "BKE_action.h"
-#include "BKE_blender.h"
+#include "BKE_blender_version.h"
 #include "BKE_bpath.h"
 #include "BKE_curve.h"
 #include "BKE_constraint.h"
 #include "BKE_global.h" // for G
+#include "BKE_idcode.h"
 #include "BKE_library.h" // for  set_listbasepointers
 #include "BKE_main.h"
 #include "BKE_node.h"
@@ -291,11 +292,10 @@ static void ww_handle_init(eWriteWrapType ww_type, WriteWrap *r_ww)
 typedef struct {
 	struct SDNA *sdna;
 
-	int file;
 	unsigned char *buf;
 	MemFile *compare, *current;
 	
-	int tot, count, error, memsize;
+	int tot, count, error;
 
 	/* Wrap writing, so we can use zlib or
 	 * other compression types later, see: G_FILE_COMPRESS
@@ -407,7 +407,7 @@ static void mywrite(WriteData *wd, const void *adr, int len)
 
 /**
  * BeGiN initializer for mywrite
- * \param file File descriptor
+ * \param ww: File write wrapper.
  * \param compare Previous memory file (can be NULL).
  * \param current The current memory file (can be NULL).
  * \warning Talks to other functions with global parameters
@@ -588,6 +588,41 @@ void IDP_WriteProperty(IDProperty *prop, void *wd)
 	IDP_WriteProperty_OnlyData(prop, wd);
 }
 
+static void write_iddata(void *wd, ID *id)
+{
+	/* ID_WM's id->properties are considered runtime only, and never written in .blend file. */
+	if (id->properties && !ELEM(GS(id->name), ID_WM)) {
+		IDP_WriteProperty(id->properties, wd);
+	}
+}
+
+static void write_previews(WriteData *wd, PreviewImage *prv)
+{
+	/* Never write previews when doing memsave (i.e. undo/redo)! */
+	if (prv && !wd->current) {
+		short w = prv->w[1];
+		short h = prv->h[1];
+		unsigned int *rect = prv->rect[1];
+
+		/* don't write out large previews if not requested */
+		if (!(U.flag & USER_SAVE_PREVIEWS)) {
+			prv->w[1] = 0;
+			prv->h[1] = 0;
+			prv->rect[1] = NULL;
+		}
+		writestruct(wd, DATA, "PreviewImage", 1, prv);
+		if (prv->rect[0]) writedata(wd, DATA, prv->w[0] * prv->h[0] * sizeof(unsigned int), prv->rect[0]);
+		if (prv->rect[1]) writedata(wd, DATA, prv->w[1] * prv->h[1] * sizeof(unsigned int), prv->rect[1]);
+
+		/* restore preview, we still want to keep it in memory even if not saved to file */
+		if (!(U.flag & USER_SAVE_PREVIEWS) ) {
+			prv->w[1] = w;
+			prv->h[1] = h;
+			prv->rect[1] = rect;
+		}
+	}
+}
+
 static void write_fmodifiers(WriteData *wd, ListBase *fmodifiers)
 {
 	FModifier *fcm;
@@ -613,8 +648,9 @@ static void write_fmodifiers(WriteData *wd, ListBase *fmodifiers)
 					/* write coefficients array */
 					if (data->coefficients)
 						writedata(wd, DATA, sizeof(float)*(data->arraysize), data->coefficients);
-				}
+
 					break;
+				}
 				case FMODIFIER_TYPE_ENVELOPE:
 				{
 					FMod_Envelope *data= (FMod_Envelope *)fcm->data;
@@ -622,8 +658,9 @@ static void write_fmodifiers(WriteData *wd, ListBase *fmodifiers)
 					/* write envelope data */
 					if (data->data)
 						writestruct(wd, DATA, "FCM_EnvelopeData", data->totvert, data->data);
-				}
+
 					break;
+				}
 				case FMODIFIER_TYPE_PYTHON:
 				{
 					FMod_Python *data = (FMod_Python *)fcm->data;
@@ -631,8 +668,9 @@ static void write_fmodifiers(WriteData *wd, ListBase *fmodifiers)
 					/* Write ID Properties -- and copy this comment EXACTLY for easy finding
 					 * of library blocks that implement this.*/
 					IDP_WriteProperty(data->prop, wd);
-				}
+
 					break;
+				}
 			}
 		}
 	}
@@ -686,8 +724,8 @@ static void write_actions(WriteData *wd, ListBase *idbase)
 	for (act=idbase->first; act; act= act->id.next) {
 		if (act->id.us>0 || wd->current) {
 			writestruct(wd, ID_AC, "bAction", 1, act);
-			if (act->id.properties) IDP_WriteProperty(act->id.properties, wd);
-			
+			write_iddata(wd, &act->id);
+
 			write_fcurves(wd, &act->curves);
 			
 			for (grp=act->groups.first; grp; grp=grp->next) {
@@ -1096,7 +1134,7 @@ static void write_pointcaches(WriteData *wd, ListBase *ptcaches)
 				
 				for (i=0; i<BPHYS_TOT_DATA; i++) {
 					if (pm->data[i] && pm->data_types & (1<<i)) {
-						if (ptcache_data_struct[i][0]=='\0')
+						if (ptcache_data_struct[i][0] == '\0')
 							writedata(wd, DATA, MEM_allocN_len(pm->data[i]), pm->data[i]);
 						else
 							writestruct(wd, DATA, ptcache_data_struct[i], pm->totpoint, pm->data[i]);
@@ -1104,7 +1142,7 @@ static void write_pointcaches(WriteData *wd, ListBase *ptcaches)
 				}
 
 				for (; extra; extra=extra->next) {
-					if (ptcache_extra_struct[extra->type][0]=='\0')
+					if (ptcache_extra_struct[extra->type][0] == '\0')
 						continue;
 					writestruct(wd, DATA, "PTCacheExtra", 1, extra);
 					writestruct(wd, DATA, ptcache_extra_struct[extra->type], extra->totdata, extra->data);
@@ -1125,7 +1163,8 @@ static void write_particlesettings(WriteData *wd, ListBase *idbase)
 		if (part->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_PA, "ParticleSettings", 1, part);
-			if (part->id.properties) IDP_WriteProperty(part->id.properties, wd);
+			write_iddata(wd, &part->id);
+
 			if (part->adt) write_animdata(wd, part->adt);
 			writestruct(wd, DATA, "PartDeflect", 1, part->pd);
 			writestruct(wd, DATA, "PartDeflect", 1, part->pd2);
@@ -1327,9 +1366,6 @@ static void write_actuators(WriteData *wd, ListBase *lb)
 		case ACT_OBJECT:
 			writestruct(wd, DATA, "bObjectActuator", 1, act->data);
 			break;
-		case ACT_IPO:
-			writestruct(wd, DATA, "bIpoActuator", 1, act->data);
-			break;
 		case ACT_PROPERTY:
 			writestruct(wd, DATA, "bPropertyActuator", 1, act->data);
 			break;
@@ -1425,16 +1461,18 @@ static void write_constraints(WriteData *wd, ListBase *conlist)
 					/* Write ID Properties -- and copy this comment EXACTLY for easy finding
 					 * of library blocks that implement this.*/
 					IDP_WriteProperty(data->prop, wd);
-				}
+
 					break;
+				}
 				case CONSTRAINT_TYPE_SPLINEIK: 
 				{
 					bSplineIKConstraint *data = (bSplineIKConstraint *)con->data;
 					
 					/* write points array */
 					writedata(wd, DATA, sizeof(float)*(data->numpoints), data->points);
-				}
+
 					break;
+				}
 			}
 		}
 		
@@ -1639,11 +1677,8 @@ static void write_objects(WriteData *wd, ListBase *idbase)
 		if (ob->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_OB, "Object", 1, ob);
-			
-			/* Write ID Properties -- and copy this comment EXACTLY for easy finding
-			 * of library blocks that implement this.*/
-			if (ob->id.properties) IDP_WriteProperty(ob->id.properties, wd);
-			
+			write_iddata(wd, &ob->id);
+
 			if (ob->adt) write_animdata(wd, ob->adt);
 			
 			/* direct data */
@@ -1693,6 +1728,9 @@ static void write_objects(WriteData *wd, ListBase *idbase)
 			writelist(wd, DATA, "LinkData", &ob->pc_ids);
 			writelist(wd, DATA, "LodLevel", &ob->lodlevels);
 		}
+
+		write_previews(wd, ob->preview);
+
 		ob= ob->id.next;
 	}
 
@@ -1711,7 +1749,7 @@ static void write_vfonts(WriteData *wd, ListBase *idbase)
 		if (vf->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_VF, "VFont", 1, vf);
-			if (vf->id.properties) IDP_WriteProperty(vf->id.properties, wd);
+			write_iddata(wd, &vf->id);
 
 			/* direct data */
 
@@ -1737,8 +1775,8 @@ static void write_keys(WriteData *wd, ListBase *idbase)
 		if (key->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_KE, "Key", 1, key);
-			if (key->id.properties) IDP_WriteProperty(key->id.properties, wd);
-			
+			write_iddata(wd, &key->id);
+
 			if (key->adt) write_animdata(wd, key->adt);
 			
 			/* direct data */
@@ -1765,8 +1803,8 @@ static void write_cameras(WriteData *wd, ListBase *idbase)
 		if (cam->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_CA, "Camera", 1, cam);
-			if (cam->id.properties) IDP_WriteProperty(cam->id.properties, wd);
-			
+			write_iddata(wd, &cam->id);
+
 			if (cam->adt) write_animdata(wd, cam->adt);
 		}
 
@@ -1784,7 +1822,7 @@ static void write_mballs(WriteData *wd, ListBase *idbase)
 		if (mb->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_MB, "MetaBall", 1, mb);
-			if (mb->id.properties) IDP_WriteProperty(mb->id.properties, wd);
+			write_iddata(wd, &mb->id);
 
 			/* direct data */
 			writedata(wd, DATA, sizeof(void *)*mb->totcol, mb->mat);
@@ -1810,10 +1848,10 @@ static void write_curves(WriteData *wd, ListBase *idbase)
 		if (cu->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_CU, "Curve", 1, cu);
-			
+			write_iddata(wd, &cu->id);
+
 			/* direct data */
 			writedata(wd, DATA, sizeof(void *)*cu->totcol, cu->mat);
-			if (cu->id.properties) IDP_WriteProperty(cu->id.properties, wd);
 			if (cu->adt) write_animdata(wd, cu->adt);
 			
 			if (cu->vfont) {
@@ -1901,37 +1939,20 @@ static void write_grid_paint_mask(WriteData *wd, int count, GridPaintMask *grid_
 	}
 }
 
-static void write_customdata(WriteData *wd, ID *id, int count, CustomData *data, int partial_type, int partial_count)
+static void write_customdata(
+        WriteData *wd, ID *id, int count, CustomData *data, CustomDataLayer *layers,
+        int partial_type, int partial_count)
 {
 	int i;
-
-	int nofree_buff[128];
-	int *nofree;
 
 	/* write external customdata (not for undo) */
 	if (data->external && !wd->current)
 		CustomData_external_write(data, id, CD_MASK_MESH, count, 0);
 
-	if (data->totlayer > ARRAY_SIZE(nofree_buff)) {
-		nofree = MEM_mallocN(sizeof(*nofree) * (size_t)data->totlayer, __func__);
-	}
-	else {
-		nofree = nofree_buff;
-	}
-
-	for (i = 0; i < data->totlayer; i++) {
-		nofree[i] = (data->layers[i].flag & CD_FLAG_NOFREE);
-		data->layers[i].flag &= ~CD_FLAG_NOFREE;
-	}
-
-	writestruct(wd, DATA, "CustomDataLayer", data->maxlayer, data->layers);
+	writestruct_at_address(wd, DATA, "CustomDataLayer", data->totlayer, data->layers, layers);
  
 	for (i = 0; i < data->totlayer; i++) {
-		data->layers[i].flag |= nofree[i];
-	}
-
-	for (i = 0; i < data->totlayer; i++) {
-		CustomDataLayer *layer= &data->layers[i];
+		CustomDataLayer *layer = &layers[i];
 		const char *structname;
 		int structnum, datasize;
 
@@ -1969,10 +1990,6 @@ static void write_customdata(WriteData *wd, ID *id, int count, CustomData *data,
 
 	if (data->external)
 		writestruct(wd, DATA, "CustomDataExternal", 1, data->external);
-
-	if (nofree != nofree_buff) {
-		MEM_freeN(nofree);
-	}
 }
 
 static void write_meshes(WriteData *wd, ListBase *idbase)
@@ -1986,6 +2003,12 @@ static void write_meshes(WriteData *wd, ListBase *idbase)
 
 	mesh= idbase->first;
 	while (mesh) {
+		CustomDataLayer *vlayers = NULL, vlayers_buff[CD_TEMP_CHUNK_SIZE];
+		CustomDataLayer *elayers = NULL, elayers_buff[CD_TEMP_CHUNK_SIZE];
+		CustomDataLayer *flayers = NULL, flayers_buff[CD_TEMP_CHUNK_SIZE];
+		CustomDataLayer *llayers = NULL, llayers_buff[CD_TEMP_CHUNK_SIZE];
+		CustomDataLayer *players = NULL, players_buff[CD_TEMP_CHUNK_SIZE];
+
 		if (mesh->id.us>0 || wd->current) {
 			/* write LibData */
 			if (!save_for_old_blender) {
@@ -2002,41 +2025,38 @@ static void write_meshes(WriteData *wd, ListBase *idbase)
 				memset(&mesh->fdata, 0, sizeof(mesh->fdata));
 #endif /* USE_BMESH_SAVE_WITHOUT_MFACE */
 
-				/* Bummer! We need to do the copy *before* writing mesh's struct itself,
-				 * because we eliminate NO_COPY & TEMPORARY layers here, which means
-				 * **number of layers (data.totlayer) may be smaller!**
-				 * If we do not do that, we can get crash by buffer-overflow on reading, see T44461. */
-				CustomData_copy(&old_mesh->vdata, &mesh->vdata, CD_MASK_EVERYTHING, CD_REFERENCE, mesh->totvert);
-				CustomData_copy(&old_mesh->edata, &mesh->edata, CD_MASK_EVERYTHING, CD_REFERENCE, mesh->totedge);
+				/**
+				 * Those calls:
+				 *   - Reduce mesh->xdata.totlayer to number of layers to write.
+				 *   - Fill xlayers with those layers to be written.
+				 * Note that mesh->xdata is from now on invalid for Blender, but this is why the whole mesh is
+				 * a temp local copy!
+				 */
+				CustomData_file_write_prepare(&mesh->vdata, &vlayers, vlayers_buff, ARRAY_SIZE(vlayers_buff));
+				CustomData_file_write_prepare(&mesh->edata, &elayers, elayers_buff, ARRAY_SIZE(elayers_buff));
 #ifndef USE_BMESH_SAVE_WITHOUT_MFACE  /* Do not copy org fdata in this case!!! */
-				CustomData_copy(&old_mesh->fdata, &mesh->fdata, CD_MASK_EVERYTHING, CD_REFERENCE, mesh->totface);
+				CustomData_file_write_prepare(&mesh->fdata, &flayers, flayers_buff, ARRAY_SIZE(flayers_buff));
+#else
+				flayers = flayers_buff;
 #endif
-				CustomData_copy(&old_mesh->ldata, &mesh->ldata, CD_MASK_EVERYTHING, CD_REFERENCE, mesh->totloop);
-				CustomData_copy(&old_mesh->pdata, &mesh->pdata, CD_MASK_EVERYTHING, CD_REFERENCE, mesh->totpoly);
+				CustomData_file_write_prepare(&mesh->ldata, &llayers, llayers_buff, ARRAY_SIZE(llayers_buff));
+				CustomData_file_write_prepare(&mesh->pdata, &players, players_buff, ARRAY_SIZE(players_buff));
 
 				writestruct_at_address(wd, ID_ME, "Mesh", 1, old_mesh, mesh);
+				write_iddata(wd, &mesh->id);
 
 				/* direct data */
-				if (mesh->id.properties) IDP_WriteProperty(mesh->id.properties, wd);
 				if (mesh->adt) write_animdata(wd, mesh->adt);
 
 				writedata(wd, DATA, sizeof(void *)*mesh->totcol, mesh->mat);
 				writedata(wd, DATA, sizeof(MSelect) * mesh->totselect, mesh->mselect);
 
-				write_customdata(wd, &mesh->id, mesh->totvert, &mesh->vdata, -1, 0);
-				write_customdata(wd, &mesh->id, mesh->totedge, &mesh->edata, -1, 0);
+				write_customdata(wd, &mesh->id, mesh->totvert, &mesh->vdata, vlayers, -1, 0);
+				write_customdata(wd, &mesh->id, mesh->totedge, &mesh->edata, elayers, -1, 0);
 				/* fdata is really a dummy - written so slots align */
-				write_customdata(wd, &mesh->id, mesh->totface, &mesh->fdata, -1, 0);
-				write_customdata(wd, &mesh->id, mesh->totloop, &mesh->ldata, -1, 0);
-				write_customdata(wd, &mesh->id, mesh->totpoly, &mesh->pdata, -1, 0);
-
-				CustomData_free(&mesh->vdata, mesh->totvert);
-				CustomData_free(&mesh->edata, mesh->totedge);
-#ifndef USE_BMESH_SAVE_WITHOUT_MFACE
-				CustomData_free(&mesh->fdata, mesh->totface);
-#endif
-				CustomData_free(&mesh->ldata, mesh->totloop);
-				CustomData_free(&mesh->pdata, mesh->totpoly);
+				write_customdata(wd, &mesh->id, mesh->totface, &mesh->fdata, flayers, -1, 0);
+				write_customdata(wd, &mesh->id, mesh->totloop, &mesh->ldata, llayers, -1, 0);
+				write_customdata(wd, &mesh->id, mesh->totpoly, &mesh->pdata, players, -1, 0);
 
 				/* restore pointer */
 				mesh = old_mesh;
@@ -2061,42 +2081,68 @@ static void write_meshes(WriteData *wd, ListBase *idbase)
 				mesh->edit_btmesh = NULL;
 
 				/* now fill in polys to mfaces */
+				/* XXX This breaks writing desing, by using temp allocated memory, which will likely generate
+				 *     duplicates in stored 'old' addresses.
+				 *     This is very bad, but do not see easy way to avoid this, aside from generating those data
+				 *     outside of save process itself.
+				 *     Maybe we can live with this, though?
+				 */
 				mesh->totface = BKE_mesh_mpoly_to_mface(&mesh->fdata, &old_mesh->ldata, &old_mesh->pdata,
 				                                        mesh->totface, old_mesh->totloop, old_mesh->totpoly);
 
 				BKE_mesh_update_customdata_pointers(mesh, false);
 
-				/* See comment above. Note that loop/poly data are ignored here, and face ones are already handled. */
-				CustomData_copy(&old_mesh->vdata, &mesh->vdata, CD_MASK_EVERYTHING, CD_REFERENCE, mesh->totvert);
-				CustomData_copy(&old_mesh->edata, &mesh->edata, CD_MASK_EVERYTHING, CD_REFERENCE, mesh->totedge);
+				CustomData_file_write_prepare(&mesh->vdata, &vlayers, vlayers_buff, ARRAY_SIZE(vlayers_buff));
+				CustomData_file_write_prepare(&mesh->edata, &elayers, elayers_buff, ARRAY_SIZE(elayers_buff));
+				CustomData_file_write_prepare(&mesh->fdata, &flayers, flayers_buff, ARRAY_SIZE(flayers_buff));
+#if 0
+				CustomData_file_write_prepare(&mesh->ldata, &llayers, llayers_buff, ARRAY_SIZE(llayers_buff));
+				CustomData_file_write_prepare(&mesh->pdata, &players, players_buff, ARRAY_SIZE(players_buff));
+#endif
 
 				writestruct_at_address(wd, ID_ME, "Mesh", 1, old_mesh, mesh);
+				write_iddata(wd, &mesh->id);
 
 				/* direct data */
-				if (mesh->id.properties) IDP_WriteProperty(mesh->id.properties, wd);
 				if (mesh->adt) write_animdata(wd, mesh->adt);
 
 				writedata(wd, DATA, sizeof(void *)*mesh->totcol, mesh->mat);
 				/* writedata(wd, DATA, sizeof(MSelect) * mesh->totselect, mesh->mselect); */ /* pre-bmesh NULL's */
 
-				write_customdata(wd, &mesh->id, mesh->totvert, &mesh->vdata, -1, 0);
-				write_customdata(wd, &mesh->id, mesh->totedge, &mesh->edata, -1, 0);
-				write_customdata(wd, &mesh->id, mesh->totface, &mesh->fdata, -1, 0);
+				write_customdata(wd, &mesh->id, mesh->totvert, &mesh->vdata, vlayers, -1, 0);
+				write_customdata(wd, &mesh->id, mesh->totedge, &mesh->edata, elayers, -1, 0);
+				write_customdata(wd, &mesh->id, mesh->totface, &mesh->fdata, flayers, -1, 0);
 				/* harmless for older blender versioins but _not_ writing these keeps file size down */
 #if 0
-				write_customdata(wd, &mesh->id, mesh->totloop, &mesh->ldata, -1, 0);
-				write_customdata(wd, &mesh->id, mesh->totpoly, &mesh->pdata, -1, 0);
+				write_customdata(wd, &mesh->id, mesh->totloop, &mesh->ldata, llayers, -1, 0);
+				write_customdata(wd, &mesh->id, mesh->totpoly, &mesh->pdata, players, -1, 0);
 #endif
 
-				CustomData_free(&mesh->vdata, mesh->totvert);
-				CustomData_free(&mesh->edata, mesh->totedge);
 				CustomData_free(&mesh->fdata, mesh->totface);
+				flayers = NULL;
 
 				/* restore pointer */
 				mesh = old_mesh;
 #endif /* USE_BMESH_SAVE_AS_COMPAT */
 			}
 		}
+
+		if (vlayers && vlayers != vlayers_buff) {
+			MEM_freeN(vlayers);
+		}
+		if (elayers && elayers != elayers_buff) {
+			MEM_freeN(elayers);
+		}
+		if (flayers && flayers != flayers_buff) {
+			MEM_freeN(flayers);
+		}
+		if (llayers && llayers != llayers_buff) {
+			MEM_freeN(llayers);
+		}
+		if (players && players != players_buff) {
+			MEM_freeN(players);
+		}
+
 		mesh= mesh->id.next;
 	}
 }
@@ -2110,8 +2156,8 @@ static void write_lattices(WriteData *wd, ListBase *idbase)
 		if (lt->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_LT, "Lattice", 1, lt);
-			if (lt->id.properties) IDP_WriteProperty(lt->id.properties, wd);
-			
+			write_iddata(wd, &lt->id);
+
 			/* write animdata */
 			if (lt->adt) write_animdata(wd, lt->adt);
 			
@@ -2125,32 +2171,6 @@ static void write_lattices(WriteData *wd, ListBase *idbase)
 	}
 }
 
-static void write_previews(WriteData *wd, PreviewImage *prv)
-{
-	/* Never write previews in undo steps! */
-	if (prv && !wd->current) {
-		short w = prv->w[1];
-		short h = prv->h[1];
-		unsigned int *rect = prv->rect[1];
-		/* don't write out large previews if not requested */
-		if (!(U.flag & USER_SAVE_PREVIEWS)) {
-			prv->w[1] = 0;
-			prv->h[1] = 0;
-			prv->rect[1] = NULL;
-		}
-		writestruct(wd, DATA, "PreviewImage", 1, prv);
-		if (prv->rect[0]) writedata(wd, DATA, prv->w[0]*prv->h[0]*sizeof(unsigned int), prv->rect[0]);
-		if (prv->rect[1]) writedata(wd, DATA, prv->w[1]*prv->h[1]*sizeof(unsigned int), prv->rect[1]);
-
-		/* restore preview, we still want to keep it in memory even if not saved to file */
-		if (!(U.flag & USER_SAVE_PREVIEWS) ) {
-			prv->w[1] = w;
-			prv->h[1] = h;
-			prv->rect[1] = rect;
-		}
-	}
-}
-
 static void write_images(WriteData *wd, ListBase *idbase)
 {
 	Image *ima;
@@ -2161,9 +2181,16 @@ static void write_images(WriteData *wd, ListBase *idbase)
 	ima= idbase->first;
 	while (ima) {
 		if (ima->id.us>0 || wd->current) {
+			/* Some trickery to keep forward compatibility of packed images. */
+			BLI_assert(ima->packedfile == NULL);
+			if (ima->packedfiles.first != NULL) {
+				imapf = ima->packedfiles.first;
+				ima->packedfile = imapf->packedfile;
+			}
+
 			/* write LibData */
 			writestruct(wd, ID_IM, "Image", 1, ima);
-			if (ima->id.properties) IDP_WriteProperty(ima->id.properties, wd);
+			write_iddata(wd, &ima->id);
 
 			for (imapf = ima->packedfiles.first; imapf; imapf = imapf->next) {
 				writestruct(wd, DATA, "ImagePackedFile", 1, imapf);
@@ -2179,6 +2206,8 @@ static void write_images(WriteData *wd, ListBase *idbase)
 			for (iv = ima->views.first; iv; iv = iv->next)
 				writestruct(wd, DATA, "ImageView", 1, iv);
 			writestruct(wd, DATA, "Stereo3dFormat", 1, ima->stereo3d_format);
+
+			ima->packedfile = NULL;
 		}
 		ima= ima->id.next;
 	}
@@ -2195,7 +2224,7 @@ static void write_textures(WriteData *wd, ListBase *idbase)
 		if (tex->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_TE, "Tex", 1, tex);
-			if (tex->id.properties) IDP_WriteProperty(tex->id.properties, wd);
+			write_iddata(wd, &tex->id);
 
 			if (tex->adt) write_animdata(wd, tex->adt);
 
@@ -2235,13 +2264,8 @@ static void write_materials(WriteData *wd, ListBase *idbase)
 		if (ma->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_MA, "Material", 1, ma);
-			
-			/* Write ID Properties -- and copy this comment EXACTLY for easy finding
-			 * of library blocks that implement this.*/
-			/* manually set head group property to IDP_GROUP, just in case it hadn't been
-			 * set yet :) */
-			if (ma->id.properties) IDP_WriteProperty(ma->id.properties, wd);
-			
+			write_iddata(wd, &ma->id);
+
 			if (ma->adt) write_animdata(wd, ma->adt);
 
 			for (a=0; a<MAX_MTEX; a++) {
@@ -2273,8 +2297,8 @@ static void write_worlds(WriteData *wd, ListBase *idbase)
 		if (wrld->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_WO, "World", 1, wrld);
-			if (wrld->id.properties) IDP_WriteProperty(wrld->id.properties, wd);
-			
+			write_iddata(wd, &wrld->id);
+
 			if (wrld->adt) write_animdata(wd, wrld->adt);
 			
 			for (a=0; a<MAX_MTEX; a++) {
@@ -2303,8 +2327,8 @@ static void write_lamps(WriteData *wd, ListBase *idbase)
 		if (la->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_LA, "Lamp", 1, la);
-			if (la->id.properties) IDP_WriteProperty(la->id.properties, wd);
-			
+			write_iddata(wd, &la->id);
+
 			if (la->adt) write_animdata(wd, la->adt);
 			
 			/* direct data */
@@ -2388,8 +2412,8 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 	while (sce) {
 		/* write LibData */
 		writestruct(wd, ID_SCE, "Scene", 1, sce);
-		if (sce->id.properties) IDP_WriteProperty(sce->id.properties, wd);
-		
+		write_iddata(wd, &sce->id);
+
 		if (sce->adt) write_animdata(wd, sce->adt);
 		write_keyingsets(wd, &sce->keyingsets);
 		
@@ -2458,6 +2482,9 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 							break;
 						case SEQ_TYPE_GAUSSIAN_BLUR:
 							writestruct(wd, DATA, "GaussianBlurVars", 1, seq->effectdata);
+							break;
+						case SEQ_TYPE_TEXT:
+							writestruct(wd, DATA, "TextVars", 1, seq->effectdata);
 							break;
 						}
 					}
@@ -2547,6 +2574,9 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 			write_pointcaches(wd, &(sce->rigidbody_world->ptcaches));
 		}
 		
+		write_previews(wd, sce->preview);
+		write_curvemapping_curves(wd, &sce->r.mblur_shutter_curve);
+
 		sce= sce->id.next;
 	}
 	/* flush helps the compression for undo-save */
@@ -2564,7 +2594,8 @@ static void write_gpencils(WriteData *wd, ListBase *lb)
 		if (gpd->id.us>0 || wd->current) {
 			/* write gpd data block to file */
 			writestruct(wd, ID_GD, "bGPdata", 1, gpd);
-			
+			write_iddata(wd, &gpd->id);
+
 			if (gpd->adt) write_animdata(wd, gpd->adt);
 			
 			/* write grease-pencil layers to file */
@@ -2593,7 +2624,8 @@ static void write_windowmanagers(WriteData *wd, ListBase *lb)
 	
 	for (wm= lb->first; wm; wm= wm->id.next) {
 		writestruct(wd, ID_WM, "wmWindowManager", 1, wm);
-		
+		write_iddata(wd, &wm->id);
+
 		for (win= wm->windows.first; win; win= win->next) {
 			writestruct(wd, DATA, "wmWindow", 1, win);
 			writestruct(wd, DATA, "Stereo3dFormat", 1, win->stereo3d_format);
@@ -2693,9 +2725,8 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 		/* write LibData */
 		/* in 2.50+ files, the file identifier for screens is patched, forward compatibility */
 		writestruct(wd, ID_SCRN, "Screen", 1, sc);
-		if (sc->id.properties) 
-			IDP_WriteProperty(sc->id.properties, wd);
-		
+		write_iddata(wd, &sc->id);
+
 		/* direct data */
 		for (sv= sc->vertbase.first; sv; sv= sv->next)
 			writestruct(wd, DATA, "ScrVert", 1, sv);
@@ -2850,58 +2881,6 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 	mywrite(wd, MYWRITE_FLUSH, 0);
 }
 
-static void write_libraries(WriteData *wd, Main *main)
-{
-	ListBase *lbarray[MAX_LIBARRAY];
-	ID *id;
-	int a, tot;
-	bool found_one;
-
-	for (; main; main= main->next) {
-
-		a=tot= set_listbasepointers(main, lbarray);
-
-		/* test: is lib being used */
-		if (main->curlib && main->curlib->packedfile)
-			found_one = true;
-		else {
-			found_one = false;
-			while (tot--) {
-				for (id= lbarray[tot]->first; id; id= id->next) {
-					if (id->us>0 && (id->flag & LIB_EXTERN)) {
-						found_one = true;
-						break;
-					}
-				}
-				if (found_one) break;
-			}
-		}
-		
-		/* to be able to restore quit.blend and temp saves, the packed blend has to be in undo buffers... */
-		/* XXX needs rethink, just like save UI in undo files now - would be nice to append things only for the]
-		 * quit.blend and temp saves */
-		if (found_one) {
-			writestruct(wd, ID_LI, "Library", 1, main->curlib);
-
-			if (main->curlib->packedfile) {
-				PackedFile *pf = main->curlib->packedfile;
-				writestruct(wd, DATA, "PackedFile", 1, pf);
-				writedata(wd, DATA, pf->size, pf->data);
-				if (wd->current == NULL)
-					printf("write packed .blend: %s\n", main->curlib->name);
-			}
-			
-			while (a--) {
-				for (id= lbarray[a]->first; id; id= id->next) {
-					if (id->us>0 && (id->flag & LIB_EXTERN)) {
-						writestruct(wd, ID_ID, "ID", 1, id);
-					}
-				}
-			}
-		}
-	}
-}
-
 static void write_bone(WriteData *wd, Bone *bone)
 {
 	Bone*	cbone;
@@ -2934,7 +2913,7 @@ static void write_armatures(WriteData *wd, ListBase *idbase)
 	while (arm) {
 		if (arm->id.us>0 || wd->current) {
 			writestruct(wd, ID_AR, "bArmature", 1, arm);
-			if (arm->id.properties) IDP_WriteProperty(arm->id.properties, wd);
+			write_iddata(wd, &arm->id);
 
 			if (arm->adt) write_animdata(wd, arm->adt);
 
@@ -2963,8 +2942,9 @@ static void write_texts(WriteData *wd, ListBase *idbase)
 
 		/* write LibData */
 		writestruct(wd, ID_TXT, "Text", 1, text);
+		write_iddata(wd, &text->id);
+
 		if (text->name) writedata(wd, DATA, strlen(text->name)+1, text->name);
-		if (text->id.properties) IDP_WriteProperty(text->id.properties, wd);
 
 		if (!(text->flags & TXT_ISEXT)) {
 			/* now write the text data, in two steps for optimization in the readfunction */
@@ -2998,7 +2978,7 @@ static void write_speakers(WriteData *wd, ListBase *idbase)
 		if (spk->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_SPK, "Speaker", 1, spk);
-			if (spk->id.properties) IDP_WriteProperty(spk->id.properties, wd);
+			write_iddata(wd, &spk->id);
 
 			if (spk->adt) write_animdata(wd, spk->adt);
 		}
@@ -3017,7 +2997,7 @@ static void write_sounds(WriteData *wd, ListBase *idbase)
 		if (sound->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_SO, "bSound", 1, sound);
-			if (sound->id.properties) IDP_WriteProperty(sound->id.properties, wd);
+			write_iddata(wd, &sound->id);
 
 			if (sound->packedfile) {
 				pf = sound->packedfile;
@@ -3041,7 +3021,9 @@ static void write_groups(WriteData *wd, ListBase *idbase)
 		if (group->id.us>0 || wd->current) {
 			/* write LibData */
 			writestruct(wd, ID_GR, "Group", 1, group);
-			if (group->id.properties) IDP_WriteProperty(group->id.properties, wd);
+			write_iddata(wd, &group->id);
+
+			write_previews(wd, group->preview);
 
 			go= group->gobject.first;
 			while (go) {
@@ -3059,11 +3041,11 @@ static void write_nodetrees(WriteData *wd, ListBase *idbase)
 	for (ntree=idbase->first; ntree; ntree= ntree->id.next) {
 		if (ntree->id.us>0 || wd->current) {
 			writestruct(wd, ID_NT, "bNodeTree", 1, ntree);
+			/* Note that trees directly used by other IDs (materials etc.) are not 'real' ID, they cannot
+			 * be linked, etc., so we write actual id data here only, for 'real' ID trees. */
+			write_iddata(wd, &ntree->id);
+
 			write_nodetree(wd, ntree);
-			
-			if (ntree->id.properties) IDP_WriteProperty(ntree->id.properties, wd);
-			
-			if (ntree->adt) write_animdata(wd, ntree->adt);
 		}
 	}
 }
@@ -3142,8 +3124,8 @@ static void write_brushes(WriteData *wd, ListBase *idbase)
 	for (brush=idbase->first; brush; brush= brush->id.next) {
 		if (brush->id.us>0 || wd->current) {
 			writestruct(wd, ID_BR, "Brush", 1, brush);
-			if (brush->id.properties) IDP_WriteProperty(brush->id.properties, wd);
-			
+			write_iddata(wd, &brush->id);
+
 			if (brush->curve)
 				write_curvemapping(wd, brush->curve);
 			if (brush->gradient)
@@ -3160,7 +3142,7 @@ static void write_palettes(WriteData *wd, ListBase *idbase)
 		if (palette->id.us > 0 || wd->current) {
 			PaletteColor *color;
 			writestruct(wd, ID_PAL, "Palette", 1, palette);
-			if (palette->id.properties) IDP_WriteProperty(palette->id.properties, wd);
+			write_iddata(wd, &palette->id);
 
 			for (color = palette->colors.first; color; color= color->next)
 				writestruct(wd, DATA, "PaletteColor", 1, color);
@@ -3175,21 +3157,9 @@ static void write_paintcurves(WriteData *wd, ListBase *idbase)
 	for (pc = idbase->first; pc; pc = pc->id.next) {
 		if (pc->id.us > 0 || wd->current) {
 			writestruct(wd, ID_PC, "PaintCurve", 1, pc);
+			write_iddata(wd, &pc->id);
 
 			writestruct(wd, DATA, "PaintCurvePoint", pc->tot_points, pc->points);
-			if (pc->id.properties) IDP_WriteProperty(pc->id.properties, wd);
-		}
-	}
-}
-
-static void write_scripts(WriteData *wd, ListBase *idbase)
-{
-	Script *script;
-	
-	for (script=idbase->first; script; script= script->id.next) {
-		if (script->id.us>0 || wd->current) {
-			writestruct(wd, ID_SCRIPT, "Script", 1, script);
-			if (script->id.properties) IDP_WriteProperty(script->id.properties, wd);
 		}
 	}
 }
@@ -3239,10 +3209,9 @@ static void write_movieclips(WriteData *wd, ListBase *idbase)
 		if (clip->id.us>0 || wd->current) {
 			MovieTracking *tracking= &clip->tracking;
 			MovieTrackingObject *object;
-			writestruct(wd, ID_MC, "MovieClip", 1, clip);
 
-			if (clip->id.properties)
-				IDP_WriteProperty(clip->id.properties, wd);
+			writestruct(wd, ID_MC, "MovieClip", 1, clip);
+			write_iddata(wd, &clip->id);
 
 			if (clip->adt)
 				write_animdata(wd, clip->adt);
@@ -3280,6 +3249,7 @@ static void write_masks(WriteData *wd, ListBase *idbase)
 			MaskLayer *masklay;
 
 			writestruct(wd, ID_MSK, "Mask", 1, mask);
+			write_iddata(wd, &mask->id);
 
 			if (mask->adt)
 				write_animdata(wd, mask->adt);
@@ -3342,6 +3312,18 @@ static void write_linestyle_color_modifiers(WriteData *wd, ListBase *modifiers)
 		case LS_MODIFIER_MATERIAL:
 			struct_name = "LineStyleColorModifier_Material";
 			break;
+		case LS_MODIFIER_TANGENT:
+			struct_name = "LineStyleColorModifier_Tangent";
+			break;
+		case LS_MODIFIER_NOISE:
+			struct_name = "LineStyleColorModifier_Noise";
+			break;
+		case LS_MODIFIER_CREASE_ANGLE:
+			struct_name = "LineStyleColorModifier_CreaseAngle";
+			break;
+		case LS_MODIFIER_CURVATURE_3D:
+			struct_name = "LineStyleColorModifier_Curvature_3D";
+			break;
 		default:
 			struct_name = "LineStyleColorModifier"; /* this should not happen */
 		}
@@ -3360,6 +3342,18 @@ static void write_linestyle_color_modifiers(WriteData *wd, ListBase *modifiers)
 			break;
 		case LS_MODIFIER_MATERIAL:
 			writestruct(wd, DATA, "ColorBand", 1, ((LineStyleColorModifier_Material *)m)->color_ramp);
+			break;
+		case LS_MODIFIER_TANGENT:
+			writestruct(wd, DATA, "ColorBand", 1, ((LineStyleColorModifier_Tangent *)m)->color_ramp);
+			break;
+		case LS_MODIFIER_NOISE:
+			writestruct(wd, DATA, "ColorBand", 1, ((LineStyleColorModifier_Noise *)m)->color_ramp);
+			break;
+		case LS_MODIFIER_CREASE_ANGLE:
+			writestruct(wd, DATA, "ColorBand", 1, ((LineStyleColorModifier_CreaseAngle *)m)->color_ramp);
+			break;
+		case LS_MODIFIER_CURVATURE_3D:
+			writestruct(wd, DATA, "ColorBand", 1, ((LineStyleColorModifier_Curvature_3D *)m)->color_ramp);
 			break;
 		}
 	}
@@ -3384,6 +3378,18 @@ static void write_linestyle_alpha_modifiers(WriteData *wd, ListBase *modifiers)
 		case LS_MODIFIER_MATERIAL:
 			struct_name = "LineStyleAlphaModifier_Material";
 			break;
+		case LS_MODIFIER_TANGENT:
+			struct_name = "LineStyleAlphaModifier_Tangent";
+			break;
+		case LS_MODIFIER_NOISE:
+			struct_name = "LineStyleAlphaModifier_Noise";
+			break;
+		case LS_MODIFIER_CREASE_ANGLE:
+			struct_name = "LineStyleAlphaModifier_CreaseAngle";
+			break;
+		case LS_MODIFIER_CURVATURE_3D:
+			struct_name = "LineStyleAlphaModifier_Curvature_3D";
+			break;
 		default:
 			struct_name = "LineStyleAlphaModifier"; /* this should not happen */
 		}
@@ -3402,6 +3408,18 @@ static void write_linestyle_alpha_modifiers(WriteData *wd, ListBase *modifiers)
 			break;
 		case LS_MODIFIER_MATERIAL:
 			write_curvemapping(wd, ((LineStyleAlphaModifier_Material *)m)->curve);
+			break;
+		case LS_MODIFIER_TANGENT:
+			write_curvemapping(wd, ((LineStyleAlphaModifier_Tangent *)m)->curve);
+			break;
+		case LS_MODIFIER_NOISE:
+			write_curvemapping(wd, ((LineStyleAlphaModifier_Noise *)m)->curve);
+			break;
+		case LS_MODIFIER_CREASE_ANGLE:
+			write_curvemapping(wd, ((LineStyleAlphaModifier_CreaseAngle *)m)->curve);
+			break;
+		case LS_MODIFIER_CURVATURE_3D:
+			write_curvemapping(wd, ((LineStyleAlphaModifier_Curvature_3D *)m)->curve);
 			break;
 		}
 	}
@@ -3429,6 +3447,18 @@ static void write_linestyle_thickness_modifiers(WriteData *wd, ListBase *modifie
 		case LS_MODIFIER_CALLIGRAPHY:
 			struct_name = "LineStyleThicknessModifier_Calligraphy";
 			break;
+		case LS_MODIFIER_TANGENT:
+			struct_name = "LineStyleThicknessModifier_Tangent";
+			break;
+		case LS_MODIFIER_NOISE:
+			struct_name = "LineStyleThicknessModifier_Noise";
+			break;
+		case LS_MODIFIER_CREASE_ANGLE:
+			struct_name = "LineStyleThicknessModifier_CreaseAngle";
+			break;
+		case LS_MODIFIER_CURVATURE_3D:
+			struct_name = "LineStyleThicknessModifier_Curvature_3D";
+			break;
 		default:
 			struct_name = "LineStyleThicknessModifier"; /* this should not happen */
 		}
@@ -3447,6 +3477,15 @@ static void write_linestyle_thickness_modifiers(WriteData *wd, ListBase *modifie
 			break;
 		case LS_MODIFIER_MATERIAL:
 			write_curvemapping(wd, ((LineStyleThicknessModifier_Material *)m)->curve);
+			break;
+		case LS_MODIFIER_TANGENT:
+			write_curvemapping(wd, ((LineStyleThicknessModifier_Tangent *)m)->curve);
+			break;
+		case LS_MODIFIER_CREASE_ANGLE:
+			write_curvemapping(wd, ((LineStyleThicknessModifier_CreaseAngle *)m)->curve);
+			break;
+		case LS_MODIFIER_CURVATURE_3D:
+			write_curvemapping(wd, ((LineStyleThicknessModifier_Curvature_3D *)m)->curve);
 			break;
 		}
 	}
@@ -3498,6 +3537,9 @@ static void write_linestyle_geometry_modifiers(WriteData *wd, ListBase *modifier
 		case LS_MODIFIER_2D_TRANSFORM:
 			struct_name = "LineStyleGeometryModifier_2DTransform";
 			break;
+		case LS_MODIFIER_SIMPLIFICATION:
+			struct_name = "LineStyleGeometryModifier_Simplification";
+			break;
 		default:
 			struct_name = "LineStyleGeometryModifier"; /* this should not happen */
 		}
@@ -3513,8 +3555,8 @@ static void write_linestyles(WriteData *wd, ListBase *idbase)
 	for (linestyle = idbase->first; linestyle; linestyle = linestyle->id.next) {
 		if (linestyle->id.us>0 || wd->current) {
 			writestruct(wd, ID_LS, "FreestyleLineStyle", 1, linestyle);
-			if (linestyle->id.properties)
-				IDP_WriteProperty(linestyle->id.properties, wd);
+			write_iddata(wd, &linestyle->id);
+
 			if (linestyle->adt)
 				write_animdata(wd, linestyle->adt);
 			write_linestyle_color_modifiers(wd, &linestyle->color_modifiers);
@@ -3527,6 +3569,65 @@ static void write_linestyles(WriteData *wd, ListBase *idbase)
 			if (linestyle->nodetree) {
 				writestruct(wd, DATA, "bNodeTree", 1, linestyle->nodetree);
 				write_nodetree(wd, linestyle->nodetree);
+			}
+		}
+	}
+}
+
+/* Keep it last of write_foodata functions. */
+static void write_libraries(WriteData *wd, Main *main)
+{
+	ListBase *lbarray[MAX_LIBARRAY];
+	ID *id;
+	int a, tot;
+	bool found_one;
+
+	for (; main; main= main->next) {
+
+		a=tot= set_listbasepointers(main, lbarray);
+
+		/* test: is lib being used */
+		if (main->curlib && main->curlib->packedfile)
+			found_one = true;
+		else {
+			found_one = false;
+			while (tot--) {
+				for (id= lbarray[tot]->first; id; id= id->next) {
+					if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
+						found_one = true;
+						break;
+					}
+				}
+				if (found_one) break;
+			}
+		}
+
+		/* to be able to restore quit.blend and temp saves, the packed blend has to be in undo buffers... */
+		/* XXX needs rethink, just like save UI in undo files now - would be nice to append things only for the]
+		 * quit.blend and temp saves */
+		if (found_one) {
+			writestruct(wd, ID_LI, "Library", 1, main->curlib);
+			write_iddata(wd, &main->curlib->id);
+
+			if (main->curlib->packedfile) {
+				PackedFile *pf = main->curlib->packedfile;
+				writestruct(wd, DATA, "PackedFile", 1, pf);
+				writedata(wd, DATA, pf->size, pf->data);
+				if (wd->current == NULL)
+					printf("write packed .blend: %s\n", main->curlib->name);
+			}
+
+			while (a--) {
+				for (id= lbarray[a]->first; id; id= id->next) {
+					if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
+						if (!BKE_idcode_is_linkable(GS(id->name))) {
+							printf("ERROR: write file: datablock '%s' from lib '%s' is not linkable "
+							       "but is flagged as directly linked", id->name, main->curlib->filepath);
+							BLI_assert(0);
+						}
+						writestruct(wd, ID_ID, "ID", 1, id);
+					}
+				}
 			}
 		}
 	}
@@ -3583,10 +3684,11 @@ static void write_global(WriteData *wd, int fileflags, Main *mainvar)
  * second are an RGBA image (unsigned char)
  * note, this uses 'TEST' since new types will segfault on file load for older blender versions.
  */
-static void write_thumb(WriteData *wd, const int *img)
+static void write_thumb(WriteData *wd, const BlendThumbnail *thumb)
 {
-	if (img)
-		writedata(wd, TEST, (2 + img[0] * img[1]) * sizeof(int), img);
+	if (thumb) {
+		writedata(wd, TEST, BLEN_THUMB_MEMSIZE_FILE(thumb->width, thumb->height), thumb);
+	}
 }
 
 /* if MemFile * there's filesave to memory */
@@ -3594,7 +3696,7 @@ static int write_file_handle(
         Main *mainvar,
         WriteWrap *ww,
         MemFile *compare, MemFile *current,
-        int write_user_block, int write_flags, const int *thumb)
+        int write_user_block, int write_flags, const BlendThumbnail *thumb)
 {
 	BHead bhead;
 	ListBase mainlist;
@@ -3657,7 +3759,6 @@ static int write_file_handle(
 	write_brushes  (wd, &mainvar->brush);
 	write_palettes (wd, &mainvar->palettes);
 	write_paintcurves (wd, &mainvar->paintcurves);
-	write_scripts  (wd, &mainvar->script);
 	write_gpencils (wd, &mainvar->gpencil);
 	write_linestyles(wd, &mainvar->linestyle);
 	write_libraries(wd,  mainvar->next);
@@ -3702,31 +3803,39 @@ static bool do_history(const char *name, ReportList *reports)
 		BKE_report(reports, RPT_ERROR, "Unable to make version backup: filename too short");
 		return 1;
 	}
-		
+
 	while (hisnr > 1) {
 		BLI_snprintf(tempname1, sizeof(tempname1), "%s%d", name, hisnr-1);
-		BLI_snprintf(tempname2, sizeof(tempname2), "%s%d", name, hisnr);
-	
-		if (BLI_rename(tempname1, tempname2)) {
-			BKE_report(reports, RPT_ERROR, "Unable to make version backup");
-			return 1;
+		if (BLI_exists(tempname1)) {
+			BLI_snprintf(tempname2, sizeof(tempname2), "%s%d", name, hisnr);
+
+			if (BLI_rename(tempname1, tempname2)) {
+				BKE_report(reports, RPT_ERROR, "Unable to make version backup");
+				return true;
+			}
 		}
 		hisnr--;
 	}
 
 	/* is needed when hisnr==1 */
-	BLI_snprintf(tempname1, sizeof(tempname1), "%s%d", name, hisnr);
+	if (BLI_exists(name)) {
+		BLI_snprintf(tempname1, sizeof(tempname1), "%s%d", name, hisnr);
 
-	if (BLI_rename(name, tempname1)) {
-		BKE_report(reports, RPT_ERROR, "Unable to make version backup");
-		return 1;
+		if (BLI_rename(name, tempname1)) {
+			BKE_report(reports, RPT_ERROR, "Unable to make version backup");
+			return true;
+		}
 	}
 
 	return 0;
 }
 
-/* return: success (1) */
-int BLO_write_file(Main *mainvar, const char *filepath, int write_flags, ReportList *reports, const int *thumb)
+/**
+ * \return Success.
+ */
+bool BLO_write_file(
+        Main *mainvar, const char *filepath, int write_flags,
+        ReportList *reports, const BlendThumbnail *thumb)
 {
 	char tempname[FILE_MAX+1];
 	int err, write_user_block;
@@ -3824,14 +3933,14 @@ int BLO_write_file(Main *mainvar, const char *filepath, int write_flags, ReportL
 	return 1;
 }
 
-/* return: success (1) */
-int BLO_write_file_mem(Main *mainvar, MemFile *compare, MemFile *current, int write_flags)
+/**
+ * \return Success.
+ */
+bool BLO_write_file_mem(Main *mainvar, MemFile *compare, MemFile *current, int write_flags)
 {
 	int err;
 
 	err = write_file_handle(mainvar, NULL, compare, current, 0, write_flags, NULL);
-	
-	if (err==0) return 1;
-	return 0;
-}
 
+	return (err == 0);
+}

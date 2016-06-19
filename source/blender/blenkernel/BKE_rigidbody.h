@@ -53,6 +53,11 @@ struct RigidBodyOb *BKE_rigidbody_copy_object(struct Object *ob);
 struct RigidBodyCon *BKE_rigidbody_copy_constraint(struct Object *ob);
 void BKE_rigidbody_relink_constraint(struct RigidBodyCon *rbc);
 
+/* Callback format for performing operations on ID-pointers for rigidbody world. */
+typedef void (*RigidbodyWorldIDFunc)(struct RigidBodyWorld *rbw, struct ID **idpoin, void *userdata, int cd_flag);
+
+void BKE_rigidbody_world_id_loop(struct RigidBodyWorld *rbw, RigidbodyWorldIDFunc func, void *userdata);
+
 /* -------------- */
 /* Setup */
 
@@ -69,7 +74,7 @@ void BKE_rigidbody_world_groups_relink(struct RigidBodyWorld *rbw);
 void BKE_rigidbody_validate_sim_world(struct Scene *scene, struct RigidBodyWorld *rbw, bool rebuild);
 
 void BKE_rigidbody_calc_volume(struct Object *ob, float *r_vol);
-void BKE_rigidbody_calc_center_of_mass(struct Object *ob, float r_com[3]);
+void BKE_rigidbody_calc_center_of_mass(struct Object *ob, float r_center[3]);
 
 /* -------------- */
 /* Utilities */
@@ -97,5 +102,20 @@ bool BKE_rigidbody_check_sim_running(struct RigidBodyWorld *rbw, float ctime);
 void BKE_rigidbody_cache_reset(struct RigidBodyWorld *rbw);
 void BKE_rigidbody_rebuild_world(struct Scene *scene, float ctime);
 void BKE_rigidbody_do_simulation(struct Scene *scene, float ctime);
+
+/* -------------------- */
+/* Depsgraph evaluation */
+
+struct EvaluationContext;
+
+void BKE_rigidbody_rebuild_sim(struct EvaluationContext *eval_ctx,
+                               struct Scene *scene);
+
+void BKE_rigidbody_eval_simulation(struct EvaluationContext *eval_ctx,
+                                   struct Scene *scene);
+
+void BKE_rigidbody_object_sync_transforms(struct EvaluationContext *eval_ctx,
+                                          struct Scene *scene,
+                                          struct Object *ob);
 
 #endif /* __BKE_RIGIDBODY_H__ */

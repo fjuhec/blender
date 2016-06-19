@@ -189,7 +189,7 @@ struct MovieReconstructedCamera *BKE_tracking_camera_get_reconstructed(struct Mo
                                                                        int framenr);
 void BKE_tracking_camera_get_reconstructed_interpolate(struct MovieTracking *tracking,
                                                        struct MovieTrackingObject *object,
-                                                       int framenr, float mat[4][4]);
+                                                       float framenr, float mat[4][4]);
 
 /* **** Distortion/Undistortion **** */
 struct MovieDistortion *BKE_tracking_distortion_new(struct MovieTracking *tracking,
@@ -200,6 +200,12 @@ void BKE_tracking_distortion_set_threads(struct MovieDistortion *distortion, int
 struct MovieDistortion *BKE_tracking_distortion_copy(struct MovieDistortion *distortion);
 struct ImBuf *BKE_tracking_distortion_exec(struct MovieDistortion *distortion, struct MovieTracking *tracking,
                                            struct ImBuf *ibuf, int width, int height, float overscan, bool undistort);
+void BKE_tracking_distortion_distort_v2(struct MovieDistortion *distortion,
+                                        const float co[2],
+                                        float r_co[2]);
+void BKE_tracking_distortion_undistort_v2(struct MovieDistortion *distortion,
+                                          const float co[2],
+                                          float r_co[2]);
 void BKE_tracking_distortion_free(struct MovieDistortion *distortion);
 
 void BKE_tracking_distort_v2(struct MovieTracking *tracking, const float co[2], float r_co[2]);

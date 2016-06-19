@@ -72,7 +72,6 @@ def GlobalBB_HQ(obj):
 
     me = obj.to_mesh(scene=bpy.context.scene, apply_modifiers=True, settings='PREVIEW')
     verts = me.vertices
-    bpy.data.meshes.remove(me)
 
     val = matrix_world * verts[-1].co
 
@@ -113,6 +112,8 @@ def GlobalBB_HQ(obj):
         if val > up:
             up = val
 
+    bpy.data.meshes.remove(me)
+
     return Vector((left, front, up)), Vector((right, back, down))
 
 
@@ -124,7 +125,10 @@ def align_objects(context,
                   relative_to,
                   bb_quality):
 
-    cursor = context.scene.cursor_location
+    scene = context.scene
+    space = context.space_data
+
+    cursor = (space if space and space.type == 'VIEW_3D' else scene).cursor_location
 
     Left_Front_Up_SEL = [0.0, 0.0, 0.0]
     Right_Back_Down_SEL = [0.0, 0.0, 0.0]
@@ -135,7 +139,7 @@ def align_objects(context,
 
     for obj in context.selected_objects:
         matrix_world = obj.matrix_world.copy()
-        bb_world = [matrix_world * Vector(v[:]) for v in obj.bound_box]
+        bb_world = [matrix_world * Vector(v) for v in obj.bound_box]
         objects.append((obj, bb_world))
 
     if not objects:
@@ -340,7 +344,10 @@ def align_objects(context,
     return True
 
 
-from bpy.props import EnumProperty, BoolProperty
+from bpy.props import (
+        EnumProperty,
+        BoolProperty
+        )
 
 
 class AlignObjects(Operator):

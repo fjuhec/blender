@@ -52,7 +52,7 @@
 #include "BLI_path_util.h"
 #include "BLI_utildefines.h"
 
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "BKE_animsys.h"
 #include "BKE_global.h"
@@ -62,6 +62,7 @@
 #include "BKE_node.h"
 
 #include "BLI_ghash.h"
+#include "BLI_threads.h"
 #include "RNA_access.h"
 #include "RNA_define.h"
 
@@ -70,6 +71,8 @@
 #include "NOD_composite.h"
 #include "NOD_shader.h"
 #include "NOD_texture.h"
+
+#define NODE_DEFAULT_MAX_WIDTH 700
 
 /* Fallback types for undefined tree, nodes, sockets */
 bNodeTreeType NodeTreeTypeUndefined;
@@ -287,6 +290,7 @@ void ntreeSetTypes(const struct bContext *C, bNodeTree *ntree)
 static GHash *nodetreetypes_hash = NULL;
 static GHash *nodetypes_hash = NULL;
 static GHash *nodesockettypes_hash = NULL;
+static SpinLock spin;
 
 bNodeTreeType *ntreeTypeFind(const char *idname)
 {
@@ -773,6 +777,82 @@ int nodeFindNode(bNodeTree *ntree, bNodeSocket *sock, bNode **nodep, int *sockin
 	return 0;
 }
 
+/**
+ * \note Recursive
+ */
+bNode *nodeFindRootParent(bNode *node)
+{
+	if (node->parent) {
+		return nodeFindRootParent(node->parent);
+	}
+	else {
+		return node->type == NODE_FRAME ? node : NULL;
+	}
+}
+
+/**
+ * \returns true if \a child has \a parent as a parent/grandparent/...
+ * \note Recursive
+ */
+bool nodeIsChildOf(const bNode *parent, const bNode *child)
+{
+	if (parent == child) {
+		return true;
+	}
+	else if (child->parent) {
+		return nodeIsChildOf(parent, child->parent);
+	}
+	return false;
+}
+
+/**
+ * Iterate over a chain of nodes, starting with \a node_start, executing
+ * \a callback for each node (which can return false to end iterator).
+ * 
+ * \param reversed for backwards iteration
+ * \note Recursive
+ */
+void nodeChainIter(
+        const bNodeTree *ntree, const bNode *node_start,
+        bool (*callback)(bNode *, bNode *, void *, const bool), void *userdata,
+        const bool reversed)
+{
+	bNodeLink *link;
+
+	for (link = ntree->links.first; link; link = link->next) {
+		if ((link->flag & NODE_LINK_VALID) == 0) {
+			/* Skip links marked as cyclic. */
+			continue;
+		}
+		if (link->tonode && link->fromnode) {
+			/* is the link part of the chain meaning node_start == fromnode (or tonode for reversed case)? */
+			if ((reversed && (link->tonode == node_start)) ||
+			    (!reversed && link->fromnode == node_start))
+			{
+				if (!callback(link->fromnode, link->tonode, userdata, reversed)) {
+					return;
+				}
+				nodeChainIter(ntree, reversed ? link->fromnode : link->tonode, callback, userdata, reversed);
+			}
+		}
+	}
+}
+
+/**
+ * Iterate over all parents of \a node, executing \a callback for each parent (which can return false to end iterator)
+ * 
+ * \note Recursive
+ */
+void nodeParentsIter(bNode *node, bool (*callback)(bNode *, void *), void *userdata)
+{
+	if (node->parent) {
+		if (!callback(node->parent, userdata)) {
+			return;
+		}
+		nodeParentsIter(node->parent, callback, userdata);
+	}
+}
+
 /* ************** Add stuff ********** */
 
 /* Find the first available, non-duplicate name for a given node */
@@ -1073,6 +1153,11 @@ void nodeDetachNode(struct bNode *node)
 	}
 }
 
+void ntreeInitDefault(bNodeTree *ntree)
+{
+	ntree_set_typeinfo(ntree, NULL);
+}
+
 bNodeTree *ntreeAddTree(Main *bmain, const char *name, const char *idname)
 {
 	bNodeTree *ntree;
@@ -1109,7 +1194,7 @@ bNodeTree *ntreeAddTree(Main *bmain, const char *name, const char *idname)
  * copying for internal use (threads for eg), where you wont want it to modify the
  * scene data.
  */
-static bNodeTree *ntreeCopyTree_internal(bNodeTree *ntree, Main *bmain, bool do_id_user, bool do_make_extern, bool copy_previews)
+static bNodeTree *ntreeCopyTree_internal(bNodeTree *ntree, Main *bmain, bool skip_database, bool do_id_user, bool do_make_extern, bool copy_previews)
 {
 	bNodeTree *newtree;
 	bNode *node /*, *nnode */ /* UNUSED */, *last;
@@ -1119,7 +1204,7 @@ static bNodeTree *ntreeCopyTree_internal(bNodeTree *ntree, Main *bmain, bool do_
 	if (ntree == NULL) return NULL;
 	
 	/* is ntree part of library? */
-	if (bmain && BLI_findindex(&bmain->nodetree, ntree) >= 0) {
+	if (bmain && !skip_database && BLI_findindex(&bmain->nodetree, ntree) >= 0) {
 		newtree = BKE_libblock_copy(&ntree->id);
 	}
 	else {
@@ -1131,6 +1216,8 @@ static bNodeTree *ntreeCopyTree_internal(bNodeTree *ntree, Main *bmain, bool do_
 
 	/* in case a running nodetree is copied */
 	newtree->execdata = NULL;
+
+	newtree->duplilock = NULL;
 	
 	BLI_listbase_clear(&newtree->nodes);
 	BLI_listbase_clear(&newtree->links);
@@ -1211,7 +1298,7 @@ static bNodeTree *ntreeCopyTree_internal(bNodeTree *ntree, Main *bmain, bool do_
 
 bNodeTree *ntreeCopyTree_ex(bNodeTree *ntree, Main *bmain, const bool do_id_user)
 {
-	return ntreeCopyTree_internal(ntree, bmain, do_id_user, true, true);
+	return ntreeCopyTree_internal(ntree, bmain, false, do_id_user, true, true);
 }
 bNodeTree *ntreeCopyTree(bNodeTree *ntree)
 {
@@ -1775,6 +1862,9 @@ void ntreeFreeTree_ex(bNodeTree *ntree, const bool do_id_user)
 	if (ntree->previews) {
 		BKE_node_instance_hash_free(ntree->previews, (bNodeInstanceValueFP)BKE_node_preview_free);
 	}
+
+	if (ntree->duplilock)
+		BLI_mutex_free(ntree->duplilock);
 	
 	/* if ntree is not part of library, free the libblock data explicitly */
 	for (tntree = G.main->nodetree.first; tntree; tntree = tntree->id.next)
@@ -1882,7 +1972,16 @@ bNodeTree *ntreeFromID(ID *id)
 	}
 }
 
-void ntreeMakeLocal(bNodeTree *ntree)
+static void extern_local_ntree(bNodeTree *ntree)
+{
+	for (bNode *node = ntree->nodes.first; node; node = node->next) {
+		if (node->id) {
+			id_lib_extern(node->id);
+		}
+	}
+}
+
+void ntreeMakeLocal(bNodeTree *ntree, bool id_in_mainlist)
 {
 	Main *bmain = G.main;
 	bool lib = false, local = false;
@@ -1894,7 +1993,8 @@ void ntreeMakeLocal(bNodeTree *ntree)
 	
 	if (ntree->id.lib == NULL) return;
 	if (ntree->id.us == 1) {
-		id_clear_lib_data(bmain, (ID *)ntree);
+		id_clear_lib_data_ex(bmain, (ID *)ntree, id_in_mainlist);
+		extern_local_ntree(ntree);
 		return;
 	}
 	
@@ -1914,7 +2014,8 @@ void ntreeMakeLocal(bNodeTree *ntree)
 	
 	/* if all users are local, we simply make tree local */
 	if (local && !lib) {
-		id_clear_lib_data(bmain, (ID *)ntree);
+		id_clear_lib_data_ex(bmain, (ID *)ntree, id_in_mainlist);
+		extern_local_ntree(ntree);
 	}
 	else if (local && lib) {
 		/* this is the mixed case, we copy the tree and assign it to local users */
@@ -1929,8 +2030,8 @@ void ntreeMakeLocal(bNodeTree *ntree)
 				if (node->id == (ID *)ntree) {
 					if (owner_id->lib == NULL) {
 						node->id = (ID *)newtree;
-						newtree->id.us++;
-						ntree->id.us--;
+						id_us_plus(&newtree->id);
+						id_us_min(&ntree->id);
 					}
 				}
 			}
@@ -1956,62 +2057,89 @@ int ntreeOutputExists(bNode *node, bNodeSocket *testsock)
 	return 0;
 }
 
+void ntreeNodeFlagSet(const bNodeTree *ntree, const int flag, const bool enable)
+{
+	bNode *node = ntree->nodes.first;
+
+	for (; node; node = node->next) {
+		if (enable) {
+			node->flag |= flag;
+		}
+		else {
+			node->flag &= ~flag;
+		}
+	}
+}
+
 /* returns localized tree for execution in threads */
 bNodeTree *ntreeLocalize(bNodeTree *ntree)
 {
 	if (ntree) {
 		bNodeTree *ltree;
 		bNode *node;
-		
+		AnimData *adt;
+
 		bAction *action_backup = NULL, *tmpact_backup = NULL;
-		
+
+		BLI_spin_lock(&spin);
+		if (!ntree->duplilock) {
+			ntree->duplilock = BLI_mutex_alloc();
+		}
+		BLI_spin_unlock(&spin);
+
+		BLI_mutex_lock(ntree->duplilock);
+
 		/* Workaround for copying an action on each render!
 		 * set action to NULL so animdata actions don't get copied */
-		AnimData *adt = BKE_animdata_from_id(&ntree->id);
-	
+		adt = BKE_animdata_from_id(&ntree->id);
+
 		if (adt) {
 			action_backup = adt->action;
 			tmpact_backup = adt->tmpact;
-	
+
 			adt->action = NULL;
 			adt->tmpact = NULL;
 		}
-	
+
 		/* Make full copy.
 		 * Note: previews are not copied here.
 		 */
-		ltree = ntreeCopyTree_internal(ntree, NULL, false, false, false);
+		ltree = ntreeCopyTree_internal(ntree, G.main, true, false, false, false);
 		ltree->flag |= NTREE_IS_LOCALIZED;
-		
+
 		for (node = ltree->nodes.first; node; node = node->next) {
 			if (node->type == NODE_GROUP && node->id) {
 				node->id = (ID *)ntreeLocalize((bNodeTree *)node->id);
 			}
 		}
-		
+
 		if (adt) {
 			AnimData *ladt = BKE_animdata_from_id(&ltree->id);
-	
+
 			adt->action = ladt->action = action_backup;
 			adt->tmpact = ladt->tmpact = tmpact_backup;
-	
-			if (action_backup) action_backup->id.us++;
-			if (tmpact_backup) tmpact_backup->id.us++;
-			
+
+			if (action_backup)
+				id_us_plus(&action_backup->id);
+			if (tmpact_backup)
+				id_us_plus(&tmpact_backup->id);
+
 		}
 		/* end animdata uglyness */
-	
+
 		/* ensures only a single output node is enabled */
 		ntreeSetOutput(ntree);
-	
+
 		for (node = ntree->nodes.first; node; node = node->next) {
 			/* store new_node pointer to original */
 			node->new_node->new_node = node;
 		}
-	
+
 		if (ntree->typeinfo->localize)
 			ntree->typeinfo->localize(ltree, ntree);
-	
+
+		BLI_mutex_unlock(ntree->duplilock);
+
 		return ltree;
 	}
 	else
@@ -2290,15 +2418,21 @@ void ntreeInterfaceTypeUpdate(bNodeTree *ntree)
 
 /* ************ find stuff *************** */
 
+bNode *ntreeFindType(const bNodeTree *ntree, int type)
+{
+	if (ntree) {
+		for (bNode * node = ntree->nodes.first; node; node = node->next) {
+			if (node->type == type) {
+				return node;
+			}
+		}
+	}
+	return NULL;
+}
+
 bool ntreeHasType(const bNodeTree *ntree, int type)
 {
-	bNode *node;
-	
-	if (ntree)
-		for (node = ntree->nodes.first; node; node = node->next)
-			if (node->type == type)
-				return true;
-	return false;
+	return ntreeFindType(ntree, type) != NULL;
 }
 
 bool ntreeHasTree(const bNodeTree *ntree, const bNodeTree *lookup)
@@ -3297,20 +3431,24 @@ void node_type_size_preset(struct bNodeType *ntype, eNodeSizePreset size)
 {
 	switch (size) {
 		case NODE_SIZE_DEFAULT:
-			node_type_size(ntype, 140, 100, 320);
+			node_type_size(ntype, 140, 100, NODE_DEFAULT_MAX_WIDTH);
 			break;
 		case NODE_SIZE_SMALL:
-			node_type_size(ntype, 100, 80, 320);
+			node_type_size(ntype, 100, 80, NODE_DEFAULT_MAX_WIDTH);
 			break;
 		case NODE_SIZE_MIDDLE:
-			node_type_size(ntype, 150, 120, 320);
+			node_type_size(ntype, 150, 120, NODE_DEFAULT_MAX_WIDTH);
 			break;
 		case NODE_SIZE_LARGE:
-			node_type_size(ntype, 240, 140, 320);
+			node_type_size(ntype, 240, 140, NODE_DEFAULT_MAX_WIDTH);
 			break;
 	}
 }
 
+/**
+ * \warning Nodes defining a storage type _must_ allocate this for new nodes.
+ * Otherwise nodes will reload as undefined (T46619).
+ */
 void node_type_storage(bNodeType *ntype,
 	const char *storagename,
 	void (*freefunc)(struct bNode *node),
@@ -3573,6 +3711,7 @@ static void registerShaderNodes(void)
 	register_node_type_sh_tex_magic();
 	register_node_type_sh_tex_checker();
 	register_node_type_sh_tex_brick();
+	register_node_type_sh_tex_pointdensity();
 }
 
 static void registerTextureNodes(void)
@@ -3630,6 +3769,7 @@ void init_nodesystem(void)
 	nodetreetypes_hash = BLI_ghash_str_new("nodetreetypes_hash gh");
 	nodetypes_hash = BLI_ghash_str_new("nodetypes_hash gh");
 	nodesockettypes_hash = BLI_ghash_str_new("nodesockettypes_hash gh");
+	BLI_spin_init(&spin);
 
 	register_undefined_types();
 

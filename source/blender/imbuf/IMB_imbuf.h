@@ -38,21 +38,21 @@
  * \page IMB Imbuf module external interface
  *
  *
- * \section about About the IMB module
+ * \section imb_about About the IMB module
  *
  * External interface of the IMage Buffer module. This module offers
  * import/export of several graphical file formats. It offers the
  * ImBuf type as a common structure to refer to different graphical
  * file formats, and to enable a uniform way of handling them.
  *
- * \section issues Known issues with IMB
+ * \section imb_issues Known issues with IMB
  *
  * - imbuf is written in C.
  * - Endianness issues are dealt with internally.
  * - File I/O must be done externally. The module uses FILE*'s to
  *   direct input/output.
  *
- * \section dependencies Dependencies
+ * \section imb_dependencies Dependencies
  *
  * IMB needs:
  * - \ref DNA module
@@ -130,7 +130,18 @@ void IMB_freeImBuf(struct ImBuf *ibuf);
  * \attention Defined in allocimbuf.c
  */
 struct ImBuf *IMB_allocImBuf(unsigned int x, unsigned int y,
-                             unsigned char d, unsigned int flags);
+                             unsigned char planes, unsigned int flags);
+
+/**
+ * Initialize given ImBuf.
+ *
+ * Use in cases when temporary image buffer is allocated on stack.
+ *
+ * \attention Defined in allocimbuf.c
+ */
+bool IMB_initImBuf(struct ImBuf *ibuf,
+                   unsigned int x, unsigned int y,
+                   unsigned char planes, unsigned int flags);
 
 /**
  * Create a copy of a pixel buffer and wrap it to a new ImBuf
@@ -213,6 +224,10 @@ void IMB_rectblend(struct ImBuf *dbuf, struct ImBuf *obuf, struct ImBuf *sbuf,
 	unsigned short *dmask, unsigned short *curvemask, unsigned short *mmask, float mask_max,
 	int destx,  int desty, int origx, int origy, int srcx, int srcy,
 	int width, int height, IMB_BlendMode mode, bool accumulate);
+void IMB_rectblend_threaded(struct ImBuf *dbuf, struct ImBuf *obuf, struct ImBuf *sbuf,
+	unsigned short *dmask, unsigned short *curvemask, unsigned short *mmask, float mask_max,
+	int destx,  int desty, int origx, int origy, int srcx, int srcy,
+	int width, int height, IMB_BlendMode mode, bool accumulate);
 
 /**
  *
@@ -227,7 +242,7 @@ typedef enum IMB_Timecode_Type {
 	                        * and is a sane default) */
 
 	IMB_TC_FREE_RUN   = 2, /* use global timestamp written by recording
-                            * device (prosumer camcorders e.g. can do that) */
+	                        * device (prosumer camcorders e.g. can do that) */
 	IMB_TC_INTERPOLATED_REC_DATE_FREE_RUN = 4, /* interpolate a global timestamp using the
 	                                            * record date and time written by recording
 	                                            * device (*every* consumer camcorder can do
@@ -279,7 +294,7 @@ int IMB_anim_get_duration(struct anim *anim, IMB_Timecode_Type tc);
  * and frs_sec and frs_sec_base untouched if none available!)
  */
 bool IMB_anim_get_fps(struct anim *anim,
-                      short *frs_sec, float *frs_sec_base);
+                      short *frs_sec, float *frs_sec_base, bool no_av_base);
 
 /**
  *
@@ -332,7 +347,6 @@ void IMB_free_anim(struct anim *anim);
 #define FILTER_MASK_USED		2
 
 void IMB_filter(struct ImBuf *ibuf);
-void IMB_filterN(struct ImBuf *out, struct ImBuf *in);
 void IMB_mask_filter_extend(char *mask, int width, int height);
 void IMB_mask_clear(struct ImBuf *ibuf, char *mask, int val);
 void IMB_filter_extend(struct ImBuf *ibuf, char *mask, int filter);
@@ -440,6 +454,9 @@ void IMB_buffer_float_from_byte(float *rect_to, const unsigned char *rect_from,
 void IMB_buffer_float_from_float(float *rect_to, const float *rect_from,
 	int channels_from, int profile_to, int profile_from, bool predivide,
 	int width, int height, int stride_to, int stride_from);
+void IMB_buffer_float_from_float_threaded(float *rect_to, const float *rect_from,
+	int channels_from, int profile_to, int profile_from, bool predivide,
+	int width, int height, int stride_to, int stride_from);
 void IMB_buffer_float_from_float_mask(float *rect_to, const float *rect_from,
 	int channels_from, int width, int height, int stride_to, int stride_from, char *mask);
 void IMB_buffer_byte_from_byte(unsigned char *rect_to, const unsigned char *rect_from,
@@ -467,6 +484,7 @@ void bilinear_interpolation(struct ImBuf *in, struct ImBuf *out, float u, float 
 
 void bicubic_interpolation_color(struct ImBuf *in, unsigned char col[4], float col_float[4], float u, float v);
 void nearest_interpolation_color(struct ImBuf *in, unsigned char col[4], float col_float[4], float u, float v);
+void nearest_interpolation_color_wrap(struct ImBuf *in, unsigned char col[4], float col_float[4], float u, float v);
 void bilinear_interpolation_color(struct ImBuf *in, unsigned char col[4], float col_float[4], float u, float v);
 void bilinear_interpolation_color_wrap(struct ImBuf *in, unsigned char col[4], float col_float[4], float u, float v);
 
@@ -579,6 +597,14 @@ void IMB_processor_apply_threaded(int buffer_lines, int handle_size, void *init_
                                   void (init_handle) (void *handle, int start_line, int tot_line,
                                                       void *customdata),
                                   void *(do_thread) (void *));
+
+typedef void (*ScanlineThreadFunc) (void *custom_data,
+                                    int start_scanline,
+                                    int num_scanlines);
+void IMB_processor_apply_threaded_scanlines(int total_scanlines,
+                                            ScanlineThreadFunc do_thread,
+                                            void *custom_data);
+
 
 /* ffmpeg */
 void IMB_ffmpeg_init(void);

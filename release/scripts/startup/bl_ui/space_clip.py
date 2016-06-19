@@ -24,6 +24,7 @@ from bpy.app.translations import pgettext_iface as iface_
 from bl_ui.properties_grease_pencil_common import (
         GreasePencilDrawingToolsPanel,
         GreasePencilStrokeEditPanel,
+        GreasePencilStrokeSculptPanel,
         GreasePencilDataPanel
         )
 
@@ -520,6 +521,7 @@ class CLIP_PT_tools_object(CLIP_PT_reconstruction_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'TOOLS'
     bl_label = "Object"
+    bl_category = "Solve"
 
     @classmethod
     def poll(cls, context):
@@ -987,7 +989,9 @@ class CLIP_PT_proxy(CLIP_PT_clip_view_panel, Panel):
         if clip.use_proxy_custom_directory:
             col.prop(clip.proxy, "directory")
 
-        col.operator("clip.rebuild_proxy", text="Build Proxy")
+        col.operator("clip.rebuild_proxy",
+                     text="Build Proxy / Timecode" if clip.source == 'MOVIE'
+                                                   else "Build Proxy")
 
         if clip.source == 'MOVIE':
             col2 = col.column()
@@ -1132,6 +1136,11 @@ class CLIP_PT_tools_grease_pencil_edit(GreasePencilStrokeEditPanel, Panel):
     bl_space_type = 'CLIP_EDITOR'
 
 
+# Grease Pencil stroke sculpting tools
+class CLIP_PT_tools_grease_pencil_sculpt(GreasePencilStrokeSculptPanel, Panel):
+    bl_space_type = 'CLIP_EDITOR'
+
+
 class CLIP_MT_view(Menu):
     bl_label = "View"
 
@@ -1147,11 +1156,14 @@ class CLIP_MT_view(Menu):
 
             layout.operator("clip.view_selected")
             layout.operator("clip.view_all")
+            layout.operator("clip.view_all", text="View Fit").fit_view = True
 
             layout.separator()
             layout.operator("clip.view_zoom_in")
             layout.operator("clip.view_zoom_out")
 
+            layout.separator()
+            layout.prop(sc, "show_metadata")
             layout.separator()
 
             ratios = ((1, 8), (1, 4), (1, 2), (1, 1), (2, 1), (4, 1), (8, 1))

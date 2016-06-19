@@ -46,6 +46,56 @@
 
 #define SELECT 1
 
+
+/**
+ * Fill in a vertex array from an edge array.
+ *
+ * \returns false if any verts aren't found.
+ */
+bool BM_verts_from_edges(BMVert **vert_arr, BMEdge **edge_arr, const int len)
+{
+	int i, i_prev = len - 1;
+	for (i = 0; i < len; i++) {
+		vert_arr[i] = BM_edge_share_vert(edge_arr[i_prev], edge_arr[i]);
+		if (vert_arr[i] == NULL) {
+			return false;
+		}
+		i_prev = i;
+	}
+	return true;
+}
+
+/**
+ * Fill in an edge array from a vertex array (connected polygon loop).
+ *
+ * \returns false if any edges aren't found.
+ */
+bool BM_edges_from_verts(BMEdge **edge_arr, BMVert **vert_arr, const int len)
+{
+	int i, i_prev = len - 1;
+	for (i = 0; i < len; i++) {
+		edge_arr[i_prev] = BM_edge_exists(vert_arr[i_prev], vert_arr[i]);
+		if (edge_arr[i_prev] == NULL) {
+			return false;
+		}
+		i_prev = i;
+	}
+	return true;
+}
+
+/**
+ * Fill in an edge array from a vertex array (connected polygon loop).
+ * Creating edges as-needed.
+ */
+void BM_edges_from_verts_ensure(BMesh *bm, BMEdge **edge_arr, BMVert **vert_arr, const int len)
+{
+	int i, i_prev = len - 1;
+	for (i = 0; i < len; i++) {
+		edge_arr[i_prev] = BM_edge_create(bm, vert_arr[i_prev], vert_arr[i], NULL, BM_CREATE_NO_DOUBLE);
+		i_prev = i;
+	}
+}
+
 /* prototypes */
 static void bm_loop_attrs_copy(
         BMesh *source_mesh, BMesh *target_mesh,
@@ -85,7 +135,7 @@ BMFace *BM_face_create_quad_tri(
  */
 void BM_face_copy_shared(
         BMesh *bm, BMFace *f,
-        BMElemFilterFunc filter_fn, void *user_data)
+        BMLoopFilterFunc filter_fn, void *user_data)
 {
 	BMLoop *l_first;
 	BMLoop *l_iter;
@@ -118,7 +168,7 @@ void BM_face_copy_shared(
 			for (j = 0; j < 2; j++) {
 				BLI_assert(l_dst[j]->v == l_src[j]->v);
 				if (BM_ELEM_API_FLAG_TEST(l_dst[j], _FLAG_OVERLAP) == 0) {
-					if ((filter_fn == NULL) || filter_fn((BMElem *)l_src[j], user_data)) {
+					if ((filter_fn == NULL) || filter_fn(l_src[j], user_data)) {
 						bm_loop_attrs_copy(bm, bm, l_src[j], l_dst[j]);
 						BM_ELEM_API_FLAG_ENABLE(l_dst[j], _FLAG_OVERLAP);
 					}

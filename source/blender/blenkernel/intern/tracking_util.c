@@ -45,7 +45,7 @@
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "BKE_movieclip.h"
 #include "BKE_tracking.h"
@@ -196,7 +196,7 @@ void tracks_map_merge(TracksMap *map, MovieTracking *tracking)
 		track->next = track->prev = NULL;
 		BLI_addtail(&new_tracks, track);
 
-		BLI_uniquename(&new_tracks, track, CTX_DATA_(BLF_I18NCONTEXT_ID_MOVIECLIP, "Track"), '.',
+		BLI_uniquename(&new_tracks, track, CTX_DATA_(BLT_I18NCONTEXT_ID_MOVIECLIP, "Track"), '.',
 		               offsetof(MovieTrackingTrack, name), sizeof(track->name));
 
 		track = next;
@@ -482,7 +482,18 @@ MovieTrackingMarker *tracking_get_keyframed_marker(MovieTrackingTrack *track,
 			 * fallback to the first marker in current tracked segment
 			 * as a keyframe.
 			 */
-			if (next_marker && next_marker->flag & MARKER_DISABLED) {
+			if (next_marker == NULL) {
+				/* Could happen when trying to get reference marker for the fist
+				 * one on the segment which isn't surrounded by disabled markers.
+				 *
+				 * There's no really good choice here, just use the reference
+				 * marker which looks correct..
+				 */
+				if (marker_keyed_fallback == NULL) {
+					marker_keyed_fallback = cur_marker;
+				}
+			}
+			else if (next_marker->flag & MARKER_DISABLED) {
 				if (marker_keyed_fallback == NULL)
 					marker_keyed_fallback = cur_marker;
 			}
@@ -518,7 +529,7 @@ typedef struct AccessCacheKey {
 static unsigned int accesscache_hashhash(const void *key_v)
 {
 	const AccessCacheKey *key = (const AccessCacheKey *) key_v;
-	/* TODP(sergey): Need better hasing here for faster frame access. */
+	/* TODP(sergey): Need better hashing here for faster frame access. */
 	return key->clip_index << 16 | key->frame;
 }
 

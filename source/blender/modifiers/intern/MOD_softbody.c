@@ -65,6 +65,7 @@ ModifierTypeInfo modifierType_Softbody = {
 	/* structSize */        sizeof(SoftbodyModifierData),
 	/* type */              eModifierTypeType_OnlyDeform,
 	/* flags */             eModifierTypeFlag_AcceptsCVs |
+	                        eModifierTypeFlag_AcceptsLattice |
 	                        eModifierTypeFlag_RequiresOriginalData |
 	                        eModifierTypeFlag_Single,
 
@@ -80,6 +81,7 @@ ModifierTypeInfo modifierType_Softbody = {
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
 	/* updateDepgraph */    NULL,
+	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	NULL,
 	/* foreachObjectLink */ NULL,

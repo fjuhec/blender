@@ -191,6 +191,8 @@ typedef struct bNode {
 	float width, height;	/* node custom width and height */
 	float miniwidth;		/* node width if hidden */
 	float offsetx, offsety;	/* additional offset from loc */
+	float anim_init_locx;	/* initial locx for insert offset animation */
+	float anim_ofsx;		/* offset that will be added to locx for insert offset animation */
 	
 	int update;				/* update flags */
 	
@@ -382,10 +384,13 @@ typedef struct bNodeTree {
 	
 	/* callbacks */
 	void (*progress)(void *, float progress);
+	/** \warning may be called by different threads */
 	void (*stats_draw)(void *, const char *str);
 	int (*test_break)(void *);
 	void (*update_draw)(void *);
 	void *tbh, *prh, *sdh, *udh;
+
+	void *duplilock;
 	
 } bNodeTree;
 
@@ -498,7 +503,8 @@ enum {
 };
 
 enum {
-	CMP_NODEFLAG_BLUR_VARIABLE_SIZE = (1 << 0)
+	CMP_NODEFLAG_BLUR_VARIABLE_SIZE = (1 << 0),
+	CMP_NODEFLAG_BLUR_EXTEND_BOUNDS = (1 << 1),
 };
 
 typedef struct NodeFrame {
@@ -683,6 +689,8 @@ typedef struct NodeColorBalance {
 	float slope[3];
 	float offset[3];
 	float power[3];
+	float offset_basis;
+	char _pad[4];
 	
 	/* LGG parameters */
 	float lift[3];
@@ -725,6 +733,8 @@ typedef struct NodeTexImage {
 	int projection;
 	float projection_blend;
 	int interpolation;
+	int extension;
+	int pad;
 } NodeTexImage;
 
 typedef struct NodeTexChecker {
@@ -742,6 +752,8 @@ typedef struct NodeTexEnvironment {
 	ImageUser iuser;
 	int color_space;
 	int projection;
+	int interpolation;
+	int pad;
 } NodeTexEnvironment;
 
 typedef struct NodeTexGradient {
@@ -769,7 +781,7 @@ typedef struct NodeTexMusgrave {
 typedef struct NodeTexWave {
 	NodeTexBase base;
 	int wave_type;
-	int pad;
+	int wave_profile;
 } NodeTexWave;
 
 typedef struct NodeTexMagic {
@@ -787,6 +799,20 @@ typedef struct NodeShaderVectTransform {
 	int convert_from, convert_to;
 	int pad;
 } NodeShaderVectTransform;
+
+typedef struct NodeShaderTexPointDensity {
+	NodeTexBase base;
+	short point_source, pad;
+	int particle_system;
+	float radius;
+	int resolution;
+	short space;
+	short interpolation;
+	short color_source;
+	short ob_color_source;
+	char vertex_attribute_name[64]; /* vertex attribute layer for color source, MAX_CUSTOMDATA_LAYER_NAME */
+	PointDensity pd;
+} NodeShaderTexPointDensity;
 
 /* TEX_output */
 typedef struct TexNodeOutput {
@@ -950,6 +976,9 @@ typedef struct NodeSunBeams {
 #define SHD_WAVE_BANDS		0
 #define SHD_WAVE_RINGS		1
 
+#define SHD_WAVE_PROFILE_SIN	0
+#define SHD_WAVE_PROFILE_SAW	1
+
 /* sky texture */
 #define SHD_SKY_OLD		0
 #define SHD_SKY_NEW		1
@@ -961,6 +990,10 @@ typedef struct NodeSunBeams {
 /* environment texture */
 #define SHD_PROJ_EQUIRECTANGULAR	0
 #define SHD_PROJ_MIRROR_BALL		1
+
+#define SHD_IMAGE_EXTENSION_REPEAT	0
+#define SHD_IMAGE_EXTENSION_EXTEND	1
+#define SHD_IMAGE_EXTENSION_CLIP	2
 
 /* image texture */
 #define SHD_PROJ_FLAT				0
@@ -1022,14 +1055,13 @@ enum {
 
 /* subsurface */
 enum {
+#ifdef DNA_DEPRECATED
 	SHD_SUBSURFACE_COMPATIBLE		= 0, // Deprecated
+#endif
 	SHD_SUBSURFACE_CUBIC			= 1,
 	SHD_SUBSURFACE_GAUSSIAN			= 2,
+	SHD_SUBSURFACE_BURLEY			= 3,
 };
-
-#if (DNA_DEPRECATED_GCC_POISON == 1)
-#pragma GCC poison SHD_SUBSURFACE_COMPATIBLE
-#endif
 
 /* blur node */
 #define CMP_NODE_BLUR_ASPECT_NONE		0
@@ -1088,6 +1120,35 @@ enum {
 	CMP_NODEFLAG_PLANETRACKDEFORM_MOTION_BLUR = 1,
 };
 
+/* Stabilization node */
+enum {
+	CMP_NODEFLAG_STABILIZE_INVERSE = 1,
+};
+
 #define CMP_NODE_PLANETRACKDEFORM_MBLUR_SAMPLES_MAX 64
+
+/* Point Density shader node */
+
+enum {
+	SHD_POINTDENSITY_SOURCE_PSYS = 0,
+	SHD_POINTDENSITY_SOURCE_OBJECT = 1,
+};
+
+enum {
+	SHD_POINTDENSITY_SPACE_OBJECT = 0,
+	SHD_POINTDENSITY_SPACE_WORLD  = 1,
+};
+
+enum {
+	SHD_POINTDENSITY_COLOR_PARTAGE   = 1,
+	SHD_POINTDENSITY_COLOR_PARTSPEED = 2,
+	SHD_POINTDENSITY_COLOR_PARTVEL   = 3,
+};
+
+enum {
+	SHD_POINTDENSITY_COLOR_VERTCOL      = 0,
+	SHD_POINTDENSITY_COLOR_VERTWEIGHT   = 1,
+	SHD_POINTDENSITY_COLOR_VERTNOR      = 2,
+};
 
 #endif

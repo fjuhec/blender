@@ -58,8 +58,12 @@ __forceinline operator          int      ( ) const { return std::numeric_limits<
 /* Intrinsics Functions */
 
 #if defined(__BMI__) && defined(__GNUC__)
-#define _tzcnt_u32 __tzcnt_u32
-#define _tzcnt_u64 __tzcnt_u64
+#  ifndef _tzcnt_u32
+#    define _tzcnt_u32 __tzcnt_u32
+#  endif
+#  ifndef _tzcnt_u64
+#    define _tzcnt_u64 __tzcnt_u64
+#  endif
 #endif
 
 #if defined(__LZCNT__)
@@ -425,6 +429,23 @@ __forceinline __int64 _mm_extract_epi64( __m128i input, const int index ) {
 #endif
 
 #endif
+
+#else  /* __KERNEL_SSE2__ */
+
+/* This section is for utility functions which operates on non-register data
+ * which might be used from a non-vectorized code.
+ */
+
+ccl_device_inline int bitscan(int value)
+{
+	assert(value != 0);
+	int bit = 0;
+	while(value >>= 1) {
+		++bit;
+	}
+	return bit;
+}
+
 
 #endif /* __KERNEL_SSE2__ */
 

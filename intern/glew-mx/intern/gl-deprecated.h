@@ -38,8 +38,8 @@
 #define glAccum DO_NOT_USE_glAccum
 #undef glAlphaFunc
 #define glAlphaFunc DO_NOT_USE_glAlphaFunc
-#undef glBegin
-#define glBegin DO_NOT_USE_glBegin
+#undef GPUBegin
+#define GPUBegin DO_NOT_USE_GPUBegin
 #undef glBitmap
 #define glBitmap DO_NOT_USE_glBitmap
 #undef glCallList

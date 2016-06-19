@@ -43,6 +43,7 @@ struct bArmature;
 struct Main;
 struct ModifierData;
 struct BMEditMesh;
+struct DepsNodeHandle;
 
 typedef enum {
 	/* Should not be used, only for None modifier type */
@@ -100,11 +101,13 @@ typedef enum {
 	eModifierTypeFlag_NoUserAdd = (1 << 8),
 
 	/* For modifiers that use CD_PREVIEW_MCOL for preview. */
-	eModifierTypeFlag_UsesPreview = (1 << 9)
+	eModifierTypeFlag_UsesPreview = (1 << 9),
+	eModifierTypeFlag_AcceptsLattice = (1 << 10),
 } ModifierTypeFlag;
 
-typedef void (*ObjectWalkFunc)(void *userData, struct Object *ob, struct Object **obpoin);
-typedef void (*IDWalkFunc)(void *userData, struct Object *ob, struct ID **idpoin);
+/* IMPORTANT! Keep ObjectWalkFunc and IDWalkFunc signatures compatible. */
+typedef void (*ObjectWalkFunc)(void *userData, struct Object *ob, struct Object **obpoin, int cd_flag);
+typedef void (*IDWalkFunc)(void *userData, struct Object *ob, struct ID **idpoin, int cd_flag);
 typedef void (*TexWalkFunc)(void *userData, struct Object *ob, struct ModifierData *md, const char *propname);
 
 typedef enum ModifierApplyFlag {
@@ -115,6 +118,12 @@ typedef enum ModifierApplyFlag {
 	MOD_APPLY_IGNORE_SIMPLIFY = 1 << 3, /* Ignore scene simplification flag and use subdivisions
 	                                     * level set in multires modifier.
 	                                     */
+	MOD_APPLY_ALLOW_GPU = 1 << 4,  /* Allow modifier to be applied and stored in the GPU.
+	                                * Used by the viewport in order to be able to have SS
+	                                * happening on GPU.
+	                                * Render pipeline (including viewport render) should
+	                                * have DM on the CPU.
+	                                */
 } ModifierApplyFlag;
 
 
@@ -259,6 +268,17 @@ typedef struct ModifierTypeInfo {
 	void (*updateDepgraph)(struct ModifierData *md, struct DagForest *forest,
 	                       struct Main *bmain, struct Scene *scene,
 	                       struct Object *ob, struct DagNode *obNode);
+
+	/* Add the appropriate relations to the dependency graph.
+	 *
+	 * This function is optional.
+	 */
+	/* TODO(sergey): Remove once we finalyl switched to the new depsgraph. */
+	void (*updateDepsgraph)(struct ModifierData *md,
+	                        struct Main *bmain,
+	                        struct Scene *scene,
+	                        struct Object *ob,
+	                        struct DepsNodeHandle *node);
 
 	/* Should return true if the modifier needs to be recalculated on time
 	 * changes.

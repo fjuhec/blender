@@ -39,7 +39,7 @@
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 
-#include "BLF_translation.h"
+#include "BLT_translation.h"
 
 #include "BKE_action.h"
 #include "BKE_animsys.h"
@@ -253,7 +253,7 @@ static int node_group_ungroup(bNodeTree *ntree, bNode *gnode)
 	if (wgroup->adt) {
 		LinkData *ld, *ldn = NULL;
 		bAction *waction;
-		
+
 		/* firstly, wgroup needs to temporary dummy action that can be destroyed, as it shares copies */
 		waction = wgroup->adt->action = BKE_action_copy(wgroup->adt->action);
 		
@@ -271,6 +271,7 @@ static int node_group_ungroup(bNodeTree *ntree, bNode *gnode)
 		/* free temp action too */
 		if (waction) {
 			BKE_libblock_free(G.main, waction);
+			wgroup->adt->action = NULL;
 		}
 	}
 	
@@ -560,7 +561,7 @@ static int node_group_separate_exec(bContext *C, wmOperator *op)
 
 static int node_group_separate_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
-	uiPopupMenu *pup = UI_popup_menu_begin(C, CTX_IFACE_(BLF_I18NCONTEXT_OPERATOR_DEFAULT, "Separate"), ICON_NONE);
+	uiPopupMenu *pup = UI_popup_menu_begin(C, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Separate"), ICON_NONE);
 	uiLayout *layout = UI_popup_menu_layout(pup);
 	
 	uiLayoutSetOperatorContext(layout, WM_OP_EXEC_DEFAULT);

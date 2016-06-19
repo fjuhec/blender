@@ -37,7 +37,7 @@
  * \note These macros follow STACK_* macros defined in 'BLI_utildefines.h'
  *       and should be kept (mostly) interchangeable.
  *
- * \note _##var##_type is a dummy var only used for typechecks.
+ * \note ``_##var##_type`` is a dummy variable only used for typechecks.
  */
 
 /* -------------------------------------------------------------------- */
@@ -161,7 +161,7 @@
 	(_BLI_SMALLSTACK_CAST(var_src) ((_##var_src##_stack) ? \
 	(_BLI_SMALLSTACK_DEL_EX(var_src, var_dst), (_##var_dst##_free->link)) : NULL))
 
-#define BLI_SMALLSTACK_LAST(var) \
+#define BLI_SMALLSTACK_PEEK(var) \
 	(_BLI_SMALLSTACK_CAST(var) ((_##var##_stack) ? \
 	                             _##var##_stack->link : NULL))
 

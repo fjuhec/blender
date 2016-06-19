@@ -188,7 +188,10 @@ class DATA_PT_geometry_curve(CurveButtonsPanelCurve, Panel):
             row.label(text="Bevel Factor:")
 
             col = layout.column()
-            col.active = (curve.bevel_depth > 0 or curve.bevel_object is not None)
+            col.active = (
+                    (curve.bevel_depth > 0.0) or
+                    (curve.extrude > 0.0) or
+                    (curve.bevel_object is not None))
             row = col.row(align=True)
             row.prop(curve, "bevel_factor_mapping_start", text="")
             row.prop(curve, "bevel_factor_start", text="Start")
@@ -286,7 +289,7 @@ class DATA_PT_active_spline(CurveButtonsPanelActive, Panel):
                 sub.prop(act_spline, "order_v", text="V")
                 sub.prop(act_spline, "resolution_v", text="V")
 
-            if not is_surf:
+            if act_spline.type == 'BEZIER':
                 col = layout.column()
                 col.label(text="Interpolation:")
 

@@ -74,7 +74,8 @@ typedef struct uiFontStyle {
 	short uifont_id;		/* saved in file, 0 is default */
 	short points;			/* actual size depends on 'global' dpi */
 	short kerning;			/* unfitted or default kerning value. */
-	char pad[6];
+	char word_wrap;			/* enable word-wrap when drawing */
+	char pad[5];
 	short italic, bold;		/* style hint */
 	short shadow;			/* value is amount of pixels blur */
 	short shadx, shady;		/* shadow offset in pixels */
@@ -283,7 +284,7 @@ typedef struct ThemeSpace {
 	char nodeclass_pattern[4], nodeclass_layout[4];
 	
 	char movie[4], movieclip[4], mask[4], image[4], scene[4], audio[4];		/* for sequence editor */
-	char effect[4], transition[4], meta[4];
+	char effect[4], transition[4], meta[4], text_strip[4], pad[4];
 	char editmesh_active[4]; 
 
 	char handle_vertex[4];
@@ -465,7 +466,8 @@ typedef struct UserDef {
 
 	int scrollback; /* console scrollback limit */
 	int dpi;		/* range 48-128? */
-	char pad2[2];
+	char node_margin; /* node insert offset (aka auto-offset) margin, but might be useful for later stuff as well */
+	char pad2;
 	short transopts;
 	short menuthreshold1, menuthreshold2;
 	
@@ -490,8 +492,9 @@ typedef struct UserDef {
 	short dragthreshold;
 	int memcachelimit;
 	int prefetchframes;
+	float pad_rot_angle; /* control the rotation step of the view when PAD2, PAD4, PAD6&PAD8 is use */
 	short frameserverport;
-	short pad_rot_angle;	/* control the rotation step of the view when PAD2, PAD4, PAD6&PAD8 is use */
+	short pad4;
 	short obcenter_dia;
 	short rvisize;			/* rotating view icon size */
 	short rvibright;		/* rotating view icon brightness */
@@ -503,7 +506,10 @@ typedef struct UserDef {
 	char  ipo_new;			/* interpolation mode for newly added F-Curves */
 	char  keyhandles_new;	/* handle types for newly added keyframes */
 	char  gpu_select_method;
-	char  pad1;
+	char  view_frame_type;
+
+	int view_frame_keyframes; /* number of keyframes to zoom around current frame */
+	float view_frame_seconds; /* seconds to zoom around current frame */
 
 	short scrcastfps;		/* frame rate for screencast to be played back */
 	short scrcastwait;		/* milliseconds between screencast snapshots */
@@ -514,6 +520,7 @@ typedef struct UserDef {
 
 	float ndof_sensitivity;	/* overall sensitivity of 3D mouse */
 	float ndof_orbit_sensitivity;
+	float ndof_deadzone; /* deadzone of 3D mouse */
 	int ndof_flag;			/* flags for 3D mouse */
 
 	short ogl_multisamples;	/* amount of samples for OpenGL FSA, if zero no FSA */
@@ -538,6 +545,7 @@ typedef struct UserDef {
 	char author[80];	/* author name for file formats supporting it */
 
 	char font_path_ui[1024];
+	char font_path_ui_mono[1024];
 
 	int compute_device_type;
 	int compute_device_id;
@@ -556,6 +564,9 @@ typedef struct UserDef {
 	short pie_menu_threshold;     /* pie menu distance from center before a direction is set */
 
 	struct WalkNavigation walk_navigation;
+
+	short opensubdiv_compute_type;
+	char pad5[6];
 } UserDef;
 
 extern UserDef U; /* from blenkernel blender.c */
@@ -673,7 +684,6 @@ typedef enum eUserpref_UI_Flag2 {
 	USER_KEEP_SESSION			= (1 << 0),
 	USER_REGION_OVERLAP			= (1 << 1),
 	USER_TRACKPAD_NATURAL		= (1 << 2),
-	USER_OPENGL_NO_WARN_SUPPORT	= (1 << 3)
 } eUserpref_UI_Flag2;
 	
 /* Auto-Keying mode */
@@ -685,6 +695,13 @@ typedef enum eAutokey_Mode {
 	AUTOKEY_MODE_NORMAL    = 3,
 	AUTOKEY_MODE_EDITKEYS  = 5
 } eAutokey_Mode;
+
+/* Zoom to frame mode */
+typedef enum eZoomFrame_Mode {
+	ZOOM_FRAME_MODE_KEEP_RANGE = 0,
+	ZOOM_FRAME_MODE_SECONDS = 1,
+	ZOOM_FRAME_MODE_KEYFRAMES = 2
+} eZoomFrame_Mode;
 
 /* Auto-Keying flag
  * U.autokey_flag (not strictly used when autokeying only - is also used when keyframing these days)
@@ -737,7 +754,7 @@ typedef enum eOpenGL_RenderingOptions {
 	/* USER_DISABLE_SOUND		= (1 << 1), */ /* deprecated, don't use without checking for */
 	                                     /* backwards compatibilty in do_versions! */
 	USER_DISABLE_MIPMAP		= (1 << 2),
-	USER_DISABLE_VBO		= (1 << 3),
+	/* USER_DISABLE_VBO		= (1 << 3), */ /* DEPRECATED we always use vertex buffers now */
 	/* USER_DISABLE_AA			= (1 << 4), */ /* DEPRECATED */
 } eOpenGL_RenderingOptions;
 
@@ -785,19 +802,23 @@ typedef enum eTimecodeStyles {
 	 * with '+' to denote the frames 
 	 * i.e. HH:MM:SS+FF, MM:SS+FF, SS+FF, or MM:SS
 	 */
-	USER_TIMECODE_MINIMAL		= 0,
-	
+	USER_TIMECODE_MINIMAL       = 0,
+
 	/* reduced SMPTE - (HH:)MM:SS:FF */
-	USER_TIMECODE_SMPTE_MSF		= 1,
-	
+	USER_TIMECODE_SMPTE_MSF     = 1,
+
 	/* full SMPTE - HH:MM:SS:FF */
-	USER_TIMECODE_SMPTE_FULL	= 2,
-	
+	USER_TIMECODE_SMPTE_FULL    = 2,
+
 	/* milliseconds for sub-frames - HH:MM:SS.sss */
-	USER_TIMECODE_MILLISECONDS	= 3,
-	
+	USER_TIMECODE_MILLISECONDS  = 3,
+
 	/* seconds only */
-	USER_TIMECODE_SECONDS_ONLY	= 4,
+	USER_TIMECODE_SECONDS_ONLY  = 4,
+
+	/* Private (not exposed as generic choices) options. */
+	/* milliseconds for sub-frames , SubRip format- HH:MM:SS,sss */
+	USER_TIMECODE_SUBRIP        = 100,
 } eTimecodeStyles;
 
 /* theme drawtypes */
@@ -870,6 +891,16 @@ typedef enum eUserpref_VirtualPixel {
 	VIRTUAL_PIXEL_NATIVE = 0,
 	VIRTUAL_PIXEL_DOUBLE = 1,
 } eUserpref_VirtualPixel;
+
+typedef enum eOpensubdiv_Computee_Type {
+	USER_OPENSUBDIV_COMPUTE_NONE = 0,
+	USER_OPENSUBDIV_COMPUTE_CPU = 1,
+	USER_OPENSUBDIV_COMPUTE_OPENMP = 2,
+	USER_OPENSUBDIV_COMPUTE_OPENCL = 3,
+	USER_OPENSUBDIV_COMPUTE_CUDA = 4,
+	USER_OPENSUBDIV_COMPUTE_GLSL_TRANSFORM_FEEDBACK = 5,
+	USER_OPENSUBDIV_COMPUTE_GLSL_COMPUTE = 6,
+} eOpensubdiv_Computee_Type;
 
 #ifdef __cplusplus
 }

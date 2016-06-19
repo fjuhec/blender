@@ -112,8 +112,6 @@ static void tracking_segment_start_cb(void *userdata, MovieTrackingTrack *track,
 static void tracking_segment_end_cb(void *UNUSED(userdata), int UNUSED(coord))
 {
 	glEnd();
-
-	glLineWidth(1.0f);
 }
 
 typedef struct TrackMotionCurveUserData {
@@ -258,7 +256,6 @@ static void tracking_error_segment_end_cb(void *UNUSED(userdata), int coord)
 {
 	if (coord == 1) {
 		glEnd();
-		glLineWidth(1.0f);
 	}
 }
 

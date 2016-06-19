@@ -37,7 +37,7 @@
 #  include <malloc.h>
 #endif
 
-#if defined(__cplusplus) && ((__cplusplus >= 201103L) || (defined(_MSC_VER) && _MSC_VER >= 1800))
+#if defined(__cplusplus) && ((__cplusplus >= 201103L) || defined(_MSC_VER))
 #  define HAS_CPP11_FEATURES
 #endif
 
@@ -47,6 +47,18 @@ extern "C++" {
 	template<typename T> static inline T decltype_helper(T x) { return x; }
 #  define typeof(x) decltype(decltype_helper(x))
 }
+#endif
+
+/* little macro so inline keyword works */
+#if defined(_MSC_VER)
+#  define BLI_INLINE static __forceinline
+#else
+#  if (defined(__APPLE__) && defined(__ppc__))
+/* static inline __attribute__ here breaks osx ppc gcc42 build */
+#    define BLI_INLINE static __attribute__((always_inline)) __attribute__((__unused__))
+#  else
+#    define BLI_INLINE static inline __attribute__((always_inline)) __attribute__((__unused__))
+#  endif
 #endif
 
 #endif  /* __BLI_COMPILER_COMPAT_H__ */

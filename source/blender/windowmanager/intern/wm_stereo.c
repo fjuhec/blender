@@ -40,7 +40,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_listbase.h"
-#include "BLI_rect.h"
 #include "BLI_utildefines.h"
 
 #include "BIF_gl.h"
@@ -55,6 +54,7 @@
 
 #include "GPU_glew.h"
 #include "GPU_immediate.h"
+#include "GPU_basic_shader.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -84,76 +84,48 @@ static void wm_method_draw_stereo3d_pageflip(wmWindow *win)
 	glDrawBuffer(GL_BACK);
 }
 
-static GLuint left_interlace_mask[32];
-static GLuint right_interlace_mask[32];
 static enum eStereo3dInterlaceType interlace_prev_type = -1;
 static char interlace_prev_swap = -1;
-
-static void wm_interlace_masks_create(wmWindow *win)
-{
-	GLuint pattern;
-	char i;
-	bool swap = (win->stereo3d_format->flag & S3D_INTERLACE_SWAP) != 0;
-	enum eStereo3dInterlaceType interlace_type = win->stereo3d_format->interlace_type;
-
-	if (interlace_prev_type == interlace_type && interlace_prev_swap == swap)
-		return;
-
-	switch (interlace_type) {
-		case S3D_INTERLACE_ROW:
-			pattern = 0x00000000;
-			pattern = swap ? ~pattern : pattern;
-			for (i = 0; i < 32; i += 2) {
-				left_interlace_mask[i] = pattern;
-				right_interlace_mask[i] = ~pattern;
-			}
-			for (i = 1; i < 32; i += 2) {
-				left_interlace_mask[i] = ~pattern;
-				right_interlace_mask[i] = pattern;
-			}
-			break;
-		case S3D_INTERLACE_COLUMN:
-			pattern = 0x55555555;
-			pattern = swap ? ~pattern : pattern;
-			for (i = 0; i < 32; i++) {
-				left_interlace_mask[i] = pattern;
-				right_interlace_mask[i] = ~pattern;
-			}
-			break;
-		case S3D_INTERLACE_CHECKERBOARD:
-		default:
-			pattern = 0x55555555;
-			pattern = swap ? ~pattern : pattern;
-			for (i = 0; i < 32; i += 2) {
-				left_interlace_mask[i] = pattern;
-				right_interlace_mask[i] = ~pattern;
-			}
-			for (i = 1; i < 32; i += 2) {
-				left_interlace_mask[i] = ~pattern;
-				right_interlace_mask[i] = pattern;
-			}
-			break;
-	}
-	interlace_prev_type = interlace_type;
-	interlace_prev_swap = swap;
-}
 
 static void wm_method_draw_stereo3d_interlace(wmWindow *win)
 {
 	wmDrawData *drawdata;
 	int view;
-
-	wm_interlace_masks_create(win);
+	bool flag;
+	bool swap = (win->stereo3d_format->flag & S3D_INTERLACE_SWAP) != 0;
+	enum eStereo3dInterlaceType interlace_type = win->stereo3d_format->interlace_type;
 
 	for (view = 0; view < 2; view ++) {
+		flag = swap ? !view : view;
 		drawdata = BLI_findlink(&win->drawdata, (view * 2) + 1);
-
-		glEnable(GL_POLYGON_STIPPLE);
-		glPolygonStipple(view ? (GLubyte *) right_interlace_mask : (GLubyte *) left_interlace_mask);
+		GPU_basic_shader_bind(GPU_SHADER_STIPPLE);
+		switch (interlace_type) {
+			case S3D_INTERLACE_ROW:
+				if (flag)
+					GPU_basic_shader_stipple(GPU_SHADER_STIPPLE_S3D_INTERLACE_ROW_SWAP);
+				else
+					GPU_basic_shader_stipple(GPU_SHADER_STIPPLE_S3D_INTERLACE_ROW);
+				break;
+			case S3D_INTERLACE_COLUMN:
+				if (flag)
+					GPU_basic_shader_stipple(GPU_SHADER_STIPPLE_S3D_INTERLACE_COLUMN_SWAP);
+				else
+					GPU_basic_shader_stipple(GPU_SHADER_STIPPLE_S3D_INTERLACE_COLUMN);
+				break;
+			case S3D_INTERLACE_CHECKERBOARD:
+			default:
+				if (flag)
+					GPU_basic_shader_stipple(GPU_SHADER_STIPPLE_S3D_INTERLACE_CHECKER_SWAP);
+				else
+					GPU_basic_shader_stipple(GPU_SHADER_STIPPLE_S3D_INTERLACE_CHECKER);
+				break;
+		}
 
 		wm_triple_draw_textures(win, drawdata->triple, 1.0f);
-		glDisable(GL_POLYGON_STIPPLE);
+		GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
 	}
+	interlace_prev_type = interlace_type;
+	interlace_prev_swap = swap;
 }
 
 static void wm_method_draw_stereo3d_anaglyph(wmWindow *win)
@@ -197,7 +169,6 @@ static void wm_method_draw_stereo3d_sidebyside(wmWindow *win)
 	wmDrawData *drawdata;
 	wmDrawTriple *triple;
 	float halfx, halfy, ratiox, ratioy;
-	int x, y, offx, offy;
 	float alpha = 1.0f;
 	int view;
 	int soffx;
@@ -219,43 +190,39 @@ static void wm_method_draw_stereo3d_sidebyside(wmWindow *win)
 
 		glEnable(triple->target);
 
-		for (y = 0, offy = 0; y < triple->ny; offy += triple->y[y], y++) {
-			for (x = 0, offx = 0; x < triple->nx; offx += triple->x[x], x++) {
-				const int sizex = triple->x[x];
-				const int sizey = triple->y[y];
+		const int sizex = triple->x;
+		const int sizey = triple->y;
 
-				/* wmOrtho for the screen has this same offset */
-				ratiox = sizex;
-				ratioy = sizey;
-				halfx = GLA_PIXEL_OFS;
-				halfy = GLA_PIXEL_OFS;
+		/* wmOrtho for the screen has this same offset */
+		ratiox = sizex;
+		ratioy = sizey;
+		halfx = GLA_PIXEL_OFS;
+		halfy = GLA_PIXEL_OFS;
 
-				/* texture rectangle has unnormalized coordinates */
-				if (triple->target == GL_TEXTURE_2D) {
-					ratiox /= triple->x[x];
-					ratioy /= triple->y[y];
-					halfx /= triple->x[x];
-					halfy /= triple->y[y];
-				}
-
-				glBindTexture(triple->target, triple->bind[x + y * triple->nx]);
-
-				glColor4f(1.0f, 1.0f, 1.0f, alpha);
-				GPUBegin(GL_QUADS);
-				glTexCoord2f(halfx, halfy);
-				glVertex2f(soffx + (offx * 0.5f), offy);
-
-				glTexCoord2f(ratiox + halfx, halfy);
-				glVertex2f(soffx + ((offx + sizex) * 0.5f), offy);
-
-				glTexCoord2f(ratiox + halfx, ratioy + halfy);
-				glVertex2f(soffx + ((offx + sizex) * 0.5f), offy + sizey);
-
-				glTexCoord2f(halfx, ratioy + halfy);
-				glVertex2f(soffx + (offx * 0.5f), offy + sizey);
-				glEnd();
-			}
+		/* texture rectangle has unnormalized coordinates */
+		if (triple->target == GL_TEXTURE_2D) {
+			ratiox /= triple->x;
+			ratioy /= triple->y;
+			halfx /= triple->x;
+			halfy /= triple->y;
 		}
+
+		glBindTexture(triple->target, triple->bind);
+
+		glColor4f(1.0f, 1.0f, 1.0f, alpha);
+		GPUBegin(GL_QUADS);
+		glTexCoord2f(halfx, halfy);
+		glVertex2f(soffx, 0);
+
+		glTexCoord2f(ratiox + halfx, halfy);
+		glVertex2f(soffx + (sizex * 0.5f), 0);
+
+		glTexCoord2f(ratiox + halfx, ratioy + halfy);
+		glVertex2f(soffx + (sizex * 0.5f), sizey);
+
+		glTexCoord2f(halfx, ratioy + halfy);
+		glVertex2f(soffx, sizey);
+		glEnd();
 
 		glBindTexture(triple->target, 0);
 		glDisable(triple->target);
@@ -268,7 +235,6 @@ static void wm_method_draw_stereo3d_topbottom(wmWindow *win)
 	wmDrawData *drawdata;
 	wmDrawTriple *triple;
 	float halfx, halfy, ratiox, ratioy;
-	int x, y, offx, offy;
 	float alpha = 1.0f;
 	int view;
 	int soffy;
@@ -286,43 +252,39 @@ static void wm_method_draw_stereo3d_topbottom(wmWindow *win)
 
 		glEnable(triple->target);
 
-		for (y = 0, offy = 0; y < triple->ny; offy += triple->y[y], y++) {
-			for (x = 0, offx = 0; x < triple->nx; offx += triple->x[x], x++) {
-				const int sizex = triple->x[x];
-				const int sizey = triple->y[y];
+		const int sizex = triple->x;
+		const int sizey = triple->y;
 
-				/* wmOrtho for the screen has this same offset */
-				ratiox = sizex;
-				ratioy = sizey;
-				halfx = GLA_PIXEL_OFS;
-				halfy = GLA_PIXEL_OFS;
+		/* wmOrtho for the screen has this same offset */
+		ratiox = sizex;
+		ratioy = sizey;
+		halfx = GLA_PIXEL_OFS;
+		halfy = GLA_PIXEL_OFS;
 
-				/* texture rectangle has unnormalized coordinates */
-				if (triple->target == GL_TEXTURE_2D) {
-					ratiox /= triple->x[x];
-					ratioy /= triple->y[y];
-					halfx /= triple->x[x];
-					halfy /= triple->y[y];
-				}
-
-				glBindTexture(triple->target, triple->bind[x + y * triple->nx]);
-
-				glColor4f(1.0f, 1.0f, 1.0f, alpha);
-				GPUBegin(GL_QUADS);
-				glTexCoord2f(halfx, halfy);
-				glVertex2f(offx, soffy + (offy * 0.5f));
-
-				glTexCoord2f(ratiox + halfx, halfy);
-				glVertex2f(offx + sizex, soffy + (offy * 0.5f));
-
-				glTexCoord2f(ratiox + halfx, ratioy + halfy);
-				glVertex2f(offx + sizex, soffy + ((offy + sizey) * 0.5f));
-
-				glTexCoord2f(halfx, ratioy + halfy);
-				glVertex2f(offx, soffy + ((offy + sizey) * 0.5f));
-				glEnd();
-			}
+		/* texture rectangle has unnormalized coordinates */
+		if (triple->target == GL_TEXTURE_2D) {
+			ratiox /= triple->x;
+			ratioy /= triple->y;
+			halfx /= triple->x;
+			halfy /= triple->y;
 		}
+
+		glBindTexture(triple->target, triple->bind);
+
+		glColor4f(1.0f, 1.0f, 1.0f, alpha);
+		GPUBegin(GL_QUADS);
+		glTexCoord2f(halfx, halfy);
+		glVertex2f(0, soffy);
+
+		glTexCoord2f(ratiox + halfx, halfy);
+		glVertex2f(sizex, soffy);
+
+		glTexCoord2f(ratiox + halfx, ratioy + halfy);
+		glVertex2f(sizex, soffy + (sizey * 0.5f));
+
+		glTexCoord2f(halfx, ratioy + halfy);
+		glVertex2f(0, soffy + (sizey * 0.5f));
+		glEnd();
 
 		glBindTexture(triple->target, 0);
 		glDisable(triple->target);
@@ -371,14 +333,20 @@ bool WM_stereo3d_enabled(wmWindow *win, bool skip_stereo3d_check)
 {
 	bScreen *screen = win->screen;
 
+	/* some 3d methods change the window arrangement, thus they shouldn't
+	 * toggle on/off just because there is no 3d elements being drawn */
+	if (wm_stereo3d_is_fullscreen_required(win->stereo3d_format->display_mode)) {
+		return GHOST_GetWindowState(win->ghostwin) == GHOST_kWindowStateFullScreen;
+	}
+
 	if ((skip_stereo3d_check == false) && (ED_screen_stereo3d_required(screen) == false)) {
 		return false;
 	}
 
+	/* some 3d methods change the window arrangement, thus they shouldn't
+	 * toggle on/off just because there is no 3d elements being drawn */
 	if (wm_stereo3d_is_fullscreen_required(win->stereo3d_format->display_mode)) {
-		if (GHOST_GetWindowState(win->ghostwin) != GHOST_kWindowStateFullScreen) {
-			return false;
-		}
+		return GHOST_GetWindowState(win->ghostwin) == GHOST_kWindowStateFullScreen;
 	}
 
 	return true;
@@ -449,10 +417,12 @@ static void wm_stereo3d_set_init(bContext *C, wmOperator *op)
 int wm_stereo3d_set_exec(bContext *C, wmOperator *op)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	wmWindow *win = CTX_wm_window(C);
-	const bool is_fullscreen = WM_window_is_fullscreen(win);
-	char prev_display_mode = win->stereo3d_format->display_mode;
+	wmWindow *win_src = CTX_wm_window(C);
+	wmWindow *win_dst = NULL;
+	const bool is_fullscreen = WM_window_is_fullscreen(win_src);
+	char prev_display_mode = win_src->stereo3d_format->display_mode;
 	Stereo3dData *s3dd;
+	bool ok = true;
 
 	if (G.background)
 		return OPERATOR_CANCELLED;
@@ -464,38 +434,44 @@ int wm_stereo3d_set_exec(bContext *C, wmOperator *op)
 	}
 
 	s3dd = op->customdata;
-	*win->stereo3d_format = s3dd->stereo3d_format;
+	*win_src->stereo3d_format = s3dd->stereo3d_format;
 
 	if (prev_display_mode == S3D_DISPLAY_PAGEFLIP &&
-	    prev_display_mode != win->stereo3d_format->display_mode)
+	    prev_display_mode != win_src->stereo3d_format->display_mode)
 	{
 		/* in case the hardward supports pageflip but not the display */
-		if (wm_window_duplicate_exec(C, op) == OPERATOR_FINISHED) {
-			wm_window_close(C, wm, win);
+		if ((win_dst = wm_window_copy_test(C, win_src))) {
+			/* pass */
 		}
 		else {
 			BKE_report(op->reports, RPT_ERROR,
 			           "Failed to create a window without quad-buffer support, you may experience flickering");
+			ok = false;
 		}
 	}
-	else if (win->stereo3d_format->display_mode == S3D_DISPLAY_PAGEFLIP) {
+	else if (win_src->stereo3d_format->display_mode == S3D_DISPLAY_PAGEFLIP) {
+		/* ED_screen_duplicate() can't handle other cases yet T44688 */
+		if (win_src->screen->state != SCREENNORMAL) {
+			BKE_report(op->reports, RPT_ERROR,
+			           "Failed to switch to Time Sequential mode when in fullscreen");
+			ok = false;
+		}
 		/* pageflip requires a new window to be created with the proper OS flags */
-		if (wm_window_duplicate_exec(C, op) == OPERATOR_FINISHED) {
+		else if ((win_dst = wm_window_copy_test(C, win_src))) {
 			if (wm_stereo3d_quadbuffer_supported()) {
-				wm_window_close(C, wm, win);
 				BKE_report(op->reports, RPT_INFO, "Quad-buffer window successfully created");
 			}
 			else {
-				wmWindow *win_new = wm->windows.last;
-				wm_window_close(C, wm, win_new);
-				win->stereo3d_format->display_mode = prev_display_mode;
+				wm_window_close(C, wm, win_dst);
+				win_dst = NULL;
 				BKE_report(op->reports, RPT_ERROR, "Quad-buffer not supported by the system");
+				ok = false;
 			}
 		}
 		else {
 			BKE_report(op->reports, RPT_ERROR,
 			           "Failed to create a window compatible with the time sequential display method");
-			win->stereo3d_format->display_mode = prev_display_mode;
+			ok = false;
 		}
 	}
 
@@ -507,8 +483,20 @@ int wm_stereo3d_set_exec(bContext *C, wmOperator *op)
 
 	MEM_freeN(op->customdata);
 
-	WM_event_add_notifier(C, NC_WINDOW, NULL);
-	return OPERATOR_FINISHED;
+	if (ok) {
+		if (win_dst) {
+			wm_window_close(C, wm, win_src);
+		}
+
+		WM_event_add_notifier(C, NC_WINDOW, NULL);
+		return OPERATOR_FINISHED;
+	}
+	else {
+		/* without this, the popup won't be freed freed properly T44688 */
+		CTX_wm_window_set(C, win_src);
+		win_src->stereo3d_format->display_mode = prev_display_mode;
+		return OPERATOR_CANCELLED;
+	}
 }
 
 int wm_stereo3d_set_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))

@@ -44,6 +44,7 @@
 
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_sequencer.h"
 #include "BKE_movieclip.h"
@@ -66,7 +67,7 @@
 #include "BKE_sound.h"
 
 #ifdef WITH_AUDASPACE
-#  include "AUD_C-API.h"
+#  include AUD_SEQUENCE_H
 #endif
 
 /* own include */
@@ -206,8 +207,14 @@ static void seq_load_operator_info(SeqLoadInfo *seq_load, wmOperator *op)
 	if ((prop = RNA_struct_find_property(op->ptr, "cache")) && RNA_property_boolean_get(op->ptr, prop))
 		seq_load->flag |= SEQ_LOAD_SOUND_CACHE;
 
+	if ((prop = RNA_struct_find_property(op->ptr, "mono")) && RNA_property_boolean_get(op->ptr, prop))
+		seq_load->flag |= SEQ_LOAD_SOUND_MONO;
+
 	if ((prop = RNA_struct_find_property(op->ptr, "sound")) && RNA_property_boolean_get(op->ptr, prop))
 		seq_load->flag |= SEQ_LOAD_MOVIE_SOUND;
+	
+	if ((prop = RNA_struct_find_property(op->ptr, "use_framerate")) && RNA_property_boolean_get(op->ptr, prop))
+		seq_load->flag |= SEQ_LOAD_SYNC_FPS;
 
 	/* always use this for ops */
 	seq_load->flag |= SEQ_LOAD_FRAME_ADVANCE;
@@ -385,8 +392,7 @@ static int sequencer_add_movieclip_strip_exec(bContext *C, wmOperator *op)
 	seq->blend_mode = SEQ_TYPE_CROSS;
 	seq->clip = clip;
 
-	if (seq->clip->id.us == 0)
-		seq->clip->id.us = 1;
+	id_us_ensure_real(&seq->clip->id);
 
 	/* basic defaults */
 	seq->strip = strip = MEM_callocN(sizeof(Strip), "strip");
@@ -470,8 +476,7 @@ static int sequencer_add_mask_strip_exec(bContext *C, wmOperator *op)
 	seq->blend_mode = SEQ_TYPE_CROSS;
 	seq->mask = mask;
 
-	if (seq->mask->id.us == 0)
-		seq->mask->id.us = 1;
+	id_us_ensure_real(&seq->mask->id);
 
 	/* basic defaults */
 	seq->strip = strip = MEM_callocN(sizeof(Strip), "strip");
@@ -636,6 +641,20 @@ static int sequencer_add_movie_strip_invoke(bContext *C, wmOperator *op, const w
 {
 	PropertyRNA *prop;
 	Scene *scene = CTX_data_scene(C);
+	Editing *ed = BKE_sequencer_editing_get(scene, false);
+
+	/* only enable "use_framerate" if there aren't any existing strips
+	 *  -  When there are no strips yet, there is no harm in enabling this,
+	 *     and it makes the single-strip case really nice for casual users
+	 *  -  When there are strips, it's best we don't touch the framerate,
+	 *     as all hell may break loose (e.g. audio strips start overlapping
+	 *     and can't be restored)
+	 *  -  These initial guesses can still be manually overridden by users
+	 *     from the modal options panel
+	 */
+	if (ed && ed->seqbasep && ed->seqbasep->first) {
+		RNA_boolean_set(op->ptr, "use_framerate", false);
+	}
 
 	/* This is for drag and drop */
 	if ((RNA_struct_property_is_set(op->ptr, "files") && RNA_collection_length(op->ptr, "files")) ||
@@ -697,10 +716,12 @@ void SEQUENCER_OT_movie_strip_add(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
-	WM_operator_properties_filesel(ot, FILE_TYPE_FOLDER | FILE_TYPE_MOVIE, FILE_SPECIAL, FILE_OPENFILE,
-	                               WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH | WM_FILESEL_FILES, FILE_DEFAULTDISPLAY);
+	WM_operator_properties_filesel(
+	        ot, FILE_TYPE_FOLDER | FILE_TYPE_MOVIE, FILE_SPECIAL, FILE_OPENFILE,
+	        WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH | WM_FILESEL_FILES, FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 	sequencer_generic_props__internal(ot, SEQPROP_STARTFRAME);
 	RNA_def_boolean(ot->srna, "sound", true, "Sound", "Load sound with the movie");
+	RNA_def_boolean(ot->srna, "use_framerate", true, "Use Movie Framerate", "Use framerate from the movie to keep sound and video in sync");
 }
 
 /* add sound operator */
@@ -746,39 +767,28 @@ void SEQUENCER_OT_sound_strip_add(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
-	WM_operator_properties_filesel(ot, FILE_TYPE_FOLDER | FILE_TYPE_SOUND, FILE_SPECIAL, FILE_OPENFILE,
-	                               WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH | WM_FILESEL_FILES, FILE_DEFAULTDISPLAY);
+	WM_operator_properties_filesel(
+	        ot, FILE_TYPE_FOLDER | FILE_TYPE_SOUND, FILE_SPECIAL, FILE_OPENFILE,
+	        WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH | WM_FILESEL_FILES, FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 	sequencer_generic_props__internal(ot, SEQPROP_STARTFRAME);
 	RNA_def_boolean(ot->srna, "cache", false, "Cache", "Cache the sound in memory");
+	RNA_def_boolean(ot->srna, "mono", false, "Mono", "Merge all the sound's channels into one");
 }
 
-int sequencer_image_seq_get_minmax_frame(wmOperator *op, int sfra, int *r_minframe)
+int sequencer_image_seq_get_minmax_frame(wmOperator *op, int sfra, int *r_minframe, int *r_numdigits)
 {
 	int minframe = INT32_MAX, maxframe = INT32_MIN;
+	int numdigits = 0;
 
 	RNA_BEGIN (op->ptr, itemptr, "files")
 	{
-		char *filename = NULL, *filename_stripped;
+		char *filename;
 		int frame;
 		/* just get the first filename */
 		filename = RNA_string_get_alloc(&itemptr, "name", NULL, 0);
 
 		if (filename) {
-			bool is_numeric;
-
-			filename_stripped = filename;
-
-			/* strip numeric extensions */
-			while (*filename_stripped && isdigit(*filename_stripped)) {
-				filename_stripped++;
-			}
-
-			is_numeric = (filename_stripped != filename && *filename_stripped == '.');
-
-			if (is_numeric) {
-				/* was the number really an extension? */
-				*filename_stripped = 0;
-				frame = atoi(filename);
+			if (BLI_path_frame_get(filename, &frame, &numdigits)) {
 				minframe = min_ii(minframe, frame);
 				maxframe = max_ii(maxframe, frame);
 			}
@@ -794,14 +804,15 @@ int sequencer_image_seq_get_minmax_frame(wmOperator *op, int sfra, int *r_minfra
 	}
 
 	*r_minframe = minframe;
+	*r_numdigits = numdigits;
 
 	return maxframe - minframe + 1;
 }
 
-void sequencer_image_seq_reserve_frames(wmOperator *op, StripElem *se, int len, int minframe)
+void sequencer_image_seq_reserve_frames(wmOperator *op, StripElem *se, int len, int minframe, int numdigits)
 {
 	int i;
-	char *filename = NULL, *filename_stripped;
+	char *filename = NULL;
 	RNA_BEGIN (op->ptr, itemptr, "files")
 	{
 		/* just get the first filename */
@@ -810,24 +821,16 @@ void sequencer_image_seq_reserve_frames(wmOperator *op, StripElem *se, int len, 
 	}
 	RNA_END;
 
-	filename_stripped = filename;
-
-	if (filename_stripped) {
-
-		/* strip numeric extensions */
-		while (*filename_stripped && isdigit(*filename_stripped)) {
-			filename_stripped++;
-		}
-
-		/* was the number really an extension? */
-		if (*filename_stripped == '.')
-			filename_stripped++;
-		else {
-			filename_stripped = filename;
-		}
+	if (filename) {
+		char ext[PATH_MAX];
+		char filename_stripped[PATH_MAX];
+		/* strip the frame from filename and substitute with # */
+		BLI_path_frame_strip(filename, true, ext);
 
 		for (i = 0; i < len; i++, se++) {
-			BLI_snprintf(se->name, sizeof(se->name), "%04d.%s", minframe + i, filename_stripped);
+			BLI_strncpy(filename_stripped, filename, sizeof(filename_stripped));
+			BLI_path_frame(filename_stripped, minframe + i, numdigits);
+			BLI_snprintf(se->name, sizeof(se->name), "%s%s", filename_stripped, ext);
 		}
 
 		MEM_freeN(filename);
@@ -838,7 +841,7 @@ void sequencer_image_seq_reserve_frames(wmOperator *op, StripElem *se, int len, 
 /* add image operator */
 static int sequencer_add_image_strip_exec(bContext *C, wmOperator *op)
 {
-	int minframe;
+	int minframe, numdigits;
 	/* cant use the generic function for this */
 	Scene *scene = CTX_data_scene(C); /* only for sound */
 	Editing *ed = BKE_sequencer_editing_get(scene, true);
@@ -853,7 +856,7 @@ static int sequencer_add_image_strip_exec(bContext *C, wmOperator *op)
 
 	/* images are unique in how they handle this - 1 per strip elem */
 	if (use_placeholders) {
-		seq_load.len = sequencer_image_seq_get_minmax_frame(op, seq_load.start_frame, &minframe);
+		seq_load.len = sequencer_image_seq_get_minmax_frame(op, seq_load.start_frame, &minframe, &numdigits);
 	}
 	else {
 		seq_load.len = RNA_property_collection_length(op->ptr, RNA_struct_find_property(op->ptr, "files"));
@@ -871,7 +874,7 @@ static int sequencer_add_image_strip_exec(bContext *C, wmOperator *op)
 	se = strip->stripdata;
 
 	if (use_placeholders) {
-		sequencer_image_seq_reserve_frames(op, se, seq_load.len, minframe);
+		sequencer_image_seq_reserve_frames(op, se, seq_load.len, minframe, numdigits);
 	}
 	else {
 		RNA_BEGIN (op->ptr, itemptr, "files")
@@ -952,8 +955,9 @@ void SEQUENCER_OT_image_strip_add(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
-	WM_operator_properties_filesel(ot, FILE_TYPE_FOLDER | FILE_TYPE_IMAGE, FILE_SPECIAL, FILE_OPENFILE,
-	                               WM_FILESEL_DIRECTORY | WM_FILESEL_RELPATH | WM_FILESEL_FILES, FILE_DEFAULTDISPLAY);
+	WM_operator_properties_filesel(
+	        ot, FILE_TYPE_FOLDER | FILE_TYPE_IMAGE, FILE_SPECIAL, FILE_OPENFILE,
+	        WM_FILESEL_DIRECTORY | WM_FILESEL_RELPATH | WM_FILESEL_FILES, FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 	sequencer_generic_props__internal(ot, SEQPROP_STARTFRAME | SEQPROP_ENDFRAME);
 
 	RNA_def_boolean(ot->srna, "use_placeholders", false, "Use Placeholders", "Use placeholders for missing frames of the strip");
@@ -1030,6 +1034,9 @@ static int sequencer_add_effect_strip_exec(bContext *C, wmOperator *op)
 	else if (seq->type == SEQ_TYPE_ADJUSTMENT) {
 		seq->blend_mode = SEQ_TYPE_CROSS;
 	}
+	else if (seq->type == SEQ_TYPE_TEXT) {
+		seq->blend_mode = SEQ_TYPE_ALPHAOVER;
+	}
 
 	/* an unset channel is a special case where we automatically go above
 	 * the other strips. */
@@ -1099,8 +1106,9 @@ void SEQUENCER_OT_effect_strip_add(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
-	WM_operator_properties_filesel(ot, 0, FILE_SPECIAL, FILE_OPENFILE,
-	                               WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH, FILE_DEFAULTDISPLAY);
+	WM_operator_properties_filesel(
+	        ot, 0, FILE_SPECIAL, FILE_OPENFILE,
+	        WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH, FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 	sequencer_generic_props__internal(ot, SEQPROP_STARTFRAME | SEQPROP_ENDFRAME);
 	RNA_def_enum(ot->srna, "type", sequencer_prop_effect_types, SEQ_TYPE_CROSS, "Type", "Sequencer effect type");
 	RNA_def_float_vector(ot->srna, "color", 3, NULL, 0.0f, 1.0f, "Color",

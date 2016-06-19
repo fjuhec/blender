@@ -55,6 +55,11 @@ typedef struct DecompMotionTransform {
 	float4 post_x, post_y;
 } DecompMotionTransform;
 
+typedef struct PerspectiveMotionTransform {
+	Transform pre;
+	Transform post;
+} PerspectiveMotionTransform;
+
 /* Functions */
 
 ccl_device_inline float3 transform_perspective(const Transform *t, const float3 a)
@@ -342,7 +347,12 @@ ccl_device_inline Transform transform_quick_inverse(Transform M)
 	 * scale can be inverted but what about shearing? */
 	Transform R;
 	float det = M.x.x*(M.z.z*M.y.y - M.z.y*M.y.z) - M.y.x*(M.z.z*M.x.y - M.z.y*M.x.z) + M.z.x*(M.y.z*M.x.y - M.y.y*M.x.z);
-
+	if(det == 0.0f) {
+		M.x.x += 1e-8f;
+		M.y.y += 1e-8f;
+		M.z.z += 1e-8f;
+		det = M.x.x*(M.z.z*M.y.y - M.z.y*M.y.z) - M.y.x*(M.z.z*M.x.y - M.z.y*M.x.z) + M.z.x*(M.y.z*M.x.y - M.y.y*M.x.z);
+	}
 	det = (det != 0.0f)? 1.0f/det: 0.0f;
 
 	float3 Rx = det*make_float3(M.z.z*M.y.y - M.z.y*M.y.z, M.z.y*M.x.z - M.z.z*M.x.y, M.y.z*M.x.y - M.y.y*M.x.z);
@@ -460,6 +470,37 @@ float4 transform_to_quat(const Transform& tfm);
 void transform_motion_decompose(DecompMotionTransform *decomp, const MotionTransform *motion, const Transform *mid);
 Transform transform_from_viewplane(BoundBox2D& viewplane);
 
+#endif
+
+/* TODO(sergey): This is only for until we've got OpenCL 2.0
+ * on all devices we consider supported. It'll be replaced with
+ * generic address space.
+ */
+
+#ifdef __KERNEL_OPENCL__
+
+#define OPENCL_TRANSFORM_ADDRSPACE_GLUE(a, b) a ## b
+#define OPENCL_TRANSFORM_ADDRSPACE_DECLARE(function) \
+ccl_device_inline float3 OPENCL_TRANSFORM_ADDRSPACE_GLUE(function, _addrspace)( \
+    ccl_addr_space const Transform *t, const float3 a) \
+{ \
+  Transform private_tfm = *t; \
+  return function(&private_tfm, a); \
+}
+
+OPENCL_TRANSFORM_ADDRSPACE_DECLARE(transform_point)
+OPENCL_TRANSFORM_ADDRSPACE_DECLARE(transform_direction)
+OPENCL_TRANSFORM_ADDRSPACE_DECLARE(transform_direction_transposed)
+
+#  undef OPENCL_TRANSFORM_ADDRSPACE_DECLARE
+#  undef OPENCL_TRANSFORM_ADDRSPACE_GLUE
+#  define transform_point_auto transform_point_addrspace
+#  define transform_direction_auto transform_direction_addrspace
+#  define transform_direction_transposed_auto transform_direction_transposed_addrspace
+#else
+#  define transform_point_auto transform_point
+#  define transform_direction_auto transform_direction
+#  define transform_direction_transposed_auto transform_direction_transposed
 #endif
 
 CCL_NAMESPACE_END

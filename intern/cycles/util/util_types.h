@@ -468,6 +468,23 @@ enum InterpolationType {
 	INTERPOLATION_CLOSEST = 1,
 	INTERPOLATION_CUBIC = 2,
 	INTERPOLATION_SMART = 3,
+
+	INTERPOLATION_NUM_TYPES,
+};
+
+/* Extension types for textures.
+ *
+ * Defines how the image is extrapolated past its original bounds.
+ */
+enum ExtensionType {
+	/* Cause the image to repeat horizontally and vertically. */
+	EXTENSION_REPEAT = 0,
+	/* Extend by repeating edge pixels of the image. */
+	EXTENSION_EXTEND = 1,
+	/* Clip to image size and set exterior pixels as transparent. */
+	EXTENSION_CLIP = 2,
+
+	EXTENSION_NUM_TYPES,
 };
 
 /* macros */

@@ -64,6 +64,11 @@ BMFace *BM_vert_pair_share_face_by_angle(
         BMLoop **r_l_a, BMLoop **r_l_b,
         const bool allow_adjacent) ATTR_NONNULL();
 
+BMFace *BM_edge_pair_share_face_by_len(
+        BMEdge *e_a, BMEdge *e_b,
+        BMLoop **r_l_a, BMLoop **r_l_b,
+        const bool allow_adjacent) ATTR_NONNULL();
+
 int     BM_vert_edge_count_nonwire(const BMVert *v) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 #define BM_vert_edge_count_is_equal(v, n) (BM_vert_edge_count_ex(v, (n) + 1) == n)
 #define BM_vert_edge_count_is_over(v, n) (BM_vert_edge_count_ex(v, (n) + 1) == (n) + 1)
@@ -80,6 +85,7 @@ int     BM_vert_face_count(const BMVert *v) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL
 BMEdge *BM_vert_other_disk_edge(BMVert *v, BMEdge *e) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
 bool    BM_vert_is_edge_pair(const BMVert *v) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+bool    BM_vert_edge_pair(BMVert *v, BMEdge **r_e_a, BMEdge **r_e_b);
 bool    BM_vert_face_check(BMVert *v) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 bool    BM_vert_is_wire(const BMVert *v) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 BLI_INLINE bool    BM_edge_is_wire(const BMEdge *e) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
@@ -91,6 +97,10 @@ bool    BM_vert_is_boundary(const BMVert *v) ATTR_WARN_UNUSED_RESULT ATTR_NONNUL
 BLI_INLINE bool    BM_edge_is_boundary(const BMEdge *e) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 BLI_INLINE bool    BM_edge_is_contiguous(const BMEdge *e) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 bool    BM_edge_is_convex(const BMEdge *e) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+bool    BM_edge_is_contiguous_loop_cd(
+        const BMEdge *e,
+        const int cd_loop_type, const int cd_loop_offset)
+        ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
 int     BM_loop_region_loops_count_ex(BMLoop *l, int *r_loop_total) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 int     BM_loop_region_loops_count(BMLoop *l) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
@@ -98,6 +108,9 @@ bool    BM_loop_is_convex(const BMLoop *l) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(
 BLI_INLINE bool BM_loop_is_adjacent(const BMLoop *l_a, const BMLoop *l_b) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 float   BM_loop_point_side_of_loop_test(const BMLoop *l, const float co[3]) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 float   BM_loop_point_side_of_edge_test(const BMLoop *l, const float co[3]) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+
+BMLoop *BM_loop_find_prev_nodouble(BMLoop *l, BMLoop *l_stop, const float eps_sq);
+BMLoop *BM_loop_find_next_nodouble(BMLoop *l, BMLoop *l_stop, const float eps_sq);
 
 float   BM_loop_calc_face_angle(const BMLoop *l) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 void    BM_loop_calc_face_normal(const BMLoop *l, float r_normal[3]) ATTR_NONNULL();
@@ -131,10 +144,15 @@ bool    BM_face_exists_overlap(BMVert **varr, const int len, BMFace **r_f_overla
 bool    BM_face_exists_overlap_subset(BMVert **varr, const int len) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
 int     BM_face_share_face_count(BMFace *f_a, BMFace *f_b) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
-int     BM_face_share_edge_count(BMFace *f1, BMFace *f2) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+int     BM_face_share_edge_count(BMFace *f_a, BMFace *f_b) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+int     BM_face_share_vert_count(BMFace *f_a, BMFace *f_b) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
-bool    BM_face_share_face_check(BMFace *f1, BMFace *f2) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
-bool    BM_face_share_edge_check(BMFace *f1, BMFace *f2) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+bool    BM_face_share_face_check(BMFace *f_a, BMFace *f_b) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+bool    BM_face_share_edge_check(BMFace *f_a, BMFace *f_b) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+bool    BM_face_share_vert_check(BMFace *f_a, BMFace *f_b) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+
+bool    BM_loop_share_edge_check(BMLoop *l_a, BMLoop *l_b) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+
 bool    BM_edge_share_face_check(BMEdge *e1, BMEdge *e2) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 bool    BM_edge_share_quad_check(BMEdge *e1, BMEdge *e2) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 bool    BM_edge_share_vert_check(BMEdge *e1, BMEdge *e2) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
@@ -163,12 +181,12 @@ float BM_mesh_calc_volume(BMesh *bm, bool is_signed) ATTR_WARN_UNUSED_RESULT ATT
 
 int   BM_mesh_calc_face_groups(
         BMesh *bm, int *r_groups_array, int (**r_group_index)[2],
-        BMElemFilterFunc filter_fn, void *user_data,
+        BMLoopFilterFunc filter_fn, void *user_data,
         const char hflag_test, const char htype_step)
         ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1, 2, 3);
 int   BM_mesh_calc_edge_groups(
         BMesh *bm, int *r_groups_array, int (**r_group_index)[2],
-        BMElemFilterFunc filter_fn, void *user_data,
+        BMVertFilterFunc filter_fn, void *user_data,
         const char hflag_test)
         ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1, 2, 3);
 

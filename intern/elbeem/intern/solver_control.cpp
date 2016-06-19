@@ -894,7 +894,7 @@ void LbmFsgrSolver::cpDebugDisplay(int dispset)
 		// dot influence
 		if((mpControl->mDebugCpscale>0.) && cpDots) {
 			glPointSize(mpControl->mDebugCpscale * 8.);
-			glBegin(GL_POINTS);
+			GPUBegin(GL_POINTS);
 			for(int i=0; i<cparts->getSize(); i++) {
 				if((cpHideIna)&&( (cparts->getParticle(i)->influence<=0.) || (cparts->getParticle(i)->size<=0.) )) continue;
 				ntlVec3Gfx org( vec2G(cparts->getParticle(i)->pos ) );
@@ -911,7 +911,7 @@ void LbmFsgrSolver::cpDebugDisplay(int dispset)
 		// cp positions
 		if((mpControl->mDebugCpscale>0.) && cpDots) {
 			glPointSize(mpControl->mDebugCpscale * 3.);
-			glBegin(GL_POINTS); 
+			GPUBegin(GL_POINTS); 
 			glColor3f( 0,1,0 );
 		}
 		for(int i=0; i<cparts->getSize(); i++) {
@@ -934,7 +934,7 @@ void LbmFsgrSolver::cpDebugDisplay(int dispset)
 			const float scale = mpControl->mDebugAvgVelScale;
 
 			glColor3f( 1.0,1.0,1 );
-			glBegin(GL_LINES); 
+			GPUBegin(GL_LINES); 
 			for(int i=0; i<cparts->getSize(); i++) {
 				if((cpHideIna)&&( (cparts->getParticle(i)->influence<=0.) || (cparts->getParticle(i)->size<=0.) )) continue;
 				ntlVec3Gfx  org( vec2G(cparts->getParticle(i)->pos ) );
@@ -955,7 +955,7 @@ void LbmFsgrSolver::cpDebugDisplay(int dispset)
 			// debug, for use of e.g. LBMGET_FORCE LbmControlData *mpControl = this;
 #			define TESTGET_FORCE(lev,i,j,k)   mpControl->mCpForces[lev][ ((k*mLevel[lev].lSizey)+j)*mLevel[lev].lSizex+i ]
 	
-			glBegin(GL_LINES);
+			GPUBegin(GL_LINES);
 			//const int lev=0; 
 			for(int lev=0; lev<=mMaxRefine; lev++) {
 			FSGR_FORIJK_BOUNDS(lev) {

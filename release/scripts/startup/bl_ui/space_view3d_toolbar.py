@@ -21,7 +21,8 @@ import bpy
 from bpy.types import Menu, Panel, UIList
 from bl_ui.properties_grease_pencil_common import (
         GreasePencilDrawingToolsPanel,
-        GreasePencilStrokeEditPanel
+        GreasePencilStrokeEditPanel,
+        GreasePencilStrokeSculptPanel
         )
 from bl_ui.properties_paint_common import (
         UnifiedPaintPanel,
@@ -135,6 +136,7 @@ class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
 
     @staticmethod
     def draw_add_curve(layout, label=False):
+
         if label:
             layout.label(text="Bezier:")
         layout.operator("curve.primitive_bezier_curve_add", text="Bezier", icon='CURVE_BEZCURVE')
@@ -147,6 +149,10 @@ class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
         layout.operator("curve.primitive_nurbs_curve_add", text="Nurbs Curve", icon='CURVE_NCURVE')
         layout.operator("curve.primitive_nurbs_circle_add", text="Nurbs Circle", icon='CURVE_NCIRCLE')
         layout.operator("curve.primitive_nurbs_path_add", text="Path", icon='CURVE_PATH')
+
+        layout.separator()
+
+        layout.operator("curve.draw", icon='LINE_DATA')
 
     @staticmethod
     def draw_add_surface(layout):
@@ -241,13 +247,19 @@ class VIEW3D_PT_tools_animation(View3DPanel, Panel):
     def draw(self, context):
         layout = self.layout
 
+        ob = context.active_object
+        mpath = ob.motion_path if ob else None
+
         draw_keyframing_tools(context, layout)
 
         col = layout.column(align=True)
         col.label(text="Motion Paths:")
-        row = col.row(align=True)
-        row.operator("object.paths_calculate", text="Calculate")
-        row.operator("object.paths_clear", text="Clear")
+        if mpath:
+            row = col.row(align=True)
+            row.operator("object.paths_update", text="Update")
+            row.operator("object.paths_clear", text="", icon='X')
+        else:
+            col.operator("object.paths_calculate", text="Calculate")
 
         col.separator()
 
@@ -315,7 +327,7 @@ class VIEW3D_PT_tools_meshedit(View3DPanel, Panel):
         row.operator("transform.vert_slide", text="Vertex")
         col.operator("mesh.noise")
         col.operator("mesh.vertices_smooth")
-        col.operator("object.vertex_random")
+        col.operator("transform.vertex_random")
 
         col = layout.column(align=True)
         col.label(text="Add:")
@@ -327,6 +339,7 @@ class VIEW3D_PT_tools_meshedit(View3DPanel, Panel):
         col.operator("mesh.edge_face_add")
         col.operator("mesh.subdivide")
         col.operator("mesh.loopcut_slide")
+        col.operator("mesh.offset_edge_loops_slide")
         col.operator("mesh.duplicate_move", text="Duplicate")
         row = col.row(align=True)
         row.operator("mesh.spin")
@@ -366,7 +379,7 @@ class VIEW3D_PT_tools_meshweight(View3DPanel, Panel):
         col.operator("object.vertex_group_clean", text="Clean")
         col.operator("object.vertex_group_quantize", text="Quantize")
         col.operator("object.vertex_group_levels", text="Levels")
-        col.operator("object.vertex_group_blend", text="Blend")
+        col.operator("object.vertex_group_smooth", text="Smooth")
         col.operator("object.vertex_group_limit_total", text="Limit Total")
         col.operator("object.vertex_group_fix", text="Fix Deforms")
 
@@ -523,7 +536,7 @@ class VIEW3D_PT_tools_curveedit(View3DPanel, Panel):
         col.operator("curve.extrude_move", text="Extrude")
         col.operator("curve.subdivide")
         col.operator("curve.smooth")
-        col.operator("object.vertex_random")
+        col.operator("transform.vertex_random")
 
 
 class VIEW3D_PT_tools_add_curve_edit(View3DPanel, Panel):
@@ -538,8 +551,60 @@ class VIEW3D_PT_tools_add_curve_edit(View3DPanel, Panel):
 
         VIEW3D_PT_tools_add_object.draw_add_curve(col, label=True)
 
-# ********** default tools for editmode_surface ****************
 
+class VIEW3D_PT_tools_curveedit_options_stroke(View3DPanel, Panel):
+    bl_category = "Options"
+    bl_context = "curve_edit"
+    bl_label = "Curve Stroke"
+
+    def draw(self, context):
+        layout = self.layout
+
+        tool_settings = context.tool_settings
+        cps = tool_settings.curve_paint_settings
+
+        col = layout.column()
+
+        col.prop(cps, "curve_type")
+
+        if cps.curve_type == 'BEZIER':
+            col.label("Bezier Options:")
+            col.prop(cps, "error_threshold")
+            col.prop(cps, "use_corners_detect")
+
+            col = layout.column()
+            col.active = cps.use_corners_detect
+            col.prop(cps, "corner_angle")
+
+        col.label("Pressure Radius:")
+        row = layout.row(align=True)
+        rowsub = row.row(align=True)
+        rowsub.prop(cps, "radius_min", text="Min")
+        rowsub.prop(cps, "radius_max", text="Max")
+
+        row.prop(cps, "use_pressure_radius", text="", icon_only=True)
+
+        col = layout.column()
+        col.label("Taper Radius:")
+        row = layout.row(align=True)
+        row.prop(cps, "radius_taper_start", text="Start")
+        row.prop(cps, "radius_taper_end", text="End")
+
+        col = layout.column()
+        col.label("Projection Depth:")
+        row = layout.row(align=True)
+        row.prop(cps, "depth_mode", expand=True)
+
+        col = layout.column()
+        if cps.depth_mode == 'SURFACE':
+            col.prop(cps, "surface_offset")
+            col.prop(cps, "use_offset_absolute")
+            col.prop(cps, "use_stroke_endpoints")
+            if cps.use_stroke_endpoints:
+                colsub = layout.column(align=True)
+                colsub.prop(cps, "surface_plane", expand=True)
+
+# ********** default tools for editmode_surface ****************
 
 class VIEW3D_PT_tools_transform_surface(View3DPanel, Panel):
     bl_category = "Tools"
@@ -573,11 +638,12 @@ class VIEW3D_PT_tools_surfaceedit(View3DPanel, Panel):
         col = layout.column(align=True)
         col.label(text="Modeling:")
         col.operator("curve.extrude", text="Extrude")
+        col.operator("curve.spin")
         col.operator("curve.subdivide")
 
         col = layout.column(align=True)
         col.label(text="Deform:")
-        col.operator("object.vertex_random")
+        col.operator("transform.vertex_random")
 
 
 class VIEW3D_PT_tools_add_surface_edit(View3DPanel, Panel):
@@ -654,7 +720,7 @@ class VIEW3D_PT_tools_armatureedit(View3DPanel, Panel):
 
         col = layout.column(align=True)
         col.label(text="Deform:")
-        col.operator("object.vertex_random")
+        col.operator("transform.vertex_random")
 
 
 class VIEW3D_PT_tools_armatureedit_options(View3DPanel, Panel):
@@ -687,7 +753,7 @@ class VIEW3D_PT_tools_mballedit(View3DPanel, Panel):
 
         col = layout.column(align=True)
         col.label(text="Deform:")
-        col.operator("object.vertex_random")
+        col.operator("transform.vertex_random")
 
 
 class VIEW3D_PT_tools_add_mball_edit(View3DPanel, Panel):
@@ -725,7 +791,7 @@ class VIEW3D_PT_tools_latticeedit(View3DPanel, Panel):
 
         col = layout.column(align=True)
         col.label(text="Deform:")
-        col.operator("object.vertex_random")
+        col.operator("transform.vertex_random")
 
 
 # ********** default tools for pose-mode ****************
@@ -767,11 +833,17 @@ class VIEW3D_PT_tools_posemode(View3DPanel, Panel):
 
         draw_keyframing_tools(context, layout)
 
+        pchan = context.active_pose_bone
+        mpath = pchan.motion_path if pchan else None
+
         col = layout.column(align=True)
         col.label(text="Motion Paths:")
-        row = col.row(align=True)
-        row.operator("pose.paths_calculate", text="Calculate")
-        row.operator("pose.paths_clear", text="Clear")
+        if mpath:
+            row = col.row(align=True)
+            row.operator("pose.paths_update", text="Update")
+            row.operator("pose.paths_clear", text="", icon='X')
+        else:
+            col.operator("pose.paths_calculate", text="Calculate")
 
 
 class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
@@ -948,6 +1020,12 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
                 row = col.row(align=True)
                 row.prop(brush, "crease_pinch_factor", slider=True, text="Pinch")
 
+            # rake_factor
+            if capabilities.has_rake_factor:
+                col.separator()
+                row = col.row(align=True)
+                row.prop(brush, "rake_factor", slider=True)
+
             # use_original_normal and sculpt_plane
             if capabilities.has_sculpt_plane:
                 col.separator()
@@ -1033,6 +1111,10 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             self.prop_unified_strength(row, context, brush, "use_pressure_strength")
 
             col.prop(brush, "vertex_tool", text="Blend")
+
+            if brush.vertex_tool == 'BLUR':
+                col.prop(brush, "use_accumulate")
+                col.separator()
 
             col = layout.column()
             col.prop(toolsettings, "use_auto_normalize", text="Auto Normalize")
@@ -1550,6 +1632,15 @@ class VIEW3D_PT_sculpt_symmetry(Panel, View3DPaintPanel):
         row.prop(sculpt, "lock_y", text="Y", toggle=True)
         row.prop(sculpt, "lock_z", text="Z", toggle=True)
 
+        layout.label(text="Tiling:")
+
+        row = layout.row(align=True)
+        row.prop(sculpt, "tile_x", text="X", toggle=True)
+        row.prop(sculpt, "tile_y", text="Y", toggle=True)
+        row.prop(sculpt, "tile_z", text="Z", toggle=True)
+
+        layout.column().prop(sculpt, "tile_offset", text="Tile Offset")
+
 
 class VIEW3D_PT_tools_brush_appearance(Panel, View3DPaintPanel):
     bl_category = "Options"
@@ -1558,7 +1649,7 @@ class VIEW3D_PT_tools_brush_appearance(Panel, View3DPaintPanel):
     @classmethod
     def poll(cls, context):
         settings = cls.paint_settings(context)
-        return settings
+        return (settings is not None) and (not isinstance(settings, bpy.types.ParticleEdit))
 
     def draw(self, context):
         layout = self.layout
@@ -1642,7 +1733,6 @@ class VIEW3D_PT_tools_weightpaint_options(Panel, View3DPaintPanel):
 
         col.label("Show Zero Weights:")
         sub = col.row()
-        sub.active = (not tool_settings.use_multipaint)
         sub.prop(tool_settings, "vertex_group_user", expand=True)
 
         self.unified_paint_settings(col, context)
@@ -1861,6 +1951,11 @@ class VIEW3D_PT_tools_grease_pencil_draw(GreasePencilDrawingToolsPanel, Panel):
 
 # Grease Pencil stroke editing tools
 class VIEW3D_PT_tools_grease_pencil_edit(GreasePencilStrokeEditPanel, Panel):
+    bl_space_type = 'VIEW_3D'
+
+
+# Grease Pencil stroke sculpting tools
+class VIEW3D_PT_tools_grease_pencil_sculpt(GreasePencilStrokeSculptPanel, Panel):
     bl_space_type = 'VIEW_3D'
 
 

@@ -20,9 +20,9 @@
 
 set(INC
 	../include
-	../../blenfont
 	../../blenkernel
 	../../blenlib
+	../../blentranslation
 	../../bmesh
 	../../imbuf
 	../../gpu
@@ -70,6 +70,7 @@ set(SRC
 	../include/ED_node.h
 	../include/ED_numinput.h
 	../include/ED_object.h
+	../include/ED_outliner.h
 	../include/ED_paint.h
 	../include/ED_particle.h
 	../include/ED_physics.h
@@ -82,6 +83,7 @@ set(SRC
 	../include/ED_space_api.h
 	../include/ED_text.h
 	../include/ED_transform.h
+	../include/ED_transform_snap_object_context.h
 	../include/ED_transverts.h
 	../include/ED_types.h
 	../include/ED_util.h

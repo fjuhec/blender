@@ -215,7 +215,7 @@ void GPU_restore_basic_lights(int light_count, const GPUbasiclight lights[])
 
 static void feedback_light_position(float position[4] /* in-out */)
 {
-	GPU_feedback_vertex_4fv(GL_MODELVIEW_MATRIX,  position[0], position[1], position[2], position[3], position);
+	GPU_feedback_vertex_4fv(GPU_MODELVIEW_MATRIX,  position[0], position[1], position[2], position[3], position);
 }
 
 

@@ -28,8 +28,38 @@
 #include "util_time.h"
 #include "util_types.h"
 #include "util_vector.h"
+#include "util_string.h"
 
 CCL_NAMESPACE_BEGIN
+
+bool Device::need_types_update = true;
+bool Device::need_devices_update = true;
+vector<DeviceType> Device::types;
+vector<DeviceInfo> Device::devices;
+
+/* Device Requested Features */
+
+std::ostream& operator <<(std::ostream &os,
+                          const DeviceRequestedFeatures& requested_features)
+{
+	os << "Experimental features: "
+	   << (requested_features.experimental ? "On" : "Off") << std::endl;
+	os << "Max closure count: " << requested_features.max_closure << std::endl;
+	os << "Max nodes group: " << requested_features.max_nodes_group << std::endl;
+	/* TODO(sergey): Decode bitflag into list of names. */
+	os << "Nodes features: " << requested_features.nodes_features << std::endl;
+	os << "Use hair: "
+	   << string_from_bool(requested_features.use_hair)  << std::endl;
+	os << "Use object motion: "
+	   << string_from_bool(requested_features.use_object_motion)  << std::endl;
+	os << "Use camera motion: "
+	   << string_from_bool(requested_features.use_camera_motion)  << std::endl;
+	os << "Use Baking: "
+	   << string_from_bool(requested_features.use_baking)  << std::endl;
+	os << "Use Volume: "
+	   << string_from_bool(requested_features.use_volume)  << std::endl;
+	return os;
+}
 
 /* Device */
 
@@ -94,7 +124,7 @@ void Device::draw_pixels(device_memory& rgba, int y, int w, int h, int dx, int d
 		}
 
 		if(GLEW_VERSION_1_5) {
-			if (!vertex_buffer)
+			if(!vertex_buffer)
 				glGenBuffers(1, &vertex_buffer);
 
 			glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
@@ -110,7 +140,7 @@ void Device::draw_pixels(device_memory& rgba, int y, int w, int h, int dx, int d
 			vp = vbuffer;
 		}
 
-		if (vp) {
+		if(vp) {
 			/* texture coordinate - vertex pair */
 			vp[0] = 0.0f;
 			vp[1] = 0.0f;
@@ -132,7 +162,7 @@ void Device::draw_pixels(device_memory& rgba, int y, int w, int h, int dx, int d
 			vp[14] = dx;
 			vp[15] = (float)height + dy;
 
-			if (vertex_buffer)
+			if(vertex_buffer)
 				glUnmapBuffer(GL_ARRAY_BUFFER);
 		}
 
@@ -163,7 +193,7 @@ void Device::draw_pixels(device_memory& rgba, int y, int w, int h, int dx, int d
 		/* fallback for old graphics cards that don't support GLSL, half float,
 		 * and non-power-of-two textures */
 		glPixelZoom((float)width/(float)w, (float)height/(float)h);
-		glRasterPos2f(0, dy);
+		glRasterPos2f(dx, dy);
 
 		uint8_t *pixels = (uint8_t*)rgba.data_pointer;
 
@@ -254,10 +284,8 @@ string Device::string_from_type(DeviceType type)
 
 vector<DeviceType>& Device::available_types()
 {
-	static vector<DeviceType> types;
-	static bool types_init = false;
-
-	if(!types_init) {
+	if(need_types_update) {
+		types.clear();
 		types.push_back(DEVICE_CPU);
 
 #ifdef WITH_CUDA
@@ -277,7 +305,7 @@ vector<DeviceType>& Device::available_types()
 		types.push_back(DEVICE_MULTI);
 #endif
 
-		types_init = true;
+		need_types_update = false;
 	}
 
 	return types;
@@ -285,10 +313,8 @@ vector<DeviceType>& Device::available_types()
 
 vector<DeviceInfo>& Device::available_devices()
 {
-	static vector<DeviceInfo> devices;
-	static bool devices_init = false;
-
-	if(!devices_init) {
+	if(need_devices_update) {
+		devices.clear();
 #ifdef WITH_CUDA
 		if(device_cuda_init())
 			device_cuda_info(devices);
@@ -309,7 +335,7 @@ vector<DeviceInfo>& Device::available_devices()
 		device_network_info(devices);
 #endif
 
-		devices_init = true;
+		need_devices_update = false;
 	}
 
 	return devices;
@@ -327,16 +353,27 @@ string Device::device_capabilities()
 #endif
 
 #ifdef WITH_OPENCL
-	/* TODO(sergey): Needs proper usable implementation. */
-	/*
 	if(device_opencl_init()) {
 		capabilities += "\nOpenCL device capabilities:\n";
 		capabilities += device_opencl_capabilities();
 	}
-	*/
 #endif
 
 	return capabilities;
+}
+
+void Device::tag_update()
+{
+	need_types_update = true;
+	need_devices_update = true;
+}
+
+void Device::free_memory()
+{
+	need_types_update = true;
+	need_devices_update = true;
+	types.free_memory();
+	devices.free_memory();
 }
 
 CCL_NAMESPACE_END

@@ -54,15 +54,18 @@
 #include "BLO_writefile.h"
 
 #include "BKE_blender.h"
+#include "BKE_blender_undo.h"
 #include "BKE_context.h"
 #include "BKE_screen.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_global.h"
+#include "BKE_icons.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_mball_tessellate.h"
 #include "BKE_node.h"
 #include "BKE_report.h"
+#include "BKE_font.h"
 
 #include "BKE_addon.h"
 #include "BKE_appdir.h"
@@ -95,9 +98,11 @@
 #include "wm_files.h"
 #include "wm_window.h"
 
+#include "ED_anim_api.h"
 #include "ED_armature.h"
 #include "ED_gpencil.h"
 #include "ED_keyframing.h"
+#include "ED_keyframes_edit.h"
 #include "ED_node.h"
 #include "ED_render.h"
 #include "ED_space_api.h"
@@ -106,7 +111,7 @@
 
 #include "UI_interface.h"
 #include "BLF_api.h"
-#include "BLF_translation.h"
+#include "BLT_lang.h"
 
 #include "GPU_buffers.h"
 #include "GPU_draw.h"
@@ -115,6 +120,10 @@
 #include "BKE_depsgraph.h"
 #include "BKE_sound.h"
 #include "COM_compositor.h"
+
+#ifdef WITH_OPENSUBDIV
+#  include "BKE_subsurf.h"
+#endif
 
 static void wm_init_reports(bContext *C)
 {
@@ -154,7 +163,9 @@ void WM_init(bContext *C, int argc, const char **argv)
 	BKE_library_callback_free_editor_id_reference_set(WM_main_remove_editor_id_reference);   /* library.c */
 	BKE_blender_callback_test_break_set(wm_window_testbreak); /* blender.c */
 	BKE_spacedata_callback_id_unref_set(ED_spacedata_id_unref); /* screen.c */
-	DAG_editors_update_cb(ED_render_id_flush_update, ED_render_scene_update); /* depsgraph.c */
+	DAG_editors_update_cb(ED_render_id_flush_update,
+	                      ED_render_scene_update,
+	                      ED_render_scene_update_pre); /* depsgraph.c */
 	
 	ED_spacetypes_init();   /* editors/space_api/spacetype.c */
 	
@@ -162,17 +173,25 @@ void WM_init(bContext *C, int argc, const char **argv)
 	ED_node_init_butfuncs();
 	
 	BLF_init(11, U.dpi); /* Please update source/gamengine/GamePlayer/GPG_ghost.cpp if you change this */
-	BLF_lang_init();
+	BLT_lang_init();
 
 	/* Enforce loading the UI for the initial homefile */
 	G.fileflags &= ~G_FILE_NO_UI;
 
+	/* reports cant be initialized before the wm,
+	 * but keep before file reading, since that may report errors */
+	wm_init_reports(C);
+
 	/* get the default database, plus a wm */
 	wm_homefile_read(C, NULL, G.factory_startup, NULL);
 	
-	BLF_lang_set(NULL);
+
+	BLT_lang_set(NULL);
 
 	if (!G.background) {
+		/* sets 3D mouse deadzone */
+		WM_ndof_deadzone_set(U.ndof_deadzone);
+
 		GPU_init();
 
 		GPU_set_mipmap(!(U.gameflags & USER_DISABLE_MIPMAP));
@@ -180,8 +199,20 @@ void WM_init(bContext *C, int argc, const char **argv)
 		GPU_set_anisotropic(U.anisotropic_filter);
 		GPU_set_gpu_mipmapping(U.use_gpu_mipmap);
 
+#ifdef WITH_OPENSUBDIV
+		BKE_subsurf_osd_init();
+#endif
+
 		UI_init();
 	}
+	else {
+		/* Note: Currently only inits icons, which we now want in background mode too
+		 * (scripts could use those in background processing...).
+		 * In case we do more later, we may need to pass a 'background' flag.
+		 * Called from 'UI_init' above */
+		BKE_icons_init(1);
+	}
+
 
 	ED_spacemacros_init();
 
@@ -206,16 +237,12 @@ void WM_init(bContext *C, int argc, const char **argv)
 	if (!G.background && !wm_start_with_console)
 		GHOST_toggleConsole(3);
 
-	wm_init_reports(C); /* reports cant be initialized before the wm */
-
 	clear_matcopybuf();
 	ED_render_clear_mtex_copybuf();
 
 	// glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		
-	ED_preview_init_dbase();
-	
-	wm_read_history();
+
+	wm_history_file_read();
 
 	/* allow a path of "", this is what happens when making a new file */
 #if 0
@@ -238,13 +265,24 @@ void WM_init(bContext *C, int argc, const char **argv)
 		/* that prevents loading both the kept session, and the file on the command line */
 	}
 	else {
+		/* note, logic here is from wm_file_read_post,
+		 * call functions that depend on Python being initialized. */
+
 		/* normally 'wm_homefile_read' will do this,
 		 * however python is not initialized when called from this function.
 		 *
 		 * unlikely any handlers are set but its possible,
 		 * note that recovering the last session does its own callbacks. */
+		CTX_wm_window_set(C, CTX_wm_manager(C)->windows.first);
+
 		BLI_callback_exec(CTX_data_main(C), NULL, BLI_CB_EVT_VERSION_UPDATE);
 		BLI_callback_exec(CTX_data_main(C), NULL, BLI_CB_EVT_LOAD_POST);
+
+		wm_file_read_report(C);
+
+		if (!G.background) {
+			CTX_wm_window_set(C, NULL);
+		}
 	}
 }
 
@@ -364,13 +402,6 @@ static void free_openrecent(void)
 }
 
 
-/* bad stuff*/
-
-// XXX copy/paste buffer stuff...
-extern void free_anim_copybuf(void);
-extern void free_anim_drivers_copybuf(void);
-extern void free_fmodifiers_copybuf(void);
-
 #ifdef WIN32
 /* Read console events until there is a key event.  Also returns on any error. */
 static void wait_for_console_key(void)
@@ -394,8 +425,9 @@ static void wait_for_console_key(void)
 }
 #endif
 
-/* called in creator.c even... tsk, split this! */
-/* note, doesnt run exit() call WM_exit() for that */
+/**
+ * \note doesn't run exit() call #WM_exit() for that.
+ */
 void WM_exit_ext(bContext *C, const bool do_python)
 {
 	wmWindowManager *wm = C ? CTX_wm_manager(C) : NULL;
@@ -413,7 +445,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
 				/* save the undo state as quit.blend */
 				char filename[FILE_MAX];
 				bool has_edited;
-				int fileflags = G.fileflags & ~(G_FILE_COMPRESS | G_FILE_AUTOPLAY | G_FILE_LOCK | G_FILE_SIGN | G_FILE_HISTORY);
+				int fileflags = G.fileflags & ~(G_FILE_COMPRESS | G_FILE_AUTOPLAY | G_FILE_HISTORY);
 
 				BLI_make_file_string("/", filename, BKE_tempdir_base(), BLENDER_QUIT_FILE);
 
@@ -461,24 +493,27 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	RE_FreeAllRender();
 	RE_engines_exit();
 	
-	ED_preview_free_dbase();  /* frees a Main dbase, before free_blender! */
+	ED_preview_free_dbase();  /* frees a Main dbase, before BKE_blender_free! */
 
 	if (C && wm)
-		wm_free_reports(C);  /* before free_blender! - since the ListBases get freed there */
+		wm_free_reports(C);  /* before BKE_blender_free! - since the ListBases get freed there */
 
 	BKE_sequencer_free_clipboard(); /* sequencer.c */
 	BKE_tracking_clipboard_free();
 	BKE_mask_clipboard_free();
+	BKE_vfont_clipboard_free();
 		
 #ifdef WITH_COMPOSITOR
 	COM_deinitialize();
 #endif
 	
-	free_blender();  /* blender.c, does entire library and spacetypes */
+	BKE_blender_free();  /* blender.c, does entire library and spacetypes */
 //	free_matcopybuf();
-	free_anim_copybuf();
-	free_anim_drivers_copybuf();
-	free_fmodifiers_copybuf();
+	ANIM_fcurves_copybuf_free();
+	ANIM_drivers_copybuf_free();
+	ANIM_driver_vars_copybuf_free();
+	ANIM_fmodifiers_copybuf_free();
+	ED_gpencil_anim_copybuf_free();
 	ED_gpencil_strokes_copybuf_free();
 	ED_clipboard_posebuf_free();
 	BKE_node_clipboard_clear();
@@ -488,7 +523,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
 #ifdef WITH_INTERNATIONAL
 	BLF_free_unifont();
 	BLF_free_unifont_mono();
-	BLF_lang_free();
+	BLT_lang_free();
 #endif
 	
 	ANIM_keyingset_infos_exit();
@@ -500,10 +535,10 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	/* option not to close python so we can use 'atexit' */
 	if (do_python) {
 		/* XXX - old note */
-		/* before free_blender so py's gc happens while library still exists */
+		/* before BKE_blender_free so py's gc happens while library still exists */
 		/* needed at least for a rare sigsegv that can happen in pydrivers */
 
-		/* Update for blender 2.5, move after free_blender because blender now holds references to PyObject's
+		/* Update for blender 2.5, move after BKE_blender_free because blender now holds references to PyObject's
 		 * so decref'ing them after python ends causes bad problems every time
 		 * the pyDriver bug can be fixed if it happens again we can deal with it then */
 		BPY_python_end();
@@ -513,6 +548,10 @@ void WM_exit_ext(bContext *C, const bool do_python)
 #endif
 
 	if (!G.background) {
+#ifdef WITH_OPENSUBDIV
+		BKE_subsurf_osd_cleanup();
+#endif
+
 		GPU_global_buffer_pool_free();
 		GPU_free_unused_buffers();
 
@@ -524,7 +563,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	ED_file_exit(); /* for fsmenu */
 
 	UI_exit();
-	BKE_userdef_free();
+	BKE_blender_userdef_free();
 
 	RNA_exit(); /* should be after BPY_python_end so struct python slots are cleared */
 	
@@ -541,7 +580,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
 
 	if (MEM_get_memory_blocks_in_use() != 0) {
 		size_t mem_in_use = MEM_get_memory_in_use() + MEM_get_memory_in_use();
-		printf("Error: Not freed memory blocks: %d, total unfreed memory %f MB\n",
+		printf("Error: Not freed memory blocks: %u, total unfreed memory %f MB\n",
 		       MEM_get_memory_blocks_in_use(),
 		       (double)mem_in_use / 1024 / 1024);
 		MEM_printmemlist();

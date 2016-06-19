@@ -34,6 +34,8 @@
 #include "GPU_immediate.h"
 #include "GPU_aspect.h"
 
+#include "BKE_global.h"
+
 #include "intern/gpu_codegen.h"
 #include "intern/gpu_private.h"
 
@@ -49,7 +51,7 @@ static GPUindex *gpu_index;
 
 void GPU_init(void)
 {
-	/* can't avoid calling this multiple times, see wm_window_add_ghostwindow */
+	/* can't avoid calling this multiple times, see wm_window_ghostwindow_add */
 	if (initialized)
 		return;
 
@@ -81,7 +83,9 @@ void GPU_init(void)
 	gpuImmediateMaxIndexCount(50000, GL_UNSIGNED_SHORT); // XXX jwilkins: temporary!
 
 	GPU_aspect_begin(GPU_ASPECT_BASIC, NULL);
-	GPU_DEBUG_INIT();
+
+	if (G.debug & G_DEBUG_GPU)
+		gpu_debug_init();
 }
 
 
@@ -89,7 +93,6 @@ void GPU_init(void)
 void GPU_exit(void)
 {
 	BLI_assert(initialized);
-	GPU_DEBUG_EXIT();
 
 	GPU_aspect_end();
 
@@ -109,6 +112,10 @@ void GPU_exit(void)
 	gpu_immediate_exit();
 	gpu_font_exit();
 	gpu_common_exit();
+
+	if (G.debug & G_DEBUG_GPU)
+		gpu_debug_exit();
+
 	gpu_codegen_exit();
 	gpu_clipping_exit();
 	gpu_blender_aspect_exit();

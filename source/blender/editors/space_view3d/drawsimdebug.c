@@ -64,7 +64,6 @@ static void draw_sim_debug_elements(SimDebugData *debug_data, float imat[4][4])
 		glVertex3f(elem->v1[0], elem->v1[1], elem->v1[2]);
 	}
 	glEnd();
-	glPointSize(1.0f);
 	
 	/**** circles ****/
 	
@@ -125,8 +124,7 @@ static void draw_sim_debug_elements(SimDebugData *debug_data, float imat[4][4])
 		glVertex3f(elem->v1[0], elem->v1[1], elem->v1[2]);
 	}
 	glEnd();
-	glPointSize(1.0f);
-
+	
 	GPUBegin(GL_LINES);
 	for (BLI_ghashIterator_init(&iter, debug_data->gh); !BLI_ghashIterator_done(&iter); BLI_ghashIterator_step(&iter)) {
 		SimDebugElement *elem = BLI_ghashIterator_getValue(&iter);

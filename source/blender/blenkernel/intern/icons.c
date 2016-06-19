@@ -37,8 +37,11 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "DNA_group_types.h"
 #include "DNA_lamp_types.h"
 #include "DNA_material_types.h"
+#include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_texture_types.h"
 #include "DNA_world_types.h"
 #include "DNA_brush_types.h"
@@ -52,7 +55,7 @@
 
 #include "BLI_sys_types.h" // for intptr_t support
 
-#include "GPU_extensions.h"
+#include "GPU_texture.h"
 
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
@@ -189,6 +192,7 @@ void BKE_previewimg_clear_single(struct PreviewImage *prv, enum eIconSizes size)
 	}
 	prv->h[size] = prv->w[size] = 0;
 	prv->flag[size] |= PRV_CHANGED;
+	prv->flag[size] &= ~PRV_USER_EDITED;
 	prv->changed_timestamp[size] = 0;
 }
 
@@ -220,13 +224,16 @@ PreviewImage *BKE_previewimg_copy(PreviewImage *prv)
 PreviewImage **BKE_previewimg_id_get_p(ID *id)
 {
 	switch (GS(id->name)) {
-#define ID_PRV_CASE(id_code, id_struct) case id_code: { return &((id_struct *)id)->preview; }
+#define ID_PRV_CASE(id_code, id_struct) case id_code: { return &((id_struct *)id)->preview; } ((void)0)
 		ID_PRV_CASE(ID_MA, Material);
 		ID_PRV_CASE(ID_TE, Tex);
 		ID_PRV_CASE(ID_WO, World);
 		ID_PRV_CASE(ID_LA, Lamp);
 		ID_PRV_CASE(ID_IM, Image);
 		ID_PRV_CASE(ID_BR, Brush);
+		ID_PRV_CASE(ID_OB, Object);
+		ID_PRV_CASE(ID_GR, Group);
+		ID_PRV_CASE(ID_SCE, Scene);
 #undef ID_PRV_CASE
 	}
 
@@ -266,9 +273,10 @@ PreviewImage *BKE_previewimg_cached_get(const char *name)
 PreviewImage *BKE_previewimg_cached_ensure(const char *name)
 {
 	PreviewImage *prv = NULL;
-	void **prv_p;
+	void **key_p, **prv_p;
 
-	if (!BLI_ghash_ensure_p_ex(gCachedPreviews, name, &prv_p, (GHashKeyCopyFP)BLI_strdup)) {
+	if (!BLI_ghash_ensure_p_ex(gCachedPreviews, name, &key_p, &prv_p)) {
+		*key_p = BLI_strdup(name);
 		*prv_p = BKE_previewimg_create();
 	}
 	prv = *prv_p;

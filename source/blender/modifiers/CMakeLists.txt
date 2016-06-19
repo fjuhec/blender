@@ -30,12 +30,14 @@ set(INC
 	../blenkernel
 	../blenlib
 	../blenfont
+	../depsgraph
 	../makesdna
 	../makesrna
 	../bmesh
 	../render/extern/include
 	../../../intern/elbeem/extern
 	../../../intern/guardedalloc
+	../../../intern/eigen
 )
 
 set(INC_SYS
@@ -143,11 +145,8 @@ if(WITH_INTERNATIONAL)
 	add_definitions(-DWITH_INTERNATIONAL)
 endif()
 
-if(WITH_OPENNL)
-	add_definitions(-DWITH_OPENNL)
-	list(APPEND INC_SYS
-		../../../intern/opennl/extern
-	)
+if(WITH_OPENSUBDIV)
+	add_definitions(-DWITH_OPENSUBDIV)
 endif()
 
 blender_add_lib(bf_modifiers "${SRC}" "${INC}" "${INC_SYS}")

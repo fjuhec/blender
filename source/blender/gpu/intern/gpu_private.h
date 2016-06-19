@@ -208,19 +208,7 @@ void gpu_include_common_defs(struct DynStr *defs);
 bool gpu_aspect_active(void);
 
 /* gpu_debug.c */
-#ifdef WITH_GPU_DEBUG
-
 void gpu_debug_init(void);
 void gpu_debug_exit(void);
-
-#  define GPU_DEBUG_INIT() gpu_debug_init()
-#  define GPU_DEBUG_EXIT() gpu_debug_exit()
-
-#else
-
-#  define GPU_DEBUG_INIT() ((void)0)
-#  define GPU_DEBUG_EXIT() ((void)0)
-
-#endif
 
 #endif  /* __GPU_PRIVATE_H__ */

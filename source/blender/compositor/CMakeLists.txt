@@ -30,6 +30,7 @@ set(INC
 	operations
 	../blenkernel
 	../blenlib
+	../blentranslation
 	../imbuf
 	../makesdna
 	../makesrna
@@ -41,6 +42,7 @@ set(INC
 	../render/intern/include
 	../../../extern/clew/include
 	../../../intern/guardedalloc
+	../../../intern/atomic
 )
 
 set(INC_SYS
@@ -539,9 +541,18 @@ set(SRC
 list(APPEND INC
 	${CMAKE_CURRENT_BINARY_DIR}/operations
 )
+
 data_to_c(${CMAKE_CURRENT_SOURCE_DIR}/operations/COM_OpenCLKernels.cl
           ${CMAKE_CURRENT_BINARY_DIR}/operations/COM_OpenCLKernels.cl.h SRC)
 
 add_definitions(-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
+
+if(WITH_INTERNATIONAL)
+	add_definitions(-DWITH_INTERNATIONAL)
+endif()
+
+if(WITH_CYCLES AND WITH_CYCLES_DEBUG)
+	add_definitions(-DWITH_CYCLES_DEBUG)
+endif()
 
 blender_add_lib(bf_compositor "${SRC}" "${INC}" "${INC_SYS}")

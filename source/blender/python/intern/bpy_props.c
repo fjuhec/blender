@@ -85,7 +85,7 @@ static EnumPropertyItem property_flag_enum_items[] = {
 "   :type options: set\n" \
 
 /* subtypes */
-/* XXX Keep in sync with rna_rna.c's property_subtype_items ???
+/* XXX Keep in sync with rna_rna.c's rna_enum_property_subtype_items ???
  *     Currently it is not...
  */
 static EnumPropertyItem property_subtype_string_items[] = {
@@ -1304,7 +1304,7 @@ static int icon_id_from_name(const char *name)
 	int id;
 
 	if (name[0]) {
-		for (item = icon_items, id = 0; item->identifier; item++, id++) {
+		for (item = rna_enum_icon_items, id = 0; item->identifier; item++, id++) {
 			if (STREQ(item->name, name)) {
 				return item->value;
 			}
@@ -1314,11 +1314,12 @@ static int icon_id_from_name(const char *name)
 	return 0;
 }
 
-static EnumPropertyItem *enum_items_from_py(PyObject *seq_fast, PyObject *def, int *defvalue, const short is_enum_flag)
+static EnumPropertyItem *enum_items_from_py(PyObject *seq_fast, PyObject *def, int *defvalue, const bool is_enum_flag)
 {
 	EnumPropertyItem *items;
 	PyObject *item;
 	const Py_ssize_t seq_len = PySequence_Fast_GET_SIZE(seq_fast);
+	PyObject **seq_fast_items = PySequence_Fast_ITEMS(seq_fast);
 	Py_ssize_t totbuf = 0;
 	int i;
 	short def_used = 0;
@@ -1366,7 +1367,7 @@ static EnumPropertyItem *enum_items_from_py(PyObject *seq_fast, PyObject *def, i
 		Py_ssize_t name_str_size;
 		Py_ssize_t desc_str_size;
 
-		item = PySequence_Fast_GET_ITEM(seq_fast, i);
+		item = seq_fast_items[i];
 
 		if ((PyTuple_CheckExact(item)) &&
 		    (item_size = PyTuple_GET_SIZE(item)) &&
@@ -1481,15 +1482,26 @@ static EnumPropertyItem *bpy_prop_enum_itemf_cb(struct bContext *C, PointerRNA *
 	EnumPropertyItem *eitems = NULL;
 	int err = 0;
 
-	bpy_context_set(C, &gilstate);
+	if (C) {
+		bpy_context_set(C, &gilstate);
+	}
+	else {
+		gilstate = PyGILState_Ensure();
+	}
 
 	args = PyTuple_New(2);
 	self = pyrna_struct_as_instance(ptr);
 	PyTuple_SET_ITEM(args, 0, self);
 
 	/* now get the context */
-	PyTuple_SET_ITEM(args, 1, (PyObject *)bpy_context_module);
-	Py_INCREF(bpy_context_module);
+	if (C) {
+		PyTuple_SET_ITEM(args, 1, (PyObject *)bpy_context_module);
+		Py_INCREF(bpy_context_module);
+	}
+	else {
+		PyTuple_SET_ITEM(args, 1, Py_None);
+		Py_INCREF(Py_None);
+	}
 
 	items = PyObject_CallObject(py_func, args);
 
@@ -1530,8 +1542,13 @@ static EnumPropertyItem *bpy_prop_enum_itemf_cb(struct bContext *C, PointerRNA *
 		eitems = DummyRNA_NULL_items;
 	}
 
+	if (C) {
+		bpy_context_clear(C, &gilstate);
+	}
+	else {
+		PyGILState_Release(gilstate);
+	}
 
-	bpy_context_clear(C, &gilstate);
 	return eitems;
 }
 
@@ -1934,7 +1951,7 @@ static PyObject *BPy_BoolProperty(PyObject *self, PyObject *args, PyObject *kw)
 		                               "options", "subtype", "update", "get", "set", NULL};
 		const char *id = NULL, *name = NULL, *description = "";
 		int id_len;
-		int def = 0;
+		bool def = false;
 		PropertyRNA *prop;
 		PyObject *pyopts = NULL;
 		int opts = 0;
@@ -1945,9 +1962,9 @@ static PyObject *BPy_BoolProperty(PyObject *self, PyObject *args, PyObject *kw)
 		PyObject *set_cb = NULL;
 
 		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#|ssiO!sOOO:BoolProperty",
+		                                 "s#|ssO&O!sOOO:BoolProperty",
 		                                 (char **)kwlist, &id, &id_len,
-		                                 &name, &description, &def,
+		                                 &name, &description, PyC_ParseBool, &def,
 		                                 &PySet_Type, &pyopts, &pysubtype,
 		                                 &update_cb, &get_cb, &set_cb))
 		{
@@ -2359,7 +2376,7 @@ static PyObject *BPy_FloatProperty(PyObject *self, PyObject *args, PyObject *kw)
 
 		BPY_PROPDEF_SUBTYPE_CHECK(FloatProperty, property_flag_items, property_subtype_number_items);
 
-		if (pyunit && RNA_enum_value_from_id(property_unit_items, pyunit, &unit) == 0) {
+		if (pyunit && RNA_enum_value_from_id(rna_enum_property_unit_items, pyunit, &unit) == 0) {
 			PyErr_Format(PyExc_TypeError, "FloatProperty(unit='%s'): invalid unit", pyunit);
 			return NULL;
 		}
@@ -2472,7 +2489,7 @@ static PyObject *BPy_FloatVectorProperty(PyObject *self, PyObject *args, PyObjec
 
 		BPY_PROPDEF_SUBTYPE_CHECK(FloatVectorProperty, property_flag_items, property_subtype_array_items);
 
-		if (pyunit && RNA_enum_value_from_id(property_unit_items, pyunit, &unit) == 0) {
+		if (pyunit && RNA_enum_value_from_id(rna_enum_property_unit_items, pyunit, &unit) == 0) {
 			PyErr_Format(PyExc_TypeError, "FloatVectorProperty(unit='%s'): invalid unit", pyunit);
 			return NULL;
 		}
@@ -2613,12 +2630,12 @@ PyDoc_STRVAR(BPy_EnumProperty_doc,
 "      [(identifier, name, description, icon, number), ...] where the identifier is used\n"
 "      for python access and other values are used for the interface.\n"
 "      The three first elements of the tuples are mandatory.\n"
-"      The forth one is either the (unique!) number id of the item or, if followed by a fith element\n"
+"      The fourth one is either the (unique!) number id of the item or, if followed by a fith element\n"
 "      (which must be the numid), an icon string identifier or integer icon value (e.g. returned by icon()...).\n"
 "      Note the item is optional.\n"
 "      For dynamic values a callback can be passed which returns a list in\n"
 "      the same format as the static list.\n"
-"      This function must take 2 arguments (self, context)\n"
+"      This function must take 2 arguments (self, context), **context may be None**.\n"
 "      WARNING: There is a known bug with using a callback,\n"
 "      Python must keep a reference to the strings returned or Blender will crash.\n"
 "   :type items: sequence of string tuples or a function\n"
@@ -2680,7 +2697,7 @@ static PyObject *BPy_EnumProperty(PyObject *self, PyObject *args, PyObject *kw)
 		}
 
 		if (def == Py_None) {
-			/* This allows to get same behavior when explicitely passing None as default value,
+			/* This allows to get same behavior when explicitly passing None as default value,
 			 * and not defining a default value at all! */
 			def = NULL;
 		}

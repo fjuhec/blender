@@ -47,6 +47,7 @@
 #include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_gpencil.h"
+#include "BKE_screen.h"
 #include "BKE_sequencer.h"
 
 #include "RNA_access.h"
@@ -59,9 +60,22 @@
 
 #include "screen_intern.h"
 
+static unsigned int context_layers(bScreen *sc, Scene *scene, ScrArea *sa_ctx)
+{
+	/* needed for 'USE_ALLSELECT' define, otherwise we end up editing off-screen layers. */
+	if (sc && sa_ctx && (sa_ctx->spacetype == SPACE_BUTS)) {
+		const unsigned int lay = BKE_screen_view3d_layer_all(sc);
+		if (lay) {
+			return lay;
+		}
+	}
+	return scene->lay;
+}
+
 const char *screen_context_dir[] = {
 	"scene", "visible_objects", "visible_bases", "selectable_objects", "selectable_bases",
 	"selected_objects", "selected_bases",
+	"editable_objects", "editable_bases",
 	"selected_editable_objects", "selected_editable_bases",
 	"visible_bones", "editable_bones", "selected_bones", "selected_editable_bones",
 	"visible_pose_bones", "selected_pose_bones", "active_bone", "active_pose_bone",
@@ -101,10 +115,11 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "visible_objects") || CTX_data_equals(member, "visible_bases")) {
+		const unsigned int lay = context_layers(sc, scene, sa);
 		int visible_objects = CTX_data_equals(member, "visible_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if (((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) && (base->lay & scene->lay)) {
+			if (((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) && (base->lay & lay)) {
 				if (visible_objects)
 					CTX_data_id_list_add(result, &base->object->id);
 				else
@@ -115,10 +130,11 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "selectable_objects") || CTX_data_equals(member, "selectable_bases")) {
+		const unsigned int lay = context_layers(sc, scene, sa);
 		int selectable_objects = CTX_data_equals(member, "selectable_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if (base->lay & scene->lay) {
+			if (base->lay & lay) {
 				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->object->restrictflag & OB_RESTRICT_SELECT) == 0) {
 					if (selectable_objects)
 						CTX_data_id_list_add(result, &base->object->id);
@@ -131,10 +147,11 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "selected_objects") || CTX_data_equals(member, "selected_bases")) {
+		const unsigned int lay = context_layers(sc, scene, sa);
 		int selected_objects = CTX_data_equals(member, "selected_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if ((base->flag & SELECT) && (base->lay & scene->lay)) {
+			if ((base->flag & SELECT) && (base->lay & lay)) {
 				if (selected_objects)
 					CTX_data_id_list_add(result, &base->object->id);
 				else
@@ -145,10 +162,11 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "selected_editable_objects") || CTX_data_equals(member, "selected_editable_bases")) {
+		const unsigned int lay = context_layers(sc, scene, sa);
 		int selected_editable_objects = CTX_data_equals(member, "selected_editable_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if ((base->flag & SELECT) && (base->lay & scene->lay)) {
+			if ((base->flag & SELECT) && (base->lay & lay)) {
 				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
 					if (0 == BKE_object_is_libdata(base->object)) {
 						if (selected_editable_objects)
@@ -156,6 +174,24 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 						else
 							CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 					}
+				}
+			}
+		}
+		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
+		return 1;
+	}
+	else if (CTX_data_equals(member, "editable_objects") || CTX_data_equals(member, "editable_bases")) {
+		const unsigned int lay = context_layers(sc, scene, sa);
+		int editable_objects = CTX_data_equals(member, "editable_objects");
+		
+		/* Visible + Editable, but not necessarily selected */
+		for (base = scene->base.first; base; base = base->next) {
+			if (((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) && (base->lay & lay)) {
+				if (0 == BKE_object_is_libdata(base->object)) {
+					if (editable_objects)
+						CTX_data_id_list_add(result, &base->object->id);
+					else
+						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 				}
 			}
 		}
@@ -475,7 +511,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 			bGPDlayer *gpl;
 			
 			for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-				if ((gpl->flag & (GP_LAYER_HIDE | GP_LAYER_LOCKED)) == 0) {
+				if (gpencil_layer_is_editable(gpl)) {
 					CTX_data_list_add(result, &gpd->id, &RNA_GPencilLayer, gpl);
 				}
 			}
@@ -491,7 +527,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 			bGPDlayer *gpl;
 			
 			for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-				if ((gpl->flag & (GP_LAYER_HIDE | GP_LAYER_LOCKED)) == 0 && (gpl->actframe)) {
+				if (gpencil_layer_is_editable(gpl) && (gpl->actframe)) {
 					bGPDframe *gpf = gpl->actframe;
 					bGPDstroke *gps;
 					

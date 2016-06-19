@@ -326,8 +326,8 @@ void MESH_OT_extrude_repeat(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
 	/* props */
-	RNA_def_float(ot->srna, "offset", 2.0f, 0.0f, FLT_MAX, "Offset", "", 0.0f, 100.0f);
-	RNA_def_int(ot->srna, "steps", 10, 0, INT_MAX, "Steps", "", 0, 180);
+	RNA_def_float_distance(ot->srna, "offset", 2.0f, 0.0f, 1e12f, "Offset", "", 0.0f, 100.0f);
+	RNA_def_int(ot->srna, "steps", 10, 0, 1000000, "Steps", "", 0, 180);
 }
 
 /* generic extern called extruder */
@@ -673,12 +673,12 @@ void MESH_OT_dupli_extrude_cursor(wmOperatorType *ot)
 	
 	/* api callbacks */
 	ot->invoke = edbm_dupli_extrude_cursor_invoke;
-	ot->poll = ED_operator_editmesh;
+	ot->poll = ED_operator_editmesh_region_view3d;
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	RNA_def_boolean(ot->srna, "rotate_source", 1, "Rotate Source", "Rotate initial selection giving better shape");
+	RNA_def_boolean(ot->srna, "rotate_source", true, "Rotate Source", "Rotate initial selection giving better shape");
 }
 
 
@@ -700,6 +700,11 @@ static int edbm_spin_exec(bContext *C, wmOperator *op)
 	//if (ts->editbutflag & B_CLOCKWISE)
 	angle = -angle;
 	dupli = RNA_boolean_get(op->ptr, "dupli");
+
+	if (is_zero_v3(axis)) {
+		BKE_report(op->reports, RPT_ERROR, "Invalid/unset axis");
+		return OPERATOR_CANCELLED;
+	}
 
 	/* keep the values in worldspace since we're passing the obmat */
 	if (!EDBM_op_init(em, &spinop, op,
@@ -727,8 +732,17 @@ static int edbm_spin_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(e
 	View3D *v3d = CTX_wm_view3d(C);
 	RegionView3D *rv3d = ED_view3d_context_rv3d(C);
 
-	RNA_float_set_array(op->ptr, "center", ED_view3d_cursor3d_get(scene, v3d));
-	RNA_float_set_array(op->ptr, "axis", rv3d->viewinv[2]);
+	PropertyRNA *prop;
+	prop = RNA_struct_find_property(op->ptr, "center");
+	if (!RNA_property_is_set(op->ptr, prop)) {
+		RNA_property_float_set_array(op->ptr, prop, ED_view3d_cursor3d_get(scene, v3d));
+	}
+	if (rv3d) {
+		prop = RNA_struct_find_property(op->ptr, "axis");
+		if (!RNA_property_is_set(op->ptr, prop)) {
+			RNA_property_float_set_array(op->ptr, prop, rv3d->viewinv[2]);
+		}
+	}
 
 	return edbm_spin_exec(C, op);
 }
@@ -745,19 +759,21 @@ void MESH_OT_spin(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = edbm_spin_invoke;
 	ot->exec = edbm_spin_exec;
-	ot->poll = EDBM_view3d_poll;
+	ot->poll = ED_operator_editmesh;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* props */
-	RNA_def_int(ot->srna, "steps", 9, 0, INT_MAX, "Steps", "Steps", 0, INT_MAX);
+	RNA_def_int(ot->srna, "steps", 9, 0, 1000000, "Steps", "Steps", 0, 1000);
 	RNA_def_boolean(ot->srna, "dupli", 0, "Dupli", "Make Duplicates");
-	prop = RNA_def_float(ot->srna, "angle", DEG2RADF(90.0f), -FLT_MAX, FLT_MAX, "Angle", "Angle", DEG2RADF(-360.0f), DEG2RADF(360.0f));
+	prop = RNA_def_float(ot->srna, "angle", DEG2RADF(90.0f), -1e12f, 1e12f, "Angle", "Rotation for each step",
+	                     DEG2RADF(-360.0f), DEG2RADF(360.0f));
 	RNA_def_property_subtype(prop, PROP_ANGLE);
 
-	RNA_def_float_vector(ot->srna, "center", 3, NULL, -FLT_MAX, FLT_MAX, "Center", "Center in global view space", -FLT_MAX, FLT_MAX);
-	RNA_def_float_vector(ot->srna, "axis", 3, NULL, -FLT_MAX, FLT_MAX, "Axis", "Axis in global view space", -1.0f, 1.0f);
+	RNA_def_float_vector(ot->srna, "center", 3, NULL, -1e12f, 1e12f,
+	                     "Center", "Center in global view space", -1e4f, 1e4f);
+	RNA_def_float_vector(ot->srna, "axis", 3, NULL, -1.0f, 1.0f, "Axis", "Axis in global view space", -1.0f, 1.0f);
 
 }
 
@@ -779,6 +795,11 @@ static int edbm_screw_exec(bContext *C, wmOperator *op)
 	steps = RNA_int_get(op->ptr, "steps");
 	RNA_float_get_array(op->ptr, "center", cent);
 	RNA_float_get_array(op->ptr, "axis", axis);
+
+	if (is_zero_v3(axis)) {
+		BKE_report(op->reports, RPT_ERROR, "Invalid/unset axis");
+		return OPERATOR_CANCELLED;
+	}
 
 	/* find two vertices with valence count == 1, more or less is wrong */
 	v1 = NULL;
@@ -847,8 +868,17 @@ static int edbm_screw_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(
 	View3D *v3d = CTX_wm_view3d(C);
 	RegionView3D *rv3d = ED_view3d_context_rv3d(C);
 
-	RNA_float_set_array(op->ptr, "center", ED_view3d_cursor3d_get(scene, v3d));
-	RNA_float_set_array(op->ptr, "axis", rv3d->viewinv[1]);
+	PropertyRNA *prop;
+	prop = RNA_struct_find_property(op->ptr, "center");
+	if (!RNA_property_is_set(op->ptr, prop)) {
+		RNA_property_float_set_array(op->ptr, prop, ED_view3d_cursor3d_get(scene, v3d));
+	}
+	if (rv3d) {
+		prop = RNA_struct_find_property(op->ptr, "axis");
+		if (!RNA_property_is_set(op->ptr, prop)) {
+			RNA_property_float_set_array(op->ptr, prop, rv3d->viewinv[1]);
+		}
+	}
 
 	return edbm_screw_exec(C, op);
 }
@@ -863,17 +893,17 @@ void MESH_OT_screw(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = edbm_screw_invoke;
 	ot->exec = edbm_screw_exec;
-	ot->poll = EDBM_view3d_poll;
+	ot->poll = ED_operator_editmesh;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* props */
-	RNA_def_int(ot->srna, "steps", 9, 1, INT_MAX, "Steps", "Steps", 3, 256);
-	RNA_def_int(ot->srna, "turns", 1, 1, INT_MAX, "Turns", "Turns", 1, 256);
+	RNA_def_int(ot->srna, "steps", 9, 1, 100000, "Steps", "Steps", 3, 256);
+	RNA_def_int(ot->srna, "turns", 1, 1, 100000, "Turns", "Turns", 1, 256);
 
-	RNA_def_float_vector(ot->srna, "center", 3, NULL, -FLT_MAX, FLT_MAX,
-	                     "Center", "Center in global view space", -FLT_MAX, FLT_MAX);
-	RNA_def_float_vector(ot->srna, "axis", 3, NULL, -FLT_MAX, FLT_MAX,
+	RNA_def_float_vector(ot->srna, "center", 3, NULL, -1e12f, 1e12f,
+	                     "Center", "Center in global view space", -1e4f, 1e4f);
+	RNA_def_float_vector(ot->srna, "axis", 3, NULL, -1.0f, 1.0f,
 	                     "Axis", "Axis in global view space", -1.0f, 1.0f);
 }

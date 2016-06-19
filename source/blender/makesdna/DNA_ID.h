@@ -123,12 +123,16 @@ typedef struct ID {
 	struct Library *lib;
 	char name[66]; /* MAX_ID_NAME */
 	/**
-	 * LIB_... flags report on status of the datablock this ID belongs
-	 * to.
+	 * LIB_... flags report on status of the datablock this ID belongs to (persistent, saved to and read from .blend).
 	 */
 	short flag;
+	/**
+	 * LIB_TAG_... tags (runtime only, cleared at read time).
+	 */
+	short tag;
+	short pad_s1;
 	int us;
-	int icon_id, pad2;
+	int icon_id;
 	IDProperty *properties;
 } ID;
 
@@ -138,7 +142,6 @@ typedef struct ID {
  */
 typedef struct Library {
 	ID id;
-	ID *idblock;
 	struct FileData *filedata;
 	char name[1024];  /* path name used for reading, can be relative and edited in the outliner */
 
@@ -151,6 +154,9 @@ typedef struct Library {
 	struct Library *parent;	/* set for indirectly linked libs, used in the outliner and while reading */
 	
 	struct PackedFile *packedfile;
+
+	int temp_index;
+	int _pad;
 } Library;
 
 enum eIconSizes {
@@ -201,7 +207,12 @@ typedef struct PreviewImage {
 #  define MAKE_ID2(c, d)  ((d) << 8 | (c))
 #endif
 
-/* ID from database */
+/**
+ * ID from database.
+ *
+ * Written to #BHead.code (for file IO)
+ * and the first 2 bytes of #ID.name (for runtime checks, see #GS macro).
+ */
 #define ID_SCE		MAKE_ID2('S', 'C') /* Scene */
 #define ID_LI		MAKE_ID2('L', 'I') /* Library */
 #define ID_OB		MAKE_ID2('O', 'B') /* Object */
@@ -227,7 +238,6 @@ typedef struct PreviewImage {
 #define ID_ID		MAKE_ID2('I', 'D') /* (internal use only) */
 #define ID_AR		MAKE_ID2('A', 'R') /* bArmature */
 #define ID_AC		MAKE_ID2('A', 'C') /* bAction */
-#define ID_SCRIPT	MAKE_ID2('P', 'Y') /* Script (depreciated) */
 #define ID_NT		MAKE_ID2('N', 'T') /* bNodeTree */
 #define ID_BR		MAKE_ID2('B', 'R') /* Brush */
 #define ID_PA		MAKE_ID2('P', 'A') /* ParticleSettings */
@@ -250,11 +260,14 @@ typedef struct PreviewImage {
 			/* fluidsim Ipo */
 #define ID_FLUIDSIM	MAKE_ID2('F', 'S')
 
-#define ID_REAL_USERS(id) (((ID *)id)->us - ((((ID *)id)->flag & LIB_FAKEUSER) ? 1 : 0))
+#define ID_FAKE_USERS(id) ((((ID *)id)->flag & LIB_FAKEUSER) ? 1 : 0)
+#define ID_REAL_USERS(id) (((ID *)id)->us - ID_FAKE_USERS(id))
 
 #define ID_CHECK_UNDO(id) ((GS((id)->name) != ID_SCR) && (GS((id)->name) != ID_WM))
 
 #define ID_BLEND_PATH(_bmain, _id) ((_id)->lib ? (_id)->lib->filepath : (_bmain)->name)
+
+#define ID_MISSING(_id) (((_id)->tag & LIB_TAG_MISSING) != 0)
 
 #ifdef GS
 #  undef GS
@@ -265,29 +278,97 @@ typedef struct PreviewImage {
 #define ID_NEW_US(a)	if (      (a)->id.newid)       { (a) = (void *)(a)->id.newid;       (a)->id.us++; }
 #define ID_NEW_US2(a)	if (((ID *)a)->newid)          { (a) = ((ID  *)a)->newid;     ((ID *)a)->us++;    }
 
-/* id->flag: set first 8 bits always at zero while reading */
+/* id->flag (persitent). */
 enum {
-	LIB_LOCAL           = 0,
-	LIB_EXTERN          = 1 << 0,
-	LIB_INDIRECT        = 1 << 1,
-	LIB_NEED_EXPAND     = 1 << 3,
-	LIB_TESTEXT         = (LIB_NEED_EXPAND | LIB_EXTERN),
-	LIB_TESTIND         = (LIB_NEED_EXPAND | LIB_INDIRECT),
-	LIB_READ            = 1 << 4,
-	LIB_NEED_LINK       = 1 << 5,
-
-	LIB_NEW             = 1 << 8,
 	LIB_FAKEUSER        = 1 << 9,
-	/* free test flag */
-	LIB_DOIT            = 1 << 10,
-	/* tag existing data before linking so we know what is new */
-	LIB_PRE_EXISTING    = 1 << 11,
-	/* runtime */
-	LIB_ID_RECALC       = 1 << 12,
-	LIB_ID_RECALC_DATA  = 1 << 13,
-	LIB_ANIM_NO_RECALC  = 1 << 14,
+};
 
-	LIB_ID_RECALC_ALL   = (LIB_ID_RECALC|LIB_ID_RECALC_DATA),
+/**
+ * id->tag (runtime-only).
+ *
+ * Those flags belong to three different categories, which have different expected handling in code:
+ *
+ *   - RESET_BEFORE_USE: piece of code that wants to use such flag has to ensure they are properly 'reset' first.
+ *   - RESET_AFTER_USE: piece of code that wants to use such flag has to ensure they are properly 'reset' after usage
+ *                      (though 'lifetime' of those flags is a bit fuzzy, e.g. _RECALC ones are reset on depsgraph
+ *                       evaluation...).
+ *   - RESET_NEVER: those flags are 'status' one, and never actually need any reset (except on initialization
+ *                  during .blend file reading).
+ */
+enum {
+	/* RESET_NEVER Datablock is from current .blend file. */
+	LIB_TAG_LOCAL           = 0,
+	/* RESET_NEVER Datablock is from a library, but is used (linked) directly by current .blend file. */
+	LIB_TAG_EXTERN          = 1 << 0,
+	/* RESET_NEVER Datablock is from a library, and is only used (linked) inderectly through other libraries. */
+	LIB_TAG_INDIRECT        = 1 << 1,
+
+	/* RESET_AFTER_USE Three flags used internally in readfile.c, to mark IDs needing to be read (only done once). */
+	LIB_TAG_NEED_EXPAND     = 1 << 3,
+	LIB_TAG_TESTEXT         = (LIB_TAG_NEED_EXPAND | LIB_TAG_EXTERN),
+	LIB_TAG_TESTIND         = (LIB_TAG_NEED_EXPAND | LIB_TAG_INDIRECT),
+	/* RESET_AFTER_USE Flag used internally in readfile.c, to mark IDs needing to be linked from a library. */
+	LIB_TAG_READ            = 1 << 4,
+	/* RESET_AFTER_USE */
+	LIB_TAG_NEED_LINK       = 1 << 5,
+
+	/* RESET_NEVER tag datablock as a place-holder (because the real one could not be linked from its library e.g.). */
+	LIB_TAG_MISSING         = 1 << 6,
+
+	/* tag datablock has having an extra user. */
+	LIB_TAG_EXTRAUSER       = 1 << 2,
+	/* tag datablock has having actually increased usercount for the extra virtual user. */
+	LIB_TAG_EXTRAUSER_SET   = 1 << 7,
+
+	/* RESET_AFTER_USE tag newly duplicated/copied IDs. */
+	LIB_TAG_NEW             = 1 << 8,
+	/* RESET_BEFORE_USE free test flag.
+     * TODO make it a RESET_AFTER_USE too. */
+	LIB_TAG_DOIT            = 1 << 10,
+	/* RESET_AFTER_USE tag existing data before linking so we know what is new. */
+	LIB_TAG_PRE_EXISTING    = 1 << 11,
+
+	/* RESET_AFTER_USE, used by update code (depsgraph). */
+	LIB_TAG_ID_RECALC       = 1 << 12,
+	LIB_TAG_ID_RECALC_DATA  = 1 << 13,
+	LIB_TAG_ANIM_NO_RECALC  = 1 << 14,
+	LIB_TAG_ID_RECALC_ALL   = (LIB_TAG_ID_RECALC | LIB_TAG_ID_RECALC_DATA),
+};
+
+/* To filter ID types (filter_id) */
+/* XXX We cannot put all needed IDs inside an enum...
+ *     We'll have to see whether we can fit all needed ones inside 32 values,
+ *     or if we need to fallback to longlong defines :/
+ */
+enum {
+	FILTER_ID_AC        = (1 << 0),
+	FILTER_ID_AR        = (1 << 1),
+	FILTER_ID_BR        = (1 << 2),
+	FILTER_ID_CA        = (1 << 3),
+	FILTER_ID_CU        = (1 << 4),
+	FILTER_ID_GD        = (1 << 5),
+	FILTER_ID_GR        = (1 << 6),
+	FILTER_ID_IM        = (1 << 7),
+	FILTER_ID_LA        = (1 << 8),
+	FILTER_ID_LS        = (1 << 9),
+	FILTER_ID_LT        = (1 << 10),
+	FILTER_ID_MA        = (1 << 11),
+	FILTER_ID_MB        = (1 << 12),
+	FILTER_ID_MC        = (1 << 13),
+	FILTER_ID_ME        = (1 << 14),
+	FILTER_ID_MSK       = (1 << 15),
+	FILTER_ID_NT        = (1 << 16),
+	FILTER_ID_OB        = (1 << 17),
+	FILTER_ID_PAL       = (1 << 18),
+	FILTER_ID_PC        = (1 << 19),
+	FILTER_ID_SCE       = (1 << 20),
+	FILTER_ID_SPK       = (1 << 21),
+	FILTER_ID_SO        = (1 << 22),
+	FILTER_ID_TE        = (1 << 23),
+	FILTER_ID_TXT       = (1 << 24),
+	FILTER_ID_VF        = (1 << 25),
+	FILTER_ID_WO        = (1 << 26),
+	FILTER_ID_PA        = (1 << 27),
 };
 
 #ifdef __cplusplus

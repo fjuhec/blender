@@ -108,10 +108,40 @@ class ANIM_OT_keying_set_export(Operator):
             - id.bl_rna.name gives a name suitable for UI,
               with a capitalised first letter, but we need
               the plural form that's all lower case
+            - special handling is needed for "nested" ID-blocks
+              (e.g. nodetree in Material)
             """
-
-            idtype_list = ksp.id.bl_rna.name.lower() + "s"
-            id_bpy_path = "bpy.data.%s[\"%s\"]" % (idtype_list, ksp.id.name)
+            if ksp.id.bl_rna.identifier.startswith("ShaderNodeTree"):
+                # Find material or lamp using this node tree...
+                id_bpy_path = "bpy.data.nodes[\"%s\"]"
+                found = False
+                
+                for mat in bpy.data.materials:
+                    if mat.node_tree == ksp.id:
+                        id_bpy_path = "bpy.data.materials[\"%s\"].node_tree" % (mat.name)
+                        found = True
+                        break;
+                        
+                if not found:
+                    for lamp in bpy.data.lamps:
+                        if lamp.node_tree == ksp.id:
+                            id_bpy_path = "bpy.data.lamps[\"%s\"].node_tree" % (lamp.name)
+                            found = True
+                            break;
+                    
+                if not found:
+                    self.report({'WARN'}, "Could not find material or lamp using Shader Node Tree - %s" % (ksp.id))                    
+            elif ksp.id.bl_rna.identifier.startswith("CompositorNodeTree"):
+                # Find compositor nodetree using this node tree...
+                for scene in bpy.data.scenes:
+                    if scene.node_tree == ksp.id:
+                        id_bpy_path = "bpy.data.scenes[\"%s\"].node_tree" % (scene.name)
+                        break;
+                else:
+                    self.report({'WARN'}, "Could not find scene using Compositor Node Tree - %s" % (ksp.id)) 
+            else:
+                idtype_list = ksp.id.bl_rna.name.lower() + "s"
+                id_bpy_path = "bpy.data.%s[\"%s\"]" % (idtype_list, ksp.id.name)
 
             # shorthand ID for the ID-block (as used in the script)
             short_id = "id_%d" % len(id_to_paths_cache)
@@ -210,6 +240,12 @@ class BakeAction(Operator):
             description="Bake animation onto the object then clear parents (objects only)",
             default=False,
             )
+    use_current_action = BoolProperty(
+            name="Overwrite Current Action",
+            description="Bake animation into current action, instead of creating a new one "
+                        "(useful for baking only part of bones in an armature)",
+            default=False,
+            )
     bake_types = EnumProperty(
             name="Bake Data",
             description="Which data's transformations to bake",
@@ -224,6 +260,12 @@ class BakeAction(Operator):
 
         from bpy_extras import anim_utils
 
+        action = None
+        if self.use_current_action:
+            obj = context.object
+            if obj.animation_data:
+                action = obj.animation_data.action
+
         action = anim_utils.bake_action(self.frame_start,
                                         self.frame_end,
                                         frame_step=self.step,
@@ -234,6 +276,7 @@ class BakeAction(Operator):
                                         do_constraint_clear=self.clear_constraints,
                                         do_parents_clear=self.clear_parents,
                                         do_clean=True,
+                                        action=action,
                                         )
 
         if action is None:

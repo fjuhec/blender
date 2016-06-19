@@ -259,6 +259,8 @@ extern StructRNA RNA_GPencilFrame;
 extern StructRNA RNA_GPencilLayer;
 extern StructRNA RNA_GPencilStroke;
 extern StructRNA RNA_GPencilStrokePoint;
+extern StructRNA RNA_GPencilSculptSettings;
+extern StructRNA RNA_GPencilSculptBrush;
 extern StructRNA RNA_GameBooleanProperty;
 extern StructRNA RNA_GameFloatProperty;
 extern StructRNA RNA_GameIntProperty;
@@ -316,14 +318,22 @@ extern StructRNA RNA_LimitRotationConstraint;
 extern StructRNA RNA_LimitScaleConstraint;
 extern StructRNA RNA_LineStyleAlphaModifier;
 extern StructRNA RNA_LineStyleAlphaModifier_AlongStroke;
+extern StructRNA RNA_LineStyleAlphaModifier_CreaseAngle;
+extern StructRNA RNA_LineStyleAlphaModifier_Curvature_3D;
 extern StructRNA RNA_LineStyleAlphaModifier_DistanceFromCamera;
 extern StructRNA RNA_LineStyleAlphaModifier_DistanceFromObject;
 extern StructRNA RNA_LineStyleAlphaModifier_Material;
+extern StructRNA RNA_LineStyleAlphaModifier_Noise;
+extern StructRNA RNA_LineStyleAlphaModifier_Tangent;
 extern StructRNA RNA_LineStyleColorModifier;
 extern StructRNA RNA_LineStyleColorModifier_AlongStroke;
+extern StructRNA RNA_LineStyleColorModifier_CreaseAngle;
+extern StructRNA RNA_LineStyleColorModifier_Curvature_3D;
 extern StructRNA RNA_LineStyleColorModifier_DistanceFromCamera;
 extern StructRNA RNA_LineStyleColorModifier_DistanceFromObject;
 extern StructRNA RNA_LineStyleColorModifier_Material;
+extern StructRNA RNA_LineStyleColorModifier_Noise;
+extern StructRNA RNA_LineStyleColorModifier_Tangent;
 extern StructRNA RNA_LineStyleGeometryModifier;
 extern StructRNA RNA_LineStyleGeometryModifier_2DOffset;
 extern StructRNA RNA_LineStyleGeometryModifier_2DTransform;
@@ -335,6 +345,7 @@ extern StructRNA RNA_LineStyleGeometryModifier_PerlinNoise1D;
 extern StructRNA RNA_LineStyleGeometryModifier_PerlinNoise2D;
 extern StructRNA RNA_LineStyleGeometryModifier_Polygonalization;
 extern StructRNA RNA_LineStyleGeometryModifier_Sampling;
+extern StructRNA RNA_LineStyleGeometryModifier_Simplification;
 extern StructRNA RNA_LineStyleGeometryModifier_SinusDisplacement;
 extern StructRNA RNA_LineStyleGeometryModifier_SpatialNoise;
 extern StructRNA RNA_LineStyleGeometryModifier_TipRemover;
@@ -343,9 +354,13 @@ extern StructRNA RNA_LineStyleTextureSlot;
 extern StructRNA RNA_LineStyleThicknessModifier;
 extern StructRNA RNA_LineStyleThicknessModifier_AlongStroke;
 extern StructRNA RNA_LineStyleThicknessModifier_Calligraphy;
+extern StructRNA RNA_LineStyleThicknessModifier_CreaseAngle;
+extern StructRNA RNA_LineStyleThicknessModifier_Curvature_3D;
 extern StructRNA RNA_LineStyleThicknessModifier_DistanceFromCamera;
 extern StructRNA RNA_LineStyleThicknessModifier_DistanceFromObject;
 extern StructRNA RNA_LineStyleThicknessModifier_Material;
+extern StructRNA RNA_LineStyleThicknessModifier_Noise;
+extern StructRNA RNA_LineStyleThicknessModifier_Tangent;
 extern StructRNA RNA_LockedTrackConstraint;
 extern StructRNA RNA_Macro;
 extern StructRNA RNA_MagicTexture;
@@ -625,6 +640,7 @@ extern StructRNA RNA_ThemeNodeEditor;
 extern StructRNA RNA_ThemeOutliner;
 extern StructRNA RNA_ThemeProperties;
 extern StructRNA RNA_ThemeSequenceEditor;
+extern StructRNA RNA_TextSequence;
 extern StructRNA RNA_ThemeSpaceGeneric;
 extern StructRNA RNA_ThemeSpaceGradient;
 extern StructRNA RNA_ThemeSpaceListGeneric;
@@ -802,6 +818,9 @@ bool RNA_enum_description(EnumPropertyItem *item, const int value, const char **
 int  RNA_enum_from_value(EnumPropertyItem *item, const int value);
 int  RNA_enum_from_identifier(EnumPropertyItem *item, const char *identifier);
 
+void RNA_property_enum_items_ex(
+        struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const bool use_static,
+        EnumPropertyItem **item, int *r_totitem, bool *r_free);
 void RNA_property_enum_items(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
                              EnumPropertyItem **item, int *r_totitem, bool *r_free);
 void RNA_property_enum_items_gettexted(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
@@ -812,6 +831,14 @@ bool RNA_property_enum_value(struct bContext *C, PointerRNA *ptr, PropertyRNA *p
 bool RNA_property_enum_identifier(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value, const char **identifier);
 bool RNA_property_enum_name(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value, const char **name);
 bool RNA_property_enum_name_gettexted(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value, const char **name);
+
+bool RNA_property_enum_item_from_value(
+        struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value,
+        EnumPropertyItem *r_item);
+bool RNA_property_enum_item_from_value_gettexted(
+        struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value,
+        EnumPropertyItem *r_item);
+
 int RNA_property_enum_bitflag_identifiers(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value, const char **identifier);
 
 StructRNA *RNA_property_pointer_type(PointerRNA *ptr, PropertyRNA *prop);
@@ -952,6 +979,7 @@ bool RNA_path_resolve_elements(PointerRNA *ptr, const char *path, struct ListBas
 
 char *RNA_path_from_ID_to_struct(PointerRNA *ptr);
 char *RNA_path_from_ID_to_property(PointerRNA *ptr, PropertyRNA *prop);
+char *RNA_path_from_ID_to_property_index(PointerRNA *ptr, PropertyRNA *prop, int array_dim, int index);
 
 char *RNA_path_resolve_from_type_to_property(
         struct PointerRNA *ptr, struct PropertyRNA *prop,
@@ -959,6 +987,7 @@ char *RNA_path_resolve_from_type_to_property(
 
 char *RNA_path_full_ID_py(struct ID *id);
 char *RNA_path_full_struct_py(struct PointerRNA *ptr);
+char *RNA_path_full_property_py_ex(PointerRNA *ptr, PropertyRNA *prop, int index, bool use_fallback);
 char *RNA_path_full_property_py(struct PointerRNA *ptr, struct PropertyRNA *prop, int index);
 char *RNA_path_struct_property_py(struct PointerRNA *ptr, struct PropertyRNA *prop, int index);
 char *RNA_path_property_py(struct PointerRNA *ptr, struct PropertyRNA *prop, int index);
@@ -989,7 +1018,7 @@ void  RNA_float_set_array(PointerRNA *ptr, const char *name, const float *values
 
 int  RNA_enum_get(PointerRNA *ptr, const char *name);
 void RNA_enum_set(PointerRNA *ptr, const char *name, int value);
-void RNA_enum_set_identifier(PointerRNA *ptr, const char *name, const char *id);
+void RNA_enum_set_identifier(struct bContext *C, PointerRNA *ptr, const char *name, const char *id);
 bool RNA_enum_is_equal(struct bContext *C, PointerRNA *ptr, const char *name, const char *enumname);
 
 /* lower level functions that don't use a PointerRNA */

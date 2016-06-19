@@ -285,6 +285,9 @@ enum {
 	DEL_ONLYFACES,
 	DEL_EDGESFACES,
 	DEL_FACES,
+	/* A version of 'DEL_FACES' that keeps edges on face boundaries,
+	 * allowing the surrounding edge-loop to be kept from removed face regions. */
+	DEL_FACES_KEEP_BOUNDARY,
 	DEL_ONLYTAGGED
 };
 
@@ -302,6 +305,8 @@ typedef enum {
 	BMO_DELIM_NORMAL = 1 << 0,
 	BMO_DELIM_MATERIAL = 1 << 1,
 	BMO_DELIM_SEAM = 1 << 2,
+	BMO_DELIM_SHARP = 1 << 3,
+	BMO_DELIM_UV = 1 << 4,
 } BMO_Delimit;
 
 void BMO_op_flag_enable(BMesh *bm, BMOperator *op, const int op_flag);
@@ -498,6 +503,11 @@ bool  BMO_iter_map_value_bool(BMOIter *iter);
 	for (BM_CHECK_TYPE_ELEM_ASSIGN(ele) = BMO_iter_new(iter, slot_args, slot_name, restrict_flag); \
 	     ele; \
 	     BM_CHECK_TYPE_ELEM_ASSIGN(ele) = BMO_iter_step(iter))
+
+#define BMO_ITER_INDEX(ele, iter, slot_args, slot_name, restrict_flag, i_)   \
+	for (BM_CHECK_TYPE_ELEM_ASSIGN(ele) = BMO_iter_new(iter, slot_args, slot_name, restrict_flag), i_ = 0; \
+	     ele; \
+	     BM_CHECK_TYPE_ELEM_ASSIGN(ele) = BMO_iter_step(iter), i_++)
 
 extern const int BMO_OPSLOT_TYPEINFO[BMO_OP_SLOT_TOTAL_TYPES];
 

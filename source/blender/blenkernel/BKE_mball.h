@@ -40,6 +40,7 @@ struct MetaElem;
 
 void BKE_mball_unlink(struct MetaBall *mb);
 void BKE_mball_free(struct MetaBall *mb);
+void BKE_mball_init(struct MetaBall *mb);
 struct MetaBall *BKE_mball_add(struct Main *bmain, const char *name);
 struct MetaBall *BKE_mball_copy(struct MetaBall *mb);
 
@@ -67,5 +68,12 @@ struct MetaElem *BKE_mball_element_add(struct MetaBall *mb, const int type);
 void BKE_mball_select_all(struct MetaBall *mb);
 void BKE_mball_deselect_all(struct MetaBall *mb);
 void BKE_mball_select_swap(struct MetaBall *mb);
+
+/* **** Depsgraph evaluation **** */
+
+struct EvaluationContext;
+
+void BKE_mball_eval_geometry(struct EvaluationContext *eval_ctx,
+                             struct MetaBall *mball);
 
 #endif

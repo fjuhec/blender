@@ -21,11 +21,17 @@
  */
 
 #include "COM_TextureOperation.h"
+#include "COM_WorkScheduler.h"
 
 #include "BLI_listbase.h"
+#include "BLI_threads.h"
 #include "BKE_image.h"
 
-TextureBaseOperation::TextureBaseOperation() : SingleThreadedOperation()
+extern "C" {
+#include "BKE_node.h"
+}
+
+TextureBaseOperation::TextureBaseOperation() : NodeOperation()
 {
 	this->addInputSocket(COM_DT_VECTOR); //offset
 	this->addInputSocket(COM_DT_VECTOR); //size
@@ -50,7 +56,13 @@ void TextureBaseOperation::initExecution()
 	this->m_inputOffset = getInputSocketReader(0);
 	this->m_inputSize = getInputSocketReader(1);
 	this->m_pool = BKE_image_pool_new();
-	SingleThreadedOperation::initExecution();
+	if (this->m_texture != NULL &&
+	    this->m_texture->nodetree != NULL &&
+	    this->m_texture->use_nodes)
+	{
+		ntreeTexBeginExecTree(this->m_texture->nodetree);
+	}
+	NodeOperation::initExecution();
 }
 void TextureBaseOperation::deinitExecution()
 {
@@ -58,7 +70,14 @@ void TextureBaseOperation::deinitExecution()
 	this->m_inputOffset = NULL;
 	BKE_image_pool_free(this->m_pool);
 	this->m_pool = NULL;
-	SingleThreadedOperation::deinitExecution();
+	if (this->m_texture != NULL &&
+	    this->m_texture->use_nodes &&
+	    this->m_texture->nodetree != NULL &&
+	    this->m_texture->nodetree->execdata != NULL)
+	{
+		ntreeTexEndExecTree(this->m_texture->nodetree->execdata);
+	}
+	NodeOperation::deinitExecution();
 }
 
 void TextureBaseOperation::determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2])
@@ -79,7 +98,8 @@ void TextureAlphaOperation::executePixelSampled(float output[4], float x, float 
 {
 	float color[4];
 	TextureBaseOperation::executePixelSampled(color, x, y, sampler);
-	output[0] = color[3];}
+	output[0] = color[3];
+}
 
 void TextureBaseOperation::executePixelSampled(float output[4], float x, float y, PixelSampler sampler)
 {
@@ -100,7 +120,16 @@ void TextureBaseOperation::executePixelSampled(float output[4], float x, float y
 	vec[1] = textureSize[1] * (v + textureOffset[1]);
 	vec[2] = textureSize[2] * textureOffset[2];
 
-	retval = multitex_ext(this->m_texture, vec, NULL, NULL, 0, &texres, m_pool, m_sceneColorManage, false);
+	const int thread_id = WorkScheduler::current_thread_id();
+	retval = multitex_ext(this->m_texture,
+	                      vec,
+	                      NULL, NULL,
+	                      0,
+	                      &texres,
+	                      thread_id,
+	                      m_pool,
+	                      m_sceneColorManage,
+	                      false);
 
 	if (texres.talpha)
 		output[3] = texres.ta;

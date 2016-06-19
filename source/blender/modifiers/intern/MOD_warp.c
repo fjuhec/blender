@@ -36,6 +36,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_cdderivedmesh.h"
+#include "BKE_library_query.h"
 #include "BKE_modifier.h"
 #include "BKE_deform.h"
 #include "BKE_texture.h"
@@ -115,20 +116,18 @@ static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk,
 {
 	WarpModifierData *wmd = (WarpModifierData *) md;
 
-	walk(userData, ob, &wmd->object_from);
-	walk(userData, ob, &wmd->object_to);
-	walk(userData, ob, &wmd->map_object);
+	walk(userData, ob, &wmd->object_from, IDWALK_NOP);
+	walk(userData, ob, &wmd->object_to, IDWALK_NOP);
+	walk(userData, ob, &wmd->map_object, IDWALK_NOP);
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
 	WarpModifierData *wmd = (WarpModifierData *) md;
 
-	walk(userData, ob, (ID **)&wmd->texture);
+	walk(userData, ob, (ID **)&wmd->texture, IDWALK_USER);
 
-	walk(userData, ob, (ID **)&wmd->object_from);
-	walk(userData, ob, (ID **)&wmd->object_to);
-	walk(userData, ob, (ID **)&wmd->map_object);
+	foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }
 
 static void foreachTexLink(ModifierData *md, Object *ob, TexWalkFunc walk, void *userData)
@@ -154,6 +153,22 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 	if ((wmd->texmapping == MOD_DISP_MAP_OBJECT) && wmd->map_object) {
 		DagNode *curNode = dag_get_node(forest, wmd->map_object);
 		dag_add_relation(forest, curNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Warp Modifier3");
+	}
+}
+
+static void updateDepsgraph(ModifierData *md,
+                            struct Main *UNUSED(bmain),
+                            struct Scene *UNUSED(scene),
+                            Object *UNUSED(ob),
+                            struct DepsNodeHandle *node)
+{
+	WarpModifierData *wmd = (WarpModifierData *) md;
+	if (wmd->object_from != NULL && wmd->object_to != NULL) {
+		DEG_add_object_relation(node, wmd->object_from, DEG_OB_COMP_TRANSFORM, "Warp Modifier from");
+		DEG_add_object_relation(node, wmd->object_to, DEG_OB_COMP_TRANSFORM, "Warp Modifier to");
+	}
+	if ((wmd->texmapping == MOD_DISP_MAP_OBJECT) && wmd->map_object != NULL) {
+		DEG_add_object_relation(node, wmd->map_object, DEG_OB_COMP_TRANSFORM, "Warp Modifier map");
 	}
 }
 
@@ -359,6 +374,7 @@ ModifierTypeInfo modifierType_Warp = {
 	/* structSize */        sizeof(WarpModifierData),
 	/* type */              eModifierTypeType_OnlyDeform,
 	/* flags */             eModifierTypeFlag_AcceptsCVs |
+	                        eModifierTypeFlag_AcceptsLattice |
 	                        eModifierTypeFlag_SupportsEditmode,
 	/* copyData */          copyData,
 	/* deformVerts */       deformVerts,
@@ -372,6 +388,7 @@ ModifierTypeInfo modifierType_Warp = {
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
 	/* updateDepgraph */    updateDepgraph,
+	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */  NULL,
 	/* foreachObjectLink */ foreachObjectLink,

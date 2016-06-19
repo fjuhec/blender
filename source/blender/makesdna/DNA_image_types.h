@@ -55,7 +55,8 @@ typedef struct ImageUser {
 	char ok;
 
 	char multiview_eye;			/* multiview current eye - for internal use of drawing routines */
-	int passtype;
+	short pass;
+	short pad;
 
 	short multi_index, view, layer;	 /* listbase indices, for menu browsing or retrieve buffer */
 	short flag;
@@ -89,13 +90,19 @@ typedef struct RenderSlot {
 #define IMA_NEED_FRAME_RECALC	8
 #define IMA_SHOW_STEREO		16
 
+enum {
+	TEXTARGET_TEXTURE_2D = 0,
+	TEXTARGET_TEXTURE_CUBE_MAP = 1,
+	TEXTARGET_COUNT = 2
+};
+
 typedef struct Image {
 	ID id;
 	
 	char name[1024];			/* file path, 1024 = FILE_MAX */
 	
 	struct MovieCache *cache;	/* not written in file */
-	struct GPUTexture *gputexture;	/* not written in file */
+	struct GPUTexture *gputexture[2]; /* not written in file 2 = TEXTARGET_COUNT */
 	
 	/* sources from: */
 	ListBase anims;
@@ -112,10 +119,11 @@ typedef struct Image {
 	short tpageflag, totbind;
 	short xrep, yrep;
 	short twsta, twend;
-	unsigned int bindcode;	/* only for current image... */
+	unsigned int bindcode[2]; /* only for current image... 2 = TEXTARGET_COUNT */
+	char pad1[4];
 	unsigned int *repbind;	/* for repeat of parts of images */
 	
-	struct PackedFile *packedfile; /* deprecated */
+	struct PackedFile *packedfile DNA_DEPRECATED; /* deprecated */
 	struct ListBase packedfiles;
 	struct PreviewImage *preview;
 
@@ -144,7 +152,7 @@ typedef struct Image {
 	/* Multiview */
 	char eye; /* for viewer node stereoscopy */
 	char views_format;
-	ListBase views;
+	ListBase views;  /* ImageView */
 	struct Stereo3dFormat *stereo3d_format;
 
 	RenderSlot render_slots[8];  /* 8 = IMA_MAX_RENDER_SLOT */
@@ -157,7 +165,9 @@ typedef struct Image {
 enum {
 	IMA_FIELDS              = (1 << 0),
 	IMA_STD_FIELD           = (1 << 1),
+#ifdef DNA_DEPRECATED
 	IMA_DO_PREMUL           = (1 << 2),  /* deprecated, should not be used */
+#endif
 	IMA_REFLECT             = (1 << 4),
 	IMA_NOCOLLECT           = (1 << 5),
 	//IMA_DONE_TAG          = (1 << 6),  // UNUSED
@@ -169,13 +179,9 @@ enum {
 	IMA_IGNORE_ALPHA        = (1 << 12),
 	IMA_DEINTERLACE         = (1 << 13),
 	IMA_USE_VIEWS           = (1 << 14),
-	IMA_IS_STEREO           = (1 << 15),
-	IMA_IS_MULTIVIEW        = (1 << 16), /* similar to stereo, but a more general case */
+	// IMA_IS_STEREO        = (1 << 15), /* deprecated */
+	// IMA_IS_MULTIVIEW     = (1 << 16), /* deprecated */
 };
-
-#if (DNA_DEPRECATED_GCC_POISON == 1)
-#pragma GCC poison IMA_DO_PREMUL
-#endif
 
 /* Image.tpageflag */
 #define IMA_TILES			1

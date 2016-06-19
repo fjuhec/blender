@@ -35,6 +35,7 @@
 
 #include "BKE_modifier.h"
 #include "BKE_smoke.h"
+#include "BKE_pointcache.h"
 
 #include "BLI_threads.h"
 
@@ -165,6 +166,54 @@ static int rna_SmokeModifier_color_grid_get_length(PointerRNA *ptr, int length[R
 	return length[0];
 }
 
+static int rna_SmokeModifier_velocity_grid_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
+{
+#ifdef WITH_SMOKE
+	SmokeDomainSettings *sds = (SmokeDomainSettings *)ptr->data;
+	float *vx = NULL;
+	float *vy = NULL;
+	float *vz = NULL;
+	int size = 0;
+
+	/* Velocity data is always low-resolution. */
+	if (sds->fluid) {
+		size = 3 * sds->res[0] * sds->res[1] * sds->res[2];
+		vx = smoke_get_velocity_x(sds->fluid);
+		vy = smoke_get_velocity_y(sds->fluid);
+		vz = smoke_get_velocity_z(sds->fluid);
+	}
+
+	length[0] = (vx && vy && vz) ? size : 0;
+#else
+	(void)ptr;
+	length[0] = 0;
+#endif
+	return length[0];
+}
+
+static int rna_SmokeModifier_heat_grid_get_length(
+        PointerRNA *ptr,
+        int length[RNA_MAX_ARRAY_DIMENSION])
+{
+#ifdef WITH_SMOKE
+	SmokeDomainSettings *sds = (SmokeDomainSettings *)ptr->data;
+	float *heat = NULL;
+	int size = 0;
+
+	/* Heat data is always low-resolution. */
+	if (sds->fluid) {
+		size = sds->res[0] * sds->res[1] * sds->res[2];
+		heat = smoke_get_heat(sds->fluid);
+	}
+
+	length[0] = (heat) ? size : 0;
+#else
+	(void)ptr;
+	length[0] = 0;
+#endif
+	return length[0];
+}
+
 static void rna_SmokeModifier_density_grid_get(PointerRNA *ptr, float *values)
 {
 #ifdef WITH_SMOKE
@@ -184,8 +233,34 @@ static void rna_SmokeModifier_density_grid_get(PointerRNA *ptr, float *values)
 
 	BLI_rw_mutex_unlock(sds->fluid_mutex);
 #else
-	(void)ptr;
-	(void)values;
+	UNUSED_VARS(ptr, values);
+#endif
+}
+
+static void rna_SmokeModifier_velocity_grid_get(PointerRNA *ptr, float *values)
+{
+#ifdef WITH_SMOKE
+	SmokeDomainSettings *sds = (SmokeDomainSettings *)ptr->data;
+	int length[RNA_MAX_ARRAY_DIMENSION];
+	int size = rna_SmokeModifier_velocity_grid_get_length(ptr, length);
+	float *vx, *vy, *vz;
+	int i;
+
+	BLI_rw_mutex_lock(sds->fluid_mutex, THREAD_LOCK_READ);
+
+	vx = smoke_get_velocity_x(sds->fluid);
+	vy = smoke_get_velocity_y(sds->fluid);
+	vz = smoke_get_velocity_z(sds->fluid);
+
+	for (i = 0; i < size; i += 3) {
+		*(values++) = *(vx++);
+		*(values++) = *(vy++);
+		*(values++) = *(vz++);
+	}
+
+	BLI_rw_mutex_unlock(sds->fluid_mutex);
+#else
+	UNUSED_VARS(ptr, values);
 #endif
 }
 
@@ -211,8 +286,7 @@ static void rna_SmokeModifier_color_grid_get(PointerRNA *ptr, float *values)
 
 	BLI_rw_mutex_unlock(sds->fluid_mutex);
 #else
-	(void)ptr;
-	memset(values, 0, 4 * sizeof(float));
+	UNUSED_VARS(ptr, values);
 #endif
 }
 
@@ -238,8 +312,35 @@ static void rna_SmokeModifier_flame_grid_get(PointerRNA *ptr, float *values)
 
 	BLI_rw_mutex_unlock(sds->fluid_mutex);
 #else
-	(void)ptr;
-	(void)values;
+	UNUSED_VARS(ptr, values);
+#endif
+}
+
+static void rna_SmokeModifier_heat_grid_get(PointerRNA *ptr, float *values)
+{
+#ifdef WITH_SMOKE
+	SmokeDomainSettings *sds = (SmokeDomainSettings *)ptr->data;
+	int length[RNA_MAX_ARRAY_DIMENSION];
+	int size = rna_SmokeModifier_heat_grid_get_length(ptr, length);
+	float *heat;
+
+	BLI_rw_mutex_lock(sds->fluid_mutex, THREAD_LOCK_READ);
+
+	heat = smoke_get_heat(sds->fluid);
+
+	if (heat != NULL) {
+		/* scale heat values from -2.0-2.0 to -1.0-1.0. */
+		for (int i = 0; i < size; i++) {
+			values[i] = heat[i] * 0.5f;
+		}
+	}
+	else {
+		memset(values, 0, size * sizeof(float));
+	}
+
+	BLI_rw_mutex_unlock(sds->fluid_mutex);
+#else
+	UNUSED_VARS(ptr, values);
 #endif
 }
 
@@ -283,6 +384,15 @@ static void rna_def_smoke_domain_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
+	static EnumPropertyItem prop_compression_items[] = {
+		{ VDB_COMPRESSION_ZIP, "ZIP", 0, "Zip", "Effective but slow compression" },
+#ifdef WITH_OPENVDB_BLOSC
+		{ VDB_COMPRESSION_BLOSC, "BLOSC", 0, "Blosc", "Multithreaded compression, similar in size and quality as 'Zip'" },
+#endif
+		{ VDB_COMPRESSION_NONE, "NONE", 0, "None", "Do not use any compression" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
 	static EnumPropertyItem smoke_cache_comp_items[] = {
 		{SM_CACHE_LIGHT, "CACHELIGHT", 0, "Light", "Fast but not so effective compression"},
 		{SM_CACHE_HEAVY, "CACHEHEAVY", 0, "Heavy", "Effective but slow compression"},
@@ -296,11 +406,25 @@ static void rna_def_smoke_domain_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
+	static EnumPropertyItem smoke_data_depth_items[] = {
+		{16, "16", 0, "Float (Half)", "Half float (16 bit data)"},
+		{0,  "32", 0, "Float (Full)", "Full float (32 bit data)"},  /* default */
+		{0, NULL, 0, NULL, NULL},
+	};
+
 	static EnumPropertyItem smoke_domain_colli_items[] = {
 		{SM_BORDER_OPEN, "BORDEROPEN", 0, "Open", "Smoke doesn't collide with any border"},
 		{SM_BORDER_VERTICAL, "BORDERVERTICAL", 0, "Vertically Open",
 		 "Smoke doesn't collide with top and bottom sides"},
 		{SM_BORDER_CLOSED, "BORDERCLOSED", 0, "Collide All", "Smoke collides with every side"},
+		{0, NULL, 0, NULL, NULL}
+	};
+
+	static EnumPropertyItem cache_file_type_items[] = {
+		{PTCACHE_FILE_PTCACHE, "POINTCACHE", 0, "Point Cache", "Blender specific point cache file format"},
+#ifdef WITH_OPENVDB
+		{PTCACHE_FILE_OPENVDB, "OPENVDB", 0, "OpenVDB", "OpenVDB file format"},
+#endif
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -414,6 +538,19 @@ static void rna_def_smoke_domain_settings(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, smoke_cache_comp_items);
 	RNA_def_property_ui_text(prop, "Cache Compression", "Compression method to be used");
 
+	prop = RNA_def_property(srna, "openvdb_cache_compress_type", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "openvdb_comp");
+	RNA_def_property_enum_items(prop, prop_compression_items);
+	RNA_def_property_ui_text(prop, "Compression", "Compression method to be used");
+
+	prop = RNA_def_property(srna, "data_depth", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "data_depth");
+	RNA_def_property_enum_items(prop, smoke_data_depth_items);
+	RNA_def_property_ui_text(prop, "Data Depth",
+	                         "Bit depth for writing all scalar (including vector) "
+	                         "lower values reduce file size");
+	RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, NULL);
+
 	prop = RNA_def_property(srna, "collision_extents", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "border_collisions");
 	RNA_def_property_enum_items(prop, smoke_domain_colli_items);
@@ -453,6 +590,14 @@ static void rna_def_smoke_domain_settings(BlenderRNA *brna)
 	RNA_def_property_float_funcs(prop, "rna_SmokeModifier_density_grid_get", NULL, NULL);
 	RNA_def_property_ui_text(prop, "Density Grid", "Smoke density grid");
 
+	prop = RNA_def_property(srna, "velocity_grid", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_array(prop, 32);
+	RNA_def_property_flag(prop, PROP_DYNAMIC);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_dynamic_array_funcs(prop, "rna_SmokeModifier_velocity_grid_get_length");
+	RNA_def_property_float_funcs(prop, "rna_SmokeModifier_velocity_grid_get", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Velocity Grid", "Smoke velocity grid");
+
 	prop = RNA_def_property(srna, "flame_grid", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_array(prop, 32);
 	RNA_def_property_flag(prop, PROP_DYNAMIC);
@@ -468,6 +613,14 @@ static void rna_def_smoke_domain_settings(BlenderRNA *brna)
 	RNA_def_property_dynamic_array_funcs(prop, "rna_SmokeModifier_color_grid_get_length");
 	RNA_def_property_float_funcs(prop, "rna_SmokeModifier_color_grid_get", NULL, NULL);
 	RNA_def_property_ui_text(prop, "Color Grid", "Smoke color grid");
+
+	prop = RNA_def_property(srna, "heat_grid", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_array(prop, 32);
+	RNA_def_property_flag(prop, PROP_DYNAMIC);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_dynamic_array_funcs(prop, "rna_SmokeModifier_heat_grid_get_length");
+	RNA_def_property_float_funcs(prop, "rna_SmokeModifier_heat_grid_get", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Heat Grid", "Smoke heat grid");
 
 	prop = RNA_def_property(srna, "cell_size", PROP_FLOAT, PROP_XYZ); /* can change each frame when using adaptive domain */
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -543,6 +696,12 @@ static void rna_def_smoke_domain_settings(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0.01, 0.5, 1.0, 5);
 	RNA_def_property_ui_text(prop, "Threshold",
 	                         "Maximum amount of fluid cell can contain before it is considered empty");
+	RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, "rna_Smoke_resetCache");
+
+	prop = RNA_def_property(srna, "cache_file_format", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "cache_file_format");
+	RNA_def_property_enum_items(prop, cache_file_type_items);
+	RNA_def_property_ui_text(prop, "File Format", "Select the file format to be used for caching");
 	RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, "rna_Smoke_resetCache");
 }
 

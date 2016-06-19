@@ -79,7 +79,7 @@
 #include "SCA_LogicManager.h"
 #include "KX_BlenderInputDevice.h"
 #include "KX_Scene.h"
-#include "IntValue.h"
+#include "EXP_IntValue.h"
 #include "KX_BlenderKeyboardDevice.h"
 #include "RAS_ICanvas.h"
 #include "PHY_IPhysicsEnvironment.h"
@@ -608,6 +608,7 @@ void BL_ConvertSensors(struct Object* blenderobject,
 				gamesensor->SetLevel(level);
 				gamesensor->SetTap(tap);
 				gamesensor->SetName(sens->name);
+				gamesensor->SetLogicManager(logicmgr);
 
 				gameobj->AddSensor(gamesensor);
 
