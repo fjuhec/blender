@@ -6364,6 +6364,7 @@ static void get_selected_endpoints(Nurb* nu, BezTriple **r_handle_list)
 	/* Takes in a nurb and returns an array with the selected endpoints BezTriple */
 	BezTriple *first_bezt, *last_bezt;
 	int a;
+	r_handle_list[0] = r_handle_list[1] = NULL;
 
 	a = nu->pntsu - 1;
 	first_bezt = last_bezt = nu->bezt;
@@ -6372,15 +6373,18 @@ static void get_selected_endpoints(Nurb* nu, BezTriple **r_handle_list)
 		last_bezt++;
 	}
 
-	if (BEZT_ISSEL_ANY(first_bezt) && BEZT_ISSEL_ANY(last_bezt)) {
+	if (BEZT_ISSEL_ANY(first_bezt) && BEZT_ISSEL_ANY(last_bezt))
+	{
 		r_handle_list[0] = first_bezt;
 		r_handle_list[1] = last_bezt;
 	}
-	else if (BEZT_ISSEL_ANY(first_bezt)) {
+	else if (BEZT_ISSEL_ANY(first_bezt))
+	{
 		r_handle_list[0] = first_bezt;
 		r_handle_list[1] = NULL;
 	}
-	else if (BEZT_ISSEL_ANY(last_bezt)) {
+	else if (BEZT_ISSEL_ANY(last_bezt))
+	{
 		r_handle_list[0] = NULL;
 		r_handle_list[1] = last_bezt;
 	}
@@ -6420,27 +6424,32 @@ static void get_max_extent_2d(float p1[2], float p2[2], float bb[4], float r_res
 	}
 }
 
-static void nearest_point(float p[2], float **p_list, int p_list_size, float r_near[2])
+static void nearest_point(float p[2], ListBase *p_list, float r_near[2], int *r_result)
 {
+	LinkData *link;
+	int p_list_size = BLI_listbase_count(p_list);
+	*r_result = 1;
 	/* return the point from p_list nearer to p */
 	if (p_list_size == 0) {
 		r_near = NULL;
+		*r_result = 0;
 	}
 	else if (p_list_size == 1) {
-		copy_v2_v2(r_near, p_list[0]);
+		link = p_list->first;
+		copy_v2_v2(r_near, link->data);
 	}
 	else {
-		int pos = 0, i = 1;
-		float distance = len_v2v2(p, p_list[0]), smallest_distance = distance;
-		while (i < p_list_size) {
-			distance = len_v2v2(p, p_list[i]);
-			if (distance < smallest_distance) {
+		int pos = 0, i = 0;
+		float distance = len_v2v2(p, ((LinkData *)p_list->first)->data), smallest_distance = distance;
+		for (link = p_list->first; link; link = link->next) {
+			distance = len_v2v2(p, link->data);
+			if (distance <= smallest_distance) {
 				distance = smallest_distance;
+				copy_v2_v2(r_near, link->data);
 				pos = i;
 			}
 			i++;
 		}
-		copy_v2_v2(r_near, p_list[pos]);
 	}
 }
 
@@ -6453,7 +6462,7 @@ static ListBase *interpolate_all_segments(Nurb *nu)
 	 * the first of the next one */
 	int i = 0, dims = 3;
 	float *coord_array;
-	ListBase pl = {NULL,NULL};
+	ListBase *pl = (ListBase *)MEM_callocN(sizeof(ListBase), "interpolate_all_segments1");
 	LinkData *link;
 
 	/* number of BezTriples */
@@ -6470,35 +6479,36 @@ static ListBase *interpolate_all_segments(Nurb *nu)
 										  nu->bezt[(i+1)%bezier_points].vec[1][j],
 										  coord_array + j, nu->resolu - 1, sizeof(float) * dims);
 		}
-		BLI_addtail(&pl, link);
+		BLI_addtail(pl, link);
 		i++;
 	}
 
-	return &pl;
+	return pl;
 }
 
 static ListBase *linear_spline_list(ListBase *nubase)
 {
 	/* return a list with all the points of a curve object */
-	ListBase spline_list = {NULL, NULL};
+	ListBase *spline_list = (ListBase *)MEM_callocN(sizeof(ListBase), "linearspllist1");
 	LinkData *link;
 	Nurb *nu;
 
 	for (nu=nubase->first; nu; nu=nu->next) {
-		link = MEM_callocN(sizeof(LinkData), "linearspllist1");
+		link = MEM_callocN(sizeof(LinkData), "linearspllist2");
 		link->data = interpolate_all_segments(nu);
-		BLI_addtail(&spline_list, link);
+		BLI_addtail(spline_list, link);
 	}
 
-	return &spline_list;
+	return spline_list;
 }
 
 static ListBase *get_intersections(float *p1, float *p2, ListBase *nubase)
 {
 	/* return a list with all the intersection points of the segment p1p2 with the curve object */
-	ListBase il = {NULL, NULL}, *spline_list, *points_list;
+	ListBase *spline_list, *points_list;
+	ListBase *il = (ListBase *)MEM_callocN(sizeof(ListBase), "get_intersections1");;
 	LinkData *intersection, *link, *spl;
-	float *coord_array, vi[2], p3[2], p4[2];
+	float *coord_array, *vi, p3[2], p4[2];
 	Nurb *nu = nubase->first;
 	int dims = 3, result;
 	const float PRECISION = 1e-05;
@@ -6509,33 +6519,38 @@ static ListBase *get_intersections(float *p1, float *p2, ListBase *nubase)
 		for (link = points_list->first; link; link=link->next) {
 			coord_array = (float *)link->data;
 			for (int i = 0; i < nu->resolu - 1; i++) {
+				vi = (float *) MEM_callocN(3 * sizeof(float), "get_intersections2");
 				p3[0] = coord_array[i * dims];
 				p3[1] = coord_array[i * dims + 1];
 				p4[0] = coord_array[(i + 1) * dims];
 				p4[1] = coord_array[(i + 1) * dims + 1];
 				result = isect_seg_seg_v2_point(p2, p1, p3, p4, vi);
 				if (result == 1 && len_v2v2(vi, p1) > PRECISION) {
-					intersection = MEM_callocN(sizeof(LinkData), "getintersections1");
+					intersection = MEM_callocN(sizeof(LinkData), "get_intersections4");
 					intersection->data = vi;
-					BLI_addtail(&il, intersection);
+					BLI_addtail(il, intersection);
 				}
 			}
 		}
 	}
-	return &il;
+	return il;
 }
 
 static int extend_curve_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	Nurb *first_spline, *second_spline;
+	Curve *cu = obedit->data;
+	Nurb *nu;
+	EditNurb *editnurb = cu->editnurb;
 	ListBase *nubase = object_editcurve_get(obedit), *spline_list, *intersections_list;
-	BezTriple **selected_endpoints = NULL;
-	int n_selected_splines = 0, result;
+	BezTriple **selected_endpoints = NULL, **first_selected_endpoints = NULL, **second_selected_endpoints = NULL, *bezt;
+	int n_selected_splines = 0, result = 0, a = 0;
 	float p1[3], p2[3], p1_handle[3], bound_box[4], p1_extend[2];
 
 	spline_list = get_selected_splines(nubase, &n_selected_splines, false);
 
+	/* the user can only select one or two splines */
 	if ((n_selected_splines == 0 || n_selected_splines > 2)) {
 		BKE_report(op->reports, RPT_ERROR, "Cannot extend current selection");
 		return OPERATOR_CANCELLED;
@@ -6554,21 +6569,100 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 										p1, p2); /* result serves to check the existence of the intersection;
 												  * the intersection point is on variables p1 and p2 */
 		}
-		else { /* only one endpoint selected */
-			if (selected_endpoints[0]) {
+		else if (selected_endpoints[0] || selected_endpoints[1]) { /* only one endpoint selected */
+			if (selected_endpoints[0])
+			{
 				copy_v3_v3(p1, selected_endpoints[0]->vec[1]);
 				copy_v3_v3(p1_handle, selected_endpoints[0]->vec[2]);
 			}
-			else {
+			else if (selected_endpoints[1])
+			{
 				copy_v3_v3(p1, selected_endpoints[1]->vec[1]);
 				copy_v3_v3(p1_handle, selected_endpoints[1]->vec[0]);
 			}
 			get_nurb_shape_bounds(obedit, bound_box);
 			get_max_extent_2d(p1, p1_handle, bound_box, p1_extend);
 			intersections_list = get_intersections(p1, p1_extend, nubase);
-			/* nearest_point(p1, get_intersections(p1, p1_extend, nubase), 0, p2); */
+			nearest_point(p1, intersections_list, p2, &result);
 		}
 	}
+	else if (n_selected_splines == 2) { /* two endpoints selected on two different splines */
+		first_selected_endpoints = MEM_callocN(2 * sizeof(BezTriple), "extendcurve1");
+		get_selected_endpoints(first_spline, first_selected_endpoints);
+		second_selected_endpoints = MEM_callocN(2 * sizeof(BezTriple), "extendcurve1");
+		get_selected_endpoints(second_spline, second_selected_endpoints);
+
+		float p1_first[3], p1_second[3], p1_first_handle[3], p1_second_handle[3];
+
+		if (first_selected_endpoints[0]) {
+			copy_v3_v3(p1_first, first_selected_endpoints[0]->vec[1]);
+			copy_v3_v3(p1_first_handle, first_selected_endpoints[0]->vec[2]);
+		}
+		else {
+			copy_v3_v3(p1_first, first_selected_endpoints[1]->vec[1]);
+			copy_v3_v3(p1_first_handle, first_selected_endpoints[1]->vec[0]);
+		}
+
+		if (second_selected_endpoints[0]) {
+			copy_v3_v3(p1_second, second_selected_endpoints[0]->vec[1]);
+			copy_v3_v3(p1_second_handle, second_selected_endpoints[0]->vec[2]);
+		}
+		else {
+			copy_v3_v3(p1_second, second_selected_endpoints[1]->vec[1]);
+			copy_v3_v3(p1_second_handle, second_selected_endpoints[1]->vec[0]);
+		}
+
+		result = isect_line_line_v3(p1_first_handle, p1_first,
+									p1_second_handle, p1_second,
+									p1, p2); /* result serves to check the existence of the intersection;
+											  * the intersection point is on variables p1 and p2 */
+	}
+
+	if (result != 1)
+	{
+		BKE_report(op->reports, RPT_ERROR, "No intersection found");
+		return OPERATOR_CANCELLED;
+	}
+	else
+	{
+		if (n_selected_splines == 1) {
+			if (selected_endpoints[0] && selected_endpoints[1])
+			{ /* both endpoints selected */
+				BKE_nurbList_handles_set(nubase, 5);
+				ed_editcurve_addvert(cu, editnurb, p2);
+				for (nu = nubase->first; nu; nu = nu->next) {
+					if (BEZT_ISSEL_ANY_HIDDENHANDLES(cu, nu->bezt)) {
+						copy_v3_v3(nu->bezt[0].vec[1], p2);
+						copy_v3_v3(nu->bezt[nu->pntsu - 1].vec[1], p2);
+					}
+				}
+				BKE_nurbList_handles_set(nubase, 1);
+			}
+			else { /* only one endpoint selected */
+				BKE_nurbList_handles_set(nubase, 5);
+				ed_editcurve_addvert(cu, editnurb, p2);
+				BKE_nurbList_handles_set(nubase, 1);
+			}
+		}
+		else if (n_selected_splines == 2) {
+			BKE_nurbList_handles_set(nubase, 5);
+			ed_editcurve_addvert(cu, editnurb, p2);
+			for (nu = nubase->first; nu; nu = nu->next) {
+				a = nu->pntsu;
+				bezt = nu->bezt;
+				while (a--) {
+					if (BEZT_ISSEL_ANY_HIDDENHANDLES(cu, bezt)) {
+						copy_v3_v3(bezt->vec[1], p2);
+					}
+					bezt++;
+				}
+			}
+			BKE_nurbList_handles_set(nubase, 1);
+		}
+	}
+
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
