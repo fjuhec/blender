@@ -257,7 +257,7 @@ ImageTextureNode::ImageTextureNode()
 ImageTextureNode::~ImageTextureNode()
 {
 	if(image_manager) {
-		image_manager->remove_image(filename,
+		image_manager->remove_image(filename.string(),
 		                            builtin_data,
 		                            interpolation,
 		                            extension);
@@ -298,7 +298,7 @@ void ImageTextureNode::compile(SVMCompiler& compiler)
 	image_manager = compiler.image_manager;
 	if(is_float == -1) {
 		bool is_float_bool;
-		slot = image_manager->add_image(filename,
+		slot = image_manager->add_image(filename.string(),
 		                                builtin_data,
 		                                animated,
 		                                0,
@@ -360,13 +360,13 @@ void ImageTextureNode::compile(OSLCompiler& compiler)
 	if(is_float == -1) {
 		if(builtin_data == NULL) {
 			ImageManager::ImageDataType type;
-			type = image_manager->get_image_metadata(filename, NULL, is_linear);
+			type = image_manager->get_image_metadata(filename.string(), NULL, is_linear);
 			if(type == ImageManager::IMAGE_DATA_TYPE_FLOAT || type == ImageManager::IMAGE_DATA_TYPE_FLOAT4)
 				is_float = 1;
 		}
 		else {
 			bool is_float_bool;
-			slot = image_manager->add_image(filename,
+			slot = image_manager->add_image(filename.string(),
 			                                builtin_data,
 			                                animated,
 			                                0,
@@ -456,7 +456,7 @@ EnvironmentTextureNode::EnvironmentTextureNode()
 EnvironmentTextureNode::~EnvironmentTextureNode()
 {
 	if(image_manager) {
-		image_manager->remove_image(filename,
+		image_manager->remove_image(filename.string(),
 		                            builtin_data,
 		                            interpolation,
 		                            EXTENSION_REPEAT);
@@ -495,7 +495,7 @@ void EnvironmentTextureNode::compile(SVMCompiler& compiler)
 	image_manager = compiler.image_manager;
 	if(slot == -1) {
 		bool is_float_bool;
-		slot = image_manager->add_image(filename,
+		slot = image_manager->add_image(filename.string(),
 		                                builtin_data,
 		                                animated,
 		                                0,
@@ -548,13 +548,13 @@ void EnvironmentTextureNode::compile(OSLCompiler& compiler)
 	if(is_float == -1) {
 		if(builtin_data == NULL) {
 			ImageManager::ImageDataType type;
-			type = image_manager->get_image_metadata(filename, NULL, is_linear);
+			type = image_manager->get_image_metadata(filename.string(), NULL, is_linear);
 			if(type == ImageManager::IMAGE_DATA_TYPE_FLOAT || type == ImageManager::IMAGE_DATA_TYPE_FLOAT4)
 				is_float = 1;
 		}
 		else {
 			bool is_float_bool;
-			slot = image_manager->add_image(filename,
+			slot = image_manager->add_image(filename.string(),
 			                                builtin_data,
 			                                animated,
 			                                0,
@@ -1564,8 +1564,8 @@ NODE_DEFINE(RGBToBWNode)
 {
 	NodeType* type = NodeType::add("rgb_to_bw", create, NodeType::SHADER);
 
-	SOCKET_IN_POINT(color, "Color", make_float3(0.0f, 0.0f, 0.0f));
-	SOCKET_OUT_POINT(val, "Val");
+	SOCKET_IN_COLOR(color, "Color", make_float3(0.0f, 0.0f, 0.0f));
+	SOCKET_OUT_FLOAT(val, "Val");
 
 	return type;
 }
@@ -2985,7 +2985,7 @@ NODE_DEFINE(LightPathNode)
 
 	SOCKET_OUT_FLOAT(is_camera_ray, "Is Camera Ray");
 	SOCKET_OUT_FLOAT(is_shadow_ray, "Is Shadow Ray");
-	SOCKET_OUT_FLOAT(is_diffus_ray, "Is Diffus Ray");
+	SOCKET_OUT_FLOAT(is_diffuse_ray, "Is Diffuse Ray");
 	SOCKET_OUT_FLOAT(is_glossy_ray, "Is Glossy Ray");
 	SOCKET_OUT_FLOAT(is_singular_ray, "Is Singular Ray");
 	SOCKET_OUT_FLOAT(is_reflection_ray, "Is Reflection Ray");
@@ -3761,7 +3761,7 @@ NODE_DEFINE(CombineXYZNode)
 	SOCKET_IN_FLOAT(y, "Y", 0.0f);
 	SOCKET_IN_FLOAT(z, "Z", 0.0f);
 
-	SOCKET_OUT_COLOR(color, "Image");
+	SOCKET_OUT_VECTOR(vector, "Vector");
 
 	return type;
 }
@@ -4989,6 +4989,13 @@ OSLNode::OSLNode()
 OSLNode::~OSLNode()
 {
 	delete type;
+}
+
+ShaderNode *OSLNode::clone() const
+{
+	OSLNode *node = new OSLNode(*this);
+	node->type = new NodeType(*type);
+	return node;
 }
 
 OSLNode* OSLNode::create(size_t num_inputs)
