@@ -229,6 +229,11 @@ typedef struct StrokeCache {
 	MVert *verts;
 	int *map_mem;
 	MeshElemMap* vert_to_loop;
+	unsigned int* totalRed;
+	unsigned int* totalGreen;
+	unsigned int* totalBlue;
+	unsigned int* totalAlpha;
+	unsigned int *totloopsHit;
 
 } StrokeCache;
 
@@ -257,7 +262,13 @@ typedef struct SculptThreadedTaskData {
 	VPaint *vp;
 	VPaintData *vpd;
 	unsigned int* lcol;
+	unsigned int* totalRed;
+	unsigned int* totalGreen;
+	unsigned int* totalBlue;
+	unsigned int* totalAlpha;
+	unsigned int *totloopsHit;
 	MeshElemMap **vertToLoopMaps;
+
 
 	/* Data specific to some callbacks. */
 	/* Note: even if only one or two of those are used at a time, keeping them separated, names help figuring out

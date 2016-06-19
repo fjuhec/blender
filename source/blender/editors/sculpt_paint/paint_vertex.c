@@ -2091,6 +2091,18 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 		BKE_mesh_vert_loop_map_create(&cache->vert_to_loop, &cache->map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
 	}
 
+	int totNode = 0;
+	//I think the totNodes might include internal nodes, and we really only need the tot leaves.
+	BKE_pbvh_node_num_nodes(ss->pbvh, &totNode);
+	
+	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+		ob->sculpt->cache->totalRed = MEM_callocN(totNode*sizeof(unsigned int), "totalRed");
+		ob->sculpt->cache->totalGreen = MEM_callocN(totNode * sizeof(unsigned int), "totalGreen");
+		ob->sculpt->cache->totalBlue = MEM_callocN(totNode * sizeof(unsigned int), "totalBlue");
+		ob->sculpt->cache->totalAlpha = MEM_callocN(totNode * sizeof(unsigned int), "totalAlpha");
+		ob->sculpt->cache->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
+	}
+
 }
 
 /* Initialize the stroke cache variants from operator properties */
@@ -3076,6 +3088,48 @@ static void vpaint_paint_loop(VPaint *vp, VPaintData *vpd, Mesh *me,
 	}
 }
 
+static void do_vpaint_brush_calc_ave_color_cb_ex(
+	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id) {
+	SculptThreadedTaskData *data = userdata;
+	SculptSession *ss = data->ob->sculpt;
+	StrokeCache *cache = ss->cache;
+	
+	unsigned int *lcol = data->lcol;
+	unsigned int blend[4] = { 0 };
+	char *col;
+	
+	data->totloopsHit[n] = 0;
+
+	//for each vertex
+	PBVHVertexIter vd;
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	{
+		SculptBrushTest test;
+		sculpt_brush_test_init(ss, &test);
+
+		//Test to see if the vertex coordinates are within the spherical brush region.
+		if (sculpt_brush_test(&test, vd.co)) {
+			int vertexIndex = vd.vert_indices[vd.i];
+
+			data->totloopsHit[n] += cache->vert_to_loop[vertexIndex].count;
+			//if a vertex is within the brush region, then add it's color to the blend.
+			for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
+				int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
+				col = (char *)(&lcol[loopIndex]);
+				blend[0] += col[0];
+				blend[1] += col[1];
+				blend[2] += col[2];
+				blend[3] += col[3];
+			}
+		}
+		BKE_pbvh_vertex_iter_end;
+	}
+	data->totalRed[n] = blend[0];
+	data->totalGreen[n] = blend[1];
+	data->totalBlue[n] = blend[2];
+	data->totalAlpha[n] = blend[3];
+}
+
 static void do_vpaint_brush_draw_task_cb_ex(
 	void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -3085,13 +3139,8 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	StrokeCache *cache = ss->cache;
 	const float bstrength = cache->bstrength;
 
-	unsigned int *lcol;
-	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-		lcol = data->vp->vpaint_prev;
-		printf("Bluring currently unsupported.\n");
-	}
-	else
-		lcol = data->lcol;
+	unsigned int *lcol = data->lcol;
+		
 	unsigned int *lcolorig = data->vp->vpaint_prev;
 
 	//for each vertex
@@ -3100,22 +3149,18 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	{
 		SculptBrushTest test;
 		sculpt_brush_test_init(ss, &test);
+		
+		//Test to see if the vertex coordinates are within the spherical brush region.
 		if (sculpt_brush_test(&test, vd.co)) {
 			const float fade = tex_strength(ss, brush, vd.co, test.dist, vd.no, vd.fno, 0.0f, thread_id);
 			
 			int vertexIndex = vd.vert_indices[vd.i];
-			MVert vert = cache->verts[vertexIndex];
-			//Test to see if the vertex coordinates are within the spherical brush region.
-			if (sculpt_brush_test(&test, vert.co)) {
-				unsigned int original[4] = { 0 };
-				//if a vertex is within the brush region, then paint each loop that vertex owns.
-				for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
-					int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
-					//Mix the new color with the original based on the brush strength and the curve.
-					lcol[loopIndex] = vpaint_blend(data->vp, data->lcol[loopIndex], data->vp->vpaint_prev[loopIndex], data->vpd->paintcol, 255.0 * fade, 255.0 * bstrength);
-					//lcol[i] = vpaint_blend(vp, lcol[i], lcolorig[i], paintcol, alpha_i, brush_alpha_pressure_i);
-
-				}
+			
+			//if a vertex is within the brush region, then paint each loop that vertex owns.
+			for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
+				int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
+				//Mix the new color with the original based on the brush strength and the curve.
+				lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], data->vpd->paintcol, 255.0 * fade, 255.0 * bstrength);
 			}
 		}
 		BKE_pbvh_vertex_iter_end;
@@ -3135,9 +3180,41 @@ static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object 
 	data.vpd = vpd;
 	data.lcol = (unsigned int*)me->mloopcol;
 
+	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+		//To be moved
+		data.totalRed = ob->sculpt->cache->totalRed; //MEM_callocN(totnode*sizeof(unsigned int), "totalRed");
+		data.totalGreen = ob->sculpt->cache->totalGreen; // MEM_callocN(totnode*sizeof(unsigned int), "totalGreen");
+		data.totalBlue = ob->sculpt->cache->totalBlue; //MEM_callocN(totnode*sizeof(unsigned int), "totalBlue");
+		data.totalAlpha = ob->sculpt->cache->totalAlpha;// MEM_callocN(totnode*sizeof(unsigned int), "totalAlpha");
+		data.totloopsHit = ob->sculpt->cache->totloopsHit; //MEM_callocN(totnode*sizeof(unsigned int), "totloopsHit");
+
+		BLI_task_parallel_range_ex(
+			0, totnode, &data, NULL, 0, do_vpaint_brush_calc_ave_color_cb_ex,
+			((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+
+		unsigned int totalHitLoops = 0;
+		unsigned int totalColor[4] = { 0 };
+		unsigned char blend[4] = { 0 };
+		for (int i = 0; i < totnode; ++i) {
+			totalHitLoops += data.totloopsHit[i];
+			totalColor[0] += data.totalRed[i];
+			totalColor[1] += data.totalGreen[i];
+			totalColor[2] += data.totalBlue[i];
+			totalColor[3] += data.totalAlpha[i];
+		}
+		if (totalHitLoops != 0) {
+			blend[0] = divide_round_i(totalColor[0], totalHitLoops);
+			blend[1] = divide_round_i(totalColor[1], totalHitLoops);
+			blend[2] = divide_round_i(totalColor[2], totalHitLoops);
+			blend[3] = divide_round_i(totalColor[3], totalHitLoops);
+			data.vpd->paintcol = *((unsigned int*)blend);
+		}
+	}
+
 	BLI_task_parallel_range_ex(
 		0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
 		((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+
 }
 
 static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)

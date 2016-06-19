@@ -1406,6 +1406,10 @@ void BKE_pbvh_node_num_verts(
 	}
 }
 
+void BKE_pbvh_node_num_nodes(PBVH *bvh, int* r_totnode) {
+	*r_totnode = bvh->totnode;
+}
+
 void BKE_pbvh_node_get_grids(
         PBVH *bvh, PBVHNode *node,
         int **r_grid_indices, int *r_totgrid, int *r_maxgrid, int *r_gridsize, CCGElem ***r_griddata)
