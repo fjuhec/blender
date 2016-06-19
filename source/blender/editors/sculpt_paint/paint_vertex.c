@@ -3341,6 +3341,11 @@ static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	DAG_id_tag_update(&me->id, 0);
 
+	if (ob->sculpt->cache){
+		sculpt_cache_free(ob->sculpt->cache);
+		ob->sculpt->cache = NULL;
+	}
+
 	MEM_freeN(vpd);
 }
 
