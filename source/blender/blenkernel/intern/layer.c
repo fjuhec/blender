@@ -36,6 +36,7 @@
 #include "BKE_context.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h" /* own include */
+#include "BKE_object.h"
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
@@ -117,6 +118,63 @@ int BKE_layertree_get_totitems(const LayerTree *ltree)
 
 
 /* -------------------------------------------------------------------- */
+/** \name Layer Type
+ *
+ * Layer types store information that is shared between all layers of
+ * the given type. They work just like operator and operator types.
+ *
+ * \{ */
+
+/**
+ * Array of all registered layer types. The index of a layer type matches items
+ * in eLayerTreeItem_Type. Length should always match #LAYER_ITEMTYPE_TOT.
+*/
+static LayerType *layertypes[LAYER_ITEMTYPE_TOT] = {NULL};
+
+
+static void LAYERTYPE_object(LayerType *lt)
+{
+	/* XXX Will probably get own layer type */
+	lt->type = LAYER_ITEMTYPE_LAYER;
+
+	lt->free = BKE_objectlayer_free;
+}
+
+static void LAYERTYPE_group(LayerType *lt)
+{
+	lt->type = LAYER_ITEMTYPE_GROUP;
+}
+
+void BKE_layertype_append(void (*ltfunc)(LayerType *))
+{
+	LayerType *lt = MEM_callocN(sizeof(LayerType), __func__);
+	ltfunc(lt);
+
+	BLI_assert(lt->type >= 0 && lt->type < LAYER_ITEMTYPE_TOT);
+	layertypes[lt->type] = lt;
+}
+
+/**
+ * Startup initialization of layer types.
+ */
+void BKE_layertypes_init(void)
+{
+	BKE_layertype_append(LAYERTYPE_object);
+	BKE_layertype_append(LAYERTYPE_group);
+}
+
+void BKE_layertypes_free(void)
+{
+	for (int i = 0; i < ARRAY_SIZE(layertypes); i++) {
+		if (layertypes[i]) {
+			MEM_freeN(layertypes[i]);
+		}
+	}
+}
+
+/** \} */ /* Layer Type */
+
+/* -------------------------------------------------------------------- */
 /** \name Layer Tree Item
  *
  * An item of the layer tree (layer, layer group, compositing layer, etc).
@@ -133,24 +191,23 @@ int BKE_layertree_get_totitems(const LayerTree *ltree)
 void BKE_layeritem_register(
         LayerTree *tree, LayerTreeItem *litem, LayerTreeItem *parent,
         const eLayerTreeItem_Type type, const char *name,
-        const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
+        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
 {
-	litem->type = type;
+	litem->type = layertypes[type];
 	litem->index = tree->tot_items;
 	litem->tree = tree;
 	BLI_strncpy(litem->name, name, sizeof(litem->name));
 
 	/* callbacks */
-	litem->poll = poll;
-	litem->draw = draw;
-	litem->draw_settings = draw_settings;
+	litem->type->draw = draw;
+	litem->type->draw_settings = draw_settings;
 
 	/* add to item array */
 	tree->items_all = MEM_reallocN(tree->items_all, sizeof(*tree->items_all) * ++tree->tot_items);
 	tree->items_all[tree->tot_items - 1] = litem;
 
 	if (parent) {
-		BLI_assert(ELEM(parent->type, LAYER_ITEMTYPE_GROUP));
+		BLI_assert(ELEM(parent->type->type, LAYER_ITEMTYPE_GROUP));
 		BLI_assert(parent->tree == tree);
 
 		litem->parent = parent;
@@ -171,17 +228,17 @@ void BKE_layeritem_register(
 LayerTreeItem *BKE_layeritem_add(
         LayerTree *tree, LayerTreeItem *parent,
         const eLayerTreeItem_Type type, const char *name,
-        const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
+        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
 {
 	LayerTreeItem *litem = MEM_callocN(sizeof(LayerTreeItem), __func__);
-	BKE_layeritem_register(tree, litem, parent, type, name, poll, draw, draw_settings);
+	BKE_layeritem_register(tree, litem, parent, type, name, draw, draw_settings);
 	return litem;
 }
 
 static void layeritem_free(LayerTreeItem *litem)
 {
-	if (litem->free) {
-		litem->free(litem);
+	if (litem->type->free) {
+		litem->type->free(litem);
 	}
 
 	if (litem->prop) {
@@ -265,7 +322,7 @@ void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item)
 {
 	ListBase *oldlist = item->parent ? &item->parent->childs : &item->tree->items;
 
-	BLI_assert(group->type == LAYER_ITEMTYPE_GROUP);
+	BLI_assert(group->type->type == LAYER_ITEMTYPE_GROUP);
 	BLI_assert(BLI_findindex(oldlist, item) != -1);
 
 	item->parent = group;

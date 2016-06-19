@@ -76,7 +76,7 @@ static float layer_tile_draw(
         float row_ofs_y, int idx)
 {
 	LayerTreeItem *litem = tile->litem;
-	const bool expanded = litem->draw_settings && (tile->flag & LAYERTILE_EXPANDED);
+	const bool expanded = litem->type->draw_settings && (tile->flag & LAYERTILE_EXPANDED);
 
 	const float pad_x = 4.0f * UI_DPI_FAC;
 	const float header_y = LAYERTILE_HEADER_HEIGHT;
@@ -108,7 +108,7 @@ static float layer_tile_draw(
 		uiLayout *layout = UI_block_layout(
 		        block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
 		        rect.xmin, rect.ymax, BLI_rctf_size_y(&rect), 0, 0, style);
-		litem->draw(C, litem, layout);
+		litem->type->draw(C, litem, layout);
 		uiItemL(layout, "", 0); /* XXX without this editing last item causes crashes */
 		UI_block_layout_resolve(block, NULL, NULL);
 	}
@@ -118,7 +118,7 @@ static float layer_tile_draw(
 		uiLayout *layout = UI_block_layout(
 		        block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL,
 		        rect.xmin, rect.ymin, BLI_rctf_size_x(&rect), 0, 0, style);
-		litem->draw_settings(C, litem, layout);
+		litem->type->draw_settings(C, litem, layout);
 
 		int size_y = 0;
 		UI_block_layout_resolve(block, NULL, &size_y);
@@ -170,7 +170,7 @@ static void layers_tiles_draw_floating(const bContext *C, struct FloatingTileDra
 	 * fixed tiles are drawn over background of floating ones. */
 	uiBlock *block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
 
-	if (floating->tile->litem->draw) {
+	if (floating->tile->litem->type->draw) {
 		layer_tile_draw(floating->tile, C, ar, block, style, floating->pos_y, floating->idx);
 	}
 
@@ -208,7 +208,7 @@ static void layers_tiles_draw_fixed(
 			continue;
 		}
 
-		if (litem->draw) {
+		if (litem->type->draw) {
 			*r_ofs_y += layer_tile_draw(tile, C, ar, block, style, *r_ofs_y, *r_idx);
 			(*r_idx)++;
 		}
@@ -261,7 +261,7 @@ void object_layer_draw(const bContext *C, LayerTreeItem *litem, uiLayout *layout
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
 	uiBlock *block = uiLayoutGetBlock(layout);
-	const bool draw_settingbut = litem->draw_settings && tile->flag & (LAYERTILE_SELECTED | LAYERTILE_EXPANDED);
+	const bool draw_settingbut = litem->type->draw_settings && tile->flag & (LAYERTILE_SELECTED | LAYERTILE_EXPANDED);
 
 	uiItemL(layout, litem->name, 0);
 	if (draw_settingbut) {

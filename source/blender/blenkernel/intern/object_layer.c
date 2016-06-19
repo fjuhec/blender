@@ -33,25 +33,24 @@
 #include "MEM_guardedalloc.h"
 
 
-static void objectlayer_free(LayerTreeItem *litem)
+LayerTreeItem *BKE_objectlayer_add(
+        LayerTree *tree, LayerTreeItem *parent, const char *name,
+        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
+{
+	LayerTypeObject *oblayer = MEM_callocN(sizeof(LayerTypeObject), __func__);
+
+	BLI_assert(tree->type == LAYER_TREETYPE_OBJECT);
+	BKE_layeritem_register(tree, &oblayer->litem, parent, LAYER_ITEMTYPE_LAYER, name, draw, draw_settings);
+
+	return &oblayer->litem;
+}
+
+void BKE_objectlayer_free(LayerTreeItem *litem)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 	if (oblayer->bases) {
 		MEM_freeN(oblayer->bases);
 	}
-}
-
-LayerTreeItem *BKE_objectlayer_add(
-        LayerTree *tree, LayerTreeItem *parent, const char *name,
-        const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
-{
-	LayerTypeObject *oblayer = MEM_callocN(sizeof(LayerTypeObject), __func__);
-
-	BLI_assert(tree->type == LAYER_TREETYPE_OBJECT);
-	BKE_layeritem_register(tree, &oblayer->litem, parent, LAYER_ITEMTYPE_LAYER, name, poll, draw, draw_settings);
-	oblayer->litem.free = objectlayer_free;
-
-	return &oblayer->litem;
 }
 
 static void objectlayer_array_resize(LayerTypeObject *oblayer, unsigned int new_tot_objects)

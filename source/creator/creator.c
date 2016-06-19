@@ -56,6 +56,7 @@
 #include "BKE_depsgraph.h" /* for DAG_init */
 #include "BKE_font.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_material.h"
 #include "BKE_modifier.h"
 #include "BKE_node.h"
@@ -354,6 +355,7 @@ int main(
 	/* after level 1 args, this is so playanim skips RNA init */
 	RNA_init();
 
+	BKE_layertypes_init();
 	RE_engines_init();
 	init_nodesystem();
 	psys_init_rng();

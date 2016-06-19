@@ -100,9 +100,10 @@ typedef struct LayerTree {
 typedef struct LayerTreeItem {
 	struct LayerTreeItem *next, *prev;
 
-	int type;      /* eLayerTreeItem_Type */
-	int index;     /* index of the item - stored to avoid loockups */
-	char name[64]; /* MAX_NAME */
+	struct LayerType *type;
+
+	int index, pad; /* index of the item - stored to avoid loockups */
+	char name[64];  /* MAX_NAME */
 
 	struct LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
 	struct LayerTreeItem *parent; /* the group this item belongs to */
@@ -110,16 +111,6 @@ typedef struct LayerTreeItem {
 
 	/* custom props */
 	IDProperty *prop;
-
-	/* item is grayed out if this check fails */
-	short (*poll)(const struct bContext *, struct LayerTreeItem *); /* LayerItemPollFunc */
-	/* drawing of the item in the list */
-	void (*draw)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawFunc */
-	/* drawing of the expanded layer settings (gear wheel icon) */
-	void (*draw_settings)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawSettingsFunc */
-
-	/* Optional free callback. Don't free item itself! */
-	void (*free)(struct LayerTreeItem *);
 } LayerTreeItem;
 
 typedef struct LayerTypeObject {

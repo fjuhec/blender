@@ -54,6 +54,7 @@
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_node.h"
 #include "BKE_report.h"
@@ -81,6 +82,7 @@ void BKE_blender_free(void)
 	BKE_main_free(G.main);
 	G.main = NULL;
 
+	BKE_layertypes_free();
 	BKE_spacetypes_free();      /* after free main, it uses space callbacks */
 	
 	IMB_exit();

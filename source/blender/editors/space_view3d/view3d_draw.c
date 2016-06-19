@@ -2792,7 +2792,7 @@ static void view3d_objectlayers_drawstep_draw(
 #ifdef WITH_ADVANCED_LAYERS
 	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, i, litem)
 	{
-		if (litem->type == LAYER_ITEMTYPE_LAYER) {
+		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
 			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
 			{

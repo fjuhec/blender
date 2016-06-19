@@ -5834,7 +5834,7 @@ static void direct_link_layeritems(FileData *fd, ListBase *layeritems, LayerTree
 		litem->prop = newdataadr(fd, litem->prop);
 		IDP_DirectLinkGroup_OrFree(&litem->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 
-		if (litem->type == LAYER_ITEMTYPE_LAYER) {
+		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
 			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 			if (oblayer->bases) {
 				oblayer->bases = newdataadr(fd, oblayer->bases);

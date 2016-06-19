@@ -50,12 +50,12 @@ LayerTreeItem *layers_object_add(LayerTree *ltree, const char *name)
 {
 	return BKE_objectlayer_add(
 	            ltree, NULL, name ? name : OBJECTLAYER_DEFAULT_NAME,
-	            NULL, object_layer_draw, object_layer_draw_settings);
+	            object_layer_draw, object_layer_draw_settings);
 }
 
 LayerTreeItem *layers_group_add(LayerTree *ltree, const char *name)
 {
 	return BKE_layeritem_add(
 	            ltree, NULL, LAYER_ITEMTYPE_GROUP, name ? name : LAYERGROUP_DEFAULT_NAME,
-	            NULL, layer_group_draw, NULL);
+	            layer_group_draw, NULL);
 }

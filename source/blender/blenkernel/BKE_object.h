@@ -284,7 +284,8 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 
 LayerTreeItem *BKE_objectlayer_add(
         LayerTree *tree, LayerTreeItem *parent, const char *name,
-        const LayerItemPollFunc poll, LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
+        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
+void BKE_objectlayer_free(LayerTreeItem *litem);
 void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem);
 void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem);
 
