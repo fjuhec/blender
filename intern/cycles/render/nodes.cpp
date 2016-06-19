@@ -3761,7 +3761,7 @@ NODE_DEFINE(CombineXYZNode)
 	SOCKET_IN_FLOAT(y, "Y", 0.0f);
 	SOCKET_IN_FLOAT(z, "Z", 0.0f);
 
-	SOCKET_OUT_COLOR(color, "Image");
+	SOCKET_OUT_VECTOR(vector, "Vector");
 
 	return type;
 }
@@ -4989,6 +4989,13 @@ OSLNode::OSLNode()
 OSLNode::~OSLNode()
 {
 	delete type;
+}
+
+ShaderNode *OSLNode::clone() const
+{
+	OSLNode *node = new OSLNode(*this);
+	node->type = new NodeType(*type);
+	return node;
 }
 
 OSLNode* OSLNode::create(size_t num_inputs)
