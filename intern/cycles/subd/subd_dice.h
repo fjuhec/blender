@@ -136,46 +136,6 @@ public:
 	void dice(SubPatch& sub, EdgeFactors& ef);
 };
 
-/* Triangle EdgeDice
- *
- * Edge tessellation factors and subpatch coordinates are as follows:
- *
- *        Pw
- *        /\
- *    tv /  \ tu
- *      /    \
- *     /      \
- *  Pu -------- Pv
- *        tw     
- */
-
-class TriangleDice : public EdgeDice {
-public:
-	struct SubPatch {
-		Patch *patch;
-
-		float2 Pu;
-		float2 Pv;
-		float2 Pw;
-	};
-
-	struct EdgeFactors {
-		int tu;
-		int tv;
-		int tw;
-	};
-
-	explicit TriangleDice(const SubdParams& params);
-
-	void reserve(EdgeFactors& ef, int M);
-
-	float2 map_uv(SubPatch& sub, float2 uv);
-	int add_vert(SubPatch& sub, float2 uv);
-
-	void add_grid(SubPatch& sub, EdgeFactors& ef, int M);
-	void dice(SubPatch& sub, EdgeFactors& ef);
-};
-
 CCL_NAMESPACE_END
 
 #endif /* __SUBD_DICE_H__ */
