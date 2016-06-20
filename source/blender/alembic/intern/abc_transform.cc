@@ -77,15 +77,6 @@ AbcTransformWriter::AbcTransformWriter(Object *ob,
 void AbcTransformWriter::do_write()
 {
 	if (m_first_frame) {
-		if (hasProperties(reinterpret_cast<ID *>(m_object))) {
-			if (m_settings.export_props_as_geo_params) {
-				writeProperties(reinterpret_cast<ID *>(m_object), m_schema.getArbGeomParams());
-			}
-			else {
-				writeProperties(reinterpret_cast<ID *>(m_object), m_schema.getUserProperties());
-			}
-		}
-
 		m_visibility = Alembic::AbcGeom::CreateVisibilityProperty(m_xform, m_xform.getSchema().getTimeSampling());
 	}
 

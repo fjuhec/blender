@@ -488,17 +488,6 @@ void AbcMeshWriter::writeCommonData(DerivedMesh *dm, Schema &schema)
 		samp.setFaces(Int32ArraySample(it->second));
 		face_set.getSchema().set(samp);
 	}
-
-	if (hasProperties(reinterpret_cast<ID *>(m_object->data))) {
-		if (m_settings.export_props_as_geo_params) {
-			writeProperties(reinterpret_cast<ID *>(m_object->data),
-			                schema.getArbGeomParams(), false);
-		}
-		else {
-			writeProperties(reinterpret_cast<ID *>(m_object->data),
-			                schema.getUserProperties(), true);
-		}
-	}
 }
 
 DerivedMesh *AbcMeshWriter::getFinalMesh()

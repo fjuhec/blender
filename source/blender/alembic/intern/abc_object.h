@@ -70,18 +70,6 @@ public:
 
 private:
 	virtual void do_write() = 0;
-
-	void getAllProperties(IDProperty *group, std::vector<std::pair<std::string, IDProperty*> > &allProps, const std::string &parent);
-
-	void writeArrayProperty(IDProperty *p, const Alembic::Abc::OCompoundProperty &abcProps);
-	void writeProperty(IDProperty *p, const std::string &name, const Alembic::Abc::OCompoundProperty &abcProps);
-	void writeGeomProperty(IDProperty *p, const std::string &name, const Alembic::Abc::OCompoundProperty &abcProps);
-
-protected:
-	bool hasProperties(ID *id);
-	void writeProperties(ID *id, const Alembic::Abc::OCompoundProperty &props, bool writeAsUserData = true);
-
-	bool getPropertyValue(ID *id, const std::string &name, double &val);
 };
 
 /* ************************************************************************** */

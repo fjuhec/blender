@@ -66,14 +66,6 @@ AbcCameraWriter::AbcCameraWriter(Scene *scene,
 
 void AbcCameraWriter::do_write()
 {
-	if (m_first_frame) {
-		ID *id = static_cast<ID *>(m_object->data);
-
-		if (hasProperties(id)) {
-			writeProperties(id, m_camera_schema.getUserProperties(), true);
-		}
-	}
-
 	Camera *cam = static_cast<Camera *>(m_object->data);
 
 	m_stereo_distance.set(cam->stereo.convergence_distance);

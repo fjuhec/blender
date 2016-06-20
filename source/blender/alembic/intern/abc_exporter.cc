@@ -458,36 +458,6 @@ void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 		return;
 	}
 
-	int enable_hair = true;
-	int enable_hair_child = true;
-	int enable_geo = true;
-
-	ID *id = reinterpret_cast<ID *>(ob);
-	IDProperty *xport_props = IDP_GetProperties(id, 0);
-
-	/* Check for special export object flags. */
-	if (xport_props) {
-		IDProperty *enable_prop = IDP_GetPropertyFromGroup(xport_props, "abc_hair");
-		if (enable_prop) {
-			enable_hair = IDP_Int(enable_prop);
-		}
-
-		enable_prop = IDP_GetPropertyFromGroup(xport_props, "abc_geo");
-		if (enable_prop) {
-			if (IDP_Int(enable_prop) == 2) {
-				enable_geo = false;
-			}
-			else {
-				enable_geo = IDP_Int(enable_prop);
-			}
-		}
-
-		enable_prop = IDP_GetPropertyFromGroup(xport_props, "abc_hair_child");
-		if (enable_prop) {
-			enable_hair_child = IDP_Int(enable_prop);
-		}
-	}
-
 	ParticleSystem *psys = static_cast<ParticleSystem *>(ob->particlesystem.first);
 
 	for (; psys; psys = psys->next) {
@@ -495,8 +465,8 @@ void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 			continue;
 		}
 
-		if ((psys->part->type == PART_HAIR) && enable_hair) {
-			m_settings.export_child_hairs = enable_hair_child;
+		if (psys->part->type == PART_HAIR) {
+			m_settings.export_child_hairs = true;
 			m_shapes.push_back(new AbcHairWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings, psys));
 		}
 		else if (psys->part->type == PART_EMITTER) {
@@ -507,30 +477,24 @@ void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 	switch(ob->type) {
 		case OB_MESH:
 		{
-			if (enable_geo) {
-				Mesh *me = static_cast<Mesh *>(ob->data);
+			Mesh *me = static_cast<Mesh *>(ob->data);
 
-				if (!me || me->totvert == 0) {
-					return;
-				}
-
-				m_shapes.push_back(new AbcMeshWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
+			if (!me || me->totvert == 0) {
+				return;
 			}
 
+			m_shapes.push_back(new AbcMeshWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
 			break;
 		}
 		case OB_SURF:
 		{
-			if (enable_geo) {
-				Curve *cu = static_cast<Curve *>(ob->data);
+			Curve *cu = static_cast<Curve *>(ob->data);
 
-				if (!cu) {
-					return;
-				}
-
-				m_shapes.push_back(new AbcNurbsWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
+			if (!cu) {
+				return;
 			}
 
+			m_shapes.push_back(new AbcNurbsWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
 			break;
 		}
 		case OB_CAMERA:
