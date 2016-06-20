@@ -702,6 +702,28 @@ void ABC_get_transform(Object *ob, const char *filepath, const char *object_path
 
 /* ***************************************** */
 
+static void *add_customdata_cb(void *user_data, const char *name, int data_type)
+{
+	DerivedMesh *dm = static_cast<DerivedMesh *>(user_data);
+	CustomDataType cd_data_type = static_cast<CustomDataType>(data_type);
+	void *cd_ptr = NULL;
+
+	if (ELEM(cd_data_type, CD_MLOOPUV, CD_MLOOPCOL)) {
+		cd_ptr = CustomData_get_layer_named(dm->getLoopDataLayout(dm), cd_data_type, name);
+
+		if (cd_ptr == NULL) {
+			cd_ptr = CustomData_add_layer_named(dm->getLoopDataLayout(dm),
+			                                    cd_data_type,
+			                                    CD_DEFAULT,
+			                                    NULL,
+			                                    dm->getNumLoops(dm),
+			                                    name);
+		}
+	}
+
+	return cd_ptr;
+}
+
 static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, const float time)
 {
 	IPolyMesh mesh(iobject, kWrapExisting);
@@ -713,8 +735,10 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	const Alembic::Abc::Int32ArraySamplePtr &face_indices = sample.getFaceIndices();
 	const Alembic::Abc::Int32ArraySamplePtr &face_counts = sample.getFaceCounts();
 
+	bool new_dm = false;
 	if (dm->getNumVerts(dm) != positions->size()) {
 		dm = CDDM_new(positions->size(), 0, 0, face_indices->size(), face_counts->size());
+		new_dm = true;
 	}
 
 	const IV2fGeomParam uv = schema.getUVsParam();
@@ -722,7 +746,8 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	Alembic::Abc::UInt32ArraySamplePtr uvs_indices;
 
 	if (uv.valid()) {
-		IV2fGeomParam::Sample uvsamp = uv.getExpandedValue(sample_sel);
+		IV2fGeomParam::Sample uvsamp;
+		uv.getIndexed(uvsamp, sample_sel);
 		uvs = uvsamp.getVals();
 		uvs_indices = uvsamp.getIndices();
 	}
@@ -747,12 +772,45 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	MPoly *mpolys = dm->getPolyArray(dm);
 	MLoop *mloops = dm->getLoopArray(dm);
 	MLoopUV *mloopuvs = static_cast<MLoopUV *>(CustomData_get(&dm->loopData, 0, CD_MLOOPUV));
-	CustomData *pdata = dm->getLoopDataLayout(dm);
+
+	if (!mloopuvs && uvs) {
+		std::string name = Alembic::Abc::GetSourceName(uv.getMetaData());
+
+		/* According to the convention, primary UVs should have had their name
+		 * set using Alembic::Abc::SetSourceName, but you can't expect everyone
+		 * to follow it! :) */
+		if (name.empty()) {
+			name = uv.getName();
+		}
+
+		void *ptr = CustomData_add_layer_named(dm->getLoopDataLayout(dm),
+		                                       CD_MLOOPUV,
+		                                       CD_DEFAULT,
+		                                       NULL,
+		                                       dm->getNumLoops(dm),
+		                                       name.c_str());
+
+		mloopuvs = static_cast<MLoopUV *>(ptr);
+	}
+
+	CustomData *ldata = dm->getLoopDataLayout(dm);
 
 	read_mverts(mverts, positions, vertex_normals);
-	read_mpolys(mpolys, mloops, mloopuvs, pdata, face_indices, face_counts, uvs, uvs_indices, poly_normals);
+	read_mpolys(mpolys, mloops, mloopuvs, ldata, face_indices, face_counts, uvs, uvs_indices, poly_normals);
 
-	CDDM_calc_edges(dm);
+	CDStreamConfig config;
+	config.user_data = dm;
+	config.mloop = dm->getLoopArray(dm);
+	config.mpoly = dm->getPolyArray(dm);
+	config.totloop = dm->getNumLoops(dm);
+	config.totpoly = dm->getNumPolys(dm);
+	config.add_customdata_cb = add_customdata_cb;
+
+	read_custom_data(schema.getArbGeomParams(), config, sample_sel);
+
+	if (new_dm) {
+		CDDM_calc_edges(dm);
+	}
 
 	if (!normals.valid()) {
 		dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));

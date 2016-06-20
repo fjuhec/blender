@@ -79,4 +79,4 @@ void write_custom_data(const OCompoundProperty &prop,
 
 void read_custom_data(const ICompoundProperty &prop,
                       const CDStreamConfig &config,
-                      CustomData *data);
+                      const Alembic::Abc::ISampleSelector &iss);

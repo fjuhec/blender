@@ -953,7 +953,16 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 		uvs = uvsamp.getVals();
 		uvs_indices = uvsamp.getIndices();
 
-		ED_mesh_uv_texture_add(mesh, Alembic::Abc::GetSourceName(uv.getMetaData()).c_str(), true);
+		std::string name = Alembic::Abc::GetSourceName(uv.getMetaData());
+
+		/* According to the convention, primary UVs should have had their name
+		 * set using Alembic::Abc::SetSourceName, but you can't expect everyone
+		 * to follow it! :) */
+		if (name.empty()) {
+			name = uv.getName();
+		}
+
+		ED_mesh_uv_texture_add(mesh, name.c_str(), true);
 	}
 
 	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv, &mesh->ldata,
@@ -970,7 +979,7 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 	config.user_data = mesh;
 	config.add_customdata_cb = add_customdata_cb;
 
-	read_custom_data(arb_geom_params, config, &mesh->ldata);
+	read_custom_data(arb_geom_params, config, ISampleSelector(0.0f));
 }
 
 void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_start,
