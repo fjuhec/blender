@@ -72,4 +72,4 @@ set(SRC
 	intern/abc_util.h
 )
 
-blender_add_lib(bf_abc "${SRC}" "${INC}" "${INC_SYS}")
+blender_add_lib(bf_alembic "${SRC}" "${INC}" "${INC_SYS}")
