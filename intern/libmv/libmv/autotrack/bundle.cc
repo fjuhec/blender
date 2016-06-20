@@ -242,7 +242,7 @@ void UnpackIntrinsicsFromArray(const double ceres_intrinsics[OFFSET_MAX],
 //// camera at image i.
 //vector<Vec6> PackCamerasRotationAndTranslation(
 //    const Tracks &tracks,
-//    const EuclideanReconstruction &reconstruction) {
+//    const Reconstruction &reconstruction) {
 //  vector<Vec6> all_cameras_R_t;
 //  int max_image = tracks.MaxImage();
 //
@@ -451,36 +451,26 @@ void UnpackIntrinsicsFromArray(const double ceres_intrinsics[OFFSET_MAX],
 
 }  // namespace
 
-//void EuclideanBundle(const Tracks &tracks,
-//                     EuclideanReconstruction *reconstruction) {
-//  PolynomialCameraIntrinsics empty_intrinsics;
-//  EuclideanBundleCommonIntrinsics(tracks,
-//                                  BUNDLE_NO_INTRINSICS,
-//                                  BUNDLE_NO_CONSTRAINTS,
-//                                  reconstruction,
-//                                  &empty_intrinsics,
-//                                  NULL);
-//}
+void EuclideanBundleCommonIntrinsics(
+    const Tracks &tracks,
+    const int bundle_intrinsics,
+    const int bundle_constraints,
+    Reconstruction *reconstruction,
+    CameraIntrinsics *intrinsics,
+    BundleEvaluation *evaluation) {
+  LG << "Original intrinsics: " << *intrinsics;
+  vector<Marker> markers;
+  tracks.GetAllMarkers(&markers);
 
-//void EuclideanBundleCommonIntrinsics(
-//    const Tracks &tracks,
-//    const int bundle_intrinsics,
-//    const int bundle_constraints,
-//    EuclideanReconstruction *reconstruction,
-//    CameraIntrinsics *intrinsics,
-//    BundleEvaluation *evaluation) {
-//  LG << "Original intrinsics: " << *intrinsics;
-//  vector<Marker> markers = tracks.AllMarkers();
-//
-//  // N-th element denotes whether track N is a constant zero-weigthed track.
-//  vector<bool> zero_weight_tracks_flags(tracks.MaxTrack() + 1, true);
-//
-//  // Residual blocks with 10 parameters are unwieldly with Ceres, so pack the
-//  // intrinsics into a single block and rely on local parameterizations to
-//  // control which intrinsics are allowed to vary.
-//  double ceres_intrinsics[OFFSET_MAX];
-//  PackIntrinisicsIntoArray(*intrinsics, ceres_intrinsics);
-//
+  // N-th element denotes whether track N is a constant zero-weigthed track.
+  vector<bool> zero_weight_tracks_flags(tracks.MaxTrack() + 1, true);
+
+  // Residual blocks with 10 parameters are unwieldly with Ceres, so pack the
+  // intrinsics into a single block and rely on local parameterizations to
+  // control which intrinsics are allowed to vary.
+  double ceres_intrinsics[OFFSET_MAX];
+  PackIntrinisicsIntoArray(*intrinsics, ceres_intrinsics);
+
 //  // Convert cameras rotations to angle axis and merge with translation
 //  // into single parameter block for maximal minimization speed.
 //  //
@@ -655,17 +645,17 @@ void UnpackIntrinsicsFromArray(const double ceres_intrinsics[OFFSET_MAX],
 //                              ceres_intrinsics,
 //                              reconstruction);
 //  }
-//}
+}
 
-/**
- * @brief EuclideanBundleAll: bundle all the clips and frames
- * @param all_normalized_tracks: markers from all clips
- * @param reconstruction: Reconstruction data structure
- * @return
- */
-bool EuclideanBundleAll(const Tracks &all_normalized_tracks,
+bool EuclideanBundleAll(const Tracks &tracks,
                         Reconstruction *reconstruction) {
 	libmv::PolynomialCameraIntrinsics empty_intrinsics;
+	EuclideanBundleCommonIntrinsics(tracks,
+	                                BUNDLE_NO_INTRINSICS,
+	                                BUNDLE_NO_CONSTRAINTS,
+	                                reconstruction,
+	                                &empty_intrinsics,
+	                                NULL);
 	return true;
 }
 

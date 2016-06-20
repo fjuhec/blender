@@ -183,10 +183,6 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 	///* Actual reconstruction. */
 	update_callback.invoke(0, "Initial reconstruction");
 
-	///* TODO(tianwei): chain the tracks and correspondences */
-	Correspondences &correspondences = *((Correspondences*) libmv_correspondences);
-	printf("corrs in the libmv %d\n", correspondences.GetCorrNum());
-
 	// reconstruct two views from the main clip
 	if(!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction))
 	{

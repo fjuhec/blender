@@ -64,25 +64,6 @@ struct BundleEvaluation {
 	Mat jacobian;
 };
 
-/*! Refine camera poses and 3D coordinates using bundle adjustment.
-
-    This routine adjusts all cameras and points in \a *reconstruction. This
-    assumes a full observation for reconstructed tracks; this implies that if
-    there is a reconstructed 3D point (a bundle) for a track, then all markers
-    for that track will be included in the minimization. \a tracks should
-    contain markers used in the initial reconstruction.
-
-    The cameras and bundles (3D points) are refined in-place.
-
-    \note This assumes an outlier-free set of markers.
-    \note This assumes a calibrated reconstruction, e.g. the markers are
-          already corrected for camera intrinsics and radial distortion.
-
-    \sa EuclideanResect, EuclideanIntersect, EuclideanReconstructTwoFrames
-*/
-void EuclideanBundle(const Tracks &tracks,
-                     EuclideanReconstruction *reconstruction);
-
 /*!
 	Refine camera poses and 3D coordinates using bundle adjustment.
 
@@ -122,16 +103,35 @@ enum BundleConstraints {
 	BUNDLE_NO_CONSTRAINTS = 0,
 	BUNDLE_NO_TRANSLATION = 1,
 };
+
 void EuclideanBundleCommonIntrinsics(
         const Tracks &tracks,
         const int bundle_intrinsics,
         const int bundle_constraints,
-        EuclideanReconstruction *reconstruction,
+        Reconstruction *reconstruction,
         CameraIntrinsics *intrinsics,
         BundleEvaluation *evaluation = NULL);
 
-bool EuclideanBundleAll(const Tracks &all_normalized_tracks,
+/*! Refine all camera poses and 3D coordinates from all clips using bundle adjustment.
+	This is a renewed version for autotrack, adapted from libmv/simple_pipeline
+
+    This routine adjusts all cameras and points in \a *reconstruction. This
+    assumes a full observation for reconstructed tracks; this implies that if
+    there is a reconstructed 3D point (a bundle) for a track, then all markers
+    for that track will be included in the minimization. \a tracks should
+    contain markers used in the initial reconstruction.
+
+    The cameras and bundles (3D points) are refined in-place.
+
+    \note This assumes an outlier-free set of markers.
+    \note This assumes a calibrated reconstruction, e.g. the markers are
+          already corrected for camera intrinsics and radial distortion.
+
+    \sa EuclideanResect, EuclideanIntersect, EuclideanReconstructTwoFrames
+*/
+bool EuclideanBundleAll(const Tracks &tracks,
                         Reconstruction *reconstruction);
+
 bool EuclideanReconstructionComplete(const Tracks &tracks,
                                      Reconstruction *reconstruction,
                                      libmv::ProgressUpdateCallback *update_callback);
