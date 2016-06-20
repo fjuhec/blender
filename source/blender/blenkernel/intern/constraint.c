@@ -89,7 +89,7 @@
 #endif
 
 #ifdef WITH_ALEMBIC
-#	include "ABC_alembic.h"
+#  include "ABC_alembic.h"
 #endif
 
 /* ---------------------------------------------------------------------------- */
