@@ -256,6 +256,16 @@ class IMAGE_MT_uvs_showhide(Menu):
         layout.operator("uv.hide", text="Hide Selected").unselected = False
         layout.operator("uv.hide", text="Hide Unselected").unselected = True
 
+class IMAGE_MT_uvs_deselect_mesh(Menu):
+    bl_label = "De/Select 3D Mesh"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("uv.select_mesh")
+        layout.operator("uv.deselect_mesh", text="Deselect Selected").unselected = False
+        layout.operator("uv.deselect_mesh", text="Deselect Unselected").unselected = True
+
 
 class IMAGE_MT_uvs_transform(Menu):
     bl_label = "Transform"
@@ -365,6 +375,9 @@ class IMAGE_MT_uvs(Menu):
         layout.separator()
 
         layout.menu("IMAGE_MT_uvs_showhide")
+        
+        layout.menu("IMAGE_MT_uvs_deselect_mesh")
+
 
 
 class IMAGE_MT_uvs_select_mode(Menu):
