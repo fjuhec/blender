@@ -491,10 +491,11 @@ void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 	ParticleSystem *psys = static_cast<ParticleSystem *>(ob->particlesystem.first);
 
 	for (; psys; psys = psys->next) {
-		if (!psys_check_enabled(ob, psys))
+		if (!psys_check_enabled(ob, psys) || !psys->part) {
 			continue;
+		}
 
-		if ((psys->part->type == PART_HAIR) && enable_hair && psys->part) {
+		if ((psys->part->type == PART_HAIR) && enable_hair) {
 			m_settings.export_child_hairs = enable_hair_child;
 			m_shapes.push_back(new AbcHairWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings, psys));
 		}
