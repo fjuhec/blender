@@ -359,6 +359,8 @@ bool id_make_local(ID *id, bool test)
 			return false; /* not implemented */
 		case ID_LS:
 			return false; /* not implemented */
+		case ID_CF:
+			return false;  /* not implemented */
 	}
 
 	return false;
@@ -459,6 +461,8 @@ bool id_copy(ID *id, ID **newid, bool test)
 		case ID_LS:
 			if (!test) *newid = (ID *)BKE_linestyle_copy(G.main, (FreestyleLineStyle *)id);
 			return true;
+		case ID_CF:
+			return false;  /* not implemented */
 	}
 	
 	return false;

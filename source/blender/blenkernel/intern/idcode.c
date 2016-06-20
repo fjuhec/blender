@@ -185,6 +185,7 @@ int BKE_idcode_to_idfilter(const short idcode)
 		CASE_IDFILTER(AR);
 		CASE_IDFILTER(BR);
 		CASE_IDFILTER(CA);
+		CASE_IDFILTER(CF);
 		CASE_IDFILTER(CU);
 		CASE_IDFILTER(GD);
 		CASE_IDFILTER(GR);
@@ -228,6 +229,7 @@ short BKE_idcode_from_idfilter(const int idfilter)
 		CASE_IDFILTER(AR);
 		CASE_IDFILTER(BR);
 		CASE_IDFILTER(CA);
+		CASE_IDFILTER(CF);
 		CASE_IDFILTER(CU);
 		CASE_IDFILTER(GD);
 		CASE_IDFILTER(GR);
