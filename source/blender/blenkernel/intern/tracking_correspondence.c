@@ -64,7 +64,8 @@ typedef struct MovieMultiviewReconstructContext {
 	libmv_CameraIntrinsicsOptions *all_camera_intrinsics_options;	/* camera intrinsic of each camera */
 	TracksMap **all_tracks_map;				/* tracks_map of each clip */
 	int *all_sfra, *all_efra;				/* start and end frame of each clip */
-	int *all_refine_flags;				/* refine flags of each clip */
+	int *all_refine_flags;					/* refine flags of each clip */
+	int **track_global_index;				/* track global index */
 	struct libmv_CorrespondencesN *correspondences;			/* libmv correspondence api*/
 
 	bool select_keyframes;
@@ -110,7 +111,8 @@ static int multiview_refine_intrinsics_get_flags(MovieTracking *tracking, MovieT
 }
 
 /* Create new libmv Tracks structure from blender's tracks list. */
-static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int clip_id, ListBase *tracksbase, int width, int height)
+static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int clip_id, ListBase *tracksbase,
+                                                        int *global_track_index, int width, int height)
 {
 	int tracknr = 0;
 	MovieTrackingTrack *track;
@@ -139,7 +141,7 @@ static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int cli
 				libmv_Marker libmv_marker;
 				libmv_marker.clip = clip_id;
 				libmv_marker.frame = marker->framenr;
-				libmv_marker.track = tracknr;
+				libmv_marker.track = global_track_index[tracknr];
 				libmv_marker.center[0] = (marker->pos[0] + track->offset[0]) * width;
 				libmv_marker.center[1] = (marker->pos[1] + track->offset[1]) * height;
 				for(int i = 0; i < 4; i++)
@@ -190,7 +192,8 @@ static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int cli
 static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
                                              MovieClip **clips,
                                              const int clip_num,
-                                             struct libmv_CorrespondencesN *libmv_correspondences)
+                                             struct libmv_CorrespondencesN *libmv_correspondences,
+                                             int **global_track_index)
 {
 	int num_valid_corrs = 0;
 	MovieTrackingCorrespondence *corr;
@@ -241,6 +244,8 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 			num_valid_corrs++;
 		}
 		printf("%s %d %d %d %d\n", corr->name, clip1, clip2, track1, track2);
+		// change the global index of clip2-track2 to clip1-track1
+		global_track_index[clip2][track2] = global_track_index[clip1][track1];
 		corr = corr->next;
 	}
 	return num_valid_corrs;
@@ -273,6 +278,21 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 	context->keyframe2 = keyframe2;
 	context->clip_num = num_clips;
 
+	// initial global track index to [0,..., N1 - 1], [N1,..., N1+N2-1], so on and so forth
+	context->track_global_index = MEM_callocN(num_clips * sizeof(int*), "global track index of each clip");
+	int global_index = 0;
+	for(int i = 0; i < num_clips; i++) {
+		MovieClip *clip = clips[i];
+		MovieTracking *tracking = &clip->tracking;
+		ListBase *tracksbase = BKE_tracking_object_get_tracks(tracking, object);
+		int num_tracks = BLI_listbase_count(tracksbase);
+		context->track_global_index[i] = MEM_callocN(num_tracks * sizeof(int), "global track index for clip i");
+		for(int j = 0; j < num_tracks; j++) {
+			printf("%d %d %d\n", i, j, global_index);
+			context->track_global_index[i][j] = global_index++;
+		}
+	}
+
 	for(int i = 0; i < num_clips; i++)
 	{
 		MovieClip *clip = clips[i];
@@ -289,9 +309,10 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 
 		// setting context only from information in the primary clip
 		if(i == 0) {
-			// correspondences are recorded in the primary clip
+			// correspondences are recorded in the primary clip (0), convert local track id to global track id
 			int num_valid_corrs = libmv_CorrespondencesFromTracking(&tracking->correspondences, clips,
-			                                                        num_clips, context->correspondences);
+			                                                        num_clips, context->correspondences,
+			                                                        context->track_global_index);
 			BLI_assert(num_valid_corrs == BLI_listbase_count(&tracking->correspondences));
 			printf("number of correspondences converted: %d\n", num_valid_corrs);
 
@@ -339,7 +360,8 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 		}
 		context->all_sfra[i] = sfra;
 		context->all_efra[i] = efra;
-		context->all_tracks[i] = libmv_multiview_tracks_new(clip, i, tracksbase, width, height * aspy);
+		context->all_tracks[i] = libmv_multiview_tracks_new(clip, i, tracksbase, context->track_global_index[i],
+		                                                    width, height * aspy);
 	}
 
 	return context;
@@ -351,8 +373,10 @@ void BKE_tracking_multiview_reconstruction_context_free(MovieMultiviewReconstruc
 	for(int i = 0; i < context->clip_num; i++)
 	{
 		libmv_tracksDestroyN(context->all_tracks[i]);
-		if (context->all_reconstruction[i])
+		if(context->all_reconstruction[i])
 			libmv_reconstructionNDestroy(context->all_reconstruction[i]);
+		if(context->track_global_index[i])
+			MEM_freeN(context->track_global_index[i]);
 		tracks_map_free(context->all_tracks_map[i], NULL);
 	}
 	printf("free per clip context");
@@ -364,6 +388,7 @@ void BKE_tracking_multiview_reconstruction_context_free(MovieMultiviewReconstruc
 	MEM_freeN(context->all_sfra);
 	MEM_freeN(context->all_efra);
 	MEM_freeN(context->all_refine_flags);
+	MEM_freeN(context->track_global_index);
 
 	MEM_freeN(context);
 }
