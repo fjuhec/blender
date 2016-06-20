@@ -4356,7 +4356,7 @@ static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBa
 	const float time = BKE_cachefile_time_offset(data->cache_file, frame / FPS);
 
 	char filepath[FILE_MAX];
-	BKE_cachefile_filepath_get(scene, data->cache_file, filepath);
+	BKE_cachefile_filepath_get(data->cache_file, frame, filepath);
 
 	ABC_get_transform(cob->ob, filepath, data->abc_object_path,
 	                  cob->matrix, time, data->scale);

@@ -52,9 +52,8 @@ void *BKE_cachefile_add(Main *bmain, const char *name)
 	return cache_file;
 }
 
-bool BKE_cachefile_filepath_get(Scene *scene, CacheFile *cache_file, char *r_filepath)
+bool BKE_cachefile_filepath_get(CacheFile *cache_file, float frame, char *r_filepath)
 {
-	const float frame = BKE_scene_frame_get(scene);
 	BLI_strncpy(r_filepath, cache_file->filepath, 1024);
 
 	/* Ensure absolute paths. */

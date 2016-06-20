@@ -38,8 +38,7 @@ struct Main;
 
 void *BKE_cachefile_add(struct Main *bmain, const char *name);
 
-bool BKE_cachefile_filepath_get(struct Scene *scene,
-                                struct CacheFile *cache_file,
+bool BKE_cachefile_filepath_get(struct CacheFile *cache_file, float frame,
                                 char *r_filename);
 
 float BKE_cachefile_time_offset(struct CacheFile *cache_file, float time);
