@@ -753,7 +753,10 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	read_mpolys(mpolys, mloops, mloopuvs, pdata, face_indices, face_counts, uvs, uvs_indices, poly_normals);
 
 	CDDM_calc_edges(dm);
-	dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
+
+	if (!normals.valid()) {
+		dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
+	}
 
 	return dm;
 }
