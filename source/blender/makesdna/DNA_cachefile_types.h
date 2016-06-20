@@ -40,8 +40,13 @@ typedef struct CacheFile {
 	ID id;
 
 	char filepath[1024];  /* 1024 = FILE_MAX */
+
 	char is_sequence;
-	char pad[7];
+	char forward_axis;
+	char up_axis;
+	char pad;
+
+	float scale;
 
 	float frame_start;
 	float frame_scale;

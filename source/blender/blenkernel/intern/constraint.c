@@ -4359,7 +4359,7 @@ static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBa
 	BKE_cachefile_filepath_get(data->cache_file, frame, filepath);
 
 	ABC_get_transform(cob->ob, filepath, data->abc_object_path,
-	                  cob->matrix, time, data->scale);
+	                  cob->matrix, time, data->cache_file->scale);
 
 	UNUSED_VARS(targets);
 }

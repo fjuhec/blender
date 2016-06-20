@@ -403,7 +403,6 @@ void AbcObjectReader::readObjectMatrix(const float time)
 		bTransformCacheConstraint *data = static_cast<bTransformCacheConstraint *>(con->data);
 		data->cache_file = m_settings->cache_file;
 		BLI_strncpy(data->abc_object_path, m_iobject.getFullName().c_str(), FILE_MAX);
-		data->scale = m_settings->scale;
 	}
 }
 

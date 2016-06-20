@@ -3888,4 +3888,19 @@ void uiTemplateCacheFile(uiLayout *layout, bContext *C, PointerRNA *ptr, const c
 
 	row = uiLayoutRow(layout, false);
 	uiItemR(row, &fileptr, "frame_scale", 0, "Frame Scale", ICON_NONE);
+
+	row = uiLayoutRow(layout, false);
+	uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE);
+
+	row = uiLayoutRow(layout, false);
+	uiItemR(row, &fileptr, "scale", 0, "Scale", ICON_NONE);
+
+	/* TODO: unused for now, so no need to expose. */
+#if 0
+	row = uiLayoutRow(layout, false);
+	uiItemR(row, &fileptr, "forward_axis", 0, "Forward Axis", ICON_NONE);
+
+	row = uiLayoutRow(layout, false);
+	uiItemR(row, &fileptr, "up_axis", 0, "Up Axis", ICON_NONE);
+#endif
 }

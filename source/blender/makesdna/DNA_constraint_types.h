@@ -462,12 +462,6 @@ typedef struct bObjectSolverConstraint {
 typedef struct bTransformCacheConstraint {
 	struct CacheFile *cache_file;
 	char abc_object_path[1024];  /* FILE_MAX */
-
-	char forward_axis;
-	char up_axis;
-	char pad[2];
-
-	float scale;
 } bTransformCacheConstraint;
 
 /* ------------------------------------------ */

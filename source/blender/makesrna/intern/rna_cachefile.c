@@ -26,8 +26,9 @@
 #include "DNA_cachefile_types.h"
 #include "DNA_scene_types.h"
 
-#include "RNA_define.h"
 #include "RNA_access.h"
+#include "RNA_define.h"
+#include "RNA_enum_types.h"
 
 #include "rna_internal.h"
 
@@ -61,6 +62,26 @@ static void rna_def_cachefile(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "frame_scale");
 	RNA_def_property_range(prop, 0.0f, 100.0f);
 	RNA_def_property_ui_text(prop, "Frame Scale", "Evaluation time in seconds");
+	RNA_def_property_update(prop, 0, NULL);
+
+	/* ----------------- Axis Conversion ----------------- */
+
+	prop = RNA_def_property(srna, "forward_axis", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "forward_axis");
+	RNA_def_property_enum_items(prop, rna_enum_object_axis_items);
+	RNA_def_property_ui_text(prop, "Forward", "");
+	RNA_def_property_update(prop, 0, NULL);
+
+	prop = RNA_def_property(srna, "up_axis", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "up_axis");
+	RNA_def_property_enum_items(prop, rna_enum_object_axis_items);
+	RNA_def_property_ui_text(prop, "Up", "");
+	RNA_def_property_update(prop, 0, NULL);
+
+	prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "scale");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_text(prop, "Scale", "");
 	RNA_def_property_update(prop, 0, NULL);
 }
 

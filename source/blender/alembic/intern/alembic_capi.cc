@@ -509,6 +509,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 	CacheFile *cache_file = static_cast<CacheFile *>(BKE_cachefile_add(data->bmain, BLI_path_basename(data->filename)));
 
 	cache_file->is_sequence = data->settings.is_sequence;
+	cache_file->scale = data->settings.scale;
 	BLI_strncpy(cache_file->filepath, data->filename, 1024);
 
 	data->settings.cache_file = cache_file;

@@ -2594,26 +2594,6 @@ static void rna_def_constraint_transform_cache(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "abc_object_path", PROP_STRING, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Object Path", "Path to the object in the Alembic archive");
 	RNA_def_property_update(prop, 0, "rna_Constraint_update");
-
-	/* Axis Conversion */
-
-	prop = RNA_def_property(srna, "forward_axis", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "forward_axis");
-	RNA_def_property_enum_items(prop, rna_enum_object_axis_items);
-	RNA_def_property_ui_text(prop, "Forward", "");
-	RNA_def_property_update(prop, 0, "rna_Constraint_update");
-
-	prop = RNA_def_property(srna, "up_axis", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "up_axis");
-	RNA_def_property_enum_items(prop, rna_enum_object_axis_items);
-	RNA_def_property_ui_text(prop, "Up", "");
-	RNA_def_property_update(prop, 0, "rna_Constraint_update");
-
-	prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "scale");
-	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_ui_text(prop, "Scale", "");
-	RNA_def_property_update(prop, 0, "rna_Constraint_update");
 }
 
 /* base struct for constraints */
