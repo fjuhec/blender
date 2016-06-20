@@ -1642,53 +1642,27 @@ void Mesh::tessellate(DiagSplit *split)
 	float3* vN = attr_vN->data_float3();
 
 	for(int f = 0; f < num_faces; f++) {
-		if(!subd_faces[f].is_quad()) {
-			/* triangle */
-			LinearTrianglePatch patch;
-			SubdFace p = subd_faces[f];
-			float3 *hull = patch.hull;
-			float3 *normals = patch.normals;
+		SubdFace& face = subd_faces[f];
 
-			patch.patch_index = f;
-
-			for(int i = 0; i < 3; i++) {
-				hull[i] = verts[subd_face_corners[p.start_corner+i]];
-			}
-
-			if(p.smooth) {
-				for(int i = 0; i < 3; i++) {
-					normals[i] = vN[subd_face_corners[p.start_corner+i]];
-				}
-			}
-			else {
-				float3 N = p.normal(this);
-				for(int i = 0; i < 3; i++) {
-					normals[i] = N;
-				}
-			}
-
-			split->split_triangle(&patch);
-		}
-		else {
+		if(face.is_quad()) {
 			/* quad */
 			LinearQuadPatch patch;
-			SubdFace p = subd_faces[f];
 			float3 *hull = patch.hull;
 			float3 *normals = patch.normals;
 
 			patch.patch_index = f;
 
 			for(int i = 0; i < 4; i++) {
-				hull[i] = verts[subd_face_corners[p.start_corner+i]];
+				hull[i] = verts[subd_face_corners[face.start_corner+i]];
 			}
 
-			if(p.smooth) {
+			if(face.smooth) {
 				for(int i = 0; i < 4; i++) {
-					normals[i] = vN[subd_face_corners[p.start_corner+i]];
+					normals[i] = vN[subd_face_corners[face.start_corner+i]];
 				}
 			}
 			else {
-				float3 N = p.normal(this);
+				float3 N = face.normal(this);
 				for(int i = 0; i < 4; i++) {
 					normals[i] = N;
 				}
@@ -1698,6 +1672,51 @@ void Mesh::tessellate(DiagSplit *split)
 			swap(normals[2], normals[3]);
 
 			split->split_quad(&patch);
+		}
+		else {
+			/* ngon */
+			float3 center_vert = make_float3(0.0f, 0.0f, 0.0f);
+			float3 center_normal = make_float3(0.0f, 0.0f, 0.0f);
+
+			float inv_num_corners = 1.0f/float(face.num_corners);
+			for(int corner = 0; corner < face.num_corners; corner++) {
+				center_vert += verts[subd_face_corners[face.start_corner + corner]] * inv_num_corners;
+				center_normal += vN[subd_face_corners[face.start_corner + corner]] * inv_num_corners;
+			}
+
+			for(int corner = 0; corner < face.num_corners; corner++) {
+				LinearQuadPatch patch;
+				float3 *hull = patch.hull;
+				float3 *normals = patch.normals;
+
+				patch.patch_index = f;
+
+				hull[0] = verts[subd_face_corners[face.start_corner + mod(corner + 0, face.num_corners)]];
+				hull[1] = verts[subd_face_corners[face.start_corner + mod(corner + 1, face.num_corners)]];
+				hull[2] = verts[subd_face_corners[face.start_corner + mod(corner - 1, face.num_corners)]];
+				hull[3] = center_vert;
+
+				hull[1] = (hull[1] + hull[0]) * 0.5;
+				hull[2] = (hull[2] + hull[0]) * 0.5;
+
+				if(face.smooth) {
+					normals[0] = vN[subd_face_corners[face.start_corner + mod(corner + 0, face.num_corners)]];
+					normals[1] = vN[subd_face_corners[face.start_corner + mod(corner + 1, face.num_corners)]];
+					normals[2] = vN[subd_face_corners[face.start_corner + mod(corner - 1, face.num_corners)]];
+					normals[3] = center_normal;
+
+					normals[1] = (normals[1] + normals[0]) * 0.5;
+					normals[2] = (normals[2] + normals[0]) * 0.5;
+				}
+				else {
+					float3 N = face.normal(this);
+					for(int i = 0; i < 4; i++) {
+						normals[i] = N;
+					}
+				}
+
+				split->split_quad(&patch);
+			}
 		}
 	}
 }
