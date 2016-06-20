@@ -263,8 +263,8 @@ class IMAGE_MT_uvs_deselect_mesh(Menu):
         layout = self.layout
 
         layout.operator("uv.select_mesh")
-        layout.operator("uv.deselect_mesh", text="Deselect Selected").unselected = False
-        layout.operator("uv.deselect_mesh", text="Deselect Unselected").unselected = True
+        layout.operator("uv.deselect_mesh", text="Deselect 3D Mesh (Selected)").unselected = False
+        layout.operator("uv.deselect_mesh", text="Deselect 3D Mesh (Unselected)").unselected = True
 
 
 class IMAGE_MT_uvs_transform(Menu):
