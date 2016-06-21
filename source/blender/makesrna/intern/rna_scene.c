@@ -6459,6 +6459,7 @@ static void rna_def_layer_tree(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "tree_items", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "items_all", NULL);
+	RNA_def_property_struct_type(prop, "LayerTreeItem");
 	RNA_def_property_ui_text(prop, "Layer Items", "The items of the layer tree that represent the "
 	                         "layer types (object layer, layer group, compositing layer, ...)");
 	RNA_def_property_collection_funcs(prop, "rna_layer_tree_items_begin", "rna_iterator_array_next",
