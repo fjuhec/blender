@@ -34,9 +34,14 @@
 extern "C" {
 #endif
 
+struct CacheFile;
 struct Main;
 
 void *BKE_cachefile_add(struct Main *bmain, const char *name);
+
+void BKE_cachefile_free(struct CacheFile *cache_file);
+
+void BKE_cachefiles_open_next_file(struct Main *bmain, float ctime);
 
 bool BKE_cachefile_filepath_get(struct CacheFile *cache_file, float frame,
                                 char *r_filename);

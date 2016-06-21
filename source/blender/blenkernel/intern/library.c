@@ -83,6 +83,7 @@
 #include "BKE_bpath.h"
 #include "BKE_brush.h"
 #include "BKE_camera.h"
+#include "BKE_cachefile.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_depsgraph.h"
@@ -1302,7 +1303,7 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, bool do_id_user)
 			BKE_paint_curve_free((PaintCurve *)id);
 			break;
 		case ID_CF:
-			/* Nothing to do. */
+			BKE_cachefile_free((CacheFile *)id);
 			break;
 	}
 

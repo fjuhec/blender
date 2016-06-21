@@ -33,6 +33,7 @@
 #include "BLI_fileops.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_cachefile.h"
 #include "BKE_global.h"
@@ -40,10 +41,15 @@
 #include "BKE_main.h"
 #include "BKE_scene.h"
 
+#ifdef WITH_ALEMBIC
+#  include "ABC_alembic.h"
+#endif
+
 void *BKE_cachefile_add(Main *bmain, const char *name)
 {
 	CacheFile *cache_file = BKE_libblock_alloc(bmain, ID_CF, name);
 
+	cache_file->handle = NULL;
 	cache_file->filepath[0] = '\0';
 	cache_file->frame_start = 0.0f;
 	cache_file->frame_scale = 1.0f;
@@ -52,9 +58,37 @@ void *BKE_cachefile_add(Main *bmain, const char *name)
 	return cache_file;
 }
 
+void BKE_cachefile_free(CacheFile *cache_file)
+{
+#ifdef WITH_ALEMBIC
+	ABC_free_handle(cache_file->handle);
+#else
+	UNUSED_VARS(cache_file);
+#endif
+}
+
+void BKE_cachefiles_open_next_file(Main *bmain, float ctime)
+{
+	CacheFile *cache_file;
+	char filename[FILE_MAX];
+
+	for (cache_file = bmain->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
+		if (!cache_file->is_sequence) {
+			continue;
+		}
+
+		if (BKE_cachefile_filepath_get(cache_file, ctime, filename)) {
+#ifdef WITH_ALEMBIC
+			ABC_free_handle(cache_file->handle);
+			cache_file->handle = ABC_create_handle(filename);
+#endif
+		}
+	}
+}
+
 bool BKE_cachefile_filepath_get(CacheFile *cache_file, float frame, char *r_filepath)
 {
-	BLI_strncpy(r_filepath, cache_file->filepath, 1024);
+	BLI_strncpy(r_filepath, cache_file->filepath, FILE_MAX);
 
 	/* Ensure absolute paths. */
 	if (BLI_path_is_rel(r_filepath)) {

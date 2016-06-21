@@ -39,6 +39,8 @@ extern "C" {
 typedef struct CacheFile {
 	ID id;
 
+	struct AbcArchiveHandle *handle;
+
 	char filepath[1024];  /* 1024 = FILE_MAX */
 
 	char is_sequence;

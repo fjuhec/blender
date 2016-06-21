@@ -158,6 +158,9 @@
 
 #include "readfile.h"
 
+#ifdef WITH_ALEMBIC
+#  include "ABC_alembic.h"
+#endif
 
 #include <errno.h>
 
@@ -2273,6 +2276,17 @@ static void lib_link_cachefiles(FileData *fd, Main *main)
 			cache_file->id.tag &= ~LIB_TAG_NEED_LINK;
 		}
 	}
+
+	UNUSED_VARS(fd);
+}
+
+static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
+{
+#ifdef WITH_ALEMBIC
+	cache_file->handle = ABC_create_handle(cache_file->filepath);
+#else
+	UNUSED_VARS(cache_file);
+#endif
 
 	UNUSED_VARS(fd);
 }
@@ -8150,6 +8164,9 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 			break;
 		case ID_PC:
 			direct_link_paint_curve(fd, (PaintCurve *)id);
+			break;
+		case ID_CF:
+			direct_link_cachefile(fd, (CacheFile *)id);
 			break;
 	}
 	

@@ -64,6 +64,7 @@
 #include "BKE_animsys.h"
 #include "BKE_action.h"
 #include "BKE_armature.h"
+#include "BKE_cachefile.h"
 #include "BKE_colortools.h"
 #include "BKE_depsgraph.h"
 #include "BKE_editmesh.h"
@@ -1949,6 +1950,7 @@ void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, 
 #endif
 
 	BKE_mask_evaluate_all_masks(bmain, ctime, true);
+	BKE_cachefiles_open_next_file(bmain, ctime);
 
 #ifdef POSE_ANIMATION_WORKAROUND
 	scene_armature_depsgraph_workaround(bmain);

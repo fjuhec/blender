@@ -100,34 +100,58 @@ using Alembic::AbcGeom::IN3fGeomParam;
 
 using Alembic::AbcMaterial::IMaterial;
 
-int ABC_get_version()
+struct AbcArchiveHandle {
+	int unused;
+};
+
+ABC_INLINE IArchive *archive_from_handle(AbcArchiveHandle *handle)
 {
-	return ALEMBIC_LIBRARY_VERSION;
+	return reinterpret_cast<IArchive *>(handle);
 }
 
-static IArchive open_archive(const std::string &filename)
+ABC_INLINE AbcArchiveHandle *handle_from_archive(IArchive *archive)
+{
+	return reinterpret_cast<AbcArchiveHandle *>(archive);
+}
+
+static IArchive *open_archive(const std::string &filename)
 {
 	Alembic::AbcCoreAbstract::ReadArraySampleCachePtr cache_ptr;
-	IArchive archive;
+	IArchive *archive;
 
 	try {
-		archive = IArchive(Alembic::AbcCoreHDF5::ReadArchive(),
-		                   filename.c_str(), ErrorHandler::kThrowPolicy,
-		                   cache_ptr);
+		archive = new IArchive(Alembic::AbcCoreHDF5::ReadArchive(),
+		                       filename.c_str(), ErrorHandler::kThrowPolicy,
+		                       cache_ptr);
 	}
 	catch (const Exception &) {
 		try {
-			archive = IArchive(Alembic::AbcCoreOgawa::ReadArchive(),
-			                   filename.c_str(), ErrorHandler::kThrowPolicy,
-			                   cache_ptr);
+			archive = new IArchive(Alembic::AbcCoreOgawa::ReadArchive(),
+			                       filename.c_str(), ErrorHandler::kThrowPolicy,
+			                       cache_ptr);
 		}
 		catch (const Exception &e) {
 			std::cerr << e.what() << '\n';
-			return IArchive();
+			return NULL;
 		}
 	}
 
 	return archive;
+}
+
+AbcArchiveHandle *ABC_create_handle(const char *filename)
+{
+	return handle_from_archive(open_archive(filename));
+}
+
+void ABC_free_handle(AbcArchiveHandle *handle)
+{
+	delete archive_from_handle(handle);
+}
+
+int ABC_get_version()
+{
+	return ALEMBIC_LIBRARY_VERSION;
 }
 
 static size_t update_points(std::pair<IPolyMeshSchema, IObject> schema,
@@ -198,13 +222,13 @@ static void find_iobject(const IObject &object, IObject &ret,
 void ABC_get_vertex_cache(const char *filepath, float time, void *verts,
                           int max_verts, const char *object_path, int is_mverts)
 {
-	IArchive archive = open_archive(filepath);
+	IArchive *archive = open_archive(filepath);
 
-	if (!archive || !archive.valid()) {
+	if (!archive || !archive->valid()) {
 		return;
 	}
 
-	IObject top = archive.getTop();
+	IObject top = archive->getTop();
 
 	if (!top.valid()) {
 		return;
@@ -230,22 +254,24 @@ void ABC_get_vertex_cache(const char *filepath, float time, void *verts,
 		update_points(std::pair<IPolyMeshSchema, IObject>(schema, iobject),
 		              sample_sel, NULL, 0, max_verts, vcos);
 	}
+
+	/* TODO. */
+	delete archive;
 }
 
-int ABC_check_subobject_valid(const char *filepath, const char *object_path)
+int ABC_check_subobject_valid(const char *filename, const char *object_path)
 {
-	if ((filepath[0] == '\0') || (object_path[0] == '\0')) {
-		return 0;
-	}
+	IArchive *archive = open_archive(filename);
 
-	IArchive archive = open_archive(filepath);
-
-	if (!archive.valid()) {
-		return 0;
+	if (!archive || !archive->valid()) {
+		return false;
 	}
 
 	IObject ob;
-	find_iobject(archive.getTop(), ob, object_path);
+	find_iobject(archive->getTop(), ob, object_path);
+
+	/* TODO. */
+	delete archive;
 
 	return (ob.valid());
 }
@@ -500,9 +526,9 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 	data->do_update = do_update;
 	data->progress = progress;
 
-	IArchive archive = open_archive(data->filename);
+	IArchive *archive = open_archive(data->filename);
 
-	if (!archive.valid()) {
+	if (!archive || !archive->valid()) {
 		return;
 	}
 
@@ -510,6 +536,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 
 	cache_file->is_sequence = data->settings.is_sequence;
 	cache_file->scale = data->settings.scale;
+	cache_file->handle = handle_from_archive(archive);
 	BLI_strncpy(cache_file->filepath, data->filename, 1024);
 
 	data->settings.cache_file = cache_file;
@@ -521,7 +548,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 
 	/* Parse Alembic Archive. */
 
-	visit_object(archive.getTop(), data->readers, data->parent_map, data->settings);
+	visit_object(archive->getTop(), data->readers, data->parent_map, data->settings);
 
 	if (G.is_break) {
 		return;
@@ -670,16 +697,16 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 
 /* ******************************* */
 
-void ABC_get_transform(Object *ob, const char *filepath, const char *object_path, float r_mat[4][4], float time, float scale)
+void ABC_get_transform(AbcArchiveHandle *handle, Object *ob, const char *object_path, float r_mat[4][4], float time, float scale)
 {
-	IArchive archive = open_archive(filepath);
+	IArchive *archive = archive_from_handle(handle);
 
-	if (!archive.valid()) {
+	if (!archive || !archive->valid()) {
 		return;
 	}
 
 	IObject tmp;
-	find_iobject(archive.getTop(), tmp, object_path);
+	find_iobject(archive->getTop(), tmp, object_path);
 
 	IXform ixform;
 
@@ -865,16 +892,16 @@ static DerivedMesh *read_curves_sample(DerivedMesh *dm, const IObject &iobject, 
 	return dm;
 }
 
-DerivedMesh *ABC_read_mesh(DerivedMesh *dm, const char *filepath, const char *object_path, const float time)
+DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle, DerivedMesh *dm, const char *object_path, const float time)
 {
-	IArchive archive = open_archive(filepath);
+	IArchive *archive = archive_from_handle(handle);
 
-	if (!archive.valid()) {
-		return NULL;
+	if (!archive || !archive->valid()) {
+		return dm;
 	}
 
 	IObject iobject;
-	find_iobject(archive.getTop(), iobject, object_path);
+	find_iobject(archive->getTop(), iobject, object_path);
 
 	if (!iobject.valid()) {
 		return NULL;

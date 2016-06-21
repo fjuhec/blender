@@ -33,6 +33,25 @@
 #include "rna_internal.h"
 
 #ifdef RNA_RUNTIME
+
+#ifdef WITH_ALEMBIC
+#  include "../../../alembic/ABC_alembic.h"
+#endif
+
+static void rna_CacheFile_update_handle(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+#ifdef WITH_ALEMBIC
+	CacheFile *cache_file = (CacheFile *)ptr->data;
+
+	ABC_free_handle(cache_file->handle);
+	cache_file->handle = ABC_create_handle(cache_file->filepath);
+#else
+	UNUSED_VARS(ptr);
+#endif
+
+	UNUSED_VARS(bmain, scene);
+}
+
 #else
 
 static void rna_def_cachefile(BlenderRNA *brna)
@@ -44,7 +63,7 @@ static void rna_def_cachefile(BlenderRNA *brna)
 
 	PropertyRNA *prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
 	RNA_def_property_ui_text(prop, "File Path", "Path to external displacements file");
-	RNA_def_property_update(prop, 0, NULL);
+	RNA_def_property_update(prop, 0, "rna_CacheFile_update_handle");
 
 	prop = RNA_def_property(srna, "is_sequence", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Sequence", "Whether the cache is separated in a series of files");
