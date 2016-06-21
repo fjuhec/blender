@@ -118,6 +118,8 @@ size_t Attribute::data_sizeof() const
 {
 	if(element == ATTR_ELEMENT_VOXEL)
 		return sizeof(VoxelAttribute);
+	else if(element == ATTR_ELEMENT_CORNER_BYTE)
+		return sizeof(uchar4);
 	else if(type == TypeDesc::TypeFloat)
 		return sizeof(float);
 	else if(type == TypeDesc::TypeMatrix)
@@ -137,23 +139,23 @@ size_t Attribute::element_size(Mesh *mesh, AttributePrimitive prim) const
 			size = 1;
 			break;
 		case ATTR_ELEMENT_VERTEX:
-			size = mesh->verts.size();
+			size = mesh->verts.size() + mesh->num_ngons;
 			break;
 		case ATTR_ELEMENT_VERTEX_MOTION:
-			size = mesh->verts.size() * (mesh->motion_steps - 1);
+			size = (mesh->verts.size() + mesh->num_ngons) * (mesh->motion_steps - 1);
 			break;
 		case ATTR_ELEMENT_FACE:
 			if(prim == ATTR_PRIM_TRIANGLE)
 				size = mesh->num_triangles();
 			else
-				size = mesh->subd_faces.size();
+				size = mesh->subd_faces.size() + mesh->num_ngons;
 			break;
 		case ATTR_ELEMENT_CORNER:
 		case ATTR_ELEMENT_CORNER_BYTE:
 			if(prim == ATTR_PRIM_TRIANGLE)
 				size = mesh->num_triangles()*3;
 			else
-				size = mesh->subd_faces.size()*4;
+				size = mesh->subd_face_corners.size() + mesh->num_ngons;
 			break;
 		case ATTR_ELEMENT_CURVE:
 			size = mesh->num_curves();
@@ -167,6 +169,15 @@ size_t Attribute::element_size(Mesh *mesh, AttributePrimitive prim) const
 		default:
 			size = 0;
 			break;
+	}
+
+	/* This is a bit weird, but because we currently use Mesh::verts for both
+	 * subd and non subd meshes and new verts are created as part of the subd
+	 * process the count ends up being way larger than whats needed for
+	 * attributes. This corrects for that so we dont waste memory.
+	 */
+	if(prim == ATTR_PRIM_SUBD && element == ATTR_ELEMENT_VERTEX) {
+		size -= mesh->num_subd_verts;
 	}
 	
 	return size;
@@ -192,6 +203,29 @@ bool Attribute::same_storage(TypeDesc a, TypeDesc b)
 		}
 	}
 	return false;
+}
+
+void Attribute::zero_data(void* dst)
+{
+	memset(dst, 0, data_sizeof());
+}
+
+void Attribute::add_with_weight(void* dst, void* src, float weight)
+{
+	if(element == ATTR_ELEMENT_CORNER_BYTE) {
+		for(int i = 0; i < 4; i++) {
+			((uchar*)dst)[i] += uchar(((uchar*)src)[i] * weight);
+		}
+	}
+	else if(same_storage(type, TypeDesc::TypeFloat)) {
+		*((float*)dst) += *((float*)src) * weight;
+	}
+	else if(same_storage(type, TypeDesc::TypeVector)) {
+		*((float4*)dst) += *((float4*)src) * weight;
+	}
+	else {
+		assert(!"not implemented for this type");
+	}
 }
 
 const char *Attribute::standard_name(AttributeStandard std)

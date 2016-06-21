@@ -76,6 +76,8 @@ int EdgeDice::add_vert(Patch *patch, float2 uv)
 		ptex_uv[vert_offset] = make_float3(uv.x, uv.y, 0.0f);
 	}
 
+	params.mesh->num_subd_verts++;
+
 	return vert_offset++;
 }
 

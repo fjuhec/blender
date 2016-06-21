@@ -139,6 +139,7 @@ public:
 
 	array<SubdFace> subd_faces;
 	array<int> subd_face_corners;
+	int num_ngons;
 
 	vector<Shader*> used_shaders;
 	AttributeSet attributes;
@@ -168,6 +169,9 @@ public:
 
 	size_t patch_offset;
 	size_t face_offset;
+	size_t corner_offset;
+
+	size_t num_subd_verts;
 
 	/* Functions */
 	Mesh();
@@ -177,8 +181,8 @@ public:
 	void reserve_mesh(int numverts, int numfaces);
 	void resize_curves(int numcurves, int numkeys);
 	void reserve_curves(int numcurves, int numkeys);
-	void resize_subd_faces(int numfaces, int numcorners);
-	void reserve_subd_faces(int numfaces, int numcorners);
+	void resize_subd_faces(int numfaces, int num_ngons, int numcorners);
+	void reserve_subd_faces(int numfaces, int num_ngons, int numcorners);
 	void clear();
 	void add_vertex(float3 P);
 	void add_vertex_slow(float3 P);
@@ -195,7 +199,7 @@ public:
 	void pack_normals(Scene *scene, uint *shader, float4 *vnormal);
 	void pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset);
 	void pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, size_t curvekey_offset);
-	void pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset);
+	void pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset, uint corner_offset);
 	void compute_bvh(SceneParams *params, Progress *progress, int n, int total);
 
 	bool need_attribute(Scene *scene, AttributeStandard std);

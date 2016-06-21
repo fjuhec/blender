@@ -79,6 +79,9 @@ public:
 	const Transform *data_transform() const { return (const Transform*)data(); }
 	const VoxelAttribute *data_voxel() const { return (const VoxelAttribute*)data(); }
 
+	void zero_data(void* dst);
+	void add_with_weight(void* dst, void* src, float weight);
+
 	void add(const float& f);
 	void add(const float3& f);
 	void add(const uchar4& f);

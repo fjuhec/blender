@@ -584,6 +584,7 @@ static void create_mesh(Scene *scene,
 	int numfaces = b_mesh.tessfaces.length();
 	int numtris = 0;
 	int total_corners = 0;
+	int num_ngons = 0;
 	bool use_loop_normals = b_mesh.use_auto_smooth();
 
 	BL::Mesh::vertices_iterator v;
@@ -595,13 +596,14 @@ static void create_mesh(Scene *scene,
 			numtris += (vi[3] == 0)? 1: 2;
 		}
 		else {
+			num_ngons += (vi[3] == 0)? 1: 0;
 			total_corners += (vi[3] == 0)? 3: 4;
 		}
 	}
 
 	/* allocate memory */
 	mesh->reserve_mesh(numverts, numtris);
-	mesh->reserve_subd_faces(numfaces, total_corners);
+	mesh->reserve_subd_faces(numfaces, num_ngons, total_corners);
 
 	/* create vertex coordinates and normals */
 	for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end(); ++v)

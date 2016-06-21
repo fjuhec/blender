@@ -132,6 +132,9 @@ Mesh::Mesh()
 
 	patch_offset = 0;
 	face_offset = 0;
+	corner_offset = 0;
+
+	num_subd_verts = 0;
 
 	attributes.triangle_mesh = this;
 	curve_attributes.curve_mesh = this;
@@ -141,6 +144,8 @@ Mesh::Mesh()
 
 	has_volume = false;
 	has_surface_bssrdf = false;
+
+	num_ngons = 0;
 }
 
 Mesh::~Mesh()
@@ -199,18 +204,20 @@ void Mesh::reserve_curves(int numcurves, int numkeys)
 	curve_attributes.resize(true);
 }
 
-void Mesh::resize_subd_faces(int numfaces, int numcorners)
+void Mesh::resize_subd_faces(int numfaces, int num_ngons_, int numcorners)
 {
 	subd_faces.resize(numfaces);
 	subd_face_corners.resize(numcorners);
+	num_ngons = num_ngons_;
 
 	subd_attributes.resize();
 }
 
-void Mesh::reserve_subd_faces(int numfaces, int numcorners)
+void Mesh::reserve_subd_faces(int numfaces, int num_ngons_, int numcorners)
 {
 	subd_faces.reserve(numfaces);
 	subd_face_corners.reserve(numcorners);
+	num_ngons = num_ngons_;
 
 	subd_attributes.resize(true);
 }
@@ -233,6 +240,8 @@ void Mesh::clear()
 
 	subd_faces.clear();
 	subd_face_corners.clear();
+
+	num_subd_verts = 0;
 
 	attributes.clear();
 	curve_attributes.clear();
@@ -606,9 +615,10 @@ void Mesh::pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, s
 	}
 }
 
-void Mesh::pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset)
+void Mesh::pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset, uint corner_offset)
 {
 	size_t num_faces = subd_faces.size();
+	int ngons = 0;
 
 	if(num_faces) {
 		for(size_t f = 0; f < num_faces; f++) {
@@ -616,7 +626,7 @@ void Mesh::pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset)
 
 			if(face.is_quad()) {
 				int c[4];
-				memcpy(c, &subd_face_corners[face.start_corner], sizeof(int)*face.num_corners);
+				memcpy(c, &subd_face_corners[face.start_corner], sizeof(int)*4);
 
 				*(patch_data++) = {c[0] + vert_offset,
 					               c[1] + vert_offset,
@@ -625,13 +635,16 @@ void Mesh::pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset)
 
 				*(patch_data++) = {f+face_offset,
 						           face.num_corners,
-						           0,
+						           face.start_corner + corner_offset,
 						           0};
 			}
 			else {
 				for(int i = 0; i < face.num_corners; i++) {
 					int c[4];
-					memcpy(c, &subd_face_corners[face.start_corner], sizeof(int)*face.num_corners);
+					c[0] = subd_face_corners[face.start_corner + mod(i + 0, face.num_corners)];
+					c[1] = subd_face_corners[face.start_corner + mod(i + 1, face.num_corners)];
+					c[2] = verts.size() - num_subd_verts + ngons;
+					c[3] = subd_face_corners[face.start_corner + mod(i - 1, face.num_corners)];
 
 					*(patch_data++) = {c[0] + vert_offset,
 							           c[1] + vert_offset,
@@ -639,10 +652,12 @@ void Mesh::pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset)
 							           c[3] + vert_offset};
 
 					*(patch_data++) = {f+face_offset,
-								       face.num_corners,
-								       0,
-							           0};
+								       face.num_corners | (i << 16),
+								       face.start_corner + corner_offset,
+							           subd_face_corners.size() + ngons + corner_offset};
 				}
+
+				ngons++;
 			}
 		}
 	}
@@ -1078,7 +1093,7 @@ static void update_attribute_element_offset(Mesh *mesh,
 			if(prim == ATTR_PRIM_TRIANGLE)
 				offset -= 3*mesh->tri_offset;
 			else
-				offset -= 4*mesh->face_offset;
+				offset -= mesh->corner_offset;
 		}
 		else if(element == ATTR_ELEMENT_CURVE)
 			offset -= mesh->curve_offset;
@@ -1242,6 +1257,7 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 
 	size_t patch_size = 0;
 	size_t face_size = 0;
+	size_t corner_size = 0;
 
 	foreach(Mesh *mesh, scene->meshes) {
 		mesh->vert_offset = vert_size;
@@ -1252,6 +1268,7 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 
 		mesh->patch_offset = patch_size;
 		mesh->face_offset = face_size;
+		mesh->corner_offset = corner_size;
 
 		vert_size += mesh->verts.size();
 		tri_size += mesh->num_triangles();
@@ -1264,6 +1281,7 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 			patch_size += (last.ptex_offset + last.num_ptex_faces()) * 2;
 		}
 		face_size += mesh->subd_faces.size();
+		corner_size += mesh->subd_face_corners.size();
 	}
 
 	if(tri_size != 0) {
@@ -1312,7 +1330,7 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 		uint4 *patch_data = dscene->patches.resize(patch_size);
 
 		foreach(Mesh *mesh, scene->meshes) {
-			mesh->pack_patches(&patch_data[mesh->patch_offset], mesh->vert_offset, mesh->face_offset);
+			mesh->pack_patches(&patch_data[mesh->patch_offset], mesh->vert_offset, mesh->face_offset, mesh->corner_offset);
 			if(progress.get_cancel()) return;
 		}
 
@@ -1687,7 +1705,7 @@ void Mesh::tessellate(DiagSplit *split)
 			float3 *hull = patch.hull;
 			float3 *normals = patch.normals;
 
-			patch.patch_index = f;//face.ptex_offset;
+			patch.patch_index = face.ptex_offset;
 
 			for(int i = 0; i < 4; i++) {
 				hull[i] = verts[subd_face_corners[face.start_corner+i]];
@@ -1726,7 +1744,7 @@ void Mesh::tessellate(DiagSplit *split)
 				float3 *hull = patch.hull;
 				float3 *normals = patch.normals;
 
-				patch.patch_index = f;//face.ptex_offset + corner;
+				patch.patch_index = face.ptex_offset + corner;
 
 				hull[0] = verts[subd_face_corners[face.start_corner + mod(corner + 0, face.num_corners)]];
 				hull[1] = verts[subd_face_corners[face.start_corner + mod(corner + 1, face.num_corners)]];
@@ -1754,6 +1772,61 @@ void Mesh::tessellate(DiagSplit *split)
 
 				split->split_quad(&patch);
 			}
+		}
+	}
+
+	/* interpolate center points for attributes */
+	foreach(Attribute& attr, subd_attributes.attributes) {
+		char* data = attr.data();
+		size_t stride = attr.data_sizeof();
+		int ngons = 0;
+
+		switch(attr.element) {
+			case ATTR_ELEMENT_VERTEX: {
+				for(int f = 0; f < num_faces; f++) {
+					SubdFace& face = subd_faces[f];
+
+					if(!face.is_quad()) {
+						char* center = data + (verts.size() - num_subd_verts + ngons) * stride;
+						attr.zero_data(center);
+
+						float inv_num_corners = 1.0f / float(face.num_corners);
+
+						for(int corner = 0; corner < face.num_corners; corner++) {
+							attr.add_with_weight(center,
+							                     data + subd_face_corners[face.start_corner + corner] * stride,
+							                     inv_num_corners);
+						}
+
+						ngons++;
+					}
+				}
+			} break;
+			case ATTR_ELEMENT_VERTEX_MOTION: {
+				// TODO(mai): implement
+			} break;
+			case ATTR_ELEMENT_CORNER:
+			case ATTR_ELEMENT_CORNER_BYTE: {
+				for(int f = 0; f < num_faces; f++) {
+					SubdFace& face = subd_faces[f];
+
+					if(!face.is_quad()) {
+						char* center = data + (subd_face_corners.size() + ngons) * stride;
+						attr.zero_data(center);
+
+						float inv_num_corners = 1.0f / float(face.num_corners);
+
+						for(int corner = 0; corner < face.num_corners; corner++) {
+							attr.add_with_weight(center,
+							                     data + (face.start_corner + corner) * stride,
+							                     inv_num_corners);
+						}
+
+						ngons++;
+					}
+				}
+			} break;
+			default: break;
 		}
 	}
 }
