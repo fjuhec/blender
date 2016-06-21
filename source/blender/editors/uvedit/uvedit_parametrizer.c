@@ -425,6 +425,24 @@ static float p_face_uv_area_signed(PFace *f)
 	               ((v3->uv[0] - v1->uv[0]) * (v2->uv[1] - v1->uv[1])));
 }
 
+/* returns the sum of the areas of all charts */
+static float p_face_uv_area_combined(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	PFace *f;
+	float used_area = 0.0f;
+	int i;
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		for (f = phandle->charts[i]->faces; f; f = f->nextlink) {
+			used_area += fabsf(p_face_uv_area_signed(f));
+		}
+	}
+
+	return used_area;
+}
+
 static float p_edge_length(PEdge *e)
 {
 	PVert *v1 = e->vert, *v2 = e->next->vert;
