@@ -225,8 +225,7 @@ using Alembic::AbcGeom::IC4fGeomParam;
 using Alembic::AbcGeom::IV2fGeomParam;
 
 static void read_mcols(const CDStreamConfig &config, void *data,
-                       const C3fArraySamplePtr &c3f_ptr, const C4fArraySamplePtr &c4f_ptr,
-                       const Alembic::Abc::ISampleSelector &iss)
+                       const C3fArraySamplePtr &c3f_ptr, const C4fArraySamplePtr &c4f_ptr)
 {
 	MCol *cfaces = static_cast<MCol *>(data);
 	MPoly *polys = config.mpoly;
@@ -270,8 +269,7 @@ static void read_mcols(const CDStreamConfig &config, void *data,
 
 static void read_uvs(const CDStreamConfig &config, void *data,
                      const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
-                     const Alembic::AbcGeom::UInt32ArraySamplePtr &indices,
-                     const Alembic::Abc::ISampleSelector &iss)
+                     const Alembic::AbcGeom::UInt32ArraySamplePtr &indices)
 {
 	MPoly *mpolys = config.mpoly;
 	MLoopUV *mloopuvs = static_cast<MLoopUV *>(data);
@@ -299,10 +297,6 @@ static void read_custom_data_ex(const ICompoundProperty &prop,
                                 const Alembic::Abc::ISampleSelector &iss,
                                 int data_type)
 {
-	void *cd_data = config.add_customdata_cb(config.user_data,
-	                                         prop_header.getName().c_str(),
-	                                         data_type);
-
 	if (data_type == CD_MLOOPCOL) {
 		C3fArraySamplePtr c3f_ptr = C3fArraySamplePtr();
 		C4fArraySamplePtr c4f_ptr = C4fArraySamplePtr();
@@ -322,14 +316,26 @@ static void read_custom_data_ex(const ICompoundProperty &prop,
 			c4f_ptr = sample.getVals();
 		}
 
-		read_mcols(config, cd_data, c3f_ptr, c4f_ptr, iss);
+		void *cd_data = config.add_customdata_cb(config.user_data,
+		                                         prop_header.getName().c_str(),
+		                                         data_type);
+
+		read_mcols(config, cd_data, c3f_ptr, c4f_ptr);
 	}
 	else if (data_type == CD_MLOOPUV) {
 		IV2fGeomParam uv_param(prop, prop_header.getName());
 		IV2fGeomParam::Sample sample;
 		uv_param.getIndexed(sample, iss);
 
-		read_uvs(config, cd_data, sample.getVals(), sample.getIndices(), iss);
+		if (uv_param.getScope() != kFacevaryingScope) {
+			return;
+		}
+
+		void *cd_data = config.add_customdata_cb(config.user_data,
+		                                         prop_header.getName().c_str(),
+		                                         data_type);
+
+		read_uvs(config, cd_data, sample.getVals(), sample.getIndices());
 	}
 }
 
