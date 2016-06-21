@@ -43,6 +43,9 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "RNA_access.h"
+#include "RNA_define.h"
+
 static void layeritem_free(LayerTreeItem *litem);
 
 
@@ -148,6 +151,7 @@ static void LAYERTYPE_group(LayerType *lt)
 void BKE_layertype_append(void (*ltfunc)(LayerType *))
 {
 	LayerType *lt = MEM_callocN(sizeof(LayerType), __func__);
+	lt->srna = RNA_def_struct_ptr(&BLENDER_RNA, "", &RNA_LayerProperties);
 	ltfunc(lt);
 
 	BLI_assert(lt->type >= 0 && lt->type < LAYER_ITEMTYPE_TOT);
@@ -194,6 +198,13 @@ void BKE_layeritem_register(
         LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
 {
 	litem->type = layertypes[type];
+
+	/* initialize properties */
+	IDPropertyTemplate val = {0};
+	litem->ptr = MEM_callocN(sizeof(PointerRNA), "LayerTreeItem PointerRNA");
+	litem->prop = IDP_New(IDP_GROUP, &val, "LayerTreeItem Properties");
+	RNA_pointer_create(NULL, litem->type->srna, litem->prop, litem->ptr);
+
 	litem->index = tree->tot_items;
 	litem->tree = tree;
 	BLI_strncpy(litem->name, name, sizeof(litem->name));
@@ -241,6 +252,8 @@ static void layeritem_free(LayerTreeItem *litem)
 		litem->type->free(litem);
 	}
 
+	if (litem->ptr)
+		MEM_freeN(litem->ptr);
 	if (litem->prop) {
 		IDP_FreeProperty(litem->prop);
 		MEM_freeN(litem->prop);

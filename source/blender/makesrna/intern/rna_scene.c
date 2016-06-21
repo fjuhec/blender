@@ -423,6 +423,7 @@ EnumPropertyItem rna_enum_bake_pass_filter_type_items[] = {
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_pointcache.h"
@@ -800,6 +801,22 @@ static IDProperty *rna_LayerTreeItem_idprops(PointerRNA *ptr, bool create)
 	}
 
 	return litem->prop;
+}
+
+static PointerRNA rna_Layer_properties_get(PointerRNA *ptr)
+{
+	LayerTreeItem *litem = ptr->data;
+	return rna_pointer_inherit_refine(ptr, litem->type->srna, litem->prop);
+}
+
+static IDProperty *rna_LayerProperties_idprops(PointerRNA *ptr, bool create)
+{
+	if (create && !ptr->data) {
+		IDPropertyTemplate val = {0};
+		ptr->data = IDP_New(IDP_GROUP, &val, "RNA_LayerProperties group");
+	}
+
+	return ptr->data;
 }
 
 static void rna_layer_tree_items_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
@@ -6443,13 +6460,23 @@ static void rna_def_display_safe_areas(BlenderRNA *brna)
 
 static void rna_def_layer_tree_item(BlenderRNA *brna)
 {
+	PropertyRNA *prop;
 	StructRNA *srna = RNA_def_struct(brna, "LayerTreeItem", NULL);
 	RNA_def_struct_idprops_func(srna, "rna_LayerTreeItem_idprops");
 
-	PropertyRNA *prop;
-
 	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Name", "Name of the item");
+
+	prop = RNA_def_property(srna, "properties", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "prop");
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_struct_type(prop, "LayerProperties");
+	RNA_def_property_ui_text(prop, "Properties", "");
+	RNA_def_property_pointer_funcs(prop, "rna_Layer_properties_get", NULL, NULL, NULL);
+
+	srna = RNA_def_struct(brna, "LayerProperties", NULL);
+	RNA_def_struct_ui_text(srna, "Layer Properties", "Input properties of a layer");
+	RNA_def_struct_idprops_func(srna, "rna_LayerProperties_idprops");
 }
 
 static void rna_def_layer_tree(BlenderRNA *brna)

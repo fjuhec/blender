@@ -70,17 +70,6 @@ int  BKE_layertree_get_totitems(const LayerTree *ltree);
 /* -------------------------------------------------------------------- */
 /* Layer Types */
 
-void BKE_layertypes_init(void);
-void BKE_layertypes_free(void);
-
-void BKE_layertype_append(void (*ltfunc)(struct LayerType *));
-
-/* -------------------------------------------------------------------- */
-/* Layer Tree Item */
-
-typedef void  (*LayerItemDrawFunc)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *layout);
-typedef void  (*LayerItemDrawSettingsFunc)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *layout);
-
 typedef enum eLayerTreeItem_Type {
 	LAYER_ITEMTYPE_LAYER = 0,
 	LAYER_ITEMTYPE_GROUP, /* layer group */
@@ -90,7 +79,7 @@ typedef enum eLayerTreeItem_Type {
 } eLayerTreeItem_Type;
 
 typedef struct LayerType {
-	eLayerTreeItem_Type type; /* eLayerTreeItem_Type */
+	eLayerTreeItem_Type type;
 
 	/* drawing of the item in the list */
 	void (*draw)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawFunc */
@@ -99,7 +88,21 @@ typedef struct LayerType {
 
 	/* Optional free callback. Don't free item itself! */
 	void (*free)(struct LayerTreeItem *);
+
+	/* rna for properties */
+	struct StructRNA *srna;
 } LayerType;
+
+void BKE_layertypes_init(void);
+void BKE_layertypes_free(void);
+
+void BKE_layertype_append(void (*ltfunc)(LayerType *));
+
+/* -------------------------------------------------------------------- */
+/* Layer Tree Item */
+
+typedef void  (*LayerItemDrawFunc)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *layout);
+typedef void  (*LayerItemDrawSettingsFunc)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *layout);
 
 LayerTreeItem *BKE_layeritem_add(
         LayerTree *tree, LayerTreeItem *parent,

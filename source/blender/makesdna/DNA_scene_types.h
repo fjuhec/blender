@@ -110,7 +110,8 @@ typedef struct LayerTreeItem {
 	ListBase childs; /* LayerTreeItem */
 
 	/* custom props */
-	IDProperty *prop;
+	struct PointerRNA *ptr; /* rna pointer to access properties from layer type */
+	IDProperty *prop;       /* custom props for all layers */
 } LayerTreeItem;
 
 typedef struct LayerTypeObject {
