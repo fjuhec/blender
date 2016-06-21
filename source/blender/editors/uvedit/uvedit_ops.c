@@ -4677,6 +4677,8 @@ void ED_operatortypes_uvedit(void)
 
 	WM_operatortype_append(UV_OT_cursor_set);
 	WM_operatortype_append(UV_OT_tile_set);
+
+	WM_operatortype_append(UV_OT_test);
 }
 
 void ED_keymap_uvedit(wmKeyConfig *keyconf)

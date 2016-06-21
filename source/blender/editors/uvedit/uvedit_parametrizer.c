@@ -4964,3 +4964,13 @@ void param_flush_restore(ParamHandle *handle)
 	}
 }
 
+/* XXX (SaphireS): Remove */
+void param_test(ParamHandle *handle)
+{
+	/* TEST STUFF */
+	printf("param_test() reached!\n");
+
+	float area = p_face_uv_area_combined(handle);
+
+	printf("used uv charts area: %f\n", area);
+}

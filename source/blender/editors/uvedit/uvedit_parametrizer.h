@@ -123,6 +123,8 @@ void param_shortest_path(ParamHandle *handle, bool *p_found, bool topological_di
 void param_flush(ParamHandle *handle);
 void param_flush_restore(ParamHandle *handle);
 
+/* XXX (SaphireS): Remove */
+void param_test(ParamHandle *handle);
 
 #ifdef __cplusplus
 }

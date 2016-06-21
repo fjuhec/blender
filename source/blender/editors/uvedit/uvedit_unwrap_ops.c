@@ -815,6 +815,55 @@ void UV_OT_pack_islands(wmOperatorType *ot)
 	RNA_def_float_factor(ot->srna, "margin", 0.001f, 0.0f, 1.0f, "Margin", "Space between islands", 0.0f, 1.0f);
 }
 
+/* ******************** XXX (SaphireS): DEBUG-TEST operator **************** */
+
+/* XXX (SaphireS): Remove */
+void ED_uvedit_test_debug(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect)
+{
+	ParamHandle *handle;
+	int hparams = set_handle_params(true, false, selected, correct_aspect, true);
+	handle = construct_param_handle(scene, ob, bm, hparams);
+	
+	param_test(handle);
+
+	param_flush(handle);
+	param_delete(handle);
+}
+
+/* XXX (SaphireS): Remove */
+static int test_exec(bContext *C, wmOperator *op)
+{
+	Scene *scene = CTX_data_scene(C);
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+
+	/*if (!uvedit_have_selection(scene, em, true)) {
+		return OPERATOR_CANCELLED;
+	}*/
+
+	ED_uvedit_test_debug(scene, obedit, em->bm, false, true);
+
+	DAG_id_tag_update(obedit->data, 0);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+
+	return OPERATOR_FINISHED;
+}
+
+/* XXX (SaphireS): Remove */
+void UV_OT_test(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "DEBUG - TEST";
+	ot->idname = "UV_OT_test";
+	ot->description = "Debug operator to test stuff";
+
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* api callbacks */
+	ot->exec = test_exec;
+	ot->poll = ED_operator_uvedit;
+}
+
 /* ******************** Average Islands Scale operator **************** */
 
 static int average_islands_scale_exec(bContext *C, wmOperator *UNUSED(op))
