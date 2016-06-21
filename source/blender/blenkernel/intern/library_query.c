@@ -474,6 +474,10 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 					BKE_particlesystem_id_loop(psys, library_foreach_particlesystemsObjectLooper, &data);
 				}
 
+				if (object->soft && object->soft->effector_weights) {
+					CALLBACK_INVOKE(object->soft->effector_weights->group, IDWALK_NOP);
+				}
+
 				BKE_sca_sensors_id_loop(&object->sensors, library_foreach_sensorsObjectLooper, &data);
 				BKE_sca_controllers_id_loop(&object->controllers, library_foreach_controllersObjectLooper, &data);
 				BKE_sca_actuators_id_loop(&object->actuators, library_foreach_actuatorsObjectLooper, &data);
