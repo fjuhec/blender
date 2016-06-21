@@ -45,6 +45,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_enum_types.h"
 
 static void layeritem_free(LayerTreeItem *litem);
 
@@ -141,6 +142,8 @@ static void LAYERTYPE_object(LayerType *lt)
 	lt->type = LAYER_ITEMTYPE_LAYER;
 
 	lt->free = BKE_objectlayer_free;
+
+	RNA_def_enum(lt->srna, "color_set", rna_enum_color_sets_items, 0, "Color Set", "Custom color set for this layer");
 }
 
 static void LAYERTYPE_group(LayerType *lt)

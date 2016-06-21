@@ -41,7 +41,10 @@
 
 #include "ED_screen.h"
 
+#include "RNA_access.h"
+
 #include "UI_interface.h"
+#include "UI_interface_icons.h"
 #include "UI_view2d.h"
 #include "UI_resources.h"
 
@@ -117,7 +120,7 @@ static float layer_tile_draw(
 	if (expanded) {
 		uiLayout *layout = UI_block_layout(
 		        block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL,
-		        rect.xmin, rect.ymin, BLI_rctf_size_x(&rect), 0, 0, style);
+		        rect.xmin, rect.ymin, (int)BLI_rctf_size_x(&rect) - 5, 0, 5, style);
 		litem->type->draw_settings(C, litem, layout);
 
 		int size_y = 0;
@@ -263,7 +266,10 @@ void object_layer_draw(const bContext *C, LayerTreeItem *litem, uiLayout *layout
 	uiBlock *block = uiLayoutGetBlock(layout);
 	const bool draw_settingbut = litem->type->draw_settings && tile->flag & (LAYERTILE_SELECTED | LAYERTILE_EXPANDED);
 
-	uiItemL(layout, litem->name, 0);
+	/* name with color set icon */
+	const int col_icon = UI_colorset_icon_get(RNA_enum_get(litem->ptr, "color_set"));
+	uiItemL(layout, litem->name, col_icon);
+
 	if (draw_settingbut) {
 		UI_block_emboss_set(block, UI_EMBOSS_NONE);
 		uiDefIconButBitI(block, UI_BTYPE_TOGGLE, LAYERTILE_EXPANDED, 0,
@@ -273,9 +279,8 @@ void object_layer_draw(const bContext *C, LayerTreeItem *litem, uiLayout *layout
 	}
 }
 
-void object_layer_draw_settings(const bContext *UNUSED(C), LayerTreeItem *UNUSED(litem), uiLayout *layout)
+void object_layer_draw_settings(const bContext *UNUSED(C), LayerTreeItem *litem, uiLayout *layout)
 {
-	/* TODO */
-	uiItemL(layout, "Add stuff here!", 0);
-	uiItemL(layout, "Test", 0);
+	uiLayout *split = uiLayoutSplit(layout, 0.5f, false);
+	uiItemR(split, litem->ptr, "color_set", 0, "Color Set", ICON_NONE);
 }
