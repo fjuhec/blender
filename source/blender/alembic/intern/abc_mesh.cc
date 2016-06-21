@@ -115,7 +115,8 @@ static void get_vertices(DerivedMesh *dm, std::vector<float> &points)
 
 static void get_topology(DerivedMesh *dm,
                          std::vector<int32_t> &poly_verts,
-                         std::vector<int32_t> &loop_counts)
+                         std::vector<int32_t> &loop_counts,
+                         bool &smooth_normal)
 {
 	const int num_poly = dm->getNumPolys(dm);
 	const int num_loops = dm->getNumLoops(dm);
@@ -127,9 +128,12 @@ static void get_topology(DerivedMesh *dm,
 	poly_verts.reserve(num_loops);
 	loop_counts.reserve(num_poly);
 
+	/* NOTE: data needs to be written in the reverse order. */
 	for (int i = 0; i < num_poly; ++i) {
 		MPoly &poly = mpoly[i];
 		loop_counts.push_back(poly.totloop);
+
+		smooth_normal |= ((poly.flag & ME_SMOOTH) != 0);
 
 		MLoop *loop = mloop + poly.loopstart + (poly.totloop - 1);
 
@@ -178,7 +182,21 @@ void get_creases(DerivedMesh *dm,
 	lengths.resize(sharpnesses.size(), 2);
 }
 
-static void get_normals(DerivedMesh *dm, std::vector<float> &normals)
+static void get_vertex_normals(DerivedMesh *dm, std::vector<float> &normals)
+{
+	normals.clear();
+	normals.resize(dm->getNumVerts(dm) * 3);
+
+	MVert *verts = dm->getVertArray(dm);
+	float no[3];
+
+	for (int i = 0, e = dm->getNumVerts(dm); i < e; ++i) {
+		normal_short_to_float_v3(no, verts[i].no);
+		copy_zup_yup(&normals[i * 3], no);
+	}
+}
+
+static void get_loop_normals(DerivedMesh *dm, std::vector<float> &normals)
 {
 	MPoly *mpoly = dm->getPolyArray(dm);
 	MPoly *mp = mpoly;
@@ -188,28 +206,48 @@ static void get_normals(DerivedMesh *dm, std::vector<float> &normals)
 
 	MVert *verts = dm->getVertArray(dm);
 
-	const size_t num_normals = dm->getNumVerts(dm) * 3;
+	const size_t num_normals = dm->getNumLoops(dm) * 3;
+
+	const float (*lnors)[3] = static_cast<float(*)[3]>(dm->getLoopDataArray(dm, CD_NORMAL));
 
 	normals.clear();
 	normals.resize(num_normals);
 
-	for (int i = 0, e = dm->getNumPolys(dm); i < e; ++i, ++mp) {
+	unsigned loop_index = 0;
+
+	/* NOTE: data needs to be written in the reverse order. */
+
+	if (lnors) {
+		for (int i = 0, e = dm->getNumPolys(dm); i < e; ++i, ++mp) {
+			ml = mloop + mp->loopstart + (mp->totloop - 1);
+
+			for (int j = 0; j < mp->totloop; --ml, ++j, ++loop_index) {
+				const int index = ml->v;
+				copy_zup_yup(&normals[loop_index * 3], lnors[index]);
+			}
+		}
+	}
+	else {
 		float no[3];
 
-		/* Flat shaded, use common normal for all verts. */
-		if ((mp->flag & ME_SMOOTH) == 0) {
-			BKE_mesh_calc_poly_normal(mp, ml, verts, no);
-		}
+		for (int i = 0, e = dm->getNumPolys(dm); i < e; ++i, ++mp) {
+			ml = mloop + mp->loopstart + (mp->totloop - 1);
 
-		for (int j = 0; j < mp->totloop; ++ml, ++j) {
-			const int index = ml->v;
+			/* Flat shaded, use common normal for all verts. */
+			if ((mp->flag & ME_SMOOTH) == 0) {
+				BKE_mesh_calc_poly_normal(mp, ml - (mp->totloop - 1), verts, no);
 
-			/* Smooth shaded, use individual vert normals. */
-			if (mp->flag & ME_SMOOTH) {
-				normal_short_to_float_v3(no, verts[index].no);
+				for (int j = 0; j < mp->totloop; --ml, ++j, ++loop_index) {
+					copy_zup_yup(&normals[loop_index * 3], no);
+				}
 			}
-
-			copy_zup_yup(&normals[index * 3], no);
+			else {
+				/* Smooth shaded, use individual vert normals. */
+				for (int j = 0; j < mp->totloop; --ml, ++j, ++loop_index) {
+					normal_short_to_float_v3(no, verts[ml->v].no);
+					copy_zup_yup(&normals[loop_index * 3], no);
+				}
+			}
 		}
 	}
 }
@@ -362,8 +400,10 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 	std::vector<float> points, normals;
 	std::vector<int32_t> poly_verts, loop_counts;
 
+	bool smooth_normal = false;
+
 	get_vertices(dm, points);
-	get_topology(dm, poly_verts, loop_counts);
+	get_topology(dm, poly_verts, loop_counts, smooth_normal);
 
 	if (m_first_frame) {
 		writeCommonData(dm, m_mesh_schema);
@@ -394,11 +434,16 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 	}
 
 	if (m_settings.export_normals) {
-		get_normals(dm, normals);
+		if (smooth_normal) {
+			get_loop_normals(dm, normals);
+		}
+		else {
+			get_vertex_normals(dm, normals);
+		}
 
 		ON3fGeomParam::Sample normals_sample;
 		if (!normals.empty()) {
-			normals_sample.setScope(kVertexScope);
+			normals_sample.setScope((smooth_normal) ? kFacevaryingScope : kVertexScope);
 			normals_sample.setVals(
 			            V3fArraySample(
 			                (const Imath::V3f *)&normals.front(),
@@ -430,8 +475,10 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 	std::vector<int32_t> poly_verts, loop_counts;
 	std::vector<int32_t> crease_indices, crease_lengths;
 
+	bool smooth_normal = false;
+
 	get_vertices(dm, points);
-	get_topology(dm, poly_verts, loop_counts);
+	get_topology(dm, poly_verts, loop_counts, smooth_normal);
 	get_creases(dm, crease_indices, crease_lengths, crease_sharpness);
 
 	if (m_first_frame) {
