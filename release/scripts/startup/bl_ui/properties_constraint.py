@@ -883,7 +883,6 @@ class ConstraintButtonsPanel:
     def TRANSFORMCACHE(self, context, layout, con):
         layout.template_cache_file(con, "cache_file")
         layout.prop(con, "abc_object_path")
-        layout.prop(con, "scale")
 
     def SCRIPT(self, context, layout, con):
         layout.label("Blender 2.6 doesn't support python constraints yet")
