@@ -235,32 +235,43 @@ void UnpackIntrinsicsFromArray(const double ceres_intrinsics[OFFSET_MAX],
   }
 }
 
-//// Get a vector of camera's rotations denoted by angle axis
-//// conjuncted with translations into single block
-////
-//// Element with index i matches to a rotation+translation for
-//// camera at image i.
-//vector<Vec6> PackCamerasRotationAndTranslation(
-//    const Tracks &tracks,
-//    const Reconstruction &reconstruction) {
-//  vector<Vec6> all_cameras_R_t;
-//  int max_image = tracks.MaxImage();
-//
-//  all_cameras_R_t.resize(max_image + 1);
-//
-//  for (int i = 0; i <= max_image; i++) {
-//    const EuclideanCamera *camera = reconstruction.CameraForImage(i);
-//
-//    if (!camera) {
-//      continue;
-//    }
-//
-//    ceres::RotationMatrixToAngleAxis(&camera->R(0, 0),
-//                                     &all_cameras_R_t[i](0));
-//    all_cameras_R_t[i].tail<3>() = camera->t;
-//  }
-//  return all_cameras_R_t;
-//}
+// Get a vector of camera's rotations denoted by angle axis
+// conjuncted with translations into single block. Since we use clip and frame
+// to access a camera pose, this function saves the (clip, frame)->global_index
+// map in camera_pose_map
+vector<Vec6> PackMultiCamerasRotationAndTranslation(
+        const Tracks &tracks,
+        const Reconstruction &reconstruction,
+        vector<vector<int> > &camera_pose_map)  {
+	vector<Vec6> all_cameras_R_t;
+	int clip_num = tracks.GetClipNum();
+	camera_pose_map.resize(clip_num);
+	int total_frame = 0;
+	for(int i = 0; i < clip_num; i++) {
+		total_frame += tracks.MaxFrame(i) + 1;
+		camera_pose_map[i].resize(tracks.MaxFrame(i) + 1);
+	}
+	printf("total frame: %d\n", total_frame);
+
+	all_cameras_R_t.resize(total_frame);	// maximum possible number of camera poses
+
+	int frame_count = 0;
+	for(int i = 0; i < clip_num; i++) {
+		int max_frame = tracks.MaxFrame(i);
+		for(int j = 0; j <= max_frame; j++) {
+			const CameraPose *camera = reconstruction.CameraPoseForFrame(i, j);
+			if (!camera)
+				continue;
+			ceres::RotationMatrixToAngleAxis(&camera->R(0, 0),
+			                                 &all_cameras_R_t[frame_count](0));
+			        all_cameras_R_t[frame_count].tail<3>() = camera->t;
+			camera_pose_map[i][j] = frame_count;	// save the global map
+			frame_count++;
+		}
+	}
+
+	return all_cameras_R_t;
+}
 
 //// Convert cameras rotations fro mangle axis back to rotation matrix.
 //void UnpackCamerasRotationAndTranslation(
@@ -471,82 +482,84 @@ void EuclideanBundleCommonIntrinsics(
   double ceres_intrinsics[OFFSET_MAX];
   PackIntrinisicsIntoArray(*intrinsics, ceres_intrinsics);
 
-//  // Convert cameras rotations to angle axis and merge with translation
-//  // into single parameter block for maximal minimization speed.
-//  //
-//  // Block for minimization has got the following structure:
-//  //   <3 elements for angle-axis> <3 elements for translation>
-//  vector<Vec6> all_cameras_R_t =
-//    PackCamerasRotationAndTranslation(tracks, *reconstruction);
-//
-//  // Parameterization used to restrict camera motion for modal solvers.
-//  ceres::SubsetParameterization *constant_translation_parameterization = NULL;
-//  if (bundle_constraints & BUNDLE_NO_TRANSLATION) {
-//      std::vector<int> constant_translation;
-//
-//      // First three elements are rotation, ast three are translation.
-//      constant_translation.push_back(3);
-//      constant_translation.push_back(4);
-//      constant_translation.push_back(5);
-//
-//      constant_translation_parameterization =
-//        new ceres::SubsetParameterization(6, constant_translation);
-//  }
-//
-//  // Add residual blocks to the problem.
-//  ceres::Problem::Options problem_options;
-//  ceres::Problem problem(problem_options);
-//  int num_residuals = 0;
-//  bool have_locked_camera = false;
-//  for (int i = 0; i < markers.size(); ++i) {
-//    const Marker &marker = markers[i];
-//    EuclideanCamera *camera = reconstruction->CameraForImage(marker.image);
-//    EuclideanPoint *point = reconstruction->PointForTrack(marker.track);
-//    if (camera == NULL || point == NULL) {
-//      continue;
-//    }
-//
-//    // Rotation of camera denoted in angle axis followed with
-//    // camera translaiton.
-//    double *current_camera_R_t = &all_cameras_R_t[camera->image](0);
-//
-//    // Skip residual block for markers which does have absolutely
-//    // no affect on the final solution.
-//    // This way ceres is not gonna to go crazy.
-//    if (marker.weight != 0.0) {
-//      problem.AddResidualBlock(new ceres::AutoDiffCostFunction<
-//          OpenCVReprojectionError, 2, OFFSET_MAX, 6, 3>(
-//              new OpenCVReprojectionError(
-//                  intrinsics->GetDistortionModelType(),
-//                  marker.x,
-//                  marker.y,
-//                  marker.weight)),
-//          NULL,
-//          ceres_intrinsics,
-//          current_camera_R_t,
-//          &point->X(0));
-//
-//      // We lock the first camera to better deal with scene orientation ambiguity.
-//      if (!have_locked_camera) {
-//        problem.SetParameterBlockConstant(current_camera_R_t);
-//        have_locked_camera = true;
-//      }
-//
-//      if (bundle_constraints & BUNDLE_NO_TRANSLATION) {
-//        problem.SetParameterization(current_camera_R_t,
-//                                    constant_translation_parameterization);
-//      }
-//
-//      zero_weight_tracks_flags[marker.track] = false;
-//      num_residuals++;
-//    }
-//  }
-//  LG << "Number of residuals: " << num_residuals;
-//
-//  if (!num_residuals) {
-//    LG << "Skipping running minimizer with zero residuals";
-//    return;
-//  }
+  // Convert cameras rotations to angle axis and merge with translation
+  // into single parameter block for maximal minimization speed.
+  //
+  // Block for minimization has got the following structure:
+  //   <3 elements for angle-axis> <3 elements for translation>
+  vector<vector<int> > camera_pose_map;
+  vector<Vec6> all_cameras_R_t =
+    PackMultiCamerasRotationAndTranslation(tracks, *reconstruction, camera_pose_map);
+
+  // Parameterization used to restrict camera motion for modal solvers.
+  // TODO(tianwei): haven't think about modal solvers, leave it for now
+  ceres::SubsetParameterization *constant_translation_parameterization = NULL;
+  if (bundle_constraints & BUNDLE_NO_TRANSLATION) {
+      std::vector<int> constant_translation;
+
+      // First three elements are rotation, last three are translation.
+      constant_translation.push_back(3);
+      constant_translation.push_back(4);
+      constant_translation.push_back(5);
+
+      constant_translation_parameterization =
+        new ceres::SubsetParameterization(6, constant_translation);
+  }
+
+  // Add residual blocks to the problem.
+  ceres::Problem::Options problem_options;
+  ceres::Problem problem(problem_options);
+  int num_residuals = 0;
+  bool have_locked_camera = false;
+  for (int i = 0; i < markers.size(); ++i) {
+    const Marker &marker = markers[i];
+    CameraPose *camera = reconstruction->CameraPoseForFrame(marker.clip, marker.frame);
+    Point *point = reconstruction->PointForTrack(marker.track);
+    if (camera == NULL || point == NULL) {
+      continue;
+    }
+
+    // Rotation of camera denoted in angle axis followed with
+    // camera translaiton.
+    double *current_camera_R_t = &all_cameras_R_t[camera_pose_map[marker.clip][marker.frame]](0);
+
+    // Skip residual block for markers which does have absolutely
+    // no affect on the final solution.
+    // This way ceres is not gonna to go crazy.
+    if (marker.weight != 0.0) {
+      problem.AddResidualBlock(new ceres::AutoDiffCostFunction<
+          OpenCVReprojectionError, 2, OFFSET_MAX, 6, 3>(
+              new OpenCVReprojectionError(
+                  intrinsics->GetDistortionModelType(),
+                  marker.center[0],
+                  marker.center[1],
+                  marker.weight)),
+          NULL,
+          ceres_intrinsics,
+          current_camera_R_t,
+          &point->X(0));
+
+      // lock the first camera to deal with scene orientation ambiguity.
+      if (!have_locked_camera) {
+        problem.SetParameterBlockConstant(current_camera_R_t);
+        have_locked_camera = true;
+      }
+
+      if (bundle_constraints & BUNDLE_NO_TRANSLATION) {
+        problem.SetParameterization(current_camera_R_t,
+                                    constant_translation_parameterization);
+      }
+
+      zero_weight_tracks_flags[marker.track] = false;
+      num_residuals++;
+    }
+  }
+  LG << "Number of residuals: " << num_residuals;
+
+  if (!num_residuals) {
+    LG << "Skipping running minimizer with zero residuals";
+    return;
+  }
 //
 //  if (intrinsics->GetDistortionModelType() == DISTORTION_MODEL_DIVISION &&
 //    (bundle_intrinsics & BUNDLE_TANGENTIAL) != 0) {

@@ -139,9 +139,52 @@ int Reconstruction::GetClipNum() const {
 
 int Reconstruction::GetAllPoseNum() const {
 	int all_pose = 0;
+	printf("camera pose clip num: %d\n", camera_poses_.size());
 	for(int i = 0; i < camera_poses_.size(); ++i) {
 		all_pose += camera_poses_[i].size();
+		printf("camera pose clip %d num: %d\n", i, camera_poses_[i].size());
 	}
+	return all_pose;
+}
+
+CameraPose* Reconstruction::CameraPoseForFrame(int clip, int frame) {
+	if (camera_poses_.size() <= clip)
+		return NULL;
+	if (camera_poses_[clip].size() <= frame)
+		return NULL;
+	return &(camera_poses_[clip][frame]);
+}
+
+const CameraPose* Reconstruction::CameraPoseForFrame(int clip, int frame) const {
+	if (camera_poses_.size() <= clip)
+		return NULL;
+	if (camera_poses_[clip].size() <= frame)
+		return NULL;
+	return (const CameraPose*) &(camera_poses_[clip][frame]);
+}
+
+Point* Reconstruction::PointForTrack(int track) {
+	if (track < 0 || track >= points_.size()) {
+		return NULL;
+	}
+	Point *point = &points_[track];
+	if (point->track == -1) {
+		return NULL;
+	}
+	return point;
+}
+
+const Point* Reconstruction::PointForTrack(int track) const {
+	return const_cast<Point *>(static_cast<const Reconstruction *>(this)->PointForTrack(track));
+}
+
+int  Reconstruction::AddPoint(const Point& point) {
+	LG << "InsertPoint " << point.track << ":\n" << point.X;
+	if (point.track >= points_.size()) {
+		points_.resize(point.track + 1);
+	}
+	points_[point.track].track = point.track;
+	points_[point.track].X = point.X;
 }
 
 }  // namespace mv

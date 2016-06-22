@@ -56,6 +56,8 @@ class Tracks {
                                        int clip2, int frame2,
                                        vector<Marker>* markers) const;
   void GetAllMarkers(vector<Marker>* markers) const;
+  void SetClipNum(int clip_num);
+  int GetClipNum() const;
 
   // add a marker
   void AddMarker(const Marker& marker);
@@ -77,6 +79,7 @@ class Tracks {
 
  private:
   vector<Marker> markers_;
+  int clip_num_;		/* clips are indexed consecutively, [0, 1, ..., clip_num_-1] */
 
   // TODO(keir): Consider adding access-map data structures to avoid all the
   // linear lookup penalties for the accessors.

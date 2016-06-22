@@ -50,7 +50,9 @@ struct CameraPose {
 	Vec3 t;
 };
 
-class Point {
+struct Point {
+	Point():track(-1){}
+  	Point(const Point &p) : track(p.track), X(p.X) {}
 	int track;
 
 	// The coordinates of the point. Note that not all coordinates are always

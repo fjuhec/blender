@@ -122,6 +122,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 	int keyframe1, keyframe2;
 
 	Tracks all_normalized_tracks;	// normalized tracks of all clips
+	all_normalized_tracks.SetClipNum(clip_num);
 	for(int i = 0; i < clip_num; i++)
 	{
 		all_libmv_reconstruction[i] = LIBMV_OBJECT_NEW(libmv_ReconstructionN);
@@ -147,7 +148,6 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 	}
 	// make reconstrution on the primary clip reconstruction
 	Reconstruction &reconstruction = all_libmv_reconstruction[0]->reconstruction;
-	printf("all pose num %d\n", reconstruction.GetAllPoseNum());
 
 	printf("frames to init from: %d %d\n", keyframe1, keyframe2);
 	printf("number of markers for init: %d\n", keyframe_markers.size());
@@ -190,6 +190,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 		all_libmv_reconstruction[0]->is_valid = false;
 		return all_libmv_reconstruction;
 	}
+	// bundle the two-view initial reconstruction
 	if(!mv::EuclideanBundleAll(all_normalized_tracks, &reconstruction))
 	{
 		printf("mv::EuclideanBundleAll failed\n");

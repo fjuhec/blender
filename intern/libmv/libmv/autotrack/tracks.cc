@@ -203,6 +203,15 @@ int Tracks::NumMarkers() const {
   return markers_.size();
 }
 
+void Tracks::SetClipNum(int clip_num) {
+	clip_num_ = clip_num;
+}
+
+int Tracks::GetClipNum() const {
+	return clip_num_;
+}
+
+//---------------------		Correspondence data structure 	---------------------
 void Correspondences::AddCorrespondence(int clip1, int clip2, int track1, int track2) {
 	Correspondence corr(clip1, clip2, track1, track2);
 	corrs.push_back(corr);
@@ -215,4 +224,5 @@ void Correspondences::AddCorrespondence(const Correspondence &corr) {
 int Correspondences::GetCorrNum() const {
 	return corrs.size();
 }
+
 }  // namespace mv
