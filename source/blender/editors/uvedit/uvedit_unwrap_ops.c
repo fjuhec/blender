@@ -815,6 +815,197 @@ void UV_OT_pack_islands(wmOperatorType *ot)
 	RNA_def_float_factor(ot->srna, "margin", 0.001f, 0.0f, 1.0f, "Margin", "Space between islands", 0.0f, 1.0f);
 }
 
+/* ******************** Pack Islands operator 2.0 **************** */
+
+typedef struct PackIslands {
+	Scene *scene;
+	Object *obedit;
+	BMEditMesh *em;
+	ParamHandle *handle;
+	double lasttime;
+	int i, iterations;
+	wmTimer *timer;
+	float wasted_area_last;
+} PackIslands;
+
+static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
+{
+	Scene *scene = CTX_data_scene(C);
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	PackIslands *pi;
+
+	/* Keep for now, needed when making packing work with current selection */
+	/*if (!uvedit_have_selection(scene, em, implicit)) {
+		return false;
+	}*/
+
+	int hparams = set_handle_params(true, false, false, false, true);
+	
+	pi = MEM_callocN(sizeof(PackIslands), "PackIslands");
+	pi->scene = scene;
+	pi->obedit = obedit;
+	pi->em = em;
+	pi->iterations = RNA_int_get(op->ptr, "iterations");
+	pi->i = 0;
+	pi->handle = construct_param_handle(scene, obedit, em->bm, hparams);
+	pi->lasttime = PIL_check_seconds_timer();
+
+	param_irregular_pack_begin(pi->handle);
+
+	op->customdata = pi;
+
+	return true;
+}
+
+static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool interactive)
+{
+	PackIslands *pi = op->customdata;
+	ScrArea *sa = CTX_wm_area(C);
+	float wasted_area = 0.0f;
+
+	param_irregular_pack_iter(pi->handle, &wasted_area);
+
+	/* ToDo (SaphireS): simulated annealing, based on wasted areas ("temperature") of last and current solution */
+
+
+
+	pi->wasted_area_last = wasted_area;
+
+	pi->i++;
+	RNA_int_set(op->ptr, "iterations", pi->i);
+
+	if (interactive && (PIL_check_seconds_timer() - pi->lasttime > 0.5)) {
+		char str[UI_MAX_DRAW_STR];
+
+		param_flush(pi->handle);
+
+		if (sa) {
+			BLI_snprintf(str, sizeof(str),
+				IFACE_("Pack Islands (irregular). Iteration: %i, Wasted UV Area: %f"), pi->i, pi->wasted_area_last);
+			ED_area_headerprint(sa, str);
+		}
+
+		pi->lasttime = PIL_check_seconds_timer();
+
+		DAG_id_tag_update(pi->obedit->data, 0);
+		WM_event_add_notifier(C, NC_GEOM | ND_DATA, pi->obedit->data);
+	}
+}
+
+static void irregular_pack_islands_exit(bContext *C, wmOperator *op, bool cancel)
+{
+	PackIslands *pi = op->customdata;
+	ScrArea *sa = CTX_wm_area(C);
+
+	if (sa)
+		ED_area_headerprint(sa, NULL);
+	if (pi->timer)
+		WM_event_remove_timer(CTX_wm_manager(C), CTX_wm_window(C), pi->timer);
+
+	if (cancel)
+		param_flush_restore(pi->handle); /* Restore UVs */
+	else
+		param_flush(pi->handle); /* Keep new UVs */
+
+	param_irregular_pack_end(pi->handle);
+	param_delete(pi->handle);
+
+	DAG_id_tag_update(pi->obedit->data, 0);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, pi->obedit->data);
+
+	MEM_freeN(pi);
+	op->customdata = NULL;
+}
+
+static int irregular_pack_islands_exec(bContext *C, wmOperator *op)
+{
+	int i, iterations;
+
+	if (!irregular_pack_islands_init(C, op))
+		return OPERATOR_CANCELLED;
+
+	iterations = RNA_int_get(op->ptr, "iterations");
+	for (i = 0; i < iterations; i++)
+		irregular_pack_islands_iteration(C, op, false);
+	irregular_pack_islands_exit(C, op, false);
+
+	return OPERATOR_FINISHED;
+}
+
+static int irregular_pack_islands_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	PackIslands *pi;
+
+	if (!irregular_pack_islands_init(C, op))
+		return OPERATOR_CANCELLED;
+
+	irregular_pack_islands_iteration(C, op, true);
+
+	pi = op->customdata;
+	WM_event_add_modal_handler(C, op);
+	pi->timer = WM_event_add_timer(CTX_wm_manager(C), CTX_wm_window(C), TIMER, 0.01f);
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+static int irregular_pack_islands_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	PackIslands *pi = op->customdata;
+
+	switch (event->type) {
+	case ESCKEY:
+	case RIGHTMOUSE:
+		irregular_pack_islands_exit(C, op, true);
+		return OPERATOR_CANCELLED;
+	case RETKEY:
+	case PADENTER:
+	case LEFTMOUSE:
+		irregular_pack_islands_exit(C, op, false);
+		return OPERATOR_FINISHED;
+	case TIMER:
+		if (pi->timer == event->customdata) {
+			double start = PIL_check_seconds_timer();
+
+			do {
+				irregular_pack_islands_iteration(C, op, true);
+			} while (PIL_check_seconds_timer() - start < 0.01);
+		}
+		break;
+	}
+
+	if (pi->iterations && pi->i >= pi->iterations) {
+		irregular_pack_islands_exit(C, op, false);
+		return OPERATOR_FINISHED;
+	}
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+static void irregular_pack_islands_cancel(bContext *C, wmOperator *op)
+{
+	irregular_pack_islands_exit(C, op, true);
+}
+
+void UV_OT_irregular_pack_islands(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Pack Islands (irregular)";
+	ot->idname = "UV_OT_irregular_pack_islands";
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_GRAB_CURSOR | OPTYPE_BLOCKING;
+	ot->description = "New and improved packing taking into account irregular uv shapes";
+
+	/* api callbacks */
+	ot->exec = irregular_pack_islands_exec;
+	ot->invoke = irregular_pack_islands_invoke;
+	ot->modal = irregular_pack_islands_modal;
+	ot->cancel = irregular_pack_islands_cancel;
+	ot->poll = ED_operator_uvedit;
+
+	/* properties */
+	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 100);
+}
+
 /* ******************** XXX (SaphireS): DEBUG-TEST operator **************** */
 
 /* XXX (SaphireS): Remove */

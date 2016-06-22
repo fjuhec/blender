@@ -217,7 +217,8 @@ enum PHandleState {
 	PHANDLE_STATE_ALLOCATED,
 	PHANDLE_STATE_CONSTRUCTED,
 	PHANDLE_STATE_LSCM,
-	PHANDLE_STATE_STRETCH
+	PHANDLE_STATE_STRETCH,
+	PHANDLE_STATE_PACK
 };
 
 typedef struct PHandle {
@@ -4640,6 +4641,72 @@ void param_pack(ParamHandle *handle, float margin, bool do_rotate)
 
 	if (phandle->aspx != phandle->aspy)
 		param_scale(handle, phandle->aspx, phandle->aspy);
+}
+
+void param_irregular_pack_begin(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	PFace *f;
+	int i;
+
+	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
+	phandle->state = PHANDLE_STATE_PACK;
+
+	unsigned int seed = 31415926;
+	phandle->rng = BLI_rng_new(seed);
+
+	/* Back up UVs */
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+
+		for (f = chart->faces; f; f = f->nextlink) {
+			p_face_backup_uvs(f);
+		}
+	}
+
+	/* ToDo (SaphireS) */
+
+	/* Initializations */
+}
+
+void param_irregular_pack_iter(ParamHandle *handle, float *w_area)
+{
+	PHandle *phandle = (PHandle *)handle;
+
+	param_assert(phandle->state == PHANDLE_STATE_PACK);
+
+	/* ToDo (SaphireS): packing solution computation */
+
+	/* Compute inner fit polygon (this probably only needs to be done once) */
+
+	/* For every chart: */
+
+	/*    Compute no-fit polygon for current chart against all placed charts so far */
+	/*    This includes a decomposition of non-convex shapes into convex ones */
+
+	/*    Compute collision-free area for current chart */
+
+	/*    Place chart according to parameters from simulated annealing algorithm */
+
+	float used_area = p_face_uv_area_combined(handle);
+
+	/* ToDo(SaphireS): Account for aspect ratio != 1 */
+	*w_area = 1.0f - used_area;
+
+}
+
+void param_irregular_pack_end(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+
+	param_assert(phandle->state == PHANDLE_STATE_PACK);
+	phandle->state = PHANDLE_STATE_CONSTRUCTED;
+
+	/* ToDo? (SaphireS) */
+
+	BLI_rng_free(phandle->rng);
+	phandle->rng = NULL;
 }
 
 void param_average(ParamHandle *handle)
