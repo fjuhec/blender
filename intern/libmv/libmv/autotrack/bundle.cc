@@ -260,205 +260,212 @@ vector<Vec6> PackMultiCamerasRotationAndTranslation(
 		int max_frame = tracks.MaxFrame(i);
 		for(int j = 0; j <= max_frame; j++) {
 			const CameraPose *camera = reconstruction.CameraPoseForFrame(i, j);
-			if (!camera)
-				continue;
-			ceres::RotationMatrixToAngleAxis(&camera->R(0, 0),
-			                                 &all_cameras_R_t[frame_count](0));
-			        all_cameras_R_t[frame_count].tail<3>() = camera->t;
-			camera_pose_map[i][j] = frame_count;	// save the global map
-			frame_count++;
+			if (camera) {
+				ceres::RotationMatrixToAngleAxis(&camera->R(0, 0),
+				                                 &all_cameras_R_t[frame_count](0));
+				        all_cameras_R_t[frame_count].tail<3>() = camera->t;
+				camera_pose_map[i][j] = frame_count;	// save the global map
+				frame_count++;
+			}
 		}
 	}
 
 	return all_cameras_R_t;
 }
 
-//// Convert cameras rotations fro mangle axis back to rotation matrix.
-//void UnpackCamerasRotationAndTranslation(
-//    const Tracks &tracks,
-//    const vector<Vec6> &all_cameras_R_t,
-//    EuclideanReconstruction *reconstruction) {
-//  int max_image = tracks.MaxImage();
-//
-//  for (int i = 0; i <= max_image; i++) {
-//    EuclideanCamera *camera = reconstruction->CameraForImage(i);
-//
-//    if (!camera) {
-//      continue;
-//    }
-//
-//    ceres::AngleAxisToRotationMatrix(&all_cameras_R_t[i](0),
-//                                     &camera->R(0, 0));
-//    camera->t = all_cameras_R_t[i].tail<3>();
-//  }
-//}
+// Convert cameras rotations fro mangle axis back to rotation matrix.
+void UnpackMultiCamerasRotationAndTranslation(
+    const Tracks &tracks,
+    const vector<Vec6> &all_cameras_R_t,
+    Reconstruction *reconstruction) {
+	int clip_num = tracks.GetClipNum();
+	int frame_count = 0;
+	for(int i = 0; i < clip_num; i++) {
+		int max_frame = tracks.MaxFrame(i);
+		for(int j = 0; j <= max_frame; j++) {
+			CameraPose *camera = reconstruction->CameraPoseForFrame(i, j);
+			if(camera) {
+				ceres::AngleAxisToRotationMatrix(&all_cameras_R_t[frame_count](0), &camera->R(0, 0));
+				        camera->t = all_cameras_R_t[frame_count].tail<3>();
+				frame_count++;
+			}
+		}
+	}
+}
 
-//// Converts sparse CRSMatrix to Eigen matrix, so it could be used
-//// all over in the pipeline.
-////
-//// TODO(sergey): currently uses dense Eigen matrices, best would
-////               be to use sparse Eigen matrices
-//void CRSMatrixToEigenMatrix(const ceres::CRSMatrix &crs_matrix,
-//                            Mat *eigen_matrix) {
-//  eigen_matrix->resize(crs_matrix.num_rows, crs_matrix.num_cols);
-//  eigen_matrix->setZero();
+// Converts sparse CRSMatrix to Eigen matrix, so it could be used
+// all over in the pipeline.
 //
-//  for (int row = 0; row < crs_matrix.num_rows; ++row) {
-//    int start = crs_matrix.rows[row];
-//    int end = crs_matrix.rows[row + 1] - 1;
-//
-//    for (int i = start; i <= end; i++) {
-//      int col = crs_matrix.cols[i];
-//      double value = crs_matrix.values[i];
-//
-//      (*eigen_matrix)(row, col) = value;
-//    }
-//  }
-//}
+// TODO(sergey): currently uses dense Eigen matrices, best would
+//               be to use sparse Eigen matrices
+void CRSMatrixToEigenMatrix(const ceres::CRSMatrix &crs_matrix,
+                            Mat *eigen_matrix) {
+  eigen_matrix->resize(crs_matrix.num_rows, crs_matrix.num_cols);
+  eigen_matrix->setZero();
 
-//void EuclideanBundlerPerformEvaluation(const Tracks &tracks,
-//                                       EuclideanReconstruction *reconstruction,
-//                                       vector<Vec6> *all_cameras_R_t,
-//                                       ceres::Problem *problem,
-//                                       BundleEvaluation *evaluation) {
-//    int max_track = tracks.MaxTrack();
-//    // Number of camera rotations equals to number of translation,
-//    int num_cameras = all_cameras_R_t->size();
-//    int num_points = 0;
-//
-//    vector<EuclideanPoint*> minimized_points;
-//    for (int i = 0; i <= max_track; i++) {
-//      EuclideanPoint *point = reconstruction->PointForTrack(i);
-//      if (point) {
-//        // We need to know whether the track is constant zero weight,
-//        // and it so it wouldn't have parameter block in the problem.
-//        //
-//        // Getting all markers for track is not so bac currently since
-//        // this code is only used by keyframe selection when there are
-//        // not so much tracks and only 2 frames anyway.
-//        vector<Marker> markera_of_track = tracks.MarkersForTrack(i);
-//        for (int j = 0; j < markera_of_track.size(); j++) {
-//          if (markera_of_track.at(j).weight != 0.0) {
-//            minimized_points.push_back(point);
-//            num_points++;
-//            break;
-//          }
-//        }
-//      }
-//    }
-//
-//    LG << "Number of cameras " << num_cameras;
-//    LG << "Number of points " << num_points;
-//
-//    evaluation->num_cameras = num_cameras;
-//    evaluation->num_points = num_points;
-//
-//    if (evaluation->evaluate_jacobian) {      // Evaluate jacobian matrix.
-//      ceres::CRSMatrix evaluated_jacobian;
-//      ceres::Problem::EvaluateOptions eval_options;
-//
-//      // Cameras goes first in the ordering.
-//      int max_image = tracks.MaxImage();
-//      for (int i = 0; i <= max_image; i++) {
-//        const EuclideanCamera *camera = reconstruction->CameraForImage(i);
-//        if (camera) {
-//          double *current_camera_R_t = &(*all_cameras_R_t)[i](0);
-//
-//          // All cameras are variable now.
-//          problem->SetParameterBlockVariable(current_camera_R_t);
-//
-//          eval_options.parameter_blocks.push_back(current_camera_R_t);
-//        }
-//      }
-//
-//      // Points goes at the end of ordering,
-//      for (int i = 0; i < minimized_points.size(); i++) {
-//        EuclideanPoint *point = minimized_points.at(i);
-//        eval_options.parameter_blocks.push_back(&point->X(0));
-//      }
-//
-//      problem->Evaluate(eval_options,
-//                        NULL, NULL, NULL,
-//                        &evaluated_jacobian);
-//
-//      CRSMatrixToEigenMatrix(evaluated_jacobian, &evaluation->jacobian);
-//    }
-//}
+  for (int row = 0; row < crs_matrix.num_rows; ++row) {
+    int start = crs_matrix.rows[row];
+    int end = crs_matrix.rows[row + 1] - 1;
 
-//// This is an utility function to only bundle 3D position of
-//// given markers list.
-////
-//// Main purpose of this function is to adjust positions of tracks
-//// which does have constant zero weight and so far only were using
-//// algebraic intersection to obtain their 3D positions.
-////
-//// At this point we only need to bundle points positions, cameras
-//// are to be totally still here.
-//void EuclideanBundlePointsOnly(const DistortionModelType distortion_model,
-//                               const vector<Marker> &markers,
-//                               vector<Vec6> &all_cameras_R_t,
-//                               double ceres_intrinsics[OFFSET_MAX],
-//                               EuclideanReconstruction *reconstruction) {
-//  ceres::Problem::Options problem_options;
-//  ceres::Problem problem(problem_options);
-//  int num_residuals = 0;
-//  for (int i = 0; i < markers.size(); ++i) {
-//    const Marker &marker = markers[i];
-//    EuclideanCamera *camera = reconstruction->CameraForImage(marker.image);
-//    EuclideanPoint *point = reconstruction->PointForTrack(marker.track);
-//    if (camera == NULL || point == NULL) {
-//      continue;
-//    }
+    for (int i = start; i <= end; i++) {
+      int col = crs_matrix.cols[i];
+      double value = crs_matrix.values[i];
+
+      (*eigen_matrix)(row, col) = value;
+    }
+  }
+}
+
+void MultiviewBundlerPerformEvaluation(const Tracks &tracks,
+                                       Reconstruction *reconstruction,
+                                       vector<Vec6> *all_cameras_R_t,
+                                       ceres::Problem *problem,
+                                       BundleEvaluation *evaluation) {
+    int max_track = tracks.MaxTrack();
+    // Number of camera rotations equals to number of translation,
+    int num_cameras = all_cameras_R_t->size();
+    int num_points = 0;
+
+    vector<Point*> minimized_points;
+    for (int i = 0; i <= max_track; i++) {
+      Point *point = reconstruction->PointForTrack(i);
+      if (point) {
+        // We need to know whether the track is constant zero weight,
+        // so it wouldn't have parameter block in the problem.
+        //
+        // Getting all markers for track is not so bad currently since
+        // this code is only used by keyframe selection when there are
+        // not so much tracks and only 2 frames anyway.
+
+        vector<Marker> marker_of_track;
+		tracks.GetMarkersForTrack(i, &marker_of_track);
+        for (int j = 0; j < marker_of_track.size(); j++) {
+          if (marker_of_track.at(j).weight != 0.0) {
+            minimized_points.push_back(point);
+            num_points++;
+            break;
+          }
+        }
+      }
+    }
+
+    LG << "Number of cameras " << num_cameras;
+    LG << "Number of points " << num_points;
+
+    evaluation->num_cameras = num_cameras;
+    evaluation->num_points = num_points;
+
+    if (evaluation->evaluate_jacobian) {      // Evaluate jacobian matrix.
+      ceres::CRSMatrix evaluated_jacobian;
+      ceres::Problem::EvaluateOptions eval_options;
+
+      // Cameras goes first in the ordering.
+	  int frame_count = 0;
+	  int clip_num = tracks.GetClipNum();
+	  for(int i = 0; i < clip_num; i++) {
+		  int max_frame = tracks.MaxFrame(i);
+		  for(int j = 0; j < max_frame; j++) {
+			  const CameraPose *camera = reconstruction->CameraPoseForFrame(i, j);
+			  if (camera) {
+				  double *current_camera_R_t = &(*all_cameras_R_t)[frame_count](0);
+
+				  // All cameras are variable now.
+				  problem->SetParameterBlockVariable(current_camera_R_t);
+
+				  eval_options.parameter_blocks.push_back(current_camera_R_t);
+				  frame_count++;
+			  }
+		  }
+	  }
+
+      // Points goes at the end of ordering,
+      for (int i = 0; i < minimized_points.size(); i++) {
+        Point *point = minimized_points.at(i);
+        eval_options.parameter_blocks.push_back(&point->X(0));
+      }
+
+      problem->Evaluate(eval_options,
+                        NULL, NULL, NULL,
+                        &evaluated_jacobian);
+
+      CRSMatrixToEigenMatrix(evaluated_jacobian, &evaluation->jacobian);
+    }
+}
+
+// This is an utility function to only bundle 3D position of
+// given markers list.
 //
-//    // Rotation of camera denoted in angle axis followed with
-//    // camera translaiton.
-//    double *current_camera_R_t = &all_cameras_R_t[camera->image](0);
+// Main purpose of this function is to adjust positions of tracks
+// which does have constant zero weight and so far only were using
+// algebraic intersection to obtain their 3D positions.
 //
-//    problem.AddResidualBlock(new ceres::AutoDiffCostFunction<
-//        OpenCVReprojectionError, 2, OFFSET_MAX, 6, 3>(
-//            new OpenCVReprojectionError(
-//                distortion_model,
-//                marker.x,
-//                marker.y,
-//                1.0)),
-//        NULL,
-//        ceres_intrinsics,
-//        current_camera_R_t,
-//        &point->X(0));
-//
-//    problem.SetParameterBlockConstant(current_camera_R_t);
-//    num_residuals++;
-//  }
-//
-//  LG << "Number of residuals: " << num_residuals;
-//  if (!num_residuals) {
-//    LG << "Skipping running minimizer with zero residuals";
-//    return;
-//  }
-//
-//  problem.SetParameterBlockConstant(ceres_intrinsics);
-//
-//  // Configure the solver.
-//  ceres::Solver::Options options;
-//  options.use_nonmonotonic_steps = true;
-//  options.preconditioner_type = ceres::SCHUR_JACOBI;
-//  options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-//  options.use_explicit_schur_complement = true;
-//  options.use_inner_iterations = true;
-//  options.max_num_iterations = 100;
-//
-//#ifdef _OPENMP
-//  options.num_threads = omp_get_max_threads();
-//  options.num_linear_solver_threads = omp_get_max_threads();
-//#endif
-//
-//  // Solve!
-//  ceres::Solver::Summary summary;
-//  ceres::Solve(options, &problem, &summary);
-//
-//  LG << "Final report:\n" << summary.FullReport();
-//
-//}
+// At this point we only need to bundle points positions, cameras
+// are to be totally still here.
+void EuclideanBundlePointsOnly(const DistortionModelType distortion_model,
+                               const vector<Marker> &markers,
+                               vector<Vec6> &all_cameras_R_t,
+                               double ceres_intrinsics[OFFSET_MAX],
+                               Reconstruction *reconstruction,
+                               vector<vector<int> > &camera_pose_map) {
+  ceres::Problem::Options problem_options;
+  ceres::Problem problem(problem_options);
+  int num_residuals = 0;
+  for (int i = 0; i < markers.size(); ++i) {
+    const Marker &marker = markers[i];
+    CameraPose *camera = reconstruction->CameraPoseForFrame(marker.clip, marker.frame);
+    Point *point = reconstruction->PointForTrack(marker.track);
+    if (camera == NULL || point == NULL) {
+      continue;
+    }
+
+    // Rotation of camera denoted in angle axis followed with
+    // camera translaiton.
+    double *current_camera_R_t = &all_cameras_R_t[camera_pose_map[camera->clip][camera->frame]](0);
+
+    problem.AddResidualBlock(new ceres::AutoDiffCostFunction<
+        OpenCVReprojectionError, 2, OFFSET_MAX, 6, 3>(
+            new OpenCVReprojectionError(
+                distortion_model,
+                marker.center[0],
+                marker.center[1],
+                1.0)),
+        NULL,
+        ceres_intrinsics,
+        current_camera_R_t,
+        &point->X(0));
+
+    problem.SetParameterBlockConstant(current_camera_R_t);
+    num_residuals++;
+  }
+
+  LG << "Number of residuals: " << num_residuals;
+  if (!num_residuals) {
+    LG << "Skipping running minimizer with zero residuals";
+    return;
+  }
+
+  problem.SetParameterBlockConstant(ceres_intrinsics);
+
+  // Configure the solver.
+  ceres::Solver::Options options;
+  options.use_nonmonotonic_steps = true;
+  options.preconditioner_type = ceres::SCHUR_JACOBI;
+  options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+  options.use_explicit_schur_complement = true;
+  options.use_inner_iterations = true;
+  options.max_num_iterations = 100;
+
+#ifdef _OPENMP
+  options.num_threads = omp_get_max_threads();
+  options.num_linear_solver_threads = omp_get_max_threads();
+#endif
+
+  // Solve!
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+
+  LG << "Final report:\n" << summary.FullReport();
+}
 
 }  // namespace
 
@@ -560,104 +567,107 @@ void EuclideanBundleCommonIntrinsics(
     LG << "Skipping running minimizer with zero residuals";
     return;
   }
-//
-//  if (intrinsics->GetDistortionModelType() == DISTORTION_MODEL_DIVISION &&
-//    (bundle_intrinsics & BUNDLE_TANGENTIAL) != 0) {
-//    LOG(FATAL) << "Division model doesn't support bundling "
-//                  "of tangential distortion";
-//  }
-//
-//  BundleIntrinsicsLogMessage(bundle_intrinsics);
-//
-//  if (bundle_intrinsics == BUNDLE_NO_INTRINSICS) {
-//    // No camera intrinsics are being refined,
-//    // set the whole parameter block as constant for best performance.
-//    problem.SetParameterBlockConstant(ceres_intrinsics);
-//  } else {
-//    // Set the camera intrinsics that are not to be bundled as
-//    // constant using some macro trickery.
-//
-//    std::vector<int> constant_intrinsics;
-//#define MAYBE_SET_CONSTANT(bundle_enum, offset) \
-//    if (!(bundle_intrinsics & bundle_enum)) { \
-//      constant_intrinsics.push_back(offset); \
-//    }
-//    MAYBE_SET_CONSTANT(BUNDLE_FOCAL_LENGTH,    OFFSET_FOCAL_LENGTH);
-//    MAYBE_SET_CONSTANT(BUNDLE_PRINCIPAL_POINT, OFFSET_PRINCIPAL_POINT_X);
-//    MAYBE_SET_CONSTANT(BUNDLE_PRINCIPAL_POINT, OFFSET_PRINCIPAL_POINT_Y);
-//    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K1,       OFFSET_K1);
-//    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K2,       OFFSET_K2);
-//    MAYBE_SET_CONSTANT(BUNDLE_TANGENTIAL_P1,   OFFSET_P1);
-//    MAYBE_SET_CONSTANT(BUNDLE_TANGENTIAL_P2,   OFFSET_P2);
-//#undef MAYBE_SET_CONSTANT
-//
-//    // Always set K3 constant, it's not used at the moment.
-//    constant_intrinsics.push_back(OFFSET_K3);
-//
-//    ceres::SubsetParameterization *subset_parameterization =
-//      new ceres::SubsetParameterization(OFFSET_MAX, constant_intrinsics);
-//
-//    problem.SetParameterization(ceres_intrinsics, subset_parameterization);
-//  }
-//
-//  // Configure the solver.
-//  ceres::Solver::Options options;
-//  options.use_nonmonotonic_steps = true;
-//  options.preconditioner_type = ceres::SCHUR_JACOBI;
-//  options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-//  options.use_explicit_schur_complement = true;
-//  options.use_inner_iterations = true;
-//  options.max_num_iterations = 100;
-//
-//#ifdef _OPENMP
-//  options.num_threads = omp_get_max_threads();
-//  options.num_linear_solver_threads = omp_get_max_threads();
-//#endif
-//
-//  // Solve!
-//  ceres::Solver::Summary summary;
-//  ceres::Solve(options, &problem, &summary);
-//
-//  LG << "Final report:\n" << summary.FullReport();
-//
-//  // Copy rotations and translations back.
-//  UnpackCamerasRotationAndTranslation(tracks,
-//                                      all_cameras_R_t,
-//                                      reconstruction);
-//
-//  // Copy intrinsics back.
-//  if (bundle_intrinsics != BUNDLE_NO_INTRINSICS)
-//    UnpackIntrinsicsFromArray(ceres_intrinsics, intrinsics);
-//
-//  LG << "Final intrinsics: " << *intrinsics;
-//
-//  if (evaluation) {
-//    EuclideanBundlerPerformEvaluation(tracks, reconstruction, &all_cameras_R_t,
-//                                      &problem, evaluation);
-//  }
-//
-//  // Separate step to adjust positions of tracks which are
-//  // constant zero-weighted.
-//  vector<Marker> zero_weight_markers;
-//  for (int track = 0; track < tracks.MaxTrack(); ++track) {
-//    if (zero_weight_tracks_flags[track]) {
-//      vector<Marker> current_markers = tracks.MarkersForTrack(track);
-//      zero_weight_markers.reserve(zero_weight_markers.size() +
-//                                  current_markers.size());
-//      for (int i = 0; i < current_markers.size(); ++i) {
-//        zero_weight_markers.push_back(current_markers[i]);
-//      }
-//    }
-//  }
-//
-//  if (zero_weight_markers.size()) {
-//    LG << "Refining position of constant zero-weighted tracks";
-//    EuclideanBundlePointsOnly(intrinsics->GetDistortionModelType(),
-//                              zero_weight_markers,
-//                              all_cameras_R_t,
-//                              ceres_intrinsics,
-//                              reconstruction);
-//  }
+
+  if (intrinsics->GetDistortionModelType() == libmv::DISTORTION_MODEL_DIVISION &&
+    (bundle_intrinsics & BUNDLE_TANGENTIAL) != 0) {
+    LOG(FATAL) << "Division model doesn't support bundling "
+                  "of tangential distortion";
+  }
+
+  BundleIntrinsicsLogMessage(bundle_intrinsics);
+
+  if (bundle_intrinsics == BUNDLE_NO_INTRINSICS) {
+    // No camera intrinsics are being refined,
+    // set the whole parameter block as constant for best performance.
+    problem.SetParameterBlockConstant(ceres_intrinsics);
+  } else {
+    // Set the camera intrinsics that are not to be bundled as
+    // constant using some macro trickery.
+
+    std::vector<int> constant_intrinsics;
+#define MAYBE_SET_CONSTANT(bundle_enum, offset) \
+    if (!(bundle_intrinsics & bundle_enum)) { \
+      constant_intrinsics.push_back(offset); \
+    }
+    MAYBE_SET_CONSTANT(BUNDLE_FOCAL_LENGTH,    OFFSET_FOCAL_LENGTH);
+    MAYBE_SET_CONSTANT(BUNDLE_PRINCIPAL_POINT, OFFSET_PRINCIPAL_POINT_X);
+    MAYBE_SET_CONSTANT(BUNDLE_PRINCIPAL_POINT, OFFSET_PRINCIPAL_POINT_Y);
+    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K1,       OFFSET_K1);
+    MAYBE_SET_CONSTANT(BUNDLE_RADIAL_K2,       OFFSET_K2);
+    MAYBE_SET_CONSTANT(BUNDLE_TANGENTIAL_P1,   OFFSET_P1);
+    MAYBE_SET_CONSTANT(BUNDLE_TANGENTIAL_P2,   OFFSET_P2);
+#undef MAYBE_SET_CONSTANT
+
+    // Always set K3 constant, it's not used at the moment.
+    constant_intrinsics.push_back(OFFSET_K3);
+
+    ceres::SubsetParameterization *subset_parameterization =
+      new ceres::SubsetParameterization(OFFSET_MAX, constant_intrinsics);
+
+    problem.SetParameterization(ceres_intrinsics, subset_parameterization);
+  }
+
+  // Configure the solver.
+  ceres::Solver::Options options;
+  options.use_nonmonotonic_steps = true;
+  options.preconditioner_type = ceres::SCHUR_JACOBI;
+  options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+  options.use_explicit_schur_complement = true;
+  options.use_inner_iterations = true;
+  options.max_num_iterations = 100;
+
+#ifdef _OPENMP
+  options.num_threads = omp_get_max_threads();
+  options.num_linear_solver_threads = omp_get_max_threads();
+#endif
+
+  // Solve!
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+
+  LG << "Final report:\n" << summary.FullReport();
+
+  // Copy rotations and translations back.
+  UnpackMultiCamerasRotationAndTranslation(tracks,
+                                           all_cameras_R_t,
+                                           reconstruction);
+
+  // Copy intrinsics back.
+  if (bundle_intrinsics != BUNDLE_NO_INTRINSICS)
+    UnpackIntrinsicsFromArray(ceres_intrinsics, intrinsics);
+
+  LG << "Final intrinsics: " << *intrinsics;
+
+  if (evaluation) {
+    MultiviewBundlerPerformEvaluation(tracks, reconstruction, &all_cameras_R_t,
+                                      &problem, evaluation);
+  }
+
+  // Separate step to adjust positions of tracks which are
+  // constant zero-weighted.
+  vector<Marker> zero_weight_markers;
+  for (int track = 0; track < tracks.MaxTrack(); ++track) {
+    if (zero_weight_tracks_flags[track]) {
+      vector<Marker> current_markers;
+	  tracks.GetMarkersForTrack(track, &current_markers);
+      zero_weight_markers.reserve(zero_weight_markers.size() +
+                                  current_markers.size());
+      for (int i = 0; i < current_markers.size(); ++i) {
+        zero_weight_markers.push_back(current_markers[i]);
+      }
+    }
+  }
+
+  // zero-weight markers doesn't contribute to the bundle of pose
+  if (zero_weight_markers.size()) {
+    LG << "Refining position of constant zero-weighted tracks";
+    EuclideanBundlePointsOnly(intrinsics->GetDistortionModelType(),
+                              zero_weight_markers,
+                              all_cameras_R_t,
+                              ceres_intrinsics,
+                              reconstruction,
+	                          camera_pose_map);
+  }
 }
 
 bool EuclideanBundleAll(const Tracks &tracks,
