@@ -385,28 +385,62 @@ void BKE_libblock_remap_locked(
 	/* Some after-process updates.
 	 * This is a bit ugly, but cannot see a way to avoid it. Maybe we should do a per-ID callback for this instead?
 	 */
-	if (GS(old_id->name) == ID_OB) {
-		Object *old_ob = (Object *)old_id;
-		Object *new_ob = (Object *)new_id;
+	switch (GS(old_id->name)) {
+		case ID_OB:
+		{
+			Object *old_ob = (Object *)old_id;
+			Object *new_ob = (Object *)new_id;
 
-		if (old_ob->flag & OB_FROMGROUP) {
-			/* Note that for Scene's BaseObject->flag, either we:
-			 *     - unlinked old_ob (i.e. new_ob is NULL), in which case scenes' bases have been removed already.
-			 *     - remaped old_ob by new_ob, in which case scenes' bases are still valid as is.
-			 * So in any case, no need to update them here. */
-			if (BKE_group_object_find(NULL, old_ob) == NULL) {
-				old_ob->flag &= ~OB_FROMGROUP;
-			}
-			if (new_ob == NULL) {  /* We need to remove NULL-ified groupobjects... */
-				Group *group;
-				for (group = bmain->group.first; group; group = group->id.next) {
-					BKE_group_object_unlink(group, NULL, NULL, NULL);
+			if (old_ob->flag & OB_FROMGROUP) {
+				/* Note that for Scene's BaseObject->flag, either we:
+				 *     - unlinked old_ob (i.e. new_ob is NULL), in which case scenes' bases have been removed already.
+				 *     - remaped old_ob by new_ob, in which case scenes' bases are still valid as is.
+				 * So in any case, no need to update them here. */
+				if (BKE_group_object_find(NULL, old_ob) == NULL) {
+					old_ob->flag &= ~OB_FROMGROUP;
+				}
+				if (new_ob == NULL) {  /* We need to remove NULL-ified groupobjects... */
+					Group *group;
+					for (group = bmain->group.first; group; group = group->id.next) {
+						BKE_group_object_unlink(group, NULL, NULL, NULL);
+					}
+				}
+				else {
+					new_ob->flag |= OB_FROMGROUP;
 				}
 			}
-			else {
-				new_ob->flag |= OB_FROMGROUP;
-			}
+			break;
 		}
+		case ID_GR:
+			if (new_id == NULL) {  /* Only affects us in case group was unlinked. */
+				for (Scene *sce = bmain->scene.first; sce; sce = sce->id.next) {
+					/* Note that here we assume no object has no base (i.e. all objects are assumed instanced
+					 * in one scene...). */
+					for (Base *base = sce->base.first; base; base = base->next) {
+						if (base->flag & OB_FROMGROUP) {
+							Object *ob = base->object;
+
+							if (ob->flag & OB_FROMGROUP) {
+								Group *grp = BKE_group_object_find(NULL, ob);
+
+								/* Unlinked group (old_id) is still in bmain... */
+								if (grp && (&grp->id == old_id)) {
+									grp = BKE_group_object_find(grp, ob);
+								}
+								if (!grp) {
+									ob->flag &= ~OB_FROMGROUP;
+								}
+							}
+							if (!(ob->flag & OB_FROMGROUP)) {
+								base->flag &= ~OB_FROMGROUP;
+							}
+						}
+					}
+				}
+			}
+			break;
+		default:
+			break;
 	}
 
 	/* Full rebuild of DAG! */
