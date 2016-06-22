@@ -191,8 +191,7 @@ static void mikk_compute_tangents(BL::Mesh& b_mesh,
                                   const vector<int>& nverts,
                                   const vector<int>& face_flags,
                                   bool need_sign,
-                                  bool active_render,
-                                  bool subdivision)
+                                  bool active_render)
 {
 	/* setup userdata */
 	MikkUserData userdata(b_mesh, b_layer, nverts.size());
@@ -218,7 +217,6 @@ static void mikk_compute_tangents(BL::Mesh& b_mesh,
 
 	/* create tangent attributes */
 	Attribute *attr;
-	AttributeSet& mesh_attributes = subdivision? mesh->subd_attributes: mesh->attributes;
 	ustring name;
 	if(b_layer != NULL)
 		name = ustring((string(b_layer->name().c_str()) + ".tangent").c_str());
@@ -226,9 +224,9 @@ static void mikk_compute_tangents(BL::Mesh& b_mesh,
 		name = ustring("orco.tangent");
 
 	if(active_render)
-		attr = mesh_attributes.add(ATTR_STD_UV_TANGENT, name);
+		attr = mesh->attributes.add(ATTR_STD_UV_TANGENT, name);
 	else
-		attr = mesh_attributes.add(name, TypeDesc::TypeVector, ATTR_ELEMENT_CORNER);
+		attr = mesh->attributes.add(name, TypeDesc::TypeVector, ATTR_ELEMENT_CORNER);
 
 	float3 *tangent = attr->data_float3();
 
@@ -244,59 +242,40 @@ static void mikk_compute_tangents(BL::Mesh& b_mesh,
 			name_sign = ustring("orco.tangent_sign");
 
 		if(active_render)
-			attr_sign = mesh_attributes.add(ATTR_STD_UV_TANGENT_SIGN, name_sign);
+			attr_sign = mesh->attributes.add(ATTR_STD_UV_TANGENT_SIGN, name_sign);
 		else
-			attr_sign = mesh_attributes.add(name_sign, TypeDesc::TypeFloat, ATTR_ELEMENT_CORNER);
+			attr_sign = mesh->attributes.add(name_sign, TypeDesc::TypeFloat, ATTR_ELEMENT_CORNER);
 
 		tangent_sign = attr_sign->data_float();
 	}
 
-	if(!subdivision) {
-		for(int i = 0; i < nverts.size(); i++) {
-			int tri_a[3], tri_b[3];
-			face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
+	for(int i = 0; i < nverts.size(); i++) {
+		int tri_a[3], tri_b[3];
+		face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
 
-			tangent[0] = float4_to_float3(userdata.tangent[i*4 + tri_a[0]]);
-			tangent[1] = float4_to_float3(userdata.tangent[i*4 + tri_a[1]]);
-			tangent[2] = float4_to_float3(userdata.tangent[i*4 + tri_a[2]]);
+		tangent[0] = float4_to_float3(userdata.tangent[i*4 + tri_a[0]]);
+		tangent[1] = float4_to_float3(userdata.tangent[i*4 + tri_a[1]]);
+		tangent[2] = float4_to_float3(userdata.tangent[i*4 + tri_a[2]]);
+		tangent += 3;
+
+		if(tangent_sign) {
+			tangent_sign[0] = userdata.tangent[i*4 + tri_a[0]].w;
+			tangent_sign[1] = userdata.tangent[i*4 + tri_a[1]].w;
+			tangent_sign[2] = userdata.tangent[i*4 + tri_a[2]].w;
+			tangent_sign += 3;
+		}
+
+		if(nverts[i] == 4) {
+			tangent[0] = float4_to_float3(userdata.tangent[i*4 + tri_b[0]]);
+			tangent[1] = float4_to_float3(userdata.tangent[i*4 + tri_b[1]]);
+			tangent[2] = float4_to_float3(userdata.tangent[i*4 + tri_b[2]]);
 			tangent += 3;
 
 			if(tangent_sign) {
-				tangent_sign[0] = userdata.tangent[i*4 + tri_a[0]].w;
-				tangent_sign[1] = userdata.tangent[i*4 + tri_a[1]].w;
-				tangent_sign[2] = userdata.tangent[i*4 + tri_a[2]].w;
+				tangent_sign[0] = userdata.tangent[i*4 + tri_b[0]].w;
+				tangent_sign[1] = userdata.tangent[i*4 + tri_b[1]].w;
+				tangent_sign[2] = userdata.tangent[i*4 + tri_b[2]].w;
 				tangent_sign += 3;
-			}
-
-			if(nverts[i] == 4) {
-				tangent[0] = float4_to_float3(userdata.tangent[i*4 + tri_b[0]]);
-				tangent[1] = float4_to_float3(userdata.tangent[i*4 + tri_b[1]]);
-				tangent[2] = float4_to_float3(userdata.tangent[i*4 + tri_b[2]]);
-				tangent += 3;
-
-				if(tangent_sign) {
-					tangent_sign[0] = userdata.tangent[i*4 + tri_b[0]].w;
-					tangent_sign[1] = userdata.tangent[i*4 + tri_b[1]].w;
-					tangent_sign[2] = userdata.tangent[i*4 + tri_b[2]].w;
-					tangent_sign += 3;
-				}
-			}
-		}
-	}
-	else {
-		for(int i = 0; i < nverts.size(); i++) {
-			tangent[0] = float4_to_float3(userdata.tangent[i*4 + 0]);
-			tangent[1] = float4_to_float3(userdata.tangent[i*4 + 1]);
-			tangent[2] = float4_to_float3(userdata.tangent[i*4 + 2]);
-			tangent[3] = float4_to_float3(userdata.tangent[i*4 + 3]);
-			tangent += 4;
-
-			if(tangent_sign) {
-				tangent_sign[0] = userdata.tangent[i*4 + 0].w;
-				tangent_sign[1] = userdata.tangent[i*4 + 1].w;
-				tangent_sign[2] = userdata.tangent[i*4 + 2].w;
-				tangent_sign[3] = userdata.tangent[i*4 + 3].w;
-				tangent_sign += 4;
 			}
 		}
 	}
@@ -359,31 +338,55 @@ static void attr_create_vertex_color(Scene *scene,
                                      const vector<int>& face_flags,
                                      bool subdivision)
 {
-	BL::Mesh::tessface_vertex_colors_iterator l;
-	for(b_mesh.tessface_vertex_colors.begin(l); l != b_mesh.tessface_vertex_colors.end(); ++l) {
-		if(!mesh->need_attribute(scene, ustring(l->name().c_str())))
-			continue;
+	if(subdivision) {
+		BL::Mesh::vertex_colors_iterator l;
 
-		Attribute *attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(
-			ustring(l->name().c_str()), TypeDesc::TypeColor, ATTR_ELEMENT_CORNER_BYTE);
+		for(b_mesh.vertex_colors.begin(l); l != b_mesh.vertex_colors.end(); ++l) {
+			if(!mesh->need_attribute(scene, ustring(l->name().c_str())))
+				continue;
 
-		BL::MeshColorLayer::data_iterator c;
-		uchar4 *cdata = attr->data_uchar4();
-		size_t i = 0;
+			Attribute *attr = mesh->subd_attributes.add(ustring(l->name().c_str()),
+			                                            TypeDesc::TypeColor,
+			                                            ATTR_ELEMENT_CORNER_BYTE);
 
-		for(l->data.begin(c); c != l->data.end(); ++c, ++i) {
-			int tri_a[3], tri_b[3];
-			face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
+			BL::Mesh::polygons_iterator p;
+			uchar4 *cdata = attr->data_uchar4();
 
-			uchar4 colors[4];
-			colors[0] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color1())));
-			colors[1] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color2())));
-			colors[2] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color3())));
-			if(nverts[i] == 4) {
-				colors[3] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color4())));
+			for(b_mesh.polygons.begin(p); p != b_mesh.polygons.end(); ++p) {
+				int n = p->loop_total();
+				for(int i = 0; i < n; i++) {
+					float3 color = get_float3(l->data[p->loop_start() + i].color());
+					*(cdata++) = color_float_to_byte(color_srgb_to_scene_linear(color));
+				}
 			}
+		}
+	}
+	else {
+		BL::Mesh::tessface_vertex_colors_iterator l;
+		for(b_mesh.tessface_vertex_colors.begin(l); l != b_mesh.tessface_vertex_colors.end(); ++l) {
+			if(!mesh->need_attribute(scene, ustring(l->name().c_str())))
+				continue;
 
-			if(!subdivision) {
+			Attribute *attr = mesh->attributes.add(ustring(l->name().c_str()),
+			                                       TypeDesc::TypeColor,
+			                                       ATTR_ELEMENT_CORNER_BYTE);
+
+			BL::MeshColorLayer::data_iterator c;
+			uchar4 *cdata = attr->data_uchar4();
+			size_t i = 0;
+
+			for(l->data.begin(c); c != l->data.end(); ++c, ++i) {
+				int tri_a[3], tri_b[3];
+				face_split_tri_indices(nverts[i], face_flags[i], tri_a, tri_b);
+
+				uchar4 colors[4];
+				colors[0] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color1())));
+				colors[1] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color2())));
+				colors[2] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color3())));
+				if(nverts[i] == 4) {
+					colors[3] = color_float_to_byte(color_srgb_to_scene_linear(get_float3(c->color4())));
+				}
+
 				cdata[0] = colors[tri_a[0]];
 				cdata[1] = colors[tri_a[1]];
 				cdata[2] = colors[tri_a[2]];
@@ -397,13 +400,6 @@ static void attr_create_vertex_color(Scene *scene,
 				else
 					cdata += 3;
 			}
-			else {
-				cdata[0] = colors[0];
-				cdata[1] = colors[1];
-				cdata[2] = colors[2];
-				cdata[3] = colors[3];
-				cdata += 4;
-			}
 		}
 	}
 }
@@ -416,7 +412,37 @@ static void attr_create_uv_map(Scene *scene,
                                const vector<int>& face_flags,
                                bool subdivision)
 {
-	if(b_mesh.tessface_uv_textures.length() != 0) {
+	if(subdivision) {
+		BL::Mesh::uv_layers_iterator l;
+		int i = 0;
+
+		for(b_mesh.uv_layers.begin(l); l != b_mesh.uv_layers.end(); ++l, ++i) {
+			bool active_render = b_mesh.uv_textures[i].active_render();
+			AttributeStandard std = (active_render)? ATTR_STD_UV: ATTR_STD_NONE;
+			ustring name = ustring(l->name().c_str());
+
+			/* UV map */
+			if(mesh->need_attribute(scene, name) || mesh->need_attribute(scene, std)) {
+				Attribute *attr;
+
+				if(active_render)
+					attr = mesh->subd_attributes.add(std, name);
+				else
+					attr = mesh->subd_attributes.add(name, TypeDesc::TypePoint, ATTR_ELEMENT_CORNER);
+
+				BL::Mesh::polygons_iterator p;
+				float3 *fdata = attr->data_float3();
+
+				for(b_mesh.polygons.begin(p); p != b_mesh.polygons.end(); ++p) {
+					int n = p->loop_total();
+					for(int j = 0; j < n; j++) {
+						*(fdata++) = get_float3(l->data[p->loop_start() + j].uv());
+					}
+				}
+			}
+		}
+	}
+	else if(b_mesh.tessface_uv_textures.length() != 0) {
 		BL::Mesh::tessface_uv_textures_iterator l;
 
 		for(b_mesh.tessface_uv_textures.begin(l); l != b_mesh.tessface_uv_textures.end(); ++l) {
@@ -429,9 +455,9 @@ static void attr_create_uv_map(Scene *scene,
 				Attribute *attr;
 
 				if(active_render)
-					attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(std, name);
+					attr = mesh->attributes.add(std, name);
 				else
-					attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(name, TypeDesc::TypePoint, ATTR_ELEMENT_CORNER);
+					attr = mesh->attributes.add(name, TypeDesc::TypePoint, ATTR_ELEMENT_CORNER);
 
 				BL::MeshTextureFaceLayer::data_iterator t;
 				float3 *fdata = attr->data_float3();
@@ -449,25 +475,16 @@ static void attr_create_uv_map(Scene *scene,
 						uvs[3] = get_float3(t->uv4());
 					}
 
-					if(!subdivision) {
-						fdata[0] = uvs[tri_a[0]];
-						fdata[1] = uvs[tri_a[1]];
-						fdata[2] = uvs[tri_a[2]];
-						fdata += 3;
+					fdata[0] = uvs[tri_a[0]];
+					fdata[1] = uvs[tri_a[1]];
+					fdata[2] = uvs[tri_a[2]];
+					fdata += 3;
 
-						if(nverts[i] == 4) {
-							fdata[0] = uvs[tri_b[0]];
-							fdata[1] = uvs[tri_b[1]];
-							fdata[2] = uvs[tri_b[2]];
-							fdata += 3;
-						}
-					}
-					else {
-						fdata[0] = uvs[0];
-						fdata[1] = uvs[1];
-						fdata[2] = uvs[2];
-						fdata[3] = uvs[3];
-						fdata += 4;
+					if(nverts[i] == 4) {
+						fdata[0] = uvs[tri_b[0]];
+						fdata[1] = uvs[tri_b[1]];
+						fdata[2] = uvs[tri_b[2]];
+						fdata += 3;
 					}
 				}
 			}
@@ -487,8 +504,7 @@ static void attr_create_uv_map(Scene *scene,
 				                      nverts,
 				                      face_flags,
 				                      need_sign,
-				                      active_render,
-				                      subdivision);
+				                      active_render);
 			}
 		}
 	}
@@ -500,8 +516,7 @@ static void attr_create_uv_map(Scene *scene,
 		                      nverts,
 		                      face_flags,
 		                      need_sign,
-		                      true,
-		                      subdivision);
+		                      true);
 	}
 }
 
@@ -581,7 +596,7 @@ static void create_mesh(Scene *scene,
 {
 	/* count vertices and faces */
 	int numverts = b_mesh.vertices.length();
-	int numfaces = b_mesh.tessfaces.length();
+	int numfaces = (!subdivision) ? b_mesh.tessfaces.length() : b_mesh.polygons.length();
 	int numtris = 0;
 	int total_corners = 0;
 	int num_ngons = 0;
@@ -589,15 +604,18 @@ static void create_mesh(Scene *scene,
 
 	BL::Mesh::vertices_iterator v;
 	BL::Mesh::tessfaces_iterator f;
+	BL::Mesh::polygons_iterator p;
 
-	for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f) {
-		int4 vi = get_int4(f->vertices_raw());
-		if(!subdivision) {
+	if(!subdivision) {
+		for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f) {
+			int4 vi = get_int4(f->vertices_raw());
 			numtris += (vi[3] == 0)? 1: 2;
 		}
-		else {
-			num_ngons += (vi[3] == 0)? 1: 0;
-			total_corners += (vi[3] == 0)? 3: 4;
+	}
+	else {
+		for(b_mesh.polygons.begin(p); p != b_mesh.polygons.end(); ++p) {
+			num_ngons += (p->loop_total() == 4)? 0: 1;
+			total_corners += p->loop_total();
 		}
 	}
 
@@ -638,34 +656,34 @@ static void create_mesh(Scene *scene,
 	vector<int> face_flags(numfaces, FACE_FLAG_NONE);
 	int fi = 0;
 
-	for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f, ++fi) {
-		int4 vi = get_int4(f->vertices_raw());
-		int n = (vi[3] == 0)? 3: 4;
-		int shader = clamp(f->material_index(), 0, used_shaders.size()-1);
-		bool smooth = f->use_smooth() || use_loop_normals;
+	if(!subdivision) {
+		for(b_mesh.tessfaces.begin(f); f != b_mesh.tessfaces.end(); ++f, ++fi) {
+			int4 vi = get_int4(f->vertices_raw());
+			int n = (vi[3] == 0)? 3: 4;
+			int shader = clamp(f->material_index(), 0, used_shaders.size()-1);
+			bool smooth = f->use_smooth() || use_loop_normals;
 
-		/* split vertices if normal is different
-		 *
-		 * note all vertex attributes must have been set here so we can split
-		 * and copy attributes in split_vertex without remapping later */
-		if(use_loop_normals) {
-			BL::Array<float, 12> loop_normals = f->split_normals();
+			/* split vertices if normal is different
+			 *
+			 * note all vertex attributes must have been set here so we can split
+			 * and copy attributes in split_vertex without remapping later */
+			if(use_loop_normals) {
+				BL::Array<float, 12> loop_normals = f->split_normals();
 
-			for(int i = 0; i < n; i++) {
-				float3 loop_N = make_float3(loop_normals[i * 3], loop_normals[i * 3 + 1], loop_normals[i * 3 + 2]);
+				for(int i = 0; i < n; i++) {
+					float3 loop_N = make_float3(loop_normals[i * 3], loop_normals[i * 3 + 1], loop_normals[i * 3 + 2]);
 
-				if(N[vi[i]] != loop_N) {
-					int new_vi = mesh->split_vertex(vi[i]);
+					if(N[vi[i]] != loop_N) {
+						int new_vi = mesh->split_vertex(vi[i]);
 
-					/* set new normal and vertex index */
-					N = attr_N->data_float3();
-					N[new_vi] = loop_N;
-					vi[i] = new_vi;
+						/* set new normal and vertex index */
+						N = attr_N->data_float3();
+						N[new_vi] = loop_N;
+						vi[i] = new_vi;
+					}
 				}
 			}
-		}
 
-		if(!subdivision) {
 			/* create triangles */
 			if(n == 4) {
 				if(is_zero(cross(mesh->verts[vi[1]] - mesh->verts[vi[0]], mesh->verts[vi[2]] - mesh->verts[vi[0]])) ||
@@ -681,15 +699,31 @@ static void create_mesh(Scene *scene,
 					face_flags[fi] |= FACE_FLAG_DIVIDE_13;
 				}
 			}
-			else
+			else {
 				mesh->add_triangle(vi[0], vi[1], vi[2], shader, smooth);
+			}
+
+			nverts[fi] = n;
 		}
-		else {
+	}
+	else {
+		vector<int> vi;
+
+		for(b_mesh.polygons.begin(p); p != b_mesh.polygons.end(); ++p) {
+			int n = p->loop_total();
+			int shader = clamp(p->material_index(), 0, used_shaders.size()-1);
+			bool smooth = p->use_smooth() || use_loop_normals;
+
+			vi.reserve(n);
+			for(int i = 0; i < n; i++) {
+				vi[i] = b_mesh.loops[p->loop_start() + i].vertex_index();
+			}
+
+			/* TODO(mai): split vertices if normal is different */
+
 			/* create subd faces */
 			mesh->add_subd_face(&vi[0], n, shader, smooth);
 		}
-
-		nverts[fi] = n;
 	}
 
 	/* Create all needed attributes.
@@ -838,11 +872,12 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 			b_ob.update_from_editmode();
 
 		bool need_undeformed = mesh->need_attribute(scene, ATTR_STD_GENERATED);
-		BL::Mesh b_mesh = object_to_mesh(b_data, b_ob, b_scene, true, !preview, need_undeformed);
+		bool subdivision = experimental && cmesh.data && RNA_enum_get(&cmesh, "subdivision_type");
+		BL::Mesh b_mesh = object_to_mesh(b_data, b_ob, b_scene, true, !preview, need_undeformed, subdivision);
 
 		if(b_mesh) {
 			if(render_layer.use_surfaces && !hide_tris) {
-				if(cmesh.data && experimental && RNA_enum_get(&cmesh, "subdivision_type"))
+				if(subdivision)
 					create_subd_mesh(scene, mesh, b_ob, b_mesh, &cmesh, used_shaders,
 					                 dicing_rate, max_subdivisions);
 				else
@@ -970,7 +1005,7 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 	if(ccl::BKE_object_is_deform_modified(b_ob, b_scene, preview)) {
 		/* get derived mesh */
-		b_mesh = object_to_mesh(b_data, b_ob, b_scene, true, !preview, false);
+		b_mesh = object_to_mesh(b_data, b_ob, b_scene, true, !preview, false, false);
 	}
 
 	if(!b_mesh) {
