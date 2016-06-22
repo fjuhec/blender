@@ -143,7 +143,7 @@ static void get_topology(DerivedMesh *dm,
 	}
 }
 
-void get_material_indices(DerivedMesh *dm, std::vector<int32_t> &indices)
+static void get_material_indices(DerivedMesh *dm, std::vector<int32_t> &indices)
 {
 	indices.clear();
 	indices.reserve(dm->getNumTessFaces(dm));
@@ -156,10 +156,10 @@ void get_material_indices(DerivedMesh *dm, std::vector<int32_t> &indices)
 	}
 }
 
-void get_creases(DerivedMesh *dm,
-                 std::vector<int32_t> &indices,
-                 std::vector<int32_t> &lengths,
-                 std::vector<float> &sharpnesses)
+static void get_creases(DerivedMesh *dm,
+                        std::vector<int32_t> &indices,
+                        std::vector<int32_t> &lengths,
+                        std::vector<float> &sharpnesses)
 {
 	const float factor = 1.0f / 255.0f;
 
