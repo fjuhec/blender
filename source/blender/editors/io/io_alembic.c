@@ -103,7 +103,6 @@ static int wm_alembic_export_exec(bContext *C, wmOperator *op)
 	bool vcolors = RNA_boolean_get(op->ptr, "vcolors");
 	bool forcemeshes = RNA_boolean_get(op->ptr, "forcemeshes");
 	bool flatten = RNA_boolean_get(op->ptr, "flatten");
-	bool geoprops = RNA_boolean_get(op->ptr, "geoprops");
 	bool renderable = RNA_boolean_get(op->ptr, "renderable");
 	bool vislayers = RNA_boolean_get(op->ptr, "vislayers");
 	bool facesets = RNA_boolean_get(op->ptr, "facesets");
@@ -119,7 +118,7 @@ static int wm_alembic_export_exec(bContext *C, wmOperator *op)
 	                        1.0 / (double)gsamples,
 	                        sh_open, sh_close,
 	                        selected, uvs, normals, vcolors,
-	                        forcemeshes, flatten, geoprops,
+	                        forcemeshes, flatten,
 	                        vislayers, renderable, facesets, matindices,
 	                        subdiv_schem, compression, packuv, scale);
 
@@ -212,9 +211,6 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "forcemeshes", 0, NULL, ICON_NONE);
-
-	row = uiLayoutRow(box, false);
-	uiItemR(row, imfptr, "geoprops", 0, NULL, ICON_NONE);
 }
 
 static void wm_alembic_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -291,10 +287,6 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 
 	RNA_def_boolean(ot->srna, "forcemeshes", 0,
 	                "Apply Subsurf", "Export subdivision surfaces as meshes");
-
-	RNA_def_boolean(ot->srna, "geoprops", 0,
-	                "Custom Props As Geom Data",
-	                "Write custom properties as geometry properties (default to user data)");
 
 	RNA_def_enum(ot->srna, "compression_type", rna_enum_abc_compression_items,
 	             ABC_ARCHIVE_OGAWA, "Compression", "");

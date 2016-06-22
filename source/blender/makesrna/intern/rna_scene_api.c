@@ -204,7 +204,6 @@ static void rna_Scene_alembic_export(
         int vcolors,
         int force_meshes,
         int flatten_hierarchy,
-        int custom_props_as_geodata,
         int vislayers,
         int renderable,
         int facesets,
@@ -222,7 +221,7 @@ static void rna_Scene_alembic_export(
 	ABC_export(scene, C, filepath, start, end, 1.0 / xformsamples, 1.0 / geomsamples,
 	           shutter_open, shutter_close,
 	           selected_only, uvs, normals, vcolors,
-	           force_meshes, flatten_hierarchy, custom_props_as_geodata,
+	           force_meshes, flatten_hierarchy,
 	           vislayers, renderable, facesets, matindices, subdiv_schema,
 	           ogawa, packuv, scale);
 
@@ -377,7 +376,6 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_boolean(func, "vcolors"		, 0, "Vertex colors", "Export vertex colors");
 	RNA_def_boolean(func, "forcemeshes"	, 1, "Subsurfs as meshes", "Export subdivision surfaces as meshes");
 	RNA_def_boolean(func, "flatten"		, 0, "Flatten hierarchy", "Flatten hierarchy");
-	RNA_def_boolean(func, "geoprops"	, 1, "Custom props as geom data", "Write custom properties as geometry props");
 	RNA_def_boolean(func, "vislayers"	, 0, "Visible layers only", "Export only objects in visible layers");
 	RNA_def_boolean(func, "renderable"	, 0, "Renderable objects only", "Export only objects marked renderable in the outliner");
 	RNA_def_boolean(func, "facesets"	, 0, "Facesets", "Export facesets");

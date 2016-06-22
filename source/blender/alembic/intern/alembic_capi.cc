@@ -247,7 +247,7 @@ void ABC_get_vertex_cache(const char *filepath, float time, void *verts,
 
 	if (is_mverts) {
 		update_points(std::pair<IPolyMeshSchema, IObject>(schema, iobject),
-		              sample_sel, (MVert *)verts, 0, max_verts, NULL);
+		              sample_sel, static_cast<MVert *>(verts), 0, max_verts, NULL);
 	}
 	else {
 		float (*vcos)[3] = static_cast<float (*)[3]>(verts);
@@ -351,7 +351,6 @@ int ABC_export(Scene *scene, bContext *C, const char *filepath,
                int vcolors,
                int force_meshes,
                int flatten_hierarchy,
-               int custom_props_as_geodata,
                int vislayers, int renderable,
                int facesets, int matindices,
                int use_subdiv_schema, int compression, bool packuv, float scale)
@@ -374,7 +373,6 @@ int ABC_export(Scene *scene, bContext *C, const char *filepath,
 	job->settings.export_vcols = vcolors;
 	job->settings.export_subsurfs_as_meshes = force_meshes;
 	job->settings.flatten_hierarchy = flatten_hierarchy;
-	job->settings.export_props_as_geo_params = custom_props_as_geodata;
 	job->settings.visible_layers_only = vislayers;
 	job->settings.renderable_only = renderable;
 	job->settings.use_subdiv_schema = use_subdiv_schema;

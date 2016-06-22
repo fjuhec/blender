@@ -98,13 +98,17 @@ static bool object_is_shape(Object *ob)
 AbcExporter::AbcExporter(Scene *scene, const char *filename, ExportSettings &settings)
     : m_settings(settings)
     , m_filename(filename)
+    , m_trans_sampling_index(0)
+    , m_shape_sampling_index(0)
     , m_scene(scene)
 {}
 
 AbcExporter::~AbcExporter()
 {
-	for (std::map<std::string, AbcTransformWriter*>::iterator it = m_xforms.begin(), e = m_xforms.end(); it != e; ++it)
+	std::map<std::string, AbcTransformWriter*>::iterator it, e;
+	for (it = m_xforms.begin(), e = m_xforms.end(); it != e; ++it) {
 		delete it->second;
+	}
 
 	for (int i = 0, e = m_shapes.size(); i != e; ++i) {
 		delete m_shapes[i];
@@ -415,17 +419,14 @@ void AbcExporter::exploreObject(EvaluationContext *eval_ctx, Object *ob, Object 
 	createShapeWriter(ob, dupliObParent);
 	
 	if (lb) {
-		DupliObject *link = static_cast<DupliObject *>(lb->first);
-		Object *dupliob = NULL;
+		DupliObject *dupliob = static_cast<DupliObject *>(lb->first);
 
-		while (link) {
-			dupliob = link->ob;
-
-			if (link->type == OB_DUPLIGROUP) {
-				exploreObject(eval_ctx, dupliob, ob);
+		while (dupliob) {
+			if (dupliob->type == OB_DUPLIGROUP) {
+				exploreObject(eval_ctx, dupliob->ob, ob);
 			}
 
-			link = link->next;
+			dupliob = dupliob->next;
 		}
 	}
 

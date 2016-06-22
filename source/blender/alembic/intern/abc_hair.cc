@@ -189,7 +189,7 @@ void AbcHairWriter::write_hair_sample(DerivedMesh *dm,
 
 			/* iterate over all faces to find a corresponding underlying UV */
 			for (int n = 0; n < dm->getNumTessFaces(dm); ++n) {
-				MFace *face  = (MFace*)dm->getTessFaceData(dm, n, CD_MFACE);
+				MFace *face  = static_cast<MFace *>(dm->getTessFaceData(dm, n, CD_MFACE));
 				MTFace *tface = mtface + n;
 				unsigned int vtx[4];
 				vtx[0] = face->v1;
@@ -331,8 +331,8 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 	for (size_t i = 0; i < hvertices->size(); ++i) {
 		const int steps = (*hvertices)[i];
 
-		Nurb *nu = (Nurb *)MEM_callocN(sizeof(Nurb), "abc_getnurb");
-		nu->bp = (BPoint *)MEM_callocN(sizeof(BPoint) * steps, "abc_getnurb");
+		Nurb *nu = static_cast<Nurb *>(MEM_callocN(sizeof(Nurb), "abc_getnurb"));
+		nu->bp = static_cast<BPoint *>(MEM_callocN(sizeof(BPoint) * steps, "abc_getnurb"));
 		nu->type = CU_NURBS;
 		nu->resolu = cu->resolu;
 		nu->resolv = cu->resolv;

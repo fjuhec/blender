@@ -83,7 +83,7 @@ private:
 	void getGeoGroups(DerivedMesh *dm, std::map<std::string, std::vector<int32_t> > &geoGroups);
 	
 	/* fluid surfaces support */
-	void getVelocities(DerivedMesh *dm, std::vector<float> &vels);
+	void getVelocities(DerivedMesh *dm, std::vector<Imath::V3f> &vels);
 
 	template <typename Schema>
 	void writeCommonData(DerivedMesh *dm, Schema &schema);

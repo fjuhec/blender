@@ -101,15 +101,15 @@ using Alembic::AbcGeom::IN3fGeomParam;
 
 /* NOTE: Alembic's polygon winding order is clockwise, to match with Renderman. */
 
-static void get_vertices(DerivedMesh *dm, std::vector<float> &points)
+static void get_vertices(DerivedMesh *dm, std::vector<Imath::V3f> &points)
 {
 	points.clear();
-	points.resize(dm->getNumVerts(dm) * 3);
+	points.resize(dm->getNumVerts(dm));
 
 	MVert *verts = dm->getVertArray(dm);
 
 	for (int i = 0, e = dm->getNumVerts(dm); i < e; ++i) {
-		copy_zup_yup(&points[i * 3], verts[i].co);
+		copy_zup_yup(points[i].getValue(), verts[i].co);
 	}
 }
 
@@ -182,7 +182,7 @@ void get_creases(DerivedMesh *dm,
 	lengths.resize(sharpnesses.size(), 2);
 }
 
-static void get_vertex_normals(DerivedMesh *dm, std::vector<float> &normals)
+static void get_vertex_normals(DerivedMesh *dm, std::vector<Imath::V3f> &normals)
 {
 	normals.clear();
 	normals.resize(dm->getNumVerts(dm) * 3);
@@ -192,11 +192,11 @@ static void get_vertex_normals(DerivedMesh *dm, std::vector<float> &normals)
 
 	for (int i = 0, e = dm->getNumVerts(dm); i < e; ++i) {
 		normal_short_to_float_v3(no, verts[i].no);
-		copy_zup_yup(&normals[i * 3], no);
+		copy_zup_yup(normals[i].getValue(), no);
 	}
 }
 
-static void get_loop_normals(DerivedMesh *dm, std::vector<float> &normals)
+static void get_loop_normals(DerivedMesh *dm, std::vector<Imath::V3f> &normals)
 {
 	MPoly *mpoly = dm->getPolyArray(dm);
 	MPoly *mp = mpoly;
@@ -223,7 +223,7 @@ static void get_loop_normals(DerivedMesh *dm, std::vector<float> &normals)
 
 			for (int j = 0; j < mp->totloop; --ml, ++j, ++loop_index) {
 				const int index = ml->v;
-				copy_zup_yup(&normals[loop_index * 3], lnors[index]);
+				copy_zup_yup(normals[loop_index].getValue(), lnors[index]);
 			}
 		}
 	}
@@ -238,14 +238,14 @@ static void get_loop_normals(DerivedMesh *dm, std::vector<float> &normals)
 				BKE_mesh_calc_poly_normal(mp, ml - (mp->totloop - 1), verts, no);
 
 				for (int j = 0; j < mp->totloop; --ml, ++j, ++loop_index) {
-					copy_zup_yup(&normals[loop_index * 3], no);
+					copy_zup_yup(normals[loop_index].getValue(), no);
 				}
 			}
 			else {
 				/* Smooth shaded, use individual vert normals. */
 				for (int j = 0; j < mp->totloop; --ml, ++j, ++loop_index) {
 					normal_short_to_float_v3(no, verts[ml->v].no);
-					copy_zup_yup(&normals[loop_index * 3], no);
+					copy_zup_yup(normals[loop_index].getValue(), no);
 				}
 			}
 		}
@@ -397,7 +397,7 @@ void AbcMeshWriter::do_write()
 
 void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 {
-	std::vector<float> points, normals;
+	std::vector<Imath::V3f> points, normals;
 	std::vector<int32_t> poly_verts, loop_counts;
 
 	bool smooth_normal = false;
@@ -409,12 +409,9 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 		writeCommonData(dm, m_mesh_schema);
 	}
 
-	m_mesh_sample = OPolyMeshSchema::Sample(
-	                    V3fArraySample(
-	                        (const Imath::V3f *) &points.front(),
-	                        points.size() / 3),
-	                    Int32ArraySample(poly_verts),
-	                    Int32ArraySample(loop_counts));
+	m_mesh_sample = OPolyMeshSchema::Sample(V3fArraySample(points),
+	                                        Int32ArraySample(poly_verts),
+	                                        Int32ArraySample(loop_counts));
 
 	UVSample sample;
 	if (m_settings.export_uvs) {
@@ -422,8 +419,8 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 
 		if (!sample.indices.empty() && !sample.uvs.empty()) {
 			OV2fGeomParam::Sample uv_sample;
-			uv_sample.setVals(V2fArraySample(&sample.uvs[0], sample.uvs.size()));
-			uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
+			uv_sample.setVals(V2fArraySample(sample.uvs));
+			uv_sample.setIndices(UInt32ArraySample(sample.indices));
 			uv_sample.setScope(kFacevaryingScope);
 
 			m_mesh_schema.setUVSourceName(name);
@@ -444,22 +441,17 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 		ON3fGeomParam::Sample normals_sample;
 		if (!normals.empty()) {
 			normals_sample.setScope((smooth_normal) ? kFacevaryingScope : kVertexScope);
-			normals_sample.setVals(
-			            V3fArraySample(
-			                (const Imath::V3f *)&normals.front(),
-			                normals.size() / 3));
+			normals_sample.setVals(V3fArraySample(normals));
 		}
 
 		m_mesh_sample.setNormals(normals_sample);
 	}
 
 	if (m_is_liquid) {
-		std::vector<float> velocities;
+		std::vector<Imath::V3f> velocities;
 		getVelocities(dm, velocities);
 
-		m_mesh_sample.setVelocities(V3fArraySample(
-		                                (const Imath::V3f *)&velocities.front(),
-		                                velocities.size() / 3));
+		m_mesh_sample.setVelocities(V3fArraySample(velocities));
 	}
 
 	m_mesh_sample.setSelfBounds(bounds());
@@ -471,7 +463,8 @@ void AbcMeshWriter::writeMesh(DerivedMesh *dm)
 
 void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 {
-	std::vector<float> points, crease_sharpness;
+	std::vector<float> crease_sharpness;
+	std::vector<Imath::V3f> points;
 	std::vector<int32_t> poly_verts, loop_counts;
 	std::vector<int32_t> crease_indices, crease_lengths;
 
@@ -486,12 +479,9 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 		writeCommonData(dm, m_subdiv_schema);
 	}
 
-	m_subdiv_sample = OSubDSchema::Sample(
-	                      V3fArraySample(
-	                          (const Imath::V3f *) &points.front(),
-	                          points.size() / 3),
-	                      Int32ArraySample(poly_verts),
-	                      Int32ArraySample(loop_counts));
+	m_subdiv_sample = OSubDSchema::Sample(V3fArraySample(points),
+	                                      Int32ArraySample(poly_verts),
+	                                      Int32ArraySample(loop_counts));
 
 	UVSample sample;
 	if (m_settings.export_uvs) {
@@ -499,8 +489,8 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 
 		if (!sample.indices.empty() && !sample.uvs.empty()) {
 			OV2fGeomParam::Sample uv_sample;
-			uv_sample.setVals(V2fArraySample(&sample.uvs[0], sample.uvs.size()));
-			uv_sample.setIndices(UInt32ArraySample(&sample.indices[0], sample.indices.size()));
+			uv_sample.setVals(V2fArraySample(sample.uvs));
+			uv_sample.setIndices(UInt32ArraySample(sample.indices));
 			uv_sample.setScope(kFacevaryingScope);
 
 			m_subdiv_schema.setUVSourceName(name);
@@ -603,12 +593,12 @@ void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 	}
 }
 
-void AbcMeshWriter::getVelocities(DerivedMesh *dm, std::vector<float> &vels)
+void AbcMeshWriter::getVelocities(DerivedMesh *dm, std::vector<Imath::V3f> &vels)
 {
 	const int totverts = dm->getNumVerts(dm);
 
 	vels.clear();
-	vels.resize(totverts * 3);
+	vels.resize(totverts);
 
 	ModifierData *md = get_liquid_sim_modifier(m_scene, m_object);
 	FluidsimModifierData *fmd = reinterpret_cast<FluidsimModifierData *>(md);
@@ -618,12 +608,12 @@ void AbcMeshWriter::getVelocities(DerivedMesh *dm, std::vector<float> &vels)
 		float *mesh_vels = reinterpret_cast<float *>(fss->meshVelocities);
 
 		for (int i = 0; i < totverts; ++i) {
-			copy_zup_yup(&vels[i * 3], mesh_vels);
+			copy_zup_yup(vels[i].getValue(), mesh_vels);
 			mesh_vels += 3;
 		}
 	}
 	else {
-		std::fill(vels.begin(), vels.end(), 0.0f);
+		std::fill(vels.begin(), vels.end(), Imath::V3f(0.0f));
 	}
 }
 
@@ -1109,11 +1099,13 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *ld
 	float (*pnors)[3] = NULL;
 
 	if (normals) {
-		pnors = (float (*)[3])CustomData_get_layer(ldata, CD_NORMAL);
+		void *vptr = CustomData_get_layer(ldata, CD_NORMAL);
 
-		if (!pnors) {
-			pnors = (float (*)[3])CustomData_add_layer(ldata, CD_NORMAL, CD_CALLOC, NULL, normals->size());
+		if (!vptr) {
+			vptr = CustomData_add_layer(ldata, CD_NORMAL, CD_CALLOC, NULL, normals->size());
 		}
+
+		pnors = static_cast<float (*)[3]>(vptr);
 	}
 
 	const bool do_normals = (normals && pnors);

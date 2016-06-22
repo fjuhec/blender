@@ -34,77 +34,34 @@ extern "C" {
 }
 
 ExportSettings::ExportSettings()
-    : scene(NULL)
-{
-	selected_only = false;
-	visible_layers_only = false;
-	renderable_only = false;
-
-	startframe = 1;
-	endframe = 10;
-	xform_frame_step = 1;
-	shape_frame_step = 1;
-	shutter_open = 0.0;
-	shutter_close = 1.0;
-	global_scale = 1.0f;
-
-	flatten_hierarchy = false;
-
-	export_normals = true;
-	export_uvs = true;
-	export_vcols = true;
-	export_face_sets = false;
-	export_mat_indices = false;
-	export_vweigths = false;
-
-	export_subsurfs_as_meshes = false;
-	export_props_as_geo_params = true;
-}
-
-bool ExportSettings::exportTransform(Object *obj) const
-{
-	return !isAbcRoot(obj);
-}
-
-bool ExportSettings::checkIsAbcRoot(Object *ob)
-{
-	Object *parent = ob;
-
-	while (parent) {
-		if (isAbcRoot(parent)) {
-			return true;
-		}
-
-		parent = parent->parent;
-	}
-
-	return false;
-}
-
-bool ExportSettings::isAbcRoot(Object *obj) const
-{
-	ID *id = reinterpret_cast<ID *>(obj);
-	IDProperty *xport_props = IDP_GetProperties(id, false);
-
-	if (!xport_props) {
-		return false;
-	}
-
-	IDProperty *enable_xport = IDP_GetPropertyFromGroup(xport_props, "isAbcRoot");
-
-	if (enable_xport) {
-		return true;
-	}
-
-	return false;
-}
+    : selected_only(false)
+	, visible_layers_only(false)
+	, renderable_only(false)
+	, startframe(1)
+    , endframe(1)
+	, xform_frame_step(1)
+	, shape_frame_step(1)
+	, shutter_open(0.0)
+	, shutter_close(1.0)
+	, global_scale(1.0f)
+	, flatten_hierarchy(false)
+	, export_normals(false)
+	, export_uvs(false)
+	, export_vcols(false)
+	, export_face_sets(false)
+	, export_mat_indices(false)
+	, export_vweigths(false)
+	, export_subsurfs_as_meshes(false)
+	, use_subdiv_schema(false)
+	, export_child_hairs(true)
+	, export_ogawa(true)
+	, pack_uv(false)
+	, do_convert_axis(false)
+	, scene(NULL)
+{}
 
 bool ExportSettings::exportObject(Object *obj) const
 {
-	if (!exportTransform(obj)) {
-		return false;
-	}
-
 	if (selected_only && !parent_selected(obj)) {
 		return false;
 	}

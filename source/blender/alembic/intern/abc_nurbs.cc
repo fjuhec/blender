@@ -230,7 +230,7 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 	std::vector< std::pair<INuPatchSchema, IObject> >::iterator it;
 
 	for (it = m_schemas.begin(); it != m_schemas.end(); ++it) {
-		Nurb *nu = (Nurb *)MEM_callocN(sizeof(Nurb), "abc_getnurb");
+		Nurb *nu = static_cast<Nurb *>(MEM_callocN(sizeof(Nurb), "abc_getnurb"));
 		nu->flag  = CU_SMOOTH;
 		nu->type = CU_NURBS;
 		nu->resolu = 4;
@@ -257,9 +257,9 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 		nu->pntsv = num_V;
 		nu->bezt = NULL;
 
-		nu->bp = (BPoint *)MEM_callocN(numPt * sizeof(BPoint), "abc_setsplinetype");
-		nu->knotsu = (float *)MEM_callocN(numKnotsU * sizeof(float), "abc_setsplineknotsu");
-		nu->knotsv = (float *)MEM_callocN(numKnotsV * sizeof(float), "abc_setsplineknotsv");
+		nu->bp = static_cast<BPoint *>(MEM_callocN(numPt * sizeof(BPoint), "abc_setsplinetype"));
+		nu->knotsu = static_cast<float *>(MEM_callocN(numKnotsU * sizeof(float), "abc_setsplineknotsu"));
+		nu->knotsv = static_cast<float *>(MEM_callocN(numKnotsV * sizeof(float), "abc_setsplineknotsv"));
 		nu->bp->radius = 1.0f;
 
 		for (int i = 0; i < numPt; ++i) {

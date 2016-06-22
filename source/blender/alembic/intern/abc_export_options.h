@@ -28,10 +28,7 @@ struct Scene;
 struct ExportSettings {
 	ExportSettings();
 
-	bool exportTransform(Object *obj) const;
-	bool isAbcRoot(Object *obj) const;
 	bool exportObject(Object *obj) const;
-	bool checkIsAbcRoot(Object *ob);
 
 	bool selected_only;
 	bool visible_layers_only;
@@ -54,7 +51,6 @@ struct ExportSettings {
 	bool export_vweigths;
 
 	bool export_subsurfs_as_meshes;
-	bool export_props_as_geo_params;
 	bool use_subdiv_schema;
 	bool export_child_hairs;
 	bool export_ogawa;
