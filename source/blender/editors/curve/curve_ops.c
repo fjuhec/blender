@@ -140,6 +140,7 @@ void ED_operatortypes_curve(void)
 	WM_operatortype_append(CURVE_OT_extrude);
 	WM_operatortype_append(CURVE_OT_cyclic_toggle);
 	WM_operatortype_append(CURVE_OT_extend_curve);
+	WM_operatortype_append(CURVE_OT_trim_curve);
 
 	WM_operatortype_append(CURVE_OT_match_texture_space);
 }
