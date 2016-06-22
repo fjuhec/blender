@@ -93,3 +93,31 @@ void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem)
 
 	objectlayer_array_resize(oblayer, oblayer->tot_bases - 1);
 }
+
+/**
+ * Find the first layer that has \a base in it.
+ * \param inverse: Do inverse loockup to find last layer rather than first one.
+ */
+LayerTypeObject *BKE_objectlayer_from_base(LayerTree *ltree, const Base *base, const bool inverse)
+{
+	BLI_assert(ltree->type == LAYER_TREETYPE_OBJECT);
+
+	for (int i = inverse ? ltree->tot_items - 1 : 0;
+	     inverse ? i >= 0 : i < ltree->tot_items;
+	     inverse ? i-- : i++)
+	{
+		LayerTreeItem *litem = ltree->items_all[i];
+		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, iterbase)
+			{
+				if (iterbase == base) {
+					return oblayer;
+				}
+			}
+			BKE_OBJECTLAYER_BASES_ITER_END;
+		}
+	}
+
+	return NULL;
+}

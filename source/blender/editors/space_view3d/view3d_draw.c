@@ -92,6 +92,8 @@
 #include "ED_screen_types.h"
 #include "ED_transform.h"
 
+#include "RNA_access.h"
+
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
 #include "UI_resources.h"
@@ -120,6 +122,15 @@ extern void bl_debug_draw_quad_add(const float v0[3], const float v1[3], const f
 extern void bl_debug_draw_edge_add(const float v0[3], const float v1[3]);
 extern void bl_debug_color_set(const unsigned int col);
 #endif
+
+ThemeWireColor *view3d_layer_color_from_base(LayerTree *ltree, const Base *base)
+{
+	bTheme *btheme = UI_GetTheme();
+	LayerTypeObject *oblayer = BKE_objectlayer_from_base(ltree, base, true);
+	const int col_idx = oblayer ? RNA_enum_get(oblayer->litem.ptr, "color_set") : 0;
+
+	return (col_idx > 0) ? &btheme->tarm[col_idx - 1] : NULL;
+}
 
 void circf(float x, float y, float rad)
 {
@@ -2213,13 +2224,32 @@ static void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *bas
 {
 	/* define the color here so draw_dupli_objects_color can be called
 	 * from the set loop */
+	const bool is_wire_color = V3D_IS_WIRECOLOR(v3d);
+	bool use_wire_color = false;
+	short dflag;
+	int color;
+
+	if (is_wire_color) {
+		ThemeWireColor *wcol = view3d_layer_color_from_base(scene->object_layers, base);
+		if (wcol) {
+			glColor3ubv((unsigned char *)(base->flag & SELECT ? wcol->select : wcol->solid));
+
+			color = TH_UNDEFINED;
+			dflag = DRAW_CONSTCOLOR;
+			use_wire_color = true;
+		}
+	}
+
+	/* fallback to theme setting */
+	if (!use_wire_color) {
+		color = (base->flag & SELECT) ? TH_SELECT : TH_WIRE;
+		/* debug */
+		if (base->object->dup_group && base->object->dup_group->id.us < 1)
+			color = TH_REDALERT;
+		dflag = 0;
+	}
 	
-	int color = (base->flag & SELECT) ? TH_SELECT : TH_WIRE;
-	/* debug */
-	if (base->object->dup_group && base->object->dup_group->id.us < 1)
-		color = TH_REDALERT;
-	
-	draw_dupli_objects_color(scene, ar, v3d, base, 0, color);
+	draw_dupli_objects_color(scene, ar, v3d, base, dflag, color);
 }
 
 /* XXX warning, not using gpu offscreen here */

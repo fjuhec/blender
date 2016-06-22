@@ -288,6 +288,7 @@ LayerTreeItem *BKE_objectlayer_add(
 void BKE_objectlayer_free(LayerTreeItem *litem);
 void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem);
 void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem);
+LayerTypeObject *BKE_objectlayer_from_base(LayerTree *ltree, const Base *base, const bool inverse);
 
 #ifdef __cplusplus
 }

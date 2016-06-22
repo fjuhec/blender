@@ -7573,11 +7573,28 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 
 	/* which wire color */
 	if ((dflag & DRAW_CONSTCOLOR) == 0) {
+		const bool is_wire_color = V3D_IS_WIRECOLOR(v3d);
+		bool use_wire_color = false;
 
 		ED_view3d_project_base(ar, base);
 
-		draw_object_wire_color(scene, base, _ob_wire_col);
-		ob_wire_col = _ob_wire_col;
+		if (is_wire_color) {
+			ThemeWireColor *wcol = view3d_layer_color_from_base(scene->object_layers, base);
+			if (wcol) {
+				if (base->flag & SELECT) {
+					ob_wire_col = (unsigned char *)(scene->basact == base ? wcol->active : wcol->select);
+				}
+				else {
+					ob_wire_col = (unsigned char *)wcol->solid;
+				}
+				use_wire_color = true;
+			}
+		}
+		/* fallback to theme setting */
+		if (!use_wire_color) {
+			draw_object_wire_color(scene, base, _ob_wire_col);
+			ob_wire_col = _ob_wire_col;
+		}
 
 		glColor3ubv(ob_wire_col);
 	}
