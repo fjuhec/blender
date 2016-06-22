@@ -776,6 +776,11 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		uv.getIndexed(uvsamp, sample_sel);
 		uvs = uvsamp.getVals();
 		uvs_indices = uvsamp.getIndices();
+
+		if (uvs_indices->size() != dm->getNumLoops(dm)) {
+			uvs = Alembic::Abc::V2fArraySamplePtr();
+			uvs_indices = Alembic::Abc::UInt32ArraySamplePtr();
+		}
 	}
 
 	N3fArraySamplePtr vertex_normals, poly_normals;

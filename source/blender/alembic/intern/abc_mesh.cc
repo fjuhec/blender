@@ -979,16 +979,18 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 		uvs = uvsamp.getVals();
 		uvs_indices = uvsamp.getIndices();
 
-		std::string name = Alembic::Abc::GetSourceName(uv.getMetaData());
+		if (uvs_indices->size() == mesh->totloop) {
+			std::string name = Alembic::Abc::GetSourceName(uv.getMetaData());
 
-		/* According to the convention, primary UVs should have had their name
-		 * set using Alembic::Abc::SetSourceName, but you can't expect everyone
-		 * to follow it! :) */
-		if (name.empty()) {
-			name = uv.getName();
+			/* According to the convention, primary UVs should have had their name
+			 * set using Alembic::Abc::SetSourceName, but you can't expect everyone
+			 * to follow it! :) */
+			if (name.empty()) {
+				name = uv.getName();
+			}
+
+			ED_mesh_uv_texture_add(mesh, name.c_str(), true);
 		}
-
-		ED_mesh_uv_texture_add(mesh, name.c_str(), true);
 	}
 
 	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv, &mesh->ldata,
@@ -1109,7 +1111,7 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *ld
 	}
 
 	const bool do_normals = (normals && pnors);
-	const bool do_uvs = (mloopuvs && uvs && uvs_indices);
+	const bool do_uvs = (mloopuvs && uvs && uvs_indices) && (uvs_indices->size() == face_indices->size());
 	unsigned int loop_index = 0;
 	unsigned int rev_loop_index = 0;
 	unsigned int uv_index = 0;
