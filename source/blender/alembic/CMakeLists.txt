@@ -1,4 +1,3 @@
-# $Id: CMakeLists.txt 21789 2009-07-22 05:35:12Z kazanbas $
 # ***** BEGIN GPL LICENSE BLOCK *****
 #
 # This program is free software; you can redistribute it and/or
@@ -20,11 +19,9 @@
 #
 # The Original Code is: all of this file.
 #
-# Contributor(s): Esteban Tovagliari.
+# Contributor(s): Kevin Dietrich.
 #
 # ***** END GPL LICENSE BLOCK *****
-
-remove_strict_flags()
 
 set(INC
 	.

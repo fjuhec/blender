@@ -49,8 +49,9 @@ struct CDStreamConfig {
 
 	bool pack_uvs;
 
-	/* XXX - might need a better to handle adding custom datas in a way that
-	 * updates the custom data holder and its pointers properly. */
+	/* TODO(kevin): might need a better way to handle adding and/or updating
+	 * custom datas such that it updates the custom data holder and its pointers
+	 * properly. */
 	void *user_data;
 	void *(*add_customdata_cb)(void *user_data, const char *name, int data_type);
 
