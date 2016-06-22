@@ -161,53 +161,54 @@
 
 #include <errno.h>
 
-/*
- * Remark: still a weak point is the newaddress() function, that doesnt solve reading from
- * multiple files at the same time
- *
- * (added remark: oh, i thought that was solved? will look at that... (ton)
- *
+/**
  * READ
- * - Existing Library (Main) push or free
- * - allocate new Main
+ * ====
+ *
+ * - Existing Library (#Main) push or free
+ * - allocate new #Main
  * - load file
- * - read SDNA
+ * - read #SDNA
  * - for each LibBlock
- *     - read LibBlock
- *     - if a Library
- *         - make a new Main
- *         - attach ID's to it
- *     - else
- *         - read associated 'direct data'
- *         - link direct data (internal and to LibBlock)
- * - read FileGlobal
- * - read USER data, only when indicated (file is ~/X.XX/startup.blend)
+ *   - read LibBlock
+ *   - if a Library
+ *     - make a new #Main
+ *     - attach ID's to it
+ *   - else
+ *     - read associated 'direct data'
+ *     - link direct data (internal and to LibBlock)
+ * - read #FileGlobal
+ * - read #USER data, only when indicated (file is ``~/X.XX/startup.blend``)
  * - free file
- * - per Library (per Main)
- *     - read file
- *     - read SDNA
- *     - find LibBlocks and attach IDs to Main
- *         - if external LibBlock
- *             - search all Main's
- *                 - or it's already read,
- *                 - or not read yet
- *                 - or make new Main
- *     - per LibBlock
- *         - read recursive
- *         - read associated direct data
- *         - link direct data (internal and to LibBlock)
- *     - free file
+ * - per Library (per #Main)
+ *   - read file
+ *   - read #SDNA
+ *   - find LibBlocks and attach #ID's to #Main
+ *     - if external LibBlock
+ *       - search all #Main's
+ *         - or it's already read,
+ *         - or not read yet
+ *         - or make new #Main
+ *   - per LibBlock
+ *     - read recursive
+ *     - read associated direct data
+ *     - link direct data (internal and to LibBlock)
+ *   - free file
  * - per Library with unread LibBlocks
- *     - read file
- *     - read SDNA
- *     - per LibBlock
- *                - read recursive
- *                - read associated direct data
- *                - link direct data (internal and to LibBlock)
- *         - free file
- * - join all Mains
+ *   - read file
+ *   - read #SDNA
+ *   - per LibBlock
+ *     - read recursive
+ *     - read associated direct data
+ *     - link direct data (internal and to LibBlock)
+ *   - free file
+ * - join all #Main's
  * - link all LibBlocks and indirect pointers to libblocks
- * - initialize FileGlobal and copy pointers to Global
+ * - initialize #FileGlobal and copy pointers to #Global
+ *
+ * \note Still a weak point is the new-address function, that doesnt solve reading from
+ * multiple files at the same time.
+ * (added remark: oh, i thought that was solved? will look at that... (ton).
  */
 
 /* use GHash for BHead name-based lookups (speeds up linking) */
@@ -1259,7 +1260,7 @@ void blo_freefiledata(FileData *fd)
 		}
 		
 		if (fd->strm.next_in) {
-			if (inflateEnd (&fd->strm) != Z_OK) {
+			if (inflateEnd(&fd->strm) != Z_OK) {
 				printf("close gzip stream error\n");
 			}
 		}
@@ -3971,7 +3972,7 @@ static void direct_link_pointcache_cb(FileData *fd, void *data)
 
 		/* the cache saves non-struct data without DNA */
 		if (pm->data[i] && ptcache_data_struct[i][0]=='\0' && (fd->flags & FD_FLAGS_SWITCH_ENDIAN)) {
-			int tot = (BKE_ptcache_data_size (i) * pm->totpoint) / sizeof(int); /* data_size returns bytes */
+			int tot = (BKE_ptcache_data_size(i) * pm->totpoint) / sizeof(int);  /* data_size returns bytes */
 			int *poin = pm->data[i];
 
 			BLI_endian_switch_int32_array(poin, tot);
@@ -4055,9 +4056,13 @@ static void lib_link_particlesettings(FileData *fd, Main *main)
 			lib_link_partdeflect(fd, &part->id, part->pd);
 			lib_link_partdeflect(fd, &part->id, part->pd2);
 			
-			if (part->effector_weights)
+			if (part->effector_weights) {
 				part->effector_weights->group = newlibadr(fd, part->id.lib, part->effector_weights->group);
-			
+			}
+			else {
+				part->effector_weights = BKE_add_effector_weights(part->eff_group);
+			}
+
 			if (part->dupliweights.first && part->dup_group) {
 				int index_ok = 0;
 				/* check for old files without indices (all indexes 0) */
@@ -7034,11 +7039,7 @@ static bool direct_link_screen(FileData *fd, bScreen *sc)
 			}
 			else if (sl->spacetype == SPACE_IMAGE) {
 				SpaceImage *sima = (SpaceImage *)sl;
-				
-				sima->cumap = newdataadr(fd, sima->cumap);
-				if (sima->cumap)
-					direct_link_curvemapping(fd, sima->cumap);
-				
+
 				sima->iuser.scene = NULL;
 				sima->iuser.ok = 1;
 				sima->scopes.waveform_1 = NULL;
@@ -7946,16 +7947,22 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 	if (fd->memfile && ELEM(bhead->code, ID_LI, ID_ID)) {
 		const char *idname = bhead_id_name(fd, bhead);
 
-		/* printf("Checking %s...\n", idname); */
+#ifdef PRINT_DEBUG
+		printf("Checking %s...\n", idname);
+#endif
 
 		if (bhead->code == ID_LI) {
 			Main *libmain = fd->old_mainlist->first;
 			/* Skip oldmain itself... */
 			for (libmain = libmain->next; libmain; libmain = libmain->next) {
-				/* printf("... against %s: ", libmain->curlib ? libmain->curlib->id.name : "<NULL>"); */
+#ifdef PRINT_DEBUG
+				printf("... against %s: ", libmain->curlib ? libmain->curlib->id.name : "<NULL>");
+#endif
 				if (libmain->curlib && STREQ(idname, libmain->curlib->id.name)) {
 					Main *oldmain = fd->old_mainlist->first;
-					/* printf("FOUND!\n"); */
+#ifdef PRINT_DEBUG
+					printf("FOUND!\n");
+#endif
 					/* In case of a library, we need to re-add its main to fd->mainlist, because if we have later
 					 * a missing ID_ID, we need to get the correct lib it is linked to!
 					 * Order is crucial, we cannot bulk-add it in BLO_read_from_memfile() like it used to be... */
@@ -7969,13 +7976,19 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 					}
 					return blo_nextbhead(fd, bhead);
 				}
-				/* printf("nothing...\n"); */
+#ifdef PRINT_DEBUG
+				printf("nothing...\n");
+#endif
 			}
 		}
 		else {
-			/* printf("... in %s (%s): ", main->curlib ? main->curlib->id.name : "<NULL>", main->curlib ? main->curlib->name : "<NULL>"); */
+#ifdef PRINT_DEBUG
+			printf("... in %s (%s): ", main->curlib ? main->curlib->id.name : "<NULL>", main->curlib ? main->curlib->name : "<NULL>");
+#endif
 			if ((id = BKE_libblock_find_name_ex(main, GS(idname), idname + 2))) {
-				/* printf("FOUND!\n"); */
+#ifdef PRINT_DEBUG
+				printf("FOUND!\n");
+#endif
 				/* Even though we found our linked ID, there is no guarantee its address is still the same... */
 				if (id != bhead->old) {
 					oldnewmap_insert(fd->libmap, bhead->old, id, GS(id->name));
@@ -7987,7 +8000,9 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 				}
 				return blo_nextbhead(fd, bhead);
 			}
-			/* printf("nothing...\n"); */
+#ifdef PRINT_DEBUG
+			printf("nothing...\n");
+#endif
 		}
 	}
 
@@ -8504,7 +8519,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 
 struct BHeadSort {
 	BHead *bhead;
-	void *old;
+	const void *old;
 };
 
 static int verg_bheadsort(const void *v1, const void *v2)
