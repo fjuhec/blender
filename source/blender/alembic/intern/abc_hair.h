@@ -64,6 +64,22 @@ private:
 
 /* ************************************************************************** */
 
+class AbcCurveWriter : public AbcObjectWriter {
+	Alembic::AbcGeom::OCurvesSchema m_schema;
+	Alembic::AbcGeom::OCurvesSchema::Sample m_sample;
+
+public:
+	AbcCurveWriter(Scene *scene,
+	               Object *ob,
+	               AbcTransformWriter *parent,
+	               uint32_t time_sampling,
+	               ExportSettings &settings);
+
+	void do_write();
+};
+
+/* ************************************************************************** */
+
 class AbcCurveReader : public AbcObjectReader {
 	Alembic::AbcGeom::ICurvesSchema m_curves_schema;
 

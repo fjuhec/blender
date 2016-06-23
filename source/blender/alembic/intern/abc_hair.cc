@@ -299,6 +299,90 @@ void AbcHairWriter::write_hair_child_sample(DerivedMesh *dm,
 
 /* ************************************************************************** */
 
+AbcCurveWriter::AbcCurveWriter(Scene *scene,
+                               Object *ob,
+                               AbcTransformWriter *parent,
+                               uint32_t time_sampling,
+                               ExportSettings &settings)
+    : AbcObjectWriter(scene, ob, time_sampling, settings, parent)
+{
+	OCurves curves(parent->alembicXform(), m_name, m_time_sampling);
+	m_schema = curves.getSchema();
+}
+
+void AbcCurveWriter::do_write()
+{
+	Curve *curve = static_cast<Curve *>(m_object->data);
+
+	std::vector<Imath::V3f> verts;
+	std::vector<int32_t> vert_counts;
+	std::vector<float> widths;
+	Imath::V3f temp_vert;
+
+	Alembic::AbcGeom::BasisType curve_basis;
+	Alembic::AbcGeom::CurveType curve_type;
+	Alembic::AbcGeom::CurvePeriodicity periodicity;
+
+	Nurb *nurbs = static_cast<Nurb *>(curve->nurb.first);
+	for (; nurbs; nurbs = nurbs->next) {
+		if ((nurbs->flagu & CU_NURB_ENDPOINT) != 0) {
+			periodicity = Alembic::AbcGeom::kNonPeriodic;
+		}
+		else if ((nurbs->flagu & CU_NURB_CYCLIC) != 0) {
+			periodicity = Alembic::AbcGeom::kPeriodic;
+		}
+
+		if (nurbs->bp) {
+			curve_basis = Alembic::AbcGeom::kNoBasis;
+			curve_type = Alembic::AbcGeom::kLinear;
+
+			const int totpoint = nurbs->pntsu * nurbs->pntsv;
+			vert_counts.push_back(totpoint);
+
+			const BPoint *point = nurbs->bp;
+
+			for (int i = 0; i < totpoint; ++i, ++point) {
+				copy_zup_yup(temp_vert.getValue(), point->vec);
+				verts.push_back(temp_vert);
+				widths.push_back(point->radius);
+			}
+		}
+		else if (nurbs->bezt) {
+			curve_basis = Alembic::AbcGeom::kBezierBasis;
+			curve_type = Alembic::AbcGeom::kCubic;
+
+			const int totpoint = nurbs->pntsu;
+			vert_counts.push_back(totpoint);
+
+			const BezTriple *bezier = nurbs->bezt;
+
+			/* TODO: how does Alembic store info about handles, if applicable? */
+			for (int i = 0; i < totpoint; ++i, ++bezier) {
+				copy_zup_yup(temp_vert.getValue(), bezier->vec[1]);
+				verts.push_back(temp_vert);
+			}
+		}
+	}
+
+	Alembic::Abc::P3fArraySample pos(verts);
+	m_sample = OCurvesSchema::Sample(pos, vert_counts);
+	m_sample.setBasis(curve_basis);
+	m_sample.setType(curve_type);
+	m_sample.setWrap(periodicity);
+
+	if (!widths.empty()) {
+		Alembic::AbcGeom::OFloatGeomParam::Sample width_sample;
+		width_sample.setVals(widths);
+
+		m_sample.setWidths(width_sample);
+	}
+
+	m_sample.setSelfBounds(bounds());
+	m_schema.set(m_sample);
+}
+
+/* ************************************************************************** */
+
 AbcCurveReader::AbcCurveReader(const Alembic::Abc::IObject &object, ImportSettings &settings)
     : AbcObjectReader(object, settings)
 {
@@ -358,7 +442,7 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 		BLI_addtail(&cu->nurb, nu);
 	}
 
-	cu->actnu = hvertices->size() - 1;
+	cu->actnu = hvertices->size();
 	cu->actvert = CU_ACT_NONE;
 
 	if (m_settings->is_sequence || !m_curves_schema.isConstant()) {

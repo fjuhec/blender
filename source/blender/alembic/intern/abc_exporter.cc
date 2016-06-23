@@ -85,6 +85,7 @@ static bool object_is_shape(Object *ob)
 
 			return true;
 			break;
+		case OB_CURVE:
 		case OB_SURF:
 		case OB_CAMERA:
 			return true;
@@ -496,6 +497,17 @@ void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 			}
 
 			m_shapes.push_back(new AbcNurbsWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
+			break;
+		}
+		case OB_CURVE:
+		{
+			Curve *cu = static_cast<Curve *>(ob->data);
+
+			if (!cu) {
+				return;
+			}
+
+			m_shapes.push_back(new AbcCurveWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
 			break;
 		}
 		case OB_CAMERA:
