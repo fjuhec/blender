@@ -61,32 +61,3 @@ private:
 	                             std::vector<Imath::V2f> &uv_values,
 	                             std::vector<int32_t> &hvertices);
 };
-
-/* ************************************************************************** */
-
-class AbcCurveWriter : public AbcObjectWriter {
-	Alembic::AbcGeom::OCurvesSchema m_schema;
-	Alembic::AbcGeom::OCurvesSchema::Sample m_sample;
-
-public:
-	AbcCurveWriter(Scene *scene,
-	               Object *ob,
-	               AbcTransformWriter *parent,
-	               uint32_t time_sampling,
-	               ExportSettings &settings);
-
-	void do_write();
-};
-
-/* ************************************************************************** */
-
-class AbcCurveReader : public AbcObjectReader {
-	Alembic::AbcGeom::ICurvesSchema m_curves_schema;
-
-public:
-	AbcCurveReader(const Alembic::Abc::IObject &object, ImportSettings &settings);
-
-	bool valid() const;
-
-	void readObjectData(Main *bmain, Scene *scene, float time);
-};

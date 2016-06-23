@@ -28,6 +28,7 @@
 #include <Alembic/AbcCoreOgawa/All.h>
 
 #include "abc_camera.h"
+#include "abc_curves.h"
 #include "abc_hair.h"
 #include "abc_mesh.h"
 #include "abc_nurbs.h"
