@@ -2099,6 +2099,7 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 		ob->sculpt->cache->totalGreen = MEM_callocN(totNode * sizeof(unsigned int), "totalGreen");
 		ob->sculpt->cache->totalBlue = MEM_callocN(totNode * sizeof(unsigned int), "totalBlue");
 		ob->sculpt->cache->totalAlpha = MEM_callocN(totNode * sizeof(unsigned int), "totalAlpha");
+		ob->sculpt->cache->colorWeight = MEM_callocN(totNode * sizeof(unsigned int), "colorWeight");
 		ob->sculpt->cache->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
 	}
 
@@ -3108,17 +3109,21 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 
 		//Test to see if the vertex coordinates are within the spherical brush region.
 		if (sculpt_brush_test(&test, vd.co)) {
-			int vertexIndex = vd.vert_indices[vd.i];
+			if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
+				data->colorWeight[n] = BKE_brush_curve_strength(data->brush, test.dist, cache->radius);
 
-			data->totloopsHit[n] += cache->vert_to_loop[vertexIndex].count;
-			//if a vertex is within the brush region, then add it's color to the blend.
-			for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
-				int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
-				col = (char *)(&lcol[loopIndex]);
-				blend[0] += col[0];
-				blend[1] += col[1];
-				blend[2] += col[2];
-				blend[3] += col[3];
+				int vertexIndex = vd.vert_indices[vd.i];
+
+				data->totloopsHit[n] += cache->vert_to_loop[vertexIndex].count;
+				//if a vertex is within the brush region, then add it's color to the blend.
+				for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
+					int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
+					col = (char *)(&lcol[loopIndex]);
+					blend[0] += col[0];
+					blend[1] += col[1];
+					blend[2] += col[2];
+					blend[3] += col[3];
+				}
 			}
 		}
 		BKE_pbvh_vertex_iter_end;
@@ -3151,8 +3156,7 @@ static void do_vpaint_brush_draw_task_cb_ex(
 		
 		//Test to see if the vertex coordinates are within the spherical brush region.
 		if (sculpt_brush_test(&test, vd.co)) {
-			const float fade = tex_strength(ss, brush, vd.co, test.dist, vd.no, vd.fno, 0.0f, thread_id);
-			
+			const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 			int vertexIndex = vd.vert_indices[vd.i];
 			
 			//if a vertex is within the brush region, then paint each loop that vertex owns.
@@ -3181,11 +3185,12 @@ static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object 
 
 	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
 		//To be moved
-		data.totalRed = ob->sculpt->cache->totalRed; //MEM_callocN(totnode*sizeof(unsigned int), "totalRed");
-		data.totalGreen = ob->sculpt->cache->totalGreen; // MEM_callocN(totnode*sizeof(unsigned int), "totalGreen");
-		data.totalBlue = ob->sculpt->cache->totalBlue; //MEM_callocN(totnode*sizeof(unsigned int), "totalBlue");
-		data.totalAlpha = ob->sculpt->cache->totalAlpha;// MEM_callocN(totnode*sizeof(unsigned int), "totalAlpha");
-		data.totloopsHit = ob->sculpt->cache->totloopsHit; //MEM_callocN(totnode*sizeof(unsigned int), "totloopsHit");
+		data.totalRed = ob->sculpt->cache->totalRed;
+		data.totalGreen = ob->sculpt->cache->totalGreen;
+		data.totalBlue = ob->sculpt->cache->totalBlue; 
+		data.totalAlpha = ob->sculpt->cache->totalAlpha;
+		data.colorWeight = ob->sculpt->cache->colorWeight;
+		data.totloopsHit = ob->sculpt->cache->totloopsHit; 
 
 		BLI_task_parallel_range_ex(
 			0, totnode, &data, NULL, 0, do_vpaint_brush_calc_ave_color_cb_ex,
@@ -3286,7 +3291,6 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	data.radius_squared = ss->cache->radius_squared;
 	data.original = true;
 	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
-
 	//Paint those leaves.
 	//ss->cache->brush = brush;
 	vpaint_paint_leaves(sd, vp, vpd, ob, me, nodes, totnode);

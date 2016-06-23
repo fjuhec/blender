@@ -233,6 +233,7 @@ typedef struct StrokeCache {
 	unsigned int* totalGreen;
 	unsigned int* totalBlue;
 	unsigned int* totalAlpha;
+	unsigned int* colorWeight;
 	unsigned int *totloopsHit;
 
 } StrokeCache;
@@ -266,6 +267,7 @@ typedef struct SculptThreadedTaskData {
 	unsigned int* totalGreen;
 	unsigned int* totalBlue;
 	unsigned int* totalAlpha;
+	unsigned int* colorWeight;
 	unsigned int *totloopsHit;
 	MeshElemMap **vertToLoopMaps;
 

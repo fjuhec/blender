@@ -1172,6 +1172,7 @@ bool sculpt_search_sphere_cb(PBVHNode *node, void *data_v)
 	
 	sub_v3_v3v3(t, center, nearest);
 
+	//printf("%s\n", len_squared_v3(t) < data->radius_squared ? "true" : "false");
 	return len_squared_v3(t) < data->radius_squared;
 }
 
@@ -3813,6 +3814,8 @@ void sculpt_cache_free(StrokeCache *cache)
 		MEM_freeN(cache->totalBlue);
 	if (cache->totalAlpha)
 		MEM_freeN(cache->totalAlpha);
+	if (cache->colorWeight)
+		MEM_freeN(cache->colorWeight);
 	
 	MEM_freeN(cache);
 }
