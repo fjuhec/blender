@@ -273,11 +273,19 @@ int Mesh::split_vertex(int vertex)
 void Mesh::add_vertex(float3 P)
 {
 	verts.push_back_reserved(P);
+
+	if(subd_faces.size()) {
+		vert_patch_uv.push_back_reserved(make_float2(0.0f, 0.0f));
+	}
 }
 
 void Mesh::add_vertex_slow(float3 P)
 {
 	verts.push_back_slow(P);
+
+	if(subd_faces.size()) {
+		vert_patch_uv.push_back_slow(make_float2(0.0f, 0.0f));
+	}
 }
 
 void Mesh::add_triangle(int v0, int v1, int v2, int shader_, bool smooth_)
