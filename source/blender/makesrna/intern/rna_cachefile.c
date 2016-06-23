@@ -34,20 +34,17 @@
 
 #ifdef RNA_RUNTIME
 
+#include "BKE_cachefile.h"
+
 #ifdef WITH_ALEMBIC
 #  include "../../../alembic/ABC_alembic.h"
 #endif
 
 static void rna_CacheFile_update_handle(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-#ifdef WITH_ALEMBIC
 	CacheFile *cache_file = (CacheFile *)ptr->data;
 
-	ABC_free_handle(cache_file->handle);
-	cache_file->handle = ABC_create_handle(cache_file->filepath);
-#else
-	UNUSED_VARS(ptr);
-#endif
+	BKE_cachefile_load(cache_file);
 
 	UNUSED_VARS(bmain, scene);
 }

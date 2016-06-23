@@ -116,6 +116,7 @@
 #include "BKE_armature.h"
 #include "BKE_blender_version.h"
 #include "BKE_brush.h"
+#include "BKE_cachefile.h"
 #include "BKE_cloth.h"
 #include "BKE_constraint.h"
 #include "BKE_context.h"
@@ -158,10 +159,6 @@
 #include "RE_engine.h"
 
 #include "readfile.h"
-
-#ifdef WITH_ALEMBIC
-#  include "ABC_alembic.h"
-#endif
 
 #include <errno.h>
 
@@ -2284,12 +2281,8 @@ static void lib_link_cachefiles(FileData *fd, Main *main)
 
 static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
 {
-#ifdef WITH_ALEMBIC
-	cache_file->handle = ABC_create_handle(cache_file->filepath);
-#else
-	UNUSED_VARS(cache_file);
-#endif
-
+	cache_file->handle = NULL;
+	BKE_cachefile_load(cache_file);
 	UNUSED_VARS(fd);
 }
 

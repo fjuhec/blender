@@ -67,6 +67,25 @@ void BKE_cachefile_free(CacheFile *cache_file)
 #endif
 }
 
+void BKE_cachefile_load(CacheFile *cache_file)
+{
+	char filename[FILE_MAX];
+	BLI_strncpy(filename, cache_file->filepath, FILE_MAX);
+
+	/* Ensure absolute paths. */
+	if (BLI_path_is_rel(filename)) {
+		BLI_path_abs(filename, G.main->name);
+	}
+
+#ifdef WITH_ALEMBIC
+	if (cache_file->handle) {
+		ABC_free_handle(cache_file->handle);
+	}
+
+	cache_file->handle = ABC_create_handle(filename);
+#endif
+}
+
 void BKE_cachefiles_open_next_file(Main *bmain, float ctime)
 {
 	CacheFile *cache_file;
