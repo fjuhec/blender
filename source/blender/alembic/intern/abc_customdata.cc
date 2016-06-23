@@ -167,10 +167,10 @@ static void write_mcol(const OCompoundProperty &prop, const CDStreamConfig &conf
 			cface--;
 			mloop--;
 
-			col[0] = cface->b * cscale;
-			col[1] = cface->g * cscale;
-			col[2] = cface->r * cscale;
-			col[3] = cface->a * cscale;
+			col[0] = cface->a * cscale;
+			col[1] = cface->r * cscale;
+			col[2] = cface->g * cscale;
+			col[3] = cface->b * cscale;
 
 			buffer[mloop->v] = col;
 		}
@@ -241,10 +241,10 @@ static void read_mcols(const CDStreamConfig &config, void *data,
 				cface--;
 				mloop--;
 				const Imath::C3f &color = (*c3f_ptr)[mloop->v];
-				cface->b = FTOCHAR(color[0]);
-				cface->g = FTOCHAR(color[1]);
-				cface->r = FTOCHAR(color[2]);
-				cface->a = 255;
+				cface->a = FTOCHAR(color[0]);
+				cface->r = FTOCHAR(color[1]);
+				cface->g = FTOCHAR(color[2]);
+				cface->b = 255;
 			}
 		}
 	}
@@ -258,10 +258,10 @@ static void read_mcols(const CDStreamConfig &config, void *data,
 				cface--;
 				mloop--;
 				const Imath::C4f &color = (*c4f_ptr)[mloop->v];
-				cface->b = FTOCHAR(color[0]);
-				cface->g = FTOCHAR(color[1]);
-				cface->r = FTOCHAR(color[2]);
-				cface->a = FTOCHAR(color[3]);
+				cface->a = FTOCHAR(color[0]);
+				cface->r = FTOCHAR(color[1]);
+				cface->g = FTOCHAR(color[2]);
+				cface->b = FTOCHAR(color[3]);
 			}
 		}
 	}
