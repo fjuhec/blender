@@ -267,6 +267,14 @@ int Mesh::split_vertex(int vertex)
 		}
 	}
 
+	foreach(Attribute& attr, subd_attributes.attributes) {
+		if(attr.element == ATTR_ELEMENT_VERTEX) {
+			vector<char> tmp(attr.data_sizeof());
+			memcpy(&tmp[0], attr.data() + tmp.size()*vertex, tmp.size());
+			attr.add(&tmp[0]);
+		}
+	}
+
 	return verts.size() - 1;
 }
 
