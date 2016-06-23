@@ -464,7 +464,7 @@ void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 	ParticleSystem *psys = static_cast<ParticleSystem *>(ob->particlesystem.first);
 
 	for (; psys; psys = psys->next) {
-		if (!psys_check_enabled(ob, psys) || !psys->part) {
+		if (!psys_check_enabled(ob, psys, G.is_rendering) || !psys->part) {
 			continue;
 		}
 
