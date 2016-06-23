@@ -3796,26 +3796,6 @@ void sculpt_cache_free(StrokeCache *cache)
 {
 	if (cache->dial)
 		MEM_freeN(cache->dial);
-
-	// vwpaint loop mapping
-	if (cache->vert_to_loop) {
-		MEM_freeN(cache->vert_to_loop);
-		MEM_freeN(cache->map_mem);
-	}
-
-	//For vw paint blending
-	if (cache->totloopsHit)
-		MEM_freeN(cache->totloopsHit);
-	if (cache->totalRed)
-		MEM_freeN(cache->totalRed);
-	if (cache->totalGreen)
-		MEM_freeN(cache->totalGreen);
-	if (cache->totalBlue)
-		MEM_freeN(cache->totalBlue);
-	if (cache->totalAlpha)
-		MEM_freeN(cache->totalAlpha);
-	if (cache->colorWeight)
-		MEM_freeN(cache->colorWeight);
 	
 	MEM_freeN(cache);
 }

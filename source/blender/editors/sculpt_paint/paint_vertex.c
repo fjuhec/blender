@@ -2080,29 +2080,6 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 	//TEMPORARY. needs to be changed once we add mirroring.
 	copy_v3_v3(cache->view_normal, cache->true_view_normal);
 	cache->bstrength = BKE_brush_alpha_get(scene, brush);
-
-	if (!cache->vert_to_loop) {
-		Mesh *me = ob->data;
-		cache->tot_verts = me->totvert;
-		cache->verts = me->mvert;
-		cache->map_mem = NULL;
-		cache->vert_to_loop = NULL;
-		BKE_mesh_vert_loop_map_create(&cache->vert_to_loop, &cache->map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
-	}
-
-	int totNode = 0;
-	//I think the totNodes might include internal nodes, and we really only need the tot leaves.
-	BKE_pbvh_node_num_nodes(ss->pbvh, &totNode);
-	
-	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-		ob->sculpt->cache->totalRed = MEM_callocN(totNode*sizeof(unsigned int), "totalRed");
-		ob->sculpt->cache->totalGreen = MEM_callocN(totNode * sizeof(unsigned int), "totalGreen");
-		ob->sculpt->cache->totalBlue = MEM_callocN(totNode * sizeof(unsigned int), "totalBlue");
-		ob->sculpt->cache->totalAlpha = MEM_callocN(totNode * sizeof(unsigned int), "totalAlpha");
-		ob->sculpt->cache->colorWeight = MEM_callocN(totNode * sizeof(unsigned int), "colorWeight");
-		ob->sculpt->cache->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
-	}
-
 }
 
 /* Initialize the stroke cache variants from operator properties */
@@ -2799,6 +2776,17 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		/* If the cache is not released by a cancel or a done, free it now. */
 		if (ob->sculpt->cache){
+			if (ob->sculpt->cache->vert_to_loop) {
+				printf("Freeing vert to loop\n");
+				MEM_freeN(ob->sculpt->cache->vert_to_loop);
+				MEM_freeN(ob->sculpt->cache->map_mem);
+			}
+			MEM_freeN(ob->sculpt->cache->totloopsHit);
+			MEM_freeN(ob->sculpt->cache->totalRed);
+			MEM_freeN(ob->sculpt->cache->totalGreen);
+			MEM_freeN(ob->sculpt->cache->totalBlue);
+			MEM_freeN(ob->sculpt->cache->totalAlpha);
+			MEM_freeN(ob->sculpt->cache->colorWeight);
 			sculpt_cache_free(ob->sculpt->cache);
 			ob->sculpt->cache = NULL;
 		}
@@ -2829,6 +2817,28 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		/* Cache needs to be initialized before mesh_build_data is called. */
 		ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
+
+		printf("Creating vert to loop\n");
+		if (!ob->sculpt->cache->vert_to_loop) {
+			Mesh *me = ob->data;
+			ob->sculpt->cache->tot_verts = me->totvert;
+			ob->sculpt->cache->verts = me->mvert;
+			ob->sculpt->cache->map_mem = NULL;
+			ob->sculpt->cache->vert_to_loop = NULL;
+			BKE_mesh_vert_loop_map_create(&ob->sculpt->cache->vert_to_loop, &ob->sculpt->cache->map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+		}
+
+
+		Brush *brush = BKE_paint_brush(&vp->paint);
+		int totNode = 0;
+		//I think the totNodes might include internal nodes, and we really only need the tot leaves.
+		BKE_pbvh_node_num_nodes(ob->sculpt->pbvh, &totNode);
+		ob->sculpt->cache->totalRed = MEM_callocN(totNode*sizeof(unsigned int), "totalRed");
+		ob->sculpt->cache->totalGreen = MEM_callocN(totNode * sizeof(unsigned int), "totalGreen");
+		ob->sculpt->cache->totalBlue = MEM_callocN(totNode * sizeof(unsigned int), "totalBlue");
+		ob->sculpt->cache->totalAlpha = MEM_callocN(totNode * sizeof(unsigned int), "totalAlpha");
+		ob->sculpt->cache->colorWeight = MEM_callocN(totNode * sizeof(unsigned int), "colorWeight");
+		ob->sculpt->cache->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
 	}
 	
 	/* update modifier stack for mapping requirements */
@@ -3339,11 +3349,6 @@ static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	DAG_id_tag_update(&me->id, 0);
-
-	if (ob->sculpt->cache){
-		sculpt_cache_free(ob->sculpt->cache);
-		ob->sculpt->cache = NULL;
-	}
 
 	MEM_freeN(vpd);
 }
