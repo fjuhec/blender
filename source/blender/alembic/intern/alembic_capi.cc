@@ -768,6 +768,12 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		new_dm = true;
 	}
 
+	MVert *mverts = dm->getVertArray(dm);
+	MPoly *mpolys = dm->getPolyArray(dm);
+	MLoop *mloops = dm->getLoopArray(dm);
+	MLoopUV *mloopuvs = NULL;
+	CustomData *ldata = dm->getLoopDataLayout(dm);
+
 	const IV2fGeomParam uv = schema.getUVsParam();
 	Alembic::Abc::V2fArraySamplePtr uvs;
 	Alembic::Abc::UInt32ArraySamplePtr uvs_indices;
@@ -781,6 +787,21 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		if (uvs_indices->size() != dm->getNumLoops(dm)) {
 			uvs = Alembic::Abc::V2fArraySamplePtr();
 			uvs_indices = Alembic::Abc::UInt32ArraySamplePtr();
+		}
+		else {
+			std::string name = Alembic::Abc::GetSourceName(uv.getMetaData());
+
+			/* According to the convention, primary UVs should have had their name
+			 * set using Alembic::Abc::SetSourceName, but you can't expect everyone
+			 * to follow it! :) */
+			if (name.empty()) {
+				name = uv.getName();
+			}
+
+			void *ptr = add_customdata_cb(dm, name.c_str(), CD_MLOOPUV);
+			mloopuvs = static_cast<MLoopUV *>(ptr);
+
+			dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_TESS_CDLAYERS));
 		}
 	}
 
@@ -798,34 +819,9 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		{
 			vertex_normals = normsamp.getVals();
 		}
+
+		dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
 	}
-
-	MVert *mverts = dm->getVertArray(dm);
-	MPoly *mpolys = dm->getPolyArray(dm);
-	MLoop *mloops = dm->getLoopArray(dm);
-	MLoopUV *mloopuvs = static_cast<MLoopUV *>(CustomData_get(&dm->loopData, 0, CD_MLOOPUV));
-
-	if (!mloopuvs && uvs) {
-		std::string name = Alembic::Abc::GetSourceName(uv.getMetaData());
-
-		/* According to the convention, primary UVs should have had their name
-		 * set using Alembic::Abc::SetSourceName, but you can't expect everyone
-		 * to follow it! :) */
-		if (name.empty()) {
-			name = uv.getName();
-		}
-
-		void *ptr = CustomData_add_layer_named(dm->getLoopDataLayout(dm),
-		                                       CD_MLOOPUV,
-		                                       CD_DEFAULT,
-		                                       NULL,
-		                                       dm->getNumLoops(dm),
-		                                       name.c_str());
-
-		mloopuvs = static_cast<MLoopUV *>(ptr);
-	}
-
-	CustomData *ldata = dm->getLoopDataLayout(dm);
 
 	read_mverts(mverts, positions, vertex_normals);
 	read_mpolys(mpolys, mloops, mloopuvs, ldata, face_indices, face_counts, uvs, uvs_indices, poly_normals);
@@ -842,10 +838,6 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 
 	if (new_dm) {
 		CDDM_calc_edges(dm);
-	}
-
-	if (!normals.valid()) {
-		dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
 	}
 
 	return dm;
