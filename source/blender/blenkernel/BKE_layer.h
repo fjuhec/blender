@@ -93,10 +93,8 @@ typedef struct LayerType {
 	struct StructRNA *srna;
 } LayerType;
 
-void BKE_layertypes_init(void);
-void BKE_layertypes_free(void);
-
 void BKE_layertype_append(void (*ltfunc)(LayerType *));
+void BKE_layertypes_free(void);
 
 /* -------------------------------------------------------------------- */
 /* Layer Tree Item */
@@ -106,12 +104,10 @@ typedef void  (*LayerItemDrawSettingsFunc)(const struct bContext *, struct Layer
 
 LayerTreeItem *BKE_layeritem_add(
         LayerTree *tree, LayerTreeItem *parent,
-        const eLayerTreeItem_Type type, const char *name,
-        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
+        const eLayerTreeItem_Type type, const char *name);
 void BKE_layeritem_register(
         LayerTree *tree, LayerTreeItem *litem, LayerTreeItem *parent,
-        const eLayerTreeItem_Type type, const char *name,
-        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
+        const eLayerTreeItem_Type type, const char *name);
 void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children);
 
 void BKE_layeritem_move(LayerTreeItem *litem, const int newidx);

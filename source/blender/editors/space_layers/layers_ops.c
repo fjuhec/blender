@@ -56,6 +56,9 @@
 
 #define LAYERDRAG_DROP_ANIM_DURATION_FAC 0.05f
 
+#define OBJECTLAYER_DEFAULT_NAME "Untitled Layer"
+#define LAYERGROUP_DEFAULT_NAME  "Untitled Group"
+
 /**
  * LayerTile wrapper for additional information needed for
  * offsetting and animating tiles during drag & drop reordering.
@@ -102,7 +105,7 @@ static int layer_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *
 	LayerTreeItem *new_item = NULL;
 
 	if (slayer->act_tree->type == LAYER_TREETYPE_OBJECT) {
-		new_item = layers_object_add(slayer->act_tree, NULL);
+		new_item = BKE_objectlayer_add(slayer->act_tree, NULL, OBJECTLAYER_DEFAULT_NAME);
 	}
 	else {
 		BLI_assert(0);
@@ -239,10 +242,9 @@ static void LAYERS_OT_remove(wmOperatorType *ot)
 
 static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
-	Scene *scene = CTX_data_scene(C);
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 
-	LayerTreeItem *new_group = layers_group_add(scene->object_layers, NULL);
+	LayerTreeItem *new_group = BKE_layeritem_add(slayer->act_tree, NULL, LAYER_ITEMTYPE_GROUP, LAYERGROUP_DEFAULT_NAME);
 	layers_tile_add(slayer, new_group);
 
 	/* Add selected items to group */

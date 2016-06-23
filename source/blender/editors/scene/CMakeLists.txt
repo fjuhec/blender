@@ -23,12 +23,9 @@ set(INC
 	../../blenkernel
 	../../blenlib
 	../../blentranslation
-	../../gpu
 	../../makesdna
 	../../makesrna
-	../../windowmanager
 	../../../../intern/guardedalloc
-	../../../../intern/glew-mx
 )
 
 set(INC_SYS
@@ -36,12 +33,12 @@ set(INC_SYS
 )
 
 set(SRC
-	layers_draw.c
-	layers_ops.c
-	layers_util.c
-	space_layers.c
-
-	layers_intern.h
 )
 
-blender_add_lib(bf_editor_space_layers "${SRC}" "${INC}" "${INC_SYS}")
+if(WITH_ADVANCED_LAYERS)
+	list(APPEND SRC
+		layer_types.c
+	)
+endif()
+
+blender_add_lib(bf_editor_scene "${SRC}" "${INC}" "${INC_SYS}")

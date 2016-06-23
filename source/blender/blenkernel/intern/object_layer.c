@@ -33,14 +33,12 @@
 #include "MEM_guardedalloc.h"
 
 
-LayerTreeItem *BKE_objectlayer_add(
-        LayerTree *tree, LayerTreeItem *parent, const char *name,
-        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
+LayerTreeItem *BKE_objectlayer_add(LayerTree *tree, LayerTreeItem *parent, const char *name)
 {
 	LayerTypeObject *oblayer = MEM_callocN(sizeof(LayerTypeObject), __func__);
 
 	BLI_assert(tree->type == LAYER_TREETYPE_OBJECT);
-	BKE_layeritem_register(tree, &oblayer->litem, parent, LAYER_ITEMTYPE_LAYER, name, draw, draw_settings);
+	BKE_layeritem_register(tree, &oblayer->litem, parent, LAYER_ITEMTYPE_LAYER, name);
 
 	return &oblayer->litem;
 }

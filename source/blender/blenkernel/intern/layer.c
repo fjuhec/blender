@@ -136,21 +136,6 @@ int BKE_layertree_get_totitems(const LayerTree *ltree)
 static LayerType *layertypes[LAYER_ITEMTYPE_TOT] = {NULL};
 
 
-static void LAYERTYPE_object(LayerType *lt)
-{
-	/* XXX Will probably get own layer type */
-	lt->type = LAYER_ITEMTYPE_LAYER;
-
-	lt->free = BKE_objectlayer_free;
-
-	RNA_def_enum(lt->srna, "color_set", rna_enum_color_sets_items, 0, "Color Set", "Custom color set for this layer");
-}
-
-static void LAYERTYPE_group(LayerType *lt)
-{
-	lt->type = LAYER_ITEMTYPE_GROUP;
-}
-
 void BKE_layertype_append(void (*ltfunc)(LayerType *))
 {
 	LayerType *lt = MEM_callocN(sizeof(LayerType), __func__);
@@ -159,15 +144,6 @@ void BKE_layertype_append(void (*ltfunc)(LayerType *))
 
 	BLI_assert(lt->type >= 0 && lt->type < LAYER_ITEMTYPE_TOT);
 	layertypes[lt->type] = lt;
-}
-
-/**
- * Startup initialization of layer types.
- */
-void BKE_layertypes_init(void)
-{
-	BKE_layertype_append(LAYERTYPE_object);
-	BKE_layertype_append(LAYERTYPE_group);
 }
 
 void BKE_layertypes_free(void)
@@ -197,8 +173,7 @@ void BKE_layertypes_free(void)
  */
 void BKE_layeritem_register(
         LayerTree *tree, LayerTreeItem *litem, LayerTreeItem *parent,
-        const eLayerTreeItem_Type type, const char *name,
-        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
+        const eLayerTreeItem_Type type, const char *name)
 {
 	litem->type = layertypes[type];
 
@@ -211,10 +186,6 @@ void BKE_layeritem_register(
 	litem->index = tree->tot_items;
 	litem->tree = tree;
 	BLI_strncpy(litem->name, name, sizeof(litem->name));
-
-	/* callbacks */
-	litem->type->draw = draw;
-	litem->type->draw_settings = draw_settings;
 
 	/* add to item array */
 	tree->items_all = MEM_reallocN(tree->items_all, sizeof(*tree->items_all) * ++tree->tot_items);
@@ -241,11 +212,10 @@ void BKE_layeritem_register(
  */
 LayerTreeItem *BKE_layeritem_add(
         LayerTree *tree, LayerTreeItem *parent,
-        const eLayerTreeItem_Type type, const char *name,
-        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings)
+        const eLayerTreeItem_Type type, const char *name)
 {
 	LayerTreeItem *litem = MEM_callocN(sizeof(LayerTreeItem), __func__);
-	BKE_layeritem_register(tree, litem, parent, type, name, draw, draw_settings);
+	BKE_layeritem_register(tree, litem, parent, type, name);
 	return litem;
 }
 

@@ -30,8 +30,6 @@
 #include "BLI_listbase.h"
 #include "BLI_rect.h"
 
-#include "BLT_translation.h"
-
 #include "BKE_context.h"
 #include "BKE_layer.h"
 
@@ -41,10 +39,7 @@
 
 #include "ED_screen.h"
 
-#include "RNA_access.h"
-
 #include "UI_interface.h"
-#include "UI_interface_icons.h"
 #include "UI_view2d.h"
 #include "UI_resources.h"
 
@@ -248,39 +243,4 @@ void layers_tiles_draw(const bContext *C, ARegion *ar)
 
 	/* update size of tot-rect (extents of data/viewable area) */
 	UI_view2d_totRect_set(&ar->v2d, ar->winx - BLI_rcti_size_x(&ar->v2d.vert), ofs_y);
-}
-
-
-/* -------------------------------------------------------------------- */
-/* Layer draw callbacks */
-
-void layer_group_draw(const bContext *UNUSED(C), LayerTreeItem *litem, uiLayout *layout)
-{
-	uiItemL(layout, litem->name, ICON_FILE_FOLDER);
-}
-
-void object_layer_draw(const bContext *C, LayerTreeItem *litem, uiLayout *layout)
-{
-	SpaceLayers *slayer = CTX_wm_space_layers(C);
-	LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
-	uiBlock *block = uiLayoutGetBlock(layout);
-	const bool draw_settingbut = litem->type->draw_settings && tile->flag & (LAYERTILE_SELECTED | LAYERTILE_EXPANDED);
-
-	/* name with color set icon */
-	const int col_icon = UI_colorset_icon_get(RNA_enum_get(litem->ptr, "color_set"));
-	uiItemL(layout, litem->name, col_icon);
-
-	if (draw_settingbut) {
-		UI_block_emboss_set(block, UI_EMBOSS_NONE);
-		uiDefIconButBitI(block, UI_BTYPE_TOGGLE, LAYERTILE_EXPANDED, 0,
-		                 ICON_SCRIPTWIN, 0, 0, UI_UNIT_X, UI_UNIT_Y, (int *)&tile->flag,
-		                 0.0f, 0.0f, 0.0f, 0.0f, TIP_("Toggle layer settings"));
-		UI_block_emboss_set(block, UI_EMBOSS);
-	}
-}
-
-void object_layer_draw_settings(const bContext *UNUSED(C), LayerTreeItem *litem, uiLayout *layout)
-{
-	uiLayout *split = uiLayoutSplit(layout, 0.5f, false);
-	uiItemR(split, litem->ptr, "color_set", 0, "Color Set", ICON_NONE);
 }

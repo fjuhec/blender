@@ -282,9 +282,7 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 		Base *base_name = oblayer->bases[idx_name];
 #define BKE_OBJECTLAYER_BASES_ITER_END } (void)0
 
-LayerTreeItem *BKE_objectlayer_add(
-        LayerTree *tree, LayerTreeItem *parent, const char *name,
-        LayerItemDrawFunc draw, LayerItemDrawSettingsFunc draw_settings);
+LayerTreeItem *BKE_objectlayer_add(LayerTree *tree, LayerTreeItem *parent, const char *name);
 void BKE_objectlayer_free(LayerTreeItem *litem);
 void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem);
 void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem);
