@@ -331,4 +331,53 @@ void InvertIntrinsicsForTracks(const Tracks &raw_tracks,
 	*calibrated_tracks = Tracks(markers);
 }
 
+void EuclideanScaleToUnity(Reconstruction *reconstruction) {
+	int clip_num = reconstruction->GetClipNum();
+	const vector<vector<CameraPose> >& all_cameras = reconstruction->camera_poses();
+
+	// Calculate center of the mass of all cameras.
+	Vec3 cameras_mass_center = Vec3::Zero();
+	for(int i = 0; i < clip_num; i++) {
+		for (int j = 0; j < all_cameras.size(); ++j) {
+			cameras_mass_center += all_cameras[i][j].t;
+		}
+	}
+	cameras_mass_center /= all_cameras.size();
+
+	// Find the most distant camera from the mass center.
+	double max_distance = 0.0;
+	for(int i = 0; i < clip_num; i++) {
+		for (int j = 0; j < all_cameras.size(); ++j) {
+			double distance = (all_cameras[i][j].t - cameras_mass_center).squaredNorm();
+			if (distance > max_distance) {
+				max_distance = distance;
+			}
+		}
+	}
+
+	if (max_distance == 0.0) {
+		LG << "Cameras position variance is too small, can not rescale";
+		return;
+	}
+
+	double scale_factor = 1.0 / sqrt(max_distance);
+
+	// Rescale cameras positions.
+	for(int i = 0; i < clip_num; i++) {
+		for (int j = 0; j < all_cameras.size(); ++j) {
+			int image = all_cameras[i][j].frame;
+			CameraPose *camera = reconstruction->CameraPoseForFrame(i, image);
+			camera->t = camera->t * scale_factor;
+		}
+	}
+
+	// Rescale points positions.
+	vector<Point> all_points = reconstruction->AllPoints();
+	for (int i = 0; i < all_points.size(); ++i) {
+		int track = all_points[i].track;
+		Point *point = reconstruction->PointForTrack(track);
+		point->X = point->X * scale_factor;
+	}
+}
+
 }  // namespace mv

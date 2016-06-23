@@ -64,6 +64,8 @@ void InvertIntrinsicsForTracks(const Tracks &raw_tracks,
                                const CameraIntrinsics &camera_intrinsics,
                                Tracks *calibrated_tracks);
 
+void EuclideanScaleToUnity(Reconstruction *reconstruction);
+
 }  // namespace mv
 
 #endif  // LIBMV_AUTOTRACK_PIPELINE_H_

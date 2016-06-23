@@ -3189,6 +3189,17 @@ static void write_moviePlaneTracks(WriteData *wd, ListBase *plane_tracks_base)
 	}
 }
 
+static void write_movieCorrespondences(WriteData *wd, ListBase *correspondence_base)
+{
+	MovieTrackingCorrespondence *corr;
+	for (corr = correspondence_base->first;
+	     corr;
+	     corr = corr->next)
+	{
+		writestruct(wd, DATA, "MovieTrackingCorrespondence", 1, corr);
+	}
+}
+
 static void write_movieReconstruction(WriteData *wd, MovieTrackingReconstruction *reconstruction)
 {
 	if (reconstruction->camnr)

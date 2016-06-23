@@ -187,4 +187,12 @@ int  Reconstruction::AddPoint(const Point& point) {
 	points_[point.track].X = point.X;
 }
 
+const vector<vector<CameraPose> >& Reconstruction::camera_poses() const {
+	return camera_poses_;
+}
+
+const vector<Point>& Reconstruction::AllPoints() const {
+	return points_;
+}
+
 }  // namespace mv

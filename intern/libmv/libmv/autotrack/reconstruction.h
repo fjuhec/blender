@@ -77,9 +77,8 @@ public:
 	Point* PointForTrack(int track);
 	const Point* PointForTrack(int track) const;
 
-	const vector<vector<CameraPose> >& camera_poses() const {
-		return camera_poses_;
-	}
+	const vector<vector<CameraPose> >& camera_poses() const;
+	const vector<Point>& AllPoints() const;
 
 	int GetClipNum() const;
 	int GetAllPoseNum() const;

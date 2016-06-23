@@ -7467,6 +7467,15 @@ static void lib_link_moviePlaneTracks(FileData *fd, MovieClip *clip, ListBase *t
 	}
 }
 
+static void lib_link_movieCorrespondences(FileData *fd, MovieClip *clip, ListBase *tracksbase)
+{
+	MovieTrackingCorrespondence *corr;
+
+	for (corr = tracksbase->first; corr; corr = corr->next) {
+
+	}
+}
+
 static void lib_link_movieclip(FileData *fd, Main *main)
 {
 	MovieClip *clip;

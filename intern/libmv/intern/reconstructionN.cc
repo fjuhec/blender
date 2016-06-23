@@ -101,6 +101,55 @@ void mv_getNormalizedTracks(const Tracks &tracks,
 	}
 }
 
+void libmv_solveRefineIntrinsics(
+        const Tracks &tracks,
+        const int refine_intrinsics,
+        const int bundle_constraints,
+        reconstruct_progress_update_cb progress_update_callback,
+        void* callback_customdata,
+        Reconstruction* reconstruction,
+        CameraIntrinsics* intrinsics) {
+  /* only a few combinations are supported but trust the caller/ */
+  int bundle_intrinsics = 0;
+
+  if (refine_intrinsics & LIBMV_REFINE_FOCAL_LENGTH) {
+    bundle_intrinsics |= mv::BUNDLE_FOCAL_LENGTH;
+  }
+  if (refine_intrinsics & LIBMV_REFINE_PRINCIPAL_POINT) {
+    bundle_intrinsics |= mv::BUNDLE_PRINCIPAL_POINT;
+  }
+  if (refine_intrinsics & LIBMV_REFINE_RADIAL_DISTORTION_K1) {
+    bundle_intrinsics |= mv::BUNDLE_RADIAL_K1;
+  }
+  if (refine_intrinsics & LIBMV_REFINE_RADIAL_DISTORTION_K2) {
+    bundle_intrinsics |= mv::BUNDLE_RADIAL_K2;
+  }
+
+  progress_update_callback(callback_customdata, 1.0, "Refining solution");
+
+  mv::EuclideanBundleCommonIntrinsics(tracks,
+                                      bundle_intrinsics,
+                                      bundle_constraints,
+                                      reconstruction,
+                                      intrinsics);
+}
+
+void finishReconstruction(
+    const Tracks &tracks,
+    const CameraIntrinsics &camera_intrinsics,
+    libmv_ReconstructionN *libmv_reconstruction,
+    reconstruct_progress_update_cb progress_update_callback,
+    void *callback_customdata) {
+	Reconstruction &reconstruction = libmv_reconstruction->reconstruction;
+
+	/* Reprojection error calculation. */
+	progress_update_callback(callback_customdata, 1.0, "Finishing solution");
+	libmv_reconstruction->tracks = tracks;
+	libmv_reconstruction->error = mv::EuclideanReprojectionError(tracks,
+	                                                             reconstruction,
+	                                                             camera_intrinsics);
+}
+
 }	// end of anonymous namespace
 
 void libmv_reconstructionNDestroy(libmv_ReconstructionN* libmv_reconstructionN)
@@ -203,27 +252,28 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 		return all_libmv_reconstruction;
 	}
 
-	///* Refinement/ */
-	//if (libmv_reconstruction_options->refine_intrinsics) {
-	//	libmv_solveRefineIntrinsics(
-	//	            tracks,
-	//	            libmv_reconstruction_options->refine_intrinsics,
-	//	            libmv::BUNDLE_NO_CONSTRAINTS,
-	//	            progress_update_callback,
-	//	            callback_customdata,
-	//	            &reconstruction,
-	//	            camera_intrinsics);
-	//}
+	/* Refinement/ */
+	// TODO(Tianwei): current api allows only one camera intrinsics
+	if (libmv_reconstruction_options->all_refine_intrinsics[0]) {
+		libmv_solveRefineIntrinsics(
+		            all_normalized_tracks,
+		            libmv_reconstruction_options->all_refine_intrinsics[0],
+		            mv::BUNDLE_NO_CONSTRAINTS,
+		            progress_update_callback,
+		            callback_customdata,
+		            &reconstruction,
+		            all_libmv_reconstruction[0]->intrinsics);
+	}
 
-	///* Set reconstruction scale to unity. */
-	//EuclideanScaleToUnity(&reconstruction);
+	/* Set reconstruction scale to unity. */
+	mv::EuclideanScaleToUnity(&reconstruction);
 
 	/* Finish reconstruction. */
-	//finishReconstruction(tracks,
-	//                     *camera_intrinsics,
-	//                     libmv_reconstruction,
-	//                     progress_update_callback,
-	//                     callback_customdata);
+	finishReconstruction(all_normalized_tracks,
+	                     *(all_libmv_reconstruction[0]->intrinsics),
+	                     all_libmv_reconstruction[0],
+	                     progress_update_callback,
+	                     callback_customdata);
 
 	// a multi-view reconstruction is succesfuly iff all reconstruction falgs are set to true
 	for(int i = 0; i < clip_num; i++)
