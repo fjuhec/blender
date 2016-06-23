@@ -47,8 +47,6 @@ using Alembic::AbcGeom::OCurvesSchema;
 using Alembic::AbcGeom::ON3fGeomParam;
 using Alembic::AbcGeom::OV2fGeomParam;
 
-static const float nscale = 1.0f / 32767.0f;
-
 /* ************************************************************************** */
 
 AbcHairWriter::AbcHairWriter(Scene *scene,
@@ -144,6 +142,8 @@ void AbcHairWriter::write_hair_sample(DerivedMesh *dm,
 
 	ParticleCacheKey **cache = m_psys->pathcache;
 	ParticleCacheKey *path;
+	float normal[3];
+	Imath::V3f tmp_nor;
 
 	for (int p = 0; p < m_psys->totpart; ++p, ++pa) {
 		/* underlying info for faces-only emission */
@@ -157,15 +157,15 @@ void AbcHairWriter::write_hair_sample(DerivedMesh *dm,
 				MTFace *tface = mtface + num;
 
 				if (mface) {
-					float r_uv[2], tmpnor[3], mapfw[4], vec[3];
+					float r_uv[2], mapfw[4], vec[3];
 
 					psys_interpolate_uvs(tface, face->v4, pa->fuv, r_uv);
 					uv_values.push_back(Imath::V2f(r_uv[0], r_uv[1]));
 
-					psys_interpolate_face(mverts, face, tface, NULL, mapfw, vec, tmpnor, NULL, NULL, NULL, NULL);
+					psys_interpolate_face(mverts, face, tface, NULL, mapfw, vec, normal, NULL, NULL, NULL, NULL);
 
-					/* Convert Z-up to Y-up. */
-					norm_values.push_back(Imath::V3f(tmpnor[0], -tmpnor[2], tmpnor[1]));
+					copy_zup_yup(tmp_nor.getValue(), normal);
+					norm_values.push_back(tmp_nor);
 				}
 			}
 			else {
@@ -194,9 +194,12 @@ void AbcHairWriter::write_hair_sample(DerivedMesh *dm,
 
 					if (vtx[o] == num) {
 						uv_values.push_back(Imath::V2f(tface->uv[o][0], tface->uv[o][1]));
+
 						MVert *mv = mverts + vtx[o];
-						norm_values.push_back(Imath::V3f(mv->no[0] * nscale,
-						                      mv->no[1] * nscale, mv->no[2] * nscale));
+
+						normal_short_to_float_v3(normal, mv->no);
+						copy_zup_yup(tmp_nor.getValue(), normal);
+						norm_values.push_back(tmp_nor);
 						found = true;
 						break;
 					}
