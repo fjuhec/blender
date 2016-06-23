@@ -108,128 +108,142 @@ bool InternalCompleteReconstruction(
     const Tracks &tracks,
     typename PipelineRoutines::Reconstruction *reconstruction,
     libmv::ProgressUpdateCallback *update_callback = NULL) {
-//  int max_track = tracks.MaxTrack();
-//  int max_image = tracks.MaxImage();
-//  int num_resects = -1;
-//  int num_intersects = -1;
-//  int tot_resects = 0;
-//  LG << "Max track: " << max_track;
-//  LG << "Max image: " << max_image;
-//  LG << "Number of markers: " << tracks.NumMarkers();
-//  while (num_resects != 0 || num_intersects != 0) {
-//    // Do all possible intersections.
-//    num_intersects = 0;
-//    for (int track = 0; track <= max_track; ++track) {
-//      if (reconstruction->PointForTrack(track)) {
-//        LG << "Skipping point: " << track;
-//        continue;
-//      }
-//      vector<Marker> all_markers = tracks.MarkersForTrack(track);
-//      LG << "Got " << all_markers.size() << " markers for track " << track;
-//
-//      vector<Marker> reconstructed_markers;
-//      for (int i = 0; i < all_markers.size(); ++i) {
-//        if (reconstruction->CameraForImage(all_markers[i].image)) {
-//          reconstructed_markers.push_back(all_markers[i]);
-//        }
-//      }
-//      LG << "Got " << reconstructed_markers.size()
-//         << " reconstructed markers for track " << track;
-//      if (reconstructed_markers.size() >= 2) {
-//        CompleteReconstructionLogProgress(update_callback,
-//                                          (double)tot_resects/(max_image));
-//        if (PipelineRoutines::Intersect(reconstructed_markers,
-//                                        reconstruction)) {
-//          num_intersects++;
-//          LG << "Ran Intersect() for track " << track;
-//        } else {
-//          LG << "Failed Intersect() for track " << track;
-//        }
-//      }
-//    }
-//    if (num_intersects) {
-//      CompleteReconstructionLogProgress(update_callback,
-//                                        (double)tot_resects/(max_image),
-//                                        "Bundling...");
-//      PipelineRoutines::Bundle(tracks, reconstruction);
-//      LG << "Ran Bundle() after intersections.";
-//    }
-//    LG << "Did " << num_intersects << " intersects.";
-//
-//    // Do all possible resections.
-//    num_resects = 0;
-//    for (int image = 0; image <= max_image; ++image) {
-//      if (reconstruction->CameraForImage(image)) {
-//        LG << "Skipping frame: " << image;
-//        continue;
-//      }
-//      vector<Marker> all_markers = tracks.MarkersInImage(image);
-//      LG << "Got " << all_markers.size() << " markers for image " << image;
-//
-//      vector<Marker> reconstructed_markers;
-//      for (int i = 0; i < all_markers.size(); ++i) {
-//        if (reconstruction->PointForTrack(all_markers[i].track)) {
-//          reconstructed_markers.push_back(all_markers[i]);
-//        }
-//      }
-//      LG << "Got " << reconstructed_markers.size()
-//         << " reconstructed markers for image " << image;
-//      if (reconstructed_markers.size() >= 5) {
-//        CompleteReconstructionLogProgress(update_callback,
-//                                          (double)tot_resects/(max_image));
-//        if (PipelineRoutines::Resect(reconstructed_markers,
-//                                     reconstruction, false)) {
-//          num_resects++;
-//          tot_resects++;
-//          LG << "Ran Resect() for image " << image;
-//        } else {
-//          LG << "Failed Resect() for image " << image;
-//        }
-//      }
-//    }
-//    if (num_resects) {
-//      CompleteReconstructionLogProgress(update_callback,
-//                                        (double)tot_resects/(max_image),
-//                                        "Bundling...");
-//      PipelineRoutines::Bundle(tracks, reconstruction);
-//    }
-//    LG << "Did " << num_resects << " resects.";
-//  }
-//
-//  // One last pass...
-//  num_resects = 0;
-//  for (int image = 0; image <= max_image; ++image) {
-//    if (reconstruction->CameraForImage(image)) {
-//      LG << "Skipping frame: " << image;
-//      continue;
-//    }
-//    vector<Marker> all_markers = tracks.MarkersInImage(image);
-//
-//    vector<Marker> reconstructed_markers;
-//    for (int i = 0; i < all_markers.size(); ++i) {
-//      if (reconstruction->PointForTrack(all_markers[i].track)) {
-//        reconstructed_markers.push_back(all_markers[i]);
-//      }
-//    }
-//    if (reconstructed_markers.size() >= 5) {
-//      CompleteReconstructionLogProgress(update_callback,
-//                                        (double)tot_resects/(max_image));
-//      if (PipelineRoutines::Resect(reconstructed_markers,
-//                                   reconstruction, true)) {
-//        num_resects++;
-//        LG << "Ran final Resect() for image " << image;
-//      } else {
-//        LG << "Failed final Resect() for image " << image;
-//      }
-//    }
-//  }
-//  if (num_resects) {
-//    CompleteReconstructionLogProgress(update_callback,
-//                                      (double)tot_resects/(max_image),
-//                                      "Bundling...");
-//    PipelineRoutines::Bundle(tracks, reconstruction);
-//  }
-//  return true;
+
+	int clip_num = tracks.GetClipNum();
+	int max_frames = 0;		// maximum frame of all clips
+	for(int i = 0; i < clip_num; i++) {
+		max_frames += tracks.MaxFrame(i) + 1;
+	}
+
+	int max_track = tracks.MaxTrack();
+	int num_resects = -1;
+	int num_intersects = -1;
+	int total_resects = 0;
+	std::cout << "Max track: " << max_track << "\n";
+	std::cout << "Max image: " << max_frames << "\n";
+	std::cout << "Number of markers: " << tracks.NumMarkers() << "\n";
+	while (num_resects != 0 || num_intersects != 0) {
+		// Do all possible intersections.
+		num_intersects = 0;
+		for (int track = 0; track <= max_track; ++track) {
+			if (reconstruction->PointForTrack(track)) {		// track has already been added
+				std::cout << "Skipping point: " << track << "\n";
+				continue;
+			}
+			vector<Marker> all_markers;
+			tracks.GetMarkersForTrack(track, &all_markers);
+			std::cout << "Got " << all_markers.size() << " markers for track " << track << "\n";
+
+			vector<Marker> reconstructed_markers;
+			for (int i = 0; i < all_markers.size(); ++i) {
+				if (reconstruction->CameraPoseForFrame(all_markers[i].clip, all_markers[i].frame)) {
+					reconstructed_markers.push_back(all_markers[i]);
+				}
+			}
+			std::cout << "Got " << reconstructed_markers.size() << " reconstructed markers for track " << track << "\n";
+			if (reconstructed_markers.size() >= 2) {
+				CompleteReconstructionLogProgress(update_callback,
+				                                  (double)total_resects/(max_frames));
+				if (PipelineRoutines::Intersect(reconstructed_markers,
+				                                reconstruction)) {
+					num_intersects++;
+					std::cout << "Ran Intersect() for track " << track << "\n";
+				} else {
+					std::cout << "Failed Intersect() for track " << track << "\n";
+				}
+			}
+		}
+		if (num_intersects) {
+			CompleteReconstructionLogProgress(update_callback,
+			                                  (double)total_resects/(max_frames),
+			                                  "Bundling...");
+			PipelineRoutines::Bundle(tracks, reconstruction);
+			std::cout << "Ran Bundle() after intersections.\n";
+		}
+		std::cout << "Did " << num_intersects << " intersects.\n";
+
+		// Do all possible resections.
+		num_resects = 0;
+		for(int clip = 0; clip < clip_num; clip++) {
+			const int max_image = tracks.MaxFrame(clip);
+			for (int image = 0; image <= max_image; ++image) {
+				if (reconstruction->CameraPoseForFrame(clip, image)) {	// this camera pose has been added
+					LG << "Skipping frame: " << image;
+					continue;
+				}
+				vector<Marker> all_markers;
+				tracks.GetMarkersInFrame(clip, image, &all_markers);
+				LG << "Got " << all_markers.size() << " markers for image " << image;
+
+				vector<Marker> reconstructed_markers;
+				for (int i = 0; i < all_markers.size(); ++i) {
+					if (reconstruction->PointForTrack(all_markers[i].track)) {
+						reconstructed_markers.push_back(all_markers[i]);
+					}
+				}
+				LG << "Got " << reconstructed_markers.size()
+				   << " reconstructed markers for image " << image;
+				if (reconstructed_markers.size() >= 5) {
+					CompleteReconstructionLogProgress(update_callback,
+					                                  (double)total_resects/(max_frames));
+					if (PipelineRoutines::Resect(reconstructed_markers,
+					                             reconstruction, false)) {
+						num_resects++;
+						total_resects++;
+						std::cout << "Ran Resect() for image (" << clip << ", " << image << ")\n";
+					} else {
+						std::cout << "Failed Resect() for image (" << clip << ", " << image << ")\n";
+					}
+				}
+			}
+		}
+		if (num_resects) {
+			CompleteReconstructionLogProgress(update_callback,
+			                                  (double)total_resects/(max_frames),
+			                                  "Bundling...");
+			PipelineRoutines::Bundle(tracks, reconstruction);
+		}
+		std::cout << "Did " << num_resects << " resects.\n";
+	}
+
+	// One last pass...
+	num_resects = 0;
+	for(int clip = 0; clip < clip_num; clip++) {
+		int max_image = tracks.MaxFrame(clip);
+		for (int image = 0; image <= max_image; ++image) {
+			if (reconstruction->CameraPoseForFrame(clip, image)) {
+				LG << "Skipping frame: " << image;
+				continue;
+			}
+			vector<Marker> all_markers;
+			tracks.GetMarkersInFrame(clip, image, &all_markers);
+
+			vector<Marker> reconstructed_markers;
+			for (int i = 0; i < all_markers.size(); ++i) {
+				if (reconstruction->PointForTrack(all_markers[i].track)) {
+					reconstructed_markers.push_back(all_markers[i]);
+				}
+			}
+			if (reconstructed_markers.size() >= 5) {
+				CompleteReconstructionLogProgress(update_callback,
+				                                  (double)total_resects/(max_image));
+				if (PipelineRoutines::Resect(reconstructed_markers,
+				                             reconstruction, true)) {
+					num_resects++;
+					std::cout << "Ran final Resect() for image " << image;
+				} else {
+					std::cout << "Failed final Resect() for image " << image;
+				}
+			}
+		}
+	}
+	if (num_resects) {
+		CompleteReconstructionLogProgress(update_callback,
+		                                  (double)total_resects/(max_frames),
+		                                  "Bundling...");
+		PipelineRoutines::Bundle(tracks, reconstruction);
+	}
+	return true;
 }
 
 template<typename PipelineRoutines>
