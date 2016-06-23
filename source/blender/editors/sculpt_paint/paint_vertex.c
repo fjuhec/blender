@@ -3098,7 +3098,7 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	unsigned int blend[4] = { 0 };
 	char *col;
 	
-	data->totloopsHit[n] = 0;
+	data->ob->sculpt->cache->totloopsHit[n] = 0;
 
 	//for each vertex
 	PBVHVertexIter vd;
@@ -3110,11 +3110,11 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 		//Test to see if the vertex coordinates are within the spherical brush region.
 		if (sculpt_brush_test(&test, vd.co)) {
 			if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
-				data->colorWeight[n] = BKE_brush_curve_strength(data->brush, test.dist, cache->radius);
+				data->ob->sculpt->cache->colorWeight[n] = BKE_brush_curve_strength(data->brush, test.dist, cache->radius);
 
 				int vertexIndex = vd.vert_indices[vd.i];
 
-				data->totloopsHit[n] += cache->vert_to_loop[vertexIndex].count;
+				data->ob->sculpt->cache->totloopsHit[n] += cache->vert_to_loop[vertexIndex].count;
 				//if a vertex is within the brush region, then add it's color to the blend.
 				for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
 					int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
@@ -3128,10 +3128,10 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 		}
 		BKE_pbvh_vertex_iter_end;
 	}
-	data->totalRed[n] = blend[0];
-	data->totalGreen[n] = blend[1];
-	data->totalBlue[n] = blend[2];
-	data->totalAlpha[n] = blend[3];
+	data->ob->sculpt->cache->totalRed[n] = blend[0];
+	data->ob->sculpt->cache->totalGreen[n] = blend[1];
+	data->ob->sculpt->cache->totalBlue[n] = blend[2];
+	data->ob->sculpt->cache->totalAlpha[n] = blend[3];
 }
 
 static void do_vpaint_brush_draw_task_cb_ex(
@@ -3163,10 +3163,34 @@ static void do_vpaint_brush_draw_task_cb_ex(
 			for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
 				int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
 				//Mix the new color with the original based on the brush strength and the curve.
-				lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], data->vpd->paintcol, 255.0 * fade, 255.0 * bstrength);
+				lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], data->vpd->paintcol, 255.0 * fade * bstrength, 255.0);
 			}
 		}
 		BKE_pbvh_vertex_iter_end;
+	}
+}
+
+static void do_average_brush(SculptThreadedTaskData *data, PBVHNode **nodes, int totnode) {
+	BLI_task_parallel_range_ex(
+		0, totnode, data, NULL, 0, do_vpaint_brush_calc_ave_color_cb_ex,
+		((data->sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+
+	unsigned int totalHitLoops = 0;
+	unsigned int totalColor[4] = { 0 };
+	unsigned char blend[4] = { 0 };
+	for (int i = 0; i < totnode; ++i) {
+		totalHitLoops += data->ob->sculpt->cache->totloopsHit[i];
+		totalColor[0] += data->ob->sculpt->cache->totalRed[i];
+		totalColor[1] += data->ob->sculpt->cache->totalGreen[i];
+		totalColor[2] += data->ob->sculpt->cache->totalBlue[i];
+		totalColor[3] += data->ob->sculpt->cache->totalAlpha[i];
+	}
+	if (totalHitLoops != 0) {
+		blend[0] = divide_round_i(totalColor[0], totalHitLoops);
+		blend[1] = divide_round_i(totalColor[1], totalHitLoops);
+		blend[2] = divide_round_i(totalColor[2], totalHitLoops);
+		blend[3] = divide_round_i(totalColor[3], totalHitLoops);
+		data->vpd->paintcol = *((unsigned int*)blend);
 	}
 }
 
@@ -3184,35 +3208,7 @@ static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object 
 	data.lcol = (unsigned int*)me->mloopcol;
 
 	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-		//To be moved
-		data.totalRed = ob->sculpt->cache->totalRed;
-		data.totalGreen = ob->sculpt->cache->totalGreen;
-		data.totalBlue = ob->sculpt->cache->totalBlue; 
-		data.totalAlpha = ob->sculpt->cache->totalAlpha;
-		data.colorWeight = ob->sculpt->cache->colorWeight;
-		data.totloopsHit = ob->sculpt->cache->totloopsHit; 
-
-		BLI_task_parallel_range_ex(
-			0, totnode, &data, NULL, 0, do_vpaint_brush_calc_ave_color_cb_ex,
-			((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-
-		unsigned int totalHitLoops = 0;
-		unsigned int totalColor[4] = { 0 };
-		unsigned char blend[4] = { 0 };
-		for (int i = 0; i < totnode; ++i) {
-			totalHitLoops += data.totloopsHit[i];
-			totalColor[0] += data.totalRed[i];
-			totalColor[1] += data.totalGreen[i];
-			totalColor[2] += data.totalBlue[i];
-			totalColor[3] += data.totalAlpha[i];
-		}
-		if (totalHitLoops != 0) {
-			blend[0] = divide_round_i(totalColor[0], totalHitLoops);
-			blend[1] = divide_round_i(totalColor[1], totalHitLoops);
-			blend[2] = divide_round_i(totalColor[2], totalHitLoops);
-			blend[3] = divide_round_i(totalColor[3], totalHitLoops);
-			data.vpd->paintcol = *((unsigned int*)blend);
-		}
+		do_average_brush(&data, nodes, totnode);
 	}
 
 	BLI_task_parallel_range_ex(

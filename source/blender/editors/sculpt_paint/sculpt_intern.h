@@ -263,12 +263,6 @@ typedef struct SculptThreadedTaskData {
 	VPaint *vp;
 	VPaintData *vpd;
 	unsigned int* lcol;
-	unsigned int* totalRed;
-	unsigned int* totalGreen;
-	unsigned int* totalBlue;
-	unsigned int* totalAlpha;
-	unsigned int* colorWeight;
-	unsigned int *totloopsHit;
 	MeshElemMap **vertToLoopMaps;
 
 
