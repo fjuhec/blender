@@ -901,7 +901,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 				create_mesh_volume_attributes(scene, b_ob, mesh, b_scene.frame_current());
 			}
 
-			if(render_layer.use_hair)
+			if(render_layer.use_hair && !subdivision)
 				sync_curves(mesh, b_mesh, b_ob, false);
 
 			if(can_free_caches) {
