@@ -2081,7 +2081,6 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 	copy_v3_v3(cache->view_normal, cache->true_view_normal);
 	cache->bstrength = BKE_brush_alpha_get(scene, brush);
 
-
 	if (!cache->vert_to_loop) {
 		Mesh *me = ob->data;
 		cache->tot_verts = me->totvert;
