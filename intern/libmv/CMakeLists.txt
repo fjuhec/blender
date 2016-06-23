@@ -76,8 +76,11 @@ if(WITH_LIBMV)
 		intern/tracksN.cc
 		libmv/autotrack/autotrack.cc
 		libmv/autotrack/bundle.cc
+		libmv/autotrack/intersect.cc
+		libmv/autotrack/pipeline.cc
 		libmv/autotrack/predict_tracks.cc
 		libmv/autotrack/reconstruction.cc
+		libmv/autotrack/resect.cc
 		libmv/autotrack/tracks.cc
 		libmv/base/aligned_malloc.cc
 		libmv/image/array_nd.cc
@@ -130,12 +133,15 @@ if(WITH_LIBMV)
 		libmv/autotrack/bundle.h
 		libmv/autotrack/callbacks.h
 		libmv/autotrack/frame_accessor.h
+		libmv/autotrack/intersect.h
 		libmv/autotrack/marker.h
 		libmv/autotrack/model.h
+		libmv/autotrack/pipeline.h
 		libmv/autotrack/predict_tracks.h
 		libmv/autotrack/quad.h
 		libmv/autotrack/reconstruction.h
 		libmv/autotrack/region.h
+		libmv/autotrack/resect.h
 		libmv/autotrack/tracks.h
 		libmv/base/aligned_malloc.h
 		libmv/base/id_generator.h

@@ -35,6 +35,7 @@
 #include "libmv/autotrack/frame_accessor.h"
 #include "libmv/autotrack/marker.h"
 #include "libmv/autotrack/model.h"
+#include "libmv/autotrack/pipeline.h"
 #include "libmv/autotrack/predict_tracks.h"
 #include "libmv/autotrack/quad.h"
 #include "libmv/autotrack/reconstruction.h"
@@ -184,21 +185,19 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 	update_callback.invoke(0, "Initial reconstruction");
 
 	// reconstruct two views from the main clip
-	if(!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction))
-	{
+	if(!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction)) {
 		printf("mv::ReconstrucTwoFrames failed\n");
 		all_libmv_reconstruction[0]->is_valid = false;
 		return all_libmv_reconstruction;
 	}
 	// bundle the two-view initial reconstruction
-	if(!mv::EuclideanBundleAll(all_normalized_tracks, &reconstruction))
-	{
+	// (it is redundant for now since now 3d point is added at this stage)
+	if(!mv::EuclideanBundleAll(all_normalized_tracks, &reconstruction)) {
 		printf("mv::EuclideanBundleAll failed\n");
 		all_libmv_reconstruction[0]->is_valid = false;
 		return all_libmv_reconstruction;
 	}
-	if(!mv::EuclideanReconstructionComplete(all_normalized_tracks, &reconstruction, &update_callback))
-	{
+	if(!mv::EuclideanCompleteMultiviewReconstruction(all_normalized_tracks, &reconstruction, &update_callback)) {
 		printf("mv::EuclideanReconstructionComplete failed\n");
 		all_libmv_reconstruction[0]->is_valid = false;
 		return all_libmv_reconstruction;

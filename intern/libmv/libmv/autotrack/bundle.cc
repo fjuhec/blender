@@ -682,10 +682,4 @@ bool EuclideanBundleAll(const Tracks &tracks,
 	return true;
 }
 
-bool EuclideanReconstructionComplete(const Tracks &tracks,
-                                     Reconstruction *reconstruction,
-                                     libmv::ProgressUpdateCallback *update_callback) {
-	return true;
-}
-
 }  // namespace mv

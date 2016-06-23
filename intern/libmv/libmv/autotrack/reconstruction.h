@@ -51,7 +51,8 @@ struct CameraPose {
 };
 
 struct Point {
-	Point():track(-1){}
+	Point(int track_ = -1, Vec3 X_ = Vec3(0, 0, 0))
+	    : track(track_), X(X_){}
   	Point(const Point &p) : track(p.track), X(p.X) {}
 	int track;
 

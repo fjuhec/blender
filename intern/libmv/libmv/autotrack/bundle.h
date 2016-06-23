@@ -23,8 +23,8 @@
 // This is a autotrack equivalent bundle set, adapted from simple_pipeline,
 // which replaces libmv with mv, includeing tracks and markers
 
-#ifndef LIBMV_SIMPLE_PIPELINE_BUNDLE_H
-#define LIBMV_SIMPLE_PIPELINE_BUNDLE_H
+#ifndef LIBMV_AUTOTRACK_BUNDLE_H
+#define LIBMV_AUTOTRACK_BUNDLE_H
 
 #include "libmv/numeric/numeric.h"
 #include "libmv/autotrack/tracks.h"
@@ -132,10 +132,6 @@ void EuclideanBundleCommonIntrinsics(
 bool EuclideanBundleAll(const Tracks &tracks,
                         Reconstruction *reconstruction);
 
-bool EuclideanReconstructionComplete(const Tracks &tracks,
-                                     Reconstruction *reconstruction,
-                                     libmv::ProgressUpdateCallback *update_callback);
 }  // namespace mv
 
-#endif   // LIBMV_SIMPLE_PIPELINE_BUNDLE_H
-
+#endif   // LIBMV_AUTOTRACK_BUNDLE_H
