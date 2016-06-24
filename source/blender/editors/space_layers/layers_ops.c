@@ -692,7 +692,7 @@ static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), cons
 		if (base->flag & SELECT) {
 			/* Only iterate over selected items */
 			for (i = 0; i < tot_sel; i++) {
-				BKE_objectlayer_base_assign(base, litems[i]);
+				BKE_objectlayer_base_assign(base, litems[i], false);
 			}
 		}
 	}

@@ -59,16 +59,20 @@ static void objectlayer_array_resize(LayerTypeObject *oblayer, unsigned int new_
 	else {
 		MEM_SAFE_FREE(oblayer->bases);
 	}
-	oblayer->tot_bases = new_tot_objects;
 }
 
 /**
  * Assign \a base to object layer \a litem.
+ * \param has_reserved: Set to true if entries have been reserved before using #BKE_objectlayer_bases_reserve.
  */
-void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem)
+void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem, const bool has_reserved)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-	objectlayer_array_resize(oblayer, oblayer->tot_bases + 1);
+
+	oblayer->tot_bases++;
+	if (!has_reserved) {
+		objectlayer_array_resize(oblayer, oblayer->tot_bases);
+	}
 	oblayer->bases[oblayer->tot_bases - 1] = base;
 }
 
@@ -89,7 +93,17 @@ void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem)
 		}
 	}
 
-	objectlayer_array_resize(oblayer, oblayer->tot_bases - 1);
+	objectlayer_array_resize(oblayer, --oblayer->tot_bases);
+}
+
+/**
+ * Reserve memory for \a nentries_reserve number of entries. Use to avoid multiple
+ * allocations, but note that it's up to you to insert the entries correctly.
+ */
+void BKE_objectlayer_base_entries_reserve(LayerTreeItem *litem, const unsigned int nentries_reserve)
+{
+	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+	objectlayer_array_resize(oblayer, nentries_reserve);
 }
 
 /**
