@@ -2273,16 +2273,15 @@ static void lib_link_cachefiles(FileData *fd, Main *main)
 	for (cache_file = main->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
 		if (cache_file->id.tag & LIB_TAG_NEED_LINK) {
 			cache_file->id.tag &= ~LIB_TAG_NEED_LINK;
+
+			BKE_cachefile_load(cache_file, fd->relabase);
 		}
 	}
-
-	UNUSED_VARS(fd);
 }
 
 static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
 {
 	cache_file->handle = NULL;
-	BKE_cachefile_load(cache_file);
 	UNUSED_VARS(fd);
 }
 

@@ -44,9 +44,9 @@ static void rna_CacheFile_update_handle(Main *bmain, Scene *scene, PointerRNA *p
 {
 	CacheFile *cache_file = (CacheFile *)ptr->data;
 
-	BKE_cachefile_load(cache_file);
+	BKE_cachefile_load(cache_file, bmain->name);
 
-	UNUSED_VARS(bmain, scene);
+	UNUSED_VARS(scene);
 }
 
 #else

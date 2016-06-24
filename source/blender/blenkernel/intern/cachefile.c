@@ -45,6 +45,15 @@
 #  include "ABC_alembic.h"
 #endif
 
+static void get_absolute_path(char *r_absolute, const char *relative, const char *base)
+{
+	BLI_strncpy(r_absolute, relative, FILE_MAX);
+
+	if (BLI_path_is_rel(r_absolute)) {
+		BLI_path_abs(r_absolute, base);
+	}
+}
+
 void *BKE_cachefile_add(Main *bmain, const char *name)
 {
 	CacheFile *cache_file = BKE_libblock_alloc(bmain, ID_CF, name);
@@ -67,15 +76,10 @@ void BKE_cachefile_free(CacheFile *cache_file)
 #endif
 }
 
-void BKE_cachefile_load(CacheFile *cache_file)
+void BKE_cachefile_load(CacheFile *cache_file, const char *relabase)
 {
 	char filename[FILE_MAX];
-	BLI_strncpy(filename, cache_file->filepath, FILE_MAX);
-
-	/* Ensure absolute paths. */
-	if (BLI_path_is_rel(filename)) {
-		BLI_path_abs(filename, G.main->name);
-	}
+	get_absolute_path(filename, cache_file->filepath, relabase);
 
 #ifdef WITH_ALEMBIC
 	if (cache_file->handle) {
@@ -107,12 +111,7 @@ void BKE_cachefiles_open_next_file(Main *bmain, float ctime)
 
 bool BKE_cachefile_filepath_get(CacheFile *cache_file, float frame, char *r_filepath)
 {
-	BLI_strncpy(r_filepath, cache_file->filepath, FILE_MAX);
-
-	/* Ensure absolute paths. */
-	if (BLI_path_is_rel(r_filepath)) {
-		BLI_path_abs(r_filepath, G.main->name);
-	}
+	get_absolute_path(r_filepath, cache_file->filepath, G.main->name);
 
 	int fframe;
 	int frame_len;
