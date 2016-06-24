@@ -4361,14 +4361,36 @@ static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBa
 	UNUSED_VARS(targets);
 }
 
+static void transformcache_copy(bConstraint *con, bConstraint *srccon)
+{
+	bTransformCacheConstraint *src = srccon->data;
+	bTransformCacheConstraint *dst = con->data;
+
+	BLI_strncpy(dst->abc_object_path, src->abc_object_path, sizeof(dst->abc_object_path));
+	dst->cache_file = src->cache_file;
+
+	if (dst->cache_file) {
+		id_us_plus(&dst->cache_file->id);
+	}
+}
+
+static void transformcache_free(bConstraint *con)
+{
+	bTransformCacheConstraint *data = con->data;
+
+	if (data->cache_file) {
+		id_us_min(&data->cache_file->id);
+	}
+}
+
 static bConstraintTypeInfo CTI_TRANSFORMCACHE = {
 	CONSTRAINT_TYPE_TRANSFORMCACHE, /* type */
 	sizeof(bTransformCacheConstraint), /* size */
 	"Transform Cache", /* name */
 	"bTransformCacheConstraint", /* struct name */
-	NULL,  /* free data */
+	transformcache_free,  /* free data */
 	transformcache_id_looper,  /* id looper */
-	NULL,  /* copy data */
+	transformcache_copy,  /* copy data */
 	NULL,  /* new data */
 	NULL,  /* get constraint targets */
 	NULL,  /* flush constraint targets */

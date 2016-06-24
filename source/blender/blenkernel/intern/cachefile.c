@@ -64,6 +64,7 @@ void *BKE_cachefile_add(Main *bmain, const char *name)
 	cache_file->frame_start = 0.0f;
 	cache_file->frame_scale = 1.0f;
 	cache_file->is_sequence = false;
+	cache_file->scale = 1.0f;
 
 	return cache_file;
 }
@@ -76,6 +77,28 @@ void BKE_cachefile_free(CacheFile *cache_file)
 #ifdef WITH_ALEMBIC
 	ABC_free_handle(cache_file->handle);
 #endif
+}
+
+CacheFile *BKE_cachefile_copy(Main *bmain, CacheFile *cache_file)
+{
+	CacheFile *new_cache_file = BKE_cachefile_add(bmain, cache_file->id.name + 2);
+
+	BLI_strncpy(new_cache_file->filepath, cache_file->filepath, FILE_MAX);
+
+	new_cache_file->frame_start = cache_file->frame_start;
+	new_cache_file->frame_scale = cache_file->frame_scale;
+	new_cache_file->is_sequence = cache_file->is_sequence;
+	new_cache_file->scale = cache_file->scale;
+
+	if (cache_file->handle) {
+		BKE_cachefile_load(new_cache_file, bmain->name);
+	}
+
+	if (cache_file->id.lib) {
+		BKE_id_lib_local_paths(G.main, cache_file->id.lib, &new_cache_file->id);
+	}
+
+	return new_cache_file;
 }
 
 void BKE_cachefile_load(CacheFile *cache_file, const char *relabase)

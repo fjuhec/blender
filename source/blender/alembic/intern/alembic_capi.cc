@@ -539,6 +539,11 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 
 	CacheFile *cache_file = static_cast<CacheFile *>(BKE_cachefile_add(data->bmain, BLI_path_basename(data->filename)));
 
+	/* Decrement the ID ref-count because it is going to be incremented for each
+	 * modifier and constraint that it will be attached to, so since currently
+	 * it is not used by anyone, its use count will off by one. */
+	id_us_min(&cache_file->id);
+
 	cache_file->is_sequence = data->settings.is_sequence;
 	cache_file->scale = data->settings.scale;
 	cache_file->handle = handle_from_archive(archive);

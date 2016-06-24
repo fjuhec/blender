@@ -25,6 +25,7 @@
 #include "abc_util.h"
 
 extern "C" {
+#include "DNA_cachefile_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
@@ -33,6 +34,7 @@ extern "C" {
 #include "BKE_constraint.h"
 #include "BKE_depsgraph.h"
 #include "BKE_idprop.h"
+#include "BKE_library.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 
@@ -178,8 +180,10 @@ void AbcObjectReader::readObjectMatrix(const float time)
 	if (!schema.isConstant()) {
 		bConstraint *con = BKE_constraint_add_for_object(m_object, NULL, CONSTRAINT_TYPE_TRANSFORMCACHE);
 		bTransformCacheConstraint *data = static_cast<bTransformCacheConstraint *>(con->data);
-		data->cache_file = m_settings->cache_file;
 		BLI_strncpy(data->abc_object_path, m_iobject.getFullName().c_str(), FILE_MAX);
+
+		data->cache_file = m_settings->cache_file;
+		id_us_plus(&data->cache_file->id);
 	}
 }
 
@@ -191,6 +195,8 @@ void AbcObjectReader::addDefaultModifier(Main *bmain) const
 	MeshSeqCacheModifierData *mcmd = reinterpret_cast<MeshSeqCacheModifierData *>(md);
 
 	mcmd->cache_file = m_settings->cache_file;
+	id_us_plus(&mcmd->cache_file->id);
+
 	BLI_strncpy(mcmd->abc_object_path, m_iobject.getFullName().c_str(), FILE_MAX);
 
 	DAG_id_tag_update(&m_object->id, OB_RECALC_DATA);

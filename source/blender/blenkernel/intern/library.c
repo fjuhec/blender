@@ -83,6 +83,7 @@
 #include "BKE_bpath.h"
 #include "BKE_brush.h"
 #include "BKE_camera.h"
+#include "BKE_cachefile.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_depsgraph.h"
@@ -449,7 +450,8 @@ bool id_copy(ID *id, ID **newid, bool test)
 			if (!test) *newid = (ID *)BKE_linestyle_copy(G.main, (FreestyleLineStyle *)id);
 			return true;
 		case ID_CF:
-			return false;  /* not implemented */
+			if (!test) *newid = (ID *)BKE_cachefile_copy(G.main, (CacheFile *)id);
+			return true;  /* not implemented */
 	}
 	
 	return false;

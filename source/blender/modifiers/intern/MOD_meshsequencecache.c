@@ -31,6 +31,7 @@
 
 #include "BKE_cachefile.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_scene.h"
 
@@ -52,9 +53,23 @@ static void copyData(ModifierData *md, ModifierData *target)
 {
 #if 0
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *)md;
-	MeshSeqCacheModifierData *tmcmd = (MeshSeqCacheModifierData *)target;
 #endif
+	MeshSeqCacheModifierData *tmcmd = (MeshSeqCacheModifierData *)target;
+
 	modifier_copyData_generic(md, target);
+
+	if (tmcmd->cache_file) {
+		id_us_plus(&tmcmd->cache_file->id);
+	}
+}
+
+static void freeData(ModifierData *md)
+{
+	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
+
+	if (mcmd->cache_file) {
+		id_us_min(&mcmd->cache_file->id);
+	}
 }
 
 static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
@@ -119,7 +134,7 @@ ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* applyModifierEM */   NULL,
     /* initData */          initData,
     /* requiredDataMask */  NULL,
-    /* freeData */          NULL,
+    /* freeData */          freeData,
     /* isDisabled */        isDisabled,
     /* updateDepgraph */    NULL,
     /* updateDepsgraph */   NULL,
