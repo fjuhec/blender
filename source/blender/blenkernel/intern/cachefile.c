@@ -90,7 +90,7 @@ void BKE_cachefile_load(CacheFile *cache_file, const char *relabase)
 #endif
 }
 
-void BKE_cachefiles_open_next_file(Main *bmain, float ctime)
+void BKE_cachefile_update_frame(Main *bmain, float ctime)
 {
 	CacheFile *cache_file;
 	char filename[FILE_MAX];

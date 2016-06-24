@@ -43,7 +43,7 @@ void BKE_cachefile_free(struct CacheFile *cache_file);
 
 void BKE_cachefile_load(struct CacheFile *cache_file, const char *relabase);
 
-void BKE_cachefiles_open_next_file(struct Main *bmain, float ctime);
+void BKE_cachefile_update_frame(struct Main *bmain, float ctime);
 
 bool BKE_cachefile_filepath_get(struct CacheFile *cache_file, float frame,
                                 char *r_filename);
