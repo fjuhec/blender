@@ -2485,7 +2485,7 @@ static void SCREEN_OT_screen_full_area(wmOperatorType *ot)
 {
 	PropertyRNA *prop;
 
-	ot->name = "Toggle Fullscreen Area";
+	ot->name = "Toggle Maximize Area";
 	ot->description = "Toggle display selected area as fullscreen/maximized";
 	ot->idname = "SCREEN_OT_screen_full_area";
 	
