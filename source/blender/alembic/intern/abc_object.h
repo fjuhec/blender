@@ -25,7 +25,7 @@
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
 
-#include "abc_export_options.h"
+#include "abc_exporter.h"
 
 extern "C" {
 #include "DNA_ID.h"
@@ -34,6 +34,7 @@ extern "C" {
 class AbcTransformWriter;
 
 struct Main;
+struct Object;
 
 /* ************************************************************************** */
 

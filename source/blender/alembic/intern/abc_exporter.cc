@@ -33,6 +33,7 @@
 #include "abc_mesh.h"
 #include "abc_nurbs.h"
 #include "abc_points.h"
+#include "abc_transform.h"
 #include "abc_util.h"
 
 extern "C" {
@@ -64,6 +65,32 @@ using Alembic::Abc::OBox3dProperty;
 
 /* ************************************************************************** */
 
+ExportSettings::ExportSettings()
+    : scene(NULL)
+    , selected_only(false)
+	, visible_layers_only(false)
+	, renderable_only(false)
+	, startframe(1)
+    , endframe(1)
+	, xform_frame_step(1)
+	, shape_frame_step(1)
+	, shutter_open(0.0)
+	, shutter_close(1.0)
+	, global_scale(1.0f)
+	, flatten_hierarchy(false)
+	, export_normals(false)
+	, export_uvs(false)
+	, export_vcols(false)
+	, export_face_sets(false)
+	, export_vweigths(false)
+	, apply_subdiv(false)
+	, use_subdiv_schema(false)
+	, export_child_hairs(true)
+	, export_ogawa(true)
+	, pack_uv(false)
+	, do_convert_axis(false)
+{}
+
 static bool object_is_smoke_sim(Object *ob)
 {
 	ModifierData *md = modifiers_findByType(ob, eModifierType_Smoke);
@@ -93,6 +120,23 @@ static bool object_is_shape(Object *ob)
 		default:
 			return false;
 	}
+}
+
+static bool export_object(const ExportSettings * const settings, Object *ob)
+{
+	if (settings->selected_only && !parent_selected(ob)) {
+		return false;
+	}
+
+	if (settings->visible_layers_only && !(settings->scene->lay & ob->lay)) {
+		return false;
+	}
+
+	if (settings->renderable_only && (ob->restrictflag & 4)) {
+		return false;
+	}
+
+	return true;
 }
 
 /* ************************************************************************** */
@@ -305,7 +349,7 @@ void AbcExporter::createTransformWritersHierarchy(EvaluationContext *eval_ctx)
 	while (base) {
 		Object *ob = base->object;
 
-		if (m_settings.exportObject(ob)) {
+		if (export_object(&m_settings, ob)) {
 			switch(ob->type) {
 				case OB_LAMP:
 				case OB_LATTICE:
@@ -330,7 +374,7 @@ void AbcExporter::createTransformWritersFlat()
 	while (base) {
 		Object *ob = base->object;
 
-		if (m_settings.exportObject(ob) && object_is_shape(ob)) {
+		if (export_object(&m_settings, ob) && object_is_shape(ob)) {
 			std::string name = get_id_name(ob);
 			m_xforms[name] = new AbcTransformWriter(ob, m_archive.getTop(), 0, m_trans_sampling_index, m_settings);
 		}
@@ -441,7 +485,7 @@ void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 		return;
 	}
 
-	if (!m_settings.exportObject(ob)) {
+	if (!export_object(&m_settings, ob)) {
 		return;
 	}
 

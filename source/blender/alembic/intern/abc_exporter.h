@@ -22,13 +22,52 @@
 
 #pragma once
 
+#include <Alembic/Abc/All.h>
 #include <map>
+#include <set>
 #include <vector>
 
-#include "abc_object.h"
-#include "abc_transform.h"
+class AbcObjectWriter;
+class AbcTransformWriter;
 
-class EvaluationContext;
+struct EvaluationContext;
+struct Main;
+struct Object;
+struct Scene;
+
+struct ExportSettings {
+	ExportSettings();
+
+	Scene *scene;
+
+	bool selected_only;
+	bool visible_layers_only;
+	bool renderable_only;
+
+	double startframe, endframe;
+	double xform_frame_step;
+	double shape_frame_step;
+	double shutter_open;
+	double shutter_close;
+	float global_scale;
+
+	bool flatten_hierarchy;
+
+	bool export_normals;
+	bool export_uvs;
+	bool export_vcols;
+	bool export_face_sets;
+	bool export_vweigths;
+
+	bool apply_subdiv;
+	bool use_subdiv_schema;
+	bool export_child_hairs;
+	bool export_ogawa;
+	bool pack_uv;
+
+	bool do_convert_axis;
+	float convert_matrix[3][3];
+};
 
 class AbcExporter {
 	ExportSettings &m_settings;

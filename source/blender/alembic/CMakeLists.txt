@@ -46,7 +46,6 @@ set(SRC
 	intern/abc_customdata.cc
 	intern/abc_curves.cc
 	intern/abc_exporter.cc
-	intern/abc_export_options.cc
 	intern/abc_hair.cc
 	intern/abc_mesh.cc
 	intern/abc_nurbs.cc
@@ -61,7 +60,6 @@ set(SRC
 	intern/abc_customdata.h
 	intern/abc_curves.h
 	intern/abc_exporter.h
-	intern/abc_export_options.h
 	intern/abc_hair.h
 	intern/abc_mesh.h
 	intern/abc_nurbs.h
