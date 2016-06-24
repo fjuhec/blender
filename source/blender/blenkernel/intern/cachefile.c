@@ -102,7 +102,9 @@ void BKE_cachefile_update_frame(Main *bmain, float ctime)
 			continue;
 		}
 
-		if (BKE_cachefile_filepath_get(cache_file, ctime, filename)) {
+		const float time = BKE_cachefile_time_offset(cache_file, ctime);
+
+		if (BKE_cachefile_filepath_get(cache_file, time, filename)) {
 #ifdef WITH_ALEMBIC
 			ABC_free_handle(cache_file->handle);
 			cache_file->handle = ABC_create_handle(filename);
