@@ -47,10 +47,9 @@ struct ExportSettings {
 	bool export_uvs;
 	bool export_vcols;
 	bool export_face_sets;
-	bool export_mat_indices;
 	bool export_vweigths;
 
-	bool export_subsurfs_as_meshes;
+	bool apply_subdiv;
 	bool use_subdiv_schema;
 	bool export_child_hairs;
 	bool export_ogawa;

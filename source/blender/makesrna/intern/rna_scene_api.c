@@ -202,28 +202,44 @@ static void rna_Scene_alembic_export(
         int uvs,
         int normals,
         int vcolors,
-        int force_meshes,
+        int apply_subdiv,
         int flatten_hierarchy,
         int vislayers,
         int renderable,
         int facesets,
-        int matindices,
         int subdiv_schema,
-        int ogawa,
+        int compression,
         int packuv,
         float scale)
 {
-// We have to enable allow_threads, because we may change scene frame number during export
+/* We have to enable allow_threads, because we may change scene frame number
+ * during export. */
 #ifdef WITH_PYTHON
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	ABC_export(scene, C, filepath, start, end, 1.0 / xformsamples, 1.0 / geomsamples,
-	           shutter_open, shutter_close,
-	           selected_only, uvs, normals, vcolors,
-	           force_meshes, flatten_hierarchy,
-	           vislayers, renderable, facesets, matindices, subdiv_schema,
-	           ogawa, packuv, scale);
+	ABC_export(scene,
+	           C,
+	           filepath,
+	           start,
+	           end,
+	           1.0 / (double)xformsamples,
+	           1.0 / (double)geomsamples,
+	           shutter_open,
+	           shutter_close,
+	           selected_only,
+	           uvs,
+	           normals,
+	           vcolors,
+	           apply_subdiv,
+	           flatten_hierarchy,
+	           vislayers,
+	           renderable,
+	           facesets,
+	           subdiv_schema,
+	           compression,
+	           packuv,
+	           scale);
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -379,7 +395,6 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_boolean(func, "vislayers"	, 0, "Visible layers only", "Export only objects in visible layers");
 	RNA_def_boolean(func, "renderable"	, 0, "Renderable objects only", "Export only objects marked renderable in the outliner");
 	RNA_def_boolean(func, "facesets"	, 0, "Facesets", "Export facesets");
-	RNA_def_boolean(func, "matindices"	, 0, "Material indices", "Export per face material indices");
 	RNA_def_boolean(func, "subdiv_schema", 0, "Use Alembic subdivision Schema", "Use Alembic subdivision Schema");
 	RNA_def_enum(func, "compression_type", rna_enum_abc_compression_items, 0, "Compression", "");
 	RNA_def_boolean(func, "packuv"		, 0, "Export with packed UV islands", "Export with packed UV islands");

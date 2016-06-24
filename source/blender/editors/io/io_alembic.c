@@ -90,43 +90,48 @@ static int wm_alembic_export_exec(bContext *C, wmOperator *op)
 
 	char filename[FILE_MAX];
 	RNA_string_get(op->ptr, "filepath", filename);
-	int start = RNA_int_get(op->ptr, "start");
-	int end = RNA_int_get(op->ptr, "end");
-	int xsamples = RNA_int_get(op->ptr, "xsamples");
-	int gsamples = RNA_int_get(op->ptr, "gsamples");
-	float sh_open = RNA_float_get(op->ptr, "sh_open");
-	float sh_close = RNA_float_get(op->ptr, "sh_close");
-
-	bool selected = RNA_boolean_get(op->ptr, "selected");
-	bool uvs = RNA_boolean_get(op->ptr, "uvs");
-	bool normals = RNA_boolean_get(op->ptr, "normals");
-	bool vcolors = RNA_boolean_get(op->ptr, "vcolors");
-	bool forcemeshes = RNA_boolean_get(op->ptr, "forcemeshes");
-	bool flatten = RNA_boolean_get(op->ptr, "flatten");
-	bool renderable = RNA_boolean_get(op->ptr, "renderable");
-	bool vislayers = RNA_boolean_get(op->ptr, "vislayers");
-	bool facesets = RNA_boolean_get(op->ptr, "facesets");
-	bool matindices = RNA_boolean_get(op->ptr, "matindices");
-	bool subdiv_schem = RNA_boolean_get(op->ptr, "subdiv_schema");
-	bool packuv = RNA_boolean_get(op->ptr, "packuv");
+	const int start = RNA_int_get(op->ptr, "start");
+	const int end = RNA_int_get(op->ptr, "end");
+	const int xsamples = RNA_int_get(op->ptr, "xsamples");
+	const int gsamples = RNA_int_get(op->ptr, "gsamples");
+	const float sh_open = RNA_float_get(op->ptr, "sh_open");
+	const float sh_close = RNA_float_get(op->ptr, "sh_close");
+	const bool selected = RNA_boolean_get(op->ptr, "selected");
+	const bool uvs = RNA_boolean_get(op->ptr, "uvs");
+	const bool normals = RNA_boolean_get(op->ptr, "normals");
+	const bool vcolors = RNA_boolean_get(op->ptr, "vcolors");
+	const bool apply_subdiv = RNA_boolean_get(op->ptr, "apply_subdiv");
+	const bool flatten = RNA_boolean_get(op->ptr, "flatten");
+	const bool renderable = RNA_boolean_get(op->ptr, "renderable");
+	const bool vislayers = RNA_boolean_get(op->ptr, "vislayers");
+	const bool facesets = RNA_boolean_get(op->ptr, "facesets");
+	const bool subdiv_schem = RNA_boolean_get(op->ptr, "subdiv_schema");
+	const bool packuv = RNA_boolean_get(op->ptr, "packuv");
 	const int compression = RNA_enum_get(op->ptr, "compression_type");
 	const float scale = RNA_float_get(op->ptr, "scale");
 
-	int result = ABC_export(CTX_data_scene(C), C, filename,
-	                        start, end,
-	                        1.0 / (double)xsamples,
-	                        1.0 / (double)gsamples,
-	                        sh_open, sh_close,
-	                        selected, uvs, normals, vcolors,
-	                        forcemeshes, flatten,
-	                        vislayers, renderable, facesets, matindices,
-	                        subdiv_schem, compression, packuv, scale);
-
-	switch (result) {
-		case BL_ABC_UNKNOWN_ERROR:
-			BKE_report(op->reports, RPT_ERROR, "Unknown error found while exporting Alembic archive.");
-		break;
-	}
+	ABC_export(CTX_data_scene(C),
+	           C,
+	           filename,
+	           start,
+	           end,
+	           1.0 / (double)xsamples,
+	           1.0 / (double)gsamples,
+	           sh_open,
+	           sh_close,
+	           selected,
+	           uvs,
+	           normals,
+	           vcolors,
+	           apply_subdiv,
+	           flatten,
+	           vislayers,
+	           renderable,
+	           facesets,
+	           subdiv_schem,
+	           compression,
+	           packuv,
+	           scale);
 
 	return OPERATOR_FINISHED;
 }
@@ -204,13 +209,10 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 	uiItemR(row, imfptr, "facesets", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(box, false);
-	uiItemR(row, imfptr, "matindices", 0, NULL, ICON_NONE);
-
-	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "subdiv_schema", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(box, false);
-	uiItemR(row, imfptr, "forcemeshes", 0, NULL, ICON_NONE);
+	uiItemR(row, imfptr, "apply_subdiv", 0, NULL, ICON_NONE);
 }
 
 static void wm_alembic_export_draw(bContext *UNUSED(C), wmOperator *op)
@@ -278,14 +280,11 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 
 	RNA_def_boolean(ot->srna, "facesets", 0, "Face Sets", "Export per face shading group assignments");
 
-	RNA_def_boolean(ot->srna, "matindices", 0, "Material Indices",
-	                "Export per face material indices");
-
 	RNA_def_boolean(ot->srna, "subdiv_schema", 0,
 	                "Use Subdivision Schema",
 	                "Export meshes using Alembic's subdivision schema");
 
-	RNA_def_boolean(ot->srna, "forcemeshes", 0,
+	RNA_def_boolean(ot->srna, "apply_subdiv", 0,
 	                "Apply Subsurf", "Export subdivision surfaces as meshes");
 
 	RNA_def_enum(ot->srna, "compression_type", rna_enum_abc_compression_items,

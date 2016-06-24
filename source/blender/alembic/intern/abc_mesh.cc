@@ -316,7 +316,7 @@ AbcMeshWriter::AbcMeshWriter(Scene *scene,
 		time_sampling = 0;
 	}
 
-	if (!m_settings.export_subsurfs_as_meshes) {
+	if (!m_settings.apply_subdiv) {
 		m_subsurf_mod = get_subsurf_modifier(m_scene, m_object);
 		m_is_subd = (m_subsurf_mod != NULL);
 	}
@@ -572,23 +572,14 @@ void AbcMeshWriter::writeArbGeoParams(DerivedMesh *dm)
 	}
 
 	if (m_first_frame && m_has_per_face_materials) {
-		std::vector<int32_t> faceVals;
-
-		if (m_settings.export_face_sets || m_settings.export_mat_indices) {
-			get_material_indices(dm, faceVals);
-		}
+		std::vector<int32_t> material_indices;
 
 		if (m_settings.export_face_sets) {
-			OFaceSetSchema::Sample samp;
-			samp.setFaces(Int32ArraySample(faceVals));
-			m_face_set.getSchema().set(samp);
-		}
+			get_material_indices(dm, material_indices);
 
-		if (m_settings.export_mat_indices) {
-			Alembic::AbcCoreAbstract::ArraySample samp(&(faceVals.front()),
-			                                           m_mat_indices.getDataType(),
-			                                           Alembic::Util::Dimensions(dm->getNumTessFaces(dm)));
-			m_mat_indices.set(samp);
+			OFaceSetSchema::Sample samp;
+			samp.setFaces(Int32ArraySample(material_indices));
+			m_face_set.getSchema().set(samp);
 		}
 	}
 }

@@ -260,7 +260,7 @@ void ABC_get_vertex_cache(const char *filepath, float time, void *verts,
 	delete archive;
 }
 
-int ABC_check_subobject_valid(const char *filename, const char *object_path)
+bool ABC_check_subobject_valid(const char *filename, const char *object_path)
 {
 	IArchive *archive = open_archive(filename);
 
@@ -343,18 +343,29 @@ static void export_endjob(void *customdata)
 	BKE_spacedata_draw_locks(false);
 }
 
-int ABC_export(Scene *scene, bContext *C, const char *filepath,
-               double start, double end,
-               double xformstep, double geomstep,
-               double shutter_open, double shutter_close,
-               int selected_only,
-               int uvs, int normals,
-               int vcolors,
-               int force_meshes,
-               int flatten_hierarchy,
-               int vislayers, int renderable,
-               int facesets, int matindices,
-               int use_subdiv_schema, int compression, bool packuv, float scale)
+void ABC_export(
+        Scene *scene,
+        bContext *C,
+        const char *filepath,
+        const double start,
+        const double end,
+        const double xformstep,
+        const double geomstep,
+        const double shutter_open,
+        const double shutter_close,
+        const bool selected_only,
+        const bool uvs,
+        const bool normals,
+        const bool vcolors,
+        const bool apply_subdiv,
+        const bool flatten_hierarchy,
+        const bool vislayers,
+        const bool renderable,
+        const bool facesets,
+        const bool use_subdiv_schema,
+        const bool compression,
+        const bool packuv,
+        const float global_scale)
 {
 	ExportJobData *job = static_cast<ExportJobData *>(MEM_mallocN(sizeof(ExportJobData), "ExportJobData"));
 	job->scene = scene;
@@ -369,21 +380,18 @@ int ABC_export(Scene *scene, bContext *C, const char *filepath,
 	job->settings.shutter_open = shutter_open;
 	job->settings.shutter_close = shutter_close;
 	job->settings.selected_only = selected_only;
-	job->settings.export_uvs = uvs;
+	job->settings.export_face_sets = facesets;
 	job->settings.export_normals = normals;
+	job->settings.export_uvs = uvs;
 	job->settings.export_vcols = vcolors;
-	job->settings.export_subsurfs_as_meshes = force_meshes;
+	job->settings.apply_subdiv = apply_subdiv;
 	job->settings.flatten_hierarchy = flatten_hierarchy;
 	job->settings.visible_layers_only = vislayers;
 	job->settings.renderable_only = renderable;
 	job->settings.use_subdiv_schema = use_subdiv_schema;
 	job->settings.export_ogawa = (compression == ABC_ARCHIVE_OGAWA);
 	job->settings.pack_uv = packuv;
-	job->settings.global_scale = scale;
-
-	// Deprecated
-	job->settings.export_face_sets = facesets;
-	job->settings.export_mat_indices = matindices;
+	job->settings.global_scale = global_scale;
 
 	if (job->settings.startframe > job->settings.endframe) {
 		std::swap(job->settings.startframe, job->settings.endframe);
@@ -402,8 +410,6 @@ int ABC_export(Scene *scene, bContext *C, const char *filepath,
 	WM_jobs_callbacks(wm_job, export_startjob, NULL, NULL, export_endjob);
 
 	WM_jobs_start(CTX_wm_manager(C), wm_job);
-
-	return BL_ABC_NO_ERR;
 }
 
 /* ********************** Import file ********************** */
