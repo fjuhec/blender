@@ -51,7 +51,7 @@ public:
 	void dispatch(QuadDice::SubPatch& sub, QuadDice::EdgeFactors& ef);
 	void split(QuadDice::SubPatch& sub, QuadDice::EdgeFactors& ef, int depth=0);
 
-	void split_quad(Patch *patch);
+	void split_quad(Patch *patch, QuadDice::SubPatch *subpatch=NULL);
 };
 
 CCL_NAMESPACE_END

@@ -1737,7 +1737,35 @@ void Mesh::tessellate(DiagSplit *split)
 			swap(hull[2], hull[3]);
 			swap(normals[2], normals[3]);
 
-			split->split_quad(&patch);
+			/* Quad faces need to be split at least once to line up with split ngons, we do this
+			 * here in this manner because if we do it later edge factors may end up slightly off.
+			 */
+			QuadDice::SubPatch subpatch;
+			subpatch.patch = &patch;
+
+			subpatch.P00 = make_float2(0.0f, 0.0f);
+			subpatch.P10 = make_float2(0.5f, 0.0f);
+			subpatch.P01 = make_float2(0.0f, 0.5f);
+			subpatch.P11 = make_float2(0.5f, 0.5f);
+			split->split_quad(&patch, &subpatch);
+
+			subpatch.P00 = make_float2(0.5f, 0.0f);
+			subpatch.P10 = make_float2(1.0f, 0.0f);
+			subpatch.P01 = make_float2(0.5f, 0.5f);
+			subpatch.P11 = make_float2(1.0f, 0.5f);
+			split->split_quad(&patch, &subpatch);
+
+			subpatch.P00 = make_float2(0.0f, 0.5f);
+			subpatch.P10 = make_float2(0.5f, 0.5f);
+			subpatch.P01 = make_float2(0.0f, 1.0f);
+			subpatch.P11 = make_float2(0.5f, 1.0f);
+			split->split_quad(&patch, &subpatch);
+
+			subpatch.P00 = make_float2(0.5f, 0.5f);
+			subpatch.P10 = make_float2(1.0f, 0.5f);
+			subpatch.P01 = make_float2(0.5f, 1.0f);
+			subpatch.P11 = make_float2(1.0f, 1.0f);
+			split->split_quad(&patch, &subpatch);
 		}
 		else {
 			/* ngon */

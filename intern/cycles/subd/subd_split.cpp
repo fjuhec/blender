@@ -211,16 +211,21 @@ void DiagSplit::split(QuadDice::SubPatch& sub, QuadDice::EdgeFactors& ef, int de
 	}
 }
 
-void DiagSplit::split_quad(Patch *patch)
+void DiagSplit::split_quad(Patch *patch, QuadDice::SubPatch *subpatch)
 {
 	QuadDice::SubPatch sub_split;
 	QuadDice::EdgeFactors ef_split;
 
-	sub_split.patch = patch;
-	sub_split.P00 = make_float2(0.0f, 0.0f);
-	sub_split.P10 = make_float2(1.0f, 0.0f);
-	sub_split.P01 = make_float2(0.0f, 1.0f);
-	sub_split.P11 = make_float2(1.0f, 1.0f);
+	if(subpatch) {
+		sub_split = *subpatch;
+	}
+	else {
+		sub_split.patch = patch;
+		sub_split.P00 = make_float2(0.0f, 0.0f);
+		sub_split.P10 = make_float2(1.0f, 0.0f);
+		sub_split.P01 = make_float2(0.0f, 1.0f);
+		sub_split.P11 = make_float2(1.0f, 1.0f);
+	}
 
 	ef_split.tu0 = T(patch, sub_split.P00, sub_split.P10);
 	ef_split.tu1 = T(patch, sub_split.P01, sub_split.P11);
