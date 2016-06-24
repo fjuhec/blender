@@ -99,6 +99,8 @@ static void rna_def_cachefile(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0.0f, 1.0f);
 	RNA_def_property_ui_text(prop, "Scale", "");
 	RNA_def_property_update(prop, 0, NULL);
+
+	rna_def_animdata_common(srna);
 }
 
 void RNA_def_cachefile(BlenderRNA *brna)

@@ -2263,28 +2263,6 @@ static PackedFile *direct_link_packedfile(FileData *fd, PackedFile *oldpf)
 	return pf;
 }
 
-/* ************ READ CACHEFILES *************** */
-
-static void lib_link_cachefiles(FileData *fd, Main *main)
-{
-	CacheFile *cache_file;
-
-	/* only link ID pointers */
-	for (cache_file = main->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
-		if (cache_file->id.tag & LIB_TAG_NEED_LINK) {
-			cache_file->id.tag &= ~LIB_TAG_NEED_LINK;
-
-			BKE_cachefile_load(cache_file, fd->relabase);
-		}
-	}
-}
-
-static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
-{
-	cache_file->handle = NULL;
-	UNUSED_VARS(fd);
-}
-
 /* ************ READ ANIMATION STUFF ***************** */
 
 /* Legacy Data Support (for Version Patching) ----------------------------- */
@@ -2709,6 +2687,35 @@ static void direct_link_animdata(FileData *fd, AnimData *adt)
 	adt->act_track = newdataadr(fd, adt->act_track);
 	adt->actstrip = newdataadr(fd, adt->actstrip);
 }	
+
+/* ************ READ CACHEFILES *************** */
+
+static void lib_link_cachefiles(FileData *fd, Main *main)
+{
+	CacheFile *cache_file;
+
+	/* only link ID pointers */
+	for (cache_file = main->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
+		if (cache_file->id.tag & LIB_TAG_NEED_LINK) {
+			cache_file->id.tag &= ~LIB_TAG_NEED_LINK;
+		}
+
+		BKE_cachefile_load(cache_file, fd->relabase);
+
+		if (cache_file->adt) {
+			lib_link_animdata(fd, &cache_file->id, cache_file->adt);
+		}
+	}
+}
+
+static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
+{
+	cache_file->handle = NULL;
+
+	/* relink animdata */
+	cache_file->adt = newdataadr(fd, cache_file->adt);
+	direct_link_animdata(fd, cache_file->adt);
+}
 
 /* ************ READ MOTION PATHS *************** */
 
@@ -9437,6 +9444,13 @@ static void expand_camera(FileData *fd, Main *mainvar, Camera *ca)
 		expand_animdata(fd, mainvar, ca->adt);
 }
 
+static void expand_cachefile(FileData *fd, Main *mainvar, CacheFile *cache_file)
+{
+	if (cache_file->adt) {
+		expand_animdata(fd, mainvar, cache_file->adt);
+	}
+}
+
 static void expand_speaker(FileData *fd, Main *mainvar, Speaker *spk)
 {
 	expand_doit(fd, mainvar, spk->sound);
@@ -9631,6 +9645,9 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 						break;
 					case ID_GD:
 						expand_gpencil(fd, mainvar, (bGPdata *)id);
+						break;
+					case ID_CF:
+						expand_cachefile(fd, mainvar, (CacheFile *)id);
 						break;
 					}
 					

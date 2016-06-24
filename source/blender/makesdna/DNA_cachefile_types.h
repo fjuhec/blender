@@ -36,8 +36,15 @@
 extern "C" {
 #endif
 
+
+/* CacheFile::flag */
+enum {
+	CACHEFILE_DS_EXPAND = (1 << 0),
+};
+
 typedef struct CacheFile {
 	ID id;
+	struct AnimData *adt;
 
 	struct AbcArchiveHandle *handle;
 
@@ -52,6 +59,9 @@ typedef struct CacheFile {
 
 	float frame_start;
 	float frame_scale;
+
+	short flag;  /* Animation flag. */
+	short pad2[3];
 } CacheFile;
 
 #ifdef __cplusplus

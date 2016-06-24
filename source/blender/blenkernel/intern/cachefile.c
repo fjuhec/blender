@@ -35,6 +35,7 @@
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_animsys.h"
 #include "BKE_cachefile.h"
 #include "BKE_global.h"
 #include "BKE_library.h"
@@ -67,12 +68,13 @@ void *BKE_cachefile_add(Main *bmain, const char *name)
 	return cache_file;
 }
 
+/** Free (or release) any data used by this cachefile (does not free the cachefile itself). */
 void BKE_cachefile_free(CacheFile *cache_file)
 {
+	BKE_animdata_free((ID *)cache_file, false);
+
 #ifdef WITH_ALEMBIC
 	ABC_free_handle(cache_file->handle);
-#else
-	UNUSED_VARS(cache_file);
 #endif
 }
 

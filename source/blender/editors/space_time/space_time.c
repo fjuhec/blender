@@ -32,6 +32,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "DNA_cachefile_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -43,6 +44,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_main.h"
 #include "BKE_screen.h"
 #include "BKE_pointcache.h"
 
@@ -320,6 +322,9 @@ static void time_draw_idblock_keyframes(View2D *v2d, ID *id, short onlysel)
 		case ID_GD:
 			gpencil_to_keylist(&ads, (bGPdata *)id, &keys);
 			break;
+		case ID_CF:
+			cachefile_to_keylist(&ads, (CacheFile *)id, &keys, NULL);
+			break;
 	}
 		
 	/* build linked-list for searching */
@@ -354,7 +359,18 @@ static void time_draw_keyframes(const bContext *C, ARegion *ar)
 	
 	/* set this for all keyframe lines once and for all */
 	glLineWidth(1.0);
-	
+
+	/* draw cache files keyframes (if available) */
+	Main *bmain = CTX_data_main(C);
+	CacheFile *cache_file;
+
+	/* Draw cachefile keyframes. */
+	UI_ThemeColor(TH_TIME_KEYFRAME);
+
+	for (cache_file = bmain->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
+		time_draw_idblock_keyframes(v2d, (ID *)cache_file, onlysel);
+	}
+
 	/* draw grease pencil keyframes (if available) */	
 	UI_ThemeColor(TH_TIME_GP_KEYFRAME);
 	if (scene->gpd) {
