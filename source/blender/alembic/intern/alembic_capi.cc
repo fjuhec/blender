@@ -549,7 +549,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 	*data->do_update = true;
 	*data->progress = 0.05f;
 
-	data->parent_map = BLI_ghash_ptr_new("alembic parent ghash");
+	data->parent_map = BLI_ghash_str_new("alembic parent ghash");
 
 	/* Parse Alembic Archive. */
 
