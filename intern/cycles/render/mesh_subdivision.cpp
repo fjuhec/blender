@@ -24,8 +24,206 @@
 
 CCL_NAMESPACE_BEGIN
 
+#ifdef WITH_OPENSUBDIV
+
+CCL_NAMESPACE_END
+
+#include <opensubdiv/far/topologyRefinerFactory.h>
+#include <opensubdiv/far/primvarRefiner.h>
+#include <opensubdiv/far/patchTableFactory.h>
+#include <opensubdiv/far/patchMap.h>
+
+/* specializations of TopologyRefinerFactory for ccl::Mesh */
+
+namespace OpenSubdiv::OPENSUBDIV_VERSION::Far {
+	template<>
+	bool TopologyRefinerFactory<ccl::Mesh>::resizeComponentTopology(TopologyRefiner& refiner, ccl::Mesh const& mesh)
+	{
+		setNumBaseVertices(refiner, mesh.verts.size());
+		setNumBaseFaces(refiner, mesh.subd_faces.size());
+
+		ccl::Mesh::SubdFace* face = &mesh.subd_faces[0];
+
+		for(int i = 0; i < mesh.subd_faces.size(); i++, face++) {
+			setNumBaseFaceVertices(refiner, i, face->num_corners);
+		}
+
+		return true;
+	}
+
+	template<>
+	bool TopologyRefinerFactory<ccl::Mesh>::assignComponentTopology(TopologyRefiner& refiner, ccl::Mesh const& mesh)
+	{
+		ccl::Mesh::SubdFace* face = &mesh.subd_faces[0];
+
+		for(int i = 0; i < mesh.subd_faces.size(); i++, face++) {
+			IndexArray face_verts = getBaseFaceVertices(refiner, i);
+
+			int* corner = &mesh.subd_face_corners[face->start_corner];
+
+			for(int j = 0; j < face->num_corners; j++, corner++) {
+				face_verts[j] = *corner;
+			}
+		}
+
+		return true;
+	}
+
+	template<>
+	bool TopologyRefinerFactory<ccl::Mesh>::assignComponentTags(TopologyRefiner& /*refiner*/, ccl::Mesh const& /*mesh*/)
+	{
+		return true;
+	}
+
+	template<>
+	bool TopologyRefinerFactory<ccl::Mesh>::assignFaceVaryingTopology(TopologyRefiner& /*refiner*/, ccl::Mesh const& /*mesh*/)
+	{
+		return true;
+	}
+
+	template<>
+	void TopologyRefinerFactory<ccl::Mesh>::reportInvalidTopology(TopologyError /*err_code*/,
+		char const */*msg*/, ccl::Mesh const& /*mesh*/)
+	{
+	}
+}
+
+CCL_NAMESPACE_BEGIN
+
+using namespace OpenSubdiv;
+
+/* struct that implements OpenSubdiv's vertex interface */
+
+struct OsdVertex {
+	float3 v;
+
+	OsdVertex() {}
+
+	void Clear(void* = 0) {
+		v = make_float3(0.0f, 0.0f, 0.0f);
+	}
+
+	void AddWithWeight(OsdVertex const& src, float weight) {
+		v += src.v * weight;
+	}
+};
+
+/* class for holding OpenSubdiv data used during tessellation */
+
+class OsdData {
+	Mesh* mesh;
+	vector<OsdVertex> verts;
+	Far::PatchTable* patch_table;
+	Far::PatchMap* patch_map;
+
+public:
+	OsdData() : mesh(NULL), patch_table(NULL), patch_map(NULL) {}
+
+	~OsdData()
+	{
+		delete patch_table;
+		delete patch_map;
+	}
+
+	void build_from_mesh(Mesh* mesh_)
+	{
+		mesh = mesh_;
+
+		/* type and options */
+		Sdc::SchemeType type = Sdc::SCHEME_CATMARK;
+
+		Sdc::Options options;
+		options.SetVtxBoundaryInterpolation(Sdc::Options::VTX_BOUNDARY_EDGE_ONLY);
+
+		/* create refiner */
+		Far::TopologyRefiner* refiner = Far::TopologyRefinerFactory<Mesh>::Create(*mesh,
+				Far::TopologyRefinerFactory<Mesh>::Options(type, options));
+
+		/* adaptive refinement */
+		int max_isolation = 10;
+		refiner->RefineAdaptive(Far::TopologyRefiner::AdaptiveOptions(max_isolation));
+
+		/* create patch table */
+		Far::PatchTableFactory::Options patch_options;
+		patch_options.endCapType = Far::PatchTableFactory::Options::ENDCAP_GREGORY_BASIS;
+
+		patch_table = Far::PatchTableFactory::Create(*refiner, patch_options);
+
+		/* interpolate verts */
+		int num_refiner_verts = refiner->GetNumVerticesTotal();
+		int num_local_points = patch_table->GetNumLocalPoints();
+
+		verts.resize(num_refiner_verts + num_local_points);
+		for(int i = 0; i < mesh->verts.size(); i++) {
+			verts[i].v = mesh->verts[i];
+		}
+
+		OsdVertex* src = &verts[0];
+		for(int i = 0; i < refiner->GetMaxLevel(); i++) {
+			OsdVertex* dest = src + refiner->GetLevel(i).GetNumVertices();
+			Far::PrimvarRefiner(*refiner).Interpolate(i+1, src, dest);
+			src = dest;
+		}
+
+		patch_table->ComputeLocalPointValues(&verts[0], &verts[num_refiner_verts]);
+
+		/* create patch map */
+		patch_map = new Far::PatchMap(*patch_table);
+	}
+
+	friend struct OsdPatch;
+};
+
+/* ccl::Patch implementation that uses OpenSubdiv for eval */
+
+struct OsdPatch : Patch {
+	OsdData* osd_data;
+
+	OsdPatch(OsdData* data) : osd_data(data) {}
+
+	void eval(float3 *P, float3 *dPdu, float3 *dPdv, float3 *N, float u, float v)
+	{
+		const Far::PatchTable::PatchHandle* handle = osd_data->patch_map->FindPatch(patch_index, u, v);
+		assert(handle);
+
+		float p_weights[20], du_weights[20], dv_weights[20];
+		osd_data->patch_table->EvaluateBasis(*handle, u, v, p_weights, du_weights, dv_weights);
+
+		Far::ConstIndexArray cv = osd_data->patch_table->GetPatchVertices(*handle);
+
+		float3 du, dv;
+		if(P) *P = make_float3(0.0f, 0.0f, 0.0f);
+		du = make_float3(0.0f, 0.0f, 0.0f);
+		dv = make_float3(0.0f, 0.0f, 0.0f);
+
+		for(int i = 0; i < cv.size(); i++) {
+			float3 p = osd_data->verts[cv[i]].v;
+
+			if(P) *P += p * p_weights[i];
+			du += p * du_weights[i];
+			dv += p * dv_weights[i];
+		}
+
+		if(dPdu) *dPdu = du;
+		if(dPdv) *dPdv = dv;
+		if(N) *N = normalize(cross(du, dv));
+	}
+
+	BoundBox bound() { return BoundBox::empty; }
+};
+
+#endif
+
 void Mesh::tessellate(DiagSplit *split)
 {
+#ifdef WITH_OPENSUBDIV
+	OsdData osd_data;
+
+	if(subdivision_type == SUBDIVISION_CATMULL_CLARK) {
+		osd_data.build_from_mesh(this);
+	}
+#endif
+
 	int num_faces = subd_faces.size();
 
 	Attribute *attr_vN = subd_attributes.find(ATTR_STD_VERTEX_NORMAL);
@@ -36,95 +234,33 @@ void Mesh::tessellate(DiagSplit *split)
 
 		if(face.is_quad()) {
 			/* quad */
-			LinearQuadPatch patch;
-			float3 *hull = patch.hull;
-			float3 *normals = patch.normals;
-
-			patch.patch_index = face.ptex_offset;
-
-			for(int i = 0; i < 4; i++) {
-				hull[i] = verts[subd_face_corners[face.start_corner+i]];
-			}
-
-			if(face.smooth) {
-				for(int i = 0; i < 4; i++) {
-					normals[i] = vN[subd_face_corners[face.start_corner+i]];
-				}
-			}
-			else {
-				float3 N = face.normal(this);
-				for(int i = 0; i < 4; i++) {
-					normals[i] = N;
-				}
-			}
-
-			swap(hull[2], hull[3]);
-			swap(normals[2], normals[3]);
-
-			/* Quad faces need to be split at least once to line up with split ngons, we do this
-			 * here in this manner because if we do it later edge factors may end up slightly off.
-			 */
 			QuadDice::SubPatch subpatch;
-			subpatch.patch = &patch;
 
-			subpatch.P00 = make_float2(0.0f, 0.0f);
-			subpatch.P10 = make_float2(0.5f, 0.0f);
-			subpatch.P01 = make_float2(0.0f, 0.5f);
-			subpatch.P11 = make_float2(0.5f, 0.5f);
-			split->split_quad(&patch, &subpatch);
+			LinearQuadPatch quad_patch;
+#ifdef WITH_OPENSUBDIV
+			OsdPatch osd_patch(&osd_data);
 
-			subpatch.P00 = make_float2(0.5f, 0.0f);
-			subpatch.P10 = make_float2(1.0f, 0.0f);
-			subpatch.P01 = make_float2(0.5f, 0.5f);
-			subpatch.P11 = make_float2(1.0f, 0.5f);
-			split->split_quad(&patch, &subpatch);
+			if(subdivision_type == SUBDIVISION_CATMULL_CLARK) {
+				osd_patch.patch_index = face.ptex_offset;
 
-			subpatch.P00 = make_float2(0.0f, 0.5f);
-			subpatch.P10 = make_float2(0.5f, 0.5f);
-			subpatch.P01 = make_float2(0.0f, 1.0f);
-			subpatch.P11 = make_float2(0.5f, 1.0f);
-			split->split_quad(&patch, &subpatch);
-
-			subpatch.P00 = make_float2(0.5f, 0.5f);
-			subpatch.P10 = make_float2(1.0f, 0.5f);
-			subpatch.P01 = make_float2(0.5f, 1.0f);
-			subpatch.P11 = make_float2(1.0f, 1.0f);
-			split->split_quad(&patch, &subpatch);
-		}
-		else {
-			/* ngon */
-			float3 center_vert = make_float3(0.0f, 0.0f, 0.0f);
-			float3 center_normal = make_float3(0.0f, 0.0f, 0.0f);
-
-			float inv_num_corners = 1.0f/float(face.num_corners);
-			for(int corner = 0; corner < face.num_corners; corner++) {
-				center_vert += verts[subd_face_corners[face.start_corner + corner]] * inv_num_corners;
-				center_normal += vN[subd_face_corners[face.start_corner + corner]] * inv_num_corners;
+				subpatch.patch = &osd_patch;
 			}
+			else
+#endif
+			{
+				float3 *hull = quad_patch.hull;
+				float3 *normals = quad_patch.normals;
 
-			for(int corner = 0; corner < face.num_corners; corner++) {
-				LinearQuadPatch patch;
-				float3 *hull = patch.hull;
-				float3 *normals = patch.normals;
+				quad_patch.patch_index = face.ptex_offset;
 
-				patch.patch_index = face.ptex_offset + corner;
-
-				hull[0] = verts[subd_face_corners[face.start_corner + mod(corner + 0, face.num_corners)]];
-				hull[1] = verts[subd_face_corners[face.start_corner + mod(corner + 1, face.num_corners)]];
-				hull[2] = verts[subd_face_corners[face.start_corner + mod(corner - 1, face.num_corners)]];
-				hull[3] = center_vert;
-
-				hull[1] = (hull[1] + hull[0]) * 0.5;
-				hull[2] = (hull[2] + hull[0]) * 0.5;
+				for(int i = 0; i < 4; i++) {
+					hull[i] = verts[subd_face_corners[face.start_corner+i]];
+				}
 
 				if(face.smooth) {
-					normals[0] = vN[subd_face_corners[face.start_corner + mod(corner + 0, face.num_corners)]];
-					normals[1] = vN[subd_face_corners[face.start_corner + mod(corner + 1, face.num_corners)]];
-					normals[2] = vN[subd_face_corners[face.start_corner + mod(corner - 1, face.num_corners)]];
-					normals[3] = center_normal;
-
-					normals[1] = (normals[1] + normals[0]) * 0.5;
-					normals[2] = (normals[2] + normals[0]) * 0.5;
+					for(int i = 0; i < 4; i++) {
+						normals[i] = vN[subd_face_corners[face.start_corner+i]];
+					}
 				}
 				else {
 					float3 N = face.normal(this);
@@ -133,7 +269,96 @@ void Mesh::tessellate(DiagSplit *split)
 					}
 				}
 
-				split->split_quad(&patch);
+				swap(hull[2], hull[3]);
+				swap(normals[2], normals[3]);
+
+				subpatch.patch = &quad_patch;
+			}
+
+			/* Quad faces need to be split at least once to line up with split ngons, we do this
+			 * here in this manner because if we do it later edge factors may end up slightly off.
+			 */
+			subpatch.P00 = make_float2(0.0f, 0.0f);
+			subpatch.P10 = make_float2(0.5f, 0.0f);
+			subpatch.P01 = make_float2(0.0f, 0.5f);
+			subpatch.P11 = make_float2(0.5f, 0.5f);
+			split->split_quad(subpatch.patch, &subpatch);
+
+			subpatch.P00 = make_float2(0.5f, 0.0f);
+			subpatch.P10 = make_float2(1.0f, 0.0f);
+			subpatch.P01 = make_float2(0.5f, 0.5f);
+			subpatch.P11 = make_float2(1.0f, 0.5f);
+			split->split_quad(subpatch.patch, &subpatch);
+
+			subpatch.P00 = make_float2(0.0f, 0.5f);
+			subpatch.P10 = make_float2(0.5f, 0.5f);
+			subpatch.P01 = make_float2(0.0f, 1.0f);
+			subpatch.P11 = make_float2(0.5f, 1.0f);
+			split->split_quad(subpatch.patch, &subpatch);
+
+			subpatch.P00 = make_float2(0.5f, 0.5f);
+			subpatch.P10 = make_float2(1.0f, 0.5f);
+			subpatch.P01 = make_float2(0.5f, 1.0f);
+			subpatch.P11 = make_float2(1.0f, 1.0f);
+			split->split_quad(subpatch.patch, &subpatch);
+		}
+		else {
+			/* ngon */
+#ifdef WITH_OPENSUBDIV
+			if(subdivision_type == SUBDIVISION_CATMULL_CLARK) {
+				OsdPatch patch(&osd_data);
+
+				for(int corner = 0; corner < face.num_corners; corner++) {
+					patch.patch_index = face.ptex_offset + corner;
+
+					split->split_quad(&patch);
+				}
+			}
+			else
+#endif
+			{
+				float3 center_vert = make_float3(0.0f, 0.0f, 0.0f);
+				float3 center_normal = make_float3(0.0f, 0.0f, 0.0f);
+
+				float inv_num_corners = 1.0f/float(face.num_corners);
+				for(int corner = 0; corner < face.num_corners; corner++) {
+					center_vert += verts[subd_face_corners[face.start_corner + corner]] * inv_num_corners;
+					center_normal += vN[subd_face_corners[face.start_corner + corner]] * inv_num_corners;
+				}
+
+				for(int corner = 0; corner < face.num_corners; corner++) {
+					LinearQuadPatch patch;
+					float3 *hull = patch.hull;
+					float3 *normals = patch.normals;
+
+					patch.patch_index = face.ptex_offset + corner;
+
+					hull[0] = verts[subd_face_corners[face.start_corner + mod(corner + 0, face.num_corners)]];
+					hull[1] = verts[subd_face_corners[face.start_corner + mod(corner + 1, face.num_corners)]];
+					hull[2] = verts[subd_face_corners[face.start_corner + mod(corner - 1, face.num_corners)]];
+					hull[3] = center_vert;
+
+					hull[1] = (hull[1] + hull[0]) * 0.5;
+					hull[2] = (hull[2] + hull[0]) * 0.5;
+
+					if(face.smooth) {
+						normals[0] = vN[subd_face_corners[face.start_corner + mod(corner + 0, face.num_corners)]];
+						normals[1] = vN[subd_face_corners[face.start_corner + mod(corner + 1, face.num_corners)]];
+						normals[2] = vN[subd_face_corners[face.start_corner + mod(corner - 1, face.num_corners)]];
+						normals[3] = center_normal;
+
+						normals[1] = (normals[1] + normals[0]) * 0.5;
+						normals[2] = (normals[2] + normals[0]) * 0.5;
+					}
+					else {
+						float3 N = face.normal(this);
+						for(int i = 0; i < 4; i++) {
+							normals[i] = N;
+						}
+					}
+
+					split->split_quad(&patch);
+				}
 			}
 		}
 	}

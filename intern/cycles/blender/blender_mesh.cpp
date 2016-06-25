@@ -769,6 +769,7 @@ static void create_subd_mesh(Scene *scene,
                              float dicing_rate,
                              int max_subdivisions)
 {
+	mesh->subdivision_type = (Mesh::SubdivisionType)RNA_enum_get(cmesh, "subdivision_type");
 	create_mesh(scene, mesh, b_mesh, used_shaders, true);
 
 	SubdParams sdparams(mesh, 0, true, false);
