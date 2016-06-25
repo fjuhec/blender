@@ -35,7 +35,9 @@ CCL_NAMESPACE_END
 
 /* specializations of TopologyRefinerFactory for ccl::Mesh */
 
-namespace OpenSubdiv::OPENSUBDIV_VERSION::Far {
+namespace OpenSubdiv {
+namespace OPENSUBDIV_VERSION {
+namespace Far {
 	template<>
 	bool TopologyRefinerFactory<ccl::Mesh>::resizeComponentTopology(TopologyRefiner& refiner, ccl::Mesh const& mesh)
 	{
@@ -86,7 +88,9 @@ namespace OpenSubdiv::OPENSUBDIV_VERSION::Far {
 		char const */*msg*/, ccl::Mesh const& /*mesh*/)
 	{
 	}
-}
+} /* namespace Far */
+} /* namespace OPENSUBDIV_VERSION */
+} /* namespace OpenSubdiv */
 
 CCL_NAMESPACE_BEGIN
 
