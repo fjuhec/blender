@@ -28,6 +28,8 @@
 #ifndef __BKE_PAINT_H__
 #define __BKE_PAINT_H__
 
+#include "BKE_mesh_mapping.h"
+
 /** \file BKE_paint.h
  *  \ingroup bke
  */
@@ -197,6 +199,11 @@ typedef struct SculptSession {
 
 	struct SculptStroke *stroke;
 	struct StrokeCache *cache;
+
+	int *map_mem;
+	MeshElemMap* vert_to_loop;
+	int *poly_map_mem;
+	MeshElemMap* vert_to_poly;
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);

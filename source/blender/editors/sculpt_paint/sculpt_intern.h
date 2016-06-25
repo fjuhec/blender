@@ -37,8 +37,8 @@
 #include "DNA_vec_types.h"
 #include "DNA_key_types.h"
 #include "DNA_brush_types.h"
-#include "DNA_mesh_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_mesh_types.h"
 
 #include "BLI_bitmap.h"
 #include "BLI_dial.h"
@@ -46,7 +46,6 @@
 #include "BLI_threads.h"
 
 #include "BKE_pbvh.h"
-#include "BKE_mesh_mapping.h"
 
 #include "ED_view3d.h"
 
@@ -316,12 +315,6 @@ typedef struct StrokeCache {
 	rcti previous_r; /* previous redraw rectangle */
 	rcti current_r; /* current redraw rectangle */
 
-	int tot_verts;
-	MVert *verts;
-	int *map_mem;
-	MeshElemMap* vert_to_loop;
-	int *poly_map_mem;
-	MeshElemMap* vert_to_poly;
 	unsigned int* totalRed;
 	unsigned int* totalGreen;
 	unsigned int* totalBlue;

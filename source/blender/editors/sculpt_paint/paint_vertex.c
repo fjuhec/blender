@@ -1783,6 +1783,15 @@ static void vertex_paint_init_session(Scene *scene, Object *ob)
 {
 	ob->sculpt = MEM_callocN(sizeof(SculptSession), "sculpt session");
 
+	/* Create maps */
+	Mesh *me = ob->data;
+	ob->sculpt->map_mem = NULL;
+	ob->sculpt->vert_to_loop = NULL;
+	ob->sculpt->poly_map_mem = NULL;
+	ob->sculpt->vert_to_poly = NULL;
+	BKE_mesh_vert_loop_map_create(&ob->sculpt->vert_to_loop, &ob->sculpt->map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+	BKE_mesh_vert_poly_map_create(&ob->sculpt->vert_to_poly, &ob->sculpt->poly_map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+
 	BKE_sculpt_update_mesh_elements(scene, scene->toolsettings->sculpt, ob, 0, false);
 }
 
@@ -2777,10 +2786,6 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		/* If the cache is not released by a cancel or a done, free it now. */
 		if (ob->sculpt->cache){
-			MEM_freeN(ob->sculpt->cache->vert_to_loop);
-			MEM_freeN(ob->sculpt->cache->map_mem);
-			MEM_freeN(ob->sculpt->cache->vert_to_poly);
-			MEM_freeN(ob->sculpt->cache->poly_map_mem);
 			MEM_freeN(ob->sculpt->cache->totloopsHit);
 			MEM_freeN(ob->sculpt->cache->totalRed);
 			MEM_freeN(ob->sculpt->cache->totalGreen);
@@ -2818,18 +2823,6 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		/* Cache needs to be initialized before mesh_build_data is called. */
 		ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
 
-		/* Create maps */
-		Mesh *me = ob->data;
-		ob->sculpt->cache->tot_verts = me->totvert;
-		ob->sculpt->cache->verts = me->mvert;
-		ob->sculpt->cache->map_mem = NULL;
-		ob->sculpt->cache->vert_to_loop = NULL;
-		ob->sculpt->cache->poly_map_mem = NULL;
-		ob->sculpt->cache->vert_to_poly = NULL;
-		BKE_mesh_vert_loop_map_create(&ob->sculpt->cache->vert_to_loop, &ob->sculpt->cache->map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
-		BKE_mesh_vert_poly_map_create(&ob->sculpt->cache->vert_to_poly, &ob->sculpt->cache->poly_map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
-		
-	
 		Brush *brush = BKE_paint_brush(&vp->paint);
 		int totNode = 0;
 		//I think the totNodes might include internal nodes, and we really only need the tot leaves.
@@ -3051,10 +3044,10 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 			if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
 				int vertexIndex = vd.vert_indices[vd.i];
 
-				data->ob->sculpt->cache->totloopsHit[n] += cache->vert_to_loop[vertexIndex].count;
+				cache->totloopsHit[n] += ss->vert_to_loop[vertexIndex].count;
 				//if a vertex is within the brush region, then add it's color to the blend.
-				for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
-					int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
+				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 					col = (char *)(&lcol[loopIndex]);
 					blend[0] += col[0];
 					blend[1] += col[1];
@@ -3097,8 +3090,8 @@ static void do_vpaint_brush_draw_task_cb_ex(
 			int vertexIndex = vd.vert_indices[vd.i];
 			
 			//if a vertex is within the brush region, then paint each loop that vertex owns.
-			for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
-				int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
+			for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+				int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 				//Mix the new color with the original based on the brush strength and the curve.
 				lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], data->vpd->paintcol, 255.0 * fade * bstrength, 255.0);
 			}
@@ -3144,8 +3137,8 @@ static void do_vpaint_brush_blur_task_cb_ex(
 			blend[1] = 0; 
 			blend[2] = 0; 
 			blend[3] = 0;
-			for (int j = 0; j < cache->vert_to_poly[vertexIndex].count; j++) {
-				int polyIndex = cache->vert_to_poly[vertexIndex].indices[j];
+			for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
+				int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
 				MPoly poly = data->me->mpoly[polyIndex];
 				totalHitLoops += poly.totloop;
 				for (int k = 0; k < poly.totloop; k++) {
@@ -3165,8 +3158,8 @@ static void do_vpaint_brush_blur_task_cb_ex(
 				col[3] = divide_round_i(blend[3], totalHitLoops);
 
 				//if a vertex is within the brush region, then paint each loop that vertex owns.
-				for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
-					int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
+				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 					//Mix the new color with the original based on the brush strength and the curve.
 					lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], *((unsigned int*)col), 255.0 * fade * bstrength, 255.0);
 				}
@@ -3400,16 +3393,6 @@ static void vpaint_cancel(bContext *C, wmOperator *op)
 {
 	Object *ob = CTX_data_active_object(C);
 	if (ob->sculpt->cache){
-		MEM_freeN(ob->sculpt->cache->vert_to_loop);
-		MEM_freeN(ob->sculpt->cache->map_mem);
-		MEM_freeN(ob->sculpt->cache->vert_to_poly);
-		MEM_freeN(ob->sculpt->cache->poly_map_mem);
-		MEM_freeN(ob->sculpt->cache->totloopsHit);
-		MEM_freeN(ob->sculpt->cache->totalRed);
-		MEM_freeN(ob->sculpt->cache->totalGreen);
-		MEM_freeN(ob->sculpt->cache->totalBlue);
-		MEM_freeN(ob->sculpt->cache->totalAlpha);
-		MEM_freeN(ob->sculpt->cache->colorWeight);
 		sculpt_cache_free(ob->sculpt->cache);
 		ob->sculpt->cache = NULL;
 	}
