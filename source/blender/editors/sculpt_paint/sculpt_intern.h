@@ -37,6 +37,7 @@
 #include "DNA_vec_types.h"
 #include "DNA_key_types.h"
 #include "DNA_brush_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_view3d_types.h"
 
 #include "BLI_bitmap.h"
@@ -161,6 +162,7 @@ typedef struct SculptThreadedTaskData {
 	VPaintData *vpd;
 	unsigned int* lcol;
 	MeshElemMap **vertToLoopMaps;
+	Mesh *me;
 
 
 	/* Data specific to some callbacks. */

@@ -771,6 +771,7 @@ static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
 	switch (tool) {
 		case PAINT_BLEND_MIX:
 		case PAINT_BLEND_BLUR:     return mcol_blend(col, paintcol, alpha_i);
+		case PAINT_BLEND_AVERAGE:  return mcol_blend(col, paintcol, alpha_i);
 		case PAINT_BLEND_ADD:      return mcol_add(col, paintcol, alpha_i);
 		case PAINT_BLEND_SUB:      return mcol_sub(col, paintcol, alpha_i);
 		case PAINT_BLEND_MUL:      return mcol_mul(col, paintcol, alpha_i);
@@ -3119,6 +3120,11 @@ static void do_vpaint_brush_blur_task_cb_ex(
 
 	unsigned int *lcolorig = data->vp->vpaint_prev;
 
+	int totalHitLoops;
+	unsigned int blend[4] = { 0 };
+	char *col;
+	unsigned int finalColor;
+
 	//for each vertex
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
@@ -3130,12 +3136,40 @@ static void do_vpaint_brush_blur_task_cb_ex(
 		if (sculpt_brush_test(&test, vd.co)) {
 			const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 			int vertexIndex = vd.vert_indices[vd.i];
+			
+			//Get the average poly color
+			totalHitLoops = 0;
+			finalColor = 0;
+			blend[0] = 0;
+			blend[1] = 0; 
+			blend[2] = 0; 
+			blend[3] = 0;
+			for (int j = 0; j < cache->vert_to_poly[vertexIndex].count; j++) {
+				int polyIndex = cache->vert_to_poly[vertexIndex].indices[j];
+				MPoly poly = data->me->mpoly[polyIndex];
+				totalHitLoops += poly.totloop;
+				for (int k = 0; k < poly.totloop; k++) {
+					unsigned int loopIndex = poly.loopstart + k;
+					col = (char *)(&lcol[loopIndex]);
+					blend[0] += col[0];
+					blend[1] += col[1];
+					blend[2] += col[2];
+					blend[3] += col[3];
+				}
+			}
+			if (totalHitLoops != 0) {
+				col = (char*)(&finalColor);
+				col[0] = divide_round_i(blend[0], totalHitLoops);
+				col[1] = divide_round_i(blend[1], totalHitLoops);
+				col[2] = divide_round_i(blend[2], totalHitLoops);
+				col[3] = divide_round_i(blend[3], totalHitLoops);
 
-			//if a vertex is within the brush region, then paint each loop that vertex owns.
-			for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
-				int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
-				//Mix the new color with the original based on the brush strength and the curve.
-				lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], data->vpd->paintcol, 255.0 * fade * bstrength, 255.0);
+				//if a vertex is within the brush region, then paint each loop that vertex owns.
+				for (int j = 0; j < cache->vert_to_loop[vertexIndex].count; ++j) {
+					int loopIndex = cache->vert_to_loop[vertexIndex].indices[j];
+					//Mix the new color with the original based on the brush strength and the curve.
+					lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], *((unsigned int*)col), 255.0 * fade * bstrength, 255.0);
+				}
 			}
 		}
 		BKE_pbvh_vertex_iter_end;
@@ -3179,12 +3213,16 @@ static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object 
 	data.vp = vp;
 	data.vpd = vpd;
 	data.lcol = (unsigned int*)me->mloopcol;
+	data.me = me;
 
-	//if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-		//do_average_brush(&data, nodes, totnode);
-	//}
-	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+	//This might change to a case switch. 
+	if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
 		calculate_average_color(&data, nodes, totnode);
+		BLI_task_parallel_range_ex(
+			0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
+			((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+	}
+	else if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
 		BLI_task_parallel_range_ex(
 			0, totnode, &data, NULL, 0, do_vpaint_brush_blur_task_cb_ex,
 			((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
