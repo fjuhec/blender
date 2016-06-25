@@ -24,10 +24,6 @@ set(SRC_HEADERS
 	subd_split.h
 )
 
-if(WITH_CYCLES_OPENSUBDIV)
-	add_definitions(-DWITH_OPENSUBDIV)
-endif()
-
 include_directories(${INC})
 include_directories(SYSTEM ${INC_SYS})
 
