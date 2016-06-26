@@ -3392,14 +3392,8 @@ static void sculpt_topology_update(Sculpt *sd, Object *ob, Brush *brush, Unified
 /* calc the foot of the perpendicular of a point to a line
  * should move this to the math_ .c */
 
-static inline void calc_foot_perp_v3_v3v3v3(float* foot, const float* a, const float* l_dir, const float* p)
+static void calc_foot_perp_v3_v3v3v3(float* foot, const float* a, const float* l_dir, const float* p)
 {
-    float tf[3], ta[3], td[3], tp[3];
-    copy_v3_v3(tf, foot);
-    copy_v3_v3(ta, a);
-    copy_v3_v3(td, l_dir);
-    copy_v3_v3(tp, p);
-
     float v1[3];
 
     sub_v3_v3v3(v1, a, p);
