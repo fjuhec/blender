@@ -417,13 +417,14 @@ void BKE_brush_sculpt_reset(Brush *br)
 			br->sub_col[0] = 0.25;
 			br->sub_col[1] = 1;
 			break;
+        case SCULPT_TOOL_SILHOUETTE:
 		case SCULPT_TOOL_INFLATE:
 			br->add_col[0] = 0.750000;
 			br->add_col[1] = 0.750000;
 			br->add_col[2] = 0.750000;
-			br->sub_col[0] = 0.250000;
-			br->sub_col[1] = 0.250000;
-			br->sub_col[2] = 0.250000;
+            br->sub_col[0] = 0.250000;
+            br->sub_col[1] = 0.250000;
+            br->sub_col[2] = 0.250000;
 			break;
 		case SCULPT_TOOL_NUDGE:
 			br->add_col[0] = 0.250000;

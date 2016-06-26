@@ -496,6 +496,16 @@ float dist_to_line_v3(const float p[3], const float l1[3], const float l2[3])
 	return sqrtf(dist_squared_to_line_v3(p, l1, l2));
 }
 
+/* distance v1 to line v2-V_dir in 3D */
+float dist_squared_to_line_direction_v3v3(const float v1[3], const float v2[3], const float dir[3])
+{
+    float v2v1[3];
+    sub_v3_v3v3(v2v1, v1, v2);
+    float e[3];
+    cross_v3_v3v3(e, v2v1, dir);
+    return len_squared_v3(e);
+}
+
 /**
  * Check if \a p is inside the 2x planes defined by ``(v1, v2, v3)``
  * where the 3x points define 2x planes.

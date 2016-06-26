@@ -71,7 +71,8 @@ EnumPropertyItem rna_enum_gpencil_sculpt_brush_items[] = {
 	//{GP_EDITBRUSH_TYPE_SUBDIVIDE, "SUBDIVIDE", 0, "Subdivide", "Increase point density for higher resolution strokes when zoomed in"},
 	//{GP_EDITBRUSH_TYPE_SIMPLIFY, "SIMPLIFY", 0, "Simplify", "Reduce density of stroke points"},
 	{GP_EDITBRUSH_TYPE_CLONE, "CLONE", 0, "Clone", "Paste copies of the strokes stored on the clipboard"},
-	{0, NULL, 0, NULL, NULL}
+    {GP_EDITBRUSH_TYPE_SILHOUETTE, "SILHOUETTE", 0, "Silhouette", "Silhouette, place holder, could use PUSH instead"},
+    {0, NULL, 0, NULL, NULL}
 };
 
 EnumPropertyItem rna_enum_symmetrize_direction_items[] = {

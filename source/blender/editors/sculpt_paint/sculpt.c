@@ -268,6 +268,9 @@ typedef struct StrokeCache {
 
 	rcti previous_r; /* previous redraw rectangle */
 	rcti current_r; /* current redraw rectangle */
+
+    /* not so good, could be another way */
+    int brush_size;
 } StrokeCache;
 
 /************** Access to original unmodified vertex data *************/
@@ -653,8 +656,15 @@ void ED_sculpt_redraw_planes_get(float planes[4][4], ARegion *ar,
 typedef struct SculptBrushTest {
 	float radius_squared;
 	float location[3];
+    float normal[3];
 	float dist;
 	int mirror_symmetry_pass;
+
+    ViewContext* vc;
+    int brush_size;
+    float true_location[3];
+    float prep_foot[3];
+    float radius;
 
 	/* View3d clipping - only set rv3d for clipping */
 	RegionView3D *clip_rv3d;
@@ -663,9 +673,13 @@ typedef struct SculptBrushTest {
 static void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 {
 	RegionView3D *rv3d = ss->cache->vc->rv3d;
+    test->vc = ss->cache->vc;
+    test->brush_size = ss->cache->brush_size;
+    copy_v3_v3(test->true_location, ss->cache->true_location);
 
 	test->radius_squared = ss->cache->radius_squared;
 	copy_v3_v3(test->location, ss->cache->location);
+    copy_v3_v3(test->normal, ss->cache->view_normal);
 	test->dist = 0.0f;   /* just for initialize */
 
 	test->mirror_symmetry_pass = ss->cache->mirror_symmetry_pass;
@@ -1157,7 +1171,7 @@ static float brush_strength(const Sculpt *sd, const StrokeCache *cache, const fl
 	float pressure     = BKE_brush_use_alpha_pressure(scene, brush) ? cache->pressure : 1;
 	float pen_flip     = cache->pen_flip ? -1 : 1;
 	float invert       = cache->invert ? -1 : 1;
-	float overlap       = ups->overlap_factor;
+    float overlap      = ups->overlap_factor;
 	/* spacing is integer percentage of radius, divide by 50 to get
 	 * normalized diameter */
 
@@ -1182,7 +1196,7 @@ static float brush_strength(const Sculpt *sd, const StrokeCache *cache, const fl
 		case SCULPT_TOOL_CREASE:
 		case SCULPT_TOOL_BLOB:
 			return alpha * flip * pressure * overlap * feather;
-
+        case SCULPT_TOOL_SILHOUETTE:
 		case SCULPT_TOOL_INFLATE:
 			if (flip > 0) {
 				return 0.250f * alpha * flip * pressure * overlap * feather;
@@ -1344,6 +1358,12 @@ static bool sculpt_search_sphere_cb(PBVHNode *node, void *data_v)
 	sub_v3_v3v3(t, center, nearest);
 
 	return len_squared_v3(t) < data->radius_squared;
+}
+
+/* temporary function to make silhouette brush loop through all the nodes */
+static bool sculpt_search_silhouette_cb (PBVHNode *UNUSED(node), void *UNUSED(data_v))
+{
+    return true;
 }
 
 /* Handles clipping against a mirror modifier and SCULPT_LOCK axis flags */
@@ -2232,7 +2252,8 @@ static void do_grab_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 	copy_v3_v3(grab_delta, ss->cache->grab_delta_symmetry);
 
 	if (ss->cache->normal_weight > 0.0f) {
-		sculpt_project_v3_normal_align(ss, ss->cache->normal_weight, grab_delta);
+        sculpt_project_v3_normal_align(ss, ss->cache->normal_weight, grab_delta);
+
 	}
 
 	SculptThreadedTaskData data = {
@@ -3368,9 +3389,109 @@ static void sculpt_topology_update(Sculpt *sd, Object *ob, Brush *brush, Unified
 	}
 }
 
+/* calc the foot of the perpendicular of a point to a line
+ * should move this to the math_ .c */
+
+static inline void calc_foot_perp_v3_v3v3v3(float* foot, const float* a, const float* l_dir, const float* p)
+{
+//    float tf[3], ta[3], td[3], tp[3];
+//    copy_v3_v3(tf, foot);
+//    copy_v3_v3(ta, a);
+//    copy_v3_v3(td, l_dir);
+//    copy_v3_v3(tp, p);
+
+    float v1[3];
+
+    sub_v3_v3v3(v1, a, p);
+
+    float vp[3];
+    mul_v3_v3fl(vp, l_dir, dot_v3v3(l_dir, v1));
+    add_v3_v3v3(foot, p, vp);
+}
+
+/* should move this test to the test section */
+static bool sculpt_brush_test_silhouette(SculptBrushTest *test, const float co[])
+{
+    calc_foot_perp_v3_v3v3v3(test->prep_foot, co, test->normal, test->location);
+    test->radius = paint_calc_object_space_radius(test->vc,
+                                                   test->prep_foot,
+                                                   test->brush_size);
+
+    test->radius_squared = test->radius * test->radius;
+
+    float distsq = dist_squared_to_line_direction_v3v3(co, test->location, test->normal);
+
+    if (distsq <= test->radius_squared) {
+        if (sculpt_brush_test_clipping(test, co)) {
+            return 0;
+        }
+        test->dist = sqrtf(distsq);
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+
+static void do_silhouette_brush_task_cb_ex(
+        void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
+{
+    SculptThreadedTaskData *data = userdata;
+    SculptSession *ss = data->ob->sculpt;
+    //Brush *brush = data->brush;
+
+    PBVHVertexIter vd;
+    SculptBrushTest test;
+    float (*proxy)[3];
+    //const float bstrength = ss->cache->bstrength;
+
+    proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
+
+    sculpt_brush_test_init(ss, &test);
+
+    float ray_normal[3], ray_start[3], ray_end[3];
+
+    /* The ray_normal is different from true_view_normal */
+    ED_view3d_win_to_segment(test.vc->ar, test.vc->v3d, ss->cache->mouse, ray_start, ray_end, true);
+    sub_v3_v3v3(ray_normal, ray_end, ray_start);
+    normalize_v3(ray_normal);
+
+    copy_v3_v3(test.normal, ray_normal);
+
+    BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+    {
+        if (sculpt_brush_test_silhouette(&test, vd.co)) {
+
+            float val[3];
+
+            sub_v3_v3v3(val, vd.co, test.prep_foot);
+
+            normalize_v3(val);
+
+            mul_v3_fl(val, test.radius - test.dist);
+            copy_v3_v3(proxy[vd.i], val);
+
+            if (vd.mvert)
+                vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+        }
+    }
+    BKE_pbvh_vertex_iter_end;
+}
+
+
+/* should make the stroke stop when cursor hit original mesh */
 static void do_silhouette_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 {
-    /*TODO*/
+    Brush *brush = BKE_paint_brush(&sd->paint);
+
+    SculptThreadedTaskData data = {
+        .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
+    };
+
+    BLI_task_parallel_range_ex(
+                0, totnode, &data, NULL, 0, do_silhouette_brush_task_cb_ex,
+                ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+
 }
 
 static void do_brush_action_task_cb(void *userdata, const int n)
@@ -3394,12 +3515,14 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 	data.sd = sd;
 	data.radius_squared = ss->cache->radius_squared;
 	data.original = sculpt_tool_needs_original(brush->sculpt_tool) ? true : ss->cache->original;
-	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
-
-    /*inlinebool: need a way to find area for silhouette brush specifically*/
+    if (brush->sculpt_tool == SCULPT_TOOL_SILHOUETTE) {
+        BKE_pbvh_search_gather(ss->pbvh, sculpt_search_silhouette_cb, &data, &nodes, &totnode);
+    }
+    else
+        BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
 
 	/* Only act if some verts are inside the brush area */
-	if (totnode) {
+    if (totnode) {
 		float location[3];
 
 		SculptThreadedTaskData task_data = {
@@ -3471,8 +3594,7 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
 				break;
 			case SCULPT_TOOL_MASK:
 				do_mask_brush(sd, ob, nodes, totnode);
-				break;
-            /*should be called elsewhere, since the nodes are different from other brushes*/
+                break;
             case SCULPT_TOOL_SILHOUETTE:
                 do_silhouette_brush(sd, ob, nodes, totnode);
 		}
@@ -4328,10 +4450,11 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 
 	/* Truly temporary data that isn't stored in properties */
 	if (cache->first_time) {
-		if (!BKE_brush_use_locked_size(scene, brush)) {
+        if (!BKE_brush_use_locked_size(scene, brush)) {
+            cache->brush_size = BKE_brush_size_get(scene, brush);
 			cache->initial_radius = paint_calc_object_space_radius(cache->vc,
 			                                                       cache->true_location,
-			                                                       BKE_brush_size_get(scene, brush));
+                                                                   cache->brush_size);
 			BKE_brush_unprojected_radius_set(scene, brush, cache->initial_radius);
 		}
 		else {
@@ -4476,6 +4599,9 @@ static float sculpt_raycast_init(ViewContext *vc, const float mouse[2], float ra
 
 	sub_v3_v3v3(ray_normal, ray_end, ray_start);
 	dist = normalize_v3(ray_normal);
+
+    float n_rn[3];
+    normalize_v3_v3(n_rn, ray_normal);
 
 	if ((rv3d->is_persp == false) &&
 	    /* if the ray is clipped, don't adjust its start/end */
@@ -4659,14 +4785,19 @@ static bool over_mesh(bContext *C, struct wmOperator *UNUSED(op), float x, float
 static bool sculpt_stroke_test_start(bContext *C, struct wmOperator *op,
                                     const float mouse[2])
 {
-	/* Don't start the stroke until mouse goes over the mesh.
-	 * note: mouse will only be null when re-executing the saved stroke. */
-	if (!mouse || over_mesh(C, op, mouse[0], mouse[1])) {
-		Object *ob = CTX_data_active_object(C);
-		SculptSession *ss = ob->sculpt;
-		Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 
-		ED_view3d_init_mats_rv3d(ob, CTX_wm_region_view3d(C));
+    /* Don't start the stroke until mouse goes over the mesh. ! Except for silhouette brush !
+     * silhouette brush only starts when mouse is not over the mesh
+	 * note: mouse will only be null when re-executing the saved stroke. */
+    if (!mouse || over_mesh(C, op, mouse[0], mouse[1]) ||
+             (!over_mesh(C, op, mouse[0], mouse[1]) &&
+              CTX_data_tool_settings(C)->sculpt->paint.brush->sculpt_tool == SCULPT_TOOL_SILHOUETTE)) {
+
+        Object *ob = CTX_data_active_object(C);
+        SculptSession *ss = ob->sculpt;
+        Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
+
+        ED_view3d_init_mats_rv3d(ob, CTX_wm_region_view3d(C));
 
 		sculpt_update_cache_invariants(C, sd, ss, op, mouse);
 

@@ -109,7 +109,7 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
 				
 				brush = &gset->brush[GP_EDITBRUSH_TYPE_GRAB];
-				brush->size = 50;
+                brush->size = 50;
 				brush->strength = 0.3f;
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
 				
@@ -132,6 +132,11 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 				brush->size = 25;
 				brush->strength = 0.5f;
 				brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
+
+                brush = &gset->brush[GP_EDITBRUSH_TYPE_SILHOUETTE];
+                brush->size = 10;
+                brush->strength = 0.5f;
+                brush->flag = GP_EDITBRUSH_FLAG_USE_FALLOFF;
 			}
 			
 			ts->gpencil_v3d_align = GP_PROJECT_VIEWSPACE;
@@ -208,12 +213,19 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 	{
 		Brush *br;
 
-		br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Fill");
-		if (!br) {
-			br = BKE_brush_add(bmain, "Fill", OB_MODE_TEXTURE_PAINT);
-			br->imagepaint_tool = PAINT_TOOL_FILL;
-			br->ob_mode = OB_MODE_TEXTURE_PAINT;
-		}
+        br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Fill");
+        if (!br) {
+            br = BKE_brush_add(bmain, "Fill", OB_MODE_TEXTURE_PAINT);
+            br->imagepaint_tool = PAINT_TOOL_FILL;
+            br->ob_mode = OB_MODE_TEXTURE_PAINT;
+        }
+
+        br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Silhouette");
+        if (!br) {
+            br = BKE_brush_add(bmain, "Silhouette", OB_MODE_SCULPT);
+            br->sculpt_tool = SCULPT_TOOL_SILHOUETTE;
+            br->ob_mode = OB_MODE_SCULPT;
+        }
 
 		br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Mask");
 		if (br) {
@@ -222,10 +234,10 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 		}
 
 		/* remove polish brush (flatten/contrast does the same) */
-		br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Polish");
-		if (br) {
-			BKE_libblock_free(bmain, br);
-		}
+        br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Polish");
+        if (br) {
+            BKE_libblock_free(bmain, br);
+        }
 
 		/* remove brush brush (huh?) from some modes (draw brushes do the same) */
 		br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Brush");

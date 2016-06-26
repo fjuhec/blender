@@ -762,7 +762,7 @@ void PAINTCURVE_OT_draw(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Draw Curve";
 	ot->description = "Draw curve";
-	ot->idname = "PAINTCURVE_OT_draw";
+    ot->idname = "PAINTCURVE_OT_draw";
 
 	/* api callbacks */
 	ot->exec = paintcurve_draw_exec;

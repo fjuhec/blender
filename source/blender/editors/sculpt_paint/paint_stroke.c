@@ -469,9 +469,14 @@ static void paint_brush_stroke_add_step(bContext *C, wmOperator *op, const float
 
 	ups->last_hit = paint_brush_update(C, brush, mode, stroke, mouse_in, mouse_out, pressure, location);
 	copy_v3_v3(ups->last_location, location);
-	if (!ups->last_hit) {
-		return;
-	}
+    if (brush->sculpt_tool == SCULPT_TOOL_SILHOUETTE) {
+        if (ups->last_hit) {
+            return;
+        }
+    }
+    else if (!ups->last_hit) {
+        return;
+    }
 
 	/* Add to stroke */
 	RNA_collection_add(op->ptr, "stroke", &itemptr);
