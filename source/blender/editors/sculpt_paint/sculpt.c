@@ -3394,11 +3394,11 @@ static void sculpt_topology_update(Sculpt *sd, Object *ob, Brush *brush, Unified
 
 static inline void calc_foot_perp_v3_v3v3v3(float* foot, const float* a, const float* l_dir, const float* p)
 {
-//    float tf[3], ta[3], td[3], tp[3];
-//    copy_v3_v3(tf, foot);
-//    copy_v3_v3(ta, a);
-//    copy_v3_v3(td, l_dir);
-//    copy_v3_v3(tp, p);
+    float tf[3], ta[3], td[3], tp[3];
+    copy_v3_v3(tf, foot);
+    copy_v3_v3(ta, a);
+    copy_v3_v3(td, l_dir);
+    copy_v3_v3(tp, p);
 
     float v1[3];
 
@@ -3438,25 +3438,36 @@ static void do_silhouette_brush_task_cb_ex(
 {
     SculptThreadedTaskData *data = userdata;
     SculptSession *ss = data->ob->sculpt;
-    //Brush *brush = data->brush;
 
     PBVHVertexIter vd;
     SculptBrushTest test;
     float (*proxy)[3];
-    //const float bstrength = ss->cache->bstrength;
+
+    float ray_normal[3], ray_start[3], ray_end[3];
+    float imat[4][4];
 
     proxy = BKE_pbvh_node_add_proxy(ss->pbvh, data->nodes[n])->co;
 
     sculpt_brush_test_init(ss, &test);
 
-    float ray_normal[3], ray_start[3], ray_end[3];
-
-    /* The ray_normal is different from true_view_normal */
+    /* Do ray cast again from the view point. This has been done before in stroke update, but the
+     * ray_normal and ray_end seem to be lost. The location in cache is weird and the view_normal
+     * is not the inverse of ray_normal, therefore not usable */
     ED_view3d_win_to_segment(test.vc->ar, test.vc->v3d, ss->cache->mouse, ray_start, ray_end, true);
+
+    /* deal with transform */
+    invert_m4_m4(data->ob->imat, data->ob->obmat);
+    copy_m4_m4(imat, data->ob->imat);
+
+    mul_m4_v3(imat, ray_normal);
+    mul_m4_v3(imat, ray_start);
+    mul_m4_v3(imat, ray_end);
+
     sub_v3_v3v3(ray_normal, ray_end, ray_start);
     normalize_v3(ray_normal);
 
     copy_v3_v3(test.normal, ray_normal);
+    copy_v3_v3(test.location, ray_end);
 
     BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
     {
@@ -3479,7 +3490,6 @@ static void do_silhouette_brush_task_cb_ex(
 }
 
 
-/* should make the stroke stop when cursor hit original mesh */
 static void do_silhouette_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 {
     Brush *brush = BKE_paint_brush(&sd->paint);
