@@ -895,6 +895,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         if hasattr(md, "use_opensubdiv"):
             col.prop(md, "use_opensubdiv")
 
+        engine = bpy.context.scene.render.engine
+        if engine == "CYCLES" and bpy.context.scene.cycles.feature_set == "EXPERIMENTAL":
+            col.prop(ob.cycles, "use_cycles_subdivision", text="Cycles Subdivision")
+            if ob.cycles.use_cycles_subdivision:
+                col.prop(ob.cycles, "dicing_rate")
+
     def SURFACE(self, layout, ob, md):
         layout.label(text="Settings are inside the Physics tab")
 
