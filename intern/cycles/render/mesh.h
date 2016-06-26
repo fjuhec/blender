@@ -102,6 +102,11 @@ public:
 		int num_ptex_faces() const { return num_corners == 4 ? 1 : num_corners; }
 	};
 
+	struct SubdEdgeCrease {
+		int v[2];
+		float crease;
+	};
+
 	/* Displacement */
 	enum DisplacementMethod {
 		DISPLACE_BUMP = 0,
@@ -148,6 +153,8 @@ public:
 	array<SubdFace> subd_faces;
 	array<int> subd_face_corners;
 	int num_ngons;
+
+	array<SubdEdgeCrease> subd_creases;
 
 	vector<Shader*> used_shaders;
 	AttributeSet attributes;

@@ -772,6 +772,30 @@ static void create_subd_mesh(Scene *scene,
 	mesh->subdivision_type = (Mesh::SubdivisionType)RNA_enum_get(cmesh, "subdivision_type");
 	create_mesh(scene, mesh, b_mesh, used_shaders, true);
 
+	/* export creases */
+	size_t num_creases = 0;
+	BL::Mesh::edges_iterator e;
+
+	for(b_mesh.edges.begin(e); e != b_mesh.edges.end(); ++e) {
+		if(e->crease() != 0.0f) {
+			num_creases++;
+		}
+	}
+
+	mesh->subd_creases.resize(num_creases);
+
+	Mesh::SubdEdgeCrease* crease = &mesh->subd_creases[0];
+	for(b_mesh.edges.begin(e); e != b_mesh.edges.end(); ++e) {
+		if(e->crease() != 0.0f) {
+			crease->v[0] = e->vertices()[0];
+			crease->v[1] = e->vertices()[1];
+			crease->crease = e->crease();
+
+			crease++;
+		}
+	}
+
+	/* set subd params */
 	SubdParams sdparams(mesh, 0, true, false);
 	sdparams.dicing_rate = max(0.1f, RNA_float_get(cmesh, "dicing_rate") * dicing_rate);
 	sdparams.max_level = max_subdivisions;

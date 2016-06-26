@@ -72,8 +72,18 @@ namespace Far {
 	}
 
 	template<>
-	bool TopologyRefinerFactory<ccl::Mesh>::assignComponentTags(TopologyRefiner& /*refiner*/, ccl::Mesh const& /*mesh*/)
+	bool TopologyRefinerFactory<ccl::Mesh>::assignComponentTags(TopologyRefiner& refiner, ccl::Mesh const& mesh)
 	{
+		ccl::Mesh::SubdEdgeCrease* crease = &mesh.subd_creases[0];
+
+		for(int i = 0; i < mesh.subd_creases.size(); i++, crease++) {
+			Index edge = findBaseEdge(refiner, crease->v[0], crease->v[1]);
+
+			if(edge != INDEX_INVALID) {
+				setBaseEdgeSharpness(refiner, edge, crease->crease * 10.0f);
+			}
+		}
+
 		return true;
 	}
 

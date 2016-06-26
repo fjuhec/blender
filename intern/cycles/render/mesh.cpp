@@ -242,6 +242,8 @@ void Mesh::clear()
 
 	num_subd_verts = 0;
 
+	subd_creases.clear();
+
 	attributes.clear();
 	curve_attributes.clear();
 	subd_attributes.clear();
