@@ -183,8 +183,7 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 		nu->pntsu = steps;
 		nu->pntsv = 1;
 		nu->orderu = steps;
-		nu->flagu = CU_NURB_ENDPOINT;
-		nu->flagv = CU_NURB_ENDPOINT;
+		nu->flagu |= CU_NURB_ENDPOINT;
 
 		BPoint *bp = nu->bp;
 
@@ -192,17 +191,17 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 			Imath::V3f pos = (*positions)[idx++];
 
 			copy_yup_zup(bp->vec, pos.getValue());
-			bp->vec[3] = 1.0;
+			bp->vec[3] = 1.0f;
 
-			bp->radius = bp->weight = 1.0;
+			bp->radius = bp->weight = 1.0f;
 		}
 
-		nu->flag |= CU_SMOOTH;
+		BKE_nurb_knot_calc_u(nu);
 
 		BLI_addtail(&cu->nurb, nu);
 	}
 
-	cu->actnu = hvertices->size();
+	cu->actnu = CU_ACT_NONE;
 	cu->actvert = CU_ACT_NONE;
 
 	if (m_settings->is_sequence || !m_curves_schema.isConstant()) {
