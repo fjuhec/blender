@@ -96,6 +96,7 @@ struct PEdge;
 struct PFace;
 struct PChart;
 struct PHandle;
+struct PConvexHull;
 
 /* Simplices */
 
@@ -150,6 +151,14 @@ typedef struct PFace {
 	unsigned char flag;
 } PFace;
 
+typedef struct PConvexHull {
+	struct PVert **h_verts;
+	unsigned int nverts;
+	int right;
+	float min_v[2];
+	float max_v[2];
+} PConvexHull;
+
 enum PVertFlag {
 	PVERT_PIN = 1,
 	PVERT_SELECT = 2,
@@ -203,6 +212,10 @@ typedef struct PChart {
 			float rescale, area;
 			float size[2] /* , trans[2] */;
 		} pack;
+		struct PChartIrregularPack {
+			PConvexHull *convex_hull; /* ToDo (SaphireS): Only convex for now */
+			float area;
+		} ipack; 
 	} u;
 
 	unsigned char flag;
@@ -430,7 +443,6 @@ static float p_face_uv_area_signed(PFace *f)
 static float p_face_uv_area_combined(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
-	PChart *chart;
 	PFace *f;
 	float used_area = 0.0f;
 	int i;
@@ -554,7 +566,6 @@ static PBool p_intersect_line_2d_dir(float *v1, float *dir1, float *v2, float *d
 	return P_TRUE;
 }
 
-#if 0
 static PBool p_intersect_line_2d(float *v1, float *v2, float *v3, float *v4, float *isect)
 {
 	float dir1[2], dir2[2];
@@ -575,7 +586,6 @@ static PBool p_intersect_line_2d(float *v1, float *v2, float *v3, float *v4, flo
 
 	return P_TRUE;
 }
-#endif
 
 /* Topological Utilities */
 
@@ -4643,12 +4653,40 @@ void param_pack(ParamHandle *handle, float margin, bool do_rotate)
 		param_scale(handle, phandle->aspx, phandle->aspy);
 }
 
+PConvexHull *p_convex_hull_new(PChart *chart)
+{
+	PConvexHull *conv_hull = (PConvexHull *)MEM_callocN(sizeof(*conv_hull), "PConvexHull");
+	PVert **points;
+	float minv[2], maxv[2];
+	int npoint, right;
+
+	if (!p_chart_convex_hull(chart, &points, &npoint, &right))
+		printf("convex hull for chart failed!\n");
+
+	conv_hull->h_verts = points;
+	conv_hull->nverts = npoint;
+	conv_hull->right = right;
+
+	/* Fill max/min for initial positioning, with this we also know the bounding rectangle */
+	p_chart_uv_bbox(chart, conv_hull->min_v, conv_hull->max_v);
+
+	return conv_hull;
+}
+
+void p_convex_hull_delete(PConvexHull *c_hull)
+{
+	MEM_freeN(c_hull->h_verts);
+	MEM_freeN(c_hull);
+	c_hull = NULL;
+}
+
 void param_irregular_pack_begin(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart;
+	PVert **points;
 	PFace *f;
-	int i;
+	int npoint, right, i, j;
 
 	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
 	phandle->state = PHANDLE_STATE_PACK;
@@ -4663,6 +4701,17 @@ void param_irregular_pack_begin(ParamHandle *handle)
 		for (f = chart->faces; f; f = f->nextlink) {
 			p_face_backup_uvs(f);
 		}
+
+		/* Compute convex hull for each chart */
+
+		chart->u.ipack.convex_hull = p_convex_hull_new(chart);
+
+		for (j = 0; j < chart->u.ipack.convex_hull->nverts; j++) {
+			printf("--PVert of convex hull - x: %f, y: %f\n", chart->u.ipack.convex_hull->h_verts[j]->uv[0], chart->u.ipack.convex_hull->h_verts[j]->uv[1]);
+		}
+
+		printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
+
 	}
 
 	/* ToDo (SaphireS) */
@@ -4678,7 +4727,7 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area)
 
 	/* ToDo (SaphireS): packing solution computation */
 
-	/* Compute inner fit polygon (this probably only needs to be done once) */
+	/* Compute inner fit polygon */
 
 	/* For every chart: */
 
@@ -4699,11 +4748,19 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area)
 void param_irregular_pack_end(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	int i;
 
 	param_assert(phandle->state == PHANDLE_STATE_PACK);
 	phandle->state = PHANDLE_STATE_CONSTRUCTED;
 
-	/* ToDo? (SaphireS) */
+	/* ToDo (SaphireS) */
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+
+		p_convex_hull_delete(chart->u.ipack.convex_hull);
+	}
 
 	BLI_rng_free(phandle->rng);
 	phandle->rng = NULL;
@@ -5038,6 +5095,25 @@ void param_test(ParamHandle *handle)
 	printf("param_test() reached!\n");
 
 	float area = p_face_uv_area_combined(handle);
+
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	int npoint, right, i, j;
+	PVert **points;
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+
+		if (!p_chart_convex_hull(chart, &points, &npoint, &right))
+			printf("convex hull for chart %i failed!\n", i);
+		else
+			printf("convex hull for chart %i done!\n", i);
+
+		for (j = 0; j < npoint; j++) {
+			printf("--PVert of convex hull - x: %f, y: %f\n", points[j]->uv[0], points[j]->uv[1]);
+		}
+
+		MEM_freeN(points);
+	}
 
 	printf("used uv charts area: %f\n", area);
 }
