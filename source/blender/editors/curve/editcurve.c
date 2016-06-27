@@ -6809,7 +6809,7 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 				if (!(memcmp(original_first_coord_array, segment_coord_array, 3 * (nu->resolu) * sizeof(float)))) {
 					break; /* go to the next spline */
 				}
-				for (a = 0; a < nu->resolu - 1; a++) {
+				for (a = 0; a < nu->resolu; a++) {
 					vi = (float *)MEM_callocN(3 * sizeof(float), "splineXshape5");
 					result = isect_seg_seg_v2_point(&full_coord_array[i * 3], &full_coord_array[(i + 1) * 3],
 													&segment_coord_array[a * 3], &segment_coord_array[(a + 1) * 3], vi);
@@ -6874,18 +6874,24 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	ListBase *low;
-	ListBase *high;
+	ListBase *low = (ListBase *)MEM_callocN(sizeof(ListBase), "trim_exec1");;
+	ListBase *high = (ListBase *)MEM_callocN(sizeof(ListBase), "trim_exec2");;
+	XShape *xshape;
+	LinkData *link;
 
-	/*# gather all intersections of the active spline
-	 spl_int = spline_X_shape(shape_ob, spline_id)
-	 point_id = sel_point_id(shape_ob.data.splines[spline_id])
-
-	 if len(point_id) > 1: return
-	 else: point_id = point_id[0]
-
-	 low = [x for x in spl_int if x[1] <  point_id]
-	 high = spl_int[len(low):]*/
+	for (xshape = spl_int->first; xshape; xshape = xshape->next) {
+		if (xshape->order < spline_id) {
+			link = (LinkData *)MEM_callocN(sizeof(LinkData), "trim_exec3");
+			link->data = xshape->intersections;
+			BLI_addtail(low, link);
+		}
+		else
+		{
+			link = (LinkData *)MEM_callocN(sizeof(LinkData), "trim_exec3");
+			link->data = xshape->intersections;
+			BLI_addtail(high, link);
+		}
+	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 	DAG_id_tag_update(obedit->data, 0);
