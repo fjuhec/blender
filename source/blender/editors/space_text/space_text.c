@@ -567,6 +567,10 @@ static void text_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID 
 {
 	SpaceText *stext = (SpaceText *)slink;
 
+	if (!ELEM(GS(old_id->name), ID_GD)) {
+		return;
+	}
+
 	if ((ID *)stext->text == old_id) {
 		stext->text = (Text *)new_id;
 		id_us_ensure_real(new_id);

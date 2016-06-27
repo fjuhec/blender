@@ -1517,6 +1517,10 @@ static void clip_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID 
 {
 	SpaceClip *sclip = (SpaceClip *)slink;
 
+	if (!ELEM(GS(old_id->name), ID_MC, ID_MSK)) {
+		return;
+	}
+
 	if ((ID *)sclip->clip == old_id) {
 		sclip->clip = (MovieClip *)new_id;
 		id_us_ensure_real(new_id);

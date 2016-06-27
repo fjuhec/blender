@@ -1406,6 +1406,10 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 	ARegion *ar;
 	bool is_local = false;
 
+	if (!ELEM(GS(old_id->name), ID_OB, ID_MA, ID_IM, ID_MC)) {
+		return;
+	}
+
 	for (v3d = (View3D *)slink; v3d; v3d = v3d->localvd, is_local = true) {
 		if ((ID *)v3d->camera == old_id) {
 			v3d->camera = (Object *)new_id;
@@ -1436,16 +1440,18 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 		}
 #endif
 
-		for (BGpic *bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
-			if ((ID *)bgpic->ima == old_id) {
-				bgpic->ima = (Image *)new_id;
-				id_us_min(old_id);
-				id_us_plus(new_id);
-			}
-			if ((ID *)bgpic->clip == old_id) {
-				bgpic->clip = (MovieClip *)new_id;
-				id_us_min(old_id);
-				id_us_plus(new_id);
+		if (ELEM(GS(old_id->name), ID_IM, ID_MC)) {
+			for (BGpic *bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
+				if ((ID *)bgpic->ima == old_id) {
+					bgpic->ima = (Image *)new_id;
+					id_us_min(old_id);
+					id_us_plus(new_id);
+				}
+				if ((ID *)bgpic->clip == old_id) {
+					bgpic->clip = (MovieClip *)new_id;
+					id_us_min(old_id);
+					id_us_plus(new_id);
+				}
 			}
 		}
 

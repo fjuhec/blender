@@ -1044,6 +1044,8 @@ static int outliner_group_operation_exec(bContext *C, wmOperator *op)
 			break;
 		case OL_GROUPOP_INSTANCE:
 			outliner_do_libdata_operation(C, scene, soops, &soops->tree, group_instance_cb, NULL);
+			/* works without this except if you try render right after, see: 22027 */
+			DAG_relations_tag_update(CTX_data_main(C));
 			break;
 		case OL_GROUPOP_DELETE:
 			WM_operator_name_call(C, "OUTLINER_OT_id_delete", WM_OP_INVOKE_REGION_WIN, NULL);
@@ -1065,11 +1067,6 @@ static int outliner_group_operation_exec(bContext *C, wmOperator *op)
 			break;
 		default:
 			BLI_assert(0);
-	}
-
-	if (event == 3) { /* instance */
-		/* works without this except if you try render right after, see: 22027 */
-		DAG_relations_tag_update(CTX_data_main(C));
 	}
 
 	ED_undo_push(C, prop_group_op_types[event - 1].name);

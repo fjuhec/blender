@@ -987,6 +987,10 @@ static void image_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID
 {
 	SpaceImage *simg = (SpaceImage *)slink;
 
+	if (!ELEM(GS(old_id->name), ID_IM, ID_GD, ID_MSK)) {
+		return;
+	}
+
 	if ((ID *)simg->image == old_id) {
 		simg->image = (Image *)new_id;
 		id_us_ensure_real(new_id);

@@ -616,7 +616,7 @@ static bool is_filtered_file(FileListInternEntry *file, const char *UNUSED(root)
 static bool is_filtered_lib(FileListInternEntry *file, const char *root, FileListFilter *filter)
 {
 	bool is_filtered;
-	char path[FILE_MAX_LIBEXTRA], dir[FILE_MAXDIR], *group, *name;
+	char path[FILE_MAX_LIBEXTRA], dir[FILE_MAX_LIBEXTRA], *group, *name;
 
 	BLI_join_dirfile(path, sizeof(path), root, file->relpath);
 
@@ -998,7 +998,7 @@ static void filelist_checkdir_lib(struct FileList *filelist, char *r_dir)
 		filelist->ae->type->check_dir(filelist->ae, r_dir);
 	}
 	else {
-		char dir[FILE_MAXDIR];
+		char dir[FILE_MAX_LIBEXTRA];
 		if (!BLO_library_path_explode(r_dir, dir, NULL, NULL)) {
 			/* if not a valid library, we need it to be a valid directory! */
 			BLI_make_exist(r_dir);
@@ -2363,6 +2363,7 @@ FileDirEntryArr *filelist_selection_get(
 	return selection;
 }
 
+/* WARNING! dir must be FILE_MAX_LIBEXTRA long! */
 bool filelist_islibrary(struct FileList *filelist, char *dir, char **group)
 {
 	return BLO_library_path_explode(filelist->filelist.root, dir, group, NULL);
@@ -2458,7 +2459,7 @@ static int filelist_readjob_list_lib(const char *root, ListBase *entries, const 
 	FileListInternEntry *entry;
 	LinkNode *ln, *names;
 	int i, nnames, idcode = 0, nbr_entries = 0;
-	char dir[FILE_MAX], *group;
+	char dir[FILE_MAX_LIBEXTRA], *group;
 	bool ok;
 
 	struct BlendHandle *libfiledata = NULL;

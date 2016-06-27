@@ -848,11 +848,12 @@ static void node_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID 
 			snode->from = new_id;
 		}
 	}
-
-	if ((ID *)snode->gpd == old_id) {
-		snode->gpd = (bGPdata *)new_id;
-		id_us_min(old_id);
-		id_us_plus(new_id);
+	else if (GS(old_id->name) == ID_GD) {
+		if ((ID *)snode->gpd == old_id) {
+			snode->gpd = (bGPdata *)new_id;
+			id_us_min(old_id);
+			id_us_plus(new_id);
+		}
 	}
 }
 

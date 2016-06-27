@@ -110,7 +110,7 @@ int ED_file_extension_icon(const char *path);
 
 void ED_file_read_bookmarks(void);
 
-void ED_file_change_dir(struct bContext *C, const bool checkdir);
+void ED_file_change_dir(struct bContext *C);
 
 struct AssetEngine *ED_filelist_assetengine_get(struct SpaceFile *sfile);
 

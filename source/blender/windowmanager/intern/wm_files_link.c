@@ -76,6 +76,7 @@
 
 #include "BKE_idcode.h"
 
+
 #include "IMB_colormanagement.h"
 
 #include "ED_screen.h"
@@ -437,7 +438,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	if (scene && RNA_boolean_get(op->ptr, "autoselect")) {
 		BKE_scene_base_deselect_all(scene);
 	}
-
+	
 	/* tag everything, all untagged data can be made local
 	 * its also generally useful to know what is new
 	 *
@@ -577,7 +578,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 	/* recreate dependency graph to include new objects */
 	DAG_scene_relations_rebuild(bmain, scene);
-
+	
 	/* free gpu materials, some materials depend on existing objects, such as lamps so freeing correctly refreshes */
 	GPU_materials_free();
 
