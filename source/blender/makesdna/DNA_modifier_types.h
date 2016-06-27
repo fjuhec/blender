@@ -1400,13 +1400,11 @@ typedef struct MeshCacheModifierData {
 	float eval_factor;
 
 	char filepath[1024];  /* FILE_MAX */
-	char sub_object[1024];  /* Alembic sub object */
 } MeshCacheModifierData;
 
 enum {
 	MOD_MESHCACHE_TYPE_MDD  = 1,
 	MOD_MESHCACHE_TYPE_PC2  = 2,
-	MOD_MESHCACHE_TYPE_ABC  = 3,
 };
 
 enum {

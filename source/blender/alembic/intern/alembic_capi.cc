@@ -155,50 +155,6 @@ int ABC_get_version()
 	return ALEMBIC_LIBRARY_VERSION;
 }
 
-static size_t update_points(std::pair<IPolyMeshSchema, IObject> schema,
-                            const ISampleSelector &sample_sel,
-                            MVert *verts, size_t vtx_start, int max_verts = -1,
-                            float (*vcos)[3] = 0)
-{
-	if (!schema.first.valid()) {
-		return vtx_start;
-	}
-
-	IPolyMeshSchema::Sample smp = schema.first.getValue(sample_sel);
-	P3fArraySamplePtr positions = smp.getPositions();
-
-	const size_t vertex_count = positions->size();
-
-	/* don't overflow the buffer! */
-	if (max_verts > 0) {
-		if ((vtx_start + vertex_count) > max_verts)
-			return vtx_start;
-	}
-
-	if (verts) {
-		int j = vtx_start;
-		for (int i = 0; i < vertex_count; ++i, ++j) {
-			Imath::V3f pos_in = (*positions)[i];
-
-			verts[j].co[0] = pos_in[0];
-			verts[j].co[1] = pos_in[1];
-			verts[j].co[2] = pos_in[2];
-		}
-	}
-	else if (vcos) {
-		int j = vtx_start;
-		for (int i = 0; i < vertex_count; ++i, ++j) {
-			Imath::V3f pos_in = (*positions)[i];
-
-			vcos[j][0] = pos_in[0];
-			vcos[j][1] = pos_in[1];
-			vcos[j][2] = pos_in[2];
-		}
-	}
-
-	return vtx_start + vertex_count;
-}
-
 static void find_iobject(const IObject &object, IObject &ret,
                          const std::string &path)
 {
@@ -218,63 +174,6 @@ static void find_iobject(const IObject &object, IObject &ret,
 	}
 
 	ret = tmp;
-}
-
-void ABC_get_vertex_cache(const char *filepath, float time, void *verts,
-                          int max_verts, const char *object_path, int is_mverts)
-{
-	IArchive *archive = open_archive(filepath);
-
-	if (!archive || !archive->valid()) {
-		return;
-	}
-
-	IObject top = archive->getTop();
-
-	if (!top.valid()) {
-		return;
-	}
-
-	IObject iobject;
-	find_iobject(top, iobject, object_path);
-
-	if (!IPolyMesh::matches(iobject.getHeader())) {
-		return;
-	}
-
-	IPolyMesh mesh(iobject, kWrapExisting);
-	IPolyMeshSchema schema = mesh.getSchema();
-	ISampleSelector sample_sel(time);
-
-	if (is_mverts) {
-		update_points(std::pair<IPolyMeshSchema, IObject>(schema, iobject),
-		              sample_sel, static_cast<MVert *>(verts), 0, max_verts, NULL);
-	}
-	else {
-		float (*vcos)[3] = static_cast<float (*)[3]>(verts);
-		update_points(std::pair<IPolyMeshSchema, IObject>(schema, iobject),
-		              sample_sel, NULL, 0, max_verts, vcos);
-	}
-
-	/* TODO. */
-	delete archive;
-}
-
-bool ABC_check_subobject_valid(const char *filename, const char *object_path)
-{
-	IArchive *archive = open_archive(filename);
-
-	if (!archive || !archive->valid()) {
-		return false;
-	}
-
-	IObject ob;
-	find_iobject(archive->getTop(), ob, object_path);
-
-	/* TODO. */
-	delete archive;
-
-	return (ob.valid());
 }
 
 struct ExportJobData {

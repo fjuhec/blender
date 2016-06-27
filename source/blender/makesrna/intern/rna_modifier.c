@@ -4089,9 +4089,6 @@ static void rna_def_modifier_meshcache(BlenderRNA *brna)
 	static EnumPropertyItem prop_format_type_items[] = {
 		{MOD_MESHCACHE_TYPE_MDD, "MDD", 0, "MDD ", ""},
 		{MOD_MESHCACHE_TYPE_PC2, "PC2", 0, "PC2", ""},
-#ifdef WITH_ALEMBIC
-		{MOD_MESHCACHE_TYPE_ABC, "ABC", 0, "Alembic", ""},
-#endif
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -4168,10 +4165,6 @@ static void rna_def_modifier_meshcache(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "filepath", PROP_STRING, PROP_FILEPATH);
 	RNA_def_property_ui_text(prop, "File Path", "Path to external displacements file");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "sub_object", PROP_STRING, PROP_NONE);
-	RNA_def_property_ui_text(prop, "Object", "Path to the object in the Alembic archive");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);

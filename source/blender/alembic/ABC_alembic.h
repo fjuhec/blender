@@ -73,16 +73,6 @@ void ABC_import(struct bContext *C,
                 int sequence_len,
                 int offset);
 
-void ABC_get_vertex_cache(const char *filepath,
-                          float time,
-                          void *verts,
-                          int max_verts,
-                          const char *object_path,
-                          int is_mvert);
-
-bool ABC_check_subobject_valid(const char *filename,
-                               const char *object_path);
-
 AbcArchiveHandle *ABC_create_handle(const char *filename);
 
 void ABC_free_handle(AbcArchiveHandle *handle);
