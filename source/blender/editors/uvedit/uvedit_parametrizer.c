@@ -4680,6 +4680,40 @@ void p_convex_hull_delete(PConvexHull *c_hull)
 	c_hull = NULL;
 }
 
+bool p_convex_hull_intersect(PConvexHull *chull_a, PConvexHull *chull_b)
+{
+	printf("reached p_chart_intersect()\n");
+
+	if (chull_a->min_v[0] > chull_b->max_v[0] ||
+		chull_a->max_v[0] < chull_b->min_v[0] ||
+		chull_a->min_v[1] > chull_b->max_v[1] ||
+		chull_a->max_v[1] < chull_b->min_v[1]) {
+		printf("no overlapping UVs found - bounds don't overlap\n");
+		return false;
+	}
+	
+	
+
+	PEdge *e1, *e2;
+	int i, j;
+	float isec;
+
+	for (i = 0; i < chull_a->nverts; i++) {
+		for (j = 0; j < chull_b->nverts; j++) {
+			if (p_intersect_line_2d(chull_a->h_verts[i],
+									chull_a->h_verts[i++],
+									chull_b->h_verts[j],
+									chull_b->h_verts[j++],
+									&isec)) {
+				printf("Overlapping UVs found\n");
+				return true;
+			}
+		}
+	}
+	printf("no overlapping UVs found - intersection tests negative\n");
+	return false;
+}
+
 void param_irregular_pack_begin(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
@@ -4690,6 +4724,8 @@ void param_irregular_pack_begin(ParamHandle *handle)
 
 	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
 	phandle->state = PHANDLE_STATE_PACK;
+
+	/* Initializations */
 
 	unsigned int seed = 31415926;
 	phandle->rng = BLI_rng_new(seed);
@@ -4711,12 +4747,14 @@ void param_irregular_pack_begin(ParamHandle *handle)
 		}
 
 		printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
+	}
 
+	if (p_convex_hull_intersect(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[2]->u.ipack.convex_hull)){
+		printf("Intersection found! \n");
 	}
 
 	/* ToDo (SaphireS) */
 
-	/* Initializations */
 }
 
 void param_irregular_pack_iter(ParamHandle *handle, float *w_area)
