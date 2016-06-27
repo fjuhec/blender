@@ -90,7 +90,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 
 	const ssef pn = cast(ssei(0, 0, 0x80000000, 0x80000000));
 	ssef Psplat[3], idirsplat[3];
+#  if BVH_FEATURE(BVH_HAIR)
 	ssef tnear(0.0f), tfar(isect->t);
+#  endif
 	shuffle_swap_t shufflexyz[3];
 
 	Psplat[0] = ssef(P.x);
@@ -242,7 +244,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 									if(visibility == PATH_RAY_SHADOW_OPAQUE)
 										return true;
 									tsplat = ssef(0.0f, 0.0f, -isect->t, -isect->t);
+#  if BVH_FEATURE(BVH_HAIR)
 									tfar = ssef(isect->t);
+#  endif
 #else
 									if(visibility == PATH_RAY_SHADOW_OPAQUE)
 										return true;
@@ -262,7 +266,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 									if(visibility == PATH_RAY_SHADOW_OPAQUE)
 										return true;
 									tsplat = ssef(0.0f, 0.0f, -isect->t, -isect->t);
+#    if BVH_FEATURE(BVH_HAIR)
 									tfar = ssef(isect->t);
+#    endif
 #  else
 									if(visibility == PATH_RAY_SHADOW_OPAQUE)
 										return true;
@@ -289,7 +295,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 									if(visibility == PATH_RAY_SHADOW_OPAQUE)
 										return true;
 									tsplat = ssef(0.0f, 0.0f, -isect->t, -isect->t);
+#    if BVH_FEATURE(BVH_HAIR)
 									tfar = ssef(isect->t);
+#    endif
 #  else
 									if(visibility == PATH_RAY_SHADOW_OPAQUE)
 										return true;
@@ -319,7 +327,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 					Psplat[2] = ssef(P.z);
 
 					tsplat = ssef(0.0f, 0.0f, -isect->t, -isect->t);
+#    if BVH_FEATURE(BVH_HAIR)
 					tfar = ssef(isect->t);
+#    endif
 
 					gen_idirsplat_swap(pn, shuf_identity, shuf_swap, idir, idirsplat, shufflexyz);
 #  endif
@@ -354,7 +364,9 @@ ccl_device bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 			Psplat[2] = ssef(P.z);
 
 			tsplat = ssef(0.0f, 0.0f, -isect->t, -isect->t);
+#    if BVH_FEATURE(BVH_HAIR)
 			tfar = ssef(isect->t);
+#    endif
 
 			gen_idirsplat_swap(pn, shuf_identity, shuf_swap, idir, idirsplat, shufflexyz);
 #  endif
