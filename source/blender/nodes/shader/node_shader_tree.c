@@ -330,7 +330,7 @@ static void ntree_shader_link_builtin_group_normal(
 	node_group_input_verify(group_ntree, group_input_node, &group_ntree->id);
 	ntreeUpdateTree(G.main, group_ntree);
 	/* Assumes sockets are always added at the end. */
-	bNodeSocket *group_node_normal_socket = (bNodeSocket*)group_node->inputs.last;
+	bNodeSocket *group_node_normal_socket = group_node->inputs.last;
 	if (displacement_node == group_node) {
 		/* If displacement is coming from this node group we need to perform
 		 * some internal re-linking in order to avoid cycles.
@@ -488,7 +488,7 @@ void ntreeGPUMaterialNodes(bNodeTree *ntree, GPUMaterial *mat, short compatibili
 	ntreeExecGPUNodes(exec, mat, 1, compatibility);
 	ntreeShaderEndExecTree(exec);
 
-	ntreeFreeTree_ex(localtree, false);
+	ntreeFreeTree(localtree);
 	MEM_freeN(localtree);
 }
 
