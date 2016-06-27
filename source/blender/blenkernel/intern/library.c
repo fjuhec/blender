@@ -451,7 +451,7 @@ bool id_copy(ID *id, ID **newid, bool test)
 			return true;
 		case ID_CF:
 			if (!test) *newid = (ID *)BKE_cachefile_copy(G.main, (CacheFile *)id);
-			return true;  /* not implemented */
+			return true;
 	}
 	
 	return false;

@@ -3355,7 +3355,7 @@ static void rna_def_space_dopesheet(BlenderRNA *brna)
 		{SACTCONT_SHAPEKEY, "SHAPEKEY", ICON_SHAPEKEY_DATA, "Shape Key Editor", "Edit keyframes in active object's Shape Keys action"},
 		{SACTCONT_GPENCIL, "GPENCIL", ICON_GREASEPENCIL, "Grease Pencil", "Edit timings for all Grease Pencil sketches in file"},
 		{SACTCONT_MASK, "MASK", ICON_MOD_MASK, "Mask", "Edit timings for Mask Editor splines"},
-	    {SACTCONT_CACHEFILE, "CACHEFILE", ICON_FILE, "Cache File", "Edit timings for Cache File data-blocks"},
+		{SACTCONT_CACHEFILE, "CACHEFILE", ICON_FILE, "Cache File", "Edit timings for Cache File data-blocks"},
 		{0, NULL, 0, NULL, NULL}
 	};
 		

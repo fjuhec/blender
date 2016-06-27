@@ -27,6 +27,7 @@
 set(INC 
 	.
 	intern
+	../alembic
 	../blenkernel
 	../blenlib
 	../blenfont
@@ -36,7 +37,6 @@ set(INC
 	../bmesh
 	../render/extern/include
 	../../../intern/elbeem/extern
-	../alembic
 	../../../intern/guardedalloc
 	../../../intern/eigen
 )
