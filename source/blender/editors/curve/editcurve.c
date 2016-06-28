@@ -6326,7 +6326,7 @@ static ListBase *get_selected_splines(ListBase *nubase, int *r_number_splines, b
 		bezt = nu->bezt;
 		while (handles--)
 		{ /* cycle through all the handles. see if any is selected */
-			if (BEZT_ISSEL_ANY(bezt) && (!nu->flagu || return_cyclic))
+			if (BEZT_ISSEL_ANY(bezt) && (!(nu->flagu & CU_NURB_CYCLIC) || return_cyclic))
 			{ /* this expression was deduced using truth tables */
 				*r_number_splines += 1;
 				nu_copy = BKE_nurb_duplicate(nu);
@@ -6848,6 +6848,48 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 	return intersections;
 }
 
+static bool is_between(float *x, float *a, float *b)
+{
+	const float PRECISION = 1e-05;
+
+	float cross = (x[1] - a[1]) * (b[0] - a[0]) - (x[0] - a[0]) * (b[1] - a[1]);
+	if (fabsf(cross) > PRECISION) return false;
+	float dot = (x[0] - a[0]) * (b[0] - a[0]) + (x[1] - a[1])*(b[1] - a[1]);
+	if (dot < 0) return false;
+	float squaredlengthba = (b[0] - a[0])*(b[0] - a[0]) + (b[1] - a[1])*(b[1] - a[1]);
+	if (dot > squaredlengthba) return false;
+
+	return true;
+}
+
+static float ratio_to_segment(float *x, float *p1, float *p2, float *p3, float *p4, int res)
+{
+	float seg_length, length, ratio, *seg;
+	seg_length = length = ratio = 0;
+
+	seg = MEM_callocN(3 * (res + 1) * sizeof(float), "ratio_to_segment1");
+	for (int j = 0; j < 3; j++) {
+		BKE_curve_forward_diff_bezier(p1[j], p2[j], p3[j], p4[j], seg + j, res, sizeof(float) * 3);
+	}
+
+	for (int i = 0; i < res - 1; i++) {
+		seg_length += len_v3v3(&seg[3 * i], &seg[3 * (i + 1)]);
+	}
+
+	for (int i = 0; i < res - 1; i++) {
+		if (is_between(x, &seg[3 * i], &seg[3 * (i + 1)])) {
+			length = len_v2v2(&seg[3 * i], x);
+			return length/seg_length;
+		}
+		else
+		{
+			length += len_v3v3(&seg[3 * i], &seg[3 * (i + 1)]);
+		}
+	}
+
+	return 0;
+}
+
 static int trim_curve_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
@@ -6855,7 +6897,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	int n_sel_splines, n_sel_handles;
 	Nurb *nu;
 
-	selected_splines = get_selected_splines(nubase, &n_sel_splines, false);
+	selected_splines = get_selected_splines(nubase, &n_sel_splines, true);
 
 	/* it only makes sense for one spline to be selected */
 	if (n_sel_splines != 1) {
@@ -6882,16 +6924,124 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	for (xshape = spl_int->first; xshape; xshape = xshape->next) {
 		if (xshape->order < spline_id) {
 			link = (LinkData *)MEM_callocN(sizeof(LinkData), "trim_exec3");
-			link->data = xshape->intersections;
+			link->data = xshape;
 			BLI_addtail(low, link);
 		}
 		else
 		{
-			link = (LinkData *)MEM_callocN(sizeof(LinkData), "trim_exec3");
-			link->data = xshape->intersections;
+			link = (LinkData *)MEM_callocN(sizeof(LinkData), "trim_exec4");
+			link->data = xshape;
 			BLI_addtail(high, link);
 		}
 	}
+
+	int len_low = BLI_listbase_count(low), len_high = BLI_listbase_count(high);
+
+	/* cyclic spline */
+	if (nu->flagu & CU_NURB_CYCLIC) {
+		if (len_low + len_high <= 1) {
+			BKE_report(op->reports, RPT_ERROR, "Cyclic splines need at least two intersections");
+			return OPERATOR_CANCELLED;
+		}
+
+		int npoints = 0;
+		if (len_low == 0)
+		{
+			MEM_freeN(low);
+			low = high;
+			npoints = ((XShape *)((LinkData *)high->last)->data)->order - ((XShape *)((LinkData *)high->first)->data)->order + 2;
+		}
+		else if (len_high == 0)
+		{
+			MEM_freeN(high);
+			high = low;
+			npoints = ((XShape *)((LinkData *)low->last)->data)->order - ((XShape *)((LinkData *)low->first)->data)->order + 2;
+		}
+		else
+		{
+			npoints = nu->pntsu - ((XShape *)((LinkData *)high->first)->data)->order + ((XShape *)((LinkData *)low->last)->data)->order + 2;
+		}
+
+		Nurb *new_spl = BKE_nurb_duplicate(nu);
+		new_spl->bezt = (BezTriple *)MEM_callocN((npoints - 1) * sizeof(BezTriple), "trimexec5");
+		for (int i = 0; i < new_spl->pntsu; i++) {
+			BezTriple *bezt = new_spl->bezt, *old_bezt = nu->bezt;
+			/* get the correct bezier point from the original spline */
+			int a = (i + ((XShape *)((LinkData *)high->first)->data)->order ) % ( nu->pntsu );
+			while ( a-- ) {
+				old_bezt++;
+			}
+			copy_v3_v3(bezt->vec[0], old_bezt->vec[0]);
+			copy_v3_v3(bezt->vec[1], old_bezt->vec[1]);
+			copy_v3_v3(bezt->vec[2], old_bezt->vec[2]);
+		}
+	}
+
+	/*
+	 # case of cyclic spline
+    if spline_ob.use_cyclic_u:
+
+        if len(low) + len(high) <= 1:
+            print ("cyclic spline needs at least 2 intersections")
+            return
+
+        elif len(low) + len(high) > 1:
+            print ("breaking up cyclic spline")
+            if len(low) == 0:
+                low = high
+                npoints = high[-1][1] - high[0][1] + 2
+            elif len(high) == 0:
+                high = low
+                npoints = low[-1][1] - low[0][1] + 2
+            else:
+                npoints = len(spline_ob.bezier_points) - high[0][1] + low[-1][1] + 2
+
+            spline_ob_data = [[[bp.co, bp.handle_left_type, bp.handle_right_type, bp.handle_left, bp.handle_right] for bp in spline_ob.bezier_points], spline_ob.resolution_u, spline_ob.use_cyclic_u]
+
+            shape_ob.data.splines.new('BEZIER')
+            new_spl = shape_ob.data.splines[-1]
+            new_spl.bezier_points.add(npoints-1)
+
+            print (len(spline_ob_data[0]), len(new_spl.bezier_points), npoints)
+
+            for i, bp in enumerate(new_spl.bezier_points):
+                print((i+high[0][1])%npoints)
+                bp.co, bp.handle_left_type, bp.handle_right_type, bp.handle_left, bp.handle_right = spline_ob_data[0][(i+high[0][1])%(len(spline_ob_data[0]))]
+            new_spl.resolution_u = spline_ob_data[1]
+
+            s1, s2 = chop(low[-1][0],
+                  spline_ob.bezier_points[low[-1][1]].co,
+                  spline_ob.bezier_points[low[-1][1]].handle_right,
+                  spline_ob.bezier_points[(low[-1][1]+1)%(len(spline_ob_data[0]))].handle_left,
+                  spline_ob.bezier_points[(low[-1][1]+1)%(len(spline_ob_data[0]))].co,
+                  spline_ob.resolution_u)
+
+            new_spl.bezier_points[-1].handle_left_type = 'FREE'
+            new_spl.bezier_points[-1].handle_right_type = 'FREE'
+            new_spl.bezier_points[-2].handle_left_type = 'FREE'
+            new_spl.bezier_points[-2].handle_right_type = 'FREE'
+            new_spl.bezier_points[-1].co = low[-1][0].to_3d() # though mathematically correct: s1[3]
+            new_spl.bezier_points[-2].handle_right = s1[1]
+            new_spl.bezier_points[-1].handle_left = s1[2]
+            new_spl.bezier_points[-1].handle_right = s2[1]
+
+            s3, s4 = chop(high[0][0],
+                  spline_ob.bezier_points[high[0][1]].co,
+                  spline_ob.bezier_points[high[0][1]].handle_right,
+                  spline_ob.bezier_points[(high[0][1]+1)%(len(spline_ob_data[0]))].handle_left,
+                  spline_ob.bezier_points[(high[0][1]+1)%(len(spline_ob_data[0]))].co,
+                  spline_ob.resolution_u)
+
+            new_spl.bezier_points[0].handle_left_type = 'FREE'
+            new_spl.bezier_points[0].handle_right_type = 'FREE'
+            new_spl.bezier_points[1].handle_left_type = 'FREE'
+            new_spl.bezier_points[1].handle_right_type = 'FREE'
+            new_spl.bezier_points[0].co = high[0][0].to_3d() # though mathematically correct: s2[0]
+            new_spl.bezier_points[0].handle_left = s3[2]
+            new_spl.bezier_points[0].handle_right = s4[1]
+            new_spl.bezier_points[1].handle_left = s4[2]
+
+            shape_ob.data.splines.remove(spline_ob)*/
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 	DAG_id_tag_update(obedit->data, 0);
