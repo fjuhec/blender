@@ -329,7 +329,7 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 	BLI_strncpy(cu->id.name + 2, m_data_name.c_str(), m_data_name.size() + 1);
 
-	m_object = BKE_object_add(bmain, scene, OB_CURVE, m_object_name.c_str());
+	m_object = BKE_object_add(bmain, scene, OB_SURF, m_object_name.c_str());
 	m_object->data = cu;
 }
 
