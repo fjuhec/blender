@@ -7467,12 +7467,17 @@ static void lib_link_moviePlaneTracks(FileData *fd, MovieClip *clip, ListBase *t
 	}
 }
 
-static void lib_link_movieCorrespondences(FileData *fd, MovieClip *clip, ListBase *tracksbase)
+static void lib_link_movieCorrespondences(FileData *fd, MovieClip *clip, ListBase *correspondences)
 {
 	MovieTrackingCorrespondence *corr;
 
-	for (corr = tracksbase->first; corr; corr = corr->next) {
+	for (corr = correspondences->first; corr != NULL; corr = corr->next) {
+		corr = newlibadr(fd, clip->id.lib, corr);
 
+		corr->self_track = newlibadr(fd, clip->id.lib, corr->self_track);
+		corr->other_track = newlibadr(fd, clip->id.lib, corr->other_track);
+		corr->self_clip = newlibadr(fd, clip->id.lib, corr->self_clip);
+		corr->other_clip = newlibadr(fd, clip->id.lib, corr->other_clip);
 	}
 }
 
@@ -7491,6 +7496,7 @@ static void lib_link_movieclip(FileData *fd, Main *main)
 			
 			lib_link_movieTracks(fd, clip, &tracking->tracks);
 			lib_link_moviePlaneTracks(fd, clip, &tracking->plane_tracks);
+			lib_link_movieCorrespondences(fd, clip, &tracking->correspondences);
 
 			for (object = tracking->objects.first; object; object = object->next) {
 				lib_link_movieTracks(fd, clip, &object->tracks);

@@ -3193,7 +3193,7 @@ static void write_movieCorrespondences(WriteData *wd, ListBase *correspondence_b
 {
 	MovieTrackingCorrespondence *corr;
 	for (corr = correspondence_base->first;
-	     corr;
+	     corr != NULL;
 	     corr = corr->next)
 	{
 		writestruct(wd, DATA, "MovieTrackingCorrespondence", 1, corr);
@@ -3225,6 +3225,7 @@ static void write_movieclips(WriteData *wd, ListBase *idbase)
 			write_movieTracks(wd, &tracking->tracks);
 			write_moviePlaneTracks(wd, &tracking->plane_tracks);
 			write_movieReconstruction(wd, &tracking->reconstruction);
+			write_movieCorrespondences(wd, &tracking->correspondences);
 
 			object= tracking->objects.first;
 			while (object) {
