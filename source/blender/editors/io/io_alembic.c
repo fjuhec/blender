@@ -312,7 +312,7 @@ static int cmp_frame(const void *a, const void *b)
 	return 0;
 }
 
-static int get_seqeunce_len(char *filename, int *ofs)
+static int get_sequence_len(char *filename, int *ofs)
 {
 	int frame;
 	int numdigit;
@@ -415,7 +415,7 @@ static int wm_alembic_import_exec(bContext *C, wmOperator *op)
 	const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
 
 	int offset = 0;
-	int sequence_len = get_seqeunce_len(filename, &offset);
+	int sequence_len = get_sequence_len(filename, &offset);
 	const bool is_sequence = (sequence_len > 1);
 
 	ABC_import(C, filename, scale, is_sequence, set_frame_range, sequence_len, offset);
