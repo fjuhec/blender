@@ -226,6 +226,7 @@ bool AbcNurbsReader::valid() const
 void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 {
 	Curve *cu = static_cast<Curve *>(BKE_curve_add(bmain, "abc_curve", OB_SURF));
+	cu->actvert = CU_ACT_NONE;
 
 	std::vector< std::pair<INuPatchSchema, IObject> >::iterator it;
 
@@ -233,59 +234,78 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 		Nurb *nu = static_cast<Nurb *>(MEM_callocN(sizeof(Nurb), "abc_getnurb"));
 		nu->flag  = CU_SMOOTH;
 		nu->type = CU_NURBS;
-		nu->resolu = 4;
-		nu->resolv = 4;
+		nu->resolu = cu->resolu;
+		nu->resolv = cu->resolv;
 
 		const ISampleSelector sample_sel(time);
-		const INuPatchSchema::Sample smp = it->first.getValue(sample_sel);
+		const INuPatchSchema &schema = it->first;
+		const INuPatchSchema::Sample smp = schema.getValue(sample_sel);
+
+		nu->orderu = smp.getUOrder();
+		nu->orderv = smp.getVOrder();
+		nu->pntsu = smp.getNumU();
+		nu->pntsv = smp.getNumV();
+
+		/* Read positions and weights. */
+
 		const P3fArraySamplePtr positions = smp.getPositions();
-		const FloatArraySamplePtr positionsW = smp.getPositionWeights();
-		const int32_t num_U = smp.getNumU();
-		const int32_t num_V = smp.getNumV();
-		const int32_t u_order = smp.getUOrder();
-		const int32_t v_order = smp.getVOrder();
-		const FloatArraySamplePtr u_knot = smp.getUKnot();
-		const FloatArraySamplePtr v_knot = smp.getVKnot();
+		const FloatArraySamplePtr weights = smp.getPositionWeights();
 
-		const size_t numPt = positions->size();
-		const size_t numKnotsU = u_knot->size();
-		const size_t numKnotsV = v_knot->size();
+		const size_t num_points = positions->size();
 
-		nu->orderu = u_order;
-		nu->orderv = v_order;
-		nu->pntsu = num_U;
-		nu->pntsv = num_V;
-		nu->bezt = NULL;
+		nu->bp = static_cast<BPoint *>(MEM_callocN(num_points * sizeof(BPoint), "abc_setsplinetype"));
 
-		nu->bp = static_cast<BPoint *>(MEM_callocN(numPt * sizeof(BPoint), "abc_setsplinetype"));
-		nu->knotsu = static_cast<float *>(MEM_callocN(numKnotsU * sizeof(float), "abc_setsplineknotsu"));
-		nu->knotsv = static_cast<float *>(MEM_callocN(numKnotsV * sizeof(float), "abc_setsplineknotsv"));
-		nu->bp->radius = 1.0f;
+		BPoint *bp = nu->bp;
+		float posw_in = 1.0f;
 
-		for (int i = 0; i < numPt; ++i) {
-			Imath::V3f pos_in = (*positions)[i];
-			float posw_in = 1.0f;
+		for (int i = 0; i < num_points; ++i, ++bp) {
+			const Imath::V3f &pos_in = (*positions)[i];
 
-			if (positionsW && i < positionsW->size()) {
-				posw_in = (*positionsW)[i];
+			if (weights && i < weights->size()) {
+				posw_in = (*weights)[i];
 			}
 
-			/* Convert Y-up to Z-up. */
-			copy_yup_zup(nu->bp[i].vec, pos_in.getValue());
-			nu->bp[i].vec[3] = posw_in;
+			copy_yup_zup(bp->vec, pos_in.getValue());
+			bp->vec[3] = posw_in;
+			bp->f1 = SELECT;
 		}
 
-		for (size_t i = 0; i < numKnotsU; i++) {
-			nu->knotsu[i] = (*u_knot)[i];
+		/* Read knots. */
+
+		const FloatArraySamplePtr u_knot = smp.getUKnot();
+
+		if (u_knot && u_knot->size() != 0) {
+			const size_t num_knots_u = u_knot->size();
+			nu->knotsu = static_cast<float *>(MEM_callocN(num_knots_u * sizeof(float), "abc_setsplineknotsu"));
+
+			for (size_t i = 0; i < num_knots_u; ++i) {
+				nu->knotsu[i] = (*u_knot)[i];
+			}
+		}
+		else {
+			BKE_nurb_knot_calc_u(nu);
 		}
 
-		for (size_t i = 0; i < numKnotsV; i++) {
-			nu->knotsv[i] = (*v_knot)[i];
+		const FloatArraySamplePtr v_knot = smp.getVKnot();
+
+		if (v_knot && v_knot->size() != 0) {
+			const size_t num_knots_v = v_knot->size();
+			nu->knotsv = static_cast<float *>(MEM_callocN(num_knots_v * sizeof(float), "abc_setsplineknotsv"));
+
+			for (size_t i = 0; i < num_knots_v; ++i) {
+				nu->knotsv[i] = (*v_knot)[i];
+			}
+		}
+		else {
+			BKE_nurb_knot_calc_v(nu);
 		}
 
-		ICompoundProperty userProps = it->first.getUserProperties();
-		if (userProps.valid() && userProps.getPropertyHeader("endU") != 0) {
-			IBoolProperty enduProp(userProps, "endU");
+		/* Read flags. */
+
+		ICompoundProperty user_props = schema.getUserProperties();
+
+		if (has_property(user_props, "endU")) {
+			IBoolProperty enduProp(user_props, "endU");
 			bool_t endu;
 			enduProp.get(endu, sample_sel);
 
@@ -294,8 +314,8 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 			}
 		}
 
-		if (userProps.valid() && userProps.getPropertyHeader("endV") != 0) {
-			IBoolProperty endvProp(userProps, "endV");
+		if (has_property(user_props, "endV")) {
+			IBoolProperty endvProp(user_props, "endV");
 			bool_t endv;
 			endvProp.get(endv, sample_sel);
 
@@ -336,8 +356,9 @@ void AbcNurbsReader::getNurbsPatches(const IObject &obj)
 			ok = false;
 		}
 
-		if (!child.valid())
+		if (!child.valid()) {
 			continue;
+		}
 
 		const MetaData &md = child.getMetaData();
 
