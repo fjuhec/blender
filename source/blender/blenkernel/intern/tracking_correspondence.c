@@ -205,12 +205,13 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 		MovieClip *other_clip = corr->other_clip;
 		// iterate through all the clips to get the local clip id
 		for(int i = 0; i < clip_num; i++) {
+			MovieTracking *tracking = &clips[i]->tracking;
+			ListBase *tracksbase = &tracking->tracks;
+			MovieTrackingTrack *track = tracksbase->first;
+			int tracknr = 0;
+			// check primary clip
 			if(self_clip == clips[i]) {
 				clip1 = i;
-				MovieTracking *tracking = &clips[i]->tracking;
-				ListBase *tracksbase = &tracking->tracks;
-				MovieTrackingTrack *track = tracksbase->first;
-				int tracknr = 0;
 				while (track) {
 					if(corr->self_track == track)
 					{
@@ -221,12 +222,9 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 					tracknr++;
 				}
 			}
+			// check witness clip
 			if(other_clip == clips[i]) {
 				clip2 = i;
-				MovieTracking *tracking = &clips[i]->tracking;
-				ListBase *tracksbase = &tracking->tracks;
-				MovieTrackingTrack *track = tracksbase->first;
-				int tracknr = 0;
 				while (track) {
 					if(corr->other_track == track)
 					{
@@ -288,7 +286,6 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 		int num_tracks = BLI_listbase_count(tracksbase);
 		context->track_global_index[i] = MEM_callocN(num_tracks * sizeof(int), "global track index for clip i");
 		for(int j = 0; j < num_tracks; j++) {
-			printf("%d %d %d\n", i, j, global_index);
 			context->track_global_index[i][j] = global_index++;
 		}
 	}
@@ -314,7 +311,6 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 			                                                        num_clips, context->correspondences,
 			                                                        context->track_global_index);
 			BLI_assert(num_valid_corrs == BLI_listbase_count(&tracking->correspondences));
-			printf("number of correspondences converted: %d\n", num_valid_corrs);
 
 			BLI_strncpy(context->object_name, object->name, sizeof(context->object_name));
 			context->is_camera = object->flag & TRACKING_OBJECT_CAMERA;

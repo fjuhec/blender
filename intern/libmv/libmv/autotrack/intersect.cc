@@ -19,6 +19,7 @@
 // IN THE SOFTWARE.
 //
 // Author: Tianwei Shen <shentianweipku@gmail.com>
+// adapted from simple_pipeline/intersect.cc
 
 #include "libmv/autotrack/intersect.h"
 
@@ -85,10 +86,12 @@ bool EuclideanIntersect(const vector<Marker> &markers,
   vector<Mat34> cameras;
   Mat34 P;
   for (int i = 0; i < markers.size(); ++i) {
+    std::cout << "[Intersect] marker clip frame: " << markers[i].clip << " " << markers[i].frame << std::endl;
     CameraPose *camera = reconstruction->CameraPoseForFrame(markers[i].clip, markers[i].frame);
     libmv::P_From_KRt(K, camera->R, camera->t, &P);
     cameras.push_back(P);
   }
+  std::cout << "[Intersect] camera size: " << cameras.size() << std::endl;
 
   // Stack the 2D coordinates together as required by NViewTriangulate.
   Mat2X points(2, markers.size());
@@ -98,7 +101,7 @@ bool EuclideanIntersect(const vector<Marker> &markers,
   }
 
   Vec4 Xp;
-  LG << "Intersecting with " << markers.size() << " markers.";
+  std::cout << "Intersecting with " << markers.size() << " markers.\n";
   libmv::NViewTriangulateAlgebraic(points, cameras, &Xp);
 
   // Get euclidean version of the homogeneous point.
@@ -129,9 +132,9 @@ bool EuclideanIntersect(const vector<Marker> &markers,
   // TODO(sergey): Once we'll update Ceres to the next version
   // we wouldn't need this check anymore -- Ceres will deal with
   // zero-sized problems nicely.
-  LG << "Number of residuals: " << num_residuals;
+  std::cout << "Number of residuals: " << num_residuals << "\n";
   if (!num_residuals) {
-    LG << "Skipping running minimizer with zero residuals";
+    std::cout << "Skipping running minimizer with zero residuals\n";
 
 	// We still add 3D point for the track regardless it was
 	// optimized or not. If track is a constant zero it'll use
@@ -176,87 +179,5 @@ bool EuclideanIntersect(const vector<Marker> &markers,
   // TODO(keir): Add proper error checking.
   return true;
 }
-
-//namespace {
-//
-//struct ProjectiveIntersectCostFunction {
-// public:
-//  typedef Vec  FMatrixType;
-//  typedef Vec4 XMatrixType;
-//
-//  ProjectiveIntersectCostFunction(
-//      const vector<Marker> &markers,
-//      const ProjectiveReconstruction &reconstruction)
-//    : markers(markers), reconstruction(reconstruction) {}
-//
-//  Vec operator()(const Vec4 &X) const {
-//    Vec residuals(2 * markers.size());
-//    residuals.setZero();
-//    for (int i = 0; i < markers.size(); ++i) {
-//      const ProjectiveCamera &camera =
-//          *reconstruction.CameraForImage(markers[i].image);
-//      Vec3 projected = camera.P * X;
-//      projected /= projected(2);
-//      residuals[2*i + 0] = projected(0) - markers[i].x;
-//      residuals[2*i + 1] = projected(1) - markers[i].y;
-//    }
-//    return residuals;
-//  }
-//  const vector<Marker> &markers;
-//  const ProjectiveReconstruction &reconstruction;
-//};
-//
-//}  // namespace
-//
-//bool ProjectiveIntersect(const vector<Marker> &markers,
-//                         ProjectiveReconstruction *reconstruction) {
-//  if (markers.size() < 2) {
-//    return false;
-//  }
-//
-//  // Get the cameras to use for the intersection.
-//  vector<Mat34> cameras;
-//  for (int i = 0; i < markers.size(); ++i) {
-//    ProjectiveCamera *camera = reconstruction->CameraForImage(markers[i].image);
-//    cameras.push_back(camera->P);
-//  }
-//
-//  // Stack the 2D coordinates together as required by NViewTriangulate.
-//  Mat2X points(2, markers.size());
-//  for (int i = 0; i < markers.size(); ++i) {
-//    points(0, i) = markers[i].x;
-//    points(1, i) = markers[i].y;
-//  }
-//
-//  Vec4 X;
-//  LG << "Intersecting with " << markers.size() << " markers.";
-//  NViewTriangulateAlgebraic(points, cameras, &X);
-//  X /= X(3);
-//
-//  typedef LevenbergMarquardt<ProjectiveIntersectCostFunction> Solver;
-//
-//  ProjectiveIntersectCostFunction triangulate_cost(markers, *reconstruction);
-//  Solver::SolverParameters params;
-//  Solver solver(triangulate_cost);
-//
-//  Solver::Results results = solver.minimize(params, &X);
-//  (void) results;  // TODO(keir): Ensure results are good.
-//
-//  // Try projecting the point; make sure it's in front of everyone.
-//  for (int i = 0; i < cameras.size(); ++i) {
-//    const ProjectiveCamera &camera =
-//        *reconstruction->CameraForImage(markers[i].image);
-//    Vec3 x = camera.P * X;
-//    if (x(2) < 0) {
-//      LOG(ERROR) << "POINT BEHIND CAMERA " << markers[i].image
-//                 << ": " << x.transpose();
-//    }
-//  }
-//
-//  reconstruction->InsertPoint(markers[0].track, X);
-//
-//  // TODO(keir): Add proper error checking.
-//  return true;
-//}
 
 }  // namespace mv

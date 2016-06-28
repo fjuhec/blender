@@ -100,7 +100,7 @@ struct EuclideanResectCostFunction {
 
 bool EuclideanResect(const vector<Marker> &markers,
                      Reconstruction *reconstruction, bool final_pass) {
-  if (markers.size() < 5) {
+  if (markers.size() < 5) {		// five-point algorithm
     return false;
   }
   Mat2X points_2d = PointMatrixFromMarkers(markers);

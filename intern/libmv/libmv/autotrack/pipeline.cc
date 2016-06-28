@@ -110,9 +110,9 @@ bool InternalCompleteReconstruction(
     libmv::ProgressUpdateCallback *update_callback = NULL) {
 
 	int clip_num = tracks.GetClipNum();
-	int max_frames = 0;		// maximum frame of all clips
+	int num_frames = 0;
 	for(int i = 0; i < clip_num; i++) {
-		max_frames += tracks.MaxFrame(i) + 1;
+		num_frames += tracks.MaxFrame(i) + 1;
 	}
 
 	int max_track = tracks.MaxTrack();
@@ -120,7 +120,7 @@ bool InternalCompleteReconstruction(
 	int num_intersects = -1;
 	int total_resects = 0;
 	std::cout << "Max track: " << max_track << "\n";
-	std::cout << "Max image: " << max_frames << "\n";
+	std::cout << "Number of total frames: " << num_frames << "\n";
 	std::cout << "Number of markers: " << tracks.NumMarkers() << "\n";
 	while (num_resects != 0 || num_intersects != 0) {
 		// Do all possible intersections.
@@ -143,7 +143,7 @@ bool InternalCompleteReconstruction(
 			std::cout << "Got " << reconstructed_markers.size() << " reconstructed markers for track " << track << "\n";
 			if (reconstructed_markers.size() >= 2) {
 				CompleteReconstructionLogProgress(update_callback,
-				                                  (double)total_resects/(max_frames));
+				                                  (double)total_resects/(num_frames));
 				if (PipelineRoutines::Intersect(reconstructed_markers,
 				                                reconstruction)) {
 					num_intersects++;
@@ -153,9 +153,10 @@ bool InternalCompleteReconstruction(
 				}
 			}
 		}
+		// bundle the newly added points
 		if (num_intersects) {
 			CompleteReconstructionLogProgress(update_callback,
-			                                  (double)total_resects/(max_frames),
+			                                  (double)total_resects/(num_frames),
 			                                  "Bundling...");
 			PipelineRoutines::Bundle(tracks, reconstruction);
 			std::cout << "Ran Bundle() after intersections.\n";
@@ -168,12 +169,12 @@ bool InternalCompleteReconstruction(
 			const int max_image = tracks.MaxFrame(clip);
 			for (int image = 0; image <= max_image; ++image) {
 				if (reconstruction->CameraPoseForFrame(clip, image)) {	// this camera pose has been added
-					LG << "Skipping frame: " << image;
+					std::cout << "Skipping frame: " << clip << " " << image << "\n";
 					continue;
 				}
 				vector<Marker> all_markers;
 				tracks.GetMarkersInFrame(clip, image, &all_markers);
-				LG << "Got " << all_markers.size() << " markers for image " << image;
+				std::cout << "Got " << all_markers.size() << " markers for image " << image << "\n";
 
 				vector<Marker> reconstructed_markers;
 				for (int i = 0; i < all_markers.size(); ++i) {
@@ -181,11 +182,11 @@ bool InternalCompleteReconstruction(
 						reconstructed_markers.push_back(all_markers[i]);
 					}
 				}
-				LG << "Got " << reconstructed_markers.size()
-				   << " reconstructed markers for image " << image;
+				std::cout << "Got " << reconstructed_markers.size() << " reconstructed markers for image "
+				          << clip << " " << image << "\n";
 				if (reconstructed_markers.size() >= 5) {
 					CompleteReconstructionLogProgress(update_callback,
-					                                  (double)total_resects/(max_frames));
+					                                  (double)total_resects/(num_frames));
 					if (PipelineRoutines::Resect(reconstructed_markers,
 					                             reconstruction, false)) {
 						num_resects++;
@@ -199,7 +200,7 @@ bool InternalCompleteReconstruction(
 		}
 		if (num_resects) {
 			CompleteReconstructionLogProgress(update_callback,
-			                                  (double)total_resects/(max_frames),
+			                                  (double)total_resects/(num_frames),
 			                                  "Bundling...");
 			PipelineRoutines::Bundle(tracks, reconstruction);
 		}
@@ -239,7 +240,7 @@ bool InternalCompleteReconstruction(
 	}
 	if (num_resects) {
 		CompleteReconstructionLogProgress(update_callback,
-		                                  (double)total_resects/(max_frames),
+		                                  (double)total_resects/(num_frames),
 		                                  "Bundling...");
 		PipelineRoutines::Bundle(tracks, reconstruction);
 	}
@@ -356,7 +357,7 @@ void EuclideanScaleToUnity(Reconstruction *reconstruction) {
 	}
 
 	if (max_distance == 0.0) {
-		LG << "Cameras position variance is too small, can not rescale";
+		std::cout << "Cameras position variance is too small, can not rescale\n";
 		return;
 	}
 

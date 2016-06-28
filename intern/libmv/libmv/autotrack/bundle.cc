@@ -561,17 +561,17 @@ void EuclideanBundleCommonIntrinsics(
       num_residuals++;
     }
   }
-  LG << "Number of residuals: " << num_residuals;
+  std::cout << "Number of residuals: " << num_residuals << "\n";
 
   if (!num_residuals) {
-    LG << "Skipping running minimizer with zero residuals";
+    std::cout << "Skipping running minimizer with zero residuals\n";
     return;
   }
 
   if (intrinsics->GetDistortionModelType() == libmv::DISTORTION_MODEL_DIVISION &&
     (bundle_intrinsics & BUNDLE_TANGENTIAL) != 0) {
     LOG(FATAL) << "Division model doesn't support bundling "
-                  "of tangential distortion";
+                  "of tangential distortion\n";
   }
 
   BundleIntrinsicsLogMessage(bundle_intrinsics);

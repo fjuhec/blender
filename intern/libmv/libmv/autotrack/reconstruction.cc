@@ -115,8 +115,7 @@ bool ReconstructTwoFrames(const vector<Marker> &markers,
 	reconstruction->AddCameraPose(pose1);
 	reconstruction->AddCameraPose(pose2);
 
-	LG << "From two frame reconstruction got:\nR:\n" << R
-	   << "\nt:" << t.transpose();
+	std::cout << "From two frame reconstruction got:\nR:\n" << R << "\nt:" << t.transpose();
 	return true;
 }
 
@@ -128,9 +127,18 @@ int Reconstruction::AddCameraIntrinsics(CameraIntrinsics *intrinsics_ptr) {
 }
 
 void Reconstruction::AddCameraPose(const CameraPose& pose) {
-	if(camera_poses_.size() < pose.clip + 1)
+	if(camera_poses_.size() < pose.clip + 1) {
 		camera_poses_.resize(pose.clip+1);
-	camera_poses_[pose.clip].push_back(pose);
+	}
+	if(camera_poses_[pose.clip].size() < pose.frame + 1) {
+		camera_poses_[pose.clip].resize(pose.frame+1);
+	}
+	// copy form pose to camera_poses_
+	camera_poses_[pose.clip][pose.frame].clip = pose.clip;
+	camera_poses_[pose.clip][pose.frame].frame = pose.frame;
+	camera_poses_[pose.clip][pose.frame].intrinsics = pose.intrinsics;
+	camera_poses_[pose.clip][pose.frame].R = pose.R;
+	camera_poses_[pose.clip][pose.frame].t = pose.t;
 }
 
 int Reconstruction::GetClipNum() const {
@@ -139,10 +147,8 @@ int Reconstruction::GetClipNum() const {
 
 int Reconstruction::GetAllPoseNum() const {
 	int all_pose = 0;
-	printf("camera pose clip num: %d\n", camera_poses_.size());
 	for(int i = 0; i < camera_poses_.size(); ++i) {
 		all_pose += camera_poses_[i].size();
-		printf("camera pose clip %d num: %d\n", i, camera_poses_[i].size());
 	}
 	return all_pose;
 }
@@ -151,6 +157,8 @@ CameraPose* Reconstruction::CameraPoseForFrame(int clip, int frame) {
 	if (camera_poses_.size() <= clip)
 		return NULL;
 	if (camera_poses_[clip].size() <= frame)
+		return NULL;
+	if (camera_poses_[clip][frame].clip == -1)	// this CameraPose is uninitilized
 		return NULL;
 	return &(camera_poses_[clip][frame]);
 }

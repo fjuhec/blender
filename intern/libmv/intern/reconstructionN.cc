@@ -176,13 +176,12 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 	for(int i = 0; i < clip_num; i++)
 	{
 		all_libmv_reconstruction[i] = LIBMV_OBJECT_NEW(libmv_ReconstructionN);
-		Tracks &tracks = *((Tracks *) all_libmv_tracks[i]);
+		Tracks &tracks = *((Tracks *) all_libmv_tracks[i]);		// Tracks are just a bunch of markers
 
 		///* Retrieve reconstruction options from C-API to libmv API. */
 		CameraIntrinsics *camera_intrinsics;
 		camera_intrinsics = all_libmv_reconstruction[i]->intrinsics =
 		        libmv_cameraIntrinsicsCreateFromOptions(&all_libmv_camera_intrinsics_options[i]);
-		printf("camera %d size: %d, %d\n", i, camera_intrinsics->image_width(), camera_intrinsics->image_height());
 
 		///* Invert the camera intrinsics/ */
 		Tracks normalized_tracks;
@@ -241,11 +240,11 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 	}
 	// bundle the two-view initial reconstruction
 	// (it is redundant for now since now 3d point is added at this stage)
-	if(!mv::EuclideanBundleAll(all_normalized_tracks, &reconstruction)) {
-		printf("mv::EuclideanBundleAll failed\n");
-		all_libmv_reconstruction[0]->is_valid = false;
-		return all_libmv_reconstruction;
-	}
+	//if(!mv::EuclideanBundleAll(all_normalized_tracks, &reconstruction)) {
+	//	printf("mv::EuclideanBundleAll failed\n");
+	//	all_libmv_reconstruction[0]->is_valid = false;
+	//	return all_libmv_reconstruction;
+	//}
 	if(!mv::EuclideanCompleteMultiviewReconstruction(all_normalized_tracks, &reconstruction, &update_callback)) {
 		printf("mv::EuclideanReconstructionComplete failed\n");
 		all_libmv_reconstruction[0]->is_valid = false;

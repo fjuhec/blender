@@ -40,6 +40,7 @@ struct Marker;
 class Tracks;
 
 struct CameraPose {
+	CameraPose(): clip(-1), frame(-1) {}	// uninitilized CameraPose is (-1, -1)
 	CameraPose(int clip_, int frame_, int intrinsics_, Mat3 R_, Vec3 t_):
 	    clip(clip_), frame(frame_), intrinsics(intrinsics_), R(R_), t(t_) {}
 
