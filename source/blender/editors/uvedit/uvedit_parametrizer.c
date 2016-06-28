@@ -587,6 +587,26 @@ static PBool p_intersect_line_2d(float *v1, float *v2, float *v3, float *v4, flo
 	return P_TRUE;
 }
 
+static PBool p_intersect_line_segments_2d(float *a, float *b, float *c, float *d)
+{
+	float D = (b[0] - a[0]) * (d[1] - c[1]) - (b[1] - a[1]) * (d[0] - c[0]);
+
+	if (compare_ff(D, 0.0f, FLT_EPSILON)) {
+		/* Line segments are parallel */
+		return P_FALSE;
+	}
+
+	float r = ((a[1] - c[1]) * (d[0] - c[0]) - (a[0] - c[0]) * (d[1] - c[1])) / D;
+	float s = ((a[1] - c[1]) * (b[0] - a[0]) - (a[0] - c[0]) * (b[1] - a[1])) / D;
+
+	if ((-FLT_EPSILON <= r <= (1.0f + FLT_EPSILON)) && (-FLT_EPSILON <= s <= (1.0f + FLT_EPSILON))) {
+		/* ToDo (SaphireS): fill isect with intersection data ?*/
+		return P_TRUE;
+	}
+
+	return P_FALSE;
+}
+
 /* Topological Utilities */
 
 static PEdge *p_wheel_edge_next(PEdge *e)
@@ -4682,35 +4702,29 @@ void p_convex_hull_delete(PConvexHull *c_hull)
 
 bool p_convex_hull_intersect(PConvexHull *chull_a, PConvexHull *chull_b)
 {
-	printf("reached p_chart_intersect()\n");
-
+	/* Preliminary bounds check */
 	if (chull_a->min_v[0] > chull_b->max_v[0] ||
 		chull_a->max_v[0] < chull_b->min_v[0] ||
 		chull_a->min_v[1] > chull_b->max_v[1] ||
 		chull_a->max_v[1] < chull_b->min_v[1]) {
-		printf("no overlapping UVs found - bounds don't overlap\n");
 		return false;
 	}
 	
-	
-
 	PEdge *e1, *e2;
 	int i, j;
-	float isec;
 
+	/* Check edges for intersctions */
 	for (i = 0; i < chull_a->nverts; i++) {
 		for (j = 0; j < chull_b->nverts; j++) {
-			if (p_intersect_line_2d(chull_a->h_verts[i],
-									chull_a->h_verts[i++],
-									chull_b->h_verts[j],
-									chull_b->h_verts[j++],
-									&isec)) {
-				printf("Overlapping UVs found\n");
+			if (p_intersect_line_segments_2d(chull_a->h_verts[i]->uv,
+									chull_a->h_verts[i+1]->uv,
+									chull_b->h_verts[j]->uv,
+									chull_b->h_verts[j+1]->uv)) {
 				return true;
 			}
 		}
 	}
-	printf("no overlapping UVs found - intersection tests negative\n");
+
 	return false;
 }
 
