@@ -83,6 +83,7 @@ public:
 
 	int GetClipNum() const;
 	int GetAllPoseNum() const;
+	int GetReconstructedCameraNum() const;
 
 private:
 	// Indexed by CameraPose::intrinsics. Owns the intrinsics objects.

@@ -91,7 +91,6 @@ bool EuclideanIntersect(const vector<Marker> &markers,
     libmv::P_From_KRt(K, camera->R, camera->t, &P);
     cameras.push_back(P);
   }
-  std::cout << "[Intersect] camera size: " << cameras.size() << std::endl;
 
   // Stack the 2D coordinates together as required by NViewTriangulate.
   Mat2X points(2, markers.size());

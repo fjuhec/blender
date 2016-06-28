@@ -238,6 +238,9 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 		all_libmv_reconstruction[0]->is_valid = false;
 		return all_libmv_reconstruction;
 	}
+	std::cout << "[libmv_solveMultiviewReconstruction] reconstruct "
+	          <<  reconstruction.GetReconstructedCameraNum()
+	          << " cameras after ReconstructTwoFrames" << std::endl;
 	// bundle the two-view initial reconstruction
 	// (it is redundant for now since now 3d point is added at this stage)
 	//if(!mv::EuclideanBundleAll(all_normalized_tracks, &reconstruction)) {
@@ -252,7 +255,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 	}
 
 	/* Refinement/ */
-	// TODO(Tianwei): current api allows only one camera intrinsics
+	//TODO(Tianwei): current api allows only one camera intrinsics
 	if (libmv_reconstruction_options->all_refine_intrinsics[0]) {
 		libmv_solveRefineIntrinsics(
 		            all_normalized_tracks,
@@ -264,7 +267,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 		            all_libmv_reconstruction[0]->intrinsics);
 	}
 
-	/* Set reconstruction scale to unity. */
+	///* Set reconstruction scale to unity. */
 	mv::EuclideanScaleToUnity(&reconstruction);
 
 	/* Finish reconstruction. */

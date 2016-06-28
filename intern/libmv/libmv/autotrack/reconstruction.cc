@@ -115,7 +115,7 @@ bool ReconstructTwoFrames(const vector<Marker> &markers,
 	reconstruction->AddCameraPose(pose1);
 	reconstruction->AddCameraPose(pose2);
 
-	std::cout << "From two frame reconstruction got:\nR:\n" << R << "\nt:" << t.transpose();
+	LG << "From two frame reconstruction got:\nR:\n" << R << "\nt:" << t.transpose();
 	return true;
 }
 
@@ -168,6 +168,8 @@ const CameraPose* Reconstruction::CameraPoseForFrame(int clip, int frame) const 
 		return NULL;
 	if (camera_poses_[clip].size() <= frame)
 		return NULL;
+	if (camera_poses_[clip][frame].clip == -1)	// this CameraPose is uninitilized
+		return NULL;
 	return (const CameraPose*) &(camera_poses_[clip][frame]);
 }
 
@@ -201,6 +203,17 @@ const vector<vector<CameraPose> >& Reconstruction::camera_poses() const {
 
 const vector<Point>& Reconstruction::AllPoints() const {
 	return points_;
+}
+
+int Reconstruction::GetReconstructedCameraNum() const {
+	int reconstructed_num = 0;
+	for(int i = 0; i < camera_poses_.size(); i++) {
+		for(int j = 0; j < camera_poses_[i].size(); j++) {
+			if(camera_poses_[i][j].clip != -1 && camera_poses_[i][j].frame != -1)
+				reconstructed_num++;
+		}
+	}
+	return reconstructed_num;
 }
 
 }  // namespace mv
