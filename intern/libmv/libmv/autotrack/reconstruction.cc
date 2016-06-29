@@ -38,8 +38,8 @@ using libmv::Vec2;
 
 namespace mv {
 
-void GetFramesInMarkers(const vector<Marker> &markers,
-                        int *image1, int *image2) {
+static void GetFramesInMarkers(const vector<Marker> &markers,
+                               int *image1, int *image2) {
 	if (markers.size() < 2) {
 		return;
 	}
@@ -54,9 +54,9 @@ void GetFramesInMarkers(const vector<Marker> &markers,
 	LOG(FATAL) << "Only one image in the markers.";
 }
 
-void CoordinatesForMarkersInFrame(const vector<Marker> &markers,
-                                  int clip, int frame,
-                                  Mat *coordinates) {
+static void CoordinatesForMarkersInFrame(const vector<Marker> &markers,
+                                         int clip, int frame,
+                                         Mat *coordinates) {
 	vector<Vec2> coords;
 	for (int i = 0; i < markers.size(); ++i) {
 		const Marker &marker = markers[i];
@@ -188,13 +188,14 @@ const Point* Reconstruction::PointForTrack(int track) const {
 	return const_cast<Point *>(static_cast<const Reconstruction *>(this)->PointForTrack(track));
 }
 
-int  Reconstruction::AddPoint(const Point& point) {
+int Reconstruction::AddPoint(const Point& point) {
 	LG << "InsertPoint " << point.track << ":\n" << point.X;
 	if (point.track >= points_.size()) {
 		points_.resize(point.track + 1);
 	}
 	points_[point.track].track = point.track;
 	points_[point.track].X = point.X;
+	return point.track;
 }
 
 const vector<vector<CameraPose> >& Reconstruction::camera_poses() const {

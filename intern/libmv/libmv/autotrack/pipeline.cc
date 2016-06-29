@@ -42,9 +42,9 @@ namespace {
 // Use this functor-like struct to reuse reconstruction pipeline code
 // in the future, in case we will do projective reconstruction
 struct EuclideanPipelineRoutines {
-	typedef Reconstruction Reconstruction;
+	typedef ::mv::Reconstruction Reconstruction;
 	typedef CameraPose Camera;
-	typedef Point Point;
+	typedef ::mv::Point Point;
 
 	static void Bundle(const Tracks &tracks,
 	                   Reconstruction *reconstruction) {

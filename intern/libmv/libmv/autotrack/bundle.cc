@@ -25,6 +25,7 @@
 
 #include "libmv/autotrack/bundle.h"
 
+#include <cstdio>
 #include <map>
 
 #include "ceres/ceres.h"
