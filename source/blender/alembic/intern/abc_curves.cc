@@ -160,7 +160,9 @@ bool AbcCurveReader::valid() const
 void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 {
 	Curve *cu = BKE_curve_add(bmain, m_data_name.c_str(), OB_CURVE);
-	cu->flag |= CU_PATH | CU_3D;
+
+	cu->flag |= CU_DEFORM_FILL;
+	cu->actvert = CU_ACT_NONE;
 
 	const ISampleSelector sample_sel(time);
 
@@ -183,6 +185,7 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 		nu->pntsu = steps;
 		nu->pntsv = 1;
 		nu->orderu = steps;
+		nu->flag |= CU_SMOOTH;
 		nu->flagu |= CU_NURB_ENDPOINT;
 
 		BPoint *bp = nu->bp;
@@ -198,11 +201,8 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 		BKE_nurb_knot_calc_u(nu);
 
-		BLI_addtail(&cu->nurb, nu);
+		BLI_addtail(BKE_curve_nurbs_get(cu), nu);
 	}
-
-	cu->actnu = CU_ACT_NONE;
-	cu->actvert = CU_ACT_NONE;
 
 	if (m_settings->is_sequence || !m_curves_schema.isConstant()) {
 		addDefaultModifier(bmain);
