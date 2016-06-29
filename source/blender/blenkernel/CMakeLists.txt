@@ -119,6 +119,7 @@ set(SRC
 	intern/lamp.c
 	intern/lattice.c
 	intern/library.c
+	intern/library_asset.c
 	intern/library_idmap.c
 	intern/library_query.c
 	intern/library_remap.c
