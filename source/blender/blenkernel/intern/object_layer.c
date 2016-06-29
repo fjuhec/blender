@@ -114,6 +114,7 @@ LayerTypeObject *BKE_objectlayer_from_base(LayerTree *ltree, const Base *base, c
 {
 	BLI_assert(ltree->type == LAYER_TREETYPE_OBJECT);
 
+	/* XXX Does (n^2) lookup. Bases/Objects should have some layer info instead. */
 	for (int i = inverse ? ltree->tot_items - 1 : 0;
 	     inverse ? i >= 0 : i < ltree->tot_items;
 	     inverse ? i-- : i++)

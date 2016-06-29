@@ -48,6 +48,7 @@ struct Main;
 struct RigidBodyWorld;
 struct HookModifierData;
 struct ModifierData;
+struct LayerTree;
 
 void BKE_object_workob_clear(struct Object *workob);
 void BKE_object_workob_calc_parent(struct Scene *scene, struct Object *ob, struct Object *workob);
@@ -273,19 +274,17 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 /* -------------------------------------------------------------------- */
 /* Object Layers */
 
-#include "BKE_layer.h" /* XXX */
-
 #define BKE_OBJECTLAYER_BASES_ITER_START(oblayer, idx_name, base_name) \
 	for (int idx_name = 0; idx_name < oblayer->tot_bases; idx_name++) { \
 		Base *base_name = oblayer->bases[idx_name];
 #define BKE_OBJECTLAYER_BASES_ITER_END } (void)0
 
-LayerTreeItem *BKE_objectlayer_add(LayerTree *tree, LayerTreeItem *parent, const char *name);
-void BKE_objectlayer_free(LayerTreeItem *litem);
-void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem, const bool has_reserved);
-void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem);
-void BKE_objectlayer_base_entries_reserve(LayerTreeItem *litem, const unsigned int nentries_reserve);
-LayerTypeObject *BKE_objectlayer_from_base(LayerTree *ltree, const Base *base, const bool inverse);
+struct LayerTreeItem *BKE_objectlayer_add(struct LayerTree *tree, struct LayerTreeItem *parent, const char *name);
+void BKE_objectlayer_free(struct LayerTreeItem *litem);
+void BKE_objectlayer_base_assign(struct Base *base, struct LayerTreeItem *litem, const bool has_reserved);
+void BKE_objectlayer_base_unassign(const struct Base *base, struct LayerTreeItem *litem);
+void BKE_objectlayer_base_entries_reserve(struct LayerTreeItem *litem, const unsigned int nentries_reserve);
+struct LayerTypeObject *BKE_objectlayer_from_base(struct LayerTree *ltree, const struct Base *base, const bool inverse);
 
 #ifdef __cplusplus
 }
