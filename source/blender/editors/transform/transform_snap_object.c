@@ -1059,7 +1059,7 @@ static bool snapEditMesh(
 						        em->bm, looptri_mask,
 						        sctx->callbacks.edit_mesh.test_face_fn, sctx->callbacks.edit_mesh.user_data);
 					}
-					bvhtree_from_editmesh_looptri_ex(treedata, em, looptri_mask, looptri_num_active, 0.0f, 4, 6);
+					bvhtree_from_editmesh_looptri_ex(treedata, em, looptri_mask, looptri_num_active, 0.0f, 4, 6, NULL);
 					if (looptri_mask) {
 						MEM_freeN(looptri_mask);
 					}
@@ -1642,7 +1642,7 @@ static bool transform_snap_context_project_view3d_mixed_impl(
  * Given a 2D region value, snap to vert/edge/face.
  *
  * \param sctx: Snap context.
- * \param mval: Screenspace coordinate.
+ * \param mval_fl: Screenspace coordinate.
  * \param dist_px: Maximum distance to snap (in pixels).
  * \param use_depth: Snap to the closest element, use when using more than one snap type.
  * \param r_co: hit location.
@@ -1672,7 +1672,7 @@ bool ED_transform_snap_object_project_view3d_ex(
         float *ray_depth,
         float r_loc[3], float r_no[3], int *r_index)
 {
-	float ray_start[3], ray_normal[3], ray_orgigin[3];
+	float ray_start[3], ray_normal[3], ray_origin[3];
 
 	float ray_depth_fallback;
 	if (ray_depth == NULL) {
@@ -1682,7 +1682,7 @@ bool ED_transform_snap_object_project_view3d_ex(
 
 	if (!ED_view3d_win_to_ray_ex(
 	        sctx->v3d_data.ar, sctx->v3d_data.v3d,
-	        mval, ray_orgigin, ray_normal, ray_start, true))
+	        mval, ray_origin, ray_normal, ray_start, true))
 	{
 		return false;
 	}
@@ -1691,7 +1691,7 @@ bool ED_transform_snap_object_project_view3d_ex(
 	        sctx,
 	        snap_to, params->snap_select, params->use_object_edit_cage,
 	        mval, dist_px,
-	        ray_start, ray_normal, ray_orgigin, ray_depth,
+	        ray_start, ray_normal, ray_origin, ray_depth,
 	        r_loc, r_no, r_index, NULL, NULL, NULL);
 }
 
