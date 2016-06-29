@@ -7582,6 +7582,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 		ED_view3d_project_base(ar, base);
 
 		if (is_wire_color) {
+#ifdef WITH_ADVANCED_LAYERS
 			ThemeWireColor *wcol = view3d_layer_color_from_base(scene->object_layers, base);
 			if (wcol) {
 				if (base->flag & SELECT) {
@@ -7592,6 +7593,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 				}
 				use_wire_color = true;
 			}
+#endif
 		}
 		/* fallback to theme setting */
 		if (!use_wire_color) {

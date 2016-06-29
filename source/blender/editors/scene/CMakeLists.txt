@@ -39,6 +39,7 @@ if(WITH_ADVANCED_LAYERS)
 	list(APPEND SRC
 		layer_types.c
 	)
-endif()
 
-blender_add_lib(bf_editor_scene "${SRC}" "${INC}" "${INC_SYS}")
+	# Currently only needed for WITH_ADVANCED_LAYERS
+	blender_add_lib(bf_editor_scene "${SRC}" "${INC}" "${INC_SYS}")
+endif()

@@ -123,6 +123,7 @@ extern void bl_debug_draw_edge_add(const float v0[3], const float v1[3]);
 extern void bl_debug_color_set(const unsigned int col);
 #endif
 
+#ifdef WITH_ADVANCED_LAYERS
 ThemeWireColor *view3d_layer_color_from_base(LayerTree *ltree, const Base *base)
 {
 	bTheme *btheme = UI_GetTheme();
@@ -131,6 +132,7 @@ ThemeWireColor *view3d_layer_color_from_base(LayerTree *ltree, const Base *base)
 
 	return (col_idx > 0) ? &btheme->tarm[col_idx - 1] : NULL;
 }
+#endif
 
 void circf(float x, float y, float rad)
 {
@@ -2230,6 +2232,7 @@ static void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *bas
 	int color;
 
 	if (is_wire_color) {
+#ifdef WITH_ADVANCED_LAYERS
 		ThemeWireColor *wcol = view3d_layer_color_from_base(scene->object_layers, base);
 		if (wcol) {
 			glColor3ubv((unsigned char *)(base->flag & SELECT ? wcol->select : wcol->solid));
@@ -2238,6 +2241,7 @@ static void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *bas
 			dflag = DRAW_CONSTCOLOR;
 			use_wire_color = true;
 		}
+#endif
 	}
 
 	/* fallback to theme setting */
