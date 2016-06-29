@@ -97,43 +97,6 @@ bool AbcNurbsWriter::isAnimated() const
 	return (cu->key != NULL);
 }
 
-static void recompute_pnts_cyclic(const BPoint *bps,
-                                  const int num_u, const int num_v,
-                                  const int add_u, const int add_v,
-                                  std::vector<Imath::V3f> &pos,
-                                  std::vector<float> &posWeight)
-{
-	const int new_u = num_u;/* + add_u; */
-	const int new_v = num_v;/* + add_v; */
-	const int new_size = new_u * new_v;
-
-	pos.reserve(new_size);
-	posWeight.reserve(new_size);
-
-	std::vector< std::vector<Imath::Vec4<float> > > pnts;
-	pnts.resize(new_u);
-
-	for (int u = 0; u < new_u; ++u) {
-		pnts[u].resize(new_v);
-
-		for (int v = 0; v < new_v; ++v) {
-			const BPoint& bp = bps[u + (v * new_u)];
-			pnts[u][v] = Imath::Vec4<float>(bp.vec[0], bp.vec[1], bp.vec[2], bp.vec[3]);
-		}
-	}
-
-	for (int u = 0; u < new_u; ++u) {
-		for (int v = 0; v < new_v; ++v) {
-			const Imath::Vec4<float> &pnt = pnts[u][v];
-
-			/* Convert Z-up to Y-up. */
-			pos.push_back(Imath::V3f(pnt.x, pnt.z, -pnt.y));
-
-			posWeight.push_back(pnt.z);
-		}
-	}
-}
-
 void AbcNurbsWriter::do_write()
 {
 	/* we have already stored a sample for this object. */
@@ -172,35 +135,52 @@ void AbcNurbsWriter::do_write()
 			knotsV.push_back(nu->knotsv[i]);
 		}
 
-		ONuPatchSchema::Sample nuSamp;
-		nuSamp.setUOrder(nu->orderu);
-		nuSamp.setVOrder(nu->orderv);
+		const int size = nu->pntsu * nu->pntsv;
+		std::vector<Imath::V3f> positions(size);
+		std::vector<float> weights(size);
 
-		const int add_u = (nu->flagu & CU_NURB_CYCLIC) ? nu->orderu - 1 : 0;
-		const int add_v = (nu->flagv & CU_NURB_CYCLIC) ? nu->orderv - 1 : 0;
+		const BPoint *bp = nu->bp;
 
-		std::vector<Imath::V3f> sampPos;
-		std::vector<float> sampPosWeights;
-		recompute_pnts_cyclic(nu->bp, nu->pntsu, nu->pntsv, add_u, add_v,
-		                      sampPos, sampPosWeights);
+		for (int i = 0; i < size; ++i, ++bp) {
+			copy_zup_yup(positions[i].getValue(), bp->vec);
+			weights[i] = bp->vec[4];
+		}
 
-		nuSamp.setPositions(sampPos);
-		nuSamp.setPositionWeights(sampPosWeights);
-		nuSamp.setUKnot(FloatArraySample(knotsU));
-		nuSamp.setVKnot(FloatArraySample(knotsV));
-		nuSamp.setNu(nu->pntsu);
-		nuSamp.setNv(nu->pntsv);
+		ONuPatchSchema::Sample sample;
+		sample.setUOrder(nu->orderu);
+		sample.setVOrder(nu->orderv);
+		sample.setPositions(positions);
+		sample.setPositionWeights(weights);
+		sample.setUKnot(FloatArraySample(knotsU));
+		sample.setVKnot(FloatArraySample(knotsV));
+		sample.setNu(nu->pntsu);
+		sample.setNv(nu->pntsv);
 
-		const bool endu = nu->flagu & CU_NURB_ENDPOINT;
-		const bool endv = nu->flagv & CU_NURB_ENDPOINT;
+		/* TODO(kevin): to accomodate other software we should duplicate control
+		 * points to indicate that a NURBS is cyclic. */
+		OCompoundProperty user_props = m_nurbs_schema[count].getUserProperties();
 
-		OCompoundProperty typeContainer = m_nurbs_schema[count].getUserProperties();
-		OBoolProperty enduprop(typeContainer, "endU");
-		enduprop.set(endu);
-		OBoolProperty endvprop(typeContainer, "endV");
-		endvprop.set(endv);
+		if ((nu->flagu & CU_NURB_ENDPOINT) != 0) {
+			OBoolProperty prop(user_props, "endpoint_u");
+			prop.set(true);
+		}
 
-		m_nurbs_schema[count].set(nuSamp);
+		if ((nu->flagv & CU_NURB_ENDPOINT) != 0) {
+			OBoolProperty prop(user_props, "endpoint_v");
+			prop.set(true);
+		}
+
+		if ((nu->flagu & CU_NURB_CYCLIC) != 0) {
+			OBoolProperty prop(user_props, "cyclic_u");
+			prop.set(true);
+		}
+
+		if ((nu->flagv & CU_NURB_CYCLIC) != 0) {
+			OBoolProperty prop(user_props, "cyclic_v");
+			prop.set(true);
+		}
+
+		m_nurbs_schema[count].set(sample);
 	}
 }
 
@@ -219,8 +199,16 @@ bool AbcNurbsReader::valid() const
 		return false;
 	}
 
-	/* TODO */
-	return m_schemas[0].first.valid();
+	std::vector< std::pair<INuPatchSchema, IObject> >::iterator it;
+	for (it = m_schemas.begin(); it != m_schemas.end(); ++it) {
+		const INuPatchSchema &schema = it->first;
+
+		if (!schema.valid()) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
@@ -304,24 +292,20 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 		ICompoundProperty user_props = schema.getUserProperties();
 
-		if (has_property(user_props, "endU")) {
-			IBoolProperty enduProp(user_props, "endU");
-			bool_t endu;
-			enduProp.get(endu, sample_sel);
-
-			if (endu) {
-				nu->flagu = CU_NURB_ENDPOINT;
-			}
+		if (has_property(user_props, "enpoint_u")) {
+			nu->flagu |= CU_NURB_ENDPOINT;
 		}
 
-		if (has_property(user_props, "endV")) {
-			IBoolProperty endvProp(user_props, "endV");
-			bool_t endv;
-			endvProp.get(endv, sample_sel);
+		if (has_property(user_props, "enpoint_v")) {
+			nu->flagv |= CU_NURB_ENDPOINT;
+		}
 
-			if (endv) {
-				nu->flagv = CU_NURB_ENDPOINT;
-			}
+		if (has_property(user_props, "cyclic_u")) {
+			nu->flagu |= CU_NURB_CYCLIC;
+		}
+
+		if (has_property(user_props, "cyclic_v")) {
+			nu->flagv |= CU_NURB_CYCLIC;
 		}
 
 		BLI_addtail(BKE_curve_nurbs_get(cu), nu);
