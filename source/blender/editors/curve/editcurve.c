@@ -6890,6 +6890,74 @@ static float ratio_to_segment(float *x, float *p1, float *p2, float *p3, float *
 	return 0;
 }
 
+
+
+static void split_segment(float t, float *p1, float *p2, float *p3, float *p4,
+							   float *r_q1, float *r_q2, float *r_q3,
+							   float *r_r1, float *r_r2, float *r_r3)
+{
+	float *q1, *q2, *q3, *r1, *r2, *r3;
+
+	q1 = (float *)MEM_callocN(3 * sizeof(float), "split_segment7");
+	q2 = (float *)MEM_callocN(3 * sizeof(float), "split_segment8");
+	q3 = (float *)MEM_callocN(3 * sizeof(float), "split_segment9");
+	r1 = (float *)MEM_callocN(3 * sizeof(float), "split_segment10");
+	r2 = (float *)MEM_callocN(3 * sizeof(float), "split_segment11");
+	r3 = (float *)MEM_callocN(3 * sizeof(float), "split_segment12");
+
+	r_q1 = q1;
+	r_q2 = q2;
+	r_q3 = q3;
+	r_r1 = r1;
+	r_r2 = r2;
+	r_r3 = r3;
+
+	copy_v3_v3(q1, p2);
+	sub_v3_v3(q1, p1);
+	mul_v3_fl(q1, t);
+	add_v3_v3(q1, p1);
+
+	copy_v3_v3(q2, p3);
+	sub_v3_v3(q2, p2);
+	mul_v3_fl(q2, t);
+	add_v3_v3(q2, p2);
+
+	copy_v3_v3(q3, p4);
+	sub_v3_v3(q3, p3);
+	mul_v3_fl(q3, t);
+	add_v3_v3(q3, p3);
+
+	copy_v3_v3(r1, q2);
+	sub_v3_v3(r1, q1);
+	mul_v3_fl(r1, t);
+	add_v3_v3(r1, q1);
+
+	copy_v3_v3(r2, q3);
+	sub_v3_v3(r2, q2);
+	mul_v3_fl(r2, t);
+	add_v3_v3(r2, q2);
+
+	copy_v3_v3(r3, r2);
+	sub_v3_v3(r3, r1);
+	mul_v3_fl(r3, t);
+	add_v3_v3(r3, r1);
+}
+
+static void chop(float *x, float *p1, float *p2, float *p3, float *p4, int res,
+				 float *r_q1, float *r_q2, float *r_q3,
+				 float *r_r1, float *r_r2, float *r_r3)
+{
+	float ratio = ratio_to_segment(x, p1, p2, p3, p4, res);
+
+	if (ratio != 0) {
+		split_segment(ratio, p1, p2, p3, p4, r_q1, r_q2, r_q3, r_r1, r_r2, r_r3);
+	}
+	else
+	{
+		r_q1 = r_q2 = r_q3 = r_r1 = r_r2 = r_r3 = NULL;
+	}
+}
+
 static int trim_curve_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
@@ -6975,46 +7043,22 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			copy_v3_v3(bezt->vec[1], old_bezt->vec[1]);
 			copy_v3_v3(bezt->vec[2], old_bezt->vec[2]);
 		}
+
+		int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
+		float *s1_1, *s1_2, *s1_3, *s2_1, *s2_2, *s2_3;
+		s1_1 = s1_2 = s1_3 = s2_1 = s2_2 = s2_3 = NULL;
+		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+			 (float *)&nu->bezt[low_last_order].vec[1],
+			 (float *)&nu->bezt[low_last_order].vec[2],
+			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
+			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+			 nu->resolu,
+			 s1_1, s1_2, s1_3, s2_1, s2_2, s2_3);
+
+
 	}
 
 	/*
-	 # case of cyclic spline
-    if spline_ob.use_cyclic_u:
-
-        if len(low) + len(high) <= 1:
-            print ("cyclic spline needs at least 2 intersections")
-            return
-
-        elif len(low) + len(high) > 1:
-            print ("breaking up cyclic spline")
-            if len(low) == 0:
-                low = high
-                npoints = high[-1][1] - high[0][1] + 2
-            elif len(high) == 0:
-                high = low
-                npoints = low[-1][1] - low[0][1] + 2
-            else:
-                npoints = len(spline_ob.bezier_points) - high[0][1] + low[-1][1] + 2
-
-            spline_ob_data = [[[bp.co, bp.handle_left_type, bp.handle_right_type, bp.handle_left, bp.handle_right] for bp in spline_ob.bezier_points], spline_ob.resolution_u, spline_ob.use_cyclic_u]
-
-            shape_ob.data.splines.new('BEZIER')
-            new_spl = shape_ob.data.splines[-1]
-            new_spl.bezier_points.add(npoints-1)
-
-            print (len(spline_ob_data[0]), len(new_spl.bezier_points), npoints)
-
-            for i, bp in enumerate(new_spl.bezier_points):
-                print((i+high[0][1])%npoints)
-                bp.co, bp.handle_left_type, bp.handle_right_type, bp.handle_left, bp.handle_right = spline_ob_data[0][(i+high[0][1])%(len(spline_ob_data[0]))]
-            new_spl.resolution_u = spline_ob_data[1]
-
-            s1, s2 = chop(low[-1][0],
-                  spline_ob.bezier_points[low[-1][1]].co,
-                  spline_ob.bezier_points[low[-1][1]].handle_right,
-                  spline_ob.bezier_points[(low[-1][1]+1)%(len(spline_ob_data[0]))].handle_left,
-                  spline_ob.bezier_points[(low[-1][1]+1)%(len(spline_ob_data[0]))].co,
-                  spline_ob.resolution_u)
 
             new_spl.bezier_points[-1].handle_left_type = 'FREE'
             new_spl.bezier_points[-1].handle_right_type = 'FREE'
