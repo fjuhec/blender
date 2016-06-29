@@ -170,14 +170,14 @@ bool EuclideanResect(const vector<Marker> &markers,
 
   Solver::SolverParameters params;
   /* Solver::Results results = */ solver.minimize(params, &dRt);
-  LG << "LM found incremental rotation: " << dRt.head<3>().transpose();
+  VLOG(1) << "LM found incremental rotation: " << dRt.head<3>().transpose();
   // TODO(keir): Check results to ensure clean termination.
 
   // Unpack the rotation and translation.
   R = libmv::RotationFromEulerVector(dRt.head<3>()) * R;
   t = dRt.tail<3>();
 
-  LG << "Resection for frame " << markers[0].clip << " " << markers[0].frame
+  VLOG(1) << "Resection for frame " << markers[0].clip << " " << markers[0].frame
      << " got:\n" << "R:\n" << R << "\nt:\n" << t << "\n";
   CameraPose pose(markers[0].clip, markers[0].frame, intrinsics, R, t);
   reconstruction->AddCameraPose(pose);

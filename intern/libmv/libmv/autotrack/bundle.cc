@@ -562,10 +562,10 @@ void EuclideanBundleCommonIntrinsics(
       num_residuals++;
     }
   }
-  std::cout << "Number of residuals: " << num_residuals << "\n";
+  LG << "Number of residuals: " << num_residuals << "\n";
 
   if (!num_residuals) {
-    std::cout << "Skipping running minimizer with zero residuals\n";
+    LG << "Skipping running minimizer with zero residuals\n";
     return;
   }
 

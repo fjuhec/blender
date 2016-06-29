@@ -285,7 +285,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 		            &reconstruction,
 		            all_libmv_reconstruction[0]->intrinsics);
 	}
-	std::cout << "[libmv_solveMultiviewReconstruction] Successfully refine camera intrinsics\n";
+	LG << "[libmv_solveMultiviewReconstruction] Successfully refine camera intrinsics\n";
 
 	///* Set reconstruction scale to unity. */
 	mv::EuclideanScaleToUnity(&reconstruction);

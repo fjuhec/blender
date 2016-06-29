@@ -121,20 +121,20 @@ bool InternalCompleteReconstruction(
 	int num_resects = -1;
 	int num_intersects = -1;
 	int total_resects = 0;
-	std::cout << "Max track: " << max_track << "\n";
-	std::cout << "Number of total frames: " << num_frames << "\n";
-	std::cout << "Number of markers: " << tracks.NumMarkers() << "\n";
+	LG << "Max track: " << max_track << "\n";
+	LG << "Number of total frames: " << num_frames << "\n";
+	LG << "Number of markers: " << tracks.NumMarkers() << "\n";
 	while (num_resects != 0 || num_intersects != 0) {
 		// Do all possible intersections.
 		num_intersects = 0;
 		for (int track = 0; track <= max_track; ++track) {
 			if (reconstruction->PointForTrack(track)) {		// track has already been added
-				std::cout << "Skipping point: " << track << "\n";
+				LG << "Skipping point: " << track << "\n";
 				continue;
 			}
 			vector<Marker> all_markers;
 			tracks.GetMarkersForTrack(track, &all_markers);
-			std::cout << "Got " << all_markers.size() << " markers for track " << track << "\n";
+			LG << "Got " << all_markers.size() << " markers for track " << track << "\n";
 
 			vector<Marker> reconstructed_markers;
 			for (int i = 0; i < all_markers.size(); ++i) {
@@ -142,16 +142,16 @@ bool InternalCompleteReconstruction(
 					reconstructed_markers.push_back(all_markers[i]);
 				}
 			}
-			std::cout << "Got " << reconstructed_markers.size() << " reconstructed markers for track " << track << "\n";
+			LG << "Got " << reconstructed_markers.size() << " reconstructed markers for track " << track << "\n";
 			if (reconstructed_markers.size() >= 2) {
 				CompleteReconstructionLogProgress(update_callback,
 				                                  (double)total_resects/(num_frames));
 				if (PipelineRoutines::Intersect(reconstructed_markers,
 				                                reconstruction)) {
 					num_intersects++;
-					std::cout << "Ran Intersect() for track " << track << "\n";
+					LG << "Ran Intersect() for track " << track << "\n";
 				} else {
-					std::cout << "Failed Intersect() for track " << track << "\n";
+					LG << "Failed Intersect() for track " << track << "\n";
 				}
 			}
 		}
@@ -161,9 +161,9 @@ bool InternalCompleteReconstruction(
 			                                  (double)total_resects/(num_frames),
 			                                  "Bundling...");
 			PipelineRoutines::Bundle(tracks, reconstruction);
-			std::cout << "Ran Bundle() after intersections.\n";
+			LG << "Ran Bundle() after intersections.\n";
 		}
-		std::cout << "Did " << num_intersects << " intersects.\n";
+		LG << "Did " << num_intersects << " intersects.\n";
 
 		// Do all possible resections.
 		num_resects = 0;
@@ -176,7 +176,7 @@ bool InternalCompleteReconstruction(
 				}
 				vector<Marker> all_markers;
 				tracks.GetMarkersInFrame(clip, image, &all_markers);
-				std::cout << "Got " << all_markers.size() << " markers for frame " << clip << ", " << image << "\n";
+				LG << "Got " << all_markers.size() << " markers for frame " << clip << ", " << image << "\n";
 
 				vector<Marker> reconstructed_markers;
 				for (int i = 0; i < all_markers.size(); ++i) {
@@ -184,7 +184,7 @@ bool InternalCompleteReconstruction(
 						reconstructed_markers.push_back(all_markers[i]);
 					}
 				}
-				std::cout << "Got " << reconstructed_markers.size() << " reconstructed markers for frame "
+				LG << "Got " << reconstructed_markers.size() << " reconstructed markers for frame "
 				          << clip << " " << image << "\n";
 				if (reconstructed_markers.size() >= 5) {
 					CompleteReconstructionLogProgress(update_callback,
@@ -194,9 +194,9 @@ bool InternalCompleteReconstruction(
 					                             reconstruction->GetIntrinsicsMap(clip, image))) {
 						num_resects++;
 						total_resects++;
-						std::cout << "Ran Resect() for frame (" << clip << ", " << image << ")\n";
+						LG << "Ran Resect() for frame (" << clip << ", " << image << ")\n";
 					} else {
-						std::cout << "Failed Resect() for frame (" << clip << ", " << image << ")\n";
+						LG << "Failed Resect() for frame (" << clip << ", " << image << ")\n";
 					}
 				}
 			}
@@ -207,11 +207,11 @@ bool InternalCompleteReconstruction(
 			                                  "Bundling...");
 			PipelineRoutines::Bundle(tracks, reconstruction);
 		}
-		std::cout << "Did " << num_resects << " resects.\n";
+		LG << "Did " << num_resects << " resects.\n";
 	}
 
 	// One last pass...
-	std::cout << "[InternalCompleteReconstruction] Ran last pass\n";
+	LG << "[InternalCompleteReconstruction] Ran last pass\n";
 	num_resects = 0;
 	for(int clip = 0; clip < clip_num; clip++) {
 		int max_image = tracks.MaxFrame(clip);
@@ -236,9 +236,9 @@ bool InternalCompleteReconstruction(
 				                             reconstruction, true,
 				                             reconstruction->GetIntrinsicsMap(clip, image))) {
 					num_resects++;
-					std::cout << "Ran final Resect() for image " << image;
+					LG << "Ran final Resect() for image " << image;
 				} else {
-					std::cout << "Failed final Resect() for image " << image;
+					LG << "Failed final Resect() for image " << image;
 				}
 			}
 		}
@@ -281,21 +281,6 @@ double InternalReprojectionError(
 
 		const int N = 100;
 		char line[N];
-		//snprintf(line, N,
-		//       "image %-3d track %-3d "
-		//       "x %7.1f y %7.1f "
-		//       "rx %7.1f ry %7.1f "
-		//       "ex %7.1f ey %7.1f"
-		//       "    e %7.1f",
-		//       markers[i].image,
-		//       markers[i].track,
-		//       markers[i].center[0],
-		//       markers[i].center[1],
-		//       reprojected_marker.center[0],
-		//       reprojected_marker.center[1],
-		//       ex,
-		//       ey,
-		//       sqrt(ex*ex + ey*ey));
 		VLOG(1) << line;
 
 		total_error += sqrt(ex*ex + ey*ey);
@@ -346,13 +331,14 @@ void EuclideanScaleToUnity(Reconstruction *reconstruction) {
 	Vec3 cameras_mass_center = Vec3::Zero();
 	for(int i = 0; i < clip_num; i++) {
 		for (int j = 0; j < all_cameras[i].size(); ++j) {
-			if(all_cameras[i][j].clip > 0 && all_cameras[i][j].frame > 0) {
+			if(all_cameras[i][j].clip > 0) {
 				cameras_mass_center += all_cameras[i][j].t;
 				total_valid_cameras++;
 			}
 		}
 	}
 	cameras_mass_center /= total_valid_cameras;
+	LG << "[EuclideanScaleToUnity] Camera mass center " << cameras_mass_center << "\n";
 
 	// Find the most distant camera from the mass center.
 	double max_distance = 0.0;
@@ -366,7 +352,7 @@ void EuclideanScaleToUnity(Reconstruction *reconstruction) {
 	}
 
 	if (max_distance == 0.0) {
-		std::cout << "Cameras position variance is too small, can not rescale\n";
+		LG << "Cameras position variance is too small, can not rescale\n";
 		return;
 	}
 
