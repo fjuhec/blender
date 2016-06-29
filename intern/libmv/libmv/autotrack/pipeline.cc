@@ -211,6 +211,7 @@ bool InternalCompleteReconstruction(
 	}
 
 	// One last pass...
+	std::cout << "[InternalCompleteReconstruction] Ran last pass\n";
 	num_resects = 0;
 	for(int clip = 0; clip < clip_num; clip++) {
 		int max_image = tracks.MaxFrame(clip);
@@ -341,18 +342,22 @@ void EuclideanScaleToUnity(Reconstruction *reconstruction) {
 	const vector<vector<CameraPose> >& all_cameras = reconstruction->camera_poses();
 
 	// Calculate center of the mass of all cameras.
+	int total_valid_cameras = 0;
 	Vec3 cameras_mass_center = Vec3::Zero();
 	for(int i = 0; i < clip_num; i++) {
-		for (int j = 0; j < all_cameras.size(); ++j) {
-			cameras_mass_center += all_cameras[i][j].t;
+		for (int j = 0; j < all_cameras[i].size(); ++j) {
+			if(all_cameras[i][j].clip > 0 && all_cameras[i][j].frame > 0) {
+				cameras_mass_center += all_cameras[i][j].t;
+				total_valid_cameras++;
+			}
 		}
 	}
-	cameras_mass_center /= all_cameras.size();
+	cameras_mass_center /= total_valid_cameras;
 
 	// Find the most distant camera from the mass center.
 	double max_distance = 0.0;
 	for(int i = 0; i < clip_num; i++) {
-		for (int j = 0; j < all_cameras.size(); ++j) {
+		for (int j = 0; j < all_cameras[i].size(); ++j) {
 			double distance = (all_cameras[i][j].t - cameras_mass_center).squaredNorm();
 			if (distance > max_distance) {
 				max_distance = distance;
@@ -369,7 +374,7 @@ void EuclideanScaleToUnity(Reconstruction *reconstruction) {
 
 	// Rescale cameras positions.
 	for(int i = 0; i < clip_num; i++) {
-		for (int j = 0; j < all_cameras.size(); ++j) {
+		for (int j = 0; j < all_cameras[i].size(); ++j) {
 			int image = all_cameras[i][j].frame;
 			CameraPose *camera = reconstruction->CameraPoseForFrame(i, image);
 			camera->t = camera->t * scale_factor;

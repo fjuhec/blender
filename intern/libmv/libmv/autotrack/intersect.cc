@@ -86,7 +86,7 @@ bool EuclideanIntersect(const vector<Marker> &markers,
   vector<Mat34> cameras;
   Mat34 P;
   for (int i = 0; i < markers.size(); ++i) {
-    std::cout << "[Intersect] marker clip frame: " << markers[i].clip << " " << markers[i].frame << std::endl;
+    LG << "[Intersect] marker clip frame: " << markers[i].clip << " " << markers[i].frame << std::endl;
     CameraPose *camera = reconstruction->CameraPoseForFrame(markers[i].clip, markers[i].frame);
     libmv::P_From_KRt(K, camera->R, camera->t, &P);
     cameras.push_back(P);

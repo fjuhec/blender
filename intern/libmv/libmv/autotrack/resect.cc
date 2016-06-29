@@ -177,8 +177,8 @@ bool EuclideanResect(const vector<Marker> &markers,
   R = libmv::RotationFromEulerVector(dRt.head<3>()) * R;
   t = dRt.tail<3>();
 
-  std::cout << "Resection for frame " << markers[0].clip << " " << markers[0].frame
-            << " got:\n" << "R:\n" << R << "\nt:\n" << t;
+  LG << "Resection for frame " << markers[0].clip << " " << markers[0].frame
+     << " got:\n" << "R:\n" << R << "\nt:\n" << t << "\n";
   CameraPose pose(markers[0].clip, markers[0].frame, intrinsics, R, t);
   reconstruction->AddCameraPose(pose);
   return true;

@@ -107,11 +107,9 @@ bool ReconstructionUpdateFixedIntrinsics(libmv_ReconstructionN **all_libmv_recon
                                          Reconstruction *reconstruction)
 {
 	int clip_num = tracks->GetClipNum();
-	std::cout << "[ReconstructionUpdateFixedIntrinsics] " << clip_num << std::endl;
 	for(int i = 0; i < clip_num; i++) {
 		CameraIntrinsics *camera_intrinsics = all_libmv_reconstruction[i]->intrinsics;
 		int cam_intrinsic_index = reconstruction->AddCameraIntrinsics(camera_intrinsics);
-		std::cout << "[ReconstructionUpdateFixedIntrinsics]" << i << std::endl;
 		assert(cam_intrinsic_index == i);
 	}
 	reconstruction->InitIntrinsicsMapFixed(*tracks);
@@ -257,13 +255,10 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 
 	// reconstruct two views from the main clip
 	if(!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction)) {
-		printf("mv::ReconstrucTwoFrames failed\n");
+		LG << "mv::ReconstrucTwoFrames failed\n";
 		all_libmv_reconstruction[0]->is_valid = false;
 		return all_libmv_reconstruction;
 	}
-	std::cout << "[libmv_solveMultiviewReconstruction] reconstruct "
-	          <<  reconstruction.GetReconstructedCameraNum()
-	          << " cameras after ReconstructTwoFrames" << std::endl;
 	// bundle the two-view initial reconstruction
 	// (it is redundant for now since now 3d point is added at this stage)
 	//if(!mv::EuclideanBundleAll(all_normalized_tracks, &reconstruction)) {
@@ -272,13 +267,14 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 	//	return all_libmv_reconstruction;
 	//}
 	if(!mv::EuclideanCompleteMultiviewReconstruction(all_normalized_tracks, &reconstruction, &update_callback)) {
-		printf("mv::EuclideanReconstructionComplete failed\n");
+		LG << "mv::EuclideanReconstructionComplete failed\n";
 		all_libmv_reconstruction[0]->is_valid = false;
 		return all_libmv_reconstruction;
 	}
+	std::cout << "[libmv_solveMultiviewReconstruction] Successfully do track intersection and camera resection\n";
 
 	/* Refinement/ */
-	//TODO(Tianwei): current api allows only one camera intrinsics
+	//TODO(Tianwei): current api allows only one camera refine intrinsics
 	if (libmv_reconstruction_options->all_refine_intrinsics[0]) {
 		libmv_solveRefineIntrinsics(
 		            all_normalized_tracks,
@@ -289,6 +285,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 		            &reconstruction,
 		            all_libmv_reconstruction[0]->intrinsics);
 	}
+	std::cout << "[libmv_solveMultiviewReconstruction] Successfully refine camera intrinsics\n";
 
 	///* Set reconstruction scale to unity. */
 	mv::EuclideanScaleToUnity(&reconstruction);
