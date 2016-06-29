@@ -286,6 +286,10 @@ if(WITH_PLAYER)
 	add_definitions(-DWITH_PLAYER)
 endif()
 
+if (WITH_ADVANCED_LAYERS)
+	add_definitions(-DWITH_ADVANCED_LAYERS)
+endif()
+
 add_definitions(${GL_DEFINITIONS})
 
 blender_add_lib(bf_python "${SRC}" "${INC}" "${INC_SYS}")

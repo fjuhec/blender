@@ -69,7 +69,6 @@ _modules = [
     "space_graph",
     "space_image",
     "space_info",
-    "space_layers", # TODO only for WITH_ADVANCED_LAYERS
     "space_logic",
     "space_nla",
     "space_node",
@@ -87,6 +86,9 @@ import bpy
 
 if bpy.app.build_options.freestyle:
     _modules.append("properties_freestyle")
+
+if bpy.app.build_options.advanced_layers:
+    _modules.append("space_layers")
 
 __import__(name=__name__, fromlist=_modules)
 _namespace = globals()
