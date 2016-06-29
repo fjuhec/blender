@@ -85,9 +85,23 @@ static void LAYERTYPE_object(LayerType *lt)
 }
 
 
-static void layer_group_draw(const bContext *UNUSED(C), LayerTreeItem *litem, uiLayout *layout)
+static void layer_group_draw(const bContext *C, LayerTreeItem *litem, uiLayout *layout)
 {
-	uiItemL(layout, litem->name, ICON_FILE_FOLDER);
+	SpaceLayers *slayer = CTX_wm_space_layers(C);
+	LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
+	uiBlock *block = uiLayoutGetBlock(layout);
+	uiBut *but;
+
+	UI_block_emboss_set(block, UI_EMBOSS_NONE);
+	but = uiDefIconButBitI(block, UI_BTYPE_ICON_TOGGLE, LAYERTILE_CLOSED, 0,
+	                 ICON_TRIA_RIGHT, 0, 0, UI_UNIT_X, UI_UNIT_Y, &tile->flag,
+	                 0.0f, 0.0f, 0.0f, 0.0f, TIP_("Toggle display of layer children"));
+	UI_block_emboss_set(block, UI_EMBOSS);
+	UI_but_drawflag_enable(but, UI_BUT_ICON_LEFT); /* doesn't align nicely without this */
+
+	but = uiDefBut(block, UI_BTYPE_LABEL, 0, litem->name, 0, 0, UI_UNIT_X * 10, UI_UNIT_Y,
+	               NULL, 0.0f, 0.0f, 0.0f, 0.0f, "");
+	UI_but_drawflag_enable(but, UI_BUT_TEXT_NO_MARGIN);
 }
 
 static void LAYERTYPE_group(LayerType *lt)

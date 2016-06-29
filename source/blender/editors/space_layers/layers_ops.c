@@ -462,8 +462,7 @@ static int layer_drag_modal(bContext *C, wmOperator *op, const wmEvent *event)
 static int layer_drag_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
-	ARegion *ar = CTX_wm_region(C);
-	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, event->mval);
 
 	if (!tile)
 		return OPERATOR_CANCELLED;
@@ -503,7 +502,7 @@ static int layer_rename_invoke(bContext *C, wmOperator *UNUSED(op), const wmEven
 {
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 	ARegion *ar = CTX_wm_region(C);
-	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, event->mval);
 	if (tile) {
 		tile->flag |= LAYERTILE_RENAME;
 
@@ -585,7 +584,7 @@ static int layer_select_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	const bool toggle = RNA_boolean_get(op->ptr, "toggle");
 	const bool fill = RNA_boolean_get(op->ptr, "fill");
 
-	LayerTile *tile = layers_tile_find_at_coordinate(slayer, ar, event->mval);
+	LayerTile *tile = layers_tile_find_at_coordinate(slayer, event->mval);
 
 	/* little helper for setting/unsetting selection flag */
 #define TILE_SET_SELECTION(enable) layer_selection_set(slayer, tile, enable);

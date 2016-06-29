@@ -1335,13 +1335,17 @@ typedef enum eSpaceClip_GPencil_Source {
 
 /* Layer Manager ======================================= */
 
+/* XXX LAYERTILE_CLOSED and _EXPANDED could use better names */
 typedef enum eLayerTileFlag {
 	LAYERTILE_SELECTED = (1 << 0),
 	LAYERTILE_RENAME   = (1 << 1),
-	LAYERTILE_EXPANDED = (1 << 2),
+	/* Don't show childs */
+	LAYERTILE_CLOSED   = (1 << 2),
+	/* Show layer settings */
+	LAYERTILE_EXPANDED = (1 << 3),
 	/* Draw the tile as if it was floating above others (for drag and drop).
 	 * Note: Currently only one floating tile at a time allowed. */
-	LAYERTILE_FLOATING = (1 << 3),
+	LAYERTILE_FLOATING = (1 << 4),
 } eLayerTileFlag;
 
 /**

@@ -27,6 +27,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
+#include "BLI_rect.h"
 
 #include "BKE_layer.h"
 
@@ -103,17 +104,15 @@ void layers_tile_remove(const SpaceLayers *slayer, LayerTile *tile, const bool r
  * Find the tile at coordinate \a co (regionspace).
  * \note Does *not* account for LayerTile.ofs (could optionally do, layer dragging assumes it doesn't).
  */
-LayerTile *layers_tile_find_at_coordinate(SpaceLayers *slayer, ARegion *ar, const int co[2])
+LayerTile *layers_tile_find_at_coordinate(SpaceLayers *slayer, const int co[2])
 {
 	int ofs_y = 0;
 
 	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, litem)
 	{
 		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
-		if (co[1] >= -ar->v2d.cur.ymin - (ofs_y + tile->tot_height)) {
-			if ((co[1] >= -ar->v2d.cur.ymin - (ofs_y + LAYERTILE_HEADER_HEIGHT))) {
-				return tile;
-			}
+		if (BLI_rcti_isect_y(&tile->rect, co[1])) {
+			return tile;
 		}
 		ofs_y += tile->tot_height;
 	}
