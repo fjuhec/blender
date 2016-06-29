@@ -836,6 +836,19 @@ bool AbcMeshReader::valid() const
 	return m_schema.valid() || m_subd_schema.valid();
 }
 
+static MEdge *find_edge(MEdge *edges, int totedge, int v1, int v2)
+{
+	for (int i = 0, e = totedge; i < e; ++i) {
+		MEdge &edge = edges[i];
+
+		if (edge.v1 == v1 && edge.v2 == v2) {
+			return &edge;
+		}
+	}
+
+	return NULL;
+}
+
 void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 {
 	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
@@ -888,6 +901,26 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 	if (assign_mat) {
 		readFaceSetsSample(bmain, mesh, poly_start, sample_sel);
+	}
+
+	if (m_subd_schema.valid()) {
+		const ISubDSchema::Sample sample = m_subd_schema.getValue(sample_sel);
+
+		Int32ArraySamplePtr indices = sample.getCreaseIndices();
+		Alembic::Abc::FloatArraySamplePtr sharpnesses = sample.getCreaseSharpnesses();
+
+		MEdge *edges = mesh->medge;
+
+		if (indices && sharpnesses) {
+			for (int i = 0, s = 0, e = indices->size(); i < e; i += 2, ++s) {
+				MEdge *edge = find_edge(edges, mesh->totedge, (*indices)[i], (*indices)[i + 1]);
+
+				if (edge) {
+					edge->crease = FTOCHAR((*sharpnesses)[s]);				}
+			}
+
+			mesh->cd_flag |= ME_CDFLAG_EDGE_CREASE;
+		}
 	}
 
 	if (!is_constant) {
