@@ -325,6 +325,7 @@ void EuclideanScaleToUnity(Reconstruction *reconstruction) {
   int clip_num = reconstruction->GetClipNum();
   const vector<vector<CameraPose> >& all_cameras = reconstruction->camera_poses();
 
+  LG << "[EuclideanScaleToUnity] camera number: " << clip_num << '\n';
   // Calculate center of the mass of all cameras.
   int total_valid_cameras = 0;
   Vec3 cameras_mass_center = Vec3::Zero();
@@ -337,6 +338,7 @@ void EuclideanScaleToUnity(Reconstruction *reconstruction) {
     }
   }
   cameras_mass_center /= total_valid_cameras;
+  LG << "[EuclideanScaleToUnity] camera number: " << total_valid_cameras << '\n';
 
   // Find the most distant camera from the mass center.
   double max_distance = 0.0;
@@ -359,9 +361,12 @@ void EuclideanScaleToUnity(Reconstruction *reconstruction) {
   // Rescale cameras positions.
   for(int i = 0; i < clip_num; i++) {
     for (int j = 0; j < all_cameras[i].size(); ++j) {
-      int image = all_cameras[i][j].frame;
-      CameraPose *camera = reconstruction->CameraPoseForFrame(i, image);
-      camera->t = camera->t * scale_factor;
+      int frame = all_cameras[i][j].frame;
+      CameraPose *camera = reconstruction->CameraPoseForFrame(i, frame);
+	  if (camera != NULL)
+        camera->t = camera->t * scale_factor;
+      else
+        LG << "[EuclideanScaleToUnity] invalid camera: " << i << " " << frame << "\n";
     }
   }
 
@@ -370,7 +375,10 @@ void EuclideanScaleToUnity(Reconstruction *reconstruction) {
   for (int i = 0; i < all_points.size(); ++i) {
     int track = all_points[i].track;
     Point *point = reconstruction->PointForTrack(track);
-    point->X = point->X * scale_factor;
+    if(point != NULL)
+      point->X = point->X * scale_factor;
+    else
+      LG << "[EuclideanScaleToUnity] invalid point: " << i << "\n";
   }
 }
 

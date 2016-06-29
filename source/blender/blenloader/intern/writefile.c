@@ -3467,7 +3467,7 @@ static void write_movieCorrespondences(WriteData *wd, ListBase *correspondence_b
 {
 	MovieTrackingCorrespondence *corr;
 	for (corr = correspondence_base->first; corr != NULL; corr = corr->next) {
-		writestruct(wd, DATA, "MovieTrackingCorrespondence", 1, corr);
+		writestruct(wd, DATA, MovieTrackingCorrespondence, 1, corr);
 	}
 }
 
