@@ -3192,10 +3192,7 @@ static void write_moviePlaneTracks(WriteData *wd, ListBase *plane_tracks_base)
 static void write_movieCorrespondences(WriteData *wd, ListBase *correspondence_base)
 {
 	MovieTrackingCorrespondence *corr;
-	for (corr = correspondence_base->first;
-	     corr != NULL;
-	     corr = corr->next)
-	{
+	for (corr = correspondence_base->first; corr != NULL; corr = corr->next) {
 		writestruct(wd, DATA, "MovieTrackingCorrespondence", 1, corr);
 	}
 }
