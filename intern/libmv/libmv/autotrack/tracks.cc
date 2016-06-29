@@ -119,9 +119,9 @@ void Tracks::GetMarkersForTracksInBothImages(int clip1, int frame1,
 }
 
 void Tracks::GetAllMarkers(vector<Marker>* markers) const {
-	for (int i = 0; i < markers_.size(); ++i) {
-		markers->push_back(markers_[i]);
-	}
+  for (int i = 0; i < markers_.size(); ++i) {
+    markers->push_back(markers_[i]);
+  }
 }
 
 void Tracks::AddMarker(const Marker& marker) {
@@ -139,10 +139,10 @@ void Tracks::AddMarker(const Marker& marker) {
 }
 
 void Tracks::AddTracks(const Tracks& other_tracks) {
-	vector<Marker> markers;
-	other_tracks.GetAllMarkers(&markers);
-	for(int i = 0; i < markers.size(); ++i)
-		this->AddMarker(markers[i]);
+  vector<Marker> markers;
+  other_tracks.GetAllMarkers(&markers);
+  for(int i = 0; i < markers.size(); ++i)
+    this->AddMarker(markers[i]);
 }
 
 void Tracks::SetMarkers(vector<Marker>* markers) {
@@ -204,25 +204,25 @@ int Tracks::NumMarkers() const {
 }
 
 void Tracks::SetClipNum(int clip_num) {
-	clip_num_ = clip_num;
+  clip_num_ = clip_num;
 }
 
 int Tracks::GetClipNum() const {
-	return clip_num_;
+  return clip_num_;
 }
 
 //---------------------		Correspondence data structure 	---------------------
 void Correspondences::AddCorrespondence(int clip1, int clip2, int track1, int track2) {
-	Correspondence corr(clip1, clip2, track1, track2);
-	corrs.push_back(corr);
+  Correspondence corr(clip1, clip2, track1, track2);
+  corrs.push_back(corr);
 }
 
 void Correspondences::AddCorrespondence(const Correspondence &corr) {
-	corrs.push_back(corr);
+  corrs.push_back(corr);
 }
 
 int Correspondences::GetCorrNum() const {
-	return corrs.size();
+  return corrs.size();
 }
 
 }  // namespace mv

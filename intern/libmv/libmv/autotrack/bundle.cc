@@ -124,39 +124,39 @@ struct OpenCVReprojectionError {
     // jet operations.
     switch (distortion_model_) {
       case libmv::DISTORTION_MODEL_POLYNOMIAL:
-        {
-          const T& k1 = intrinsics[OFFSET_K1];
-          const T& k2 = intrinsics[OFFSET_K2];
-          const T& k3 = intrinsics[OFFSET_K3];
-          const T& p1 = intrinsics[OFFSET_P1];
-          const T& p2 = intrinsics[OFFSET_P2];
+      {
+        const T& k1 = intrinsics[OFFSET_K1];
+        const T& k2 = intrinsics[OFFSET_K2];
+        const T& k3 = intrinsics[OFFSET_K3];
+        const T& p1 = intrinsics[OFFSET_P1];
+        const T& p2 = intrinsics[OFFSET_P2];
 
-		  libmv::ApplyPolynomialDistortionModel(focal_length,
-		                                        focal_length,
-		                                        principal_point_x,
-		                                        principal_point_y,
-		                                        k1, k2, k3,
-		                                        p1, p2,
-		                                        xn, yn,
-		                                        &predicted_x,
-		                                        &predicted_y);
+        libmv::ApplyPolynomialDistortionModel(focal_length,
+                                              focal_length,
+                                              principal_point_x,
+                                              principal_point_y,
+                                              k1, k2, k3,
+                                              p1, p2,
+                                              xn, yn,
+                                              &predicted_x,
+                                              &predicted_y);
           break;
-        }
+      }
       case libmv::DISTORTION_MODEL_DIVISION:
-        {
+      {
           const T& k1 = intrinsics[OFFSET_K1];
           const T& k2 = intrinsics[OFFSET_K2];
 
-		  libmv::ApplyDivisionDistortionModel(focal_length,
-		                                      focal_length,
-		                                      principal_point_x,
-		                                      principal_point_y,
-		                                      k1, k2,
-		                                      xn, yn,
-		                                      &predicted_x,
-		                                      &predicted_y);
+          libmv::ApplyDivisionDistortionModel(focal_length,
+                                              focal_length,
+                                              principal_point_x,
+                                              principal_point_y,
+                                              k1, k2,
+                                              xn, yn,
+                                              &predicted_x,
+                                              &predicted_y);
           break;
-        }
+      }
       default:
         LOG(FATAL) << "Unknown distortion model";
     }
@@ -244,34 +244,34 @@ vector<Vec6> PackMultiCamerasRotationAndTranslation(
         const Tracks &tracks,
         const Reconstruction &reconstruction,
         vector<vector<int> > &camera_pose_map)  {
-	vector<Vec6> all_cameras_R_t;
-	int clip_num = tracks.GetClipNum();
-	camera_pose_map.resize(clip_num);
-	int total_frame = 0;
-	for(int i = 0; i < clip_num; i++) {
-		total_frame += tracks.MaxFrame(i) + 1;
-		camera_pose_map[i].resize(tracks.MaxFrame(i) + 1);
-	}
-	printf("total frame: %d\n", total_frame);
+  vector<Vec6> all_cameras_R_t;
+  int clip_num = tracks.GetClipNum();
+  camera_pose_map.resize(clip_num);
+  int total_frame = 0;
+  for(int i = 0; i < clip_num; i++) {
+  	total_frame += tracks.MaxFrame(i) + 1;
+  	camera_pose_map[i].resize(tracks.MaxFrame(i) + 1);
+  }
+  printf("total frame: %d\n", total_frame);
 
-	all_cameras_R_t.resize(total_frame);	// maximum possible number of camera poses
+  all_cameras_R_t.resize(total_frame);	// maximum possible number of camera poses
 
-	int frame_count = 0;
-	for(int i = 0; i < clip_num; i++) {
-		int max_frame = tracks.MaxFrame(i);
-		for(int j = 0; j <= max_frame; j++) {
-			const CameraPose *camera = reconstruction.CameraPoseForFrame(i, j);
-			if (camera) {
-				ceres::RotationMatrixToAngleAxis(&camera->R(0, 0),
-				                                 &all_cameras_R_t[frame_count](0));
-				        all_cameras_R_t[frame_count].tail<3>() = camera->t;
-				camera_pose_map[i][j] = frame_count;	// save the global map
-				frame_count++;
-			}
-		}
-	}
+  int frame_count = 0;
+  for(int i = 0; i < clip_num; i++) {
+    int max_frame = tracks.MaxFrame(i);
+    for(int j = 0; j <= max_frame; j++) {
+      const CameraPose *camera = reconstruction.CameraPoseForFrame(i, j);
+      if (camera) {
+        ceres::RotationMatrixToAngleAxis(&camera->R(0, 0),
+                                         &all_cameras_R_t[frame_count](0));
+                all_cameras_R_t[frame_count].tail<3>() = camera->t;
+        camera_pose_map[i][j] = frame_count;	// save the global map
+        frame_count++;
+      }
+    }
+  }
 
-	return all_cameras_R_t;
+  return all_cameras_R_t;
 }
 
 // Convert cameras rotations fro mangle axis back to rotation matrix.
@@ -279,19 +279,19 @@ void UnpackMultiCamerasRotationAndTranslation(
     const Tracks &tracks,
     const vector<Vec6> &all_cameras_R_t,
     Reconstruction *reconstruction) {
-	int clip_num = tracks.GetClipNum();
-	int frame_count = 0;
-	for(int i = 0; i < clip_num; i++) {
-		int max_frame = tracks.MaxFrame(i);
-		for(int j = 0; j <= max_frame; j++) {
-			CameraPose *camera = reconstruction->CameraPoseForFrame(i, j);
-			if(camera) {
-				ceres::AngleAxisToRotationMatrix(&all_cameras_R_t[frame_count](0), &camera->R(0, 0));
-				        camera->t = all_cameras_R_t[frame_count].tail<3>();
-				frame_count++;
-			}
-		}
-	}
+  int clip_num = tracks.GetClipNum();
+  int frame_count = 0;
+  for(int i = 0; i < clip_num; i++) {
+    int max_frame = tracks.MaxFrame(i);
+    for(int j = 0; j <= max_frame; j++) {
+      CameraPose *camera = reconstruction->CameraPoseForFrame(i, j);
+      if(camera) {
+        ceres::AngleAxisToRotationMatrix(&all_cameras_R_t[frame_count](0), &camera->R(0, 0));
+                camera->t = all_cameras_R_t[frame_count].tail<3>();
+        frame_count++;
+      }
+  	}
+  }
 }
 
 // Converts sparse CRSMatrix to Eigen matrix, so it could be used
@@ -339,7 +339,7 @@ void MultiviewBundlerPerformEvaluation(const Tracks &tracks,
         // not so much tracks and only 2 frames anyway.
 
         vector<Marker> marker_of_track;
-		tracks.GetMarkersForTrack(i, &marker_of_track);
+        tracks.GetMarkersForTrack(i, &marker_of_track);
         for (int j = 0; j < marker_of_track.size(); j++) {
           if (marker_of_track.at(j).weight != 0.0) {
             minimized_points.push_back(point);
@@ -361,23 +361,23 @@ void MultiviewBundlerPerformEvaluation(const Tracks &tracks,
       ceres::Problem::EvaluateOptions eval_options;
 
       // Cameras goes first in the ordering.
-	  int frame_count = 0;
-	  int clip_num = tracks.GetClipNum();
-	  for(int i = 0; i < clip_num; i++) {
-		  int max_frame = tracks.MaxFrame(i);
-		  for(int j = 0; j < max_frame; j++) {
-			  const CameraPose *camera = reconstruction->CameraPoseForFrame(i, j);
-			  if (camera) {
-				  double *current_camera_R_t = &(*all_cameras_R_t)[frame_count](0);
+    int frame_count = 0;
+    int clip_num = tracks.GetClipNum();
+    for(int i = 0; i < clip_num; i++) {
+      int max_frame = tracks.MaxFrame(i);
+      for(int j = 0; j < max_frame; j++) {
+        const CameraPose *camera = reconstruction->CameraPoseForFrame(i, j);
+        if (camera) {
+          double *current_camera_R_t = &(*all_cameras_R_t)[frame_count](0);
 
-				  // All cameras are variable now.
-				  problem->SetParameterBlockVariable(current_camera_R_t);
+          // All cameras are variable now.
+          problem->SetParameterBlockVariable(current_camera_R_t);
 
-				  eval_options.parameter_blocks.push_back(current_camera_R_t);
-				  frame_count++;
-			  }
-		  }
-	  }
+          eval_options.parameter_blocks.push_back(current_camera_R_t);
+          frame_count++;
+        }
+      }
+    }
 
       // Points goes at the end of ordering,
       for (int i = 0; i < minimized_points.size(); i++) {
@@ -650,7 +650,7 @@ void EuclideanBundleCommonIntrinsics(
   for (int track = 0; track < tracks.MaxTrack(); ++track) {
     if (zero_weight_tracks_flags[track]) {
       vector<Marker> current_markers;
-	  tracks.GetMarkersForTrack(track, &current_markers);
+      tracks.GetMarkersForTrack(track, &current_markers);
       zero_weight_markers.reserve(zero_weight_markers.size() +
                                   current_markers.size());
       for (int i = 0; i < current_markers.size(); ++i) {
@@ -667,20 +667,20 @@ void EuclideanBundleCommonIntrinsics(
                               all_cameras_R_t,
                               ceres_intrinsics,
                               reconstruction,
-	                          camera_pose_map);
+                              camera_pose_map);
   }
 }
 
 bool EuclideanBundleAll(const Tracks &tracks,
                         Reconstruction *reconstruction) {
-	libmv::PolynomialCameraIntrinsics empty_intrinsics;
-	EuclideanBundleCommonIntrinsics(tracks,
-	                                BUNDLE_NO_INTRINSICS,
-	                                BUNDLE_NO_CONSTRAINTS,
-	                                reconstruction,
-	                                &empty_intrinsics,
-	                                NULL);
-	return true;
+  libmv::PolynomialCameraIntrinsics empty_intrinsics;
+  EuclideanBundleCommonIntrinsics(tracks,
+                                  BUNDLE_NO_INTRINSICS,
+                                  BUNDLE_NO_CONSTRAINTS,
+                                  reconstruction,
+                                  &empty_intrinsics,
+                                  NULL);
+  return true;
 }
 
 }  // namespace mv

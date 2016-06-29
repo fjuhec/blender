@@ -55,14 +55,13 @@ using libmv::CameraIntrinsics;
 using libmv::ProgressUpdateCallback;
 
 struct libmv_ReconstructionN {
-	mv::Reconstruction reconstruction;
+  mv::Reconstruction reconstruction;
 
-	/* Used for per-track average error calculation after reconstruction */
-	mv::Tracks tracks;
-	libmv::CameraIntrinsics *intrinsics;
-
-	double error;
-	bool is_valid;
+  /* Used for per-track average error calculation after reconstruction */
+  mv::Tracks tracks;
+  libmv::CameraIntrinsics *intrinsics;
+  double error;
+  bool is_valid;
 };
 
 namespace {
