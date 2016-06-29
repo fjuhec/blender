@@ -81,7 +81,7 @@
 #include "BKE_action.h"
 #include "BKE_animsys.h"
 #include "BKE_armature.h"
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_bpath.h"
 #include "BKE_brush.h"
 #include "BKE_camera.h"

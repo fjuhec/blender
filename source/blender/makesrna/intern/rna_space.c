@@ -35,7 +35,7 @@
 #include "RNA_define.h"
 
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_movieclip.h"
@@ -253,7 +253,7 @@ EnumPropertyItem rna_enum_file_sort_items[] = {
 #include "BLI_math.h"
 
 #include "BKE_animsys.h"
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_brush.h"
 #include "BKE_colortools.h"
 #include "BKE_context.h"

@@ -62,7 +62,7 @@
 
 #include "BLO_readfile.h"
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_library.h"

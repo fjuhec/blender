@@ -56,7 +56,7 @@
 
 #include "BLO_writefile.h"
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_blender.h"
 #include "BKE_blender_undo.h"
 #include "BKE_context.h"

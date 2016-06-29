@@ -25,7 +25,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/asset.c
+/** \file blender/blenkernel/intern/asset_engine.c
  *  \ingroup bke
  */
 
@@ -48,7 +48,7 @@
 
 #include "PIL_time.h"
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_library.h"

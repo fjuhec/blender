@@ -37,7 +37,7 @@
 extern "C" {
 #endif
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 
 struct AssetEngineType;
 struct AssetEngine;

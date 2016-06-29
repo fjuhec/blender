@@ -25,12 +25,12 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file BKE_asset.h
+/** \file BKE_asset_engine.h
  *  \ingroup bke
  */
 
-#ifndef __BKE_ASSET_H__
-#define __BKE_ASSET_H__
+#ifndef __BKE_ASSET_ENGINE_H__
+#define __BKE_ASSET_ENGINE_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -242,4 +242,4 @@ bool BKE_asset_uuid_cmp(const void *a, const void *b);
 }
 #endif
 
-#endif /* __BKE_ASSET_H__ */
+#endif /* __BKE_ASSET_ENGINE_H__ */

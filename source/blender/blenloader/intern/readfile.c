@@ -115,7 +115,7 @@
 
 #include "BKE_action.h"
 #include "BKE_armature.h"
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_blender_version.h"
 #include "BKE_brush.h"
 #include "BKE_cloth.h"
