@@ -2692,7 +2692,7 @@ bool isect_point_tri_prism_v3(const float p[3], const float v1[3], const float v
 }
 
 /**
- * \param r_vi The point \a p projected onto the triangle.
+ * \param r_isect_co: The point \a p projected onto the triangle.
  * \return True when \a p is inside the triangle.
  * \note Its up to the caller to check the distance between \a p and \a r_vi against an error margin.
  */
@@ -5002,7 +5002,9 @@ float cubic_tangent_factor_circle_v3(const float tan_l[3], const float tan_r[3])
 	BLI_ASSERT_UNIT_V3(tan_l);
 	BLI_ASSERT_UNIT_V3(tan_r);
 
-	const float eps = 1e-7f;
+	/* -7f causes instability/glitches with Bendy Bones + Custom Refs  */
+	const float eps = 1e-5f;
+	
 	const float tan_dot = dot_v3v3(tan_l, tan_r);
 	if (tan_dot > 1.0f - eps) {
 		/* no angle difference (use fallback, length wont make any difference) */
