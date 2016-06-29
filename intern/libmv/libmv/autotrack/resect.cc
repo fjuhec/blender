@@ -99,7 +99,9 @@ struct EuclideanResectCostFunction {
 }  // namespace
 
 bool EuclideanResect(const vector<Marker> &markers,
-                     Reconstruction *reconstruction, bool final_pass) {
+                     Reconstruction *reconstruction,
+                     bool final_pass,
+                     int intrinsics) {
   if (markers.size() < 5) {		// five-point algorithm
     return false;
   }
@@ -108,7 +110,7 @@ bool EuclideanResect(const vector<Marker> &markers,
   for (int i = 0; i < markers.size(); i++) {
     points_3d.col(i) = reconstruction->PointForTrack(markers[i].track)->X;
   }
-  LG << "Points for resect:\n" << points_2d;
+  std::cout << "Number of points for resect: " << points_2d.cols() << "\n";
 
   Mat3 R;
   Vec3 t;
@@ -116,9 +118,7 @@ bool EuclideanResect(const vector<Marker> &markers,
   if (0 || !libmv::euclidean_resection::EuclideanResection(
                 points_2d, points_3d, &R, &t,
                 libmv::euclidean_resection::RESECTION_EPNP)) {
-    // printf("Resection for image %d failed\n", markers[0].image);
-    //LG << "Resection for image " << markers[0].image << " failed;" << " trying fallback projective resection.";
-    //LG << "No fallback; failing resection for " << markers[0].image;
+    std::cout << "[EuclideanResect] Euclidean resection failed\n";
     return false;
 
     if (!final_pass) return false;
@@ -177,9 +177,9 @@ bool EuclideanResect(const vector<Marker> &markers,
   R = libmv::RotationFromEulerVector(dRt.head<3>()) * R;
   t = dRt.tail<3>();
 
-  //LG << "Resection for image " << markers[0].image << " got:\n" << "R:\n" << R << "\nt:\n" << t;
-  // TODO(tianwei): think about how to getting camera intrinsic index, set it as 0 for now
-  CameraPose pose(markers[0].clip, markers[0].frame, 0, R, t);
+  std::cout << "Resection for frame " << markers[0].clip << " " << markers[0].frame
+            << " got:\n" << "R:\n" << R << "\nt:\n" << t;
+  CameraPose pose(markers[0].clip, markers[0].frame, intrinsics, R, t);
   reconstruction->AddCameraPose(pose);
   return true;
 }

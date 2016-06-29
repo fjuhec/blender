@@ -175,7 +175,9 @@ static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int cli
 				        ((track->flag & TRACK_DISABLE_GREEN) ? LIBMV_MARKER_CHANNEL_G : 0) |
 				        ((track->flag & TRACK_DISABLE_BLUE)  ? LIBMV_MARKER_CHANNEL_B : 0);
 
-				printf("add makers %d, %d, %d\n", clip_id, marker->framenr, global_track_index[tracknr]);
+				//TODO(tianwei): why some framenr is negative????
+				if(clip_id < 0 || marker->framenr < 0)
+					continue;
 				libmv_tracksAddMarkerN(tracks, &libmv_marker);
 			}
 		}

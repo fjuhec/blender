@@ -52,8 +52,10 @@ struct EuclideanPipelineRoutines {
 	}
 
 	static bool Resect(const vector<Marker> &markers,
-	                   Reconstruction *reconstruction, bool final_pass) {
-		return EuclideanResect(markers, reconstruction, final_pass);
+	                   Reconstruction *reconstruction,
+	                   bool final_pass,
+	                   int intrinsics_index) {
+		return EuclideanResect(markers, reconstruction, final_pass, intrinsics_index);
 	}
 
 	static bool Intersect(const vector<Marker> &markers,
@@ -169,31 +171,32 @@ bool InternalCompleteReconstruction(
 			const int max_image = tracks.MaxFrame(clip);
 			for (int image = 0; image <= max_image; ++image) {
 				if (reconstruction->CameraPoseForFrame(clip, image)) {	// this camera pose has been added
-					std::cout << "Skipping frame: " << clip << " " << image << "\n";
+					LG << "Skipping frame: " << clip << " " << image << "\n";
 					continue;
 				}
 				vector<Marker> all_markers;
 				tracks.GetMarkersInFrame(clip, image, &all_markers);
-				std::cout << "Got " << all_markers.size() << " markers for image " << image << "\n";
+				std::cout << "Got " << all_markers.size() << " markers for frame " << clip << ", " << image << "\n";
 
 				vector<Marker> reconstructed_markers;
 				for (int i = 0; i < all_markers.size(); ++i) {
-					if (reconstruction->PointForTrack(all_markers[i].track)) {
+					if (reconstruction->PointForTrack(all_markers[i].track)) {	// 3d points have been added
 						reconstructed_markers.push_back(all_markers[i]);
 					}
 				}
-				std::cout << "Got " << reconstructed_markers.size() << " reconstructed markers for image "
+				std::cout << "Got " << reconstructed_markers.size() << " reconstructed markers for frame "
 				          << clip << " " << image << "\n";
 				if (reconstructed_markers.size() >= 5) {
 					CompleteReconstructionLogProgress(update_callback,
 					                                  (double)total_resects/(num_frames));
 					if (PipelineRoutines::Resect(reconstructed_markers,
-					                             reconstruction, false)) {
+					                             reconstruction, false,
+					                             reconstruction->GetIntrinsicsMap(clip, image))) {
 						num_resects++;
 						total_resects++;
-						std::cout << "Ran Resect() for image (" << clip << ", " << image << ")\n";
+						std::cout << "Ran Resect() for frame (" << clip << ", " << image << ")\n";
 					} else {
-						std::cout << "Failed Resect() for image (" << clip << ", " << image << ")\n";
+						std::cout << "Failed Resect() for frame (" << clip << ", " << image << ")\n";
 					}
 				}
 			}
@@ -213,7 +216,7 @@ bool InternalCompleteReconstruction(
 		int max_image = tracks.MaxFrame(clip);
 		for (int image = 0; image <= max_image; ++image) {
 			if (reconstruction->CameraPoseForFrame(clip, image)) {
-				LG << "Skipping frame: " << image;
+				LG << "Skipping frame: " << clip << " " << image << "\n";
 				continue;
 			}
 			vector<Marker> all_markers;
@@ -229,7 +232,8 @@ bool InternalCompleteReconstruction(
 				CompleteReconstructionLogProgress(update_callback,
 				                                  (double)total_resects/(max_image));
 				if (PipelineRoutines::Resect(reconstructed_markers,
-				                             reconstruction, true)) {
+				                             reconstruction, true,
+				                             reconstruction->GetIntrinsicsMap(clip, image))) {
 					num_resects++;
 					std::cout << "Ran final Resect() for image " << image;
 				} else {

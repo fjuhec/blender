@@ -69,7 +69,7 @@ public:
 	// All methods copy their input reference or take ownership of the pointer.
 	void AddCameraPose(const CameraPose& pose);
 	int AddCameraIntrinsics(CameraIntrinsics* intrinsics_ptr);
-	int  AddPoint(const Point& point);
+	int AddPoint(const Point& point);
 	int  AddModel(Model* model);
 
 	// Returns the corresponding pose or point or NULL if missing.
@@ -85,6 +85,15 @@ public:
 	int GetAllPoseNum() const;
 	int GetReconstructedCameraNum() const;
 
+	// initialize all intrinsics map to -1
+	void InitIntrinsicsMap(Tracks &tracks);
+	// initialize intrinsics of clip i to i(CameraPose::intrinsics)
+	void InitIntrinsicsMapFixed(Tracks &tracks);
+	// set CameraPose::intrinsics for frame (clip, frame)
+	bool SetIntrinsicsMap(int clip, int frame, int intrinsics);
+	// return CameraPose::intrinsics if (clip, frame) is intrinsics_map, otherwise return -1
+	int GetIntrinsicsMap(int clip, int frame) const;
+
 private:
 	// Indexed by CameraPose::intrinsics. Owns the intrinsics objects.
 	vector<CameraIntrinsics*> camera_intrinsics_;
@@ -97,6 +106,9 @@ private:
 
 	// Indexed by Marker::model_id. Owns model objects.
 	vector<Model*> models_;
+
+	// Indexed by Marker::clip then by Marker::frame.
+	vector<vector<int> > intrinsics_map;
 };
 
 // Reconstruct two frames from the same clip, used as the initial reconstruction

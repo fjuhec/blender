@@ -101,6 +101,24 @@ void mv_getNormalizedTracks(const Tracks &tracks,
 	}
 }
 
+// Each clip has a fix camera intrinsics, set frames of a clip to that fixed intrinsics
+bool ReconstructionUpdateFixedIntrinsics(libmv_ReconstructionN **all_libmv_reconstruction,
+                                         Tracks *tracks,
+                                         Reconstruction *reconstruction)
+{
+	int clip_num = tracks->GetClipNum();
+	std::cout << "[ReconstructionUpdateFixedIntrinsics] " << clip_num << std::endl;
+	for(int i = 0; i < clip_num; i++) {
+		CameraIntrinsics *camera_intrinsics = all_libmv_reconstruction[i]->intrinsics;
+		int cam_intrinsic_index = reconstruction->AddCameraIntrinsics(camera_intrinsics);
+		std::cout << "[ReconstructionUpdateFixedIntrinsics]" << i << std::endl;
+		assert(cam_intrinsic_index == i);
+	}
+	reconstruction->InitIntrinsicsMapFixed(*tracks);
+
+	return true;
+}
+
 void libmv_solveRefineIntrinsics(
         const Tracks &tracks,
         const int refine_intrinsics,
@@ -231,6 +249,11 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 
 	///* Actual reconstruction. */
 	update_callback.invoke(0, "Initial reconstruction");
+
+	// update intrinsics mapping from (clip, frame) -> intrinsics
+	// TODO(tianwei): in the future we may support varing focal length,
+	// thus each (clip, frame) should have a unique intrinsics index
+	ReconstructionUpdateFixedIntrinsics(all_libmv_reconstruction, &all_normalized_tracks, &reconstruction);
 
 	// reconstruct two views from the main clip
 	if(!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction)) {

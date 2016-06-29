@@ -54,7 +54,7 @@ namespace mv {
     \sa EuclideanIntersect, EuclideanReconstructTwoFrames
 */
 bool EuclideanResect(const vector<Marker> &markers,
-                     Reconstruction *reconstruction, bool final_pass);
+                     Reconstruction *reconstruction, bool final_pass, int intrinsics);
 
 }  // namespace mv
 

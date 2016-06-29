@@ -109,9 +109,8 @@ bool ReconstructTwoFrames(const vector<Marker> &markers,
 	}
 
 	// frame 1 gets the reference frame, frame 2 gets the relative motion.
-	int cam_intrinsic_index = reconstruction->AddCameraIntrinsics(&cam_intrinsics);
-	CameraPose pose1(clip, frame1, cam_intrinsic_index, Mat3::Identity(), Vec3::Zero());
-	CameraPose pose2(clip, frame2, cam_intrinsic_index, R, t);
+	CameraPose pose1(clip, frame1, reconstruction->GetIntrinsicsMap(clip, frame1), Mat3::Identity(), Vec3::Zero());
+	CameraPose pose2(clip, frame2, reconstruction->GetIntrinsicsMap(clip, frame2), R, t);
 	reconstruction->AddCameraPose(pose1);
 	reconstruction->AddCameraPose(pose2);
 
@@ -185,7 +184,14 @@ Point* Reconstruction::PointForTrack(int track) {
 }
 
 const Point* Reconstruction::PointForTrack(int track) const {
-	return const_cast<Point *>(static_cast<const Reconstruction *>(this)->PointForTrack(track));
+	if (track < 0 || track >= points_.size()) {
+		return NULL;
+	}
+	const Point *point = &points_[track];
+	if (point->track == -1) {	// initialized but not set, return NULL
+		return NULL;
+	}
+	return point;
 }
 
 int Reconstruction::AddPoint(const Point& point) {
@@ -215,6 +221,45 @@ int Reconstruction::GetReconstructedCameraNum() const {
 		}
 	}
 	return reconstructed_num;
+}
+
+void Reconstruction::InitIntrinsicsMap(Tracks &tracks) {
+	int clip_num = tracks.GetClipNum();
+	intrinsics_map.resize(clip_num);
+	for(int i = 0; i < clip_num; i++) {
+		intrinsics_map.resize(tracks.MaxFrame(i)+1);
+		for(int j = 0; j < intrinsics_map.size(); j++) {
+			intrinsics_map[i][j] = -1;
+		}
+	}
+}
+
+void Reconstruction::InitIntrinsicsMapFixed(Tracks &tracks) {
+	int clip_num = tracks.GetClipNum();
+	intrinsics_map.resize(clip_num);
+	for(int i = 0; i < clip_num; i++) {
+		intrinsics_map[i].resize(tracks.MaxFrame(i)+1);
+		for(int j = 0; j < intrinsics_map[i].size(); j++) {
+			intrinsics_map[i][j] = i;
+		}
+	}
+}
+
+bool Reconstruction::SetIntrinsicsMap(int clip, int frame, int intrinsics) {
+	if(intrinsics_map.size() <= clip)
+		return false;
+	if(intrinsics_map[clip].size() <= frame)
+		return false;
+	intrinsics_map[clip][frame] = intrinsics;
+	return true;
+}
+
+int Reconstruction::GetIntrinsicsMap(int clip, int frame) const {
+	if(intrinsics_map.size() <= clip)
+		return -1;
+	if(intrinsics_map[clip].size() <= frame)
+		return -1;
+	return intrinsics_map[clip][frame];
 }
 
 }  // namespace mv
