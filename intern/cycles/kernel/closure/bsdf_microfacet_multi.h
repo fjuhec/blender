@@ -348,7 +348,11 @@ ccl_device int bsdf_microfacet_multi_ggx_common_setup(ShaderClosure *sc)
 
 ccl_device int bsdf_microfacet_multi_ggx_aniso_setup(ShaderClosure *sc)
 {
+#ifdef __KERNEL_OPENCL__
+	if(all(sc->T == 0.0f))
+#else
 	if(sc->T == make_float3(0.0f, 0.0f, 0.0f))
+#endif
 		sc->T = make_float3(1.0f, 0.0f, 0.0f);
 
 	return bsdf_microfacet_multi_ggx_common_setup(sc);
@@ -361,12 +365,12 @@ ccl_device int bsdf_microfacet_multi_ggx_setup(ShaderClosure *sc)
 	return bsdf_microfacet_multi_ggx_common_setup(sc);
 }
 
-ccl_device float3 bsdf_microfacet_multi_ggx_eval_transmit(const ShaderClosure *sc, const float3 I, const float3 omega_in, float *pdf, uint *lcg_state) {
+ccl_device float3 bsdf_microfacet_multi_ggx_eval_transmit(const ShaderClosure *sc, const float3 I, const float3 omega_in, float *pdf, ccl_addr_space uint *lcg_state) {
 	*pdf = 0.0f;
 	return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device float3 bsdf_microfacet_multi_ggx_eval_reflect(const ShaderClosure *sc, const float3 I, const float3 omega_in, float *pdf, uint *lcg_state) {
+ccl_device float3 bsdf_microfacet_multi_ggx_eval_reflect(const ShaderClosure *sc, const float3 I, const float3 omega_in, float *pdf, ccl_addr_space uint *lcg_state) {
 	bool is_aniso = (sc->data0 != sc->data1);
 	float3 X, Y, Z;
 	Z = sc->N;
@@ -385,7 +389,7 @@ ccl_device float3 bsdf_microfacet_multi_ggx_eval_reflect(const ShaderClosure *sc
 	return mf_eval_glossy(localI, localO, true, make_float3(sc->custom1, sc->custom2, sc->custom3), sc->data0, sc->data1, lcg_state, NULL, NULL);
 }
 
-ccl_device int bsdf_microfacet_multi_ggx_sample(KernelGlobals *kg, const ShaderClosure *sc, float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv, float3 *eval, float3 *omega_in, float3 *domega_in_dx, float3 *domega_in_dy, float *pdf, uint *lcg_state)
+ccl_device int bsdf_microfacet_multi_ggx_sample(KernelGlobals *kg, const ShaderClosure *sc, float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv, float3 *eval, float3 *omega_in, float3 *domega_in_dx, float3 *domega_in_dy, float *pdf, ccl_addr_space uint *lcg_state)
 {
 	bool is_aniso = (sc->data0 != sc->data1);
 	float3 X, Y, Z;
@@ -425,7 +429,7 @@ ccl_device int bsdf_microfacet_multi_ggx_glass_setup(ShaderClosure *sc)
 	return SD_BSDF|SD_BSDF_HAS_EVAL|SD_BSDF_NEEDS_LCG|SD_BSDF_HAS_CUSTOM;
 }
 
-ccl_device float3 bsdf_microfacet_multi_ggx_glass_eval_transmit(const ShaderClosure *sc, const float3 I, const float3 omega_in, float *pdf, uint *lcg_state) {
+ccl_device float3 bsdf_microfacet_multi_ggx_glass_eval_transmit(const ShaderClosure *sc, const float3 I, const float3 omega_in, float *pdf, ccl_addr_space uint *lcg_state) {
 	float3 X, Y, Z;
 	Z = sc->N;
 	make_orthonormals(Z, &X, &Y);
@@ -437,7 +441,7 @@ ccl_device float3 bsdf_microfacet_multi_ggx_glass_eval_transmit(const ShaderClos
 	return mf_eval_glass(localI, localO, false, make_float3(sc->custom1, sc->custom2, sc->custom3), sc->data0, sc->data1, lcg_state, sc->data2);
 }
 
-ccl_device float3 bsdf_microfacet_multi_ggx_glass_eval_reflect(const ShaderClosure *sc, const float3 I, const float3 omega_in, float *pdf, uint *lcg_state) {
+ccl_device float3 bsdf_microfacet_multi_ggx_glass_eval_reflect(const ShaderClosure *sc, const float3 I, const float3 omega_in, float *pdf, ccl_addr_space uint *lcg_state) {
 	float3 X, Y, Z;
 	Z = sc->N;
 	make_orthonormals(Z, &X, &Y);
@@ -449,7 +453,7 @@ ccl_device float3 bsdf_microfacet_multi_ggx_glass_eval_reflect(const ShaderClosu
 	return mf_eval_glass(localI, localO, true, make_float3(sc->custom1, sc->custom2, sc->custom3), sc->data0, sc->data1, lcg_state, sc->data2);
 }
 
-ccl_device int bsdf_microfacet_multi_ggx_glass_sample(KernelGlobals *kg, const ShaderClosure *sc, float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv, float3 *eval, float3 *omega_in, float3 *domega_in_dx, float3 *domega_in_dy, float *pdf, uint *lcg_state)
+ccl_device int bsdf_microfacet_multi_ggx_glass_sample(KernelGlobals *kg, const ShaderClosure *sc, float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv, float3 *eval, float3 *omega_in, float3 *domega_in_dx, float3 *domega_in_dy, float *pdf, ccl_addr_space uint *lcg_state)
 {
 	float3 X, Y, Z;
 	Z = sc->N;
