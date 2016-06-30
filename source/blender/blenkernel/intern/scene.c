@@ -1906,7 +1906,7 @@ void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, 
 	BKE_mask_evaluate_all_masks(bmain, ctime, true);
 
 	/* Update animated cache files for modifiers. */
-	BKE_cachefile_update_frame(bmain, ctime, (((double)sce->r.frs_sec) / (double)sce->r.frs_sec_base));
+	BKE_cachefile_update_frame(bmain, sce, ctime, (((double)sce->r.frs_sec) / (double)sce->r.frs_sec_base));
 
 #ifdef POSE_ANIMATION_WORKAROUND
 	scene_armature_depsgraph_workaround(bmain);

@@ -27,6 +27,7 @@
  *  \ingroup bke
  */
 
+#include "DNA_anim_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_scene_types.h"
 
@@ -115,12 +116,15 @@ void BKE_cachefile_load(CacheFile *cache_file, const char *relabase)
 #endif
 }
 
-void BKE_cachefile_update_frame(Main *bmain, const float ctime, const float fps)
+void BKE_cachefile_update_frame(Main *bmain, Scene *scene, const float ctime, const float fps)
 {
 	CacheFile *cache_file;
 	char filename[FILE_MAX];
 
 	for (cache_file = bmain->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
+		/* Execute drivers only, as animation has already been done. */
+		BKE_animsys_evaluate_animdata(scene, &cache_file->id, cache_file->adt, ctime, ADT_RECALC_DRIVERS);
+
 		if (!cache_file->is_sequence) {
 			continue;
 		}

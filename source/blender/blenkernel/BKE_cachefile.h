@@ -36,6 +36,7 @@ extern "C" {
 
 struct CacheFile;
 struct Main;
+struct Scene;
 
 void *BKE_cachefile_add(struct Main *bmain, const char *name);
 
@@ -45,7 +46,7 @@ struct CacheFile *BKE_cachefile_copy(struct Main *bmain, struct CacheFile *cache
 
 void BKE_cachefile_load(struct CacheFile *cache_file, const char *relabase);
 
-void BKE_cachefile_update_frame(struct Main *bmain, float ctime, const float fps);
+void BKE_cachefile_update_frame(struct Main *bmain, struct Scene *scene, float ctime, const float fps);
 
 bool BKE_cachefile_filepath_get(struct CacheFile *cache_file, float frame,
                                 char *r_filename);
