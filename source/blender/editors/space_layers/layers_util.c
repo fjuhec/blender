@@ -111,6 +111,9 @@ LayerTile *layers_tile_find_at_coordinate(SpaceLayers *slayer, const int co[2])
 	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, litem)
 	{
 		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
+		if (!layers_tile_is_visible(slayer, tile))
+			continue;
+
 		if (BLI_rcti_isect_y(&tile->rect, co[1])) {
 			return tile;
 		}
@@ -119,6 +122,21 @@ LayerTile *layers_tile_find_at_coordinate(SpaceLayers *slayer, const int co[2])
 	BKE_LAYERTREE_ITER_END;
 
 	return NULL;
+}
+
+bool layers_tile_is_visible(SpaceLayers *slayer, LayerTile *tile)
+{
+	/* avoid ghash loockup */
+	if (!tile->litem->parent)
+		return true;
+
+	for (LayerTreeItem *parent = tile->litem->parent; parent; parent = parent->parent) {
+		LayerTile *parent_tile = BLI_ghash_lookup(slayer->tiles, parent);
+		if (parent_tile->flag & LAYERTILE_CLOSED) {
+			return false;
+		}
+	}
+	return true;
 }
 
 bool layers_any_selected(SpaceLayers *slayer)
