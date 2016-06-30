@@ -275,16 +275,13 @@ void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children)
 	ltree->items_all = MEM_reallocN(ltree->items_all, sizeof(*ltree->items_all) * ltree->tot_items);
 }
 
-/**
- * Move \a litem that's already in the layer tree to slot \a newidx.
- */
-void BKE_layeritem_move(LayerTreeItem *litem, const int newidx)
+static bool layeritem_move_array(LayerTreeItem *litem, const int newidx)
 {
 	const bool is_higher = litem->index < newidx;
 
-	/* Already where we want to move it to. */
+	BLI_assert(litem->tree->tot_items > newidx);
 	if (litem->index == newidx)
-		return;
+		return false;
 
 	for (int i = is_higher ? litem->index + 1 : litem->index - 1;
 	     i < litem->tree->tot_items && i >= 0;
@@ -299,6 +296,32 @@ void BKE_layeritem_move(LayerTreeItem *litem, const int newidx)
 			break;
 		}
 	}
+
+	return true;
+}
+
+/**
+ * Move \a litem that's already in the layer tree to slot \a newidx.
+ */
+void BKE_layeritem_move(LayerTreeItem *litem, const int newidx)
+{
+	/* Already where we want to move it to. */
+
+	/* move in array (return if failed) */
+	if (!layeritem_move_array(litem, newidx)) {
+		return;
+	}
+
+	/* move in listbase */
+	BLI_remlink(litem->parent ? &litem->parent->childs : &litem->tree->items, litem);
+	if (newidx == litem->tree->tot_items - 1) {
+		LayerTreeItem *last = litem->tree->items_all[litem->tree->tot_items - 1];
+		BLI_addtail(last->parent ? &last->parent->childs : &litem->tree->items, litem);
+	}
+	else {
+		LayerTreeItem *moved = litem->tree->items_all[newidx + 1];
+		BLI_insertlinkbefore(moved->parent ? &moved->parent->childs : &litem->tree->items, moved, litem);
+	}
 }
 
 /**
@@ -312,8 +335,12 @@ void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item)
 	BLI_assert(BLI_findindex(oldlist, item) != -1);
 
 	item->parent = group;
+	/* insert into list */
 	BLI_remlink(oldlist, item);
 	BLI_addtail(&group->childs, item);
+	/* move in array */
+	/* XXX we could/should limit iterations to one in case multiple elmenents are assigned to a group */
+	layeritem_move_array(item, (item->prev ? item->prev->index : item->parent->index) + 1);
 }
 
 /**

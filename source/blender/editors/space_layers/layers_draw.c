@@ -176,6 +176,9 @@ static void layers_tiles_draw_floating(const bContext *C, struct FloatingTileDra
 	UI_block_draw(C, block);
 }
 
+/**
+ * \note Recursive.
+ */
 static void layers_tiles_draw_childs(
         const ListBase *childs, const bContext *C, uiBlock *block,
         float *r_ofs_y, int *r_idx)

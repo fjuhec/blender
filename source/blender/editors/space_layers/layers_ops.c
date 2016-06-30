@@ -248,10 +248,15 @@ static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 	layers_tile_add(slayer, new_group);
 
 	/* Add selected items to group */
+	bool is_first = true;
 	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, litem)
 	{
 		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
 		if (tile->flag & LAYERTILE_SELECTED) {
+			if (is_first) {
+				BKE_layeritem_move(new_group, litem->index);
+				is_first = false;
+			}
 			BKE_layeritem_group_assign(new_group, litem);
 		}
 	}
