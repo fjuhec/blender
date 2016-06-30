@@ -93,7 +93,7 @@ static void layer_group_draw(const bContext *C, LayerTreeItem *litem, uiLayout *
 	uiBut *but;
 
 	UI_block_emboss_set(block, UI_EMBOSS_NONE);
-	but = uiDefIconButBitI(block, UI_BTYPE_ICON_TOGGLE, LAYERTILE_CLOSED, 0,
+	but = uiDefIconButBitI(block, UI_BTYPE_ICON_TOGGLE_N, LAYERTILE_CLOSED, 0,
 	                 ICON_TRIA_RIGHT, 0, 0, UI_UNIT_X, UI_UNIT_Y, &tile->flag,
 	                 0.0f, 0.0f, 0.0f, 0.0f, TIP_("Toggle display of layer children"));
 	UI_block_emboss_set(block, UI_EMBOSS);
