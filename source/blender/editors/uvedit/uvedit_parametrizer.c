@@ -97,6 +97,7 @@ struct PFace;
 struct PChart;
 struct PHandle;
 struct PConvexHull;
+struct PNoFitPolygon;
 
 /* Simplices */
 
@@ -125,6 +126,7 @@ typedef struct PEdge {
 		int id;                         /* abf matrix index */
 		HeapNode *heaplink;             /* fill holes */
 		struct PEdge *nextcollapse;     /* simplification */
+		float horizontal_angle;			/* No Fit Polygon construction */
 	} u;
 
 	struct PVert *vert;
@@ -158,6 +160,11 @@ typedef struct PConvexHull {
 	float min_v[2];
 	float max_v[2];
 } PConvexHull;
+
+typedef struct PNoFitPolygon {
+	struct PVert **verts;
+	unsigned int nverts;
+} PNoFitPolygon;
 
 enum PVertFlag {
 	PVERT_PIN = 1,
@@ -4673,6 +4680,7 @@ void param_pack(ParamHandle *handle, float margin, bool do_rotate)
 		param_scale(handle, phandle->aspx, phandle->aspy);
 }
 
+/* ToDo SaphireS: Put ConvexHull/NFP stuff in own file*/
 PConvexHull *p_convex_hull_new(PChart *chart)
 {
 	PConvexHull *conv_hull = (PConvexHull *)MEM_callocN(sizeof(*conv_hull), "PConvexHull");
@@ -4728,6 +4736,120 @@ bool p_convex_hull_intersect(PConvexHull *chull_a, PConvexHull *chull_b)
 	return false;
 }
 
+/* qsort function - sort smallest to largest */
+static int vert_anglesort(const void *p1, const void *p2)
+{
+	const PVert *v1 = p1, *v2 = p2;
+	const float a1 = v1->edge->u.horizontal_angle;
+	const float a2 = v2->edge->u.horizontal_angle;
+
+	if		(a1 > a2) return  1;
+	else if (a1 < a2) return -1;
+	return 0;
+}
+
+/* ToDo SaphireS: Make this function part of math_vector.c */
+static float p_edge_horizontal_angle(PVert *a, PVert *b)
+{
+	float angle = 0.0f;
+	float hori[2]; 
+	hori[1] = a->uv[1];
+
+	if (a->uv[1] > b->uv[1] && !(compare_ff(a->uv[1], b->uv[1], FLT_EPSILON))) {
+		hori[0] = a->uv[0] - 1.0f;
+		angle = angle_v2v2v2(b->uv, a->uv, hori);
+		angle += M_PI;
+	}
+	else {
+		hori[0] = a->uv[0] + 1.0f;
+		angle = angle_v2v2v2(b->uv, a->uv, hori);
+	}
+
+	return angle;
+}
+
+void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
+{
+	int j;
+
+	for (j = 0; j < hull->nverts; j++) {
+		/* DEBUG */
+		printf("--PVert of convex hull - x: %f, y: %f\n", hull->h_verts[j]->uv[0], hull->h_verts[j]->uv[1]);
+
+		/* Compute horizontal angle for each edge of hull (Needed for NFP) */
+		if (j == (hull->nverts - 1)) {
+			hull->h_verts[j]->edge->u.horizontal_angle = p_edge_horizontal_angle(hull->h_verts[j], hull->h_verts[0]);
+		}
+		else {
+			hull->h_verts[j]->edge->u.horizontal_angle = p_edge_horizontal_angle(hull->h_verts[j], hull->h_verts[j + 1]);
+		}
+
+		printf("---horizontal angle of edge [%i]: %f\n", j, hull->h_verts[j]->edge->u.horizontal_angle);
+	}
+}
+
+PConvexHull *p_convex_hull_reversed_direction(PConvexHull *hull)
+{
+	PConvexHull *conv_hull_inv = (PConvexHull *)MEM_callocN(sizeof(*conv_hull_inv), "PConvexHullInverse");
+	conv_hull_inv->nverts = hull->nverts;
+	conv_hull_inv->h_verts = (PVert **)MEM_mallocN(sizeof(PVert *) * conv_hull_inv->nverts, "PConvexHullInversePoints");
+	conv_hull_inv->right = hull->right;
+	
+	int i;
+
+	for (i = 0; i < hull->nverts; i++) {
+		conv_hull_inv->h_verts[i] = hull->h_verts[hull->nverts - (i + 1)];
+	}
+
+	return conv_hull_inv;
+}
+
+PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
+{
+	PNoFitPolygon *nfp = (PNoFitPolygon *)MEM_callocN(sizeof(*nfp), "PNoFitPolygon");
+	nfp->nverts = item->nverts + fixed->nverts;
+	PVert **points = (PVert **)MEM_mallocN(sizeof(PVert *) * nfp->nverts, "PNFPPoints");
+	nfp->verts = points;
+	int i, j;
+
+	/* Invert direction of one convex hull */
+	PConvexHull *item_inv = p_convex_hull_reversed_direction(item);
+	p_convex_hull_compute_horizontal_angles(item_inv);
+
+	for (i = 0; i < nfp->nverts; i++) {
+		if (i < item->nverts) {
+			nfp->verts[i] = item_inv->h_verts[i];
+		}
+		else {
+			nfp->verts[i] = fixed->h_verts[i - item->nverts];
+		}
+	}
+
+	/* find reference vertex, apply offsets */
+	
+
+	/* sort edges according to horizontal angle, smallest to biggest */
+	//qsort(nfp->verts, (size_t)nfp->nverts, sizeof(PVert*), vert_anglesort);
+
+
+	/* Minkowski sum computation */
+	
+
+	/* delete temporary inversed convex hull */
+	p_convex_hull_delete(item_inv);
+
+	/* ToDo SaphireS: restore original angles of item, find better way to store so this isn't necessary*/
+	p_convex_hull_compute_horizontal_angles(item);
+
+	return nfp;
+}
+
+void p_no_fit_polygon_delete(PNoFitPolygon *nfp)
+{
+	MEM_freeN(nfp->verts);
+	MEM_freeN(nfp);
+}
+
 void param_irregular_pack_begin(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
@@ -4744,28 +4866,32 @@ void param_irregular_pack_begin(ParamHandle *handle)
 	unsigned int seed = 31415926;
 	phandle->rng = BLI_rng_new(seed);
 
-	/* Back up UVs */
+	
 	for (i = 0; i < phandle->ncharts; i++) {
 		chart = phandle->charts[i];
 
+		/* Back up UVs */
 		for (f = chart->faces; f; f = f->nextlink) {
 			p_face_backup_uvs(f);
 		}
 
 		/* Compute convex hull for each chart */
-
 		chart->u.ipack.convex_hull = p_convex_hull_new(chart);
-
-		for (j = 0; j < chart->u.ipack.convex_hull->nverts; j++) {
-			printf("--PVert of convex hull - x: %f, y: %f\n", chart->u.ipack.convex_hull->h_verts[j]->uv[0], chart->u.ipack.convex_hull->h_verts[j]->uv[1]);
-		}
-
+		/* DEBUG */
 		printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
+
+		/* Compute horizontal angle for edges of hull (Needed for NFP) */
+		p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull);
 	}
 
 	if (p_convex_hull_intersect(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[2]->u.ipack.convex_hull)){
 		printf("Intersection found! \n");
 	}
+
+	PNoFitPolygon *NFP = p_no_fit_polygon_create(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[2]->u.ipack.convex_hull);
+	/* Debug prints here*/
+	printf("NFP created!\n");
+	p_no_fit_polygon_delete(NFP);
 
 	/* ToDo (SaphireS) */
 
