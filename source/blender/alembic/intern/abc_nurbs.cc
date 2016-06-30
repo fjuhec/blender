@@ -143,7 +143,7 @@ void AbcNurbsWriter::do_write()
 
 		for (int i = 0; i < size; ++i, ++bp) {
 			copy_zup_yup(positions[i].getValue(), bp->vec);
-			weights[i] = bp->vec[4];
+			weights[i] = bp->vec[3];
 		}
 
 		ONuPatchSchema::Sample sample;
@@ -249,13 +249,15 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 		for (int i = 0; i < num_points; ++i, ++bp) {
 			const Imath::V3f &pos_in = (*positions)[i];
 
-			if (weights && i < weights->size()) {
+			if (weights) {
 				posw_in = (*weights)[i];
 			}
 
 			copy_yup_zup(bp->vec, pos_in.getValue());
 			bp->vec[3] = posw_in;
 			bp->f1 = SELECT;
+			bp->radius = 1.0f;
+			bp->weight = 1.0f;
 		}
 
 		/* Read knots. */
