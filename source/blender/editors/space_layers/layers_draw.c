@@ -176,27 +176,6 @@ static void layers_tiles_draw_floating(const bContext *C, struct FloatingTileDra
 	UI_block_draw(C, block);
 }
 
-/**
- * \note Recursive.
- */
-static void layers_tiles_draw_childs(
-        const ListBase *childs, const bContext *C, uiBlock *block,
-        float *r_ofs_y, int *r_idx)
-{
-	SpaceLayers *slayer = CTX_wm_space_layers(C);
-	ARegion *ar = CTX_wm_region(C);
-	uiStyle *style = UI_style_get_dpi();
-
-	for (LayerTreeItem *litem = childs->first; litem; litem = litem->next) {
-		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
-		*r_ofs_y += layer_tile_draw(tile, C, ar, block, style, *r_ofs_y, *r_idx);
-		(*r_idx)++;
-		if (!BLI_listbase_is_empty(&litem->childs)) {
-			layers_tiles_draw_childs(&litem->childs, C, block, r_ofs_y, r_idx);
-		}
-	}
-}
-
 static void layers_tiles_draw_fixed(
         const bContext *C,
         float *r_ofs_y, int *r_idx,
@@ -210,7 +189,8 @@ static void layers_tiles_draw_fixed(
 	 * fixed tiles are drawn over background of floating ones. */
 	uiBlock *block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
 
-	for (LayerTreeItem *litem = slayer->act_tree->items.last; litem; litem = litem->prev) {
+	BKE_LAYERTREE_ITER_START(slayer->act_tree, 0, i, litem)
+	{
 		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
 		BLI_assert(tile->litem == litem);
 
@@ -226,15 +206,14 @@ static void layers_tiles_draw_fixed(
 			continue;
 		}
 
-		if (litem->type->draw) {
+		/* layers_tile_is_visible does ghash lookup for each parent until a collapsed one is found.
+		 * We could avoid some lookups but it's highly unlikely to cause a notable difference */
+		if (litem->type->draw && layers_tile_is_visible(slayer, tile)) {
 			*r_ofs_y += layer_tile_draw(tile, C, ar, block, style, *r_ofs_y, *r_idx);
 			(*r_idx)++;
-			/* draw children */
-			if (!(tile->flag & LAYERTILE_CLOSED)) {
-				layers_tiles_draw_childs(&litem->childs, C, block, r_ofs_y, r_idx);
-			}
 		}
 	}
+	BKE_LAYERTREE_ITER_END;
 
 	UI_block_end(C, block);
 	UI_block_draw(C, block);
