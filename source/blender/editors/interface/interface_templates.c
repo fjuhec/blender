@@ -3886,10 +3886,11 @@ void uiTemplateCacheFile(uiLayout *layout, bContext *C, PointerRNA *ptr, const c
 	uiItemR(row, &fileptr, "filepath", 0, "", ICON_NONE);
 
 	row = uiLayoutRow(layout, false);
-	uiItemR(row, &fileptr, "frame_start", 0, "Frame Start", ICON_NONE);
+	uiItemR(row, &fileptr, "override_frame", 0, "Override Frame", ICON_NONE);
 
 	row = uiLayoutRow(layout, false);
-	uiItemR(row, &fileptr, "frame_scale", 0, "Frame Scale", ICON_NONE);
+	uiLayoutSetEnabled(row, RNA_boolean_get(&fileptr, "override_frame"));
+	uiItemR(row, &fileptr, "frame", 0, "Frame", ICON_NONE);
 
 	row = uiLayoutRow(layout, false);
 	uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE);

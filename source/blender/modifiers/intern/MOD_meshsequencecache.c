@@ -89,7 +89,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 
 	Scene *scene = md->scene;
 	const float frame = BKE_scene_frame_get(scene);
-	const float time = BKE_cachefile_time_offset(mcmd->cache_file, frame / FPS);
+	const float time = BKE_cachefile_time_offset(mcmd->cache_file, frame, FPS);
 
 	DerivedMesh *result = ABC_read_mesh(mcmd->cache_file->handle,
 	                                    dm,

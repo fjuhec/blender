@@ -53,15 +53,13 @@ typedef struct CacheFile {
 	char is_sequence;
 	char forward_axis;
 	char up_axis;
-	char pad;
+	char override_frame;
 
 	float scale;
-
-	float frame_start;
-	float frame_scale;
+	float frame;  /* The frame/time to lookup in the cache file. */
 
 	short flag;  /* Animation flag. */
-	short pad2[3];
+	short pad;
 } CacheFile;
 
 #ifdef __cplusplus

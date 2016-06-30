@@ -68,16 +68,17 @@ static void rna_def_cachefile(BlenderRNA *brna)
 
 	/* ----------------- For Scene time ------------------- */
 
-	prop = RNA_def_property(srna, "frame_start", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "frame_start");
-	RNA_def_property_range(prop, -MAXFRAME, MAXFRAME);
-	RNA_def_property_ui_text(prop, "Frame Start", "Add this to the start frame");
+	prop = RNA_def_property(srna, "override_frame", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Override Frame",
+	                         "Whether to use a custom frame for looking up data in the cache file,"
+	                         " instead of using the current scene frame");
 	RNA_def_property_update(prop, 0, NULL);
 
-	prop = RNA_def_property(srna, "frame_scale", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "frame_scale");
-	RNA_def_property_range(prop, 0.0f, 100.0f);
-	RNA_def_property_ui_text(prop, "Frame Scale", "Evaluation time in seconds");
+	prop = RNA_def_property(srna, "frame", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "frame");
+	RNA_def_property_range(prop, -MAXFRAME, MAXFRAME);
+	RNA_def_property_ui_text(prop, "Frame", "The time to use for looking up the data in the cache file,"
+	                                        " or to determine which file to use in a file sequence");
 	RNA_def_property_update(prop, 0, NULL);
 
 	/* ----------------- Axis Conversion ----------------- */

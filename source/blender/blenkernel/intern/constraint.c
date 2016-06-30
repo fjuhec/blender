@@ -4353,7 +4353,7 @@ static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBa
 	Scene *scene = cob->scene;
 
 	const float frame = BKE_scene_frame_get(scene);
-	const float time = BKE_cachefile_time_offset(data->cache_file, frame / FPS);
+	const float time = BKE_cachefile_time_offset(data->cache_file, frame, FPS);
 
 	ABC_get_transform(data->cache_file->handle, cob->ob, data->abc_object_path,
 	                  cob->matrix, time, data->cache_file->scale);

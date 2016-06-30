@@ -45,12 +45,12 @@ struct CacheFile *BKE_cachefile_copy(struct Main *bmain, struct CacheFile *cache
 
 void BKE_cachefile_load(struct CacheFile *cache_file, const char *relabase);
 
-void BKE_cachefile_update_frame(struct Main *bmain, float ctime);
+void BKE_cachefile_update_frame(struct Main *bmain, float ctime, const float fps);
 
 bool BKE_cachefile_filepath_get(struct CacheFile *cache_file, float frame,
                                 char *r_filename);
 
-float BKE_cachefile_time_offset(struct CacheFile *cache_file, float time);
+float BKE_cachefile_time_offset(struct CacheFile *cache_file, const float time, const float fps);
 
 #ifdef __cplusplus
 }
