@@ -97,6 +97,26 @@ bool AbcNurbsWriter::isAnimated() const
 	return (cu->key != NULL);
 }
 
+static void get_knots(std::vector<float> &knots, const int num_knots, float *nu_knots)
+{
+	if (num_knots <= 1) {
+		return;
+	}
+
+	/* Add an extra knot at the beggining and end of the array since most apps
+	 * require/expect them. */
+	knots.reserve(num_knots + 2);
+
+	knots.push_back(0.0f);
+
+	for (int i = 0; i < num_knots; ++i) {
+		knots.push_back(nu_knots[i]);
+	}
+
+	knots[0] = 2.0f * knots[1] - knots[2];
+	knots.push_back(2.0f * knots[num_knots] - knots[num_knots - 1]);
+}
+
 void AbcNurbsWriter::do_write()
 {
 	/* we have already stored a sample for this object. */
@@ -118,22 +138,12 @@ void AbcNurbsWriter::do_write()
 	}
 
 	size_t count = 0;
-	for (Nurb *nu = static_cast<Nurb *>(nulb->first); nu; nu = nu->next, count++) {
-		const int numKnotsU = KNOTSU(nu);
+	for (Nurb *nu = static_cast<Nurb *>(nulb->first); nu; nu = nu->next, ++count) {
 		std::vector<float> knotsU;
-		knotsU.reserve(numKnotsU);
+		get_knots(knotsU, KNOTSU(nu), nu->knotsu);
 
-		for (int i = 0; i < numKnotsU; ++i) {
-			knotsU.push_back(nu->knotsu[i]);
-		}
-
-		const int numKnotsV = KNOTSV(nu);
 		std::vector<float> knotsV;
-		knotsV.reserve(numKnotsV);
-
-		for (int i = 0; i < numKnotsV; ++i) {
-			knotsV.push_back(nu->knotsv[i]);
-		}
+		get_knots(knotsV, KNOTSV(nu), nu->knotsv);
 
 		const int size = nu->pntsu * nu->pntsv;
 		std::vector<Imath::V3f> positions(size);
@@ -147,8 +157,8 @@ void AbcNurbsWriter::do_write()
 		}
 
 		ONuPatchSchema::Sample sample;
-		sample.setUOrder(nu->orderu);
-		sample.setVOrder(nu->orderv);
+		sample.setUOrder(nu->orderu + 1);
+		sample.setVOrder(nu->orderv + 1);
 		sample.setPositions(positions);
 		sample.setPositionWeights(weights);
 		sample.setUKnot(FloatArraySample(knotsU));
@@ -211,6 +221,23 @@ bool AbcNurbsReader::valid() const
 	return true;
 }
 
+static bool set_knots(const FloatArraySamplePtr &knots, float *&nu_knots)
+{
+	if (!knots || knots->size() == 0) {
+		return false;
+	}
+
+	/* Skip first and last knots, as they are used for padding. */
+	const size_t num_knots = knots->size() - 2;
+	nu_knots = static_cast<float *>(MEM_callocN(num_knots * sizeof(float), "abc_setsplineknotsu"));
+
+	for (size_t i = 0; i < num_knots; ++i) {
+		nu_knots[i] = (*knots)[i + 1];
+	}
+
+	return true;
+}
+
 void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 {
 	Curve *cu = static_cast<Curve *>(BKE_curve_add(bmain, "abc_curve", OB_SURF));
@@ -229,8 +256,8 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 		const INuPatchSchema &schema = it->first;
 		const INuPatchSchema::Sample smp = schema.getValue(sample_sel);
 
-		nu->orderu = smp.getUOrder();
-		nu->orderv = smp.getVOrder();
+		nu->orderu = smp.getUOrder() - 1;
+		nu->orderv = smp.getVOrder() - 1;
 		nu->pntsu = smp.getNumU();
 		nu->pntsv = smp.getNumV();
 
@@ -262,31 +289,11 @@ void AbcNurbsReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 		/* Read knots. */
 
-		const FloatArraySamplePtr u_knot = smp.getUKnot();
-
-		if (u_knot && u_knot->size() != 0) {
-			const size_t num_knots_u = u_knot->size();
-			nu->knotsu = static_cast<float *>(MEM_callocN(num_knots_u * sizeof(float), "abc_setsplineknotsu"));
-
-			for (size_t i = 0; i < num_knots_u; ++i) {
-				nu->knotsu[i] = (*u_knot)[i];
-			}
-		}
-		else {
+		if (!set_knots(smp.getUKnot(), nu->knotsu)) {
 			BKE_nurb_knot_calc_u(nu);
 		}
 
-		const FloatArraySamplePtr v_knot = smp.getVKnot();
-
-		if (v_knot && v_knot->size() != 0) {
-			const size_t num_knots_v = v_knot->size();
-			nu->knotsv = static_cast<float *>(MEM_callocN(num_knots_v * sizeof(float), "abc_setsplineknotsv"));
-
-			for (size_t i = 0; i < num_knots_v; ++i) {
-				nu->knotsv[i] = (*v_knot)[i];
-			}
-		}
-		else {
+		if (!set_knots(smp.getVKnot(), nu->knotsv)) {
 			BKE_nurb_knot_calc_v(nu);
 		}
 
