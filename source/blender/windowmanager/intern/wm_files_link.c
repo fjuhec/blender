@@ -1066,9 +1066,10 @@ typedef struct AssetUpdateCheckEngine {
 	AssetEngine *ae;
 
 	/* Note: We cannot store IDs themselves in non-locking async task... so we'll have to check again for
-	 *       UUID/IDs mapping on each update call... Not ideal, but don't think it will be that big of an override
+	 *       UUID/IDs mapping on each update call... Not ideal, but don't think it will be that big of a bottleneck
 	 *       in practice. */
 	AssetUUIDList uuids;
+	int allocated_uuids;
 	int ae_job_id;
 	short status;
 } AssetUpdateCheckEngine;
@@ -1170,13 +1171,16 @@ static void asset_update_engines_uuids_fetch(
 					id->uuid->tag = (id->tag & LIB_TAG_MISSING) ? UUID_TAG_ASSET_MISSING : 0;
 				}
 
-				/* XXX horrible, need to use some mempool, stack or something :) */
 				auce->uuids.nbr_uuids++;
-				if (auce->uuids.uuids) {
-					auce->uuids.uuids = MEM_reallocN_id(auce->uuids.uuids, sizeof(*auce->uuids.uuids) * (size_t)auce->uuids.nbr_uuids, __func__);
-				}
-				else {
-					auce->uuids.uuids = MEM_mallocN(sizeof(*auce->uuids.uuids) * (size_t)auce->uuids.nbr_uuids, __func__);
+				BKE_asset_uuid_print(id->uuid);
+				if (auce->uuids.nbr_uuids > auce->allocated_uuids) {
+					auce->allocated_uuids += 16;
+					BLI_assert(auce->uuids.nbr_uuids < auce->allocated_uuids);
+
+					const size_t allocsize = sizeof(*auce->uuids.uuids) * (size_t)auce->allocated_uuids;
+					auce->uuids.uuids = auce->uuids.uuids ?
+					                        MEM_reallocN_id(auce->uuids.uuids, allocsize, __func__) :
+					                        MEM_mallocN(allocsize, __func__);
 				}
 				auce->uuids.uuids[auce->uuids.nbr_uuids - 1] = *id->uuid;
 			}
