@@ -234,9 +234,10 @@ void BKE_filedir_entryarr_clear(struct FileDirEntryArr *array);
 	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_variant) && \
 	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_revision))
 
-/* GHash helpers */
+/* Various helpers */
 unsigned int BKE_asset_uuid_hash(const void *key);
 bool BKE_asset_uuid_cmp(const void *a, const void *b);
+void BKE_asset_uuid_print(const struct AssetUUID *uuid);
 
 #ifdef __cplusplus
 }
