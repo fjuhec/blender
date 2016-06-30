@@ -540,6 +540,10 @@ void BKE_libblock_free_data(Main *bmain, ID *id)
 		MEM_freeN(id->properties);
 	}
 	
+	if (id->uuid) {
+		MEM_freeN(id->uuid);
+	}
+
 	/* this ID may be a driver target! */
 	BKE_animdata_main_cb(bmain, animdata_dtar_clear_cb, (void *)id);
 }
