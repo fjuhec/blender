@@ -280,6 +280,7 @@ static bool layeritem_move_array(LayerTreeItem *litem, const int newidx)
 	const bool is_higher = litem->index < newidx;
 
 	BLI_assert(litem->tree->tot_items > newidx);
+	/* Already where we want to move it to. */
 	if (litem->index == newidx)
 		return false;
 
@@ -305,8 +306,6 @@ static bool layeritem_move_array(LayerTreeItem *litem, const int newidx)
  */
 void BKE_layeritem_move(LayerTreeItem *litem, const int newidx)
 {
-	/* Already where we want to move it to. */
-
 	/* move in array (return if failed) */
 	if (!layeritem_move_array(litem, newidx)) {
 		return;
