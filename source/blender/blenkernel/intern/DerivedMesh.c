@@ -2606,7 +2606,7 @@ static void mesh_build_data(
 	ob->lastDataMask = dataMask;
 	ob->lastNeedMapping = need_mapping;
 
-	if ((ob->mode & OB_MODE_SCULPT) && ob->sculpt) {
+	if (ob->mode & (OB_MODE_SCULPT | OB_MODE_WEIGHT_PAINT | OB_MODE_VERTEX_PAINT) && ob->sculpt) {
 		/* create PBVH immediately (would be created on the fly too,
 		 * but this avoids waiting on first stroke) */
 

@@ -118,6 +118,7 @@ void BKE_pbvh_raycast_project_ray_root(
 void BKE_pbvh_node_draw(PBVHNode *node, void *data);
 void BKE_pbvh_draw(PBVH *bvh, float (*planes)[4], float (*face_nors)[3],
                    int (*setMaterial)(int matnr, void *attribs), bool wireframe, bool fast);
+void BKE_pbvh_draw_BB(PBVH *bvh);
 
 /* PBVH Access */
 typedef enum {
@@ -189,6 +190,7 @@ void BKE_pbvh_node_num_verts(
 void BKE_pbvh_node_get_verts(
         PBVH *bvh, PBVHNode *node,
         const int **r_vert_indices, struct MVert **r_verts);
+void BKE_pbvh_node_num_nodes(PBVH *bvh, int* r_totnode);
 
 void BKE_pbvh_node_get_BB(PBVHNode *node, float bb_min[3], float bb_max[3]);
 void BKE_pbvh_node_get_original_BB(PBVHNode *node, float bb_min[3], float bb_max[3]);

@@ -709,6 +709,16 @@ void BKE_sculptsession_free(Object *ob)
 		if (ss->deform_imats)
 			MEM_freeN(ss->deform_imats);
 
+		/* Free maps */
+		if (ss->vert_to_loop)
+			MEM_freeN(ss->vert_to_loop);
+		if (ss->map_mem)
+			MEM_freeN(ss->map_mem);
+		if (ss->vert_to_poly)
+			MEM_freeN(ss->vert_to_poly);
+		if (ss->poly_map_mem)
+			MEM_freeN(ss->poly_map_mem);
+
 		MEM_freeN(ss);
 
 		ob->sculpt = NULL;
