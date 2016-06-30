@@ -3863,7 +3863,7 @@ static void write_cachefiles(WriteData *wd, ListBase *idbase)
 
 	for (cache_file = idbase->first; cache_file; cache_file = cache_file->id.next) {
 		if (cache_file->id.us > 0 || wd->current) {
-			writestruct(wd, ID_CF, "CacheFile", 1, cache_file);
+			writestruct(wd, ID_CF, CacheFile, 1, cache_file);
 
 			if (cache_file->adt) {
 				write_animdata(wd, cache_file->adt);

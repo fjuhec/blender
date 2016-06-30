@@ -199,7 +199,7 @@ bool AbcNurbsReader::valid() const
 		return false;
 	}
 
-	std::vector< std::pair<INuPatchSchema, IObject> >::iterator it;
+	std::vector< std::pair<INuPatchSchema, IObject> >::const_iterator it;
 	for (it = m_schemas.begin(); it != m_schemas.end(); ++it) {
 		const INuPatchSchema &schema = it->first;
 
