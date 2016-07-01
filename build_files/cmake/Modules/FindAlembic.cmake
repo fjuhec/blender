@@ -1,16 +1,16 @@
 # - Find Alembic library
 # Find the native Alembic includes and libraries
 # This module defines
-#  ALEMBIC_INCLUDE_DIRS, where to find samplerate.h, Set when
+#  ALEMBIC_INCLUDE_DIRS, where to find Alembic headers, Set when
 #                        ALEMBIC_INCLUDE_DIR is found.
-#  ALEMBIC_LIBRARIES, libraries to link against to use Samplerate.
-#  ALEMBIC_ROOT_DIR, The base directory to search for Samplerate.
+#  ALEMBIC_LIBRARIES, libraries to link against to use Alembic.
+#  ALEMBIC_ROOT_DIR, The base directory to search for Alembic.
 #                    This can also be an environment variable.
-#  ALEMBIC_FOUND, If false, do not try to use Samplerate.
+#  ALEMBIC_FOUND, If false, do not try to use Alembic.
 #
 
 #=============================================================================
-# Copyright 2011 Blender Foundation.
+# Copyright 2016 Blender Foundation.
 #
 # Distributed under the OSI-approved BSD License (the "License");
 # see accompanying file Copyright.txt for details.
@@ -66,3 +66,5 @@ MARK_AS_ADVANCED(
   ALEMBIC_INCLUDE_DIR
   ALEMBIC_LIBRARY
 )
+
+UNSET(_alembic_SEARCH_DIRS)
