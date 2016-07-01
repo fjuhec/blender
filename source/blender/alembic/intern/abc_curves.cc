@@ -45,12 +45,16 @@ extern "C" {
 
 using Alembic::Abc::IInt32ArrayProperty;
 using Alembic::Abc::Int32ArraySamplePtr;
+using Alembic::Abc::FloatArraySamplePtr;
 using Alembic::Abc::P3fArraySamplePtr;
+using Alembic::Abc::UcharArraySamplePtr;
 
 using Alembic::AbcGeom::ICurves;
 using Alembic::AbcGeom::ICurvesSchema;
+using Alembic::AbcGeom::IFloatGeomParam;
 using Alembic::AbcGeom::ISampleSelector;
 using Alembic::AbcGeom::kWrapExisting;
+using Alembic::AbcGeom::CurvePeriodicity;
 
 using Alembic::AbcGeom::OCurves;
 using Alembic::AbcGeom::OCurvesSchema;
@@ -77,6 +81,9 @@ void AbcCurveWriter::do_write()
 	std::vector<Imath::V3f> verts;
 	std::vector<int32_t> vert_counts;
 	std::vector<float> widths;
+	std::vector<float> weights;
+	std::vector<float> knots;
+	std::vector<uint8_t> orders;
 	Imath::V3f temp_vert;
 
 	Alembic::AbcGeom::BasisType curve_basis;
@@ -104,6 +111,7 @@ void AbcCurveWriter::do_write()
 			for (int i = 0; i < totpoint; ++i, ++point) {
 				copy_zup_yup(temp_vert.getValue(), point->vec);
 				verts.push_back(temp_vert);
+				weights.push_back(point->vec[3]);
 				widths.push_back(point->radius);
 			}
 		}
@@ -120,22 +128,31 @@ void AbcCurveWriter::do_write()
 			for (int i = 0; i < totpoint; ++i, ++bezier) {
 				copy_zup_yup(temp_vert.getValue(), bezier->vec[1]);
 				verts.push_back(temp_vert);
+				widths.push_back(bezier->radius);
 			}
 		}
+
+		for (int i = 0; i < KNOTSU(nurbs); ++i) {
+			knots.push_back(nurbs->knotsu[i]);
+		}
+
+		orders.push_back(nurbs->orderu);
 	}
 
-	Alembic::Abc::P3fArraySample pos(verts);
-	m_sample = OCurvesSchema::Sample(pos, vert_counts);
-	m_sample.setBasis(curve_basis);
-	m_sample.setType(curve_type);
-	m_sample.setWrap(periodicity);
+	Alembic::AbcGeom::OFloatGeomParam::Sample width_sample;
+	width_sample.setVals(widths);
 
-	if (!widths.empty()) {
-		Alembic::AbcGeom::OFloatGeomParam::Sample width_sample;
-		width_sample.setVals(widths);
-
-		m_sample.setWidths(width_sample);
-	}
+	m_sample = OCurvesSchema::Sample(verts,
+	                                 vert_counts,
+	                                 curve_type,
+	                                 periodicity,
+	                                 width_sample,
+	                                 OV2fGeomParam::Sample(),  /* UVs */
+	                                 ON3fGeomParam::Sample(),  /* normals */
+	                                 curve_basis,
+	                                 weights,
+	                                 orders,
+	                                 knots);
 
 	m_sample.setSelfBounds(bounds());
 	m_schema.set(m_sample);
@@ -161,21 +178,35 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 {
 	Curve *cu = BKE_curve_add(bmain, m_data_name.c_str(), OB_CURVE);
 
-	cu->flag |= CU_DEFORM_FILL;
+	cu->flag |= CU_DEFORM_FILL | CU_3D;
 	cu->actvert = CU_ACT_NONE;
 
 	const ISampleSelector sample_sel(time);
 
-	const ICurvesSchema::Sample smp = m_curves_schema.getValue(sample_sel);
-	const Int32ArraySamplePtr hvertices = smp.getCurvesNumVertices();
+	ICurvesSchema::Sample smp = m_curves_schema.getValue(sample_sel);
+	const Int32ArraySamplePtr num_vertices = smp.getCurvesNumVertices();
 	const P3fArraySamplePtr positions = smp.getPositions();
+	const FloatArraySamplePtr weights = smp.getPositionWeights();
+	const FloatArraySamplePtr knots = smp.getKnots();
+	const CurvePeriodicity periodicity = smp.getWrap();
+	const UcharArraySamplePtr orders = smp.getOrders();
+
+	const IFloatGeomParam widths_param = m_curves_schema.getWidthsParam();
+	FloatArraySamplePtr radiuses;
+
+	if (widths_param.valid()) {
+		IFloatGeomParam::Sample wsample = widths_param.getExpandedValue(sample_sel);
+		radiuses = wsample.getVals();
+	}
 
 	m_object = BKE_object_add(bmain, scene, OB_CURVE, m_object_name.c_str());
 	m_object->data = cu;
 
+	int knot_offset = 0;
+
 	size_t idx = 0;
-	for (size_t i = 0; i < hvertices->size(); ++i) {
-		const int steps = (*hvertices)[i];
+	for (size_t i = 0; i < num_vertices->size(); ++i) {
+		const int steps = (*num_vertices)[i];
 
 		Nurb *nu = static_cast<Nurb *>(MEM_callocN(sizeof(Nurb), "abc_getnurb"));
 		nu->bp = static_cast<BPoint *>(MEM_callocN(sizeof(BPoint) * steps, "abc_getnurb"));
@@ -184,22 +215,52 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 		nu->resolv = cu->resolv;
 		nu->pntsu = steps;
 		nu->pntsv = 1;
-		nu->orderu = steps;
 		nu->flag |= CU_SMOOTH;
-		nu->flagu |= CU_NURB_ENDPOINT;
 
-		BPoint *bp = nu->bp;
-
-		for (int j = 0; j < steps; ++j, ++bp) {
-			Imath::V3f pos = (*positions)[idx++];
-
-			copy_yup_zup(bp->vec, pos.getValue());
-			bp->vec[3] = 1.0f;
-
-			bp->radius = bp->weight = 1.0f;
+		if (periodicity == Alembic::AbcGeom::kNonPeriodic) {
+			nu->flagu |= CU_NURB_ENDPOINT;
+		}
+		else if (periodicity == Alembic::AbcGeom::kPeriodic) {
+			nu->flagu |= CU_NURB_CYCLIC;
 		}
 
-		BKE_nurb_knot_calc_u(nu);
+		nu->orderu = (orders) ? (*orders)[i]
+		                      : (periodicity == Alembic::AbcGeom::kPeriodic) ? 4 : steps;
+
+		BPoint *bp = nu->bp;
+		float radius = 1.0f;
+		float weight = 1.0f;
+
+		for (int j = 0; j < steps; ++j, ++bp) {
+			const Imath::V3f &pos = (*positions)[idx++];
+
+			if (radiuses) {
+				radius = (*radiuses)[i];
+			}
+
+			if (weights) {
+				weight = (*weights)[i];
+			}
+
+			copy_yup_zup(bp->vec, pos.getValue());
+			bp->vec[3] = weight;
+			bp->f1 = SELECT;
+			bp->radius = radius;
+			bp->weight = 1.0f;
+		}
+
+		if (knots && knots->size() != 0) {
+			nu->knotsu = static_cast<float *>(MEM_callocN(KNOTSU(nu) * sizeof(float), "abc_setsplineknotsu"));
+
+			for (size_t i = 0; i < KNOTSU(nu); ++i) {
+				nu->knotsu[i] = (*knots)[knot_offset + i];
+			}
+
+			knot_offset += KNOTSU(nu);
+		}
+		else {
+			BKE_nurb_knot_calc_u(nu);
+		}
 
 		BLI_addtail(BKE_curve_nurbs_get(cu), nu);
 	}
