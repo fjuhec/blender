@@ -6872,11 +6872,11 @@ static float ratio_to_segment(float *x, float *p1, float *p2, float *p3, float *
 		BKE_curve_forward_diff_bezier(p1[j], p2[j], p3[j], p4[j], seg + j, res, sizeof(float) * 3);
 	}
 
-	for (int i = 0; i < res - 1; i++) {
+	for (int i = 0; i < res; i++) {
 		seg_length += len_v3v3(&seg[3 * i], &seg[3 * (i + 1)]);
 	}
 
-	for (int i = 0; i < res - 1; i++) {
+	for (int i = 0; i < res; i++) {
 		if (is_between(x, &seg[3 * i], &seg[3 * (i + 1)])) {
 			length = len_v2v2(&seg[3 * i], x);
 			return length/seg_length;
@@ -6893,8 +6893,7 @@ static float ratio_to_segment(float *x, float *p1, float *p2, float *p3, float *
 
 
 static void split_segment(float t, float *p1, float *p2, float *p3, float *p4,
-							   float *r_q1, float *r_q2, float *r_q3,
-							   float *r_r1, float *r_r2, float *r_r3)
+							   float *r_s1, float *r_s2)
 {
 	float *q1, *q2, *q3, *r1, *r2, *r3;
 
@@ -6904,13 +6903,6 @@ static void split_segment(float t, float *p1, float *p2, float *p3, float *p4,
 	r1 = (float *)MEM_callocN(3 * sizeof(float), "split_segment10");
 	r2 = (float *)MEM_callocN(3 * sizeof(float), "split_segment11");
 	r3 = (float *)MEM_callocN(3 * sizeof(float), "split_segment12");
-
-	r_q1 = q1;
-	r_q2 = q2;
-	r_q3 = q3;
-	r_r1 = r1;
-	r_r2 = r2;
-	r_r3 = r3;
 
 	copy_v3_v3(q1, p2);
 	sub_v3_v3(q1, p1);
@@ -6941,20 +6933,37 @@ static void split_segment(float t, float *p1, float *p2, float *p3, float *p4,
 	sub_v3_v3(r3, r1);
 	mul_v3_fl(r3, t);
 	add_v3_v3(r3, r1);
+
+	copy_v3_v3(r_s1, p1);
+	copy_v3_v3(r_s1 + 3, q1);
+	copy_v3_v3(r_s1 + 6, r1);
+	copy_v3_v3(r_s1 + 9, r3);
+	copy_v3_v3(r_s2, r3);
+	copy_v3_v3(r_s2 + 3, r2);
+	copy_v3_v3(r_s2 + 6, q3);
+	copy_v3_v3(r_s2 + 9, p4);
 }
 
 static void chop(float *x, float *p1, float *p2, float *p3, float *p4, int res,
-				 float *r_q1, float *r_q2, float *r_q3,
-				 float *r_r1, float *r_r2, float *r_r3)
+				 float *r_s1, float *r_s2)
 {
-	float ratio = ratio_to_segment(x, p1, p2, p3, p4, res);
+	float ratio = ratio_to_segment(x, p1, p2, p3, p4, res), *s1, *s2;
+
+	s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+	s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
 
 	if (ratio != 0) {
-		split_segment(ratio, p1, p2, p3, p4, r_q1, r_q2, r_q3, r_r1, r_r2, r_r3);
+		split_segment(ratio, p1, p2, p3, p4, r_s1, r_s2);
 	}
 	else
 	{
-		r_q1 = r_q2 = r_q3 = r_r1 = r_r2 = r_r3 = NULL;
+		s1 = s2 = NULL;
+	}
+
+	for (int i = 0; i < 3; i++)
+	{
+		copy_v3_v3(r_s1 + 3 * i, s1 + 3 * i);
+		copy_v3_v3(r_s2 + 3 * i, s2 + 3 * i);
 	}
 }
 
@@ -7031,9 +7040,11 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		}
 
 		Nurb *new_spl = BKE_nurb_duplicate(nu);
-		new_spl->bezt = (BezTriple *)MEM_callocN((npoints - 1) * sizeof(BezTriple), "trimexec5");
+		new_spl->bezt = (BezTriple *)MEM_callocN(npoints * sizeof(BezTriple), "trimexec5");
+		new_spl->pntsu = npoints;
+		BezTriple *bezt = new_spl->bezt;
 		for (int i = 0; i < new_spl->pntsu; i++) {
-			BezTriple *bezt = new_spl->bezt, *old_bezt = nu->bezt;
+			BezTriple *old_bezt = nu->bezt;
 			/* get the correct bezier point from the original spline */
 			int a = (i + ((XShape *)((LinkData *)high->first)->data)->order ) % ( nu->pntsu );
 			while ( a-- ) {
@@ -7042,18 +7053,20 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			copy_v3_v3(bezt->vec[0], old_bezt->vec[0]);
 			copy_v3_v3(bezt->vec[1], old_bezt->vec[1]);
 			copy_v3_v3(bezt->vec[2], old_bezt->vec[2]);
+			bezt++;
 		}
 
 		int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
-		float *s1_1, *s1_2, *s1_3, *s2_1, *s2_2, *s2_3;
-		s1_1 = s1_2 = s1_3 = s2_1 = s2_2 = s2_3 = NULL;
+		float *s1, *s2;
+		s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+		s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
 		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
 			 (float *)&nu->bezt[low_last_order].vec[1],
 			 (float *)&nu->bezt[low_last_order].vec[2],
 			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
 			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
 			 nu->resolu,
-			 s1_1, s1_2, s1_3, s2_1, s2_2, s2_3);
+			 s1, s2);
 
 
 	}
