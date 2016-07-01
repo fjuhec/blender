@@ -22,7 +22,10 @@
 
 #include "../ABC_alembic.h"
 
-#include <Alembic/AbcCoreHDF5/All.h>
+#ifdef WITH_ALEMBIC_HDF5
+#  include <Alembic/AbcCoreHDF5/All.h>
+#endif
+
 #include <Alembic/AbcCoreOgawa/All.h>
 #include <Alembic/AbcMaterial/IMaterial.h>
 
@@ -121,20 +124,26 @@ static IArchive *open_archive(const std::string &filename)
 	IArchive *archive;
 
 	try {
-		archive = new IArchive(Alembic::AbcCoreHDF5::ReadArchive(),
+		archive = new IArchive(Alembic::AbcCoreOgawa::ReadArchive(),
 		                       filename.c_str(), ErrorHandler::kThrowPolicy,
 		                       cache_ptr);
 	}
-	catch (const Exception &) {
+	catch (const Exception &e) {
+		std::cerr << e.what() << '\n';
+
+#ifdef WITH_ALEMBIC_HDF5
 		try {
-			archive = new IArchive(Alembic::AbcCoreOgawa::ReadArchive(),
+			archive = new IArchive(Alembic::AbcCoreHDF5::ReadArchive(),
 			                       filename.c_str(), ErrorHandler::kThrowPolicy,
 			                       cache_ptr);
 		}
-		catch (const Exception &e) {
+		catch (const Exception &) {
 			std::cerr << e.what() << '\n';
 			return NULL;
 		}
+#else
+		return NULL;
+#endif
 	}
 
 	return archive;

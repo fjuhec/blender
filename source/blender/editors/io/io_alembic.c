@@ -139,11 +139,15 @@ static int wm_alembic_export_exec(bContext *C, wmOperator *op)
 static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 {
 	uiLayout *box = uiLayoutBox(layout);
-	uiLayout *row = uiLayoutRow(box, false);
+	uiLayout *row;
+
+#ifdef WITH_ALEMBIC_HDF5
+	row = uiLayoutRow(box, false);
 	uiItemL(row, IFACE_("Archive Options:"), ICON_NONE);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "compression_type", 0, NULL, ICON_NONE);
+#endif
 
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);

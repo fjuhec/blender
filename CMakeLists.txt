@@ -325,14 +325,19 @@ option(WITH_CODEC_SNDFILE       "Enable libsndfile Support (http://www.mega-nerd
 
 # Alembic support
 option(WITH_ALEMBIC             "Enable Alembic Support" OFF)
+option(WITH_ALEMBIC_HDF5        "Enable Legacy Alembic Support" OFF)
 
 # alembic
 if(WITH_ALEMBIC)
 	find_package(Alembic)
-	find_package(HDF5)
 
-	if(NOT ALEMBIC_FOUND OR NOT HDF5_FOUND)
+	if(WITH_ALEMBIC_HDF5)
+		find_package(HDF5)
+	endif()
+
+	if(NOT ALEMBIC_FOUND OR (WITH_ALEMBIC_HDF5 AND NOT HDF5_FOUND))
 		set(WITH_ALEMBIC OFF)
+		set(WITH_ALEMBIC_HDF5 OFF)
 	endif()
 endif()
 

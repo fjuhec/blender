@@ -353,10 +353,7 @@ OPENVDB_FORCE_REBUILD=false
 OPENVDB_SKIP=false
 
 # Alembic needs to be compiled for now
-HDF5_VERSION_MIN="1.8.15"
-HDF5_VERSION="1.8.17"
-
-ALEMBIC_VERSION="1.5.8"
+ALEMBIC_VERSION="1.6.0"
 ALEMBIC_VERSION_MIN=$ALEMBIC_VERSION
 ALEMBIC_FORCE_BUILD=false
 ALEMBIC_FORCE_REBUILD=false
@@ -762,7 +759,6 @@ ALEMBIC_SOURCE=( "https://github.com/alembic/alembic/archive/${ALEMBIC_VERSION}.
 # ALEMBIC_SOURCE_REPO=( "https://github.com/alembic/alembic.git" )
 # ALEMBIC_SOURCE_REPO_UID="e6c90d4faa32c4550adeaaf3f556dad4b73a92bb"
 # ALEMBIC_SOURCE_REPO_BRANCH="master"
-HDF5_SOURCE=("http://www.hdfgroup.org/ftp/HDF5/current/src/hdf5-1.8.17.tar.gz")  # Need to find a better source (inflexible)
 
 OPENCOLLADA_SOURCE=( "https://github.com/KhronosGroup/OpenCOLLADA.git" )
 OPENCOLLADA_REPO_UID="3335ac164e68b2512a40914b14c74db260e6ff7d"
@@ -2176,70 +2172,6 @@ compile_OPENVDB() {
   run_ldconfig "openvdb"
 }
 
-#### Build HDF5 ####
-_init_hdf5() {
-  _src=$SRC/hdf5-$HDF5_VERSION
-  _git=false
-  _inst=$INST/hdf5-$HDF5_VERSION
-  _inst_shortcut=$INST/hdf5
-}
-
-clean_HDF5() {
-  _init_hdf5
-  _clean
-}
-
-compile_HDF5() {
-    if [ "$NO_BUILD" = true ]; then
-      WARNING "--no-build enabled, HDF5 will not be compiled!"
-      return
-    fi
-
-    hdf5_magic=1
-    _init_hdf5
-
-    # Clean install if needed!
-    magic_compile_check hdf5-$HDF5_VERSION $hdf5_magic
-    if [ $? -eq 1 -o "$ALEMBIC_FORCE_REBUILD" = true ]; then
-      clean_HDF5
-    fi
-
-    if [ ! -d $_inst ]; then
-      INFO "Building HDF5-$HDF5_VERSION"
-
-      prepare_opt
-
-      if [ ! -d $_src -o true ]; then
-        mkdir -p $SRC
-        download HDF5_SOURCE[@] "$_src.tar.gz"
-
-        INFO "Unpacking HDF5-$HDF5_VERSION"
-        tar -C $SRC -xf $_src.tar.gz
-      fi
-
-      cd $_src
-
-      ./configure --prefix=$_inst --with-pic --disable-shared --enable-production --disable-debug --enable-threadsafe --with-pthread=/usr/include,/usr/lib --enable-unsupported
-
-      make -j$THREADS install
-
-      if [ -d $_inst ]; then
-        _create_inst_shortcut
-      else
-        ERROR "HDF5-$HDF5_VERSION failed to compile, exiting"
-        exit 1
-      fi
-
-      magic_compile_set hdf5-$HDF5_VERSION $hdf5_magic
-
-      cd $CWD
-      INFO "Done compiling HDF5-$HDF5_VERSION!"
-    else
-      INFO "Own HDF5-$HDF5_VERSION is up to date, nothing to do!"
-      INFO "If you want to force rebuild of this lib, use the --force-hdf5 option."
-    fi
-}
-
 #### Build Alembic ####
 _init_alembic() {
   _src=$SRC/alembic-$ALEMBIC_VERSION
@@ -2263,7 +2195,7 @@ compile_ALEMBIC() {
   PRINT ""
 
   # To be changed each time we make edits that would modify the compiled result!
-  alembic_magic=1
+  alembic_magic=2
   _init_alembic
 
   # Clean install if needed!
@@ -2295,17 +2227,19 @@ compile_ALEMBIC() {
 
     if [ "$_with_built_openexr" = true ]; then
       cmake_d="$cmake_d -D ILMBASE_ROOT=$INST/openexr"
-      cmake_d="$cmake_d -D HDF5_ROOT=$INST/hdf5"
-      cmake_d="$cmake_d -D USE_PRMAN=OFF"
-      cmake_d="$cmake_d -D USE_MAYA=OFF"
       cmake_d="$cmake_d -D USE_ARNOLD=OFF"
+      cmake_d="$cmake_d -D USE_BINARIES=OFF"
+      cmake_d="$cmake_d -D USE_EXAMPLES=OFF"
+      cmake_d="$cmake_d -D USE_HDF5=OFF"
+      cmake_d="$cmake_d -D USE_MAYA=OFF"
+      cmake_d="$cmake_d -D USE_PRMAN=OFF"
       cmake_d="$cmake_d -D USE_PYALEMBIC=OFF"
-      cmake_d="$cmake_d -D USE_PYILMBASE=OFF"
       cmake_d="$cmake_d -D USE_STATIC_BOOST=ON"
-      cmake_d="$cmake_d -D USE_STATIC_HDF5=ON"
-      cmake_d="$cmake_d -D ALEMBIC_NO_TESTS=ON"
-      cmake_d="$cmake_d -D ALEMBIC_NO_BOOTSTRAP=ON"
-      cmake_d="$cmake_d -D ALEMBIC_NO_OPENGL=ON"
+      cmake_d="$cmake_d -D USE_STATIC_HDF5=OFF"
+      cmake_d="$cmake_d -D ALEMBIC_ILMBASE_LINK_STATIC=OFF"
+      cmake_d="$cmake_d -D ALEMBIC_SHARED_LIBS=OFF"
+      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_BOOST=ON"
+      cmake_d="$cmake_d -D ALEMBIC_LIB_USES_TR1=OFF"
       INFO "ILMBASE_ROOT=$INST/openexr"
     fi
 

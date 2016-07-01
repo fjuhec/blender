@@ -54,6 +54,10 @@ endif()
 
 if(WITH_ALEMBIC)
 	add_definitions(-DWITH_ALEMBIC)
+
+	if(WITH_ALEMBIC_HDF5)
+		add_definitions(-DWITH_ALEMBIC_HDF5)
+	endif()
 endif()
 
 if(WITH_INTERNATIONAL)

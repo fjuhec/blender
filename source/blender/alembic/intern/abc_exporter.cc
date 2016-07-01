@@ -24,7 +24,10 @@
 
 #include <cmath>
 
-#include <Alembic/AbcCoreHDF5/All.h>
+#ifdef WITH_ALEMBIC_HDF5
+#  include <Alembic/AbcCoreHDF5/All.h>
+#endif
+
 #include <Alembic/AbcCoreOgawa/All.h>
 
 #include "abc_camera.h"
@@ -244,14 +247,22 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 
 	Alembic::Abc::Argument arg(md);
 
+#ifdef WITH_ALEMBIC_HDF5
 	if (!m_settings.export_ogawa) {
-		m_archive = Alembic::Abc::CreateArchiveWithInfo(Alembic::AbcCoreHDF5::WriteArchive(), m_filename, "Blender",
-		                                               scene_name, Alembic::Abc::ErrorHandler::kThrowPolicy, arg);
+		m_archive = Alembic::Abc::CreateArchiveWithInfo(Alembic::AbcCoreHDF5::WriteArchive(),
+		                                                m_filename,
+		                                                "Blender",
+		                                                scene_name,
+		                                                Alembic::Abc::ErrorHandler::kThrowPolicy,
+		                                                arg);
 	}
-	else {
-		m_archive = Alembic::Abc::CreateArchiveWithInfo(Alembic::AbcCoreOgawa::WriteArchive(), m_filename, "Blender",
-		                                               scene_name, Alembic::Abc::ErrorHandler::kThrowPolicy, arg);
-	}
+	else
+#endif
+		m_archive = Alembic::Abc::CreateArchiveWithInfo(Alembic::AbcCoreOgawa::WriteArchive(),
+		                                                m_filename, "Blender",
+		                                                scene_name,
+		                                                Alembic::Abc::ErrorHandler::kThrowPolicy,
+		                                                arg);
 
 	/* Create time samplings for transforms and shapes. */
 
