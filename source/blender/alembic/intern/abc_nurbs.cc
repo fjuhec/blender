@@ -94,7 +94,7 @@ bool AbcNurbsWriter::isAnimated() const
 {
 	/* check if object has shape keys */
 	Curve *cu = static_cast<Curve *>(m_object->data);
-	return (cu->key != NULL);cu->adt;
+	return (cu->key != NULL);
 }
 
 static void get_knots(std::vector<float> &knots, const int num_knots, float *nu_knots)
