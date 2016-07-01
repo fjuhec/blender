@@ -67,7 +67,7 @@ public:
 	static void bsdf_blur(ShaderClosure *sc, float roughness);
 
 	/* attributes */
-	static int find_attribute(KernelGlobals *kg, const ShaderData *sd, uint id, AttributeElement *elem);
+	static int find_attribute(KernelGlobals *kg, const ShaderData *sd, uint id, AttributeDescriptor *desc);
 };
 
 CCL_NAMESPACE_END

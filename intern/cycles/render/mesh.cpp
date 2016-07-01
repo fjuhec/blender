@@ -794,9 +794,9 @@ void MeshManager::update_osl_attributes(Device *device, Scene *scene, vector<Att
 			OSLGlobals::Attribute osl_attr;
 
 			osl_attr.type = attr.type();
-			osl_attr.elem = ATTR_ELEMENT_OBJECT;
+			osl_attr.desc.element = ATTR_ELEMENT_OBJECT;
 			osl_attr.value = attr;
-			osl_attr.offset = 0;
+			osl_attr.desc.offset = 0;
 
 			og->attribute_map[i*ATTR_PRIM_TYPES + ATTR_PRIM_TRIANGLE][attr.name()] = osl_attr;
 			og->attribute_map[i*ATTR_PRIM_TYPES + ATTR_PRIM_CURVE][attr.name()] = osl_attr;
@@ -816,9 +816,8 @@ void MeshManager::update_osl_attributes(Device *device, Scene *scene, vector<Att
 		foreach(AttributeRequest& req, attributes.requests) {
 			OSLGlobals::Attribute osl_attr;
 
-			if(req.triangle_element != ATTR_ELEMENT_NONE) {
-				osl_attr.elem = req.triangle_element;
-				osl_attr.offset = req.triangle_offset;
+			if(req.triangle_desc.element != ATTR_ELEMENT_NONE) {
+				osl_attr.desc = req.triangle_desc;
 
 				if(req.triangle_type == TypeDesc::TypeFloat)
 					osl_attr.type = TypeDesc::TypeFloat;
@@ -838,9 +837,8 @@ void MeshManager::update_osl_attributes(Device *device, Scene *scene, vector<Att
 				}
 			}
 
-			if(req.curve_element != ATTR_ELEMENT_NONE) {
-				osl_attr.elem = req.curve_element;
-				osl_attr.offset = req.curve_offset;
+			if(req.curve_desc.element != ATTR_ELEMENT_NONE) {
+				osl_attr.desc = req.curve_desc;
 
 				if(req.curve_type == TypeDesc::TypeFloat)
 					osl_attr.type = TypeDesc::TypeFloat;
@@ -860,9 +858,8 @@ void MeshManager::update_osl_attributes(Device *device, Scene *scene, vector<Att
 				}
 			}
 
-			if(req.subd_element != ATTR_ELEMENT_NONE) {
-				osl_attr.elem = req.subd_element;
-				osl_attr.offset = req.subd_offset;
+			if(req.subd_desc.element != ATTR_ELEMENT_NONE) {
+				osl_attr.desc = req.subd_desc;
 
 				if(req.subd_type == TypeDesc::TypeFloat)
 					osl_attr.type = TypeDesc::TypeFloat;
@@ -934,8 +931,8 @@ void MeshManager::update_svm_attributes(Device *device, DeviceScene *dscene, Sce
 
 			if(mesh->num_triangles()) {
 				attr_map[index].x = id;
-				attr_map[index].y = req.triangle_element;
-				attr_map[index].z = as_uint(req.triangle_offset);
+				attr_map[index].y = req.triangle_desc.element;
+				attr_map[index].z = as_uint(req.triangle_desc.offset);
 
 				if(req.triangle_type == TypeDesc::TypeFloat)
 					attr_map[index].w = NODE_ATTR_FLOAT;
@@ -949,8 +946,8 @@ void MeshManager::update_svm_attributes(Device *device, DeviceScene *dscene, Sce
 
 			if(mesh->num_curves()) {
 				attr_map[index].x = id;
-				attr_map[index].y = req.curve_element;
-				attr_map[index].z = as_uint(req.curve_offset);
+				attr_map[index].y = req.curve_desc.element;
+				attr_map[index].z = as_uint(req.curve_desc.offset);
 
 				if(req.curve_type == TypeDesc::TypeFloat)
 					attr_map[index].w = NODE_ATTR_FLOAT;
@@ -964,8 +961,8 @@ void MeshManager::update_svm_attributes(Device *device, DeviceScene *dscene, Sce
 
 			if(mesh->subd_faces.size()) {
 				attr_map[index].x = id;
-				attr_map[index].y = req.subd_element;
-				attr_map[index].z = as_uint(req.subd_offset);
+				attr_map[index].y = req.subd_desc.element;
+				attr_map[index].z = as_uint(req.subd_desc.offset);
 
 				if(req.subd_type == TypeDesc::TypeFloat)
 					attr_map[index].w = NODE_ATTR_FLOAT;
@@ -1032,16 +1029,18 @@ static void update_attribute_element_offset(Mesh *mesh,
                                             Attribute *mattr,
                                             AttributePrimitive prim,
                                             TypeDesc& type,
-                                            int& offset,
-                                            AttributeElement& element)
+                                            AttributeDescriptor& desc)
 {
 	if(mattr) {
 		/* store element and type */
-		element = mattr->element;
+		desc.element = mattr->element;
 		type = mattr->type;
 
 		/* store attribute data in arrays */
 		size_t size = mattr->element_size(mesh, prim);
+
+		AttributeElement& element = desc.element;
+		int& offset = desc.offset;
 
 		if(mattr->element == ATTR_ELEMENT_VOXEL) {
 			/* store slot in offset value */
@@ -1116,8 +1115,8 @@ static void update_attribute_element_offset(Mesh *mesh,
 	}
 	else {
 		/* attribute not found */
-		element = ATTR_ELEMENT_NONE;
-		offset = 0;
+		desc.element = ATTR_ELEMENT_NONE;
+		desc.offset = 0;
 	}
 }
 
@@ -1206,8 +1205,7 @@ void MeshManager::device_update_attributes(Device *device, DeviceScene *dscene, 
 			                                triangle_mattr,
 			                                ATTR_PRIM_TRIANGLE,
 			                                req.triangle_type,
-			                                req.triangle_offset,
-			                                req.triangle_element);
+			                                req.triangle_desc);
 
 			update_attribute_element_offset(mesh,
 			                                attr_float, attr_float_offset,
@@ -1216,8 +1214,7 @@ void MeshManager::device_update_attributes(Device *device, DeviceScene *dscene, 
 			                                curve_mattr,
 			                                ATTR_PRIM_CURVE,
 			                                req.curve_type,
-			                                req.curve_offset,
-			                                req.curve_element);
+			                                req.curve_desc);
 
 			update_attribute_element_offset(mesh,
 			                                attr_float, attr_float_offset,
@@ -1226,8 +1223,7 @@ void MeshManager::device_update_attributes(Device *device, DeviceScene *dscene, 
 			                                subd_mattr,
 			                                ATTR_PRIM_SUBD,
 			                                req.subd_type,
-			                                req.subd_offset,
-			                                req.subd_element);
+			                                req.subd_desc);
 
 			if(progress.get_cancel()) return;
 		}

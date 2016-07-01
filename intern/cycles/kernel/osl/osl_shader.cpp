@@ -573,7 +573,7 @@ void OSLShader::bsdf_blur(ShaderClosure *sc, float roughness)
 
 /* Attributes */
 
-int OSLShader::find_attribute(KernelGlobals *kg, const ShaderData *sd, uint id, AttributeElement *elem)
+int OSLShader::find_attribute(KernelGlobals *kg, const ShaderData *sd, uint id, AttributeDescriptor *desc)
 {
 	/* for OSL, a hash map is used to lookup the attribute by name. */
 	int object = sd->object*ATTR_PRIM_TYPES;
@@ -587,16 +587,23 @@ int OSLShader::find_attribute(KernelGlobals *kg, const ShaderData *sd, uint id, 
 
 	if(it != attr_map.end()) {
 		const OSLGlobals::Attribute &osl_attr = it->second;
-		*elem = osl_attr.elem;
+		*desc = osl_attr.desc;
 
-		if(sd->prim == PRIM_NONE && (AttributeElement)osl_attr.elem != ATTR_ELEMENT_MESH)
+		if(sd->prim == PRIM_NONE && (AttributeElement)osl_attr.desc.element != ATTR_ELEMENT_MESH) {
+			desc->offset = ATTR_STD_NOT_FOUND;
 			return ATTR_STD_NOT_FOUND;
+		}
 
 		/* return result */
-		return (osl_attr.elem == ATTR_ELEMENT_NONE) ? (int)ATTR_STD_NOT_FOUND : osl_attr.offset;
+		if(osl_attr.desc.element == ATTR_ELEMENT_NONE) {
+			desc->offset = ATTR_STD_NOT_FOUND;
+		}
+		return desc->offset;
 	}
-	else
+	else {
+		desc->offset = ATTR_STD_NOT_FOUND;
 		return (int)ATTR_STD_NOT_FOUND;
+	}
 }
 
 CCL_NAMESPACE_END

@@ -45,10 +45,12 @@ ccl_device_inline uint attribute_primitive_type(KernelGlobals *kg, const ShaderD
 
 /* Find attribute based on ID */
 
-ccl_device_inline int find_attribute(KernelGlobals *kg, const ShaderData *sd, uint id, AttributeElement *elem)
+ccl_device_inline int find_attribute(KernelGlobals *kg, const ShaderData *sd, uint id, AttributeDescriptor *desc)
 {
-	if(ccl_fetch(sd, object) == PRIM_NONE)
+	if(ccl_fetch(sd, object) == PRIM_NONE) {
+		desc->offset = ATTR_STD_NOT_FOUND;
 		return (int)ATTR_STD_NOT_FOUND;
+	}
 
 	/* for SVM, find attribute by unique id */
 	uint attr_offset = ccl_fetch(sd, object)*kernel_data.bvh.attributes_map_stride;
@@ -57,31 +59,37 @@ ccl_device_inline int find_attribute(KernelGlobals *kg, const ShaderData *sd, ui
 	
 	while(attr_map.x != id) {
 		if(UNLIKELY(attr_map.x == ATTR_STD_NONE)) {
+			desc->offset = ATTR_STD_NOT_FOUND;
 			return ATTR_STD_NOT_FOUND;
 		}
 		attr_offset += ATTR_PRIM_TYPES;
 		attr_map = kernel_tex_fetch(__attributes_map, attr_offset);
 	}
 
-	*elem = (AttributeElement)attr_map.y;
+	desc->element = (AttributeElement)attr_map.y;
 	
-	if(ccl_fetch(sd, prim) == PRIM_NONE && (AttributeElement)attr_map.y != ATTR_ELEMENT_MESH)
+	if(ccl_fetch(sd, prim) == PRIM_NONE && (AttributeElement)attr_map.y != ATTR_ELEMENT_MESH) {
+		desc->offset = ATTR_STD_NOT_FOUND;
 		return ATTR_STD_NOT_FOUND;
+	}
 
 	/* return result */
-	return (attr_map.y == ATTR_ELEMENT_NONE) ? (int)ATTR_STD_NOT_FOUND : (int)attr_map.z;
+	desc->offset = (attr_map.y == ATTR_ELEMENT_NONE) ? (int)ATTR_STD_NOT_FOUND : (int)attr_map.z;
+	desc->type = (NodeAttributeType)attr_map.w;
+
+	return desc->offset;
 }
 
 /* Transform matrix attribute on meshes */
 
-ccl_device Transform primitive_attribute_matrix(KernelGlobals *kg, const ShaderData *sd, int offset)
+ccl_device Transform primitive_attribute_matrix(KernelGlobals *kg, const ShaderData *sd, const AttributeDescriptor *desc)
 {
 	Transform tfm;
 
-	tfm.x = kernel_tex_fetch(__attributes_float3, offset + 0);
-	tfm.y = kernel_tex_fetch(__attributes_float3, offset + 1);
-	tfm.z = kernel_tex_fetch(__attributes_float3, offset + 2);
-	tfm.w = kernel_tex_fetch(__attributes_float3, offset + 3);
+	tfm.x = kernel_tex_fetch(__attributes_float3, desc->offset + 0);
+	tfm.y = kernel_tex_fetch(__attributes_float3, desc->offset + 1);
+	tfm.z = kernel_tex_fetch(__attributes_float3, desc->offset + 2);
+	tfm.w = kernel_tex_fetch(__attributes_float3, desc->offset + 3);
 
 	return tfm;
 }
