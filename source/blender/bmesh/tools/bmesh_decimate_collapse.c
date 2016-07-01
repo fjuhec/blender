@@ -542,8 +542,8 @@ static bool bm_decim_triangulate_begin(BMesh *bm, int *r_edges_tri_tot)
 {
 	BMIter iter;
 	BMFace *f;
-	bool has_quad;
-	bool has_ngon;
+	bool has_quad = false;
+	bool has_ngon = false;
 	bool has_cut = false;
 
 	BLI_assert((bm->elem_index_dirty & BM_VERT) == 0);
@@ -603,9 +603,8 @@ static bool bm_decim_triangulate_begin(BMesh *bm, int *r_edges_tri_tot)
 			faces_double = next;
 		}
 
-		BLI_memarena_free(pf_arena);
-
 		if (has_ngon) {
+			BLI_memarena_free(pf_arena);
 			BLI_heap_free(pf_heap, NULL);
 			BLI_edgehash_free(pf_ehash, NULL);
 		}
@@ -1293,7 +1292,8 @@ static bool bm_decim_edge_collapse(
  * \param factor face count multiplier [0 - 1]
  * \param vweights Optional array of vertex  aligned weights [0 - 1],
  *        a vertex group is the usual source for this.
- * \param axis: Axis of symmetry, -1 to disable mirror decimate.
+ * \param symmetry_axis: Axis of symmetry, -1 to disable mirror decimate.
+ * \param symmetry_eps: Threshold when matching mirror verts.
  */
 void BM_mesh_decimate_collapse(
         BMesh *bm,
