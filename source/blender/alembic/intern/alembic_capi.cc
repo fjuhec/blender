@@ -416,6 +416,11 @@ static void visit_object(const IObject &object,
 	}
 }
 
+enum {
+	ABC_NO_ERROR = 0,
+	ABC_ARCHIVE_FAIL,
+};
+
 struct ImportJobData {
 	Main *bmain;
 	Scene *scene;
@@ -429,6 +434,8 @@ struct ImportJobData {
 	short *stop;
 	short *do_update;
 	float *progress;
+
+	char error_code;
 };
 
 static void import_startjob(void *user_data, short *stop, short *do_update, float *progress)
@@ -442,6 +449,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 	IArchive *archive = open_archive(data->filename);
 
 	if (!archive || !archive->valid()) {
+		data->error_code = ABC_ARCHIVE_FAIL;
 		return;
 	}
 
@@ -574,6 +582,15 @@ static void import_endjob(void *user_data)
 		BLI_ghash_free(data->parent_map, NULL, NULL);
 	}
 
+	switch (data->error_code) {
+		default:
+		case ABC_NO_ERROR:
+			break;
+		case ABC_ARCHIVE_FAIL:
+			WM_report(RPT_ERROR, "Could not open Alembic archive for reading! See console for detail.");
+			break;
+	}
+
 	WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
 }
 
@@ -598,8 +615,8 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	job->settings.sequence_len = sequence_len;
 	job->settings.offset = offset;
 	job->parent_map = NULL;
-
 	G.is_break = false;
+	job->error_code = ABC_NO_ERROR;
 
 	wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),
 	                            CTX_wm_window(C),
