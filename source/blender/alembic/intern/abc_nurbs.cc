@@ -71,7 +71,7 @@ AbcNurbsWriter::AbcNurbsWriter(Scene *scene,
 
 	/* if the object is static, use the default static time sampling */
 	if (!m_is_animated) {
-		time_sampling = 0;
+		m_time_sampling = 0;
 	}
 
 	Curve *curve = static_cast<Curve *>(m_object->data);
@@ -94,7 +94,7 @@ bool AbcNurbsWriter::isAnimated() const
 {
 	/* check if object has shape keys */
 	Curve *cu = static_cast<Curve *>(m_object->data);
-	return (cu->key != NULL);
+	return (cu->key != NULL);cu->adt;
 }
 
 static void get_knots(std::vector<float> &knots, const int num_knots, float *nu_knots)
@@ -120,8 +120,9 @@ static void get_knots(std::vector<float> &knots, const int num_knots, float *nu_
 void AbcNurbsWriter::do_write()
 {
 	/* we have already stored a sample for this object. */
-	if (!m_first_frame && !m_is_animated)
+	if (!m_first_frame && !m_is_animated) {
 		return;
+	}
 
 	if (!ELEM(m_object->type, OB_SURF, OB_CURVE)) {
 		return;

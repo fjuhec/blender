@@ -896,12 +896,7 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 	m_object = BKE_object_add(bmain, scene, OB_MESH, m_object_name.c_str());
 	m_object->data = mesh;
 
-	/* TODO: expose this as a setting to the user? */
-	const bool assign_mat = true;
-
-	if (assign_mat) {
-		readFaceSetsSample(bmain, mesh, poly_start, sample_sel);
-	}
+	readFaceSetsSample(bmain, mesh, poly_start, sample_sel);
 
 	if (m_subd_schema.valid()) {
 		const ISubDSchema::Sample sample = m_subd_schema.getValue(sample_sel);

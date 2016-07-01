@@ -125,7 +125,7 @@ Imath::Box3d AbcTransformWriter::bounds()
 
 bool AbcTransformWriter::hasAnimation(Object */*ob*/) const
 {
-	/* TODO: implement this */
+	/* TODO(kevin): implement this. */
 	return true;
 }
 
@@ -134,12 +134,15 @@ bool AbcTransformWriter::hasAnimation(Object */*ob*/) const
 AbcEmptyReader::AbcEmptyReader(const Alembic::Abc::IObject &object, ImportSettings &settings)
     : AbcObjectReader(object, settings)
 {
+	Alembic::AbcGeom::IXform xform(object, Alembic::AbcGeom::kWrapExisting);
+	m_schema = xform.getSchema();
+
 	get_min_max_time(m_schema, m_min_time, m_max_time);
 }
 
 bool AbcEmptyReader::valid() const
 {
-	return true; // TODO? m_schema.valid();
+	return m_schema.valid();
 }
 
 void AbcEmptyReader::readObjectData(Main *bmain, Scene *scene, float /*time*/)

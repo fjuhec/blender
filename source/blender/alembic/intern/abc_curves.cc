@@ -116,7 +116,7 @@ void AbcCurveWriter::do_write()
 
 			const BezTriple *bezier = nurbs->bezt;
 
-			/* TODO: how does Alembic store info about handles, if applicable? */
+			/* TODO(kevin): store info about handles, Alembic doesn't have this. */
 			for (int i = 0; i < totpoint; ++i, ++bezier) {
 				copy_zup_yup(temp_vert.getValue(), bezier->vec[1]);
 				verts.push_back(temp_vert);

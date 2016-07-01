@@ -259,7 +259,8 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 	else
 #endif
 		m_archive = Alembic::Abc::CreateArchiveWithInfo(Alembic::AbcCoreOgawa::WriteArchive(),
-		                                                m_filename, "Blender",
+		                                                m_filename,
+		                                                "Blender",
 		                                                scene_name,
 		                                                Alembic::Abc::ErrorHandler::kThrowPolicy,
 		                                                arg);

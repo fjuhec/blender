@@ -76,9 +76,6 @@ bool has_property(const Alembic::Abc::ICompoundProperty &prop, const std::string
 
 /* ************************** */
 
-/* TODO: this duplicates MINLINE from BLI_math, but then need to keep things
- * separate somewhat. */
-
 #ifdef _MSC_VER
 #  define ABC_INLINE static __forceinline
 #else

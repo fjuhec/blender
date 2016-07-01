@@ -145,7 +145,7 @@ static void write_uv(const OCompoundProperty &prop, const CDStreamConfig &config
  * - C3fGeomParam/C4fGeomParam on the arbGeomParam
  * - set scope as face varying
  *
- * TODO: check scope.
+ * TODO(kevin): check scope.
  */
 static void write_mcol(const OCompoundProperty &prop, const CDStreamConfig &config, void *data, const char *name)
 {
@@ -363,18 +363,8 @@ void read_custom_data(const ICompoundProperty &prop, const CDStreamConfig &confi
 			continue;
 		}
 
-		/* TODO: check convention on vertex colors. */
-		if (IC3fGeomParam::matches(prop_header)) {
-			if (++num_colors > MAX_MCOL) {
-				continue;
-			}
-
-			read_custom_data_ex(prop, prop_header, config, iss, CD_MLOOPCOL);
-			continue;
-		}
-
-		/* TODO: check convention on vertex colors. */
-		if (IC4fGeomParam::matches(prop_header)) {
+		/* Read vertex colors according to convention. */
+		if (IC3fGeomParam::matches(prop_header) || IC4fGeomParam::matches(prop_header)) {
 			if (++num_colors > MAX_MCOL) {
 				continue;
 			}
