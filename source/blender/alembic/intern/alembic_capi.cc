@@ -570,7 +570,9 @@ static void import_endjob(void *user_data)
 		delete *iter;
 	}
 
-	BLI_ghash_free(data->parent_map, NULL, NULL);
+	if (data->parent_map) {
+		BLI_ghash_free(data->parent_map, NULL, NULL);
+	}
 
 	WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
 }
@@ -595,6 +597,7 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	job->settings.set_frame_range = set_frame_range;
 	job->settings.sequence_len = sequence_len;
 	job->settings.offset = offset;
+	job->parent_map = NULL;
 
 	G.is_break = false;
 
