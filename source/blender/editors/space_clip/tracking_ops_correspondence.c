@@ -81,9 +81,33 @@ MovieTrackingCorrespondence *BKE_tracking_correspondence_add(ListBase *corr_base
                                                              MovieTrackingTrack *self_track,
                                                              MovieTrackingTrack *other_track,
                                                              MovieClip* self_clip,
-                                                             MovieClip* other_clip)
+                                                             MovieClip* other_clip,
+                                                             char *error_msg, int error_size)
 {
-	MovieTrackingCorrespondence *corr;
+	MovieTrackingCorrespondence *corr = NULL;
+	// check duplicate correspondences or conflict correspondence
+	for(corr = corr_base->first; corr != NULL; corr = corr->next)
+	{
+		if (corr->self_clip == self_clip && corr->self_track == self_track)
+		{
+			// duplicate correspondences
+			if (corr->other_clip == other_clip && corr->other_track == other_track)
+			{
+				BLI_strncpy(error_msg,
+				            N_("This correspondence has been added"),
+				            error_size);
+				return NULL;
+			}
+			// conflict correspondence
+			else
+			{
+				BLI_strncpy(error_msg,
+				            N_("Conflict correspondence, consider first deleting the old one"),
+				            error_size);
+				return NULL;
+			}
+		}
+	}
 
 	corr = MEM_callocN(sizeof(MovieTrackingCorrespondence), "add correspondence");
 	strcpy(corr->name, "Correspondence");
@@ -150,8 +174,15 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 	// TODO(tianwei): link two tracks, mark these two tracks in a different color
 
 	// add these correspondence
-	BKE_tracking_correspondence_add(&(tracking->correspondences), primary_track, witness_track,
-	                                clip, second_clip);
+	char error_msg[256] = "\0";
+	if(!BKE_tracking_correspondence_add(&(tracking->correspondences), primary_track, witness_track,
+	                                clip, second_clip, error_msg, sizeof(error_msg)))
+	{
+		if (error_msg[0]) {
+			BKE_report(op->reports, RPT_ERROR, error_msg);
+		}
+		return OPERATOR_CANCELLED;
+	}
 
 	return OPERATOR_FINISHED;
 }

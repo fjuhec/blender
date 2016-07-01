@@ -295,7 +295,8 @@ struct MovieTrackingCorrespondence *BKE_tracking_correspondence_add(struct ListB
                                                                     struct MovieTrackingTrack *self_track,
                                                                     struct MovieTrackingTrack *other_track,
                                                                     struct MovieClip *self_clip,
-                                                                    struct MovieClip *other_clip);
+                                                                    struct MovieClip *other_clip,
+                                                                    char *error_msg, int error_size);
 void BKE_tracking_multiview_reconstruction_solve(struct MovieMultiviewReconstructContext *context, short *stop, short *do_update,
                                                  float *progress, char *stats_message, int message_size);
 struct MovieMultiviewReconstructContext *BKE_tracking_multiview_reconstruction_context_new(struct MovieClip **clips,
