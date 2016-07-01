@@ -52,6 +52,7 @@
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 
+#include "BKE_global.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_action.h"
 #include "BKE_brush.h"
@@ -1782,17 +1783,35 @@ static void do_weight_paint_vertex(
 static void vertex_paint_init_session(Scene *scene, Object *ob)
 {
 	ob->sculpt = MEM_callocN(sizeof(SculptSession), "sculpt session");
-
-	/* Create maps */
-	Mesh *me = ob->data;
-	ob->sculpt->map_mem = NULL;
-	ob->sculpt->vert_to_loop = NULL;
-	ob->sculpt->poly_map_mem = NULL;
-	ob->sculpt->vert_to_poly = NULL;
-	BKE_mesh_vert_loop_map_create(&ob->sculpt->vert_to_loop, &ob->sculpt->map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
-	BKE_mesh_vert_poly_map_create(&ob->sculpt->vert_to_poly, &ob->sculpt->poly_map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
-
 	BKE_sculpt_update_mesh_elements(scene, scene->toolsettings->sculpt, ob, 0, false);
+}
+
+static void vertex_paint_init_session_maps(Object *ob) {
+  if (G.debug & G_DEBUG)
+    printf("Allocating vert maps\n");
+  /* Create maps */
+  Mesh *me = ob->data;
+  ob->sculpt->map_mem = NULL;
+  ob->sculpt->vert_to_loop = NULL;
+  ob->sculpt->poly_map_mem = NULL;
+  ob->sculpt->vert_to_poly = NULL;
+  BKE_mesh_vert_loop_map_create(&ob->sculpt->vert_to_loop, &ob->sculpt->map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+  BKE_mesh_vert_poly_map_create(&ob->sculpt->vert_to_poly, &ob->sculpt->poly_map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+}
+
+static void vertex_paint_init_session_average_arrays(Object *ob){
+  if (G.debug & G_DEBUG)
+    printf("Allocating average and blur brush arrays\n");
+  /* Create average brush arrays */
+  int totNode = 0;
+  //I think the totNodes might include internal nodes, and we really only need the tot leaves.
+  BKE_pbvh_node_num_nodes(ob->sculpt->pbvh, &totNode);
+  ob->sculpt->totalRed = MEM_callocN(totNode*sizeof(unsigned int), "totalRed");
+  ob->sculpt->totalGreen = MEM_callocN(totNode * sizeof(unsigned int), "totalGreen");
+  ob->sculpt->totalBlue = MEM_callocN(totNode * sizeof(unsigned int), "totalBlue");
+  ob->sculpt->totalAlpha = MEM_callocN(totNode * sizeof(unsigned int), "totalAlpha");
+  ob->sculpt->colorWeight = MEM_callocN(totNode * sizeof(unsigned int), "colorWeight");
+  ob->sculpt->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
 }
 
 /* *************** set wpaint operator ****************** */
@@ -1855,15 +1874,9 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		ED_mesh_mirror_spatial_table(ob, NULL, NULL, NULL, 's');
 		ED_vgroup_sync_from_pose(ob);
 
-		/* Create vertex/weight paint mode session data */
-		if (ob->sculpt)
-			BKE_sculptsession_free(ob);
-
-		vertex_paint_init_session(scene, ob);
 
 		/* Cache needs to be initialized before mesh_build_data is called. */
 		ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
-
 	}
 	
 	/* Weightpaint works by overriding colors in mesh,
@@ -2784,14 +2797,8 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			BKE_mesh_flush_select_from_polys(me);
 		}
 
-		/* If the cache is not released by a cancel or a done, free it now. */
+    /* If the cache is not released by a cancel or a done, free it now. */
 		if (ob->sculpt->cache){
-			MEM_freeN(ob->sculpt->cache->totloopsHit);
-			MEM_freeN(ob->sculpt->cache->totalRed);
-			MEM_freeN(ob->sculpt->cache->totalGreen);
-			MEM_freeN(ob->sculpt->cache->totalBlue);
-			MEM_freeN(ob->sculpt->cache->totalAlpha);
-			MEM_freeN(ob->sculpt->cache->colorWeight);
 			sculpt_cache_free(ob->sculpt->cache);
 			ob->sculpt->cache = NULL;
 		}
@@ -2817,22 +2824,11 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		/* Create vertex/weight paint mode session data */
 		if (ob->sculpt)
 			BKE_sculptsession_free(ob);
-
+    
 		vertex_paint_init_session(scene, ob);
 
 		/* Cache needs to be initialized before mesh_build_data is called. */
-		ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
-
-		Brush *brush = BKE_paint_brush(&vp->paint);
-		int totNode = 0;
-		//I think the totNodes might include internal nodes, and we really only need the tot leaves.
-		BKE_pbvh_node_num_nodes(ob->sculpt->pbvh, &totNode);
-		ob->sculpt->cache->totalRed = MEM_callocN(totNode*sizeof(unsigned int), "totalRed");
-		ob->sculpt->cache->totalGreen = MEM_callocN(totNode * sizeof(unsigned int), "totalGreen");
-		ob->sculpt->cache->totalBlue = MEM_callocN(totNode * sizeof(unsigned int), "totalBlue");
-		ob->sculpt->cache->totalAlpha = MEM_callocN(totNode * sizeof(unsigned int), "totalAlpha");
-		ob->sculpt->cache->colorWeight = MEM_callocN(totNode * sizeof(unsigned int), "colorWeight");
-		ob->sculpt->cache->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
+    ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
 	}
 	
 	/* update modifier stack for mapping requirements */
@@ -2946,6 +2942,16 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	invert_m4_m4(imat, mat);
 	copy_m3_m4(vpd->vpimat, imat);
 
+  /* If not previously created, create vertex/weight paint mode session data */
+  if (!ob->sculpt)
+    vertex_paint_init_session(scene, ob);
+
+  if (!ob->sculpt->vert_to_loop)
+    vertex_paint_init_session_maps(ob);
+
+  if (!ob->sculpt->totloopsHit)
+    vertex_paint_init_session_average_arrays(ob);
+
 	vwpaint_update_cache_invariants(C, vp, ss, op, mouse);
 
 	return 1;
@@ -3030,7 +3036,7 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	unsigned int blend[4] = { 0 };
 	char *col;
 	
-	data->ob->sculpt->cache->totloopsHit[n] = 0;
+	data->ob->sculpt->totloopsHit[n] = 0;
 
 	//for each vertex
 	PBVHVertexIter vd;
@@ -3044,7 +3050,7 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 			if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
 				int vertexIndex = vd.vert_indices[vd.i];
 
-				cache->totloopsHit[n] += ss->vert_to_loop[vertexIndex].count;
+				ss->totloopsHit[n] += ss->vert_to_loop[vertexIndex].count;
 				//if a vertex is within the brush region, then add it's color to the blend.
 				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
 					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
@@ -3058,10 +3064,10 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 		}
 		BKE_pbvh_vertex_iter_end;
 	}
-	data->ob->sculpt->cache->totalRed[n] = blend[0];
-	data->ob->sculpt->cache->totalGreen[n] = blend[1];
-	data->ob->sculpt->cache->totalBlue[n] = blend[2];
-	data->ob->sculpt->cache->totalAlpha[n] = blend[3];
+	data->ob->sculpt->totalRed[n] = blend[0];
+	data->ob->sculpt->totalGreen[n] = blend[1];
+	data->ob->sculpt->totalBlue[n] = blend[2];
+	data->ob->sculpt->totalAlpha[n] = blend[3];
 }
 
 static void do_vpaint_brush_draw_task_cb_ex(
@@ -3069,6 +3075,7 @@ static void do_vpaint_brush_draw_task_cb_ex(
 {
 	SculptThreadedTaskData *data = userdata;
 	SculptSession *ss = data->ob->sculpt;
+
 	Brush *brush = data->brush;
 	StrokeCache *cache = ss->cache;
 	const float bstrength = cache->bstrength;
@@ -3179,11 +3186,11 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **nod
 	unsigned int totalColor[4] = { 0 };
 	unsigned char blend[4] = { 0 };
 	for (int i = 0; i < totnode; ++i) {
-		totalHitLoops += data->ob->sculpt->cache->totloopsHit[i];
-		totalColor[0] += data->ob->sculpt->cache->totalRed[i];
-		totalColor[1] += data->ob->sculpt->cache->totalGreen[i];
-		totalColor[2] += data->ob->sculpt->cache->totalBlue[i];
-		totalColor[3] += data->ob->sculpt->cache->totalAlpha[i];
+		totalHitLoops += data->ob->sculpt->totloopsHit[i];
+		totalColor[0] += data->ob->sculpt->totalRed[i];
+		totalColor[1] += data->ob->sculpt->totalGreen[i];
+		totalColor[2] += data->ob->sculpt->totalBlue[i];
+		totalColor[3] += data->ob->sculpt->totalAlpha[i];
 	}
 	if (totalHitLoops != 0) {
 		blend[0] = divide_round_i(totalColor[0], totalHitLoops);
@@ -3285,8 +3292,6 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	if (vpd->mlooptag)
 		memset(vpd->mlooptag, 0, sizeof(bool) * me->totloop);
 
-	
-
 	SculptSession *ss = ob->sculpt;
 	SculptSearchSphereData data;
 	PBVHNode **nodes = NULL;
@@ -3352,6 +3357,9 @@ static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 	DAG_id_tag_update(&me->id, 0);
 
 	MEM_freeN(vpd);
+
+  sculpt_cache_free(ob->sculpt->cache);
+  ob->sculpt->cache = NULL;
 }
 
 static int vpaint_invoke(bContext *C, wmOperator *op, const wmEvent *event)

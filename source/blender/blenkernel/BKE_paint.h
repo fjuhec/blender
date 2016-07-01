@@ -204,6 +204,13 @@ typedef struct SculptSession {
 	MeshElemMap* vert_to_loop;
 	int *poly_map_mem;
 	MeshElemMap* vert_to_poly;
+
+  unsigned int* totalRed;
+  unsigned int* totalGreen;
+  unsigned int* totalBlue;
+  unsigned int* totalAlpha;
+  unsigned int* colorWeight;
+  unsigned int *totloopsHit;
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);

@@ -719,6 +719,20 @@ void BKE_sculptsession_free(Object *ob)
 		if (ss->poly_map_mem)
 			MEM_freeN(ss->poly_map_mem);
 
+    /* Free average brush arrays */
+    if (ob->sculpt->totloopsHit)
+    MEM_freeN(ob->sculpt->totloopsHit);
+    if (ob->sculpt->totalRed)
+      MEM_freeN(ob->sculpt->totalRed);
+    if (ob->sculpt->totalGreen)
+      MEM_freeN(ob->sculpt->totalGreen);
+    if (ob->sculpt->totalBlue)
+      MEM_freeN(ob->sculpt->totalBlue);
+    if (ob->sculpt->totalAlpha)
+      MEM_freeN(ob->sculpt->totalAlpha);
+    if (ob->sculpt->colorWeight)
+      MEM_freeN(ob->sculpt->colorWeight);
+
 		MEM_freeN(ss);
 
 		ob->sculpt = NULL;

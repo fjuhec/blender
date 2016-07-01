@@ -315,13 +315,6 @@ typedef struct StrokeCache {
 	rcti previous_r; /* previous redraw rectangle */
 	rcti current_r; /* current redraw rectangle */
 
-	unsigned int* totalRed;
-	unsigned int* totalGreen;
-	unsigned int* totalBlue;
-	unsigned int* totalAlpha;
-	unsigned int* colorWeight;
-	unsigned int *totloopsHit;
-
 } StrokeCache;
 void sculpt_cache_free(StrokeCache *cache);
 
