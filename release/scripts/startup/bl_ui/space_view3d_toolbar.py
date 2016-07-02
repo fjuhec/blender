@@ -1739,7 +1739,6 @@ class VIEW3D_PT_tools_weightpaint_options(Panel, View3DPaintPanel):
 
 # ********** default tools for vertex-paint ****************
 
-
 class VIEW3D_PT_tools_vertexpaint(Panel, View3DPaintPanel):
     bl_category = "Options"
     bl_context = "vertexpaint"
@@ -1758,7 +1757,27 @@ class VIEW3D_PT_tools_vertexpaint(Panel, View3DPaintPanel):
         col.prop(vpaint, "use_spray")
 
         self.unified_paint_settings(col, context)
+        
+class VIEW3D_PT_vertexpaint_symmetry(Panel, View3DPaintPanel):
+    bl_category = "Tools"
+    bl_context = "vertexpaint"
+    bl_options = {'DEFAULT_CLOSED'}
+    bl_label = "Symmetry / Lock"
+    
+    def draw(self, context):
+        layout = self.layout
+        toolsettings = context.tool_settings
+        vpaint = toolsettings.vertex_paint
 
+        col = layout.column(align=True)
+        col.label(text="Mirror:")
+        row = col.row(align=True)
+        
+        row.prop(vpaint, "use_symmetry_x", text="X", toggle=True)
+        row.prop(vpaint, "use_symmetry_y", text="Y", toggle=True)
+        row.prop(vpaint, "use_symmetry_z", text="Z", toggle=True)
+        
+        layout.column().prop(vpaint, "radial_symmetry", text="Radial")
 # Commented out because the Apply button isn't an operator yet, making these settings useless
 #~         col.label(text="Gamma:")
 #~         col.prop(vpaint, "gamma", text="")

@@ -2816,7 +2816,7 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		if (vp == NULL)
 			vp = scene->toolsettings->vpaint = new_vpaint(0);
-		
+    vp->radial_symm[0] = vp->radial_symm[1] = vp->radial_symm[2] = 1;
 		paint_cursor_start(C, vertex_paint_poll);
 
 		BKE_paint_init(scene, ePaintVertex, PAINT_CURSOR_VERTEX_PAINT);
@@ -3235,6 +3235,107 @@ static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object 
 
 }
 
+/* Flip all the editdata across the axis/axes specified by symm. Used to
+* calculate multiple modifications to the mesh when symmetry is enabled. */
+static void calc_brushdata_symm(VPaint *vd, StrokeCache *cache, const char symm,
+  const char axis, const float angle)
+{
+  (void)vd; /* unused */
+
+  flip_v3_v3(cache->location, cache->true_location, symm);
+  flip_v3_v3(cache->grab_delta_symmetry, cache->grab_delta, symm);
+  flip_v3_v3(cache->view_normal, cache->true_view_normal, symm);
+
+  /* XXX This reduces the length of the grab delta if it approaches the line of symmetry
+  * XXX However, a different approach appears to be needed */
+#if 0
+  if (sd->paint.symmetry_flags & SCULPT_SYMMETRY_FEATHER) {
+    float frac = 1.0f / max_overlap_count(sd);
+    float reduce = (feather - frac) / (1 - frac);
+
+    printf("feather: %f frac: %f reduce: %f\n", feather, frac, reduce);
+
+    if (frac < 1)
+      mul_v3_fl(cache->grab_delta_symmetry, reduce);
+  }
+#endif
+
+  unit_m4(cache->symm_rot_mat);
+  unit_m4(cache->symm_rot_mat_inv);
+  zero_v3(cache->plane_offset);
+
+  if (axis) { /* expects XYZ */
+    rotate_m4(cache->symm_rot_mat, axis, angle);
+    rotate_m4(cache->symm_rot_mat_inv, axis, -angle);
+  }
+  
+  mul_m4_v3(cache->symm_rot_mat, cache->location);
+  mul_m4_v3(cache->symm_rot_mat, cache->grab_delta_symmetry);
+
+  if (cache->supports_gravity) {
+    flip_v3_v3(cache->gravity_direction, cache->true_gravity_direction, symm);
+    mul_m4_v3(cache->symm_rot_mat, cache->gravity_direction);
+  }
+
+  if (cache->is_rake_rotation_valid) {
+    flip_qt_qt(cache->rake_rotation_symmetry, cache->rake_rotation, symm);
+  }
+}
+
+static void do_radial_symmetry(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, Brush *brush, const char symm, const int axis)
+{
+  SculptSession *ss = ob->sculpt;
+  int i;
+
+  for (i = 1; i < vd->radial_symm[axis - 'X']; ++i) {
+    const float angle = (2.0 * M_PI) * i / vd->radial_symm[axis - 'X'];
+    ss->cache->radial_symmetry_pass = i;
+    calc_brushdata_symm(vd, ss->cache, symm, axis, angle);
+//    do_tiled(sd, ob, brush, ups, action);
+    SculptSearchSphereData data;
+    PBVHNode **nodes = NULL;
+    int totnode;
+
+    /* Build a list of all nodes that are potentially within the brush's area of influence */
+    data.ss = ss;
+    data.sd = sd;
+    data.radius_squared = ss->cache->radius_squared;
+    data.original = true;
+    BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+
+    //Paint those leaves.
+    vpaint_paint_leaves(sd, vd, vpd, ob, me, nodes, totnode);
+
+    if (nodes)
+      MEM_freeN(nodes);
+  }
+}
+
+static void do_symmetrical_brush_actions(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob)
+{
+  Brush *brush = BKE_paint_brush(&vd->paint);
+  Mesh *me = ob->data;
+  SculptSession *ss = ob->sculpt;
+  StrokeCache *cache = ss->cache;
+  const char symm = vd->paint.symmetry_flags & PAINT_SYMM_AXIS_ALL;
+  int i;
+
+  cache->symmetry = symm;
+
+  /* symm is a bit combination of XYZ - 1 is mirror X; 2 is Y; 3 is XY; 4 is Z; 5 is XZ; 6 is YZ; 7 is XYZ */
+  for (i = 0; i <= symm; ++i) {
+    if (i == 0 || (symm & i && (symm != 5 || i != 3) && (symm != 6 || (i != 3 && i != 5)))) {
+      cache->mirror_symmetry_pass = i;
+      cache->radial_symmetry_pass = 0;
+
+      calc_brushdata_symm(vd, cache, i, 0, 0);
+
+      do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'X');
+      do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Y');
+      do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Z');
+    }
+  }
+}
 static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)
 {
 	Scene *scene = CTX_data_scene(C);
@@ -3292,33 +3393,34 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	if (vpd->mlooptag)
 		memset(vpd->mlooptag, 0, sizeof(bool) * me->totloop);
 
-	SculptSession *ss = ob->sculpt;
-	SculptSearchSphereData data;
-	PBVHNode **nodes = NULL;
-	int totnode;
+	// Paint happens here.
+  SculptSession *ss = ob->sculpt;
+  copy_v3_v3(ss->cache->location, ss->cache->true_location);
+  SculptSearchSphereData data;
+  PBVHNode **nodes = NULL;
+  int totnode;
 
-	/* Build a list of all nodes that are potentially within the brush's area of influence */
-	data.ss = ss;
-	data.sd = sd;
-	data.radius_squared = ss->cache->radius_squared;
-	data.original = true;
-	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
-	//Paint those leaves.
-	//ss->cache->brush = brush;
-	vpaint_paint_leaves(sd, vp, vpd, ob, me, nodes, totnode);
+  /* Build a list of all nodes that are potentially within the brush's area of influence */
+  data.ss = ss;
+  data.sd = sd;
+  data.radius_squared = ss->cache->radius_squared;
+  data.original = true;
+  BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+
+  //Paint those leaves.
+  vpaint_paint_leaves(sd, vp, vpd, ob, me, nodes, totnode);
+
+  if (nodes)
+    MEM_freeN(nodes);
+
+  do_symmetrical_brush_actions(sd, vp, vpd, ob);
 
 	swap_m4m4(vc->rv3d->persmat, mat);
 
-	/* was disabled because it is slow, but necessary for blur */
-	/*if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-		do_shared_vertexcol(me, vpd->mlooptag);
-	}*/
-
-	/* calculate pivot for rotation around seletion if needed */
-	if (U.uiflag & USER_ORBIT_SELECTION) {
-		paint_last_stroke_update(scene, vc->ar, mval);
-	}
-
+	///* calculate pivot for rotation around seletion if needed */
+	//if (U.uiflag & USER_ORBIT_SELECTION) {
+	//	paint_last_stroke_update(scene, vc->ar, mval);
+	//}
 
 	ED_region_tag_redraw(vc->ar);
 
@@ -3331,8 +3433,6 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		/* If using new VBO drawing, mark mcol as dirty to force colors gpu buffer refresh! */
 		ob->derivedFinal->dirty |= DM_DIRTY_MCOL_UPDATE_DRAW;
 	}
-	if (nodes)
-		MEM_freeN(nodes);
 
 }
 
