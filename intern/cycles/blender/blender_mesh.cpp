@@ -783,7 +783,7 @@ static void create_subd_mesh(Scene *scene,
 
 	mesh->subd_creases.resize(num_creases);
 
-	Mesh::SubdEdgeCrease* crease = &mesh->subd_creases[0];
+	Mesh::SubdEdgeCrease* crease = mesh->subd_creases.data();
 	for(b_mesh.edges.begin(e); e != b_mesh.edges.end(); ++e) {
 		if(e->crease() != 0.0f) {
 			crease->v[0] = e->vertices()[0];
