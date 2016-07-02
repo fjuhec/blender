@@ -3287,7 +3287,7 @@ static void do_radial_symmetry(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *
   SculptSession *ss = ob->sculpt;
   int i;
 
-  for (i = 1; i < vd->radial_symm[axis - 'X']; ++i) {
+  for (i = 0; i < vd->radial_symm[axis - 'X']; ++i) {
     const float angle = (2.0 * M_PI) * i / vd->radial_symm[axis - 'X'];
     ss->cache->radial_symmetry_pass = i;
     calc_brushdata_symm(vd, ss->cache, symm, axis, angle);
@@ -3331,8 +3331,10 @@ static void do_symmetrical_brush_actions(Sculpt *sd, VPaint *vd, VPaintData *vpd
       calc_brushdata_symm(vd, cache, i, 0, 0);
 
       do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'X');
-      do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Y');
-      do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Z');
+      if (i != 0) {
+        do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Y');
+        do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Z');
+      }
     }
   }
 }
@@ -3394,24 +3396,24 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		memset(vpd->mlooptag, 0, sizeof(bool) * me->totloop);
 
 	// Paint happens here.
-  SculptSession *ss = ob->sculpt;
-  copy_v3_v3(ss->cache->location, ss->cache->true_location);
-  SculptSearchSphereData data;
-  PBVHNode **nodes = NULL;
-  int totnode;
+  //SculptSession *ss = ob->sculpt;
+  //copy_v3_v3(ss->cache->location, ss->cache->true_location);
+  //SculptSearchSphereData data;
+  //PBVHNode **nodes = NULL;
+  //int totnode;
 
-  /* Build a list of all nodes that are potentially within the brush's area of influence */
-  data.ss = ss;
-  data.sd = sd;
-  data.radius_squared = ss->cache->radius_squared;
-  data.original = true;
-  BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+  ///* Build a list of all nodes that are potentially within the brush's area of influence */
+  //data.ss = ss;
+  //data.sd = sd;
+  //data.radius_squared = ss->cache->radius_squared;
+  //data.original = true;
+  //BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
 
-  //Paint those leaves.
-  vpaint_paint_leaves(sd, vp, vpd, ob, me, nodes, totnode);
+  ////Paint those leaves.
+  //vpaint_paint_leaves(sd, vp, vpd, ob, me, nodes, totnode);
 
-  if (nodes)
-    MEM_freeN(nodes);
+  //if (nodes)
+  //  MEM_freeN(nodes);
 
   do_symmetrical_brush_actions(sd, vp, vpd, ob);
 
