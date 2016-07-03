@@ -359,7 +359,7 @@ void BKE_layeritem_move(LayerTreeItem *litem, const int newidx, const bool with_
 		BLI_insertlinkbefore(moved->parent ? &moved->parent->childs : &litem->tree->items, moved, litem);
 	}
 
-	/* move in array (return if failed) */
+	/* move in array */
 	layeritem_move_array(litem, newidx, tot_childs + 1);
 }
 
