@@ -1658,7 +1658,7 @@ static bool get_new_constraint_target(bContext *C, int con_type, Object **tar_ob
 					break;
 				}
 				else if (((!only_curve) || (ob->type == OB_CURVE)) &&
-			             ((!only_mesh) || (ob->type == OB_MESH)))
+				         ((!only_mesh) || (ob->type == OB_MESH)))
 				{
 					/* set target */
 					*tar_ob = ob;
