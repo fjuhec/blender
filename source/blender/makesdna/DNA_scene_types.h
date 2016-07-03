@@ -89,7 +89,10 @@ typedef struct LayerTree {
 	/* LayerTreeItem - Only items of the first level in the hierarchy, these may have children then.
 	 * TODO check if worth using array instead */
 	ListBase items;
-	/* Array of all layer tree items, including all childs. Using array in hope it speeds up iterations. */
+	/* Array of all layer tree items, including all childs. Using array in hope it speeds up iterations.
+	 * NOTE: We currently assume that all children (or grand-children, etc) are placed after their parent, even though
+	 * it's quite easy to break it. It could be supported but might lower performance a bit (maybe uber-picky).
+	 * XXX Check if this can be made safer */
 	struct LayerTreeItem **items_all;
 } LayerTree;
 
@@ -105,7 +108,7 @@ typedef struct LayerTreeItem {
 	int index, pad; /* index of the item - stored to avoid loockups */
 	char name[64];  /* MAX_NAME */
 
-	struct LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
+	LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
 	struct LayerTreeItem *parent; /* the group this item belongs to */
 	ListBase childs; /* LayerTreeItem */
 

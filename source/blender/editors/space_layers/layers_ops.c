@@ -86,6 +86,7 @@ typedef struct {
 	int init_mval_y;
 	bool is_dragging;
 	bool is_cancel;
+	bool needs_reopen;
 
 	/* anim data */
 	wmTimer *anim_timer;
@@ -254,7 +255,8 @@ static int layer_group_add_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
 		LayerTile *tile = BLI_ghash_lookup(slayer->tiles, litem);
 		if (tile->flag & LAYERTILE_SELECTED) {
 			if (is_first) {
-				BKE_layeritem_move(new_group, litem->index);
+				BLI_assert(BLI_listbase_is_empty(&new_group->childs));
+				BKE_layeritem_move(new_group, litem->index, false);
 				is_first = false;
 			}
 			BKE_layeritem_group_assign(new_group, litem);
@@ -438,8 +440,11 @@ static int layer_drag_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			case LAYERDRAG_CONFIRM:
 				ldrag->is_dragging = false;
 				layer_drag_drop_anim_start(C, ldrag, event);
+				if (ldrag->needs_reopen) {
+					ldrag->dragged.tile->flag &= ~LAYERTILE_CLOSED;
+				}
 				/* apply new position before animation is done */
-				BKE_layeritem_move(ldrag->dragged.tile->litem, ldrag->insert_idx);
+				BKE_layeritem_move(ldrag->dragged.tile->litem, ldrag->insert_idx, true);
 				if (ldrag->insert_idx != ldrag->dragged.tile->litem->index) {
 					WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
 				}
@@ -481,6 +486,10 @@ static int layer_drag_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 	op->customdata = ldrag;
 	tile->flag |= LAYERTILE_FLOATING;
+	if (!BLI_listbase_is_empty(&tile->litem->childs) && !(tile->flag & LAYERTILE_CLOSED)) {
+		tile->flag |= LAYERTILE_CLOSED;
+		ldrag->needs_reopen = true;
+	}
 
 	WM_event_add_modal_handler(C, op);
 

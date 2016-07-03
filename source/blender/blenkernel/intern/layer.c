@@ -32,12 +32,14 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "BKE_context.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h" /* own include */
 #include "BKE_object.h"
 
+#include "BLI_alloca.h"
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 
@@ -275,41 +277,76 @@ void BKE_layeritem_remove(LayerTreeItem *litem, const bool remove_children)
 	ltree->items_all = MEM_reallocN(ltree->items_all, sizeof(*ltree->items_all) * ltree->tot_items);
 }
 
-static bool layeritem_move_array(LayerTreeItem *litem, const int newidx)
+/* XXX newidx isn't always the index the items are inserted at. */
+static void layeritem_move_array(LayerTreeItem *litem, const int newidx, const int num_items)
 {
-	const bool is_higher = litem->index < newidx;
+	LayerTree *ltree = litem->tree;
+	const int oldidx = litem->index;
+	const bool is_higher = oldidx < newidx;
+	const int insertidx = is_higher ? newidx - num_items + 1 : newidx;
 
-	BLI_assert(litem->tree->tot_items > newidx);
+	BLI_assert(num_items > 0 && ltree->tot_items > (insertidx + num_items - 1));
 	/* Already where we want to move it to. */
-	if (litem->index == newidx)
-		return false;
+	if (oldidx == newidx)
+		return;
 
-	for (int i = is_higher ? litem->index + 1 : litem->index - 1;
-	     i < litem->tree->tot_items && i >= 0;
+	/* Save items to be moved */
+	LayerTreeItem **movechunk = &litem;
+	if (num_items > 1) {
+		movechunk = BLI_array_alloca(movechunk, num_items);
+//		memcpy(movechunk, ltree->items_all[oldidx], sizeof(*ltree->items_all) * num_items); XXX doesn't work
+		for (int i = 0; i < num_items; i++) {
+			movechunk[i] = ltree->items_all[oldidx + i];
+		}
+	}
+	BLI_assert(movechunk[0] == litem);
+
+	/* rearrange items to fill in gaps of items to be moved */
+	for (int i = is_higher ? oldidx + num_items : oldidx - 1;
+	     i < ltree->tot_items && i >= 0;
 	     is_higher ? i++ : i--)
 	{
-		const int iter_new_idx = i + (is_higher ? -1 : 1);
-		litem->tree->items_all[iter_new_idx] = litem->tree->items_all[i];
-		litem->tree->items_all[iter_new_idx]->index = iter_new_idx;
+		const int iter_new_idx = i + (is_higher ? -num_items : num_items);
+		ltree->items_all[iter_new_idx] = ltree->items_all[i];
+		ltree->items_all[iter_new_idx]->index = iter_new_idx;
 		if (i == newidx) {
-			litem->tree->items_all[i] = litem;
-			litem->index = i;
 			break;
 		}
 	}
+	/* move items to new position starting at newidx */
+	for (int i = 0; i < num_items; i++) {
+		ltree->items_all[insertidx + i] = movechunk[i];
+		ltree->items_all[insertidx + i]->index = insertidx + i;
+	}
+	/* TODO can check using gtest */
+	BLI_assert(ltree->items_all[insertidx] == litem && litem->index == insertidx);
+}
 
-	return true;
+/**
+ * Helper to count all children (and grand-children etc.) of a layer item.
+ * \note Recursive.
+ */
+static unsigned int layeritem_childs_count(ListBase *childs)
+{
+	int i = 0;
+	for (LayerTreeItem *child = childs->first; child; child = child->next, i++) {
+		if (!BLI_listbase_is_empty(&child->childs)) {
+			i += layeritem_childs_count(&child->childs);
+		}
+	}
+	return i;
 }
 
 /**
  * Move \a litem that's already in the layer tree to slot \a newidx.
  */
-void BKE_layeritem_move(LayerTreeItem *litem, const int newidx)
+void BKE_layeritem_move(LayerTreeItem *litem, const int newidx, const bool with_childs)
 {
-	/* move in array (return if failed) */
-	if (!layeritem_move_array(litem, newidx)) {
+	const int tot_childs = with_childs ? layeritem_childs_count(&litem->childs) : 0;
+
+	/* Already where we want to move it to. */
+	if (litem->index == newidx)
 		return;
-	}
 
 	/* move in listbase */
 	BLI_remlink(litem->parent ? &litem->parent->childs : &litem->tree->items, litem);
@@ -321,6 +358,9 @@ void BKE_layeritem_move(LayerTreeItem *litem, const int newidx)
 		LayerTreeItem *moved = litem->tree->items_all[newidx + 1];
 		BLI_insertlinkbefore(moved->parent ? &moved->parent->childs : &litem->tree->items, moved, litem);
 	}
+
+	/* move in array (return if failed) */
+	layeritem_move_array(litem, newidx, tot_childs + 1);
 }
 
 /**
@@ -339,7 +379,7 @@ void BKE_layeritem_group_assign(LayerTreeItem *group, LayerTreeItem *item)
 	BLI_addtail(&group->childs, item);
 	/* move in array */
 	/* XXX we could/should limit iterations to one in case multiple elmenents are assigned to a group */
-	layeritem_move_array(item, (item->prev ? item->prev->index : item->parent->index) + 1);
+	layeritem_move_array(item, (item->prev ? item->prev->index : item->parent->index) + 1, 1);
 }
 
 /**
