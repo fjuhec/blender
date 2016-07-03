@@ -33,6 +33,7 @@
 #include <stdio.h>
 
 #include "DNA_anim_types.h"
+#include "DNA_group_types.h"
 #include "DNA_scene_types.h"
 
 #include "MEM_guardedalloc.h"
@@ -642,6 +643,51 @@ static void graph_refresh(const bContext *C, ScrArea *sa)
 					}
 					break;
 				}
+				case FCURVE_COLOR_AUTO_YRGB:
+				{
+					/* Like FCURVE_COLOR_AUTO_RGB, except this is for quaternions... */
+					float *col = fcu->color;
+					
+					switch (fcu->array_index) {
+						case 1:
+							UI_GetThemeColor3fv(TH_AXIS_X, col);
+							break;
+						case 2:
+							UI_GetThemeColor3fv(TH_AXIS_Y, col);
+							break;
+						case 3:
+							UI_GetThemeColor3fv(TH_AXIS_Z, col);
+							break;
+						
+						case 0:
+						{
+							/* Special Case: "W" channel should be yellowish, so blend X and Y channel colors... */
+							float c1[3], c2[3];
+							float h1[3], h2[3];
+							float hresult[3];
+							
+							/* - get colors (rgb) */
+							UI_GetThemeColor3fv(TH_AXIS_X, c1);
+							UI_GetThemeColor3fv(TH_AXIS_Y, c2);
+							
+							/* - perform blending in HSV space (to keep brightness similar) */
+							rgb_to_hsv_v(c1, h1);
+							rgb_to_hsv_v(c2, h2);
+							
+							interp_v3_v3v3(hresult, h1, h2, 0.5f);
+							
+							/* - convert back to RGB for display */
+							hsv_to_rgb_v(hresult, col);
+							break;
+						}
+						
+						default:
+							/* 'unknown' color - bluish so as to not conflict with handles */
+							col[0] = 0.3f; col[1] = 0.8f; col[2] = 1.0f;
+							break;
+					}
+					break;
+				}
 				case FCURVE_COLOR_AUTO_RAINBOW:
 				default:
 				{
@@ -668,6 +714,19 @@ static void graph_widgets(void)
 	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
 }
 
+static void graph_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID *new_id)
+{
+	SpaceIpo *sgraph = (SpaceIpo *)slink;
+
+	if (!ELEM(GS(old_id->name), ID_GR)) {
+		return;
+	}
+
+	if ((ID *)sgraph->ads->filter_grp == old_id) {
+		sgraph->ads->filter_grp = (Group *)new_id;
+	}
+}
+
 /* only called once, from space/spacetypes.c */
 void ED_spacetype_ipo(void)
 {
@@ -686,7 +745,8 @@ void ED_spacetype_ipo(void)
 	st->listener = graph_listener;
 	st->refresh = graph_refresh;
 	st->widgets = graph_widgets;
-	
+	st->id_remap = graph_id_remap;
+
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype graphedit region");
 	art->regionid = RGN_TYPE_WINDOW;

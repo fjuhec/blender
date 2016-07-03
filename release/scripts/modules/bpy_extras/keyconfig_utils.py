@@ -109,7 +109,9 @@ KM_HIERARCHY = [
         ('Graph Editor Generic', 'GRAPH_EDITOR', 'WINDOW', []),
         KM_WIDGETS_HIERARCHY[1]
         ]),
-    ('Dopesheet', 'DOPESHEET_EDITOR', 'WINDOW', []),
+    ('Dopesheet', 'DOPESHEET_EDITOR', 'WINDOW', [
+        ('Dopesheet Generic', 'DOPESHEET_EDITOR', 'WINDOW', []),
+        ]),
     ('NLA Editor', 'NLA_EDITOR', 'WINDOW', [
         ('NLA Channels', 'NLA_EDITOR', 'WINDOW', []),
         ('NLA Generic', 'NLA_EDITOR', 'WINDOW', []),

@@ -32,6 +32,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "DNA_gpencil_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_mask_types.h"
 
@@ -41,6 +42,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_library.h"
 #include "BKE_screen.h"
 #include "BKE_sequencer.h"
 #include "BKE_global.h"
@@ -707,7 +709,20 @@ static void sequencer_buttons_region_listener(bScreen *UNUSED(sc), ScrArea *UNUS
 	}
 }
 
-/* ************************************* */
+static void sequencer_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID *new_id)
+{
+	SpaceSeq *sseq = (SpaceSeq *)slink;
+
+	if (!ELEM(GS(old_id->name), ID_GD)) {
+		return;
+	}
+
+	if ((ID *)sseq->gpd == old_id) {
+		sseq->gpd = (bGPdata *)new_id;
+		id_us_min(old_id);
+		id_us_plus(new_id);
+	}
+}
 
 static void sequencer_widgets(void)
 {
@@ -718,6 +733,7 @@ static void sequencer_widgets(void)
 	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, false});
 }
 
+/* ************************************* */
 
 /* only called once, from space/spacetypes.c */
 void ED_spacetype_sequencer(void)
@@ -739,6 +755,7 @@ void ED_spacetype_sequencer(void)
 	st->refresh = sequencer_refresh;
 	st->listener = sequencer_listener;
 	st->widgets = sequencer_widgets;
+	st->id_remap = sequencer_id_remap;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype sequencer region");
