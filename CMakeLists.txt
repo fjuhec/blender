@@ -328,7 +328,7 @@ option(WITH_ALEMBIC             "Enable Alembic Support" OFF)
 option(WITH_ALEMBIC_HDF5        "Enable Legacy Alembic Support" OFF)
 
 # alembic
-if(WITH_ALEMBIC)
+if(WITH_ALEMBIC AND NOT APPLE) # LIBDIR not yet set, so cannot set root dirs for lookup !
 	find_package(Alembic)
 
 	if(WITH_ALEMBIC_HDF5)
@@ -2059,6 +2059,20 @@ elseif(APPLE)
 			set(OPENAL_INCLUDE_DIR "${LIBDIR}/openal/include")
 		else()
 			set(WITH_OPENAL OFF)
+		endif()
+	endif()
+
+	if(WITH_ALEMBIC)
+		set(ALEMBIC_ROOT_DIR ${LIBDIR}/alembic)
+		find_package(Alembic)
+		if(WITH_ALEMBIC_HDF5)
+			set(HDF5_ROOT_DIR ${LIBDIR}/hdf5)
+			find_package(HDF5)
+		endif()
+
+		if(NOT ALEMBIC_FOUND OR (WITH_ALEMBIC_HDF5 AND NOT HDF5_FOUND))
+			set(WITH_ALEMBIC OFF)
+			set(WITH_ALEMBIC_HDF5 OFF)
 		endif()
 	endif()
 
