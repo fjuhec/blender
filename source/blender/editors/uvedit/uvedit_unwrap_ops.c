@@ -750,6 +750,17 @@ bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm, bool to
 	return path_found; 
 }
 
+/* ******************** Select Overlapping UVs operator **************** */
+void ED_uvedit_overlapping_select(Scene *scene, Object *ob, BMesh *bm, const bool extend)
+{
+	ParamHandle *handle;
+	int hparams = set_handle_params(true, false, false, true, true);
+	handle = construct_param_handle(scene, ob, bm, hparams);
+	param_select_overlapping(handle, extend);
+	param_flush(handle);
+	param_delete(handle);
+}
+
 /* ******************** Scale To Bounds operator **************** */
 void ED_uvedit_scale_to_bounds(Scene *scene, Object *ob, BMesh *bm)
 {

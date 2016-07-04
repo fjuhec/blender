@@ -126,6 +126,12 @@ class IMAGE_MT_view(Menu):
         layout.operator("screen.screen_full_area")
         layout.operator("screen.screen_full_area", text="Toggle Fullscreen Area").use_hide_panels = True
 
+class IMAGE_MT_uvs_select_by_trait(Menu):
+    bl_label = "Select All by Trait"
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("uv.select_overlapping")
 
 class IMAGE_MT_select(Menu):
     bl_label = "Select"
@@ -148,6 +154,8 @@ class IMAGE_MT_select(Menu):
         layout.operator("uv.select_linked").extend = False
         layout.operator("uv.select_shortest_path")
 
+        layout.separator()
+        layout.menu("IMAGE_MT_uvs_select_by_trait")
         layout.separator()
 
         layout.operator("uv.select_less", text="Less")

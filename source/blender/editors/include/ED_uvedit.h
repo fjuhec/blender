@@ -108,6 +108,9 @@ void ED_uvedit_unwrap_cube_project(struct Object *ob, struct BMesh *bm, float cu
 /* single call up unwrap using scene settings, used for edge tag unwrapping */
 void ED_unwrap_lscm(struct Scene *scene, struct Object *obedit, const short sel);
 
+/* select by trait */
+void ED_uvedit_overlapping_select(struct Scene *scene, struct OBject *ob, struct BMesh *bm, const bool extend);
+
 /* select shortest path */
 bool ED_uvedit_shortest_path_select(struct Scene *scene, struct Object *ob, struct BMesh *bm, bool topo_dist);
 

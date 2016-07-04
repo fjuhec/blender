@@ -4288,6 +4288,38 @@ static void UV_OT_select_mesh(wmOperatorType *ot)
 	ot->poll = ED_operator_uvedit;
 }
 
+/******************** select overlapping operator ********************/
+
+static int UV_OT_select_overlapping_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	Scene *scene = CTX_data_scene(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
+
+	const bool extend = RNA_boolean_get(op->ptr, "extend");
+
+	ED_uvedit_overlapping_select(scene, obedit, bm, extend);
+
+	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
+
+	return OPERATOR_FINISHED;
+}
+static void UV_OT_select_overlapping(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Select Overlapping UVs";
+	ot->description = "Select all overlapping UV islands";
+	ot->idname = "UV_OT_select_overlapping";
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* api callbacks */
+	ot->exec = UV_OT_select_overlapping_exec;
+	ot->poll = ED_operator_uvedit;
+
+	RNA_def_boolean(ot->srna, "extend", 0, "Extend", "Extend current selection");
+}
+
 /******************** set 3d cursor operator ********************/
 
 static int uv_set_2d_cursor_poll(bContext *C)
@@ -4645,6 +4677,7 @@ void ED_operatortypes_uvedit(void)
 	WM_operatortype_append(UV_OT_select_more);
 	WM_operatortype_append(UV_OT_select_less);
 	WM_operatortype_append(UV_OT_select_shortest_path);
+	WM_operatortype_append(UV_OT_select_overlapping);
 
 	WM_operatortype_append(UV_OT_snap_cursor);
 	WM_operatortype_append(UV_OT_snap_selected);

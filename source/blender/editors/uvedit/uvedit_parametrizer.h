@@ -124,6 +124,10 @@ void param_scale_bounds(ParamHandle *handle);
 
 void param_shortest_path(ParamHandle *handle, bool *p_found, bool topological_distance);
 
+/* Select Overlapping */
+
+void param_select_overlapping(ParamHandle *handle, bool extend);
+
 /* Flushing */
 
 void param_flush(ParamHandle *handle);

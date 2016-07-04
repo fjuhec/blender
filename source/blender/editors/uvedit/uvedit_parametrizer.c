@@ -621,6 +621,18 @@ static PBool p_intersect_line_segments_2d(float *a, float *b, float *c, float *d
 	return P_FALSE;
 }
 
+bool p_rect_intersect(float min1[2], float max1[2], float min2[2], float max2[2])
+{
+	if (min1[0] > max2[0] ||
+		max1[0] < min2[0] ||
+		min1[1] > max2[1] ||
+		max1[1] < min2[1]) {
+		return false;
+	}
+
+	return true;
+}
+
 /* Topological Utilities */
 
 static PEdge *p_wheel_edge_next(PEdge *e)
@@ -760,6 +772,12 @@ static void p_flush_uvs(PHandle *handle, PChart *chart)
 			sel_flag |= MLOOPEDGE_SELECTED;/* MLOOPUV_EDGESEL*/
 			sel_flag |= MLOOPVERT_SELECTED; /* MLOOPUV_VERTSEL*/
 			*(e->orig_flag) = sel_flag; 
+		}
+		else {
+			sel_flag = *e->orig_flag;
+			sel_flag &= ~MLOOPEDGE_SELECTED;/* MLOOPUV_EDGESEL*/
+			sel_flag &= ~MLOOPVERT_SELECTED; /* MLOOPUV_VERTSEL*/
+			*(e->orig_flag) = sel_flag;
 		}
 	}
 }
@@ -1465,6 +1483,46 @@ static void p_chart_fill_boundaries(PChart *chart, PEdge *outer)
 
 		if (e != outer)
 			p_chart_fill_boundary(chart, e, nedges);
+	}
+}
+
+static bool p_charts_intersect(PChart* a, PChart *b)
+{
+	PEdge *e1, *e2;
+	float min1[2], min2[2], max1[2], max2[2];
+
+	/* Check for overlapping bounding rectangles */
+	p_chart_uv_bbox(a, min1, max1);
+	p_chart_uv_bbox(b, min2, max2);
+
+	if (!p_rect_intersect(min1, max1, min2, max2)) {
+		return false;
+	}
+
+	/* Check edges for intersections */
+	for (e1 = a->edges; e1; e1 = e1->nextlink) {
+		for (e2 = b->edges; e2; e2 = e2->nextlink) {
+			if (p_intersect_line_segaments_2d(e1->vert->uv,
+											 e1->nextlink->vert->uv,
+											 e2->vert->uv,
+											 e2->nextlink->vert->uv)) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+static void p_chart_select(PChart *chart, bool select)
+{
+	PEdge *e;
+
+	for (e = chart->edges; e; e = e->nextlink) {
+		if (select)
+			e->flag |= PEDGE_SELECT;
+		else
+			e->flag &= ~PEDGE_SELECT;
 	}
 }
 
@@ -4730,10 +4788,7 @@ void p_convex_hull_delete(PConvexHull *c_hull)
 bool p_convex_hull_intersect(PConvexHull *chull_a, PConvexHull *chull_b)
 {
 	/* Preliminary bounds check */
-	if (chull_a->min_v[0] > chull_b->max_v[0] ||
-		chull_a->max_v[0] < chull_b->min_v[0] ||
-		chull_a->min_v[1] > chull_b->max_v[1] ||
-		chull_a->max_v[1] < chull_b->min_v[1]) {
+	if (!p_rect_intersect(chull_a->min_v, chull_a->max_v, chull_b->min_v, chull_b->max_v)) {
 		return false;
 	}
 	
@@ -5334,6 +5389,36 @@ void param_shortest_path(ParamHandle *handle, bool *p_found, bool topological_di
 	}
 
 	*p_found = success;
+}
+
+void param_select_overlapping(ParamHandle *handle, const bool extend)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart1, *chart2;
+	int i, j;
+	
+	/* deselect charts */
+	if (!extend)
+	{
+		for (i = 0; i < phandle->ncharts; i++) {
+			chart1 = phandle->charts[i];
+			p_chart_select(chart1, false);
+		}
+	}
+
+	/* Check charts for intersections/overlaps */
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart1 = phandle->charts[i];
+
+		for (j = 0; j < phandle->ncharts; j++) {
+			chart2 = phandle->charts[j];
+			if ((i != j) && p_charts_intersect(chart1, chart2)) {
+				/* select charts */
+				p_chart_select(chart1, true);
+				p_chart_select(chart2, true);
+			}
+		}
+	}
 }
 
 void param_flush(ParamHandle *handle)
