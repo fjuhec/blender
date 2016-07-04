@@ -40,6 +40,7 @@ extern "C" {
  * such data in a way that lets other DCC know what they are for. See comments
  * in the write code for the conventions. */
 
+using Alembic::AbcGeom::kVertexScope;
 using Alembic::AbcGeom::kFacevaryingScope;
 
 using Alembic::Abc::C4fArraySample;
@@ -143,9 +144,7 @@ static void write_uv(const OCompoundProperty &prop, const CDStreamConfig &config
 
 /* Convention to write Vertex Colors:
  * - C3fGeomParam/C4fGeomParam on the arbGeomParam
- * - set scope as face varying
- *
- * TODO(kevin): check scope.
+ * - set scope as vertex varying
  */
 static void write_mcol(const OCompoundProperty &prop, const CDStreamConfig &config, void *data, const char *name)
 {
@@ -180,7 +179,7 @@ static void write_mcol(const OCompoundProperty &prop, const CDStreamConfig &conf
 
 	OC4fGeomParam::Sample sample(
 		C4fArraySample(&buffer.front(), buffer.size()),
-		kFacevaryingScope);
+		kVertexScope);
 
 	param.set(sample);
 }
