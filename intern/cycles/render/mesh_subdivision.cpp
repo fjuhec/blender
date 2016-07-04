@@ -127,14 +127,16 @@ struct OsdVertex {
 class OsdData {
 	Mesh* mesh;
 	vector<OsdVertex> verts;
+	Far::TopologyRefiner* refiner;
 	Far::PatchTable* patch_table;
 	Far::PatchMap* patch_map;
 
 public:
-	OsdData() : mesh(NULL), patch_table(NULL), patch_map(NULL) {}
+	OsdData() : mesh(NULL), refiner(NULL), patch_table(NULL), patch_map(NULL) {}
 
 	~OsdData()
 	{
+		delete refiner;
 		delete patch_table;
 		delete patch_map;
 	}
@@ -150,7 +152,7 @@ public:
 		options.SetVtxBoundaryInterpolation(Sdc::Options::VTX_BOUNDARY_EDGE_ONLY);
 
 		/* create refiner */
-		Far::TopologyRefiner* refiner = Far::TopologyRefinerFactory<Mesh>::Create(*mesh,
+		refiner = Far::TopologyRefinerFactory<Mesh>::Create(*mesh,
 				Far::TopologyRefinerFactory<Mesh>::Options(type, options));
 
 		/* adaptive refinement */
