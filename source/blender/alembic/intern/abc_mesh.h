@@ -53,16 +53,16 @@ class AbcMeshWriter : public AbcObjectWriter {
 public:
 	AbcMeshWriter(Scene *scene,
 	              Object *ob,
-                  AbcTransformWriter *parent,
-                  uint32_t time_sampling,
-                  ExportSettings &settings);
+	              AbcTransformWriter *parent,
+	              uint32_t time_sampling,
+	              ExportSettings &settings);
 
 	~AbcMeshWriter();
 
 private:
 	virtual void do_write();
 
-    bool isAnimated() const;
+	bool isAnimated() const;
 
 	void writeMesh(DerivedMesh *dm);
 	void writeSubD(DerivedMesh *dm);
@@ -77,7 +77,7 @@ private:
 	DerivedMesh *getFinalMesh();
 	void freeMesh(DerivedMesh *dm);
 
-    void getMaterialIndices(DerivedMesh *dm, std::vector<int32_t> &indices);
+	void getMaterialIndices(DerivedMesh *dm, std::vector<int32_t> &indices);
 
 	void writeArbGeoParams(DerivedMesh *dm);
 	void getGeoGroups(DerivedMesh *dm, std::map<std::string, std::vector<int32_t> > &geoGroups);
@@ -108,7 +108,7 @@ private:
 
 	void readPolyDataSample(Mesh *mesh,
 	                        const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
-                            const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
+	                        const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
 	                        const Alembic::AbcGeom::N3fArraySamplePtr &normals);
 
 	void readVertexDataSample(Mesh *mesh,

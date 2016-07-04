@@ -805,12 +805,12 @@ static bool has_animations(Schema &schema, ImportSettings *settings)
 
 		/* Check for animated UVs. */
 		if (IV2fGeomParam::matches(propHeader) && Alembic::AbcGeom::isUV(propHeader)) {
-            IV2fGeomParam uv_geom_param(arb_geom_params, propHeader.getName());
+			IV2fGeomParam uv_geom_param(arb_geom_params, propHeader.getName());
 
 			if (!uv_geom_param.isConstant()) {
 				return true;
 			}
-        }
+		}
 	}
 
 	return false;
