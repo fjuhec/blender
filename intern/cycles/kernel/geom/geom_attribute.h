@@ -75,7 +75,8 @@ ccl_device_inline int find_attribute(KernelGlobals *kg, const ShaderData *sd, ui
 
 	/* return result */
 	desc->offset = (attr_map.y == ATTR_ELEMENT_NONE) ? (int)ATTR_STD_NOT_FOUND : (int)attr_map.z;
-	desc->type = (NodeAttributeType)attr_map.w;
+	desc->type = (NodeAttributeType)(attr_map.w & 0xff);
+	desc->flags = (AttributeFlag)(attr_map.w >> 8);
 
 	return desc->offset;
 }

@@ -622,9 +622,15 @@ typedef enum AttributeStandard {
 	ATTR_STD_NOT_FOUND = ~0
 } AttributeStandard;
 
+typedef enum AttributeFlag {
+	ATTR_FINAL_SIZE = (1 << 0),
+	ATTR_SUBDIVIDED = (1 << 1),
+} AttributeFlag;
+
 typedef struct AttributeDescriptor {
 	AttributeElement element;
 	NodeAttributeType type;
+	uint flags; /* see enum AttributeFlag */
 	int offset;
 } AttributeDescriptor;
 
