@@ -6556,7 +6556,7 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 	ListBase *nubase = object_editcurve_get(obedit), *spline_list, *intersections_list;
 	BezTriple **selected_endpoints = NULL, **first_selected_endpoints = NULL, **second_selected_endpoints = NULL, *bezt;
 	int n_selected_splines = 0, result = 0, a = 0;
-	float p1[3], p2[3], p1_handle[3], bound_box[4], p1_extend[2];
+	float p1[3], p2[3] = {0.0, 0.0, 0.0}, p1_handle[3], bound_box[4], p1_extend[2];
 
 	for (nu = nubase->first; nu; nu = nu->next)
 	{
@@ -6659,6 +6659,7 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 			}
 			else { /* only one endpoint selected */
 				BKE_nurbList_handles_set(nubase, 5);
+				p2[2] = (selected_endpoints[0] ? selected_endpoints[0] : selected_endpoints[1])->vec[1][2];
 				ed_editcurve_addvert(cu, editnurb, p2);
 				BKE_nurbList_handles_set(nubase, 1);
 			}
@@ -6696,6 +6697,7 @@ void CURVE_OT_extend_curve(wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->exec = extend_curve_exec;
+	ot->poll = ED_operator_editsurfcurve;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -7013,6 +7015,8 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	}
 
 	int len_low = BLI_listbase_count(low), len_high = BLI_listbase_count(high);
+	int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
+	int high_first_order = ((XShape *)((LinkData *)high->first)->data)->order;
 
 	/* cyclic spline */
 	if (nu->flagu & CU_NURB_CYCLIC) {
@@ -7056,49 +7060,200 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			bezt++;
 		}
 
-		int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
-		float *s1, *s2;
+		float *s1, *s2, *s3, *s4;
 		s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
 		s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
-		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
-			 (float *)&nu->bezt[low_last_order].vec[1],
-			 (float *)&nu->bezt[low_last_order].vec[2],
-			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
-			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
-			 nu->resolu,
-			 s1, s2);
+		s3 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+		s4 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+//		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+//			 (float *)&nu->bezt[low_last_order].vec[1],
+//			 (float *)&nu->bezt[low_last_order].vec[2],
+//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
+//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+//			 nu->resolu,
+//			 s1, s2);
 
+		new_spl->bezt[new_spl->pntsu - 1].h1 = HD_FREE;
+		new_spl->bezt[new_spl->pntsu - 1].h2 = HD_FREE;
+		new_spl->bezt[new_spl->pntsu - 2].h1 = HD_FREE;
+		new_spl->bezt[new_spl->pntsu - 2].h2 = HD_FREE;
+		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low->first)->data)->intersections);
+		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 2].vec[2], s1 + 3);
+		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[0], s1 + 6);
+		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[2], s2 + 3);
 
+//		chop(((XShape *)((LinkData *)high->first)->data)->intersections,
+//			 (float *)&nu->bezt[high_first_order].vec[1],
+//			 (float *)&nu->bezt[high_first_order].vec[2],
+//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
+//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
+//			 nu->resolu,
+//			 s3, s4);
+
+		new_spl->bezt[0].h1 = HD_FREE;
+		new_spl->bezt[0].h2 = HD_FREE;
+		new_spl->bezt[1].h1 = HD_FREE;
+		new_spl->bezt[1].h2 = HD_FREE;
+		copy_v3_v3(new_spl->bezt[0].vec[1], ((XShape *)((LinkData *)low->first)->data)->intersections);
+		copy_v3_v3(new_spl->bezt[0].vec[0], s3 + 6);
+		copy_v3_v3(new_spl->bezt[0].vec[2], s4 + 3);
+		copy_v3_v3(new_spl->bezt[1].vec[0], s4 + 6);
+
+		BLI_addtail(nubase, new_spl);
+		BKE_nurb_handles_calc(new_spl);
+		BLI_remlink(nubase, nu);
 	}
+	else
+	{
+		/* last endpoint selected */
+		if (len_low > 0 && len_high == 0) {
+			Nurb *new_spl = BKE_nurb_duplicate(nu);
+			new_spl->bezt = (BezTriple *)MEM_callocN((low_last_order + 1) * sizeof(BezTriple), "trimexec5");
+			new_spl->pntsu = low_last_order + 1;
+			BezTriple *bezt = new_spl->bezt;
+			BezTriple *old_bezt = nu->bezt;
+			for (int i = 0; i < new_spl->pntsu; i++) {
+				copy_v3_v3(bezt->vec[0], old_bezt[i].vec[0]);
+				copy_v3_v3(bezt->vec[1], old_bezt[i].vec[1]);
+				copy_v3_v3(bezt->vec[2], old_bezt[i].vec[2]);
+				bezt++;
+			}
 
-	/*
+			float *s1, *s2;
+			s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+			s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+			//		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+			//			 (float *)&nu->bezt[low_last_order].vec[1],
+			//			 (float *)&nu->bezt[low_last_order].vec[2],
+			//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
+			//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+			//			 nu->resolu,
+			//			 s1, s2);
 
-            new_spl.bezier_points[-1].handle_left_type = 'FREE'
-            new_spl.bezier_points[-1].handle_right_type = 'FREE'
-            new_spl.bezier_points[-2].handle_left_type = 'FREE'
-            new_spl.bezier_points[-2].handle_right_type = 'FREE'
-            new_spl.bezier_points[-1].co = low[-1][0].to_3d() # though mathematically correct: s1[3]
-            new_spl.bezier_points[-2].handle_right = s1[1]
-            new_spl.bezier_points[-1].handle_left = s1[2]
-            new_spl.bezier_points[-1].handle_right = s2[1]
+			new_spl->bezt[new_spl->pntsu - 1].h1 = HD_FREE;
+			new_spl->bezt[new_spl->pntsu - 1].h2 = HD_FREE;
+			new_spl->bezt[new_spl->pntsu - 2].h1 = HD_FREE;
+			new_spl->bezt[new_spl->pntsu - 2].h2 = HD_FREE;
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low->first)->data)->intersections);
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 2].vec[2], s1 + 3);
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[0], s1 + 6);
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[2], s2 + 3);
+			
+			BLI_addtail(nubase, new_spl);
+			BLI_remlink(nubase, nu);
+		}
+		/* first endpoint selected */
+		else if (len_low == 0 && len_high > 0) {
+			Nurb *new_spl = BKE_nurb_duplicate(nu);
+			new_spl->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order -1) * sizeof(BezTriple), "trimexec5");
+			new_spl->pntsu = low_last_order + 1;
+			BezTriple *bezt = new_spl->bezt;
+			BezTriple *old_bezt = nu->bezt;
+			for (int i = 0; i < new_spl->pntsu; i++) {
+				copy_v3_v3(bezt->vec[0], old_bezt[i + high_first_order].vec[0]);
+				copy_v3_v3(bezt->vec[1], old_bezt[i + high_first_order].vec[1]);
+				copy_v3_v3(bezt->vec[2], old_bezt[i + high_first_order].vec[2]);
+				bezt++;
+			}
 
-            s3, s4 = chop(high[0][0],
-                  spline_ob.bezier_points[high[0][1]].co,
-                  spline_ob.bezier_points[high[0][1]].handle_right,
-                  spline_ob.bezier_points[(high[0][1]+1)%(len(spline_ob_data[0]))].handle_left,
-                  spline_ob.bezier_points[(high[0][1]+1)%(len(spline_ob_data[0]))].co,
-                  spline_ob.resolution_u)
+			float *s1, *s2;
+			s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+			s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+			//		chop(((XShape *)((LinkData *)high->first)->data)->intersections,
+			//			 (float *)&nu->bezt[high_first_order].vec[1],
+			//			 (float *)&nu->bezt[high_first_order].vec[2],
+			//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
+			//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
+			//			 nu->resolu,
+			//			 s1, s2);
 
-            new_spl.bezier_points[0].handle_left_type = 'FREE'
-            new_spl.bezier_points[0].handle_right_type = 'FREE'
-            new_spl.bezier_points[1].handle_left_type = 'FREE'
-            new_spl.bezier_points[1].handle_right_type = 'FREE'
-            new_spl.bezier_points[0].co = high[0][0].to_3d() # though mathematically correct: s2[0]
-            new_spl.bezier_points[0].handle_left = s3[2]
-            new_spl.bezier_points[0].handle_right = s4[1]
-            new_spl.bezier_points[1].handle_left = s4[2]
+			new_spl->bezt[0].h1 = HD_FREE;
+			new_spl->bezt[0].h2 = HD_FREE;
+			new_spl->bezt[1].h1 = HD_FREE;
+			new_spl->bezt[1].h2 = HD_FREE;
+			copy_v3_v3(new_spl->bezt[0].vec[1], ((XShape *)((LinkData *)low->first)->data)->intersections);
+			copy_v3_v3(new_spl->bezt[0].vec[0], s1 + 6);
+			copy_v3_v3(new_spl->bezt[0].vec[2], s2 + 3);
+			copy_v3_v3(new_spl->bezt[1].vec[0], s2 + 6);
 
-            shape_ob.data.splines.remove(spline_ob)*/
+			BLI_addtail(nubase, new_spl);
+			BKE_nurb_handles_calc(new_spl);
+			BLI_remlink(nubase, nu);
+		}
+		else if (len_high > 0 && len_low > 0)
+		{
+			Nurb *new_spl = BKE_nurb_duplicate(nu);
+			new_spl->bezt = (BezTriple *)MEM_callocN((low_last_order + 1) * sizeof(BezTriple), "trimexec5");
+			new_spl->pntsu = low_last_order + 1;
+			BezTriple *bezt = new_spl->bezt;
+			BezTriple *old_bezt = nu->bezt;
+			for (int i = 0; i < new_spl->pntsu; i++) {
+				copy_v3_v3(bezt->vec[0], old_bezt[i].vec[0]);
+				copy_v3_v3(bezt->vec[1], old_bezt[i].vec[1]);
+				copy_v3_v3(bezt->vec[2], old_bezt[i].vec[2]);
+				bezt++;
+			}
+
+			float *s1, *s2;
+			s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+			s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+			//		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+			//			 (float *)&nu->bezt[low_last_order].vec[1],
+			//			 (float *)&nu->bezt[low_last_order].vec[2],
+			//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
+			//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+			//			 nu->resolu,
+			//			 s1, s2);
+
+			new_spl->bezt[new_spl->pntsu - 1].h1 = HD_FREE;
+			new_spl->bezt[new_spl->pntsu - 1].h2 = HD_FREE;
+			new_spl->bezt[new_spl->pntsu - 2].h1 = HD_FREE;
+			new_spl->bezt[new_spl->pntsu - 2].h2 = HD_FREE;
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low->first)->data)->intersections);
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 2].vec[2], s1 + 3);
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[0], s1 + 6);
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[2], s2 + 3);
+
+			BLI_addtail(nubase, new_spl);
+			BKE_nurb_handles_calc(new_spl);
+
+			Nurb *new_spl1 = BKE_nurb_duplicate(nu);
+			new_spl1->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order -1) * sizeof(BezTriple), "trimexec5");
+			new_spl1->pntsu = low_last_order + 1;
+			bezt = new_spl1->bezt;
+			old_bezt = nu->bezt;
+			for (int i = 0; i < new_spl->pntsu; i++) {
+				copy_v3_v3(bezt->vec[0], old_bezt[i + high_first_order].vec[0]);
+				copy_v3_v3(bezt->vec[1], old_bezt[i + high_first_order].vec[1]);
+				copy_v3_v3(bezt->vec[2], old_bezt[i + high_first_order].vec[2]);
+				bezt++;
+			}
+
+			float *s3, *s4;
+			s3 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+			s4 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+			//		chop(((XShape *)((LinkData *)high->first)->data)->intersections,
+			//			 (float *)&nu->bezt[high_first_order].vec[1],
+			//			 (float *)&nu->bezt[high_first_order].vec[2],
+			//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
+			//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
+			//			 nu->resolu,
+			//			 s3, s4);
+
+			new_spl1->bezt[0].h1 = HD_FREE;
+			new_spl1->bezt[0].h2 = HD_FREE;
+			new_spl1->bezt[1].h1 = HD_FREE;
+			new_spl1->bezt[1].h2 = HD_FREE;
+			copy_v3_v3(new_spl1->bezt[0].vec[1], ((XShape *)((LinkData *)low->first)->data)->intersections);
+			copy_v3_v3(new_spl1->bezt[0].vec[0], s3 + 6);
+			copy_v3_v3(new_spl1->bezt[0].vec[2], s4 + 3);
+			copy_v3_v3(new_spl1->bezt[1].vec[0], s4 + 6);
+
+			BLI_addtail(nubase, new_spl);
+			BKE_nurb_handles_calc(new_spl1);
+			BLI_remlink(nubase, nu);
+		}
+	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 	DAG_id_tag_update(obedit->data, 0);
@@ -7116,6 +7271,7 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->exec = trim_curve_exec;
+	ot->poll = ED_operator_editsurfcurve;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
