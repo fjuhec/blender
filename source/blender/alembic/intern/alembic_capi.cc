@@ -703,7 +703,13 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 
 	bool new_dm = false;
 	if (dm->getNumVerts(dm) != positions->size()) {
-		dm = CDDM_new(positions->size(), 0, 0, face_indices->size(), face_counts->size());
+		DerivedMesh *tmp = CDDM_from_template(dm,
+		                                      positions->size(),
+		                                      0,
+		                                      0,
+		                                      face_indices->size(),
+		                                      face_counts->size());
+		dm = tmp;
 		new_dm = true;
 	}
 
@@ -758,8 +764,9 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		{
 			vertex_normals = normsamp.getVals();
 		}
-
-		dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
+		else {
+			dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
+		}
 	}
 
 	read_mverts(mverts, positions, vertex_normals);
