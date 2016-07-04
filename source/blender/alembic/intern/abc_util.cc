@@ -204,7 +204,7 @@ void create_transform_matrix(float r_mat[4][4])
 
 void create_input_transform(const Alembic::AbcGeom::ISampleSelector &sample_sel,
                             const Alembic::AbcGeom::IXform &ixform, Object *ob,
-                            float r_mat[4][4], float scale)
+                            float r_mat[4][4], float scale, bool has_alembic_parent)
 {
 
 	const Alembic::AbcGeom::IXformSchema &ixform_schema = ixform.getSchema();
@@ -230,7 +230,8 @@ void create_input_transform(const Alembic::AbcGeom::ISampleSelector &sample_sel,
 	if (ob->parent) {
 		mul_m4_m4m4(r_mat, ob->parent->obmat, r_mat);
 	}
-	else {
+	/* TODO(kevin) */
+	else if (!has_alembic_parent) {
 		/* Only apply scaling to root objects, parenting will propagate it. */
 		float scale_mat[4][4];
 		scale_m4_fl(scale_mat, scale);

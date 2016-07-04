@@ -131,7 +131,13 @@ AbcObjectReader::AbcObjectReader(const IObject &object, ImportSettings &settings
 	std::vector<std::string> parts;
 	split(m_name, '/', parts);
 
-	m_object_name = m_data_name = parts[parts.size() - 1];
+	if (parts.size() >= 2) {
+		m_object_name = parts[parts.size() - 2];
+		m_data_name = parts[parts.size() - 1];
+	}
+	else {
+		m_object_name = m_data_name = parts[parts.size() - 1];
+	}
 }
 
 AbcObjectReader::~AbcObjectReader()
@@ -150,13 +156,34 @@ Object *AbcObjectReader::object() const
 void AbcObjectReader::readObjectMatrix(const float time)
 {
 	IXform ixform;
+	bool has_alembic_parent = false;
 
+	/* Check that we have an empty object (locator, bone head/tail...).  */
 	if (IXform::matches(m_iobject.getMetaData())) {
 		ixform = IXform(m_iobject, Alembic::AbcGeom::kWrapExisting);
+
+		/* See comment below. */
+		has_alembic_parent = m_iobject.getParent().getParent().valid();
 	}
+	/* Check that we have an object with actual data. */
 	else if (IXform::matches(m_iobject.getParent().getMetaData())) {
 		ixform = IXform(m_iobject.getParent(), Alembic::AbcGeom::kWrapExisting);
+
+		/* This is a bit hackish, but we need to make sure that extra
+		 * transformations added to the matrix (rotation/scale) are only applied
+		 * to root objects. The way objects and their hierarchy are created will
+		 * need to be revisited at some point but for now this seems to do the
+		 * trick.
+		 *
+		 * Explanation of the trick:
+		 * The first getParent() will return this object's transformation matrix.
+		 * The second getParent() will get the parent of the transform, but this
+		 * might be the archive root ('/') which is valid, so we go passed it to
+		 * make sure that there is no parent.
+		 */
+		has_alembic_parent = m_iobject.getParent().getParent().getParent().valid();
 	}
+	/* Should not happen. */
 	else {
 		return;
 	}
@@ -171,7 +198,7 @@ void AbcObjectReader::readObjectMatrix(const float time)
 	Alembic::AbcGeom::XformSample xs;
 	schema.get(xs, sample_sel);
 
-	create_input_transform(sample_sel, ixform, m_object, m_object->obmat, m_settings->scale);
+	create_input_transform(sample_sel, ixform, m_object, m_object->obmat, m_settings->scale, has_alembic_parent);
 
 	invert_m4_m4(m_object->imat, m_object->obmat);
 
