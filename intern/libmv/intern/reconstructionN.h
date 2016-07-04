@@ -37,9 +37,9 @@ typedef struct libmv_ReconstructionN libmv_ReconstructionN;
 typedef struct libmv_CorrespondencesN libmv_CorrespondencesN;
 
 typedef struct libmv_MultiviewReconstructionOptions {
-	int select_keyframes;
-	int keyframe1, keyframe2;
-	int *all_refine_intrinsics;		/* this should be an array since each clip has its own refine_flags */
+  int select_keyframes;
+  int keyframe1, keyframe2;
+  int *all_refine_intrinsics;		/* this should be an array since each clip has its own refine_flags */
 } libmv_MultiviewReconstructionOptions;
 
 typedef void (*multiview_reconstruct_progress_update_cb) (void* customdata,
@@ -62,6 +62,16 @@ double libmv_multiviewReprojectionError(const int clip_num,
                                         const libmv_ReconstructionN** all_libmv_reconstruction);
 
 libmv_CameraIntrinsics *libmv_reconstructionNExtractIntrinsics(libmv_ReconstructionN *libmv_reconstruction);
+
+int libmv_multiviewPointForTrack(const libmv_ReconstructionN *libmv_reconstruction, int global_track, double pos[3]);
+
+double libmv_multiviewReprojectionErrorForTrack(const libmv_ReconstructionN *libmv_reconstruction, int track);
+
+int libmv_multiviewCameraForFrame(const libmv_ReconstructionN *libmv_reconstruction,
+                                  int clip, int frame, double mat[4][4]);
+
+double libmv_multiviewReprojectionErrorForFrame(const libmv_ReconstructionN *libmv_reconstruction,
+                                                int clip, int frame);
 
 #ifdef __cplusplus
 }

@@ -488,132 +488,132 @@ static void multiview_reconstruct_retrieve_libmv_intrinsics(MovieMultiviewRecons
 }
 
 /* Retrieve multiview reconstructed tracks from libmv to blender.
- * Actually, this also copies reconstructed cameras
- * from libmv to movie clip datablock.
- * TODO(tianwei): this is not finished, need to convert libmv_Reconstruction to libmv_ReconstructionN
+ * and also copies reconstructed cameras from libmv to movie clip datablock.
  */
-//static bool multiview_reconstruct_retrieve_libmv_tracks(MovieMultiviewReconstructContext *context,
-//                                                        int clip_id,
-//                                                        MovieTracking *tracking)
-//{
-//	struct libmv_ReconstructionN *libmv_reconstruction = context->all_reconstruction[clip_id];
-//	MovieTrackingReconstruction *reconstruction = NULL;
-//	MovieReconstructedCamera *reconstructed;
-//	MovieTrackingTrack *track;
-//	ListBase *tracksbase =  NULL;
-//	int tracknr = 0, a;
-//	bool ok = true;
-//	bool origin_set = false;
-//	int sfra = context->all_sfra[clip_id], efra = context->all_efra[clip_id];
-//	float imat[4][4];
-//
-//	if (context->is_camera) {
-//		tracksbase = &tracking->tracks;
-//		reconstruction = &tracking->reconstruction;
-//	}
-//	else {
-//		MovieTrackingObject *object = BKE_tracking_object_get_named(tracking, context->object_name);
-//
-//		tracksbase = &object->tracks;
-//		reconstruction = &object->reconstruction;
-//	}
-//
-//	unit_m4(imat);
-//
-//	track = tracksbase->first;
-//	while (track) {
-//		double pos[3];
-//
-//		if (libmv_reprojectionPointForTrack(libmv_reconstruction, tracknr, pos)) {
-//			track->bundle_pos[0] = pos[0];
-//			track->bundle_pos[1] = pos[1];
-//			track->bundle_pos[2] = pos[2];
-//
-//			track->flag |= TRACK_HAS_BUNDLE;
-//			track->error = libmv_reprojectionErrorForTrack(libmv_reconstruction, tracknr);
-//		}
-//		else {
-//			track->flag &= ~TRACK_HAS_BUNDLE;
-//			ok = false;
-//
-//			printf("Unable to reconstruct position for track #%d '%s'\n", tracknr, track->name);
-//		}
-//
-//		track = track->next;
-//		tracknr++;
-//	}
-//
-//	if (reconstruction->cameras)
-//		MEM_freeN(reconstruction->cameras);
-//
-//	reconstruction->camnr = 0;
-//	reconstruction->cameras = NULL;
-//	reconstructed = MEM_callocN((efra - sfra + 1) * sizeof(MovieReconstructedCamera),
-//	                            "temp reconstructed camera");
-//
-//	for (a = sfra; a <= efra; a++) {
-//		double matd[4][4];
-//
-//		if (libmv_reprojectionCameraForImage(libmv_reconstruction, a, matd)) {
-//			int i, j;
-//			float mat[4][4];
-//			float error = libmv_reprojectionErrorForImage(libmv_reconstruction, a);
-//
-//			for (i = 0; i < 4; i++) {
-//				for (j = 0; j < 4; j++)
-//					mat[i][j] = matd[i][j];
-//			}
-//
-//			/* Ensure first camera has got zero rotation and transform.
-//			 * This is essential for object tracking to work -- this way
-//			 * we'll always know object and environment are properly
-//			 * oriented.
-//			 *
-//			 * There's one weak part tho, which is requirement object
-//			 * motion starts at the same frame as camera motion does,
-//			 * otherwise that;' be a russian roulette whether object is
-//			 * aligned correct or not.
-//			 */
-//			if (!origin_set) {
-//				invert_m4_m4(imat, mat);
-//				unit_m4(mat);
-//				origin_set = true;
-//			}
-//			else {
-//				mul_m4_m4m4(mat, imat, mat);
-//			}
-//
-//			copy_m4_m4(reconstructed[reconstruction->camnr].mat, mat);
-//			reconstructed[reconstruction->camnr].framenr = a;
-//			reconstructed[reconstruction->camnr].error = error;
-//			reconstruction->camnr++;
-//		}
-//		else {
-//			ok = false;
-//			printf("No camera for frame %d\n", a);
-//		}
-//	}
-//
-//	if (reconstruction->camnr) {
-//		int size = reconstruction->camnr * sizeof(MovieReconstructedCamera);
-//		reconstruction->cameras = MEM_callocN(size, "reconstructed camera");
-//		memcpy(reconstruction->cameras, reconstructed, size);
-//	}
-//
-//	if (origin_set) {
-//		track = tracksbase->first;
-//		while (track) {
-//			if (track->flag & TRACK_HAS_BUNDLE)
-//				mul_v3_m4v3(track->bundle_pos, imat, track->bundle_pos);
-//
-//			track = track->next;
-//		}
-//	}
-//
-//	MEM_freeN(reconstructed);
-//
-//	return ok;
-//}
+static bool multiview_reconstruct_retrieve_libmv_info(MovieMultiviewReconstructContext *context,
+                                                      int clip_id,
+                                                      MovieTracking *tracking)
+{
+	// libmv reconstruction results in saved in context->all_reconstruction[0]
+	struct libmv_ReconstructionN *libmv_reconstruction = context->all_reconstruction[0];
+	MovieTrackingReconstruction *reconstruction = NULL;
+	MovieReconstructedCamera *reconstructed;
+	MovieTrackingTrack *track;
+	ListBase *tracksbase =  NULL;
+	int tracknr = 0, a;
+	bool ok = true;
+	bool origin_set = false;
+	int sfra = context->all_sfra[clip_id], efra = context->all_efra[clip_id];
+	float imat[4][4];
+
+	if (context->is_camera) {
+		tracksbase = &tracking->tracks;
+		reconstruction = &tracking->reconstruction;
+	}
+	else {
+		MovieTrackingObject *object = BKE_tracking_object_get_named(tracking, context->object_name);
+
+		tracksbase = &object->tracks;
+		reconstruction = &object->reconstruction;
+	}
+
+	unit_m4(imat);
+
+	int *track_index_map = context->track_global_index[clip_id];	// this saves the global track index mapping
+	track = tracksbase->first;
+	while (track) {
+		double pos[3];
+
+		if (libmv_multiviewPointForTrack(libmv_reconstruction, track_index_map[tracknr], pos)) {
+			track->bundle_pos[0] = pos[0];
+			track->bundle_pos[1] = pos[1];
+			track->bundle_pos[2] = pos[2];
+
+			track->flag |= TRACK_HAS_BUNDLE;
+			track->error = libmv_multiviewReprojectionErrorForTrack(libmv_reconstruction, track_index_map[tracknr]);
+		}
+		else {
+			track->flag &= ~TRACK_HAS_BUNDLE;
+			ok = false;
+
+			printf("Unable to reconstruct position for track #%d '%s'\n", tracknr, track->name);
+		}
+
+		track = track->next;
+		tracknr++;
+	}
+
+	if (reconstruction->cameras)
+		MEM_freeN(reconstruction->cameras);
+
+	reconstruction->camnr = 0;
+	reconstruction->cameras = NULL;
+	reconstructed = MEM_callocN((efra - sfra + 1) * sizeof(MovieReconstructedCamera),
+	                            "temp reconstructed camera");
+
+	for (a = sfra; a <= efra; a++) {
+		double matd[4][4];
+
+		if (libmv_multiviewCameraForFrame(libmv_reconstruction, clip_id, a, matd)) {
+			int i, j;
+			float mat[4][4];
+			float error = libmv_multiviewReprojectionErrorForFrame(libmv_reconstruction, clip_id, a);
+
+			for (i = 0; i < 4; i++) {
+				for (j = 0; j < 4; j++)
+					mat[i][j] = matd[i][j];
+			}
+
+			/* Ensure first camera has got zero rotation and transform.
+			 * This is essential for object tracking to work -- this way
+			 * we'll always know object and environment are properly
+			 * oriented.
+			 *
+			 * There's one weak part tho, which is requirement object
+			 * motion starts at the same frame as camera motion does,
+			 * otherwise that;' be a russian roulette whether object is
+			 * aligned correct or not.
+			 */
+			if (!origin_set) {
+				invert_m4_m4(imat, mat);
+				unit_m4(mat);
+				origin_set = true;
+			}
+			else {
+				mul_m4_m4m4(mat, imat, mat);
+			}
+
+			copy_m4_m4(reconstructed[reconstruction->camnr].mat, mat);
+			reconstructed[reconstruction->camnr].framenr = a;
+			reconstructed[reconstruction->camnr].error = error;
+			reconstruction->camnr++;
+		}
+		else {
+			ok = false;
+			printf("No camera for frame %d\n", a);
+		}
+	}
+
+	if (reconstruction->camnr) {
+		int size = reconstruction->camnr * sizeof(MovieReconstructedCamera);
+		reconstruction->cameras = MEM_callocN(size, "reconstructed camera");
+		memcpy(reconstruction->cameras, reconstructed, size);
+	}
+
+	if (origin_set) {
+		track = tracksbase->first;
+		while (track) {
+			if (track->flag & TRACK_HAS_BUNDLE)
+				mul_v3_m4v3(track->bundle_pos, imat, track->bundle_pos);
+
+			track = track->next;
+		}
+	}
+
+	MEM_freeN(reconstructed);
+
+	return ok;
+}
 
 /* Retrieve all the multiview reconstruction libmv data from context to blender's side data blocks. */
 static int multiview_reconstruct_retrieve_libmv(MovieMultiviewReconstructContext *context,
@@ -623,8 +623,8 @@ static int multiview_reconstruct_retrieve_libmv(MovieMultiviewReconstructContext
 	/* take the intrinsics back from libmv */
 	multiview_reconstruct_retrieve_libmv_intrinsics(context, clip_id, tracking);
 
-	//return multiview_reconstruct_retrieve_libmv_tracks(context, clip_id, tracking);
-	return true;
+	/* take reconstructed camera and tracks info back from libmv */
+	return multiview_reconstruct_retrieve_libmv_info(context, clip_id, tracking);
 }
 
 /* Finish multiview reconstruction process by copying reconstructed data
