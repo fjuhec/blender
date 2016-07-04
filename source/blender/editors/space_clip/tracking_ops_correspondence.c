@@ -151,7 +151,7 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 		if (sa->spacetype == SPACE_CLIP) {
 			SpaceClip *second_sc = sa->spacedata.first;
-			if(second_sc != sc) {
+			if (second_sc != sc) {
 				second_clip = ED_space_clip_get_clip(second_sc);
 				MovieTracking *second_tracking = &second_clip->tracking;
 				ListBase *second_tracksbase = BKE_tracking_get_active_tracks(second_tracking);
@@ -175,12 +175,11 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 
 	// add these correspondence
 	char error_msg[256] = "\0";
-	if(!BKE_tracking_correspondence_add(&(tracking->correspondences), primary_track, witness_track,
+	if (!BKE_tracking_correspondence_add(&(tracking->correspondences), primary_track, witness_track,
 	                                clip, second_clip, error_msg, sizeof(error_msg)))
 	{
-		if (error_msg[0]) {
+		if (error_msg[0])
 			BKE_report(op->reports, RPT_ERROR, error_msg);
-		}
 		return OPERATOR_CANCELLED;
 	}
 
