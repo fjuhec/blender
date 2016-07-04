@@ -108,25 +108,34 @@ using namespace OpenSubdiv;
 
 /* struct that implements OpenSubdiv's vertex interface */
 
-struct OsdVertex {
-	float3 v;
+template<typename T>
+struct OsdValue {
+	T value;
 
-	OsdVertex() {}
+	OsdValue() {}
 
 	void Clear(void* = 0) {
-		v = make_float3(0.0f, 0.0f, 0.0f);
+		memset(&value, 0, sizeof(T));
 	}
 
-	void AddWithWeight(OsdVertex const& src, float weight) {
-		v += src.v * weight;
+	void AddWithWeight(OsdValue<T> const& src, float weight) {
+		value += src.value * weight;
 	}
 };
+
+template<>
+void OsdValue<uchar4>::AddWithWeight(OsdValue<uchar4> const& src, float weight)
+{
+	for(int i = 0; i < 4; i++) {
+		value[i] += (uchar)(src.value[i] * weight);
+	}
+}
 
 /* class for holding OpenSubdiv data used during tessellation */
 
 class OsdData {
 	Mesh* mesh;
-	vector<OsdVertex> verts;
+	vector<OsdValue<float3> > verts;
 	Far::TopologyRefiner* refiner;
 	Far::PatchTable* patch_table;
 	Far::PatchMap* patch_map;
@@ -171,12 +180,12 @@ public:
 
 		verts.resize(num_refiner_verts + num_local_points);
 		for(int i = 0; i < mesh->verts.size(); i++) {
-			verts[i].v = mesh->verts[i];
+			verts[i].value = mesh->verts[i];
 		}
 
-		OsdVertex* src = &verts[0];
+		OsdValue<float3>* src = &verts[0];
 		for(int i = 0; i < refiner->GetMaxLevel(); i++) {
-			OsdVertex* dest = src + refiner->GetLevel(i).GetNumVertices();
+			OsdValue<float3>* dest = src + refiner->GetLevel(i).GetNumVertices();
 			Far::PrimvarRefiner(*refiner).Interpolate(i+1, src, dest);
 			src = dest;
 		}
@@ -185,6 +194,46 @@ public:
 
 		/* create patch map */
 		patch_map = new Far::PatchMap(*patch_table);
+	}
+
+	void subdivide_attribute(Attribute& attr)
+	{
+		Far::PrimvarRefiner primvar_refiner(*refiner);
+
+		if(attr.element == ATTR_ELEMENT_VERTEX) {
+			int num_refiner_verts = refiner->GetNumVerticesTotal();
+			int num_local_points = patch_table->GetNumLocalPoints();
+
+			attr.resize(num_refiner_verts + num_local_points);
+			attr.flags |= ATTR_FINAL_SIZE;
+
+			char* src = &attr.buffer[0];
+
+			for(int i = 0; i < refiner->GetMaxLevel(); i++) {
+				char* dest = src + refiner->GetLevel(i).GetNumVertices() * attr.data_sizeof();
+
+				if(attr.same_storage(attr.type, TypeDesc::TypeFloat)) {
+					primvar_refiner.Interpolate(i+1, (OsdValue<float>*)src, (OsdValue<float>*&)dest);
+				}
+				else {
+					primvar_refiner.Interpolate(i+1, (OsdValue<float4>*)src, (OsdValue<float4>*&)dest);
+				}
+
+				src = dest;
+			}
+
+			if(attr.same_storage(attr.type, TypeDesc::TypeFloat)) {
+				patch_table->ComputeLocalPointValues((OsdValue<float>*)&attr.buffer[0],
+					                                 (OsdValue<float>*)&attr.buffer[num_refiner_verts * attr.data_sizeof()]);
+			}
+			else {
+				patch_table->ComputeLocalPointValues((OsdValue<float4>*)&attr.buffer[0],
+					                                 (OsdValue<float4>*)&attr.buffer[num_refiner_verts * attr.data_sizeof()]);
+			}
+		}
+		else if(attr.element == ATTR_ELEMENT_CORNER || attr.element == ATTR_ELEMENT_CORNER_BYTE) {
+			// TODO(mai): fvar interpolation
+		}
 	}
 
 	friend struct OsdPatch;
@@ -213,7 +262,7 @@ struct OsdPatch : Patch {
 		dv = make_float3(0.0f, 0.0f, 0.0f);
 
 		for(int i = 0; i < cv.size(); i++) {
-			float3 p = osd_data->verts[cv[i]].v;
+			float3 p = osd_data->verts[cv[i]].value;
 
 			if(P) *P += p * p_weights[i];
 			du += p * du_weights[i];
@@ -381,6 +430,20 @@ void Mesh::tessellate(DiagSplit *split)
 
 	/* interpolate center points for attributes */
 	foreach(Attribute& attr, subd_attributes.attributes) {
+#ifdef WITH_OPENSUBDIV
+		if(subdivision_type == SUBDIVISION_CATMULL_CLARK && attr.flags & ATTR_SUBDIVIDED) {
+			if(attr.element == ATTR_ELEMENT_CORNER || attr.element == ATTR_ELEMENT_CORNER_BYTE) {
+				/* keep subdivision for corner attributes disabled for now */
+				attr.flags &= ~ATTR_SUBDIVIDED;
+			}
+			else {
+				osd_data.subdivide_attribute(attr);
+
+				continue;
+			}
+		}
+#endif
+
 		char* data = attr.data();
 		size_t stride = attr.data_sizeof();
 		int ngons = 0;
