@@ -4349,6 +4349,7 @@ static void transformcache_id_looper(bConstraint *con, ConstraintIDFunc func, vo
 
 static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBase *targets)
 {
+#ifdef WITH_ALEMBIC
 	bTransformCacheConstraint *data = con->data;
 	Scene *scene = cob->scene;
 
@@ -4357,6 +4358,9 @@ static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBa
 
 	ABC_get_transform(data->cache_file->handle, cob->ob, data->abc_object_path,
 	                  cob->matrix, time, data->cache_file->scale);
+#else
+	UNUSED_VARS(con, cob);
+#endif
 
 	UNUSED_VARS(targets);
 }
