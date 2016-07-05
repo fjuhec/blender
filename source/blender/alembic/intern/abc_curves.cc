@@ -92,19 +92,11 @@ void AbcCurveWriter::do_write()
 
 	Nurb *nurbs = static_cast<Nurb *>(curve->nurb.first);
 	for (; nurbs; nurbs = nurbs->next) {
-		if ((nurbs->flagu & CU_NURB_ENDPOINT) != 0) {
-			periodicity = Alembic::AbcGeom::kNonPeriodic;
-		}
-		else if ((nurbs->flagu & CU_NURB_CYCLIC) != 0) {
-			periodicity = Alembic::AbcGeom::kPeriodic;
-		}
-
 		if (nurbs->bp) {
 			curve_basis = Alembic::AbcGeom::kNoBasis;
 			curve_type = Alembic::AbcGeom::kLinear;
 
 			const int totpoint = nurbs->pntsu * nurbs->pntsv;
-			vert_counts.push_back(totpoint);
 
 			const BPoint *point = nurbs->bp;
 
@@ -120,7 +112,6 @@ void AbcCurveWriter::do_write()
 			curve_type = Alembic::AbcGeom::kCubic;
 
 			const int totpoint = nurbs->pntsu;
-			vert_counts.push_back(totpoint);
 
 			const BezTriple *bezier = nurbs->bezt;
 
@@ -132,11 +123,42 @@ void AbcCurveWriter::do_write()
 			}
 		}
 
-		for (int i = 0; i < KNOTSU(nurbs); ++i) {
-			knots.push_back(nurbs->knotsu[i]);
+		if ((nurbs->flagu & CU_NURB_ENDPOINT) != 0) {
+			periodicity = Alembic::AbcGeom::kNonPeriodic;
+		}
+		else if ((nurbs->flagu & CU_NURB_CYCLIC) != 0) {
+			periodicity = Alembic::AbcGeom::kPeriodic;
+
+			/* Duplicate the start points to indicate that the curve is actually
+			 * cyclic since other software need those.
+			 */
+
+			for (int i = 0; i < nurbs->orderu; ++i) {
+				verts.push_back(verts[i]);
+			}
 		}
 
-		orders.push_back(nurbs->orderu);
+		const size_t num_knots = KNOTSU(nurbs);
+
+		/* Add an extra knot at the beggining and end of the array since most apps
+		 * require/expect them. */
+		knots.resize(num_knots + 2);
+
+		for (int i = 0; i < num_knots; ++i) {
+			knots[i + 1] = nurbs->knotsu[i];
+		}
+
+		if ((nurbs->flagu & CU_NURB_CYCLIC) != 0) {
+			knots[0] = nurbs->knotsu[0];
+            knots[num_knots - 1] = nurbs->knotsu[num_knots - 1];
+        }
+        else {
+			knots[0] = (2.0f * nurbs->knotsu[0] - nurbs->knotsu[1]);
+            knots[num_knots - 1] = (2.0f * nurbs->knotsu[num_knots - 1] - nurbs->knotsu[num_knots - 2]);
+        }
+
+		orders.push_back(nurbs->orderu + 1);
+		vert_counts.push_back(verts.size());
 	}
 
 	Alembic::AbcGeom::OFloatGeomParam::Sample width_sample;
@@ -206,40 +228,84 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 	size_t idx = 0;
 	for (size_t i = 0; i < num_vertices->size(); ++i) {
-		const int steps = (*num_vertices)[i];
+		const int num_verts = (*num_vertices)[i];
 
 		Nurb *nu = static_cast<Nurb *>(MEM_callocN(sizeof(Nurb), "abc_getnurb"));
-		nu->bp = static_cast<BPoint *>(MEM_callocN(sizeof(BPoint) * steps, "abc_getnurb"));
-		nu->type = CU_NURBS;
 		nu->resolu = cu->resolu;
 		nu->resolv = cu->resolv;
-		nu->pntsu = steps;
+		nu->pntsu = num_verts;
 		nu->pntsv = 1;
 		nu->flag |= CU_SMOOTH;
+
+		nu->orderu = 1;
+
+		if (smp.getType() == Alembic::AbcGeom::kCubic) {
+            nu->orderu = 3;
+        }
+        else if (orders->size() > i) {
+            nu->orderu = static_cast<short>((*orders)[i] - 1);
+        }
 
 		if (periodicity == Alembic::AbcGeom::kNonPeriodic) {
 			nu->flagu |= CU_NURB_ENDPOINT;
 		}
 		else if (periodicity == Alembic::AbcGeom::kPeriodic) {
 			nu->flagu |= CU_NURB_CYCLIC;
+
+			/* Check the number of points which overlap, we don't have
+			 * overlapping points in Blender, but other software do use them to
+			 * indicate that a curve is actually cyclic. Usually the number of
+			 * overlapping points is equal to the order/degree of the curve.
+			 */
+
+			const int start = idx;
+			const int end = idx + num_verts;
+			int overlap = 0;
+
+			for (int j = start, k = end - nu->orderu; j < nu->orderu; ++j, ++k) {
+				const Imath::V3f &p1 = (*positions)[j];
+				const Imath::V3f &p2 = (*positions)[k];
+
+				if (p1 != p2) {
+					break;
+				}
+
+				++overlap;
+			}
+
+			/* TODO: Special case, need to figure out how it coincides with knots. */
+			if (overlap == 0 && num_verts > 2 && (*positions)[start] == (*positions)[end - 1]) {
+				overlap = 1;
+			}
+
+			/* There is no real cycles. */
+			if (overlap == 0) {
+				nu->flagu &= ~CU_NURB_CYCLIC;
+				nu->flagu |= CU_NURB_ENDPOINT;
+			}
+
+			nu->pntsu -= overlap;
 		}
 
-		nu->orderu = (orders) ? (*orders)[i]
-		                      : (periodicity == Alembic::AbcGeom::kPeriodic) ? 4 : steps;
-
-		BPoint *bp = nu->bp;
-		float radius = 1.0f;
 		float weight = 1.0f;
 
-		for (int j = 0; j < steps; ++j, ++bp) {
-			const Imath::V3f &pos = (*positions)[idx++];
+		const bool do_radius = (radiuses != NULL) && (radiuses->size() > 1);
+		float radius = (radiuses->size() == 1) ? (*radiuses)[0] : 1.0f;
 
-			if (radiuses) {
-				radius = (*radiuses)[i];
+		nu->type = CU_NURBS;
+
+		nu->bp = static_cast<BPoint *>(MEM_callocN(sizeof(BPoint) * nu->pntsu, "abc_getnurb"));
+		BPoint *bp = nu->bp;
+
+		for (int j = 0; j < nu->pntsu; ++j, ++bp, ++idx) {
+			const Imath::V3f &pos = (*positions)[idx];
+
+			if (do_radius) {
+				radius = (*radiuses)[idx];
 			}
 
 			if (weights) {
-				weight = (*weights)[i];
+				weight = (*weights)[idx];
 			}
 
 			copy_yup_zup(bp->vec, pos.getValue());
@@ -252,11 +318,20 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 		if (knots && knots->size() != 0) {
 			nu->knotsu = static_cast<float *>(MEM_callocN(KNOTSU(nu) * sizeof(float), "abc_setsplineknotsu"));
 
-			for (size_t i = 0; i < KNOTSU(nu); ++i) {
-				nu->knotsu[i] = (*knots)[knot_offset + i];
+			/* TODO: second check is temporary, for until the check for cycles is rock solid. */
+			if (periodicity == Alembic::AbcGeom::kPeriodic && (KNOTSU(nu) == knots->size() - 2)) {
+				/* Skip first and last knots. */
+				for (size_t i = 1; i < knots->size() - 1; ++i) {
+					nu->knotsu[i - 1] = (*knots)[knot_offset + i];
+				}
+			}
+			else {
+				/* TODO: figure out how to use the knots array from other
+				 * software in this case. */
+				BKE_nurb_knot_calc_u(nu);
 			}
 
-			knot_offset += KNOTSU(nu);
+			knot_offset += knots->size();
 		}
 		else {
 			BKE_nurb_knot_calc_u(nu);
