@@ -1502,7 +1502,7 @@ static bool p_charts_intersect(PChart* a, PChart *b)
 	/* Check edges for intersections */
 	for (e1 = a->edges; e1; e1 = e1->nextlink) {
 		for (e2 = b->edges; e2; e2 = e2->nextlink) {
-			if (p_intersect_line_segaments_2d(e1->vert->uv,
+			if (p_intersect_line_segments_2d(e1->vert->uv,
 											 e1->nextlink->vert->uv,
 											 e2->vert->uv,
 											 e2->nextlink->vert->uv)) {
