@@ -157,7 +157,8 @@ typedef struct PFace {
 typedef struct PConvexHull {
 	struct PVert **h_verts;
 	unsigned int nverts;
-	int right;
+	int right; /* ToDo Saphires: Can we get rid of this? */
+	int ref_vert_index; /* vert with the highest y value, lowest y if reversed */
 	float min_v[2];
 	float max_v[2];
 } PConvexHull;
@@ -4761,8 +4762,8 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 {
 	PConvexHull *conv_hull = (PConvexHull *)MEM_callocN(sizeof(*conv_hull), "PConvexHull");
 	PVert **points;
-	float minv[2], maxv[2];
-	int npoint, right;
+	float minv[2], maxv[2], maxy = -1.0e30f;
+	int npoint, right, i;
 
 	if (!p_chart_convex_hull(chart, &points, &npoint, &right))
 		printf("convex hull for chart failed!\n");
@@ -4773,6 +4774,14 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 
 	/* Fill max/min for initial positioning, with this we also know the bounding rectangle */
 	p_chart_uv_bbox(chart, conv_hull->min_v, conv_hull->max_v);
+
+	/* get reference vertex */
+	for (i = 0; i < conv_hull->nverts; i++) {
+		if (conv_hull->h_verts[i]->uv[1] > maxy) {
+			maxy = conv_hull->h_verts[i]->uv[1];
+			conv_hull->ref_vert_index = i;
+		}
+	}
 
 	return conv_hull;
 }
@@ -4861,7 +4870,7 @@ void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
 	}
 }
 
-void p_convex_hull_compute_edge_lengths(PConvexHull *hull)
+void p_convex_hull_compute_edge_components(PConvexHull *hull)
 {
 	int j;
 	printf("p_convex_hull_compute_edge_lengths");
@@ -4883,17 +4892,28 @@ void p_convex_hull_compute_edge_lengths(PConvexHull *hull)
 	}
 }
 
-PConvexHull *p_convex_hull_reversed_direction(PConvexHull *hull)
+PConvexHull *p_convex_hull_reverse_vert_order(PConvexHull *hull)
 {
 	PConvexHull *conv_hull_inv = (PConvexHull *)MEM_callocN(sizeof(*conv_hull_inv), "PConvexHullInverse");
 	conv_hull_inv->nverts = hull->nverts;
 	conv_hull_inv->h_verts = (PVert **)MEM_mallocN(sizeof(PVert *) * conv_hull_inv->nverts, "PConvexHullInversePoints");
 	conv_hull_inv->right = hull->right;
-	
-	int i;
+	conv_hull_inv->min_v[0] = hull->min_v[0];
+	conv_hull_inv->min_v[1] = hull->min_v[1];
+	conv_hull_inv->max_v[0] = hull->max_v[0];
+	conv_hull_inv->max_v[1] = hull->max_v[1];
+	int i, j, miny = 1.0e30f;
 
-	for (i = 0; i < hull->nverts; i++) {
-		conv_hull_inv->h_verts[i] = hull->h_verts[hull->nverts - (i + 1)];
+	for (i = 0; i < conv_hull_inv->nverts; i++) {
+		if (conv_hull_inv->h_verts[i]->uv[1] < miny) {
+			miny = conv_hull_inv->h_verts[i]->uv[1];
+			conv_hull_inv->ref_vert_index = i;
+		}
+	}
+
+	/* reverse vert order */
+	for (j = 0; j < hull->nverts; j++) {
+		conv_hull_inv->h_verts[j] = hull->h_verts[hull->nverts - (j + 1)];
 	}
 
 	return conv_hull_inv;
@@ -4938,6 +4958,27 @@ PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 	return nfp;
 }
 
+PConvexHull *p_convex_hull_reverse_direction(PConvexHull *item)
+{
+	/* Invert direction of one convex hull -> CCW */
+	printf("inversing direction start\n");
+	/* ref_vert_index now contains the vert with the lowest y value */
+	PConvexHull *item_inv = p_convex_hull_reverse_vert_order(item);
+	p_convex_hull_compute_horizontal_angles(item_inv);
+	p_convex_hull_compute_edge_components(item_inv);
+	printf("Inversing direction done\n");
+
+	return item_inv;
+}
+
+/* ToDo SaphireS: store edge angle/edge components in different way so this isn't necessary */
+void p_convex_hull_restore_direction(PConvexHull *item)
+{
+	p_convex_hull_compute_horizontal_angles(item);
+	p_convex_hull_compute_edge_components(item);
+}
+
+/* Make sure vert order for item is CCW and for fixed is CW! */
 PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 {
 	PNoFitPolygon *nfp = (PNoFitPolygon *)MEM_callocN(sizeof(*nfp), "PNoFitPolygon");
@@ -4946,12 +4987,9 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	nfp->final_pos = (PPointUV **)MEM_callocN(sizeof(*nfp->final_pos) * nfp->nverts, "PNFPFinalPos");
 	int i, j, offset;
 
-	/* Invert direction of one convex hull -> CCW */
-	printf("inversing direction start\n");
-	PConvexHull *item_inv = p_convex_hull_reversed_direction(item);
-	p_convex_hull_compute_horizontal_angles(item_inv);
-	p_convex_hull_compute_edge_lengths(item_inv);
-	printf("Inversing direction done\n");
+	/* ToDo SaphireS: Put this outside no fit polygon computation so it is only done once per item */
+	/* ref_vert_index now contains the vert with the lowest y value */
+	PConvexHull *item_inv = p_convex_hull_reverse_direction(item);
 
 	/* find reference verteices, store for later usage*/
 	int min_y_item_index, max_y_fixed_index;
@@ -5022,11 +5060,10 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 
 	/* delete temporary inversed convex hull */
 	p_convex_hull_delete(item_inv);
-	MEM_freeN(points);
+	p_convex_hull_restore_direction(item);
 
-	/* ToDo SaphireS: restore original angles of item, find better way to store so this isn't necessary*/
-	p_convex_hull_compute_horizontal_angles(item);
-	p_convex_hull_compute_edge_lengths(item_inv);
+	/* free memory */
+	MEM_freeN(points);
 
 	return nfp;
 }
@@ -5068,14 +5105,14 @@ void param_irregular_pack_begin(ParamHandle *handle)
 		}
 
 		/* Compute convex hull for each chart -> CW */
-		chart->u.ipack.convex_hull = p_convex_hull_new(chart);
+		chart->u.ipack.convex_hull = p_convex_hull_new(chart, true);
 		/* DEBUG */
 		printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
 
 		/* Compute horizontal angle for edges of hull (Needed for NFP) */
 		p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull);
 		/* Compute edge lengths */
-		p_convex_hull_compute_edge_lengths(chart->u.ipack.convex_hull);
+		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
 	}
 
 	if (p_convex_hull_intersect(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[1]->u.ipack.convex_hull)){
