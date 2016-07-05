@@ -911,7 +911,8 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 				MEdge *edge = find_edge(edges, mesh->totedge, (*indices)[i], (*indices)[i + 1]);
 
 				if (edge) {
-					edge->crease = FTOCHAR((*sharpnesses)[s]);				}
+					edge->crease = FTOCHAR((*sharpnesses)[s]);
+				}
 			}
 
 			mesh->cd_flag |= ME_CDFLAG_EDGE_CREASE;
