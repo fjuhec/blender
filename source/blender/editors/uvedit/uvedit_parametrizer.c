@@ -4900,6 +4900,45 @@ PConvexHull *p_convex_hull_reversed_direction(PConvexHull *hull)
 	return conv_hull_inv;
 }
 
+PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
+{
+	PNoFitPolygon *nfp = (PNoFitPolygon *)MEM_callocN(sizeof(*nfp), "PNoFitPolygon");
+	/* Simplification, since we're not dealing with arbitrary shaped outer bounds */
+	/* we can assume the inner fit polygon to always be a rectangle               */
+	nfp->nverts = 4;
+	PVert **points = (PVert **)MEM_mallocN(sizeof(PVert *) * nfp->nverts, "PNFPPoints");
+	nfp->final_pos = (PPointUV **)MEM_callocN(sizeof(*nfp->final_pos) * nfp->nverts, "PNFPFinalPos");
+	int i, j, offset;
+
+	PPointUV *p1 = (PPointUV *)MEM_callocN(sizeof(*p1), "PPointUV");
+	PPointUV *p2 = (PPointUV *)MEM_callocN(sizeof(*p2), "PPointUV");
+	PPointUV *p3 = (PPointUV *)MEM_callocN(sizeof(*p3), "PPointUV");
+	PPointUV *p4 = (PPointUV *)MEM_callocN(sizeof(*p4), "PPointUV");
+
+	/* reference point for item hull is the one with the lowest y value*/
+	
+	float bounds_height = 1.0f; /* ToDo Saphires: Aspect Ratio compensation */
+	float bounds_width = 1.0f; /* ToDo Saphires: Aspect Ratio compensation */
+	
+	p1->x = item->h_verts[item->ref_vert_index]->uv[0] - item->min_v[0];
+	p1->y = 0.0f;
+	nfp->final_pos[0] = p1;
+
+	p2->x = p1->x;
+	p2->y = bounds_height - (item->max_v[1] - item->min_v[1]); /* ToDo Saphires: ConvexHull should store relative bounds (width/height) ?*/
+	nfp->final_pos[0] = p2;
+
+	p3->x = bounds_width - (item->max_v[0] - item->min_v[0] - (item->h_verts[item->ref_vert_index]->uv[0] - item->min_v[0]));
+	p3->y = p2->y;
+	nfp->final_pos[0] = p3;
+
+	p4->x = p3->x;
+	p4->y = 0.0f;
+	nfp->final_pos[0] = p4;
+
+	return nfp;
+}
+
 PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 {
 	PNoFitPolygon *nfp = (PNoFitPolygon *)MEM_callocN(sizeof(*nfp), "PNoFitPolygon");
