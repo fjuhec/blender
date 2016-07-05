@@ -312,6 +312,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 			int num_valid_corrs = libmv_CorrespondencesFromTracking(&tracking->correspondences, clips,
 			                                                        num_clips, context->correspondences,
 			                                                        context->track_global_index);
+			printf("num_valid_corrs: %d", num_valid_corrs);
 			BLI_assert(num_valid_corrs == BLI_listbase_count(&tracking->correspondences));
 
 			BLI_strncpy(context->object_name, object->name, sizeof(context->object_name));
@@ -512,7 +513,6 @@ static bool multiview_reconstruct_retrieve_libmv_info(MovieMultiviewReconstructC
 	}
 	else {
 		MovieTrackingObject *object = BKE_tracking_object_get_named(tracking, context->object_name);
-
 		tracksbase = &object->tracks;
 		reconstruction = &object->reconstruction;
 	}

@@ -100,7 +100,7 @@ bool EuclideanIntersect(const vector<Marker> &markers,
   }
 
   Vec4 Xp;
-  std::cout << "Intersecting with " << markers.size() << " markers.\n";
+  LG << "Intersecting with " << markers.size() << " markers.\n";
   libmv::NViewTriangulateAlgebraic(points, cameras, &Xp);
 
   // Get euclidean version of the homogeneous point.
@@ -131,9 +131,9 @@ bool EuclideanIntersect(const vector<Marker> &markers,
   // TODO(sergey): Once we'll update Ceres to the next version
   // we wouldn't need this check anymore -- Ceres will deal with
   // zero-sized problems nicely.
-  std::cout << "Number of residuals: " << num_residuals << "\n";
+  LG << "Number of residuals: " << num_residuals << "\n";
   if (!num_residuals) {
-    std::cout << "Skipping running minimizer with zero residuals\n";
+    LG << "Skipping running minimizer with zero residuals\n";
 
 	// We still add 3D point for the track regardless it was
 	// optimized or not. If track is a constant zero it'll use

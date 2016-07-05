@@ -252,7 +252,6 @@ vector<Vec6> PackMultiCamerasRotationAndTranslation(
   	total_frame += tracks.MaxFrame(i) + 1;
   	camera_pose_map[i].resize(tracks.MaxFrame(i) + 1);
   }
-  printf("total frame: %d\n", total_frame);
 
   all_cameras_R_t.resize(total_frame);	// maximum possible number of camera poses
 
