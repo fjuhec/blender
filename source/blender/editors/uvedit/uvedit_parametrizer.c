@@ -5079,6 +5079,62 @@ void p_no_fit_polygon_delete(PNoFitPolygon *nfp)
 	MEM_freeN(nfp);
 }
 
+float p_binary_depth_search(int depth) 
+{
+	/* ToDo SaphireS */
+
+	return 0.8f;
+}
+
+bool p_chart_pack_individual(PChart *item) 
+{
+
+	PConvexHull *ch_item = item->u.ipack.convex_hull;
+
+	/* ToDo SaphireS */
+
+	/* Reverse winding direction of item convex hull */
+
+	/* compute no fit polygons (NFPs) of item with already placed charts */
+
+	/* compute inner fit polygon (IFP) */
+
+	/* compute collsion free region (CFR) */
+
+	/* Place chart according to rng (simulated annealing) parameters */
+
+	return true;
+}
+
+bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Annealing parameters */)
+{
+	PChart *chart;
+	int i, j;
+	int depth;
+
+	/* Set initial overall scale */
+
+	/* Average Islands Scale? Start with box packing then scale up? */
+
+	/* Sort UV islands by area */
+
+	/* Place UV islands one by one */
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+		float scale = 1.0f;
+
+		while (!p_chart_pack_individual(chart)){
+			/* binary depth search for scaling down the current chart */
+			scale = p_binary_depth_search(depth);
+
+			/* scale chart */
+			p_chart_uv_scale(chart, scale);
+		}
+	}
+
+	return true;
+}
+
 void param_irregular_pack_begin(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
