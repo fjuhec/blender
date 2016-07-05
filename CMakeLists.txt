@@ -324,22 +324,8 @@ option(WITH_CODEC_FFMPEG        "Enable FFMPeg Support (http://ffmpeg.org)" ${_i
 option(WITH_CODEC_SNDFILE       "Enable libsndfile Support (http://www.mega-nerd.com/libsndfile)" OFF)
 
 # Alembic support
-option(WITH_ALEMBIC             "Enable Alembic Support" OFF)
+option(WITH_ALEMBIC             "Enable Alembic Support" ON)
 option(WITH_ALEMBIC_HDF5        "Enable Legacy Alembic Support" OFF)
-
-# alembic
-if(WITH_ALEMBIC AND NOT APPLE) # LIBDIR not yet set, so cannot set root dirs for lookup !
-	find_package(Alembic)
-
-	if(WITH_ALEMBIC_HDF5)
-		find_package(HDF5)
-	endif()
-
-	if(NOT ALEMBIC_FOUND OR (WITH_ALEMBIC_HDF5 AND NOT HDF5_FOUND))
-		set(WITH_ALEMBIC OFF)
-		set(WITH_ALEMBIC_HDF5 OFF)
-	endif()
-endif()
 
 if(APPLE)
 	option(WITH_CODEC_QUICKTIME     "Enable Quicktime Support" ON)
@@ -1109,6 +1095,21 @@ if(UNIX AND NOT APPLE)
 		endif()
 	endif()
 
+	if(WITH_ALEMBIC)
+		set(ALEMBIC_ROOT_DIR ${LIBDIR}/alembic)
+		find_package_wrapper(Alembic)
+
+		if(WITH_ALEMBIC_HDF5)
+			set(HDF5_ROOT_DIR ${LIBDIR}/hdf5)
+			find_package_wrapper(HDF5)
+		endif()
+
+		if(NOT ALEMBIC_FOUND OR (WITH_ALEMBIC_HDF5 AND NOT HDF5_FOUND))
+			set(WITH_ALEMBIC OFF)
+			set(WITH_ALEMBIC_HDF5 OFF)
+		endif()
+	endif()
+
 	if(WITH_BOOST)
 		# uses in build instructions to override include and library variables
 		if(NOT BOOST_CUSTOM)
@@ -1679,6 +1680,21 @@ elseif(WIN32)
 			set(OPENVDB_LIBPATH ${LIBDIR}/openvdb/lib)
 		endif()
 
+		if(WITH_ALEMBIC)
+			set(ALEMBIC_ROOT_DIR ${LIBDIR}/alembic)
+			find_package(Alembic)
+
+			if(WITH_ALEMBIC_HDF5)
+				set(HDF5_ROOT_DIR ${LIBDIR}/hdf5)
+				find_package(HDF5)
+			endif()
+
+			if(NOT ALEMBIC_FOUND OR (WITH_ALEMBIC_HDF5 AND NOT HDF5_FOUND))
+				set(WITH_ALEMBIC OFF)
+				set(WITH_ALEMBIC_HDF5 OFF)
+			endif()
+		endif()
+
 		if(WITH_MOD_CLOTH_ELTOPO)
 			set(LAPACK ${LIBDIR}/lapack)
 			# set(LAPACK_INCLUDE_DIR ${LAPACK}/include)
@@ -1976,6 +1992,21 @@ elseif(WIN32)
 			set(OPENVDB_LIBRARIES openvdb ${TBB_LIBRARIES})
 			set(OPENVDB_LIBPATH ${LIBDIR}/openvdb/lib)
 			set(OPENVDB_DEFINITIONS)
+		endif()
+
+		if(WITH_ALEMBIC)
+			set(ALEMBIC_ROOT_DIR ${LIBDIR}/alembic)
+			find_package_wrapper(Alembic)
+
+			if(WITH_ALEMBIC_HDF5)
+				set(HDF5_ROOT_DIR ${LIBDIR}/hdf5)
+				find_package_wrapper(HDF5)
+			endif()
+
+			if(NOT ALEMBIC_FOUND OR (WITH_ALEMBIC_HDF5 AND NOT HDF5_FOUND))
+				set(WITH_ALEMBIC OFF)
+				set(WITH_ALEMBIC_HDF5 OFF)
+			endif()
 		endif()
 
 		set(PLATFORM_LINKFLAGS "-Xlinker --stack=2097152")
