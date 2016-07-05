@@ -6962,7 +6962,7 @@ static void chop(float *x, float *p1, float *p2, float *p3, float *p4, int res,
 		s1 = s2 = NULL;
 	}
 
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < 0; i++)
 	{
 		copy_v3_v3(r_s1 + 3 * i, s1 + 3 * i);
 		copy_v3_v3(r_s2 + 3 * i, s2 + 3 * i);
@@ -6973,7 +6973,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	ListBase *nubase = object_editcurve_get(obedit), *selected_splines;
-	int n_sel_splines, n_sel_handles;
+	int n_sel_splines = 0, n_sel_handles = 0;
 	Nurb *nu;
 
 	selected_splines = get_selected_splines(nubase, &n_sel_splines, true);
@@ -7015,8 +7015,6 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	}
 
 	int len_low = BLI_listbase_count(low), len_high = BLI_listbase_count(high);
-	int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
-	int high_first_order = ((XShape *)((LinkData *)high->first)->data)->order;
 
 	/* cyclic spline */
 	if (nu->flagu & CU_NURB_CYCLIC) {
@@ -7043,6 +7041,9 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			npoints = nu->pntsu - ((XShape *)((LinkData *)high->first)->data)->order + ((XShape *)((LinkData *)low->last)->data)->order + 2;
 		}
 
+		int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
+		int high_first_order = ((XShape *)((LinkData *)high->first)->data)->order;
+
 		Nurb *new_spl = BKE_nurb_duplicate(nu);
 		new_spl->bezt = (BezTriple *)MEM_callocN(npoints * sizeof(BezTriple), "trimexec5");
 		new_spl->pntsu = npoints;
@@ -7065,13 +7066,13 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
 		s3 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
 		s4 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
-//		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
-//			 (float *)&nu->bezt[low_last_order].vec[1],
-//			 (float *)&nu->bezt[low_last_order].vec[2],
-//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
-//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
-//			 nu->resolu,
-//			 s1, s2);
+		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+			 (float *)&nu->bezt[low_last_order].vec[1],
+			 (float *)&nu->bezt[low_last_order].vec[2],
+			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
+			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+			 nu->resolu,
+			 s1, s2);
 
 		new_spl->bezt[new_spl->pntsu - 1].h1 = HD_FREE;
 		new_spl->bezt[new_spl->pntsu - 1].h2 = HD_FREE;
@@ -7082,13 +7083,13 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[0], s1 + 6);
 		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[2], s2 + 3);
 
-//		chop(((XShape *)((LinkData *)high->first)->data)->intersections,
-//			 (float *)&nu->bezt[high_first_order].vec[1],
-//			 (float *)&nu->bezt[high_first_order].vec[2],
-//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
-//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
-//			 nu->resolu,
-//			 s3, s4);
+		chop(((XShape *)((LinkData *)high->first)->data)->intersections,
+			 (float *)&nu->bezt[high_first_order].vec[1],
+			 (float *)&nu->bezt[high_first_order].vec[2],
+			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
+			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
+			 nu->resolu,
+			 s3, s4);
 
 		new_spl->bezt[0].h1 = HD_FREE;
 		new_spl->bezt[0].h2 = HD_FREE;
@@ -7107,6 +7108,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	{
 		/* last endpoint selected */
 		if (len_low > 0 && len_high == 0) {
+			int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
 			Nurb *new_spl = BKE_nurb_duplicate(nu);
 			new_spl->bezt = (BezTriple *)MEM_callocN((low_last_order + 1) * sizeof(BezTriple), "trimexec5");
 			new_spl->pntsu = low_last_order + 1;
@@ -7122,13 +7124,13 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			float *s1, *s2;
 			s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
 			s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
-			//		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
-			//			 (float *)&nu->bezt[low_last_order].vec[1],
-			//			 (float *)&nu->bezt[low_last_order].vec[2],
-			//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
-			//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
-			//			 nu->resolu,
-			//			 s1, s2);
+			chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+				 (float *)&nu->bezt[low_last_order].vec[1],
+				 (float *)&nu->bezt[low_last_order].vec[2],
+				 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
+				 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+				 nu->resolu,
+				 s1, s2);
 
 			new_spl->bezt[new_spl->pntsu - 1].h1 = HD_FREE;
 			new_spl->bezt[new_spl->pntsu - 1].h2 = HD_FREE;
@@ -7144,6 +7146,8 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		}
 		/* first endpoint selected */
 		else if (len_low == 0 && len_high > 0) {
+			int high_first_order = ((XShape *)((LinkData *)high->first)->data)->order;
+			int low_last_order = 0;
 			Nurb *new_spl = BKE_nurb_duplicate(nu);
 			new_spl->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order -1) * sizeof(BezTriple), "trimexec5");
 			new_spl->pntsu = low_last_order + 1;
@@ -7159,19 +7163,19 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			float *s1, *s2;
 			s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
 			s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
-			//		chop(((XShape *)((LinkData *)high->first)->data)->intersections,
-			//			 (float *)&nu->bezt[high_first_order].vec[1],
-			//			 (float *)&nu->bezt[high_first_order].vec[2],
-			//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
-			//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
-			//			 nu->resolu,
-			//			 s1, s2);
+			chop(((XShape *)((LinkData *)high->first)->data)->intersections,
+				 (float *)&nu->bezt[high_first_order].vec[1],
+				 (float *)&nu->bezt[high_first_order].vec[2],
+				 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
+				 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
+				 nu->resolu,
+				 s1, s2);
 
 			new_spl->bezt[0].h1 = HD_FREE;
 			new_spl->bezt[0].h2 = HD_FREE;
 			new_spl->bezt[1].h1 = HD_FREE;
 			new_spl->bezt[1].h2 = HD_FREE;
-			copy_v3_v3(new_spl->bezt[0].vec[1], ((XShape *)((LinkData *)low->first)->data)->intersections);
+			copy_v3_v3(new_spl->bezt[0].vec[1], ((XShape *)((LinkData *)high->first)->data)->intersections);
 			copy_v3_v3(new_spl->bezt[0].vec[0], s1 + 6);
 			copy_v3_v3(new_spl->bezt[0].vec[2], s2 + 3);
 			copy_v3_v3(new_spl->bezt[1].vec[0], s2 + 6);
@@ -7183,6 +7187,8 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		else if (len_high > 0 && len_low > 0)
 		{
 			Nurb *new_spl = BKE_nurb_duplicate(nu);
+			int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
+			int high_first_order = ((XShape *)((LinkData *)high->first)->data)->order;
 			new_spl->bezt = (BezTriple *)MEM_callocN((low_last_order + 1) * sizeof(BezTriple), "trimexec5");
 			new_spl->pntsu = low_last_order + 1;
 			BezTriple *bezt = new_spl->bezt;
@@ -7197,19 +7203,19 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			float *s1, *s2;
 			s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
 			s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
-			//		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
-			//			 (float *)&nu->bezt[low_last_order].vec[1],
-			//			 (float *)&nu->bezt[low_last_order].vec[2],
-			//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
-			//			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
-			//			 nu->resolu,
-			//			 s1, s2);
+			chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+				 (float *)&nu->bezt[low_last_order].vec[1],
+				 (float *)&nu->bezt[low_last_order].vec[2],
+				 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
+				 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+				 nu->resolu,
+				 s1, s2);
 
 			new_spl->bezt[new_spl->pntsu - 1].h1 = HD_FREE;
 			new_spl->bezt[new_spl->pntsu - 1].h2 = HD_FREE;
 			new_spl->bezt[new_spl->pntsu - 2].h1 = HD_FREE;
 			new_spl->bezt[new_spl->pntsu - 2].h2 = HD_FREE;
-			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low->first)->data)->intersections);
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low->last)->data)->intersections);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 2].vec[2], s1 + 3);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[0], s1 + 6);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[2], s2 + 3);
@@ -7232,19 +7238,19 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			float *s3, *s4;
 			s3 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
 			s4 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
-			//		chop(((XShape *)((LinkData *)high->first)->data)->intersections,
-			//			 (float *)&nu->bezt[high_first_order].vec[1],
-			//			 (float *)&nu->bezt[high_first_order].vec[2],
-			//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
-			//			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
-			//			 nu->resolu,
-			//			 s3, s4);
+			chop(((XShape *)((LinkData *)high->first)->data)->intersections,
+				 (float *)&nu->bezt[high_first_order].vec[1],
+				 (float *)&nu->bezt[high_first_order].vec[2],
+				 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
+				 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
+				 nu->resolu,
+				 s3, s4);
 
 			new_spl1->bezt[0].h1 = HD_FREE;
 			new_spl1->bezt[0].h2 = HD_FREE;
 			new_spl1->bezt[1].h1 = HD_FREE;
 			new_spl1->bezt[1].h2 = HD_FREE;
-			copy_v3_v3(new_spl1->bezt[0].vec[1], ((XShape *)((LinkData *)low->first)->data)->intersections);
+			copy_v3_v3(new_spl1->bezt[0].vec[1], ((XShape *)((LinkData *)high->first)->data)->intersections);
 			copy_v3_v3(new_spl1->bezt[0].vec[0], s3 + 6);
 			copy_v3_v3(new_spl1->bezt[0].vec[2], s4 + 3);
 			copy_v3_v3(new_spl1->bezt[1].vec[0], s4 + 6);
