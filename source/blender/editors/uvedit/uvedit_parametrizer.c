@@ -168,7 +168,6 @@ typedef struct PPointUV{
 } PPointUV;
 
 typedef struct PNoFitPolygon {
-	struct PVert **verts;
 	unsigned int nverts;
 	struct PPointUV **final_pos; 
 } PNoFitPolygon;
@@ -4942,8 +4941,6 @@ PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 {
 	PNoFitPolygon *nfp = (PNoFitPolygon *)MEM_callocN(sizeof(*nfp), "PNoFitPolygon");
-	/* ToDo SaphireS: Should be possible to get rid of nfp->verts to save memory */
-	nfp->verts = (PVert **)MEM_mallocN(sizeof(PVert *) * nfp->nverts, "PNFPVerts");
 	nfp->nverts = item->nverts + fixed->nverts;
 	PVert **points = (PVert **)MEM_mallocN(sizeof(PVert *) * nfp->nverts, "PNFPPoints");
 	nfp->final_pos = (PPointUV **)MEM_callocN(sizeof(*nfp->final_pos) * nfp->nverts, "PNFPFinalPos");
@@ -5042,7 +5039,6 @@ void p_no_fit_polygon_delete(PNoFitPolygon *nfp)
 			MEM_freeN(nfp->final_pos[i]);
 	}
 	MEM_freeN(nfp->final_pos);
-	MEM_freeN(nfp->verts);
 	MEM_freeN(nfp);
 }
 
