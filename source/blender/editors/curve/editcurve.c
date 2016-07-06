@@ -6308,7 +6308,7 @@ void CURVE_OT_match_texture_space(wmOperatorType *ot)
 
 /******************** Extend curve operator ********************/
 
-static ListBase *get_selected_splines(ListBase *nubase, int *r_number_splines, bool return_cyclic)
+static void get_selected_splines(ListBase* spline_list, ListBase *nubase, int *r_number_splines, bool return_cyclic)
 {
 	/* receives a list with all Bezier splines in a "curve" object
 	 * returns the first spline of a linked list with all the selected splines,
@@ -6317,7 +6317,6 @@ static ListBase *get_selected_splines(ListBase *nubase, int *r_number_splines, b
 
 	Nurb *nu, *nu_copy;
 	BezTriple *bezt;
-	ListBase *spline_list = (ListBase *)MEM_callocN(sizeof(ListBase), "get_selected_splines1");
 	int handles;
 
 	for(nu=nubase->first; nu; nu = nu->next)
@@ -6338,7 +6337,6 @@ static ListBase *get_selected_splines(ListBase *nubase, int *r_number_splines, b
 			bezt++;
 		}
 	}
-	return spline_list;
 }
 
 static ListBase *get_selected_handles(Nurb* nu, int *r_num_sel_handles)
@@ -6479,8 +6477,8 @@ static ListBase *interpolate_all_segments(Nurb *nu)
 	int bezier_points = nu->pntsu;
 
 	while (i < bezier_points-1+nu->flagu) {
-		coord_array = MEM_callocN(dims * (nu->resolu + 1) * sizeof(float), "interpolate_bezier2");
-		link = MEM_callocN(sizeof(LinkData), "interpolate_bezier3");
+		coord_array = MEM_callocN(dims * (nu->resolu + 1) * sizeof(float), "interpolate_all_segments2");
+		link = MEM_callocN(sizeof(LinkData), "interpolate_all_segments3");
 		link->data = coord_array;
 		for (int j = 0; j < dims; j++) {
 			BKE_curve_forward_diff_bezier(nu->bezt[i%bezier_points].vec[1][j],
@@ -6496,35 +6494,31 @@ static ListBase *interpolate_all_segments(Nurb *nu)
 	return pl;
 }
 
-static ListBase *linear_spline_list(ListBase *nubase)
+static void linear_spline_list(ListBase *nubase, ListBase *spline_list)
 {
 	/* return a list with all the points of a curve object */
-	ListBase *spline_list = (ListBase *)MEM_callocN(sizeof(ListBase), "linearspllist1");
 	LinkData *link;
 	Nurb *nu;
 
 	for (nu=nubase->first; nu; nu=nu->next) {
-		link = MEM_callocN(sizeof(LinkData), "linearspllist2");
+		link = MEM_callocN(sizeof(LinkData), "linearspllist1");
 		link->data = interpolate_all_segments(nu);
 		BLI_addtail(spline_list, link);
 	}
-
-	return spline_list;
 }
 
-static ListBase *get_intersections(float *p1, float *p2, ListBase *nubase)
+static void get_intersections(ListBase* il, float *p1, float *p2, ListBase *nubase)
 {
 	/* return a list with all the intersection points of the segment p1p2 with the curve object */
-	ListBase *spline_list, *points_list;
-	ListBase *il = (ListBase *)MEM_callocN(sizeof(ListBase), "get_intersections1");
+	ListBase spline_list = {NULL}, *points_list;
 	LinkData *intersection, *link, *spl;
 	float *coord_array, *vi, p3[2], p4[2];
 	Nurb *nu = nubase->first;
 	int dims = 3, result;
 	const float PRECISION = 1e-05;
 
-	spline_list = linear_spline_list(nubase);		/* all the points in a curve object */
-	for (spl=spline_list->first; spl; spl=spl->next) { /* selecting the points of a given spline */
+	linear_spline_list(nubase, &spline_list);		/* all the points in a curve object */
+	for (spl=spline_list.first; spl; spl=spl->next) { /* selecting the points of a given spline */
 		points_list = spl->data;        /* output of interpolate_all_segments */
 		for (link = points_list->first; link; link=link->next) {
 			coord_array = (float *)link->data;
@@ -6536,14 +6530,23 @@ static ListBase *get_intersections(float *p1, float *p2, ListBase *nubase)
 				p4[1] = coord_array[(i + 1) * dims + 1];
 				result = isect_seg_seg_v2_point(p2, p1, p3, p4, vi);
 				if (result == 1 && len_v2v2(vi, p1) > PRECISION) {
+					/* a hit, lets add it. */
 					intersection = MEM_callocN(sizeof(LinkData), "get_intersections4");
 					intersection->data = vi;
 					BLI_addtail(il, intersection);
 				}
+				else {
+					/* not going to add, so free the memory we reserved, not used. */
+					MEM_freeN(vi);
+				}
 			}
+			MEM_freeN(link->data);   /* commenting either does not free the memory */
+			MEM_freeN(coord_array);  /* running both gives an error, but seems to free the memory */
 		}
+		BLI_freelistN(spl->data);
+		BLI_freelistN(points_list);
 	}
-	return il;
+	BLI_freelistN(&spline_list);
 }
 
 static int extend_curve_exec(bContext *C, wmOperator *op)
@@ -6553,7 +6556,9 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 	Curve *cu = obedit->data;
 	Nurb *nu;
 	EditNurb *editnurb = cu->editnurb;
-	ListBase *nubase = object_editcurve_get(obedit), *spline_list, *intersections_list;
+	ListBase spline_list = {NULL};
+	ListBase intersections_list = {NULL};
+	ListBase *nubase = object_editcurve_get(obedit);
 	BezTriple **selected_endpoints = NULL, **first_selected_endpoints = NULL, **second_selected_endpoints = NULL, *bezt;
 	int n_selected_splines = 0, result = 0, a = 0;
 	float p1[3], p2[3] = {0.0, 0.0, 0.0}, p1_handle[3], bound_box[4], p1_extend[2];
@@ -6567,7 +6572,7 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	spline_list = get_selected_splines(nubase, &n_selected_splines, false);
+	get_selected_splines(&spline_list, nubase, &n_selected_splines, false);
 
 	/* the user can only select one or two splines */
 	if ((n_selected_splines == 0 || n_selected_splines > 2)) {
@@ -6575,8 +6580,8 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	first_spline = (Nurb *)spline_list->first;
-	second_spline = (Nurb *)spline_list->last;
+	first_spline = (Nurb *)spline_list.first;
+	second_spline = (Nurb *)spline_list.last;
 
 	if (n_selected_splines == 1) { /* one spline selected */
 		selected_endpoints = MEM_callocN(2 * sizeof(BezTriple), "extendcurve1");
@@ -6601,8 +6606,8 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 			}
 			get_nurb_shape_bounds(obedit, bound_box);
 			get_max_extent_2d(p1, p1_handle, bound_box, p1_extend);
-			intersections_list = get_intersections(p1, p1_extend, nubase);
-			nearest_point(p1, intersections_list, p2, &result);
+			get_intersections(&intersections_list, p1, p1_extend, nubase);
+			nearest_point(p1, &intersections_list, p2, &result);
 		}
 	}
 	else if (n_selected_splines == 2) { /* two endpoints selected on two different splines */
@@ -6637,12 +6642,7 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 											  * the intersection point is on variables p1 and p2 */
 	}
 
-	if (result != 1)
-	{
-		BKE_report(op->reports, RPT_ERROR, "No intersection found");
-		return OPERATOR_CANCELLED;
-	}
-	else
+	if (result == 1)
 	{
 		if (n_selected_splines == 1) {
 			if (selected_endpoints[0] && selected_endpoints[1])
@@ -6681,10 +6681,32 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DAG_id_tag_update(obedit->data, 0);
+	/* free all lists and reserved memory. */
+	for (Nurb* d = spline_list.first; d; d = d->next) {
+		MEM_freeN(d->bezt);
+	}
+	BLI_freelistN(&spline_list);
 
-	return OPERATOR_FINISHED;
+	for (LinkData* d = intersections_list.first; d; d = d->next) {
+		MEM_freeN(d->data);
+	}
+	BLI_freelistN(&intersections_list);
+	if(selected_endpoints) MEM_freeN(selected_endpoints);
+	if(first_selected_endpoints) MEM_freeN(first_selected_endpoints);
+	if(second_selected_endpoints) MEM_freeN(second_selected_endpoints);
+
+	if (result != 1)
+	{
+		BKE_report(op->reports, RPT_ERROR, "No intersection found");
+		return OPERATOR_CANCELLED;
+	}
+	else {
+
+		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+		DAG_id_tag_update(obedit->data, 0);
+
+		return OPERATOR_FINISHED;
+	}
 }
 
 void CURVE_OT_extend_curve(wmOperatorType *ot)
@@ -6743,12 +6765,13 @@ static int XShape_cmp(const void *xs1, const void *xs2)
 
 static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 {
-	ListBase *nubase, *shape_list, *all_segments;
+	ListBase shape_list = {NULL};
+	ListBase *nubase, *all_segments;
 	Nurb *nu;
 	const float PRECISION = 1e-05;
 
 	nubase = object_editcurve_get(obedit);
-	shape_list = linear_spline_list(nubase);
+	linear_spline_list(nubase, &shape_list);
 	nu = BLI_findlink(nubase, selected_spline);
 	all_segments = interpolate_all_segments(nu);
 
@@ -6783,7 +6806,8 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 			vi = (float *)MEM_callocN(3 * sizeof(float), "splineXshape4");
 			result = isect_seg_seg_v2_point(&full_coord_array[i * 3], &full_coord_array[(i + 1) * 3],
 											&full_coord_array[j * 3], &full_coord_array[(j + 1) * 3], vi);
-			if (result == 1) {
+			if (result == 1)
+			{
 				xshape = (XShape *)MEM_callocN(sizeof(XShape), "splineXshape1");
 				xshape->intersections = vi;
 				xshape->order = i / nu->resolu;
@@ -6791,6 +6815,10 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 				sub_v3_v3(helper, &full_coord_array[i * 3]);
 				xshape->distance = sl_length + len_v3(helper);
 				BLI_addtail(intersections, xshape);
+			}
+			else
+			{
+				MEM_freeN(vi);
 			}
 		}
 		copy_v3_v3(helper, &full_coord_array[(i + 1) * 3]);
@@ -6804,7 +6832,7 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 	l1 = l2 = l3 = l4 = 0;
 	for (i = 0; i < nu->resolu * (nu->pntsu - 1); i++) {
 		j = 0;
-		for (spline = shape_list->first; spline; spline = spline->next, j++) {
+		for (spline = shape_list.first; spline; spline = spline->next, j++) {
 			k = 0;
 			for (segment = ((ListBase *)spline->data)->first; segment; segment = segment->next, k++) {
 				segment_coord_array = segment->data;
@@ -6815,7 +6843,8 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 					vi = (float *)MEM_callocN(3 * sizeof(float), "splineXshape5");
 					result = isect_seg_seg_v2_point(&full_coord_array[i * 3], &full_coord_array[(i + 1) * 3],
 													&segment_coord_array[a * 3], &segment_coord_array[(a + 1) * 3], vi);
-					if (result == 1) {
+					if (result == 1)
+					{
 						copy_v3_v3(helper, &full_coord_array[i * 3]);
 						sub_v3_v3(helper, &segment_coord_array[a * 3]);
 						l1 = len_v3(helper);
@@ -6839,6 +6868,10 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 							BLI_addtail(intersections, xshape);
 						}
 					}
+					else
+					{
+						MEM_freeN(vi);
+					}
 				}
 			}
 		}
@@ -6847,6 +6880,10 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 		sl_length += len_v3(helper);
 	}
 	BLI_listbase_sort(intersections, XShape_cmp);
+
+	MEM_freeN(full_coord_array);
+	MEM_freeN(original_first_coord_array);
+
 	return intersections;
 }
 
@@ -6881,6 +6918,7 @@ static float ratio_to_segment(float *x, float *p1, float *p2, float *p3, float *
 	for (int i = 0; i < res; i++) {
 		if (is_between(x, &seg[3 * i], &seg[3 * (i + 1)])) {
 			length = len_v2v2(&seg[3 * i], x);
+			MEM_freeN(seg);
 			return length/seg_length;
 		}
 		else
@@ -6899,12 +6937,12 @@ static void split_segment(float t, float *p1, float *p2, float *p3, float *p4,
 {
 	float *q1, *q2, *q3, *r1, *r2, *r3;
 
-	q1 = (float *)MEM_callocN(3 * sizeof(float), "split_segment7");
-	q2 = (float *)MEM_callocN(3 * sizeof(float), "split_segment8");
-	q3 = (float *)MEM_callocN(3 * sizeof(float), "split_segment9");
-	r1 = (float *)MEM_callocN(3 * sizeof(float), "split_segment10");
-	r2 = (float *)MEM_callocN(3 * sizeof(float), "split_segment11");
-	r3 = (float *)MEM_callocN(3 * sizeof(float), "split_segment12");
+	q1 = (float *)MEM_callocN(3 * sizeof(float), "split_segment1");
+	q2 = (float *)MEM_callocN(3 * sizeof(float), "split_segment2");
+	q3 = (float *)MEM_callocN(3 * sizeof(float), "split_segment3");
+	r1 = (float *)MEM_callocN(3 * sizeof(float), "split_segment4");
+	r2 = (float *)MEM_callocN(3 * sizeof(float), "split_segment5");
+	r3 = (float *)MEM_callocN(3 * sizeof(float), "split_segment6");
 
 	copy_v3_v3(q1, p2);
 	sub_v3_v3(q1, p1);
@@ -6944,6 +6982,13 @@ static void split_segment(float t, float *p1, float *p2, float *p3, float *p4,
 	copy_v3_v3(r_s2 + 3, r2);
 	copy_v3_v3(r_s2 + 6, q3);
 	copy_v3_v3(r_s2 + 9, p4);
+
+	MEM_freeN(q1);
+	MEM_freeN(q2);
+	MEM_freeN(q3);
+	MEM_freeN(r1);
+	MEM_freeN(r2);
+	MEM_freeN(r3);
 }
 
 static void chop(float *x, float *p1, float *p2, float *p3, float *p4, int res,
@@ -6951,8 +6996,8 @@ static void chop(float *x, float *p1, float *p2, float *p3, float *p4, int res,
 {
 	float ratio = ratio_to_segment(x, p1, p2, p3, p4, res), *s1, *s2;
 
-	s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
-	s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "");
+	s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "chop1"); // All this s1 and s2 junk is useless
+	s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "chop2"); // Delete it all after fixing the memory leaks
 
 	if (ratio != 0) {
 		split_segment(ratio, p1, p2, p3, p4, r_s1, r_s2);
@@ -6962,21 +7007,19 @@ static void chop(float *x, float *p1, float *p2, float *p3, float *p4, int res,
 		s1 = s2 = NULL;
 	}
 
-	for (int i = 0; i < 0; i++)
-	{
-		copy_v3_v3(r_s1 + 3 * i, s1 + 3 * i);
-		copy_v3_v3(r_s2 + 3 * i, s2 + 3 * i);
-	}
+	MEM_freeN(s1);
+	MEM_freeN(s2);
 }
 
 static int trim_curve_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
-	ListBase *nubase = object_editcurve_get(obedit), *selected_splines;
+	ListBase *nubase = object_editcurve_get(obedit);
+	ListBase selected_splines = {NULL};
 	int n_sel_splines = 0, n_sel_handles = 0;
 	Nurb *nu;
 
-	selected_splines = get_selected_splines(nubase, &n_sel_splines, true);
+	get_selected_splines(&selected_splines, nubase, &n_sel_splines, true);
 
 	/* it only makes sense for one spline to be selected */
 	if (n_sel_splines != 1) {
