@@ -26,16 +26,6 @@ CCL_NAMESPACE_BEGIN
 
 static const int BVH_SORT_THRESHOLD = 4096;
 
-/* Silly workaround for float extended precision that happens when compiling
- * on x86, due to one float staying in 80 bit precision register and the other
- * not, which causes the strictly weak ordering to break.
- */
-#if !defined(__i386__)
-#  define NO_EXTENDED_PRECISION
-#else
-#  define NO_EXTENDED_PRECISION volatile
-#endif
-
 struct BVHReferenceCompare {
 public:
 	int dim;
@@ -68,8 +58,8 @@ public:
 	{
 		BoundBox ra_bounds = get_prim_bounds(ra),
 		         rb_bounds = get_prim_bounds(rb);
-		NO_EXTENDED_PRECISION float ca = ra_bounds.min[dim] + ra_bounds.max[dim];
-		NO_EXTENDED_PRECISION float cb = rb_bounds.min[dim] + rb_bounds.max[dim];
+		float ca = ra_bounds.min[dim] + ra_bounds.max[dim];
+		float cb = rb_bounds.min[dim] + rb_bounds.max[dim];
 
 		if(ca < cb) return -1;
 		else if(ca > cb) return 1;

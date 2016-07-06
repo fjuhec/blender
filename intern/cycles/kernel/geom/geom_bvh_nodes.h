@@ -51,23 +51,23 @@ ccl_device_inline int bvh_aligned_node_intersect(KernelGlobals *kg,
 	float4 node2 = kernel_tex_fetch(__bvh_nodes, nodeAddr+3);
 
 	/* intersect ray against child nodes */
-	NO_EXTENDED_PRECISION float c0lox = (node0.x - P.x) * idir.x;
-	NO_EXTENDED_PRECISION float c0hix = (node0.z - P.x) * idir.x;
-	NO_EXTENDED_PRECISION float c0loy = (node1.x - P.y) * idir.y;
-	NO_EXTENDED_PRECISION float c0hiy = (node1.z - P.y) * idir.y;
-	NO_EXTENDED_PRECISION float c0loz = (node2.x - P.z) * idir.z;
-	NO_EXTENDED_PRECISION float c0hiz = (node2.z - P.z) * idir.z;
-	NO_EXTENDED_PRECISION float c0min = max4(min(c0lox, c0hix), min(c0loy, c0hiy), min(c0loz, c0hiz), 0.0f);
-	NO_EXTENDED_PRECISION float c0max = min4(max(c0lox, c0hix), max(c0loy, c0hiy), max(c0loz, c0hiz), t);
+	float c0lox = (node0.x - P.x) * idir.x;
+	float c0hix = (node0.z - P.x) * idir.x;
+	float c0loy = (node1.x - P.y) * idir.y;
+	float c0hiy = (node1.z - P.y) * idir.y;
+	float c0loz = (node2.x - P.z) * idir.z;
+	float c0hiz = (node2.z - P.z) * idir.z;
+	float c0min = max4(min(c0lox, c0hix), min(c0loy, c0hiy), min(c0loz, c0hiz), 0.0f);
+	float c0max = min4(max(c0lox, c0hix), max(c0loy, c0hiy), max(c0loz, c0hiz), t);
 
-	NO_EXTENDED_PRECISION float c1lox = (node0.y - P.x) * idir.x;
-	NO_EXTENDED_PRECISION float c1hix = (node0.w - P.x) * idir.x;
-	NO_EXTENDED_PRECISION float c1loy = (node1.y - P.y) * idir.y;
-	NO_EXTENDED_PRECISION float c1hiy = (node1.w - P.y) * idir.y;
-	NO_EXTENDED_PRECISION float c1loz = (node2.y - P.z) * idir.z;
-	NO_EXTENDED_PRECISION float c1hiz = (node2.w - P.z) * idir.z;
-	NO_EXTENDED_PRECISION float c1min = max4(min(c1lox, c1hix), min(c1loy, c1hiy), min(c1loz, c1hiz), 0.0f);
-	NO_EXTENDED_PRECISION float c1max = min4(max(c1lox, c1hix), max(c1loy, c1hiy), max(c1loz, c1hiz), t);
+	float c1lox = (node0.y - P.x) * idir.x;
+	float c1hix = (node0.w - P.x) * idir.x;
+	float c1loy = (node1.y - P.y) * idir.y;
+	float c1hiy = (node1.w - P.y) * idir.y;
+	float c1loz = (node2.y - P.z) * idir.z;
+	float c1hiz = (node2.w - P.z) * idir.z;
+	float c1min = max4(min(c1lox, c1hix), min(c1loy, c1hiy), min(c1loz, c1hiz), 0.0f);
+	float c1max = min4(max(c1lox, c1hix), max(c1loy, c1hiy), max(c1loz, c1hiz), t);
 
 	dist[0] = c0min;
 	dist[1] = c1min;
@@ -100,23 +100,23 @@ ccl_device_inline int bvh_aligned_node_intersect_robust(KernelGlobals *kg,
 	float4 node2 = kernel_tex_fetch(__bvh_nodes, nodeAddr+3);
 
 	/* intersect ray against child nodes */
-	NO_EXTENDED_PRECISION float c0lox = (node0.x - P.x) * idir.x;
-	NO_EXTENDED_PRECISION float c0hix = (node0.z - P.x) * idir.x;
-	NO_EXTENDED_PRECISION float c0loy = (node1.x - P.y) * idir.y;
-	NO_EXTENDED_PRECISION float c0hiy = (node1.z - P.y) * idir.y;
-	NO_EXTENDED_PRECISION float c0loz = (node2.x - P.z) * idir.z;
-	NO_EXTENDED_PRECISION float c0hiz = (node2.z - P.z) * idir.z;
-	NO_EXTENDED_PRECISION float c0min = max4(min(c0lox, c0hix), min(c0loy, c0hiy), min(c0loz, c0hiz), 0.0f);
-	NO_EXTENDED_PRECISION float c0max = min4(max(c0lox, c0hix), max(c0loy, c0hiy), max(c0loz, c0hiz), t);
+	float c0lox = (node0.x - P.x) * idir.x;
+	float c0hix = (node0.z - P.x) * idir.x;
+	float c0loy = (node1.x - P.y) * idir.y;
+	float c0hiy = (node1.z - P.y) * idir.y;
+	float c0loz = (node2.x - P.z) * idir.z;
+	float c0hiz = (node2.z - P.z) * idir.z;
+	float c0min = max4(min(c0lox, c0hix), min(c0loy, c0hiy), min(c0loz, c0hiz), 0.0f);
+	float c0max = min4(max(c0lox, c0hix), max(c0loy, c0hiy), max(c0loz, c0hiz), t);
 
-	NO_EXTENDED_PRECISION float c1lox = (node0.y - P.x) * idir.x;
-	NO_EXTENDED_PRECISION float c1hix = (node0.w - P.x) * idir.x;
-	NO_EXTENDED_PRECISION float c1loy = (node1.y - P.y) * idir.y;
-	NO_EXTENDED_PRECISION float c1hiy = (node1.w - P.y) * idir.y;
-	NO_EXTENDED_PRECISION float c1loz = (node2.y - P.z) * idir.z;
-	NO_EXTENDED_PRECISION float c1hiz = (node2.w - P.z) * idir.z;
-	NO_EXTENDED_PRECISION float c1min = max4(min(c1lox, c1hix), min(c1loy, c1hiy), min(c1loz, c1hiz), 0.0f);
-	NO_EXTENDED_PRECISION float c1max = min4(max(c1lox, c1hix), max(c1loy, c1hiy), max(c1loz, c1hiz), t);
+	float c1lox = (node0.y - P.x) * idir.x;
+	float c1hix = (node0.w - P.x) * idir.x;
+	float c1loy = (node1.y - P.y) * idir.y;
+	float c1hiy = (node1.w - P.y) * idir.y;
+	float c1loz = (node2.y - P.z) * idir.z;
+	float c1hiz = (node2.w - P.z) * idir.z;
+	float c1min = max4(min(c1lox, c1hix), min(c1loy, c1hiy), min(c1loz, c1hiz), 0.0f);
+	float c1max = min4(max(c1lox, c1hix), max(c1loy, c1hiy), max(c1loz, c1hiz), t);
 
 	if(difl != 0.0f) {
 		float hdiff = 1.0f + difl;
@@ -157,19 +157,19 @@ ccl_device_inline bool bvh_unaligned_node_intersect_child(
 	float3 aligned_dir = transform_direction(&space, dir);
 	float3 aligned_P = transform_point(&space, P);
 	float3 nrdir = -1.0f * bvh_inverse_direction(aligned_dir);
-	/* TODO(sergey): Do we need NO_EXTENDED_PRECISION here as well? */
+	/* TODO(sergey): Do we need here as well? */
 	float3 tLowerXYZ = make_float3(aligned_P.x * nrdir.x,
 	                               aligned_P.y * nrdir.y,
 	                               aligned_P.z * nrdir.z);
 	float3 tUpperXYZ = tLowerXYZ - nrdir;
-	NO_EXTENDED_PRECISION const float tNearX = min(tLowerXYZ.x, tUpperXYZ.x);
-	NO_EXTENDED_PRECISION const float tNearY = min(tLowerXYZ.y, tUpperXYZ.y);
-	NO_EXTENDED_PRECISION const float tNearZ = min(tLowerXYZ.z, tUpperXYZ.z);
-	NO_EXTENDED_PRECISION const float tFarX  = max(tLowerXYZ.x, tUpperXYZ.x);
-	NO_EXTENDED_PRECISION const float tFarY  = max(tLowerXYZ.y, tUpperXYZ.y);
-	NO_EXTENDED_PRECISION const float tFarZ  = max(tLowerXYZ.z, tUpperXYZ.z);
-	NO_EXTENDED_PRECISION const float tNear  = max4(0.0f, tNearX, tNearY, tNearZ);
-	NO_EXTENDED_PRECISION const float tFar   = min4(t, tFarX, tFarY, tFarZ);
+	const float tNearX = min(tLowerXYZ.x, tUpperXYZ.x);
+	const float tNearY = min(tLowerXYZ.y, tUpperXYZ.y);
+	const float tNearZ = min(tLowerXYZ.z, tUpperXYZ.z);
+	const float tFarX  = max(tLowerXYZ.x, tUpperXYZ.x);
+	const float tFarY  = max(tLowerXYZ.y, tUpperXYZ.y);
+	const float tFarZ  = max(tLowerXYZ.z, tUpperXYZ.z);
+	const float tNear  = max4(0.0f, tNearX, tNearY, tNearZ);
+	const float tFar   = min4(t, tFarX, tFarY, tFarZ);
 	*dist = tNear;
 	return tNear <= tFar;
 }
@@ -189,19 +189,19 @@ ccl_device_inline bool bvh_unaligned_node_intersect_child_robust(
 	float3 aligned_dir = transform_direction(&space, dir);
 	float3 aligned_P = transform_point(&space, P);
 	float3 nrdir = -1.0f * bvh_inverse_direction(aligned_dir);
-	/* TODO(sergey): Do we need NO_EXTENDED_PRECISION here as well? */
+	/* TODO(sergey): Do we need here as well? */
 	float3 tLowerXYZ = make_float3(aligned_P.x * nrdir.x,
 	                               aligned_P.y * nrdir.y,
 	                               aligned_P.z * nrdir.z);
 	float3 tUpperXYZ = tLowerXYZ - nrdir;
-	NO_EXTENDED_PRECISION const float tNearX = min(tLowerXYZ.x, tUpperXYZ.x);
-	NO_EXTENDED_PRECISION const float tNearY = min(tLowerXYZ.y, tUpperXYZ.y);
-	NO_EXTENDED_PRECISION const float tNearZ = min(tLowerXYZ.z, tUpperXYZ.z);
-	NO_EXTENDED_PRECISION const float tFarX  = max(tLowerXYZ.x, tUpperXYZ.x);
-	NO_EXTENDED_PRECISION const float tFarY  = max(tLowerXYZ.y, tUpperXYZ.y);
-	NO_EXTENDED_PRECISION const float tFarZ  = max(tLowerXYZ.z, tUpperXYZ.z);
-	NO_EXTENDED_PRECISION const float tNear  = max4(0.0f, tNearX, tNearY, tNearZ);
-	NO_EXTENDED_PRECISION const float tFar   = min4(t, tFarX, tFarY, tFarZ);
+	const float tNearX = min(tLowerXYZ.x, tUpperXYZ.x);
+	const float tNearY = min(tLowerXYZ.y, tUpperXYZ.y);
+	const float tNearZ = min(tLowerXYZ.z, tUpperXYZ.z);
+	const float tFarX  = max(tLowerXYZ.x, tUpperXYZ.x);
+	const float tFarY  = max(tLowerXYZ.y, tUpperXYZ.y);
+	const float tFarZ  = max(tLowerXYZ.z, tUpperXYZ.z);
+	const float tNear  = max4(0.0f, tNearX, tNearY, tNearZ);
+	const float tFar   = min4(t, tFarX, tFarY, tFarZ);
 	*dist = tNear;
 	if(difl != 0.0f) {
 		/* TODO(sergey): Same as for QBVH, needs a proper use. */
