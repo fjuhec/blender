@@ -24,7 +24,7 @@
 CCL_NAMESPACE_BEGIN
 
 class BVHBuild;
-class Transform;
+struct Transform;
 
 /* Object Split */
 

@@ -25,7 +25,7 @@ class BoundBox;
 class BVHObjectBinning;
 class BVHRange;
 class BVHReference;
-class Transform;
+struct Transform;
 class Object;
 
 /* Helper class to perform calculations needed for unaligned nodes. */

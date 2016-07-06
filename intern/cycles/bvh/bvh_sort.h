@@ -21,7 +21,7 @@
 CCL_NAMESPACE_BEGIN
 
 class BVHUnaligned;
-class Transform;
+struct Transform;
 
 void bvh_reference_sort(int start,
                         int end,
