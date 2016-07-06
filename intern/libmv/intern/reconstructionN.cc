@@ -206,8 +206,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
 
   Tracks all_normalized_tracks;	// normalized tracks of all clips
   all_normalized_tracks.SetClipNum(clip_num);
-  for(int i = 0; i < clip_num; i++)
-  {
+  for (int i = 0; i < clip_num; i++) {
     all_libmv_reconstruction[i] = LIBMV_OBJECT_NEW(libmv_ReconstructionN);
     Tracks &tracks = *((Tracks *) all_libmv_tracks[i]);		// Tracks are just a bunch of markers
 
@@ -221,8 +220,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
     mv_getNormalizedTracks(tracks, *camera_intrinsics, &normalized_tracks);
     all_normalized_tracks.AddTracks(normalized_tracks);
 
-    if(i == 0)		// key frame from primary camera
-    {
+	if (i == 0) {			// key frame from primary camera
       ///* keyframe selection. */
       keyframe1 = libmv_reconstruction_options->keyframe1;
 	  keyframe2 = libmv_reconstruction_options->keyframe2;
@@ -326,7 +324,7 @@ bool libmv_multiviewReconstructionIsValid(const int clip_num,
                                           const libmv_ReconstructionN **all_libmv_reconstruction)
 {
   bool valid_flag = true;
-  for(int i = 0; i < clip_num; i++)
+  for (int i = 0; i < clip_num; i++)
     valid_flag &= all_libmv_reconstruction[i]->is_valid;
   return valid_flag;
 }

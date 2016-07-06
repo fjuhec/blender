@@ -98,22 +98,25 @@ MovieTrackingCorrespondence *BKE_tracking_correspondence_add(ListBase *corr_base
 	// check duplicate correspondences or conflict correspondence
 	for(corr = corr_base->first; corr != NULL; corr = corr->next)
 	{
-		if (corr->self_clip == self_clip && corr->self_track == self_track)
-		{
+		if (corr->self_clip == self_clip && corr->self_track == self_track) {
 			// duplicate correspondences
-			if (corr->other_clip == other_clip && corr->other_track == other_track)
-			{
-				BLI_strncpy(error_msg,
-				            N_("This correspondence has been added"),
-				            error_size);
+			if (corr->other_clip == other_clip && corr->other_track == other_track) {
+				BLI_strncpy(error_msg, N_("This correspondence has been added"), error_size);
 				return NULL;
 			}
 			// conflict correspondence
-			else
-			{
-				BLI_strncpy(error_msg,
-				            N_("Conflict correspondence, consider first deleting the old one"),
-				            error_size);
+			else {
+				BLI_strncpy(error_msg, N_("Conflict correspondence, consider first deleting the old one"), error_size);
+				return NULL;
+			}
+		}
+		if (corr->other_clip == other_clip && corr->other_track == other_track) {
+			if (corr->self_clip == self_clip && corr->self_track == self_track) {
+				BLI_strncpy(error_msg, N_("This correspondence has been added"), error_size);
+				return NULL;
+			}
+			else {
+				BLI_strncpy(error_msg, N_("Conflict correspondence, consider first deleting the old one"), error_size);
 				return NULL;
 			}
 		}
@@ -457,10 +460,7 @@ static void multiview_reconstruct_update_solve_cb(void *customdata, double progr
 	BLI_snprintf(progressdata->stats_message, progressdata->message_size, "Solving cameras | %s", message);
 }
 
-/* TODO(tianwei): Solve camera/object motion and reconstruct 3D markers position
- * from a prepared reconstruction context from multiple views.
- *
- * stop is not actually used at this moment, so reconstruction
+/* stop is not actually used at this moment, so reconstruction
  * job could not be stopped.
  *
  * do_update, progress and stat_message are set by reconstruction

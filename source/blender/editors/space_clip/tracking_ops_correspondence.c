@@ -269,7 +269,6 @@ static bool solve_multiview_initjob(bContext *C,
 
 	if (!BKE_tracking_multiview_reconstruction_check(smj->clips,
 	                                                 object,
-	                                                 smj->clip_num,
 	                                                 error_msg,
 	                                                 max_error))
 	{
