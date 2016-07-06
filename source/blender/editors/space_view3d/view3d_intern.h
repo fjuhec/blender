@@ -193,7 +193,7 @@ void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d);
 void ED_view3d_after_add(ListBase *lb, Base *base, const short dflag);
 
 #ifdef WITH_ADVANCED_LAYERS
-struct ThemeWireColor *view3d_layer_color_from_base(struct LayerTree *ltree, const Base *base);
+struct ThemeWireColor *view3d_layer_color_from_base(const Base *base);
 #endif
 void circf(float x, float y, float rad);
 void circ(float x, float y, float rad);

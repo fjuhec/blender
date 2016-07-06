@@ -282,9 +282,9 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 struct LayerTreeItem *BKE_objectlayer_add(struct LayerTree *tree, struct LayerTreeItem *parent, const char *name);
 void BKE_objectlayer_free(struct LayerTreeItem *litem);
 void BKE_objectlayer_base_assign(struct Base *base, struct LayerTreeItem *litem, const bool has_reserved);
-void BKE_objectlayer_base_unassign(const struct Base *base, struct LayerTreeItem *litem);
+void BKE_objectlayer_base_unassign(struct Base *base, struct LayerTreeItem *litem);
+void BKE_objectlayer_bases_unassign_all(struct LayerTreeItem *litem, const bool unset_base_layer);
 void BKE_objectlayer_base_entries_reserve(struct LayerTreeItem *litem, const unsigned int nentries_reserve);
-struct LayerTypeObject *BKE_objectlayer_from_base(struct LayerTree *ltree, const struct Base *base, const bool inverse);
 
 #ifdef __cplusplus
 }

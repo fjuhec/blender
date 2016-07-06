@@ -74,12 +74,13 @@ void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem, const bool ha
 		objectlayer_array_resize(oblayer, oblayer->tot_bases);
 	}
 	oblayer->bases[oblayer->tot_bases - 1] = base;
+	base->layer = litem;
 }
 
 /**
  * Un-assign \a base from object layer \a litem.
  */
-void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem)
+void BKE_objectlayer_base_unassign(Base *base, LayerTreeItem *litem)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 
@@ -92,8 +93,32 @@ void BKE_objectlayer_base_unassign(const Base *base, LayerTreeItem *litem)
 			has_base = true;
 		}
 	}
+	base->layer = NULL;
 
 	objectlayer_array_resize(oblayer, --oblayer->tot_bases);
+}
+
+/**
+ * Unassign all bases.
+ * \param unset_base_layer: Unset Base.layer of all bases in the layer. This is done in an extra
+ *                          loop which can be avoided in some cases, so making it optional.
+ */
+void BKE_objectlayer_bases_unassign_all(LayerTreeItem *litem, const bool unset_base_layer)
+{
+	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+
+	if (!oblayer->bases)
+		return;
+
+	if (unset_base_layer) {
+		BKE_OBJECTLAYER_BASES_ITER_START(oblayer, i, base)
+		{
+			base->layer = NULL;
+		}
+		BKE_OBJECTLAYER_BASES_ITER_END;
+	}
+	MEM_freeN(oblayer->bases);
+	oblayer->tot_bases = 0;
 }
 
 /**
@@ -104,33 +129,4 @@ void BKE_objectlayer_base_entries_reserve(LayerTreeItem *litem, const unsigned i
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 	objectlayer_array_resize(oblayer, nentries_reserve);
-}
-
-/**
- * Find the first layer that has \a base in it.
- * \param inverse: Do inverse loockup to find last layer rather than first one.
- */
-LayerTypeObject *BKE_objectlayer_from_base(LayerTree *ltree, const Base *base, const bool inverse)
-{
-	BLI_assert(ltree->type == LAYER_TREETYPE_OBJECT);
-
-	/* XXX Does (n^2) lookup. Bases/Objects should have some layer info instead. */
-	for (int i = inverse ? ltree->tot_items - 1 : 0;
-	     inverse ? i >= 0 : i < ltree->tot_items;
-	     inverse ? i-- : i++)
-	{
-		LayerTreeItem *litem = ltree->items_all[i];
-		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
-			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, iterbase)
-			{
-				if (iterbase == base) {
-					return oblayer;
-				}
-			}
-			BKE_OBJECTLAYER_BASES_ITER_END;
-		}
-	}
-
-	return NULL;
 }

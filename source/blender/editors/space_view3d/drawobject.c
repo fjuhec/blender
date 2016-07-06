@@ -7583,7 +7583,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 
 		if (is_wire_color) {
 #ifdef WITH_ADVANCED_LAYERS
-			ThemeWireColor *wcol = view3d_layer_color_from_base(scene->object_layers, base);
+			ThemeWireColor *wcol = view3d_layer_color_from_base(base);
 			if (wcol) {
 				if (base->flag & SELECT) {
 					ob_wire_col = (unsigned char *)(scene->basact == base ? wcol->active : wcol->select);

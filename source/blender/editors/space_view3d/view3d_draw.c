@@ -125,11 +125,10 @@ extern void bl_debug_color_set(const unsigned int col);
 #endif
 
 #ifdef WITH_ADVANCED_LAYERS
-ThemeWireColor *view3d_layer_color_from_base(LayerTree *ltree, const Base *base)
+ThemeWireColor *view3d_layer_color_from_base(const Base *base)
 {
 	bTheme *btheme = UI_GetTheme();
-	LayerTypeObject *oblayer = BKE_objectlayer_from_base(ltree, base, true);
-	const int col_idx = oblayer ? RNA_enum_get(oblayer->litem.ptr, "color_set") : 0;
+	const int col_idx = base->layer ? RNA_enum_get(base->layer->ptr, "color_set") : 0;
 
 	return (col_idx > 0) ? &btheme->tarm[col_idx - 1] : NULL;
 }
@@ -2234,7 +2233,7 @@ static void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *bas
 
 	if (is_wire_color) {
 #ifdef WITH_ADVANCED_LAYERS
-		ThemeWireColor *wcol = view3d_layer_color_from_base(scene->object_layers, base);
+		ThemeWireColor *wcol = view3d_layer_color_from_base(base);
 		if (wcol) {
 			glColor3ubv((unsigned char *)(base->flag & SELECT ? wcol->select : wcol->solid));
 
