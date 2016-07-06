@@ -593,7 +593,7 @@ bool BKE_tracking_multiview_reconstruction_check(MovieClip **clips, MovieTrackin
 	return false;
 #endif
 	// count number of open video clips
-	if(clip_num < 2) {
+	if (clip_num < 2) {
 		BLI_strncpy(error_msg,
 		            N_("At least 2 video clips are needed for multi-view reconstruction"),
 		            error_size);

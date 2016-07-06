@@ -474,6 +474,16 @@ void BKE_tracking_track_unique_name(ListBase *tracksbase, MovieTrackingTrack *tr
 	               offsetof(MovieTrackingTrack, name), sizeof(track->name));
 }
 
+/* Ensure specified correspondence has got unique name,
+ * if it's not name of specified correspondence will be changed
+ * keeping names of all other correspondence unchanged.
+ */
+void BKE_tracking_correspondence_unique_name(ListBase *tracksbase, MovieTrackingCorrespondence *corr)
+{
+	BLI_uniquename(tracksbase, corr, CTX_DATA_(BLT_I18NCONTEXT_ID_MOVIECLIP, "Correspondence"), '.',
+	               offsetof(MovieTrackingCorrespondence, name), sizeof(corr->name));
+}
+
 /* Free specified track, only frees contents of a structure
  * (if track is allocated in heap, it shall be handled outside).
  *

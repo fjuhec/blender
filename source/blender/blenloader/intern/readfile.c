@@ -7415,7 +7415,6 @@ static void direct_link_movieCorrespondences(FileData *fd,
 	link_list(fd, correspondences);
 	for (corr = correspondences->first; corr != NULL; corr = corr->next) {
 		corr->self_track = newdataadr(fd, corr->self_track);
-		corr->self_clip = newdataadr(fd, corr->self_clip);
 	}
 }
 
@@ -7486,6 +7485,7 @@ static void lib_link_movieCorrespondences(FileData *fd,
 	for (corr = correspondences->first; corr != NULL; corr = corr->next) {
 		corr->other_track = newlibadr(fd, clip->id.lib, corr->other_track);
 		corr->other_clip = newlibadr(fd, clip->id.lib, corr->other_clip);
+		corr->self_clip = newlibadr(fd, clip->id.lib, corr->self_clip);
 	}
 }
 

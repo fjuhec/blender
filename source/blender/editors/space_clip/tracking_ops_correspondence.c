@@ -64,64 +64,6 @@
 #include "clip_intern.h"
 #include "tracking_ops_intern.h"
 
-// TODO(tianwei): may move these functions to tracking.c in the future
-/* Ensure specified correspondence has got unique name,
- * if it's not name of specified correspondence will be changed
- * keeping names of all other correspondence unchanged.
- */
-void BKE_tracking_correspondence_unique_name(ListBase *tracksbase, MovieTrackingCorrespondence *corr)
-{
-	BLI_uniquename(tracksbase, corr, CTX_DATA_(BLT_I18NCONTEXT_ID_MOVIECLIP, "Correspondence"), '.',
-	               offsetof(MovieTrackingCorrespondence, name), sizeof(corr->name));
-}
-
-/* Add new correspondence to a specified correspondence base.
- */
-MovieTrackingCorrespondence *BKE_tracking_correspondence_add(ListBase *corr_base,
-                                                             MovieTrackingTrack *self_track,
-                                                             MovieTrackingTrack *other_track,
-                                                             MovieClip* self_clip,
-                                                             MovieClip* other_clip,
-                                                             char *error_msg, int error_size)
-{
-	MovieTrackingCorrespondence *corr = NULL;
-	// check duplicate correspondences or conflict correspondence
-	for(corr = corr_base->first; corr != NULL; corr = corr->next)
-	{
-		if (corr->self_clip == self_clip && corr->self_track == self_track)
-		{
-			// duplicate correspondences
-			if (corr->other_clip == other_clip && corr->other_track == other_track)
-			{
-				BLI_strncpy(error_msg,
-				            N_("This correspondence has been added"),
-				            error_size);
-				return NULL;
-			}
-			// conflict correspondence
-			else
-			{
-				BLI_strncpy(error_msg,
-				            N_("Conflict correspondence, consider first deleting the old one"),
-				            error_size);
-				return NULL;
-			}
-		}
-	}
-
-	corr = MEM_callocN(sizeof(MovieTrackingCorrespondence), "add correspondence");
-	strcpy(corr->name, "Correspondence");
-	corr->self_track = self_track;
-	corr->other_track = other_track;
-	corr->self_clip = self_clip;
-	corr->other_clip = other_clip;
-
-	BLI_addtail(corr_base, corr);
-	BKE_tracking_correspondence_unique_name(corr_base, corr);
-
-	return corr;
-}
-
 /********************** add correspondence operator *********************/
 
 static int add_correspondence_exec(bContext *C, wmOperator *op)
@@ -176,8 +118,7 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 	// add these correspondence
 	char error_msg[256] = "\0";
 	if (!BKE_tracking_correspondence_add(&(tracking->correspondences), primary_track, witness_track,
-	                                clip, second_clip, error_msg, sizeof(error_msg)))
-	{
+	                                clip, second_clip, error_msg, sizeof(error_msg))) {
 		if (error_msg[0])
 			BKE_report(op->reports, RPT_ERROR, error_msg);
 		return OPERATOR_CANCELLED;
@@ -215,8 +156,7 @@ static int delete_correspondence_exec(bContext *C, wmOperator *UNUSED(op))
 	for (MovieTrackingPlaneTrack *plane_track = plane_tracks_base->first,
 	                             *next_plane_track;
 	     plane_track != NULL;
-	     plane_track = next_plane_track)
-	{
+	     plane_track = next_plane_track) {
 		next_plane_track = plane_track->next;
 
 		if (PLANE_TRACK_VIEW_SELECTED(plane_track)) {
@@ -232,8 +172,7 @@ static int delete_correspondence_exec(bContext *C, wmOperator *UNUSED(op))
 	ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
 	for (MovieTrackingTrack *track = tracksbase->first, *next_track;
 	     track != NULL;
-	     track = next_track)
-	{
+	     track = next_track) {
 		next_track = track->next;
 		if (TRACK_VIEW_SELECTED(sc, track)) {
 			clip_delete_track(C, clip, track);
@@ -309,17 +248,21 @@ static bool solve_multiview_initjob(bContext *C,
 			}
 		}
 	}
-	printf("%d active clips for multview reconstruction\n", smj->clip_num);
+	printf("%d active clips for reconstruction\n", smj->clip_num);
 	smj->clips = MEM_callocN(smj->clip_num * sizeof(MovieClip*), "multiview clip pointers");
 	smj->clips[0] = clip;
-	int count = 1;		// witness cameras start from 1
-	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
-		if (sa->spacetype == SPACE_CLIP) {
-			SpaceClip *other_sc = sa->spacedata.first;
-			if(other_sc != sc) {
-				MovieClip *other_clip;
-				other_clip = ED_space_clip_get_clip(other_sc);
-				smj->clips[count++] = other_clip;
+
+	// do multi-view reconstruction
+	if (smj->clip_num > 1) {
+		int count = 1;		// witness cameras start from 1
+		for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
+			if (sa->spacetype == SPACE_CLIP) {
+				SpaceClip *other_sc = sa->spacedata.first;
+				if(other_sc != sc) {
+					MovieClip *other_clip;
+					other_clip = ED_space_clip_get_clip(other_sc);
+					smj->clips[count++] = other_clip;
+				}
 			}
 		}
 	}
@@ -415,8 +358,7 @@ static void solve_multiview_freejob(void *scv)
 	/* Set blender camera focal length so result would look fine there. */
 	if (scene->camera != NULL &&
 	    scene->camera->data &&
-	    GS(((ID *) scene->camera->data)->name) == ID_CA)
-	{
+	    GS(((ID *) scene->camera->data)->name) == ID_CA) {
 		Camera *camera = (Camera *)scene->camera->data;
 		int width, height;
 		BKE_movieclip_get_size(clip, &smj->user, &width, &height);

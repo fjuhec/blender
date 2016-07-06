@@ -42,6 +42,7 @@
 #include "BLI_string.h"
 #include "BLI_math.h"
 #include "BLI_ghash.h"
+#include "BLT_translation.h"
 
 #include "BKE_tracking.h"
 #include "BKE_fcurve.h"
@@ -83,6 +84,53 @@ typedef struct MultiviewReconstructProgressData {
 	char *stats_message;
 	int message_size;
 } MultiviewReconstructProgressData;
+
+/* Add new correspondence to a specified correspondence base.
+ */
+MovieTrackingCorrespondence *BKE_tracking_correspondence_add(ListBase *corr_base,
+                                                             MovieTrackingTrack *self_track,
+                                                             MovieTrackingTrack *other_track,
+                                                             MovieClip* self_clip,
+                                                             MovieClip* other_clip,
+                                                             char *error_msg, int error_size)
+{
+	MovieTrackingCorrespondence *corr = NULL;
+	// check duplicate correspondences or conflict correspondence
+	for(corr = corr_base->first; corr != NULL; corr = corr->next)
+	{
+		if (corr->self_clip == self_clip && corr->self_track == self_track)
+		{
+			// duplicate correspondences
+			if (corr->other_clip == other_clip && corr->other_track == other_track)
+			{
+				BLI_strncpy(error_msg,
+				            N_("This correspondence has been added"),
+				            error_size);
+				return NULL;
+			}
+			// conflict correspondence
+			else
+			{
+				BLI_strncpy(error_msg,
+				            N_("Conflict correspondence, consider first deleting the old one"),
+				            error_size);
+				return NULL;
+			}
+		}
+	}
+
+	corr = MEM_callocN(sizeof(MovieTrackingCorrespondence), "add correspondence");
+	strcpy(corr->name, "Correspondence");
+	corr->self_track = self_track;
+	corr->other_track = other_track;
+	corr->self_clip = self_clip;
+	corr->other_clip = other_clip;
+
+	BLI_addtail(corr_base, corr);
+	BKE_tracking_correspondence_unique_name(corr_base, corr);
+
+	return corr;
+}
 
 /* Convert blender's multiview refinement flags to libmv's.
  * These refined flags would be the same as the single view version
@@ -144,13 +192,11 @@ static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int cli
 				libmv_marker.track = global_track_index[tracknr];
 				libmv_marker.center[0] = (marker->pos[0] + track->offset[0]) * width;
 				libmv_marker.center[1] = (marker->pos[1] + track->offset[1]) * height;
-				for(int i = 0; i < 4; i++)
-				{
+				for (int i = 0; i < 4; i++) {
 					libmv_marker.patch[i][0] = marker->pattern_corners[i][0];
 					libmv_marker.patch[i][1] = marker->pattern_corners[i][1];
 				}
-				for(int i = 0; i < 2; i++)
-				{
+				for (int i = 0; i < 2; i++) {
 					libmv_marker.search_region_min[i] = marker->search_min[i];
 					libmv_marker.search_region_max[i] = marker->search_max[i];
 				}
@@ -176,7 +222,7 @@ static struct libmv_TracksN *libmv_multiview_tracks_new(MovieClip *clip, int cli
 				        ((track->flag & TRACK_DISABLE_BLUE)  ? LIBMV_MARKER_CHANNEL_B : 0);
 
 				//TODO(tianwei): why some framenr is negative????
-				if(clip_id < 0 || marker->framenr < 0)
+				if (clip_id < 0 || marker->framenr < 0)
 					continue;
 				libmv_tracksAddMarkerN(tracks, &libmv_marker);
 			}
@@ -201,23 +247,21 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 	int num_valid_corrs = 0;
 	MovieTrackingCorrespondence *corr;
 	corr = tracking_correspondences->first;
-	while(corr)
-	{
+	while (corr) {
 		int clip1 = -1, clip2 = -1, track1 = -1, track2 = -1;
 		MovieClip *self_clip = corr->self_clip;
 		MovieClip *other_clip = corr->other_clip;
 		// iterate through all the clips to get the local clip id
-		for(int i = 0; i < clip_num; i++) {
+		for (int i = 0; i < clip_num; i++) {
 			MovieTracking *tracking = &clips[i]->tracking;
 			ListBase *tracksbase = &tracking->tracks;
 			MovieTrackingTrack *track = tracksbase->first;
 			int tracknr = 0;
 			// check primary clip
-			if(self_clip == clips[i]) {
+			if (self_clip == clips[i]) {
 				clip1 = i;
 				while (track) {
-					if(corr->self_track == track)
-					{
+					if (corr->self_track == track) {
 						track1 = tracknr;
 						break;
 					}
@@ -226,11 +270,10 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 				}
 			}
 			// check witness clip
-			if(other_clip == clips[i]) {
+			if (other_clip == clips[i]) {
 				clip2 = i;
 				while (track) {
-					if(corr->other_track == track)
-					{
+					if (corr->other_track == track) {
 						track2 = tracknr;
 						break;
 					}
@@ -239,8 +282,7 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 				}
 			}
 		}
-		if(clip1 != -1 && clip2 != -1 && track1 != -1 && track2 != -1 && clip1 != clip2)
-		{
+		if (clip1 != -1 && clip2 != -1 && track1 != -1 && track2 != -1 && clip1 != clip2) {
 			libmv_AddCorrespondenceN(libmv_correspondences, clip1, clip2, track1, track2);
 			num_valid_corrs++;
 		}
@@ -281,25 +323,24 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 	// initial global track index to [0,..., N1 - 1], [N1,..., N1+N2-1], so on and so forth
 	context->track_global_index = MEM_callocN(num_clips * sizeof(int*), "global track index of each clip");
 	int global_index = 0;
-	for(int i = 0; i < num_clips; i++) {
+	for (int i = 0; i < num_clips; i++) {
 		MovieClip *clip = clips[i];
 		MovieTracking *tracking = &clip->tracking;
 		ListBase *tracksbase = BKE_tracking_object_get_tracks(tracking, object);
 		int num_tracks = BLI_listbase_count(tracksbase);
 		context->track_global_index[i] = MEM_callocN(num_tracks * sizeof(int), "global track index for clip i");
-		for(int j = 0; j < num_tracks; j++) {
+		for (int j = 0; j < num_tracks; j++) {
 			context->track_global_index[i][j] = global_index++;
 		}
 	}
 
-	for(int i = 0; i < num_clips; i++)
-	{
+	for (int i = 0; i < num_clips; i++) {
 		MovieClip *clip = clips[i];
 		MovieTracking *tracking = &clip->tracking;
 		ListBase *tracksbase = BKE_tracking_object_get_tracks(tracking, object);
 		float aspy = 1.0f / tracking->camera.pixel_aspect;
 		int num_tracks = BLI_listbase_count(tracksbase);
-		if(i == 0)
+		if (i == 0)
 			printf("%d tracks in the primary clip 0\n", num_tracks);
 		else
 			printf("%d tracks in the witness camera %d\n", num_tracks, i);
@@ -312,7 +353,6 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 			int num_valid_corrs = libmv_CorrespondencesFromTracking(&tracking->correspondences, clips,
 			                                                        num_clips, context->correspondences,
 			                                                        context->track_global_index);
-			printf("num_valid_corrs: %d", num_valid_corrs);
 			BLI_assert(num_valid_corrs == BLI_listbase_count(&tracking->correspondences));
 
 			BLI_strncpy(context->object_name, object->name, sizeof(context->object_name));
@@ -369,12 +409,11 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 /* Free memory used by a reconstruction process. */
 void BKE_tracking_multiview_reconstruction_context_free(MovieMultiviewReconstructContext *context)
 {
-	for(int i = 0; i < context->clip_num; i++)
-	{
+	for (int i = 0; i < context->clip_num; i++) {
 		libmv_tracksDestroyN(context->all_tracks[i]);
-		if(context->all_reconstruction[i])
+		if (context->all_reconstruction[i])
 			libmv_reconstructionNDestroy(context->all_reconstruction[i]);
-		if(context->track_global_index[i])
+		if (context->track_global_index[i])
 			MEM_freeN(context->track_global_index[i]);
 		tracks_map_free(context->all_tracks_map[i], NULL);
 	}
@@ -590,7 +629,7 @@ static bool multiview_reconstruct_retrieve_libmv_info(MovieMultiviewReconstructC
 		}
 		else {
 			ok = false;
-			printf("No camera for frame %d\n", a);
+			printf("No camera for frame %d %d\n", clip_id, a);
 		}
 	}
 
@@ -633,14 +672,12 @@ static int multiview_reconstruct_retrieve_libmv(MovieMultiviewReconstructContext
 bool BKE_tracking_multiview_reconstruction_finish(MovieMultiviewReconstructContext *context, MovieClip** clips)
 {
 	if (!libmv_multiviewReconstructionIsValid(context->clip_num,
-	                                          (const libmv_ReconstructionN**) context->all_reconstruction))
-	{
+	                                          (const libmv_ReconstructionN**) context->all_reconstruction)) {
 		printf("Failed solve the multiview motion: at least one clip failed\n");
 		return false;
 	}
 
-	for(int i = 0; i < context->clip_num; i++)
-	{
+	for (int i = 0; i < context->clip_num; i++) {
 		MovieTrackingReconstruction *reconstruction;
 		MovieTrackingObject *object;
 

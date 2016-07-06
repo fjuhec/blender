@@ -224,7 +224,8 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
     if(i == 0)		// key frame from primary camera
     {
       ///* keyframe selection. */
-      keyframe1 = libmv_reconstruction_options->keyframe1, keyframe2 = libmv_reconstruction_options->keyframe2;
+      keyframe1 = libmv_reconstruction_options->keyframe1;
+	  keyframe2 = libmv_reconstruction_options->keyframe2;
       normalized_tracks.GetMarkersForTracksInBothImages(i, keyframe1, i, keyframe2, &keyframe_markers);
     }
   }
@@ -277,7 +278,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
     return all_libmv_reconstruction;
   }
   // bundle the two-view initial reconstruction
-  // (it is redundant for now since now 3d point is added at this stage)
+  // (it is redundant for now since no 3d point is added at this stage)
   //if(!mv::EuclideanBundleAll(all_normalized_tracks, &reconstruction)) {
   //  printf("mv::EuclideanBundleAll failed\n");
   //  all_libmv_reconstruction[0]->is_valid = false;
