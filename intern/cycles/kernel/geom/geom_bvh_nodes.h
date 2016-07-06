@@ -80,7 +80,7 @@ ccl_device_inline int bvh_aligned_node_intersect_robust(KernelGlobals *kg,
                                                         const float3 idir,
                                                         const float t,
                                                         const float difl,
-                                                        const float /*extmax*/,
+                                                        const float extmax,
                                                         const int nodeAddr,
                                                         const uint visibility,
                                                         float *dist)
@@ -115,12 +115,12 @@ ccl_device_inline int bvh_aligned_node_intersect_robust(KernelGlobals *kg,
 		float hdiff = 1.0f + difl;
 		float ldiff = 1.0f - difl;
 		if(__float_as_int(cnodes.z) & PATH_RAY_CURVE) {
-			c0min *= ldiff;
-			c0max *= hdiff;
+			c0min = max(ldiff * c0min, c0min - extmax);
+			c0max = min(hdiff * c0max, c0max + extmax);
 		}
 		if(__float_as_int(cnodes.w) & PATH_RAY_CURVE) {
-			c1min *= ldiff;
-			c1max *= hdiff;
+			c1min = max(ldiff * c1min, c1min - extmax);
+			c1max = min(hdiff * c1max, c1max + extmax);
 		}
 	}
 
@@ -150,7 +150,7 @@ ccl_device_inline bool bvh_unaligned_node_intersect_child(
 	float3 aligned_dir = transform_direction(&space, dir);
 	float3 aligned_P = transform_point(&space, P);
 	float3 nrdir = - bvh_inverse_direction(aligned_dir);
-	float3 tLowerXYZ = aligned_P * nrdir
+	float3 tLowerXYZ = aligned_P * nrdir;
 	float3 tUpperXYZ = tLowerXYZ - nrdir;
 	const float tNearX = min(tLowerXYZ.x, tUpperXYZ.x);
 	const float tNearY = min(tLowerXYZ.y, tUpperXYZ.y);
