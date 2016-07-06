@@ -595,8 +595,6 @@ BVHNode* BVHBuild::build_node(const BVHRange& range,
 		unalignedSplitSAH = params.sah_node_cost * unaligned_split.bounds.half_area() +
 		                    params.sah_primitive_cost * unaligned_split.nodeSAH;
 		/* TOOD(sergey): Check we can create leaf already. */
-
-		unalignedSplitSAH = splitSAH - 1.0f;
 	}
 
 	/* Do split. */
