@@ -105,28 +105,28 @@ void BVHObjectSplit::split(BVHRange& left,
 	                   unaligned_heuristic_,
 	                   aligned_space_);
 
-	BoundBox left_bounds, rightb_ounds;
+	BoundBox effective_left_bounds, effective_right_bounds;
 	const int num_right = range.size() - this->num_left;
 	if(aligned_space_ == NULL) {
-		left_bounds = this->left_bounds;
-		right_bounds = this->right_bounds;
+		effective_left_bounds = left_bounds;
+		effective_right_bounds = right_bounds;
 	}
 	else {
-		left_bounds = BoundBox::empty;
-		right_bounds = BoundBox::empty;
+		effective_left_bounds = BoundBox::empty;
+		effective_right_bounds = BoundBox::empty;
 		for(int i = 0; i < this->num_left; ++i) {
 			BoundBox prim_boundbox = references_->at(range.start() + i).bounds();
-			left_bounds.grow(prim_boundbox);
+			effective_left_bounds.grow(prim_boundbox);
 		}
 		for(int i = 0; i < num_right; ++i) {
 			BoundBox prim_boundbox = references_->at(range.start() + this->num_left + i).bounds();
-			right_bounds.grow(prim_boundbox);
+			effective_right_bounds.grow(prim_boundbox);
 		}
 	}
 
 	/* split node ranges */
-	left = BVHRange(left_bounds, range.start(), this->num_left);
-	right = BVHRange(right_bounds, left.end(), num_right);
+	left = BVHRange(effective_left_bounds, range.start(), this->num_left);
+	right = BVHRange(effective_right_bounds, left.end(), num_right);
 }
 
 /* Spatial Split */
