@@ -40,7 +40,7 @@ class Progress;
 #define BVH_ALIGN		4096
 #define TRI_NODE_SIZE	3
 
-#define BVH_UNALIGNED_NODE_SIZE 9
+#define BVH_UNALIGNED_NODE_SIZE 7
 #define BVH_UNALIGNED_QNODE_SIZE 14
 
 /* Packed BVH

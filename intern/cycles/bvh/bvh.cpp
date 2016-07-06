@@ -518,11 +518,9 @@ void RegularBVH::pack_unaligned_node(int idx,
 	data[1] = space0.x;
 	data[2] = space0.y;
 	data[3] = space0.z;
-	data[4] = space0.w;
-	data[5] = space1.x;
-	data[6] = space1.y;
-	data[7] = space1.z;
-	data[8] = space1.w;
+	data[4] = space1.x;
+	data[5] = space1.y;
+	data[6] = space1.z;
 
 	memcpy(&pack.nodes[idx], data, sizeof(float4)*BVH_UNALIGNED_NODE_SIZE);
 }
