@@ -453,6 +453,17 @@ static float p_face_uv_area_signed(PFace *f)
 	               ((v3->uv[0] - v1->uv[0]) * (v2->uv[1] - v1->uv[1])));
 }
 
+static float p_chart_uv_area_signed(PChart *chart)
+{
+	PFace *f;
+	float used_area = 0.0f;
+	for (f = chart->faces; f; f = f->nextlink) {
+		used_area += fabsf(p_face_uv_area_signed(f));
+	}
+
+	return used_area;
+}
+
 /* returns the sum of the areas of all charts */
 static float p_face_uv_area_combined(ParamHandle *handle)
 {
@@ -462,9 +473,7 @@ static float p_face_uv_area_combined(ParamHandle *handle)
 	int i;
 
 	for (i = 0; i < phandle->ncharts; i++) {
-		for (f = phandle->charts[i]->faces; f; f = f->nextlink) {
-			used_area += fabsf(p_face_uv_area_signed(f));
-		}
+		used_area += p_chart_uv_area_signed(phandle->charts[i]);
 	}
 
 	return used_area;
@@ -4830,6 +4839,18 @@ static int vert_anglesort(const void *p1, const void *p2)
 	return 0;
 }
 
+/* qsort function - sort largest to smallest */
+static int chart_areasort(const void *p1, const void *p2)
+{
+	const PChart **c1 = p1, **c2 = p2;
+	const float a1 = (*c1)->u.ipack.area;
+	const float a2 = (*c2)->u.ipack.area;
+
+	if      (a1 > a2) return -1;
+	else if (a1 < a2) return  1;
+	return 0;
+}
+
 /* ToDo SaphireS: Make this function part of math_vector.c */
 static float p_edge_horizontal_angle(PVert *a, PVert *b)
 {
@@ -4903,17 +4924,17 @@ PConvexHull *p_convex_hull_reverse_vert_order(PConvexHull *hull)
 	conv_hull_inv->max_v[0] = hull->max_v[0];
 	conv_hull_inv->max_v[1] = hull->max_v[1];
 	int i, j, miny = 1.0e30f;
+	
+	/* reverse vert order */
+	for (j = 0; j < hull->nverts; j++) {
+		conv_hull_inv->h_verts[j] = hull->h_verts[hull->nverts - (j + 1)];
+	}
 
 	for (i = 0; i < conv_hull_inv->nverts; i++) {
 		if (conv_hull_inv->h_verts[i]->uv[1] < miny) {
 			miny = conv_hull_inv->h_verts[i]->uv[1];
 			conv_hull_inv->ref_vert_index = i;
 		}
-	}
-
-	/* reverse vert order */
-	for (j = 0; j < hull->nverts; j++) {
-		conv_hull_inv->h_verts[j] = hull->h_verts[hull->nverts - (j + 1)];
 	}
 
 	return conv_hull_inv;
@@ -4966,7 +4987,6 @@ PConvexHull *p_convex_hull_reverse_direction(PConvexHull *item)
 	PConvexHull *item_inv = p_convex_hull_reverse_vert_order(item);
 	p_convex_hull_compute_horizontal_angles(item_inv);
 	p_convex_hull_compute_edge_components(item_inv);
-	printf("Inversing direction done\n");
 
 	return item_inv;
 }
@@ -5117,6 +5137,7 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 	/* Average Islands Scale? Start with box packing then scale up? */
 
 	/* Sort UV islands by area */
+	qsort(phandle->charts, (size_t)phandle->ncharts, sizeof(PChart *), chart_areasort);
 
 	/* Place UV islands one by one */
 	for (i = 0; i < phandle->ncharts; i++) {
