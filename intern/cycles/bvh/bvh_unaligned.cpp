@@ -86,7 +86,7 @@ bool BVHUnaligned::compute_aligned_space(const BVHReference& ref,
 		float length;
 		const float3 axis = normalize_len(v2 - v1, &length);
 		if(length > 1e-6f) {
-			*aligned_space = make_trasnform_frame(axis);
+			*aligned_space = make_transform_frame(axis);
 			return true;
 		}
 	}
