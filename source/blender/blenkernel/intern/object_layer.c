@@ -118,6 +118,7 @@ void BKE_objectlayer_bases_unassign_all(LayerTreeItem *litem, const bool unset_b
 		BKE_OBJECTLAYER_BASES_ITER_END;
 	}
 	MEM_freeN(oblayer->bases);
+	oblayer->bases = NULL;
 	oblayer->tot_bases = 0;
 }
 

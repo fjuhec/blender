@@ -138,37 +138,18 @@ enum {
 	LAYER_DELETE_WITH_CONTENT,
 };
 
-static void layers_remove_layer_objects(bContext *C, SpaceLayers *slayer, LayerTreeItem *litem)
+static void layers_remove_layer_objects(bContext *C, LayerTreeItem *litem)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 	struct Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 
-	ListBase remlist = {NULL};
-	LinkData *base_links = BLI_array_alloca(base_links, oblayer->tot_bases);
-
 	BKE_OBJECTLAYER_BASES_ITER_START(oblayer, i, base)
 	{
-		base_links[i].data = base;
-		BLI_addhead(&remlist, &base_links[i]);
+		ED_base_object_free_and_unlink(bmain, scene, base);
 	}
 	BKE_OBJECTLAYER_BASES_ITER_END;
-
-	for (LinkData *base_link = remlist.first, *baselink_next; base_link; base_link = baselink_next) {
-		Base *base = base_link->data;
-		/* remove object from other layers */
-		/* XXX bases could have info about the layers they are in, then
-		 * we could avoid loop in loop and do this all on BKE_ level */
-		GHashIterator gh_iter;
-		GHASH_ITER(gh_iter, slayer->tiles) {
-			BKE_objectlayer_base_unassign(base, BLI_ghashIterator_getKey(&gh_iter));
-		}
-		ED_base_object_free_and_unlink(bmain, scene, base);
-
-		baselink_next = base_link->next;
-		BLI_remlink(&remlist, base_link);
-	}
-	BLI_assert(BLI_listbase_is_empty(&remlist));
+	BKE_objectlayer_bases_unassign_all(litem, false);
 
 	DAG_relations_tag_update(bmain);
 }
@@ -198,7 +179,7 @@ static int layer_remove_exec(bContext *C, wmOperator *op)
 		if (rem_type == LAYER_DELETE_WITH_CONTENT) {
 			switch (slayer->act_tree->type) {
 				case LAYER_TREETYPE_OBJECT:
-					layers_remove_layer_objects(C, slayer, litem);
+					layers_remove_layer_objects(C, litem);
 					break;
 			}
 		}
@@ -545,7 +526,7 @@ BLI_INLINE void layer_selection_set(SpaceLayers *slayer, LayerTile *tile, const 
 {
 	if (enable) {
 		(tile->flag |= LAYERTILE_SELECTED);
-		slayer->last_selected = tile->litem->index;
+		slayer->active_item = tile->litem->index;
 	}
 	else {
 		tile->flag &= ~LAYERTILE_SELECTED;
@@ -609,7 +590,7 @@ static int layer_select_invoke(bContext *C, wmOperator *op, const wmEvent *event
 			layers_selection_set_all(slayer, false);
 		}
 		if (extend) {
-			if (fill && layers_select_fill(slayer, slayer->last_selected, tile->litem->index)) {
+			if (fill && layers_select_fill(slayer, slayer->active_item, tile->litem->index)) {
 				/* skip */
 			}
 			else {
@@ -680,33 +661,17 @@ static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), cons
 {
 	Scene *scene = CTX_data_scene(C);
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
-	int tot_sel = 0;
 
-	/* Count selected tiles (could be cached to avoid extra loop). */
-	GHashIterator gh_iter;
-	GHASH_ITER(gh_iter, slayer->tiles) {
-		LayerTile *tile = BLI_ghashIterator_getValue(&gh_iter);
-		if (tile->flag & LAYERTILE_SELECTED) {
-			tot_sel++;
-		}
-	}
-	/* Collect selected items in an array */
-	LayerTreeItem **litems = BLI_array_alloca(litems, tot_sel);
-	int i = 0;
-	GHASH_ITER(gh_iter, slayer->tiles) {
-		LayerTile *tile = BLI_ghashIterator_getValue(&gh_iter);
-		if (tile->flag & LAYERTILE_SELECTED) {
-			litems[i] = tile->litem;
-			i++;
-		}
-	}
+	if (slayer->active_item == -1)
+		return OPERATOR_CANCELLED;
 
+	LayerTreeItem *active = slayer->act_tree->items_all[slayer->active_item];
 	for (Base *base = scene->base.first; base; base = base->next) {
 		if (base->flag & SELECT) {
-			/* Only iterate over selected items */
-			for (i = 0; i < tot_sel; i++) {
-				BKE_objectlayer_base_assign(base, litems[i], false);
+			if (base->layer) {
+				BKE_objectlayer_base_unassign(base, base->layer);
 			}
+			BKE_objectlayer_base_assign(base, active, false);
 		}
 	}
 
