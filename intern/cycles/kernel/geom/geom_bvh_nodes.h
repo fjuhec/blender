@@ -149,11 +149,8 @@ ccl_device_inline bool bvh_unaligned_node_intersect_child(
 	Transform space  = bvh_unaligned_node_fetch_space(kg, nodeAddr, child);
 	float3 aligned_dir = transform_direction(&space, dir);
 	float3 aligned_P = transform_point(&space, P);
-	float3 nrdir = -1.0f * bvh_inverse_direction(aligned_dir);
-	/* TODO(sergey): Do we need here as well? */
-	float3 tLowerXYZ = make_float3(aligned_P.x * nrdir.x,
-	                               aligned_P.y * nrdir.y,
-	                               aligned_P.z * nrdir.z);
+	float3 nrdir = - bvh_inverse_direction(aligned_dir);
+	float3 tLowerXYZ = aligned_P * nrdir
 	float3 tUpperXYZ = tLowerXYZ - nrdir;
 	const float tNearX = min(tLowerXYZ.x, tUpperXYZ.x);
 	const float tNearY = min(tLowerXYZ.y, tUpperXYZ.y);
