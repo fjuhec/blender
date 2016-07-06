@@ -88,6 +88,9 @@ public:
 	uint update_visibility();
 
 	bool m_is_unaligned;
+
+	// TODO(sergey): Can be stored as 3x3 matrix, but better to have some
+	// utilities and type defines in util_transform first.
 	Transform *m_aligned_space;
 };
 

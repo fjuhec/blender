@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// TODO(sergey): Look into avoid use of full Transform and use 3x3 matrix and
+// 3-vector which might be faster.
 ccl_device_inline Transform bvh_unaligned_node_fetch_space(KernelGlobals *kg,
                                                            int nodeAddr,
                                                            int child)
@@ -149,7 +151,7 @@ ccl_device_inline bool bvh_unaligned_node_intersect_child(
 	Transform space  = bvh_unaligned_node_fetch_space(kg, nodeAddr, child);
 	float3 aligned_dir = transform_direction(&space, dir);
 	float3 aligned_P = transform_point(&space, P);
-	float3 nrdir = - bvh_inverse_direction(aligned_dir);
+	float3 nrdir = -bvh_inverse_direction(aligned_dir);
 	float3 tLowerXYZ = aligned_P * nrdir;
 	float3 tUpperXYZ = tLowerXYZ - nrdir;
 	const float tNearX = min(tLowerXYZ.x, tUpperXYZ.x);
@@ -178,11 +180,8 @@ ccl_device_inline bool bvh_unaligned_node_intersect_child_robust(
 	Transform space  = bvh_unaligned_node_fetch_space(kg, nodeAddr, child);
 	float3 aligned_dir = transform_direction(&space, dir);
 	float3 aligned_P = transform_point(&space, P);
-	float3 nrdir = -1.0f * bvh_inverse_direction(aligned_dir);
-	/* TODO(sergey): Do we need here as well? */
-	float3 tLowerXYZ = make_float3(aligned_P.x * nrdir.x,
-	                               aligned_P.y * nrdir.y,
-	                               aligned_P.z * nrdir.z);
+	float3 nrdir = -bvh_inverse_direction(aligned_dir);
+	float3 tLowerXYZ = aligned_P * nrdir;
 	float3 tUpperXYZ = tLowerXYZ - nrdir;
 	const float tNearX = min(tLowerXYZ.x, tUpperXYZ.x);
 	const float tNearY = min(tLowerXYZ.y, tUpperXYZ.y);
@@ -459,8 +458,8 @@ int ccl_device_inline bvh_unaligned_node_intersect(KernelGlobals *kg,
 	       aligned_dir1 = transform_direction(&space1, dir);;
 	float3 aligned_P0 = transform_point(&space0, P),
 	       aligned_P1 = transform_point(&space1, P);
-	float3 nrdir0 = -1.0f * bvh_inverse_direction(aligned_dir0),
-	       nrdir1 = -1.0f * bvh_inverse_direction(aligned_dir1);
+	float3 nrdir0 = -bvh_inverse_direction(aligned_dir0),
+	       nrdir1 = -bvh_inverse_direction(aligned_dir1);
 
 	ssef tLowerX = ssef(aligned_P0.x * nrdir0.x,
 	                    aligned_P1.x * nrdir1.x,
@@ -522,8 +521,8 @@ int ccl_device_inline bvh_unaligned_node_intersect_robust(KernelGlobals *kg,
 	       aligned_dir1 = transform_direction(&space1, dir);;
 	float3 aligned_P0 = transform_point(&space0, P),
 	       aligned_P1 = transform_point(&space1, P);
-	float3 nrdir0 = -1.0f * bvh_inverse_direction(aligned_dir0),
-	       nrdir1 = -1.0f * bvh_inverse_direction(aligned_dir1);
+	float3 nrdir0 = -bvh_inverse_direction(aligned_dir0),
+	       nrdir1 = -bvh_inverse_direction(aligned_dir1);
 
 	ssef tLowerX = ssef(aligned_P0.x * nrdir0.x,
 	                    aligned_P1.x * nrdir1.x,
