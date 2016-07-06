@@ -33,6 +33,9 @@ public:
 	bool use_spatial_split;
 	float spatial_split_alpha;
 
+	/* Unaligned nodes creation threshold */
+	float unaligned_split_threshold;
+
 	/* SAH costs */
 	float sah_node_cost;
 	float sah_primitive_cost;
@@ -67,6 +70,8 @@ public:
 	{
 		use_spatial_split = true;
 		spatial_split_alpha = 1e-5f;
+
+		unaligned_split_threshold = 0.7f;
 
 		/* todo: see if splitting up primitive cost to be separate for triangles
 		 * and curves can help. so far in tests it doesn't help, but why? */
