@@ -19,18 +19,11 @@ ccl_device_inline Transform bvh_unaligned_node_fetch_space(KernelGlobals *kg,
                                                            int child)
 {
 	Transform space;
-	if(child == 0) {
-		space.x = kernel_tex_fetch(__bvh_nodes, nodeAddr+1);
-		space.y = kernel_tex_fetch(__bvh_nodes, nodeAddr+2);
-		space.z = kernel_tex_fetch(__bvh_nodes, nodeAddr+3);
-		space.w = kernel_tex_fetch(__bvh_nodes, nodeAddr+4);
-	}
-	else {
-		space.x = kernel_tex_fetch(__bvh_nodes, nodeAddr+5);
-		space.y = kernel_tex_fetch(__bvh_nodes, nodeAddr+6);
-		space.z = kernel_tex_fetch(__bvh_nodes, nodeAddr+7);
-		space.w = kernel_tex_fetch(__bvh_nodes, nodeAddr+8);
-	}
+	const int child_addr = nodeAddr + child * 4;
+	space.x = kernel_tex_fetch(__bvh_nodes, child_addr+1);
+	space.y = kernel_tex_fetch(__bvh_nodes, child_addr+2);
+	space.z = kernel_tex_fetch(__bvh_nodes, child_addr+3);
+	space.w = kernel_tex_fetch(__bvh_nodes, child_addr+4);
 	return space;
 }
 
