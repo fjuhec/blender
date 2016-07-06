@@ -4874,7 +4874,7 @@ static float p_edge_horizontal_angle(PVert *a, PVert *b)
 void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
 {
 	int j;
-	printf("p_convex_hull_compute_horizontal_angles");
+	printf("p_convex_hull_compute_horizontal_angles\n");
 	for (j = 0; j < hull->nverts; j++) {
 		/* DEBUG */
 		printf("--PVert of convex hull - x: %f, y: %f\n", hull->h_verts[j]->uv[0], hull->h_verts[j]->uv[1]);
@@ -4894,7 +4894,7 @@ void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
 void p_convex_hull_compute_edge_components(PConvexHull *hull)
 {
 	int j;
-	printf("p_convex_hull_compute_edge_lengths");
+	printf("p_convex_hull_compute_edge_lengths\n");
 	for (j = 0; j < hull->nverts; j++) {
 		/* DEBUG */
 		printf("--PVert of convex hull - x: %f, y: %f\n", hull->h_verts[j]->uv[0], hull->h_verts[j]->uv[1]);
@@ -4923,7 +4923,8 @@ PConvexHull *p_convex_hull_reverse_vert_order(PConvexHull *hull)
 	conv_hull_inv->min_v[1] = hull->min_v[1];
 	conv_hull_inv->max_v[0] = hull->max_v[0];
 	conv_hull_inv->max_v[1] = hull->max_v[1];
-	int i, j, miny = 1.0e30f;
+	int i, j;
+	float miny = 1.0e30f;
 	
 	/* reverse vert order */
 	for (j = 0; j < hull->nverts; j++) {
@@ -4933,11 +4934,34 @@ PConvexHull *p_convex_hull_reverse_vert_order(PConvexHull *hull)
 	for (i = 0; i < conv_hull_inv->nverts; i++) {
 		if (conv_hull_inv->h_verts[i]->uv[1] < miny) {
 			miny = conv_hull_inv->h_verts[i]->uv[1];
+			printf("--p_convex_hull_reverse_vert_order: min_y = %f\n", miny);
 			conv_hull_inv->ref_vert_index = i;
 		}
 	}
 
+	printf("--p_convex_hull_reverse_vert_order: FINAL min_y = %f\n", miny);
+
 	return conv_hull_inv;
+}
+
+PConvexHull *p_convex_hull_reverse_direction(PConvexHull *item)
+{
+	/* Invert direction of one convex hull -> CCW */
+	printf("inversing direction start\n");
+	/* ref_vert_index now contains the vert with the lowest y value */
+	PConvexHull *item_inv = p_convex_hull_reverse_vert_order(item);
+	p_convex_hull_compute_horizontal_angles(item_inv);
+	p_convex_hull_compute_edge_components(item_inv);
+	printf("inversing direction done!\n");
+
+	return item_inv;
+}
+
+/* ToDo SaphireS: store edge angle/edge components in different way so this isn't necessary */
+void p_convex_hull_restore_direction(PConvexHull *item)
+{
+	p_convex_hull_compute_horizontal_angles(item);
+	p_convex_hull_compute_edge_components(item);
 }
 
 PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
@@ -4966,36 +4990,20 @@ PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 
 	p2->x = p1->x;
 	p2->y = bounds_height - (item->max_v[1] - item->min_v[1]); /* ToDo Saphires: ConvexHull should store relative bounds (width/height) ?*/
-	nfp->final_pos[0] = p2;
+	nfp->final_pos[1] = p2;
 
 	p3->x = bounds_width - (item->max_v[0] - item->min_v[0] - (item->h_verts[item->ref_vert_index]->uv[0] - item->min_v[0]));
 	p3->y = p2->y;
-	nfp->final_pos[0] = p3;
+	nfp->final_pos[2] = p3;
 
 	p4->x = p3->x;
 	p4->y = 0.0f;
-	nfp->final_pos[0] = p4;
+	nfp->final_pos[3] = p4;
+
+	/* CleanUp */
+	MEM_freeN(points);
 
 	return nfp;
-}
-
-PConvexHull *p_convex_hull_reverse_direction(PConvexHull *item)
-{
-	/* Invert direction of one convex hull -> CCW */
-	printf("inversing direction start\n");
-	/* ref_vert_index now contains the vert with the lowest y value */
-	PConvexHull *item_inv = p_convex_hull_reverse_vert_order(item);
-	p_convex_hull_compute_horizontal_angles(item_inv);
-	p_convex_hull_compute_edge_components(item_inv);
-
-	return item_inv;
-}
-
-/* ToDo SaphireS: store edge angle/edge components in different way so this isn't necessary */
-void p_convex_hull_restore_direction(PConvexHull *item)
-{
-	p_convex_hull_compute_horizontal_angles(item);
-	p_convex_hull_compute_edge_components(item);
 }
 
 /* Make sure vert order for item is CCW and for fixed is CW! */
@@ -5106,22 +5114,55 @@ float p_binary_depth_search(int depth)
 	return 0.8f;
 }
 
-bool p_chart_pack_individual(PChart *item) 
+bool p_chart_pack_individual(PChart *item, int ncharts)
 {
-
-	PConvexHull *ch_item = item->u.ipack.convex_hull;
-
 	/* ToDo SaphireS */
+	PNoFitPolygon **nfps = (PNoFitPolygon **)MEM_callocN(sizeof(PNoFitPolygon *) * ncharts, "PNoFitPolygons");
+	PConvexHull *ch_item = item->u.ipack.convex_hull;
+	float end_pos[2], cur_pos[2], trans[2];
 
-	/* Reverse winding direction of item convex hull */
+	/* Reverse winding direction of item convex hull                */
+	/* ref_vert_index now contains the vert with the lowest y value */
+	PConvexHull *item_inv = p_convex_hull_reverse_direction(ch_item);
 
 	/* compute no fit polygons (NFPs) of item with already placed charts */
 
 	/* compute inner fit polygon (IFP) */
-
+	printf("IFP construction start!\n");
+	PNoFitPolygon *ifp = p_inner_fit_polygon_create(item_inv);
+	printf("IFP construction done!\n");
 	/* compute collsion free region (CFR) */
 
 	/* Place chart according to rng (simulated annealing) parameters */
+	/* Use bottom left heuristic for now */
+
+	cur_pos[0] = item_inv->h_verts[item_inv->ref_vert_index]->uv[0];
+	cur_pos[1] = item_inv->h_verts[item_inv->ref_vert_index]->uv[1];
+	printf("ref_vert x: %f", cur_pos[0]);
+	printf("ref_vert y: %f", cur_pos[1]);
+
+	end_pos[0] = ifp->final_pos[0]->x;
+	end_pos[1] = ifp->final_pos[0]->y;
+	printf("end_pos x: %f", end_pos[0]);
+	printf("end_pos y: %f", end_pos[1]);
+
+	trans[0] = cur_pos[0] - end_pos[0];
+	trans[1] = cur_pos[1] - end_pos[1];
+
+	trans[0] = -trans[0];
+	trans[1] = -trans[1];
+
+	p_chart_uv_translate(item, trans);
+	printf("translation done!\n");
+
+	/* delete temporary inversed convex hull */
+	p_convex_hull_delete(item_inv);
+	p_convex_hull_restore_direction(ch_item);
+	printf("restoring angles/edges done!\n");
+
+	/* CleanUp */
+	p_no_fit_polygon_delete(ifp);
+	MEM_freeN(nfps);
 
 	return true;
 }
@@ -5144,7 +5185,7 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 		chart = phandle->charts[i];
 		float scale = 1.0f;
 
-		while (!p_chart_pack_individual(chart)){
+		while (!p_chart_pack_individual(chart, phandle->ncharts)){
 			/* binary depth search for scaling down the current chart */
 			scale = p_binary_depth_search(depth);
 
@@ -5192,14 +5233,18 @@ void param_irregular_pack_begin(ParamHandle *handle)
 		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
 	}
 
-	if (p_convex_hull_intersect(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[1]->u.ipack.convex_hull)){
+	/*if (p_convex_hull_intersect(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[1]->u.ipack.convex_hull)){
 		printf("Intersection found! \n");
-	}
+	}*/
 
-	PNoFitPolygon *NFP = p_no_fit_polygon_create(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[1]->u.ipack.convex_hull);
-	/* Debug prints here*/
-	printf("NFP created!\n");
-	p_no_fit_polygon_delete(NFP);
+	//PNoFitPolygon *NFP = p_no_fit_polygon_create(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[1]->u.ipack.convex_hull);
+	///* Debug prints here*/
+	//printf("NFP created!\n");
+	//p_no_fit_polygon_delete(NFP);
+
+	if (p_compute_packing_solution(phandle)) {
+		printf("packing solution found\n");
+	}
 
 	/* ToDo (SaphireS) */
 
