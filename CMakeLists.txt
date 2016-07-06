@@ -724,6 +724,11 @@ if(WITH_OPENIMAGEIO)
 	set(WITH_IMAGE_TIFF ON)
 endif()
 
+# auto enable alembic linking dependencies
+if(WITH_ALEMBIC)
+	set(WITH_IMAGE_OPENEXR ON)
+endif()
+
 # don't store paths to libs for portable distribution
 if(WITH_INSTALL_PORTABLE)
 	set(CMAKE_SKIP_BUILD_RPATH TRUE)
