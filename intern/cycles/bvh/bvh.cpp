@@ -489,8 +489,8 @@ void RegularBVH::pack_unaligned_inner(const BVHStackEntry& e,
                                       const BVHStackEntry& e1)
 {
 	pack_unaligned_node(e.idx,
-	                    e0.node->m_aligned_space,
-	                    e1.node->m_aligned_space,
+	                    e0.node->get_aligned_space(),
+	                    e1.node->get_aligned_space(),
 	                    e0.node->m_bounds,
 	                    e1.node->m_bounds,
 	                    e0.encodeIdx(), e1.encodeIdx(),
@@ -849,7 +849,7 @@ void QBVH::pack_unaligned_inner(const BVHStackEntry& e,
 	for(int i = 0; i < num; i++) {
 		Transform space = BVHUnaligned::compute_node_transform(
 		        en[i].node->m_bounds,
-		        en[i].node->m_aligned_space);
+		        en[i].node->get_aligned_space());
 
 		data[1][i] = space.x.x;
 		data[2][i] = space.x.y;

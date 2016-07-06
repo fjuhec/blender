@@ -46,12 +46,16 @@ class BVHParams;
 class BVHNode
 {
 public:
-	BVHNode() : m_is_unaligned(false)
+	BVHNode() : m_is_unaligned(false),
+	            m_aligned_space(NULL)
 	{
-		m_aligned_space = transform_identity();
 	}
 
-	virtual ~BVHNode() {}
+	virtual ~BVHNode()
+	{
+		delete m_aligned_space;
+	}
+
 	virtual bool is_leaf() const = 0;
 	virtual int num_children() const = 0;
 	virtual BVHNode *get_child(int i) const = 0;
@@ -59,10 +63,18 @@ public:
 	virtual void print(int depth = 0) const = 0;
 	bool is_unaligned() const { return m_is_unaligned; }
 
-	void set_aligned_space(const Transform& aligned_space)
+	inline void set_aligned_space(const Transform& aligned_space)
 	{
 		m_is_unaligned = true;
-		m_aligned_space = aligned_space;
+		m_aligned_space = new Transform(aligned_space);
+	}
+
+	inline Transform get_aligned_space() const
+	{
+		if(m_aligned_space == NULL) {
+			return transform_identity();
+		}
+		return *m_aligned_space;
 	}
 
 	BoundBox m_bounds;
@@ -76,7 +88,7 @@ public:
 	uint update_visibility();
 
 	bool m_is_unaligned;
-	Transform m_aligned_space;
+	Transform *m_aligned_space;
 };
 
 class InnerNode : public BVHNode
