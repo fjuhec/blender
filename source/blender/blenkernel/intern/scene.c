@@ -1153,7 +1153,9 @@ void BKE_scene_base_unlink(Scene *sce, Base *base)
 	/* remove rigid body object from world before removing object */
 	if (base->object->rigidbody_object)
 		BKE_rigidbody_remove_object(sce, base->object);
-	
+	if (base->layer)
+		BKE_objectlayer_base_unassign(base);
+
 	BLI_remlink(&sce->base, base);
 	if (sce->basact == base)
 		sce->basact = NULL;

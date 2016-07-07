@@ -669,7 +669,7 @@ static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), cons
 	for (Base *base = scene->base.first; base; base = base->next) {
 		if (base->flag & SELECT) {
 			if (base->layer) {
-				BKE_objectlayer_base_unassign(base, base->layer);
+				BKE_objectlayer_base_unassign(base);
 			}
 			BKE_objectlayer_base_assign(base, active, false);
 		}

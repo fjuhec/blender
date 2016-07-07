@@ -80,9 +80,9 @@ void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem, const bool ha
 /**
  * Un-assign \a base from object layer \a litem.
  */
-void BKE_objectlayer_base_unassign(Base *base, LayerTreeItem *litem)
+void BKE_objectlayer_base_unassign(Base *base)
 {
-	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+	LayerTypeObject *oblayer = (LayerTypeObject *)base->layer;
 
 	bool has_base = false;
 	for (int i = 0; i < oblayer->tot_bases; i++) {
