@@ -110,7 +110,7 @@ bool EuclideanResect(const vector<Marker> &markers,
   for (int i = 0; i < markers.size(); i++) {
     points_3d.col(i) = reconstruction->PointForTrack(markers[i].track)->X;
   }
-  std::cout << "Number of points for resect: " << points_2d.cols() << "\n";
+  LG << "Number of points for resect: " << points_2d.cols() << "\n";
 
   Mat3 R;
   Vec3 t;
@@ -118,7 +118,7 @@ bool EuclideanResect(const vector<Marker> &markers,
   if (0 || !libmv::euclidean_resection::EuclideanResection(
                 points_2d, points_3d, &R, &t,
                 libmv::euclidean_resection::RESECTION_EPNP)) {
-    std::cout << "[EuclideanResect] Euclidean resection failed\n";
+    LG << "[EuclideanResect] Euclidean resection failed\n";
     return false;
 
     if (!final_pass) return false;

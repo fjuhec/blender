@@ -195,7 +195,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
         const int clip_num,
         const libmv_TracksN **all_libmv_tracks,
         const libmv_CameraIntrinsicsOptions *all_libmv_camera_intrinsics_options,
-        const libmv_CorrespondencesN * libmv_correspondences,
+        const libmv_CorrespondencesN *libmv_correspondences,
         libmv_MultiviewReconstructionOptions *libmv_reconstruction_options,
         multiview_reconstruct_progress_update_cb progress_update_callback,
         void* callback_customdata)
@@ -204,11 +204,13 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
   libmv::vector<Marker> keyframe_markers;
   int keyframe1, keyframe2;
 
-  Tracks all_normalized_tracks;	// normalized tracks of all clips
+  Tracks all_tracks, all_normalized_tracks;	// normalized tracks of all clips
+  all_tracks.SetClipNum(clip_num);
   all_normalized_tracks.SetClipNum(clip_num);
   for (int i = 0; i < clip_num; i++) {
     all_libmv_reconstruction[i] = LIBMV_OBJECT_NEW(libmv_ReconstructionN);
     Tracks &tracks = *((Tracks *) all_libmv_tracks[i]);		// Tracks are just a bunch of markers
+	all_tracks.AddTracks(tracks);
 
     ///* Retrieve reconstruction options from C-API to libmv API. */
     CameraIntrinsics *camera_intrinsics;
@@ -230,11 +232,12 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
   // make reconstrution on the primary clip reconstruction
   Reconstruction &reconstruction = all_libmv_reconstruction[0]->reconstruction;
 
-  printf("frames to init from: %d %d\n", keyframe1, keyframe2);
-  printf("number of markers for init: %d\n", keyframe_markers.size());
+  LG << "number of clips: " << clip_num << "\n";
+  LG << "frames to init from: " << keyframe1 << " " << keyframe2 << "\n";
+  LG << "number of markers for init: " << keyframe_markers.size() << "\n";
   if (keyframe_markers.size() < 8) {
     LG << "No enough markers to initialize from";
-    for(int i = 0; i < clip_num; i++)
+    for (int i = 0; i < clip_num; i++)
       all_libmv_reconstruction[i]->is_valid = false;
     return all_libmv_reconstruction;
   }
@@ -270,7 +273,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
   ReconstructionUpdateFixedIntrinsics(all_libmv_reconstruction, &all_normalized_tracks, &reconstruction);
 
   // reconstruct two views from the main clip
-  if(!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction)) {
+  if (!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction)) {
     LG << "mv::ReconstrucTwoFrames failed\n";
     all_libmv_reconstruction[0]->is_valid = false;
     return all_libmv_reconstruction;
@@ -282,18 +285,18 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
   //  all_libmv_reconstruction[0]->is_valid = false;
   //  return all_libmv_reconstruction;
   //}
-  if(!mv::EuclideanCompleteMultiviewReconstruction(all_normalized_tracks, &reconstruction, &update_callback)) {
+  if (!mv::EuclideanCompleteMultiviewReconstruction(all_normalized_tracks, &reconstruction, &update_callback)) {
     LG << "mv::EuclideanReconstructionComplete failed\n";
     all_libmv_reconstruction[0]->is_valid = false;
     return all_libmv_reconstruction;
   }
-  std::cout << "[libmv_solveMultiviewReconstruction] Successfully do track intersection and camera resection\n";
+  LG << "[libmv_solveMultiviewReconstruction] Successfully do track intersection and camera resection\n";
 
   /* Refinement/ */
   //TODO(Tianwei): current api allows only one camera refine intrinsics
   if (libmv_reconstruction_options->all_refine_intrinsics[0]) {
     libmv_solveRefineIntrinsics(
-                all_normalized_tracks,
+                all_tracks,
                 libmv_reconstruction_options->all_refine_intrinsics[0],
                 mv::BUNDLE_NO_CONSTRAINTS,
                 progress_update_callback,
@@ -307,14 +310,14 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
   mv::EuclideanScaleToUnity(&reconstruction);
 
   /* Finish reconstruction. */
-  finishMultiviewReconstruction(all_normalized_tracks,
+  finishMultiviewReconstruction(all_tracks,
                                 *(all_libmv_reconstruction[0]->intrinsics),
                                 all_libmv_reconstruction[0],
                                 progress_update_callback,
                                 callback_customdata);
 
   // a multi-view reconstruction is succesfuly iff all reconstruction falgs are set to true
-  for(int i = 0; i < clip_num; i++)
+  for (int i = 0; i < clip_num; i++)
     all_libmv_reconstruction[i]->is_valid = true;
 
   return all_libmv_reconstruction;

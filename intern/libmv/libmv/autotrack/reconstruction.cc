@@ -102,8 +102,7 @@ bool ReconstructTwoFrames(const vector<Marker> &markers,
   Mat3 R;
   Vec3 t;
   Mat3 K = Mat3::Identity();
-  if (!libmv::MotionFromEssentialAndCorrespondence(E, K, x1.col(0), K, x2.col(0), &R, &t))
-  {
+  if (!libmv::MotionFromEssentialAndCorrespondence(E, K, x1.col(0), K, x2.col(0), &R, &t)) {
     LG << "Failed to compute R and t from E and K.";
     return false;
   }
@@ -126,10 +125,10 @@ int Reconstruction::AddCameraIntrinsics(CameraIntrinsics *intrinsics_ptr) {
 }
 
 void Reconstruction::AddCameraPose(const CameraPose& pose) {
-  if(camera_poses_.size() < pose.clip + 1) {
+  if (camera_poses_.size() < pose.clip + 1) {
     camera_poses_.resize(pose.clip+1);
   }
-  if(camera_poses_[pose.clip].size() < pose.frame + 1) {
+  if (camera_poses_[pose.clip].size() < pose.frame + 1) {
     camera_poses_[pose.clip].resize(pose.frame+1);
   }
   // copy form pose to camera_poses_
@@ -146,7 +145,7 @@ int Reconstruction::GetClipNum() const {
 
 int Reconstruction::GetAllPoseNum() const {
   int all_pose = 0;
-  for(int i = 0; i < camera_poses_.size(); ++i) {
+  for (int i = 0; i < camera_poses_.size(); ++i) {
     all_pose += camera_poses_[i].size();
   }
   return all_pose;
@@ -214,9 +213,9 @@ const vector<Point>& Reconstruction::AllPoints() const {
 
 int Reconstruction::GetReconstructedCameraNum() const {
   int reconstructed_num = 0;
-  for(int i = 0; i < camera_poses_.size(); i++) {
-    for(int j = 0; j < camera_poses_[i].size(); j++) {
-      if(camera_poses_[i][j].clip != -1 && camera_poses_[i][j].frame != -1)
+  for (int i = 0; i < camera_poses_.size(); i++) {
+    for (int j = 0; j < camera_poses_[i].size(); j++) {
+      if (camera_poses_[i][j].clip != -1 && camera_poses_[i][j].frame != -1)
         reconstructed_num++;
     }
   }
@@ -226,9 +225,9 @@ int Reconstruction::GetReconstructedCameraNum() const {
 void Reconstruction::InitIntrinsicsMap(Tracks &tracks) {
   int clip_num = tracks.GetClipNum();
   intrinsics_map.resize(clip_num);
-  for(int i = 0; i < clip_num; i++) {
+  for (int i = 0; i < clip_num; i++) {
     intrinsics_map.resize(tracks.MaxFrame(i)+1);
-    for(int j = 0; j < intrinsics_map.size(); j++) {
+    for (int j = 0; j < intrinsics_map.size(); j++) {
     	intrinsics_map[i][j] = -1;
     }
   }
@@ -237,27 +236,27 @@ void Reconstruction::InitIntrinsicsMap(Tracks &tracks) {
 void Reconstruction::InitIntrinsicsMapFixed(Tracks &tracks) {
   int clip_num = tracks.GetClipNum();
   intrinsics_map.resize(clip_num);
-  for(int i = 0; i < clip_num; i++) {
+  for (int i = 0; i < clip_num; i++) {
     intrinsics_map[i].resize(tracks.MaxFrame(i)+1);
-    for(int j = 0; j < intrinsics_map[i].size(); j++) {
+    for (int j = 0; j < intrinsics_map[i].size(); j++) {
       intrinsics_map[i][j] = i;
     }
   }
 }
 
 bool Reconstruction::SetIntrinsicsMap(int clip, int frame, int intrinsics) {
-  if(intrinsics_map.size() <= clip)
+  if (intrinsics_map.size() <= clip)
     return false;
-  if(intrinsics_map[clip].size() <= frame)
+  if (intrinsics_map[clip].size() <= frame)
     return false;
   intrinsics_map[clip][frame] = intrinsics;
   return true;
 }
 
 int Reconstruction::GetIntrinsicsMap(int clip, int frame) const {
-  if(intrinsics_map.size() <= clip)
+  if (intrinsics_map.size() <= clip)
     return -1;
-  if(intrinsics_map[clip].size() <= frame)
+  if (intrinsics_map[clip].size() <= frame)
     return -1;
   return intrinsics_map[clip][frame];
 }
