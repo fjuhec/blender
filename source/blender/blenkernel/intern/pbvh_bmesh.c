@@ -69,6 +69,10 @@
 static void pbvh_bmesh_verify(PBVH *bvh);
 #endif
 
+/** \name BMesh Utility API
+ *
+ * Use some local functions which assume triangles.
+ * \{ */
 
 /**
  * Typically using BM_LOOPS_OF_VERT and BM_FACES_OF_VERT iterators are fine,
@@ -108,6 +112,61 @@ static void pbvh_bmesh_verify(PBVH *bvh);
 	} \
 	BM_LOOPS_OF_VERT_ITER_END; \
 }
+
+static void bm_edges_from_tri(BMesh *bm, BMVert *v_tri[3], BMEdge *e_tri[3])
+{
+	e_tri[0] = BM_edge_create(bm, v_tri[0], v_tri[1], NULL, BM_CREATE_NO_DOUBLE);
+	e_tri[1] = BM_edge_create(bm, v_tri[1], v_tri[2], NULL, BM_CREATE_NO_DOUBLE);
+	e_tri[2] = BM_edge_create(bm, v_tri[2], v_tri[0], NULL, BM_CREATE_NO_DOUBLE);
+}
+
+BLI_INLINE void bm_face_as_array_index_tri(BMFace *f, int r_index[3])
+{
+	BMLoop *l = BM_FACE_FIRST_LOOP(f);
+
+	BLI_assert(f->len == 3);
+
+	r_index[0] = BM_elem_index_get(l->v); l = l->next;
+	r_index[1] = BM_elem_index_get(l->v); l = l->next;
+	r_index[2] = BM_elem_index_get(l->v);
+}
+
+/**
+ * A version of #BM_face_exists, optimized for triangles
+ * when we know the loop and the opposite vertex.
+ *
+ * Check if any triangle is formed by (l_radial_first->v, l_radial_first->next->v, v_opposite),
+ * at either winding (since its a triangle no special checks are needed).
+ *
+ * <pre>
+ * l_radial_first->v & l_radial_first->next->v
+ * +---+
+ * |  /
+ * | /
+ * + v_opposite
+ * </pre>
+ *
+ * Its assumed that \a l_radial_first is never forming the target face.
+ */
+static bool bm_face_exists_tri_from_loop_vert(
+        BMLoop *l_radial_first, BMVert *v_opposite, BMFace **r_face_existing)
+{
+	BLI_assert(!ELEM(v_opposite, l_radial_first->v, l_radial_first->next->v, l_radial_first->prev->v));
+	if (l_radial_first->radial_next != l_radial_first) {
+		BMLoop *l_radial_iter = l_radial_first->radial_next;
+		do {
+			BLI_assert(l_radial_iter->f->len == 3);
+			if (l_radial_iter->prev->v == v_opposite) {
+				*r_face_existing = l_radial_iter->f;
+				return true;
+			}
+		} while ((l_radial_iter = l_radial_iter->radial_next) != l_radial_first);
+	}
+	return false;
+}
+
+/** \} */
+
 
 /****************************** Building ******************************/
 
@@ -991,13 +1050,6 @@ static void short_edge_queue_create(
 
 /*************************** Topology update **************************/
 
-static void bm_edges_from_tri(BMesh *bm, BMVert *v_tri[3], BMEdge *e_tri[3])
-{
-	e_tri[0] = BM_edge_create(bm, v_tri[0], v_tri[1], NULL, BM_CREATE_NO_DOUBLE);
-	e_tri[1] = BM_edge_create(bm, v_tri[1], v_tri[2], NULL, BM_CREATE_NO_DOUBLE);
-	e_tri[2] = BM_edge_create(bm, v_tri[2], v_tri[0], NULL, BM_CREATE_NO_DOUBLE);
-}
-
 static void pbvh_bmesh_split_edge(
         EdgeQueueContext *eq_ctx, PBVH *bvh,
         BMEdge *e, BLI_Buffer *edge_loops)
@@ -1226,19 +1278,25 @@ static void pbvh_bmesh_collapse_edge(
 				v_tri[i] = v_conn;
 			}
 		}
-#else
-		BMVert *v_tri[3] = {v_conn, l->next->v, l->prev->v};
 #endif
 
 		/* Check if a face using these vertices already exists. If so,
 		 * skip adding this face and mark the existing one for
 		 * deletion as well. Prevents extraneous "flaps" from being
 		 * created. */
-		if (BM_face_exists(v_tri, 3, &existing_face)) {
+#if 0
+		if (UNLIKELY(BM_face_exists(v_tri, 3, &existing_face)))
+#else
+		if (UNLIKELY(bm_face_exists_tri_from_loop_vert(l->next, v_conn, &existing_face)))
+#endif
+		{
 			BLI_assert(existing_face);
 			BLI_buffer_append(deleted_faces, BMFace *, existing_face);
 		}
 		else {
+			BMVert *v_tri[3] = {v_conn, l->next->v, l->prev->v};
+
+			BLI_assert(BM_face_exists(v_tri, 3, NULL) == false);
 			BMEdge *e_tri[3];
 			PBVHNode *n = pbvh_bmesh_node_from_face(bvh, f);
 			int ni = n - bvh->nodes;
@@ -1817,16 +1875,6 @@ bool BKE_pbvh_bmesh_update_topology(
 	return modified;
 }
 
-BLI_INLINE void bm_face_as_array_index_tri(BMFace *f, int r_index[3])
-{
-	BMLoop *l = BM_FACE_FIRST_LOOP(f);
-
-	BLI_assert(f->len == 3);
-
-	r_index[0] = BM_elem_index_get(l->v); l = l->next;
-	r_index[1] = BM_elem_index_get(l->v); l = l->next;
-	r_index[2] = BM_elem_index_get(l->v);
-}
 
 /* In order to perform operations on the original node coordinates
  * (currently just raycast), store the node's triangles and vertices.
