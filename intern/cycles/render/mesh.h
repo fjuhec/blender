@@ -214,7 +214,7 @@ public:
 	void pack_normals(Scene *scene, uint *shader, float4 *vnormal);
 	void pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset);
 	void pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, size_t curvekey_offset);
-	void pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset, uint corner_offset);
+	void pack_patches(uint *patch_data, uint vert_offset, uint face_offset, uint corner_offset);
 	void compute_bvh(SceneParams *params, Progress *progress, int n, int total);
 
 	bool need_attribute(Scene *scene, AttributeStandard std);

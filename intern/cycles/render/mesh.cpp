@@ -583,7 +583,7 @@ void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
 	if(triangles_size) {
 		for(size_t i = 0; i < triangles_size; i++) {
 			Triangle t = get_triangle(i);
-			uint patch_index = (!subd_faces.size()) ? -1 : (triangle_patch[i]*2 + patch_offset);
+			uint patch_index = (!subd_faces.size()) ? -1 : (triangle_patch[i]*8 + patch_offset);
 
 			tri_vindex[i] = make_float4(
 				__int_as_float(t.v[0] + vert_offset),
@@ -627,7 +627,7 @@ void Mesh::pack_curves(Scene *scene, float4 *curve_key_co, float4 *curve_data, s
 	}
 }
 
-void Mesh::pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset, uint corner_offset)
+void Mesh::pack_patches(uint *patch_data, uint vert_offset, uint face_offset, uint corner_offset)
 {
 	size_t num_faces = subd_faces.size();
 	int ngons = 0;
@@ -640,15 +640,15 @@ void Mesh::pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset, u
 				int c[4];
 				memcpy(c, &subd_face_corners[face.start_corner], sizeof(int)*4);
 
-				*(patch_data++) = {c[0] + vert_offset,
-					               c[1] + vert_offset,
-					               c[2] + vert_offset,
-					               c[3] + vert_offset};
+				*(patch_data++) = c[0] + vert_offset;
+				*(patch_data++) = c[1] + vert_offset;
+				*(patch_data++) = c[2] + vert_offset;
+				*(patch_data++) = c[3] + vert_offset;
 
-				*(patch_data++) = {f+face_offset,
-						           face.num_corners,
-						           face.start_corner + corner_offset,
-						           0};
+				*(patch_data++) = f+face_offset;
+				*(patch_data++) = face.num_corners;
+				*(patch_data++) = face.start_corner + corner_offset;
+				*(patch_data++) = 0;
 			}
 			else {
 				for(int i = 0; i < face.num_corners; i++) {
@@ -658,15 +658,15 @@ void Mesh::pack_patches(uint4 *patch_data, uint vert_offset, uint face_offset, u
 					c[2] = verts.size() - num_subd_verts + ngons;
 					c[3] = subd_face_corners[face.start_corner + mod(i - 1, face.num_corners)];
 
-					*(patch_data++) = {c[0] + vert_offset,
-							           c[1] + vert_offset,
-							           c[2] + vert_offset,
-							           c[3] + vert_offset};
+					*(patch_data++) = c[0] + vert_offset;
+					*(patch_data++) = c[1] + vert_offset;
+					*(patch_data++) = c[2] + vert_offset;
+					*(patch_data++) = c[3] + vert_offset;
 
-					*(patch_data++) = {f+face_offset,
-								       face.num_corners | (i << 16),
-								       face.start_corner + corner_offset,
-							           subd_face_corners.size() + ngons + corner_offset};
+					*(patch_data++) = f+face_offset;
+					*(patch_data++) = face.num_corners | (i << 16);
+					*(patch_data++) = face.start_corner + corner_offset;
+					*(patch_data++) = subd_face_corners.size() + ngons + corner_offset;
 				}
 
 				ngons++;
@@ -1294,7 +1294,7 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 
 		if(mesh->subd_faces.size()) {
 			Mesh::SubdFace& last = mesh->subd_faces[mesh->subd_faces.size()-1];
-			patch_size += (last.ptex_offset + last.num_ptex_faces()) * 2;
+			patch_size += (last.ptex_offset + last.num_ptex_faces()) * 8;
 		}
 		face_size += mesh->subd_faces.size();
 		corner_size += mesh->subd_face_corners.size();
@@ -1343,7 +1343,7 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 	if(patch_size != 0) {
 		progress.set_status("Updating Mesh", "Copying Patches to device");
 
-		uint4 *patch_data = dscene->patches.resize(patch_size);
+		uint *patch_data = dscene->patches.resize(patch_size);
 
 		foreach(Mesh *mesh, scene->meshes) {
 			mesh->pack_patches(&patch_data[mesh->patch_offset], mesh->vert_offset, mesh->face_offset, mesh->corner_offset);

@@ -232,28 +232,41 @@ ccl_device_inline void subd_triangle_patch_uv(KernelGlobals *kg, const ShaderDat
 
 ccl_device_inline uint4 subd_triangle_patch_indices(KernelGlobals *kg, int patch)
 {
-	return kernel_tex_fetch(__patches, patch);
+	uint4 indices;
+
+	indices.x = kernel_tex_fetch(__patches, patch+0);
+	indices.y = kernel_tex_fetch(__patches, patch+1);
+	indices.z = kernel_tex_fetch(__patches, patch+2);
+	indices.w = kernel_tex_fetch(__patches, patch+3);
+
+	return indices;
 }
 
 /* Originating face for patch */
 
 ccl_device_inline uint subd_triangle_patch_face(KernelGlobals *kg, int patch)
 {
-	return kernel_tex_fetch(__patches, patch+1).x;
+	return kernel_tex_fetch(__patches, patch+4);
 }
 
 /* Number of corners on originating face */
 
 ccl_device_inline uint subd_triangle_patch_num_corners(KernelGlobals *kg, int patch)
 {
-	return kernel_tex_fetch(__patches, patch+1).y & 0xffff;
+	return kernel_tex_fetch(__patches, patch+5) & 0xffff;
 }
 
 /* Indices of the four corners that are used by the patch */
 
 ccl_device_inline void subd_triangle_patch_corners(KernelGlobals *kg, int patch, int corners[4])
 {
-	uint4 data = kernel_tex_fetch(__patches, patch+1);
+	uint4 data;
+
+	data.x = kernel_tex_fetch(__patches, patch+4);
+	data.y = kernel_tex_fetch(__patches, patch+5);
+	data.z = kernel_tex_fetch(__patches, patch+6);
+	data.w = kernel_tex_fetch(__patches, patch+7);
+
 	int num_corners = data.y & 0xffff;
 
 	if(num_corners == 4) {

@@ -47,7 +47,7 @@ KERNEL_TEX(float4, texture_float4, __curves)
 KERNEL_TEX(float4, texture_float4, __curve_keys)
 
 /* patches */
-KERNEL_TEX(uint4, texture_uint4, __patches)
+KERNEL_TEX(uint, texture_uint, __patches)
 
 /* attributes */
 KERNEL_TEX(uint4, texture_uint4, __attributes_map)
