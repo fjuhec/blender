@@ -850,9 +850,29 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 	return mesh;
 }
 
+static inline BL::MeshSequenceCacheModifier object_mesh_cache_find(BL::Object &b_ob)
+{
+	BL::Object::modifiers_iterator b_mod;
+
+	for(b_ob.modifiers.begin(b_mod); b_mod != b_ob.modifiers.end(); ++b_mod) {
+		if (!b_mod->is_a(&RNA_MeshSequenceCacheModifier)) {
+			continue;
+		}
+
+		BL::MeshSequenceCacheModifier mesh_cache = BL::MeshSequenceCacheModifier(*b_mod);
+
+		if (MeshSequenceCacheModifier_has_velocity_get(&mesh_cache.ptr)) {
+			return mesh_cache;
+		}
+	}
+
+	return BL::MeshSequenceCacheModifier(PointerRNA_NULL);
+}
+
 void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
                                    Object *object,
-                                   float motion_time)
+                                   float motion_time,
+                                   float shuttertime)
 {
 	/* ensure we only sync instanced meshes once */
 	Mesh *mesh = object->mesh;
@@ -910,7 +930,10 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 	 * would need a more extensive check to see which objects are animated */
 	BL::Mesh b_mesh(PointerRNA_NULL);
 
-	if(ccl::BKE_object_is_deform_modified(b_ob, b_scene, preview)) {
+	/* First try to determine if this is a fluid domain. */
+	BL::MeshSequenceCacheModifier mesh_cache = object_mesh_cache_find(b_ob);
+
+	if(mesh_cache || ccl::BKE_object_is_deform_modified(b_ob, b_scene, preview)) {
 		/* get derived mesh */
 		b_mesh = object_to_mesh(b_data, b_ob, b_scene, true, !preview, false);
 	}
@@ -948,6 +971,13 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 	/* TODO(sergey): Perform preliminary check for number of verticies. */
 	if(numverts) {
+		/* For fluid meshes since we have change in geometry, we use velocities,
+		 * not delta-positions, and all the work is done on the first frame when
+		 * time_index is == 0, so the work is done. */
+		if(mesh_cache && time_index != 0) {
+			return;
+		}
+
 		/* find attributes */
 		Attribute *attr_mP = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
 		Attribute *attr_mN = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_NORMAL);
@@ -963,46 +993,77 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 			new_attribute = true;
 		}
 
-		/* load vertex data from mesh */
-		float3 *mP = attr_mP->data_float3() + time_index*numverts;
-		float3 *mN = (attr_mN)? attr_mN->data_float3() + time_index*numverts: NULL;
+		if (mesh_cache) {
+			/* load vertex data from mesh */
+			float3 *P = &mesh->verts[0];
+			float3 *N = (attr_mN) ? attr_N->data_float3() : NULL;
 
-		BL::Mesh::vertices_iterator v;
-		int i = 0;
+			int step = 0;
 
-		for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end() && i < numverts; ++v, ++i) {
-			mP[i] = get_float3(v->co());
-			if(mN)
-				mN[i] = get_float3(v->normal());
-		}
+			/* Generate motion data for all motion times in one go, so that
+			 * vertices and velocities coincide. */
+			foreach(float relative_time, this->motion_times) {
+				float3 *mP = attr_mP->data_float3() + step*numverts;
+				float3 *mN = (attr_mN) ? attr_mN->data_float3() + step*numverts : NULL;
 
-		/* in case of new attribute, we verify if there really was any motion */
-		if(new_attribute) {
-			if(b_mesh.vertices.length() != numverts ||
-			   memcmp(mP, &mesh->verts[0], sizeof(float3)*numverts) == 0)
-			{
-				/* no motion, remove attributes again */
-				if(b_mesh.vertices.length() != numverts) {
-					VLOG(1) << "Topology differs, disabling motion blur.";
+//				printf("Setting velocity for relative time: %f\n", (double)relative_time);
+
+				MeshSequenceCacheModifier_velocity_cache_get(&mesh_cache.ptr, &mP[0].x);
+
+				for (int i = 0; i < numverts; ++i) {
+					float3 nPos = P[i] + mP[i]*relative_time*shuttertime*0.5f;
+					mP[i] = nPos;
+
+					if(mN) {
+						mN[i] = N[i];
+					}
 				}
-				else {
-					VLOG(1) << "No actual deformation motion for object " << b_ob.name();
-				}
-				mesh->attributes.remove(ATTR_STD_MOTION_VERTEX_POSITION);
-				if(attr_mN)
-					mesh->attributes.remove(ATTR_STD_MOTION_VERTEX_NORMAL);
+
+				++step;
 			}
-			else if(time_index > 0) {
-				VLOG(1) << "Filling deformation motion for object " << b_ob.name();
-				/* motion, fill up previous steps that we might have skipped because
-				 * they had no motion, but we need them anyway now */
-				float3 *P = &mesh->verts[0];
-				float3 *N = (attr_N)? attr_N->data_float3(): NULL;
+		}
+		else {
+			/* load vertex data from mesh */
+			float3 *mP = attr_mP->data_float3() + time_index*numverts;
+			float3 *mN = (attr_mN)? attr_mN->data_float3() + time_index*numverts: NULL;
 
-				for(int step = 0; step < time_index; step++) {
-					memcpy(attr_mP->data_float3() + step*numverts, P, sizeof(float3)*numverts);
+			BL::Mesh::vertices_iterator v;
+			int i = 0;
+
+			for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end() && i < numverts; ++v, ++i) {
+				mP[i] = get_float3(v->co());
+				if(mN)
+					mN[i] = get_float3(v->normal());
+			}
+
+			/* in case of new attribute, we verify if there really was any motion */
+			if(new_attribute) {
+				if(b_mesh.vertices.length() != numverts ||
+				   memcmp(mP, &mesh->verts[0], sizeof(float3)*numverts) == 0)
+				{
+					/* no motion, remove attributes again */
+					if(b_mesh.vertices.length() != numverts) {
+						VLOG(1) << "Topology differs, disabling motion blur.";
+					}
+					else {
+						VLOG(1) << "No actual deformation motion for object " << b_ob.name();
+					}
+					mesh->attributes.remove(ATTR_STD_MOTION_VERTEX_POSITION);
 					if(attr_mN)
-						memcpy(attr_mN->data_float3() + step*numverts, N, sizeof(float3)*numverts);
+						mesh->attributes.remove(ATTR_STD_MOTION_VERTEX_NORMAL);
+				}
+				else if(time_index > 0) {
+					VLOG(1) << "Filling deformation motion for object " << b_ob.name();
+					/* motion, fill up previous steps that we might have skipped because
+					 * they had no motion, but we need them anyway now */
+					float3 *P = &mesh->verts[0];
+					float3 *N = (attr_N)? attr_N->data_float3(): NULL;
+
+					for(int step = 0; step < time_index; step++) {
+						memcpy(attr_mP->data_float3() + step*numverts, P, sizeof(float3)*numverts);
+						if(attr_mN)
+							memcpy(attr_mN->data_float3() + step*numverts, N, sizeof(float3)*numverts);
+					}
 				}
 			}
 		}

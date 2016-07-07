@@ -292,6 +292,9 @@ if(WITH_INTERNATIONAL)
 endif()
 
 if(WITH_ALEMBIC)
+	list(APPEND INC
+		../../alembic
+	)
 	add_definitions(-DWITH_ALEMBIC)
 endif()
 

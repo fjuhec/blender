@@ -96,7 +96,7 @@ private:
 	/* sync */
 	void sync_lamps(bool update_all);
 	void sync_materials(bool update_all);
-	void sync_objects(BL::SpaceView3D& b_v3d, float motion_time = 0.0f);
+	void sync_objects(BL::SpaceView3D& b_v3d, float motion_time = 0.0f, float shutter_time = 0.0f);
 	void sync_motion(BL::RenderSettings& b_render,
 	                 BL::SpaceView3D& b_v3d,
 	                 BL::Object& b_override,
@@ -121,6 +121,7 @@ private:
 	                    Transform& tfm,
 	                    uint layer_flag,
 	                    float motion_time,
+	                    float shutter_time,
 	                    bool hide_tris,
 	                    bool use_camera_cull,
 	                    float camera_cull_margin,
@@ -131,7 +132,10 @@ private:
 	                Transform& tfm,
 	                bool *use_portal);
 	void sync_background_light(bool use_portal);
-	void sync_mesh_motion(BL::Object& b_ob, Object *object, float motion_time);
+	void sync_mesh_motion(BL::Object &b_ob,
+	                      Object *object,
+                          float motion_time,
+                          float shuttertime);
 	void sync_camera_motion(BL::RenderSettings& b_render,
 	                        BL::Object& b_ob,
 	                        int width, int height,
