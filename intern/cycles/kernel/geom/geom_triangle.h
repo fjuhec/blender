@@ -302,23 +302,31 @@ ccl_device float subd_triangle_attribute_float(KernelGlobals *kg, const ShaderDa
 	else if(desc->element == ATTR_ELEMENT_VERTEX || desc->element == ATTR_ELEMENT_VERTEX_MOTION) {
 		float2 uv[3];
 		subd_triangle_patch_uv(kg, sd, uv);
-		uint4 v = subd_triangle_patch_indices(kg, patch);
 
 		float a, b, c;
 
-		float f0 = kernel_tex_fetch(__attributes_float, desc->offset + v.x);
-		float f1 = kernel_tex_fetch(__attributes_float, desc->offset + v.y);
-		float f2 = kernel_tex_fetch(__attributes_float, desc->offset + v.z);
-		float f3 = kernel_tex_fetch(__attributes_float, desc->offset + v.w);
-
-		if(subd_triangle_patch_num_corners(kg, patch) != 4) {
-			f1 = (f1+f0)*0.5f;
-			f3 = (f3+f0)*0.5f;
+		if(desc->flags & ATTR_SUBDIVIDED) {
+			a = patch_eval_float(kg, sd, desc->offset, patch, uv[0].x, uv[0].y, 0, NULL, NULL);
+			b = patch_eval_float(kg, sd, desc->offset, patch, uv[1].x, uv[1].y, 0, NULL, NULL);
+			c = patch_eval_float(kg, sd, desc->offset, patch, uv[2].x, uv[2].y, 0, NULL, NULL);
 		}
+		else {
+			uint4 v = subd_triangle_patch_indices(kg, patch);
 
-		a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
-		b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
-		c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
+			float f0 = kernel_tex_fetch(__attributes_float, desc->offset + v.x);
+			float f1 = kernel_tex_fetch(__attributes_float, desc->offset + v.y);
+			float f2 = kernel_tex_fetch(__attributes_float, desc->offset + v.z);
+			float f3 = kernel_tex_fetch(__attributes_float, desc->offset + v.w);
+
+			if(subd_triangle_patch_num_corners(kg, patch) != 4) {
+				f1 = (f1+f0)*0.5f;
+				f3 = (f3+f0)*0.5f;
+			}
+
+			a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
+			b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
+			c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
+		}
 
 #ifdef __RAY_DIFFERENTIALS__
 		if(dx) *dx = ccl_fetch(sd, du).dx*a + ccl_fetch(sd, dv).dx*b - (ccl_fetch(sd, du).dx + ccl_fetch(sd, dv).dx)*c;
@@ -328,27 +336,34 @@ ccl_device float subd_triangle_attribute_float(KernelGlobals *kg, const ShaderDa
 		return ccl_fetch(sd, u)*a + ccl_fetch(sd, v)*b + (1.0f - ccl_fetch(sd, u) - ccl_fetch(sd, v))*c;
 	}
 	else if(desc->element == ATTR_ELEMENT_CORNER) {
-		int corners[4];
-		subd_triangle_patch_corners(kg, patch, corners);
-
 		float2 uv[3];
 		subd_triangle_patch_uv(kg, sd, uv);
 
 		float a, b, c;
 
-		float f0 = kernel_tex_fetch(__attributes_float, corners[0] + desc->offset);
-		float f1 = kernel_tex_fetch(__attributes_float, corners[1] + desc->offset);
-		float f2 = kernel_tex_fetch(__attributes_float, corners[2] + desc->offset);
-		float f3 = kernel_tex_fetch(__attributes_float, corners[3] + desc->offset);
-
-		if(subd_triangle_patch_num_corners(kg, patch) != 4) {
-			f1 = (f1+f0)*0.5f;
-			f3 = (f3+f0)*0.5f;
+		if(desc->flags & ATTR_SUBDIVIDED) {
+			a = patch_eval_float(kg, sd, desc->offset, patch, uv[0].x, uv[0].y, 0, NULL, NULL);
+			b = patch_eval_float(kg, sd, desc->offset, patch, uv[1].x, uv[1].y, 0, NULL, NULL);
+			c = patch_eval_float(kg, sd, desc->offset, patch, uv[2].x, uv[2].y, 0, NULL, NULL);
 		}
+		else {
+			int corners[4];
+			subd_triangle_patch_corners(kg, patch, corners);
 
-		a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
-		b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
-		c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
+			float f0 = kernel_tex_fetch(__attributes_float, corners[0] + desc->offset);
+			float f1 = kernel_tex_fetch(__attributes_float, corners[1] + desc->offset);
+			float f2 = kernel_tex_fetch(__attributes_float, corners[2] + desc->offset);
+			float f3 = kernel_tex_fetch(__attributes_float, corners[3] + desc->offset);
+
+			if(subd_triangle_patch_num_corners(kg, patch) != 4) {
+				f1 = (f1+f0)*0.5f;
+				f3 = (f3+f0)*0.5f;
+			}
+
+			a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
+			b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
+			c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
+		}
 
 #ifdef __RAY_DIFFERENTIALS__
 		if(dx) *dx = ccl_fetch(sd, du).dx*a + ccl_fetch(sd, dv).dx*b - (ccl_fetch(sd, du).dx + ccl_fetch(sd, dv).dx)*c;
@@ -378,23 +393,31 @@ ccl_device float3 subd_triangle_attribute_float3(KernelGlobals *kg, const Shader
 	else if(desc->element == ATTR_ELEMENT_VERTEX || desc->element == ATTR_ELEMENT_VERTEX_MOTION) {
 		float2 uv[3];
 		subd_triangle_patch_uv(kg, sd, uv);
-		uint4 v = subd_triangle_patch_indices(kg, patch);
 
 		float3 a, b, c;
 
-		float3 f0 = float4_to_float3(kernel_tex_fetch(__attributes_float3, desc->offset + v.x));
-		float3 f1 = float4_to_float3(kernel_tex_fetch(__attributes_float3, desc->offset + v.y));
-		float3 f2 = float4_to_float3(kernel_tex_fetch(__attributes_float3, desc->offset + v.z));
-		float3 f3 = float4_to_float3(kernel_tex_fetch(__attributes_float3, desc->offset + v.w));
-
-		if(subd_triangle_patch_num_corners(kg, patch) != 4) {
-			f1 = (f1+f0)*0.5f;
-			f3 = (f3+f0)*0.5f;
+		if(desc->flags & ATTR_SUBDIVIDED) {
+			a = patch_eval_float3(kg, sd, desc->offset, patch, uv[0].x, uv[0].y, 0, NULL, NULL);
+			b = patch_eval_float3(kg, sd, desc->offset, patch, uv[1].x, uv[1].y, 0, NULL, NULL);
+			c = patch_eval_float3(kg, sd, desc->offset, patch, uv[2].x, uv[2].y, 0, NULL, NULL);
 		}
+		else {
+			uint4 v = subd_triangle_patch_indices(kg, patch);
 
-		a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
-		b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
-		c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
+			float3 f0 = float4_to_float3(kernel_tex_fetch(__attributes_float3, desc->offset + v.x));
+			float3 f1 = float4_to_float3(kernel_tex_fetch(__attributes_float3, desc->offset + v.y));
+			float3 f2 = float4_to_float3(kernel_tex_fetch(__attributes_float3, desc->offset + v.z));
+			float3 f3 = float4_to_float3(kernel_tex_fetch(__attributes_float3, desc->offset + v.w));
+
+			if(subd_triangle_patch_num_corners(kg, patch) != 4) {
+				f1 = (f1+f0)*0.5f;
+				f3 = (f3+f0)*0.5f;
+			}
+
+			a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
+			b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
+			c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
+		}
 
 #ifdef __RAY_DIFFERENTIALS__
 		if(dx) *dx = ccl_fetch(sd, du).dx*a + ccl_fetch(sd, dv).dx*b - (ccl_fetch(sd, du).dx + ccl_fetch(sd, dv).dx)*c;
@@ -404,36 +427,51 @@ ccl_device float3 subd_triangle_attribute_float3(KernelGlobals *kg, const Shader
 		return ccl_fetch(sd, u)*a + ccl_fetch(sd, v)*b + (1.0f - ccl_fetch(sd, u) - ccl_fetch(sd, v))*c;
 	}
 	else if(desc->element == ATTR_ELEMENT_CORNER || desc->element == ATTR_ELEMENT_CORNER_BYTE) {
-		int corners[4];
-		subd_triangle_patch_corners(kg, patch, corners);
-
 		float2 uv[3];
 		subd_triangle_patch_uv(kg, sd, uv);
 
 		float3 a, b, c;
-		float3 f0, f1, f2, f3;
 
-		if(desc->element == ATTR_ELEMENT_CORNER) {
-			f0 = float4_to_float3(kernel_tex_fetch(__attributes_float3, corners[0] + desc->offset));
-			f1 = float4_to_float3(kernel_tex_fetch(__attributes_float3, corners[1] + desc->offset));
-			f2 = float4_to_float3(kernel_tex_fetch(__attributes_float3, corners[2] + desc->offset));
-			f3 = float4_to_float3(kernel_tex_fetch(__attributes_float3, corners[3] + desc->offset));
+		if(desc->flags & ATTR_SUBDIVIDED) {
+			if(desc->element == ATTR_ELEMENT_CORNER) {
+				a = patch_eval_float3(kg, sd, desc->offset, patch, uv[0].x, uv[0].y, 0, NULL, NULL);
+				b = patch_eval_float3(kg, sd, desc->offset, patch, uv[1].x, uv[1].y, 0, NULL, NULL);
+				c = patch_eval_float3(kg, sd, desc->offset, patch, uv[2].x, uv[2].y, 0, NULL, NULL);
+			}
+			else {
+				a = patch_eval_uchar4(kg, sd, desc->offset, patch, uv[0].x, uv[0].y, 0, NULL, NULL);
+				b = patch_eval_uchar4(kg, sd, desc->offset, patch, uv[1].x, uv[1].y, 0, NULL, NULL);
+				c = patch_eval_uchar4(kg, sd, desc->offset, patch, uv[2].x, uv[2].y, 0, NULL, NULL);
+			}
 		}
 		else {
-			f0 = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, corners[0] + desc->offset));
-			f1 = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, corners[1] + desc->offset));
-			f2 = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, corners[2] + desc->offset));
-			f3 = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, corners[3] + desc->offset));
-		}
+			int corners[4];
+			subd_triangle_patch_corners(kg, patch, corners);
 
-		if(subd_triangle_patch_num_corners(kg, patch) != 4) {
-			f1 = (f1+f0)*0.5f;
-			f3 = (f3+f0)*0.5f;
-		}
+			float3 f0, f1, f2, f3;
 
-		a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
-		b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
-		c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
+			if(desc->element == ATTR_ELEMENT_CORNER) {
+				f0 = float4_to_float3(kernel_tex_fetch(__attributes_float3, corners[0] + desc->offset));
+				f1 = float4_to_float3(kernel_tex_fetch(__attributes_float3, corners[1] + desc->offset));
+				f2 = float4_to_float3(kernel_tex_fetch(__attributes_float3, corners[2] + desc->offset));
+				f3 = float4_to_float3(kernel_tex_fetch(__attributes_float3, corners[3] + desc->offset));
+			}
+			else {
+				f0 = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, corners[0] + desc->offset));
+				f1 = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, corners[1] + desc->offset));
+				f2 = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, corners[2] + desc->offset));
+				f3 = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, corners[3] + desc->offset));
+			}
+
+			if(subd_triangle_patch_num_corners(kg, patch) != 4) {
+				f1 = (f1+f0)*0.5f;
+				f3 = (f3+f0)*0.5f;
+			}
+
+			a = mix(mix(f0, f1, uv[0].x), mix(f3, f2, uv[0].x), uv[0].y);
+			b = mix(mix(f0, f1, uv[1].x), mix(f3, f2, uv[1].x), uv[1].y);
+			c = mix(mix(f0, f1, uv[2].x), mix(f3, f2, uv[2].x), uv[2].y);
+		}
 
 #ifdef __RAY_DIFFERENTIALS__
 		if(dx) *dx = ccl_fetch(sd, du).dx*a + ccl_fetch(sd, dv).dx*b - (ccl_fetch(sd, du).dx + ccl_fetch(sd, dv).dx)*c;

@@ -19,6 +19,7 @@
 
 #include "subd_split.h"
 #include "subd_patch.h"
+#include "subd_patch_table.h"
 
 #include "util_foreach.h"
 
@@ -237,6 +238,7 @@ public:
 	}
 
 	friend struct OsdPatch;
+	friend class Mesh;
 };
 
 /* ccl::Patch implementation that uses OpenSubdiv for eval */
@@ -283,11 +285,24 @@ void Mesh::tessellate(DiagSplit *split)
 {
 #ifdef WITH_OPENSUBDIV
 	OsdData osd_data;
+	bool need_packed_patch_table = false;
 
 	if(subdivision_type == SUBDIVISION_CATMULL_CLARK) {
 		osd_data.build_from_mesh(this);
 	}
+	else
 #endif
+	{
+		/* force linear subdivision if OpenSubdiv is unavailable to avoid
+		 * falling into catmull-clark code paths by accident
+		 */
+		subdivision_type = SUBDIVISION_LINEAR;
+
+		/* force disable attribute subdivision for same reason as above */
+		foreach(Attribute& attr, subd_attributes.attributes) {
+			attr.flags &= ~ATTR_SUBDIVIDED;
+		}
+	}
 
 	int num_faces = subd_faces.size();
 
@@ -439,6 +454,7 @@ void Mesh::tessellate(DiagSplit *split)
 			else {
 				osd_data.subdivide_attribute(attr);
 
+				need_packed_patch_table = true;
 				continue;
 			}
 		}
@@ -496,6 +512,15 @@ void Mesh::tessellate(DiagSplit *split)
 			default: break;
 		}
 	}
+
+#ifdef WITH_OPENSUBDIV
+	/* pack patch tables */
+	if(need_packed_patch_table) {
+		delete patch_table;
+		patch_table = new PackedPatchTable;
+		patch_table->pack(osd_data.patch_table);
+	}
+#endif
 }
 
 CCL_NAMESPACE_END

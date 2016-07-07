@@ -16,6 +16,7 @@ set(SRC
 	subd_dice.cpp
 	subd_patch.cpp
 	subd_split.cpp
+	subd_patch_table.cpp
 )
 
 set(SRC_HEADERS

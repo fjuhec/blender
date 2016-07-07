@@ -38,6 +38,7 @@
 
 #include "geom_attribute.h"
 #include "geom_object.h"
+#include "geom_patch.h"
 #include "geom_triangle.h"
 #include "geom_triangle_intersect.h"
 #include "geom_motion_triangle.h"

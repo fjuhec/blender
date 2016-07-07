@@ -40,6 +40,7 @@ class Scene;
 class SceneParams;
 class AttributeRequest;
 class DiagSplit;
+struct PackedPatchTable;
 
 /* Mesh */
 
@@ -167,6 +168,8 @@ public:
 	Transform transform_normal;
 	DisplacementMethod displacement_method;
 
+	PackedPatchTable *patch_table;
+
 	uint motion_steps;
 	bool use_motion_blur;
 
@@ -183,6 +186,7 @@ public:
 	size_t curvekey_offset;
 
 	size_t patch_offset;
+	size_t patch_table_offset;
 	size_t face_offset;
 	size_t corner_offset;
 

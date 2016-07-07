@@ -30,6 +30,8 @@
 
 #include "osl_globals.h"
 
+#include "subd_patch_table.h"
+
 #include "util_foreach.h"
 #include "util_logging.h"
 #include "util_progress.h"
@@ -145,11 +147,14 @@ Mesh::Mesh()
 	num_ngons = 0;
 
 	subdivision_type = SUBDIVISION_NONE;
+
+	patch_table = NULL;
 }
 
 Mesh::~Mesh()
 {
 	delete bvh;
+	delete patch_table;
 }
 
 void Mesh::resize_mesh(int numverts, int numtris)
@@ -253,6 +258,9 @@ void Mesh::clear()
 	transform_negative_scaled = false;
 	transform_normal = transform_identity();
 	geometry_flags = GEOMETRY_NONE;
+
+	delete patch_table;
+	patch_table = NULL;
 }
 
 int Mesh::split_vertex(int vertex)
@@ -1098,7 +1106,11 @@ static void update_attribute_element_offset(Mesh *mesh,
 
 		/* mesh vertex/curve index is global, not per object, so we sneak
 		 * a correction for that in here */
-		if(element == ATTR_ELEMENT_VERTEX)
+		if(mesh->subdivision_type == Mesh::SUBDIVISION_CATMULL_CLARK && desc.flags & ATTR_SUBDIVIDED) {
+			/* indices for subdivided attributes are retrieved
+			 * from patch table so no need for correction here*/
+		}
+		else if(element == ATTR_ELEMENT_VERTEX)
 			offset -= mesh->vert_offset;
 		else if(element == ATTR_ELEMENT_VERTEX_MOTION)
 			offset -= mesh->vert_offset;
@@ -1295,6 +1307,12 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 		if(mesh->subd_faces.size()) {
 			Mesh::SubdFace& last = mesh->subd_faces[mesh->subd_faces.size()-1];
 			patch_size += (last.ptex_offset + last.num_ptex_faces()) * 8;
+
+			/* patch tables are stored in same array so include them in patch_size */
+			if(mesh->patch_table) {
+				mesh->patch_table_offset = patch_size;
+				patch_size += mesh->patch_table->total_size();
+			}
 		}
 		face_size += mesh->subd_faces.size();
 		corner_size += mesh->subd_face_corners.size();
@@ -1347,6 +1365,11 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 
 		foreach(Mesh *mesh, scene->meshes) {
 			mesh->pack_patches(&patch_data[mesh->patch_offset], mesh->vert_offset, mesh->face_offset, mesh->corner_offset);
+
+			if(mesh->patch_table) {
+				mesh->patch_table->copy_adjusting_offsets(&patch_data[mesh->patch_table_offset], mesh->patch_table_offset);
+			}
+
 			if(progress.get_cancel()) return;
 		}
 
@@ -1535,6 +1558,10 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 
 	device_update_mesh(device, dscene, scene, progress);
 	if(progress.get_cancel()) return;
+
+	/* after mesh data has been copied to device memory we need to update
+	 * offsets for patch tables as this can't be known before hand */
+	scene->object_manager->device_update_patch_map_offsets(device, dscene, scene);
 
 	device_update_attributes(device, dscene, scene, progress);
 	if(progress.get_cancel()) return;
