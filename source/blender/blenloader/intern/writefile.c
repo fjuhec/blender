@@ -325,7 +325,7 @@ static WriteData *writedata_new(WriteWrap *ww)
 {
 	WriteData *wd = MEM_callocN(sizeof(*wd), "writedata");
 
-	wd->sdna = DNA_sdna_from_data(DNAstr, DNAlen, false);
+	wd->sdna = DNA_sdna_from_data(DNAstr, DNAlen, false, false);
 
 	wd->ww = ww;
 
@@ -366,26 +366,31 @@ static void writedata_free(WriteData *wd)
 /***/
 
 /**
+ * Flush helps the de-duplicating memory for undo-save by logically segmenting data,
+ * so differences in one part of memory won't cause unrelated data to be duplicated.
+ */
+static void mywrite_flush(WriteData *wd)
+{
+	if (wd->count) {
+		writedata_do_write(wd, wd->buf, wd->count);
+		wd->count = 0;
+	}
+}
+
+/**
  * Low level WRITE(2) wrapper that buffers data
  * \param adr Pointer to new chunk of data
  * \param len Length of new chunk of data
  * \warning Talks to other functions with global parameters
  */
-
-#define MYWRITE_FLUSH		NULL
-
 static void mywrite(WriteData *wd, const void *adr, int len)
 {
 	if (UNLIKELY(wd->error)) {
 		return;
 	}
 
-	/* flush helps compression for undo-save */
-	if (adr == MYWRITE_FLUSH) {
-		if (wd->count) {
-			writedata_do_write(wd, wd->buf, wd->count);
-			wd->count = 0;
-		}
+	if (adr == NULL) {
+		BLI_assert(0);
 		return;
 	}
 
@@ -816,8 +821,7 @@ static void write_actions(WriteData *wd, ListBase *idbase)
 		}
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_keyingsets(WriteData *wd, ListBase *list)
@@ -1894,8 +1898,7 @@ static void write_objects(WriteData *wd, ListBase *idbase)
 		ob = ob->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 
@@ -1922,6 +1925,8 @@ static void write_vfonts(WriteData *wd, ListBase *idbase)
 
 		vf = vf->id.next;
 	}
+
+	mywrite_flush(wd);
 }
 
 
@@ -1954,8 +1959,8 @@ static void write_keys(WriteData *wd, ListBase *idbase)
 
 		key = key->id.next;
 	}
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+
+	mywrite_flush(wd);
 }
 
 static void write_cameras(WriteData *wd, ListBase *idbase)
@@ -2057,8 +2062,7 @@ static void write_curves(WriteData *wd, ListBase *idbase)
 		cu = cu->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_dverts(WriteData *wd, int count, MDeformVert *dvlist)
@@ -2332,6 +2336,8 @@ static void write_meshes(WriteData *wd, ListBase *idbase)
 
 		mesh = mesh->id.next;
 	}
+
+	mywrite_flush(wd);
 }
 
 static void write_lattices(WriteData *wd, ListBase *idbase)
@@ -2358,6 +2364,8 @@ static void write_lattices(WriteData *wd, ListBase *idbase)
 		}
 		lt = lt->id.next;
 	}
+
+	mywrite_flush(wd);
 }
 
 static void write_images(WriteData *wd, ListBase *idbase)
@@ -2401,8 +2409,8 @@ static void write_images(WriteData *wd, ListBase *idbase)
 		}
 		ima = ima->id.next;
 	}
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+
+	mywrite_flush(wd);
 }
 
 static void write_textures(WriteData *wd, ListBase *idbase)
@@ -2454,8 +2462,7 @@ static void write_textures(WriteData *wd, ListBase *idbase)
 		tex = tex->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_materials(WriteData *wd, ListBase *idbase)
@@ -2571,6 +2578,8 @@ static void write_lamps(WriteData *wd, ListBase *idbase)
 		}
 		la = la->id.next;
 	}
+
+	mywrite_flush(wd);
 }
 
 static void write_sequence_modifiers(WriteData *wd, ListBase *modbase)
@@ -2818,8 +2827,8 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 
 		sce = sce->id.next;
 	}
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+
+	mywrite_flush(wd);
 }
 
 static void write_gpencils(WriteData *wd, ListBase *lb)
@@ -2856,6 +2865,8 @@ static void write_gpencils(WriteData *wd, ListBase *lb)
 			}
 		}
 	}
+
+	mywrite_flush(wd);
 }
 
 static void write_windowmanagers(WriteData *wd, ListBase *lb)
@@ -2872,6 +2883,10 @@ static void write_windowmanagers(WriteData *wd, ListBase *lb)
 			writestruct(wd, DATA, Stereo3dFormat, 1, win->stereo3d_format);
 		}
 	}
+
+	/* typically flushing wouldn't be needed however this data _always_ changes,
+	 * so flush here for more efficient undo. */
+	mywrite_flush(wd);
 }
 
 static void write_region(WriteData *wd, ARegion *ar, int spacetype)
@@ -2911,43 +2926,43 @@ static void write_uilist(WriteData *wd, uiList *ui_list)
 	}
 }
 
-static void write_soops(WriteData *wd, SpaceOops *so, LinkNode **tmp_mem_list)
+static void write_soops(WriteData *wd, SpaceOops *so)
 {
 	BLI_mempool *ts = so->treestore;
 
 	if (ts) {
+		SpaceOops so_flat = *so;
+
 		int elems = BLI_mempool_count(ts);
 		/* linearize mempool to array */
 		TreeStoreElem *data = elems ? BLI_mempool_as_arrayN(ts, "TreeStoreElem") : NULL;
 
 		if (data) {
-			TreeStore *ts_flat = MEM_callocN(sizeof(TreeStore), "TreeStore");
+			/* In this block we use the memory location of the treestore
+			 * but _not_ its data, the addresses in this case are UUID's,
+			 * since we can't rely on malloc giving us different values each time.
+			 */
+			TreeStore ts_flat = {0};
 
-			ts_flat->usedelem = elems;
-			ts_flat->totelem = elems;
-			ts_flat->data = data;
+			/* we know the treestore is at least as big as a pointer,
+			 * so offsetting works to give us a UUID. */
+			void *data_addr = (void *)POINTER_OFFSET(ts, sizeof(void *));
 
-			/* temporarily replace mempool-treestore by flat-treestore */
-			so->treestore = (BLI_mempool *)ts_flat;
+			ts_flat.usedelem = elems;
+			ts_flat.totelem = elems;
+			ts_flat.data = data_addr;
+
 			writestruct(wd, DATA, SpaceOops, 1, so);
 
-			writestruct(wd, DATA, TreeStore, 1, ts_flat);
-			writestruct(wd, DATA, TreeStoreElem, elems, data);
+			writestruct_at_address(wd, DATA, TreeStore, 1, ts, &ts_flat);
+			writestruct_at_address(wd, DATA, TreeStoreElem, elems, data_addr, data);
 
-			/* we do not free the pointers immediately, because if we have multiple
-			 * outliners in a screen we might get the same address on the next
-			 * malloc, which makes the address no longer unique and so invalid for
-			 * lookups on file read, causing crashes or double frees */
-			BLI_linklist_prepend(tmp_mem_list, ts_flat);
-			BLI_linklist_prepend(tmp_mem_list, data);
+			MEM_freeN(data);
 		}
 		else {
-			so->treestore = NULL;
-			writestruct(wd, DATA, SpaceOops, 1, so);
+			so_flat.treestore = NULL;
+			writestruct_at_address(wd, DATA, SpaceOops, 1, so, &so_flat);
 		}
-
-		/* restore old treestore */
-		so->treestore = ts;
 	}
 	else {
 		writestruct(wd, DATA, SpaceOops, 1, so);
@@ -2960,7 +2975,6 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 	ScrArea *sa;
 	ScrVert *sv;
 	ScrEdge *se;
-	LinkNode *tmp_mem_list = NULL;
 
 	sc = scrbase->first;
 	while (sc) {
@@ -3064,7 +3078,7 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 				}
 				else if (sl->spacetype == SPACE_OUTLINER) {
 					SpaceOops *so = (SpaceOops *)sl;
-					write_soops(wd, so, &tmp_mem_list);
+					write_soops(wd, so);
 				}
 				else if (sl->spacetype == SPACE_IMAGE) {
 					writestruct(wd, DATA, SpaceImage, 1, sl);
@@ -3132,10 +3146,7 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 		sc = sc->id.next;
 	}
 
-	BLI_linklist_freeN(tmp_mem_list);
-
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_bone(WriteData *wd, Bone *bone)
@@ -3183,8 +3194,7 @@ static void write_armatures(WriteData *wd, ListBase *idbase)
 		arm = arm->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_texts(WriteData *wd, ListBase *idbase)
@@ -3225,8 +3235,7 @@ static void write_texts(WriteData *wd, ListBase *idbase)
 		text = text->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_speakers(WriteData *wd, ListBase *idbase)
@@ -3270,8 +3279,7 @@ static void write_sounds(WriteData *wd, ListBase *idbase)
 		sound = sound->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_groups(WriteData *wd, ListBase *idbase)
@@ -3294,6 +3302,8 @@ static void write_groups(WriteData *wd, ListBase *idbase)
 			}
 		}
 	}
+
+	mywrite_flush(wd);
 }
 
 static void write_nodetrees(WriteData *wd, ListBase *idbase)
@@ -3515,8 +3525,7 @@ static void write_movieclips(WriteData *wd, ListBase *idbase)
 		clip = clip->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_masks(WriteData *wd, ListBase *idbase)
@@ -3576,8 +3585,7 @@ static void write_masks(WriteData *wd, ListBase *idbase)
 		mask = mask->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_linestyle_color_modifiers(WriteData *wd, ListBase *modifiers)
@@ -3926,6 +3934,8 @@ static void write_libraries(WriteData *wd, Main *main)
 			}
 		}
 	}
+
+	mywrite_flush(wd);
 }
 
 /* context is usually defined by WM, two cases where no WM is available:
@@ -4025,6 +4035,10 @@ static bool write_file_handle(
 	write_thumb(wd, thumb);
 	write_global(wd, write_flags, mainvar);
 
+	/* The windowmanager and screen often change,
+	 * avoid thumbnail detecting changes because of this. */
+	mywrite_flush(wd);
+
 	write_windowmanagers(wd, &mainvar->wm);
 	write_screens(wd, &mainvar->screen);
 	write_movieclips(wd, &mainvar->movieclip);
@@ -4058,11 +4072,17 @@ static bool write_file_handle(
 	write_linestyles(wd, &mainvar->linestyle);
 	write_libraries(wd,  mainvar->next);
 
+	/* So changes above don't cause a 'DNA1' to be detected as changed on undo. */
+	mywrite_flush(wd);
+
 	if (write_flags & G_FILE_USERPREFS) {
 		write_userdef(wd);
 	}
 
-	/* dna as last, because (to be implemented) test for which structs are written */
+	/* Write DNA last, because (to be implemented) test for which structs are written.
+	 *
+	 * Note that we *borrow* the pointer to 'DNAstr',
+	 * so writing each time uses the same address and doesn't cause unnecessary undo overhead. */
 	writedata(wd, DNA1, wd->sdna->datalen, wd->sdna->data);
 
 #ifdef USE_NODE_COMPAT_CUSTOMNODES
