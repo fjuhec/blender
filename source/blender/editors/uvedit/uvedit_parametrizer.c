@@ -161,6 +161,7 @@ typedef struct PConvexHull {
 	int ref_vert_index; /* vert with the highest y value, lowest y if reversed */
 	float min_v[2];
 	float max_v[2];
+	bool placed;
 } PConvexHull;
 
 typedef struct PPointUV{
@@ -4780,6 +4781,7 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 	conv_hull->h_verts = points;
 	conv_hull->nverts = npoint;
 	conv_hull->right = right;
+	conv_hull->placed = false;
 
 	/* Fill max/min for initial positioning, with this we also know the bounding rectangle */
 	p_chart_uv_bbox(chart, conv_hull->min_v, conv_hull->max_v);
@@ -4923,6 +4925,7 @@ PConvexHull *p_convex_hull_reverse_vert_order(PConvexHull *hull)
 	conv_hull_inv->min_v[1] = hull->min_v[1];
 	conv_hull_inv->max_v[0] = hull->max_v[0];
 	conv_hull_inv->max_v[1] = hull->max_v[1];
+	conv_hull_inv->placed = false;
 	int i, j;
 	float miny = 1.0e30f;
 	
@@ -5017,32 +5020,32 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 
 	/* ToDo SaphireS: Put this outside no fit polygon computation so it is only done once per item */
 	/* ref_vert_index now contains the vert with the lowest y value */
-	PConvexHull *item_inv = p_convex_hull_reverse_direction(item);
+	//PConvexHull *item_inv = p_convex_hull_reverse_direction(item);
 
 	/* find reference verteices, store for later usage*/
-	int min_y_item_index, max_y_fixed_index;
-	float min_y_item = 1.0e30f, max_y_fixed = -1.0e30f;
+	/*int min_y_item_index, max_y_fixed_index;
+	float min_y_item = 1.0e30f, max_y_fixed = -1.0e30f;*/
 
-	for (i = 0; i < item_inv->nverts; i++) {
-		if (item_inv->h_verts[i]->uv[1] < min_y_item) {
-			min_y_item = item_inv->h_verts[i]->uv[1];
+	/*for (i = 0; i < item->nverts; i++) {
+		if (item->h_verts[i]->uv[1] < min_y_item) {
+			min_y_item = item->h_verts[i]->uv[1];
 			min_y_item_index = i;
 		}
-	}
-	for (j = 0; j < fixed->nverts; j++) {
+	}*/
+	/*for (j = 0; j < fixed->nverts; j++) {
 		if (fixed->h_verts[j]->uv[1] > max_y_fixed) {
 			max_y_fixed = fixed->h_verts[j]->uv[1];
 			max_y_fixed_index = j;
 		}
-	}
+	}*/
 
-	printf("Max y fixed: x: %f y %f\n", fixed->h_verts[max_y_fixed_index]->uv[0], fixed->h_verts[max_y_fixed_index]->uv[1]);
-	printf("Min y item: x: %f y %f\n", item_inv->h_verts[min_y_item_index]->uv[0], item_inv->h_verts[min_y_item_index]->uv[1]);
+	//printf("Max y fixed: x: %f y %f\n", fixed->h_verts[max_y_fixed_index]->uv[0], fixed->h_verts[max_y_fixed_index]->uv[1]);
+	//printf("Min y item: x: %f y %f\n", item_inv->h_verts[min_y_item_index]->uv[0], item_inv->h_verts[min_y_item_index]->uv[1]);
 	
 	/* Assign to NFP */
 	for (i = 0; i < nfp->nverts; i++) {
 		if (i < item->nverts) {
-			points[i] = item_inv->h_verts[i];
+			points[i] = item->h_verts[i];
 		}
 		else {
 			points[i] = fixed->h_verts[i - item->nverts];
@@ -5059,8 +5062,8 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	for (j = 0; j < nfp->nverts; j++) {
 		printf("----Vert[%i]: dX: %f, dY: %f, angle: %f\n", j, points[j]->u.delta_edge[0], points[j]->u.delta_edge[1], points[j]->edge->u.horizontal_angle);
 		
-		if (compare_ff(points[j]->uv[0], item_inv->h_verts[min_y_item_index]->uv[0], FLT_EPSILON)
-			&& compare_ff(points[j]->uv[1], item_inv->h_verts[min_y_item_index]->uv[1], FLT_EPSILON)) {
+		if (compare_ff(points[j]->uv[0], item->h_verts[item->ref_vert_index]->uv[0], FLT_EPSILON)
+			&& compare_ff(points[j]->uv[1], item->h_verts[item->ref_vert_index]->uv[1], FLT_EPSILON)) {
 			/* offset */
 			printf("Found item min y, offset = %i\n", j);
 			offset = j;
@@ -5087,8 +5090,8 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	}
 
 	/* delete temporary inversed convex hull */
-	p_convex_hull_delete(item_inv);
-	p_convex_hull_restore_direction(item);
+	//p_convex_hull_delete(item_inv);
+	//p_convex_hull_restore_direction(item);
 
 	/* free memory */
 	MEM_freeN(points);
@@ -5114,46 +5117,70 @@ float p_binary_depth_search(int depth)
 	return 0.8f;
 }
 
-bool p_chart_pack_individual(PChart *item, int ncharts)
+void p_place_chart(PChart* item, PConvexHull *ch_item,  PPointUV *pos)
 {
-	/* ToDo SaphireS */
-	PNoFitPolygon **nfps = (PNoFitPolygon **)MEM_callocN(sizeof(PNoFitPolygon *) * ncharts, "PNoFitPolygons");
-	PConvexHull *ch_item = item->u.ipack.convex_hull;
-	float end_pos[2], cur_pos[2], trans[2];
+	float cur_pos[2], trans[2];
 
-	/* Reverse winding direction of item convex hull                */
-	/* ref_vert_index now contains the vert with the lowest y value */
-	PConvexHull *item_inv = p_convex_hull_reverse_direction(ch_item);
+	cur_pos[0] = ch_item->h_verts[ch_item->ref_vert_index]->uv[0];
+	cur_pos[1] = ch_item->h_verts[ch_item->ref_vert_index]->uv[1];
 
-	/* compute no fit polygons (NFPs) of item with already placed charts */
-
-	/* compute inner fit polygon (IFP) */
-	printf("IFP construction start!\n");
-	PNoFitPolygon *ifp = p_inner_fit_polygon_create(item_inv);
-	printf("IFP construction done!\n");
-	/* compute collsion free region (CFR) */
-
-	/* Place chart according to rng (simulated annealing) parameters */
-	/* Use bottom left heuristic for now */
-
-	cur_pos[0] = item_inv->h_verts[item_inv->ref_vert_index]->uv[0];
-	cur_pos[1] = item_inv->h_verts[item_inv->ref_vert_index]->uv[1];
 	printf("ref_vert x: %f", cur_pos[0]);
 	printf("ref_vert y: %f", cur_pos[1]);
+	printf("end_pos x: %f", pos->x);
+	printf("end_pos y: %f", pos->y);
 
-	end_pos[0] = ifp->final_pos[0]->x;
-	end_pos[1] = ifp->final_pos[0]->y;
-	printf("end_pos x: %f", end_pos[0]);
-	printf("end_pos y: %f", end_pos[1]);
-
-	trans[0] = cur_pos[0] - end_pos[0];
-	trans[1] = cur_pos[1] - end_pos[1];
+	trans[0] = cur_pos[0] - pos->x;
+	trans[1] = cur_pos[1] - pos->y;
 
 	trans[0] = -trans[0];
 	trans[1] = -trans[1];
 
 	p_chart_uv_translate(item, trans);
 	printf("translation done!\n");
+}
+
+bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
+{
+	/* ToDo SaphireS */
+	PNoFitPolygon **nfps = (PNoFitPolygon **)MEM_callocN(sizeof(PNoFitPolygon *) * phandle->ncharts, "PNoFitPolygons");
+	PConvexHull *ch_item = item->u.ipack.convex_hull;
+	PChart *fixed;
+	float end_pos[2], cur_pos[2], trans[2];
+	int i;
+
+	/* Reverse winding direction of item convex hull                */
+	/* ref_vert_index now contains the vert with the lowest y value */
+	PConvexHull *item_inv = p_convex_hull_reverse_direction(ch_item);
+
+	/* compute no fit polygons (NFPs) of item with already placed charts */
+	printf("NFPs construction start!\n");
+	for (i = 0; i < phandle->ncharts; i++) {
+		fixed = phandle->charts[i];
+		if (!(fixed->u.ipack.convex_hull->placed)) {
+			PConvexHull *ch_fixed = fixed->u.ipack.convex_hull;
+			PNoFitPolygon *nfp = p_no_fit_polygon_create(ch_item, ch_fixed);
+			nfps[i] = nfp;
+		}
+		else {
+			nfps[i] = NULL;
+		}
+	}
+	printf("NFPs construction done!\n");
+
+	/* compute inner fit polygon (IFP) */
+	printf("IFP construction start!\n");
+	PNoFitPolygon *ifp = p_inner_fit_polygon_create(item_inv);
+	printf("IFP construction done!\n");
+
+	/* compute collsion free region (CFR) */
+
+	/* Place chart according to rng (simulated annealing) parameters */
+	/* Use bottom left heuristic for now */
+	p_place_chart(item, item_inv, ifp->final_pos[0]);
+
+	/* ToDo SaphireS: Verify placement? */
+
+	ch_item->placed = true;
 
 	/* delete temporary inversed convex hull */
 	p_convex_hull_delete(item_inv);
@@ -5162,7 +5189,12 @@ bool p_chart_pack_individual(PChart *item, int ncharts)
 
 	/* CleanUp */
 	p_no_fit_polygon_delete(ifp);
+	/*for () {
+		p_no_fit_polygon_delete(nfps[i]);
+	}*/
 	MEM_freeN(nfps);
+
+	/* p_flush_uvs(phandle, item); */ /* ToDo SaphireS: Needs update to work ... */
 
 	return true;
 }
@@ -5185,12 +5217,14 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 		chart = phandle->charts[i];
 		float scale = 1.0f;
 
-		while (!p_chart_pack_individual(chart, phandle->ncharts)){
-			/* binary depth search for scaling down the current chart */
-			scale = p_binary_depth_search(depth);
+		if (!(chart->u.ipack.convex_hull->placed)) {
+			while (!p_chart_pack_individual(phandle, chart, phandle->ncharts)){
+				/* binary depth search for scaling down the current chart */
+				scale = p_binary_depth_search(depth);
 
-			/* scale chart */
-			p_chart_uv_scale(chart, scale);
+				/* scale chart */
+				p_chart_uv_scale(chart, scale);
+			}
 		}
 	}
 
