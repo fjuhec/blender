@@ -813,6 +813,82 @@ void BKE_library_update_ID_link_user(ID *id_dst, ID *id_src, const int cd_flag)
 	}
 }
 
+/**
+ * Say whether given \a id_type_owner can use (in any way) a datablock of \a id_type_used.
+ */
+/* This is a 'simplified' abstract version of BKE_library_foreach_ID_link() above, quite useful to reduce
+ * useless ietrations in some cases. */
+bool BKE_library_idtype_can_use_idtype(const short id_type_owner, const short id_type_used)
+{
+	if (id_type_used == ID_AC) {
+		return id_type_can_have_animdata(id_type_owner);
+	}
+
+	switch (id_type_owner) {
+		case ID_LI:
+			return ELEM(id_type_used, ID_LI);
+		case ID_SCE:
+			return (ELEM(id_type_used, ID_OB, ID_WO, ID_SCE, ID_MC, ID_MA, ID_GR, ID_TXT,
+			                           ID_LS, ID_MSK, ID_SO, ID_GD, ID_BR, ID_PAL, ID_IM, ID_NT) ||
+			        BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+		case ID_OB:
+			/* Could be the following, but simpler to just always say 'yes' here. */
+#if 0
+			return ELEM(id_type_used, ID_ME, ID_CU, ID_MB, ID_LT, ID_SPK, ID_AR, ID_LA, ID_CA,  /* obdata */
+			                          ID_OB, ID_MA, ID_GD, ID_GR, ID_TE, ID_PA, ID_TXT, ID_SO, ID_MC, ID_IM, ID_AC
+			                          /* + constraints, modifiers and game logic ID types... */);
+#else
+			return true;
+#endif
+		case ID_ME:
+			return ELEM(id_type_used, ID_ME, ID_KE, ID_MA);
+		case ID_CU:
+			return ELEM(id_type_used, ID_OB, ID_KE, ID_MA, ID_VF);
+		case ID_MB:
+			return ELEM(id_type_used, ID_MA);
+		case ID_MA:
+			return (ELEM(id_type_used, ID_TE, ID_GR) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+		case ID_TE:
+			return (ELEM(id_type_used, ID_IM, ID_OB) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+		case ID_LT:
+			return ELEM(id_type_used, ID_KE);
+		case ID_LA:
+			return (ELEM(id_type_used, ID_TE) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+		case ID_CA:
+			return ELEM(id_type_used, ID_OB);
+		case ID_KE:
+			return ELEM(id_type_used, ID_ME, ID_CU, ID_LT);  /* Warning! key->from, could be more types in future? */
+		case ID_SCR:
+			return ELEM(id_type_used, ID_SCE);
+		case ID_WO:
+			return (ELEM(id_type_used, ID_TE) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+		case ID_SPK:
+			return ELEM(id_type_used, ID_SO);
+		case ID_GR:
+			return ELEM(id_type_used, ID_OB);
+		case ID_NT:
+			/* Could be the following, but node.id has no type restriction... */
+#if 0
+			return ELEM(id_type_used, ID_GD /* + node.id types... */);
+#else
+			return true;
+#endif
+		case ID_BR:
+			return ELEM(id_type_used, ID_BR, ID_IM, ID_PC, ID_TE);
+		case ID_PA:
+			return ELEM(id_type_used, ID_OB, ID_GR, ID_TE);
+		case ID_MC:
+			return ELEM(id_type_used, ID_GD, ID_IM);
+		case ID_MSK:
+			return ELEM(id_type_used, ID_MC);  /* WARNING! mask->parent.id, not typed. */
+		case ID_LS:
+			return (ELEM(id_type_used, ID_TE, ID_OB) || BKE_library_idtype_can_use_idtype(ID_NT, id_type_used));
+		default:
+			return false;
+	}
+}
+
+
 /* ***** ID users iterator. ***** */
 typedef struct IDUsersIter {
 	ID *id;
@@ -867,7 +943,7 @@ int BKE_library_ID_use_ID(ID *id_user, ID *id_used)
 }
 
 
-static int foreach_libblock_check_indirect_usage_callback(
+static int foreach_libblock_check_usage_callback(
         void *user_data, ID *UNUSED(id_self), ID **id_p, int UNUSED(cb_flag))
 {
 	IDUsersIter *iter = user_data;
@@ -880,38 +956,85 @@ static int foreach_libblock_check_indirect_usage_callback(
 	return IDWALK_RET_NOP;
 }
 
-/**
- * Check wether given ID is used indirectly (i.e. by another linked ID).
- */
-bool BKE_library_ID_is_indirectly_used(Main *bmain, void *idv)
+static bool library_ID_is_used(Main *bmain, void *idv, const bool check_linked)
 {
 	IDUsersIter iter;
 	ListBase *lb_array[MAX_LIBARRAY];
+	ID *id = idv;
 	int i = set_listbasepointers(bmain, lb_array);
+	bool is_defined = false;
 
-	iter.id = idv;
+	iter.id = id;
 	iter.count = 0;
-	while (i--) {
+	while (i-- && !is_defined) {
 		ID *id_curr = lb_array[i]->first;
 
-		for (; id_curr; id_curr = id_curr->next) {
-			if (!id_curr->lib) {
+		if (!id_curr || !BKE_library_idtype_can_use_idtype(GS(id->name), GS(id_curr->name))) {
+			continue;
+		}
+
+		for (; id_curr && !is_defined; id_curr = id_curr->next) {
+			if (check_linked != ID_IS_LINKED_DATABLOCK(id_curr)) {
 				continue;
 			}
 
 			iter.curr_id = id_curr;
 			BKE_library_foreach_ID_link(
-			            id_curr, foreach_libblock_check_indirect_usage_callback, &iter, IDWALK_NOP);
+			            id_curr, foreach_libblock_check_usage_callback, &iter, IDWALK_NOP);
 
-			if (iter.count) {
-				break;
-			}
-		}
-		if (iter.count) {
-			break;
+			is_defined = (iter.count != 0);
 		}
 	}
 
-	return (iter.count != 0);
+	return is_defined;
 }
 
+/**
+ * Check whether given ID is used locally (i.e. by another non-linked ID).
+ */
+bool BKE_library_ID_is_locally_used(Main *bmain, void *idv)
+{
+	return library_ID_is_used(bmain, idv, false);
+}
+
+/**
+ * Check whether given ID is used indirectly (i.e. by another linked ID).
+ */
+bool BKE_library_ID_is_indirectly_used(Main *bmain, void *idv)
+{
+	return library_ID_is_used(bmain, idv, true);
+}
+
+/**
+ * Combine \a BKE_library_ID_is_locally_used() and \a BKE_library_ID_is_indirectly_used() in a single call.
+ */
+void BKE_library_ID_test_usages(Main *bmain, void *idv, bool *is_used_local, bool *is_used_linked)
+{
+	IDUsersIter iter_local, iter_linked;
+	ListBase *lb_array[MAX_LIBARRAY];
+	ID *id = idv;
+	int i = set_listbasepointers(bmain, lb_array);
+	bool is_defined = false;
+
+	iter_local.id = iter_linked.id = id;
+	iter_local.count = iter_linked.count = 0;
+	while (i-- && !is_defined) {
+		ID *id_curr = lb_array[i]->first;
+
+		if (!id_curr || !BKE_library_idtype_can_use_idtype(GS(id->name), GS(id_curr->name))) {
+			continue;
+		}
+
+		for (; id_curr && !is_defined; id_curr = id_curr->next) {
+			IDUsersIter *iter = (ID_IS_LINKED_DATABLOCK(id_curr)) ? &iter_linked : &iter_local;
+
+			iter->curr_id = id_curr;
+			BKE_library_foreach_ID_link(id_curr, foreach_libblock_check_usage_callback, iter, IDWALK_NOP);
+
+			is_defined = (iter_local.count != 0 && iter_linked.count != 0);
+		}
+	}
+
+	*is_used_local = (iter_local.count != 0);
+	*is_used_linked = (iter_linked.count != 0);
+}

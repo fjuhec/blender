@@ -1,6 +1,5 @@
 /*
- * Adapted from code copyright 2009-2010 NVIDIA Corporation
- * Modifications Copyright 2011, Blender Foundation.
+ * Copyright 2011-2013 Blender Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef __BVH_SORT_H__
-#define __BVH_SORT_H__
+#include "stdosl.h"
 
-CCL_NAMESPACE_BEGIN
-
-class BVHUnaligned;
-struct Transform;
-
-void bvh_reference_sort(int start,
-                        int end,
-                        BVHReference *data,
-                        int dim,
-                        const BVHUnaligned *unaligned_heuristic = NULL,
-                        const Transform *aligned_space = NULL);
-
-CCL_NAMESPACE_END
-
-#endif /* __BVH_SORT_H__ */
+shader node_rgb_to_bw(
+	color Color = 0.0,
+	output float Val = 0.0)
+{
+	Val = Color[0] * 0.2126 + Color[1] * 0.7152 + Color[2] * 0.0722;
+}
 
