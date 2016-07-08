@@ -283,6 +283,7 @@ EnumPropertyItem rna_enum_axis_flag_xyz_items[] = {
 #include "DNA_curve_types.h"
 #include "DNA_smoke_types.h"
 
+#include "BKE_cachefile.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_library.h"
@@ -1134,7 +1135,7 @@ static void rna_MeshSequenceCacheModifier_velocity_get(PointerRNA *ptr, float *v
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *)ptr->data;
 
 	Scene *scene = mcmd->modifier.scene;
-	const float time = CFRA / FPS;
+	const float time = BKE_cachefile_time_offset(mcmd->cache_file, CFRA, FPS);
 
 	ABC_get_velocity_cache(mcmd->cache_file->handle, mcmd->abc_object_path, values, time);
 #else
@@ -1148,11 +1149,10 @@ static int rna_MeshSequenceCacheModifier_has_velocity_get(PointerRNA *ptr)
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *)ptr->data;
 
 	Scene *scene = mcmd->modifier.scene;
-	const float time = CFRA / FPS;
+	const float time = BKE_cachefile_time_offset(mcmd->cache_file, CFRA, FPS);
 
 	return ABC_has_velocity_cache(mcmd->cache_file->handle, mcmd->abc_object_path, time);
 #else
-
 	return false;
 	UNUSED_VARS(ptr);
 #endif
