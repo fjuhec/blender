@@ -35,6 +35,8 @@
 #include "BKE_library_query.h"
 #include "BKE_scene.h"
 
+#include "DEG_depsgraph_build.h"
+
 #include "MOD_modifiertypes.h"
 
 #ifdef WITH_ALEMBIC
@@ -118,6 +120,22 @@ static void foreachIDLink(ModifierData *md, Object *ob,
 	walk(userData, ob, (ID **)&mcmd->cache_file, IDWALK_USER);
 }
 
+static void updateDepsgraph(ModifierData *md,
+                            struct Main *bmain,
+                            struct Scene *scene,
+                            Object *ob,
+                            struct DepsNodeHandle *node)
+{
+	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
+
+	if (mcmd->cache_file != NULL) {
+		DEG_add_object_cache_relation(node, mcmd->cache_file, DEG_OB_COMP_CACHE, "Mesh Cache File");
+	}
+
+	UNUSED_VARS(bmain, scene, ob);
+}
+
+
 ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* name */              "Mesh Sequence Cache",
     /* structName */        "MeshSeqCacheModifierData",
@@ -137,7 +155,7 @@ ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* freeData */          freeData,
     /* isDisabled */        isDisabled,
     /* updateDepgraph */    NULL,
-    /* updateDepsgraph */   NULL,
+    /* updateDepsgraph */   updateDepsgraph,
     /* dependsOnTime */     dependsOnTime,
     /* dependsOnNormals */  NULL,
     /* foreachObjectLink */ NULL,

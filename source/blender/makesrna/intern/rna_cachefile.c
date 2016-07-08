@@ -35,10 +35,24 @@
 #ifdef RNA_RUNTIME
 
 #include "BKE_cachefile.h"
+#include "BKE_depsgraph.h"
+
+#include "WM_api.h"
+#include "WM_types.h"
 
 #ifdef WITH_ALEMBIC
 #  include "../../../alembic/ABC_alembic.h"
 #endif
+
+static void rna_CacheFile_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+	CacheFile *cache_file = (CacheFile *)ptr->data;
+
+	DAG_id_tag_update(&cache_file->id, 0);
+	WM_main_add_notifier(NC_SCENE | ND_FRAME, scene);
+
+	UNUSED_VARS(bmain);
+}
 
 static void rna_CacheFile_update_handle(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
@@ -46,7 +60,7 @@ static void rna_CacheFile_update_handle(Main *bmain, Scene *scene, PointerRNA *p
 
 	BKE_cachefile_load(cache_file, bmain->name);
 
-	UNUSED_VARS(scene);
+	rna_CacheFile_update(bmain, scene, ptr);
 }
 
 #else
@@ -64,7 +78,7 @@ static void rna_def_cachefile(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "is_sequence", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Sequence", "Whether the cache is separated in a series of files");
-	RNA_def_property_update(prop, 0, NULL);
+	RNA_def_property_update(prop, 0, "rna_CacheFile_update");
 
 	/* ----------------- For Scene time ------------------- */
 
@@ -72,14 +86,14 @@ static void rna_def_cachefile(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Override Frame",
 	                         "Whether to use a custom frame for looking up data in the cache file,"
 	                         " instead of using the current scene frame");
-	RNA_def_property_update(prop, 0, NULL);
+	RNA_def_property_update(prop, 0, "rna_CacheFile_update");
 
 	prop = RNA_def_property(srna, "frame", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "frame");
 	RNA_def_property_range(prop, -MAXFRAME, MAXFRAME);
 	RNA_def_property_ui_text(prop, "Frame", "The time to use for looking up the data in the cache file,"
 	                                        " or to determine which file to use in a file sequence");
-	RNA_def_property_update(prop, 0, NULL);
+	RNA_def_property_update(prop, 0, "rna_CacheFile_update");
 
 	/* ----------------- Axis Conversion ----------------- */
 
@@ -87,19 +101,19 @@ static void rna_def_cachefile(BlenderRNA *brna)
 	RNA_def_property_enum_sdna(prop, NULL, "forward_axis");
 	RNA_def_property_enum_items(prop, rna_enum_object_axis_items);
 	RNA_def_property_ui_text(prop, "Forward", "");
-	RNA_def_property_update(prop, 0, NULL);
+	RNA_def_property_update(prop, 0, "rna_CacheFile_update");
 
 	prop = RNA_def_property(srna, "up_axis", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "up_axis");
 	RNA_def_property_enum_items(prop, rna_enum_object_axis_items);
 	RNA_def_property_ui_text(prop, "Up", "");
-	RNA_def_property_update(prop, 0, NULL);
+	RNA_def_property_update(prop, 0, "rna_CacheFile_update");
 
 	prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "scale");
 	RNA_def_property_range(prop, 0.0f, 1.0f);
 	RNA_def_property_ui_text(prop, "Scale", "");
-	RNA_def_property_update(prop, 0, NULL);
+	RNA_def_property_update(prop, 0, "rna_CacheFile_update");
 
 	rna_def_animdata_common(srna);
 }
