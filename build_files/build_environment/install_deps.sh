@@ -2219,10 +2219,13 @@ compile_ALEMBIC() {
 
     cd $_src
 
-    cmake_d="-D CMAKE_INSTALL_PREFIX=$INST"  # Alembic's build files append "alembic-1.5.8 to the end of CMAKE_INSTALL_PREFIX" so must install in parent dir.
+    cmake_d="-D CMAKE_INSTALL_PREFIX=$_inst"
 
     if [ -d $INST/boost ]; then
       cmake_d="$cmake_d -D BOOST_ROOT=$INST/boost"
+      cmake_d="$cmake_d -D USE_STATIC_BOOST=ON"
+    else
+      cmake_d="$cmake_d -D USE_STATIC_BOOST=OFF"
     fi
 
     if [ "$_with_built_openexr" = true ]; then
@@ -2234,7 +2237,6 @@ compile_ALEMBIC() {
       cmake_d="$cmake_d -D USE_MAYA=OFF"
       cmake_d="$cmake_d -D USE_PRMAN=OFF"
       cmake_d="$cmake_d -D USE_PYALEMBIC=OFF"
-      cmake_d="$cmake_d -D USE_STATIC_BOOST=ON"
       cmake_d="$cmake_d -D USE_STATIC_HDF5=OFF"
       cmake_d="$cmake_d -D ALEMBIC_ILMBASE_LINK_STATIC=OFF"
       cmake_d="$cmake_d -D ALEMBIC_SHARED_LIBS=OFF"
