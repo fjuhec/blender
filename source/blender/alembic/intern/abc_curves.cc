@@ -203,9 +203,22 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 	cu->flag |= CU_DEFORM_FILL | CU_3D;
 	cu->actvert = CU_ACT_NONE;
 
-	const ISampleSelector sample_sel(time);
+	m_object = BKE_object_add(bmain, scene, OB_CURVE, m_object_name.c_str());
+	m_object->data = cu;
 
-	ICurvesSchema::Sample smp = m_curves_schema.getValue(sample_sel);
+	read_curve_sample(cu, m_curves_schema, time);
+
+	if (m_settings->is_sequence || !m_curves_schema.isConstant()) {
+		addDefaultModifier(bmain);
+	}
+}
+
+/* ************************************************************************** */
+
+void read_curve_sample(Curve *cu, const ICurvesSchema &schema, const float time)
+{
+	const ISampleSelector sample_sel(time);
+	ICurvesSchema::Sample smp = schema.getValue(sample_sel);
 	const Int32ArraySamplePtr num_vertices = smp.getCurvesNumVertices();
 	const P3fArraySamplePtr positions = smp.getPositions();
 	const FloatArraySamplePtr weights = smp.getPositionWeights();
@@ -213,16 +226,13 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 	const CurvePeriodicity periodicity = smp.getWrap();
 	const UcharArraySamplePtr orders = smp.getOrders();
 
-	const IFloatGeomParam widths_param = m_curves_schema.getWidthsParam();
+	const IFloatGeomParam widths_param = schema.getWidthsParam();
 	FloatArraySamplePtr radiuses;
 
 	if (widths_param.valid()) {
 		IFloatGeomParam::Sample wsample = widths_param.getExpandedValue(sample_sel);
 		radiuses = wsample.getVals();
 	}
-
-	m_object = BKE_object_add(bmain, scene, OB_CURVE, m_object_name.c_str());
-	m_object->data = cu;
 
 	int knot_offset = 0;
 
@@ -237,12 +247,12 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 		nu->pntsv = 1;
 		nu->flag |= CU_SMOOTH;
 
-		nu->orderu = 1;
+		nu->orderu = num_verts;
 
 		if (smp.getType() == Alembic::AbcGeom::kCubic) {
             nu->orderu = 3;
         }
-        else if (orders->size() > i) {
+        else if (orders && orders->size() > i) {
             nu->orderu = static_cast<short>((*orders)[i] - 1);
         }
 
@@ -290,7 +300,7 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 		float weight = 1.0f;
 
 		const bool do_radius = (radiuses != NULL) && (radiuses->size() > 1);
-		float radius = (radiuses->size() == 1) ? (*radiuses)[0] : 1.0f;
+		float radius = (radiuses && radiuses->size() == 1) ? (*radiuses)[0] : 1.0f;
 
 		nu->type = CU_NURBS;
 
@@ -338,9 +348,5 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 		}
 
 		BLI_addtail(BKE_curve_nurbs_get(cu), nu);
-	}
-
-	if (m_settings->is_sequence || !m_curves_schema.isConstant()) {
-		addDefaultModifier(bmain);
 	}
 }

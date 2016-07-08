@@ -85,6 +85,7 @@ void ABC_get_transform(AbcArchiveHandle *handle,
                        float scale);
 
 struct DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
+                                  struct Object *ob,
                                   struct DerivedMesh *dm,
                                   const char *object_path,
                                   const float time);

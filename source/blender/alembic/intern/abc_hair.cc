@@ -288,4 +288,3 @@ void AbcHairWriter::write_hair_child_sample(DerivedMesh *dm,
 		}
 	}
 }
-

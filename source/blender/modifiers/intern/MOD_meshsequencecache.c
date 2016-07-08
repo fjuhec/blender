@@ -94,12 +94,13 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	const float time = BKE_cachefile_time_offset(mcmd->cache_file, frame, FPS);
 
 	DerivedMesh *result = ABC_read_mesh(mcmd->cache_file->handle,
+	                                    ob,
 	                                    dm,
 	                                    mcmd->abc_object_path,
 	                                    time);
 
 	return result ? result : dm;
-	UNUSED_VARS(ob, flag);
+	UNUSED_VARS(flag);
 #else
 	return dm;
 	UNUSED_VARS(md, ob, flag);

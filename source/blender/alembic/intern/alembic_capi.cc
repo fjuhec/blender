@@ -42,6 +42,7 @@ extern "C" {
 #include "MEM_guardedalloc.h"
 
 #include "DNA_cachefile_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -63,6 +64,7 @@ extern "C" {
 
 #include "BLI_fileops.h"
 #include "BLI_ghash.h"
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
@@ -71,6 +73,7 @@ extern "C" {
 #include "WM_types.h"
 }
 
+using Alembic::Abc::Int32ArraySamplePtr;
 using Alembic::Abc::ObjectHeader;
 
 using Alembic::AbcGeom::ErrorHandler;
@@ -821,7 +824,13 @@ static DerivedMesh *read_points_sample(DerivedMesh *dm, const IObject &iobject, 
 	return dm;
 }
 
-static DerivedMesh *read_curves_sample(DerivedMesh *dm, const IObject &iobject, const float time)
+/* NOTE: Alembic only stores data about control points, but the DerivedMesh
+ * passed from the cache modifier contains the displist, which has more data
+ * than the control points, so to avoid corrupting the displist we modify the
+ * object directly and create a new DerivedMesh from that. Also we might need to
+ * create new or delete existing NURBS in the curve.
+ */
+static DerivedMesh *read_curves_sample(Object *ob, const IObject &iobject, const float time)
 {
 	ICurves points(iobject, kWrapExisting);
 	ICurvesSchema schema = points.getSchema();
@@ -829,13 +838,46 @@ static DerivedMesh *read_curves_sample(DerivedMesh *dm, const IObject &iobject, 
 	const ICurvesSchema::Sample sample = schema.getValue(sample_sel);
 
 	const P3fArraySamplePtr &positions = sample.getPositions();
+	const Int32ArraySamplePtr num_vertices = sample.getCurvesNumVertices();
 
-	read_mverts(dm->getVertArray(dm), positions, N3fArraySamplePtr());
+	int vertex_idx = 0;
+	int curve_idx = 0;
+	Curve *curve = static_cast<Curve *>(ob->data);
 
-	return dm;
+	const int curve_count = BLI_listbase_count(&curve->nurb);
+
+	if (curve_count != num_vertices->size()) {
+		BLI_freelistN(&curve->nurb);
+		read_curve_sample(curve, schema, time);
+	}
+	else {
+		Nurb *nurbs = static_cast<Nurb *>(curve->nurb.first);
+		for (; nurbs; nurbs = nurbs->next, ++curve_idx) {
+			const int totpoint = (*num_vertices)[curve_idx];
+
+			if (nurbs->bp) {
+				BPoint *point = nurbs->bp;
+
+				for (int i = 0; i < totpoint; ++i, ++point, ++vertex_idx) {
+					const Imath::V3f &pos = (*positions)[vertex_idx];
+					copy_yup_zup(point->vec, pos.getValue());
+				}
+			}
+			else if (nurbs->bezt) {
+				BezTriple *bezier = nurbs->bezt;
+
+				for (int i = 0; i < totpoint; ++i, ++bezier, ++vertex_idx) {
+					const Imath::V3f &pos = (*positions)[vertex_idx];
+					copy_yup_zup(bezier->vec[1], pos.getValue());
+				}
+			}
+		}
+	}
+
+	return CDDM_from_curve(ob);
 }
 
-DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle, DerivedMesh *dm, const char *object_path, const float time)
+DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle, Object *ob, DerivedMesh *dm, const char *object_path, const float time)
 {
 	IArchive *archive = archive_from_handle(handle);
 
@@ -859,7 +901,7 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle, DerivedMesh *dm, const char
 		return read_points_sample(dm, iobject, time);
 	}
 	else if (ICurves::matches(header)) {
-		return read_curves_sample(dm, iobject, time);
+		return read_curves_sample(ob, iobject, time);
 	}
 
 	return NULL;

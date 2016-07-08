@@ -26,6 +26,8 @@
 
 #include "abc_object.h"
 
+struct Curve;
+
 /* ************************************************************************** */
 
 class AbcCurveWriter : public AbcObjectWriter {
@@ -54,3 +56,7 @@ public:
 
 	void readObjectData(Main *bmain, Scene *scene, float time);
 };
+
+/* ************************************************************************** */
+
+void read_curve_sample(Curve *cu, const Alembic::AbcGeom::ICurvesSchema &schema, const float time);
