@@ -95,6 +95,9 @@ typedef struct LayerTree {
 	 * it's quite easy to break it. It could be supported but might lower performance a bit (maybe uber-picky).
 	 * XXX Check if this can be made safer */
 	struct LayerTreeItem **items_all;
+
+	/* The currently active layer of this tree */
+	struct LayerTreeItem *active_layer;
 } LayerTree;
 
 /**

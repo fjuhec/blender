@@ -526,7 +526,7 @@ BLI_INLINE void layer_selection_set(SpaceLayers *slayer, LayerTile *tile, const 
 {
 	if (enable) {
 		(tile->flag |= LAYERTILE_SELECTED);
-		slayer->active_item = tile->litem->index;
+		slayer->act_tree->active_layer = tile->litem;
 	}
 	else {
 		tile->flag &= ~LAYERTILE_SELECTED;
@@ -590,7 +590,7 @@ static int layer_select_invoke(bContext *C, wmOperator *op, const wmEvent *event
 			layers_selection_set_all(slayer, false);
 		}
 		if (extend) {
-			if (fill && layers_select_fill(slayer, slayer->active_item, tile->litem->index)) {
+			if (fill && layers_select_fill(slayer, slayer->act_tree->active_layer->index, tile->litem->index)) {
 				/* skip */
 			}
 			else {
@@ -662,16 +662,15 @@ static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), cons
 	Scene *scene = CTX_data_scene(C);
 	SpaceLayers *slayer = CTX_wm_space_layers(C);
 
-	if (slayer->active_item == -1)
+	if (!slayer->act_tree->active_layer)
 		return OPERATOR_CANCELLED;
 
-	LayerTreeItem *active = slayer->act_tree->items_all[slayer->active_item];
 	for (Base *base = scene->base.first; base; base = base->next) {
 		if (base->flag & SELECT) {
 			if (base->layer) {
 				BKE_objectlayer_base_unassign(base);
 			}
-			BKE_objectlayer_base_assign(base, active, false);
+			BKE_objectlayer_base_assign(base, slayer->act_tree->active_layer, false);
 		}
 	}
 

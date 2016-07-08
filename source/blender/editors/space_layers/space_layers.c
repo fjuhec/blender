@@ -57,7 +57,6 @@ static SpaceLink *layers_new(const bContext *C)
 
 	slayer = MEM_callocN(sizeof(SpaceLayers), __func__);
 	slayer->spacetype = SPACE_LAYERS;
-	slayer->active_item = -1;
 	layers_data_refresh(scene, slayer);
 
 	/* header */

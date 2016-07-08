@@ -1384,11 +1384,8 @@ typedef struct SpaceLayers {
 	 * Use to get the LayerTile from a LayerTreeItem or for iterating over layer tree where order doesn't matter. */
 	struct GHash *tiles;
 
-	/* LayerTree.items_all index of last selected LayerTreeItem */
-	int active_item;
-
 	/* filtering (unused still) */
-	short filterflag, pad2;
+	short filterflag, pad2[3];
 	char filter_str[64]; /* MAX_NAME */
 } SpaceLayers;
 
