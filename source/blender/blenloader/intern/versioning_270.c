@@ -1223,6 +1223,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			for (Scene *sce = main->scene.first; sce; sce = sce->id.next) {
 				sce->object_layers = BKE_layertree_new(LAYER_TREETYPE_OBJECT);
 				LayerTreeItem *litem = BKE_objectlayer_add(sce->object_layers, NULL, "Default layer");
+				sce->object_layers->active_layer = litem;
 
 				BKE_objectlayer_base_entries_reserve(litem, BLI_listbase_count(&sce->base));
 				/* For now, simply create a new layer and move all objects into it */

@@ -1917,6 +1917,8 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, Base *base
 		*basen = *base;
 		BLI_addhead(&scene->base, basen);   /* addhead: prevent eternal loop */
 		basen->object = obn;
+		BLI_assert(scene->object_layers->active_layer);
+		BKE_objectlayer_base_assign(basen, scene->object_layers->active_layer, false);
 
 		/* 1) duplis should end up in same group as the original
 		 * 2) Rigid Body sim participants MUST always be part of a group...

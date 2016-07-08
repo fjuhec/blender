@@ -1135,8 +1135,11 @@ char *BKE_scene_find_last_marker_name(Scene *scene, int frame)
 
 Base *BKE_scene_base_add(Scene *sce, Object *ob)
 {
-	Base *b = MEM_callocN(sizeof(*b), "BKE_scene_base_add");
+	Base *b = MEM_callocN(sizeof(*b), __func__);
 	BLI_addhead(&sce->base, b);
+
+	BLI_assert(sce->object_layers->active_layer != NULL); /* XXX quite easy to break currently */
+	BKE_objectlayer_base_assign(b, sce->object_layers->active_layer, false);
 
 	b->object = ob;
 	b->flag = ob->flag;
