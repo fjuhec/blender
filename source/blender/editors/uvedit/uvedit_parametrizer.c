@@ -4879,7 +4879,7 @@ void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
 	printf("p_convex_hull_compute_horizontal_angles\n");
 	for (j = 0; j < hull->nverts; j++) {
 		/* DEBUG */
-		printf("--PVert of convex hull - x: %f, y: %f\n", hull->h_verts[j]->uv[0], hull->h_verts[j]->uv[1]);
+		//printf("--PVert of convex hull - x: %f, y: %f\n", hull->h_verts[j]->uv[0], hull->h_verts[j]->uv[1]);
 
 		/* Compute horizontal angle for each edge of hull (Needed for NFP) */
 		if (j == (hull->nverts - 1)) {
@@ -4889,7 +4889,7 @@ void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
 			hull->h_verts[j]->edge->u.horizontal_angle = p_edge_horizontal_angle(hull->h_verts[j], hull->h_verts[j + 1]);
 		}
 
-		printf("---horizontal angle of edge [%i]: %f\n", j, hull->h_verts[j]->edge->u.horizontal_angle);
+		//printf("---horizontal angle of edge [%i]: %f\n", j, hull->h_verts[j]->edge->u.horizontal_angle);
 	}
 }
 
@@ -4899,7 +4899,7 @@ void p_convex_hull_compute_edge_components(PConvexHull *hull)
 	printf("p_convex_hull_compute_edge_lengths\n");
 	for (j = 0; j < hull->nverts; j++) {
 		/* DEBUG */
-		printf("--PVert of convex hull - x: %f, y: %f\n", hull->h_verts[j]->uv[0], hull->h_verts[j]->uv[1]);
+		//printf("--PVert of convex hull - x: %f, y: %f\n", hull->h_verts[j]->uv[0], hull->h_verts[j]->uv[1]);
 
 		/* Compute edge components for each edge of hull (Needed for NFP) */
 		if (j == (hull->nverts - 1)) {
@@ -4911,7 +4911,7 @@ void p_convex_hull_compute_edge_components(PConvexHull *hull)
 			hull->h_verts[j]->u.delta_edge[1] = hull->h_verts[j + 1]->uv[1] - hull->h_verts[j]->uv[1];
 		}
 
-		printf("--- edge [%i]: x: %f, y: %f\n", j, hull->h_verts[j]->u.delta_edge[0], hull->h_verts[j]->u.delta_edge[1]);
+		//printf("--- edge [%i]: x: %f, y: %f\n", j, hull->h_verts[j]->u.delta_edge[0], hull->h_verts[j]->u.delta_edge[1]);
 	}
 }
 
@@ -5018,31 +5018,7 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	nfp->final_pos = (PPointUV **)MEM_callocN(sizeof(*nfp->final_pos) * nfp->nverts, "PNFPFinalPos");
 	int i, j, offset;
 
-	/* ToDo SaphireS: Put this outside no fit polygon computation so it is only done once per item */
-	/* ref_vert_index now contains the vert with the lowest y value */
-	//PConvexHull *item_inv = p_convex_hull_reverse_direction(item);
-
-	/* find reference verteices, store for later usage*/
-	/*int min_y_item_index, max_y_fixed_index;
-	float min_y_item = 1.0e30f, max_y_fixed = -1.0e30f;*/
-
-	/*for (i = 0; i < item->nverts; i++) {
-		if (item->h_verts[i]->uv[1] < min_y_item) {
-			min_y_item = item->h_verts[i]->uv[1];
-			min_y_item_index = i;
-		}
-	}*/
-	/*for (j = 0; j < fixed->nverts; j++) {
-		if (fixed->h_verts[j]->uv[1] > max_y_fixed) {
-			max_y_fixed = fixed->h_verts[j]->uv[1];
-			max_y_fixed_index = j;
-		}
-	}*/
-
-	//printf("Max y fixed: x: %f y %f\n", fixed->h_verts[max_y_fixed_index]->uv[0], fixed->h_verts[max_y_fixed_index]->uv[1]);
-	//printf("Min y item: x: %f y %f\n", item_inv->h_verts[min_y_item_index]->uv[0], item_inv->h_verts[min_y_item_index]->uv[1]);
-	
-	/* Assign to NFP */
+	/* Assign verts of hulls to NFP */
 	for (i = 0; i < nfp->nverts; i++) {
 		if (i < item->nverts) {
 			points[i] = item->h_verts[i];
@@ -5058,10 +5034,8 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	printf("Sorting done\n");
 
 	/* offset edges so they start at item ref vert*/
-	/* ToDo SaphireS: not used yet, also optimize */
-	for (j = 0; j < nfp->nverts; j++) {
-		printf("----Vert[%i]: dX: %f, dY: %f, angle: %f\n", j, points[j]->u.delta_edge[0], points[j]->u.delta_edge[1], points[j]->edge->u.horizontal_angle);
-		
+	/* ToDo SaphireS: not used yet! also optimize.. */
+	for (j = 0; j < nfp->nverts; j++) {		
 		if (compare_ff(points[j]->uv[0], item->h_verts[item->ref_vert_index]->uv[0], FLT_EPSILON)
 			&& compare_ff(points[j]->uv[1], item->h_verts[item->ref_vert_index]->uv[1], FLT_EPSILON)) {
 			/* offset */
@@ -5076,7 +5050,7 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	PPointUV *p = (PPointUV *)MEM_callocN(sizeof(*p), "PPointUV");
 	p->x = points[0]->uv[0];
 	p->y = points[0]->uv[1];
-	printf("PPointUV created and assigned!\n");
+	//printf("PPointUV created and assigned!\n");
 	nfp->final_pos[0] = p;
 	for (j = 1; j < nfp->nverts; j++) {
 		PPointUV *p1 = (PPointUV *)MEM_callocN(sizeof(*p1), "PPointUV1");
@@ -5088,10 +5062,6 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	for (j = 0; j < nfp->nverts; j++) {
 		printf("-NFP Vert: x: %f, y: %f\n", nfp->final_pos[j]->x, nfp->final_pos[j]->y);
 	}
-
-	/* delete temporary inversed convex hull */
-	//p_convex_hull_delete(item_inv);
-	//p_convex_hull_restore_direction(item);
 
 	/* free memory */
 	MEM_freeN(points);
@@ -5124,10 +5094,10 @@ void p_place_chart(PChart* item, PConvexHull *ch_item,  PPointUV *pos)
 	cur_pos[0] = ch_item->h_verts[ch_item->ref_vert_index]->uv[0];
 	cur_pos[1] = ch_item->h_verts[ch_item->ref_vert_index]->uv[1];
 
-	printf("ref_vert x: %f", cur_pos[0]);
-	printf("ref_vert y: %f", cur_pos[1]);
-	printf("end_pos x: %f", pos->x);
-	printf("end_pos y: %f", pos->y);
+	printf("ref_vert x: %f\n", cur_pos[0]);
+	printf("ref_vert y: %f\n", cur_pos[1]);
+	printf("end_pos x: %f\n", pos->x);
+	printf("end_pos y: %f\n", pos->y);
 
 	trans[0] = cur_pos[0] - pos->x;
 	trans[1] = cur_pos[1] - pos->y;
@@ -5145,8 +5115,10 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	PNoFitPolygon **nfps = (PNoFitPolygon **)MEM_callocN(sizeof(PNoFitPolygon *) * phandle->ncharts, "PNoFitPolygons");
 	PConvexHull *ch_item = item->u.ipack.convex_hull;
 	PChart *fixed;
-	float end_pos[2], cur_pos[2], trans[2];
-	int i;
+	float end_pos[2], randf1, randf2;
+	int i, j;
+	unsigned int rand1, rand2;
+	bool found = false, init = true;
 
 	/* Reverse winding direction of item convex hull                */
 	/* ref_vert_index now contains the vert with the lowest y value */
@@ -5156,10 +5128,13 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	printf("NFPs construction start!\n");
 	for (i = 0; i < phandle->ncharts; i++) {
 		fixed = phandle->charts[i];
-		if (!(fixed->u.ipack.convex_hull->placed)) {
+		/* ToDo SaphireS: Do not create NFP with self */
+		/*Since placed=false it won't happen, but may be better to make sure? */
+		if (fixed->u.ipack.convex_hull->placed) {
 			PConvexHull *ch_fixed = fixed->u.ipack.convex_hull;
 			PNoFitPolygon *nfp = p_no_fit_polygon_create(ch_item, ch_fixed);
 			nfps[i] = nfp;
+			init = false;
 		}
 		else {
 			nfps[i] = NULL;
@@ -5173,13 +5148,39 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	printf("IFP construction done!\n");
 
 	/* compute collsion free region (CFR) */
+	if (init) {
+		/* First item, place in bottom left corner */
+		end_pos[0] = ifp->final_pos[0]->x;
+		end_pos[1] = ifp->final_pos[0]->y;
+	}
+	else {
+		while (!found) {
+			randf1 = BLI_rng_get_float(phandle->rng);
+			printf("randf1 choosen as: %f\n", randf1);
+			rand1 = (int)(randf1 * (float)phandle->ncharts);
+			printf("rand1 choosen as: %i\n", rand1);
+
+			randf2 = BLI_rng_get_float(phandle->rng);
+			printf("randf2 choosen as: %f\n", randf2);
+			rand2 = (int)(randf2 * (float)phandle->ncharts);
+			printf("rand2 choosen as: %i\n", rand2);
+
+			if (nfps[rand1]) {
+				if (nfps[rand1]->final_pos[rand2]) {
+					end_pos[0] = nfps[rand1]->final_pos[rand1]->x;
+					end_pos[1] = nfps[rand1]->final_pos[rand1]->y;
+					found = true;
+				}
+			}
+		}
+	}
+	
+	found = false;
 
 	/* Place chart according to rng (simulated annealing) parameters */
-	/* Use bottom left heuristic for now */
-	p_place_chart(item, item_inv, ifp->final_pos[0]);
+	p_place_chart(item, item_inv, end_pos);
 
 	/* ToDo SaphireS: Verify placement? */
-
 	ch_item->placed = true;
 
 	/* delete temporary inversed convex hull */
@@ -5189,9 +5190,11 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 
 	/* CleanUp */
 	p_no_fit_polygon_delete(ifp);
-	/*for () {
-		p_no_fit_polygon_delete(nfps[i]);
-	}*/
+	for (j = 0; j < phandle->ncharts; j++) {
+		if (nfps[j]) {
+			p_no_fit_polygon_delete(nfps[j]);
+		}
+	}
 	MEM_freeN(nfps);
 
 	/* p_flush_uvs(phandle, item); */ /* ToDo SaphireS: Needs update to work ... */
@@ -5209,13 +5212,12 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 
 	/* Average Islands Scale? Start with box packing then scale up? */
 
-	/* Sort UV islands by area */
-	qsort(phandle->charts, (size_t)phandle->ncharts, sizeof(PChart *), chart_areasort);
-
 	/* Place UV islands one by one */
 	for (i = 0; i < phandle->ncharts; i++) {
 		chart = phandle->charts[i];
 		float scale = 1.0f;
+
+		printf("p_compute_packing_solution: chart[%i] with area %f:\n", i, chart->u.ipack.area);
 
 		if (!(chart->u.ipack.convex_hull->placed)) {
 			while (!p_chart_pack_individual(phandle, chart, phandle->ncharts)){
@@ -5258,6 +5260,7 @@ void param_irregular_pack_begin(ParamHandle *handle)
 
 		/* Compute convex hull for each chart -> CW */
 		chart->u.ipack.convex_hull = p_convex_hull_new(chart, true);
+
 		/* DEBUG */
 		printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
 
@@ -5265,16 +5268,12 @@ void param_irregular_pack_begin(ParamHandle *handle)
 		p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull);
 		/* Compute edge lengths */
 		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+
+		chart->u.ipack.area = p_chart_uv_area_signed(chart);
 	}
 
-	/*if (p_convex_hull_intersect(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[1]->u.ipack.convex_hull)){
-		printf("Intersection found! \n");
-	}*/
-
-	//PNoFitPolygon *NFP = p_no_fit_polygon_create(phandle->charts[0]->u.ipack.convex_hull, phandle->charts[1]->u.ipack.convex_hull);
-	///* Debug prints here*/
-	//printf("NFP created!\n");
-	//p_no_fit_polygon_delete(NFP);
+	/* Sort UV islands by area */
+	qsort(phandle->charts, (size_t)phandle->ncharts, sizeof(PChart *), chart_areasort);
 
 	if (p_compute_packing_solution(phandle)) {
 		printf("packing solution found\n");
