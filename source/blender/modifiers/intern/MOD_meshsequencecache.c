@@ -136,7 +136,6 @@ static void updateDepsgraph(ModifierData *md,
 	UNUSED_VARS(bmain, scene, ob);
 }
 
-
 ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* name */              "Mesh Sequence Cache",
     /* structName */        "MeshSeqCacheModifierData",

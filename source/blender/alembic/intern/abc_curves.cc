@@ -150,12 +150,12 @@ void AbcCurveWriter::do_write()
 
 		if ((nurbs->flagu & CU_NURB_CYCLIC) != 0) {
 			knots[0] = nurbs->knotsu[0];
-            knots[num_knots - 1] = nurbs->knotsu[num_knots - 1];
-        }
-        else {
+			knots[num_knots - 1] = nurbs->knotsu[num_knots - 1];
+		}
+		else {
 			knots[0] = (2.0f * nurbs->knotsu[0] - nurbs->knotsu[1]);
-            knots[num_knots - 1] = (2.0f * nurbs->knotsu[num_knots - 1] - nurbs->knotsu[num_knots - 2]);
-        }
+			knots[num_knots - 1] = (2.0f * nurbs->knotsu[num_knots - 1] - nurbs->knotsu[num_knots - 2]);
+		}
 
 		orders.push_back(nurbs->orderu + 1);
 		vert_counts.push_back(verts.size());
@@ -250,11 +250,11 @@ void read_curve_sample(Curve *cu, const ICurvesSchema &schema, const float time)
 		nu->orderu = num_verts;
 
 		if (smp.getType() == Alembic::AbcGeom::kCubic) {
-            nu->orderu = 3;
-        }
-        else if (orders && orders->size() > i) {
-            nu->orderu = static_cast<short>((*orders)[i] - 1);
-        }
+			nu->orderu = 3;
+		}
+		else if (orders && orders->size() > i) {
+			nu->orderu = static_cast<short>((*orders)[i] - 1);
+		}
 
 		if (periodicity == Alembic::AbcGeom::kNonPeriodic) {
 			nu->flagu |= CU_NURB_ENDPOINT;
