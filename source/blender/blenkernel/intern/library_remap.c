@@ -285,6 +285,10 @@ static void libblock_remap_data(
 		while (i--) {
 			ID *id_curr = lb_array[i]->first;
 
+			if (!id_curr || !BKE_library_idtype_can_use_idtype(GS(id_curr->name), GS(old_id->name))) {
+				continue;
+			}
+
 			for (; id_curr; id_curr = id_curr->next) {
 				/* Note that we cannot skip indirect usages of old_id here (if requested), we still need to check it for
 				 * the user count handling...
@@ -353,6 +357,15 @@ void BKE_libblock_remap_locked(
 					BKE_scene_base_unlink(sce, base);
 					MEM_freeN(base);
 				}
+			}
+		}
+	}
+	else if (GS(old_id->name) == ID_AR) {
+		/* Object's pose holds reference to armature bones... sic */
+		for (Object *ob = bmain->object.first; ob; ob = ob->id.next) {
+			if (ob->data == old_id && ob->pose) {
+				BLI_assert(ob->type == OB_ARMATURE);
+				ob->pose->flag |= POSE_RECALC;
 			}
 		}
 	}
@@ -516,6 +529,15 @@ void BKE_libblock_relink_ex(
 	}
 	else {
 		BLI_assert(new_id == NULL);
+	}
+
+	if (GS(id->name) == ID_OB) {
+		Object *ob = (Object *)id;
+		/* Object's pose holds reference to armature bones... sic */
+		if (ob->data && ob->pose && (old_id == NULL || GS(old_id->name) == ID_AR)) {
+			BLI_assert(ob->type == OB_ARMATURE);
+			ob->pose->flag |= POSE_RECALC;
+		}
 	}
 
 	libblock_remap_data(NULL, id, old_id, new_id, remap_flags, NULL);
