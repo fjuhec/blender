@@ -1016,7 +1016,10 @@ void ABC_get_velocity_cache(AbcArchiveHandle *handle, const char *object_path, f
 		}
 	}
 
+	float fps = 1.0f / 24.0f;
 	float vel[3];
+
+	std::cerr << __func__ << ", velocity vectors: " << velocities->size() << '\n';
 
 //#define DEBUG_VELOCITY
 
@@ -1044,9 +1047,8 @@ void ABC_get_velocity_cache(AbcArchiveHandle *handle, const char *object_path, f
 		}
 #endif
 
-		(*values++) = vel[0];
-		(*values++) = vel[1];
-		(*values++) = vel[2];
+		mul_v3_fl(vel, fps);
+		copy_v3_v3(values + i * 3, vel);
 	}
 
 #ifdef DEBUG_VELOCITY

@@ -1000,19 +1000,22 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 			int step = 0;
 
+//			fprintf(stderr, "%s, vertices: %lu\n", __func__, numverts);
+
+			float3 *buffer = new float3[numverts];
+
+			MeshSequenceCacheModifier_velocity_cache_get(&mesh_cache.ptr, &buffer[0].x);
+
 			/* Generate motion data for all motion times in one go, so that
 			 * vertices and velocities coincide. */
 			foreach(float relative_time, this->motion_times) {
 				float3 *mP = attr_mP->data_float3() + step*numverts;
 				float3 *mN = (attr_mN) ? attr_mN->data_float3() + step*numverts : NULL;
 
-//				printf("Setting velocity for relative time: %f\n", (double)relative_time);
-
-				MeshSequenceCacheModifier_velocity_cache_get(&mesh_cache.ptr, &mP[0].x);
+//				fprintf(stderr, "Setting velocity for relative time: %f\n", (double)relative_time);
 
 				for (int i = 0; i < numverts; ++i) {
-					float3 nPos = P[i] + mP[i]*relative_time*shuttertime*0.5f;
-					mP[i] = nPos;
+					mP[i] = P[i] + buffer[i]*relative_time*shuttertime*0.5f;
 
 					if(mN) {
 						mN[i] = N[i];
@@ -1021,6 +1024,8 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 				++step;
 			}
+
+			delete [] buffer;
 		}
 		else {
 			/* load vertex data from mesh */
