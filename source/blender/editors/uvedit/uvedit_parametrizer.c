@@ -5009,6 +5009,37 @@ PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 	return nfp;
 }
 
+PNoFitPolygon *p_collision_free_region_create(PNoFitPolygon **nfps, PNoFitPolygon *ifp)
+{
+	PNoFitPolygon *cfr = (PNoFitPolygon *)MEM_callocN(sizeof(*cfr), "PNoFitPolygon");
+	cfr->nverts = 0;
+	cfr->final_pos = NULL;
+
+	/* ToDo SaphireS */
+
+	/* NFPs Union */
+
+	/*cfr = ifp - U(nfps) */
+
+	return cfr;
+}
+
+bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2])
+{
+	float min[2], max[2];
+
+	/* Make sure point is inside IFP */
+	if (p[0] < ifp->final_pos[0]->x ||
+		p[1] < ifp->final_pos[0]->y ||
+		p[0] > ifp->final_pos[2]->x ||
+		p[1] > ifp->final_pos[2]->y) {
+		return false;
+	}
+	
+
+	return true;
+}
+
 /* Make sure vert order for item is CCW and for fixed is CW! */
 PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 {
@@ -5016,7 +5047,7 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	nfp->nverts = item->nverts + fixed->nverts;
 	PVert **points = (PVert **)MEM_mallocN(sizeof(PVert *) * nfp->nverts, "PNFPPoints");
 	nfp->final_pos = (PPointUV **)MEM_callocN(sizeof(*nfp->final_pos) * nfp->nverts, "PNFPFinalPos");
-	int i, j, offset;
+	int i, j, offset = 0;
 
 	/* Assign verts of hulls to NFP */
 	for (i = 0; i < nfp->nverts; i++) {
@@ -5160,16 +5191,17 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 			rand1 = (int)(randf1 * (float)phandle->ncharts);
 			printf("rand1 choosen as: %i\n", rand1);
 
-			randf2 = BLI_rng_get_float(phandle->rng);
-			printf("randf2 choosen as: %f\n", randf2);
-			rand2 = (int)(randf2 * (float)phandle->ncharts);
-			printf("rand2 choosen as: %i\n", rand2);
-
 			if (nfps[rand1]) {
+
+				randf2 = BLI_rng_get_float(phandle->rng);
+				printf("randf2 choosen as: %f\n", randf2);
+				rand2 = (int)(randf2 * (float)(nfps[rand1]->nverts));
+				printf("rand2 choosen as: %i\n", rand2);
+
 				if (nfps[rand1]->final_pos[rand2]) {
 					end_pos[0] = nfps[rand1]->final_pos[rand2]->x;
 					end_pos[1] = nfps[rand1]->final_pos[rand2]->y;
-					found = true;
+					found = p_temp_cfr_check(nfps, ifp, end_pos);
 				}
 			}
 		}
