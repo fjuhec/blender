@@ -2844,7 +2844,8 @@ static void view3d_objectlayers_drawstep_draw(
 		else if (drawstep == OB_DRAWSTEP_DUPLI_UNSEL) {
 			*r_lay_used |= base->lay;
 		}
-		BKE_BASES_ITER_END;
+	}
+	BKE_BASES_ITER_END;
 #endif
 }
 

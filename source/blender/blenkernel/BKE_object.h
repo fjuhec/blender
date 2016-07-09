@@ -274,18 +274,25 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 /* -------------------------------------------------------------------- */
 /* Object Layers */
 
+#ifdef WITH_ADVANCED_LAYERS
 #define BKE_OBJECTLAYER_BASES_ITER_START(oblayer, idx_name, base_name) \
 	for (unsigned int idx_name = 0; idx_name < oblayer->tot_bases; idx_name++) { \
 		Base *base_name = oblayer->bases[idx_name];
 #define BKE_OBJECTLAYER_BASES_ITER_END } (void)0
+#endif
 
 /* Use this if BKE_BASES_ITER_START doesn't give enough control over variable names.*/
-#define BKE_BASES_ITER_START_EX(scene, layeridx_name, litem_name, oblayer_name, baseidx_name, base_name) \
+#ifdef WITH_ADVANCED_LAYERS
+  #define BKE_BASES_ITER_START_EX(scene, layeridx_name, litem_name, oblayer_name, baseidx_name, base_name) \
 	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, layeridx_name, litem_name) \
 	{ \
 		if (litem_name->type->type == LAYER_ITEMTYPE_LAYER) { \
 			LayerTypeObject *oblayer_name = (LayerTypeObject *)litem_name; \
 			BKE_OBJECTLAYER_BASES_ITER_START(oblayer_name, baseidx_name, base_name)
+#else
+  #define BKE_BASES_ITER_START_EX(scene, layeridx_name, litem_name, oblayer_name, baseidx_name, base_name) \
+	for (Base *base_name = scene->base.first; base_name; base_name = base_name->next) {
+#endif /* WITH_ADVANCED_LAYERS */
 
 /* Start iterating over all bases of the scene. This is basically a wrapper around layer
  * tree and object layer iterator to make access a bit easier. Uses default variable names. */
@@ -293,11 +300,15 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base)
 
 /* End BKE_BASES_ITER_START or BKE_BASES_ITER_START_EX. */
-#define BKE_BASES_ITER_END \
+#ifdef WITH_ADVANCED_LAYERS
+  #define BKE_BASES_ITER_END \
 			BKE_OBJECTLAYER_BASES_ITER_END; \
 		} \
 	} \
 	BKE_LAYERTREE_ITER_END /* ends with (void)0 */
+#else
+  #define BKE_BASES_ITER_END } (void)0
+#endif
 
 struct LayerTreeItem *BKE_objectlayer_add(struct LayerTree *tree, struct LayerTreeItem *parent, const char *name);
 void BKE_objectlayer_free(struct LayerTreeItem *litem);

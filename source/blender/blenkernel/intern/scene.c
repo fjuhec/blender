@@ -1148,8 +1148,10 @@ Base *BKE_scene_base_add(Scene *sce, Object *ob)
 	Base *b = MEM_callocN(sizeof(*b), __func__);
 	BLI_addhead(&sce->base, b);
 
+#ifdef WITH_ADVANCED_LAYERS
 	BLI_assert(sce->object_layers->active_layer != NULL); /* XXX quite easy to break currently */
 	BKE_objectlayer_base_assign(b, sce->object_layers->active_layer, false);
+#endif
 
 	b->object = ob;
 	b->flag = ob->flag;
@@ -1166,8 +1168,10 @@ void BKE_scene_base_unlink(Scene *sce, Base *base)
 	/* remove rigid body object from world before removing object */
 	if (base->object->rigidbody_object)
 		BKE_rigidbody_remove_object(sce, base->object);
+#ifdef WITH_ADVANCED_LAYERS
 	if (base->layer)
 		BKE_objectlayer_base_unassign(base);
+#endif
 
 	BLI_remlink(&sce->base, base);
 	if (sce->basact == base)
