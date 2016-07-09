@@ -30,6 +30,8 @@
 
 #include "ED_view3d.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_mesh_mapping.h"
+#include "BLI_stack.h"
 
 #ifndef __PAINT_INTERN_H__
 #define __PAINT_INTERN_H__
@@ -91,6 +93,56 @@ int paint_poll(struct bContext *C);
 void paint_cursor_start(struct bContext *C, int (*poll)(struct bContext *C));
 void paint_cursor_start_explicit(struct Paint *p, struct wmWindowManager *wm, int (*poll)(struct bContext *C));
 void paint_cursor_delete_textures(void);
+
+/**
+* Variables stored both for 'active' and 'mirror' sides.
+*/
+struct WeightPaintGroupData {
+  /** index of active group or its mirror
+  *
+  * - 'active' is always `ob->actdef`.
+  * - 'mirror' is -1 when 'ME_EDIT_MIRROR_X' flag id disabled,
+  *   otherwise this will be set to the mirror or the active group (if the group isn't mirrored).
+  */
+  int index;
+  /** lock that includes the 'index' as locked too
+  *
+  * - 'active' is set of locked or active/selected groups
+  * - 'mirror' is set of locked or mirror groups
+  */
+  const bool *lock;
+};
+
+typedef struct WPaintData {
+  ViewContext vc;
+  int *indexar;
+
+  struct WeightPaintGroupData active, mirror;
+
+  void *vp_handle;
+  DMCoNo *vertexcosnos;
+
+  float wpimat[3][3];
+
+  /* variables for auto normalize */
+  const bool *vgroup_validmap; /* stores if vgroups tie to deforming bones or not */
+  const bool *lock_flags;
+
+  /* variables for multipaint */
+  const bool *defbase_sel;      /* set of selected groups */
+  int defbase_tot_sel;          /* number of selected groups */
+  bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
+
+  /* variables for blur */
+  struct {
+    MeshElemMap *vmap;
+    int *vmap_mem;
+  } blur_data;
+
+  BLI_Stack *accumulate_stack;  /* for reuse (WPaintDefer) */
+
+  int defbase_tot;
+} WPaintData;
 
 /* paint_vertex.c */
 typedef struct VPaintData {

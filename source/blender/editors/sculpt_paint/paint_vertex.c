@@ -35,7 +35,6 @@
 #include "BLI_math.h"
 #include "BLI_array_utils.h"
 #include "BLI_bitmap.h"
-#include "BLI_stack.h"
 
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
@@ -60,7 +59,6 @@
 #include "BKE_depsgraph.h"
 #include "BKE_deform.h"
 #include "BKE_mesh.h"
-#include "BKE_mesh_mapping.h"
 #include "BKE_modifier.h"
 #include "BKE_object_deform.h"
 #include "BKE_paint.h"
@@ -1480,25 +1478,6 @@ static void multipaint_apply_change(MDeformVert *dvert, const int defbase_tot, f
 	}
 }
 
-/**
- * Variables stored both for 'active' and 'mirror' sides.
- */
-struct WeightPaintGroupData {
-	/** index of active group or its mirror 
-	 *
-	 * - 'active' is always `ob->actdef`.
-	 * - 'mirror' is -1 when 'ME_EDIT_MIRROR_X' flag id disabled,
-	 *   otherwise this will be set to the mirror or the active group (if the group isn't mirrored).
-	 */
-	int index;
-	/** lock that includes the 'index' as locked too
-	 *
-	 * - 'active' is set of locked or active/selected groups
-	 * - 'mirror' is set of locked or mirror groups
-	 */
-	const bool *lock;
-};
-
 /* struct to avoid passing many args each call to do_weight_paint_vertex()
  * this _could_ be made a part of the operators 'WPaintData' struct, or at
  * least a member, but for now keep its own struct, initialized on every
@@ -1821,6 +1800,7 @@ static void vertex_paint_init_session_average_arrays(Object *ob){
  */
 static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 {		
+  //added
 	Object *ob = CTX_data_active_object(C);
 	const int mode_flag = OB_MODE_WEIGHT_PAINT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
@@ -1865,7 +1845,7 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		if (wp == NULL)
 			wp = scene->toolsettings->wpaint = new_vpaint(1);
-
+    wp->radial_symm[0] = wp->radial_symm[1] = wp->radial_symm[2] = 1;
 		paint_cursor_start(C, weight_paint_poll);
 
 		BKE_paint_init(scene, ePaintWeight, PAINT_CURSOR_WEIGHT_PAINT);
@@ -1874,6 +1854,11 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		ED_mesh_mirror_spatial_table(ob, NULL, NULL, NULL, 's');
 		ED_vgroup_sync_from_pose(ob);
 
+    /* Create vertex/weight paint mode session data */
+    if (ob->sculpt)
+      BKE_sculptsession_free(ob);
+
+    vertex_paint_init_session(scene, ob);
 
 		/* Cache needs to be initialized before mesh_build_data is called. */
 		ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
@@ -1930,37 +1915,6 @@ enum eWPaintFlag {
 struct WPaintVGroupIndex {
 	int active;
 	int mirror;
-};
-
-struct WPaintData {
-	ViewContext vc;
-	int *indexar;
-
-	struct WeightPaintGroupData active, mirror;
-
-	void *vp_handle;
-	DMCoNo *vertexcosnos;
-
-	float wpimat[3][3];
-
-	/* variables for auto normalize */
-	const bool *vgroup_validmap; /* stores if vgroups tie to deforming bones or not */
-	const bool *lock_flags;
-
-	/* variables for multipaint */
-	const bool *defbase_sel;      /* set of selected groups */
-	int defbase_tot_sel;          /* number of selected groups */
-	bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
-
-	/* variables for blur */
-	struct {
-		MeshElemMap *vmap;
-		int *vmap_mem;
-	} blur_data;
-
-	BLI_Stack *accumulate_stack;  /* for reuse (WPaintDefer) */
-
-	int defbase_tot;
 };
 
 /* ensure we have data on wpaint start, add if needed */
@@ -2365,8 +2319,145 @@ static float wpaint_blur_weight_calc_from_connected(
 	return paintweight;
 }
 
+/* Flip all the editdata across the axis/axes specified by symm. Used to
+* calculate multiple modifications to the mesh when symmetry is enabled. */
+static void calc_brushdata_symm(VPaint *vd, StrokeCache *cache, const char symm,
+  const char axis, const float angle)
+{
+  (void)vd; /* unused */
+
+  flip_v3_v3(cache->location, cache->true_location, symm);
+  flip_v3_v3(cache->grab_delta_symmetry, cache->grab_delta, symm);
+  flip_v3_v3(cache->view_normal, cache->true_view_normal, symm);
+
+  /* XXX This reduces the length of the grab delta if it approaches the line of symmetry
+  * XXX However, a different approach appears to be needed */
+#if 0
+  if (sd->paint.symmetry_flags & SCULPT_SYMMETRY_FEATHER) {
+    float frac = 1.0f / max_overlap_count(sd);
+    float reduce = (feather - frac) / (1 - frac);
+
+    printf("feather: %f frac: %f reduce: %f\n", feather, frac, reduce);
+
+    if (frac < 1)
+      mul_v3_fl(cache->grab_delta_symmetry, reduce);
+  }
+#endif
+
+  unit_m4(cache->symm_rot_mat);
+  unit_m4(cache->symm_rot_mat_inv);
+  zero_v3(cache->plane_offset);
+
+  if (axis) { /* expects XYZ */
+    rotate_m4(cache->symm_rot_mat, axis, angle);
+    rotate_m4(cache->symm_rot_mat_inv, axis, -angle);
+  }
+
+  mul_m4_v3(cache->symm_rot_mat, cache->location);
+  mul_m4_v3(cache->symm_rot_mat, cache->grab_delta_symmetry);
+
+  if (cache->supports_gravity) {
+    flip_v3_v3(cache->gravity_direction, cache->true_gravity_direction, symm);
+    mul_m4_v3(cache->symm_rot_mat, cache->gravity_direction);
+  }
+
+  if (cache->is_rake_rotation_valid) {
+    flip_qt_qt(cache->rake_rotation_symmetry, cache->rake_rotation, symm);
+  }
+}
+
+static void wpaint_paint_leaves(Object *ob, Sculpt *sd, VPaint *vp, WPaintData *wpd, Mesh *me, PBVHNode **nodes, int totnode)
+{
+  Brush *brush = ob->sculpt->cache->brush;//BKE_paint_brush(&sd->paint);
+
+  /* threaded loop over nodes */
+  SculptThreadedTaskData data = {
+    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
+  };
+
+  data.vp = vp;
+  data.wpd = wpd;
+  data.lcol = (unsigned int*)me->mloopcol;
+  data.me = me;
+
+  printf("Painting leaves\n");
+  ////This might change to a case switch. 
+  //if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
+  //  calculate_average_color(&data, nodes, totnode);
+  //  BLI_task_parallel_range_ex(
+  //    0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
+  //    ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+  //}
+  //else if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+  //  BLI_task_parallel_range_ex(
+  //    0, totnode, &data, NULL, 0, do_vpaint_brush_blur_task_cb_ex,
+  //    ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+  //}
+  //else {
+  //  BLI_task_parallel_range_ex(
+  //    0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
+  //    ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+  //}
+
+}
+
+static void wpaint_do_radial_symmetry(Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, Mesh *me, Brush *brush, const char symm, const int axis)
+{
+  SculptSession *ss = ob->sculpt;
+
+  for (int i = 0; i < wp->radial_symm[axis - 'X']; ++i) {
+    const float angle = (2.0 * M_PI) * i / wp->radial_symm[axis - 'X'];
+    ss->cache->radial_symmetry_pass = i;
+    calc_brushdata_symm(wp, ss->cache, symm, axis, angle);
+    SculptSearchSphereData data;
+    PBVHNode **nodes = NULL;
+    int totnode;
+
+    /* Build a list of all nodes that are potentially within the brush's area of influence */
+    data.ss = ss;
+    data.sd = sd;
+    data.radius_squared = ss->cache->radius_squared;
+    data.original = true;
+    BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+
+  //  //Paint those leaves.
+    wpaint_paint_leaves(ob, sd, wp, wpd, me, nodes, totnode);
+
+    if (nodes)
+      MEM_freeN(nodes);
+  }
+}
+
+static void wpaint_do_symmetrical_brush_actions(Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd)
+{
+  Brush *brush = BKE_paint_brush(&wp->paint);
+  Mesh *me = ob->data;
+  SculptSession *ss = ob->sculpt;
+  StrokeCache *cache = ss->cache;
+  const char symm = wp->paint.symmetry_flags & PAINT_SYMM_AXIS_ALL;
+  int i;
+
+  cache->symmetry = symm;
+
+  /* symm is a bit combination of XYZ - 1 is mirror X; 2 is Y; 3 is XY; 4 is Z; 5 is XZ; 6 is YZ; 7 is XYZ */
+  for (i = 0; i <= symm; ++i) {
+    if (i == 0 || (symm & i && (symm != 5 || i != 3) && (symm != 6 || (i != 3 && i != 5)))) {
+      cache->mirror_symmetry_pass = i;
+      cache->radial_symmetry_pass = 0;
+
+      calc_brushdata_symm(wp, cache, i, 0, 0);
+      wpaint_do_radial_symmetry(ob, wp, sd, wpd, me, brush, i, 'X');
+      if (i != 0) {
+        wpaint_do_radial_symmetry(ob, wp, sd, wpd, me, brush, i, 'Y');
+        wpaint_do_radial_symmetry(ob, wp, sd, wpd, me, brush, i, 'Z');
+      }
+    }
+  }
+}
+
 static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)
 {
+  //
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	VPaint *wp = ts->wpaint;
@@ -2441,7 +2532,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	wpi.brush_alpha_value =  brush_alpha_value;
 	/* *** done setting up WeightPaintInfo *** */
 
-
+  wpaint_do_symmetrical_brush_actions(ob, wp, sd, wpd);
 
 	swap_m4m4(wpd->vc.rv3d->persmat, mat);
 
@@ -2450,7 +2541,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	use_depth = (vc->v3d->flag & V3D_ZBUF_SELECT) != 0;
 
 	/* which faces are involved */
-	if (use_depth) {
+	if (use_depth) { //Remove, depth culling will occur naturally with spherical intersection similar to vpaint
 		char editflag_prev = me->editflag;
 
 		/* Ugly hack, to avoid drawing vertex index when getting the face index buffer - campbell */
@@ -2459,17 +2550,17 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 			/* Ugly x2, we need this so hidden faces don't draw */
 			me->editflag |= ME_EDIT_PAINT_FACE_SEL;
 		}
-		totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure);
+		totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure); //Remove
 		me->editflag = editflag_prev;
 
-		if (use_face_sel && me->totpoly) {
+		if (use_face_sel && me->totpoly) { 
 			MPoly *mpoly = me->mpoly;
 			for (index = 0; index < totindex; index++) {
 				if (indexar[index] && indexar[index] <= me->totpoly) {
 					MPoly *mp = &mpoly[indexar[index] - 1];
 
 					if ((mp->flag & ME_FACE_SEL) == 0) {
-						indexar[index] = 0;
+						indexar[index] = 0; //Remove
 					}
 				}
 			}
@@ -2672,7 +2763,7 @@ static int wpaint_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	int retval;
 
-	op->customdata = paint_stroke_new(C, op, NULL, wpaint_stroke_test_start,
+  op->customdata = paint_stroke_new(C, op, sculpt_stroke_get_location, wpaint_stroke_test_start,
 	                                  wpaint_stroke_update_step, NULL,
 	                                  wpaint_stroke_done, event->type);
 	
@@ -2691,7 +2782,7 @@ static int wpaint_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 static int wpaint_exec(bContext *C, wmOperator *op)
 {
-	op->customdata = paint_stroke_new(C, op, NULL, wpaint_stroke_test_start,
+  op->customdata = paint_stroke_new(C, op, sculpt_stroke_get_location, wpaint_stroke_test_start,
 	                                  wpaint_stroke_update_step, NULL,
 	                                  wpaint_stroke_done, 0);
 
@@ -2703,9 +2794,11 @@ static int wpaint_exec(bContext *C, wmOperator *op)
 
 static void wpaint_cancel(bContext *C, wmOperator *op)
 {
-	Object *ob = CTX_data_active_object(C);
-	sculpt_cache_free(ob->sculpt->cache);
-	ob->sculpt->cache = NULL;
+  Object *ob = CTX_data_active_object(C);
+  if (ob->sculpt->cache){
+    sculpt_cache_free(ob->sculpt->cache);
+    ob->sculpt->cache = NULL;
+  }
 
 	paint_stroke_cancel(C, op);
 }
@@ -3235,54 +3328,7 @@ static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object 
 
 }
 
-/* Flip all the editdata across the axis/axes specified by symm. Used to
-* calculate multiple modifications to the mesh when symmetry is enabled. */
-static void calc_brushdata_symm(VPaint *vd, StrokeCache *cache, const char symm,
-  const char axis, const float angle)
-{
-  (void)vd; /* unused */
-
-  flip_v3_v3(cache->location, cache->true_location, symm);
-  flip_v3_v3(cache->grab_delta_symmetry, cache->grab_delta, symm);
-  flip_v3_v3(cache->view_normal, cache->true_view_normal, symm);
-
-  /* XXX This reduces the length of the grab delta if it approaches the line of symmetry
-  * XXX However, a different approach appears to be needed */
-#if 0
-  if (sd->paint.symmetry_flags & SCULPT_SYMMETRY_FEATHER) {
-    float frac = 1.0f / max_overlap_count(sd);
-    float reduce = (feather - frac) / (1 - frac);
-
-    printf("feather: %f frac: %f reduce: %f\n", feather, frac, reduce);
-
-    if (frac < 1)
-      mul_v3_fl(cache->grab_delta_symmetry, reduce);
-  }
-#endif
-
-  unit_m4(cache->symm_rot_mat);
-  unit_m4(cache->symm_rot_mat_inv);
-  zero_v3(cache->plane_offset);
-
-  if (axis) { /* expects XYZ */
-    rotate_m4(cache->symm_rot_mat, axis, angle);
-    rotate_m4(cache->symm_rot_mat_inv, axis, -angle);
-  }
-  
-  mul_m4_v3(cache->symm_rot_mat, cache->location);
-  mul_m4_v3(cache->symm_rot_mat, cache->grab_delta_symmetry);
-
-  if (cache->supports_gravity) {
-    flip_v3_v3(cache->gravity_direction, cache->true_gravity_direction, symm);
-    mul_m4_v3(cache->symm_rot_mat, cache->gravity_direction);
-  }
-
-  if (cache->is_rake_rotation_valid) {
-    flip_qt_qt(cache->rake_rotation_symmetry, cache->rake_rotation, symm);
-  }
-}
-
-static void do_radial_symmetry(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, Brush *brush, const char symm, const int axis)
+static void vpaint_do_radial_symmetry(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, Brush *brush, const char symm, const int axis)
 {
   SculptSession *ss = ob->sculpt;
   int i;
@@ -3311,7 +3357,7 @@ static void do_radial_symmetry(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *
   }
 }
 
-static void do_symmetrical_brush_actions(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob)
+static void vpaint_do_symmetrical_brush_actions(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob)
 {
   Brush *brush = BKE_paint_brush(&vd->paint);
   Mesh *me = ob->data;
@@ -3330,16 +3376,17 @@ static void do_symmetrical_brush_actions(Sculpt *sd, VPaint *vd, VPaintData *vpd
 
       calc_brushdata_symm(vd, cache, i, 0, 0);
 
-      do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'X');
+      vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'X');
       if (i != 0) {
-        do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Y');
-        do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Z');
+        vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Y');
+        vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Z');
       }
     }
   }
 }
 static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)
 {
+  //
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	VPaintData *vpd = paint_stroke_mode_data(stroke);
@@ -3364,27 +3411,27 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	const float brush_alpha_pressure =
 	        BKE_brush_alpha_get(scene, brush) * (BKE_brush_use_alpha_pressure(scene, brush) ? pressure : 1.0f);
 
-	RNA_float_get_array(itemptr, "mouse", mval);
+	//RNA_float_get_array(itemptr, "mouse", mval);
 
-	view3d_operator_needs_opengl(C);
+	//view3d_operator_needs_opengl(C);
 	ED_view3d_init_mats_rv3d(ob, vc->rv3d);
 
 	/* load projection matrix */
 	mul_m4_m4m4(mat, vc->rv3d->persmat, ob->obmat);
 
-	/* which faces are involved */
-	totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure);
+	///* which faces are involved */
+	//totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure);
 
-	if ((me->editflag & ME_EDIT_PAINT_FACE_SEL) && me->mpoly) {
-		for (index = 0; index < totindex; index++) {
-			if (indexar[index] && indexar[index] <= me->totpoly) {
-				const MPoly *mpoly = &me->mpoly[indexar[index] - 1];
+	//if ((me->editflag & ME_EDIT_PAINT_FACE_SEL) && me->mpoly) {
+	//	for (index = 0; index < totindex; index++) {
+	//		if (indexar[index] && indexar[index] <= me->totpoly) {
+	//			const MPoly *mpoly = &me->mpoly[indexar[index] - 1];
 
-				if ((mpoly->flag & ME_FACE_SEL) == 0)
-					indexar[index] = 0;
-			}
-		}
-	}
+	//			if ((mpoly->flag & ME_FACE_SEL) == 0)
+	//				indexar[index] = 0;
+	//		}
+	//	}
+	//}
 	
 	swap_m4m4(vc->rv3d->persmat, mat);
 
@@ -3392,8 +3439,8 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	ED_vpaint_proj_handle_update(vpd->vp_handle, vc->ar, mval);
 
 	/* clear modified tag for blur tool */
-	if (vpd->mlooptag)
-		memset(vpd->mlooptag, 0, sizeof(bool) * me->totloop);
+	//if (vpd->mlooptag)
+		//memset(vpd->mlooptag, 0, sizeof(bool) * me->totloop);
 
 	// Paint happens here.
   //SculptSession *ss = ob->sculpt;
@@ -3415,7 +3462,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
   //if (nodes)
   //  MEM_freeN(nodes);
 
-  do_symmetrical_brush_actions(sd, vp, vpd, ob);
+  vpaint_do_symmetrical_brush_actions(sd, vp, vpd, ob);
 
 	swap_m4m4(vc->rv3d->persmat, mat);
 
