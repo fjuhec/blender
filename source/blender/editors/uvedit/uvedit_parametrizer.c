@@ -5024,9 +5024,24 @@ PNoFitPolygon *p_collision_free_region_create(PNoFitPolygon **nfps, PNoFitPolygo
 	return cfr;
 }
 
-bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2])
+bool p_point_inside_nfp(PNoFitPolygon *nfp, float p[2]) 
+{
+	/* raycast to the right of vert, odd number of intersections means inside */
+	int i, j, c = 0;
+
+	for (i = 0, j = nfp->nverts - 1; i < nfp->nverts; j = i++) {
+		if (((nfp->final_pos[i]->y > p[1]) != (nfp->final_pos[j]->y > p[1])) &&
+			(p[0] < (nfp->final_pos[j]->x - nfp->final_pos[i]->x) * (p[1] - nfp->final_pos[i]->y) / (nfp->final_pos[j]->y - nfp->final_pos[i]->y) + nfp->final_pos[i]->x))
+			c = !c;
+	}
+
+	return c;
+}
+
+bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2], int nfp_count, int index)
 {
 	float min[2], max[2];
+	int i;
 
 	/* Make sure point is inside IFP */
 	if (p[0] < ifp->final_pos[0]->x ||
@@ -5036,6 +5051,13 @@ bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2])
 		return false;
 	}
 	
+	for (i = 0; i < nfp_count; i++) {
+		if (nfps[i] && (i != index)) {
+			if (p_point_inside_nfp(nfps[i], p)) {
+				return false;
+			}
+		}
+	}
 
 	return true;
 }
@@ -5201,7 +5223,7 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 				if (nfps[rand1]->final_pos[rand2]) {
 					end_pos[0] = nfps[rand1]->final_pos[rand2]->x;
 					end_pos[1] = nfps[rand1]->final_pos[rand2]->y;
-					found = p_temp_cfr_check(nfps, ifp, end_pos);
+					found = p_temp_cfr_check(nfps, ifp, end_pos, phandle->ncharts, rand1);
 				}
 			}
 		}
