@@ -5048,9 +5048,9 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	/* Minkowski sum computation */
 	printf("PPointUV creation started!\n");
 	PPointUV *p = (PPointUV *)MEM_callocN(sizeof(*p), "PPointUV");
-	p->x = points[0]->uv[0];
-	p->y = points[0]->uv[1];
-	//printf("PPointUV created and assigned!\n");
+	p->x = fixed->h_verts[fixed->ref_vert_index]->uv[0];
+	p->y = fixed->h_verts[fixed->ref_vert_index]->uv[1];
+
 	nfp->final_pos[0] = p;
 	for (j = 1; j < nfp->nverts; j++) {
 		PPointUV *p1 = (PPointUV *)MEM_callocN(sizeof(*p1), "PPointUV1");
@@ -5132,7 +5132,7 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 		/*Since placed=false it won't happen, but may be better to make sure? */
 		if (fixed->u.ipack.convex_hull->placed) {
 			PConvexHull *ch_fixed = fixed->u.ipack.convex_hull;
-			PNoFitPolygon *nfp = p_no_fit_polygon_create(ch_item, ch_fixed);
+			PNoFitPolygon *nfp = p_no_fit_polygon_create(item_inv, ch_fixed);
 			nfps[i] = nfp;
 			init = false;
 		}
@@ -5167,8 +5167,8 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 
 			if (nfps[rand1]) {
 				if (nfps[rand1]->final_pos[rand2]) {
-					end_pos[0] = nfps[rand1]->final_pos[rand1]->x;
-					end_pos[1] = nfps[rand1]->final_pos[rand1]->y;
+					end_pos[0] = nfps[rand1]->final_pos[rand2]->x;
+					end_pos[1] = nfps[rand1]->final_pos[rand2]->y;
 					found = true;
 				}
 			}
