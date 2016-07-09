@@ -36,8 +36,10 @@
 
 #include "BKE_cdderivedmesh.h"
 #include "BKE_dynamicpaint.h"
+#include "BKE_layer.h"
 #include "BKE_library_query.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 
 #include "depsgraph_private.h"
 #include "DEG_depsgraph_build.h"
@@ -124,9 +126,8 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 
 	/* add relation from canvases to all brush objects */
 	if (pmd && pmd->canvas) {
-		Base *base = scene->base.first;
-
-		for (; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			DynamicPaintModifierData *pmd2 =
 			        (DynamicPaintModifierData *)modifiers_findByType(base->object, eModifierType_DynamicPaint);
 
@@ -135,6 +136,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 				dag_add_relation(forest, brushNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Dynamic Paint Brush");
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 
@@ -147,14 +149,15 @@ static void updateDepsgraph(ModifierData *md,
 	DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
 	/* Add relation from canvases to all brush objects. */
 	if (pmd->canvas != NULL) {
-		Base *base = scene->base.first;
-		for (; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			DynamicPaintModifierData *pmd2 =
 			        (DynamicPaintModifierData *)modifiers_findByType(base->object, eModifierType_DynamicPaint);
 			if (pmd2 && pmd2->brush && ob != base->object) {
 				DEG_add_object_relation(node, base->object, DEG_OB_COMP_TRANSFORM, "Dynamic Paint Brush");
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 

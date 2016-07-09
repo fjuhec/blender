@@ -44,6 +44,7 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
+#include "BKE_layer.h"
 #include "BKE_object.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
@@ -1055,12 +1056,11 @@ static void view3d_select_loop(ViewContext *vc, Scene *scene, View3D *v3d, ARegi
 		}
 	}
 	else {
-		Base *base;
-
 		v3d->xray = true;  /* otherwise it postpones drawing */
-		for (base = scene->base.first; base; base = base->next) {
-			if (base->lay & v3d->lay) {
 
+		BKE_BASES_ITER_START(scene)
+		{
+			if (base->lay & v3d->lay) {
 				if ((base->object->restrictflag & OB_RESTRICT_SELECT) ||
 				    (use_obedit_skip && (scene->obedit->data == base->object->data)))
 				{
@@ -1107,6 +1107,7 @@ static void view3d_select_loop(ViewContext *vc, Scene *scene, View3D *v3d, ARegi
 				}
 			}
 		}
+		BKE_BASES_ITER_END;
 		v3d->xray = false;  /* restore */
 	}
 }
@@ -1267,7 +1268,6 @@ static bool view3d_localview_init(
         ReportList *reports)
 {
 	View3D *v3d = sa->spacedata.first;
-	Base *base;
 	float min[3], max[3], box[3], mid[3];
 	float size = 0.0f;
 	unsigned int locallay;
@@ -1295,7 +1295,8 @@ static bool view3d_localview_init(
 			scene->obedit->lay = BASACT->lay;
 		}
 		else {
-			for (base = FIRSTBASE; base; base = base->next) {
+			BKE_BASES_ITER_START(scene)
+			{
 				if (TESTBASE(v3d, base)) {
 					BKE_object_minmax(base->object, min, max, false);
 					base->lay |= locallay;
@@ -1303,6 +1304,7 @@ static bool view3d_localview_init(
 					ok = true;
 				}
 			}
+			BKE_BASES_ITER_END;
 		}
 
 		sub_v3_v3v3(box, max, min);
@@ -1366,7 +1368,8 @@ static bool view3d_localview_init(
 	}
 	else {
 		/* clear flags */ 
-		for (base = FIRSTBASE; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			if (base->lay & locallay) {
 				base->lay -= locallay;
 				if (base->lay == 0) base->lay = v3d->layact;
@@ -1374,6 +1377,7 @@ static bool view3d_localview_init(
 				base->object->lay = base->lay;
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 
 	return ok;
@@ -1441,7 +1445,6 @@ static bool view3d_localview_exit(
         Main *bmain, Scene *scene, ScrArea *sa, const int smooth_viewtx)
 {
 	View3D *v3d = sa->spacedata.first;
-	struct Base *base;
 	unsigned int locallay;
 	
 	if (v3d->localvd) {
@@ -1453,7 +1456,8 @@ static bool view3d_localview_exit(
 		/* for when in other window the layers have changed */
 		if (v3d->scenelock) v3d->lay = scene->lay;
 		
-		for (base = FIRSTBASE; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			if (base->lay & locallay) {
 				base->lay -= locallay;
 				if (base->lay == 0) base->lay = v3d->layact;
@@ -1464,7 +1468,8 @@ static bool view3d_localview_exit(
 				base->object->lay = base->lay;
 			}
 		}
-		
+		BKE_BASES_ITER_END;
+
 		DAG_on_visible_update(bmain, false);
 
 		return true;

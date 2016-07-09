@@ -87,11 +87,13 @@
 #include "BKE_global.h"
 #include "BKE_group.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_modifier.h"
 #include "BKE_node.h"
 #include "BKE_mask.h"
+#include "BKE_object.h"
 #include "BKE_sequencer.h"
 
 #include "ED_anim_api.h"
@@ -1617,7 +1619,6 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 	
 	if (ads->filterflag & ADS_FILTER_GP_3DONLY) {
 		Scene *scene = (Scene *)ads->source;
-		Base *base;
 		
 		/* Active scene's GPencil block first - No parent item needed... */
 		if (scene->gpd) {
@@ -1625,7 +1626,8 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 		}
 		
 		/* Objects in the scene */
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			/* Only consider this object if it has got some GP data (saving on all the other tests) */
 			if (base->object && base->object->gpd) {
 				Object *ob = base->object;
@@ -1667,6 +1669,7 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 				items += animdata_filter_gpencil_data(anim_data, ads, ob->gpd, filter_mode);
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 	else {
 		bGPdata *gpd;
@@ -2709,7 +2712,6 @@ static size_t animdata_filter_dopesheet_scene(bAnimContext *ac, ListBase *anim_d
 static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, bDopeSheet *ads, int filter_mode)
 {
 	Scene *sce = (Scene *)ads->source;
-	Base *base;
 	size_t items = 0;
 	
 	/* check that we do indeed have a scene */
@@ -2732,7 +2734,8 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, b
 	items += animdata_filter_dopesheet_scene(ac, anim_data, ads, sce, filter_mode);
 	
 	/* loop over all bases (i.e.objects) in the scene */
-	for (base = sce->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(sce)
+	{
 		/* check if there's an object (all the relevant checks are done in the ob-function) */
 		if (base->object) {
 			Object *ob = base->object;
@@ -2781,6 +2784,7 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, b
 			items += animdata_filter_dopesheet_ob(ac, anim_data, ads, base, filter_mode);
 		}
 	}
+	BKE_BASES_ITER_END;
 	
 	/* return the number of items in the list */
 	return items;

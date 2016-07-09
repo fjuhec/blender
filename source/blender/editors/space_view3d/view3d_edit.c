@@ -50,6 +50,7 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_font.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
@@ -2937,7 +2938,6 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	Scene *scene = CTX_data_scene(C);
-	Base *base;
 	float *curs;
 	const bool use_all_regions = RNA_boolean_get(op->ptr, "use_all_regions");
 	const bool skip_camera = (ED_view3d_camera_lock_check(v3d, ar->regiondata) ||
@@ -2960,7 +2960,8 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 		INIT_MINMAX(min, max);
 	}
 
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		if (BASE_VISIBLE(v3d, base)) {
 			changed = true;
 
@@ -2971,6 +2972,8 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 			BKE_object_minmax(base->object, min, max, false);
 		}
 	}
+	BKE_BASES_ITER_END;
+
 	if (!changed) {
 		ED_region_tag_redraw(ar);
 		/* TODO - should this be cancel?
@@ -3042,16 +3045,18 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	if (ob && (ob->mode & OB_MODE_WEIGHT_PAINT)) {
 		/* hard-coded exception, we look for the one selected armature */
 		/* this is weak code this way, we should make a generic active/selection callback interface once... */
-		Base *base;
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			if (TESTBASELIB(v3d, base)) {
-				if (base->object->type == OB_ARMATURE)
-					if (base->object->mode & OB_MODE_POSE)
+				if (base->object->type == OB_ARMATURE) {
+					if (base->object->mode & OB_MODE_POSE) {
+						ob = base->object;
 						break;
+					}
+				}
 			}
 		}
-		if (base)
-			ob = base->object;
+		BKE_BASES_ITER_END;
 	}
 
 

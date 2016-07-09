@@ -665,7 +665,8 @@ static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), cons
 	if (!slayer->act_tree->active_layer)
 		return OPERATOR_CANCELLED;
 
-	for (Base *base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		if (base->flag & SELECT) {
 			if (base->layer) {
 				BKE_objectlayer_base_unassign(base);
@@ -673,6 +674,7 @@ static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), cons
 			BKE_objectlayer_base_assign(base, slayer->act_tree->active_layer, false);
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, NULL);
 

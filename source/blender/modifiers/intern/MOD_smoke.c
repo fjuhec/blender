@@ -47,10 +47,12 @@
 
 
 #include "BKE_cdderivedmesh.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_smoke.h"
 
 #include "depsgraph_private.h"
@@ -180,7 +182,6 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
                            DagNode *obNode)
 {
 	SmokeModifierData *smd = (SmokeModifierData *) md;
-	Base *base;
 
 	if (smd && (smd->type & MOD_SMOKE_TYPE_DOMAIN) && smd->domain) {
 		if (smd->domain->fluid_group || smd->domain->coll_group) {
@@ -214,17 +215,19 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 		}
 		else {
 			BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
-			base = scene->base.first;
-			for (; base; base = base->next) {
+			BKE_BASES_ITER_START(scene)
+			{
 				update_depsgraph_flow_coll_object(forest, obNode, base->object);
 			}
+			BKE_BASES_ITER_END;
 		}
 		/* add relation to all "smoke flow" force fields */
-		base = scene->base.first;
 		BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
-		for (; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			update_depsgraph_field_source_object(forest, obNode, ob, base->object);
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 
@@ -290,7 +293,6 @@ static void updateDepsgraph(ModifierData *md,
                             struct DepsNodeHandle *node)
 {
 	SmokeModifierData *smd = (SmokeModifierData *)md;
-	Base *base;
 	if (smd && (smd->type & MOD_SMOKE_TYPE_DOMAIN) && smd->domain) {
 		if (smd->domain->fluid_group || smd->domain->coll_group) {
 			GroupObject *go = NULL;
@@ -319,17 +321,19 @@ static void updateDepsgraph(ModifierData *md,
 		}
 		else {
 			BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
-			base = scene->base.first;
-			for (; base; base = base->next) {
+			BKE_BASES_ITER_START(scene)
+			{
 				update_depsgraph_flow_coll_object_new(node, base->object);
 			}
+			BKE_BASES_ITER_END;
 		}
 		/* add relation to all "smoke flow" force fields */
-		base = scene->base.first;
 		BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
-		for (; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			update_depsgraph_field_source_object_new(node, ob, base->object);
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 

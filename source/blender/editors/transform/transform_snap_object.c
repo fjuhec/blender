@@ -49,6 +49,7 @@
 #include "BKE_object.h"
 #include "BKE_anim.h"  /* for duplis */
 #include "BKE_editmesh.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_tracking.h"
 
@@ -1573,7 +1574,8 @@ static bool snapObjectsRay(
 			ignore_object_active = true;
 			break;
 	}
-	for (Base *base = sctx->scene->base.first; base != NULL; base = base->next) {
+	BKE_BASES_ITER_START(sctx->scene)
+	{
 		if ((BASE_VISIBLE_BGMODE(sctx->v3d_data.v3d, sctx->scene, base)) &&
 		    (base->flag & (BA_HAS_RECALC_OB | BA_HAS_RECALC_DATA)) == 0 &&
 
@@ -1612,6 +1614,7 @@ static bool snapObjectsRay(
 			        r_loc, r_no, r_index, r_ob, r_obmat, r_hit_list);
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	return retval;
 }

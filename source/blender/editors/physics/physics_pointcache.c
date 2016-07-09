@@ -42,7 +42,9 @@
 #include "BKE_context.h"
 #include "BKE_screen.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
+#include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
 
@@ -254,11 +256,11 @@ static void ptcache_bake_cancel(bContext *C, wmOperator *op)
 static int ptcache_free_bake_all_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene= CTX_data_scene(C);
-	Base *base;
 	PTCacheID *pid;
 	ListBase pidlist;
 
-	for (base=scene->base.first; base; base= base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		BKE_ptcache_ids_from_object(&pidlist, base->object, scene, MAX_DUPLI_RECUR);
 
 		for (pid=pidlist.first; pid; pid=pid->next) {
@@ -269,6 +271,7 @@ static int ptcache_free_bake_all_exec(bContext *C, wmOperator *UNUSED(op))
 		
 		WM_event_add_notifier(C, NC_OBJECT|ND_POINTCACHE, base->object);
 	}
+	BKE_BASES_ITER_END;
 
 	WM_event_add_notifier(C, NC_SCENE|ND_FRAME, scene);
 

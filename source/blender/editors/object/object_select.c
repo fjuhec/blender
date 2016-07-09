@@ -51,8 +51,10 @@
 
 #include "BKE_context.h"
 #include "BKE_group.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
+#include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_property.h"
 #include "BKE_report.h"
@@ -1182,7 +1184,8 @@ static bool object_select_more_less(bContext *C, const bool select)
 {
 	Scene *scene = CTX_data_scene(C);
 
-	for (Base *base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		Object *ob = base->object;
 		ob->flag &= ~OB_DONE;
 		ob->id.tag &= ~LIB_TAG_DOIT;
@@ -1192,6 +1195,7 @@ static bool object_select_more_less(bContext *C, const bool select)
 			ob->parent->id.tag &= ~LIB_TAG_DOIT;
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	ListBase ctx_base_list;
 	CollectionPointerLink *ctx_base;

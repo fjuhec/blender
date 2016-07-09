@@ -165,6 +165,7 @@
 #include "BKE_library.h" // for  set_listbasepointers
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_sequencer.h"
 #include "BKE_subsurf.h"
@@ -2650,7 +2651,6 @@ static void write_layeritems(WriteData *wd, Scene *scene, ListBase *layeritems)
 static void write_scenes(WriteData *wd, ListBase *scebase)
 {
 	Scene *sce;
-	Base *base;
 	Editing *ed;
 	Sequence *seq;
 	MetaStack *ms;
@@ -2675,11 +2675,11 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 		write_keyingsets(wd, &sce->keyingsets);
 
 		/* direct data */
-		base = sce->base.first;
-		while (base) {
+		BKE_BASES_ITER_START(sce)
+		{
 			writestruct(wd, DATA, Base, 1, base);
-			base = base->next;
 		}
+		BKE_BASES_ITER_END;
 
 		tos = sce->toolsettings;
 		writestruct(wd, DATA, ToolSettings, 1, tos);

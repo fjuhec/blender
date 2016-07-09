@@ -9376,14 +9376,15 @@ static void expand_object(FileData *fd, Main *mainvar, Object *ob)
 
 static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 {
-	Base *base;
 	SceneRenderLayer *srl;
 	FreestyleModuleConfig *module;
 	FreestyleLineSet *lineset;
-	
-	for (base = sce->base.first; base; base = base->next) {
+
+	BKE_BASES_ITER_START(sce)
+	{
 		expand_doit(fd, mainvar, base->object);
 	}
+	BKE_BASES_ITER_END;
 	expand_doit(fd, mainvar, sce->camera);
 	expand_doit(fd, mainvar, sce->world);
 	

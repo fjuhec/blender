@@ -66,6 +66,7 @@
 #include "BKE_depsgraph.h"
 #include "BKE_mball.h"
 #include "BKE_mesh.h"
+#include "BKE_layer.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_editmesh.h"
@@ -401,24 +402,23 @@ static void do_lasso_select_pose(ViewContext *vc, Object *ob, const int mcords[]
 
 static void object_deselect_all_visible(Scene *scene, View3D *v3d)
 {
-	Base *base;
-
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		if (BASE_SELECTABLE(v3d, base)) {
 			ED_base_object_select(base, BA_DESELECT);
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void do_lasso_select_objects(ViewContext *vc, const int mcords[][2], const short moves,
                                     const bool extend, const bool select)
 {
-	Base *base;
-	
 	if (extend == false && select)
 		object_deselect_all_visible(vc->scene, vc->v3d);
 
-	for (base = vc->scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(vc->scene)
+	{
 		if (BASE_SELECTABLE(vc->v3d, base)) { /* use this to avoid un-needed lasso lookups */
 			if (ED_view3d_project_base(vc->ar, base) == V3D_PROJ_RET_OK) {
 				if (BLI_lasso_is_point_inside(mcords, moves, base->sx, base->sy, IS_CLIPPED)) {
@@ -432,6 +432,7 @@ static void do_lasso_select_objects(ViewContext *vc, const int mcords[][2], cons
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void do_lasso_select_mesh__doSelectVert(void *userData, BMVert *eve, const float screen_co[2], int UNUSED(index))

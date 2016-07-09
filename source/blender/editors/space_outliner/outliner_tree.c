@@ -62,8 +62,10 @@
 
 #include "BKE_fcurve.h"
 #include "BKE_main.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_sequencer.h"
 #include "BKE_idcode.h"
 #include "BKE_outliner_treehash.h"
@@ -1609,7 +1611,6 @@ static int outliner_filter_tree(SpaceOops *soops, ListBase *lb)
 // TODO: split each mode into its own function?
 void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 {
-	Base *base;
 	TreeElement *te = NULL, *ten;
 	TreeStoreElem *tselem;
 	int show_opened = !soops->treestore || !BLI_mempool_count(soops->treestore); /* on first view, we open scenes */
@@ -1695,31 +1696,41 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 			tselem = TREESTORE(te);
 			if (sce == scene && show_opened)
 				tselem->flag &= ~TSE_CLOSED;
-			
-			for (base = sce->base.first; base; base = base->next) {
+
+			BKE_BASES_ITER_START(sce)
+			{
 				ten = outliner_add_element(soops, &te->subtree, base->object, te, 0, 0);
 				ten->directdata = base;
 			}
+			BKE_BASES_ITER_END;
 			outliner_make_hierarchy(&te->subtree);
 			/* clear id.newid, to prevent objects be inserted in wrong scenes (parent in other scene) */
-			for (base = sce->base.first; base; base = base->next) base->object->id.newid = NULL;
+			BKE_BASES_ITER_START(sce)
+			{
+				base->object->id.newid = NULL;
+			}
+			BKE_BASES_ITER_END;
 		}
 	}
 	else if (soops->outlinevis == SO_CUR_SCENE) {
 		
 		outliner_add_scene_contents(soops, &soops->tree, scene, NULL);
 		
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			ten = outliner_add_element(soops, &soops->tree, base->object, NULL, 0, 0);
 			ten->directdata = base;
 		}
+		BKE_BASES_ITER_END;
 		outliner_make_hierarchy(&soops->tree);
 	}
 	else if (soops->outlinevis == SO_VISIBLE) {
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			if (base->lay & scene->lay)
 				outliner_add_element(soops, &soops->tree, base->object, NULL, 0, 0);
 		}
+		BKE_BASES_ITER_END;
 		outliner_make_hierarchy(&soops->tree);
 	}
 	else if (soops->outlinevis == SO_GROUPS) {
@@ -1743,17 +1754,20 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 	else if (soops->outlinevis == SO_SAME_TYPE) {
 		Object *ob = OBACT;
 		if (ob) {
-			for (base = scene->base.first; base; base = base->next) {
+			BKE_BASES_ITER_START(scene)
+			{
 				if (base->object->type == ob->type) {
 					ten = outliner_add_element(soops, &soops->tree, base->object, NULL, 0, 0);
 					ten->directdata = base;
 				}
 			}
+			BKE_BASES_ITER_END;
 			outliner_make_hierarchy(&soops->tree);
 		}
 	}
 	else if (soops->outlinevis == SO_SELECTED) {
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			if (base->lay & scene->lay) {
 				if (base->flag & SELECT) {
 					ten = outliner_add_element(soops, &soops->tree, base->object, NULL, 0, 0);
@@ -1761,6 +1775,7 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 				}
 			}
 		}
+		BKE_BASES_ITER_END;
 		outliner_make_hierarchy(&soops->tree);
 	}
 	else if (soops->outlinevis == SO_SEQUENCE) {

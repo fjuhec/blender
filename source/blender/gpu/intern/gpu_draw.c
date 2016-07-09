@@ -66,14 +66,13 @@
 #include "BKE_bmfont.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_DerivedMesh.h"
-#ifdef WITH_GAMEENGINE
-#  include "BKE_object.h"
-#endif
 
 #include "GPU_basic_shader.h"
 #include "GPU_buffers.h"
@@ -2182,7 +2181,8 @@ int GPU_scene_object_lights(Scene *scene, Object *ob, int lay, float viewmat[4][
 
 	int count = 0;
 
-	for (Base *base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		if (base->object->type != OB_LAMP)
 			continue;
 
@@ -2233,6 +2233,7 @@ int GPU_scene_object_lights(Scene *scene, Object *ob, int lay, float viewmat[4][
 		if (count == 8)
 			break;
 	}
+	BKE_BASES_ITER_END;
 
 	return count;
 }

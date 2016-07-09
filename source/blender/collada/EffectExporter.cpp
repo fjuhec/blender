@@ -44,8 +44,10 @@ extern "C" {
 	#include "DNA_world_types.h"
 
 	#include "BKE_customdata.h"
+	#include "BKE_layer.h"
 	#include "BKE_mesh.h"
 	#include "BKE_material.h"
+	#include "BKE_object.h"
 }
 
 // OB_MESH is assumed
@@ -65,9 +67,8 @@ EffectsExporter::EffectsExporter(COLLADASW::StreamWriter *sw, const ExportSettin
 
 bool EffectsExporter::hasEffects(Scene *sce)
 {
-	Base *base = (Base *)sce->base.first;
-	
-	while (base) {
+	BKE_BASES_ITER_START(sce)
+	{
 		Object *ob = base->object;
 		int a;
 		for (a = 0; a < ob->totcol; a++) {
@@ -78,8 +79,8 @@ bool EffectsExporter::hasEffects(Scene *sce)
 
 			return true;
 		}
-		base = base->next;
 	}
+	BKE_BASES_ITER_END;
 	return false;
 }
 

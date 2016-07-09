@@ -81,6 +81,7 @@
 #include "BKE_key.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
@@ -423,7 +424,8 @@ void BKE_libblock_remap_locked(
 				for (Scene *sce = bmain->scene.first; sce; sce = sce->id.next) {
 					/* Note that here we assume no object has no base (i.e. all objects are assumed instanced
 					 * in one scene...). */
-					for (Base *base = sce->base.first; base; base = base->next) {
+					BKE_BASES_ITER_START(sce)
+					{
 						if (base->flag & OB_FROMGROUP) {
 							Object *ob = base->object;
 
@@ -443,6 +445,7 @@ void BKE_libblock_remap_locked(
 							}
 						}
 					}
+					BKE_BASES_ITER_END;
 				}
 			}
 			break;

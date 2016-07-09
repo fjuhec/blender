@@ -55,7 +55,9 @@
 #include "BKE_fcurve.h"
 #include "BKE_gpencil.h"
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_mask.h"
+#include "BKE_object.h"
 #include "BKE_global.h"
 
 #include "UI_view2d.h"
@@ -2670,37 +2672,37 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 		{
 			bDopeSheet *ads = (bDopeSheet *)ac->data;
 			Scene *sce = (Scene *)ads->source;
-			Base *base = (Base *)ale->data;
-			Object *ob = base->object;
-			AnimData *adt = ob->adt;
+			Base *anim_base = (Base *)ale->data;
+			Object *anim_ob = anim_base->object;
+			AnimData *adt = anim_ob->adt;
 			
 			/* set selection status */
 			if (selectmode == SELECT_INVERT) {
 				/* swap select */
-				base->flag ^= SELECT;
-				ob->flag = base->flag;
+				anim_base->flag ^= SELECT;
+				anim_ob->flag = anim_base->flag;
 				
 				if (adt) adt->flag ^= ADT_UI_SELECTED;
 			}
 			else {
-				Base *b;
-				
 				/* deselect all */
 				/* TODO: should this deselect all other types of channels too? */
-				for (b = sce->base.first; b; b = b->next) {
-					b->flag &= ~SELECT;
-					b->object->flag = b->flag;
-					if (b->object->adt) b->object->adt->flag &= ~(ADT_UI_SELECTED | ADT_UI_ACTIVE);
+				BKE_BASES_ITER_START(sce)
+				{
+					base->flag &= ~SELECT;
+					base->object->flag = base->flag;
+					if (base->object->adt) base->object->adt->flag &= ~(ADT_UI_SELECTED | ADT_UI_ACTIVE);
 				}
+				BKE_BASES_ITER_END;
 				
 				/* select object now */
-				base->flag |= SELECT;
-				ob->flag |= SELECT;
+				anim_base->flag |= SELECT;
+				anim_ob->flag |= SELECT;
 				if (adt) adt->flag |= ADT_UI_SELECTED;
 			}
 			
 			/* change active object - regardless of whether it is now selected [T37883] */
-			ED_base_object_activate(C, base); /* adds notifier */
+			ED_base_object_activate(C, anim_base); /* adds notifier */
 			
 			if ((adt) && (adt->flag & ADT_UI_SELECTED))
 				adt->flag |= ADT_UI_ACTIVE;

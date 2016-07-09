@@ -83,6 +83,7 @@
 #include "BKE_material.h"
 #include "BKE_cloth.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_pointcache.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
@@ -2890,7 +2891,6 @@ static void psys_update_path_cache(ParticleSimulationData *sim, float cfra, cons
 	ParticleSystem *psys = sim->psys;
 	ParticleSettings *part = psys->part;
 	ParticleEditSettings *pset = &sim->scene->toolsettings->particle;
-	Base *base;
 	int distr=0, alloc=0, skip=0;
 
 	if ((psys->part->childtype && psys->totchild != psys_get_tot_child(sim->scene, psys)) || psys->recalc&PSYS_RECALC_RESET)
@@ -2935,7 +2935,8 @@ static void psys_update_path_cache(ParticleSimulationData *sim, float cfra, cons
 
 
 	/* particle instance modifier with "path" option need cached paths even if particle system doesn't */
-	for (base = sim->scene->base.first; base; base= base->next) {
+	BKE_BASES_ITER_START(sim->scene)
+	{
 		ModifierData *md = modifiers_findByType(base->object, eModifierType_ParticleInstance);
 		if (md) {
 			ParticleInstanceModifierData *pimd = (ParticleInstanceModifierData *)md;
@@ -2945,6 +2946,7 @@ static void psys_update_path_cache(ParticleSimulationData *sim, float cfra, cons
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	if (!skip) {
 		psys_cache_paths(sim, cfra, use_render_params);

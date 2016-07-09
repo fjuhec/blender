@@ -92,6 +92,7 @@
 #include "BKE_key.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_linestyle.h"
 #include "BKE_mesh.h"
@@ -151,12 +152,13 @@ void BKE_object_workob_clear(Object *workob)
 
 void BKE_object_update_base_layer(struct Scene *scene, Object *ob)
 {
-	Base *base = scene->base.first;
-
-	while (base) {
-		if (base->object == ob) base->lay = ob->lay;
-		base = base->next;
+	BKE_BASES_ITER_START(scene)
+	{
+		if (base->object == ob) {
+			base->lay = ob->lay;
+		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 void BKE_object_free_particlesystems(Object *ob)
@@ -1218,7 +1220,6 @@ void BKE_object_make_local(Object *ob)
 {
 	Main *bmain = G.main;
 	Scene *sce;
-	Base *base;
 	bool is_local = false, is_lib = false;
 
 	/* - only lib users: do nothing
@@ -1257,15 +1258,15 @@ void BKE_object_make_local(Object *ob)
 			sce = bmain->scene.first;
 			while (sce) {
 				if (!ID_IS_LINKED_DATABLOCK(sce)) {
-					base = sce->base.first;
-					while (base) {
+					BKE_BASES_ITER_START(sce)
+					{
 						if (base->object == ob) {
 							base->object = ob_new;
 							id_us_plus(&ob_new->id);
 							id_us_min(&ob->id);
 						}
-						base = base->next;
 					}
+					BKE_BASES_ITER_END;
 				}
 				sce = sce->id.next;
 			}
@@ -3430,15 +3431,16 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 {
 	LinkNode *links = NULL;
 
-	Base *base;
-
 	/* Remove markers from all objects */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		base->object->id.tag &= ~LIB_TAG_DOIT;
 	}
+	BKE_BASES_ITER_END;
 
 	/* iterate over all selected and visible objects */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		if (objectSet == OB_SET_ALL) {
 			/* as we get all anyways just add it */
 			Object *ob = base->object;
@@ -3474,10 +3476,10 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 
 				/* child relationship */
 				if (includeFilter & (OB_REL_CHILDREN | OB_REL_CHILDREN_RECURSIVE)) {
-					Base *local_base;
-					for (local_base = scene->base.first; local_base; local_base = local_base->next) {
+					/* FIXME O(n^2) */
+					BKE_BASES_ITER_START_EX(scene, k, local_litem, local_oblayer, l, local_base)
+					{
 						if (BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, local_base)) {
-
 							Object *child = local_base->object;
 							if (obrel_list_test(child)) {
 								if ((includeFilter & OB_REL_CHILDREN_RECURSIVE && BKE_object_is_child_recursive(ob, child)) ||
@@ -3488,6 +3490,7 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 							}
 						}
 					}
+					BKE_BASES_ITER_END;
 				}
 
 
@@ -3502,6 +3505,7 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	return links;
 }

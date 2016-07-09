@@ -51,6 +51,8 @@
 
 #include "BKE_main.h"
 #include "BKE_image.h"   /* BKE_imbuf_write */
+#include "BKE_layer.h"
+#include "BKE_object.h"
 #include "BKE_texture.h"
 #include "BKE_scene.h"
 
@@ -247,17 +249,16 @@ static void envmap_transmatrix(float mat[4][4], int part)
 
 static void env_set_imats(Render *re)
 {
-	Base *base;
 	float mat[4][4];
 	
-	base = re->scene->base.first;
-	while (base) {
+	BKE_BASES_ITER_START(re->scene)
+	{
 		mul_m4_m4m4(mat, re->viewmat, base->object->obmat);
 		invert_m4_m4(base->object->imat, mat);
 		
 		base = base->next;
 	}
-	
+	BKE_BASES_ITER_END;
 }
 
 /* ------------------------------------------------------------------------- */

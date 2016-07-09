@@ -49,8 +49,10 @@
 #include "BKE_effect.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_library_query.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_pointcache.h"
 
 #include "depsgraph_private.h"
@@ -122,11 +124,10 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
                            Scene *scene, Object *ob, DagNode *obNode)
 {
 	ClothModifierData *clmd = (ClothModifierData *) md;
-	
-	Base *base;
-	
+
 	if (clmd) {
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			Object *ob1 = base->object;
 			if (ob1 != ob) {
 				CollisionModifierData *coll_clmd = (CollisionModifierData *)modifiers_findByType(ob1, eModifierType_Collision);
@@ -136,6 +137,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 				}
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 
@@ -147,8 +149,8 @@ static void updateDepsgraph(ModifierData *md,
 {
 	ClothModifierData *clmd = (ClothModifierData *)md;
 	if (clmd != NULL) {
-		Base *base;
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			Object *ob1 = base->object;
 			if (ob1 != ob) {
 				CollisionModifierData *coll_clmd = (CollisionModifierData *)modifiers_findByType(ob1, eModifierType_Collision);
@@ -157,6 +159,7 @@ static void updateDepsgraph(ModifierData *md,
 				}
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 

@@ -815,20 +815,28 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 
 Base *BKE_scene_base_find_by_name(struct Scene *scene, const char *name)
 {
-	Base *base;
-
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		if (STREQ(base->object->id.name + 2, name)) {
-			break;
+			return base;
 		}
 	}
+	BKE_BASES_ITER_END;
 
-	return base;
+	return NULL;
 }
 
 Base *BKE_scene_base_find(Scene *scene, Object *ob)
 {
-	return BLI_findptr(&scene->base, ob, offsetof(Base, object));
+	BKE_BASES_ITER_START(scene)
+	{
+		if (base->object == ob) {
+			return base;
+		}
+	}
+	BKE_BASES_ITER_END;
+
+	return NULL;
 }
 
 /**
@@ -839,7 +847,6 @@ Base *BKE_scene_base_find(Scene *scene, Object *ob)
 void BKE_scene_set_background(Main *bmain, Scene *scene)
 {
 	Scene *sce;
-	Base *base;
 	Object *ob;
 	Group *group;
 	GroupObject *go;
@@ -870,7 +877,8 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 		DAG_scene_relations_rebuild(bmain, sce);
 
 	/* copy layers and flags from bases to objects */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		ob = base->object;
 		ob->lay = base->lay;
 		
@@ -883,6 +891,7 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 		//if (ob->pose == NULL) base->flag &= ~OB_POSEMODE;
 		ob->flag = base->flag;
 	}
+	BKE_BASES_ITER_END;
 	/* no full animation update, this to enable render code to work (render code calls own animation updates) */
 }
 
@@ -1030,11 +1039,12 @@ int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
 
 Object *BKE_scene_camera_find(Scene *sc)
 {
-	Base *base;
-	
-	for (base = sc->base.first; base; base = base->next)
+	BKE_BASES_ITER_START(sc)
+	{
 		if (base->object->type == OB_CAMERA)
 			return base->object;
+	}
+	BKE_BASES_ITER_END;
 
 	return NULL;
 }
@@ -1166,12 +1176,12 @@ void BKE_scene_base_unlink(Scene *sce, Base *base)
 
 void BKE_scene_base_deselect_all(Scene *sce)
 {
-	Base *b;
-
-	for (b = sce->base.first; b; b = b->next) {
-		b->flag &= ~SELECT;
-		b->object->flag = b->flag;
+	BKE_BASES_ITER_START(sce)
+	{
+		base->flag &= ~SELECT;
+		base->object->flag = base->flag;
 	}
+	BKE_BASES_ITER_END;
 }
 
 void BKE_scene_base_select(Scene *sce, Base *selbase)
@@ -2187,22 +2197,20 @@ bool BKE_scene_uses_blender_game(const Scene *scene)
 
 void BKE_scene_base_flag_to_objects(struct Scene *scene)
 {
-	Base *base = scene->base.first;
-
-	while (base) {
+	BKE_BASES_ITER_START(scene)
+	{
 		base->object->flag = base->flag;
-		base = base->next;
 	}
+	BKE_BASES_ITER_END;
 }
 
 void BKE_scene_base_flag_from_objects(struct Scene *scene)
 {
-	Base *base = scene->base.first;
-
-	while (base) {
+	BKE_BASES_ITER_START(scene)
+	{
 		base->flag = base->object->flag;
-		base = base->next;
 	}
+	BKE_BASES_ITER_END;
 }
 
 void BKE_scene_disable_color_management(Scene *scene)

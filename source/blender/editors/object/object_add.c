@@ -75,6 +75,7 @@
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mball.h"
@@ -1562,9 +1563,8 @@ static int convert_exec(bContext *C, wmOperator *op)
 	/* don't forget multiple users! */
 
 	{
-		Base *base;
-
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			ob = base->object;
 			ob->flag &= ~OB_DONE;
 
@@ -1584,6 +1584,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 				}
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 
 	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)

@@ -73,7 +73,9 @@ variables on the UI for now
 #include "BKE_curve.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_softbody.h"
 #include "BKE_pointcache.h"
 #include "BKE_deform.h"
@@ -498,17 +500,17 @@ static void ccd_mesh_free(ccd_Mesh *ccdm)
 
 static void ccd_build_deflector_hash(Scene *scene, Object *vertexowner, GHash *hash)
 {
-	Base *base= scene->base.first;
 	Object *ob;
 
 	if (!hash) return;
-	while (base) {
+
+	BKE_BASES_ITER_START(scene)
+	{
 		/*Only proceed for mesh object in same layer */
 		if (base->object->type==OB_MESH && (base->lay & vertexowner->lay)) {
 			ob= base->object;
 			if ((vertexowner) && (ob == vertexowner)) {
 				/* if vertexowner is given  we don't want to check collision with owner object */
-				base = base->next;
 				continue;
 			}
 
@@ -519,23 +521,22 @@ static void ccd_build_deflector_hash(Scene *scene, Object *vertexowner, GHash *h
 			}/*--- only with deflecting set */
 
 		}/* mesh && layer*/
-		base = base->next;
-	} /* while (base) */
+	}
+	BKE_BASES_ITER_END;
 }
 
 static void ccd_update_deflector_hash(Scene *scene, Object *vertexowner, GHash *hash)
 {
-	Base *base= scene->base.first;
 	Object *ob;
 
 	if ((!hash) || (!vertexowner)) return;
-	while (base) {
+	BKE_BASES_ITER_START(scene)
+	{
 		/*Only proceed for mesh object in same layer */
 		if (base->object->type==OB_MESH && (base->lay & vertexowner->lay)) {
 			ob= base->object;
 			if (ob == vertexowner) {
 				/* if vertexowner is given  we don't want to check collision with owner object */
-				base = base->next;
 				continue;
 			}
 
@@ -547,8 +548,8 @@ static void ccd_update_deflector_hash(Scene *scene, Object *vertexowner, GHash *
 			}/*--- only with deflecting set */
 
 		}/* mesh && layer*/
-		base = base->next;
-	} /* while (base) */
+	}
+	BKE_BASES_ITER_END;
 }
 
 
@@ -936,14 +937,14 @@ static void free_softbody_intern(SoftBody *sb)
 
 static int are_there_deflectors(Scene *scene, unsigned int layer)
 {
-	Base *base;
-
-	for (base = scene->base.first; base; base= base->next) {
-		if ( (base->lay & layer) && base->object->pd) {
+	BKE_BASES_ITER_START(scene)
+	{
+		if ((base->lay & layer) && base->object->pd) {
 			if (base->object->pd->deflect)
 				return 1;
 		}
 	}
+	BKE_BASES_ITER_END;
 	return 0;
 }
 

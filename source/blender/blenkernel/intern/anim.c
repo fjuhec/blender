@@ -48,6 +48,7 @@
 #include "BKE_global.h"
 #include "BKE_key.h"
 #include "BKE_main.h"
+#include "BKE_layer.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_scene.h"
@@ -275,15 +276,16 @@ void animviz_get_object_motionpaths(Object *ob, ListBase *targets)
 /* tweak the object ordering to trick depsgraph into making MotionPath calculations run faster */
 static void motionpaths_calc_optimise_depsgraph(Scene *scene, ListBase *targets)
 {
-	Base *base, *baseNext;
-	MPathTarget *mpt;
-	
 	/* make sure our temp-tag isn't already in use */
-	for (base = scene->base.first; base; base = base->next)
+	BKE_BASES_ITER_START(scene)
+	{
 		base->object->flag &= ~BA_TEMP_TAG;
+	}
+	BKE_BASES_ITER_END;
 	
 	/* for each target, dump its object to the start of the list if it wasn't moved already */
-	for (mpt = targets->first; mpt; mpt = mpt->next) {
+	Base *base, *baseNext;
+	for (MPathTarget *mpt = targets->first; mpt; mpt = mpt->next) {
 		for (base = scene->base.first; base; base = baseNext) {
 			baseNext = base->next;
 			
@@ -313,7 +315,7 @@ static void motionpaths_calc_update_scene(Scene *scene)
 		BKE_scene_update_for_newframe(G.main->eval_ctx, G.main, scene, scene->lay);
 	}
 	else { /* otherwise we can optimize by restricting updates */
-		Base *base, *last = NULL;
+		Base *last = NULL;
 		
 		/* only stuff that moves or needs display still */
 		DAG_scene_update_flags(G.main, scene, scene->lay, true, false);
@@ -322,15 +324,18 @@ static void motionpaths_calc_update_scene(Scene *scene)
 		 * - all those afterwards are assumed to not be relevant for our calculations
 		 */
 		/* optimize further by moving out... */
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			if (base->object->flag & BA_TEMP_TAG)
 				last = base;
 		}
+		BKE_BASES_ITER_END;
 		
 		/* perform updates for tagged objects */
 		/* XXX: this will break if rigs depend on scene or other data that
 		 * is animated but not attached to/updatable from objects */
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			/* update this object */
 			BKE_object_handle_update(G.main->eval_ctx, scene, base->object);
 			
@@ -338,6 +343,7 @@ static void motionpaths_calc_update_scene(Scene *scene)
 			if (base == last)
 				break;
 		}
+		BKE_BASES_ITER_END;
 	}
 #else // original, 'always correct' version
 	/* do all updates

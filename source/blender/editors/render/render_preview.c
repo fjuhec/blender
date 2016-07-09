@@ -69,11 +69,13 @@
 #include "BKE_image.h"
 #include "BKE_icons.h"
 #include "BKE_lamp.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_texture.h"
 #include "BKE_world.h"
@@ -275,7 +277,6 @@ static Scene *preview_get_scene(Main *pr_main)
 static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_type, ShaderPreview *sp)
 {
 	Scene *sce;
-	Base *base;
 	Main *pr_main = sp->pr_main;
 
 	memcpy(pr_main->name, bmain->name, sizeof(pr_main->name));
@@ -357,7 +358,8 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 					/* this only works in a specific case where the preview.blend contains
 					 * an object starting with 'c' which has a material linked to it (not the obdata)
 					 * and that material has a fake shadow texture in the active texture slot */
-					for (base = sce->base.first; base; base = base->next) {
+					BKE_BASES_ITER_START(scene)
+					{
 						if (base->object->id.name[2] == 'c') {
 							Material *shadmat = give_current_material(base->object, base->object->actcol);
 							if (shadmat) {
@@ -366,10 +368,12 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 							}
 						}
 					}
+					BKE_BASES_ITER_END;
 					
 					/* turn off bounce lights for volume, 
 					 * doesn't make much visual difference and slows it down too */
-					for (base = sce->base.first; base; base = base->next) {
+					BKE_BASES_ITER_START(scene)
+					{
 						if (base->object->type == OB_LAMP) {
 							/* if doesn't match 'Lamp.002' --> main key light */
 							if (!STREQ(base->object->id.name + 2, "Lamp.002")) {
@@ -380,6 +384,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 							}
 						}
 					}
+					BKE_BASES_ITER_END;
 				}
 				else {
 					/* use current scene world to light sphere */
@@ -412,8 +417,9 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				sce->r.mode &= ~(R_OSA | R_RAYTRACE | R_SSS);
 				
 			}
-			
-			for (base = sce->base.first; base; base = base->next) {
+
+			BKE_BASES_ITER_START(scene)
+			{
 				if (base->object->id.name[2] == 'p') {
 					/* copy over object color, in case material uses it */
 					copy_v4_v4(base->object->col, sp->col);
@@ -431,6 +437,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 					}
 				}
 			}
+			BKE_BASES_ITER_END;
 		}
 		else if (id_type == ID_TE) {
 			Tex *tex = NULL, *origtex = (Tex *)id;
@@ -441,8 +448,9 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				BLI_addtail(&pr_main->tex, tex);
 			}
 			sce->lay = 1 << MA_TEXTURE;
-			
-			for (base = sce->base.first; base; base = base->next) {
+
+			BKE_BASES_ITER_START(scene)
+			{
 				if (base->object->id.name[2] == 't') {
 					Material *mat = give_current_material(base->object, base->object->actcol);
 					if (mat && mat->mtex[0]) {
@@ -464,6 +472,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 					}
 				}
 			}
+			BKE_BASES_ITER_END;
 
 			if (tex && tex->nodetree && sp->pr_method == PR_NODE_RENDER) {
 				/* two previews, they get copied by wmJob */
@@ -494,13 +503,15 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 					sce->camera = (Object *)BLI_findstring(&pr_main->object, "Camera", offsetof(ID, name) + 2);
 				}
 			}
-				
-			for (base = sce->base.first; base; base = base->next) {
+
+			BKE_BASES_ITER_START(scene)
+			{
 				if (base->object->id.name[2] == 'p') {
 					if (base->object->type == OB_LAMP)
 						base->object->data = la;
 				}
 			}
+			BKE_BASES_ITER_END;
 
 			if (la && la->nodetree && sp->pr_method == PR_NODE_RENDER) {
 				/* two previews, they get copied by wmJob */

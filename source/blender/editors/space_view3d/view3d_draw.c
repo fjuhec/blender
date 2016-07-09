@@ -2397,7 +2397,6 @@ void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d)
 void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaoverride)
 {
 	RegionView3D *rv3d = ar->regiondata;
-	Base *base;
 	short zbuf = v3d->zbuf;
 	short flag = v3d->flag;
 	float glalphaclip = U.glalphaclip;
@@ -2434,6 +2433,8 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	/* draw set first */
 	if (scene->set) {
 		Scene *sce_iter;
+		Base *base;
+
 		for (SETLOOPER(scene->set, sce_iter, base)) {
 			if (v3d->lay & base->lay) {
 				draw_object(scene, ar, v3d, base, 0);
@@ -2443,8 +2444,10 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 			}
 		}
 	}
-	
-	for (base = scene->base.first; base; base = base->next) {
+
+
+	BKE_BASES_ITER_START(scene)
+	{
 		if (v3d->lay & base->lay) {
 			/* dupli drawing */
 			if (base->object->transflag & OB_DUPLI) {
@@ -2453,7 +2456,8 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 			draw_object(scene, ar, v3d, base, dflag_depth);
 		}
 	}
-	
+	BKE_BASES_ITER_END;
+
 	/* this isn't that nice, draw xray objects as if they are normal */
 	if (v3d->afterdraw_transp.first ||
 	    v3d->afterdraw_xray.first ||
@@ -2825,28 +2829,22 @@ static void view3d_objectlayers_drawstep_draw(
         unsigned int *r_lay_used)
 {
 #ifdef WITH_ADVANCED_LAYERS
-	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, i, litem)
+	BKE_BASES_ITER_START(scene)
 	{
-		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
-			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
-			{
-				view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
-			}
-			BKE_OBJECTLAYER_BASES_ITER_END;
-		}
+		view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
 	}
-	BKE_LAYERTREE_ITER_END;
+	BKE_BASES_ITER_END;
 
 #else
-	for (Base *base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		if (v3d->lay & base->lay) {
 			view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
 		}
 		else if (drawstep == OB_DRAWSTEP_DUPLI_UNSEL) {
 			*r_lay_used |= base->lay;
 		}
-	}
+		BKE_BASES_ITER_END;
 #endif
 }
 
