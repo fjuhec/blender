@@ -243,7 +243,7 @@ ccl_device_inline int patch_eval_control_verts(KernelGlobals *kg, int object, in
                                         float weights_dv[PATCH_MAX_CONTROL_VERTS])
 {
 	PatchHandle handle = patch_map_find_patch(kg, object, patch, u, v);
-	kernel_assert(handle->array_index >= 0);
+	kernel_assert(handle.array_index >= 0);
 
 	int num_control = patch_eval_indices(kg, &handle, channel, indices);
 	patch_eval_basis(kg, &handle, u, v, weights, weights_du, weights_dv);
