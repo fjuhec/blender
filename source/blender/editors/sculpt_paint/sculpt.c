@@ -47,7 +47,6 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
-#include "DNA_scene_types.h"
 
 #include "BKE_pbvh.h"
 #include "BKE_brush.h"
@@ -446,7 +445,7 @@ static void sculpt_extend_redraw_rect_previous(Object *ob, rcti *rect)
 }
 
 /* Get a screen-space rectangle of the modified area */
-static bool sculpt_get_redraw_rect(ARegion *ar, RegionView3D *rv3d,
+bool sculpt_get_redraw_rect(ARegion *ar, RegionView3D *rv3d,
                                    Object *ob, rcti *rect)
 {
 	PBVH *pbvh = ob->sculpt->pbvh;

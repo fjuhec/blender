@@ -38,6 +38,8 @@
 #include "DNA_key_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_screen_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_mesh_types.h"
 
 #include "BLI_bitmap.h"
@@ -329,6 +331,8 @@ void sculpt_undo_push_end(const struct bContext *C);
 void sculpt_vertcos_to_key(Object *ob, KeyBlock *kb, float (*vertCos)[3]);
 
 void sculpt_update_object_bounding_box(struct Object *ob);
+
+bool sculpt_get_redraw_rect(ARegion *ar, RegionView3D *rv3d, Object *ob, rcti *rect);
 
 #define SCULPT_THREADED_LIMIT 4
 

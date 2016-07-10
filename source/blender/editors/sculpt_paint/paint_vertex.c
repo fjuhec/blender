@@ -1,4 +1,3 @@
-#pragma optimize("", off)
 /*
  * ***** BEGIN GPL LICENSE BLOCK *****
  *
@@ -1568,8 +1567,7 @@ static void do_weight_paint_vertex_single(
 	{
 		dw->weight = wpaint_blend(wp, dw->weight, dw_prev->weight, alpha, paintweight,
 		                          wpi->brush_alpha_value, wpi->do_flip);
-    dw->weight = 1.0;
-    printf("Vertex weight: %f\n", dw->weight);
+
 		/* WATCH IT: take care of the ordering of applying mirror -> normalize,
 		 * can give wrong results [#26193], least confusing if normalize is done last */
 
@@ -2237,6 +2235,7 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	wpd->indexar = get_indexarray(me);
 	copy_wpaint_prev(wp, me->dvert, me->totvert);
 
+  //This will probably change!
 	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
 		BKE_mesh_vert_edge_vert_map_create(
 		        &wpd->blur_data.vmap, &wpd->blur_data.vmap_mem,
@@ -2365,6 +2364,8 @@ static void do_wpaint_brush_draw_task_cb_ex(
   unsigned int *lcol = data->lcol;
 
   unsigned int *lcolorig = data->vp->vpaint_prev;
+  //data->nodes[n];
+  //data->nodes[n].flag &= PBVH_UpdateRedraw;
 
   //for each vertex
   PBVHVertexIter vd;
@@ -2377,13 +2378,13 @@ static void do_wpaint_brush_draw_task_cb_ex(
     if (sculpt_brush_test(&test, vd.co)) {
       const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
       int vertexIndex = vd.vert_indices[vd.i];
-      data->wpi->brush_alpha_value = 255.0;
 
-      MDeformWeight *dw;
+      MDeformWeight *dw, *dw_prev;
       MDeformVert *dv = &data->me->dvert[vertexIndex];
       dw = defvert_verify_index(dv, data->wpi->active.index);
-      dw->weight = paintweight;
-     // do_weight_paint_vertex(data->vp, data->ob, &data->wpi, vertexIndex, 255.0, paintweight);
+      dw_prev = defvert_verify_index(data->vp->wpaint_prev + vertexIndex, data->wpi->active.index);
+      dw->weight = wpaint_blend(data->vp, dw->weight, dw_prev->weight, fade, paintweight, data->wpi->brush_alpha_value, data->wpi->do_flip); 
+      //do_weight_paint_vertex(data->vp, data->ob, &data->wpi, vertexIndex, 255.0, paintweight);
 
       //if a vertex is within the brush region, then paint each loop that vertex owns.
       //for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
@@ -2413,7 +2414,6 @@ static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp,
   data.me = me;
   data.C = C;
 
-  printf("Painting leaves\n");
   //This might change to a case switch. 
   //if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
   //  calculate_average_color(&data, nodes, totnode);
@@ -2547,7 +2547,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	/* load projection matrix */
 	mul_m4_m4m4(mat, vc->rv3d->persmat, ob->obmat);
 
-	RNA_float_get_array(itemptr, "mouse", mval);
+	//RNA_float_get_array(itemptr, "mouse", mval);
 
 	/* *** setup WeightPaintInfo - pass onto do_weight_paint_vertex *** */
 	wpi.defbase_tot =        wpd->defbase_tot;
@@ -2726,7 +2726,29 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	}
 
 	DAG_id_tag_update(ob->data, 0);
-	ED_region_tag_redraw(vc->ar);
+
+  rcti r;
+  if (sculpt_get_redraw_rect(vc->ar, CTX_wm_region_view3d(C), ob, &r)) {
+    if (ss->cache) {
+      ss->cache->current_r = r;
+    }
+
+    /* previous is not set in the current cache else
+    * the partial rect will always grow */
+    if (ss->cache) {
+      if (!BLI_rcti_is_empty(&ss->cache->previous_r))
+        BLI_rcti_union(&r, &ss->cache->previous_r);
+    }
+
+    r.xmin += vc->ar->winrct.xmin - 2;
+    r.xmax += vc->ar->winrct.xmin + 2;
+    r.ymin += vc->ar->winrct.ymin - 2;
+    r.ymax += vc->ar->winrct.ymin + 2;
+
+    ss->partial_redraw = 1;
+    ED_region_tag_redraw_partial(vc->ar, &r);
+  }
+	//ED_region_tag_redraw(vc->ar);
 }
 
 static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
