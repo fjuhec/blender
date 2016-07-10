@@ -78,4 +78,8 @@ if(WITH_INTERNATIONAL)
 	add_definitions(-DWITH_INTERNATIONAL)
 endif()
 
+if(WITH_ADVANCED_LAYERS)
+	add_definitions(-DWITH_ADVANCED_LAYERS)
+endif()
+
 blender_add_lib(bf_editor_object "${SRC}" "${INC}" "${INC_SYS}")
