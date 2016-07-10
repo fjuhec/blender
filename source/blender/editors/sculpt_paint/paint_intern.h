@@ -144,6 +144,35 @@ typedef struct WPaintData {
   int defbase_tot;
 } WPaintData;
 
+/* struct to avoid passing many args each call to do_weight_paint_vertex()
+* this _could_ be made a part of the operators 'WPaintData' struct, or at
+* least a member, but for now keep its own struct, initialized on every
+* paint stroke update - campbell */
+typedef struct WeightPaintInfo {
+
+  int defbase_tot;
+
+  /* both must add up to 'defbase_tot' */
+  int defbase_tot_sel;
+  int defbase_tot_unsel;
+
+  struct WeightPaintGroupData active, mirror;
+
+  const bool *lock_flags;  /* boolean array for locked bones,
+                           * length of defbase_tot */
+  const bool *defbase_sel; /* boolean array for selected bones,
+                           * length of defbase_tot, cant be const because of how its passed */
+
+  const bool *vgroup_validmap; /* same as WeightPaintData.vgroup_validmap,
+                               * only added here for convenience */
+
+  bool do_flip;
+  bool do_multipaint;
+  bool do_auto_normalize;
+
+  float brush_alpha_value;  /* result of BKE_brush_alpha_get() */
+} WeightPaintInfo;
+
 /* paint_vertex.c */
 typedef struct VPaintData {
 	ViewContext vc;

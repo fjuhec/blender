@@ -151,6 +151,7 @@ typedef struct SculptProjectVector {
 
 /* Single struct used by all BLI_task threaded callbacks, let's avoid adding 10's of those... */
 typedef struct SculptThreadedTaskData {
+  bContext *C;
 	Sculpt *sd;
 	Object *ob;
 	Brush *brush;
@@ -160,6 +161,7 @@ typedef struct SculptThreadedTaskData {
 	VPaint *vp;
 	VPaintData *vpd;
   WPaintData *wpd;
+  WeightPaintInfo *wpi;
 	unsigned int* lcol;
 	MeshElemMap **vertToLoopMaps;
 	Mesh *me;

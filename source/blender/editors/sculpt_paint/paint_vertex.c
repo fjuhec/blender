@@ -1,3 +1,4 @@
+#pragma optimize("", off)
 /*
  * ***** BEGIN GPL LICENSE BLOCK *****
  *
@@ -1478,35 +1479,6 @@ static void multipaint_apply_change(MDeformVert *dvert, const int defbase_tot, f
 	}
 }
 
-/* struct to avoid passing many args each call to do_weight_paint_vertex()
- * this _could_ be made a part of the operators 'WPaintData' struct, or at
- * least a member, but for now keep its own struct, initialized on every
- * paint stroke update - campbell */
-typedef struct WeightPaintInfo {
-
-	int defbase_tot;
-
-	/* both must add up to 'defbase_tot' */
-	int defbase_tot_sel;
-	int defbase_tot_unsel;
-
-	struct WeightPaintGroupData active, mirror;
-
-	const bool *lock_flags;  /* boolean array for locked bones,
-	                          * length of defbase_tot */
-	const bool *defbase_sel; /* boolean array for selected bones,
-	                          * length of defbase_tot, cant be const because of how its passed */
-
-	const bool *vgroup_validmap; /* same as WeightPaintData.vgroup_validmap,
-	                              * only added here for convenience */
-
-	bool do_flip;
-	bool do_multipaint;
-	bool do_auto_normalize;
-
-	float brush_alpha_value;  /* result of BKE_brush_alpha_get() */
-} WeightPaintInfo;
-
 static void do_weight_paint_vertex_single(
         /* vars which remain the same for every vert */
         VPaint *wp, Object *ob, const WeightPaintInfo *wpi,
@@ -1596,7 +1568,8 @@ static void do_weight_paint_vertex_single(
 	{
 		dw->weight = wpaint_blend(wp, dw->weight, dw_prev->weight, alpha, paintweight,
 		                          wpi->brush_alpha_value, wpi->do_flip);
-
+    dw->weight = 1.0;
+    printf("Vertex weight: %f\n", dw->weight);
 		/* WATCH IT: take care of the ordering of applying mirror -> normalize,
 		 * can give wrong results [#26193], least confusing if normalize is done last */
 
@@ -2281,6 +2254,16 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	invert_m4_m4(imat, mat);
 	copy_m3_m4(wpd->wpimat, imat);
 
+  /* If not previously created, create vertex/weight paint mode session data */
+  if (!ob->sculpt)
+    vertex_paint_init_session(scene, ob);
+
+  if (!ob->sculpt->vert_to_loop)
+    vertex_paint_init_session_maps(ob);
+
+  if (!ob->sculpt->totloopsHit)
+    vertex_paint_init_session_average_arrays(ob);
+
 	vwpaint_update_cache_invariants(C, vd, ss, op, mouse);
 
 	return true;
@@ -2366,7 +2349,55 @@ static void calc_brushdata_symm(VPaint *vd, StrokeCache *cache, const char symm,
   }
 }
 
-static void wpaint_paint_leaves(Object *ob, Sculpt *sd, VPaint *vp, WPaintData *wpd, Mesh *me, PBVHNode **nodes, int totnode)
+static void do_wpaint_brush_draw_task_cb_ex(
+  void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
+{
+  SculptThreadedTaskData *data = userdata;
+  SculptSession *ss = data->ob->sculpt;
+  Scene *scene = CTX_data_scene(data->C);
+
+  Brush *brush = data->brush;
+  StrokeCache *cache = ss->cache;
+  const float bstrength = cache->bstrength;
+
+  float paintweight = BKE_brush_weight_get(scene, brush);
+
+  unsigned int *lcol = data->lcol;
+
+  unsigned int *lcolorig = data->vp->vpaint_prev;
+
+  //for each vertex
+  PBVHVertexIter vd;
+  BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+  {
+    SculptBrushTest test;
+    sculpt_brush_test_init(ss, &test);
+
+    //Test to see if the vertex coordinates are within the spherical brush region.
+    if (sculpt_brush_test(&test, vd.co)) {
+      const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+      int vertexIndex = vd.vert_indices[vd.i];
+      data->wpi->brush_alpha_value = 255.0;
+
+      MDeformWeight *dw;
+      MDeformVert *dv = &data->me->dvert[vertexIndex];
+      dw = defvert_verify_index(dv, data->wpi->active.index);
+      dw->weight = paintweight;
+     // do_weight_paint_vertex(data->vp, data->ob, &data->wpi, vertexIndex, 255.0, paintweight);
+
+      //if a vertex is within the brush region, then paint each loop that vertex owns.
+      //for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+      //  int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+      //  //Mix the new color with the original based on the brush strength and the curve.
+      //  
+      //  //lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], data->vpd->paintcol, 255.0 * fade * bstrength, 255.0);
+      //}
+    }
+    BKE_pbvh_vertex_iter_end;
+  }
+}
+
+static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, PBVHNode **nodes, int totnode)
 {
   Brush *brush = ob->sculpt->cache->brush;//BKE_paint_brush(&sd->paint);
 
@@ -2377,11 +2408,13 @@ static void wpaint_paint_leaves(Object *ob, Sculpt *sd, VPaint *vp, WPaintData *
 
   data.vp = vp;
   data.wpd = wpd;
+  data.wpi = wpi;
   data.lcol = (unsigned int*)me->mloopcol;
   data.me = me;
+  data.C = C;
 
   printf("Painting leaves\n");
-  ////This might change to a case switch. 
+  //This might change to a case switch. 
   //if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
   //  calculate_average_color(&data, nodes, totnode);
   //  BLI_task_parallel_range_ex(
@@ -2394,14 +2427,14 @@ static void wpaint_paint_leaves(Object *ob, Sculpt *sd, VPaint *vp, WPaintData *
   //    ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
   //}
   //else {
-  //  BLI_task_parallel_range_ex(
-  //    0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
-  //    ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+    BLI_task_parallel_range_ex(
+      0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
+      ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
   //}
 
 }
 
-static void wpaint_do_radial_symmetry(Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, Mesh *me, Brush *brush, const char symm, const int axis)
+static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, Brush *brush, const char symm, const int axis)
 {
   SculptSession *ss = ob->sculpt;
 
@@ -2421,14 +2454,14 @@ static void wpaint_do_radial_symmetry(Object *ob, VPaint *wp, Sculpt *sd, WPaint
     BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
 
   //  //Paint those leaves.
-    wpaint_paint_leaves(ob, sd, wp, wpd, me, nodes, totnode);
+    wpaint_paint_leaves(C, ob, sd, wp, wpd, wpi, me, nodes, totnode);
 
     if (nodes)
       MEM_freeN(nodes);
   }
 }
 
-static void wpaint_do_symmetrical_brush_actions(Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd)
+static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi)
 {
   Brush *brush = BKE_paint_brush(&wp->paint);
   Mesh *me = ob->data;
@@ -2446,10 +2479,10 @@ static void wpaint_do_symmetrical_brush_actions(Object *ob, VPaint *wp, Sculpt *
       cache->radial_symmetry_pass = 0;
 
       calc_brushdata_symm(wp, cache, i, 0, 0);
-      wpaint_do_radial_symmetry(ob, wp, sd, wpd, me, brush, i, 'X');
+      wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'X');
       if (i != 0) {
-        wpaint_do_radial_symmetry(ob, wp, sd, wpd, me, brush, i, 'Y');
-        wpaint_do_radial_symmetry(ob, wp, sd, wpd, me, brush, i, 'Z');
+        wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Y');
+        wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Z');
       }
     }
   }
@@ -2532,155 +2565,154 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	wpi.brush_alpha_value =  brush_alpha_value;
 	/* *** done setting up WeightPaintInfo *** */
 
-  wpaint_do_symmetrical_brush_actions(ob, wp, sd, wpd);
+  swap_m4m4(wpd->vc.rv3d->persmat, mat);
 
-	swap_m4m4(wpd->vc.rv3d->persmat, mat);
+//	use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
+//	use_face_sel = (me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
+//	use_depth = (vc->v3d->flag & V3D_ZBUF_SELECT) != 0;
+//
+//	/* which faces are involved */
+//	if (use_depth) { //Remove, depth culling will occur naturally with spherical intersection similar to vpaint
+//		char editflag_prev = me->editflag;
+//
+//		/* Ugly hack, to avoid drawing vertex index when getting the face index buffer - campbell */
+//		me->editflag &= ~ME_EDIT_PAINT_VERT_SEL;
+//		if (use_vert_sel) {
+//			/* Ugly x2, we need this so hidden faces don't draw */
+//			me->editflag |= ME_EDIT_PAINT_FACE_SEL;
+//		}
+//		totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure); //Remove
+//		me->editflag = editflag_prev;
+//
+//		if (use_face_sel && me->totpoly) { 
+//			MPoly *mpoly = me->mpoly;
+//			for (index = 0; index < totindex; index++) {
+//				if (indexar[index] && indexar[index] <= me->totpoly) {
+//					MPoly *mp = &mpoly[indexar[index] - 1];
+//
+//					if ((mp->flag & ME_FACE_SEL) == 0) {
+//						indexar[index] = 0; //Remove
+//					}
+//				}
+//			}
+//		}
+//	}
+//	else {
+//		indexar = NULL;
+//	}
+//
+//	/* incase we have modifiers */
+//	ED_vpaint_proj_handle_update(wpd->vp_handle, vc->ar, mval);
+//
+//	/* make sure each vertex gets treated only once */
+//	/* and calculate filter weight */
+//	paintweight = BKE_brush_weight_get(scene, brush);
+//
+//	if (use_depth) {
+//		for (index = 0; index < totindex; index++) {
+//			if (indexar[index] && indexar[index] <= me->totpoly) {
+//				MPoly *mpoly = me->mpoly + (indexar[index] - 1);
+//				MLoop *ml = me->mloop + mpoly->loopstart;
+//				int i;
+//
+//				if (use_vert_sel) {
+//					for (i = 0; i < mpoly->totloop; i++, ml++) {
+//						me->dvert[ml->v].flag = (me->mvert[ml->v].flag & SELECT);
+//					}
+//				}
+//				else {
+//					for (i = 0; i < mpoly->totloop; i++, ml++) {
+//						me->dvert[ml->v].flag = 1;
+//					}
+//				}
+//			}
+//		}
+//	}
+//	else {
+//		const unsigned int totvert = me->totvert;
+//		unsigned int       i;
+//
+//		/* in the case of face selection we need to flush */
+//		if (use_vert_sel || use_face_sel) {
+//			for (i = 0; i < totvert; i++) {
+//				me->dvert[i].flag = me->mvert[i].flag & SELECT;
+//			}
+//		}
+//		else {
+//			for (i = 0; i < totvert; i++) {
+//				me->dvert[i].flag = SELECT;
+//			}
+//		}
+//	}
+//
+//	/* accumulate means we refer to the previous,
+//	 * which is either the last update, or when we started painting */
+//	BLI_Stack *accumulate_stack = wpd->accumulate_stack;
+//	const bool use_accumulate = (accumulate_stack != NULL);
+//	BLI_assert(accumulate_stack == NULL || BLI_stack_is_empty(accumulate_stack));
+//
+//	const MDeformVert *dvert_prev = use_accumulate ? me->dvert : wp->wpaint_prev;
+//
+//#define WP_PAINT(v_idx_var)  \
+//	{ \
+//		unsigned int vidx = v_idx_var; \
+//		if (me->dvert[vidx].flag) { \
+//			const float alpha = calc_vp_alpha_col_dl( \
+//			        wp, vc, wpd->wpimat, &wpd->vertexcosnos[vidx], \
+//			        mval, brush_size_pressure, brush_alpha_pressure, NULL); \
+//			if (alpha) { \
+//				if (use_blur) { \
+//					paintweight = wpaint_blur_weight_calc_from_connected( \
+//					        dvert_prev, &wpi, wpd, vidx, blur_weight_func); \
+//				} \
+//				if (use_accumulate) { \
+//					struct WPaintDefer *dweight = BLI_stack_push_r(accumulate_stack); \
+//					dweight->index = vidx; \
+//					dweight->alpha = alpha; \
+//					dweight->weight = paintweight; \
+//				} \
+//				else { \
+//					do_weight_paint_vertex(wp, ob, &wpi, vidx, alpha, paintweight); \
+//				} \
+//			} \
+//			me->dvert[vidx].flag = 0; \
+//		} \
+//	} (void)0
+//
+//	if (use_depth) {
+//		for (index = 0; index < totindex; index++) {
+//
+//			if (indexar[index] && indexar[index] <= me->totpoly) {
+//				MPoly *mpoly = me->mpoly + (indexar[index] - 1);
+//				MLoop *ml = me->mloop + mpoly->loopstart;
+//				int i;
+//
+//				for (i = 0; i < mpoly->totloop; i++, ml++) {
+//				//	WP_PAINT(ml->v);
+//				}
+//			}
+//		}
+//	}
+//	else {
+//		const unsigned int totvert = me->totvert;
+//		unsigned int       i;
+//
+//		for (i = 0; i < totvert; i++) {
+//		//	WP_PAINT(i);
+//		}
+//	}
+//#undef WP_PAINT
+//
+//	if (use_accumulate) {
+//		unsigned int defer_count = BLI_stack_count(accumulate_stack);
+//		while (defer_count--) {
+//			struct WPaintDefer *dweight = BLI_stack_peek(accumulate_stack);
+//			do_weight_paint_vertex(wp, ob, &wpi, dweight->index, dweight->alpha, dweight->weight);
+//			BLI_stack_discard(accumulate_stack);
+//		}
+//	}
 
-	use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
-	use_face_sel = (me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
-	use_depth = (vc->v3d->flag & V3D_ZBUF_SELECT) != 0;
-
-	/* which faces are involved */
-	if (use_depth) { //Remove, depth culling will occur naturally with spherical intersection similar to vpaint
-		char editflag_prev = me->editflag;
-
-		/* Ugly hack, to avoid drawing vertex index when getting the face index buffer - campbell */
-		me->editflag &= ~ME_EDIT_PAINT_VERT_SEL;
-		if (use_vert_sel) {
-			/* Ugly x2, we need this so hidden faces don't draw */
-			me->editflag |= ME_EDIT_PAINT_FACE_SEL;
-		}
-		totindex = sample_backbuf_area(vc, indexar, me->totpoly, mval[0], mval[1], brush_size_pressure); //Remove
-		me->editflag = editflag_prev;
-
-		if (use_face_sel && me->totpoly) { 
-			MPoly *mpoly = me->mpoly;
-			for (index = 0; index < totindex; index++) {
-				if (indexar[index] && indexar[index] <= me->totpoly) {
-					MPoly *mp = &mpoly[indexar[index] - 1];
-
-					if ((mp->flag & ME_FACE_SEL) == 0) {
-						indexar[index] = 0; //Remove
-					}
-				}
-			}
-		}
-	}
-	else {
-		indexar = NULL;
-	}
-
-	/* incase we have modifiers */
-	ED_vpaint_proj_handle_update(wpd->vp_handle, vc->ar, mval);
-
-	/* make sure each vertex gets treated only once */
-	/* and calculate filter weight */
-	paintweight = BKE_brush_weight_get(scene, brush);
-
-	if (use_depth) {
-		for (index = 0; index < totindex; index++) {
-			if (indexar[index] && indexar[index] <= me->totpoly) {
-				MPoly *mpoly = me->mpoly + (indexar[index] - 1);
-				MLoop *ml = me->mloop + mpoly->loopstart;
-				int i;
-
-				if (use_vert_sel) {
-					for (i = 0; i < mpoly->totloop; i++, ml++) {
-						me->dvert[ml->v].flag = (me->mvert[ml->v].flag & SELECT);
-					}
-				}
-				else {
-					for (i = 0; i < mpoly->totloop; i++, ml++) {
-						me->dvert[ml->v].flag = 1;
-					}
-				}
-			}
-		}
-	}
-	else {
-		const unsigned int totvert = me->totvert;
-		unsigned int       i;
-
-		/* in the case of face selection we need to flush */
-		if (use_vert_sel || use_face_sel) {
-			for (i = 0; i < totvert; i++) {
-				me->dvert[i].flag = me->mvert[i].flag & SELECT;
-			}
-		}
-		else {
-			for (i = 0; i < totvert; i++) {
-				me->dvert[i].flag = SELECT;
-			}
-		}
-	}
-
-	/* accumulate means we refer to the previous,
-	 * which is either the last update, or when we started painting */
-	BLI_Stack *accumulate_stack = wpd->accumulate_stack;
-	const bool use_accumulate = (accumulate_stack != NULL);
-	BLI_assert(accumulate_stack == NULL || BLI_stack_is_empty(accumulate_stack));
-
-	const MDeformVert *dvert_prev = use_accumulate ? me->dvert : wp->wpaint_prev;
-
-#define WP_PAINT(v_idx_var)  \
-	{ \
-		unsigned int vidx = v_idx_var; \
-		if (me->dvert[vidx].flag) { \
-			const float alpha = calc_vp_alpha_col_dl( \
-			        wp, vc, wpd->wpimat, &wpd->vertexcosnos[vidx], \
-			        mval, brush_size_pressure, brush_alpha_pressure, NULL); \
-			if (alpha) { \
-				if (use_blur) { \
-					paintweight = wpaint_blur_weight_calc_from_connected( \
-					        dvert_prev, &wpi, wpd, vidx, blur_weight_func); \
-				} \
-				if (use_accumulate) { \
-					struct WPaintDefer *dweight = BLI_stack_push_r(accumulate_stack); \
-					dweight->index = vidx; \
-					dweight->alpha = alpha; \
-					dweight->weight = paintweight; \
-				} \
-				else { \
-					do_weight_paint_vertex(wp, ob, &wpi, vidx, alpha, paintweight); \
-				} \
-			} \
-			me->dvert[vidx].flag = 0; \
-		} \
-	} (void)0
-
-	if (use_depth) {
-		for (index = 0; index < totindex; index++) {
-
-			if (indexar[index] && indexar[index] <= me->totpoly) {
-				MPoly *mpoly = me->mpoly + (indexar[index] - 1);
-				MLoop *ml = me->mloop + mpoly->loopstart;
-				int i;
-
-				for (i = 0; i < mpoly->totloop; i++, ml++) {
-					WP_PAINT(ml->v);
-				}
-			}
-		}
-	}
-	else {
-		const unsigned int totvert = me->totvert;
-		unsigned int       i;
-
-		for (i = 0; i < totvert; i++) {
-			WP_PAINT(i);
-		}
-	}
-#undef WP_PAINT
-
-	if (use_accumulate) {
-		unsigned int defer_count = BLI_stack_count(accumulate_stack);
-		while (defer_count--) {
-			struct WPaintDefer *dweight = BLI_stack_peek(accumulate_stack);
-			do_weight_paint_vertex(wp, ob, &wpi, dweight->index, dweight->alpha, dweight->weight);
-			BLI_stack_discard(accumulate_stack);
-		}
-	}
-
+  wpaint_do_symmetrical_brush_actions(C, ob, wp, sd, wpd, &wpi);
 
 	/* *** free wpi members */
 	/* *** done freeing wpi members */
