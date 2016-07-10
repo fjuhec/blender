@@ -48,6 +48,11 @@ void EdgeDice::reserve(int num_verts)
 	vert_offset = mesh->verts.size();
 	tri_offset = mesh->num_triangles();
 
+	/* todo: optimize so we can reserve in advance, this is like push_back_slow() */
+	if(vert_offset + num_verts > mesh->verts.capacity()) {
+		mesh->reserve_mesh(size_t((vert_offset + num_verts) * 1.2), mesh->num_triangles());
+	}
+
 	mesh->resize_mesh(vert_offset + num_verts, tri_offset);
 
 	Attribute *attr_vN = mesh->attributes.add(ATTR_STD_VERTEX_NORMAL);
