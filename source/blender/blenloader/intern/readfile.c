@@ -9843,6 +9843,7 @@ static void link_object_postprocess(ID *id, Scene *scene, View3D *v3d, const sho
 		/* link at active layer (view3d if available in context, else scene one */
 		if (flag & FILE_ACTIVELAY) {
 			ob->lay = BKE_screen_view3d_layer_active(v3d, scene);
+			BKE_objectlayer_base_assign(base, scene->object_layers->active_layer, false);
 		}
 
 		ob->mode = OB_MODE_OBJECT;
