@@ -5133,13 +5133,6 @@ void p_no_fit_polygon_delete(PNoFitPolygon *nfp)
 	MEM_freeN(nfp);
 }
 
-float p_binary_depth_search(int depth) 
-{
-	/* ToDo SaphireS */
-
-	return 0.8f;
-}
-
 void p_place_chart(PChart* item, PConvexHull *ch_item,  PPointUV *pos)
 {
 	float cur_pos[2], trans[2];
@@ -5256,11 +5249,47 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	return true;
 }
 
+float p_scale_binary_search(PHandle *phandle, PChart *chart, float val, float min, float max, int depth)
+{
+	float val1, min1, max1;
+
+	if (depth--) {
+		p_chart_uv_scale(chart, val);
+
+		if (!(p_chart_pack_individual(phandle, chart))) {
+			/*scale down */
+			min1 = min;
+			max1 = val;
+			val1 = (min + max) / 2.0f;
+
+			return p_scale_binary_search(phandle, chart, val1, min1, max1, depth);
+		}
+		else {
+			/* scale up */
+			min1 = val;
+			max1 = max;
+			val1 = (min + max) / 2.0f;
+
+			return p_scale_binary_search(phandle, chart, val1, min1, max1, depth);
+		}
+	}
+	else {
+		return val;
+	}
+}
+
+float p_binary_depth_search(PHandle *phandle, PChart *chart, int depth)
+{
+	float scale = 0.5f, min = 0.0f, max = 1.0f;
+
+	return p_scale_binary_search(phandle, chart, scale, min, max, depth);
+}
+
 bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Annealing parameters */)
 {
 	PChart *chart;
 	int i, j;
-	int depth;
+	int depth = 4;
 
 	/* Set initial overall scale */
 
@@ -5274,9 +5303,9 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 		printf("p_compute_packing_solution: chart[%i] with area %f:\n", i, chart->u.ipack.area);
 
 		if (!(chart->u.ipack.convex_hull->placed)) {
-			while (!p_chart_pack_individual(phandle, chart, phandle->ncharts)){
+			while (!p_chart_pack_individual(phandle, chart)){
 				/* binary depth search for scaling down the current chart */
-				scale = p_binary_depth_search(depth);
+				scale = p_binary_depth_search(phandle, chart, depth);
 
 				/* scale chart */
 				p_chart_uv_scale(chart, scale);
@@ -5313,7 +5342,7 @@ void param_irregular_pack_begin(ParamHandle *handle)
 		}
 
 		/* Compute convex hull for each chart -> CW */
-		chart->u.ipack.convex_hull = p_convex_hull_new(chart, true);
+		chart->u.ipack.convex_hull = p_convex_hull_new(chart);
 
 		/* DEBUG */
 		printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
