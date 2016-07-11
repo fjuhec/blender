@@ -563,6 +563,25 @@ static void p_chart_uv_to_array(PChart *chart, float (*points)[2])
 	}
 }
 
+static void p_chart_uv_scale_origin(PChart *chart, float scale)
+{
+	float minv[2], maxv[2], trans[2];
+
+	/* Get the island center */
+	p_chart_uv_bbox(chart, minv, maxv);
+	trans[0] = (minv[0] + maxv[0]) / -2.0f;
+	trans[1] = (minv[1] + maxv[1]) / -2.0f;
+
+	/* Move center to 0,0 */
+	p_chart_uv_translate(chart, trans);
+	p_chart_uv_scale(chart, scale);
+
+	/* Move to original center */
+	trans[0] = -trans[0];
+	trans[1] = -trans[1];
+	p_chart_uv_translate(chart, trans);
+}
+
 static void UNUSED_FUNCTION(p_chart_uv_from_array)(PChart *chart, float (*points)[2])
 {
 	PVert *v;
@@ -5162,7 +5181,7 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	PConvexHull *ch_item = item->u.ipack.convex_hull;
 	PChart *fixed;
 	float end_pos[2], randf1, randf2;
-	int i, j;
+	int i, j, cur_iter = 0, max_iter = 100;
 	unsigned int rand1, rand2;
 	bool found = false, init = true;
 
@@ -5201,6 +5220,7 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	}
 	else {
 		while (!found) {
+			cur_iter++;
 			randf1 = BLI_rng_get_float(phandle->rng);
 			printf("randf1 choosen as: %f\n", randf1);
 			rand1 = (int)(randf1 * (float)phandle->ncharts);
@@ -5218,6 +5238,10 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 					end_pos[1] = nfps[rand1]->final_pos[rand2]->y;
 					found = p_temp_cfr_check(nfps, ifp, end_pos, phandle->ncharts, rand1);
 				}
+			}
+
+			if (cur_iter >= max_iter) {
+				return false;
 			}
 		}
 	}
@@ -5254,7 +5278,7 @@ float p_scale_binary_search(PHandle *phandle, PChart *chart, float val, float mi
 	float val1, min1, max1;
 
 	if (depth--) {
-		p_chart_uv_scale(chart, val);
+		p_chart_uv_scale_origin(chart, val);
 
 		if (!(p_chart_pack_individual(phandle, chart))) {
 			/*scale down */
@@ -5280,7 +5304,7 @@ float p_scale_binary_search(PHandle *phandle, PChart *chart, float val, float mi
 
 float p_binary_depth_search(PHandle *phandle, PChart *chart, int depth)
 {
-	float scale = 0.5f, min = 0.0f, max = 1.0f;
+	float scale = 0.5f, min = 0.1f, max = 1.0f;
 
 	return p_scale_binary_search(phandle, chart, scale, min, max, depth);
 }
@@ -5303,12 +5327,12 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 		printf("p_compute_packing_solution: chart[%i] with area %f:\n", i, chart->u.ipack.area);
 
 		if (!(chart->u.ipack.convex_hull->placed)) {
-			while (!p_chart_pack_individual(phandle, chart)){
+			if (!p_chart_pack_individual(phandle, chart)) {
 				/* binary depth search for scaling down the current chart */
 				scale = p_binary_depth_search(phandle, chart, depth);
 
 				/* scale chart */
-				p_chart_uv_scale(chart, scale);
+				p_chart_uv_scale_origin(chart, scale);
 			}
 		}
 	}
