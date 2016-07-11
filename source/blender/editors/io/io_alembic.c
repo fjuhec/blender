@@ -248,10 +248,10 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 	            "End Frame", "End Frame", INT_MIN, INT_MAX);
 
 	RNA_def_int(ot->srna, "xsamples", 1, 1, 128,
-	            "Transform Samples", "Transform samples per frame", 1, 128);
+	            "Transform Samples", "Number of times per frame transformations are sampled", 1, 128);
 
 	RNA_def_int(ot->srna, "gsamples", 1, 1, 128,
-	            "Geometry Samples", "Geometry samples per frame", 1, 128);
+	            "Geometry Samples", "Number of times per frame object datas are sampled", 1, 128);
 
 	RNA_def_float(ot->srna, "sh_open", 0.0f, -1.0f, 1.0f,
 	              "Shutter Open", "", -1.0f, 1.0f);
