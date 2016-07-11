@@ -110,7 +110,6 @@ private:
 // Reconstruct two frames from the same clip, used as the initial reconstruction
 bool ReconstructTwoFrames(const vector<Marker> &markers,
                           const int clip,
-                          libmv::CameraIntrinsics &cam_intrinsics,
                           Reconstruction *reconstruction);
 }  // namespace mv
 

@@ -54,28 +54,11 @@ static void GetFramesInMarkers(const vector<Marker> &markers,
   LOG(FATAL) << "Only one image in the markers.";
 }
 
-static void CoordinatesForMarkersInFrame(const vector<Marker> &markers,
-                                         int clip, int frame,
-                                         Mat *coordinates) {
-  vector<Vec2> coords;
-  for (int i = 0; i < markers.size(); ++i) {
-    const Marker &marker = markers[i];
-    if (markers[i].clip == clip && markers[i].frame == frame) {
-      coords.push_back(Vec2(marker.center[0], marker.center[1]));
-    }
-  }
-  coordinates->resize(2, coords.size());
-  for (int i = 0; i < coords.size(); i++) {
-    coordinates->col(i) = coords[i];
-  }
-}
-
 /* markers come from two views in the same clip,
  * reconstruction should be new and empty
  */
 bool ReconstructTwoFrames(const vector<Marker> &markers,
                           const int clip,
-                          libmv::CameraIntrinsics &cam_intrinsics,
                           Reconstruction *reconstruction)
 {
   if (markers.size() < 16) {

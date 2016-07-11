@@ -33,6 +33,7 @@
 #include "libmv/autotrack/autotrack.h"
 #include "libmv/autotrack/bundle.h"
 #include "libmv/autotrack/frame_accessor.h"
+#include "libmv/autotrack/keyframe_selection.h"
 #include "libmv/autotrack/marker.h"
 #include "libmv/autotrack/model.h"
 #include "libmv/autotrack/pipeline.h"
@@ -105,7 +106,7 @@ bool ReconstructionUpdateFixedIntrinsics(libmv_ReconstructionN **all_libmv_recon
                                          Reconstruction *reconstruction)
 {
   int clip_num = tracks->GetClipNum();
-  for(int i = 0; i < clip_num; i++) {
+  for (int i = 0; i < clip_num; i++) {
     CameraIntrinsics *camera_intrinsics = all_libmv_reconstruction[i]->intrinsics;
     int cam_intrinsic_index = reconstruction->AddCameraIntrinsics(camera_intrinsics);
     assert(cam_intrinsic_index == i);
@@ -162,6 +163,75 @@ void finishMultiviewReconstruction(
   libmv_reconstruction->error = mv::EuclideanReprojectionError(tracks,
                                                                reconstruction,
                                                                camera_intrinsics);
+}
+
+bool selectTwoClipKeyframesBasedOnGRICAndVariance(
+    const int clip_index,
+    Tracks& tracks,
+    Tracks& normalized_tracks,
+    CameraIntrinsics& camera_intrinsics,
+    int& keyframe1,
+    int& keyframe2) {
+  libmv::vector<int> keyframes;
+
+  /* Get list of all keyframe candidates first. */
+  mv::SelectClipKeyframesBasedOnGRICAndVariance(clip_index,
+                                                normalized_tracks,
+                                                camera_intrinsics,
+                                                keyframes);
+
+  if (keyframes.size() < 2) {
+    LG << "Not enough keyframes detected by GRIC";
+    return false;
+  } else if (keyframes.size() == 2) {
+    keyframe1 = keyframes[0];
+    keyframe2 = keyframes[1];
+    return true;
+  }
+
+  /* Now choose two keyframes with minimal reprojection error after initial
+   * reconstruction choose keyframes with the least reprojection error after
+   * solving from two candidate keyframes.
+   *
+   * In fact, currently libmv returns single pair only, so this code will
+   * not actually run. But in the future this could change, so let's stay
+   * prepared.
+   */
+  int previous_keyframe = keyframes[0];
+  double best_error = std::numeric_limits<double>::max();
+  for (int i = 1; i < keyframes.size(); i++) {
+    Reconstruction reconstruction;
+    int current_keyframe = keyframes[i];
+    libmv::vector<mv::Marker> keyframe_markers;
+    normalized_tracks.GetMarkersForTracksInBothFrames(clip_index, previous_keyframe,
+                                                      clip_index, current_keyframe,
+	                                                  &keyframe_markers);
+
+    Tracks keyframe_tracks(keyframe_markers);
+
+    /* get a solution from two keyframes only */
+	mv::ReconstructTwoFrames(keyframe_markers, 0, &reconstruction);
+    mv::EuclideanBundleAll(keyframe_tracks, &reconstruction);
+    mv::EuclideanCompleteMultiviewReconstruction(keyframe_tracks, &reconstruction, NULL);
+
+    double current_error = mv::EuclideanReprojectionError(tracks,
+                                                          reconstruction,
+                                                          camera_intrinsics);
+
+    LG << "Error between " << previous_keyframe
+       << " and " << current_keyframe
+       << ": " << current_error;
+
+    if (current_error < best_error) {
+      best_error = current_error;
+      keyframe1 = previous_keyframe;
+      keyframe2 = current_keyframe;
+    }
+
+    previous_keyframe = current_keyframe;
+  }
+
+  return true;
 }
 
 // re-apply camera intrinsics on the normalized 2d points
@@ -226,7 +296,7 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
       ///* keyframe selection. */
       keyframe1 = libmv_reconstruction_options->keyframe1;
 	  keyframe2 = libmv_reconstruction_options->keyframe2;
-      normalized_tracks.GetMarkersForTracksInBothImages(i, keyframe1, i, keyframe2, &keyframe_markers);
+      normalized_tracks.GetMarkersForTracksInBothFrames(i, keyframe1, i, keyframe2, &keyframe_markers);
     }
   }
   // make reconstrution on the primary clip reconstruction
@@ -247,33 +317,35 @@ libmv_ReconstructionN** libmv_solveMultiviewReconstruction(
           MultiviewReconstructUpdateCallback(progress_update_callback,
                                              callback_customdata);
 
-  // TODO(tianwei): skip the automatic keyframe selection for now
-  //if (libmv_reconstruction_options->select_keyframes) {
-  //  LG << "Using automatic keyframe selection";
+  if (libmv_reconstruction_options->select_keyframes) {
+    LG << "Using automatic keyframe selection";
 
-  //  update_callback.invoke(0, "Selecting keyframes");
+    update_callback.invoke(0, "Selecting keyframes");
 
-  //  selectTwoKeyframesBasedOnGRICAndVariance(tracks,
-  //                                           normalized_tracks,
-  //                                           *camera_intrinsics,
-  //                                           keyframe1,
-  //                                           keyframe2);
+	// select two keyframes from the primary camera (camera_index == 0)
+    selectTwoClipKeyframesBasedOnGRICAndVariance(0,
+                                                 all_tracks,
+                                                 all_normalized_tracks,
+                                                 *all_libmv_reconstruction[0]->intrinsics,
+                                                 keyframe1,
+                                                 keyframe2);
 
-  //  /* so keyframes in the interface would be updated */
-  //  libmv_reconstruction_options->keyframe1 = keyframe1;
-  //  libmv_reconstruction_options->keyframe2 = keyframe2;
-  //}
+    /* so keyframes in the interface would be updated */
+    libmv_reconstruction_options->keyframe1 = keyframe1;
+    libmv_reconstruction_options->keyframe2 = keyframe2;
+  }
 
   ///* Actual reconstruction. */
   update_callback.invoke(0, "Initial reconstruction");
 
   // update intrinsics mapping from (clip, frame) -> intrinsics
   // TODO(tianwei): in the future we may support varing focal length,
-  // thus each (clip, frame) should have a unique intrinsics index
+  // thus each (clip, frame) should have a unique intrinsics index.
+  // This function has to be called before ReconstructTwoFrames.
   ReconstructionUpdateFixedIntrinsics(all_libmv_reconstruction, &all_normalized_tracks, &reconstruction);
 
   // reconstruct two views from the main clip
-  if (!mv::ReconstructTwoFrames(keyframe_markers, 0, *(all_libmv_reconstruction[0]->intrinsics), &reconstruction)) {
+  if (!mv::ReconstructTwoFrames(keyframe_markers, 0, &reconstruction)) {
     LG << "mv::ReconstrucTwoFrames failed\n";
     all_libmv_reconstruction[0]->is_valid = false;
     return all_libmv_reconstruction;

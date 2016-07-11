@@ -37,36 +37,40 @@ class Tracks {
   Tracks() { }
   Tracks(const Tracks &other);
 
-  // Create a tracks object with markers already initialized. Copies markers.
-  explicit Tracks(const vector<Marker>& markers);
+  /// Create a tracks object with markers already initialized. Copies markers.
+  explicit Tracks(const vector<Marker> &markers);
 
-  // All getters append to the output argument vector.
-  bool GetMarker(int clip, int frame, int track, Marker* marker) const;
-  void GetMarkersForTrack(int track, vector<Marker>* markers) const;
+  /// All getters append to the output argument vector.
+  bool GetMarker(int clip, int frame, int track, Marker *marker) const;
+  void GetMarkersForTrack(int track, vector<Marker> *markers) const;
   void GetMarkersForTrackInClip(int clip,
                                 int track,
                                 vector<Marker>* markers) const;
-  void GetMarkersInFrame(int clip, int frame, vector<Marker>* markers) const;
+  void GetMarkersInFrame(int clip, int frame, vector<Marker> *markers) const;
 
-  // Get the markers in frame1 and frame2 which have a common track.
-  //
+  /// Returns all the markers visible in \a image1 and \a image2.
+  void GetMarkersInBothFrames(int clip1, int frame1,
+                              int clip2, int frame2,
+                              vector<Marker> *markers) const;
+
+  /// Get the markers in frame1 and frame2 which have a common track.
   // This is not the same as the union of the markers in frame1 and
   // frame2; each marker is for a track that appears in both images.
-  void GetMarkersForTracksInBothImages(int clip1, int frame1,
+  void GetMarkersForTracksInBothFrames(int clip1, int frame1,
                                        int clip2, int frame2,
-                                       vector<Marker>* markers) const;
-  void GetAllMarkers(vector<Marker>* markers) const;
+                                       vector<Marker> *markers) const;
+  void GetAllMarkers(vector<Marker> *markers) const;
   void SetClipNum(int clip_num);
   int GetClipNum() const;
 
-  // add a marker
+  /// add a marker
   void AddMarker(const Marker& marker);
-  // add markers from another Tracks
+  /// add markers from another Tracks
   void AddTracks(const Tracks& other_tracks);
 
   // Moves the contents of *markers over top of the existing markers. This
   // destroys *markers in the process (but avoids copies).
-  void SetMarkers(vector<Marker>* markers);
+  void SetMarkers(vector<Marker> *markers);
   bool RemoveMarker(int clip, int frame, int track);
   void RemoveMarkersForTrack(int track);
 
@@ -84,6 +88,10 @@ class Tracks {
   // TODO(keir): Consider adding access-map data structures to avoid all the
   // linear lookup penalties for the accessors.
 };
+
+void CoordinatesForMarkersInFrame(const vector<Marker> &markers,
+                                  int clip, int frame,
+                                  libmv::Mat *coordinates);
 
 struct Correspondence {
   Correspondence(int clip1_, int clip2_, int track1_, int track2_):

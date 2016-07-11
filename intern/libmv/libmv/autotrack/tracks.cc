@@ -78,7 +78,19 @@ void Tracks::GetMarkersInFrame(int clip,
   }
 }
 
-void Tracks::GetMarkersForTracksInBothImages(int clip1, int frame1,
+void Tracks::GetMarkersInBothFrames(int clip1, int frame1,
+                                    int clip2, int frame2,
+                                    vector<Marker> *markers) const {
+  for (int i = 0; i < markers_.size(); ++i) {
+    int clip = markers_[i].clip;
+    int frame = markers_[i].frame;
+    if ((clip == clip1 && frame == frame1) ||
+        (clip == clip2 && frame == frame2))
+      markers->push_back(markers_[i]);
+  }
+}
+
+void Tracks::GetMarkersForTracksInBothFrames(int clip1, int frame1,
                                              int clip2, int frame2,
                                              vector<Marker>* markers) const {
   std::vector<int> image1_tracks;
@@ -209,6 +221,22 @@ void Tracks::SetClipNum(int clip_num) {
 
 int Tracks::GetClipNum() const {
   return clip_num_;
+}
+
+void CoordinatesForMarkersInFrame(const vector<Marker> &markers,
+                                  int clip, int frame,
+                                  libmv::Mat *coordinates) {
+  vector<libmv::Vec2> coords;
+  for (int i = 0; i < markers.size(); ++i) {
+    const Marker &marker = markers[i];
+    if (markers[i].clip == clip && markers[i].frame == frame) {
+      coords.push_back(libmv::Vec2(marker.center[0], marker.center[1]));
+    }
+  }
+  coordinates->resize(2, coords.size());
+  for (int i = 0; i < coords.size(); i++) {
+    coordinates->col(i) = coords[i];
+  }
 }
 
 //---------------------		Correspondence data structure 	---------------------

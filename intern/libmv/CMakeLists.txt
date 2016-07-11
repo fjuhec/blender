@@ -77,6 +77,7 @@ if(WITH_LIBMV)
 		libmv/autotrack/autotrack.cc
 		libmv/autotrack/bundle.cc
 		libmv/autotrack/intersect.cc
+		libmv/autotrack/keyframe_selection.cc
 		libmv/autotrack/pipeline.cc
 		libmv/autotrack/predict_tracks.cc
 		libmv/autotrack/reconstruction.cc
@@ -134,6 +135,7 @@ if(WITH_LIBMV)
 		libmv/autotrack/callbacks.h
 		libmv/autotrack/frame_accessor.h
 		libmv/autotrack/intersect.h
+		libmv/autotrack/keyframe_selection.h
 		libmv/autotrack/marker.h
 		libmv/autotrack/model.h
 		libmv/autotrack/pipeline.h
