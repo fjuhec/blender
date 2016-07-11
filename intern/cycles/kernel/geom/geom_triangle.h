@@ -207,9 +207,9 @@ ccl_device float3 triangle_attribute_float3(KernelGlobals *kg, const ShaderData 
 
 /* Patch index for triangle, -1 if not subdivision triangle */
 
-ccl_device_inline int subd_triangle_patch(KernelGlobals *kg, const ShaderData *sd)
+ccl_device_inline uint subd_triangle_patch(KernelGlobals *kg, const ShaderData *sd)
 {
-	return __float_as_int(kernel_tex_fetch(__tri_vindex, ccl_fetch(sd, prim)).w);
+	return kernel_tex_fetch(__tri_patch, ccl_fetch(sd, prim));
 }
 
 /* UV coords of triangle within patch */
@@ -218,14 +218,9 @@ ccl_device_inline void subd_triangle_patch_uv(KernelGlobals *kg, const ShaderDat
 {
 	float4 tri_vindex = kernel_tex_fetch(__tri_vindex, ccl_fetch(sd, prim));
 
-	uv[0].x = kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.x)).w;
-	uv[0].y = kernel_tex_fetch(__tri_vnormal, __float_as_int(tri_vindex.x)).w;
-
-	uv[1].x = kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.y)).w;
-	uv[1].y = kernel_tex_fetch(__tri_vnormal, __float_as_int(tri_vindex.y)).w;
-
-	uv[2].x = kernel_tex_fetch(__tri_verts, __float_as_int(tri_vindex.z)).w;
-	uv[2].y = kernel_tex_fetch(__tri_vnormal, __float_as_int(tri_vindex.z)).w;
+	uv[0] = kernel_tex_fetch(__tri_patch_uv, __float_as_int(tri_vindex.x));
+	uv[1] = kernel_tex_fetch(__tri_patch_uv, __float_as_int(tri_vindex.y));
+	uv[2] = kernel_tex_fetch(__tri_patch_uv, __float_as_int(tri_vindex.z));
 }
 
 /* Vertex indices of patch */

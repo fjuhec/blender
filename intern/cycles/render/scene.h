@@ -74,6 +74,8 @@ public:
 	device_vector<float4> tri_vnormal;
 	device_vector<float4> tri_vindex;
 	device_vector<float4> tri_verts;
+	device_vector<uint> tri_patch;
+	device_vector<float2> tri_patch_uv;
 
 	device_vector<float4> curves;
 	device_vector<float4> curve_keys;

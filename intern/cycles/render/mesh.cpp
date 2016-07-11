@@ -565,13 +565,15 @@ void Mesh::pack_normals(Scene *scene, uint *tri_shader, float4 *vnormal)
 		if(do_transform)
 			vNi = normalize(transform_direction(&ntfm, vNi));
 
-		float patch_v = (!subd_faces.size()) ? 0.0f : vert_patch_uv[i].y;
-
-		vnormal[i] = make_float4(vNi.x, vNi.y, vNi.z, patch_v);
+		vnormal[i] = make_float4(vNi.x, vNi.y, vNi.z, 0.0f);
 	}
 }
 
-void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
+void Mesh::pack_verts(float4 *tri_verts,
+                      float4 *tri_vindex,
+                      uint *tri_patch,
+                      float2 *tri_patch_uv,
+                      size_t vert_offset)
 {
 	size_t verts_size = verts.size();
 
@@ -580,9 +582,12 @@ void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
 
 		for(size_t i = 0; i < verts_size; i++) {
 			float3 p = verts_ptr[i];
-			float patch_u = (!subd_faces.size()) ? 0.0f : vert_patch_uv[i].x;
 
-			tri_verts[i] = make_float4(p.x, p.y, p.z, patch_u);
+			tri_verts[i] = make_float4(p.x, p.y, p.z, 0.0f);
+
+			if(subd_faces.size()) {
+				tri_patch_uv[i] = vert_patch_uv[i];
+			}
 		}
 	}
 
@@ -591,13 +596,14 @@ void Mesh::pack_verts(float4 *tri_verts, float4 *tri_vindex, size_t vert_offset)
 	if(triangles_size) {
 		for(size_t i = 0; i < triangles_size; i++) {
 			Triangle t = get_triangle(i);
-			uint patch_index = (!subd_faces.size()) ? -1 : (triangle_patch[i]*8 + patch_offset);
 
 			tri_vindex[i] = make_float4(
 				__int_as_float(t.v[0] + vert_offset),
 				__int_as_float(t.v[1] + vert_offset),
 				__int_as_float(t.v[2] + vert_offset),
-				__int_as_float(patch_index));
+				0.0f);
+
+			tri_patch[i] = (!subd_faces.size()) ? -1 : (triangle_patch[i]*8 + patch_offset);
 		}
 	}
 }
@@ -1326,10 +1332,16 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 		float4 *vnormal = dscene->tri_vnormal.resize(vert_size);
 		float4 *tri_verts = dscene->tri_verts.resize(vert_size);
 		float4 *tri_vindex = dscene->tri_vindex.resize(tri_size);
+		uint *tri_patch = dscene->tri_patch.resize(tri_size);
+		float2 *tri_patch_uv = dscene->tri_patch_uv.resize(vert_size);
 
 		foreach(Mesh *mesh, scene->meshes) {
 			mesh->pack_normals(scene, &tri_shader[mesh->tri_offset], &vnormal[mesh->vert_offset]);
-			mesh->pack_verts(&tri_verts[mesh->vert_offset], &tri_vindex[mesh->tri_offset], mesh->vert_offset);
+			mesh->pack_verts(&tri_verts[mesh->vert_offset],
+			                 &tri_vindex[mesh->tri_offset],
+			                 &tri_patch[mesh->tri_offset],
+			                 &tri_patch_uv[mesh->vert_offset],
+			                 mesh->vert_offset);
 
 			if(progress.get_cancel()) return;
 		}
@@ -1341,6 +1353,8 @@ void MeshManager::device_update_mesh(Device *device, DeviceScene *dscene, Scene 
 		device->tex_alloc("__tri_vnormal", dscene->tri_vnormal);
 		device->tex_alloc("__tri_verts", dscene->tri_verts);
 		device->tex_alloc("__tri_vindex", dscene->tri_vindex);
+		device->tex_alloc("__tri_patch", dscene->tri_patch);
+		device->tex_alloc("__tri_patch_uv", dscene->tri_patch_uv);
 	}
 
 	if(curve_size != 0) {
@@ -1661,6 +1675,8 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 	device->tex_free(dscene->tri_vnormal);
 	device->tex_free(dscene->tri_vindex);
 	device->tex_free(dscene->tri_verts);
+	device->tex_free(dscene->tri_patch);
+	device->tex_free(dscene->tri_patch_uv);
 	device->tex_free(dscene->curves);
 	device->tex_free(dscene->curve_keys);
 	device->tex_free(dscene->patches);
@@ -1680,6 +1696,8 @@ void MeshManager::device_free(Device *device, DeviceScene *dscene)
 	dscene->tri_vnormal.clear();
 	dscene->tri_vindex.clear();
 	dscene->tri_verts.clear();
+	dscene->tri_patch.clear();
+	dscene->tri_patch_uv.clear();
 	dscene->curves.clear();
 	dscene->curve_keys.clear();
 	dscene->patches.clear();
