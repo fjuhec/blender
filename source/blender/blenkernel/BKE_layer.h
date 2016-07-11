@@ -95,6 +95,7 @@ typedef struct LayerType {
 
 void BKE_layertype_append(void (*ltfunc)(LayerType *));
 void BKE_layertypes_free(void);
+LayerType *BKE_layertype_get(const eLayerTree_Type type_id);
 
 /* -------------------------------------------------------------------- */
 /* Layer Tree Item */

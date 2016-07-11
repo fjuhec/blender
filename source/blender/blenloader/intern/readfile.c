@@ -101,6 +101,8 @@
 #include "DNA_movieclip_types.h"
 #include "DNA_mask_types.h"
 
+#include "RNA_access.h"
+
 #include "MEM_guardedalloc.h"
 
 #include "BLI_endian_switch.h"
@@ -2154,6 +2156,17 @@ static void direct_link_id(FileData *fd, ID *id)
 		id->properties = newdataadr(fd, id->properties);
 		/* this case means the data was written incorrectly, it should not happen */
 		IDP_DirectLinkGroup_OrFree(&id->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+	}
+}
+
+
+/* ************ READ Base *************** */
+
+static void direct_link_bases(FileData *fd, ListBase *bases)
+{
+	link_list(fd, bases);
+	for (Base *base = bases->first; base; base = base->next) {
+		base->layer = newdataadr(fd, base->layer);
 	}
 }
 
@@ -5836,13 +5849,20 @@ static void direct_link_layeritems(FileData *fd, ListBase *layeritems, LayerTree
 
 		litem->tree = ltree;
 		litem->parent = newdataadr(fd, litem->parent);
+		litem->type = BKE_layertype_get(litem->type_id);
+
+		/* custom property stuff */
 		litem->prop = newdataadr(fd, litem->prop);
 		IDP_DirectLinkGroup_OrFree(&litem->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+		/* recreate rna pointer */
+		litem->ptr = MEM_callocN(sizeof(PointerRNA), "Read LayerTreeItem.ptr");
+		RNA_pointer_create(NULL, litem->type->srna, litem->prop, litem->ptr);
 
 		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
 			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-			if (oblayer->bases) {
-				oblayer->bases = newdataadr(fd, oblayer->bases);
+			oblayer->bases = newdataadr(fd, oblayer->bases);
+			for (int i = 0; i < oblayer->tot_bases; i++) {
+				oblayer->bases[i] = newdataadr(fd, oblayer->bases[i]);
 			}
 		}
 		direct_link_layeritems(fd, &litem->childs, ltree, counter);
@@ -5870,9 +5890,9 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 	
 	/* set users to one by default, not in lib-link, this will increase it for compo nodes */
 	id_us_ensure_real(&sce->id);
-	
-	link_list(fd, &(sce->base));
-	
+
+	direct_link_bases(fd, &sce->base);
+
 	sce->adt = newdataadr(fd, sce->adt);
 	direct_link_animdata(fd, sce->adt);
 	

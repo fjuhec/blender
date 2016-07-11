@@ -157,6 +157,13 @@ void BKE_layertypes_free(void)
 	}
 }
 
+/* TODO if we want to support custom (in .py defined) layer types, using eLayerTree_Type
+ * will not be reliable. Could use string instead, just like operators */
+LayerType *BKE_layertype_get(const eLayerTree_Type type_id)
+{
+	return layertypes[type_id];
+}
+
 /** \} */ /* Layer Type */
 
 /* -------------------------------------------------------------------- */
