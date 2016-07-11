@@ -1803,7 +1803,7 @@ static void rna_FileBrowser_FSMenu_active_range(
 
 static void rna_FileBrowser_FSMenu_active_update(struct bContext *C, PointerRNA *UNUSED(ptr))
 {
-	ED_file_change_dir(C, true);
+	ED_file_change_dir(C);
 }
 
 static int rna_FileBrowser_FSMenuSystem_active_get(PointerRNA *ptr)
@@ -3611,6 +3611,12 @@ static void rna_def_space_nla(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "show_strip_curves", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", SNLA_NOSTRIPCURVES);
 	RNA_def_property_ui_text(prop, "Show Control F-Curves", "Show influence F-Curves on strips");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_NLA, NULL);
+	
+	prop = RNA_def_property(srna, "show_local_markers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", SNLA_NOLOCALMARKERS);
+	RNA_def_property_ui_text(prop, "Show Local Markers",
+	                         "Show action-local markers on the strips, useful when synchronising timing across strips");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_NLA, NULL);
 	
 	/* editing */
