@@ -2629,10 +2629,15 @@ static void write_paint(WriteData *wd, Paint *p)
 /**
  * \note Recursive.
  */
-static void write_layeritems(WriteData *wd, Scene *scene, ListBase *layeritems)
+static void write_layertree(WriteData *wd, LayerTree *ltree, ListBase *layeritems)
 {
+	writestruct(wd, DATA, LayerTree, 1, ltree);
+
+	/* write item array */
+	writedata(wd, DATA, sizeof(LayerTreeItem *) * ltree->tot_items, ltree->items_all);
+
 	for (LayerTreeItem *litem = layeritems->first; litem; litem = litem->next) {
-		if (scene->object_layers->type == LAYER_TREETYPE_OBJECT && litem->type->type == LAYER_ITEMTYPE_LAYER) {
+		if (ltree->type == LAYER_TREETYPE_OBJECT && litem->type->type == LAYER_ITEMTYPE_LAYER) {
 			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 			writestruct(wd, DATA, LayerTypeObject, 1, oblayer);
 			writedata(wd, DATA, sizeof(*oblayer->bases) * oblayer->tot_bases, oblayer->bases);
@@ -2643,8 +2648,8 @@ static void write_layeritems(WriteData *wd, Scene *scene, ListBase *layeritems)
 		if (litem->prop) {
 			IDP_WriteProperty(litem->prop, wd);
 		}
-		litem->tree = scene->object_layers;
-		write_layeritems(wd, scene, &litem->childs);
+		litem->tree = ltree;
+		write_layertree(wd, ltree, &litem->childs);
 	}
 }
 #endif
@@ -2852,9 +2857,7 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 
 #ifdef WITH_ADVANCED_LAYERS
 		if (sce->object_layers) {
-			writestruct(wd, DATA, LayerTree, 1, sce->object_layers);
-			writedata(wd, DATA, sizeof(LayerTreeItem *) * sce->object_layers->tot_items, sce->object_layers->items_all);
-			write_layeritems(wd, sce, &sce->object_layers->items);
+			write_layertree(wd, sce->object_layers, &sce->object_layers->items);
 		}
 #endif
 
