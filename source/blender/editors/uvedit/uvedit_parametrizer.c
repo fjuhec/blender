@@ -4908,7 +4908,11 @@ void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
 			hull->h_verts[j]->edge->u.horizontal_angle = p_edge_horizontal_angle(hull->h_verts[j], hull->h_verts[j + 1]);
 		}
 
-		//printf("---horizontal angle of edge [%i]: %f\n", j, hull->h_verts[j]->edge->u.horizontal_angle);
+		/* Since we're counting edges in CW winding we have to set 0.0 to 2*pi */
+		if (compare_ff(hull->h_verts[j]->edge->u.horizontal_angle, 0.0f, FLT_EPSILON)) {
+			hull->h_verts[j]->edge->u.horizontal_angle += 2 * M_PI;
+		}
+		printf("---horizontal angle of edge [%i]: %f\n", j, hull->h_verts[j]->edge->u.horizontal_angle);
 	}
 }
 
@@ -5070,14 +5074,17 @@ bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2], int 
 		return false;
 	}
 	
+	/* Make sure point is outside other NFPs */
 	for (i = 0; i < nfp_count; i++) {
 		if (nfps[i] && (i != index)) {
 			if (p_point_inside_nfp(nfps[i], p)) {
+				printf("--end_pos x: %f y: %f is inside nfps[%i]!\n", p[0], p[1], index);
 				return false;
 			}
 		}
 	}
 
+	printf("--end_pos inside IFP and outside of other NFPs!\n");
 	return true;
 }
 
@@ -5105,6 +5112,13 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	qsort(points, (size_t)nfp->nverts, sizeof(PVert *), vert_anglesort);
 	printf("Sorting done\n");
 
+	for (i = 0; i < nfp->nverts; i++) {
+		printf("-- horizontal angle of points[%i]: %f\n", i, points[i]->edge->u.horizontal_angle);
+	}
+
+	printf("***item ref vertex: x: %f, y: %f\n", item->h_verts[item->ref_vert_index]->uv[0], item->h_verts[item->ref_vert_index]->uv[1]);
+	printf("***fixed ref vertex: x: %f, y: %f\n", fixed->h_verts[fixed->ref_vert_index]->uv[0], fixed->h_verts[fixed->ref_vert_index]->uv[1]);
+
 	/* offset edges so they start at item ref vert*/
 	/* ToDo SaphireS: not used yet! also optimize.. */
 	for (j = 0; j < nfp->nverts; j++) {		
@@ -5126,8 +5140,8 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	nfp->final_pos[0] = p;
 	for (j = 1; j < nfp->nverts; j++) {
 		PPointUV *p1 = (PPointUV *)MEM_callocN(sizeof(*p1), "PPointUV1");
-		p1->x = nfp->final_pos[j - 1]->x + points[j-1]->u.delta_edge[0];
-		p1->y = nfp->final_pos[j - 1]->y + points[j-1]->u.delta_edge[1];
+		p1->x = nfp->final_pos[j - 1]->x + points[j - 1]->u.delta_edge[0];
+		p1->y = nfp->final_pos[j - 1]->y + points[j - 1]->u.delta_edge[1];
 		nfp->final_pos[j] = p1;
 	}
 
@@ -5383,7 +5397,7 @@ void param_irregular_pack_begin(ParamHandle *handle)
 	qsort(phandle->charts, (size_t)phandle->ncharts, sizeof(PChart *), chart_areasort);
 
 	if (p_compute_packing_solution(phandle)) {
-		printf("packing solution found\n");
+		printf("packing solution found---------------------------------------------\n");
 	}
 
 	/* ToDo (SaphireS) */
