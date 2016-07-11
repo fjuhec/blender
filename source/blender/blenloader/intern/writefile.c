@@ -193,9 +193,9 @@
 
 /* ********* my write, buffered writing with minimum size chunks ************ */
 
-#define MYWRITE_BUFFER_SIZE	100000
-#define MYWRITE_MAX_CHUNK	32768
-
+/* Use optimal allocation since blocks of this size are kept in memory for undo. */
+#define MYWRITE_BUFFER_SIZE (MEM_SIZE_OPTIMAL(1 << 17))  /* 128kb */
+#define MYWRITE_MAX_CHUNK   (MEM_SIZE_OPTIMAL(1 << 15))  /* ~32kb */
 
 
 /** \name Small API to handle compression.
@@ -368,26 +368,31 @@ static void writedata_free(WriteData *wd)
 /***/
 
 /**
+ * Flush helps the de-duplicating memory for undo-save by logically segmenting data,
+ * so differences in one part of memory won't cause unrelated data to be duplicated.
+ */
+static void mywrite_flush(WriteData *wd)
+{
+	if (wd->count) {
+		writedata_do_write(wd, wd->buf, wd->count);
+		wd->count = 0;
+	}
+}
+
+/**
  * Low level WRITE(2) wrapper that buffers data
  * \param adr Pointer to new chunk of data
  * \param len Length of new chunk of data
  * \warning Talks to other functions with global parameters
  */
-
-#define MYWRITE_FLUSH		NULL
-
 static void mywrite(WriteData *wd, const void *adr, int len)
 {
 	if (UNLIKELY(wd->error)) {
 		return;
 	}
 
-	/* flush helps compression for undo-save */
-	if (adr == MYWRITE_FLUSH) {
-		if (wd->count) {
-			writedata_do_write(wd, wd->buf, wd->count);
-			wd->count = 0;
-		}
+	if (adr == NULL) {
+		BLI_assert(0);
 		return;
 	}
 
@@ -818,8 +823,7 @@ static void write_actions(WriteData *wd, ListBase *idbase)
 		}
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_keyingsets(WriteData *wd, ListBase *list)
@@ -1896,8 +1900,7 @@ static void write_objects(WriteData *wd, ListBase *idbase)
 		ob = ob->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 
@@ -1925,8 +1928,7 @@ static void write_vfonts(WriteData *wd, ListBase *idbase)
 		vf = vf->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 
@@ -1959,8 +1961,8 @@ static void write_keys(WriteData *wd, ListBase *idbase)
 
 		key = key->id.next;
 	}
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+
+	mywrite_flush(wd);
 }
 
 static void write_cameras(WriteData *wd, ListBase *idbase)
@@ -2062,8 +2064,7 @@ static void write_curves(WriteData *wd, ListBase *idbase)
 		cu = cu->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_dverts(WriteData *wd, int count, MDeformVert *dvlist)
@@ -2337,6 +2338,8 @@ static void write_meshes(WriteData *wd, ListBase *idbase)
 
 		mesh = mesh->id.next;
 	}
+
+	mywrite_flush(wd);
 }
 
 static void write_lattices(WriteData *wd, ListBase *idbase)
@@ -2364,8 +2367,7 @@ static void write_lattices(WriteData *wd, ListBase *idbase)
 		lt = lt->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_images(WriteData *wd, ListBase *idbase)
@@ -2409,8 +2411,8 @@ static void write_images(WriteData *wd, ListBase *idbase)
 		}
 		ima = ima->id.next;
 	}
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+
+	mywrite_flush(wd);
 }
 
 static void write_textures(WriteData *wd, ListBase *idbase)
@@ -2462,8 +2464,7 @@ static void write_textures(WriteData *wd, ListBase *idbase)
 		tex = tex->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_materials(WriteData *wd, ListBase *idbase)
@@ -2580,8 +2581,7 @@ static void write_lamps(WriteData *wd, ListBase *idbase)
 		la = la->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_sequence_modifiers(WriteData *wd, ListBase *modbase)
@@ -2859,8 +2859,8 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 
 		sce= sce->id.next;
 	}
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+
+	mywrite_flush(wd);
 }
 
 static void write_gpencils(WriteData *wd, ListBase *lb)
@@ -2898,8 +2898,7 @@ static void write_gpencils(WriteData *wd, ListBase *lb)
 		}
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_windowmanagers(WriteData *wd, ListBase *lb)
@@ -2916,6 +2915,10 @@ static void write_windowmanagers(WriteData *wd, ListBase *lb)
 			writestruct(wd, DATA, Stereo3dFormat, 1, win->stereo3d_format);
 		}
 	}
+
+	/* typically flushing wouldn't be needed however this data _always_ changes,
+	 * so flush here for more efficient undo. */
+	mywrite_flush(wd);
 }
 
 static void write_region(WriteData *wd, ARegion *ar, int spacetype)
@@ -3180,8 +3183,7 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 		sc = sc->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_bone(WriteData *wd, Bone *bone)
@@ -3229,8 +3231,7 @@ static void write_armatures(WriteData *wd, ListBase *idbase)
 		arm = arm->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_texts(WriteData *wd, ListBase *idbase)
@@ -3271,8 +3272,7 @@ static void write_texts(WriteData *wd, ListBase *idbase)
 		text = text->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_speakers(WriteData *wd, ListBase *idbase)
@@ -3316,8 +3316,7 @@ static void write_sounds(WriteData *wd, ListBase *idbase)
 		sound = sound->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_groups(WriteData *wd, ListBase *idbase)
@@ -3341,8 +3340,7 @@ static void write_groups(WriteData *wd, ListBase *idbase)
 		}
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_nodetrees(WriteData *wd, ListBase *idbase)
@@ -3555,8 +3553,7 @@ static void write_movieclips(WriteData *wd, ListBase *idbase)
 		clip = clip->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_masks(WriteData *wd, ListBase *idbase)
@@ -3616,8 +3613,7 @@ static void write_masks(WriteData *wd, ListBase *idbase)
 		mask = mask->id.next;
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 static void write_linestyle_color_modifiers(WriteData *wd, ListBase *modifiers)
@@ -3967,8 +3963,7 @@ static void write_libraries(WriteData *wd, Main *main)
 		}
 	}
 
-	/* flush helps the compression for undo-save */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 }
 
 /* context is usually defined by WM, two cases where no WM is available:
@@ -4070,7 +4065,7 @@ static bool write_file_handle(
 
 	/* The windowmanager and screen often change,
 	 * avoid thumbnail detecting changes because of this. */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 
 	write_windowmanagers(wd, &mainvar->wm);
 	write_screens(wd, &mainvar->screen);
@@ -4106,7 +4101,7 @@ static bool write_file_handle(
 	write_libraries(wd,  mainvar->next);
 
 	/* So changes above don't cause a 'DNA1' to be detected as changed on undo. */
-	mywrite(wd, MYWRITE_FLUSH, 0);
+	mywrite_flush(wd);
 
 	if (write_flags & G_FILE_USERPREFS) {
 		write_userdef(wd);
