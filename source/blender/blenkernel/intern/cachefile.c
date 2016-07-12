@@ -98,8 +98,8 @@ CacheFile *BKE_cachefile_copy(Main *bmain, CacheFile *cache_file)
 		BKE_cachefile_load(new_cache_file, bmain->name);
 	}
 
-	if (cache_file->id.lib) {
-		BKE_id_lib_local_paths(G.main, cache_file->id.lib, &new_cache_file->id);
+	if (ID_IS_LINKED_DATABLOCK(cache_file)) {
+		BKE_id_lib_local_paths(bmain, cache_file->id.lib, &new_cache_file->id);
 	}
 
 	return new_cache_file;
