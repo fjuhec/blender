@@ -5837,6 +5837,7 @@ static void direct_link_view_settings(FileData *fd, ColorManagedViewSettings *vi
 }
 
 #ifdef WITH_ADVANCED_LAYERS
+
 /**
  * \note Recursive.
  */
@@ -5868,6 +5869,15 @@ static void direct_link_layeritems(FileData *fd, ListBase *layeritems, LayerTree
 		direct_link_layeritems(fd, &litem->childs, ltree, counter);
 	}
 }
+
+static void direct_link_layertree(FileData *fd, LayerTree *ltree)
+{
+	int counter = 0;
+	ltree->items_all = newdataadr(fd, ltree->items_all);
+	ltree->active_layer = newdataadr(fd, ltree->active_layer);
+	direct_link_layeritems(fd, &ltree->items, ltree, &counter);
+}
+
 #endif
 
 static void direct_link_scene(FileData *fd, Scene *sce)
@@ -6103,9 +6113,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 #ifdef WITH_ADVANCED_LAYERS
 	sce->object_layers = newdataadr(fd, sce->object_layers);
 	if (sce->object_layers) {
-		int counter = 0;
-		sce->object_layers->items_all = newdataadr(fd, sce->object_layers->items_all);
-		direct_link_layeritems(fd, &sce->object_layers->items, sce->object_layers, &counter);
+		direct_link_layertree(fd, sce->object_layers);
 	}
 #endif
 
