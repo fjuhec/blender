@@ -223,11 +223,17 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "flip_axis")
 
     def MESH_SEQUENCE_CACHE(self, layout, ob, md):
-        layout.template_cache_file(md, "cache_file")
+        layout.label(text="Cache File Properties:")
+        box = layout.box()
+        box.template_cache_file(md, "cache_file")
 
         cache_file = md.cache_file
+        
+        layout.label(text="Modifier Properties:")
+        box = layout.box()
+        
         if cache_file != None:
-            layout.prop_search(md, "abc_object_path", cache_file, "object_paths")
+            box.prop_search(md, "abc_object_path", cache_file, "object_paths")
 
     def CAST(self, layout, ob, md):
         split = layout.split(percentage=0.25)
