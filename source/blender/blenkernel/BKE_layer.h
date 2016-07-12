@@ -79,6 +79,9 @@ typedef enum eLayerTreeItem_Type {
 } eLayerTreeItem_Type;
 
 typedef struct LayerType {
+	/* idname is needed to support reading custom (.py defined) layers. During normal runtime
+	 * using type below should be preferred though, avoids slow string comparisons */
+	const char *idname;
 	eLayerTreeItem_Type type;
 
 	/* drawing of the item in the list */
@@ -95,7 +98,7 @@ typedef struct LayerType {
 
 void BKE_layertype_append(void (*ltfunc)(LayerType *));
 void BKE_layertypes_free(void);
-LayerType *BKE_layertype_get(const eLayerTree_Type type_id);
+LayerType *BKE_layertype_find(const char *idname);
 
 /* -------------------------------------------------------------------- */
 /* Layer Tree Item */

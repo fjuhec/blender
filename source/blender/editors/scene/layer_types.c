@@ -74,6 +74,7 @@ static void object_layer_draw_settings(const bContext *UNUSED(C), LayerTreeItem 
 
 static void LAYERTYPE_object(LayerType *lt)
 {
+	lt->idname = __func__;
 	/* XXX Should re-evaluate how eLayerTreeItem_Type is used */
 	lt->type = LAYER_ITEMTYPE_LAYER;
 
@@ -106,6 +107,7 @@ static void layer_group_draw(const bContext *C, LayerTreeItem *litem, uiLayout *
 
 static void LAYERTYPE_group(LayerType *lt)
 {
+	lt->idname = __func__;
 	lt->type = LAYER_ITEMTYPE_GROUP;
 
 	lt->draw = layer_group_draw;

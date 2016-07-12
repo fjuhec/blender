@@ -108,9 +108,9 @@ typedef struct LayerTreeItem {
 	struct LayerTreeItem *next, *prev;
 
 	struct LayerType *type;
-	int type_id;    /* eLayerTreeItem_Type item to get LayerType pointer - needed for file read */
+	char idname[64]; /* LayerType.idname, for finding type on file read */
 
-	int index;      /* index of the item - stored to avoid loockups */
+	int pad, index; /* index of the item - stored to avoid loockups */
 	char name[64];  /* MAX_NAME */
 
 	LayerTree *tree; /* pointer back to layer tree - TODO check if needed */

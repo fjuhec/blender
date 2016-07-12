@@ -5849,7 +5849,7 @@ static void direct_link_layeritems(FileData *fd, ListBase *layeritems, LayerTree
 
 		litem->tree = ltree;
 		litem->parent = newdataadr(fd, litem->parent);
-		litem->type = BKE_layertype_get(litem->type_id);
+		litem->type = BKE_layertype_find(litem->idname);
 
 		/* custom property stuff */
 		litem->prop = newdataadr(fd, litem->prop);

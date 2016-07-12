@@ -41,6 +41,7 @@
 
 #include "BLI_alloca.h"
 #include "BLI_listbase.h"
+#include "BLI_ghash.h"
 #include "BLI_string.h"
 
 #include "MEM_guardedalloc.h"
@@ -132,10 +133,14 @@ int BKE_layertree_get_totitems(const LayerTree *ltree)
  * \{ */
 
 /**
+ * String hash table for quick LayerType.idname lookups.
+ */
+static GHash *layertypes_hash = NULL;
+/**
  * Array of all registered layer types. The index of a layer type matches items
  * in eLayerTreeItem_Type. Length should always match #LAYER_ITEMTYPE_TOT.
 */
-static LayerType *layertypes[LAYER_ITEMTYPE_TOT] = {NULL};
+static LayerType *layertypes_vec[LAYER_ITEMTYPE_TOT] = {NULL};
 
 
 void BKE_layertype_append(void (*ltfunc)(LayerType *))
@@ -144,24 +149,25 @@ void BKE_layertype_append(void (*ltfunc)(LayerType *))
 	lt->srna = RNA_def_struct_ptr(&BLENDER_RNA, "", &RNA_LayerProperties);
 	ltfunc(lt);
 
+	/* insert into array */
 	BLI_assert(lt->type >= 0 && lt->type < LAYER_ITEMTYPE_TOT);
-	layertypes[lt->type] = lt;
+	layertypes_vec[lt->type] = lt;
+	/* insert into hash */
+	if (UNLIKELY(!layertypes_hash)) {
+		/* reserve size is set based on blender default setup */
+		layertypes_hash = BLI_ghash_str_new_ex("wm_operatortype_init gh", 2);
+	}
+	BLI_ghash_insert(layertypes_hash, (void *)lt->idname, lt);
 }
 
 void BKE_layertypes_free(void)
 {
-	for (int i = 0; i < ARRAY_SIZE(layertypes); i++) {
-		if (layertypes[i]) {
-			MEM_freeN(layertypes[i]);
-		}
-	}
+	BLI_ghash_free(layertypes_hash, NULL, MEM_freeN);
 }
 
-/* TODO if we want to support custom (in .py defined) layer types, using eLayerTree_Type
- * will not be reliable. Could use string instead, just like operators */
-LayerType *BKE_layertype_get(const eLayerTree_Type type_id)
+LayerType *BKE_layertype_find(const char *idname)
 {
-	return layertypes[type_id];
+	return BLI_ghash_lookup(layertypes_hash, idname);
 }
 
 /** \} */ /* Layer Type */
@@ -184,7 +190,8 @@ void BKE_layeritem_register(
         LayerTree *tree, LayerTreeItem *litem, LayerTreeItem *parent,
         const eLayerTreeItem_Type type, const char *name)
 {
-	litem->type = layertypes[type];
+	litem->type = layertypes_vec[type];
+	BLI_strncpy(litem->idname, litem->type->idname, MAX_NAME);
 
 	/* initialize properties */
 	IDPropertyTemplate val = {0};
