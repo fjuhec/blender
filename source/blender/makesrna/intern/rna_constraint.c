@@ -2592,7 +2592,7 @@ static void rna_def_constraint_transform_cache(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Constraint_dependency_update");
 
 	prop = RNA_def_property(srna, "abc_object_path", PROP_STRING, PROP_NONE);
-	RNA_def_property_ui_text(prop, "Object Path", "Path to the object in the Alembic archive");
+	RNA_def_property_ui_text(prop, "Object Path", "Path to the object in the Alembic archive used to lookup the transform matrix");
 	RNA_def_property_update(prop, 0, "rna_Constraint_update");
 }
 

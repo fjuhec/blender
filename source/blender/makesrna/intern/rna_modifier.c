@@ -4284,7 +4284,7 @@ static void rna_def_modifier_meshseqcache(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
 	prop = RNA_def_property(srna, "abc_object_path", PROP_STRING, PROP_NONE);
-	RNA_def_property_ui_text(prop, "Object", "Path to the object in the Alembic archive");
+	RNA_def_property_ui_text(prop, "Object Path", "Path to the object in the Alembic archive used to lookup geometric data");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "velocity_cache", PROP_FLOAT, PROP_NONE);
