@@ -42,11 +42,21 @@ enum {
 	CACHEFILE_DS_EXPAND = (1 << 0),
 };
 
+typedef struct AlembicObjectPath {
+	struct AlembicObjectPath *next, *prev;
+
+	char path[1024];  /* 1024 = FILE_MAX, might use PATH_MAX in the future. */
+} AlembicObjectPath;
+
 typedef struct CacheFile {
 	ID id;
 	struct AnimData *adt;
 
 	struct AbcArchiveHandle *handle;
+
+	/* Paths of the objects inside of the Alembic archive referenced by this
+	 * CacheFile. */
+	ListBase object_paths;
 
 	char filepath[1024];  /* 1024 = FILE_MAX */
 

@@ -63,7 +63,34 @@ static void rna_CacheFile_update_handle(Main *bmain, Scene *scene, PointerRNA *p
 	rna_CacheFile_update(bmain, scene, ptr);
 }
 
+static void rna_CacheFile_object_paths_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
+{
+	CacheFile *cache_file = (CacheFile *)ptr->data;
+	rna_iterator_listbase_begin(iter, &cache_file->object_paths, NULL);
+}
+
 #else
+
+/* cachefile.object_paths */
+static void rna_def_alembic_object_path(BlenderRNA *brna)
+{
+	StructRNA *srna = RNA_def_struct(brna, "AlembicObjectPath", NULL);
+	RNA_def_struct_sdna(srna, "AlembicObjectPath");
+	RNA_def_struct_ui_text(srna, "Object Path", "Path of an object inside of an Alembic archive");
+
+	PropertyRNA *prop = RNA_def_property(srna, "path", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Path", "Object path");
+	RNA_def_struct_name_property(srna, prop);
+}
+
+/* cachefile.object_paths */
+static void rna_def_cachefile_object_paths(BlenderRNA *brna, PropertyRNA *cprop)
+{
+	RNA_def_property_srna(cprop, "AlembicObjectPaths");
+	StructRNA *srna = RNA_def_struct(brna, "AlembicObjectPaths", NULL);
+	RNA_def_struct_sdna(srna, "CacheFile");
+	RNA_def_struct_ui_text(srna, "Object Paths", "Collection of object paths");
+}
 
 static void rna_def_cachefile(BlenderRNA *brna)
 {
@@ -116,12 +143,24 @@ static void rna_def_cachefile(BlenderRNA *brna)
 	                                        " only applicable through a Transform Cache constraint");
 	RNA_def_property_update(prop, 0, "rna_CacheFile_update");
 
+	/* object paths */
+	prop = RNA_def_property(srna, "object_paths", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_collection_sdna(prop, NULL, "object_paths", NULL);
+	RNA_def_property_collection_funcs(prop, "rna_CacheFile_object_paths_begin", "rna_iterator_listbase_next",
+	                                  "rna_iterator_listbase_end", "rna_iterator_listbase_get",
+	                                  NULL, NULL, NULL, NULL);
+	RNA_def_property_struct_type(prop, "AlembicObjectPath");
+	RNA_def_property_srna(prop, "AlembicObjectPaths");
+	RNA_def_property_ui_text(prop, "Object Paths", "Paths of the objects inside the Alembic archive");
+	rna_def_cachefile_object_paths(brna, prop);
+
 	rna_def_animdata_common(srna);
 }
 
 void RNA_def_cachefile(BlenderRNA *brna)
 {
 	rna_def_cachefile(brna);
+	rna_def_alembic_object_path(brna);
 }
 
 #endif

@@ -29,6 +29,7 @@ extern "C" {
 
 struct bContext;
 struct DerivedMesh;
+struct ListBase;
 struct Object;
 struct Scene;
 
@@ -73,7 +74,7 @@ void ABC_import(struct bContext *C,
                 int sequence_len,
                 int offset);
 
-AbcArchiveHandle *ABC_create_handle(const char *filename);
+AbcArchiveHandle *ABC_create_handle(const char *filename, struct ListBase *object_paths);
 
 void ABC_free_handle(AbcArchiveHandle *handle);
 

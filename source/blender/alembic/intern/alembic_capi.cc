@@ -153,9 +153,102 @@ static IArchive *open_archive(const std::string &filename)
 	return archive;
 }
 
-AbcArchiveHandle *ABC_create_handle(const char *filename)
+/* NOTE: this function is similar to visit_objects below, need to keep them in
+ * sync. */
+static void gather_objects_paths(const IObject &object, ListBase *object_paths)
 {
-	return handle_from_archive(open_archive(filename));
+	if (!object.valid()) {
+		return;
+	}
+
+	for (int i = 0; i < object.getNumChildren(); ++i) {
+		IObject child = object.getChild(i);
+
+		if (!child.valid()) {
+			continue;
+		}
+
+		bool get_path = false;
+
+		const MetaData &md = child.getMetaData();
+
+		if (IXform::matches(md)) {
+			/* Check whether or not this object is a Maya locator, which is
+			 * similar to empties used as parent object in Blender. */
+			if (has_property(child.getProperties(), "locator")) {
+				get_path = true;
+			}
+			else {
+				/* Avoid creating an empty object if the child of this transform
+				 * is not a transform (that is an empty). */
+				if (child.getNumChildren() == 1) {
+					if (IXform::matches(child.getChild(0).getMetaData())) {
+						get_path = true;
+					}
+#if 0
+					else {
+						std::cerr << "Skipping " << child.getFullName() << '\n';
+					}
+#endif
+				}
+				else {
+					get_path = true;
+				}
+			}
+		}
+		else if (IPolyMesh::matches(md)) {
+			get_path = true;
+		}
+		else if (ISubD::matches(md)) {
+			get_path = true;
+		}
+		else if (INuPatch::matches(md)) {
+			get_path = true;
+		}
+		else if (ICamera::matches(md)) {
+			get_path = true;
+		}
+		else if (IPoints::matches(md)) {
+			get_path = true;
+		}
+		else if (IMaterial::matches(md)) {
+			/* Pass for now. */
+		}
+		else if (ILight::matches(md)) {
+			/* Pass for now. */
+		}
+		else if (IFaceSet::matches(md)) {
+			/* Pass, those are handled in the mesh reader. */
+		}
+		else if (ICurves::matches(md)) {
+			get_path = true;
+		}
+		else {
+			assert(false);
+		}
+
+		if (get_path) {
+			AlembicObjectPath *abc_path = static_cast<AlembicObjectPath *>(
+			                                  MEM_callocN(sizeof(AlembicObjectPath), "AlembicObjectPath"));
+
+			BLI_strncpy(abc_path->path, child.getFullName().c_str(), PATH_MAX);
+
+			BLI_addtail(object_paths, abc_path);
+		}
+
+		gather_objects_paths(child, object_paths);
+	}
+}
+
+AbcArchiveHandle *ABC_create_handle(const char *filename, ListBase *object_paths)
+{
+	IArchive *archive = open_archive(filename);
+
+	if (object_paths) {
+		gather_objects_paths(archive->getTop(), object_paths);
+	}
+
+	return handle_from_archive(archive);
 }
 
 void ABC_free_handle(AbcArchiveHandle *handle)
@@ -409,6 +502,13 @@ static void visit_object(const IObject &object,
 
 		if (reader) {
 			readers.push_back(reader);
+
+			AlembicObjectPath *abc_path = static_cast<AlembicObjectPath *>(
+			                                  MEM_callocN(sizeof(AlembicObjectPath), "AlembicObjectPath"));
+
+			BLI_strncpy(abc_path->path, child.getFullName().c_str(), PATH_MAX);
+
+			BLI_addtail(&settings.cache_file->object_paths, abc_path);
 
 			/* Cast to `void *` explicitly to avoid compiler errors because it
 			 * is a `const char *` which the compiler cast to `const void *`

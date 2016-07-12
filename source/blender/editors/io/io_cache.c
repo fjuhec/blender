@@ -30,6 +30,7 @@
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 
+#include "BKE_cachefile.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_library.h"
@@ -91,6 +92,7 @@ static int cachefile_open_exec(bContext *C, wmOperator *op)
 
 	CacheFile *cache_file = BKE_libblock_alloc(bmain, ID_CF, BLI_path_basename(filename));
 	BLI_strncpy(cache_file->filepath, filename, FILE_MAX);
+	BKE_cachefile_load(cache_file, bmain->name);
 
 	/* hook into UI */
 	PropertyPointerRNA *pprop = op->customdata;

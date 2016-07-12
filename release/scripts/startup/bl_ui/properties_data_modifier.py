@@ -224,7 +224,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def MESH_SEQUENCE_CACHE(self, layout, ob, md):
         layout.template_cache_file(md, "cache_file")
-        layout.prop(md, "abc_object_path")
+
+        cache_file = md.cache_file
+        if cache_file != None:
+            layout.prop_search(md, "abc_object_path", cache_file, "object_paths")
 
     def CAST(self, layout, ob, md):
         split = layout.split(percentage=0.25)
