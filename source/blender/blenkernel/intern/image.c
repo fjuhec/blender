@@ -459,17 +459,14 @@ Image *BKE_image_copy(Main *bmain, Image *ima)
 	nima->stereo3d_format = MEM_dupallocN(ima->stereo3d_format);
 	BLI_duplicatelist(&nima->views, &ima->views);
 
+	nima->preview = BKE_previewimg_copy(ima->preview);
+
 	if (ID_IS_LINKED_DATABLOCK(ima)) {
+		BKE_id_expand_local(&nima->id);
 		BKE_id_lib_local_paths(bmain, ima->id.lib, &nima->id);
 	}
 
 	return nima;
-}
-
-static void extern_local_image(Image *UNUSED(ima))
-{
-	/* Nothing to do: images don't link to other IDs. This function exists to
-	 * match id_make_local pattern. */
 }
 
 void BKE_image_make_local(Main *bmain, Image *ima)
@@ -490,15 +487,12 @@ void BKE_image_make_local(Main *bmain, Image *ima)
 	if (is_local) {
 		if (!is_lib) {
 			id_clear_lib_data(bmain, &ima->id);
-			extern_local_image(ima);
+			BKE_id_expand_local(&ima->id);
 		}
 		else {
 			Image *ima_new = BKE_image_copy(bmain, ima);
 
 			ima_new->id.us = 0;
-
-			/* Remap paths of new ID using old library as base. */
-			BKE_id_lib_local_paths(bmain, ima->id.lib, &ima_new->id);
 
 			BKE_libblock_remap(bmain, ima, ima_new, ID_REMAP_SKIP_INDIRECT_USAGE);
 		}

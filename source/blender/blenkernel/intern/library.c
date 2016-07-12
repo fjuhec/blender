@@ -254,6 +254,24 @@ void id_fake_user_clear(ID *id)
 	}
 }
 
+static int id_expand_local_callback(
+        void *UNUSED(user_data), struct ID *UNUSED(id_self), struct ID **id_pointer, int UNUSED(cd_flag))
+{
+	if (*id_pointer) {
+		id_lib_extern(*id_pointer);
+	}
+
+	return IDWALK_RET_NOP;
+}
+
+/**
+ * Expand ID usages of given id as 'extern' (and no more indirect) linked data. Used by ID copy/make_local functions.
+ */
+void BKE_id_expand_local(ID *id)
+{
+	BKE_library_foreach_ID_link(id, id_expand_local_callback, NULL, 0);
+}
+
 /* calls the appropriate make_local method for the block, unless test. Returns true
  * if the block can be made local. */
 bool id_make_local(Main *bmain, ID *id, bool test)

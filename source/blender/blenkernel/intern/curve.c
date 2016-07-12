@@ -202,36 +202,17 @@ Curve *BKE_curve_copy(Main *bmain, Curve *cu)
 	cun->editnurb = NULL;
 	cun->editfont = NULL;
 
-#if 0   // XXX old animation system
-	/* single user ipo too */
-	if (cun->ipo) cun->ipo = copy_ipo(cun->ipo);
-#endif // XXX old animation system
-
 	id_us_plus((ID *)cun->vfont);
 	id_us_plus((ID *)cun->vfontb);
 	id_us_plus((ID *)cun->vfonti);
 	id_us_plus((ID *)cun->vfontbi);
 
 	if (ID_IS_LINKED_DATABLOCK(cu)) {
+		BKE_id_expand_local(&cun->id);
 		BKE_id_lib_local_paths(bmain, cu->id.lib, &cun->id);
 	}
 
 	return cun;
-}
-
-static int extern_local_curve_callback(
-        void *UNUSED(user_data), struct ID *UNUSED(id_self), struct ID **id_pointer, int cd_flag)
-{
-	/* We only tag usercounted ID usages as extern... Why? */
-	if ((cd_flag & IDWALK_USER) && *id_pointer) {
-		id_lib_extern(*id_pointer);
-	}
-	return IDWALK_RET_NOP;
-}
-
-static void extern_local_curve(Curve *cu)
-{
-	BKE_library_foreach_ID_link(&cu->id, extern_local_curve_callback, NULL, 0);
 }
 
 void BKE_curve_make_local(Main *bmain, Curve *cu)
@@ -255,15 +236,12 @@ void BKE_curve_make_local(Main *bmain, Curve *cu)
 			if (cu->key) {
 				BKE_key_make_local(bmain, cu->key);
 			}
-			extern_local_curve(cu);
+			BKE_id_expand_local(&cu->id);
 		}
 		else {
 			Curve *cu_new = BKE_curve_copy(bmain, cu);
 
 			cu_new->id.us = 0;
-
-			/* Remap paths of new ID using old library as base. */
-			BKE_id_lib_local_paths(bmain, cu->id.lib, &cu_new->id);
 
 			BKE_libblock_remap(bmain, cu, cu_new, ID_REMAP_SKIP_INDIRECT_USAGE);
 		}

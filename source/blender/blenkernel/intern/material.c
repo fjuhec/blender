@@ -239,15 +239,16 @@ Material *BKE_material_copy(Main *bmain, Material *ma)
 	if (ma->ramp_col) man->ramp_col = MEM_dupallocN(ma->ramp_col);
 	if (ma->ramp_spec) man->ramp_spec = MEM_dupallocN(ma->ramp_spec);
 	
-	if (ma->preview) man->preview = BKE_previewimg_copy(ma->preview);
-
 	if (ma->nodetree) {
 		man->nodetree = ntreeCopyTree(bmain, ma->nodetree);
 	}
 
+	man->preview = BKE_previewimg_copy(ma->preview);
+
 	BLI_listbase_clear(&man->gpumaterial);
-	
+
 	if (ID_IS_LINKED_DATABLOCK(ma)) {
+		BKE_id_expand_local(&man->id);
 		BKE_id_lib_local_paths(bmain, ma->id.lib, &man->id);
 	}
 
@@ -284,21 +285,6 @@ Material *localize_material(Material *ma)
 	return man;
 }
 
-static int extern_local_material_callback(
-        void *UNUSED(user_data), struct ID *UNUSED(id_self), struct ID **id_pointer, int cd_flag)
-{
-	/* We only tag usercounted ID usages as extern... Why? */
-	if ((cd_flag & IDWALK_USER) && *id_pointer) {
-		id_lib_extern(*id_pointer);
-	}
-	return IDWALK_RET_NOP;
-}
-
-static void extern_local_material(Material *ma)
-{
-	BKE_library_foreach_ID_link(&ma->id, extern_local_material_callback, NULL, 0);
-}
-
 void BKE_material_make_local(Main *bmain, Material *ma)
 {
 	bool is_local = false, is_lib = false;
@@ -317,15 +303,12 @@ void BKE_material_make_local(Main *bmain, Material *ma)
 	if (is_local) {
 		if (!is_lib) {
 			id_clear_lib_data(bmain, &ma->id);
-			extern_local_material(ma);
+			BKE_id_expand_local(&ma->id);
 		}
 		else {
 			Material *ma_new = BKE_material_copy(bmain, ma);
 
 			ma_new->id.us = 0;
-
-			/* Remap paths of new ID using old library as base. */
-			BKE_id_lib_local_paths(bmain, ma->id.lib, &ma_new->id);
 
 			BKE_libblock_remap(bmain, ma, ma_new, ID_REMAP_SKIP_INDIRECT_USAGE);
 		}
