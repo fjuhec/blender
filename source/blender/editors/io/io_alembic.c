@@ -441,7 +441,7 @@ void WM_OT_alembic_import(wmOperatorType *ot)
 	                               FILE_BLENDER, FILE_SAVE, WM_FILESEL_FILEPATH,
 	                               FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 
-	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, 1000.0f, "Scale", "", 0.0f, 1000.0f);
+	RNA_def_float(ot->srna, "scale", 1.0f, 0.0001f, 1000.0f, "Scale", "", 0.0001f, 1000.0f);
 
 	RNA_def_boolean(ot->srna, "set_frame_range", true,
 	                "Set Frame Range",
