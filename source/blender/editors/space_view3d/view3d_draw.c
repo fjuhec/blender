@@ -2829,11 +2829,18 @@ static void view3d_objectlayers_drawstep_draw(
         unsigned int *r_lay_used)
 {
 #ifdef WITH_ADVANCED_LAYERS
-	BKE_BASES_ITER_START(scene)
+	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, i, litem)
 	{
-		view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
+		if (BKE_layeritem_is_visible(litem) && litem->type->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
+			{
+				view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
+			}
+			BKE_OBJECTLAYER_BASES_ITER_END;
+		}
 	}
-	BKE_BASES_ITER_END;
+	BKE_LAYERTREE_ITER_END;
 
 #else
 	BKE_BASES_ITER_START(scene)

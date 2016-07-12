@@ -121,5 +121,7 @@ bool BKE_layeritem_iterate_childs(
         LayerTreeItem *litem, LayerTreeIterFunc foreach, void *customdata,
         const bool inverse);
 
+bool BKE_layeritem_is_visible(LayerTreeItem *litem);
+
 #endif  /* __BKE_LAYER_H__ */
 

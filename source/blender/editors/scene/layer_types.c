@@ -45,6 +45,23 @@
 #include "UI_interface_icons.h"
 #include "UI_resources.h"
 
+#include "WM_api.h"
+#include "WM_types.h"
+
+
+static void layer_visibility_update_cb(bContext *C, void *UNUSED(arg1), void *UNUSED(arg2))
+{
+	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
+}
+
+static void layer_visibility_but_draw(uiBlock *block, uiLayout *layout, LayerTreeItem *litem)
+{
+	BLI_assert(uiLayoutGetBlock(layout) == block);
+
+	uiBut *but = uiDefIconButBitC(block, UI_BTYPE_ICON_TOGGLE_N, 1, 0, ICON_VISIBLE_IPO_OFF, 0, 0, UI_UNIT_X, UI_UNIT_Y,
+	                 &litem->is_hidden, 0.0f, 0.0f, 0.0f, 0.0f, "Layer Visibility");
+	UI_but_func_set(but, layer_visibility_update_cb, NULL, NULL);
+}
 
 static void object_layer_draw(const bContext *C, LayerTreeItem *litem, uiLayout *layout)
 {
@@ -57,13 +74,20 @@ static void object_layer_draw(const bContext *C, LayerTreeItem *litem, uiLayout 
 	const int col_icon = UI_colorset_icon_get(RNA_enum_get(litem->ptr, "color_set"));
 	uiItemL(layout, litem->name, col_icon);
 
+	uiLayoutSetAlignment(layout, UI_LAYOUT_ALIGN_RIGHT);
+
 	if (draw_settingbut) {
-		UI_block_emboss_set(block, UI_EMBOSS_NONE);
 		uiDefIconButBitI(block, UI_BTYPE_TOGGLE, LAYERTILE_EXPANDED, 0,
 		                 ICON_SCRIPTWIN, 0, 0, UI_UNIT_X, UI_UNIT_Y, (int *)&tile->flag,
 		                 0.0f, 0.0f, 0.0f, 0.0f, TIP_("Toggle layer settings"));
-		UI_block_emboss_set(block, UI_EMBOSS);
 	}
+	else {
+		/* dummy button for alignment */
+		uiDefIconBut(block, UI_BTYPE_LABEL, 0, ICON_NONE, 0, 0, UI_UNIT_X, UI_UNIT_Y,
+		             NULL, 0.0f, 0.0f, 0.0f, 0.0f, "");
+	}
+
+	layer_visibility_but_draw(block, layout, litem);
 }
 
 static void object_layer_draw_settings(const bContext *UNUSED(C), LayerTreeItem *litem, uiLayout *layout)
@@ -93,16 +117,17 @@ static void layer_group_draw(const bContext *C, LayerTreeItem *litem, uiLayout *
 	uiBlock *block = uiLayoutGetBlock(layout);
 	uiBut *but;
 
-	UI_block_emboss_set(block, UI_EMBOSS_NONE);
 	but = uiDefIconButBitI(block, UI_BTYPE_ICON_TOGGLE_N, LAYERTILE_CLOSED, 0,
 	                 ICON_TRIA_RIGHT, 0, 0, UI_UNIT_X, UI_UNIT_Y, &tile->flag,
 	                 0.0f, 0.0f, 0.0f, 0.0f, TIP_("Toggle display of layer children"));
-	UI_block_emboss_set(block, UI_EMBOSS);
 	UI_but_drawflag_enable(but, UI_BUT_ICON_LEFT); /* doesn't align nicely without this */
 
 	but = uiDefBut(block, UI_BTYPE_LABEL, 0, litem->name, 0, 0, UI_UNIT_X * 10, UI_UNIT_Y,
 	               NULL, 0.0f, 0.0f, 0.0f, 0.0f, "");
 	UI_but_drawflag_enable(but, UI_BUT_TEXT_NO_MARGIN);
+
+	uiLayoutSetAlignment(layout, UI_LAYOUT_ALIGN_RIGHT);
+	layer_visibility_but_draw(block, layout, litem);
 }
 
 static void LAYERTYPE_group(LayerType *lt)

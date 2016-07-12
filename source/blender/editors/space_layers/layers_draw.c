@@ -104,10 +104,17 @@ static float layer_tile_draw(
 	}
 	else {
 		uiLayout *layout = UI_block_layout(
-		        block, UI_LAYOUT_HORIZONTAL, UI_LAYOUT_HEADER,
-		        rect.xmin, rect.ymax, BLI_rctf_size_y(&rect), 0, 0, style);
-		litem->type->draw(C, litem, layout);
-		uiItemL(layout, "", 0); /* XXX without this editing last item causes crashes */
+		        block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL,
+		        rect.xmin, rect.ymax, 0, 0, 0, style);
+		uiLayout *row = uiLayoutRow(layout, false);
+
+		/* un-embossed by default */
+		UI_block_emboss_set(block, UI_EMBOSS_NONE);
+
+		litem->type->draw(C, litem, row);
+
+		UI_block_emboss_set(block, UI_EMBOSS);
+		uiItemL(row, "", 0); /* XXX without this editing last item causes crashes */
 		UI_block_layout_resolve(block, NULL, NULL);
 	}
 	tile_size_y = header_y;

@@ -410,4 +410,20 @@ bool BKE_layeritem_iterate_childs(
 	return layertree_iterate_list(&litem->childs, foreach, customdata, inverse);
 }
 
+/**
+ * Check if \a litem and all of its parents are visible.
+ */
+bool BKE_layeritem_is_visible(LayerTreeItem *litem)
+{
+	if (litem->is_hidden)
+		return false;
+
+	for (LayerTreeItem *parent = litem->parent; parent; parent = parent->parent) {
+		if (parent->is_hidden)
+			return false;
+	}
+
+	return true;
+}
+
 /** \} */ /* Layer Tree Item */

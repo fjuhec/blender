@@ -110,8 +110,13 @@ typedef struct LayerTreeItem {
 	struct LayerType *type;
 	char idname[64]; /* LayerType.idname, for finding type on file read */
 
-	int pad, index; /* index of the item - stored to avoid loockups */
+	int index; /* index of the item - stored to avoid loockups */
 	char name[64];  /* MAX_NAME */
+
+	/* Such stuff should usually be handled using custom props but this is
+	 * an exception: We access it a lot and it's useful for all layer types.
+	 * Will/should stay the only exception so not using bit flags. */
+	char is_hidden, pad[3];
 
 	LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
 	struct LayerTreeItem *parent; /* the group this item belongs to */

@@ -25,6 +25,7 @@ set(INC
 	../../blentranslation
 	../../makesdna
 	../../makesrna
+	../../windowmanager
 	../../../../intern/guardedalloc
 )
 
