@@ -398,7 +398,7 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_boolean(func, "subdiv_schema", 0, "Use Alembic subdivision Schema", "Use Alembic subdivision Schema");
 	RNA_def_enum(func, "compression_type", rna_enum_abc_compression_items, 0, "Compression", "");
 	RNA_def_boolean(func, "packuv"		, 0, "Export with packed UV islands", "Export with packed UV islands");
-	RNA_def_float(func, "scale", 1.0f, 0.0001f, 1000.0f, "Scale", "", 0.0001f, 1000.0f);
+	RNA_def_float(func, "scale", 1.0f, 0.0001f, 1000.0f, "Scale", "Value by which to enlarge or shrink the objects with respect to the world's origin", 0.0001f, 1000.0f);
 
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 #endif

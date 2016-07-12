@@ -254,10 +254,10 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 	            "Geometry Samples", "Number of times per frame object datas are sampled", 1, 128);
 
 	RNA_def_float(ot->srna, "sh_open", 0.0f, -1.0f, 1.0f,
-	              "Shutter Open", "", -1.0f, 1.0f);
+	              "Shutter Open", "Time at which the shutter is open", -1.0f, 1.0f);
 
 	RNA_def_float(ot->srna, "sh_close", 1.0f, -1.0f, 1.0f,
-	              "Shutter Close", "", -1.0f, 1.0f);
+	              "Shutter Close", "Time at which the shutter is closed", -1.0f, 1.0f);
 
 	RNA_def_boolean(ot->srna, "selected", 0,
 	                "Selected Objects Only", "Export only selected objects");
@@ -294,7 +294,9 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 	RNA_def_enum(ot->srna, "compression_type", rna_enum_abc_compression_items,
 	             ABC_ARCHIVE_OGAWA, "Compression", "");
 
-	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, 1000.0f, "Scale", "", 0.0f, 1000.0f);
+	RNA_def_float(ot->srna, "scale", 1.0f, 0.0001f, 1000.0f, "Scale",
+	              "Value by which to enlarge or shrink the objects with respect to the world's origin",
+	              0.0001f, 1000.0f);
 }
 
 /* ************************************************************************** */
@@ -441,7 +443,9 @@ void WM_OT_alembic_import(wmOperatorType *ot)
 	                               FILE_BLENDER, FILE_SAVE, WM_FILESEL_FILEPATH,
 	                               FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 
-	RNA_def_float(ot->srna, "scale", 1.0f, 0.0001f, 1000.0f, "Scale", "", 0.0001f, 1000.0f);
+	RNA_def_float(ot->srna, "scale", 1.0f, 0.0001f, 1000.0f, "Scale",
+	              "Value by which to enlarge or shrink the objects with respect to the world's origin",
+	              0.0001f, 1000.0f);
 
 	RNA_def_boolean(ot->srna, "set_frame_range", true,
 	                "Set Frame Range",
