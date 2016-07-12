@@ -889,6 +889,10 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 		readVertexDataSample(mesh, sample.getPositions(), vertex_normals);
 		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts(), poly_normals);
+
+		if (!vertex_normals && !poly_normals) {
+			BKE_mesh_calc_normals(mesh);
+		}
 	}
 
 	BKE_mesh_validate(mesh, false, false);

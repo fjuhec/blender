@@ -776,6 +776,10 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	read_mverts(mverts, positions, vertex_normals);
 	read_mpolys(mpolys, mloops, mloopuvs, ldata, face_indices, face_counts, uvs, uvs_indices, poly_normals);
 
+	if (!vertex_normals && !poly_normals) {
+		CDDM_calc_normals(dm);
+	}
+
 	CDStreamConfig config;
 	config.user_data = dm;
 	config.mloop = dm->getLoopArray(dm);
