@@ -32,5 +32,6 @@
 struct wmOperatorType;
 
 void CACHEFILE_OT_open(struct wmOperatorType *ot);
+void CACHEFILE_OT_reload(struct wmOperatorType *ot);
 
 #endif /* __IO_CACHE_H__ */

@@ -55,4 +55,5 @@ void ED_operatortypes_io(void)
 #endif
 
 	WM_operatortype_append(CACHEFILE_OT_open);
+	WM_operatortype_append(CACHEFILE_OT_reload);
 }

@@ -3869,6 +3869,8 @@ void uiTemplateCacheFile(uiLayout *layout, bContext *C, PointerRNA *ptr, const c
 	PointerRNA fileptr = RNA_property_pointer_get(ptr, prop);
 	CacheFile *file = fileptr.data;
 
+	uiLayoutSetContextPointer(layout, "edit_cachefile", &fileptr);
+
 	uiTemplateID(layout, C, ptr, propname, NULL, "CACHEFILE_OT_open", NULL);
 
 	if (!file) {
@@ -3884,6 +3886,7 @@ void uiTemplateCacheFile(uiLayout *layout, bContext *C, PointerRNA *ptr, const c
 	row = uiLayoutRow(split, true);
 
 	uiItemR(row, &fileptr, "filepath", 0, "", ICON_NONE);
+	uiItemO(row, "", ICON_FILE_REFRESH, "cachefile.reload");
 
 	row = uiLayoutRow(layout, false);
 	uiItemR(row, &fileptr, "override_frame", 0, "Override Frame", ICON_NONE);
