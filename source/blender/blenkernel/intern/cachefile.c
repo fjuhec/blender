@@ -137,7 +137,7 @@ void BKE_cachefile_update_frame(Main *bmain, Scene *scene, const float ctime, co
 		if (BKE_cachefile_filepath_get(cache_file, time, filename)) {
 #ifdef WITH_ALEMBIC
 			ABC_free_handle(cache_file->handle);
-			cache_file->handle = ABC_create_handle(filename, &cache_file->object_paths);
+			cache_file->handle = ABC_create_handle(filename, NULL);
 #endif
 		}
 	}
