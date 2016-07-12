@@ -1155,6 +1155,8 @@ static int id_relink_looper(void *UNUSED(user_data), ID *UNUSED(self_id), ID **i
 		/* See: NEW_ID macro */
 		if (id->newid) {
 			BKE_library_update_ID_link_user(id->newid, id, cd_flag);
+			/* Not sure of this */
+			IDP_RelinkProperty(id->newid->properties);
 			*id_pointer = id->newid;
 		}
 		else if (id->tag & LIB_TAG_NEW) {

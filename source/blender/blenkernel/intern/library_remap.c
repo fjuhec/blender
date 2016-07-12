@@ -819,6 +819,8 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user)
 			break;
 	}
 
+	IDP_unlinkIDLinks(id);
+
 	/* avoid notifying on removed data */
 	BKE_main_lock(bmain);
 

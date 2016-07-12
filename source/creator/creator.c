@@ -59,6 +59,7 @@
 #include "BKE_depsgraph.h" /* for DAG_init */
 #include "BKE_font.h"
 #include "BKE_global.h"
+#include "BKE_idprop.h"
 #include "BKE_material.h"
 #include "BKE_modifier.h"
 #include "BKE_node.h"
@@ -357,6 +358,7 @@ int main(
 
 	BKE_blender_globals_init();  /* blender.c */
 
+	IDP_init();
 	IMB_init();
 	BKE_cachefiles_init();
 	BKE_images_init();

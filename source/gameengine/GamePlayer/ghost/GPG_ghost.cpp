@@ -71,6 +71,7 @@ extern "C"
 #include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_icons.h"
+#include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_node.h"
 #include "BKE_report.h"
@@ -506,6 +507,7 @@ int main(
 	G.main = NULL;
 
 	MEM_CacheLimiter_set_disabled(true);
+	IDP_init();
 	IMB_init();
 	BKE_images_init();
 	BKE_modifier_init();
