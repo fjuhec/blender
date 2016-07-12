@@ -162,14 +162,12 @@ void BKE_armature_make_local(Main *bmain, bArmature *arm)
 	if (is_local) {
 		if (!is_lib) {
 			id_clear_lib_data(bmain, &arm->id);
+			BKE_id_expand_local(&arm->id);
 		}
 		else {
 			bArmature *arm_new = BKE_armature_copy(bmain, arm);
 
 			arm_new->id.us = 0;
-
-			/* Remap paths of new ID using old library as base. */
-			BKE_id_lib_local_paths(bmain, arm->id.lib, &arm_new->id);
 
 			BKE_libblock_remap(bmain, arm, arm_new, ID_REMAP_SKIP_INDIRECT_USAGE);
 		}
@@ -222,6 +220,7 @@ bArmature *BKE_armature_copy(Main *bmain, bArmature *arm)
 	newArm->sketch = NULL;
 
 	if (ID_IS_LINKED_DATABLOCK(arm)) {
+		BKE_id_expand_local(&newArm->id);
 		BKE_id_lib_local_paths(bmain, arm->id.lib, &newArm->id);
 	}
 
