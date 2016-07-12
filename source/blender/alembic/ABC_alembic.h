@@ -89,7 +89,8 @@ struct DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
                                   struct Object *ob,
                                   struct DerivedMesh *dm,
                                   const char *object_path,
-                                  const float time);
+                                  const float time,
+                                  const char **err_str);
 
 bool ABC_has_velocity_cache(AbcArchiveHandle *handle, const char *object_path, const float time);
 void ABC_get_velocity_cache(AbcArchiveHandle *handle, const char *object_path, float *values, float time);

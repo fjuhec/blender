@@ -981,33 +981,56 @@ static DerivedMesh *read_curves_sample(Object *ob, const IObject &iobject, const
 	return CDDM_from_curve(ob);
 }
 
-DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle, Object *ob, DerivedMesh *dm, const char *object_path, const float time)
+DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
+                           Object *ob,
+                           DerivedMesh *dm,
+                           const char *object_path,
+                           const float time,
+                           const char **err_str)
 {
 	IArchive *archive = archive_from_handle(handle);
 
 	if (!archive || !archive->valid()) {
-		return dm;
+		*err_str = "Invalid archive!";
+		return NULL;
 	}
 
 	IObject iobject;
 	find_iobject(archive->getTop(), iobject, object_path);
 
 	if (!iobject.valid()) {
+		*err_str = "Invalid object: verify object path";
 		return NULL;
 	}
 
 	const ObjectHeader &header = iobject.getHeader();
 
 	if (IPolyMesh::matches(header)) {
+		if (ob->type != OB_MESH) {
+			*err_str = "Object type mismatch: object path points to a mesh!";
+			return NULL;
+		}
+
 		return read_mesh_sample(dm, iobject, time);
 	}
 	else if (IPoints::matches(header)) {
+		if (ob->type != OB_MESH) {
+			*err_str = "Object type mismatch: object path points to a point cloud (requires a mesh object)!";
+			return NULL;
+		}
+
 		return read_points_sample(dm, iobject, time);
 	}
 	else if (ICurves::matches(header)) {
+		if (ob->type != OB_CURVE) {
+			*err_str = "Object type mismatch: object path points to a curve!";
+			return NULL;
+		}
+
 		return read_curves_sample(ob, iobject, time);
 	}
 
+	*err_str = "Unsupported object type: verify object path"; // or poke developer
 	return NULL;
 }
 
