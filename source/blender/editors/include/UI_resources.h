@@ -298,7 +298,11 @@ enum {
 	TH_V3D_CLIPPING_BORDER,
 
 	TH_METADATA_BG,
-	TH_METADATA_TEXT
+	TH_METADATA_TEXT,
+
+	/* color theme for linked markers */
+	TH_LINKED_MARKER,
+	TH_SEL_LINKED_MARKER
 };
 /* XXX WARNING: previous is saved in file, so do not change order! */
 

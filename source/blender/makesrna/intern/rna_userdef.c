@@ -2999,6 +2999,18 @@ static void rna_def_userdef_theme_space_clip(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Selected Marker", "Color of selected marker");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
+	prop = RNA_def_property(srna, "linked_marker", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "linked_marker");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Linked Marker", "Color of linked marker");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "selected_linked_marker", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "sel_linked_marker");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Selected Linked Marker", "Color of selected linked marker");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
 	prop = RNA_def_property(srna, "disabled_marker", PROP_FLOAT, PROP_COLOR_GAMMA);
 	RNA_def_property_float_sdna(prop, NULL, "dis_marker");
 	RNA_def_property_array(prop, 3);

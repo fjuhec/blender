@@ -108,17 +108,17 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	if(!primary_track || !witness_track || num_primary_selected != 1 || num_witness_selected != 1) {
+	if (!primary_track || !witness_track || num_primary_selected != 1 || num_witness_selected != 1) {
 		BKE_report(op->reports, RPT_ERROR, "Select exactly one track in each clip");
 		return OPERATOR_CANCELLED;
 	}
 
-	// TODO(tianwei): link two tracks, mark these two tracks in a different color
+	// TODO(tianwei): mark these two tracks in a different color when clicked
 
 	// add these correspondence
 	char error_msg[256] = "\0";
 	if (!BKE_tracking_correspondence_add(&(tracking->correspondences), primary_track, witness_track,
-	                                clip, second_clip, error_msg, sizeof(error_msg))) {
+	                                     clip, second_clip, error_msg, sizeof(error_msg))) {
 		if (error_msg[0])
 			BKE_report(op->reports, RPT_ERROR, error_msg);
 		return OPERATOR_CANCELLED;
@@ -151,23 +151,7 @@ static int delete_correspondence_exec(bContext *C, wmOperator *UNUSED(op))
 	MovieTracking *tracking = &clip->tracking;
 	bool changed = false;
 
-	/* Delete selected plane tracks. */
-	ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(tracking);
-	for (MovieTrackingPlaneTrack *plane_track = plane_tracks_base->first,
-	                             *next_plane_track;
-	     plane_track != NULL;
-	     plane_track = next_plane_track) {
-		next_plane_track = plane_track->next;
-
-		if (PLANE_TRACK_VIEW_SELECTED(plane_track)) {
-			BKE_tracking_plane_track_free(plane_track);
-			BLI_freelinkN(plane_tracks_base, plane_track);
-			changed = true;
-		}
-	}
-
-	/* Remove selected point tracks (they'll also be removed from planes which
-	 * uses them).
+	/* Remove track correspondences from correspondence base
 	 */
 	ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
 	for (MovieTrackingTrack *track = tracksbase->first, *next_track;
@@ -377,8 +361,8 @@ static void solve_multiview_freejob(void *scv)
 	WM_main_add_notifier(NC_SCENE, scene);
 
 	BKE_tracking_multiview_reconstruction_context_free(smj->context);
-	printf("free multiview reconstruction context\n");
 	MEM_freeN(smj);
+	printf("free multiview reconstruction context\n");
 }
 
 static int solve_multiview_exec(bContext *C, wmOperator *op)

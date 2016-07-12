@@ -298,6 +298,7 @@ typedef struct ThemeSpace {
 	char clipping_border_3d[4];
 	
 	char marker_outline[4], marker[4], act_marker[4], sel_marker[4], dis_marker[4], lock_marker[4];
+	char linked_marker[4], sel_linked_marker[4];	/* cross-clip linked markers and selected linked markers */
 	char bundle_solid[4];
 	char path_before[4], path_after[4];
 	char camera_path[4];
