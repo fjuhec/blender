@@ -41,8 +41,9 @@ FIND_PATH(OPENJPEG_INCLUDE_DIR
   HINTS
     ${_openjpeg_SEARCH_DIRS}
   PATH_SUFFIXES
-    include
+    openjpeg-2.1
     include/openjpeg-2.1
+    include
 )
 
 FIND_LIBRARY(OPENJPEG_LIBRARY
