@@ -543,6 +543,38 @@ struct ImportJobData {
 	char error_code;
 };
 
+ABC_INLINE bool is_mesh_and_strands(const IObject &object)
+{
+	if (object.getNumChildren() != 2) {
+		return false;
+	}
+
+	bool has_mesh = false;
+	bool has_curve = false;
+
+	for (int i = 0; i < object.getNumChildren(); ++i) {
+		const IObject &child = object.getChild(i);
+
+		if (!child.valid()) {
+			continue;
+		}
+
+		const MetaData &md = child.getMetaData();
+
+		if (IPolyMesh::matches(md)) {
+			has_mesh = true;
+		}
+		else if (ISubD::matches(md)) {
+			has_mesh = true;
+		}
+		else if (ICurves::matches(md)) {
+			has_curve = true;
+		}
+	}
+
+	return has_mesh && has_curve;
+}
+
 static void import_startjob(void *user_data, short *stop, short *do_update, float *progress)
 {
 	ImportJobData *data = static_cast<ImportJobData *>(user_data);
@@ -638,18 +670,22 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 		const AbcObjectReader *parent_reader = NULL;
 		const IObject &iobject = reader->iobject();
 
-		if (IXform::matches(iobject.getHeader())) {
-			parent_reader = reinterpret_cast<AbcObjectReader *>(
-			                    BLI_ghash_lookup(data->parent_map,
-			                                     iobject.getParent().getFullName().c_str()));
-		}
-		else {
+		IObject parent = iobject.getParent();
+
+		if (!IXform::matches(iobject.getHeader())) {
 			/* In the case of an non XForm node, the parent is the transform
-			 * matrix of the data itself, so skip it. */
-			parent_reader = reinterpret_cast<AbcObjectReader *>(
-			                    BLI_ghash_lookup(data->parent_map,
-			                                     iobject.getParent().getParent().getFullName().c_str()));
+			 * matrix of the data itself, so we get the its grand parent.
+			 */
+
+			/* Special case with object only containing a mesh and some strands,
+			 * we want both objects to be parented to the same object. */
+			if (!is_mesh_and_strands(parent)) {
+				parent = parent.getParent();
+			}
 		}
+
+		parent_reader = reinterpret_cast<AbcObjectReader *>(
+		                    BLI_ghash_lookup(data->parent_map, parent.getFullName().c_str()));
 
 		if (parent_reader) {
 			Object *parent = parent_reader->object();
