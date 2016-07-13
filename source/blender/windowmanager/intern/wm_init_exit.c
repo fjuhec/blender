@@ -181,9 +181,7 @@ void WM_init(bContext *C, int argc, const char **argv)
 
 	ED_file_init();         /* for fsmenu */
 	ED_node_init_butfuncs();
-#ifdef WITH_ADVANCED_LAYERS
 	ED_scene_layertypes_init();
-#endif
 
 	BLF_init(11, U.dpi); /* Please update source/gamengine/GamePlayer/GPG_ghost.cpp if you change this */
 	BLT_lang_init();

@@ -813,7 +813,6 @@ struct SpaceClip *CTX_wm_space_clip(const bContext *C)
 	return NULL;
 }
 
-#ifdef WITH_ADVANCED_LAYERS
 struct SpaceLayers *CTX_wm_space_layers(const bContext *C)
 {
 	ScrArea *sa = CTX_wm_area(C);
@@ -821,7 +820,6 @@ struct SpaceLayers *CTX_wm_space_layers(const bContext *C)
 		return sa->spacedata.first;
 	return NULL;
 }
-#endif
 
 void CTX_wm_manager_set(bContext *C, wmWindowManager *wm)
 {

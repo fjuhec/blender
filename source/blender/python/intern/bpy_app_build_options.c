@@ -34,7 +34,6 @@ static PyTypeObject BlenderAppBuildOptionsType;
 
 static PyStructSequence_Field app_builtopts_info_fields[] = {
 	/* names mostly follow CMake options, lowercase, after WITH_ */
-	{(char *)"advanced_layers", NULL},
 	{(char *)"bullet", NULL},
 	{(char *)"codec_avi", NULL},
 	{(char *)"codec_ffmpeg", NULL},
@@ -93,12 +92,6 @@ static PyObject *make_builtopts_info(void)
 
 #define SetObjIncref(item) \
 	PyStructSequence_SET_ITEM(builtopts_info, pos++, (Py_IncRef(item), item))
-
-#ifdef WITH_ADVANCED_LAYERS
-	SetObjIncref(Py_True);
-#else
-	SetObjIncref(Py_False);
-#endif
 
 #ifdef WITH_BULLET
 	SetObjIncref(Py_True);

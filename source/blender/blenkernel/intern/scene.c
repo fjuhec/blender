@@ -439,10 +439,8 @@ void BKE_scene_free(Scene *sce)
 	MEM_SAFE_FREE(sce->stats);
 	MEM_SAFE_FREE(sce->fps_info);
 
-#ifdef WITH_ADVANCED_LAYERS
 	BLI_assert(sce->object_layers != NULL);
 	BKE_layertree_delete(sce->object_layers);
-#endif
 
 	BKE_sound_destroy_scene(sce);
 
@@ -730,9 +728,7 @@ void BKE_scene_init(Scene *sce)
 
 	sce->gm.exitkey = 218; // Blender key code for ESC
 
-#ifdef WITH_ADVANCED_LAYERS
 	sce->object_layers = BKE_layertree_new(LAYER_TREETYPE_OBJECT);
-#endif
 
 	BKE_sound_create_scene(sce);
 
@@ -1146,10 +1142,8 @@ Base *BKE_scene_base_add(Scene *sce, Object *ob)
 	Base *b = MEM_callocN(sizeof(*b), __func__);
 	BLI_addhead(&sce->base, b);
 
-#ifdef WITH_ADVANCED_LAYERS
 	BLI_assert(sce->object_layers->active_layer != NULL); /* XXX quite easy to break currently */
 	BKE_objectlayer_base_assign(b, sce->object_layers->active_layer, false);
-#endif
 
 	b->object = ob;
 	b->flag = ob->flag;
@@ -1166,10 +1160,8 @@ void BKE_scene_base_unlink(Scene *sce, Base *base)
 	/* remove rigid body object from world before removing object */
 	if (base->object->rigidbody_object)
 		BKE_rigidbody_remove_object(sce, base->object);
-#ifdef WITH_ADVANCED_LAYERS
 	if (base->layer)
 		BKE_objectlayer_base_unassign(base);
-#endif
 
 	BLI_remlink(&sce->base, base);
 	if (sce->basact == base)

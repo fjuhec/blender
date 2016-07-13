@@ -34,13 +34,7 @@ set(INC_SYS
 )
 
 set(SRC
+	layer_types.c
 )
 
-if(WITH_ADVANCED_LAYERS)
-	list(APPEND SRC
-		layer_types.c
-	)
-
-	# Currently only needed for WITH_ADVANCED_LAYERS
-	blender_add_lib(bf_editor_scene "${SRC}" "${INC}" "${INC_SYS}")
-endif()
+blender_add_lib(bf_editor_scene "${SRC}" "${INC}" "${INC_SYS}")

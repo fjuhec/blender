@@ -124,7 +124,6 @@ extern void bl_debug_draw_edge_add(const float v0[3], const float v1[3]);
 extern void bl_debug_color_set(const unsigned int col);
 #endif
 
-#ifdef WITH_ADVANCED_LAYERS
 ThemeWireColor *view3d_layer_color_from_base(const Base *base)
 {
 	bTheme *btheme = UI_GetTheme();
@@ -132,7 +131,6 @@ ThemeWireColor *view3d_layer_color_from_base(const Base *base)
 
 	return (col_idx > 0) ? &btheme->tarm[col_idx - 1] : NULL;
 }
-#endif
 
 void circf(float x, float y, float rad)
 {
@@ -2232,7 +2230,6 @@ static void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *bas
 	int color;
 
 	if (is_wire_color) {
-#ifdef WITH_ADVANCED_LAYERS
 		ThemeWireColor *wcol = view3d_layer_color_from_base(base);
 		if (wcol) {
 			glColor3ubv((unsigned char *)(base->flag & SELECT ? wcol->select : wcol->solid));
@@ -2241,7 +2238,6 @@ static void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *bas
 			dflag = DRAW_CONSTCOLOR;
 			use_wire_color = true;
 		}
-#endif
 	}
 
 	/* fallback to theme setting */
@@ -2828,7 +2824,6 @@ static void view3d_objectlayers_drawstep_draw(
         ObjectDrawStep drawstep, int drawflag,
         unsigned int *r_lay_used)
 {
-#ifdef WITH_ADVANCED_LAYERS
 	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, i, litem)
 	{
 		if (BKE_layeritem_is_visible(litem) && litem->type->type == LAYER_ITEMTYPE_LAYER) {
@@ -2841,19 +2836,6 @@ static void view3d_objectlayers_drawstep_draw(
 		}
 	}
 	BKE_LAYERTREE_ITER_END;
-
-#else
-	BKE_BASES_ITER_START(scene)
-	{
-		if (v3d->lay & base->lay) {
-			view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
-		}
-		else if (drawstep == OB_DRAWSTEP_DUPLI_UNSEL) {
-			*r_lay_used |= base->lay;
-		}
-	}
-	BKE_BASES_ITER_END;
-#endif
 }
 
 /**

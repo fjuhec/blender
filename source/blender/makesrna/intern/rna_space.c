@@ -79,9 +79,7 @@ EnumPropertyItem rna_enum_space_type_items[] = {
 	{0, "", ICON_NONE, NULL, NULL},
 	{SPACE_BUTS, "PROPERTIES", ICON_BUTS, "Properties", "Edit properties of active object and related data-blocks"},
 	{SPACE_OUTLINER, "OUTLINER", ICON_OOPS, "Outliner", "Overview of scene graph and all available data-blocks"},
-#ifdef WITH_ADVANCED_LAYERS
 	{SPACE_LAYERS, "LAYER_MANAGER", ICON_COLLAPSEMENU, "Layer Manager", "Organize scene content and adjust its view options"},
-#endif
 	{SPACE_USERPREF, "USER_PREFERENCES", ICON_PREFERENCES, "User Preferences", "Edit persistent configuration settings"},
 	{SPACE_INFO, "INFO", ICON_INFO, "Info", "Main menu bar and list of error messages (drag down to expand and display)"},
 	{0, "", ICON_NONE, NULL, NULL},

@@ -44,8 +44,4 @@ set(SRC
 	layers_intern.h
 )
 
-if(WITH_ADVANCED_LAYERS)
-	add_definitions(-DWITH_ADVANCED_LAYERS)
-endif()
-
 blender_add_lib(bf_editor_space_layers "${SRC}" "${INC}" "${INC_SYS}")

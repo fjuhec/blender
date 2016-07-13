@@ -37,8 +37,4 @@ set(SRC
 	spacetypes.c
 )
 
-if(WITH_ADVANCED_LAYERS)
-	add_definitions(-DWITH_ADVANCED_LAYERS)
-endif()
-
 blender_add_lib(bf_editor_space_api "${SRC}" "${INC}" "${INC_SYS}")

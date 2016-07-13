@@ -82,9 +82,7 @@ void BKE_blender_free(void)
 	BKE_main_free(G.main);
 	G.main = NULL;
 
-#ifdef WITH_ADVANCED_LAYERS
 	BKE_layertypes_free();
-#endif
 	BKE_spacetypes_free();      /* after free main, it uses space callbacks */
 	
 	IMB_exit();

@@ -2623,7 +2623,6 @@ static void write_paint(WriteData *wd, Paint *p)
 	}
 }
 
-#ifdef WITH_ADVANCED_LAYERS
 /**
  * \note Recursive.
  */
@@ -2650,7 +2649,6 @@ static void write_layertree(WriteData *wd, LayerTree *ltree, ListBase *layeritem
 		write_layertree(wd, ltree, &litem->childs);
 	}
 }
-#endif
 
 static void write_scenes(WriteData *wd, ListBase *scebase)
 {
@@ -2853,11 +2851,9 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 		write_previews(wd, sce->preview);
 		write_curvemapping_curves(wd, &sce->r.mblur_shutter_curve);
 
-#ifdef WITH_ADVANCED_LAYERS
 		if (sce->object_layers) {
 			write_layertree(wd, sce->object_layers, &sce->object_layers->items);
 		}
-#endif
 
 		sce= sce->id.next;
 	}
@@ -3172,11 +3168,9 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 				else if (sl->spacetype == SPACE_INFO) {
 					writestruct(wd, DATA, SpaceInfo, 1, sl);
 				}
-#ifdef WITH_ADVANCED_LAYERS
 				else if (sl->spacetype == SPACE_LAYERS) {
 					writestruct(wd, DATA, SpaceLayers, 1, sl);
 				}
-#endif
 
 				sl = sl->next;
 			}
