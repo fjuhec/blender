@@ -214,7 +214,7 @@ void AbcObjectReader::readObjectMatrix(const float time)
 	}
 }
 
-void AbcObjectReader::addDefaultModifier(Main *bmain) const
+void AbcObjectReader::addDefaultModifier() const
 {
 	ModifierData *md = modifier_new(eModifierType_MeshSequenceCache);
 	BLI_addtail(&m_object->modifiers, md);
@@ -225,9 +225,6 @@ void AbcObjectReader::addDefaultModifier(Main *bmain) const
 	id_us_plus(&mcmd->cache_file->id);
 
 	BLI_strncpy(mcmd->abc_object_path, m_iobject.getFullName().c_str(), FILE_MAX);
-
-	DAG_id_tag_update(&m_object->id, OB_RECALC_DATA);
-	DAG_relations_tag_update(bmain);
 }
 
 chrono_t AbcObjectReader::minTime() const

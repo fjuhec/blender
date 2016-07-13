@@ -126,7 +126,7 @@ public:
 
 	void readObjectMatrix(const float time);
 
-	void addDefaultModifier(Main *bmain) const;
+	void addDefaultModifier() const;
 
 	chrono_t minTime() const;
 	chrono_t maxTime() const;

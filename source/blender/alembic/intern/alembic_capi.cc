@@ -693,10 +693,6 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 			if (parent != NULL && reader->object() != parent) {
 				Object *ob = reader->object();
 				ob->parent = parent;
-
-				DAG_id_tag_update(&ob->id, OB_RECALC_OB);
-				DAG_relations_tag_update(data->bmain);
-				WM_main_add_notifier(NC_OBJECT | ND_PARENT, ob);
 			}
 		}
 
@@ -706,6 +702,8 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 			return;
 		}
 	}
+
+	DAG_relations_tag_update(data->bmain);
 }
 
 static void import_endjob(void *user_data)

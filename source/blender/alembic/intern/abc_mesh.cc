@@ -924,7 +924,7 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 	}
 
 	if (!is_constant) {
-		addDefaultModifier(bmain);
+		addDefaultModifier();
 	}
 }
 
