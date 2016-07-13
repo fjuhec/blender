@@ -852,77 +852,66 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		new_dm = true;
 	}
 
-	MVert *mverts = dm->getVertArray(dm);
-	MPoly *mpolys = dm->getPolyArray(dm);
-	MLoop *mloops = dm->getLoopArray(dm);
-	MLoopUV *mloopuvs = NULL;
-	CustomData *ldata = dm->getLoopDataLayout(dm);
-
-	const IV2fGeomParam uv = schema.getUVsParam();
-	Alembic::Abc::V2fArraySamplePtr uvs;
-	Alembic::Abc::UInt32ArraySamplePtr uvs_indices;
-
-	if (uv.valid()) {
-		IV2fGeomParam::Sample uvsamp;
-		uv.getIndexed(uvsamp, sample_sel);
-		uvs = uvsamp.getVals();
-		uvs_indices = uvsamp.getIndices();
-
-		if (uvs_indices->size() != dm->getNumLoops(dm)) {
-			uvs = Alembic::Abc::V2fArraySamplePtr();
-			uvs_indices = Alembic::Abc::UInt32ArraySamplePtr();
-		}
-		else {
-			std::string name = Alembic::Abc::GetSourceName(uv.getMetaData());
-
-			/* According to the convention, primary UVs should have had their name
-			 * set using Alembic::Abc::SetSourceName, but you can't expect everyone
-			 * to follow it! :) */
-			if (name.empty()) {
-				name = uv.getName();
-			}
-
-			void *ptr = add_customdata_cb(dm, name.c_str(), CD_MLOOPUV);
-			mloopuvs = static_cast<MLoopUV *>(ptr);
-
-			dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_TESS_CDLAYERS));
-		}
-	}
-
-	N3fArraySamplePtr vertex_normals, poly_normals;
-	const IN3fGeomParam normals = schema.getNormalsParam();
-
-	if (normals.valid()) {
-		IN3fGeomParam::Sample normsamp = normals.getExpandedValue(sample_sel);
-
-		if (normals.getScope() == Alembic::AbcGeom::kFacevaryingScope) {
-			poly_normals = normsamp.getVals();
-		}
-		else if ((normals.getScope() == Alembic::AbcGeom::kVertexScope) ||
-		         (normals.getScope() == Alembic::AbcGeom::kVaryingScope))
-		{
-			vertex_normals = normsamp.getVals();
-		}
-	}
-
-	read_mverts(mverts, positions, vertex_normals);
-	read_mpolys(mpolys, mloops, mloopuvs, ldata, face_indices, face_counts, uvs, uvs_indices, poly_normals);
-
 	CDStreamConfig config;
 	config.user_data = dm;
+	config.mvert = dm->getVertArray(dm);
 	config.mloop = dm->getLoopArray(dm);
 	config.mpoly = dm->getPolyArray(dm);
 	config.totloop = dm->getNumLoops(dm);
 	config.totpoly = dm->getNumPolys(dm);
 	config.add_customdata_cb = add_customdata_cb;
 
-	read_custom_data(schema.getArbGeomParams(), config, sample_sel);
+	bool do_normals = false;
+	read_mesh_sample(schema, sample_sel, config, do_normals);
 
 	if (new_dm) {
-		if (!vertex_normals && !poly_normals) {
+		if (do_normals) {
 			CDDM_calc_normals(dm);
 		}
 
+		CDDM_calc_edges(dm);
+	}
+
+	return dm;
+}
+
+using Alembic::AbcGeom::ISubDSchema;
+
+static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, const float time)
+{
+	ISubD mesh(iobject, kWrapExisting);
+	ISubDSchema schema = mesh.getSchema();
+	ISampleSelector sample_sel(time);
+	const ISubDSchema::Sample sample = schema.getValue(sample_sel);
+
+	const P3fArraySamplePtr &positions = sample.getPositions();
+	const Alembic::Abc::Int32ArraySamplePtr &face_indices = sample.getFaceIndices();
+	const Alembic::Abc::Int32ArraySamplePtr &face_counts = sample.getFaceCounts();
+
+	bool new_dm = false;
+	if (dm->getNumVerts(dm) != positions->size()) {
+		DerivedMesh *tmp = CDDM_from_template(dm,
+		                                      positions->size(),
+		                                      0,
+		                                      0,
+		                                      face_indices->size(),
+		                                      face_counts->size());
+		dm = tmp;
+		new_dm = true;
+	}
+
+	CDStreamConfig config;
+	config.user_data = dm;
+	config.mvert = dm->getVertArray(dm);
+	config.mloop = dm->getLoopArray(dm);
+	config.mpoly = dm->getPolyArray(dm);
+	config.totloop = dm->getNumLoops(dm);
+	config.totpoly = dm->getNumPolys(dm);
+	config.add_customdata_cb = add_customdata_cb;
+
+	read_subd_sample(schema, sample_sel, config);
+
+	if (new_dm) {
 		CDDM_calc_edges(dm);
 	}
 
@@ -1044,6 +1033,14 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
 		}
 
 		return read_mesh_sample(dm, iobject, time);
+	}
+	else if (ISubD::matches(header)) {
+		if (ob->type != OB_MESH) {
+			*err_str = "Object type mismatch: object path points to a subdivision mesh!";
+			return NULL;
+		}
+
+		return read_subd_sample(dm, iobject, time);
 	}
 	else if (IPoints::matches(header)) {
 		if (ob->type != OB_MESH) {

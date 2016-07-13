@@ -28,7 +28,9 @@
 
 struct CustomData;
 struct MLoop;
+struct MLoopUV;
 struct MPoly;
+struct MVert;
 
 using Alembic::Abc::ICompoundProperty;
 using Alembic::Abc::OCompoundProperty;
@@ -45,7 +47,12 @@ struct CDStreamConfig {
 	MPoly *mpoly;
 	int totpoly;
 
+	MVert *mvert;
 	int totvert;
+
+	MLoopUV *mloopuv;
+
+	CustomData *loopdata;
 
 	bool pack_uvs;
 

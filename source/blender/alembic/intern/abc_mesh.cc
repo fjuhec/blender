@@ -781,160 +781,21 @@ static void assign_materials(Main *bmain, Object *ob, const std::map<std::string
 
 /* ************************************************************************** */
 
-template <typename Schema>
-static bool has_animations(Schema &schema, ImportSettings *settings)
-{
-	if (settings->is_sequence) {
-		return true;
-	}
+using Alembic::AbcGeom::UInt32ArraySamplePtr;
+using Alembic::AbcGeom::V2fArraySamplePtr;
 
-	if (!schema.isConstant()) {
-		return true;
-	}
+struct AbcMeshData {
+	Int32ArraySamplePtr face_indices;
+	Int32ArraySamplePtr face_counts;
 
-	const ICompoundProperty &arb_geom_params = schema.getArbGeomParams();
+	P3fArraySamplePtr positions;
 
-	if (!arb_geom_params.valid()) {
-		return false;
-	}
+	N3fArraySamplePtr vertex_normals;
+	N3fArraySamplePtr face_normals;
 
-	const size_t num_props = arb_geom_params.getNumProperties();
-
-	for (size_t i = 0; i < num_props; ++i) {
-		const Alembic::Abc::PropertyHeader &propHeader = arb_geom_params.getPropertyHeader(i);
-
-		/* Check for animated UVs. */
-		if (IV2fGeomParam::matches(propHeader) && Alembic::AbcGeom::isUV(propHeader)) {
-			IV2fGeomParam uv_geom_param(arb_geom_params, propHeader.getName());
-
-			if (!uv_geom_param.isConstant()) {
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
-AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings, bool is_subd)
-    : AbcObjectReader(object, settings)
-{
-	if (is_subd) {
-		ISubD isubd_mesh(m_iobject, kWrapExisting);
-		m_subd_schema = isubd_mesh.getSchema();
-		get_min_max_time(m_subd_schema, m_min_time, m_max_time);
-	}
-	else {
-		IPolyMesh ipoly_mesh(m_iobject, kWrapExisting);
-		m_schema = ipoly_mesh.getSchema();
-		get_min_max_time(m_schema, m_min_time, m_max_time);
-	}
-}
-
-bool AbcMeshReader::valid() const
-{
-	return m_schema.valid() || m_subd_schema.valid();
-}
-
-static MEdge *find_edge(MEdge *edges, int totedge, int v1, int v2)
-{
-	for (int i = 0, e = totedge; i < e; ++i) {
-		MEdge &edge = edges[i];
-
-		if (edge.v1 == v1 && edge.v2 == v2) {
-			return &edge;
-		}
-	}
-
-	return NULL;
-}
-
-void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
-{
-	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
-
-	const ISampleSelector sample_sel(time);
-	const size_t poly_start = mesh->totpoly;
-
-	bool is_constant = true;
-
-	if (m_subd_schema.valid()) {
-		is_constant = !has_animations(m_subd_schema, m_settings);
-
-		const ISubDSchema::Sample sample = m_subd_schema.getValue(sample_sel);
-
-		readVertexDataSample(mesh, sample.getPositions(), N3fArraySamplePtr());
-		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts(), N3fArraySamplePtr());
-	}
-	else {
-		is_constant = !has_animations(m_schema, m_settings);
-
-		const IPolyMeshSchema::Sample sample = m_schema.getValue(sample_sel);
-
-		N3fArraySamplePtr vertex_normals, poly_normals;
-		const IN3fGeomParam normals = m_schema.getNormalsParam();
-
-		if (normals.valid()) {
-			IN3fGeomParam::Sample normsamp = normals.getExpandedValue(sample_sel);
-
-			if (normals.getScope() == Alembic::AbcGeom::kFacevaryingScope) {
-				poly_normals = normsamp.getVals();
-			}
-			else if ((normals.getScope() == Alembic::AbcGeom::kVertexScope) ||
-			         (normals.getScope() == Alembic::AbcGeom::kVaryingScope))
-			{
-				vertex_normals = normsamp.getVals();
-			}
-		}
-
-		readVertexDataSample(mesh, sample.getPositions(), vertex_normals);
-		readPolyDataSample(mesh, sample.getFaceIndices(), sample.getFaceCounts(), poly_normals);
-
-		if (!vertex_normals && !poly_normals) {
-			BKE_mesh_calc_normals(mesh);
-		}
-	}
-
-	BKE_mesh_validate(mesh, false, false);
-
-	m_object = BKE_object_add(bmain, scene, OB_MESH, m_object_name.c_str());
-	m_object->data = mesh;
-
-	readFaceSetsSample(bmain, mesh, poly_start, sample_sel);
-
-	if (m_subd_schema.valid()) {
-		const ISubDSchema::Sample sample = m_subd_schema.getValue(sample_sel);
-
-		Int32ArraySamplePtr indices = sample.getCreaseIndices();
-		Alembic::Abc::FloatArraySamplePtr sharpnesses = sample.getCreaseSharpnesses();
-
-		MEdge *edges = mesh->medge;
-
-		if (indices && sharpnesses) {
-			for (int i = 0, s = 0, e = indices->size(); i < e; i += 2, ++s) {
-				MEdge *edge = find_edge(edges, mesh->totedge, (*indices)[i], (*indices)[i + 1]);
-
-				if (edge) {
-					edge->crease = FTOCHAR((*sharpnesses)[s]);
-				}
-			}
-
-			mesh->cd_flag |= ME_CDFLAG_EDGE_CREASE;
-		}
-	}
-
-	if (!is_constant) {
-		addDefaultModifier();
-	}
-}
-
-void AbcMeshReader::readVertexDataSample(Mesh *mesh,
-                                         const P3fArraySamplePtr &positions,
-                                         const N3fArraySamplePtr &normals)
-{
-	utils::mesh_add_verts(mesh, positions->size());
-	read_mverts(mesh->mvert, positions, normals);
-}
+	V2fArraySamplePtr uvs;
+	UInt32ArraySamplePtr uvs_indices;
+};
 
 static void *add_customdata_cb(void *user_data, const char *name, int data_type)
 {
@@ -959,71 +820,11 @@ static void *add_customdata_cb(void *user_data, const char *name, int data_type)
 	return cd_ptr;
 }
 
-#if 0
-void print_scope(const std::string &prefix, const int scope, std::ostream &os)
+ABC_INLINE CDStreamConfig create_config(Mesh *mesh)
 {
-	os << prefix << ": ";
-
-	switch (scope) {
-		case kVaryingScope:
-			os << "Varying Scope";
-			break;
-		case kFacevaryingScope:
-			os << "Face Varying Scope";
-			break;
-		case kVertexScope:
-			os << "Vertex Scope";
-			break;
-	}
-
-	os << '\n';
-}
-#endif
-
-void AbcMeshReader::readPolyDataSample(Mesh *mesh,
-                                       const Int32ArraySamplePtr &face_indices,
-                                       const Int32ArraySamplePtr &face_counts,
-                                       const N3fArraySamplePtr &normals)
-{
-	const size_t num_poly = face_counts->size();
-	const size_t num_loops = face_indices->size();
-
-	utils::mesh_add_mpolygons(mesh, num_poly);
-	utils::mesh_add_mloops(mesh, num_loops);
-
-	Alembic::AbcGeom::V2fArraySamplePtr uvs;
-	Alembic::Abc::UInt32ArraySamplePtr uvs_indices;
-	const IV2fGeomParam uv = (m_subd_schema.valid() ? m_subd_schema.getUVsParam()
-	                                                : m_schema.getUVsParam());
-
-	if (uv.valid()) {
-		IV2fGeomParam::Sample uvsamp;
-		uv.getIndexed(uvsamp, Alembic::Abc::ISampleSelector(0.0f));
-
-		uvs = uvsamp.getVals();
-		uvs_indices = uvsamp.getIndices();
-
-		if (uvs_indices->size() == mesh->totloop) {
-			std::string name = Alembic::Abc::GetSourceName(uv.getMetaData());
-
-			/* According to the convention, primary UVs should have had their name
-			 * set using Alembic::Abc::SetSourceName, but you can't expect everyone
-			 * to follow it! :) */
-			if (name.empty()) {
-				name = uv.getName();
-			}
-
-			ED_mesh_uv_texture_add(mesh, name.c_str(), true);
-		}
-	}
-
-	read_mpolys(mesh->mpoly, mesh->mloop, mesh->mloopuv, &mesh->ldata,
-	            face_indices, face_counts, uvs, uvs_indices, normals);
-
-	const ICompoundProperty &arb_geom_params = (m_schema.valid() ? m_schema.getArbGeomParams()
-	                                                             : m_subd_schema.getArbGeomParams());
-
 	CDStreamConfig config;
+
+	config.mvert = mesh->mvert;
 	config.mpoly = mesh->mpoly;
 	config.mloop = mesh->mloop;
 	config.totpoly = mesh->totpoly;
@@ -1031,70 +832,19 @@ void AbcMeshReader::readPolyDataSample(Mesh *mesh,
 	config.user_data = mesh;
 	config.add_customdata_cb = add_customdata_cb;
 
-	read_custom_data(arb_geom_params, config, ISampleSelector(0.0f));
+	return config;
 }
 
-void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_start,
-                                       const ISampleSelector &sample_sel)
+static void read_mverts(CDStreamConfig &config, const AbcMeshData &mesh_data)
 {
-	std::vector<std::string> face_sets;
+	MVert *mverts = config.mvert;
+	const P3fArraySamplePtr &positions = mesh_data.positions;
+	const N3fArraySamplePtr &normals = mesh_data.vertex_normals;
 
-	if (m_subd_schema.valid()) {
-		m_subd_schema.getFaceSetNames(face_sets);
-	}
-	else {
-		m_schema.getFaceSetNames(face_sets);
-	}
-
-	if (face_sets.empty()) {
-		return;
-	}
-
-	std::map<std::string, int> mat_map;
-	int current_mat = 0;
-
-	for (int i = 0; i < face_sets.size(); ++i) {
-		const std::string &grp_name = face_sets[i];
-
-		if (mat_map.find(grp_name) == mat_map.end()) {
-			mat_map[grp_name] = 1 + current_mat++;
-		}
-
-		const int assigned_mat = mat_map[grp_name];
-
-		const IFaceSet faceset = (m_subd_schema.valid() ? m_subd_schema.getFaceSet(grp_name)
-		                                                : m_schema.getFaceSet(grp_name));
-
-		if (!faceset.valid()) {
-			continue;
-		}
-
-		const IFaceSetSchema face_schem = faceset.getSchema();
-		const IFaceSetSchema::Sample face_sample = face_schem.getValue(sample_sel);
-		const Int32ArraySamplePtr group_faces = face_sample.getFaces();
-		const size_t num_group_faces = group_faces->size();
-
-		for (size_t l = 0; l < num_group_faces; l++) {
-			size_t pos = (*group_faces)[l] + poly_start;
-
-			if (pos >= mesh->totpoly) {
-				std::cerr << "Faceset overflow on " << faceset.getName() << '\n';
-				break;
-			}
-
-			MPoly &poly = mesh->mpoly[pos];
-			poly.mat_nr = assigned_mat - 1;
-		}
-	}
-
-	utils::assign_materials(bmain, m_object, mat_map);
+	read_mverts(mverts, positions, normals);
 }
 
-/* ************************************************************************** */
-
-void read_mverts(MVert *mverts,
-                 const Alembic::AbcGeom::P3fArraySamplePtr &positions,
-                 const N3fArraySamplePtr &normals)
+void read_mverts(MVert *mverts, const P3fArraySamplePtr &positions, const N3fArraySamplePtr &normals)
 {
 	for (int i = 0; i < positions->size(); ++i) {
 		MVert &mvert = mverts[i];
@@ -1115,13 +865,19 @@ void read_mverts(MVert *mverts,
 	}
 }
 
-void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *ldata,
-                 const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
-                 const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
-                 const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
-                 const Alembic::AbcGeom::UInt32ArraySamplePtr &uvs_indices,
-                 const Alembic::AbcGeom::N3fArraySamplePtr &normals)
+static void read_mpolys(CDStreamConfig &config, const AbcMeshData &mesh_data)
 {
+	MPoly *mpolys = config.mpoly;
+	MLoop *mloops = config.mloop;
+	MLoopUV *mloopuvs = config.mloopuv;
+	CustomData *ldata = config.loopdata;
+
+	const Int32ArraySamplePtr &face_indices = mesh_data.face_indices;
+	const Int32ArraySamplePtr &face_counts = mesh_data.face_counts;
+	const V2fArraySamplePtr &uvs = mesh_data.uvs;
+	const UInt32ArraySamplePtr &uvs_indices = mesh_data.uvs_indices;
+	const N3fArraySamplePtr &normals = mesh_data.face_normals;
+
 	float (*pnors)[3] = NULL;
 
 	if (normals) {
@@ -1169,4 +925,308 @@ void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *ld
 			}
 		}
 	}
+}
+
+ABC_INLINE void read_uvs_params(CDStreamConfig &config,
+                                AbcMeshData &abc_data,
+                                const IV2fGeomParam &uv,
+                                const ISampleSelector &selector)
+{
+	if (!uv.valid()) {
+		return;
+	}
+
+	IV2fGeomParam::Sample uvsamp;
+	uv.getIndexed(uvsamp, selector);
+
+	abc_data.uvs = uvsamp.getVals();
+	abc_data.uvs_indices = uvsamp.getIndices();
+
+	if (abc_data.uvs_indices->size() == config.totloop) {
+		std::string name = Alembic::Abc::GetSourceName(uv.getMetaData());
+
+		/* According to the convention, primary UVs should have had their name
+		 * set using Alembic::Abc::SetSourceName, but you can't expect everyone
+		 * to follow it! :) */
+		if (name.empty()) {
+			name = uv.getName();
+		}
+
+		void *cd_ptr = config.add_customdata_cb(config.user_data, name.c_str(), CD_MLOOPUV);
+		config.mloopuv = static_cast<MLoopUV *>(cd_ptr);
+	}
+}
+
+ABC_INLINE void read_normals_params(AbcMeshData &abc_data,
+                                    const IN3fGeomParam normals,
+                                    const ISampleSelector &selector)
+{
+	if (normals.valid()) {
+		return;
+	}
+
+	IN3fGeomParam::Sample normsamp = normals.getExpandedValue(selector);
+
+	if (normals.getScope() == kFacevaryingScope) {
+		abc_data.face_normals = normsamp.getVals();
+	}
+	else if ((normals.getScope() == kVertexScope) || (normals.getScope() == kVaryingScope)) {
+		abc_data.vertex_normals = normsamp.getVals();
+	}
+}
+
+template <typename Schema>
+static bool has_animations(Schema &schema, ImportSettings *settings)
+{
+	if (settings->is_sequence) {
+		return true;
+	}
+
+	if (!schema.isConstant()) {
+		return true;
+	}
+
+	const ICompoundProperty &arb_geom_params = schema.getArbGeomParams();
+
+	if (!arb_geom_params.valid()) {
+		return false;
+	}
+
+	const size_t num_props = arb_geom_params.getNumProperties();
+
+	for (size_t i = 0; i < num_props; ++i) {
+		const Alembic::Abc::PropertyHeader &propHeader = arb_geom_params.getPropertyHeader(i);
+
+		/* Check for animated UVs. */
+		if (IV2fGeomParam::matches(propHeader) && Alembic::AbcGeom::isUV(propHeader)) {
+			IV2fGeomParam uv_geom_param(arb_geom_params, propHeader.getName());
+
+			if (!uv_geom_param.isConstant()) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+/* ************************************************************************** */
+
+AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings, bool is_subd)
+    : AbcObjectReader(object, settings)
+{
+	IPolyMesh ipoly_mesh(m_iobject, kWrapExisting);
+	m_schema = ipoly_mesh.getSchema();
+	get_min_max_time(m_schema, m_min_time, m_max_time);
+}
+
+bool AbcMeshReader::valid() const
+{
+	return m_schema.valid();
+}
+
+void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
+{
+	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
+
+	m_object = BKE_object_add(bmain, scene, OB_MESH, m_object_name.c_str());
+	m_object->data = mesh;
+
+	const ISampleSelector sample_sel(time);
+	const IPolyMeshSchema::Sample sample = m_schema.getValue(sample_sel);
+
+	const P3fArraySamplePtr &positions = sample.getPositions();
+	const Int32ArraySamplePtr &face_indices = sample.getFaceIndices();
+    const Int32ArraySamplePtr &face_counts = sample.getFaceCounts();
+
+	utils::mesh_add_verts(mesh, positions->size());
+	utils::mesh_add_mpolygons(mesh, face_counts->size());
+	utils::mesh_add_mloops(mesh, face_indices->size());
+
+	m_mesh_data = create_config(mesh);
+
+	bool do_normals = false;
+	read_mesh_sample(m_schema, sample_sel, m_mesh_data, do_normals);
+
+	if (do_normals) {
+		BKE_mesh_calc_normals(mesh);
+	}
+
+	BKE_mesh_validate(mesh, false, false);
+
+	readFaceSetsSample(bmain, mesh, 0, sample_sel);
+
+	if (has_animations(m_schema, m_settings)) {
+		addDefaultModifier();
+	}
+}
+
+void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_start,
+                                       const ISampleSelector &sample_sel)
+{
+	std::vector<std::string> face_sets;
+	m_schema.getFaceSetNames(face_sets);
+
+	if (face_sets.empty()) {
+		return;
+	}
+
+	std::map<std::string, int> mat_map;
+	int current_mat = 0;
+
+	for (int i = 0; i < face_sets.size(); ++i) {
+		const std::string &grp_name = face_sets[i];
+
+		if (mat_map.find(grp_name) == mat_map.end()) {
+			mat_map[grp_name] = 1 + current_mat++;
+		}
+
+		const int assigned_mat = mat_map[grp_name];
+
+		const IFaceSet faceset = m_schema.getFaceSet(grp_name);
+
+		if (!faceset.valid()) {
+			continue;
+		}
+
+		const IFaceSetSchema face_schem = faceset.getSchema();
+		const IFaceSetSchema::Sample face_sample = face_schem.getValue(sample_sel);
+		const Int32ArraySamplePtr group_faces = face_sample.getFaces();
+		const size_t num_group_faces = group_faces->size();
+
+		for (size_t l = 0; l < num_group_faces; l++) {
+			size_t pos = (*group_faces)[l] + poly_start;
+
+			if (pos >= mesh->totpoly) {
+				std::cerr << "Faceset overflow on " << faceset.getName() << '\n';
+				break;
+			}
+
+			MPoly &poly = mesh->mpoly[pos];
+			poly.mat_nr = assigned_mat - 1;
+		}
+	}
+
+	utils::assign_materials(bmain, m_object, mat_map);
+}
+
+void read_mesh_sample(const IPolyMeshSchema &schema,
+                      const ISampleSelector &selector,
+                      CDStreamConfig &config,
+                      bool &do_normals)
+{
+	const IPolyMeshSchema::Sample sample = schema.getValue(selector);
+
+	AbcMeshData abc_mesh_data;
+	abc_mesh_data.face_counts = sample.getFaceCounts();
+	abc_mesh_data.face_indices = sample.getFaceIndices();
+	abc_mesh_data.positions = sample.getPositions();
+
+	read_normals_params(abc_mesh_data, schema.getNormalsParam(), selector);
+
+	do_normals = (!abc_mesh_data.face_normals && !abc_mesh_data.vertex_normals);
+
+	read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
+
+	read_mverts(config, abc_mesh_data);
+	read_mpolys(config, abc_mesh_data);
+
+	read_custom_data(schema.getArbGeomParams(), config, selector);
+}
+
+/* ************************************************************************** */
+
+ABC_INLINE MEdge *find_edge(MEdge *edges, int totedge, int v1, int v2)
+{
+	for (int i = 0, e = totedge; i < e; ++i) {
+		MEdge &edge = edges[i];
+
+		if (edge.v1 == v1 && edge.v2 == v2) {
+			return &edge;
+		}
+	}
+
+	return NULL;
+}
+
+AbcSubDReader::AbcSubDReader(const IObject &object, ImportSettings &settings)
+    : AbcObjectReader(object, settings)
+{
+	ISubD isubd_mesh(m_iobject, kWrapExisting);
+	m_schema = isubd_mesh.getSchema();
+	get_min_max_time(m_schema, m_min_time, m_max_time);
+}
+
+bool AbcSubDReader::valid() const
+{
+	return m_schema.valid();
+}
+
+void AbcSubDReader::readObjectData(Main *bmain, Scene *scene, float time)
+{
+	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
+
+	m_object = BKE_object_add(bmain, scene, OB_MESH, m_object_name.c_str());
+	m_object->data = mesh;
+
+	const ISampleSelector sample_sel(time);
+	const ISubDSchema::Sample sample = m_schema.getValue(sample_sel);
+
+	const P3fArraySamplePtr &positions = sample.getPositions();
+	const Int32ArraySamplePtr &face_indices = sample.getFaceIndices();
+    const Int32ArraySamplePtr &face_counts = sample.getFaceCounts();
+
+	utils::mesh_add_verts(mesh, positions->size());
+	utils::mesh_add_mpolygons(mesh, face_counts->size());
+	utils::mesh_add_mloops(mesh, face_indices->size());
+
+	m_mesh_data = create_config(mesh);
+
+	read_subd_sample(m_schema, sample_sel, m_mesh_data);
+
+	Int32ArraySamplePtr indices = sample.getCreaseIndices();
+	Alembic::Abc::FloatArraySamplePtr sharpnesses = sample.getCreaseSharpnesses();
+
+	MEdge *edges = mesh->medge;
+
+	if (indices && sharpnesses) {
+		for (int i = 0, s = 0, e = indices->size(); i < e; i += 2, ++s) {
+			MEdge *edge = find_edge(edges, mesh->totedge, (*indices)[i], (*indices)[i + 1]);
+
+			if (edge) {
+				edge->crease = FTOCHAR((*sharpnesses)[s]);
+			}
+		}
+
+		mesh->cd_flag |= ME_CDFLAG_EDGE_CREASE;
+	}
+
+	read_custom_data(m_schema.getArbGeomParams(), m_mesh_data, sample_sel);
+
+	BKE_mesh_validate(mesh, false, false);
+
+	if (has_animations(m_schema, m_settings)) {
+		addDefaultModifier();
+	}
+}
+
+void read_subd_sample(const ISubDSchema &schema,
+                      const ISampleSelector &selector,
+                      CDStreamConfig &config)
+{
+	const ISubDSchema::Sample sample = schema.getValue(selector);
+
+	AbcMeshData abc_mesh_data;
+	abc_mesh_data.face_counts = sample.getFaceCounts();
+	abc_mesh_data.face_indices = sample.getFaceIndices();
+	abc_mesh_data.vertex_normals = N3fArraySamplePtr();
+	abc_mesh_data.face_normals = N3fArraySamplePtr();
+	abc_mesh_data.positions = sample.getPositions();
+
+	read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
+
+	read_mverts(config, abc_mesh_data);
+	read_mpolys(config, abc_mesh_data);
+
+	read_custom_data(schema.getArbGeomParams(), config, selector);
 }

@@ -93,7 +93,8 @@ private:
 
 class AbcMeshReader : public AbcObjectReader {
 	Alembic::AbcGeom::IPolyMeshSchema m_schema;
-	Alembic::AbcGeom::ISubDSchema m_subd_schema;
+
+	CDStreamConfig m_mesh_data;
 
 public:
 	AbcMeshReader(const Alembic::Abc::IObject &object, ImportSettings &settings, bool is_subd);
@@ -105,37 +106,39 @@ public:
 private:
 	void readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_start,
 	                        const Alembic::AbcGeom::ISampleSelector &sample_sel);
-
-	void readPolyDataSample(Mesh *mesh,
-	                        const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
-	                        const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
-	                        const Alembic::AbcGeom::N3fArraySamplePtr &normals);
-
-	void readVertexDataSample(Mesh *mesh,
-	                          const Alembic::AbcGeom::P3fArraySamplePtr &positions,
-	                          const Alembic::AbcGeom::N3fArraySamplePtr &normals);
 };
+
+void read_mesh_sample(const Alembic::AbcGeom::IPolyMeshSchema &schema,
+                      const Alembic::AbcGeom::ISampleSelector &selector,
+                      CDStreamConfig &config, bool &do_normals);
 
 /* ************************************************************************** */
 
-struct MLoop;
-struct MLoopUV;
-struct MPoly;
-struct MVert;
+class AbcSubDReader : public AbcObjectReader {
+	Alembic::AbcGeom::ISubDSchema m_schema;
 
-void read_mverts(MVert *mverts,
-                 const Alembic::AbcGeom::P3fArraySamplePtr &positions,
-                 const Alembic::AbcGeom::N3fArraySamplePtr &normals);
+	CDStreamConfig m_mesh_data;
 
-void read_mpolys(MPoly *mpolys, MLoop *mloops, MLoopUV *mloopuvs, CustomData *ldata,
-                 const Alembic::AbcGeom::Int32ArraySamplePtr &face_indices,
-                 const Alembic::AbcGeom::Int32ArraySamplePtr &face_counts,
-                 const Alembic::AbcGeom::V2fArraySamplePtr &uvs,
-                 const Alembic::AbcGeom::UInt32ArraySamplePtr &uvs_indices,
-                 const Alembic::AbcGeom::N3fArraySamplePtr &normals);
+public:
+	AbcSubDReader(const Alembic::Abc::IObject &object, ImportSettings &settings);
+
+	bool valid() const;
+
+	void readObjectData(Main *bmain, Scene *scene, float time);
+};
+
+void read_subd_sample(const Alembic::AbcGeom::ISubDSchema &schema,
+                      const Alembic::AbcGeom::ISampleSelector &selector,
+                      CDStreamConfig &config);
+
+/* ************************************************************************** */
 
 namespace utils {
 
 void mesh_add_verts(struct Mesh *mesh, size_t len);
 
 }
+
+void read_mverts(MVert *mverts,
+                 const Alembic::AbcGeom::P3fArraySamplePtr &positions,
+                 const Alembic::AbcGeom::N3fArraySamplePtr &normals);
