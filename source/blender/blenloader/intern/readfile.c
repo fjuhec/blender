@@ -2703,6 +2703,7 @@ static void lib_link_cachefiles(FileData *fd, Main *main)
 			cache_file->id.tag &= ~LIB_TAG_NEED_LINK;
 		}
 
+		BLI_listbase_clear(&cache_file->object_paths);
 		BKE_cachefile_load(cache_file, fd->relabase);
 
 		if (cache_file->adt) {
