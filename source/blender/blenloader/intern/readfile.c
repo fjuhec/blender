@@ -5844,7 +5844,7 @@ static void direct_link_view_settings(FileData *fd, ColorManagedViewSettings *vi
 static void direct_link_layeritems(FileData *fd, ListBase *layeritems, LayerTree *ltree, int *counter)
 {
 	link_list(fd, layeritems);
-	for (LayerTreeItem *litem = layeritems->first; litem; litem = litem->next) {
+	for (LayerTreeItem *litem = layeritems->last; litem; litem = litem->prev) {
 		ltree->items_all[*counter] = litem;
 		(*counter)++;
 
