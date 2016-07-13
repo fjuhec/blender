@@ -153,13 +153,14 @@ static int delete_correspondence_exec(bContext *C, wmOperator *UNUSED(op))
 
 	/* Remove track correspondences from correspondence base
 	 */
-	ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
-	for (MovieTrackingTrack *track = tracksbase->first, *next_track;
-	     track != NULL;
-	     track = next_track) {
-		next_track = track->next;
+	ListBase *correspondence_base = &tracking->correspondences;
+	for (MovieTrackingCorrespondence *corr = correspondence_base->first;
+	     corr != NULL;
+	     corr = corr->next) {
+		MovieTrackingTrack *track;
+		track = corr->self_track;
 		if (TRACK_VIEW_SELECTED(sc, track)) {
-			clip_delete_track(C, clip, track);
+			BLI_freelinkN(correspondence_base, corr);
 			changed = true;
 		}
 	}
