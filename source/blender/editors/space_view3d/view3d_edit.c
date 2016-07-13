@@ -2960,9 +2960,9 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 		INIT_MINMAX(min, max);
 	}
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene)
 	{
-		if (BASE_VISIBLE(v3d, base)) {
+		if (base->lay & v3d->lay) {
 			changed = true;
 
 			if (skip_camera && base->object == v3d->camera) {
@@ -3045,7 +3045,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	if (ob && (ob->mode & OB_MODE_WEIGHT_PAINT)) {
 		/* hard-coded exception, we look for the one selected armature */
 		/* this is weak code this way, we should make a generic active/selection callback interface once... */
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene)
 		{
 			if (TESTBASELIB(v3d, base)) {
 				if (base->object->type == OB_ARMATURE) {

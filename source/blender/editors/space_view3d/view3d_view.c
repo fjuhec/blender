@@ -1295,7 +1295,7 @@ static bool view3d_localview_init(
 			scene->obedit->lay = BASACT->lay;
 		}
 		else {
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_VISIBLE_START(scene)
 			{
 				if (TESTBASE(v3d, base)) {
 					BKE_object_minmax(base->object, min, max, false);

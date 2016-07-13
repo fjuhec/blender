@@ -277,20 +277,30 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 		Base *base_name = oblayer->bases[idx_name];
 #define BKE_OBJECTLAYER_BASES_ITER_END } (void)0
 
-/* Use this if BKE_BASES_ITER_START doesn't give enough control over variable names.*/
-#define BKE_BASES_ITER_START_EX(scene, layeridx_name, litem_name, oblayer_name, baseidx_name, base_name) \
+/* Use this if BKE_BASES_ITER_START doesn't give enough control over variable names.
+ * Doesn't do layer visibility-bit check, even with skip_hidden is true. */
+#define BKE_BASES_ITER_START_EX(scene, layeridx_name, litem_name, oblayer_name, baseidx_name, base_name, skip_hidden) \
 	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, layeridx_name, litem_name) \
 	{ \
-		if (litem_name->type->type == LAYER_ITEMTYPE_LAYER) { \
+		if ((litem_name->type->type == LAYER_ITEMTYPE_LAYER) && \
+		    (!skip_hidden || BKE_layeritem_is_visible(litem))) \
+		{ \
 			LayerTypeObject *oblayer_name = (LayerTypeObject *)litem_name; \
-			BKE_OBJECTLAYER_BASES_ITER_START(oblayer_name, baseidx_name, base_name)
+			BKE_OBJECTLAYER_BASES_ITER_START(oblayer_name, baseidx_name, base_name) \
+				if (skip_hidden && (base_name->object->restrictflag & OB_RESTRICT_VIEW)) \
+					continue;
 
-/* Start iterating over all bases of the scene. This is basically a wrapper around layer
- * tree and object layer iterator to make access a bit easier. Uses default variable names. */
+/* Start iterating over all bases of the scene, ignoring visibility. This is basically a wrapper around
+ * layer tree and object layer iterator to make access a bit easier. Uses default variable names. */
 #define BKE_BASES_ITER_START(scene) \
-	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base)
+	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base, false)
 
-/* End BKE_BASES_ITER_START or BKE_BASES_ITER_START_EX. */
+/* Version of BKE_BASES_ITER_START that skips invisible layers and
+ * invisible objects. Doesn't do layer visibility-bit check.*/
+#define BKE_BASES_ITER_VISIBLE_START(scene) \
+	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base, true)
+
+/* End BKE_BASES_ITER_ */
 #define BKE_BASES_ITER_END \
 			BKE_OBJECTLAYER_BASES_ITER_END; \
 		} \

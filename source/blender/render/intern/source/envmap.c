@@ -255,8 +255,6 @@ static void env_set_imats(Render *re)
 	{
 		mul_m4_m4m4(mat, re->viewmat, base->object->obmat);
 		invert_m4_m4(base->object->imat, mat);
-		
-		base = base->next;
 	}
 	BKE_BASES_ITER_END;
 }

@@ -1025,7 +1025,7 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 		else {
 			/* first selected */
 			ob = NULL;
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_VISIBLE_START(scene)
 			{
 				if (TESTBASELIB(v3d, base)) {
 					ob = base->object;

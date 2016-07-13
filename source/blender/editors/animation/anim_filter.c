@@ -1667,6 +1667,8 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 				 *	  try to add the channels)
 				 */
 				if ((filter_mode & ANIMFILTER_DATA_VISIBLE) && !(ads->filterflag & ADS_FILTER_INCL_HIDDEN)) {
+					if (!BKE_layeritem_is_visible(base->layer)) break; /* continue with next layer */
+
 					/* layer visibility - we check both object and base, since these may not be in sync yet */
 					if ((scene->lay & (ob->lay | base->lay)) == 0) continue;
 					

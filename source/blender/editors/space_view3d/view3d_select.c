@@ -402,7 +402,7 @@ static void do_lasso_select_pose(ViewContext *vc, Object *ob, const int mcords[]
 
 static void object_deselect_all_visible(Scene *scene, View3D *v3d)
 {
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene)
 	{
 		if (BASE_SELECTABLE(v3d, base)) {
 			ED_base_object_select(base, BA_DESELECT);
@@ -417,7 +417,7 @@ static void do_lasso_select_objects(ViewContext *vc, const int mcords[][2], cons
 	if (extend == false && select)
 		object_deselect_all_visible(vc->scene, vc->v3d);
 
-	BKE_BASES_ITER_START(vc->scene)
+	BKE_BASES_ITER_VISIBLE_START(vc->scene)
 	{
 		if (BASE_SELECTABLE(vc->v3d, base)) { /* use this to avoid un-needed lasso lookups */
 			if (ED_view3d_project_base(vc->ar, base) == V3D_PROJ_RET_OK) {

@@ -5464,7 +5464,7 @@ static int count_proportional_objects(TransInfo *t)
 	      (t->mode == TFM_ROTATION || t->mode == TFM_TRACKBALL)))
 	{
 		/* mark all parents */
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene)
 		{
 			if (TESTBASELIB_BGMODE(v3d, scene, base)) {
 				Object *parent = base->object->parent;
@@ -5479,7 +5479,7 @@ static int count_proportional_objects(TransInfo *t)
 		BKE_BASES_ITER_END;
 
 		/* mark all children */
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene)
 		{
 			/* all base not already selected or marked that is editable */
 			if ((base->object->flag & (SELECT | BA_TRANSFORM_CHILD | BA_TRANSFORM_PARENT)) == 0 &&
@@ -5491,7 +5491,7 @@ static int count_proportional_objects(TransInfo *t)
 		BKE_BASES_ITER_END;
 	}
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene)
 	{
 		Object *ob = base->object;
 

@@ -1966,7 +1966,7 @@ static bool snapObjectsRay(
 			ignore_object_active = true;
 			break;
 	}
-	BKE_BASES_ITER_START(sctx->scene)
+	BKE_BASES_ITER_VISIBLE_START(sctx->scene)
 	{
 		if ((BASE_VISIBLE_BGMODE(sctx->v3d_data.v3d, sctx->scene, base)) &&
 		    (base->flag & (BA_HAS_RECALC_OB | BA_HAS_RECALC_DATA)) == 0 &&

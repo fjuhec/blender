@@ -1291,15 +1291,13 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		const bool selected_objects = CTX_data_equals(member, "selected_objects");
 
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene)
 		{
 			if ((base->flag & SELECT) && (base->lay & lay)) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
-					if (selected_objects)
-						CTX_data_id_list_add(result, &base->object->id);
-					else
-						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+				if (selected_objects)
+					CTX_data_id_list_add(result, &base->object->id);
+				else
+					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
 		BKE_BASES_ITER_END;
@@ -1312,16 +1310,14 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		const bool selected_editable_objects = CTX_data_equals(member, "selected_editable_objects");
 
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene)
 		{
 			if ((base->flag & SELECT) && (base->lay & lay)) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
-					if (0 == BKE_object_is_libdata(base->object)) {
-						if (selected_editable_objects)
-							CTX_data_id_list_add(result, &base->object->id);
-						else
-							CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-					}
+				if (0 == BKE_object_is_libdata(base->object)) {
+					if (selected_editable_objects)
+						CTX_data_id_list_add(result, &base->object->id);
+					else
+						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 				}
 			}
 		}
@@ -1335,15 +1331,13 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		const bool visible_objects = CTX_data_equals(member, "visible_objects");
 
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene)
 		{
 			if (base->lay & lay) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
-					if (visible_objects)
-						CTX_data_id_list_add(result, &base->object->id);
-					else
-						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+				if (visible_objects)
+					CTX_data_id_list_add(result, &base->object->id);
+				else
+					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
 		BKE_BASES_ITER_END;
@@ -1356,15 +1350,13 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		const bool selectable_objects = CTX_data_equals(member, "selectable_objects");
 
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene)
 		{
-			if (base->lay & lay) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->object->restrictflag & OB_RESTRICT_SELECT) == 0) {
-					if (selectable_objects)
-						CTX_data_id_list_add(result, &base->object->id);
-					else
-						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+			if ((base->lay & lay) && ((base->object->restrictflag & OB_RESTRICT_SELECT) == 0)) {
+				if (selectable_objects)
+					CTX_data_id_list_add(result, &base->object->id);
+				else
+					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
 		BKE_BASES_ITER_END;

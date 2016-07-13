@@ -462,13 +462,12 @@ static void draw_uvs_other(Scene *scene, Object *obedit, const Image *curimage, 
 {
 	UI_ThemeColor(TH_UV_OTHERS);
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene)
 	{
 		Object *ob = base->object;
 
 		if (!(base->flag & SELECT)) continue;
 		if (!(base->lay & scene->lay)) continue;
-		if (ob->restrictflag & OB_RESTRICT_VIEW) continue;
 
 		if ((ob->type == OB_MESH) && (ob != obedit) && ((Mesh *)ob->data)->mloopuv) {
 			draw_uvs_other_mesh(ob, curimage, new_shading_nodes);
