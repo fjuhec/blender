@@ -77,6 +77,7 @@ static void rna_def_alembic_object_path(BlenderRNA *brna)
 	StructRNA *srna = RNA_def_struct(brna, "AlembicObjectPath", NULL);
 	RNA_def_struct_sdna(srna, "AlembicObjectPath");
 	RNA_def_struct_ui_text(srna, "Object Path", "Path of an object inside of an Alembic archive");
+	RNA_def_struct_ui_icon(srna, ICON_NONE);
 
 	PropertyRNA *prop = RNA_def_property(srna, "path", PROP_STRING, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Path", "Object path");
