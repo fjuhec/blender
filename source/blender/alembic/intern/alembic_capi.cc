@@ -903,17 +903,10 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		{
 			vertex_normals = normsamp.getVals();
 		}
-		else {
-			dm->dirty = static_cast<DMDirtyFlag>(static_cast<int>(dm->dirty) | static_cast<int>(DM_DIRTY_NORMALS));
-		}
 	}
 
 	read_mverts(mverts, positions, vertex_normals);
 	read_mpolys(mpolys, mloops, mloopuvs, ldata, face_indices, face_counts, uvs, uvs_indices, poly_normals);
-
-	if (!vertex_normals && !poly_normals) {
-		CDDM_calc_normals(dm);
-	}
 
 	CDStreamConfig config;
 	config.user_data = dm;
@@ -926,6 +919,10 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	read_custom_data(schema.getArbGeomParams(), config, sample_sel);
 
 	if (new_dm) {
+		if (!vertex_normals && !poly_normals) {
+			CDDM_calc_normals(dm);
+		}
+
 		CDDM_calc_edges(dm);
 	}
 
