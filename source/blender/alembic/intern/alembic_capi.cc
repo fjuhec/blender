@@ -50,6 +50,7 @@ extern "C" {
 #include "BKE_cachefile.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_context.h"
+#include "BKE_curve.h"
 #include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_library.h"
@@ -951,7 +952,7 @@ static DerivedMesh *read_curves_sample(Object *ob, const IObject &iobject, const
 	const int curve_count = BLI_listbase_count(&curve->nurb);
 
 	if (curve_count != num_vertices->size()) {
-		BLI_freelistN(&curve->nurb);
+		BKE_nurbList_free(&curve->nurb);
 		read_curve_sample(curve, schema, time);
 	}
 	else {
