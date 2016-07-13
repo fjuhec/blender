@@ -113,14 +113,12 @@ void BKE_action_make_local(Main *bmain, bAction *act)
 	if (is_local) {
 		if (!is_lib) {
 			id_clear_lib_data(bmain, &act->id);
+			BKE_id_expand_local(&act->id);
 		}
 		else {
 			bAction *act_new = BKE_action_copy(bmain, act);
 
 			act_new->id.us = 0;
-
-			/* Remap paths of new ID using old library as base. */
-			BKE_id_lib_local_paths(bmain, act->id.lib, &act_new->id);
 
 			BKE_libblock_remap(bmain, act, act_new, ID_REMAP_SKIP_INDIRECT_USAGE);
 		}
@@ -184,6 +182,7 @@ bAction *BKE_action_copy(Main *bmain, bAction *src)
 	}
 	
 	if (ID_IS_LINKED_DATABLOCK(src)) {
+		BKE_id_expand_local(&dst->id);
 		BKE_id_lib_local_paths(bmain, src->id.lib, &dst->id);
 	}
 
