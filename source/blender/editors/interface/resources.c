@@ -2127,8 +2127,6 @@ void init_userdef_do_versions(void)
 				rgba_char_args_set(btheme->tclip.marker, 0x7f, 0x7f, 0x00, 255);
 				rgba_char_args_set(btheme->tclip.act_marker, 0xff, 0xff, 0xff, 255);
 				rgba_char_args_set(btheme->tclip.sel_marker, 0xff, 0xff, 0x00, 255);
-				rgba_char_args_set(btheme->tclip.linked_marker, 0x85, 0xc1, 0xe9, 255);
-				rgba_char_args_set(btheme->tclip.sel_linked_marker, 0xcb, 0x43, 0x35, 255);
 				rgba_char_args_set(btheme->tclip.dis_marker, 0x7f, 0x00, 0x00, 255);
 				rgba_char_args_set(btheme->tclip.lock_marker, 0x7f, 0x7f, 0x7f, 255);
 				rgba_char_args_set(btheme->tclip.path_before, 0xff, 0x00, 0x00, 255);
@@ -2739,6 +2737,9 @@ void init_userdef_do_versions(void)
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
 			if (btheme->tact.keyframe_scale_fac < 0.1f)
 				btheme->tact.keyframe_scale_fac = 1.0f;
+
+			rgba_char_args_set(btheme->tclip.linked_marker, 0x85, 0xc1, 0xe9, 255);
+			rgba_char_args_set(btheme->tclip.sel_linked_marker, 0xcb, 0x43, 0x35, 255);
 		}
 	}
 
