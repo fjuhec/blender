@@ -972,9 +972,10 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 	/* TODO(sergey): Perform preliminary check for number of verticies. */
 	if(numverts) {
 		/* For fluid meshes since we have change in geometry, we use velocities,
-		 * not delta-positions, and all the work is done on the first frame when
-		 * time_index is == 0, so the work is done. */
-		if(mesh_cache && time_index != 0) {
+		 * not delta-positions, and all the work is done on the last frame when
+		 * time_index is != 0, such that we use the velocities from the right
+		 * frame. */
+		if(mesh_cache && time_index == 0) {
 			return;
 		}
 
@@ -1000,8 +1001,6 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 			int step = 0;
 
-//			fprintf(stderr, "%s, vertices: %lu\n", __func__, numverts);
-
 			float3 *buffer = new float3[numverts];
 
 			MeshSequenceCacheModifier_velocity_cache_get(&mesh_cache.ptr, &buffer[0].x);
@@ -1011,8 +1010,6 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 			foreach(float relative_time, this->motion_times) {
 				float3 *mP = attr_mP->data_float3() + step*numverts;
 				float3 *mN = (attr_mN) ? attr_mN->data_float3() + step*numverts : NULL;
-
-//				fprintf(stderr, "Setting velocity for relative time: %f\n", (double)relative_time);
 
 				for (int i = 0; i < numverts; ++i) {
 					mP[i] = P[i] + buffer[i]*relative_time*shuttertime*0.5f;
