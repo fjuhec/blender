@@ -547,7 +547,20 @@ static void draw_marker_outline(SpaceClip *sc, MovieTrackingTrack *track, MovieT
 	glPopMatrix();
 }
 
-static void track_colors(MovieTrackingTrack *track, int act, float col[3], float scol[3])
+// return whether the track is a linked track
+// by iterating the correpsondence base in tracking.
+static bool is_track_linked(MovieTracking *tracking, MovieTrackingTrack *track)
+{
+	MovieTrackingCorrespondence *corr = tracking->correspondences.first;
+	while (corr) {
+		if (corr->self_track == track || corr->other_track == track)
+			return true;
+		corr = corr->next;
+	}
+	return false;
+}
+
+static void track_colors(MovieTrackingTrack *track, int act, int link, float col[3], float scol[3])
 {
 	if (track->flag & TRACK_CUSTOMCOLOR) {
 		if (act)
@@ -558,12 +571,18 @@ static void track_colors(MovieTrackingTrack *track, int act, float col[3], float
 		mul_v3_v3fl(col, track->color, 0.5f);
 	}
 	else {
-		UI_GetThemeColor3fv(TH_MARKER, col);
+		if (link)
+			UI_GetThemeColor3fv(TH_LINKED_MARKER, col);
+		else
+			UI_GetThemeColor3fv(TH_MARKER, col);
 
 		if (act)
 			UI_GetThemeColor3fv(TH_ACT_MARKER, scol);
 		else
-			UI_GetThemeColor3fv(TH_SEL_MARKER, scol);
+			if (link)
+				UI_GetThemeColor3fv(TH_SEL_LINKED_MARKER, scol);
+			else
+				UI_GetThemeColor3fv(TH_SEL_MARKER, scol);
 	}
 }
 
@@ -574,7 +593,9 @@ static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTra
 	bool show_search = false;
 	float col[3], scol[3], px[2];
 
-	track_colors(track, act, col, scol);
+	MovieTracking *tracking = &sc->clip->tracking;
+	bool link = is_track_linked(tracking, track);
+	track_colors(track, act, link, col, scol);
 
 	px[0] = 1.0f / width / sc->zoom;
 	px[1] = 1.0f / height / sc->zoom;
@@ -798,7 +819,9 @@ static void draw_marker_slide_zones(SpaceClip *sc, MovieTrackingTrack *track, Mo
 	if (!TRACK_VIEW_SELECTED(sc, track) || track->flag & TRACK_LOCKED)
 		return;
 
-	track_colors(track, act, col, scol);
+	MovieTracking *tracking = &sc->clip->tracking;
+	bool link = is_track_linked(tracking, track);
+	track_colors(track, act, link, col, scol);
 
 	if (outline) {
 		UI_ThemeColor(TH_MARKER_OUTLINE);
