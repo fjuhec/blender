@@ -830,6 +830,7 @@ ABC_INLINE CDStreamConfig create_config(Mesh *mesh)
 	config.totpoly = mesh->totpoly;
 	config.totloop = mesh->totloop;
 	config.user_data = mesh;
+	config.loopdata = &mesh->ldata;
 	config.add_customdata_cb = add_customdata_cb;
 
 	return config;
@@ -958,10 +959,10 @@ ABC_INLINE void read_uvs_params(CDStreamConfig &config,
 }
 
 ABC_INLINE void read_normals_params(AbcMeshData &abc_data,
-                                    const IN3fGeomParam normals,
+                                    const IN3fGeomParam &normals,
                                     const ISampleSelector &selector)
 {
-	if (normals.valid()) {
+	if (!normals.valid()) {
 		return;
 	}
 

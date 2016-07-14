@@ -859,6 +859,7 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	config.mpoly = dm->getPolyArray(dm);
 	config.totloop = dm->getNumLoops(dm);
 	config.totpoly = dm->getNumPolys(dm);
+	config.loopdata = dm->getLoopDataLayout(dm);
 	config.add_customdata_cb = add_customdata_cb;
 
 	bool do_normals = false;
@@ -907,6 +908,7 @@ static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, co
 	config.mpoly = dm->getPolyArray(dm);
 	config.totloop = dm->getNumLoops(dm);
 	config.totpoly = dm->getNumPolys(dm);
+	config.loopdata = dm->getLoopDataLayout(dm);
 	config.add_customdata_cb = add_customdata_cb;
 
 	read_subd_sample(schema, sample_sel, config);
