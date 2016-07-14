@@ -25,7 +25,15 @@
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
 
+#ifdef _MSC_VER
+#  define ABC_INLINE static __forceinline
+#else
+#  define ABC_INLINE static inline
+#endif
+
 using Alembic::Abc::chrono_t;
+
+class ImportSettings;
 
 struct ID;
 struct Object;
@@ -75,12 +83,6 @@ void get_min_max_time(const Schema &schema, chrono_t &min, chrono_t &max)
 bool has_property(const Alembic::Abc::ICompoundProperty &prop, const std::string &name);
 
 /* ************************** */
-
-#ifdef _MSC_VER
-#  define ABC_INLINE static __forceinline
-#else
-#  define ABC_INLINE static inline
-#endif
 
 /* TODO(kevin): for now keeping these transformations hardcoded to make sure
  * everything works properly, and also because Alembic is almost exclusively

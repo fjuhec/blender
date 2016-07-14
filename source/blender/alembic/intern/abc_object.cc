@@ -214,7 +214,7 @@ void AbcObjectReader::readObjectMatrix(const float time)
 	}
 }
 
-void AbcObjectReader::addDefaultModifier() const
+void AbcObjectReader::addCacheModifier() const
 {
 	ModifierData *md = modifier_new(eModifierType_MeshSequenceCache);
 	BLI_addtail(&m_object->modifiers, md);

@@ -964,41 +964,6 @@ ABC_INLINE void read_normals_params(AbcMeshData &abc_data,
 	}
 }
 
-template <typename Schema>
-static bool has_animations(Schema &schema, ImportSettings *settings)
-{
-	if (settings->is_sequence) {
-		return true;
-	}
-
-	if (!schema.isConstant()) {
-		return true;
-	}
-
-	const ICompoundProperty &arb_geom_params = schema.getArbGeomParams();
-
-	if (!arb_geom_params.valid()) {
-		return false;
-	}
-
-	const size_t num_props = arb_geom_params.getNumProperties();
-
-	for (size_t i = 0; i < num_props; ++i) {
-		const Alembic::Abc::PropertyHeader &propHeader = arb_geom_params.getPropertyHeader(i);
-
-		/* Check for animated UVs. */
-		if (IV2fGeomParam::matches(propHeader) && Alembic::AbcGeom::isUV(propHeader)) {
-			IV2fGeomParam uv_geom_param(arb_geom_params, propHeader.getName());
-
-			if (!uv_geom_param.isConstant()) {
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
 /* ************************************************************************** */
 
 AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings, bool is_subd)
@@ -1043,7 +1008,7 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 	readFaceSetsSample(bmain, mesh, 0, sample_sel);
 
 	if (has_animations(m_schema, m_settings)) {
-		addDefaultModifier();
+		addCacheModifier();
 	}
 }
 
@@ -1191,7 +1156,7 @@ void AbcSubDReader::readObjectData(Main *bmain, Scene *scene, float time)
 	BKE_mesh_validate(mesh, false, false);
 
 	if (has_animations(m_schema, m_settings)) {
-		addDefaultModifier();
+		addCacheModifier();
 	}
 }
 

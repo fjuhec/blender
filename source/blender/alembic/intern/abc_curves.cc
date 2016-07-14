@@ -208,8 +208,8 @@ void AbcCurveReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 	read_curve_sample(cu, m_curves_schema, time);
 
-	if (m_settings->is_sequence || !m_curves_schema.isConstant()) {
-		addDefaultModifier();
+	if (has_animations(m_curves_schema, m_settings)) {
+		addCacheModifier();
 	}
 }
 

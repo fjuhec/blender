@@ -94,6 +94,20 @@ struct ImportSettings {
 	CacheFile *cache_file;
 };
 
+template <typename Schema>
+static bool has_animations(Schema &schema, ImportSettings *settings)
+{
+	if (settings->is_sequence) {
+		return true;
+	}
+
+	if (!schema.isConstant()) {
+		return true;
+	}
+
+	return false;
+}
+
 /* ************************************************************************** */
 
 using Alembic::AbcCoreAbstract::chrono_t;
@@ -126,7 +140,7 @@ public:
 
 	void readObjectMatrix(const float time);
 
-	void addDefaultModifier() const;
+	void addCacheModifier() const;
 
 	chrono_t minTime() const;
 	chrono_t maxTime() const;
