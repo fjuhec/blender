@@ -5643,8 +5643,10 @@ static void lib_link_scene(FileData *fd, Main *main)
 				next = base->next;
 				
 				base->object = newlibadr_us(fd, sce->id.lib, base->object);
-				
-				if (base->object == NULL) {
+				if (base->object) {
+					base->object->layer = base->layer;
+				}
+				else if (base->object == NULL) {
 					blo_reportf_wrap(fd->reports, RPT_WARNING, TIP_("LIB: object lost from scene: '%s'"),
 					                 sce->id.name + 2);
 					BLI_remlink(&sce->base, base);
@@ -9732,6 +9734,8 @@ static void give_base_to_objects(Main *mainvar, Scene *scene, View3D *v3d, Libra
 				base = MEM_callocN(sizeof(Base), __func__);
 				BLI_addtail(&scene->base, base);
 
+				BKE_objectlayer_base_assign(base, scene->object_layers->active_layer, false);
+				ob->layer = base->layer;
 				if (active_lay) {
 					ob->lay = active_lay;
 				}
@@ -9775,6 +9779,7 @@ static void give_base_to_groups(
 			base->object->flag = base->flag;
 			DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 			scene->basact = base;
+			ob->layer = base->layer;
 
 			/* assign the group */
 			ob->dup_group = group;
@@ -9866,6 +9871,7 @@ static void link_object_postprocess(ID *id, Scene *scene, View3D *v3d, const sho
 		if (flag & FILE_ACTIVELAY) {
 			ob->lay = BKE_screen_view3d_layer_active(v3d, scene);
 			BKE_objectlayer_base_assign(base, scene->object_layers->active_layer, false);
+			ob->layer = base->layer;
 		}
 
 		ob->mode = OB_MODE_OBJECT;

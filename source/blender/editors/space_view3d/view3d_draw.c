@@ -2078,8 +2078,14 @@ static void draw_dupli_objects_color(
 	short dtx;
 	DupliApplyData *apply_data;
 
-	if (base->object->restrictflag & OB_RESTRICT_VIEW) return;
-	if ((base->object->restrictflag & OB_RESTRICT_RENDER) && (v3d->flag2 & V3D_RENDER_OVERRIDE)) return;
+	if (base->object->restrictflag & OB_RESTRICT_VIEW)
+		return;
+	/* XXX Checking this for every object is quite inefficient.
+	 * Caller should check, but needs to be done carefully. */
+	if (!BKE_layeritem_is_visible(base->layer))
+		return;
+	if ((base->object->restrictflag & OB_RESTRICT_RENDER) && (v3d->flag2 & V3D_RENDER_OVERRIDE))
+		return;
 
 	if (dflag & DRAW_CONSTCOLOR) {
 		BLI_assert(color == TH_UNDEFINED);

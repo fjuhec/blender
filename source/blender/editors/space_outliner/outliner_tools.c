@@ -56,6 +56,7 @@
 #include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_group.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
@@ -366,7 +367,7 @@ static void object_select_cb(
 	Base *base = (Base *)te->directdata;
 	
 	if (base == NULL) base = BKE_scene_base_find(scene, (Object *)tselem->id);
-	if (base && ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0)) {
+	if (base && ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) && BKE_layeritem_is_visible(base->layer)) {
 		base->flag |= SELECT;
 		base->object->flag |= SELECT;
 	}
@@ -524,13 +525,9 @@ static void group_linkobs2scene_cb(
 			base->flag |= SELECT;
 		}
 		else {
-			/* link to scene */
-			base = MEM_callocN(sizeof(Base), "add_base");
-			BLI_addhead(&scene->base, base);
-			base->lay = gob->ob->lay;
 			gob->ob->flag |= SELECT;
-			base->flag = gob->ob->flag;
-			base->object = gob->ob;
+			/* link to scene */
+			base = BKE_scene_base_add(scene, gob->ob);
 			id_lib_extern((ID *)gob->ob); /* in case these are from a linked group */
 		}
 	}

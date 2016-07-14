@@ -45,6 +45,7 @@
 
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
+#include "BKE_layer.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
@@ -148,14 +149,15 @@ static eOLDrawState tree_element_active_renderlayer(
  */
 static void do_outliner_object_select_recursive(Scene *scene, Object *ob_parent, bool select)
 {
-	Base *base;
 
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene)
+	{
 		Object *ob = base->object;
 		if ((((ob->restrictflag & OB_RESTRICT_VIEW) == 0) && BKE_object_is_child_recursive(ob_parent, ob))) {
 			ED_base_object_select(base, select ? BA_SELECT : BA_DESELECT);
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void do_outliner_bone_select_recursive(bArmature *arm, Bone *bone_parent, bool select)

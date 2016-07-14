@@ -310,7 +310,8 @@ static void make_duplis_group(const DupliContext *ctx)
 
 			/* check the group instance and object layers match, also that the object visible flags are ok. */
 			hide = (go->ob->lay & group->layer) == 0 ||
-			       (for_render ? go->ob->restrictflag & OB_RESTRICT_RENDER : go->ob->restrictflag & OB_RESTRICT_VIEW);
+			       (for_render ? go->ob->restrictflag & OB_RESTRICT_RENDER : go->ob->restrictflag & OB_RESTRICT_VIEW) ||
+			       !BKE_layeritem_is_visible(ob->layer);
 
 			make_dupli(ctx, go->ob, mat, id, animated, hide);
 

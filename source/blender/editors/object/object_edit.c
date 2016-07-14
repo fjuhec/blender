@@ -69,6 +69,7 @@
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -138,12 +139,12 @@ static int object_hide_view_clear_exec(bContext *C, wmOperator *UNUSED(op))
 	ScrArea *sa = CTX_wm_area(C);
 	View3D *v3d = sa->spacedata.first;
 	Scene *scene = CTX_data_scene(C);
-	Base *base;
 	bool changed = false;
 	
 	/* XXX need a context loop to handle such cases */
-	for (base = FIRSTBASE; base; base = base->next) {
-		if ((base->lay & v3d->lay) && base->object->restrictflag & OB_RESTRICT_VIEW) {
+	BKE_BASES_ITER_VISIBLE_START(scene)
+	{
+		if ((base->lay & v3d->lay)) {
 			if (!(base->object->restrictflag & OB_RESTRICT_SELECT)) {
 				base->flag |= SELECT;
 			}
@@ -152,6 +153,7 @@ static int object_hide_view_clear_exec(bContext *C, wmOperator *UNUSED(op))
 			changed = true;
 		}
 	}
+	BKE_BASES_ITER_END;
 	if (changed) {
 		DAG_id_type_tag(bmain, ID_OB);
 		DAG_relations_tag_update(bmain);
@@ -625,8 +627,11 @@ static int editmode_toggle_poll(bContext *C)
 		return 0;
 
 	/* if hidden but in edit mode, we still display */
-	if ((ob->restrictflag & OB_RESTRICT_VIEW) && !(ob->mode & OB_MODE_EDIT))
+	if (!(ob->mode & OB_MODE_EDIT) &&
+	    ((ob->restrictflag & OB_RESTRICT_VIEW) || !BKE_layeritem_is_visible(ob->layer)))
+	{
 		return 0;
+	}
 
 	return OB_TYPE_SUPPORT_EDITMODE(ob->type);
 }

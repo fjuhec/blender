@@ -2754,6 +2754,8 @@ static bool animdata_filter_base_is_ok(bDopeSheet *ads, Scene *scene, Base *base
 	 *	  try to add the channels)
 	 */
 	if ((filter_mode & ANIMFILTER_DATA_VISIBLE) && !(ads->filterflag & ADS_FILTER_INCL_HIDDEN)) {
+		if (!BKE_layeritem_is_visible(base->layer)) return false;
+		
 		/* layer visibility - we check both object and base, since these may not be in sync yet */
 		if ((scene->lay & (ob->lay | base->lay)) == 0)
 			return false;

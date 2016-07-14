@@ -63,6 +63,7 @@
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_material.h"
@@ -7472,7 +7473,11 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 	if (ob != scene->obedit) {
 		if (ob->restrictflag & OB_RESTRICT_VIEW)
 			return;
-		
+		/* XXX Checking this for every object is quite inefficient.
+		 * Caller should check, but needs to be done carefully. */
+		if (!BKE_layeritem_is_visible(base->layer))
+			return;
+
 		if (render_override) {
 			if (ob->restrictflag & OB_RESTRICT_RENDER)
 				return;

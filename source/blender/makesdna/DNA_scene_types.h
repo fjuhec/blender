@@ -77,7 +77,7 @@ typedef struct Base {
 	int flag;
 	short sx, sy;
 	struct Object *object;
-	struct LayerTreeItem *layer; /* The layer this base is assigned to (might need to add to object struct as well) */
+	struct LayerTreeItem *layer; /* The layer this base is assigned to. Synced with Object.layer */
 } Base;
 
 /* ------------------------------------------- */

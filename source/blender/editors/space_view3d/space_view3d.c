@@ -1370,8 +1370,11 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		if (scene->basact && (scene->basact->lay & lay)) {
 			Object *ob = scene->basact->object;
 			/* if hidden but in edit mode, we still display, can happen with animation */
-			if ((ob->restrictflag & OB_RESTRICT_VIEW) == 0 || (ob->mode & OB_MODE_EDIT))
+			if ((ob->mode & OB_MODE_EDIT) ||
+			    (BKE_layeritem_is_visible(ob->layer) && (ob->restrictflag & OB_RESTRICT_VIEW) == 0))
+			{
 				CTX_data_pointer_set(result, &scene->id, &RNA_ObjectBase, scene->basact);
+			}
 		}
 		
 		return 1;
@@ -1382,8 +1385,11 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		if (scene->basact && (scene->basact->lay & lay)) {
 			Object *ob = scene->basact->object;
-			if ((ob->restrictflag & OB_RESTRICT_VIEW) == 0 || (ob->mode & OB_MODE_EDIT))
+			if ((ob->mode & OB_MODE_EDIT) ||
+			    (BKE_layeritem_is_visible(ob->layer) && (ob->restrictflag & OB_RESTRICT_VIEW) == 0))
+			{
 				CTX_data_id_pointer_set(result, &scene->basact->object->id);
+			}
 		}
 		
 		return 1;
