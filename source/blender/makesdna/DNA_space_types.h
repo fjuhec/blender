@@ -1317,6 +1317,7 @@ typedef enum eSpaceClip_Mode {
 	/*SC_MODE_RECONSTRUCTION = 1,*/  /* DEPRECATED */
 	/*SC_MODE_DISTORTION = 2,*/  /* DEPRECATED */
 	SC_MODE_MASKEDIT = 3,
+	SC_MODE_CORRESPONDENCE = 4,
 } eSpaceClip_Mode;
 
 /* SpaceClip->view */

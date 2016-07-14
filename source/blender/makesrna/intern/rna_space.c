@@ -189,6 +189,7 @@ EnumPropertyItem rna_enum_viewport_shade_items[] = {
 EnumPropertyItem rna_enum_clip_editor_mode_items[] = {
 	{SC_MODE_TRACKING, "TRACKING", ICON_ANIM_DATA, "Tracking", "Show tracking and solving tools"},
 	{SC_MODE_MASKEDIT, "MASK", ICON_MOD_MASK, "Mask", "Show mask editing tools"},
+	{SC_MODE_CORRESPONDENCE, "CORRESPONDENCE", ICON_MOD_CORRESPONDENCE, "Correspondence", "Show correspondence editing tools"},
 	{0, NULL, 0, NULL, NULL}
 };
 
