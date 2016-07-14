@@ -5103,6 +5103,7 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	PVert **points = (PVert **)MEM_mallocN(sizeof(PVert *) * nfp->nverts, "PNFPPoints");
 	nfp->final_pos = (PPointUV **)MEM_callocN(sizeof(*nfp->final_pos) * nfp->nverts, "PNFPFinalPos");
 	int i, j, offset_item = 0, offset_fixed = 0;
+	float trans[2];
 
 	/* Assign verts of hulls to NFP */
 	for (i = 0; i < nfp->nverts; i++) {
@@ -5153,27 +5154,41 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 
 	for (j = 1; j < nfp->nverts; j++) {
 		PPointUV *p1 = (PPointUV *)MEM_callocN(sizeof(*p1), "PPointUV1");
-		/*p1->x = nfp->final_pos[j - 1]->x + points[j - 1]->u.delta_edge[0];
+		p1->x = nfp->final_pos[j - 1]->x + points[j - 1]->u.delta_edge[0];
 		p1->y = nfp->final_pos[j - 1]->y + points[j - 1]->u.delta_edge[1];
-		nfp->final_pos[j] = p1;*/
+		nfp->final_pos[j] = p1;
 
-		if ((j + offset_fixed) <= nfp->nverts) {
-			p1->x = nfp->final_pos[j - 1]->x + points[j - 1 + offset_fixed]->u.delta_edge[0];
-			p1->y = nfp->final_pos[j - 1]->y + points[j - 1 + offset_fixed]->u.delta_edge[1];
-			nfp->final_pos[j] = p1;
-		}
-		else {
-			/* j - 1 */
-			p1->x = nfp->final_pos[j - 1]->x + points[(j + offset_fixed) - nfp->nverts]->u.delta_edge[0];
-			p1->y = nfp->final_pos[j - 1]->y + points[(j + offset_fixed) - nfp->nverts]->u.delta_edge[1];
-			nfp->final_pos[j] = p1;
+		//if ((j + offset_fixed) <= nfp->nverts) {
+		//	p1->x = nfp->final_pos[j - 1]->x + points[j - 1 + offset_fixed]->u.delta_edge[0];
+		//	p1->y = nfp->final_pos[j - 1]->y + points[j - 1 + offset_fixed]->u.delta_edge[1];
+		//	nfp->final_pos[j] = p1;
+		//}
+		//else {
+		//	/* j - 1 */
+		//	p1->x = nfp->final_pos[j - 1]->x + points[(j + offset_fixed) - nfp->nverts]->u.delta_edge[0];
+		//	p1->y = nfp->final_pos[j - 1]->y + points[(j + offset_fixed) - nfp->nverts]->u.delta_edge[1];
+		//	nfp->final_pos[j] = p1;
+		//}
+	}
+	printf("-PPointUV creation done!\n");
+
+	/* Move nfp to ref vert */
+	if (offset_fixed != 0) {
+		trans[0] = nfp->final_pos[offset_fixed]->x - fixed->h_verts[fixed->ref_vert_index]->uv[0];
+		trans[1] = nfp->final_pos[offset_fixed]->y - fixed->h_verts[fixed->ref_vert_index]->uv[1];
+		printf("--trans: x: %f, y: %f\n", trans[0], trans[1]);
+		for (i = 0; i < nfp->nverts; i++) {
+			nfp->final_pos[i]->x -= trans[0];
+			nfp->final_pos[i]->y -= trans[1];
+			//nfp->final_pos[i]->x -= nfp->final_pos[offset_fixed]->x;
+			//nfp->final_pos[i]->y -= nfp->final_pos[offset_fixed]->y;
+			printf("--NFP Vert with offset applied: x: %f, y: %f\n", nfp->final_pos[i]->x, nfp->final_pos[i]->y);
 		}
 	}
-
-	/* temp, do this at assignment */
-	for (j = 0; j < nfp->nverts; j++) {
-
-		printf("--NFP Vert: x: %f, y: %f\n", nfp->final_pos[j]->x, nfp->final_pos[j]->y);
+	else {
+		for (i = 0; i < nfp->nverts; i++) {
+			printf("--NFP Vert (offset == 0): x: %f, y: %f\n", nfp->final_pos[i]->x, nfp->final_pos[i]->y);
+		}
 	}
 
 	/* free memory */
@@ -5267,7 +5282,8 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 			cur_iter++;
 			randf1 = BLI_rng_get_float(phandle->rng);
 			/*printf("-randf1 choosen as: %f\n", randf1);*/
-			rand1 = (int)(randf1 * (float)(phandle->ncharts + 1));
+			//rand1 = (int)(randf1 * (float)(phandle->ncharts + 1));
+			rand1 = (int)(randf1 * (float)(phandle->ncharts));
 
 			if (nfps[rand1]) {
 
