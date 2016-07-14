@@ -807,6 +807,31 @@ void ABC_get_transform(AbcArchiveHandle *handle, Object *ob, const char *object_
 
 /* ***************************************** */
 
+static bool check_smooth_poly_flag(DerivedMesh *dm)
+{
+	MPoly *mpolys = dm->getPolyArray(dm);
+
+	for (int i = 0, e = dm->getNumPolys(dm); i < e; ++i) {
+		MPoly &poly = mpolys[i];
+
+		if ((poly.flag & ME_SMOOTH) != 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static void set_smooth_poly_flag(DerivedMesh *dm)
+{
+	MPoly *mpolys = dm->getPolyArray(dm);
+
+	for (int i = 0, e = dm->getNumPolys(dm); i < e; ++i) {
+		MPoly &poly = mpolys[i];
+		poly.flag |= ME_SMOOTH;
+	}
+}
+
 static void *add_customdata_cb(void *user_data, const char *name, int data_type)
 {
 	DerivedMesh *dm = static_cast<DerivedMesh *>(user_data);
@@ -840,8 +865,13 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	const Alembic::Abc::Int32ArraySamplePtr &face_indices = sample.getFaceIndices();
 	const Alembic::Abc::Int32ArraySamplePtr &face_counts = sample.getFaceCounts();
 
+	bool has_smooth_flag = false;
 	bool new_dm = false;
+
 	if (dm->getNumVerts(dm) != positions->size()) {
+		/* Check if we have ME_SMOOTH flag set to restore it later on. */
+		has_smooth_flag = check_smooth_poly_flag(dm);
+
 		DerivedMesh *tmp = CDDM_from_template(dm,
 		                                      positions->size(),
 		                                      0,
@@ -868,6 +898,10 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	if (new_dm) {
 		if (do_normals) {
 			CDDM_calc_normals(dm);
+		}
+
+		if (has_smooth_flag) {
+			set_smooth_poly_flag(dm);
 		}
 
 		CDDM_calc_edges(dm);
