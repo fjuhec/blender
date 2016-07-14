@@ -2378,21 +2378,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
     if (sculpt_brush_test(&test, vd.co)) {
       const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
       int vertexIndex = vd.vert_indices[vd.i];
-
-      MDeformWeight *dw, *dw_prev;
-      MDeformVert *dv = &data->me->dvert[vertexIndex];
-      dw = defvert_verify_index(dv, data->wpi->active.index);
-      dw_prev = defvert_verify_index(data->vp->wpaint_prev + vertexIndex, data->wpi->active.index);
-      dw->weight = wpaint_blend(data->vp, dw->weight, dw_prev->weight, fade, paintweight, data->wpi->brush_alpha_value, data->wpi->do_flip); 
-      //do_weight_paint_vertex(data->vp, data->ob, &data->wpi, vertexIndex, 255.0, paintweight);
-
-      //if a vertex is within the brush region, then paint each loop that vertex owns.
-      //for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
-      //  int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
-      //  //Mix the new color with the original based on the brush strength and the curve.
-      //  
-      //  //lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], data->vpd->paintcol, 255.0 * fade * bstrength, 255.0);
-      //}
+      do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, fade, paintweight);
     }
     BKE_pbvh_vertex_iter_end;
   }
