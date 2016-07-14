@@ -100,7 +100,6 @@ static void doVertSlide(TransInfo *t, float perc);
 
 static void drawEdgeSlide(TransInfo *t);
 static void drawVertSlide(TransInfo *t);
-static void len_v3_ensure(float v[3], const float length);
 static void postInputRotation(TransInfo *t, float values[3]);
 
 static void ElementRotation(TransInfo *t, TransData *td, float mat[3][3], short around);
@@ -4949,9 +4948,7 @@ static void applyPushPull(TransInfo *t, const int UNUSED(mval[2]))
 				project_v3_v3v3(vec, vec, axis);
 			}
 		}
-		normalize_v3(vec);
-		mul_v3_fl(vec, distance);
-		mul_v3_fl(vec, td->factor);
+		normalize_v3_length(vec, distance * td->factor);
 
 		add_v3_v3v3(td->loc, td->iloc, vec);
 	}
@@ -5736,13 +5733,6 @@ static void interp_line_v3_v3v3v3(float p[3], const float v1[3], const float v2[
 	}
 }
 
-
-static void len_v3_ensure(float v[3], const float length)
-{
-	normalize_v3(v);
-	mul_v3_fl(v, length);
-}
-
 /**
  * Find the closest point on the ngon on the opposite side.
  * used to set the edge slide distance for ngons.
@@ -5806,7 +5796,7 @@ static BMLoop *get_next_loop(BMVert *v, BMLoop *l,
 		
 		if (l->e == e_next) {
 			if (i) {
-				len_v3_ensure(vec_accum, vec_accum_len / (float)i);
+				normalize_v3_length(vec_accum, vec_accum_len / (float)i);
 			}
 			else {
 				/* When there is no edge to slide along,
@@ -5826,7 +5816,7 @@ static BMLoop *get_next_loop(BMVert *v, BMLoop *l,
 					cross_v3_v3v3(vec_accum, l_tmp->f->no, tdir);
 #if 0
 					/* rough guess, we can  do better! */
-					len_v3_ensure(vec_accum, (BM_edge_calc_length(e_prev) + BM_edge_calc_length(e_next)) / 2.0f);
+					normalize_v3_length(vec_accum, (BM_edge_calc_length(e_prev) + BM_edge_calc_length(e_next)) / 2.0f);
 #else
 					/* be clever, check the opposite ngon edge to slide into.
 					 * this gives best results */
@@ -5841,7 +5831,7 @@ static BMLoop *get_next_loop(BMVert *v, BMLoop *l,
 							dist = (BM_edge_calc_length(e_prev) + BM_edge_calc_length(e_next)) / 2.0f;
 						}
 
-						len_v3_ensure(vec_accum, dist);
+						normalize_v3_length(vec_accum, dist);
 					}
 #endif
 				}
@@ -5862,7 +5852,7 @@ static BMLoop *get_next_loop(BMVert *v, BMLoop *l,
 
 		if (BM_loop_other_edge_loop(l, v)->e == e_next) {
 			if (i) {
-				len_v3_ensure(vec_accum, vec_accum_len / (float)i);
+				normalize_v3_length(vec_accum, vec_accum_len / (float)i);
 			}
 
 			copy_v3_v3(r_slide_vec, vec_accum);
@@ -5873,7 +5863,7 @@ static BMLoop *get_next_loop(BMVert *v, BMLoop *l,
 	         ((l = l->radial_next) != l_first));
 
 	if (i) {
-		len_v3_ensure(vec_accum, vec_accum_len / (float)i);
+		normalize_v3_length(vec_accum, vec_accum_len / (float)i);
 	}
 	
 	copy_v3_v3(r_slide_vec, vec_accum);

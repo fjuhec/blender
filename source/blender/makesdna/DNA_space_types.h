@@ -253,7 +253,7 @@ typedef struct SpaceOops {
 	struct BLI_mempool *treestore;
 	
 	/* search stuff */
-	char search_string[32];
+	char search_string[64];
 	struct TreeStoreElem search_tse;
 
 	short flag, outlinevis, storeflag, search_flags;
@@ -419,6 +419,8 @@ typedef enum eSpaceNla_Flag {
 	SNLA_NOSTRIPCURVES     = (1 << 5),
 	/* don't perform realtime updates */
 	SNLA_NOREALTIMEUPDATES = (1 << 6),
+	/* don't show local strip marker indications */
+	SNLA_NOLOCALMARKERS    = (1 << 7),
 } eSpaceNla_Flag;
 
 
