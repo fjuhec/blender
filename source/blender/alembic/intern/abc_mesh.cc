@@ -871,7 +871,6 @@ static void read_mpolys(CDStreamConfig &config, const AbcMeshData &mesh_data)
 	MPoly *mpolys = config.mpoly;
 	MLoop *mloops = config.mloop;
 	MLoopUV *mloopuvs = config.mloopuv;
-	CustomData *ldata = config.loopdata;
 
 	const Int32ArraySamplePtr &face_indices = mesh_data.face_indices;
 	const Int32ArraySamplePtr &face_counts = mesh_data.face_counts;
@@ -879,24 +878,10 @@ static void read_mpolys(CDStreamConfig &config, const AbcMeshData &mesh_data)
 	const UInt32ArraySamplePtr &uvs_indices = mesh_data.uvs_indices;
 	const N3fArraySamplePtr &normals = mesh_data.face_normals;
 
-	float (*pnors)[3] = NULL;
-
-	if (normals) {
-		void *vptr = CustomData_get_layer(ldata, CD_NORMAL);
-
-		if (!vptr) {
-			vptr = CustomData_add_layer(ldata, CD_NORMAL, CD_CALLOC, NULL, normals->size());
-		}
-
-		pnors = static_cast<float (*)[3]>(vptr);
-	}
-
-	const bool do_normals = (normals && pnors);
 	const bool do_uvs = (mloopuvs && uvs && uvs_indices) && (uvs_indices->size() == face_indices->size());
 	unsigned int loop_index = 0;
 	unsigned int rev_loop_index = 0;
 	unsigned int uv_index = 0;
-	Imath::V3f nor;
 
 	for (int i = 0; i < face_counts->size(); ++i) {
 		const int face_size = (*face_counts)[i];
@@ -905,17 +890,16 @@ static void read_mpolys(CDStreamConfig &config, const AbcMeshData &mesh_data)
 		poly.loopstart = loop_index;
 		poly.totloop = face_size;
 
+		if (normals != NULL) {
+			poly.flag |= ME_SMOOTH;
+		}
+
 		/* NOTE: Alembic data is stored in the reverse order. */
 		rev_loop_index = loop_index + (face_size - 1);
 
 		for (int f = 0; f < face_size; ++f, ++loop_index, --rev_loop_index) {
 			MLoop &loop = mloops[rev_loop_index];
 			loop.v = (*face_indices)[loop_index];
-
-			if (do_normals) {
-				nor = (*normals)[loop_index];
-				copy_yup_zup(pnors[rev_loop_index], nor.getValue());
-			}
 
 			if (do_uvs) {
 				MLoopUV &loopuv = mloopuvs[rev_loop_index];
@@ -958,6 +942,10 @@ ABC_INLINE void read_uvs_params(CDStreamConfig &config,
 	}
 }
 
+/* TODO(kevin): normals from Alembic files are not read in anymore, this is due
+ * to the fact that there are many issues that are not so easy to solve, mainly
+ * regarding the way normals are handled in Blender (MPoly.flag vs loop normals).
+ */
 ABC_INLINE void read_normals_params(AbcMeshData &abc_data,
                                     const IN3fGeomParam &normals,
                                     const ISampleSelector &selector)
@@ -972,7 +960,7 @@ ABC_INLINE void read_normals_params(AbcMeshData &abc_data,
 		abc_data.face_normals = normsamp.getVals();
 	}
 	else if ((normals.getScope() == kVertexScope) || (normals.getScope() == kVaryingScope)) {
-		abc_data.vertex_normals = normsamp.getVals();
+		abc_data.vertex_normals = N3fArraySamplePtr();
 	}
 }
 
@@ -1046,13 +1034,10 @@ void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 	m_mesh_data = create_config(mesh);
 
-	bool do_normals = false;
-	read_mesh_sample(m_schema, sample_sel, m_mesh_data, do_normals);
+	bool has_smooth_normals = false;
+	read_mesh_sample(m_schema, sample_sel, m_mesh_data, has_smooth_normals);
 
-	if (do_normals) {
-		BKE_mesh_calc_normals(mesh);
-	}
-
+	BKE_mesh_calc_normals(mesh);
 	BKE_mesh_validate(mesh, false, false);
 
 	readFaceSetsSample(bmain, mesh, 0, sample_sel);
@@ -1125,7 +1110,7 @@ void read_mesh_sample(const IPolyMeshSchema &schema,
 
 	read_normals_params(abc_mesh_data, schema.getNormalsParam(), selector);
 
-	do_normals = (!abc_mesh_data.face_normals && !abc_mesh_data.vertex_normals);
+	do_normals = (abc_mesh_data.face_normals != NULL);
 
 	read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
 
@@ -1204,6 +1189,7 @@ void AbcSubDReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 	read_custom_data(m_schema.getArbGeomParams(), m_mesh_data, sample_sel);
 
+	BKE_mesh_calc_normals(mesh);
 	BKE_mesh_validate(mesh, false, false);
 
 	if (has_animations(m_schema, m_settings)) {

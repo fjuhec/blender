@@ -854,6 +854,22 @@ static void *add_customdata_cb(void *user_data, const char *name, int data_type)
 	return cd_ptr;
 }
 
+ABC_INLINE CDStreamConfig get_config(DerivedMesh *dm)
+{
+	CDStreamConfig config;
+
+	config.user_data = dm;
+	config.mvert = dm->getVertArray(dm);
+	config.mloop = dm->getLoopArray(dm);
+	config.mpoly = dm->getPolyArray(dm);
+	config.totloop = dm->getNumLoops(dm);
+	config.totpoly = dm->getNumPolys(dm);
+	config.loopdata = dm->getLoopDataLayout(dm);
+	config.add_customdata_cb = add_customdata_cb;
+
+	return config;
+}
+
 static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, const float time)
 {
 	IPolyMesh mesh(iobject, kWrapExisting);
@@ -865,46 +881,32 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 	const Alembic::Abc::Int32ArraySamplePtr &face_indices = sample.getFaceIndices();
 	const Alembic::Abc::Int32ArraySamplePtr &face_counts = sample.getFaceCounts();
 
-	bool has_smooth_flag = false;
-	bool new_dm = false;
+	DerivedMesh *new_dm = NULL;
 
 	if (dm->getNumVerts(dm) != positions->size()) {
-		/* Check if we have ME_SMOOTH flag set to restore it later on. */
-		has_smooth_flag = check_smooth_poly_flag(dm);
-
-		DerivedMesh *tmp = CDDM_from_template(dm,
-		                                      positions->size(),
-		                                      0,
-		                                      0,
-		                                      face_indices->size(),
-		                                      face_counts->size());
-		dm = tmp;
-		new_dm = true;
+		new_dm = CDDM_from_template(dm,
+		                            positions->size(),
+		                            0,
+		                            0,
+		                            face_indices->size(),
+		                            face_counts->size());
 	}
 
-	CDStreamConfig config;
-	config.user_data = dm;
-	config.mvert = dm->getVertArray(dm);
-	config.mloop = dm->getLoopArray(dm);
-	config.mpoly = dm->getPolyArray(dm);
-	config.totloop = dm->getNumLoops(dm);
-	config.totpoly = dm->getNumPolys(dm);
-	config.loopdata = dm->getLoopDataLayout(dm);
-	config.add_customdata_cb = add_customdata_cb;
+	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
 
-	bool do_normals = false;
-	read_mesh_sample(schema, sample_sel, config, do_normals);
+	bool has_loop_normals = false;
+	read_mesh_sample(schema, sample_sel, config, has_loop_normals);
 
 	if (new_dm) {
-		if (do_normals) {
-			CDDM_calc_normals(dm);
+		/* Check if we had ME_SMOOTH flag set to restore it. */
+		if (!has_loop_normals && check_smooth_poly_flag(dm)) {
+			set_smooth_poly_flag(new_dm);
 		}
 
-		if (has_smooth_flag) {
-			set_smooth_poly_flag(dm);
-		}
+		CDDM_calc_normals(new_dm);
+		CDDM_calc_edges(new_dm);
 
-		CDDM_calc_edges(dm);
+		return new_dm;
 	}
 
 	return dm;
@@ -923,32 +925,30 @@ static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, co
 	const Alembic::Abc::Int32ArraySamplePtr &face_indices = sample.getFaceIndices();
 	const Alembic::Abc::Int32ArraySamplePtr &face_counts = sample.getFaceCounts();
 
-	bool new_dm = false;
+	DerivedMesh *new_dm = NULL;
+
 	if (dm->getNumVerts(dm) != positions->size()) {
-		DerivedMesh *tmp = CDDM_from_template(dm,
-		                                      positions->size(),
-		                                      0,
-		                                      0,
-		                                      face_indices->size(),
-		                                      face_counts->size());
-		dm = tmp;
-		new_dm = true;
+		new_dm = CDDM_from_template(dm,
+		                            positions->size(),
+		                            0,
+		                            0,
+		                            face_indices->size(),
+		                            face_counts->size());
 	}
 
-	CDStreamConfig config;
-	config.user_data = dm;
-	config.mvert = dm->getVertArray(dm);
-	config.mloop = dm->getLoopArray(dm);
-	config.mpoly = dm->getPolyArray(dm);
-	config.totloop = dm->getNumLoops(dm);
-	config.totpoly = dm->getNumPolys(dm);
-	config.loopdata = dm->getLoopDataLayout(dm);
-	config.add_customdata_cb = add_customdata_cb;
-
+	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
 	read_subd_sample(schema, sample_sel, config);
 
 	if (new_dm) {
-		CDDM_calc_edges(dm);
+		/* Check if we had ME_SMOOTH flag set to restore it. */
+		if (check_smooth_poly_flag(dm)) {
+			set_smooth_poly_flag(new_dm);
+		}
+
+		CDDM_calc_normals(new_dm);
+		CDDM_calc_edges(new_dm);
+
+		return new_dm;
 	}
 
 	return dm;
