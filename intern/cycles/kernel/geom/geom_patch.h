@@ -213,6 +213,11 @@ ccl_device_inline void patch_eval_basis(KernelGlobals *kg, const PatchHandle *ha
 	uint patch_bits = kernel_tex_fetch(__patches, handle->patch_index + 1); /* read patch param */
 	float d_scale = 1 << patch_eval_depth(patch_bits);
 
+	bool non_quad_root = (patch_bits >> 4) & 0x1;
+	if(non_quad_root) {
+		d_scale *= 0.5f;
+	}
+
 	patch_eval_normalize_coords(patch_bits, &u, &v);
 
 	/* XXX: regular patches only for now. */
@@ -266,6 +271,8 @@ ccl_device float patch_eval_float(KernelGlobals *kg, const ShaderData *sd, int o
 	                                           indices, weights, weights_du, weights_dv);
 
 	float val = 0.0f;
+	if(du) *du = 0.0f;
+	if(dv) *dv = 0.0f;
 
 	for(int i = 0; i < num_control; i++) {
 		float v = kernel_tex_fetch(__attributes_float, offset + indices[i]);
@@ -291,6 +298,8 @@ ccl_device float3 patch_eval_float3(KernelGlobals *kg, const ShaderData *sd, int
 	                                           indices, weights, weights_du, weights_dv);
 
 	float3 val = make_float3(0.0f, 0.0f, 0.0f);
+	if(du) *du = make_float3(0.0f, 0.0f, 0.0f);
+	if(dv) *dv = make_float3(0.0f, 0.0f, 0.0f);
 
 	for(int i = 0; i < num_control; i++) {
 		float3 v = float4_to_float3(kernel_tex_fetch(__attributes_float3, offset + indices[i]));
@@ -316,6 +325,8 @@ ccl_device float3 patch_eval_uchar4(KernelGlobals *kg, const ShaderData *sd, int
 	                                           indices, weights, weights_du, weights_dv);
 
 	float3 val = make_float3(0.0f, 0.0f, 0.0f);
+	if(du) *du = make_float3(0.0f, 0.0f, 0.0f);
+	if(dv) *dv = make_float3(0.0f, 0.0f, 0.0f);
 
 	for(int i = 0; i < num_control; i++) {
 		float3 v = color_byte_to_float(kernel_tex_fetch(__attributes_uchar4, offset + indices[i]));
