@@ -1187,8 +1187,6 @@ void AbcSubDReader::readObjectData(Main *bmain, Scene *scene, float time)
 		mesh->cd_flag |= ME_CDFLAG_EDGE_CREASE;
 	}
 
-	read_custom_data(m_schema.getArbGeomParams(), m_mesh_data, sample_sel);
-
 	BKE_mesh_calc_normals(mesh);
 	BKE_mesh_validate(mesh, false, false);
 
