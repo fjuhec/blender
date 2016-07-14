@@ -159,6 +159,7 @@ set(SRC_GEOM_HEADERS
 	geom/geom_qbvh_traversal.h
 	geom/geom_qbvh_volume.h
 	geom/geom_qbvh_volume_all.h
+	geom/geom_subd_triangle.h
 	geom/geom_triangle.h
 	geom/geom_triangle_intersect.h
 	geom/geom_volume.h
