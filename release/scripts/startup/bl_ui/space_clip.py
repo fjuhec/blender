@@ -143,6 +143,36 @@ class CLIP_HT_header(Header):
                 row.prop(toolsettings, "proportional_edit_falloff",
                          text="", icon_only=True)
 
+    def _draw_correspondence(self, context):
+        layout = self.layout
+
+        toolsettings = context.tool_settings
+        sc = context.space_data
+        clip = sc.clip
+
+        row = layout.row(align=True)
+        row.template_header()
+
+        CLIP_MT_correspondence_editor_menus.draw_collapsible(context, layout)
+
+        row = layout.row()
+        row.template_ID(sc, "clip", open="clip.open")
+
+        if clip:
+            tracking = clip.tracking
+            active_object = tracking.objects.active
+
+            layout.prop(sc, "mode", text="")
+            layout.prop(sc, "view", text="", expand=True)
+            layout.prop(sc, "pivot_point", text="", icon_only=True)
+
+            r = active_object.reconstruction
+
+            if r.is_valid and sc.view == 'CLIP':
+                layout.label(text="Solve error: %.4f" % (r.average_error))
+        else:
+            layout.prop(sc, "view", text="", expand=True)
+
     def draw(self, context):
         layout = self.layout
 
@@ -150,8 +180,10 @@ class CLIP_HT_header(Header):
 
         if sc.mode == 'TRACKING':
             self._draw_tracking(context)
-        else:
+        elif sc.mode == 'MASK':
             self._draw_masking(context)
+        else:       # sc.mode == 'CORRESPONDENCE'
+            self._draw_correspondence(context)
 
         layout.template_running_jobs()
 
@@ -201,6 +233,30 @@ class CLIP_MT_masking_editor_menus(Menu):
             layout.menu("MASK_MT_mask")
         else:
             layout.menu("CLIP_MT_clip")  # XXX - remove?
+
+
+class CLIP_MT_correspondence_editor_menus(Menu):
+
+    bl_idname = "CLIP_MT_correspondence_editor_menus"
+    bl_label = ""
+
+    def draw(self, context):
+        self.draw_menus(self.layout, context)
+
+    @staticmethod
+    def draw_menus(layout, context):
+        sc = context.space_data
+        clip = sc.clip
+
+        layout.menu("CLIP_MT_view")
+
+        if clip:
+            layout.menu("CLIP_MT_select")
+            layout.menu("CLIP_MT_clip")
+            layout.menu("CLIP_MT_track")
+            layout.menu("CLIP_MT_reconstruction")
+        else:
+            layout.menu("CLIP_MT_clip")
 
 
 class CLIP_PT_clip_view_panel:

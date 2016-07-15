@@ -113,8 +113,6 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	// TODO(tianwei): mark these two tracks in a different color when clicked
-
 	// add these correspondence
 	char error_msg[256] = "\0";
 	if (!BKE_tracking_correspondence_add(&(tracking->correspondences), primary_track, witness_track,
@@ -304,7 +302,7 @@ static void solve_multiview_startjob(void *scv, short *stop, short *do_update, f
 	                                            sizeof(smj->stats_message));
 }
 
-// TODO(tianwei): setting status for witness camera is not finished
+// TODO(tianwei): not sure about the scene for witness cameras, check with Sergey
 static void solve_multiview_freejob(void *scv)
 {
 	SolveMultiviewJob *smj = (SolveMultiviewJob *)scv;
@@ -332,7 +330,7 @@ static void solve_multiview_freejob(void *scv)
 		            tracking->reconstruction.error);
 	}
 
-	/* Set currently solved clip as active for scene. */
+	/* Set the currently solved primary clip as active for scene. */
 	if (scene->clip != NULL) {
 		id_us_min(&clip->id);
 	}
@@ -363,7 +361,6 @@ static void solve_multiview_freejob(void *scv)
 
 	BKE_tracking_multiview_reconstruction_context_free(smj->context);
 	MEM_freeN(smj);
-	printf("free multiview reconstruction context\n");
 }
 
 static int solve_multiview_exec(bContext *C, wmOperator *op)

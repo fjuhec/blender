@@ -133,6 +133,17 @@ int ED_space_clip_maskedit_mask_poll(bContext *C)
 	return false;
 }
 
+int ED_space_clip_correspondence_poll(bContext *C)
+{
+	SpaceClip *sc = CTX_wm_space_clip(C);
+
+	if (sc && sc->clip) {
+		return ED_space_clip_check_show_correspondence(sc);
+	}
+
+	return false;
+}
+
 /* ******** common editing functions ******** */
 
 void ED_space_clip_get_size(SpaceClip *sc, int *width, int *height)
@@ -544,6 +555,15 @@ bool ED_space_clip_check_show_maskedit(SpaceClip *sc)
 {
 	if (sc) {
 		return sc->mode == SC_MODE_MASKEDIT;
+	}
+
+	return false;
+}
+
+bool ED_space_clip_check_show_correspondence(SpaceClip *sc)
+{
+	if (sc) {
+		return sc->mode == SC_MODE_CORRESPONDENCE;
 	}
 
 	return false;

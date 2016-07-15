@@ -51,6 +51,7 @@ int ED_space_clip_view_clip_poll(struct bContext *C);
 int ED_space_clip_tracking_poll(struct bContext *C);
 int ED_space_clip_maskedit_poll(struct bContext *C);
 int ED_space_clip_maskedit_mask_poll(struct bContext *C);
+int ED_space_clip_correspondence_poll(bContext *C);
 
 void ED_space_clip_get_size(struct SpaceClip *sc, int *width, int *height);
 void ED_space_clip_get_size_fl(struct SpaceClip *sc, float size[2]);
@@ -75,6 +76,7 @@ void ED_clip_mouse_pos(struct SpaceClip *sc, struct ARegion *ar, const int mval[
 
 bool ED_space_clip_check_show_trackedit(struct SpaceClip *sc);
 bool ED_space_clip_check_show_maskedit(struct SpaceClip *sc);
+bool ED_space_clip_check_show_correspondence(struct SpaceClip *sc);
 
 struct MovieClip *ED_space_clip_get_clip(struct SpaceClip *sc);
 void ED_space_clip_set_clip(struct bContext *C, struct bScreen *screen, struct SpaceClip *sc, struct MovieClip *clip);
