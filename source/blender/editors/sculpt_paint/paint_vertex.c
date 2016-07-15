@@ -1787,6 +1787,13 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 	me = BKE_mesh_from_object(ob);
 
 	if (ob->mode & mode_flag) {
+    // Instead of copying every current weight to previous weight, we just swap pointers. 
+    if (wp->wpaint_prev) {
+      me->dvert = wp->wpaint_prev;
+      wp->wpaint_prev = NULL;
+      wp->tot = 0;
+    }
+
 		ob->mode &= ~mode_flag;
 
 		if (me->editflag & ME_EDIT_PAINT_VERT_SEL) {
@@ -2232,21 +2239,28 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	/* painting on subsurfs should give correct points too, this returns me->totvert amount */
 	wpd->vp_handle = ED_vpaint_proj_handle_create(scene, ob, &wpd->vertexcosnos);
 
-	wpd->indexar = get_indexarray(me);
-	copy_wpaint_prev(wp, me->dvert, me->totvert);
+	//wpd->indexar = get_indexarray(me);
 
-  //This will probably change!
-	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-		BKE_mesh_vert_edge_vert_map_create(
-		        &wpd->blur_data.vmap, &wpd->blur_data.vmap_mem,
-		        me->medge, me->totvert, me->totedge);
-	}
+  /* Copying over 150,000 instances of MDeformWeight's is really slow. */
+  /* Instead of copying every current weight to previous weight, we just swap pointers. */
+	//copy_wpaint_prev(wp, me->dvert, me->totvert);
+  if (!wp->wpaint_prev)
+    wp->wpaint_prev = me->dvert;
+  
+  
 
-	if ((brush->vertexpaint_tool == PAINT_BLEND_BLUR) &&
-	    (brush->flag & BRUSH_ACCUMULATE))
-	{
-		wpd->accumulate_stack = BLI_stack_new(sizeof(struct WPaintDefer), __func__);
-	}
+ // //This will probably change!
+	//if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+	//	BKE_mesh_vert_edge_vert_map_create(
+	//	        &wpd->blur_data.vmap, &wpd->blur_data.vmap_mem,
+	//	        me->medge, me->totvert, me->totedge);
+	//}
+
+	//if ((brush->vertexpaint_tool == PAINT_BLEND_BLUR) &&
+	//    (brush->flag & BRUSH_ACCUMULATE))
+	//{
+	//	wpd->accumulate_stack = BLI_stack_new(sizeof(struct WPaintDefer), __func__);
+	//}
 
 	/* imat for normals */
 	mul_m4_m4m4(mat, wpd->vc.rv3d->viewmat, ob->obmat);
@@ -2348,6 +2362,65 @@ static void calc_brushdata_symm(VPaint *vd, StrokeCache *cache, const char symm,
   }
 }
 
+static void do_wpaint_brush_blur_task_cb_ex(
+  void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
+{
+  SculptThreadedTaskData *data = userdata;
+  SculptSession *ss = data->ob->sculpt;
+  Scene *scene = CTX_data_scene(data->C);
+
+  Brush *brush = data->brush;
+  StrokeCache *cache = ss->cache;
+  const float bstrength = cache->bstrength;
+
+  int totalHitLoops;
+  unsigned int blend[4] = { 0 };
+  char *col;
+  double finalColor;
+
+  //for each vertex
+  PBVHVertexIter vd;
+
+  BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+  {
+    SculptBrushTest test;
+    sculpt_brush_test_init(ss, &test);
+
+    //Test to see if the vertex coordinates are within the spherical brush region.
+    if (sculpt_brush_test(&test, vd.co)) {
+      const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+      int vertexIndex = vd.vert_indices[vd.i];
+
+      //Get the average poly color
+      totalHitLoops = 0;
+      finalColor = 0;
+
+      for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
+        int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
+        MPoly poly = data->me->mpoly[polyIndex];
+
+        totalHitLoops += poly.totloop;
+        for (int k = 0; k < poly.totloop; ++k) {
+          int loopIndex = poly.loopstart + k;
+          MLoop loop = data->me->mloop[loopIndex];
+          MDeformVert *dv = &data->me->dvert[loop.v];
+          MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
+          finalColor += dw->weight;
+        }
+      }
+      if (totalHitLoops != 0) {
+        finalColor /= totalHitLoops;
+
+        const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+        int vertexIndex = vd.vert_indices[vd.i];
+        do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, fade, (float)finalColor);
+      }
+    }
+    BKE_pbvh_vertex_iter_end;
+  }
+}
+
+
 static void do_wpaint_brush_draw_task_cb_ex(
   void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
 {
@@ -2360,12 +2433,6 @@ static void do_wpaint_brush_draw_task_cb_ex(
   const float bstrength = cache->bstrength;
 
   float paintweight = BKE_brush_weight_get(scene, brush);
-
-  unsigned int *lcol = data->lcol;
-
-  unsigned int *lcolorig = data->vp->vpaint_prev;
-  //data->nodes[n];
-  //data->nodes[n].flag &= PBVH_UpdateRedraw;
 
   //for each vertex
   PBVHVertexIter vd;
@@ -2407,21 +2474,24 @@ static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp,
   //    0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
   //    ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
   //}
-  //else if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-  //  BLI_task_parallel_range_ex(
-  //    0, totnode, &data, NULL, 0, do_vpaint_brush_blur_task_cb_ex,
-  //    ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-  //}
-  //else {
+  //else 
+  if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+    BLI_task_parallel_range_ex(
+      0, totnode, &data, NULL, 0, do_wpaint_brush_blur_task_cb_ex,
+      ((true & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+  }
+  else {
     BLI_task_parallel_range_ex(
       0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
-      ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-  //}
+      ((true & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+    //sd->flags
+  }
 
 }
 
 static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, Brush *brush, const char symm, const int axis)
 {
+  clock_t start = clock();
   SculptSession *ss = ob->sculpt;
 
   for (int i = 0; i < wp->radial_symm[axis - 'X']; ++i) {
@@ -2445,6 +2515,11 @@ static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculp
     if (nodes)
       MEM_freeN(nodes);
   }
+  clock_t now = clock();
+  clock_t diff = now - start;
+  int msec = diff * 1000 / CLOCKS_PER_SEC;
+  if (G.debug & G_DEBUG)
+    printf("%d milliseconds.\n", msec);
 }
 
 static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi)
@@ -2476,7 +2551,8 @@ static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint 
 
 static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)
 {
-  //
+
+
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	VPaint *wp = ts->wpaint;
@@ -2493,7 +2569,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
 	float mat[4][4];
 	float paintweight;
-	int *indexar;
+	//int *indexar;
 	unsigned int index, totindex;
 	float mval[2];
 	const bool use_blur = (brush->vertexpaint_tool == PAINT_BLEND_BLUR);
@@ -2519,13 +2595,13 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		return;
 	}
 
-	float (*blur_weight_func)(const MDeformVert *, const WeightPaintInfo *) =
-	        wpd->do_multipaint ? wpaint_blur_weight_multi : wpaint_blur_weight_single;
+	/*float (*blur_weight_func)(const MDeformVert *, const WeightPaintInfo *) =
+	        wpd->do_multipaint ? wpaint_blur_weight_multi : wpaint_blur_weight_single;*/
 
 	vc = &wpd->vc;
 	ob = vc->obact;
 	me = ob->data;
-	indexar = wpd->indexar;
+	//indexar = wpd->indexar;
 	
 	view3d_operator_needs_opengl(C);
 	ED_view3d_init_mats_rv3d(ob, vc->rv3d);
@@ -2699,17 +2775,17 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 //	}
 
   wpaint_do_symmetrical_brush_actions(C, ob, wp, sd, wpd, &wpi);
-
+  
 	/* *** free wpi members */
 	/* *** done freeing wpi members */
 
 
 	swap_m4m4(vc->rv3d->persmat, mat);
 
-	/* calculate pivot for rotation around seletion if needed */
-	if (U.uiflag & USER_ORBIT_SELECTION) {
-		paint_last_stroke_update(scene, vc->ar, mval);
-	}
+	///* calculate pivot for rotation around seletion if needed */
+	//if (U.uiflag & USER_ORBIT_SELECTION) {
+	//	paint_last_stroke_update(scene, vc->ar, mval);
+	//}
 
 	DAG_id_tag_update(ob->data, 0);
 
@@ -2745,7 +2821,7 @@ static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 	
 	if (wpd) {
 		ED_vpaint_proj_handle_free(wpd->vp_handle);
-		MEM_freeN(wpd->indexar);
+		//MEM_freeN(wpd->indexar);
 		
 		if (wpd->defbase_sel)
 			MEM_freeN((void *)wpd->defbase_sel);
@@ -2758,7 +2834,7 @@ static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 		if (wpd->mirror.lock)
 			MEM_freeN((void *)wpd->mirror.lock);
 
-		if (wpd->blur_data.vmap) {
+		/*if (wpd->blur_data.vmap) {
 			MEM_freeN(wpd->blur_data.vmap);
 		}
 		if (wpd->blur_data.vmap_mem) {
@@ -2767,14 +2843,19 @@ static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 
 		if (wpd->accumulate_stack) {
 			BLI_stack_free(wpd->accumulate_stack);
-		}
+		}*/
 
 		MEM_freeN(wpd);
 	}
 	
-	/* frees prev buffer */
-	copy_wpaint_prev(ts->wpaint, NULL, 0);
-	
+
+  /* Instead of copying every current weight to previous weight, we just swap pointers. */
+	/////* frees prev buffer */
+	//////copy_wpaint_prev(ts->wpaint, NULL, 0);
+  Mesh *me = ob->data;
+  ts->wpaint->wpaint_prev = me->dvert;
+  me->dvert = NULL;
+
 	/* and particles too */
 	if (ob->particlesystem.first) {
 		ParticleSystem *psys;
