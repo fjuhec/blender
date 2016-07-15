@@ -4845,15 +4845,25 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 	conv_hull->nverts = npoint;
 	conv_hull->right = right;
 	conv_hull->placed = false;
+	conv_hull->ref_vert_index = 0;
 
 	/* Fill max/min for initial positioning, with this we also know the bounding rectangle */
 	p_chart_uv_bbox(chart, conv_hull->min_v, conv_hull->max_v);
 
 	/* get reference vertex */
 	for (i = 0; i < conv_hull->nverts; i++) {
-		if (conv_hull->h_verts[i]->uv[1] > maxy) {
-			maxy = conv_hull->h_verts[i]->uv[1];
-			conv_hull->ref_vert_index = i;
+		/* Note: FLT_EPSILON is to exact and produces wrong results in this context, use custom max_diff instead */
+		if (compare_ff(maxy, conv_hull->h_verts[i]->uv[1], 0.00001f)) {
+			/* same y value, only take if x value is lower than for current ref vert */
+			if (conv_hull->h_verts[i]->uv[0] < conv_hull->h_verts[conv_hull->ref_vert_index]->uv[0]) {
+				maxy = conv_hull->h_verts[i]->uv[1];
+				conv_hull->ref_vert_index = i;
+			}
+		}
+		else if (conv_hull->h_verts[i]->uv[1] > maxy) {
+				/* higher y value */
+				maxy = conv_hull->h_verts[i]->uv[1];
+				conv_hull->ref_vert_index = i;
 		}
 	}
 
@@ -4902,8 +4912,6 @@ void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
 	int j;
 	printf("*p_convex_hull_compute_horizontal_angles\n");
 	for (j = 0; j < hull->nverts; j++) {
-		/* DEBUG */
-		//printf("--PVert of convex hull - x: %f, y: %f\n", hull->h_verts[j]->uv[0], hull->h_verts[j]->uv[1]);
 
 		/* Compute horizontal angle for each edge of hull (Needed for NFP) */
 		if (j == (hull->nverts - 1)) {
@@ -4913,10 +4921,12 @@ void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
 			hull->h_verts[j]->edge->u.horizontal_angle = p_edge_horizontal_angle(hull->h_verts[j], hull->h_verts[j + 1]);
 		}
 
+		/* Note: FLT_EPSILON is to exact and produces wrong results in this context, use custom max_diff instead */
 		/* Since we're counting edges in CW winding we have to set 0.0 to 2*pi */
-		if (compare_ff(hull->h_verts[j]->edge->u.horizontal_angle, 0.0f, FLT_EPSILON)) {
+		if (compare_ff(hull->h_verts[j]->edge->u.horizontal_angle, 0.0f, 0.00001f)) {
 			hull->h_verts[j]->edge->u.horizontal_angle += 2 * M_PI;
 		}
+
 		printf("---horizontal angle of edge [%i]: %f\n", j, hull->h_verts[j]->edge->u.horizontal_angle);
 	}
 }
@@ -4926,8 +4936,6 @@ void p_convex_hull_compute_edge_components(PConvexHull *hull)
 	int j;
 	printf("*p_convex_hull_compute_edge_lengths\n");
 	for (j = 0; j < hull->nverts; j++) {
-		/* DEBUG */
-		//printf("--PVert of convex hull - x: %f, y: %f\n", hull->h_verts[j]->uv[0], hull->h_verts[j]->uv[1]);
 
 		/* Compute edge components for each edge of hull (Needed for NFP) */
 		if (j == (hull->nverts - 1)) {
@@ -4962,17 +4970,27 @@ PConvexHull *p_convex_hull_reverse_vert_order(PConvexHull *hull)
 
 	/* reference vertex, for inverse winding direction that's the one with lowest y value */
 	for (i = 0; i < conv_hull_inv->nverts; i++) {
-		if (conv_hull_inv->h_verts[i]->uv[1] < miny) {
+		/* Note: FLT_EPSILON is to exact and produces wrong results in this context, use custom max_diff instead */
+		if (compare_ff(miny, conv_hull_inv->h_verts[i]->uv[1], 0.00001f)) {
+			/* same y value, only take if x value is higher than for current ref vert */
+			if (conv_hull_inv->h_verts[i]->uv[0] > conv_hull_inv->h_verts[conv_hull_inv->ref_vert_index]->uv[0]) {
+				miny = conv_hull_inv->h_verts[i]->uv[1];
+				conv_hull_inv->ref_vert_index = i;
+				printf("--p_convex_hull_reverse_vert_order: EQUAL min_y : x = %f, y = %f\n", conv_hull_inv->h_verts[i]->uv[0], miny);
+			}
+		}
+		else if (conv_hull_inv->h_verts[i]->uv[1] < miny) {
+			/* lower y value */
 			miny = conv_hull_inv->h_verts[i]->uv[1];
-			printf("--p_convex_hull_reverse_vert_order: min_y : x = %f, y = %f\n", conv_hull_inv->h_verts[i]->uv[0], miny);
 			conv_hull_inv->ref_vert_index = i;
+			printf("--p_convex_hull_reverse_vert_order: SMALLER min_y : x = %f, y = %f\n", conv_hull_inv->h_verts[i]->uv[0], miny);
 		}
 
 		/* compute bounds */
 		minmax_v2v2_v2(conv_hull_inv->min_v, conv_hull_inv->max_v, conv_hull_inv->h_verts[i]->uv);
 	}
 
-	printf("--p_convex_hull_reverse_vert_order: FINAL min_y = %f\n", miny);
+	printf("--p_convex_hull_reverse_vert_order: FINAL min_y: x: %f, y: %f\n", conv_hull_inv->h_verts[conv_hull_inv->ref_vert_index]->uv[0], miny);
 
 	return conv_hull_inv;
 }
@@ -5129,21 +5147,21 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 
 	/* offset edges so they start at item ref vert*/
 	/* ToDo SaphireS: not used yet! also optimize.. */
-	for (j = 0; j < nfp->nverts; j++) {		
-		if (compare_ff(points[j]->uv[0], item->h_verts[item->ref_vert_index]->uv[0], FLT_EPSILON)
-			&& compare_ff(points[j]->uv[1], item->h_verts[item->ref_vert_index]->uv[1], FLT_EPSILON)) {
-			/* offset */
-			printf("-Found item ref vert, offset = %i\n", j);
-			offset_item = j;
-		}
+	//for (j = 0; j < nfp->nverts; j++) {		
+	//	if (compare_ff(points[j]->uv[0], item->h_verts[item->ref_vert_index]->uv[0], FLT_EPSILON)
+	//		&& compare_ff(points[j]->uv[1], item->h_verts[item->ref_vert_index]->uv[1], FLT_EPSILON)) {
+	//		/* offset */
+	//		printf("-Found item ref vert, offset = %i\n", j);
+	//		offset_item = j;
+	//	}
 
-		if (compare_ff(points[j]->uv[0], fixed->h_verts[fixed->ref_vert_index]->uv[0], FLT_EPSILON)
-			&& compare_ff(points[j]->uv[1], fixed->h_verts[fixed->ref_vert_index]->uv[1], FLT_EPSILON)) {
-			/* offset */
-			printf("-Found fixed ref vert, offset = %i\n", j);
-			offset_fixed = j;
-		}
-	}
+	//	if (compare_ff(points[j]->uv[0], fixed->h_verts[fixed->ref_vert_index]->uv[0], FLT_EPSILON)
+	//		&& compare_ff(points[j]->uv[1], fixed->h_verts[fixed->ref_vert_index]->uv[1], FLT_EPSILON)) {
+	//		/* offset */
+	//		printf("-Found fixed ref vert, offset = %i\n", j);
+	//		offset_fixed = j;
+	//	}
+	//}
 
 	/* Minkowski sum computation */
 	printf("-PPointUV creation started!\n");
@@ -5174,16 +5192,18 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 
 	/* Move nfp to ref vert */
 	if (offset_fixed != 0) {
-		trans[0] = nfp->final_pos[offset_fixed]->x - fixed->h_verts[fixed->ref_vert_index]->uv[0];
-		trans[1] = nfp->final_pos[offset_fixed]->y - fixed->h_verts[fixed->ref_vert_index]->uv[1];
-		printf("--trans: x: %f, y: %f\n", trans[0], trans[1]);
-		for (i = 0; i < nfp->nverts; i++) {
-			nfp->final_pos[i]->x -= trans[0];
-			nfp->final_pos[i]->y -= trans[1];
-			//nfp->final_pos[i]->x -= nfp->final_pos[offset_fixed]->x;
-			//nfp->final_pos[i]->y -= nfp->final_pos[offset_fixed]->y;
-			printf("--NFP Vert with offset applied: x: %f, y: %f\n", nfp->final_pos[i]->x, nfp->final_pos[i]->y);
-		}
+		//trans[0] = nfp->final_pos[offset_fixed]->x - fixed->h_verts[fixed->ref_vert_index]->uv[0];
+		//trans[1] = nfp->final_pos[offset_fixed]->y - fixed->h_verts[fixed->ref_vert_index]->uv[1];
+		//printf("--trans: x: %f, y: %f\n", trans[0], trans[1]);
+		//for (i = 0; i < nfp->nverts; i++) {
+		//	nfp->final_pos[i]->x += trans[0];
+		//	nfp->final_pos[i]->y += trans[1];
+		//	//nfp->final_pos[i]->x -= nfp->final_pos[offset_fixed]->x;
+		//	//nfp->final_pos[i]->y -= nfp->final_pos[offset_fixed]->y;
+		//	printf("--NFP Vert with offset applied: x: %f, y: %f\n", nfp->final_pos[i]->x, nfp->final_pos[i]->y);
+		//}
+
+		//item->ref_vert_index += offset_fixed;
 	}
 	else {
 		for (i = 0; i < nfp->nverts; i++) {
@@ -5282,8 +5302,8 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 			cur_iter++;
 			randf1 = BLI_rng_get_float(phandle->rng);
 			/*printf("-randf1 choosen as: %f\n", randf1);*/
-			//rand1 = (int)(randf1 * (float)(phandle->ncharts + 1));
-			rand1 = (int)(randf1 * (float)(phandle->ncharts));
+			rand1 = (int)(randf1 * (float)(phandle->ncharts + 1));
+			//rand1 = (int)(randf1 * (float)(phandle->ncharts));
 
 			if (nfps[rand1]) {
 
