@@ -1231,6 +1231,12 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 					if (md->type == eModifierType_Boolean) {
 						BooleanModifierData *bmd = (BooleanModifierData *)md;
 						bmd->double_threshold = 1e-6f;
+						if (bmd->bm_flag & 1) {
+							bmd->solver = 1;
+							if (bmd->threshold > 1e-6f) {
+								bmd->double_threshold = bmd->threshold;
+							}
+						}
 					}
 				}
 			}

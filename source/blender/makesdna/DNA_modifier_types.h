@@ -645,6 +645,10 @@ typedef struct BooleanModifierData {
 	char solver;
 	char pad[2];
 	float double_threshold;
+	/* old temp bmesh */
+	char bm_flag;
+	char pad2[3];
+	float threshold;
 } BooleanModifierData;
 
 typedef enum {
