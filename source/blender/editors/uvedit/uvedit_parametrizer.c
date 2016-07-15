@@ -5120,7 +5120,7 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	nfp->nverts = item->nverts + fixed->nverts;
 	PVert **points = (PVert **)MEM_mallocN(sizeof(PVert *) * nfp->nverts, "PNFPPoints");
 	nfp->final_pos = (PPointUV **)MEM_callocN(sizeof(*nfp->final_pos) * nfp->nverts, "PNFPFinalPos");
-	int i, j, offset_item = 0, offset_fixed = 0;
+	int i, j;
 	float trans[2];
 
 	/* Assign verts of hulls to NFP */
@@ -5145,24 +5145,6 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	printf("***item ref vertex: x: %f, y: %f\n", item->h_verts[item->ref_vert_index]->uv[0], item->h_verts[item->ref_vert_index]->uv[1]);
 	printf("***fixed ref vertex: x: %f, y: %f\n", fixed->h_verts[fixed->ref_vert_index]->uv[0], fixed->h_verts[fixed->ref_vert_index]->uv[1]);
 
-	/* offset edges so they start at item ref vert*/
-	/* ToDo SaphireS: not used yet! also optimize.. */
-	//for (j = 0; j < nfp->nverts; j++) {		
-	//	if (compare_ff(points[j]->uv[0], item->h_verts[item->ref_vert_index]->uv[0], FLT_EPSILON)
-	//		&& compare_ff(points[j]->uv[1], item->h_verts[item->ref_vert_index]->uv[1], FLT_EPSILON)) {
-	//		/* offset */
-	//		printf("-Found item ref vert, offset = %i\n", j);
-	//		offset_item = j;
-	//	}
-
-	//	if (compare_ff(points[j]->uv[0], fixed->h_verts[fixed->ref_vert_index]->uv[0], FLT_EPSILON)
-	//		&& compare_ff(points[j]->uv[1], fixed->h_verts[fixed->ref_vert_index]->uv[1], FLT_EPSILON)) {
-	//		/* offset */
-	//		printf("-Found fixed ref vert, offset = %i\n", j);
-	//		offset_fixed = j;
-	//	}
-	//}
-
 	/* Minkowski sum computation */
 	printf("-PPointUV creation started!\n");
 	PPointUV *p = (PPointUV *)MEM_callocN(sizeof(*p), "PPointUV");
@@ -5175,40 +5157,11 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 		p1->x = nfp->final_pos[j - 1]->x + points[j - 1]->u.delta_edge[0];
 		p1->y = nfp->final_pos[j - 1]->y + points[j - 1]->u.delta_edge[1];
 		nfp->final_pos[j] = p1;
-
-		//if ((j + offset_fixed) <= nfp->nverts) {
-		//	p1->x = nfp->final_pos[j - 1]->x + points[j - 1 + offset_fixed]->u.delta_edge[0];
-		//	p1->y = nfp->final_pos[j - 1]->y + points[j - 1 + offset_fixed]->u.delta_edge[1];
-		//	nfp->final_pos[j] = p1;
-		//}
-		//else {
-		//	/* j - 1 */
-		//	p1->x = nfp->final_pos[j - 1]->x + points[(j + offset_fixed) - nfp->nverts]->u.delta_edge[0];
-		//	p1->y = nfp->final_pos[j - 1]->y + points[(j + offset_fixed) - nfp->nverts]->u.delta_edge[1];
-		//	nfp->final_pos[j] = p1;
-		//}
 	}
 	printf("-PPointUV creation done!\n");
 
-	/* Move nfp to ref vert */
-	if (offset_fixed != 0) {
-		//trans[0] = nfp->final_pos[offset_fixed]->x - fixed->h_verts[fixed->ref_vert_index]->uv[0];
-		//trans[1] = nfp->final_pos[offset_fixed]->y - fixed->h_verts[fixed->ref_vert_index]->uv[1];
-		//printf("--trans: x: %f, y: %f\n", trans[0], trans[1]);
-		//for (i = 0; i < nfp->nverts; i++) {
-		//	nfp->final_pos[i]->x += trans[0];
-		//	nfp->final_pos[i]->y += trans[1];
-		//	//nfp->final_pos[i]->x -= nfp->final_pos[offset_fixed]->x;
-		//	//nfp->final_pos[i]->y -= nfp->final_pos[offset_fixed]->y;
-		//	printf("--NFP Vert with offset applied: x: %f, y: %f\n", nfp->final_pos[i]->x, nfp->final_pos[i]->y);
-		//}
-
-		//item->ref_vert_index += offset_fixed;
-	}
-	else {
-		for (i = 0; i < nfp->nverts; i++) {
-			printf("--NFP Vert (offset == 0): x: %f, y: %f\n", nfp->final_pos[i]->x, nfp->final_pos[i]->y);
-		}
+	for (i = 0; i < nfp->nverts; i++) {
+		printf("--NFP Vert (offset == 0): x: %f, y: %f\n", nfp->final_pos[i]->x, nfp->final_pos[i]->y);
 	}
 
 	/* free memory */
@@ -5290,6 +5243,8 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	printf("IFP construction done!\n");
 
 	/* compute collsion free region (CFR) */
+
+	/* Choose placement point */
 	if (init) {
 		/* First item, place in bottom left corner */
 		end_pos[0] = ifp->final_pos[0]->x;
@@ -5302,6 +5257,7 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 			cur_iter++;
 			randf1 = BLI_rng_get_float(phandle->rng);
 			/*printf("-randf1 choosen as: %f\n", randf1);*/
+			/* ToDo SaphireS: Add IFP to points being considered until a proper CFR computation is in place */
 			rand1 = (int)(randf1 * (float)(phandle->ncharts + 1));
 			//rand1 = (int)(randf1 * (float)(phandle->ncharts));
 
