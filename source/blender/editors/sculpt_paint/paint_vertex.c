@@ -979,7 +979,7 @@ static float wpaint_blend_tool(const int tool,
 }
 
 /* vpaint has 'vpaint_blend' */
-static float wpaint_blend(VPaint *wp, float weight, float weight_prev,
+static float wpaint_blend(VPaint *wp, float weight,
                           const float alpha, float paintval,
                           const float brush_alpha_value,
                           const short do_flip)
@@ -1007,7 +1007,7 @@ static float wpaint_blend(VPaint *wp, float weight, float weight_prev,
 	CLAMP(weight, 0.0f, 1.0f);
 	
 	/* if no spray, clip result with orig weight & orig alpha */
-	if ((wp->flag & VP_SPRAY) == 0) {
+	/*if ((wp->flag & VP_SPRAY) == 0) {
 		float testw = wpaint_blend_tool(tool, weight_prev, paintval, brush_alpha_value);
 
 		CLAMP(testw, 0.0f, 1.0f);
@@ -1019,7 +1019,7 @@ static float wpaint_blend(VPaint *wp, float weight, float weight_prev,
 			if (weight > testw) weight = testw;
 			else if (weight < weight_prev) weight = weight_prev;
 		}
-	}
+	}*/
 
 	return weight;
 }
@@ -1489,7 +1489,7 @@ static void do_weight_paint_vertex_single(
 	MDeformVert *dv = &me->dvert[index];
 	bool topology = (me->editflag & ME_EDIT_MIRROR_TOPO) != 0;
 	
-	MDeformWeight *dw, *dw_prev;
+	MDeformWeight *dw;
 
 	/* mirror vars */
 	int index_mirr;
@@ -1500,14 +1500,14 @@ static void do_weight_paint_vertex_single(
 
 	if (wp->flag & VP_ONLYVGROUP) {
 		dw = defvert_find_index(dv, wpi->active.index);
-		dw_prev = defvert_find_index(wp->wpaint_prev + index, wpi->active.index);
+		//dw_prev = defvert_find_index(wp->wpaint_prev + index, wpi->active.index);
 	}
 	else {
 		dw = defvert_verify_index(dv, wpi->active.index);
-		dw_prev = defvert_verify_index(wp->wpaint_prev + index, wpi->active.index);
+  // dw_prev defvert_verify_index(wp->wpaint_prev + index, wpi->active.index);
 	}
 
-	if (dw == NULL || dw_prev == NULL) {
+	if (dw == NULL) {
 		return;
 	}
 
@@ -1565,7 +1565,8 @@ static void do_weight_paint_vertex_single(
 	 * then there is no need to run the more complicated checks */
 
 	{
-		dw->weight = wpaint_blend(wp, dw->weight, dw_prev->weight, alpha, paintweight,
+    //Needs surrounded with 'if spray mode or not painted before'
+		dw->weight = wpaint_blend(wp, dw->weight, alpha, paintweight,
 		                          wpi->brush_alpha_value, wpi->do_flip);
 
 		/* WATCH IT: take care of the ordering of applying mirror -> normalize,
@@ -1639,7 +1640,7 @@ static void do_weight_paint_vertex_multi(
 	MDeformVert *dv_mirr = NULL;
 
 	/* weights */
-	float oldw, curw, neww, change, curw_mirr, change_mirr;
+	float curw, neww, change, curw_mirr, change_mirr;
 
 	/* from now on we can check if mirrors enabled if this var is -1 and not bother with the flag */
 	if (me->editflag & ME_EDIT_MIRROR_X) {
@@ -1651,8 +1652,8 @@ static void do_weight_paint_vertex_multi(
 	}
 
 	/* compute weight change by applying the brush to average or sum of group weights */
-	oldw = BKE_defvert_multipaint_collective_weight(
-	        dv_prev, wpi->defbase_tot, wpi->defbase_sel, wpi->defbase_tot_sel, wpi->do_auto_normalize);
+  //oldw = BKE_defvert_multipaint_collective_weight(
+    //dv, wpi->defbase_tot, wpi->defbase_sel, wpi->defbase_tot_sel, wpi->do_auto_normalize);// BKE_defvert_multipaint_collective_weight( dv_prev, wpi->defbase_tot, wpi->defbase_sel, wpi->defbase_tot_sel, wpi->do_auto_normalize);
 	curw = BKE_defvert_multipaint_collective_weight(
 	        dv, wpi->defbase_tot, wpi->defbase_sel, wpi->defbase_tot_sel, wpi->do_auto_normalize);
 
@@ -1661,7 +1662,8 @@ static void do_weight_paint_vertex_multi(
 		return;
 	}
 
-	neww = wpaint_blend(wp, curw, oldw, alpha, paintweight, wpi->brush_alpha_value, wpi->do_flip);
+  //Needs surrounded with 'if spray mode or not painted before'
+	neww = wpaint_blend(wp, curw, alpha, paintweight, wpi->brush_alpha_value, wpi->do_flip);
 
 	change = neww / curw;
 
@@ -1787,13 +1789,6 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 	me = BKE_mesh_from_object(ob);
 
 	if (ob->mode & mode_flag) {
-    // Instead of copying every current weight to previous weight, we just swap pointers. 
-    if (wp->wpaint_prev) {
-      me->dvert = wp->wpaint_prev;
-      wp->wpaint_prev = NULL;
-      wp->tot = 0;
-    }
-
 		ob->mode &= ~mode_flag;
 
 		if (me->editflag & ME_EDIT_PAINT_VERT_SEL) {
@@ -2242,13 +2237,8 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	//wpd->indexar = get_indexarray(me);
 
   /* Copying over 150,000 instances of MDeformWeight's is really slow. */
-  /* Instead of copying every current weight to previous weight, we just swap pointers. */
 	//copy_wpaint_prev(wp, me->dvert, me->totvert);
-  if (!wp->wpaint_prev)
-    wp->wpaint_prev = me->dvert;
   
-  
-
  // //This will probably change!
 	//if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
 	//	BKE_mesh_vert_edge_vert_map_create(
@@ -2445,7 +2435,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
     if (sculpt_brush_test(&test, vd.co)) {
       const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
       int vertexIndex = vd.vert_indices[vd.i];
-      do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, fade, paintweight);
+      do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, fade * bstrength, paintweight);
     }
     BKE_pbvh_vertex_iter_end;
   }
@@ -2491,7 +2481,6 @@ static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp,
 
 static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, Brush *brush, const char symm, const int axis)
 {
-  clock_t start = clock();
   SculptSession *ss = ob->sculpt;
 
   for (int i = 0; i < wp->radial_symm[axis - 'X']; ++i) {
@@ -2515,11 +2504,6 @@ static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculp
     if (nodes)
       MEM_freeN(nodes);
   }
-  clock_t now = clock();
-  clock_t diff = now - start;
-  int msec = diff * 1000 / CLOCKS_PER_SEC;
-  if (G.debug & G_DEBUG)
-    printf("%d milliseconds.\n", msec);
 }
 
 static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi)
@@ -2551,9 +2535,12 @@ static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint 
 
 static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)
 {
-
-
-	Scene *scene = CTX_data_scene(C);
+  //clock_t start = clock();
+  //clock_t now = clock();
+  //clock_t diff = now - start;
+  //int msec = diff * 1000 / CLOCKS_PER_SEC;
+  //printf("up to done setting up wpi %d milliseconds.\n", msec);
+  Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	VPaint *wp = ts->wpaint;
 	Brush *brush = BKE_paint_brush(&wp->paint);
@@ -2626,8 +2613,6 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	wpi.do_auto_normalize =  ((ts->auto_normalize != 0) && (wpi.vgroup_validmap != NULL));
 	wpi.brush_alpha_value =  brush_alpha_value;
 	/* *** done setting up WeightPaintInfo *** */
-
-  swap_m4m4(wpd->vc.rv3d->persmat, mat);
 
 //	use_vert_sel = (me->editflag & ME_EDIT_PAINT_VERT_SEL) != 0;
 //	use_face_sel = (me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
@@ -2775,7 +2760,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 //	}
 
   wpaint_do_symmetrical_brush_actions(C, ob, wp, sd, wpd, &wpi);
-  
+
 	/* *** free wpi members */
 	/* *** done freeing wpi members */
 
@@ -2788,6 +2773,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	//}
 
 	DAG_id_tag_update(ob->data, 0);
+  swap_m4m4(wpd->vc.rv3d->persmat, mat);
 
   rcti r;
   if (sculpt_get_redraw_rect(vc->ar, CTX_wm_region_view3d(C), ob, &r)) {
@@ -2808,9 +2794,8 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
     r.ymax += vc->ar->winrct.ymin + 2;
 
     ss->partial_redraw = 1;
-    ED_region_tag_redraw_partial(vc->ar, &r);
   }
-	//ED_region_tag_redraw(vc->ar);
+  ED_region_tag_redraw_partial(vc->ar, &r);
 }
 
 static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
@@ -2849,12 +2834,8 @@ static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 	}
 	
 
-  /* Instead of copying every current weight to previous weight, we just swap pointers. */
-	/////* frees prev buffer */
-	//////copy_wpaint_prev(ts->wpaint, NULL, 0);
-  Mesh *me = ob->data;
-  ts->wpaint->wpaint_prev = me->dvert;
-  me->dvert = NULL;
+	/* frees prev buffer */
+	//copy_wpaint_prev(ts->wpaint, NULL, 0);
 
 	/* and particles too */
 	if (ob->particlesystem.first) {
