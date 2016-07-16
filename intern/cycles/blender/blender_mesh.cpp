@@ -805,7 +805,7 @@ static void create_subd_mesh(Scene *scene,
 	}
 
 	/* set subd params */
-	SubdParams sdparams(mesh, 0, true, false);
+	SubdParams sdparams(mesh);
 
 	PointerRNA cobj = RNA_pointer_get(&b_ob.ptr, "cycles");
 

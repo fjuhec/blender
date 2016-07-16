@@ -355,6 +355,8 @@ void Mesh::tessellate(DiagSplit *split)
 				subpatch.patch = &quad_patch;
 			}
 
+			subpatch.patch->shader = face.shader;
+
 			/* Quad faces need to be split at least once to line up with split ngons, we do this
 			 * here in this manner because if we do it later edge factors may end up slightly off.
 			 */
@@ -388,6 +390,8 @@ void Mesh::tessellate(DiagSplit *split)
 			if(subdivision_type == SUBDIVISION_CATMULL_CLARK) {
 				OsdPatch patch(&osd_data);
 
+				patch.shader = face.shader;
+
 				for(int corner = 0; corner < face.num_corners; corner++) {
 					patch.patch_index = face.ptex_offset + corner;
 
@@ -412,6 +416,8 @@ void Mesh::tessellate(DiagSplit *split)
 					float3 *normals = patch.normals;
 
 					patch.patch_index = face.ptex_offset + corner;
+
+					patch.shader = face.shader;
 
 					hull[0] = verts[subd_face_corners[face.start_corner + mod(corner + 0, face.num_corners)]];
 					hull[1] = verts[subd_face_corners[face.start_corner + mod(corner + 1, face.num_corners)]];

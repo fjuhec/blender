@@ -30,6 +30,7 @@ public:
 	virtual int ptex_face_id() { return -1; }
 
 	int patch_index;
+	int shader;
 };
 
 /* Linear Quad Patch */
