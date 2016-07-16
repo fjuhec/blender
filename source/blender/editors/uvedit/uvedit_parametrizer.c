@@ -5103,7 +5103,7 @@ bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2], int 
 	for (i = 0; i < nfp_count; i++) {
 		if (nfps[i] && (i != index)) {
 			if (p_point_inside_nfp(nfps[i], p)) {
-				printf("--end_pos x: %f y: %f is inside nfps[%i]!\n", p[0], p[1], index);
+				printf("--end_pos x: %f y: %f is inside nfps[%i]!\n", p[0], p[1], i);
 				return false;
 			}
 		}
@@ -5309,9 +5309,9 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	return found;
 }
 
-float p_scale_binary_search(PHandle *phandle, PChart *chart, float val, float min, float max, int depth)
+float p_scale_binary_search(PHandle *phandle, PChart *chart, float val, float range, int depth, float abs_scale, float found)
 {
-	float val1, min1, max1;
+	float range1, val1;
 
 	if (depth--) {
 		p_chart_uv_scale_origin(chart, val);
@@ -5319,34 +5319,37 @@ float p_scale_binary_search(PHandle *phandle, PChart *chart, float val, float mi
 		p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
 		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
 
+		abs_scale *= val;
+
 		if (!(p_chart_pack_individual(phandle, chart))) {
 			/*scale down */
-			min1 = min;
-			max1 = val;
-			val1 = (min + max) / 2.0f;
 			printf("-no placement found for scale: %f, trying scaling down\n", val);
-			return p_scale_binary_search(phandle, chart, val1, min1, max1, depth);
+			range1 = range * 0.5f;
+			val1 = 1.0f - range1;
+
+			return p_scale_binary_search(phandle, chart, val1, range1, depth, abs_scale, found);
 		}
 		else {
 			/* scale up */
-			min1 = val;
-			max1 = max;
-			val1 = (min + max) / 2.0f;
 			printf("-placement found for scale: %f, trying scaling up\n", val);
-			return p_scale_binary_search(phandle, chart, val1, min1, max1, depth);
+			range1 = range * 0.5f;
+			val1 = 1.0f + range;
+			found = abs_scale;
+
+			return p_scale_binary_search(phandle, chart, val1, range1, depth, abs_scale, found);
 		}
 	}
 	else {
-		printf("-scale factor found: %f\n", val);
-		return val;
+		printf("-scale factor found: %f\n", (found / abs_scale));
+		return (found / abs_scale);
 	}
 }
 
 float p_binary_depth_search(PHandle *phandle, PChart *chart, int depth)
 {
-	float scale = 0.5f, min = 0.1f, max = 1.0f;
+	float value = 0.5f, abs_scale = 1.0f, found = 1.0f;
 
-	return p_scale_binary_search(phandle, chart, scale, min, max, depth);
+	return p_scale_binary_search(phandle, chart, value, value, depth, abs_scale, found);
 }
 
 bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Annealing parameters */)
@@ -5370,12 +5373,15 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 			if (!p_chart_pack_individual(phandle, chart)) {
 				/* binary depth search for scaling down the current chart */
 				scale = p_binary_depth_search(phandle, chart, depth);
+				//printf("p_binary_depth_search() done, scale = %f! \n", scale);
 
+				/* ToDo SaphireS: Avoid recomputation, store placement/scale of best solution from binary depth search! */
 				/* scale chart */
 				p_chart_uv_scale_origin(chart, scale);
 				p_convex_hull_update(chart);
 				p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
 				p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+				p_chart_pack_individual(phandle, chart);
 			}
 		}
 	}
