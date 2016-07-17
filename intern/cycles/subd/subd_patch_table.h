@@ -21,6 +21,10 @@
 #include "util_vector.h"
 
 #ifdef WITH_OPENSUBDIV
+#ifdef _MSC_VER
+#  include "iso646.h"
+#endif
+
 #include <opensubdiv/far/patchTable.h>
 #endif
 
