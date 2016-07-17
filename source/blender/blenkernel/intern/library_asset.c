@@ -143,11 +143,18 @@ void BKE_libraries_asset_subdata_remove(Main *bmain, const void *idv)
 		return;
 	}
 
-	ListBase *lb = which_libbase(bmain, ID_LI);
+	ListBase *lb = &bmain->library;
 	for (Library *lib = lb->first; lib; lib = lib->id.next) {
 		if (lib->asset_repository) {
 			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
-				BLI_freelinkN(&aref->id_list, BLI_findptr(&aref->id_list, idv, offsetof(LinkData, data)));
+				LinkData *subdata = aref->id_list.first;
+				/* Skip first one, it's main asset, not subdata! */
+				for (subdata = subdata->next; subdata; subdata = subdata->next) {
+					if (subdata->data == idv) {
+						BLI_freelinkN(&aref->id_list, subdata);
+						break;
+					}
+				}
 			}
 		}
 	}
