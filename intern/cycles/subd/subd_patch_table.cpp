@@ -28,6 +28,8 @@
 #include "subd_patch_table.h"
 #include "kernel_types.h"
 
+#include "util_math.h"
+
 #ifdef WITH_OPENSUBDIV
 #include <opensubdiv/far/patchTable.h>
 #endif
@@ -95,7 +97,7 @@ static void build_patch_map(PackedPatchTable& table, OpenSubdiv::Far::PatchTable
 		Far::ConstPatchParamArray params = patch_table->GetPatchParams(array);
 
 		for(int j = 0; j < patch_table->GetNumPatches(array); j++) {
-			num_faces = std::max(num_faces, (int)params[j].GetFaceId());
+			num_faces = max(num_faces, (int)params[j].GetFaceId());
 		}
 	}
 	num_faces++;

@@ -20,11 +20,18 @@
 #include "util_types.h"
 #include "util_vector.h"
 
+#ifdef WITH_OPENSUBDIV
 #include <opensubdiv/far/patchTable.h>
+#endif
 
 CCL_NAMESPACE_BEGIN
 
+#ifdef WITH_OPENSUBDIV
 using namespace OpenSubdiv;
+#else
+/* forward declare for when OpenSubdiv is unavailable */
+namespace Far { struct PatchTable; }
+#endif
 
 #define PATCH_ARRAY_SIZE 4
 #define PATCH_PARAM_SIZE 2
