@@ -727,7 +727,7 @@ static void sync_mesh_cached_velocities(BL::Object& b_ob, Scene *scene, Mesh *me
 
 	/* Only export previous and next frame, we don't have any in between data. */
 	float motion_times[2] = {-1.0f, 1.0f};
-    for (int step = 0; step < 2; step++) {
+	for (int step = 0; step < 2; step++) {
 		const float relative_time = motion_times[step] * scene->motion_shutter_time() * 0.5f;
 		float3 *mP = attr_mP->data_float3() + step*numverts;
 
@@ -974,8 +974,8 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 	/* cached motion is exported immediate with mesh, skip here */
 	BL::MeshSequenceCacheModifier mesh_cache = object_mesh_cache_find(b_ob);
-    if (mesh_cache)
-        return;
+	if (mesh_cache)
+		return;
 
 	if(ccl::BKE_object_is_deform_modified(b_ob, b_scene, preview)) {
 		/* get derived mesh */
@@ -1062,7 +1062,7 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 			else if(time_index > 0) {
 				VLOG(1) << "Filling deformation motion for object " << b_ob.name();
 				/* motion, fill up previous steps that we might have skipped because
-					 * they had no motion, but we need them anyway now */
+				 * they had no motion, but we need them anyway now */
 				float3 *P = &mesh->verts[0];
 				float3 *N = (attr_N)? attr_N->data_float3(): NULL;
 
