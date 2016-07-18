@@ -209,7 +209,7 @@ typedef struct SculptSession {
   unsigned int* totalGreen;
   unsigned int* totalBlue;
   unsigned int* totalAlpha;
-  unsigned int* colorWeight;
+  double* totalWeight;
   unsigned int *totloopsHit;
 } SculptSession;
 

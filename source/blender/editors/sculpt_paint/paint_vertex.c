@@ -966,6 +966,7 @@ static float wpaint_blend_tool(const int tool,
 {
 	switch (tool) {
 		case PAINT_BLEND_MIX:
+    case PAINT_BLEND_AVERAGE:
 		case PAINT_BLEND_BLUR:     return wval_blend(weight, paintval, alpha);
 		case PAINT_BLEND_ADD:      return wval_add(weight, paintval, alpha);
 		case PAINT_BLEND_SUB:      return wval_sub(weight, paintval, alpha);
@@ -1568,7 +1569,6 @@ static void do_weight_paint_vertex_single(
     //Needs surrounded with 'if spray mode or not painted before'
 		dw->weight = wpaint_blend(wp, dw->weight, alpha, paintweight,
 		                          wpi->brush_alpha_value, wpi->do_flip);
-
 		/* WATCH IT: take care of the ordering of applying mirror -> normalize,
 		 * can give wrong results [#26193], least confusing if normalize is done last */
 
@@ -1762,7 +1762,7 @@ static void vertex_paint_init_session_average_arrays(Object *ob){
   ob->sculpt->totalGreen = MEM_callocN(totNode * sizeof(unsigned int), "totalGreen");
   ob->sculpt->totalBlue = MEM_callocN(totNode * sizeof(unsigned int), "totalBlue");
   ob->sculpt->totalAlpha = MEM_callocN(totNode * sizeof(unsigned int), "totalAlpha");
-  ob->sculpt->colorWeight = MEM_callocN(totNode * sizeof(unsigned int), "colorWeight");
+  ob->sculpt->totalWeight = MEM_callocN(totNode * sizeof(double), "totalWeight");
   ob->sculpt->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
 }
 
@@ -1818,7 +1818,6 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		if (wp == NULL)
 			wp = scene->toolsettings->wpaint = new_vpaint(1);
-    wp->radial_symm[0] = wp->radial_symm[1] = wp->radial_symm[2] = 1;
 		paint_cursor_start(C, weight_paint_poll);
 
 		BKE_paint_init(scene, ePaintWeight, PAINT_CURSOR_WEIGHT_PAINT);
@@ -2421,7 +2420,6 @@ static void do_wpaint_brush_draw_task_cb_ex(
   Brush *brush = data->brush;
   StrokeCache *cache = ss->cache;
   const float bstrength = cache->bstrength;
-
   float paintweight = BKE_brush_weight_get(scene, brush);
 
   //for each vertex
@@ -2441,6 +2439,69 @@ static void do_wpaint_brush_draw_task_cb_ex(
   }
 }
 
+static void do_wpaint_brush_calc_ave_weight_cb_ex(
+  void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id) {
+  SculptThreadedTaskData *data = userdata;
+  SculptSession *ss = data->ob->sculpt;
+  StrokeCache *cache = ss->cache;
+
+  double weight = 0.0;
+
+  data->ob->sculpt->totloopsHit[n] = 0.0;
+  data->ob->sculpt->totalWeight[n] = 0.0;
+
+  //for each vertex
+  PBVHVertexIter vd;
+
+  SculptBrushTest test;
+  sculpt_brush_test_init(ss, &test);
+  BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+  {
+    //Test to see if the vertex coordinates are within the spherical brush region.
+    if (sculpt_brush_test_fast(&test, vd.co)) {
+      if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
+        int vertexIndex = vd.vert_indices[vd.i];
+
+        ss->totloopsHit[n] += ss->vert_to_loop[vertexIndex].count;
+        //if a vertex is within the brush region, then add it's weight to the total weight.
+        for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+          int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+
+          MLoop loop = data->me->mloop[loopIndex];
+          MDeformVert *dv = &data->me->dvert[loop.v];
+          MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
+          weight += dw->weight;
+        }
+      }
+    }
+    BKE_pbvh_vertex_iter_end;
+  }
+  data->ob->sculpt->totalWeight[n] = weight;
+}
+
+static void calculate_average_weight(SculptThreadedTaskData *data, PBVHNode **nodes, int totnode) {
+  Scene *scene = CTX_data_scene(data->C);
+  UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
+  BLI_task_parallel_range_ex(
+    0, totnode, data, NULL, 0, do_wpaint_brush_calc_ave_weight_cb_ex,
+    ((data->sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+
+  unsigned int totalHitLoops = 0;
+  double totalWeight = 0.0;
+  for (int i = 0; i < totnode; ++i) {
+    totalHitLoops += data->ob->sculpt->totloopsHit[i];
+    totalWeight += data->ob->sculpt->totalWeight[i];
+  }
+  if (totalHitLoops != 0) {
+    totalWeight /= totalHitLoops;
+    if (ups->flag & UNIFIED_PAINT_WEIGHT)
+      ups->weight = (float)totalWeight;
+    else
+      data->brush->weight = (float)totalWeight;
+  }
+}
+
+
 static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, PBVHNode **nodes, int totnode)
 {
   Brush *brush = ob->sculpt->cache->brush;//BKE_paint_brush(&sd->paint);
@@ -2458,14 +2519,13 @@ static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp,
   data.C = C;
 
   //This might change to a case switch. 
-  //if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
-  //  calculate_average_color(&data, nodes, totnode);
-  //  BLI_task_parallel_range_ex(
-  //    0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
-  //    ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-  //}
-  //else 
-  if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+  if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
+    calculate_average_weight(&data, nodes, totnode);
+    BLI_task_parallel_range_ex(
+      0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
+      ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+  }
+  else if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
     BLI_task_parallel_range_ex(
       0, totnode, &data, NULL, 0, do_wpaint_brush_blur_task_cb_ex,
       ((true & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
@@ -2513,22 +2573,26 @@ static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint 
   SculptSession *ss = ob->sculpt;
   StrokeCache *cache = ss->cache;
   const char symm = wp->paint.symmetry_flags & PAINT_SYMM_AXIS_ALL;
-  int i;
+  int i = 0;
+
+  /* initial stroke */
+  wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'X');
 
   cache->symmetry = symm;
 
   /* symm is a bit combination of XYZ - 1 is mirror X; 2 is Y; 3 is XY; 4 is Z; 5 is XZ; 6 is YZ; 7 is XYZ */
-  for (i = 0; i <= symm; ++i) {
-    if (i == 0 || (symm & i && (symm != 5 || i != 3) && (symm != 6 || (i != 3 && i != 5)))) {
+  for (i = 1; i <= symm; ++i) {
+    if ((symm & i && (symm != 5 || i != 3) && (symm != 6 || (i != 3 && i != 5)))) {
       cache->mirror_symmetry_pass = i;
       cache->radial_symmetry_pass = 0;
-
       calc_brushdata_symm(wp, cache, i, 0, 0);
-      wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'X');
-      if (i != 0) {
+
+      if (i & 1 << 0)
+        wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'X');
+      if (i & 1 << 1)
         wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Y');
+      if (i & 1 << 2) 
         wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Z');
-      }
     }
   }
 }
@@ -3011,7 +3075,7 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		if (vp == NULL)
 			vp = scene->toolsettings->vpaint = new_vpaint(0);
-    vp->radial_symm[0] = vp->radial_symm[1] = vp->radial_symm[2] = 1;
+    
 		paint_cursor_start(C, vertex_paint_poll);
 
 		BKE_paint_init(scene, ePaintVertex, PAINT_CURSOR_VERTEX_PAINT);
@@ -3466,23 +3530,26 @@ static void vpaint_do_symmetrical_brush_actions(Sculpt *sd, VPaint *vd, VPaintDa
   SculptSession *ss = ob->sculpt;
   StrokeCache *cache = ss->cache;
   const char symm = vd->paint.symmetry_flags & PAINT_SYMM_AXIS_ALL;
-  int i;
+  int i = 0;
+
+  /* initial stroke */
+  vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'X');
 
   cache->symmetry = symm;
 
   /* symm is a bit combination of XYZ - 1 is mirror X; 2 is Y; 3 is XY; 4 is Z; 5 is XZ; 6 is YZ; 7 is XYZ */
-  for (i = 0; i <= symm; ++i) {
-    if (i == 0 || (symm & i && (symm != 5 || i != 3) && (symm != 6 || (i != 3 && i != 5)))) {
+  for (i = 1; i <= symm; ++i) {
+    if (symm & i && (symm != 5 || i != 3) && (symm != 6 || (i != 3 && i != 5))) {
       cache->mirror_symmetry_pass = i;
       cache->radial_symmetry_pass = 0;
-
       calc_brushdata_symm(vd, cache, i, 0, 0);
 
-      vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'X');
-      if (i != 0) {
+      if (i & 1 << 0) 
+        vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'X');
+      if (i & 1 << 1)
         vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Y');
+      if (i & 1 << 2)
         vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Z');
-      }
     }
   }
 }
