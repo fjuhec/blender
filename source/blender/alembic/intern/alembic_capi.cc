@@ -245,6 +245,10 @@ AbcArchiveHandle *ABC_create_handle(const char *filename, ListBase *object_paths
 {
 	IArchive *archive = open_archive(filename);
 
+	if (!archive) {
+		return NULL;
+	}
+
 	if (object_paths) {
 		gather_objects_paths(archive->getTop(), object_paths);
 	}
