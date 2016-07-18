@@ -647,6 +647,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 		}
 
 		*data->progress = 0.1f + 0.6f * (++i / size);
+		*data->do_update = true;
 
 		if (G.is_break) {
 			data->was_cancelled = true;
@@ -704,6 +705,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 		}
 
 		*data->progress = 0.7f + 0.3f * (++i / size);
+		*data->do_update = true;
 
 		if (G.is_break) {
 			data->was_cancelled = true;
