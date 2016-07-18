@@ -117,7 +117,7 @@ bool AbcCameraReader::valid() const
 	return m_schema.valid();
 }
 
-void AbcCameraReader::readObjectData(Main *bmain, Scene *scene, float time)
+void AbcCameraReader::readObjectData(Main *bmain, float time)
 {
 	Camera *bcam = static_cast<Camera *>(BKE_camera_add(bmain, "abc_camera"));
 
@@ -157,6 +157,6 @@ void AbcCameraReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 	BLI_strncpy(bcam->id.name + 2, m_data_name.c_str(), m_data_name.size() + 1);
 
-	m_object = BKE_object_add(bmain, scene, OB_CAMERA, m_object_name.c_str());
+	m_object = BKE_object_add_only_object(bmain, OB_CAMERA, m_object_name.c_str());
 	m_object->data = bcam;
 }

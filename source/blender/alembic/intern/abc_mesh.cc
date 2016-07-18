@@ -979,11 +979,11 @@ bool AbcMeshReader::valid() const
 	return m_schema.valid();
 }
 
-void AbcMeshReader::readObjectData(Main *bmain, Scene *scene, float time)
+void AbcMeshReader::readObjectData(Main *bmain, float time)
 {
 	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
 
-	m_object = BKE_object_add(bmain, scene, OB_MESH, m_object_name.c_str());
+	m_object = BKE_object_add_only_object(bmain, OB_MESH, m_object_name.c_str());
 	m_object->data = mesh;
 
 	const ISampleSelector sample_sel(time);
@@ -1113,11 +1113,11 @@ bool AbcSubDReader::valid() const
 	return m_schema.valid();
 }
 
-void AbcSubDReader::readObjectData(Main *bmain, Scene *scene, float time)
+void AbcSubDReader::readObjectData(Main *bmain, float time)
 {
 	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
 
-	m_object = BKE_object_add(bmain, scene, OB_MESH, m_object_name.c_str());
+	m_object = BKE_object_add_only_object(bmain, OB_MESH, m_object_name.c_str());
 	m_object->data = mesh;
 
 	const ISampleSelector sample_sel(time);

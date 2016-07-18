@@ -149,7 +149,7 @@ bool AbcPointsReader::valid() const
 	return m_schema.valid();
 }
 
-void AbcPointsReader::readObjectData(Main *bmain, Scene *scene, float time)
+void AbcPointsReader::readObjectData(Main *bmain, float time)
 {
 	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
 
@@ -175,7 +175,7 @@ void AbcPointsReader::readObjectData(Main *bmain, Scene *scene, float time)
 
 	BKE_mesh_validate(mesh, false, false);
 
-	m_object = BKE_object_add(bmain, scene, OB_MESH, m_object_name.c_str());
+	m_object = BKE_object_add_only_object(bmain, OB_MESH, m_object_name.c_str());
 	m_object->data = mesh;
 
 	if (has_animations(m_schema, m_settings)) {

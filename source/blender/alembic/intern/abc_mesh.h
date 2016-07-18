@@ -101,7 +101,7 @@ public:
 
 	bool valid() const;
 
-	void readObjectData(Main *bmain, Scene *scene, float time);
+	void readObjectData(Main *bmain, float time);
 
 private:
 	void readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_start,
@@ -124,7 +124,7 @@ public:
 
 	bool valid() const;
 
-	void readObjectData(Main *bmain, Scene *scene, float time);
+	void readObjectData(Main *bmain, float time);
 };
 
 void read_subd_sample(const Alembic::AbcGeom::ISubDSchema &schema,
