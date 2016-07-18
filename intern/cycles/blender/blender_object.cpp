@@ -280,7 +280,6 @@ Object *BlenderSync::sync_object(BL::Object& b_parent,
                                  Transform& tfm,
                                  uint layer_flag,
                                  float motion_time,
-                                 float shutter_time,
                                  bool hide_tris,
                                  bool use_camera_cull,
                                  float camera_cull_margin,
@@ -333,7 +332,7 @@ Object *BlenderSync::sync_object(BL::Object& b_parent,
 
 			/* mesh deformation */
 			if(object->mesh)
-				sync_mesh_motion(b_ob, object, motion_time, shutter_time);
+				sync_mesh_motion(b_ob, object, motion_time);
 		}
 
 		return object;
@@ -519,7 +518,7 @@ static bool object_render_hide_duplis(BL::Object& b_ob)
 
 /* Object Loop */
 
-void BlenderSync::sync_objects(BL::SpaceView3D& b_v3d, float motion_time, float shutter_time)
+void BlenderSync::sync_objects(BL::SpaceView3D& b_v3d, float motion_time)
 {
 	/* layer data */
 	uint scene_layer = render_layer.scene_layer;
@@ -610,7 +609,6 @@ void BlenderSync::sync_objects(BL::SpaceView3D& b_v3d, float motion_time, float 
 							                             tfm,
 							                             ob_layer,
 							                             motion_time,
-							                             shutter_time,
 							                             hide_tris,
 							                             use_camera_cull,
 							                             camera_cull_margin,
@@ -641,7 +639,6 @@ void BlenderSync::sync_objects(BL::SpaceView3D& b_v3d, float motion_time, float 
 					            tfm,
 					            ob_layer,
 					            motion_time,
-					            shutter_time,
 					            hide_tris,
 					            use_camera_cull,
 					            camera_cull_margin,
@@ -710,7 +707,7 @@ void BlenderSync::sync_motion(BL::RenderSettings& b_render,
 		b_engine.frame_set(frame, subframe);
 		python_thread_state_save(python_thread_state);
 		sync_camera_motion(b_render, b_cam, width, height, 0.0f);
-		sync_objects(b_v3d, 0.0f, 0.0f);
+		sync_objects(b_v3d, 0.0f);
 	}
 
 	/* always sample these times for camera motion */
@@ -723,12 +720,7 @@ void BlenderSync::sync_motion(BL::RenderSettings& b_render,
 		        << relative_time << ".";
 
 		/* fixed shutter time to get previous and next frame for motion pass */
-		float shuttertime;
-
-		if(scene->need_motion() == Scene::MOTION_PASS)
-			shuttertime = 2.0f;
-		else
-			shuttertime = scene->camera->shuttertime;
+		float shuttertime = scene->motion_shutter_time();
 
 		/* compute frame and subframe time */
 		float time = frame_center + frame_center_delta + relative_time * shuttertime * 0.5f;
@@ -749,7 +741,7 @@ void BlenderSync::sync_motion(BL::RenderSettings& b_render,
 		}
 
 		/* sync object */
-		sync_objects(b_v3d, relative_time, shuttertime);
+		sync_objects(b_v3d, relative_time);
 	}
 
 	/* we need to set the python thread state again because this
