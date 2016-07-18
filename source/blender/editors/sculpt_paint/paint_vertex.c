@@ -2831,10 +2831,9 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
 	swap_m4m4(vc->rv3d->persmat, mat);
 
-	///* calculate pivot for rotation around seletion if needed */
-	//if (U.uiflag & USER_ORBIT_SELECTION) {
-	//	paint_last_stroke_update(scene, vc->ar, mval);
-	//}
+	/* calculate pivot for rotation around seletion if needed */
+	/* also needed for "View Selected" on last stroke */
+	paint_last_stroke_update(scene, vc->ar, mval);
 
 	DAG_id_tag_update(ob->data, 0);
   swap_m4m4(wpd->vc.rv3d->persmat, mat);
@@ -3635,10 +3634,9 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
 	swap_m4m4(vc->rv3d->persmat, mat);
 
-	///* calculate pivot for rotation around seletion if needed */
-	//if (U.uiflag & USER_ORBIT_SELECTION) {
-	//	paint_last_stroke_update(scene, vc->ar, mval);
-	//}
+	/* calculate pivot for rotation around seletion if needed */
+	/* also needed for "View Selected" on last stroke */
+	paint_last_stroke_update(scene, vc->ar, mval);
 
 	ED_region_tag_redraw(vc->ar);
 
