@@ -105,7 +105,7 @@ void param_pack(ParamHandle *handle, float margin, bool do_rotate);
 /* Packing 2.0 */
 
 void param_irregular_pack_begin(ParamHandle *handle);
-void param_irregular_pack_iter(ParamHandle *handle, float *w_area);
+void param_irregular_pack_iter(ParamHandle *handle, float *w_area, int seed);
 void param_irregular_pack_end(ParamHandle *handle);
 
 /* Average area for all charts */

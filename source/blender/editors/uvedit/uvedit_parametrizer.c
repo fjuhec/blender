@@ -5304,7 +5304,8 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	}
 	MEM_freeN(nfps);
 	printf("-freeing stuff done!\n");
-	/* p_flush_uvs(phandle, item); */ /* ToDo SaphireS: Needs update to work ... */
+	p_flush_uvs(phandle, item);  /* ToDo SaphireS: Needs update to work ... */
+
 
 	return found;
 }
@@ -5386,6 +5387,12 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 		}
 	}
 
+	/* Un-set placed property of charts so next iteration works as expected */
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+		chart->u.ipack.convex_hull->placed = false;
+	}
+
 	return true;
 }
 
@@ -5414,6 +5421,9 @@ void param_irregular_pack_begin(ParamHandle *handle)
 			p_face_backup_uvs(f);
 		}
 
+		/* Set initial scale of charts */
+		/* ToDo SaphireS: Idea: set initial scale so that combined chart area is about 1.0 of UV area */
+
 		/* Compute convex hull for each chart -> CW */
 		chart->u.ipack.convex_hull = p_convex_hull_new(chart);
 
@@ -5439,24 +5449,22 @@ void param_irregular_pack_begin(ParamHandle *handle)
 
 }
 
-void param_irregular_pack_iter(ParamHandle *handle, float *w_area)
+void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int seed)
 {
 	PHandle *phandle = (PHandle *)handle;
 
+	BLI_rng_seed(phandle->rng, seed);
+
 	param_assert(phandle->state == PHANDLE_STATE_PACK);
+
+	/* Set initial scale of charts so finding a better solution is possible */
+
 
 	/* ToDo (SaphireS): packing solution computation */
 
-	/* Compute inner fit polygon */
-
-	/* For every chart: */
-
-	/*    Compute no-fit polygon for current chart against all placed charts so far */
-	/*    This includes a decomposition of non-convex shapes into convex ones */
-
-	/*    Compute collision-free area for current chart */
-
-	/*    Place chart according to parameters from simulated annealing algorithm */
+	if (p_compute_packing_solution(phandle)) {
+		printf("packing solution found---------------------------------------------\n");
+	}
 
 	float used_area = p_face_uv_area_combined(handle);
 

@@ -46,6 +46,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_alloca.h"
 #include "BLI_math.h"
+#include "BLI_rand.h"
 #include "BLI_uvproject.h"
 #include "BLI_string.h"
 
@@ -828,6 +829,15 @@ void UV_OT_pack_islands(wmOperatorType *ot)
 
 /* ******************** Pack Islands operator 2.0 **************** */
 
+typedef struct SimulatedAnnealing {
+	RNG *rng;
+	int seed;
+	float theta;
+	float f;
+	float r;
+	float temperature;
+} SimulatedAnnealing;
+
 typedef struct PackIslands {
 	Scene *scene;
 	Object *obedit;
@@ -837,6 +847,7 @@ typedef struct PackIslands {
 	int i, iterations;
 	wmTimer *timer;
 	float wasted_area_last;
+	SimulatedAnnealing *sa;
 } PackIslands;
 
 static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
@@ -845,6 +856,8 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	PackIslands *pi;
+	SimulatedAnnealing *simann;
+	unsigned int seed = 31415926;
 
 	/* Keep for now, needed when making packing work with current selection */
 	/*if (!uvedit_have_selection(scene, em, implicit)) {
@@ -862,6 +875,15 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	pi->handle = construct_param_handle(scene, obedit, em->bm, hparams);
 	pi->lasttime = PIL_check_seconds_timer();
 
+	simann = MEM_callocN(sizeof(SimulatedAnnealing), "SimulatedAnnealing");
+	simann->rng = BLI_rng_new(seed);
+	simann->seed = seed;
+	simann->theta = 0.0f;
+	simann->f = 0.0f;
+	simann->r = 0.0f;
+	simann->temperature = 1.0f;
+	pi->sa = simann;
+
 	param_irregular_pack_begin(pi->handle);
 
 	op->customdata = pi;
@@ -873,17 +895,38 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 {
 	PackIslands *pi = op->customdata;
 	ScrArea *sa = CTX_wm_area(C);
-	float wasted_area = 0.0f;
-
-	param_irregular_pack_iter(pi->handle, &wasted_area);
-
-	/* ToDo (SaphireS): simulated annealing, based on wasted areas ("temperature") of last and current solution */
-
-
-
-	pi->wasted_area_last = wasted_area;
-
+	float wasted_area = 0.0f, dE, r1, r2;
+	float a = 0.95f; /*ToDo SaphireS: Make operator parameter for testing */
+	float k = 5.670367e-8f; /* Stefan-Boltzman constant-like parameter */
+	
 	pi->i++;
+	/* Cooling Schedule */
+	pi->sa->temperature = pi->wasted_area_last * a;
+
+	/* Find neigbohring solution */
+	/*ToDo Saphires: Pass SA parameters */
+	param_irregular_pack_iter(pi->handle, &wasted_area, pi->i);
+
+	/* delta Energy */
+	dE = wasted_area - pi->wasted_area_last;
+
+	if (dE < 0) {
+		/* Current solution is new best solution */
+		/* ToDo SaphireS: Store last best solution */
+		pi->wasted_area_last = wasted_area;
+	}
+	else {
+		r1 = BLI_rng_get_float(pi->sa->rng);
+
+		r2 = (float)exp(-dE/(k * pi->sa->temperature));
+
+		if (r1 < r2) {
+			/* Current solution is new best solution */
+			/* ToDo SaphireS: Store last best solution */
+			pi->wasted_area_last = wasted_area;
+		}
+	}
+	
 	RNA_int_set(op->ptr, "iterations", pi->i);
 
 	if (interactive && (PIL_check_seconds_timer() - pi->lasttime > 0.5)) {
@@ -921,6 +964,9 @@ static void irregular_pack_islands_exit(bContext *C, wmOperator *op, bool cancel
 
 	param_irregular_pack_end(pi->handle);
 	param_delete(pi->handle);
+
+	BLI_rng_free(pi->sa->rng);
+	MEM_freeN(pi->sa);
 
 	DAG_id_tag_update(pi->obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, pi->obedit->data);
