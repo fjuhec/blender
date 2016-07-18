@@ -279,6 +279,16 @@ class CLIP_PT_tracking_panel:
         return clip and sc.mode == 'TRACKING' and sc.view == 'CLIP'
 
 
+class CLIP_PT_correspondence_panel:
+
+    @classmethod
+    def poll(cls, context):
+        sc = context.space_data
+        clip = sc.clip
+
+        return clip and sc.mode == 'CORRESPONDENCE' and sc.view == 'CLIP'
+
+
 class CLIP_PT_reconstruction_panel:
 
     @classmethod
@@ -454,7 +464,7 @@ class CLIP_PT_tools_tracking(CLIP_PT_tracking_panel, Panel):
         row.operator("clip.join_tracks", text="Join Tracks")
 
 
-class CLIP_PT_tools_correspondence(CLIP_PT_tracking_panel, Panel):
+class CLIP_PT_tools_correspondence(CLIP_PT_correspondence_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'TOOLS'
     bl_label = "Correspondence"

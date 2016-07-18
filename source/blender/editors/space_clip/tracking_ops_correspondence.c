@@ -134,7 +134,7 @@ void CLIP_OT_add_correspondence(wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->exec = add_correspondence_exec;
-	ot->poll = ED_space_clip_tracking_poll;
+	ot->poll = ED_space_clip_correspondence_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -183,7 +183,7 @@ void CLIP_OT_delete_correspondence(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = WM_operator_confirm;
 	ot->exec = delete_correspondence_exec;
-	ot->poll = ED_space_clip_tracking_poll;
+	ot->poll = ED_space_clip_correspondence_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -466,7 +466,7 @@ void CLIP_OT_solve_multiview(wmOperatorType *ot)
 	ot->exec = solve_multiview_exec;
 	ot->invoke = solve_multiview_invoke;
 	ot->modal = solve_multiview_modal;
-	ot->poll = ED_space_clip_tracking_poll;
+	ot->poll = ED_space_clip_correspondence_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
