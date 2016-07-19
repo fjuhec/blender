@@ -886,7 +886,7 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	simann->temperature = 1.0f;
 	pi->sa = simann;
 
-	param_irregular_pack_begin(pi->handle, &wasted_area);
+	param_irregular_pack_begin(pi->handle, &wasted_area /* SA */);
 	pi->wasted_area_last = wasted_area;
 
 	op->customdata = pi;
@@ -913,9 +913,9 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 	}
 	
 
-	/* Find neigbohring solution */
+	/* Find neighboring solution */
 	/*ToDo Saphires: Pass SA parameters */
-	param_irregular_pack_iter(pi->handle, &wasted_area, pi->iter_global /* temp */);
+	param_irregular_pack_iter(pi->handle, &wasted_area, pi->iter_global /* SA */);
 
 	/* delta Energy */
 	dE = wasted_area - pi->wasted_area_last;

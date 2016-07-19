@@ -229,7 +229,8 @@ typedef struct PChart {
 		} pack;
 		struct PChartIrregularPack {
 			PConvexHull *convex_hull; /* ToDo (SaphireS): Only convex for now */
-			float area;
+			PPointUV *best_pos;
+			float area, scale;
 		} ipack; 
 	} u;
 
@@ -590,7 +591,7 @@ static void p_scale_charts(PHandle *handle, float scale)
 	for (i = 0; i < handle->ncharts; i++) {
 		chart = handle->charts[i];
 
-		p_chart_uv_scale(chart, scale);
+		p_chart_uv_scale_origin(chart, scale);
 	}
 }
 
@@ -5420,16 +5421,17 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area)
 	PFace *f;
 	int npoint, right, i, j;
 	unsigned int seed = 31415926;
-	float used_area, init_scale, init_value = 0.9f;
+	float used_area, init_scale, init_value = 0.6f;
 
 	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
 	phandle->state = PHANDLE_STATE_PACK;
 
 	/* Initializations */
-
 	phandle->rng = BLI_rng_new(seed);
+	used_area = p_face_uv_area_combined(handle);
+	init_scale = init_value / used_area;
+	printf("init_scale: %f\n", init_scale);
 
-	
 	for (i = 0; i < phandle->ncharts; i++) {
 		chart = phandle->charts[i];
 
@@ -5440,12 +5442,11 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area)
 
 		/* Set initial scale of charts */
 		/* ToDo: Do this in p_compute_packing_solution */
-		/*used_area = p_face_uv_area_combined(handle);
-		init_scale = (1.0f / used_area) * init_value;
-		p_scale_charts(handle, init_scale);*/
+		/*p_chart_uv_scale_origin(chart, init_scale); */
 
 		/* Compute convex hull for each chart -> CW */
 		chart->u.ipack.convex_hull = p_convex_hull_new(chart);
+		chart->u.ipack.best_pos = MEM_callocN(sizeof(PPointUV), "PPointUV");
 
 		/* DEBUG */
 		printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
@@ -5511,7 +5512,7 @@ void param_irregular_pack_end(ParamHandle *handle)
 
 	for (i = 0; i < phandle->ncharts; i++) {
 		chart = phandle->charts[i];
-
+		MEM_freeN(chart->u.ipack.best_pos);
 		p_convex_hull_delete(chart->u.ipack.convex_hull);
 	}
 
@@ -5875,19 +5876,45 @@ void param_store_packing_solution(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart;
+	PConvexHull *chull;
 	int i;
+	printf("param_store_packing_solution\n");
 
 	for (i = 0; i < phandle->ncharts; i++) {
 		chart = phandle->charts[i];
-		//chart->u.ipack.best_pos->x = chart->uv[0];
-		//chart->u.ipack.best_pos->y = chart->uv[1];
+		chull = chart->u.ipack.convex_hull;
+		chart->u.ipack.best_pos->x = chull->h_verts[chull->ref_vert_index]->uv[0];
+		chart->u.ipack.best_pos->y = chull->h_verts[chull->ref_vert_index]->uv[1];
+
 		//chart->u.ipack.best_scale = chart-> ? 
 	}
+	printf("DONE param_store_packing_solution\n");
 }
 
 void param_restore_packing_solution(ParamHandle *handle)
 {
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	PConvexHull *chull;
+	float trans[2], cur_pos[2];
+	int i;
+	printf("param_restore_packing_solution\n");
 
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+		chull = chart->u.ipack.convex_hull;
+
+		cur_pos[0] = chull->h_verts[chull->ref_vert_index]->uv[0];
+		cur_pos[1] = chull->h_verts[chull->ref_vert_index]->uv[1];
+
+		trans[0] = cur_pos[0] - chart->u.ipack.best_pos->x;
+		trans[1] = cur_pos[1] - chart->u.ipack.best_pos->y;
+
+		p_chart_uv_translate(chart, trans);
+
+		//chart->u.ipack.best_scale ?
+	}
+	printf("DONE param_restore_packing_solution\n");
 }
 
 /* XXX (SaphireS): Remove */
