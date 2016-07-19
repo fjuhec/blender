@@ -642,8 +642,10 @@ static PBool p_intersect_line_segments_2d(float *a, float *b, float *c, float *d
 	float r = ((a[1] - c[1]) * (d[0] - c[0]) - (a[0] - c[0]) * (d[1] - c[1])) / D;
 	float s = ((a[1] - c[1]) * (b[0] - a[0]) - (a[0] - c[0]) * (b[1] - a[1])) / D;
 
-	if ((-FLT_EPSILON <= r <= (1.0f + FLT_EPSILON)) && (-FLT_EPSILON <= s <= (1.0f + FLT_EPSILON))) {
+	if (((-FLT_EPSILON <= r) && (r <= (1.0f + FLT_EPSILON))) && 
+		((-FLT_EPSILON <= s) && (s <= (1.0f + FLT_EPSILON)))) {
 		/* ToDo (SaphireS): return actual intersection data ?*/
+
 		return P_TRUE;
 	}
 
@@ -1531,11 +1533,13 @@ static bool p_charts_intersect(PChart* a, PChart *b)
 	/* Check edges for intersections */
 	for (e1 = a->edges; e1; e1 = e1->nextlink) {
 		for (e2 = b->edges; e2; e2 = e2->nextlink) {
-			if (p_intersect_line_segments_2d(e1->vert->uv,
-											 e1->nextlink->vert->uv,
-											 e2->vert->uv,
-											 e2->nextlink->vert->uv)) {
-				return true;
+			if (e1->nextlink && e2->nextlink) {
+				if (p_intersect_line_segments_2d(e1->vert->uv,
+					e1->nextlink->vert->uv,
+					e2->vert->uv,
+					e2->nextlink->vert->uv)) {
+					return true;
+				}
 			}
 		}
 	}
