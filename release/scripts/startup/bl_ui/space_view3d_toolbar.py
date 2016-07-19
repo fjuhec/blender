@@ -1694,6 +1694,7 @@ class VIEW3D_PT_tools_brush_appearance(Panel, View3DPaintPanel):
 class VIEW3D_PT_tools_weightpaint(View3DPanel, Panel):
     bl_category = "Tools"
     bl_context = "weightpaint"
+    bl_options = {'DEFAULT_CLOSED'}
     bl_label = "Weight Tools"
 
     def draw(self, context):
@@ -1706,6 +1707,23 @@ class VIEW3D_PT_tools_weightpaint(View3DPanel, Panel):
         props.use_reverse_transfer = True
         props.data_type = 'VGROUP_WEIGHTS'
 
+class VIEW3D_PT_weightpaint_symmetry(Panel, View3DPaintPanel):
+    bl_category = "Tools"
+    bl_context = "weightpaint"
+    bl_options = {'DEFAULT_CLOSED'}
+    bl_label = "Symmetry / Lock"
+
+    def draw(self, context):
+        layout = self.layout
+        toolsettings = context.tool_settings
+        wpaint = toolsettings.weight_paint
+        col = layout.column(align=True)
+        col.label(text="Mirror:")
+        row = col.row(align=True)
+        row.prop(wpaint, "use_symmetry_x", text="X", toggle=True)
+        row.prop(wpaint, "use_symmetry_y", text="Y", toggle=True)
+        row.prop(wpaint, "use_symmetry_z", text="Z", toggle=True)
+        layout.column().prop(wpaint, "radial_symmetry", text="Radial")
 
 class VIEW3D_PT_tools_weightpaint_options(Panel, View3DPaintPanel):
     bl_category = "Options"
