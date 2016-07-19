@@ -95,8 +95,13 @@ MovieTrackingCorrespondence *BKE_tracking_correspondence_add(ListBase *corr_base
                                                              char *error_msg, int error_size)
 {
 	MovieTrackingCorrespondence *corr = NULL;
+	// check self correspondences
+	if (self_track == other_track) {
+		BLI_strncpy(error_msg, N_("Cannot link a track to itself"), error_size);
+		return NULL;
+	}
 	// check duplicate correspondences or conflict correspondence
-	for(corr = corr_base->first; corr != NULL; corr = corr->next)
+	for (corr = corr_base->first; corr != NULL; corr = corr->next)
 	{
 		if (corr->self_clip == self_clip && corr->self_track == self_track) {
 			// duplicate correspondences
@@ -251,6 +256,7 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 	MovieTrackingCorrespondence *corr;
 	corr = tracking_correspondences->first;
 	while (corr) {
+		printf("enter corr\n");
 		int clip1 = -1, clip2 = -1, track1 = -1, track2 = -1;
 		MovieClip *self_clip = corr->self_clip;
 		MovieClip *other_clip = corr->other_clip;
@@ -356,6 +362,7 @@ BKE_tracking_multiview_reconstruction_context_new(MovieClip **clips,
 			int num_valid_corrs = libmv_CorrespondencesFromTracking(&tracking->correspondences, clips,
 			                                                        num_clips, context->correspondences,
 			                                                        context->track_global_index);
+			printf("num valid corrs: %d\n", num_valid_corrs);
 			BLI_assert(num_valid_corrs == BLI_listbase_count(&tracking->correspondences));
 
 			BLI_strncpy(context->object_name, object->name, sizeof(context->object_name));
