@@ -5400,20 +5400,21 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 	return true;
 }
 
-void param_irregular_pack_begin(ParamHandle *handle)
+void param_irregular_pack_begin(ParamHandle *handle, float *w_area)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart;
 	PVert **points;
 	PFace *f;
 	int npoint, right, i, j;
+	unsigned int seed = 31415926;
+	float used_area;
 
 	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
 	phandle->state = PHANDLE_STATE_PACK;
 
 	/* Initializations */
 
-	unsigned int seed = 31415926;
 	phandle->rng = BLI_rng_new(seed);
 
 	
@@ -5449,6 +5450,11 @@ void param_irregular_pack_begin(ParamHandle *handle)
 		printf("packing solution found---------------------------------------------\n");
 	}
 
+	used_area = p_face_uv_area_combined(handle);
+
+	/* ToDo(SaphireS): Account for aspect ratio != 1 */
+	*w_area = 1.0f - used_area;
+
 	/* ToDo (SaphireS) */
 
 }
@@ -5464,7 +5470,7 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int 
 	/* Set initial scale of charts so finding a better solution is possible */
 
 
-	/* ToDo (SaphireS): packing solution computation */
+	/* packing solution computation */
 
 	if (p_compute_packing_solution(phandle)) {
 		printf("packing solution found---------------------------------------------\n");

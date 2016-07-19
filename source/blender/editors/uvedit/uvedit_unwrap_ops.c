@@ -844,7 +844,7 @@ typedef struct PackIslands {
 	BMEditMesh *em;
 	ParamHandle *handle;
 	double lasttime;
-	int i, iterations;
+	int iter_global, iter_local, iter_max;
 	wmTimer *timer;
 	float wasted_area_last;
 	SimulatedAnnealing *sa;
@@ -858,6 +858,7 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	PackIslands *pi;
 	SimulatedAnnealing *simann;
 	unsigned int seed = 31415926;
+	float wasted_area;
 
 	/* Keep for now, needed when making packing work with current selection */
 	/*if (!uvedit_have_selection(scene, em, implicit)) {
@@ -870,8 +871,9 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	pi->scene = scene;
 	pi->obedit = obedit;
 	pi->em = em;
-	pi->iterations = RNA_int_get(op->ptr, "iterations");
-	pi->i = 0;
+	pi->iter_max = RNA_int_get(op->ptr, "iterations");
+	pi->iter_global = 0;
+	pi->iter_local = 0;
 	pi->handle = construct_param_handle(scene, obedit, em->bm, hparams);
 	pi->lasttime = PIL_check_seconds_timer();
 
@@ -884,7 +886,8 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	simann->temperature = 1.0f;
 	pi->sa = simann;
 
-	param_irregular_pack_begin(pi->handle);
+	param_irregular_pack_begin(pi->handle, &wasted_area);
+	pi->wasted_area_last = wasted_area;
 
 	op->customdata = pi;
 
@@ -897,15 +900,22 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 	ScrArea *sa = CTX_wm_area(C);
 	float wasted_area = 0.0f, dE, r1, r2;
 	float a = 0.95f; /*ToDo SaphireS: Make operator parameter for testing */
+	/* ToDo Saphires: Find optimal parameter */
 	float k = 5.670367e-8f; /* Stefan-Boltzman constant-like parameter */
+	int local_iter_max = 50;
 	
-	pi->i++;
+	pi->iter_global++;
+
 	/* Cooling Schedule */
-	pi->sa->temperature = pi->wasted_area_last * a;
+	if (pi->iter_local >= local_iter_max) {
+		pi->sa->temperature = pi->sa->temperature * a;
+		pi->iter_local = 0;
+	}
+	
 
 	/* Find neigbohring solution */
 	/*ToDo Saphires: Pass SA parameters */
-	param_irregular_pack_iter(pi->handle, &wasted_area, pi->i);
+	param_irregular_pack_iter(pi->handle, &wasted_area, pi->iter_global /* temp */);
 
 	/* delta Energy */
 	dE = wasted_area - pi->wasted_area_last;
@@ -925,9 +935,13 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 			/* ToDo SaphireS: Store last best solution */
 			pi->wasted_area_last = wasted_area;
 		}
+		else {
+			/* no better solution found, "frozen state solution" */
+			pi->iter_local++;
+		}
 	}
 	
-	RNA_int_set(op->ptr, "iterations", pi->i);
+	/* RNA_int_set(op->ptr, "iterations", pi->iter_global); */ /* ToDo SaphireS */
 
 	if (interactive && (PIL_check_seconds_timer() - pi->lasttime > 0.5)) {
 		char str[UI_MAX_DRAW_STR];
@@ -936,7 +950,7 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 
 		if (sa) {
 			BLI_snprintf(str, sizeof(str),
-				IFACE_("Pack Islands (irregular). Iteration: %i, Wasted UV Area: %f"), pi->i, pi->wasted_area_last);
+				IFACE_("Pack Islands (irregular). Iteration: %i, Wasted UV Area: %f"), pi->iter_global, pi->wasted_area_last);
 			ED_area_headerprint(sa, str);
 		}
 
@@ -1031,7 +1045,7 @@ static int irregular_pack_islands_modal(bContext *C, wmOperator *op, const wmEve
 		break;
 	}
 
-	if (pi->iterations && pi->i >= pi->iterations) {
+	if (pi->iter_max && pi->iter_global >= pi->iter_max) {
 		irregular_pack_islands_exit(C, op, false);
 		return OPERATOR_FINISHED;
 	}
@@ -1060,7 +1074,7 @@ void UV_OT_irregular_pack_islands(wmOperatorType *ot)
 	ot->poll = ED_operator_uvedit;
 
 	/* properties */
-	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 100);
+	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 10000);
 }
 
 /* ******************** XXX (SaphireS): DEBUG-TEST operator **************** */
