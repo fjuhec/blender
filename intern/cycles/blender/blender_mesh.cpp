@@ -739,6 +739,43 @@ static void sync_mesh_cached_velocities(BL::Object& b_ob, Scene *scene, Mesh *me
 	delete [] buffer;
 }
 
+static void sync_mesh_fluid_motion(BL::Object& b_ob, Scene *scene, Mesh *mesh)
+{
+	if(scene->need_motion() == Scene::MOTION_NONE)
+		return;
+
+	BL::DomainFluidSettings b_fluid_domain = object_fluid_domain_find(b_ob);
+
+	if(!b_fluid_domain)
+		return;
+
+	/* If the mesh has modifiers following the fluid domain we can't export motion. */
+	if(b_fluid_domain.fluid_mesh_vertices.length() != mesh->verts.size())
+		return;
+
+	/* Find or add attribute */
+	float3 *P = &mesh->verts[0];
+	Attribute *attr_mP = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
+
+	if(!attr_mP) {
+		attr_mP = mesh->attributes.add(ATTR_STD_MOTION_VERTEX_POSITION);
+	}
+
+	/* Only export previous and next frame, we don't have any in between data. */
+	float motion_times[2] = {-1.0f, 1.0f};
+	for (int step = 0; step < 2; step++) {
+		float relative_time = motion_times[step] * scene->motion_shutter_time() * 0.5f;
+		float3 *mP = attr_mP->data_float3() + step*mesh->verts.size();
+
+		BL::DomainFluidSettings::fluid_mesh_vertices_iterator fvi;
+		int i = 0;
+
+		for(b_fluid_domain.fluid_mesh_vertices.begin(fvi); fvi != b_fluid_domain.fluid_mesh_vertices.end(); ++fvi, ++i) {
+			mP[i] = P[i] + get_float3(fvi->velocity()) * relative_time;
+		}
+	}
+}
+
 Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
                              bool object_updated,
                              bool hide_tris)
@@ -883,6 +920,9 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 	/* cached velocities (e.g. from alembic archive) */
 	sync_mesh_cached_velocities(b_ob, scene, mesh);
 
+	/* fluid motion */
+	sync_mesh_fluid_motion(b_ob, scene, mesh);
+
 	/* tag update */
 	bool rebuild = false;
 
@@ -975,6 +1015,11 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 	/* cached motion is exported immediate with mesh, skip here */
 	BL::MeshSequenceCacheModifier mesh_cache = object_mesh_cache_find(b_ob);
 	if (mesh_cache)
+		return;
+
+	/* fluid motion is exported immediate with mesh, skip here */
+	BL::DomainFluidSettings b_fluid_domain = object_fluid_domain_find(b_ob);
+	if (b_fluid_domain)
 		return;
 
 	if(ccl::BKE_object_is_deform_modified(b_ob, b_scene, preview)) {
