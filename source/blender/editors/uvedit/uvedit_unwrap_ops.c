@@ -901,7 +901,7 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 	float wasted_area = 0.0f, dE, r1, r2;
 	float a = 0.95f; /*ToDo SaphireS: Make operator parameter for testing */
 	/* ToDo Saphires: Find optimal parameter */
-	float k = 5.670367e-8f; /* Stefan-Boltzman constant-like parameter */
+	float k = 0.5f; /* Stefan-Boltzman constant-like parameter */
 	int local_iter_max = 50;
 	
 	pi->iter_global++;
@@ -923,6 +923,7 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 	if (dE < 0) {
 		/* Current solution is new best solution */
 		/* ToDo SaphireS: Store last best solution */
+		param_store_packing_solution(pi->handle);
 		pi->wasted_area_last = wasted_area;
 	}
 	else {
@@ -933,6 +934,7 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 		if (r1 < r2) {
 			/* Current solution is new best solution */
 			/* ToDo SaphireS: Store last best solution */
+			param_store_packing_solution(pi->handle); 
 			pi->wasted_area_last = wasted_area;
 		}
 		else {
@@ -950,7 +952,7 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 
 		if (sa) {
 			BLI_snprintf(str, sizeof(str),
-				IFACE_("Pack Islands (irregular). Iteration: %i, Wasted UV Area: %f"), pi->iter_global, pi->wasted_area_last);
+				IFACE_("Pack Islands (irregular). Iteration: %i, Wasted UV Area (Best Solution): %f"), pi->iter_global, pi->wasted_area_last);
 			ED_area_headerprint(sa, str);
 		}
 
@@ -971,10 +973,13 @@ static void irregular_pack_islands_exit(bContext *C, wmOperator *op, bool cancel
 	if (pi->timer)
 		WM_event_remove_timer(CTX_wm_manager(C), CTX_wm_window(C), pi->timer);
 
-	if (cancel)
-		param_flush_restore(pi->handle); /* Restore UVs */
-	else
+	if (cancel) {
+		param_flush_restore(pi->handle); /* Restore original UVs */
+	}
+	else {
+		param_restore_packing_solution(pi->handle); /* Restore best solution*/
 		param_flush(pi->handle); /* Keep new UVs */
+	}
 
 	param_irregular_pack_end(pi->handle);
 	param_delete(pi->handle);

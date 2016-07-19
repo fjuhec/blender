@@ -582,6 +582,18 @@ static void p_chart_uv_scale_origin(PChart *chart, float scale)
 	p_chart_uv_translate(chart, trans);
 }
 
+static void p_scale_charts(PHandle *handle, float scale)
+{
+	PChart *chart;
+	int i;
+
+	for (i = 0; i < handle->ncharts; i++) {
+		chart = handle->charts[i];
+
+		p_chart_uv_scale(chart, scale);
+	}
+}
+
 static void UNUSED_FUNCTION(p_chart_uv_from_array)(PChart *chart, float (*points)[2])
 {
 	PVert *v;
@@ -5408,7 +5420,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area)
 	PFace *f;
 	int npoint, right, i, j;
 	unsigned int seed = 31415926;
-	float used_area;
+	float used_area, init_scale, init_value = 0.9f;
 
 	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
 	phandle->state = PHANDLE_STATE_PACK;
@@ -5427,7 +5439,10 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area)
 		}
 
 		/* Set initial scale of charts */
-		/* ToDo SaphireS: Idea: set initial scale so that combined chart area is about 1.0 of UV area */
+		/* ToDo: Do this in p_compute_packing_solution */
+		/*used_area = p_face_uv_area_combined(handle);
+		init_scale = (1.0f / used_area) * init_value;
+		p_scale_charts(handle, init_scale);*/
 
 		/* Compute convex hull for each chart -> CW */
 		chart->u.ipack.convex_hull = p_convex_hull_new(chart);
@@ -5854,6 +5869,25 @@ void param_flush_restore(ParamHandle *handle)
 		for (f = chart->faces; f; f = f->nextlink)
 			p_face_restore_uvs(f);
 	}
+}
+
+void param_store_packing_solution(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	int i;
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+		//chart->u.ipack.best_pos->x = chart->uv[0];
+		//chart->u.ipack.best_pos->y = chart->uv[1];
+		//chart->u.ipack.best_scale = chart-> ? 
+	}
+}
+
+void param_restore_packing_solution(ParamHandle *handle)
+{
+
 }
 
 /* XXX (SaphireS): Remove */
