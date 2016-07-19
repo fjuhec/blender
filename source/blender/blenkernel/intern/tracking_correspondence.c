@@ -268,9 +268,11 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 			int tracknr = 0;
 			// check primary clip
 			if (self_clip == clips[i]) {
+				printf("check primary clip\n");
 				clip1 = i;
 				while (track) {
 					if (corr->self_track == track) {
+						printf("check primary track\n");
 						track1 = tracknr;
 						break;
 					}
@@ -280,9 +282,11 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 			}
 			// check witness clip
 			if (other_clip == clips[i]) {
+				printf("check witness clip\n");
 				clip2 = i;
 				while (track) {
 					if (corr->other_track == track) {
+						printf("check witness track\n");
 						track2 = tracknr;
 						break;
 					}

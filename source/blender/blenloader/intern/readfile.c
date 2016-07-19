@@ -7402,6 +7402,7 @@ static void direct_link_movieCorrespondences(FileData *fd,
 	link_list(fd, correspondences);
 	for (corr = correspondences->first; corr != NULL; corr = corr->next) {
 		corr->self_track = newdataadr(fd, corr->self_track);
+		corr->other_track = newdataadr(fd, corr->other_track);
 	}
 }
 
