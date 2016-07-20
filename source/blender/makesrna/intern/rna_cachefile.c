@@ -37,6 +37,8 @@
 #include "BKE_cachefile.h"
 #include "BKE_depsgraph.h"
 
+#include "DEG_depsgraph.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -48,8 +50,16 @@ static void rna_CacheFile_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	CacheFile *cache_file = (CacheFile *)ptr->data;
 
-	DAG_id_tag_update(&cache_file->id, 0);
-	WM_main_add_notifier(NC_SCENE | ND_FRAME, scene);
+	if (!DEG_depsgraph_use_legacy()) {
+		DAG_id_tag_update(&cache_file->id, 0);
+		/* XXX - how to tag the whole scene for redraw?
+		 * (NC_OBJECT | ND_DRAW, scene) doesn't seem to work. */
+		WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
+	}
+	else {
+		/* TODO(kevin): implement in old dependency graph. */
+		WM_main_add_notifier(NC_SCENE | ND_FRAME, scene);
+	}
 
 	UNUSED_VARS(bmain);
 }
