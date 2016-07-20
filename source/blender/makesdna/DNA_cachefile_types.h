@@ -42,6 +42,11 @@ enum {
 	CACHEFILE_DS_EXPAND = (1 << 0),
 };
 
+/* CacheFile::draw_flag */
+enum {
+	CACHEFILE_KEYFRAME_DRAWN = (1 << 0),
+};
+
 typedef struct AlembicObjectPath {
 	struct AlembicObjectPath *next, *prev;
 
@@ -69,7 +74,7 @@ typedef struct CacheFile {
 	float frame;  /* The frame/time to lookup in the cache file. */
 
 	short flag;  /* Animation flag. */
-	short pad;
+	short draw_flag;
 } CacheFile;
 
 #ifdef __cplusplus
