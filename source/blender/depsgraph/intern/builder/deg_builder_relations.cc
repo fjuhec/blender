@@ -600,7 +600,7 @@ void DepsgraphRelationBuilder::build_constraints(Scene *scene, ID *id, eDepsNode
 			TimeSourceKey time_src_key;
 			add_relation(time_src_key, constraint_op_key, DEPSREL_TYPE_TIME, "[TimeSrc -> Animation]");
 		}
-		else if (cti->type == CONSTRAINT_TYPE_TRANSFORMCACHE) {
+		else if (cti->type == CONSTRAINT_TYPE_TRANSFORM_CACHE) {
 			/* TODO(kevin): This is more a TimeSource -> CacheFile -> Constraint dependency chain. */
 			TimeSourceKey time_src_key;
 			add_relation(time_src_key, constraint_op_key, DEPSREL_TYPE_TIME, "[TimeSrc -> Animation]");

@@ -205,7 +205,7 @@ void AbcObjectReader::readObjectMatrix(const float time)
 	BKE_object_apply_mat4(m_object, m_object->obmat, false,  false);
 
 	if (!schema.isConstant()) {
-		bConstraint *con = BKE_constraint_add_for_object(m_object, NULL, CONSTRAINT_TYPE_TRANSFORMCACHE);
+		bConstraint *con = BKE_constraint_add_for_object(m_object, NULL, CONSTRAINT_TYPE_TRANSFORM_CACHE);
 		bTransformCacheConstraint *data = static_cast<bTransformCacheConstraint *>(con->data);
 		BLI_strncpy(data->abc_object_path, m_iobject.getFullName().c_str(), FILE_MAX);
 

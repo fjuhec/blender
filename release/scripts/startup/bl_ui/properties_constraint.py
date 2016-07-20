@@ -880,7 +880,7 @@ class ConstraintButtonsPanel:
 
         layout.operator("clip.constraint_to_fcurve")
 
-    def TRANSFORMCACHE(self, context, layout, con):
+    def TRANSFORM_CACHE(self, context, layout, con):
         layout.label(text="Cache File Properties:")
         box = layout.box()
         box.template_cache_file(con, "cache_file")
@@ -890,7 +890,7 @@ class ConstraintButtonsPanel:
         layout.label(text="Constraint Properties:")
         box = layout.box()
         
-        if cache_file != None:
+        if cache_file is not None:
             box.prop_search(con, "abc_object_path", cache_file, "object_paths")
 
     def SCRIPT(self, context, layout, con):

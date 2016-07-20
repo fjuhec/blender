@@ -115,7 +115,6 @@ static bool object_is_shape(Object *ob)
 			}
 
 			return true;
-			break;
 		case OB_CURVE:
 		case OB_SURF:
 		case OB_CAMERA:
@@ -135,7 +134,7 @@ static bool export_object(const ExportSettings * const settings, Object *ob)
 		return false;
 	}
 
-	if (settings->renderable_only && (ob->restrictflag & 4)) {
+	if (settings->renderable_only && (ob->restrictflag & OB_RESTRICT_RENDER)) {
 		return false;
 	}
 
@@ -258,12 +257,14 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 	}
 	else
 #endif
+	{
 		m_archive = Alembic::Abc::CreateArchiveWithInfo(Alembic::AbcCoreOgawa::WriteArchive(),
 		                                                m_filename,
 		                                                "Blender",
 		                                                scene_name,
 		                                                Alembic::Abc::ErrorHandler::kThrowPolicy,
 		                                                arg);
+	}
 
 	/* Create time samplings for transforms and shapes. */
 

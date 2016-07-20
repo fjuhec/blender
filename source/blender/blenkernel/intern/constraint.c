@@ -4387,8 +4387,8 @@ static void transformcache_free(bConstraint *con)
 	}
 }
 
-static bConstraintTypeInfo CTI_TRANSFORMCACHE = {
-	CONSTRAINT_TYPE_TRANSFORMCACHE, /* type */
+static bConstraintTypeInfo CTI_TRANSFORM_CACHE = {
+	CONSTRAINT_TYPE_TRANSFORM_CACHE, /* type */
 	sizeof(bTransformCacheConstraint), /* size */
 	"Transform Cache", /* name */
 	"bTransformCacheConstraint", /* struct name */
@@ -4443,7 +4443,7 @@ static void constraints_init_typeinfo(void)
 	constraintsTypeInfo[26] = &CTI_FOLLOWTRACK;      /* Follow Track Constraint */
 	constraintsTypeInfo[27] = &CTI_CAMERASOLVER;     /* Camera Solver Constraint */
 	constraintsTypeInfo[28] = &CTI_OBJECTSOLVER;     /* Object Solver Constraint */
-	constraintsTypeInfo[29] = &CTI_TRANSFORMCACHE;   /* Transform Cache Constraint */
+	constraintsTypeInfo[29] = &CTI_TRANSFORM_CACHE;  /* Transform Cache Constraint */
 }
 
 /* This function should be used for getting the appropriate type-info when only

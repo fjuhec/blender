@@ -48,8 +48,9 @@ void BKE_cachefile_load(struct CacheFile *cache_file, const char *relabase);
 
 void BKE_cachefile_update_frame(struct Main *bmain, struct Scene *scene, float ctime, const float fps);
 
-bool BKE_cachefile_filepath_get(struct CacheFile *cache_file, float frame,
-                                char *r_filename);
+bool BKE_cachefile_filepath_get(
+        const struct CacheFile *cache_file, float frame,
+        char *r_filename);
 
 float BKE_cachefile_time_offset(struct CacheFile *cache_file, const float time, const float fps);
 

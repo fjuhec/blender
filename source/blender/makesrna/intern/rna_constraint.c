@@ -72,7 +72,7 @@ EnumPropertyItem rna_enum_constraint_type_items[] = {
 	                            "Compensate for scaling one axis by applying suitable scaling to the other two axes"},
 	{CONSTRAINT_TYPE_TRANSFORM, "TRANSFORM", ICON_CONSTRAINT_DATA, "Transformation", 
 	                            "Use one transform property from target to control another (or same) property on owner"},
-	{CONSTRAINT_TYPE_TRANSFORMCACHE, "TRANSFORMCACHE", ICON_CONSTRAINT_DATA, "Transform Cache",
+	{CONSTRAINT_TYPE_TRANSFORM_CACHE, "TRANSFORM_CACHE", ICON_CONSTRAINT_DATA, "Transform Cache",
 	                            "Look up the transformation matrix from an external file"},
 	{0, "", 0, N_("Tracking"), ""},
 	{CONSTRAINT_TYPE_CLAMPTO,   "CLAMP_TO", ICON_CONSTRAINT_DATA, "Clamp To", 
@@ -216,7 +216,7 @@ static StructRNA *rna_ConstraintType_refine(struct PointerRNA *ptr)
 			return &RNA_CameraSolverConstraint;
 		case CONSTRAINT_TYPE_OBJECTSOLVER:
 			return &RNA_ObjectSolverConstraint;
-		case CONSTRAINT_TYPE_TRANSFORMCACHE:
+		case CONSTRAINT_TYPE_TRANSFORM_CACHE:
 			return &RNA_TransformCacheConstraint;
 		default:
 			return &RNA_UnknownType;

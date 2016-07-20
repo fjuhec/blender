@@ -36,8 +36,7 @@ std::string get_id_name(Object *ob)
 		return "";
 	}
 
-	ID *id = reinterpret_cast<ID *>(ob);
-	return get_id_name(id);
+	return get_id_name(&ob->id);
 }
 
 std::string get_id_name(ID *id)

@@ -973,13 +973,13 @@ void cachefile_to_keylist(bDopeSheet *ads, CacheFile *cache_file, DLRBT_Tree *ke
 	}
 
 	/* create a dummy wrapper data to work with */
-	bAnimListElem dummychan = { NULL };
+	bAnimListElem dummychan = {NULL};
 	dummychan.type = ANIMTYPE_DSCACHEFILE;
 	dummychan.data = cache_file;
 	dummychan.id = &cache_file->id;
 	dummychan.adt = cache_file->adt;
 
-	bAnimContext ac = { NULL };
+	bAnimContext ac = {NULL};
 	ac.ads = ads;
 	ac.data = &dummychan;
 	ac.datatype = ANIMCONT_CHANNEL;

@@ -60,7 +60,7 @@ static IDType idtypes[] = {
 	{ ID_AR,   "Armature",           "armatures",       BLT_I18NCONTEXT_ID_ARMATURE,           IDTYPE_FLAGS_ISLINKABLE },
 	{ ID_BR,   "Brush",              "brushes",         BLT_I18NCONTEXT_ID_BRUSH,              IDTYPE_FLAGS_ISLINKABLE },
 	{ ID_CA,   "Camera",             "cameras",         BLT_I18NCONTEXT_ID_CAMERA,             IDTYPE_FLAGS_ISLINKABLE },
-	{ ID_CF,   "CacheFile",          "cachefiles",      BLT_I18NCONTEXT_ID_CACHEFILE,          IDTYPE_FLAGS_ISLINKABLE },
+	{ ID_CF,   "CacheFile",          "cache_files",     BLT_I18NCONTEXT_ID_CACHEFILE,          IDTYPE_FLAGS_ISLINKABLE },
 	{ ID_CU,   "Curve",              "curves",          BLT_I18NCONTEXT_ID_CURVE,              IDTYPE_FLAGS_ISLINKABLE },
 	{ ID_GD,   "GPencil",            "grease_pencil",   BLT_I18NCONTEXT_ID_GPENCIL,            IDTYPE_FLAGS_ISLINKABLE }, /* rename gpencil */
 	{ ID_GR,   "Group",              "groups",          BLT_I18NCONTEXT_ID_GROUP,              IDTYPE_FLAGS_ISLINKABLE },

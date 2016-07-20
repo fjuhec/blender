@@ -27,7 +27,6 @@
 set(INC 
 	.
 	intern
-	../alembic
 	../blenkernel
 	../blenlib
 	../blenfont
@@ -116,6 +115,9 @@ set(SRC
 
 if(WITH_ALEMBIC)
 	add_definitions(-DWITH_ALEMBIC)
+	list(APPEND INC
+		../alembic
+	)
 endif()
 
 if(WITH_MOD_BOOLEAN)

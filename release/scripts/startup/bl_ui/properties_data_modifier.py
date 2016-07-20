@@ -227,7 +227,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.label(text="Modifier Properties:")
         box = layout.box()
         
-        if cache_file != None:
+        if cache_file is not None:
             box.prop_search(md, "abc_object_path", cache_file, "object_paths")
 
     def CAST(self, layout, ob, md):

@@ -143,7 +143,7 @@ void BKE_cachefile_update_frame(Main *bmain, Scene *scene, const float ctime, co
 	}
 }
 
-bool BKE_cachefile_filepath_get(CacheFile *cache_file, float frame, char *r_filepath)
+bool BKE_cachefile_filepath_get(const CacheFile *cache_file, float frame, char *r_filepath)
 {
 	get_absolute_path(r_filepath, cache_file->filepath, G.main->name);
 
