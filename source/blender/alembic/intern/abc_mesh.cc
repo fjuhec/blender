@@ -755,7 +755,7 @@ static void assign_materials(Main *bmain, Object *ob, const std::map<std::string
 			continue;
 		}
 
-		if (!object_add_material_slot(ob)) {
+		if (!BKE_object_material_slot_add(ob)) {
 			can_assign = false;
 			break;
 		}
