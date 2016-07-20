@@ -722,49 +722,49 @@ static void mesh_add_mpolygons(Mesh *mesh, size_t len)
 	mesh->totpoly = totpolys;
 }
 
-static Material *find_material(Main *bmain, const char *name)
+static void build_mat_map(const Main *bmain, std::map<std::string, Material *> &mat_map)
 {
 	Material *material = static_cast<Material *>(bmain->mat.first);
-	Material *found_material = NULL;
 
 	for (; material; material = static_cast<Material *>(material->id.next)) {
-		if (STREQ(material->id.name + 2, name)) {
-			found_material = material;
-			break;
-		}
+		mat_map[material->id.name + 2] = material;
 	}
-
-	return found_material;
 }
 
-static void assign_materials(Main *bmain, Object *ob, const std::map<std::string, int> &mat_map)
+static void assign_materials(Main *bmain, Object *ob, const std::map<std::string, int> &mat_index_map)
 {
 	bool can_assign = true;
-	std::map<std::string, int>::const_iterator it = mat_map.begin();
+	std::map<std::string, int>::const_iterator it = mat_index_map.begin();
 
 	int matcount = 0;
-	for (; it != mat_map.end(); ++it, ++matcount) {
-		Material *curmat = give_current_material(ob, matcount);
-
-		if (curmat != NULL) {
-			continue;
-		}
-
+	for (; it != mat_index_map.end(); ++it, ++matcount) {
 		if (!BKE_object_material_slot_add(ob)) {
 			can_assign = false;
 			break;
 		}
 	}
 
+	/* TODO(kevin): use global map? */
+	std::map<std::string, Material *> mat_map;
+	build_mat_map(bmain, mat_map);
+
+	std::map<std::string, Material *>::iterator mat_iter;
+
 	if (can_assign) {
-		it = mat_map.begin();
+		it = mat_index_map.begin();
 
-		for (; it != mat_map.end(); ++it) {
+		for (; it != mat_index_map.end(); ++it) {
 			std::string mat_name = it->first;
-			Material *assigned_name = find_material(bmain, mat_name.c_str());
+			mat_iter = mat_map.find(mat_name.c_str());
 
-			if (assigned_name == NULL) {
+			Material *assigned_name;
+
+			if (mat_iter == mat_map.end()) {
 				assigned_name = BKE_material_add(bmain, mat_name.c_str());
+				mat_map[mat_name] = assigned_name;
+			}
+			else {
+				assigned_name = mat_iter->second;
 			}
 
 			assign_material(ob, assigned_name, it->second, BKE_MAT_ASSIGN_OBJECT);
