@@ -728,7 +728,7 @@ static Material *find_material(Main *bmain, const char *name)
 	Material *found_material = NULL;
 
 	for (; material; material = static_cast<Material *>(material->id.next)) {
-		if (BLI_strcaseeq(material->id.name+2, name) == true) {
+		if (STREQ(material->id.name + 2, name)) {
 			found_material = material;
 			break;
 		}
