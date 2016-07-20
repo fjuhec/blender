@@ -20,7 +20,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __ABC_CAMERA_H__
+#define __ABC_CAMERA_H__
 
 #include "abc_object.h"
 
@@ -56,3 +57,5 @@ public:
 
 	void readObjectData(Main *bmain, float time);
 };
+
+#endif  /* __ABC_CAMERA_H__ */

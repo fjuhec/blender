@@ -20,7 +20,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __ABC_HAIR_H__
+#define __ABC_HAIR_H__
 
 #include "abc_object.h"
 
@@ -61,3 +62,5 @@ private:
 	                             std::vector<Imath::V2f> &uv_values,
 	                             std::vector<int32_t> &hvertices);
 };
+
+#endif  /* __ABC_HAIR_H__ */

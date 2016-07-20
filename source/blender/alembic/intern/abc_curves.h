@@ -22,7 +22,8 @@
  *
  */
 
-#pragma once
+#ifndef __ABC_CURVES_H__
+#define __ABC_CURVES_H__
 
 #include "abc_object.h"
 
@@ -60,3 +61,5 @@ public:
 /* ************************************************************************** */
 
 void read_curve_sample(Curve *cu, const Alembic::AbcGeom::ICurvesSchema &schema, const float time);
+
+#endif  /* __ABC_CURVES_H__ */

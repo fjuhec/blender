@@ -22,7 +22,8 @@
  *
  */
 
-#pragma once
+#ifndef __ABC_POINTS_H__
+#define __ABC_POINTS_H__
 
 #include "abc_object.h"
 
@@ -59,3 +60,5 @@ public:
 
 	void readObjectData(Main *bmain, float time);
 };
+
+#endif  /* __ABC_POINTS_H__ */

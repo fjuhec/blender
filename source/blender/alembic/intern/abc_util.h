@@ -20,7 +20,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __ABC_UTIL_H__
+#define __ABC_UTIL_H__
 
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
@@ -120,3 +121,5 @@ ABC_INLINE void copy_zup_yup(short yup[3], const short zup[3])
 	yup[1] = zup[2];
 	yup[2] = -zup[1];
 }
+
+#endif  /* __ABC_UTIL_H__ */

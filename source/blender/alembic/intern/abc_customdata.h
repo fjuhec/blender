@@ -22,7 +22,8 @@
  *
  */
 
-#pragma once
+#ifndef __ABC_CUSTOMDATA_H__
+#define __ABC_CUSTOMDATA_H__
 
 #include <Alembic/Abc/All.h>
 
@@ -88,3 +89,5 @@ void write_custom_data(const OCompoundProperty &prop,
 void read_custom_data(const ICompoundProperty &prop,
                       const CDStreamConfig &config,
                       const Alembic::Abc::ISampleSelector &iss);
+
+#endif  /* __ABC_CUSTOMDATA_H__ */

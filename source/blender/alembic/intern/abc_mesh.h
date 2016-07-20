@@ -20,7 +20,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __ABC_MESH_H__
+#define __ABC_MESH_H__
 
 #include "abc_customdata.h"
 #include "abc_object.h"
@@ -145,3 +146,5 @@ void mesh_add_verts(struct Mesh *mesh, size_t len);
 void read_mverts(MVert *mverts,
                  const Alembic::AbcGeom::P3fArraySamplePtr &positions,
                  const Alembic::AbcGeom::N3fArraySamplePtr &normals);
+
+#endif  /* __ABC_MESH_H__ */

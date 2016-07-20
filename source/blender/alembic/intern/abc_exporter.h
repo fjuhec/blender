@@ -20,7 +20,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __ABC_EXPORTER_H__
+#define __ABC_EXPORTER_H__
 
 #include <Alembic/Abc/All.h>
 #include <map>
@@ -107,3 +108,5 @@ private:
 
 	void setCurrentFrame(Main *bmain, double t);
 };
+
+#endif  /* __ABC_EXPORTER_H__ */

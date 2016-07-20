@@ -20,7 +20,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __ABC_OBJECT_H__
+#define __ABC_OBJECT_H__
 
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcGeom/All.h>
@@ -169,3 +170,5 @@ public:
 	chrono_t minTime() const;
 	chrono_t maxTime() const;
 };
+
+#endif  /* __ABC_OBJECT_H__ */

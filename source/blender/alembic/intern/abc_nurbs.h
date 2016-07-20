@@ -20,7 +20,8 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#pragma once
+#ifndef __ABC_NURBS_H__
+#define __ABC_NURBS_H__
 
 #include "abc_object.h"
 
@@ -58,3 +59,5 @@ public:
 private:
 	void getNurbsPatches(const Alembic::Abc::IObject &obj);
 };
+
+#endif  /* __ABC_NURBS_H__ */
