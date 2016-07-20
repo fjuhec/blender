@@ -53,7 +53,7 @@ static void rna_CacheFile_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 	if (!DEG_depsgraph_use_legacy()) {
 		DAG_id_tag_update(&cache_file->id, 0);
 		/* XXX - how to tag the whole scene for redraw?
-		 * (NC_OBJECT | ND_DRAW, scene) doesn't seem to work. */
+		 * (NC_SCENE | ND_DRAW, scene) doesn't seem to work. */
 		WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
 	}
 	else {
