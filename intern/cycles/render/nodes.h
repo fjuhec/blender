@@ -423,7 +423,7 @@ public:
 	void compile(SVMCompiler& compiler, ShaderInput *metallic, ShaderInput *subsurface,
 		ShaderInput *specular, ShaderInput *roughness, ShaderInput *specularTint, ShaderInput *anisotropic,
 		ShaderInput *sheen, ShaderInput *sheenTint, ShaderInput *clearcoat, ShaderInput *clearcoatGloss,
-		ShaderInput *ior, ShaderInput *transparency);
+		ShaderInput *ior, ShaderInput *transparency, ShaderInput *refr_roughness);
 
 	ClosureType closure;
 
