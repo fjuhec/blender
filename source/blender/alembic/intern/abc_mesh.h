@@ -97,7 +97,7 @@ class AbcMeshReader : public AbcObjectReader {
 	CDStreamConfig m_mesh_data;
 
 public:
-	AbcMeshReader(const Alembic::Abc::IObject &object, ImportSettings &settings, bool is_subd);
+	AbcMeshReader(const Alembic::Abc::IObject &object, ImportSettings &settings);
 
 	bool valid() const;
 

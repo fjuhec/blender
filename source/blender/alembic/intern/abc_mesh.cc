@@ -966,7 +966,7 @@ ABC_INLINE void read_normals_params(AbcMeshData &abc_data,
 
 /* ************************************************************************** */
 
-AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings, bool is_subd)
+AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings)
     : AbcObjectReader(object, settings)
 {
 	m_settings->flag |= ABC_READ_ALL;

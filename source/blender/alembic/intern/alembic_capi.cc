@@ -475,10 +475,10 @@ static void visit_object(const IObject &object,
 			}
 		}
 		else if (IPolyMesh::matches(md)) {
-			reader = new AbcMeshReader(child, settings, false);
+			reader = new AbcMeshReader(child, settings);
 		}
 		else if (ISubD::matches(md)) {
-			reader = new AbcMeshReader(child, settings, true);
+			reader = new AbcSubDReader(child, settings);
 		}
 		else if (INuPatch::matches(md)) {
 			reader = new AbcNurbsReader(child, settings);
