@@ -345,7 +345,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		}
 	}
 
-	scen->preview = BKE_previewimg_copy(sce->preview);
+	BKE_previewimg_id_copy(&scen->id, &sce->id);
 
 	return scen;
 }
