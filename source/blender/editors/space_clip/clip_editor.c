@@ -656,7 +656,7 @@ void ED_space_clip_set_secondary_clip(bContext *C, bScreen *screen, SpaceClip *s
 								old_clip_visible = true;
 						}
 						else {
-							if (cur_sc->secondary_clip == old_clip || cur_sc->clip == NULL) {
+							if (cur_sc->secondary_clip == old_clip || cur_sc->secondary_clip == NULL) {
 								cur_sc->secondary_clip = secondary_clip;
 							}
 						}
@@ -672,7 +672,7 @@ void ED_space_clip_set_secondary_clip(bContext *C, bScreen *screen, SpaceClip *s
 	}
 
 	if (C)
-		WM_event_add_notifier(C, NC_MOVIECLIP | NA_SELECTED, sc->clip);
+		WM_event_add_notifier(C, NC_MOVIECLIP | NA_SELECTED, sc->secondary_clip);
 }
 
 /* ******** masking editing functions ******** */
