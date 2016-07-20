@@ -742,7 +742,7 @@ static Material *find_material(Main *bmain, const char *name)
 static void assign_materials(Main *bmain, Object *ob, const std::map<std::string, int> &mat_map)
 {
 	/* Clean up slots. */
-	while (object_remove_material_slot(ob));
+	while (BKE_object_material_slot_remove(ob));
 
 	bool can_assign = true;
 	std::map<std::string, int>::const_iterator it = mat_map.begin();
