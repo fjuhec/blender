@@ -185,7 +185,7 @@ static void get_creases(DerivedMesh *dm,
 static void get_vertex_normals(DerivedMesh *dm, std::vector<Imath::V3f> &normals)
 {
 	normals.clear();
-	normals.resize(dm->getNumVerts(dm) * 3);
+	normals.resize(dm->getNumVerts(dm));
 
 	MVert *verts = dm->getVertArray(dm);
 	float no[3];
@@ -206,12 +206,10 @@ static void get_loop_normals(DerivedMesh *dm, std::vector<Imath::V3f> &normals)
 
 	MVert *verts = dm->getVertArray(dm);
 
-	const size_t num_normals = dm->getNumLoops(dm) * 3;
-
 	const float (*lnors)[3] = static_cast<float(*)[3]>(dm->getLoopDataArray(dm, CD_NORMAL));
 
 	normals.clear();
-	normals.resize(num_normals);
+	normals.resize(dm->getNumLoops(dm));
 
 	unsigned loop_index = 0;
 
