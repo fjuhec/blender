@@ -44,13 +44,13 @@ void BKE_cachefile_free(struct CacheFile *cache_file);
 
 struct CacheFile *BKE_cachefile_copy(struct Main *bmain, struct CacheFile *cache_file);
 
-void BKE_cachefile_load(struct CacheFile *cache_file, const char *relabase);
+void BKE_cachefile_reload(const struct Main *bmain, struct CacheFile *cache_file);
 
 void BKE_cachefile_update_frame(struct Main *bmain, struct Scene *scene, float ctime, const float fps);
 
 bool BKE_cachefile_filepath_get(
-        const struct CacheFile *cache_file, float frame,
-        char *r_filename);
+        const struct Main *bmain, const struct CacheFile *cache_file, float frame,
+        char r_filename[1024]);
 
 float BKE_cachefile_time_offset(struct CacheFile *cache_file, const float time, const float fps);
 

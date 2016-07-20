@@ -2695,18 +2695,18 @@ static void direct_link_animdata(FileData *fd, AnimData *adt)
 
 /* ************ READ CACHEFILES *************** */
 
-static void lib_link_cachefiles(FileData *fd, Main *main)
+static void lib_link_cachefiles(FileData *fd, Main *bmain)
 {
 	CacheFile *cache_file;
 
 	/* only link ID pointers */
-	for (cache_file = main->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
+	for (cache_file = bmain->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
 		if (cache_file->id.tag & LIB_TAG_NEED_LINK) {
 			cache_file->id.tag &= ~LIB_TAG_NEED_LINK;
 		}
 
 		BLI_listbase_clear(&cache_file->object_paths);
-		BKE_cachefile_load(cache_file, fd->relabase);
+		BKE_cachefile_reload(bmain, cache_file);
 
 		if (cache_file->adt) {
 			lib_link_animdata(fd, &cache_file->id, cache_file->adt);

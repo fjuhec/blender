@@ -48,15 +48,6 @@
 #  include "ABC_alembic.h"
 #endif
 
-static void get_absolute_path(char *r_absolute, const char *relative, const char *base)
-{
-	BLI_strncpy(r_absolute, relative, FILE_MAX);
-
-	if (BLI_path_is_rel(r_absolute)) {
-		BLI_path_abs(r_absolute, base);
-	}
-}
-
 void *BKE_cachefile_add(Main *bmain, const char *name)
 {
 	CacheFile *cache_file = BKE_libblock_alloc(bmain, ID_CF, name);
@@ -95,7 +86,7 @@ CacheFile *BKE_cachefile_copy(Main *bmain, CacheFile *cache_file)
 	new_cache_file->scale = cache_file->scale;
 
 	if (cache_file->handle) {
-		BKE_cachefile_load(new_cache_file, bmain->name);
+		BKE_cachefile_reload(bmain, new_cache_file);
 	}
 
 	if (ID_IS_LINKED_DATABLOCK(cache_file)) {
@@ -105,17 +96,19 @@ CacheFile *BKE_cachefile_copy(Main *bmain, CacheFile *cache_file)
 	return new_cache_file;
 }
 
-void BKE_cachefile_load(CacheFile *cache_file, const char *relabase)
+void BKE_cachefile_reload(const Main *bmain, CacheFile *cache_file)
 {
-	char filename[FILE_MAX];
-	get_absolute_path(filename, cache_file->filepath, relabase);
+	char filepath[FILE_MAX];
+
+	BLI_strncpy(filepath, cache_file->filepath, sizeof(filepath));
+	BLI_path_abs(filepath, ID_BLEND_PATH(bmain, &cache_file->id));
 
 #ifdef WITH_ALEMBIC
 	if (cache_file->handle) {
 		ABC_free_handle(cache_file->handle);
 	}
 
-	cache_file->handle = ABC_create_handle(filename, &cache_file->object_paths);
+	cache_file->handle = ABC_create_handle(filepath, &cache_file->object_paths);
 #endif
 }
 
@@ -134,7 +127,7 @@ void BKE_cachefile_update_frame(Main *bmain, Scene *scene, const float ctime, co
 
 		const float time = BKE_cachefile_time_offset(cache_file, ctime, fps);
 
-		if (BKE_cachefile_filepath_get(cache_file, time, filename)) {
+		if (BKE_cachefile_filepath_get(bmain, cache_file, time, filename)) {
 #ifdef WITH_ALEMBIC
 			ABC_free_handle(cache_file->handle);
 			cache_file->handle = ABC_create_handle(filename, NULL);
@@ -143,9 +136,12 @@ void BKE_cachefile_update_frame(Main *bmain, Scene *scene, const float ctime, co
 	}
 }
 
-bool BKE_cachefile_filepath_get(const CacheFile *cache_file, float frame, char *r_filepath)
+bool BKE_cachefile_filepath_get(
+        const Main *bmain, const CacheFile *cache_file, float frame,
+        char r_filepath[FILE_MAX])
 {
-	get_absolute_path(r_filepath, cache_file->filepath, G.main->name);
+	BLI_strncpy(r_filepath, cache_file->filepath, FILE_MAX);
+	BLI_path_abs(r_filepath, ID_BLEND_PATH(bmain, &cache_file->id));
 
 	int fframe;
 	int frame_len;
@@ -154,7 +150,7 @@ bool BKE_cachefile_filepath_get(const CacheFile *cache_file, float frame, char *
 		char ext[32];
 		BLI_path_frame_strip(r_filepath, true, ext);
 		BLI_path_frame(r_filepath, frame, frame_len);
-		BLI_ensure_extension(r_filepath, 1024, ext);
+		BLI_ensure_extension(r_filepath, FILE_MAX, ext);
 
 		/* TODO(kevin): store sequence range? */
 		return BLI_exists(r_filepath);

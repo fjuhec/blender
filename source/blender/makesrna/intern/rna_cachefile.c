@@ -66,9 +66,9 @@ static void rna_CacheFile_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 
 static void rna_CacheFile_update_handle(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-	CacheFile *cache_file = (CacheFile *)ptr->data;
+	CacheFile *cache_file = ptr->data;
 
-	BKE_cachefile_load(cache_file, bmain->name);
+	BKE_cachefile_reload(bmain, cache_file);
 
 	rna_CacheFile_update(bmain, scene, ptr);
 }
