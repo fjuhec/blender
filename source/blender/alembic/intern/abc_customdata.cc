@@ -66,15 +66,19 @@ static void get_uvs(const CDStreamConfig &config,
 
 	if (!config.pack_uvs) {
 		int cnt = 0;
+		uvidx.resize(config.totloop);
+		uvs.resize(config.totloop);
+
 		for (int i = 0; i < num_poly; ++i) {
 			MPoly &current_poly = polygons[i];
 			MLoopUV *loopuvpoly = mloopuv_array + current_poly.loopstart + current_poly.totloop;
 
-			for (int j = 0; j < current_poly.totloop; ++j) {
-				loopuvpoly--;
-				uvidx.push_back(cnt++);
-				Imath::V2f uv(loopuvpoly->uv[0], loopuvpoly->uv[1]);
-				uvs.push_back(uv);
+			for (int j = 0; j < current_poly.totloop; ++j, ++cnt) {
+				--loopuvpoly;
+
+				uvidx[cnt] = cnt;
+				uvs[cnt][0] = loopuvpoly->uv[0];
+				uvs[cnt][1] = loopuvpoly->uv[1];
 			}
 		}
 	}
