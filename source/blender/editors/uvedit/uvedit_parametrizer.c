@@ -3806,9 +3806,8 @@ static float p_chart_minimum_area_angle(PChart *chart)
 	return minangle;
 }
 
-static void p_chart_rotate_minimum_area(PChart *chart)
+static void p_chart_rotate(PChart *chart, float angle)
 {
-	float angle = p_chart_minimum_area_angle(chart);
 	float sine = sinf(angle);
 	float cosine = cosf(angle);
 	PVert *v;
@@ -3818,6 +3817,12 @@ static void p_chart_rotate_minimum_area(PChart *chart)
 		v->uv[0] = cosine * oldu - sine * oldv;
 		v->uv[1] = sine * oldu + cosine * oldv;
 	}
+}
+
+static void p_chart_rotate_minimum_area(PChart *chart)
+{
+	float angle = p_chart_minimum_area_angle(chart);
+	p_chart_rotate(chart, angle);
 }
 
 /* Area Smoothing */
@@ -5413,7 +5418,7 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 	return true;
 }
 
-void param_irregular_pack_begin(ParamHandle *handle, float *w_area)
+void param_irregular_pack_begin(ParamHandle *handle, float *w_area, int rot_step)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart;
@@ -5421,7 +5426,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area)
 	PFace *f;
 	int npoint, right, i, j;
 	unsigned int seed = 31415926;
-	float used_area, init_scale, init_value = 0.6f;
+	float used_area, init_scale, init_value = 0.6f, randf1, rot;
 
 	param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
 	phandle->state = PHANDLE_STATE_PACK;
@@ -5443,6 +5448,12 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area)
 		/* Set initial scale of charts */
 		/* ToDo: Do this in p_compute_packing_solution */
 		/*p_chart_uv_scale_origin(chart, init_scale); */
+
+		/* Initial random rotation */
+		randf1 = BLI_rng_get_float(phandle->rng);
+		rot = (int)(randf1 * (float)rot_step) * (2 * M_PI / (float)rot_step);
+		printf("init rot for chart[%i]: %f\n", i, rot);
+		p_chart_rotate(chart, rot);
 
 		/* Compute convex hull for each chart -> CW */
 		chart->u.ipack.convex_hull = p_convex_hull_new(chart);
