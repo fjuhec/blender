@@ -576,6 +576,11 @@ MovieClip *ED_space_clip_get_clip(SpaceClip *sc)
 	return sc->clip;
 }
 
+MovieClip *ED_space_clip_get_secondary_clip(SpaceClip *sc)
+{
+	return sc->secondary_clip;
+}
+
 void ED_space_clip_set_clip(bContext *C, bScreen *screen, SpaceClip *sc, MovieClip *clip)
 {
 	MovieClip *old_clip;
@@ -616,6 +621,53 @@ void ED_space_clip_set_clip(bContext *C, bScreen *screen, SpaceClip *sc, MovieCl
 
 	/* If clip is no longer visible on screen, free memory used by it's cache */
 	if (old_clip && old_clip != clip && !old_clip_visible) {
+		BKE_movieclip_clear_cache(old_clip);
+	}
+
+	if (C)
+		WM_event_add_notifier(C, NC_MOVIECLIP | NA_SELECTED, sc->clip);
+}
+
+void ED_space_clip_set_secondary_clip(bContext *C, bScreen *screen, SpaceClip *sc, MovieClip *secondary_clip)
+{
+	MovieClip *old_clip;
+	bool old_clip_visible = false;
+
+	if (!screen && C)
+		screen = CTX_wm_screen(C);
+
+	old_clip = sc->secondary_clip;
+	sc->secondary_clip = secondary_clip;
+
+	id_us_ensure_real((ID *)sc->secondary_clip);
+
+	if (screen && sc->view == SC_VIEW_CLIP) {
+		ScrArea *area;
+		SpaceLink *sl;
+
+		for (area = screen->areabase.first; area; area = area->next) {
+			for (sl = area->spacedata.first; sl; sl = sl->next) {
+				if (sl->spacetype == SPACE_CLIP) {
+					SpaceClip *cur_sc = (SpaceClip *) sl;
+
+					if (cur_sc != sc) {
+						if (cur_sc->view == SC_VIEW_CLIP) {
+							if (cur_sc->secondary_clip == old_clip)
+								old_clip_visible = true;
+						}
+						else {
+							if (cur_sc->secondary_clip == old_clip || cur_sc->clip == NULL) {
+								cur_sc->secondary_clip = secondary_clip;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* If clip is no longer visible on screen, free memory used by it's cache */
+	if (old_clip && old_clip != secondary_clip && !old_clip_visible) {
 		BKE_movieclip_clear_cache(old_clip);
 	}
 

@@ -1257,6 +1257,7 @@ typedef struct SpaceClip {
 
 	struct MovieClipUser user;      /* user of clip */
 	struct MovieClip *clip;         /* clip data */
+	struct MovieClip *secondary_clip;	/* secondary clip data */
 	struct MovieClipScopes scopes;  /* different scoped displayed in space panels */
 
 	int flag;                   /* flags */

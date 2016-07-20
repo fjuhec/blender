@@ -432,6 +432,7 @@ static void clip_operatortypes(void)
 {
 	/* ** clip_ops.c ** */
 	WM_operatortype_append(CLIP_OT_open);
+	WM_operatortype_append(CLIP_OT_open_secondary);
 	WM_operatortype_append(CLIP_OT_reload);
 	WM_operatortype_append(CLIP_OT_view_pan);
 	WM_operatortype_append(CLIP_OT_view_zoom);
@@ -566,6 +567,8 @@ static void clip_keymap(struct wmKeyConfig *keyconf)
 	keymap = WM_keymap_find(keyconf, "Clip", SPACE_CLIP, 0);
 
 	WM_keymap_add_item(keymap, "CLIP_OT_open", OKEY, KM_PRESS, KM_ALT, 0);
+	//TODO(tianwei): think about a shortcut for open_secondary clip
+	//WM_keymap_add_item(keymap, "CLIP_OT_open_secondary", OKEY, KM_PRESS, KM_ALT, 0);
 
 	WM_keymap_add_item(keymap, "CLIP_OT_tools", TKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_item(keymap, "CLIP_OT_properties", NKEY, KM_PRESS, 0, 0);
@@ -885,6 +888,8 @@ static void clip_dropboxes(void)
 	ListBase *lb = WM_dropboxmap_find("Clip", SPACE_CLIP, 0);
 
 	WM_dropbox_add(lb, "CLIP_OT_open", clip_drop_poll, clip_drop_copy);
+	//TODO(tianwei): think about dropbox for secondary clip
+	//WM_dropbox_add(lb, "CLIP_OT_open_secondary", clip_drop_poll, clip_drop_copy);
 }
 
 static void clip_refresh(const bContext *C, ScrArea *sa)

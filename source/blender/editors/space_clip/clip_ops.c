@@ -305,6 +305,133 @@ void CLIP_OT_open(wmOperatorType *ot)
 	        WM_FILESEL_RELPATH | WM_FILESEL_FILES | WM_FILESEL_DIRECTORY, FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 }
 
+/******************** open a secondary clip in Correspondence mode operator ********************/
+static int open_secondary_exec(bContext *C, wmOperator *op)
+{
+	SpaceClip *sc = CTX_wm_space_clip(C);
+	bScreen *screen = CTX_wm_screen(C);
+	Main *bmain = CTX_data_main(C);
+	PropertyPointerRNA *pprop;
+	PointerRNA idptr;
+	MovieClip *clip = NULL;
+	char str[FILE_MAX];
+
+	if (RNA_collection_length(op->ptr, "files")) {
+		PointerRNA fileptr;
+		PropertyRNA *prop;
+		char dir_only[FILE_MAX], file_only[FILE_MAX];
+		bool relative = RNA_boolean_get(op->ptr, "relative_path");
+
+		RNA_string_get(op->ptr, "directory", dir_only);
+		if (relative)
+			BLI_path_rel(dir_only, G.main->name);
+
+		prop = RNA_struct_find_property(op->ptr, "files");
+		RNA_property_collection_lookup_int(op->ptr, prop, 0, &fileptr);
+		RNA_string_get(&fileptr, "name", file_only);
+
+		BLI_join_dirfile(str, sizeof(str), dir_only, file_only);
+	}
+	else {
+		BKE_report(op->reports, RPT_ERROR, "No files selected to be opened");
+
+		return OPERATOR_CANCELLED;
+	}
+
+	/* default to frame 1 if there's no scene in context */
+
+	errno = 0;
+
+	clip = BKE_movieclip_file_add_exists(bmain, str);
+
+	if (!clip) {
+		if (op->customdata)
+			MEM_freeN(op->customdata);
+
+		BKE_reportf(op->reports, RPT_ERROR, "Cannot read '%s': %s", str,
+		            errno ? strerror(errno) : TIP_("unsupported movie clip format"));
+
+		return OPERATOR_CANCELLED;
+	}
+
+	if (!op->customdata)
+		open_init(C, op);
+
+	/* hook into UI */
+	pprop = op->customdata;
+
+	if (pprop->prop) {
+		/* when creating new ID blocks, use is already 1, but RNA
+		 * pointer se also increases user, so this compensates it */
+		id_us_min(&clip->id);
+
+		RNA_id_pointer_create(&clip->id, &idptr);
+		RNA_property_pointer_set(&pprop->ptr, pprop->prop, idptr);
+		RNA_property_update(C, &pprop->ptr, pprop->prop);
+	}
+	else if (sc) {
+		ED_space_clip_set_secondary_clip(C, screen, sc, clip);
+	}
+
+	WM_event_add_notifier(C, NC_MOVIECLIP | NA_ADDED, clip);
+
+	MEM_freeN(op->customdata);
+
+	return OPERATOR_FINISHED;
+}
+
+static int open_secondary_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	SpaceClip *sc = CTX_wm_space_clip(C);
+	char path[FILE_MAX];
+	MovieClip *secondary_clip = NULL;
+
+	if (sc)
+		secondary_clip = ED_space_clip_get_secondary_clip(sc);
+
+	if (secondary_clip) {
+		BLI_strncpy(path, secondary_clip->name, sizeof(path));
+
+		BLI_path_abs(path, G.main->name);
+		BLI_parent_dir(path);
+	}
+	else {
+		BLI_strncpy(path, U.textudir, sizeof(path));
+	}
+
+	if (RNA_struct_property_is_set(op->ptr, "files"))
+		return open_secondary_exec(C, op);
+
+	if (!RNA_struct_property_is_set(op->ptr, "relative_path"))
+		RNA_boolean_set(op->ptr, "relative_path", (U.flag & USER_RELPATHS) != 0);
+
+	open_init(C, op);
+
+	clip_filesel(C, op, path);
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+void CLIP_OT_open_secondary(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Open Secondary Clip";
+	ot->description = "Load a sequence of frames or a movie file in correspondence mode";
+	ot->idname = "CLIP_OT_open_secondary";
+
+	/* api callbacks */
+	ot->exec = open_secondary_exec;
+	ot->invoke = open_secondary_invoke;
+	ot->cancel = open_cancel;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
+	WM_operator_properties_filesel(
+	        ot, FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE, FILE_SPECIAL, FILE_OPENFILE,
+	        WM_FILESEL_RELPATH | WM_FILESEL_FILES | WM_FILESEL_DIRECTORY, FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
+}
 /******************* reload clip operator *********************/
 
 static int reload_exec(bContext *C, wmOperator *UNUSED(op))

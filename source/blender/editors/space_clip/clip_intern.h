@@ -94,6 +94,7 @@ void CLIP_OT_graph_disable_markers(struct wmOperatorType *ot);
 
 /* clip_ops.c */
 void CLIP_OT_open(struct wmOperatorType *ot);
+void CLIP_OT_open_secondary(struct wmOperatorType *ot);
 void CLIP_OT_reload(struct wmOperatorType *ot);
 void CLIP_OT_view_pan(struct wmOperatorType *ot);
 void CLIP_OT_view_zoom(wmOperatorType *ot);
