@@ -969,6 +969,8 @@ ABC_INLINE void read_normals_params(AbcMeshData &abc_data,
 AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings, bool is_subd)
     : AbcObjectReader(object, settings)
 {
+	m_settings->flag |= ABC_READ_ALL;
+
 	IPolyMesh ipoly_mesh(m_iobject, kWrapExisting);
 	m_schema = ipoly_mesh.getSchema();
 	get_min_max_time(m_schema, m_min_time, m_max_time);
@@ -1000,7 +1002,7 @@ void AbcMeshReader::readObjectData(Main *bmain, float time)
 	m_mesh_data = create_config(mesh);
 
 	bool has_smooth_normals = false;
-	read_mesh_sample(m_schema, sample_sel, m_mesh_data, has_smooth_normals);
+	read_mesh_sample(m_settings, m_schema, sample_sel, m_mesh_data, has_smooth_normals);
 
 	BKE_mesh_calc_normals(mesh);
 	BKE_mesh_validate(mesh, false, false);
@@ -1061,7 +1063,8 @@ void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_star
 	utils::assign_materials(bmain, m_object, mat_map);
 }
 
-void read_mesh_sample(const IPolyMeshSchema &schema,
+void read_mesh_sample(ImportSettings *settings,
+                      const IPolyMeshSchema &schema,
                       const ISampleSelector &selector,
                       CDStreamConfig &config,
                       bool &do_normals)
@@ -1077,12 +1080,23 @@ void read_mesh_sample(const IPolyMeshSchema &schema,
 
 	do_normals = (abc_mesh_data.face_normals != NULL);
 
-	read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
+	if ((settings->flag & ABC_READ_UVS) != 0) {
+		read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
+	}
 
-	read_mverts(config, abc_mesh_data);
-	read_mpolys(config, abc_mesh_data);
+	if ((settings->flag & ABC_READ_VERTS) != 0) {
+		read_mverts(config, abc_mesh_data);
+	}
 
-	read_custom_data(schema.getArbGeomParams(), config, selector);
+	if ((settings->flag & ABC_READ_FACES) != 0) {
+		read_mpolys(config, abc_mesh_data);
+	}
+
+	if ((settings->flag & (ABC_READ_UVS | ABC_READ_MCOLS)) != 0) {
+		read_custom_data(schema.getArbGeomParams(), config, selector);
+	}
+
+	/* TODO: face sets */
 }
 
 /* ************************************************************************** */
@@ -1103,6 +1117,8 @@ ABC_INLINE MEdge *find_edge(MEdge *edges, int totedge, int v1, int v2)
 AbcSubDReader::AbcSubDReader(const IObject &object, ImportSettings &settings)
     : AbcObjectReader(object, settings)
 {
+	m_settings->flag |= ABC_READ_ALL;
+
 	ISubD isubd_mesh(m_iobject, kWrapExisting);
 	m_schema = isubd_mesh.getSchema();
 	get_min_max_time(m_schema, m_min_time, m_max_time);
@@ -1133,7 +1149,7 @@ void AbcSubDReader::readObjectData(Main *bmain, float time)
 
 	m_mesh_data = create_config(mesh);
 
-	read_subd_sample(m_schema, sample_sel, m_mesh_data);
+	read_subd_sample(m_settings, m_schema, sample_sel, m_mesh_data);
 
 	Int32ArraySamplePtr indices = sample.getCreaseIndices();
 	Alembic::Abc::FloatArraySamplePtr sharpnesses = sample.getCreaseSharpnesses();
@@ -1160,7 +1176,8 @@ void AbcSubDReader::readObjectData(Main *bmain, float time)
 	}
 }
 
-void read_subd_sample(const ISubDSchema &schema,
+void read_subd_sample(ImportSettings *settings,
+                      const ISubDSchema &schema,
                       const ISampleSelector &selector,
                       CDStreamConfig &config)
 {
@@ -1173,10 +1190,21 @@ void read_subd_sample(const ISubDSchema &schema,
 	abc_mesh_data.face_normals = N3fArraySamplePtr();
 	abc_mesh_data.positions = sample.getPositions();
 
-	read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
+	if ((settings->flag & ABC_READ_UVS) != 0) {
+		read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
+	}
 
-	read_mverts(config, abc_mesh_data);
-	read_mpolys(config, abc_mesh_data);
+	if ((settings->flag & ABC_READ_VERTS) != 0) {
+		read_mverts(config, abc_mesh_data);
+	}
 
-	read_custom_data(schema.getArbGeomParams(), config, selector);
+	if ((settings->flag & ABC_READ_FACES) != 0) {
+		read_mpolys(config, abc_mesh_data);
+	}
+
+	if ((settings->flag & (ABC_READ_UVS | ABC_READ_MCOLS)) != 0) {
+		read_custom_data(schema.getArbGeomParams(), config, selector);
+	}
+
+	/* TODO: face sets */
 }

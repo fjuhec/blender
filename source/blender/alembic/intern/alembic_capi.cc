@@ -921,6 +921,10 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 
 	DerivedMesh *new_dm = NULL;
 
+	/* Only read point data when streaming meshes, unless we need to create new ones. */
+	ImportSettings settings;
+	settings.flag |= ABC_READ_VERTS;
+
 	if (dm->getNumVerts(dm) != positions->size()) {
 		new_dm = CDDM_from_template(dm,
 		                            positions->size(),
@@ -928,12 +932,14 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		                            0,
 		                            face_indices->size(),
 		                            face_counts->size());
+
+		settings.flag |= ABC_READ_ALL;
 	}
 
 	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
 
 	bool has_loop_normals = false;
-	read_mesh_sample(schema, sample_sel, config, has_loop_normals);
+	read_mesh_sample(&settings, schema, sample_sel, config, has_loop_normals);
 
 	if (new_dm) {
 		/* Check if we had ME_SMOOTH flag set to restore it. */
@@ -965,6 +971,9 @@ static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, co
 
 	DerivedMesh *new_dm = NULL;
 
+	ImportSettings settings;
+	settings.flag |= ABC_READ_VERTS;
+
 	if (dm->getNumVerts(dm) != positions->size()) {
 		new_dm = CDDM_from_template(dm,
 		                            positions->size(),
@@ -972,10 +981,13 @@ static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, co
 		                            0,
 		                            face_indices->size(),
 		                            face_counts->size());
+
+		settings.flag |= ABC_READ_ALL;
 	}
 
+	/* Only read point data when streaming meshes, unless we need to create new ones. */
 	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
-	read_subd_sample(schema, sample_sel, config);
+	read_subd_sample(&settings, schema, sample_sel, config);
 
 	if (new_dm) {
 		/* Check if we had ME_SMOOTH flag set to restore it. */
