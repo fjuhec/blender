@@ -757,7 +757,7 @@ static void import_freejob(void *user_data)
 	delete data;
 }
 
-void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence, bool set_frame_range, int sequence_len, int offset)
+void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence, bool set_frame_range, int sequence_len, int offset, bool validate_meshes)
 {
 	/* Using new here since MEM_* funcs do not call ctor to properly initialize
 	 * data. */
@@ -771,6 +771,7 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	job->settings.set_frame_range = set_frame_range;
 	job->settings.sequence_len = sequence_len;
 	job->settings.offset = offset;
+	job->settings.validate_meshes = validate_meshes;
 	job->parent_map = NULL;
 	job->error_code = ABC_NO_ERROR;
 	job->was_cancelled = false;

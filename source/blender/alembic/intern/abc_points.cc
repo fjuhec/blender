@@ -173,7 +173,9 @@ void AbcPointsReader::readObjectData(Main *bmain, float time)
 
 	read_mverts(mesh->mvert, positions, vnormals);
 
-	BKE_mesh_validate(mesh, false, false);
+	if (m_settings->validate_meshes) {
+		BKE_mesh_validate(mesh, false, false);
+	}
 
 	m_object = BKE_object_add_only_object(bmain, OB_MESH, m_object_name.c_str());
 	m_object->data = mesh;

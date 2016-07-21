@@ -383,6 +383,9 @@ static void ui_alembic_import_settings(uiLayout *layout, PointerRNA *imfptr)
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "set_frame_range", 0, NULL, ICON_NONE);
+
+	row = uiLayoutRow(box, false);
+	uiItemR(row, imfptr, "validate_meshes", 0, NULL, ICON_NONE);
 }
 
 static void wm_alembic_import_draw(bContext *UNUSED(C), wmOperator *op)
@@ -405,12 +408,13 @@ static int wm_alembic_import_exec(bContext *C, wmOperator *op)
 
 	const float scale = RNA_float_get(op->ptr, "scale");
 	const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
+	const bool validate_meshes = RNA_boolean_get(op->ptr, "validate_meshes");
 
 	int offset = 0;
 	int sequence_len = get_sequence_len(filename, &offset);
 	const bool is_sequence = (sequence_len > 1);
 
-	ABC_import(C, filename, scale, is_sequence, set_frame_range, sequence_len, offset);
+	ABC_import(C, filename, scale, is_sequence, set_frame_range, sequence_len, offset, validate_meshes);
 
 	return OPERATOR_FINISHED;
 }
@@ -436,6 +440,9 @@ void WM_OT_alembic_import(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "set_frame_range", true,
 	                "Set Frame Range",
 	                "If checked, update scene's start and end frame to match those of the Alembic archive");
+
+	RNA_def_boolean(ot->srna, "validate_meshes", 0,
+	                "Validate Meshes", "Check imported mesh objects for invalid data (slow)");
 }
 
 #endif

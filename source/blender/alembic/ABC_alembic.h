@@ -81,7 +81,8 @@ void ABC_import(struct bContext *C,
                 bool is_sequence,
                 bool set_frame_range,
                 int sequence_len,
-                int offset);
+                int offset,
+                bool validate_meshes);
 
 AbcArchiveHandle *ABC_create_handle(const char *filename, struct ListBase *object_paths);
 

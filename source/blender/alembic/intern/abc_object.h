@@ -103,6 +103,8 @@ struct ImportSettings {
 
 	int flag;
 
+	bool validate_meshes;
+
 	CacheFile *cache_file;
 
 	ImportSettings()
@@ -115,6 +117,7 @@ struct ImportSettings {
 	    , sequence_len(1)
 	    , offset(0)
 	    , flag(0)
+	    , validate_meshes(false)
 	    , cache_file(NULL)
 	{}
 };

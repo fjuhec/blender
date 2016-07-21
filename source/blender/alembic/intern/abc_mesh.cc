@@ -1000,7 +1000,10 @@ void AbcMeshReader::readObjectData(Main *bmain, float time)
 	read_mesh_sample(m_settings, m_schema, sample_sel, m_mesh_data, has_smooth_normals);
 
 	BKE_mesh_calc_normals(mesh);
-	BKE_mesh_validate(mesh, false, false);
+
+	if (m_settings->validate_meshes) {
+		BKE_mesh_validate(mesh, false, false);
+	}
 
 	readFaceSetsSample(bmain, mesh, 0, sample_sel);
 
@@ -1164,7 +1167,10 @@ void AbcSubDReader::readObjectData(Main *bmain, float time)
 	}
 
 	BKE_mesh_calc_normals(mesh);
-	BKE_mesh_validate(mesh, false, false);
+
+	if (m_settings->validate_meshes) {
+		BKE_mesh_validate(mesh, false, false);
+	}
 
 	if (has_animations(m_schema, m_settings)) {
 		addCacheModifier();
