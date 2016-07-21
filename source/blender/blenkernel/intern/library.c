@@ -416,7 +416,8 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 			if (!test) BKE_linestyle_make_local(bmain, (FreestyleLineStyle *)id, lib_local);
 			return true;
 		case ID_CF:
-			return false;  /* not implemented */
+			if (!test) BKE_cachefile_make_local(bmain, (CacheFile *)id, lib_local);
+			return true;
 	}
 
 	return false;

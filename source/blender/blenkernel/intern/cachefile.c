@@ -96,6 +96,11 @@ CacheFile *BKE_cachefile_copy(Main *bmain, CacheFile *cache_file)
 	return new_cache_file;
 }
 
+void BKE_cachefile_make_local(Main *bmain, CacheFile *cache_file, const bool lib_local)
+{
+	BKE_id_make_local_generic(bmain, &cache_file->id, true, lib_local);
+}
+
 void BKE_cachefile_reload(const Main *bmain, CacheFile *cache_file)
 {
 	char filepath[FILE_MAX];
