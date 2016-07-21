@@ -187,13 +187,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float3 weight = sc->weight;
 			float sample_weight = sc->sample_weight;
 
-#ifdef __BSDF_DISNEY_DIFFUSE__
-#  ifndef __SPLIT_KERNEL__
-#    define sc_next(sc) sc++
-#  else
-#    define sc_next(sc) sc = ccl_fetch_array(sd, closure, ccl_fetch(sd, num_closure))
-#  endif
-
 			/* subsurface */
 			float3 albedo = baseColor;
 			float3 subsurf_weight = baseColor * sc->weight * mix_weight * subsurface * diffuse_weight;
@@ -222,7 +215,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					ccl_fetch(sd, flag) |= bssrdf_setup(sc, (ClosureType)CLOSURE_BSSRDF_BURLEY_ID);
 
 					ccl_fetch(sd, num_closure)++;
-					sc_next(sc);
 				}
 
 				if (fabsf(subsurf_weight.y) > 0.0f) {
@@ -241,7 +233,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					ccl_fetch(sd, flag) |= bssrdf_setup(sc, (ClosureType)CLOSURE_BSSRDF_BURLEY_ID);
 
 					ccl_fetch(sd, num_closure)++;
-					sc_next(sc);
 				}
 
 				if (fabsf(subsurf_weight.z) > 0.0f) {
@@ -260,12 +251,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					ccl_fetch(sd, flag) |= bssrdf_setup(sc, (ClosureType)CLOSURE_BSSRDF_BURLEY_ID);
 
 					ccl_fetch(sd, num_closure)++;
-					sc_next(sc);
 				}
 			}
-
-#  undef sc_next
-#endif // __BSDF_DISNEY_DIFFUSE__
 
 			/* diffuse */
 			if (metallic < 1.0f) {
