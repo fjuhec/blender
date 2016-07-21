@@ -159,7 +159,7 @@ class CLIP_HT_header(Header):
         row.template_ID(sc, "clip", open="clip.open")
 
         row = layout.row()      # clip open for witness camera
-        row.template_ID(sc, "clip", open="clip.open_secondary")
+        row.template_ID(sc, "secondary_clip", open="clip.open_secondary")
 
         if clip:
             tracking = clip.tracking

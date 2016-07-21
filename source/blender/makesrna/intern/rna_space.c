@@ -1543,6 +1543,14 @@ static void rna_SpaceClipEditor_clip_set(PointerRNA *ptr, PointerRNA value)
 	ED_space_clip_set_clip(NULL, screen, sc, (MovieClip *)value.data);
 }
 
+static void rna_SpaceClipEditor_secondary_clip_set(PointerRNA *ptr, PointerRNA value)
+{
+	SpaceClip *sc = (SpaceClip *)(ptr->data);
+	bScreen *screen = (bScreen *)ptr->id.data;
+
+	ED_space_clip_set_secondary_clip(NULL, screen, sc, (MovieClip *)value.data);
+}
+
 static void rna_SpaceClipEditor_mask_set(PointerRNA *ptr, PointerRNA value)
 {
 	SpaceClip *sc = (SpaceClip *)(ptr->data);
@@ -4510,6 +4518,13 @@ static void rna_def_space_clip(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Movie Clip", "Movie clip displayed and edited in this space");
 	RNA_def_property_pointer_funcs(prop, NULL, "rna_SpaceClipEditor_clip_set", NULL, NULL);
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_CLIP, NULL);
+
+	/* secondary movieclip */
+	prop = RNA_def_property(srna, "secondary_clip", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "Secondary Movie Clip", "Secondary Movie clip displayed and edited in this space");
+	RNA_def_property_pointer_funcs(prop, NULL, "rna_SpaceClipEditor_secondary_clip_set", NULL, NULL);
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_CLIP, NULL);
 
 	/* clip user */

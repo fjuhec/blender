@@ -1200,6 +1200,10 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 	movieclip_main_area_set_view2d(C, ar);
 
 	clip_draw_main(C, sc, ar);
+	if (sc->mode == SC_MODE_CORRESPONDENCE) {
+		//TODO(tianwei): draw correspondence related code
+		clip_draw_secondary_clip(C, sc, ar);
+	}
 
 	/* TODO(sergey): would be nice to find a way to de-duplicate all this space conversions */
 	UI_view2d_view_to_region_fl(&ar->v2d, 0.0f, 0.0f, &x, &y);

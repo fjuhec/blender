@@ -1748,6 +1748,11 @@ void clip_draw_main(const bContext *C, SpaceClip *sc, ARegion *ar)
 	}
 }
 
+void clip_draw_secondary_clip(const bContext *C, SpaceClip *sc, ARegion *ar)
+{
+
+}
+
 void clip_draw_cache_and_notes(const bContext *C, SpaceClip *sc, ARegion *ar)
 {
 	Scene *scene = CTX_data_scene(C);
