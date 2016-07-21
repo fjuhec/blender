@@ -42,29 +42,38 @@ enum {
 
 int ABC_get_version(void);
 
+struct AlembicExportParams {
+	double frame_start;
+	double frame_end;
+
+	double frame_step_xform;
+	double frame_step_shape;
+
+	double shutter_open;
+	double shutter_close;
+
+	/* bools */
+	unsigned int selected_only : 1;
+	unsigned int uvs : 1;
+	unsigned int normals : 1;
+	unsigned int vcolors : 1;
+	unsigned int apply_subdiv : 1;
+	unsigned int flatten_hierarchy : 1;
+	unsigned int visible_layers_only : 1;
+	unsigned int renderable_only : 1;
+	unsigned int face_sets : 1;
+	unsigned int use_subdiv_schema : 1;
+	unsigned int packuv : 1;
+
+	unsigned int compression_type : 1;
+	float global_scale;
+};
+
 void ABC_export(
         struct Scene *scene,
         struct bContext *C,
         const char *filepath,
-        const double start,
-        const double end,
-        const double xformstep,
-        const double geomstep,
-        const double shutter_open,
-        const double shutter_close,
-        const bool selected_only,
-        const bool uvs,
-        const bool normals,
-        const bool vcolors,
-        const bool apply_subdiv,
-        const bool flatten_hierarchy,
-        const bool vislayers,
-        const bool renderable,
-        const bool facesets,
-        const bool use_subdiv_schema,
-        const bool compression,
-        const bool packuv,
-        const float global_scale);
+        const struct AlembicExportParams *params);
 
 void ABC_import(struct bContext *C,
                 const char *filepath,

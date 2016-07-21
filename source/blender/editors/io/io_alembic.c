@@ -90,48 +90,34 @@ static int wm_alembic_export_exec(bContext *C, wmOperator *op)
 
 	char filename[FILE_MAX];
 	RNA_string_get(op->ptr, "filepath", filename);
-	const int start = RNA_int_get(op->ptr, "start");
-	const int end = RNA_int_get(op->ptr, "end");
-	const int xsamples = RNA_int_get(op->ptr, "xsamples");
-	const int gsamples = RNA_int_get(op->ptr, "gsamples");
-	const float sh_open = RNA_float_get(op->ptr, "sh_open");
-	const float sh_close = RNA_float_get(op->ptr, "sh_close");
-	const bool selected = RNA_boolean_get(op->ptr, "selected");
-	const bool uvs = RNA_boolean_get(op->ptr, "uvs");
-	const bool normals = RNA_boolean_get(op->ptr, "normals");
-	const bool vcolors = RNA_boolean_get(op->ptr, "vcolors");
-	const bool apply_subdiv = RNA_boolean_get(op->ptr, "apply_subdiv");
-	const bool flatten = RNA_boolean_get(op->ptr, "flatten");
-	const bool renderable = RNA_boolean_get(op->ptr, "renderable");
-	const bool vislayers = RNA_boolean_get(op->ptr, "vislayers");
-	const bool facesets = RNA_boolean_get(op->ptr, "facesets");
-	const bool subdiv_schem = RNA_boolean_get(op->ptr, "subdiv_schema");
-	const bool packuv = RNA_boolean_get(op->ptr, "packuv");
-	const int compression = RNA_enum_get(op->ptr, "compression_type");
-	const float scale = RNA_float_get(op->ptr, "scale");
 
-	ABC_export(CTX_data_scene(C),
-	           C,
-	           filename,
-	           start,
-	           end,
-	           1.0 / (double)xsamples,
-	           1.0 / (double)gsamples,
-	           sh_open,
-	           sh_close,
-	           selected,
-	           uvs,
-	           normals,
-	           vcolors,
-	           apply_subdiv,
-	           flatten,
-	           vislayers,
-	           renderable,
-	           facesets,
-	           subdiv_schem,
-	           compression,
-	           packuv,
-	           scale);
+	const struct AlembicExportParams params = {
+	    .frame_start = RNA_int_get(op->ptr, "start"),
+	    .frame_end = RNA_int_get(op->ptr, "end"),
+
+	    .frame_step_xform = 1.0 / (double)RNA_int_get(op->ptr, "xsamples"),
+	    .frame_step_shape = 1.0 / (double)RNA_int_get(op->ptr, "gsamples"),
+
+	    .shutter_open = RNA_float_get(op->ptr, "sh_open"),
+	    .shutter_close = RNA_float_get(op->ptr, "sh_close"),
+
+	    .selected_only = RNA_boolean_get(op->ptr, "selected"),
+	    .uvs = RNA_boolean_get(op->ptr, "uvs"),
+	    .normals = RNA_boolean_get(op->ptr, "normals"),
+	    .vcolors = RNA_boolean_get(op->ptr, "vcolors"),
+	    .apply_subdiv = RNA_boolean_get(op->ptr, "apply_subdiv"),
+	    .flatten_hierarchy = RNA_boolean_get(op->ptr, "flatten"),
+	    .visible_layers_only = RNA_boolean_get(op->ptr, "visible_layers_only"),
+	    .renderable_only = RNA_boolean_get(op->ptr, "renderable_only"),
+	    .face_sets = RNA_boolean_get(op->ptr, "face_sets"),
+	    .use_subdiv_schema = RNA_boolean_get(op->ptr, "subdiv_schema"),
+	    .compression_type = RNA_enum_get(op->ptr, "compression_type"),
+	    .packuv = RNA_boolean_get(op->ptr, "packuv"),
+
+	    .global_scale = RNA_float_get(op->ptr, "global_scale"),
+	};
+
+	ABC_export(CTX_data_scene(C), C, filename, &params);
 
 	return OPERATOR_FINISHED;
 }
@@ -183,10 +169,10 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 	uiItemR(row, imfptr, "selected", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(box, false);
-	uiItemR(row, imfptr, "renderable", 0, NULL, ICON_NONE);
+	uiItemR(row, imfptr, "renderable_only", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(box, false);
-	uiItemR(row, imfptr, "vislayers", 0, NULL, ICON_NONE);
+	uiItemR(row, imfptr, "visible_layers_only", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "flatten", 0, NULL, ICON_NONE);
@@ -210,7 +196,7 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 	uiItemR(row, imfptr, "vcolors", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(box, false);
-	uiItemR(row, imfptr, "facesets", 0, NULL, ICON_NONE);
+	uiItemR(row, imfptr, "face_sets", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "subdiv_schema", 0, NULL, ICON_NONE);
@@ -262,11 +248,11 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "selected", 0,
 	                "Selected Objects Only", "Export only selected objects");
 
-	RNA_def_boolean(ot->srna, "renderable"	, 1,
+	RNA_def_boolean(ot->srna, "renderable_only", 1,
 	                "Renderable Objects Only",
 	                "Export only objects marked renderable in the outliner");
 
-	RNA_def_boolean(ot->srna, "vislayers", 0,
+	RNA_def_boolean(ot->srna, "visible_layers_only", 0,
 	                "Visible Layers Only", "Export only objects in visible layers");
 
 	RNA_def_boolean(ot->srna, "flatten", 0,
@@ -282,7 +268,7 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 
 	RNA_def_boolean(ot->srna, "vcolors", 0, "Vertex colors", "Export vertex colors");
 
-	RNA_def_boolean(ot->srna, "facesets", 0, "Face Sets", "Export per face shading group assignments");
+	RNA_def_boolean(ot->srna, "face_sets", 0, "Face Sets", "Export per face shading group assignments");
 
 	RNA_def_boolean(ot->srna, "subdiv_schema", 0,
 	                "Use Subdivision Schema",

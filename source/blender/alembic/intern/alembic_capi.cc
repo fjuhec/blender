@@ -357,25 +357,7 @@ void ABC_export(
         Scene *scene,
         bContext *C,
         const char *filepath,
-        const double start,
-        const double end,
-        const double xformstep,
-        const double geomstep,
-        const double shutter_open,
-        const double shutter_close,
-        const bool selected_only,
-        const bool uvs,
-        const bool normals,
-        const bool vcolors,
-        const bool apply_subdiv,
-        const bool flatten_hierarchy,
-        const bool vislayers,
-        const bool renderable,
-        const bool facesets,
-        const bool use_subdiv_schema,
-        const bool compression,
-        const bool packuv,
-        const float global_scale)
+        const struct AlembicExportParams *params)
 {
 	ExportJobData *job = static_cast<ExportJobData *>(MEM_mallocN(sizeof(ExportJobData), "ExportJobData"));
 	job->scene = scene;
@@ -383,28 +365,28 @@ void ABC_export(
 	BLI_strncpy(job->filename, filepath, 1024);
 
 	job->settings.scene = job->scene;
-	job->settings.startframe = start;
-	job->settings.endframe = end;
-	job->settings.xform_frame_step = xformstep;
-	job->settings.shape_frame_step = geomstep;
-	job->settings.shutter_open = shutter_open;
-	job->settings.shutter_close = shutter_close;
-	job->settings.selected_only = selected_only;
-	job->settings.export_face_sets = facesets;
-	job->settings.export_normals = normals;
-	job->settings.export_uvs = uvs;
-	job->settings.export_vcols = vcolors;
-	job->settings.apply_subdiv = apply_subdiv;
-	job->settings.flatten_hierarchy = flatten_hierarchy;
-	job->settings.visible_layers_only = vislayers;
-	job->settings.renderable_only = renderable;
-	job->settings.use_subdiv_schema = use_subdiv_schema;
-	job->settings.export_ogawa = (compression == ABC_ARCHIVE_OGAWA);
-	job->settings.pack_uv = packuv;
-	job->settings.global_scale = global_scale;
+	job->settings.frame_start = params->frame_start;
+	job->settings.frame_end = params->frame_end;
+	job->settings.frame_step_xform = params->frame_step_xform;
+	job->settings.frame_step_shape = params->frame_step_shape;
+	job->settings.shutter_open = params->shutter_open;
+	job->settings.shutter_close = params->shutter_close;
+	job->settings.selected_only = params->selected_only;
+	job->settings.export_face_sets = params->face_sets;
+	job->settings.export_normals = params->normals;
+	job->settings.export_uvs = params->uvs;
+	job->settings.export_vcols = params->vcolors;
+	job->settings.apply_subdiv = params->apply_subdiv;
+	job->settings.flatten_hierarchy = params->flatten_hierarchy;
+	job->settings.visible_layers_only = params->visible_layers_only;
+	job->settings.renderable_only = params->renderable_only;
+	job->settings.use_subdiv_schema = params->use_subdiv_schema;
+	job->settings.export_ogawa = (params->compression_type == ABC_ARCHIVE_OGAWA);
+	job->settings.pack_uv = params->packuv;
+	job->settings.global_scale = params->global_scale;
 
-	if (job->settings.startframe > job->settings.endframe) {
-		std::swap(job->settings.startframe, job->settings.endframe);
+	if (job->settings.frame_start > job->settings.frame_end) {
+		std::swap(job->settings.frame_start, job->settings.frame_end);
 	}
 
 	wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C),

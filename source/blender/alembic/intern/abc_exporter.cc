@@ -73,10 +73,10 @@ ExportSettings::ExportSettings()
     , selected_only(false)
     , visible_layers_only(false)
     , renderable_only(false)
-    , startframe(1)
-    , endframe(1)
-    , xform_frame_step(1)
-    , shape_frame_step(1)
+    , frame_start(1)
+    , frame_end(1)
+    , frame_step_xform(1)
+    , frame_step_shape(1)
     , shutter_open(0.0)
     , shutter_close(1.0)
     , global_scale(1.0f)
@@ -194,7 +194,7 @@ Alembic::Abc::TimeSamplingPtr AbcExporter::createTimeSampling(double step)
 	TimeSamplingPtr time_sampling;
 	std::vector<double> samples;
 
-	if (m_settings.startframe == m_settings.endframe) {
+	if (m_settings.frame_start == m_settings.frame_end) {
 		time_sampling.reset(new Alembic::Abc::TimeSampling());
 		return time_sampling;
 	}
@@ -215,7 +215,7 @@ void AbcExporter::getFrameSet(double step, std::set<double> &frames)
 
 	getShutterSamples(step, false, shutter_samples);
 
-	for (int frame = m_settings.startframe; frame <= m_settings.endframe; ++frame) {
+	for (int frame = m_settings.frame_start; frame <= m_settings.frame_end; ++frame) {
 		for (int j = 0, e = shutter_samples.size(); j < e; ++j) {
 			frames.insert(frame + shutter_samples[j]);
 		}
@@ -268,20 +268,20 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 
 	/* Create time samplings for transforms and shapes. */
 
-	TimeSamplingPtr trans_time = createTimeSampling(m_settings.xform_frame_step);
+	TimeSamplingPtr trans_time = createTimeSampling(m_settings.frame_step_xform);
 
 	m_trans_sampling_index = m_archive.addTimeSampling(*trans_time);
 
 	TimeSamplingPtr shape_time;
 
-	if ((m_settings.shape_frame_step == m_settings.xform_frame_step) ||
-	    (m_settings.startframe == m_settings.endframe))
+	if ((m_settings.frame_step_shape == m_settings.frame_step_xform) ||
+	    (m_settings.frame_start == m_settings.frame_end))
 	{
 		shape_time = trans_time;
 		m_shape_sampling_index = m_trans_sampling_index;
 	}
 	else {
-		shape_time = createTimeSampling(m_settings.shape_frame_step);
+		shape_time = createTimeSampling(m_settings.frame_step_shape);
 		m_shape_sampling_index = m_archive.addTimeSampling(*shape_time);
 	}
 
@@ -299,10 +299,10 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 	/* Make a list of frames to export. */
 
 	std::set<double> xform_frames;
-	getFrameSet(m_settings.xform_frame_step, xform_frames);
+	getFrameSet(m_settings.frame_step_xform, xform_frames);
 
 	std::set<double> shape_frames;
-	getFrameSet(m_settings.shape_frame_step, shape_frames);
+	getFrameSet(m_settings.frame_step_shape, shape_frames);
 
 	/* Merge all frames needed. */
 

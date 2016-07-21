@@ -473,7 +473,7 @@ void AbcMeshWriter::writeSubD(DerivedMesh *dm)
 	get_creases(dm, crease_indices, crease_lengths, crease_sharpness);
 
 	if (m_first_frame) {
-		/* create materials' facesets */
+		/* create materials' face_sets */
 		writeCommonData(dm, m_subdiv_schema);
 	}
 
