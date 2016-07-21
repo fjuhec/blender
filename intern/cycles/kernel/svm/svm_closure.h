@@ -264,6 +264,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				}
 			}
 
+#  undef sc_next
 #endif // __BSDF_DISNEY_DIFFUSE__
 
 			/* diffuse */
