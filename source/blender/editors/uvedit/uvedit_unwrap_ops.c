@@ -859,7 +859,7 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	PackIslands *pi;
 	SimulatedAnnealing *simann;
 	unsigned int seed = 31415926;
-	float wasted_area, rot_steps;
+	float wasted_area, rot_steps, margin;
 
 	/* Keep for now, needed when making packing work with current selection */
 	/*if (!uvedit_have_selection(scene, em, implicit)) {
@@ -889,7 +889,7 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	simann->rot_steps = RNA_int_get(op->ptr, "rotation_steps");
 	pi->sa = simann;
 
-	param_irregular_pack_begin(pi->handle, &wasted_area, pi->sa->rot_steps /* SA */);
+	param_irregular_pack_begin(pi->handle, &wasted_area, pi->margin, pi->sa->rot_steps /* SA */);
 	pi->wasted_area_last = wasted_area;
 
 	op->customdata = pi;

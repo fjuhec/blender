@@ -231,6 +231,7 @@ typedef struct PChart {
 			PConvexHull *convex_hull; /* ToDo (SaphireS): Only convex for now */
 			PPointUV *best_pos;
 			float area, scale;
+			float sa_params[3]; /* 0 = Theta, 1 = r, 2 = f  according to Rotational placement of irregular polygons over containers with fixed dimensions using simulated annealing and no-fit polygons*/
 		} ipack; 
 	} u;
 
@@ -5037,6 +5038,11 @@ void p_convex_hull_restore_direction(PConvexHull *item)
 	p_convex_hull_compute_edge_components(item);
 }
 
+void p_convex_hull_grow(PConvexHull *chull, float margin)
+{
+
+}
+
 PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 {
 	PNoFitPolygon *nfp = (PNoFitPolygon *)MEM_callocN(sizeof(*nfp), "PNoFitPolygon");
@@ -5227,7 +5233,6 @@ void p_place_chart(PChart* item, PConvexHull *ch_item,  PPointUV *pos)
 
 bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 {
-	/* ToDo SaphireS */
 	PNoFitPolygon **nfps = (PNoFitPolygon **)MEM_callocN(sizeof(PNoFitPolygon *) * phandle->ncharts, "PNoFitPolygons");
 	PConvexHull *ch_item = item->u.ipack.convex_hull;
 	PChart *fixed;
@@ -5405,20 +5410,21 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 				p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
 				p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
 				p_chart_pack_individual(phandle, chart);
+				chart->u.ipack.convex_hull->placed = true;
 			}
 		}
 	}
 
 	/* Un-set placed property of charts so next iteration works as expected */
-	for (i = 0; i < phandle->ncharts; i++) {
+	/*for (i = 0; i < phandle->ncharts; i++) {
 		chart = phandle->charts[i];
 		chart->u.ipack.convex_hull->placed = false;
-	}
+	}*/
 
 	return true;
 }
 
-void param_irregular_pack_begin(ParamHandle *handle, float *w_area, int rot_step)
+void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin, int rot_step)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart;
@@ -5449,9 +5455,19 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, int rot_step
 		/* ToDo: Do this in p_compute_packing_solution */
 		/*p_chart_uv_scale_origin(chart, init_scale); */
 
-		/* Initial random rotation */
+		/* Initial random Simulated Annealing parameters*/
 		randf1 = BLI_rng_get_float(phandle->rng);
-		rot = (int)(randf1 * (float)rot_step) * (2 * M_PI / (float)rot_step);
+		chart->u.ipack.sa_params[0] = randf1; /* theta */
+		printf("-init theta for chart[%i]: %f\n", i, chart->u.ipack.sa_params[0]);
+		randf1 = BLI_rng_get_float(phandle->rng);
+		chart->u.ipack.sa_params[1] = randf1; /* m */
+		printf("-init m for chart[%i]: %f\n", i, chart->u.ipack.sa_params[1]);
+		randf1 = BLI_rng_get_float(phandle->rng);
+		chart->u.ipack.sa_params[2] = randf1; /* f */
+		printf("-init f for chart[%i]: %f\n", i, chart->u.ipack.sa_params[2]);
+
+		/* Initial rotation */
+		rot = (int)(chart->u.ipack.sa_params[0] * (float)rot_step) * (2 * M_PI / (float)rot_step);
 		printf("init rot for chart[%i]: %f\n", i, rot);
 		p_chart_rotate(chart, rot);
 
@@ -5467,38 +5483,47 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, int rot_step
 		/* Compute edge lengths */
 		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
 
-		chart->u.ipack.area = p_chart_uv_area_signed(chart);
+		chart->u.ipack.area = p_chart_uv_area_signed(chart); /* used for sorting */
+
+		/* Apply margin here */
+		p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
 	}
 
 	/* Sort UV islands by area */
 	qsort(phandle->charts, (size_t)phandle->ncharts, sizeof(PChart *), chart_areasort);
 
 	if (p_compute_packing_solution(phandle)) {
-		printf("packing solution found---------------------------------------------\n");
+		printf("Initial packing solution found---------------------------------------------\n");
 	}
 
-	used_area = p_face_uv_area_combined(handle);
+	used_area = p_face_uv_area_combined(handle); 
 
 	/* ToDo(SaphireS): Account for aspect ratio != 1 */
 	*w_area = 1.0f - used_area;
-
-	/* ToDo (SaphireS) */
-
 }
 
 void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int seed)
 {
 	PHandle *phandle = (PHandle *)handle;
+	PChart* chart;
+	float randf1;
+	int rand;
 
 	BLI_rng_seed(phandle->rng, seed);
 
 	param_assert(phandle->state == PHANDLE_STATE_PACK);
 
+	/* packing solution for random part, based on last solution */
+	randf1 = BLI_rng_get_float(phandle->rng);
+	rand = (int)(randf1 * (float)(phandle->ncharts));
+	chart = phandle->charts[rand];
+	chart->u.ipack.convex_hull->placed = false;
+
+	/* Set random SA parameter of chosen chart to new value */
+
 	/* Set initial scale of charts so finding a better solution is possible */
 
-
-	/* packing solution computation */
-
+	/* Find placement for part */
 	if (p_compute_packing_solution(phandle)) {
 		printf("packing solution found---------------------------------------------\n");
 	}
