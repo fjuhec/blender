@@ -918,7 +918,7 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 
 	/* Find neighboring solution */
 	/*ToDo Saphires: Pass SA parameters */
-	param_irregular_pack_iter(pi->handle, &wasted_area, pi->iter_global /* SA */);
+	param_irregular_pack_iter(pi->handle, &wasted_area, pi->iter_global, pi->sa->rot_steps /* SA */);
 
 	/* delta Energy */
 	dE = wasted_area - pi->wasted_area_last;

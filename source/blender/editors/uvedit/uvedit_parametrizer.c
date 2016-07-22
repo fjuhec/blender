@@ -678,6 +678,11 @@ bool p_rect_intersect(float min1[2], float max1[2], float min2[2], float max2[2]
 	return true;
 }
 
+int p_float_to_int_range(float f, int range)
+{
+	return (int)(f * (float)(range));
+}
+
 /* Topological Utilities */
 
 static PEdge *p_wheel_edge_next(PEdge *e)
@@ -5040,7 +5045,7 @@ void p_convex_hull_restore_direction(PConvexHull *item)
 
 void p_convex_hull_grow(PConvexHull *chull, float margin)
 {
-
+	/* ToDo SaphireS */
 }
 
 PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
@@ -5085,21 +5090,6 @@ PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 	return nfp;
 }
 
-PNoFitPolygon *p_collision_free_region_create(PNoFitPolygon **nfps, PNoFitPolygon *ifp)
-{
-	PNoFitPolygon *cfr = (PNoFitPolygon *)MEM_callocN(sizeof(*cfr), "PNoFitPolygon");
-	cfr->nverts = 0;
-	cfr->final_pos = NULL;
-
-	/* ToDo SaphireS */
-
-	/* NFPs Union */
-
-	/*cfr = ifp - U(nfps) */
-
-	return cfr;
-}
-
 bool p_point_inside_nfp(PNoFitPolygon *nfp, float p[2]) 
 {
 	/* raycast to the right of vert, odd number of intersections means inside */
@@ -5139,6 +5129,46 @@ bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2], int 
 
 	printf("--end_pos inside IFP and outside of other NFPs!\n");
 	return true;
+}
+
+PNoFitPolygon *p_collision_free_region_create(PNoFitPolygon **nfps, PNoFitPolygon *ifp, int n_nfps)
+{
+	PNoFitPolygon *cfr = (PNoFitPolygon *)MEM_callocN(sizeof(*cfr), "PCollisionFreeRegion");
+	cfr->nverts = 100;
+	cfr->final_pos = (PVert **)MEM_mallocN(sizeof(PPointUV *) * cfr->nverts, "PNFPPoints");;
+	PPointUV *p;
+	int i, j, k = 0;
+	float pos[2];
+
+	for (i = 0; i <= n_nfps; i++) {
+		if (nfps[i]){
+			for (j = 0; j < nfps[i]->nverts; j++) {
+				p = nfps[i]->final_pos[j];
+				pos[0] = p->x;
+				pos[1] = p->y;
+				if (p_temp_cfr_check(nfps, ifp, pos, n_nfps, i)) {
+					/* Add point to CFR */
+					cfr->final_pos[k] = p;
+					k++;
+					if (k == (cfr->nverts - 1)) {
+						/* realloc */
+						cfr->nverts += 100;
+						cfr->final_pos = MEM_recallocN_id(cfr->final_pos, sizeof(PPointUV *) * cfr->nverts, "PNFPPoints");
+					}
+				}
+			}
+		}
+	}
+
+	/*for (i = k; i < cfr->nverts; i++) {
+		MEM_freeN(cfr->final_pos[i]);
+	} */
+
+	cfr->nverts = k;
+
+	/* ToDo SaphireS: Add intersection points of nfps */
+
+	return cfr;
 }
 
 /* Make sure vert order for item is CCW and for fixed is CW! */
@@ -5234,6 +5264,7 @@ void p_place_chart(PChart* item, PConvexHull *ch_item,  PPointUV *pos)
 bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 {
 	PNoFitPolygon **nfps = (PNoFitPolygon **)MEM_callocN(sizeof(PNoFitPolygon *) * phandle->ncharts, "PNoFitPolygons");
+	PNoFitPolygon *cfr;
 	PConvexHull *ch_item = item->u.ipack.convex_hull;
 	PChart *fixed;
 	float end_pos[2], randf1, randf2;
@@ -5266,10 +5297,11 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	/* compute inner fit polygon (IFP) */
 	printf("IFP construction start!\n");
 	PNoFitPolygon *ifp = p_inner_fit_polygon_create(item_inv);
-	nfps[phandle->ncharts] = ifp;
+	nfps[phandle->ncharts] = ifp; /* ToDo: Remove, made obsolete by cfr computation */
 	printf("IFP construction done!\n");
 
 	/* compute collsion free region (CFR) */
+	cfr = p_collision_free_region_create(nfps, ifp, phandle->ncharts);
 
 	/* Choose placement point */
 	if (init) {
@@ -5281,37 +5313,51 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	}
 	else {
 		while (!found) {
-			cur_iter++;
-			randf1 = BLI_rng_get_float(phandle->rng);
-			/*printf("-randf1 choosen as: %f\n", randf1);*/
-			/* ToDo SaphireS: Add IFP to points being considered until a proper CFR computation is in place */
-			rand1 = (int)(randf1 * (float)(phandle->ncharts + 1));
-			//rand1 = (int)(randf1 * (float)(phandle->ncharts));
+			/* Old method, randomly choosing a point */
+			//cur_iter++;
+			///*randf1 = BLI_rng_get_float(phandle->rng);*/
+			///*printf("-randf1 choosen as: %f\n", randf1);*/
+			///* ToDo SaphireS: Add IFP to points being considered until a proper CFR computation is in place */
+			//rand1 = p_float_to_int_range(item->u.ipack.sa_params[1], phandle->ncharts + 1); 
+			//
+			///* ToDo: Replace with cfr */
+			//if (nfps[rand1]) {
 
-			if (nfps[rand1]) {
+			//	//randf2 = BLI_rng_get_float(phandle->rng);
+			//	/*printf("--randf2 choosen as: %f\n", randf2);*/
+			//	rand2 = p_float_to_int_range(item->u.ipack.sa_params[2], nfps[rand1]->nverts); /* ToDo: Actual point amount in cfr */
 
-				randf2 = BLI_rng_get_float(phandle->rng);
-				/*printf("--randf2 choosen as: %f\n", randf2);*/
-				rand2 = (int)(randf2 * (float)(nfps[rand1]->nverts));
+			//	if (nfps[rand1]->final_pos[rand2]) {
+			//		end_pos[0] = nfps[rand1]->final_pos[rand2]->x;
+			//		end_pos[1] = nfps[rand1]->final_pos[rand2]->y;
+			//		printf("-rand1 choosen as: %i\n", rand1);
+			//		printf("--rand2 choosen as: %i\n", rand2);
+			//		found = p_temp_cfr_check(nfps, ifp, end_pos, phandle->ncharts, rand1);
+			//	}
+			//}
 
-				if (nfps[rand1]->final_pos[rand2]) {
-					end_pos[0] = nfps[rand1]->final_pos[rand2]->x;
-					end_pos[1] = nfps[rand1]->final_pos[rand2]->y;
-					printf("-rand1 choosen as: %i\n", rand1);
-					printf("--rand2 choosen as: %i\n", rand2);
-					found = p_temp_cfr_check(nfps, ifp, end_pos, phandle->ncharts, rand1);
-				}
+			//if (cur_iter >= max_iter) {
+			//	found = false;
+			//	break;
+			//}
+
+			/* New method, cfr */
+			rand1 = p_float_to_int_range(item->u.ipack.sa_params[1], cfr->nverts);
+
+			if (cfr->final_pos[rand1]) {
+				end_pos[0] = cfr->final_pos[rand1]->x;
+				end_pos[1] = cfr->final_pos[rand1]->y;
+				found = true;
 			}
-
-			if (cur_iter >= max_iter) {
-				found = false;
+			else {
+				printf("Error: cfr->final_pos[%i] doesn't exist!\n", rand1);
 				break;
 			}
 		}
 	}
 
 	if (found) {
-		/* Place chart according to rng (simulated annealing) parameters */
+		/* Place chart */
 		p_place_chart(item, item_inv, end_pos);
 
 		/* ToDo SaphireS: Verify placement? */
@@ -5324,6 +5370,7 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	printf("-restoring angles/edges done!\n");
 
 	/* CleanUp, pay attention to also delete IFP which is part of nfps */
+	MEM_freeN(cfr);
 	for (j = 0; j <= phandle->ncharts; j++) {
 		if (nfps[j]) {
 			p_no_fit_polygon_delete(nfps[j]);
@@ -5332,7 +5379,6 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 	MEM_freeN(nfps);
 	printf("-freeing stuff done!\n");
 	p_flush_uvs(phandle, item);  /* ToDo SaphireS: Needs update to work ... */
-
 
 	return found;
 }
@@ -5388,7 +5434,6 @@ bool p_compute_packing_solution(PHandle *phandle /* ToDo SaphireS: Simulated Ann
 
 	/* Set initial overall scale */
 
-	/* Average Islands Scale? Start with box packing then scale up? */
 
 	/* Place UV islands one by one */
 	for (i = 0; i < phandle->ncharts; i++) {
@@ -5502,26 +5547,43 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 	*w_area = 1.0f - used_area;
 }
 
-void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int seed)
+void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int seed, int rot_step)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart* chart;
-	float randf1;
-	int rand;
+	float randf, rot, rand_value, rot_rand, place_rand;
+	int rand_chart, rand_param;
 
 	BLI_rng_seed(phandle->rng, seed);
 
 	param_assert(phandle->state == PHANDLE_STATE_PACK);
 
 	/* packing solution for random part, based on last solution */
-	randf1 = BLI_rng_get_float(phandle->rng);
-	rand = (int)(randf1 * (float)(phandle->ncharts));
-	chart = phandle->charts[rand];
+	randf = BLI_rng_get_float(phandle->rng);
+	rand_chart = p_float_to_int_range(randf, phandle->ncharts);
+	chart = phandle->charts[rand_chart];
 	chart->u.ipack.convex_hull->placed = false;
 
-	/* Set random SA parameter of chosen chart to new value */
-
 	/* Set initial scale of charts so finding a better solution is possible */
+
+	/* Set random SA parameter of chosen chart to new value */
+	randf = BLI_rng_get_float(phandle->rng);
+	rand_param = p_float_to_int_range(randf, 3); /* 0 = theta, 1 = m, 2 = f */
+	rand_value = BLI_rng_get_float(phandle->rng);
+	rand_value -= 0.5f;
+
+	if (rand_param == 0) { 
+		rot_rand = fabsf(remainderf(chart->u.ipack.sa_params[0] + rand_value, 1.0f));
+		printf("SA param rot_rand for chart[%i]: %f\n", rand_chart, rot_rand);
+		rot = (int)(rot_rand * (float)rot_step) * (2 * M_PI / (float)rot_step);
+		printf("SA param rot for chart[%i]: %f\n", rand_chart, rot);
+		p_chart_rotate(chart, rot);
+	}
+	else {
+		place_rand = fabsf(remainderf(chart->u.ipack.sa_params[2] + rand_value, 1.0f));
+		chart->u.ipack.sa_params[2] = place_rand;
+		printf("SA param place_rand for chart[%i]: %f\n", rand_chart, place_rand);
+	}
 
 	/* Find placement for part */
 	if (p_compute_packing_solution(phandle)) {
