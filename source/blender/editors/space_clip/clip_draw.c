@@ -1750,7 +1750,71 @@ void clip_draw_main(const bContext *C, SpaceClip *sc, ARegion *ar)
 
 void clip_draw_secondary_clip(const bContext *C, SpaceClip *sc, ARegion *ar)
 {
+	MovieClip *sclip = ED_space_clip_get_secondary_clip(sc);
+	Scene *scene = CTX_data_scene(C);
+	ImBuf *ibuf = NULL;
+	int width, height;
+	float zoomx, zoomy;
 
+	ED_space_clip_get_size(sc, &width, &height);
+	ED_space_clip_get_zoom(sc, ar, &zoomx, &zoomy);
+
+	/* if no clip, nothing to do */
+	if (!sclip) {
+		ED_region_grid_draw(ar, zoomx, zoomy);
+		return;
+	}
+
+	if (sc->flag & SC_SHOW_STABLE) {
+		float translation[2];
+		float aspect = sclip->tracking.camera.pixel_aspect;
+		float smat[4][4], ismat[4][4];
+
+		if ((sc->flag & SC_MUTE_FOOTAGE) == 0) {
+			ibuf = ED_space_clip_get_stable_buffer(sc, sc->loc,
+			                                       &sc->scale, &sc->angle);
+		}
+
+		if (ibuf != NULL && width != ibuf->x)
+			mul_v2_v2fl(translation, sc->loc, (float)width / ibuf->x);
+		else
+			copy_v2_v2(translation, sc->loc);
+
+		BKE_tracking_stabilization_data_to_mat4(width, height, aspect, translation,
+		                                        sc->scale, sc->angle, sc->stabmat);
+
+		unit_m4(smat);
+		smat[0][0] = 1.0f / width;
+		smat[1][1] = 1.0f / height;
+		invert_m4_m4(ismat, smat);
+
+		mul_m4_series(sc->unistabmat, smat, sc->stabmat, ismat);
+	}
+	else if ((sc->flag & SC_MUTE_FOOTAGE) == 0) {
+		ibuf = ED_space_clip_get_buffer(sc);
+
+		zero_v2(sc->loc);
+		sc->scale = 1.0f;
+		unit_m4(sc->stabmat);
+		unit_m4(sc->unistabmat);
+	}
+
+	if (ibuf) {
+		draw_movieclip_buffer(C, sc, ar, ibuf, width, height, zoomx, zoomy);
+		IMB_freeImBuf(ibuf);
+	}
+	else if (sc->flag & SC_MUTE_FOOTAGE) {
+		draw_movieclip_muted(ar, width, height, zoomx, zoomy);
+	}
+	else {
+		ED_region_grid_draw(ar, zoomx, zoomy);
+	}
+
+	if (width && height) {
+		draw_stabilization_border(sc, ar, width, height, zoomx, zoomy);
+		draw_tracking_tracks(sc, scene, ar, sclip, width, height, zoomx, zoomy);
+		draw_distortion(sc, ar, sclip, width, height, zoomx, zoomy);
+	}
 }
 
 void clip_draw_cache_and_notes(const bContext *C, SpaceClip *sc, ARegion *ar)

@@ -1143,6 +1143,53 @@ static void movieclip_main_area_set_view2d(const bContext *C, ARegion *ar)
 	ar->v2d.cur.ymax /= h;
 }
 
+/* sets up the fields of the View2D from zoom and offset for secondary clip in correspondence mode*/
+static void movieclip_secondary_clip_set_view2d(const bContext *C, ARegion *ar)
+{
+	SpaceClip *sc = CTX_wm_space_clip(C);
+	float x1, y1, w, h, aspx, aspy;
+	int width, height, winx, winy;
+
+	ED_space_clip_get_size(sc, &width, &height);
+	ED_space_clip_get_aspect(sc, &aspx, &aspy);
+
+	w = width * aspx;
+	h = height * aspy;
+
+	winx = BLI_rcti_size_x(&ar->winrct) + 1;
+	winy = BLI_rcti_size_y(&ar->winrct) + 1;
+
+	ar->v2d.tot.xmin = 0;
+	ar->v2d.tot.ymin = 0;
+	ar->v2d.tot.xmax = w;
+	ar->v2d.tot.ymax = h;
+
+	ar->v2d.mask.xmin = ar->v2d.mask.ymin = 0;
+	ar->v2d.mask.xmax = winx;
+	ar->v2d.mask.ymax = winy;
+
+	/* which part of the image space do we see? */
+	x1 = ar->winrct.xmin + (winx - sc->zoom * w) / 2.0f;
+	y1 = ar->winrct.ymin + (winy - sc->zoom * h) / 2.0f;
+
+	x1 -= sc->zoom * sc->xof;
+	y1 -= sc->zoom * sc->yof;
+
+	/* relative display right */
+	ar->v2d.cur.xmin = (ar->winrct.xmin - (float)x1) / sc->zoom;
+	ar->v2d.cur.xmax = ar->v2d.cur.xmin + ((float)winx / sc->zoom);
+
+	/* relative display left */
+	ar->v2d.cur.ymin = (ar->winrct.ymin - (float)y1) / sc->zoom;
+	ar->v2d.cur.ymax = ar->v2d.cur.ymin + ((float)winy / sc->zoom);
+
+	/* normalize 0.0..1.0 */
+	ar->v2d.cur.xmin /= w;
+	ar->v2d.cur.xmax /= w;
+	ar->v2d.cur.ymin /= h;
+	ar->v2d.cur.ymax /= h;
+}
+
 /* add handlers, stuff you only do once or on area/region changes */
 static void clip_main_region_init(wmWindowManager *wm, ARegion *ar)
 {
@@ -1200,10 +1247,6 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 	movieclip_main_area_set_view2d(C, ar);
 
 	clip_draw_main(C, sc, ar);
-	if (sc->mode == SC_MODE_CORRESPONDENCE) {
-		//TODO(tianwei): draw correspondence related code
-		clip_draw_secondary_clip(C, sc, ar);
-	}
 
 	/* TODO(sergey): would be nice to find a way to de-duplicate all this space conversions */
 	UI_view2d_view_to_region_fl(&ar->v2d, 0.0f, 0.0f, &x, &y);
@@ -1246,6 +1289,12 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 	if (sc->flag & SC_SHOW_GPENCIL) {
 		/* Grease Pencil */
 		clip_draw_grease_pencil((bContext *)C, true);
+	}
+
+	/* draw secondary clip in Correspondence mode */
+	if (sc->mode == SC_MODE_CORRESPONDENCE) {
+		//movieclip_secondary_clip_set_view2d(C, ar);
+		clip_draw_secondary_clip(C, sc, ar);
 	}
 
 	/* reset view matrix */
