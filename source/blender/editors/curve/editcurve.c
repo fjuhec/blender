@@ -6749,6 +6749,19 @@ static int get_selected_spline_id(ListBase *nubase)
 	return -1;
 }
 
+static int sel_point_id(Nurb *nu)
+{
+	BezTriple *bezt = nu->bezt;
+	for (int i = 0; i < nu->pntsu; i++) {
+		if (BEZT_ISSEL_ANY(bezt))
+		{
+			return i;
+		}
+		bezt++;
+	}
+	return -1; /* This line should never be reached, but well... warnings*/
+}
+
 typedef struct XShape{
 	struct XShape *next, *prev;
 	float *intersections;
@@ -6800,9 +6813,10 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 		full_coord_array[a * 3 * (nu->resolu) + i] = coord_array[3 * (nu->resolu) + i];
 	}
 
-	int sl_length = 0, result = 0;
-	for (i = 0; i < nu->resolu * (nu->pntsu - 1); i++) {
-		for (j = i + 2; j < nu->resolu * (nu->pntsu - 1); j++) {
+	float sl_length = 0.0;
+	int result = 0;
+	for (i = 0; i < nu->resolu * (nu->pntsu - 1 + nu->flagu); i++) {
+		for (j = i + 2; j < nu->resolu * (nu->pntsu - 1 + nu->flagu); j++) {
 			vi = (float *)MEM_callocN(3 * sizeof(float), "splineXshape4");
 			result = isect_seg_seg_v2_point(&full_coord_array[i * 3], &full_coord_array[(i + 1) * 3],
 											&full_coord_array[j * 3], &full_coord_array[(j + 1) * 3], vi);
@@ -6830,7 +6844,7 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 	sl_length = 0;
 	float l1, l2, l3, l4;
 	l1 = l2 = l3 = l4 = 0;
-	for (i = 0; i < nu->resolu * (nu->pntsu - 1); i++) {
+	for (i = 0; i < nu->resolu * (nu->pntsu - 1 + nu->flagu); i++) {
 		j = 0;
 		for (spline = shape_list.first; spline; spline = spline->next, j++) {
 			k = 0;
@@ -7047,12 +7061,6 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 
 	ListBase *spl_int = spline_X_shape(obedit, spline_id);
 	ListBase *points_id = get_selected_handles(nu, &n_sel_handles);
-
-	LinkData *link;
-	for (link = points_id->first; link; link = link->next)
-	{
-		MEM_freeN(link->data);
-	}
 	BLI_freelistN(points_id);
 	MEM_freeN(points_id);
 
@@ -7061,12 +7069,15 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
+	int point_id = sel_point_id(nu);
 	ListBase *low = (ListBase *)MEM_callocN(sizeof(ListBase), "trim_exec1");;
 	ListBase *high = (ListBase *)MEM_callocN(sizeof(ListBase), "trim_exec2");;
 	XShape *xshape;
 
+	LinkData *link;
+
 	for (xshape = spl_int->first; xshape; xshape = xshape->next) {
-		if (xshape->order < spline_id) {
+		if (xshape->order < point_id) {
 			link = (LinkData *)MEM_callocN(sizeof(LinkData), "trim_exec3");
 			link->data = xshape;
 			BLI_addtail(low, link);
@@ -7117,6 +7128,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		Nurb *new_spl = BKE_nurb_duplicate(nu);
 		// new_spl->bezt = (BezTriple *)MEM_callocN(npoints * sizeof(BezTriple), "trimexec5");
 		new_spl->pntsu = npoints;
+		new_spl->flagu = 0;
 		BezTriple *bezt = new_spl->bezt;
 		for (int i = 0; i < new_spl->pntsu; i++) {
 			BezTriple *old_bezt = nu->bezt;
@@ -7212,7 +7224,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			int low_last_order = 0;
 			Nurb *new_spl = BKE_nurb_duplicate(nu);
 			// new_spl->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order -1) * sizeof(BezTriple), "trimexec5");
-			new_spl->pntsu = low_last_order + 2;
+			new_spl->pntsu = nu->pntsu - high_first_order;
 			BezTriple *bezt = new_spl->bezt;
 			BezTriple *old_bezt = nu->bezt;
 			for (int i = 0; i < new_spl->pntsu; i++) {
