@@ -948,7 +948,7 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 	
 	/* RNA_int_set(op->ptr, "iterations", pi->iter_global); */ /* ToDo SaphireS */
 
-	if (interactive && (PIL_check_seconds_timer() - pi->lasttime > 0.5)) {
+	if (interactive /*&& (PIL_check_seconds_timer() - pi->lasttime > 0.5)*/) {
 		char str[UI_MAX_DRAW_STR];
 
 		param_flush(pi->handle);
