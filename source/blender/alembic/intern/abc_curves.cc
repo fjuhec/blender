@@ -299,6 +299,7 @@ void read_curve_sample(Curve *cu, const ICurvesSchema &schema, const float time)
 			nu->pntsu -= overlap;
 		}
 
+		const bool do_weights = (weights != NULL) && (weights->size() > 1);
 		float weight = 1.0f;
 
 		const bool do_radius = (radiuses != NULL) && (radiuses->size() > 1);
@@ -316,7 +317,7 @@ void read_curve_sample(Curve *cu, const ICurvesSchema &schema, const float time)
 				radius = (*radiuses)[idx];
 			}
 
-			if (weights) {
+			if (do_weights) {
 				weight = (*weights)[idx];
 			}
 
