@@ -138,23 +138,25 @@ void AbcCurveWriter::do_write()
 			}
 		}
 
-		const size_t num_knots = KNOTSU(nurbs);
+		if (nurbs->knotsu != NULL) {
+			const size_t num_knots = KNOTSU(nurbs);
 
-		/* Add an extra knot at the beggining and end of the array since most apps
-		 * require/expect them. */
-		knots.resize(num_knots + 2);
+			/* Add an extra knot at the beggining and end of the array since most apps
+			 * require/expect them. */
+			knots.resize(num_knots + 2);
 
-		for (int i = 0; i < num_knots; ++i) {
-			knots[i + 1] = nurbs->knotsu[i];
-		}
+			for (int i = 0; i < num_knots; ++i) {
+				knots[i + 1] = nurbs->knotsu[i];
+			}
 
-		if ((nurbs->flagu & CU_NURB_CYCLIC) != 0) {
-			knots[0] = nurbs->knotsu[0];
-			knots[num_knots - 1] = nurbs->knotsu[num_knots - 1];
-		}
-		else {
-			knots[0] = (2.0f * nurbs->knotsu[0] - nurbs->knotsu[1]);
-			knots[num_knots - 1] = (2.0f * nurbs->knotsu[num_knots - 1] - nurbs->knotsu[num_knots - 2]);
+			if ((nurbs->flagu & CU_NURB_CYCLIC) != 0) {
+				knots[0] = nurbs->knotsu[0];
+				knots[num_knots - 1] = nurbs->knotsu[num_knots - 1];
+			}
+			else {
+				knots[0] = (2.0f * nurbs->knotsu[0] - nurbs->knotsu[1]);
+				knots[num_knots - 1] = (2.0f * nurbs->knotsu[num_knots - 1] - nurbs->knotsu[num_knots - 2]);
+			}
 		}
 
 		orders.push_back(nurbs->orderu + 1);
