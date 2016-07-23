@@ -140,7 +140,7 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 	uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE);
 
 	row = uiLayoutRow(box, false);
-	uiItemR(row, imfptr, "scale", 0, NULL, ICON_NONE);
+	uiItemR(row, imfptr, "global_scale", 0, NULL, ICON_NONE);
 
 	/* Scene Options */
 	box = uiLayoutBox(layout);
@@ -280,7 +280,7 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 	RNA_def_enum(ot->srna, "compression_type", rna_enum_abc_compression_items,
 	             ABC_ARCHIVE_OGAWA, "Compression", "");
 
-	RNA_def_float(ot->srna, "scale", 1.0f, 0.0001f, 1000.0f, "Scale",
+	RNA_def_float(ot->srna, "global_scale", 1.0f, 0.0001f, 1000.0f, "Scale",
 	              "Value by which to enlarge or shrink the objects with respect to the world's origin",
 	              0.0001f, 1000.0f);
 }
