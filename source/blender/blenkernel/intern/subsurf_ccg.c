@@ -794,14 +794,20 @@ static void ss_sync_osd_from_derivedmesh(CCGSubSurf *ss,
 static void ss_sync_from_derivedmesh(CCGSubSurf *ss,
                                      DerivedMesh *dm,
                                      float (*vertexCos)[3],
-                                     int use_flat_subdiv)
+                                     int use_flat_subdiv,
+                                     bool use_subdiv_uvs)
 {
+#ifndef WITH_OPENSUBDIV
+	UNUSED_VARS(use_subdiv_uvs);
+#endif
+
 #ifdef WITH_OPENSUBDIV
 	/* Reset all related descriptors if actual mesh topology changed or if
 	 * other evaluation-related settings changed.
 	 */
 	if (!ccgSubSurf_needGrids(ss)) {
 		/* TODO(sergey): Use vertex coordinates and flat subdiv flag. */
+		ccgSubSurf__sync_subdivUvs(ss, use_subdiv_uvs);
 		ccgSubSurf_checkTopologyChanged(ss, dm);
 		ss_sync_osd_from_derivedmesh(ss, dm);
 	}
@@ -5029,7 +5035,7 @@ struct DerivedMesh *subsurf_make_derived_from_derived(
 #ifdef WITH_OPENSUBDIV
 		ccgSubSurf_setSkipGrids(smd->emCache, use_gpu_backend);
 #endif
-		ss_sync_from_derivedmesh(smd->emCache, dm, vertCos, useSimple);
+		ss_sync_from_derivedmesh(smd->emCache, dm, vertCos, useSimple, useSubsurfUv);
 		result = getCCGDerivedMesh(smd->emCache,
 		                           drawInteriorEdges,
 		                           useSubsurfUv, dm, use_gpu_backend);
@@ -5044,7 +5050,7 @@ struct DerivedMesh *subsurf_make_derived_from_derived(
 		
 		ss = _getSubSurf(NULL, levels, 3, useSimple | CCG_USE_ARENA | CCG_CALC_NORMALS);
 
-		ss_sync_from_derivedmesh(ss, dm, vertCos, useSimple);
+		ss_sync_from_derivedmesh(ss, dm, vertCos, useSimple, useSubsurfUv);
 
 		result = getCCGDerivedMesh(ss,
 		                           drawInteriorEdges, useSubsurfUv, dm, false);
@@ -5075,7 +5081,7 @@ struct DerivedMesh *subsurf_make_derived_from_derived(
 		if (useIncremental && (flags & SUBSURF_IS_FINAL_CALC)) {
 			smd->mCache = ss = _getSubSurf(smd->mCache, levels, 3, useSimple | useAging | CCG_CALC_NORMALS);
 
-			ss_sync_from_derivedmesh(ss, dm, vertCos, useSimple);
+			ss_sync_from_derivedmesh(ss, dm, vertCos, useSimple, useSubsurfUv);
 
 			result = getCCGDerivedMesh(smd->mCache,
 			                           drawInteriorEdges,
@@ -5115,7 +5121,7 @@ struct DerivedMesh *subsurf_make_derived_from_derived(
 #ifdef WITH_OPENSUBDIV
 			ccgSubSurf_setSkipGrids(ss, use_gpu_backend);
 #endif
-			ss_sync_from_derivedmesh(ss, dm, vertCos, useSimple);
+			ss_sync_from_derivedmesh(ss, dm, vertCos, useSimple, useSubsurfUv);
 
 			result = getCCGDerivedMesh(ss, drawInteriorEdges, useSubsurfUv, dm, use_gpu_backend);
 
@@ -5144,7 +5150,7 @@ void subsurf_calculate_limit_positions(Mesh *me, float (*r_positions)[3])
 	CCGVertIterator vi;
 	DerivedMesh *dm = CDDM_from_mesh(me);
 
-	ss_sync_from_derivedmesh(ss, dm, NULL, 0);
+	ss_sync_from_derivedmesh(ss, dm, NULL, 0, 0);
 
 	for (ccgSubSurf_initVertIterator(ss, &vi); !ccgVertIterator_isStopped(&vi); ccgVertIterator_next(&vi)) {
 		CCGVert *v = ccgVertIterator_getCurrent(&vi);
