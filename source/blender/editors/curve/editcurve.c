@@ -6799,7 +6799,7 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 
 	/* get the full coord_array for nu */
 	float *original_first_coord_array;
-	original_first_coord_array = (float *)MEM_callocN(3 * (nu->resolu + 1) * sizeof(float), "splineXshape7");
+	// original_first_coord_array = (float *)MEM_callocN(3 * (nu->resolu + 1) * sizeof(float), "splineXshape7");
 	original_first_coord_array = ((LinkData *)all_segments->first)->data;
 	for (segment = all_segments->first; segment; segment = segment->next) {
 		coord_array = segment->data;
@@ -7230,7 +7230,6 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		/* first endpoint selected */
 		else if (len_low == 0 && len_high > 0) {
 			int high_first_order = ((XShape *)((LinkData *)high->first)->data)->order;
-			int low_last_order = 0;
 			Nurb *new_spl = BKE_nurb_duplicate(nu);
 			// new_spl->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order -1) * sizeof(BezTriple), "trimexec5");
 			new_spl->pntsu = nu->pntsu - high_first_order;
@@ -7341,11 +7340,15 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	BLI_freelistN(spl_int);
 	MEM_freeN(spl_int);
 
-	for (xshape = low->first; xshape; xshape = xshape->next) {
-		MEM_freeN(xshape->intersections);
+	if (len_low > 0) {
+		BLI_freelistN(low);
+		MEM_freeN(low);
 	}
-	BLI_freelistN(low);
-	MEM_freeN(low);
+	if (len_high > 0) {
+		BLI_freelistN(high);
+		MEM_freeN(high);
+	}
+
 
 	MEM_freeN(s1);
 	MEM_freeN(s2);
