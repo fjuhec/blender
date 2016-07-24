@@ -7051,6 +7051,10 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	get_selected_splines(&selected_splines, nubase, &n_sel_splines, true);
 
 	/* it only makes sense for one spline to be selected */
+	if (n_sel_splines == 0) {
+		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
+		return OPERATOR_CANCELLED;
+	}
 	if (n_sel_splines != 1) {
 		BKE_report(op->reports, RPT_ERROR, "Only one spline may be selected at once");
 		return OPERATOR_CANCELLED;
@@ -7070,6 +7074,11 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	}
 
 	int point_id = sel_point_id(nu);
+	if (point_id == -1)
+	{
+		BKE_report(op->reports, RPT_ERROR, "Something went terribly wrong! Report this bug and assign it to genio84");
+		return OPERATOR_CANCELLED;
+	}
 	ListBase *low = (ListBase *)MEM_callocN(sizeof(ListBase), "trim_exec1");;
 	ListBase *high = (ListBase *)MEM_callocN(sizeof(ListBase), "trim_exec2");;
 	XShape *xshape;
@@ -7361,6 +7370,136 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 	ot->exec = trim_curve_exec;
 	ot->poll = ED_operator_editsurfcurve;
 
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/******************** Offset curve operator ********************/
+
+static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, float *r_v2)
+{
+	int i = 0, dims = 3;
+	float *coord_array, *vx, *vy, *helper;
+	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "get_offset_vecs1");
+	vx = MEM_callocN(dims * sizeof(float), "get_offset_vecs2");
+	vy = MEM_callocN(dims * sizeof(float), "get_offset_vecs3");
+	helper = MEM_callocN(dims * sizeof(float), "get_offset_vecs4");
+	for (int j = 0; j < dims; j++)
+	{
+		BKE_curve_forward_diff_bezier(bezt1->vec[1][j],
+									  bezt1->vec[2][j],
+									  bezt2->vec[0][j],
+									  bezt2->vec[1][j],
+									  coord_array + j, 12, sizeof(float) * dims);
+	}
+
+	sub_v3_v3v3(vx, coord_array + 3, coord_array);
+	sub_v3_v3v3(vy, coord_array + 3 * 12, coord_array + 3 * 11);
+
+	float plane_a_co[3], plane_a_no[3], plane_b_co[3], plane_b_no[3];
+	float plane_a[4], plane_b[4];
+	float isect_co[3];
+	float isect_no[3];
+	sub_v3_v3v3(helper, bezt1->vec[2], bezt1->vec[1]);
+	cross_v3_v3v3(plane_b_no, helper, vx);
+	plane_from_point_normal_v3(plane_a, bezt1->vec[1], vx);
+	plane_from_point_normal_v3(plane_b, bezt1->vec[1], plane_b_no);
+
+	if (isect_plane_plane_v3(plane_a, plane_b,
+							 isect_co, isect_no))
+	{
+		normalize_v3(isect_no);
+		copy_v3_v3(r_v1, isect_no);
+	}
+
+	sub_v3_v3v3(helper, bezt2->vec[1], bezt2->vec[0]);
+	cross_v3_v3v3(plane_b_no, vy, helper);
+	mul_v3_fl(plane_b_no, -1);
+	plane_from_point_normal_v3(plane_a, bezt2->vec[1], vy);
+	plane_from_point_normal_v3(plane_b, bezt2->vec[1], plane_b_no);
+
+	if (isect_plane_plane_v3(plane_a, plane_b,
+							 isect_co, isect_no))
+	{
+		normalize_v3(isect_no);
+		copy_v3_v3(r_v2, isect_no);
+	}
+
+	MEM_freeN(coord_array);
+	MEM_freeN(vx);
+	MEM_freeN(vy);
+	MEM_freeN(helper);
+}
+
+/*def get_offset_vecs(bezt1, bezt2):
+    bezier = interpolate_bezier(bezt1.co,
+                                bezt1.handle_right,
+                                bezt2.handle_left,
+                                bezt2.co, 13)
+    vx = bezier[1] - bezier[0]
+    vy = bezier[-1] - bezier[-2]
+    
+    v1 = intersect_plane_plane(bezt1.co,
+                               vx,
+                               bezt1.co,
+                               (bezt1.handle_right - bezt1.co).cross(vx))
+    v2 = intersect_plane_plane(bezt2.co,
+                               vy,
+                               bezt2.co,
+                               -(bezt2.handle_left - bezt2.co).cross(vy))
+                               
+    return v1, v2*/
+
+static int offset_curve_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	ListBase *nubase = object_editcurve_get(obedit);
+	Nurb *nu, *new_nu;
+	BezTriple *bezt, *new_bezt;
+
+	/* get selected spline */
+	int spline_id = get_selected_spline_id(nubase);
+	nu = BLI_findlink(nubase, spline_id);
+	bezt = nu->bezt;
+	new_nu = BKE_nurb_duplicate(nu);
+	new_bezt = new_nu->bezt;
+
+	float *v1, *v2;
+	v1 = MEM_callocN(3 * sizeof(float), "offset_curve_exec1");
+	v2 = MEM_callocN(3 * sizeof(float), "offset_curve_exec2");
+	for (int i = 0; i < nu->pntsu - 1; i++)
+	{
+		add_v3_v3(new_bezt->vec[1], v2);
+		add_v3_v3(new_bezt->vec[2], v2);
+		get_offset_vecs(bezt, bezt + 1, v1, v2);
+		add_v3_v3(new_bezt->vec[1], v1);
+		add_v3_v3(new_bezt->vec[2], v1);
+		bezt++;
+		new_bezt++;
+	}
+	MEM_freeN(v1);
+	MEM_freeN(v2);
+
+	BLI_addtail(nubase, new_nu);
+
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+	DAG_id_tag_update(obedit->data, 0);
+
+	return OPERATOR_FINISHED;
+}
+
+void CURVE_OT_offset_curve(wmOperatorType *ot)
+{
+
+	/* identifiers */
+	ot->name = "Offset";
+	ot->description = "Offset selected spline";
+	ot->idname = "CURVE_OT_offset_curve";
+
+	/* api callbacks */
+	ot->exec = offset_curve_exec;
+	ot->poll = ED_operator_editsurfcurve;
+	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
