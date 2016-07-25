@@ -680,9 +680,21 @@ bool p_rect_intersect(float min1[2], float max1[2], float min2[2], float max2[2]
 	return true;
 }
 
+/* Returns the interval of range in which f falls in */
 int p_float_to_int_range(float f, int range)
 {
 	return (int)(f * (float)(range));
+}
+
+/* Returns the interval of range in which f falls in */
+/* re contains the remainder of f, linearized to 0-1 range */
+int p_float_to_int_range_remainder(float f, int range, float *re)
+{
+	int val = p_float_to_int_range(f, range);
+	float section = 1.0f / (float)range;
+	*re = (f - (((float)val) * section)) / section;
+	
+	return val;
 }
 
 /* Topological Utilities */
@@ -5297,7 +5309,7 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 #endif
 	PConvexHull *ch_item = item->u.ipack.convex_hull;
 	PChart *fixed;
-	float end_pos[2], randf1, randf2;
+	float end_pos[2], delta_edge[2], randf1, randf2, r = 0.0f;
 	int i, j, cur_iter = 0, max_iter = 100;
 	unsigned int rand1, rand2;
 	bool found = false, init = true;
@@ -5358,13 +5370,24 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item)
 				randf2 = BLI_rng_get_float(phandle->rng);
 				/*printf("--randf2 choosen as: %f\n", randf2);*/
 				//rand2 = p_float_to_int_range(item->u.ipack.sa_params[2], nfps[rand1]->nverts); /* ToDo: Actual point amount in cfr */
-				rand2 = p_float_to_int_range(randf2, nfps[rand1]->nverts); 
+				//rand2 = p_float_to_int_range(randf2, nfps[rand1]->nverts); 
+				r = 0.0f;
+				rand2 = p_float_to_int_range_remainder(randf2, nfps[rand1]->nverts, &r);
 
 				if (nfps[rand1]->final_pos[rand2]) {
-					end_pos[0] = nfps[rand1]->final_pos[rand2]->x;
-					end_pos[1] = nfps[rand1]->final_pos[rand2]->y;
-					printf("-rand1 choosen as: %i\n", rand1);
-					printf("--rand2 choosen as: %i\n", rand2);
+					/* Account for sliding along edges here to cover all possible placements */
+					if(rand2 == (nfps[rand1]->nverts - 1)){
+						delta_edge[0] = nfps[rand1]->final_pos[0]->x - nfps[rand1]->final_pos[rand2]->x;
+						delta_edge[1] = nfps[rand1]->final_pos[0]->y - nfps[rand1]->final_pos[rand2]->y;
+					}
+					else {
+						delta_edge[0] = nfps[rand1]->final_pos[rand2 + 1]->x - nfps[rand1]->final_pos[rand2]->x;
+						delta_edge[1] = nfps[rand1]->final_pos[rand2 + 1]->y - nfps[rand1]->final_pos[rand2]->y;
+					}
+
+					end_pos[0] = nfps[rand1]->final_pos[rand2]->x + delta_edge[0] * r;
+					end_pos[1] = nfps[rand1]->final_pos[rand2]->y + delta_edge[1] * r;
+
 					found = p_temp_cfr_check(nfps, ifp, end_pos, phandle->ncharts, rand1);
 				}
 			}
