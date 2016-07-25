@@ -456,47 +456,20 @@ Image *BKE_image_copy(Main *bmain, Image *ima)
 
 	copy_image_packedfiles(&nima->packedfiles, &ima->packedfiles);
 
-	nima->stereo3d_format = MEM_dupallocN(ima->stereo3d_format);
+	/* nima->stere3d_format is already allocated by image_alloc... */
+	*nima->stereo3d_format = *ima->stereo3d_format;
 	BLI_duplicatelist(&nima->views, &ima->views);
 
 	BKE_previewimg_id_copy(&nima->id, &ima->id);
 
-	if (ID_IS_LINKED_DATABLOCK(ima)) {
-		BKE_id_expand_local(&nima->id);
-		BKE_id_lib_local_paths(bmain, ima->id.lib, &nima->id);
-	}
+	BKE_id_copy_ensure_local(bmain, &ima->id, &nima->id);
 
 	return nima;
 }
 
-void BKE_image_make_local(Main *bmain, Image *ima, const bool force_local)
+void BKE_image_make_local(Main *bmain, Image *ima, const bool lib_local)
 {
-	bool is_local = false, is_lib = false;
-
-	/* - only lib users: do nothing (unless force_local is set)
-	 * - only local users: set flag
-	 * - mixed: make copy
-	 */
-
-	if (!ID_IS_LINKED_DATABLOCK(ima)) {
-		return;
-	}
-
-	BKE_library_ID_test_usages(bmain, ima, &is_local, &is_lib);
-
-	if (force_local || is_local) {
-		if (!is_lib) {
-			id_clear_lib_data(bmain, &ima->id);
-			BKE_id_expand_local(&ima->id);
-		}
-		else {
-			Image *ima_new = BKE_image_copy(bmain, ima);
-
-			ima_new->id.us = 0;
-
-			BKE_libblock_remap(bmain, ima, ima_new, ID_REMAP_SKIP_INDIRECT_USAGE);
-		}
-	}
+	BKE_id_make_local_generic(bmain, &ima->id, true, lib_local);
 }
 
 void BKE_image_merge(Image *dest, Image *source)
