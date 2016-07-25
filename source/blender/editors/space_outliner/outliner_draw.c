@@ -1568,7 +1568,7 @@ static void outliner_draw_tree_element(
 		else
 			offsx += 2 * ufac;
 		
-		if (tselem->type == 0 && ID_IS_LINKED_DATABLOCK(tselem->id)) {
+		if (tselem->type == 0 && ID_IS_LINKED(tselem->id)) {
 			glPixelTransferf(GL_ALPHA_SCALE, 0.5f);
 			if (tselem->id->tag & LIB_TAG_MISSING) {
 				UI_icon_draw((float)startx + offsx, (float)*starty + 2 * ufac, ICON_LIBRARY_DATA_BROKEN);
@@ -1579,8 +1579,6 @@ static void outliner_draw_tree_element(
 			else {
 				UI_icon_draw((float)startx + offsx, (float)*starty + 2 * ufac, ICON_LIBRARY_DATA_DIRECT);
 			}
-			/* TODO use proper icons or other UI feedback, for sake of simplicity for now using basic
-			 *      color code to show assets and their state. */
 			if (tselem->id->uuid) {
 				offsx += UI_UNIT_X;
 				UI_icon_draw((float)startx + offsx - 0.5f * ufac, (float)*starty + 1.5f * ufac, ICON_SOLO_ON);

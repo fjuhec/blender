@@ -47,7 +47,7 @@
 #include "IMB_imbuf.h"
 #include "IMB_moviecache.h"
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_blender.h"  /* own include */
 #include "BKE_blender_version.h"  /* own include */
 #include "BKE_blendfile.h"

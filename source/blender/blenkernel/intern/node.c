@@ -1211,7 +1211,6 @@ static bNodeTree *ntreeCopyTree_internal(bNodeTree *ntree, Main *bmain, bool ski
 	}
 	else {
 		newtree = BKE_libblock_copy_nolib(&ntree->id, true);
-		newtree->id.lib = NULL;	/* same as owning datablock id.lib */
 	}
 
 	id_us_plus((ID *)newtree->gpd);
@@ -1291,10 +1290,7 @@ static bNodeTree *ntreeCopyTree_internal(bNodeTree *ntree, Main *bmain, bool ski
 	/* node tree will generate its own interface type */
 	newtree->interface_type = NULL;
 	
-	if (ID_IS_LINKED_DATABLOCK(ntree)) {
-		BKE_id_expand_local(&newtree->id);
-		BKE_id_lib_local_paths(bmain, ntree->id.lib, &newtree->id);
-	}
+	BKE_id_copy_ensure_local(bmain, &ntree->id, &newtree->id);
 
 	return newtree;
 }
@@ -1951,34 +1947,9 @@ bNodeTree *ntreeFromID(ID *id)
 	}
 }
 
-void ntreeMakeLocal(Main *bmain, bNodeTree *ntree, bool id_in_mainlist)
+void ntreeMakeLocal(Main *bmain, bNodeTree *ntree, bool id_in_mainlist, const bool lib_local)
 {
-	bool is_lib = false, is_local = false;
-	
-	/* - only lib users: do nothing
-	 * - only local users: set flag
-	 * - mixed: make copy
-	 */
-
-	if (!ID_IS_LINKED_DATABLOCK(ntree)) {
-		return;
-	}
-
-	BKE_library_ID_test_usages(bmain, ntree, &is_local, &is_lib);
-
-	if (is_local) {
-		if (!is_lib) {
-			id_clear_lib_data_ex(bmain, (ID *)ntree, id_in_mainlist);
-			BKE_id_expand_local(&ntree->id);
-		}
-		else {
-			bNodeTree *ntree_new = ntreeCopyTree(bmain, ntree);
-
-			ntree_new->id.us = 0;
-
-			BKE_libblock_remap(bmain, ntree, ntree_new, ID_REMAP_SKIP_INDIRECT_USAGE);
-		}
-	}
+	BKE_id_make_local_generic(bmain, &ntree->id, id_in_mainlist, lib_local);
 }
 
 int ntreeNodeExists(bNodeTree *ntree, bNode *testnode)
@@ -2681,7 +2652,7 @@ void BKE_node_clipboard_add_node(bNode *node)
 	node_info->id = node->id;
 	if (node->id) {
 		BLI_strncpy(node_info->id_name, node->id->name, sizeof(node_info->id_name));
-		if (ID_IS_LINKED_DATABLOCK(node->id)) {
+		if (ID_IS_LINKED_DATABLOCK(node->id)) {  /* Don't want virtual libraries here... */
 			BLI_strncpy(node_info->library_name, node->id->lib->filepath, sizeof(node_info->library_name));
 		}
 		else {

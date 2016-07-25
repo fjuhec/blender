@@ -197,10 +197,7 @@ Brush *BKE_brush_copy(Main *bmain, Brush *brush)
 	/* enable fake user by default */
 	id_fake_user_set(&brush->id);
 
-	if (ID_IS_LINKED_DATABLOCK(brush)) {
-		BKE_id_expand_local(&brushn->id);
-		BKE_id_lib_local_paths(bmain, brush->id.lib, &brushn->id);
-	}
+	BKE_id_copy_ensure_local(bmain, &brush->id, &brushn->id);
 
 	return brushn;
 }
@@ -219,27 +216,27 @@ void BKE_brush_free(Brush *brush)
 	BKE_previewimg_free(&(brush->preview));
 }
 
-void BKE_brush_make_local(Main *bmain, Brush *brush)
+void BKE_brush_make_local(Main *bmain, Brush *brush, const bool lib_local)
 {
 	bool is_local = false, is_lib = false;
 
-	/* - only lib users: do nothing
+	/* - only lib users: do nothing (unless force_local is set)
 	 * - only local users: set flag
 	 * - mixed: make copy
 	 */
 
-	if (!ID_IS_LINKED_DATABLOCK(brush)) {
+	if (!ID_IS_LINKED(brush)) {
 		return;
 	}
 
 	if (brush->clone.image) {
 		/* Special case: ima always local immediately. Clone image should only have one user anyway. */
-		id_make_local(bmain, &brush->clone.image->id, false);
+		id_make_local(bmain, &brush->clone.image->id, false, false);
 	}
 
 	BKE_library_ID_test_usages(bmain, brush, &is_local, &is_lib);
 
-	if (is_local) {
+	if (lib_local || is_local) {
 		if (!is_lib) {
 			id_clear_lib_data(bmain, &brush->id);
 			BKE_id_expand_local(&brush->id);
@@ -252,7 +249,9 @@ void BKE_brush_make_local(Main *bmain, Brush *brush)
 
 			brush_new->id.us = 0;
 
-			BKE_libblock_remap(bmain, brush, brush_new, ID_REMAP_SKIP_INDIRECT_USAGE);
+			if (!lib_local) {
+				BKE_libblock_remap(bmain, brush, brush_new, ID_REMAP_SKIP_INDIRECT_USAGE);
+			}
 		}
 	}
 }

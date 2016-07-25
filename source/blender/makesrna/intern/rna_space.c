@@ -35,7 +35,7 @@
 #include "RNA_define.h"
 
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_movieclip.h"
@@ -253,7 +253,7 @@ EnumPropertyItem rna_enum_file_sort_items[] = {
 #include "BLI_math.h"
 
 #include "BKE_animsys.h"
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_brush.h"
 #include "BKE_colortools.h"
 #include "BKE_context.h"
@@ -3661,7 +3661,7 @@ static void rna_def_space_nla(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "show_local_markers", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", SNLA_NOLOCALMARKERS);
 	RNA_def_property_ui_text(prop, "Show Local Markers",
-	                         "Show action-local markers on the strips, useful when synchronising timing across strips");
+	                         "Show action-local markers on the strips, useful when synchronizing timing across strips");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_NLA, NULL);
 	
 	/* editing */

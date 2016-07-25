@@ -354,7 +354,10 @@ typedef struct PreviewImage {
 
 #define ID_MISSING(_id) (((_id)->tag & LIB_TAG_MISSING) != 0)
 
-#define ID_IS_LINKED_DATABLOCK(_id) (((ID *)(_id))->lib != NULL)
+#define ID_IS_LINKED(_id) (((ID *)(_id))->lib != NULL)
+#define LIB_IS_VIRTUAL(_lib) (((_lib)->flag & LIBRARY_FLAG_VIRTUAL) != 0)
+#define ID_IS_LINKED_DATABLOCK(_id) (ID_IS_LINKED(_id) && !LIB_IS_VIRTUAL(((ID *)(_id))->lib))
+#define ID_IS_LINKED_DATAPATH(_id) (ID_IS_LINKED(_id) && LIB_IS_VIRTUAL(((ID *)(_id))->lib))
 
 #ifdef GS
 #  undef GS

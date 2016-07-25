@@ -35,7 +35,7 @@
 
 #include "rna_internal.h"
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_idprop.h"
 
 #include "WM_types.h"
@@ -46,7 +46,6 @@
 
 #include "RNA_access.h"
 
-#include "BKE_asset.h"
 #include "BKE_context.h"
 #include "BKE_report.h"
 

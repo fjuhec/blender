@@ -76,12 +76,10 @@
 #include "BLT_translation.h"
 
 #include "RNA_access.h"
-#include "RNA_types.h"
 
 #include "BKE_action.h"
 #include "BKE_animsys.h"
 #include "BKE_armature.h"
-#include "BKE_asset.h"
 #include "BKE_bpath.h"
 #include "BKE_brush.h"
 #include "BKE_camera.h"
@@ -100,6 +98,7 @@
 #include "BKE_lattice.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
+#include "BKE_library_remap.h"
 #include "BKE_linestyle.h"
 #include "BKE_mesh.h"
 #include "BKE_material.h"
@@ -110,6 +109,7 @@
 #include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_packedFile.h"
+#include "BKE_sound.h"
 #include "BKE_speaker.h"
 #include "BKE_scene.h"
 #include "BKE_text.h"
@@ -134,6 +134,10 @@
  * also note that the id _must_ have a library - campbell */
 void BKE_id_lib_local_paths(Main *bmain, Library *lib, ID *id)
 {
+	if (lib->flag & LIBRARY_FLAG_VIRTUAL) {
+		return;
+	}
+
 	const char *bpath_user_data[2] = {bmain->name, lib->filepath};
 
 	BKE_bpath_traverse_id(bmain, id,
@@ -144,7 +148,7 @@ void BKE_id_lib_local_paths(Main *bmain, Library *lib, ID *id)
 
 void id_lib_extern(ID *id)
 {
-	if (id && ID_IS_LINKED_DATABLOCK(id)) {
+	if (id && ID_IS_LINKED(id)) {
 		BLI_assert(BKE_idcode_is_linkable(GS(id->name)));
 		if (id->tag & LIB_TAG_INDIRECT) {
 			id->tag -= LIB_TAG_INDIRECT;
@@ -271,90 +275,158 @@ void BKE_id_expand_local(ID *id)
 	BKE_library_foreach_ID_link(id, id_expand_local_callback, NULL, 0);
 }
 
-/* calls the appropriate make_local method for the block, unless test. Returns true
- * if the block can be made local. */
-bool id_make_local(Main *bmain, ID *id, bool test)
+/**
+ * Ensure new (copied) ID is fully made local.
+ */
+void BKE_id_copy_ensure_local(Main *bmain, ID *old_id, ID *new_id)
+{
+	if (ID_IS_LINKED(old_id)) {
+		BKE_id_expand_local(new_id);
+		BKE_id_lib_local_paths(bmain, old_id->lib, new_id);
+	}
+}
+
+/**
+ * Generic 'make local' function, works for most of datablock types...
+ */
+void BKE_id_make_local_generic(Main *bmain, ID *id, const bool id_in_mainlist, const bool lib_local)
+{
+	bool is_local = false, is_lib = false;
+
+	/* - only lib users: do nothing (unless force_local is set)
+	 * - only local users: set flag
+	 * - mixed: make copy
+	 * In case we make a whole lib's content local, we always want to localize, and we skip remapping (done later).
+	 */
+
+	if (!ID_IS_LINKED(id)) {
+		return;
+	}
+
+	BKE_library_ID_test_usages(bmain, id, &is_local, &is_lib);
+
+	if (lib_local || is_local) {
+		if (!is_lib) {
+			id_clear_lib_data_ex(bmain, id, id_in_mainlist);
+			BKE_id_expand_local(id);
+		}
+		else {
+			ID *id_new;
+
+			/* Should not fail in expected usecases, but id_copy does not copy Scene e.g. */
+			if (id_copy(bmain, id, &id_new, false)) {
+				id_new->us = 0;
+
+				if (!lib_local) {
+					BKE_libblock_remap(bmain, id, id_new, ID_REMAP_SKIP_INDIRECT_USAGE);
+				}
+			}
+		}
+	}
+
+}
+
+/**
+ * Calls the appropriate make_local method for the block, unless test is set.
+ *
+ * \param lib_local Special flag used when making a whole library's content local, it needs specific handling.
+ *
+ * \return true if the block can be made local.
+ */
+bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 {
 	if (id->tag & LIB_TAG_INDIRECT)
 		return false;
 
 	switch (GS(id->name)) {
 		case ID_SCE:
-			return false; /* not implemented */
+			/* Partially implemented (has no copy...). */
+			if (!test) BKE_scene_make_local(bmain, (Scene *)id, lib_local);
+			return true;
 		case ID_LI:
 			return false; /* can't be linked */
 		case ID_OB:
-			if (!test) BKE_object_make_local(bmain, (Object *)id);
+			if (!test) BKE_object_make_local(bmain, (Object *)id, lib_local);
 			return true;
 		case ID_ME:
-			if (!test) BKE_mesh_make_local(bmain, (Mesh *)id);
+			if (!test) BKE_mesh_make_local(bmain, (Mesh *)id, lib_local);
 			return true;
 		case ID_CU:
-			if (!test) BKE_curve_make_local(bmain, (Curve *)id);
+			if (!test) BKE_curve_make_local(bmain, (Curve *)id, lib_local);
 			return true;
 		case ID_MB:
-			if (!test) BKE_mball_make_local(bmain, (MetaBall *)id);
+			if (!test) BKE_mball_make_local(bmain, (MetaBall *)id, lib_local);
 			return true;
 		case ID_MA:
-			if (!test) BKE_material_make_local(bmain, (Material *)id);
+			if (!test) BKE_material_make_local(bmain, (Material *)id, lib_local);
 			return true;
 		case ID_TE:
-			if (!test) BKE_texture_make_local(bmain, (Tex *)id);
+			if (!test) BKE_texture_make_local(bmain, (Tex *)id, lib_local);
 			return true;
 		case ID_IM:
-			if (!test) BKE_image_make_local(bmain, (Image *)id);
+			if (!test) BKE_image_make_local(bmain, (Image *)id, lib_local);
 			return true;
 		case ID_LT:
-			if (!test) BKE_lattice_make_local(bmain, (Lattice *)id);
+			if (!test) BKE_lattice_make_local(bmain, (Lattice *)id, lib_local);
 			return true;
 		case ID_LA:
-			if (!test) BKE_lamp_make_local(bmain, (Lamp *)id);
+			if (!test) BKE_lamp_make_local(bmain, (Lamp *)id, lib_local);
 			return true;
 		case ID_CA:
-			if (!test) BKE_camera_make_local(bmain, (Camera *)id);
+			if (!test) BKE_camera_make_local(bmain, (Camera *)id, lib_local);
 			return true;
 		case ID_SPK:
-			if (!test) BKE_speaker_make_local(bmain, (Speaker *)id);
+			if (!test) BKE_speaker_make_local(bmain, (Speaker *)id, lib_local);
 			return true;
 		case ID_IP:
 			return false; /* deprecated */
 		case ID_KE:
-			if (!test) BKE_key_make_local(bmain, (Key *)id);
-			return true;
+			return false; /* can't be linked */
 		case ID_WO:
-			if (!test) BKE_world_make_local(bmain, (World *)id);
+			if (!test) BKE_world_make_local(bmain, (World *)id, lib_local);
 			return true;
 		case ID_SCR:
 			return false; /* can't be linked */
 		case ID_VF:
-			return false; /* not implemented */
+			/* Partially implemented (has no copy...). */
+			if (!test) BKE_vfont_make_local(bmain, (VFont *)id, lib_local);
+			return true;
 		case ID_TXT:
-			return false; /* not implemented */
+			if (!test) BKE_text_make_local(bmain, (Text *)id, lib_local);
+			return true;
 		case ID_SO:
-			return false; /* not implemented */
+			/* Partially implemented (has no copy...). */
+			if (!test) BKE_sound_make_local(bmain, (bSound *)id, lib_local);
+			return true;
 		case ID_GR:
-			return false; /* not implemented */
+			if (!test) BKE_group_make_local(bmain, (Group *)id, lib_local);
+			return true;
 		case ID_AR:
-			if (!test) BKE_armature_make_local(bmain, (bArmature *)id);
+			if (!test) BKE_armature_make_local(bmain, (bArmature *)id, lib_local);
 			return true;
 		case ID_AC:
-			if (!test) BKE_action_make_local(bmain, (bAction *)id);
+			if (!test) BKE_action_make_local(bmain, (bAction *)id, lib_local);
 			return true;
 		case ID_NT:
-			if (!test) ntreeMakeLocal(bmain, (bNodeTree *)id, true);
+			if (!test) ntreeMakeLocal(bmain, (bNodeTree *)id, true, lib_local);
 			return true;
 		case ID_BR:
-			if (!test) BKE_brush_make_local(bmain, (Brush *)id);
+			if (!test) BKE_brush_make_local(bmain, (Brush *)id, lib_local);
 			return true;
 		case ID_PA:
-			if (!test) BKE_particlesettings_make_local(bmain, (ParticleSettings *)id);
+			if (!test) BKE_particlesettings_make_local(bmain, (ParticleSettings *)id, lib_local);
 			return true;
 		case ID_WM:
 			return false; /* can't be linked */
 		case ID_GD:
-			return false; /* not implemented */
+			if (!test) BKE_gpencil_make_local(bmain, (bGPdata *)id, lib_local);
+			return true;
+		case ID_MSK:
+			if (!test) BKE_mask_make_local(bmain, (Mask *)id, lib_local);
+			return true;
 		case ID_LS:
-			return false; /* not implemented */
+			if (!test) BKE_linestyle_make_local(bmain, (FreestyleLineStyle *)id, lib_local);
+			return true;
 	}
 
 	return false;
@@ -643,7 +715,7 @@ void BKE_main_lib_objects_recalc_all(Main *bmain)
 
 	/* flag for full recalc */
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-		if (ID_IS_LINKED_DATABLOCK(ob)) {
+		if (ID_IS_LINKED(ob)) {
 			DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 		}
 	}
@@ -1069,7 +1141,7 @@ static int id_relink_looper(void *UNUSED(user_data), ID *UNUSED(self_id), ID **i
 
 void BKE_libblock_relink(ID *id)
 {
-	if (ID_IS_LINKED_DATABLOCK(id))
+	if (ID_IS_LINKED(id))
 		return;
 
 	BKE_library_foreach_ID_link(id, id_relink_looper, NULL, 0);
@@ -1285,7 +1357,7 @@ static ID *is_dupid(ListBase *lb, ID *id, const char *name)
 	
 	for (idtest = lb->first; idtest; idtest = idtest->next) {
 		/* if idtest is not a lib */ 
-		if (id != idtest && !ID_IS_LINKED_DATABLOCK(idtest)) {
+		if (id != idtest && !ID_IS_LINKED_DATABLOCK(idtest)) {  /* Virtual lib IDs are considered as local ones here. */
 			/* do not test alphabetic! */
 			/* optimized */
 			if (idtest->name[2] == name[0]) {
@@ -1426,7 +1498,7 @@ bool new_id(ListBase *lb, ID *id, const char *tname)
 	bool result;
 	char name[MAX_ID_NAME - 2];
 
-	/* if library, don't rename */
+	/* if real library, don't rename */
 	if (ID_IS_LINKED_DATABLOCK(id))
 		return false;
 
@@ -1472,9 +1544,10 @@ bool new_id(ListBase *lb, ID *id, const char *tname)
  * Pull an ID out of a library (make it local). Only call this for IDs that
  * don't have other library users.
  */
-void id_clear_lib_data_ex(Main *bmain, ID *id, bool id_in_mainlist)
+void id_clear_lib_data_ex(Main *bmain, ID *id, const bool id_in_mainlist)
 {
 	bNodeTree *ntree = NULL;
+	Key *key = NULL;
 
 	BKE_id_lib_local_paths(bmain, id->lib, id);
 
@@ -1485,13 +1558,14 @@ void id_clear_lib_data_ex(Main *bmain, ID *id, bool id_in_mainlist)
 	if (id_in_mainlist)
 		new_id(which_libbase(bmain, GS(id->name)), id, NULL);
 
-	/* internal bNodeTree blocks inside ID types below
-	 * also stores id->lib, make sure this stays in sync.
-	 */
-	ntree = ntreeFromID(id);
+	/* Internal bNodeTree blocks inside datablocks also stores id->lib, make sure this stays in sync. */
+	if ((ntree = ntreeFromID(id))) {
+		id_clear_lib_data_ex(bmain, &ntree->id, false);  /* Datablocks' nodetree is never in Main. */
+	}
 
-	if (ntree) {
-		ntreeMakeLocal(bmain, ntree, false);
+	/* Same goes for shapekeys. */
+	if ((key = BKE_key_from_id(id))) {
+		id_clear_lib_data_ex(bmain, &key->id, id_in_mainlist);  /* sigh, why are keys in Main? */
 	}
 
 	if (GS(id->name) == ID_OB) {
@@ -1527,53 +1601,6 @@ void BKE_main_id_clear_newpoins(Main *bmain)
 	}
 }
 
-static void lib_indirect_test_id(ID *id, const Library *lib)
-{
-#define LIBTAG(a) \
-	if (a && a->id.lib) { a->id.tag &= ~LIB_TAG_INDIRECT; a->id.tag |= LIB_TAG_EXTERN; } (void)0
-	
-	if (ID_IS_LINKED_DATABLOCK(id)) {
-		/* datablocks that were indirectly related are now direct links
-		 * without this, appending data that has a link to other data will fail to write */
-		if (lib && id->lib->parent == lib) {
-			id_lib_extern(id);
-		}
-		return;
-	}
-	
-	if (GS(id->name) == ID_OB) {
-		Object *ob = (Object *)id;
-		Mesh *me;
-
-		int a;
-
-#if 0   /* XXX OLD ANIMSYS, NLASTRIPS ARE NO LONGER USED */
-		/* XXX old animation system! -------------------------------------- */
-		{
-			bActionStrip *strip;
-			for (strip = ob->nlastrips.first; strip; strip = strip->next) {
-				LIBTAG(strip->object);
-				LIBTAG(strip->act);
-				LIBTAG(strip->ipo);
-			}
-		}
-		/* XXX: new animation system needs something like this? */
-#endif
-
-		for (a = 0; a < ob->totcol; a++) {
-			LIBTAG(ob->mat[a]);
-		}
-	
-		LIBTAG(ob->dup_group);
-		LIBTAG(ob->proxy);
-		
-		me = ob->data;
-		LIBTAG(me);
-	}
-
-#undef LIBTAG
-}
-
 /** Make linked datablocks local.
  *
  * \param bmain Almost certainly G.main.
@@ -1581,19 +1608,30 @@ static void lib_indirect_test_id(ID *id, const Library *lib)
  * \param untagged_only If true, only make local datablocks not tagged with LIB_TAG_PRE_EXISTING.
  * \param set_fake If true, set fake user on all localized datablocks (except group and objects ones).
  */
+/* XXX TODO This function should probably be reworked.
+ *
+ * Old (2.77) version was simply making (tagging) datablocks as local, without actually making any check whether
+ * they were also indirectly used or not...
+ *
+ * Current version uses regular id_make_local callback, but this is not super-efficient since this ends up
+ * duplicating some IDs and then removing original ones (due to missing knowledge of which ID uses some other ID).
+ *
+ * We could first check all IDs and detect those to be made local that are only used by other local or future-local
+ * datablocks, and directly tag those as local (instead of going through id_make_local) maybe...
+ *
+ * We'll probably need at some point a true dependency graph between datablocks, but for now this should work
+ * good enough (performances is not a critical point here anyway).
+ */
 void BKE_library_make_local(Main *bmain, const Library *lib, const bool untagged_only, const bool set_fake)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
-	ID *id, *idn;
+	ID *id, *id_next;
 	int a;
 
-	a = set_listbasepointers(bmain, lbarray);
-	while (a--) {
-		id = lbarray[a]->first;
-		
-		while (id) {
+	for (a = set_listbasepointers(bmain, lbarray); a--; ) {
+		for (id = lbarray[a]->first; id; id = id_next) {
 			id->newid = NULL;
-			idn = id->next;      /* id is possibly being inserted again */
+			id_next = id->next;  /* id is possibly being inserted again */
 			
 			/* The check on the second line (LIB_TAG_PRE_EXISTING) is done so its
 			 * possible to tag data you don't want to be made local, used for
@@ -1605,14 +1643,8 @@ void BKE_library_make_local(Main *bmain, const Library *lib, const bool untagged
 			{
 				if (lib == NULL || id->lib == lib) {
 					if (id->lib) {
-						/* for Make Local > All we should be calling id_make_local,
-						 * but doing that breaks append (see #36003 and #36006), we
-						 * we should make it work with all datablocks and id.us==0 */
-						id_clear_lib_data(bmain, id); /* sets 'id->tag' */
-
-						/* why sort alphabetically here but not in
-						 * id_clear_lib_data() ? - campbell */
-						id_sort_by_name(lbarray[a], id);
+						/* In this specific case, we do want to make ID local even if it has no local usage yet... */
+						id_make_local(bmain, id, false, true);
 					}
 					else {
 						id->tag &= ~(LIB_TAG_EXTERN | LIB_TAG_INDIRECT | LIB_TAG_NEW);
@@ -1626,231 +1658,40 @@ void BKE_library_make_local(Main *bmain, const Library *lib, const bool untagged
 					}
 				}
 			}
-
-			id = idn;
 		}
 	}
 
-	a = set_listbasepointers(bmain, lbarray);
-	while (a--) {
-		for (id = lbarray[a]->first; id; id = id->next)
-			lib_indirect_test_id(id, lib);
-	}
-}
-
-/* Asset managing - TODO: we most likely want to turn this into a hashing at some point, could become a bit slow
- *                        when having huge assets (or many of them)... */
-void BKE_library_asset_repository_init(Library *lib, const AssetEngineType *aet, const char *repo_root)
-{
-	BKE_library_asset_repository_free(lib);
-	lib->asset_repository = MEM_mallocN(sizeof(*lib->asset_repository), __func__);
-
-	BLI_strncpy(lib->asset_repository->asset_engine, aet->idname, sizeof(lib->asset_repository->asset_engine));
-	lib->asset_repository->asset_engine_version = aet->version;
-	BLI_strncpy(lib->asset_repository->root, repo_root, sizeof(lib->asset_repository->root));
-
-	BLI_listbase_clear(&lib->asset_repository->assets);
-}
-
-void BKE_library_asset_repository_clear(Library *lib)
-{
-	if (lib->asset_repository) {
-		for (AssetRef *aref; (aref = BLI_pophead(&lib->asset_repository->assets)); ) {
-			BLI_freelistN(&aref->id_list);
-			MEM_freeN(aref);
-		}
-	}
-}
-
-void BKE_library_asset_repository_free(Library *lib)
-{
-	if (lib->asset_repository) {
-		BKE_library_asset_repository_clear(lib);
-		MEM_freeN(lib->asset_repository);
-		lib->asset_repository = NULL;
-	}
-}
-
-AssetRef *BKE_library_asset_repository_asset_add(Library *lib, const void *idv)
-{
-	const ID *id = idv;
-	BLI_assert(id->uuid != NULL);
-
-	AssetRef *aref = BKE_library_asset_repository_asset_find(lib, idv);
-	if (!aref) {
-		aref = MEM_callocN(sizeof(*aref), __func__);
-		aref->uuid = *id->uuid;
-		BKE_library_asset_repository_subdata_add(aref, idv);
-		BLI_addtail(&lib->asset_repository->assets, aref);
-	}
-
-	return aref;
-}
-
-AssetRef *BKE_library_asset_repository_asset_find(Library *lib, const void *idv)
-{
-	const ID *id = idv;
-	BLI_assert(id->uuid != NULL);
-
-	for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
-		if (ASSETUUID_COMPARE(&aref->uuid, id->uuid)) {
-#ifndef NDEBUG
-			LinkData *link = aref->id_list.first;
-			BLI_assert(link && (link->data == idv));
-#endif
-			return aref;
-		}
-	}
-	return NULL;
-}
-
-void BKE_library_asset_repository_asset_remove(Library *lib, const void *idv)
-{
-	AssetRef *aref = BKE_library_asset_repository_asset_find(lib, idv);
-	BLI_remlink(&lib->asset_repository->assets, aref);
-	BLI_freelistN(&aref->id_list);
-	MEM_freeN(aref);
-}
-
-void BKE_library_asset_repository_subdata_add(AssetRef *aref, const void *idv)
-{
-	if (BLI_findptr(&aref->id_list, idv, offsetof(LinkData, data)) == NULL) {
-		BLI_addtail(&aref->id_list, BLI_genericNodeN((void *)idv));
-	}
-}
-
-void BKE_library_asset_repository_subdata_remove(AssetRef *aref, const void *idv)
-{
-	LinkData *link = BLI_findptr(&aref->id_list, idv, offsetof(LinkData, data));
-	if (link) {
-		BLI_freelinkN(&aref->id_list, link);
-	}
-}
-
-void BKE_libraries_asset_subdata_remove(Main *bmain, const void *idv)
-{
-	const ID *id = idv;
-
-	if (id->lib == NULL) {
-		return;
-	}
-
-	ListBase *lb = which_libbase(bmain, ID_LI);
-	for (Library *lib = lb->first; lib; lib = lib->id.next) {
-		if (lib->asset_repository) {
-			for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
-				BLI_freelinkN(&aref->id_list, BLI_findptr(&aref->id_list, idv, offsetof(LinkData, data)));
-			}
-		}
-	}
-}
-
-void BKE_libraries_asset_repositories_clear(Main *bmain)
-{
-	ListBase *lb = which_libbase(bmain, ID_LI);
-	for (Library *lib = lb->first; lib; lib = lib->id.next) {
-		BKE_library_asset_repository_clear(lib);
-	}
-	BKE_main_id_tag_all(bmain, LIB_TAG_ASSET, false);
-}
-
-static int library_asset_dependencies_rebuild_cb(void *userdata, ID *id_self, ID **idp, int UNUSED(cd_flag))
-{
-	if (!idp || !*idp) {
-		return IDWALK_RET_NOP;
-	}
-
-	AssetRef *aref = userdata;
-	ID *id = *idp;
-
-	if (id->uuid) {
-		return IDWALK_RET_STOP_RECURSION;
-	}
-
-	printf("%s (from %s)\n", id->name, id_self->name);
-
-	BKE_library_asset_repository_subdata_add(aref, (const void *)id);
-	id->tag |= LIB_TAG_ASSET;
-	return IDWALK_RET_NOP;
-}
-
-static void library_asset_dependencies_rebuild(ID *asset)
-{
-	Library *lib = asset->lib;
-	BLI_assert(lib && lib->asset_repository);
-
-	if (!(lib && lib->asset_repository)) {
-		printf("asset: %s\n", asset->name);
-		printf("lib: %p\n", lib);
-		printf("lib: %s\n", lib->id.name);
-		printf("lib: %s\n", lib->name);
-		printf("lib: %p\n\n\n", lib->asset_repository);
-	}
-
-	asset->tag |= LIB_TAG_ASSET;
-
-	AssetRef *aref = BKE_library_asset_repository_asset_add(lib, asset);
-
-	BKE_library_foreach_ID_link(asset, library_asset_dependencies_rebuild_cb, aref, IDWALK_RECURSE);
-}
-
-void BKE_libraries_asset_repositories_rebuild(Main *bmain)
-{
-	ListBase *lbarray[MAX_LIBARRAY];
-	ID *id;
-	int a;
-
-	BKE_libraries_asset_repositories_clear(bmain);
-
-	a = set_listbasepointers(bmain, lbarray);
-	while (a--) {
+	/* We have to remap local usages of old (linked) ID to new (local) id in a second loop, as lbarray ordering is not
+	 * enough to ensure us we did catch all dependencies (e.g. if making local a parent object before its child...).
+	 * See T48907. */
+	for (a = set_listbasepointers(bmain, lbarray); a--; ) {
 		for (id = lbarray[a]->first; id; id = id->next) {
-			if (id->uuid) {
-				library_asset_dependencies_rebuild(id);
+			if (id->newid) {
+				BKE_libblock_remap(bmain, id, id->newid, ID_REMAP_SKIP_INDIRECT_USAGE);
 			}
 		}
 	}
-}
 
-AssetRef *BKE_libraries_asset_repository_uuid_find(Main *bmain, const AssetUUID *uuid)
-{
-	ListBase *lb = which_libbase(bmain, ID_LI);
-	for (Library *lib = lb->first; lib; lib = lib->id.next) {
-		for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
-			if (ASSETUUID_COMPARE(&aref->uuid, uuid)) {
-#ifndef NDEBUG
-				LinkData *link = aref->id_list.first;
-				BLI_assert(link && ((ID *)link->data)->uuid && ASSETUUID_COMPARE(((ID *)link->data)->uuid, uuid));
-#endif
-				return aref;
+	/* Third step: remove datablocks that have been copied to be localized and are no more used in the end...
+	 * Note that we may have to loop more than once here, to tackle dependencies between linked objects... */
+	bool do_loop = true;
+	while (do_loop) {
+		do_loop = false;
+		for (a = set_listbasepointers(bmain, lbarray); a--; ) {
+			for (id = lbarray[a]->first; id; id = id_next) {
+				id_next = id->next;
+				if (id->newid) {
+					bool is_local = false, is_lib = false;
+
+					BKE_library_ID_test_usages(bmain, id, &is_local, &is_lib);
+					if (!is_local && !is_lib) {
+						BKE_libblock_free(bmain, id);
+						do_loop = true;
+					}
+				}
 			}
 		}
 	}
-	return NULL;
-}
-
-/** Find or add the 'virtual' library datablock matching this asset engine, used for non-blend-data assets. */
-Library *BKE_library_asset_virtual_ensure(Main *bmain, const AssetEngineType *aet)
-{
-	Library *lib;
-	ListBase *lb = which_libbase(bmain, ID_LI);
-
-	for (lib = lb->first; lib; lib = lib->id.next) {
-		if (!(lib->flag & LIBRARY_FLAG_VIRTUAL) || !lib->asset_repository) {
-			continue;
-		}
-
-		if (STREQ(lib->asset_repository->asset_engine, aet->idname) &&
-		    lib->asset_repository->asset_engine_version == aet->version)
-		{
-			return lib;
-		}
-	}
-
-	lib = BKE_libblock_alloc(bmain, ID_LI, "VirtualLib");
-	BKE_library_asset_repository_init(lib, aet, "");
-	lib->flag |= LIBRARY_FLAG_VIRTUAL;
-	return lib;
 }
 
 

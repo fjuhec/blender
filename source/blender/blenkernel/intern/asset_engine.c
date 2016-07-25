@@ -25,7 +25,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/asset.c
+/** \file blender/blenkernel/intern/asset_engine.c
  *  \ingroup bke
  */
 
@@ -48,7 +48,7 @@
 
 #include "PIL_time.h"
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_library.h"
@@ -405,7 +405,7 @@ void BKE_filedir_entryarr_clear(FileDirEntryArr *array)
 	array->nbr_entries_filtered = 0;
 }
 
-/* GHash helpers */
+/* Various helpers */
 unsigned int BKE_asset_uuid_hash(const void *key)
 {
 	return BLI_hash_mm2((const unsigned char *)key, sizeof(AssetUUID), 0);
@@ -418,4 +418,11 @@ bool BKE_asset_uuid_cmp(const void *a, const void *b)
 	return !ASSETUUID_COMPARE(uuid1, uuid2);  /* Expects false when compared equal... */
 }
 
-
+void BKE_asset_uuid_print(const AssetUUID *uuid)
+{
+	/* TODO print nicer (as 128bit hexadecimal...). */
+	printf("[%d,%d,%d,%d][%d,%d,%d,%d][%d,%d,%d,%d]\n",
+	       uuid->uuid_asset[0], uuid->uuid_asset[1], uuid->uuid_asset[2], uuid->uuid_asset[3],
+	       uuid->uuid_variant[0], uuid->uuid_variant[1], uuid->uuid_variant[2], uuid->uuid_variant[3],
+	       uuid->uuid_revision[0], uuid->uuid_revision[1], uuid->uuid_revision[2], uuid->uuid_revision[3]);
+}

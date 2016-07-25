@@ -40,7 +40,7 @@
 #include "BLO_readfile.h"
 
 #include "BKE_appdir.h"
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_context.h"
 #include "BKE_screen.h"
 #include "BKE_global.h"

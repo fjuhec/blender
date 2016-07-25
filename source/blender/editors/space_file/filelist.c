@@ -65,7 +65,7 @@
 
 #include "RNA_types.h"
 
-#include "BKE_asset.h"
+#include "BKE_asset_engine.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_library.h"

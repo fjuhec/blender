@@ -70,7 +70,7 @@ set(SRC
 	intern/appdir.c
 	intern/armature.c
 	intern/armature_update.c
-	intern/asset.c
+	intern/asset_engine.c
 	intern/autoexec.c
 	intern/blender.c
 	intern/blender_copybuffer.c
@@ -119,6 +119,7 @@ set(SRC
 	intern/lamp.c
 	intern/lattice.c
 	intern/library.c
+	intern/library_asset.c
 	intern/library_idmap.c
 	intern/library_query.c
 	intern/library_remap.c
@@ -195,7 +196,7 @@ set(SRC
 	BKE_animsys.h
 	BKE_appdir.h
 	BKE_armature.h
-	BKE_asset.h
+	BKE_asset_engine.h
 	BKE_autoexec.h
 	BKE_blender.h
 	BKE_blender_copybuffer.h

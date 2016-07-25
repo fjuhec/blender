@@ -110,7 +110,7 @@ bool ui_but_menu_step_poll(const uiBut *but)
 {
 	BLI_assert(but->type == UI_BTYPE_MENU);
 
-	/* currenly only RNA buttons */
+	/* currently only RNA buttons */
 	return ((but->menu_step_func != NULL) ||
 	        (but->rnaprop && RNA_property_type(but->rnaprop) == PROP_ENUM));
 }
@@ -456,6 +456,11 @@ static uiTooltipData *ui_tooltip_data_from_button(bContext *C, uiBut *but)
 			ID *id = but->rnapoin.id.data;
 			if (ID_IS_LINKED_DATABLOCK(id)) {
 				BLI_snprintf(data->lines[data->totline], sizeof(data->lines[0]), TIP_("Library: %s"), id->lib->name);
+				data->format[data->totline].color_id = UI_TIP_LC_NORMAL;
+				data->totline++;
+			}
+			else if (ID_IS_LINKED_DATAPATH(id)) {
+				BLI_snprintf(data->lines[data->totline], sizeof(data->lines[0]), TIP_("Using file path as asset"));
 				data->format[data->totline].color_id = UI_TIP_LC_NORMAL;
 				data->totline++;
 			}
@@ -3331,6 +3336,11 @@ void UI_popup_block_close(bContext *C, wmWindow *win, uiBlock *block)
 		if (win) {
 			UI_popup_handlers_remove(&win->modalhandlers, block->handle);
 			ui_popup_block_free(C, block->handle);
+
+			/* In the case we have nested popups, closing one may need to redraw anorher, see: T48874 */
+			for (ARegion *ar = win->screen->regionbase.first; ar; ar = ar->next) {
+				ED_region_tag_refresh_ui(ar);
+			}
 		}
 	}
 }
