@@ -691,8 +691,7 @@ int p_float_to_int_range(float f, int range)
 int p_float_to_int_range_remainder(float f, int range, float *re)
 {
 	int val = p_float_to_int_range(f, range);
-	float section = 1.0f / (float)range;
-	*re = (f - (((float)val) * section)) / section;
+	float bla = f * range - val;
 	
 	return val;
 }
