@@ -7379,6 +7379,23 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 
 /******************** Offset curve operator ********************/
 
+static void get_curve_centroid(Nurb *nu, float r_v[3])
+{
+	/* This function returns the average xyz coordinates of the spline. */
+	float a[3] = {0.0,0.0,0.0};
+	copy_v3_v3(r_v, a);
+	for (int i = 0; i < nu->pntsu; i++) {
+		add_v3_v3(r_v, nu->bezt[i].vec[1]);
+		if (i > 0) {
+			add_v3_v3(r_v, nu->bezt[i].vec[0]);
+		}
+		if (i < nu->pntsu - 1) {
+			add_v3_v3(r_v, nu->bezt[i].vec[2]);
+		}
+	}
+	mul_v3_fl(r_v, 1.0/(nu->pntsu * 3 - 2));
+}
+
 static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, float *r_v2)
 {
 	int i = 0, dims = 3;
@@ -7434,24 +7451,10 @@ static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, flo
 	MEM_freeN(helper);
 }
 
-/*def get_offset_vecs(bezt1, bezt2):
-    bezier = interpolate_bezier(bezt1.co,
-                                bezt1.handle_right,
-                                bezt2.handle_left,
-                                bezt2.co, 13)
-    vx = bezier[1] - bezier[0]
-    vy = bezier[-1] - bezier[-2]
-    
-    v1 = intersect_plane_plane(bezt1.co,
-                               vx,
-                               bezt1.co,
-                               (bezt1.handle_right - bezt1.co).cross(vx))
-    v2 = intersect_plane_plane(bezt2.co,
-                               vy,
-                               bezt2.co,
-                               -(bezt2.handle_left - bezt2.co).cross(vy))
-                               
-    return v1, v2*/
+static void get_handles_offset_vecs(float *p1, float *p2, float *r_v1)
+{
+
+}
 
 static int offset_curve_exec(bContext *C, wmOperator *op)
 {
@@ -7466,15 +7469,19 @@ static int offset_curve_exec(bContext *C, wmOperator *op)
 	bezt = nu->bezt;
 	new_nu = BKE_nurb_duplicate(nu);
 	new_bezt = new_nu->bezt;
+	float *centroid = MEM_callocN(3 * sizeof(float), "offset_curve_exec_get_centroid");
+	get_curve_centroid(nu, centroid);
 
 	float *v1, *v2;
 	v1 = MEM_callocN(3 * sizeof(float), "offset_curve_exec1");
 	v2 = MEM_callocN(3 * sizeof(float), "offset_curve_exec2");
 	for (int i = 0; i < nu->pntsu - 1; i++)
 	{
+		add_v3_v3(new_bezt->vec[0], v2);
 		add_v3_v3(new_bezt->vec[1], v2);
 		add_v3_v3(new_bezt->vec[2], v2);
 		get_offset_vecs(bezt, bezt + 1, v1, v2);
+		add_v3_v3(new_bezt->vec[0], v1);
 		add_v3_v3(new_bezt->vec[1], v1);
 		add_v3_v3(new_bezt->vec[2], v1);
 		bezt++;
@@ -7482,7 +7489,9 @@ static int offset_curve_exec(bContext *C, wmOperator *op)
 	}
 	MEM_freeN(v1);
 	MEM_freeN(v2);
+	MEM_freeN(centroid);
 
+	BKE_nurb_handles_calc(new_nu);
 	BLI_addtail(nubase, new_nu);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
