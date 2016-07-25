@@ -317,7 +317,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 
 			/* specular reflection */
-			if (specular_weight > 0.0f) {
+			if (specular != 0.0f || metallic != 0.0f) {
 				if (ccl_fetch(sd, num_closure) < MAX_CLOSURE) {
 					float3 spec_weight = weight * specular_weight;
 					float spec_sample_weight = fabsf(average(spec_weight));
