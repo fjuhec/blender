@@ -117,7 +117,7 @@ ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc,
 	else {
 		*pdf = 0;
 	}
-	return LABEL_DIFFUSE;
+	return LABEL_REFLECT|LABEL_DIFFUSE;
 }
 
 CCL_NAMESPACE_END
