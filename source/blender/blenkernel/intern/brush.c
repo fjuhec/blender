@@ -225,7 +225,7 @@ void BKE_brush_make_local(Main *bmain, Brush *brush, const bool lib_local)
 	 * - mixed: make copy
 	 */
 
-	if (!ID_IS_LINKED_DATABLOCK(brush)) {
+	if (!ID_IS_LINKED(brush)) {
 		return;
 	}
 

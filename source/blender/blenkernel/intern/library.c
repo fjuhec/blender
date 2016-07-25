@@ -280,7 +280,7 @@ void BKE_id_expand_local(ID *id)
  */
 void BKE_id_copy_ensure_local(Main *bmain, ID *old_id, ID *new_id)
 {
-	if (ID_IS_LINKED_DATABLOCK(old_id)) {
+	if (ID_IS_LINKED(old_id)) {
 		BKE_id_expand_local(new_id);
 		BKE_id_lib_local_paths(bmain, old_id->lib, new_id);
 	}
@@ -299,7 +299,7 @@ void BKE_id_make_local_generic(Main *bmain, ID *id, const bool id_in_mainlist, c
 	 * In case we make a whole lib's content local, we always want to localize, and we skip remapping (done later).
 	 */
 
-	if (!ID_IS_LINKED_DATABLOCK(id)) {
+	if (!ID_IS_LINKED(id)) {
 		return;
 	}
 
@@ -715,7 +715,7 @@ void BKE_main_lib_objects_recalc_all(Main *bmain)
 
 	/* flag for full recalc */
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-		if (ID_IS_LINKED_DATABLOCK(ob)) {
+		if (ID_IS_LINKED(ob)) {
 			DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 		}
 	}
@@ -1141,7 +1141,7 @@ static int id_relink_looper(void *UNUSED(user_data), ID *UNUSED(self_id), ID **i
 
 void BKE_libblock_relink(ID *id)
 {
-	if (ID_IS_LINKED_DATABLOCK(id))
+	if (ID_IS_LINKED(id))
 		return;
 
 	BKE_library_foreach_ID_link(id, id_relink_looper, NULL, 0);
@@ -1357,7 +1357,7 @@ static ID *is_dupid(ListBase *lb, ID *id, const char *name)
 	
 	for (idtest = lb->first; idtest; idtest = idtest->next) {
 		/* if idtest is not a lib */ 
-		if (id != idtest && !ID_IS_LINKED_DATABLOCK(idtest)) {
+		if (id != idtest && !ID_IS_LINKED_DATABLOCK(idtest)) {  /* Virtual lib IDs are considered as local ones here. */
 			/* do not test alphabetic! */
 			/* optimized */
 			if (idtest->name[2] == name[0]) {
@@ -1498,7 +1498,7 @@ bool new_id(ListBase *lb, ID *id, const char *tname)
 	bool result;
 	char name[MAX_ID_NAME - 2];
 
-	/* if library, don't rename */
+	/* if real library, don't rename */
 	if (ID_IS_LINKED_DATABLOCK(id))
 		return false;
 

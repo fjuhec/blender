@@ -298,7 +298,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 
 	do {
 		data.self_id = id;
-		data.cd_flag = ID_IS_LINKED_DATABLOCK(id) ? IDWALK_INDIRECT_USAGE : 0;
+		data.cd_flag = ID_IS_LINKED(id) ? IDWALK_INDIRECT_USAGE : 0;
 
 		AnimData *adt = BKE_animdata_from_id(id);
 		if (adt) {
@@ -447,7 +447,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				 * Since this field is set/owned by 'user' of this ID (and not ID itself), it is only indirect usage
 				 * if proxy object is linked... Twisted. */
 				if (object->proxy_from) {
-					data.cd_flag = ID_IS_LINKED_DATABLOCK(object->proxy_from) ? IDWALK_INDIRECT_USAGE : 0;
+					data.cd_flag = ID_IS_LINKED(object->proxy_from) ? IDWALK_INDIRECT_USAGE : 0;
 				}
 				CALLBACK_INVOKE(object->proxy_from, IDWALK_NOP);
 				data.cd_flag = data_cd_flag;

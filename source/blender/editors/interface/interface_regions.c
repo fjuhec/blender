@@ -459,6 +459,11 @@ static uiTooltipData *ui_tooltip_data_from_button(bContext *C, uiBut *but)
 				data->format[data->totline].color_id = UI_TIP_LC_NORMAL;
 				data->totline++;
 			}
+			else if (ID_IS_LINKED_DATAPATH(id)) {
+				BLI_snprintf(data->lines[data->totline], sizeof(data->lines[0]), TIP_("Using file path as asset"));
+				data->format[data->totline].color_id = UI_TIP_LC_NORMAL;
+				data->totline++;
+			}
 		}
 	}
 	else if (but->optype) {
