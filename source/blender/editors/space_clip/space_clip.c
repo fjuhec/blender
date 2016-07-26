@@ -1291,12 +1291,6 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 		clip_draw_grease_pencil((bContext *)C, true);
 	}
 
-	/* draw secondary clip in Correspondence mode */
-	if (sc->mode == SC_MODE_CORRESPONDENCE) {
-		//movieclip_secondary_clip_set_view2d(C, ar);
-		clip_draw_secondary_clip(C, sc, ar);
-	}
-
 	/* reset view matrix */
 	UI_view2d_view_restore(C);
 

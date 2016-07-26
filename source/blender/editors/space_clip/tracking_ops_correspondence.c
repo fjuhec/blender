@@ -86,14 +86,13 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	// get number of selected tracks in the witness camera
-	// TODO(tianwei): there might be multiple witness cameras, now just work with one witness camera
+	// get number of selected tracks in the witness camera, only one witness camera is allowed
 	wmWindow *window = CTX_wm_window(C);
 	MovieClip *second_clip;
 	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 		if (sa->spacetype == SPACE_CLIP) {
 			SpaceClip *second_sc = sa->spacedata.first;
-			if (second_sc != sc) {
+			if (second_sc != sc && second_sc->mode == SC_VIEW_CLIP) {
 				second_clip = ED_space_clip_get_clip(second_sc);
 				MovieTracking *second_tracking = &second_clip->tracking;
 				ListBase *second_tracksbase = BKE_tracking_get_active_tracks(second_tracking);
@@ -217,16 +216,13 @@ static bool solve_multiview_initjob(bContext *C,
 	MovieTrackingObject *object = BKE_tracking_object_get_active(tracking);
 	int width, height;
 
-	// count primary clip, will always be the first
+	// count all clips number, primary clip will always be the first
 	smj->clip_num = 1;
-	// count other clips
 	wmWindow *window = CTX_wm_window(C);
 	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 		if (sa->spacetype == SPACE_CLIP) {
 			SpaceClip *other_sc = sa->spacedata.first;
-			if(other_sc != sc) {
-				MovieClip *other_clip;
-				other_clip = ED_space_clip_get_clip(other_sc);
+			if(other_sc != sc && other_sc->mode == SC_VIEW_CLIP) {
 				smj->clip_num++;
 			}
 		}
@@ -241,7 +237,7 @@ static bool solve_multiview_initjob(bContext *C,
 		for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 			if (sa->spacetype == SPACE_CLIP) {
 				SpaceClip *other_sc = sa->spacedata.first;
-				if(other_sc != sc) {
+				if(other_sc != sc && other_sc->mode == SC_VIEW_CLIP) {
 					MovieClip *other_clip;
 					other_clip = ED_space_clip_get_clip(other_sc);
 					smj->clips[count++] = other_clip;
