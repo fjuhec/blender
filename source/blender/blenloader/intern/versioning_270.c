@@ -172,6 +172,45 @@ static void do_version_bones_super_bbone(ListBase *lb)
 	}
 }
 
+static void do_version_localview_regiondata(RegionView3D *rv3d)
+{
+	RegionView3D *old_lvd = rv3d->localvd;
+	if (!old_lvd) {
+		return;
+	}
+
+	LocalViewRegionData *new_lvd = MEM_mallocN(sizeof(*rv3d->localviewd), __func__);
+	new_lvd->camzoom = old_lvd->camzoom;
+	new_lvd->persp = old_lvd->persp;
+	new_lvd->view = old_lvd->view;
+	new_lvd->dist = old_lvd->dist;
+	copy_qt_qt(new_lvd->viewquat, old_lvd->viewquat);
+	copy_v3_v3(new_lvd->ofs, old_lvd->ofs);
+
+	rv3d->localviewd = new_lvd;
+	/* remove old data */
+	MEM_freeN(rv3d->localvd);
+}
+
+static void do_version_localview_areadata(View3D *v3d)
+{
+	View3D *old_lvd = v3d->localvd;
+	if (!old_lvd) {
+		return;
+	}
+
+	LocalViewAreaData *new_lvd = MEM_mallocN(sizeof(*v3d->localviewd), __func__);
+	new_lvd->viewbits = 0; /* XXX */
+	new_lvd->near = old_lvd->near;
+	new_lvd->far = old_lvd->far;
+	new_lvd->drawtype = old_lvd->drawtype;
+	new_lvd->camera = old_lvd->camera;
+
+	v3d->localviewd = new_lvd;
+	/* remove old data */
+	MEM_freeN(v3d->localvd);
+}
+
 void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 {
 	if (!MAIN_VERSION_ATLEAST(main, 270, 0)) {
@@ -1221,6 +1260,25 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 					if (md->type == eModifierType_Boolean) {
 						BooleanModifierData *bmd = (BooleanModifierData *)md;
 						bmd->double_threshold = 1e-6f;
+					}
+				}
+			}
+		}
+	}
+
+	{
+		if (!DNA_struct_elem_find(fd->filesdna, "View3D", "LocalViewAreaData", "localviewd")) {
+			for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_VIEW3D) {
+							do_version_localview_areadata((View3D *)sl);
+							for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+								if (ar->regiontype == RGN_TYPE_WINDOW) {
+									do_version_localview_regiondata(ar->regiondata);
+								}
+							}
+						}
 					}
 				}
 			}
