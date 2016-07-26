@@ -416,6 +416,8 @@ void accumulate_vertex_normals_poly(
         float **vertnos, const float polyno[3],
         const float **vertcos, float vdiffs[][3], const int nverts);
 
+void edge_normal_v2_v2v2(float r[2], const float a[2], const float b[2], const bool left);
+
 /********************************* Tangents **********************************/
 
 void tangent_from_uv(

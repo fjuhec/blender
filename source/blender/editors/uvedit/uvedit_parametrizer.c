@@ -5080,9 +5080,39 @@ void p_convex_hull_restore_direction(PConvexHull *item)
 	p_convex_hull_compute_edge_components(item);
 }
 
+/* Grow hull by margin amount */
 void p_convex_hull_grow(PConvexHull *chull, float margin)
 {
 	/* ToDo SaphireS */
+	PVert *v1, *v2, *v3;
+	float angle, dist_fac;
+	float a[2], b[2], dir[2], end_pos[2], a_n[2], b_n[2];
+	int i;
+
+	for (i = 0; i < chull->nverts; i++) {
+		v1 = chull->h_verts[(i ? i : chull->nverts) - 1];
+		v2 = chull->h_verts[i];
+		v3 = chull->h_verts[(i + 1) < chull->nverts ? (i + 1) : 0];
+		
+		sub_v2_v2v2(a, v1, v2);
+		sub_v2_v2v2(b, v3, v2);
+
+		/* distance to offset */
+		dist_fac = shell_v2v2_mid_normalized_to_dist(a, b);
+
+		/* direction to offset */
+		edge_normal_v2_v2v2(a_n, v1, v2, true);
+		edge_normal_v2_v2v2(b_n, v2, v3, true);
+
+		add_v2_v2v2(dir, a_n, b_n);
+
+		normalize_v2(dir);
+
+		/* offset point */
+		madd_v2_v2v2fl(end_pos, v2->uv, dir, dist_fac * margin);
+
+		/*ToDo: apply end_pos */
+	}
 }
 
 PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)

@@ -4305,6 +4305,23 @@ void accumulate_vertex_normals_poly(float **vertnos, const float polyno[3],
 	}
 }
 
+/* Calculates the 2d normal for an edge ab. 
+ * if left is true calculates the left normal (viewed in winding direction) */
+void edge_normal_v2_v2v2(float r[2], const float a[2], const float b[2], const bool left)
+{
+	float dx = b[0] - a[0];
+	float dy = b[1] - a[1];
+
+	if (left) {
+		r[0] = -dy;
+		r[1] = dx;
+	}
+	else {
+		r[0] = dy;
+		r[1] = -dx;
+	}
+}
+
 /********************************* Tangents **********************************/
 
 void tangent_from_uv(
