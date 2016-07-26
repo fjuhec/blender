@@ -222,7 +222,7 @@ static bool solve_multiview_initjob(bContext *C,
 	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 		if (sa->spacetype == SPACE_CLIP) {
 			SpaceClip *other_sc = sa->spacedata.first;
-			if(other_sc != sc && other_sc->mode == SC_VIEW_CLIP) {
+			if (other_sc != sc && other_sc->mode == SC_VIEW_CLIP) {
 				smj->clip_num++;
 			}
 		}
@@ -237,7 +237,7 @@ static bool solve_multiview_initjob(bContext *C,
 		for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 			if (sa->spacetype == SPACE_CLIP) {
 				SpaceClip *other_sc = sa->spacedata.first;
-				if(other_sc != sc && other_sc->mode == SC_VIEW_CLIP) {
+				if (other_sc != sc && other_sc->mode == SC_VIEW_CLIP) {
 					MovieClip *other_clip;
 					other_clip = ED_space_clip_get_clip(other_sc);
 					smj->clips[count++] = other_clip;
