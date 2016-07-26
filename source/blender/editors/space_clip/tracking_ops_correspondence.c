@@ -66,6 +66,23 @@
 
 /********************** add correspondence operator *********************/
 
+/* return the pointer to a single selected track, if more than one is selected, return NULL */
+static MovieTrackingTrack *get_single_track(SpaceClip *sc, ListBase *tracksbase)
+{
+	int num_selected_tracks = 0;
+	MovieTrackingTrack *selected_track;
+	for (MovieTrackingTrack *track = tracksbase->first; track; track = track->next) {
+		if (TRACK_VIEW_SELECTED(sc, track)) {
+			selected_track = track;
+			num_selected_tracks++;
+		}
+	}
+	if (num_selected_tracks == 1) {
+		return selected_track;
+	}
+	return NULL;
+}
+
 static int add_correspondence_exec(bContext *C, wmOperator *op)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
@@ -75,39 +92,27 @@ static int add_correspondence_exec(bContext *C, wmOperator *op)
 
 	// get one track from each clip and link them
 	MovieTrackingTrack *primary_track = NULL, *witness_track = NULL;
-	MovieTrackingTrack *track;
-	int num_primary_selected = 0, num_witness_selected = 0;
 
-	// get number of selected tracks in the primary camera
-	for (track = tracksbase->first; track; track = track->next) {
-		if (TRACK_VIEW_SELECTED(sc, track)) {
-			primary_track = track;
-			num_primary_selected++;
-		}
-	}
+	// get a single selected tracks in the primary camera
+	primary_track = get_single_track(sc, tracksbase);
 
-	// get number of selected tracks in the witness camera, only one witness camera is allowed
+	// get a single selected tracks in the witness camera, only one witness camera is allowed
 	wmWindow *window = CTX_wm_window(C);
-	MovieClip *second_clip;
+	MovieClip *second_clip = NULL;
 	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 		if (sa->spacetype == SPACE_CLIP) {
 			SpaceClip *second_sc = sa->spacedata.first;
-			if (second_sc != sc && second_sc->mode == SC_VIEW_CLIP) {
+			if (second_sc != sc && second_sc->view == SC_VIEW_CLIP) {
 				second_clip = ED_space_clip_get_clip(second_sc);
 				MovieTracking *second_tracking = &second_clip->tracking;
 				ListBase *second_tracksbase = BKE_tracking_get_active_tracks(second_tracking);
-				for (track = second_tracksbase->first; track; track = track->next) {
-					if (TRACK_VIEW_SELECTED(second_sc, track)) {
-						witness_track = track;
-						num_witness_selected++;
-					}
-				}
+				witness_track = get_single_track(second_sc, second_tracksbase);
 				break;
 			}
 		}
 	}
 
-	if (!primary_track || !witness_track || num_primary_selected != 1 || num_witness_selected != 1) {
+	if (!primary_track || !witness_track) {
 		BKE_report(op->reports, RPT_ERROR, "Select exactly one track in each clip");
 		return OPERATOR_CANCELLED;
 	}
@@ -222,7 +227,7 @@ static bool solve_multiview_initjob(bContext *C,
 	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 		if (sa->spacetype == SPACE_CLIP) {
 			SpaceClip *other_sc = sa->spacedata.first;
-			if (other_sc != sc && other_sc->mode == SC_VIEW_CLIP) {
+			if (other_sc != sc && other_sc->view == SC_VIEW_CLIP) {
 				smj->clip_num++;
 			}
 		}
@@ -237,7 +242,7 @@ static bool solve_multiview_initjob(bContext *C,
 		for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
 			if (sa->spacetype == SPACE_CLIP) {
 				SpaceClip *other_sc = sa->spacedata.first;
-				if (other_sc != sc && other_sc->mode == SC_VIEW_CLIP) {
+				if (other_sc != sc && other_sc->view == SC_VIEW_CLIP) {
 					MovieClip *other_clip;
 					other_clip = ED_space_clip_get_clip(other_sc);
 					smj->clips[count++] = other_clip;
