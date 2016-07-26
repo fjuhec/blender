@@ -439,7 +439,7 @@ static void id_local_cb(
 		Main *bmain = CTX_data_main(C);
 		/* if the ID type has no special local function,
 		 * just clear the lib */
-		if (id_make_local(bmain, tselem->id, false) == false) {
+		if (id_make_local(bmain, tselem->id, false, false) == false) {
 			id_clear_lib_data(bmain, tselem->id);
 		}
 	}
@@ -1345,7 +1345,7 @@ static int outliner_lib_operation_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	SpaceOops *soops = CTX_wm_space_outliner(C);
 	int scenelevel = 0, objectlevel = 0, idlevel = 0, datalevel = 0;
-	eOutlinerIdOpTypes event;
+	eOutlinerLibOpTypes event;
 
 	/* check for invalid states */
 	if (soops == NULL)
