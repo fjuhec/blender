@@ -404,7 +404,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 #endif
 
 					/* refraction */
-					float3 spec_refr_weight = weight * (1.0f - specular_weight) * (1.0f - fresnel);
+					float3 spec_refr_weight = baseColor * weight * (1.0f - specular_weight) * (1.0f - fresnel);
 					float spec_refr_sample_weight = fabsf(average(spec_refr_weight));
 
 					if (spec_refr_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
