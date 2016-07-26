@@ -40,8 +40,8 @@ CCL_NAMESPACE_BEGIN
 ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
 	float3 N, float3 V, float3 L, float3 H, float *pdf)
 {
-	float NdotL = dot(N, L);
-	float NdotV = dot(N, V);
+	float NdotL = max(dot(N, L), 0.0f);
+	float NdotV = max(dot(N, V), 0.0f);
 
     if (NdotL < 0 || NdotV < 0) {
         *pdf = 0.0f;
