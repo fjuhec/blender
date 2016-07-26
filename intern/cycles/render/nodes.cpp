@@ -2115,6 +2115,7 @@ DisneyBsdfNode::DisneyBsdfNode()
 	closure = CLOSURE_BSDF_DISNEY_ID;
 
 	add_input("BaseColor", SHADER_SOCKET_COLOR, make_float3(0.646f, 0.415f, 0.017f));
+	add_input("SubsurfaceColor", SHADER_SOCKET_COLOR, make_float3(0.646f, 0.415f, 0.017f));
 	add_input("Metallic", SHADER_SOCKET_FLOAT, 0.0f);
 	add_input("Subsurface", SHADER_SOCKET_FLOAT, 0.0f);
 	add_input("Specular", SHADER_SOCKET_FLOAT, 0.5f);
@@ -2142,6 +2143,7 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *metallic, Shade
 	ShaderInput *ior, ShaderInput *transparency, ShaderInput *refr_roughness)
 {
 	ShaderInput *base_color_in = input("BaseColor");
+	ShaderInput *subsurface_color_in = input("SubsurfaceColor");
 	ShaderInput *normal_in = input("Normal");
 	ShaderInput *clearcoat_normal_in = input("ClearcoatNormal");
 	ShaderInput *tangent_in = input("Tangent");
@@ -2188,6 +2190,9 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *metallic, Shade
 		__float_as_int(base_color_in->value.x), __float_as_int(base_color_in->value.y), __float_as_int(base_color_in->value.z));
 
 	compiler.add_node(clearcoat_normal_offset, SVM_STACK_INVALID, SVM_STACK_INVALID, SVM_STACK_INVALID);
+
+	compiler.add_node(((subsurface_color_in->link) ? compiler.stack_assign(subsurface_color_in) : SVM_STACK_INVALID),
+		__float_as_int(subsurface_color_in->value.x), __float_as_int(subsurface_color_in->value.y), __float_as_int(subsurface_color_in->value.z));
 }
 
 void DisneyBsdfNode::compile(SVMCompiler& compiler)

@@ -187,12 +187,17 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			// get the additional clearcoat normal
 			uint4 data_clearcoat_normal = read_node(kg, offset);
 			float3 CN = stack_valid(data_clearcoat_normal.x) ? stack_load_float3(stack, data_clearcoat_normal.x) : ccl_fetch(sd, N);
+
+			// get the subsurface color
+			uint4 data_subsurface_color = read_node(kg, offset);
+			float3 subsurfaceColor = stack_valid(data_subsurface_color.x) ? stack_load_float3(stack, data_subsurface_color.x) :
+				make_float3(__uint_as_float(data_subsurface_color.y), __uint_as_float(data_subsurface_color.z), __uint_as_float(data_subsurface_color.w));
             
 			ShaderClosure *sc = ccl_fetch_array(sd, closure, ccl_fetch(sd, num_closure));
 			float3 weight = sc->weight * mix_weight;
 
 #ifdef __SUBSURFACE__
-			float3 albedo = baseColor;
+			float3 albedo = subsurfaceColor; //baseColor;
 			float3 subsurf_weight = weight * diffuse_weight;
 			float subsurf_sample_weight = fabsf(average(subsurf_weight));
 

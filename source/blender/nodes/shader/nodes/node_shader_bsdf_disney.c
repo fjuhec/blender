@@ -31,6 +31,7 @@
 
 static bNodeSocketTemplate sh_node_bsdf_disney_in[] = {
 	{	SOCK_RGBA, 1, N_("BaseColor"),		        0.64555527f, 0.41514809f, 0.01698805f, 1.0f, 0.0f, 1.0f},
+	{	SOCK_RGBA, 1, N_("SubsurfaceColor"),		0.64555527f, 0.41514809f, 0.01698805f, 1.0f, 0.0f, 1.0f},
 	{	SOCK_FLOAT, 1, N_("Metallic"),	            0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Subsurface"),	        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Specular"),	            0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},

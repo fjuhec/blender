@@ -19,6 +19,7 @@
 
 shader node_disney_bsdf(
 	color BaseColor = color(0.64555527, 0.41514809, 0.01698805),
+	color SubsurfaceColor = color(0.64555527, 0.41514809, 0.01698805),
     float Metallic = 0.0,
     float Subsurface = 0.0,
     float Specular = 0.5,
