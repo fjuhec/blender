@@ -7451,12 +7451,50 @@ static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, flo
 	MEM_freeN(helper);
 }
 
-static void get_handles_offset_vecs(float *p1, float *p2, float *r_v1)
+static void get_handles_offset_plane(float *p1, float *p2, float *p3, float *r_v1)
 {
+	float v1[3] = {0.0, 0.0, 0.0};
+	float v2[3] = {0.0, 0.0, 0.0};
+	float v3[3] = {0.0, 0.0, 0.0};
+	float v4[3] = {0.0, 0.0, 0.0};
+	float normal[3] = {0.0, 0.0, 0.0};
+	float point_plane_normal[3] = {0.0, 0.0, 0.0};
+	sub_v3_v3v3(v1, p3, p2);
+	normalize_v3(v1);
+	sub_v3_v3v3(v2, p2, p1);
+	normalize_v3(v2);
 
+	copy_v3_v3(normal, v1);
+	add_v3_v3(normal, v2);
+
+	float plane_a[4], plane_b[4];
+	float isect_co[3], isect_no[3];
+	plane_from_point_normal_v3(plane_a, p2, normal);
+	sub_v3_v3v3(v3, p1, p2);
+	sub_v3_v3v3(v4, p3, p2);
+	cross_v3_v3v3(point_plane_normal, v3, v4);
+	plane_from_point_normal_v3(plane_b, p2, point_plane_normal);
+
+	if (isect_plane_plane_v3(plane_a, plane_b,
+							 isect_co, isect_no))
+	{
+		normalize_v3(isect_no);
+		copy_v3_v3(r_v1, isect_no);
+	}
 }
 
-static int offset_curve_exec(bContext *C, wmOperator *op)
+static bool reverse_offset(BezTriple *orig1, BezTriple *orig2, BezTriple *offset1, BezTriple *offset2)
+{
+	Nurb *nu;
+	nu = MEM_callocN(sizeof(Nurb), "reverseoffset1");
+	BKE_nurb_bezierPoints_add(nu, 2);
+	memcpy(nu->bezt, orig1, sizeof(BezTriple));
+	memcpy(nu->bezt + 1, orig2, sizeof(BezTriple));
+
+	return 1;
+}
+
+static int offset_curve_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *obedit = CTX_data_edit_object(C);
 	ListBase *nubase = object_editcurve_get(obedit);
@@ -7472,23 +7510,91 @@ static int offset_curve_exec(bContext *C, wmOperator *op)
 	float *centroid = MEM_callocN(3 * sizeof(float), "offset_curve_exec_get_centroid");
 	get_curve_centroid(nu, centroid);
 
-	float *v1, *v2;
+	/* offset the first handle */
+	/* control point */
+	float *v1, *v2, *co, *p1;
 	v1 = MEM_callocN(3 * sizeof(float), "offset_curve_exec1");
 	v2 = MEM_callocN(3 * sizeof(float), "offset_curve_exec2");
-	for (int i = 0; i < nu->pntsu - 1; i++)
+	co = MEM_callocN(3 * sizeof(float), "offset_curve_exec3");
+	p1 = MEM_callocN(3 * sizeof(float), "offset_curve_exec4");
+	get_offset_vecs(bezt, bezt + 1, v1, v2);
+	get_handles_offset_plane(bezt[0].vec[1], bezt[0].vec[2], bezt[1].vec[0], v2);
+	add_v3_v3(new_bezt->vec[0], v1);
+	add_v3_v3(new_bezt->vec[1], v1);
+	add_v3_v3(new_bezt->vec[2], v1);
+	copy_v3_v3(co, bezt->vec[2]);
+	add_v3_v3(co, v2);
+	int result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
+	if (result == 1) {
+		copy_v3_v3(new_bezt->vec[2], v1);
+	}
+	copy_v3_v3(p1, new_bezt->vec[1]);
+
+	reverse_offset(bezt, bezt + 1, new_bezt, new_bezt + 1);
+	/* offset all the handles between the first and the last */
+	bezt++;
+	new_bezt++;
+	/* helpful checks */
+	ListBase temp_nubase = {NULL, NULL}, il = {NULL, NULL};
+	Nurb *check_nurb;
+	check_nurb = BKE_nurb_duplicate(nu);
+	BLI_addtail(&temp_nubase, check_nurb);
+	for (int i = 1; i < nu->pntsu - 1; i++)
 	{
-		add_v3_v3(new_bezt->vec[0], v2);
-		add_v3_v3(new_bezt->vec[1], v2);
-		add_v3_v3(new_bezt->vec[2], v2);
 		get_offset_vecs(bezt, bezt + 1, v1, v2);
+		get_handles_offset_plane(bezt[0].vec[1], bezt[0].vec[2], bezt[1].vec[0], v2);
 		add_v3_v3(new_bezt->vec[0], v1);
 		add_v3_v3(new_bezt->vec[1], v1);
 		add_v3_v3(new_bezt->vec[2], v1);
+		copy_v3_v3(co, bezt->vec[2]);
+		add_v3_v3(co, v2);
+		get_intersections(&il, p1, new_bezt->vec[1], &temp_nubase);
+		if (BLI_listbase_count(&il) > 0) { /* we got the wrong direction. Fix that */
+			mul_v3_fl(v1, -2);
+			add_v3_v3(new_bezt->vec[0], v1);
+			add_v3_v3(new_bezt->vec[1], v1);
+			add_v3_v3(new_bezt->vec[2], v1);
+			for (LinkData* d = il.first; d; d = d->next) {
+				MEM_freeN(d->data);
+			}
+			BLI_freelistN(&il);
+		}
+		result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
+		if (result == 1) {
+			copy_v3_v3(new_bezt->vec[2], v1);
+		}
+		copy_v3_v3(p1, new_bezt->vec[1]);
 		bezt++;
 		new_bezt++;
 	}
+
+	/* offset the last handle */
+	get_offset_vecs(bezt - 1, bezt, v1, v2);
+	get_handles_offset_plane(bezt[nu->pntsu-2].vec[2], bezt[nu->pntsu-1].vec[0], bezt[nu->pntsu-1].vec[1], v1);
+	add_v3_v3(new_bezt->vec[0], v2);
+	add_v3_v3(new_bezt->vec[1], v2);
+	add_v3_v3(new_bezt->vec[2], v2);
+	copy_v3_v3(co, bezt->vec[2]);
+	add_v3_v3(co, v2);
+	get_intersections(&il, p1, new_bezt->vec[1], &temp_nubase);
+	if (BLI_listbase_count(&il) > 0) { /* we got the wrong direction. Fix that */
+		mul_v3_fl(v2, -2);
+		add_v3_v3(new_bezt->vec[0], v2);
+		add_v3_v3(new_bezt->vec[1], v2);
+		add_v3_v3(new_bezt->vec[2], v2);
+		for (LinkData* d = il.first; d; d = d->next) {
+			MEM_freeN(d->data);
+		}
+		BLI_freelistN(&il);
+	}
+	result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
+	if (result == 1) {
+		copy_v3_v3(new_bezt->vec[0], v1);
+	}
+
 	MEM_freeN(v1);
 	MEM_freeN(v2);
+	MEM_freeN(co);
 	MEM_freeN(centroid);
 
 	BKE_nurb_handles_calc(new_nu);
