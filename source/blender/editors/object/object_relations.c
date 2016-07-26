@@ -1337,7 +1337,7 @@ static unsigned int move_to_layer_init(bContext *C, wmOperator *op)
 static int move_to_layer_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	View3D *v3d = CTX_wm_view3d(C);
-	if (v3d && v3d->localvd) {
+	if (v3d && v3d->localviewd) {
 		return WM_operator_confirm_message(C, op, "Move out of Local View");
 	}
 	else {
@@ -1359,7 +1359,7 @@ static int move_to_layer_exec(bContext *C, wmOperator *op)
 
 	if (lay == 0) return OPERATOR_CANCELLED;
 
-	if (v3d && v3d->localvd) {
+	if (v3d && v3d->localviewd) {
 		/* now we can move out of localview. */
 		/* note: layers are set in bases, library objects work for this */
 		CTX_DATA_BEGIN (C, Base *, base, selected_bases)

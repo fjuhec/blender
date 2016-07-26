@@ -4705,7 +4705,7 @@ static void sort_bmelem_flag(Scene *scene, Object *ob,
 		float mat[4][4];
 		float fact = reverse ? -1.0 : 1.0;
 
-		if (v3d && v3d->localvd)
+		if (v3d && v3d->localviewd)
 			copy_v3_v3(cur, v3d->cursor);
 		else
 			copy_v3_v3(cur, scene->cursor);

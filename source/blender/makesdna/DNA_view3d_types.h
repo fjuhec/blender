@@ -82,6 +82,34 @@ typedef struct BGpic {
 } BGpic;
 
 /* ********************************* */
+/* Local View Data */
+
+/**
+ * Data for 3D view area (View3D) while in local view.
+ */
+typedef struct LocalViewAreaData {
+	int viewbits; /* 32 bits to store up to 32 views */
+
+	/* Initial View3D values for reset after local view exit */
+	float near, far;
+	short drawtype, pad;
+	struct Object *camera;
+} LocalViewAreaData;
+
+/**
+ * Data for 3D view region (RegionView3D) while in local view.
+ */
+typedef struct LocalViewRegionData {
+	/* Initial RegionView3D values for reset after local view exit */
+	float camzoom;
+	char persp;
+	char view, pad[2];
+	float viewquat[4];
+	float dist;
+	float ofs[3];
+} LocalViewRegionData;
+
+/* ********************************* */
 
 typedef struct RegionView3D {
 	
@@ -102,6 +130,7 @@ typedef struct RegionView3D {
 	struct BoundBox *clipbb;
 
 	struct RegionView3D *localvd; /* allocated backup of its self while in localview */
+	LocalViewRegionData *localviewd;
 	struct RenderEngine *render_engine;
 	struct ViewDepths *depths;
 	void *gpuoffscreen;
@@ -177,7 +206,8 @@ typedef struct View3D {
 	struct BGpic *bgpic  DNA_DEPRECATED; /* deprecated, use bgpicbase, only kept for do_versions(...) */
 
 	struct View3D *localvd; /* allocated backup of its self while in localview */
-	
+	LocalViewAreaData *localviewd;
+
 	char ob_centre_bone[64];		/* optional string for armature bone to define center, MAXBONENAME */
 	
 	unsigned int lay;

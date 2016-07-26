@@ -344,7 +344,7 @@ bool ED_object_add_generic_get_opts(bContext *C, wmOperator *op, const char view
 
 		/* in local view we additionally add local view layers,
 		 * not part of operator properties */
-		if (v3d && v3d->localvd)
+		if (v3d && v3d->localviewd)
 			*layer |= v3d->lay;
 	}
 

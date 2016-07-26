@@ -921,8 +921,8 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 		else if (camera_override && camera_override != scene->camera)
 			rj->v3d_override = true;
 
-		if (v3d->localvd)
-			rj->lay_override |= v3d->localvd->lay;
+//		if (v3d->localviewd)
+//			rj->lay_override |= v3d->localvd->lay; /* TODO */
 	}
 
 	/* Lock the user interface depending on render settings. */

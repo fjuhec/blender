@@ -112,6 +112,10 @@ typedef struct LodLevel {
 	int obhysteresis;
 } LodLevel;
 
+typedef struct LocalViewInfo {
+	unsigned int viewbits; /* 32 bits to store up to 32 views (compared to LocalViewAreaData.viewbits) */
+} LocalViewInfo;
+
 typedef struct Object {
 	ID id;
 	struct AnimData *adt;		/* animation data (must be immediately after id for utilities to use it) */ 
@@ -223,7 +227,9 @@ typedef struct Object {
 	float jump_speed;
 	float fall_speed;
 	unsigned char max_jumps;
-	char pad2[3];
+	char pad2[7];
+
+	LocalViewInfo localview;
 
 	/** Collision mask settings */
 	unsigned short col_group, col_mask;

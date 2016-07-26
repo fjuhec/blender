@@ -2995,10 +2995,10 @@ static void SCREEN_OT_redo_last(wmOperatorType *ot)
 
 static void view3d_localview_update_rv3d(struct RegionView3D *rv3d)
 {
-	if (rv3d->localvd) {
-		rv3d->localvd->view = rv3d->view;
-		rv3d->localvd->persp = rv3d->persp;
-		copy_qt_qt(rv3d->localvd->viewquat, rv3d->viewquat);
+	if (rv3d->localviewd) {
+		rv3d->localviewd->view = rv3d->view;
+		rv3d->localviewd->persp = rv3d->persp;
+		copy_qt_qt(rv3d->localviewd->viewquat, rv3d->viewquat);
 	}
 }
 

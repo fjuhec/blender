@@ -840,7 +840,7 @@ static void draw_viewport_name(ARegion *ar, View3D *v3d, rcti *rect)
 	char tmpstr[32];
 #endif
 
-	if (v3d->localvd) {
+	if (v3d->localviewd) {
 		BLI_snprintf(tmpstr, sizeof(tmpstr), IFACE_("%s (Local)"), name);
 		name = tmpstr;
 	}

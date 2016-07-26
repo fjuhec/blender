@@ -2898,8 +2898,8 @@ static void write_region(WriteData *wd, ARegion *ar, int spacetype)
 					RegionView3D *rv3d = ar->regiondata;
 					writestruct(wd, DATA, RegionView3D, 1, rv3d);
 
-					if (rv3d->localvd) {
-						writestruct(wd, DATA, RegionView3D, 1, rv3d->localvd);
+					if (rv3d->localviewd) {
+						writestruct(wd, DATA, LocalViewRegionData, 1, rv3d->localviewd);
 					}
 					if (rv3d->clipbb) {
 						writestruct(wd, DATA, BoundBox, 1, rv3d->clipbb);
@@ -3034,8 +3034,8 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 					for (bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
 						writestruct(wd, DATA, BGpic, 1, bgpic);
 					}
-					if (v3d->localvd) {
-						writestruct(wd, DATA, View3D, 1, v3d->localvd);
+					if (v3d->localviewd) {
+						writestruct(wd, DATA, LocalViewAreaData, 1, v3d->localviewd); /* TODO */
 					}
 
 					if (v3d->fx_settings.ssao) {

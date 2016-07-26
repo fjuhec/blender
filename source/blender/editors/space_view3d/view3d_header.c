@@ -77,7 +77,7 @@ static void handle_view3d_lock(bContext *C)
 	View3D *v3d = CTX_wm_view3d(C);
 	
 	if (v3d != NULL && sa != NULL) {
-		if (v3d->localvd == NULL && v3d->scenelock && sa->spacetype == SPACE_VIEW3D) {
+		if (v3d->localviewd == NULL && v3d->scenelock && sa->spacetype == SPACE_VIEW3D) {
 			/* copy to scene */
 			scene->lay = v3d->lay;
 			scene->layact = v3d->layact;
@@ -202,7 +202,7 @@ static int view3d_layers_invoke(bContext *C, wmOperator *op, const wmEvent *even
 
 static int view3d_layers_poll(bContext *C)
 {
-	return (ED_operator_view3d_active(C) && CTX_wm_view3d(C)->localvd == NULL);
+	return (ED_operator_view3d_active(C) && CTX_wm_view3d(C)->localviewd == NULL);
 }
 
 void VIEW3D_OT_layers(wmOperatorType *ot)
@@ -381,7 +381,7 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C)
 		uiItemR(row, &v3dptr, "transform_orientation", 0, "", ICON_NONE);
 	}
 
-	if (obedit == NULL && v3d->localvd == NULL) {
+	if (obedit == NULL && v3d->localviewd == NULL) {
 		unsigned int ob_lay = ob ? ob->lay : 0;
 
 		/* Layers */

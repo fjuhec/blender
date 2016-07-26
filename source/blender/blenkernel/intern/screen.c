@@ -511,7 +511,7 @@ ScrArea *BKE_screen_find_area_xy(bScreen *sc, const int spacetype, int x, int y)
 unsigned int BKE_screen_view3d_layer_active_ex(const View3D *v3d, const Scene *scene, bool use_localvd)
 {
 	unsigned int lay;
-	if ((v3d == NULL) || (v3d->scenelock && !v3d->localvd)) {
+	if ((v3d == NULL) || (v3d->scenelock && !v3d->localviewd)) {
 		lay = scene->layact;
 	}
 	else {
@@ -519,7 +519,7 @@ unsigned int BKE_screen_view3d_layer_active_ex(const View3D *v3d, const Scene *s
 	}
 
 	if (use_localvd) {
-		if (v3d && v3d->localvd) {
+		if (v3d && v3d->localviewd) {
 			lay |= v3d->lay;
 		}
 	}
@@ -552,7 +552,7 @@ void BKE_screen_view3d_sync(View3D *v3d, struct Scene *scene)
 {
 	int bit;
 
-	if (v3d->scenelock && v3d->localvd == NULL) {
+	if (v3d->scenelock && v3d->localviewd == NULL) {
 		v3d->lay = scene->lay;
 		v3d->camera = scene->camera;
 

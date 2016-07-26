@@ -6245,8 +6245,8 @@ static void lib_link_screen(FileData *fd, Main *main)
 							bgpic->ima = newlibadr_us(fd, sc->id.lib, bgpic->ima);
 							bgpic->clip = newlibadr_us(fd, sc->id.lib, bgpic->clip);
 						}
-						if (v3d->localvd) {
-							v3d->localvd->camera = newlibadr(fd, sc->id.lib, v3d->localvd->camera);
+						if (v3d->localviewd) {
+							v3d->localviewd->camera = newlibadr(fd, sc->id.lib, v3d->localviewd->camera);
 						}
 					}
 					else if (sl->spacetype == SPACE_IPO) {
@@ -6562,11 +6562,11 @@ void blo_lib_link_screen_restore(Main *newmain, bScreen *curscreen, Scene *cursc
 							id_us_plus((ID *)bgpic->clip);
 						}
 					}
-					if (v3d->localvd) {
+					if (v3d->localviewd) {
 						/*Base *base;*/
-						
-						v3d->localvd->camera = sc->scene->camera;
-						
+
+						v3d->localviewd->camera = sc->scene->camera;
+
 						/* localview can become invalid during undo/redo steps, so we exit it when no could be found */
 #if 0					/* XXX  regionlocalview ? */
 						for (base= sc->scene->base.first; base; base= base->next) {
@@ -6829,7 +6829,7 @@ static void direct_link_region(FileData *fd, ARegion *ar, int spacetype)
 			if (spacetype == SPACE_VIEW3D) {
 				RegionView3D *rv3d = ar->regiondata;
 
-				rv3d->localvd = newdataadr(fd, rv3d->localvd);
+				rv3d->localviewd = newdataadr(fd, rv3d->localviewd);
 				rv3d->clipbb = newdataadr(fd, rv3d->clipbb);
 
 				rv3d->depths = NULL;
@@ -6984,7 +6984,7 @@ static bool direct_link_screen(FileData *fd, bScreen *sc)
 					v3d->gpd = newdataadr(fd, v3d->gpd);
 					direct_link_gpencil(fd, v3d->gpd);
 				}
-				v3d->localvd = newdataadr(fd, v3d->localvd);
+				v3d->localviewd = newdataadr(fd, v3d->localviewd);
 				BLI_listbase_clear(&v3d->afterdraw_transp);
 				BLI_listbase_clear(&v3d->afterdraw_xray);
 				BLI_listbase_clear(&v3d->afterdraw_xraytransp);

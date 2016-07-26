@@ -416,7 +416,8 @@ static void view3d_free(SpaceLink *sl)
 	}
 	BLI_freelistN(&vd->bgpicbase);
 
-	if (vd->localvd) MEM_freeN(vd->localvd);
+	if (vd->localviewd)
+		MEM_freeN(vd->localviewd);
 	
 	if (vd->properties_storage) MEM_freeN(vd->properties_storage);
 	
@@ -449,10 +450,9 @@ static SpaceLink *view3d_duplicate(SpaceLink *sl)
 	
 	/* clear or remove stuff from old */
 
-	if (v3dn->localvd) {
-		v3dn->localvd = NULL;
+	if (v3dn->localviewd) {
+		v3dn->localviewd = NULL;
 		v3dn->properties_storage = NULL;
-		v3dn->lay = v3do->localvd->lay & 0xFFFFFF;
 	}
 
 	if (v3dn->drawtype == OB_RENDER)
@@ -720,8 +720,10 @@ static void view3d_main_region_free(ARegion *ar)
 	RegionView3D *rv3d = ar->regiondata;
 	
 	if (rv3d) {
-		if (rv3d->localvd) MEM_freeN(rv3d->localvd);
-		if (rv3d->clipbb) MEM_freeN(rv3d->clipbb);
+		if (rv3d->localviewd)
+			MEM_freeN(rv3d->localviewd);
+		if (rv3d->clipbb)
+			MEM_freeN(rv3d->clipbb);
 
 		if (rv3d->render_engine)
 			RE_engine_free(rv3d->render_engine);
@@ -752,8 +754,8 @@ static void *view3d_main_region_duplicate(void *poin)
 		RegionView3D *rv3d = poin, *new;
 	
 		new = MEM_dupallocN(rv3d);
-		if (rv3d->localvd)
-			new->localvd = MEM_dupallocN(rv3d->localvd);
+		if (rv3d->localviewd)
+			new->localviewd = MEM_dupallocN(rv3d->localviewd);
 		if (rv3d->clipbb)
 			new->clipbb = MEM_dupallocN(rv3d->clipbb);
 		
@@ -1402,61 +1404,60 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 
 static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_id)
 {
-	View3D *v3d;
-	ARegion *ar;
-	bool is_local = false;
+	View3D *v3d = (View3D *)slink;
+	bool has_localview = v3d->localviewd != NULL;
 
 	if (!ELEM(GS(old_id->name), ID_OB, ID_MA, ID_IM, ID_MC)) {
 		return;
 	}
 
-	for (v3d = (View3D *)slink; v3d; v3d = v3d->localvd, is_local = true) {
-		if ((ID *)v3d->camera == old_id) {
-			v3d->camera = (Object *)new_id;
-			if (!new_id) {
-				for (ar = sa->regionbase.first; ar; ar = ar->next) {
-					if (ar->regiontype == RGN_TYPE_WINDOW) {
-						RegionView3D *rv3d = is_local ? ((RegionView3D *)ar->regiondata)->localvd : ar->regiondata;
-						if (rv3d && (rv3d->persp == RV3D_CAMOB)) {
-							rv3d->persp = RV3D_PERSP;
+	if ((ID *)v3d->camera == old_id) {
+		v3d->camera = (Object *)new_id;
+		if (has_localview) {
+			v3d->localviewd->camera = (Object *)new_id;
+		}
+		if (!new_id) {
+			for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+				if (ar->regiontype == RGN_TYPE_WINDOW) {
+					RegionView3D *rv3d = (RegionView3D *)ar->regiondata;
+					if (rv3d && (rv3d->persp == RV3D_CAMOB)) {
+						rv3d->persp = RV3D_PERSP;
+						if (has_localview) {
+							rv3d->localviewd->persp = rv3d->persp;
 						}
 					}
 				}
 			}
 		}
-		if ((ID *)v3d->ob_centre == old_id) {
-			v3d->ob_centre = (Object *)new_id;
-			if (new_id == NULL) {  /* Otherwise, bonename may remain valid... We could be smart and check this, too? */
-				v3d->ob_centre_bone[0] = '\0';
-			}
+	}
+	if ((ID *)v3d->ob_centre == old_id) {
+		v3d->ob_centre = (Object *)new_id;
+		if (new_id == NULL) {  /* Otherwise, bonename may remain valid... We could be smart and check this, too? */
+			v3d->ob_centre_bone[0] = '\0';
 		}
+	}
 
-		if ((ID *)v3d->defmaterial == old_id) {
-			v3d->defmaterial = (Material *)new_id;
-		}
+	if ((ID *)v3d->defmaterial == old_id) {
+		v3d->defmaterial = (Material *)new_id;
+	}
 #if 0  /* XXX Deprecated? */
-		if ((ID *)v3d->gpd == old_id) {
-			v3d->gpd = (bGPData *)new_id;
-		}
+	if ((ID *)v3d->gpd == old_id) {
+		v3d->gpd = (bGPData *)new_id;
+	}
 #endif
 
-		if (ELEM(GS(old_id->name), ID_IM, ID_MC)) {
-			for (BGpic *bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
-				if ((ID *)bgpic->ima == old_id) {
-					bgpic->ima = (Image *)new_id;
-					id_us_min(old_id);
-					id_us_plus(new_id);
-				}
-				if ((ID *)bgpic->clip == old_id) {
-					bgpic->clip = (MovieClip *)new_id;
-					id_us_min(old_id);
-					id_us_plus(new_id);
-				}
+	if (ELEM(GS(old_id->name), ID_IM, ID_MC)) {
+		for (BGpic *bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
+			if ((ID *)bgpic->ima == old_id) {
+				bgpic->ima = (Image *)new_id;
+				id_us_min(old_id);
+				id_us_plus(new_id);
 			}
-		}
-
-		if (is_local) {
-			break;
+			if ((ID *)bgpic->clip == old_id) {
+				bgpic->clip = (MovieClip *)new_id;
+				id_us_min(old_id);
+				id_us_plus(new_id);
+			}
 		}
 	}
 }
