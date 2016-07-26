@@ -2202,6 +2202,13 @@ void DisneyBsdfNode::compile(OSLCompiler& compiler)
 	compiler.add(this, "node_disney_bsdf");
 }
 
+bool DisneyBsdfNode::has_bssrdf_bump()
+{
+	/* detect if anything is plugged into the normal input besides the default */
+	ShaderInput *normal_in = input("Normal");
+	return (normal_in->link && normal_in->link->parent->special_type != SHADER_SPECIAL_TYPE_GEOMETRY);
+}
+
 /* Translucent BSDF Closure */
 
 TranslucentBsdfNode::TranslucentBsdfNode()

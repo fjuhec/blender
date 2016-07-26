@@ -121,6 +121,7 @@ ccl_device int bsdf_sample(KernelGlobals *kg, const ShaderData *sd, const Shader
 				eval, omega_in, &domega_in->dx, &domega_in->dy, pdf);
 			break;
 		case CLOSURE_BSDF_DISNEY_DIFFUSE_ID:
+		case CLOSURE_BSDF_BSSRDF_DISNEY_ID:
 			label = bsdf_disney_diffuse_sample(sc, ccl_fetch(sd, Ng), ccl_fetch(sd, I), ccl_fetch(sd, dI).dx, ccl_fetch(sd, dI).dy, randu, randv,
 				eval, omega_in, &domega_in->dx, &domega_in->dy, pdf);
 			break;
@@ -217,6 +218,7 @@ ccl_device float3 bsdf_eval(KernelGlobals *kg, const ShaderData *sd, const Shade
 				eval = bsdf_hair_transmission_eval_reflect(sc, ccl_fetch(sd, I), omega_in, pdf);
 				break;
 			case CLOSURE_BSDF_DISNEY_DIFFUSE_ID:
+			case CLOSURE_BSDF_BSSRDF_DISNEY_ID:
 				eval = bsdf_disney_diffuse_eval_reflect(sc, ccl_fetch(sd, I), omega_in, pdf);
 				break;
 			case CLOSURE_BSDF_DISNEY_SHEEN_ID:
@@ -291,6 +293,7 @@ ccl_device float3 bsdf_eval(KernelGlobals *kg, const ShaderData *sd, const Shade
 				eval = bsdf_hair_transmission_eval_transmit(sc, ccl_fetch(sd, I), omega_in, pdf);
 				break;
 			case CLOSURE_BSDF_DISNEY_DIFFUSE_ID:
+			case CLOSURE_BSDF_BSSRDF_DISNEY_ID:
 				eval = bsdf_disney_diffuse_eval_transmit(sc, ccl_fetch(sd, I), omega_in, pdf);
 				break;
 			case CLOSURE_BSDF_DISNEY_SHEEN_ID:

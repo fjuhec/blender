@@ -23,7 +23,9 @@
 
 #include "geom/geom_object.h"
 
+#include "closure/bsdf_util.h"
 #include "closure/bsdf_diffuse.h"
+#include "closure/bsdf_disney_diffuse.h"
 #include "closure/bssrdf.h"
 
 #include "osl_bssrdf.h"
@@ -278,7 +280,7 @@ static void flatten_surface_closure_tree(ShaderData *sd, int path_flag,
 								bssrdf->radius = make_float3(0.0f, 0.0f, 0.0f);
 
 							float3 albedo =
-							        (bssrdf->sc.type == CLOSURE_BSSRDF_BURLEY_ID)
+								(bssrdf->sc.type == CLOSURE_BSSRDF_BURLEY_ID || bssrdf->sc.type == CLOSURE_BSSRDF_DISNEY_ID)
 							                ? bssrdf->albedo
 							                : make_float3(0.0f, 0.0f, 0.0f);
 

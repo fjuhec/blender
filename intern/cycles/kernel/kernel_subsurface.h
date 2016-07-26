@@ -147,14 +147,24 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, float3 wei
 
 		sc->weight = weight;
 		sc->sample_weight = 1.0f;
-		sc->data0 = 0.0f;
-		sc->data1 = 0.0f;
 		sc->N = N;
-		sd->flag |= bsdf_diffuse_setup(sc);
+		if (sc->type == CLOSURE_BSSRDF_DISNEY_ID) {
+			sc->data0 = sc->data3;
+			sd->flag |= bsdf_disney_diffuse_setup(sc);
 
-		/* replace CLOSURE_BSDF_DIFFUSE_ID with this special ID so render passes
-		 * can recognize it as not being a regular diffuse closure */
-		sc->type = CLOSURE_BSDF_BSSRDF_ID;
+			/* replace CLOSURE_BSDF_DISNEY_DIFFUSE_ID with this special ID so render passes
+			* can recognize it as not being a regular Disney diffuse closure */
+			sc->type = CLOSURE_BSDF_BSSRDF_DISNEY_ID;
+		}
+		else {
+			sc->data0 = 0.0f;
+			sc->data1 = 0.0f;
+			sd->flag |= bsdf_diffuse_setup(sc);
+
+			/* replace CLOSURE_BSDF_DIFFUSE_ID with this special ID so render passes
+			* can recognize it as not being a regular diffuse closure */
+			sc->type = CLOSURE_BSDF_BSSRDF_ID;
+		}
 	}
 	else
 		sd->num_closure = 0;

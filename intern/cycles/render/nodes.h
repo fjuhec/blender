@@ -420,6 +420,8 @@ public:
 	SHADER_NODE_CLASS(DisneyBsdfNode)
 
 	bool has_spatial_varying() { return true; }
+	bool has_surface_bssrdf() { return true; }
+	bool has_bssrdf_bump();
 	void compile(SVMCompiler& compiler, ShaderInput *metallic, ShaderInput *subsurface,
 		ShaderInput *specular, ShaderInput *roughness, ShaderInput *specularTint, ShaderInput *anisotropic,
 		ShaderInput *sheen, ShaderInput *sheenTint, ShaderInput *clearcoat, ShaderInput *clearcoatGloss,

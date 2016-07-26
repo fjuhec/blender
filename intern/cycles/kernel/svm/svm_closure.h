@@ -193,19 +193,18 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 #ifdef __SUBSURFACE__
 			float3 albedo = baseColor;
-			float3 subsurf_weight = baseColor * weight * saturate(subsurface) * diffuse_weight;
+			float3 subsurf_weight = weight * diffuse_weight;
 			float subsurf_sample_weight = fabsf(average(subsurf_weight));
 
 			/* disable in case of diffuse ancestor, can't see it well then and
 			 * adds considerably noise due to probabilities of continuing path
 			 * getting lower and lower */
-			float radius_weight = 1.0f;
-			if(path_flag & PATH_RAY_DIFFUSE_ANCESTOR)
-				radius_weight = 0.0f;
+			if (path_flag & PATH_RAY_DIFFUSE_ANCESTOR)
+				subsurface = 0.0f;
 
 			if (subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF && ccl_fetch(sd, num_closure) + 2 < MAX_CLOSURE) {
 				/* radius * scale */
-				float3 radius = make_float3(1.0f, 1.0f, 1.0f) * radius_weight;
+				float3 radius = make_float3(1.0f, 1.0f, 1.0f) * subsurface;
 				/* sharpness */
 				float sharpness = 0.0f;
 				/* texture color blur */
@@ -218,12 +217,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					sc->data0 = radius.x;
 					sc->data1 = texture_blur;
 					sc->data2 = albedo.x;
+					sc->data3 = roughness;
 					sc->T.x = sharpness;
+					sc->color0 = baseColor;
 #  ifdef __OSL__
 					sc->prim = NULL;
 #  endif
 					sc->N = N;
-					ccl_fetch(sd, flag) |= bssrdf_setup(sc, (ClosureType)CLOSURE_BSSRDF_BURLEY_ID);
+					ccl_fetch(sd, flag) |= bssrdf_setup(sc, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
 
 					ccl_fetch(sd, num_closure)++;
 					sc_next(sc);
@@ -235,12 +236,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					sc->data0 = radius.y;
 					sc->data1 = texture_blur;
 					sc->data2 = albedo.y;
+					sc->data3 = roughness;
 					sc->T.x = sharpness;
+					sc->color0 = baseColor;
 #  ifdef __OSL__
 					sc->prim = NULL;
 #  endif
 					sc->N = N;
-					ccl_fetch(sd, flag) |= bssrdf_setup(sc, (ClosureType)CLOSURE_BSSRDF_BURLEY_ID);
+					ccl_fetch(sd, flag) |= bssrdf_setup(sc, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
 
 					ccl_fetch(sd, num_closure)++;
 					sc_next(sc);
@@ -252,23 +255,24 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					sc->data0 = radius.z;
 					sc->data1 = texture_blur;
 					sc->data2 = albedo.z;
+					sc->data3 = roughness;
 					sc->T.x = sharpness;
+					sc->color0 = baseColor;
 #  ifdef __OSL__
 					sc->prim = NULL;
 #  endif
 					sc->N = N;
-					ccl_fetch(sd, flag) |= bssrdf_setup(sc, (ClosureType)CLOSURE_BSSRDF_BURLEY_ID);
+					ccl_fetch(sd, flag) |= bssrdf_setup(sc, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
 
 					ccl_fetch(sd, num_closure)++;
 					sc_next(sc);
 				}
 			}
-#endif
-
+#else
 			/* diffuse */
-			if ((1.0f - saturate(subsurface)) * diffuse_weight > 0.0f) {
+			if (diffuse_weight > 0.0f) {
 				if (ccl_fetch(sd, num_closure) < MAX_CLOSURE) {
-					float3 diff_weight = weight * (1.0f - saturate(subsurface)) * diffuse_weight;
+					float3 diff_weight = weight * diffuse_weight;
 					float diff_sample_weight = fabsf(average(diff_weight));
 
 					if (diff_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
@@ -289,6 +293,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					}
 				}
 			}
+#endif
 
             /* sheen */
 			if (diffuse_weight > 0.0f && sheen != 0.0f) {

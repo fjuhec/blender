@@ -41,7 +41,9 @@
 #include "kernel_types.h"
 #include "kernel_montecarlo.h"
 
+#include "closure/bsdf_util.h"
 #include "closure/bsdf_diffuse.h"
+#include "closure/bsdf_disney_diffuse.h"
 #include "closure/bssrdf.h"
 
 CCL_NAMESPACE_BEGIN

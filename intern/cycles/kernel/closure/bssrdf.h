@@ -329,10 +329,20 @@ ccl_device int bssrdf_setup(ShaderClosure *sc, ClosureType type)
 {
 	if(sc->data0 < BSSRDF_MIN_RADIUS) {
 		/* revert to diffuse BSDF if radius too small */
-		sc->data0 = 0.0f;
-		sc->data1 = 0.0f;
-		int flag = bsdf_diffuse_setup(sc);
-		sc->type = CLOSURE_BSDF_BSSRDF_ID;
+		int flag;
+		if (type == CLOSURE_BSSRDF_DISNEY_ID) {
+			sc->data0 = sc->data3;
+			sc->data1 = 0.0f;
+			flag = bsdf_disney_diffuse_setup(sc);
+			sc->type = CLOSURE_BSDF_BSSRDF_DISNEY_ID;
+		}
+		else {
+			sc->data0 = 0.0f;
+			sc->data1 = 0.0f;
+			flag = bsdf_diffuse_setup(sc);
+			sc->type = CLOSURE_BSDF_BSSRDF_ID;
+		}
+		
 		return flag;
 	}
 	else {
@@ -340,7 +350,7 @@ ccl_device int bssrdf_setup(ShaderClosure *sc, ClosureType type)
 		sc->T.x = saturate(sc->T.x); /* sharpness */
 		sc->type = type;
 
-		if(type == CLOSURE_BSSRDF_BURLEY_ID) {
+		if (type == CLOSURE_BSSRDF_BURLEY_ID || type == CLOSURE_BSSRDF_DISNEY_ID) {
 			bssrdf_burley_setup(sc);
 		}
 
@@ -354,7 +364,7 @@ ccl_device void bssrdf_sample(ShaderClosure *sc, float xi, float *r, float *h)
 		bssrdf_cubic_sample(sc, xi, r, h);
 	else if(sc->type == CLOSURE_BSSRDF_GAUSSIAN_ID)
 		bssrdf_gaussian_sample(sc, xi, r, h);
-	else /*if(sc->type == CLOSURE_BSSRDF_BURLEY_ID)*/
+	else /*if(sc->type == CLOSURE_BSSRDF_BURLEY_ID || sc->type == CLOSURE_BSSRDF_DISNEY_ID)*/
 		bssrdf_burley_sample(sc, xi, r, h);
 }
 
@@ -364,7 +374,7 @@ ccl_device float bssrdf_pdf(ShaderClosure *sc, float r)
 		return bssrdf_cubic_pdf(sc, r);
 	else if(sc->type == CLOSURE_BSSRDF_GAUSSIAN_ID)
 		return bssrdf_gaussian_pdf(sc, r);
-	else /*if(sc->type == CLOSURE_BSSRDF_BURLEY_ID)*/
+	else /*if(sc->type == CLOSURE_BSSRDF_BURLEY_ID || sc->type == CLOSURE_BSSRDF_DISNEY_ID)*/
 		return bssrdf_burley_pdf(sc, r);
 }
 
