@@ -1351,41 +1351,27 @@ static int move_to_layer_exec(bContext *C, wmOperator *op)
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
-	unsigned int lay, local;
+	unsigned int lay;
 	/* bool is_lamp = false; */ /* UNUSED */
 
 	lay = move_to_layer_init(C, op);
-	lay &= 0xFFFFFF;
 
 	if (lay == 0) return OPERATOR_CANCELLED;
 
-	if (v3d && v3d->localviewd) {
-		/* now we can move out of localview. */
-		/* note: layers are set in bases, library objects work for this */
-		CTX_DATA_BEGIN (C, Base *, base, selected_bases)
-		{
-			lay = base->lay & ~v3d->lay;
-			base->lay = lay;
-			base->object->lay = lay;
+	/* note: layers are set in bases, library objects work for this */
+	CTX_DATA_BEGIN (C, Base *, base, selected_bases)
+	{
+		/* Move out of local view and deselect */
+		/* TODO maybe this can be done a bit nicer? */
+		if (v3d && v3d->localviewd) {
+			base->object->localview.viewbits &= ~v3d->localviewd->viewbits;
 			base->object->flag &= ~SELECT;
 			base->flag &= ~SELECT;
-			/* if (base->object->type == OB_LAMP) is_lamp = true; */
 		}
-		CTX_DATA_END;
+		base->lay = base->object->lay = lay;
+		/* if (base->object->type == OB_LAMP) is_lamp = true; */
 	}
-	else {
-		/* normal non localview operation */
-		/* note: layers are set in bases, library objects work for this */
-		CTX_DATA_BEGIN (C, Base *, base, selected_bases)
-		{
-			/* upper byte is used for local view */
-			local = base->lay & 0xFF000000;
-			base->lay = lay + local;
-			base->object->lay = lay;
-			/* if (base->object->type == OB_LAMP) is_lamp = true; */
-		}
-		CTX_DATA_END;
-	}
+	CTX_DATA_END;
 
 	/* warning, active object may be hidden now */
 

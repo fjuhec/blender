@@ -6549,12 +6549,15 @@ void blo_lib_link_screen_restore(Main *newmain, bScreen *curscreen, Scene *cursc
 							id_us_plus((ID *)bgpic->clip);
 						}
 					}
+
+					/* old localview data */
+					if (v3d->localvd) {
+						v3d->localvd->camera = sc->scene->camera;
+					}
+					/* new localview data */
 					if (v3d->localviewd) {
 						/*Base *base;*/
 
-						/* old localview data */
-						v3d->localvd->camera = sc->scene->camera;
-						/* new localview data */
 						v3d->localviewd->camera = sc->scene->camera;
 
 						/* localview can become invalid during undo/redo steps, so we exit it when no could be found */
