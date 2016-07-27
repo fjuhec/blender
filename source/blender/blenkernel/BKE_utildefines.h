@@ -52,7 +52,12 @@ extern "C" {
 /* Adjust local view info of ob to be visible if v3d is in local view */
 #define BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob) \
 	if ((v3d)->localviewd) { \
-		(ob)->localview.viewbits = (v3d)->localviewd->viewbits; \
+		(ob)->localview.viewbits |= (v3d)->localviewd->viewbits; \
+	} (void)0
+/* Remove object from local view */
+#define BKE_LOCALVIEW_OBJECT_UNASSIGN(v3d, ob) \
+	if ((v3d)->localviewd) { \
+		(ob)->localview.viewbits &= ~(v3d)->localviewd->viewbits; \
 	} (void)0
 
 #ifdef __cplusplus

@@ -87,6 +87,7 @@
 #include "BKE_speaker.h"
 #include "BKE_texture.h"
 #include "BKE_editmesh.h"
+#include "BKE_utildefines.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -1361,10 +1362,10 @@ static int move_to_layer_exec(bContext *C, wmOperator *op)
 	/* note: layers are set in bases, library objects work for this */
 	CTX_DATA_BEGIN (C, Base *, base, selected_bases)
 	{
-		/* Move out of local view and deselect */
+		/* Move object out of local view and deselect */
 		/* TODO maybe this can be done a bit nicer? */
 		if (v3d && v3d->localviewd) {
-			base->object->localview.viewbits &= ~v3d->localviewd->viewbits;
+			BKE_LOCALVIEW_OBJECT_UNASSIGN(v3d, base->object);
 			base->object->flag &= ~SELECT;
 			base->flag &= ~SELECT;
 		}
