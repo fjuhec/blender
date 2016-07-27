@@ -38,6 +38,23 @@ extern "C" {
 	else      (value) &= ~flag;             \
 } (void)0
 
+/**
+ * Local view utility macros.
+ *
+ * Even though it's possible to access LocalView DNA structs directly,
+ * please only access using these macros (or extend it if needed).
+ */
+
+/* visibility check */
+#define BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, ob) \
+	(((v3d)->localviewd == NULL) || (((v3d)->localviewd->viewbits & (ob)->localview.viewbits) != 0))
+
+/* Adjust local view info of ob to be visible if v3d is in local view */
+#define BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob) \
+	if ((v3d)->localviewd) { \
+		(ob)->localview.viewbits = (v3d)->localviewd->viewbits; \
+	} (void)0
+
 #ifdef __cplusplus
 }
 #endif

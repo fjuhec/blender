@@ -109,6 +109,13 @@ typedef struct LocalViewRegionData {
 	float ofs[3];
 } LocalViewRegionData;
 
+/**
+ * An element that can be in local view has this (currently objects only).
+ */
+typedef struct LocalViewInfo {
+	unsigned int viewbits; /* 32 bits to store up to 32 views (compared to LocalViewAreaData.viewbits) */
+} LocalViewInfo;
+
 /* ********************************* */
 
 typedef struct RegionView3D {

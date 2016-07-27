@@ -82,6 +82,7 @@
 #include "BKE_modifier.h"
 #include "BKE_editmesh.h"
 #include "BKE_report.h"
+#include "BKE_utildefines.h"
 
 #include "ED_armature.h"
 #include "ED_curve.h"
@@ -143,12 +144,15 @@ static int object_hide_view_clear_exec(bContext *C, wmOperator *UNUSED(op))
 	
 	/* XXX need a context loop to handle such cases */
 	for (base = FIRSTBASE; base; base = base->next) {
-		if ((base->lay & v3d->lay) && base->object->restrictflag & OB_RESTRICT_VIEW) {
+		if ((base->lay & v3d->lay) &&
+		    BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object) &&
+		    (base->object->restrictflag & OB_RESTRICT_VIEW))
+		{
 			if (!(base->object->restrictflag & OB_RESTRICT_SELECT)) {
 				base->flag |= SELECT;
 			}
 			base->object->flag = base->flag;
-			base->object->restrictflag &= ~OB_RESTRICT_VIEW; 
+			base->object->restrictflag &= ~OB_RESTRICT_VIEW;
 			changed = true;
 		}
 	}
@@ -478,9 +482,17 @@ void ED_object_editmode_enter(bContext *C, int flag)
 	if ((flag & EM_IGNORE_LAYER) == 0) {
 		base = CTX_data_active_base(C); /* active layer checked here for view3d */
 
-		if (base == NULL) return;
-		else if (v3d && (base->lay & v3d->lay) == 0) return;
-		else if (!v3d && (base->lay & scene->lay) == 0) return;
+		if (base == NULL) {
+			return;
+		}
+		else if (v3d) {
+			if ((base->lay & v3d->lay) == 0 || !BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+				return;
+			}
+		}
+		else if ((base->lay & scene->lay) == 0) {
+			return;
+		}
 	}
 	else {
 		base = scene->basact;

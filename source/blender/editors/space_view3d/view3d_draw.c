@@ -67,6 +67,7 @@
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_unit.h"
+#include "BKE_utildefines.h"
 #include "BKE_movieclip.h"
 
 #include "RE_engine.h"
@@ -2829,8 +2830,7 @@ static void view3d_draw_objects(
 		for (base = scene->base.first; base; base = base->next) {
 			lay_used |= base->lay;
 
-			if (v3d->lay & base->lay) {
-
+			if (v3d->lay & base->lay && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
 				/* dupli drawing */
 				if (base->object->transflag & OB_DUPLI) {
 					draw_dupli_objects(scene, ar, v3d, base);

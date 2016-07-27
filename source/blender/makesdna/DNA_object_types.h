@@ -37,6 +37,7 @@
 #include "DNA_listBase.h"
 #include "DNA_ID.h"
 #include "DNA_action_types.h" /* bAnimVizSettings */
+#include "DNA_view3d_types.h" /* LocalViewInfo */
 
 #ifdef __cplusplus
 extern "C" {
@@ -111,10 +112,6 @@ typedef struct LodLevel {
 	float distance, pad;
 	int obhysteresis;
 } LodLevel;
-
-typedef struct LocalViewInfo {
-	unsigned int viewbits; /* 32 bits to store up to 32 views (compared to LocalViewAreaData.viewbits) */
-} LocalViewInfo;
 
 typedef struct Object {
 	ID id;

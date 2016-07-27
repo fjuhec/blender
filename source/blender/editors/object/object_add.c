@@ -88,6 +88,7 @@
 #include "BKE_screen.h"
 #include "BKE_speaker.h"
 #include "BKE_texture.h"
+#include "BKE_utildefines.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -341,11 +342,6 @@ bool ED_object_add_generic_get_opts(bContext *C, wmOperator *op, const char view
 			}
 			RNA_property_boolean_set_array(op->ptr, prop, layer_values);
 		}
-
-		/* in local view we additionally add local view layers,
-		 * not part of operator properties */
-		if (v3d && v3d->localviewd)
-			*layer |= v3d->lay;
 	}
 
 	/* Location! */
@@ -407,6 +403,7 @@ Object *ED_object_add_type(
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	View3D *v3d = CTX_wm_view3d(C);
 	Object *ob;
 
 	/* for as long scene has editmode... */
@@ -418,6 +415,11 @@ Object *ED_object_add_type(
 	BASACT->lay = ob->lay = layer;
 	/* editor level activate, notifiers */
 	ED_base_object_activate(C, BASACT);
+
+	/* Add to local view if needed */
+	if (v3d) {
+		BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob);
+	}
 
 	/* more editor stuff */
 	ED_object_base_init_transform(C, BASACT, loc, rot);
