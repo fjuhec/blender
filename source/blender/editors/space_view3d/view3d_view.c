@@ -1380,7 +1380,7 @@ static bool view3d_localview_init(
 			}
 		}
 		
-		v3d->localviewd->viewbits = locallay;
+		v3d->localviewd->info.viewbits = locallay;
 		v3d->lay = locallay;
 	}
 	else {

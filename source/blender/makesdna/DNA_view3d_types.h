@@ -85,10 +85,18 @@ typedef struct BGpic {
 /* Local View Data */
 
 /**
+ * Info about the current local view state. A local view area (View3D) and objects have this.
+ * By comparing them we see which objects are visible. (Use with BKE_LOCALVIEW_ macros!)
+ */
+typedef struct LocalViewInfo {
+	unsigned int viewbits; /* 32 bits to store up to 32 views */
+} LocalViewInfo;
+
+/**
  * Data for 3D view area (View3D) while in local view.
  */
 typedef struct LocalViewAreaData {
-	int viewbits; /* 32 bits to store up to 32 views */
+	LocalViewInfo info;
 
 	/* Initial View3D values for reset after local view exit */
 	float near, far;
@@ -108,13 +116,6 @@ typedef struct LocalViewRegionData {
 	float dist;
 	float ofs[3];
 } LocalViewRegionData;
-
-/**
- * An element that can be in local view has this (currently objects only).
- */
-typedef struct LocalViewInfo {
-	unsigned int viewbits; /* 32 bits to store up to 32 views (compared to LocalViewAreaData.viewbits) */
-} LocalViewInfo;
 
 /* ********************************* */
 

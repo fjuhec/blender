@@ -200,7 +200,7 @@ static void do_version_localview_areadata(View3D *v3d)
 	}
 
 	LocalViewAreaData *new_lvd = MEM_mallocN(sizeof(*v3d->localviewd), __func__);
-	new_lvd->viewbits = 0; /* XXX */
+	new_lvd->info.viewbits = 0; /* XXX */
 	new_lvd->near = old_lvd->near;
 	new_lvd->far = old_lvd->far;
 	new_lvd->drawtype = old_lvd->drawtype;
