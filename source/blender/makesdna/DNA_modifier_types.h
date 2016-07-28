@@ -1542,11 +1542,23 @@ enum {
 	MOD_NORMALEDIT_MIX_MUL  = 3,
 };
 
+enum {
+	ABC_READ_VERTS = (1 << 0),
+	ABC_READ_FACES = (1 << 1),
+	ABC_READ_UVS   = (1 << 2),
+	ABC_READ_MCOLS = (1 << 3),
+
+	ABC_READ_ALL = (ABC_READ_VERTS | ABC_READ_FACES | ABC_READ_UVS | ABC_READ_MCOLS),
+};
+
 typedef struct MeshSeqCacheModifierData {
 	ModifierData modifier;
 
 	struct CacheFile *cache_file;
 	char abc_object_path[1024];  /* 1024 = FILE_MAX */
+
+	int flags;
+	char pad[4];
 } MeshSeqCacheModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

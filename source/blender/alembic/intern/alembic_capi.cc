@@ -891,7 +891,7 @@ ABC_INLINE CDStreamConfig get_config(DerivedMesh *dm)
 	return config;
 }
 
-static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, const float time)
+static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, const float time, int flags)
 {
 	IPolyMesh mesh(iobject, kWrapExisting);
 	IPolyMeshSchema schema = mesh.getSchema();
@@ -906,7 +906,7 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 
 	/* Only read point data when streaming meshes, unless we need to create new ones. */
 	ImportSettings settings;
-	settings.flag |= ABC_READ_VERTS;
+	settings.flag |= flags;
 
 	if (dm->getNumVerts(dm) != positions->size()) {
 		new_dm = CDDM_from_template(dm,
@@ -941,7 +941,7 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 
 using Alembic::AbcGeom::ISubDSchema;
 
-static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, const float time)
+static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, const float time, int flags)
 {
 	ISubD mesh(iobject, kWrapExisting);
 	ISubDSchema schema = mesh.getSchema();
@@ -955,7 +955,7 @@ static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, co
 	DerivedMesh *new_dm = NULL;
 
 	ImportSettings settings;
-	settings.flag |= ABC_READ_VERTS;
+	settings.flag |= flags;
 
 	if (dm->getNumVerts(dm) != positions->size()) {
 		new_dm = CDDM_from_template(dm,
@@ -1076,7 +1076,8 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
                            DerivedMesh *dm,
                            const char *object_path,
                            const float time,
-                           const char **err_str)
+                           const char **err_str,
+                           int flags)
 {
 	IArchive *archive = archive_from_handle(handle);
 
@@ -1101,7 +1102,7 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
 			return NULL;
 		}
 
-		return read_mesh_sample(dm, iobject, time);
+		return read_mesh_sample(dm, iobject, time, flags);
 	}
 	else if (ISubD::matches(header)) {
 		if (ob->type != OB_MESH) {
@@ -1109,7 +1110,7 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
 			return NULL;
 		}
 
-		return read_subd_sample(dm, iobject, time);
+		return read_subd_sample(dm, iobject, time, flags);
 	}
 	else if (IPoints::matches(header)) {
 		if (ob->type != OB_MESH) {

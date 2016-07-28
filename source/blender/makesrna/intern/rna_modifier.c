@@ -4275,6 +4275,28 @@ static void rna_def_modifier_meshseqcache(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Object Path", "Path to the object in the Alembic archive used to lookup geometric data");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "read_verts", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flags", ABC_READ_VERTS);
+	RNA_def_property_ui_text(prop, "Read Vertices", "");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "read_faces", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flags", ABC_READ_FACES);
+	RNA_def_property_ui_text(prop, "Read Faces", "");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "read_uvs", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flags", ABC_READ_UVS);
+	RNA_def_property_ui_text(prop, "Read UVs", "");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "read_mcols", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flags", ABC_READ_MCOLS);
+	RNA_def_property_ui_text(prop, "Read Vertex Colors", "");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	/* -------------------------- velocity vectors -------------------------- */
+
 	prop = RNA_def_property(srna, "velocity_cache", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_array(prop, 32);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);

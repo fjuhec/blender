@@ -78,15 +78,6 @@ private:
 
 class CacheFile;
 
-enum {
-	ABC_READ_VERTS = (1 << 0),
-	ABC_READ_FACES = (1 << 1),
-	ABC_READ_UVS   = (1 << 2),
-	ABC_READ_MCOLS = (1 << 3),
-
-	ABC_READ_ALL = (ABC_READ_VERTS | ABC_READ_FACES | ABC_READ_UVS | ABC_READ_MCOLS),
-};
-
 struct ImportSettings {
 	bool do_convert_mat;
 	float conversion_mat[4][4];

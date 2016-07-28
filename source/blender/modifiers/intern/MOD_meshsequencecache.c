@@ -50,6 +50,7 @@ static void initData(ModifierData *md)
 
 	mcmd->cache_file = NULL;
 	mcmd->abc_object_path[0] = '\0';
+	mcmd->flags = ABC_READ_ALL;
 }
 
 static void copyData(ModifierData *md, ModifierData *target)
@@ -101,7 +102,8 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	                                    dm,
 	                                    mcmd->abc_object_path,
 	                                    time,
-	                                    &err_str);
+	                                    &err_str,
+	                                    mcmd->flags);
 
 	if (err_str) {
 		modifier_setError(md, "%s", err_str);

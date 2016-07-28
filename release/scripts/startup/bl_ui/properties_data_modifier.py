@@ -223,12 +223,18 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         box.template_cache_file(md, "cache_file")
 
         cache_file = md.cache_file
-        
+
         layout.label(text="Modifier Properties:")
         box = layout.box()
-        
+
         if cache_file is not None:
             box.prop_search(md, "abc_object_path", cache_file, "object_paths")
+
+        if ob.type == 'MESH':
+            box.prop(md, "read_verts")
+            box.prop(md, "read_faces")
+            box.prop(md, "read_uvs")
+            box.prop(md, "read_mcols")
 
     def CAST(self, layout, ob, md):
         split = layout.split(percentage=0.25)
