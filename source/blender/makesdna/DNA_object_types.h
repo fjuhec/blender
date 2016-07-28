@@ -37,7 +37,7 @@
 #include "DNA_listBase.h"
 #include "DNA_ID.h"
 #include "DNA_action_types.h" /* bAnimVizSettings */
-#include "DNA_view3d_types.h" /* LocalViewInfo */
+#include "DNA_screen_types.h" /* LocalViewInfo */
 
 #ifdef __cplusplus
 extern "C" {

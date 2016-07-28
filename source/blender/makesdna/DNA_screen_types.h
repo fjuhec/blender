@@ -199,6 +199,44 @@ typedef struct uiPreview {           /* some preview UI data need to be saved in
 	short pad1[3];
 } uiPreview;
 
+/* ********************************* */
+/* Local View */
+
+/**
+ * Info about the current local view state. A local view area (View3D) and objects have this.
+ * By comparing them we see which objects are visible. (Use with BKE_LOCALVIEW_ macros!)
+ */
+typedef struct LocalViewInfo {
+	unsigned int viewbits; /* 32 bits to store up to 32 views */
+} LocalViewInfo;
+
+/**
+ * Data for 3D view area (View3D) while in local view.
+ */
+typedef struct LocalViewAreaData {
+	LocalViewInfo info;
+
+	/* Initial View3D values for reset after local view exit */
+	float near, far;
+	short drawtype, pad;
+	struct Object *camera;
+} LocalViewAreaData;
+
+/**
+ * Data for 3D view region (RegionView3D) while in local view.
+ */
+typedef struct LocalViewRegionData {
+	/* Initial RegionView3D values for reset after local view exit */
+	float camzoom;
+	char persp;
+	char view, pad[2];
+	float viewquat[4];
+	float dist;
+	float ofs[3];
+} LocalViewRegionData;
+
+/* ********************************* */
+
 typedef struct ScrArea {
 	struct ScrArea *next, *prev;
 	
