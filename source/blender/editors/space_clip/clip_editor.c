@@ -675,6 +675,11 @@ void ED_space_clip_set_secondary_clip(bContext *C, bScreen *screen, SpaceClip *s
 		WM_event_add_notifier(C, NC_MOVIECLIP | NA_SELECTED, sc->secondary_clip);
 }
 
+void ED_clip_update_correspondence_mode()
+{
+
+}
+
 /* ******** masking editing functions ******** */
 
 Mask *ED_space_clip_get_mask(SpaceClip *sc)

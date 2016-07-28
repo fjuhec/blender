@@ -1563,6 +1563,9 @@ static void rna_SpaceClipEditor_clip_mode_update(Main *UNUSED(bmain), Scene *UNU
 	SpaceClip *sc = (SpaceClip *)(ptr->data);
 
 	sc->scopes.ok = 0;
+
+	/* update split view if in correspondence mode */
+	ED_clip_update_correspondence_mode();
 }
 
 static void rna_SpaceClipEditor_lock_selection_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)

@@ -1285,6 +1285,15 @@ typedef struct SpaceClip {
 	MaskSpaceInfo mask_info;
 } SpaceClip;
 
+/* region-related settings for Clip Editor */
+typedef struct RegionSpaceClip {
+	float xof, yof;             /* user defined offset, image is centered */
+	float xlockof, ylockof;     /* user defined offset from locked position */
+	float zoom;                 /* user defined zoom level */
+	float stabmat[4][4], unistabmat[4][4];  /* current stabilization matrix and the same matrix in unified space,
+	                                         * defined when drawing and used for mouse position calculation */
+} RegionSpaceClip;
+
 /* SpaceClip->flag */
 typedef enum eSpaceClip_Flag {
 	SC_SHOW_MARKER_PATTERN      = (1 << 0),
