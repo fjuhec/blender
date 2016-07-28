@@ -860,6 +860,7 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	SimulatedAnnealing *simann;
 	unsigned int seed = 31415926;
 	float wasted_area, rot_steps, margin;
+	bool average_scale = RNA_boolean_get(op->ptr, "average_islands_scale");
 
 	/* Keep for now, needed when making packing work with current selection */
 	/*if (!uvedit_have_selection(scene, em, implicit)) {
@@ -888,6 +889,9 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	simann->temperature = 1.0f;
 	simann->rot_steps = RNA_int_get(op->ptr, "rotation_steps");
 	pi->sa = simann;
+
+	if (average_scale)
+		param_average(pi->handle);
 
 	param_irregular_pack_begin(pi->handle, &wasted_area, pi->margin, pi->sa->rot_steps /* SA */);
 	pi->wasted_area_last = wasted_area;
@@ -1085,6 +1089,7 @@ void UV_OT_irregular_pack_islands(wmOperatorType *ot)
 	RNA_def_float(ot->srna, "margin", 0.0f, 0.0f, 1.0f, "Margin", "Border Margin/Padding to apply per UV island", 0.0f, 1.0f);
 	RNA_def_int(ot->srna, "rotation_steps", 4, 0, 360, "Rotation Steps", "Allowed rotations to try during packing. (2=180°, 4=90°, etc.)", 0, 360);
 	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 10000);
+	RNA_def_boolean(ot->srna, "average_islands_scale", true, "Average Islands Scale", "Average Islands Scale before starting packing");
 }
 
 /* ******************** XXX (SaphireS): DEBUG-TEST operator **************** */
