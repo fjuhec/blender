@@ -3889,6 +3889,9 @@ void uiTemplateCacheFile(uiLayout *layout, bContext *C, PointerRNA *ptr, const c
 	uiItemO(row, "", ICON_FILE_REFRESH, "cachefile.reload");
 
 	row = uiLayoutRow(layout, false);
+	uiItemR(row, &fileptr, "is_sequence", 0, "Is Sequence", ICON_NONE);
+
+	row = uiLayoutRow(layout, false);
 	uiItemR(row, &fileptr, "override_frame", 0, "Override Frame", ICON_NONE);
 
 	row = uiLayoutRow(layout, false);

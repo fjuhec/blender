@@ -385,6 +385,9 @@ static void ui_alembic_import_settings(uiLayout *layout, PointerRNA *imfptr)
 	uiItemR(row, imfptr, "set_frame_range", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(box, false);
+	uiItemR(row, imfptr, "is_sequence", 0, NULL, ICON_NONE);
+
+	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "validate_meshes", 0, NULL, ICON_NONE);
 }
 
@@ -407,12 +410,16 @@ static int wm_alembic_import_exec(bContext *C, wmOperator *op)
 	RNA_string_get(op->ptr, "filepath", filename);
 
 	const float scale = RNA_float_get(op->ptr, "scale");
+	const bool is_sequence = RNA_boolean_get(op->ptr, "is_sequence");
 	const bool set_frame_range = RNA_boolean_get(op->ptr, "set_frame_range");
 	const bool validate_meshes = RNA_boolean_get(op->ptr, "validate_meshes");
 
 	int offset = 0;
-	int sequence_len = get_sequence_len(filename, &offset);
-	const bool is_sequence = (sequence_len > 1);
+	int sequence_len = 1;
+
+	if (is_sequence) {
+		sequence_len = get_sequence_len(filename, &offset);
+	}
 
 	ABC_import(C, filename, scale, is_sequence, set_frame_range, sequence_len, offset, validate_meshes);
 
@@ -443,6 +450,9 @@ void WM_OT_alembic_import(wmOperatorType *ot)
 
 	RNA_def_boolean(ot->srna, "validate_meshes", 0,
 	                "Validate Meshes", "Check imported mesh objects for invalid data (slow)");
+
+	RNA_def_boolean(ot->srna, "is_sequence", false, "Is Sequence",
+	                "Set to true if the cache is split into separate files");
 }
 
 #endif
