@@ -1190,38 +1190,33 @@ short view3d_opengl_select(ViewContext *vc, unsigned int *buffer, unsigned int b
 
 /* ********************** local view operator ******************** */
 
-static unsigned int free_localbit(Main *bmain)
+static void find_free_localviewinfo(Main *bmain, LocalViewInfo *r_free_view)
 {
-	unsigned int lay;
-	ScrArea *sa;
-	bScreen *sc;
-	
-	lay = 0;
-	
+	unsigned int lay = 0;
+
 	/* sometimes we loose a localview: when an area is closed */
 	/* check all areas: which localviews are in use? */
-	for (sc = bmain->screen.first; sc; sc = sc->id.next) {
-		for (sa = sc->areabase.first; sa; sa = sa->next) {
-			SpaceLink *sl = sa->spacedata.first;
-			for (; sl; sl = sl->next) {
+	for (bScreen *sc = bmain->screen.first; sc; sc = sc->id.next) {
+		for (ScrArea *sa = sc->areabase.first; sa; sa = sa->next) {
+			for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
 				if (sl->spacetype == SPACE_VIEW3D) {
 					View3D *v3d = (View3D *) sl;
-					lay |= v3d->lay;
+					if (v3d->localviewd) {
+						lay |= v3d->localviewd->info.viewbits;
+					}
 				}
 			}
 		}
 	}
-	
-	if ((lay & 0x01000000) == 0) return 0x01000000;
-	if ((lay & 0x02000000) == 0) return 0x02000000;
-	if ((lay & 0x04000000) == 0) return 0x04000000;
-	if ((lay & 0x08000000) == 0) return 0x08000000;
-	if ((lay & 0x10000000) == 0) return 0x10000000;
-	if ((lay & 0x20000000) == 0) return 0x20000000;
-	if ((lay & 0x40000000) == 0) return 0x40000000;
-	if ((lay & 0x80000000) == 0) return 0x80000000;
-	
-	return 0;
+
+	BLI_assert(r_free_view->viewbits == 0);
+	/* search free bit */
+	for (int i = 0; i < sizeof(r_free_view->viewbits) * 8; i++) {
+		if ((lay & (1 << i)) == 0) {
+			r_free_view->viewbits = (1 << i);
+			break;
+		}
+	}
 }
 
 int ED_view3d_scene_layer_set(int lay, const int *values, int *active)
@@ -1288,17 +1283,17 @@ static bool view3d_localview_init(
 	View3D *v3d = sa->spacedata.first;
 	float min[3], max[3], box[3], mid[3];
 	float size = 0.0f;
-	unsigned int locallay;
+	LocalViewInfo new_view = {0};
 	bool ok = false;
 
 	BLI_assert(v3d->localviewd == NULL);
 
 	INIT_MINMAX(min, max);
 
-	locallay = free_localbit(bmain);
+	find_free_localviewinfo(bmain, &new_view);
 
-	if (locallay == 0) {
-		BKE_report(reports, RPT_ERROR, "No more than 8 local views");
+	if (new_view.viewbits == 0) {
+		BKE_reportf(reports, RPT_ERROR, "No more than %lu local views", sizeof(new_view.viewbits) * 8);
 		ok = false;
 	}
 	else {
@@ -1307,14 +1302,14 @@ static bool view3d_localview_init(
 			
 			ok = true;
 
-			BASACT->object->localview.viewbits |= locallay;
+			BASACT->object->localview.viewbits |= new_view.viewbits;
 			scene->obedit->localview = BASACT->object->localview;
 		}
 		else {
 			for (Base *base = FIRSTBASE; base; base = base->next) {
 				if (TESTBASE(v3d, base)) {
 					BKE_object_minmax(base->object, min, max, false);
-					base->object->localview.viewbits |= locallay;
+					base->object->localview.viewbits |= new_view.viewbits;
 					ok = true;
 				}
 			}
@@ -1374,14 +1369,14 @@ static bool view3d_localview_init(
 			}
 		}
 
-		v3d->localviewd->info.viewbits = locallay;
+		v3d->localviewd->info = new_view;
 	}
 	else {
 		/* clear flags */ 
 		for (Base *base = FIRSTBASE; base; base = base->next) {
 			Object *ob = base->object;
-			if (ob->localview.viewbits & locallay) {
-				ob->localview.viewbits &= ~locallay;
+			if (BKE_LOCALVIEW_INFO_CMP(new_view, ob->localview)) {
+				ob->localview.viewbits &= ~new_view.viewbits;
 				if (ob != scene->obedit) {
 					base->flag |= SELECT;
 				}
