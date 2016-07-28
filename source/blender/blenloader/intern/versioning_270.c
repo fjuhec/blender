@@ -1278,8 +1278,9 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
 						if (sl->spacetype == SPACE_VIEW3D) {
+							ListBase *lb = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 							do_version_localview_areadata((View3D *)sl);
-							for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+							for (ARegion *ar = lb->first; ar; ar = ar->next) {
 								if (ar->regiontype == RGN_TYPE_WINDOW) {
 									do_version_localview_regiondata(ar->regiondata);
 								}
