@@ -51,8 +51,6 @@ static void rna_CacheFile_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 	CacheFile *cache_file = (CacheFile *)ptr->data;
 
 	DAG_id_tag_update(&cache_file->id, 0);
-	/* XXX - how to tag the whole scene for redraw?
-	 * (NC_SCENE | ND_DRAW, scene) doesn't seem to work. */
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
 
 	UNUSED_VARS(bmain, scene);
