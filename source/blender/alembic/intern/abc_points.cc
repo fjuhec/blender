@@ -179,9 +179,9 @@ void read_points_sample(const IPointsSchema &schema,
                         CDStreamConfig &config,
                         float time)
 {
-	Alembic::AbcGeom::IPointsSchema::Sample m_sample = schema.getValue(selector);
+	Alembic::AbcGeom::IPointsSchema::Sample sample = schema.getValue(selector);
 
-	const P3fArraySamplePtr &positions = m_sample.getPositions();
+	const P3fArraySamplePtr &positions = sample.getPositions();
 
 	ICompoundProperty prop = schema.getArbGeomParams();
 	N3fArraySamplePtr vnormals;
