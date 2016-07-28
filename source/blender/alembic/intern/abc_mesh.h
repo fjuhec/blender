@@ -147,4 +147,6 @@ void read_mverts(MVert *mverts,
                  const Alembic::AbcGeom::P3fArraySamplePtr &positions,
                  const Alembic::AbcGeom::N3fArraySamplePtr &normals);
 
+CDStreamConfig create_config(Mesh *mesh);
+
 #endif  /* __ABC_MESH_H__ */

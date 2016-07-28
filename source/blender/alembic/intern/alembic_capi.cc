@@ -996,26 +996,16 @@ static DerivedMesh *read_points_sample(DerivedMesh *dm, const IObject &iobject, 
 
 	const P3fArraySamplePtr &positions = sample.getPositions();
 
+	DerivedMesh *new_dm = NULL;
+
 	if (dm->getNumVerts(dm) != positions->size()) {
-		dm = CDDM_new(positions->size(), 0, 0, 0, 0);
+		new_dm = CDDM_new(positions->size(), 0, 0, 0, 0);
 	}
 
-	ICompoundProperty prop = schema.getArbGeomParams();
-	N3fArraySamplePtr vnormals;
+	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
+	read_points_sample(schema, sample_sel, config, time);
 
-	if (has_property(prop, "N")) {
-		const IN3fArrayProperty &normals_prop = IN3fArrayProperty(prop, "N", 0);
-
-		if (normals_prop) {
-			vnormals = normals_prop.getValue(sample_sel);
-		}
-	}
-
-	MVert *mverts = dm->getVertArray(dm);
-
-	read_mverts(mverts, positions, vnormals);
-
-	return dm;
+	return new_dm ? new_dm : dm;
 }
 
 /* NOTE: Alembic only stores data about control points, but the DerivedMesh

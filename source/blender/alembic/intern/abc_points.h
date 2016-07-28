@@ -26,6 +26,7 @@
 #define __ABC_POINTS_H__
 
 #include "abc_object.h"
+#include "abc_customdata.h"
 
 class ParticleSystem;
 
@@ -60,5 +61,10 @@ public:
 
 	void readObjectData(Main *bmain, float time);
 };
+
+void read_points_sample(const Alembic::AbcGeom::IPointsSchema &schema,
+                        const Alembic::AbcGeom::ISampleSelector &selector,
+                        CDStreamConfig &config,
+                        float time);
 
 #endif  /* __ABC_POINTS_H__ */

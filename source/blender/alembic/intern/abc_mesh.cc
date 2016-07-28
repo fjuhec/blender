@@ -815,7 +815,7 @@ static void *add_customdata_cb(void *user_data, const char *name, int data_type)
 	return cd_ptr;
 }
 
-ABC_INLINE CDStreamConfig create_config(Mesh *mesh)
+CDStreamConfig create_config(Mesh *mesh)
 {
 	CDStreamConfig config;
 
