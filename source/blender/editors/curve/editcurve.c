@@ -6691,8 +6691,8 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 	}
 	BLI_freelistN(&intersections_list);
 	if(selected_endpoints) MEM_freeN(selected_endpoints);
-	if(first_selected_endpoints) MEM_freeN(first_selected_endpoints);
-	if(second_selected_endpoints) MEM_freeN(second_selected_endpoints);
+	//if(first_selected_endpoints) MEM_freeN(first_selected_endpoints);
+	//if(second_selected_endpoints) MEM_freeN(second_selected_endpoints);
 
 	if (result != 1)
 	{
@@ -7451,7 +7451,7 @@ static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, flo
 	MEM_freeN(helper);
 }
 
-static void get_handles_offset_plane(float *p1, float *p2, float *p3, float *r_v1)
+static void get_handles_offset_vec(float *p1, float *p2, float *p3, float *r_v1)
 {
 	float v1[3] = {0.0, 0.0, 0.0};
 	float v2[3] = {0.0, 0.0, 0.0};
@@ -7483,111 +7483,135 @@ static void get_handles_offset_plane(float *p1, float *p2, float *p3, float *r_v
 	}
 }
 
-static bool reverse_offset(BezTriple *orig1, BezTriple *orig2, BezTriple *offset1, BezTriple *offset2)
+static bool reverse_offset(BezTriple *offset1, BezTriple *offset2, ListBase *nurb_base)
 {
-	Nurb *nu;
-	nu = MEM_callocN(sizeof(Nurb), "reverseoffset1");
-	BKE_nurb_bezierPoints_add(nu, 2);
-	memcpy(nu->bezt, orig1, sizeof(BezTriple));
-	memcpy(nu->bezt + 1, orig2, sizeof(BezTriple));
-
-	return 1;
+	ListBase il = {NULL, NULL}, nubase = {NULL, NULL};
+	int ret = 0, i = 0;
+	get_selected_splines(&nubase, nurb_base, &i, true);
+	int dims = 3;
+	float *coord_array;
+	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "revertoffset2");
+	for (int j = 0; j < dims; j++)
+	{
+		BKE_curve_forward_diff_bezier(offset1->vec[1][j],
+									  offset1->vec[2][j],
+									  offset2->vec[0][j],
+									  offset2->vec[1][j],
+									  coord_array + j, 12, sizeof(float) * dims);
+	}
+	for (i = 0; i < 12; i++) {
+		get_intersections(&il, &coord_array[i * 3], &coord_array[(i + 1) * 3], &nubase);
+		if (BLI_listbase_count(&il) > 0) {
+			for (LinkData* d = il.first; d; d = d->next) {
+				MEM_freeN(d->data);
+			}
+			BLI_freelistN(&il);
+			ret = 1;
+		}
+	}
+	MEM_freeN(coord_array);
+	for (Nurb* d = nubase.first; d; d = d->next) {
+		MEM_freeN(d->bezt);
+	}
+	BLI_freelistN(&nubase);
+	return ret;
 }
 
-static int offset_curve_exec(bContext *C, wmOperator *UNUSED(op))
+static int offset_curve_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu, *new_nu;
 	BezTriple *bezt, *new_bezt;
+	float distance = RNA_float_get(op->ptr, "distance");
 
 	/* get selected spline */
 	int spline_id = get_selected_spline_id(nubase);
 	nu = BLI_findlink(nubase, spline_id);
+	if (!nu) {
+		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
+		return OPERATOR_CANCELLED;
+	}
 	bezt = nu->bezt;
 	new_nu = BKE_nurb_duplicate(nu);
 	new_bezt = new_nu->bezt;
-	float *centroid = MEM_callocN(3 * sizeof(float), "offset_curve_exec_get_centroid");
-	get_curve_centroid(nu, centroid);
 
 	/* offset the first handle */
 	/* control point */
-	float *v1, *v2, *co, *p1;
+	float *v1, *v2, *co;
 	v1 = MEM_callocN(3 * sizeof(float), "offset_curve_exec1");
 	v2 = MEM_callocN(3 * sizeof(float), "offset_curve_exec2");
 	co = MEM_callocN(3 * sizeof(float), "offset_curve_exec3");
-	p1 = MEM_callocN(3 * sizeof(float), "offset_curve_exec4");
 	get_offset_vecs(bezt, bezt + 1, v1, v2);
-	get_handles_offset_plane(bezt[0].vec[1], bezt[0].vec[2], bezt[1].vec[0], v2);
+	mul_v3_fl(v1, distance);
 	add_v3_v3(new_bezt->vec[0], v1);
 	add_v3_v3(new_bezt->vec[1], v1);
 	add_v3_v3(new_bezt->vec[2], v1);
+	/* right handle */
+	get_handles_offset_vec(bezt[0].vec[1], bezt[0].vec[2], bezt[1].vec[0], v2);
 	copy_v3_v3(co, bezt->vec[2]);
 	add_v3_v3(co, v2);
 	int result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
 	if (result == 1) {
 		copy_v3_v3(new_bezt->vec[2], v1);
 	}
-	copy_v3_v3(p1, new_bezt->vec[1]);
 
-	reverse_offset(bezt, bezt + 1, new_bezt, new_bezt + 1);
+
 	/* offset all the handles between the first and the last */
 	bezt++;
 	new_bezt++;
-	/* helpful checks */
-	ListBase temp_nubase = {NULL, NULL}, il = {NULL, NULL};
-	Nurb *check_nurb;
-	check_nurb = BKE_nurb_duplicate(nu);
-	BLI_addtail(&temp_nubase, check_nurb);
 	for (int i = 1; i < nu->pntsu - 1; i++)
 	{
+		/* control point */
 		get_offset_vecs(bezt, bezt + 1, v1, v2);
-		get_handles_offset_plane(bezt[0].vec[1], bezt[0].vec[2], bezt[1].vec[0], v2);
+		mul_v3_fl(v1, distance);
 		add_v3_v3(new_bezt->vec[0], v1);
 		add_v3_v3(new_bezt->vec[1], v1);
 		add_v3_v3(new_bezt->vec[2], v1);
+		/* right handle */
+		get_handles_offset_vec(bezt[0].vec[1], bezt[0].vec[2], bezt[1].vec[0], v2);
 		copy_v3_v3(co, bezt->vec[2]);
 		add_v3_v3(co, v2);
-		get_intersections(&il, p1, new_bezt->vec[1], &temp_nubase);
-		if (BLI_listbase_count(&il) > 0) { /* we got the wrong direction. Fix that */
+		if (reverse_offset(new_bezt - 1, new_bezt, nubase)) { /* we got the wrong direction. Fix that */
 			mul_v3_fl(v1, -2);
 			add_v3_v3(new_bezt->vec[0], v1);
 			add_v3_v3(new_bezt->vec[1], v1);
 			add_v3_v3(new_bezt->vec[2], v1);
-			for (LinkData* d = il.first; d; d = d->next) {
-				MEM_freeN(d->data);
-			}
-			BLI_freelistN(&il);
+			//swap_v3_v3(new_bezt->vec[0], new_bezt->vec[2]);
 		}
 		result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
 		if (result == 1) {
 			copy_v3_v3(new_bezt->vec[2], v1);
 		}
-		copy_v3_v3(p1, new_bezt->vec[1]);
+		/* left handle */
+		get_handles_offset_vec(bezt[-1].vec[2], bezt->vec[0], bezt->vec[1], v2);
+		copy_v3_v3(co, bezt->vec[0]);
+		add_v3_v3(co, v2);
+		result = isect_line_line_v3(new_bezt->vec[0], new_bezt->vec[1], bezt->vec[0], co, v1, v2);
+		if (result == 1) {
+			copy_v3_v3(new_bezt->vec[0], v1);
+		}
 		bezt++;
 		new_bezt++;
 	}
 
 	/* offset the last handle */
 	get_offset_vecs(bezt - 1, bezt, v1, v2);
-	get_handles_offset_plane(bezt[nu->pntsu-2].vec[2], bezt[nu->pntsu-1].vec[0], bezt[nu->pntsu-1].vec[1], v1);
+	get_handles_offset_vec(bezt[-1].vec[2], bezt->vec[0], bezt->vec[1], v1);
+	mul_v3_fl(v2, distance);
 	add_v3_v3(new_bezt->vec[0], v2);
 	add_v3_v3(new_bezt->vec[1], v2);
 	add_v3_v3(new_bezt->vec[2], v2);
-	copy_v3_v3(co, bezt->vec[2]);
-	add_v3_v3(co, v2);
-	get_intersections(&il, p1, new_bezt->vec[1], &temp_nubase);
-	if (BLI_listbase_count(&il) > 0) { /* we got the wrong direction. Fix that */
+	copy_v3_v3(co, bezt->vec[0]);
+	add_v3_v3(co, v1);
+	if (reverse_offset(new_bezt - 1, new_bezt, nubase)) { /* we got the wrong direction. Fix that */
 		mul_v3_fl(v2, -2);
 		add_v3_v3(new_bezt->vec[0], v2);
 		add_v3_v3(new_bezt->vec[1], v2);
 		add_v3_v3(new_bezt->vec[2], v2);
-		for (LinkData* d = il.first; d; d = d->next) {
-			MEM_freeN(d->data);
-		}
-		BLI_freelistN(&il);
+		//swap_v3_v3(new_bezt->vec[0], new_bezt->vec[2]);
 	}
-	result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
+	result = isect_line_line_v3(new_bezt->vec[0], new_bezt->vec[1], bezt->vec[0], co, v1, v2);
 	if (result == 1) {
 		copy_v3_v3(new_bezt->vec[0], v1);
 	}
@@ -7595,7 +7619,6 @@ static int offset_curve_exec(bContext *C, wmOperator *UNUSED(op))
 	MEM_freeN(v1);
 	MEM_freeN(v2);
 	MEM_freeN(co);
-	MEM_freeN(centroid);
 
 	BKE_nurb_handles_calc(new_nu);
 	BLI_addtail(nubase, new_nu);
@@ -7604,6 +7627,45 @@ static int offset_curve_exec(bContext *C, wmOperator *UNUSED(op))
 	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
+}
+
+static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	ED_area_tag_redraw(CTX_wm_area(C));
+	ListBase *nubase = object_editcurve_get(obedit);
+	int *init_mouse = op->customdata;
+	float curr_mouse[2] = {event->x, event->y};
+	float prev_mouse[2] = {init_mouse[0], init_mouse[1]};
+
+	if (event->type == MOUSEMOVE) {
+		float d = len_v2v2(prev_mouse, curr_mouse);
+		RNA_float_set(op->ptr, "distance", d/1000);
+		offset_curve_exec(C, op);
+	}
+	else if (event->type == LEFTMOUSE) {
+		offset_curve_exec(C, op);
+		return OPERATOR_FINISHED;
+	}
+	else if (event->type == ESCKEY) {
+		return OPERATOR_CANCELLED;
+	}
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+static int offset_curve_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	int *mouse = MEM_callocN(2 * sizeof(int), "offset_curve_invoke");
+	mouse[0] = event->x;
+	mouse[1] = event->y;
+
+	op->customdata = mouse;
+
+	/* add modal handler */
+	WM_event_add_modal_handler(C, op);
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 void CURVE_OT_offset_curve(wmOperatorType *ot)
@@ -7617,7 +7679,83 @@ void CURVE_OT_offset_curve(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = offset_curve_exec;
 	ot->poll = ED_operator_editsurfcurve;
+	//ot->modal = offset_curve_modal;
+	//ot->invoke = offset_curve_invoke;
 	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* Properties */
+	RNA_def_float(ot->srna, "distance", 1.0f, -100.0f, OBJECT_ADD_SIZE_MAXF, "Offset distance", "", -10.0f, 10.0f);
+}
+
+/******************** Batch Extend operator ********************/
+
+static int batch_extend_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	ListBase *nubase = object_editcurve_get(obedit);
+	Nurb *nu;
+	BezTriple *bezt,  **selected_triples, **selected_endpoints = NULL;
+	/* at most, both endpoints can be selected for all splines */
+	selected_triples = MEM_callocN(2 * BLI_listbase_count(nubase) * sizeof(BezTriple *), "batch_extend1");
+
+	/* make a list with all the selected endpoints */
+	int i = 0;
+	for (nu = nubase->first; nu; nu = nu->next) {
+		bezt = nu->bezt;
+		if (BEZT_ISSEL_ANY(bezt)) { /* first endpoint */
+			selected_triples[i] = bezt;
+			i++;
+		}
+		bezt = &nu->bezt[nu->pntsu - 1];
+		if (BEZT_ISSEL_ANY(bezt)) { /* last endpoint */
+			selected_triples[i] = bezt;
+			i++;
+		}
+	}
+
+	if (i < 2 * BLI_listbase_count(nubase)) {
+		selected_endpoints = MEM_callocN(i * sizeof(BezTriple *), "batch_extend2");
+		memcpy(selected_endpoints, selected_triples, i * sizeof(BezTriple*));
+	}
+	else {
+		selected_endpoints = selected_triples;
+	}
+
+	/* unselect them all */
+	WM_operator_name_call(C, "CURVE_OT_select_all", WM_OP_EXEC_DEFAULT, op->ptr);
+
+	/* for each on the list, select and extend them */
+	for (int j = 0; j < i; j++) {
+		bezt = selected_endpoints[j];
+		BEZT_SEL_ALL(bezt);
+		extend_curve_exec(C, op);
+		/* deselect all vertices again */
+		WM_operator_name_call(C, "CURVE_OT_select_all", WM_OP_EXEC_DEFAULT, op->ptr);
+	}
+
+	MEM_freeN(selected_triples);
+	MEM_freeN(selected_endpoints);
+
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+	DAG_id_tag_update(obedit->data, 0);
+
+	return OPERATOR_FINISHED;
+}
+
+void CURVE_OT_batch_extend(wmOperatorType *ot)
+{
+
+	/* identifiers */
+	ot->name = "Batch Extend";
+	ot->description = "Extend all the selected vertices up to their intersections";
+	ot->idname = "CURVE_OT_batch_extend";
+
+	/* api callbacks */
+	ot->exec = batch_extend_exec;
+	ot->poll = ED_operator_editsurfcurve;
+
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }

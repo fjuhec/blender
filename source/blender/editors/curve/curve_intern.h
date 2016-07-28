@@ -131,6 +131,7 @@ void CURVE_OT_match_texture_space(struct wmOperatorType *ot);
 void CURVE_OT_extend_curve(struct wmOperatorType *ot);
 void CURVE_OT_trim_curve(struct wmOperatorType *ot);
 void CURVE_OT_offset_curve(struct wmOperatorType *ot);
+void CURVE_OT_batch_extend(struct wmOperatorType *ot);
 
 bool ED_curve_pick_vert(
         struct ViewContext *vc, short sel, const int mval[2],
