@@ -81,6 +81,7 @@
 #include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_scene.h"
+#include "BKE_utildefines.h"
 
 #include "PIL_time.h"
 
@@ -3988,7 +3989,8 @@ static void add_lightgroup(Render *re, Group *group, int exclusive)
 
 		if (is_object_hidden(re, go->ob))
 			continue;
-		
+
+		/* Lamps ignore local view visibility, only check layers */
 		if (go->ob->lay & re->lay) {
 			if (go->ob && go->ob->type==OB_LAMP) {
 				for (gol= re->lights.first; gol; gol= gol->next) {
@@ -4975,7 +4977,7 @@ static void add_group_render_dupli_obs(Render *re, Group *group, int nolamps, in
 	}
 }
 
-static void database_init_objects(Render *re, unsigned int renderlay, int nolamps, int onlyselected, Object *actob, int timeoffset)
+static void database_init_objects(Render *re, int nolamps, int onlyselected, Object *actob, int timeoffset)
 {
 	Base *base;
 	Object *ob;
@@ -5008,13 +5010,14 @@ static void database_init_objects(Render *re, unsigned int renderlay, int nolamp
 	}
 
 	for (SETLOOPER(re->scene, sce_iter, base)) {
+		const bool localview_check = !re->localview || BKE_LOCALVIEW_INFO_CMP(base->object->localview, *re->localview);
 		ob= base->object;
 
 		/* in the prev/next pass for making speed vectors, avoid creating
 		 * objects that are not on a renderlayer with a vector pass, can
 		 * save a lot of time in complex scenes */
-		vectorlay= get_vector_renderlayers(re->scene);
-		lay= (timeoffset)? renderlay & vectorlay: renderlay;
+		vectorlay = get_vector_renderlayers(re->scene);
+		lay = (timeoffset)? re->lay & vectorlay: re->lay;
 
 		/* if the object has been restricted from rendering in the outliner, ignore it */
 		if (is_object_restricted(re, ob)) continue;
@@ -5030,7 +5033,11 @@ static void database_init_objects(Render *re, unsigned int renderlay, int nolamp
 				}
 			}
 		}
-		else if ((base->lay & lay) || (ob->type==OB_LAMP && (base->lay & re->lay)) ) {
+		/* while objects use usual visibility check (layer and localview), lamps only
+		 * check layer and render even if they're not included in localview */
+		else if (((base->lay & lay) && localview_check) ||
+		         (ob->type == OB_LAMP && (base->lay & re->lay)))
+		{
 			if ((ob->transflag & OB_DUPLI) && (ob->type!=OB_MBALL)) {
 				DupliObject *dob;
 				ListBase *duplilist;
@@ -5196,14 +5203,10 @@ void RE_Database_FromScene(Render *re, Main *bmain, Scene *scene, unsigned int l
 	re->lampren.first= re->lampren.last= NULL;
 
 	re->i.partsdone = false;	/* signal now in use for previewrender */
-	
-	/* in localview, lamps are using normal layers, objects only local bits */
-	if (re->lay & 0xFF000000)
-		lay &= 0xFF000000;
-	
+
 	/* applies changes fully */
 	if ((re->r.scemode & (R_NO_FRAME_UPDATE|R_BUTS_PREVIEW|R_VIEWPORT_PREVIEW))==0) {
-		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, lay);
+		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, re->lay);
 		render_update_anim_renderdata(re, &re->scene->r);
 	}
 	
@@ -5240,8 +5243,8 @@ void RE_Database_FromScene(Render *re, Main *bmain, Scene *scene, unsigned int l
 	set_node_shader_lamp_loop(shade_material_loop);
 
 	/* MAKE RENDER DATA */
-	database_init_objects(re, lay, 0, 0, NULL, 0);
-	
+	database_init_objects(re, 0, 0, NULL, 0);
+
 	if (!re->test_break(re->tbh)) {
 		set_material_lightgroups(re);
 		for (sce= re->scene; sce; sce= sce->set)
@@ -5358,29 +5361,24 @@ void RE_DataBase_GetView(Render *re, float mat[4][4])
 /* Speed Vectors															 */
 /* ------------------------------------------------------------------------- */
 
-static void database_fromscene_vectors(Render *re, Scene *scene, unsigned int lay, int timeoffset)
+static void database_fromscene_vectors(Render *re, Scene *scene, int timeoffset)
 {
 	Object *camera= RE_GetCamera(re);
 	float mat[4][4];
-	
+
 	re->scene= scene;
-	re->lay= lay;
-	
+
 	/* XXX add test if dbase was filled already? */
 	
 	re->memArena = BLI_memarena_new(BLI_MEMARENA_STD_BUFSIZE, "vector render db arena");
 	re->totvlak=re->totvert=re->totstrand=re->totlamp=re->tothalo= 0;
 	re->i.totface=re->i.totvert=re->i.totstrand=re->i.totlamp=re->i.tothalo= 0;
 	re->lights.first= re->lights.last= NULL;
-	
-	/* in localview, lamps are using normal layers, objects only local bits */
-	if (re->lay & 0xFF000000)
-		lay &= 0xFF000000;
-	
+
 	/* applies changes fully */
 	scene->r.cfra += timeoffset;
-	BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, lay);
-	
+	BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, re->lay);
+
 	/* if no camera, viewmat should have been set! */
 	if (camera) {
 		RE_GetCameraModelMatrix(re, camera, mat);
@@ -5388,10 +5386,10 @@ static void database_fromscene_vectors(Render *re, Scene *scene, unsigned int la
 		invert_m4(mat);
 		RE_SetView(re, mat);
 	}
-	
+
 	/* MAKE RENDER DATA */
-	database_init_objects(re, lay, 0, 0, NULL, timeoffset);
-	
+	database_init_objects(re, 0, 0, NULL, timeoffset);
+
 	if (!re->test_break(re->tbh))
 		project_renderdata(re, projectverto, (re->r.mode & R_PANORAMA) != 0, 0, 1);
 
@@ -5742,7 +5740,7 @@ static void free_dbase_object_vectors(ListBase *lb)
 	BLI_freelistN(lb);
 }
 
-void RE_Database_FromScene_Vectors(Render *re, Main *bmain, Scene *sce, unsigned int lay)
+void RE_Database_FromScene_Vectors(Render *re, Main *bmain, Scene *sce)
 {
 	ObjectInstanceRen *obi, *oldobi;
 	StrandSurface *mesh;
@@ -5757,7 +5755,7 @@ void RE_Database_FromScene_Vectors(Render *re, Main *bmain, Scene *sce, unsigned
 	speedvector_project(re, NULL, NULL, NULL);	/* initializes projection code */
 	
 	/* creates entire dbase */
-	database_fromscene_vectors(re, sce, lay, -1);
+	database_fromscene_vectors(re, sce, -1);
 	
 	/* copy away vertex info */
 	copy_dbase_object_vectors(re, &oldtable);
@@ -5773,7 +5771,7 @@ void RE_Database_FromScene_Vectors(Render *re, Main *bmain, Scene *sce, unsigned
 		/* creates entire dbase */
 		re->i.infostr = IFACE_("Calculating next frame vectors");
 		
-		database_fromscene_vectors(re, sce, lay, +1);
+		database_fromscene_vectors(re, sce, +1);
 	}
 	/* copy away vertex info */
 	copy_dbase_object_vectors(re, &newtable);
@@ -5786,7 +5784,7 @@ void RE_Database_FromScene_Vectors(Render *re, Main *bmain, Scene *sce, unsigned
 	re->strandsurface= strandsurface;
 	
 	if (!re->test_break(re->tbh)) {
-		RE_Database_FromScene(re, bmain, sce, lay, 1);
+		RE_Database_FromScene(re, bmain, sce, re->lay, 1);
 		RE_Database_Preprocess(re);
 	}
 	
@@ -5881,7 +5879,7 @@ void RE_Database_FromScene_Vectors(Render *re, Main *bmain, Scene *sce, unsigned
  * RE_BAKE_DERIVATIVE:for baking, no lamps, only selected objects
  * RE_BAKE_SHADOW: for baking, only shadows, but all objects
  */
-void RE_Database_Baking(Render *re, Main *bmain, Scene *scene, unsigned int lay, const int type, Object *actob)
+void RE_Database_Baking(Render *re, Main *bmain, Scene *scene, const int type, Object *actob)
 {
 	Object *camera;
 	float mat[4][4];
@@ -5889,9 +5887,9 @@ void RE_Database_Baking(Render *re, Main *bmain, Scene *scene, unsigned int lay,
 	const short onlyselected= !ELEM(type, RE_BAKE_LIGHT, RE_BAKE_ALL, RE_BAKE_SHADOW, RE_BAKE_AO, RE_BAKE_VERTEX_COLORS);
 	const short nolamps= ELEM(type, RE_BAKE_NORMALS, RE_BAKE_TEXTURE, RE_BAKE_DISPLACEMENT, RE_BAKE_DERIVATIVE, RE_BAKE_VERTEX_COLORS);
 
-	re->main= bmain;
-	re->scene= scene;
-	re->lay= lay;
+	re->main = bmain;
+	re->scene = scene;
+	re->lay = scene->lay;
 
 	/* renderdata setup and exceptions */
 	render_copy_renderdata(&re->r, &scene->r);
@@ -5925,10 +5923,6 @@ void RE_Database_Baking(Render *re, Main *bmain, Scene *scene, unsigned int lay,
 	re->lights.first= re->lights.last= NULL;
 	re->lampren.first= re->lampren.last= NULL;
 
-	/* in localview, lamps are using normal layers, objects only local bits */
-	if (re->lay & 0xFF000000)
-		lay &= 0xFF000000;
-	
 	camera= RE_GetCamera(re);
 	
 	/* if no camera, set unit */
@@ -5966,9 +5960,9 @@ void RE_Database_Baking(Render *re, Main *bmain, Scene *scene, unsigned int lay,
 	init_render_materials(re->main, re->r.mode, amb, true);
 	
 	set_node_shader_lamp_loop(shade_material_loop);
-	
+
 	/* MAKE RENDER DATA */
-	database_init_objects(re, lay, nolamps, onlyselected, actob, 0);
+	database_init_objects(re, nolamps, onlyselected, actob, 0);
 
 	set_material_lightgroups(re);
 	

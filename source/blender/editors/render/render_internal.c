@@ -100,6 +100,7 @@ typedef struct RenderJob {
 	Scene *current_scene;
 	Render *re;
 	SceneRenderLayer *srl;
+	LocalViewInfo *localview;
 	struct Object *camera_override;
 	int lay_override;
 	bool v3d_override;
@@ -291,6 +292,7 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 	Image *ima;
 	View3D *v3d = CTX_wm_view3d(C);
 	Main *mainp = CTX_data_main(C);
+	LocalViewInfo *localview = (v3d && v3d->localviewd) ? &v3d->localviewd->info : NULL;
 	unsigned int lay_override;
 	const bool is_animation = RNA_boolean_get(op->ptr, "animation");
 	const bool is_write_still = RNA_boolean_get(op->ptr, "write_still");
@@ -324,9 +326,9 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 
 	BLI_begin_threaded_malloc();
 	if (is_animation)
-		RE_BlenderAnim(re, mainp, scene, camera_override, lay_override, scene->r.sfra, scene->r.efra, scene->r.frame_step);
+		RE_BlenderAnim(re, mainp, scene, localview, camera_override, lay_override, scene->r.sfra, scene->r.efra, scene->r.frame_step);
 	else
-		RE_BlenderFrame(re, mainp, scene, srl, camera_override, lay_override, scene->r.cfra, is_write_still);
+		RE_BlenderFrame(re, mainp, scene, srl, localview, camera_override, lay_override, scene->r.cfra, is_write_still);
 	BLI_end_threaded_malloc();
 
 	RE_SetReports(re, NULL);
@@ -599,9 +601,9 @@ static void render_startjob(void *rjv, short *stop, short *do_update, float *pro
 	RE_SetReports(rj->re, rj->reports);
 
 	if (rj->anim)
-		RE_BlenderAnim(rj->re, rj->main, rj->scene, rj->camera_override, rj->lay_override, rj->scene->r.sfra, rj->scene->r.efra, rj->scene->r.frame_step);
+		RE_BlenderAnim(rj->re, rj->main, rj->scene, rj->localview, rj->camera_override, rj->lay_override, rj->scene->r.sfra, rj->scene->r.efra, rj->scene->r.frame_step);
 	else
-		RE_BlenderFrame(rj->re, rj->main, rj->scene, rj->srl, rj->camera_override, rj->lay_override, rj->scene->r.cfra, rj->write_still);
+		RE_BlenderFrame(rj->re, rj->main, rj->scene, rj->srl, rj->localview, rj->camera_override, rj->lay_override, rj->scene->r.cfra, rj->write_still);
 
 	RE_SetReports(rj->re, NULL);
 }
@@ -894,6 +896,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	rj->scene = scene;
 	rj->current_scene = rj->scene;
 	rj->srl = srl;
+	rj->localview = NULL;
 	rj->camera_override = camera_override;
 	rj->lay_override = 0;
 	rj->anim = is_animation;
@@ -921,8 +924,8 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 		else if (camera_override && camera_override != scene->camera)
 			rj->v3d_override = true;
 
-//		if (v3d->localviewd)
-//			rj->lay_override |= v3d->localvd->lay; /* TODO */
+		if (v3d->localviewd)
+			rj->localview = &v3d->localviewd->info;
 	}
 
 	/* Lock the user interface depending on render settings. */
@@ -1263,19 +1266,12 @@ static void render_view3d_startjob(void *customdata, short *stop, short *do_upda
 	RE_SetPixelSize(re, pixsize);
 	
 	if ((update_flag & PR_UPDATE_DATABASE) || rstats->convertdone == 0) {
-		unsigned int lay = rp->scene->lay;
-
-		/* allow localview render for objects with lights in normal layers */
-		if (rp->v3d->lay & 0xFF000000)
-			lay |= rp->v3d->lay;
-		else lay = rp->v3d->lay;
-		
 		RE_SetView(re, rp->viewmat);
 
 		/* copying blender data while main thread is locked, to avoid crashes */
 		WM_job_main_thread_lock_acquire(rp->job);
 		RE_Database_Free(re);
-		RE_Database_FromScene(re, rp->bmain, rp->scene, lay, 0);		// 0= dont use camera view
+		RE_Database_FromScene(re, rp->bmain, rp->scene, rp->v3d->lay, 0);		// 0= dont use camera view
 		WM_job_main_thread_lock_release(rp->job);
 
 		/* do preprocessing like building raytree, shadows, volumes, SSS */

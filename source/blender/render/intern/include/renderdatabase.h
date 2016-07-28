@@ -164,7 +164,7 @@ void area_lamp_vectors(struct LampRen *lar);
 
 /* convertblender.c */
 void init_render_world(Render *re);
-void RE_Database_FromScene_Vectors(Render *re, struct Main *bmain, struct Scene *sce, unsigned int lay);
+void RE_Database_FromScene_Vectors(Render *re, struct Main *bmain, struct Scene *sce);
 
 #ifdef __cplusplus
 }

@@ -3304,7 +3304,7 @@ static ImBuf *seq_render_scene_strip(const SeqRenderData *context, Sequence *seq
 				re = RE_NewRender(scene->id.name);
 
 			BKE_scene_update_for_newframe(context->eval_ctx, context->bmain, scene, scene->lay);
-			RE_BlenderFrame(re, context->bmain, scene, NULL, camera, scene->lay, frame, false);
+			RE_BlenderFrame(re, context->bmain, scene, NULL, NULL, camera, scene->lay, frame, false);
 
 			/* restore previous state after it was toggled on & off by RE_BlenderFrame */
 			G.is_rendering = is_rendering;

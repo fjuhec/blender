@@ -41,6 +41,7 @@
 #include "DNA_world_types.h"
 #include "DNA_object_types.h"
 #include "DNA_vec_types.h"
+#include "DNA_view3d_types.h" /* LocalViewInfo */
 
 #include "BLI_threads.h"
 
@@ -192,7 +193,9 @@ struct Render {
 	World wrld;
 	struct Object *camera_override;
 	unsigned int lay, layer_override;
-	
+
+	LocalViewInfo *localview;
+
 	ThreadRWMutex partsmutex;
 	ListBase parts;
 	

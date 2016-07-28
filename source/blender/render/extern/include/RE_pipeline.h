@@ -39,6 +39,7 @@ struct bMovieHandle;
 struct bNodeTree;
 struct Image;
 struct ImageFormatData;
+struct LocalViewInfo;
 struct Main;
 struct NodeBlurData;
 struct Object;
@@ -288,10 +289,13 @@ bool RE_WriteRenderViewsMovie(
 
 /* only RE_NewRender() needed, main Blender render calls */
 void RE_BlenderFrame(struct Render *re, struct Main *bmain, struct Scene *scene,
-                     struct SceneRenderLayer *srl, struct Object *camera_override,
-                     unsigned int lay_override, int frame, const bool write_still);
-void RE_BlenderAnim(struct Render *re, struct Main *bmain, struct Scene *scene, struct Object *camera_override,
-                    unsigned int lay_override, int sfra, int efra, int tfra);
+                     struct SceneRenderLayer *srl, struct LocalViewInfo *localview,
+                     struct Object *camera_override, unsigned int lay_override,
+                     int frame, const bool write_still);
+void RE_BlenderAnim(
+        struct Render *re, struct Main *bmain, struct Scene *scene, struct LocalViewInfo *localview,
+        struct Object *camera_override, unsigned int lay_override,
+        int sfra, int efra, int tfra);
 #ifdef WITH_FREESTYLE
 void RE_RenderFreestyleStrokes(struct Render *re, struct Main *bmain, struct Scene *scene, int render);
 void RE_RenderFreestyleExternal(struct Render *re);
@@ -363,7 +367,7 @@ struct RenderPass *RE_pass_find_by_type(volatile struct RenderLayer *rl, int pas
 
 void RE_Database_Baking(
         struct Render *re, struct Main *bmain, struct Scene *scene,
-        unsigned int lay, const int type, struct Object *actob);
+        const int type, struct Object *actob);
 
 void RE_DataBase_GetView(struct Render *re, float mat[4][4]);
 void RE_GetCameraWindow(struct Render *re, struct Object *camera, int frame, float mat[4][4]);
