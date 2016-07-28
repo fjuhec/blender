@@ -50,6 +50,7 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
+#include "BKE_utildefines.h"
 
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
@@ -1285,7 +1286,6 @@ static bool view3d_localview_init(
         ReportList *reports)
 {
 	View3D *v3d = sa->spacedata.first;
-	Base *base;
 	float min[3], max[3], box[3], mid[3];
 	float size = 0.0f;
 	unsigned int locallay;
@@ -1306,18 +1306,14 @@ static bool view3d_localview_init(
 			BKE_object_minmax(scene->obedit, min, max, false);
 			
 			ok = true;
-		
-			BASACT->lay |= locallay;
-			scene->obedit->lay = BASACT->lay;
+
 			BASACT->object->localview.viewbits |= locallay;
 			scene->obedit->localview = BASACT->object->localview;
 		}
 		else {
-			for (base = FIRSTBASE; base; base = base->next) {
+			for (Base *base = FIRSTBASE; base; base = base->next) {
 				if (TESTBASE(v3d, base)) {
 					BKE_object_minmax(base->object, min, max, false);
-					base->lay |= locallay;
-					base->object->lay = base->lay;
 					base->object->localview.viewbits |= locallay;
 					ok = true;
 				}
@@ -1329,8 +1325,6 @@ static bool view3d_localview_init(
 	}
 	
 	if (ok == true) {
-		ARegion *ar;
-
 		v3d->localviewd = MEM_callocN(sizeof(*v3d->localviewd), "localview area data");
 		view3d_localview_area_data_init(v3d->localviewd, v3d);
 
@@ -1338,7 +1332,7 @@ static bool view3d_localview_init(
 
 		copy_v3_v3(v3d->cursor, mid);
 
-		for (ar = sa->regionbase.first; ar; ar = ar->next) {
+		for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
 			if (ar->regiontype == RGN_TYPE_WINDOW) {
 				RegionView3D *rv3d = ar->regiondata;
 				bool ok_dist = true;
@@ -1379,20 +1373,20 @@ static bool view3d_localview_init(
 				                .dist = ok_dist ? &dist_new : NULL, .lens = &v3d->lens});
 			}
 		}
-		
+
 		v3d->localviewd->info.viewbits = locallay;
-		v3d->lay = locallay;
 	}
 	else {
 		/* clear flags */ 
-		for (base = FIRSTBASE; base; base = base->next) {
+		for (Base *base = FIRSTBASE; base; base = base->next) {
 			Object *ob = base->object;
 			if (ob->localview.viewbits & locallay) {
-				ob->localview.viewbits -= locallay;
+				ob->localview.viewbits &= ~locallay;
 				if (ob != scene->obedit) {
 					base->flag |= SELECT;
 				}
 			}
+			/* local view used to work with object/base bitfields, check updates didn't break anything */
 			BLI_assert(ob->lay > 0 && ob->lay == base->lay);
 		}
 	}
@@ -1453,29 +1447,25 @@ static bool view3d_localview_exit(
         const int smooth_viewtx)
 {
 	View3D *v3d = sa->spacedata.first;
-	struct Base *base;
-	unsigned int locallay;
+	LocalViewInfo localview = v3d->localviewd->info; /* store for use after v3d local view data is reset */
 
 	BLI_assert(sa->spacetype == SPACE_VIEW3D && v3d->localviewd);
 
-	locallay = v3d->lay & 0xFF000000;
-
 	view3d_localviewdata_restore(wm, win, bmain, scene, sa, smooth_viewtx);
 
-	/* for when in other window the layers have changed */
-	if (v3d->scenelock) v3d->lay = scene->lay;
-
-	for (base = FIRSTBASE; base; base = base->next) {
-		if (base->lay & locallay) {
-			base->lay -= locallay;
-			if (base->lay == 0) base->lay = v3d->layact;
+	for (Base *base = FIRSTBASE; base; base = base->next) {
+		if (BKE_LOCALVIEW_INFO_CMP(localview, base->object->localview)) {
+			base->object->localview.viewbits &= ~localview.viewbits;
 			if (base->object != scene->obedit) {
 				base->flag |= SELECT;
 				base->object->flag |= SELECT;
 			}
-			base->object->lay = base->lay;
 		}
+		/* local view used to work with object/base bitfields, check updates didn't break anything */
+		BLI_assert(base->lay > 0 && base->lay == base->object->lay);
 	}
+	BLI_assert(!v3d->scenelock || v3d->lay == scene->lay);
+
 	DAG_on_visible_update(bmain, false);
 
 	return true;

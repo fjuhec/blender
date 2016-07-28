@@ -45,9 +45,11 @@ extern "C" {
  * please only access using these macros (or extend it if needed).
  */
 
-/* visibility check */
+/* visibility checks */
+#define BKE_LOCALVIEW_INFO_CMP(a, b) \
+	((a).viewbits & (b).viewbits)
 #define BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, ob) \
-	(((v3d)->localviewd == NULL) || (((v3d)->localviewd->info.viewbits & (ob)->localview.viewbits) != 0))
+	(((v3d)->localviewd == NULL) || BKE_LOCALVIEW_INFO_CMP((v3d)->localviewd->info, (ob)->localview))
 
 /* Adjust local view info of ob to be visible if v3d is in local view */
 #define BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob) \
