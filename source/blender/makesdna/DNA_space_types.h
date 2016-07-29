@@ -1290,6 +1290,7 @@ typedef struct RegionSpaceClip {
 	float xof, yof;             /* user defined offset, image is centered */
 	float xlockof, ylockof;     /* user defined offset from locked position */
 	float zoom;                 /* user defined zoom level */
+	float loc[2], scale, angle; /* pre-composed stabilization data */
 	float stabmat[4][4], unistabmat[4][4];  /* current stabilization matrix and the same matrix in unified space,
 	                                         * defined when drawing and used for mouse position calculation */
 } RegionSpaceClip;

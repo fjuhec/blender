@@ -1558,14 +1558,14 @@ static void rna_SpaceClipEditor_mask_set(PointerRNA *ptr, PointerRNA value)
 	ED_space_clip_set_mask(NULL, sc, (Mask *)value.data);
 }
 
-static void rna_SpaceClipEditor_clip_mode_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+static void rna_SpaceClipEditor_clip_mode_update(bContext *C, PointerRNA *ptr)
 {
 	SpaceClip *sc = (SpaceClip *)(ptr->data);
 
 	sc->scopes.ok = 0;
 
 	/* update split view if in correspondence mode */
-	ED_clip_update_correspondence_mode();
+	ED_clip_update_correspondence_mode(C, sc);
 }
 
 static void rna_SpaceClipEditor_lock_selection_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
@@ -4547,6 +4547,7 @@ static void rna_def_space_clip(BlenderRNA *brna)
 	RNA_def_property_enum_sdna(prop, NULL, "mode");
 	RNA_def_property_enum_items(prop, rna_enum_clip_editor_mode_items);
 	RNA_def_property_ui_text(prop, "Mode", "Editing context being displayed");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_CLIP, "rna_SpaceClipEditor_clip_mode_update");
 
 	/* view */

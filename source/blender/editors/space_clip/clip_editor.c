@@ -49,6 +49,7 @@
 #include "BLI_math.h"
 #include "BLI_rect.h"
 #include "BLI_task.h"
+#include "BLI_listbase.h"
 
 #include "BKE_global.h"
 #include "BKE_main.h"
@@ -57,7 +58,7 @@
 #include "BKE_context.h"
 #include "BKE_tracking.h"
 #include "BKE_library.h"
-
+#include "BKE_screen.h"
 
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf_types.h"
@@ -675,9 +676,99 @@ void ED_space_clip_set_secondary_clip(bContext *C, bScreen *screen, SpaceClip *s
 		WM_event_add_notifier(C, NC_MOVIECLIP | NA_SELECTED, sc->secondary_clip);
 }
 
-void ED_clip_update_correspondence_mode()
+/* ******** split view when changing to correspondence mode ******** */
+void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 {
+	ARegion *ar = CTX_wm_region(C);
 
+	/* some rules related to changing between correspondence mode and other mode*/
+	if (ar->regiontype != RGN_TYPE_WINDOW) {
+		return;
+	}
+	else if (ar->alignment == RGN_ALIGN_VSPLIT) {
+		///* Exit split-view */
+		//ScrArea *sa = CTX_wm_area(C);
+		//ARegion *arn;
+
+		///* keep current region */
+		//ar->alignment = 0;
+
+		//if (sa->spacetype == SPACE_VIEW3D) {
+		//	ARegion *ar_iter;
+		//	RegionView3D *rv3d = ar->regiondata;
+
+		//	/* if this is a locked view, use settings from 'User' view */
+		//	if (rv3d->viewlock) {
+		//		View3D *v3d_user;
+		//		ARegion *ar_user;
+
+		//		if (ED_view3d_context_user_region(C, &v3d_user, &ar_user)) {
+		//			if (ar != ar_user) {
+		//				SWAP(void *, ar->regiondata, ar_user->regiondata);
+		//				rv3d = ar->regiondata;
+		//			}
+		//		}
+		//	}
+
+		//	rv3d->viewlock_quad = RV3D_VIEWLOCK_INIT;
+		//	rv3d->viewlock = 0;
+		//	rv3d->rflag &= ~RV3D_CLIPPING;
+
+		//	/* accumulate locks, incase they're mixed */
+		//	for (ar_iter = sa->regionbase.first; ar_iter; ar_iter = ar_iter->next) {
+		//		if (ar_iter->regiontype == RGN_TYPE_WINDOW) {
+		//			RegionView3D *rv3d_iter = ar_iter->regiondata;
+		//			rv3d->viewlock_quad |= rv3d_iter->viewlock;
+		//		}
+		//	}
+		//}
+
+		//for (ar = sa->regionbase.first; ar; ar = arn) {
+		//	arn = ar->next;
+		//	if (ar->alignment == RGN_ALIGN_QSPLIT) {
+		//		ED_region_exit(C, ar);
+		//		BKE_area_region_free(sa->type, ar);
+		//		BLI_remlink(&sa->regionbase, ar);
+		//		MEM_freeN(ar);
+		//	}
+		//}
+		//ED_area_tag_redraw(sa);
+		//WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
+	}
+	else if (ar->next) {
+		return;		// Only last region can be splitted
+	}
+	else {
+		/* Enter split-view */
+		ScrArea *sa = CTX_wm_area(C);
+
+		ar->alignment = RGN_ALIGN_VSPLIT;
+
+		ARegion *newar = BKE_area_region_copy(sa->type, ar);
+		BLI_addtail(&sa->regionbase, newar);
+
+		///* lock views and set them */
+		//if (sa->spacetype == SPACE_CLIP) {
+		//	View3D *v3d = sa->spacedata.first;
+		//	int index_qsplit = 0;
+
+		//	/* run ED_view3d_lock() so the correct 'rv3d->viewquat' is set,
+		//	 * otherwise when restoring rv3d->localvd the 'viewquat' won't
+		//	 * match the 'view', set on entering localview See: [#26315],
+		//	 *
+		//	 * We could avoid manipulating rv3d->localvd here if exiting
+		//	 * localview with a 4-split would assign these view locks */
+		//	RegionView3D *rv3d = ar->regiondata;
+		//	const char viewlock = (rv3d->viewlock_quad & RV3D_VIEWLOCK_INIT) ?
+		//	                      (rv3d->viewlock_quad & ~RV3D_VIEWLOCK_INIT) : RV3D_LOCKED;
+
+		//	region_quadview_init_rv3d(sa, ar,              viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
+		//	region_quadview_init_rv3d(sa, (ar = ar->next), viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
+		//	region_quadview_init_rv3d(sa, (ar = ar->next), viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
+		//}
+		ED_area_tag_redraw(sa);
+		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
+	}
 }
 
 /* ******** masking editing functions ******** */
