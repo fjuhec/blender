@@ -6583,7 +6583,7 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 	second_spline = (Nurb *)spline_list.last;
 
 	if (n_selected_splines == 1) { /* one spline selected */
-		selected_endpoints = MEM_callocN(2 * sizeof(BezTriple), "extendcurve1");
+		selected_endpoints = MEM_callocN(2 * sizeof(BezTriple*), "extendcurve1");
 		get_selected_endpoints(first_spline, selected_endpoints);
 
 		if (selected_endpoints[0] && selected_endpoints[1]) { /* both endpoints are selected */
@@ -7691,52 +7691,138 @@ void CURVE_OT_offset_curve(wmOperatorType *ot)
 
 /******************** Batch Extend operator ********************/
 
+static void extend_vertex(int i, Nurb *nu, ListBase *nubase, Object *obedit, float r_p2[3])
+{
+	float p1[3], p1_handle[3], bound_box[4], p1_extend[3], p2[3];
+	int result = 0;
+	ListBase il = {NULL};
+
+	if (i == 0) { /* extend first handle */
+		copy_v3_v3(p1, nu->bezt->vec[1]);
+		copy_v3_v3(p1_handle, nu->bezt->vec[2]);
+	}
+	if (i == 1) { /* extend last handle */
+		copy_v3_v3(p1, nu->bezt[nu->pntsu - 1].vec[1]);
+		copy_v3_v3(p1_handle, nu->bezt[nu->pntsu - 1].vec[0]);
+	}
+
+	get_nurb_shape_bounds(obedit, bound_box);
+	get_max_extent_2d(p1, p1_handle, bound_box, p1_extend);
+	get_intersections(&il, p1, p1_extend, nubase);
+	nearest_point(p1, &il, p2, &result);
+	if (result == 1) {
+		copy_v3_v3(r_p2, p2);
+	}
+}
+
+static void add_bezt(Nurb *nu, float *p, int position, Curve *cu)
+{
+	/* this function is a weaker version of the ed_editnurb_addvert function */
+	Nurb *cu_actnu;
+	union {
+		BezTriple *bezt;
+		void      *p;
+	} cu_actvert;
+
+	EditNurb *editnurb = cu->editnurb;
+	BKE_curve_nurb_vert_active_get(cu, &cu_actnu, &cu_actvert.p);
+	BKE_curve_nurb_vert_active_set(cu, NULL, NULL);
+
+	BezTriple *bezt_new, *bezt = nu->bezt;
+
+	bezt_new = MEM_mallocN((nu->pntsu + 1) * sizeof(BezTriple), __func__);
+	BezTriple *nu_bezt_old = nu->bezt;
+	if (position == 0) {
+		ED_curve_beztcpy(editnurb, bezt_new + 1, bezt, nu->pntsu);
+		*bezt_new = *bezt;
+	}
+	else if (position == 1) {
+		ED_curve_beztcpy(editnurb, bezt_new, bezt, nu->pntsu);
+		bezt_new[nu->pntsu]= *bezt;
+	}
+
+	MEM_freeN(nu->bezt);
+	nu->bezt = bezt_new;
+
+	nu->pntsu += 1;
+
+	if (position == 0) {
+		if (ARRAY_HAS_ITEM(cu_actvert.bezt, nu_bezt_old, nu->pntsu - 1)) {
+			cu_actvert.bezt = (cu_actvert.bezt == bezt) ?
+			bezt_new : &nu->bezt[(cu_actvert.bezt - nu_bezt_old) + 1];
+			BKE_curve_nurb_vert_active_set(cu, nu, cu_actvert.bezt);
+		}
+	}
+	else if (position == 1) {
+		if (ARRAY_HAS_ITEM(cu_actvert.bezt, nu_bezt_old, nu->pntsu - 1)) {
+			cu_actvert.bezt = (cu_actvert.bezt == bezt) ?
+			bezt_new : &nu->bezt[cu_actvert.bezt - nu_bezt_old];
+			BKE_curve_nurb_vert_active_set(cu, nu, cu_actvert.bezt);
+		}
+	}
+
+	if (position == 0) {
+		copy_v3_v3(nu->bezt->vec[1], p);
+		BEZT_SEL_ALL(nu->bezt);
+	}
+	else if (position == 1) {
+		copy_v3_v3(nu->bezt[nu->pntsu - 1].vec[1], p);
+		BEZT_SEL_ALL(&nu->bezt[nu->pntsu - 1]);
+	}
+
+	BKE_nurb_handles_calc(nu);
+}
+
 static int batch_extend_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
+	Curve *cu = obedit->data;
+	EditNurb *editnurb = cu->editnurb;
 	BezTriple *bezt,  **selected_triples, **selected_endpoints = NULL;
+	ListBase first_extend = {NULL}, last_extend = {NULL};
+	LinkData *link;
 	/* at most, both endpoints can be selected for all splines */
 	selected_triples = MEM_callocN(2 * BLI_listbase_count(nubase) * sizeof(BezTriple *), "batch_extend1");
 
-	/* make a list with all the selected endpoints */
-	int i = 0;
+	/* fill in the lists with all the selected endpoints */
 	for (nu = nubase->first; nu; nu = nu->next) {
 		bezt = nu->bezt;
 		if (BEZT_ISSEL_ANY(bezt)) { /* first endpoint */
-			selected_triples[i] = bezt;
-			i++;
+			BEZT_DESEL_ALL(bezt);
+			link = MEM_callocN(sizeof(Nurb *), "batch_extend2");
+			link->data = nu;
+			BLI_addtail(&first_extend, link);
 		}
 		bezt = &nu->bezt[nu->pntsu - 1];
 		if (BEZT_ISSEL_ANY(bezt)) { /* last endpoint */
-			selected_triples[i] = bezt;
-			i++;
+			BEZT_DESEL_ALL(bezt);
+			link = MEM_callocN(sizeof(Nurb *), "batch_extend2");
+			link->data = nu;
+			BLI_addtail(&last_extend, link);
 		}
 	}
 
-	if (i < 2 * BLI_listbase_count(nubase)) {
-		selected_endpoints = MEM_callocN(i * sizeof(BezTriple *), "batch_extend2");
-		memcpy(selected_endpoints, selected_triples, i * sizeof(BezTriple*));
+	float p2[3];
+	for (LinkData *l = first_extend.first; l; l = l->next) {
+		nu = l->data;
+		bezt = nu->bezt;
+		extend_vertex(0, nu, nubase, obedit, p2);
+		BKE_nurbList_handles_set(nubase, 5);
+		p2[2] = bezt->vec[1][2];
+		add_bezt(nu, p2, 0, cu);
+		BKE_nurbList_handles_set(nubase, 1);
 	}
-	else {
-		selected_endpoints = selected_triples;
+	for (LinkData *l = last_extend.first; l; l = l->next) {
+		nu = l->data;
+		bezt = nu->bezt;
+		extend_vertex(1, nu, nubase, obedit, p2);
+		BKE_nurbList_handles_set(nubase, 5);
+		p2[2] = bezt->vec[1][2];
+		add_bezt(nu, p2, 1, cu);
+		BKE_nurbList_handles_set(nubase, 1);
 	}
-
-	/* unselect them all */
-	WM_operator_name_call(C, "CURVE_OT_select_all", WM_OP_EXEC_DEFAULT, op->ptr);
-
-	/* for each on the list, select and extend them */
-	for (int j = 0; j < i; j++) {
-		bezt = selected_endpoints[j];
-		BEZT_SEL_ALL(bezt);
-		extend_curve_exec(C, op);
-		/* deselect all vertices again */
-		WM_operator_name_call(C, "CURVE_OT_select_all", WM_OP_EXEC_DEFAULT, op->ptr);
-	}
-
-	MEM_freeN(selected_triples);
-	MEM_freeN(selected_endpoints);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 	DAG_id_tag_update(obedit->data, 0);
