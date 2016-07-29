@@ -2295,6 +2295,7 @@ NODE_DEFINE(SubsurfaceScatteringNode)
 SubsurfaceScatteringNode::SubsurfaceScatteringNode()
 : BsdfNode(node_type)
 {
+	closure = falloff;
 }
 
 void SubsurfaceScatteringNode::compile(SVMCompiler& compiler)
@@ -2305,6 +2306,7 @@ void SubsurfaceScatteringNode::compile(SVMCompiler& compiler)
 
 void SubsurfaceScatteringNode::compile(OSLCompiler& compiler)
 {
+	closure = falloff;
 	compiler.parameter(this, "falloff");
 	compiler.add(this, "node_subsurface_scattering");
 }
@@ -2323,7 +2325,7 @@ NODE_DEFINE(EmissionNode)
 	NodeType* type = NodeType::add("emission", create, NodeType::SHADER);
 
 	SOCKET_IN_COLOR(color, "Color", make_float3(0.8f, 0.8f, 0.8f));
-	SOCKET_IN_FLOAT(strength, "Strength", 1.0f);
+	SOCKET_IN_FLOAT(strength, "Strength", 10.0f);
 	SOCKET_IN_FLOAT(surface_mix_weight, "SurfaceMixWeight", 0.0f, SocketType::SVM_INTERNAL);
 
 	SOCKET_OUT_CLOSURE(emission, "Emission");
@@ -2344,7 +2346,7 @@ void EmissionNode::compile(SVMCompiler& compiler)
 	if(color_in->link || strength_in->link) {
 		compiler.add_node(NODE_EMISSION_WEIGHT,
 		                  compiler.stack_assign(color_in),
-						  compiler.stack_assign(strength_in));
+		                  compiler.stack_assign(strength_in));
 	}
 	else
 		compiler.add_node(NODE_CLOSURE_SET_WEIGHT, color * strength);
