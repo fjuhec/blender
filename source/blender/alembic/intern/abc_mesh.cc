@@ -964,7 +964,7 @@ ABC_INLINE void read_normals_params(AbcMeshData &abc_data,
 AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings)
     : AbcObjectReader(object, settings)
 {
-	m_settings->flag |= ABC_READ_ALL;
+	m_settings->read_flag |= MOD_MESHSEQ_READ_ALL;
 
 	IPolyMesh ipoly_mesh(m_iobject, kWrapExisting);
 	m_schema = ipoly_mesh.getSchema();
@@ -1079,19 +1079,19 @@ void read_mesh_sample(ImportSettings *settings,
 
 	do_normals = (abc_mesh_data.face_normals != NULL);
 
-	if ((settings->flag & ABC_READ_UVS) != 0) {
+	if ((settings->read_flag & MOD_MESHSEQ_READ_UV) != 0) {
 		read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
 	}
 
-	if ((settings->flag & ABC_READ_VERTS) != 0) {
+	if ((settings->read_flag & MOD_MESHSEQ_READ_VERT) != 0) {
 		read_mverts(config, abc_mesh_data);
 	}
 
-	if ((settings->flag & ABC_READ_FACES) != 0) {
+	if ((settings->read_flag & MOD_MESHSEQ_READ_POLY) != 0) {
 		read_mpolys(config, abc_mesh_data);
 	}
 
-	if ((settings->flag & (ABC_READ_UVS | ABC_READ_MCOLS)) != 0) {
+	if ((settings->read_flag & (MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)) != 0) {
 		read_custom_data(schema.getArbGeomParams(), config, selector);
 	}
 
@@ -1116,7 +1116,7 @@ ABC_INLINE MEdge *find_edge(MEdge *edges, int totedge, int v1, int v2)
 AbcSubDReader::AbcSubDReader(const IObject &object, ImportSettings &settings)
     : AbcObjectReader(object, settings)
 {
-	m_settings->flag |= ABC_READ_ALL;
+	m_settings->read_flag |= MOD_MESHSEQ_READ_ALL;
 
 	ISubD isubd_mesh(m_iobject, kWrapExisting);
 	m_schema = isubd_mesh.getSchema();
@@ -1193,19 +1193,19 @@ void read_subd_sample(ImportSettings *settings,
 	abc_mesh_data.face_normals = N3fArraySamplePtr();
 	abc_mesh_data.positions = sample.getPositions();
 
-	if ((settings->flag & ABC_READ_UVS) != 0) {
+	if ((settings->read_flag & MOD_MESHSEQ_READ_UV) != 0) {
 		read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
 	}
 
-	if ((settings->flag & ABC_READ_VERTS) != 0) {
+	if ((settings->read_flag & MOD_MESHSEQ_READ_VERT) != 0) {
 		read_mverts(config, abc_mesh_data);
 	}
 
-	if ((settings->flag & ABC_READ_FACES) != 0) {
+	if ((settings->read_flag & MOD_MESHSEQ_READ_POLY) != 0) {
 		read_mpolys(config, abc_mesh_data);
 	}
 
-	if ((settings->flag & (ABC_READ_UVS | ABC_READ_MCOLS)) != 0) {
+	if ((settings->read_flag & (MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)) != 0) {
 		read_custom_data(schema.getArbGeomParams(), config, selector);
 	}
 

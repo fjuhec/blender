@@ -891,7 +891,7 @@ ABC_INLINE CDStreamConfig get_config(DerivedMesh *dm)
 	return config;
 }
 
-static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, const float time, int flags)
+static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, const float time, int read_flag)
 {
 	IPolyMesh mesh(iobject, kWrapExisting);
 	IPolyMeshSchema schema = mesh.getSchema();
@@ -906,7 +906,7 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 
 	/* Only read point data when streaming meshes, unless we need to create new ones. */
 	ImportSettings settings;
-	settings.flag |= flags;
+	settings.read_flag |= read_flag;
 
 	if (dm->getNumVerts(dm) != positions->size()) {
 		new_dm = CDDM_from_template(dm,
@@ -916,7 +916,7 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 		                            face_indices->size(),
 		                            face_counts->size());
 
-		settings.flag |= ABC_READ_ALL;
+		settings.read_flag |= MOD_MESHSEQ_READ_ALL;
 	}
 
 	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
@@ -941,7 +941,7 @@ static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, co
 
 using Alembic::AbcGeom::ISubDSchema;
 
-static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, const float time, int flags)
+static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, const float time, int read_flag)
 {
 	ISubD mesh(iobject, kWrapExisting);
 	ISubDSchema schema = mesh.getSchema();
@@ -955,7 +955,7 @@ static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, co
 	DerivedMesh *new_dm = NULL;
 
 	ImportSettings settings;
-	settings.flag |= flags;
+	settings.read_flag |= read_flag;
 
 	if (dm->getNumVerts(dm) != positions->size()) {
 		new_dm = CDDM_from_template(dm,
@@ -965,7 +965,7 @@ static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, co
 		                            face_indices->size(),
 		                            face_counts->size());
 
-		settings.flag |= ABC_READ_ALL;
+		settings.read_flag |= MOD_MESHSEQ_READ_ALL;
 	}
 
 	/* Only read point data when streaming meshes, unless we need to create new ones. */
@@ -1067,7 +1067,7 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
                            const char *object_path,
                            const float time,
                            const char **err_str,
-                           int flags)
+                           int read_flag)
 {
 	IArchive *archive = archive_from_handle(handle);
 
@@ -1092,7 +1092,7 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
 			return NULL;
 		}
 
-		return read_mesh_sample(dm, iobject, time, flags);
+		return read_mesh_sample(dm, iobject, time, read_flag);
 	}
 	else if (ISubD::matches(header)) {
 		if (ob->type != OB_MESH) {
@@ -1100,7 +1100,7 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
 			return NULL;
 		}
 
-		return read_subd_sample(dm, iobject, time, flags);
+		return read_subd_sample(dm, iobject, time, read_flag);
 	}
 	else if (IPoints::matches(header)) {
 		if (ob->type != OB_MESH) {

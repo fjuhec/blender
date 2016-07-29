@@ -207,7 +207,7 @@ void AbcObjectReader::readObjectMatrix(const float time)
 	if (!schema.isConstant()) {
 		bConstraint *con = BKE_constraint_add_for_object(m_object, NULL, CONSTRAINT_TYPE_TRANSFORM_CACHE);
 		bTransformCacheConstraint *data = static_cast<bTransformCacheConstraint *>(con->data);
-		BLI_strncpy(data->abc_object_path, m_iobject.getFullName().c_str(), FILE_MAX);
+		BLI_strncpy(data->object_path, m_iobject.getFullName().c_str(), FILE_MAX);
 
 		data->cache_file = m_settings->cache_file;
 		id_us_plus(&data->cache_file->id);
@@ -224,7 +224,7 @@ void AbcObjectReader::addCacheModifier() const
 	mcmd->cache_file = m_settings->cache_file;
 	id_us_plus(&mcmd->cache_file->id);
 
-	BLI_strncpy(mcmd->abc_object_path, m_iobject.getFullName().c_str(), FILE_MAX);
+	BLI_strncpy(mcmd->object_path, m_iobject.getFullName().c_str(), FILE_MAX);
 }
 
 chrono_t AbcObjectReader::minTime() const

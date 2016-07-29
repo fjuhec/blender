@@ -228,13 +228,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         box = layout.box()
 
         if cache_file is not None:
-            box.prop_search(md, "abc_object_path", cache_file, "object_paths")
+            box.prop_search(md, "object_path", cache_file, "object_paths")
 
         if ob.type == 'MESH':
-            box.prop(md, "read_verts")
-            box.prop(md, "read_faces")
-            box.prop(md, "read_uvs")
-            box.prop(md, "read_mcols")
+            box.row().prop(md, "read_data")
 
     def CAST(self, layout, ob, md):
         split = layout.split(percentage=0.25)

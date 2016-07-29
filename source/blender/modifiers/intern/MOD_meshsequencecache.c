@@ -49,8 +49,8 @@ static void initData(ModifierData *md)
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *)md;
 
 	mcmd->cache_file = NULL;
-	mcmd->abc_object_path[0] = '\0';
-	mcmd->flags = ABC_READ_ALL;
+	mcmd->object_path[0] = '\0';
+	mcmd->read_flag = MOD_MESHSEQ_READ_ALL;
 }
 
 static void copyData(ModifierData *md, ModifierData *target)
@@ -81,7 +81,7 @@ static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
 
 	/* leave it up to the modifier to check the file is valid on calculation */
-	return (mcmd->cache_file == NULL) || (mcmd->abc_object_path[0] == '\0');
+	return (mcmd->cache_file == NULL) || (mcmd->object_path[0] == '\0');
 }
 
 static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
@@ -100,10 +100,10 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	DerivedMesh *result = ABC_read_mesh(mcmd->cache_file->handle,
 	                                    ob,
 	                                    dm,
-	                                    mcmd->abc_object_path,
+	                                    mcmd->object_path,
 	                                    time,
 	                                    &err_str,
-	                                    mcmd->flags);
+	                                    mcmd->read_flag);
 
 	if (err_str) {
 		modifier_setError(md, "%s", err_str);
