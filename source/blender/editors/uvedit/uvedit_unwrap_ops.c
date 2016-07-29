@@ -930,7 +930,7 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 	if (dE < 0) {
 		/* Current solution is new best solution */
 		/* ToDo SaphireS: Store last best solution */
-		param_store_packing_solution(pi->handle);
+		//param_store_packing_solution(pi->handle);
 		pi->wasted_area_last = wasted_area;
 	}
 	else {
@@ -941,11 +941,12 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 		if (r1 < r2) {
 			/* Current solution is new best solution */
 			/* ToDo SaphireS: Store last best solution */
-			param_store_packing_solution(pi->handle); 
+			//param_store_packing_solution(pi->handle); 
 			pi->wasted_area_last = wasted_area;
 		}
 		else {
 			/* no better solution found, "frozen state solution" */
+			/* ToDo SaphireS: Revert last solution */
 			pi->iter_local++;
 		}
 	}
@@ -984,7 +985,7 @@ static void irregular_pack_islands_exit(bContext *C, wmOperator *op, bool cancel
 		param_flush_restore(pi->handle); /* Restore original UVs */
 	}
 	else {
-		param_restore_packing_solution(pi->handle); /* Restore best solution*/
+		//param_restore_packing_solution(pi->handle); /* Restore best solution*/
 		param_flush(pi->handle); /* Keep new UVs */
 	}
 

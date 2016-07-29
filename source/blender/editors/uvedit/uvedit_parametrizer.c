@@ -156,8 +156,14 @@ typedef struct PFace {
 	unsigned char flag;
 } PFace;
 
+typedef struct PPointUV{
+	float x;
+	float y;
+} PPointUV;
+
 typedef struct PConvexHull {
-	struct PVert **h_verts;
+	struct PVert **h_verts; /* ToDo SaphireS: Get rid of this since now verts is in place */
+	struct PPointUV **verts;
 	unsigned int nverts;
 	int right; /* ToDo Saphires: Can we get rid of this? */
 	int ref_vert_index; /* vert with the highest y value, lowest y if reversed */
@@ -165,11 +171,6 @@ typedef struct PConvexHull {
 	float max_v[2];
 	bool placed;
 } PConvexHull;
-
-typedef struct PPointUV{
-	float x;
-	float y;
-} PPointUV;
 
 typedef struct PNoFitPolygon {
 	unsigned int nverts;
@@ -4883,6 +4884,7 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 		printf("convex hull for chart failed!\n");
 
 	conv_hull->h_verts = points;
+	conv_hull->verts = (PPointUV **)MEM_callocN(sizeof(*conv_hull->verts) * npoint, "PConvexHullVerts");
 	conv_hull->nverts = npoint;
 	conv_hull->right = right;
 	conv_hull->placed = false;
@@ -4893,6 +4895,11 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 
 	/* get reference vertex */
 	for (i = 0; i < conv_hull->nverts; i++) {
+		PPointUV *p = (PPointUV *)MEM_callocN(sizeof(*p), "PPointUV");
+		p->x = conv_hull->h_verts[i]->uv[0];
+		p->y = conv_hull->h_verts[i]->uv[1];
+		conv_hull->verts[i] = p;
+
 		/* Note: FLT_EPSILON is to exact and produces wrong results in this context, use custom max_diff instead */
 		if (compare_ff(maxy, conv_hull->h_verts[i]->uv[1], 0.00001f)) {
 			/* same y value, only take if x value is lower than for current ref vert */
@@ -4942,6 +4949,13 @@ void p_convex_hull_update(PChart *chart)
 
 void p_convex_hull_delete(PConvexHull *c_hull)
 {
+	int i;
+	for (i = 0; i < c_hull->nverts; i++) {
+		if (c_hull->verts[i]) {
+			MEM_freeN(c_hull->verts[i]);
+		}	
+	}
+	MEM_freeN(c_hull->verts);
 	MEM_freeN(c_hull->h_verts);
 	MEM_freeN(c_hull);
 	c_hull = NULL;
@@ -5021,6 +5035,7 @@ PConvexHull *p_convex_hull_reverse_vert_order(PConvexHull *hull)
 	PConvexHull *conv_hull_inv = (PConvexHull *)MEM_callocN(sizeof(*conv_hull_inv), "PConvexHullInverse");
 	conv_hull_inv->nverts = hull->nverts;
 	conv_hull_inv->h_verts = (PVert **)MEM_mallocN(sizeof(PVert *) * conv_hull_inv->nverts, "PConvexHullInversePoints");
+	conv_hull_inv->verts = (PPointUV **)MEM_callocN(sizeof(*conv_hull_inv->verts) * conv_hull_inv->nverts, "PConvexHullVerts");
 	conv_hull_inv->right = hull->right;
 	conv_hull_inv->placed = false;
 	int i, j;
@@ -5035,6 +5050,11 @@ PConvexHull *p_convex_hull_reverse_vert_order(PConvexHull *hull)
 
 	/* reference vertex, for inverse winding direction that's the one with lowest y value */
 	for (i = 0; i < conv_hull_inv->nverts; i++) {
+		PPointUV *p = (PPointUV *)MEM_callocN(sizeof(*p), "PPointUV");
+		p->x = conv_hull_inv->h_verts[i]->uv[0];
+		p->y = conv_hull_inv->h_verts[i]->uv[1];
+		conv_hull_inv->verts[i] = p;
+
 		/* Note: FLT_EPSILON is to exact and produces wrong results in this context, use custom max_diff instead */
 		if (compare_ff(miny, conv_hull_inv->h_verts[i]->uv[1], 0.00001f)) {
 			/* same y value, only take if x value is higher than for current ref vert */
@@ -5112,6 +5132,8 @@ void p_convex_hull_grow(PConvexHull *chull, float margin)
 		madd_v2_v2v2fl(end_pos, v2->uv, dir, dist_fac * margin);
 
 		/*ToDo: apply end_pos */
+		chull->verts[i]->x = end_pos[0];
+		chull->verts[i]->y = end_pos[1];
 	}
 }
 
@@ -5620,7 +5642,8 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 		chart->u.ipack.area = p_chart_uv_area_signed(chart); /* used for sorting */
 
 		/* Apply margin here */
-		p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
+		if (!(compare_ff(margin, 0.0f, 0.0001f)))
+			p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
 	}
 
 	/* Sort UV islands by area */
