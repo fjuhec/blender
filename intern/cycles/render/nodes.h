@@ -152,8 +152,8 @@ class OutputNode : public ShaderNode {
 public:
 	SHADER_NODE_CLASS(OutputNode)
 
-	void* surface;
-	void* volume;
+	void *surface;
+	void *volume;
 	float displacement;
 	float3 normal;
 
@@ -921,7 +921,7 @@ public:
 
 class OSLNode : public ShaderNode {
 public:
-	static OSLNode *create(size_t num_inputs);
+	static OSLNode *create(size_t num_inputs, const OSLNode *from = NULL);
 	~OSLNode();
 
 	ShaderNode *clone() const;

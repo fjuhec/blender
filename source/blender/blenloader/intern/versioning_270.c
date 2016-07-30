@@ -1194,8 +1194,8 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			if (camera->stereo.pole_merge_angle_from == 0.0f &&
 			    camera->stereo.pole_merge_angle_to == 0.0f)
 			{
-				camera->stereo.pole_merge_angle_from = DEG2RAD(60.0f);
-				camera->stereo.pole_merge_angle_to = DEG2RAD(75.0f);
+				camera->stereo.pole_merge_angle_from = DEG2RADF(60.0f);
+				camera->stereo.pole_merge_angle_to = DEG2RADF(75.0f);
 			}
 		}
 
@@ -1221,6 +1221,31 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 					if (md->type == eModifierType_Boolean) {
 						BooleanModifierData *bmd = (BooleanModifierData *)md;
 						bmd->double_threshold = 1e-6f;
+					}
+				}
+			}
+		}
+
+		for (Brush *br = main->brush.first; br; br = br->id.next) {
+			if (br->sculpt_tool == SCULPT_TOOL_FLATTEN) {
+				br->flag |= BRUSH_ACCUMULATE;
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "ClothSimSettings", "float", "time_scale")) {
+			Object *ob;
+			ModifierData *md;
+			for (ob = main->object.first; ob; ob = ob->id.next) {
+				for (md = ob->modifiers.first; md; md = md->next) {
+					if (md->type == eModifierType_Cloth) {
+						ClothModifierData *clmd = (ClothModifierData *)md;
+						clmd->sim_parms->time_scale = 1.0f;
+					}
+					else if (md->type == eModifierType_ParticleSystem) {
+						ParticleSystemModifierData *pmd = (ParticleSystemModifierData *)md;
+						if (pmd->psys->clmd) {
+							pmd->psys->clmd->sim_parms->time_scale = 1.0f;
+						}
 					}
 				}
 			}

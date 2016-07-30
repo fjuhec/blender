@@ -873,10 +873,7 @@ Tex *BKE_texture_copy(Main *bmain, Tex *tex)
 
 	BKE_previewimg_id_copy(&texn->id, &tex->id);
 
-	if (ID_IS_LINKED_DATABLOCK(tex)) {
-		BKE_id_expand_local(&texn->id);
-		BKE_id_lib_local_paths(bmain, tex->id.lib, &texn->id);
-	}
+	BKE_id_copy_ensure_local(bmain, &tex->id, &texn->id);
 
 	return texn;
 }
@@ -917,34 +914,9 @@ Tex *BKE_texture_localize(Tex *tex)
 
 /* ------------------------------------------------------------------------- */
 
-void BKE_texture_make_local(Main *bmain, Tex *tex, const bool force_local)
+void BKE_texture_make_local(Main *bmain, Tex *tex, const bool lib_local)
 {
-	bool is_local = false, is_lib = false;
-
-	/* - only lib users: do nothing (unless force_local is set)
-	 * - only local users: set flag
-	 * - mixed: make copy
-	 */
-
-	if (!ID_IS_LINKED_DATABLOCK(tex)) {
-		return;
-	}
-
-	BKE_library_ID_test_usages(bmain, tex, &is_local, &is_lib);
-
-	if (force_local || is_local) {
-		if (!is_lib) {
-			id_clear_lib_data(bmain, &tex->id);
-			BKE_id_expand_local(&tex->id);
-		}
-		else {
-			Tex *tex_new = BKE_texture_copy(bmain, tex);
-
-			tex_new->id.us = 0;
-
-			BKE_libblock_remap(bmain, tex, tex_new, ID_REMAP_SKIP_INDIRECT_USAGE);
-		}
-	}
+	BKE_id_make_local_generic(bmain, &tex->id, true, lib_local);
 }
 
 Tex *give_current_object_texture(Object *ob)
