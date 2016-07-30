@@ -7739,7 +7739,9 @@ static void extend_vertex(int i, Nurb *nu, ListBase *nubase, Object *obedit, flo
 
 static void add_bezt(Nurb *nu, float *p, int position, Curve *cu)
 {
-	/* this function is a weaker version of the ed_editnurb_addvert function */
+	/* this function is a weaker version of the ed_editnurb_addvert function
+	 * this function is just silly. BKE_nurb_bezierpoints_add seems to do exactly the same
+	 * job. TODO: rewrite this */
 	Nurb *cu_actnu;
 	union {
 		BezTriple *bezt;
@@ -7865,4 +7867,221 @@ void CURVE_OT_batch_extend(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/******************** Chamfer operator ********************/
+
+static void chamfer_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r_new_bezt2, float theta, float d)
+{
+	/* first, get the plane defined by the handle */
+	float v1[3], v2[3], k[3], plane[4], vrot[3], helper[3];
+	copy_v3_v3(v1, bezt->vec[1]);
+	sub_v3_v3v3(v1, v1, bezt->vec[0]);
+	copy_v3_v3(v2, bezt->vec[2]);
+	sub_v3_v3v3(v2, v2, bezt->vec[1]);
+	cross_v3_v3v3(k, v1, v2);
+	normalize_v3(k);
+
+	plane_from_point_normal_v3(plane, bezt->vec[0], k);
+
+	/* rotate v1 about k applied on point bezt->vec[0] the specified number of degrees */
+	/* apply Rodrigues' formula */
+	copy_v3_v3(vrot, v1);
+	mul_v3_fl(vrot, cos(theta));
+	cross_v3_v3v3(helper, k, v1);
+	mul_v3_fl(helper, sin(theta));
+	add_v3_v3(vrot, helper);
+	copy_v3_v3(helper, k);
+	mul_v3_fl(helper, dot_v3v3(k, v1) * (1-cos(theta)));
+	add_v3_v3(vrot, helper);
+	normalize_v3(vrot);
+
+	/* "translate" the first segment d units along vrot */
+	float p1[3], p2[3], ip1[3];
+	copy_v3_v3(p1, bezt->vec[0]);
+	copy_v3_v3(p2, bezt->vec[1]);
+	mul_v3_fl(vrot, d);
+	add_v3_v3(p1, vrot);
+	add_v3_v3(p2, vrot);
+
+	/* intersect the segments and get the control point for the second handle */
+	int result = isect_line_line_v3(bezt->vec[1], bezt->vec[2], p1, p2, ip1, ip1);
+	copy_v3_v3(r_new_bezt2->vec[1], ip1);
+
+	/* repeat the above process to get the control point for the first handle */
+	mul_v3_fl(vrot, -1); /* very important */
+	copy_v3_v3(p1, bezt->vec[2]);
+	copy_v3_v3(p2, bezt->vec[1]);
+	add_v3_v3(p1, vrot);
+	add_v3_v3(p2, vrot);
+
+	/* intersect the segments and get the control point for the first handle */
+	result = isect_line_line_v3(bezt->vec[0], bezt->vec[1], p1, p2, ip1, ip1);
+	copy_v3_v3(r_new_bezt1->vec[1], ip1);
+}
+
+static int curve_chamfer_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	ListBase *nubase = object_editcurve_get(obedit);
+	Nurb *nu;
+	float distance = RNA_float_get(op->ptr, "distance");
+	float angle = RNA_float_get(op->ptr, "angle");
+
+	/* get selected spline */
+	int spline_id = get_selected_spline_id(nubase);
+	nu = BLI_findlink(nubase, spline_id);
+	if (!nu) {
+		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
+		return OPERATOR_CANCELLED;
+	}
+
+	/* check if handles are vector type! */
+	BezTriple *bezt = nu->bezt, *bezt1, *bezt2, *helper;
+	bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer1");
+	bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer2");
+	int selected_point = 0;
+	for (int i = 0; i < nu->pntsu; i++) {
+		if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
+			chamfer_handle(bezt, bezt1, bezt2, angle, distance);
+			selected_point = i;
+		}
+		bezt++;
+	}
+
+	BKE_nurb_bezierPoints_add(nu, 1);
+
+	memcpy(&nu->bezt[selected_point + 1], &nu->bezt[selected_point], (nu->pntsu - selected_point - 1) * sizeof(BezTriple));
+	memcpy(&nu->bezt[selected_point], bezt1, sizeof(BezTriple));
+	memcpy(&nu->bezt[selected_point + 1], bezt2, sizeof(BezTriple));
+
+	/* set the handles for the first chamfered triple */
+	float v[3];
+	bezt1 = &nu->bezt[selected_point];
+	helper = &nu->bezt[selected_point - 1];
+	/* left handle */
+	sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
+	mul_v3_fl(v, 0.4 * len_v3(v));
+	copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
+	add_v3_v3(bezt1->vec[0], v);
+	/* right handle */
+	bezt2 = &nu->bezt[selected_point + 1];
+	sub_v3_v3v3(v, bezt2->vec[1], bezt1->vec[1]);
+	mul_v3_fl(v, 0.4 * len_v3(v));
+	copy_v3_v3(bezt1->vec[2], bezt1->vec[1]);
+	add_v3_v3(bezt1->vec[2], v);
+
+	/* second chamfered triple */
+	helper = &nu->bezt[selected_point + 2];
+	/* left handle */
+	sub_v3_v3v3(v, bezt1->vec[1], bezt2->vec[1]);
+	mul_v3_fl(v, 0.4 * len_v3(v));
+	copy_v3_v3(bezt2->vec[0], bezt2->vec[1]);
+	add_v3_v3(bezt2->vec[0], v);
+	/* right handle */
+	bezt2 = &nu->bezt[selected_point + 1];
+	sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
+	mul_v3_fl(v, 0.4 * len_v3(v));
+	copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
+	add_v3_v3(bezt2->vec[2], v);
+
+	MEM_freeN(bezt1);
+	MEM_freeN(bezt2);
+
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+	DAG_id_tag_update(obedit->data, 0);
+
+	return OPERATOR_FINISHED;
+}
+
+static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	ED_area_tag_redraw(CTX_wm_area(C));
+	char str[UI_MAX_DRAW_STR];
+	size_t ofs = 0;
+	ListBase *nubase = object_editcurve_get(obedit);
+	Nurb *nu, *new_nu;
+	int *init_mouse = op->customdata, changed = init_mouse[2];
+	float curr_mouse[2] = {event->x, event->y};
+	float prev_mouse[2] = {init_mouse[0], init_mouse[1]};
+	float distance = 1.0;
+	int spline_id = get_selected_spline_id(nubase);
+	nu = BLI_findlink(nubase, spline_id);
+	if (!nu) {
+		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
+		return OPERATOR_CANCELLED;
+	}
+
+	if (event->type == MOUSEMOVE) {
+		if (changed) {
+			new_nu = nubase->last;
+			BLI_poptail(nubase);
+			BKE_nurb_free(new_nu);
+		}
+		//float d = len_v2v2(prev_mouse, curr_mouse);
+		float dy = curr_mouse[1] - prev_mouse[1];
+		//RNA_float_set(op->ptr, "distance", d/1000);
+		RNA_float_set(op->ptr, "distance", dy/100);
+		distance = RNA_float_get(op->ptr, "distance");
+		new_nu = offset_curve(nu, nubase, distance);
+		BLI_addtail(nubase, new_nu);
+		init_mouse[2] = 1;
+	}
+	else if (event->type == LEFTMOUSE) {
+		//offset_curve_exec(C, op);
+		ED_area_headerprint(CTX_wm_area(C), NULL);
+		MEM_freeN(init_mouse);
+		return OPERATOR_FINISHED;
+	}
+	else if (event->type == ESCKEY) {
+		ED_area_headerprint(CTX_wm_area(C), NULL);
+		MEM_freeN(init_mouse);
+		return OPERATOR_CANCELLED;
+	}
+
+	ofs += BLI_snprintf(str + ofs, sizeof(str) - ofs, IFACE_("Offset distance: %.2f"), distance);
+	ED_area_headerprint(CTX_wm_area(C), str);
+
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+	DAG_id_tag_update(obedit->data, 0);
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	int *mouse = MEM_callocN(3 * sizeof(int), "offset_curve_invoke");
+	mouse[0] = event->x;
+	mouse[1] = event->y;
+	mouse[2] = 0; /* this is a flag to check if the operator is currently running or if it has just been called */
+
+	op->customdata = mouse;
+
+	/* add modal handler */
+	WM_event_add_modal_handler(C, op);
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+void CURVE_OT_curve_chamfer(wmOperatorType *ot)
+{
+
+	/* identifiers */
+	ot->name = "Chamfer";
+	ot->description = "Chamfer selected points";
+	ot->idname = "CURVE_OT_curve_chamfer";
+
+	/* api callbacks */
+	ot->exec = curve_chamfer_exec;
+	ot->poll = ED_operator_editsurfcurve;
+	//ot->modal = curve_chamfer_modal;
+	//ot->invoke = curve_chamfer_invoke;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* Properties */
+	RNA_def_float(ot->srna, "angle", DEG2RAD(45.0f), 0.0f, DEG2RAD(90.0f), "Chamfer angle", "", 0.0f, DEG2RAD(90.0f));
+	RNA_def_float(ot->srna, "distance", 1.0f, 0.0f, OBJECT_ADD_SIZE_MAXF, "Chamfer length", "", 0.0f, 10.0f);
 }
