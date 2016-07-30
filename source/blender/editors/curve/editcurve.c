@@ -6544,8 +6544,10 @@ static void get_intersections(ListBase* il, float *p1, float *p2, ListBase *nuba
 		}
 		BLI_freelistN(spl->data);
 		BLI_freelistN(points_list);
+		MEM_freeN(points_list);
 	}
 	BLI_freelistN(&spline_list);
+	MEM_freeN(&spline_list);
 }
 
 static int extend_curve_exec(bContext *C, wmOperator *op)
@@ -7379,26 +7381,9 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 
 /******************** Offset curve operator ********************/
 
-static void get_curve_centroid(Nurb *nu, float r_v[3])
-{
-	/* This function returns the average xyz coordinates of the spline. */
-	float a[3] = {0.0,0.0,0.0};
-	copy_v3_v3(r_v, a);
-	for (int i = 0; i < nu->pntsu; i++) {
-		add_v3_v3(r_v, nu->bezt[i].vec[1]);
-		if (i > 0) {
-			add_v3_v3(r_v, nu->bezt[i].vec[0]);
-		}
-		if (i < nu->pntsu - 1) {
-			add_v3_v3(r_v, nu->bezt[i].vec[2]);
-		}
-	}
-	mul_v3_fl(r_v, 1.0/(nu->pntsu * 3 - 2));
-}
-
 static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, float *r_v2)
 {
-	int i = 0, dims = 3;
+	int dims = 3;
 	float *coord_array, *vx, *vy, *helper;
 	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "get_offset_vecs1");
 	vx = MEM_callocN(dims * sizeof(float), "get_offset_vecs2");
@@ -7416,7 +7401,7 @@ static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, flo
 	sub_v3_v3v3(vx, coord_array + 3, coord_array);
 	sub_v3_v3v3(vy, coord_array + 3 * 12, coord_array + 3 * 11);
 
-	float plane_a_co[3], plane_a_no[3], plane_b_co[3], plane_b_no[3];
+	float plane_b_no[3];
 	float plane_a[4], plane_b[4];
 	float isect_co[3];
 	float isect_no[3];
@@ -7517,25 +7502,11 @@ static bool reverse_offset(BezTriple *offset1, BezTriple *offset2, ListBase *nur
 	return ret;
 }
 
-static int offset_curve_exec(bContext *C, wmOperator *op)
+static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 {
-	Object *obedit = CTX_data_edit_object(C);
-	ListBase *nubase = object_editcurve_get(obedit);
-	Nurb *nu, *new_nu;
-	BezTriple *bezt, *new_bezt;
-	float distance = RNA_float_get(op->ptr, "distance");
-
-	/* get selected spline */
-	int spline_id = get_selected_spline_id(nubase);
-	nu = BLI_findlink(nubase, spline_id);
-	if (!nu) {
-		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
-		return OPERATOR_CANCELLED;
-	}
-	bezt = nu->bezt;
-	new_nu = BKE_nurb_duplicate(nu);
+	BezTriple *bezt = nu->bezt, *new_bezt;
+	Nurb *new_nu = BKE_nurb_duplicate(nu);
 	new_bezt = new_nu->bezt;
-
 	/* offset the first handle */
 	/* control point */
 	float *v1, *v2, *co;
@@ -7620,6 +7591,26 @@ static int offset_curve_exec(bContext *C, wmOperator *op)
 	MEM_freeN(v2);
 	MEM_freeN(co);
 
+	return new_nu;
+}
+
+static int offset_curve_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	ListBase *nubase = object_editcurve_get(obedit);
+	Nurb *nu, *new_nu;
+	float distance = RNA_float_get(op->ptr, "distance");
+
+	/* get selected spline */
+	int spline_id = get_selected_spline_id(nubase);
+	nu = BLI_findlink(nubase, spline_id);
+	if (!nu) {
+		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
+		return OPERATOR_CANCELLED;
+	}
+
+	new_nu = offset_curve(nu, nubase, distance);
+
 	BKE_nurb_handles_calc(new_nu);
 	BLI_addtail(nubase, new_nu);
 
@@ -7633,32 +7624,63 @@ static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	ED_area_tag_redraw(CTX_wm_area(C));
+	char str[UI_MAX_DRAW_STR];
+	size_t ofs = 0;
 	ListBase *nubase = object_editcurve_get(obedit);
-	int *init_mouse = op->customdata;
+	Nurb *nu, *new_nu;
+	int *init_mouse = op->customdata, changed = init_mouse[2];
 	float curr_mouse[2] = {event->x, event->y};
 	float prev_mouse[2] = {init_mouse[0], init_mouse[1]};
+	float distance = 1.0;
+	int spline_id = get_selected_spline_id(nubase);
+	nu = BLI_findlink(nubase, spline_id);
+	if (!nu) {
+		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
+		return OPERATOR_CANCELLED;
+	}
 
 	if (event->type == MOUSEMOVE) {
-		float d = len_v2v2(prev_mouse, curr_mouse);
-		RNA_float_set(op->ptr, "distance", d/1000);
-		offset_curve_exec(C, op);
+		if (changed) {
+			new_nu = nubase->last;
+			BLI_poptail(nubase);
+			BKE_nurb_free(new_nu);
+		}
+		//float d = len_v2v2(prev_mouse, curr_mouse);
+		float dy = curr_mouse[1] - prev_mouse[1];
+		//RNA_float_set(op->ptr, "distance", d/1000);
+		RNA_float_set(op->ptr, "distance", dy/100);
+		distance = RNA_float_get(op->ptr, "distance");
+		new_nu = offset_curve(nu, nubase, distance);
+		BLI_addtail(nubase, new_nu);
+		init_mouse[2] = 1;
 	}
 	else if (event->type == LEFTMOUSE) {
-		offset_curve_exec(C, op);
+		//offset_curve_exec(C, op);
+		ED_area_headerprint(CTX_wm_area(C), NULL);
+		MEM_freeN(init_mouse);
 		return OPERATOR_FINISHED;
 	}
 	else if (event->type == ESCKEY) {
+		ED_area_headerprint(CTX_wm_area(C), NULL);
+		MEM_freeN(init_mouse);
 		return OPERATOR_CANCELLED;
 	}
+
+	ofs += BLI_snprintf(str + ofs, sizeof(str) - ofs, IFACE_("Offset distance: %.2f"), distance);
+	ED_area_headerprint(CTX_wm_area(C), str);
+
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_RUNNING_MODAL;
 }
 
 static int offset_curve_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	int *mouse = MEM_callocN(2 * sizeof(int), "offset_curve_invoke");
+	int *mouse = MEM_callocN(3 * sizeof(int), "offset_curve_invoke");
 	mouse[0] = event->x;
 	mouse[1] = event->y;
+	mouse[2] = 0; /* this is a flag to check if the operator is currently running or if it has just been called */
 
 	op->customdata = mouse;
 
@@ -7679,8 +7701,8 @@ void CURVE_OT_offset_curve(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = offset_curve_exec;
 	ot->poll = ED_operator_editsurfcurve;
-	//ot->modal = offset_curve_modal;
-	//ot->invoke = offset_curve_invoke;
+	ot->modal = offset_curve_modal;
+	ot->invoke = offset_curve_invoke;
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -7773,14 +7795,13 @@ static void add_bezt(Nurb *nu, float *p, int position, Curve *cu)
 	BKE_nurb_handles_calc(nu);
 }
 
-static int batch_extend_exec(bContext *C, wmOperator *op)
+static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *obedit = CTX_data_edit_object(C);
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
 	Curve *cu = obedit->data;
-	EditNurb *editnurb = cu->editnurb;
-	BezTriple *bezt,  **selected_triples, **selected_endpoints = NULL;
+	BezTriple *bezt,  **selected_triples;
 	ListBase first_extend = {NULL}, last_extend = {NULL};
 	LinkData *link;
 	/* at most, both endpoints can be selected for all splines */
