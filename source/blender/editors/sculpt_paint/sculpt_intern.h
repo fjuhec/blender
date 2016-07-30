@@ -248,7 +248,10 @@ typedef struct StrokeCache {
 	float radius;
 	float radius_squared;
 	float true_location[3];
+  float true_last_location[3];
 	float location[3];
+  float last_location[3];
+  bool is_last_valid;
 
 	bool pen_flip;
 	bool invert;
@@ -321,6 +324,7 @@ typedef struct StrokeCache {
 	rcti current_r; /* current redraw rectangle */
 
 } StrokeCache;
+
 void sculpt_cache_free(StrokeCache *cache);
 
 SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType type);

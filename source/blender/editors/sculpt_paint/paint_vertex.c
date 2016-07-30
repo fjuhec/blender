@@ -2027,6 +2027,8 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 	//TEMPORARY. needs to be changed once we add mirroring.
 	copy_v3_v3(cache->view_normal, cache->true_view_normal);
 	cache->bstrength = BKE_brush_alpha_get(scene, brush);
+
+  cache->is_last_valid = false;
 }
 
 /* Initialize the stroke cache variants from operator properties */
@@ -2302,6 +2304,127 @@ static float wpaint_blur_weight_calc_from_connected(
 	return paintweight;
 }
 
+/** \name Calculate Normal and Center
+*
+* Calculate geometry surrounding the brush center.
+* (optionally using original coordinates).
+*
+* Functions are:
+* - #calc_area_center
+* - #calc_area_normal
+* - #calc_area_normal_and_center
+*
+* \note These are all _very_ similar, when changing one, check others.
+* \{ */
+
+static void calc_area_normal_and_center_task_cb(void *userdata, const int n)
+{
+  SculptThreadedTaskData *data = userdata;
+  SculptSession *ss = data->ob->sculpt;
+  float(*area_nos)[3] = data->area_nos;
+  float(*area_cos)[3] = data->area_cos;
+
+  PBVHVertexIter vd;
+  SculptBrushTest test;
+  //SculptUndoNode *unode;
+
+  float private_co[2][3] = { { 0.0f } };
+  float private_no[2][3] = { { 0.0f } };
+  int   private_count[2] = { 0 };
+
+ // unode = sculpt_undo_push_node(data->ob, data->nodes[n], SCULPT_UNDO_COORDS);
+  sculpt_brush_test_init(ss, &test);
+
+  //use_original = (ss->cache->original && (unode->co || unode->bm_entry));
+
+  
+  BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+  {
+    const float *co;
+    const short *no_s;  /* bm_vert only */
+
+    co = vd.co;
+    
+    if (sculpt_brush_test_fast(&test, co)) {
+      float no_buf[3];
+      const float *no;
+      int flip_index;
+
+      if (vd.no) {
+        normal_short_to_float_v3(no_buf, vd.no);
+        no = no_buf;
+      }
+      else {
+        no = vd.fno;
+      }
+
+      flip_index = (dot_v3v3(ss->cache->view_normal, no) <= 0.0f);
+      if (area_cos)
+        add_v3_v3(private_co[flip_index], co);
+      if (area_nos)
+        add_v3_v3(private_no[flip_index], no);
+      private_count[flip_index] += 1;
+    }
+  }
+  BKE_pbvh_vertex_iter_end;
+  
+
+  BLI_mutex_lock(&data->mutex);
+
+  /* for flatten center */
+  if (area_cos) {
+    add_v3_v3(area_cos[0], private_co[0]);
+    add_v3_v3(area_cos[1], private_co[1]);
+  }
+
+  /* for area normal */
+  if (area_nos) {
+    add_v3_v3(area_nos[0], private_no[0]);
+    add_v3_v3(area_nos[1], private_no[1]);
+  }
+
+  /* weights */
+  data->count[0] += private_count[0];
+  data->count[1] += private_count[1];
+
+  BLI_mutex_unlock(&data->mutex);
+}
+
+static void calc_area_normal(
+  VPaint *vp, Object *ob,
+  PBVHNode **nodes, int totnode,
+  float r_area_no[3])
+{
+  const Brush *brush = BKE_paint_brush(&vp->paint);
+  SculptSession *ss = ob->sculpt;
+  int n;
+
+  /* 0=towards view, 1=flipped */
+  float area_nos[2][3] = { { 0.0f } };
+
+  int count[2] = { 0 };
+
+  SculptThreadedTaskData data = {
+    .vp = vp, .ob = ob, .nodes = nodes, .totnode = totnode,
+    .area_cos = NULL, .area_nos = area_nos, .count = count,
+  };
+  BLI_mutex_init(&data.mutex);
+
+  BLI_task_parallel_range(
+    0, totnode, &data, calc_area_normal_and_center_task_cb,
+    ((true & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT)); //Need to add OpenMP toggle in vpaint and wpaint
+
+  BLI_mutex_end(&data.mutex);
+
+  /* for area normal */
+  for (n = 0; n < ARRAY_SIZE(area_nos); n++) {
+    if (normalize_v3_v3(r_area_no, area_nos[n]) != 0.0f) {
+      break;
+    }
+  }
+}
+
+
 /* Flip all the editdata across the axis/axes specified by symm. Used to
 * calculate multiple modifications to the mesh when symmetry is enabled. */
 static void calc_brushdata_symm(VPaint *vd, StrokeCache *cache, const char symm,
@@ -2556,7 +2679,7 @@ static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculp
     data.original = true;
     BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
 
-  //  //Paint those leaves.
+    calc_area_normal(wp, ob, nodes, totnode, ss->cache->sculpt_normal_symm);
     wpaint_paint_leaves(C, ob, sd, wp, wpd, wpi, me, nodes, totnode);
 
     if (nodes)
@@ -2593,6 +2716,8 @@ static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint 
         wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Z');
     }
   }
+  copy_v3_v3(cache->true_last_location, cache->true_location);
+  cache->is_last_valid = true;
 }
 
 static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)
