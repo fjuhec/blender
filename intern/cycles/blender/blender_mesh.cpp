@@ -532,7 +532,8 @@ static void attr_create_pointiness(Scene *scene,
 {
 	if(mesh->need_attribute(scene, ATTR_STD_POINTINESS)) {
 		const int numverts = b_mesh.vertices.length();
-		Attribute *attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(ATTR_STD_POINTINESS);
+		AttributeSet& attributes = (subdivision)? mesh->subd_attributes: mesh->attributes;
+		Attribute *attr = attributes.add(ATTR_STD_POINTINESS);
 		float *data = attr->data_float();
 		int *counter = new int[numverts];
 		float *raw_data = new float[numverts];
@@ -603,8 +604,8 @@ static void create_mesh(Scene *scene,
 	int numverts = b_mesh.vertices.length();
 	int numfaces = (!subdivision) ? b_mesh.tessfaces.length() : b_mesh.polygons.length();
 	int numtris = 0;
-	int total_corners = 0;
-	int num_ngons = 0;
+	int numcorners = 0;
+	int numngons = 0;
 	bool use_loop_normals = b_mesh.use_auto_smooth();
 
 	BL::Mesh::vertices_iterator v;
@@ -619,20 +620,21 @@ static void create_mesh(Scene *scene,
 	}
 	else {
 		for(b_mesh.polygons.begin(p); p != b_mesh.polygons.end(); ++p) {
-			num_ngons += (p->loop_total() == 4)? 0: 1;
-			total_corners += p->loop_total();
+			numngons += (p->loop_total() == 4)? 0: 1;
+			numcorners += p->loop_total();
 		}
 	}
 
 	/* allocate memory */
 	mesh->reserve_mesh(numverts, numtris);
-	mesh->reserve_subd_faces(numfaces, num_ngons, total_corners);
+	mesh->reserve_subd_faces(numfaces, numngons, numcorners);
 
 	/* create vertex coordinates and normals */
 	for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end(); ++v)
 		mesh->add_vertex(get_float3(v->co()));
 
-	Attribute *attr_N = (subdivision? mesh->subd_attributes: mesh->attributes).add(ATTR_STD_VERTEX_NORMAL);
+	AttributeSet& attributes = (subdivision)? mesh->subd_attributes: mesh->attributes;
+	Attribute *attr_N = attributes.add(ATTR_STD_VERTEX_NORMAL);
 	float3 *N = attr_N->data_float3();
 
 	for(b_mesh.vertices.begin(v); v != b_mesh.vertices.end(); ++v, ++N)
@@ -641,7 +643,7 @@ static void create_mesh(Scene *scene,
 
 	/* create generated coordinates from undeformed coordinates */
 	if(mesh->need_attribute(scene, ATTR_STD_GENERATED)) {
-		Attribute *attr = (subdivision? mesh->subd_attributes: mesh->attributes).add(ATTR_STD_GENERATED);
+		Attribute *attr = attributes.add(ATTR_STD_GENERATED);
 		attr->flags |= ATTR_SUBDIVIDED;
 
 		float3 loc, size;
@@ -771,7 +773,6 @@ static void create_subd_mesh(Scene *scene,
                              Mesh *mesh,
                              BL::Object& b_ob,
                              BL::Mesh& b_mesh,
-                             PointerRNA *cmesh,
                              const vector<Shader*>& used_shaders,
                              float dicing_rate,
                              int max_subdivisions)
@@ -822,6 +823,43 @@ static void create_subd_mesh(Scene *scene,
 }
 
 /* Sync */
+
+static void sync_mesh_fluid_motion(BL::Object& b_ob, Scene *scene, Mesh *mesh)
+{
+	if(scene->need_motion() == Scene::MOTION_NONE)
+		return;
+
+	BL::DomainFluidSettings b_fluid_domain = object_fluid_domain_find(b_ob);
+
+	if(!b_fluid_domain)
+		return;
+
+	/* If the mesh has modifiers following the fluid domain we can't export motion. */
+	if(b_fluid_domain.fluid_mesh_vertices.length() != mesh->verts.size())
+		return;
+
+	/* Find or add attribute */
+	float3 *P = &mesh->verts[0];
+	Attribute *attr_mP = mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION);
+
+	if(!attr_mP) {
+		attr_mP = mesh->attributes.add(ATTR_STD_MOTION_VERTEX_POSITION);
+	}
+
+	/* Only export previous and next frame, we don't have any in between data. */
+	float motion_times[2] = {-1.0f, 1.0f};
+	for (int step = 0; step < 2; step++) {
+		float relative_time = motion_times[step] * scene->motion_shutter_time() * 0.5f;
+		float3 *mP = attr_mP->data_float3() + step*mesh->verts.size();
+
+		BL::DomainFluidSettings::fluid_mesh_vertices_iterator fvi;
+		int i = 0;
+
+		for(b_fluid_domain.fluid_mesh_vertices.begin(fvi); fvi != b_fluid_domain.fluid_mesh_vertices.end(); ++fvi, ++i) {
+			mP[i] = P[i] + get_float3(fvi->velocity()) * relative_time;
+		}
+	}
+}
 
 Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
                              bool object_updated,
@@ -930,8 +968,9 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 
 		if(cobj.data && b_ob.modifiers.length() > 0 && experimental) {
 			BL::Modifier mod = b_ob.modifiers[b_ob.modifiers.length()-1];
+			bool enabled = preview ? mod.show_viewport() : mod.show_render();
 
-			if(mod.type() == BL::Modifier::type_SUBSURF && RNA_int_get(&cobj, "use_cycles_subdivision")) {
+			if(enabled && mod.type() == BL::Modifier::type_SUBSURF && RNA_int_get(&cobj, "use_adaptive_subdivision")) {
 				BL::SubsurfModifier subsurf(mod);
 
 				if(subsurf.subdivision_type() == BL::SubsurfModifier::subdivision_type_CATMULL_CLARK) {
@@ -948,7 +987,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 		if(b_mesh) {
 			if(render_layer.use_surfaces && !hide_tris) {
 				if(mesh->subdivision_type != Mesh::SUBDIVISION_NONE)
-					create_subd_mesh(scene, mesh, b_ob, b_mesh, &cmesh, used_shaders,
+					create_subd_mesh(scene, mesh, b_ob, b_mesh, used_shaders,
 					                 dicing_rate, max_subdivisions);
 				else
 					create_mesh(scene, mesh, b_mesh, used_shaders, false);
@@ -983,6 +1022,9 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 		else
 			mesh->displacement_method = Mesh::DISPLACE_BOTH;
 	}
+
+	/* fluid motion */
+	sync_mesh_fluid_motion(b_ob, scene, mesh);
 
 	/* tag update */
 	bool rebuild = false;
@@ -1072,6 +1114,11 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 	/* skip objects without deforming modifiers. this is not totally reliable,
 	 * would need a more extensive check to see which objects are animated */
 	BL::Mesh b_mesh(PointerRNA_NULL);
+
+	/* fluid motion is exported immediate with mesh, skip here */
+	BL::DomainFluidSettings b_fluid_domain = object_fluid_domain_find(b_ob);
+	if (b_fluid_domain)
+		return;
 
 	if(ccl::BKE_object_is_deform_modified(b_ob, b_scene, preview)) {
 		/* get derived mesh */

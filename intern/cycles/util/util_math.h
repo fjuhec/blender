@@ -224,7 +224,8 @@ ccl_device_inline float smoothstepf(float f)
 	return (3.0f*ff - 2.0f*ff*f);
 }
 
-ccl_device_inline int mod(int x, int m) {
+ccl_device_inline int mod(int x, int m)
+{
 	return (x % m + m) % m;
 }
 

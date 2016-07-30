@@ -140,7 +140,7 @@ size_t Attribute::element_size(Mesh *mesh, AttributePrimitive prim) const
 	}
 
 	size_t size;
-
+	
 	switch(element) {
 		case ATTR_ELEMENT_OBJECT:
 		case ATTR_ELEMENT_MESH:
@@ -149,22 +149,32 @@ size_t Attribute::element_size(Mesh *mesh, AttributePrimitive prim) const
 			break;
 		case ATTR_ELEMENT_VERTEX:
 			size = mesh->verts.size() + mesh->num_ngons;
+			if(prim == ATTR_PRIM_SUBD) {
+				size -= mesh->num_subd_verts;
+			}
 			break;
 		case ATTR_ELEMENT_VERTEX_MOTION:
 			size = (mesh->verts.size() + mesh->num_ngons) * (mesh->motion_steps - 1);
+			if(prim == ATTR_PRIM_SUBD) {
+				size -= mesh->num_subd_verts * (mesh->motion_steps - 1);
+			}
 			break;
 		case ATTR_ELEMENT_FACE:
-			if(prim == ATTR_PRIM_TRIANGLE)
+			if(prim == ATTR_PRIM_TRIANGLE) {
 				size = mesh->num_triangles();
-			else
+			}
+			else {
 				size = mesh->subd_faces.size() + mesh->num_ngons;
+			}
 			break;
 		case ATTR_ELEMENT_CORNER:
 		case ATTR_ELEMENT_CORNER_BYTE:
-			if(prim == ATTR_PRIM_TRIANGLE)
+			if(prim == ATTR_PRIM_TRIANGLE) {
 				size = mesh->num_triangles()*3;
-			else
+			}
+			else {
 				size = mesh->subd_face_corners.size() + mesh->num_ngons;
+			}
 			break;
 		case ATTR_ELEMENT_CURVE:
 			size = mesh->num_curves();
@@ -180,15 +190,6 @@ size_t Attribute::element_size(Mesh *mesh, AttributePrimitive prim) const
 			break;
 	}
 
-	/* This is a bit weird, but because we currently use Mesh::verts for both
-	 * subd and non subd meshes and new verts are created as part of the subd
-	 * process the count ends up being way larger than whats needed for
-	 * attributes. This corrects for that so we dont waste memory.
-	 */
-	if(prim == ATTR_PRIM_SUBD && element == ATTR_ELEMENT_VERTEX) {
-		size -= mesh->num_subd_verts;
-	}
-	
 	return size;
 }
 

@@ -570,7 +570,7 @@ static void xml_read_patch(const XMLReadState& state, pugi::xml_node node)
 		mesh->used_shaders.push_back(state.shader);
 
 		/* split */
-		SubdParams sdparams(mesh, 0, state.smooth);
+		SubdParams sdparams(mesh);
 		xml_read_float(&sdparams.dicing_rate, node, "dicing_rate");
 
 		DiagSplit dsplit(sdparams);

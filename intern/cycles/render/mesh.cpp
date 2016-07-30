@@ -363,7 +363,7 @@ void Mesh::add_curve(int first_key, int shader)
 
 void Mesh::add_subd_face(int* corners, int num_corners, int shader_, bool smooth_)
 {
-	size_t start_corner = subd_face_corners.size();
+	int start_corner = subd_face_corners.size();
 
 	for(int i = 0; i < num_corners; i++) {
 		subd_face_corners.push_back_reserved(corners[i]);
@@ -376,7 +376,8 @@ void Mesh::add_subd_face(int* corners, int num_corners, int shader_, bool smooth
 		ptex_offset = s.ptex_offset + s.num_ptex_faces();
 	}
 
-	subd_faces.push_back_reserved({start_corner, num_corners, shader_, smooth_, ptex_offset});
+	SubdFace face = {start_corner, num_corners, shader_, smooth_, ptex_offset};
+	subd_faces.push_back_reserved(face);
 }
 
 void Mesh::compute_bounds()
@@ -1368,8 +1369,6 @@ void MeshManager::device_update_mesh(Device *device,
 	size_t curve_size = 0;
 
 	size_t patch_size = 0;
-	size_t face_size = 0;
-	size_t corner_size = 0;
 
 	foreach(Mesh *mesh, scene->meshes) {
 		vert_size += mesh->verts.size();
@@ -1388,8 +1387,6 @@ void MeshManager::device_update_mesh(Device *device,
 				patch_size += mesh->patch_table->total_size();
 			}
 		}
-		face_size += mesh->subd_faces.size();
-		corner_size += mesh->subd_face_corners.size();
 	}
 
 	/* Create mapping from triangle to primitive triangle array. */

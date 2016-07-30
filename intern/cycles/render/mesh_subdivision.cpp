@@ -494,8 +494,7 @@ void Mesh::tessellate(DiagSplit *split)
 			case ATTR_ELEMENT_VERTEX_MOTION: {
 				// TODO(mai): implement
 			} break;
-			case ATTR_ELEMENT_CORNER:
-			case ATTR_ELEMENT_CORNER_BYTE: {
+			case ATTR_ELEMENT_CORNER: {
 				for(int f = 0; f < num_faces; f++) {
 					SubdFace& face = subd_faces[f];
 
@@ -509,6 +508,30 @@ void Mesh::tessellate(DiagSplit *split)
 							attr.add_with_weight(center,
 							                     data + (face.start_corner + corner) * stride,
 							                     inv_num_corners);
+						}
+
+						ngons++;
+					}
+				}
+			} break;
+			case ATTR_ELEMENT_CORNER_BYTE: {
+				for(int f = 0; f < num_faces; f++) {
+					SubdFace& face = subd_faces[f];
+
+					if(!face.is_quad()) {
+						uchar* center = (uchar*)data + (subd_face_corners.size() + ngons) * stride;
+
+						float inv_num_corners = 1.0f / float(face.num_corners);
+						float4 val = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+
+						for(int corner = 0; corner < face.num_corners; corner++) {
+							for(int i = 0; i < 4; i++) {
+								val[i] += float(*(data + (face.start_corner + corner) * stride + i)) * inv_num_corners;
+							}
+						}
+
+						for(int i = 0; i < 4; i++) {
+							center[i] = uchar(min(max(val[i], 0.0f), 255.0f));
 						}
 
 						ngons++;

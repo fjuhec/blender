@@ -140,12 +140,16 @@ void DiagSplit::split(QuadDice::SubPatch& sub, QuadDice::EdgeFactors& ef, int de
 	bool split_u = (ef.tu0 == DSPLIT_NON_UNIFORM || ef.tu1 == DSPLIT_NON_UNIFORM);
 	bool split_v = (ef.tv0 == DSPLIT_NON_UNIFORM || ef.tv1 == DSPLIT_NON_UNIFORM);
 
+	/* Split subpatches such that the ratio of T for opposite edges doesn't
+     * exceed 1.5, this reduces over tessellation for some patches
+	 */
 	bool tmp_split_v = split_v;
 	if(!split_u && min(ef.tu0, ef.tu1) > 8 && min(ef.tu0, ef.tu1)*1.5f < max(ef.tu0, ef.tu1))
 		split_v = true;
 	if(!tmp_split_v && min(ef.tu0, ef.tu1) > 8 && min(ef.tv0, ef.tv1)*1.5f < max(ef.tv0, ef.tv1))
 		split_u = true;
 
+	/* alternate axis */
 	if(split_u && split_v) {
 		split_u = depth % 2;
 	}
