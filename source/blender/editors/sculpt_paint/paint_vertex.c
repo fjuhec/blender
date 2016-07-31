@@ -613,9 +613,18 @@ BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac
 	cp2 = (unsigned char *)&col2;
 	cp  = (unsigned char *)&col;
 
-	cp[0] = divide_round_i((mfac * cp1[0] + fac * cp2[0]), 255);
-	cp[1] = divide_round_i((mfac * cp1[1] + fac * cp2[1]), 255);
-	cp[2] = divide_round_i((mfac * cp1[2] + fac * cp2[2]), 255);
+  // Updated to use physically correct color model. -N8V
+  int red1 = cp1[0] * cp1[0];
+  int green1 = cp1[1] * cp1[1];
+  int blue1 = cp1[2] * cp1[2];
+
+  int red2 = cp2[0] * cp2[0];
+  int green2 = cp2[1] * cp2[1];
+  int blue2 = cp2[2] * cp2[2];
+
+  cp[0] = (unsigned char)round(sqrt(divide_round_i((mfac * red1 + fac * red2), 255)));
+  cp[1] = (unsigned char)round(sqrt(divide_round_i((mfac * green1 + fac * green2), 255)));
+  cp[2] = (unsigned char)round(sqrt(divide_round_i((mfac * blue1 + fac * blue2), 255)));
 	cp[3] = 255;
 
 	return col;
@@ -768,7 +777,8 @@ static unsigned int vpaint_blend_tool(const int tool, const unsigned int col,
 	switch (tool) {
 		case PAINT_BLEND_MIX:
 		case PAINT_BLEND_BLUR:     return mcol_blend(col, paintcol, alpha_i);
-		case PAINT_BLEND_AVERAGE:  return mcol_blend(col, paintcol, alpha_i);
+    case PAINT_BLEND_AVERAGE:  return mcol_blend(col, paintcol, alpha_i);
+    case PAINT_BLEND_SMUDGE:   return mcol_blend(col, paintcol, alpha_i);
 		case PAINT_BLEND_ADD:      return mcol_add(col, paintcol, alpha_i);
 		case PAINT_BLEND_SUB:      return mcol_sub(col, paintcol, alpha_i);
 		case PAINT_BLEND_MUL:      return mcol_mul(col, paintcol, alpha_i);
@@ -965,6 +975,7 @@ static float wpaint_blend_tool(const int tool,
 	switch (tool) {
 		case PAINT_BLEND_MIX:
     case PAINT_BLEND_AVERAGE:
+    case PAINT_BLEND_SMUDGE:
 		case PAINT_BLEND_BLUR:     return wval_blend(weight, paintval, alpha);
 		case PAINT_BLEND_ADD:      return wval_add(weight, paintval, alpha);
 		case PAINT_BLEND_SUB:      return wval_sub(weight, paintval, alpha);
@@ -1756,10 +1767,10 @@ static void vertex_paint_init_session_average_arrays(Object *ob){
   int totNode = 0;
   //I think the totNodes might include internal nodes, and we really only need the tot leaves.
   BKE_pbvh_node_num_nodes(ob->sculpt->pbvh, &totNode);
-  ob->sculpt->totalRed = MEM_callocN(totNode*sizeof(unsigned int), "totalRed");
-  ob->sculpt->totalGreen = MEM_callocN(totNode * sizeof(unsigned int), "totalGreen");
-  ob->sculpt->totalBlue = MEM_callocN(totNode * sizeof(unsigned int), "totalBlue");
-  ob->sculpt->totalAlpha = MEM_callocN(totNode * sizeof(unsigned int), "totalAlpha");
+  ob->sculpt->totalRed = MEM_callocN(totNode*sizeof(unsigned long), "totalRed");
+  ob->sculpt->totalGreen = MEM_callocN(totNode * sizeof(unsigned long), "totalGreen");
+  ob->sculpt->totalBlue = MEM_callocN(totNode * sizeof(unsigned long), "totalBlue");
+  ob->sculpt->totalAlpha = MEM_callocN(totNode * sizeof(unsigned long), "totalAlpha");
   ob->sculpt->totalWeight = MEM_callocN(totNode * sizeof(double), "totalWeight");
   ob->sculpt->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
 }
@@ -2433,6 +2444,7 @@ static void calc_brushdata_symm(VPaint *vd, StrokeCache *cache, const char symm,
   (void)vd; /* unused */
 
   flip_v3_v3(cache->location, cache->true_location, symm);
+  flip_v3_v3(cache->last_location, cache->true_last_location, symm);
   flip_v3_v3(cache->grab_delta_symmetry, cache->grab_delta, symm);
   flip_v3_v3(cache->view_normal, cache->true_view_normal, symm);
 
@@ -2460,6 +2472,7 @@ static void calc_brushdata_symm(VPaint *vd, StrokeCache *cache, const char symm,
   }
 
   mul_m4_v3(cache->symm_rot_mat, cache->location);
+  mul_m4_v3(cache->symm_rot_mat, cache->last_location);
   mul_m4_v3(cache->symm_rot_mat, cache->grab_delta_symmetry);
 
   if (cache->supports_gravity) {
@@ -2640,7 +2653,7 @@ static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp,
   data.C = C;
 
   //This might change to a case switch. 
-  if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
+  if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE || brush->vertexpaint_tool == PAINT_BLEND_SMUDGE) {
     calculate_average_weight(&data, nodes, totnode);
     BLI_task_parallel_range_ex(
       0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
@@ -3414,7 +3427,7 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	StrokeCache *cache = ss->cache;
 	
 	unsigned int *lcol = data->lcol;
-	unsigned int blend[4] = { 0 };
+	unsigned long blend[4] = { 0 };
 	char *col;
 	
 	data->ob->sculpt->totloopsHit[n] = 0;
@@ -3436,10 +3449,11 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
 					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 					col = (char *)(&lcol[loopIndex]);
-					blend[0] += col[0];
-					blend[1] += col[1];
-					blend[2] += col[2];
-					blend[3] += col[3];
+          // Color is squared to compensate the sqrt color encoding.
+          blend[0] += (long)col[0] * (long)col[0];
+          blend[1] += (long)col[1] * (long)col[1];
+          blend[2] += (long)col[2] * (long)col[2];
+          blend[3] += (long)col[3] * (long)col[3];
 				}
 			}
 		}
@@ -3502,7 +3516,7 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	unsigned int *lcolorig = data->vp->vpaint_prev;
 
 	int totalHitLoops;
-	unsigned int blend[4] = { 0 };
+	unsigned long blend[4] = { 0 };
 	char *col;
 	unsigned int finalColor;
 
@@ -3532,18 +3546,19 @@ static void do_vpaint_brush_blur_task_cb_ex(
 				for (int k = 0; k < poly.totloop; k++) {
 					unsigned int loopIndex = poly.loopstart + k;
 					col = (char *)(&lcol[loopIndex]);
-					blend[0] += col[0];
-					blend[1] += col[1];
-					blend[2] += col[2];
-					blend[3] += col[3];
+          // Color is squared to compensate the sqrt color encoding.
+          blend[0] += (unsigned long)col[0] * (unsigned long)col[0];
+          blend[1] += (unsigned long)col[1] * (unsigned long)col[1];
+          blend[2] += (unsigned long)col[2] * (unsigned long)col[2];
+          blend[3] += (unsigned long)col[3] * (unsigned long)col[3];
 				}
 			}
 			if (totalHitLoops != 0) {
 				col = (char*)(&finalColor);
-				col[0] = divide_round_i(blend[0], totalHitLoops);
-				col[1] = divide_round_i(blend[1], totalHitLoops);
-				col[2] = divide_round_i(blend[2], totalHitLoops);
-				col[3] = divide_round_i(blend[3], totalHitLoops);
+				col[0] = (unsigned char)round(sqrtl(divide_round_ul(blend[0], totalHitLoops)));
+        col[1] = (unsigned char)round(sqrtl(divide_round_ul(blend[1], totalHitLoops)));
+        col[2] = (unsigned char)round(sqrtl(divide_round_ul(blend[2], totalHitLoops)));
+        col[3] = (unsigned char)round(sqrtl(divide_round_ul(blend[3], totalHitLoops)));
 
 				//if a vertex is within the brush region, then paint each loop that vertex owns.
 				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
@@ -3557,6 +3572,78 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	}
 }
 
+static void do_vpaint_brush_smudge_task_cb_ex(
+  void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
+{
+  SculptThreadedTaskData *data = userdata;
+  SculptSession *ss = data->ob->sculpt;
+  Brush *brush = data->brush;
+  StrokeCache *cache = ss->cache;
+  const float bstrength = cache->bstrength;
+  bool shouldColor = false;
+  unsigned int *lcol = data->lcol;
+  unsigned int *lcolorig = data->vp->vpaint_prev;
+  unsigned int finalColor;
+  float brushDirection[3];
+  sub_v3_v3v3(brushDirection, cache->location, cache->last_location);
+  normalize_v3(brushDirection);
+
+  //If the position from the last update is initialized...
+  if (cache->is_last_valid) {
+    //for each vertex
+    PBVHVertexIter vd;
+    BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+    {
+      SculptBrushTest test;
+      sculpt_brush_test_init(ss, &test);
+
+      //Test to see if the vertex coordinates are within the spherical brush region.
+      if (sculpt_brush_test(&test, vd.co)) {
+        const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+        int vertexIndex = vd.vert_indices[vd.i];
+        MVert *currentVert = &data->me->mvert[vertexIndex];
+
+        //Minimum dot product between brush direction and current to neighbor direction is 0.0, meaning orthogonal.
+        float maxDotProduct = 0.0f;
+
+        //Get the color of the loop in the opposite direction of the brush movement
+        finalColor = 0;
+        for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
+          int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
+          MPoly *poly = &data->me->mpoly[polyIndex];
+          for (int k = 0; k < poly->totloop; k++) {
+            unsigned int loopIndex = poly->loopstart + k;
+            MLoop *loop = &data->me->mloop[loopIndex];
+            unsigned int neighborIndex = loop->v;
+            MVert *neighbor = &data->me->mvert[neighborIndex];
+
+            //Get the direction from the selected vert to the neighbor.
+            float toNeighbor[3];
+            sub_v3_v3v3(toNeighbor, currentVert->co, neighbor->co);
+            normalize_v3(toNeighbor);
+            
+            float dotProduct = dot_v3v3(toNeighbor, brushDirection);
+
+            if (dotProduct > maxDotProduct) {
+              maxDotProduct = dotProduct;
+              finalColor = lcol[loopIndex];
+              shouldColor = true;
+            }
+          }
+        }
+        if (shouldColor) {
+          //if a vertex is within the brush region, then paint each loop that vertex owns.
+          for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+            int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+            //Mix the new color with the original based on the brush strength and the curve.
+            lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], finalColor, 255.0 * fade * bstrength, 255.0);
+          }
+        }
+      }
+      BKE_pbvh_vertex_iter_end;
+    }
+  }
+}
 
 static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **nodes, int totnode) {
 	BLI_task_parallel_range_ex(
@@ -3564,7 +3651,7 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **nod
 		((data->sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
 
 	unsigned int totalHitLoops = 0;
-	unsigned int totalColor[4] = { 0 };
+	unsigned long totalColor[4] = { 0 };
 	unsigned char blend[4] = { 0 };
 	for (int i = 0; i < totnode; ++i) {
 		totalHitLoops += data->ob->sculpt->totloopsHit[i];
@@ -3574,10 +3661,11 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **nod
 		totalColor[3] += data->ob->sculpt->totalAlpha[i];
 	}
 	if (totalHitLoops != 0) {
-		blend[0] = divide_round_i(totalColor[0], totalHitLoops);
-		blend[1] = divide_round_i(totalColor[1], totalHitLoops);
-		blend[2] = divide_round_i(totalColor[2], totalHitLoops);
-		blend[3] = divide_round_i(totalColor[3], totalHitLoops);
+    long test = sqrtl(divide_round_ul(totalColor[0], totalHitLoops));
+    blend[0] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[0], totalHitLoops)));
+    blend[1] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[1], totalHitLoops)));
+    blend[2] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[2], totalHitLoops)));
+    blend[3] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[3], totalHitLoops)));
 		data->vpd->paintcol = *((unsigned int*)blend);
 	}
 }
@@ -3595,25 +3683,30 @@ static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object 
 	data.vpd = vpd;
 	data.lcol = (unsigned int*)me->mloopcol;
 	data.me = me;
-
-	//This might change to a case switch. 
-	if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE) {
-		calculate_average_color(&data, nodes, totnode);
-		BLI_task_parallel_range_ex(
-			0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
-			((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-	}
-	else if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-		BLI_task_parallel_range_ex(
-			0, totnode, &data, NULL, 0, do_vpaint_brush_blur_task_cb_ex,
-			((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-	}
-	else {
-		BLI_task_parallel_range_ex(
-			0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
-			((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-	}
-
+  sd->flags |= SCULPT_USE_OPENMP; //Needs toggle...
+  switch (brush->vertexpaint_tool) {
+    case PAINT_BLEND_AVERAGE:
+      calculate_average_color(&data, nodes, totnode);
+      BLI_task_parallel_range_ex(
+        0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
+        ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+      break;
+    case PAINT_BLEND_BLUR:
+      BLI_task_parallel_range_ex(
+        0, totnode, &data, NULL, 0, do_vpaint_brush_blur_task_cb_ex,
+        ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+      break;
+    case PAINT_BLEND_SMUDGE:
+      BLI_task_parallel_range_ex(
+        0, totnode, &data, NULL, 0, do_vpaint_brush_smudge_task_cb_ex,
+        ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+      break;
+    default:
+      BLI_task_parallel_range_ex(
+        0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
+        ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+      break;
+  }
 }
 
 static void vpaint_do_radial_symmetry(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, Brush *brush, const char symm, const int axis)
@@ -3674,7 +3767,11 @@ static void vpaint_do_symmetrical_brush_actions(Sculpt *sd, VPaint *vd, VPaintDa
         vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Z');
     }
   }
+
+  copy_v3_v3(cache->true_last_location, cache->true_location);
+  cache->is_last_valid = true;
 }
+
 static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, PointerRNA *itemptr)
 {
   //
