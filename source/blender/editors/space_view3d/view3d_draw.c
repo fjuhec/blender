@@ -3755,7 +3755,8 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
 /* setup the view and win matrices for the multiview cameras
  *
  * unlike view3d_stereo3d_setup_offscreen, when view3d_stereo3d_setup is called
- * we have no winmatrix (i.e., projection matrix) defined at that time.
+ * we have no winmatrix (i.e., projection matrix) defined at that time, with
+ * the exception when using Head Mounted Displays where OpenHMD provides one.
  * Since the camera and the camera shift are needed for the winmat calculation
  * we do a small hack to replace it temporarily so we don't need to change the
  * view3d)main_region_setup_view() code to account for that.
@@ -3777,6 +3778,7 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
 	if (ELEM(scene->r.views_format, SCE_VIEWS_FORMAT_STEREO_3D, SCE_VIEWS_FORMAT_HMD)) {
 		Camera *data;
 		float viewmat[4][4];
+		float projmat[4][4];
 		float shiftx;
 
 		data = (Camera *)v3d->camera->data;
@@ -3786,7 +3788,15 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
 		data->shiftx = BKE_camera_multiview_shift_x(&scene->r, v3d->camera, viewname);
 
 		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, viewmat);
-		view3d_main_region_setup_view(scene, v3d, ar, viewmat, NULL);
+		BKE_camera_multiview_proj_matrix(is_left, projmat);
+
+		if (WM_device_HMD_current_get() >= 0) //HMD active, use HMD camera matrix
+		{
+			shiftx = 0.0f;
+			view3d_main_region_setup_view(scene, v3d, ar, viewmat, projmat);
+		}
+		else
+			view3d_main_region_setup_view(scene, v3d, ar, viewmat, NULL);
 
 		data->shiftx = shiftx;
 		BLI_unlock_thread(LOCK_VIEW3D);
@@ -3816,6 +3826,7 @@ static void view3d_stereo3d_setup_offscreen(Scene *scene, View3D *v3d, ARegion *
 		const bool is_left = STREQ(viewname, STEREO_LEFT_NAME);
 
 		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, viewmat);
+		BKE_camera_multiview_proj_matrix(is_left, winmat);
 		view3d_main_region_setup_view(scene, v3d, ar, viewmat, winmat);
 	}
 	else { /* SCE_VIEWS_FORMAT_MULTIVIEW */

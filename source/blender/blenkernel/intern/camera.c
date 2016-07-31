@@ -96,7 +96,7 @@ void *BKE_camera_add(Main *bmain, const char *name)
 Camera *BKE_camera_copy(Camera *cam)
 {
 	Camera *camn;
-	
+
 	camn = BKE_libblock_copy(&cam->id);
 
 	id_lib_extern((ID *)camn->dof_ob);
@@ -118,20 +118,20 @@ void BKE_camera_make_local(Camera *cam)
 	 * - only local users: set flag
 	 * - mixed: make copy
 	 */
-	
+
 	if (cam->id.lib == NULL) return;
 	if (cam->id.us == 1) {
 		id_clear_lib_data(bmain, &cam->id);
 		return;
 	}
-	
+
 	for (ob = bmain->object.first; ob && ELEM(0, is_lib, is_local); ob = ob->id.next) {
 		if (ob->data == cam) {
 			if (ob->id.lib) is_lib = true;
 			else is_local = true;
 		}
 	}
-	
+
 	if (is_local && is_lib == false) {
 		id_clear_lib_data(bmain, &cam->id);
 	}
@@ -176,7 +176,7 @@ void BKE_camera_object_mode(RenderData *rd, Object *cam_ob)
 /* get the camera's dof value, takes the dof object into account */
 float BKE_camera_object_dof_distance(Object *ob)
 {
-	Camera *cam = (Camera *)ob->data; 
+	Camera *cam = (Camera *)ob->data;
 	if (ob->type != OB_CAMERA)
 		return 0.0f;
 	if (cam->dof_ob) {
@@ -840,6 +840,39 @@ void BKE_camera_multiview_view_matrix(RenderData *rd, Object *camera, const bool
 	invert_m4(r_viewmat);
 }
 
+/* get the projection matrix for HMD */
+void BKE_camera_multiview_proj_matrix(const bool is_left, float r_projmat[4][4])
+{
+	/* set projection matrix from hmd */
+	if (U.hmd_device != -1)
+	{
+		float cameraProjMatrix[16];
+		if (is_left)
+			WM_device_HMD_left_projection_matrix_get(cameraProjMatrix);
+		else
+			WM_device_HMD_right_projection_matrix_get(cameraProjMatrix);
+
+		r_projmat[0][0] = cameraProjMatrix[0];
+		r_projmat[0][1] = cameraProjMatrix[1];
+		r_projmat[0][2] = cameraProjMatrix[2];
+		r_projmat[0][3] = cameraProjMatrix[3];
+		r_projmat[1][0] = cameraProjMatrix[4];
+		r_projmat[1][1] = cameraProjMatrix[5];
+		r_projmat[1][2] = cameraProjMatrix[6];
+		r_projmat[1][3] = cameraProjMatrix[7];
+		r_projmat[2][0] = cameraProjMatrix[8];
+		r_projmat[2][1] = cameraProjMatrix[9];
+		r_projmat[2][2] = cameraProjMatrix[10];
+		r_projmat[2][3] = cameraProjMatrix[11];
+		r_projmat[3][0] = cameraProjMatrix[12];
+		r_projmat[3][1] = cameraProjMatrix[13];
+		r_projmat[3][2] = cameraProjMatrix[14];
+		r_projmat[3][3] = cameraProjMatrix[15];
+
+		//transpose_m4(r_projmat);
+	}
+}
+
 /* left is the default */
 static bool camera_is_left(const char *viewname)
 {
@@ -997,7 +1030,8 @@ float BKE_camera_multiview_shift_x(RenderData *rd, Object *camera, const char *v
 
 void BKE_camera_multiview_params(RenderData *rd, CameraParams *params, Object *camera, const char *viewname)
 {
-	if (camera->type == OB_CAMERA) {
+	//Don't shift X for HMD since its already calculated in the modelview matrix
+	if (camera->type == OB_CAMERA && rd->views_format != SCE_VIEWS_FORMAT_HMD) {
 		params->shiftx = BKE_camera_multiview_shift_x(rd, camera, viewname);
 	}
 }

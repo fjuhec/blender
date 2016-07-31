@@ -93,6 +93,37 @@ float WM_device_HMD_IPD_get(void)
 	return GHOST_HMDgetDeviceIPD();
 }
 
+/**
+ * Get left eye modelview matrix from currently opened HMD.
+ */
+void WM_device_HMD_left_modelview_matrix_get(float leftMatrix[16])
+{
+	GHOST_HMDgetLeftModelviewMatrix(leftMatrix);
+}
+
+/**
+ * Get right eye modelview matrix from currently opened HMD.
+ */
+void WM_device_HMD_right_modelview_matrix_get(float rightMatrix[16])
+{
+	GHOST_HMDgetRightModelviewMatrix(rightMatrix);
+}
+
+/**
+ * Get left eye projection matrix from currently opened HMD.
+ */
+void WM_device_HMD_left_projection_matrix_get(float leftMatrix[16])
+{
+	GHOST_HMDgetLeftProjectionMatrix(leftMatrix);
+}
+
+/**
+ * Get right eye projection matrix from currently opened HMD.
+ */
+void WM_device_HMD_right_projection_matrix_get(float rightMatrix[16])
+{
+	GHOST_HMDgetRightProjectionMatrix(rightMatrix);
+}
 /** \} */
 
 #endif

@@ -937,6 +937,10 @@ extern int         GHOST_HMDgetOpenDeviceIndex(void);
 extern const char *GHOST_HMDgetDeviceName(int index);
 extern const char *GHOST_HMDgetVendorName(int index);
 extern float       GHOST_HMDgetDeviceIPD(void);
+extern void        GHOST_HMDgetLeftModelviewMatrix(float leftMatrix[16]);
+extern void        GHOST_HMDgetRightModelviewMatrix(float rightMatrix[16]);
+extern void        GHOST_HMDgetLeftProjectionMatrix(float leftMatrix[16]);
+extern void        GHOST_HMDgetRightProjectionMatrix(float rightMatrix[16]);
 
 #ifdef __cplusplus
 }

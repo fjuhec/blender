@@ -2148,10 +2148,10 @@ static void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base
 		tvec[0] = shift[0] + ((-0.7f * drawsize) * scale[0]);
 		tvec[1] = shift[1] + ((drawsize * (asp[1] + 0.1f)) * scale[1]);
 		glVertex3fv(tvec); /* left */
-		
+
 		tvec[0] = shift[0] + ((0.7f * drawsize) * scale[0]);
 		glVertex3fv(tvec); /* right */
-		
+
 		tvec[0] = shift[0];
 		tvec[1] = shift[1] + ((1.1f * drawsize * (asp[1] + 0.7f)) * scale[1]);
 		glVertex3fv(tvec); /* top */
@@ -2271,7 +2271,7 @@ static void lattice_draw_verts(Lattice *lt, DispList *dl, BPoint *actbp, short s
 			}
 		}
 	}
-	
+
 	glEnd();
 }
 
@@ -2282,12 +2282,12 @@ static void drawlattice__point(Lattice *lt, DispList *dl, int u, int v, int w, i
 	if (actdef_wcol) {
 		float col[3];
 		MDeformWeight *mdw = defvert_find_index(lt->dvert + index, actdef_wcol - 1);
-		
+
 		weight_to_rgb(col, mdw ? mdw->weight : 0.0f);
 		glColor3fv(col);
 
 	}
-	
+
 	if (dl) {
 		glVertex3fv(&dl->verts[index * 3]);
 	}
@@ -2349,12 +2349,12 @@ static void drawlattice(View3D *v3d, Object *ob)
 	const bool is_edit = (lt->editlatt != NULL);
 
 	dl = BKE_displist_find(&ob->curve_cache->disp, DL_VERTS);
-	
+
 	if (is_edit) {
 		lt = lt->editlatt->latt;
 
 		UI_ThemeColor(TH_WIRE_EDIT);
-		
+
 		if (ob->defbase.first && lt->dvert) {
 			actdef_wcol = ob->actdef;
 			glShadeModel(GL_SMOOTH);
@@ -2386,7 +2386,7 @@ static void drawlattice(View3D *v3d, Object *ob)
 		}
 	}
 	glEnd();
-	
+
 	/* restoration for weight colors */
 	if (actdef_wcol)
 		glShadeModel(GL_FLAT);
@@ -2395,10 +2395,10 @@ static void drawlattice(View3D *v3d, Object *ob)
 		BPoint *actbp = BKE_lattice_active_point_get(lt);
 
 		if (v3d->zbuf) glDisable(GL_DEPTH_TEST);
-		
+
 		lattice_draw_verts(lt, dl, actbp, 0);
 		lattice_draw_verts(lt, dl, actbp, 1);
-		
+
 		if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
 	}
 }
