@@ -2536,10 +2536,82 @@ static void do_wpaint_brush_blur_task_cb_ex(
 
         const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
         int vertexIndex = vd.vert_indices[vd.i];
-        do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, fade, (float)finalColor);
+        do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, fade * bstrength, (float)finalColor);
       }
     }
     BKE_pbvh_vertex_iter_end;
+  }
+}
+
+static void do_wpaint_brush_smudge_task_cb_ex(
+  void *userdata, void *UNUSED(userdata_chunk), const int n, const int thread_id)
+{
+  SculptThreadedTaskData *data = userdata;
+  SculptSession *ss = data->ob->sculpt;
+  Brush *brush = data->brush;
+  StrokeCache *cache = ss->cache;
+  const float bstrength = cache->bstrength;
+  bool shouldColor = false;
+  unsigned int *lcol = data->lcol;
+  unsigned int *lcolorig = data->vp->vpaint_prev;
+  float finalWeight;
+  float brushDirection[3];
+  sub_v3_v3v3(brushDirection, cache->location, cache->last_location);
+  normalize_v3(brushDirection);
+
+  //If the position from the last update is initialized...
+  if (cache->is_last_valid) {
+    //for each vertex
+    PBVHVertexIter vd;
+    BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+    {
+      SculptBrushTest test;
+      sculpt_brush_test_init(ss, &test);
+
+      //Test to see if the vertex coordinates are within the spherical brush region.
+      if (sculpt_brush_test(&test, vd.co)) {
+        const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+        int vertexIndex = vd.vert_indices[vd.i];
+        MVert *currentVert = &data->me->mvert[vertexIndex];
+
+        //Minimum dot product between brush direction and current to neighbor direction is 0.0, meaning orthogonal.
+        float maxDotProduct = 0.0f;
+
+        //Get the color of the loop in the opposite direction of the brush movement
+        finalWeight = 0;
+        for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
+          int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
+          MPoly *poly = &data->me->mpoly[polyIndex];
+          for (int k = 0; k < poly->totloop; k++) {
+            unsigned int loopIndex = poly->loopstart + k;
+            MLoop *loop = &data->me->mloop[loopIndex];
+            unsigned int neighborIndex = loop->v;
+            MVert *neighbor = &data->me->mvert[neighborIndex];
+
+            //Get the direction from the selected vert to the neighbor.
+            float toNeighbor[3];
+            sub_v3_v3v3(toNeighbor, currentVert->co, neighbor->co);
+            normalize_v3(toNeighbor);
+
+            float dotProduct = dot_v3v3(toNeighbor, brushDirection);
+
+            if (dotProduct > maxDotProduct) {
+              maxDotProduct = dotProduct;
+              MDeformVert *dv = &data->me->dvert[neighborIndex];
+              MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
+              finalWeight = dw->weight;
+              shouldColor = true;
+            }
+          }
+        }
+        if (shouldColor) {
+          const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+          int vertexIndex = vd.vert_indices[vd.i];
+          do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, fade * bstrength, (float)finalWeight);
+        }
+      }
+      BKE_pbvh_vertex_iter_end;
+    }
   }
 }
 
@@ -2651,26 +2723,30 @@ static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp,
   data.lcol = (unsigned int*)me->mloopcol;
   data.me = me;
   data.C = C;
-
-  //This might change to a case switch. 
-  if (brush->vertexpaint_tool == PAINT_BLEND_AVERAGE || brush->vertexpaint_tool == PAINT_BLEND_SMUDGE) {
-    calculate_average_weight(&data, nodes, totnode);
-    BLI_task_parallel_range_ex(
-      0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
-      ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+  sd->flags |= SCULPT_USE_OPENMP; // Need to add toggle for OpenMP
+  switch (brush->vertexpaint_tool) {
+    case PAINT_BLEND_AVERAGE:
+      calculate_average_weight(&data, nodes, totnode);
+      BLI_task_parallel_range_ex(
+        0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
+        ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+      break;
+    case PAINT_BLEND_SMUDGE:
+      BLI_task_parallel_range_ex(
+        0, totnode, &data, NULL, 0, do_wpaint_brush_smudge_task_cb_ex,
+        ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+      break;
+    case PAINT_BLEND_BLUR:
+      BLI_task_parallel_range_ex(
+        0, totnode, &data, NULL, 0, do_wpaint_brush_blur_task_cb_ex,
+        ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+      break;
+    default:
+      BLI_task_parallel_range_ex(
+        0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
+        ((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+      break;
   }
-  else if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
-    BLI_task_parallel_range_ex(
-      0, totnode, &data, NULL, 0, do_wpaint_brush_blur_task_cb_ex,
-      ((true & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-  }
-  else {
-    BLI_task_parallel_range_ex(
-      0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
-      ((true & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
-    //sd->flags
-  }
-
 }
 
 static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, Brush *brush, const char symm, const int axis)
@@ -3869,7 +3945,6 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		/* If using new VBO drawing, mark mcol as dirty to force colors gpu buffer refresh! */
 		ob->derivedFinal->dirty |= DM_DIRTY_MCOL_UPDATE_DRAW;
 	}
-
 }
 
 static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
