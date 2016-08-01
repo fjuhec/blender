@@ -800,19 +800,20 @@ void BKE_camera_multiview_view_matrix(RenderData *rd, Object *camera, const bool
 /* get the projection matrix for HMD */
 void BKE_camera_multiview_proj_matrix(const bool is_left, float r_projmat[4][4])
 {
+#ifdef WITH_INPUT_HMD
 	/* set projection matrix from hmd */
-	if (U.hmd_device != -1)
-	{
-		float cameraProjMatrix[4][4];
-		if (is_left)
-			WM_device_HMD_left_projection_matrix_get(cameraProjMatrix);
-		else
-			WM_device_HMD_right_projection_matrix_get(cameraProjMatrix);
-
-		copy_m4_m4(r_projmat, cameraProjMatrix);
-
+	if (U.hmd_device != -1) {
+		if (is_left) {
+			WM_device_HMD_left_projection_matrix_get(r_projmat);
+		}
+		else {
+			WM_device_HMD_right_projection_matrix_get(r_projmat);
+		}
 		//transpose_m4(r_projmat);
 	}
+#else
+	UNUSED_VARS(is_left, r_projmat);
+#endif
 }
 
 /* left is the default */

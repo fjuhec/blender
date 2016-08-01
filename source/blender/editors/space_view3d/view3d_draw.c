@@ -104,7 +104,7 @@
 #include "view3d_intern.h"  /* own include */
 
 /* prototypes */
-static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar);
+static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const bool is_hmd_view);
 static void view3d_stereo3d_setup_offscreen(Scene *scene, View3D *v3d, ARegion *ar,
                                             float winmat[4][4], const char *viewname);
 
@@ -3752,7 +3752,7 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
  * we do a small hack to replace it temporarily so we don't need to change the
  * view3d)main_region_setup_view() code to account for that.
  */
-static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
+static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const bool is_hmd_view)
 {
 	bool is_left;
 	const char *names[2] = {STEREO_LEFT_NAME, STEREO_RIGHT_NAME};
@@ -3766,10 +3766,9 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
 	viewname = names[is_left ? STEREO_LEFT_ID : STEREO_RIGHT_ID];
 
 	/* update the viewport matrices with the new camera */
-	if (ELEM(scene->r.views_format, SCE_VIEWS_FORMAT_STEREO_3D, SCE_VIEWS_FORMAT_HMD)) {
+	if (scene->r.views_format == SCE_VIEWS_FORMAT_STEREO_3D) {
 		Camera *data;
 		float viewmat[4][4];
-		float projmat[4][4];
 		float shiftx;
 
 		data = (Camera *)v3d->camera->data;
@@ -3779,18 +3778,26 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
 		data->shiftx = BKE_camera_multiview_shift_x(&scene->r, v3d->camera, viewname);
 
 		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, viewmat);
-		BKE_camera_multiview_proj_matrix(is_left, projmat);
 
-		if (WM_device_HMD_current_get() >= 0) //HMD active, use HMD camera matrix
-		{
-			shiftx = 0.0f;
-			view3d_main_region_setup_view(scene, v3d, ar, viewmat, projmat);
-		}
-		else
-			view3d_main_region_setup_view(scene, v3d, ar, viewmat, NULL);
+		view3d_main_region_setup_view(scene, v3d, ar, viewmat, NULL);
 
 		data->shiftx = shiftx;
 		BLI_unlock_thread(LOCK_VIEW3D);
+	}
+	else if (scene->r.views_format == SCE_VIEWS_FORMAT_HMD) {
+		if (is_hmd_view) {
+			float viewmat[4][4];
+			float projmat[4][4];
+
+			BLI_lock_thread(LOCK_VIEW3D);
+
+			BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, viewmat);
+			BKE_camera_multiview_proj_matrix(is_left, projmat);
+
+			view3d_main_region_setup_view(scene, v3d, ar, viewmat, projmat);
+
+			BLI_unlock_thread(LOCK_VIEW3D);
+		}
 	}
 	else { /* SCE_VIEWS_FORMAT_MULTIVIEW */
 		float viewmat[4][4];
@@ -3843,8 +3850,10 @@ static void update_lods(Scene *scene, float camera_pos[3])
 }
 #endif
 
-static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, View3D *v3d,
-                                          ARegion *ar, const char **grid_unit)
+static void view3d_main_region_draw_objects(
+        const bContext *C, Scene *scene, View3D *v3d,
+        ARegion *ar, const char **grid_unit,
+        const bool is_hmd_view)
 {
 	wmWindow *win = CTX_wm_window(C);
 	RegionView3D *rv3d = ar->regiondata;
@@ -3865,7 +3874,7 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 
 	/* setup the view matrix */
 	if (view3d_stereo3d_active(C, scene, v3d, rv3d))
-		view3d_stereo3d_setup(scene, v3d, ar);
+		view3d_stereo3d_setup(scene, v3d, ar, is_hmd_view);
 	else
 		view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
 
@@ -4047,7 +4056,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	const char *grid_unit = NULL;
 	rcti border_rect;
 	bool render_border, clip_border;
-	const bool HMD_view =
+	const bool is_hmd_view =
 #ifdef WITH_INPUT_HMD
 	        ((CTX_wm_manager(C)->win_hmd == CTX_wm_window(C)) &&
 	         (scene->r.views_format == SCE_VIEWS_FORMAT_HMD) &&
@@ -4063,7 +4072,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 
 	/* draw viewport using opengl */
 	if (v3d->drawtype != OB_RENDER || !view3d_main_region_do_render_draw(scene) || clip_border) {
-		view3d_main_region_draw_objects(C, scene, v3d, ar, &grid_unit);
+		view3d_main_region_draw_objects(C, scene, v3d, ar, &grid_unit, is_hmd_view);
 		
 #ifdef DEBUG_DRAW
 		bl_debug_draw();
@@ -4073,7 +4082,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 		
 		ED_region_pixelspace(ar);
 
-		if (HMD_view) {
+		if (is_hmd_view) {
 			return;
 		}
 	}
