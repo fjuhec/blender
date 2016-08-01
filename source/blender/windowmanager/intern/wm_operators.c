@@ -4144,7 +4144,8 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	/* open */
 	else {
 		Scene *scene = CTX_data_scene(C);
-		rcti rect = {0, prevwin->sizex, 0, prevwin->sizey};
+		rcti rect = {prevwin->posx, prevwin->posx + (int)(prevwin->sizex * 0.9f),
+		             prevwin->posy, prevwin->posy + (int)(prevwin->sizey * 0.9f)};
 		win = WM_window_open_temp(C, &rect, WM_WINDOW_HMD);
 		wm->win_hmd = win;
 
