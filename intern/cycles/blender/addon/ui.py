@@ -904,7 +904,7 @@ class CyclesLamp_PT_lamp(CyclesButtonsPanel, Panel):
 
         lamp = context.lamp
         clamp = lamp.cycles
-        cscene = context.scene.cycles
+        # cscene = context.scene.cycles
 
         layout.prop(lamp, "type", expand=True)
 
@@ -1124,7 +1124,7 @@ class CyclesWorld_PT_settings(CyclesButtonsPanel, Panel):
 
         world = context.world
         cworld = world.cycles
-        cscene = context.scene.cycles
+        # cscene = context.scene.cycles
 
         split = layout.split()
 
