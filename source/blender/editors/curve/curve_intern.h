@@ -133,6 +133,7 @@ void CURVE_OT_trim_curve(struct wmOperatorType *ot);
 void CURVE_OT_offset_curve(struct wmOperatorType *ot);
 void CURVE_OT_batch_extend(struct wmOperatorType *ot);
 void CURVE_OT_curve_chamfer(struct wmOperatorType *ot);
+void CURVE_OT_curve_fillet(struct wmOperatorType *ot);
 
 bool ED_curve_pick_vert(
         struct ViewContext *vc, short sel, const int mval[2],

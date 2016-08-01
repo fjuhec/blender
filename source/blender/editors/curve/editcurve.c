@@ -7930,6 +7930,7 @@ static int curve_chamfer_exec(bContext *C, wmOperator *op)
 	Nurb *nu;
 	float distance = RNA_float_get(op->ptr, "distance");
 	float angle = RNA_float_get(op->ptr, "angle");
+	int aaa = RNA_enum_get(op->ptr, "type");
 
 	/* get selected spline */
 	int spline_id = get_selected_spline_id(nubase);
@@ -8136,7 +8137,7 @@ static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *even
 			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal1");
 			BEZT_SEL_ALL(bezt1);
 			bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal2");
-			chamfer_handle(bezt, bezt1, bezt2, DEG2RAD(45.0f), 1.0f); /* here a copy of the original bezt is required <---------------------- */
+			chamfer_handle(bezt, bezt1, bezt2, DEG2RAD(45.0f), 1.0f);
 
 			memcpy(&nu->bezt[i + 1], &nu->bezt[i], (nu->pntsu - i - 1) * sizeof(BezTriple));
 			memcpy(&nu->bezt[i], bezt1, sizeof(BezTriple));
@@ -8157,7 +8158,6 @@ static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *even
 
 void CURVE_OT_curve_chamfer(wmOperatorType *ot)
 {
-
 	/* identifiers */
 	ot->name = "Chamfer";
 	ot->description = "Chamfer selected points";
@@ -8176,5 +8176,112 @@ void CURVE_OT_curve_chamfer(wmOperatorType *ot)
 	/* Properties */
 	//RNA_def_float(ot->srna, "angle", DEG2RAD(45.0f), 0.0f, DEG2RAD(90.0f), "Chamfer angle", "", 0.0f, DEG2RAD(90.0f));
 	RNA_def_float(ot->srna, "distance", 1.0f, 0.0f, OBJECT_ADD_SIZE_MAXF, "Chamfer length", "", 0.0f, 10.0f);
+	RNA_def_float_rotation(ot->srna, "angle", 0, NULL, -FLT_MAX, FLT_MAX, "Angle", "", -M_PI * 2, M_PI * 2);
+}
+
+/******************** Fillet operator ********************/
+/* In an ideal world, chamfer and fillet would be the same operator, since they share 90% of the code
+ * TODO: Make the above true */
+
+static void fillet_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r_new_bezt2, float theta, float r)
+{
+	float d = r * 2 * sin(theta/2);
+	chamfer_handle(bezt, r_new_bezt1, r_new_bezt2, theta, d);
+
+	float v1[3], v2[3];
+	sub_v3_v3v3(v1, bezt->vec[1], bezt->vec[0]);
+	normalize_v3(v1);
+	mul_v3_fl(v1, r * 4.0/3 * tan(theta/4));
+	copy_v3_v3(r_new_bezt1->vec[2], r_new_bezt1->vec[1]);
+	add_v3_v3(r_new_bezt1->vec[2], v1);
+
+	sub_v3_v3v3(v2, bezt->vec[1], bezt->vec[2]);
+	normalize_v3(v2);
+	mul_v3_fl(v2, r * 4.0/3 * tan(theta/4));
+	copy_v3_v3(r_new_bezt2->vec[0], r_new_bezt2->vec[1]);
+	add_v3_v3(r_new_bezt2->vec[0], v2);
+
+	r_new_bezt1->h1 = r_new_bezt2->h1 = r_new_bezt1->h2 = r_new_bezt2->h2 = HD_FREE;
+}
+
+static int curve_fillet_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	ListBase *nubase = object_editcurve_get(obedit);
+	Nurb *nu;
+	float distance = RNA_float_get(op->ptr, "distance");
+	float angle = RNA_float_get(op->ptr, "angle");
+
+	/* get selected spline */
+	int spline_id = get_selected_spline_id(nubase);
+	nu = BLI_findlink(nubase, spline_id);
+	if (!nu) {
+		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
+		return OPERATOR_CANCELLED;
+	}
+
+	/* check if handles are vector type! */
+	BezTriple *bezt = nu->bezt, *bezt1, *bezt2, *helper;
+	int selected_point = 0;
+	for (int i = 0; i < nu->pntsu; i++) {
+		bezt = &nu->bezt[i];
+		if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
+			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer1");
+			bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer2");
+			fillet_handle(bezt, bezt1, bezt2, angle, distance);
+			selected_point = i;
+			BKE_nurb_bezierPoints_add(nu, 1);
+
+			memcpy(&nu->bezt[selected_point + 1], &nu->bezt[selected_point], (nu->pntsu - selected_point - 1) * sizeof(BezTriple));
+			memcpy(&nu->bezt[selected_point], bezt1, sizeof(BezTriple));
+			memcpy(&nu->bezt[selected_point + 1], bezt2, sizeof(BezTriple));
+
+			MEM_freeN(bezt1);
+			MEM_freeN(bezt2);
+
+			/* set the handles for the first chamfered triple */
+			float v[3];
+			bezt1 = &nu->bezt[selected_point];
+			helper = &nu->bezt[selected_point - 1];
+			/* left handle */
+			sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
+			mul_v3_fl(v, 0.4 * len_v3(v));
+			copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
+			add_v3_v3(bezt1->vec[0], v);
+
+			/* second chamfered triple */
+			helper = &nu->bezt[selected_point + 2];
+			/* right handle */
+			bezt2 = &nu->bezt[selected_point + 1];
+			sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
+			mul_v3_fl(v, 0.4 * len_v3(v));
+			copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
+			add_v3_v3(bezt2->vec[2], v);
+		}
+	}
+
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+	DAG_id_tag_update(obedit->data, 0);
+
+	return OPERATOR_FINISHED;
+}
+
+void CURVE_OT_curve_fillet(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Fillet";
+	ot->description = "Fillet selected points";
+	ot->idname = "CURVE_OT_curve_fillet";
+
+	/* api callbacks */
+	ot->exec = curve_fillet_exec;
+	ot->poll = ED_operator_editsurfcurve;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* Properties */
+	//RNA_def_float(ot->srna, "angle", DEG2RAD(45.0f), 0.0f, DEG2RAD(90.0f), "Chamfer angle", "", 0.0f, DEG2RAD(90.0f));
+	RNA_def_float(ot->srna, "distance", 1.0f, 0.0f, OBJECT_ADD_SIZE_MAXF, "Radius", "", 0.0f, 10.0f);
 	RNA_def_float_rotation(ot->srna, "angle", 0, NULL, -FLT_MAX, FLT_MAX, "Angle", "", -M_PI * 2, M_PI * 2);
 }
