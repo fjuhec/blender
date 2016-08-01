@@ -70,7 +70,7 @@ bool GHOST_OpenHMDManager::processEvents()
 	}
 	/* OrientationUpdate event
 	 * We might want to add a timeout check here to avoid too many updates. */
-	if (1 && m_device) {
+	if (m_device) {
 		GHOST_EventOpenHMD *event = new GHOST_EventOpenHMD(now, GHOST_kOrientationUpdate, window);
 		GHOST_TEventOpenHMDData *data = (GHOST_TEventOpenHMDData*)event->getData();
 
@@ -260,6 +260,7 @@ bool GHOST_OpenHMDManager::getRotationQuat(float orientation[4]) const
 	if (ohmd_device_getf(m_device, OHMD_ROTATION_QUAT, tmp) < 0)
 		return false;
 
+	// Convert from x, y, z, w space (OpenHMD) to w, x, y, z (Blender)
 	orientation[0] = tmp[3];
 	orientation[1] = tmp[0];
 	orientation[2] = tmp[1];

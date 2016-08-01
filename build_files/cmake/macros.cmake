@@ -710,7 +710,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 	if(WITH_OPENHMD)
 		list(APPEND BLENDER_SORTED_LIBS extern_openhmd)
 	endif()
-	
+
 	if(WITH_MOD_BOOLEAN)
 		list(APPEND BLENDER_SORTED_LIBS extern_carve)
 	endif()

@@ -109,11 +109,11 @@ static void shader_print_errors(const char *task, const char *log, const char **
 				c = pos + 1;
 				line++;
 			}
-
+			
 			fprintf(stderr, "%s", c);
 		}
 	}
-
+	
 	fprintf(stderr, "%s\n", log);
 }
 
@@ -404,7 +404,7 @@ GPUShader *GPU_shader_create_ex(const char *vertexcode,
 			GPU_shader_free(shader);
 			return NULL;
 		}
-
+		
 		if (!use_opensubdiv) {
 			GPU_shader_geometry_stage_primitive_io(shader, input, output, number);
 		}
@@ -558,7 +558,7 @@ void GPU_shader_uniform_texture(GPUShader *UNUSED(shader), int location, GPUText
 		fprintf(stderr, "Not enough texture slots.\n");
 		return;
 	}
-
+		
 	if (number == -1)
 		return;
 
@@ -584,7 +584,7 @@ void GPU_shader_uniform_texture(GPUShader *UNUSED(shader), int location, GPUText
 int GPU_shader_get_attribute(GPUShader *shader, const char *name)
 {
 	int index;
-
+	
 	GPU_CHECK_ERRORS_AROUND(index = glGetAttribLocation(shader->program, name));
 
 	return index;

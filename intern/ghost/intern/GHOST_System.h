@@ -339,7 +339,7 @@ protected:
 	 * \return Indication of success.
 	 */
 	GHOST_TSuccess createFullScreenWindow(GHOST_Window **window, const GHOST_DisplaySetting &settings,
-	                                      const bool stereoVisual, const bool alphaBackground, const GHOST_TUns16 numOfAASamples = 0);
+	                                      const bool stereoVisual, const bool alphaBackground = 0, const GHOST_TUns16 numOfAASamples = 0);
 
 	/** The display manager (platform dependent). */
 	GHOST_DisplayManager *m_displayManager;

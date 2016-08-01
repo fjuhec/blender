@@ -44,6 +44,7 @@
 #include "GHOST_WindowManager.h"
 #include "GHOST_OpenHMDManager.h"
 
+
 GHOST_System::GHOST_System()
     : m_nativePixel(false),
       m_displayManager(NULL),
@@ -112,7 +113,7 @@ GHOST_TSuccess GHOST_System::disposeWindow(GHOST_IWindow *window)
 
 	/*
 	 * Remove all pending events for the window.
-	 */
+	 */ 
 	if (m_windowManager->getWindowFound(window)) {
 		m_eventManager->removeWindowEvents(window);
 	}
@@ -223,7 +224,7 @@ bool GHOST_System::processEvents(bool waitForEvent)
 	}
 #endif
 
-	(void)waitForEvent; //silence!
+	(void)waitForEvent; // quiet warning!
 
 	return anyProcessed;
 }
@@ -284,7 +285,7 @@ GHOST_TSuccess GHOST_System::pushEvent(GHOST_IEvent *event)
 GHOST_TSuccess GHOST_System::getModifierKeyState(GHOST_TModifierKeyMask mask, bool& isDown) const
 {
 	GHOST_ModifierKeys keys;
-	// Get the state of all modifier keys
+	// Get the state of all modifier keys 
 	GHOST_TSuccess success = getModifierKeys(keys);
 	if (success) {
 		// Isolate the state of the key requested

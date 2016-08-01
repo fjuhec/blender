@@ -172,7 +172,7 @@ public:
 	/* functions */
 	Camera();
 	~Camera();
-
+	
 	void compute_auto_viewplane();
 
 	void update();

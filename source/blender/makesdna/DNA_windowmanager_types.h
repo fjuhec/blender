@@ -133,7 +133,7 @@ typedef struct wmWindowManager {
 	ID id;
 
 	struct wmWindow *windrawable, *winactive;  /* separate active from drawable */
-	struct wmWindow *win_hmd;         /* HMD (virtual reality) window */
+	struct wmWindow *win_hmd;         /* HMD (virtual reality) window. Stored to avoid lookups. */
 	ListBase windows;
 
 	int initialized;                  /* set on file read */

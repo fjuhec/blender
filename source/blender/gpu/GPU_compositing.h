@@ -70,7 +70,7 @@ typedef enum GPUFXShaderEffect {
 	/* lens distortion for HMD viewport use */
 	GPU_SHADER_FX_LENS_DISTORTION = 11,
 
-	GPU_MAX_SHADER, //Size of enum +1
+	GPU_MAX_SHADER, /* Always last! */
 } GPUFXShaderEffect;
 
 /* keep in synch with enum above! */

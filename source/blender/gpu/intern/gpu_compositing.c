@@ -794,6 +794,7 @@ bool GPU_fx_do_composite_pass(
 	/* set invalid color in case shader fails */
 	glColor3f(1.0, 0.0, 1.0);
 	glDisable(GL_DEPTH_TEST);
+
 	/* ssao pass */
 	if (fx->effects & GPU_FX_FLAG_SSAO) {
 		GPUShader *ssao_shader;

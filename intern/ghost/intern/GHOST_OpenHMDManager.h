@@ -64,10 +64,10 @@ public:
 	 */
 	bool openDevice(int index);
 
-	/** 
-	 *	Close the currently opened device (if available)
+	/**
+	 *  Close the currently opened device (if available).
 	 *  This means no more events will be generated until another device is opened using openDevice.
-	 * 	Has no effect is available() is false.
+	 *  Has no effect is available() is false.
 	 */
 	void closeDevice();
 
