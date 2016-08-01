@@ -2734,7 +2734,7 @@ void init_userdef_do_versions(void)
 		}
 	}
 
-	if (!USER_VERSION_ATLEAST(277, 1)) {
+	if (!USER_VERSION_ATLEAST(277, 2)) {
 		U.hmd_device = -1;
 	}
 
