@@ -328,8 +328,8 @@ void WM_device_HMD_state_set(const int device, const bool enable) RET_NONE
 float WM_device_HMD_IPD_get(void) RET_ZERO
 const char *WM_device_HMD_name_get(int index) RET_NULL
 const char *WM_device_HMD_vendor_get(int index) RET_NULL
-void WM_device_HMD_left_projection_matrix_get(float leftMatrix[16]) RET_NONE
-void WM_device_HMD_right_projection_matrix_get(float rightMatrix[16]) RET_NONE
+void WM_device_HMD_left_projection_matrix_get(float leftMatrix[4][4]) RET_NONE
+void WM_device_HMD_right_projection_matrix_get(float rightMatrix[4][4]) RET_NONE
 
 void                WM_uilisttype_init(void) RET_NONE
 struct uiListType  *WM_uilisttype_find(const char *idname, bool quiet) RET_NULL

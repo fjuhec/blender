@@ -1012,7 +1012,7 @@ float GHOST_HMDgetDeviceIPD()
 #endif
 }
 
-void GHOST_HMDgetLeftModelviewMatrix(float leftMatrix[16])
+void GHOST_HMDgetLeftModelviewMatrix(float leftMatrix[4][4])
 {
 #ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
@@ -1022,7 +1022,7 @@ void GHOST_HMDgetLeftModelviewMatrix(float leftMatrix[16])
 #endif
 }
 
-void GHOST_HMDgetRightModelviewMatrix(float rightMatrix[16])
+void GHOST_HMDgetRightModelviewMatrix(float rightMatrix[4][4])
 {
 #ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
@@ -1032,7 +1032,7 @@ void GHOST_HMDgetRightModelviewMatrix(float rightMatrix[16])
 #endif
 }
 
-void GHOST_HMDgetLeftProjectionMatrix(float leftMatrix[16])
+void GHOST_HMDgetLeftProjectionMatrix(float leftMatrix[4][4])
 {
 #ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
@@ -1042,7 +1042,7 @@ void GHOST_HMDgetLeftProjectionMatrix(float leftMatrix[16])
 #endif
 }
 
-void GHOST_HMDgetRightProjectionMatrix(float rightMatrix[16])
+void GHOST_HMDgetRightProjectionMatrix(float rightMatrix[4][4])
 {
 #ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();

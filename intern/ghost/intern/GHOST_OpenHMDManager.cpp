@@ -268,40 +268,40 @@ bool GHOST_OpenHMDManager::getRotationQuat(float orientation[4]) const
 	return true;
 }
 
-void GHOST_OpenHMDManager::getLeftEyeGLModelviewMatrix(float mat[16]) const
+void GHOST_OpenHMDManager::getLeftEyeGLModelviewMatrix(float mat[4][4]) const
 {
 	if (!m_device) {
 		return;
 	}
 
-	ohmd_device_getf(m_device, OHMD_LEFT_EYE_GL_MODELVIEW_MATRIX, mat);
+	ohmd_device_getf(m_device, OHMD_LEFT_EYE_GL_MODELVIEW_MATRIX, *mat);
 }
 
-void GHOST_OpenHMDManager::getRightEyeGLModelviewMatrix(float mat[16]) const
+void GHOST_OpenHMDManager::getRightEyeGLModelviewMatrix(float mat[4][4]) const
 {
 	if (!m_device) {
 		return;
 	}
 
-	ohmd_device_getf(m_device, OHMD_RIGHT_EYE_GL_MODELVIEW_MATRIX, mat);
+	ohmd_device_getf(m_device, OHMD_RIGHT_EYE_GL_MODELVIEW_MATRIX, *mat);
 }
 
-void GHOST_OpenHMDManager::getLeftEyeGLProjectionMatrix(float mat[16]) const
+void GHOST_OpenHMDManager::getLeftEyeGLProjectionMatrix(float mat[4][4]) const
 {
 	if (!m_device) {
 		return;
 	}
 
-	ohmd_device_getf(m_device, OHMD_LEFT_EYE_GL_PROJECTION_MATRIX, mat);
+	ohmd_device_getf(m_device, OHMD_LEFT_EYE_GL_PROJECTION_MATRIX, *mat);
 }
 
-void GHOST_OpenHMDManager::getRightEyeGLProjectionMatrix(float mat[16]) const
+void GHOST_OpenHMDManager::getRightEyeGLProjectionMatrix(float mat[4][4]) const
 {
 	if (!m_device) {
 		return;
 	}
 
-	ohmd_device_getf(m_device, OHMD_RIGHT_EYE_GL_PROJECTION_MATRIX, mat);
+	ohmd_device_getf(m_device, OHMD_RIGHT_EYE_GL_PROJECTION_MATRIX, *mat);
 }
 
 void GHOST_OpenHMDManager::getPositionVector(float position[3]) const

@@ -126,25 +126,25 @@ public:
 	 * \param mat   A "ready to use" OpenGL style 4x4 matrix with a modelview matrix for the left eye of the HMD.
 	 *  Nothing is written if available() is false.
 	 */
-	void getLeftEyeGLModelviewMatrix(float mat[16]) const;
+	void getLeftEyeGLModelviewMatrix(float mat[4][4]) const;
 
 	/**
 	 * \param mat   A "ready to use" OpenGL style 4x4 matrix with a modelview matrix for the right eye of the HMD.
 	 *  Nothing is written if available() is false.
 	 */
-	void getRightEyeGLModelviewMatrix(float mat[16]) const;
+	void getRightEyeGLModelviewMatrix(float mat[4][4]) const;
 
 	/**
 	 * \param mat   A "ready to use" OpenGL style 4x4 matrix with a projection matrix for the left eye of the HMD.
 	 *  Nothing is written if available() is false.
 	 */
-	void getLeftEyeGLProjectionMatrix(float mat[16]) const;
+	void getLeftEyeGLProjectionMatrix(float mat[4][4]) const;
 
 	/**
 	 * \param mat   A "ready to use" OpenGL style 4x4 matrix with a projection matrix for the right eye of the HMD.
 	 *  Nothing is written if available() is false.
 	 */
-	void getRightEyeGLProjectionMatrix(float mat[16]) const;
+	void getRightEyeGLProjectionMatrix(float mat[4][4]) const;
 
 	 /**
 	 * \param position  A 3-D vector representing the absolute position of the device, in space.

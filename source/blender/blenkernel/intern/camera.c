@@ -803,28 +803,13 @@ void BKE_camera_multiview_proj_matrix(const bool is_left, float r_projmat[4][4])
 	/* set projection matrix from hmd */
 	if (U.hmd_device != -1)
 	{
-		float cameraProjMatrix[16];
+		float cameraProjMatrix[4][4];
 		if (is_left)
 			WM_device_HMD_left_projection_matrix_get(cameraProjMatrix);
 		else
 			WM_device_HMD_right_projection_matrix_get(cameraProjMatrix);
 
-		r_projmat[0][0] = cameraProjMatrix[0];
-		r_projmat[0][1] = cameraProjMatrix[1];
-		r_projmat[0][2] = cameraProjMatrix[2];
-		r_projmat[0][3] = cameraProjMatrix[3];
-		r_projmat[1][0] = cameraProjMatrix[4];
-		r_projmat[1][1] = cameraProjMatrix[5];
-		r_projmat[1][2] = cameraProjMatrix[6];
-		r_projmat[1][3] = cameraProjMatrix[7];
-		r_projmat[2][0] = cameraProjMatrix[8];
-		r_projmat[2][1] = cameraProjMatrix[9];
-		r_projmat[2][2] = cameraProjMatrix[10];
-		r_projmat[2][3] = cameraProjMatrix[11];
-		r_projmat[3][0] = cameraProjMatrix[12];
-		r_projmat[3][1] = cameraProjMatrix[13];
-		r_projmat[3][2] = cameraProjMatrix[14];
-		r_projmat[3][3] = cameraProjMatrix[15];
+		copy_m4_m4(r_projmat, cameraProjMatrix);
 
 		//transpose_m4(r_projmat);
 	}
