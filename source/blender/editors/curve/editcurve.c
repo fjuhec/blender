@@ -8185,19 +8185,19 @@ void CURVE_OT_curve_chamfer(wmOperatorType *ot)
 
 static void fillet_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r_new_bezt2, float theta, float r)
 {
-	float d = r * 2 * sin(theta/2);
+	float d = r * 2 * sin(theta);
 	chamfer_handle(bezt, r_new_bezt1, r_new_bezt2, theta, d);
 
 	float v1[3], v2[3];
 	sub_v3_v3v3(v1, bezt->vec[1], bezt->vec[0]);
 	normalize_v3(v1);
-	mul_v3_fl(v1, r * 4.0/3 * tan(theta/4));
+	mul_v3_fl(v1, r * 4.0/3 * tan(theta/2));
 	copy_v3_v3(r_new_bezt1->vec[2], r_new_bezt1->vec[1]);
 	add_v3_v3(r_new_bezt1->vec[2], v1);
 
 	sub_v3_v3v3(v2, bezt->vec[1], bezt->vec[2]);
 	normalize_v3(v2);
-	mul_v3_fl(v2, r * 4.0/3 * tan(theta/4));
+	mul_v3_fl(v2, r * 4.0/3 * tan(theta/2));
 	copy_v3_v3(r_new_bezt2->vec[0], r_new_bezt2->vec[1]);
 	add_v3_v3(r_new_bezt2->vec[0], v2);
 
