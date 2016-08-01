@@ -303,16 +303,10 @@ static void wm_method_draw_stereo3d_hmd(wmWindow *win)
 
 		drawdata = BLI_findlink(&win->drawdata, (view * 2) + 1);
 
-		glScissor(view * win_x_h, 0, win_x_h, win_y);
-		glPushMatrix();
-		if (view == 0) {
-			glTranslatef(-win_x_h / 2.0f, 0.0f, 0.0f);
-		}
-		else {
-			glTranslatef(win_x_h / 2.0f, 0.0f, 0.0f);
-		}
+		/* OpenHMD sends us matrices for one eye (half screen), but we draw viewport over
+		 * entire screen. Using glViewport compensates that and prevents streched view. */
+		glViewport(view * win_x_h, 0, win_x_h, win_y);
 		wm_triple_draw_textures(win, drawdata->triple, 1.0f);
-		glPopMatrix();
 	}
 }
 #endif /* WITH_INPUT_HMD */
