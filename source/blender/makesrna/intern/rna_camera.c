@@ -52,6 +52,8 @@ static int rna_camera_stereo_use_device_ipd_editeable(PointerRNA *ptr)
 		cam->stereo.flag |= CAM_S3D_CUSTOM_IPD;
 		return false;
 	}
+#else
+	UNUSED_VARS(ptr);
 #endif
 	return PROP_EDITABLE;
 }

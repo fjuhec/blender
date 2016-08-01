@@ -265,7 +265,7 @@ public:
 	 *  \return The context
 	 *  Context is only valid if available() is true.
 	 */
-	 ohmd_context *getOpenHMDContext();
+	struct ohmd_context *getOpenHMDContext();
 
 	/**
 	 *  Get the internal OpenHMD device for the currently selected device of this manager.

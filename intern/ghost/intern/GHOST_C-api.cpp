@@ -1012,43 +1012,48 @@ float GHOST_HMDgetDeviceIPD()
 #endif
 }
 
-void GHOST_HMDgetLeftModelviewMatrix(float leftMatrix[4][4])
+void GHOST_HMDgetLeftModelviewMatrix(float r_mat[4][4])
 {
 #ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
-	ohmd->getLeftEyeGLModelviewMatrix(leftMatrix);
+	ohmd->getLeftEyeGLModelviewMatrix(r_mat);
 #else
+	(void)r_mat;
 #endif
 }
 
-void GHOST_HMDgetRightModelviewMatrix(float rightMatrix[4][4])
+void GHOST_HMDgetRightModelviewMatrix(float r_mat[4][4])
 {
 #ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
-	ohmd->getRightEyeGLModelviewMatrix(rightMatrix);
+	ohmd->getRightEyeGLModelviewMatrix(r_mat);
 #else
+	(void)r_mat;
 #endif
 }
 
-void GHOST_HMDgetLeftProjectionMatrix(float leftMatrix[4][4])
+void GHOST_HMDgetLeftProjectionMatrix(float r_mat[4][4])
 {
 #ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
-	ohmd->getLeftEyeGLProjectionMatrix(leftMatrix);
+	ohmd->getLeftEyeGLProjectionMatrix(r_mat);
 #else
+	(void)r_mat;
 #endif
 }
 
-void GHOST_HMDgetRightProjectionMatrix(float rightMatrix[4][4])
+void GHOST_HMDgetRightProjectionMatrix(float r_mat[4][4])
 {
 #ifdef WITH_OPENHMD
 	GHOST_ISystem *system = GHOST_ISystem::getSystem();
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
-	ohmd->getRightEyeGLProjectionMatrix(rightMatrix);
+	ohmd->getRightEyeGLProjectionMatrix(r_mat);
 #else
+	(void)r_mat;
 #endif
 }
-#endif
+
+#endif /* WITH_INPUT_HMD */
