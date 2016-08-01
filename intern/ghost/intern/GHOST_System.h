@@ -90,7 +90,7 @@ public:
 
 	/**
 	 * Installs a timer.
-	 * Note that, on most operating systems, messages need to be processed in order
+	 * Note that, on most operating systems, messages need to be processed in order 
 	 * for the timer callbacks to be invoked.
 	 * \param delay		The time to wait for the first call to the timerProc (in milliseconds)
 	 * \param interval	The interval between calls to the timerProc
@@ -113,7 +113,7 @@ public:
 	/***************************************************************************************
 	 * Display/window management functionality
 	 ***************************************************************************************/
-
+	
 	/**
 	 * Inherited from GHOST_ISystem but left pure virtual
 	 *
@@ -145,7 +145,7 @@ public:
 	 * \return	Indication of success.
 	 */
 	GHOST_TSuccess beginFullScreen(const GHOST_DisplaySetting& setting, GHOST_IWindow **window,
-	                                       const bool stereoVisual, const GHOST_TUns16 numOfAASamples = 0);
+	                               const bool stereoVisual, const bool alphaBackground, const GHOST_TUns16 numOfAASamples = 0);
 
 	/**
 	 * Updates the resolution while in fullscreen mode.
@@ -168,7 +168,7 @@ public:
 	 */
 	bool getFullScreen(void);
 
-
+	
 	/**
 	 * Native pixel size support (MacBook 'retina').
 	 * \return The pixel size in float.
@@ -183,7 +183,6 @@ public:
 	/**
 	 * Implemented for operating system independent event handling
 	 */
-
 	bool processEvents(bool waitForEvent);
 
 	/**
@@ -234,7 +233,7 @@ public:
 	 * \return			Indication of success.
 	 */
 	GHOST_TSuccess getButtonState(GHOST_TButtonMask mask, bool& isDown) const;
-
+	
 	/***************************************************************************************
 	 * Access to 3D mouse.
 	 ***************************************************************************************/
@@ -305,7 +304,7 @@ public:
 	 *
 	 */
 	virtual GHOST_TUns8 *getClipboard(bool selection) const = 0;
-
+	  
 	/**
 	 * Put data to the Clipboard
 	 * \param buffer		The buffer to copy to the clipboard
@@ -320,7 +319,7 @@ public:
 	virtual int confirmQuit(GHOST_IWindow *window) const;
 
 
-
+	
 protected:
 	/**
 	 * Initialize the system.
@@ -340,7 +339,7 @@ protected:
 	 * \return Indication of success.
 	 */
 	GHOST_TSuccess createFullScreenWindow(GHOST_Window **window, const GHOST_DisplaySetting &settings,
-	                                              const bool stereoVisual, const GHOST_TUns16 numOfAASamples = 0);
+	                                      const bool stereoVisual, const bool alphaBackground, const GHOST_TUns16 numOfAASamples = 0);
 
 	/** The display manager (platform dependent). */
 	GHOST_DisplayManager *m_displayManager;
@@ -368,7 +367,7 @@ protected:
 
 	/** Settings of the display before the display went fullscreen. */
 	GHOST_DisplaySetting m_preFullScreenSetting;
-
+	
 };
 
 inline GHOST_TimerManager *GHOST_System::getTimerManager() const

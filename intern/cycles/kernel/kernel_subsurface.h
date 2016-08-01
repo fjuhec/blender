@@ -140,24 +140,21 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, float3 wei
 {
 	sd->flag &= ~SD_CLOSURE_FLAGS;
 	sd->randb_closure = 0.0f;
+	sd->num_closure = 0;
+	sd->num_closure_extra = 0;
 
 	if(hit) {
-		ShaderClosure *sc = &sd->closure[0];
-		sd->num_closure = 1;
+		DiffuseBsdf *bsdf = (DiffuseBsdf*)bsdf_alloc(sd, sizeof(DiffuseBsdf), weight);
 
-		sc->weight = weight;
-		sc->sample_weight = 1.0f;
-		sc->data0 = 0.0f;
-		sc->data1 = 0.0f;
-		sc->N = N;
-		sd->flag |= bsdf_diffuse_setup(sc);
+		if(bsdf) {
+			bsdf->N = N;
+			sd->flag |= bsdf_diffuse_setup(bsdf);
 
-		/* replace CLOSURE_BSDF_DIFFUSE_ID with this special ID so render passes
-		 * can recognize it as not being a regular diffuse closure */
-		sc->type = CLOSURE_BSDF_BSSRDF_ID;
+			/* replace CLOSURE_BSDF_DIFFUSE_ID with this special ID so render passes
+			 * can recognize it as not being a regular diffuse closure */
+			bsdf->type = CLOSURE_BSDF_BSSRDF_ID;
+		}
 	}
-	else
-		sd->num_closure = 0;
 }
 
 /* optionally do blurring of color and/or bump mapping, at the cost of a shader evaluation */
@@ -198,7 +195,7 @@ ccl_device void subsurface_color_bump_blur(KernelGlobals *kg,
 
 	if(bump || texture_blur > 0.0f) {
 		/* average color and normal at incoming point */
-		shader_eval_surface(kg, sd, state, 0.0f, state_flag, SHADER_CONTEXT_SSS);
+		shader_eval_surface(kg, sd, NULL, state, 0.0f, state_flag, SHADER_CONTEXT_SSS);
 		float3 in_color = shader_bssrdf_sum(sd, (bump)? N: NULL, NULL);
 
 		/* we simply divide out the average color and multiply with the average

@@ -907,6 +907,7 @@ typedef struct GameData {
 #define GAME_GLSL_NO_COLOR_MANAGEMENT		(1 << 15)
 #define GAME_SHOW_OBSTACLE_SIMULATION		(1 << 16)
 #define GAME_NO_MATERIAL_CACHING			(1 << 17)
+#define GAME_GLSL_NO_ENV_LIGHTING			(1 << 18)
 /* Note: GameData.flag is now an int (max 32 flags). A short could only take 16 flags */
 
 /* GameData.playerflag */
@@ -1277,7 +1278,9 @@ typedef struct CurvePaintSettings {
 	char flag;
 	char depth_mode;
 	char surface_plane;
-	int error_threshold;
+	char fit_method;
+	char pad;
+	short error_threshold;
 	float radius_min, radius_max;
 	float radius_taper_start, radius_taper_end;
 	float surface_offset;
@@ -1290,6 +1293,12 @@ enum {
 	CURVE_PAINT_FLAG_PRESSURE_RADIUS            = (1 << 1),
 	CURVE_PAINT_FLAG_DEPTH_STROKE_ENDPOINTS     = (1 << 2),
 	CURVE_PAINT_FLAG_DEPTH_STROKE_OFFSET_ABS    = (1 << 3),
+};
+
+/* CurvePaintSettings.fit_method */
+enum {
+	CURVE_PAINT_FIT_METHOD_REFIT            = 0,
+	CURVE_PAINT_FIT_METHOD_SPLIT            = 1,
 };
 
 /* CurvePaintSettings.depth_mode */
