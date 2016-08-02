@@ -50,6 +50,7 @@
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
+#include "BKE_utildefines.h"
 
 #include "ED_space_api.h"
 #include "ED_screen.h"
@@ -1297,11 +1298,13 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 
 		for (base = scene->base.first; base; base = base->next) {
 			if ((base->flag & SELECT) && (base->lay & lay)) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
-					if (selected_objects)
-						CTX_data_id_list_add(result, &base->object->id);
-					else
-						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
+				if (!v3d || BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+					if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
+						if (selected_objects)
+							CTX_data_id_list_add(result, &base->object->id);
+						else
+							CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
+					}
 				}
 			}
 		}
@@ -1317,7 +1320,9 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 
 		for (base = scene->base.first; base; base = base->next) {
 			if ((base->flag & SELECT) && (base->lay & lay)) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
+				if ((!v3d || BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) &&
+				    (base->object->restrictflag & OB_RESTRICT_VIEW) == 0)
+				{
 					if (0 == BKE_object_is_libdata(base->object)) {
 						if (selected_editable_objects)
 							CTX_data_id_list_add(result, &base->object->id);
@@ -1338,7 +1343,9 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const bool visible_objects = CTX_data_equals(member, "visible_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if (base->lay & lay) {
+			if ((base->lay & lay) &&
+			    (!v3d || BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)))
+			{
 				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
 					if (visible_objects)
 						CTX_data_id_list_add(result, &base->object->id);
@@ -1358,7 +1365,9 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const bool selectable_objects = CTX_data_equals(member, "selectable_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if (base->lay & lay) {
+			if ((base->lay & lay) &&
+			    (!v3d || BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)))
+			{
 				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->object->restrictflag & OB_RESTRICT_SELECT) == 0) {
 					if (selectable_objects)
 						CTX_data_id_list_add(result, &base->object->id);
@@ -1376,9 +1385,11 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		if (scene->basact && (scene->basact->lay & lay)) {
 			Object *ob = scene->basact->object;
-			/* if hidden but in edit mode, we still display, can happen with animation */
-			if ((ob->restrictflag & OB_RESTRICT_VIEW) == 0 || (ob->mode & OB_MODE_EDIT))
-				CTX_data_pointer_set(result, &scene->id, &RNA_ObjectBase, scene->basact);
+			if (!v3d || BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, ob)) {
+				/* if hidden but in edit mode, we still display, can happen with animation */
+				if ((ob->restrictflag & OB_RESTRICT_VIEW) == 0 || (ob->mode & OB_MODE_EDIT))
+					CTX_data_pointer_set(result, &scene->id, &RNA_ObjectBase, scene->basact);
+			}
 		}
 		
 		return 1;
@@ -1389,8 +1400,10 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		if (scene->basact && (scene->basact->lay & lay)) {
 			Object *ob = scene->basact->object;
-			if ((ob->restrictflag & OB_RESTRICT_VIEW) == 0 || (ob->mode & OB_MODE_EDIT))
-				CTX_data_id_pointer_set(result, &scene->basact->object->id);
+			if (!v3d || BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, ob)) {
+				if ((ob->restrictflag & OB_RESTRICT_VIEW) == 0 || (ob->mode & OB_MODE_EDIT))
+					CTX_data_id_pointer_set(result, &scene->basact->object->id);
+			}
 		}
 		
 		return 1;

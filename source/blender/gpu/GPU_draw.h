@@ -39,6 +39,7 @@ extern "C" {
 struct ImBuf;
 struct Image;
 struct ImageUser;
+struct LocalViewInfo;
 struct MTexPoly;
 struct Object;
 struct Scene;
@@ -98,7 +99,7 @@ void GPU_clear_tpage(bool force);
 
 int GPU_default_lights(void);
 int GPU_scene_object_lights(
-        struct Scene *scene, struct Object *ob,
+        struct Scene *scene, struct Object *ob, struct LocalViewInfo *localview,
         int lay, float viewmat[4][4], int ortho);
 
 /* Text render

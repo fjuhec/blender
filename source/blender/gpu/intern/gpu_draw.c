@@ -74,6 +74,7 @@
 #ifdef WITH_GAMEENGINE
 #  include "BKE_object.h"
 #endif
+#include "BKE_utildefines.h"
 
 #include "GPU_basic_shader.h"
 #include "GPU_buffers.h"
@@ -1619,6 +1620,7 @@ static struct GPUMaterialState {
 	Scene *gscene;
 	int glay;
 	bool gscenelock;
+	LocalViewInfo *glocalview;
 	float (*gviewmat)[4];
 	float (*gviewinv)[4];
 	float (*gviewcamtexcofac);
@@ -1773,7 +1775,8 @@ void GPU_begin_object_materials(
 	GMS.gscene = scene;
 	GMS.is_opensubdiv = use_opensubdiv;
 	GMS.totmat = use_matcap ? 1 : ob->totcol + 1;  /* materials start from 1, default material is 0 */
-	GMS.glay = (v3d->localvd) ? v3d->localvd->lay : v3d->lay; /* keep lamps visible in local view */
+	GMS.glay = v3d->lay;
+	GMS.glocalview = &v3d->localviewd->info;
 	GMS.gscenelock = (v3d->scenelock != 0);
 	GMS.gviewmat = rv3d->viewmat;
 	GMS.gviewinv = rv3d->viewinv;
@@ -2170,7 +2173,9 @@ int GPU_default_lights(void)
 	return count;
 }
 
-int GPU_scene_object_lights(Scene *scene, Object *ob, int lay, float viewmat[4][4], int ortho)
+int GPU_scene_object_lights(
+        Scene *scene, Object *ob, LocalViewInfo *localview,
+        int lay, float viewmat[4][4], int ortho)
 {
 	/* disable all lights */
 	for (int count = 0; count < 8; count++)
@@ -2187,6 +2192,8 @@ int GPU_scene_object_lights(Scene *scene, Object *ob, int lay, float viewmat[4][
 			continue;
 
 		if (!(base->lay & lay) || !(base->lay & ob->lay))
+			continue;
+		if (localview && !BKE_LOCALVIEW_INFO_CMP(*localview, ob->localview))
 			continue;
 
 		Lamp *la = base->object->data;

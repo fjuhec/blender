@@ -1060,8 +1060,7 @@ static void view3d_select_loop(ViewContext *vc, Scene *scene, View3D *v3d, ARegi
 
 		v3d->xray = true;  /* otherwise it postpones drawing */
 		for (base = scene->base.first; base; base = base->next) {
-			if (base->lay & v3d->lay) {
-
+			if (base->lay & v3d->lay && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
 				if ((base->object->restrictflag & OB_RESTRICT_SELECT) ||
 				    (use_obedit_skip && (scene->obedit->data == base->object->data)))
 				{

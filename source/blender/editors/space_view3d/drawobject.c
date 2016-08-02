@@ -77,6 +77,7 @@
 #include "BKE_subsurf.h"
 #include "BKE_unit.h"
 #include "BKE_tracking.h"
+#include "BKE_utildefines.h"
 
 #include "BKE_editmesh.h"
 
@@ -8106,7 +8107,11 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 			draw_hooks(ob);
 
 		/* help lines and so */
-		if (ob != scene->obedit && ob->parent && (ob->parent->lay & v3d->lay)) {
+		if ((ob != scene->obedit) &&
+		    (ob->parent != NULL) &&
+		    (ob->parent->lay & v3d->lay) &&
+		    (BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, ob->parent)))
+		{
 			setlinestyle(3);
 			glBegin(GL_LINES);
 			glVertex3fv(ob->obmat[3]);

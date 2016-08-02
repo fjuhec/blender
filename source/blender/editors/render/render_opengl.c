@@ -716,12 +716,7 @@ static bool screen_opengl_render_anim_step(bContext *C, wmOperator *op)
 	if (CFRA < oglrender->nfra)
 		CFRA++;
 	while (CFRA < oglrender->nfra) {
-		unsigned int lay = screen_opengl_layers(oglrender);
-
-		if (lay & 0xFF000000)
-			lay &= 0xFF000000;
-
-		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, lay);
+		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, screen_opengl_layers(oglrender));
 		CFRA++;
 	}
 
