@@ -4046,6 +4046,7 @@ static void lib_link_particlesettings(FileData *fd, Main *main)
 			part->dup_group = newlibadr(fd, part->id.lib, part->dup_group);
 			part->eff_group = newlibadr(fd, part->id.lib, part->eff_group);
 			part->bb_ob = newlibadr(fd, part->id.lib, part->bb_ob);
+			part->collision_group = newlibadr(fd, part->id.lib, part->collision_group);
 			
 			lib_link_partdeflect(fd, &part->id, part->pd);
 			lib_link_partdeflect(fd, &part->id, part->pd2);
@@ -4897,8 +4898,11 @@ static void lib_link_object(FileData *fd, Main *main)
 			if (ob->pd)
 				lib_link_partdeflect(fd, &ob->id, ob->pd);
 			
-			if (ob->soft)
+			if (ob->soft) {
+				ob->soft->collision_group = newlibadr(fd, ob->id.lib, ob->soft->collision_group);
+
 				ob->soft->effector_weights->group = newlibadr(fd, ob->id.lib, ob->soft->effector_weights->group);
+			}
 			
 			lib_link_particlesystems(fd, ob, &ob->id, &ob->particlesystem);
 			lib_link_modifiers(fd, ob);
@@ -6340,10 +6344,8 @@ static void lib_link_screen(FileData *fd, Main *main)
 						snode->id = newlibadr(fd, sc->id.lib, snode->id);
 						snode->from = newlibadr(fd, sc->id.lib, snode->from);
 						
-						if (snode->id) {
-							ntree = ntreeFromID(snode->id);
-							snode->nodetree = ntree ? ntree : newlibadr_us(fd, sc->id.lib, snode->nodetree);
-						}
+						ntree = snode->id ? ntreeFromID(snode->id) : NULL;
+						snode->nodetree = ntree ? ntree : newlibadr_us(fd, sc->id.lib, snode->nodetree);
 						
 						for (path = snode->treepath.first; path; path = path->next) {
 							if (path == snode->treepath.first) {
@@ -6722,11 +6724,8 @@ void blo_lib_link_screen_restore(Main *newmain, bScreen *curscreen, Scene *cursc
 					snode->id = restore_pointer_by_name(id_map, snode->id, USER_REAL);
 					snode->from = restore_pointer_by_name(id_map, snode->from, USER_IGNORE);
 					
-					if (snode->id) {
-						ntree = ntreeFromID(snode->id);
-						snode->nodetree = ntree ? ntree :
-						                          restore_pointer_by_name(id_map, (ID *)snode->nodetree, USER_REAL);
-					}
+					ntree = snode->id ? ntreeFromID(snode->id) : NULL;
+					snode->nodetree = ntree ? ntree : restore_pointer_by_name(id_map, (ID *)snode->nodetree, USER_REAL);
 					
 					for (path = snode->treepath.first; path; path = path->next) {
 						if (path == snode->treepath.first) {
@@ -7484,6 +7483,7 @@ static void lib_link_movieclip(FileData *fd, Main *main)
 
 			for (object = tracking->objects.first; object; object = object->next) {
 				lib_link_movieTracks(fd, clip, &object->tracks);
+				lib_link_moviePlaneTracks(fd, clip, &object->plane_tracks);
 			}
 
 			clip->id.tag &= ~LIB_TAG_NEED_LINK;
@@ -8872,6 +8872,7 @@ static void expand_particlesettings(FileData *fd, Main *mainvar, ParticleSetting
 	expand_doit(fd, mainvar, part->dup_group);
 	expand_doit(fd, mainvar, part->eff_group);
 	expand_doit(fd, mainvar, part->bb_ob);
+	expand_doit(fd, mainvar, part->collision_group);
 	
 	if (part->adt)
 		expand_animdata(fd, mainvar, part->adt);
@@ -8880,6 +8881,37 @@ static void expand_particlesettings(FileData *fd, Main *mainvar, ParticleSetting
 		if (part->mtex[a]) {
 			expand_doit(fd, mainvar, part->mtex[a]->tex);
 			expand_doit(fd, mainvar, part->mtex[a]->object);
+		}
+	}
+
+	if (part->effector_weights) {
+		expand_doit(fd, mainvar, part->effector_weights->group);
+	}
+
+	if (part->pd) {
+		expand_doit(fd, mainvar, part->pd->tex);
+		expand_doit(fd, mainvar, part->pd->f_source);
+	}
+	if (part->pd2) {
+		expand_doit(fd, mainvar, part->pd2->tex);
+		expand_doit(fd, mainvar, part->pd2->f_source);
+	}
+
+	if (part->boids) {
+		BoidState *state;
+		BoidRule *rule;
+
+		for (state = part->boids->states.first; state; state = state->next) {
+			for (rule = state->rules.first; rule; rule = rule->next) {
+				if (rule->type == eBoidRuleType_Avoid) {
+					BoidRuleGoalAvoid *gabr = (BoidRuleGoalAvoid *)rule;
+					expand_doit(fd, mainvar, gabr->ob);
+				}
+				else if (rule->type == eBoidRuleType_FollowLeader) {
+					BoidRuleFollowLeader *flbr = (BoidRuleFollowLeader *)rule;
+					expand_doit(fd, mainvar, flbr->ob);
+				}
+			}
 		}
 	}
 }
@@ -9245,7 +9277,7 @@ static void expand_object(FileData *fd, Main *mainvar, Object *ob)
 	
 	for (psys = ob->particlesystem.first; psys; psys = psys->next)
 		expand_doit(fd, mainvar, psys->part);
-	
+
 	for (sens = ob->sensors.first; sens; sens = sens->next) {
 		if (sens->type == SENS_MESSAGE) {
 			bMessageSensor *ms = sens->data;
@@ -9324,8 +9356,18 @@ static void expand_object(FileData *fd, Main *mainvar, Object *ob)
 		}
 	}
 	
-	if (ob->pd && ob->pd->tex)
+	if (ob->pd) {
 		expand_doit(fd, mainvar, ob->pd->tex);
+		expand_doit(fd, mainvar, ob->pd->f_source);
+	}
+
+	if (ob->soft) {
+		expand_doit(fd, mainvar, ob->soft->collision_group);
+
+		if (ob->soft->effector_weights) {
+			expand_doit(fd, mainvar, ob->soft->effector_weights->group);
+		}
+	}
 
 	if (ob->rigidbody_constraint) {
 		expand_doit(fd, mainvar, ob->rigidbody_constraint->ob1);
