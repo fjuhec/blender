@@ -87,6 +87,7 @@ set(SRC_KERNELS_CPU_HEADERS
 )
 
 set(SRC_CLOSURE_HEADERS
+	closure/alloc.h
 	closure/bsdf.h
 	closure/bsdf_ashikhmin_velvet.h
 	closure/bsdf_diffuse.h
@@ -140,6 +141,7 @@ set(SRC_SVM_HEADERS
 	svm/svm_noisetex.h
 	svm/svm_normal.h
 	svm/svm_ramp.h
+	svm/svm_ramp_util.h
 	svm/svm_sepcomb_hsv.h
 	svm/svm_sepcomb_vector.h
 	svm/svm_sky.h
@@ -161,6 +163,7 @@ set(SRC_GEOM_HEADERS
 	geom/geom_motion_triangle.h
 	geom/geom_object.h
 	geom/geom_primitive.h
+	geom/geom_subd_triangle.h
 	geom/geom_triangle.h
 	geom/geom_triangle_intersect.h
 	geom/geom_volume.h
