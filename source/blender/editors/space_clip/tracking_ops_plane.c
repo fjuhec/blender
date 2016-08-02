@@ -138,6 +138,7 @@ static MovieTrackingPlaneTrack *tracking_plane_marker_check_slide(
 {
 	const float distance_clip_squared = 12.0f * 12.0f;
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	ARegion *ar = CTX_wm_region(C);
 	MovieClip *clip = ED_space_clip_get_clip(sc);
 	MovieTracking *tracking = &clip->tracking;
@@ -180,7 +181,7 @@ static MovieTrackingPlaneTrack *tracking_plane_marker_check_slide(
 		}
 	}
 
-	if (min_distance_squared < distance_clip_squared / sc->zoom) {
+	if (min_distance_squared < distance_clip_squared / rsc->zoom) {
 		if (corner_r != NULL) {
 			*corner_r = min_corner;
 		}
@@ -286,6 +287,7 @@ static int slide_plane_marker_modal(bContext *C,
                                     const wmEvent *event)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	MovieClip *clip = ED_space_clip_get_clip(sc);
 	SlidePlaneMarkerData *data = (SlidePlaneMarkerData *) op->customdata;
 	float dx, dy, mdelta[2];
@@ -307,8 +309,8 @@ static int slide_plane_marker_modal(bContext *C,
 			mdelta[0] = event->mval[0] - data->previous_mval[0];
 			mdelta[1] = event->mval[1] - data->previous_mval[1];
 
-			dx = mdelta[0] / data->width / sc->zoom;
-			dy = mdelta[1] / data->height / sc->zoom;
+			dx = mdelta[0] / data->width / rsc->zoom;
+			dy = mdelta[1] / data->height / rsc->zoom;
 
 			if (data->accurate) {
 				dx /= 5.0f;

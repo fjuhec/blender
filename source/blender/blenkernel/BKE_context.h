@@ -49,6 +49,7 @@ struct ScrArea;
 struct SpaceLink;
 struct View3D;
 struct RegionView3D;
+struct RegionSpaceClip;
 struct StructRNA;
 struct ToolSettings;
 struct Image;
@@ -146,6 +147,7 @@ struct ReportList *CTX_wm_reports(const bContext *C);
 
 struct View3D *CTX_wm_view3d(const bContext *C);
 struct RegionView3D *CTX_wm_region_view3d(const bContext *C);
+struct RegionSpaceClip *CTX_wm_region_clip(const bContext *C);
 struct SpaceText *CTX_wm_space_text(const bContext *C);
 struct SpaceImage *CTX_wm_space_image(const bContext *C);
 struct SpaceConsole *CTX_wm_space_console(const bContext *C);

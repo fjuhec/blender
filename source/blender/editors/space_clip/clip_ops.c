@@ -91,24 +91,25 @@ static void sclip_zoom_set(const bContext *C, float zoom, float location[2])
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	ARegion *ar = CTX_wm_region(C);
 
-	float oldzoom = sc->zoom;
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
+	float oldzoom = rsc->zoom;
 	int width, height;
 
-	sc->zoom = zoom;
+	rsc->zoom = zoom;
 
-	if (sc->zoom < 0.1f || sc->zoom > 4.0f) {
+	if (rsc->zoom < 0.1f || rsc->zoom > 4.0f) {
 		/* check zoom limits */
 		ED_space_clip_get_size(sc, &width, &height);
 
-		width *= sc->zoom;
-		height *= sc->zoom;
+		width *= rsc->zoom;
+		height *= rsc->zoom;
 
 		if ((width < 4) && (height < 4))
-			sc->zoom = oldzoom;
-		else if (BLI_rcti_size_x(&ar->winrct) <= sc->zoom)
-			sc->zoom = oldzoom;
-		else if (BLI_rcti_size_y(&ar->winrct) <= sc->zoom)
-			sc->zoom = oldzoom;
+			rsc->zoom = oldzoom;
+		else if (BLI_rcti_size_x(&ar->winrct) <= rsc->zoom)
+			rsc->zoom = oldzoom;
+		else if (BLI_rcti_size_y(&ar->winrct) <= rsc->zoom)
+			rsc->zoom = oldzoom;
 	}
 
 	if ((U.uiflag & USER_ZOOM_TO_MOUSEPOS) && location) {
@@ -116,8 +117,8 @@ static void sclip_zoom_set(const bContext *C, float zoom, float location[2])
 
 		ED_space_clip_get_size(sc, &width, &height);
 
-		dx = ((location[0] - 0.5f) * width - sc->xof) * (sc->zoom - oldzoom) / sc->zoom;
-		dy = ((location[1] - 0.5f) * height - sc->yof) * (sc->zoom - oldzoom) / sc->zoom;
+		dx = ((location[0] - 0.5f) * width - sc->xof) * (rsc->zoom - oldzoom) / rsc->zoom;
+		dy = ((location[1] - 0.5f) * height - sc->yof) * (rsc->zoom - oldzoom) / rsc->zoom;
 
 		if (sc->flag & SC_LOCK_SELECTION) {
 			sc->xlockof += dx;
@@ -132,9 +133,9 @@ static void sclip_zoom_set(const bContext *C, float zoom, float location[2])
 
 static void sclip_zoom_set_factor(const bContext *C, float zoomfac, float location[2])
 {
-	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_data(C);
 
-	sclip_zoom_set(C, sc->zoom * zoomfac, location);
+	sclip_zoom_set(C, rsc->zoom * zoomfac, location);
 }
 
 static void sclip_zoom_set_factor_exec(bContext *C, const wmEvent *event, float factor)
@@ -530,11 +531,11 @@ static int view_pan_exec(bContext *C, wmOperator *op)
 static int view_pan_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	if (event->type == MOUSEPAN) {
-		SpaceClip *sc = CTX_wm_space_clip(C);
+		RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 		float offset[2];
 
-		offset[0] = (event->prevx - event->x) / sc->zoom;
-		offset[1] = (event->prevy - event->y) / sc->zoom;
+		offset[0] = (event->prevx - event->x) / rsc->zoom;
+		offset[1] = (event->prevy - event->y) / rsc->zoom;
 
 		RNA_float_set_array(op->ptr, "offset", offset);
 
@@ -551,15 +552,15 @@ static int view_pan_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 static int view_pan_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	ViewPanData *vpd = op->customdata;
 	float offset[2];
 
 	switch (event->type) {
 		case MOUSEMOVE:
 			copy_v2_v2(vpd->vec, &vpd->xorig);
-			offset[0] = (vpd->x - event->x) / sc->zoom;
-			offset[1] = (vpd->y - event->y) / sc->zoom;
+			offset[0] = (vpd->x - event->x) / rsc->zoom;
+			offset[1] = (vpd->y - event->y) / rsc->zoom;
 			RNA_float_set_array(op->ptr, "offset", offset);
 			view_pan_exec(C, op);
 			break;
@@ -624,6 +625,7 @@ typedef struct ViewZoomData {
 static void view_zoom_init(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	ARegion *ar = CTX_wm_region(C);
 	ViewZoomData *vpd;
 
@@ -638,7 +640,7 @@ static void view_zoom_init(bContext *C, wmOperator *op, const wmEvent *event)
 
 	vpd->x = event->x;
 	vpd->y = event->y;
-	vpd->zoom = sc->zoom;
+	vpd->zoom = rsc->zoom;
 	vpd->event_type = event->type;
 
 	ED_clip_mouse_pos(sc, ar, event->mval, vpd->location);
@@ -648,11 +650,11 @@ static void view_zoom_init(bContext *C, wmOperator *op, const wmEvent *event)
 
 static void view_zoom_exit(bContext *C, wmOperator *op, bool cancel)
 {
-	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	ViewZoomData *vpd = op->customdata;
 
 	if (cancel) {
-		sc->zoom = vpd->zoom;
+		rsc->zoom = vpd->zoom;
 		ED_region_tag_redraw(CTX_wm_region(C));
 	}
 
@@ -705,7 +707,7 @@ static void view_zoom_apply(bContext *C,
 	float factor;
 
 	if (U.viewzoom == USER_ZOOM_CONT) {
-		SpaceClip *sclip = CTX_wm_space_clip(C);
+		RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 		double time = PIL_check_seconds_timer();
 		float time_step = (float)(time - vpd->timer_lastdraw);
 		float fac;
@@ -724,7 +726,7 @@ static void view_zoom_apply(bContext *C,
 
 		zfac = 1.0f + ((fac / 20.0f) * time_step);
 		vpd->timer_lastdraw = time;
-		factor = (sclip->zoom * zfac) / vpd->zoom;
+		factor = (rsc->zoom * zfac) / vpd->zoom;
 	}
 	else {
 		float delta = event->x - vpd->x + event->y - vpd->y;
@@ -1551,6 +1553,7 @@ static int clip_view_ndof_invoke(bContext *C, wmOperator *UNUSED(op), const wmEv
 		return OPERATOR_CANCELLED;
 	else {
 		SpaceClip *sc = CTX_wm_space_clip(C);
+		RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 		ARegion *ar = CTX_wm_region(C);
 		float pan_vec[3];
 
@@ -1559,7 +1562,7 @@ static int clip_view_ndof_invoke(bContext *C, wmOperator *UNUSED(op), const wmEv
 
 		WM_event_ndof_pan_get(ndof, pan_vec, true);
 
-		mul_v2_fl(pan_vec, (speed * ndof->dt) / sc->zoom);
+		mul_v2_fl(pan_vec, (speed * ndof->dt) / rsc->zoom);
 		pan_vec[2] *= -ndof->dt;
 
 		sclip_zoom_set_factor(C, 1.0f + pan_vec[2], NULL);

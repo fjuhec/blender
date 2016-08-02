@@ -594,6 +594,7 @@ MovieTrackingTrack *tracking_marker_check_slide(bContext *C,
 {
 	const float distance_clip_squared = 12.0f * 12.0f;
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	ARegion *ar = CTX_wm_region(C);
 
 	MovieClip *clip = ED_space_clip_get_clip(sc);
@@ -724,7 +725,7 @@ MovieTrackingTrack *tracking_marker_check_slide(bContext *C,
 		track = track->next;
 	}
 
-	if (global_min_distance_squared < distance_clip_squared / sc->zoom) {
+	if (global_min_distance_squared < distance_clip_squared / rsc->zoom) {
 		if (area_r) {
 			*area_r = min_area;
 		}
@@ -856,6 +857,7 @@ static void free_slide_data(SlideMarkerData *data)
 static int slide_marker_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	ARegion *ar = CTX_wm_region(C);
 
 	SlideMarkerData *data = (SlideMarkerData *)op->customdata;
@@ -881,13 +883,13 @@ static int slide_marker_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			mdelta[0] = event->mval[0] - data->mval[0];
 			mdelta[1] = event->mval[1] - data->mval[1];
 
-			dx = mdelta[0] / data->width / sc->zoom;
+			dx = mdelta[0] / data->width / rsc->zoom;
 
 			if (data->lock) {
 				dy = -dx / data->height * data->width;
 			}
 			else {
-				dy = mdelta[1] / data->height / sc->zoom;
+				dy = mdelta[1] / data->height / rsc->zoom;
 			}
 
 			if (data->accurate) {

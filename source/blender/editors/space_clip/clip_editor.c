@@ -418,6 +418,7 @@ static bool selected_boundbox(const bContext *C, float min[2], float max[2])
 bool ED_clip_view_selection(const bContext *C, ARegion *ar, bool fit)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = (RegionSpaceClip*) ar->regiondata;
 	int w, h, frame_width, frame_height;
 	float min[2], max[2];
 
@@ -451,8 +452,8 @@ bool ED_clip_view_selection(const bContext *C, ARegion *ar, bool fit)
 
 		newzoom = 1.0f / power_of_2(1.0f / min_ff(zoomx, zoomy));
 
-		if (fit || sc->zoom > newzoom)
-			sc->zoom = newzoom;
+		if (fit || rsc->zoom > newzoom)
+			rsc->zoom = newzoom;
 	}
 
 	return true;
@@ -679,7 +680,27 @@ void ED_space_clip_set_secondary_clip(bContext *C, bScreen *screen, SpaceClip *s
 /* ******** split view when changing to correspondence mode ******** */
 void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 {
-	ARegion *ar = CTX_wm_region(C);
+	/* search forward and backward to find the drawing region */
+	ARegion *ar_origin = CTX_wm_region(C);
+	bool find_draw_region = false;
+	ARegion *ar = ar_origin;
+	while (ar && !find_draw_region) {
+		if (ar->regiontype == RGN_TYPE_WINDOW) {
+			find_draw_region = true;
+			break;
+		}
+		ar = ar->prev;
+	}
+	/* recover to the current ARegion and search backwards*/
+	ar = ar_origin;
+	while (ar && !find_draw_region) {
+		if (ar->regiontype == RGN_TYPE_WINDOW) {
+			find_draw_region = true;
+			break;
+		}
+		ar = ar->next;
+	}
+	BLI_assert(find_draw_region == true && ar != NULL);
 
 	/* some rules related to changing between correspondence mode and other mode*/
 	if (ar->regiontype != RGN_TYPE_WINDOW) {
@@ -687,11 +708,11 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 	}
 	else if (ar->alignment == RGN_ALIGN_VSPLIT) {
 		///* Exit split-view */
-		//ScrArea *sa = CTX_wm_area(C);
-		//ARegion *arn;
+		ScrArea *sa = CTX_wm_area(C);
+		ARegion *arn;
 
-		///* keep current region */
-		//ar->alignment = 0;
+		/* keep current region */
+		ar->alignment = 0;
 
 		//if (sa->spacetype == SPACE_VIEW3D) {
 		//	ARegion *ar_iter;
@@ -747,25 +768,25 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 		ARegion *newar = BKE_area_region_copy(sa->type, ar);
 		BLI_addtail(&sa->regionbase, newar);
 
-		///* lock views and set them */
-		//if (sa->spacetype == SPACE_CLIP) {
-		//	View3D *v3d = sa->spacedata.first;
-		//	int index_qsplit = 0;
+		/* lock views and set them */
+		if (sa->spacetype == SPACE_CLIP) {
+			SpaceClip *sc = sa->spacedata.first;
+			int index_qsplit = 0;
 
-		//	/* run ED_view3d_lock() so the correct 'rv3d->viewquat' is set,
-		//	 * otherwise when restoring rv3d->localvd the 'viewquat' won't
-		//	 * match the 'view', set on entering localview See: [#26315],
-		//	 *
-		//	 * We could avoid manipulating rv3d->localvd here if exiting
-		//	 * localview with a 4-split would assign these view locks */
-		//	RegionView3D *rv3d = ar->regiondata;
-		//	const char viewlock = (rv3d->viewlock_quad & RV3D_VIEWLOCK_INIT) ?
-		//	                      (rv3d->viewlock_quad & ~RV3D_VIEWLOCK_INIT) : RV3D_LOCKED;
+			/* run ED_view3d_lock() so the correct 'rv3d->viewquat' is set,
+			 * otherwise when restoring rv3d->localvd the 'viewquat' won't
+			 * match the 'view', set on entering localview See: [#26315],
+			 *
+			 * We could avoid manipulating rv3d->localvd here if exiting
+			 * localview with a 4-split would assign these view locks */
+			RegionSpaceClip *rsc = ar->regiondata;
+			//const char viewlock = (rv3d->viewlock_quad & RV3D_VIEWLOCK_INIT) ?
+			//                      (rv3d->viewlock_quad & ~RV3D_VIEWLOCK_INIT) : RV3D_LOCKED;
 
-		//	region_quadview_init_rv3d(sa, ar,              viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
-		//	region_quadview_init_rv3d(sa, (ar = ar->next), viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
-		//	region_quadview_init_rv3d(sa, (ar = ar->next), viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
-		//}
+			//region_quadview_init_rv3d(sa, ar,              viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
+			//region_quadview_init_rv3d(sa, (ar = ar->next), viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
+			//region_quadview_init_rv3d(sa, (ar = ar->next), viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
+		}
 		ED_area_tag_redraw(sa);
 		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
 	}

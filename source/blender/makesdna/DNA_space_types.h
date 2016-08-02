@@ -1253,7 +1253,7 @@ typedef struct SpaceClip {
 
 	float xof, yof;             /* user defined offset, image is centered */
 	float xlockof, ylockof;     /* user defined offset from locked position */
-	float zoom;                 /* user defined zoom level */
+	float zoom DNA_DEPRECATED;                 /* user defined zoom level */
 
 	struct MovieClipUser user;      /* user of clip */
 	struct MovieClip *clip;         /* clip data */

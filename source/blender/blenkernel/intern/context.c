@@ -685,6 +685,36 @@ RegionView3D *CTX_wm_region_view3d(const bContext *C)
 	return NULL;
 }
 
+RegionSpaceClip *CTX_wm_region_clip(const bContext *C)
+{
+	ScrArea *sa = CTX_wm_area(C);
+	ARegion *ar_curr = CTX_wm_region(C);
+
+	if (sa && sa->spacetype == SPACE_CLIP)
+		/* only RGN_TYPE_WINDOW has regiondata */
+		if (ar_curr && ar_curr->regiontype == RGN_TYPE_WINDOW) {
+			return ar_curr->regiondata;
+		}
+		else {
+			/* search forward and backward to find regiondata */
+			ARegion *ar = ar_curr->prev;
+			while (ar) {
+				if (ar->regiontype == RGN_TYPE_WINDOW) {
+					return ar->regiondata;
+				}
+				ar = ar->prev;
+			}
+			ar = ar_curr->next;
+			while (ar) {
+				if (ar->regiontype == RGN_TYPE_WINDOW) {
+					return ar->regiondata;
+				}
+				ar = ar->next;
+			}
+		}
+	return NULL;
+}
+
 struct SpaceText *CTX_wm_space_text(const bContext *C)
 {
 	ScrArea *sa = CTX_wm_area(C);

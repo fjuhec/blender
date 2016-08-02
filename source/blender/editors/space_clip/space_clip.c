@@ -248,7 +248,7 @@ static SpaceLink *clip_new(const bContext *C)
 	sc->spacetype = SPACE_CLIP;
 	sc->flag = SC_SHOW_MARKER_PATTERN | SC_SHOW_TRACK_PATH |
 	           SC_SHOW_GRAPH_TRACKS_MOTION | SC_SHOW_GRAPH_FRAMES | SC_SHOW_GPENCIL;
-	sc->zoom = 1.0f;
+	//sc->zoom = 1.0f;
 	sc->path_length = 20;
 	sc->scopes.track_preview_height = 120;
 	sc->around = V3D_AROUND_LOCAL_ORIGINS;
@@ -302,6 +302,11 @@ static SpaceLink *clip_new(const bContext *C)
 
 	BLI_addtail(&sc->regionbase, ar);
 	ar->regiontype = RGN_TYPE_WINDOW;
+
+	/* region data for main region */
+	RegionSpaceClip *rsc = MEM_callocN(sizeof(RegionSpaceClip), "region data for clip");
+	rsc->zoom = 1.0f;
+	ar->regiondata = rsc;
 
 	return (SpaceLink *) sc;
 }
@@ -1100,6 +1105,7 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 static void movieclip_main_area_set_view2d(const bContext *C, ARegion *ar)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = (RegionSpaceClip*) ar->regiondata;
 	float x1, y1, w, h, aspx, aspy;
 	int width, height, winx, winy;
 
@@ -1122,19 +1128,19 @@ static void movieclip_main_area_set_view2d(const bContext *C, ARegion *ar)
 	ar->v2d.mask.ymax = winy;
 
 	/* which part of the image space do we see? */
-	x1 = ar->winrct.xmin + (winx - sc->zoom * w) / 2.0f;
-	y1 = ar->winrct.ymin + (winy - sc->zoom * h) / 2.0f;
+	x1 = ar->winrct.xmin + (winx - rsc->zoom * w) / 2.0f;
+	y1 = ar->winrct.ymin + (winy - rsc->zoom * h) / 2.0f;
 
-	x1 -= sc->zoom * sc->xof;
-	y1 -= sc->zoom * sc->yof;
+	x1 -= rsc->zoom * sc->xof;
+	y1 -= rsc->zoom * sc->yof;
 
 	/* relative display right */
-	ar->v2d.cur.xmin = (ar->winrct.xmin - (float)x1) / sc->zoom;
-	ar->v2d.cur.xmax = ar->v2d.cur.xmin + ((float)winx / sc->zoom);
+	ar->v2d.cur.xmin = (ar->winrct.xmin - (float)x1) / rsc->zoom;
+	ar->v2d.cur.xmax = ar->v2d.cur.xmin + ((float)winx / rsc->zoom);
 
 	/* relative display left */
-	ar->v2d.cur.ymin = (ar->winrct.ymin - (float)y1) / sc->zoom;
-	ar->v2d.cur.ymax = ar->v2d.cur.ymin + ((float)winy / sc->zoom);
+	ar->v2d.cur.ymin = (ar->winrct.ymin - (float)y1) / rsc->zoom;
+	ar->v2d.cur.ymax = ar->v2d.cur.ymin + ((float)winy / rsc->zoom);
 
 	/* normalize 0.0..1.0 */
 	ar->v2d.cur.xmin /= w;
@@ -1147,6 +1153,7 @@ static void movieclip_main_area_set_view2d(const bContext *C, ARegion *ar)
 static void movieclip_secondary_clip_set_view2d(const bContext *C, ARegion *ar)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = (RegionSpaceClip*) ar->regiondata;
 	float x1, y1, w, h, aspx, aspy;
 	int width, height, winx, winy;
 
@@ -1169,19 +1176,19 @@ static void movieclip_secondary_clip_set_view2d(const bContext *C, ARegion *ar)
 	ar->v2d.mask.ymax = winy;
 
 	/* which part of the image space do we see? */
-	x1 = ar->winrct.xmin + (winx - sc->zoom * w) / 2.0f;
-	y1 = ar->winrct.ymin + (winy - sc->zoom * h) / 2.0f;
+	x1 = ar->winrct.xmin + (winx - rsc->zoom * w) / 2.0f;
+	y1 = ar->winrct.ymin + (winy - rsc->zoom * h) / 2.0f;
 
-	x1 -= sc->zoom * sc->xof;
-	y1 -= sc->zoom * sc->yof;
+	x1 -= rsc->zoom * sc->xof;
+	y1 -= rsc->zoom * sc->yof;
 
 	/* relative display right */
-	ar->v2d.cur.xmin = (ar->winrct.xmin - (float)x1) / sc->zoom;
-	ar->v2d.cur.xmax = ar->v2d.cur.xmin + ((float)winx / sc->zoom);
+	ar->v2d.cur.xmin = (ar->winrct.xmin - (float)x1) / rsc->zoom;
+	ar->v2d.cur.xmax = ar->v2d.cur.xmin + ((float)winx / rsc->zoom);
 
 	/* relative display left */
-	ar->v2d.cur.ymin = (ar->winrct.ymin - (float)y1) / sc->zoom;
-	ar->v2d.cur.ymax = ar->v2d.cur.ymin + ((float)winy / sc->zoom);
+	ar->v2d.cur.ymin = (ar->winrct.ymin - (float)y1) / rsc->zoom;
+	ar->v2d.cur.ymax = ar->v2d.cur.ymin + ((float)winy / rsc->zoom);
 
 	/* normalize 0.0..1.0 */
 	ar->v2d.cur.xmin /= w;

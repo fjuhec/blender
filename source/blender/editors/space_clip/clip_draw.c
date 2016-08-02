@@ -472,7 +472,7 @@ static void draw_track_path(SpaceClip *sc, MovieClip *UNUSED(clip), MovieTrackin
 	glEnd();
 }
 
-static void draw_marker_outline(SpaceClip *sc, MovieTrackingTrack *track, MovieTrackingMarker *marker,
+static void draw_marker_outline(SpaceClip *sc, ARegion *ar, MovieTrackingTrack *track, MovieTrackingMarker *marker,
                                 const float marker_pos[2], int width, int height)
 {
 	int tiny = sc->flag & SC_SHOW_TINY_MARKER;
@@ -481,8 +481,9 @@ static void draw_marker_outline(SpaceClip *sc, MovieTrackingTrack *track, MovieT
 
 	UI_ThemeColor(TH_MARKER_OUTLINE);
 
-	px[0] = 1.0f / width / sc->zoom;
-	px[1] = 1.0f / height / sc->zoom;
+	RegionSpaceClip *rsc = (RegionSpaceClip*) ar->regiondata;
+	px[0] = 1.0f / width / rsc->zoom;
+	px[1] = 1.0f / height / rsc->zoom;
 
 	glLineWidth(tiny ? 1.0f : 3.0f);
 
@@ -586,7 +587,7 @@ static void track_colors(MovieTrackingTrack *track, int act, int link, float col
 	}
 }
 
-static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTrackingMarker *marker,
+static void draw_marker_areas(SpaceClip *sc, ARegion *ar, MovieTrackingTrack *track, MovieTrackingMarker *marker,
                               const float marker_pos[2], int width, int height, int act, int sel)
 {
 	int tiny = sc->flag & SC_SHOW_TINY_MARKER;
@@ -597,8 +598,9 @@ static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTra
 	bool link = is_track_linked(tracking, track);
 	track_colors(track, act, link, col, scol);
 
-	px[0] = 1.0f / width / sc->zoom;
-	px[1] = 1.0f / height / sc->zoom;
+	RegionSpaceClip *rsc = (RegionSpaceClip*) ar->regiondata;
+	px[0] = 1.0f / width / rsc->zoom;
+	px[1] = 1.0f / height / rsc->zoom;
 
 	glLineWidth(1.0f);
 
@@ -806,7 +808,7 @@ static void draw_marker_slide_triangle(float x, float y, float dx, float dy, int
 	glEnd();
 }
 
-static void draw_marker_slide_zones(SpaceClip *sc, MovieTrackingTrack *track, MovieTrackingMarker *marker,
+static void draw_marker_slide_zones(SpaceClip *sc, ARegion *ar, MovieTrackingTrack *track, MovieTrackingMarker *marker,
                                     const float marker_pos[2], int outline, int sel, int act, int width, int height)
 {
 	float dx, dy, patdx, patdy, searchdx, searchdy;
@@ -830,8 +832,9 @@ static void draw_marker_slide_zones(SpaceClip *sc, MovieTrackingTrack *track, Mo
 	glPushMatrix();
 	glTranslate2fv(marker_pos);
 
-	dx = 6.0f / width / sc->zoom;
-	dy = 6.0f / height / sc->zoom;
+	RegionSpaceClip *rsc = (RegionSpaceClip*) ar->regiondata;
+	dx = 6.0f / width / rsc->zoom;
+	dy = 6.0f / height / rsc->zoom;
 
 	side = get_shortest_pattern_side(marker);
 	patdx = min_ff(dx * 2.0f / 3.0f, side / 6.0f) * UI_DPI_FAC;
@@ -840,8 +843,8 @@ static void draw_marker_slide_zones(SpaceClip *sc, MovieTrackingTrack *track, Mo
 	searchdx = min_ff(dx, (marker->search_max[0] - marker->search_min[0]) / 6.0f) * UI_DPI_FAC;
 	searchdy = min_ff(dy, (marker->search_max[1] - marker->search_min[1]) / 6.0f) * UI_DPI_FAC;
 
-	px[0] = 1.0f / sc->zoom / width / sc->scale;
-	px[1] = 1.0f / sc->zoom / height / sc->scale;
+	px[0] = 1.0f / rsc->zoom / width / sc->scale;
+	px[1] = 1.0f / rsc->zoom / height / sc->scale;
 
 	if ((sc->flag & SC_SHOW_MARKER_SEARCH) && ((track->search_flag & SELECT) == sel || outline)) {
 		if (!outline) {
@@ -1122,7 +1125,7 @@ static void draw_plane_marker_image(Scene *scene,
 	BKE_image_release_ibuf(image, ibuf, lock);
 }
 
-static void draw_plane_marker_ex(SpaceClip *sc, Scene *scene, MovieTrackingPlaneTrack *plane_track,
+static void draw_plane_marker_ex(SpaceClip *sc, ARegion *ar, Scene *scene, MovieTrackingPlaneTrack *plane_track,
                                  MovieTrackingPlaneMarker *plane_marker, bool is_active_track,
                                  bool draw_outline, int width, int height)
 {
@@ -1147,8 +1150,9 @@ static void draw_plane_marker_ex(SpaceClip *sc, Scene *scene, MovieTrackingPlane
 		}
 	}
 
-	px[0] = 1.0f / width / sc->zoom;
-	px[1] = 1.0f / height / sc->zoom;
+	RegionSpaceClip *rsc = (RegionSpaceClip*) ar->regiondata;
+	px[0] = 1.0f / width / rsc->zoom;
+	px[1] = 1.0f / height / rsc->zoom;
 
 	/* Draw image */
 	if (draw_outline == false) {
@@ -1185,12 +1189,12 @@ static void draw_plane_marker_ex(SpaceClip *sc, Scene *scene, MovieTrackingPlane
 
 			glBegin(GL_LINES);
 
-			getArrowEndPoint(width, height, sc->zoom, plane_marker->corners[0], plane_marker->corners[1], end_point);
+			getArrowEndPoint(width, height, rsc->zoom, plane_marker->corners[0], plane_marker->corners[1], end_point);
 			glColor3f(1.0, 0.0, 0.0f);
 			glVertex2fv(plane_marker->corners[0]);
 			glVertex2fv(end_point);
 
-			getArrowEndPoint(width, height, sc->zoom, plane_marker->corners[0], plane_marker->corners[3], end_point);
+			getArrowEndPoint(width, height, rsc->zoom, plane_marker->corners[0], plane_marker->corners[3], end_point);
 			glColor3f(0.0, 1.0, 0.0f);
 			glVertex2fv(plane_marker->corners[0]);
 			glVertex2fv(end_point);
@@ -1218,28 +1222,28 @@ static void draw_plane_marker_ex(SpaceClip *sc, Scene *scene, MovieTrackingPlane
 	}
 }
 
-static void draw_plane_marker_outline(SpaceClip *sc, Scene *scene, MovieTrackingPlaneTrack *plane_track,
+static void draw_plane_marker_outline(SpaceClip *sc, ARegion *ar, Scene *scene, MovieTrackingPlaneTrack *plane_track,
                                       MovieTrackingPlaneMarker *plane_marker, int width, int height)
 {
-	draw_plane_marker_ex(sc, scene, plane_track, plane_marker, false, true, width, height);
+	draw_plane_marker_ex(sc, ar, scene, plane_track, plane_marker, false, true, width, height);
 }
 
-static void draw_plane_marker(SpaceClip *sc, Scene *scene, MovieTrackingPlaneTrack *plane_track,
+static void draw_plane_marker(SpaceClip *sc, ARegion *ar, Scene *scene, MovieTrackingPlaneTrack *plane_track,
                               MovieTrackingPlaneMarker *plane_marker, bool is_active_track,
                               int width, int height)
 {
-	draw_plane_marker_ex(sc, scene, plane_track, plane_marker, is_active_track, false, width, height);
+	draw_plane_marker_ex(sc, ar, scene, plane_track, plane_marker, is_active_track, false, width, height);
 }
 
-static void draw_plane_track(SpaceClip *sc, Scene *scene, MovieTrackingPlaneTrack *plane_track,
+static void draw_plane_track(SpaceClip *sc, ARegion *ar, Scene *scene, MovieTrackingPlaneTrack *plane_track,
                              int framenr, bool is_active_track, int width, int height)
 {
 	MovieTrackingPlaneMarker *plane_marker;
 
 	plane_marker = BKE_tracking_plane_marker_get(plane_track, framenr);
 
-	draw_plane_marker_outline(sc, scene, plane_track, plane_marker, width, height);
-	draw_plane_marker(sc, scene, plane_track, plane_marker, is_active_track, width, height);
+	draw_plane_marker_outline(sc, ar, scene, plane_track, plane_marker, width, height);
+	draw_plane_marker(sc, ar, scene, plane_track, plane_marker, is_active_track, width, height);
 }
 
 /* Draw all kind of tracks. */
@@ -1283,7 +1287,7 @@ static void draw_tracking_tracks(SpaceClip *sc, Scene *scene, ARegion *ar, Movie
 	     plane_track = plane_track->next)
 	{
 		if ((plane_track->flag & PLANE_TRACK_HIDDEN) == 0) {
-			draw_plane_track(sc, scene, plane_track, framenr, plane_track == active_plane_track, width, height);
+			draw_plane_track(sc, ar, scene, plane_track, framenr, plane_track == active_plane_track, width, height);
 		}
 	}
 
@@ -1348,10 +1352,10 @@ static void draw_tracking_tracks(SpaceClip *sc, Scene *scene, ARegion *ar, Movie
 			if (MARKER_VISIBLE(sc, track, marker)) {
 				copy_v2_v2(cur_pos, fp ? fp : marker->pos);
 
-				draw_marker_outline(sc, track, marker, cur_pos, width, height);
-				draw_marker_areas(sc, track, marker, cur_pos, width, height, 0, 0);
-				draw_marker_slide_zones(sc, track, marker, cur_pos, 1, 0, 0, width, height);
-				draw_marker_slide_zones(sc, track, marker, cur_pos, 0, 0, 0, width, height);
+				draw_marker_outline(sc, ar, track, marker, cur_pos, width, height);
+				draw_marker_areas(sc, ar, track, marker, cur_pos, width, height, 0, 0);
+				draw_marker_slide_zones(sc, ar, track, marker, cur_pos, 1, 0, 0, width, height);
+				draw_marker_slide_zones(sc, ar, track, marker, cur_pos, 0, 0, 0, width, height);
 
 				if (fp)
 					fp += 2;
@@ -1374,8 +1378,8 @@ static void draw_tracking_tracks(SpaceClip *sc, Scene *scene, ARegion *ar, Movie
 				if (!act) {
 					copy_v2_v2(cur_pos, fp ? fp : marker->pos);
 
-					draw_marker_areas(sc, track, marker, cur_pos, width, height, 0, 1);
-					draw_marker_slide_zones(sc, track, marker, cur_pos, 0, 1, 0, width, height);
+					draw_marker_areas(sc, ar, track, marker, cur_pos, width, height, 0, 1);
+					draw_marker_slide_zones(sc, ar, track, marker, cur_pos, 0, 1, 0, width, height);
 				}
 
 				if (fp)
@@ -1394,8 +1398,8 @@ static void draw_tracking_tracks(SpaceClip *sc, Scene *scene, ARegion *ar, Movie
 			if (MARKER_VISIBLE(sc, act_track, marker)) {
 				copy_v2_v2(cur_pos, active_pos ? active_pos : marker->pos);
 
-				draw_marker_areas(sc, act_track, marker, cur_pos, width, height, 1, 1);
-				draw_marker_slide_zones(sc, act_track, marker, cur_pos, 0, 1, 1, width, height);
+				draw_marker_areas(sc, ar, act_track, marker, cur_pos, width, height, 1, 1);
+				draw_marker_slide_zones(sc, ar, act_track, marker, cur_pos, 0, 1, 1, width, height);
 			}
 		}
 	}
