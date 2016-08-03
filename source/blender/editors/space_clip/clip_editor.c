@@ -714,47 +714,47 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 		/* keep current region */
 		ar->alignment = 0;
 
-		//if (sa->spacetype == SPACE_VIEW3D) {
-		//	ARegion *ar_iter;
-		//	RegionView3D *rv3d = ar->regiondata;
+		if (sa->spacetype == SPACE_CLIP) {
+			ARegion *ar_iter;
+			RegionSpaceClip *rsc = ar->regiondata;
 
-		//	/* if this is a locked view, use settings from 'User' view */
-		//	if (rv3d->viewlock) {
-		//		View3D *v3d_user;
-		//		ARegion *ar_user;
+			///* if this is a locked view, use settings from 'User' view */
+			//if (rv3d->viewlock) {
+			//	View3D *v3d_user;
+			//	ARegion *ar_user;
 
-		//		if (ED_view3d_context_user_region(C, &v3d_user, &ar_user)) {
-		//			if (ar != ar_user) {
-		//				SWAP(void *, ar->regiondata, ar_user->regiondata);
-		//				rv3d = ar->regiondata;
-		//			}
-		//		}
-		//	}
+			//	if (ED_view3d_context_user_region(C, &v3d_user, &ar_user)) {
+			//		if (ar != ar_user) {
+			//			SWAP(void *, ar->regiondata, ar_user->regiondata);
+			//			rv3d = ar->regiondata;
+			//		}
+			//	}
+			//}
 
-		//	rv3d->viewlock_quad = RV3D_VIEWLOCK_INIT;
-		//	rv3d->viewlock = 0;
-		//	rv3d->rflag &= ~RV3D_CLIPPING;
+			//rv3d->viewlock_quad = RV3D_VIEWLOCK_INIT;
+			//rv3d->viewlock = 0;
+			//rv3d->rflag &= ~RV3D_CLIPPING;
 
-		//	/* accumulate locks, incase they're mixed */
-		//	for (ar_iter = sa->regionbase.first; ar_iter; ar_iter = ar_iter->next) {
-		//		if (ar_iter->regiontype == RGN_TYPE_WINDOW) {
-		//			RegionView3D *rv3d_iter = ar_iter->regiondata;
-		//			rv3d->viewlock_quad |= rv3d_iter->viewlock;
-		//		}
-		//	}
-		//}
+			///* accumulate locks, incase they're mixed */
+			//for (ar_iter = sa->regionbase.first; ar_iter; ar_iter = ar_iter->next) {
+			//	if (ar_iter->regiontype == RGN_TYPE_WINDOW) {
+			//		RegionView3D *rv3d_iter = ar_iter->regiondata;
+			//		rv3d->viewlock_quad |= rv3d_iter->viewlock;
+			//	}
+			//}
+		}
 
-		//for (ar = sa->regionbase.first; ar; ar = arn) {
-		//	arn = ar->next;
-		//	if (ar->alignment == RGN_ALIGN_QSPLIT) {
-		//		ED_region_exit(C, ar);
-		//		BKE_area_region_free(sa->type, ar);
-		//		BLI_remlink(&sa->regionbase, ar);
-		//		MEM_freeN(ar);
-		//	}
-		//}
-		//ED_area_tag_redraw(sa);
-		//WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
+		for (ar = sa->regionbase.first; ar; ar = arn) {
+			arn = ar->next;
+			if (ar->alignment == RGN_ALIGN_VSPLIT) {
+				ED_region_exit(C, ar);
+				BKE_area_region_free(sa->type, ar);
+				BLI_remlink(&sa->regionbase, ar);
+				MEM_freeN(ar);
+			}
+		}
+		ED_area_tag_redraw(sa);
+		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
 	}
 	else if (ar->next) {
 		return;		// Only last region can be splitted

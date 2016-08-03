@@ -2907,15 +2907,16 @@ static void write_region(WriteData *wd, ARegion *ar, int spacetype)
 
 				}
 				else
-					printf("regiondata write missing!\n");
+					printf("spaceview3d regiondata write missing!\n");
 				break;
 			case SPACE_CLIP:
 				if (ar->regiontype == RGN_TYPE_WINDOW) {
 					RegionSpaceClip *rsc = ar->regiondata;
 					writestruct(wd, DATA, RegionSpaceClip, 1, rsc);
 				}
+				break;
 			default:
-				printf("regiondata write missing!\n");
+				printf("default regiondata write missing!\n");
 		}
 	}
 }
