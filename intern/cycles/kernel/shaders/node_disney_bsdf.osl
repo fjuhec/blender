@@ -32,11 +32,10 @@ shader node_disney_bsdf(
     float ClearcoatGloss = 1.0,
     float IOR = 1.45,
     float Transparency = 0.0,
-    float RefractionRoughness = 0.0,
+    float AnisotropicRotation = 0.0,
 	normal Normal = N,
 	normal ClearcoatNormal = N,
 	normal Tangent = normalize(dPdu),
-    //normal AnisotropicRotation = normal(0, 0, 0),
 	output closure color BSDF = 0)
 {
 	float f = max(IOR, 1e-5);
@@ -47,8 +46,6 @@ shader node_disney_bsdf(
     float transp = clamp(Transparency, 0.0, 1.0) * (1.0 - clamp(Metallic, 0.0, 1.0));
     float specular_weight = (1.0 - transp);
     
-    float refr_roughness = 1.0 - (1.0 - Roughness) * (1.0 - RefractionRoughness);
-    
     if (diffuse_weight > 0.0) {
         BSDF = (((Subsurface * BaseColor * bssrdf_burley(Normal, vector(1.0, 1.0, 1.0), 0.0, BaseColor)) + disney_diffuse(Normal, BaseColor, Roughness) * (1.0 - Subsurface))
                 + disney_sheen(Normal, BaseColor, Sheen, SheenTint)) * diffuse_weight;
@@ -58,10 +55,10 @@ shader node_disney_bsdf(
         BSDF = BSDF + specular_weight * disney_specular(Normal, Tangent, BaseColor, Metallic, Specular,
                                       SpecularTint, Roughness, Anisotropic)
                     + (1.0 - specular_weight) * (Fr * disney_specular(Normal, Tangent, BaseColor, 0.0, 12.5,
-                                      SpecularTint, Roughness, 0.0) + (1.0 - Fr) * BaseColor * microfacet_ggx_refraction(Normal, refr_roughness * refr_roughness, eta));
+                                      SpecularTint, Roughness, 0.0) + (1.0 - Fr) * BaseColor * microfacet_ggx_refraction(Normal, Roughness * Roughness, eta));
     } else if (transp > 0.0) {
         BSDF = BSDF + transp * (disney_specular(Normal, Tangent, BaseColor, 0.0, 12.5, SpecularTint, Roughness, 0.0)
-                + BaseColor * microfacet_ggx_refraction(Normal, refr_roughness * refr_roughness, eta));
+                + BaseColor * microfacet_ggx_refraction(Normal, Roughness * Roughness, eta));
     }
 
     if (Clearcoat != 0.0) {

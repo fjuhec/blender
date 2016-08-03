@@ -37,7 +37,7 @@ CCL_NAMESPACE_BEGIN
 
 typedef ccl_addr_space struct MicrofacetExtra {
 	float3 color, cspec0;
-	bool use_fresnel;
+	bool use_fresnel, is_disney_clearcoat;
 } MicrofacetExtra;
 
 typedef ccl_addr_space struct MicrofacetBsdf {
@@ -247,10 +247,11 @@ ccl_device_inline float3 microfacet_sample_stretched(
  * Anisotropy is only supported for reflection currently, but adding it for
  * transmission is just a matter of copying code from reflection if needed. */
 
-ccl_device int bsdf_microfacet_ggx_setup(MicrofacetBsdf *bsdf, bool use_fresnel = false)
+ccl_device int bsdf_microfacet_ggx_setup(MicrofacetBsdf *bsdf, bool use_fresnel = false, bool is_disney_clearcoat = false)
 {
 	if (bsdf->extra) {
 		bsdf->extra->use_fresnel = use_fresnel;
+		bsdf->extra->is_disney_clearcoat = is_disney_clearcoat;
 
 		bsdf->extra->cspec0.x = saturate(bsdf->extra->cspec0.x);
 		bsdf->extra->cspec0.y = saturate(bsdf->extra->cspec0.y);
@@ -284,6 +285,7 @@ ccl_device int bsdf_microfacet_ggx_aniso_setup(MicrofacetBsdf *bsdf, bool use_fr
 {
 	if (bsdf->extra) {
 		bsdf->extra->use_fresnel = use_fresnel;
+		bsdf->extra->is_disney_clearcoat = false;
 
 		bsdf->extra->cspec0.x = saturate(bsdf->extra->cspec0.x);
 		bsdf->extra->cspec0.y = saturate(bsdf->extra->cspec0.y);
@@ -302,6 +304,7 @@ ccl_device int bsdf_microfacet_ggx_refraction_setup(MicrofacetBsdf *bsdf, bool u
 {
 	if (bsdf->extra) {
 		bsdf->extra->use_fresnel = use_fresnel;
+		bsdf->extra->is_disney_clearcoat = false;
 
 		bsdf->extra->cspec0.x = saturate(bsdf->extra->cspec0.x);
 		bsdf->extra->cspec0.y = saturate(bsdf->extra->cspec0.y);
@@ -355,6 +358,10 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 			D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
 
 			/* eq. 34: now calculate G1(i,m) and G1(o,m) */
+			if (bsdf->extra)
+				if (bsdf->extra->is_disney_clearcoat)
+					alpha2 = 0.0625f;
+
 			G1o = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNO * cosNO) / (cosNO * cosNO)));
 			G1i = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNI * cosNI) / (cosNI * cosNI))); 
 		}
@@ -550,6 +557,13 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 							float cosNI = dot(N, *omega_in);
 
 							/* eq. 34: now calculate G1(i,m) */
+							if (bsdf->extra)
+								if (bsdf->extra->is_disney_clearcoat) {
+									// recalculate G1o
+									G1o = 2 / (1 + safe_sqrtf(1 + 0.0625f * (1 - cosNO * cosNO) / (cosNO * cosNO)));
+									alpha2 = 0.0625f;
+								}
+
 							G1i = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNI * cosNI) / (cosNI * cosNI))); 
 						}
 						else {

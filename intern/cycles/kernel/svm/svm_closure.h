@@ -78,14 +78,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 	switch(type) {
 		case CLOSURE_BSDF_DISNEY_ID: {
 			uint specular_offset, roughness_offset, specularTint_offset, anisotropic_offset, sheen_offset,
-				sheenTint_offset, clearcoat_offset, clearcoatGloss_offset, eta_offset, transparency_offset, refr_roughness_offset;
+				sheenTint_offset, clearcoat_offset, clearcoatGloss_offset, eta_offset, transparency_offset, anisotropic_rotation_offset;
 			uint tmp0;
 			uint4 data_node2 = read_node(kg, offset);
 
 			float3 T = stack_load_float3(stack, data_node.y);
 			decode_node_uchar4(data_node.z, &specular_offset, &roughness_offset, &specularTint_offset, &anisotropic_offset);
 			decode_node_uchar4(data_node.w, &sheen_offset, &sheenTint_offset, &clearcoat_offset, &clearcoatGloss_offset);
-			decode_node_uchar4(data_node2.x, &eta_offset, &transparency_offset, &refr_roughness_offset, &tmp0);
+			decode_node_uchar4(data_node2.x, &eta_offset, &transparency_offset, &anisotropic_rotation_offset, &tmp0);
 
 			// get disney parameters
 			float metallic = param1;
@@ -99,10 +99,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float clearcoat = stack_load_float(stack, clearcoat_offset);
 			float clearcoatGloss = stack_load_float(stack, clearcoatGloss_offset);
 			float transparency = stack_load_float(stack, transparency_offset);
-			float refr_roughness = stack_load_float(stack, refr_roughness_offset);
-			refr_roughness = 1.0f - (1.0f - roughness) * (1.0f - refr_roughness);
+			float anisotropic_rotation = stack_load_float(stack, anisotropic_rotation_offset);
 			float eta = fmaxf(stack_load_float(stack, eta_offset), 1e-5f);
 
+			/* rotate tangent */
+			if (anisotropic_rotation != 0.0f)
+				T = rotate_around_axis(T, N, anisotropic_rotation * M_2PI_F);
+
+			/* calculate ior */
 			float ior = (ccl_fetch(sd, flag) & SD_BACKFACING) ? 1.0f / eta : eta;
 
 			// calculate fresnel for refraction
@@ -283,8 +287,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						bsdf->extra = extra;
 						bsdf->T = make_float3(0.0f, 0.0f, 0.0f);
 
-						bsdf->alpha_x = refr_roughness * refr_roughness;
-						bsdf->alpha_y = refr_roughness * refr_roughness;
+						bsdf->alpha_x = roughness * roughness;
+						bsdf->alpha_y = roughness * roughness;
 						bsdf->ior = ior;
 
 						bsdf->extra->color = baseColor;
@@ -302,18 +306,24 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			if (kernel_data.integrator.caustics_reflective || (path_flag & PATH_RAY_DIFFUSE) == 0) {
 #endif
 				if (clearcoat > 0.0f) {
-					float3 clearcoat_weight = weight;
+					float3 clearcoat_weight = 0.25f * clearcoat * weight;
 					float clearcoat_sample_weight = fabsf(average(clearcoat_weight));
 
-					DisneyClearcoatBsdf *bsdf = (DisneyClearcoatBsdf*)bsdf_alloc(sd, sizeof(DisneyClearcoatBsdf), clearcoat_weight);
+					MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), clearcoat_weight);
+					MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
-					if (bsdf) {
+					if (bsdf && extra) {
 						bsdf->N = CN;
-						bsdf->clearcoat = clearcoat;
-						bsdf->clearcoatGloss = clearcoatGloss;
+						bsdf->ior = 0.0f;
+						bsdf->extra = extra;
+
+						bsdf->alpha_x = 0.1f * (1.0f - clearcoatGloss) + 0.001f * clearcoatGloss;
+						bsdf->alpha_y = 0.1f * (1.0f - clearcoatGloss) + 0.001f * clearcoatGloss;
+
+						bsdf->extra->cspec0 = make_float3(0.04f, 0.04f, 0.04f);
 
 						/* setup bsdf */
-						ccl_fetch(sd, flag) |= bsdf_disney_clearcoat_setup(bsdf);
+						ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_setup(bsdf, true, true);
 					}
 				}
 #ifdef __CAUSTICS_TRICKS__

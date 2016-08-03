@@ -2226,7 +2226,7 @@ NODE_DEFINE(DisneyBsdfNode)
 	SOCKET_IN_FLOAT(clearcoatGloss, "ClearcoatGloss", 0.0f);
 	SOCKET_IN_FLOAT(ior, "IOR", 0.0f);
 	SOCKET_IN_FLOAT(transparency, "Transparency", 0.0f);
-	SOCKET_IN_FLOAT(refractionRoughness, "RefractionRoughness", 0.0f);
+	SOCKET_IN_FLOAT(anisotropicRotation, "AnisotropicRotation", 0.0f);
 	SOCKET_IN_NORMAL(normal, "Normal", make_float3(0.0f, 0.0f, 0.0f), SocketType::LINK_NORMAL);
 	SOCKET_IN_NORMAL(clearcoatNormal, "ClearcoatNormal", make_float3(0.0f, 0.0f, 0.0f), SocketType::LINK_NORMAL);
 	SOCKET_IN_NORMAL(tangent, "Tangent", make_float3(0.0f, 0.0f, 0.0f), SocketType::LINK_TANGENT);
@@ -2247,7 +2247,7 @@ DisneyBsdfNode::DisneyBsdfNode()
 void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *metallic, ShaderInput *subsurface,
 	ShaderInput *specular, ShaderInput *roughness, ShaderInput *specularTint, ShaderInput *anisotropic,
 	ShaderInput *sheen, ShaderInput *sheenTint, ShaderInput *clearcoat, ShaderInput *clearcoatGloss,
-	ShaderInput *ior, ShaderInput *transparency, ShaderInput *refr_roughness)
+	ShaderInput *ior, ShaderInput *transparency, ShaderInput *anisotropicRotation)
 {
 	ShaderInput *base_color_in = input("BaseColor");
 	ShaderInput *subsurface_color_in = input("SubsurfaceColor");
@@ -2276,7 +2276,7 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *metallic, Shade
 	int clearcoatGloss_offset = compiler.stack_assign(clearcoatGloss);
 	int ior_offset = compiler.stack_assign(ior);
 	int transparency_offset = compiler.stack_assign(transparency);
-	int refr_roughness_offset = compiler.stack_assign(refr_roughness);
+	int anisotropic_rotation_offset = compiler.stack_assign(anisotropicRotation);
 
 	compiler.add_node(NODE_CLOSURE_BSDF,
 		compiler.encode_uchar4(closure,
@@ -2290,7 +2290,7 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *metallic, Shade
 		compiler.encode_uchar4(specular_offset, roughness_offset, specularTint_offset, anisotropic_offset),
 		compiler.encode_uchar4(sheen_offset, sheenTint_offset, clearcoat_offset, clearcoatGloss_offset));
 
-	compiler.add_node(compiler.encode_uchar4(ior_offset, transparency_offset, refr_roughness_offset, SVM_STACK_INVALID),
+	compiler.add_node(compiler.encode_uchar4(ior_offset, transparency_offset, anisotropic_rotation_offset, SVM_STACK_INVALID),
 		SVM_STACK_INVALID, SVM_STACK_INVALID, SVM_STACK_INVALID);
 
 	float3 bc_default = get_float3(base_color_in->socket_type);
@@ -2310,7 +2310,7 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler)
 {
 	compile(compiler, input("Metallic"), input("Subsurface"), input("Specular"), input("Roughness"),
 		input("SpecularTint"), input("Anisotropic"), input("Sheen"), input("SheenTint"),
-		input("Clearcoat"), input("ClearcoatGloss"), input("IOR"), input("Transparency"), input("RefractionRoughness"));
+		input("Clearcoat"), input("ClearcoatGloss"), input("IOR"), input("Transparency"), input("AnisotropicRotation"));
 }
 
 void DisneyBsdfNode::compile(OSLCompiler& compiler)
