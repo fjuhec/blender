@@ -1131,8 +1131,8 @@ static void movieclip_main_area_set_view2d(const bContext *C, ARegion *ar)
 	x1 = ar->winrct.xmin + (winx - rsc->zoom * w) / 2.0f;
 	y1 = ar->winrct.ymin + (winy - rsc->zoom * h) / 2.0f;
 
-	x1 -= rsc->zoom * sc->xof;
-	y1 -= rsc->zoom * sc->yof;
+	x1 -= rsc->zoom * rsc->xof;
+	y1 -= rsc->zoom * rsc->yof;
 
 	/* relative display right */
 	ar->v2d.cur.xmin = (ar->winrct.xmin - (float)x1) / rsc->zoom;
@@ -1179,8 +1179,8 @@ static void movieclip_secondary_clip_set_view2d(const bContext *C, ARegion *ar)
 	x1 = ar->winrct.xmin + (winx - rsc->zoom * w) / 2.0f;
 	y1 = ar->winrct.ymin + (winy - rsc->zoom * h) / 2.0f;
 
-	x1 -= rsc->zoom * sc->xof;
-	y1 -= rsc->zoom * sc->yof;
+	x1 -= rsc->zoom * rsc->xof;
+	y1 -= rsc->zoom * rsc->yof;
 
 	/* relative display right */
 	ar->v2d.cur.xmin = (ar->winrct.xmin - (float)x1) / rsc->zoom;
@@ -1220,6 +1220,7 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 {
 	/* draw entirely, view changes should be handled here */
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	MovieClip *clip = ED_space_clip_get_clip(sc);
 	float aspx, aspy, zoomx, zoomy, x, y;
 	int width, height;
@@ -1238,8 +1239,8 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 		}
 
 		if (ED_clip_view_selection(C, ar, 0)) {
-			sc->xof += sc->xlockof;
-			sc->yof += sc->ylockof;
+			rsc->xof += rsc->xlockof;
+			rsc->yof += rsc->ylockof;
 		}
 
 		if (tmpibuf)

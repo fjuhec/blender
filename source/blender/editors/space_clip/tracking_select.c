@@ -270,6 +270,7 @@ void ed_tracking_delect_all_plane_tracks(ListBase *plane_tracks_base)
 static int mouse_select(bContext *C, float co[2], int extend)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	MovieClip *clip = ED_space_clip_get_clip(sc);
 	MovieTracking *tracking = &clip->tracking;
 	ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
@@ -339,8 +340,8 @@ static int mouse_select(bContext *C, float co[2], int extend)
 	}
 
 	if (!extend) {
-		sc->xlockof = 0.0f;
-		sc->ylockof = 0.0f;
+		rsc->xlockof = 0.0f;
+		rsc->ylockof = 0.0f;
 	}
 
 	BKE_tracking_dopesheet_tag_update(tracking);

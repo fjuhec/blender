@@ -690,7 +690,7 @@ RegionSpaceClip *CTX_wm_region_clip(const bContext *C)
 	ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar_curr = CTX_wm_region(C);
 
-	if (sa && sa->spacetype == SPACE_CLIP)
+	if (sa && sa->spacetype == SPACE_CLIP) {
 		/* only RGN_TYPE_WINDOW has regiondata */
 		if (ar_curr && ar_curr->regiontype == RGN_TYPE_WINDOW) {
 			return ar_curr->regiondata;
@@ -712,6 +712,7 @@ RegionSpaceClip *CTX_wm_region_clip(const bContext *C)
 				ar = ar->next;
 			}
 		}
+	}
 	return NULL;
 }
 

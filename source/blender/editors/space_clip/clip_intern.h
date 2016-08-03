@@ -40,6 +40,7 @@ struct MovieTrackingTrack;
 struct Scene;
 struct ScrArea;
 struct SpaceClip;
+struct RegionSpaceClip;
 struct wmOperatorType;
 
 /* channel heights */
@@ -139,7 +140,7 @@ void clip_graph_tracking_iterate(struct SpaceClip *sc, bool selected_only, bool 
 void clip_delete_track(struct bContext *C, struct MovieClip *clip, struct MovieTrackingTrack *track);
 void clip_delete_marker(struct bContext *C, struct MovieClip *clip, struct MovieTrackingTrack *track, struct MovieTrackingMarker *marker);
 
-void clip_view_center_to_point(SpaceClip *sc, float x, float y);
+void clip_view_center_to_point(SpaceClip *sc, RegionSpaceClip *rsc, float x, float y);
 
 void clip_draw_cfra(struct SpaceClip *sc, struct ARegion *ar, struct Scene *scene);
 void clip_draw_sfra_efra(struct View2D *v2d, struct Scene *scene);

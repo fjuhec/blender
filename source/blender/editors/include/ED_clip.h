@@ -84,6 +84,8 @@ void ED_space_clip_set_clip(struct bContext *C, struct bScreen *screen, struct S
 void ED_space_clip_set_secondary_clip(struct bContext *C, struct bScreen *screen, struct SpaceClip *sc, struct MovieClip *secondary_clip);
 void ED_clip_update_correspondence_mode(struct bContext *C, struct SpaceClip *sc);
 
+void ED_space_clip_region_set_lock_zero(struct bContext *C);
+
 struct Mask *ED_space_clip_get_mask(struct SpaceClip *sc);
 void ED_space_clip_set_mask(struct bContext *C, struct SpaceClip *sc, struct Mask *mask);
 

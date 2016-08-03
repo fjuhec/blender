@@ -117,16 +117,16 @@ static void sclip_zoom_set(const bContext *C, float zoom, float location[2])
 
 		ED_space_clip_get_size(sc, &width, &height);
 
-		dx = ((location[0] - 0.5f) * width - sc->xof) * (rsc->zoom - oldzoom) / rsc->zoom;
-		dy = ((location[1] - 0.5f) * height - sc->yof) * (rsc->zoom - oldzoom) / rsc->zoom;
+		dx = ((location[0] - 0.5f) * width - rsc->xof) * (rsc->zoom - oldzoom) / rsc->zoom;
+		dy = ((location[1] - 0.5f) * height - rsc->yof) * (rsc->zoom - oldzoom) / rsc->zoom;
 
 		if (sc->flag & SC_LOCK_SELECTION) {
-			sc->xlockof += dx;
-			sc->ylockof += dy;
+			rsc->xlockof += dx;
+			rsc->ylockof += dy;
 		}
 		else {
-			sc->xof += dx;
-			sc->yof += dy;
+			rsc->xof += dx;
+			rsc->yof += dy;
 		}
 	}
 }
@@ -472,6 +472,7 @@ typedef struct ViewPanData {
 static void view_pan_init(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	ViewPanData *vpd;
 
 	op->customdata = vpd = MEM_callocN(sizeof(ViewPanData), "ClipViewPanData");
@@ -481,9 +482,9 @@ static void view_pan_init(bContext *C, wmOperator *op, const wmEvent *event)
 	vpd->y = event->y;
 
 	if (sc->flag & SC_LOCK_SELECTION)
-		vpd->vec = &sc->xlockof;
+		vpd->vec = &rsc->xlockof;
 	else
-		vpd->vec = &sc->xof;
+		vpd->vec = &rsc->xof;
 
 	copy_v2_v2(&vpd->xof, vpd->vec);
 	copy_v2_v2(&vpd->xorig, &vpd->xof);
@@ -510,17 +511,18 @@ static void view_pan_exit(bContext *C, wmOperator *op, bool cancel)
 static int view_pan_exec(bContext *C, wmOperator *op)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	float offset[2];
 
 	RNA_float_get_array(op->ptr, "offset", offset);
 
 	if (sc->flag & SC_LOCK_SELECTION) {
-		sc->xlockof += offset[0];
-		sc->ylockof += offset[1];
+		rsc->xlockof += offset[0];
+		rsc->ylockof += offset[1];
 	}
 	else {
-		sc->xof += offset[0];
-		sc->yof += offset[1];
+		rsc->xof += offset[0];
+		rsc->yof += offset[1];
 	}
 
 	ED_region_tag_redraw(CTX_wm_region(C));
@@ -895,13 +897,13 @@ void CLIP_OT_view_zoom_out(wmOperatorType *ot)
 
 static int view_zoom_ratio_exec(bContext *C, wmOperator *op)
 {
-	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 
 	sclip_zoom_set(C, RNA_float_get(op->ptr, "ratio"), NULL);
 
 	/* ensure pixel exact locations for draw */
-	sc->xof = (int) sc->xof;
-	sc->yof = (int) sc->yof;
+	rsc->xof = (int) rsc->xof;
+	rsc->yof = (int) rsc->yof;
 
 	ED_region_tag_redraw(CTX_wm_region(C));
 
@@ -937,6 +939,7 @@ static int view_all_exec(bContext *C, wmOperator *op)
 
 	/* retrieve state */
 	sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	ar = CTX_wm_region(C);
 
 	ED_space_clip_get_size(sc, &w, &h);
@@ -969,7 +972,7 @@ static int view_all_exec(bContext *C, wmOperator *op)
 			sclip_zoom_set(C, 1.0f, NULL);
 	}
 
-	sc->xof = sc->yof = 0.0f;
+	rsc->xof = rsc->yof = 0.0f;
 
 	ED_region_tag_redraw(ar);
 
@@ -998,11 +1001,11 @@ void CLIP_OT_view_all(wmOperatorType *ot)
 
 static int view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	SpaceClip *sc = CTX_wm_space_clip(C);
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 	ARegion *ar = CTX_wm_region(C);
 
-	sc->xlockof = 0.0f;
-	sc->ylockof = 0.0f;
+	rsc->xlockof = 0.0f;
+	rsc->ylockof = 0.0f;
 
 	ED_clip_view_selection(C, ar, 1);
 	ED_region_tag_redraw(ar);
@@ -1552,7 +1555,6 @@ static int clip_view_ndof_invoke(bContext *C, wmOperator *UNUSED(op), const wmEv
 	if (event->type != NDOF_MOTION)
 		return OPERATOR_CANCELLED;
 	else {
-		SpaceClip *sc = CTX_wm_space_clip(C);
 		RegionSpaceClip *rsc = CTX_wm_region_clip(C);
 		ARegion *ar = CTX_wm_region(C);
 		float pan_vec[3];
@@ -1566,8 +1568,8 @@ static int clip_view_ndof_invoke(bContext *C, wmOperator *UNUSED(op), const wmEv
 		pan_vec[2] *= -ndof->dt;
 
 		sclip_zoom_set_factor(C, 1.0f + pan_vec[2], NULL);
-		sc->xof += pan_vec[0];
-		sc->yof += pan_vec[1];
+		rsc->xof += pan_vec[0];
+		rsc->yof += pan_vec[1];
 
 		ED_region_tag_redraw(ar);
 

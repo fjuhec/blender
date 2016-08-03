@@ -1568,12 +1568,9 @@ static void rna_SpaceClipEditor_clip_mode_update(bContext *C, PointerRNA *ptr)
 	ED_clip_update_correspondence_mode(C, sc);
 }
 
-static void rna_SpaceClipEditor_lock_selection_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+static void rna_SpaceClipEditor_lock_selection_update(bContext *C, PointerRNA *ptr)
 {
-	SpaceClip *sc = (SpaceClip *)(ptr->data);
-
-	sc->xlockof = 0.f;
-	sc->ylockof = 0.f;
+	ED_space_clip_region_set_lock_zero(C);
 }
 
 static void rna_SpaceClipEditor_view_type_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
@@ -4574,6 +4571,7 @@ static void rna_def_space_clip(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "lock_selection", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Lock to Selection", "Lock viewport to selected markers during playback");
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", SC_LOCK_SELECTION);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_CLIP, "rna_SpaceClipEditor_lock_selection_update");
 
 	/* lock to time cursor */

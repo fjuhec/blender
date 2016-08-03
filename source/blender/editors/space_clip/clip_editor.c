@@ -431,8 +431,8 @@ bool ED_clip_view_selection(const bContext *C, ARegion *ar, bool fit)
 		return false;
 
 	/* center view */
-	clip_view_center_to_point(sc, (max[0] + min[0]) / (2 * frame_width),
-	                              (max[1] + min[1]) / (2 * frame_height));
+	clip_view_center_to_point(sc, rsc, (max[0] + min[0]) / (2 * frame_width),
+	                                   (max[1] + min[1]) / (2 * frame_height));
 
 	w = max[0] - min[0];
 	h = max[1] - min[1];
@@ -790,6 +790,16 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 		ED_area_tag_redraw(sa);
 		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
 	}
+}
+
+/* ******** space clip region functions ******** */
+
+void ED_space_clip_region_set_lock_zero(bContext *C)
+{
+	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
+
+	rsc->xlockof = 0.f;
+	rsc->ylockof = 0.f;
 }
 
 /* ******** masking editing functions ******** */

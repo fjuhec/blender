@@ -231,7 +231,7 @@ void clip_delete_marker(bContext *C, MovieClip *clip, MovieTrackingTrack *track,
 	}
 }
 
-void clip_view_center_to_point(SpaceClip *sc, float x, float y)
+void clip_view_center_to_point(SpaceClip *sc, RegionSpaceClip *rsc, float x, float y)
 {
 	int width, height;
 	float aspx, aspy;
@@ -239,8 +239,8 @@ void clip_view_center_to_point(SpaceClip *sc, float x, float y)
 	ED_space_clip_get_size(sc, &width, &height);
 	ED_space_clip_get_aspect(sc, &aspx, &aspy);
 
-	sc->xof = (x - 0.5f) * width * aspx;
-	sc->yof = (y - 0.5f) * height * aspy;
+	rsc->xof = (x - 0.5f) * width * aspx;
+	rsc->yof = (y - 0.5f) * height * aspy;
 }
 
 void clip_draw_cfra(SpaceClip *sc, ARegion *ar, Scene *scene)
