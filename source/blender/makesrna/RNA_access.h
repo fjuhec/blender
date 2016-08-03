@@ -715,6 +715,11 @@ void RNA_main_pointer_create(struct Main *main, PointerRNA *r_ptr);
 void RNA_id_pointer_create(struct ID *id, PointerRNA *r_ptr);
 void RNA_pointer_create(struct ID *id, StructRNA *type, void *data, PointerRNA *r_ptr);
 
+bool RNA_path_resolved_create(
+        PointerRNA *ptr, struct PropertyRNA *prop,
+        const int prop_index,
+        PathResolvedRNA *r_anim_rna);
+
 void RNA_blender_rna_pointer_create(PointerRNA *r_ptr);
 void RNA_pointer_recast(PointerRNA *ptr, PointerRNA *r_ptr);
 
@@ -979,6 +984,7 @@ bool RNA_path_resolve_elements(PointerRNA *ptr, const char *path, struct ListBas
 
 char *RNA_path_from_ID_to_struct(PointerRNA *ptr);
 char *RNA_path_from_ID_to_property(PointerRNA *ptr, PropertyRNA *prop);
+char *RNA_path_from_ID_to_property_index(PointerRNA *ptr, PropertyRNA *prop, int array_dim, int index);
 
 char *RNA_path_resolve_from_type_to_property(
         struct PointerRNA *ptr, struct PropertyRNA *prop,

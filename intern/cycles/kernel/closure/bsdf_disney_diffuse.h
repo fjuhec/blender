@@ -36,8 +36,15 @@
 
 CCL_NAMESPACE_BEGIN
 
+typedef ccl_addr_space struct DisneyDiffuseBsdf {
+	SHADER_CLOSURE_BASE;
 
-ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
+	float roughness;
+	float3 N;
+	float3 baseColor;
+} DisneyDiffuseBsdf;
+
+ccl_device float3 calculate_disney_diffuse_brdf(const DisneyDiffuseBsdf *bsdf,
 	float3 N, float3 V, float3 L, float3 H, float *pdf)
 {
 	float NdotL = max(dot(N, L), 0.0f);
@@ -51,10 +58,10 @@ ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
 	float LdotH = dot(L, H);
 
 	float FL = schlick_fresnel(NdotL), FV = schlick_fresnel(NdotV);
-    const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * sc->data0/*roughness*/;
+    const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * bsdf->roughness;
 	float Fd = (1.0f * (1.0f - FL) + Fd90 * FL) * (1.0f * (1.0f - FV) + Fd90 * FV); //lerp(1.0f, Fd90, FL) * lerp(1.0f, Fd90, FV);
 
-	float3 value = M_1_PI_F * Fd * sc->color0/*baseColor*/;
+	float3 value = M_1_PI_F * Fd * bsdf->baseColor;
 
 	*pdf = M_1_PI_F * 0.5f;
 
@@ -63,22 +70,24 @@ ccl_device float3 calculate_disney_diffuse_brdf(const ShaderClosure *sc,
 	return value;
 }
 
-ccl_device int bsdf_disney_diffuse_setup(ShaderClosure *sc)
+ccl_device int bsdf_disney_diffuse_setup(DisneyDiffuseBsdf *bsdf)
 {
-	sc->type = CLOSURE_BSDF_DISNEY_DIFFUSE_ID;
+	bsdf->type = CLOSURE_BSDF_DISNEY_DIFFUSE_ID;
 	return SD_BSDF|SD_BSDF_HAS_EVAL;
 }
 
 ccl_device float3 bsdf_disney_diffuse_eval_reflect(const ShaderClosure *sc, const float3 I,
 	const float3 omega_in, float *pdf)
 {
-	float3 N = normalize(sc->N);
+	const DisneyDiffuseBsdf *bsdf = (const DisneyDiffuseBsdf *)sc;
+
+	float3 N = normalize(bsdf->N);
 	float3 V = I; // outgoing
 	float3 L = omega_in; // incoming
 	float3 H = normalize(L + V);
 
-    if (dot(sc->N, omega_in) > 0.0f) {
-        float3 value = calculate_disney_diffuse_brdf(sc, N, V, L, H, pdf);
+    if (dot(bsdf->N, omega_in) > 0.0f) {
+        float3 value = calculate_disney_diffuse_brdf(bsdf, N, V, L, H, pdf);
 
 		return value;
     }
@@ -99,14 +108,16 @@ ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc,
 	float3 *eval, float3 *omega_in, float3 *domega_in_dx,
 	float3 *domega_in_dy, float *pdf)
 {
-	float3 N = normalize(sc->N);
+	const DisneyDiffuseBsdf *bsdf = (const DisneyDiffuseBsdf *)sc;
+
+	float3 N = normalize(bsdf->N);
 
 	sample_uniform_hemisphere(N, randu, randv, omega_in, pdf);
 
 	if (dot(Ng, *omega_in) > 0) {
 		float3 H = normalize(I + *omega_in);
 
-		*eval = calculate_disney_diffuse_brdf(sc, N, I, *omega_in, H, pdf);
+		*eval = calculate_disney_diffuse_brdf(bsdf, N, I, *omega_in, H, pdf);
 
 #ifdef __RAY_DIFFERENTIALS__
 		// TODO: find a better approximation for the diffuse bounce

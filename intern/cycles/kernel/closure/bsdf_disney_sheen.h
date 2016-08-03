@@ -36,14 +36,21 @@
 
 CCL_NAMESPACE_BEGIN
 
+typedef ccl_addr_space struct DisneySheenBsdf {
+	SHADER_CLOSURE_BASE;
 
-ccl_device float3 calculate_disney_sheen_brdf(const ShaderClosure *sc,
+	float sheen, sheenTint;
+	float3 N;
+	float3 baseColor, csheen0;
+} DisneySheenBsdf;
+
+ccl_device float3 calculate_disney_sheen_brdf(const DisneySheenBsdf *bsdf,
 	float3 N, float3 V, float3 L, float3 H, float *pdf)
 {
 	float NdotL = dot(N, L);
 	float NdotV = dot(N, V);
 
-    if (NdotL < 0 || NdotV < 0 || sc->data0 == 0.0f) {
+    if (NdotL < 0 || NdotV < 0 || bsdf->sheen == 0.0f) {
         *pdf = 0.0f;
         return make_float3(0.0f, 0.0f, 0.0f);
     }
@@ -54,36 +61,38 @@ ccl_device float3 calculate_disney_sheen_brdf(const ShaderClosure *sc,
 
 	float FH = schlick_fresnel(LdotH);
 
-	float3 value = FH * sc->data0/*sheen*/ * sc->custom_color0/*csheen0*/;
+	float3 value = FH * bsdf->sheen * bsdf->csheen0;
 
 	value *= NdotL;
 
 	return value;
 }
 
-ccl_device int bsdf_disney_sheen_setup(ShaderClosure *sc)
+ccl_device int bsdf_disney_sheen_setup(DisneySheenBsdf *bsdf)
 {
-	float m_cdlum = 0.3f * sc->color0.x + 0.6f * sc->color0.y + 0.1f * sc->color0.z; // luminance approx.
+	float m_cdlum = 0.3f * bsdf->baseColor.x + 0.6f * bsdf->baseColor.y + 0.1f * bsdf->baseColor.z; // luminance approx.
 
-	float3 m_ctint = m_cdlum > 0.0f ? sc->color0 / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
+	float3 m_ctint = m_cdlum > 0.0f ? bsdf->baseColor / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 
 	/* csheen0 */
-	sc->custom_color0 = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sc->data1/*sheenTint*/) + m_ctint * sc->data1/*sheenTint*/; // lerp(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data1/*sheenTint*/);
+	bsdf->csheen0 = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - bsdf->sheenTint) + m_ctint * bsdf->sheenTint; // lerp(make_float3(1.0f, 1.0f, 1.0f), m_ctint, sc->data1/*sheenTint*/);
 
-	sc->type = CLOSURE_BSDF_DISNEY_SHEEN_ID;
+	bsdf->type = CLOSURE_BSDF_DISNEY_SHEEN_ID;
 	return SD_BSDF|SD_BSDF_HAS_EVAL;
 }
 
 ccl_device float3 bsdf_disney_sheen_eval_reflect(const ShaderClosure *sc, const float3 I,
 	const float3 omega_in, float *pdf)
 {
-	float3 N = normalize(sc->N);
+	const DisneySheenBsdf *bsdf = (const DisneySheenBsdf *)sc;
+
+	float3 N = normalize(bsdf->N);
 	float3 V = I; // outgoing
 	float3 L = omega_in; // incoming
 	float3 H = normalize(L + V);
 
-    if (dot(sc->N, omega_in) > 0.0f) {
-        float3 value = calculate_disney_sheen_brdf(sc, N, V, L, H, pdf);
+    if (dot(bsdf->N, omega_in) > 0.0f) {
+        float3 value = calculate_disney_sheen_brdf(bsdf, N, V, L, H, pdf);
 
 		return value;
     }
@@ -104,14 +113,16 @@ ccl_device int bsdf_disney_sheen_sample(const ShaderClosure *sc,
 	float3 *eval, float3 *omega_in, float3 *domega_in_dx,
 	float3 *domega_in_dy, float *pdf)
 {
-	float3 N = normalize(sc->N);
+	const DisneySheenBsdf *bsdf = (const DisneySheenBsdf *)sc;
+
+	float3 N = normalize(bsdf->N);
 
 	sample_uniform_hemisphere(N, randu, randv, omega_in, pdf);
 
 	if (dot(Ng, *omega_in) > 0) {
 		float3 H = normalize(I + *omega_in);
 
-		*eval = calculate_disney_sheen_brdf(sc, N, I, *omega_in, H, pdf);
+		*eval = calculate_disney_sheen_brdf(bsdf, N, I, *omega_in, H, pdf);
 
 #ifdef __RAY_DIFFERENTIALS__
 		// TODO: find a better approximation for the diffuse bounce

@@ -229,6 +229,11 @@ option(WITH_BULLET        "Enable Bullet (Physics Engine)" ON)
 option(WITH_SYSTEM_BULLET "Use the systems bullet library (currently unsupported due to missing features in upstream!)" )
 mark_as_advanced(WITH_SYSTEM_BULLET)
 option(WITH_GAMEENGINE    "Enable Game Engine" ${_init_GAMEENGINE})
+if(APPLE)
+	set(WITH_GAMEENGINE_DECKLINK OFF)
+else()
+	option(WITH_GAMEENGINE_DECKLINK "Support BlackMagicDesign DeckLink cards in the Game Engine" ON)
+endif()
 option(WITH_PLAYER        "Build Player" OFF)
 option(WITH_OPENCOLORIO   "Enable OpenColorIO color management" ${_init_OPENCOLORIO})
 
@@ -273,6 +278,7 @@ endif()
 if(WITH_X11)
 	option(WITH_X11_XINPUT    "Enable X11 Xinput (tablet support and unicode input)"  ON)
 	option(WITH_X11_XF86VMODE "Enable X11 video mode switching"                       ON)
+	option(WITH_X11_ALPHA     "Enable X11 transparent background"                     ON)
 endif()
 
 if(UNIX AND NOT APPLE)
@@ -723,6 +729,7 @@ if(WITH_GHOST_SDL OR WITH_HEADLESS)
 	set(WITH_X11           OFF)
 	set(WITH_X11_XINPUT    OFF)
 	set(WITH_X11_XF86VMODE OFF)
+	set(WITH_X11_ALPHA     OFF)
 	set(WITH_GHOST_XDND    OFF)
 	set(WITH_INPUT_IME     OFF)
 endif()
@@ -859,6 +866,16 @@ if(WITH_X11)
 			list(APPEND PLATFORM_LINKLIBS ${X11_Xxf86vmode_LIB})
 		else()
 			set(WITH_X11_XF86VMODE OFF)
+		endif()
+	endif()
+
+	if(WITH_X11_ALPHA)
+		find_library(X11_Xrender_LIB Xrender  ${X11_LIB_SEARCH_PATH})
+		mark_as_advanced(X11_Xrender_LIB)
+		if (X11_Xrender_LIB)
+			list(APPEND PLATFORM_LINKLIBS ${X11_Xrender_LIB})
+		else()
+			set(WITH_X11_ALPHA OFF)
 		endif()
 	endif()
 
@@ -1266,11 +1283,21 @@ elseif(WIN32)
 
 	if(MSVC)
 		# Minimum MSVC Version
-		set(_min_ver "18.0.31101")
-		if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${_min_ver})
-			message(FATAL_ERROR
-			        "Visual Studio 2013 (Update 4, ${_min_ver}) required, "
-			        "found (${CMAKE_CXX_COMPILER_VERSION})")
+		if(MSVC_VERSION EQUAL 1800)
+			set(_min_ver "18.0.31101")
+			if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${_min_ver})
+				message(FATAL_ERROR
+					"Visual Studio 2013 (Update 4, ${_min_ver}) required, "
+					"found (${CMAKE_CXX_COMPILER_VERSION})")
+			endif()
+		endif()
+		if(MSVC_VERSION EQUAL 1900)
+			set(_min_ver "19.0.24210")
+			if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${_min_ver})
+				message(FATAL_ERROR
+					"Visual Studio 2015 (Update 3, ${_min_ver}) required, "
+					"found (${CMAKE_CXX_COMPILER_VERSION})")
+			endif()
 		endif()
 		unset(_min_ver)
 
@@ -1335,17 +1362,6 @@ elseif(WIN32)
 		endif()
 
 		set(PLATFORM_LINKFLAGS_DEBUG "/IGNORE:4099 /NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:libc.lib")
-
-		# Use dynamic loading for OpenMP
-		if(WITH_OPENMP)
-			if(MSVC_VERSION EQUAL 1800)
-				set(OPENMP_DLL_NAME "vcomp120")
-			else()
-				set(OPENMP_DLL_NAME "vcomp140")
-			endif()
-			set(PLATFORM_LINKFLAGS "${PLATFORM_LINKFLAGS} /DELAYLOAD:${OPENMP_DLL_NAME}.dll delayimp.lib")
-			set(PLATFORM_LINKFLAGS_DEBUG "${PLATFORM_LINKFLAGS_DEBUG} /DELAYLOAD:${OPENMP_DLL_NAME}d.dll delayimp.lib")
-		endif()
 
 		if(NOT DEFINED LIBDIR)
 
@@ -1959,7 +1975,7 @@ elseif(WIN32)
 		set(OPENAL ${LIBDIR}/openal)
 		set(OPENALDIR ${LIBDIR}/openal)
 		set(OPENAL_INCLUDE_DIR ${OPENAL}/include)
-		if(MSVC12)
+		if(MSVC)
 			set(OPENAL_LIBRARY openal32)
 		else()
 			set(OPENAL_LIBRARY wrap_oal)
@@ -3145,6 +3161,14 @@ add_subdirectory(tests)
 # CPack for generating packages
 include(build_files/cmake/packaging.cmake)
 
+#-----------------------------------------------------------------------------
+# Use dynamic loading for OpenMP
+if(WITH_BLENDER)
+	openmp_delayload(blender)
+endif(WITH_BLENDER)
+if(WITH_PLAYER)
+	openmp_delayload(blenderplayer)
+endif(WITH_PLAYER)
 
 #-----------------------------------------------------------------------------
 # Print Final Configuration
@@ -3199,6 +3223,7 @@ if(FIRST_RUN)
 
 	info_cfg_text("System Options:")
 	info_cfg_option(WITH_INSTALL_PORTABLE)
+	info_cfg_option(WITH_X11_ALPHA)
 	info_cfg_option(WITH_X11_XF86VMODE)
 	info_cfg_option(WITH_X11_XINPUT)
 	info_cfg_option(WITH_MEM_JEMALLOC)

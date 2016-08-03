@@ -178,6 +178,11 @@ EnumPropertyItem snap_uv_element_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
+EnumPropertyItem rna_enum_curve_fit_method_items[] = {
+	{CURVE_PAINT_FIT_METHOD_REFIT, "REFIT", 0, "Refit", "Incrementally re-fit the curve (high quality)"},
+	{CURVE_PAINT_FIT_METHOD_SPLIT, "SPLIT", 0, "Split", "Split the curve until the tolerance is met (fast)"},
+	{0, NULL, 0, NULL, NULL}};
+
 /* workaround for duplicate enums,
  * have each enum line as a define then conditionally set it or not
  */
@@ -841,19 +846,10 @@ static int rna_RenderSettings_save_buffers_get(PointerRNA *ptr)
 	RenderData *rd = (RenderData *)ptr->data;
 	Scene *scene = (Scene *)ptr->id.data;
 	
-	if (rd->mode & R_BORDER)
-		return 0;
-	else if (!BKE_scene_use_new_shading_nodes(scene))
+	if (!BKE_scene_use_new_shading_nodes(scene))
 		return (rd->scemode & (R_EXR_TILE_FILE | R_FULL_SAMPLE)) != 0;
 	else 
 		return (rd->scemode & R_EXR_TILE_FILE) != 0;
-}
-
-static int rna_RenderSettings_full_sample_get(PointerRNA *ptr)
-{
-	RenderData *rd = (RenderData *)ptr->data;
-
-	return (rd->scemode & R_FULL_SAMPLE) && !(rd->mode & R_BORDER);
 }
 
 static void rna_ImageFormatSettings_file_format_set(PointerRNA *ptr, int value)
@@ -2647,6 +2643,11 @@ static void rna_def_curve_paint_settings(BlenderRNA  *brna)
 	RNA_def_property_range(prop, 1, 100);
 	RNA_def_property_ui_text(prop, "Tolerance", "Allow deviation for a smoother, less precise line");
 
+	prop = RNA_def_property(srna, "fit_method", PROP_ENUM, PROP_PIXEL);
+	RNA_def_property_enum_sdna(prop, NULL, "fit_method");
+	RNA_def_property_enum_items(prop, rna_enum_curve_fit_method_items);
+	RNA_def_property_ui_text(prop, "Method", "Curve fitting method");
+
 	prop = RNA_def_property(srna, "corner_angle", PROP_FLOAT, PROP_ANGLE);
 	RNA_def_property_range(prop, 0, M_PI);
 	RNA_def_property_ui_text(prop, "Corner Angle", "Angles above this are considered corners");
@@ -4381,6 +4382,11 @@ static void rna_def_scene_game_data(BlenderRNA *brna)
 	                         "Use extra textures like normal or specular maps for GLSL rendering");
 	RNA_def_property_update(prop, NC_SCENE | NA_EDITED, "rna_Scene_glsl_update");
 
+	prop = RNA_def_property(srna, "use_glsl_environment_lighting", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", GAME_GLSL_NO_ENV_LIGHTING);
+	RNA_def_property_ui_text(prop, "GLSL Environment Lighting", "Use environment lighting for GLSL rendering");
+	RNA_def_property_update(prop, NC_SCENE | NA_EDITED, "rna_Scene_glsl_update");
+
 	prop = RNA_def_property(srna, "use_material_caching", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", GAME_NO_MATERIAL_CACHING);
 	RNA_def_property_ui_text(prop, "Use Material Caching",
@@ -5567,6 +5573,11 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", R_SSS);
 	RNA_def_property_ui_text(prop, "Subsurface Scattering", "Calculate sub-surface scattering in materials rendering");
 	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, "rna_Scene_glsl_update");
+
+	prop = RNA_def_property(srna, "use_world_space_shading", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "mode", R_USE_WS_SHADING);
+	RNA_def_property_ui_text(prop, "World Space Shading", "Use world space interpretation of lighting data for node materials");
+	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, "rna_Scene_glsl_update");
 	
 	prop = RNA_def_property(srna, "use_raytrace", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", R_RAYTRACE);
@@ -5758,7 +5769,6 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	
 	prop = RNA_def_property(srna, "use_full_sample", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "scemode", R_FULL_SAMPLE);
-	RNA_def_property_boolean_funcs(prop, "rna_RenderSettings_full_sample_get", NULL);
 	RNA_def_property_ui_text(prop, "Full Sample",
 	                         "Save for every anti-aliasing sample the entire RenderLayer results "
 	                         "(this solves anti-aliasing issues with compositing)");

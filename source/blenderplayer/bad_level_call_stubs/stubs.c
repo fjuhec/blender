@@ -246,7 +246,7 @@ bool RE_HasFakeLayer(RenderResult *res) RET_ZERO
 
 /* zbuf.c stub */
 void antialias_tagbuf(int xsize, int ysize, char *rectmove) RET_NONE
-void RE_zbuf_accumulate_vecblur(struct NodeBlurData *nbd, int xsize, int ysize, float *newrect, float *imgrect, float *vecbufrect, float *zbufrect) RET_NONE
+void RE_zbuf_accumulate_vecblur(struct NodeBlurData *nbd, int xsize, int ysize, float *newrect, const float *imgrect, float *vecbufrect, const float *zbufrect) RET_NONE
 
 /* imagetexture.c stub */
 void ibuf_sample(struct ImBuf *ibuf, float fx, float fy, float dx, float dy, float *result) RET_NONE
@@ -308,6 +308,8 @@ void WM_operator_handlers_clear(wmWindowManager *wm, struct wmOperatorType *ot) 
 void WM_autosave_init(wmWindowManager *wm) RET_NONE
 void WM_jobs_kill_all_except(struct wmWindowManager *wm, void *owner) RET_NONE
 
+void WM_lib_reload(struct Library *lib, struct bContext *C, struct ReportList *reports) RET_NONE
+
 char *WM_clipboard_text_get(bool selection, int *r_len) RET_NULL
 char *WM_clipboard_text_get_firstline(bool selection, int *r_len) RET_NULL
 void WM_clipboard_text_set(const char *buf, bool selection) RET_NONE
@@ -325,8 +327,6 @@ struct uiListType  *WM_uilisttype_find(const char *idname, bool quiet) RET_NULL
 bool                WM_uilisttype_add(struct uiListType *ult) RET_ZERO
 void                WM_uilisttype_freelink(struct uiListType *ult) RET_NONE
 void                WM_uilisttype_free(void) RET_NONE
-
-void WM_framebuffer_index_get(int index, int *r_col) RET_NONE
 
 struct wmKeyMapItem *WM_keymap_item_find_id(struct wmKeyMap *keymap, int id) RET_NULL
 int WM_enum_search_invoke(struct bContext *C, struct wmOperator *op, const struct wmEvent *event) RET_ZERO
@@ -380,7 +380,7 @@ void ED_area_tag_redraw_regiontype(struct ScrArea *sa, int regiontype) RET_NONE
 void ED_render_engine_changed(struct Main *bmain) RET_NONE
 
 void ED_file_read_bookmarks(void) RET_NONE
-void ED_file_change_dir(struct bContext *C, const bool checkdir) RET_NONE
+void ED_file_change_dir(struct bContext *C) RET_NONE
 void ED_preview_kill_jobs(struct wmWindowManager *wm, struct Main *bmain) RET_NONE
 struct FSMenu *ED_fsmenu_get(void) RET_NULL
 struct FSMenuEntry *ED_fsmenu_get_category(struct FSMenu *fsmenu, FSMenuCategory category) RET_NULL
@@ -526,10 +526,11 @@ SnapObjectContext *ED_transform_snap_object_context_create(
         struct Main *bmain, struct Scene *scene, int flag) RET_NULL
 SnapObjectContext *ED_transform_snap_object_context_create_view3d(
         struct Main *bmain, struct Scene *scene, int flag,
-        struct ARegion *ar, struct View3D *v3d) RET_NULL
+        const struct ARegion *ar, const struct View3D *v3d) RET_NULL
 void ED_transform_snap_object_context_destroy(SnapObjectContext *sctx) RET_NONE
 bool ED_transform_snap_object_project_ray_ex(
         struct SnapObjectContext *sctx,
+        const unsigned short snap_to,
         const struct SnapObjectParams *params,
         const float ray_start[3], const float ray_normal[3], float *ray_depth,
         /* return args */
@@ -712,6 +713,7 @@ int collada_export(struct Scene *sce,
 
                    int triangulate,
                    int use_object_instantiation,
+                   int use_blender_profile,
                    int sort_by_name,
                    BC_export_transformation_type export_transformation_type,
                    int open_sim) RET_ZERO
@@ -724,7 +726,7 @@ void BPY_text_free_code(struct Text *text) RET_NONE
 void BPY_id_release(struct ID *id) RET_NONE
 int BPY_context_member_get(struct bContext *C, const char *member, struct bContextDataResult *result) RET_ZERO
 void BPY_pyconstraint_target(struct bPythonConstraint *con, struct bConstraintTarget *ct) RET_NONE
-float BPY_driver_exec(struct ChannelDriver *driver, const float evaltime) RET_ZERO /* might need this one! */
+float BPY_driver_exec(PathResolvedRNA *anim_rna, struct ChannelDriver *driver, const float evaltime) RET_ZERO /* might need this one! */
 void BPY_DECREF(void *pyob_ptr) RET_NONE
 void BPY_pyconstraint_exec(struct bPythonConstraint *con, struct bConstraintOb *cob, struct ListBase *targets) RET_NONE
 void macro_wrapper(struct wmOperatorType *ot, void *userdata) RET_NONE

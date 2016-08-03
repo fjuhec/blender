@@ -136,38 +136,42 @@ ccl_device float3 subsurface_scatter_eval(ShaderData *sd, ShaderClosure *sc, flo
 }
 
 /* replace closures with a single diffuse bsdf closure after scatter step */
-ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, float3 weight, bool hit, float3 N)
+ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, ShaderClosure *sc, float3 weight, bool hit, float3 N)
 {
 	sd->flag &= ~SD_CLOSURE_FLAGS;
 	sd->randb_closure = 0.0f;
+	sd->num_closure = 0;
+	sd->num_closure_extra = 0;
 
 	if(hit) {
-		ShaderClosure *sc = &sd->closure[0];
-		sd->num_closure = 1;
+		Bssrdf *bssrdf = (Bssrdf *)sc;
+		if (bssrdf->type == CLOSURE_BSSRDF_DISNEY_ID) {
+			DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), weight);
 
-		sc->weight = weight;
-		sc->sample_weight = 1.0f;
-		sc->N = N;
-		if (sc->type == CLOSURE_BSSRDF_DISNEY_ID) {
-			sc->data0 = sc->data3;
-			sd->flag |= bsdf_disney_diffuse_setup(sc);
+			if (bsdf) {
+				bsdf->N = N;
+				bsdf->roughness = bssrdf->roughness;
+				bsdf->baseColor = bssrdf->baseColor;
+				sd->flag |= bsdf_disney_diffuse_setup(bsdf);
 
-			/* replace CLOSURE_BSDF_DISNEY_DIFFUSE_ID with this special ID so render passes
-			* can recognize it as not being a regular Disney diffuse closure */
-			sc->type = CLOSURE_BSDF_BSSRDF_DISNEY_ID;
+				/* replace CLOSURE_BSDF_DISNEY_DIFFUSE_ID with this special ID so render passes
+				* can recognize it as not being a regular Disney diffuse closure */
+				bsdf->type = CLOSURE_BSDF_BSSRDF_DISNEY_ID;
+			}
 		}
 		else {
-			sc->data0 = 0.0f;
-			sc->data1 = 0.0f;
-			sd->flag |= bsdf_diffuse_setup(sc);
+			DiffuseBsdf *bsdf = (DiffuseBsdf*)bsdf_alloc(sd, sizeof(DiffuseBsdf), weight);
 
-			/* replace CLOSURE_BSDF_DIFFUSE_ID with this special ID so render passes
-			* can recognize it as not being a regular diffuse closure */
-			sc->type = CLOSURE_BSDF_BSSRDF_ID;
+			if (bsdf) {
+				bsdf->N = N;
+				sd->flag |= bsdf_diffuse_setup(bsdf);
+
+				/* replace CLOSURE_BSDF_DIFFUSE_ID with this special ID so render passes
+				* can recognize it as not being a regular diffuse closure */
+				bsdf->type = CLOSURE_BSDF_BSSRDF_ID;
+			}
 		}
 	}
-	else
-		sd->num_closure = 0;
 }
 
 /* optionally do blurring of color and/or bump mapping, at the cost of a shader evaluation */
@@ -208,7 +212,7 @@ ccl_device void subsurface_color_bump_blur(KernelGlobals *kg,
 
 	if(bump || texture_blur > 0.0f) {
 		/* average color and normal at incoming point */
-		shader_eval_surface(kg, sd, state, 0.0f, state_flag, SHADER_CONTEXT_SSS);
+		shader_eval_surface(kg, sd, NULL, state, 0.0f, state_flag, SHADER_CONTEXT_SSS);
 		float3 in_color = shader_bssrdf_sum(sd, (bump)? N: NULL, NULL);
 
 		/* we simply divide out the average color and multiply with the average
@@ -377,7 +381,7 @@ ccl_device void subsurface_scatter_multi_setup(KernelGlobals *kg,
 	subsurface_color_bump_blur(kg, sd, state, state_flag, &weight, &N);
 
 	/* Setup diffuse BSDF. */
-	subsurface_scatter_setup_diffuse_bsdf(sd, weight, true, N);
+	subsurface_scatter_setup_diffuse_bsdf(sd, sc, weight, true, N);
 }
 
 /* subsurface scattering step, from a point on the surface to another nearby point on the same object */
@@ -467,7 +471,7 @@ ccl_device void subsurface_scatter_step(KernelGlobals *kg, ShaderData *sd, PathS
 	subsurface_color_bump_blur(kg, sd, state, state_flag, &eval, &N);
 
 	/* setup diffuse bsdf */
-	subsurface_scatter_setup_diffuse_bsdf(sd, eval, (ss_isect.num_hits > 0), N);
+	subsurface_scatter_setup_diffuse_bsdf(sd, sc, eval, (ss_isect.num_hits > 0), N);
 }
 
 CCL_NAMESPACE_END

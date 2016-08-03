@@ -63,6 +63,8 @@ if(WIN32 AND NOT UNIX)
 			COMPONENT Blenderplayer
 			DESTINATION ".")
 
+add_cc_flags_custom_test(blenderplayer)
+
 elseif(APPLE)
 	add_executable(blenderplayer ${EXETYPE} bad_level_call_stubs/stubs.c)
 	# setup Info.plist
@@ -213,6 +215,14 @@ endif()
 
 	if(WITH_INTERNATIONAL)
 		list(APPEND BLENDER_SORTED_LIBS bf_intern_locale)
+	endif()
+
+	if(WITH_GAMEENGINE_DECKLINK)
+		list(APPEND BLENDER_SORTED_LIBS bf_intern_decklink)
+	endif()
+
+	if(WIN32)
+		list(APPEND BLENDER_SORTED_LIBS bf_intern_gpudirect)
 	endif()
 
 	if(WITH_OPENSUBDIV)
