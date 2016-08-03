@@ -6307,7 +6307,7 @@ void CURVE_OT_match_texture_space(wmOperatorType *ot)
 
 /******************** Extend curve operator ********************/
 
-static void get_selected_splines(ListBase* spline_list, ListBase *nubase, int *r_number_splines, bool return_cyclic)
+static void get_selected_bezier_splines(ListBase* spline_list, ListBase *nubase, int *r_number_splines, bool return_cyclic)
 {
 	/* receives a list with all Bezier splines in a "curve" object
 	 * returns the first spline of a linked list with all the selected splines,
@@ -6322,6 +6322,9 @@ static void get_selected_splines(ListBase* spline_list, ListBase *nubase, int *r
 	{
 		handles = nu->pntsu;
 		bezt = nu->bezt;
+		if (!nu->bezt) {
+			continue;
+		}
 		while (handles--)
 		{ /* cycle through all the handles. see if any is selected */
 			if (BEZT_ISSEL_ANY(bezt) && (!(nu->flagu & CU_NURB_CYCLIC) || return_cyclic))
@@ -6467,6 +6470,10 @@ static ListBase *interpolate_all_segments(Nurb *nu)
 	 * If the cuve only has two handles, the final result is only on list
 	 * Otherwise, there is an overlap between the last element of a list and
 	 * the first of the next one */
+	if (!nu->bezt) { /* Not a Bezier curve */
+		return NULL;
+	}
+
 	int i = 0, dims = 3;
 	float *coord_array;
 	ListBase *pl = (ListBase *)MEM_callocN(sizeof(ListBase), "interpolate_all_segments1");
@@ -6502,7 +6509,12 @@ static void linear_spline_list(ListBase *nubase, ListBase *spline_list)
 	for (nu=nubase->first; nu; nu=nu->next) {
 		link = MEM_callocN(sizeof(LinkData), "linearspllist1");
 		link->data = interpolate_all_segments(nu);
-		BLI_addtail(spline_list, link);
+		if (link->data) {
+			BLI_addtail(spline_list, link);
+		}
+		else {
+			MEM_freeN(link);
+		}
 	}
 }
 
@@ -6539,15 +6551,13 @@ static void get_intersections(ListBase* il, float *p1, float *p2, ListBase *nuba
 					MEM_freeN(vi);
 				}
 			}
-			MEM_freeN(link->data);   /* commenting either does not free the memory */
-			MEM_freeN(coord_array);  /* running both gives an error, but seems to free the memory */
+			MEM_freeN(link->data);
 		}
 		BLI_freelistN(spl->data);
 		BLI_freelistN(points_list);
 		MEM_freeN(points_list);
 	}
 	BLI_freelistN(&spline_list);
-	MEM_freeN(&spline_list);
 }
 
 static int extend_curve_exec(bContext *C, wmOperator *op)
@@ -6564,16 +6574,7 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 	int n_selected_splines = 0, result = 0, a = 0;
 	float p1[3], p2[3] = {0.0, 0.0, 0.0}, p1_handle[3], bound_box[4], p1_extend[2];
 
-	for (nu = nubase->first; nu; nu = nu->next)
-	{
-		if (!(nu->type & CU_BEZIER))
-		{
-			BKE_report(op->reports, RPT_ERROR, "Only Bezier curves can be extended");
-			return OPERATOR_CANCELLED;
-		}
-	}
-
-	get_selected_splines(&spline_list, nubase, &n_selected_splines, false);
+	get_selected_bezier_splines(&spline_list, nubase, &n_selected_splines, false);
 
 	/* the user can only select one or two splines */
 	if ((n_selected_splines == 0 || n_selected_splines > 2)) {
@@ -6693,8 +6694,8 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 	}
 	BLI_freelistN(&intersections_list);
 	if(selected_endpoints) MEM_freeN(selected_endpoints);
-	//if(first_selected_endpoints) MEM_freeN(first_selected_endpoints);
-	//if(second_selected_endpoints) MEM_freeN(second_selected_endpoints);
+	if(first_selected_endpoints) MEM_freeN(first_selected_endpoints);
+	if(second_selected_endpoints) MEM_freeN(second_selected_endpoints);
 
 	if (result != 1)
 	{
@@ -6798,7 +6799,6 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 	intersections = (ListBase *)MEM_callocN(sizeof(ListBase), "splineXshape2");
 	full_coord_array = (float *)MEM_callocN(3 * ((nu->pntsu - 1 + nu->flagu) * nu->resolu + 1) * sizeof(float), "splineXshape3");
 
-
 	/* get the full coord_array for nu */
 	float *original_first_coord_array;
 	// original_first_coord_array = (float *)MEM_callocN(3 * (nu->resolu + 1) * sizeof(float), "splineXshape7");
@@ -6900,7 +6900,6 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 	BLI_listbase_sort(intersections, XShape_cmp);
 
 	MEM_freeN(full_coord_array);
-	MEM_freeN(original_first_coord_array);
 
 	for (segment = all_segments->first; segment; segment = segment->next)
 	{
@@ -6919,7 +6918,6 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 		MEM_freeN(spline->data);
 	}
 	BLI_freelistN(&shape_list);
-	MEM_freeN(&shape_list);
 
 	return intersections;
 }
@@ -7032,25 +7030,27 @@ static void chop(float *x, float *p1, float *p2, float *p3, float *p4, int res,
 				 float *r_s1, float *r_s2)
 {
 	float ratio = ratio_to_segment(x, p1, p2, p3, p4, res);
-
-	if (ratio != 0) {
-		split_segment(ratio, p1, p2, p3, p4, r_s1, r_s2);
-	}
-	else
-	{
-		r_s1 = r_s2 = NULL;
-	}
+	split_segment(ratio, p1, p2, p3, p4, r_s1, r_s2);
 }
 
 static int trim_curve_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
+	Curve *cu = obedit->data;
 	ListBase *nubase = object_editcurve_get(obedit);
-	ListBase selected_splines = {NULL};
+	ListBase selected_splines = {NULL}, high = {NULL}, low = {NULL};
 	int n_sel_splines = 0, n_sel_handles = 0;
-	Nurb *nu;
+	Nurb *nu, *next, *new_spl = NULL;
+	bool changed = 0;
 
-	get_selected_splines(&selected_splines, nubase, &n_sel_splines, true);
+	get_selected_bezier_splines(&selected_splines, nubase, &n_sel_splines, true);
+
+	nu = selected_splines.first;
+	while (nu) {
+		next = nu->next;
+		BKE_nurb_free(nu);
+		nu = next;
+	}
 
 	/* it only makes sense for one spline to be selected */
 	if (n_sel_splines == 0) {
@@ -7062,7 +7062,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	int spline_id = get_selected_spline_id(nubase);
+	int spline_id = cu->actnu;
 	nu = BLI_findlink(nubase, spline_id);
 
 	ListBase *spl_int = spline_X_shape(obedit, spline_id);
@@ -7081,8 +7081,6 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		BKE_report(op->reports, RPT_ERROR, "Something went terribly wrong! Report this bug and assign it to genio84");
 		return OPERATOR_CANCELLED;
 	}
-	ListBase *low = (ListBase *)MEM_callocN(sizeof(ListBase), "trim_exec1");;
-	ListBase *high = (ListBase *)MEM_callocN(sizeof(ListBase), "trim_exec2");;
 	XShape *xshape;
 
 	LinkData *link;
@@ -7091,17 +7089,17 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		if (xshape->order < point_id) {
 			link = (LinkData *)MEM_callocN(sizeof(LinkData), "trim_exec3");
 			link->data = xshape;
-			BLI_addtail(low, link);
+			BLI_addtail(&low, link);
 		}
 		else
 		{
 			link = (LinkData *)MEM_callocN(sizeof(LinkData), "trim_exec4");
 			link->data = xshape;
-			BLI_addtail(high, link);
+			BLI_addtail(&high, link);
 		}
 	}
 
-	int len_low = BLI_listbase_count(low), len_high = BLI_listbase_count(high);
+	int len_low = BLI_listbase_count(&low), len_high = BLI_listbase_count(&high);
 	float *s1, *s2, *s3, *s4;
 	s1 = (float *)MEM_callocN(4 * 3 * sizeof(float), "trim_exec_coord1");
 	s2 = (float *)MEM_callocN(4 * 3 * sizeof(float), "trim_exec_coord2");
@@ -7115,36 +7113,35 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			return OPERATOR_CANCELLED;
 		}
 
-		int npoints = 0;
+		int npoints = 0, high_first_order = 0, low_last_order = 0;
 		if (len_low == 0)
 		{
-			MEM_freeN(low);
 			low = high;
-			npoints = ((XShape *)((LinkData *)high->last)->data)->order - ((XShape *)((LinkData *)high->first)->data)->order + 2;
+			npoints = ((XShape *)((LinkData *)high.last)->data)->order - ((XShape *)((LinkData *)high.first)->data)->order + 2;
 		}
 		else if (len_high == 0)
 		{
-			MEM_freeN(high);
 			high = low;
-			npoints = ((XShape *)((LinkData *)low->last)->data)->order - ((XShape *)((LinkData *)low->first)->data)->order + 2;
+			npoints = ((XShape *)((LinkData *)low.last)->data)->order - ((XShape *)((LinkData *)low.first)->data)->order + 2;
 		}
 		else
 		{
-			npoints = nu->pntsu - ((XShape *)((LinkData *)high->first)->data)->order + ((XShape *)((LinkData *)low->last)->data)->order + 2;
+			npoints = nu->pntsu - ((XShape *)((LinkData *)high.first)->data)->order + ((XShape *)((LinkData *)low.last)->data)->order + 2;
 		}
 
-		int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
-		int high_first_order = ((XShape *)((LinkData *)high->first)->data)->order;
+		low_last_order = ((XShape *)((LinkData *)low.last)->data)->order;
+		high_first_order = ((XShape *)((LinkData *)high.first)->data)->order;
 
-		Nurb *new_spl = BKE_nurb_duplicate(nu);
-		// new_spl->bezt = (BezTriple *)MEM_callocN(npoints * sizeof(BezTriple), "trimexec5");
+		new_spl = BKE_nurb_duplicate(nu);
+		MEM_freeN(new_spl->bezt);
+		new_spl->bezt = (BezTriple *)MEM_callocN(npoints * sizeof(BezTriple), "trimexec5");
 		new_spl->pntsu = npoints;
 		new_spl->flagu = 0;
 		BezTriple *bezt = new_spl->bezt;
 		for (int i = 0; i < new_spl->pntsu; i++) {
 			BezTriple *old_bezt = nu->bezt;
 			/* get the correct bezier point from the original spline */
-			int a = (i + ((XShape *)((LinkData *)high->first)->data)->order ) % ( nu->pntsu );
+			int a = (i + high_first_order ) % ( nu->pntsu );
 			while ( a-- ) {
 				old_bezt++;
 			}
@@ -7154,7 +7151,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			bezt++;
 		}
 
-		chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+		chop(((XShape *)((LinkData *)low.last)->data)->intersections,
 			 (float *)&nu->bezt[low_last_order].vec[1],
 			 (float *)&nu->bezt[low_last_order].vec[2],
 			 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
@@ -7166,12 +7163,12 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		new_spl->bezt[new_spl->pntsu - 1].h2 = HD_FREE;
 		new_spl->bezt[new_spl->pntsu - 2].h1 = HD_FREE;
 		new_spl->bezt[new_spl->pntsu - 2].h2 = HD_FREE;
-		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low->last)->data)->intersections);
+		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low.last)->data)->intersections);
 		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 2].vec[2], s1 + 3);
 		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[0], s1 + 6);
 		copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[2], s2 + 3);
 
-		chop(((XShape *)((LinkData *)high->first)->data)->intersections,
+		chop(((XShape *)((LinkData *)high.first)->data)->intersections,
 			 (float *)&nu->bezt[high_first_order].vec[1],
 			 (float *)&nu->bezt[high_first_order].vec[2],
 			 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
@@ -7183,7 +7180,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		new_spl->bezt[0].h2 = HD_FREE;
 		new_spl->bezt[1].h1 = HD_FREE;
 		new_spl->bezt[1].h2 = HD_FREE;
-		copy_v3_v3(new_spl->bezt[0].vec[1], ((XShape *)((LinkData *)high->first)->data)->intersections);
+		copy_v3_v3(new_spl->bezt[0].vec[1], ((XShape *)((LinkData *)high.first)->data)->intersections);
 		copy_v3_v3(new_spl->bezt[0].vec[0], s3 + 6);
 		copy_v3_v3(new_spl->bezt[0].vec[2], s4 + 3);
 		copy_v3_v3(new_spl->bezt[1].vec[0], s4 + 6);
@@ -7191,13 +7188,14 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		BLI_addtail(nubase, new_spl);
 		BKE_nurb_handles_calc(new_spl);
 		BLI_remlink(nubase, nu);
+		changed = 1;
 	}
 	else
 	{
 		/* last endpoint selected */
 		if (len_low > 0 && len_high == 0) {
-			int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
-			Nurb *new_spl = BKE_nurb_duplicate(nu);
+			int low_last_order = ((XShape *)((LinkData *)low.last)->data)->order;
+			new_spl = BKE_nurb_duplicate(nu);
 			// new_spl->bezt = (BezTriple *)MEM_callocN((low_last_order + 1) * sizeof(BezTriple), "trimexec5");
 			new_spl->pntsu = low_last_order + 2;
 			BezTriple *bezt = new_spl->bezt;
@@ -7209,11 +7207,11 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 				bezt++;
 			}
 
-			chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+			chop(((XShape *)((LinkData *)low.last)->data)->intersections,
 				 (float *)&nu->bezt[low_last_order].vec[1],
 				 (float *)&nu->bezt[low_last_order].vec[2],
-				 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
-				 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+				 (float *)&nu->bezt[(low_last_order + 1)].vec[0],
+				 (float *)&nu->bezt[(low_last_order + 1)].vec[1],
 				 nu->resolu,
 				 s1, s2);
 
@@ -7221,18 +7219,19 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			new_spl->bezt[new_spl->pntsu - 1].h2 = HD_FREE;
 			new_spl->bezt[new_spl->pntsu - 2].h1 = HD_FREE;
 			new_spl->bezt[new_spl->pntsu - 2].h2 = HD_FREE;
-			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low->last)->data)->intersections);
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low.last)->data)->intersections);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 2].vec[2], s1 + 3);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[0], s1 + 6);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[2], s2 + 3);
 			
 			BLI_addtail(nubase, new_spl);
 			BLI_remlink(nubase, nu);
+			changed = 1;
 		}
 		/* first endpoint selected */
 		else if (len_low == 0 && len_high > 0) {
-			int high_first_order = ((XShape *)((LinkData *)high->first)->data)->order;
-			Nurb *new_spl = BKE_nurb_duplicate(nu);
+			int high_first_order = ((XShape *)((LinkData *)high.first)->data)->order;
+			new_spl = BKE_nurb_duplicate(nu);
 			// new_spl->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order -1) * sizeof(BezTriple), "trimexec5");
 			new_spl->pntsu = nu->pntsu - high_first_order;
 			BezTriple *bezt = new_spl->bezt;
@@ -7244,11 +7243,11 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 				bezt++;
 			}
 
-			chop(((XShape *)((LinkData *)high->first)->data)->intersections,
+			chop(((XShape *)((LinkData *)high.first)->data)->intersections,
 				 (float *)&nu->bezt[high_first_order].vec[1],
 				 (float *)&nu->bezt[high_first_order].vec[2],
-				 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
-				 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
+				 (float *)&nu->bezt[(high_first_order + 1)].vec[0],
+				 (float *)&nu->bezt[(high_first_order + 1)].vec[1],
 				 nu->resolu,
 				 s1, s2);
 
@@ -7256,7 +7255,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			new_spl->bezt[0].h2 = HD_FREE;
 			new_spl->bezt[1].h1 = HD_FREE;
 			new_spl->bezt[1].h2 = HD_FREE;
-			copy_v3_v3(new_spl->bezt[0].vec[1], ((XShape *)((LinkData *)high->first)->data)->intersections);
+			copy_v3_v3(new_spl->bezt[0].vec[1], ((XShape *)((LinkData *)high.first)->data)->intersections);
 			copy_v3_v3(new_spl->bezt[0].vec[0], s1 + 6);
 			copy_v3_v3(new_spl->bezt[0].vec[2], s2 + 3);
 			copy_v3_v3(new_spl->bezt[1].vec[0], s2 + 6);
@@ -7264,12 +7263,13 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BLI_addtail(nubase, new_spl);
 			BKE_nurb_handles_calc(new_spl);
 			BLI_remlink(nubase, nu);
+			changed = 1;
 		}
 		else if (len_high > 0 && len_low > 0)
 		{
-			Nurb *new_spl = BKE_nurb_duplicate(nu);
-			int low_last_order = ((XShape *)((LinkData *)low->last)->data)->order;
-			int high_first_order = ((XShape *)((LinkData *)high->first)->data)->order;
+			new_spl = BKE_nurb_duplicate(nu);
+			int low_last_order = ((XShape *)((LinkData *)low.last)->data)->order;
+			int high_first_order = ((XShape *)((LinkData *)high.first)->data)->order;
 			// new_spl->bezt = (BezTriple *)MEM_callocN((low_last_order + 1) * sizeof(BezTriple), "trimexec5");
 			new_spl->pntsu = low_last_order + 2;
 			BezTriple *bezt = new_spl->bezt;
@@ -7281,11 +7281,11 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 				bezt++;
 			}
 
-			chop(((XShape *)((LinkData *)low->last)->data)->intersections,
+			chop(((XShape *)((LinkData *)low.last)->data)->intersections,
 				 (float *)&nu->bezt[low_last_order].vec[1],
 				 (float *)&nu->bezt[low_last_order].vec[2],
-				 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
-				 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+				 (float *)&nu->bezt[(low_last_order + 1)].vec[0],
+				 (float *)&nu->bezt[(low_last_order + 1)].vec[1],
 				 nu->resolu,
 				 s1, s2);
 
@@ -7293,7 +7293,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			new_spl->bezt[new_spl->pntsu - 1].h2 = HD_FREE;
 			new_spl->bezt[new_spl->pntsu - 2].h1 = HD_FREE;
 			new_spl->bezt[new_spl->pntsu - 2].h2 = HD_FREE;
-			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low->last)->data)->intersections);
+			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[1], ((XShape *)((LinkData *)low.last)->data)->intersections);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 2].vec[2], s1 + 3);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[0], s1 + 6);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[2], s2 + 3);
@@ -7302,22 +7302,22 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BKE_nurb_handles_calc(new_spl);
 
 			Nurb *new_spl1 = BKE_nurb_duplicate(nu);
-			new_spl1->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order -1) * sizeof(BezTriple), "trimexec5");
-			new_spl1->pntsu = low_last_order + 2;
+			new_spl1->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order) * sizeof(BezTriple), "trimexec5");
+			new_spl1->pntsu = nu->pntsu - high_first_order;
 			bezt = new_spl1->bezt;
 			old_bezt = nu->bezt;
-			for (int i = 0; i < new_spl->pntsu; i++) {
+			for (int i = 0; i < new_spl1->pntsu; i++) {
 				copy_v3_v3(bezt->vec[0], old_bezt[i + high_first_order].vec[0]);
 				copy_v3_v3(bezt->vec[1], old_bezt[i + high_first_order].vec[1]);
 				copy_v3_v3(bezt->vec[2], old_bezt[i + high_first_order].vec[2]);
 				bezt++;
 			}
 
-			chop(((XShape *)((LinkData *)high->first)->data)->intersections,
+			chop(((XShape *)((LinkData *)high.first)->data)->intersections,
 				 (float *)&nu->bezt[high_first_order].vec[1],
 				 (float *)&nu->bezt[high_first_order].vec[2],
-				 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
-				 (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
+				 (float *)&nu->bezt[(high_first_order + 1)].vec[0],
+				 (float *)&nu->bezt[(high_first_order + 1)].vec[1],
 				 nu->resolu,
 				 s3, s4);
 
@@ -7325,7 +7325,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			new_spl1->bezt[0].h2 = HD_FREE;
 			new_spl1->bezt[1].h1 = HD_FREE;
 			new_spl1->bezt[1].h2 = HD_FREE;
-			copy_v3_v3(new_spl1->bezt[0].vec[1], ((XShape *)((LinkData *)high->first)->data)->intersections);
+			copy_v3_v3(new_spl1->bezt[0].vec[1], ((XShape *)((LinkData *)high.first)->data)->intersections);
 			copy_v3_v3(new_spl1->bezt[0].vec[0], s3 + 6);
 			copy_v3_v3(new_spl1->bezt[0].vec[2], s4 + 3);
 			copy_v3_v3(new_spl1->bezt[1].vec[0], s4 + 6);
@@ -7333,7 +7333,13 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BLI_addtail(nubase, new_spl1);
 			BKE_nurb_handles_calc(new_spl1);
 			BLI_remlink(nubase, nu);
+			changed = 1;
 		}
+	}
+
+	if (new_spl) {
+		BKE_curve_nurb_active_set(cu, new_spl);
+		BKE_curve_nurb_vert_active_set(cu, new_spl, &new_spl->bezt[new_spl->pntsu - 1]);
 	}
 
 	for (xshape = spl_int->first; xshape; xshape = xshape->next) {
@@ -7343,14 +7349,15 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	MEM_freeN(spl_int);
 
 	if (len_low > 0) {
-		BLI_freelistN(low);
-		MEM_freeN(low);
+		BLI_freelistN(&low);
 	}
 	if (len_high > 0) {
-		BLI_freelistN(high);
-		MEM_freeN(high);
+		BLI_freelistN(&high);
 	}
 
+	if (changed) {
+		BKE_nurb_free(nu);
+	}
 
 	MEM_freeN(s1);
 	MEM_freeN(s2);
@@ -7383,6 +7390,8 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 
 static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, float *r_v2)
 {
+	/* TODO: when bezt1 and bezt2 are collinear, things go wrong. Extending and the offseting exposes
+	 * 		 the problem */
 	int dims = 3;
 	float *coord_array, *vx, *vy, *helper;
 	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "get_offset_vecs1");
@@ -7472,7 +7481,7 @@ static bool reverse_offset(BezTriple *offset1, BezTriple *offset2, ListBase *nur
 {
 	ListBase il = {NULL, NULL}, nubase = {NULL, NULL};
 	int ret = 0, i = 0;
-	get_selected_splines(&nubase, nurb_base, &i, true);
+	get_selected_bezier_splines(&nubase, nurb_base, &i, true);
 	int dims = 3;
 	float *coord_array;
 	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "revertoffset2");
@@ -7804,11 +7813,9 @@ static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
 	Curve *cu = obedit->data;
-	BezTriple *bezt,  **selected_triples;
+	BezTriple *bezt;
 	ListBase first_extend = {NULL}, last_extend = {NULL};
 	LinkData *link;
-	/* at most, both endpoints can be selected for all splines */
-	selected_triples = MEM_callocN(2 * BLI_listbase_count(nubase) * sizeof(BezTriple *), "batch_extend1");
 
 	/* fill in the lists with all the selected endpoints */
 	for (nu = nubase->first; nu; nu = nu->next) {
@@ -7822,7 +7829,7 @@ static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 		bezt = &nu->bezt[nu->pntsu - 1];
 		if (BEZT_ISSEL_ANY(bezt)) { /* last endpoint */
 			BEZT_DESEL_ALL(bezt);
-			link = MEM_callocN(sizeof(Nurb *), "batch_extend2");
+			link = MEM_callocN(sizeof(Nurb *), "batch_extend3");
 			link->data = nu;
 			BLI_addtail(&last_extend, link);
 		}
@@ -7847,6 +7854,9 @@ static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 		add_bezt(nu, p2, 1, cu);
 		BKE_nurbList_handles_set(nubase, 1);
 	}
+
+	BLI_freelistN(&first_extend);
+	BLI_freelistN(&last_extend);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 	DAG_id_tag_update(obedit->data, 0);
@@ -7930,7 +7940,6 @@ static int curve_chamfer_exec(bContext *C, wmOperator *op)
 	Nurb *nu;
 	float distance = RNA_float_get(op->ptr, "distance");
 	float angle = RNA_float_get(op->ptr, "angle");
-	int aaa = RNA_enum_get(op->ptr, "type");
 
 	/* get selected spline */
 	int spline_id = get_selected_spline_id(nubase);
@@ -8210,7 +8219,7 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
 	float distance = RNA_float_get(op->ptr, "distance");
-	float angle = RNA_float_get(op->ptr, "angle");
+	float v1[3], v2[3];
 
 	/* get selected spline */
 	int spline_id = get_selected_spline_id(nubase);
@@ -8228,6 +8237,11 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 		if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
 			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer1");
 			bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer2");
+			sub_v3_v3v3(v1, bezt->vec[1], bezt->vec[0]);
+			normalize_v3(v1);
+			sub_v3_v3v3(v2, bezt->vec[1], bezt->vec[2]);
+			normalize_v3(v2);
+			float angle = angle_normalized_v3v3(v1, v2) / 2;
 			fillet_handle(bezt, bezt1, bezt2, angle, distance);
 			selected_point = i;
 			BKE_nurb_bezierPoints_add(nu, 1);
@@ -8283,5 +8297,4 @@ void CURVE_OT_curve_fillet(wmOperatorType *ot)
 	/* Properties */
 	//RNA_def_float(ot->srna, "angle", DEG2RAD(45.0f), 0.0f, DEG2RAD(90.0f), "Chamfer angle", "", 0.0f, DEG2RAD(90.0f));
 	RNA_def_float(ot->srna, "distance", 1.0f, 0.0f, OBJECT_ADD_SIZE_MAXF, "Radius", "", 0.0f, 10.0f);
-	RNA_def_float_rotation(ot->srna, "angle", 0, NULL, -FLT_MAX, FLT_MAX, "Angle", "", -M_PI * 2, M_PI * 2);
 }
