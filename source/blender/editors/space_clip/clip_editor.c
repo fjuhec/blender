@@ -679,9 +679,11 @@ void ED_space_clip_set_secondary_clip(bContext *C, bScreen *screen, SpaceClip *s
 
 /* ******** split view when changing to correspondence mode ******** */
 
-static void region_splitview_init(ScrArea *sa, ARegion *ar, SpaceClip *sc)
+static void region_splitview_init(ScrArea *sa, ARegion *ar, SpaceClip *sc, eRegionSpaceClip_Flag flag)
 {
+	/* set the region type so that clip_main_region_draw is aware of this */
 	RegionSpaceClip *rsc = ar->regiondata;
+	rsc->flag = flag;
 
 	/* XXX: Hack to make proper alignment decisions made in
 	 *      region_rect_recursive().
@@ -730,7 +732,7 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 	if (ar->regiontype != RGN_TYPE_WINDOW) {
 		return;
 	}
-	else if (ar->alignment == RGN_ALIGN_VSPLIT) {
+	else if (sc->mode != SC_MODE_CORRESPONDENCE && ar->alignment == RGN_ALIGN_VSPLIT) {
 		///* Exit split-view */
 		ScrArea *sa = CTX_wm_area(C);
 		ARegion *arn;
@@ -758,20 +760,15 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 		ScrArea *sa = CTX_wm_area(C);
 
 		ar->alignment = RGN_ALIGN_VSPLIT;
-		RegionSpaceClip *rsc = ar->regiondata;
-		rsc->flag = RSC_MAIN_CLIP;
 
-		/* set the region type to RSC_SECONDARY_CLIP so that
-		 * clip_main_region_draw is aware of this */
+		/* copy the current ar */
 		ARegion *newar = BKE_area_region_copy(sa->type, ar);
-		RegionSpaceClip *new_rsc = newar->regiondata;
-		new_rsc->flag = RSC_SECONDARY_CLIP;
 		BLI_addtail(&sa->regionbase, newar);
 
 		/* update split view */
 		if (sa->spacetype == SPACE_CLIP) {
-			region_splitview_init(sa, ar, sc);
-			region_splitview_init(sa, (ar = ar->next), sc);
+			region_splitview_init(sa, ar, sc, RSC_MAIN_CLIP);
+			region_splitview_init(sa, (ar = ar->next), sc, RSC_SECONDARY_CLIP);
 		}
 		ED_area_tag_redraw(sa);
 		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
