@@ -63,6 +63,7 @@
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
+#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_material.h"
@@ -77,7 +78,6 @@
 #include "BKE_subsurf.h"
 #include "BKE_unit.h"
 #include "BKE_tracking.h"
-#include "BKE_utildefines.h"
 
 #include "BKE_editmesh.h"
 

@@ -70,6 +70,7 @@
 #include "BKE_image.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
+#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mball.h"
@@ -82,7 +83,6 @@
 #include "BKE_modifier.h"
 #include "BKE_editmesh.h"
 #include "BKE_report.h"
-#include "BKE_utildefines.h"
 
 #include "ED_armature.h"
 #include "ED_curve.h"

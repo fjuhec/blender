@@ -126,6 +126,7 @@
 #include "BKE_library.h" // for which_libbase
 #include "BKE_library_idmap.h"
 #include "BKE_library_query.h"
+#include "BKE_localview.h"
 #include "BKE_idcode.h"
 #include "BKE_material.h"
 #include "BKE_main.h" // for Main
@@ -145,7 +146,6 @@
 #include "BKE_outliner_treehash.h"
 #include "BKE_sound.h"
 #include "BKE_colortools.h"
-#include "BKE_utildefines.h"
 
 #include "NOD_common.h"
 #include "NOD_socket.h"

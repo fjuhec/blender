@@ -66,6 +66,7 @@
 #include "BKE_bmfont.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_node.h"
@@ -74,7 +75,6 @@
 #ifdef WITH_GAMEENGINE
 #  include "BKE_object.h"
 #endif
-#include "BKE_utildefines.h"
 
 #include "GPU_basic_shader.h"
 #include "GPU_buffers.h"

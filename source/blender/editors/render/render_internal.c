@@ -58,6 +58,7 @@
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_library.h"
+#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
@@ -65,7 +66,6 @@
 #include "BKE_sequencer.h"
 #include "BKE_screen.h"
 #include "BKE_scene.h"
-#include "BKE_utildefines.h"
 
 #include "WM_api.h"
 #include "WM_types.h"

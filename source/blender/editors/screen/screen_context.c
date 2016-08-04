@@ -47,9 +47,9 @@
 #include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_gpencil.h"
+#include "BKE_localview.h"
 #include "BKE_screen.h"
 #include "BKE_sequencer.h"
-#include "BKE_utildefines.h"
 
 #include "RNA_access.h"
 

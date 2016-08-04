@@ -46,11 +46,11 @@
 #include "BKE_depsgraph.h"
 #include "BKE_icons.h"
 #include "BKE_library.h"
+#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
-#include "BKE_utildefines.h"
 
 #include "ED_space_api.h"
 #include "ED_screen.h"

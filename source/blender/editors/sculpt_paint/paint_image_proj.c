@@ -70,6 +70,7 @@
 #include "BKE_brush.h"
 #include "BKE_image.h"
 #include "BKE_library.h"
+#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
@@ -79,7 +80,6 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_texture.h"
-#include "BKE_utildefines.h"
 
 #include "UI_interface.h"
 

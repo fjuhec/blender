@@ -247,6 +247,7 @@ set(SRC
 	BKE_library_query.h
 	BKE_library_remap.h
 	BKE_linestyle.h
+	BKE_localview.h
 	BKE_main.h
 	BKE_mask.h
 	BKE_material.h

@@ -63,12 +63,12 @@
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_library.h"
+#include "BKE_localview.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_tracking.h"
-#include "BKE_utildefines.h"
 
 #include "UI_interface.h"
 

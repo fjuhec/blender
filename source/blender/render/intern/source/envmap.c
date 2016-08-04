@@ -51,9 +51,9 @@
 
 #include "BKE_main.h"
 #include "BKE_image.h"   /* BKE_imbuf_write */
+#include "BKE_localview.h"
 #include "BKE_texture.h"
 #include "BKE_scene.h"
-#include "BKE_utildefines.h"
 
 /* this module */
 #include "render_types.h"

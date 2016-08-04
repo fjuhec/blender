@@ -72,6 +72,7 @@
 #include "BKE_key.h"
 #include "BKE_image.h"
 #include "BKE_lattice.h"
+#include "BKE_localview.h"
 #include "BKE_material.h"
 #include "BKE_main.h"
 #include "BKE_mball.h"
@@ -81,7 +82,6 @@
 #include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_scene.h"
-#include "BKE_utildefines.h"
 
 #include "PIL_time.h"
 
