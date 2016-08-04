@@ -678,6 +678,13 @@ void ED_space_clip_set_secondary_clip(bContext *C, bScreen *screen, SpaceClip *s
 }
 
 /* ******** split view when changing to correspondence mode ******** */
+
+static void region_splitview_init(ScrArea *sa, ARegion *ar, SpaceClip *sc)
+{
+	RegionSpaceClip *rsc = ar->regiondata;
+
+}
+
 void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 {
 	/* search forward and backward to find the drawing region */
@@ -714,36 +721,6 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 		/* keep current region */
 		ar->alignment = 0;
 
-		if (sa->spacetype == SPACE_CLIP) {
-			ARegion *ar_iter;
-			RegionSpaceClip *rsc = ar->regiondata;
-
-			///* if this is a locked view, use settings from 'User' view */
-			//if (rv3d->viewlock) {
-			//	View3D *v3d_user;
-			//	ARegion *ar_user;
-
-			//	if (ED_view3d_context_user_region(C, &v3d_user, &ar_user)) {
-			//		if (ar != ar_user) {
-			//			SWAP(void *, ar->regiondata, ar_user->regiondata);
-			//			rv3d = ar->regiondata;
-			//		}
-			//	}
-			//}
-
-			//rv3d->viewlock_quad = RV3D_VIEWLOCK_INIT;
-			//rv3d->viewlock = 0;
-			//rv3d->rflag &= ~RV3D_CLIPPING;
-
-			///* accumulate locks, incase they're mixed */
-			//for (ar_iter = sa->regionbase.first; ar_iter; ar_iter = ar_iter->next) {
-			//	if (ar_iter->regiontype == RGN_TYPE_WINDOW) {
-			//		RegionView3D *rv3d_iter = ar_iter->regiondata;
-			//		rv3d->viewlock_quad |= rv3d_iter->viewlock;
-			//	}
-			//}
-		}
-
 		for (ar = sa->regionbase.first; ar; ar = arn) {
 			arn = ar->next;
 			if (ar->alignment == RGN_ALIGN_VSPLIT) {
@@ -768,24 +745,10 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 		ARegion *newar = BKE_area_region_copy(sa->type, ar);
 		BLI_addtail(&sa->regionbase, newar);
 
-		/* lock views and set them */
+		/* update split view */
 		if (sa->spacetype == SPACE_CLIP) {
-			SpaceClip *sc = sa->spacedata.first;
-			int index_qsplit = 0;
-
-			/* run ED_view3d_lock() so the correct 'rv3d->viewquat' is set,
-			 * otherwise when restoring rv3d->localvd the 'viewquat' won't
-			 * match the 'view', set on entering localview See: [#26315],
-			 *
-			 * We could avoid manipulating rv3d->localvd here if exiting
-			 * localview with a 4-split would assign these view locks */
-			RegionSpaceClip *rsc = ar->regiondata;
-			//const char viewlock = (rv3d->viewlock_quad & RV3D_VIEWLOCK_INIT) ?
-			//                      (rv3d->viewlock_quad & ~RV3D_VIEWLOCK_INIT) : RV3D_LOCKED;
-
-			//region_quadview_init_rv3d(sa, ar,              viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
-			//region_quadview_init_rv3d(sa, (ar = ar->next), viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
-			//region_quadview_init_rv3d(sa, (ar = ar->next), viewlock, ED_view3d_lock_view_from_index(index_qsplit++), RV3D_ORTHO);
+			region_splitview_init(sa, ar, sc);
+			region_splitview_init(sa, (ar = ar->next), sc);
 		}
 		ED_area_tag_redraw(sa);
 		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
