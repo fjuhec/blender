@@ -1073,8 +1073,8 @@ static float brush_strength(
 }
 
 /* Return a multiplier for brush strength on a particular vertex. */
-float tex_strength(SculptSession *ss, Brush *br,
-                          const float point[3],
+static float tex_strength(SculptSession *ss, Brush *br,
+                          const float brush_point[3],
                           const float len,
                           const short vno[3],
                           const float fno[3],
@@ -1086,6 +1086,9 @@ float tex_strength(SculptSession *ss, Brush *br,
 	MTex *mtex = &br->mtex;
 	float avg = 1;
 	float rgba[4];
+	float point[3];
+
+	sub_v3_v3v3(point, brush_point, cache->plane_offset);
 
 	if (!mtex->tex) {
 		avg = 1;
