@@ -1413,7 +1413,7 @@ static void backdrawview3d(Scene *scene, wmWindow *win, ARegion *ar, View3D *v3d
 	
 	G.f |= G_BACKBUFSEL;
 
-	if (base && (base->lay & v3d->lay) && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+	if (base && (base->lay & v3d->lay) && BKE_localview_is_object_visible(v3d, base->object)) {
 		draw_object_backbufsel(scene, v3d, rv3d, base->object);
 	}
 
@@ -2402,7 +2402,7 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	if (scene->set) {
 		Scene *sce_iter;
 		for (SETLOOPER(scene->set, sce_iter, base)) {
-			if (v3d->lay & base->lay && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+			if (v3d->lay & base->lay && BKE_localview_is_object_visible(v3d, base->object)) {
 				draw_object(scene, ar, v3d, base, 0);
 				if (base->object->transflag & OB_DUPLI) {
 					draw_dupli_objects_color(scene, ar, v3d, base, dflag_depth, TH_UNDEFINED);
@@ -2412,7 +2412,7 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	}
 	
 	for (base = scene->base.first; base; base = base->next) {
-		if (v3d->lay & base->lay && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+		if (v3d->lay & base->lay && BKE_localview_is_object_visible(v3d, base->object)) {
 			/* dupli drawing */
 			if (base->object->transflag & OB_DUPLI) {
 				draw_dupli_objects_color(scene, ar, v3d, base, dflag_depth, TH_UNDEFINED);
@@ -2799,7 +2799,7 @@ static void view3d_draw_objects(
 		const short dflag = DRAW_CONSTCOLOR | DRAW_SCENESET;
 		Scene *sce_iter;
 		for (SETLOOPER(scene->set, sce_iter, base)) {
-			if (v3d->lay & base->lay && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+			if (v3d->lay & base->lay && BKE_localview_is_object_visible(v3d, base->object)) {
 				UI_ThemeColorBlend(TH_WIRE, TH_BACK, 0.6f);
 				draw_object(scene, ar, v3d, base, dflag);
 
@@ -2815,7 +2815,7 @@ static void view3d_draw_objects(
 
 	if (draw_offscreen) {
 		for (base = scene->base.first; base; base = base->next) {
-			if (v3d->lay & base->lay && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+			if (v3d->lay & base->lay && BKE_localview_is_object_visible(v3d, base->object)) {
 				/* dupli drawing */
 				if (base->object->transflag & OB_DUPLI)
 					draw_dupli_objects(scene, ar, v3d, base);
@@ -2831,7 +2831,7 @@ static void view3d_draw_objects(
 		for (base = scene->base.first; base; base = base->next) {
 			lay_used |= base->lay;
 
-			if (v3d->lay & base->lay && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+			if (v3d->lay & base->lay && BKE_localview_is_object_visible(v3d, base->object)) {
 				/* dupli drawing */
 				if (base->object->transflag & OB_DUPLI) {
 					draw_dupli_objects(scene, ar, v3d, base);
@@ -2848,7 +2848,7 @@ static void view3d_draw_objects(
 
 		/* draw selected and editmode */
 		for (base = scene->base.first; base; base = base->next) {
-			if (v3d->lay & base->lay && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+			if (v3d->lay & base->lay && BKE_localview_is_object_visible(v3d, base->object)) {
 				if (base->object == scene->obedit || (base->flag & SELECT)) {
 					draw_object(scene, ar, v3d, base, 0);
 				}

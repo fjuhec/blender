@@ -2193,7 +2193,7 @@ int GPU_scene_object_lights(
 
 		if (!(base->lay & lay) || !(base->lay & ob->lay))
 			continue;
-		if (localview && !BKE_LOCALVIEW_INFO_CMP(*localview, ob->localview))
+		if (localview && !BKE_localview_info_cmp(*localview, ob->localview))
 			continue;
 
 		Lamp *la = base->object->data;

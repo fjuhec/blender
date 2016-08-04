@@ -1060,7 +1060,7 @@ static void view3d_select_loop(ViewContext *vc, Scene *scene, View3D *v3d, ARegi
 
 		v3d->xray = true;  /* otherwise it postpones drawing */
 		for (base = scene->base.first; base; base = base->next) {
-			if (base->lay & v3d->lay && BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+			if (base->lay & v3d->lay && BKE_localview_is_object_visible(v3d, base->object)) {
 				if ((base->object->restrictflag & OB_RESTRICT_SELECT) ||
 				    (use_obedit_skip && (scene->obedit->data == base->object->data)))
 				{
@@ -1374,7 +1374,7 @@ static bool view3d_localview_init(
 		/* clear flags */ 
 		for (Base *base = FIRSTBASE; base; base = base->next) {
 			Object *ob = base->object;
-			if (BKE_LOCALVIEW_INFO_CMP(new_view, ob->localview)) {
+			if (BKE_localview_info_cmp(new_view, ob->localview)) {
 				ob->localview.viewbits &= ~new_view.viewbits;
 				if (ob != scene->obedit) {
 					base->flag |= SELECT;
@@ -1448,7 +1448,7 @@ static bool view3d_localview_exit(
 	view3d_localviewdata_restore(wm, win, bmain, scene, sa, smooth_viewtx);
 
 	for (Base *base = FIRSTBASE; base; base = base->next) {
-		if (BKE_LOCALVIEW_INFO_CMP(localview, base->object->localview)) {
+		if (BKE_localview_info_cmp(localview, base->object->localview)) {
 			base->object->localview.viewbits &= ~localview.viewbits;
 			if (base->object != scene->obedit) {
 				base->flag |= SELECT;

@@ -1366,7 +1366,7 @@ static int move_to_layer_exec(bContext *C, wmOperator *op)
 		/* Move object out of local view and deselect */
 		/* TODO maybe this can be done a bit nicer? */
 		if (v3d && v3d->localviewd) {
-			BKE_LOCALVIEW_OBJECT_UNASSIGN(v3d, base->object);
+			BKE_localview_object_unassign(v3d, base->object);
 			base->object->flag &= ~SELECT;
 			base->flag &= ~SELECT;
 		}

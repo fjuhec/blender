@@ -793,7 +793,7 @@ static void clean_viewport_memory(Main *bmain, Scene *scene, LocalViewInfo *loca
 	}
 
 	for (SETLOOPER(scene, sce_iter, base)) {
-		if ((base->lay & renderlay) == 0 || BKE_LOCALVIEW_INFO_CMP(*localview, base->object->localview) == 0) {
+		if ((base->lay & renderlay) == 0 || BKE_localview_info_cmp(*localview, base->object->localview) == 0) {
 			continue;
 		}
 		if (RE_allow_render_generic_object(base->object)) {

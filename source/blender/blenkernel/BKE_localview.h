@@ -23,31 +23,67 @@
 
 /** \file BKE_localview.h
  *  \ingroup bke
- *  \brief Local view utility macros
+ *  \brief Local view utility functions
  *
  * Even though it's possible to access LocalView DNA structs directly,
- * please only access using these macros (or extend it if needed).
+ * please only access using these functions (or extend it if needed).
  */
 
+#include "BLI_compiler_attrs.h"
+#include "BLI_utildefines.h"
+
+#include "DNA_object_types.h"
+#include "DNA_screen_types.h"
+#include "DNA_view3d_types.h"
+
+
+/* Forcing inline as some of these are called a lot, mostly in loops even. */
+
+BLI_INLINE bool BKE_localview_info_cmp(LocalViewInfo a, LocalViewInfo b) ATTR_WARN_UNUSED_RESULT;
+BLI_INLINE bool BKE_localview_is_object_visible(View3D *v3d, Object *ob) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+BLI_INLINE bool BKE_localview_is_valid(LocalViewInfo localview) ATTR_WARN_UNUSED_RESULT;
+
+BLI_INLINE void BKE_localview_object_assign(View3D *v3d, Object *ob) ATTR_NONNULL();
+BLI_INLINE void BKE_localview_object_unassign(View3D *v3d, Object *ob) ATTR_NONNULL();
+
+
 /* visibility checks */
-#define BKE_LOCALVIEW_INFO_CMP(a, b) \
-	((a).viewbits & (b).viewbits)
-#define BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, ob) \
-	(((v3d)->localviewd == NULL) || BKE_LOCALVIEW_INFO_CMP((v3d)->localviewd->info, (ob)->localview))
+BLI_INLINE bool BKE_localview_info_cmp(LocalViewInfo a, LocalViewInfo b)
+{
+	return (a.viewbits & b.viewbits) != 0;
+}
 
-/* Check if info defines a visible local view */
-#define BKE_LOCALVIEW_IS_VALID(info) \
-	((info).viewbits != 0)
+BLI_INLINE bool BKE_localview_is_object_visible(View3D *v3d, Object *ob)
+{
+	return (v3d->localviewd == NULL) || BKE_localview_info_cmp(v3d->localviewd->info, ob->localview);
+}
 
-/* Adjust local view info of ob to be visible if v3d is in local view */
-#define BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob) \
-	if ((v3d)->localviewd) { \
-		(ob)->localview.viewbits |= (v3d)->localviewd->info.viewbits; \
-	} (void)0
-/* Remove object from local view */
-#define BKE_LOCALVIEW_OBJECT_UNASSIGN(v3d, ob) \
-	if ((v3d)->localviewd) { \
-		(ob)->localview.viewbits &= ~(v3d)->localviewd->info.viewbits; \
-	} (void)0
+/**
+ * Check if \a localview defines a visible local view.
+ */
+BLI_INLINE bool BKE_localview_is_valid(LocalViewInfo localview)
+{
+	return localview.viewbits != 0;
+}
+
+/**
+ * Adjust local view info of \a ob to be visible if \a v3d is in local view
+ */
+BLI_INLINE void BKE_localview_object_assign(View3D *v3d, Object *ob)
+{
+	if (v3d->localviewd) { \
+		ob->localview.viewbits |= v3d->localviewd->info.viewbits;
+	}
+}
+
+/**
+ * Remove \a from local view of \a v3d.
+ */
+BLI_INLINE void BKE_localview_object_unassign(View3D *v3d, Object *ob)
+{
+	if (v3d->localviewd) {
+		ob->localview.viewbits &= ~v3d->localviewd->info.viewbits;
+	}
+}
 
 #endif // __BKE_LOCALVIEW_H__

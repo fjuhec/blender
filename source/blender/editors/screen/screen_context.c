@@ -119,8 +119,8 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 
 /* helper to check if base is visible considering layer and local view */
 #define LAYER_AND_LOCALVIEW_CHECK(localviews, base, lay) \
-	(BKE_LOCALVIEW_IS_VALID(localviews) ? \
-	     BKE_LOCALVIEW_INFO_CMP(localviews, base->object->localview) : (base->lay & lay))
+	(BKE_localview_is_valid(localviews) ? \
+	     BKE_localview_info_cmp(localviews, base->object->localview) : (base->lay & lay))
 
 	if (CTX_data_dir(member)) {
 		CTX_data_dir_set(result, screen_context_dir);

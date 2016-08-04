@@ -5177,7 +5177,7 @@ void *paint_proj_new_stroke(bContext *C, Object *ob, const float mouse[2], int m
 
 		if ((ps->ob == NULL) ||
 		    !(ps->ob->lay & ps->v3d->lay) ||
-		    !BKE_LOCALVIEW_IS_OBJECT_VISIBLE(ps->v3d, ps->ob))
+		    !BKE_localview_is_object_visible(ps->v3d, ps->ob))
 		{
 			ps_handle->ps_views_tot = i + 1;
 			goto fail;

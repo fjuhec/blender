@@ -9739,8 +9739,8 @@ static void give_base_to_objects(Main *mainvar, Scene *scene, View3D *v3d, Libra
 				/* Add to localview (only if FILE_ACTIVELAY, this is how it was
 				 * done when local view was using Object.lay bitfield) */
 				if (v3d && (flag & FILE_ACTIVELAY)) {
-					/* macro checks if v3d is in local view */
-					BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob);
+					/* function checks if v3d is in local view */
+					BKE_localview_object_assign(v3d, ob);
 				}
 
 				base->lay = ob->lay;
@@ -9776,8 +9776,8 @@ static void give_base_to_groups(
 			ob->type = OB_EMPTY;
 			ob->lay = active_lay;
 			if (v3d) {
-				/* Add to localview (macro checks if v3d is in local view) */
-				BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob);
+				/* Add to localview (function checks if v3d is in local view) */
+				BKE_localview_object_assign(v3d, ob);
 			}
 
 			/* assign the base */
@@ -9879,8 +9879,8 @@ static void link_object_postprocess(ID *id, Scene *scene, View3D *v3d, const sho
 			/* Add to localview (only if FILE_ACTIVELAY, this is how it was
 			 * done when local view was using Object.lay bitfield) */
 			if (v3d) {
-				/* macro checks if v3d is in local view */
-				BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob);
+				/* function checks if v3d is in local view */
+				BKE_localview_object_assign(v3d, ob);
 			}
 		}
 

@@ -5010,7 +5010,7 @@ static void database_init_objects(Render *re, int nolamps, int onlyselected, Obj
 	}
 
 	for (SETLOOPER(re->scene, sce_iter, base)) {
-		const bool localview_check = !re->localview || BKE_LOCALVIEW_INFO_CMP(base->object->localview, *re->localview);
+		const bool localview_check = !re->localview || BKE_localview_info_cmp(base->object->localview, *re->localview);
 		ob= base->object;
 
 		/* in the prev/next pass for making speed vectors, avoid creating

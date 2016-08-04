@@ -554,7 +554,7 @@ void make_envmaps(Render *re)
 				if (tex->env && tex->env->object) {
 					EnvMap *env = tex->env;
 					
-					if (env->object->lay & re->lay && BKE_LOCALVIEW_INFO_CMP(env->object->localview, *re->localview)) {
+					if (env->object->lay & re->lay && BKE_localview_info_cmp(env->object->localview, *re->localview)) {
 						if (env->stype == ENV_LOAD) {
 							float orthmat[4][4], mat[4][4], tmat[4][4];
 							

@@ -419,7 +419,7 @@ Object *ED_object_add_type(
 
 	/* Add to local view if needed */
 	if (v3d) {
-		BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob);
+		BKE_localview_object_assign(v3d, ob);
 	}
 
 	/* more editor stuff */
@@ -2275,8 +2275,8 @@ static int add_named_exec(bContext *C, wmOperator *op)
 	basen->lay = basen->object->lay = BKE_screen_view3d_layer_active(v3d, scene);
 	basen->object->restrictflag &= ~OB_RESTRICT_VIEW;
 	if (v3d) {
-		/* Add to localview (macro checks if v3d is in local view) */
-		BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, basen->object);
+		/* Add to localview (function checks if v3d is in local view) */
+		BKE_localview_object_assign(v3d, basen->object);
 	}
 
 	if (event) {

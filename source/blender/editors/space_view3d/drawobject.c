@@ -8110,7 +8110,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 		if ((ob != scene->obedit) &&
 		    (ob->parent != NULL) &&
 		    (ob->parent->lay & v3d->lay) &&
-		    (BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, ob->parent)))
+		    (BKE_localview_is_object_visible(v3d, ob->parent)))
 		{
 			setlinestyle(3);
 			glBegin(GL_LINES);

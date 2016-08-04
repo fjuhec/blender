@@ -145,7 +145,7 @@ static int object_hide_view_clear_exec(bContext *C, wmOperator *UNUSED(op))
 	/* XXX need a context loop to handle such cases */
 	for (base = FIRSTBASE; base; base = base->next) {
 		if ((base->lay & v3d->lay) &&
-		    BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object) &&
+		    BKE_localview_is_object_visible(v3d, base->object) &&
 		    (base->object->restrictflag & OB_RESTRICT_VIEW))
 		{
 			if (!(base->object->restrictflag & OB_RESTRICT_SELECT)) {
@@ -486,7 +486,7 @@ void ED_object_editmode_enter(bContext *C, int flag)
 			return;
 		}
 		else if (v3d) {
-			if ((base->lay & v3d->lay) == 0 || !BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, base->object)) {
+			if ((base->lay & v3d->lay) == 0 || !BKE_localview_is_object_visible(v3d, base->object)) {
 				return;
 			}
 		}
