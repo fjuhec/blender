@@ -683,6 +683,23 @@ static void region_splitview_init(ScrArea *sa, ARegion *ar, SpaceClip *sc)
 {
 	RegionSpaceClip *rsc = ar->regiondata;
 
+	/* XXX: Hack to make proper alignment decisions made in
+	 *      region_rect_recursive().
+	 *
+	 * This is quite bad and should ideally be addressed by the layout
+	 * management which currently check whether it is enough space to fit both
+	 * regions based on their current size.
+	 *
+	 * What we want instead happening in the layout engine is that the regions
+	 * will pr properly scaled so they all fit and use the whole available
+	 * space. Just similar to what's happening with quad split.
+	 *
+	 * However, it is a can of worms on it's own, so for now we just scale the
+	 * regions in a way that they pass fitting tests in region_rect_recursive().
+	 *
+	 * TODO(sergey): Need to check this with the interface department!
+	 */
+	ar->sizey /= 2;
 }
 
 void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
