@@ -508,7 +508,7 @@ ScrArea *BKE_screen_find_area_xy(bScreen *sc, const int spacetype, int x, int y)
 /**
  * Utility function to get the active layer to use when adding new objects.
  */
-unsigned int BKE_screen_view3d_layer_active_ex(const View3D *v3d, const Scene *scene, bool use_localvd)
+unsigned int BKE_screen_view3d_layer_active(const View3D *v3d, const Scene *scene)
 {
 	unsigned int lay;
 	if ((v3d == NULL) || (v3d->scenelock && !v3d->localviewd)) {
@@ -518,17 +518,7 @@ unsigned int BKE_screen_view3d_layer_active_ex(const View3D *v3d, const Scene *s
 		lay = v3d->layact;
 	}
 
-	if (use_localvd) {
-		if (v3d && v3d->localviewd) {
-			lay |= v3d->lay;
-		}
-	}
-
 	return lay;
-}
-unsigned int BKE_screen_view3d_layer_active(const struct View3D *v3d, const struct Scene *scene)
-{
-	return BKE_screen_view3d_layer_active_ex(v3d, scene, true);
 }
 
 /**
@@ -546,6 +536,22 @@ unsigned int BKE_screen_view3d_layer_all(const bScreen *sc)
 	}
 
 	return lay;
+}
+
+LocalViewInfo BKE_screen_view3d_localview_all(const bScreen *sc)
+{
+	LocalViewInfo views = {0};
+
+	for (ScrArea *sa = sc->areabase.first; sa; sa = sa->next) {
+		if (sa->spacetype == SPACE_VIEW3D) {
+			View3D *v3d = sa->spacedata.first;
+			if (v3d->localviewd) {
+				views.viewbits |= v3d->localviewd->info.viewbits;
+			}
+		}
+	}
+
+	return views;
 }
 
 void BKE_screen_view3d_sync(View3D *v3d, struct Scene *scene)

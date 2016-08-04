@@ -292,12 +292,10 @@ struct ScrArea *BKE_screen_find_area_from_space(struct bScreen *sc, struct Space
 struct ScrArea *BKE_screen_find_big_area(struct bScreen *sc, const int spacetype, const short min);
 struct ScrArea *BKE_screen_find_area_xy(struct bScreen *sc, const int spacetype, int x, int y);
 
-unsigned int BKE_screen_view3d_layer_active_ex(
-        const struct View3D *v3d, const struct Scene *scene, bool use_localvd) ATTR_NONNULL(2);
-unsigned int BKE_screen_view3d_layer_active(
-        const struct View3D *v3d, const struct Scene *scene) ATTR_NONNULL(2);
-
+unsigned int BKE_screen_view3d_layer_active(const struct View3D *v3d, const struct Scene *scene) ATTR_NONNULL(2);
 unsigned int BKE_screen_view3d_layer_all(const struct bScreen *sc) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+
+struct LocalViewInfo BKE_screen_view3d_localview_all(const struct bScreen *sc) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 
 void BKE_screen_view3d_sync(struct View3D *v3d, struct Scene *scene);
 void BKE_screen_view3d_scene_sync(struct bScreen *sc);

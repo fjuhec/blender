@@ -336,7 +336,7 @@ bool ED_object_add_generic_get_opts(bContext *C, wmOperator *op, const char view
 		}
 		else {
 			Scene *scene = CTX_data_scene(C);
-			*layer = BKE_screen_view3d_layer_active_ex(v3d, scene, false);
+			*layer = BKE_screen_view3d_layer_active(v3d, scene);
 			for (a = 0; a < 20; a++) {
 				layer_values[a] = (*layer & (1 << a)) != 0;
 			}
@@ -2261,6 +2261,10 @@ static int add_named_exec(bContext *C, wmOperator *op)
 
 	basen->lay = basen->object->lay = BKE_screen_view3d_layer_active(v3d, scene);
 	basen->object->restrictflag &= ~OB_RESTRICT_VIEW;
+	if (v3d) {
+		/* Add to localview (macro checks if v3d is in local view) */
+		BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, basen->object);
+	}
 
 	if (event) {
 		ARegion *ar = CTX_wm_region(C);

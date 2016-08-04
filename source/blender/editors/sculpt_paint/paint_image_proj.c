@@ -79,6 +79,7 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_texture.h"
+#include "BKE_utildefines.h"
 
 #include "UI_interface.h"
 
@@ -5174,7 +5175,10 @@ void *paint_proj_new_stroke(bContext *C, Object *ob, const float mouse[2], int m
 
 		project_state_init(C, ob, ps, mode);
 
-		if (ps->ob == NULL || !(ps->ob->lay & ps->v3d->lay)) {
+		if ((ps->ob == NULL) ||
+		    !(ps->ob->lay & ps->v3d->lay) ||
+		    !BKE_LOCALVIEW_IS_OBJECT_VISIBLE(ps->v3d, ps->ob))
+		{
 			ps_handle->ps_views_tot = i + 1;
 			goto fail;
 		}

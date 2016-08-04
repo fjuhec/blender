@@ -144,6 +144,7 @@
 #include "BKE_sequencer.h"
 #include "BKE_outliner_treehash.h"
 #include "BKE_sound.h"
+#include "BKE_utildefines.h"
 
 
 #include "NOD_common.h"
@@ -9665,6 +9666,12 @@ static void give_base_to_objects(Main *mainvar, Scene *scene, View3D *v3d, Libra
 				if (active_lay) {
 					ob->lay = active_lay;
 				}
+				/* Add to localview (only if FILE_ACTIVELAY, this is how it was
+				 * done when local view was using Object.lay bitfield) */
+				if (v3d && (flag & FILE_ACTIVELAY)) {
+					/* macro checks if v3d is in local view */
+					BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob);
+				}
 
 				base->lay = ob->lay;
 				base->object = ob;
@@ -9698,6 +9705,10 @@ static void give_base_to_groups(
 			ob = BKE_object_add_only_object(mainvar, OB_EMPTY, group->id.name + 2);
 			ob->type = OB_EMPTY;
 			ob->lay = active_lay;
+			if (v3d) {
+				/* Add to localview (macro checks if v3d is in local view) */
+				BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob);
+			}
 
 			/* assign the base */
 			base = BKE_scene_base_add(scene, ob);
@@ -9795,6 +9806,12 @@ static void link_object_postprocess(ID *id, Scene *scene, View3D *v3d, const sho
 		/* link at active layer (view3d if available in context, else scene one */
 		if (flag & FILE_ACTIVELAY) {
 			ob->lay = BKE_screen_view3d_layer_active(v3d, scene);
+			/* Add to localview (only if FILE_ACTIVELAY, this is how it was
+			 * done when local view was using Object.lay bitfield) */
+			if (v3d) {
+				/* macro checks if v3d is in local view */
+				BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob);
+			}
 		}
 
 		ob->mode = OB_MODE_OBJECT;

@@ -68,6 +68,7 @@
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_tracking.h"
+#include "BKE_utildefines.h"
 
 #include "UI_interface.h"
 
@@ -1199,6 +1200,10 @@ static void gp_layer_to_curve(bContext *C, ReportList *reports, bGPdata *gpd, bG
 	/* set the layer and select */
 	base_new->lay  = ob->lay  = base_orig ? base_orig->lay : BKE_screen_view3d_layer_active(v3d, scene);
 	base_new->flag = ob->flag = base_new->flag | SELECT;
+	if (v3d) {
+		/* Add to localview (macro checks if v3d is in local view) */
+		BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob);
+	}
 }
 
 /* --- */

@@ -65,6 +65,7 @@
 #include "BKE_sequencer.h"
 #include "BKE_screen.h"
 #include "BKE_scene.h"
+#include "BKE_utildefines.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -293,7 +294,7 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 	View3D *v3d = CTX_wm_view3d(C);
 	Main *mainp = CTX_data_main(C);
 	LocalViewInfo *localview = (v3d && v3d->localviewd) ? &v3d->localviewd->info : NULL;
-	unsigned int lay_override;
+	const unsigned int lay_override = (v3d && v3d->lay != scene->lay) ? v3d->lay : 0;
 	const bool is_animation = RNA_boolean_get(op->ptr, "animation");
 	const bool is_write_still = RNA_boolean_get(op->ptr, "write_still");
 	struct Object *camera_override = v3d ? V3D_CAMERA_LOCAL(v3d) : NULL;
@@ -307,7 +308,6 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 	}
 
 	re = RE_NewRender(scene->id.name);
-	lay_override = (v3d && v3d->lay != scene->lay) ? v3d->lay : 0;
 
 	G.is_break = false;
 	RE_test_break_cb(re, NULL, render_break);
@@ -782,7 +782,7 @@ static void screen_render_cancel(bContext *C, wmOperator *op)
 	WM_jobs_kill_type(wm, scene, WM_JOB_TYPE_RENDER);
 }
 
-static void clean_viewport_memory(Main *bmain, Scene *scene, int renderlay)
+static void clean_viewport_memory(Main *bmain, Scene *scene, LocalViewInfo *localview, int renderlay)
 {
 	Object *object;
 	Scene *sce_iter;
@@ -793,7 +793,7 @@ static void clean_viewport_memory(Main *bmain, Scene *scene, int renderlay)
 	}
 
 	for (SETLOOPER(scene, sce_iter, base)) {
-		if ((base->lay & renderlay) == 0) {
+		if ((base->lay & renderlay) == 0 || BKE_LOCALVIEW_INFO_CMP(*localview, base->object->localview) == 0) {
 			continue;
 		}
 		if (RE_allow_render_generic_object(base->object)) {
@@ -945,7 +945,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 		rj->interface_locked = true;
 
 		/* Clean memory used by viewport? */
-		clean_viewport_memory(rj->main, scene, renderlay);
+		clean_viewport_memory(rj->main, scene, &v3d->localviewd->info, renderlay);
 	}
 
 	/* setup job */

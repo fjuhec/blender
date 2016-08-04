@@ -51,6 +51,10 @@ extern "C" {
 #define BKE_LOCALVIEW_IS_OBJECT_VISIBLE(v3d, ob) \
 	(((v3d)->localviewd == NULL) || BKE_LOCALVIEW_INFO_CMP((v3d)->localviewd->info, (ob)->localview))
 
+/* Check if info defines a visible local view */
+#define BKE_LOCALVIEW_IS_VALID(info) \
+	((info).viewbits != 0)
+
 /* Adjust local view info of ob to be visible if v3d is in local view */
 #define BKE_LOCALVIEW_OBJECT_ASSIGN(v3d, ob) \
 	if ((v3d)->localviewd) { \
