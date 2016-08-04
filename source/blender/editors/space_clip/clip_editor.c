@@ -758,8 +758,14 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 		ScrArea *sa = CTX_wm_area(C);
 
 		ar->alignment = RGN_ALIGN_VSPLIT;
+		RegionSpaceClip *rsc = ar->regiondata;
+		rsc->flag = RSC_MAIN_CLIP;
 
+		/* set the region type to RSC_SECONDARY_CLIP so that
+		 * clip_main_region_draw is aware of this */
 		ARegion *newar = BKE_area_region_copy(sa->type, ar);
+		RegionSpaceClip *new_rsc = newar->regiondata;
+		new_rsc->flag = RSC_SECONDARY_CLIP;
 		BLI_addtail(&sa->regionbase, newar);
 
 		/* update split view */

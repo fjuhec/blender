@@ -1285,11 +1285,17 @@ typedef struct SpaceClip {
 	MaskSpaceInfo mask_info;
 } SpaceClip;
 
+typedef enum eRegionSpaceClip_Flag {
+	RSC_MAIN_CLIP      = (1 << 0),
+	RSC_SECONDARY_CLIP = (1 << 1),
+} eRegionSpaceClip_Flag;
+
 /* region-related settings for Clip Editor */
 typedef struct RegionSpaceClip {
 	float xof, yof;             /* user defined offset, image is centered */
 	float xlockof, ylockof;     /* user defined offset from locked position */
 	float zoom;                 /* user defined zoom level */
+	int flag;					/* region type (main clip/secondary_clip), used in correspondence mode */
 } RegionSpaceClip;
 
 /* SpaceClip->flag */

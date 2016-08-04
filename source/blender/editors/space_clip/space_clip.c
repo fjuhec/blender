@@ -306,6 +306,7 @@ static SpaceLink *clip_new(const bContext *C)
 	/* region data for main region */
 	RegionSpaceClip *rsc = MEM_callocN(sizeof(RegionSpaceClip), "region data for clip");
 	rsc->zoom = 1.0f;
+	rsc->flag = RSC_MAIN_CLIP;
 	ar->regiondata = rsc;
 
 	return (SpaceLink *) sc;
@@ -1254,7 +1255,11 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 	/* data... */
 	movieclip_main_area_set_view2d(C, ar);
 
-	clip_draw_main(C, sc, ar);
+	if (rsc->flag == RSC_MAIN_CLIP)
+		clip_draw_main(C, sc, ar);
+	else {		// rsc->flag = RSC_SECONDARY_CLIP
+		clip_draw_secondary_clip(C, sc, ar);
+	}
 
 	/* TODO(sergey): would be nice to find a way to de-duplicate all this space conversions */
 	UI_view2d_view_to_region_fl(&ar->v2d, 0.0f, 0.0f, &x, &y);
