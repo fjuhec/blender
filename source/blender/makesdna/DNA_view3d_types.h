@@ -177,7 +177,7 @@ typedef struct View3D {
 	struct ListBase bgpicbase;
 	struct BGpic *bgpic  DNA_DEPRECATED; /* deprecated, use bgpicbase, only kept for do_versions(...) */
 
-	struct View3D *localvd; /* allocated backup of its self while in localview */
+	struct View3D *localvd DNA_DEPRECATED;
 	struct LocalViewAreaData *localviewd;
 
 	char ob_centre_bone[64];		/* optional string for armature bone to define center, MAXBONENAME */
