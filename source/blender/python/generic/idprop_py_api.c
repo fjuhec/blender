@@ -98,7 +98,7 @@ static PyObject *idprop_py_from_idp_array(ID *id, IDProperty *prop)
 
 static PyObject *idprop_py_from_idp_idparray(ID *id, IDProperty *prop)
 {
-	PyObject *seq = PyList_New(prop->len), *wrap;
+	PyObject *seq = PyList_New(prop->len);
 	IDProperty *array = IDP_IDPArray(prop);
 	int i;
 
@@ -110,10 +110,13 @@ static PyObject *idprop_py_from_idp_idparray(ID *id, IDProperty *prop)
 	}
 
 	for (i = 0; i < prop->len; i++) {
-		wrap = BPy_IDGroup_WrapData(id, array++, prop);
+		PyObject *wrap = BPy_IDGroup_WrapData(id, array++, prop);
 
-		if (!wrap) /* BPy_IDGroup_MapDataToPy sets the error */
+		/* BPy_IDGroup_MapDataToPy sets the error */
+		if (UNLIKELY(wrap == NULL)) {
+			Py_DECREF(seq);
 			return NULL;
+		}
 
 		PyList_SET_ITEM(seq, i, wrap);
 	}
@@ -378,8 +381,10 @@ bool BPy_IDProperty_Map_ValidateAndCreate(PyObject *name_obj, IDProperty *group,
 	}
 	else if (PyUnicode_Check(ob)) {
 #ifdef USE_STRING_COERCE
+		Py_ssize_t value_size;
 		PyObject *value_coerce = NULL;
-		val.string.str = PyC_UnicodeAsByte(ob, &value_coerce);
+		val.string.str = PyC_UnicodeAsByteAndSize(ob, &value_size, &value_coerce);
+		val.string.len = (int)value_size + 1;
 		val.string.subtype = IDP_STRING_SUB_UTF8;
 		prop = IDP_New(IDP_STRING, &val, name);
 		Py_XDECREF(value_coerce);
@@ -657,7 +662,7 @@ static PyObject *BPy_IDGroup_MapDataToPy(IDProperty *prop)
 		}
 		case IDP_IDPARRAY:
 		{
-			PyObject *seq = PyList_New(prop->len), *wrap;
+			PyObject *seq = PyList_New(prop->len);
 			IDProperty *array = IDP_IDPArray(prop);
 			int i;
 
@@ -669,10 +674,13 @@ static PyObject *BPy_IDGroup_MapDataToPy(IDProperty *prop)
 			}
 
 			for (i = 0; i < prop->len; i++) {
-				wrap = BPy_IDGroup_MapDataToPy(array++);
+				PyObject *wrap = BPy_IDGroup_MapDataToPy(array++);
 
-				if (!wrap) /* BPy_IDGroup_MapDataToPy sets the error */
+				/* BPy_IDGroup_MapDataToPy sets the error */
+				if (UNLIKELY(wrap == NULL)) {
+					Py_DECREF(seq);
 					return NULL;
+				}
 
 				PyList_SET_ITEM(seq, i, wrap);
 			}
@@ -680,14 +688,17 @@ static PyObject *BPy_IDGroup_MapDataToPy(IDProperty *prop)
 		}
 		case IDP_GROUP:
 		{
-			PyObject *dict = PyDict_New(), *wrap;
+			PyObject *dict = _PyDict_NewPresized(prop->len);
 			IDProperty *loop;
 
 			for (loop = prop->data.group.first; loop; loop = loop->next) {
-				wrap = BPy_IDGroup_MapDataToPy(loop);
+				PyObject *wrap = BPy_IDGroup_MapDataToPy(loop);
 
-				if (!wrap) /* BPy_IDGroup_MapDataToPy sets the error */
+				/* BPy_IDGroup_MapDataToPy sets the error */
+				if (UNLIKELY(wrap == NULL)) {
+					Py_DECREF(dict);
 					return NULL;
+				}
 
 				PyDict_SetItemString(dict, loop->name, wrap);
 				Py_DECREF(wrap);

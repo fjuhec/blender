@@ -510,7 +510,7 @@ bool id_copy(Main *bmain, ID *id, ID **newid, bool test)
 			if (!test) *newid = (ID *)BKE_particlesettings_copy(bmain, (ParticleSettings *)id);
 			return true;
 		case ID_GD:
-			if (!test) *newid = (ID *)gpencil_data_duplicate(bmain, (bGPdata *)id, false);
+			if (!test) *newid = (ID *)BKE_gpencil_data_duplicate(bmain, (bGPdata *)id, false);
 			return true;
 		case ID_MC:
 			if (!test) *newid = (ID *)BKE_movieclip_copy(bmain, (MovieClip *)id);
@@ -1640,7 +1640,7 @@ void BKE_library_make_local(Main *bmain, const Library *lib, const bool untagged
 		id = lbarray[a]->first;
 
 		if (!id || !BKE_idcode_is_linkable(GS(id->name))) {
-			/* Do not explicitely make local non-linkable IDs (shapekeys, in fact), they are assumed to be handled
+			/* Do not explicitly make local non-linkable IDs (shapekeys, in fact), they are assumed to be handled
 			 * by real datablocks responsible of them. */
 			continue;
 		}
