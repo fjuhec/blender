@@ -1222,7 +1222,13 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 	/* draw entirely, view changes should be handled here */
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip;
+	if (rsc->flag == RSC_MAIN_CLIP) {
+		clip = ED_space_clip_get_clip(sc);
+	}
+	else {
+		clip = ED_space_clip_get_secondary_clip(sc);
+	}
 	float aspx, aspy, zoomx, zoomy, x, y;
 	int width, height;
 	bool show_cursor = false;
@@ -1323,6 +1329,16 @@ static void clip_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), 
 			else if (wmn->data & ND_GPENCIL_EDITMODE)
 				ED_region_tag_redraw(ar);
 			break;
+	}
+}
+
+static void clip_main_region_free(ARegion *ar)
+{
+	RegionSpaceClip *rsc = ar->regiondata;
+
+	if (rsc) {
+		MEM_freeN(rsc);
+		ar->regiondata = NULL;
 	}
 }
 
@@ -1630,6 +1646,7 @@ void ED_spacetype_clip(void)
 	art->init = clip_main_region_init;
 	art->draw = clip_main_region_draw;
 	art->listener = clip_main_region_listener;
+	art->free = clip_main_region_free;
 	art->keymapflag = ED_KEYMAP_FRAMES | ED_KEYMAP_UI | ED_KEYMAP_GPENCIL;
 
 	BLI_addhead(&st->regiontypes, art);
