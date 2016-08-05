@@ -332,8 +332,10 @@ void BKE_id_make_local_generic(Main *bmain, ID *id, const bool id_in_mainlist, c
  */
 bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 {
-	if (id->tag & LIB_TAG_INDIRECT)
+	/* We don't care whether ID is directly or indirectly linked in case we are making a whole lib local... */
+	if (!lib_local && (id->tag & LIB_TAG_INDIRECT)) {
 		return false;
+	}
 
 	switch ((ID_Type)GS(id->name)) {
 		case ID_SCE:
@@ -510,7 +512,7 @@ bool id_copy(Main *bmain, ID *id, ID **newid, bool test)
 			if (!test) *newid = (ID *)BKE_particlesettings_copy(bmain, (ParticleSettings *)id);
 			return true;
 		case ID_GD:
-			if (!test) *newid = (ID *)gpencil_data_duplicate(bmain, (bGPdata *)id, false);
+			if (!test) *newid = (ID *)BKE_gpencil_data_duplicate(bmain, (bGPdata *)id, false);
 			return true;
 		case ID_MC:
 			if (!test) *newid = (ID *)BKE_movieclip_copy(bmain, (MovieClip *)id);
@@ -1639,11 +1641,9 @@ void BKE_library_make_local(Main *bmain, const Library *lib, const bool untagged
 	for (a = set_listbasepointers(bmain, lbarray); a--; ) {
 		id = lbarray[a]->first;
 
-		if (!id || !BKE_idcode_is_linkable(GS(id->name))) {
-			/* Do not explicitly make local non-linkable IDs (shapekeys, in fact), they are assumed to be handled
-			 * by real datablocks responsible of them. */
-			continue;
-		}
+		/* Do not explicitly make local non-linkable IDs (shapekeys, in fact), they are assumed to be handled
+		 * by real datablocks responsible of them. */
+		const bool do_skip = (id && BKE_idcode_is_linkable(GS(id->name)));
 
 		for (; id; id = id_next) {
 			id->newid = NULL;
@@ -1654,7 +1654,7 @@ void BKE_library_make_local(Main *bmain, const Library *lib, const bool untagged
 			 * appending data, so any libdata already linked wont become local
 			 * (very nasty to discover all your links are lost after appending)  
 			 * */
-			if (id->tag & (LIB_TAG_EXTERN | LIB_TAG_INDIRECT | LIB_TAG_NEW) &&
+			if (!do_skip && id->tag & (LIB_TAG_EXTERN | LIB_TAG_INDIRECT | LIB_TAG_NEW) &&
 			    ((untagged_only == false) || !(id->tag & LIB_TAG_PRE_EXISTING)))
 			{
 				if (lib == NULL || id->lib == lib) {
