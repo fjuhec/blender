@@ -728,15 +728,12 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 	}
 	BLI_assert(find_draw_region == true && ar != NULL);
 
-	printf("sc mode: %d\n", sc->mode);
-	printf("alignment : %d\n", ar->alignment);
 	/* some rules related to changing between correspondence mode and other mode*/
 	if (ar->regiontype != RGN_TYPE_WINDOW) {
 		return;
 	}
 	else if (sc->mode != SC_MODE_CORRESPONDENCE && ar->alignment == RGN_ALIGN_VSPLIT) {
 		///* Exit split-view */
-        printf("exit split-view\n");
 		ScrArea *sa = CTX_wm_area(C);
 		ARegion *arn;
 
@@ -759,7 +756,6 @@ void ED_clip_update_correspondence_mode(bContext *C, SpaceClip *sc)
 		return;		// Only last region can be splitted
 	}
 	else if (sc->mode == SC_MODE_CORRESPONDENCE) {
-        printf("enter split-view\n");
 		/* Enter split-view */
 		ScrArea *sa = CTX_wm_area(C);
 
