@@ -58,6 +58,7 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_library.h"
+#include "BKE_localview.h"
 #include "BKE_deform.h"
 
 #include "WM_api.h"

@@ -49,6 +49,7 @@
 
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
+#include "BKE_localview.h"
 #include "BKE_tracking.h"
 #include "BKE_action.h"
 

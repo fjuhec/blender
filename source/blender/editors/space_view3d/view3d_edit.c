@@ -51,6 +51,7 @@
 #include "BKE_context.h"
 #include "BKE_font.h"
 #include "BKE_library.h"
+#include "BKE_localview.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
