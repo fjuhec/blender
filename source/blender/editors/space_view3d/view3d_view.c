@@ -1463,6 +1463,7 @@ static bool view3d_localview_exit(
 		BLI_assert(base->lay > 0 && base->lay == base->object->lay);
 	}
 
+	BKE_screen_view3d_sync(v3d, scene);
 	DAG_on_visible_update(bmain, false);
 
 	return true;
