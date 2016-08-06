@@ -1188,7 +1188,7 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 		ImBuf *tmpibuf = NULL;
 
 		if (clip && clip->tracking.stabilization.flag & TRACKING_2D_STABILIZATION) {
-			tmpibuf = ED_space_clip_get_stable_buffer(sc, NULL, NULL, NULL);
+			tmpibuf = ED_space_clip_get_stable_buffer(sc, ar, NULL, NULL, NULL);
 		}
 
 		if (ED_clip_view_selection(C, ar, 0)) {
@@ -1207,11 +1207,7 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 	/* data... */
 	movieclip_main_area_set_view2d(C, ar);
 
-	if (rsc->flag == RSC_MAIN_CLIP)
-		clip_draw_main(C, sc, ar);
-	else {		// rsc->flag = RSC_SECONDARY_CLIP
-		clip_draw_secondary_clip(C, sc, ar);
-	}
+	clip_draw_main(C, sc, ar);
 
 	/* TODO(sergey): would be nice to find a way to de-duplicate all this space conversions */
 	UI_view2d_view_to_region_fl(&ar->v2d, 0.0f, 0.0f, &x, &y);

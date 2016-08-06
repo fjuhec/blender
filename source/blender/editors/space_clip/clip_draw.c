@@ -325,53 +325,10 @@ static void draw_movieclip_buffer(const bContext *C, SpaceClip *sc, ARegion *ar,
 		glDisable(GL_BLEND);
 }
 
-static void draw_movieclip_secondary_buffer(const bContext *C, SpaceClip *sc, ARegion *ar, ImBuf *ibuf,
-                                            int width, int height, float zoomx, float zoomy)
-{
-	MovieClip *clip = ED_space_clip_get_secondary_clip(sc);
-	int filter = GL_LINEAR;
-	int x, y;
-
-	/* find window pixel coordinates of origin */
-	UI_view2d_view_to_region(&ar->v2d, 0.0f, 0.0f, &x, &y);
-
-	/* checkerboard for case alpha */
-	if (ibuf->planes == 32) {
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		fdrawcheckerboard(x, y, x + zoomx * ibuf->x, y + zoomy * ibuf->y);
-	}
-
-	/* non-scaled proxy shouldn't use filtering */
-	if ((clip->flag & MCLIP_USE_PROXY) == 0 ||
-	    ELEM(sc->user.render_size, MCLIP_PROXY_RENDER_SIZE_FULL, MCLIP_PROXY_RENDER_SIZE_100))
-	{
-		filter = GL_NEAREST;
-	}
-
-	/* set zoom */
-	glPixelZoom(zoomx * width / ibuf->x, zoomy * height / ibuf->y);
-
-	glaDrawImBuf_glsl_ctx(C, ibuf, x, y, filter);
-	/* reset zoom */
-	glPixelZoom(1.0f, 1.0f);
-
-
-	if (sc->flag & SC_SHOW_METADATA) {
-		rctf frame;
-		BLI_rctf_init(&frame, 0.0f, ibuf->x, 0.0f, ibuf->y);
-		ED_region_image_metadata_draw(x, y, ibuf, &frame, zoomx * width / ibuf->x, zoomy * height / ibuf->y);
-	}
-
-	if (ibuf->planes == 32)
-		glDisable(GL_BLEND);
-}
-
 static void draw_stabilization_border(SpaceClip *sc, ARegion *ar, int width, int height, float zoomx, float zoomy)
 {
 	int x, y;
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 
 	/* find window pixel coordinates of origin */
 	UI_view2d_view_to_region(&ar->v2d, 0.0f, 0.0f, &x, &y);
@@ -1728,7 +1685,7 @@ static void draw_distortion(SpaceClip *sc, ARegion *ar, MovieClip *clip,
 
 void clip_draw_main(const bContext *C, SpaceClip *sc, ARegion *ar)
 {
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	Scene *scene = CTX_data_scene(C);
 	ImBuf *ibuf = NULL;
 	int width, height;
@@ -1749,7 +1706,7 @@ void clip_draw_main(const bContext *C, SpaceClip *sc, ARegion *ar)
 		float smat[4][4], ismat[4][4];
 
 		if ((sc->flag & SC_MUTE_FOOTAGE) == 0) {
-			ibuf = ED_space_clip_get_stable_buffer(sc, sc->loc,
+			ibuf = ED_space_clip_get_stable_buffer(sc, ar, sc->loc,
 			                                       &sc->scale, &sc->angle);
 		}
 
@@ -1769,7 +1726,7 @@ void clip_draw_main(const bContext *C, SpaceClip *sc, ARegion *ar)
 		mul_m4_series(sc->unistabmat, smat, sc->stabmat, ismat);
 	}
 	else if ((sc->flag & SC_MUTE_FOOTAGE) == 0) {
-		ibuf = ED_space_clip_get_buffer(sc);
+		ibuf = ED_space_clip_get_buffer(sc, ar);
 
 		zero_v2(sc->loc);
 		sc->scale = 1.0f;
@@ -1792,75 +1749,6 @@ void clip_draw_main(const bContext *C, SpaceClip *sc, ARegion *ar)
 		draw_stabilization_border(sc, ar, width, height, zoomx, zoomy);
 		draw_tracking_tracks(sc, scene, ar, clip, width, height, zoomx, zoomy);
 		draw_distortion(sc, ar, clip, width, height, zoomx, zoomy);
-	}
-}
-
-void clip_draw_secondary_clip(const bContext *C, SpaceClip *sc, ARegion *ar)
-{
-	MovieClip *sclip = ED_space_clip_get_secondary_clip(sc);
-	Scene *scene = CTX_data_scene(C);
-	ImBuf *ibuf = NULL;
-	int width, height;
-	float zoomx, zoomy;
-
-	ED_space_clip_get_size(sc, &width, &height);
-	ED_space_clip_get_zoom(sc, ar, &zoomx, &zoomy);
-
-	/* if no clip, nothing to do */
-	if (!sclip) {
-		ED_region_grid_draw(ar, zoomx, zoomy);
-		return;
-	}
-
-	if (sc->flag & SC_SHOW_STABLE) {
-		float translation[2];
-		float aspect = sclip->tracking.camera.pixel_aspect;
-		float smat[4][4], ismat[4][4];
-
-		if ((sc->flag & SC_MUTE_FOOTAGE) == 0) {
-			ibuf = ED_space_clip_get_secondary_stable_buffer(sc, sc->loc,
-			                                                 &sc->scale, &sc->angle);
-		}
-
-		if (ibuf != NULL && width != ibuf->x)
-			mul_v2_v2fl(translation, sc->loc, (float)width / ibuf->x);
-		else
-			copy_v2_v2(translation, sc->loc);
-
-		BKE_tracking_stabilization_data_to_mat4(width, height, aspect, translation,
-		                                        sc->scale, sc->angle, sc->stabmat);
-
-		unit_m4(smat);
-		smat[0][0] = 1.0f / width;
-		smat[1][1] = 1.0f / height;
-		invert_m4_m4(ismat, smat);
-
-		mul_m4_series(sc->unistabmat, smat, sc->stabmat, ismat);
-	}
-	else if ((sc->flag & SC_MUTE_FOOTAGE) == 0) {
-		ibuf = ED_space_clip_secondary_get_buffer(sc);
-
-		zero_v2(sc->loc);
-		sc->scale = 1.0f;
-		unit_m4(sc->stabmat);
-		unit_m4(sc->unistabmat);
-	}
-
-	if (ibuf) {
-		draw_movieclip_secondary_buffer(C, sc, ar, ibuf, width, height, zoomx, zoomy);
-		IMB_freeImBuf(ibuf);
-	}
-	else if (sc->flag & SC_MUTE_FOOTAGE) {
-		draw_movieclip_muted(ar, width, height, zoomx, zoomy);
-	}
-	else {
-		ED_region_grid_draw(ar, zoomx, zoomy);
-	}
-
-	if (width && height) {
-		draw_stabilization_border(sc, ar, width, height, zoomx, zoomy);
-		draw_tracking_tracks(sc, scene, ar, sclip, width, height, zoomx, zoomy);
-		draw_distortion(sc, ar, sclip, width, height, zoomx, zoomy);
 	}
 }
 
