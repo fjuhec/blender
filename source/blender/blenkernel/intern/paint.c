@@ -770,6 +770,8 @@ void BKE_sculptsession_free(Object *ob)
       MEM_freeN(ob->sculpt->totalAlpha);
     if (ob->sculpt->totalWeight)
       MEM_freeN(ob->sculpt->totalWeight);
+    if (ob->sculpt->maxWeight)
+      MEM_freeN(ob->sculpt->maxWeight);
 
 		MEM_freeN(ss);
 

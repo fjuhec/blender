@@ -215,6 +215,7 @@ typedef struct SculptSession {
   unsigned long* totalAlpha;
   double* totalWeight;
   unsigned int *totloopsHit;
+  float *maxWeight;
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);
