@@ -181,10 +181,11 @@ typedef struct View3D {
 	struct LocalViewAreaData *localviewd;
 
 	char ob_centre_bone[64];		/* optional string for armature bone to define center, MAXBONENAME */
-	
+
+	/* Object layers - Shouldn't change while in local view (there's an assert in view3d_localview_exit) */
 	unsigned int lay;
 	int layact;
-	
+
 	/**
 	 * The drawing mode for the 3d display. Set to OB_BOUNDBOX, OB_WIRE, OB_SOLID,
 	 * OB_TEXTURE, OB_MATERIAL or OB_RENDER */

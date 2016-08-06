@@ -1262,6 +1262,9 @@ static void view3d_localview_area_data_init(LocalViewAreaData *localviewd, View3
 	localviewd->far = v3d->far;
 	localviewd->drawtype = v3d->drawtype;
 	localviewd->camera = v3d->camera;
+#ifndef NDEBUG
+	localviewd->v3d_lay = v3d->lay;
+#endif
 }
 
 static void view3d_localview_region_data_init(LocalViewRegionData *localviewd, RegionView3D *rv3d)
@@ -1444,6 +1447,7 @@ static bool view3d_localview_exit(
 	LocalViewInfo localview = v3d->localviewd->info; /* store for use after v3d local view data is reset */
 
 	BLI_assert(sa->spacetype == SPACE_VIEW3D && v3d->localviewd);
+	BLI_assert(v3d->localviewd->v3d_lay == v3d->lay);
 
 	view3d_localviewdata_restore(wm, win, bmain, scene, sa, smooth_viewtx);
 
@@ -1458,7 +1462,6 @@ static bool view3d_localview_exit(
 		/* local view used to work with object/base bitfields, check updates didn't break anything */
 		BLI_assert(base->lay > 0 && base->lay == base->object->lay);
 	}
-	BLI_assert(!v3d->scenelock || v3d->lay == scene->lay);
 
 	DAG_on_visible_update(bmain, false);
 

@@ -220,6 +220,8 @@ typedef struct LocalViewAreaData {
 	float near, far;
 	short drawtype, pad;
 	struct Object *camera;
+	/* Debug only: View3D.lay shouldn't change while in local view, store initial one for BLI_assert check */
+	unsigned int v3d_lay, pad2;
 } LocalViewAreaData;
 
 /**
