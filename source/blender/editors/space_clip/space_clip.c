@@ -1174,13 +1174,7 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 	/* draw entirely, view changes should be handled here */
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
-	MovieClip *clip;
-	if (rsc->flag == RSC_MAIN_CLIP) {
-		clip = ED_space_clip_get_clip(sc);
-	}
-	else {
-		clip = ED_space_clip_get_secondary_clip(sc);
-	}
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	float aspx, aspy, zoomx, zoomy, x, y;
 	int width, height;
 	bool show_cursor = false;
