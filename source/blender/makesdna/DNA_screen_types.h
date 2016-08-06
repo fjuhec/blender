@@ -204,7 +204,7 @@ typedef struct uiPreview {           /* some preview UI data need to be saved in
 
 /**
  * Info about the current local view state. A local view area (View3D) and objects have this.
- * By comparing them we see which objects are visible. (Use with BKE_LOCALVIEW_ macros!)
+ * By comparing them we see which objects are visible. (Use with BKE_localview_ functions!)
  */
 typedef struct LocalViewInfo {
 	unsigned int viewbits; /* 32 bits to store up to 32 views */
