@@ -1150,54 +1150,6 @@ static void movieclip_main_area_set_view2d(const bContext *C, ARegion *ar)
 	ar->v2d.cur.ymax /= h;
 }
 
-/* sets up the fields of the View2D from zoom and offset for secondary clip in correspondence mode*/
-static void movieclip_secondary_clip_set_view2d(const bContext *C, ARegion *ar)
-{
-	SpaceClip *sc = CTX_wm_space_clip(C);
-	RegionSpaceClip *rsc = (RegionSpaceClip*) ar->regiondata;
-	float x1, y1, w, h, aspx, aspy;
-	int width, height, winx, winy;
-
-	ED_space_clip_get_size(sc, &width, &height);
-	ED_space_clip_get_aspect(sc, &aspx, &aspy);
-
-	w = width * aspx;
-	h = height * aspy;
-
-	winx = BLI_rcti_size_x(&ar->winrct) + 1;
-	winy = BLI_rcti_size_y(&ar->winrct) + 1;
-
-	ar->v2d.tot.xmin = 0;
-	ar->v2d.tot.ymin = 0;
-	ar->v2d.tot.xmax = w;
-	ar->v2d.tot.ymax = h;
-
-	ar->v2d.mask.xmin = ar->v2d.mask.ymin = 0;
-	ar->v2d.mask.xmax = winx;
-	ar->v2d.mask.ymax = winy;
-
-	/* which part of the image space do we see? */
-	x1 = ar->winrct.xmin + (winx - rsc->zoom * w) / 2.0f;
-	y1 = ar->winrct.ymin + (winy - rsc->zoom * h) / 2.0f;
-
-	x1 -= rsc->zoom * rsc->xof;
-	y1 -= rsc->zoom * rsc->yof;
-
-	/* relative display right */
-	ar->v2d.cur.xmin = (ar->winrct.xmin - (float)x1) / rsc->zoom;
-	ar->v2d.cur.xmax = ar->v2d.cur.xmin + ((float)winx / rsc->zoom);
-
-	/* relative display left */
-	ar->v2d.cur.ymin = (ar->winrct.ymin - (float)y1) / rsc->zoom;
-	ar->v2d.cur.ymax = ar->v2d.cur.ymin + ((float)winy / rsc->zoom);
-
-	/* normalize 0.0..1.0 */
-	ar->v2d.cur.xmin /= w;
-	ar->v2d.cur.xmax /= w;
-	ar->v2d.cur.ymin /= h;
-	ar->v2d.cur.ymax /= h;
-}
-
 /* add handlers, stuff you only do once or on area/region changes */
 static void clip_main_region_init(wmWindowManager *wm, ARegion *ar)
 {

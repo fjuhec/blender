@@ -254,12 +254,46 @@ ImBuf *ED_space_clip_get_buffer(SpaceClip *sc)
 	return NULL;
 }
 
+ImBuf *ED_space_clip_secondary_get_buffer(SpaceClip *sc)
+{
+	if (sc->secondary_clip) {
+		ImBuf *ibuf;
+
+		ibuf = BKE_movieclip_get_postprocessed_ibuf(sc->secondary_clip, &sc->user, sc->postproc_flag);
+
+		if (ibuf && (ibuf->rect || ibuf->rect_float))
+			return ibuf;
+
+		if (ibuf)
+			IMB_freeImBuf(ibuf);
+	}
+
+	return NULL;
+}
+
 ImBuf *ED_space_clip_get_stable_buffer(SpaceClip *sc, float loc[2], float *scale, float *angle)
 {
 	if (sc->clip) {
 		ImBuf *ibuf;
 
 		ibuf = BKE_movieclip_get_stable_ibuf(sc->clip, &sc->user, loc, scale, angle, sc->postproc_flag);
+
+		if (ibuf && (ibuf->rect || ibuf->rect_float))
+			return ibuf;
+
+		if (ibuf)
+			IMB_freeImBuf(ibuf);
+	}
+
+	return NULL;
+}
+
+ImBuf *ED_space_clip_get_secondary_stable_buffer(SpaceClip *sc, float loc[2], float *scale, float *angle)
+{
+	if (sc->secondary_clip) {
+		ImBuf *ibuf;
+
+		ibuf = BKE_movieclip_get_stable_ibuf(sc->secondary_clip, &sc->user, loc, scale, angle, sc->postproc_flag);
 
 		if (ibuf && (ibuf->rect || ibuf->rect_float))
 			return ibuf;

@@ -325,6 +325,49 @@ static void draw_movieclip_buffer(const bContext *C, SpaceClip *sc, ARegion *ar,
 		glDisable(GL_BLEND);
 }
 
+static void draw_movieclip_secondary_buffer(const bContext *C, SpaceClip *sc, ARegion *ar, ImBuf *ibuf,
+                                            int width, int height, float zoomx, float zoomy)
+{
+	MovieClip *clip = ED_space_clip_get_secondary_clip(sc);
+	int filter = GL_LINEAR;
+	int x, y;
+
+	/* find window pixel coordinates of origin */
+	UI_view2d_view_to_region(&ar->v2d, 0.0f, 0.0f, &x, &y);
+
+	/* checkerboard for case alpha */
+	if (ibuf->planes == 32) {
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		fdrawcheckerboard(x, y, x + zoomx * ibuf->x, y + zoomy * ibuf->y);
+	}
+
+	/* non-scaled proxy shouldn't use filtering */
+	if ((clip->flag & MCLIP_USE_PROXY) == 0 ||
+	    ELEM(sc->user.render_size, MCLIP_PROXY_RENDER_SIZE_FULL, MCLIP_PROXY_RENDER_SIZE_100))
+	{
+		filter = GL_NEAREST;
+	}
+
+	/* set zoom */
+	glPixelZoom(zoomx * width / ibuf->x, zoomy * height / ibuf->y);
+
+	glaDrawImBuf_glsl_ctx(C, ibuf, x, y, filter);
+	/* reset zoom */
+	glPixelZoom(1.0f, 1.0f);
+
+
+	if (sc->flag & SC_SHOW_METADATA) {
+		rctf frame;
+		BLI_rctf_init(&frame, 0.0f, ibuf->x, 0.0f, ibuf->y);
+		ED_region_image_metadata_draw(x, y, ibuf, &frame, zoomx * width / ibuf->x, zoomy * height / ibuf->y);
+	}
+
+	if (ibuf->planes == 32)
+		glDisable(GL_BLEND);
+}
+
 static void draw_stabilization_border(SpaceClip *sc, ARegion *ar, int width, int height, float zoomx, float zoomy)
 {
 	int x, y;
@@ -1775,8 +1818,8 @@ void clip_draw_secondary_clip(const bContext *C, SpaceClip *sc, ARegion *ar)
 		float smat[4][4], ismat[4][4];
 
 		if ((sc->flag & SC_MUTE_FOOTAGE) == 0) {
-			ibuf = ED_space_clip_get_stable_buffer(sc, sc->loc,
-			                                       &sc->scale, &sc->angle);
+			ibuf = ED_space_clip_get_secondary_stable_buffer(sc, sc->loc,
+			                                                 &sc->scale, &sc->angle);
 		}
 
 		if (ibuf != NULL && width != ibuf->x)
@@ -1795,7 +1838,7 @@ void clip_draw_secondary_clip(const bContext *C, SpaceClip *sc, ARegion *ar)
 		mul_m4_series(sc->unistabmat, smat, sc->stabmat, ismat);
 	}
 	else if ((sc->flag & SC_MUTE_FOOTAGE) == 0) {
-		ibuf = ED_space_clip_get_buffer(sc);
+		ibuf = ED_space_clip_secondary_get_buffer(sc);
 
 		zero_v2(sc->loc);
 		sc->scale = 1.0f;
@@ -1804,7 +1847,7 @@ void clip_draw_secondary_clip(const bContext *C, SpaceClip *sc, ARegion *ar)
 	}
 
 	if (ibuf) {
-		draw_movieclip_buffer(C, sc, ar, ibuf, width, height, zoomx, zoomy);
+		draw_movieclip_secondary_buffer(C, sc, ar, ibuf, width, height, zoomx, zoomy);
 		IMB_freeImBuf(ibuf);
 	}
 	else if (sc->flag & SC_MUTE_FOOTAGE) {

@@ -62,7 +62,9 @@ void ED_space_clip_get_aspect_dimension_aware(struct SpaceClip *sc, float *aspx,
 int ED_space_clip_get_clip_frame_number(struct SpaceClip *sc);
 
 struct ImBuf *ED_space_clip_get_buffer(struct SpaceClip *sc);
+struct ImBuf *ED_space_clip_secondary_get_buffer(struct SpaceClip *sc);
 struct ImBuf *ED_space_clip_get_stable_buffer(struct SpaceClip *sc, float loc[2], float *scale, float *angle);
+struct ImBuf *ED_space_clip_get_secondary_stable_buffer(struct SpaceClip *sc, float loc[2], float *scale, float *angle);
 
 bool ED_space_clip_color_sample(struct Scene *scene, struct SpaceClip *sc, struct ARegion *ar, int mval[2], float r_col[3]);
 
