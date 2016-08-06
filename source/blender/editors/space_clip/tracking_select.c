@@ -270,8 +270,9 @@ void ed_tracking_delect_all_plane_tracks(ListBase *plane_tracks_base)
 static int mouse_select(bContext *C, float co[2], int extend)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
+	ARegion *ar = CTX_wm_region(C);
 	RegionSpaceClip *rsc = CTX_wm_region_clip(C);
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	MovieTracking *tracking = &clip->tracking;
 	ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
 	ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(tracking);
@@ -385,7 +386,7 @@ static int select_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		MovieTrackingTrack *track = tracking_marker_check_slide(C, event, NULL, NULL, NULL);
 
 		if (track) {
-			MovieClip *clip = ED_space_clip_get_clip(sc);
+			MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 
 			clip->tracking.act_track = track;
 
@@ -430,7 +431,7 @@ static int border_select_exec(bContext *C, wmOperator *op)
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	ARegion *ar = CTX_wm_region(C);
 
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	MovieTracking *tracking = &clip->tracking;
 	MovieTrackingTrack *track;
 	MovieTrackingPlaneTrack *plane_track;
@@ -540,7 +541,7 @@ static int do_lasso_select_marker(bContext *C, const int mcords[][2], const shor
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	ARegion *ar = CTX_wm_region(C);
 
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	MovieTracking *tracking = &clip->tracking;
 	MovieTrackingTrack *track;
 	MovieTrackingPlaneTrack *plane_track;
@@ -685,7 +686,7 @@ static int circle_select_exec(bContext *C, wmOperator *op)
 	SpaceClip *sc = CTX_wm_space_clip(C);
 	ARegion *ar = CTX_wm_region(C);
 
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	MovieTracking *tracking = &clip->tracking;
 	MovieTrackingTrack *track;
 	MovieTrackingPlaneTrack *plane_track;
@@ -794,7 +795,8 @@ void CLIP_OT_select_circle(wmOperatorType *ot)
 static int select_all_exec(bContext *C, wmOperator *op)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	ARegion *ar = CTX_wm_region(C);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	MovieTracking *tracking = &clip->tracking;
 	MovieTrackingTrack *track = NULL;   /* selected track */
 	MovieTrackingPlaneTrack *plane_track = NULL;   /* selected plane track */
@@ -913,7 +915,8 @@ void CLIP_OT_select_all(wmOperatorType *ot)
 static int select_groped_exec(bContext *C, wmOperator *op)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	ARegion *ar = CTX_wm_region(C);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	MovieTrackingTrack *track;
 	MovieTrackingMarker *marker;
 	MovieTracking *tracking = &clip->tracking;

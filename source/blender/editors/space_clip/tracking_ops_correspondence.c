@@ -86,7 +86,8 @@ static MovieTrackingTrack *get_single_track(SpaceClip *sc, ListBase *tracksbase)
 static int add_correspondence_exec(bContext *C, wmOperator *op)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	ARegion *ar = CTX_wm_region(C);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	MovieTracking *tracking = &clip->tracking;
 	ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
 

@@ -251,7 +251,7 @@ static void draw_movieclip_cache(SpaceClip *sc, ARegion *ar, MovieClip *clip, Sc
 
 static void draw_movieclip_notes(SpaceClip *sc, ARegion *ar)
 {
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	MovieTracking *tracking = &clip->tracking;
 	char str[256] = {0};
 	bool full_redraw = false;
@@ -285,7 +285,7 @@ static void draw_movieclip_muted(ARegion *ar, int width, int height, float zoomx
 static void draw_movieclip_buffer(const bContext *C, SpaceClip *sc, ARegion *ar, ImBuf *ibuf,
                                   int width, int height, float zoomx, float zoomy)
 {
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	int filter = GL_LINEAR;
 	int x, y;
 
@@ -1755,7 +1755,7 @@ void clip_draw_main(const bContext *C, SpaceClip *sc, ARegion *ar)
 void clip_draw_cache_and_notes(const bContext *C, SpaceClip *sc, ARegion *ar)
 {
 	Scene *scene = CTX_data_scene(C);
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 	if (clip) {
 		draw_movieclip_cache(sc, ar, clip, scene);
 		draw_movieclip_notes(sc, ar);
@@ -1766,7 +1766,8 @@ void clip_draw_cache_and_notes(const bContext *C, SpaceClip *sc, ARegion *ar)
 void clip_draw_grease_pencil(bContext *C, int onlyv2d)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
-	MovieClip *clip = ED_space_clip_get_clip(sc);
+	ARegion *ar = CTX_wm_region(C);
+	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
 
 	if (!clip)
 		return;
