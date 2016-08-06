@@ -7106,6 +7106,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	s3 = (float *)MEM_callocN(4 * 3 * sizeof(float), "trim_exec_coord3");
 	s4 = (float *)MEM_callocN(4 * 3 * sizeof(float), "trim_exec_coord4");
 
+	/* TODO: interpolate tilt, weight and radius */
 	/* cyclic spline */
 	if (nu->flagu & CU_NURB_CYCLIC) {
 		if (len_low + len_high <= 1) {
@@ -7133,9 +7134,8 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		high_first_order = ((XShape *)((LinkData *)high.first)->data)->order;
 
 		new_spl = BKE_nurb_duplicate(nu);
-		MEM_freeN(new_spl->bezt);
-		new_spl->bezt = (BezTriple *)MEM_callocN(npoints * sizeof(BezTriple), "trimexec5");
-		new_spl->pntsu = npoints;
+		new_spl->pntsu = 0;
+		BKE_nurb_bezierPoints_add(new_spl, npoints);
 		new_spl->flagu = 0;
 		BezTriple *bezt = new_spl->bezt;
 		for (int i = 0; i < new_spl->pntsu; i++) {
@@ -7145,9 +7145,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			while ( a-- ) {
 				old_bezt++;
 			}
-			copy_v3_v3(bezt->vec[0], old_bezt->vec[0]);
-			copy_v3_v3(bezt->vec[1], old_bezt->vec[1]);
-			copy_v3_v3(bezt->vec[2], old_bezt->vec[2]);
+			memcpy(bezt, old_bezt, sizeof(BezTriple));
 			bezt++;
 		}
 
@@ -7189,6 +7187,12 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		BKE_nurb_handles_calc(new_spl);
 		BLI_remlink(nubase, nu);
 		changed = 1;
+
+		BEZT_SEL_ALL(&new_spl->bezt[0]);
+		BEZT_SEL_ALL(&new_spl->bezt[new_spl->pntsu - 1]);
+
+		BKE_curve_nurb_active_set(cu, new_spl);
+		BKE_curve_nurb_vert_active_set(cu, new_spl, &new_spl->bezt[new_spl->pntsu - 1]);
 	}
 	else
 	{
@@ -7196,15 +7200,14 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		if (len_low > 0 && len_high == 0) {
 			int low_last_order = ((XShape *)((LinkData *)low.last)->data)->order;
 			new_spl = BKE_nurb_duplicate(nu);
-			// new_spl->bezt = (BezTriple *)MEM_callocN((low_last_order + 1) * sizeof(BezTriple), "trimexec5");
-			new_spl->pntsu = low_last_order + 2;
+			new_spl->pntsu = 0;
+			BKE_nurb_bezierPoints_add(new_spl, low_last_order + 2);
 			BezTriple *bezt = new_spl->bezt;
 			BezTriple *old_bezt = nu->bezt;
 			for (int i = 0; i < new_spl->pntsu; i++) {
-				copy_v3_v3(bezt->vec[0], old_bezt[i].vec[0]);
-				copy_v3_v3(bezt->vec[1], old_bezt[i].vec[1]);
-				copy_v3_v3(bezt->vec[2], old_bezt[i].vec[2]);
+				memcpy(bezt, old_bezt, sizeof(BezTriple));
 				bezt++;
+				old_bezt++;
 			}
 
 			chop(((XShape *)((LinkData *)low.last)->data)->intersections,
@@ -7227,6 +7230,11 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BLI_addtail(nubase, new_spl);
 			BLI_remlink(nubase, nu);
 			changed = 1;
+
+			BEZT_SEL_ALL(&new_spl->bezt[new_spl->pntsu - 1]);
+
+			BKE_curve_nurb_active_set(cu, new_spl);
+			BKE_curve_nurb_vert_active_set(cu, new_spl, &new_spl->bezt[new_spl->pntsu - 1]);
 		}
 		/* first endpoint selected */
 		else if (len_low == 0 && len_high > 0) {
@@ -7237,9 +7245,10 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BezTriple *bezt = new_spl->bezt;
 			BezTriple *old_bezt = nu->bezt;
 			for (int i = 0; i < new_spl->pntsu; i++) {
-				copy_v3_v3(bezt->vec[0], old_bezt[i + high_first_order].vec[0]);
-				copy_v3_v3(bezt->vec[1], old_bezt[i + high_first_order].vec[1]);
-				copy_v3_v3(bezt->vec[2], old_bezt[i + high_first_order].vec[2]);
+				memcpy(bezt, &old_bezt[i + high_first_order], sizeof(BezTriple));
+				//copy_v3_v3(bezt->vec[0], old_bezt[i + high_first_order].vec[0]);
+				//copy_v3_v3(bezt->vec[1], old_bezt[i + high_first_order].vec[1]);
+				//copy_v3_v3(bezt->vec[2], old_bezt[i + high_first_order].vec[2]);
 				bezt++;
 			}
 
@@ -7264,6 +7273,11 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BKE_nurb_handles_calc(new_spl);
 			BLI_remlink(nubase, nu);
 			changed = 1;
+
+			BEZT_SEL_ALL(&new_spl->bezt[0]);
+
+			BKE_curve_nurb_active_set(cu, new_spl);
+			BKE_curve_nurb_vert_active_set(cu, new_spl, &new_spl->bezt[0]);
 		}
 		else if (len_high > 0 && len_low > 0)
 		{
@@ -7275,9 +7289,10 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BezTriple *bezt = new_spl->bezt;
 			BezTriple *old_bezt = nu->bezt;
 			for (int i = 0; i < new_spl->pntsu; i++) {
-				copy_v3_v3(bezt->vec[0], old_bezt[i].vec[0]);
-				copy_v3_v3(bezt->vec[1], old_bezt[i].vec[1]);
-				copy_v3_v3(bezt->vec[2], old_bezt[i].vec[2]);
+				memcpy(bezt, &old_bezt[i], sizeof(BezTriple));
+				//copy_v3_v3(bezt->vec[0], old_bezt[i].vec[0]);
+				//copy_v3_v3(bezt->vec[1], old_bezt[i].vec[1]);
+				//copy_v3_v3(bezt->vec[2], old_bezt[i].vec[2]);
 				bezt++;
 			}
 
@@ -7307,9 +7322,10 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			bezt = new_spl1->bezt;
 			old_bezt = nu->bezt;
 			for (int i = 0; i < new_spl1->pntsu; i++) {
-				copy_v3_v3(bezt->vec[0], old_bezt[i + high_first_order].vec[0]);
-				copy_v3_v3(bezt->vec[1], old_bezt[i + high_first_order].vec[1]);
-				copy_v3_v3(bezt->vec[2], old_bezt[i + high_first_order].vec[2]);
+				memcpy(bezt, &old_bezt[i + high_first_order], sizeof(BezTriple));
+				//copy_v3_v3(bezt->vec[0], old_bezt[i + high_first_order].vec[0]);
+				//copy_v3_v3(bezt->vec[1], old_bezt[i + high_first_order].vec[1]);
+				//copy_v3_v3(bezt->vec[2], old_bezt[i + high_first_order].vec[2]);
 				bezt++;
 			}
 
@@ -7334,12 +7350,13 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BKE_nurb_handles_calc(new_spl1);
 			BLI_remlink(nubase, nu);
 			changed = 1;
-		}
-	}
 
-	if (new_spl) {
-		BKE_curve_nurb_active_set(cu, new_spl);
-		BKE_curve_nurb_vert_active_set(cu, new_spl, &new_spl->bezt[new_spl->pntsu - 1]);
+			BEZT_SEL_ALL(&new_spl->bezt[new_spl->pntsu - 1]);
+			BEZT_SEL_ALL(&new_spl1->bezt[0]);
+
+			BKE_curve_nurb_active_set(cu, new_spl);
+			BKE_curve_nurb_vert_active_set(cu, new_spl, &new_spl->bezt[new_spl->pntsu - 1]);
+		}
 	}
 
 	for (xshape = spl_int->first; xshape; xshape = xshape->next) {
