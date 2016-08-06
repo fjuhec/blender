@@ -341,7 +341,7 @@ static int calc_manipulator_stats(const bContext *C)
 	}
 	else if (obedit) {
 		ob = obedit;
-		if (v3d->localviewd ? !BKE_localview_is_object_visible(v3d, ob) : (ob->lay & v3d->lay) == 0)
+		if ((ob->lay & v3d->lay) == 0 || !BKE_localview_is_object_visible(v3d, ob))
 			return 0;
 
 		if (obedit->type == OB_MESH) {
@@ -526,7 +526,7 @@ static int calc_manipulator_stats(const bContext *C)
 		int mode = TFM_ROTATION; // mislead counting bones... bah. We don't know the manipulator mode, could be mixed
 		bool ok = false;
 
-		if (v3d->localviewd ? !BKE_localview_is_object_visible(v3d, ob) : (ob->lay & v3d->lay) == 0)
+		if ((ob->lay & v3d->lay) == 0 || !BKE_localview_is_object_visible(v3d, ob))
 			return 0;
 
 		if ((v3d->around == V3D_AROUND_ACTIVE) && (pchan = BKE_pose_channel_active(ob))) {
