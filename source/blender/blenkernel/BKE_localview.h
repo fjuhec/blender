@@ -71,7 +71,7 @@ BLI_INLINE bool BKE_localview_is_valid(LocalViewInfo localview)
  */
 BLI_INLINE void BKE_localview_object_assign(View3D *v3d, Object *ob)
 {
-	if (v3d->localviewd) { \
+	if (v3d->localviewd) {
 		ob->localview.viewbits |= v3d->localviewd->info.viewbits;
 	}
 }
