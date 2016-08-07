@@ -69,6 +69,7 @@
 #include "ED_util.h"
 #include "ED_view3d.h"
 #include "ED_curve.h"
+#include "ED_numinput.h"
 
 #include "curve_intern.h"
 
@@ -6765,7 +6766,7 @@ static int sel_point_id(Nurb *nu)
 	return -1; /* This line should never be reached, but well... warnings*/
 }
 
-typedef struct XShape{
+typedef struct XShape {
 	struct XShape *next, *prev;
 	float *intersections;
 	int order;
@@ -6964,8 +6965,6 @@ static float ratio_to_segment(float *x, float *p1, float *p2, float *p3, float *
 
 	return 0;
 }
-
-
 
 static void split_segment(float t, float *p1, float *p2, float *p3, float *p4,
 							   float *r_s1, float *r_s2)
@@ -7530,7 +7529,7 @@ static bool reverse_offset(BezTriple *offset1, BezTriple *offset2, ListBase *nur
 
 static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 {
-	BezTriple *bezt = nu->bezt, *new_bezt;
+	BezTriple *bezt = nu->bezt, *new_bezt, *copy_bezt = MEM_callocN(sizeof(BezTriple), __func__);
 	Nurb *new_nu = BKE_nurb_duplicate(nu);
 	new_bezt = new_nu->bezt;
 	/* offset the first handle */
@@ -7549,10 +7548,9 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 	copy_v3_v3(co, bezt->vec[2]);
 	add_v3_v3(co, v2);
 	int result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
-	if (result == 1) {
+	if (result != 0) {
 		copy_v3_v3(new_bezt->vec[2], v1);
 	}
-
 
 	/* offset all the handles between the first and the last */
 	bezt++;
@@ -7569,7 +7567,9 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 		get_handles_offset_vec(bezt[0].vec[1], bezt[0].vec[2], bezt[1].vec[0], v2);
 		copy_v3_v3(co, bezt->vec[2]);
 		add_v3_v3(co, v2);
-		if (reverse_offset(new_bezt - 1, new_bezt, nubase)) { /* we got the wrong direction. Fix that */
+		if (reverse_offset(new_bezt - 1, new_bezt, nubase)) { /* we got the wrong direction. Fix that
+															   * further spline intersections due to the offset
+															   * distance are sometiomes taken into account. TODO: Fix that */
 			mul_v3_fl(v1, -2);
 			add_v3_v3(new_bezt->vec[0], v1);
 			add_v3_v3(new_bezt->vec[1], v1);
@@ -7577,7 +7577,7 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 			//swap_v3_v3(new_bezt->vec[0], new_bezt->vec[2]);
 		}
 		result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
-		if (result == 1) {
+		if (result != 0) {
 			copy_v3_v3(new_bezt->vec[2], v1);
 		}
 		/* left handle */
@@ -7585,7 +7585,7 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 		copy_v3_v3(co, bezt->vec[0]);
 		add_v3_v3(co, v2);
 		result = isect_line_line_v3(new_bezt->vec[0], new_bezt->vec[1], bezt->vec[0], co, v1, v2);
-		if (result == 1) {
+		if (result != 0) {
 			copy_v3_v3(new_bezt->vec[0], v1);
 		}
 		bezt++;
@@ -7609,13 +7609,14 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 		//swap_v3_v3(new_bezt->vec[0], new_bezt->vec[2]);
 	}
 	result = isect_line_line_v3(new_bezt->vec[0], new_bezt->vec[1], bezt->vec[0], co, v1, v2);
-	if (result == 1) {
+	if (result != 0) {
 		copy_v3_v3(new_bezt->vec[0], v1);
 	}
 
 	MEM_freeN(v1);
 	MEM_freeN(v2);
 	MEM_freeN(co);
+	MEM_freeN(copy_bezt);
 
 	return new_nu;
 }
@@ -7623,8 +7624,8 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 static int offset_curve_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
-	ListBase *nubase = object_editcurve_get(obedit);
-	Nurb *nu, *new_nu;
+	ListBase *nubase = object_editcurve_get(obedit), dummy = {NULL};
+	Nurb *nu, *new_nu, *copy_nu;
 	float distance = RNA_float_get(op->ptr, "distance");
 
 	/* get selected spline */
@@ -7635,7 +7636,10 @@ static int offset_curve_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	new_nu = offset_curve(nu, nubase, distance);
+	copy_nu = BKE_nurb_duplicate(nu);
+	BLI_addtail(&dummy, copy_nu);
+	new_nu = offset_curve(nu, &dummy, distance);
+	BKE_nurb_free(copy_nu);
 
 	BKE_nurb_handles_calc(new_nu);
 	BLI_addtail(nubase, new_nu);
@@ -7646,50 +7650,98 @@ static int offset_curve_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
+typedef struct OffsetData {
+	NumInput num_input[4];
+	float mcenter[2];
+	int value_mode;
+	int spline_id;
+	bool changed;
+} OffsetData;
+
 static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	ED_area_tag_redraw(CTX_wm_area(C));
+	float curr_mouse[2] = {event->mval[0], event->mval[1]};
+	OffsetData *opdata = op->customdata;
 	char str[UI_MAX_DRAW_STR];
 	size_t ofs = 0;
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu, *new_nu;
-	int *init_mouse = op->customdata, changed = init_mouse[2];
-	float curr_mouse[2] = {event->x, event->y};
-	float prev_mouse[2] = {init_mouse[0], init_mouse[1]};
-	float distance = 1.0;
-	int spline_id = get_selected_spline_id(nubase);
-	nu = BLI_findlink(nubase, spline_id);
+	float distance = RNA_float_get(op->ptr, "distance");
+	nu = BLI_findlink(nubase, opdata->spline_id);
 	if (!nu) {
 		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
 		return OPERATOR_CANCELLED;
 	}
 
-	if (event->type == MOUSEMOVE) {
-		if (changed) {
+	const bool has_numinput = hasNumInput(&opdata->num_input[opdata->value_mode]);
+
+	/* Modal numinput active, try to handle numeric inputs first... */
+	if (event->val == KM_PRESS && has_numinput && handleNumInput(C, &opdata->num_input[opdata->value_mode], event)) {
+		if (opdata->changed) {
 			new_nu = nubase->last;
 			BLI_poptail(nubase);
 			BKE_nurb_free(new_nu);
 		}
-		//float d = len_v2v2(prev_mouse, curr_mouse);
-		float dy = curr_mouse[1] - prev_mouse[1];
-		//RNA_float_set(op->ptr, "distance", d/1000);
-		RNA_float_set(op->ptr, "distance", dy/100);
+		RNA_float_set(op->ptr, "distance", opdata->num_input->val[0]);
 		distance = RNA_float_get(op->ptr, "distance");
 		new_nu = offset_curve(nu, nubase, distance);
 		BLI_addtail(nubase, new_nu);
-		init_mouse[2] = 1;
+		opdata->changed = 1;
 	}
-	else if (event->type == LEFTMOUSE) {
-		//offset_curve_exec(C, op);
-		ED_area_headerprint(CTX_wm_area(C), NULL);
-		MEM_freeN(init_mouse);
-		return OPERATOR_FINISHED;
-	}
-	else if (event->type == ESCKEY) {
-		ED_area_headerprint(CTX_wm_area(C), NULL);
-		MEM_freeN(init_mouse);
-		return OPERATOR_CANCELLED;
+	else {
+		bool handled = false;
+		switch (event->type) {
+			case ESCKEY:
+			case RIGHTMOUSE:
+				if (opdata->changed) {
+					new_nu = nubase->last;
+					BLI_poptail(nubase);
+					BKE_nurb_free(new_nu);
+				}
+				MEM_freeN(opdata);
+				ED_area_headerprint(CTX_wm_area(C), NULL);
+				WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+				DAG_id_tag_update(obedit->data, 0);
+				return OPERATOR_CANCELLED;
+			case RETKEY:
+			case LEFTMOUSE:
+				MEM_freeN(opdata);
+				ED_area_headerprint(CTX_wm_area(C), NULL);
+				WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+				DAG_id_tag_update(obedit->data, 0);
+				return OPERATOR_FINISHED;
+			case MOUSEMOVE:
+				if (!has_numinput) {
+					if (opdata->changed) {
+						new_nu = nubase->last;
+						BLI_poptail(nubase);
+						BKE_nurb_free(new_nu);
+					}
+					float d = opdata->mcenter[1] - curr_mouse[1];
+					RNA_float_set(op->ptr, "distance", -d/100);
+					distance = RNA_float_get(op->ptr, "distance");
+					new_nu = offset_curve(nu, nubase, distance);
+					BLI_addtail(nubase, new_nu);
+					handled = true;
+					opdata->changed = 1;
+				}
+				break;
+		}
+		/* Modal numinput inactive, try to handle numeric inputs last... */
+		if (!handled && event->val == KM_PRESS && handleNumInput(C, &opdata->num_input[opdata->value_mode], event)) {
+			if (opdata->changed) {
+				new_nu = nubase->last;
+				BLI_poptail(nubase);
+				BKE_nurb_free(new_nu);
+			}
+			RNA_float_set(op->ptr, "distance", opdata->num_input->val[0]);
+			distance = RNA_float_get(op->ptr, "distance");
+			new_nu = offset_curve(nu, nubase, distance);
+			BLI_addtail(nubase, new_nu);
+			opdata->changed = 1;
+		}
 	}
 
 	ofs += BLI_snprintf(str + ofs, sizeof(str) - ofs, IFACE_("Offset distance: %.2f"), distance);
@@ -7701,14 +7753,23 @@ static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static int offset_curve_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int offset_curve_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-	int *mouse = MEM_callocN(3 * sizeof(int), "offset_curve_invoke");
-	mouse[0] = event->x;
-	mouse[1] = event->y;
-	mouse[2] = 0; /* this is a flag to check if the operator is currently running or if it has just been called */
+	OffsetData *customdata = MEM_callocN(sizeof(OffsetData), "offset_curve_invoke1");
+	Object *obedit = CTX_data_active_object(C);
+	ListBase *nubase = object_editcurve_get(obedit);
+	float center_3d[3];
 
-	op->customdata = mouse;
+	RNA_float_set(op->ptr, "distance", 1.0f);
+
+	op->customdata = customdata;
+	customdata->value_mode = 0;
+	customdata->changed = 0;
+	customdata->spline_id = get_selected_spline_id(nubase);
+	for (int i = 0; i < 4; i++) {
+		initNumInput(&customdata->num_input[i]);
+	}
+	calculateTransformCenter(C, V3D_AROUND_CENTER_MEAN, center_3d, customdata->mcenter);
 
 	/* add modal handler */
 	WM_event_add_modal_handler(C, op);
@@ -7727,9 +7788,8 @@ void CURVE_OT_offset_curve(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = offset_curve_exec;
 	ot->poll = ED_operator_editsurfcurve;
-	/* TODO: add code to offset_curve_modal to handle keyboard input */
-	//ot->modal = offset_curve_modal;
-	//ot->invoke = offset_curve_invoke;
+	ot->modal = offset_curve_modal;
+	ot->invoke = offset_curve_invoke;
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

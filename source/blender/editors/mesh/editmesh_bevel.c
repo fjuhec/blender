@@ -80,7 +80,7 @@ typedef struct {
 	BMEditMesh *em;
 	float initial_length[NUM_VALUE_KINDS];
 	float scale[NUM_VALUE_KINDS];
-	NumInput num_input[NUM_VALUE_KINDS]; 
+	NumInput num_input[NUM_VALUE_KINDS];
 	float shift_value[NUM_VALUE_KINDS]; /* The current value when shift is pressed. Negative when shift not active. */
 	bool is_modal;
 
