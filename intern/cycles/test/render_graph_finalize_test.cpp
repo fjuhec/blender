@@ -184,6 +184,7 @@ TEST(render_graph, deduplicate_deep)
 	EXPECT_ANY_MESSAGE(log);
 	CORRECT_INFO_MESSAGE(log, "Folding Value1::Value to constant (0.8).");
 	CORRECT_INFO_MESSAGE(log, "Folding Value2::Value to constant (0.8).");
+	CORRECT_INFO_MESSAGE(log, "Deduplicated 2 nodes.");
 
 	builder
 		.add_node(ShaderNodeBuilder<GeometryNode>("Geometry1"))
@@ -1456,6 +1457,74 @@ TEST(render_graph, constant_fold_rgb_ramp_flat)
 		.add_connection("Ramp::Color", "Mix::Color1")
 		.add_connection("Ramp::Alpha", "Mix::Color2")
 		.output_color("Mix::Color");
+
+	graph.finalize(&scene);
+}
+
+/*
+ * Tests:
+ *  - Folding of redundant conversion of float to color to float.
+ */
+TEST(render_graph, constant_fold_convert_float_color_float)
+{
+	DEFINE_COMMON_VARIABLES(builder, log);
+
+	EXPECT_ANY_MESSAGE(log);
+	CORRECT_INFO_MESSAGE(log, "Folding Invert::Color to socket convert_float_to_color::value_color.");
+	CORRECT_INFO_MESSAGE(log, "Folding convert_color_to_float::value_float to socket Attribute::Fac.");
+
+	builder
+		.add_attribute("Attribute")
+		.add_node(ShaderNodeBuilder<InvertNode>("Invert")
+		          .set("Fac", 0.0f))
+		.add_connection("Attribute::Fac", "Invert::Color")
+		.output_value("Invert::Color");
+
+	graph.finalize(&scene);
+}
+
+/*
+ * Tests:
+ *  - Folding of redundant conversion of color to vector to color.
+ */
+TEST(render_graph, constant_fold_convert_color_vector_color)
+{
+	DEFINE_COMMON_VARIABLES(builder, log);
+
+	EXPECT_ANY_MESSAGE(log);
+	CORRECT_INFO_MESSAGE(log, "Folding VecAdd::Vector to socket convert_color_to_vector::value_vector.");
+	CORRECT_INFO_MESSAGE(log, "Folding convert_vector_to_color::value_color to socket Attribute::Color.");
+
+	builder
+		.add_attribute("Attribute")
+		.add_node(ShaderNodeBuilder<VectorMathNode>("VecAdd")
+		          .set(&VectorMathNode::type, NODE_VECTOR_MATH_ADD)
+		          .set("Vector2", make_float3(0,0,0)))
+		.add_connection("Attribute::Color", "VecAdd::Vector1")
+		.output_color("VecAdd::Vector");
+
+	graph.finalize(&scene);
+}
+
+/*
+ * Tests:
+ *  - NOT folding conversion of color to float to color.
+ */
+TEST(render_graph, constant_fold_convert_color_float_color)
+{
+	DEFINE_COMMON_VARIABLES(builder, log);
+
+	EXPECT_ANY_MESSAGE(log);
+	CORRECT_INFO_MESSAGE(log, "Folding MathAdd::Value to socket convert_color_to_float::value_float.");
+	INVALID_INFO_MESSAGE(log, "Folding convert_float_to_color::");
+
+	builder
+		.add_attribute("Attribute")
+		.add_node(ShaderNodeBuilder<MathNode>("MathAdd")
+		          .set(&MathNode::type, NODE_MATH_ADD)
+		          .set("Value2", 0.0f))
+		.add_connection("Attribute::Color", "MathAdd::Value1")
+		.output_color("MathAdd::Value");
 
 	graph.finalize(&scene);
 }
