@@ -902,7 +902,7 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *window = CTX_wm_window(C);
-	//Scene *scene = CTX_data_scene(C);
+	Scene *scene = CTX_data_scene(C);
 	SpaceClip *sc = (SpaceClip *)sa->spacedata.first;
 	ARegion *ar_main = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
 	ARegion *ar_tools = BKE_area_find_region_type(sa, RGN_TYPE_TOOLS);
@@ -1096,8 +1096,7 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 		ED_area_tag_redraw(sa);
 	}
 
-	// TODO(tianwei): find a better way to decouple frames
-	//BKE_movieclip_user_set_frame(&sc->user, scene->r.cfra);
+	BKE_movieclip_user_set_frame(&sc->user, scene->r.cfra);
 }
 
 /********************* main region ********************/

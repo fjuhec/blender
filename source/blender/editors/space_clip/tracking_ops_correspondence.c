@@ -86,32 +86,22 @@ static MovieTrackingTrack *get_single_track(SpaceClip *sc, ListBase *tracksbase)
 static int add_correspondence_exec(bContext *C, wmOperator *op)
 {
 	SpaceClip *sc = CTX_wm_space_clip(C);
-	ARegion *ar = CTX_wm_region(C);
-	MovieClip *clip = ED_space_clip_get_clip_in_region(sc, ar);
+	/* get primary clip */
+	MovieClip *clip = ED_space_clip_get_clip(sc);
 	MovieTracking *tracking = &clip->tracking;
 	ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
 
-	// get one track from each clip and link them
+	/* get one track from each clip and link them */
 	MovieTrackingTrack *primary_track = NULL, *witness_track = NULL;
 
-	// get a single selected tracks in the primary camera
+	/* get a single selected tracks in the primary camera */
 	primary_track = get_single_track(sc, tracksbase);
 
-	// get a single selected tracks in the witness camera, only one witness camera is allowed
-	wmWindow *window = CTX_wm_window(C);
-	MovieClip *second_clip = NULL;
-	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
-		if (sa->spacetype == SPACE_CLIP) {
-			SpaceClip *second_sc = sa->spacedata.first;
-			if (second_sc != sc && second_sc->view == SC_VIEW_CLIP) {
-				second_clip = ED_space_clip_get_clip(second_sc);
-				MovieTracking *second_tracking = &second_clip->tracking;
-				ListBase *second_tracksbase = BKE_tracking_get_active_tracks(second_tracking);
-				witness_track = get_single_track(second_sc, second_tracksbase);
-				break;
-			}
-		}
-	}
+	/* get a single selected tracks in the witness camera, only one witness camera is allowed */
+	MovieClip *second_clip = ED_space_clip_get_secondary_clip(sc);
+	MovieTracking *second_tracking = &second_clip->tracking;
+	ListBase *second_tracksbase = BKE_tracking_get_active_tracks(second_tracking);
+	witness_track = get_single_track(sc, second_tracksbase);
 
 	if (!primary_track || !witness_track) {
 		BKE_report(op->reports, RPT_ERROR, "Select exactly one track in each clip");
@@ -154,12 +144,12 @@ static int delete_correspondence_exec(bContext *C, wmOperator *UNUSED(op))
 	MovieTracking *tracking = &clip->tracking;
 	bool changed = false;
 
-	/* Remove track correspondences from correspondence base
-	 */
+	/* Remove track correspondences from correspondence base */
 	ListBase *correspondence_base = &tracking->correspondences;
 	for (MovieTrackingCorrespondence *corr = correspondence_base->first;
 	     corr != NULL;
-	     corr = corr->next) {
+	     corr = corr->next)
+	{
 		MovieTrackingTrack *track;
 		track = corr->self_track;
 		if (TRACK_VIEW_SELECTED(sc, track)) {
@@ -222,7 +212,7 @@ static bool solve_multiview_initjob(bContext *C,
 	MovieTrackingObject *object = BKE_tracking_object_get_active(tracking);
 	int width, height;
 
-	// count all clips number, primary clip will always be the first
+	/* count all clips number, primary clip will always be the first */
 	smj->clip_num = 1;
 	wmWindow *window = CTX_wm_window(C);
 	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
@@ -237,7 +227,9 @@ static bool solve_multiview_initjob(bContext *C,
 	smj->clips = MEM_callocN(smj->clip_num * sizeof(MovieClip*), "multiview clip pointers");
 	smj->clips[0] = clip;
 
-	// do multi-view reconstruction
+	/* do multi-view reconstruction
+	 * TODO(tianwei): it can only count clip that are open?
+	 * */
 	if (smj->clip_num > 1) {
 		int count = 1;		// witness cameras start from 1
 		for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
