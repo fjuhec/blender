@@ -82,6 +82,12 @@ static LocalViewInfo context_localviews(bScreen *sc, ScrArea *sa_ctx)
 	return views;
 }
 
+/* helper to check for local view if needed */
+BLI_INLINE bool localview_check(LocalViewInfo localviews, Base *base)
+{
+	return !BKE_localview_is_valid(localviews) || BKE_localview_info_cmp(localviews, base->object->localview);
+}
+
 const char *screen_context_dir[] = {
 	"scene", "visible_objects", "visible_bases", "selectable_objects", "selectable_bases",
 	"selected_objects", "selected_bases",
@@ -117,10 +123,6 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 	base = BASACT;
 #endif
 
-/* helper to check for local view if needed */
-#define LOCALVIEW_CHECK(localviews, base) \
-	(!BKE_localview_is_valid(localviews) || BKE_localview_info_cmp(localviews, base->object->localview))
-
 	if (CTX_data_dir(member)) {
 		CTX_data_dir_set(result, screen_context_dir);
 		return 1;
@@ -136,7 +138,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 
 		for (base = scene->base.first; base; base = base->next) {
 			if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->lay & lay)) {
-				if (LOCALVIEW_CHECK(localviews, base)) {
+				if (localview_check(localviews, base)) {
 					if (visible_objects)
 						CTX_data_id_list_add(result, &base->object->id);
 					else
@@ -154,7 +156,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 
 		for (base = scene->base.first; base; base = base->next) {
 			if ((base->object->restrictflag & (OB_RESTRICT_VIEW | OB_RESTRICT_SELECT)) == 0 && (base->lay & lay)) {
-				if (LOCALVIEW_CHECK(localviews, base)) {
+				if (localview_check(localviews, base)) {
 					if (selectable_objects)
 						CTX_data_id_list_add(result, &base->object->id);
 					else
@@ -172,7 +174,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 
 		for (base = scene->base.first; base; base = base->next) {
 			if ((base->flag & SELECT) && (base->lay & lay)) {
-				if (LOCALVIEW_CHECK(localviews, base)) {
+				if (localview_check(localviews, base)) {
 					if (selected_objects)
 						CTX_data_id_list_add(result, &base->object->id);
 					else
@@ -190,7 +192,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 
 		for (base = scene->base.first; base; base = base->next) {
 			if ((base->flag & SELECT) && (base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->lay & lay)) {
-				if (LOCALVIEW_CHECK(localviews, base)) {
+				if (localview_check(localviews, base)) {
 					if (0 == BKE_object_is_libdata(base->object)) {
 						if (selected_editable_objects)
 							CTX_data_id_list_add(result, &base->object->id);
@@ -211,7 +213,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		/* Visible + Editable, but not necessarily selected */
 		for (base = scene->base.first; base; base = base->next) {
 			if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->lay & lay)) {
-				if (LOCALVIEW_CHECK(localviews, base)) {
+				if (localview_check(localviews, base)) {
 					if (0 == BKE_object_is_libdata(base->object)) {
 						if (editable_objects)
 							CTX_data_id_list_add(result, &base->object->id);
@@ -636,8 +638,6 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 	else {
 		return 0; /* not found */
 	}
-
-#undef LOCALVIEW_CHECK
 
 	return -1; /* found but not available */
 }
