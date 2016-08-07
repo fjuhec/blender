@@ -201,7 +201,7 @@ static void do_version_localview_areadata(View3D *v3d)
 	}
 
 	LocalViewAreaData *new_lvd = MEM_mallocN(sizeof(*v3d->localviewd), __func__);
-	new_lvd->info.viewbits = 0; /* XXX */
+	new_lvd->info.viewbits = (v3d->lay >> 24); /* old local view used last byte of v3d->lay */
 	new_lvd->near = old_lvd->near;
 	new_lvd->far = old_lvd->far;
 	new_lvd->drawtype = old_lvd->drawtype;
@@ -1361,7 +1361,9 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 	}
 
 	{
+		/* New local view storage */
 		if (!DNA_struct_elem_find(fd->filesdna, "View3D", "LocalViewAreaData", "localviewd")) {
+			/* update area/region data */
 			for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
 				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
@@ -1376,6 +1378,10 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 						}
 					}
 				}
+			}
+			/* update object data */
+			for (Object *ob = main->object.first; ob; ob = ob->id.next) {
+				ob->localview.viewbits = (ob->lay >> 24); /* old local view used last byte of ob->lay */
 			}
 		}
 	}
