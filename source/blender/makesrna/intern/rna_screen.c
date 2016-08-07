@@ -192,6 +192,19 @@ static void rna_View2D_view_to_region(struct View2D *v2d, float x, float y, int 
 
 #else
 
+static void rna_def_localview_info(BlenderRNA *brna)
+{
+	PropertyRNA *prop;
+
+	StructRNA *srna = RNA_def_struct(brna, "LocalViewInfo", NULL);
+	RNA_def_struct_ui_text(srna, "Local View Info", "");
+
+	prop = RNA_def_property(srna, "viewbits", PROP_BOOLEAN, PROP_LAYER_MEMBER);
+	RNA_def_property_array(prop, 32);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "Local View Layers", "");
+}
+
 /* Area.spaces */
 static void rna_def_area_spaces(BlenderRNA *brna, PropertyRNA *cprop)
 {
@@ -455,6 +468,7 @@ void RNA_def_screen(BlenderRNA *brna)
 	rna_def_area(brna);
 	rna_def_region(brna);
 	rna_def_view2d(brna);
+	rna_def_localview_info(brna);
 }
 
 #endif

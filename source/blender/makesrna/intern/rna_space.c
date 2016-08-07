@@ -2297,6 +2297,17 @@ static void rna_def_backgroundImages(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove all background images");
 }
 
+static void rna_def_localview_area_data(BlenderRNA *brna)
+{
+	PropertyRNA *prop;
+
+	StructRNA *srna = RNA_def_struct(brna, "LocalViewAreaData", NULL);
+	RNA_def_struct_sdna(srna, "LocalViewAreaData");
+	RNA_def_struct_ui_text(srna, "Local View Area Data", "Data storage for while an area is in local view");
+
+	prop = RNA_def_property(srna, "info", PROP_POINTER, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Local View Layers", "");
+}
 
 static void rna_def_space_view3d(BlenderRNA *brna)
 {
@@ -2425,6 +2436,12 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	                            "rna_SpaceView3D_viewport_shade_itemf");
 	RNA_def_property_ui_text(prop, "Viewport Shading", "Method to display/shade objects in the 3D View");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_SpaceView3D_viewport_shade_update");
+
+	prop = RNA_def_property(srna, "local_view", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "localviewd");
+	RNA_def_property_ui_text(prop, "Local View",
+	                         "Display an isolated sub-set of objects, apart from the scene visibility");
+	rna_def_localview_area_data(brna);
 
 	prop = RNA_def_property(srna, "cursor_location", PROP_FLOAT, PROP_XYZ_LENGTH);
 	RNA_def_property_array(prop, 3);
