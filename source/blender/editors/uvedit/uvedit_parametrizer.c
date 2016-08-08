@@ -821,6 +821,18 @@ static void p_vert_load_pin_select_uvs(PHandle *handle, PVert *v)
 static void p_flush_uvs(PHandle *handle, PChart *chart)
 {
 	PEdge *e;
+
+	for (e = chart->edges; e; e = e->nextlink) {
+		if (e->orig_uv) {
+			e->orig_uv[0] = e->vert->uv[0] / handle->aspx;
+			e->orig_uv[1] = e->vert->uv[1] / handle->aspy;
+		}
+	}
+}
+
+static void p_flush_uvs_selection(PHandle *handle, PChart *chart)
+{
+	PEdge *e;
 	int sel_flag = 0;
 	/* ToDo (SaphireS): Find sensible variable names*/
 	int MLOOPEDGE_SELECTED = (1 << 0); /* MLOOPUV_EDGESEL*/
@@ -832,12 +844,12 @@ static void p_flush_uvs(PHandle *handle, PChart *chart)
 			e->orig_uv[1] = e->vert->uv[1] / handle->aspy;
 		}
 
-		/* ToDo (SaphireS): Move to own p_flush_uvs_selection() function ?*/
 		if (e->flag & PEDGE_SELECT) {
+
 			sel_flag = *e->orig_flag;
 			sel_flag |= MLOOPEDGE_SELECTED;/* MLOOPUV_EDGESEL*/
 			sel_flag |= MLOOPVERT_SELECTED; /* MLOOPUV_VERTSEL*/
-			*(e->orig_flag) = sel_flag; 
+			*(e->orig_flag) = sel_flag;
 		}
 		else {
 			sel_flag = *e->orig_flag;
@@ -6184,6 +6196,26 @@ void param_flush(ParamHandle *handle)
 
 		if (phandle->blend == 0.0f)
 			p_flush_uvs(phandle, chart);
+		else
+			p_flush_uvs_blend(phandle, chart, phandle->blend);
+	}
+}
+
+/* Use this function if you need to flush position + selection tags */
+void param_flush_sel(ParamHandle *handle)
+{
+	PHandle *phandle = (PHandle *)handle;
+	PChart *chart;
+	int i;
+
+	for (i = 0; i < phandle->ncharts; i++) {
+		chart = phandle->charts[i];
+
+		if ((phandle->state == PHANDLE_STATE_LSCM) && !chart->u.lscm.context)
+			continue;
+
+		if (phandle->blend == 0.0f)
+			p_flush_uvs_selection(phandle, chart);
 		else
 			p_flush_uvs_blend(phandle, chart, phandle->blend);
 	}

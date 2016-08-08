@@ -746,7 +746,7 @@ bool ED_uvedit_shortest_path_select(Scene *scene, Object *ob, BMesh *bm, bool to
 	int hparams = set_handle_params(true, false, false, true, true);
 	handle = construct_param_handle(scene, ob, bm, hparams);
 	param_shortest_path(handle, &path_found, topo_dist);
-	param_flush(handle);
+	param_flush_sel(handle);
 	param_delete(handle);
 	return path_found; 
 }

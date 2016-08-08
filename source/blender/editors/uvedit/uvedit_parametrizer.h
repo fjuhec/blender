@@ -129,11 +129,12 @@ void param_shortest_path(ParamHandle *handle, bool *p_found, bool topological_di
 
 /* Select Overlapping */
 
-void param_select_overlapping(ParamHandle *handle, bool extend);
+void param_select_overlapping(ParamHandle *handle, const bool extend);
 
 /* Flushing */
 
 void param_flush(ParamHandle *handle);
+void param_flush_sel(ParamHandle *handle);
 void param_flush_restore(ParamHandle *handle);
 
 /* XXX (SaphireS): Remove */
