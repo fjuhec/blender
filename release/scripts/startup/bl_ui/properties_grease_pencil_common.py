@@ -80,6 +80,7 @@ class GreasePencilDrawingToolsPanel:
         sub = col.column(align=True)
         sub.prop(context.tool_settings, "use_gpencil_additive_drawing", text="Additive Drawing")
         sub.prop(context.tool_settings, "use_gpencil_continuous_drawing", text="Continuous Drawing")
+        sub.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
         col.separator()
         col.separator()
@@ -190,11 +191,11 @@ class GreasePencilStrokeEditPanel:
         col = layout.column(align=True)
         col.operator("gpencil.stroke_join", text="Join").type = 'JOIN'
         col.operator("gpencil.stroke_join", text="Join & Copy").type = 'JOINCOPY'
-        col.operator("gpencil.stroke_flip", text="Flip direction")
+        col.operator("gpencil.stroke_flip", text="Flip Direction")
 
         gpd = context.gpencil_data
         if gpd:
-            col.prop(gpd, "show_stroke_direction", text="Show drawing direction")
+            col.prop(gpd, "show_stroke_direction", text="Show Directions")
 
 
 class GreasePencilBrushPanel:
@@ -326,7 +327,7 @@ class GreasePencilStrokeSculptPanel:
 class GreasePencilBrushCurvesPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = "Grease Pencil Curves"
+    bl_label = "Brush Curves"
     bl_category = "Grease Pencil"
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'}
@@ -821,33 +822,32 @@ class GreasePencilDataPanel:
     def draw_layer(self, context, layout, gpl):
         row = layout.row(align=True)
         row.prop(gpl, "opacity", text="Opacity", slider=True)
-        # layer settings
+
+        # Layer options
         split = layout.split(percentage=0.5)
         split.active = not gpl.lock
-        # Options
+        split.prop(gpl, "show_x_ray")
+        split.prop(gpl, "show_points")
+
+        # Offsets + Parenting (where available)
         split = layout.split(percentage=0.5)
-        col = split.column(align=True)
-        col.active = not gpl.lock
-        col.prop(gpl, "show_x_ray")
+        split.active = not gpl.lock
 
-        col.label("Tint")
-        col.prop(gpl, "tint_color", text="")
-        col.prop(gpl, "tint_factor", text="Factor", slider=True)
+        # Offsets - Color Tint
+        col = split.column()
+        subcol = col.column(align=True)
+        subcol.label("Tint")
+        subcol.prop(gpl, "tint_color", text="")
+        subcol.prop(gpl, "tint_factor", text="Factor", slider=True)
 
-        col = split.column(align=True)
-        col.active = not gpl.lock
-        col.prop(gpl, "show_points", text="Points")
-        # Full-Row - Parent
-        '''
-        row = layout.row()
-        if context.area.type == 'VIEW_3D' and not gpl.lock:
-            row.enabled = True
-        else:
-            row.enabled = False
-        '''
+        # Offsets - Thickness
+        row = col.row(align=True)
+        row.prop(gpl, "line_change", text="Thickness Change", slider=True)
+        row.operator("gpencil.stroke_apply_thickness", icon='STYLUS_PRESSURE', text="")
 
-        # col = row.column()
+        # Parenting 
         if context.space_data.type == 'VIEW_3D':
+            col = split.column(align=True)
             col.label(text="Parent:")
             col.prop(gpl, "parent", text="")
 
@@ -857,11 +857,7 @@ class GreasePencilDataPanel:
             if parent and gpl.parent_type == 'BONE' and parent.type == 'ARMATURE':
                 sub.prop_search(gpl, "parent_bone", parent.data, "bones", text="")
 
-        # Full-Row - Thickness
-        row = layout.row(align=True)
-        row.active = not gpl.lock
-        row.prop(gpl, "line_change", text="Thickness change", slider=True)
-        row.operator("gpencil.stroke_apply_thickness", icon='STYLUS_PRESSURE', text="")
+        layout.separator()
 
         # Full-Row - Frame Locking (and Delete Frame)
         row = layout.row(align=True)
@@ -874,6 +870,8 @@ class GreasePencilDataPanel:
             lock_label = "Lock Frame"
         row.prop(gpl, "lock_frame", text=lock_label, icon='UNLOCKED')
         row.operator("gpencil.active_frame_delete", text="", icon='X')
+
+        layout.separator()
 
         # Onion skinning
         col = layout.column(align=True)
@@ -925,7 +923,7 @@ class GreasePencilPaletteColorPanel:
             row.operator_menu_enum("gpencil.palette_change", "palette", text="", icon='COLOR')
             row.prop(palette, "name", text="")
             row.operator("gpencil.palette_add", icon='ZOOMIN', text="")
-            row.operator("gpencil.palette_remove", icon='ZOOMOUT', text="")
+            row.operator("gpencil.palette_remove", icon='X', text="")
 
             # Palette colors
             row = layout.row()

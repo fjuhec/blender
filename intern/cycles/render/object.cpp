@@ -29,6 +29,8 @@
 #include "util_progress.h"
 #include "util_vector.h"
 
+#include "subd_patch_table.h"
+
 CCL_NAMESPACE_BEGIN
 
 /* Object */
@@ -55,9 +57,9 @@ Object::Object()
 	particle_system = NULL;
 	particle_index = 0;
 	bounds = BoundBox::empty;
-	motion.pre = transform_identity();
-	motion.mid = transform_identity();
-	motion.post = transform_identity();
+	motion.pre = transform_empty();
+	motion.mid = transform_empty();
+	motion.post = transform_empty();
 	use_motion = false;
 }
 
@@ -346,6 +348,15 @@ void ObjectManager::device_update_object_transform(UpdateObejctTransformState *s
 		Transform mtfm_pre = ob->motion.pre;
 		Transform mtfm_post = ob->motion.post;
 
+		/* In case of missing motion information for previous/next frame,
+		 * assume there is no motion. */
+		if(!ob->use_motion || mtfm_pre == transform_empty()) {
+			mtfm_pre = ob->tfm;
+		}
+		if(!ob->use_motion || mtfm_post == transform_empty()) {
+			mtfm_post = ob->tfm;
+		}
+
 		if(!mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION)) {
 			mtfm_pre = mtfm_pre * itfm;
 			mtfm_post = mtfm_post * itfm;
@@ -598,6 +609,37 @@ void ObjectManager::device_update_flags(Device *device,
 	device->tex_alloc("__object_flag", dscene->object_flag);
 }
 
+void ObjectManager::device_update_patch_map_offsets(Device *device, DeviceScene *dscene, Scene *scene)
+{
+	uint4* objects = (uint4*)dscene->objects.get_data();
+
+	bool update = false;
+
+	int object_index = 0;
+	foreach(Object *object, scene->objects) {
+		int offset = object_index*OBJECT_SIZE + 11;
+
+		Mesh* mesh = object->mesh;
+
+		if(mesh->patch_table) {
+			uint patch_map_offset = 2*(mesh->patch_table_offset + mesh->patch_table->total_size() -
+			                           mesh->patch_table->num_nodes * PATCH_NODE_SIZE) - mesh->patch_offset;
+
+			if(objects[offset].x != patch_map_offset) {
+				objects[offset].x = patch_map_offset;
+				update = true;
+			}
+		}
+
+		object_index++;
+	}
+
+	if(update) {
+		device->tex_free(dscene->objects);
+		device->tex_alloc("__objects", dscene->objects);
+	}
+}
+
 void ObjectManager::device_free(Device *device, DeviceScene *dscene)
 {
 	device->tex_free(dscene->objects);
@@ -647,7 +689,7 @@ void ObjectManager::apply_static_transforms(DeviceScene *dscene, Scene *scene, u
 		 * Could be solved by moving reference counter to Mesh.
 		 */
 		if((mesh_users[object->mesh] == 1 && !object->mesh->has_surface_bssrdf) &&
-		   object->mesh->displacement_method == Mesh::DISPLACE_BUMP)
+		   !object->mesh->has_true_displacement())
 		{
 			if(!(motion_blur && object->use_motion)) {
 				if(!object->mesh->transform_applied) {
