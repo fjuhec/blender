@@ -3918,6 +3918,19 @@ static PBool p_triangle_inside(SmoothTriangle *t, float co[2])
 	return P_FALSE;
 }
 
+static PBool p_triangle_inside_v3_v2(float tri_v1[2], float tri_v2[2], float tri_v3[2], float co[2])
+{
+	float b[3];
+
+	p_barycentric_2d(tri_v1, tri_v2, tri_v3, co, b);
+
+	if ((b[0] >= 0.0f) && (b[1] >= 0.0f) && (b[2] >= 0.0f)) {
+		return P_TRUE;
+	}
+
+	return P_FALSE;
+}
+
 static SmoothNode *p_node_new(MemArena *arena, SmoothTriangle **tri, int ntri, float *bmin, float *bmax, int depth)
 {
 	SmoothNode *node = BLI_memarena_alloc(arena, sizeof(*node));
@@ -5321,9 +5334,19 @@ bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2], int 
 	/* Make sure point is outside other NFPs */
 	for (i = 0; i < nfp_count; i++) {
 		if (nfps[i] && (i != index)) {
-			if (p_point_inside_nfp(nfps[i], p)) {
-				/*printf("--end_pos x: %f y: %f is inside nfps[%i]!\n", p[0], p[1], i);*/
-				return false;
+			if (nfps[i]->nverts == 3) {
+				if (p_triangle_inside_v3_v2(nfps[i]->final_pos[0],
+											nfps[i]->final_pos[1],
+											nfps[i]->final_pos[2], p)) {
+					/*printf("--end_pos x: %f y: %f is inside nfps[%i]!\n", p[0], p[1], i);*/
+					return false;
+				}
+			}
+			else {
+				if (p_point_inside_nfp(nfps[i], p)) {
+					/*printf("--end_pos x: %f y: %f is inside nfps[%i]!\n", p[0], p[1], i);*/
+					return false;
+				}
 			}
 		}
 	}
