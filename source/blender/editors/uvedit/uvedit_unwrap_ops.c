@@ -848,6 +848,7 @@ typedef struct PackIslands {
 	int iter_global, iter_local, iter_max;
 	wmTimer *timer;
 	float wasted_area_last, margin;
+	bool use_concave;
 	SimulatedAnnealing *sa;
 } PackIslands;
 
@@ -877,6 +878,7 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	pi->iter_global = 0;
 	pi->iter_local = 0;
 	pi->margin = RNA_float_get(op->ptr, "margin") / 2.0f; /* Only apply half the margin per chart */
+	pi->use_concave = RNA_boolean_get(op->ptr, "concave");
 	pi->handle = construct_param_handle(scene, obedit, em->bm, hparams);
 	pi->lasttime = PIL_check_seconds_timer();
 
@@ -893,7 +895,11 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	if (average_scale)
 		param_average(pi->handle);
 
-	param_irregular_pack_begin(pi->handle, &wasted_area, pi->margin, pi->sa->rot_steps /* SA */);
+	param_irregular_pack_begin(pi->handle, 
+							   &wasted_area, 
+							   pi->margin, 
+							   pi->sa->rot_steps,
+							   pi->use_concave /* SA */);
 	pi->wasted_area_last = wasted_area;
 
 	op->customdata = pi;
@@ -922,7 +928,11 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 
 	/* Find neighboring solution */
 	/*ToDo Saphires: Pass SA parameters */
-	param_irregular_pack_iter(pi->handle, &wasted_area, pi->iter_global, pi->sa->rot_steps, pi->margin /* SA */);
+	param_irregular_pack_iter(pi->handle, 
+							  &wasted_area, 
+							  pi->iter_global, 
+							  pi->sa->rot_steps, 
+							  pi->margin /* SA */);
 
 	/* delta Energy */
 	dE = wasted_area - pi->wasted_area_last;
@@ -1087,6 +1097,7 @@ void UV_OT_irregular_pack_islands(wmOperatorType *ot)
 	ot->poll = ED_operator_uvedit;
 
 	/* properties */
+	RNA_def_boolean(ot->srna, "concave", true, "Use concave boundaries", "Use concave boundaries (slower but better results)");
 	RNA_def_float(ot->srna, "margin", 0.0f, 0.0f, 1.0f, "Margin", "Border Margin/Padding to apply per UV island", 0.0f, 1.0f);
 	RNA_def_int(ot->srna, "rotation_steps", 4, 0, 360, "Rotation Steps", "Allowed rotations to try during packing. (2=180°, 4=90°, etc.)", 0, 360);
 	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 10000);

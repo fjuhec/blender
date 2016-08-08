@@ -5318,6 +5318,17 @@ bool p_point_inside_nfp(PNoFitPolygon *nfp, float p[2])
 	return c;
 }
 
+bool p_check_concave(PChart *chart, int nboundaries, PEdge *outer)
+{
+	if (nboundaries <= 4) {
+		return false;
+	}
+
+	/* ToDo SaphireS */
+
+	return false;
+}
+
 bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2], int nfp_count, int index)
 {
 	int i;
@@ -5730,13 +5741,14 @@ bool p_compute_packing_solution(PHandle *phandle, float margin /* ToDo SaphireS:
 	return true;
 }
 
-void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin, int rot_step)
+void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin, int rot_step, bool concave)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart;
 	PVert **points;
+	PEdge *outer;
 	PFace *f;
-	int npoint, right, i, j;
+	int npoint, right, i, j, nboundaries = 0;
 	unsigned int seed = 31415925;
 	float used_area, init_scale, init_value = 0.6f, randf1, rot;
 
@@ -5777,25 +5789,46 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 		printf("init rot for chart[%i]: %f\n", i, rot);
 		//p_chart_rotate(chart, rot); /* ToDo SaphireS: Rotate in origin and transform back to original pos! */
 
-		/* Compute convex hull for each chart -> CW */
-		chart->u.ipack.convex_hull = p_convex_hull_new(chart); 
-		chart->u.ipack.best_pos = MEM_callocN(sizeof(PPointUV), "PPointUV");
+		p_chart_boundaries(chart, &nboundaries, &outer);
 
-		chart->u.ipack.area = p_chart_uv_area_signed(chart); /* used for sorting */
+		if (concave && p_check_concave(chart, nboundaries, outer)) {
 
-		/* Apply margin here */
-		if (!(compare_ff(margin, 0.0f, 0.0001f))) {
-			p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
-			p_convex_hull_update(chart->u.ipack.convex_hull, false);
+			/* ToDo SaphireS */
+
+			/* Decompose concave hull into convex hulls */
+
+			/* Store convex hulls with chart */
+
+			/* For each convex hull: */
+			/* Apply margin */
+
+			/* Compute horizontal angle for edges of hull (Needed for NFP) */
+
+			/* Compute edge lengths */
+
+			/* ToDo SaphireS: turn last few steps into a reusable function for cleaner code */
+		}
+		else {
+			/* Compute convex hull for each chart -> CW */
+			chart->u.ipack.convex_hull = p_convex_hull_new(chart);
+			chart->u.ipack.best_pos = MEM_callocN(sizeof(PPointUV), "PPointUV");
+
+			/* Apply margin here */
+			if (!(compare_ff(margin, 0.0f, 0.0001f))) {
+				p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
+				p_convex_hull_update(chart->u.ipack.convex_hull, false);
+			}
+
+			/* Compute horizontal angle for edges of hull (Needed for NFP) */
+			p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull);
+			/* Compute edge lengths */
+			p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+
+			/* DEBUG */
+			printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
 		}
 
-		/* Compute horizontal angle for edges of hull (Needed for NFP) */
-		p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull);
-		/* Compute edge lengths */
-		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
-
-		/* DEBUG */
-		printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
+		chart->u.ipack.area = p_chart_uv_area_signed(chart); /* used for sorting */
 	}
 
 	/* Sort UV islands by area */
