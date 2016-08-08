@@ -30,6 +30,7 @@
 #include <stdlib.h>
 
 #include "DNA_armature_types.h"
+#include "DNA_cachefile_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
@@ -65,6 +66,7 @@ EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{0, "", 0, N_("Modify"), ""},
 	{eModifierType_DataTransfer, "DATA_TRANSFER", ICON_MOD_DATA_TRANSFER, "Data Transfer", ""},
 	{eModifierType_MeshCache, "MESH_CACHE", ICON_MOD_MESHDEFORM, "Mesh Cache", ""},
+	{eModifierType_MeshSequenceCache, "MESH_SEQUENCE_CACHE", ICON_MOD_MESHDEFORM, "Mesh Sequence Cache", ""},
 	{eModifierType_NormalEdit, "NORMAL_EDIT", ICON_MOD_NORMALEDIT, "Normal Edit", ""},
 	{eModifierType_UVProject, "UV_PROJECT", ICON_MOD_UVPROJECT, "UV Project", ""},
 	{eModifierType_UVWarp, "UV_WARP", ICON_MOD_UVPROJECT, "UV Warp", ""},
@@ -281,12 +283,17 @@ EnumPropertyItem rna_enum_axis_flag_xyz_items[] = {
 #include "DNA_curve_types.h"
 #include "DNA_smoke_types.h"
 
+#include "BKE_cachefile.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_library.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
+
+#ifdef WITH_ALEMBIC
+#  include "ABC_alembic.h"
+#endif
 
 static void rna_UVProject_projectors_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
 {
@@ -399,6 +406,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_NormalEditModifier;
 		case eModifierType_CorrectiveSmooth:
 			return &RNA_CorrectiveSmoothModifier;
+		case eModifierType_MeshSequenceCache:
+			return &RNA_MeshSequenceCacheModifier;
 		/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -1514,6 +1523,8 @@ static void rna_def_modifier_decimate(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
+	/* Note, keep in sync with operator 'MESH_OT_decimate' */
+
 	StructRNA *srna;
 	PropertyRNA *prop;
 
@@ -1893,6 +1904,12 @@ static void rna_def_modifier_boolean(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
+	static EnumPropertyItem prop_solver_items[] = {
+		{eBooleanModifierSolver_BMesh, "BMESH", 0, "BMesh", "Use the BMesh boolean solver"},
+		{eBooleanModifierSolver_Carve, "CARVE", 0, "Carve", "Use the Carve boolean solver"},
+		{0, NULL, 0, NULL, NULL}
+	};
+
 	srna = RNA_def_struct(brna, "BooleanModifier", "Modifier");
 	RNA_def_struct_ui_text(srna, "Boolean Modifier", "Boolean operations modifier");
 	RNA_def_struct_sdna(srna, "BooleanModifierData");
@@ -1909,35 +1926,17 @@ static void rna_def_modifier_boolean(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Operation", "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-#if 0  /* WITH_MOD_BOOLEAN */
-	/* BMesh intersection options */
-	prop = RNA_def_property(srna, "use_bmesh", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "bm_flag", eBooleanModifierBMeshFlag_Enabled);
-	RNA_def_property_ui_text(prop, "Use BMesh", "Use BMesh boolean calculation");
+	prop = RNA_def_property(srna, "solver", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, prop_solver_items);
+	RNA_def_property_ui_text(prop, "Solver", "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "use_bmesh_separate", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "bm_flag", eBooleanModifierBMeshFlag_BMesh_Separate);
-	RNA_def_property_ui_text(prop, "Separate", "Keep edges separate");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "use_bmesh_dissolve", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "bm_flag", eBooleanModifierBMeshFlag_BMesh_NoDissolve);
-	RNA_def_property_ui_text(prop, "Dissolve", "Dissolve verts created from tessellated intersection");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "use_bmesh_connect_regions", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "bm_flag", eBooleanModifierBMeshFlag_BMesh_NoConnectRegions);
-	RNA_def_property_ui_text(prop, "Calculate Holes", "Connect regions (needed for hole filling)");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "threshold", PROP_FLOAT, PROP_DISTANCE);
-	RNA_def_property_float_sdna(prop, NULL, "threshold");
+	prop = RNA_def_property(srna, "double_threshold", PROP_FLOAT, PROP_DISTANCE);
+	RNA_def_property_float_sdna(prop, NULL, "double_threshold");
 	RNA_def_property_range(prop, 0, 1.0f);
-	RNA_def_property_ui_range(prop, 0, 1, 1, 7);
-	RNA_def_property_ui_text(prop, "Threshold",  "");
+	RNA_def_property_ui_range(prop, 0, 1, 0.0001, 7);
+	RNA_def_property_ui_text(prop, "Overlap Threshold",  "Threshold for checking overlapping geometry");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-#endif
 }
 
 static void rna_def_modifier_array(BlenderRNA *brna)
@@ -4226,6 +4225,42 @@ static void rna_def_modifier_meshcache(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_meshseqcache(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "MeshSequenceCacheModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Cache Modifier", "Cache Mesh");
+	RNA_def_struct_sdna(srna, "MeshSeqCacheModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_MOD_MESHDEFORM);  /* XXX, needs own icon */
+
+	prop = RNA_def_property(srna, "cache_file", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "cache_file");
+	RNA_def_property_struct_type(prop, "CacheFile");
+	RNA_def_property_ui_text(prop, "Cache File", "");
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+	RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+
+	prop = RNA_def_property(srna, "object_path", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Object Path", "Path to the object in the Alembic archive used to lookup geometric data");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	static EnumPropertyItem read_flag_items[] = {
+		{MOD_MESHSEQ_READ_VERT,  "VERT", 0, "Vertex", ""},
+		{MOD_MESHSEQ_READ_POLY,  "POLY", 0, "Faces", ""},
+		{MOD_MESHSEQ_READ_UV,    "UV", 0, "UV", ""},
+		{MOD_MESHSEQ_READ_COLOR, "COLOR", 0, "Color", ""},
+		{0, NULL, 0, NULL, NULL}
+	};
+
+	prop = RNA_def_property(srna, "read_data", PROP_ENUM, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_ENUM_FLAG);
+	RNA_def_property_enum_sdna(prop, NULL, "read_flag");
+	RNA_def_property_enum_items(prop, read_flag_items);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 static void rna_def_modifier_laplaciandeform(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -4755,6 +4790,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_wireframe(brna);
 	rna_def_modifier_datatransfer(brna);
 	rna_def_modifier_normaledit(brna);
+	rna_def_modifier_meshseqcache(brna);
 }
 
 #endif

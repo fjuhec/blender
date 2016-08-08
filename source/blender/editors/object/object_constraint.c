@@ -416,6 +416,13 @@ static void test_constraint(Object *owner, bPoseChannel *pchan, bConstraint *con
 		if ((data->flag & CAMERASOLVER_ACTIVECLIP) == 0 && (data->clip == NULL))
 			con->flag |= CONSTRAINT_DISABLE;
 	}
+	else if (con->type == CONSTRAINT_TYPE_TRANSFORM_CACHE) {
+		bTransformCacheConstraint *data = con->data;
+
+		if ((data->cache_file == NULL) || (data->object_path[0] == '\0')) {
+			con->flag |= CONSTRAINT_DISABLE;
+		}
+	}
 
 	/* Check targets for constraints */
 	if (check_targets && cti && cti->get_constraint_targets) {
@@ -584,7 +591,7 @@ static int edit_constraint_poll_generic(bContext *C, StructRNA *rna_type)
 		return 0;
 	}
 
-	if (ob->id.lib || (ptr.id.data && ((ID *)ptr.id.data)->lib)) {
+	if (ID_IS_LINKED_DATABLOCK(ob) || (ptr.id.data && ID_IS_LINKED_DATABLOCK(ptr.id.data))) {
 		CTX_wm_operator_poll_msg_set(C, "Cannot edit library data");
 		return 0;
 	}

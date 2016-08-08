@@ -47,6 +47,7 @@ extern "C" {
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
+#include "DNA_cachefile_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_effect_types.h"
@@ -266,18 +267,12 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 	for (Base *base = (Base *)scene->base.first; base; base = base->next) {
 		Object *ob = base->object;
 
-		/* Object that this is a proxy for.
-		 * Just makes sure backlink is correct.
-		 */
-		if (ob->proxy) {
-			ob->proxy->proxy_from = ob;
-		}
-
 		/* object itself */
 		build_object(bmain, scene, ob);
 
 		/* object that this is a proxy for */
 		if (ob->proxy) {
+			ob->proxy->proxy_from = ob;
 			build_object(bmain, scene, ob->proxy);
 			/* TODO(sergey): This is an inverted relation, matches old depsgraph
 			 * behavior and need to be investigated if it still need to be inverted.
@@ -441,7 +436,7 @@ void DepsgraphRelationBuilder::build_object(Main *bmain, Scene *scene, Object *o
 			}
 
 			case OB_ARMATURE: /* Pose */
-				if (ob->id.lib != NULL && ob->proxy_from != NULL) {
+				if (ID_IS_LINKED_DATABLOCK(ob) && ob->proxy_from != NULL) {
 					build_proxy_rig(ob);
 				}
 				else {
@@ -604,6 +599,18 @@ void DepsgraphRelationBuilder::build_constraints(Scene *scene, ID *id, eDepsNode
 			/* TODO(sergey): This is more a TimeSource -> MovieClip -> Constraint dependency chain. */
 			TimeSourceKey time_src_key;
 			add_relation(time_src_key, constraint_op_key, DEPSREL_TYPE_TIME, "[TimeSrc -> Animation]");
+		}
+		else if (cti->type == CONSTRAINT_TYPE_TRANSFORM_CACHE) {
+			/* TODO(kevin): This is more a TimeSource -> CacheFile -> Constraint dependency chain. */
+			TimeSourceKey time_src_key;
+			add_relation(time_src_key, constraint_op_key, DEPSREL_TYPE_TIME, "[TimeSrc -> Animation]");
+
+			bTransformCacheConstraint *data = (bTransformCacheConstraint *)con->data;
+
+			if (data->cache_file) {
+				ComponentKey cache_key(&data->cache_file->id, DEPSNODE_TYPE_CACHE);
+				add_relation(cache_key, constraint_op_key, DEPSREL_TYPE_CACHE, cti->name);
+			}
 		}
 		else if (cti->get_constraint_targets) {
 			ListBase targets = {NULL, NULL};
@@ -926,6 +933,12 @@ void DepsgraphRelationBuilder::build_driver(ID *id, FCurve *fcu)
 				}
 			}
 			else {
+				if (dtar->id == id) {
+					/* Ignore input dependency if we're driving properties of the same ID,
+					 * otherwise we'll be ending up in a cyclic dependency here.
+					 */
+					continue;
+				}
 				/* resolve path to get node */
 				RNAPathKey target_key(dtar->id, dtar->rna_path ? dtar->rna_path : "");
 				add_relation(target_key, driver_key, DEPSREL_TYPE_DRIVER_TARGET, "[RNA Target -> Driver]");

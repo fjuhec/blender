@@ -270,6 +270,9 @@ static int GPU_material_construct_end(GPUMaterial *material, const char *passnam
 			material->partangvel = GPU_shader_get_uniform(shader, GPU_builtin_name(GPU_PARTICLE_ANG_VELOCITY));
 		return 1;
 	}
+	else {
+		GPU_pass_free_nodes(&material->nodes);
+	}
 
 	return 0;
 }
@@ -1736,21 +1739,24 @@ void GPU_shaderesult_set(GPUShadeInput *shi, GPUShadeResult *shr)
 			}
 
 			/* environment lighting */
-			if (!(mat->scene->gm.flag & GAME_GLSL_NO_ENV_LIGHTING) && (world->mode & WO_ENV_LIGHT) && (mat->scene->r.mode & R_SHADOW) &&
-				!BKE_scene_use_new_shading_nodes(mat->scene))
+			if (!(mat->scene->gm.flag & GAME_GLSL_NO_ENV_LIGHTING) &&
+			    (world->mode & WO_ENV_LIGHT) &&
+			    (mat->scene->r.mode & R_SHADOW) &&
+			    !BKE_scene_use_new_shading_nodes(mat->scene))
 			{
 				if ((world->ao_env_energy != 0.0f) && (GPU_link_changed(shi->amb) || ma->amb != 0.0f) &&
-					(GPU_link_changed(shi->refl) || ma->ref != 0.0f))
+				    (GPU_link_changed(shi->refl) || ma->ref != 0.0f))
 				{
 					if (world->aocolor != WO_AOPLAIN) {
-						if (!(is_zero_v3(&world->horr) & is_zero_v3(&world->zenr)))
-						{
+						if (!(is_zero_v3(&world->horr) & is_zero_v3(&world->zenr))) {
 							GPUNodeLink *fcol, *f;
 							GPU_link(mat, "math_multiply", shi->amb, shi->refl, &f);
 							GPU_link(mat, "math_multiply", f, GPU_uniform(&world->ao_env_energy), &f);
 							GPU_link(mat, "shade_mul_value", f, shi->rgb, &fcol);
-							GPU_link(mat, "env_apply", shr->combined, GPU_dynamic_uniform(GPUWorld.horicol, GPU_DYNAMIC_HORIZON_COLOR, NULL),
-									GPU_dynamic_uniform(GPUWorld.zencol, GPU_DYNAMIC_ZENITH_COLOR, NULL), fcol, GPU_builtin(GPU_VIEW_MATRIX), shi->vn, &shr->combined);
+							GPU_link(mat, "env_apply", shr->combined,
+							         GPU_dynamic_uniform(GPUWorld.horicol, GPU_DYNAMIC_HORIZON_COLOR, NULL),
+							         GPU_dynamic_uniform(GPUWorld.zencol, GPU_DYNAMIC_ZENITH_COLOR, NULL), fcol,
+							         GPU_builtin(GPU_VIEW_MATRIX), shi->vn, &shr->combined);
 						}
 					}
 					else {
@@ -2585,7 +2591,7 @@ int GPU_lamp_shadow_bind_code(GPULamp *lamp)
 
 float *GPU_lamp_dynpersmat(GPULamp *lamp)
 {
-	return (float*)lamp->dynpersmat;
+	return &lamp->dynpersmat[0][0];
 }
 
 int GPU_lamp_shadow_layer(GPULamp *lamp)
@@ -2883,8 +2889,7 @@ void GPU_material_update_fvar_offset(GPUMaterial *gpu_material,
 			             "fvar%d_offset",
 			             input->attribid);
 			location = GPU_shader_get_uniform(shader, name);
-			/* Multiply by 2 because we're offseting U and V variables. */
-			GPU_shader_uniform_int(shader, location, layer_index * 2);
+			GPU_shader_uniform_int(shader, location, layer_index);
 		}
 	}
 

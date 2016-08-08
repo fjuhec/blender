@@ -96,25 +96,25 @@ class ConstraintButtonsPanel:
     def CHILD_OF(self, context, layout, con):
         self.target_template(layout, con)
 
-        #split = layout.split()
+        split = layout.split()
 
-        #col = split.column()
-        #col.label(text="Location:")
-        #col.prop(con, "use_location_x", text="X")
-        #col.prop(con, "use_location_y", text="Y")
-        #col.prop(con, "use_location_z", text="Z")
+        col = split.column()
+        col.label(text="Location:")
+        col.prop(con, "use_location_x", text="X")
+        col.prop(con, "use_location_y", text="Y")
+        col.prop(con, "use_location_z", text="Z")
 
-        #col = split.column()
-        #col.label(text="Rotation:")
-        #col.prop(con, "use_rotation_x", text="X")
-        #col.prop(con, "use_rotation_y", text="Y")
-        #col.prop(con, "use_rotation_z", text="Z")
+        col = split.column()
+        col.label(text="Rotation:")
+        col.prop(con, "use_rotation_x", text="X")
+        col.prop(con, "use_rotation_y", text="Y")
+        col.prop(con, "use_rotation_z", text="Z")
 
-        #col = split.column()
-        #col.label(text="Scale:")
-        #col.prop(con, "use_scale_x", text="X")
-        #col.prop(con, "use_scale_y", text="Y")
-        #col.prop(con, "use_scale_z", text="Z")
+        col = split.column()
+        col.label(text="Scale:")
+        col.prop(con, "use_scale_x", text="X")
+        col.prop(con, "use_scale_y", text="Y")
+        col.prop(con, "use_scale_z", text="Z")
 
         row = layout.row()
         row.operator("constraint.childof_set_inverse")
@@ -879,6 +879,19 @@ class ConstraintButtonsPanel:
         row.operator("constraint.objectsolver_clear_inverse")
 
         layout.operator("clip.constraint_to_fcurve")
+
+    def TRANSFORM_CACHE(self, context, layout, con):
+        layout.label(text="Cache File Properties:")
+        box = layout.box()
+        box.template_cache_file(con, "cache_file")
+
+        cache_file = con.cache_file
+        
+        layout.label(text="Constraint Properties:")
+        box = layout.box()
+        
+        if cache_file is not None:
+            box.prop_search(con, "object_path", cache_file, "object_paths")
 
     def SCRIPT(self, context, layout, con):
         layout.label("Blender 2.6 doesn't support python constraints yet")

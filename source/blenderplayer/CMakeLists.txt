@@ -63,6 +63,8 @@ if(WIN32 AND NOT UNIX)
 			COMPONENT Blenderplayer
 			DESTINATION ".")
 
+add_cc_flags_custom_test(blenderplayer)
+
 elseif(APPLE)
 	add_executable(blenderplayer ${EXETYPE} bad_level_call_stubs/stubs.c)
 	# setup Info.plist
@@ -229,6 +231,10 @@ endif()
 
 	if(WITH_OPENVDB)
 		list(APPEND BLENDER_SORTED_LIBS bf_intern_openvdb)
+	endif()
+
+	if(WITH_ALEMBIC)
+		list(APPEND BLENDER_SORTED_LIBS bf_alembic)
 	endif()
 
 	foreach(SORTLIB ${BLENDER_SORTED_LIBS})
