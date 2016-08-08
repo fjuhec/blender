@@ -34,7 +34,7 @@
 CCL_NAMESPACE_BEGIN
 
 /* constants */
-#define OBJECT_SIZE 		11
+#define OBJECT_SIZE 		12
 #define OBJECT_VECTOR_SIZE	6
 #define LIGHT_SIZE			5
 #define FILTER_TABLE_SIZE	1024
@@ -624,6 +624,18 @@ typedef enum AttributeStandard {
 	ATTR_STD_NOT_FOUND = ~0
 } AttributeStandard;
 
+typedef enum AttributeFlag {
+	ATTR_FINAL_SIZE = (1 << 0),
+	ATTR_SUBDIVIDED = (1 << 1),
+} AttributeFlag;
+
+typedef struct AttributeDescriptor {
+	AttributeElement element;
+	NodeAttributeType type;
+	uint flags; /* see enum AttributeFlag */
+	int offset;
+} AttributeDescriptor;
+
 /* Closure data */
 
 #ifdef __MULTI_CLOSURE__
@@ -735,7 +747,7 @@ enum ShaderDataFlag {
 #  define SD_THREAD (get_global_id(1) * get_global_size(0) + get_global_id(0))
 #  if defined(__SPLIT_KERNEL_AOS__)
      /* ShaderData is stored as an Array-of-Structures */
-#    define ccl_soa_member(type, name) type soa_##name;
+#    define ccl_soa_member(type, name) type soa_##name
 #    define ccl_fetch(s, t) (s[SD_THREAD].soa_##t)
 #    define ccl_fetch_array(s, t, index) (&s[SD_THREAD].soa_##t[index])
 #  else
@@ -743,7 +755,7 @@ enum ShaderDataFlag {
 #    define SD_GLOBAL_SIZE (get_global_size(0) * get_global_size(1))
 #    define SD_FIELD_SIZE(t) sizeof(((struct ShaderData*)0)->t)
 #    define SD_OFFSETOF(t) ((char*)(&((struct ShaderData*)0)->t) - (char*)0)
-#    define ccl_soa_member(type, name) type soa_##name;
+#    define ccl_soa_member(type, name) type soa_##name
 #    define ccl_fetch(s, t) (((ShaderData*)((ccl_addr_space char*)s + SD_GLOBAL_SIZE * SD_OFFSETOF(soa_##t) +  SD_FIELD_SIZE(soa_##t) * SD_THREAD - SD_OFFSETOF(soa_##t)))->soa_##t)
 #    define ccl_fetch_array(s, t, index) (&ccl_fetch(s, t)[index])
 #  endif
@@ -1238,6 +1250,16 @@ enum RayState {
 #define ADD_RAY_FLAG(ray_state, ray_index, flag) (ray_state[ray_index] = (ray_state[ray_index] | flag))
 #define REMOVE_RAY_FLAG(ray_state, ray_index, flag) (ray_state[ray_index] = (ray_state[ray_index] & (~flag)))
 #define IS_FLAG(ray_state, ray_index, flag) (ray_state[ray_index] & flag)
+
+/* Patches */
+
+#define PATCH_MAX_CONTROL_VERTS 16
+
+/* Patch map node flags */
+
+#define PATCH_MAP_NODE_IS_SET (1 << 30)
+#define PATCH_MAP_NODE_IS_LEAF (1 << 31)
+#define PATCH_MAP_NODE_INDEX_MASK (~(PATCH_MAP_NODE_IS_SET | PATCH_MAP_NODE_IS_LEAF))
 
 CCL_NAMESPACE_END
 
