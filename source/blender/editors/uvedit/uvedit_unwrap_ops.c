@@ -876,7 +876,7 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	pi->iter_max = RNA_int_get(op->ptr, "iterations");
 	pi->iter_global = 0;
 	pi->iter_local = 0;
-	pi->margin = RNA_float_get(op->ptr, "margin");
+	pi->margin = RNA_float_get(op->ptr, "margin") / 2.0f; /* Only apply half the margin per chart */
 	pi->handle = construct_param_handle(scene, obedit, em->bm, hparams);
 	pi->lasttime = PIL_check_seconds_timer();
 
