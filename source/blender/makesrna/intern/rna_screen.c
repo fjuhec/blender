@@ -200,6 +200,7 @@ static void rna_def_localview_info(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Local View Info", "");
 
 	prop = RNA_def_property(srna, "viewbits", PROP_BOOLEAN, PROP_LAYER_MEMBER);
+	RNA_def_property_boolean_sdna(prop, NULL, "viewbits", 1);
 	RNA_def_property_array(prop, 32);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Local View Layers", "");

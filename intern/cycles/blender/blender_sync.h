@@ -179,7 +179,7 @@ private:
 
 	struct RenderLayerInfo {
 		RenderLayerInfo()
-		: scene_layer(0), layer(0),
+		: scene_layer(0), layer(0), localview(0),
 		  holdout_layer(0), exclude_layer(0),
 		  material_override(PointerRNA_NULL),
 		  use_background_shader(true),
@@ -193,6 +193,7 @@ private:
 		string name;
 		uint scene_layer;
 		uint layer;
+		uint localview;
 		uint holdout_layer;
 		uint exclude_layer;
 		BL::Material material_override;

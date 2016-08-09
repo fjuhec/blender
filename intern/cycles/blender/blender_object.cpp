@@ -533,6 +533,8 @@ void BlenderSync::sync_objects(BL::SpaceView3D& b_v3d, float motion_time)
 {
 	/* layer data */
 	uint scene_layer = render_layer.scene_layer;
+	const bool is_localview = render_layer.localview != 0;
+	uint scene_localview = is_localview ? render_layer.localview : -1;
 	bool motion = motion_time != 0.0f;
 	
 	if(!motion) {
@@ -571,20 +573,16 @@ void BlenderSync::sync_objects(BL::SpaceView3D& b_v3d, float motion_time)
 	bool cancel = false;
 	bool use_portal = false;
 
-	uint layer_override = get_layer(b_engine.layer_override());
 	for(; b_sce && !cancel; b_sce = b_sce.background_set()) {
-		/* Render layer's scene_layer is affected by local view already,
-		 * which is not a desired behavior here.
-		 */
-		uint scene_layers = layer_override ? layer_override : get_layer(b_scene.layers());
 		for(b_sce.object_bases.begin(b_base); b_base != b_sce.object_bases.end() && !cancel; ++b_base) {
 			BL::Object b_ob = b_base->object();
 			bool hide = (render_layer.use_viewport_visibility)? b_ob.hide(): b_ob.hide_render();
-			uint ob_layer = get_layer(b_base->layers(),
-			                          b_base->layers_local_view(),
-			                          object_is_light(b_ob),
-			                          scene_layers);
-			hide = hide || !(ob_layer & scene_layer);
+			uint ob_layer = get_layer(b_base->layers());
+			/* use -1 to ignore local view if we're not in a local view or if object is a
+			 * light (only check layer bits then, like Blender Internal and viewport) */
+			uint ob_localview = (is_localview && !object_is_light(b_ob)) ?
+			                        get_localview(b_ob.layers_local_view().viewbits()) : -1;
+			hide = hide || !(ob_layer & scene_layer) || !(ob_localview & scene_localview);
 
 			if(!hide) {
 				progress.set_sync_status("Synchronizing object", b_ob.name());

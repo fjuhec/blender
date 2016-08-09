@@ -299,33 +299,17 @@ static inline uint get_layer(const BL::Array<int, 20>& array)
 	return layer;
 }
 
-static inline uint get_layer(const BL::Array<int, 20>& array,
-                             const BL::Array<int, 8>& local_array,
-                             bool is_light = false,
-                             uint scene_layers = (1 << 20) - 1)
+static inline uint get_localview(const BL::Array<int, 32>& array)
 {
-	uint layer = 0;
+	uint localview = 0;
 
-	for(uint i = 0; i < 20; i++)
-		if(array[i])
-			layer |= (1 << i);
-
-	if(is_light) {
-		/* Consider light is visible if it was visible without layer
-		 * override, which matches behavior of Blender Internal.
-		 */
-		if(layer & scene_layers) {
-			for(uint i = 0; i < 8; i++)
-				layer |= (1 << (20+i));
+	for(uint i = 0; i < 32; i++) {
+		if(array[i]) {
+			localview |= (1 << i);
 		}
 	}
-	else {
-		for(uint i = 0; i < 8; i++)
-			if(local_array[i])
-				layer |= (1 << (20+i));
-	}
 
-	return layer;
+	return localview;
 }
 
 static inline float3 get_float3(PointerRNA& ptr, const char *name)

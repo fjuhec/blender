@@ -375,7 +375,7 @@ void BlenderSync::sync_render_layers(BL::SpaceView3D& b_v3d, const char *layer)
 			layer = layername.c_str();
 		}
 		else {
-			render_layer.scene_layer = get_layer(b_v3d.layers(), b_v3d.layers_local_view());
+			render_layer.scene_layer = get_layer(b_v3d.layers());
 			render_layer.layer = render_layer.scene_layer;
 			render_layer.exclude_layer = 0;
 			render_layer.holdout_layer = 0;
@@ -387,6 +387,11 @@ void BlenderSync::sync_render_layers(BL::SpaceView3D& b_v3d, const char *layer)
 			render_layer.use_viewport_visibility = true;
 			render_layer.samples = 0;
 			render_layer.bound_samples = false;
+
+			BL::LocalViewAreaData localview_data = b_v3d.local_view();
+			if (localview_data) {
+				render_layer.localview = get_localview(localview_data.info().viewbits());
+			}
 			return;
 		}
 	}
