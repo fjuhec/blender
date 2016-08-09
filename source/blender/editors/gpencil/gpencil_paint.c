@@ -2287,8 +2287,8 @@ static void gpencil_stroke_end(wmOperator *op)
 	p->gpf = NULL;
 }
 
-/* if drawing polygon and draw on back is enabled, move the stroke below all previous strokes */
-static void gpencil_move_polygon_stroke_to_back(bContext *C)
+/* Move last stroke in the listbase to the head to be drawn below all previous strokes in the layer */
+static void gpencil_move_last_stroke_to_back(bContext *C)
 {
 	/* move last stroke (the polygon) to head of the listbase stroke to draw on back of all previous strokes */
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
@@ -2367,7 +2367,9 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		/* printf("\t\tGP - end of paint op + end of stroke\n"); */
 		/* if drawing polygon and enable on back, must move stroke */
 		if ((p->scene->toolsettings->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) && (p->paintmode == GP_PAINTMODE_DRAW_POLY)) {
-			gpencil_move_polygon_stroke_to_back(C);
+			if (p->flags & GP_PAINTFLAG_STROKEADDED) {
+				gpencil_move_last_stroke_to_back(C);
+			}
 		}
 		p->status = GP_STATUS_DONE;
 		estate = OPERATOR_FINISHED;
@@ -2427,7 +2429,9 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				/* printf("\t\tGP - end of stroke + op\n"); */
 				/* if drawing polygon and enable on back, must move stroke */
 				if ((p->scene->toolsettings->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) && (p->paintmode == GP_PAINTMODE_DRAW_POLY)) {
-					gpencil_move_polygon_stroke_to_back(C);
+					if (p->flags & GP_PAINTFLAG_STROKEADDED) {
+						gpencil_move_last_stroke_to_back(C);
+					}
 				}
 				p->status = GP_STATUS_DONE;
 				estate = OPERATOR_FINISHED;
@@ -2511,7 +2515,9 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				 */
 				/* if drawing polygon and enable on back, must move stroke */
 				if ((p->scene->toolsettings->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) && (p->paintmode == GP_PAINTMODE_DRAW_POLY)) {
-					gpencil_move_polygon_stroke_to_back(C);
+					if (p->flags & GP_PAINTFLAG_STROKEADDED) {
+						gpencil_move_last_stroke_to_back(C);
+					}
 				}
 				p->status = GP_STATUS_DONE;
 				estate = OPERATOR_FINISHED;

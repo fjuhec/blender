@@ -656,23 +656,18 @@ typedef struct AttributeDescriptor {
  * ShaderClosure has a fixed size, and any extra space must be allocated
  * with closure_alloc_extra().
  *
- * float3 is 12 bytes on CUDA and 16 bytes on CPU/OpenCL, we set the data
- * size to ensure ShaderClosure is 80 bytes total everywhere. */
+ * We pad the struct to 80 bytes and ensure it is aligned to 16 bytes, which
+ * we assume to be the maximum required alignment for any struct. */
 
 #define SHADER_CLOSURE_BASE \
 	float3 weight; \
 	ClosureType type; \
 	float sample_weight \
 
-typedef ccl_addr_space struct ShaderClosure {
+typedef ccl_addr_space struct ccl_align(16) ShaderClosure {
 	SHADER_CLOSURE_BASE;
 
-	/* pad to 80 bytes, data types are aligned to own size */
-#ifdef __KERNEL_CUDA__
-	float data[15];
-#else
-	float data[14];
-#endif
+	float data[14]; /* pad to 80 bytes */
 } ShaderClosure;
 
 /* Shader Context
@@ -747,7 +742,7 @@ enum ShaderDataFlag {
 #  define SD_THREAD (get_global_id(1) * get_global_size(0) + get_global_id(0))
 #  if defined(__SPLIT_KERNEL_AOS__)
      /* ShaderData is stored as an Array-of-Structures */
-#    define ccl_soa_member(type, name) type soa_##name;
+#    define ccl_soa_member(type, name) type soa_##name
 #    define ccl_fetch(s, t) (s[SD_THREAD].soa_##t)
 #    define ccl_fetch_array(s, t, index) (&s[SD_THREAD].soa_##t[index])
 #  else
@@ -755,7 +750,7 @@ enum ShaderDataFlag {
 #    define SD_GLOBAL_SIZE (get_global_size(0) * get_global_size(1))
 #    define SD_FIELD_SIZE(t) sizeof(((struct ShaderData*)0)->t)
 #    define SD_OFFSETOF(t) ((char*)(&((struct ShaderData*)0)->t) - (char*)0)
-#    define ccl_soa_member(type, name) type soa_##name;
+#    define ccl_soa_member(type, name) type soa_##name
 #    define ccl_fetch(s, t) (((ShaderData*)((ccl_addr_space char*)s + SD_GLOBAL_SIZE * SD_OFFSETOF(soa_##t) +  SD_FIELD_SIZE(soa_##t) * SD_THREAD - SD_OFFSETOF(soa_##t)))->soa_##t)
 #    define ccl_fetch_array(s, t, index) (&ccl_fetch(s, t)[index])
 #  endif
