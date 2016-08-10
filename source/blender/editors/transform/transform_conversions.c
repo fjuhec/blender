@@ -3293,7 +3293,7 @@ static void posttrans_gpd_clean(bGPdata *gpd)
 			for (gpf = gpl->frames.first; gpf; gpf = gpfn) {
 				gpfn = gpf->next;
 				if (gpfn && gpf->framenum == gpfn->framenum) {
-					gpencil_layer_delframe(gpl, gpf);
+					BKE_gpencil_layer_delframe(gpl, gpf);
 				}
 			}
 		}
@@ -7768,7 +7768,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			 */
 			// XXX: should this be allowed when framelock is enabled?
 			if (gpf->framenum != cfra) {
-				gpf = gpencil_frame_addcopy(gpl, cfra);
+				gpf = BKE_gpencil_frame_addcopy(gpl, cfra);
 				/* in some weird situations (framelock enabled) return NULL */
 				if (gpf == NULL) {
 					continue;
