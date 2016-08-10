@@ -213,36 +213,38 @@ static bool solve_multiview_initjob(bContext *C,
 	int width, height;
 
 	/* count all clips number, primary clip will always be the first */
-	smj->clip_num = 1;
-	wmWindow *window = CTX_wm_window(C);
-	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
-		if (sa->spacetype == SPACE_CLIP) {
-			SpaceClip *other_sc = sa->spacedata.first;
-			if (other_sc != sc && other_sc->view == SC_VIEW_CLIP) {
-				smj->clip_num++;
-			}
-		}
-	}
+	// TODO(tianwei): don't count clips for now, because we can only do with two cameras.
+	smj->clip_num = 2;
+	//wmWindow *window = CTX_wm_window(C);
+	//for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
+	//	if (sa->spacetype == SPACE_CLIP) {
+	//		SpaceClip *other_sc = sa->spacedata.first;
+	//		if (other_sc != sc && other_sc->view == SC_VIEW_CLIP) {
+	//			smj->clip_num++;
+	//		}
+	//	}
+	//}
 	printf("%d active clips for reconstruction\n", smj->clip_num);
 	smj->clips = MEM_callocN(smj->clip_num * sizeof(MovieClip*), "multiview clip pointers");
 	smj->clips[0] = clip;
 
 	/* do multi-view reconstruction
-	 * TODO(tianwei): it can only count clip that are open?
+	 * TODO(tianwei): it cannot count clip other than primary and secondary clips.
 	 * */
-	if (smj->clip_num > 1) {
-		int count = 1;		// witness cameras start from 1
-		for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
-			if (sa->spacetype == SPACE_CLIP) {
-				SpaceClip *other_sc = sa->spacedata.first;
-				if (other_sc != sc && other_sc->view == SC_VIEW_CLIP) {
-					MovieClip *other_clip;
-					other_clip = ED_space_clip_get_clip(other_sc);
-					smj->clips[count++] = other_clip;
-				}
-			}
-		}
-	}
+	//if (smj->clip_num > 1) {
+	//	int count = 1;		// witness cameras start from 1
+	//	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
+	//		if (sa->spacetype == SPACE_CLIP) {
+	//			SpaceClip *other_sc = sa->spacedata.first;
+	//			if (other_sc != sc && other_sc->view == SC_VIEW_CLIP) {
+	//				MovieClip *other_clip;
+	//				other_clip = ED_space_clip_get_clip(other_sc);
+	//				smj->clips[count++] = other_clip;
+	//			}
+	//		}
+	//	}
+	//}
+	smj->clips[1] = ED_space_clip_get_secondary_clip(sc);
 
 	if (!BKE_tracking_multiview_reconstruction_check(smj->clips,
 	                                                 object,
