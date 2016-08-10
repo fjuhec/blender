@@ -33,7 +33,10 @@
 extern "C" {
 #endif
 
+#include "BKE_localview.h"
+
 #include "BLI_compiler_attrs.h"
+#include "BLI_utildefines.h"
 
 struct Base;
 struct EvaluationContext;
@@ -96,6 +99,33 @@ void *BKE_object_obdata_add_from_type(
         struct Main *bmain,
         int type, const char *name)
         ATTR_NONNULL(1);
+
+/**
+ * Object visibility check for layer or local view and optionally Object.restrictflag.
+ *
+ * \param view_lay: Layers to check for (e.g. Scene.lay or View3D.lay).
+ * \param localview: Can be NULL if not in local view (or to ignore it).
+ */
+ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1)
+BLI_INLINE bool BKE_object_is_visible(
+        const struct Object *ob, const unsigned int view_lay, const LocalViewInfo *localview,
+        const bool check_restrictflag)
+{
+	const bool is_localview = localview && BKE_localview_is_valid(*localview);
+	return (is_localview ? BKE_localview_info_cmp(*localview, ob->localview) : (ob->lay & view_lay)) &&
+	       (!check_restrictflag || (ob->restrictflag & OB_RESTRICT_VIEW) == 0);
+}
+/**
+ * Object visibility check for \a v3d, checking layer or local view
+ * (if \a v3d is in local view) and optionally Object.restrictflag.
+ */
+ATTR_WARN_UNUSED_RESULT ATTR_NONNULL()
+BLI_INLINE bool BKE_object_v3d_is_visible(
+        const struct Object *ob, const struct View3D *v3d,
+        const bool check_restrictflag)
+{
+	return BKE_object_is_visible(ob, v3d->lay, (v3d->localviewd) ? &v3d->localviewd->info : NULL, check_restrictflag);
+}
 
 void BKE_object_lod_add(struct Object *ob);
 void BKE_object_lod_sort(struct Object *ob);

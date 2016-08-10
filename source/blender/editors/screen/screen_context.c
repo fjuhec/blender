@@ -47,7 +47,6 @@
 #include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_gpencil.h"
-#include "BKE_localview.h"
 #include "BKE_screen.h"
 #include "BKE_sequencer.h"
 
@@ -80,12 +79,6 @@ static LocalViewInfo context_localviews(bScreen *sc, ScrArea *sa_ctx)
 		views = BKE_screen_view3d_localview_all(sc);
 	}
 	return views;
-}
-
-/* helper to check for local view if needed */
-BLI_INLINE bool localview_check(LocalViewInfo localviews, Base *base)
-{
-	return !BKE_localview_is_valid(localviews) || BKE_localview_info_cmp(localviews, base->object->localview);
 }
 
 const char *screen_context_dir[] = {
@@ -137,13 +130,11 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		const bool visible_objects = CTX_data_equals(member, "visible_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->lay & lay)) {
-				if (localview_check(localviews, base)) {
-					if (visible_objects)
-						CTX_data_id_list_add(result, &base->object->id);
-					else
-						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+			if (BKE_object_is_visible(base->object, lay, &localviews, true)) {
+				if (visible_objects)
+					CTX_data_id_list_add(result, &base->object->id);
+				else
+					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
@@ -155,8 +146,8 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		const bool selectable_objects = CTX_data_equals(member, "selectable_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if ((base->object->restrictflag & (OB_RESTRICT_VIEW | OB_RESTRICT_SELECT)) == 0 && (base->lay & lay)) {
-				if (localview_check(localviews, base)) {
+			if ((base->object->restrictflag & OB_RESTRICT_SELECT) == 0) {
+				if (BKE_object_is_visible(base->object, lay, &localviews, true)) {
 					if (selectable_objects)
 						CTX_data_id_list_add(result, &base->object->id);
 					else
@@ -173,13 +164,11 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		const bool selected_objects = CTX_data_equals(member, "selected_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if ((base->flag & SELECT) && (base->lay & lay)) {
-				if (localview_check(localviews, base)) {
-					if (selected_objects)
-						CTX_data_id_list_add(result, &base->object->id);
-					else
-						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+			if ((base->flag & SELECT) && BKE_object_is_visible(base->object, lay, &localviews, false)) {
+				if (selected_objects)
+					CTX_data_id_list_add(result, &base->object->id);
+				else
+					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
@@ -191,14 +180,12 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		const bool selected_editable_objects = CTX_data_equals(member, "selected_editable_objects");
 
 		for (base = scene->base.first; base; base = base->next) {
-			if ((base->flag & SELECT) && (base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->lay & lay)) {
-				if (localview_check(localviews, base)) {
-					if (0 == BKE_object_is_libdata(base->object)) {
-						if (selected_editable_objects)
-							CTX_data_id_list_add(result, &base->object->id);
-						else
-							CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-					}
+			if ((base->flag & SELECT) && BKE_object_is_visible(base->object, lay, &localviews, true)) {
+				if (0 == BKE_object_is_libdata(base->object)) {
+					if (selected_editable_objects)
+						CTX_data_id_list_add(result, &base->object->id);
+					else
+						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 				}
 			}
 		}
@@ -212,14 +199,12 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 
 		/* Visible + Editable, but not necessarily selected */
 		for (base = scene->base.first; base; base = base->next) {
-			if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->lay & lay)) {
-				if (localview_check(localviews, base)) {
-					if (0 == BKE_object_is_libdata(base->object)) {
-						if (editable_objects)
-							CTX_data_id_list_add(result, &base->object->id);
-						else
-							CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-					}
+			if (BKE_object_is_visible(base->object, lay, &localviews, true)) {
+				if (0 == BKE_object_is_libdata(base->object)) {
+					if (editable_objects)
+						CTX_data_id_list_add(result, &base->object->id);
+					else
+						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 				}
 			}
 		}

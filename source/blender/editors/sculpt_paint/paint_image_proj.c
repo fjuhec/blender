@@ -70,12 +70,12 @@
 #include "BKE_brush.h"
 #include "BKE_image.h"
 #include "BKE_library.h"
-#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -5175,10 +5175,7 @@ void *paint_proj_new_stroke(bContext *C, Object *ob, const float mouse[2], int m
 
 		project_state_init(C, ob, ps, mode);
 
-		if ((ps->ob == NULL) ||
-		    !(ps->ob->lay & ps->v3d->lay) ||
-		    !BKE_localview_is_object_visible(ps->v3d, ps->ob))
-		{
+		if ((ps->ob == NULL) || !BKE_object_v3d_is_visible(ps->ob, ps->v3d, false)) {
 			ps_handle->ps_views_tot = i + 1;
 			goto fail;
 		}

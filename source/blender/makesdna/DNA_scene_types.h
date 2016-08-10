@@ -1821,38 +1821,31 @@ extern const char *RE_engine_id_CYCLES;
 /* depricate this! */
 #define TESTBASE(v3d, base)  (                                                \
 	((base)->flag & SELECT) &&                                                \
-	((base)->lay & v3d->lay) &&                                               \
-	(BKE_localview_is_object_visible(v3d, base->object)) &&                   \
-	(((base)->object->restrictflag & OB_RESTRICT_VIEW) == 0))
+	(BKE_object_v3d_is_visible((base)->object, v3d, true)))
 #define TESTBASELIB(v3d, base)  (                                             \
 	((base)->flag & SELECT) &&                                                \
-	((base)->lay & v3d->lay) &&                                               \
-	(BKE_localview_is_object_visible(v3d, base->object)) &&                   \
 	((base)->object->id.lib == NULL) &&                                       \
-	(((base)->object->restrictflag & OB_RESTRICT_VIEW) == 0))
+	(BKE_object_v3d_is_visible((base)->object, v3d, true)))
 #define TESTBASELIB_BGMODE(v3d, scene, base)  (                               \
 	((base)->flag & SELECT) &&                                                \
-	((base)->lay & (v3d ? v3d->lay : scene->lay)) &&                          \
-	(!v3d || !v3d->localviewd || BKE_localview_info_cmp(v3d->localviewd->info, base->object->localview)) && \
 	((base)->object->id.lib == NULL) &&                                       \
-	(((base)->object->restrictflag & OB_RESTRICT_VIEW) == 0))
+	(BKE_object_is_visible(                                                   \
+	    (base)->object, v3d ? v3d->lay : scene->lay,                          \
+	    (v3d && v3d->localviewd) ? &v3d->localviewd->info : NULL, true)))
 #define BASE_EDITABLE_BGMODE(v3d, scene, base)  (                             \
-	((base)->lay & (v3d ? v3d->lay : scene->lay)) &&                          \
-	(!v3d || !v3d->localviewd || BKE_localview_info_cmp(v3d->localviewd->info, base->object->localview)) && \
 	((base)->object->id.lib == NULL) &&                                       \
-	(((base)->object->restrictflag & OB_RESTRICT_VIEW) == 0))
+	(BKE_object_is_visible(                                                   \
+	    (base)->object, v3d ? v3d->lay : scene->lay,                          \
+	    (v3d && v3d->localviewd) ? &v3d->localviewd->info : NULL, true)))
 #define BASE_SELECTABLE(v3d, base)  (                                         \
-	((base)->lay & v3d->lay) &&                                               \
-	(BKE_localview_is_object_visible(v3d, base->object)) &&                   \
-	(base->object->restrictflag & (OB_RESTRICT_SELECT | OB_RESTRICT_VIEW)) == 0)
+	(BKE_object_v3d_is_visible(base->object, v3d, true)) &&                   \
+	(base->object->restrictflag & OB_RESTRICT_SELECT) == 0)
 #define BASE_VISIBLE(v3d, base)  (                                            \
-	((base)->lay & v3d->lay) &&                                               \
-	(BKE_localview_is_object_visible(v3d, base->object)) &&                   \
-	(base->object->restrictflag & OB_RESTRICT_VIEW) == 0)
+	BKE_object_v3d_is_visible(base->object, v3d, true))
 #define BASE_VISIBLE_BGMODE(v3d, scene, base)  (                              \
-	(base->lay & (v3d ? v3d->lay : scene->lay)) &&                            \
-	(!v3d || !v3d->localviewd || BKE_localview_info_cmp(v3d->localviewd->info, base->object->localview)) && \
-	(base->object->restrictflag & OB_RESTRICT_VIEW) == 0)
+	(BKE_object_is_visible(                                                   \
+	    (base)->object, v3d ? v3d->lay : scene->lay,                          \
+	    (v3d && v3d->localviewd) ? &v3d->localviewd->info : NULL, true)))
 
 #define FIRSTBASE		scene->base.first
 #define LASTBASE		scene->base.last

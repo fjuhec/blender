@@ -66,15 +66,12 @@
 #include "BKE_bmfont.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
-#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_DerivedMesh.h"
-#ifdef WITH_GAMEENGINE
-#  include "BKE_object.h"
-#endif
 
 #include "GPU_basic_shader.h"
 #include "GPU_buffers.h"
@@ -2190,10 +2187,7 @@ int GPU_scene_object_lights(
 	for (Base *base = scene->base.first; base; base = base->next) {
 		if (base->object->type != OB_LAMP)
 			continue;
-
-		if (!(base->lay & lay) || !(base->lay & ob->lay))
-			continue;
-		if (localview && !BKE_localview_info_cmp(*localview, ob->localview))
+		if (!(base->lay & ob->lay) || !BKE_object_is_visible(base->object, lay, localview, false))
 			continue;
 
 		Lamp *la = base->object->data;

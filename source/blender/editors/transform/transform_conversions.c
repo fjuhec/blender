@@ -73,7 +73,6 @@
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_key.h"
-#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"

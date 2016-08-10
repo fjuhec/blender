@@ -72,7 +72,6 @@
 #include "BKE_key.h"
 #include "BKE_image.h"
 #include "BKE_lattice.h"
-#include "BKE_localview.h"
 #include "BKE_material.h"
 #include "BKE_main.h"
 #include "BKE_mball.h"
@@ -5010,7 +5009,6 @@ static void database_init_objects(Render *re, int nolamps, int onlyselected, Obj
 	}
 
 	for (SETLOOPER(re->scene, sce_iter, base)) {
-		const bool localview_check = !re->localview || BKE_localview_info_cmp(base->object->localview, *re->localview);
 		ob= base->object;
 
 		/* in the prev/next pass for making speed vectors, avoid creating
@@ -5035,7 +5033,7 @@ static void database_init_objects(Render *re, int nolamps, int onlyselected, Obj
 		}
 		/* while objects use usual visibility check (layer and localview), lamps only
 		 * check layer and render even if they're not included in localview */
-		else if (((base->lay & lay) && localview_check) ||
+		else if (BKE_object_is_visible(ob, lay, re->localview, false) ||
 		         (ob->type == OB_LAMP && (base->lay & re->lay)))
 		{
 			if ((ob->transflag & OB_DUPLI) && (ob->type!=OB_MBALL)) {

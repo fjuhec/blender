@@ -58,7 +58,6 @@
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_library.h"
-#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
@@ -793,7 +792,7 @@ static void clean_viewport_memory(Main *bmain, Scene *scene, LocalViewInfo *loca
 	}
 
 	for (SETLOOPER(scene, sce_iter, base)) {
-		if ((base->lay & renderlay) == 0 || BKE_localview_info_cmp(*localview, base->object->localview) == 0) {
+		if (!BKE_object_is_visible(base->object, renderlay, localview, false)) {
 			continue;
 		}
 		if (RE_allow_render_generic_object(base->object)) {

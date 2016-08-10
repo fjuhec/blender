@@ -40,22 +40,19 @@
 /* Forcing inline as some of these are called a lot, mostly in loops even. */
 
 BLI_INLINE bool BKE_localview_info_cmp(LocalViewInfo a, LocalViewInfo b) ATTR_WARN_UNUSED_RESULT;
-BLI_INLINE bool BKE_localview_is_object_visible(View3D *v3d, Object *ob) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 BLI_INLINE bool BKE_localview_is_valid(LocalViewInfo localview) ATTR_WARN_UNUSED_RESULT;
 
 BLI_INLINE void BKE_localview_object_assign(View3D *v3d, Object *ob) ATTR_NONNULL();
 BLI_INLINE void BKE_localview_object_unassign(View3D *v3d, Object *ob) ATTR_NONNULL();
 
 
-/* visibility checks */
+/**
+ * Local view main visibility checks.
+ * \return if \a a is visible in \a b, or the other way around (order doesn't matter).
+ */
 BLI_INLINE bool BKE_localview_info_cmp(LocalViewInfo a, LocalViewInfo b)
 {
 	return (a.viewbits & b.viewbits) != 0;
-}
-
-BLI_INLINE bool BKE_localview_is_object_visible(View3D *v3d, Object *ob)
-{
-	return (v3d->localviewd == NULL) || BKE_localview_info_cmp(v3d->localviewd->info, ob->localview);
 }
 
 /**
@@ -67,7 +64,7 @@ BLI_INLINE bool BKE_localview_is_valid(LocalViewInfo localview)
 }
 
 /**
- * Adjust local view info of \a ob to be visible if \a v3d is in local view
+ * Adjust local view info of \a ob to be visible if \a v3d is in local view.
  */
 BLI_INLINE void BKE_localview_object_assign(View3D *v3d, Object *ob)
 {

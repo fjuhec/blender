@@ -63,7 +63,6 @@
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
-#include "BKE_localview.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_material.h"
@@ -8107,11 +8106,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 			draw_hooks(ob);
 
 		/* help lines and so */
-		if ((ob != scene->obedit) &&
-		    (ob->parent != NULL) &&
-		    (ob->parent->lay & v3d->lay) &&
-		    (BKE_localview_is_object_visible(v3d, ob->parent)))
-		{
+		if ((ob != scene->obedit) && (ob->parent != NULL) && BKE_object_v3d_is_visible(ob->parent, v3d, false)) {
 			setlinestyle(3);
 			glBegin(GL_LINES);
 			glVertex3fv(ob->obmat[3]);

@@ -96,7 +96,6 @@
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
 #include "BKE_linestyle.h"
-#include "BKE_localview.h"
 #include "BKE_mesh.h"
 #include "BKE_editmesh.h"
 #include "BKE_mball.h"

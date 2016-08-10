@@ -51,7 +51,7 @@
 
 #include "BKE_main.h"
 #include "BKE_image.h"   /* BKE_imbuf_write */
-#include "BKE_localview.h"
+#include "BKE_object.h"
 #include "BKE_texture.h"
 #include "BKE_scene.h"
 
@@ -553,8 +553,8 @@ void make_envmaps(Render *re)
 			if (tex->id.us && tex->type == TEX_ENVMAP) {
 				if (tex->env && tex->env->object) {
 					EnvMap *env = tex->env;
-					
-					if (env->object->lay & re->lay && BKE_localview_info_cmp(env->object->localview, *re->localview)) {
+
+					if (BKE_object_is_visible(env->object, re->lay, re->localview, false)) {
 						if (env->stype == ENV_LOAD) {
 							float orthmat[4][4], mat[4][4], tmat[4][4];
 							

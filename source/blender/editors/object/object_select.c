@@ -53,12 +53,12 @@
 #include "BKE_group.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
+#include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_property.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_library.h"
-#include "BKE_localview.h"
 #include "BKE_deform.h"
 
 #include "WM_api.h"
