@@ -215,7 +215,9 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 						if (space_link->spacetype == SPACE_CLIP) {
 							SpaceClip *space_clip = (SpaceClip *) space_link;
 							if (space_clip->mode != SC_MODE_MASKEDIT) {
-								space_clip->mode = SC_MODE_TRACKING;
+								if (space_clip->mode != SC_MODE_TRACKING) {
+									space_clip->mode = SC_MODE_CORRESPONDENCE;
+								}
 							}
 						}
 					}

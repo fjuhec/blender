@@ -6434,6 +6434,7 @@ static void lib_link_screen(FileData *fd, Main *main)
 						SpaceClip *sclip = (SpaceClip *)sl;
 						
 						sclip->clip = newlibadr_real_us(fd, sc->id.lib, sclip->clip);
+						sclip->secondary_clip = newlibadr_real_us(fd, sc->id.lib, sclip->secondary_clip);
 						sclip->mask_info.mask = newlibadr_real_us(fd, sc->id.lib, sclip->mask_info.mask);
 					}
 					else if (sl->spacetype == SPACE_LOGIC) {
@@ -6814,6 +6815,7 @@ void blo_lib_link_screen_restore(Main *newmain, bScreen *curscreen, Scene *cursc
 					SpaceClip *sclip = (SpaceClip *)sl;
 					
 					sclip->clip = restore_pointer_by_name(id_map, (ID *)sclip->clip, USER_REAL);
+					sclip->secondary_clip = restore_pointer_by_name(id_map, (ID *)sclip->secondary_clip, USER_REAL);
 					sclip->mask_info.mask = restore_pointer_by_name(id_map, (ID *)sclip->mask_info.mask, USER_REAL);
 					
 					sclip->scopes.ok = 0;
