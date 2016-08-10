@@ -75,6 +75,7 @@ extern "C" {
 #include "BKE_fcurve.h"
 #include "BKE_group.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -264,7 +265,8 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 	}
 
 	/* scene objects */
-	for (Base *base = (Base *)scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		Object *ob = base->object;
 
 		/* object itself */
@@ -287,6 +289,7 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 			build_group(bmain, scene, ob, ob->dup_group);
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	/* rigidbody */
 	if (scene->rigidbody_world) {

@@ -284,21 +284,19 @@ static void motionpaths_calc_optimise_depsgraph(Scene *scene, ListBase *targets)
 	BKE_BASES_ITER_END;
 	
 	/* for each target, dump its object to the start of the list if it wasn't moved already */
-	Base *base, *baseNext;
 	for (MPathTarget *mpt = targets->first; mpt; mpt = mpt->next) {
-		for (base = scene->base.first; base; base = baseNext) {
-			baseNext = base->next;
-			
+		BKE_BASES_ITER_START(scene)
+		{
 			if ((base->object == mpt->ob) && !(mpt->ob->flag & BA_TEMP_TAG)) {
-				BLI_remlink(&scene->base, base);
-				BLI_addhead(&scene->base, base);
-				
+				BKE_layeritem_move(litem, 0, true);
 				mpt->ob->flag |= BA_TEMP_TAG;
 				
 				/* we really don't need to continue anymore once this happens, but this line might really 'break' */
+				break_layiter = true;
 				break;
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 	
 	/* "brew me a list that's sorted a bit faster now depsy" */

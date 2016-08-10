@@ -279,9 +279,12 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 
 /* Use this if BKE_BASES_ITER_START doesn't give enough control over variable names.
  * Doesn't do layer visibility-bit check, even with skip_hidden is true. */
-#define BKE_BASES_ITER_START_EX(scene, layeridx_name, litem_name, oblayer_name, baseidx_name, base_name, skip_hidden) \
+#define BKE_BASES_ITER_START_EX( \
+    scene, layeridx_name, litem_name, oblayer_name, \
+    baseidx_name, base_name, break_layiter_name, skip_hidden) \
 	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, layeridx_name, litem_name) \
 	{ \
+		bool break_layiter_name = false; \
 		if ((litem_name->type->type == LAYER_ITEMTYPE_LAYER) && \
 		    (!skip_hidden || BKE_layeritem_is_visible(litem))) \
 		{ \
@@ -289,23 +292,26 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 			BKE_OBJECTLAYER_BASES_ITER_START(oblayer_name, baseidx_name, base_name) \
 				if (skip_hidden && (base_name->object->restrictflag & OB_RESTRICT_VIEW)) \
 					continue;
+/* End BKE_BASES_ITER_ */
+#define BKE_BASES_ITER_END_EX(break_layiter_name) \
+			BKE_OBJECTLAYER_BASES_ITER_END; \
+		} \
+		if (break_layiter_name) \
+			break; \
+	} \
+	BKE_LAYERTREE_ITER_END /* ends with (void)0 */
 
 /* Start iterating over all bases of the scene, ignoring visibility. This is basically a wrapper around
  * layer tree and object layer iterator to make access a bit easier. Uses default variable names. */
 #define BKE_BASES_ITER_START(scene) \
-	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base, false)
+	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base, break_layiter, false)
 
 /* Version of BKE_BASES_ITER_START that skips invisible layers and
  * invisible objects. Doesn't do layer visibility-bit check.*/
 #define BKE_BASES_ITER_VISIBLE_START(scene) \
-	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base, true)
+	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base, break_layiter, true)
 
-/* End BKE_BASES_ITER_ */
-#define BKE_BASES_ITER_END \
-			BKE_OBJECTLAYER_BASES_ITER_END; \
-		} \
-	} \
-	BKE_LAYERTREE_ITER_END /* ends with (void)0 */
+#define BKE_BASES_ITER_END BKE_BASES_ITER_END_EX(break_layiter)
 
 struct LayerTreeItem *BKE_objectlayer_add(struct LayerTree *tree, struct LayerTreeItem *parent, const char *name);
 void BKE_objectlayer_free(struct LayerTreeItem *litem);

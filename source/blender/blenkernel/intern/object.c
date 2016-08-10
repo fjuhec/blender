@@ -3425,7 +3425,8 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 				/* child relationship */
 				if (includeFilter & (OB_REL_CHILDREN | OB_REL_CHILDREN_RECURSIVE)) {
 					/* FIXME O(n^2) */
-					BKE_BASES_ITER_START_EX(scene, k, local_litem, local_oblayer, l, local_base, true)
+					BKE_BASES_ITER_START_EX(scene, k, local_litem, local_oblayer, l,
+					                        local_base, local_break_layiter, true)
 					{
 						if (BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, local_base)) {
 							Object *child = local_base->object;
@@ -3438,7 +3439,7 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 							}
 						}
 					}
-					BKE_BASES_ITER_END;
+					BKE_BASES_ITER_END_EX(local_break_layiter);
 				}
 
 
