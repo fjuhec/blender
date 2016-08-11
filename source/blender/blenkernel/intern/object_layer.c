@@ -22,6 +22,8 @@
  *  \ingroup bke
  */
 
+#include <string.h>
+
 #include "BKE_layer.h"
 #include "BKE_object.h"
 
@@ -46,6 +48,12 @@ LayerTreeItem *BKE_objectlayer_add(LayerTree *tree, LayerTreeItem *parent, const
 void BKE_objectlayer_free(LayerTreeItem *litem)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+
+	/* Free bases */
+	for (int i = 0; i < oblayer->tot_bases; i++) {
+		MEM_freeN(oblayer->bases[i]);
+	}
+
 	if (oblayer->bases) {
 		MEM_freeN(oblayer->bases);
 	}
@@ -61,20 +69,30 @@ static void objectlayer_array_resize(LayerTypeObject *oblayer, unsigned int new_
 	}
 }
 
-/**
- * Assign \a base to object layer \a litem.
- * \param has_reserved: Set to true if entries have been reserved before using #BKE_objectlayer_bases_reserve.
- */
-void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem, const bool has_reserved)
+void BKE_objectlayer_base_assign_ex(Base *base, LayerTreeItem *litem, const bool has_reserved, const bool add_head)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 
 	oblayer->tot_bases++;
+
 	if (!has_reserved) {
 		objectlayer_array_resize(oblayer, oblayer->tot_bases);
 	}
-	oblayer->bases[oblayer->tot_bases - 1] = base;
+	/* offset current elements to give space for new one at start of array */
+	if (add_head && oblayer->tot_bases > 1) {
+		memmove(oblayer->bases[1], oblayer->bases[0], sizeof(*oblayer->bases) * oblayer->tot_bases - 1);
+	}
+
+	oblayer->bases[add_head ? 0 : oblayer->tot_bases - 1] = base;
 	base->layer = litem;
+}
+
+/**
+ * Assign \a base to object layer \a litem. Adds it to the end of the layer.
+ */
+void BKE_objectlayer_base_assign(Base *base, LayerTreeItem *litem)
+{
+	BKE_objectlayer_base_assign_ex(base, litem, false, false);
 }
 
 /**
@@ -130,4 +148,36 @@ void BKE_objectlayer_base_entries_reserve(LayerTreeItem *litem, const unsigned i
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 	objectlayer_array_resize(oblayer, nentries_reserve);
+}
+
+int BKE_objectlayer_bases_count(const LayerTree *ltree)
+{
+	int count = 0;
+
+	BKE_LAYERTREE_ITER_START(ltree, 0, i, litem)
+	{
+		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			count += oblayer->tot_bases;
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
+
+	return count;
+}
+
+Base *BKE_objectlayer_base_first_find(const LayerTree *ltree)
+{
+	BKE_LAYERTREE_ITER_START(ltree, 0, i, litem)
+	{
+		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			if (oblayer->tot_bases) {
+				return oblayer->bases[0];
+			}
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
+
+	return NULL;
 }

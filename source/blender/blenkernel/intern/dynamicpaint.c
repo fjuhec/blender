@@ -490,7 +490,7 @@ static int surface_getBrushFlags(DynamicPaintSurface *surface, const Scene *scen
 	if (surface->brush_group)
 		go = surface->brush_group->gobject.first;
 	else
-		base = scene->base.first;
+		base = BKE_objectlayer_base_first_find(scene->object_layers);
 
 	while (base || go) {
 		brushObj = NULL;
@@ -5448,7 +5448,7 @@ static int dynamicPaint_doStep(Scene *scene, Object *ob, DynamicPaintSurface *su
 		if (surface->brush_group)
 			go = surface->brush_group->gobject.first;
 		else
-			base = scene->base.first;
+			base = BKE_objectlayer_base_first_find(scene->object_layers);
 
 		while (base || go) {
 			brushObj = NULL;

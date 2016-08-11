@@ -2167,17 +2167,6 @@ static void direct_link_id(FileData *fd, ID *id)
 	}
 }
 
-
-/* ************ READ Base *************** */
-
-static void direct_link_bases(FileData *fd, ListBase *bases)
-{
-	link_list(fd, bases);
-	for (Base *base = bases->first; base; base = base->next) {
-		base->layer = newdataadr(fd, base->layer);
-	}
-}
-
 /* ************ READ CurveMapping *************** */
 
 /* cuma itself has been read! */
@@ -5658,10 +5647,9 @@ static void lib_link_scene(FileData *fd, Main *main)
 			sce->toolsettings->skgen_template = newlibadr(fd, sce->id.lib, sce->toolsettings->skgen_template);
 			
 			sce->toolsettings->particle.shape_object = newlibadr(fd, sce->id.lib, sce->toolsettings->particle.shape_object);
-			
-			for (Base *base = sce->base.first, *next; base; base = next) {
-				next = base->next;
-				
+
+			BKE_BASES_ITER_START(sce)
+			{
 				base->object = newlibadr_us(fd, sce->id.lib, base->object);
 				if (base->object) {
 					base->object->layer = base->layer;
@@ -5669,12 +5657,13 @@ static void lib_link_scene(FileData *fd, Main *main)
 				else if (base->object == NULL) {
 					blo_reportf_wrap(fd->reports, RPT_WARNING, TIP_("LIB: object lost from scene: '%s'"),
 					                 sce->id.name + 2);
-					BLI_remlink(&sce->base, base);
+					BKE_objectlayer_base_unassign(base);
 					if (base == sce->basact) sce->basact = NULL;
 					MEM_freeN(base);
 				}
 			}
-			
+			BKE_BASES_ITER_END;
+
 			SEQ_BEGIN (sce->ed, seq)
 			{
 				if (seq->ipo) seq->ipo = newlibadr_us(fd, sce->id.lib, seq->ipo);  // XXX deprecated - old animation system
@@ -5864,6 +5853,11 @@ static void direct_link_view_settings(FileData *fd, ColorManagedViewSettings *vi
 		direct_link_curvemapping(fd, view_settings->curve_mapping);
 }
 
+BLI_INLINE void direct_link_base(FileData *fd, Base *base)
+{
+	base->layer = newdataadr(fd, base->layer);
+}
+
 /**
  * \note Recursive.
  */
@@ -5890,6 +5884,7 @@ static void direct_link_layeritems(FileData *fd, ListBase *layeritems, LayerTree
 			oblayer->bases = newdataadr(fd, oblayer->bases);
 			for (int i = 0; i < oblayer->tot_bases; i++) {
 				oblayer->bases[i] = newdataadr(fd, oblayer->bases[i]);
+				direct_link_base(fd, oblayer->bases[i]);
 			}
 		}
 		direct_link_layeritems(fd, &litem->childs, ltree, counter);
@@ -5925,7 +5920,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 	/* set users to one by default, not in lib-link, this will increase it for compo nodes */
 	id_us_ensure_real(&sce->id);
 
-	direct_link_bases(fd, &sce->base);
+	link_list(fd, &sce->base);
 
 	sce->adt = newdataadr(fd, sce->adt);
 	direct_link_animdata(fd, sce->adt);
@@ -9831,9 +9826,8 @@ static void give_base_to_objects(Main *mainvar, Scene *scene, View3D *v3d, Libra
 
 			if (do_it) {
 				base = MEM_callocN(sizeof(Base), __func__);
-				BLI_addtail(&scene->base, base);
 
-				BKE_objectlayer_base_assign(base, scene->object_layers->active_layer, false);
+				BKE_objectlayer_base_assign(base, scene->object_layers->active_layer);
 				ob->layer = base->layer;
 				if (active_lay) {
 					ob->lay = active_lay;
@@ -9962,14 +9956,13 @@ static void link_object_postprocess(ID *id, Scene *scene, View3D *v3d, const sho
 		Object *ob;
 
 		base = MEM_callocN(sizeof(Base), "app_nam_part");
-		BLI_addtail(&scene->base, base);
 
 		ob = (Object *)id;
 
 		/* link at active layer (view3d if available in context, else scene one */
 		if (flag & FILE_ACTIVELAY) {
 			ob->lay = BKE_screen_view3d_layer_active(v3d, scene);
-			BKE_objectlayer_base_assign(base, scene->object_layers->active_layer, false);
+			BKE_objectlayer_base_assign(base, scene->object_layers->active_layer);
 			ob->layer = base->layer;
 		}
 

@@ -47,8 +47,10 @@
 
 #include "BKE_constraint.h"
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_screen.h"
 #include "BKE_pointcache.h"
 
@@ -364,7 +366,8 @@ static void time_draw_caches_keyframes(Main *bmain, Scene *scene, View2D *v2d, b
 		cache_file->draw_flag &= ~CACHEFILE_KEYFRAME_DRAWN;
 	}
 
-	for (Base *base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		Object *ob = base->object;
 
 		ModifierData *md = modifiers_findByType(ob, eModifierType_MeshSequenceCache);
@@ -401,6 +404,7 @@ static void time_draw_caches_keyframes(Main *bmain, Scene *scene, View2D *v2d, b
 			time_draw_idblock_keyframes(v2d, (ID *)cache_file, onlysel);
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 /* draw keyframe lines for timeline */

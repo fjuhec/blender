@@ -266,12 +266,12 @@ static void libblock_remap_data_preprocess(IDRemap *r_id_remap_data)
 				/* In case we are unlinking... */
 				if (!r_id_remap_data->old_id) {
 					/* ... everything from scene. */
-					Base *base, *base_next;
-					for (base = sce->base.first; base; base = base_next) {
-						base_next = base->next;
+					BKE_BASES_ITER_START(sce)
+					{
 						libblock_remap_data_preprocess_scene_base_unlink(
 						            r_id_remap_data, sce, base, skip_indirect, is_indirect);
 					}
+					BKE_BASES_ITER_END;
 				}
 				else if (GS(r_id_remap_data->old_id->name) == ID_OB) {
 					/* ... a specific object from scene. */

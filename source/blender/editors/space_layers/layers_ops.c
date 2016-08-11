@@ -38,6 +38,7 @@
 #include "BLI_listbase.h"
 #include "BLI_rect.h"
 
+#include "DNA_object_types.h"
 #include "DNA_windowmanager_types.h"
 
 #include "ED_object.h"
@@ -665,18 +666,16 @@ static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), cons
 	if (!slayer->act_tree->active_layer)
 		return OPERATOR_CANCELLED;
 
-	/* TODO Uses old base list to allow assigning objects that don't have a layer yet */
-//	BKE_BASES_ITER_START(scene)
-	for (Base *base = scene->base.first; base; base = base->next)
+	BKE_BASES_ITER_START(scene)
 	{
 		if (base->flag & SELECT) {
 			if (base->layer) {
 				BKE_objectlayer_base_unassign(base);
 			}
-			BKE_objectlayer_base_assign(base, slayer->act_tree->active_layer, false);
+			BKE_objectlayer_base_assign(base, slayer->act_tree->active_layer);
 		}
 	}
-//	BKE_BASES_ITER_END;
+	BKE_BASES_ITER_END;
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, NULL);
 

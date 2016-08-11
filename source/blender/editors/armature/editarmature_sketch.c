@@ -32,6 +32,8 @@
 #include "BLI_math.h"
 
 #include "BKE_context.h"
+#include "BKE_layer.h"
+#include "BKE_object.h"
 #include "BKE_sketch.h"
 
 #include "RNA_define.h"
@@ -142,7 +144,6 @@ void BIF_makeListTemplates(const bContext *C)
 	Object *obedit = CTX_data_edit_object(C);
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
-	Base *base;
 	int index = 0;
 
 	if (TEMPLATES_HASH != NULL) {
@@ -152,7 +153,8 @@ void BIF_makeListTemplates(const bContext *C)
 	TEMPLATES_HASH = BLI_ghash_int_new("makeListTemplates gh");
 	TEMPLATES_CURRENT = 0;
 
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		Object *ob = base->object;
 
 		if (ob != obedit && ob->type == OB_ARMATURE) {
@@ -164,6 +166,7 @@ void BIF_makeListTemplates(const bContext *C)
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 #if 0  /* UNUSED */

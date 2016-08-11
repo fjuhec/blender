@@ -6459,9 +6459,9 @@ static void createTransObject(bContext *C, TransInfo *t)
 	
 	if (is_prop_edit) {
 		View3D *v3d = t->view;
-		Base *base;
 
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			Object *ob = base->object;
 
 			/* if base is not selected, not a parent of selection or not a child of selection and it is editable */
@@ -6478,6 +6478,7 @@ static void createTransObject(bContext *C, TransInfo *t)
 				tx++;
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 

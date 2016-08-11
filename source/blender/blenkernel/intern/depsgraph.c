@@ -70,6 +70,7 @@
 #include "BKE_idcode.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
@@ -463,7 +464,6 @@ static void check_and_create_collision_relation(DagForest *dag, Object *ob, DagN
 
 static void dag_add_collision_field_relation(DagForest *dag, Scene *scene, Object *ob, DagNode *node, int skip_forcefield, bool no_collision)
 {
-	Base *base;
 	ParticleSystem *particle_system;
 
 	for (particle_system = ob->particlesystem.first;
@@ -487,12 +487,14 @@ static void dag_add_collision_field_relation(DagForest *dag, Scene *scene, Objec
 
 	/* would be nice to have a list of colliders here
 	 * so for now walk all objects in scene check 'same layer rule' */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene)
+	{
 		if ((base->lay & ob->lay)) {
 			Object *ob1 = base->object;
 			check_and_create_collision_relation(dag, ob, node, ob1, skip_forcefield, no_collision);
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void build_dag_object(DagForest *dag, DagNode *scenenode, Main *bmain, Scene *scene, Object *ob, int mask)
@@ -923,7 +925,6 @@ static void build_dag_group(DagForest *dag, DagNode *scenenode, Main *bmain, Sce
 
 DagForest *build_dag(Main *bmain, Scene *sce, short mask)
 {
-	Base *base;
 	Object *ob;
 	DagNode *node;
 	DagNode *scenenode;
@@ -950,7 +951,8 @@ DagForest *build_dag(Main *bmain, Scene *sce, short mask)
 	scenenode = dag_add_node(dag, sce);
 	
 	/* add current scene objects */
-	for (base = sce->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(sce)
+	{
 		ob = base->object;
 		ob->id.tag |= LIB_TAG_DOIT;
 		build_dag_object(dag, scenenode, bmain, sce, ob, mask);
@@ -959,6 +961,7 @@ DagForest *build_dag(Main *bmain, Scene *sce, short mask)
 		if (ob->dup_group) 
 			build_dag_group(dag, scenenode, bmain, sce, ob->dup_group, mask);
 	}
+	BKE_BASES_ITER_END;
 
 	/* There might be situations when object from current scene depends on
 	 * objects form other scene AND objects from other scene has own
@@ -1433,7 +1436,6 @@ static void dag_editors_scene_update(Main *bmain, Scene *scene, int updated)
 /* groups with objects in this scene need to be put in the right order as well */
 static void scene_sort_groups(Main *bmain, Scene *sce)
 {
-	Base *base;
 	Group *group;
 	GroupObject *go;
 	Object *ob;
@@ -1443,9 +1445,12 @@ static void scene_sort_groups(Main *bmain, Scene *sce)
 		ob->id.tag &= ~LIB_TAG_DOIT;
 		ob->id.newid = NULL; /* newid abuse for GroupObject */
 	}
-	for (base = sce->base.first; base; base = base->next)
+	BKE_BASES_ITER_START(sce)
+	{
 		base->object->id.tag |= LIB_TAG_DOIT;
-	
+	}
+	BKE_BASES_ITER_END;
+
 	for (group = bmain->group.first; group; group = group->id.next) {
 		for (go = group->gobject.first; go; go = go->next) {
 			if ((go->ob->id.tag & LIB_TAG_DOIT) == 0)
@@ -1459,8 +1464,8 @@ static void scene_sort_groups(Main *bmain, Scene *sce)
 				go->ob->id.newid = (ID *)go;
 			
 			/* in order of sorted bases we reinsert group objects */
-			for (base = sce->base.first; base; base = base->next) {
-				
+			BKE_BASES_ITER_START(sce)
+			{
 				if (base->object->id.newid) {
 					go = (GroupObject *)base->object->id.newid;
 					base->object->id.newid = NULL;
@@ -1468,6 +1473,7 @@ static void scene_sort_groups(Main *bmain, Scene *sce)
 					BLI_addtail(&listb, go);
 				}
 			}
+			BKE_BASES_ITER_END;
 			/* copy the newly sorted listbase */
 			group->gobject = listb;
 		}
@@ -1618,7 +1624,6 @@ static void dag_scene_build(Main *bmain, Scene *sce)
 	int time;
 	int skip = 0;
 	ListBase tempbase;
-	Base *base;
 
 	BLI_listbase_clear(&tempbase);
 
@@ -1666,6 +1671,7 @@ static void dag_scene_build(Main *bmain, Scene *sce)
 				node->color = DAG_BLACK;
 				
 				time++;
+#if 0
 				base = sce->base.first;
 				while (base && base->object != node->ob)
 					base = base->next;
@@ -1673,10 +1679,12 @@ static void dag_scene_build(Main *bmain, Scene *sce)
 					BLI_remlink(&sce->base, base);
 					BLI_addhead(&tempbase, base);
 				}
+#endif
 			}
 		}
 	}
-	
+
+#if 0
 	/* temporal correction for circular dependencies */
 	base = sce->base.first;
 	while (base) {
@@ -1688,6 +1696,7 @@ static void dag_scene_build(Main *bmain, Scene *sce)
 	}
 	
 	sce->base = tempbase;
+#endif
 	queue_delete(nqueue);
 	
 	/* all groups with objects in this scene gets resorted too */
@@ -1695,9 +1704,11 @@ static void dag_scene_build(Main *bmain, Scene *sce)
 	
 	if (G.debug & G_DEBUG) {
 		printf("\nordered\n");
-		for (base = sce->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(sce)
+		{
 			printf(" %s\n", base->object->id.name);
 		}
+		BKE_BASES_ITER_END;
 	}
 
 	/* Make sure that new dependencies which came from invisible layers
@@ -1937,7 +1948,6 @@ static void dag_scene_flush_layers(Scene *sce, int lay)
 {
 	DagNode *node, *firstnode;
 	DagAdjList *itA;
-	Base *base;
 	int lasttime;
 
 	firstnode = sce->theDag->DagNode.first;  /* always scene node */
@@ -1949,10 +1959,12 @@ static void dag_scene_flush_layers(Scene *sce, int lay)
 	lasttime = sce->theDag->time;
 
 	/* update layer flags in nodes */
-	for (base = sce->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(sce)
+	{
 		node = dag_get_node(sce->theDag, base->object);
 		node->scelay = base->object->lay;
 	}
+	BKE_BASES_ITER_END;
 
 	/* ensure cameras are set as if they are on a visible layer, because
 	 * they ared still used for rendering or setting the camera view
@@ -1986,14 +1998,16 @@ static void dag_tag_renderlayers(Scene *sce, unsigned int lay)
 {
 	if (sce->nodetree) {
 		bNode *node;
-		Base *base;
 		unsigned int lay_changed = 0;
-		
-		for (base = sce->base.first; base; base = base->next)
+
+		BKE_BASES_ITER_VISIBLE_START(sce)
+		{
 			if (base->lay & lay)
 				if (base->object->recalc)
 					lay_changed |= base->lay;
-			
+		}
+		BKE_BASES_ITER_END;
+
 		for (node = sce->nodetree->nodes.first; node; node = node->next) {
 			if (node->id == (ID *)sce) {
 				SceneRenderLayer *srl = BLI_findlink(&sce->r.layers, node->custom1);

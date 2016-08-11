@@ -672,12 +672,12 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 	else if (ob_act == NULL || ob_act->mode == OB_MODE_OBJECT) {
 		/* object mode use boundbox centers */
 		View3D *v3d = CTX_wm_view3d(C);
-		Base *base;
 		unsigned int tot = 0;
 		float select_center[3];
 
 		zero_v3(select_center);
-		for (base = FIRSTBASE; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene)
+		{
 			if (TESTBASE(v3d, base)) {
 				/* use the boundbox if we can */
 				Object *ob = base->object;
@@ -696,6 +696,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 				tot++;
 			}
 		}
+		BKE_BASES_ITER_END;
 		if (tot) {
 			mul_v3_fl(select_center, 1.0f / (float)tot);
 			copy_v3_v3(lastofs, select_center);
@@ -3093,10 +3094,9 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 		ok_dist = 0; /* don't zoom */
 	}
 	else {
-		Base *base;
-		for (base = FIRSTBASE; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene)
+		{
 			if (TESTBASE(v3d, base)) {
-
 				if (skip_camera && base->object == v3d->camera) {
 					continue;
 				}
@@ -3108,6 +3108,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 				ok = 1;
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 
 	if (ok == 0) {

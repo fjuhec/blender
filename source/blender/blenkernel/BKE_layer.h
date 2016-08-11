@@ -53,6 +53,7 @@ typedef enum eLayerTree_Type {
 } eLayerTree_Type;
 
 LayerTree *BKE_layertree_new(const eLayerTree_Type type);
+//LayerTree *BKE_layertree_copy(const LayerTree *oldtree); /* TODO */
 void BKE_layertree_delete(LayerTree *ltree);
 
 bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, void *customdata, const bool inverse);

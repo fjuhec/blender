@@ -1593,11 +1593,11 @@ typedef struct Scene {
 	struct World *world;
 	
 	struct Scene *set;
-	
+
 	ListBase base;
 	struct Base *basact;		/* active base */
 	struct Object *obedit;		/* name replaces old G.obedit */
-	
+
 	float cursor[3];			/* 3d cursor location */
 	float twcent[3];			/* center for transform widget */
 	float twmin[3], twmax[3];	/* boundbox of selection for transform widget */
@@ -1879,6 +1879,8 @@ extern const char *RE_engine_id_CYCLES;
 /* (minimum frame number for current-frame) */
 #define MINAFRAME	-500000
 #define MINAFRAMEF	-500000.0f
+
+/* TODO add layer visibility checks */
 
 /* depricate this! */
 #define TESTBASE(v3d, base)  (                                                \

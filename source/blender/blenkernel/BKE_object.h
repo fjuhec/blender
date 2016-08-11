@@ -280,8 +280,8 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 /* Use this if BKE_BASES_ITER_START doesn't give enough control over variable names.
  * Doesn't do layer visibility-bit check, even with skip_hidden is true. */
 #define BKE_BASES_ITER_START_EX( \
-    scene, layeridx_name, litem_name, oblayer_name, \
-    baseidx_name, base_name, break_layiter_name, skip_hidden) \
+	    scene, layeridx_name, litem_name, oblayer_name, \
+	    baseidx_name, base_name, break_layiter_name, skip_hidden) \
 	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, layeridx_name, litem_name) \
 	{ \
 		bool break_layiter_name = false; \
@@ -315,10 +315,15 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 
 struct LayerTreeItem *BKE_objectlayer_add(struct LayerTree *tree, struct LayerTreeItem *parent, const char *name);
 void BKE_objectlayer_free(struct LayerTreeItem *litem);
-void BKE_objectlayer_base_assign(struct Base *base, struct LayerTreeItem *litem, const bool has_reserved);
+void BKE_objectlayer_base_assign_ex(
+        struct Base *base, struct LayerTreeItem *litem,
+        const bool has_reserved, const bool add_head);
+void BKE_objectlayer_base_assign(struct Base *base, struct LayerTreeItem *litem);
 void BKE_objectlayer_base_unassign(struct Base *base);
 void BKE_objectlayer_bases_unassign_all(struct LayerTreeItem *litem, const bool unset_base_layer);
 void BKE_objectlayer_base_entries_reserve(struct LayerTreeItem *litem, const unsigned int nentries_reserve);
+int  BKE_objectlayer_bases_count(const struct LayerTree *ltree);
+struct Base *BKE_objectlayer_base_first_find(const struct LayerTree *ltree);
 
 #ifdef __cplusplus
 }

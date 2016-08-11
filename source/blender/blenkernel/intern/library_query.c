@@ -70,10 +70,12 @@
 #include "BKE_animsys.h"
 #include "BKE_constraint.h"
 #include "BKE_fcurve.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sca.h"
@@ -273,7 +275,6 @@ static void library_foreach_paint(LibraryForeachIDData *data, Paint *paint)
 void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *user_data, int flag)
 {
 	LibraryForeachIDData data;
-	int i;
 
 	if (flag & IDWALK_RECURSE) {
 		/* For now, recusion implies read-only. */
@@ -317,7 +318,6 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				Scene *scene = (Scene *) id;
 				ToolSettings *toolsett = scene->toolsettings;
 				SceneRenderLayer *srl;
-				Base *base;
 
 				CALLBACK_INVOKE(scene->camera, IDWALK_NOP);
 				CALLBACK_INVOKE(scene->world, IDWALK_USER);
@@ -374,9 +374,11 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 
 				CALLBACK_INVOKE(scene->gpd, IDWALK_USER);
 
-				for (base = scene->base.first; base; base = base->next) {
+				BKE_BASES_ITER_START(scene)
+				{
 					CALLBACK_INVOKE(base->object, IDWALK_USER);
 				}
+				BKE_BASES_ITER_END;
 
 				if (toolsett) {
 					CALLBACK_INVOKE(toolsett->skgen_template, IDWALK_NOP);
@@ -455,7 +457,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				CALLBACK_INVOKE(object->poselib, IDWALK_USER);
 
 				data.cd_flag |= proxy_cd_flag;
-				for (i = 0; i < object->totcol; i++) {
+				for (int i = 0; i < object->totcol; i++) {
 					CALLBACK_INVOKE(object->mat[i], IDWALK_USER);
 				}
 				data.cd_flag = data_cd_flag;
@@ -518,7 +520,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				Mesh *mesh = (Mesh *) id;
 				CALLBACK_INVOKE(mesh->texcomesh, IDWALK_USER);
 				CALLBACK_INVOKE(mesh->key, IDWALK_USER);
-				for (i = 0; i < mesh->totcol; i++) {
+				for (int i = 0; i < mesh->totcol; i++) {
 					CALLBACK_INVOKE(mesh->mat[i], IDWALK_USER);
 				}
 
@@ -526,7 +528,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				 * 'texture slots' and just set indices in each poly/face item - would also save some memory.
 				 * Maybe a nice TODO for blender2.8? */
 				if (mesh->mtface || mesh->mtpoly) {
-					for (i = 0; i < mesh->pdata.totlayer; i++) {
+					for (int i = 0; i < mesh->pdata.totlayer; i++) {
 						if (mesh->pdata.layers[i].type == CD_MTEXPOLY) {
 							MTexPoly *txface = (MTexPoly *)mesh->pdata.layers[i].data;
 
@@ -536,7 +538,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 						}
 					}
 
-					for (i = 0; i < mesh->fdata.totlayer; i++) {
+					for (int i = 0; i < mesh->fdata.totlayer; i++) {
 						if (mesh->fdata.layers[i].type == CD_MTFACE) {
 							MTFace *tface = (MTFace *)mesh->fdata.layers[i].data;
 
@@ -556,7 +558,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				CALLBACK_INVOKE(curve->taperobj, IDWALK_NOP);
 				CALLBACK_INVOKE(curve->textoncurve, IDWALK_NOP);
 				CALLBACK_INVOKE(curve->key, IDWALK_USER);
-				for (i = 0; i < curve->totcol; i++) {
+				for (int i = 0; i < curve->totcol; i++) {
 					CALLBACK_INVOKE(curve->mat[i], IDWALK_USER);
 				}
 				CALLBACK_INVOKE(curve->vfont, IDWALK_USER);
@@ -569,7 +571,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 			case ID_MB:
 			{
 				MetaBall *metaball = (MetaBall *) id;
-				for (i = 0; i < metaball->totcol; i++) {
+				for (int i = 0; i < metaball->totcol; i++) {
 					CALLBACK_INVOKE(metaball->mat[i], IDWALK_USER);
 				}
 				break;
@@ -578,7 +580,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 			case ID_MA:
 			{
 				Material *material = (Material *) id;
-				for (i = 0; i < MAX_MTEX; i++) {
+				for (int i = 0; i < MAX_MTEX; i++) {
 					if (material->mtex[i]) {
 						library_foreach_mtex(&data, material->mtex[i]);
 					}
@@ -622,7 +624,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 			case ID_LA:
 			{
 				Lamp *lamp = (Lamp *) id;
-				for (i = 0; i < MAX_MTEX; i++) {
+				for (int i = 0; i < MAX_MTEX; i++) {
 					if (lamp->mtex[i]) {
 						library_foreach_mtex(&data, lamp->mtex[i]);
 					}
@@ -662,7 +664,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 			case ID_WO:
 			{
 				World *world = (World *) id;
-				for (i = 0; i < MAX_MTEX; i++) {
+				for (int i = 0; i < MAX_MTEX; i++) {
 					if (world->mtex[i]) {
 						library_foreach_mtex(&data, world->mtex[i]);
 					}
@@ -721,7 +723,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				CALLBACK_INVOKE(psett->bb_ob, IDWALK_NOP);
 				CALLBACK_INVOKE(psett->collision_group, IDWALK_NOP);
 
-				for (i = 0; i < MAX_MTEX; i++) {
+				for (int i = 0; i < MAX_MTEX; i++) {
 					if (psett->mtex[i]) {
 						library_foreach_mtex(&data, psett->mtex[i]);
 					}
@@ -793,7 +795,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 					MaskSpline *mask_spline;
 
 					for (mask_spline = mask_layer->splines.first; mask_spline; mask_spline = mask_spline->next) {
-						for (i = 0; i < mask_spline->tot_point; i++) {
+						for (int i = 0; i < mask_spline->tot_point; i++) {
 							MaskSplinePoint *point = &mask_spline->points[i];
 							CALLBACK_INVOKE_ID(point->parent.id, IDWALK_USER);
 						}
@@ -806,7 +808,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 			{
 				FreestyleLineStyle *linestyle = (FreestyleLineStyle *) id;
 				LineStyleModifier *lsm;
-				for (i = 0; i < MAX_MTEX; i++) {
+				for (int i = 0; i < MAX_MTEX; i++) {
 					if (linestyle->mtex[i]) {
 						library_foreach_mtex(&data, linestyle->mtex[i]);
 					}

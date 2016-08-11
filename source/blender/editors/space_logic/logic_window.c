@@ -52,8 +52,10 @@
 
 #include "BKE_action.h"
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
+#include "BKE_object.h"
 #include "BKE_sca.h"
 
 #include "ED_util.h"
@@ -460,7 +462,6 @@ static void set_sca_ob(Object *ob)
 
 static ID **get_selected_and_linked_obs(bContext *C, short *count, short scavisflag)
 {
-	Base *base;
 	Main *bmain= CTX_data_main(C);
 	Scene *scene= CTX_data_scene(C);
 	Object *ob, *obt, *obact= CTX_data_active_object(C);
@@ -487,9 +488,9 @@ static ID **get_selected_and_linked_obs(bContext *C, short *count, short scavisf
 	
 	/* XXX here it checked 3d lay */
 	lay= scene->lay;
-	
-	base= FIRSTBASE;
-	while (base) {
+
+	BKE_BASES_ITER_VISIBLE_START(scene)
+	{
 		if (base->lay & lay) {
 			if (base->flag & SELECT) {
 				if (scavisflag & BUTS_SENS_SEL) base->object->scavisflag |= OB_VIS_SENS;
@@ -499,6 +500,7 @@ static ID **get_selected_and_linked_obs(bContext *C, short *count, short scavisf
 		}
 		base= base->next;
 	}
+	BKE_BASES_ITER_END;
 
 	if (obact) {
 		if (scavisflag & BUTS_SENS_ACT) obact->scavisflag |= OB_VIS_SENS;

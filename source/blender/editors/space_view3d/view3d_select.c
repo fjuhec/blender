@@ -1077,15 +1077,15 @@ void VIEW3D_OT_select_menu(wmOperatorType *ot)
 
 static void deselectall_except(Scene *scene, Base *b)   /* deselect all except b */
 {
-	Base *base;
-	
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		if (base->flag & SELECT) {
 			if (b != base) {
 				ED_base_object_select(base, BA_DESELECT);
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static Base *object_mouse_select_menu(bContext *C, ViewContext *vc, unsigned int *buffer, int hits, const int mval[2], short toggle)
@@ -1281,7 +1281,7 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 {
 	Scene *scene = vc->scene;
 	View3D *v3d = vc->v3d;
-	Base *base, *basact = NULL;
+	Base *basact = NULL;
 	int a;
 	
 	if (do_nearest) {
@@ -1309,52 +1309,101 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 				}
 			}
 		}
-		
-		base = FIRSTBASE;
-		while (base) {
+
+		BKE_BASES_ITER_VISIBLE_START(scene)
+		{
 			if (BASE_SELECTABLE(v3d, base)) {
-				if (base->selcol == selcol) break;
+				if (base->selcol == selcol) {
+					basact = base;
+
+					break_layiter = true;
+					break;
+				}
 			}
-			base = base->next;
 		}
-		if (base) basact = base;
+		BKE_BASES_ITER_END;
 	}
 	else {
-		
-		base = startbase;
-		while (base) {
-			/* skip objects with select restriction, to prevent prematurely ending this loop
-			 * with an un-selectable choice */
-			if (base->object->restrictflag & OB_RESTRICT_SELECT) {
-				base = base->next;
-				if (base == NULL) base = FIRSTBASE;
-				if (base == startbase) break;
+		const int max_layidx = BKE_layertree_get_totitems(scene->object_layers) - 1;
+		bool found_startbase = false;
+		bool done = false;
+
+#define ENSURE_CYCLIC_ITER \
+	if (j == (oblayer->tot_bases - 1)) { \
+		/* at the end of object iterator, back to first object in layer */ \
+		j = -1; \
+		if (i == max_layidx) { \
+			/* at the end of layer iterator, back to first layer */ \
+			i = -1; \
+		} \
+	}
+
+		/* iterate over bases starting with startbase, need more control so not just using BKE_BASES_ITER_START */
+		BKE_LAYERTREE_ITER_START(scene->object_layers, startbase->layer->index, i, litem)
+		{
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			if (litem->type->type != LAYER_ITEMTYPE_LAYER) {
+				/* at the end of iterator, back to start */
+				if (i == max_layidx) {
+					i = -1;
+				}
+				continue;
 			}
-			
-			if (BASE_SELECTABLE(v3d, base)) {
-				for (a = 0; a < hits; a++) {
-					if (has_bones) {
-						/* skip non-bone objects */
-						if ((buffer[4 * a + 3] & 0xFFFF0000)) {
+
+			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
+			{
+				/* skip objects with select restriction, to prevent prematurely ending this loop
+				 * with an un-selectable choice */
+				if (base->object->restrictflag & OB_RESTRICT_SELECT) {
+					ENSURE_CYCLIC_ITER;
+					continue;
+				}
+
+				if (base == startbase) {
+					/* already found startbase but we're back to it, meaning
+					 * we've checked all bases, nothing more to do */
+					if (found_startbase) {
+						done = true;
+						break;
+					}
+					else {
+						found_startbase = true;
+					}
+				}
+				else if (!found_startbase) {
+					continue;
+				}
+
+				if (BASE_SELECTABLE(v3d, base)) {
+					for (a = 0; a < hits; a++) {
+						if (has_bones) {
+							/* skip non-bone objects */
+							if ((buffer[4 * a + 3] & 0xFFFF0000)) {
+								if (base->selcol == (buffer[(4 * a) + 3] & 0xFFFF))
+									basact = base;
+							}
+						}
+						else {
 							if (base->selcol == (buffer[(4 * a) + 3] & 0xFFFF))
 								basact = base;
 						}
 					}
-					else {
-						if (base->selcol == (buffer[(4 * a) + 3] & 0xFFFF))
-							basact = base;
-					}
 				}
+
+				if (basact) {
+					done = true;
+					break;
+				}
+				ENSURE_CYCLIC_ITER;
 			}
-			
-			if (basact) break;
-			
-			base = base->next;
-			if (base == NULL) base = FIRSTBASE;
-			if (base == startbase) break;
+			BKE_OBJECTLAYER_BASES_ITER_END;
+
+			if (done)
+				break;
 		}
+		BKE_LAYERTREE_ITER_END;
 	}
-	
+
 	return basact;
 }
 
@@ -1375,7 +1424,9 @@ Base *ED_view3d_give_base_under_cursor(bContext *C, const int mval[2])
 	
 	if (hits > 0) {
 		const bool has_bones = selectbuffer_has_bones(buffer, hits);
-		basact = mouse_select_eval_buffer(&vc, buffer, hits, vc.scene->base.first, has_bones, do_nearest);
+		basact = mouse_select_eval_buffer(
+		             &vc, buffer, hits, BKE_objectlayer_base_first_find(vc.scene->object_layers),
+		             has_bones, do_nearest);
 	}
 	
 	return basact;
@@ -1409,7 +1460,7 @@ static bool ed_object_select_pick(
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	Scene *scene = CTX_data_scene(C);
-	Base *base, *startbase = NULL, *basact = NULL, *oldbasact = NULL;
+	Base *startbase = NULL, *basact = NULL, *oldbasact = NULL;
 	bool is_obedit;
 	float dist = ED_view3d_select_dist_px() * 1.3333f;
 	bool retval = false;
@@ -1427,38 +1478,74 @@ static bool ed_object_select_pick(
 	}
 	
 	/* always start list from basact in wire mode */
-	startbase =  FIRSTBASE;
+	startbase =  BKE_objectlayer_base_first_find(scene->object_layers);
 	if (BASACT && BASACT->next) startbase = BASACT->next;
 	
 	/* This block uses the control key to make the object selected by its center point rather than its contents */
 	/* in editmode do not activate */
 	if (obcenter) {
-		
 		/* note; shift+alt goes to group-flush-selecting */
 		if (enumerate) {
 			basact = object_mouse_select_menu(C, &vc, NULL, 0, mval, toggle);
 		}
 		else {
-			base = startbase;
-			while (base) {
-				if (BASE_SELECTABLE(v3d, base)) {
-					float screen_co[2];
-					if (ED_view3d_project_float_global(ar, base->object->obmat[3], screen_co,
-					                                   V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR) == V3D_PROJ_RET_OK)
-					{
-						float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-						if (base == BASACT) dist_temp += 10.0f;
-						if (dist_temp < dist) {
-							dist = dist_temp;
-							basact = base;
+			const int max_layidx = BKE_layertree_get_totitems(scene->object_layers);
+			bool found_startbase = false;
+			bool done = false;
+
+			BKE_LAYERTREE_ITER_START(scene->object_layers, startbase->layer->index, i, litem)
+			{
+				if ((litem->type->type != LAYER_ITEMTYPE_LAYER) || !BKE_layeritem_is_visible(litem))
+					continue;
+				LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+
+				BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
+				{
+					if (base == startbase) {
+						/* already found startbase but we're back to it, meaning
+						 * we've checked all bases, nothing more to do */
+						if (found_startbase) {
+							done = true;
+							break;
+						}
+						else {
+							found_startbase = true;
+						}
+					}
+					else if (!found_startbase) {
+						continue;
+					}
+
+					if (BASE_SELECTABLE(v3d, base)) {
+						eV3DProjTest flag = (V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR);
+						float screen_co[2];
+						if (ED_view3d_project_float_global(
+						        ar, base->object->obmat[3], screen_co, flag) == V3D_PROJ_RET_OK)
+						{
+							float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
+							if (base == BASACT) dist_temp += 10.0f;
+							if (dist_temp < dist) {
+								dist = dist_temp;
+								basact = base;
+							}
+						}
+					}
+
+					if (j == (oblayer->tot_bases - 1)) {
+						/* at the end of object iterator, back to first object in layer */
+						j = -1;
+						if (i == max_layidx) {
+							/* at the end of layer iterator, back to first layer */
+							i = -1;
 						}
 					}
 				}
-				base = base->next;
-				
-				if (base == NULL) base = FIRSTBASE;
-				if (base == startbase) break;
+				BKE_OBJECTLAYER_BASES_ITER_END;
+
+				if (done)
+					break;
 			}
+			BKE_LAYERTREE_ITER_END;
 		}
 	}
 	else {
@@ -2049,10 +2136,16 @@ static int do_object_pose_box_select(bContext *C, ViewContext *vc, rcti *rect, b
 	 */
 
 	if (hits > 0) { /* no need to loop if there's no hit */
-		Base *base;
 		col = vbuffer + 3;
-		
-		for (base = vc->scene->base.first; base && hits; base = base->next) {
+
+		BKE_BASES_ITER_VISIBLE_START(vc->scene)
+		{
+			if (!hits) {
+				/* break base and layer iteration */
+				break_layiter = true;
+				break;
+			}
+
 			if (BASE_SELECTABLE(vc->v3d, base)) {
 				while (base->selcol == (*col & 0xFFFF)) {   /* we got an object */
 					if (*col & 0xFFFF0000) {                    /* we got a bone */
@@ -2095,7 +2188,8 @@ static int do_object_pose_box_select(bContext *C, ViewContext *vc, rcti *rect, b
 				}
 			}
 		}
-		
+		BKE_BASES_ITER_END;
+
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, vc->scene);
 	}
 	MEM_freeN(vbuffer);
@@ -2787,16 +2881,16 @@ static bool object_circle_select(ViewContext *vc, const bool select, const int m
 	Scene *scene = vc->scene;
 	const float radius_squared = rad * rad;
 	const float mval_fl[2] = {mval[0], mval[1]};
+	const eV3DProjTest projflag = (V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR);
 	bool changed = false;
 	const int select_flag = select ? SELECT : 0;
 
-
-	Base *base;
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene)
+	{
 		if (BASE_SELECTABLE(vc->v3d, base) && ((base->flag & SELECT) != select_flag)) {
 			float screen_co[2];
-			if (ED_view3d_project_float_global(vc->ar, base->object->obmat[3], screen_co,
-			                                   V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR) == V3D_PROJ_RET_OK)
+			if (ED_view3d_project_float_global(
+			        vc->ar, base->object->obmat[3], screen_co, projflag) == V3D_PROJ_RET_OK)
 			{
 				if (len_squared_v2v2(mval_fl, screen_co) <= radius_squared) {
 					ED_base_object_select(base, select ? BA_SELECT : BA_DESELECT);
@@ -2805,6 +2899,7 @@ static bool object_circle_select(ViewContext *vc, const bool select, const int m
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	return changed;
 }

@@ -74,6 +74,7 @@
 #include "BKE_fcurve.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_main.h"
@@ -1733,7 +1734,6 @@ void OBJECT_OT_make_links_data(wmOperatorType *ot)
 
 static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const int flag, const bool copy_groups)
 {
-	Base *base;
 	Object *ob, *obn;
 	Group *group, *groupn;
 	GroupObject *go;
@@ -1746,7 +1746,8 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 		ob->id.newid = NULL;
 
 	/* duplicate (must set newid) */
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		ob = base->object;
 
 		if ((base->flag & flag) == flag) {
@@ -1780,6 +1781,7 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	/* duplicate groups that consist entirely of duplicated objects */
 	for (group = bmain->group.first; group; group = group->id.next) {
@@ -1811,9 +1813,11 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 	if (v3d) ID_NEW(v3d->camera);
 
 	/* object and group pointers */
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		BKE_libblock_relink(&base->object->id);
 	}
+	BKE_BASES_ITER_END;
 
 	set_sca_new_poins();
 }
@@ -1822,13 +1826,14 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
  * button can be functional.*/
 void ED_object_single_user(Main *bmain, Scene *scene, Object *ob)
 {
-	Base *base;
 	const bool copy_groups = false;
 
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		if (base->object == ob) base->flag |=  OB_DONE;
 		else base->flag &= ~OB_DONE;
 	}
+	BKE_BASES_ITER_END;
 
 	single_object_users(bmain, scene, NULL, OB_DONE, copy_groups);
 }
@@ -1861,13 +1866,13 @@ static void single_obdata_users(Main *bmain, Scene *scene, const int flag)
 	Lamp *la;
 	Curve *cu;
 	/* Camera *cam; */
-	Base *base;
 	Mesh *me;
 	Lattice *lat;
 	ID *id;
 	int a;
 
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		ob = base->object;
 		if (!ID_IS_LINKED_DATABLOCK(ob) && (base->flag & flag) == flag) {
 			id = ob->data;
@@ -1935,6 +1940,7 @@ static void single_obdata_users(Main *bmain, Scene *scene, const int flag)
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	me = bmain->mesh.first;
 	while (me) {
@@ -1946,26 +1952,27 @@ static void single_obdata_users(Main *bmain, Scene *scene, const int flag)
 static void single_object_action_users(Scene *scene, const int flag)
 {
 	Object *ob;
-	Base *base;
 
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		ob = base->object;
 		if (!ID_IS_LINKED_DATABLOCK(ob) && (flag == 0 || (base->flag & SELECT)) ) {
 			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 			BKE_animdata_copy_id_action(&ob->id);
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void single_mat_users(Main *bmain, Scene *scene, const int flag, const bool do_textures)
 {
 	Object *ob;
-	Base *base;
 	Material *ma, *man;
 	Tex *tex;
 	int a, b;
 
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_START(scene)
+	{
 		ob = base->object;
 		if (!ID_IS_LINKED_DATABLOCK(ob) && (flag == 0 || (base->flag & SELECT)) ) {
 			for (a = 1; a <= ob->totcol; a++) {
@@ -1997,6 +2004,7 @@ static void single_mat_users(Main *bmain, Scene *scene, const int flag, const bo
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void do_single_tex_user(Main *bmain, Tex **from)

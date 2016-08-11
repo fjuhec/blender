@@ -61,6 +61,7 @@
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
+#include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
@@ -818,20 +819,24 @@ static void outliner_do_data_operation(SpaceOops *soops, int type, int event, Li
 
 static Base *outline_delete_hierarchy(bContext *C, ReportList *reports, Scene *scene, Base *base)
 {
-	Base *child_base, *base_next;
+	Base *base_next;
 	Object *parent;
 
 	if (!base) {
 		return NULL;
 	}
 
-	for (child_base = scene->base.first; child_base; child_base = base_next) {
-		base_next = child_base->next;
-		for (parent = child_base->object->parent; parent && (parent != base->object); parent = parent->parent);
+	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, child_base, break_layiter, false)
+	{
+		for (parent = child_base->object->parent; parent && (parent != base->object); parent = parent->parent) {
+			/* skip */
+		}
+
 		if (parent) {
 			base_next = outline_delete_hierarchy(C, reports, scene, child_base);
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	base_next = base->next;
 

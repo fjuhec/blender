@@ -2865,7 +2865,7 @@ static int ds_base_sorting_cmp(const void *base1_ptr, const void *base2_ptr)
 static Base **animdata_filter_ds_sorted_bases(bDopeSheet *ads, Scene *scene, int filter_mode, size_t *r_usable_bases)
 {
 	/* Create an array with space for all the bases, but only containing the usable ones */
-	size_t tot_bases = BLI_listbase_count(&scene->base);
+	size_t tot_bases = BKE_objectlayer_bases_count(scene->object_layers);
 	size_t num_bases = 0;
 	
 	Base **sorted_bases = MEM_mallocN(sizeof(Base *) * tot_bases, "Dopesheet Usable Sorted Bases");
@@ -2891,6 +2891,8 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, b
 {
 	Scene *scene = (Scene *)ads->source;
 	size_t items = 0;
+	/* base counting could early exit if more than 1 base found */
+	int tot_base = BKE_objectlayer_bases_count(scene->object_layers);
 	
 	/* check that we do indeed have a scene */
 	if ((ads->source == NULL) || (GS(ads->source->name) != ID_SCE)) {
@@ -2924,9 +2926,7 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, b
 	 *  - Don't do this if this behaviour has been turned off (i.e. due to it being too slow)
 	 *  - Don't do this if there's just a single object
 	 */
-	if ((filter_mode & ANIMFILTER_LIST_CHANNELS) && !(ads->flag & ADS_FLAG_NO_DB_SORT) &&
-	    (scene->base.first != scene->base.last))
-	{
+	if ((filter_mode & ANIMFILTER_LIST_CHANNELS) && !(ads->flag & ADS_FLAG_NO_DB_SORT) && (tot_base > 1)) {
 		/* Filter list of bases (i.e. objects), sort them, then add their contents normally... */
 		// TODO: Cache the old sorted order - if the set of bases hasn't changed, don't re-sort...
 		Base **sorted_bases;

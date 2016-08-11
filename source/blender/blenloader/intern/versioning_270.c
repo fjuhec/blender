@@ -1333,9 +1333,11 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 
 				BKE_objectlayer_base_entries_reserve(litem, BLI_listbase_count(&sce->base));
 				/* For now, simply create a new layer and move all objects into it */
-				for (Base *base = sce->base.first; base; base = base->next) {
-					BKE_objectlayer_base_assign(base, litem, true);
+				for (Base *base = sce->base.first, *base_next; base; base = base_next) {
+					base_next = base->next;
+					BKE_objectlayer_base_assign_ex(base, litem, true, false);
 				}
+				BLI_listbase_clear(&sce->base);
 			}
 		}
 	}

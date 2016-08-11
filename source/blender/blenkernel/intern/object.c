@@ -2536,10 +2536,10 @@ void BKE_scene_foreach_display_point(
         Scene *scene, View3D *v3d, const short flag,
         void (*func_cb)(const float[3], void *), void *user_data)
 {
-	Base *base;
 	Object *ob;
 
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene)
+	{
 		if (BASE_VISIBLE_BGMODE(v3d, scene, base) && (base->flag & flag) == flag) {
 			ob = base->object;
 
@@ -2560,6 +2560,7 @@ void BKE_scene_foreach_display_point(
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 /* copied from DNA_object_types.h */

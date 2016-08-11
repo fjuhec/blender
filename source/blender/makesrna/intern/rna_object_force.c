@@ -95,7 +95,9 @@ static EnumPropertyItem empty_vortex_shape_items[] = {
 #include "DNA_texture_types.h"
 
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_pointcache.h"
 #include "BKE_depsgraph.h"
 
@@ -605,11 +607,12 @@ static void rna_EffectorWeight_update(Main *UNUSED(bmain), Scene *UNUSED(scene),
 
 	if (id && GS(id->name) == ID_SCE) {
 		Scene *scene = (Scene *)id;
-		Base *base;
 
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene)
+		{
 			BKE_ptcache_object_reset(scene, base->object, PTCACHE_RESET_DEPSGRAPH);
 		}
+		BKE_BASES_ITER_END;
 	}
 	else {
 		DAG_id_tag_update(id, OB_RECALC_DATA | PSYS_RECALC_RESET);
