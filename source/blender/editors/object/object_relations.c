@@ -1382,7 +1382,7 @@ static int move_to_layer_exec(bContext *C, wmOperator *op)
 			/* upper byte is used for local view */
 			local = base->lay & 0xFF000000;
 			base->lay = lay + local;
-			base->object->lay = lay;
+			base->object->lay = base->lay;
 			/* if (base->object->type == OB_LAMP) is_lamp = true; */
 		}
 		CTX_DATA_END;
@@ -1764,10 +1764,13 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 					/* copy already clears */
 				}
 				/* remap gpencil parenting */
-				bGPdata *gpd = scene->gpd;
-				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-					if (gpl->parent == ob) {
-						gpl->parent = obn;
+
+				if (scene->gpd) {
+					bGPdata *gpd = scene->gpd;
+					for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+						if (gpl->parent == ob) {
+							gpl->parent = obn;
+						}
 					}
 				}
 
