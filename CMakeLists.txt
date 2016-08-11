@@ -1102,7 +1102,6 @@ if(UNIX AND NOT APPLE)
 	endif()
 
 	if(WITH_ALEMBIC)
-		set(ALEMBIC_ROOT_DIR ${LIBDIR}/alembic)
 		find_package_wrapper(Alembic)
 
 		if(WITH_ALEMBIC_HDF5)
@@ -1684,18 +1683,11 @@ elseif(WIN32)
 		endif()
 
 		if(WITH_ALEMBIC)
-			set(ALEMBIC_ROOT_DIR ${LIBDIR}/alembic)
-			find_package(Alembic)
-
-			if(WITH_ALEMBIC_HDF5)
-				set(HDF5_ROOT_DIR ${LIBDIR}/hdf5)
-				find_package(HDF5)
-			endif()
-
-			if(NOT ALEMBIC_FOUND OR (WITH_ALEMBIC_HDF5 AND NOT HDF5_FOUND))
-				set(WITH_ALEMBIC OFF)
-				set(WITH_ALEMBIC_HDF5 OFF)
-			endif()
+			set(ALEMBIC ${LIBDIR}/alembic)
+			set(ALEMBIC_INCLUDE_DIR ${ALEMBIC}/include)
+			set(ALEMBIC_INCLUDE_DIRS ${ALEMBIC_INCLUDE_DIR})
+			set(ALEMBIC_LIBPATH ${ALEMBIC}/lib)
+			set(ALEMBIC_LIBRARIES optimized alembic debug alembic_d)
 		endif()
 
 		if(WITH_MOD_CLOTH_ELTOPO)
@@ -1998,14 +1990,16 @@ elseif(WIN32)
 		endif()
 
 		if(WITH_ALEMBIC)
-			set(ALEMBIC_ROOT_DIR ${LIBDIR}/alembic)
+			# TODO(sergey): For until someone drops by and compiles libraries for
+			# MinGW we allow users to compile their own Alembic library and use
+			# that via find_package(),
+			#
+			# Once precompiled libraries are there we'll use hardcoded locations.
 			find_package_wrapper(Alembic)
-
 			if(WITH_ALEMBIC_HDF5)
 				set(HDF5_ROOT_DIR ${LIBDIR}/hdf5)
 				find_package_wrapper(HDF5)
 			endif()
-
 			if(NOT ALEMBIC_FOUND OR (WITH_ALEMBIC_HDF5 AND NOT HDF5_FOUND))
 				set(WITH_ALEMBIC OFF)
 				set(WITH_ALEMBIC_HDF5 OFF)
@@ -2097,17 +2091,11 @@ elseif(APPLE)
 	endif()
 
 	if(WITH_ALEMBIC)
-		set(ALEMBIC_ROOT_DIR ${LIBDIR}/alembic)
-		find_package(Alembic)
-		if(WITH_ALEMBIC_HDF5)
-			set(HDF5_ROOT_DIR ${LIBDIR}/hdf5)
-			find_package(HDF5)
-		endif()
-
-		if(NOT ALEMBIC_FOUND OR (WITH_ALEMBIC_HDF5 AND NOT HDF5_FOUND))
-			set(WITH_ALEMBIC OFF)
-			set(WITH_ALEMBIC_HDF5 OFF)
-		endif()
+		set(ALEMBIC ${LIBDIR}/alembic)
+		set(ALEMBIC_INCLUDE_DIR ${ALEMBIC}/include)
+		set(ALEMBIC_INCLUDE_DIRS ${ALEMBIC_INCLUDE_DIR})
+		set(ALEMBIC_LIBPATH ${ALEMBIC}/lib)
+		set(ALEMBIC_LIBRARIES Alembic)
 	endif()
 
 	if(WITH_OPENSUBDIV)
@@ -2576,8 +2564,6 @@ else()
 	endif()
 	unset(_SYSTEM_BIG_ENDIAN)
 endif()
-
-
 if(WITH_IMAGE_OPENJPEG)
 	if(WITH_SYSTEM_OPENJPEG)
 		# dealt with above

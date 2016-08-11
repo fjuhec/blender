@@ -937,8 +937,6 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 	mesh_synced.insert(mesh);
 
 	/* create derived mesh */
-	PointerRNA cmesh = RNA_pointer_get(&b_ob_data.ptr, "cycles");
-
 	array<int> oldtriangle = mesh->triangles;
 	
 	/* compares curve_keys rather than strands in order to handle quick hair
@@ -970,7 +968,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 			BL::Modifier mod = b_ob.modifiers[b_ob.modifiers.length()-1];
 			bool enabled = preview ? mod.show_viewport() : mod.show_render();
 
-			if(enabled && mod.type() == BL::Modifier::type_SUBSURF && RNA_int_get(&cobj, "use_adaptive_subdivision")) {
+			if(enabled && mod.type() == BL::Modifier::type_SUBSURF && RNA_boolean_get(&cobj, "use_adaptive_subdivision")) {
 				BL::SubsurfModifier subsurf(mod);
 
 				if(subsurf.subdivision_type() == BL::SubsurfModifier::subdivision_type_CATMULL_CLARK) {
