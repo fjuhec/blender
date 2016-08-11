@@ -2787,30 +2787,36 @@ static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp,
   }
 }
 
-static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, Brush *brush, const char symm, const int axis)
+static void wpaint_do_paint(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, Brush *brush, const char symm, const int axis, const int i, const float angle)
 {
   SculptSession *ss = ob->sculpt;
+  ss->cache->radial_symmetry_pass = i;
+  calc_brushdata_symm(wp, ss->cache, symm, axis, angle);
 
-  for (int i = 0; i < wp->radial_symm[axis - 'X']; ++i) {
+  SculptSearchSphereData data;
+  PBVHNode **nodes = NULL;
+  int totnode;
+
+
+  /* Build a list of all nodes that are potentially within the brush's area of influence */
+  data.ss = ss;
+  data.sd = sd;
+  data.radius_squared = ss->cache->radius_squared;
+  data.original = true;
+  BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+
+  calc_area_normal(wp, ob, nodes, totnode, ss->cache->sculpt_normal_symm);
+  wpaint_paint_leaves(C, ob, sd, wp, wpd, wpi, me, nodes, totnode);
+
+  if (nodes)
+    MEM_freeN(nodes);
+}
+
+static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, Brush *brush, const char symm, const int axis)
+{
+  for (int i = 1; i < wp->radial_symm[axis - 'X']; ++i) {
     const float angle = (2.0 * M_PI) * i / wp->radial_symm[axis - 'X'];
-    ss->cache->radial_symmetry_pass = i;
-    calc_brushdata_symm(wp, ss->cache, symm, axis, angle);
-    SculptSearchSphereData data;
-    PBVHNode **nodes = NULL;
-    int totnode;
-
-    /* Build a list of all nodes that are potentially within the brush's area of influence */
-    data.ss = ss;
-    data.sd = sd;
-    data.radius_squared = ss->cache->radius_squared;
-    data.original = true;
-    BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
-
-    calc_area_normal(wp, ob, nodes, totnode, ss->cache->sculpt_normal_symm);
-    wpaint_paint_leaves(C, ob, sd, wp, wpd, wpi, me, nodes, totnode);
-
-    if (nodes)
-      MEM_freeN(nodes);
+    wpaint_do_paint(C, ob, wp, sd, wpd, wpi, me, brush, symm, axis, i, angle);
   }
 }
 
@@ -2824,7 +2830,10 @@ static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint 
   int i = 0;
 
   /* initial stroke */
-  wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'X');
+  wpaint_do_paint(C, ob, wp, sd, wpd, wpi, me, brush, 0, 'X', 0, 0);
+  wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, 0, 'X');
+  wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, 0, 'Y');
+  wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, 0, 'Z');
 
   cache->symmetry = symm;
 
@@ -2835,12 +2844,18 @@ static void wpaint_do_symmetrical_brush_actions(bContext *C, Object *ob, VPaint 
       cache->radial_symmetry_pass = 0;
       calc_brushdata_symm(wp, cache, i, 0, 0);
 
-      if (i & 1 << 0)
+      if (i & 1 << 0) {
+        wpaint_do_paint(C, ob, wp, sd, wpd, wpi, me, brush, i, 'X', 0, 0);
         wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'X');
-      if (i & 1 << 1)
+      }
+      if (i & 1 << 1) {
+        wpaint_do_paint(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Y', 0, 0);
         wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Y');
-      if (i & 1 << 2) 
+      }
+      if (i & 1 << 2) {
+        wpaint_do_paint(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Z', 0, 0);
         wpaint_do_radial_symmetry(C, ob, wp, sd, wpd, wpi, me, brush, i, 'Z');
+      }
     }
   }
   copy_v3_v3(cache->true_last_location, cache->true_location);
@@ -3899,34 +3914,36 @@ static void vpaint_paint_leaves(Sculpt *sd, VPaint *vp, VPaintData *vpd, Object 
   }
 }
 
+static void vpaint_do_paint(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, Brush *brush, const char symm, const int axis, const int i, const float angle) {
+  SculptSession *ss = ob->sculpt;
+  ss->cache->radial_symmetry_pass = i;
+  calc_brushdata_symm(vd, ss->cache, symm, axis, angle);
+  //    do_tiled(sd, ob, brush, ups, action);
+  SculptSearchSphereData data;
+  PBVHNode **nodes = NULL;
+  int totnode;
+
+  /* Build a list of all nodes that are potentially within the brush's area of influence */
+  data.ss = ss;
+  data.sd = sd;
+  data.radius_squared = ss->cache->radius_squared;
+  data.original = true;
+  BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+
+  calc_area_normal(vd, ob, nodes, totnode, ss->cache->sculpt_normal_symm);
+
+  //Paint those leaves.
+  vpaint_paint_leaves(sd, vd, vpd, ob, me, nodes, totnode);
+
+  if (nodes)
+    MEM_freeN(nodes);
+}
+
 static void vpaint_do_radial_symmetry(Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, Brush *brush, const char symm, const int axis)
 {
-  SculptSession *ss = ob->sculpt;
-  int i;
-
-  for (i = 0; i < vd->radial_symm[axis - 'X']; ++i) {
+  for (int i = 1; i < vd->radial_symm[axis - 'X']; ++i) {
     const float angle = (2.0 * M_PI) * i / vd->radial_symm[axis - 'X'];
-    ss->cache->radial_symmetry_pass = i;
-    calc_brushdata_symm(vd, ss->cache, symm, axis, angle);
-//    do_tiled(sd, ob, brush, ups, action);
-    SculptSearchSphereData data;
-    PBVHNode **nodes = NULL;
-    int totnode;
-
-    /* Build a list of all nodes that are potentially within the brush's area of influence */
-    data.ss = ss;
-    data.sd = sd;
-    data.radius_squared = ss->cache->radius_squared;
-    data.original = true;
-    BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
-
-    calc_area_normal(vd, ob, nodes, totnode, ss->cache->sculpt_normal_symm);
-
-    //Paint those leaves.
-    vpaint_paint_leaves(sd, vd, vpd, ob, me, nodes, totnode);
-
-    if (nodes)
-      MEM_freeN(nodes);
+    vpaint_do_paint(sd, vd, vpd, ob, me, brush, symm, axis, i, angle);
   }
 }
 
@@ -3940,7 +3957,10 @@ static void vpaint_do_symmetrical_brush_actions(Sculpt *sd, VPaint *vd, VPaintDa
   int i = 0;
 
   /* initial stroke */
+  vpaint_do_paint(sd, vd, vpd, ob, me, brush, i, 'X', 0, 0);
   vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'X');
+  vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Y');
+  vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Z');
 
   cache->symmetry = symm;
 
@@ -3951,12 +3971,18 @@ static void vpaint_do_symmetrical_brush_actions(Sculpt *sd, VPaint *vd, VPaintDa
       cache->radial_symmetry_pass = 0;
       calc_brushdata_symm(vd, cache, i, 0, 0);
 
-      if (i & 1 << 0) 
+      if (i & 1 << 0) {
+        vpaint_do_paint(sd, vd, vpd, ob, me, brush, i, 'X', 0, 0);
         vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'X');
-      if (i & 1 << 1)
+      }
+      if (i & 1 << 1) {
+        vpaint_do_paint(sd, vd, vpd, ob, me, brush, i, 'Y', 0, 0);
         vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Y');
-      if (i & 1 << 2)
+      }
+      if (i & 1 << 2) {
+        vpaint_do_paint(sd, vd, vpd, ob, me, brush, i, 'Z', 0, 0);
         vpaint_do_radial_symmetry(sd, vd, vpd, ob, me, brush, i, 'Z');
+      }
     }
   }
 
