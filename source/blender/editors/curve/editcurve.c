@@ -6314,6 +6314,7 @@ static void get_selected_bezier_splines(ListBase* spline_list, ListBase *nubase,
 	 * returns the first spline of a linked list with all the selected splines,
 	 * along with the number of selected splines
 	 * if "return_cyclic" is false, it ignores cyclic splines */
+	/* TODO: remove r_number_splines. BLI_listbase_count(spline_list) returns the same value. */
 
 	Nurb *nu, *nu_copy;
 	BezTriple *bezt;
@@ -6401,19 +6402,20 @@ static void get_selected_endpoints(Nurb* nu, BezTriple **r_handle_list)
 	}
 }
 
-static void get_nurb_shape_bounds(Object *obedit, float r_bound_box[4])
+static void get_nurb_shape_bounds(Curve *cu, float r_bound_box[4])
 {
 	/* returns the coordinates of the XY-bounding box of obedit */
-	r_bound_box[0] = obedit->bb->vec[0][0]; /* min X */
-	r_bound_box[1] = obedit->bb->vec[4][0]; /* max X */
-	r_bound_box[2] = obedit->bb->vec[0][1]; /* min Y */
-	r_bound_box[3] = obedit->bb->vec[3][1]; /* max Y */
+	r_bound_box[0] = cu->bb->vec[0][0]; /* min X */
+	r_bound_box[1] = cu->bb->vec[4][0]; /* max X */
+	r_bound_box[2] = cu->bb->vec[0][1]; /* min Y */
+	r_bound_box[3] = cu->bb->vec[3][1]; /* max Y */
 }
 
 static void get_max_extent_2d(float p1[2], float p2[2], float bb[4], float r_result[2])
 {
-	/* TODO: Find out what this actually does */
-	if (fabsf(p1[0]-p2[0])) {
+	/* return the coordinates of the maximum extent of the segment p1p2
+	 * within the bounding box bb (in 2D) */
+	if (fabsf(p1[0]-p2[0]) > 1.0e-5) {
 		if (p1[0] < p2[0]) {
 			r_result[0] = bb[0];
 			r_result[1] = (p2[1]-p1[1])/(p2[0]-p1[0])*(bb[0]-p1[0])+p1[1];
@@ -6566,6 +6568,8 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 	Object *obedit = CTX_data_edit_object(C);
 	Nurb *first_spline, *second_spline;
 	Curve *cu = obedit->data;
+	float loc[3], size[3];
+	BKE_curve_boundbox_calc(cu, loc, size);
 	Nurb *nu;
 	EditNurb *editnurb = cu->editnurb;
 	ListBase spline_list = {NULL};
@@ -6607,7 +6611,7 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 				copy_v3_v3(p1, selected_endpoints[1]->vec[1]);
 				copy_v3_v3(p1_handle, selected_endpoints[1]->vec[0]);
 			}
-			get_nurb_shape_bounds(obedit, bound_box);
+			get_nurb_shape_bounds(cu, bound_box);
 			get_max_extent_2d(p1, p1_handle, bound_box, p1_extend);
 			get_intersections(&intersections_list, p1, p1_extend, nubase);
 			nearest_point(p1, &intersections_list, p2, &result);
@@ -7671,6 +7675,7 @@ static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	float distance = RNA_float_get(op->ptr, "distance");
 	nu = BLI_findlink(nubase, opdata->spline_id);
 	if (!nu) {
+		MEM_freeN(opdata);
 		BKE_report(op->reports, RPT_ERROR, "One spline must be selected");
 		return OPERATOR_CANCELLED;
 	}
@@ -7802,6 +7807,7 @@ void CURVE_OT_offset_curve(wmOperatorType *ot)
 
 static void extend_vertex(int i, Nurb *nu, ListBase *nubase, Object *obedit, float r_p2[3])
 {
+	Curve *cu = obedit->data;
 	float p1[3], p1_handle[3], bound_box[4], p1_extend[3], p2[3];
 	int result = 0;
 	ListBase il = {NULL};
@@ -7815,13 +7821,18 @@ static void extend_vertex(int i, Nurb *nu, ListBase *nubase, Object *obedit, flo
 		copy_v3_v3(p1_handle, nu->bezt[nu->pntsu - 1].vec[0]);
 	}
 
-	get_nurb_shape_bounds(obedit, bound_box);
+	get_nurb_shape_bounds(cu, bound_box);
 	get_max_extent_2d(p1, p1_handle, bound_box, p1_extend);
 	get_intersections(&il, p1, p1_extend, nubase);
 	nearest_point(p1, &il, p2, &result);
 	if (result == 1) {
 		copy_v3_v3(r_p2, p2);
 	}
+
+	for (LinkData* d = il.first; d; d = d->next) {
+		MEM_freeN(d->data);
+	}
+	BLI_freelistN(&il);
 }
 
 static void add_bezt(Nurb *nu, float *p, int position, Curve *cu)
@@ -7890,23 +7901,25 @@ static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
 	Curve *cu = obedit->data;
+	float loc[3], size[3];
+	BKE_curve_boundbox_calc(cu, loc, size);
 	BezTriple *bezt;
 	ListBase first_extend = {NULL}, last_extend = {NULL};
-	LinkData *link;
+	LinkData *link, *next;
 
 	/* fill in the lists with all the selected endpoints */
 	for (nu = nubase->first; nu; nu = nu->next) {
 		bezt = nu->bezt;
 		if (BEZT_ISSEL_ANY(bezt)) { /* first endpoint */
 			BEZT_DESEL_ALL(bezt);
-			link = MEM_callocN(sizeof(Nurb *), "batch_extend2");
+			link = MEM_callocN(sizeof(LinkData), "batch_extend2");
 			link->data = nu;
 			BLI_addtail(&first_extend, link);
 		}
 		bezt = &nu->bezt[nu->pntsu - 1];
 		if (BEZT_ISSEL_ANY(bezt)) { /* last endpoint */
 			BEZT_DESEL_ALL(bezt);
-			link = MEM_callocN(sizeof(Nurb *), "batch_extend3");
+			link = MEM_callocN(sizeof(LinkData), "batch_extend3");
 			link->data = nu;
 			BLI_addtail(&last_extend, link);
 		}
@@ -7932,8 +7945,16 @@ static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 		BKE_nurbList_handles_set(nubase, 1);
 	}
 
-	BLI_freelistN(&first_extend);
-	BLI_freelistN(&last_extend);
+	for (link = first_extend.first; link; ) {
+		next = link->next;
+		MEM_freeN(link);
+		link = next;
+	}
+	for (link = last_extend.first; link; ) {
+		next = link->next;
+		MEM_freeN(link);
+		link = next;
+	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 	DAG_id_tag_update(obedit->data, 0);
@@ -8353,7 +8374,7 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 	DAG_id_tag_update(obedit->data, 0);
-
+	
 	return OPERATOR_FINISHED;
 }
 
