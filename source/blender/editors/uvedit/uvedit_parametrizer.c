@@ -234,9 +234,11 @@ typedef struct PChart {
 		} pack;
 		struct PChartIrregularPack {
 			PConvexHull *convex_hull; /* ToDo (SaphireS): Only convex for now */
+			PConvexHull **tris;
 			PPointUV *best_pos;
 			float area, scale;
 			float sa_params[3]; /* 0 = Theta, 1 = r, 2 = f  according to Rotational placement of irregular polygons over containers with fixed dimensions using simulated annealing and no-fit polygons*/
+			bool decomposed;
 		} ipack; 
 	} u;
 
@@ -5304,6 +5306,15 @@ PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 	return nfp;
 }
 
+PConvexHull** p_decompose_triangulate_chart(PChart *chart)
+{
+	PConvexHull **chull_tris = (PConvexHull **)MEM_mallocN(sizeof(PConvexHull *) * chart->nverts, "PNFPs");
+
+	/* ToDo SaphireS */
+
+	return chull_tris;
+}
+
 bool p_point_inside_nfp(PNoFitPolygon *nfp, float p[2]) 
 {
 	/* raycast to the right of vert, odd number of intersections means inside */
@@ -5748,6 +5759,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 	PVert **points;
 	PEdge *outer;
 	PFace *f;
+	PConvexHull **tris;
 	int npoint, right, i, j, nboundaries = 0;
 	unsigned int seed = 31415925;
 	float used_area, init_scale, init_value = 0.6f, randf1, rot;
@@ -5787,7 +5799,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 		/* Initial rotation */
 		rot = (int)(chart->u.ipack.sa_params[0] * (float)rot_step) * (2 * M_PI / (float)rot_step);
 		printf("init rot for chart[%i]: %f\n", i, rot);
-		//p_chart_rotate(chart, rot); /* ToDo SaphireS: Rotate in origin and transform back to original pos! */
+		p_chart_rotate(chart, rot); /* ToDo SaphireS: Rotate in origin and transform back to original pos! */
 
 		p_chart_boundaries(chart, &nboundaries, &outer);
 
@@ -5795,22 +5807,32 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 
 			/* ToDo SaphireS */
 
-			/* Decompose concave hull into convex hulls */
-
-			/* Store convex hulls with chart */
+			/* Decompose concave hull into convex hulls and store within chart */
+			chart->u.ipack.tris = p_decompose_triangulate_chart(chart);
+			chart->u.ipack.decomposed = true;
 
 			/* For each convex hull: */
-			/* Apply margin */
+			for (j = 0; j < chart->nfaces; j++) {
+				PConvexHull *hull = chart->u.ipack.tris[j];
 
-			/* Compute horizontal angle for edges of hull (Needed for NFP) */
+				/* Apply margin */
+				if (!(compare_ff(margin, 0.0f, 0.0001f))) {
+					p_convex_hull_grow(hull, margin);
+					p_convex_hull_update(hull, false);
+				}
 
-			/* Compute edge lengths */
+				/* Compute horizontal angle for edges of hull (Needed for NFP) */
+				p_convex_hull_compute_horizontal_angles(hull);
+				/* Compute edge lengths */
+				p_convex_hull_compute_edge_components(hull);
 
-			/* ToDo SaphireS: turn last few steps into a reusable function for cleaner code */
+				/* ToDo SaphireS: turn last few steps into a reusable function for cleaner code */
+			}
 		}
 		else {
 			/* Compute convex hull for each chart -> CW */
 			chart->u.ipack.convex_hull = p_convex_hull_new(chart);
+			chart->u.ipack.decomposed = false;
 			chart->u.ipack.best_pos = MEM_callocN(sizeof(PPointUV), "PPointUV");
 
 			/* Apply margin here */
@@ -5874,7 +5896,7 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int 
 		printf("SA param rot_rand for chart[%i]: %f\n", rand_chart, rot_rand);
 		rot = (int)(rot_rand * (float)rot_step) * (2 * M_PI / (float)rot_step);
 		printf("SA param rot for chart[%i]: %f\n", rand_chart, rot);
-		//p_chart_rotate(chart, rot);
+		p_chart_rotate(chart, rot);
 		p_convex_hull_update(chart->u.ipack.convex_hull, true);
 		p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
 		p_convex_hull_update(chart->u.ipack.convex_hull, false);
@@ -5888,9 +5910,9 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int 
 	}
 
 	/* Find placement for part */
-	/*if (p_compute_packing_solution(phandle, margin)) {
+	if (p_compute_packing_solution(phandle, margin)) {
 		printf("packing solution found---------------------------------------------\n");
-	}*/
+	}
 
 	float used_area = p_face_uv_area_combined(handle);
 

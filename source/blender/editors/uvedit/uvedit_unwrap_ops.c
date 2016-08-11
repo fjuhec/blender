@@ -928,19 +928,18 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 
 	/* Find neighboring solution */
 	/*ToDo Saphires: Pass SA parameters */
-	param_irregular_pack_iter(pi->handle, 
-							  &wasted_area, 
-							  pi->iter_global, 
-							  pi->sa->rot_steps, 
-							  pi->margin /* SA */);
+	//param_irregular_pack_iter(pi->handle, 
+	//						  &wasted_area, 
+	//						  pi->iter_global, 
+	//						  pi->sa->rot_steps, 
+	//						  pi->margin /* SA */);
 
 	/* delta Energy */
 	dE = wasted_area - pi->wasted_area_last;
 
 	if (dE < 0) {
-		/* Current solution is new best solution */
-		/* ToDo SaphireS: Store last best solution */
-		//param_store_packing_solution(pi->handle);
+		/* Current solution is new best solution, keep placement */
+		/*param_store_packing_solution(pi->handle);*/
 		pi->wasted_area_last = wasted_area;
 	}
 	else {
@@ -949,14 +948,14 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 		r2 = (float)exp(-dE/(k * pi->sa->temperature));
 
 		if (r1 < r2) {
-			/* Current solution is new best solution */
-			/* ToDo SaphireS: Store last best solution */
+			/* Current solution is new best solution, keep placement */
 			//param_store_packing_solution(pi->handle); 
 			pi->wasted_area_last = wasted_area;
 		}
 		else {
 			/* no better solution found, "frozen state solution" */
-			/* ToDo SaphireS: Revert last solution */
+			/* ToDo SaphireS: Revert last solution -> revert placement/scale/rot of last chart */
+			
 			pi->iter_local++;
 		}
 	}
