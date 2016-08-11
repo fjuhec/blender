@@ -562,6 +562,46 @@ static void rna_SpaceImageEditor_uv_sculpt_update(Main *bmain, Scene *scene, Poi
 	ED_space_image_uv_sculpt_update(bmain->wm.first, scene);
 }
 
+static void rna_Scene_object_bases_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
+{
+	Scene *scene = (Scene *)ptr->data;
+	Base *base = BKE_objectlayer_base_first_find(scene->object_layers);
+	const int totbases = BKE_objectlayer_bases_count(scene->object_layers);
+	rna_iterator_array_begin(iter, base, sizeof(base), totbases, 0, NULL);
+	iter->internal.array.endptr = NULL;
+}
+
+static void rna_Scene_object_bases_next(CollectionPropertyIterator *iter)
+{
+	ArrayIterator *internal = &iter->internal.array;
+	Scene *scene = (Scene *)iter->parent.data;
+	Base *base = (Base *)internal->ptr;
+
+	bool found_startbase = false;
+	BKE_LAYERTREE_ITER_START(scene->object_layers, base->layer->index, i, litem)
+	{
+		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+
+			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base_iter)
+			{
+				if (found_startbase) {
+					internal->ptr = (void *)base_iter;
+					return;
+				}
+				else if (base == base_iter) {
+					found_startbase = true;
+				}
+			}
+			BKE_OBJECTLAYER_BASES_ITER_END;
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
+
+	/* If we reach this point, no next base was found, tell iterator to stop. */
+	iter->valid = 0;
+}
+
 static int rna_Scene_object_bases_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr)
 {
 	Scene *scene = (Scene *)ptr->data;
@@ -580,10 +620,10 @@ static int rna_Scene_object_bases_lookup_string(PointerRNA *ptr, const char *key
 
 static PointerRNA rna_Scene_objects_get(CollectionPropertyIterator *iter)
 {
-	ListBaseIterator *internal = &iter->internal.listbase;
+	ArrayIterator *internal = &iter->internal.array;
 
 	/* we are actually iterating a Base list, so override get */
-	return rna_pointer_inherit_refine(&iter->parent, &RNA_Object, ((Base *)internal->link)->object);
+	return rna_pointer_inherit_refine(&iter->parent, &RNA_Object, ((Base *)internal->ptr)->object);
 }
 
 static Base *rna_Scene_object_link(Scene *scene, bContext *C, ReportList *reports, Object *ob)
@@ -6883,15 +6923,16 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_collection_sdna(prop, NULL, "base", NULL);
 	RNA_def_property_struct_type(prop, "ObjectBase");
 	RNA_def_property_ui_text(prop, "Bases", "");
-	RNA_def_property_collection_funcs(prop, NULL, NULL, NULL, NULL, NULL, NULL,
-	                                  "rna_Scene_object_bases_lookup_string", NULL);
+	RNA_def_property_collection_funcs(prop, "rna_Scene_object_bases_begin", "rna_Scene_object_bases_next",
+	                                  NULL, NULL, NULL, NULL, "rna_Scene_object_bases_lookup_string", NULL);
 	rna_def_scene_bases(brna, prop);
 
 	prop = RNA_def_property(srna, "objects", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "base", NULL);
 	RNA_def_property_struct_type(prop, "Object");
 	RNA_def_property_ui_text(prop, "Objects", "");
-	RNA_def_property_collection_funcs(prop, NULL, NULL, NULL, "rna_Scene_objects_get", NULL, NULL, NULL, NULL);
+	RNA_def_property_collection_funcs(prop, "rna_Scene_object_bases_begin", "rna_Scene_object_bases_next",
+	                                  NULL, "rna_Scene_objects_get", NULL, NULL, NULL, NULL);
 	rna_def_scene_objects(brna, prop);
 
 	/* Layers */
