@@ -588,7 +588,12 @@ MovieClip *ED_space_clip_get_secondary_clip(SpaceClip *sc)
 MovieClip *ED_space_clip_get_clip_in_region(SpaceClip *sc, ARegion *ar)
 {
 	RegionSpaceClip *rsc = ar->regiondata;
-	if (rsc->flag == RSC_MAIN_CLIP) {
+
+	/* dopsheet and graph don't have regiondata, so just return the main clip */
+	if (!rsc) {
+		return ED_space_clip_get_clip(sc);
+	}
+	else if (rsc->flag == RSC_MAIN_CLIP) {
 		return ED_space_clip_get_clip(sc);
 	}
 	else {	//rsc->flag == RSC_SECONDARY_CLIP
