@@ -1715,7 +1715,7 @@ class VIEW3D_PT_weightpaint_symmetry(Panel, View3DPaintPanel):
     bl_category = "Tools"
     bl_context = "weightpaint"
     bl_options = {'DEFAULT_CLOSED'}
-    bl_label = "Symmetry / Lock"
+    bl_label = "Symmetry"
 
     def draw(self, context):
         layout = self.layout
@@ -1765,6 +1765,7 @@ class VIEW3D_PT_tools_weightpaint_options(Panel, View3DPaintPanel):
 
 # ********** default tools for vertex-paint ****************
 
+
 class VIEW3D_PT_tools_vertexpaint(Panel, View3DPaintPanel):
     bl_category = "Options"
     bl_context = "vertexpaint"
@@ -1783,12 +1784,18 @@ class VIEW3D_PT_tools_vertexpaint(Panel, View3DPaintPanel):
         col.prop(vpaint, "use_spray")
 
         self.unified_paint_settings(col, context)
-        
+# Commented out because the Apply button isn't an operator yet, making these settings useless
+#~         col.label(text="Gamma:")
+#~         col.prop(vpaint, "gamma", text="")
+#~         col.label(text="Multiply:")
+#~         col.prop(vpaint, "mul", text="")
+
+
 class VIEW3D_PT_vertexpaint_symmetry(Panel, View3DPaintPanel):
     bl_category = "Tools"
     bl_context = "vertexpaint"
     bl_options = {'DEFAULT_CLOSED'}
-    bl_label = "Symmetry / Lock"
+    bl_label = "Symmetry"
     
     def draw(self, context):
         layout = self.layout
@@ -1804,11 +1811,6 @@ class VIEW3D_PT_vertexpaint_symmetry(Panel, View3DPaintPanel):
         row.prop(vpaint, "use_symmetry_z", text="Z", toggle=True)
         
         layout.column().prop(vpaint, "radial_symmetry", text="Radial")
-# Commented out because the Apply button isn't an operator yet, making these settings useless
-#~         col.label(text="Gamma:")
-#~         col.prop(vpaint, "gamma", text="")
-#~         col.label(text="Multiply:")
-#~         col.prop(vpaint, "mul", text="")
 
 # ********** default tools for texture-paint ****************
 

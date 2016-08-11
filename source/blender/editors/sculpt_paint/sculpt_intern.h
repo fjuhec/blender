@@ -162,8 +162,8 @@ typedef struct SculptThreadedTaskData {
 
 	VPaint *vp;
 	VPaintData *vpd;
-  WPaintData *wpd;
-  WeightPaintInfo *wpi;
+	WPaintData *wpd;
+	WeightPaintInfo *wpi;
 	unsigned int* lcol;
 	MeshElemMap **vertToLoopMaps;
 	Mesh *me;
@@ -248,10 +248,10 @@ typedef struct StrokeCache {
 	float radius;
 	float radius_squared;
 	float true_location[3];
-  float true_last_location[3];
+	float true_last_location[3];
 	float location[3];
-  float last_location[3];
-  bool is_last_valid;
+	float last_location[3];
+	bool is_last_valid;
 
 	bool pen_flip;
 	bool invert;

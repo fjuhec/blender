@@ -94,17 +94,17 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 				sculpt->detail_size = 12;
 			}
 			
-      if (ts->vpaint)
-      {
-        VPaint *vp = ts->vpaint;
-        vp->radial_symm[0] = vp->radial_symm[1] = vp->radial_symm[2] = 1;
-      }
+			if (ts->vpaint)
+			{
+				VPaint *vp = ts->vpaint;
+				vp->radial_symm[0] = vp->radial_symm[1] = vp->radial_symm[2] = 1;
+			}
 
-      if (ts->wpaint)
-      {
-        VPaint *wp = ts->wpaint;
-        wp->radial_symm[0] = wp->radial_symm[1] = wp->radial_symm[2] = 1;
-      }
+			if (ts->wpaint)
+			{
+				VPaint *wp = ts->wpaint;
+				wp->radial_symm[0] = wp->radial_symm[1] = wp->radial_symm[2] = 1;
+			}
 
 			if (ts->gp_sculpt.brush[0].size == 0) {
 				GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
@@ -286,12 +286,12 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 		    br->ob_mode = OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT;
 		}
 
-    br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Smudge");
-    if (!br) {
-      br = BKE_brush_add(bmain, "Smudge", OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT);
-      br->vertexpaint_tool = PAINT_BLEND_SMUDGE;
-      br->ob_mode = OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT;
-    }
+		br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Smudge");
+		if (!br) {
+			br = BKE_brush_add(bmain, "Smudge", OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT);
+			br->vertexpaint_tool = PAINT_BLEND_SMUDGE;
+			br->ob_mode = OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT;
+		}
 	}
 }
 

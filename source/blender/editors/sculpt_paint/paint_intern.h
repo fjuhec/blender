@@ -98,79 +98,79 @@ void paint_cursor_delete_textures(void);
 * Variables stored both for 'active' and 'mirror' sides.
 */
 struct WeightPaintGroupData {
-  /** index of active group or its mirror
-  *
-  * - 'active' is always `ob->actdef`.
-  * - 'mirror' is -1 when 'ME_EDIT_MIRROR_X' flag id disabled,
-  *   otherwise this will be set to the mirror or the active group (if the group isn't mirrored).
-  */
-  int index;
-  /** lock that includes the 'index' as locked too
-  *
-  * - 'active' is set of locked or active/selected groups
-  * - 'mirror' is set of locked or mirror groups
-  */
-  const bool *lock;
+	/** index of active group or its mirror
+	 *
+	 * - 'active' is always `ob->actdef`.
+	 * - 'mirror' is -1 when 'ME_EDIT_MIRROR_X' flag id disabled,
+	 *   otherwise this will be set to the mirror or the active group (if the group isn't mirrored).
+	 */
+	int index;
+	/** lock that includes the 'index' as locked too
+	 *
+	 * - 'active' is set of locked or active/selected groups
+	 * - 'mirror' is set of locked or mirror groups
+	 */
+	const bool *lock;
 };
 
 typedef struct WPaintData {
-  ViewContext vc;
-  int *indexar;
+	ViewContext vc;
+	int *indexar;
 
-  struct WeightPaintGroupData active, mirror;
+	struct WeightPaintGroupData active, mirror;
 
-  void *vp_handle;
-  DMCoNo *vertexcosnos;
+	void *vp_handle;
+	DMCoNo *vertexcosnos;
 
-  float wpimat[3][3];
+	float wpimat[3][3];
 
-  /* variables for auto normalize */
-  const bool *vgroup_validmap; /* stores if vgroups tie to deforming bones or not */
-  const bool *lock_flags;
+	/* variables for auto normalize */
+	const bool *vgroup_validmap; /* stores if vgroups tie to deforming bones or not */
+	const bool *lock_flags;
 
-  /* variables for multipaint */
-  const bool *defbase_sel;      /* set of selected groups */
-  int defbase_tot_sel;          /* number of selected groups */
-  bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
+	/* variables for multipaint */
+	const bool *defbase_sel;      /* set of selected groups */
+	int defbase_tot_sel;          /* number of selected groups */
+	bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
 
-  /* variables for blur */
-  struct {
-    MeshElemMap *vmap;
-    int *vmap_mem;
-  } blur_data;
+	/* variables for blur */
+	struct {
+		MeshElemMap *vmap;
+		int *vmap_mem;
+	} blur_data;
 
-  BLI_Stack *accumulate_stack;  /* for reuse (WPaintDefer) */
+	BLI_Stack *accumulate_stack;  /* for reuse (WPaintDefer) */
 
-  int defbase_tot;
+	int defbase_tot;
 } WPaintData;
 
 /* struct to avoid passing many args each call to do_weight_paint_vertex()
-* this _could_ be made a part of the operators 'WPaintData' struct, or at
-* least a member, but for now keep its own struct, initialized on every
-* paint stroke update - campbell */
+ * this _could_ be made a part of the operators 'WPaintData' struct, or at
+ * least a member, but for now keep its own struct, initialized on every
+ * paint stroke update - campbell */
 typedef struct WeightPaintInfo {
 
-  int defbase_tot;
+	int defbase_tot;
 
-  /* both must add up to 'defbase_tot' */
-  int defbase_tot_sel;
-  int defbase_tot_unsel;
+	/* both must add up to 'defbase_tot' */
+	int defbase_tot_sel;
+	int defbase_tot_unsel;
 
-  struct WeightPaintGroupData active, mirror;
+	struct WeightPaintGroupData active, mirror;
 
-  const bool *lock_flags;  /* boolean array for locked bones,
-                           * length of defbase_tot */
-  const bool *defbase_sel; /* boolean array for selected bones,
-                           * length of defbase_tot, cant be const because of how its passed */
+	const bool *lock_flags;  /* boolean array for locked bones,
+				  * length of defbase_tot */
+	const bool *defbase_sel; /* boolean array for selected bones,
+				  * length of defbase_tot, cant be const because of how its passed */
 
-  const bool *vgroup_validmap; /* same as WeightPaintData.vgroup_validmap,
-                               * only added here for convenience */
+	const bool *vgroup_validmap; /* same as WeightPaintData.vgroup_validmap,
+				      * only added here for convenience */
 
-  bool do_flip;
-  bool do_multipaint;
-  bool do_auto_normalize;
+	bool do_flip;
+	bool do_multipaint;
+	bool do_auto_normalize;
 
-  float brush_alpha_value;  /* result of BKE_brush_alpha_get() */
+	float brush_alpha_value;  /* result of BKE_brush_alpha_get() */
 } WeightPaintInfo;
 
 /* paint_vertex.c */
@@ -185,11 +185,11 @@ typedef struct VPaintData {
 	float vpimat[3][3];
 
 	/* modify 'me->mcol' directly, since the derived mesh is drawing from this
-	* array, otherwise we need to refresh the modifier stack */
+	 * array, otherwise we need to refresh the modifier stack */
 	bool use_fast_update;
 
 	/* loops tagged as having been painted, to apply shared vertex color
-	* blending only to modified loops */
+	 * blending only to modified loops */
 	bool *mlooptag;
 
 	bool is_texbrush;

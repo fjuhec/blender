@@ -500,7 +500,6 @@ void sculpt_brush_test_init(SculptSession *ss, SculptBrushTest *test)
 	RegionView3D *rv3d = ss->cache->vc->rv3d;
 
 	test->radius_squared = ss->cache->radius_squared;
-	
 	copy_v3_v3(test->location, ss->cache->location);
 	test->dist = 0.0f;   /* just for initialize */
 
@@ -1176,7 +1175,6 @@ bool sculpt_search_sphere_cb(PBVHNode *node, void *data_v)
 	
 	sub_v3_v3v3(t, center, nearest);
 
-	//printf("%s\n", len_squared_v3(t) < data->radius_squared ? "true" : "false");
 	return len_squared_v3(t) < data->radius_squared;
 }
 
@@ -1502,7 +1500,6 @@ static void do_smooth_brush_mesh_task_cb_ex(
 			                       ss, brush, vd.co, test.dist, vd.no, vd.fno,
 			                       smooth_mask ? 0.0f : (vd.mask ? *vd.mask : 0.0f),
 			                       thread_id);
-
 			if (smooth_mask) {
 				float val = neighbor_average_mask(ss, vd.vert_indices[vd.i]) - *vd.mask;
 				val *= fade * bstrength;
@@ -2654,7 +2651,6 @@ static void do_flatten_brush_task_cb_ex(
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		if (sculpt_brush_test_sq(&test, vd.co)) {
-
 			float intr[3];
 			float val[3];
 
@@ -3800,7 +3796,6 @@ void sculpt_cache_free(StrokeCache *cache)
 {
 	if (cache->dial)
 		MEM_freeN(cache->dial);
-	
 	MEM_freeN(cache);
 }
 
@@ -3843,7 +3838,6 @@ static void sculpt_update_cache_invariants(
         wmOperator *op, const float mouse[2])
 {
 	StrokeCache *cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
-	ss->cache = cache;
 	Scene *scene = CTX_data_scene(C);
 	UnifiedPaintSettings *ups = &CTX_data_tool_settings(C)->unified_paint_settings;
 	Brush *brush = BKE_paint_brush(&sd->paint);
@@ -3854,6 +3848,8 @@ static void sculpt_update_cache_invariants(
 	float max_scale;
 	int i;
 	int mode;
+
+	ss->cache = cache;
 
 	/* Set scaling adjustment */
 	if (brush->sculpt_tool == SCULPT_TOOL_LAYER) {
@@ -4174,7 +4170,6 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 			cache->initial_radius = paint_calc_object_space_radius(cache->vc,
 			                                                       cache->true_location,
 			                                                       BKE_brush_size_get(scene, brush));
-
 			BKE_brush_unprojected_radius_set(scene, brush, cache->initial_radius);
 		}
 		else {
@@ -4191,7 +4186,6 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 
 	cache->radius_squared = cache->radius * cache->radius;
 
-
 	if (brush->flag & BRUSH_ANCHORED) {
 		/* true location has been calculated as part of the stroke system already here */
 		if (brush->flag & BRUSH_EDGE_TO_EDGE) {
@@ -4202,7 +4196,6 @@ static void sculpt_update_cache_variants(bContext *C, Sculpt *sd, Object *ob,
 		                                               cache->true_location,
 		                                               ups->pixel_radius);
 		cache->radius_squared = cache->radius * cache->radius;
-
 
 		copy_v3_v3(cache->anchored_location, cache->true_location);
 	}
@@ -4360,7 +4353,7 @@ bool sculpt_stroke_get_location(bContext *C, float out[3], const float mouse[2])
 	srd.dist = dist;
 
 	BKE_pbvh_raycast(ss->pbvh, sculpt_raycast_cb, &srd,
-		ray_start, ray_normal, srd.original);
+			 ray_start, ray_normal, srd.original);
 
 	copy_v3_v3(out, ray_normal);
 	mul_v3_fl(out, srd.dist);
@@ -5349,7 +5342,6 @@ static void SCULPT_OT_sculptmode_toggle(wmOperatorType *ot)
 	ot->exec = sculpt_mode_toggle_exec;
 	ot->poll = ED_operator_object_active_editable_mesh;
 	
-	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 

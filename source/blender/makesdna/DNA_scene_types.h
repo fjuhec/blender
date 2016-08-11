@@ -1092,8 +1092,8 @@ typedef struct VPaint {
 	
 	void *paintcursor;					/* wm handle */
 
-  int radial_symm[3]; /* For mirrored painting */
-  int pad2;
+	int radial_symm[3]; /* For mirrored painting */
+	int pad2;
 } VPaint;
 
 /* VPaint.flag */
