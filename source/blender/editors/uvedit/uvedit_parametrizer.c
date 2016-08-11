@@ -35,6 +35,7 @@
 #include "BLI_boxpack2d.h"
 #include "BLI_convexhull2d.h"
 #include "BLI_linklist.h"
+#include "BLI_polyfill2d.h"
 
 #include "uvedit_parametrizer.h"
 
@@ -5311,6 +5312,7 @@ PConvexHull** p_decompose_triangulate_chart(PChart *chart)
 	PConvexHull **chull_tris = (PConvexHull **)MEM_mallocN(sizeof(PConvexHull *) * chart->nverts, "PNFPs");
 
 	/* ToDo SaphireS */
+	/*BLI_polyfill_calc();*/
 
 	return chull_tris;
 }
@@ -5329,15 +5331,19 @@ bool p_point_inside_nfp(PNoFitPolygon *nfp, float p[2])
 	return c;
 }
 
-bool p_check_concave(PChart *chart, int nboundaries, PEdge *outer)
+bool p_is_concave(PChart *chart, int nboundaries, PEdge *outer)
 {
 	if (nboundaries <= 4) {
 		return false;
 	}
 
 	/* ToDo SaphireS */
-
-	return false;
+	/*if (is_poly_convex_v2()){
+		return false;
+	}
+	else {*/
+	return false; /* ToDo: don't forget to return true once implementation is finished*/
+	/*}*/
 }
 
 bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2], int nfp_count, int index)
@@ -5757,7 +5763,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart;
 	PVert **points;
-	PEdge *outer;
+	PEdge *outer, *e;
 	PFace *f;
 	PConvexHull **tris;
 	int npoint, right, i, j, nboundaries = 0;
@@ -5801,11 +5807,36 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 		printf("init rot for chart[%i]: %f\n", i, rot);
 		p_chart_rotate(chart, rot); /* ToDo SaphireS: Rotate in origin and transform back to original pos! */
 
-		p_chart_boundaries(chart, &nboundaries, &outer);
+		/* Get boundaries of chart*/
+		/* Find initial boundary edge */
+		nboundaries = 0;
+		p_chart_boundaries(chart, NULL, &outer);
+		if (!outer)
+			printf("Warning: p_chart_boundaries: No boundary edge found!\n");
 
-		if (concave && p_check_concave(chart, nboundaries, outer)) {
+		/* Get number of boundary edges */
+		e = outer;
+		do {
+			nboundaries++;
+			e = p_boundary_edge_next(e);
+		} while (e != outer);
 
-			/* ToDo SaphireS */
+		printf("number of boundary edges: %i\n", nboundaries);
+		PVert **bounds = (PVert **)MEM_mallocN(sizeof(PVert *) * nboundaries, "PCHullpoints");
+
+		/* Get boundary verts */
+		e = outer;
+		j = 0;
+		do {
+			bounds[j] = e->vert;
+			printf(">>bounds: vert x: %f, y: %f\n", bounds[j]->uv[0], bounds[j]->uv[1]);
+			j++;
+			e = p_boundary_edge_next(e);
+		} while (e != outer);
+
+		/* Start computation of hull(s) for chart ---------------------------*/
+		/* Determine if chart is concave or convex */
+		if (concave && p_is_concave(chart, nboundaries, outer)) {
 
 			/* Decompose concave hull into convex hulls and store within chart */
 			chart->u.ipack.tris = p_decompose_triangulate_chart(chart);
@@ -5851,6 +5882,8 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 		}
 
 		chart->u.ipack.area = p_chart_uv_area_signed(chart); /* used for sorting */
+
+		MEM_freeN(bounds);
 	}
 
 	/* Sort UV islands by area */
