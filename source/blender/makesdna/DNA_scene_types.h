@@ -1594,7 +1594,7 @@ typedef struct Scene {
 	
 	struct Scene *set;
 
-	ListBase base;
+	ListBase base DNA_DEPRECATED; /* old base list, now stored in object_layers below */
 	struct Base *basact;		/* active base */
 	struct Object *obedit;		/* name replaces old G.obedit */
 
