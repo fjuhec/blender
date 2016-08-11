@@ -286,7 +286,7 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 	{ \
 		bool break_layiter_name = false; \
 		if ((litem_name->type->type == LAYER_ITEMTYPE_LAYER) && \
-		    (!skip_hidden || BKE_layeritem_is_visible(litem))) \
+		    (!skip_hidden || BKE_layeritem_is_visible(litem_name))) \
 		{ \
 			LayerTypeObject *oblayer_name = (LayerTypeObject *)litem_name; \
 			BKE_OBJECTLAYER_BASES_ITER_START(oblayer_name, baseidx_name, base_name) \
