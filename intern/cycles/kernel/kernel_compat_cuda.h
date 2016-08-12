@@ -31,6 +31,7 @@
 #endif
 
 #include <cuda.h>
+#include <cuda_fp16.h>
 #include <float.h>
 
 /* Qualifier wrappers for different names on different devices */
@@ -47,6 +48,7 @@
 #define ccl_may_alias
 #define ccl_addr_space
 #define ccl_restrict __restrict__
+#define ccl_align(n) __align__(n)
 
 /* No assert supported for CUDA */
 
