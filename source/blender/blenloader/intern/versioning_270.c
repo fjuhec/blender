@@ -1321,24 +1321,21 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 		/* ------- end of grease pencil initialization --------------- */
-	}
 
-	if (!MAIN_VERSION_ATLEAST(main, 277, 4)) {
 		/* initialize regiondata for each SpaceClip, due to the newly brought RegionSpaceClip */
-		bScreen *screen;
-
-		for (screen = main->screen.first; screen; screen = screen->id.next) {
-			ScrArea *area;
-			for (area = screen->areabase.first; area; area = area->next) {
-				SpaceLink *space_link;
-				for (space_link = area->spacedata.first; space_link; space_link = space_link->next) {
-					if (space_link->spacetype == SPACE_CLIP) {
-						for (ARegion *ar = area->regionbase.first; ar != NULL; ar = ar->next) {
-							if (ar->regiontype == RGN_TYPE_WINDOW) {
-								RegionSpaceClip *rsc = MEM_callocN(sizeof(RegionSpaceClip), "region data for clip");
-								rsc->zoom = 1.0f;
-								rsc->flag = RSC_MAIN_CLIP;
-								ar->regiondata = rsc;
+		if (!DNA_struct_elem_find(fd->filesdna, "ARegion", "RegionSpaceClip", "regiondata")) {
+			for (bScreen *screen = main->screen.first; screen != NULL; screen = screen->id.next) {
+				for (ScrArea *sa = screen->areabase.first; sa != NULL; sa = sa->next) {
+					for (SpaceLink *sl = sa->spacedata.first; sl != NULL; sl = sl->next) {
+						ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
+						if (sl->spacetype == SPACE_CLIP) {
+							for (ARegion *ar = regionbase->first; ar != NULL; ar = ar->next) {
+								if (ar->regiontype == RGN_TYPE_WINDOW) {
+									RegionSpaceClip *rsc = MEM_callocN(sizeof(RegionSpaceClip), "region data for clip");
+									rsc->zoom = 1.0f;
+									rsc->flag = RSC_MAIN_CLIP;
+									ar->regiondata = rsc;
+								}
 							}
 						}
 					}
