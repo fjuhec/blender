@@ -574,32 +574,16 @@ static void rna_Scene_object_bases_begin(CollectionPropertyIterator *iter, Point
 static void rna_Scene_object_bases_next(CollectionPropertyIterator *iter)
 {
 	ArrayIterator *internal = &iter->internal.array;
-	Scene *scene = (Scene *)iter->parent.data;
 	Base *base = (Base *)internal->ptr;
+	Base *next = BKE_objectlayer_base_next_find(base);
 
-	bool found_startbase = false;
-	BKE_LAYERTREE_ITER_START(scene->object_layers, base->layer->index, i, litem)
-	{
-		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
-			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-
-			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base_iter)
-			{
-				if (found_startbase) {
-					internal->ptr = (void *)base_iter;
-					return;
-				}
-				else if (base == base_iter) {
-					found_startbase = true;
-				}
-			}
-			BKE_OBJECTLAYER_BASES_ITER_END;
-		}
+	if (next) {
+		internal->ptr = (char *)next;
 	}
-	BKE_LAYERTREE_ITER_END;
-
-	/* If we reach this point, no next base was found, tell iterator to stop. */
-	iter->valid = 0;
+	else {
+		/* no next base was found, tell iterator to stop. */
+		iter->valid = 0;
+	}
 }
 
 static int rna_Scene_object_bases_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr)

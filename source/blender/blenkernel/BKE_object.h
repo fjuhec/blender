@@ -323,7 +323,10 @@ void BKE_objectlayer_base_unassign(struct Base *base);
 void BKE_objectlayer_bases_unassign_all(struct LayerTreeItem *litem, const bool unset_base_layer);
 void BKE_objectlayer_base_entries_reserve(struct LayerTreeItem *litem, const unsigned int nentries_reserve);
 int  BKE_objectlayer_bases_count(const struct LayerTree *ltree);
+
 struct Base *BKE_objectlayer_base_first_find(const struct LayerTree *ltree);
+struct Base *BKE_objectlayer_base_last_find(const struct LayerTree *ltree);
+struct Base *BKE_objectlayer_base_next_find(const struct Base *prev);
 
 #ifdef __cplusplus
 }

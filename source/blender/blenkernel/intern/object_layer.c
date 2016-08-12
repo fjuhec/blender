@@ -172,9 +172,48 @@ Base *BKE_objectlayer_base_first_find(const LayerTree *ltree)
 	{
 		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
 			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-			if (oblayer->tot_bases) {
+			if (oblayer->tot_bases > 0) {
 				return oblayer->bases[0];
 			}
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
+
+	return NULL;
+}
+
+Base *BKE_objectlayer_base_last_find(const LayerTree *ltree)
+{
+	for (int i = ltree->tot_items - 1; i >= 0; i--) {
+		LayerTreeItem *litem = ltree->items_all[i];
+		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			if (oblayer->tot_bases > 0) {
+				return oblayer->bases[oblayer->tot_bases - 1];
+			}
+		}
+	}
+
+	return NULL;
+}
+
+Base *BKE_objectlayer_base_next_find(const Base *prev)
+{
+	bool found_prev = false;
+	BKE_LAYERTREE_ITER_START(prev->layer->tree, prev->layer->index, i, litem)
+	{
+		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base_iter)
+			{
+				if (found_prev) {
+					return base_iter;
+				}
+				else if (base_iter == prev) {
+					found_prev = true;
+				}
+			}
+			BKE_OBJECTLAYER_BASES_ITER_END;
 		}
 	}
 	BKE_LAYERTREE_ITER_END;
