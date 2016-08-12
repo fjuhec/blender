@@ -1419,8 +1419,13 @@ static bool ed_object_select_pick(
 	}
 	
 	/* always start list from basact in wire mode */
-	startbase =  BKE_objectlayer_base_first_find(scene->object_layers);
-	if (BASACT && BASACT->next) startbase = BASACT->next;
+	startbase = BKE_objectlayer_base_first_find(scene->object_layers);
+	if (BASACT) {
+		Base *nextbase = BKE_objectlayer_base_next_find(BASACT, false);
+		if (nextbase) {
+			startbase = nextbase;
+		}
+	}
 	
 	/* This block uses the control key to make the object selected by its center point rather than its contents */
 	/* in editmode do not activate */

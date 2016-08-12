@@ -507,7 +507,7 @@ static int surface_getBrushFlags(DynamicPaintSurface *surface, const Scene *scen
 		if (surface->brush_group)
 			go = go->next;
 		else
-			base = base->next;
+			base = BKE_objectlayer_base_next_find(base, false);
 
 		if (!brushObj) {
 			continue;
@@ -5466,7 +5466,7 @@ static int dynamicPaint_doStep(Scene *scene, Object *ob, DynamicPaintSurface *su
 			if (surface->brush_group)
 				go = go->next;
 			else
-				base = base->next;
+				base = BKE_objectlayer_base_next_find(base, false);
 
 			if (!brushObj) {
 				/* skip item */

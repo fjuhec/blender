@@ -838,7 +838,7 @@ static Base *outline_delete_hierarchy(bContext *C, ReportList *reports, Scene *s
 	}
 	BKE_BASES_ITER_END;
 
-	base_next = base->next;
+	base_next = BKE_objectlayer_base_next_find(base_next, false);
 
 	Main *bmain = CTX_data_main(C);
 	if (base->object->id.tag & LIB_TAG_INDIRECT) {

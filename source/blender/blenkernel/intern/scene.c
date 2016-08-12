@@ -968,7 +968,7 @@ int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
 			}
 			else {
 				if (*base && iter->phase != F_DUPLI) {
-					*base = (*base)->next;
+					*base = BKE_objectlayer_base_next_find(*base, false);
 					if (*base) {
 						*ob = (*base)->object;
 					}
@@ -2164,9 +2164,10 @@ float get_render_aosss_error(const RenderData *r, float error)
 /* helper function for the SETLOOPER macro */
 Base *_setlooper_base_step(Scene **sce_iter, Base *base)
 {
-	if (base && base->next) {
+	Base *nextbase;
+	if (base && (nextbase = BKE_objectlayer_base_next_find(base, false))) {
 		/* common case, step to the next */
-		return base->next;
+		return nextbase;
 	}
 	else if (base == NULL && BKE_objectlayer_base_first_find((*sce_iter)->object_layers)) {
 		/* first time looping, return the scenes first base */

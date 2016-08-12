@@ -73,7 +73,7 @@ struct uiLayout;
 
 /* Base - Wrapper for referencing Objects in a Scene */
 typedef struct Base {
-	struct Base *next, *prev;
+	struct Base *next DNA_DEPRECATED, *prev DNA_DEPRECATED;
 	unsigned int lay, selcol;
 	int flag;
 	short sx, sy;

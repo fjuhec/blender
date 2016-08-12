@@ -498,7 +498,6 @@ static ID **get_selected_and_linked_obs(bContext *C, short *count, short scavisf
 				if (scavisflag & BUTS_ACT_SEL) base->object->scavisflag |= OB_VIS_ACT;
 			}
 		}
-		base= base->next;
 	}
 	BKE_BASES_ITER_END;
 
