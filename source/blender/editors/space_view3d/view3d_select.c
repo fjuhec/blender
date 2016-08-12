@@ -1322,82 +1322,25 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 		BKE_BASES_ITER_END;
 	}
 	else {
-		const int max_layidx = BKE_layertree_get_totitems(scene->object_layers) - 1;
-		bool found_startbase = false;
-		bool done = false;
-
-#define ENSURE_CYCLIC_ITER \
-	if (j == (oblayer->tot_bases - 1)) { \
-		/* at the end of object iterator, back to first object in layer */ \
-		j = -1; \
-		if (i == max_layidx) { \
-			/* at the end of layer iterator, back to first layer */ \
-			i = -1; \
-		} \
-	}
-
-		/* iterate over bases starting with startbase, need more control so not just using BKE_BASES_ITER_START */
-		BKE_LAYERTREE_ITER_START(scene->object_layers, startbase->layer->index, i, litem)
+		BKE_BASES_ITER_CIRCULAR_START(scene, base, startbase, true)
 		{
-			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-			if (litem->type->type != LAYER_ITEMTYPE_LAYER) {
-				/* at the end of iterator, back to start */
-				if (i == max_layidx) {
-					i = -1;
-				}
-				continue;
-			}
-
-			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
-			{
-				/* skip objects with select restriction, to prevent prematurely ending this loop
-				 * with an un-selectable choice */
-				if (base->object->restrictflag & OB_RESTRICT_SELECT) {
-					ENSURE_CYCLIC_ITER;
-					continue;
-				}
-
-				if (base == startbase) {
-					/* already found startbase but we're back to it, meaning
-					 * we've checked all bases, nothing more to do */
-					if (found_startbase) {
-						done = true;
-						break;
-					}
-					else {
-						found_startbase = true;
-					}
-				}
-				else if (!found_startbase) {
-					continue;
-				}
-
-				if (BASE_SELECTABLE(v3d, base)) {
-					for (a = 0; a < hits; a++) {
-						if (has_bones) {
-							/* skip non-bone objects */
-							if ((buffer[4 * a + 3] & 0xFFFF0000)) {
-								if (base->selcol == (buffer[(4 * a) + 3] & 0xFFFF))
-									basact = base;
-							}
-						}
-						else {
+			if (BASE_SELECTABLE(v3d, base)) {
+				for (a = 0; a < hits; a++) {
+					if (has_bones) {
+						/* skip non-bone objects */
+						if ((buffer[4 * a + 3] & 0xFFFF0000)) {
 							if (base->selcol == (buffer[(4 * a) + 3] & 0xFFFF))
 								basact = base;
 						}
 					}
+					else {
+						if (base->selcol == (buffer[(4 * a) + 3] & 0xFFFF))
+							basact = base;
+					}
 				}
-
-				if (basact) {
-					done = true;
+				if (basact)
 					break;
-				}
-				ENSURE_CYCLIC_ITER;
 			}
-			BKE_OBJECTLAYER_BASES_ITER_END;
-
-			if (done)
-				break;
 		}
 		BKE_LAYERTREE_ITER_END;
 	}
@@ -1487,63 +1430,24 @@ static bool ed_object_select_pick(
 			basact = object_mouse_select_menu(C, &vc, NULL, 0, mval, toggle);
 		}
 		else {
-			const int max_layidx = BKE_layertree_get_totitems(scene->object_layers);
-			bool found_startbase = false;
-			bool done = false;
-
-			BKE_LAYERTREE_ITER_START(scene->object_layers, startbase->layer->index, i, litem)
+			BKE_BASES_ITER_CIRCULAR_START(scene, base, startbase, true)
 			{
-				if ((litem->type->type != LAYER_ITEMTYPE_LAYER) || !BKE_layeritem_is_visible(litem))
-					continue;
-				LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-
-				BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
-				{
-					if (base == startbase) {
-						/* already found startbase but we're back to it, meaning
-						 * we've checked all bases, nothing more to do */
-						if (found_startbase) {
-							done = true;
-							break;
-						}
-						else {
-							found_startbase = true;
-						}
-					}
-					else if (!found_startbase) {
-						continue;
-					}
-
-					if (BASE_SELECTABLE(v3d, base)) {
-						eV3DProjTest flag = (V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR);
-						float screen_co[2];
-						if (ED_view3d_project_float_global(
-						        ar, base->object->obmat[3], screen_co, flag) == V3D_PROJ_RET_OK)
-						{
-							float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-							if (base == BASACT) dist_temp += 10.0f;
-							if (dist_temp < dist) {
-								dist = dist_temp;
-								basact = base;
-							}
-						}
-					}
-
-					if (j == (oblayer->tot_bases - 1)) {
-						/* at the end of object iterator, back to first object in layer */
-						j = -1;
-						if (i == max_layidx) {
-							/* at the end of layer iterator, back to first layer */
-							i = -1;
+				if (BASE_SELECTABLE(v3d, base)) {
+					eV3DProjTest flag = (V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR);
+					float screen_co[2];
+					if (ED_view3d_project_float_global(
+							ar, base->object->obmat[3], screen_co, flag) == V3D_PROJ_RET_OK)
+					{
+						float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
+						if (base == BASACT) dist_temp += 10.0f;
+						if (dist_temp < dist) {
+							dist = dist_temp;
+							basact = base;
 						}
 					}
 				}
-				BKE_OBJECTLAYER_BASES_ITER_END;
-
-				if (done)
-					break;
 			}
-			BKE_LAYERTREE_ITER_END;
+			BKE_BASES_ITER_END;
 		}
 	}
 	else {

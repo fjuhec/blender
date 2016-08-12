@@ -291,6 +291,16 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 #define BKE_BASES_ITER_START(scene, base_name) \
 	BKE_BASES_ITER_START_EX(scene, base_name, false)
 
+#define BKE_BASES_ITER_CIRCULAR_START(scene, base_name, base_start, skip_hidden) \
+	for (Base *base_name = base_start, *base_name##_next = NULL; base_name != base_start; base = base_name##_next) { \
+		base_name##_next = BKE_objectlayer_base_next_find(base_name, skip_hidden); \
+		if (!base_name##_next) { \
+			/* continue with first base in layer tree */ \
+			base_name##_next = BKE_objectlayer_base_first_find(scene->object_layers); \
+		} \
+		if (skip_hidden && (base_name->object->restrictflag & OB_RESTRICT_VIEW)) \
+			continue;
+
 /* Version of BKE_BASES_ITER_START that skips invisible layers and
  * invisible objects. Doesn't do layer visibility-bit check.*/
 #define BKE_BASES_ITER_VISIBLE_START(scene, base_name) \
