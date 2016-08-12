@@ -391,6 +391,9 @@ void ED_screen_set_scene(struct bContext *C, struct bScreen *screen, struct Scen
 struct MovieClip *ED_space_clip_get_clip(struct SpaceClip *sc) RET_NULL
 void ED_space_clip_set_clip(struct bContext *C, struct bScreen *screen, struct SpaceClip *sc, struct MovieClip *clip) RET_NONE
 void ED_space_clip_set_mask(struct bContext *C, struct SpaceClip *sc, struct Mask *mask) RET_NONE
+void ED_space_clip_set_secondary_clip(struct bContext *C, struct bScreen *screen, struct SpaceClip *sc, struct MovieClip *secondary_clip) RET_NONE
+void ED_clip_update_correspondence_mode(struct bContext *C, struct SpaceClip *sc) RET_NONE
+void ED_space_clip_region_set_lock_zero(struct bContext *C) RET_NONE
 void ED_space_image_set_mask(struct bContext *C, struct SpaceImage *sima, struct Mask *mask) RET_NONE
 
 void ED_area_tag_redraw_regiontype(struct ScrArea *sa, int regiontype) RET_NONE
