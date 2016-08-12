@@ -6457,7 +6457,7 @@ static void nearest_point(float p[2], ListBase *p_list, float r_near[2], int *r_
 		for (link = p_list->first; link; link = link->next) {
 			distance = len_v2v2(p, link->data);
 			if (distance <= smallest_distance) {
-				distance = smallest_distance;
+				smallest_distance = distance;
 				copy_v2_v2(r_near, link->data);
 				pos = i;
 			}
@@ -6575,8 +6575,8 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 	ListBase spline_list = {NULL};
 	ListBase intersections_list = {NULL};
 	ListBase *nubase = object_editcurve_get(obedit);
-	BezTriple **selected_endpoints = NULL, **first_selected_endpoints = NULL, **second_selected_endpoints = NULL, *bezt;
-	int n_selected_splines = 0, result = 0, a = 0;
+	BezTriple **selected_endpoints = NULL, **first_selected_endpoints = NULL, **second_selected_endpoints = NULL;
+	int n_selected_splines = 0, result = 0;
 	float p1[3], p2[3] = {0.0, 0.0, 0.0}, p1_handle[3], bound_box[4], p1_extend[2];
 
 	get_selected_bezier_splines(&spline_list, nubase, &n_selected_splines, false);
@@ -6655,9 +6655,13 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 			if (selected_endpoints[0] && selected_endpoints[1])
 			{ /* both endpoints selected */
 				BKE_nurbList_handles_set(nubase, 5);
-				ed_editcurve_addvert(cu, editnurb, p2);
 				for (nu = nubase->first; nu; nu = nu->next) {
 					if (BEZT_ISSEL_ANY_HIDDENHANDLES(cu, nu->bezt)) {
+						BKE_nurb_bezierPoints_add(nu, 2);
+						ED_curve_beztcpy(editnurb, &nu->bezt[1], &nu->bezt[0], nu->pntsu - 2);
+						ED_curve_beztcpy(editnurb, &nu->bezt[nu->pntsu - 1], &nu->bezt[nu->pntsu - 2], 1);
+						BEZT_DESEL_ALL(&nu->bezt[1]);
+						BEZT_DESEL_ALL(&nu->bezt[nu->pntsu - 2]);
 						copy_v3_v3(nu->bezt[0].vec[1], p2);
 						copy_v3_v3(nu->bezt[nu->pntsu - 1].vec[1], p2);
 					}
@@ -6667,21 +6671,35 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 			else { /* only one endpoint selected */
 				BKE_nurbList_handles_set(nubase, 5);
 				p2[2] = (selected_endpoints[0] ? selected_endpoints[0] : selected_endpoints[1])->vec[1][2];
-				ed_editcurve_addvert(cu, editnurb, p2);
+				for (nu = nubase->first; nu; nu = nu->next) {
+					if (BEZT_ISSEL_ANY(nu->bezt)) { /* first handle selected */
+						BKE_nurb_bezierPoints_add(nu, 1);
+						ED_curve_beztcpy(editnurb, &nu->bezt[1], &nu->bezt[0], nu->pntsu - 1);
+						BEZT_DESEL_ALL(&nu->bezt[1]);
+						copy_v3_v3(nu->bezt[0].vec[1], p2);					}
+					else if (BEZT_ISSEL_ANY(&nu->bezt[nu->pntsu - 1])) { /* last handle selected */
+						BKE_nurb_bezierPoints_add(nu, 1);
+						ED_curve_beztcpy(editnurb, &nu->bezt[nu->pntsu - 1], &nu->bezt[nu->pntsu - 2], 1);
+						BEZT_DESEL_ALL(&nu->bezt[nu->pntsu - 2]);
+						copy_v3_v3(nu->bezt[nu->pntsu - 1].vec[1], p2);
+					}
+				}
 				BKE_nurbList_handles_set(nubase, 1);
 			}
 		}
 		else if (n_selected_splines == 2) {
 			BKE_nurbList_handles_set(nubase, 5);
-			ed_editcurve_addvert(cu, editnurb, p2);
 			for (nu = nubase->first; nu; nu = nu->next) {
-				a = nu->pntsu;
-				bezt = nu->bezt;
-				while (a--) {
-					if (BEZT_ISSEL_ANY_HIDDENHANDLES(cu, bezt)) {
-						copy_v3_v3(bezt->vec[1], p2);
-					}
-					bezt++;
+				if (BEZT_ISSEL_ANY(nu->bezt)) { /* first handle selected */
+					BKE_nurb_bezierPoints_add(nu, 1);
+					ED_curve_beztcpy(editnurb, &nu->bezt[1], &nu->bezt[0], nu->pntsu - 1);
+					BEZT_DESEL_ALL(&nu->bezt[1]);
+					copy_v3_v3(nu->bezt[0].vec[1], p2);					}
+				else if (BEZT_ISSEL_ANY(&nu->bezt[nu->pntsu - 1])) { /* last handle selected */
+					BKE_nurb_bezierPoints_add(nu, 1);
+					ED_curve_beztcpy(editnurb, &nu->bezt[nu->pntsu - 1], &nu->bezt[nu->pntsu - 2], 1);
+					BEZT_DESEL_ALL(&nu->bezt[nu->pntsu - 2]);
+					copy_v3_v3(nu->bezt[nu->pntsu - 1].vec[1], p2);
 				}
 			}
 			BKE_nurbList_handles_set(nubase, 1);
@@ -7408,11 +7426,11 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 
 /******************** Offset curve operator ********************/
 
-static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, float *r_v2)
+static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, float *r_v2)
 {
 	/* TODO: when bezt1 and bezt2 are collinear, things go wrong. Extending and the offseting exposes
 	 * 		 the problem */
-	int dims = 3;
+	int dims = 3, ret = 1;
 	float *coord_array, *vx, *vy, *helper;
 	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "get_offset_vecs1");
 	vx = MEM_callocN(dims * sizeof(float), "get_offset_vecs2");
@@ -7439,6 +7457,11 @@ static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, flo
 	plane_from_point_normal_v3(plane_a, bezt1->vec[1], vx);
 	plane_from_point_normal_v3(plane_b, bezt1->vec[1], plane_b_no);
 
+	if (!(plane_a[0] && plane_a[1] && plane_a[2] && plane_a[3]) || !(plane_b[0] && plane_b[1] && plane_b[2] && plane_b[3])) {
+		/* handles are collinear */
+		ret = 0;
+	}
+
 	if (isect_plane_plane_v3(plane_a, plane_b,
 							 isect_co, isect_no))
 	{
@@ -7452,6 +7475,11 @@ static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, flo
 	plane_from_point_normal_v3(plane_a, bezt2->vec[1], vy);
 	plane_from_point_normal_v3(plane_b, bezt2->vec[1], plane_b_no);
 
+	if (!(plane_a[0] && plane_a[1] && plane_a[2] && plane_a[3]) || !(plane_b[0] && plane_b[1] && plane_b[2] && plane_b[3])) {
+		/* handles are collinear */
+		ret = 0;
+	}
+
 	if (isect_plane_plane_v3(plane_a, plane_b,
 							 isect_co, isect_no))
 	{
@@ -7463,6 +7491,8 @@ static void get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, flo
 	MEM_freeN(vx);
 	MEM_freeN(vy);
 	MEM_freeN(helper);
+
+	return ret;
 }
 
 static void get_handles_offset_vec(float *p1, float *p2, float *p3, float *r_v1)
@@ -7531,18 +7561,32 @@ static bool reverse_offset(BezTriple *offset1, BezTriple *offset2, ListBase *nur
 	return ret;
 }
 
+static void populate_control_bezt(BezTriple *bezt1, BezTriple *bezt2, float *v)
+{
+	memcpy(bezt1, bezt2, sizeof(BezTriple));
+	add_v3_v3(bezt1->vec[0], v);
+	add_v3_v3(bezt1->vec[1], v);
+	add_v3_v3(bezt1->vec[2], v);
+}
+
 static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 {
-	BezTriple *bezt = nu->bezt, *new_bezt, *copy_bezt = MEM_callocN(sizeof(BezTriple), __func__);
+	BezTriple *bezt = nu->bezt, *new_bezt;
+	BezTriple *copy_bezt1 = MEM_callocN(sizeof(BezTriple), __func__), *copy_bezt2 = MEM_callocN(sizeof(BezTriple), __func__);
 	Nurb *new_nu = BKE_nurb_duplicate(nu);
 	new_bezt = new_nu->bezt;
+	int res;
 	/* offset the first handle */
 	/* control point */
-	float *v1, *v2, *co;
+	float *v0, *v1, *v2, *co;
+	v0 = MEM_callocN(3 * sizeof(float), "offset_curve_exec0");
 	v1 = MEM_callocN(3 * sizeof(float), "offset_curve_exec1");
 	v2 = MEM_callocN(3 * sizeof(float), "offset_curve_exec2");
 	co = MEM_callocN(3 * sizeof(float), "offset_curve_exec3");
-	get_offset_vecs(bezt, bezt + 1, v1, v2);
+	res = get_offset_vecs(bezt, bezt + 1, v1, v2);
+	copy_v3_v3(v0, v1);
+	mul_v3_fl(v0, 1.0e-1);
+	populate_control_bezt(copy_bezt1, bezt, v0);
 	mul_v3_fl(v1, distance);
 	add_v3_v3(new_bezt->vec[0], v1);
 	add_v3_v3(new_bezt->vec[1], v1);
@@ -7562,7 +7606,10 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 	for (int i = 1; i < nu->pntsu - 1; i++)
 	{
 		/* control point */
-		get_offset_vecs(bezt, bezt + 1, v1, v2);
+		res = get_offset_vecs(bezt, bezt + 1, v1, v2);
+		copy_v3_v3(v0, v1);
+		mul_v3_fl(v0, 1.0e-1);
+		populate_control_bezt(copy_bezt2, bezt, v0);
 		mul_v3_fl(v1, distance);
 		add_v3_v3(new_bezt->vec[0], v1);
 		add_v3_v3(new_bezt->vec[1], v1);
@@ -7574,12 +7621,14 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 		if (reverse_offset(new_bezt - 1, new_bezt, nubase)) { /* we got the wrong direction. Fix that
 															   * further spline intersections due to the offset
 															   * distance are sometiomes taken into account. TODO: Fix that */
+		/* if (reverse_offset(copy_bezt1, copy_bezt2, nubase)) { */
 			mul_v3_fl(v1, -2);
 			add_v3_v3(new_bezt->vec[0], v1);
 			add_v3_v3(new_bezt->vec[1], v1);
 			add_v3_v3(new_bezt->vec[2], v1);
 			//swap_v3_v3(new_bezt->vec[0], new_bezt->vec[2]);
 		}
+		memcpy(copy_bezt1, new_bezt, sizeof(BezTriple));
 		result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
 		if (result != 0) {
 			copy_v3_v3(new_bezt->vec[2], v1);
@@ -7599,6 +7648,9 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 	/* offset the last handle */
 	get_offset_vecs(bezt - 1, bezt, v1, v2);
 	get_handles_offset_vec(bezt[-1].vec[2], bezt->vec[0], bezt->vec[1], v1);
+	copy_v3_v3(v0, v1);
+	mul_v3_fl(v0, 1.0e-1);
+	populate_control_bezt(copy_bezt2, bezt, v0);
 	mul_v3_fl(v2, distance);
 	add_v3_v3(new_bezt->vec[0], v2);
 	add_v3_v3(new_bezt->vec[1], v2);
@@ -7617,10 +7669,12 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 		copy_v3_v3(new_bezt->vec[0], v1);
 	}
 
+	MEM_freeN(v0);
 	MEM_freeN(v1);
 	MEM_freeN(v2);
 	MEM_freeN(co);
-	MEM_freeN(copy_bezt);
+	MEM_freeN(copy_bezt1);
+	MEM_freeN(copy_bezt2);
 
 	return new_nu;
 }
@@ -7805,96 +7859,6 @@ void CURVE_OT_offset_curve(wmOperatorType *ot)
 
 /******************** Batch Extend operator ********************/
 
-static void extend_vertex(int i, Nurb *nu, ListBase *nubase, Object *obedit, float r_p2[3])
-{
-	Curve *cu = obedit->data;
-	float p1[3], p1_handle[3], bound_box[4], p1_extend[3], p2[3];
-	int result = 0;
-	ListBase il = {NULL};
-
-	if (i == 0) { /* extend first handle */
-		copy_v3_v3(p1, nu->bezt->vec[1]);
-		copy_v3_v3(p1_handle, nu->bezt->vec[2]);
-	}
-	if (i == 1) { /* extend last handle */
-		copy_v3_v3(p1, nu->bezt[nu->pntsu - 1].vec[1]);
-		copy_v3_v3(p1_handle, nu->bezt[nu->pntsu - 1].vec[0]);
-	}
-
-	get_nurb_shape_bounds(cu, bound_box);
-	get_max_extent_2d(p1, p1_handle, bound_box, p1_extend);
-	get_intersections(&il, p1, p1_extend, nubase);
-	nearest_point(p1, &il, p2, &result);
-	if (result == 1) {
-		copy_v3_v3(r_p2, p2);
-	}
-
-	for (LinkData* d = il.first; d; d = d->next) {
-		MEM_freeN(d->data);
-	}
-	BLI_freelistN(&il);
-}
-
-static void add_bezt(Nurb *nu, float *p, int position, Curve *cu)
-{
-	/* this function is a weaker version of the ed_editnurb_addvert function
-	 * this function is just silly. BKE_nurb_bezierpoints_add seems to do exactly the same
-	 * job. TODO: rewrite this */
-	Nurb *cu_actnu;
-	union {
-		BezTriple *bezt;
-		void      *p;
-	} cu_actvert;
-
-	EditNurb *editnurb = cu->editnurb;
-	BKE_curve_nurb_vert_active_get(cu, &cu_actnu, &cu_actvert.p);
-	BKE_curve_nurb_vert_active_set(cu, NULL, NULL);
-
-	BezTriple *bezt_new, *bezt = nu->bezt;
-
-	bezt_new = MEM_mallocN((nu->pntsu + 1) * sizeof(BezTriple), __func__);
-	BezTriple *nu_bezt_old = nu->bezt;
-	if (position == 0) {
-		ED_curve_beztcpy(editnurb, bezt_new + 1, bezt, nu->pntsu);
-		*bezt_new = *bezt;
-	}
-	else if (position == 1) {
-		ED_curve_beztcpy(editnurb, bezt_new, bezt, nu->pntsu);
-		bezt_new[nu->pntsu]= *bezt;
-	}
-
-	MEM_freeN(nu->bezt);
-	nu->bezt = bezt_new;
-
-	nu->pntsu += 1;
-
-	if (position == 0) {
-		if (ARRAY_HAS_ITEM(cu_actvert.bezt, nu_bezt_old, nu->pntsu - 1)) {
-			cu_actvert.bezt = (cu_actvert.bezt == bezt) ?
-			bezt_new : &nu->bezt[(cu_actvert.bezt - nu_bezt_old) + 1];
-			BKE_curve_nurb_vert_active_set(cu, nu, cu_actvert.bezt);
-		}
-	}
-	else if (position == 1) {
-		if (ARRAY_HAS_ITEM(cu_actvert.bezt, nu_bezt_old, nu->pntsu - 1)) {
-			cu_actvert.bezt = (cu_actvert.bezt == bezt) ?
-			bezt_new : &nu->bezt[cu_actvert.bezt - nu_bezt_old];
-			BKE_curve_nurb_vert_active_set(cu, nu, cu_actvert.bezt);
-		}
-	}
-
-	if (position == 0) {
-		copy_v3_v3(nu->bezt->vec[1], p);
-		BEZT_SEL_ALL(nu->bezt);
-	}
-	else if (position == 1) {
-		copy_v3_v3(nu->bezt[nu->pntsu - 1].vec[1], p);
-		BEZT_SEL_ALL(&nu->bezt[nu->pntsu - 1]);
-	}
-
-	BKE_nurb_handles_calc(nu);
-}
-
 static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *obedit = CTX_data_edit_object(C);
@@ -7925,24 +7889,17 @@ static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 	}
 
-	float p2[3];
 	for (LinkData *l = first_extend.first; l; l = l->next) {
 		nu = l->data;
-		bezt = nu->bezt;
-		extend_vertex(0, nu, nubase, obedit, p2);
-		BKE_nurbList_handles_set(nubase, 5);
-		p2[2] = bezt->vec[1][2];
-		add_bezt(nu, p2, 0, cu);
-		BKE_nurbList_handles_set(nubase, 1);
+		BEZT_SEL_ALL(nu->bezt);
+		WM_operator_name_call(C, "CURVE_OT_extend_curve", WM_OP_EXEC_DEFAULT, NULL);
+		BEZT_DESEL_ALL(nu->bezt);
 	}
 	for (LinkData *l = last_extend.first; l; l = l->next) {
 		nu = l->data;
-		bezt = nu->bezt;
-		extend_vertex(1, nu, nubase, obedit, p2);
-		BKE_nurbList_handles_set(nubase, 5);
-		p2[2] = bezt->vec[1][2];
-		add_bezt(nu, p2, 1, cu);
-		BKE_nurbList_handles_set(nubase, 1);
+		BEZT_SEL_ALL(&nu->bezt[nu->pntsu - 1]);
+		WM_operator_name_call(C, "CURVE_OT_extend_curve", WM_OP_EXEC_DEFAULT, NULL);
+		BEZT_DESEL_ALL(&nu->bezt[nu->pntsu - 1]);
 	}
 
 	for (link = first_extend.first; link; ) {
@@ -8273,7 +8230,7 @@ void CURVE_OT_curve_chamfer(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = curve_chamfer_exec;
 	ot->poll = ED_operator_editsurfcurve;
-	/* TODO: add code to curve_chamfer_modal to handle keyboard input */
+	/* TODO: add code to handle keyboard and angle input */
 	//ot->modal = curve_chamfer_modal;
 	//ot->invoke = curve_chamfer_invoke;
 
@@ -8327,7 +8284,6 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	/* check if handles are vector type! */
 	BezTriple *bezt = nu->bezt, *bezt1, *bezt2, *helper;
 	int selected_point = 0;
 	for (int i = 0; i < nu->pntsu; i++) {
