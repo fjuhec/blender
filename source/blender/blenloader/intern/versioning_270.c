@@ -1323,4 +1323,28 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		/* ------- end of grease pencil initialization --------------- */
 	}
 
+	if (!MAIN_VERSION_ATLEAST(main, 277, 4)) {
+		/* initialize regiondata for each SpaceClip, due to the newly brought RegionSpaceClip */
+		bScreen *screen;
+
+		for (screen = main->screen.first; screen; screen = screen->id.next) {
+			ScrArea *area;
+			for (area = screen->areabase.first; area; area = area->next) {
+				SpaceLink *space_link;
+				for (space_link = area->spacedata.first; space_link; space_link = space_link->next) {
+					if (space_link->spacetype == SPACE_CLIP) {
+						SpaceClip *space_clip = (SpaceClip *) space_link;
+						for (ARegion *ar = space_clip->regionbase.first; ar != NULL; ar = ar->next) {
+							if (ar->regiontype == RGN_TYPE_WINDOW) {
+								RegionSpaceClip *rsc = MEM_callocN(sizeof(RegionSpaceClip), "region data for clip");
+								rsc->zoom = 1.0f;
+								rsc->flag = RSC_MAIN_CLIP;
+								ar->regiondata = rsc;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
