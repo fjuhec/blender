@@ -184,6 +184,7 @@ static int layer_remove_exec(bContext *C, wmOperator *op)
 					break;
 			}
 		}
+		/* XXX else, what happens to objects? */
 
 		layers_tile_remove(slayer, tile, true);
 		BKE_layeritem_remove(litem, true);

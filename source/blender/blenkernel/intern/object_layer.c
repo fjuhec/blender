@@ -73,18 +73,18 @@ void BKE_objectlayer_base_assign_ex(Base *base, LayerTreeItem *litem, const bool
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 
-	oblayer->tot_bases++;
-
 	if (!has_reserved) {
-		objectlayer_array_resize(oblayer, oblayer->tot_bases);
+		objectlayer_array_resize(oblayer, oblayer->tot_bases + 1);
 	}
 	/* offset current elements to give space for new one at start of array */
-	if (add_head && oblayer->tot_bases > 1) {
-		memmove(oblayer->bases[1], oblayer->bases[0], sizeof(*oblayer->bases) * oblayer->tot_bases - 1);
+	if (add_head && oblayer->tot_bases > 0) {
+		memmove(oblayer->bases[1], oblayer->bases[0], sizeof(*oblayer->bases) * oblayer->tot_bases);
 	}
 
-	oblayer->bases[add_head ? 0 : oblayer->tot_bases - 1] = base;
 	base->layer = litem;
+	base->index = add_head ? 0 : oblayer->tot_bases;
+	oblayer->bases[base->index] = base;
+	oblayer->tot_bases++;
 }
 
 /**
@@ -199,19 +199,20 @@ Base *BKE_objectlayer_base_last_find(const LayerTree *ltree)
 
 Base *BKE_objectlayer_base_next_find(const Base *prev)
 {
-	bool found_prev = false;
-	BKE_LAYERTREE_ITER_START(prev->layer->tree, prev->layer->index, i, litem)
+	LayerTypeObject *oblayer = (LayerTypeObject *)prev->layer;
+
+	/* can directly access if next object is on same layer as prev */
+	if ((prev->index + 1) < oblayer->tot_bases) {
+		return oblayer->bases[prev->index + 1];
+	}
+	/* else, have to do lookup starting from next layer */
+	BKE_LAYERTREE_ITER_START(prev->layer->tree, prev->layer->index + 1, i, litem)
 	{
 		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
-			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
-			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base_iter)
+			LayerTypeObject *oblayer_iter = (LayerTypeObject *)litem;
+			BKE_OBJECTLAYER_BASES_ITER_START(oblayer_iter, j, base_iter)
 			{
-				if (found_prev) {
-					return base_iter;
-				}
-				else if (base_iter == prev) {
-					found_prev = true;
-				}
+				return base_iter;
 			}
 			BKE_OBJECTLAYER_BASES_ITER_END;
 		}

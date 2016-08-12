@@ -79,6 +79,7 @@ typedef struct Base {
 	short sx, sy;
 	struct Object *object;
 	struct LayerTreeItem *layer; /* The layer this base is assigned to. Synced with Object.layer */
+	int index, pad; /* the index of this Base within the object layer */
 } Base;
 
 /* ------------------------------------------- */
