@@ -4982,6 +4982,63 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 	return conv_hull;
 }
 
+PConvexHull *p_convex_hull_new_tri(const float (*coords)[2])
+{
+	PConvexHull *conv_hull = (PConvexHull *)MEM_callocN(sizeof(*conv_hull), "PConvexHull");
+	PVert **points;
+	float minv[2], maxv[2], pos[2], maxy = -1.0e30f;
+	int npoint = 3, right = 0, i;
+
+	printf("p_convex_hull_new_tri!\n");
+
+	conv_hull->h_verts = (PVert *)MEM_callocN(sizeof(conv_hull->h_verts) * npoint, "PConvHullPVerts");
+	conv_hull->verts = (PPointUV **)MEM_callocN(sizeof(*conv_hull->verts) * npoint, "PConvexHullVerts");
+	conv_hull->nverts = npoint;
+	conv_hull->right = right;
+	conv_hull->placed = false;
+	conv_hull->ref_vert_index = 0;
+
+	/* Fill max/min for initial positioning, with this we also know the bounding rectangle */
+	/* p_chart_uv_bbox(chart, conv_hull->min_v, conv_hull->max_v); */
+	INIT_MINMAX2(conv_hull->min_v, conv_hull->max_v);
+	
+	printf("-p_convex_hull_new_tri: inits done!\n");
+
+	/* get reference vertex */
+	for (i = 0; i < conv_hull->nverts; i++) {
+
+		PPointUV *p = (PPointUV *)MEM_callocN(sizeof(*p), "PPointUV");
+		p->x = coords[i][0];
+		p->y = coords[i][1];
+		printf("-p_convex_hull_new_tri: p coords updated!\n");
+		conv_hull->verts[i] = p;
+		printf("-p_convex_hull_new_tri: bounds updated!\n");
+
+		/* Update bounds */
+		pos[0] = conv_hull->verts[i]->x;
+		pos[1] = conv_hull->verts[i]->y;
+		minmax_v2v2_v2(conv_hull->min_v, conv_hull->max_v, pos);
+		printf("-p_convex_hull_new_tri: bounds updated!\n");
+
+		/* Note: FLT_EPSILON is to exact and produces wrong results in this context, use custom max_diff instead */
+		if (compare_ff(maxy, conv_hull->verts[i]->y, 0.00001f)) {
+			/* same y value, only take if x value is lower than for current ref vert */
+			if (conv_hull->verts[i]->x < conv_hull->verts[conv_hull->ref_vert_index]->x) {
+				maxy = conv_hull->verts[i]->y;
+				conv_hull->ref_vert_index = i;
+			}
+		}
+		else if (conv_hull->verts[i]->y > maxy) {
+			/* higher y value */
+			maxy = conv_hull->verts[i]->y;
+			conv_hull->ref_vert_index = i;
+		}
+		printf("-p_convex_hull_new_tri: ref vert updated!\n");
+	}
+
+	return conv_hull;
+}
+
 /* Update bounds and recalculate ref vertex (highest y value) */
 void p_convex_hull_update(PConvexHull *conv_hull, bool update_points)
 {
@@ -5307,12 +5364,35 @@ PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 	return nfp;
 }
 
-PConvexHull** p_decompose_triangulate_chart(PChart *chart)
+PConvexHull** p_decompose_triangulate_chart(PChart *chart, const float (*hull_points)[2], const int nbounds)
 {
-	PConvexHull **chull_tris = (PConvexHull **)MEM_mallocN(sizeof(PConvexHull *) * chart->nverts, "PNFPs");
+	int i, ntris = nbounds - 2;
+	unsigned int(*r_tris)[3] = BLI_array_alloca(r_tris, ntris);
+	float cur_tri[3][2];
+	PConvexHull **chull_tris = (PConvexHull **)MEM_mallocN(sizeof(PConvexHull *) * ntris, "PNFPs");
 
 	/* ToDo SaphireS */
-	/*BLI_polyfill_calc();*/
+	printf("p_decompose_triangulate_chart!\n");
+
+	/* triangulate */
+	BLI_polyfill_calc((const float(*)[2])hull_points, nbounds, -1, r_tris);
+
+	/* write r_tris to convex hulls */
+	for (i = 0; i < ntris; i++){
+		cur_tri[0][0] = hull_points[r_tris[i][0]][0];
+		cur_tri[0][1] = hull_points[r_tris[i][0]][1];
+		printf("p_decompose_triangulate_chart: tri[0]x: %f, y: %f\n", hull_points[r_tris[i][0]][0], hull_points[r_tris[i][0]][1]);
+
+		cur_tri[1][0] = hull_points[r_tris[i][1]][0];
+		cur_tri[1][1] = hull_points[r_tris[i][1]][1];
+		printf("p_decompose_triangulate_chart: tri[0]x: %f, y: %f\n", hull_points[r_tris[i][1]][0], hull_points[r_tris[i][1]][1]);
+
+		cur_tri[2][0] = hull_points[r_tris[i][2]][0];
+		cur_tri[2][1] = hull_points[r_tris[i][2]][1];
+		printf("p_decompose_triangulate_chart: tri[0]x: %f, y: %f\n", hull_points[r_tris[i][2]][0], hull_points[r_tris[i][2]][1]);
+
+		chull_tris[i] = p_convex_hull_new_tri(cur_tri);
+	}
 
 	return chull_tris;
 }
@@ -5331,19 +5411,22 @@ bool p_point_inside_nfp(PNoFitPolygon *nfp, float p[2])
 	return c;
 }
 
-bool p_is_concave(PChart *chart, int nboundaries, PEdge *outer)
+bool p_is_concave(PChart *chart, const float(*hull_points)[2], int nboundaries)
 {
 	if (nboundaries <= 4) {
+		printf("<= 4 boundary edges, convex\n");
 		return false;
 	}
 
 	/* ToDo SaphireS */
-	/*if (is_poly_convex_v2()){
+	if (is_poly_convex_v2((const float(*)[2])hull_points, nboundaries)){
+		printf("is_poly_convex true, convex\n");
 		return false;
 	}
-	else {*/
-	return false; /* ToDo: don't forget to return true once implementation is finished*/
-	/*}*/
+	else {
+		printf("is_poly_convex false, concave\n");
+		return true; 
+	}
 }
 
 bool p_temp_cfr_check(PNoFitPolygon **nfps, PNoFitPolygon *ifp, float p[2], int nfp_count, int index)
@@ -5823,23 +5906,27 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 
 		printf("number of boundary edges: %i\n", nboundaries);
 		PVert **bounds = (PVert **)MEM_mallocN(sizeof(PVert *) * nboundaries, "PCHullpoints");
+		float(*hullverts)[2] = BLI_array_alloca(hullverts, nboundaries);
 
 		/* Get boundary verts */
 		e = outer;
 		j = 0;
 		do {
 			bounds[j] = e->vert;
+			hullverts[j][0] = e->vert->uv[0];
+			hullverts[j][1] = e->vert->uv[1];
 			printf(">>bounds: vert x: %f, y: %f\n", bounds[j]->uv[0], bounds[j]->uv[1]);
+			printf(">-hullverts x: %f, y: %f\n", hullverts[j][0], hullverts[j][1]);
 			j++;
 			e = p_boundary_edge_next(e);
 		} while (e != outer);
 
 		/* Start computation of hull(s) for chart ---------------------------*/
 		/* Determine if chart is concave or convex */
-		if (concave && p_is_concave(chart, nboundaries, outer)) {
-
+		if (concave && p_is_concave(chart, (const float(*)[2])hullverts, nboundaries)) {
+			printf("Entered concave execution path\n");
 			/* Decompose concave hull into convex hulls and store within chart */
-			chart->u.ipack.tris = p_decompose_triangulate_chart(chart);
+			chart->u.ipack.tris = p_decompose_triangulate_chart(chart, (const float(*)[2])hullverts, nboundaries);
 			chart->u.ipack.decomposed = true;
 
 			/* For each convex hull: */
@@ -5861,6 +5948,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 			}
 		}
 		else {
+			printf("Entered convex execution path\n");
 			/* Compute convex hull for each chart -> CW */
 			chart->u.ipack.convex_hull = p_convex_hull_new(chart);
 			chart->u.ipack.decomposed = false;
