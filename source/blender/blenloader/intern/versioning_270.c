@@ -1321,9 +1321,11 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 		/* ------- end of grease pencil initialization --------------- */
+	}
 
+	{
 		/* initialize regiondata for each SpaceClip, due to the newly brought RegionSpaceClip */
-		if (!DNA_struct_elem_find(fd->filesdna, "ARegion", "RegionSpaceClip", "regiondata")) {
+		if (!DNA_struct_elem_find(fd->filesdna, "SpaceClip", "MovieClip", "*secondary_clip")) {
 			for (bScreen *screen = main->screen.first; screen != NULL; screen = screen->id.next) {
 				for (ScrArea *sa = screen->areabase.first; sa != NULL; sa = sa->next) {
 					for (SpaceLink *sl = sa->spacedata.first; sl != NULL; sl = sl->next) {
@@ -1333,6 +1335,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 								if (ar->regiontype == RGN_TYPE_WINDOW) {
 									SpaceClip *sc = (SpaceClip *)sl;
 									RegionSpaceClip *rsc = MEM_callocN(sizeof(RegionSpaceClip), "region data for clip");
+
 									rsc->xof = sc->xof;
 									rsc->yof = sc->yof;
 									rsc->xlockof = sc->xlockof;
