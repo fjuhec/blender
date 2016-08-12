@@ -6663,6 +6663,15 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 						BEZT_DESEL_ALL(&nu->bezt[1]);
 						BEZT_DESEL_ALL(&nu->bezt[nu->pntsu - 2]);
 						copy_v3_v3(nu->bezt[0].vec[1], p2);
+						/* extrapolate radius, tilt and weight */
+						if (RNA_boolean_get(op->ptr, "extrapolate")) {
+							nu->bezt[0].radius -= nu->bezt[2].radius - nu->bezt[1].radius;
+							nu->bezt[0].weight -= nu->bezt[2].weight - nu->bezt[1].weight;
+							nu->bezt[0].alfa -= nu->bezt[2].alfa - nu->bezt[1].alfa;
+							nu->bezt[nu->pntsu - 1].radius += nu->bezt[nu->pntsu - 2].radius - nu->bezt[nu->pntsu - 3].radius;
+							nu->bezt[nu->pntsu - 1].weight += nu->bezt[nu->pntsu - 2].weight - nu->bezt[nu->pntsu - 3].weight;
+							nu->bezt[nu->pntsu - 1].alfa += nu->bezt[nu->pntsu - 2].alfa - nu->bezt[nu->pntsu - 3].alfa;
+						}
 						copy_v3_v3(nu->bezt[nu->pntsu - 1].vec[1], p2);
 					}
 				}
@@ -6676,12 +6685,23 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 						BKE_nurb_bezierPoints_add(nu, 1);
 						ED_curve_beztcpy(editnurb, &nu->bezt[1], &nu->bezt[0], nu->pntsu - 1);
 						BEZT_DESEL_ALL(&nu->bezt[1]);
-						copy_v3_v3(nu->bezt[0].vec[1], p2);					}
+						copy_v3_v3(nu->bezt[0].vec[1], p2);
+						if (RNA_boolean_get(op->ptr, "extrapolate")) {
+							nu->bezt[0].radius -= nu->bezt[2].radius - nu->bezt[1].radius;
+							nu->bezt[0].weight -= nu->bezt[2].weight - nu->bezt[1].weight;
+							nu->bezt[0].alfa -= nu->bezt[2].alfa - nu->bezt[1].alfa;
+						}
+					}
 					else if (BEZT_ISSEL_ANY(&nu->bezt[nu->pntsu - 1])) { /* last handle selected */
 						BKE_nurb_bezierPoints_add(nu, 1);
 						ED_curve_beztcpy(editnurb, &nu->bezt[nu->pntsu - 1], &nu->bezt[nu->pntsu - 2], 1);
 						BEZT_DESEL_ALL(&nu->bezt[nu->pntsu - 2]);
 						copy_v3_v3(nu->bezt[nu->pntsu - 1].vec[1], p2);
+						if (RNA_boolean_get(op->ptr, "extrapolate")) {
+							nu->bezt[nu->pntsu - 1].radius += nu->bezt[nu->pntsu - 2].radius - nu->bezt[nu->pntsu - 3].radius;
+							nu->bezt[nu->pntsu - 1].weight += nu->bezt[nu->pntsu - 2].weight - nu->bezt[nu->pntsu - 3].weight;
+							nu->bezt[nu->pntsu - 1].alfa += nu->bezt[nu->pntsu - 2].alfa - nu->bezt[nu->pntsu - 3].alfa;
+						}
 					}
 				}
 				BKE_nurbList_handles_set(nubase, 1);
@@ -6694,12 +6714,23 @@ static int extend_curve_exec(bContext *C, wmOperator *op)
 					BKE_nurb_bezierPoints_add(nu, 1);
 					ED_curve_beztcpy(editnurb, &nu->bezt[1], &nu->bezt[0], nu->pntsu - 1);
 					BEZT_DESEL_ALL(&nu->bezt[1]);
-					copy_v3_v3(nu->bezt[0].vec[1], p2);					}
+					copy_v3_v3(nu->bezt[0].vec[1], p2);
+					if (RNA_boolean_get(op->ptr, "extrapolate")) {
+						nu->bezt[0].radius -= nu->bezt[2].radius - nu->bezt[1].radius;
+						nu->bezt[0].weight -= nu->bezt[2].weight - nu->bezt[1].weight;
+						nu->bezt[0].alfa -= nu->bezt[2].alfa - nu->bezt[1].alfa;
+					}
+				}
 				else if (BEZT_ISSEL_ANY(&nu->bezt[nu->pntsu - 1])) { /* last handle selected */
 					BKE_nurb_bezierPoints_add(nu, 1);
 					ED_curve_beztcpy(editnurb, &nu->bezt[nu->pntsu - 1], &nu->bezt[nu->pntsu - 2], 1);
 					BEZT_DESEL_ALL(&nu->bezt[nu->pntsu - 2]);
 					copy_v3_v3(nu->bezt[nu->pntsu - 1].vec[1], p2);
+					if (RNA_boolean_get(op->ptr, "extrapolate")) {
+						nu->bezt[nu->pntsu - 1].radius += nu->bezt[nu->pntsu - 2].radius - nu->bezt[nu->pntsu - 3].radius;
+						nu->bezt[nu->pntsu - 1].weight += nu->bezt[nu->pntsu - 2].weight - nu->bezt[nu->pntsu - 3].weight;
+						nu->bezt[nu->pntsu - 1].alfa += nu->bezt[nu->pntsu - 2].alfa - nu->bezt[nu->pntsu - 3].alfa;
+					}
 				}
 			}
 			BKE_nurbList_handles_set(nubase, 1);
@@ -6748,6 +6779,9 @@ void CURVE_OT_extend_curve(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
+	RNA_def_boolean(ot->srna, "extrapolate", 0, "Extrapolate properties", "Extrapolate radius, tilt and weight. Otherwise copy");
 }
 
 /******************** Trim curve operator ********************/
@@ -6984,7 +7018,7 @@ static float ratio_to_segment(float *x, float *p1, float *p2, float *p3, float *
 			length += len_v3v3(&seg[3 * i], &seg[3 * (i + 1)]);
 		}
 	}
-
+	MEM_freeN(seg);
 	return 0;
 }
 
@@ -7058,6 +7092,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	Curve *cu = obedit->data;
+	EditNurb *editnurb = cu->editnurb;
 	ListBase *nubase = object_editcurve_get(obedit);
 	ListBase selected_splines = {NULL}, high = {NULL}, low = {NULL};
 	int n_sel_splines = 0, n_sel_handles = 0;
@@ -7127,7 +7162,6 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 	s3 = (float *)MEM_callocN(4 * 3 * sizeof(float), "trim_exec_coord3");
 	s4 = (float *)MEM_callocN(4 * 3 * sizeof(float), "trim_exec_coord4");
 
-	/* TODO: interpolate tilt, weight and radius */
 	/* cyclic spline */
 	if (nu->flagu & CU_NURB_CYCLIC) {
 		if (len_low + len_high <= 1) {
@@ -7166,7 +7200,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			while ( a-- ) {
 				old_bezt++;
 			}
-			memcpy(bezt, old_bezt, sizeof(BezTriple));
+			ED_curve_beztcpy(editnurb, bezt, old_bezt, 1);
 			bezt++;
 		}
 
@@ -7204,6 +7238,29 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		copy_v3_v3(new_spl->bezt[0].vec[2], s4 + 3);
 		copy_v3_v3(new_spl->bezt[1].vec[0], s4 + 6);
 
+		/* extrapolate radius, tilt and weight */
+		if (RNA_boolean_get(op->ptr, "extrapolate")) {
+			float ratio = ratio_to_segment(((XShape *)((LinkData *)high.first)->data)->intersections,
+										   (float *)&nu->bezt[high_first_order].vec[1],
+										   (float *)&nu->bezt[high_first_order].vec[2],
+										   (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[0],
+										   (float *)&nu->bezt[(high_first_order + 1) % nu->pntsu].vec[1],
+										   nu->resolu);
+			new_spl->bezt[0].radius += (nu->bezt[(high_first_order + 1) % nu->pntsu].radius - nu->bezt[high_first_order].radius)*ratio;
+			new_spl->bezt[0].weight += (nu->bezt[(high_first_order + 1) % nu->pntsu].weight - nu->bezt[high_first_order].weight)*ratio;
+			new_spl->bezt[0].alfa += (nu->bezt[(high_first_order + 1) % nu->pntsu].alfa - nu->bezt[high_first_order].alfa)*ratio;
+
+			ratio = ratio_to_segment(((XShape *)((LinkData *)low.last)->data)->intersections,
+									 (float *)&nu->bezt[low_last_order].vec[1],
+									 (float *)&nu->bezt[low_last_order].vec[2],
+									 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[0],
+									 (float *)&nu->bezt[(low_last_order + 1) % nu->pntsu].vec[1],
+									 nu->resolu);
+			new_spl->bezt[new_spl->pntsu - 1].radius -= (nu->bezt[(low_last_order + 1) % nu->pntsu].radius - nu->bezt[low_last_order].radius)*ratio;
+			new_spl->bezt[new_spl->pntsu - 1].weight -= (nu->bezt[(low_last_order + 1) % nu->pntsu].weight - nu->bezt[low_last_order].weight)*ratio;
+			new_spl->bezt[new_spl->pntsu - 1].alfa -= (nu->bezt[(low_last_order + 1) % nu->pntsu].alfa - nu->bezt[low_last_order].alfa)*ratio;
+		}
+
 		BLI_addtail(nubase, new_spl);
 		BKE_nurb_handles_calc(new_spl);
 		BLI_remlink(nubase, nu);
@@ -7226,7 +7283,7 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BezTriple *bezt = new_spl->bezt;
 			BezTriple *old_bezt = nu->bezt;
 			for (int i = 0; i < new_spl->pntsu; i++) {
-				memcpy(bezt, old_bezt, sizeof(BezTriple));
+				ED_curve_beztcpy(editnurb, bezt, old_bezt, 1);
 				bezt++;
 				old_bezt++;
 			}
@@ -7247,6 +7304,19 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 2].vec[2], s1 + 3);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[0], s1 + 6);
 			copy_v3_v3(new_spl->bezt[new_spl->pntsu - 1].vec[2], s2 + 3);
+
+			/* extrapolate radius, tilt and weight */
+			if (RNA_boolean_get(op->ptr, "extrapolate")) {
+				float ratio = ratio_to_segment(((XShape *)((LinkData *)low.last)->data)->intersections,
+										 (float *)&nu->bezt[low_last_order].vec[1],
+										 (float *)&nu->bezt[low_last_order].vec[2],
+										 (float *)&nu->bezt[(low_last_order + 1)].vec[0],
+										 (float *)&nu->bezt[(low_last_order + 1)].vec[1],
+										 nu->resolu);
+				new_spl->bezt[new_spl->pntsu - 1].radius -= (nu->bezt[(low_last_order + 1)].radius - nu->bezt[low_last_order].radius)*ratio;
+				new_spl->bezt[new_spl->pntsu - 1].weight -= (nu->bezt[(low_last_order + 1)].weight - nu->bezt[low_last_order].weight)*ratio;
+				new_spl->bezt[new_spl->pntsu - 1].alfa -= (nu->bezt[(low_last_order + 1)].alfa - nu->bezt[low_last_order].alfa)*ratio;
+			}
 			
 			BLI_addtail(nubase, new_spl);
 			BLI_remlink(nubase, nu);
@@ -7261,15 +7331,12 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 		else if (len_low == 0 && len_high > 0) {
 			int high_first_order = ((XShape *)((LinkData *)high.first)->data)->order;
 			new_spl = BKE_nurb_duplicate(nu);
-			// new_spl->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order -1) * sizeof(BezTriple), "trimexec5");
-			new_spl->pntsu = nu->pntsu - high_first_order;
+			new_spl->pntsu = 0;
+			BKE_nurb_bezierPoints_add(new_spl, nu->pntsu - high_first_order);
 			BezTriple *bezt = new_spl->bezt;
 			BezTriple *old_bezt = nu->bezt;
 			for (int i = 0; i < new_spl->pntsu; i++) {
-				memcpy(bezt, &old_bezt[i + high_first_order], sizeof(BezTriple));
-				//copy_v3_v3(bezt->vec[0], old_bezt[i + high_first_order].vec[0]);
-				//copy_v3_v3(bezt->vec[1], old_bezt[i + high_first_order].vec[1]);
-				//copy_v3_v3(bezt->vec[2], old_bezt[i + high_first_order].vec[2]);
+				ED_curve_beztcpy(editnurb, bezt, &old_bezt[i + high_first_order], 1);
 				bezt++;
 			}
 
@@ -7290,6 +7357,19 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			copy_v3_v3(new_spl->bezt[0].vec[2], s2 + 3);
 			copy_v3_v3(new_spl->bezt[1].vec[0], s2 + 6);
 
+			/* extrapolate radius, tilt and weight */
+			if (RNA_boolean_get(op->ptr, "extrapolate")) {
+				float ratio = ratio_to_segment(((XShape *)((LinkData *)high.first)->data)->intersections,
+											   (float *)&nu->bezt[high_first_order].vec[1],
+											   (float *)&nu->bezt[high_first_order].vec[2],
+											   (float *)&nu->bezt[(high_first_order + 1)].vec[0],
+											   (float *)&nu->bezt[(high_first_order + 1)].vec[1],
+											   nu->resolu);
+				new_spl->bezt[0].radius += (nu->bezt[(high_first_order + 1)].radius - nu->bezt[high_first_order].radius)*ratio;
+				new_spl->bezt[0].weight += (nu->bezt[(high_first_order + 1)].weight - nu->bezt[high_first_order].weight)*ratio;
+				new_spl->bezt[0].alfa += (nu->bezt[(high_first_order + 1)].alfa - nu->bezt[high_first_order].alfa)*ratio;
+			}
+
 			BLI_addtail(nubase, new_spl);
 			BKE_nurb_handles_calc(new_spl);
 			BLI_remlink(nubase, nu);
@@ -7305,15 +7385,12 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			new_spl = BKE_nurb_duplicate(nu);
 			int low_last_order = ((XShape *)((LinkData *)low.last)->data)->order;
 			int high_first_order = ((XShape *)((LinkData *)high.first)->data)->order;
-			// new_spl->bezt = (BezTriple *)MEM_callocN((low_last_order + 1) * sizeof(BezTriple), "trimexec5");
-			new_spl->pntsu = low_last_order + 2;
+			new_spl->pntsu = 0;
+			BKE_nurb_bezierPoints_add(new_spl, low_last_order + 2);
 			BezTriple *bezt = new_spl->bezt;
 			BezTriple *old_bezt = nu->bezt;
 			for (int i = 0; i < new_spl->pntsu; i++) {
-				memcpy(bezt, &old_bezt[i], sizeof(BezTriple));
-				//copy_v3_v3(bezt->vec[0], old_bezt[i].vec[0]);
-				//copy_v3_v3(bezt->vec[1], old_bezt[i].vec[1]);
-				//copy_v3_v3(bezt->vec[2], old_bezt[i].vec[2]);
+				ED_curve_beztcpy(editnurb, bezt, &old_bezt[i], 1);
 				bezt++;
 			}
 
@@ -7338,15 +7415,12 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			BKE_nurb_handles_calc(new_spl);
 
 			Nurb *new_spl1 = BKE_nurb_duplicate(nu);
-			new_spl1->bezt = (BezTriple *)MEM_callocN((nu->pntsu - high_first_order) * sizeof(BezTriple), "trimexec5");
-			new_spl1->pntsu = nu->pntsu - high_first_order;
+			new_spl1->pntsu = 0;
+			BKE_nurb_bezierPoints_add(new_spl1, nu->pntsu - high_first_order);
 			bezt = new_spl1->bezt;
 			old_bezt = nu->bezt;
 			for (int i = 0; i < new_spl1->pntsu; i++) {
-				memcpy(bezt, &old_bezt[i + high_first_order], sizeof(BezTriple));
-				//copy_v3_v3(bezt->vec[0], old_bezt[i + high_first_order].vec[0]);
-				//copy_v3_v3(bezt->vec[1], old_bezt[i + high_first_order].vec[1]);
-				//copy_v3_v3(bezt->vec[2], old_bezt[i + high_first_order].vec[2]);
+				ED_curve_beztcpy(editnurb, bezt, &old_bezt[i + high_first_order], 1);
 				bezt++;
 			}
 
@@ -7366,6 +7440,29 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 			copy_v3_v3(new_spl1->bezt[0].vec[0], s3 + 6);
 			copy_v3_v3(new_spl1->bezt[0].vec[2], s4 + 3);
 			copy_v3_v3(new_spl1->bezt[1].vec[0], s4 + 6);
+
+			/* extrapolate radius, tilt and weight */
+			if (RNA_boolean_get(op->ptr, "extrapolate")) {
+				float ratio = ratio_to_segment(((XShape *)((LinkData *)high.first)->data)->intersections,
+											   (float *)&nu->bezt[high_first_order].vec[1],
+											   (float *)&nu->bezt[high_first_order].vec[2],
+											   (float *)&nu->bezt[(high_first_order + 1)].vec[0],
+											   (float *)&nu->bezt[(high_first_order + 1)].vec[1],
+											   nu->resolu);
+				new_spl1->bezt[0].radius += (nu->bezt[(high_first_order + 1)].radius - nu->bezt[high_first_order].radius)*ratio;
+				new_spl1->bezt[0].weight += (nu->bezt[(high_first_order + 1)].weight - nu->bezt[high_first_order].weight)*ratio;
+				new_spl1->bezt[0].alfa += (nu->bezt[(high_first_order + 1)].alfa - nu->bezt[high_first_order].alfa)*ratio;
+
+				ratio = ratio_to_segment(((XShape *)((LinkData *)low.last)->data)->intersections,
+										 (float *)&nu->bezt[low_last_order].vec[1],
+										 (float *)&nu->bezt[low_last_order].vec[2],
+										 (float *)&nu->bezt[(low_last_order + 1)].vec[0],
+										 (float *)&nu->bezt[(low_last_order + 1)].vec[1],
+										 nu->resolu);
+				new_spl->bezt[new_spl->pntsu - 1].radius -= (nu->bezt[(low_last_order + 1)].radius - nu->bezt[low_last_order].radius)*ratio;
+				new_spl->bezt[new_spl->pntsu - 1].weight -= (nu->bezt[(low_last_order + 1)].weight - nu->bezt[low_last_order].weight)*ratio;
+				new_spl->bezt[new_spl->pntsu - 1].alfa -= (nu->bezt[(low_last_order + 1)].alfa - nu->bezt[low_last_order].alfa)*ratio;
+			}
 
 			BLI_addtail(nubase, new_spl1);
 			BKE_nurb_handles_calc(new_spl1);
@@ -7422,6 +7519,8 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "extrapolate", 0, "Extrapolate properties", "Extrapolate radius, tilt and weight. Otherwise copy");
 }
 
 /******************** Offset curve operator ********************/
