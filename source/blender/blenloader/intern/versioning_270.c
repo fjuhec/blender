@@ -1327,12 +1327,17 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			for (bScreen *screen = main->screen.first; screen != NULL; screen = screen->id.next) {
 				for (ScrArea *sa = screen->areabase.first; sa != NULL; sa = sa->next) {
 					for (SpaceLink *sl = sa->spacedata.first; sl != NULL; sl = sl->next) {
-						ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 						if (sl->spacetype == SPACE_CLIP) {
+							ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 							for (ARegion *ar = regionbase->first; ar != NULL; ar = ar->next) {
 								if (ar->regiontype == RGN_TYPE_WINDOW) {
+									SpaceClip *sc = (SpaceClip *)sl;
 									RegionSpaceClip *rsc = MEM_callocN(sizeof(RegionSpaceClip), "region data for clip");
-									rsc->zoom = 1.0f;
+									rsc->xof = sc->xof;
+									rsc->yof = sc->yof;
+									rsc->xlockof = sc->xlockof;
+									rsc->ylockof = sc->ylockof;
+									rsc->zoom = sc->zoom;
 									rsc->flag = RSC_MAIN_CLIP;
 									ar->regiondata = rsc;
 								}
