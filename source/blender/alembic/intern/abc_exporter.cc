@@ -59,6 +59,7 @@ extern "C" {
 #include "BKE_idprop.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_scene.h"
 }
@@ -357,9 +358,8 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 
 void AbcExporter::createTransformWritersHierarchy(EvaluationContext *eval_ctx)
 {
-	Base *base = static_cast<Base *>(m_scene->base.first);
-
-	while (base) {
+	BKE_BASES_ITER_START(m_scene, base)
+	{
 		Object *ob = base->object;
 
 		if (export_object(&m_settings, ob)) {
@@ -375,25 +375,22 @@ void AbcExporter::createTransformWritersHierarchy(EvaluationContext *eval_ctx)
 					exploreTransform(eval_ctx, ob, ob->parent, NULL);
 			}
 		}
-
-		base = base->next;
 	}
+	BKE_BASES_ITER_END;
 }
 
 void AbcExporter::createTransformWritersFlat()
 {
-	Base *base = static_cast<Base *>(m_scene->base.first);
-
-	while (base) {
+	BKE_BASES_ITER_START(m_scene, base)
+	{
 		Object *ob = base->object;
 
 		if (export_object(&m_settings, ob) && object_is_shape(ob)) {
 			std::string name = get_id_name(ob);
 			m_xforms[name] = new AbcTransformWriter(ob, m_archive.getTop(), 0, m_trans_sampling_index, m_settings);
 		}
-
-		base = base->next;
 	}
+	BKE_BASES_ITER_END;
 }
 
 void AbcExporter::exploreTransform(EvaluationContext *eval_ctx, Object *ob, Object *parent, Object *dupliObParent)
@@ -461,14 +458,12 @@ void AbcExporter::createTransformWriter(Object *ob, Object *parent, Object *dupl
 
 void AbcExporter::createShapeWriters(EvaluationContext *eval_ctx)
 {
-	Base *base = static_cast<Base *>(m_scene->base.first);
-
-	while (base) {
+	BKE_BASES_ITER_START(m_scene, base)
+	{
 		Object *ob = base->object;
 		exploreObject(eval_ctx, ob, NULL);
-
-		base = base->next;
 	}
+	BKE_BASES_ITER_END;
 }
 
 void AbcExporter::exploreObject(EvaluationContext *eval_ctx, Object *ob, Object *dupliObParent)

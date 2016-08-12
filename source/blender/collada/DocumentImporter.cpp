@@ -266,7 +266,7 @@ void DocumentImporter::finish()
 
 			Base *base = BKE_scene_base_find(sce, ob);
 			if (base) {
-				BLI_remlink(&sce->base, base);
+				BKE_objectlayer_base_unassign(base);
 				BKE_libblock_free_us(G.main, base->object);
 				if (sce->basact == base)
 					sce->basact = NULL;
