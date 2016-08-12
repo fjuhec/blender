@@ -143,7 +143,7 @@ static int mouse_nla_channels(bContext *C, bAnimContext *ac, float x, int channe
 				else {
 					/* deselect all */
 					/* TODO: should this deselect all other types of channels too? */
-					BKE_BASES_ITER_START(sce)
+					BKE_BASES_ITER_START(sce, base)
 					{
 						base->flag &= ~SELECT;
 						base->object->flag = base->flag;

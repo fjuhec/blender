@@ -2181,7 +2181,7 @@ int GPU_scene_object_lights(Scene *scene, Object *ob, int lay, float viewmat[4][
 
 	int count = 0;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->object->type != OB_LAMP)
 			continue;

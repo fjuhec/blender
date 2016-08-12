@@ -153,7 +153,7 @@ void BIF_makeListTemplates(const bContext *C)
 	TEMPLATES_HASH = BLI_ghash_int_new("makeListTemplates gh");
 	TEMPLATES_CURRENT = 0;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		Object *ob = base->object;
 

@@ -1746,7 +1746,7 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 		ob->id.newid = NULL;
 
 	/* duplicate (must set newid) */
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		ob = base->object;
 
@@ -1813,7 +1813,7 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 	if (v3d) ID_NEW(v3d->camera);
 
 	/* object and group pointers */
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		BKE_libblock_relink(&base->object->id);
 	}
@@ -1828,7 +1828,7 @@ void ED_object_single_user(Main *bmain, Scene *scene, Object *ob)
 {
 	const bool copy_groups = false;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->object == ob) base->flag |=  OB_DONE;
 		else base->flag &= ~OB_DONE;
@@ -1871,7 +1871,7 @@ static void single_obdata_users(Main *bmain, Scene *scene, const int flag)
 	ID *id;
 	int a;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		ob = base->object;
 		if (!ID_IS_LINKED_DATABLOCK(ob) && (base->flag & flag) == flag) {
@@ -1953,7 +1953,7 @@ static void single_object_action_users(Scene *scene, const int flag)
 {
 	Object *ob;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		ob = base->object;
 		if (!ID_IS_LINKED_DATABLOCK(ob) && (flag == 0 || (base->flag & SELECT)) ) {
@@ -1971,7 +1971,7 @@ static void single_mat_users(Main *bmain, Scene *scene, const int flag, const bo
 	Tex *tex;
 	int a, b;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		ob = base->object;
 		if (!ID_IS_LINKED_DATABLOCK(ob) && (flag == 0 || (base->flag & SELECT)) ) {

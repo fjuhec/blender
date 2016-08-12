@@ -154,7 +154,7 @@ void BKE_object_workob_clear(Object *workob)
 
 void BKE_object_update_base_layer(struct Scene *scene, Object *ob)
 {
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->object == ob) {
 			base->lay = ob->lay;
@@ -2538,7 +2538,7 @@ void BKE_scene_foreach_display_point(
 {
 	Object *ob;
 
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if (BASE_VISIBLE_BGMODE(v3d, scene, base) && (base->flag & flag) == flag) {
 			ob = base->object;
@@ -3378,14 +3378,14 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 	LinkNode *links = NULL;
 
 	/* Remove markers from all objects */
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		base->object->id.tag &= ~LIB_TAG_DOIT;
 	}
 	BKE_BASES_ITER_END;
 
 	/* iterate over all selected and visible objects */
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (objectSet == OB_SET_ALL) {
 			/* as we get all anyways just add it */
@@ -3393,7 +3393,7 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 			obrel_list_add(&links, ob);
 		}
 		else {
-			if (objectSet == OB_SET_VISIBLE && !BKE_layeritem_is_visible(litem))
+			if (objectSet == OB_SET_VISIBLE && !BKE_layeritem_is_visible(base->layer))
 				break; /* breaks base iteration, continues with next layer */
 
 			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE(((View3D *)NULL), scene, base)) ||
@@ -3426,8 +3426,7 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 				/* child relationship */
 				if (includeFilter & (OB_REL_CHILDREN | OB_REL_CHILDREN_RECURSIVE)) {
 					/* FIXME O(n^2) */
-					BKE_BASES_ITER_START_EX(scene, k, local_litem, local_oblayer, l,
-					                        local_base, local_break_layiter, true)
+					BKE_BASES_ITER_START(scene, local_base)
 					{
 						if (BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, local_base)) {
 							Object *child = local_base->object;
@@ -3440,7 +3439,7 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 							}
 						}
 					}
-					BKE_BASES_ITER_END_EX(local_break_layiter);
+					BKE_BASES_ITER_END;
 				}
 
 

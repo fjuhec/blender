@@ -1183,7 +1183,7 @@ static bool object_select_more_less(bContext *C, const bool select)
 {
 	Scene *scene = CTX_data_scene(C);
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		Object *ob = base->object;
 		ob->flag &= ~OB_DONE;

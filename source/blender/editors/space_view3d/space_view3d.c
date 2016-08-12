@@ -778,7 +778,7 @@ static void view3d_recalc_used_layers(ARegion *ar, wmNotifier *wmn, Scene *scene
 
 	if (!win) return;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		lay_used |= base->lay & ((1 << 20) - 1); /* ignore localview */
 
@@ -1291,7 +1291,7 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		const bool selected_objects = CTX_data_equals(member, "selected_objects");
 
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if ((base->flag & SELECT) && (base->lay & lay)) {
 				if (selected_objects)
@@ -1310,7 +1310,7 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		const bool selected_editable_objects = CTX_data_equals(member, "selected_editable_objects");
 
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if ((base->flag & SELECT) && (base->lay & lay)) {
 				if (0 == BKE_object_is_libdata(base->object)) {
@@ -1331,7 +1331,7 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		const bool visible_objects = CTX_data_equals(member, "visible_objects");
 
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (base->lay & lay) {
 				if (visible_objects)
@@ -1350,7 +1350,7 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		const bool selectable_objects = CTX_data_equals(member, "selectable_objects");
 
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if ((base->lay & lay) && ((base->object->restrictflag & OB_RESTRICT_SELECT) == 0)) {
 				if (selectable_objects)

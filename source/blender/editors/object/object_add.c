@@ -1576,7 +1576,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 	/* don't forget multiple users! */
 
 	{
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			ob = base->object;
 			ob->flag &= ~OB_DONE;
@@ -1837,7 +1837,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 
 	if (!keep_original) {
 		if (mballConverted) {
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_START(scene, base)
 			{
 				ob = base->object;
 				if (ob->type == OB_MBALL) {

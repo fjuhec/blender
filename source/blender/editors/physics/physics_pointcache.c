@@ -259,7 +259,7 @@ static int ptcache_free_bake_all_exec(bContext *C, wmOperator *UNUSED(op))
 	PTCacheID *pid;
 	ListBase pidlist;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		BKE_ptcache_ids_from_object(&pidlist, base->object, scene, MAX_DUPLI_RECUR);
 

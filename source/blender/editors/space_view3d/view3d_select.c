@@ -402,7 +402,7 @@ static void do_lasso_select_pose(ViewContext *vc, Object *ob, const int mcords[]
 
 static void object_deselect_all_visible(Scene *scene, View3D *v3d)
 {
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if (BASE_SELECTABLE(v3d, base)) {
 			ED_base_object_select(base, BA_DESELECT);
@@ -417,7 +417,7 @@ static void do_lasso_select_objects(ViewContext *vc, const int mcords[][2], cons
 	if (extend == false && select)
 		object_deselect_all_visible(vc->scene, vc->v3d);
 
-	BKE_BASES_ITER_VISIBLE_START(vc->scene)
+	BKE_BASES_ITER_VISIBLE_START(vc->scene, base)
 	{
 		if (BASE_SELECTABLE(vc->v3d, base)) { /* use this to avoid un-needed lasso lookups */
 			if (ED_view3d_project_base(vc->ar, base) == V3D_PROJ_RET_OK) {
@@ -1077,7 +1077,7 @@ void VIEW3D_OT_select_menu(wmOperatorType *ot)
 
 static void deselectall_except(Scene *scene, Base *b)   /* deselect all except b */
 {
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->flag & SELECT) {
 			if (b != base) {
@@ -1310,13 +1310,11 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 			}
 		}
 
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (BASE_SELECTABLE(v3d, base)) {
 				if (base->selcol == selcol) {
 					basact = base;
-
-					break_layiter = true;
 					break;
 				}
 			}
@@ -2138,13 +2136,10 @@ static int do_object_pose_box_select(bContext *C, ViewContext *vc, rcti *rect, b
 	if (hits > 0) { /* no need to loop if there's no hit */
 		col = vbuffer + 3;
 
-		BKE_BASES_ITER_VISIBLE_START(vc->scene)
+		BKE_BASES_ITER_VISIBLE_START(vc->scene, base)
 		{
-			if (!hits) {
-				/* break base and layer iteration */
-				break_layiter = true;
+			if (!hits)
 				break;
-			}
 
 			if (BASE_SELECTABLE(vc->v3d, base)) {
 				while (base->selcol == (*col & 0xFFFF)) {   /* we got an object */
@@ -2885,7 +2880,7 @@ static bool object_circle_select(ViewContext *vc, const bool select, const int m
 	bool changed = false;
 	const int select_flag = select ? SELECT : 0;
 
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if (BASE_SELECTABLE(vc->v3d, base) && ((base->flag & SELECT) != select_flag)) {
 			float screen_co[2];

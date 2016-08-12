@@ -118,7 +118,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		const unsigned int lay = context_layers(sc, scene, sa);
 		const bool visible_objects = CTX_data_equals(member, "visible_objects");
 
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (base->lay & lay) {
 				if (visible_objects)
@@ -135,7 +135,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		const unsigned int lay = context_layers(sc, scene, sa);
 		const bool selectable_objects = CTX_data_equals(member, "selectable_objects");
 
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (base->lay & lay && (base->object->restrictflag & OB_RESTRICT_SELECT) == 0) {
 				if (selectable_objects)
@@ -152,7 +152,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		const unsigned int lay = context_layers(sc, scene, sa);
 		const bool selected_objects = CTX_data_equals(member, "selected_objects");
 
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if ((base->flag & SELECT) && (base->lay & lay)) {
 				if (selected_objects)
@@ -169,7 +169,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		const unsigned int lay = context_layers(sc, scene, sa);
 		const bool selected_editable_objects = CTX_data_equals(member, "selected_editable_objects");
 
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if ((base->flag & SELECT) && (base->lay & lay)) {
 				if (0 == BKE_object_is_libdata(base->object)) {
@@ -189,7 +189,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		const bool editable_objects = CTX_data_equals(member, "editable_objects");
 		
 		/* Visible + Editable, but not necessarily selected */
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (base->lay & lay) {
 				if (0 == BKE_object_is_libdata(base->object)) {

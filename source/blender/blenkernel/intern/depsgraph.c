@@ -487,7 +487,7 @@ static void dag_add_collision_field_relation(DagForest *dag, Scene *scene, Objec
 
 	/* would be nice to have a list of colliders here
 	 * so for now walk all objects in scene check 'same layer rule' */
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if ((base->lay & ob->lay)) {
 			Object *ob1 = base->object;
@@ -951,7 +951,7 @@ DagForest *build_dag(Main *bmain, Scene *sce, short mask)
 	scenenode = dag_add_node(dag, sce);
 	
 	/* add current scene objects */
-	BKE_BASES_ITER_START(sce)
+	BKE_BASES_ITER_START(sce, base)
 	{
 		ob = base->object;
 		ob->id.tag |= LIB_TAG_DOIT;
@@ -1445,7 +1445,7 @@ static void scene_sort_groups(Main *bmain, Scene *sce)
 		ob->id.tag &= ~LIB_TAG_DOIT;
 		ob->id.newid = NULL; /* newid abuse for GroupObject */
 	}
-	BKE_BASES_ITER_START(sce)
+	BKE_BASES_ITER_START(sce, base)
 	{
 		base->object->id.tag |= LIB_TAG_DOIT;
 	}
@@ -1464,7 +1464,7 @@ static void scene_sort_groups(Main *bmain, Scene *sce)
 				go->ob->id.newid = (ID *)go;
 			
 			/* in order of sorted bases we reinsert group objects */
-			BKE_BASES_ITER_START(sce)
+			BKE_BASES_ITER_START(sce, base)
 			{
 				if (base->object->id.newid) {
 					go = (GroupObject *)base->object->id.newid;
@@ -1704,7 +1704,7 @@ static void dag_scene_build(Main *bmain, Scene *sce)
 	
 	if (G.debug & G_DEBUG) {
 		printf("\nordered\n");
-		BKE_BASES_ITER_START(sce)
+		BKE_BASES_ITER_START(sce, base)
 		{
 			printf(" %s\n", base->object->id.name);
 		}
@@ -1959,7 +1959,7 @@ static void dag_scene_flush_layers(Scene *sce, int lay)
 	lasttime = sce->theDag->time;
 
 	/* update layer flags in nodes */
-	BKE_BASES_ITER_START(sce)
+	BKE_BASES_ITER_START(sce, base)
 	{
 		node = dag_get_node(sce->theDag, base->object);
 		node->scelay = base->object->lay;
@@ -2000,7 +2000,7 @@ static void dag_tag_renderlayers(Scene *sce, unsigned int lay)
 		bNode *node;
 		unsigned int lay_changed = 0;
 
-		BKE_BASES_ITER_VISIBLE_START(sce)
+		BKE_BASES_ITER_VISIBLE_START(sce, base)
 		{
 			if (base->lay & lay)
 				if (base->object->recalc)

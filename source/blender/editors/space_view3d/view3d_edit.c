@@ -676,7 +676,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 		float select_center[3];
 
 		zero_v3(select_center);
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (TESTBASE(v3d, base)) {
 				/* use the boundbox if we can */
@@ -2961,7 +2961,7 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 		INIT_MINMAX(min, max);
 	}
 
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if (base->lay & v3d->lay) {
 			changed = true;
@@ -3046,7 +3046,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	if (ob && (ob->mode & OB_MODE_WEIGHT_PAINT)) {
 		/* hard-coded exception, we look for the one selected armature */
 		/* this is weak code this way, we should make a generic active/selection callback interface once... */
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (TESTBASELIB(v3d, base)) {
 				if (base->object->type == OB_ARMATURE) {
@@ -3094,7 +3094,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 		ok_dist = 0; /* don't zoom */
 	}
 	else {
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (TESTBASE(v3d, base)) {
 				if (skip_camera && base->object == v3d->camera) {

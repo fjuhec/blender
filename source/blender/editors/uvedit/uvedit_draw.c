@@ -462,7 +462,7 @@ static void draw_uvs_other(Scene *scene, Object *obedit, const Image *curimage, 
 {
 	UI_ThemeColor(TH_UV_OTHERS);
 
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		Object *ob = base->object;
 

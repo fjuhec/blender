@@ -3296,7 +3296,7 @@ static int vertex_group_copy_to_linked_exec(bContext *C, wmOperator *UNUSED(op))
 	Object *ob = ED_object_context(C);
 	int retval = OPERATOR_CANCELLED;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->object->type == ob->type) {
 			if (base->object != ob && base->object->data == ob->data) {

@@ -277,41 +277,27 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 		Base *base_name = oblayer->bases[idx_name];
 #define BKE_OBJECTLAYER_BASES_ITER_END } (void)0
 
-/* Use this if BKE_BASES_ITER_START doesn't give enough control over variable names.
- * Doesn't do layer visibility-bit check, even with skip_hidden is true. */
-#define BKE_BASES_ITER_START_EX( \
-	    scene, layeridx_name, litem_name, oblayer_name, \
-	    baseidx_name, base_name, break_layiter_name, skip_hidden) \
-	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, layeridx_name, litem_name) \
+#define BKE_BASES_ITER_START_EX(scene, base_name, skip_hidden) \
+	for (Base *base_name = BKE_objectlayer_base_first_find(scene->object_layers), *base_name##_next; \
+	     base_name != NULL; \
+	     base_name = base_name##_next) \
 	{ \
-		bool break_layiter_name = false; \
-		if ((litem_name->type->type == LAYER_ITEMTYPE_LAYER) && \
-		    (!skip_hidden || BKE_layeritem_is_visible(litem_name))) \
-		{ \
-			LayerTypeObject *oblayer_name = (LayerTypeObject *)litem_name; \
-			BKE_OBJECTLAYER_BASES_ITER_START(oblayer_name, baseidx_name, base_name) \
-				if (skip_hidden && (base_name->object->restrictflag & OB_RESTRICT_VIEW)) \
-					continue;
-/* End BKE_BASES_ITER_ */
-#define BKE_BASES_ITER_END_EX(break_layiter_name) \
-			BKE_OBJECTLAYER_BASES_ITER_END; \
-		} \
-		if (break_layiter_name) \
-			break; \
-	} \
-	BKE_LAYERTREE_ITER_END /* ends with (void)0 */
+		/* store next base here to allow removing base_name */ \
+		base_name##_next = BKE_objectlayer_base_next_find(base_name, skip_hidden); \
+		if (skip_hidden && (base_name->object->restrictflag & OB_RESTRICT_VIEW)) \
+			continue;
 
-/* Start iterating over all bases of the scene, ignoring visibility. This is basically a wrapper around
- * layer tree and object layer iterator to make access a bit easier. Uses default variable names. */
-#define BKE_BASES_ITER_START(scene) \
-	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base, break_layiter, false)
+/* Start iterating over all bases of the scene, ignoring visibility. */
+#define BKE_BASES_ITER_START(scene, base_name) \
+	BKE_BASES_ITER_START_EX(scene, base_name, false)
 
 /* Version of BKE_BASES_ITER_START that skips invisible layers and
  * invisible objects. Doesn't do layer visibility-bit check.*/
-#define BKE_BASES_ITER_VISIBLE_START(scene) \
-	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, base, break_layiter, true)
+#define BKE_BASES_ITER_VISIBLE_START(scene, base_name) \
+	BKE_BASES_ITER_START_EX(scene, base_name, true)
 
-#define BKE_BASES_ITER_END BKE_BASES_ITER_END_EX(break_layiter)
+#define BKE_BASES_ITER_END \
+	} (void)0
 
 struct LayerTreeItem *BKE_objectlayer_add(struct LayerTree *tree, struct LayerTreeItem *parent, const char *name);
 void BKE_objectlayer_free(struct LayerTreeItem *litem);
@@ -326,7 +312,7 @@ int  BKE_objectlayer_bases_count(const struct LayerTree *ltree);
 
 struct Base *BKE_objectlayer_base_first_find(const struct LayerTree *ltree);
 struct Base *BKE_objectlayer_base_last_find(const struct LayerTree *ltree);
-struct Base *BKE_objectlayer_base_next_find(const struct Base *prev);
+struct Base *BKE_objectlayer_base_next_find(const struct Base *prev, const bool skip_hidden_layers);
 
 #ifdef __cplusplus
 }

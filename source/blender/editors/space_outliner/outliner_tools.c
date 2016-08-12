@@ -826,7 +826,7 @@ static Base *outline_delete_hierarchy(bContext *C, ReportList *reports, Scene *s
 		return NULL;
 	}
 
-	BKE_BASES_ITER_START_EX(scene, i, litem, oblayer, j, child_base, break_layiter, false)
+	BKE_BASES_ITER_START(scene, child_base)
 	{
 		for (parent = child_base->object->parent; parent && (parent != base->object); parent = parent->parent) {
 			/* skip */

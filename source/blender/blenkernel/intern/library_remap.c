@@ -266,7 +266,7 @@ static void libblock_remap_data_preprocess(IDRemap *r_id_remap_data)
 				/* In case we are unlinking... */
 				if (!r_id_remap_data->old_id) {
 					/* ... everything from scene. */
-					BKE_BASES_ITER_START(sce)
+					BKE_BASES_ITER_START(sce, base)
 					{
 						libblock_remap_data_preprocess_scene_base_unlink(
 						            r_id_remap_data, sce, base, skip_indirect, is_indirect);
@@ -336,7 +336,7 @@ static void libblock_remap_data_postprocess_group_scene_unlink(Main *UNUSED(bmai
 {
 	/* Note that here we assume no object has no base (i.e. all objects are assumed instanced
 	 * in one scene...). */
-	BKE_BASES_ITER_START(sce)
+	BKE_BASES_ITER_START(sce, base)
 	{
 		if (base->flag & OB_FROMGROUP) {
 			Object *ob = base->object;

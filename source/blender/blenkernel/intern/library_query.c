@@ -374,7 +374,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 
 				CALLBACK_INVOKE(scene->gpd, IDWALK_USER);
 
-				BKE_BASES_ITER_START(scene)
+				BKE_BASES_ITER_START(scene, base)
 				{
 					CALLBACK_INVOKE(base->object, IDWALK_USER);
 				}

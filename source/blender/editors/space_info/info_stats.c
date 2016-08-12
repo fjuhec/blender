@@ -365,7 +365,7 @@ static void stats_update(Scene *scene)
 	}
 	else {
 		/* Objects */
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if (scene->lay & base->lay)
 				stats_dupli_object(base, base->object, &stats);

@@ -102,14 +102,9 @@ void BKE_objectlayer_base_unassign(Base *base)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)base->layer;
 
-	bool has_base = false;
-	for (int i = 0; i < oblayer->tot_bases; i++) {
-		if (has_base) {
-			oblayer->bases[i - 1] = oblayer->bases[i];
-		}
-		else if (oblayer->bases[i] == base) {
-			has_base = true;
-		}
+	for (int i = base->index + 1; i < oblayer->tot_bases; i++) {
+		oblayer->bases[i]->index--;
+		oblayer->bases[i - 1] = oblayer->bases[i];
 	}
 	base->layer = NULL;
 
@@ -132,6 +127,7 @@ void BKE_objectlayer_bases_unassign_all(LayerTreeItem *litem, const bool unset_b
 		BKE_OBJECTLAYER_BASES_ITER_START(oblayer, i, base)
 		{
 			base->layer = NULL;
+			base->index = -1;
 		}
 		BKE_OBJECTLAYER_BASES_ITER_END;
 	}
@@ -197,18 +193,25 @@ Base *BKE_objectlayer_base_last_find(const LayerTree *ltree)
 	return NULL;
 }
 
-Base *BKE_objectlayer_base_next_find(const Base *prev)
+/**
+ * \return The next base or NULL if not found.
+ */
+Base *BKE_objectlayer_base_next_find(const Base *prev, const bool skip_hidden_layers)
 {
 	LayerTypeObject *oblayer = (LayerTypeObject *)prev->layer;
 
 	/* can directly access if next object is on same layer as prev */
 	if ((prev->index + 1) < oblayer->tot_bases) {
-		return oblayer->bases[prev->index + 1];
+		if (!skip_hidden_layers || BKE_layeritem_is_visible(&oblayer->litem)) {
+			return oblayer->bases[prev->index + 1];
+		}
 	}
 	/* else, have to do lookup starting from next layer */
 	BKE_LAYERTREE_ITER_START(prev->layer->tree, prev->layer->index + 1, i, litem)
 	{
-		if (litem->type->type == LAYER_ITEMTYPE_LAYER) {
+		if ((litem->type->type == LAYER_ITEMTYPE_LAYER) &&
+		    (!skip_hidden_layers || BKE_layeritem_is_visible(litem)))
+		{
 			LayerTypeObject *oblayer_iter = (LayerTypeObject *)litem;
 			BKE_OBJECTLAYER_BASES_ITER_START(oblayer_iter, j, base_iter)
 			{

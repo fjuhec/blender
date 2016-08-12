@@ -591,7 +591,7 @@ static int calc_manipulator_stats(const bContext *C)
 		ob = OBACT;
 		if (ob && !(ob->flag & SELECT)) ob = NULL;
 
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (TESTBASELIB(v3d, base)) {
 				if (ob == NULL)

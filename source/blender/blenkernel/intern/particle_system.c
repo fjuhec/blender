@@ -2941,7 +2941,7 @@ static void psys_update_path_cache(ParticleSimulationData *sim, float cfra, cons
 
 
 	/* particle instance modifier with "path" option need cached paths even if particle system doesn't */
-	BKE_BASES_ITER_START(sim->scene)
+	BKE_BASES_ITER_START(sim->scene, base)
 	{
 		ModifierData *md = modifiers_findByType(base->object, eModifierType_ParticleInstance);
 		if (md) {

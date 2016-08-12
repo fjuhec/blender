@@ -667,7 +667,7 @@ static int layer_objects_assign_invoke(bContext *C, wmOperator *UNUSED(op), cons
 	if (!slayer->act_tree->active_layer)
 		return OPERATOR_CANCELLED;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->flag & SELECT) {
 			if (base->layer) {

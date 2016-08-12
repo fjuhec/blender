@@ -68,7 +68,7 @@ EffectsExporter::EffectsExporter(COLLADASW::StreamWriter *sw, const ExportSettin
 
 bool EffectsExporter::hasEffects(Scene *sce)
 {
-	BKE_BASES_ITER_START(sce)
+	BKE_BASES_ITER_START(sce, base)
 	{
 		Object *ob = base->object;
 		int a;

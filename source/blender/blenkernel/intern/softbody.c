@@ -532,7 +532,7 @@ static void ccd_build_deflector_hash(Scene *scene, Group *group, Object *vertexo
 		}
 	}
 	else {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			/*Only proceed for mesh object in same layer */
 			if (base->object->type == OB_MESH && (base->lay & vertexowner->lay)) {
@@ -580,7 +580,7 @@ static void ccd_update_deflector_hash(Scene *scene, Group *group, Object *vertex
 		}
 	}
 	else {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			/*Only proceed for mesh object in same layer */
 			if (base->object->type == OB_MESH && (base->lay & vertexowner->lay)) {
@@ -992,7 +992,7 @@ static bool are_there_deflectors(Scene *scene, Group *group, unsigned int layer)
 		}
 	}
 	else {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if ( (base->lay & layer) && base->object->pd) {
 				if (base->object->pd->deflect)

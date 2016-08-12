@@ -226,7 +226,7 @@ ListBase *pdInitEffectors(Scene *scene, Object *ob_src, ParticleSystem *psys_src
 		}
 	}
 	else {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if ( (base->lay & layer) ) {
 				if ( base->object->pd && base->object->pd->forcefield )

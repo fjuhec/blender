@@ -237,7 +237,7 @@ static void make_child_duplis(const DupliContext *ctx, void *userdata, MakeChild
 	}
 	else {
 		unsigned int lay = ctx->scene->lay;
-		BKE_BASES_ITER_START(ctx->scene)
+		BKE_BASES_ITER_START(ctx->scene, base)
 		{
 			Object *ob = base->object;
 

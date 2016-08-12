@@ -1675,7 +1675,7 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 		}
 		
 		/* Objects in the scene */
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			/* Only consider this object if it has got some GP data (saving on all the other tests) */
 			if (base->object && base->object->gpd) {
@@ -2869,7 +2869,7 @@ static Base **animdata_filter_ds_sorted_bases(bDopeSheet *ads, Scene *scene, int
 	size_t num_bases = 0;
 	
 	Base **sorted_bases = MEM_mallocN(sizeof(Base *) * tot_bases, "Dopesheet Usable Sorted Bases");
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (animdata_filter_base_is_ok(ads, scene, base, filter_mode)) {
 			sorted_bases[num_bases++] = base;
@@ -2949,7 +2949,7 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, b
 		/* Filter and add contents of each base (i.e. object) without them sorting first
 		 * NOTE: This saves performance in cases where order doesn't matter
 		 */
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if (animdata_filter_base_is_ok(ads, scene, base, filter_mode)) {
 				/* since we're still here, this object should be usable */

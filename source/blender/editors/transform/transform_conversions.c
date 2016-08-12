@@ -5378,7 +5378,7 @@ static void set_trans_object_base_flags(TransInfo *t)
 	DAG_scene_relations_update(G.main, t->scene);
 
 	/* handle pending update events, otherwise they got copied below */
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->object->recalc & OB_RECALC_ALL) {
 			/* TODO(sergey): Ideally, it's not needed. */
@@ -5387,7 +5387,7 @@ static void set_trans_object_base_flags(TransInfo *t)
 	}
 	BKE_BASES_ITER_END;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		base->flag &= ~BA_WAS_SEL;
 
@@ -5432,7 +5432,7 @@ static void set_trans_object_base_flags(TransInfo *t)
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->object->recalc & OB_RECALC_OB)
 			base->flag |= BA_HAS_RECALC_OB;
@@ -5468,7 +5468,7 @@ static int count_proportional_objects(TransInfo *t)
 	      (t->mode == TFM_ROTATION || t->mode == TFM_TRACKBALL)))
 	{
 		/* mark all parents */
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if (TESTBASELIB_BGMODE(v3d, scene, base)) {
 				Object *parent = base->object->parent;
@@ -5483,7 +5483,7 @@ static int count_proportional_objects(TransInfo *t)
 		BKE_BASES_ITER_END;
 
 		/* mark all children */
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			/* all base not already selected or marked that is editable */
 			if ((base->object->flag & (SELECT | BA_TRANSFORM_CHILD | BA_TRANSFORM_PARENT)) == 0 &&
@@ -5495,7 +5495,7 @@ static int count_proportional_objects(TransInfo *t)
 		BKE_BASES_ITER_END;
 	}
 
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		Object *ob = base->object;
 
@@ -5519,7 +5519,7 @@ static int count_proportional_objects(TransInfo *t)
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->object->recalc & OB_RECALC_OB)
 			base->flag |= BA_HAS_RECALC_OB;
@@ -5535,7 +5535,7 @@ static void clear_trans_object_base_flags(TransInfo *t)
 {
 	Scene *sce = t->scene;
 
-	BKE_BASES_ITER_START(sce)
+	BKE_BASES_ITER_START(sce, base)
 	{
 		if (base->flag & BA_WAS_SEL)
 			base->flag |= SELECT;
@@ -6460,7 +6460,7 @@ static void createTransObject(bContext *C, TransInfo *t)
 	if (is_prop_edit) {
 		View3D *v3d = t->view;
 
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			Object *ob = base->object;
 

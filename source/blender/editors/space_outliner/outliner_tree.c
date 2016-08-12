@@ -1708,7 +1708,7 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 			if (sce == scene && show_opened)
 				tselem->flag &= ~TSE_CLOSED;
 
-			BKE_BASES_ITER_START(sce)
+			BKE_BASES_ITER_START(sce, base)
 			{
 				ten = outliner_add_element(soops, &te->subtree, base->object, te, 0, 0);
 				ten->directdata = base;
@@ -1716,7 +1716,7 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 			BKE_BASES_ITER_END;
 			outliner_make_hierarchy(&te->subtree);
 			/* clear id.newid, to prevent objects be inserted in wrong scenes (parent in other scene) */
-			BKE_BASES_ITER_START(sce)
+			BKE_BASES_ITER_START(sce, base)
 			{
 				base->object->id.newid = NULL;
 			}
@@ -1727,7 +1727,7 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 		
 		outliner_add_scene_contents(soops, &soops->tree, scene, NULL);
 		
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			ten = outliner_add_element(soops, &soops->tree, base->object, NULL, 0, 0);
 			ten->directdata = base;
@@ -1736,7 +1736,7 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 		outliner_make_hierarchy(&soops->tree);
 	}
 	else if (soops->outlinevis == SO_VISIBLE) {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if (base->lay & scene->lay)
 				outliner_add_element(soops, &soops->tree, base->object, NULL, 0, 0);
@@ -1765,7 +1765,7 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 	else if (soops->outlinevis == SO_SAME_TYPE) {
 		Object *ob = OBACT;
 		if (ob) {
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_START(scene, base)
 			{
 				if (base->object->type == ob->type) {
 					ten = outliner_add_element(soops, &soops->tree, base->object, NULL, 0, 0);
@@ -1777,7 +1777,7 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 		}
 	}
 	else if (soops->outlinevis == SO_SELECTED) {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if (base->lay & scene->lay) {
 				if (base->flag & SELECT) {

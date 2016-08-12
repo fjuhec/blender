@@ -167,7 +167,7 @@ BlenderStrokeRenderer::~BlenderStrokeRenderer()
 	// compositor has finished.
 
 	// release objects and data blocks
-	BKE_BASES_ITER_START(freestyle_scene)
+	BKE_BASES_ITER_START(freestyle_scene, base)
 	{
 		Object *ob = base->object;
 		void *data = ob->data;

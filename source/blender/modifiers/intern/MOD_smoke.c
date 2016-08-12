@@ -215,7 +215,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 		}
 		else {
 			BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_START(scene, base)
 			{
 				update_depsgraph_flow_coll_object(forest, obNode, base->object);
 			}
@@ -223,7 +223,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 		}
 		/* add relation to all "smoke flow" force fields */
 		BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			update_depsgraph_field_source_object(forest, obNode, ob, base->object);
 		}
@@ -321,7 +321,7 @@ static void updateDepsgraph(ModifierData *md,
 		}
 		else {
 			BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_START(scene, base)
 			{
 				update_depsgraph_flow_coll_object_new(node, base->object);
 			}
@@ -329,7 +329,7 @@ static void updateDepsgraph(ModifierData *md,
 		}
 		/* add relation to all "smoke flow" force fields */
 		BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			update_depsgraph_field_source_object_new(node, ob, base->object);
 		}

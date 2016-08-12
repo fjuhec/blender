@@ -215,15 +215,12 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		}
 
 		/* increase id_us and find basact for new scene */
-		bool fixed_basact = false;
-		BKE_BASES_ITER_START(scen)
+		BKE_BASES_ITER_START(scen, base)
 		{
 			id_us_plus(&base->object->id);
-			if (!fixed_basact && sce->basact->layer->index == i) {
-				LayerTypeObject *old_obl = (LayerTypeObject *)sce->object_layers->items_all[sce->basact->layer->index];
-				if (old_obl->bases[i] == sce->basact) {
-					scen->basact = oblayer->bases[i];
-				}
+			/* if layer->index and base->index match, we've found the base to activate */
+			if (sce->basact->layer->index == base->layer->index && sce->basact->index == base->index) {
+				scen->basact = base;
 			}
 		}
 		BKE_BASES_ITER_END;
@@ -836,7 +833,7 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 
 Base *BKE_scene_base_find_by_name(struct Scene *scene, const char *name)
 {
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (STREQ(base->object->id.name + 2, name)) {
 			return base;
@@ -849,7 +846,7 @@ Base *BKE_scene_base_find_by_name(struct Scene *scene, const char *name)
 
 Base *BKE_scene_base_find(Scene *scene, Object *ob)
 {
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (base->object == ob) {
 			return base;
@@ -898,7 +895,7 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 		DAG_scene_relations_rebuild(bmain, sce);
 
 	/* copy layers and flags from bases to objects */
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		ob = base->object;
 		ob->lay = base->lay;
@@ -1062,7 +1059,7 @@ int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
 
 Object *BKE_scene_camera_find(Scene *sc)
 {
-	BKE_BASES_ITER_START(sc)
+	BKE_BASES_ITER_START(sc, base)
 	{
 		if (base->object->type == OB_CAMERA)
 			return base->object;
@@ -1201,7 +1198,7 @@ void BKE_scene_base_unlink(Scene *sce, Base *base)
 
 void BKE_scene_base_deselect_all(Scene *sce)
 {
-	BKE_BASES_ITER_START(sce)
+	BKE_BASES_ITER_START(sce, base)
 	{
 		base->flag &= ~SELECT;
 		base->object->flag = base->flag;
@@ -1338,7 +1335,7 @@ static void scene_depsgraph_hack(EvaluationContext *eval_ctx, Scene *scene, Scen
 	if (scene->set)
 		scene_depsgraph_hack(eval_ctx, scene->set, scene_parent);
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		Object *ob = base->object;
 		
@@ -1466,7 +1463,7 @@ static void scene_update_object_add_task(void *node, void *user_data);
 
 static void scene_update_all_bases(EvaluationContext *eval_ctx, Scene *scene, Scene *scene_parent)
 {
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		Object *object = base->object;
 
@@ -2222,7 +2219,7 @@ bool BKE_scene_uses_blender_game(const Scene *scene)
 
 void BKE_scene_base_flag_to_objects(struct Scene *scene)
 {
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		base->object->flag = base->flag;
 	}
@@ -2231,7 +2228,7 @@ void BKE_scene_base_flag_to_objects(struct Scene *scene)
 
 void BKE_scene_base_flag_from_objects(struct Scene *scene)
 {
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		base->flag = base->object->flag;
 	}

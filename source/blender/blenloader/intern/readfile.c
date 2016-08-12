@@ -5648,7 +5648,7 @@ static void lib_link_scene(FileData *fd, Main *main)
 			
 			sce->toolsettings->particle.shape_object = newlibadr(fd, sce->id.lib, sce->toolsettings->particle.shape_object);
 
-			BKE_BASES_ITER_START(sce)
+			BKE_BASES_ITER_START(sce, base)
 			{
 				base->object = newlibadr_us(fd, sce->id.lib, base->object);
 				if (base->object) {
@@ -9488,7 +9488,7 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 	FreestyleModuleConfig *module;
 	FreestyleLineSet *lineset;
 
-	BKE_BASES_ITER_START(sce)
+	BKE_BASES_ITER_START(sce, base)
 	{
 		expand_doit(fd, mainvar, base->object);
 	}

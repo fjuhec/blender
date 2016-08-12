@@ -575,7 +575,7 @@ static void rna_Scene_object_bases_next(CollectionPropertyIterator *iter)
 {
 	ArrayIterator *internal = &iter->internal.array;
 	Base *base = (Base *)internal->ptr;
-	Base *next = BKE_objectlayer_base_next_find(base);
+	Base *next = BKE_objectlayer_base_next_find(base, false);
 
 	if (next) {
 		internal->ptr = (char *)next;
@@ -590,7 +590,7 @@ static int rna_Scene_object_bases_lookup_string(PointerRNA *ptr, const char *key
 {
 	Scene *scene = (Scene *)ptr->data;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		if (STREQLEN(base->object->id.name + 2, key, sizeof(base->object->id.name) - 2)) {
 			*r_ptr = rna_pointer_inherit_refine(ptr, &RNA_ObjectBase, base);
@@ -1679,7 +1679,7 @@ static void rna_Physics_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Pointe
 {
 	Scene *scene = (Scene *)ptr->id.data;
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		BKE_ptcache_object_reset(scene, base->object, PTCACHE_RESET_DEPSGRAPH);
 	}

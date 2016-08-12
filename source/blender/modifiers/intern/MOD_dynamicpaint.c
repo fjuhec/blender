@@ -126,7 +126,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 
 	/* add relation from canvases to all brush objects */
 	if (pmd && pmd->canvas) {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			DynamicPaintModifierData *pmd2 =
 			        (DynamicPaintModifierData *)modifiers_findByType(base->object, eModifierType_DynamicPaint);
@@ -149,7 +149,7 @@ static void updateDepsgraph(ModifierData *md,
 	DynamicPaintModifierData *pmd = (DynamicPaintModifierData *)md;
 	/* Add relation from canvases to all brush objects. */
 	if (pmd->canvas != NULL) {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			DynamicPaintModifierData *pmd2 =
 			        (DynamicPaintModifierData *)modifiers_findByType(base->object, eModifierType_DynamicPaint);

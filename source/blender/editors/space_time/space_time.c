@@ -366,7 +366,7 @@ static void time_draw_caches_keyframes(Main *bmain, Scene *scene, View2D *v2d, b
 		cache_file->draw_flag &= ~CACHEFILE_KEYFRAME_DRAWN;
 	}
 
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		Object *ob = base->object;
 

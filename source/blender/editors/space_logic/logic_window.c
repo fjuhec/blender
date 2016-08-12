@@ -489,7 +489,7 @@ static ID **get_selected_and_linked_obs(bContext *C, short *count, short scavisf
 	/* XXX here it checked 3d lay */
 	lay= scene->lay;
 
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if (base->lay & lay) {
 			if (base->flag & SELECT) {

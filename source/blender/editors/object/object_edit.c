@@ -142,7 +142,7 @@ static int object_hide_view_clear_exec(bContext *C, wmOperator *UNUSED(op))
 	bool changed = false;
 	
 	/* XXX need a context loop to handle such cases */
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if ((base->lay & v3d->lay)) {
 			if (!(base->object->restrictflag & OB_RESTRICT_SELECT)) {
@@ -730,7 +730,7 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 	nr = pupmenu(str);
 	
 	if (nr == 1 || nr == 2) {
-		BKE_BASES_ITER_VISIBLE_START(scene)
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
 		{
 			if ((base != BASACT) && (TESTBASELIB(v3d, base))) {
 				if (nr == 1) { /* replace */
@@ -749,7 +749,7 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 		prop = BLI_findlink(&ob->prop, nr - 4); /* account for first 3 menu items & menu index starting at 1*/
 		
 		if (prop) {
-			BKE_BASES_ITER_VISIBLE_START(scene)
+			BKE_BASES_ITER_VISIBLE_START(scene, base)
 			{
 				if ((base != BASACT) && (TESTBASELIB(v3d, base))) {
 					BKE_bproperty_object_set(base->object, prop);
@@ -765,7 +765,7 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 static void copymenu_logicbricks(Scene *scene, View3D *v3d, Object *ob)
 {
 //XXX no longer used - to be removed - replaced by logicbricks_copy_exec
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if (base->object != ob) {
 			if (TESTBASELIB(v3d, base)) {
@@ -877,7 +877,7 @@ static void copy_attr(Main *bmain, Scene *scene, View3D *v3d, short event)
 		return;
 	}
 
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if (base != BASACT) {
 			if (TESTBASELIB(v3d, base)) {
@@ -1529,7 +1529,7 @@ static void UNUSED_FUNCTION(image_aspect) (Scene *scene, View3D *v3d)
 	if (scene->obedit) return;  // XXX get from context
 	if (ID_IS_LINKED_DATABLOCK(scene)) return;
 	
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		if (TESTBASELIB(v3d, base)) {
 			ob = base->object;

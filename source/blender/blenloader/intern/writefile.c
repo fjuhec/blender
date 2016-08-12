@@ -2678,7 +2678,7 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 		write_keyingsets(wd, &sce->keyingsets);
 
 		/* direct data */
-		BKE_BASES_ITER_START(sce)
+		BKE_BASES_ITER_START(sce, base)
 		{
 			writestruct(wd, DATA, Base, 1, base);
 		}

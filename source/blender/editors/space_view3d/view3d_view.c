@@ -1058,7 +1058,7 @@ static void view3d_select_loop(ViewContext *vc, Scene *scene, View3D *v3d, ARegi
 	else {
 		v3d->xray = true;  /* otherwise it postpones drawing */
 
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if (base->lay & v3d->lay) {
 				if ((base->object->restrictflag & OB_RESTRICT_SELECT) ||
@@ -1295,7 +1295,7 @@ static bool view3d_localview_init(
 			scene->obedit->lay = BASACT->lay;
 		}
 		else {
-			BKE_BASES_ITER_VISIBLE_START(scene)
+			BKE_BASES_ITER_VISIBLE_START(scene, base)
 			{
 				if (TESTBASE(v3d, base)) {
 					BKE_object_minmax(base->object, min, max, false);
@@ -1368,7 +1368,7 @@ static bool view3d_localview_init(
 	}
 	else {
 		/* clear flags */ 
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if (base->lay & locallay) {
 				base->lay -= locallay;
@@ -1456,7 +1456,7 @@ static bool view3d_localview_exit(
 		/* for when in other window the layers have changed */
 		if (v3d->scenelock) v3d->lay = scene->lay;
 		
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if (base->lay & locallay) {
 				base->lay -= locallay;

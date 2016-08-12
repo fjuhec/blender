@@ -358,7 +358,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 					/* this only works in a specific case where the preview.blend contains
 					 * an object starting with 'c' which has a material linked to it (not the obdata)
 					 * and that material has a fake shadow texture in the active texture slot */
-					BKE_BASES_ITER_START(scene)
+					BKE_BASES_ITER_START(scene, base)
 					{
 						if (base->object->id.name[2] == 'c') {
 							Material *shadmat = give_current_material(base->object, base->object->actcol);
@@ -372,7 +372,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 					
 					/* turn off bounce lights for volume, 
 					 * doesn't make much visual difference and slows it down too */
-					BKE_BASES_ITER_START(scene)
+					BKE_BASES_ITER_START(scene, base)
 					{
 						if (base->object->type == OB_LAMP) {
 							/* if doesn't match 'Lamp.002' --> main key light */
@@ -418,7 +418,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				
 			}
 
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_START(scene, base)
 			{
 				if (base->object->id.name[2] == 'p') {
 					/* copy over object color, in case material uses it */
@@ -449,7 +449,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 			}
 			sce->lay = 1 << MA_TEXTURE;
 
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_START(scene, base)
 			{
 				if (base->object->id.name[2] == 't') {
 					Material *mat = give_current_material(base->object, base->object->actcol);
@@ -504,7 +504,7 @@ static Scene *preview_prepare_scene(Main *bmain, Scene *scene, ID *id, int id_ty
 				}
 			}
 
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_START(scene, base)
 			{
 				if (base->object->id.name[2] == 'p') {
 					if (base->object->type == OB_LAMP)

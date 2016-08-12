@@ -150,7 +150,7 @@ static eOLDrawState tree_element_active_renderlayer(
 static void do_outliner_object_select_recursive(Scene *scene, Object *ob_parent, bool select)
 {
 
-	BKE_BASES_ITER_VISIBLE_START(scene)
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
 	{
 		Object *ob = base->object;
 		if ((((ob->restrictflag & OB_RESTRICT_VIEW) == 0) && BKE_object_is_child_recursive(ob_parent, ob))) {

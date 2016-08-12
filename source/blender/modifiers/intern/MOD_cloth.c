@@ -126,7 +126,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 	ClothModifierData *clmd = (ClothModifierData *) md;
 
 	if (clmd) {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			Object *ob1 = base->object;
 			if (ob1 != ob) {
@@ -149,7 +149,7 @@ static void updateDepsgraph(ModifierData *md,
 {
 	ClothModifierData *clmd = (ClothModifierData *)md;
 	if (clmd != NULL) {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			Object *ob1 = base->object;
 			if (ob1 != ob) {

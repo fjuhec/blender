@@ -277,7 +277,7 @@ void animviz_get_object_motionpaths(Object *ob, ListBase *targets)
 static void motionpaths_calc_optimise_depsgraph(Scene *scene, ListBase *targets)
 {
 	/* make sure our temp-tag isn't already in use */
-	BKE_BASES_ITER_START(scene)
+	BKE_BASES_ITER_START(scene, base)
 	{
 		base->object->flag &= ~BA_TEMP_TAG;
 	}
@@ -285,14 +285,13 @@ static void motionpaths_calc_optimise_depsgraph(Scene *scene, ListBase *targets)
 	
 	/* for each target, dump its object to the start of the list if it wasn't moved already */
 	for (MPathTarget *mpt = targets->first; mpt; mpt = mpt->next) {
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if ((base->object == mpt->ob) && !(mpt->ob->flag & BA_TEMP_TAG)) {
-				BKE_layeritem_move(litem, 0, true);
+				BKE_layeritem_move(base->layer, 0, true);
 				mpt->ob->flag |= BA_TEMP_TAG;
 				
 				/* we really don't need to continue anymore once this happens, but this line might really 'break' */
-				break_layiter = true;
 				break;
 			}
 		}
@@ -322,7 +321,7 @@ static void motionpaths_calc_update_scene(Scene *scene)
 		 * - all those afterwards are assumed to not be relevant for our calculations
 		 */
 		/* optimize further by moving out... */
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			if (base->object->flag & BA_TEMP_TAG)
 				last = base;
@@ -332,7 +331,7 @@ static void motionpaths_calc_update_scene(Scene *scene)
 		/* perform updates for tagged objects */
 		/* XXX: this will break if rigs depend on scene or other data that
 		 * is animated but not attached to/updatable from objects */
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			/* update this object */
 			BKE_object_handle_update(G.main->eval_ctx, scene, base->object);

@@ -608,7 +608,7 @@ static void rna_EffectorWeight_update(Main *UNUSED(bmain), Scene *UNUSED(scene),
 	if (id && GS(id->name) == ID_SCE) {
 		Scene *scene = (Scene *)id;
 
-		BKE_BASES_ITER_START(scene)
+		BKE_BASES_ITER_START(scene, base)
 		{
 			BKE_ptcache_object_reset(scene, base->object, PTCACHE_RESET_DEPSGRAPH);
 		}

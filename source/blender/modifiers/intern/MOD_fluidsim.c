@@ -111,7 +111,7 @@ static void updateDepgraph(
 
 	if (fluidmd && fluidmd->fss) {
 		if (fluidmd->fss->type == OB_FLUIDSIM_DOMAIN) {
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_START(scene, base)
 			{
 				Object *ob1 = base->object;
 				if (ob1 != ob) {
@@ -139,7 +139,7 @@ static void updateDepsgraph(ModifierData *md,
 	FluidsimModifierData *fluidmd = (FluidsimModifierData *) md;
 	if (fluidmd && fluidmd->fss) {
 		if (fluidmd->fss->type == OB_FLUIDSIM_DOMAIN) {
-			BKE_BASES_ITER_START(scene)
+			BKE_BASES_ITER_START(scene, base)
 			{
 				Object *ob1 = base->object;
 				if (ob1 != ob) {
