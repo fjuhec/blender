@@ -613,18 +613,18 @@ BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac
 	cp2 = (unsigned char *)&col2;
 	cp  = (unsigned char *)&col;
 
-  // Updated to use the rgb squared color model which blends more realistically. -N8V
-  int red1 = cp1[0] * cp1[0];
-  int green1 = cp1[1] * cp1[1];
-  int blue1 = cp1[2] * cp1[2];
+	// Updated to use the rgb squared color model which blends more realistically. -N8V
+	int red1 = cp1[0] * cp1[0];
+	int green1 = cp1[1] * cp1[1];
+	int blue1 = cp1[2] * cp1[2];
 
-  int red2 = cp2[0] * cp2[0];
-  int green2 = cp2[1] * cp2[1];
-  int blue2 = cp2[2] * cp2[2];
+	int red2 = cp2[0] * cp2[0];
+	int green2 = cp2[1] * cp2[1];
+	int blue2 = cp2[2] * cp2[2];
 
-  cp[0] = (unsigned char)round(sqrt(divide_round_i((mfac * red1 + fac * red2), 255)));
-  cp[1] = (unsigned char)round(sqrt(divide_round_i((mfac * green1 + fac * green2), 255)));
-  cp[2] = (unsigned char)round(sqrt(divide_round_i((mfac * blue1 + fac * blue2), 255)));
+	cp[0] = (unsigned char)round(sqrt(divide_round_i((mfac * red1 + fac * red2), 255)));
+	cp[1] = (unsigned char)round(sqrt(divide_round_i((mfac * green1 + fac * green2), 255)));
+	cp[2] = (unsigned char)round(sqrt(divide_round_i((mfac * blue1 + fac * blue2), 255)));
 	cp[3] = 255;
 
 	return col;
@@ -2330,8 +2330,7 @@ static void calc_area_normal(
 	BLI_mutex_init(&data.mutex);
 
 	BLI_task_parallel_range(
-			0, totnode, &data, calc_area_normal_and_center_task_cb,
-			((true & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT)); //Need to add OpenMP toggle in vpaint and wpaint
+			0, totnode, &data, calc_area_normal_and_center_task_cb, true);
 
 	BLI_mutex_end(&data.mutex);
 
@@ -2618,7 +2617,7 @@ static void calculate_average_weight(SculptThreadedTaskData *data, PBVHNode **no
 	UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
 	BLI_task_parallel_range_ex(
 			0, totnode, data, NULL, 0, do_wpaint_brush_calc_ave_weight_cb_ex,
-			((data->sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			true, false);
 
 	unsigned int totalHitLoops = 0;
 	double totalWeight = 0.0;
@@ -2651,28 +2650,19 @@ static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp,
 	data.lcol = (unsigned int*)me->mloopcol;
 	data.me = me;
 	data.C = C;
-	sd->flags |= SCULPT_USE_OPENMP; // Need to add toggle for OpenMP
 	switch (brush->vertexpaint_tool) {
 		case PAINT_BLEND_AVERAGE:
 			calculate_average_weight(&data, nodes, totnode);
-			BLI_task_parallel_range_ex(
-					0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
-					((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			BLI_task_parallel_range_ex( 0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex, true, false);
 			break;
 		case PAINT_BLEND_SMUDGE:
-			BLI_task_parallel_range_ex(
-					0, totnode, &data, NULL, 0, do_wpaint_brush_smudge_task_cb_ex,
-					((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			BLI_task_parallel_range_ex( 0, totnode, &data, NULL, 0, do_wpaint_brush_smudge_task_cb_ex, true, false);
 			break;
 		case PAINT_BLEND_BLUR:
-			BLI_task_parallel_range_ex(
-					0, totnode, &data, NULL, 0, do_wpaint_brush_blur_task_cb_ex,
-					((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			BLI_task_parallel_range_ex( 0, totnode, &data, NULL, 0, do_wpaint_brush_blur_task_cb_ex, true, false);
 			break;
 		default:
-			BLI_task_parallel_range_ex(
-					0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex,
-					((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			BLI_task_parallel_range_ex( 0, totnode, &data, NULL, 0, do_wpaint_brush_draw_task_cb_ex, true, false);
 			break;
 	}
 }
@@ -2886,10 +2876,6 @@ static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 		MEM_freeN(wpd);
 	}
 	
-
-	/* frees prev buffer */
-	//copy_wpaint_prev(ts->wpaint, NULL, 0);
-
 	/* and particles too */
 	if (ob->particlesystem.first) {
 		ParticleSystem *psys;
@@ -3544,7 +3530,7 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **nodes, int totnode) {
 	BLI_task_parallel_range_ex(
 			0, totnode, data, NULL, 0, do_vpaint_brush_calc_ave_color_cb_ex,
-			((data->sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			true, false);
 
 	unsigned int totalHitLoops = 0;
 	unsigned long totalColor[4] = { 0 };
@@ -3568,7 +3554,7 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **nod
 
 static void vpaint_paint_leaves(bContext *C, Sculpt *sd, VPaint *vp, VPaintData *vpd, Object *ob, Mesh *me, PBVHNode **nodes, int totnode)
 {
-	Brush *brush = ob->sculpt->cache->brush;//BKE_paint_brush(&sd->paint);
+	Brush *brush = ob->sculpt->cache->brush;
 
 	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {
@@ -3580,28 +3566,19 @@ static void vpaint_paint_leaves(bContext *C, Sculpt *sd, VPaint *vp, VPaintData 
 	data.lcol = (unsigned int*)me->mloopcol;
 	data.me = me;
 	data.C = C;
-	sd->flags |= SCULPT_USE_OPENMP; //Needs toggle...
 	switch (brush->vertexpaint_tool) {
 		case PAINT_BLEND_AVERAGE:
 			calculate_average_color(&data, nodes, totnode);
-			BLI_task_parallel_range_ex(
-					0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
-					((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			BLI_task_parallel_range_ex( 0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex, true, false);
 			break;
 		case PAINT_BLEND_BLUR:
-			BLI_task_parallel_range_ex(
-					0, totnode, &data, NULL, 0, do_vpaint_brush_blur_task_cb_ex,
-					((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			BLI_task_parallel_range_ex( 0, totnode, &data, NULL, 0, do_vpaint_brush_blur_task_cb_ex, true, false);
 			break;
 		case PAINT_BLEND_SMUDGE:
-			BLI_task_parallel_range_ex(
-					0, totnode, &data, NULL, 0, do_vpaint_brush_smudge_task_cb_ex,
-					((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			BLI_task_parallel_range_ex( 0, totnode, &data, NULL, 0, do_vpaint_brush_smudge_task_cb_ex, true, false);
 			break;
 		default:
-			BLI_task_parallel_range_ex(
-					0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex,
-					((sd->flags & SCULPT_USE_OPENMP) && totnode > SCULPT_THREADED_LIMIT), false);
+			BLI_task_parallel_range_ex( 0, totnode, &data, NULL, 0, do_vpaint_brush_draw_task_cb_ex, true, false);
 			break;
 	}
 }
