@@ -48,6 +48,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#define TOT_VISIBILITY_BITS 20
+
 
 static void layer_visibility_update_cb(bContext *C, void *UNUSED(arg1), void *UNUSED(arg2))
 {
@@ -90,14 +92,51 @@ static void object_layer_draw(const bContext *C, LayerTreeItem *litem, uiLayout 
 	layer_visibility_but_draw(block, layout, litem);
 }
 
+static void layer_visibility_bit_update_cb(struct Main *UNUSED(main), Scene *scene, PointerRNA *ptr)
+{
+	LayerTreeItem *container = NULL;
+
+	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, i, litem)
+	{
+		if (litem->ptr->data == ptr->data) {
+			container = litem;
+			break;
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
+	BLI_assert(container && container->type->type == LAYER_ITEMTYPE_LAYER);
+
+	LayerTypeObject *oblayer = (LayerTypeObject *)container;
+	PropertyRNA *prop = RNA_struct_find_property(ptr, "visibility_bits");
+	int bits[TOT_VISIBILITY_BITS];
+
+	RNA_property_boolean_get_array(ptr, prop, bits);
+
+	oblayer->visibility_bits = 0;
+	for (int i = 0; i < TOT_VISIBILITY_BITS; i++) {
+		if (bits[i]) {
+			oblayer->visibility_bits |= (1 << i);
+		}
+	}
+}
+
 static void object_layer_draw_settings(const bContext *UNUSED(C), LayerTreeItem *litem, uiLayout *layout)
 {
 	uiLayout *split = uiLayoutSplit(layout, 0.5f, false);
 	uiItemR(split, litem->ptr, "color_set", 0, "Color Set", ICON_NONE);
+
+	uiLayout *row = uiLayoutRow(split, false);
+	uiLayoutSetAlignment(row, UI_LAYOUT_ALIGN_LEFT);
+	uiItemL(row, "Visibility Bits:", ICON_NONE);
+	uiTemplateLayers(row, litem->ptr, "visibility_bits", NULL, NULL, 0);
 }
 
 static void LAYERTYPE_object(LayerType *lt)
 {
+	/* Should always be same default as set in BKE_objectlayer_add */
+	static int default_bits[TOT_VISIBILITY_BITS] = {1};
+	PropertyRNA *prop;
+
 	lt->idname = __func__;
 	/* XXX Should re-evaluate how eLayerTreeItem_Type is used */
 	lt->type = LAYER_ITEMTYPE_LAYER;
@@ -107,6 +146,9 @@ static void LAYERTYPE_object(LayerType *lt)
 	lt->free = BKE_objectlayer_free;
 
 	RNA_def_enum(lt->srna, "color_set", rna_enum_color_sets_items, 0, "Color Set", "Custom color set for this layer");
+	prop = RNA_def_boolean_layer_member(lt->srna, "visibility_bits", TOT_VISIBILITY_BITS, default_bits,
+	                                    "Visibility Bits", "");
+	RNA_def_property_update_runtime(prop, layer_visibility_bit_update_cb);
 }
 
 

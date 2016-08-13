@@ -133,7 +133,7 @@ typedef struct LayerTypeObject {
 	LayerTreeItem litem;
 	Base **bases;           /* Array of objects assigned to this layer. */
 	unsigned int tot_bases; /* amount of objects assigned to this layer */
-	int pad;
+	int visibility_bits;
 } LayerTypeObject;
 
 /* ************************************************************* */

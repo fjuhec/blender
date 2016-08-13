@@ -2836,7 +2836,9 @@ static void view3d_objectlayers_drawstep_draw(
 			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
 			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
 			{
-				view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
+				if (base->lay & oblayer->visibility_bits) {
+					view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
+				}
 			}
 			BKE_OBJECTLAYER_BASES_ITER_END;
 		}

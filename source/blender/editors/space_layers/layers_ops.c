@@ -529,6 +529,9 @@ BLI_INLINE void layer_selection_set(SpaceLayers *slayer, LayerTile *tile, const 
 	if (enable) {
 		(tile->flag |= LAYERTILE_SELECTED);
 		slayer->act_tree->active_layer = tile->litem;
+
+		/* 3D view content depends on active layer so send notifier when active layer changes */
+		WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
 	}
 	else {
 		tile->flag &= ~LAYERTILE_SELECTED;

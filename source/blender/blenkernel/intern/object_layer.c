@@ -40,6 +40,7 @@ LayerTreeItem *BKE_objectlayer_add(LayerTree *tree, LayerTreeItem *parent, const
 	LayerTypeObject *oblayer = MEM_callocN(sizeof(LayerTypeObject), __func__);
 
 	BLI_assert(tree->type == LAYER_TREETYPE_OBJECT);
+	oblayer->visibility_bits = 1; /* Should always be same default as set in LAYERTYPE_object */
 	BKE_layeritem_register(tree, &oblayer->litem, parent, LAYER_ITEMTYPE_LAYER, name);
 
 	return &oblayer->litem;
