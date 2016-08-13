@@ -79,7 +79,11 @@ void BKE_objectlayer_base_assign_ex(Base *base, LayerTreeItem *litem, const bool
 	}
 	/* offset current elements to give space for new one at start of array */
 	if (add_head && oblayer->tot_bases > 0) {
-		memmove(oblayer->bases[1], oblayer->bases[0], sizeof(*oblayer->bases) * oblayer->tot_bases);
+		/* Could use memmove for offsetting base pointers, but indices need to be updated anyway. */
+		for (int i = oblayer->tot_bases; i > 0; i--) {
+			oblayer->bases[i] = oblayer->bases[i - 1];
+			oblayer->bases[i]->index = i;
+		}
 	}
 
 	base->layer = litem;

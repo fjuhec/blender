@@ -1324,8 +1324,8 @@ static void make_object_duplilist_real(bContext *C, Scene *scene, Base *base,
 		basen->flag &= ~(OB_FROMDUPLI | OB_FROMGROUP);
 		ob->flag = basen->flag;
 		basen->lay = base->lay;
-		BKE_objectlayer_base_assign_ex(basen, base->layer, false, true); /* addhead: othwise eternal loop */
 		basen->object = ob;
+		BKE_objectlayer_base_assign_ex(basen, base->layer, false, true); /* addhead: othwise eternal loop */
 
 		/* make sure apply works */
 		BKE_animdata_free(&ob->id, true);
@@ -1927,8 +1927,8 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, Base *base
 
 		basen = MEM_mallocN(sizeof(Base), "duplibase");
 		*basen = *base;
-		BKE_objectlayer_base_assign_ex(basen, base->layer, false, true); /* addhead: othwise eternal loop */
 		basen->object = obn;
+		BKE_objectlayer_base_assign_ex(basen, base->layer, false, true); /* addhead: othwise eternal loop */
 
 		/* 1) duplis should end up in same group as the original
 		 * 2) Rigid Body sim participants MUST always be part of a group...
