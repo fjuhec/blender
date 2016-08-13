@@ -793,6 +793,8 @@ typedef struct FileDirEntryVariant {
 typedef struct FileDirEntry {
 	struct FileDirEntry *next, *prev;
 
+	/* XXX This only copes for asset uuid itself,
+	 *     we'll likely want to extend that to variants/revisions too at some point? */
 	int uuid[4];
 	char *name;
 	char *description;

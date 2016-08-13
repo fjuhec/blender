@@ -121,6 +121,10 @@ typedef bool (*ae_entries_block_get)(struct AssetEngine *engine, const int start
 typedef bool (*ae_entries_uuid_get)(struct AssetEngine *engine, struct AssetUUIDList *uuids,
                                     struct FileDirEntryArr *entries_r);
 
+/* FILEBROWSER - Get previews of given entries.
+ * XXX WARNING! Currently, only asset part of uuids is valid here (because fileentries only store this one)... */
+typedef int (*ae_previews_get)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
+
 /* 'pre-loading' hook, called before opening/appending/linking/updating given entries.
  * Note first given uuid is the one of 'active' entry, and first entry in returned list will be considered as such too.
  * E.g. allows the engine to ensure entries' paths are actually valid by downloading requested data, etc.
@@ -161,6 +165,8 @@ typedef struct AssetEngineType {
 	ae_sort_filter sort_filter;
 	ae_entries_block_get entries_block_get;
 	ae_entries_uuid_get entries_uuid_get;
+
+	ae_previews_get previews_get;
 
 	ae_ensure_uuids ensure_uuids;
 

@@ -120,7 +120,11 @@ typedef struct AssetUUID {
 	int uuid_revision[4];
 	short flag;  /* Saved. */
 	short tag;   /* Runtime. */
-	int pad_i1;
+
+	/* Preview. */
+	short width;
+	short height;
+	char *ibuff;  /* RGBA 8bits. */
 } AssetUUID;
 
 /**
@@ -134,12 +138,14 @@ enum {
  * uuid->tag (runtime only).
  */
 enum {
-	UUID_TAG_ENGINE_MISSING = 1 << 0,  /* The asset engine used for this asset is not known by Blender. */
-	UUID_TAG_ASSET_MISSING  = 1 << 1,  /* The asset engine was found but does not know about this asset (anymore). */
+	UUID_TAG_ENGINE_MISSING  = 1 << 0,  /* The asset engine used for this asset is not known by Blender. */
+	UUID_TAG_ASSET_MISSING   = 1 << 1,  /* The asset engine was found but does not know about this asset (anymore). */
 
-	UUID_TAG_ASSET_RELOAD   = 1 << 8,  /* Set by the asset engine to indicates that that asset has to be reloaded. */
+	UUID_TAG_ASSET_RELOAD    = 1 << 8,  /* Set by the asset engine to indicates that that asset has to be reloaded. */
+	UUID_TAG_ASSET_NOPREVIEW = 1 << 9,  /* Set by the asset engine to indicates that that asset has no preview. */
 };
 
+/* Not stored in files, but defined here to ease RNA code... */
 typedef struct AssetUUIDList {
 	AssetUUID *uuids;
 	int nbr_uuids;

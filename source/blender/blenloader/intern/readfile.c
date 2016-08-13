@@ -2167,6 +2167,8 @@ static void direct_link_id(FileData *fd, ID *id)
 	}
 	if (id->uuid) {
 		id->uuid = newdataadr(fd, id->uuid);
+		id->uuid->ibuff = NULL;  /* Just in case... */
+		id->uuid->width = id->uuid->height = 0;
 	}
 }
 
@@ -8103,6 +8105,8 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 			bhead = read_data_into_oldnewmap(fd, bhead, __func__);
 
 			id->uuid = newdataadr(fd, id->uuid);
+			id->uuid->ibuff = NULL;  /* Just in case... */
+			id->uuid->width = id->uuid->height = 0;
 
 			oldnewmap_free_unused(fd->datamap);
 			oldnewmap_clear(fd->datamap);
@@ -9998,6 +10002,8 @@ static ID *link_named_part_ex(
 
 		id->uuid = MEM_mallocN(sizeof(*id->uuid), __func__);
 		*id->uuid = *uuid;
+		id->uuid->ibuff = NULL;
+		id->uuid->width = id->uuid->height = 0;
 		id->flag |= LIB_ASSET;
 
 		if (!mainl->curlib->asset_repository) {

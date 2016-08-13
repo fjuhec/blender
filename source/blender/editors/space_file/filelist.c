@@ -252,9 +252,12 @@ typedef struct FileListEntryCache {
 	/* Allows to quickly get a cached entry from its UUID. */
 	GHash *uuids;
 
-	/* Previews handling. */
+	/* Previews handling - generic filebrowser. */
 	TaskPool *previews_pool;
 	ThreadQueue *previews_done;
+	/* Previews handling - Asset engines. */
+	int ae_preview_job;
+	AssetUUIDList ae_preview_uuids;
 } FileListEntryCache;
 
 /* FileListCache.flags */
@@ -365,7 +368,7 @@ static int groupname_to_code(const char *group);
 static unsigned int groupname_to_filter_id(const char *group);
 
 static void filelist_filter_clear(FileList *filelist);
-static void filelist_cache_clear(FileListEntryCache *cache, size_t new_size);
+static void filelist_cache_clear(FileListEntryCache *cache, size_t new_size, AssetEngine *ae);
 
 /* ********** Sort helpers ********** */
 
@@ -729,7 +732,7 @@ void filelist_sort_filter(struct FileList *filelist, FileSelectParams *params)
 			                         filelist->ae, need_sorting, need_filtering, params, &filelist->filelist);
 //			printf("%s: changed: %d (%d - %d)\n", __func__, changed, need_sorting, need_filtering);
 			if (changed) {
-				filelist_cache_clear(&filelist->filelist_cache, filelist->filelist_cache.size);
+				filelist_cache_clear(&filelist->filelist_cache, filelist->filelist_cache.size, filelist->ae);
 			}
 		}
 	}
@@ -794,7 +797,7 @@ void filelist_sort_filter(struct FileList *filelist, FileSelectParams *params)
 			filelist->filelist.nbr_entries_filtered = num_filtered;
 		//	printf("Filetered: %d over %d entries\n", num_filtered, filelist->filelist.nbr_entries);
 
-			filelist_cache_clear(&filelist->filelist_cache, filelist->filelist_cache.size);
+			filelist_cache_clear(&filelist->filelist_cache, filelist->filelist_cache.size, filelist->ae);
 
 			MEM_freeN(filtered_tmp);
 		}
@@ -1164,9 +1167,12 @@ static void filelist_cache_preview_freef(TaskPool * __restrict UNUSED(pool), voi
 	}
 }
 
-static void filelist_cache_preview_ensure_running(FileListEntryCache *cache)
+static void filelist_cache_preview_ensure_running(FileListEntryCache *cache, AssetEngine *ae)
 {
-	if (!cache->previews_pool) {
+	if (ae) {
+		/* Nothing to do... */
+	}
+	else if (!cache->previews_pool) {
 		TaskScheduler *scheduler = BLI_task_scheduler_get();
 
 		cache->previews_pool = BLI_task_pool_create_background(scheduler, cache);
@@ -1176,11 +1182,23 @@ static void filelist_cache_preview_ensure_running(FileListEntryCache *cache)
 	}
 }
 
-static void filelist_cache_previews_clear(FileListEntryCache *cache)
+static void filelist_cache_previews_clear(FileListEntryCache *cache, AssetEngine *ae)
 {
-	FileListEntryPreview *preview;
+	if (ae) {
+		if (cache->ae_preview_job != AE_JOB_ID_UNSET) {
+			ae->type->kill(ae, cache->ae_preview_job);
+			cache->ae_preview_job = AE_JOB_ID_UNSET;
+		}
+		for (int i = cache->ae_preview_uuids.nbr_uuids; i--;) {
+			MEM_SAFE_FREE(cache->ae_preview_uuids.uuids[i].ibuff);
+		}
+		MEM_SAFE_FREE(cache->ae_preview_uuids.uuids);
+		cache->ae_preview_uuids.nbr_uuids = 0;
+	}
 
 	if (cache->previews_pool) {
+		FileListEntryPreview *preview;
+
 		BLI_task_pool_cancel(cache->previews_pool);
 
 		while ((preview = BLI_thread_queue_pop_timeout(cache->previews_done, 0))) {
@@ -1193,12 +1211,16 @@ static void filelist_cache_previews_clear(FileListEntryCache *cache)
 	}
 }
 
-static void filelist_cache_previews_free(FileListEntryCache *cache)
+static void filelist_cache_previews_free(FileListEntryCache *cache, AssetEngine *ae)
 {
+	if (ae) {
+		filelist_cache_previews_clear(cache, ae);
+	}
+
 	if (cache->previews_pool) {
 		BLI_thread_queue_nowait(cache->previews_done);
 
-		filelist_cache_previews_clear(cache);
+		filelist_cache_previews_clear(cache, ae);
 
 		BLI_thread_queue_free(cache->previews_done);
 		BLI_task_pool_free(cache->previews_pool);
@@ -1214,24 +1236,41 @@ static void filelist_cache_previews_free(FileListEntryCache *cache)
 static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry, const int index)
 {
 	FileListEntryCache *cache = &filelist->filelist_cache;
+	const bool do_preview = ((filelist->ae && filelist->ae->type->previews_get != NULL) ||
+	                         (entry->typeflag & (FILE_TYPE_IMAGE | FILE_TYPE_MOVIE | FILE_TYPE_FTFONT |
+	                                             FILE_TYPE_BLENDER | FILE_TYPE_BLENDER_BACKUP | FILE_TYPE_BLENDERLIB)));
 
 	BLI_assert(cache->flags & FLC_PREVIEWS_ACTIVE);
 
-	if (!entry->image &&
-	    !(entry->flags & FILE_ENTRY_INVALID_PREVIEW) &&
-	    (entry->typeflag & (FILE_TYPE_IMAGE | FILE_TYPE_MOVIE | FILE_TYPE_FTFONT |
-	                        FILE_TYPE_BLENDER | FILE_TYPE_BLENDER_BACKUP | FILE_TYPE_BLENDERLIB)))
-	{
-		FileListEntryPreview *preview = MEM_mallocN(sizeof(*preview), __func__);
-		BLI_join_dirfile(preview->path, sizeof(preview->path), filelist->filelist.root, entry->relpath);
-		preview->index = index;
-		preview->flags = entry->typeflag;
-		preview->img = NULL;
-//		printf("%s: %d - %s - %p\n", __func__, preview->index, preview->path, preview->img);
+	if (do_preview && !entry->image && !(entry->flags & FILE_ENTRY_INVALID_PREVIEW)) {
+		if (filelist->ae) {
+			/* TODO Really have to find better way to handle this than realloc... */
+			AssetUUIDList *uuids = &cache->ae_preview_uuids;
 
-		filelist_cache_preview_ensure_running(cache);
-		BLI_task_pool_push_ex(cache->previews_pool, filelist_cache_preview_runf, preview,
-		                      true, filelist_cache_preview_freef, TASK_PRIORITY_LOW);
+			if (uuids->uuids) {
+				BLI_assert(uuids->nbr_uuids != 0);
+				uuids->uuids = MEM_recallocN(uuids->uuids, ++uuids->nbr_uuids * sizeof(*uuids->uuids));
+			}
+			else {
+				BLI_assert(uuids->nbr_uuids == 0);
+				uuids->uuids = MEM_callocN(++uuids->nbr_uuids * sizeof(*uuids->uuids), __func__);
+			}
+			memcpy(uuids->uuids[uuids->nbr_uuids - 1].uuid_asset, entry->uuid,
+			       sizeof(uuids->uuids[uuids->nbr_uuids - 1].uuid_asset));
+			/* No real need to call ae->type->previews_get() here, update callback will do so anyway. */
+		}
+		else {
+			FileListEntryPreview *preview = MEM_mallocN(sizeof(*preview), __func__);
+			BLI_join_dirfile(preview->path, sizeof(preview->path), filelist->filelist.root, entry->relpath);
+			preview->index = index;
+			preview->flags = entry->typeflag;
+			preview->img = NULL;
+//			printf("%s: %d - %s - %p\n", __func__, preview->index, preview->path, preview->img);
+
+			filelist_cache_preview_ensure_running(cache, filelist->ae);
+			BLI_task_pool_push_ex(cache->previews_pool, filelist_cache_preview_runf, preview,
+								  true, filelist_cache_preview_freef, TASK_PRIORITY_LOW);
+		}
 	}
 }
 
@@ -1255,7 +1294,7 @@ static void filelist_cache_init(FileListEntryCache *cache, size_t cache_size)
 	cache->flags = FLC_IS_INIT;
 }
 
-static void filelist_cache_free(FileListEntryCache *cache)
+static void filelist_cache_free(FileListEntryCache *cache, AssetEngine *ae)
 {
 	FileDirEntry *entry, *entry_next;
 
@@ -1263,7 +1302,7 @@ static void filelist_cache_free(FileListEntryCache *cache)
 		return;
 	}
 
-	filelist_cache_previews_free(cache);
+	filelist_cache_previews_free(cache, ae);
 
 	MEM_freeN(cache->block_entries);
 
@@ -1281,7 +1320,7 @@ static void filelist_cache_free(FileListEntryCache *cache)
 	BLI_listbase_clear(&cache->cached_entries);
 }
 
-static void filelist_cache_clear(FileListEntryCache *cache, size_t new_size)
+static void filelist_cache_clear(FileListEntryCache *cache, size_t new_size, AssetEngine *ae)
 {
 	FileDirEntry *entry, *entry_next;
 
@@ -1289,7 +1328,7 @@ static void filelist_cache_clear(FileListEntryCache *cache, size_t new_size)
 		return;
 	}
 
-	filelist_cache_previews_clear(cache);
+	filelist_cache_previews_clear(cache, ae);
 
 	cache->block_cursor = cache->block_start_index = cache->block_center_index = cache->block_end_index = 0;
 	if (new_size != cache->size) {
@@ -1353,7 +1392,7 @@ void filelist_clear_ex(struct FileList *filelist, const bool do_cache, const boo
 	filelist_filter_clear(filelist);
 
 	if (do_cache) {
-		filelist_cache_clear(&filelist->filelist_cache, filelist->filelist_cache.size);
+		filelist_cache_clear(&filelist->filelist_cache, filelist->filelist_cache.size, filelist->ae);
 	}
 
 	filelist_intern_free(&filelist->filelist_intern);
@@ -1379,7 +1418,7 @@ void filelist_free(struct FileList *filelist)
 	}
 	
 	filelist_clear_ex(filelist, false, false);  /* No need to clear cache & selection_state, we free them anyway. */
-	filelist_cache_free(&filelist->filelist_cache);
+	filelist_cache_free(&filelist->filelist_cache, filelist->ae);
 
 	if (filelist->ae) {
 		BKE_asset_engine_free(filelist->ae);
@@ -1760,7 +1799,7 @@ void filelist_file_cache_slidingwindow_set(FileList *filelist, size_t window_siz
 	}
 
 	if (size != filelist->filelist_cache.size) {
-		filelist_cache_clear(&filelist->filelist_cache, size);
+		filelist_cache_clear(&filelist->filelist_cache, size, filelist->ae);
 	}
 }
 
@@ -1859,7 +1898,7 @@ bool filelist_file_cache_block(struct FileList *filelist, const int index)
 //			printf("Full Recaching!\n");
 
 			if (cache->flags & FLC_PREVIEWS_ACTIVE) {
-				filelist_cache_previews_clear(cache);
+				filelist_cache_previews_clear(cache, filelist->ae);
 			}
 
 			if (idx1 + size1 > cache_size) {
@@ -1886,7 +1925,7 @@ bool filelist_file_cache_block(struct FileList *filelist, const int index)
 			 * and remove everything from working queue - we'll add all newly needed entries at the end. */
 			if (cache->flags & FLC_PREVIEWS_ACTIVE) {
 				filelist_cache_previews_update(filelist);
-				filelist_cache_previews_clear(cache);
+				filelist_cache_previews_clear(cache, filelist->ae);
 			}
 
 //			printf("\tpreview cleaned up...\n");
@@ -1992,7 +2031,7 @@ bool filelist_file_cache_block(struct FileList *filelist, const int index)
 	else if ((cache->block_center_index != index) && (cache->flags & FLC_PREVIEWS_ACTIVE)) {
 		/* We try to always preview visible entries first, so 'restart' preview background task. */
 		filelist_cache_previews_update(filelist);
-		filelist_cache_previews_clear(cache);
+		filelist_cache_previews_clear(cache, filelist->ae);
 	}
 
 //	printf("Re-queueing previews...\n");
@@ -2029,7 +2068,8 @@ void filelist_cache_previews_set(FileList *filelist, const bool use_previews)
 	else if (use_previews && (filelist->flags & FL_IS_READY)) {
 		cache->flags |= FLC_PREVIEWS_ACTIVE;
 
-		BLI_assert((cache->previews_pool == NULL) && (cache->previews_done == NULL));
+		BLI_assert((cache->previews_pool == NULL) && (cache->previews_done == NULL) &&
+		           cache->ae_preview_job == AE_JOB_ID_UNSET);
 
 //		printf("%s: Init Previews...\n", __func__);
 
@@ -2038,7 +2078,7 @@ void filelist_cache_previews_set(FileList *filelist, const bool use_previews)
 	else {
 //		printf("%s: Clear Previews...\n", __func__);
 
-		filelist_cache_previews_free(cache);
+		filelist_cache_previews_free(cache, filelist->ae);
 	}
 }
 
@@ -2047,6 +2087,65 @@ bool filelist_cache_previews_update(FileList *filelist)
 	FileListEntryCache *cache = &filelist->filelist_cache;
 	TaskPool *pool = cache->previews_pool;
 	bool changed = false;
+
+	if (filelist->ae) {
+		ae_previews_get previews_get = filelist->ae->type->previews_get;
+		if (!previews_get) {
+			printf("%s: engine does not supports previews...\n", __func__);
+			return changed;
+		}
+
+		cache->ae_preview_job = previews_get(filelist->ae, cache->ae_preview_job, &cache->ae_preview_uuids);
+
+		int uuids_done = 0;
+		for (int i = cache->ae_preview_uuids.nbr_uuids; i--;) {
+			AssetUUID *uuid = &cache->ae_preview_uuids.uuids[i];
+			/* Abusing those temp uuids' flag to tag those done and to be removed from list. */
+			uuid->flag = 0;
+
+			if (!uuid->ibuff && !(uuid->tag & UUID_TAG_ASSET_NOPREVIEW)) {
+				continue;  /* AssetEngine did not complete preview task for this one yet. */
+			}
+
+			FileDirEntry *entry = filelist_entry_find_uuid(filelist, uuid->uuid_asset);
+
+			if (entry) {
+				if (!(uuid->tag & UUID_TAG_ASSET_NOPREVIEW)) {
+					BLI_assert(uuid->ibuff != NULL && !ELEM(0, uuid->width, uuid->height));
+					BLI_assert(!entry->image);
+
+					entry->image = IMB_allocFromBuffer((unsigned int *)uuid->ibuff, NULL, uuid->width, uuid->height);
+					changed = true;
+				}
+				else {
+					/* We want to avoid re-processing this entry continuously!
+					 * Note that, since entries only live in cache, preview will be retried quite often anyway. */
+					entry->flags |= FILE_ENTRY_INVALID_PREVIEW;
+				}
+			}
+
+			MEM_SAFE_FREE(uuid->ibuff);
+			uuid->width = uuid->height = 0;
+			uuid->flag = 1;
+			uuids_done++;
+		}
+
+		/* Remove uuids already processed from list... */
+		int nbr_uuids_new = cache->ae_preview_uuids.nbr_uuids - uuids_done;
+		AssetUUID *uuids_new = MEM_callocN(sizeof(*uuids_new) * nbr_uuids_new, __func__);
+		for (int i = cache->ae_preview_uuids.nbr_uuids, j = nbr_uuids_new; i-- && j--;) {
+			AssetUUID *uuid = &cache->ae_preview_uuids.uuids[i];
+			if (uuid->flag == 0) {
+				BLI_assert(uuid->ibuff == NULL);
+				uuids_new[j] = *uuid;
+			}
+		}
+		MEM_freeN(cache->ae_preview_uuids.uuids);
+		cache->ae_preview_uuids.uuids = uuids_new;
+		cache->ae_preview_uuids.nbr_uuids = nbr_uuids_new;
+
+		return changed;
+	}
 
 	if (!pool) {
 		return changed;
@@ -2094,7 +2193,13 @@ bool filelist_cache_previews_running(FileList *filelist)
 {
 	FileListEntryCache *cache = &filelist->filelist_cache;
 
-	return (cache->previews_pool != NULL);
+	if (filelist->ae) {
+		return ((cache->ae_preview_job > AE_JOB_ID_UNSET) &&
+		        (filelist->ae->type->status(filelist->ae, cache->ae_preview_job) == AE_STATUS_RUNNING));
+	}
+	else {
+		return (cache->previews_pool != NULL);
+	}
 }
 
 /* would recognize .blend as well */

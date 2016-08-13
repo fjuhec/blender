@@ -50,6 +50,51 @@
 #include "BKE_report.h"
 
 
+/* AssetUUID */
+
+static void rna_AssetUUID_preview_size_get(PointerRNA *ptr, int *values)
+{
+	AssetUUID *uuid = ptr->data;
+
+	values[0] = uuid->width;
+	values[1] = uuid->height;
+}
+
+static void rna_AssetUUID_preview_size_set(PointerRNA *ptr, const int *values)
+{
+	AssetUUID *uuid = ptr->data;
+
+	uuid->width = values[0];
+	uuid->height = values[1];
+
+	MEM_SAFE_FREE(uuid->ibuff);
+}
+
+
+static int rna_AssetUUID_preview_pixels_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
+{
+	AssetUUID *uuid = ptr->data;
+
+	length[0] = (uuid->ibuff == NULL) ? 0 : uuid->width * uuid->height;
+
+	return length[0];
+}
+
+static void rna_AssetUUID_preview_pixels_get(PointerRNA *ptr, int *values)
+{
+	AssetUUID *uuid = ptr->data;
+
+	memcpy(values, uuid->ibuff, uuid->width * uuid->height * sizeof(unsigned int));
+}
+
+static void rna_AssetUUID_preview_pixels_set(PointerRNA *ptr, const int *values)
+{
+	AssetUUID *uuid = ptr->data;
+
+	memcpy(uuid->ibuff, values, uuid->width * uuid->height * sizeof(unsigned int));
+}
+
+
 /* Asset listing... */
 
 /* Revisions. */
@@ -478,6 +523,36 @@ static int rna_ae_ensure_uuids(AssetEngine *engine, const int job_id, AssetUUIDL
 	return ret_job_id;
 }
 
+static int rna_ae_previews_get(AssetEngine *engine, const int job_id, AssetUUIDList *uuids)
+{
+	extern FunctionRNA rna_AssetEngine_previews_get_func;
+	PointerRNA ptr;
+	PropertyRNA *parm;
+	ParameterList list;
+	FunctionRNA *func;
+
+	void *ret;
+	int ret_job_id;
+
+	BLI_assert(job_id != AE_JOB_ID_INVALID);
+
+	RNA_pointer_create(NULL, engine->type->ext.srna, engine, &ptr);
+	func = &rna_AssetEngine_previews_get_func;
+
+	RNA_parameter_list_create(&list, &ptr, func);
+	RNA_parameter_set_lookup(&list, "job_id", &job_id);
+	RNA_parameter_set_lookup(&list, "uuids", &uuids);
+	engine->type->ext.call(NULL, &ptr, func, &list);
+
+	parm = RNA_function_find_parameter(NULL, func, "job_id_return");
+	RNA_parameter_get(&list, parm, &ret);
+	ret_job_id = *(int *)ret;
+
+	RNA_parameter_list_free(&list);
+
+	return ret_job_id;
+}
+
 static bool rna_ae_load_pre(AssetEngine *engine, AssetUUIDList *uuids, struct FileDirEntryArr *entries_r)
 {
 	extern FunctionRNA rna_AssetEngine_load_pre_func;
@@ -646,7 +721,7 @@ static StructRNA *rna_AssetEngine_register(Main *bmain, ReportList *reports, voi
 	AssetEngineType *aet, dummyaet = {NULL};
 	AssetEngine dummyengine = {NULL};
 	PointerRNA dummyptr;
-	int have_function[11];
+	int have_function[12];
 
 	/* setup dummy engine & engine type to store static properties in */
 	dummyengine.type = &dummyaet;
@@ -689,13 +764,15 @@ static StructRNA *rna_AssetEngine_register(Main *bmain, ReportList *reports, voi
 
 	aet->ensure_uuids = (have_function[5]) ? rna_ae_ensure_uuids : NULL;
 
-	aet->load_pre = (have_function[6]) ? rna_ae_load_pre : NULL;
+	aet->previews_get = (have_function[6]) ? rna_ae_previews_get : NULL;
 
-	aet->check_dir = (have_function[7]) ? rna_ae_check_dir : NULL;
+	aet->load_pre = (have_function[7]) ? rna_ae_load_pre : NULL;
 
-	aet->sort_filter = (have_function[8]) ? rna_ae_sort_filter : NULL;
-	aet->entries_block_get = (have_function[9]) ? rna_ae_entries_block_get : NULL;
-	aet->entries_uuid_get = (have_function[10]) ? rna_ae_entries_uuid_get : NULL;
+	aet->check_dir = (have_function[8]) ? rna_ae_check_dir : NULL;
+
+	aet->sort_filter = (have_function[9]) ? rna_ae_sort_filter : NULL;
+	aet->entries_block_get = (have_function[10]) ? rna_ae_entries_block_get : NULL;
+	aet->entries_uuid_get = (have_function[11]) ? rna_ae_entries_uuid_get : NULL;
 
 	BLI_addtail(&asset_engines, aet);
 
@@ -804,6 +881,22 @@ static void rna_def_asset_uuid(BlenderRNA *brna)
 	prop = RNA_def_boolean(srna, "use_asset_reload", false, "Reload Asset",
 	                       "The data matching this AssetUUID should be reloaded");
 	RNA_def_property_boolean_sdna(prop, NULL, "tag", UUID_TAG_ASSET_RELOAD);
+
+	prop = RNA_def_boolean(srna, "has_asset_preview", false, "Valid Preview",
+	                       "This asset has a valid preview");
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "tag", UUID_TAG_ASSET_NOPREVIEW);
+
+	prop = RNA_def_int_vector(srna, "preview_size", 2, NULL, 0, 0, "Preview Size",
+	                          "Width and height in pixels", 0, 0);
+	RNA_def_property_subtype(prop, PROP_PIXEL);
+	RNA_def_property_int_funcs(prop, "rna_AssetUUID_preview_size_get", "rna_AssetUUID_preview_size_set", NULL);
+
+	prop = RNA_def_property(srna, "preview_pixels", PROP_INT, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_DYNAMIC);
+	RNA_def_property_multi_array(prop, 1, NULL);
+	RNA_def_property_ui_text(prop, "Preview Pixels", "Preview pixels, as bytes (always RGBA 32bits)");
+	RNA_def_property_dynamic_array_funcs(prop, "rna_AssetUUID_preview_pixels_get_length");
+	RNA_def_property_int_funcs(prop, "rna_AssetUUID_preview_pixels_get", "rna_AssetUUID_preview_pixels_set", NULL);
 }
 
 static void rna_def_asset_uuid_list(BlenderRNA *brna)
@@ -1213,6 +1306,17 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	RNA_def_int(func, "job_id", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
 	            "Job ID (JOB_ID_UNSET to start a new one)", AE_JOB_ID_INVALID, INT_MAX);
 	RNA_def_pointer(func, "uuids", "AssetUUIDList", "", "Identifiers of assets to 'ensure'");
+	parm = RNA_def_int(func, "job_id_return", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
+	                   "Job ID (if JOB_ID_INVALID, job is assumed already finished)", AE_JOB_ID_INVALID, INT_MAX);
+	RNA_def_function_output(func, parm);
+
+	/* Get previews callback */
+	func = RNA_def_function(srna, "previews_get", NULL);
+	RNA_def_function_ui_description(func, "Set previews for given UUIDs");
+	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
+	RNA_def_int(func, "job_id", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
+	            "Job ID (JOB_ID_UNSET to start a new one)", AE_JOB_ID_INVALID, INT_MAX);
+	RNA_def_pointer(func, "uuids", "AssetUUIDList", "", "Identifiers of assets to preview");
 	parm = RNA_def_int(func, "job_id_return", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
 	                   "Job ID (if JOB_ID_INVALID, job is assumed already finished)", AE_JOB_ID_INVALID, INT_MAX);
 	RNA_def_function_output(func, parm);
