@@ -1072,13 +1072,13 @@ static float brush_strength(
 }
 
 /* Return a multiplier for brush strength on a particular vertex. */
-static float tex_strength(SculptSession *ss, Brush *br,
-                          const float brush_point[3],
-                          const float len,
-                          const short vno[3],
-                          const float fno[3],
-                          const float mask,
-                          const int thread_id)
+float tex_strength(SculptSession *ss, Brush *br,
+                   const float brush_point[3],
+                   const float len,
+                   const short vno[3],
+                   const float fno[3],
+                   const float mask,
+                   const int thread_id)
 {
 	StrokeCache *cache = ss->cache;
 	const Scene *scene = cache->vc->scene;

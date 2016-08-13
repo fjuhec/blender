@@ -282,8 +282,8 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 		br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Average");
 		if (!br) {
 			br = BKE_brush_add(bmain, "Average", OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT);
-		    br->vertexpaint_tool = PAINT_BLEND_AVERAGE;
-		    br->ob_mode = OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT;
+			br->vertexpaint_tool = PAINT_BLEND_AVERAGE;
+			br->ob_mode = OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT;
 		}
 
 		br = (Brush *)BKE_libblock_find_name_ex(bmain, ID_BR, "Smudge");
