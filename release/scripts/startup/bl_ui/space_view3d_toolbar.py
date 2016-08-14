@@ -540,8 +540,12 @@ class VIEW3D_PT_tools_curveedit(View3DPanel, Panel):
         col.operator("curve.smooth")
         col.operator("transform.vertex_random")
         col.operator("curve.extend_curve")
+        col.operator("curve.batch_extend")
         col.operator("curve.trim_curve")
         col.operator("curve.offset_curve")
+        row = col.row(align=True)
+        row.operator("curve.curve_chamfer")
+        row.operator("curve.curve_fillet")
 
 
 class VIEW3D_PT_tools_add_curve_edit(View3DPanel, Panel):
