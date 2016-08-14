@@ -8152,7 +8152,7 @@ static int curve_chamfer_exec(bContext *C, wmOperator *op)
 	/* check if handles are vector type! */
 	BezTriple *bezt = nu->bezt, *bezt1, *bezt2, *helper;
 	int selected_point = 0;
-	for (int i = 0; i < nu->pntsu; i++) {
+	for (int i = 1; i < nu->pntsu - 1; i++) {
 		bezt = &nu->bezt[i];
 		if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
 			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer1");
@@ -8446,7 +8446,11 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 			normalize_v3(v1);
 			sub_v3_v3v3(v2, bezt->vec[1], bezt->vec[2]);
 			normalize_v3(v2);
-			float angle = angle_normalized_v3v3(v1, v2) / 2;
+			float angle = DEG2RAD(90) - angle_normalized_v3v3(v1, v2) / 2;
+			if (angle < 1.0e-4) {
+				BKE_report(op->reports, RPT_ERROR, "Lines cannot be filleted");
+				return OPERATOR_CANCELLED;
+			}
 			fillet_handle(bezt, bezt1, bezt2, angle, distance);
 			selected_point = i;
 			BKE_nurb_bezierPoints_add(nu, 1);
