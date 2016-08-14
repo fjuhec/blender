@@ -7553,10 +7553,10 @@ static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, floa
 	float isect_no[3];
 	sub_v3_v3v3(helper, bezt1->vec[2], bezt1->vec[1]);
 	cross_v3_v3v3(plane_b_no, helper, vx);
-	plane_from_point_normal_v3(plane_a, bezt1->vec[1], vx);
+	plane_from_point_normal_v3(plane_a, bezt1->vec[1], helper);
 	plane_from_point_normal_v3(plane_b, bezt1->vec[1], plane_b_no);
 
-	if (!(plane_a[0] && plane_a[1] && plane_a[2] && plane_a[3]) || !(plane_b[0] && plane_b[1] && plane_b[2] && plane_b[3])) {
+	if (!(plane_a[0] || plane_a[1] || plane_a[2] || plane_a[3]) || !(plane_b[0] || plane_b[1] || plane_b[2] || plane_b[3])) {
 		/* handles are collinear */
 		ret = 0;
 	}
@@ -7571,10 +7571,10 @@ static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, floa
 	sub_v3_v3v3(helper, bezt2->vec[1], bezt2->vec[0]);
 	cross_v3_v3v3(plane_b_no, vy, helper);
 	mul_v3_fl(plane_b_no, -1);
-	plane_from_point_normal_v3(plane_a, bezt2->vec[1], vy);
+	plane_from_point_normal_v3(plane_a, bezt2->vec[1], helper);
 	plane_from_point_normal_v3(plane_b, bezt2->vec[1], plane_b_no);
 
-	if (!(plane_a[0] && plane_a[1] && plane_a[2] && plane_a[3]) || !(plane_b[0] && plane_b[1] && plane_b[2] && plane_b[3])) {
+	if (!(plane_a[0] || plane_a[1] || plane_a[2] || plane_a[3]) || !(plane_b[0] || plane_b[1] || plane_b[2] || plane_b[3])) {
 		/* handles are collinear */
 		ret = 0;
 	}
@@ -7594,7 +7594,7 @@ static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, floa
 	return ret;
 }
 
-static void get_handles_offset_vec(float *p1, float *p2, float *p3, float *r_v1)
+static int get_handles_offset_vec(float *p1, float *p2, float *p3, float *r_v1)
 {
 	float v1[3] = {0.0, 0.0, 0.0};
 	float v2[3] = {0.0, 0.0, 0.0};
@@ -7602,6 +7602,7 @@ static void get_handles_offset_vec(float *p1, float *p2, float *p3, float *r_v1)
 	float v4[3] = {0.0, 0.0, 0.0};
 	float normal[3] = {0.0, 0.0, 0.0};
 	float point_plane_normal[3] = {0.0, 0.0, 0.0};
+	int ret = 1;
 	sub_v3_v3v3(v1, p3, p2);
 	normalize_v3(v1);
 	sub_v3_v3v3(v2, p2, p1);
@@ -7618,74 +7619,46 @@ static void get_handles_offset_vec(float *p1, float *p2, float *p3, float *r_v1)
 	cross_v3_v3v3(point_plane_normal, v3, v4);
 	plane_from_point_normal_v3(plane_b, p2, point_plane_normal);
 
+	if (!(plane_a[0] || plane_a[1] || plane_a[2] || plane_a[3]) || !(plane_b[0] || plane_b[1] || plane_b[2] || plane_b[3])) {
+		/* handles are collinear */
+		ret = 0;
+	}
+
 	if (isect_plane_plane_v3(plane_a, plane_b,
 							 isect_co, isect_no))
 	{
 		normalize_v3(isect_no);
 		copy_v3_v3(r_v1, isect_no);
 	}
-}
 
-static bool reverse_offset(BezTriple *offset1, BezTriple *offset2, ListBase *nurb_base)
-{
-	ListBase il = {NULL, NULL}, nubase = {NULL, NULL};
-	int ret = 0, i = 0;
-	get_selected_bezier_splines(&nubase, nurb_base, &i, true);
-	int dims = 3;
-	float *coord_array;
-	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "revertoffset2");
-	for (int j = 0; j < dims; j++)
-	{
-		BKE_curve_forward_diff_bezier(offset1->vec[1][j],
-									  offset1->vec[2][j],
-									  offset2->vec[0][j],
-									  offset2->vec[1][j],
-									  coord_array + j, 12, sizeof(float) * dims);
-	}
-	for (i = 0; i < 12; i++) {
-		get_intersections(&il, &coord_array[i * 3], &coord_array[(i + 1) * 3], &nubase);
-		if (BLI_listbase_count(&il) > 0) {
-			for (LinkData* d = il.first; d; d = d->next) {
-				MEM_freeN(d->data);
-			}
-			BLI_freelistN(&il);
-			ret = 1;
-		}
-	}
-	MEM_freeN(coord_array);
-	for (Nurb* d = nubase.first; d; d = d->next) {
-		MEM_freeN(d->bezt);
-	}
-	BLI_freelistN(&nubase);
 	return ret;
 }
 
-static void populate_control_bezt(BezTriple *bezt1, BezTriple *bezt2, float *v)
-{
-	memcpy(bezt1, bezt2, sizeof(BezTriple));
-	add_v3_v3(bezt1->vec[0], v);
-	add_v3_v3(bezt1->vec[1], v);
-	add_v3_v3(bezt1->vec[2], v);
-}
-
-static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
+static Nurb *offset_curve(Nurb *nu, ListBase *UNUSED(nubase), float distance)
 {
 	BezTriple *bezt = nu->bezt, *new_bezt;
-	BezTriple *copy_bezt1 = MEM_callocN(sizeof(BezTriple), __func__), *copy_bezt2 = MEM_callocN(sizeof(BezTriple), __func__);
 	Nurb *new_nu = BKE_nurb_duplicate(nu);
 	new_bezt = new_nu->bezt;
-	int res;
+	int res, count = 0;
 	/* offset the first handle */
 	/* control point */
-	float *v0, *v1, *v2, *co;
+	float angle;
+	float *v0, *v1, *v2, v3[3], v4[3], *co, *prev_v1;
 	v0 = MEM_callocN(3 * sizeof(float), "offset_curve_exec0");
 	v1 = MEM_callocN(3 * sizeof(float), "offset_curve_exec1");
 	v2 = MEM_callocN(3 * sizeof(float), "offset_curve_exec2");
 	co = MEM_callocN(3 * sizeof(float), "offset_curve_exec3");
-	res = get_offset_vecs(bezt, bezt + 1, v1, v2);
-	copy_v3_v3(v0, v1);
-	mul_v3_fl(v0, 1.0e-1);
-	populate_control_bezt(copy_bezt1, bezt, v0);
+	prev_v1 = MEM_callocN(3 * sizeof(float), "offset_curve_exec4");
+	res = 0;
+	int a = 1;
+	while (!res && a < nu->pntsu) {
+		res = get_offset_vecs(bezt, bezt + a, v1, v2);
+		a++;
+	}
+	if (!res && a == nu->pntsu - 1) {
+		return NULL;
+	}
+	copy_v3_v3(prev_v1, v1);
 	mul_v3_fl(v1, distance);
 	add_v3_v3(new_bezt->vec[0], v1);
 	add_v3_v3(new_bezt->vec[1], v1);
@@ -7704,40 +7677,55 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 	new_bezt++;
 	for (int i = 1; i < nu->pntsu - 1; i++)
 	{
-		/* control point */
+		/* offset direction */
 		res = get_offset_vecs(bezt, bezt + 1, v1, v2);
-		copy_v3_v3(v0, v1);
-		mul_v3_fl(v0, 1.0e-1);
-		populate_control_bezt(copy_bezt2, bezt, v0);
+		a = i;
+		count = 0;
+		while (!res && count < nu->pntsu) {
+			res = get_offset_vecs(bezt, nu->bezt + (a % nu->pntsu), v1, v2);
+			a++;
+			count++;
+		}
+
+		/* offset direction correction */
+		sub_v3_v3v3(v3, (bezt - 1)->vec[1], (bezt - 1)->vec[2]);
+		sub_v3_v3v3(v4, bezt->vec[1], bezt->vec[0]);
+		normalize_v3(v3);
+		normalize_v3(v4);
+		/* a criteria is needed for dot == 0 */
+		angle = angle_normalized_v3v3(v3, v4);
+		if ((angle > DEG2RAD(90.0) && dot_v3v3(prev_v1, v1) < 0) || (angle < DEG2RAD(90.0) && dot_v3v3(prev_v1, v1) > 0)) {
+			mul_v3_fl(v1, -1);
+		}
+		else if (fabsf(dot_v3v3(prev_v1, v1)) < 1.0e-4) { /* perpendicular vectors */
+			copy_v3_v3(v0, prev_v1);
+			add_v3_v3(v0, v1);
+			add_v3_v3v3(co, v3, v4);
+			if (dot_v3v3(v0, co) > 0) {
+				mul_v3_fl(v1, -1);
+			}
+		}
+
+		/* control point */
+		copy_v3_v3(prev_v1, v1);
 		mul_v3_fl(v1, distance);
 		add_v3_v3(new_bezt->vec[0], v1);
 		add_v3_v3(new_bezt->vec[1], v1);
 		add_v3_v3(new_bezt->vec[2], v1);
 		/* right handle */
-		get_handles_offset_vec(bezt[0].vec[1], bezt[0].vec[2], bezt[1].vec[0], v2);
+		res = get_handles_offset_vec(bezt[0].vec[1], bezt[0].vec[2], bezt[1].vec[0], v2);
 		copy_v3_v3(co, bezt->vec[2]);
 		add_v3_v3(co, v2);
-		if (reverse_offset(new_bezt - 1, new_bezt, nubase)) { /* we got the wrong direction. Fix that
-															   * further spline intersections due to the offset
-															   * distance are sometiomes taken into account. TODO: Fix that */
-		/* if (reverse_offset(copy_bezt1, copy_bezt2, nubase)) { */
-			mul_v3_fl(v1, -2);
-			add_v3_v3(new_bezt->vec[0], v1);
-			add_v3_v3(new_bezt->vec[1], v1);
-			add_v3_v3(new_bezt->vec[2], v1);
-			//swap_v3_v3(new_bezt->vec[0], new_bezt->vec[2]);
-		}
-		memcpy(copy_bezt1, new_bezt, sizeof(BezTriple));
 		result = isect_line_line_v3(new_bezt->vec[1], new_bezt->vec[2], bezt->vec[2], co, v1, v2);
-		if (result != 0) {
+		if (result != 0 && res) {
 			copy_v3_v3(new_bezt->vec[2], v1);
 		}
 		/* left handle */
-		get_handles_offset_vec(bezt[-1].vec[2], bezt->vec[0], bezt->vec[1], v2);
+		res = get_handles_offset_vec(bezt[-1].vec[2], bezt->vec[0], bezt->vec[1], v2);
 		copy_v3_v3(co, bezt->vec[0]);
 		add_v3_v3(co, v2);
 		result = isect_line_line_v3(new_bezt->vec[0], new_bezt->vec[1], bezt->vec[0], co, v1, v2);
-		if (result != 0) {
+		if (result != 0 && res) {
 			copy_v3_v3(new_bezt->vec[0], v1);
 		}
 		bezt++;
@@ -7745,35 +7733,75 @@ static Nurb *offset_curve(Nurb *nu, ListBase *nubase, float distance)
 	}
 
 	/* offset the last handle */
-	get_offset_vecs(bezt - 1, bezt, v1, v2);
-	get_handles_offset_vec(bezt[-1].vec[2], bezt->vec[0], bezt->vec[1], v1);
-	copy_v3_v3(v0, v1);
-	mul_v3_fl(v0, 1.0e-1);
-	populate_control_bezt(copy_bezt2, bezt, v0);
-	mul_v3_fl(v2, distance);
-	add_v3_v3(new_bezt->vec[0], v2);
-	add_v3_v3(new_bezt->vec[1], v2);
-	add_v3_v3(new_bezt->vec[2], v2);
-	copy_v3_v3(co, bezt->vec[0]);
-	add_v3_v3(co, v1);
-	if (reverse_offset(new_bezt - 1, new_bezt, nubase)) { /* we got the wrong direction. Fix that */
-		mul_v3_fl(v2, -2);
+	res = get_offset_vecs(bezt - 1, bezt, v1, v2);
+	if (!res) { /* collinear. use the previous offset vector */
+		copy_v3_v3(v2, prev_v1);
+		mul_v3_fl(v2, distance);
 		add_v3_v3(new_bezt->vec[0], v2);
 		add_v3_v3(new_bezt->vec[1], v2);
 		add_v3_v3(new_bezt->vec[2], v2);
-		//swap_v3_v3(new_bezt->vec[0], new_bezt->vec[2]);
 	}
-	result = isect_line_line_v3(new_bezt->vec[0], new_bezt->vec[1], bezt->vec[0], co, v1, v2);
-	if (result != 0) {
-		copy_v3_v3(new_bezt->vec[0], v1);
+	else {
+		sub_v3_v3v3(v3, (bezt - 1)->vec[1], (bezt - 1)->vec[2]);
+		sub_v3_v3v3(v4, bezt->vec[1], bezt->vec[0]);
+		normalize_v3(v3);
+		normalize_v3(v4);
+		/* a criteria is needed for dot == 0 */
+		angle = angle_normalized_v3v3(v3, v4);
+		if ((angle > DEG2RAD(90.0) && dot_v3v3(prev_v1, v2) < 0) || (angle < DEG2RAD(90.0) && dot_v3v3(prev_v1, v2) > 0)) {
+			mul_v3_fl(v2, -1);
+		}
+		else if (fabsf(dot_v3v3(prev_v1, v2)) < 1.0e-4) { /* perpendicular vectors */
+			copy_v3_v3(v0, prev_v1);
+			add_v3_v3(v0, v2);
+			add_v3_v3v3(co, v3, v4);
+			if (dot_v3v3(v0, co) >= 0) {
+				mul_v3_fl(v2, -1);
+			}
+		}
+		get_handles_offset_vec(bezt[-1].vec[2], bezt->vec[0], bezt->vec[1], v1);
+		mul_v3_fl(v2, distance);
+		add_v3_v3(new_bezt->vec[0], v2);
+		add_v3_v3(new_bezt->vec[1], v2);
+		add_v3_v3(new_bezt->vec[2], v2);
+		copy_v3_v3(co, bezt->vec[0]);
+		add_v3_v3(co, v1);
+		result = isect_line_line_v3(new_bezt->vec[0], new_bezt->vec[1], bezt->vec[0], co, v1, v2);
+		if (result != 0) {
+			copy_v3_v3(new_bezt->vec[0], v1);
+		}
+	}
+
+	/* cyclic splines need more calculations */
+	if (nu->flagu) {
+		/* restore the pointers to the first elements */
+		bezt = nu->bezt;
+		new_bezt = new_nu->bezt;
+
+		/* last bezt, right handle */
+		res = get_handles_offset_vec(bezt[nu->pntsu - 1].vec[1], bezt[nu->pntsu - 1].vec[2], bezt[0].vec[0], v2);
+		copy_v3_v3(co, bezt[nu->pntsu - 1].vec[2]);
+		add_v3_v3(co, v2);
+		result = isect_line_line_v3(new_bezt[nu->pntsu - 1].vec[1], new_bezt[nu->pntsu - 1].vec[2], bezt[nu->pntsu - 1].vec[2], co, v1, v2);
+		if (result != 0 && res) {
+			copy_v3_v3(new_bezt[nu->pntsu - 1].vec[2], v1);
+		}
+		/* first bezt, left handle */
+		res = get_handles_offset_vec(bezt[nu->pntsu - 1].vec[2], bezt->vec[0], bezt->vec[1], v2);
+		copy_v3_v3(co, bezt->vec[0]);
+		add_v3_v3(co, v2);
+		result = isect_line_line_v3(new_bezt->vec[0], new_bezt->vec[1], bezt->vec[0], co, v1, v2);
+		if (result != 0 && res) {
+			copy_v3_v3(new_bezt->vec[0], v1);
+		}
+
 	}
 
 	MEM_freeN(v0);
 	MEM_freeN(v1);
 	MEM_freeN(v2);
 	MEM_freeN(co);
-	MEM_freeN(copy_bezt1);
-	MEM_freeN(copy_bezt2);
+	MEM_freeN(prev_v1);
 
 	return new_nu;
 }
@@ -7796,6 +7824,10 @@ static int offset_curve_exec(bContext *C, wmOperator *op)
 	copy_nu = BKE_nurb_duplicate(nu);
 	BLI_addtail(&dummy, copy_nu);
 	new_nu = offset_curve(nu, &dummy, distance);
+	if (!new_nu) {
+		BKE_report(op->reports, RPT_ERROR, "Impossible to offset");
+		return OPERATOR_CANCELLED;
+	}
 	BKE_nurb_free(copy_nu);
 
 	BKE_nurb_handles_calc(new_nu);
@@ -7845,6 +7877,10 @@ static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		RNA_float_set(op->ptr, "distance", opdata->num_input->val[0]);
 		distance = RNA_float_get(op->ptr, "distance");
 		new_nu = offset_curve(nu, nubase, distance);
+		if (!new_nu) {
+			BKE_report(op->reports, RPT_ERROR, "Impossible to offset");
+			return OPERATOR_CANCELLED;
+		}
 		BLI_addtail(nubase, new_nu);
 		opdata->changed = 1;
 	}
@@ -7881,6 +7917,10 @@ static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
 					RNA_float_set(op->ptr, "distance", -d/100);
 					distance = RNA_float_get(op->ptr, "distance");
 					new_nu = offset_curve(nu, nubase, distance);
+					if (!new_nu) {
+						BKE_report(op->reports, RPT_ERROR, "Impossible to offset");
+						return OPERATOR_CANCELLED;
+					}
 					BLI_addtail(nubase, new_nu);
 					handled = true;
 					opdata->changed = 1;
@@ -7897,6 +7937,10 @@ static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			RNA_float_set(op->ptr, "distance", opdata->num_input->val[0]);
 			distance = RNA_float_get(op->ptr, "distance");
 			new_nu = offset_curve(nu, nubase, distance);
+			if (!new_nu) {
+				BKE_report(op->reports, RPT_ERROR, "Impossible to offset");
+				return OPERATOR_CANCELLED;
+			}
 			BLI_addtail(nubase, new_nu);
 			opdata->changed = 1;
 		}
