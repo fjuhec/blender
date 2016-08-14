@@ -184,6 +184,47 @@ void OSLShader::eval_surface(KernelGlobals *kg, ShaderData *sd, PathState *state
 	OSL::ShadingContext *octx = tdata->context[(int)ctx];
 	int shader = sd->shader & SHADER_MASK;
 
+	/* automatic bump shader */
+	if(kg->osl->bump_state[shader]) {
+		/* save state */
+		float3 P = sd->P;
+		float3 dPdx = sd->dP.dx;
+		float3 dPdy = sd->dP.dy;
+
+		/* set state as if undisplaced */
+		if(sd->flag & SD_HAS_DISPLACEMENT) {
+			float data[9];
+			bool found = kg->osl->services->get_attribute(sd, true, OSLRenderServices::u_empty, TypeDesc::TypeVector,
+			                                              OSLRenderServices::u_geom_undisplaced, data);
+			assert(found);
+
+			memcpy(&sd->P, data, sizeof(float)*3);
+			memcpy(&sd->dP.dx, data+3, sizeof(float)*3);
+			memcpy(&sd->dP.dy, data+6, sizeof(float)*3);
+
+			memcpy(&globals->P, data, sizeof(float)*3);
+			memcpy(&globals->dPdx, data+3, sizeof(float)*3);
+			memcpy(&globals->dPdy, data+6, sizeof(float)*3);
+
+			sd->flag |= SD_IN_BUMP_EVAL;
+		}
+
+		/* execute bump shader */
+		ss->execute(octx, *(kg->osl->bump_state[shader]), *globals);
+
+		/* reset state */
+		sd->P = P;
+		sd->dP.dx = dPdx;
+		sd->dP.dy = dPdy;
+
+		globals->P = TO_VEC3(P);
+		globals->dPdx = TO_VEC3(dPdx);
+		globals->dPdy = TO_VEC3(dPdy);
+
+		sd->flag &= ~SD_IN_BUMP_EVAL;
+	}
+
+	/* surface shader */
 	if(kg->osl->surface_state[shader]) {
 		ss->execute(octx, *(kg->osl->surface_state[shader]), *globals);
 	}
