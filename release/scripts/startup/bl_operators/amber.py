@@ -45,6 +45,7 @@ import os
 import stat
 import struct
 import time
+import random
 
 
 AMBER_DB_NAME = "__amber_db.json"
@@ -255,6 +256,68 @@ class AmberJobList(AmberJob):
             tsk.cancel()
 
 
+class AmberJobPreviews(AmberJob):
+    @staticmethod
+    def preview(uuid):
+        time.sleep(0.1)  # 100% Artificial Lag (c)
+        w = random.randint(2, 8)
+        h = random.randint(2, 8)
+        return [w, h, [random.getrandbits(32) for i in range(w * h)]]
+
+    def start(self, uuids):
+        self.nbr = 0
+        self.preview_tasks = {uuid.uuid_asset[:]: self.executor.submit(self.preview, uuid.uuid_asset[:]) for uuid in uuids.uuids}
+        self.tot = len(self.preview_tasks)
+        self.status = {'VALID', 'RUNNING'}
+
+    def update(self, uuids):
+        self.status = {'VALID', 'RUNNING'}
+
+        uuids = {uuid.uuid_asset[:]: uuid for uuid in uuids.uuids}
+
+        new_uuids = set(uuids)
+        old_uuids = set(self.preview_tasks)
+        del_uuids = old_uuids - new_uuids
+        new_uuids -= old_uuids
+
+        for uuid in del_uuids:
+            self.preview_tasks[uuid].cancel()
+            del self.preview_tasks[uuid]
+
+        for uuid in new_uuids:
+            self.preview_tasks[uuid] = self.executor.submit(self.preview, uuid)
+
+        self.tot = len(self.preview_tasks)
+        self.nbr = 0
+
+        done_uuids = set()
+        for uuid, tsk in self.preview_tasks.items():
+            if tsk.done():
+                w, h, pixels = tsk.result()
+                uuids[uuid].preview_size = (w, h)
+                uuids[uuid].preview_pixels = pixels
+                self.nbr += 1
+                done_uuids.add(uuid)
+
+        for uuid in done_uuids:
+            del self.preview_tasks[uuid]
+
+        self.progress = self.nbr / self.tot
+        if not self.preview_tasks:
+            self.status = {'VALID'}
+
+    def __init__(self, executor, job_id, uuids):
+        super().__init__(executor, job_id)
+        self.preview_tasks = {}
+
+        self.start(uuids)
+
+    def __del__(self):
+        # Avoid useless work!
+        for tsk in self.preview_tasks.values():
+            tsk.cancel()
+
+
 ###########################
 # Main Asset Engine class.
 class AmberTag(PropertyGroup):
@@ -383,6 +446,7 @@ class AssetEngineAmber(AssetEngine):
             is_lib_browser = params.use_library_browsing
 
             layout.prop(params, "display_type", expand=True, text="")
+            layout.prop(params, "display_size", text="")
             layout.prop(params, "sort_method", expand=True, text="")
 
             layout.prop(params, "show_hidden", text="", icon='FILE_HIDDEN')
@@ -487,9 +551,20 @@ class AssetEngineAmber(AssetEngine):
             if repo_uuid not in amber_repos or not os.path.exists(os.path.join(amber_repos[repo_uuid], AMBER_DB_NAME)):
                 uuid.is_asset_missing = True
                 continue
-            # Here in theory here we'd reload given repo (async process) and check for asset's status...
+            # Here in theory we'd reload given repo (async process) and check for asset's status...
             uuid.use_asset_reload = True
         return self.job_id_invalid
+
+    def previews_get(self, job_id, uuids):
+        job = self.jobs.get(job_id, None)
+        #~ print(entries.root_path, job_id, job)
+        if job is not None and isinstance(job, AmberJobPreviews):
+            job.update(uuids)
+        else:
+            job_id = self.job_uuid
+            self.job_uuid += 1
+            self.jobs[job_id] = AmberJobPreviews(self.executor, job_id, uuids)
+        return job_id
 
     def load_pre(self, uuids, entries):
         # Not quite sure this engine will need it in the end, but for sake of testing...

@@ -2089,9 +2089,13 @@ bool filelist_cache_previews_update(FileList *filelist)
 	bool changed = false;
 
 	if (filelist->ae) {
+		if (cache->ae_preview_uuids.nbr_uuids == 0) {
+			return changed;  /* Nothing to preview! */
+		}
+
 		ae_previews_get previews_get = filelist->ae->type->previews_get;
 		if (!previews_get) {
-			printf("%s: engine does not supports previews...\n", __func__);
+			printf("%s: engine %s does not supports previews...\n", __func__, filelist->ae->type->name);
 			return changed;
 		}
 
@@ -2110,9 +2114,10 @@ bool filelist_cache_previews_update(FileList *filelist)
 			FileDirEntry *entry = filelist_entry_find_uuid(filelist, uuid->uuid_asset);
 
 			if (entry) {
-				if (!(uuid->tag & UUID_TAG_ASSET_NOPREVIEW)) {
+				/* Due to asynchronous process, a preview for a given image may be generated several times, i.e.
+				 * entry->image may already be set at this point. */
+				if (!(uuid->tag & UUID_TAG_ASSET_NOPREVIEW) && !entry->image) {
 					BLI_assert(uuid->ibuff != NULL && !ELEM(0, uuid->width, uuid->height));
-					BLI_assert(!entry->image);
 
 					entry->image = IMB_allocFromBuffer((unsigned int *)uuid->ibuff, NULL, uuid->width, uuid->height);
 					changed = true;
@@ -2131,18 +2136,27 @@ bool filelist_cache_previews_update(FileList *filelist)
 		}
 
 		/* Remove uuids already processed from list... */
-		int nbr_uuids_new = cache->ae_preview_uuids.nbr_uuids - uuids_done;
-		AssetUUID *uuids_new = MEM_callocN(sizeof(*uuids_new) * nbr_uuids_new, __func__);
-		for (int i = cache->ae_preview_uuids.nbr_uuids, j = nbr_uuids_new; i-- && j--;) {
-			AssetUUID *uuid = &cache->ae_preview_uuids.uuids[i];
-			if (uuid->flag == 0) {
-				BLI_assert(uuid->ibuff == NULL);
-				uuids_new[j] = *uuid;
+		const int nbr_uuids_new = cache->ae_preview_uuids.nbr_uuids - uuids_done;
+		AssetUUID *uuids_new = NULL;
+		if (nbr_uuids_new != 0) {
+			uuids_new = MEM_callocN(sizeof(*uuids_new) * nbr_uuids_new, __func__);
+			for (int i = cache->ae_preview_uuids.nbr_uuids, j = nbr_uuids_new; i-- && j--;) {
+				AssetUUID *uuid = &cache->ae_preview_uuids.uuids[i];
+				if (uuid->flag == 0) {
+					BLI_assert(uuid->ibuff == NULL);
+					uuids_new[j] = *uuid;
+				}
 			}
 		}
 		MEM_freeN(cache->ae_preview_uuids.uuids);
 		cache->ae_preview_uuids.uuids = uuids_new;
 		cache->ae_preview_uuids.nbr_uuids = nbr_uuids_new;
+
+		if (cache->ae_preview_job == AE_JOB_ID_INVALID) {
+			/* Preview task finished at once... */
+			BLI_assert(nbr_uuids_new == 0);
+			cache->ae_preview_job = AE_JOB_ID_UNSET;
+		}
 
 		return changed;
 	}
@@ -2195,7 +2209,7 @@ bool filelist_cache_previews_running(FileList *filelist)
 
 	if (filelist->ae) {
 		return ((cache->ae_preview_job > AE_JOB_ID_UNSET) &&
-		        (filelist->ae->type->status(filelist->ae, cache->ae_preview_job) == AE_STATUS_RUNNING));
+		        (filelist->ae->type->status(filelist->ae, cache->ae_preview_job) & AE_STATUS_RUNNING));
 	}
 	else {
 		return (cache->previews_pool != NULL);

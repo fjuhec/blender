@@ -91,6 +91,10 @@ static void rna_AssetUUID_preview_pixels_set(PointerRNA *ptr, const int *values)
 {
 	AssetUUID *uuid = ptr->data;
 
+	if (!uuid->ibuff) {
+		uuid->ibuff = MEM_mallocN(sizeof(*uuid->ibuff) * 4 * uuid->width * uuid->height, __func__);
+	}
+
 	memcpy(uuid->ibuff, values, uuid->width * uuid->height * sizeof(unsigned int));
 }
 
