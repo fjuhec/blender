@@ -8134,6 +8134,8 @@ static void chamfer_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r
 static int curve_chamfer_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
+	Curve *cu = obedit->data;
+	EditNurb *editnurb = cu->editnurb;
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
 	float distance = RNA_float_get(op->ptr, "distance");
@@ -8159,9 +8161,9 @@ static int curve_chamfer_exec(bContext *C, wmOperator *op)
 			selected_point = i;
 			BKE_nurb_bezierPoints_add(nu, 1);
 
-			memcpy(&nu->bezt[selected_point + 1], &nu->bezt[selected_point], (nu->pntsu - selected_point - 1) * sizeof(BezTriple));
-			memcpy(&nu->bezt[selected_point], bezt1, sizeof(BezTriple));
-			memcpy(&nu->bezt[selected_point + 1], bezt2, sizeof(BezTriple));
+			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], &nu->bezt[selected_point], nu->pntsu - selected_point - 1);
+			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point], bezt1, 1);
+			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], bezt2, 1);
 
 			MEM_freeN(bezt1);
 			MEM_freeN(bezt2);
@@ -8216,6 +8218,8 @@ static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event
 	ED_area_tag_redraw(CTX_wm_area(C));
 	char str[UI_MAX_DRAW_STR];
 	size_t ofs = 0;
+	Curve *cu = obedit->data;
+	EditNurb *editnurb = cu->editnurb;
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
 	BezTriple *bezt, *bezt1, *bezt2, *helper, *original;
@@ -8251,8 +8255,8 @@ static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event
 				bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal2");
 				chamfer_handle(original, bezt1, bezt2, angle, distance);
 
-				memcpy(bezt, bezt1, sizeof(BezTriple));
-				memcpy(&bezt[1], bezt2, sizeof(BezTriple));
+				ED_curve_beztcpy(editnurb, bezt, bezt1, 1);
+				ED_curve_beztcpy(editnurb, &bezt[1], bezt2, 1);
 
 				MEM_freeN(bezt1);
 				MEM_freeN(bezt2);
@@ -8322,6 +8326,8 @@ static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	cd->mouse = mouse;
 
 	Object *obedit = CTX_data_edit_object(C);
+	Curve *cu = obedit->data;
+	EditNurb *editnurb = cu->editnurb;
 	ListBase *nubase = object_editcurve_get(obedit);
 	/* get selected spline */
 	int spline_id = get_selected_spline_id(nubase);
@@ -8346,9 +8352,9 @@ static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *even
 			bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal2");
 			chamfer_handle(bezt, bezt1, bezt2, DEG2RAD(45.0f), 1.0f);
 
-			memcpy(&nu->bezt[i + 1], &nu->bezt[i], (nu->pntsu - i - 1) * sizeof(BezTriple));
-			memcpy(&nu->bezt[i], bezt1, sizeof(BezTriple));
-			memcpy(&nu->bezt[i + 1], bezt2, sizeof(BezTriple));
+			ED_curve_beztcpy(editnurb, &nu->bezt[i + 1], &nu->bezt[i], nu->pntsu - i - 1);
+			ED_curve_beztcpy(editnurb, &nu->bezt[i], bezt1, 1);
+			ED_curve_beztcpy(editnurb, &nu->bezt[i + 1], bezt2, 1);
 
 			MEM_freeN(bezt1);
 			MEM_freeN(bezt2);
@@ -8414,6 +8420,8 @@ static void fillet_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r_
 static int curve_fillet_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
+	Curve *cu = obedit->data;
+	EditNurb *editnurb = cu->editnurb;
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
 	float distance = RNA_float_get(op->ptr, "distance");
@@ -8443,9 +8451,9 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 			selected_point = i;
 			BKE_nurb_bezierPoints_add(nu, 1);
 
-			memcpy(&nu->bezt[selected_point + 1], &nu->bezt[selected_point], (nu->pntsu - selected_point - 1) * sizeof(BezTriple));
-			memcpy(&nu->bezt[selected_point], bezt1, sizeof(BezTriple));
-			memcpy(&nu->bezt[selected_point + 1], bezt2, sizeof(BezTriple));
+			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], &nu->bezt[selected_point], nu->pntsu - selected_point - 1);
+			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point], bezt1, 1);
+			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], bezt2, 1);
 
 			MEM_freeN(bezt1);
 			MEM_freeN(bezt2);
