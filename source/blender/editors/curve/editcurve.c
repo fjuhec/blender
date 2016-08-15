@@ -7527,8 +7527,7 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 
 static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, float *r_v2)
 {
-	/* TODO: when bezt1 and bezt2 are collinear, things go wrong. Extending and the offseting exposes
-	 * 		 the problem */
+	/* TODO: handle type free is fishy */
 	int dims = 3, ret = 1;
 	float *coord_array, *vx, *vy, *helper;
 	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "get_offset_vecs1");
@@ -7544,14 +7543,17 @@ static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, floa
 									  coord_array + j, 12, sizeof(float) * dims);
 	}
 
+	/* first interpolated segment */
 	sub_v3_v3v3(vx, coord_array + 3, coord_array);
+	/* last interpolated segment */
 	sub_v3_v3v3(vy, coord_array + 3 * 12, coord_array + 3 * 11);
 
 	float plane_b_no[3];
 	float plane_a[4], plane_b[4];
 	float isect_co[3];
 	float isect_no[3];
-	sub_v3_v3v3(helper, bezt1->vec[2], bezt1->vec[1]);
+	/* vector that generates the normal plane to the handle */
+	sub_v3_v3v3(helper, bezt1->vec[2], bezt1->vec[0]);
 	cross_v3_v3v3(plane_b_no, helper, vx);
 	plane_from_point_normal_v3(plane_a, bezt1->vec[1], helper);
 	plane_from_point_normal_v3(plane_b, bezt1->vec[1], plane_b_no);
@@ -7568,7 +7570,7 @@ static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, floa
 		copy_v3_v3(r_v1, isect_no);
 	}
 
-	sub_v3_v3v3(helper, bezt2->vec[1], bezt2->vec[0]);
+	sub_v3_v3v3(helper, bezt2->vec[2], bezt2->vec[0]);
 	cross_v3_v3v3(plane_b_no, vy, helper);
 	mul_v3_fl(plane_b_no, -1);
 	plane_from_point_normal_v3(plane_a, bezt2->vec[1], helper);
@@ -7794,8 +7796,9 @@ static Nurb *offset_curve(Nurb *nu, ListBase *UNUSED(nubase), float distance)
 		if (result != 0 && res) {
 			copy_v3_v3(new_bezt->vec[0], v1);
 		}
-
 	}
+
+	BKE_nurb_handles_calc(new_nu);
 
 	MEM_freeN(v0);
 	MEM_freeN(v1);
