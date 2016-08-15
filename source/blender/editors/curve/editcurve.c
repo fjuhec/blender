@@ -8152,7 +8152,7 @@ static int curve_chamfer_exec(bContext *C, wmOperator *op)
 	/* check if handles are vector type! */
 	BezTriple *bezt = nu->bezt, *bezt1, *bezt2, *helper;
 	int selected_point = 0;
-	for (int i = 1; i < nu->pntsu - 1; i++) {
+	for (int i = 1 - nu->flagu; i < nu->pntsu - 1 + nu->flagu; i++) {
 		bezt = &nu->bezt[i];
 		if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
 			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer1");
@@ -8161,9 +8161,14 @@ static int curve_chamfer_exec(bContext *C, wmOperator *op)
 			selected_point = i;
 			BKE_nurb_bezierPoints_add(nu, 1);
 
-			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], &nu->bezt[selected_point], nu->pntsu - selected_point - 1);
-			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point], bezt1, 1);
-			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], bezt2, 1);
+			if (i != nu->pntsu - 1) {
+				ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], &nu->bezt[selected_point], nu->pntsu - selected_point - 1);
+			}
+			/* for these two a keyIndex_addBezt would be useful */
+			//ED_curve_beztcpy(editnurb, &nu->bezt[selected_point], bezt1, 1);
+			//ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], bezt2, 1);
+			memcpy(&nu->bezt[selected_point], bezt1, sizeof(BezTriple));
+			memcpy(&nu->bezt[selected_point + 1], bezt2, sizeof(BezTriple));
 
 			MEM_freeN(bezt1);
 			MEM_freeN(bezt2);
@@ -8171,28 +8176,28 @@ static int curve_chamfer_exec(bContext *C, wmOperator *op)
 			/* set the handles for the first chamfered triple */
 			float v[3];
 			bezt1 = &nu->bezt[selected_point];
-			helper = &nu->bezt[selected_point - 1];
+			helper = &nu->bezt[(nu->pntsu + selected_point - 1) % nu->pntsu];
 			/* left handle */
 			sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
 			mul_v3_fl(v, 0.4 * len_v3(v));
 			copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
 			add_v3_v3(bezt1->vec[0], v);
 			/* right handle */
-			bezt2 = &nu->bezt[selected_point + 1];
+			bezt2 = &nu->bezt[(nu->pntsu + selected_point + 1) % nu->pntsu];
 			sub_v3_v3v3(v, bezt2->vec[1], bezt1->vec[1]);
 			mul_v3_fl(v, 0.4 * len_v3(v));
 			copy_v3_v3(bezt1->vec[2], bezt1->vec[1]);
 			add_v3_v3(bezt1->vec[2], v);
 
 			/* second chamfered triple */
-			helper = &nu->bezt[selected_point + 2];
+			helper = &nu->bezt[(nu->pntsu + selected_point + 2) % nu->pntsu];
 			/* left handle */
 			sub_v3_v3v3(v, bezt1->vec[1], bezt2->vec[1]);
 			mul_v3_fl(v, 0.4 * len_v3(v));
 			copy_v3_v3(bezt2->vec[0], bezt2->vec[1]);
 			add_v3_v3(bezt2->vec[0], v);
 			/* right handle */
-			bezt2 = &nu->bezt[selected_point + 1];
+			bezt2 = &nu->bezt[(nu->pntsu + selected_point + 1) % nu->pntsu];
 			sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
 			mul_v3_fl(v, 0.4 * len_v3(v));
 			copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
@@ -8437,17 +8442,19 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 
 	BezTriple *bezt = nu->bezt, *bezt1, *bezt2, *helper;
 	int selected_point = 0;
-	for (int i = 0; i < nu->pntsu; i++) {
+	for (int i = 1 - nu->flagu; i < nu->pntsu - 1 + nu->flagu; i++) {
 		bezt = &nu->bezt[i];
 		if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
-			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer1");
-			bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer2");
+			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_fillet1");
+			bezt2 = MEM_callocN(sizeof(BezTriple), "curve_fillet2");
 			sub_v3_v3v3(v1, bezt->vec[1], bezt->vec[0]);
 			normalize_v3(v1);
 			sub_v3_v3v3(v2, bezt->vec[1], bezt->vec[2]);
 			normalize_v3(v2);
 			float angle = DEG2RAD(90) - angle_normalized_v3v3(v1, v2) / 2;
 			if (angle < 1.0e-4) {
+				MEM_freeN(bezt1);
+				MEM_freeN(bezt2);
 				BKE_report(op->reports, RPT_ERROR, "Lines cannot be filleted");
 				return OPERATOR_CANCELLED;
 			}
@@ -8455,9 +8462,14 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 			selected_point = i;
 			BKE_nurb_bezierPoints_add(nu, 1);
 
-			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], &nu->bezt[selected_point], nu->pntsu - selected_point - 1);
-			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point], bezt1, 1);
-			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], bezt2, 1);
+			if (i != nu->pntsu - 1) {
+    			ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], &nu->bezt[selected_point], nu->pntsu - selected_point - 1);
+			}
+			/* for these two a keyIndex_addBezt would be useful */
+			//ED_curve_beztcpy(editnurb, &nu->bezt[selected_point], bezt1, 1);
+			//ED_curve_beztcpy(editnurb, &nu->bezt[selected_point + 1], bezt2, 1);
+			memcpy(&nu->bezt[selected_point], bezt1, sizeof(BezTriple));
+			memcpy(&nu->bezt[selected_point + 1], bezt2, sizeof(BezTriple));
 
 			MEM_freeN(bezt1);
 			MEM_freeN(bezt2);
@@ -8465,7 +8477,7 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 			/* set the handles for the first chamfered triple */
 			float v[3];
 			bezt1 = &nu->bezt[selected_point];
-			helper = &nu->bezt[selected_point - 1];
+			helper = &nu->bezt[(nu->pntsu + selected_point - 1) % nu->pntsu];
 			/* left handle */
 			sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
 			mul_v3_fl(v, 0.4 * len_v3(v));
@@ -8473,9 +8485,9 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 			add_v3_v3(bezt1->vec[0], v);
 
 			/* second chamfered triple */
-			helper = &nu->bezt[selected_point + 2];
+			helper = &nu->bezt[(nu->pntsu + selected_point + 2) % nu->pntsu];
 			/* right handle */
-			bezt2 = &nu->bezt[selected_point + 1];
+			bezt2 = &nu->bezt[(nu->pntsu + selected_point + 1) % nu->pntsu];
 			sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
 			mul_v3_fl(v, 0.4 * len_v3(v));
 			copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
