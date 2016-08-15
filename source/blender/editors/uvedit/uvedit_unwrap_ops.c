@@ -758,7 +758,7 @@ void ED_uvedit_overlapping_select(Scene *scene, Object *ob, BMesh *bm, const boo
 	int hparams = set_handle_params(true, false, false, true, true);
 	handle = construct_param_handle(scene, ob, bm, hparams);
 	param_select_overlapping(handle, extend);
-	param_flush(handle);
+	param_flush_sel(handle);
 	param_delete(handle);
 }
 
