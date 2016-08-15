@@ -361,6 +361,7 @@ class IMAGE_MT_uvs(Menu):
 
         layout.separator()
 
+        layout.operator("uv.irregular_pack_islands")
         layout.operator("uv.pack_islands")
         layout.operator("uv.average_islands_scale")
         layout.operator("uv.minimize_stretch")
