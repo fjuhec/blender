@@ -7527,7 +7527,6 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 
 static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, float *r_v2)
 {
-	/* TODO: handle type free is fishy */
 	int dims = 3, ret = 1;
 	float *coord_array, *vx, *vy, *helper;
 	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "get_offset_vecs1");
@@ -7690,8 +7689,8 @@ static Nurb *offset_curve(Nurb *nu, ListBase *UNUSED(nubase), float distance)
 		}
 
 		/* offset direction correction */
-		sub_v3_v3v3(v3, (bezt - 1)->vec[1], (bezt - 1)->vec[2]);
-		sub_v3_v3v3(v4, bezt->vec[1], bezt->vec[0]);
+		sub_v3_v3v3(v3, (bezt - 1)->vec[0], (bezt - 1)->vec[2]);
+		sub_v3_v3v3(v4, bezt->vec[2], bezt->vec[0]);
 		normalize_v3(v3);
 		normalize_v3(v4);
 		/* a criteria is needed for dot == 0 */
@@ -7744,8 +7743,8 @@ static Nurb *offset_curve(Nurb *nu, ListBase *UNUSED(nubase), float distance)
 		add_v3_v3(new_bezt->vec[2], v2);
 	}
 	else {
-		sub_v3_v3v3(v3, (bezt - 1)->vec[1], (bezt - 1)->vec[2]);
-		sub_v3_v3v3(v4, bezt->vec[1], bezt->vec[0]);
+		sub_v3_v3v3(v3, (bezt - 1)->vec[0], (bezt - 1)->vec[2]);
+		sub_v3_v3v3(v4, bezt->vec[2], bezt->vec[0]);
 		normalize_v3(v3);
 		normalize_v3(v4);
 		/* a criteria is needed for dot == 0 */
@@ -8085,6 +8084,12 @@ void CURVE_OT_batch_extend(wmOperatorType *ot)
 
 static void chamfer_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r_new_bezt2, float theta, float d)
 {
+	/* preserve all previous properties */
+	memcpy(r_new_bezt1, bezt, sizeof(BezTriple));
+	memcpy(r_new_bezt2, bezt, sizeof(BezTriple));
+	BEZT_DESEL_ALL(r_new_bezt1);
+	BEZT_DESEL_ALL(r_new_bezt2);
+
 	/* first, get the plane defined by the handle */
 	float v1[3], v2[3], k[3], plane[4], vrot[3], helper[3];
 	copy_v3_v3(v1, bezt->vec[1]);
@@ -8130,8 +8135,6 @@ static void chamfer_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r
 	/* intersect the segments and get the control point for the first handle */
 	result = isect_line_line_v3(bezt->vec[0], bezt->vec[1], p1, p2, ip1, ip1);
 	copy_v3_v3(r_new_bezt1->vec[1], ip1);
-
-	r_new_bezt1->h1 = r_new_bezt2->h1 = r_new_bezt1->h2 = r_new_bezt2->h2 = bezt->h1;
 }
 
 static int curve_chamfer_exec(bContext *C, wmOperator *op)
