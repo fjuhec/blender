@@ -148,6 +148,7 @@ CCL_NAMESPACE_BEGIN
 #define __CAMERA_CLIPPING__
 #define __INTERSECTION_REFINE__
 #define __CLAMP_SAMPLE__
+#define __PATCH_EVAL__
 
 #ifdef __KERNEL_SHADING__
 #  define __SVM__
@@ -196,6 +197,9 @@ CCL_NAMESPACE_BEGIN
 #endif
 #ifdef __NO_BRANCHED_PATH__
 #  undef __BRANCHED_PATH__
+#endif
+#ifdef __NO_PATCH_EVAL__
+#  undef __PATCH_EVAL__
 #endif
 
 /* Random Numbers */
@@ -1266,7 +1270,7 @@ enum RayState {
 /* Patch map node flags */
 
 #define PATCH_MAP_NODE_IS_SET (1 << 30)
-#define PATCH_MAP_NODE_IS_LEAF (1 << 31)
+#define PATCH_MAP_NODE_IS_LEAF (1u << 31)
 #define PATCH_MAP_NODE_INDEX_MASK (~(PATCH_MAP_NODE_IS_SET | PATCH_MAP_NODE_IS_LEAF))
 
 CCL_NAMESPACE_END
