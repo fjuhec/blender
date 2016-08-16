@@ -239,6 +239,7 @@ typedef struct PChart {
 			PPointUV *best_pos;
 			float area, scale;
 			float sa_params[3]; /* 0 = Theta, 1 = r, 2 = f  according to Rotational placement of irregular polygons over containers with fixed dimensions using simulated annealing and no-fit polygons*/
+			int ntris;
 			bool decomposed;
 		} ipack; 
 	} u;
@@ -5007,6 +5008,7 @@ PConvexHull *p_convex_hull_new_tri(const float (*coords)[2])
 	/* get reference vertex */
 	for (i = 0; i < conv_hull->nverts; i++) {
 
+		/* ToDo Saphires: Also fill verts_h, needed for margin support */
 		PPointUV *p = (PPointUV *)MEM_callocN(sizeof(*p), "PPointUV");
 		p->x = coords[i][0];
 		p->y = coords[i][1];
@@ -5370,6 +5372,7 @@ PConvexHull** p_decompose_triangulate_chart(PChart *chart, const float (*hull_po
 	unsigned int(*r_tris)[3] = BLI_array_alloca(r_tris, ntris);
 	float cur_tri[3][2];
 	PConvexHull **chull_tris = (PConvexHull **)MEM_mallocN(sizeof(PConvexHull *) * ntris, "PNFPs");
+	chart->u.ipack.ntris = ntris;
 
 	/* ToDo SaphireS */
 	printf("p_decompose_triangulate_chart!\n");
@@ -5928,9 +5931,10 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 			/* Decompose concave hull into convex hulls and store within chart */
 			chart->u.ipack.tris = p_decompose_triangulate_chart(chart, (const float(*)[2])hullverts, nboundaries);
 			chart->u.ipack.decomposed = true;
+			printf("--chart decomposed into %i tris\n", chart->u.ipack.ntris);
 
 			/* For each convex hull: */
-			for (j = 0; j < chart->nfaces; j++) {
+			for (j = 0; j < chart->u.ipack.ntris; j++) {
 				PConvexHull *hull = chart->u.ipack.tris[j];
 
 				/* Apply margin */
