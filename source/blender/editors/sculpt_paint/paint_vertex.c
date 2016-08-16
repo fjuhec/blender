@@ -1016,8 +1016,6 @@ static float wpaint_blend(VPaint *wp, float weight,
 
 	CLAMP(weight, 0.0f, 1.0f);
 	
-	/* if no spray, clip result with orig weight & orig alpha */
-
 	return weight;
 }
 
@@ -1754,7 +1752,7 @@ static void vertex_paint_init_session_average_arrays(Object *ob){
 	ob->sculpt->totalAlpha = MEM_callocN(totNode * sizeof(unsigned long), "totalAlpha");
 	ob->sculpt->totalWeight = MEM_callocN(totNode * sizeof(double), "totalWeight");
 	ob->sculpt->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
-	ob->sculpt->maxWeight = MEM_callocN(me->totvert * sizeof(float), "previouslyPainted");
+  ob->sculpt->maxWeight = MEM_callocN(me->totvert * sizeof(float), "maxWeight");
 }
 
 /* *************** set wpaint operator ****************** */
@@ -2624,15 +2622,9 @@ static void wpaint_paint_leaves(bContext *C, Object *ob, Sculpt *sd, VPaint *vp,
 
 	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {
-		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
+		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes, .vp = vp, .wpd = wpd, .wpi = wpi, .me = me, .C = C,
 	};
 
-	data.vp = vp;
-	data.wpd = wpd;
-	data.wpi = wpi;
-	data.lcol = (unsigned int*)me->mloopcol;
-	data.me = me;
-	data.C = C;
 	switch (brush->vertexpaint_tool) {
 		case PAINT_BLEND_AVERAGE:
 			calculate_average_weight(&data, nodes, totnode);
@@ -2677,7 +2669,8 @@ static void wpaint_do_paint(
 		MEM_freeN(nodes);
 }
 
-static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, Brush *brush, const char symm, const int axis)
+static void wpaint_do_radial_symmetry(bContext *C, Object *ob, VPaint *wp, Sculpt *sd, WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me, 
+  Brush *brush, const char symm, const int axis)
 {
 	for (int i = 1; i < wp->radial_symm[axis - 'X']; ++i) {
 		const float angle = (2.0 * M_PI) * i / wp->radial_symm[axis - 'X'];
@@ -3275,20 +3268,18 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	data->ob->sculpt->totalAlpha[n] = blend[3];
 }
 
-static void handle_texture_brush(Brush *brush, SculptThreadedTaskData *data, PBVHVertexIter vd, float *alpha, unsigned int* actualColor){
-	Scene *scene = CTX_data_scene(data->C);
+static void handle_texture_brush(Scene *scene, Brush *brush, SculptThreadedTaskData *data, PBVHVertexIter vd, 
+  float *alpha, unsigned int* actualColor, float size_pressure, float alpha_pressure)
+{
 	SculptSession *ss = data->ob->sculpt;
 	ViewContext *vc = &data->vpd->vc;
 	int vertexIndex = vd.vert_indices[vd.i];
-	const float brush_size_pressure =
-		BKE_brush_size_get(scene, brush) * (BKE_brush_use_size_pressure(scene, brush) ? ss->cache->pressure : 1.0f);
-	const float brush_alpha_value = BKE_brush_alpha_get(scene, brush);
-	const float brush_alpha_pressure = brush_alpha_value * (BKE_brush_use_alpha_pressure(scene, brush) ? ss->cache->pressure : 1.0f);
+
 	float rgba[4];
 	float rgba_br[3];
 
 	*alpha = calc_vp_alpha_col_dl(data->vp, &data->vpd->vc, data->vpd->vpimat,
-			&data->vpd->vertexcosnos[vertexIndex], ss->cache->mouse, brush_size_pressure, brush_alpha_pressure, rgba);
+    &data->vpd->vertexcosnos[vertexIndex], ss->cache->mouse, size_pressure, alpha_pressure, rgba);
 	rgb_uchar_to_float(rgba_br, (const unsigned char *)&data->vpd->paintcol);
 	mul_v3_v3(rgba_br, rgba);
 	rgb_float_to_uchar((unsigned char *)actualColor, rgba_br);
@@ -3304,6 +3295,12 @@ static void do_vpaint_brush_draw_task_cb_ex(
   const float bstrength = cache->bstrength;
   unsigned int *lcol = data->lcol;
   unsigned int *lcolorig = data->vp->vpaint_prev;
+  Scene *scene = CTX_data_scene(data->C);
+  const float brush_size_pressure = 
+    BKE_brush_size_get(scene, brush) * (BKE_brush_use_size_pressure(scene, brush) ? ss->cache->pressure : 1.0f);
+  const float brush_alpha_value = BKE_brush_alpha_get(scene, brush);
+  const float brush_alpha_pressure = 
+    brush_alpha_value * (BKE_brush_use_alpha_pressure(scene, brush) ? ss->cache->pressure : 1.0f);
 
   //for each vertex
   PBVHVertexIter vd;
@@ -3319,41 +3316,18 @@ static void do_vpaint_brush_draw_task_cb_ex(
       const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
       unsigned int actualColor = data->vpd->paintcol;
 
-#if 0
-      ////Spray logic
-      //if (!(data->vp->flag & VP_SPRAY)) {
-      //  //since float and uint both use 4 bytes, we just recycle weight paintings max weight for spray mode support.
-      //  if (ss->maxWeight[vertexIndex] < 0.0) 
-      //    *(ss->maxWeight + vertexIndex) = mcol_blend(data->vpd->paintcol, lcol[vertexIndex], bstrength);
-      //  actualColor = *(ss->maxWeight + vertexIndex);// ss->maxWeight[vertexIndex];
-      //  printf("0x%08x\n", actualColor);
-      //  printf("0x%08x\n", mcol_blend(lcol[vertexIndex], data->vpd->paintcol, bstrength));
-      //  
-      //  /*
-      //  unsigned char* brushcol = &data->vpd->paintcol;
-      //  unsigned char* maxcol = &ss->maxWeight[vertexIndex];
-      //  unsigned char col[4];
-      //  col[0] = brushcol[0];
-      //  col[1] = brushcol[1];
-      //  col[2] = brushcol[2];
-
-      //  CLAMP(col[0], 0.0, maxcol[0]);
-      //  CLAMP(col[1], 0.0, maxcol[1]);
-      //  CLAMP(col[2], 0.0, maxcol[2]);
-      //  col[3] = 255;
-      //  actualColor = *(unsigned int*)col;*/
-      //}
-#endif
       float alpha = 1.0;
       if (data->vpd->is_texbrush) {
-        handle_texture_brush(brush, data, vd, &alpha, &actualColor);
+        handle_texture_brush(scene, brush, data, vd, &alpha, &actualColor, brush_size_pressure, brush_alpha_pressure);
       }
+
       if (dot > 0.0)
         //if a vertex is within the brush region, then paint each loop that vertex owns.
         for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
           int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
           //Mix the new color with the original based on the brush strength and the curve.
-          lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], actualColor, 255.0 * fade * bstrength * dot * alpha, 255.0);
+          lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], actualColor, 
+                                         255 * fade * bstrength * dot * alpha, brush_alpha_pressure * 255);
         }
     }
     BKE_pbvh_vertex_iter_end;
@@ -3534,16 +3508,10 @@ static void vpaint_paint_leaves(bContext *C, Sculpt *sd, VPaint *vp, VPaintData 
 {
 	Brush *brush = ob->sculpt->cache->brush;
 
-	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {
-		.sd = sd, .ob = ob, .brush = brush, .nodes = nodes,
+    .sd = sd, .ob = ob, .brush = brush, .nodes = nodes, .vp = vp, .vpd = vpd, .lcol = (unsigned int*)me->mloopcol, .me = me, .C = C,
 	};
 
-	data.vp = vp;
-	data.vpd = vpd;
-	data.lcol = (unsigned int*)me->mloopcol;
-	data.me = me;
-	data.C = C;
 	switch (brush->vertexpaint_tool) {
 		case PAINT_BLEND_AVERAGE:
 			calculate_average_color(&data, nodes, totnode);
@@ -3647,7 +3615,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	VPaint *vp = ts->vpaint;
 	ViewContext *vc = &vpd->vc;
 	Object *ob = vc->obact;
-
+  printf("%d\n", vp->flag);
 	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 
 	vwpaint_update_cache_variants(C, vp, ob, itemptr);
@@ -3684,6 +3652,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		/* If using new VBO drawing, mark mcol as dirty to force colors gpu buffer refresh! */
 		ob->derivedFinal->dirty |= DM_DIRTY_MCOL_UPDATE_DRAW;
 	}
+
 }
 
 static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
