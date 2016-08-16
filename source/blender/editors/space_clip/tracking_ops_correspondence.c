@@ -223,23 +223,18 @@ static bool solve_multiview_initjob(bContext *C,
 	smj->clips = MEM_callocN(smj->clip_num * sizeof(MovieClip*), "multiview clip pointers");
 	smj->clips[0] = clip;
 
-	/* do multi-view reconstruction
-	 * TODO(tianwei): it cannot count clip other than primary and secondary clips.
-	 * */
-	//if (smj->clip_num > 1) {
-	//	int count = 1;		// witness cameras start from 1
-	//	for (ScrArea *sa = window->screen->areabase.first; sa != NULL; sa = sa->next) {
-	//		if (sa->spacetype == SPACE_CLIP) {
-	//			SpaceClip *other_sc = sa->spacedata.first;
-	//			if (other_sc != sc && other_sc->view == SC_VIEW_CLIP) {
-	//				MovieClip *other_clip;
-	//				other_clip = ED_space_clip_get_clip(other_sc);
-	//				smj->clips[count++] = other_clip;
-	//			}
-	//		}
-	//	}
-	//}
-	smj->clips[1] = ED_space_clip_get_secondary_clip(sc);
+	/* do multi-view reconstruction, fill in witness clips from Main.movieclip */
+	int mc_counter = 1;
+	for (Link *link = main->movieclip.first;
+	     link != NULL;
+	     link = link->next)
+	{
+		MovieClip *mc_link = (MovieClip*) link;
+		if (mc_link != smj->clips[0]) {
+			smj->clips[mc_counter++] = mc_link;
+		}
+	}
+	BLI_assert(mc_counter == smj->clip_num);
 
 	if (!BKE_tracking_multiview_reconstruction_check(smj->clips,
 	                                                 object,
