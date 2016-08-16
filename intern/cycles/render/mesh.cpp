@@ -30,6 +30,9 @@
 
 #include "osl_globals.h"
 
+#include "subd_split.h"
+#include "subd_patch_table.h"
+
 #include "util_foreach.h"
 #include "util_logging.h"
 #include "util_progress.h"
@@ -112,18 +115,11 @@ float3 Mesh::SubdFace::normal(const Mesh *mesh) const
 	return safe_normalize(cross(v1 - v0, v2 - v0));
 }
 
-
 /* Mesh */
 
 NODE_DEFINE(Mesh)
 {
 	NodeType* type = NodeType::add("mesh", create);
-
-	static NodeEnum displacement_method_enum;
-	displacement_method_enum.insert("bump", DISPLACE_BUMP);
-	displacement_method_enum.insert("true", DISPLACE_TRUE);
-	displacement_method_enum.insert("both", DISPLACE_BOTH);
-	SOCKET_ENUM(displacement_method, "Displacement Method", displacement_method_enum, DISPLACE_BUMP);
 
 	SOCKET_UINT(motion_steps, "Motion Steps", 3);
 	SOCKET_BOOLEAN(use_motion_blur, "Use Motion Blur", false);
@@ -177,11 +173,16 @@ Mesh::Mesh()
 	num_ngons = 0;
 
 	subdivision_type = SUBDIVISION_NONE;
+	subd_params = NULL;
+
+	patch_table = NULL;
 }
 
 Mesh::~Mesh()
 {
 	delete bvh;
+	delete patch_table;
+	delete subd_params;
 }
 
 void Mesh::resize_mesh(int numverts, int numtris)
@@ -274,6 +275,8 @@ void Mesh::clear()
 
 	num_subd_verts = 0;
 
+	subd_creases.clear();
+
 	attributes.clear();
 	curve_attributes.clear();
 	subd_attributes.clear();
@@ -283,6 +286,9 @@ void Mesh::clear()
 	transform_negative_scaled = false;
 	transform_normal = transform_identity();
 	geometry_flags = GEOMETRY_NONE;
+
+	delete patch_table;
+	patch_table = NULL;
 }
 
 int Mesh::split_vertex(int vertex)
@@ -705,7 +711,6 @@ void Mesh::pack_patches(uint *patch_data, uint vert_offset, uint face_offset, ui
 	}
 }
 
-
 void Mesh::compute_bvh(DeviceScene *dscene,
                        SceneParams *params,
                        Progress *progress,
@@ -779,6 +784,17 @@ bool Mesh::has_motion_blur() const
 	         curve_attributes.find(ATTR_STD_MOTION_VERTEX_POSITION)));
 }
 
+bool Mesh::has_true_displacement() const
+{
+	foreach(Shader *shader, used_shaders) {
+		if(shader->has_displacement && shader->displacement_method != DISPLACE_BUMP) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool Mesh::need_build_bvh() const
 {
 	return !transform_applied || has_surface_bssrdf;
@@ -831,9 +847,10 @@ void MeshManager::update_osl_attributes(Device *device, Scene *scene, vector<Att
 			OSLGlobals::Attribute osl_attr;
 
 			osl_attr.type = attr.type();
-			osl_attr.elem = ATTR_ELEMENT_OBJECT;
+			osl_attr.desc.element = ATTR_ELEMENT_OBJECT;
 			osl_attr.value = attr;
-			osl_attr.offset = 0;
+			osl_attr.desc.offset = 0;
+			osl_attr.desc.flags = 0;
 
 			og->attribute_map[i*ATTR_PRIM_TYPES + ATTR_PRIM_TRIANGLE][attr.name()] = osl_attr;
 			og->attribute_map[i*ATTR_PRIM_TYPES + ATTR_PRIM_CURVE][attr.name()] = osl_attr;
@@ -853,9 +870,8 @@ void MeshManager::update_osl_attributes(Device *device, Scene *scene, vector<Att
 		foreach(AttributeRequest& req, attributes.requests) {
 			OSLGlobals::Attribute osl_attr;
 
-			if(req.triangle_element != ATTR_ELEMENT_NONE) {
-				osl_attr.elem = req.triangle_element;
-				osl_attr.offset = req.triangle_offset;
+			if(req.triangle_desc.element != ATTR_ELEMENT_NONE) {
+				osl_attr.desc = req.triangle_desc;
 
 				if(req.triangle_type == TypeDesc::TypeFloat)
 					osl_attr.type = TypeDesc::TypeFloat;
@@ -875,9 +891,8 @@ void MeshManager::update_osl_attributes(Device *device, Scene *scene, vector<Att
 				}
 			}
 
-			if(req.curve_element != ATTR_ELEMENT_NONE) {
-				osl_attr.elem = req.curve_element;
-				osl_attr.offset = req.curve_offset;
+			if(req.curve_desc.element != ATTR_ELEMENT_NONE) {
+				osl_attr.desc = req.curve_desc;
 
 				if(req.curve_type == TypeDesc::TypeFloat)
 					osl_attr.type = TypeDesc::TypeFloat;
@@ -897,9 +912,8 @@ void MeshManager::update_osl_attributes(Device *device, Scene *scene, vector<Att
 				}
 			}
 
-			if(req.subd_element != ATTR_ELEMENT_NONE) {
-				osl_attr.elem = req.subd_element;
-				osl_attr.offset = req.subd_offset;
+			if(req.subd_desc.element != ATTR_ELEMENT_NONE) {
+				osl_attr.desc = req.subd_desc;
 
 				if(req.subd_type == TypeDesc::TypeFloat)
 					osl_attr.type = TypeDesc::TypeFloat;
@@ -971,8 +985,8 @@ void MeshManager::update_svm_attributes(Device *device, DeviceScene *dscene, Sce
 
 			if(mesh->num_triangles()) {
 				attr_map[index].x = id;
-				attr_map[index].y = req.triangle_element;
-				attr_map[index].z = as_uint(req.triangle_offset);
+				attr_map[index].y = req.triangle_desc.element;
+				attr_map[index].z = as_uint(req.triangle_desc.offset);
 
 				if(req.triangle_type == TypeDesc::TypeFloat)
 					attr_map[index].w = NODE_ATTR_FLOAT;
@@ -980,14 +994,16 @@ void MeshManager::update_svm_attributes(Device *device, DeviceScene *dscene, Sce
 					attr_map[index].w = NODE_ATTR_MATRIX;
 				else
 					attr_map[index].w = NODE_ATTR_FLOAT3;
+
+				attr_map[index].w |= req.triangle_desc.flags << 8;
 			}
 
 			index++;
 
 			if(mesh->num_curves()) {
 				attr_map[index].x = id;
-				attr_map[index].y = req.curve_element;
-				attr_map[index].z = as_uint(req.curve_offset);
+				attr_map[index].y = req.curve_desc.element;
+				attr_map[index].z = as_uint(req.curve_desc.offset);
 
 				if(req.curve_type == TypeDesc::TypeFloat)
 					attr_map[index].w = NODE_ATTR_FLOAT;
@@ -995,14 +1011,16 @@ void MeshManager::update_svm_attributes(Device *device, DeviceScene *dscene, Sce
 					attr_map[index].w = NODE_ATTR_MATRIX;
 				else
 					attr_map[index].w = NODE_ATTR_FLOAT3;
+
+				attr_map[index].w |= req.curve_desc.flags << 8;
 			}
 
 			index++;
 
 			if(mesh->subd_faces.size()) {
 				attr_map[index].x = id;
-				attr_map[index].y = req.subd_element;
-				attr_map[index].z = as_uint(req.subd_offset);
+				attr_map[index].y = req.subd_desc.element;
+				attr_map[index].z = as_uint(req.subd_desc.offset);
 
 				if(req.subd_type == TypeDesc::TypeFloat)
 					attr_map[index].w = NODE_ATTR_FLOAT;
@@ -1010,6 +1028,8 @@ void MeshManager::update_svm_attributes(Device *device, DeviceScene *dscene, Sce
 					attr_map[index].w = NODE_ATTR_MATRIX;
 				else
 					attr_map[index].w = NODE_ATTR_FLOAT3;
+
+				attr_map[index].w |= req.subd_desc.flags << 8;
 			}
 
 			index++;
@@ -1069,16 +1089,19 @@ static void update_attribute_element_offset(Mesh *mesh,
                                             Attribute *mattr,
                                             AttributePrimitive prim,
                                             TypeDesc& type,
-                                            int& offset,
-                                            AttributeElement& element)
+                                            AttributeDescriptor& desc)
 {
 	if(mattr) {
 		/* store element and type */
-		element = mattr->element;
+		desc.element = mattr->element;
+		desc.flags = mattr->flags;
 		type = mattr->type;
 
 		/* store attribute data in arrays */
 		size_t size = mattr->element_size(mesh, prim);
+
+		AttributeElement& element = desc.element;
+		int& offset = desc.offset;
 
 		if(mattr->element == ATTR_ELEMENT_VOXEL) {
 			/* store slot in offset value */
@@ -1128,7 +1151,11 @@ static void update_attribute_element_offset(Mesh *mesh,
 
 		/* mesh vertex/curve index is global, not per object, so we sneak
 		 * a correction for that in here */
-		if(element == ATTR_ELEMENT_VERTEX)
+		if(mesh->subdivision_type == Mesh::SUBDIVISION_CATMULL_CLARK && desc.flags & ATTR_SUBDIVIDED) {
+			/* indices for subdivided attributes are retrieved
+			 * from patch table so no need for correction here*/
+		}
+		else if(element == ATTR_ELEMENT_VERTEX)
 			offset -= mesh->vert_offset;
 		else if(element == ATTR_ELEMENT_VERTEX_MOTION)
 			offset -= mesh->vert_offset;
@@ -1153,8 +1180,8 @@ static void update_attribute_element_offset(Mesh *mesh,
 	}
 	else {
 		/* attribute not found */
-		element = ATTR_ELEMENT_NONE;
-		offset = 0;
+		desc.element = ATTR_ELEMENT_NONE;
+		desc.offset = 0;
 	}
 }
 
@@ -1243,8 +1270,7 @@ void MeshManager::device_update_attributes(Device *device, DeviceScene *dscene, 
 			                                triangle_mattr,
 			                                ATTR_PRIM_TRIANGLE,
 			                                req.triangle_type,
-			                                req.triangle_offset,
-			                                req.triangle_element);
+			                                req.triangle_desc);
 
 			update_attribute_element_offset(mesh,
 			                                attr_float, attr_float_offset,
@@ -1253,8 +1279,7 @@ void MeshManager::device_update_attributes(Device *device, DeviceScene *dscene, 
 			                                curve_mattr,
 			                                ATTR_PRIM_CURVE,
 			                                req.curve_type,
-			                                req.curve_offset,
-			                                req.curve_element);
+			                                req.curve_desc);
 
 			update_attribute_element_offset(mesh,
 			                                attr_float, attr_float_offset,
@@ -1263,8 +1288,7 @@ void MeshManager::device_update_attributes(Device *device, DeviceScene *dscene, 
 			                                subd_mattr,
 			                                ATTR_PRIM_SUBD,
 			                                req.subd_type,
-			                                req.subd_offset,
-			                                req.subd_element);
+			                                req.subd_desc);
 
 			if(progress.get_cancel()) return;
 		}
@@ -1327,6 +1351,12 @@ void MeshManager::mesh_calc_offset(Scene *scene)
 		if(mesh->subd_faces.size()) {
 			Mesh::SubdFace& last = mesh->subd_faces[mesh->subd_faces.size()-1];
 			patch_size += (last.ptex_offset + last.num_ptex_faces()) * 8;
+
+			/* patch tables are stored in same array so include them in patch_size */
+			if(mesh->patch_table) {
+				mesh->patch_table_offset = patch_size;
+				patch_size += mesh->patch_table->total_size();
+			}
 		}
 		face_size += mesh->subd_faces.size();
 		corner_size += mesh->subd_face_corners.size();
@@ -1358,6 +1388,12 @@ void MeshManager::device_update_mesh(Device *device,
 		if(mesh->subd_faces.size()) {
 			Mesh::SubdFace& last = mesh->subd_faces[mesh->subd_faces.size()-1];
 			patch_size += (last.ptex_offset + last.num_ptex_faces()) * 8;
+
+			/* patch tables are stored in same array so include them in patch_size */
+			if(mesh->patch_table) {
+				mesh->patch_table_offset = patch_size;
+				patch_size += mesh->patch_table->total_size();
+			}
 		}
 	}
 
@@ -1440,6 +1476,11 @@ void MeshManager::device_update_mesh(Device *device,
 
 		foreach(Mesh *mesh, scene->meshes) {
 			mesh->pack_patches(&patch_data[mesh->patch_offset], mesh->vert_offset, mesh->face_offset, mesh->corner_offset);
+
+			if(mesh->patch_table) {
+				mesh->patch_table->copy_adjusting_offsets(&patch_data[mesh->patch_table_offset], mesh->patch_table_offset);
+			}
+
 			if(progress.get_cancel()) return;
 		}
 
@@ -1621,12 +1662,48 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 		}
 	}
 
+	/* Tessellate meshes that are using subdivision */
+	size_t total_tess_needed = 0;
+	foreach(Mesh *mesh, scene->meshes) {
+		if(mesh->need_update &&
+		   mesh->subdivision_type != Mesh::SUBDIVISION_NONE &&
+		   mesh->num_subd_verts == 0 &&
+		   mesh->subd_params)
+		{
+			total_tess_needed++;
+		}
+	}
+
+	size_t i = 0;
+	foreach(Mesh *mesh, scene->meshes) {
+		if(mesh->need_update &&
+		   mesh->subdivision_type != Mesh::SUBDIVISION_NONE &&
+		   mesh->num_subd_verts == 0 &&
+		   mesh->subd_params)
+		{
+			string msg = "Tessellating ";
+			if(mesh->name == "")
+				msg += string_printf("%u/%u", (uint)(i+1), (uint)total_tess_needed);
+			else
+				msg += string_printf("%s %u/%u", mesh->name.c_str(), (uint)(i+1), (uint)total_tess_needed);
+
+			progress.set_status("Updating Mesh", msg);
+
+			DiagSplit dsplit(*mesh->subd_params);
+			mesh->tessellate(&dsplit);
+
+			i++;
+
+			if(progress.get_cancel()) return;
+		}
+	}
+
 	/* Update images needed for true displacement. */
 	bool true_displacement_used = false;
 	bool old_need_object_flags_update = false;
 	foreach(Mesh *mesh, scene->meshes) {
 		if(mesh->need_update &&
-		   mesh->displacement_method != Mesh::DISPLACE_BUMP)
+		   mesh->has_true_displacement())
 		{
 			true_displacement_used = true;
 			break;
@@ -1651,6 +1728,10 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 		device_update_mesh(device, dscene, scene, true, progress);
 	}
 	if(progress.get_cancel()) return;
+
+	/* after mesh data has been copied to device memory we need to update
+	 * offsets for patch tables as this can't be known before hand */
+	scene->object_manager->device_update_patch_map_offsets(device, dscene, scene);
 
 	device_update_attributes(device, dscene, scene, progress);
 	if(progress.get_cancel()) return;
@@ -1677,7 +1758,7 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 	}
 
 	/* Update bvh. */
-	size_t i = 0, num_bvh = 0;
+	size_t num_bvh = 0;
 	foreach(Mesh *mesh, scene->meshes) {
 		if(mesh->need_update && mesh->need_build_bvh()) {
 			num_bvh++;
@@ -1686,6 +1767,7 @@ void MeshManager::device_update(Device *device, DeviceScene *dscene, Scene *scen
 
 	TaskPool pool;
 
+	i = 0;
 	foreach(Mesh *mesh, scene->meshes) {
 		if(mesh->need_update) {
 			pool.push(function_bind(&Mesh::compute_bvh,
