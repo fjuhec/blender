@@ -99,12 +99,12 @@ ccl_device void svm_node_tex_coord(KernelGlobals *kg,
 	stack_store_float3(stack, out_offset, data);
 }
 
-ccl_device_inline void svm_node_tex_coord_bump_dx(KernelGlobals *kg,
-                                                  ShaderData *sd,
-                                                  int path_flag,
-                                                  float *stack,
-                                                  uint4 node,
-                                                  int *offset)
+ccl_device void svm_node_tex_coord_bump_dx(KernelGlobals *kg,
+                                           ShaderData *sd,
+                                           int path_flag,
+                                           float *stack,
+                                           uint4 node,
+                                           int *offset)
 {
 #ifdef __RAY_DIFFERENTIALS__
 	float3 data;
@@ -184,12 +184,12 @@ ccl_device_inline void svm_node_tex_coord_bump_dx(KernelGlobals *kg,
 #endif
 }
 
-ccl_device_inline void svm_node_tex_coord_bump_dy(KernelGlobals *kg,
-                                                  ShaderData *sd,
-                                                  int path_flag,
-                                                  float *stack,
-                                                  uint4 node,
-                                                  int *offset)
+ccl_device void svm_node_tex_coord_bump_dy(KernelGlobals *kg,
+                                           ShaderData *sd,
+                                           int path_flag,
+                                           float *stack,
+                                           uint4 node,
+                                           int *offset)
 {
 #ifdef __RAY_DIFFERENTIALS__
 	float3 data;
@@ -287,10 +287,9 @@ ccl_device void svm_node_normal_map(KernelGlobals *kg, ShaderData *sd, float *st
 		}
 
 		/* first try to get tangent attribute */
-		AttributeDescriptor attr, attr_sign, attr_normal;
-		find_attribute(kg, sd, node.z, &attr);
-		find_attribute(kg, sd, node.w, &attr_sign);
-		find_attribute(kg, sd, ATTR_STD_VERTEX_NORMAL, &attr_normal);
+		const AttributeDescriptor attr = find_attribute(kg, sd, node.z);
+		const AttributeDescriptor attr_sign = find_attribute(kg, sd, node.w);
+		const AttributeDescriptor attr_normal = find_attribute(kg, sd, ATTR_STD_VERTEX_NORMAL);
 
 		if(attr.offset == ATTR_STD_NOT_FOUND || attr_sign.offset == ATTR_STD_NOT_FOUND || attr_normal.offset == ATTR_STD_NOT_FOUND) {
 			stack_store_float3(stack, normal_offset, make_float3(0.0f, 0.0f, 0.0f));
@@ -298,12 +297,12 @@ ccl_device void svm_node_normal_map(KernelGlobals *kg, ShaderData *sd, float *st
 		}
 
 		/* get _unnormalized_ interpolated normal and tangent */
-		float3 tangent = primitive_attribute_float3(kg, sd, &attr, NULL, NULL);
-		float sign = primitive_attribute_float(kg, sd, &attr_sign, NULL, NULL);
+		float3 tangent = primitive_attribute_float3(kg, sd, attr, NULL, NULL);
+		float sign = primitive_attribute_float(kg, sd, attr_sign, NULL, NULL);
 		float3 normal;
 
 		if(ccl_fetch(sd, shader) & SHADER_SMOOTH_NORMAL) {
-			normal = primitive_attribute_float3(kg, sd, &attr_normal, NULL, NULL);
+			normal = primitive_attribute_float3(kg, sd, attr_normal, NULL, NULL);
 		}
 		else {
 			normal = ccl_fetch(sd, Ng);
@@ -356,24 +355,22 @@ ccl_device void svm_node_tangent(KernelGlobals *kg, ShaderData *sd, float *stack
 
 	if(direction_type == NODE_TANGENT_UVMAP) {
 		/* UV map */
-		AttributeDescriptor desc;
-		find_attribute(kg, sd, node.z, &desc);
+		const AttributeDescriptor desc = find_attribute(kg, sd, node.z);
 
 		if(desc.offset == ATTR_STD_NOT_FOUND)
 			tangent = make_float3(0.0f, 0.0f, 0.0f);
 		else
-			tangent = primitive_attribute_float3(kg, sd, &desc, NULL, NULL);
+			tangent = primitive_attribute_float3(kg, sd, desc, NULL, NULL);
 	}
 	else {
 		/* radial */
-		AttributeDescriptor desc;
-		find_attribute(kg, sd, node.z, &desc);
+		const AttributeDescriptor desc = find_attribute(kg, sd, node.z);
 		float3 generated;
 
 		if(desc.offset == ATTR_STD_NOT_FOUND)
 			generated = ccl_fetch(sd, P);
 		else
-			generated = primitive_attribute_float3(kg, sd, &desc, NULL, NULL);
+			generated = primitive_attribute_float3(kg, sd, desc, NULL, NULL);
 
 		if(axis == NODE_TANGENT_AXIS_X)
 			tangent = make_float3(0.0f, -(generated.z - 0.5f), (generated.y - 0.5f));

@@ -67,9 +67,9 @@ static VolumeInterpolation get_volume_interpolation(PointerRNA& ptr)
 static DisplacementMethod get_displacement_method(PointerRNA& ptr)
 {
 	return (DisplacementMethod)get_enum(ptr,
-	                                     "displacement_method",
-	                                     DISPLACE_NUM_METHODS,
-	                                     DISPLACE_BUMP);
+	                                    "displacement_method",
+	                                    DISPLACE_NUM_METHODS,
+	                                    DISPLACE_BUMP);
 }
 
 static int validate_enum_value(int value, int num_values, int default_value)
@@ -845,8 +845,10 @@ static ShaderNode *add_node(Scene *scene,
 		}
 	}
 
-	if(node)
+	if(node) {
+		node->name = b_node.name();
 		graph->add(node);
+	}
 
 	return node;
 }

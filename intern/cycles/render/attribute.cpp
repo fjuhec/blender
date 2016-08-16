@@ -62,7 +62,8 @@ void Attribute::resize(Mesh *mesh, AttributePrimitive prim, bool reserve_only)
 	}
 }
 
-void Attribute::resize(size_t num_elements) {
+void Attribute::resize(size_t num_elements)
+{
 	buffer.resize(num_elements * data_sizeof(), 0);
 }
 
@@ -140,7 +141,7 @@ size_t Attribute::element_size(Mesh *mesh, AttributePrimitive prim) const
 	}
 
 	size_t size;
-	
+
 	switch(element) {
 		case ATTR_ELEMENT_OBJECT:
 		case ATTR_ELEMENT_MESH:
@@ -528,14 +529,17 @@ AttributeRequest::AttributeRequest(ustring name_)
 	triangle_type = TypeDesc::TypeFloat;
 	triangle_desc.element = ATTR_ELEMENT_NONE;
 	triangle_desc.offset = 0;
+	triangle_desc.type = NODE_ATTR_FLOAT;
 
 	curve_type = TypeDesc::TypeFloat;
 	curve_desc.element = ATTR_ELEMENT_NONE;
 	curve_desc.offset = 0;
+	curve_desc.type = NODE_ATTR_FLOAT;
 
 	subd_type = TypeDesc::TypeFloat;
 	subd_desc.element = ATTR_ELEMENT_NONE;
 	subd_desc.offset = 0;
+	subd_desc.type = NODE_ATTR_FLOAT;
 }
 
 AttributeRequest::AttributeRequest(AttributeStandard std_)
@@ -546,14 +550,17 @@ AttributeRequest::AttributeRequest(AttributeStandard std_)
 	triangle_type = TypeDesc::TypeFloat;
 	triangle_desc.element = ATTR_ELEMENT_NONE;
 	triangle_desc.offset = 0;
+	triangle_desc.type = NODE_ATTR_FLOAT;
 
 	curve_type = TypeDesc::TypeFloat;
 	curve_desc.element = ATTR_ELEMENT_NONE;
 	curve_desc.offset = 0;
+	curve_desc.type = NODE_ATTR_FLOAT;
 
 	subd_type = TypeDesc::TypeFloat;
 	subd_desc.element = ATTR_ELEMENT_NONE;
 	subd_desc.offset = 0;
+	subd_desc.type = NODE_ATTR_FLOAT;
 }
 
 /* AttributeRequestSet */
