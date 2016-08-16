@@ -37,7 +37,7 @@ CCL_NAMESPACE_BEGIN
 
 typedef ccl_addr_space struct MicrofacetExtra {
 	float3 color, cspec0;
-	bool use_fresnel, is_disney_clearcoat;
+	bool use_fresnel, is_disney_clearcoat, initial_outside, only_refractions, only_reflections;
 } MicrofacetExtra;
 
 typedef ccl_addr_space struct MicrofacetBsdf {
@@ -410,7 +410,7 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 		float3 F = make_float3(1.0f, 1.0f, 1.0f);
 		if (bsdf->extra) {
 			if (bsdf->extra->use_fresnel) {
-				float FH = schlick_fresnel(dot(omega_in, m));
+				float FH = fresnel_dielectric_cos(dot(omega_in, m), bsdf->ior);
 
 				F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 			}
@@ -485,7 +485,7 @@ ccl_device float3 bsdf_microfacet_ggx_eval_transmit(const ShaderClosure *sc, con
 	float3 F = make_float3(1.0f, 1.0f, 1.0f);
 	if (bsdf->extra) {
 		if (bsdf->extra->use_fresnel) {
-			float FH = schlick_fresnel(dot(omega_in, Ht));
+			float FH = fresnel_dielectric_cos(dot(omega_in, Ht), bsdf->ior);
 
 			F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 		}
@@ -599,7 +599,7 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 						float3 F = make_float3(1.0f, 1.0f, 1.0f);
 						if (bsdf->extra) {
 							if (bsdf->extra->use_fresnel) {
-								float FH = schlick_fresnel(dot(*omega_in, m));
+								float FH = fresnel_dielectric_cos(dot(*omega_in, m), bsdf->ior);
 
 								F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 							}
@@ -670,7 +670,7 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 					float3 F = make_float3(1.0f, 1.0f, 1.0f);
 					if (bsdf->extra) {
 						if (bsdf->extra->use_fresnel) {
-							float FH = schlick_fresnel(dot(*omega_in, m));
+							float FH = fresnel_dielectric_cos(dot(*omega_in, m), bsdf->ior);
 
 							F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
 						}

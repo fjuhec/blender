@@ -95,6 +95,7 @@ ccl_device_inline int bsdf_sample(KernelGlobals *kg,
 			label = bsdf_microfacet_ggx_sample(kg, sc, ccl_fetch(sd, Ng), ccl_fetch(sd, I), ccl_fetch(sd, dI).dx, ccl_fetch(sd, dI).dy, randu, randv,
 				eval, omega_in, &domega_in->dx, &domega_in->dy, pdf);
 			break;
+		case CLOSURE_BSDF_MICROFACET_MULTI_GGX_REFRACTION_ID:
 		case CLOSURE_BSDF_MICROFACET_MULTI_GGX_ID:
 			label = bsdf_microfacet_multi_ggx_sample(kg, sc, ccl_fetch(sd, Ng), ccl_fetch(sd, I), ccl_fetch(sd, dI).dx, ccl_fetch(sd, dI).dy, randu, randv,
 			        eval, omega_in,  &domega_in->dx, &domega_in->dy, pdf, &ccl_fetch(sd, lcg_state));
@@ -295,6 +296,7 @@ float3 bsdf_eval(KernelGlobals *kg,
 				eval = bsdf_microfacet_ggx_eval_transmit(sc, ccl_fetch(sd, I), omega_in, pdf);
 				break;
 			case CLOSURE_BSDF_MICROFACET_MULTI_GGX_ID:
+			case CLOSURE_BSDF_MICROFACET_MULTI_GGX_REFRACTION_ID:
 				eval = bsdf_microfacet_multi_ggx_eval_transmit(sc, ccl_fetch(sd, I), omega_in, pdf, &ccl_fetch(sd, lcg_state));
 				break;
 			case CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID:
