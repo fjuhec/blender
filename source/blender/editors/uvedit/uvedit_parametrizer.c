@@ -4986,13 +4986,13 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 PConvexHull *p_convex_hull_new_tri(const float (*coords)[2])
 {
 	PConvexHull *conv_hull = (PConvexHull *)MEM_callocN(sizeof(*conv_hull), "PConvexHull");
-	PVert **points;
+	//PVert **points;
 	float minv[2], maxv[2], pos[2], maxy = -1.0e30f;
 	int npoint = 3, right = 0, i;
 
 	printf("p_convex_hull_new_tri!\n");
 
-	conv_hull->h_verts = (PVert *)MEM_callocN(sizeof(conv_hull->h_verts) * npoint, "PConvHullPVerts");
+	conv_hull->h_verts = (PVert **)MEM_callocN(sizeof(conv_hull->h_verts) * npoint, "PConvHullPVerts");
 	conv_hull->verts = (PPointUV **)MEM_callocN(sizeof(*conv_hull->verts) * npoint, "PConvexHullVerts");
 	conv_hull->nverts = npoint;
 	conv_hull->right = right;
@@ -5014,7 +5014,13 @@ PConvexHull *p_convex_hull_new_tri(const float (*coords)[2])
 		p->y = coords[i][1];
 		printf("-p_convex_hull_new_tri: p coords updated!\n");
 		conv_hull->verts[i] = p;
-		printf("-p_convex_hull_new_tri: bounds updated!\n");
+		printf("-p_convex_hull_new_tri: p assigned to verts!\n");
+
+		PVert *v = (PVert *)MEM_callocN(sizeof(*v), "PVert");
+		v->uv[0] = coords[i][0];
+		v->uv[1] = coords[i][1];
+		conv_hull->h_verts[i] = v;
+		printf("-p_convex_hull_new_tri: v assigned to verts_h!\n");
 
 		/* Update bounds */
 		pos[0] = conv_hull->verts[i]->x;
@@ -5078,14 +5084,23 @@ void p_convex_hull_update(PConvexHull *conv_hull, bool update_points)
 	}
 }
 
-void p_convex_hull_delete(PConvexHull *c_hull)
+void p_convex_hull_delete(PConvexHull *c_hull, bool decomposed)
 {
-	int i;
+	int i, j;
 	for (i = 0; i < c_hull->nverts; i++) {
 		if (c_hull->verts[i]) {
 			MEM_freeN(c_hull->verts[i]);
 		}	
 	}
+	
+	if (decomposed) {
+		for (j = 0; j < 3; j++) {
+			if (c_hull->h_verts[j]) {
+				MEM_freeN(c_hull->h_verts[j]);
+			}
+		}
+	}
+
 	MEM_freeN(c_hull->verts);
 	MEM_freeN(c_hull->h_verts);
 	MEM_freeN(c_hull);
@@ -5127,24 +5142,24 @@ void p_convex_hull_compute_horizontal_angles(PConvexHull *hull)
 		/* Compute horizontal angle for each edge of hull (Needed for NFP) */
 		/* ToDo SaphireS: Get rid of h_verts */
 		if (j == (hull->nverts - 1)) {
-			hull->h_verts[j]->edge->u.horizontal_angle = p_edge_horizontal_angle(hull->h_verts[j], hull->h_verts[0]);
+			//hull->h_verts[j]->edge->u.horizontal_angle = p_edge_horizontal_angle(hull->h_verts[j], hull->h_verts[0]);
 			hull->verts[j]->angle = p_edge_horizontal_angle_ppointuv(hull->verts[j], hull->verts[0]);
 		}
 		else {
-			hull->h_verts[j]->edge->u.horizontal_angle = p_edge_horizontal_angle(hull->h_verts[j], hull->h_verts[j + 1]);
+			//hull->h_verts[j]->edge->u.horizontal_angle = p_edge_horizontal_angle(hull->h_verts[j], hull->h_verts[j + 1]);
 			hull->verts[j]->angle = p_edge_horizontal_angle_ppointuv(hull->verts[j], hull->verts[j + 1]);
 		}
 
 		/* Note: FLT_EPSILON is to exact and produces wrong results in this context, use custom max_diff instead */
 		/* Since we're counting edges in CW winding we have to set 0.0 to 2*pi */
-		if (compare_ff(hull->h_verts[j]->edge->u.horizontal_angle, 0.0f, 0.00001f)) {
+		/*if (compare_ff(hull->h_verts[j]->edge->u.horizontal_angle, 0.0f, 0.00001f)) {
 			hull->h_verts[j]->edge->u.horizontal_angle += 2 * M_PI;
-		}
+		}*/
 		if (compare_ff(hull->verts[j]->angle, 0.0f, 0.00001f)) {
 			hull->verts[j]->angle += 2 * M_PI;
 		}
 
-		printf("---horizontal angle of edge [%i]: %f\n", j, hull->h_verts[j]->edge->u.horizontal_angle);
+		/*printf("---horizontal angle of edge [%i]: %f\n", j, hull->h_verts[j]->edge->u.horizontal_angle);*/
 	}
 }
 
@@ -5371,10 +5386,10 @@ PConvexHull** p_decompose_triangulate_chart(PChart *chart, const float (*hull_po
 	int i, ntris = nbounds - 2;
 	unsigned int(*r_tris)[3] = BLI_array_alloca(r_tris, ntris);
 	float cur_tri[3][2];
+	/* ToDo Saphires: Could make this function void if we have the chart as parameter anyway */
 	PConvexHull **chull_tris = (PConvexHull **)MEM_mallocN(sizeof(PConvexHull *) * ntris, "PNFPs");
 	chart->u.ipack.ntris = ntris;
 
-	/* ToDo SaphireS */
 	printf("p_decompose_triangulate_chart!\n");
 
 	/* triangulate */
@@ -5536,12 +5551,12 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	printf("-Assignment to points done\n");
 
 	/* sort edges according to horizontal angle, biggest to smallest */
-	qsort(points, (size_t)nfp->nverts, sizeof(PVert *), vert_anglesort);
+	/*qsort(points, (size_t)nfp->nverts, sizeof(PVert *), vert_anglesort);*/
 	qsort(fpoints, (size_t)nfp->nverts, sizeof(PPointUV *), point_anglesort);
 	printf("-Sorting done\n");
 
 	for (i = 0; i < nfp->nverts; i++) {
-		printf("-- horizontal angle of points[%i]: %f\n", i, points[i]->edge->u.horizontal_angle);
+		/*printf("-- horizontal angle of points[%i]: %f\n", i, points[i]->edge->u.horizontal_angle);*/
 		printf("-- horizontal angle of fpoints[%i]: %f\n", i, fpoints[i]->angle);
 	}
 
@@ -5613,14 +5628,25 @@ void p_place_chart(PChart* item, PConvexHull *ch_item,  PPointUV *pos)
 
 bool p_chart_pack_individual(PHandle *phandle,  PChart *item, float margin)
 {
-	PNoFitPolygon **nfps = (PNoFitPolygon **)MEM_callocN(sizeof(PNoFitPolygon *) * (phandle->ncharts + 1), "PNoFitPolygons");
+	/* compute number of NFPs */
+	int num_nfp = 0, k;
+	for(k = 0; k < phandle->ncharts; k++) {
+		PChart *chart = phandle->charts[k];
+		if (chart->u.ipack.decomposed) {
+			num_nfp += chart->u.ipack.ntris;
+		}
+		else {
+			num_nfp++;
+		}
+	}
+	PNoFitPolygon **nfps = (PNoFitPolygon **)MEM_callocN(sizeof(PNoFitPolygon *) * (num_nfp + 1), "PNoFitPolygons");
 #ifndef RAND_NFP_POS
 	PNoFitPolygon *cfr;
 #endif
 	PConvexHull *ch_item = item->u.ipack.convex_hull;
 	PChart *fixed;
 	float end_pos[2], delta_edge[2], randf1, randf2, r = 0.0f;
-	int i, j, cur_iter = 0, max_iter = 100;
+	int i, j, cur_nfp = 0, cur_iter = 0, max_iter = 100;
 	unsigned int rand1, rand2;
 	bool found = false, init = true;
 
@@ -5635,13 +5661,26 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item, float margin)
 		/* ToDo SaphireS: Do not create NFP with self */
 		/*Since placed=false it won't happen, but may be better to make sure? */
 		if (fixed->u.ipack.convex_hull->placed) {
-			PConvexHull *ch_fixed = fixed->u.ipack.convex_hull;
-			PNoFitPolygon *nfp = p_no_fit_polygon_create(item_inv, ch_fixed);
-			nfps[i] = nfp;
-			init = false;
+			if (fixed->u.ipack.decomposed) {
+				for (j = 0; j < fixed->u.ipack.ntris; j++) {
+					PConvexHull *ch_fixed = fixed->u.ipack.tris[j];
+					PNoFitPolygon *nfp = p_no_fit_polygon_create(item_inv, ch_fixed);
+					nfps[cur_nfp] = nfp;
+					cur_nfp++;
+				}
+				init = false;
+			}
+			else {
+				PConvexHull *ch_fixed = fixed->u.ipack.convex_hull;
+				PNoFitPolygon *nfp = p_no_fit_polygon_create(item_inv, ch_fixed);
+				nfps[cur_nfp] = nfp;
+				cur_nfp++;
+				init = false;
+			}
 		}
 		else {
-			nfps[i] = NULL;
+			nfps[cur_nfp] = NULL;
+			cur_nfp++;
 		}
 	}
 	printf("NFPs construction done!\n");
@@ -5649,7 +5688,8 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item, float margin)
 	/* compute inner fit polygon (IFP) */
 	printf("IFP construction start!\n");
 	PNoFitPolygon *ifp = p_inner_fit_polygon_create(item_inv);
-	nfps[phandle->ncharts] = ifp; 
+	/*nfps[phandle->ncharts] = ifp;*/
+	nfps[cur_nfp] = ifp;
 	printf("IFP construction done!\n");
 
 #ifndef RAND_NFP_POS
@@ -5672,7 +5712,8 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item, float margin)
 			cur_iter++;
 			randf1 = BLI_rng_get_float(phandle->rng);
 			//rand1 = p_float_to_int_range(item->u.ipack.sa_params[1], phandle->ncharts + 1); 
-			rand1 = p_float_to_int_range(randf1, phandle->ncharts + 1);
+			/*rand1 = p_float_to_int_range(randf1, phandle->ncharts + 1);*/
+			rand1 = p_float_to_int_range(randf1, cur_nfp + 1);
 			/*printf("-rand1 choosen as: %i\n", rand1);*/
 			if (nfps[rand1]) {
 
@@ -5731,10 +5772,15 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item, float margin)
 
 		/* ToDo SaphireS: Verify placement? */
 		ch_item->placed = true;
+		if (item->u.ipack.decomposed){
+			for (i = 0; i < item->u.ipack.ntris; i++) {
+				item->u.ipack.tris[i]->placed = true;
+			}
+		}
 	}
 
 	/* delete temporary inversed convex hull */
-	p_convex_hull_delete(item_inv);
+	p_convex_hull_delete(item_inv, false);
 	p_convex_hull_restore_direction(ch_item, margin);
 	printf("-restoring angles/edges done!\n");
 
@@ -5742,7 +5788,7 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item, float margin)
 #ifndef RAND_NFP_POS
 	MEM_freeN(cfr);
 #endif
-	for (j = 0; j <= phandle->ncharts; j++) {
+	for (j = 0; j <= num_nfp; j++) {
 		if (nfps[j]) {
 			p_no_fit_polygon_delete(nfps[j]);
 		}
@@ -5805,9 +5851,6 @@ bool p_compute_packing_solution(PHandle *phandle, float margin /* ToDo SaphireS:
 	int i, j;
 	int depth = 4;
 
-	/* Set initial overall scale */
-
-
 	/* Place UV islands one by one */
 	for (i = 0; i < phandle->ncharts; i++) {
 		chart = phandle->charts[i];
@@ -5815,22 +5858,48 @@ bool p_compute_packing_solution(PHandle *phandle, float margin /* ToDo SaphireS:
 
 		printf("p_compute_packing_solution: chart[%i] with area %f:\n", i, chart->u.ipack.area);
 
-		if (!(chart->u.ipack.convex_hull->placed)) {
-			if (!p_chart_pack_individual(phandle, chart, margin)) {
-				/* binary depth search for scaling down the current chart */
-				scale = p_binary_depth_search(phandle, chart, depth, margin);
-				//printf("p_binary_depth_search() done, scale = %f! \n", scale);
+		if (chart->u.ipack.decomposed) {
+			if (!(chart->u.ipack.tris[0]->placed)) {
+				if (!p_chart_pack_individual(phandle, chart, margin)) {
+					/* binary depth search for scaling down the current chart */
+					scale = p_binary_depth_search(phandle, chart, depth, margin);
+					//printf("p_binary_depth_search() done, scale = %f! \n", scale);
 
-				/* ToDo SaphireS: Avoid recomputation, store placement/scale of best solution from binary depth search! */
-				/* scale chart */
-				p_chart_uv_scale_origin(chart, scale);
-				p_convex_hull_update(chart->u.ipack.convex_hull, true);
-				p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
-				p_convex_hull_update(chart->u.ipack.convex_hull, false);
-				p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
-				p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
-				p_chart_pack_individual(phandle, chart, margin);
-				chart->u.ipack.convex_hull->placed = true;
+					/* ToDo SaphireS: Avoid recomputation, store placement/scale of best solution from binary depth search! */
+					/* scale chart */
+					p_chart_uv_scale_origin(chart, scale);
+					for (j = 0; j < chart->u.ipack.ntris; j++) {
+						PConvexHull *hull = chart->u.ipack.tris[j];
+
+						p_convex_hull_update(hull, true);
+						p_convex_hull_grow(hull, margin);
+						p_convex_hull_update(hull, false);
+						p_convex_hull_compute_horizontal_angles(hull); /* ToDo: Shouldn't be necessary! */
+						p_convex_hull_compute_edge_components(hull);
+						p_chart_pack_individual(phandle, chart, margin);
+						hull->placed = true;
+					}
+				}
+			}
+		}
+		else {
+			if (!(chart->u.ipack.convex_hull->placed)) {
+				if (!p_chart_pack_individual(phandle, chart, margin)) {
+					/* binary depth search for scaling down the current chart */
+					scale = p_binary_depth_search(phandle, chart, depth, margin);
+					//printf("p_binary_depth_search() done, scale = %f! \n", scale);
+
+					/* ToDo SaphireS: Avoid recomputation, store placement/scale of best solution from binary depth search! */
+					/* scale chart */
+					p_chart_uv_scale_origin(chart, scale);
+					p_convex_hull_update(chart->u.ipack.convex_hull, true);
+					p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
+					p_convex_hull_update(chart->u.ipack.convex_hull, false);
+					p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
+					p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+					p_chart_pack_individual(phandle, chart, margin);
+					chart->u.ipack.convex_hull->placed = true;
+				}
 			}
 		}
 	}
@@ -5931,6 +6000,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 			/* Decompose concave hull into convex hulls and store within chart */
 			chart->u.ipack.tris = p_decompose_triangulate_chart(chart, (const float(*)[2])hullverts, nboundaries);
 			chart->u.ipack.decomposed = true;
+			chart->u.ipack.convex_hull = p_convex_hull_new(chart);
 			printf("--chart decomposed into %i tris\n", chart->u.ipack.ntris);
 
 			/* For each convex hull: */
@@ -5950,6 +6020,8 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 
 				/* ToDo SaphireS: turn last few steps into a reusable function for cleaner code */
 			}
+
+			/*chart->u.ipack.convex_hull = NULL;*/ /* ToDo SaphireS: Unifiy tris and convex_hull */
 		}
 		else {
 			printf("Entered convex execution path\n");
@@ -5971,6 +6043,8 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 
 			/* DEBUG */
 			printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
+		
+			chart->u.ipack.tris = NULL; /* ToDo SaphireS: Unifiy tris and convex_hull */
 		}
 
 		chart->u.ipack.area = p_chart_uv_area_signed(chart); /* used for sorting */
@@ -6050,7 +6124,7 @@ void param_irregular_pack_end(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart;
-	int i;
+	int i, j;
 
 	param_assert(phandle->state == PHANDLE_STATE_PACK);
 	phandle->state = PHANDLE_STATE_CONSTRUCTED;
@@ -6060,7 +6134,15 @@ void param_irregular_pack_end(ParamHandle *handle)
 	for (i = 0; i < phandle->ncharts; i++) {
 		chart = phandle->charts[i];
 		MEM_freeN(chart->u.ipack.best_pos);
-		p_convex_hull_delete(chart->u.ipack.convex_hull);
+
+		if (chart->u.ipack.decomposed){
+			for (j = 0; j < chart->u.ipack.ntris; j++) {
+				p_convex_hull_delete(chart->u.ipack.tris[j], true);
+			}
+			MEM_freeN(chart->u.ipack.tris);
+		}
+
+		p_convex_hull_delete(chart->u.ipack.convex_hull, false);
 	}
 
 	BLI_rng_free(phandle->rng);
@@ -6516,7 +6598,7 @@ void param_test(ParamHandle *handle)
 			printf("-+PPointUV of convex hull - x: %f, y: %f\n", hull->verts[j]->x, hull->verts[j]->y);
 		}
 
-		p_convex_hull_delete(hull);
+		p_convex_hull_delete(hull, false);
 	}
 
 	printf("used uv charts area: %f\n", area);
