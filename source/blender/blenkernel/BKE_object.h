@@ -309,6 +309,7 @@ bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob,
 #define BKE_BASES_ITER_END \
 	} (void)0
 
+struct LayerTree *BKE_objectlayer_tree_new(void);
 struct LayerTreeItem *BKE_objectlayer_add(struct LayerTree *tree, struct LayerTreeItem *parent, const char *name);
 void BKE_objectlayer_free(struct LayerTreeItem *litem);
 void BKE_objectlayer_base_assign_ex(

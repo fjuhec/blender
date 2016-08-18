@@ -35,6 +35,17 @@
 #include "MEM_guardedalloc.h"
 
 
+/**
+ * Allocate a new object layer tree and add a default layer (having no layer isn't allowed).
+ */
+LayerTree *BKE_objectlayer_tree_new(void)
+{
+	LayerTree *ltree = BKE_layertree_new(LAYER_TREETYPE_OBJECT);
+	LayerTreeItem *defaultlayer = BKE_objectlayer_add(ltree, NULL, "Default Layer");
+	ltree->active_layer = defaultlayer;
+	return ltree;
+}
+
 LayerTreeItem *BKE_objectlayer_add(LayerTree *tree, LayerTreeItem *parent, const char *name)
 {
 	LayerTypeObject *oblayer = MEM_callocN(sizeof(LayerTypeObject), __func__);

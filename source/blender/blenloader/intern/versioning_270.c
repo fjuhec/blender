@@ -1325,17 +1325,15 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 
 	/* Convert to new layer system */
 	if (!MAIN_VERSION_ATLEAST(main, 277, 4)) {
-		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "LayerTree", "object_layers")) {
+		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "LayerTree", "*object_layers")) {
 			for (Scene *sce = main->scene.first; sce; sce = sce->id.next) {
-				sce->object_layers = BKE_layertree_new(LAYER_TREETYPE_OBJECT);
-				LayerTreeItem *litem = BKE_objectlayer_add(sce->object_layers, NULL, "Default layer");
-				sce->object_layers->active_layer = litem;
+				sce->object_layers = BKE_objectlayer_tree_new();
 
-				BKE_objectlayer_base_entries_reserve(litem, BLI_listbase_count(&sce->base));
+				BKE_objectlayer_base_entries_reserve(sce->object_layers->active_layer, BLI_listbase_count(&sce->base));
 				/* For now, simply create a new layer and move all objects into it */
 				for (Base *base = sce->base.first, *base_next; base; base = base_next) {
 					base_next = base->next;
-					BKE_objectlayer_base_assign_ex(base, litem, true, false);
+					BKE_objectlayer_base_assign_ex(base, sce->object_layers->active_layer, true, false);
 					base->prev = base->next = NULL;
 				}
 				BLI_listbase_clear(&sce->base);
