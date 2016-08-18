@@ -270,6 +270,13 @@ void ED_keymap_curve(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "CURVE_OT_make_segment", FKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_item(keymap, "CURVE_OT_cyclic_toggle", CKEY, KM_PRESS, KM_ALT, 0);
 
+	WM_keymap_add_item(keymap, "CURVE_OT_extend_curve", EKEY, KM_PRESS, KM_CTRL, 0);
+	WM_keymap_add_item(keymap, "CURVE_OT_batch_extend", EKEY, KM_PRESS, KM_CTRL | KM_SHIFT, 0);
+	WM_keymap_add_item(keymap, "CURVE_OT_trim_curve", TKEY, KM_PRESS, KM_CTRL | KM_SHIFT, 0);
+	WM_keymap_add_item(keymap, "CURVE_OT_offset_curve", OKEY, KM_PRESS, KM_SHIFT, 0);
+	WM_keymap_add_item(keymap, "CURVE_OT_curve_chamfer", CKEY, KM_PRESS, KM_SHIFT | KM_CTRL, 0);
+	WM_keymap_add_item(keymap, "CURVE_OT_curve_fillet", FKEY, KM_PRESS, KM_CTRL, 0);
+
 	WM_keymap_add_menu(keymap, "VIEW3D_MT_edit_curve_delete", XKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_menu(keymap, "VIEW3D_MT_edit_curve_delete", DELKEY, KM_PRESS, 0, 0);
 

@@ -8146,6 +8146,7 @@ static int curve_chamfer_exec(bContext *C, wmOperator *op)
 	Nurb *nu;
 	float distance = RNA_float_get(op->ptr, "distance");
 	float angle = RNA_float_get(op->ptr, "angle");
+	float v1[3], v2[3];
 
 	/* get selected spline */
 	int spline_id = get_selected_spline_id(nubase);
@@ -8163,6 +8164,17 @@ static int curve_chamfer_exec(bContext *C, wmOperator *op)
 		if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
 			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer1");
 			bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer2");
+			sub_v3_v3v3(v1, bezt->vec[1], bezt->vec[0]);
+			normalize_v3(v1);
+			sub_v3_v3v3(v2, bezt->vec[1], bezt->vec[2]);
+			normalize_v3(v2);
+			float test_angle = DEG2RAD(90) - angle_normalized_v3v3(v1, v2) / 2;
+			if (test_angle < 1.0e-4) {
+				MEM_freeN(bezt1);
+				MEM_freeN(bezt2);
+				BKE_report(op->reports, RPT_ERROR, "Lines cannot be chamfered");
+				return OPERATOR_CANCELLED;
+			}
 			chamfer_handle(bezt, bezt1, bezt2, angle, distance);
 			selected_point = i;
 			BKE_nurb_bezierPoints_add(nu, 1);
@@ -8461,7 +8473,7 @@ static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 {
 	CD *cd = MEM_callocN(sizeof(CD), "curve_chamfer_invoke1");
 	cd->data = MEM_callocN(sizeof(OffsetData), "curve_chamfer_invoke2");
-	float center_3d[3];
+	float center_3d[3], v1[3], v2[3];
 	calculateTransformCenter(C, V3D_AROUND_CENTER_MEAN, center_3d, cd->data->mcenter);
 
 	Object *obedit = CTX_data_edit_object(C);
@@ -8481,6 +8493,14 @@ static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 	for (int i = 0; i < nu->pntsu; i++) {
 		bezt = &nu->bezt[i];
 		if (BEZT_ISSEL_ANY(bezt)) {
+			sub_v3_v3v3(v1, bezt->vec[1], bezt->vec[0]);
+			normalize_v3(v1);
+			sub_v3_v3v3(v2, bezt->vec[1], bezt->vec[2]);
+			normalize_v3(v2);
+			float test_angle = DEG2RAD(90) - angle_normalized_v3v3(v1, v2) / 2;
+			if (test_angle < 1.0e-4) {
+				continue;
+			}
 			selected += 1;
 			cd->selected_points = MEM_reallocN(cd->selected_points, selected * sizeof(BezTriple));
 			memcpy(&cd->selected_points[selected - 1], bezt, sizeof(BezTriple));
