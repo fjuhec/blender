@@ -938,10 +938,10 @@ class CLIP_PT_stabilization(CLIP_PT_reconstruction_panel, Panel):
             sub.menu('CLIP_MT_stabilize_2d_specials', text="",
                      icon='DOWNARROW_HLT')
 
-            row = box.row()
-            row.label(text="Tracks For Rotation / Scale")
-            row = box.row()
-            row.active = stab.use_stabilize_rotation
+            col = box.column()
+            col.active = stab.use_stabilize_rotation
+            col.label(text="Tracks For Rotation / Scale")
+            row = col.row()
             row.template_list("UI_UL_list", "stabilization_rotation_tracks", stab, "rotation_tracks",
                               stab, "active_rotation_track_index", rows=2)
 
@@ -965,24 +965,20 @@ class CLIP_PT_stabilization(CLIP_PT_reconstruction_panel, Panel):
 
         layout.separator()
         layout.label(text="Expected Position")
-        layout.prop(stab, "target_pos", text="")
-        layout.prop(stab, "target_rot")
+        layout.prop(stab, "target_position", text="")
+        layout.prop(stab, "target_rotation")
         if stab.use_autoscale:
             layout.label(text="Auto Scale Factor: %5.3f" % (1.0 / stab.target_zoom))
         else:
             layout.prop(stab, "target_zoom")
 
         layout.separator()
-        row = layout.row()
-        row.active = 0 < len(stab.tracks.values())
-        row.prop(stab, "influence_location")
+        layout.prop(stab, "influence_location")
 
         col = layout.column()
-        col.active = stab.use_stabilize_rotation and 0 < len(stab.rotation_tracks.values())
-        row = col.row()
-        row.prop(stab, "influence_rotation")
-        row = col.row()
-        row.prop(stab, "influence_scale")
+        col.active = stab.use_stabilize_rotation
+        col.prop(stab, "influence_rotation")
+        col.prop(stab, "influence_scale")
 
         layout.prop(stab, "filter_type")
 

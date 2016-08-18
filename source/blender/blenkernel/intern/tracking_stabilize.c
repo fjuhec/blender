@@ -414,21 +414,18 @@ static MovieTrackingMarker *get_closest_marker(StabContext *ctx,
                                                MovieTrackingTrack *track,
                                                int ref_frame)
 {
-	if (track->markersnr > 0) {
-		int next_lower = MINAFRAME;
-		int next_higher = MAXFRAME;
-		int  i = search_closest_marker_index(track, ref_frame);
-		retrieve_next_higher_usable_frame(ctx, track, i, ref_frame, &next_higher);
-		retrieve_next_lower_usable_frame(ctx, track, i, ref_frame, &next_lower);
+	int next_lower = MINAFRAME;
+	int next_higher = MAXFRAME;
+	int i = search_closest_marker_index(track, ref_frame);
+	retrieve_next_higher_usable_frame(ctx, track, i, ref_frame, &next_higher);
+	retrieve_next_lower_usable_frame(ctx, track, i, ref_frame, &next_lower);
 
-		if ((next_higher - ref_frame) < (ref_frame - next_lower)) {
-			return BKE_tracking_marker_get_exact(track, next_higher);
-		}
-		else {
-			return BKE_tracking_marker_get_exact(track, next_lower);
-		}
+	if ((next_higher - ref_frame) < (ref_frame - next_lower)) {
+		return BKE_tracking_marker_get_exact(track, next_higher);
 	}
-	return NULL;
+	else {
+		return BKE_tracking_marker_get_exact(track, next_lower);
+	}
 }
 
 
@@ -441,16 +438,16 @@ static MovieTrackingMarker *get_tracking_data_point(
         StabContext *ctx,
         MovieTrackingTrack *track,
         int framenr,
-        float *weight)
+        float *r_weight)
 {
-	MovieTrackingMarker *marker = BKE_tracking_marker_get(track, framenr);
-	if (marker && marker->framenr == framenr && !(marker->flag & MARKER_DISABLED)) {
-		*weight = get_animated_weight(ctx, track, framenr);
+	MovieTrackingMarker *marker = BKE_tracking_marker_get_exact(track, framenr);
+	if (marker != NULL && !(marker->flag & MARKER_DISABLED)) {
+		*r_weight = get_animated_weight(ctx, track, framenr);
 		return marker;
 	}
 	else {
-		/* no marker at this frame (=gap) or marker disabled */
-		*weight = 0.0f;
+		/* No marker at this frame (=gap) or marker disabled. */
+		*r_weight = 0.0f;
 		return NULL;
 	}
 }
