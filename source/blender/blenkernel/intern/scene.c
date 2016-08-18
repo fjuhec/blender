@@ -747,7 +747,7 @@ void BKE_scene_init(Scene *sce)
 
 	sce->gm.exitkey = 218; // Blender key code for ESC
 
-	sce->object_layers = BKE_layertree_new(LAYER_TREETYPE_OBJECT);
+	sce->object_layers = BKE_objectlayer_tree_new();
 
 	BKE_sound_create_scene(sce);
 
