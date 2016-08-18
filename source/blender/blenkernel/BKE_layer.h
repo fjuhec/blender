@@ -53,7 +53,7 @@ typedef enum eLayerTree_Type {
 } eLayerTree_Type;
 
 LayerTree *BKE_layertree_new(const eLayerTree_Type type);
-//LayerTree *BKE_layertree_copy(const LayerTree *oldtree); /* TODO */
+LayerTree *BKE_layertree_copy(const LayerTree *original_tree);
 void BKE_layertree_delete(LayerTree *ltree);
 
 bool BKE_layertree_iterate(const LayerTree *ltree, LayerTreeIterFunc foreach, void *customdata, const bool inverse);
@@ -90,6 +90,8 @@ typedef struct LayerType {
 	/* drawing of the expanded layer settings (gear wheel icon) */
 	void (*draw_settings)(const struct bContext *, struct LayerTreeItem *, struct uiLayout *); /* LayerItemDrawSettingsFunc */
 
+	/* Optional callback called when duplicating a layer */
+	void (*copy)(struct LayerTreeItem *copied_item, const struct LayerTreeItem *original_item);
 	/* Optional free callback. Don't free item itself! */
 	void (*free)(struct LayerTreeItem *);
 

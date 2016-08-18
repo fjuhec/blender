@@ -131,6 +131,23 @@ static void object_layer_draw_settings(const bContext *UNUSED(C), LayerTreeItem 
 	uiTemplateLayers(row, litem->ptr, "visibility_bits", NULL, NULL, 0);
 }
 
+static void object_layer_copy(LayerTreeItem *copied_item, const LayerTreeItem *original_item)
+{
+	LayerTypeObject *original_oblayer = (LayerTypeObject *)original_item;
+	LayerTypeObject *copied_oblayer = (LayerTypeObject *)copied_item;
+
+	BLI_assert(&copied_oblayer->litem == copied_item);
+
+	/* copy bases */
+	copied_oblayer->bases = MEM_dupallocN(original_oblayer->bases);
+	BKE_OBJECTLAYER_BASES_ITER_START(original_oblayer, i, original_base)
+	{
+		copied_oblayer->bases[i] = MEM_dupallocN(original_base);
+		copied_oblayer->bases[i]->layer = copied_item;
+	}
+	BKE_OBJECTLAYER_BASES_ITER_END;
+}
+
 static void LAYERTYPE_object(LayerType *lt)
 {
 	/* Should always be same default as set in BKE_objectlayer_add */
@@ -143,6 +160,7 @@ static void LAYERTYPE_object(LayerType *lt)
 
 	lt->draw = object_layer_draw;
 	lt->draw_settings = object_layer_draw_settings;
+	lt->copy = object_layer_copy;
 	lt->free = BKE_objectlayer_free;
 
 	RNA_def_enum(lt->srna, "color_set", rna_enum_color_sets_items, 0, "Color Set", "Custom color set for this layer");

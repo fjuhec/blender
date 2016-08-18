@@ -207,6 +207,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		BLI_duplicatelist(&(scen->r.layers), &(sce->r.layers));
 		BLI_duplicatelist(&(scen->r.views), &(sce->r.views));
 		BKE_keyingsets_copy(&(scen->keyingsets), &(sce->keyingsets));
+		scen->object_layers = BKE_layertree_copy(sce->object_layers);
 
 		if (sce->nodetree) {
 			/* ID's are managed on both copy and switch */
@@ -458,7 +459,7 @@ void BKE_scene_free(Scene *sce)
 	MEM_SAFE_FREE(sce->fps_info);
 
 	BLI_assert(sce->object_layers != NULL);
-	/* Calls BKE_objectlayer_free (which frees bases) as callback */
+	/* bases are freed in this through object layer callbacks */
 	BKE_layertree_delete(sce->object_layers);
 
 	BKE_sound_destroy_scene(sce);

@@ -67,6 +67,43 @@ LayerTree *BKE_layertree_new(const eLayerTree_Type type)
 	return ltree;
 }
 
+LayerTree *BKE_layertree_copy(const LayerTree *original_tree)
+{
+	LayerTree *copied_tree = MEM_dupallocN(original_tree);
+
+	/* copy layer items */
+	LayerTreeItem *copied_item;
+	copied_tree->items_all = MEM_dupallocN(original_tree->items_all);
+	BKE_LAYERTREE_ITER_START(original_tree, 0, i, original_item)
+	{
+		copied_item = copied_tree->items_all[i] = MEM_dupallocN(original_item);
+		copied_item->tree = copied_tree;
+		copied_item->prop = IDP_CopyProperty(original_item->prop);
+		copied_item->ptr = MEM_callocN(sizeof(PointerRNA), "LayerTreeItem PointerRNA duplicate");
+		RNA_pointer_create(NULL, copied_item->type->srna, copied_item->prop, copied_item->ptr);
+
+		if (original_item->parent) {
+			/* we assume here that parent came before the child */
+			copied_item->parent = copied_tree->items_all[original_item->parent->index];
+			BLI_addhead(&copied_item->parent->childs, copied_item);
+		}
+		else {
+			BLI_addhead(&copied_tree->items, copied_item);
+		}
+
+		if (copied_item->type->copy) {
+			copied_item->type->copy(copied_item, original_item);
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
+
+	copied_tree->active_layer = copied_tree->items_all[original_tree->active_layer->index];
+	/* should use new address by now */
+	BLI_assert(copied_tree->active_layer != original_tree->active_layer);
+
+	return copied_tree;
+}
+
 void BKE_layertree_delete(LayerTree *ltree)
 {
 	BKE_LAYERTREE_ITER_START(ltree, 0, i, litem)
