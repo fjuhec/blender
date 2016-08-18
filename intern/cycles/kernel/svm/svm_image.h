@@ -18,7 +18,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Float4 textures on various devices. */
 #if defined(__KERNEL_CPU__)
-#  define TEX_NUM_FLOAT4_IMAGES		TEX_NUM_FLOAT4_CPU
+#  define TEX_NUM_FLOAT4_IMAGES	TEX_NUM_FLOAT4_CPU
 #elif defined(__KERNEL_CUDA__)
 #  if __CUDA_ARCH__ < 300
 #    define TEX_NUM_FLOAT4_IMAGES	TEX_NUM_FLOAT4_CUDA
@@ -277,21 +277,8 @@ ccl_device float4 svm_image_texture(KernelGlobals *kg, int id, float x, float y,
 	}
 #  else
 	CUtexObject tex = kernel_tex_fetch(__bindless_mapping, id);
-
-	/* Float and Byte, 4 components */
-	if(id < TEX_START_FLOAT_CUDA_KEPLER)
+	if(id < 2048) /* TODO(dingto): Make this a variable */
 		r = kernel_tex_image_interp_float4(tex, x, y);
-	/* Float and Byte, 1 component */
-	else if(id < TEX_START_HALF4_CUDA_KEPLER) {
-		float f = kernel_tex_image_interp_float(tex, x, y);
-		r = make_float4(f, f, f, 1.0);
-	}
-	/* Half Float, 4 components */
-	else if (id < TEX_START_HALF_CUDA_KEPLER){
-		/* TODO(dingto): proper tex call here. */
-		r = kernel_tex_image_interp_float4(tex, x, y);
-	}
-	/* Half Float, 1 component */
 	else {
 		float f = kernel_tex_image_interp_float(tex, x, y);
 		r = make_float4(f, f, f, 1.0);
@@ -478,7 +465,7 @@ ccl_device void svm_node_tex_environment(KernelGlobals *kg, ShaderData *sd, floa
 	float2 uv;
 
 	co = normalize(co);
-
+	
 	if(projection == 0)
 		uv = direction_to_equirectangular(co);
 	else
