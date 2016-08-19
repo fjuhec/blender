@@ -4983,12 +4983,12 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 	return conv_hull;
 }
 
-PConvexHull *p_convex_hull_new_tri(const float (*coords)[2])
+PConvexHull *p_convex_hull_new_tri(PChart *chart, const float (*coords)[2])
 {
 	PConvexHull *conv_hull = (PConvexHull *)MEM_callocN(sizeof(*conv_hull), "PConvexHull");
-	//PVert **points;
+	PVert *v;
 	float minv[2], maxv[2], pos[2], maxy = -1.0e30f;
-	int npoint = 3, right = 0, i;
+	int npoint = 3, right = 0, i, j;
 
 	printf("p_convex_hull_new_tri!\n");
 
@@ -5016,11 +5016,20 @@ PConvexHull *p_convex_hull_new_tri(const float (*coords)[2])
 		conv_hull->verts[i] = p;
 		printf("-p_convex_hull_new_tri: p assigned to verts!\n");
 
-		PVert *v = (PVert *)MEM_callocN(sizeof(*v), "PVert");
+		/*PVert *v = (PVert *)MEM_callocN(sizeof(*v), "PVert");
 		v->uv[0] = coords[i][0];
 		v->uv[1] = coords[i][1];
 		conv_hull->h_verts[i] = v;
-		printf("-p_convex_hull_new_tri: v assigned to verts_h!\n");
+		printf("-p_convex_hull_new_tri: v assigned to verts_h!\n");*/
+
+		for (v = chart->verts; v; v = v->nextlink) {
+			if (compare_ff(v->uv[0],coords[i][0], 0.0001f)) {
+				if (compare_ff(v->uv[1], coords[i][1], 0.0001f)) {
+					conv_hull->h_verts[i] = v;
+					printf("-p_convex_hull_new_tri: v assigned to verts_h!\n"); 
+				}
+			}
+		}
 
 		/* Update bounds */
 		pos[0] = conv_hull->verts[i]->x;
@@ -5093,13 +5102,13 @@ void p_convex_hull_delete(PConvexHull *c_hull, bool decomposed)
 		}	
 	}
 	
-	if (decomposed) {
+	/*if (decomposed) {
 		for (j = 0; j < 3; j++) {
 			if (c_hull->h_verts[j]) {
 				MEM_freeN(c_hull->h_verts[j]);
 			}
 		}
-	}
+	}*/
 
 	MEM_freeN(c_hull->verts);
 	MEM_freeN(c_hull->h_verts);
@@ -5409,7 +5418,7 @@ PConvexHull** p_decompose_triangulate_chart(PChart *chart, const float (*hull_po
 		cur_tri[2][1] = hull_points[r_tris[i][2]][1];
 		printf("p_decompose_triangulate_chart: tri[0]x: %f, y: %f\n", hull_points[r_tris[i][2]][0], hull_points[r_tris[i][2]][1]);
 
-		chull_tris[i] = p_convex_hull_new_tri(cur_tri);
+		chull_tris[i] = p_convex_hull_new_tri(chart, cur_tri);
 	}
 
 	return chull_tris;
@@ -5738,7 +5747,7 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item, float margin)
 					end_pos[0] = nfps[rand1]->final_pos[rand2]->x + delta_edge[0] * r;
 					end_pos[1] = nfps[rand1]->final_pos[rand2]->y + delta_edge[1] * r;
 
-					found = p_temp_cfr_check(nfps, ifp, end_pos, phandle->ncharts, rand1);
+					found = p_temp_cfr_check(nfps, ifp, end_pos, cur_nfp, rand1);
 				}
 			}
 
@@ -5765,7 +5774,9 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item, float margin)
 	}
 
 	if (found) {
-		printf("--found placement for rand1: %i, rand2: %i, r as %f\n", rand1, rand2, r);
+		if (!init) {
+			printf("--found placement for rand1: %i, rand2: %i, r as %f\n", rand1, rand2, r);
+		}
 
 		/* Place chart */
 		p_place_chart(item, item_inv, end_pos);
@@ -5782,6 +5793,12 @@ bool p_chart_pack_individual(PHandle *phandle,  PChart *item, float margin)
 	/* delete temporary inversed convex hull */
 	p_convex_hull_delete(item_inv, false);
 	p_convex_hull_restore_direction(ch_item, margin);
+	if (item->u.ipack.decomposed){
+		for (i = 0; i < item->u.ipack.ntris; i++){
+			PConvexHull *tri = item->u.ipack.tris[i];
+			p_convex_hull_restore_direction(tri, margin);
+		}
+	}
 	printf("-restoring angles/edges done!\n");
 
 	/* CleanUp, pay attention to also delete IFP which is part of nfps */
@@ -5987,8 +6004,8 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 			bounds[j] = e->vert;
 			hullverts[j][0] = e->vert->uv[0];
 			hullverts[j][1] = e->vert->uv[1];
-			printf(">>bounds: vert x: %f, y: %f\n", bounds[j]->uv[0], bounds[j]->uv[1]);
-			printf(">-hullverts x: %f, y: %f\n", hullverts[j][0], hullverts[j][1]);
+			/*printf(">>bounds: vert x: %f, y: %f\n", bounds[j]->uv[0], bounds[j]->uv[1]);
+			printf(">-hullverts x: %f, y: %f\n", hullverts[j][0], hullverts[j][1]);*/
 			j++;
 			e = p_boundary_edge_next(e);
 		} while (e != outer);
@@ -6001,6 +6018,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 			chart->u.ipack.tris = p_decompose_triangulate_chart(chart, (const float(*)[2])hullverts, nboundaries);
 			chart->u.ipack.decomposed = true;
 			chart->u.ipack.convex_hull = p_convex_hull_new(chart);
+			chart->u.ipack.best_pos = MEM_callocN(sizeof(PPointUV), "PPointUV");
 			printf("--chart decomposed into %i tris\n", chart->u.ipack.ntris);
 
 			/* For each convex hull: */
@@ -6021,6 +6039,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 				/* ToDo SaphireS: turn last few steps into a reusable function for cleaner code */
 			}
 
+			printf("Bounds of chart [%i]: minx: %f, maxx: %f, miny: %f,maxy: %f\n", i, chart->u.ipack.convex_hull->min_v[0], chart->u.ipack.convex_hull->max_v[0], chart->u.ipack.convex_hull->min_v[1], chart->u.ipack.convex_hull->max_v[1]);
 			/*chart->u.ipack.convex_hull = NULL;*/ /* ToDo SaphireS: Unifiy tris and convex_hull */
 		}
 		else {
