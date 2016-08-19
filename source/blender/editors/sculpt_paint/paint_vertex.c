@@ -1726,8 +1726,6 @@ static void vertex_paint_init_session(Scene *scene, Object *ob)
 }
 
 static void vertex_paint_init_session_maps(Object *ob) {
-	if (G.debug & G_DEBUG)
-		printf("Allocating vert maps\n");
 	/* Create maps */
 	Mesh *me = ob->data;
 	ob->sculpt->map_mem = NULL;
@@ -1739,8 +1737,6 @@ static void vertex_paint_init_session_maps(Object *ob) {
 }
 
 static void vertex_paint_init_session_average_arrays(Object *ob){
-	if (G.debug & G_DEBUG)
-		printf("Allocating average and blur brush arrays\n");
 	/* Create average brush arrays */
 	int totNode = 0;
 	//I think the totNodes might include internal nodes, and we really only need the tot leaves.
@@ -3615,7 +3611,6 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	VPaint *vp = ts->vpaint;
 	ViewContext *vc = &vpd->vc;
 	Object *ob = vc->obact;
-  printf("%d\n", vp->flag);
 	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 
 	vwpaint_update_cache_variants(C, vp, ob, itemptr);
