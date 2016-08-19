@@ -6811,6 +6811,8 @@ static int get_selected_spline_id(ListBase *nubase)
 
 static int sel_point_id(Nurb *nu)
 {
+	/* receives a spline
+	 * returns the number of the first selected handle */
 	BezTriple *bezt = nu->bezt;
 	for (int i = 0; i < nu->pntsu; i++) {
 		if (BEZT_ISSEL_ANY(bezt))
@@ -6831,12 +6833,15 @@ typedef struct XShape {
 
 static int XShape_cmp(const void *xs1, const void *xs2)
 {
+	/* function to compare two XShape instances based on distance */
 	XShape *x1 = (XShape *)xs1, *x2 = (XShape *)xs2;
 	return x1->distance > x2->distance ? 1 : 0;
 }
 
 static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 {
+	/* return all intersections with selected spline, along with information
+	 * regarding the distance and the order relative to the currently selected point */
 	ListBase shape_list = {NULL};
 	ListBase *nubase, *all_segments;
 	Nurb *nu;
@@ -6954,6 +6959,7 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 		sub_v3_v3(helper, &full_coord_array[i * 3]);
 		sl_length += len_v3(helper);
 	}
+	/* sort intersection list based on distance */
 	BLI_listbase_sort(intersections, XShape_cmp);
 
 	MEM_freeN(full_coord_array);
@@ -6981,6 +6987,7 @@ static ListBase *spline_X_shape(Object *obedit, int selected_spline)
 
 static bool is_between(float *x, float *a, float *b)
 {
+	/* return whether a point is between two points a and b */
 	const float PRECISION = 1e-05;
 
 	float cross = (x[1] - a[1]) * (b[0] - a[0]) - (x[0] - a[0]) * (b[1] - a[1]);
@@ -6995,6 +7002,8 @@ static bool is_between(float *x, float *a, float *b)
 
 static float ratio_to_segment(float *x, float *p1, float *p2, float *p3, float *p4, int res)
 {
+	/* given four points (which define a cubic bezier spline) return 
+	 * the ratio (distance from x to p1)/(length of bezier spline) */
 	float seg_length, length, ratio, *seg;
 	seg_length = length = ratio = 0;
 
@@ -7025,6 +7034,9 @@ static float ratio_to_segment(float *x, float *p1, float *p2, float *p3, float *
 static void split_segment(float t, float *p1, float *p2, float *p3, float *p4,
 							   float *r_s1, float *r_s2)
 {
+	/* split bezier spline at ratio t 
+	 * this implementation is very obscure. Check the original python addon for a much
+	 * cleaner code */
 	float *q1, *q2, *q3, *r1, *r2, *r3;
 
 	q1 = (float *)MEM_callocN(3 * sizeof(float), "split_segment1");
@@ -7084,12 +7096,14 @@ static void split_segment(float t, float *p1, float *p2, float *p3, float *p4,
 static void chop(float *x, float *p1, float *p2, float *p3, float *p4, int res,
 				 float *r_s1, float *r_s2)
 {
+	/* split a bezier segment at a given point */
 	float ratio = ratio_to_segment(x, p1, p2, p3, p4, res);
 	split_segment(ratio, p1, p2, p3, p4, r_s1, r_s2);
 }
 
 static int trim_curve_exec(bContext *C, wmOperator *op)
 {
+	/* main function of the trim operator */
 	Object *obedit = CTX_data_edit_object(C);
 	Curve *cu = obedit->data;
 	EditNurb *editnurb = cu->editnurb;
@@ -7507,7 +7521,6 @@ static int trim_curve_exec(bContext *C, wmOperator *op)
 
 void CURVE_OT_trim_curve(wmOperatorType *ot)
 {
-
 	/* identifiers */
 	ot->name = "Trim";
 	ot->description = "Trim selected point of the curve";
@@ -7527,6 +7540,9 @@ void CURVE_OT_trim_curve(wmOperatorType *ot)
 
 static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, float *r_v2)
 {
+	/* calculate the offset vectors for the given BezTriple's
+	 * on r_v1 is the offset vector for the first triple
+	 * on r_v2 is the offset vector for the second triple */
 	int dims = 3, ret = 1;
 	float *coord_array, *vx, *vy, *helper;
 	coord_array = MEM_callocN(dims * (12 + 1) * sizeof(float), "get_offset_vecs1");
@@ -7597,6 +7613,7 @@ static int get_offset_vecs(BezTriple *bezt1, BezTriple *bezt2, float *r_v1, floa
 
 static int get_handles_offset_vec(float *p1, float *p2, float *p3, float *r_v1)
 {
+	/* get the vector along which the left and right points need to be offset */
 	float v1[3] = {0.0, 0.0, 0.0};
 	float v2[3] = {0.0, 0.0, 0.0};
 	float v3[3] = {0.0, 0.0, 0.0};
@@ -7637,6 +7654,7 @@ static int get_handles_offset_vec(float *p1, float *p2, float *p3, float *r_v1)
 
 static Nurb *offset_curve(Nurb *nu, ListBase *UNUSED(nubase), float distance)
 {
+	/* return the curve nu offset by distance distance */
 	BezTriple *bezt = nu->bezt, *new_bezt;
 	Nurb *new_nu = BKE_nurb_duplicate(nu);
 	new_bezt = new_nu->bezt;
@@ -7810,6 +7828,7 @@ static Nurb *offset_curve(Nurb *nu, ListBase *UNUSED(nubase), float distance)
 
 static int offset_curve_exec(bContext *C, wmOperator *op)
 {
+	/* main function for the offset tool */
 	Object *obedit = CTX_data_edit_object(C);
 	ListBase *nubase = object_editcurve_get(obedit), dummy = {NULL};
 	Nurb *nu, *new_nu, *copy_nu;
@@ -7851,6 +7870,7 @@ typedef struct OffsetData {
 
 static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
+	/* modal function for the offset curve */
 	Object *obedit = CTX_data_edit_object(C);
 	ED_area_tag_redraw(CTX_wm_area(C));
 	float curr_mouse[2] = {event->mval[0], event->mval[1]};
@@ -7959,6 +7979,7 @@ static int offset_curve_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 static int offset_curve_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
+	/* invoke curve for the offset operator */
 	OffsetData *customdata = MEM_callocN(sizeof(OffsetData), "offset_curve_invoke1");
 	Object *obedit = CTX_data_active_object(C);
 	ListBase *nubase = object_editcurve_get(obedit);
@@ -7983,7 +8004,6 @@ static int offset_curve_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSE
 
 void CURVE_OT_offset_curve(wmOperatorType *ot)
 {
-
 	/* identifiers */
 	ot->name = "Offset";
 	ot->description = "Offset selected spline";
@@ -8006,6 +8026,7 @@ void CURVE_OT_offset_curve(wmOperatorType *ot)
 
 static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	/* main function of the batch extend function */
 	Object *obedit = CTX_data_edit_object(C);
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
@@ -8066,7 +8087,6 @@ static int batch_extend_exec(bContext *C, wmOperator *UNUSED(op))
 
 void CURVE_OT_batch_extend(wmOperatorType *ot)
 {
-
 	/* identifiers */
 	ot->name = "Batch Extend";
 	ot->description = "Extend all the selected vertices up to their intersections";
@@ -8084,6 +8104,8 @@ void CURVE_OT_batch_extend(wmOperatorType *ot)
 
 static void chamfer_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r_new_bezt2, float theta, float d)
 {
+	/* given a BezTriple, return the two BezTriple's that correspong to it chamfered */
+
 	/* preserve all previous properties */
 	memcpy(r_new_bezt1, bezt, sizeof(BezTriple));
 	memcpy(r_new_bezt2, bezt, sizeof(BezTriple));
@@ -8139,6 +8161,7 @@ static void chamfer_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r
 
 static int curve_chamfer_exec(bContext *C, wmOperator *op)
 {
+	/* main function for curve chamfer */
 	Object *obedit = CTX_data_edit_object(C);
 	Curve *cu = obedit->data;
 	EditNurb *editnurb = cu->editnurb;
@@ -8238,6 +8261,7 @@ typedef struct CD {
 
 static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
+	/* modal function for curve chamfer */
 	Object *obedit = CTX_data_edit_object(C);
 	ED_area_tag_redraw(CTX_wm_area(C));
 	char str[UI_MAX_DRAW_STR];
@@ -8471,6 +8495,7 @@ static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event
 
 static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
+	/* invoke function for curve chamfer */
 	CD *cd = MEM_callocN(sizeof(CD), "curve_chamfer_invoke1");
 	cd->data = MEM_callocN(sizeof(OffsetData), "curve_chamfer_invoke2");
 	float center_3d[3], v1[3], v2[3];
@@ -8562,6 +8587,7 @@ void CURVE_OT_curve_chamfer(wmOperatorType *ot)
 
 static void fillet_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r_new_bezt2, float theta, float r)
 {
+	/* for a BezTriple bezt, return the BezTriple's corresponding to it filleted */
 	float d = r * 2 * sin(theta);
 	chamfer_handle(bezt, r_new_bezt1, r_new_bezt2, theta, d);
 
@@ -8583,6 +8609,7 @@ static void fillet_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r_
 
 static int curve_fillet_exec(bContext *C, wmOperator *op)
 {
+	/* main function for curve fillet */
 	Object *obedit = CTX_data_edit_object(C);
 	Curve *cu = obedit->data;
 	EditNurb *editnurb = cu->editnurb;
@@ -8664,6 +8691,7 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 
 static int curve_fillet_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
+	/* modal function for curve fillet */
 	Object *obedit = CTX_data_edit_object(C);
 	ED_area_tag_redraw(CTX_wm_area(C));
 	char str[UI_MAX_DRAW_STR];
