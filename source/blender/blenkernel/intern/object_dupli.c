@@ -222,32 +222,41 @@ static void make_child_duplis(const DupliContext *ctx, void *userdata, MakeChild
 
 	if (ctx->group) {
 		unsigned int lay = ctx->group->layer;
+		int groupid = 0;
 		GroupObject *go;
-		for (go = ctx->group->gobject.first; go; go = go->next) {
+		for (go = ctx->group->gobject.first; go; go = go->next, groupid++) {
 			Object *ob = go->ob;
 
 			if ((ob->lay & lay) && ob != obedit && is_child(ob, parent)) {
+				DupliContext pctx;
+				copy_dupli_context(&pctx, ctx, ctx->object, NULL, groupid, false);
+
 				/* mballs have a different dupli handling */
 				if (ob->type != OB_MBALL)
 					ob->flag |= OB_DONE;  /* doesnt render */
 
-				make_child_duplis_cb(ctx, userdata, ob);
+				make_child_duplis_cb(&pctx, userdata, ob);
 			}
 		}
 	}
 	else {
 		unsigned int lay = ctx->scene->lay;
+		int baseid = 0;
 		BKE_BASES_ITER_START(ctx->scene, base)
 		{
 			Object *ob = base->object;
 
 			if ((base->lay & lay) && ob != obedit && is_child(ob, parent)) {
+				DupliContext pctx;
+				copy_dupli_context(&pctx, ctx, ctx->object, NULL, baseid, false);
+
 				/* mballs have a different dupli handling */
 				if (ob->type != OB_MBALL)
 					ob->flag |= OB_DONE;  /* doesnt render */
 
-				make_child_duplis_cb(ctx, userdata, ob);
+				make_child_duplis_cb(&pctx, userdata, ob);
 			}
+			baseid++;
 		}
 		BKE_BASES_ITER_END;
 	}
