@@ -6089,7 +6089,7 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int 
 	PHandle *phandle = (PHandle *)handle;
 	PChart* chart;
 	float randf, rot, rand_value, rot_rand, place_rand;
-	int rand_chart, rand_param;
+	int rand_chart, rand_param, i;
 
 	BLI_rng_seed(phandle->rng, seed);
 
@@ -6100,6 +6100,11 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int 
 	rand_chart = p_float_to_int_range(randf, phandle->ncharts);
 	chart = phandle->charts[rand_chart];
 	chart->u.ipack.convex_hull->placed = false;
+	if (chart->u.ipack.decomposed) {
+		for (i = 0; i < chart->u.ipack.ntris; i++){
+			chart->u.ipack.tris[i]->placed = false;
+		}
+	}
 
 	/* Set initial scale of charts so finding a better solution is possible */
 
@@ -6120,6 +6125,16 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int 
 		p_convex_hull_update(chart->u.ipack.convex_hull, false);
 		p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
 		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+		if (chart->u.ipack.decomposed) {
+			for (i = 0; i < chart->u.ipack.ntris; i++){
+				PConvexHull *tri = chart->u.ipack.tris[i];
+				p_convex_hull_update(tri, true);
+				p_convex_hull_grow(tri, margin);
+				p_convex_hull_update(tri, false);
+				p_convex_hull_compute_horizontal_angles(tri); /* ToDo: Shouldn't be necessary! */
+				p_convex_hull_compute_edge_components(tri);
+			}
+		}
 	}
 	else {
 		place_rand = fabsf(remainderf(chart->u.ipack.sa_params[2] + rand_value, 1.0f));
@@ -6540,29 +6555,26 @@ void param_flush_restore(ParamHandle *handle)
 	}
 }
 
-void param_store_packing_solution(ParamHandle *handle)
+void param_accept_placement(ParamHandle *handle, PChart *chart)
 {
 	PHandle *phandle = (PHandle *)handle;
-	PChart *chart;
 	PConvexHull *chull;
 	int i;
 	printf("param_store_packing_solution\n");
 
-	for (i = 0; i < phandle->ncharts; i++) {
-		chart = phandle->charts[i];
-		chull = chart->u.ipack.convex_hull;
-		chart->u.ipack.best_pos->x = chull->h_verts[chull->ref_vert_index]->uv[0];
-		chart->u.ipack.best_pos->y = chull->h_verts[chull->ref_vert_index]->uv[1];
+	chart = phandle->charts[i];
+	chull = chart->u.ipack.convex_hull;
+	chart->u.ipack.best_pos->x = chull->h_verts[chull->ref_vert_index]->uv[0];
+	chart->u.ipack.best_pos->y = chull->h_verts[chull->ref_vert_index]->uv[1];
 
-		//chart->u.ipack.best_scale = chart-> ? 
-	}
+	//chart->u.ipack.best_scale = chart-> ? 
+
 	printf("DONE param_store_packing_solution\n");
 }
 
-void param_restore_packing_solution(ParamHandle *handle)
+void param_restore_placement(ParamHandle *handle, PChart *chart)
 {
 	PHandle *phandle = (PHandle *)handle;
-	PChart *chart;
 	PConvexHull *chull;
 	float trans[2], cur_pos[2];
 	int i;

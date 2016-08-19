@@ -108,8 +108,8 @@ void param_pack(ParamHandle *handle, float margin, bool do_rotate);
 void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin, int rot_step, bool concave);
 void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int seed, int rot_step, float margin);
 void param_irregular_pack_end(ParamHandle *handle);
-void param_store_packing_solution(ParamHandle *handle);
-void param_restore_packing_solution(ParamHandle *handle);
+void param_accept_placement(ParamHandle *handle);
+void param_restore_placement(ParamHandle *handle);
 
 /* Average area for all charts */
 

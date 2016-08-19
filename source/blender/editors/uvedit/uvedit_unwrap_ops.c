@@ -928,18 +928,18 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 
 	/* Find neighboring solution */
 	/*ToDo Saphires: Pass SA parameters */
-	//param_irregular_pack_iter(pi->handle, 
-	//						  &wasted_area, 
-	//						  pi->iter_global, 
-	//						  pi->sa->rot_steps, 
-	//						  pi->margin /* SA */);
+	param_irregular_pack_iter(pi->handle, 
+							  &wasted_area, 
+							  pi->iter_global, 
+							  pi->sa->rot_steps, 
+							  pi->margin /* SA */);
 
 	/* delta Energy */
 	dE = wasted_area - pi->wasted_area_last;
 
 	if (dE < 0) {
 		/* Current solution is new best solution, keep placement */
-		/*param_store_packing_solution(pi->handle);*/
+		/*param_accept_placement(ParamHandle *handle, PChart *chart);*/
 		pi->wasted_area_last = wasted_area;
 	}
 	else {
@@ -949,12 +949,12 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 
 		if (r1 < r2) {
 			/* Current solution is new best solution, keep placement */
-			//param_store_packing_solution(pi->handle); 
+			//param_accept_placement(ParamHandle *handle, PChart *chart); 
 			pi->wasted_area_last = wasted_area;
 		}
 		else {
 			/* no better solution found, "frozen state solution" */
-			/* ToDo SaphireS: Revert last solution -> revert placement/scale/rot of last chart */
+			/* ToDo SaphireS: param_restore_placement(ParamHandle *handle, PChart *chart) */
 			
 			pi->iter_local++;
 		}
@@ -1096,7 +1096,7 @@ void UV_OT_irregular_pack_islands(wmOperatorType *ot)
 	ot->poll = ED_operator_uvedit;
 
 	/* properties */
-	RNA_def_boolean(ot->srna, "concave", false, "Use concave boundaries", "Use concave boundaries (slower but better results)");
+	RNA_def_boolean(ot->srna, "concave", true, "Use concave boundaries", "Use concave boundaries (slower but better results)");
 	RNA_def_float(ot->srna, "margin", 0.0f, 0.0f, 1.0f, "Margin", "Border Margin/Padding to apply per UV island", 0.0f, 1.0f);
 	RNA_def_int(ot->srna, "rotation_steps", 4, 0, 360, "Rotation Steps", "Allowed rotations to try during packing. (2=180°, 4=90°, etc.)", 0, 360);
 	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 10000);
