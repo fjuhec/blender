@@ -1201,6 +1201,11 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tclip.strip_select, 0xff, 0x8c, 0x00, 0xff);
 	btheme->tclip.handle_vertex_size = 5;
 	ui_theme_space_init_handles_color(&btheme->tclip);
+
+	/* space stats */
+	btheme->tstats = btheme->tv3d;
+
+	rgba_char_args_set_fl(btheme->tstats.back, 0.42, 0.42, 0.42, 1.0);
 }
 
 void ui_style_init_default(void)
@@ -2736,6 +2741,13 @@ void init_userdef_do_versions(void)
 				btheme->tact.keyframe_scale_fac = 1.0f;
 		}
 	}
+
+	if (!USER_VERSION_ATLEAST(277, 4)) {
+        for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+            btheme->tstats = btheme->tv3d;
+            rgba_char_args_set_fl(btheme->tstats.back,    0.42, 0.42, 0.42, 1.0);
+        }
+    }
 
 	/**
 	 * Include next version bump.
