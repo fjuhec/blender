@@ -390,6 +390,7 @@ typedef struct bTheme {
 	ThemeSpace tuserpref;
 	ThemeSpace tconsole;
 	ThemeSpace tclip;
+	ThemeSpace tstats;
 	
 	/* 20 sets of bone colors for this theme */
 	ThemeWireColor tarm[20];
