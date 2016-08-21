@@ -7459,12 +7459,7 @@ static void direct_link_moviePlaneTracks(FileData *fd, ListBase *plane_tracks_ba
 static void direct_link_movieCorrespondences(FileData *fd,
                                              ListBase *correspondences)
 {
-	MovieTrackingCorrespondence *corr;
 	link_list(fd, correspondences);
-	for (corr = correspondences->first; corr != NULL; corr = corr->next) {
-		corr->self_track = newdataadr(fd, corr->self_track);
-		corr->other_track = newdataadr(fd, corr->other_track);
-	}
 }
 
 static void direct_link_movieclip(FileData *fd, MovieClip *clip)
@@ -7532,7 +7527,6 @@ static void lib_link_movieCorrespondences(FileData *fd,
 {
 	MovieTrackingCorrespondence *corr;
 	for (corr = correspondences->first; corr != NULL; corr = corr->next) {
-		corr->other_track = newlibadr(fd, clip->id.lib, corr->other_track);
 		corr->other_clip = newlibadr(fd, clip->id.lib, corr->other_clip);
 		corr->self_clip = newlibadr(fd, clip->id.lib, corr->self_clip);
 	}

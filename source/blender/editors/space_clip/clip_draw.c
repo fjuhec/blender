@@ -548,14 +548,16 @@ static void draw_marker_outline(SpaceClip *sc, ARegion *ar, MovieTrackingTrack *
 	glPopMatrix();
 }
 
-// return whether the track is a linked track
-// by iterating the correpsondence base in tracking.
-static bool is_track_linked(MovieTracking *tracking, MovieTrackingTrack *track)
+/* return whether the track is a linked track by iterating the correspondence base in tracking. */
+static bool is_track_linked(MovieTracking *tracking, MovieClip *clip, MovieTrackingTrack *track)
 {
 	MovieTrackingCorrespondence *corr = tracking->correspondences.first;
 	while (corr) {
-		if (corr->self_track == track || corr->other_track == track)
+		if ((corr->self_clip == clip && strcmp(corr->self_track_name, track->name) == 0) ||
+		    (corr->other_clip == clip && strcmp(corr->other_track_name, track->name) == 0))
+		{
 			return true;
+		}
 		corr = corr->next;
 	}
 	return false;
@@ -594,8 +596,9 @@ static void draw_marker_areas(SpaceClip *sc, ARegion *ar, MovieTrackingTrack *tr
 	bool show_search = false;
 	float col[3], scol[3], px[2];
 
-	MovieTracking *tracking = &sc->clip->tracking;
-	bool link = is_track_linked(tracking, track);
+	MovieClip *mc = ED_space_clip_get_clip_in_region(sc, ar);
+	MovieTracking *tracking = &mc->tracking;
+	bool link = is_track_linked(tracking, mc, track);
 	track_colors(track, act, link, col, scol);
 
 	RegionSpaceClip *rsc = (RegionSpaceClip*) ar->regiondata;
@@ -821,8 +824,9 @@ static void draw_marker_slide_zones(SpaceClip *sc, ARegion *ar, MovieTrackingTra
 	if (!TRACK_VIEW_SELECTED(sc, track) || track->flag & TRACK_LOCKED)
 		return;
 
-	MovieTracking *tracking = &sc->clip->tracking;
-	bool link = is_track_linked(tracking, track);
+	MovieClip *mc = ED_space_clip_get_clip_in_region(sc, ar);
+	MovieTracking *tracking = &mc->tracking;
+	bool link = is_track_linked(tracking, mc, track);
 	track_colors(track, act, link, col, scol);
 
 	if (outline) {

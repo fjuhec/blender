@@ -171,8 +171,8 @@ typedef struct MovieTrackingCorrespondence {
 
 	char name[64];  /* MAX_NAME */
 
-	MovieTrackingTrack *self_track;
-	MovieTrackingTrack *other_track;
+	char self_track_name[64];
+	char other_track_name[64];
 
 	struct MovieClip *self_clip;
 	struct MovieClip *other_clip;

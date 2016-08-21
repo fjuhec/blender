@@ -95,28 +95,28 @@ MovieTrackingCorrespondence *BKE_tracking_correspondence_add(ListBase *corr_base
                                                              char *error_msg, int error_size)
 {
 	MovieTrackingCorrespondence *corr = NULL;
-	// check self correspondences
+	/* check self correspondences */
 	if (self_track == other_track) {
 		BLI_strncpy(error_msg, N_("Cannot link a track to itself"), error_size);
 		return NULL;
 	}
-	// check duplicate correspondences or conflict correspondence
+	/* check duplicate correspondences or conflict correspondence */
 	for (corr = corr_base->first; corr != NULL; corr = corr->next)
 	{
-		if (corr->self_clip == self_clip && corr->self_track == self_track) {
-			// duplicate correspondences
-			if (corr->other_clip == other_clip && corr->other_track == other_track) {
+		if (corr->self_clip == self_clip && strcmp(corr->self_track_name, self_track->name) == 0) {
+			/* duplicate correspondences */
+			if (corr->other_clip == other_clip && strcmp(corr->other_track_name, other_track->name) == 0) {
 				BLI_strncpy(error_msg, N_("This correspondence has been added"), error_size);
 				return NULL;
 			}
-			// conflict correspondence
+			/* conflict correspondence */
 			else {
 				BLI_strncpy(error_msg, N_("Conflict correspondence, consider first deleting the old one"), error_size);
 				return NULL;
 			}
 		}
-		if (corr->other_clip == other_clip && corr->other_track == other_track) {
-			if (corr->self_clip == self_clip && corr->self_track == self_track) {
+		if (corr->other_clip == other_clip && strcmp(corr->other_track_name, other_track->name) == 0) {
+			if (corr->self_clip == self_clip && strcmp(corr->self_track_name, self_track->name) == 0) {
 				BLI_strncpy(error_msg, N_("This correspondence has been added"), error_size);
 				return NULL;
 			}
@@ -129,8 +129,8 @@ MovieTrackingCorrespondence *BKE_tracking_correspondence_add(ListBase *corr_base
 
 	corr = MEM_callocN(sizeof(MovieTrackingCorrespondence), "add correspondence");
 	strcpy(corr->name, "Correspondence");
-	corr->self_track = self_track;
-	corr->other_track = other_track;
+	strcpy(corr->self_track_name, self_track->name);
+	strcpy(corr->other_track_name, other_track->name);
 	corr->self_clip = self_clip;
 	corr->other_clip = other_clip;
 
@@ -260,18 +260,18 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 		int clip1 = -1, clip2 = -1, track1 = -1, track2 = -1;
 		MovieClip *self_clip = corr->self_clip;
 		MovieClip *other_clip = corr->other_clip;
-		// iterate through all the clips to get the local clip id
+		/* iterate through all the clips to get the local clip id */
 		for (int i = 0; i < clip_num; i++) {
 			MovieTracking *tracking = &clips[i]->tracking;
 			ListBase *tracksbase = &tracking->tracks;
 			MovieTrackingTrack *track = tracksbase->first;
 			int tracknr = 0;
-			// check primary clip
+			/* check primary clip */
 			if (self_clip == clips[i]) {
 				printf("check primary clip\n");
 				clip1 = i;
 				while (track) {
-					if (corr->self_track == track) {
+					if (strcmp(corr->self_track_name, track->name) == 0) {
 						printf("check primary track\n");
 						track1 = tracknr;
 						break;
@@ -280,12 +280,12 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 					tracknr++;
 				}
 			}
-			// check witness clip
+			/* check witness clip */
 			if (other_clip == clips[i]) {
 				printf("check witness clip\n");
 				clip2 = i;
 				while (track) {
-					if (corr->other_track == track) {
+					if (strcmp(corr->other_track_name, track->name) == 0) {
 						printf("check witness track\n");
 						track2 = tracknr;
 						break;
@@ -299,7 +299,7 @@ static int libmv_CorrespondencesFromTracking(ListBase *tracking_correspondences,
 			libmv_AddCorrespondenceN(libmv_correspondences, clip1, clip2, track1, track2);
 			num_valid_corrs++;
 		}
-		// change the global index of clip2-track2 to clip1-track1
+		/* change the global index of clip2-track2 to clip1-track1 */
 		global_track_index[clip2][track2] = global_track_index[clip1][track1];
 		corr = corr->next;
 	}

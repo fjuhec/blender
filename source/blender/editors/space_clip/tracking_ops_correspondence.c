@@ -146,13 +146,14 @@ static int delete_correspondence_exec(bContext *C, wmOperator *UNUSED(op))
 	bool changed = false;
 
 	/* Remove track correspondences from correspondence base */
+	MovieTrackingObject *object = BKE_tracking_object_get_active(tracking);
 	ListBase *correspondence_base = &tracking->correspondences;
 	for (MovieTrackingCorrespondence *corr = correspondence_base->first;
 	     corr != NULL;
 	     corr = corr->next)
 	{
 		MovieTrackingTrack *track;
-		track = corr->self_track;
+		track = BKE_tracking_track_get_named(tracking, object, corr->self_track_name);
 		if (TRACK_VIEW_SELECTED(sc, track)) {
 			BLI_freelinkN(correspondence_base, corr);
 			changed = true;
