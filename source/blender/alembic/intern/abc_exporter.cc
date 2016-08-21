@@ -44,6 +44,7 @@ extern "C" {
 #include "DNA_curve_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_space_types.h"  /* for FILE_MAX */
 
@@ -175,7 +176,7 @@ void AbcExporter::getShutterSamples(double step, bool time_relative,
 	/* sample all frame */
 	if (shutter_open == 0.0 && shutter_close == 1.0) {
 		for (double t = 0; t < 1.0; t += step) {
-			samples.push_back(t / time_factor);
+			samples.push_back((t + m_settings.frame_start) / time_factor);
 		}
 	}
 	else {
@@ -184,7 +185,7 @@ void AbcExporter::getShutterSamples(double step, bool time_relative,
 		const double time_inc = (shutter_close - shutter_open) / nsamples;
 
 		for (double t = shutter_open; t <= shutter_close; t += time_inc) {
-			samples.push_back(t / time_factor);
+			samples.push_back((t + m_settings.frame_start) / time_factor);
 		}
 	}
 }
@@ -325,16 +326,18 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 			break;
 		}
 
-		double f = *begin;
-		setCurrentFrame(bmain, f);
+		const double frame = *begin;
 
-		if (shape_frames.count(f) != 0) {
+		/* 'frame' is offset by start frame, so need to cancel the offset. */
+		setCurrentFrame(bmain, frame - m_settings.frame_start);
+
+		if (shape_frames.count(frame) != 0) {
 			for (int i = 0, e = m_shapes.size(); i != e; ++i) {
 				m_shapes[i]->write();
 			}
 		}
 
-		if (xform_frames.count(f) == 0) {
+		if (xform_frames.count(frame) == 0) {
 			continue;
 		}
 
