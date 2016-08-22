@@ -31,8 +31,10 @@
 
 #include "BLT_translation.h"
 
+#include "DNA_object_types.h"
 #include "DNA_space_types.h"
 
+#include "ED_object.h"
 #include "ED_scene.h"
 
 #include "MEM_guardedalloc.h"
@@ -51,8 +53,19 @@
 #define TOT_VISIBILITY_BITS 20
 
 
-static void layer_visibility_update_cb(bContext *C, void *UNUSED(arg1), void *UNUSED(arg2))
+static void objectlayer_visible_editobject_ensure(bContext *C, LayerTreeItem *litem)
 {
+	Scene *scene = CTX_data_scene(C);
+
+	if (scene->obedit && litem->is_hidden && scene->obedit->layer == litem) {
+		ED_object_mode_compat_set(C, scene->obedit, OB_MODE_OBJECT, CTX_wm_reports(C));
+		WM_event_add_notifier(C, NC_SCENE | ND_MODE, scene);
+	}
+}
+
+static void layer_visibility_update_cb(bContext *C, void *arg1, void *UNUSED(arg2))
+{
+	objectlayer_visible_editobject_ensure(C, arg1);
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
 }
 
@@ -62,7 +75,7 @@ static void layer_visibility_but_draw(uiBlock *block, uiLayout *layout, LayerTre
 
 	uiBut *but = uiDefIconButBitC(block, UI_BTYPE_ICON_TOGGLE_N, 1, 0, ICON_VISIBLE_IPO_OFF, 0, 0, UI_UNIT_X, UI_UNIT_Y,
 	                 &litem->is_hidden, 0.0f, 0.0f, 0.0f, 0.0f, "Layer Visibility");
-	UI_but_func_set(but, layer_visibility_update_cb, NULL, NULL);
+	UI_but_func_set(but, layer_visibility_update_cb, litem, NULL);
 }
 
 static void object_layer_draw(const bContext *C, LayerTreeItem *litem, uiLayout *layout)
