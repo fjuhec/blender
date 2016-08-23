@@ -860,7 +860,7 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 	PackIslands *pi;
 	SimulatedAnnealing *simann;
 	unsigned int seed = 31415926;
-	float wasted_area, rot_steps, margin;
+	float wasted_area;
 	bool average_scale = RNA_boolean_get(op->ptr, "average_islands_scale");
 
 	/* Keep for now, needed when making packing work with current selection */
@@ -1106,7 +1106,7 @@ void UV_OT_irregular_pack_islands(wmOperatorType *ot)
 /* ******************** XXX (SaphireS): DEBUG-TEST operator **************** */
 
 /* XXX (SaphireS): Remove */
-void ED_uvedit_test_debug(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect)
+static void ED_uvedit_test_debug(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect)
 {
 	ParamHandle *handle;
 	int hparams = set_handle_params(true, false, selected, correct_aspect, true);
