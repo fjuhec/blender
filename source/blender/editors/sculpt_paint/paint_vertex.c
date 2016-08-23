@@ -1742,10 +1742,9 @@ static void vertex_paint_init_session_average_arrays(Object *ob){
 	//I think the totNodes might include internal nodes, and we really only need the tot leaves.
 	BKE_pbvh_node_num_nodes(ob->sculpt->pbvh, &totNode);
 	Mesh *me = BKE_mesh_from_object(ob);
-	ob->sculpt->totalRed = MEM_callocN(totNode*sizeof(unsigned long), "totalRed");
-	ob->sculpt->totalGreen = MEM_callocN(totNode * sizeof(unsigned long), "totalGreen");
-	ob->sculpt->totalBlue = MEM_callocN(totNode * sizeof(unsigned long), "totalBlue");
-	ob->sculpt->totalAlpha = MEM_callocN(totNode * sizeof(unsigned long), "totalAlpha");
+
+	//Need unsigned long to prevent overflow when averaging multiple whites, which take up an entire unsigned int each.
+	ob->sculpt->totalColor = MEM_callocN(totNode * 3 * sizeof(unsigned long), "totalColor");
 	ob->sculpt->totalWeight = MEM_callocN(totNode * sizeof(double), "totalWeight");
 	ob->sculpt->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
   ob->sculpt->maxWeight = MEM_callocN(me->totvert * sizeof(float), "maxWeight");
@@ -3015,9 +3014,13 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		BKE_paint_init(scene, ePaintVertex, PAINT_CURSOR_VERTEX_PAINT);
 
 		/* Create vertex/weight paint mode session data */
-		if (ob->sculpt)
+		if (ob->sculpt) {
+			if (ob->sculpt->cache){
+				sculpt_cache_free(ob->sculpt->cache);
+				ob->sculpt->cache = NULL;
+			}
 			BKE_sculptsession_free(ob);
-
+		}
 		vertex_paint_init_session(scene, ob);
 
 		/* Cache needs to be initialized before mesh_build_data is called. */
@@ -3227,7 +3230,7 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	SculptSession *ss = data->ob->sculpt;
 	StrokeCache *cache = ss->cache;
 	unsigned int *lcol = data->lcol;
-	unsigned long blend[4] = { 0 };
+	unsigned long blend[3] = { 0 };
 	char *col;
 	data->ob->sculpt->totloopsHit[n] = 0;
 
@@ -3252,16 +3255,14 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 					blend[0] += (long)col[0] * (long)col[0];
 					blend[1] += (long)col[1] * (long)col[1];
 					blend[2] += (long)col[2] * (long)col[2];
-					blend[3] += (long)col[3] * (long)col[3];
 				}
 			}
 		}
 		BKE_pbvh_vertex_iter_end;
 	}
-	data->ob->sculpt->totalRed[n] = blend[0];
-	data->ob->sculpt->totalGreen[n] = blend[1];
-	data->ob->sculpt->totalBlue[n] = blend[2];
-	data->ob->sculpt->totalAlpha[n] = blend[3];
+	data->ob->sculpt->totalColor[n * 3 + 0] = blend[0];
+	data->ob->sculpt->totalColor[n * 3 + 1] = blend[1];
+	data->ob->sculpt->totalColor[n * 3 + 2] = blend[2];
 }
 
 static void handle_texture_brush(Scene *scene, Brush *brush, SculptThreadedTaskData *data, PBVHVertexIter vd, 
@@ -3482,20 +3483,20 @@ static void calculate_average_color(SculptThreadedTaskData *data, PBVHNode **UNU
 			true, false);
 
 	unsigned int totalHitLoops = 0;
-	unsigned long totalColor[4] = { 0 };
+	unsigned long totalColor[3] = { 0 };
 	unsigned char blend[4] = { 0 };
 	for (int i = 0; i < totnode; ++i) {
 		totalHitLoops += data->ob->sculpt->totloopsHit[i];
-		totalColor[0] += data->ob->sculpt->totalRed[i];
-		totalColor[1] += data->ob->sculpt->totalGreen[i];
-		totalColor[2] += data->ob->sculpt->totalBlue[i];
-		totalColor[3] += data->ob->sculpt->totalAlpha[i];
+		totalColor[0] += data->ob->sculpt->totalColor[i * 3 + 0];
+		totalColor[1] += data->ob->sculpt->totalColor[i * 3 + 1];
+		totalColor[2] += data->ob->sculpt->totalColor[i * 3 + 2];
 	}
+
 	if (totalHitLoops != 0) {
-    blend[0] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[0], totalHitLoops)));
-    blend[1] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[1], totalHitLoops)));
-    blend[2] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[2], totalHitLoops)));
-    blend[3] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[3], totalHitLoops)));
+		blend[0] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[0], totalHitLoops)));
+		blend[1] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[1], totalHitLoops)));
+		blend[2] = (unsigned char)round(sqrtl(divide_round_ul(totalColor[2], totalHitLoops)));
+		blend[3] = 255;
 		data->vpd->paintcol = *((unsigned int*)blend);
 	}
 }
