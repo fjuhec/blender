@@ -592,7 +592,7 @@ static void p_chart_uv_scale_origin(PChart *chart, float scale)
 	p_chart_uv_translate(chart, trans);
 }
 
-static void p_scale_charts(PHandle *handle, float scale)
+static void UNUSED_FUNCTION(p_scale_charts)(PHandle *handle, float scale)
 {
 	PChart *chart;
 	int i;
@@ -631,7 +631,7 @@ static PBool p_intersect_line_2d_dir(float *v1, float *dir1, float *v2, float *d
 	return P_TRUE;
 }
 
-static PBool p_intersect_line_2d(float *v1, float *v2, float *v3, float *v4, float *isect)
+static PBool UNUSED_FUNCTION(p_intersect_line_2d)(float *v1, float *v2, float *v3, float *v4, float *isect)
 {
 	float dir1[2], dir2[2];
 
@@ -4859,9 +4859,9 @@ void param_pack(ParamHandle *handle, float margin, bool do_rotate)
 }
 
 /* qsort function - sort largest to smallest */
-static int vert_anglesort(const void *p1, const void *p2)
+static int UNUSED_FUNCTION(vert_anglesort)(const void *p1, const void *p2)
 {
-	PVert **v1 = p1, **v2 = p2;
+	PVert *const* v1 = p1, *const* v2 = p2;
 	const float a1 = (*v1)->edge->u.horizontal_angle;
 	const float a2 = (*v2)->edge->u.horizontal_angle;
 
@@ -4873,7 +4873,7 @@ static int vert_anglesort(const void *p1, const void *p2)
 /* qsort function - sort largest to smallest */
 static int point_anglesort(const void *p1, const void *p2)
 {
-	PPointUV **v1 = p1, **v2 = p2;
+	PPointUV *const* v1 = p1, *const* v2 = p2;
 	const float a1 = (*v1)->angle;
 	const float a2 = (*v2)->angle;
 
@@ -4885,7 +4885,7 @@ static int point_anglesort(const void *p1, const void *p2)
 /* qsort function - sort largest to smallest */
 static int chart_areasort(const void *p1, const void *p2)
 {
-	PChart **c1 = p1, **c2 = p2;
+	PChart *const* c1 = p1, *const* c2 = p2;
 	const float a1 = (*c1)->u.ipack.area;
 	const float a2 = (*c2)->u.ipack.area;
 
@@ -4895,7 +4895,7 @@ static int chart_areasort(const void *p1, const void *p2)
 }
 
 /* ToDo SaphireS: Make this function part of math_vector.c */
-static float p_edge_horizontal_angle(PVert *a, PVert *b)
+static float UNUSED_FUNCTION(p_edge_horizontal_angle)(PVert *a, PVert *b)
 {
 	float angle = 0.0f;
 	float hori[2];
@@ -5990,6 +5990,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 		if (!outer) {
 			/* ToDo Saphires: BKE_report(..) */
 			printf("Warning: p_chart_boundaries: No boundary edge found for chart %i!\n", i);
+			chart->u.ipack.convex_hull = p_convex_hull_new(chart);
 			chart->u.ipack.convex_hull->placed = true;
 			chart->u.ipack.decomposed = false;
 			break;
