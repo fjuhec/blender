@@ -480,7 +480,6 @@ static float p_chart_uv_area_signed(PChart *chart)
 static float p_face_uv_area_combined(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
-	PFace *f;
 	float used_area = 0.0f;
 	int i;
 
@@ -4942,7 +4941,7 @@ PConvexHull *p_convex_hull_new(PChart *chart)
 {
 	PConvexHull *conv_hull = (PConvexHull *)MEM_callocN(sizeof(*conv_hull), "PConvexHull");
 	PVert **points;
-	float minv[2], maxv[2], maxy = -1.0e30f;
+	float maxy = -1.0e30f;
 	int npoint, right, i;
 
 	if (!p_chart_convex_hull(chart, &points, &npoint, &right))
@@ -4987,8 +4986,8 @@ PConvexHull *p_convex_hull_new_tri(PChart *chart, const float (*coords)[2])
 {
 	PConvexHull *conv_hull = (PConvexHull *)MEM_callocN(sizeof(*conv_hull), "PConvexHull");
 	PVert *v;
-	float minv[2], maxv[2], pos[2], maxy = -1.0e30f;
-	int npoint = 3, right = 0, i, j;
+	float pos[2], maxy = -1.0e30f;
+	int npoint = 3, right = 0, i;
 
 	printf("p_convex_hull_new_tri!\n");
 
@@ -5095,7 +5094,7 @@ void p_convex_hull_update(PConvexHull *conv_hull, bool update_points)
 
 void p_convex_hull_delete(PConvexHull *c_hull, bool decomposed)
 {
-	int i, j;
+	int i;
 	for (i = 0; i < c_hull->nverts; i++) {
 		if (c_hull->verts[i]) {
 			MEM_freeN(c_hull->verts[i]);
@@ -5123,7 +5122,6 @@ bool p_convex_hull_intersect(PConvexHull *chull_a, PConvexHull *chull_b)
 		return false;
 	}
 	
-	PEdge *e1, *e2;
 	int i, j;
 
 	/* Check edges for intersctions */
@@ -5261,7 +5259,7 @@ void p_convex_hull_grow(PConvexHull *chull, float margin)
 	PVert *v1, *v2, *v3;
 	//PPointUV *p1, *p2, *p3;
 	float vec1[2], vec2[2], vec3[2];
-	float angle, dist_fac;
+	float dist_fac;
 	float a[2], b[2], dir[2], end_pos[2], a_n[2], b_n[2];
 	int i;
 	
@@ -5355,7 +5353,6 @@ PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 	nfp->nverts = 4;
 	PVert **points = (PVert **)MEM_mallocN(sizeof(PVert *) * nfp->nverts, "PNFPPoints");
 	nfp->final_pos = (PPointUV **)MEM_callocN(sizeof(*nfp->final_pos) * nfp->nverts, "PNFPFinalPos");
-	int i, j, offset;
 
 	PPointUV *p1 = (PPointUV *)MEM_callocN(sizeof(*p1), "PPointUV");
 	PPointUV *p2 = (PPointUV *)MEM_callocN(sizeof(*p2), "PPointUV");
@@ -5544,7 +5541,6 @@ PNoFitPolygon *p_no_fit_polygon_create(PConvexHull *item, PConvexHull *fixed)
 	PPointUV **fpoints = (PPointUV **)MEM_mallocN(sizeof(PPointUV *) * nfp->nverts, "PNFPFPoints");
 	nfp->final_pos = (PPointUV **)MEM_callocN(sizeof(*nfp->final_pos) * nfp->nverts, "PNFPFinalPos");
 	int i, j;
-	float trans[2];
 
 	/* Assign verts of hulls to NFP */
 	for (i = 0; i < nfp->nverts; i++) {
@@ -5934,11 +5930,9 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 {
 	PHandle *phandle = (PHandle *)handle;
 	PChart *chart;
-	PVert **points;
 	PEdge *outer, *e;
 	PFace *f;
-	PConvexHull **tris;
-	int npoint, right, i, j, nboundaries = 0;
+	int i, j, nboundaries = 0;
 	unsigned int seed = 31415925;
 	float used_area, init_scale, init_value = 0.6f, randf1, rot;
 
@@ -6555,24 +6549,27 @@ void param_flush_restore(ParamHandle *handle)
 	}
 }
 
-void param_accept_placement(ParamHandle *handle, PChart *chart)
+void param_accept_placement(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PConvexHull *chull;
 	int i;
 	printf("param_store_packing_solution\n");
 
-	chart = phandle->charts[i];
-	chull = chart->u.ipack.convex_hull;
-	chart->u.ipack.best_pos->x = chull->h_verts[chull->ref_vert_index]->uv[0];
-	chart->u.ipack.best_pos->y = chull->h_verts[chull->ref_vert_index]->uv[1];
+	for (i = 0; i < phandle->ncharts; i++) {
+		PChart *chart = phandle->charts[i];
+		chart = phandle->charts[i];
+		chull = chart->u.ipack.convex_hull;
+		chart->u.ipack.best_pos->x = chull->h_verts[chull->ref_vert_index]->uv[0];
+		chart->u.ipack.best_pos->y = chull->h_verts[chull->ref_vert_index]->uv[1];
+	}
 
 	//chart->u.ipack.best_scale = chart-> ? 
 
 	printf("DONE param_store_packing_solution\n");
 }
 
-void param_restore_placement(ParamHandle *handle, PChart *chart)
+void param_restore_placement(ParamHandle *handle)
 {
 	PHandle *phandle = (PHandle *)handle;
 	PConvexHull *chull;
@@ -6581,7 +6578,7 @@ void param_restore_placement(ParamHandle *handle, PChart *chart)
 	printf("param_restore_packing_solution\n");
 
 	for (i = 0; i < phandle->ncharts; i++) {
-		chart = phandle->charts[i];
+		PChart *chart = phandle->charts[i];
 		chull = chart->u.ipack.convex_hull;
 
 		cur_pos[0] = chull->h_verts[chull->ref_vert_index]->uv[0];
