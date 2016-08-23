@@ -1096,7 +1096,7 @@ void UV_OT_irregular_pack_islands(wmOperatorType *ot)
 	ot->poll = ED_operator_uvedit;
 
 	/* properties */
-	RNA_def_boolean(ot->srna, "concave", true, "Use concave boundaries", "Use concave boundaries (slower but better results)");
+	RNA_def_boolean(ot->srna, "concave", false, "Use concave boundaries", "Use concave boundaries (slower but better results)");
 	RNA_def_float(ot->srna, "margin", 0.0f, 0.0f, 1.0f, "Margin", "Border Margin/Padding to apply per UV island", 0.0f, 1.0f);
 	RNA_def_int(ot->srna, "rotation_steps", 4, 0, 360, "Rotation Steps", "Allowed rotations to try during packing. (2=180°, 4=90°, etc.)", 0, 360);
 	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 10000);
