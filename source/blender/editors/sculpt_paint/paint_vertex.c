@@ -2409,12 +2409,12 @@ static void do_wpaint_brush_blur_task_cb_ex(
       }
       if (totalHitLoops != 0) {
         const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
-		const float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
+        const float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
 
-		finalColor /= totalHitLoops;
-		if (dot > 0.0) {
+        finalColor /= totalHitLoops;
+        if (dot > 0.0) {
           do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, dot * fade * bstrength, (float)finalColor);
-		}
+        }
       }
     }
     BKE_pbvh_vertex_iter_end;
@@ -2453,7 +2453,7 @@ static void do_wpaint_brush_smudge_task_cb_ex(
         //Minimum dot product between brush direction and current to neighbor direction is 0.0, meaning orthogonal.
         float maxDotProduct = 0.0f;
 
-        //Get the color of the loop in the opposite direction of the brush movement
+        //Get the color of the loop in the opposite direction of the brush movement (this callback is specifically for smudge.)
         finalWeight = 0;
         for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
           int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];

@@ -27,11 +27,7 @@
 /** \file blender/editors/sculpt_paint/paint_intern.h
  *  \ingroup edsculpt
  */
-
 #include "ED_view3d.h"
-#include "BKE_DerivedMesh.h"
-#include "BKE_mesh_mapping.h"
-#include "BLI_stack.h"
 
 #ifndef __PAINT_INTERN_H__
 #define __PAINT_INTERN_H__
@@ -58,6 +54,8 @@ struct wmOperator;
 struct wmOperatorType;
 struct wmWindowManager;
 struct DMCoNo;
+struct BLI_Stack;
+struct MeshElemMap;
 enum PaintMode;
 
 /* paint_stroke.c */
@@ -113,37 +111,6 @@ struct WeightPaintGroupData {
 	const bool *lock;
 };
 
-typedef struct WPaintData {
-	ViewContext vc;
-	int *indexar;
-
-	struct WeightPaintGroupData active, mirror;
-
-	void *vp_handle;
-	DMCoNo *vertexcosnos;
-
-	float wpimat[3][3];
-
-	/* variables for auto normalize */
-	const bool *vgroup_validmap; /* stores if vgroups tie to deforming bones or not */
-	const bool *lock_flags;
-
-	/* variables for multipaint */
-	const bool *defbase_sel;      /* set of selected groups */
-	int defbase_tot_sel;          /* number of selected groups */
-	bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
-
-	/* variables for blur */
-	struct {
-		MeshElemMap *vmap;
-		int *vmap_mem;
-	} blur_data;
-
-	BLI_Stack *accumulate_stack;  /* for reuse (WPaintDefer) */
-
-	int defbase_tot;
-} WPaintData;
-
 /* struct to avoid passing many args each call to do_weight_paint_vertex()
  * this _could_ be made a part of the operators 'WPaintData' struct, or at
  * least a member, but for now keep its own struct, initialized on every
@@ -175,12 +142,12 @@ typedef struct WeightPaintInfo {
 
 /* paint_vertex.c */
 typedef struct VPaintData {
-	ViewContext vc;
+	struct ViewContext vc;
 	unsigned int paintcol;
 	int *indexar;
 
 	struct VertProjHandle *vp_handle;
-	DMCoNo *vertexcosnos;
+	struct DMCoNo *vertexcosnos;
 
 	float vpimat[3][3];
 
@@ -194,6 +161,38 @@ typedef struct VPaintData {
 
 	bool is_texbrush;
 } VPaintData;
+
+typedef struct WPaintData {
+  struct ViewContext vc;
+  int *indexar;
+
+  struct WeightPaintGroupData active, mirror;
+
+  void *vp_handle;
+  struct DMCoNo *vertexcosnos;
+
+  float wpimat[3][3];
+
+  /* variables for auto normalize */
+  const bool *vgroup_validmap; /* stores if vgroups tie to deforming bones or not */
+  const bool *lock_flags;
+
+  /* variables for multipaint */
+  const bool *defbase_sel;      /* set of selected groups */
+  int defbase_tot_sel;          /* number of selected groups */
+  bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
+
+  /* variables for blur */
+  struct {
+    struct MeshElemMap *vmap;
+    int *vmap_mem;
+  } blur_data;
+
+  struct BLI_Stack *accumulate_stack;  /* for reuse (WPaintDefer) */
+
+  int defbase_tot;
+} WPaintData;
+
 
 int weight_paint_poll(struct bContext *C);
 int weight_paint_mode_poll(struct bContext *C);
