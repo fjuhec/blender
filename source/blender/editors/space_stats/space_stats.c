@@ -26,6 +26,8 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BIF_gl.h"
+
 #include "BKE_context.h"
 #include "BKE_screen.h"
 
@@ -37,6 +39,10 @@
 
 #include "ED_screen.h"
 #include "ED_space_api.h"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
+#include "UI_view2d.h"
 
 #include "WM_types.h"
 
@@ -85,9 +91,26 @@ static void stats_main_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
 	ar->v2d.scroll = V2D_SCROLL_RIGHT | V2D_SCROLL_VERTICAL_HIDE;
 }
 
-static void stats_main_region_draw(const bContext *UNUSED(C), ARegion *UNUSED(ar))
+static void stats_main_region_draw(const bContext *C, ARegion *ar)
 {
-	printf("Look Sergey, it's an Editor!\n");
+	View2D *v2d = &ar->v2d;
+	float size_x = ar->winx;
+	float size_y = 0.0f;
+
+	UI_ThemeClearColor(TH_BACK);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	/* update size of tot-rect (extents of data/viewable area) */
+	UI_view2d_totRect_set(v2d, size_x, size_y);
+
+	/* reset view matrix */
+	UI_view2d_view_restore(C);
+
+	/* scrollers */
+	View2DScrollers *scrollers;
+	scrollers = UI_view2d_scrollers_calc(C, v2d, V2D_ARG_DUMMY, V2D_ARG_DUMMY, V2D_ARG_DUMMY, V2D_ARG_DUMMY);
+	UI_view2d_scrollers_draw(C, v2d, scrollers);
+	UI_view2d_scrollers_free(scrollers);
 }
 
 /* add handlers, stuff you only do once or on area/region changes */
