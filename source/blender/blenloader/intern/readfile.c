@@ -7031,6 +7031,7 @@ static bool direct_link_screen(FileData *fd, bScreen *sc)
 				BLI_listbase_clear(&v3d->afterdraw_xraytransp);
 				v3d->properties_storage = NULL;
 				v3d->defmaterial = NULL;
+				v3d->bvhtree = NULL;
 				
 				/* render can be quite heavy, set to solid on load */
 				if (v3d->drawtype == OB_RENDER)
