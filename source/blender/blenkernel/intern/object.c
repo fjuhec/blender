@@ -2310,6 +2310,38 @@ BoundBox *BKE_object_boundbox_get(Object *ob)
 	return bb;
 }
 
+/**
+ * For some cases we need the visual bounding box of objects that don't
+ * have real geometry, that are just infinite small points in space.
+ *
+ * \param r_needs_freeing: The bounding box may have been allocated and needs to be freed manually.
+ * \return The visual bounding box in local space.
+ */
+BoundBox *BKE_object_drawboundbox_get(
+        const Scene *scene, const Object *ob,
+        bool *r_needs_freeing)
+{
+	BoundBox *bb = BKE_object_boundbox_get((Object *)ob);
+
+	*r_needs_freeing = false;
+	if (!bb) {
+		switch (ob->type) {
+			case OB_CAMERA:
+				bb = BKE_camera_drawboundbox_get(scene, ob);
+				*r_needs_freeing = true;
+				break;
+			case OB_EMPTY:
+			case OB_LAMP:
+			case OB_SPEAKER:
+				/* TODO */
+			default:
+				break;
+		}
+	}
+
+	return bb;
+}
+
 /* used to temporally disable/enable boundbox */
 void BKE_object_boundbox_flag(Object *ob, int flag, const bool set)
 {

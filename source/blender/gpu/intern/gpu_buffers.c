@@ -2032,8 +2032,11 @@ void GPU_free_pbvh_buffer_multires(GridCommonGPUBuffer **grid_common_gpu_buffer)
 	}
 }
 
-/* debug function, draws the pbvh BB */
-void GPU_draw_pbvh_BB(float min[3], float max[3], bool leaf)
+/**
+ * Function to draw a boundbox based on \a min and \a max coordinates. Useful for BVH tree debugging.
+ * \param is_leaf: For BVH trees, color leafs different than parents.
+ */
+void GPU_draw_boundbox(float min[3], float max[3], bool is_leaf)
 {
 	const float quads[4][4][3] = {
 		{
@@ -2065,7 +2068,7 @@ void GPU_draw_pbvh_BB(float min[3], float max[3], bool leaf)
 		},
 	};
 
-	if (leaf)
+	if (is_leaf)
 		glColor4f(0.0, 1.0, 0.0, 0.5);
 	else
 		glColor4f(1.0, 0.0, 0.0, 0.5);
@@ -2074,7 +2077,7 @@ void GPU_draw_pbvh_BB(float min[3], float max[3], bool leaf)
 	glDrawArrays(GL_QUADS, 0, 16);
 }
 
-void GPU_init_draw_pbvh_BB(void)
+void GPU_init_draw_boundbox(void)
 {
 	glPushAttrib(GL_ENABLE_BIT);
 	glDisable(GL_CULL_FACE);
@@ -2084,7 +2087,7 @@ void GPU_init_draw_pbvh_BB(void)
 	glEnable(GL_BLEND);
 }
 
-void GPU_end_draw_pbvh_BB(void)
+void GPU_end_draw_boundbox(void)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glPopAttrib();

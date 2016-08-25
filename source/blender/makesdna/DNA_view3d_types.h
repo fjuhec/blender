@@ -238,6 +238,9 @@ typedef struct View3D {
 	float stereo3d_volume_alpha;
 	float stereo3d_convergence_alpha;
 
+	/** Viewport BVH tree. Used for BVH based selection. */
+	struct BVHTree *bvhtree;
+
 	/* Previous viewport draw type.
 	 * Runtime-only, set in the rendered viewport toggle operator.
 	 */

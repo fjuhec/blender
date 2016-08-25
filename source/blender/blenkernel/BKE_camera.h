@@ -64,6 +64,8 @@ void BKE_camera_object_mode(struct RenderData *rd, struct Object *ob);
 int BKE_camera_sensor_fit(int sensor_fit, float sizex, float sizey);
 float BKE_camera_sensor_size(int sensor_fit, float sensor_x, float sensor_y);
 
+struct BoundBox *BKE_camera_drawboundbox_get(const struct Scene *scene, const struct Object *ob);
+
 /* Camera Parameters:
  *
  * Intermediate struct for storing camera parameters from various sources,

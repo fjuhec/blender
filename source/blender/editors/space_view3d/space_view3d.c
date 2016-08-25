@@ -432,6 +432,10 @@ static void view3d_free(SpaceLink *sl)
 		MEM_freeN(vd->fx_settings.ssao);
 	if (vd->fx_settings.dof)
 		MEM_freeN(vd->fx_settings.dof);
+
+	if (vd->bvhtree) {
+		view3d_objectbvh_free(vd);
+	}
 }
 
 

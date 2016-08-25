@@ -98,6 +98,8 @@
 
 #include "view3d_intern.h"  /* own include */
 
+#define USE_BVH_SELECT
+
 float ED_view3d_select_dist_px(void)
 {
 	return 75.0f * U.pixelsize;
@@ -1380,7 +1382,11 @@ Base *ED_view3d_give_base_under_cursor(bContext *C, const int mval[2])
 	return basact;
 }
 
+#ifdef USE_BVH_SELECT
+static void UNUSED_FUNCTION(deselect_all_tracks)(MovieTracking *tracking)
+#else
 static void deselect_all_tracks(MovieTracking *tracking)
+#endif
 {
 	MovieTrackingObject *object;
 
@@ -1461,6 +1467,15 @@ static bool ed_object_select_pick(
 		}
 	}
 	else {
+#ifdef USE_BVH_SELECT
+		basact = view3d_objectbvh_raycast(scene, v3d, ar, mval);
+
+		/* TODO more advanced selection methods */
+//		WM_event_add_notifier(C, NC_MOVIECLIP | ND_SELECT, track);
+		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+
+		UNUSED_VARS(hits);
+#else
 		unsigned int buffer[MAXPICKBUF];
 		bool do_nearest;
 
@@ -1563,6 +1578,7 @@ static bool ed_object_select_pick(
 					basact = NULL;
 			}
 		}
+#endif /* USE_BVH_SELECT */
 	}
 	
 	/* so, do we have something selected? */

@@ -3898,6 +3898,10 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 	/* main drawing call */
 	view3d_draw_objects(C, scene, v3d, ar, grid_unit, true, false, do_compositing ? rv3d->compositor : NULL);
 
+//	if (G.debug_value == 14) {
+		view3d_bvh_draw_boundboxes(v3d);
+//	}
+
 	/* post process */
 	if (do_compositing) {
 		GPU_fx_do_composite_pass(rv3d->compositor, rv3d->winmat, rv3d->is_persp, scene, NULL);
@@ -4044,6 +4048,10 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	 * don't do scissor because it's already set */
 	render_border = ED_view3d_calc_render_border(scene, v3d, ar, &border_rect);
 	clip_border = (render_border && !BLI_rcti_compare(&ar->drawrct, &border_rect));
+
+	if (!scene->obedit) {
+		view3d_objectbvh_rebuild(v3d, scene);
+	}
 
 	/* draw viewport using opengl */
 	if (v3d->drawtype != OB_RENDER || !view3d_main_region_do_render_draw(scene) || clip_border) {

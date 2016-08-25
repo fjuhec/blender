@@ -1156,15 +1156,15 @@ static void pbvh_update_draw_buffers(PBVH *bvh, PBVHNode **nodes, int totnode)
 
 static void pbvh_draw_BB(PBVH *bvh)
 {
-	GPU_init_draw_pbvh_BB();
+	GPU_init_draw_boundbox();
 
 	for (int a = 0; a < bvh->totnode; a++) {
 		PBVHNode *node = &bvh->nodes[a];
 
-		GPU_draw_pbvh_BB(node->vb.bmin, node->vb.bmax, ((node->flag & PBVH_Leaf) != 0));
+		GPU_draw_boundbox(node->vb.bmin, node->vb.bmax, ((node->flag & PBVH_Leaf) != 0));
 	}
 
-	GPU_end_draw_pbvh_BB();
+	GPU_end_draw_boundbox();
 }
 
 static int pbvh_flush_bb(PBVH *bvh, PBVHNode *node, int flag)

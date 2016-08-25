@@ -50,6 +50,9 @@ struct wmOperatorType;
 struct wmWindowManager;
 struct wmKeyConfig;
 
+/* Distance  */
+#define SELECT_DIST_THRESHOLD 14 /* px */
+
 /* drawing flags: */
 enum {
 	DRAW_PICKING     = (1 << 0),
@@ -284,6 +287,13 @@ void VIEW3D_OT_snap_cursor_to_grid(struct wmOperatorType *ot);
 void VIEW3D_OT_snap_cursor_to_center(struct wmOperatorType *ot);
 void VIEW3D_OT_snap_cursor_to_selected(struct wmOperatorType *ot);
 void VIEW3D_OT_snap_cursor_to_active(struct wmOperatorType *ot);
+
+void view3d_objectbvh_rebuild(View3D *v3d, const Scene *scene);
+void view3d_bvh_update(View3D *v3d, const Scene *scene);
+void view3d_objectbvh_free(View3D *v3d);
+
+Base *view3d_objectbvh_raycast(Scene *scene, View3D *v3d, ARegion *ar, const int mval[]);
+void view3d_bvh_draw_boundboxes(const View3D *v3d);
 
 /* space_view3d.c */
 ARegion *view3d_has_buttons_region(ScrArea *sa);
