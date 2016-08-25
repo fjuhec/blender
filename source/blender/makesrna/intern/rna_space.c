@@ -79,7 +79,7 @@ EnumPropertyItem rna_enum_space_type_items[] = {
 	{0, "", ICON_NONE, NULL, NULL},
 	{SPACE_BUTS, "PROPERTIES", ICON_BUTS, "Properties", "Edit properties of active object and related data-blocks"},
 	{SPACE_OUTLINER, "OUTLINER", ICON_OOPS, "Outliner", "Overview of scene graph and all available data-blocks"},
-    {SPACE_STATS, "STATS", ICON_OOPS, "Statistics", "Display various statistics and logs"},
+	{SPACE_STATS, "STATS", ICON_OOPS, "Statistics", "Display various statistics and logs"},
 	{SPACE_USERPREF, "USER_PREFERENCES", ICON_PREFERENCES, "User Preferences", "Edit persistent configuration settings"},
 	{SPACE_INFO, "INFO", ICON_INFO, "Info", "Main menu bar and list of error messages (drag down to expand and display)"},
 	{0, "", ICON_NONE, NULL, NULL},
@@ -4740,11 +4740,11 @@ static void rna_def_space_clip(BlenderRNA *brna)
 
 static void rna_def_space_stats(BlenderRNA *brna)
 {
-    StructRNA *srna;
+	StructRNA *srna;
 
-    srna = RNA_def_struct(brna, "SpaceStatsEditor", "Space");
-    RNA_def_struct_sdna(srna, "SpaceStats");
-    RNA_def_struct_ui_text(srna, "Space Stats Editor", "Stats Editor space data");
+	srna = RNA_def_struct(brna, "SpaceStatsEditor", "Space");
+	RNA_def_struct_sdna(srna, "SpaceStats");
+	RNA_def_struct_ui_text(srna, "Space Stats Editor", "Stats Editor space data");
 }
 
 

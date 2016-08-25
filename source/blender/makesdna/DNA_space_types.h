@@ -1336,10 +1336,10 @@ typedef enum eSpaceClip_GPencil_Source {
 /* Stats Editor ======================================= */
 
 typedef struct SpaceStats {
-    SpaceLink *next, *prev;
-    ListBase regionbase;        /* storage of regions for inactive spaces */
-    int spacetype;
-    int pad;
+	SpaceLink *next, *prev;
+	ListBase regionbase;        /* storage of regions for inactive spaces */
+	int spacetype;
+	int pad;
 } SpaceStats;
 
 /* **************** SPACE DEFINES ********************* */

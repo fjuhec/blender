@@ -19,13 +19,13 @@
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
-    ../include
-    ../../blenkernel
-    ../../blenlib
-    ../../makesdna
-    ../../makesrna
-    ../../windowmanager
-    ../../../../intern/guardedalloc
+	../include
+	../../blenkernel
+	../../blenlib
+	../../makesdna
+	../../makesrna
+	../../windowmanager
+	../../../../intern/guardedalloc
 )
 
 set(INC_SYS
@@ -33,7 +33,7 @@ set(INC_SYS
 )
 
 set(SRC
-    space_stats.c
+	space_stats.c
 )
 
 blender_add_lib(bf_editor_space_stats "${SRC}" "${INC}" "${INC_SYS}")
