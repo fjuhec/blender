@@ -100,7 +100,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float clearcoatGloss = stack_load_float(stack, clearcoatGloss_offset);
 			float transparency = stack_load_float(stack, transparency_offset);
 			float anisotropic_rotation = stack_load_float(stack, anisotropic_rotation_offset);
-			float refraction_roughness = 1.0f; // TODO: add parameter for this!
+			float refraction_roughness = 0.0f; // TODO: add parameter for this!
 			float eta = fmaxf(stack_load_float(stack, eta_offset), 1e-5f);
 
 			/* rotate tangent */
@@ -366,7 +366,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 					if (bsdf && extra) {
 						bsdf->N = CN;
-						bsdf->ior = 0.0f;
+						bsdf->ior = 1.5f;
 						bsdf->extra = extra;
 
 						bsdf->alpha_x = 0.1f * (1.0f - clearcoatGloss) + 0.001f * clearcoatGloss;
