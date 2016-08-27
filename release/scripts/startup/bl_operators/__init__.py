@@ -52,6 +52,7 @@ _modules = [
     ]
 
 _modules.append("amber")
+_modules.append("amber_asyncio")
 
 import bpy
 
