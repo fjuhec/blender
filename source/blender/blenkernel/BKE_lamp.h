@@ -49,6 +49,8 @@ struct Lamp *localize_lamp(struct Lamp *la) ATTR_WARN_UNUSED_RESULT;
 void BKE_lamp_make_local(struct Main *bmain, struct Lamp *la, const bool lib_local);
 void BKE_lamp_free(struct Lamp *la);
 
+struct BoundBox *BKE_lamp_drawboundbox_get(const struct Lamp *la);
+
 void lamp_drivers_update(struct Scene *scene, struct Lamp *la, float ctime);
 
 #ifdef __cplusplus

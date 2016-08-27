@@ -4050,7 +4050,8 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	clip_border = (render_border && !BLI_rcti_compare(&ar->drawrct, &border_rect));
 
 	if (!scene->obedit) {
-		view3d_objectbvh_rebuild(v3d, scene);
+		ED_view3d_update_viewmat(scene, v3d, ar, NULL, NULL); /* XXX */
+		view3d_objectbvh_rebuild(v3d, ar->regiondata, scene);
 	}
 
 	/* draw viewport using opengl */

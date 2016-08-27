@@ -2330,8 +2330,11 @@ BoundBox *BKE_object_drawboundbox_get(
 				bb = BKE_camera_drawboundbox_get(scene, ob);
 				*r_needs_freeing = true;
 				break;
-			case OB_EMPTY:
 			case OB_LAMP:
+				bb = BKE_lamp_drawboundbox_get(ob->data);
+				*r_needs_freeing = true;
+				break;
+			case OB_EMPTY:
 			case OB_SPEAKER:
 				/* TODO */
 			default:

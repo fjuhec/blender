@@ -41,13 +41,15 @@
 #include "view3d_intern.h" /* own include */
 
 
-static void bvh_objects_insert(View3D *v3d, const Scene *scene)
+static void bvh_objects_insert(View3D *v3d, const RegionView3D *rv3d, const Scene *scene)
 {
+	Object *ob;
 	int i = 0;
 	for (Base *base = scene->base.first; base; base = base->next) {
+		ob = base->object;
 		if (BASE_SELECTABLE(v3d, base)) {
 			bool needs_freeing;
-			BoundBox *bb = BKE_object_drawboundbox_get(scene, base->object, &needs_freeing);
+			BoundBox *bb = BKE_object_drawboundbox_get(scene, ob, &needs_freeing);
 			if (bb) {
 				BoundBox bb_local = *bb;
 				if (needs_freeing) {
@@ -55,7 +57,15 @@ static void bvh_objects_insert(View3D *v3d, const Scene *scene)
 				}
 
 				for (int j = 0; j < 8; j++) {
-					mul_v3_m4v3(bb_local.vec[j], base->object->obmat, bb_local.vec[j]);
+					if (ob->type == OB_LAMP) {
+						/* for lamps, only use location and zoom independent size */
+						const float pixelsize = ED_view3d_pixel_size(rv3d, ob->obmat[3]);
+						mul_v3_fl(bb_local.vec[j], pixelsize);
+						add_v3_v3(bb_local.vec[j], ob->obmat[3]);
+					}
+					else {
+						mul_m4_v3(ob->obmat, bb_local.vec[j]);
+					}
 				}
 
 				BLI_bvhtree_insert(v3d->bvhtree, i++, &bb_local.vec[0][0], 8);
@@ -70,14 +80,14 @@ static void bvh_objects_insert(View3D *v3d, const Scene *scene)
 	}
 }
 
-void view3d_objectbvh_rebuild(View3D *v3d, const Scene *scene)
+void view3d_objectbvh_rebuild(View3D *v3d, const RegionView3D *rv3d, const Scene *scene)
 {
 	BVHTree *bvhtree = v3d->bvhtree;
 	if (bvhtree) {
 		view3d_objectbvh_free(v3d);
 	}
 	v3d->bvhtree = bvhtree = BLI_bvhtree_new(BLI_listbase_count(&scene->base), FLT_EPSILON, 2, 8);
-	bvh_objects_insert(v3d, scene);
+	bvh_objects_insert(v3d, rv3d, scene);
 	BLI_bvhtree_balance(bvhtree);
 }
 

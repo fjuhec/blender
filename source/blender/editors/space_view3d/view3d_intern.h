@@ -288,7 +288,7 @@ void VIEW3D_OT_snap_cursor_to_center(struct wmOperatorType *ot);
 void VIEW3D_OT_snap_cursor_to_selected(struct wmOperatorType *ot);
 void VIEW3D_OT_snap_cursor_to_active(struct wmOperatorType *ot);
 
-void view3d_objectbvh_rebuild(View3D *v3d, const Scene *scene);
+void view3d_objectbvh_rebuild(View3D *v3d, const RegionView3D *rv3d, const Scene *scene);
 void view3d_bvh_update(View3D *v3d, const Scene *scene);
 void view3d_objectbvh_free(View3D *v3d);
 

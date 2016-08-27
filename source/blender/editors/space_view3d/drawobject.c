@@ -1170,6 +1170,10 @@ static void draw_transp_sun_volume(Lamp *la)
 }
 #endif
 
+/**
+ * Note: BKE_lamp_drawboundbox_get tries to give the visual boundbox of what's drawn here (without things like
+ * sun direction indicator etc). If something is changed here that might influence the boundbox, keep it in sync!
+ */
 static void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
                      const char dt, const short dflag, const unsigned char ob_wire_col[4], const bool is_obact)
 {
