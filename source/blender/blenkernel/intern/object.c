@@ -2334,8 +2334,11 @@ BoundBox *BKE_object_drawboundbox_get(
 				bb = BKE_lamp_drawboundbox_get(ob->data);
 				*r_needs_freeing = true;
 				break;
-			case OB_EMPTY:
 			case OB_SPEAKER:
+				bb = BKE_speaker_drawboundbox_get();
+				*r_needs_freeing = true;
+				break;
+			case OB_EMPTY:
 				/* TODO */
 			default:
 				break;
