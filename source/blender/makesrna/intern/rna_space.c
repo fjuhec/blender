@@ -4741,10 +4741,23 @@ static void rna_def_space_clip(BlenderRNA *brna)
 static void rna_def_space_stats(BlenderRNA *brna)
 {
 	StructRNA *srna;
+	PropertyRNA *prop;
+
+	static EnumPropertyItem logging_display_items[] = {
+		{LOG_OPERATORS, "LOG_OPERATORS", ICON_POSE_DATA, "Operators", "Show operator logging output"},
+		{LOG_RENDERING,  "LOG_RENDERING", ICON_RENDER_STILL, "Rendering", "Show render logging output"},
+		{LOG_DEPSGRAPH, "LOG_DEPSGRAPH", ICON_SCENE_DATA, "Dependency Graph", "Show dependency graph logging output"},
+		{0, NULL, 0, NULL, NULL}
+	};
 
 	srna = RNA_def_struct(brna, "SpaceStatsEditor", "Space");
 	RNA_def_struct_sdna(srna, "SpaceStats");
 	RNA_def_struct_ui_text(srna, "Space Stats Editor", "Stats Editor space data");
+
+	prop = RNA_def_property(srna, "logging_type", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, logging_display_items);
+	RNA_def_property_ui_text(prop, "Logging Mode", "Display mode for logging list");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_STATS, NULL);
 }
 
 

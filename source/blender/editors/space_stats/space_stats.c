@@ -124,9 +124,16 @@ static void stats_header_region_draw(const bContext *C, ARegion *ar)
 	ED_region_header(C, ar);
 }
 
-static void stats_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar), wmNotifier *UNUSED(wmn))
+static void stats_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion *UNUSED(ar), wmNotifier *wmn)
 {
-	/* context changes */
+	switch(wmn->category) {
+		case NC_SPACE: {
+			if (wmn->data == ND_SPACE_STATS) {
+				ED_area_tag_redraw(sa);
+			}
+			break;
+		}
+	}
 }
 
 /* only called once, from space/spacetypes.c */

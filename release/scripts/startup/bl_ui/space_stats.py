@@ -26,7 +26,14 @@ class LAYERS_HT_header(Header):
 
     def draw(self, context):
         layout = self.layout
+
+        space = context.space_data
+
         layout.template_header()
+
+        layout.separator()
+
+        layout.prop(space, "logging_type", expand=True)
 
 if __name__ == "__main__":  # only for live edit.
     bpy.utils.register_module(__name__)

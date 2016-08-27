@@ -1339,8 +1339,14 @@ typedef struct SpaceStats {
 	SpaceLink *next, *prev;
 	ListBase regionbase;        /* storage of regions for inactive spaces */
 	int spacetype;
-	int pad;
+	int logging_type;
 } SpaceStats;
+
+typedef enum eSpaceStats_Logging_Type {
+	LOG_OPERATORS = 0,
+	LOG_RENDERING = 1,
+	LOG_DEPSGRAPH = 2,
+} eSpaceStats_Logging_Type;
 
 /* **************** SPACE DEFINES ********************* */
 
