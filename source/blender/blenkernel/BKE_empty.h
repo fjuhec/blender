@@ -26,13 +26,14 @@
  *  \brief General operations for empties (object type).
  */
 
+struct BoundBox;
 struct Image;
 struct ImBuf;
 struct Object;
 
 void BKE_empty_draw_type_set(struct Object *ob, const int value);
 
-struct BoundBox *BKE_empty_drawboundbox_get(const struct Object *ob);
+void BKE_empty_drawboundbox_get(const struct Object *ob, struct BoundBox *r_bb);
 
 void BKE_empty_imbuf_get(
         const struct Object *ob,

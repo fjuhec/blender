@@ -57,8 +57,6 @@
 
 #include "GPU_compositing.h"
 
-#include "MEM_guardedalloc.h"
-
 
 /****************************** Camera Datablock *****************************/
 
@@ -175,13 +173,10 @@ int BKE_camera_sensor_fit(int sensor_fit, float sizex, float sizey)
 /**
  * Even though our virtual cameras are infinite small points with some attributes,
  * sometimes we need the bounding box that matches what the user sees.
- *
- * \return Allocated BoundBox in local space (needs freeing).
  */
-BoundBox *BKE_camera_drawboundbox_get(const Scene *scene, const Object *ob)
+void BKE_camera_drawboundbox_get(const Scene *scene, const Object *ob, BoundBox *r_bb)
 {
 	Camera *cam = ob->data;
-	BoundBox *bb = MEM_callocN(sizeof(*bb), "Camera boundbox");
 	float viewframe[4][3];
 	float min[3], max[3];
 
@@ -189,7 +184,6 @@ BoundBox *BKE_camera_drawboundbox_get(const Scene *scene, const Object *ob)
 	float dummy_shift[2];
 	float dummy_drawsize;
 	float scale[3] = {1.0f, 1.0f, 1.0f};
-
 	BKE_camera_view_frame_ex(
 	            scene, cam, cam->drawsize, false,
 	            scale, dummy_asp, dummy_shift, &dummy_drawsize,
@@ -202,9 +196,7 @@ BoundBox *BKE_camera_drawboundbox_get(const Scene *scene, const Object *ob)
 	const float origin[3] = {0.0f};
 	minmax_v3v3_v3(min, max, origin);
 
-	BKE_boundbox_init_from_minmax(bb, min, max);
-
-	return bb;
+	BKE_boundbox_init_from_minmax(r_bb, min, max);
 }
 
 /******************************** Camera Params *******************************/

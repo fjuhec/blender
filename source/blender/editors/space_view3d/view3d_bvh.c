@@ -44,35 +44,26 @@
 static void bvh_objects_insert(View3D *v3d, const RegionView3D *rv3d, const Scene *scene)
 {
 	Object *ob;
+	BoundBox bb;
 	int i = 0;
 	for (Base *base = scene->base.first; base; base = base->next) {
 		ob = base->object;
 		if (BASE_SELECTABLE(v3d, base)) {
-			bool needs_freeing;
-			BoundBox *bb = BKE_object_drawboundbox_get(scene, ob, &needs_freeing);
-			if (bb) {
-				BoundBox bb_local = *bb;
-				if (needs_freeing) {
-					MEM_freeN(bb);
-				}
+			BKE_object_drawboundbox_get(scene, ob, &bb);
 
-				for (int j = 0; j < 8; j++) {
-					if (ob->type == OB_LAMP) {
-						/* for lamps, only use location and zoom independent size */
-						const float pixelsize = ED_view3d_pixel_size(rv3d, ob->obmat[3]);
-						mul_v3_fl(bb_local.vec[j], pixelsize);
-						add_v3_v3(bb_local.vec[j], ob->obmat[3]);
-					}
-					else {
-						mul_m4_v3(ob->obmat, bb_local.vec[j]);
-					}
+			for (int j = 0; j < 8; j++) {
+				if (ob->type == OB_LAMP) {
+					/* for lamps, only use location and zoom independent size */
+					const float pixelsize = ED_view3d_pixel_size(rv3d, ob->obmat[3]);
+					mul_v3_fl(bb.vec[j], pixelsize);
+					add_v3_v3(bb.vec[j], ob->obmat[3]);
 				}
+				else {
+					mul_m4_v3(ob->obmat, bb.vec[j]);
+				}
+			}
 
-				BLI_bvhtree_insert(v3d->bvhtree, i++, &bb_local.vec[0][0], 8);
-			}
-			else {
-//				printf("No BB: %s\n", base->object->id.name + 2);
-			}
+			BLI_bvhtree_insert(v3d->bvhtree, i++, &bb.vec[0][0], 8);
 		}
 		else {
 //			printf("Not selectable: %s\n", base->object->id.name + 2);
@@ -114,21 +105,16 @@ Base *view3d_objectbvh_raycast(Scene *scene, View3D *v3d, ARegion *ar, const int
 		return NULL;
 	}
 
+	BoundBox bb;
 	int i = 0;
 	Base *base;
 	for (base = scene->base.first; base; base = base->next) {
 		if (BASE_SELECTABLE(v3d, base)) {
-			bool needs_freeing;
-			BoundBox *bb = BKE_object_drawboundbox_get(scene, base->object, &needs_freeing);
-			if (bb) {
-				if (needs_freeing) {
-					MEM_freeN(bb);
-				}
-				if (i == nearest.index) {
-					break;
-				}
-				i++;
+			BKE_object_drawboundbox_get(scene, base->object, &bb);
+			if (i == nearest.index) {
+				break;
 			}
+			i++;
 		}
 	}
 	if (base) {

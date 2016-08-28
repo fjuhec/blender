@@ -28,6 +28,7 @@
  *  \brief General operations for speakers.
  */
 
+struct BoundBox;
 struct Main;
 struct Speaker;
 
@@ -37,6 +38,6 @@ struct Speaker *BKE_speaker_copy(struct Main *bmain, struct Speaker *spk);
 void BKE_speaker_make_local(struct Main *bmain, struct Speaker *spk, const bool lib_local);
 void BKE_speaker_free(struct Speaker *spk);
 
-struct BoundBox *BKE_speaker_drawboundbox_get(void);
+void BKE_speaker_drawboundbox_get(struct BoundBox *r_bb);
 
 #endif

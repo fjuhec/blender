@@ -58,7 +58,7 @@ void BKE_empty_draw_type_set(Object *ob, const int value)
 	}
 }
 
-BoundBox *BKE_empty_drawboundbox_get(const Object *ob)
+void BKE_empty_drawboundbox_get(const Object *ob, BoundBox *r_bb)
 {
 	const float size = ob->empty_drawsize;
 	float min[3] = {0.0f};
@@ -106,10 +106,7 @@ BoundBox *BKE_empty_drawboundbox_get(const Object *ob)
 			break;
 	}
 
-	BoundBox *bb = MEM_callocN(sizeof(*bb), "Empty Boundbox");
-	BKE_boundbox_init_from_minmax(bb, min, max);
-
-	return bb;
+	BKE_boundbox_init_from_minmax(r_bb, min, max);
 }
 
 /**

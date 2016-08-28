@@ -244,18 +244,14 @@ void lamp_drivers_update(Scene *scene, Lamp *la, float ctime)
  * Get the visual bounding box of lamps, without things like direction indicator etc (we don't
  * want this for selecting). Should match what #drawlamp draws (keep in sync!).
  */
-BoundBox *BKE_lamp_drawboundbox_get(const Lamp *la)
+void BKE_lamp_drawboundbox_get(const Lamp *la, BoundBox *r_bb)
 {
-	BoundBox *bb = MEM_callocN(sizeof(*bb), "Lamp boundbox");
-
 	const bool draw_outer = la->type != LA_HEMI &&
 	                        ((la->mode & LA_SHAD_RAY) || ((la->mode & LA_SHAD_BUF) && (la->type == LA_SPOT)));
 	const float lamprad = (float)U.obcenter_dia * 1.5f + (draw_outer ? 3.0f : 0.0f);
 	const float min[3] = {-lamprad, -lamprad, -lamprad};
 	const float max[3] = {lamprad, lamprad, lamprad};
 
-	BKE_boundbox_init_from_minmax(bb, min, max);
-
-	return bb;
+	BKE_boundbox_init_from_minmax(r_bb, min, max);
 }
 

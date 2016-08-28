@@ -40,8 +40,6 @@
 #include "BKE_object.h"
 #include "BKE_speaker.h"
 
-#include "MEM_guardedalloc.h"
-
 
 void BKE_speaker_init(Speaker *spk)
 {
@@ -96,7 +94,7 @@ void BKE_speaker_free(Speaker *spk)
 	BKE_animdata_free((ID *)spk, false);
 }
 
-BoundBox *BKE_speaker_drawboundbox_get(void)
+void BKE_speaker_drawboundbox_get(BoundBox *r_bb)
 {
 	const float maxrad = 0.5f;
 	const float zmin = -0.125f;
@@ -104,8 +102,5 @@ BoundBox *BKE_speaker_drawboundbox_get(void)
 	const float min[3] = {-maxrad, -maxrad, zmin};
 	const float max[3] = {maxrad, maxrad, zmax};
 
-	BoundBox *bb = MEM_callocN(sizeof(*bb), "Speaker BoundBox");
-	BKE_boundbox_init_from_minmax(bb, min, max);
-
-	return bb;
+	BKE_boundbox_init_from_minmax(r_bb, min, max);
 }
