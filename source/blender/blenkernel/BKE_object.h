@@ -150,6 +150,10 @@ struct BoundBox *BKE_object_boundbox_get(struct Object *ob);
 void BKE_object_drawboundbox_get(
         const struct Scene *scene, const struct Object *ob,
         struct BoundBox *r_bb);
+void BKE_object_boundbox_to_worldspace(
+        const struct Object *ob, const float pixelsize,
+        const struct BoundBox *in_localspace,
+        struct BoundBox *r_out_worldspace);
 void BKE_object_dimensions_get(struct Object *ob, float vec[3]);
 void BKE_object_dimensions_set(struct Object *ob, const float value[3]);
 void BKE_object_boundbox_flag(struct Object *ob, int flag, const bool set);

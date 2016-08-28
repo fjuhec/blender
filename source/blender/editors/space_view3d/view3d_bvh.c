@@ -50,18 +50,7 @@ static void bvh_objects_insert(View3D *v3d, const RegionView3D *rv3d, const Scen
 		ob = base->object;
 		if (BASE_SELECTABLE(v3d, base)) {
 			BKE_object_drawboundbox_get(scene, ob, &bb);
-
-			for (int j = 0; j < 8; j++) {
-				if (ob->type == OB_LAMP) {
-					/* for lamps, only use location and zoom independent size */
-					const float pixelsize = ED_view3d_pixel_size(rv3d, ob->obmat[3]);
-					mul_v3_fl(bb.vec[j], pixelsize);
-					add_v3_v3(bb.vec[j], ob->obmat[3]);
-				}
-				else {
-					mul_m4_v3(ob->obmat, bb.vec[j]);
-				}
-			}
+			BKE_object_boundbox_to_worldspace(ob, ED_view3d_pixel_size(rv3d, ob->obmat[3]), &bb, &bb);
 
 			BLI_bvhtree_insert(v3d->bvhtree, i++, &bb.vec[0][0], 8);
 		}

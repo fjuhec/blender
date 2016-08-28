@@ -2344,6 +2344,29 @@ void BKE_object_drawboundbox_get(
 	}
 }
 
+/**
+ * Transform a (draw-) bounding box from local into world space.
+ * \a in_localspace and *r_out_worldspace are allowed to be the same.
+ *
+ * \param pixelsize: Value of #ED_view3d_pixel_size.
+ */
+void BKE_object_boundbox_to_worldspace(
+        const Object *ob, const float pixelsize,
+        const BoundBox *in_localspace,
+        BoundBox *r_out_worldspace)
+{
+	for (int i = 0; i < 8; i++) {
+		if (ob->type == OB_LAMP) {
+			/* for lamps, only use location and zoom independent size */
+			mul_v3_v3fl(r_out_worldspace->vec[i], in_localspace->vec[i], pixelsize);
+			add_v3_v3(r_out_worldspace->vec[i], ob->obmat[3]);
+		}
+		else {
+			mul_v3_m4v3(r_out_worldspace->vec[i], (float (*)[4])ob->obmat, in_localspace->vec[i]);
+		}
+	}
+}
+
 /* used to temporally disable/enable boundbox */
 void BKE_object_boundbox_flag(Object *ob, int flag, const bool set)
 {
