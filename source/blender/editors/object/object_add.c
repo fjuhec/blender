@@ -69,6 +69,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_displist.h"
 #include "BKE_effect.h"
+#include "BKE_empty.h"
 #include "BKE_font.h"
 #include "BKE_group.h"
 #include "BKE_lamp.h"
@@ -797,7 +798,7 @@ static int object_empty_add_exec(bContext *C, wmOperator *op)
 
 	ob = ED_object_add_type(C, OB_EMPTY, NULL, loc, rot, false, layer);
 
-	BKE_object_empty_draw_type_set(ob, type);
+	BKE_empty_draw_type_set(ob, type);
 	BKE_object_obdata_size_init(ob, RNA_float_get(op->ptr, "radius"));
 
 	return OPERATOR_FINISHED;
@@ -862,7 +863,7 @@ static int empty_drop_named_image_invoke(bContext *C, wmOperator *op, const wmEv
 		ED_view3d_cursor3d_position(C, ob->loc, event->mval);
 	}
 
-	BKE_object_empty_draw_type_set(ob, OB_EMPTY_IMAGE);
+	BKE_empty_draw_type_set(ob, OB_EMPTY_IMAGE);
 
 	id_us_min(ob->data);
 	ob->data = ima;

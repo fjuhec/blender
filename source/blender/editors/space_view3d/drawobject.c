@@ -58,6 +58,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_deform.h"
 #include "BKE_displist.h"
+#include "BKE_empty.h"
 #include "BKE_font.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
@@ -633,50 +634,23 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype)
 /* Function to draw an Image on an empty Object */
 static void draw_empty_image(Object *ob, const short dflag, const unsigned char ob_wire_col[4])
 {
-	Image *ima = ob->data;
-	ImBuf *ibuf = BKE_image_acquire_ibuf(ima, ob->iuser, NULL);
+	Image *ima = NULL;
+	ImBuf *ibuf = NULL;
+	float img_size[2], img_scale[2];
+	float ofs[2];
 
-	if (ibuf && (ibuf->rect == NULL) && (ibuf->rect_float != NULL)) {
-		IMB_rect_from_float(ibuf);
-	}
+	BKE_empty_imbuf_get(ob, &ima, &ibuf);
 
-	int ima_x, ima_y;
-
-	/* Get the buffer dimensions so we can fallback to fake ones */
-	if (ibuf && ibuf->rect) {
-		ima_x = ibuf->x;
-		ima_y = ibuf->y;
-	}
-	else {
-		ima_x = 1;
-		ima_y = 1;
-	}
-
-	float sca_x = 1.0f;
-	float sca_y = 1.0f;
-
-	/* Get the image aspect even if the buffer is invalid */
-	if (ima) {
-		if (ima->aspx > ima->aspy) {
-			sca_y = ima->aspy / ima->aspx;
-		}
-		else if (ima->aspx < ima->aspy) {
-			sca_x = ima->aspx / ima->aspy;
-		}
-	}
+	BKE_empty_image_size_get_ex(ob, ima, ibuf, img_size, img_scale);
 
 	/* Calculate the scale center based on object's origin */
-	float ofs_x = ob->ima_ofs[0] * ima_x;
-	float ofs_y = ob->ima_ofs[1] * ima_y;
+	mul_v2_v2v2(ofs, ob->ima_ofs, img_size);
 
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 
-	/* Calculate Image scale */
-	float scale = ob->empty_drawsize / max_ff((float)ima_x * sca_x, (float)ima_y * sca_y);
-
 	/* Set the object scale */
-	glScalef(scale * sca_x, scale * sca_y, 1.0f);
+	glScale2fv(img_scale);
 
 	if (ibuf && ibuf->rect) {
 		const bool use_clip = (U.glalphaclip != 1.0f);
@@ -694,7 +668,7 @@ static void draw_empty_image(Object *ob, const short dflag, const unsigned char 
 		glColor4fv(ob->col);
 
 		/* Draw the Image on the screen */
-		glaDrawPixelsTex(ofs_x, ofs_y, ima_x, ima_y, GL_RGBA, GL_UNSIGNED_BYTE, zoomfilter, ibuf->rect);
+		glaDrawPixelsTex(ofs[0], ofs[1], img_size[0], img_size[1], GL_RGBA, GL_UNSIGNED_BYTE, zoomfilter, ibuf->rect);
 
 		glDisable(GL_BLEND);
 
@@ -710,16 +684,18 @@ static void draw_empty_image(Object *ob, const short dflag, const unsigned char 
 
 	/* Calculate the outline vertex positions */
 	glBegin(GL_LINE_LOOP);
-	glVertex2f(ofs_x, ofs_y);
-	glVertex2f(ofs_x + ima_x, ofs_y);
-	glVertex2f(ofs_x + ima_x, ofs_y + ima_y);
-	glVertex2f(ofs_x, ofs_y + ima_y);
+	glVertex2fv(ofs);
+	glVertex2f(ofs[0] + img_size[0], ofs[1]);
+	glVertex2f(ofs[0] + img_size[0], ofs[1] + img_size[1]);
+	glVertex2f(ofs[0], ofs[1] + img_size[1]);
 	glEnd();
 
 	/* Reset GL settings */
 	glPopMatrix();
 
-	BKE_image_release_ibuf(ima, ibuf, NULL);
+	if (ibuf && ibuf->rect) {
+		BKE_image_release_ibuf(ima, ibuf, NULL);
+	}
 }
 
 static void circball_array_fill(float verts[CIRCLE_RESOL][3], const float cent[3], float rad, const float tmat[4][4])

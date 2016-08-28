@@ -122,6 +122,7 @@
 #include "BKE_curve.h"
 #include "BKE_depsgraph.h"
 #include "BKE_effect.h"
+#include "BKE_empty.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h" // for G
 #include "BKE_group.h"
@@ -5503,7 +5504,7 @@ static void direct_link_object(FileData *fd, Object *ob)
 	
 	ob->iuser = newdataadr(fd, ob->iuser);
 	if (ob->type == OB_EMPTY && ob->empty_drawtype == OB_EMPTY_IMAGE && !ob->iuser) {
-		BKE_object_empty_draw_type_set(ob, ob->empty_drawtype);
+		BKE_empty_draw_type_set(ob, ob->empty_drawtype);
 	}
 
 	ob->customdata_mask = 0;

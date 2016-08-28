@@ -152,7 +152,6 @@ struct BoundBox *BKE_object_drawboundbox_get(
         bool *r_needs_freeing);
 void BKE_object_dimensions_get(struct Object *ob, float vec[3]);
 void BKE_object_dimensions_set(struct Object *ob, const float value[3]);
-void BKE_object_empty_draw_type_set(struct Object *ob, const int value);
 void BKE_object_boundbox_flag(struct Object *ob, int flag, const bool set);
 void BKE_object_minmax(struct Object *ob, float r_min[3], float r_max[3], const bool use_hidden);
 bool BKE_object_minmax_dupli(struct Scene *scene, struct Object *ob, float r_min[3], float r_max[3], const bool use_hidden);

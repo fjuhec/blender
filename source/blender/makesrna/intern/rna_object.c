@@ -183,6 +183,7 @@ EnumPropertyItem rna_enum_object_axis_items[] = {
 #include "BKE_curve.h"
 #include "BKE_depsgraph.h"
 #include "BKE_effect.h"
+#include "BKE_empty.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
 #include "BKE_object.h"
@@ -487,7 +488,7 @@ static void rna_Object_empty_draw_type_set(PointerRNA *ptr, int value)
 {
 	Object *ob = (Object *)ptr->data;
 
-	BKE_object_empty_draw_type_set(ob, value);
+	BKE_empty_draw_type_set(ob, value);
 }
 
 static EnumPropertyItem *rna_Object_collision_bounds_itemf(bContext *UNUSED(C), PointerRNA *ptr,

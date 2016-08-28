@@ -86,6 +86,7 @@
 #include "BKE_curve.h"
 #include "BKE_displist.h"
 #include "BKE_effect.h"
+#include "BKE_empty.h"
 #include "BKE_fcurve.h"
 #include "BKE_group.h"
 #include "BKE_icons.h"
@@ -2323,23 +2324,21 @@ BoundBox *BKE_object_drawboundbox_get(
 {
 	BoundBox *bb = BKE_object_boundbox_get((Object *)ob);
 
-	*r_needs_freeing = false;
+	*r_needs_freeing = (bb == NULL);
 	if (!bb) {
 		switch (ob->type) {
 			case OB_CAMERA:
 				bb = BKE_camera_drawboundbox_get(scene, ob);
-				*r_needs_freeing = true;
+				break;
+			case OB_EMPTY:
+				bb = BKE_empty_drawboundbox_get(ob);
 				break;
 			case OB_LAMP:
 				bb = BKE_lamp_drawboundbox_get(ob->data);
-				*r_needs_freeing = true;
 				break;
 			case OB_SPEAKER:
 				bb = BKE_speaker_drawboundbox_get();
-				*r_needs_freeing = true;
 				break;
-			case OB_EMPTY:
-				/* TODO */
 			default:
 				break;
 		}
@@ -2476,27 +2475,6 @@ void BKE_object_minmax(Object *ob, float min_r[3], float max_r[3], const bool us
 		copy_v3_v3(vec, ob->obmat[3]);
 		sub_v3_v3(vec, size);
 		minmax_v3v3_v3(min_r, max_r, vec);
-	}
-}
-
-void BKE_object_empty_draw_type_set(Object *ob, const int value)
-{
-	ob->empty_drawtype = value;
-
-	if (ob->type == OB_EMPTY && ob->empty_drawtype == OB_EMPTY_IMAGE) {
-		if (!ob->iuser) {
-			ob->iuser = MEM_callocN(sizeof(ImageUser), "image user");
-			ob->iuser->ok = 1;
-			ob->iuser->frames = 100;
-			ob->iuser->sfra = 1;
-			ob->iuser->fie_ima = 2;
-		}
-	}
-	else {
-		if (ob->iuser) {
-			MEM_freeN(ob->iuser);
-			ob->iuser = NULL;
-		}
 	}
 }
 
