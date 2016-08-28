@@ -386,7 +386,7 @@ class AssetEngineAmberAIO(AssetEngine):
     bl_label = "AmberAIO"
     bl_version = (0 << 16) + (0 << 8) + 4  # Usual maj.min.rev version scheme...
 
-    tags = CollectionProperty(name="Tags", type=AmberTag, description="Filtering tags")
+    tags = CollectionProperty(name="Tags", type=AmberAIOTag, description="Filtering tags")
     active_tag_index = IntProperty(name="Active Tag", options={'HIDDEN'})
 
     def __init__(self):
