@@ -72,6 +72,7 @@
 
 #include "ED_gpencil.h"
 #include "ED_object.h"
+#include "ED_screen.h"
 #include "ED_view3d.h"
 
 #include "gpencil_intern.h"
@@ -431,16 +432,18 @@ void GPENCIL_OT_copy(wmOperatorType *ot)
 
 static int gp_strokes_paste_poll(bContext *C)
 {
-	/* 1) Must have GP layer to paste to...
+	/* 1) Must have GP datablock to paste to
+	 *    - We don't need to have an active layer though, as that can easily get added
+	 *    - If the active layer is locked, we can't paste there, but that should prompt a warning instead
 	 * 2) Copy buffer must at least have something (though it may be the wrong sort...)
 	 */
-	return (CTX_data_active_gpencil_layer(C) != NULL) && (!BLI_listbase_is_empty(&gp_strokes_copypastebuf));
+	return (ED_gpencil_data_get_active(C) != NULL) && (!BLI_listbase_is_empty(&gp_strokes_copypastebuf));
 }
 
-enum {
+typedef enum eGP_PasteMode {
 	GP_COPY_ONLY = -1,
 	GP_COPY_MERGE = 1
-};
+} eGP_PasteMode;
 
 static int gp_strokes_paste_exec(bContext *C, wmOperator *op)
 {
@@ -448,9 +451,9 @@ static int gp_strokes_paste_exec(bContext *C, wmOperator *op)
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bGPDlayer *gpl = CTX_data_active_gpencil_layer(C); /* only use active for copy merge */
 	bGPDframe *gpf;
-
-	int type = RNA_enum_get(op->ptr, "type");
-
+	
+	eGP_PasteMode type = RNA_enum_get(op->ptr, "type");
+	
 	/* check for various error conditions */
 	if (gpd == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "No Grease Pencil data");
@@ -507,39 +510,37 @@ static int gp_strokes_paste_exec(bContext *C, wmOperator *op)
 	}
 	CTX_DATA_END;
 	
-	/* Ensure we have a frame to draw into
-	 * NOTE: Since this is an op which creates strokes,
-	 *       we are obliged to add a new frame if one
-	 *       doesn't exist already
-	 */
-	
-		bGPDstroke *gps;
-		/* Copy each stroke into the layer */
-		for (gps = gp_strokes_copypastebuf.first; gps; gps = gps->next) {
-			if (ED_gpencil_stroke_can_use(C, gps)) {
-				/* need to verify if layer exist nad frame */
-				if (type != GP_COPY_MERGE) {
-					gpl = BLI_findstring(&gpd->layers, gps->tmp_layerinfo, offsetof(bGPDlayer, info));
-					if (gpl == NULL) {
-						/* no layer - use active (only if layer deleted before paste) */
-						gpl = CTX_data_active_gpencil_layer(C);
-					}
-				}
-				gpf = BKE_gpencil_layer_getframe(gpl, CFRA, true);
-				if (gpf) {
-					bGPDstroke *new_stroke = MEM_dupallocN(gps);
-					new_stroke->tmp_layerinfo[0] = '\0';
-
-					new_stroke->points = MEM_dupallocN(gps->points);
-
-					new_stroke->flag |= GP_STROKE_RECALC_CACHES;
-					new_stroke->triangles = NULL;
-
-					new_stroke->next = new_stroke->prev = NULL;
-					BLI_addtail(&gpf->strokes, new_stroke);
+	for (bGPDstroke *gps = gp_strokes_copypastebuf.first; gps; gps = gps->next) {
+		if (ED_gpencil_stroke_can_use(C, gps)) {
+			/* Need to verify if layer exists */
+			if (type != GP_COPY_MERGE) {
+				gpl = BLI_findstring(&gpd->layers, gps->tmp_layerinfo, offsetof(bGPDlayer, info));
+				if (gpl == NULL) {
+					/* no layer - use active (only if layer deleted before paste) */
+					gpl = CTX_data_active_gpencil_layer(C);
 				}
 			}
+			
+			/* Ensure we have a frame to draw into
+			 * NOTE: Since this is an op which creates strokes,
+			 *       we are obliged to add a new frame if one
+			 *       doesn't exist already
+			 */
+			gpf = BKE_gpencil_layer_getframe(gpl, CFRA, true);
+			if (gpf) {
+				bGPDstroke *new_stroke = MEM_dupallocN(gps);
+				new_stroke->tmp_layerinfo[0] = '\0';
+				
+				new_stroke->points = MEM_dupallocN(gps->points);
+				
+				new_stroke->flag |= GP_STROKE_RECALC_CACHES;
+				new_stroke->triangles = NULL;
+				
+				new_stroke->next = new_stroke->prev = NULL;
+				BLI_addtail(&gpf->strokes, new_stroke);
+			}
 		}
+	}
 	
 	/* updates */
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
@@ -554,7 +555,7 @@ void GPENCIL_OT_paste(wmOperatorType *ot)
 		{GP_COPY_MERGE, "MERGE", 0, "Merge", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
-
+	
 	/* identifiers */
 	ot->name = "Paste Strokes";
 	ot->idname = "GPENCIL_OT_paste";
@@ -566,7 +567,8 @@ void GPENCIL_OT_paste(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
+	
+	/* properties */
 	ot->prop = RNA_def_enum(ot->srna, "type", copy_type, 0, "Type", "");
 }
 
@@ -1876,6 +1878,91 @@ void GPENCIL_OT_stroke_flip(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = gp_stroke_flip_exec;
 	ot->poll = gp_active_layer_poll;
+	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/* ***************** Reproject Strokes ********************** */
+
+static int gp_strokes_reproject_poll(bContext *C)
+{
+	/* 2 Requirements:
+	 *  - 1) Editable GP data
+	 *  - 2) 3D View only (2D editors don't have projection issues)
+	 */
+	return (gp_stroke_edit_poll(C) && ED_operator_view3d_active(C));
+}
+
+static int gp_strokes_reproject_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Scene *scene = CTX_data_scene(C);
+	GP_SpaceConversion gsc = {NULL};
+	
+	/* init space conversion stuff */
+	gp_point_conversion_init(C, &gsc);
+	
+	/* Go through each editable + selected stroke, adjusting each of its points one by one... */
+	GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)
+	{
+		if (gps->flag & GP_STROKE_SELECT) {
+			bGPDspoint *pt;
+			int i;
+			float inverse_diff_mat[4][4];
+			
+			/* Compute inverse matrix for unapplying parenting once instead of doing per-point */
+			/* TODO: add this bit to the iteration macro? */
+			if (gpl->parent) {
+				invert_m4_m4(inverse_diff_mat, diff_mat);
+			}
+			
+			/* Adjust each point */
+			for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+				float xy[2];
+				
+				/* 3D to Screenspace */
+				/* Note: We can't use gp_point_to_xy() here because that uses ints for the screenspace
+				 *       coordinates, resulting in lost precision, which in turn causes stairstepping
+				 *       artifacts in the final points.
+				 */
+				if (gpl->parent == NULL) {
+					gp_point_to_xy_fl(&gsc, gps, pt, &xy[0], &xy[1]);
+				}
+				else {
+					bGPDspoint pt2;
+					gp_point_to_parent_space(pt, diff_mat, &pt2);
+					gp_point_to_xy_fl(&gsc, gps, &pt2, &xy[0], &xy[1]);
+				}
+				
+				/* Project screenspace back to 3D space (from current perspective)
+				 * so that all points have been treated the same way
+				 */
+				gp_point_xy_to_3d(&gsc, scene, xy, &pt->x);
+				
+				/* Unapply parent corrections */
+				if (gpl->parent) {
+					mul_m4_v3(inverse_diff_mat, &pt->x);
+				}
+			}
+		}
+	}
+	GP_EDITABLE_STROKES_END;
+	
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_reproject(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Reproject Strokes";
+	ot->idname = "GPENCIL_OT_reproject";
+	ot->description = "Reproject the selected strokes from the current viewpoint to get all points on the same plane again "
+	                  "(e.g. to fix problems from accidental 3D cursor movement, or viewport changes)";
+	
+	/* callbacks */
+	ot->exec = gp_strokes_reproject_exec;
+	ot->poll = gp_strokes_reproject_poll;
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
