@@ -648,12 +648,12 @@ class AssetEngineAmberAIO(AssetEngine):
         entries.root_path = ""
         return True
 
-
-    def check_dir(self, entries):
+    def check_dir(self, entries, do_change):
         # Stupid code just for test...
-        #~ entries.root_path = entries.root_path + "../"
-        #~ print(entries.root_path)
-        pass
+        #~ if do_change:
+        #~     entries.root_path = entries.root_path + "../"
+        #~     print(entries.root_path)
+        return True
 
     def sort_filter(self, use_sort, use_filter, params, entries):
 #        print(use_sort, use_filter)

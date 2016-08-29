@@ -85,6 +85,7 @@ void                filelist_free(struct FileList *filelist);
 void                filelist_assetengine_set(struct FileList *filelist, struct AssetEngineType *aet);
 
 const char *        filelist_dir(struct FileList *filelist);
+bool                filelist_is_dir(struct FileList *filelist, const char *path);
 void                filelist_setdir(struct FileList *filelist, char *r_dir);
 
 int                 filelist_files_ensure(struct FileList *filelist, struct FileSelectParams *params);

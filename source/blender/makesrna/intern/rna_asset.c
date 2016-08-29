@@ -585,12 +585,16 @@ static bool rna_ae_load_pre(AssetEngine *engine, AssetUUIDList *uuids, struct Fi
 	return ret_success;
 }
 
-static void rna_ae_check_dir(AssetEngine *engine, char *r_dir)
+static bool rna_ae_check_dir(AssetEngine *engine, char *r_dir, bool do_change)
 {
 	extern FunctionRNA rna_AssetEngine_check_dir_func;
 	PointerRNA ptr;
+	PropertyRNA *parm;
 	ParameterList list;
 	FunctionRNA *func;
+
+	void *ret;
+	bool ret_is_valid;
 
 	/* XXX Hacking around bpyrna incapacity to handle strings as return values... To be fixed... some day... */
 	FileDirEntryArr entries = {0};
@@ -602,11 +606,18 @@ static void rna_ae_check_dir(AssetEngine *engine, char *r_dir)
 
 	RNA_parameter_list_create(&list, &ptr, func);
 	RNA_parameter_set_lookup(&list, "entries", &entries_p);
+	RNA_parameter_set_lookup(&list, "do_change", &do_change);
 	engine->type->ext.call(NULL, &ptr, func, &list);
+
+	parm = RNA_function_find_parameter(NULL, func, "is_valid_return");
+	RNA_parameter_get(&list, parm, &ret);
+	ret_is_valid = ((*(int *)ret) != 0);
 
 	BLI_strncpy(r_dir, entries.root, FILE_MAX);
 
 	RNA_parameter_list_free(&list);
+
+	return ret_is_valid;
 }
 
 static bool rna_ae_sort_filter(
@@ -1339,6 +1350,10 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Check if given path is valid (as in, can be listed) for this engine");
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
 	RNA_def_pointer(func, "entries", "AssetList", "", "Fake List of asset entries (only use/modify its root_path!)");
+	RNA_def_boolean(func, "do_change", false, "",
+	                "Whether this function is allowed to change given path to make it valid");
+	parm = RNA_def_boolean(func, "is_valid_return", false, "", "Is path valid");
+	RNA_def_function_output(func, parm);
 
 	/* Sorting/filtering callback */
 	func = RNA_def_function(srna, "sort_filter", NULL);

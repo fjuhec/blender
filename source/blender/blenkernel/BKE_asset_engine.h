@@ -141,9 +141,10 @@ typedef bool (*ae_load_pre)(struct AssetEngine *engine, struct AssetUUIDList *uu
 /* TODO */
 typedef bool (*ae_load_post)(struct AssetEngine *engine, struct ID *items, const int *num_items);
 
-/* Check if given dirpath is valid for current asset engine, it can also modify it.
- * r_dir is assumed to be least FILE_MAX. */
-typedef void (*ae_check_dir)(struct AssetEngine *engine, char *r_dir);
+/* Check if given dirpath is valid for current asset engine, it can also modify it if do_change is true.
+ * r_dir is assumed to be least FILE_MAX.
+ * returns true if path in r_dir is valid. */
+typedef bool (*ae_check_dir)(struct AssetEngine *engine, char *r_dir, bool do_change);
 
 typedef struct AssetEngineType {
 	struct AssetEngineType *next, *prev;
