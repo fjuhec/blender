@@ -53,6 +53,7 @@ _modules = [
 
 _modules.append("amber")
 _modules.append("amber_asyncio")
+_modules.append("claude")
 
 import bpy
 
