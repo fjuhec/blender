@@ -40,12 +40,8 @@ set(INC_SYS
 	${ALEMBIC_INCLUDE_DIRS}
 	${HDF5_INCLUDE_DIRS}
 	${OPENEXR_INCLUDE_DIRS}
+	${BOOST_INCLUDE_DIR}
 )
-if(APPLE OR WIN32)
-	list(APPEND INC_SYS
-		${BOOST_INCLUDE_DIR}
-	)
-endif()
 
 set(SRC
 	intern/abc_camera.cc
