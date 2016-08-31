@@ -142,6 +142,9 @@ static void node_init(const struct bContext *C, bNodeTree *ntree, bNode *node)
 	if (ntree->typeinfo->node_add_init != NULL)
 		ntree->typeinfo->node_add_init(ntree, node);
 
+	if (ntype->prop)
+		node->prop = IDP_CopyProperty(ntype->prop);
+
 	/* extra init callback */
 	if (ntype->initfunc_api) {
 		PointerRNA ptr;
@@ -363,6 +366,22 @@ static void free_dynamic_typeinfo(bNodeType *ntype)
 	}
 }
 
+static void free_custom_typeinfo(bNodeType *ntype)
+{
+	if (ntype->type == NODE_CUSTOM) {
+		if (ntype->custom_inputs) {
+			MEM_freeN(ntype->custom_inputs);
+		}
+		if (ntype->custom_outputs) {
+			MEM_freeN(ntype->custom_outputs);
+		}
+		if (ntype->prop) {
+			IDP_FreeProperty(ntype->prop);
+			MEM_freeN(ntype->prop);
+		}
+	}
+}
+
 /* callback for hash value free function */
 static void node_free_type(void *nodetype_v)
 {
@@ -373,6 +392,9 @@ static void node_free_type(void *nodetype_v)
 	/* XXX deprecated */
 	if (nodetype->type == NODE_DYNAMIC)
 		free_dynamic_typeinfo(nodetype);
+	
+	if (nodetype->type == NODE_CUSTOM)
+		free_custom_typeinfo(nodetype);
 	
 	if (nodetype->needs_free)
 		MEM_freeN(nodetype);
@@ -3322,6 +3344,53 @@ void node_type_socket_templates(struct bNodeType *ntype, struct bNodeSocketTempl
 			BLI_strncpy(ntemp->identifier, ntemp->name, sizeof(ntemp->identifier));
 			unique_socket_template_identifier(outputs, ntemp, ntemp->identifier, '_');
 		}
+	}
+}
+
+void node_type_custom_sockets(struct bNodeType *ntype, int in_out)
+{
+	IDProperty *idprop = IDP_GetPropertyFromGroup(ntype->prop, (in_out == SOCK_IN ? "custom_inputs" : "custom_outputs"));
+
+	if (idprop && idprop->len > 0) {
+		IDProperty *loop, *nprop;
+		bNodeSocketTemplate *custom_sockets, *stemp;
+		bNodeSocketType *sock_type;
+		int totitems = 0, idx = 0, a;
+
+		for (a = 0; a < idprop->len; a++) {
+			loop = IDP_GetIndexArray(idprop, a);
+
+			nprop = IDP_GetPropertyFromGroup(loop, "type");
+			sock_type = nodeSocketTypeFind(nprop->data.pointer);
+
+			if (sock_type)
+				totitems++;
+		}
+
+		custom_sockets = MEM_callocN(sizeof(bNodeSocketTemplate) * (totitems + 1), "custom sockets");
+
+		for (a = 0; a < idprop->len; a++) {
+			loop = IDP_GetIndexArray(idprop, a);
+
+			nprop = IDP_GetPropertyFromGroup(loop, "type");
+			sock_type = nodeSocketTypeFind(nprop->data.pointer);
+
+			if (sock_type) {
+				stemp = &custom_sockets[idx];
+				nprop = IDP_GetPropertyFromGroup(loop, "name");
+				BLI_strncpy(stemp->name, nprop->data.pointer, sizeof(stemp->name));
+				stemp->type = sock_type->type;
+
+				idx++;
+			}
+		}
+
+		stemp = &custom_sockets[idx];
+		stemp->type =  -1;
+		if (in_out == SOCK_IN)
+			ntype->custom_inputs = custom_sockets;
+		else
+			ntype->custom_outputs = custom_sockets;
 	}
 }
 
