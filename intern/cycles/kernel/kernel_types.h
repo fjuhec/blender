@@ -698,7 +698,6 @@ enum ShaderDataFlag {
 	SD_AO              = (1 << 8),   /* have ao closure? */
 	SD_TRANSPARENT     = (1 << 9),  /* have transparent closure? */
 	SD_BSDF_NEEDS_LCG  = (1 << 10),
-	SD_IN_BUMP_EVAL    = (1 << 11),  /* set if currently evaluating bump shader */
 
 	SD_CLOSURE_FLAGS = (SD_EMISSION|SD_BSDF|SD_BSDF_HAS_EVAL|SD_BSSRDF|
 	                    SD_HOLDOUT|SD_ABSORPTION|SD_SCATTER|SD_AO|

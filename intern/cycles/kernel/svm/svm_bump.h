@@ -39,8 +39,6 @@ ccl_device void svm_node_enter_bump_eval(KernelGlobals *kg, ShaderData *sd, floa
 		object_position_transform(kg, sd, &ccl_fetch(sd, dP).dx);
 		object_position_transform(kg, sd, &ccl_fetch(sd, dP).dy);
 	}
-
-	ccl_fetch(sd, flag) |= SD_IN_BUMP_EVAL;
 }
 
 ccl_device void svm_node_leave_bump_eval(KernelGlobals *kg, ShaderData *sd, float *stack, uint offset)
@@ -49,8 +47,6 @@ ccl_device void svm_node_leave_bump_eval(KernelGlobals *kg, ShaderData *sd, floa
 	ccl_fetch(sd, P) = stack_load_float3(stack, offset+0);
 	ccl_fetch(sd, dP).dx = stack_load_float3(stack, offset+3);
 	ccl_fetch(sd, dP).dy = stack_load_float3(stack, offset+6);
-
-	ccl_fetch(sd, flag) &= ~SD_IN_BUMP_EVAL;
 }
 
 CCL_NAMESPACE_END
