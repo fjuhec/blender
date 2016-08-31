@@ -202,9 +202,13 @@ void OSLShader::eval_surface(KernelGlobals *kg, ShaderData *sd, PathState *state
 			memcpy(&sd->dP.dx, data+3, sizeof(float)*3);
 			memcpy(&sd->dP.dy, data+6, sizeof(float)*3);
 
-			memcpy(&globals->P, data, sizeof(float)*3);
-			memcpy(&globals->dPdx, data+3, sizeof(float)*3);
-			memcpy(&globals->dPdy, data+6, sizeof(float)*3);
+			object_position_transform(kg, sd, &sd->P);
+			object_position_transform(kg, sd, &sd->dP.dx);
+			object_position_transform(kg, sd, &sd->dP.dy);
+
+			globals->P = TO_VEC3(sd->P);
+			globals->dPdx = TO_VEC3(sd->dP.dx);
+			globals->dPdy = TO_VEC3(sd->dP.dy);
 
 			sd->flag |= SD_IN_BUMP_EVAL;
 		}

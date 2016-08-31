@@ -34,6 +34,10 @@ ccl_device void svm_node_enter_bump_eval(KernelGlobals *kg, ShaderData *sd, floa
 
 		ccl_fetch(sd, dP).dx = dPdx;
 		ccl_fetch(sd, dP).dy = dPdy;
+
+		object_position_transform(kg, sd, &ccl_fetch(sd, P));
+		object_position_transform(kg, sd, &ccl_fetch(sd, dP).dx);
+		object_position_transform(kg, sd, &ccl_fetch(sd, dP).dy);
 	}
 
 	ccl_fetch(sd, flag) |= SD_IN_BUMP_EVAL;
