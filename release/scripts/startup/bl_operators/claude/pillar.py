@@ -142,8 +142,9 @@ def pillar_api(pillar_endpoint: str = None, caching=True) -> pillarsdk.Api:
     if not _pillar_api:
         # Allow overriding the endpoint before importing Blender-specific stuff.
         if pillar_endpoint is None:
-            from . import blender
-            pillar_endpoint = blender.preferences().pillar_server
+            #~ from . import blender
+            #~ pillar_endpoint = blender.preferences().pillar_server
+            pillar_endpoint = "https://cloudapi.blender.org/"
 
         _caching_api = pillarsdk.Api(endpoint=pillar_endpoint,
                                      username=subclient['subclient_user_id'],
@@ -227,8 +228,9 @@ async def refresh_pillar_credentials(required_roles: set):
 
     import blender_id
 
-    from . import blender
-    pillar_endpoint = blender.preferences().pillar_server.rstrip('/')
+    #~ from . import blender
+    #~ pillar_endpoint = blender.preferences().pillar_server.rstrip('/')
+    pillar_endpoint = "https://cloudapi.blender.org"
 
     # Create a subclient token and send it to Pillar.
     # May raise a blender_id.BlenderIdCommError

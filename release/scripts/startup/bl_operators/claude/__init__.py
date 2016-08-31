@@ -67,9 +67,8 @@ import time
 import random
 
 import pillarsdk
-from . import pillar, cache
 
-REQUIRED_ROLES_FOR_TEXTURE_BROWSER = {'subscriber', 'demo'}
+REQUIRED_ROLES_FOR_CLAUDE = {'subscriber', 'demo'}
 
 
 ##########
@@ -117,6 +116,80 @@ class ClaudeJob:
     def __del__(self):
         self.cancel()
 
+class ClaudeJobCheckCredentials(ClaudeJob):
+    @staticmethod
+    async def check():
+        """
+        Check credentials with Pillar, and if ok returns the user ID.
+        Returns None if the user cannot be found, or if the user is not a Cloud subscriber.
+        """
+        try:
+            user_id = await pillar.check_pillar_credentials(REQUIRED_ROLES_FOR_CLAUDE)
+        except pillar.NotSubscribedToCloudError:
+            print('Not subsribed.')
+            return None
+        except pillar.CredentialsNotSyncedError:
+            print('Credentials not synced, re-syncing automatically.')
+            #~ self.log.info('Credentials not synced, re-syncing automatically.')
+        else:
+            print('Credentials okay.')
+            #~ self.log.info('Credentials okay.')
+            return user_id
+
+        try:
+            user_id = await pillar.refresh_pillar_credentials(required_roles)
+        except pillar.NotSubscribedToCloudError:
+            print('Not subsribed.')
+            return None
+        except pillar.UserNotLoggedInError:
+            print('User not logged in on Blender ID.')
+            #~ self.log.error('User not logged in on Blender ID.')
+        else:
+            print('Credentials refreshed and ok.')
+            #~ self.log.info('Credentials refreshed and ok.')
+            return user_id
+
+        return None
+
+    def start(self):
+        self.check_task = asyncio.run_coroutine_threadsafe(self.check(), self.loop)
+        self.progress = 0.0
+        self.status = {'VALID', 'RUNNING'}
+
+    def update(self):
+        if self.evt_cancel.is_set():
+            self.cancel()
+            return
+
+        self.status = {'VALID', 'RUNNING'}
+        user_id = ...
+        if self.check_task is not None:
+            if not self.check_task.done():
+                return ...
+            print("cred check finished, we should have cloud access...")
+            user_id = self.check_task.result()
+            print(user_id)
+            self.check_task = None
+            self.progress = 1.0
+
+        if self.check_task is None:
+            self.status = {'VALID'}
+        return user_id
+
+    def cancel(self):
+        print("CANCELLING...")
+        super().cancel()
+        if self.check_task is not None and not self.check_task.done():
+            self.check_task.cancel()
+        self.status = {'VALID'}
+
+    def __init__(self, executor, job_id):
+        super().__init__(executor, job_id)
+
+        self.check_task = None
+
+        self.start()
+
 
 class ClaudeJobList(ClaudeJob):
     @staticmethod
@@ -135,12 +208,22 @@ class ClaudeJobList(ClaudeJob):
         self.ls_task = asyncio.run_coroutine_threadsafe(self.ls(self.evt_cancel, self.curr_node), self.loop)
         self.status = {'VALID', 'RUNNING'}
 
-    def update(self, dirs):
+    def update(self, user_id, dirs):
         if self.evt_cancel.is_set():
             self.cancel()
             return
 
         self.status = {'VALID', 'RUNNING'}
+
+        if user_id is None:
+            print("Invalid user ID, cannot proceed...")
+            self.cancel()
+            return
+
+        if user_id is ...:
+            print("Awaiting a valid user ID...")
+            return
+
         if self.ls_task is not None:
             if not self.ls_task.done():
                 dirs[:] = [".."]
@@ -161,7 +244,7 @@ class ClaudeJobList(ClaudeJob):
             self.ls_task.cancel()
         self.status = {'VALID'}
 
-    def __init__(self, executor, job_id, curr_node):
+    def __init__(self, executor, job_id, user_id, curr_node):
         super().__init__(executor, job_id)
         self.curr_node = curr_node
 
@@ -242,10 +325,14 @@ class AssetEngineClaude(AssetEngine):
 
     def __init__(self):
         self.executor = futures.ThreadPoolExecutor(8)  # Using threads for now, if issues arise we'll switch to process.
-
-        self.reset()
+        self.jobs = {}
 
         self.job_uuid = 1
+        self.user_id = ...
+        self.job_id_check_credentials = ...
+        self.check_credentials()
+
+        self.reset()
 
     def __del__(self):
         # XXX This errors, saying self has no executor attribute... Suspect some py/RNA funky game. :/
@@ -259,11 +346,28 @@ class AssetEngineClaude(AssetEngine):
     ########## Various helpers ##########
     def reset(self):
         print("Claude Reset!")
-        self.jobs = {}
+        self.jobs = {jid: j for jid, j in self.jobs.items() if jid == self.job_id_check_credentials}
         self.root = ""
         self.dirs = []
 
         self.sortedfiltered = []
+
+    def check_credentials(self):
+        if self.job_id_check_credentials is None:
+            return self.user_id
+        if self.job_id_check_credentials is ...:
+            self.job_id_check_credentials = job_id = self.job_uuid
+            self.job_uuid += 1
+            job = self.jobs[job_id] = ClaudeJobCheckCredentials(self.executor, job_id)
+        else:
+            print(self.job_id_check_credentials)
+            job = self.jobs[self.job_id_check_credentials]
+        if job is not None:
+            self.user_id = job.update()
+            if self.user_id is not ...:
+                self.kill(self.job_id_check_credentials)
+                self.job_id_check_credentials = None
+        return self.user_id
 
     def pretty_version(self, v=None):
         if v is None:
@@ -339,21 +443,23 @@ class AssetEngineClaude(AssetEngine):
         self.jobs.clear()
 
     def list_dir(self, job_id, entries):
+        user_id = self.check_credentials()
+
         job = self.jobs.get(job_id, None)
         print(entries.root_path, job_id, job)
         if job is not None and isinstance(job, ClaudeJobList):
             if job.curr_node != entries.root_path:
                 self.reset()
-                self.jobs[job_id] = ClaudeJobList(self.executor, job_id, entries.root_path)
+                self.jobs[job_id] = ClaudeJobList(self.executor, job_id, user_id, entries.root_path)
                 self.root = entries.root_path
         elif self.root != entries.root_path:
             self.reset()
             job_id = self.job_uuid
             self.job_uuid += 1
-            job = self.jobs[job_id] = ClaudeJobList(self.executor, job_id, entries.root_path)
+            job = self.jobs[job_id] = ClaudeJobList(self.executor, job_id, user_id, entries.root_path)
             self.root = entries.root_path
         if job is not None:
-            job.update(self.dirs)
+            job.update(user_id, self.dirs)
         print(self.dirs)
         entries.nbr_entries = len(self.dirs)
         return job_id
@@ -429,8 +535,7 @@ class CLAUDE_PT_messages(Panel, ClaudePanel):
         space = context.space_data
         ae = space.asset_engine
 
-        for icon, message in ae.messages:
-            layout.label(message, icon=icon)
+        layout.label("Some stupid test info...", icon='INFO')
 
 
 if __name__ == "__main__":  # only for live edit.
