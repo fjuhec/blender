@@ -70,6 +70,7 @@ if 'cmake' in builder:
 
     if builder.startswith('mac'):
         # Set up OSX architecture
+        cmake_config_file = "build_files/buildbot/config/blender_mac.cmake"
         if builder.endswith('x86_64_10_6_cmake'):
             cmake_extra_options.append('-DCMAKE_OSX_ARCHITECTURES:STRING=x86_64')
         cmake_extra_options.append('-DCUDA_NVCC_EXECUTABLE=/usr/local/cuda-hack/bin/nvcc')

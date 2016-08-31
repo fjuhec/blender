@@ -376,8 +376,13 @@ if(WITH_OPENMP)
 		message(STATUS "Using special OpenMP enabled compiler !") # letting find_package(OpenMP) module work for gcc
 		if(CMAKE_C_COMPILER_ID MATCHES "Clang") # clang-omp in darwin libs
 			set(OPENMP_FOUND ON)
-			set(OpenMP_C_FLAGS "-fopenmp" CACHE STRING "C compiler flags for OpenMP parallization" FORCE)
-			set(OpenMP_CXX_FLAGS "-fopenmp" CACHE STRING "C++ compiler flags for OpenMP parallization" FORCE)
+			if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.7)
+				set(OpenMP_C_FLAGS "-fopenmp" CACHE STRING "C compiler flags for OpenMP parallization" FORCE)
+				set(OpenMP_CXX_FLAGS "-fopenmp" CACHE STRING "C++ compiler flags for OpenMP parallization" FORCE)
+			else()
+				set(OpenMP_C_FLAGS "-fopenmp=libiomp5" CACHE STRING "C compiler flags for OpenMP parallization" FORCE)
+				set(OpenMP_CXX_FLAGS "-fopenmp=libiomp5" CACHE STRING "C++ compiler flags for OpenMP parallization" FORCE)
+			endif()
 			include_directories(${LIBDIR}/openmp/include)
 			link_directories(${LIBDIR}/openmp/lib)
 			# This is a workaround for our helperbinaries ( datatoc, masgfmt, ... ),
