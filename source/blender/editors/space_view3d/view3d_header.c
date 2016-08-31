@@ -381,6 +381,15 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C)
 		uiItemR(row, &v3dptr, "transform_orientation", 0, "", ICON_NONE);
 	}
 
+	/* Cursor options */
+	if (is_cursor_visible(scene)) {
+		row = uiLayoutRow(layout, true);
+		uiItemR(row, &v3dptr, "show_3d_cursor", UI_ITEM_R_ICON_ONLY, "", ICON_CURSOR);
+		if ((v3d->flag3 & V3D_HIDE_CURSOR) == 0) {
+			uiItemR(row, &v3dptr, "lock_3d_cursor", UI_ITEM_R_ICON_ONLY, "", ICON_LOCKED);
+		}
+	}
+
 	if (obedit == NULL && v3d->localvd == NULL) {
 		unsigned int ob_lay = ob ? ob->lay : 0;
 
