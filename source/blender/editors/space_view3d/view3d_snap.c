@@ -464,6 +464,10 @@ static int snap_curs_to_grid_exec(bContext *C, wmOperator *UNUSED(op))
 	View3D *v3d = CTX_wm_view3d(C);
 	float gridf, *curs;
 
+	if (v3d->flag3 & V3D_LOCK_CURSOR) {
+		return OPERATOR_CANCELLED;
+	}
+
 	gridf = rv3d->gridview;
 	curs = ED_view3d_cursor3d_get(scene, v3d);
 
@@ -648,6 +652,10 @@ static int snap_curs_to_sel_exec(bContext *C, wmOperator *UNUSED(op))
 	View3D *v3d = CTX_wm_view3d(C);
 	float *curs;
 
+	if (v3d->flag3 & V3D_LOCK_CURSOR) {
+		return OPERATOR_CANCELLED;
+	}
+
 	curs = ED_view3d_cursor3d_get(scene, v3d);
 
 	if (snap_curs_to_sel_ex(C, curs)) {
@@ -722,6 +730,10 @@ static int snap_curs_to_active_exec(bContext *C, wmOperator *UNUSED(op))
 	View3D *v3d = CTX_wm_view3d(C);
 	float *curs;
 	
+	if (v3d->flag3 & V3D_LOCK_CURSOR) {
+		return OPERATOR_CANCELLED;
+	}
+
 	curs = ED_view3d_cursor3d_get(scene, v3d);
 
 	if (snap_calc_active_center(C, false, curs)) {
@@ -755,6 +767,11 @@ static int snap_curs_to_center_exec(bContext *C, wmOperator *UNUSED(op))
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	float *curs;
+
+	if (v3d->flag3 & V3D_LOCK_CURSOR) {
+		return OPERATOR_CANCELLED;
+	}
+
 	curs = ED_view3d_cursor3d_get(scene, v3d);
 
 	zero_v3(curs);
