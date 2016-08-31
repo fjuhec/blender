@@ -285,7 +285,7 @@ extern "C" int GHOST_HACK_getFirstFile(char buf[FIRSTFILEBUFLG])
  * CocoaAppDelegate
  * ObjC object to capture applicationShouldTerminate, and send quit event
  **/
-#if defined(__clang_major__) && __clang_major__ <= 7
+#if defined(__clang__) && ((__clang_major__ < 3 || (__clang_major__ == 3 && __clang_minor__ < 9)) || (defined(__apple_build_version__) && __clang_major__ <= 7))
 /* FIXME(merwin & Juicyfruit): long-term fix for proper protocol to use
  * merwin thinks NSApplicationDelegate is the correct protocol here. Has been around since 10.6 so we should be good... what's the problem?
  * https://developer.apple.com/reference/appkit/nsapplicationdelegate?language=objc
