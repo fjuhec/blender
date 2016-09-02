@@ -19,7 +19,10 @@
 # <pep8 compliant>
 import bpy
 from bpy.types import Header, Menu, Panel
-from bl_ui.properties_grease_pencil_common import GreasePencilDataPanel
+from bl_ui.properties_grease_pencil_common import (
+        GreasePencilDataPanel,
+        GreasePencilPaletteColorPanel,
+        )
 from bl_ui.properties_paint_common import UnifiedPaintPanel
 from bpy.app.translations import contexts as i18n_contexts
 
@@ -37,7 +40,6 @@ class VIEW3D_HT_header(Header):
 
         row = layout.row(align=True)
         row.template_header()
-        sub = row.row(align=True)
 
         VIEW3D_MT_editor_menus.draw_collapsible(context, layout)
 
@@ -137,11 +139,12 @@ class VIEW3D_HT_header(Header):
             row.operator("gpencil.copy", text="", icon='COPYDOWN')
             row.operator("gpencil.paste", text="", icon='PASTEDOWN')
 
-            layout.prop(context.gpencil_data, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH') # XXX: icon
+            # XXX: icon
+            layout.prop(context.gpencil_data, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH')
 
-            layout.prop(context.tool_settings.gpencil_sculpt, "use_select_mask")
-
-
+            row = layout.row(align=True)
+            row.prop(context.tool_settings.gpencil_sculpt, "use_select_mask")
+            row.prop(context.tool_settings.gpencil_sculpt, "selection_alpha", slider=True)
 
 
 class VIEW3D_MT_editor_menus(Menu):
@@ -367,6 +370,7 @@ class VIEW3D_MT_snap(Menu):
         layout.operator("view3d.snap_selected_to_grid", text="Selection to Grid")
         layout.operator("view3d.snap_selected_to_cursor", text="Selection to Cursor").use_offset = False
         layout.operator("view3d.snap_selected_to_cursor", text="Selection to Cursor (Offset)").use_offset = True
+        layout.operator("view3d.snap_selected_to_active", text="Selection to Active")
 
         layout.separator()
 
@@ -996,8 +1000,7 @@ class VIEW3D_MT_select_gpencil(Menu):
         layout.operator("gpencil.select_all", text="(De)select All").action = 'TOGGLE'
         layout.operator("gpencil.select_all", text="Inverse").action = 'INVERT'
         layout.operator("gpencil.select_linked", text="Linked")
-        #layout.operator_menu_enum("gpencil.select_grouped", "type", text="Grouped")
-        layout.operator("gpencil.select_grouped", text="Grouped")
+        layout.operator_menu_enum("gpencil.select_grouped", "type", text="Grouped")
 
         layout.separator()
 
@@ -1504,14 +1507,14 @@ class VIEW3D_MT_object_apply(Menu):
         props.location, props.rotation, props.scale = False, True, True
 
         layout.separator()
-        
+
         layout.operator("object.transforms_to_deltas", text="Location to Deltas", text_ctxt=i18n_contexts.default).mode = 'LOC'
         layout.operator("object.transforms_to_deltas", text="Rotation to Deltas", text_ctxt=i18n_contexts.default).mode = 'ROT'
         layout.operator("object.transforms_to_deltas", text="Scale to Deltas", text_ctxt=i18n_contexts.default).mode = 'SCALE'
-        
+
         layout.operator("object.transforms_to_deltas", text="All Transforms to Deltas", text_ctxt=i18n_contexts.default).mode = 'ALL'
         layout.operator("object.anim_transforms_to_deltas")
-        
+
         layout.separator()
 
         layout.operator("object.visual_transform_apply", text="Visual Transform", text_ctxt=i18n_contexts.default)
@@ -2471,6 +2474,7 @@ class VIEW3D_MT_edit_mesh_edges(Menu):
 
         layout.operator("mesh.edge_face_add")
         layout.operator("mesh.subdivide")
+        layout.operator("mesh.subdivide_edgering")
         layout.operator("mesh.unsubdivide")
 
         layout.separator()
@@ -3073,6 +3077,13 @@ class VIEW3D_MT_edit_gpencil_transform(Menu):
 
 
 class VIEW3D_PT_grease_pencil(GreasePencilDataPanel, Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+
+    # NOTE: this is just a wrapper around the generic GP Panel
+
+
+class VIEW3D_PT_grease_pencil_palettecolor(GreasePencilPaletteColorPanel, Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
 

@@ -61,6 +61,7 @@ extern "C"
 
 #include "DNA_scene_types.h"
 #include "DNA_userdef_types.h"
+#include "DNA_genfile.h"
 
 #include "BLO_readfile.h"
 #include "BLO_runtime.h"
@@ -492,6 +493,8 @@ int main(
 	// freeing up GPU_Textures works correctly.
 	BLI_threadapi_init();
 
+	DNA_sdna_current_init();
+
 	RNA_init();
 
 	init_nodesystem();
@@ -709,7 +712,7 @@ int main(
 			{
 				i++;
 				if ( (i + 1) <= validArguments )
-					parentWindow = atoi(argv[i++]);
+					parentWindow = (GHOST_TEmbedderWindowID)atoll(argv[i++]);
 				else {
 					error = true;
 					printf("error: too few options for parent window argument.\n");

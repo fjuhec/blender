@@ -48,6 +48,7 @@
 #include "DNA_world_types.h"
 #include "DNA_object_types.h"
 #include "DNA_vfont_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BLI_math.h"
 #include "BLI_listbase.h"
@@ -1381,7 +1382,7 @@ static int move_to_layer_exec(bContext *C, wmOperator *op)
 			/* upper byte is used for local view */
 			local = base->lay & 0xFF000000;
 			base->lay = lay + local;
-			base->object->lay = lay;
+			base->object->lay = base->lay;
 			/* if (base->object->type == OB_LAMP) is_lamp = true; */
 		}
 		CTX_DATA_END;
@@ -1762,6 +1763,17 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 				else {
 					/* copy already clears */
 				}
+				/* remap gpencil parenting */
+
+				if (scene->gpd) {
+					bGPdata *gpd = scene->gpd;
+					for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+						if (gpl->parent == ob) {
+							gpl->parent = obn;
+						}
+					}
+				}
+
 				base->flag = obn->flag;
 
 				id_us_min(&ob->id);
@@ -2094,6 +2106,7 @@ void ED_object_single_users(Main *bmain, Scene *scene, const bool full, const bo
 	}
 
 	BKE_main_id_clear_newpoins(bmain);
+	DAG_relations_tag_update(bmain);
 }
 
 /******************************* Make Local ***********************************/
@@ -2104,11 +2117,11 @@ static void make_local_makelocalmaterial(Material *ma)
 	AnimData *adt;
 	int b;
 
-	id_make_local(G.main, &ma->id, false);
+	id_make_local(G.main, &ma->id, false, false);
 
 	for (b = 0; b < MAX_MTEX; b++)
 		if (ma->mtex[b] && ma->mtex[b]->tex)
-			id_make_local(G.main, &ma->mtex[b]->tex->id, false);
+			id_make_local(G.main, &ma->mtex[b]->tex->id, false, false);
 
 	adt = BKE_animdata_from_id(&ma->id);
 	if (adt) BKE_animdata_make_local(adt);
@@ -2237,7 +2250,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
 		}
 
 		if (ob->id.lib)
-			id_make_local(bmain, &ob->id, false);
+			id_make_local(bmain, &ob->id, false, false);
 	}
 	CTX_DATA_END;
 
@@ -2259,7 +2272,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
 		id = ob->data;
 
 		if (id && (ELEM(mode, MAKE_LOCAL_SELECT_OBDATA, MAKE_LOCAL_SELECT_OBDATA_MATERIAL))) {
-			id_make_local(bmain, id, false);
+			id_make_local(bmain, id, false, false);
 			adt = BKE_animdata_from_id(id);
 			if (adt) BKE_animdata_make_local(adt);
 
@@ -2275,7 +2288,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
 		}
 
 		for (psys = ob->particlesystem.first; psys; psys = psys->next)
-			id_make_local(bmain, &psys->part->id, false);
+			id_make_local(bmain, &psys->part->id, false, false);
 
 		adt = BKE_animdata_from_id(&ob->id);
 		if (adt) BKE_animdata_make_local(adt);
@@ -2294,7 +2307,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
 
 				for (b = 0; b < MAX_MTEX; b++)
 					if (la->mtex[b] && la->mtex[b]->tex)
-						id_make_local(bmain, &la->mtex[b]->tex->id, false);
+						id_make_local(bmain, &la->mtex[b]->tex->id, false, false);
 			}
 			else {
 				for (a = 0; a < ob->totcol; a++) {

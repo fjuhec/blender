@@ -488,6 +488,7 @@ typedef enum {  /* motion progress, for modal handlers */
 	P_FINISHED
 } wmProgress;
 
+#ifdef WITH_INPUT_NDOF
 typedef struct wmNDOFMotionData {
 	/* awfully similar to GHOST_TEventNDOFMotionData... */
 	/* Each component normally ranges from -1 to +1, but can exceed that.
@@ -499,6 +500,7 @@ typedef struct wmNDOFMotionData {
 	float dt; /* time since previous NDOF Motion event */
 	wmProgress progress; /* is this the first event, the last, or one of many in between? */
 } wmNDOFMotionData;
+#endif /* WITH_INPUT_NDOF */
 
 typedef struct wmTimer {
 	struct wmTimer *next, *prev;

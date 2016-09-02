@@ -3127,8 +3127,11 @@ void RNA_property_collection_add(PointerRNA *ptr, PropertyRNA *prop, PointerRNA 
 			RNA_parameter_list_free(&params);
 		}
 	}
-	/*else
-	    printf("%s %s.%s: not implemented for this property.\n", __func__, ptr->type->identifier, prop->identifier);*/
+#if 0
+	else {
+		printf("%s %s.%s: not implemented for this property.\n", __func__, ptr->type->identifier, prop->identifier);
+	}
+#endif
 #endif
 
 	if (r_ptr) {
@@ -3187,8 +3190,11 @@ bool RNA_property_collection_remove(PointerRNA *ptr, PropertyRNA *prop, int key)
 
 		return false;
 	}
-	/*else
-	    printf("%s %s.%s: only supported for id properties.\n", __func__, ptr->type->identifier, prop->identifier);*/
+#if 0
+	else {
+		printf("%s %s.%s: only supported for id properties.\n", __func__, ptr->type->identifier, prop->identifier);
+	}
+#endif
 #endif
 	return false;
 }
@@ -6960,3 +6966,22 @@ bool RNA_struct_equals(PointerRNA *a, PointerRNA *b, eRNAEqualsMode mode)
 	return equals;
 }
 
+
+bool RNA_path_resolved_create(
+        PointerRNA *ptr, struct PropertyRNA *prop,
+        const int prop_index,
+        PathResolvedRNA *r_anim_rna)
+{
+	int array_len = RNA_property_array_length(ptr, prop);
+
+	if ((array_len == 0) || (prop_index < array_len)) {
+		r_anim_rna->ptr = *ptr;
+		r_anim_rna->prop = prop;
+		r_anim_rna->prop_index = array_len ? prop_index : -1;
+
+		return true;
+	}
+	else {
+		return false;
+	}
+}

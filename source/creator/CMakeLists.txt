@@ -246,7 +246,7 @@ if(WITH_PYTHON_MODULE)
 		set_target_properties(
 			blender
 			PROPERTIES
-				MACOSX_BUNDLE
+				MACOSX_BUNDLE TRUE
 				LINK_FLAGS_RELEASE "${PLATFORM_LINKFLAGS}"
 				LINK_FLAGS_DEBUG "${PLATFORM_LINKFLAGS_DEBUG}"
 		)
@@ -263,6 +263,7 @@ if(WITH_PYTHON_MODULE)
 
 else()
 	add_executable(blender ${EXETYPE} ${SRC})
+	WINDOWS_SIGN_TARGET(blender)
 endif()
 
 if(WITH_BUILDINFO)

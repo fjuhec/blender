@@ -153,7 +153,7 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
     def draw(self, context):
         ob = context.object
         bone = context.bone
-        arm = context.armature
+        # arm = context.armature
         pchan = None
 
         if ob and bone:
