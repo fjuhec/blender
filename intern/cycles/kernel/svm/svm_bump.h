@@ -29,15 +29,16 @@ ccl_device void svm_node_enter_bump_eval(KernelGlobals *kg, ShaderData *sd, floa
 	const AttributeDescriptor desc = find_attribute(kg, sd, ATTR_STD_POSITION_UNDISPLACED);
 
 	if(desc.offset != ATTR_STD_NOT_FOUND) {
-		float3 dPdx, dPdy;
-		ccl_fetch(sd, P) = primitive_attribute_float3(kg, sd, desc, &dPdx, &dPdy);
+		float3 P, dPdx, dPdy;
+		P = primitive_attribute_float3(kg, sd, desc, &dPdx, &dPdy);
 
+		object_position_transform(kg, sd, &P);
+		object_dir_transform(kg, sd, &dPdx);
+		object_dir_transform(kg, sd, &dPdy);
+
+		ccl_fetch(sd, P) = P;
 		ccl_fetch(sd, dP).dx = dPdx;
 		ccl_fetch(sd, dP).dy = dPdy;
-
-		object_position_transform(kg, sd, &ccl_fetch(sd, P));
-		object_position_transform(kg, sd, &ccl_fetch(sd, dP).dx);
-		object_position_transform(kg, sd, &ccl_fetch(sd, dP).dy);
 	}
 }
 

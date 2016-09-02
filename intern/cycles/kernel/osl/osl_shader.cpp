@@ -196,6 +196,7 @@ void OSLShader::eval_surface(KernelGlobals *kg, ShaderData *sd, PathState *state
 			float data[9];
 			bool found = kg->osl->services->get_attribute(sd, true, OSLRenderServices::u_empty, TypeDesc::TypeVector,
 			                                              OSLRenderServices::u_geom_undisplaced, data);
+			(void)found;
 			assert(found);
 
 			memcpy(&sd->P, data, sizeof(float)*3);
@@ -203,8 +204,8 @@ void OSLShader::eval_surface(KernelGlobals *kg, ShaderData *sd, PathState *state
 			memcpy(&sd->dP.dy, data+6, sizeof(float)*3);
 
 			object_position_transform(kg, sd, &sd->P);
-			object_position_transform(kg, sd, &sd->dP.dx);
-			object_position_transform(kg, sd, &sd->dP.dy);
+			object_dir_transform(kg, sd, &sd->dP.dx);
+			object_dir_transform(kg, sd, &sd->dP.dy);
 
 			globals->P = TO_VEC3(sd->P);
 			globals->dPdx = TO_VEC3(sd->dP.dx);
