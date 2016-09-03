@@ -1748,6 +1748,7 @@ static void vertex_paint_init_session_average_arrays(Object *ob){
 	ob->sculpt->totalWeight = MEM_callocN(totNode * sizeof(double), "totalWeight");
 	ob->sculpt->totloopsHit = MEM_callocN(totNode * sizeof(unsigned int), "totloopsHit");
   ob->sculpt->maxWeight = MEM_callocN(me->totvert * sizeof(float), "maxWeight");
+  ob->sculpt->previousColor = MEM_callocN(me->totloop * sizeof(unsigned int), "previousColor");
 }
 
 /* *************** set wpaint operator ****************** */
@@ -2188,8 +2189,9 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 
 	vwpaint_update_cache_invariants(C, vd, ss, op, mouse);
 
-	for (int i = 0; i < me->totvert; ++i)
-		ss->maxWeight[i] = -1.0;
+  for (int i = 0; i < me->totvert; ++i)
+    ss->maxWeight[i] = -1.0;
+
 	return true;
 }
 
@@ -3106,9 +3108,6 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	paint_stroke_set_mode_data(stroke, vpd);
 	view3d_set_viewcontext(C, &vpd->vc);
 	
-	vpd->vp_handle = ED_vpaint_proj_handle_create(vpd->vc.scene, ob, &vpd->vertexcosnos);
-
-	vpd->indexar = get_indexarray(me);
 	vpd->paintcol = vpaint_get_current_col(scene, vp);
 
 	vpd->is_texbrush = !(brush->vertexpaint_tool == PAINT_BLEND_BLUR) &&
@@ -3130,9 +3129,6 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 		vpd->mlooptag = MEM_mallocN(sizeof(bool) * me->totloop, "VPaintData mlooptag");
 	}
 
-	/* for filtering */
-	copy_vpaint_prev(vp, (unsigned int *)me->mloopcol, me->totloop);
-	
 	/* some old cruft to sort out later */
 	mul_m4_m4m4(mat, vpd->vc.rv3d->viewmat, ob->obmat);
 	invert_m4_m4(imat, mat);
@@ -3150,8 +3146,8 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
 	vwpaint_update_cache_invariants(C, vp, ss, op, mouse);
 
-	for (int i = 0; i < me->totvert; ++i)
-		ss->maxWeight[i] = -1.0;
+	for (int i = 0; i < me->totloop; ++i)
+		ss->previousColor[i] = 0;
 
 	return 1;
 }
@@ -3322,8 +3318,14 @@ static void do_vpaint_brush_draw_task_cb_ex(
         //if a vertex is within the brush region, then paint each loop that vertex owns.
         for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
           int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+          
+          //Previous color logic
+          if (ss->previousColor[loopIndex] == 0) {
+            ss->previousColor[loopIndex] = lcol[loopIndex];
+          }
+
           //Mix the new color with the original based on the brush strength and the curve.
-          lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], actualColor, 
+          lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previousColor[loopIndex], actualColor,
                                          255 * fade * bstrength * dot * alpha, brush_alpha_pressure * 255);
         }
     }
@@ -3627,7 +3629,8 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	swap_m4m4(vc->rv3d->persmat, mat);
 
 	/* incase we have modifiers */
-	ED_vpaint_proj_handle_update(vpd->vp_handle, vc->ar, mval);
+	//I don't understand how this code handles modifiers. It's slowing vpaint down, so it's commented out.
+	//ED_vpaint_proj_handle_update(vpd->vp_handle, vc->ar, mval); 
 
 	vpaint_do_symmetrical_brush_actions(C, sd, vp, vpd, ob);
 
@@ -3658,13 +3661,7 @@ static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 	ViewContext *vc = &vpd->vc;
 	Object *ob = vc->obact;
 	Mesh *me = ob->data;
-
-	ED_vpaint_proj_handle_free(vpd->vp_handle);
-	MEM_freeN(vpd->indexar);
 	
-	/* frees prev buffer */
-	copy_vpaint_prev(ts->vpaint, NULL, 0);
-
 	if (vpd->mlooptag)
 		MEM_freeN(vpd->mlooptag);
 
