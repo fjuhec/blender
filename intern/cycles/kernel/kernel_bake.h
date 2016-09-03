@@ -313,6 +313,14 @@ ccl_device void kernel_bake_evaluate(KernelGlobals *kg, ccl_global uint4 *input,
 
 	triangle_point_normal(kg, object, prim, u, v, &P, &Ng, &shader);
 
+	if(!(kernel_tex_fetch(__object_flag, object) & SD_TRANSFORM_APPLIED)) {
+		Transform tfm = object_fetch_transform(kg, object, OBJECT_TRANSFORM);
+		P = transform_point(&tfm, P);
+
+		tfm = object_fetch_transform(kg, object, OBJECT_INVERSE_TRANSFORM);
+		Ng = normalize(transform_direction_transposed(&tfm, Ng));
+	}
+
 	/* dummy initilizations copied from SHADER_EVAL_DISPLACE */
 	float3 I = Ng;
 	float t = 1.0f;
@@ -525,6 +533,9 @@ ccl_device void kernel_shader_evaluate(KernelGlobals *kg,
 		float3 P = sd.P;
 		shader_eval_displacement(kg, &sd, &state, SHADER_CONTEXT_MAIN);
 		out = sd.P - P;
+
+		Transform itfm = object_fetch_transform(kg, object, OBJECT_INVERSE_TRANSFORM);
+		out = transform_direction(&itfm, out);
 	}
 	else { // SHADER_EVAL_BACKGROUND
 		/* setup ray */
