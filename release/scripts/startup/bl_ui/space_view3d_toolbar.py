@@ -1130,7 +1130,11 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             self.prop_unified_color_picker(col, context, brush, "color", value_slider=True)
             if settings.palette:
                 col.template_palette(settings, "palette", color=True)
-            self.prop_unified_color(col, context, brush, "color", text="")
+            row = col.row(align=True)
+            self.prop_unified_color(row, context, brush, "color", text="")
+            self.prop_unified_color(row, context, brush, "secondary_color", text="")
+            row.separator()
+            row.operator("paint.brush_colors_flip", icon='FILE_REFRESH', text="")
 
             col.separator()
             row = col.row(align=True)
