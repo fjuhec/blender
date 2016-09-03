@@ -3287,7 +3287,6 @@ static void do_vpaint_brush_draw_task_cb_ex(
   StrokeCache *cache = ss->cache;
   const float bstrength = cache->bstrength;
   unsigned int *lcol = data->lcol;
-  unsigned int *lcolorig = data->vp->vpaint_prev;
   Scene *scene = CTX_data_scene(data->C);
   const float brush_size_pressure = 
     BKE_brush_size_get(scene, brush) * (BKE_brush_use_size_pressure(scene, brush) ? ss->cache->pressure : 1.0f);
@@ -3342,7 +3341,6 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	StrokeCache *cache = ss->cache;
 	const float bstrength = cache->bstrength;
 	unsigned int *lcol = data->lcol;
-	unsigned int *lcolorig = data->vp->vpaint_prev;
 	int totalHitLoops;
 	unsigned long blend[4] = { 0 };
 	char *col;
@@ -3393,8 +3391,14 @@ static void do_vpaint_brush_blur_task_cb_ex(
 					//if a vertex is within the brush region, then paint each loop that vertex owns.
 					for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
 						int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+
+						//Previous color logic
+						if (ss->previousColor[loopIndex] == 0) {
+							ss->previousColor[loopIndex] = lcol[loopIndex];
+						}
+
 						//Mix the new color with the original based on the brush strength and the curve.
-						lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], *((unsigned int*)col), 255.0 * fade * bstrength * dot, 255.0);
+						lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previousColor[loopIndex], *((unsigned int*)col), 255.0 * fade * bstrength * dot, 255.0);
 					}
 				}
 			}
@@ -3413,7 +3417,6 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 	const float bstrength = cache->bstrength;
 	bool shouldColor = false;
 	unsigned int *lcol = data->lcol;
-	unsigned int *lcolorig = data->vp->vpaint_prev;
 	unsigned int finalColor;
 	float brushDirection[3];
 	sub_v3_v3v3(brushDirection, cache->location, cache->last_location);
@@ -3468,8 +3471,14 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 						//if a vertex is within the brush region, then paint each loop that vertex owns.
 						for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
 							int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+
+							//Previous color logic
+							if (ss->previousColor[loopIndex] == 0) {
+								ss->previousColor[loopIndex] = lcol[loopIndex];
+							}
+
 							//Mix the new color with the original based on the brush strength and the curve.
-							lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], lcolorig[loopIndex], finalColor, 255.0 * fade * bstrength * dot, 255.0);
+							lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previousColor[loopIndex], finalColor, 255.0 * fade * bstrength * dot, 255.0);
 						}
 					}
 				}
