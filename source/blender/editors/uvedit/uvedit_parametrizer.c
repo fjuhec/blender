@@ -592,6 +592,38 @@ static void p_chart_uv_scale_origin(PChart *chart, float scale)
 	p_chart_uv_translate(chart, trans);
 }
 
+static void p_chart_uv_rotate(PChart *chart, float angle)
+{
+	float sine = sinf(angle);
+	float cosine = cosf(angle);
+	PVert *v;
+
+	for (v = chart->verts; v; v = v->nextlink) {
+		float oldu = v->uv[0], oldv = v->uv[1];
+		v->uv[0] = cosine * oldu - sine * oldv;
+		v->uv[1] = sine * oldu + cosine * oldv;
+	}
+}
+
+static void p_chart_uv_rotate_origin(PChart *chart, float angle)
+{
+	float minv[2], maxv[2], trans[2];
+
+	/* Get the island center */
+	p_chart_uv_bbox(chart, minv, maxv);
+	trans[0] = (minv[0] + maxv[0]) / -2.0f;
+	trans[1] = (minv[1] + maxv[1]) / -2.0f;
+
+	/* Move center to 0,0 */
+	p_chart_uv_translate(chart, trans);
+	p_chart_uv_rotate(chart, angle);
+
+	/* Move to original center */
+	trans[0] = -trans[0];
+	trans[1] = -trans[1];
+	p_chart_uv_translate(chart, trans);
+}
+
 static void UNUSED_FUNCTION(p_scale_charts)(PHandle *handle, float scale)
 {
 	PChart *chart;
@@ -3843,23 +3875,10 @@ static float p_chart_minimum_area_angle(PChart *chart)
 	return minangle;
 }
 
-static void p_chart_rotate(PChart *chart, float angle)
-{
-	float sine = sinf(angle);
-	float cosine = cosf(angle);
-	PVert *v;
-
-	for (v = chart->verts; v; v = v->nextlink) {
-		float oldu = v->uv[0], oldv = v->uv[1];
-		v->uv[0] = cosine * oldu - sine * oldv;
-		v->uv[1] = sine * oldu + cosine * oldv;
-	}
-}
-
 static void p_chart_rotate_minimum_area(PChart *chart)
 {
 	float angle = p_chart_minimum_area_angle(chart);
-	p_chart_rotate(chart, angle);
+	p_chart_uv_rotate(chart, angle);
 }
 
 /* Area Smoothing */
@@ -5981,7 +6000,7 @@ void param_irregular_pack_begin(ParamHandle *handle, float *w_area, float margin
 		/* Initial rotation */
 		rot = (int)(chart->u.ipack.sa_params[0] * (float)rot_step) * (2 * M_PI / (float)rot_step);
 		printf("init rot for chart[%i]: %f\n", i, rot);
-		p_chart_rotate(chart, rot); /* ToDo SaphireS: Rotate in origin and transform back to original pos! */
+		p_chart_uv_rotate_origin(chart, rot);
 
 		/* Get boundaries of chart*/
 		/* Find initial boundary edge */
@@ -6130,7 +6149,7 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int 
 		printf("SA param rot_rand for chart[%i]: %f\n", rand_chart, rot_rand);
 		rot = (int)(rot_rand * (float)rot_step) * (2 * M_PI / (float)rot_step);
 		printf("SA param rot for chart[%i]: %f\n", rand_chart, rot);
-		p_chart_rotate(chart, rot);
+		p_chart_uv_rotate_origin(chart, rot);
 		p_convex_hull_update(chart->u.ipack.convex_hull, true);
 		p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
 		p_convex_hull_update(chart->u.ipack.convex_hull, false);
