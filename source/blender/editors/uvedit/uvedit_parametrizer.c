@@ -5337,7 +5337,7 @@ static void p_convex_hull_restore_direction(PConvexHull *item, float margin)
 	p_convex_hull_compute_edge_components(item);
 }
 
-static PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
+static PNoFitPolygon *p_inner_fit_polygon_create(PHandle *phandle, PConvexHull *item)
 {
 	PNoFitPolygon *nfp = (PNoFitPolygon *)MEM_callocN(sizeof(*nfp), "PNoFitPolygon");
 	/* Simplification, since we're not dealing with arbitrary shaped outer bounds */
@@ -5352,9 +5352,10 @@ static PNoFitPolygon *p_inner_fit_polygon_create(PConvexHull *item)
 	PPointUV *p4 = (PPointUV *)MEM_callocN(sizeof(*p4), "PPointUV");
 
 	/* reference point for item hull is the one with the lowest y value*/
-	
-	float bounds_height = 1.0f; /* ToDo Saphires: Aspect Ratio compensation */
-	float bounds_width = 1.0f; /* ToDo Saphires: Aspect Ratio compensation */
+
+	/* Aspect Ratio compensation */
+	float bounds_height = phandle->aspy; 
+	float bounds_width = phandle->aspx;
 	
 	p1->x = item->verts[item->ref_vert_index]->x - item->min_v[0];
 	printf("item_ref_x: %f, %f, min_v[0]: %f\n", item->verts[item->ref_vert_index]->x, item->verts[item->ref_vert_index]->y, item->min_v[0]);
@@ -5699,7 +5700,7 @@ static bool p_chart_pack_individual(PHandle *phandle, PChart *item, float margin
 
 	/* compute inner fit polygon (IFP) */
 	printf("IFP construction start!\n");
-	PNoFitPolygon *ifp = p_inner_fit_polygon_create(item_inv);
+	PNoFitPolygon *ifp = p_inner_fit_polygon_create(phandle,  item_inv);
 	/*nfps[phandle->ncharts] = ifp;*/
 	nfps[cur_nfp] = ifp;
 	printf("IFP construction done!\n");
