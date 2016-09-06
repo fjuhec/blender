@@ -144,7 +144,7 @@ def pillar_api(pillar_endpoint: str = None, caching=True) -> pillarsdk.Api:
         if pillar_endpoint is None:
             #~ from . import blender
             #~ pillar_endpoint = blender.preferences().pillar_server
-            pillar_endpoint = "https://cloudapi.blender.org/"
+            pillar_endpoint = "https://cloud.blender.org/api/"
 
         _caching_api = pillarsdk.Api(endpoint=pillar_endpoint,
                                      username=subclient['subclient_user_id'],
