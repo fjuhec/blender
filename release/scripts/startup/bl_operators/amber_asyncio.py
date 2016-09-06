@@ -148,13 +148,17 @@ class AmberJob:
 
     @staticmethod
     def async_looper(func):
+        """Defines a simple wrapper around the function that executes it before stepping a bit asyncio loop."""
         def wrapper(*args, **kwargs):
             loop = asyncio.get_event_loop()
-            print("kickstop")
-            loop.stop()
             print("proceed....")
             func(*args, **kwargs)
-            print("kickstart")
+            print("kickstep")
+            # That's the trick - since asyncio loop is not the main loop, we cannot call run_forever, or we would
+            # never get back our thread (not until something in asyncio loop itself calls stop(), at least).
+            # So we schedule ourselves the stop call, effectively leading to 'stepping' asyncio loop.
+            # This relies on the fact that main loop (aka Blender) calls an @AmberJob.async_looper func often enough!
+            loop.call_soon(loop.stop)
             loop.run_forever()
         return wrapper
 
