@@ -41,28 +41,46 @@ shader node_disney_bsdf(
 	float f = max(IOR, 1e-5);
 	float eta = backfacing() ? 1.0 / f : f;
 	float cosNO = dot(Normal, I);
-	float Fr = fresnel_dielectric_cos(cosNO, eta);
+	//float Fr = fresnel_dielectric_cos(cosNO, eta);
     float diffuse_weight = (1.0 - clamp(Metallic, 0.0, 1.0)) * (1.0 - clamp(Transparency, 0.0, 1.0));
     float transp = clamp(Transparency, 0.0, 1.0) * (1.0 - clamp(Metallic, 0.0, 1.0));
     float specular_weight = (1.0 - transp);
     
-    if (diffuse_weight > 0.0) {
-        BSDF = (((Subsurface * BaseColor * bssrdf_burley(Normal, vector(1.0, 1.0, 1.0), 0.0, BaseColor)) + disney_diffuse(Normal, BaseColor, Roughness) * (1.0 - Subsurface))
-                + disney_sheen(Normal, BaseColor, Sheen, SheenTint)) * diffuse_weight;
+    if (diffuse_weight > 1e-5) {
+        BSDF = bssrdf_disney(Normal, vector(Subsurface, Subsurface, Subsurface), 0.0, BaseColor, SubsurfaceColor, Roughness);
+        
+        if (Sheen != 0.0) {
+            BSDF = BSDF + disney_sheen(Normal, BaseColor, Sheen, SheenTint);
+        }
+        
+        BSDF = BSDF * diffuse_weight;
     }
 
-    if (Specular != 0.0 || Metallic != 0.0) {
-        BSDF = BSDF + specular_weight * disney_specular(Normal, Tangent, BaseColor, Metallic, Specular,
-                                      SpecularTint, Roughness, Anisotropic)
-                    + (1.0 - specular_weight) * (Fr * disney_specular(Normal, Tangent, BaseColor, 0.0, 12.5,
-                                      SpecularTint, Roughness, 0.0) + (1.0 - Fr) * BaseColor * microfacet_ggx_refraction(Normal, Roughness * Roughness, eta));
-    } else if (transp > 0.0) {
-        BSDF = BSDF + transp * (disney_specular(Normal, Tangent, BaseColor, 0.0, 12.5, SpecularTint, Roughness, 0.0)
-                + BaseColor * microfacet_ggx_refraction(Normal, Roughness * Roughness, eta));
+    if (specular_weight > 1e-5) {
+        float aspect = sqrt(1.0 - Anisotropic * 0.9);
+        float r2 = Roughness * Roughness;
+        
+        float alpha_x = max(0.001, r2 / aspect);
+        float alpha_y = max(0.001, r2 * aspect);
+        
+        float m_cdlum = 0.3 * BaseColor[0] + 0.6 * BaseColor[1] + 0.1 * BaseColor[2]; // luminance approx.
+        color m_ctint = m_cdlum > 0.0 ? BaseColor / m_cdlum : color(0.0, 0.0, 0.0); // normalize lum. to isolate hue+sat
+        color tmp_col = color(1.0, 1.0, 1.0) * (1.0 - SpecularTint) + m_ctint * SpecularTint;
+        
+        color Cspec0 = (Specular * 0.08 * tmp_col) * (1.0 - Metallic) + BaseColor * Metallic;
+        
+        BSDF = BSDF + specular_weight * microfacet_multi_ggx_aniso_fresnel(Normal, Tangent, alpha_x, alpha_y, (2.0 / (1.0 - sqrt(0.08 * Specular))) - 1.0, BaseColor, Cspec0);
     }
-
-    if (Clearcoat != 0.0) {
-        BSDF = BSDF + disney_clearcoat(ClearcoatNormal, Clearcoat, ClearcoatGloss);
+    
+    if (transp > 1e-5) {
+        color Cspec0 = BaseColor * SpecularTint + color(1.0, 1.0, 1.0) * (1.0 - SpecularTint);
+        
+        //BSDF = BaseColor * microfacet_multi_ggx_glass(Normal, Roughness, eta, BaseColor);
+        BSDF = BSDF + transp * microfacet_multi_ggx_glass_fresnel(Normal, Roughness * Roughness, eta, BaseColor, Cspec0);
+    }
+    
+    if (Clearcoat > 1e-5) {
+        BSDF = BSDF + 0.25 * Clearcoat * microfacet_ggx_fresnel(Normal, 0.1 * (1.0 - ClearcoatGloss) + 0.001 * ClearcoatGloss, 1.5, color(1, 1, 1), color(0.04, 0.04, 0.04));
     }
 }
 
