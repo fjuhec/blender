@@ -1350,34 +1350,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		/* ------- end of grease pencil initialization --------------- */
 	}
 
-	{
-		/* initialize regiondata for each SpaceClip, due to the newly brought RegionSpaceClip */
-		if (!DNA_struct_elem_find(fd->filesdna, "SpaceClip", "MovieClip", "*secondary_clip")) {
-			for (bScreen *screen = main->screen.first; screen != NULL; screen = screen->id.next) {
-				for (ScrArea *sa = screen->areabase.first; sa != NULL; sa = sa->next) {
-					for (SpaceLink *sl = sa->spacedata.first; sl != NULL; sl = sl->next) {
-						if (sl->spacetype == SPACE_CLIP) {
-							ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
-							for (ARegion *ar = regionbase->first; ar != NULL; ar = ar->next) {
-								if (ar->regiontype == RGN_TYPE_WINDOW) {
-									SpaceClip *sc = (SpaceClip *)sl;
-									RegionSpaceClip *rsc = MEM_callocN(sizeof(RegionSpaceClip), "region data for clip");
-
-									rsc->xof = sc->xof;
-									rsc->yof = sc->yof;
-									rsc->xlockof = sc->xlockof;
-									rsc->ylockof = sc->ylockof;
-									rsc->zoom = sc->zoom;
-									rsc->flag = RSC_MAIN_CLIP;
-									ar->regiondata = rsc;
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
+	if (!MAIN_VERSION_ATLEAST(main, 278, 0)) {
 		if (!DNA_struct_elem_find(fd->filesdna, "MovieTrackingTrack", "float", "weight_stab")) {
 			MovieClip *clip;
 			for (clip = main->movieclip.first; clip; clip = clip->id.next) {
@@ -1418,6 +1391,35 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				clip->tracking.stabilization.flag |= TRACKING_SHOW_STAB_TRACKS;
 				/* deprecated, not used anymore */
 				clip->tracking.stabilization.ok = false;
+			}
+		}
+	}
+
+	{
+		/* initialize regiondata for each SpaceClip, due to the newly brought RegionSpaceClip */
+		if (!DNA_struct_elem_find(fd->filesdna, "SpaceClip", "MovieClip", "*secondary_clip")) {
+			for (bScreen *screen = main->screen.first; screen != NULL; screen = screen->id.next) {
+				for (ScrArea *sa = screen->areabase.first; sa != NULL; sa = sa->next) {
+					for (SpaceLink *sl = sa->spacedata.first; sl != NULL; sl = sl->next) {
+						if (sl->spacetype == SPACE_CLIP) {
+							ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
+							for (ARegion *ar = regionbase->first; ar != NULL; ar = ar->next) {
+								if (ar->regiontype == RGN_TYPE_WINDOW) {
+									SpaceClip *sc = (SpaceClip *)sl;
+									RegionSpaceClip *rsc = MEM_callocN(sizeof(RegionSpaceClip), "region data for clip");
+
+									rsc->xof = sc->xof;
+									rsc->yof = sc->yof;
+									rsc->xlockof = sc->xlockof;
+									rsc->ylockof = sc->ylockof;
+									rsc->zoom = sc->zoom;
+									rsc->flag = RSC_MAIN_CLIP;
+									ar->regiondata = rsc;
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 	}
