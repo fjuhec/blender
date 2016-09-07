@@ -88,6 +88,8 @@ class ClaudeJob:
             if not self.evt_cancel.is_set():
                 print("kickstep")
                 # This forces loop to only do 'one step', and return (hopefully!) very soon.
+                # Note: both calls below work essentially the same way, we could also use call_later with 0.1ms delay...
+                #~ loop.stop()
                 loop.call_soon(loop.stop)
                 loop.run_forever()
             else:
@@ -199,7 +201,7 @@ class ClaudeJobList(ClaudeJob):
     def start(self):
         self.nbr = 0
         self.tot = 0
-        self.ls_task = asyncio.ensure_future(self.ls(self.evt_cancel, self.curr_node))
+        self.ls_task = asyncio.ensure_future(self.ls(self.curr_node))
         self.status = {'VALID', 'RUNNING'}
 
     @ClaudeJob.async_looper
@@ -323,12 +325,6 @@ class AssetEngineClaude(AssetEngine):
         self.reset()
 
     def __del__(self):
-        # XXX This errors, saying self has no executor attribute... Suspect some py/RNA funky game. :/
-        #     Even though it does not seem to be an issue, this is not nice and shall be fixed somehow.
-        # XXX This is still erroring... Looks like we should rather have a 'remove' callback or so. :|
-        #~ executor = getattr(self, "executor", None)
-        #~ if executor is not None:
-            #~ executor.shutdown(wait=False)
         pass
 
     ########## Various helpers ##########
@@ -438,13 +434,13 @@ class AssetEngineClaude(AssetEngine):
         if job is not None and isinstance(job, ClaudeJobList):
             if job.curr_node != entries.root_path:
                 self.reset()
-                job = self.jobs[job_id] = ClaudeJobList(self.executor, job_id, user_id, entries.root_path)
+                job = self.jobs[job_id] = ClaudeJobList(job_id, user_id, entries.root_path)
                 self.root = entries.root_path
         elif self.root != entries.root_path:
             self.reset()
             job_id = self.job_uuid
             self.job_uuid += 1
-            job = self.jobs[job_id] = ClaudeJobList(self.executor, job_id, user_id, entries.root_path)
+            job = self.jobs[job_id] = ClaudeJobList(job_id, user_id, entries.root_path)
             self.root = entries.root_path
         if job is not None:
             job.update(user_id, self.dirs)
@@ -470,7 +466,7 @@ class AssetEngineClaude(AssetEngine):
         else:
             job_id = self.job_uuid
             self.job_uuid += 1
-            self.jobs[job_id] = AmberJobPreviews(self.executor, job_id, uuids)
+            self.jobs[job_id] = AmberJobPreviews(job_id, uuids)
         return job_id
     """
 
