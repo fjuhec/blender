@@ -45,14 +45,39 @@ static inline BL::Mesh object_to_mesh(BL::BlendData& data,
                                       BL::Scene& scene,
                                       bool apply_modifiers,
                                       bool render,
-                                      bool calc_undeformed)
+                                      bool calc_undeformed,
+                                      bool subdivision)
 {
+	bool subsurf_mod_show_render;
+	bool subsurf_mod_show_viewport;
+
+	if(subdivision) {
+		BL::Modifier subsurf_mod = object.modifiers[object.modifiers.length()-1];
+
+		subsurf_mod_show_render = subsurf_mod.show_render();
+		subsurf_mod_show_viewport = subsurf_mod.show_render();
+
+		subsurf_mod.show_render(false);
+		subsurf_mod.show_viewport(false);
+
+	}
+
 	BL::Mesh me = data.meshes.new_from_object(scene, object, apply_modifiers, (render)? 2: 1, false, calc_undeformed);
+
+	if(subdivision) {
+		BL::Modifier subsurf_mod = object.modifiers[object.modifiers.length()-1];
+
+		subsurf_mod.show_render(subsurf_mod_show_render);
+		subsurf_mod.show_viewport(subsurf_mod_show_viewport);
+	}
+
 	if((bool)me) {
 		if(me.use_auto_smooth()) {
 			me.calc_normals_split();
 		}
-		me.calc_tessface(true);
+		if(!subdivision) {
+			me.calc_tessface(true);
+		}
 	}
 	return me;
 }
@@ -98,11 +123,12 @@ static inline void curvemapping_minmax(/*const*/ BL::CurveMapping& cumap,
 }
 
 static inline void curvemapping_to_array(BL::CurveMapping& cumap,
-                                         float *data,
+                                         array<float>& data,
                                          int size)
 {
 	cumap.update();
 	BL::CurveMap curve = cumap.curves[0];
+	data.resize(size);
 	for(int i = 0; i < size; i++) {
 		float t = (float)i/(float)(size-1);
 		data[i] = curve.evaluate(t);
@@ -275,7 +301,6 @@ static inline uint get_layer(const BL::Array<int, 20>& array)
 
 static inline uint get_layer(const BL::Array<int, 20>& array,
                              const BL::Array<int, 8>& local_array,
-                             bool use_local,
                              bool is_light = false,
                              uint scene_layers = (1 << 20) - 1)
 {
@@ -299,13 +324,6 @@ static inline uint get_layer(const BL::Array<int, 20>& array,
 			if(local_array[i])
 				layer |= (1 << (20+i));
 	}
-
-	/* we don't have spare bits for localview (normally 20-28) because
-	 * PATH_RAY_LAYER_SHIFT uses 20-32. So - check if we have localview and if
-	 * so, shift local view bits down to 1-8, since this is done for the view
-	 * port only - it should be OK and not conflict with render layers. */
-	if(use_local)
-		layer >>= 20;
 
 	return layer;
 }
@@ -526,6 +544,23 @@ static inline BL::SmokeDomainSettings object_smoke_domain_find(BL::Object& b_ob)
 	return BL::SmokeDomainSettings(PointerRNA_NULL);
 }
 
+static inline BL::DomainFluidSettings object_fluid_domain_find(BL::Object b_ob)
+{
+	BL::Object::modifiers_iterator b_mod;
+
+	for(b_ob.modifiers.begin(b_mod); b_mod != b_ob.modifiers.end(); ++b_mod) {
+		if(b_mod->is_a(&RNA_FluidSimulationModifier)) {
+			BL::FluidSimulationModifier b_fmd(*b_mod);
+			BL::FluidSettings fss = b_fmd.settings();
+
+			if(fss.type() == BL::FluidSettings::type_DOMAIN)
+				return (BL::DomainFluidSettings)b_fmd.settings();
+		}
+	}
+
+	return BL::DomainFluidSettings(PointerRNA_NULL);
+}
+
 /* ID Map
  *
  * Utility class to keep in sync with blender data.
@@ -663,7 +698,7 @@ protected:
 
 /* Object Key */
 
-enum { OBJECT_PERSISTENT_ID_SIZE = 8 };
+enum { OBJECT_PERSISTENT_ID_SIZE = 16 };
 
 struct ObjectKey {
 	void *parent;

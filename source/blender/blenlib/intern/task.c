@@ -780,9 +780,10 @@ BLI_INLINE bool parallel_range_next_iter_get(
         ParallelRangeState * __restrict state,
         int * __restrict iter, int * __restrict count)
 {
-	uint32_t previter = atomic_fetch_and_add_uint32((uint32_t *)(&state->iter), state->chunk_size);
+	uint32_t uval = atomic_fetch_and_add_uint32((uint32_t *)(&state->iter), state->chunk_size);
+	int previter = *(int32_t*)&uval;
 
-	*iter = (int)previter;
+	*iter = previter;
 	*count = max_ii(0, min_ii(state->chunk_size, state->stop - previter));
 
 	return (previter < state->stop);
@@ -858,11 +859,11 @@ static void task_parallel_range_ex(
 			}
 
 			for (i = start; i < stop; ++i) {
-				func_ex(userdata, userdata_chunk, i, 0);
+				func_ex(userdata, userdata_chunk_local, i, 0);
 			}
 
 			if (func_finalize) {
-				func_finalize(userdata, userdata_chunk);
+				func_finalize(userdata, userdata_chunk_local);
 			}
 
 			MALLOCA_FREE(userdata_chunk_local, userdata_chunk_size);
@@ -928,7 +929,7 @@ static void task_parallel_range_ex(
 				func_finalize(userdata, userdata_chunk_local);
 			}
 		}
-        MALLOCA_FREE(userdata_chunk_array, userdata_chunk_size * num_tasks);
+		MALLOCA_FREE(userdata_chunk_array, userdata_chunk_size * num_tasks);
 	}
 }
 
@@ -992,7 +993,8 @@ void BLI_task_parallel_range(
  *                       (similar to OpenMP's firstprivate).
  * \param userdata_chunk_size Memory size of \a userdata_chunk.
  * \param func_ex Callback function (advanced version).
- * \param func_finalize Callback function, called after all workers have finisehd, useful to finalize accumulative tasks.
+ * \param func_finalize Callback function, called after all workers have finished,
+ * useful to finalize accumulative tasks.
  * \param use_threading If \a true, actually split-execute loop in threads, else just do a sequential forloop
  *                      (allows caller to use any kind of test to switch on parallelization or not).
  * \param use_dynamic_scheduling If \a true, the whole range is divided in a lot of small chunks (of size 32 currently),

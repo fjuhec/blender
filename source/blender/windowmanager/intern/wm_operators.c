@@ -1068,7 +1068,7 @@ int WM_operator_smooth_viewtx_get(const wmOperator *op)
 }
 
 /* invoke callback, uses enum property named "type" */
-int WM_menu_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+int WM_menu_invoke_ex(bContext *C, wmOperator *op, int opcontext)
 {
 	PropertyRNA *prop = op->type->prop;
 	uiPopupMenu *pup;
@@ -1090,13 +1090,18 @@ int WM_menu_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 		pup = UI_popup_menu_begin(C, RNA_struct_ui_name(op->type->srna), ICON_NONE);
 		layout = UI_popup_menu_layout(pup);
 		/* set this so the default execution context is the same as submenus */
-		uiLayoutSetOperatorContext(layout, WM_OP_INVOKE_REGION_WIN);
-		uiItemsFullEnumO(layout, op->type->idname, RNA_property_identifier(prop), op->ptr->data, WM_OP_EXEC_REGION_WIN, 0);
+		uiLayoutSetOperatorContext(layout, opcontext);
+		uiItemsFullEnumO(layout, op->type->idname, RNA_property_identifier(prop), op->ptr->data, opcontext, 0);
 		UI_popup_menu_end(C, pup);
 		return OPERATOR_INTERFACE;
 	}
 
 	return OPERATOR_CANCELLED;
+}
+
+int WM_menu_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	return WM_menu_invoke_ex(C, op, WM_OP_INVOKE_REGION_WIN);
 }
 
 
@@ -1364,11 +1369,12 @@ typedef struct wmOpPopUp {
 /* Only invoked by OK button in popups created with wm_block_dialog_create() */
 static void dialog_exec_cb(bContext *C, void *arg1, void *arg2)
 {
-	wmWindowManager *wm = CTX_wm_manager(C);
-	wmWindow *win = CTX_wm_window(C);
-
 	wmOpPopUp *data = arg1;
 	uiBlock *block = arg2;
+
+	/* Explicitly set UI_RETURN_OK flag, otherwise the menu might be cancelled
+	 * in case WM_operator_call_ex exits/reloads the current file (T49199). */
+	UI_popup_menu_retval_set(block, UI_RETURN_OK, true);
 
 	WM_operator_call_ex(C, data->op, true);
 
@@ -1379,14 +1385,24 @@ static void dialog_exec_cb(bContext *C, void *arg1, void *arg2)
 	/* in this case, wm_operator_ui_popup_cancel wont run */
 	MEM_freeN(data);
 
+	/* get context data *after* WM_operator_call_ex which might have closed the current file and changed context */
+	wmWindowManager *wm = CTX_wm_manager(C);
+	wmWindow *win = CTX_wm_window(C);
+
 	/* check window before 'block->handle' incase the
-	 * popup execution closed the window and freed the block. see T44688. */
+	 * popup execution closed the window and freed the block. see T44688.
+	 */
+	/* Post 2.78 TODO: Check if this fix and others related to T44688 are still
+	 * needed or can be improved now that requesting context data has been corrected
+	 * (see above). We're close to release so not a good time for experiments.
+	 * -- Julian
+	 */
 	if (BLI_findindex(&wm->windows, win) != -1) {
 		UI_popup_block_close(C, win, block);
 	}
 }
 
-static void dialog_check_cb(bContext *C, void *op_ptr, void *UNUSED(arg))
+static void popup_check_cb(bContext *C, void *op_ptr, void *UNUSED(arg))
 {
 	wmOperator *op = op_ptr;
 	if (op->type->check) {
@@ -1418,7 +1434,7 @@ static uiBlock *wm_block_dialog_create(bContext *C, ARegion *ar, void *userData)
 
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
 	
-	UI_block_func_set(block, dialog_check_cb, op, NULL);
+	UI_block_func_set(block, popup_check_cb, op, NULL);
 
 	uiLayoutOperatorButs(C, layout, op, NULL, 'H', UI_LAYOUT_OP_SHOW_TITLE);
 	
@@ -1458,8 +1474,12 @@ static uiBlock *wm_operator_ui_create(bContext *C, ARegion *ar, void *userData)
 
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
 
+	UI_block_func_set(block, popup_check_cb, op, NULL);
+
 	/* since ui is defined the auto-layout args are not used */
 	uiLayoutOperatorButs(C, layout, op, NULL, 'V', 0);
+
+	UI_block_func_set(block, NULL, NULL, NULL);
 
 	UI_block_bounds_set_popup(block, 4, 0, 0);
 
@@ -2842,8 +2862,8 @@ void WM_OT_straightline_gesture(wmOperatorType *ot)
 
 /* *********************** radial control ****************** */
 
-#define WM_RADIAL_CONTROL_DISPLAY_SIZE (200 * U.pixelsize)
-#define WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE (35 * U.pixelsize)
+#define WM_RADIAL_CONTROL_DISPLAY_SIZE (200)
+#define WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE (35)
 #define WM_RADIAL_CONTROL_DISPLAY_WIDTH (WM_RADIAL_CONTROL_DISPLAY_SIZE - WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE)
 #define WM_RADIAL_MAX_STR 10
 
@@ -2920,7 +2940,7 @@ static void radial_control_set_initial_mouse(RadialControl *rc, const wmEvent *e
 		case PROP_NONE:
 		case PROP_DISTANCE:
 		case PROP_PIXEL:
-			d[0] = rc->initial_value * U.pixelsize;
+			d[0] = rc->initial_value;
 			break;
 		case PROP_PERCENTAGE:
 			d[0] = (rc->initial_value) / 100.0f * WM_RADIAL_CONTROL_DISPLAY_WIDTH + WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE;
@@ -3046,8 +3066,8 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 		case PROP_NONE:
 		case PROP_DISTANCE:
 		case PROP_PIXEL:
-			r1 = rc->current_value * U.pixelsize;
-			r2 = rc->initial_value * U.pixelsize;
+			r1 = rc->current_value;
+			r2 = rc->initial_value;
 			tex_radius = r1;
 			alpha = 0.75;
 			break;
@@ -3529,7 +3549,6 @@ static int radial_control_modal(bContext *C, wmOperator *op, const wmEvent *even
 						case PROP_PIXEL:
 							new_value = dist;
 							if (snap) new_value = ((int)new_value + 5) / 10 * 10;
-							new_value /= U.pixelsize;
 							break;
 						case PROP_PERCENTAGE:
 							new_value = ((dist - WM_RADIAL_CONTROL_DISPLAY_MIN_SIZE) / WM_RADIAL_CONTROL_DISPLAY_WIDTH) * 100.0f;
@@ -3875,7 +3894,7 @@ static void previews_id_ensure(bContext *C, Scene *scene, ID *id)
 
 	/* Only preview non-library datablocks, lib ones do not pertain to this .blend file!
 	 * Same goes for ID with no user. */
-	if (!id->lib && (id->us != 0)) {
+	if (!ID_IS_LINKED_DATABLOCK(id) && (id->us != 0)) {
 		UI_id_icon_render(C, scene, id, false, false);
 		UI_id_icon_render(C, scene, id, true, false);
 	}
@@ -4118,6 +4137,8 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_revert_mainfile);
 	WM_operatortype_append(WM_OT_link);
 	WM_operatortype_append(WM_OT_append);
+	WM_operatortype_append(WM_OT_lib_relocate);
+	WM_operatortype_append(WM_OT_lib_reload);
 	WM_operatortype_append(WM_OT_recover_last_session);
 	WM_operatortype_append(WM_OT_recover_auto_save);
 	WM_operatortype_append(WM_OT_save_as_mainfile);
@@ -4197,7 +4218,8 @@ static void gesture_circle_modal_keymap(wmKeyConfig *keyconf)
 	WM_modalkeymap_assign(keymap, "MASK_OT_select_circle");
 	WM_modalkeymap_assign(keymap, "NODE_OT_select_circle");
 	WM_modalkeymap_assign(keymap, "GPENCIL_OT_select_circle");
-	WM_modalkeymap_assign(keymap, "GRAPH_OT_select_circle");	
+	WM_modalkeymap_assign(keymap, "GRAPH_OT_select_circle");
+	WM_modalkeymap_assign(keymap, "ACTION_OT_select_circle");
 
 }
 
@@ -4337,7 +4359,6 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 {
 	wmKeyMap *keymap = WM_keymap_find(keyconf, "Window", 0, 0);
 	wmKeyMapItem *kmi;
-	const char *data_path;
 	
 	/* note, this doesn't replace existing keymap items */
 	WM_keymap_verify_item(keymap, "WM_OT_window_duplicate", WKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
@@ -4375,7 +4396,9 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 
 	/* menus that can be accessed anywhere in blender */
 	WM_keymap_verify_item(keymap, "WM_OT_search_menu", SPACEKEY, KM_PRESS, 0, 0);
+#ifdef WITH_INPUT_NDOF
 	WM_keymap_add_menu(keymap, "USERPREF_MT_ndof_settings", NDOF_BUTTON_MENU, KM_PRESS, 0, 0);
+#endif
 
 	/* Space switching */
 	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", F2KEY, KM_PRESS, KM_SHIFT, 0); /* new in 2.5x, was DXF export */
@@ -4422,8 +4445,9 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	RNA_string_set(kmi->ptr, "data_path", "area.type");
 	RNA_string_set(kmi->ptr, "value", "DOPESHEET_EDITOR");
 	
+#ifdef WITH_INPUT_NDOF
 	/* ndof speed */
-	data_path = "user_preferences.inputs.ndof_sensitivity";
+	const char *data_path = "user_preferences.inputs.ndof_sensitivity";
 	kmi = WM_keymap_add_item(keymap, "WM_OT_context_scale_float", NDOF_BUTTON_PLUS, KM_PRESS, 0, 0);
 	RNA_string_set(kmi->ptr, "data_path", data_path);
 	RNA_float_set(kmi->ptr, "value", 1.1f);
@@ -4439,9 +4463,7 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "WM_OT_context_scale_float", NDOF_BUTTON_MINUS, KM_PRESS, KM_SHIFT, 0);
 	RNA_string_set(kmi->ptr, "data_path", data_path);
 	RNA_float_set(kmi->ptr, "value", 1.0f / 1.5f);
-	data_path = NULL;
-	(void)data_path;
-
+#endif /* WITH_INPUT_NDOF */
 
 	gesture_circle_modal_keymap(keyconf);
 	gesture_border_modal_keymap(keyconf);
@@ -4457,7 +4479,7 @@ static EnumPropertyItem *rna_id_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(pt
 	int i = 0;
 
 	for (; id; id = id->next) {
-		if (local == false || id->lib == NULL) {
+		if (local == false || !ID_IS_LINKED_DATABLOCK(id)) {
 			item_tmp.identifier = item_tmp.name = id->name + 2;
 			item_tmp.value = i++;
 			RNA_enum_item_add(&item, &totitem, &item_tmp);

@@ -131,7 +131,9 @@ private:
 	                Transform& tfm,
 	                bool *use_portal);
 	void sync_background_light(bool use_portal);
-	void sync_mesh_motion(BL::Object& b_ob, Object *object, float motion_time);
+	void sync_mesh_motion(BL::Object& b_ob,
+	                      Object *object,
+	                      float motion_time);
 	void sync_camera_motion(BL::RenderSettings& b_render,
 	                        BL::Object& b_ob,
 	                        int width, int height,
@@ -185,7 +187,6 @@ private:
 		  use_surfaces(true),
 		  use_hair(true),
 		  use_viewport_visibility(false),
-		  use_localview(false),
 		  samples(0), bound_samples(false)
 		{}
 
@@ -200,7 +201,6 @@ private:
 		bool use_surfaces;
 		bool use_hair;
 		bool use_viewport_visibility;
-		bool use_localview;
 		int samples;
 		bool bound_samples;
 	} render_layer;

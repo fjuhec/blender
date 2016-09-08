@@ -146,6 +146,14 @@ if(WITH_CYCLES_OSL)
 	)
 endif()
 
+if(WITH_CYCLES_OPENSUBDIV)
+	add_definitions(-DWITH_OPENSUBDIV)
+	include_directories(
+		SYSTEM
+		${OPENSUBDIV_INCLUDE_DIR}
+	)
+endif()
+
 set(WITH_CYCLES_DEVICE_OPENCL TRUE)
 set(WITH_CYCLES_DEVICE_CUDA TRUE)
 set(WITH_CYCLES_DEVICE_MULTI TRUE)
@@ -237,6 +245,7 @@ endif()
 add_subdirectory(bvh)
 add_subdirectory(device)
 add_subdirectory(doc)
+add_subdirectory(graph)
 add_subdirectory(kernel)
 add_subdirectory(render)
 add_subdirectory(subd)
