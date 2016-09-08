@@ -1595,7 +1595,7 @@ static int make_links_data_exec(bContext *C, wmOperator *op)
 					case MAKE_LINKS_DUPLIGROUP:
 						ob_dst->dup_group = ob_src->dup_group;
 						if (ob_dst->dup_group) {
-							id_lib_extern(&ob_dst->dup_group->id);
+							id_us_plus(&ob_dst->dup_group->id);
 							ob_dst->transflag |= OB_DUPLIGROUP;
 						}
 						break;
@@ -2092,6 +2092,7 @@ void ED_object_single_users(Main *bmain, Scene *scene, const bool full, const bo
 	}
 
 	BKE_main_id_clear_newpoins(bmain);
+	DAG_relations_tag_update(bmain);
 }
 
 /******************************* Make Local ***********************************/
