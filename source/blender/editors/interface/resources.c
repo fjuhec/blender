@@ -2742,7 +2742,7 @@ void init_userdef_do_versions(void)
 		}
 	}
 
-	if (!USER_VERSION_ATLEAST(277, 2)) {
+	if (!USER_VERSION_ATLEAST(278, 1)) {
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
 			btheme->tlayers = btheme->tv3d;
 			rgba_char_args_set_fl(btheme->tlayers.back,    0.42, 0.42, 0.42, 1.0);
