@@ -220,6 +220,8 @@ if(${CMAKE_VERSION} VERSION_LESS 2.8.8)
 endif()
 set(BUILDINFO_OVERRIDE_DATE "" CACHE STRING "Use instead of the current date for reproducable builds (empty string disables this option)")
 set(BUILDINFO_OVERRIDE_TIME "" CACHE STRING "Use instead of the current time for reproducable builds (empty string disables this option)")
+set(CPACK_OVERRIDE_PACKAGENAME "" CACHE STRING "Use instead of the standard packagename (empty string disables this option)")
+mark_as_advanced(CPACK_OVERRIDE_PACKAGENAME)
 mark_as_advanced(BUILDINFO_OVERRIDE_DATE)
 mark_as_advanced(BUILDINFO_OVERRIDE_TIME)
 
@@ -511,6 +513,15 @@ mark_as_advanced(WITH_LEGACY_DEPSGRAPH)
 # Use hardcoded paths or find_package to find externals
 option(WITH_WINDOWS_FIND_MODULES "Use find_package to locate libraries" OFF)
 mark_as_advanced(WITH_WINDOWS_FIND_MODULES)
+
+option(WITH_WINDOWS_CODESIGN "Use signtool to sign the final binary." OFF)
+mark_as_advanced(WITH_WINDOWS_CODESIGN)
+
+set(WINDOWS_CODESIGN_PFX CACHE FILEPATH  "Path to pfx file to use for codesigning.")
+mark_as_advanced(WINDOWS_CODESIGN_PFX)
+
+set(WINDOWS_CODESIGN_PFX_PASSWORD CACHE STRING  "password for pfx file used for codesigning.")
+mark_as_advanced(WINDOWS_CODESIGN_PFX_PASSWORD)
 
 # avoid using again
 option_defaults_clear()
