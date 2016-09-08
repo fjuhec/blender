@@ -172,8 +172,10 @@ typedef enum {
 	GHOST_kEventWheel,          /// Mouse wheel event
 	GHOST_kEventTrackpad,       /// Trackpad event
 
+#ifdef WITH_INPUT_NDOF
 	GHOST_kEventNDOFMotion,     /// N degree of freedom device motion event
 	GHOST_kEventNDOFButton,     /// N degree of freedom device button event
+#endif
 
 	GHOST_kEventKeyDown,
 	GHOST_kEventKeyUp,
@@ -480,6 +482,7 @@ typedef enum {
 	GHOST_kFinished
 } GHOST_TProgress;
 
+#ifdef WITH_INPUT_NDOF
 typedef struct {
 	/** N-degree of freedom device data v3 [GSoC 2010] */
 	// Each component normally ranges from -1 to +1, but can exceed that.
@@ -499,6 +502,7 @@ typedef struct {
 	GHOST_TButtonAction action;
 	short button;
 } GHOST_TEventNDOFButtonData;
+#endif // WITH_INPUT_NDOF
 
 typedef struct {
 	/** The key code. */

@@ -77,6 +77,13 @@ if(WITH_CODEC_FFMPEG)
 	add_definitions(-DWITH_FFMPEG)
 endif()
 
+if(WITH_ALEMBIC)
+	list(APPEND INC
+		../alembic
+	)
+	add_definitions(-DWITH_ALEMBIC)
+endif()
+
 if(WITH_INPUT_HMD)
 	add_definitions(-DWITH_INPUT_HMD)
 endif()

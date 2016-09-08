@@ -48,7 +48,9 @@ class GHOST_Event;
 class GHOST_TimerManager;
 class GHOST_Window;
 class GHOST_WindowManager;
+#ifdef WITH_INPUT_NDOF
 class GHOST_NDOFManager;
+#endif
 class GHOST_OpenHMDManager;
 
 /**
@@ -234,6 +236,7 @@ public:
 	 */
 	GHOST_TSuccess getButtonState(GHOST_TButtonMask mask, bool& isDown) const;
 	
+#ifdef WITH_INPUT_NDOF
 	/***************************************************************************************
 	 * Access to 3D mouse.
 	 ***************************************************************************************/
@@ -243,6 +246,7 @@ public:
 	 * \param deadzone: Deadzone of the 3D mouse (both for rotation and pan) relative to full range
 	 */
 	void setNDOFDeadZone(float deadzone);
+#endif
 
 	/***************************************************************************************
 	 * Other (internal) functionality.

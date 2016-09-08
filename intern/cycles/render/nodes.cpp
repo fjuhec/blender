@@ -1689,6 +1689,19 @@ void ConvertNode::constant_fold(const ConstantFolder& folder)
 			}
 		}
 	}
+	else {
+		ShaderInput *in = inputs[0];
+		ShaderNode *prev = in->link->parent;
+
+		/* no-op conversion of A to B to A */
+		if(prev->type == node_types[to][from]) {
+			ShaderInput *prev_in = prev->inputs[0];
+
+			if(SocketType::is_float3(from) && (to == SocketType::FLOAT || SocketType::is_float3(to)) && prev_in->link) {
+				folder.bypass(prev_in->link);
+			}
+		}
+	}
 }
 
 void ConvertNode::compile(SVMCompiler& compiler)
@@ -4833,12 +4846,8 @@ void CurvesNode::constant_fold(const ConstantFolder& folder, ShaderInput *value_
 {
 	ShaderInput *fac_in = input("Fac");
 
-	/* remove no-op node */
-	if(!fac_in->link && fac == 0.0f) {
-		folder.bypass(value_in->link);
-	}
 	/* evaluate fully constant node */
-	else if(folder.all_inputs_constant()) {
+	if(folder.all_inputs_constant()) {
 		if (curves.size() == 0)
 			return;
 
@@ -4850,6 +4859,11 @@ void CurvesNode::constant_fold(const ConstantFolder& folder, ShaderInput *value_
 		result[2] = rgb_ramp_lookup(curves.data(), pos[2], true, true, curves.size()).z;
 
 		folder.make_constant(interp(value, result, fac));
+	}
+	/* remove no-op node */
+	else if(!fac_in->link && fac == 0.0f) {
+		/* link is not null because otherwise all inputs are constant */
+		folder.bypass(value_in->link);
 	}
 }
 

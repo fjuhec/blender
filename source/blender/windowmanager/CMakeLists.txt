@@ -147,6 +147,10 @@ if(WITH_OPENSUBDIV)
 	add_definitions(-DWITH_OPENSUBDIV)
 endif()
 
+if(WITH_INPUT_NDOF)
+	add_definitions(-DWITH_INPUT_NDOF)
+endif()
+
 if(WITH_INPUT_HMD)
 	add_definitions(-DWITH_INPUT_HMD)
 endif()

@@ -140,6 +140,14 @@ public:
 			.output_closure("EmissionNode::Emission");
 	}
 
+	ShaderGraphBuilder& output_value(const string& from)
+	{
+		return (*this)
+			.add_node(ShaderNodeBuilder<EmissionNode>("EmissionNode"))
+			.add_connection(from, "EmissionNode::Strength")
+			.output_closure("EmissionNode::Emission");
+	}
+
 protected:
 	ShaderGraph *graph_;
 	map<string, ShaderNode *> node_map_;
@@ -176,6 +184,7 @@ TEST(render_graph, deduplicate_deep)
 	EXPECT_ANY_MESSAGE(log);
 	CORRECT_INFO_MESSAGE(log, "Folding Value1::Value to constant (0.8).");
 	CORRECT_INFO_MESSAGE(log, "Folding Value2::Value to constant (0.8).");
+	CORRECT_INFO_MESSAGE(log, "Deduplicated 2 nodes.");
 
 	builder
 		.add_node(ShaderNodeBuilder<GeometryNode>("Geometry1"))
@@ -387,6 +396,26 @@ TEST(render_graph, constant_fold_invert_fac_0)
 		.add_node(ShaderNodeBuilder<InvertNode>("Invert")
 		          .set("Fac", 0.0f))
 		.add_connection("Attribute::Color", "Invert::Color")
+		.output_color("Invert::Color");
+
+	graph.finalize(&scene);
+}
+
+/*
+ * Tests:
+ *  - Folding of Invert with zero Fac and constant input.
+ */
+TEST(render_graph, constant_fold_invert_fac_0_const)
+{
+	DEFINE_COMMON_VARIABLES(builder, log);
+
+	EXPECT_ANY_MESSAGE(log);
+	CORRECT_INFO_MESSAGE(log, "Folding Invert::Color to constant (0.2, 0.5, 0.8).");
+
+	builder
+		.add_node(ShaderNodeBuilder<InvertNode>("Invert")
+		          .set("Fac", 0.0f)
+		          .set("Color", make_float3(0.2f, 0.5f, 0.8f)))
 		.output_color("Invert::Color");
 
 	graph.finalize(&scene);
@@ -955,7 +984,7 @@ TEST(render_graph, constant_fold_math)
 		          .set(&MathNode::use_clamp, false)
 		          .set("Value1", 0.7f)
 		          .set("Value2", 0.9f))
-		.output_color("Math::Value");
+		.output_value("Math::Value");
 
 	graph.finalize(&scene);
 }
@@ -976,7 +1005,7 @@ TEST(render_graph, constant_fold_math_clamp)
 		          .set(&MathNode::use_clamp, true)
 		          .set("Value1", 0.7f)
 		          .set("Value2", 0.9f))
-		.output_color("Math::Value");
+		.output_value("Math::Value");
 
 	graph.finalize(&scene);
 }
@@ -1007,7 +1036,7 @@ static void build_math_partial_test_graph(ShaderGraphBuilder &builder, NodeMath 
 		          .set(&MathNode::use_clamp, true))
 		.add_connection("Math_Cx::Value", "Out::Value1")
 		.add_connection("Math_xC::Value", "Out::Value2")
-		.output_color("Out::Value");
+		.output_value("Out::Value");
 }
 
 /*
@@ -1335,6 +1364,33 @@ TEST(render_graph, constant_fold_rgb_curves_fac_0)
 	graph.finalize(&scene);
 }
 
+
+/*
+ * Tests:
+ *  - Folding of RGB Curves with zero Fac and all constant inputs.
+ */
+TEST(render_graph, constant_fold_rgb_curves_fac_0_const)
+{
+	DEFINE_COMMON_VARIABLES(builder, log);
+
+	EXPECT_ANY_MESSAGE(log);
+	CORRECT_INFO_MESSAGE(log, "Folding Curves::Color to constant (0.3, 0.5, 0.7).");
+
+	array<float3> curve;
+	init_test_curve(curve, make_float3(0.0f, 0.25f, 1.0f), make_float3(1.0f, 0.75f, 0.0f), 257);
+
+	builder
+		.add_node(ShaderNodeBuilder<RGBCurvesNode>("Curves")
+		          .set(&CurvesNode::curves, curve)
+		          .set(&CurvesNode::min_x, 0.1f)
+		          .set(&CurvesNode::max_x, 0.9f)
+		          .set("Fac", 0.0f)
+		          .set("Color", make_float3(0.3f, 0.5f, 0.7f)))
+		.output_color("Curves::Color");
+
+	graph.finalize(&scene);
+}
+
 /*
  * Tests:
  *  - Folding of Vector Curves with all constant inputs.
@@ -1448,6 +1504,74 @@ TEST(render_graph, constant_fold_rgb_ramp_flat)
 		.add_connection("Ramp::Color", "Mix::Color1")
 		.add_connection("Ramp::Alpha", "Mix::Color2")
 		.output_color("Mix::Color");
+
+	graph.finalize(&scene);
+}
+
+/*
+ * Tests:
+ *  - Folding of redundant conversion of float to color to float.
+ */
+TEST(render_graph, constant_fold_convert_float_color_float)
+{
+	DEFINE_COMMON_VARIABLES(builder, log);
+
+	EXPECT_ANY_MESSAGE(log);
+	CORRECT_INFO_MESSAGE(log, "Folding Invert::Color to socket convert_float_to_color::value_color.");
+	CORRECT_INFO_MESSAGE(log, "Folding convert_color_to_float::value_float to socket Attribute::Fac.");
+
+	builder
+		.add_attribute("Attribute")
+		.add_node(ShaderNodeBuilder<InvertNode>("Invert")
+		          .set("Fac", 0.0f))
+		.add_connection("Attribute::Fac", "Invert::Color")
+		.output_value("Invert::Color");
+
+	graph.finalize(&scene);
+}
+
+/*
+ * Tests:
+ *  - Folding of redundant conversion of color to vector to color.
+ */
+TEST(render_graph, constant_fold_convert_color_vector_color)
+{
+	DEFINE_COMMON_VARIABLES(builder, log);
+
+	EXPECT_ANY_MESSAGE(log);
+	CORRECT_INFO_MESSAGE(log, "Folding VecAdd::Vector to socket convert_color_to_vector::value_vector.");
+	CORRECT_INFO_MESSAGE(log, "Folding convert_vector_to_color::value_color to socket Attribute::Color.");
+
+	builder
+		.add_attribute("Attribute")
+		.add_node(ShaderNodeBuilder<VectorMathNode>("VecAdd")
+		          .set(&VectorMathNode::type, NODE_VECTOR_MATH_ADD)
+		          .set("Vector2", make_float3(0,0,0)))
+		.add_connection("Attribute::Color", "VecAdd::Vector1")
+		.output_color("VecAdd::Vector");
+
+	graph.finalize(&scene);
+}
+
+/*
+ * Tests:
+ *  - NOT folding conversion of color to float to color.
+ */
+TEST(render_graph, constant_fold_convert_color_float_color)
+{
+	DEFINE_COMMON_VARIABLES(builder, log);
+
+	EXPECT_ANY_MESSAGE(log);
+	CORRECT_INFO_MESSAGE(log, "Folding MathAdd::Value to socket convert_color_to_float::value_float.");
+	INVALID_INFO_MESSAGE(log, "Folding convert_float_to_color::");
+
+	builder
+		.add_attribute("Attribute")
+		.add_node(ShaderNodeBuilder<MathNode>("MathAdd")
+		          .set(&MathNode::type, NODE_MATH_ADD)
+		          .set("Value2", 0.0f))
+		.add_connection("Attribute::Color", "MathAdd::Value1")
+		.output_color("MathAdd::Value");
 
 	graph.finalize(&scene);
 }
