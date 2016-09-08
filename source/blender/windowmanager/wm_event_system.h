@@ -68,6 +68,8 @@ typedef struct wmEventHandler {
 
 	/* drop box handler */
 	ListBase *dropboxes;
+	/* widget handler */
+	struct wmWidgetMap *widgetmap;
 
 } wmEventHandler;
 

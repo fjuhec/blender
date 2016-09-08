@@ -25,6 +25,8 @@
 
 set(INC
 	.
+	widgets
+	widgets/intern
 	../blenfont
 	../blenkernel
 	../blenlib
@@ -68,6 +70,18 @@ set(SRC
 	intern/wm_subwindow.c
 	intern/wm_window.c
 	intern/wm_stereo.c
+	widgets/intern/wm_widget.c
+	widgets/intern/wm_widgetgroup.c
+	widgets/intern/wm_widgetmap.c
+	widgets/intern/widget_library/arrow_widget.c
+	widgets/intern/widget_library/arrow2d_widget.c
+	widgets/intern/widget_library/cage_widget.c
+	widgets/intern/widget_library/dial_widget.c
+	widgets/intern/widget_library/primitive_widget.c
+	widgets/intern/widget_library/geom_arrow_widget.c
+	widgets/intern/widget_library/geom_cube_widget
+	widgets/intern/widget_library/geom_dial_widget.c
+	widgets/intern/widget_library/widget_library_utils.c
 
 	WM_api.h
 	WM_keymap.h
@@ -80,6 +94,13 @@ set(SRC
 	wm_files.h
 	wm_subwindow.h
 	wm_window.h
+	widgets/WM_widget_api.h
+	widgets/WM_widget_types.h
+	widgets/WM_widget_library.h
+	widgets/wm_widget_wmapi.h
+	widgets/intern/wm_widget_intern.h
+	widgets/intern/widget_library/widget_geometry.h
+	widgets/intern/widget_library/widget_library_intern.h
 )
 
 if(WITH_AUDASPACE)
