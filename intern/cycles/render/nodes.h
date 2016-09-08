@@ -370,23 +370,28 @@ public:
 	bool has_surface_bssrdf() { return true; }
 	bool has_bssrdf_bump();
 	void compile(SVMCompiler& compiler, ShaderInput *metallic, ShaderInput *subsurface,
-		ShaderInput *specular, ShaderInput *roughness, ShaderInput *specularTint, ShaderInput *anisotropic,
-		ShaderInput *sheen, ShaderInput *sheenTint, ShaderInput *clearcoat, ShaderInput *clearcoatGloss,
-		ShaderInput *ior, ShaderInput *transparency, ShaderInput *anisotropicRotation);
+		ShaderInput *specular, ShaderInput *roughness, ShaderInput *specular_tint, ShaderInput *anisotropic,
+		ShaderInput *sheen, ShaderInput *sheen_tint, ShaderInput *clearcoat, ShaderInput *clearcoat_gloss,
+		ShaderInput *ior, ShaderInput *transparency, ShaderInput *anisotropic_rotation, ShaderInput *refraction_roughness);
 
 	float3 base_color;
 	float3 subsurface_color;
-	float metallic, subsurface, specular, roughness, specularTint, anisotropic,
-		sheen, sheenTint, clearcoat, clearcoatGloss, ior, transparency, anisotropicRotation;
-	float3 normal, clearcoatNormal, tangent;
+	float metallic, subsurface, specular, roughness, specular_tint, anisotropic,
+		sheen, sheen_tint, clearcoat, clearcoat_gloss, ior, transparency,
+		anisotropic_rotation, refraction_roughness;
+	float3 normal, clearcoat_normal, tangent;
 	float surface_mix_weight;
-	ClosureType closure;
+	ClosureType closure, distribution, distribution_orig;
 
 	virtual bool equals(const ShaderNode * /*other*/)
 	{
 		/* TODO(sergey): With some care BSDF nodes can be de-duplicated. */
 		return false;
 	}
+
+	ClosureType get_closure_type() { return closure; }
+	void simplify_settings(Scene *scene);
+	bool has_integrator_dependency();
 };
 
 class TranslucentBsdfNode : public BsdfNode {

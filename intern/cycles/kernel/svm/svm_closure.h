@@ -78,14 +78,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 	switch(type) {
 		case CLOSURE_BSDF_DISNEY_ID: {
 			uint specular_offset, roughness_offset, specularTint_offset, anisotropic_offset, sheen_offset,
-				sheenTint_offset, clearcoat_offset, clearcoatGloss_offset, eta_offset, transparency_offset, anisotropic_rotation_offset;
-			uint tmp0;
+				sheenTint_offset, clearcoat_offset, clearcoatGloss_offset, eta_offset, transparency_offset,
+				anisotropic_rotation_offset, refraction_roughness_offset;
 			uint4 data_node2 = read_node(kg, offset);
 
 			float3 T = stack_load_float3(stack, data_node.y);
 			decode_node_uchar4(data_node.z, &specular_offset, &roughness_offset, &specularTint_offset, &anisotropic_offset);
 			decode_node_uchar4(data_node.w, &sheen_offset, &sheenTint_offset, &clearcoat_offset, &clearcoatGloss_offset);
-			decode_node_uchar4(data_node2.x, &eta_offset, &transparency_offset, &anisotropic_rotation_offset, &tmp0);
+			decode_node_uchar4(data_node2.x, &eta_offset, &transparency_offset, &anisotropic_rotation_offset, &refraction_roughness_offset);
 
 			// get disney parameters
 			float metallic = param1;
@@ -100,8 +100,10 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float clearcoatGloss = stack_load_float(stack, clearcoatGloss_offset);
 			float transparency = stack_load_float(stack, transparency_offset);
 			float anisotropic_rotation = stack_load_float(stack, anisotropic_rotation_offset);
-			float refraction_roughness = 0.0f; // TODO: add parameter for this!
+			float refraction_roughness = stack_load_float(stack, refraction_roughness_offset);
 			float eta = fmaxf(stack_load_float(stack, eta_offset), 1e-5f);
+
+			ClosureType distribution = stack_valid(data_node2.y) ? (ClosureType) data_node2.y : CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID;
 
 			/* rotate tangent */
 			if (anisotropic_rotation != 0.0f)
@@ -112,7 +114,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 			// calculate fresnel for refraction
 			float cosNO = dot(N, ccl_fetch(sd, I));
-			float fresnel = fresnel_dielectric_cos(cosNO, eta);
+			float fresnel = fresnel_dielectric_cos(cosNO, ior);
 
 			// calculate weights of the diffuse and specular part
 			float diffuse_weight = (1.0f - saturate(metallic)) * (1.0f - saturate(transparency)); // lerp(1.0f - clamp(metallic, 0.0f, 1.0f), 0.0f, lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f)));
@@ -214,9 +216,10 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 #endif
 
+			float sheen_diffuse_weight = diffuse_weight * 1.0f + (1.0f - diffuse_weight) * transp;
             /* sheen */
-			if (diffuse_weight > 0.0f && sheen != 0.0f) {
-				float3 sheen_weight = weight * diffuse_weight;
+			if (sheen_diffuse_weight > CLOSURE_WEIGHT_CUTOFF && sheen > CLOSURE_WEIGHT_CUTOFF) {
+				float3 sheen_weight = weight * sheen_diffuse_weight;
 				float sheen_sample_weight = fabsf(average(sheen_weight));
 
 				DisneySheenBsdf *bsdf = (DisneySheenBsdf*)bsdf_alloc(sd, sizeof(DisneySheenBsdf), weight);
@@ -236,7 +239,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 #ifdef __CAUSTICS_TRICKS__
 			if (kernel_data.integrator.caustics_reflective || (path_flag & PATH_RAY_DIFFUSE) == 0) {
 #endif
-				if (specular != 0.0f || metallic != 0.0f) {
+				if (specular > CLOSURE_WEIGHT_CUTOFF || metallic > CLOSURE_WEIGHT_CUTOFF) {
 					float3 spec_weight = weight * specular_weight/* * (specular * (1.0f - metallic) + metallic)*/;
 
 					MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), spec_weight);
@@ -262,12 +265,10 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						bsdf->extra->color = baseColor;
 
 						/* setup bsdf */
-//#define __DISNEY_SPECULAR_MULTI_GGX__
-//#ifdef __DISNEY_SPECULAR_MULTI_GGX__
-						ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_setup(bsdf, true);
-//#else
-//						ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_aniso_setup(bsdf, true);
-//#endif
+						if (distribution == CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID)
+							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_setup(bsdf, true);
+						else
+							ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_aniso_setup(bsdf, true);
 					}
 				}
 #ifdef __CAUSTICS_TRICKS__
@@ -278,12 +279,12 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 #ifdef __CAUSTICS_TRICKS__
 			if (kernel_data.integrator.caustics_reflective || kernel_data.integrator.caustics_refractive || (path_flag & PATH_RAY_DIFFUSE) == 0) {
 #endif
-				if (specular_weight < 1.0f) {
-					float3 glass_weight = /*baseColor */ weight * (1.0f - specular_weight);
+				if (transp > CLOSURE_WEIGHT_CUTOFF) {
+					float3 glass_weight = /*baseColor */ weight * transp;
 					float3 cspec0 = baseColor * specularTint + make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specularTint);
 					bool frontfacing = (ccl_fetch(sd, flag) & SD_BACKFACING) == 0;
 
-					if (refraction_roughness == 0.0f) {
+					if (distribution == CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID) {
 						MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight);
 						MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
@@ -304,14 +305,17 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						}
 					}
 					else {
+						/* reflection */
+#ifdef __CAUSTICS_TRICKS__
+						if (kernel_data.integrator.caustics_reflective || (path_flag & PATH_RAY_DIFFUSE) == 0)
+#endif
 						{
-							MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight);
+							MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight*fresnel);
 							MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
 							if (bsdf && extra) {
 								bsdf->N = N;
 								bsdf->extra = extra;
-								bsdf->T = make_float3(0.0f, 0.0f, 0.0f);
 
 								bsdf->alpha_x = roughness * roughness;
 								bsdf->alpha_y = roughness * roughness;
@@ -320,19 +324,21 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 								bsdf->extra->color = baseColor;
 								bsdf->extra->cspec0 = cspec0;
 
-								/* setup bsdf */
-								ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_glass_setup(bsdf, true, frontfacing, false, true);
+								ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_setup(bsdf, true);
 							}
 						}
 
+						/* refraction */
+#ifdef __CAUSTICS_TRICKS__
+						if (kernel_data.integrator.caustics_refractive || (path_flag & PATH_RAY_DIFFUSE) == 0)
+#endif
 						{
-							MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight * (1.0f - fresnel));
+							MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight*(1.0f - fresnel));
 							MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
 							if (bsdf && extra) {
 								bsdf->N = N;
 								bsdf->extra = extra;
-								bsdf->T = make_float3(0.0f, 0.0f, 0.0f);
 
 								refraction_roughness = 1.0f - (1.0f - roughness) * (1.0f - refraction_roughness);
 
@@ -343,8 +349,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 								bsdf->extra->color = baseColor;
 								bsdf->extra->cspec0 = cspec0;
 
-								/* setup bsdf */
-								ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_glass_setup(bsdf, true, frontfacing, true);
+								ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_refraction_setup(bsdf, true);
 							}
 						}
 					}
@@ -357,7 +362,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 #ifdef __CAUSTICS_TRICKS__
 			if (kernel_data.integrator.caustics_reflective || (path_flag & PATH_RAY_DIFFUSE) == 0) {
 #endif
-				if (clearcoat > 0.0f) {
+				if (clearcoat > CLOSURE_WEIGHT_CUTOFF) {
 					float3 clearcoat_weight = 0.25f * clearcoat * weight;
 					float clearcoat_sample_weight = fabsf(average(clearcoat_weight));
 

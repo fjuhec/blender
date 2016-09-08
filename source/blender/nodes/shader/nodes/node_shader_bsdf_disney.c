@@ -44,11 +44,11 @@ static bNodeSocketTemplate sh_node_bsdf_disney_in[] = {
 	{	SOCK_FLOAT, 1, N_("ClearcoatGloss"),        1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("IOR"),					1.45f, 0.0f, 0.0f, 0.0f, 0.0f, 1000.0f},
 	{	SOCK_FLOAT, 1, N_("Transparency"),			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	SOCK_FLOAT, 1, N_("RefractionRoughness"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("AnisotropicRotation"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{   SOCK_VECTOR, 1, N_("Normal"),               0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
 	{   SOCK_VECTOR, 1, N_("ClearcoatNormal"),      0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
 	{	SOCK_VECTOR, 1, N_("Tangent"),	            0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
-	//{	SOCK_VECTOR, 1, N_("AnisotropicRotation"),  0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
 	{	-1, 0, ""	}
 };
 
@@ -57,14 +57,35 @@ static bNodeSocketTemplate sh_node_bsdf_disney_out[] = {
 	{	-1, 0, ""	}
 };
 
+static void node_shader_init_disney(bNodeTree *UNUSED(ntree), bNode *node)
+{
+	node->custom1 = SHD_GLOSSY_MULTI_GGX;
+}
+
 static int node_shader_gpu_bsdf_disney(GPUMaterial *mat, bNode *UNUSED(node), bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
 {
-	if (!in[11].link)
-		in[11].link = GPU_builtin(GPU_VIEW_NORMAL);
+	if (!in[16].link)
+		in[16].link = GPU_builtin(GPU_VIEW_NORMAL);
 	else
-		GPU_link(mat, "direction_transform_m4v3", in[11].link, GPU_builtin(GPU_VIEW_MATRIX), &in[11].link);
+		GPU_link(mat, "direction_transform_m4v3", in[16].link, GPU_builtin(GPU_VIEW_MATRIX), &in[16].link);
 
 	return GPU_stack_link(mat, "node_bsdf_disney", in, out);
+}
+
+static void node_shader_update_disney(bNodeTree *UNUSED(ntree), bNode *node)
+{
+	bNodeSocket *sock;
+	int distribution = node->custom1;
+
+	for (sock = node->inputs.first; sock; sock = sock->next) {
+		if (STREQ(sock->name, "RefractionRoughness")) {
+			if (distribution == SHD_GLOSSY_GGX)
+				sock->flag &= ~SOCK_UNAVAIL;
+			else
+				sock->flag |= SOCK_UNAVAIL;
+
+		}
+	}
 }
 
 /* node type definition */
@@ -75,9 +96,11 @@ void register_node_type_sh_bsdf_disney(void)
 	sh_node_type_base(&ntype, SH_NODE_BSDF_DISNEY, "Disney BSDF", NODE_CLASS_SHADER, 0);
 	node_type_compatibility(&ntype, NODE_NEW_SHADING);
 	node_type_socket_templates(&ntype, sh_node_bsdf_disney_in, sh_node_bsdf_disney_out);
-	node_type_init(&ntype, NULL);
+	node_type_size_preset(&ntype, NODE_SIZE_MIDDLE);
+	node_type_init(&ntype, node_shader_init_disney);
 	node_type_storage(&ntype, "", NULL, NULL);
 	node_type_gpu(&ntype, node_shader_gpu_bsdf_disney);
+	node_type_update(&ntype, node_shader_update_disney, NULL);
 
 	nodeRegisterType(&ntype);
 }

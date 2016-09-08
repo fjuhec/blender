@@ -18,6 +18,7 @@
 #include "node_fresnel.h"
 
 shader node_disney_bsdf(
+	string distribution = "Multiscatter GGX",
 	color BaseColor = color(0.64555527, 0.41514809, 0.01698805),
 	color SubsurfaceColor = color(0.64555527, 0.41514809, 0.01698805),
     float Metallic = 0.0,
@@ -41,7 +42,7 @@ shader node_disney_bsdf(
 	float f = max(IOR, 1e-5);
 	float eta = backfacing() ? 1.0 / f : f;
 	float cosNO = dot(Normal, I);
-	//float Fr = fresnel_dielectric_cos(cosNO, eta);
+	float Fr = fresnel_dielectric_cos(cosNO, eta);
     float diffuse_weight = (1.0 - clamp(Metallic, 0.0, 1.0)) * (1.0 - clamp(Transparency, 0.0, 1.0));
     float transp = clamp(Transparency, 0.0, 1.0) * (1.0 - clamp(Metallic, 0.0, 1.0));
     float specular_weight = (1.0 - transp);
@@ -75,8 +76,12 @@ shader node_disney_bsdf(
     if (transp > 1e-5) {
         color Cspec0 = BaseColor * SpecularTint + color(1.0, 1.0, 1.0) * (1.0 - SpecularTint);
         
-        //BSDF = BaseColor * microfacet_multi_ggx_glass(Normal, Roughness, eta, BaseColor);
-        BSDF = BSDF + transp * microfacet_multi_ggx_glass_fresnel(Normal, Roughness * Roughness, eta, BaseColor, Cspec0);
+        if (distribution == "Multiscatter GGX") {
+            BSDF = BSDF + transp * microfacet_multi_ggx_glass_fresnel(Normal, Roughness * Roughness, eta, BaseColor, Cspec0);
+        } else {
+            BSDF = BSDF + transp * (Fr * microfacet_ggx_fresnel(Normal, Roughness, eta, BaseColor, Cspec0) +
+		                (1.0 - Fr) * microfacet_ggx_refraction_fresnel(Normal, Roughness, eta, BaseColor, Cspec0));
+        }
     }
     
     if (Clearcoat > 1e-5) {
