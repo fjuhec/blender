@@ -2950,6 +2950,9 @@ static void filelist_readjob_main(
 typedef struct FileListReadJob {
 	ThreadMutex lock;
 	char main_name[FILE_MAX];
+
+	FileSelectParams *params;
+
 	struct FileList *filelist;
 	struct FileList *tmp_filelist;  /* XXX We may use a simpler struct here... just a linked list and root path? */
 
@@ -3017,6 +3020,11 @@ static void filelist_readjob_update(void *flrjv)
 		flrj->ae_job_id = ae->type->list_dir(ae, flrj->ae_job_id, &flrj->filelist->filelist);
 
 		flrj->filelist->flags |= (FL_NEED_SORTING | FL_NEED_FILTERING);
+
+		/* Asset engines are allowed to change current dir here... */
+		if (!STREQ(flrj->filelist->filelist.root, flrj->params->dir)) {
+			BLI_strncpy(flrj->params->dir, flrj->filelist->filelist.root, sizeof(flrj->params->dir));
+		}
 
 		if (flrj->ae_job_id == AE_JOB_ID_INVALID) {  /* Immediate execution. */
 			*flrj->progress = 1.0f;
@@ -3103,7 +3111,7 @@ static void filelist_readjob_free(void *flrjv)
 	MEM_freeN(flrj);
 }
 
-void filelist_readjob_start(FileList *filelist, const bContext *C)
+void filelist_readjob_start(const bContext *C, FileList *filelist, FileSelectParams *params)
 {
 	wmJob *wm_job;
 	FileListReadJob *flrj;
@@ -3111,6 +3119,7 @@ void filelist_readjob_start(FileList *filelist, const bContext *C)
 	/* prepare job data */
 	flrj = MEM_callocN(sizeof(*flrj), __func__);
 	flrj->filelist = filelist;
+	flrj->params = params;
 	BLI_strncpy(flrj->main_name, G.main->name, sizeof(flrj->main_name));
 
 	filelist->flags &= ~(FL_FORCE_RESET | FL_IS_READY);

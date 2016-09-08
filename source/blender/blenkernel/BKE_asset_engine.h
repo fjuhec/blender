@@ -87,7 +87,8 @@ typedef void (*ae_kill)(struct AssetEngine *engine, const int job_id);
 #define AE_JOB_ID_UNSET 0
 #define AE_JOB_ID_INVALID -1
 
-/* FILEBROWSER - List everything available at given root path - only returns numbers of entries! */
+/* FILEBROWSER - List everything available at given root path - only returns numbers of entries!
+ * Note that asset engine may change root_path here too. */
 typedef int (*ae_list_dir)(struct AssetEngine *engine, const int job_id, struct FileDirEntryArr *entries_r);
 
 /* 'update' hook, called to prepare updating of given entries (typically after a file (re)load).

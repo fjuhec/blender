@@ -116,7 +116,7 @@ void                filelist_freelib(struct FileList *filelist);
 
 struct AssetEngine *filelist_assetengine_get(struct FileList *filelist);
 
-void                filelist_readjob_start(struct FileList *filelist, const struct bContext *C);
+void                filelist_readjob_start(const struct bContext *C, struct FileList *filelist, FileSelectParams *params);
 void                filelist_readjob_stop(struct wmWindowManager *wm, struct ScrArea *sa);
 int                 filelist_readjob_running(struct wmWindowManager *wm, struct ScrArea *sa);
 

@@ -259,7 +259,7 @@ static void file_refresh(const bContext *C, ScrArea *sa)
 
 	if (filelist_empty(sfile->files)) {
 		if (!filelist_pending(sfile->files)) {
-			filelist_readjob_start(sfile->files, C);
+			filelist_readjob_start(C, sfile->files, params);
 		}
 	}
 
