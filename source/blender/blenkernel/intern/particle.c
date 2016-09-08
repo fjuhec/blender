@@ -323,7 +323,7 @@ void psys_check_group_weights(ParticleSettings *part)
 		dw = part->dupliweights.first;
 		while (dw) {
 			if (dw->ob == NULL || !BKE_group_object_exists(part->dup_group, dw->ob)) {
-				GroupObject *go = (GroupObject *)BLI_findlink(&part->dup_group->gobject, dw->index);
+				go = (GroupObject *)BLI_findlink(&part->dup_group->gobject, dw->index);
 				if (go) {
 					dw->ob = go->ob;
 				}
@@ -885,6 +885,9 @@ static void get_pointcache_keys_for_time(Object *UNUSED(ob), PointCache *cache, 
 
 			index2 = BKE_ptcache_mem_index_find(pm, index);
 			index1 = BKE_ptcache_mem_index_find(pm->prev, index);
+			if (index2 < 0) {
+				return;
+			}
 
 			BKE_ptcache_make_particle_key(key2, index2, pm->data, (float)pm->frame);
 			if (index1 < 0)
@@ -895,6 +898,9 @@ static void get_pointcache_keys_for_time(Object *UNUSED(ob), PointCache *cache, 
 		else if (cache->mem_cache.first) {
 			pm = cache->mem_cache.first;
 			index2 = BKE_ptcache_mem_index_find(pm, index);
+			if (index2 < 0) {
+				return;
+			}
 			BKE_ptcache_make_particle_key(key2, index2, pm->data, (float)pm->frame);
 			copy_particle_key(key1, key2, 1);
 		}
