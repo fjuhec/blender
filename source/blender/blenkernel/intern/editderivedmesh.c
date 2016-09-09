@@ -63,9 +63,7 @@
 #include "GPU_buffers.h"
 #include "GPU_shader.h"
 #include "GPU_basic_shader.h"
-
-#include "WM_api.h"
-
+#include "GPU_draw.h"
 
 static void bmdm_get_tri_colpreview(BMLoop *ls[3], MLoopCol *lcol[3], unsigned char(*color_vert_array)[4]);
 
@@ -910,19 +908,20 @@ static void emDM_copy_gpu_data(
 			emDM_buffer_copy_normal(dm, (short *)varray_p);
 			break;
 		case GPU_BUFFER_COLOR:
-//			cdDM_buffer_copy_mcol(dm, (unsigned char *)varray_p, user_data);
+			// cdDM_buffer_copy_mcol(dm, (unsigned char *)varray_p, user_data);
 			break;
 		case GPU_BUFFER_UV:
-//			cdDM_buffer_copy_uv(dm, (float *)varray_p);
+			// cdDM_buffer_copy_uv(dm, (float *)varray_p);
 			break;
 		case GPU_BUFFER_UV_TEXPAINT:
-//			cdDM_buffer_copy_uv_texpaint(dm, (float *)varray_p);
+			// this should apparently never happen in edit mode
+			BLI_assert(0);
 			break;
 		case GPU_BUFFER_EDGE:
-//			cdDM_buffer_copy_edge(dm, (unsigned int *)varray_p);
+			// cdDM_buffer_copy_edge(dm, (unsigned int *)varray_p);
 			break;
 		case GPU_BUFFER_UVEDGE:
-//			cdDM_buffer_copy_uvedge(dm, (float *)varray_p);
+			// cdDM_buffer_copy_uvedge(dm, (float *)varray_p);
 			break;
 		case GPU_BUFFER_TRIANGLES:
 			emDM_buffer_copy_triangles(dm, (unsigned int *)varray_p, mat_orig_to_new);
@@ -1235,7 +1234,7 @@ static void emDM_drawMappedFaces(
 					int selcol = 0xFFFFFFFF;
 
 					if (!skip_hidden || !BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-						WM_framebuffer_index_get(i + 1, &selcol);
+						GPU_select_index_get(i + 1, &selcol);
 					}
 
 					for (j = 0; j < efa->len; j++)
