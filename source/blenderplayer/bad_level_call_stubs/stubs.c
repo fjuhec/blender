@@ -342,11 +342,6 @@ struct wmWidgetMapType *WM_widgetmaptype_find(const struct wmWidgetMapType_Param
 struct wmWidgetMapType *WM_widgetmaptype_ensure(const struct wmWidgetMapType_Params *wmap_params) RET_NULL
 struct wmWidgetMap *WM_widgetmap_from_type(const struct wmWidgetMapType_Params *wmap_params) RET_NULL
 void WM_widgetmap_delete(struct wmWidgetMap *wmap) RET_NONE
-struct wmWidgetGroupType *WM_widgetgrouptype_register_ptr(const struct Main *bmain, struct wmWidgetMapType *wmaptype,
-                                                          int (*poll)(const struct bContext *, struct wmWidgetGroupType *),
-                                                          void (*init)(const struct bContext *, struct wmWidgetGroup *),
-                                                          wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *config),
-                                                          const char *name) RET_NULL
 void WM_widgetgrouptype_init_runtime(const struct Main *bmain, struct wmWidgetMapType *wmaptype, struct wmWidgetGroupType *wgrouptype) RET_NONE
 void WM_widgetgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmWidgetGroupType *wgroup) RET_NONE
 

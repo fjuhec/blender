@@ -785,7 +785,8 @@ void rotate_v2_v2fl(float r[2], const float p[2], const float angle)
 	r[1] = si * p[0] + co * p[1];
 }
 
-/* Rotate a point p by angle theta around an arbitrary axis r
+/**
+ * Rotate a point \a p by \a angle around an arbitrary unit length \a axis.
  * http://local.wasp.uwa.edu.au/~pbourke/geometry/
  */
 void rotate_normalized_v3_v3v3fl(float out[3], const float p[3], const float axis[3], const float angle)

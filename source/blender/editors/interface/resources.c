@@ -1650,7 +1650,7 @@ void init_userdef_do_versions(void)
 		U.savetime = 1;
 // XXX		error(STRINGIFY(BLENDER_STARTUP_FILE)" is buggy, please consider removing it.\n");
 	}
-
+	/* transform widget settings */
 	if (U.widget_scale == 0)
 		U.widget_scale = 75;
 	if (U.pad_rot_angle == 0.0f)
