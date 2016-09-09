@@ -568,7 +568,7 @@ typedef struct wmOperatorType {
 	struct wmKeyMap *modalkeymap;
 
 	/* widget group that is accessible while operator runs */
-	wmWidgetGroupType *wgrouptype;
+	wmManipulatorGroupType *wgrouptype;
 
 	/* python needs the operator type as well */
 	int (*pyop_poll)(struct bContext *, struct wmOperatorType *ot) ATTR_WARN_UNUSED_RESULT;

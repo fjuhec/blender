@@ -61,7 +61,7 @@ enum {
 };
 
 typedef struct PrimitiveWidget {
-	wmWidget widget;
+	wmManipulator widget;
 
 	float direction[3];
 	float up[3];
@@ -162,18 +162,18 @@ static void widget_primitive_draw_intern(PrimitiveWidget *prim, const bool UNUSE
 	}
 }
 
-static void widget_primitive_render_3d_intersect(const bContext *UNUSED(C), wmWidget *widget, int selectionbase)
+static void widget_primitive_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *widget, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
 	widget_primitive_draw_intern((PrimitiveWidget *)widget, true, false);
 }
 
-static void widget_primitive_draw(const bContext *UNUSED(C), wmWidget *widget)
+static void widget_primitive_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
 	widget_primitive_draw_intern((PrimitiveWidget *)widget, false, (widget->flag & WM_WIDGET_HIGHLIGHT));
 }
 
-static int widget_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmWidget *widget)
+static int widget_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *widget)
 {
 	WidgetInteraction *inter = MEM_callocN(sizeof(WidgetInteraction), __func__);
 
@@ -191,7 +191,7 @@ static int widget_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(ev
  *
  * \{ */
 
-wmWidget *WIDGET_primitive_new(wmWidgetGroup *wgroup, const char *name, const int style)
+wmManipulator *WIDGET_primitive_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
 	PrimitiveWidget *prim = MEM_callocN(sizeof(PrimitiveWidget), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
@@ -208,13 +208,13 @@ wmWidget *WIDGET_primitive_new(wmWidgetGroup *wgroup, const char *name, const in
 
 	wm_widget_register(wgroup, &prim->widget, name);
 
-	return (wmWidget *)prim;
+	return (wmManipulator *)prim;
 }
 
 /**
  * Define direction the primitive will point towards
  */
-void WIDGET_primitive_set_direction(wmWidget *widget, const float direction[3])
+void WIDGET_primitive_set_direction(wmManipulator *widget, const float direction[3])
 {
 	PrimitiveWidget *prim = (PrimitiveWidget *)widget;
 
@@ -225,7 +225,7 @@ void WIDGET_primitive_set_direction(wmWidget *widget, const float direction[3])
 /**
  * Define up-direction of the primitive widget
  */
-void WIDGET_primitive_set_up_vector(wmWidget *widget, const float direction[3])
+void WIDGET_primitive_set_up_vector(wmManipulator *widget, const float direction[3])
 {
 	PrimitiveWidget *prim = (PrimitiveWidget *)widget;
 

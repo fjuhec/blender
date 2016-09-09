@@ -99,7 +99,7 @@ float widget_value_from_offset(
 }
 
 void widget_property_data_update(
-        wmWidget *widget, WidgetCommonData *data, const int slot,
+        wmManipulator *widget, WidgetCommonData *data, const int slot,
         const bool constrained, const bool inverted)
 {
 	if (!widget->props[slot]) {
@@ -126,7 +126,7 @@ void widget_property_data_update(
 	}
 }
 
-void widget_property_value_set(bContext *C, const wmWidget *widget, const int slot, const float value)
+void widget_property_value_set(bContext *C, const wmManipulator *widget, const int slot, const float value)
 {
 	PointerRNA ptr = widget->ptr[slot];
 	PropertyRNA *prop = widget->props[slot];
@@ -136,13 +136,13 @@ void widget_property_value_set(bContext *C, const wmWidget *widget, const int sl
 	RNA_property_update(C, &ptr, prop);
 }
 
-float widget_property_value_get(const wmWidget *widget, const int slot)
+float widget_property_value_get(const wmManipulator *widget, const int slot)
 {
 	BLI_assert(RNA_property_type(widget->props[slot]) == PROP_FLOAT);
 	return RNA_property_float_get(&widget->ptr[slot], widget->props[slot]);
 }
 
-void widget_property_value_reset(bContext *C, const wmWidget *widget, WidgetInteraction *inter, const int slot)
+void widget_property_value_reset(bContext *C, const wmManipulator *widget, WidgetInteraction *inter, const int slot)
 {
 	widget_property_value_set(C, widget, slot, inter->init_value);
 }
@@ -151,7 +151,7 @@ void widget_property_value_reset(bContext *C, const wmWidget *widget, WidgetInte
 /* -------------------------------------------------------------------- */
 
 /* TODO use everywhere */
-float *widget_color_get(wmWidget *widget, const bool highlight)
+float *widget_color_get(wmManipulator *widget, const bool highlight)
 {
 	return (highlight && !(widget->flag & WM_WIDGET_DRAW_HOVER)) ? widget->col_hi : widget->col;
 }

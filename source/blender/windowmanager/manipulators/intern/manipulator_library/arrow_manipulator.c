@@ -76,7 +76,7 @@ enum {
 };
 
 typedef struct ArrowWidget {
-	wmWidget widget;
+	wmManipulator widget;
 
 	WidgetCommonData data;
 
@@ -92,7 +92,7 @@ typedef struct ArrowWidget {
 
 /* -------------------------------------------------------------------- */
 
-static void widget_arrow_get_final_pos(wmWidget *widget, float r_pos[3])
+static void widget_arrow_get_final_pos(wmManipulator *widget, float r_pos[3])
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 
@@ -251,13 +251,13 @@ static void arrow_draw_intern(ArrowWidget *arrow, const bool select, const bool 
 	}
 }
 
-static void widget_arrow_render_3d_intersect(const bContext *UNUSED(C), wmWidget *widget, int selectionbase)
+static void widget_arrow_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *widget, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
 	arrow_draw_intern((ArrowWidget *)widget, true, false);
 }
 
-static void widget_arrow_draw(const bContext *UNUSED(C), wmWidget *widget)
+static void widget_arrow_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
 	arrow_draw_intern((ArrowWidget *)widget, false, (widget->flag & WM_WIDGET_HIGHLIGHT) != 0);
 }
@@ -268,7 +268,7 @@ static void widget_arrow_draw(const bContext *UNUSED(C), wmWidget *widget)
  */
 #define USE_ABS_HANDLE_RANGE
 
-static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *widget, const int flag)
+static int widget_arrow_handler(bContext *C, const wmEvent *event, wmManipulator *widget, const int flag)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 	WidgetInteraction *inter = widget->interaction_data;
@@ -383,7 +383,7 @@ static int widget_arrow_handler(bContext *C, const wmEvent *event, wmWidget *wid
 }
 
 
-static int widget_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidget *widget)
+static int widget_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 	WidgetInteraction *inter = MEM_callocN(sizeof(WidgetInteraction), __func__);
@@ -408,7 +408,7 @@ static int widget_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidg
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static void widget_arrow_prop_data_update(wmWidget *widget, const int slot)
+static void widget_arrow_prop_data_update(wmManipulator *widget, const int slot)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 	widget_property_data_update(
@@ -417,7 +417,7 @@ static void widget_arrow_prop_data_update(wmWidget *widget, const int slot)
 	            arrow->style & WIDGET_ARROW_STYLE_INVERTED);
 }
 
-static void widget_arrow_exit(bContext *C, wmWidget *widget, const bool cancel)
+static void widget_arrow_exit(bContext *C, wmManipulator *widget, const bool cancel)
 {
 	if (!cancel)
 		return;
@@ -436,7 +436,7 @@ static void widget_arrow_exit(bContext *C, wmWidget *widget, const bool cancel)
  *
  * \{ */
 
-wmWidget *WIDGET_arrow_new(wmWidgetGroup *wgroup, const char *name, const int style)
+wmManipulator *WIDGET_arrow_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
 	int real_style = style;
 
@@ -485,13 +485,13 @@ wmWidget *WIDGET_arrow_new(wmWidgetGroup *wgroup, const char *name, const int st
 
 	wm_widget_register(wgroup, &arrow->widget, name);
 
-	return (wmWidget *)arrow;
+	return (wmManipulator *)arrow;
 }
 
 /**
  * Define direction the arrow will point towards
  */
-void WIDGET_arrow_set_direction(wmWidget *widget, const float direction[3])
+void WIDGET_arrow_set_direction(wmManipulator *widget, const float direction[3])
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 
@@ -502,7 +502,7 @@ void WIDGET_arrow_set_direction(wmWidget *widget, const float direction[3])
 /**
  * Define up-direction of the arrow widget
  */
-void WIDGET_arrow_set_up_vector(wmWidget *widget, const float direction[3])
+void WIDGET_arrow_set_up_vector(wmManipulator *widget, const float direction[3])
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 
@@ -519,7 +519,7 @@ void WIDGET_arrow_set_up_vector(wmWidget *widget, const float direction[3])
 /**
  * Define a custom arrow line length
  */
-void WIDGET_arrow_set_line_len(wmWidget *widget, const float len)
+void WIDGET_arrow_set_line_len(wmManipulator *widget, const float len)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 	arrow->len = len;
@@ -530,7 +530,7 @@ void WIDGET_arrow_set_line_len(wmWidget *widget, const float len)
  *
  * \note Needs to be called before WM_widget_set_property!
  */
-void WIDGET_arrow_set_ui_range(wmWidget *widget, const float min, const float max)
+void WIDGET_arrow_set_ui_range(wmManipulator *widget, const float min, const float max)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 
@@ -547,7 +547,7 @@ void WIDGET_arrow_set_ui_range(wmWidget *widget, const float min, const float ma
  *
  * \note Needs to be called before WM_widget_set_property!
  */
-void WIDGET_arrow_set_range_fac(wmWidget *widget, const float range_fac)
+void WIDGET_arrow_set_range_fac(wmManipulator *widget, const float range_fac)
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 
@@ -559,7 +559,7 @@ void WIDGET_arrow_set_range_fac(wmWidget *widget, const float range_fac)
 /**
  * Define xy-aspect for arrow cone
  */
-void WIDGET_arrow_cone_set_aspect(wmWidget *widget, const float aspect[2])
+void WIDGET_arrow_cone_set_aspect(wmManipulator *widget, const float aspect[2])
 {
 	ArrowWidget *arrow = (ArrowWidget *)widget;
 

@@ -61,7 +61,7 @@
 
 
 typedef struct ArrowWidget2D {
-	wmWidget widget;
+	wmManipulator widget;
 
 	float angle;
 	float line_len;
@@ -96,7 +96,7 @@ static void arrow2d_draw_geom(ArrowWidget2D *arrow, const float origin[2])
 	glPopMatrix();
 }
 
-static void widget_arrow2d_draw(const bContext *UNUSED(C), wmWidget *widget)
+static void widget_arrow2d_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
 	ArrowWidget2D *arrow = (ArrowWidget2D *)widget;
 	const float *col = widget_color_get(widget, widget->flag & WM_WIDGET_HIGHLIGHT);
@@ -117,7 +117,7 @@ static void widget_arrow2d_draw(const bContext *UNUSED(C), wmWidget *widget)
 	}
 }
 
-static int widget_arrow2d_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmWidget *widget)
+static int widget_arrow2d_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *widget)
 {
 	WidgetInteraction *inter = MEM_callocN(sizeof(WidgetInteraction), __func__);
 
@@ -127,7 +127,7 @@ static int widget_arrow2d_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(even
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static int widget_arrow2d_intersect(bContext *UNUSED(C), const wmEvent *event, wmWidget *widget)
+static int widget_arrow2d_intersect(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
 	ArrowWidget2D *arrow = (ArrowWidget2D *)widget;
 	const float mval[2] = {event->mval[0], event->mval[1]};
@@ -179,7 +179,7 @@ static int widget_arrow2d_intersect(bContext *UNUSED(C), const wmEvent *event, w
  *
  * \{ */
 
-wmWidget *WIDGET_arrow2d_new(wmWidgetGroup *wgroup, const char *name)
+wmManipulator *WIDGET_arrow2d_new(wmManipulatorGroup *wgroup, const char *name)
 {
 	ArrowWidget2D *arrow = MEM_callocN(sizeof(ArrowWidget2D), __func__);
 
@@ -195,16 +195,16 @@ wmWidget *WIDGET_arrow2d_new(wmWidgetGroup *wgroup, const char *name)
 
 	wm_widget_register(wgroup, &arrow->widget, name);
 
-	return (wmWidget *)arrow;
+	return (wmManipulator *)arrow;
 }
 
-void WIDGET_arrow2d_set_angle(wmWidget *widget, const float angle)
+void WIDGET_arrow2d_set_angle(wmManipulator *widget, const float angle)
 {
 	ArrowWidget2D *arrow = (ArrowWidget2D *)widget;
 	arrow->angle = angle;
 }
 
-void WIDGET_arrow2d_set_line_len(wmWidget *widget, const float len)
+void WIDGET_arrow2d_set_line_len(wmManipulator *widget, const float len)
 {
 	ArrowWidget2D *arrow = (ArrowWidget2D *)widget;
 	arrow->line_len = len;

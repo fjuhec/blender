@@ -29,11 +29,11 @@
 #define __WM_MANIPULATOR_INTERN_H__
 
 struct wmKeyConfig;
-struct wmWidget;
-struct wmWidgetMap;
+struct wmManipulator;
+struct wmManipulatorMap;
 
 /* -------------------------------------------------------------------- */
-/* wmWidget */
+/* wmManipulator */
 
 /**
  * \brief Widget tweak flag.
@@ -45,13 +45,13 @@ enum {
 	WM_WIDGET_TWEAK_PRECISE = (1 << 0),
 };
 
-bool wm_widget_register(wmWidgetGroup *wgroup, struct wmWidget *widget, const char *name);
+bool wm_widget_register(wmManipulatorGroup *wgroup, struct wmManipulator *widget, const char *name);
 
-bool wm_widget_deselect(struct wmWidgetMap *wmap, struct wmWidget *widget);
-bool wm_widget_select(bContext *C, struct wmWidgetMap *wmap, struct wmWidget *widget);
+bool wm_widget_deselect(struct wmManipulatorMap *wmap, struct wmManipulator *widget);
+bool wm_widget_select(bContext *C, struct wmManipulatorMap *wmap, struct wmManipulator *widget);
 
-void wm_widget_calculate_scale(struct wmWidget *widget, const bContext *C);
-void wm_widget_update_prop_data(struct wmWidget *widget);
+void wm_widget_calculate_scale(struct wmManipulator *widget, const bContext *C);
+void wm_widget_update_prop_data(struct wmManipulator *widget);
 
 void fix_linking_widget_arrow(void);
 void fix_linking_widget_arrow2d(void);
@@ -62,7 +62,7 @@ void fix_linking_widget_primitive(void);
 
 
 /* -------------------------------------------------------------------- */
-/* wmWidgetGroup */
+/* wmManipulatorGroup */
 
 enum {
 	TWEAK_MODAL_CANCEL = 1,
@@ -71,13 +71,13 @@ enum {
 	TWEAK_MODAL_PRECISION_OFF,
 };
 
-void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, struct wmWidgetGroup *wgroup);
+void wm_widgetgroup_free(bContext *C, wmManipulatorMap *wmap, struct wmManipulatorGroup *wgroup);
 
-void wm_widgetgrouptype_keymap_init(struct wmWidgetGroupType *wgrouptype, struct wmKeyConfig *keyconf);
+void wm_widgetgrouptype_keymap_init(struct wmManipulatorGroupType *wgrouptype, struct wmKeyConfig *keyconf);
 
 
 /* -------------------------------------------------------------------- */
-/* wmWidgetMap */
+/* wmManipulatorMap */
 
 /**
  * This is a container for all widget types that can be instantiated in a region.
@@ -85,17 +85,17 @@ void wm_widgetgrouptype_keymap_init(struct wmWidgetGroupType *wgrouptype, struct
  *
  * \note There is only ever one of these for every (area, region) combination.
  */
-typedef struct wmWidgetMapType {
-	struct wmWidgetMapType *next, *prev;
+typedef struct wmManipulatorMapType {
+	struct wmManipulatorMapType *next, *prev;
 	char idname[64];
 	short spaceid, regionid;
 	/* widgetTypeflags */
 	int flag;
 	/* types of widgetgroups for this widgetmap type */
 	ListBase widgetgrouptypes;
-} wmWidgetMapType;
+} wmManipulatorMapType;
 
-void wm_widgetmap_selected_delete(wmWidgetMap *wmap);
+void wm_widgetmap_selected_delete(wmManipulatorMap *wmap);
 
 
 /* -------------------------------------------------------------------- */

@@ -77,17 +77,17 @@ float widget_value_from_offset(
         const bool constrained, const bool inverted, const bool use_precision);
 
 void widget_property_data_update(
-        wmWidget *widget, WidgetCommonData *data, const int slot,
+        wmManipulator *widget, WidgetCommonData *data, const int slot,
         const bool constrained, const bool inverted);
 
-void  widget_property_value_set(bContext *C, const wmWidget *widget, const int slot, const float value);
-float widget_property_value_get(const wmWidget *widget, const int slot);
-void  widget_property_value_reset(bContext *C, const wmWidget *widget, WidgetInteraction *inter, const int slot);
+void  widget_property_value_set(bContext *C, const wmManipulator *widget, const int slot, const float value);
+float widget_property_value_get(const wmManipulator *widget, const int slot);
+void  widget_property_value_reset(bContext *C, const wmManipulator *widget, WidgetInteraction *inter, const int slot);
 
 
 /* -------------------------------------------------------------------- */
 
-float *widget_color_get(wmWidget *widget, const bool highlight);
+float *widget_color_get(wmManipulator *widget, const bool highlight);
 
 #endif  /* __MANIPULATOR_LIBRARY_INTERN_H__ */
 

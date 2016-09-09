@@ -57,14 +57,14 @@
 
 
 /* -------------------------------------------------------------------- */
-/** \name wmWidgetGroup
+/** \name wmManipulatorGroup
  *
  * \{ */
 
-void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
+void wm_widgetgroup_free(bContext *C, wmManipulatorMap *wmap, wmManipulatorGroup *wgroup)
 {
-	for (wmWidget *widget = wgroup->widgets.first; widget;) {
-		wmWidget *widget_next = widget->next;
+	for (wmManipulator *widget = wgroup->widgets.first; widget;) {
+		wmManipulator *widget_next = widget->next;
 		WM_widget_delete(&wgroup->widgets, wmap, widget, C);
 		widget = widget_next;
 	}
@@ -95,7 +95,7 @@ void wm_widgetgroup_free(bContext *C, wmWidgetMap *wmap, wmWidgetGroup *wgroup)
 }
 
 void wm_widgetgroup_attach_to_modal_handler(bContext *C, wmEventHandler *handler,
-                                            wmWidgetGroupType *wgrouptype, wmOperator *op)
+                                            wmManipulatorGroupType *wgrouptype, wmOperator *op)
 {
 	/* maybe overly careful, but widgetgrouptype could come from a failed creation */
 	if (!wgrouptype) {
@@ -106,8 +106,8 @@ void wm_widgetgroup_attach_to_modal_handler(bContext *C, wmEventHandler *handler
 	wgrouptype->op = op;
 
 	if (handler->op_region && !BLI_listbase_is_empty(&handler->op_region->widgetmaps)) {
-		for (wmWidgetMap *wmap = handler->op_region->widgetmaps.first; wmap; wmap = wmap->next) {
-			wmWidgetMapType *wmaptype = wmap->type;
+		for (wmManipulatorMap *wmap = handler->op_region->widgetmaps.first; wmap; wmap = wmap->next) {
+			wmManipulatorMapType *wmaptype = wmap->type;
 
 			if (wmaptype->spaceid == wgrouptype->spaceid && wmaptype->regionid == wgrouptype->regionid) {
 				handler->widgetmap = wmap;
@@ -135,9 +135,9 @@ static int widget_select_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 	bool toggle = RNA_boolean_get(op->ptr, "toggle");
 
 
-	for (wmWidgetMap *wmap = ar->widgetmaps.first; wmap; wmap = wmap->next) {
-		wmWidget ***sel = &wmap->wmap_context.selected_widgets;
-		wmWidget *highlighted = wmap->wmap_context.highlighted_widget;
+	for (wmManipulatorMap *wmap = ar->widgetmaps.first; wmap; wmap = wmap->next) {
+		wmManipulator ***sel = &wmap->wmap_context.selected_widgets;
+		wmManipulator *highlighted = wmap->wmap_context.highlighted_widget;
 
 		/* deselect all first */
 		if (extend == false && deselect == false && toggle == false) {
@@ -194,8 +194,8 @@ void WIDGETGROUP_OT_widget_select(wmOperatorType *ot)
 }
 
 typedef struct WidgetTweakData {
-	wmWidgetMap *wmap;
-	wmWidget *active;
+	wmManipulatorMap *wmap;
+	wmManipulator *active;
 
 	int init_event; /* initial event type */
 	int flag;       /* tweak flags */
@@ -214,7 +214,7 @@ static void widget_tweak_finish(bContext *C, wmOperator *op, const bool cancel)
 static int widget_tweak_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	WidgetTweakData *wtweak = op->customdata;
-	wmWidget *widget = wtweak->active;
+	wmManipulator *widget = wtweak->active;
 
 	if (!widget) {
 		BLI_assert(0);
@@ -260,8 +260,8 @@ static int widget_tweak_modal(bContext *C, wmOperator *op, const wmEvent *event)
 static int widget_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	ARegion *ar = CTX_wm_region(C);
-	wmWidgetMap *wmap;
-	wmWidget *widget;
+	wmManipulatorMap *wmap;
+	wmManipulator *widget;
 
 	for (wmap = ar->widgetmaps.first; wmap; wmap = wmap->next)
 		if ((widget = wmap->wmap_context.highlighted_widget))
@@ -363,7 +363,7 @@ static wmKeyMap *widgetgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char
 /**
  * Common default keymap for widget groups
  */
-wmKeyMap *WM_widgetgroup_keymap_common(const struct wmWidgetGroupType *wgrouptype, wmKeyConfig *config)
+wmKeyMap *WM_widgetgroup_keymap_common(const struct wmManipulatorGroupType *wgrouptype, wmKeyConfig *config)
 {
 	/* Use area and region id since we might have multiple widgets with the same name in different areas/regions */
 	wmKeyMap *km = WM_keymap_find(config, wgrouptype->name, wgrouptype->spaceid, wgrouptype->regionid);
@@ -377,7 +377,7 @@ wmKeyMap *WM_widgetgroup_keymap_common(const struct wmWidgetGroupType *wgrouptyp
 /**
  * Variation of #WM_widgetgroup_keymap_common but with keymap items for selection
  */
-wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmWidgetGroupType *wgrouptype, wmKeyConfig *config)
+wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmManipulatorGroupType *wgrouptype, wmKeyConfig *config)
 {
 	/* Use area and region id since we might have multiple widgets with the same name in different areas/regions */
 	wmKeyMap *km = WM_keymap_find(config, wgrouptype->name, wgrouptype->spaceid, wgrouptype->regionid);
@@ -397,19 +397,19 @@ wmKeyMap *WM_widgetgroup_keymap_common_sel(const struct wmWidgetGroupType *wgrou
 	return km;
 }
 
-/** \} */ /* wmWidgetGroup */
+/** \} */ /* wmManipulatorGroup */
 
 /* -------------------------------------------------------------------- */
-/** \name wmWidgetGroupType
+/** \name wmManipulatorGroupType
  *
  * \{ */
 
 /**
  * Use this for registering widgets on startup. For runtime, use #WM_widgetgrouptype_append_runtime.
  */
-wmWidgetGroupType *WM_widgetgrouptype_append(wmWidgetMapType *wmaptype, void (*wgrouptype_func)(wmWidgetGroupType *))
+wmManipulatorGroupType *WM_widgetgrouptype_append(wmManipulatorMapType *wmaptype, void (*wgrouptype_func)(wmManipulatorGroupType *))
 {
-	wmWidgetGroupType *wgrouptype = MEM_callocN(sizeof(wmWidgetGroupType), "widgetgroup");
+	wmManipulatorGroupType *wgrouptype = MEM_callocN(sizeof(wmManipulatorGroupType), "widgetgroup");
 
 	wgrouptype_func(wgrouptype);
 	wgrouptype->spaceid = wmaptype->spaceid;
@@ -429,11 +429,11 @@ wmWidgetGroupType *WM_widgetgrouptype_append(wmWidgetMapType *wmaptype, void (*w
 /**
  * Use this for registering widgets on runtime.
  */
-wmWidgetGroupType *WM_widgetgrouptype_append_runtime(
-        const Main *main, wmWidgetMapType *wmaptype,
-        void (*wgrouptype_func)(wmWidgetGroupType *))
+wmManipulatorGroupType *WM_widgetgrouptype_append_runtime(
+        const Main *main, wmManipulatorMapType *wmaptype,
+        void (*wgrouptype_func)(wmManipulatorGroupType *))
 {
-	wmWidgetGroupType *wgrouptype = WM_widgetgrouptype_append(wmaptype, wgrouptype_func);
+	wmManipulatorGroupType *wgrouptype = WM_widgetgrouptype_append(wmaptype, wgrouptype_func);
 
 	/* Main is missing on startup when we create new areas.
 	 * So this is only called for widgets initialized on runtime */
@@ -443,8 +443,8 @@ wmWidgetGroupType *WM_widgetgrouptype_append_runtime(
 }
 
 void WM_widgetgrouptype_init_runtime(
-        const Main *bmain, wmWidgetMapType *wmaptype,
-        wmWidgetGroupType *wgrouptype)
+        const Main *bmain, wmManipulatorMapType *wmaptype,
+        wmManipulatorGroupType *wgrouptype)
 {
 	/* init keymap - on startup there's an extra call to init keymaps for 'permanent' widget-groups */
 	wm_widgetgrouptype_keymap_init(wgrouptype, ((wmWindowManager *)bmain->wm.first)->defaultconf);
@@ -455,9 +455,9 @@ void WM_widgetgrouptype_init_runtime(
 			for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
 				ListBase *lb = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 				for (ARegion *ar = lb->first; ar; ar = ar->next) {
-					for (wmWidgetMap *wmap = ar->widgetmaps.first; wmap; wmap = wmap->next) {
+					for (wmManipulatorMap *wmap = ar->widgetmaps.first; wmap; wmap = wmap->next) {
 						if (wmap->type == wmaptype) {
-							wmWidgetGroup *wgroup = MEM_callocN(sizeof(wmWidgetGroup), "widgetgroup");
+							wmManipulatorGroup *wgroup = MEM_callocN(sizeof(wmManipulatorGroup), "widgetgroup");
 
 							wgroup->type = wgrouptype;
 
@@ -473,15 +473,15 @@ void WM_widgetgrouptype_init_runtime(
 	}
 }
 
-void WM_widgetgrouptype_unregister(bContext *C, Main *bmain, wmWidgetGroupType *wgrouptype)
+void WM_widgetgrouptype_unregister(bContext *C, Main *bmain, wmManipulatorGroupType *wgrouptype)
 {
 	for (bScreen *sc = bmain->screen.first; sc; sc = sc->id.next) {
 		for (ScrArea *sa = sc->areabase.first; sa; sa = sa->next) {
 			for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
 				ListBase *lb = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 				for (ARegion *ar = lb->first; ar; ar = ar->next) {
-					for (wmWidgetMap *wmap = ar->widgetmaps.first; wmap; wmap = wmap->next) {
-						wmWidgetGroup *wgroup, *wgroup_next;
+					for (wmManipulatorMap *wmap = ar->widgetmaps.first; wmap; wmap = wmap->next) {
+						wmManipulatorGroup *wgroup, *wgroup_next;
 
 						for (wgroup = wmap->widgetgroups.first; wgroup; wgroup = wgroup_next) {
 							wgroup_next = wgroup->next;
@@ -496,7 +496,7 @@ void WM_widgetgrouptype_unregister(bContext *C, Main *bmain, wmWidgetGroupType *
 		}
 	}
 
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(&(const struct wmWidgetMapType_Params) {
+	wmManipulatorMapType *wmaptype = WM_widgetmaptype_find(&(const struct wmManipulatorMapType_Params) {
 	        wgrouptype->mapidname, wgrouptype->spaceid,
 	        wgrouptype->regionid, wgrouptype->flag});
 
@@ -506,9 +506,9 @@ void WM_widgetgrouptype_unregister(bContext *C, Main *bmain, wmWidgetGroupType *
 	MEM_freeN(wgrouptype);
 }
 
-void wm_widgetgrouptype_keymap_init(wmWidgetGroupType *wgrouptype, wmKeyConfig *keyconf)
+void wm_widgetgrouptype_keymap_init(wmManipulatorGroupType *wgrouptype, wmKeyConfig *keyconf)
 {
 	wgrouptype->keymap = wgrouptype->keymap_init(wgrouptype, keyconf);
 }
 
-/** \} */ /* wmWidgetGroupType */
+/** \} */ /* wmManipulatorGroupType */

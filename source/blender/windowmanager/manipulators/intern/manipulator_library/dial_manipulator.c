@@ -67,7 +67,7 @@ WidgetDrawInfo dial_draw_info = {0};
 #endif
 
 typedef struct DialWidget {
-	wmWidget widget;
+	wmManipulator widget;
 	int style;
 	float direction[3];
 } DialWidget;
@@ -226,7 +226,7 @@ static void dial_draw_intern(const bContext *C, DialWidget *dial, const bool sel
 
 }
 
-static void widget_dial_render_3d_intersect(const bContext *C, wmWidget *widget, int selectionbase)
+static void widget_dial_render_3d_intersect(const bContext *C, wmManipulator *widget, int selectionbase)
 {
 	DialWidget *dial = (DialWidget *)widget;
 
@@ -250,7 +250,7 @@ static void widget_dial_render_3d_intersect(const bContext *C, wmWidget *widget,
 	}
 }
 
-static void widget_dial_draw(const bContext *C, wmWidget *widget)
+static void widget_dial_draw(const bContext *C, wmManipulator *widget)
 {
 	DialWidget *dial = (DialWidget *)widget;
 	const bool active = widget->flag & WM_WIDGET_ACTIVE;
@@ -276,7 +276,7 @@ static void widget_dial_draw(const bContext *C, wmWidget *widget)
 	}
 }
 
-static int widget_dial_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidget *widget)
+static int widget_dial_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
 	DialInteraction *inter = MEM_callocN(sizeof(DialInteraction), __func__);
 
@@ -294,7 +294,7 @@ static int widget_dial_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidge
  *
  * \{ */
 
-wmWidget *WIDGET_dial_new(wmWidgetGroup *wgroup, const char *name, const int style)
+wmManipulator *WIDGET_dial_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
 	DialWidget *dial = MEM_callocN(sizeof(DialWidget), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
@@ -323,13 +323,13 @@ wmWidget *WIDGET_dial_new(wmWidgetGroup *wgroup, const char *name, const int sty
 
 	wm_widget_register(wgroup, &dial->widget, name);
 
-	return (wmWidget *)dial;
+	return (wmManipulator *)dial;
 }
 
 /**
  * Define up-direction of the dial widget
  */
-void WIDGET_dial_set_up_vector(wmWidget *widget, const float direction[3])
+void WIDGET_dial_set_up_vector(wmManipulator *widget, const float direction[3])
 {
 	DialWidget *dial = (DialWidget *)widget;
 

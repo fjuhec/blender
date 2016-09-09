@@ -104,12 +104,12 @@ void widget_draw_intern(WidgetDrawInfo *info, const bool select)
 }
 
 /* Still unused */
-wmWidget *WM_widget_new(void (*draw)(const bContext *C, wmWidget *customdata),
-                        void (*render_3d_intersection)(const bContext *C, wmWidget *customdata, int selectionbase),
-                        int  (*intersect)(bContext *C, const wmEvent *event, wmWidget *widget),
-                        int  (*handler)(bContext *C, const wmEvent *event, wmWidget *widget, const int flag))
+wmManipulator *WM_widget_new(void (*draw)(const bContext *C, wmManipulator *customdata),
+                        void (*render_3d_intersection)(const bContext *C, wmManipulator *customdata, int selectionbase),
+                        int  (*intersect)(bContext *C, const wmEvent *event, wmManipulator *widget),
+                        int  (*handler)(bContext *C, const wmEvent *event, wmManipulator *widget, const int flag))
 {
-	wmWidget *widget = MEM_callocN(sizeof(wmWidget), "widget");
+	wmManipulator *widget = MEM_callocN(sizeof(wmManipulator), "widget");
 
 	widget->draw = draw;
 	widget->handler = handler;
@@ -132,7 +132,7 @@ wmWidget *WM_widget_new(void (*draw)(const bContext *C, wmWidget *customdata),
  *
  * \param rawname  Name used as basis to define final unique idname.
  */
-static void widget_unique_idname_set(wmWidgetGroup *wgroup, wmWidget *widget, const char *rawname)
+static void widget_unique_idname_set(wmManipulatorGroup *wgroup, wmManipulator *widget, const char *rawname)
 {
 	if (wgroup->type->idname[0]) {
 		BLI_snprintf(widget->idname, sizeof(widget->idname), "%s_%s", wgroup->type->idname, rawname);
@@ -142,7 +142,7 @@ static void widget_unique_idname_set(wmWidgetGroup *wgroup, wmWidget *widget, co
 	}
 
 	/* ensure name is unique, append '.001', '.002', etc if not */
-	BLI_uniquename(&wgroup->widgets, widget, "Widget", '.', offsetof(wmWidget, idname), sizeof(widget->idname));
+	BLI_uniquename(&wgroup->widgets, widget, "Widget", '.', offsetof(wmManipulator, idname), sizeof(widget->idname));
 }
 
 /**
@@ -150,7 +150,7 @@ static void widget_unique_idname_set(wmWidgetGroup *wgroup, wmWidget *widget, co
  *
  * \param name  name used to create a unique idname for \a widget in \a wgroup
  */
-bool wm_widget_register(wmWidgetGroup *wgroup, wmWidget *widget, const char *name)
+bool wm_widget_register(wmManipulatorGroup *wgroup, wmManipulator *widget, const char *name)
 {
 	const float col_default[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
@@ -181,7 +181,7 @@ bool wm_widget_register(wmWidgetGroup *wgroup, wmWidget *widget, const char *nam
  * Free \a widget and unlink from \a widgetlist.
  * \a widgetlist is allowed to be NULL.
  */
-void WM_widget_delete(ListBase *widgetlist, wmWidgetMap *wmap, wmWidget *widget, bContext *C)
+void WM_widget_delete(ListBase *widgetlist, wmManipulatorMap *wmap, wmManipulator *widget, bContext *C)
 {
 	if (widget->flag & WM_WIDGET_HIGHLIGHT) {
 		wm_widgetmap_set_highlighted_widget(wmap, C, NULL, 0);
@@ -212,7 +212,7 @@ void WM_widget_delete(ListBase *widgetlist, wmWidgetMap *wmap, wmWidget *widget,
  *
  * \{ */
 
-void WM_widget_set_property(wmWidget *widget, const int slot, PointerRNA *ptr, const char *propname)
+void WM_widget_set_property(wmManipulator *widget, const int slot, PointerRNA *ptr, const char *propname)
 {
 	if (slot < 0 || slot >= widget->max_prop) {
 		fprintf(stderr, "invalid index %d when binding property for widget type %s\n", slot, widget->idname);
@@ -228,7 +228,7 @@ void WM_widget_set_property(wmWidget *widget, const int slot, PointerRNA *ptr, c
 		widget->prop_data_update(widget, slot);
 }
 
-PointerRNA *WM_widget_set_operator(wmWidget *widget, const char *opname)
+PointerRNA *WM_widget_set_operator(wmManipulator *widget, const char *opname)
 {
 	wmOperatorType *ot = WM_operatortype_find(opname, 0);
 
@@ -254,23 +254,23 @@ PointerRNA *WM_widget_set_operator(wmWidget *widget, const char *opname)
  *
  * Callback is called when widget gets selected/deselected.
  */
-void WM_widget_set_func_select(wmWidget *widget, wmWidgetSelectFunc select)
+void WM_widget_set_func_select(wmManipulator *widget, wmManipulatorSelectFunc select)
 {
 	widget->flag |= WM_WIDGET_SELECTABLE;
 	widget->select = select;
 }
 
-void WM_widget_set_origin(wmWidget *widget, const float origin[3])
+void WM_widget_set_origin(wmManipulator *widget, const float origin[3])
 {
 	copy_v3_v3(widget->origin, origin);
 }
 
-void WM_widget_set_offset(wmWidget *widget, const float offset[3])
+void WM_widget_set_offset(wmManipulator *widget, const float offset[3])
 {
 	copy_v3_v3(widget->offset, offset);
 }
 
-void WM_widget_set_flag(wmWidget *widget, const int flag, const bool enable)
+void WM_widget_set_flag(wmManipulator *widget, const int flag, const bool enable)
 {
 	if (enable) {
 		widget->flag |= flag;
@@ -280,12 +280,12 @@ void WM_widget_set_flag(wmWidget *widget, const int flag, const bool enable)
 	}
 }
 
-void WM_widget_set_scale(wmWidget *widget, const float scale)
+void WM_widget_set_scale(wmManipulator *widget, const float scale)
 {
 	widget->user_scale = scale;
 }
 
-void WM_widget_set_line_width(wmWidget *widget, const float line_width)
+void WM_widget_set_line_width(wmManipulator *widget, const float line_width)
 {
 	widget->line_width = line_width;
 }
@@ -296,7 +296,7 @@ void WM_widget_set_line_width(wmWidget *widget, const float line_width)
  * \param col  Normal state color.
  * \param col_hi  Highlighted state color.
  */
-void WM_widget_set_colors(wmWidget *widget, const float col[4], const float col_hi[4])
+void WM_widget_set_colors(wmManipulator *widget, const float col[4], const float col_hi[4])
 {
 	copy_v4_v4(widget->col, col);
 	copy_v4_v4(widget->col_hi, col_hi);
@@ -313,12 +313,12 @@ void WM_widget_set_colors(wmWidget *widget, const float col[4], const float col_
  *
  * \return if the selection has changed.
  */
-bool wm_widget_deselect(wmWidgetMap *wmap, wmWidget *widget)
+bool wm_widget_deselect(wmManipulatorMap *wmap, wmManipulator *widget)
 {
 	if (!wmap->wmap_context.selected_widgets)
 		return false;
 
-	wmWidget ***sel = &wmap->wmap_context.selected_widgets;
+	wmManipulator ***sel = &wmap->wmap_context.selected_widgets;
 	int *tot_selected = &wmap->wmap_context.tot_selected;
 	bool changed = false;
 
@@ -355,9 +355,9 @@ bool wm_widget_deselect(wmWidgetMap *wmap, wmWidget *widget)
  *
  * \return if the selection has changed.
  */
-bool wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
+bool wm_widget_select(bContext *C, wmManipulatorMap *wmap, wmManipulator *widget)
 {
-	wmWidget ***sel = &wmap->wmap_context.selected_widgets;
+	wmManipulator ***sel = &wmap->wmap_context.selected_widgets;
 	int *tot_selected = &wmap->wmap_context.tot_selected;
 
 	if (!widget || (widget->flag & WM_WIDGET_SELECTED))
@@ -365,7 +365,7 @@ bool wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 
 	(*tot_selected)++;
 
-	*sel = MEM_reallocN(*sel, sizeof(wmWidget *) * (*tot_selected));
+	*sel = MEM_reallocN(*sel, sizeof(wmManipulator *) * (*tot_selected));
 	(*sel)[(*tot_selected) - 1] = widget;
 
 	widget->flag |= WM_WIDGET_SELECTED;
@@ -377,7 +377,7 @@ bool wm_widget_select(bContext *C, wmWidgetMap *wmap, wmWidget *widget)
 	return true;
 }
 
-void wm_widget_calculate_scale(wmWidget *widget, const bContext *C)
+void wm_widget_calculate_scale(wmManipulator *widget, const bContext *C)
 {
 	const RegionView3D *rv3d = CTX_wm_region_view3d(C);
 	float scale = 1.0f;
@@ -402,7 +402,7 @@ void wm_widget_calculate_scale(wmWidget *widget, const bContext *C)
 	widget->scale = scale * widget->user_scale;
 }
 
-void wm_widget_update_prop_data(wmWidget *widget)
+void wm_widget_update_prop_data(wmManipulator *widget)
 {
 	/* widget property might have been changed, so update widget */
 	if (widget->props && widget->prop_data_update) {

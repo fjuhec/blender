@@ -55,7 +55,7 @@
 #include "wm_manipulator_intern.h"
 
 
-/* wmWidget->highlighted_part */
+/* wmManipulator->highlighted_part */
 enum {
 	WIDGET_RECT_TRANSFORM_INTERSECT_TRANSLATE     = 1,
 	WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT   = 2,
@@ -68,7 +68,7 @@ enum {
 #define WIDGET_RESIZER_WIDTH  20.0f
 
 typedef struct RectTransformWidget {
-	wmWidget widget;
+	wmManipulator widget;
 	float w, h;      /* dimensions of widget */
 	float rotation;  /* rotation of the rectangle */
 	float scale[2]; /* scaling for the widget for non-destructive editing. */
@@ -170,7 +170,7 @@ static void rect_transform_draw_interaction(
 	glLineWidth(1.0);
 }
 
-static void widget_rect_transform_draw(const bContext *UNUSED(C), wmWidget *widget)
+static void widget_rect_transform_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	rctf r;
@@ -218,7 +218,7 @@ static void widget_rect_transform_draw(const bContext *UNUSED(C), wmWidget *widg
 	glPopMatrix();
 }
 
-static int widget_rect_transform_get_cursor(wmWidget *widget)
+static int widget_rect_transform_get_cursor(wmManipulator *widget)
 {
 	switch (widget->highlighted_part) {
 		case WIDGET_RECT_TRANSFORM_INTERSECT_TRANSLATE:
@@ -234,7 +234,7 @@ static int widget_rect_transform_get_cursor(wmWidget *widget)
 	}
 }
 
-static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *event, wmWidget *widget)
+static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	const float mouse[2] = {event->mval[0], event->mval[1]};
@@ -332,7 +332,7 @@ typedef struct RectTransformInteraction {
 	float orig_scale[2];
 } RectTransformInteraction;
 
-static bool widget_rect_transform_get_prop_value(wmWidget *widget, const int slot, float *value)
+static bool widget_rect_transform_get_prop_value(wmManipulator *widget, const int slot, float *value)
 {
 	PropertyType type = RNA_property_type(widget->props[slot]);
 
@@ -366,7 +366,7 @@ static bool widget_rect_transform_get_prop_value(wmWidget *widget, const int slo
 	return true;
 }
 
-static int widget_rect_transform_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidget *widget)
+static int widget_rect_transform_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	RectTransformInteraction *data = MEM_callocN(sizeof(RectTransformInteraction), "cage_interaction");
@@ -382,7 +382,7 @@ static int widget_rect_transform_invoke(bContext *UNUSED(C), const wmEvent *even
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmWidget *widget, const int UNUSED(flag))
+static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmManipulator *widget, const int UNUSED(flag))
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	RectTransformInteraction *data = widget->interaction_data;
@@ -474,7 +474,7 @@ static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmWi
 	return OPERATOR_PASS_THROUGH;
 }
 
-static void widget_rect_transform_prop_data_update(wmWidget *widget, const int slot)
+static void widget_rect_transform_prop_data_update(wmManipulator *widget, const int slot)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 
@@ -484,7 +484,7 @@ static void widget_rect_transform_prop_data_update(wmWidget *widget, const int s
 		widget_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_SCALE, cage->scale);
 }
 
-static void widget_rect_transform_exit(bContext *C, wmWidget *widget, const bool cancel)
+static void widget_rect_transform_exit(bContext *C, wmManipulator *widget, const bool cancel)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	RectTransformInteraction *data = widget->interaction_data;
@@ -520,7 +520,7 @@ static void widget_rect_transform_exit(bContext *C, wmWidget *widget, const bool
  *
  * \{ */
 
-wmWidget *WIDGET_rect_transform_new(wmWidgetGroup *wgroup, const char *name, const int style)
+wmManipulator *WIDGET_rect_transform_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
 	RectTransformWidget *cage = MEM_callocN(sizeof(RectTransformWidget), name);
 
@@ -538,10 +538,10 @@ wmWidget *WIDGET_rect_transform_new(wmWidgetGroup *wgroup, const char *name, con
 
 	wm_widget_register(wgroup, &cage->widget, name);
 
-	return (wmWidget *)cage;
+	return (wmManipulator *)cage;
 }
 
-void WIDGET_rect_transform_set_dimensions(wmWidget *widget, const float width, const float height)
+void WIDGET_rect_transform_set_dimensions(wmManipulator *widget, const float width, const float height)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	cage->w = width;
