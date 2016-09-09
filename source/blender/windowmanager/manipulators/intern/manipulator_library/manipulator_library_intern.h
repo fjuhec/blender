@@ -23,13 +23,13 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/widget_library_intern.h
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/manipulator_library_intern.h
  *  \ingroup wm
  */
 
 
-#ifndef __WIDGET_LIBRARY_INTERN_H__
-#define __WIDGET_LIBRARY_INTERN_H__
+#ifndef __MANIPULATOR_LIBRARY_INTERN_H__
+#define __MANIPULATOR_LIBRARY_INTERN_H__
 
 /* distance around which widgets respond to input (and get highlighted) */
 #define WIDGET_HOTSPOT 14.0f /* TODO use everywhere */
@@ -89,5 +89,5 @@ void  widget_property_value_reset(bContext *C, const wmWidget *widget, WidgetInt
 
 float *widget_color_get(wmWidget *widget, const bool highlight);
 
-#endif  /* __WIDGET_LIBRARY_INTERN_H__ */
+#endif  /* __MANIPULATOR_LIBRARY_INTERN_H__ */
 

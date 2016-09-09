@@ -23,7 +23,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/wm_widgetmap.c
+/** \file blender/windowmanager/manipulators/intern/wm_manipulatormap.c
  *  \ingroup wm
  */
 
@@ -49,8 +49,8 @@
 #include "wm_event_system.h"
 
 /* own includes */
-#include "wm_widget_wmapi.h"
-#include "wm_widget_intern.h"
+#include "wm_manipulator_wmapi.h"
+#include "wm_manipulator_intern.h"
 
 /**
  * Store all widgetboxmaps here. Anyone who wants to register a widget for a certain

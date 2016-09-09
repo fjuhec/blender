@@ -23,10 +23,10 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/cage_widget.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/cage_manipulator.c
  *  \ingroup wm
  *
- * \name Cage Widget
+ * \name Cage Manipulator
  *
  * 2D Widget
  *
@@ -51,8 +51,8 @@
 #include "WM_types.h"
 
 /* own includes */
-#include "wm_widget_wmapi.h"
-#include "wm_widget_intern.h"
+#include "wm_manipulator_wmapi.h"
+#include "wm_manipulator_intern.h"
 
 
 /* wmWidget->highlighted_part */

@@ -23,7 +23,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/geom_arrow_widget.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/geom_arrow_manipulator.c
  *  \ingroup wm
  */
 

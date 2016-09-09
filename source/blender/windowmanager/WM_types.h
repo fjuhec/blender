@@ -119,7 +119,7 @@ struct ImBuf;
 /* exported types for WM */
 #include "wm_cursors.h"
 #include "wm_event_types.h"
-#include "widgets/WM_widget_types.h"
+#include "manipulators/WM_manipulator_types.h"
 
 /* ************** wmOperatorType ************************ */
 

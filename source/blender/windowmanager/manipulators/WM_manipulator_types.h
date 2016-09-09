@@ -23,18 +23,18 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/WM_widget_types.h
+/** \file blender/windowmanager/manipulators/WM_manipulator_types.h
  *  \ingroup wm
  *
- * \name Widget Types
- * \brief Widget defines for external use.
+ * \name Manipulator Types
+ * \brief Manipulator defines for external use.
  *
  * Only included in WM_types.h and lower level files.
  */
 
 
-#ifndef __WM_WIDGET_TYPES_H__
-#define __WM_WIDGET_TYPES_H__
+#ifndef __WM_MANIPULATOR_TYPES_H__
+#define __WM_MANIPULATOR_TYPES_H__
 
 #include "BLI_compiler_attrs.h"
 
@@ -162,5 +162,5 @@ enum eWidgetMapTypeFlag {
 	WM_WIDGETMAPTYPE_3D           = (1 << 0),
 };
 
-#endif  /* __WM_WIDGET_TYPES_H__ */
+#endif  /* __WM_MANIPULATOR_TYPES_H__ */
 

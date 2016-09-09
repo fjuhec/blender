@@ -1,4 +1,3 @@
-
 /*
  * ***** BEGIN GPL LICENSE BLOCK *****
  *
@@ -24,10 +23,10 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/arrow2d_widget.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/arrow2d_manipulator.c
  *  \ingroup wm
  *
- * \name 2D Arrow Widget
+ * \name 2D Arrow Manipulator
  *
  * 2D Widget
  *
@@ -54,11 +53,11 @@
 #include "WM_types.h"
 
 /* own includes */
-#include "WM_widget_types.h"
-#include "wm_widget_wmapi.h"
-#include "WM_widget_library.h"
-#include "wm_widget_intern.h"
-#include "widget_library_intern.h"
+#include "WM_manipulator_types.h"
+#include "wm_manipulator_wmapi.h"
+#include "WM_manipulator_library.h"
+#include "wm_manipulator_intern.h"
+#include "manipulator_library_intern.h"
 
 
 typedef struct ArrowWidget2D {

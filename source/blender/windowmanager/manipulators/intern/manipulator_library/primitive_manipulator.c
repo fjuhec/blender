@@ -20,14 +20,14 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/primitive_widget.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/primitive_manipulator.c
  *  \ingroup wm
  *
- * \name Primitive Widget
+ * \name Primitive Manipulator
  *
  * 3D Widget
  *
- * \brief Widget with primitive drawing type (plane, cube, etc.).
+ * \brief Manipulator with primitive drawing type (plane, cube, etc.).
  * Currently only plane primitive supported without own handling, use with operator only.
  */
 
@@ -48,11 +48,11 @@
 #include "WM_types.h"
 
 /* own includes */
-#include "WM_widget_types.h"
-#include "WM_widget_library.h"
-#include "wm_widget_wmapi.h"
-#include "wm_widget_intern.h"
-#include "widget_library_intern.h"
+#include "WM_manipulator_types.h"
+#include "WM_manipulator_library.h"
+#include "wm_manipulator_wmapi.h"
+#include "wm_manipulator_intern.h"
+#include "manipulator_library_intern.h"
 
 
 /* PrimitiveWidget->flag */

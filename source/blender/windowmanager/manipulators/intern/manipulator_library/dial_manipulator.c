@@ -23,10 +23,10 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/dial_widget.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/dial_manipulator.c
  *  \ingroup wm
  *
- * \name Dial Widget
+ * \name Dial Manipulator
  *
  * 3D Widget
  *
@@ -51,12 +51,12 @@
 #include "WM_types.h"
 
 /* own includes */
-#include "WM_widget_types.h"
-#include "WM_widget_library.h"
-#include "wm_widget_wmapi.h"
-#include "wm_widget_intern.h"
-#include "widget_geometry.h"
-#include "widget_library_intern.h"
+#include "WM_manipulator_types.h"
+#include "WM_manipulator_library.h"
+#include "wm_manipulator_wmapi.h"
+#include "wm_manipulator_intern.h"
+#include "manipulator_geometry.h"
+#include "manipulator_library_intern.h"
 
 
 /* to use custom dials exported to geom_dial_widget.c */

@@ -23,12 +23,12 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/widget_library_utils.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/manipulator_library_utils.c
  *  \ingroup wm
  *
- * \name Widget Library Utilities
+ * \name Manipulator Library Utilities
  *
- * \brief This file contains functions for common behaviors of widgets.
+ * \brief This file contains functions for common behaviors of manipulators.
  */
 
 #include "BKE_context.h"
@@ -38,9 +38,9 @@
 #include "WM_api.h"
 
 /* own includes */
-#include "WM_widget_types.h"
-#include "wm_widget_wmapi.h"
-#include "widget_library_intern.h"
+#include "WM_manipulator_types.h"
+#include "wm_manipulator_wmapi.h"
+#include "manipulator_library_intern.h"
 
 /* factor for precision tweaking */
 #define WIDGET_PRECISION_FAC 0.05f

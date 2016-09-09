@@ -23,18 +23,18 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/wm_widget_wmapi.h
+/** \file blender/windowmanager/manipulators/wm_manipulator_wmapi.h
  *  \ingroup wm
  *
- * \name Widgets Window Manager API
+ * \name Manipulators Window Manager API
  * \brief API for usage in window manager code only.
  *
  * Only included in wm.h and lower level files.
  */
 
 
-#ifndef __WM_WIDGET_WMAPI_H__
-#define __WM_WIDGET_WMAPI_H__
+#ifndef __WM_MANIPULATOR_WMAPI_H__
+#define __WM_MANIPULATOR_WMAPI_H__
 
 struct wmEventHandler;
 struct wmOperatorType;
@@ -163,5 +163,5 @@ wmWidget *wm_widgetmap_get_active_widget(struct wmWidgetMap *wmap);
 
 bool wm_widgetmap_deselect_all(struct wmWidgetMap *wmap, wmWidget ***sel);
 
-#endif  /* __WM_WIDGET_WMAPI_H__ */
+#endif  /* __WM_MANIPULATOR_WMAPI_H__ */
 

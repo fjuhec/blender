@@ -23,18 +23,18 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/widget_geometry.h
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/manipulator_geometry.h
  *  \ingroup wm
  *
- * \name Widget Geometry
+ * \name Manipulator Geometry
  *
  * \brief Prototypes for arrays defining the widget geometry. The actual definitions can be found in files usually
  *        called geom_xxx_widget.c
  */
 
 
-#ifndef __WIDGET_GEOMETRY_H__
-#define __WIDGET_GEOMETRY_H__
+#ifndef __MANIPULATOR_GEOMETRY_H__
+#define __MANIPULATOR_GEOMETRY_H__
 
 
 /* arrow widget */
@@ -63,5 +63,5 @@ extern float _WIDGET_verts_dial[][3];
 extern float _WIDGET_normals_dial[][3];
 extern unsigned short _WIDGET_indices_dial[];
 
-#endif  /* __WIDGET_GEOMETRY_H__ */
+#endif  /* __MANIPULATOR_GEOMETRY_H__ */
 

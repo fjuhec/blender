@@ -23,18 +23,18 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/WM_widget_api.h
+/** \file blender/windowmanager/manipulators/WM_manipulator_api.h
  *  \ingroup wm
  *
- * \name Widget API
+ * \name Manipulator API
  * \brief API for external use of wmWidget types.
  *
  * Only included in WM_api.h
  */
 
 
-#ifndef __WM_WIDGET_API_H__
-#define __WM_WIDGET_API_H__
+#ifndef __WM_MANIPULATOR_API_H__
+#define __WM_MANIPULATOR_API_H__
 
 struct ARegion;
 struct Main;
@@ -114,5 +114,5 @@ bool WM_widgetmap_select_all(struct bContext *C, struct wmWidgetMap *wmap, const
 
 bool WM_widgetmap_cursor_set(const struct wmWidgetMap *wmap, struct wmWindow *win);
 
-#endif  /* __WM_WIDGET_API_H__ */
+#endif  /* __WM_MANIPULATOR_API_H__ */
 

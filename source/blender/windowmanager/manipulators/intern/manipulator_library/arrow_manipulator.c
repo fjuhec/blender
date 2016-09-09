@@ -23,10 +23,10 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/arrow_widget.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/arrow_manipulator.c
  *  \ingroup wm
  *
- * \name Arrow Widget
+ * \name Arrow Manipulator
  *
  * 3D Widget
  *
@@ -55,10 +55,10 @@
 #include "WM_api.h"
 
 /* own includes */
-#include "wm_widget_wmapi.h"
-#include "wm_widget_intern.h"
-#include "widget_geometry.h"
-#include "widget_library_intern.h"
+#include "wm_manipulator_wmapi.h"
+#include "wm_manipulator_intern.h"
+#include "manipulator_geometry.h"
+#include "manipulator_library_intern.h"
 
 
 /* to use custom arrows exported to geom_arrow_widget.c */

@@ -20,13 +20,13 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/wm_widget_intern.h
+/** \file blender/windowmanager/manipulators/intern/wm_manipulator_intern.h
  *  \ingroup wm
  */
 
 
-#ifndef __WM_WIDGET_INTERN_H__
-#define __WM_WIDGET_INTERN_H__
+#ifndef __WM_MANIPULATOR_INTERN_H__
+#define __WM_MANIPULATOR_INTERN_H__
 
 struct wmKeyConfig;
 struct wmWidget;
@@ -112,5 +112,5 @@ typedef struct WidgetDrawInfo {
 
 void widget_draw_intern(WidgetDrawInfo *info, const bool select);
 
-#endif  /* __WM_WIDGET_INTERN_H__ */
+#endif  /* __WM_MANIPULATOR_INTERN_H__ */
 

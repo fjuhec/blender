@@ -23,7 +23,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/wm_widgetgroup.c
+/** \file blender/windowmanager/manipulators/intern/wm_manipulatorgroup.c
  *  \ingroup wm
  *
  * \name Widget Group
@@ -52,8 +52,8 @@
 #include "wm_event_system.h"
 
 /* own includes */
-#include "wm_widget_wmapi.h"
-#include "wm_widget_intern.h"
+#include "wm_manipulator_wmapi.h"
+#include "wm_manipulator_intern.h"
 
 
 /* -------------------------------------------------------------------- */

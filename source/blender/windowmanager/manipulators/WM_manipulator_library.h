@@ -20,17 +20,17 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/WM_widget_library.h
+/** \file blender/windowmanager/manipulators/WM_manipulator_library.h
  *  \ingroup wm
  *
- * \name Generic Widget Library
+ * \name Generic Manipulator Library
  *
  * Only included in WM_api.h and lower level files.
  */
 
 
-#ifndef __WM_WIDGET_LIBRARY_H__
-#define __WM_WIDGET_LIBRARY_H__
+#ifndef __WM_MANIPULATOR_LIBRARY_H__
+#define __WM_MANIPULATOR_LIBRARY_H__
 
 struct wmWidgetGroup;
 
@@ -122,5 +122,5 @@ struct wmWidget *WIDGET_primitive_new(struct wmWidgetGroup *wgroup, const char *
 void WIDGET_primitive_set_direction(struct wmWidget *widget, const float direction[3]);
 void WIDGET_primitive_set_up_vector(struct wmWidget *widget, const float direction[3]);
 
-#endif  /* __WM_WIDGET_LIBRARY_H__ */
+#endif  /* __WM_MANIPULATOR_LIBRARY_H__ */
 

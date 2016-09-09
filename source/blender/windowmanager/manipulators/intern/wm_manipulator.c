@@ -23,7 +23,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/wm_widget.c
+/** \file blender/windowmanager/manipulators/intern/wm_manipulator.c
  *  \ingroup wm
  */
 
@@ -47,8 +47,8 @@
 #include "WM_types.h"
 
 /* own includes */
-#include "wm_widget_wmapi.h"
-#include "wm_widget_intern.h"
+#include "wm_manipulator_wmapi.h"
+#include "wm_manipulator_intern.h"
 
 /**
  * Main draw call for WidgetDrawInfo data
