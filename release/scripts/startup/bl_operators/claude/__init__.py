@@ -117,18 +117,22 @@ class ClaudeRepository:
             self.is_ready = False
             self.nodes.clear()
         if parts and parts[0] == "/":
-            nids = [parts[0]]
+            nids = []
             paths = self.path_map
+            idx = 0
             for i, p in enumerate(parts[1:]):
+                idx = i + 1
                 nid, paths = paths.get(p, (None, None))
+                print(p, nid, paths)
                 if nid is None:
-                    if do_update_intern:
-                        self.pending_path = parts[i + 1:]
-                        self.curr_path = pillar.CloudPath("/".join(parts[:i + 1]))
-                        self.curr_path_real = pillar.CloudPath("/".join(nids))
+                    idx -= 1
                     break
                 else:
                     nids.append(nid)
+            if do_update_intern:
+                self.pending_path = parts[idx:]
+                self.curr_path = pillar.CloudPath("/" + "/".join(parts[1:idx + 1]))
+                self.curr_path_real = pillar.CloudPath("/" + "/".join(nids))
             return True, root_path
         elif do_change:
             if do_update_intern:
@@ -234,15 +238,12 @@ class ClaudeJobCheckCredentials(ClaudeJob):
         return None
 
     @ClaudeJob.async_looper
-    def start(self):
-        self.check_task = self.add_task(self.check())
-        self.progress = 0.0
-        self.status = {'VALID', 'RUNNING'}
-
-    @ClaudeJob.async_looper
     def update(self):
         self.status = {'VALID', 'RUNNING'}
         user_id = ...
+
+        if self.check_task is ...:
+            self.check_task = self.add_task(self.check())
 
         self.progress += 0.05
         if (self.progress > 1.0):
@@ -265,9 +266,9 @@ class ClaudeJobCheckCredentials(ClaudeJob):
     def __init__(self, job_id):
         super().__init__(job_id)
 
-        self.check_task = None
+        self.check_task = ...
 
-        self.start()
+        self.update()
 
 
 class ClaudeJobList(ClaudeJob):
@@ -275,32 +276,54 @@ class ClaudeJobList(ClaudeJob):
     async def ls(repo):
         print("we should be listing Cloud content from %s..." % repo.curr_path_real)
 
-        project_uuid = repo.curr_path_real.project_uuid
-        node_uuid = repo.curr_path_real.node_uuid
+        async def ls_do(part):
+            project_uuid = repo.curr_path_real.project_uuid
+            node_uuid = repo.curr_path_real.node_uuid
+            repo.nodes.clear()
 
-        if node_uuid:
-            # Query for sub-nodes of this node.
-            print("Getting subnodes for parent node %r" % node_uuid)
-            children = await pillar.get_nodes(parent_node_uuid=node_uuid, node_type='group_texture')
-            print(children)
-        elif project_uuid:
-            # Query for top-level nodes.
-            print("Getting subnodes for project node %r" % project_uuid)
-            children = await pillar.get_nodes(project_uuid=project_uuid, parent_node_uuid='', node_type='group_texture')
-            print(children)
-        else:
-            # Query for projects
-            print("No node UUID and no project UUID, listing available projects")
-            children = await pillar.get_texture_projects()
-            print(children)
+            # XXX Not nice to redo whole path, should be cached...
+            curr_path_map = repo.path_map
+            for pname, puuid in zip(repo.curr_path.parts[1:], repo.curr_path_real.parts[1:]):
+                nid, curr_path_map = curr_path_map[pname]
+                assert(nid == puuid)
+            curr_path_map.clear()
+
+            if node_uuid:
+                # Query for sub-nodes of this node.
+                print("Getting subnodes for parent node %r" % node_uuid)
+                children = [UpNode()]
+                children += await pillar.get_nodes(parent_node_uuid=node_uuid, node_type='group_texture')
+            elif project_uuid:
+                # Query for top-level nodes.
+                print("Getting subnodes for project node %r" % project_uuid)
+                children = [UpNode()]
+                children += await pillar.get_nodes(project_uuid=project_uuid, parent_node_uuid='', node_type='group_texture')
+            else:
+                # Query for projects
+                print("No node UUID and no project UUID, listing available projects")
+                children = await pillar.get_texture_projects()
+                children = [ProjectNode(proj_dict) for proj_dict in children]
+
+            for node in children:
+                repo.nodes[node['_id']] = node
+                curr_path_map[node['name']] = (node['_id'], {})
+
+            if part is None:
+                return True
+
+            if part in curr_path_map:
+                repo.curr_path /= part
+                repo.curr_path_real /= curr_path_map[part][0]
+                return True
+            return False
+
+        for ppath in repo.pending_path:
+            if not await ls_do(ppath):
+                break
+        await ls_do(None)
 
         repo.pending_path = []
         repo.is_ready = True
-
-    @ClaudeJob.async_looper
-    def start(self, user_id):
-        self.ls_task = self.add_task(self.ls(self.repo))
-        self.status = {'VALID', 'RUNNING'}
 
     @ClaudeJob.async_looper
     def update(self, user_id):
@@ -311,15 +334,18 @@ class ClaudeJobList(ClaudeJob):
             self.cancel()
             return
 
-        if user_id is ...:
-            print("Awaiting a valid user ID...")
-            return
-
         self.progress += 0.05
         if (self.progress > 1.0):
             self.progress = 0.0
 
-        if self.ls_task is not None:
+        if user_id is ...:
+            print("Awaiting a valid user ID...")
+            return
+
+        if self.ls_task is ...:
+            self.ls_task = self.add_task(self.ls(self.repo))
+
+        if self.ls_task not in {None, ...}:
             if self.ls_task.done():
                 print("ls finished, we should have our children nodes now!")
                 self.ls_task = self.remove_task(self.ls_task)
@@ -336,11 +362,10 @@ class ClaudeJobList(ClaudeJob):
     def __init__(self, job_id, user_id, repo):
         super().__init__(job_id)
         self.repo = repo
-        self.curr_path = repo.curr_path_real
 
-        self.ls_task = None
+        self.ls_task = ...
 
-        self.start(user_id)
+        self.update(user_id)
 
 
 """
@@ -522,7 +547,9 @@ class AssetEngineClaude(AssetEngine):
 
         curr_path = pillar.CloudPath(entries.root_path)
         if curr_path != self.repo.curr_path:
+            print(curr_path, self.repo.curr_path)
             self.repo.check_dir_do(curr_path, True, True)
+            print(curr_path, self.repo.curr_path)
 
         if not self.repo.is_ready:
             curr_path = self.repo.curr_path_real
@@ -537,15 +564,16 @@ class AssetEngineClaude(AssetEngine):
             if job is not None:
                 job.update(user_id)
                 print(job.status)
-                if 'RUNNING' not in job.status:
+                if self.repo.is_ready or 'RUNNING' not in job.status:
                     entries.root_path = str(self.repo.curr_path)
+                    self.kill(job_id)
 
-        print(list(self.repo.nodes.values()))
-        entries.nbr_entries = 1 #len(self.repo.nodes)
+        #~ print(list(self.repo.nodes.values()))
+        entries.nbr_entries = len(self.repo.nodes)
         return job_id
 
     def sort_filter(self, use_sort, use_filter, params, entries):
-        entries.nbr_entries_filtered = 1 #len(self.repo.nodes)
+        entries.nbr_entries_filtered = len(self.repo.nodes)
         return False
 
     def update_check(self, job_id, uuids):
@@ -567,35 +595,25 @@ class AssetEngineClaude(AssetEngine):
     """
 
     def check_dir(self, entries, do_change):
+        print(self.repo.path_map)
         ret, root_path = self.repo.check_dir_do(pillar.CloudPath(entries.root_path), do_change, False)
         entries.root_path = str(root_path)
         return ret
 
     def entries_block_get(self, start_index, end_index, entries):
-        entry = entries.entries.add()
-        entry.type = {'DIR'}
-        entry.relpath = ".."
-        #~ print("added entry for", entry.relpath)
-        entry.uuid = (0, 0, 0, 1)
-        variant = entry.variants.add()
-        entry.variants.active = variant
-        rev = variant.revisions.add()
-        variant.revisions.active = rev
-        """
         print(start_index, end_index)
-        for uuid, path in enumerate(self.dirs[start_index:end_index]):
-            uuid += start_index
-            print(uuid, path)
+        print(self.repo.nodes)
+        print("\n\n\n")
+        for num, (uuid, node) in enumerate(tuple(self.repo.nodes.items())[start_index:end_index]):
             entry = entries.entries.add()
             entry.type = {'DIR'}
-            entry.relpath = path
+            entry.relpath = node['name']
             #~ print("added entry for", entry.relpath)
-            entry.uuid = (0, 0, 0, uuid)
+            entry.uuid = (0, 0, 0, num)
             variant = entry.variants.add()
             entry.variants.active = variant
             rev = variant.revisions.add()
             variant.revisions.active = rev
-        """
         return True
 
     def entries_uuid_get(self, uuids, entries):
