@@ -61,7 +61,7 @@
 #include "widget_library_intern.h"
 
 
-/* to use custom arrows exported to arrow_widget.c */
+/* to use custom arrows exported to geom_arrow_widget.c */
 //#define WIDGET_USE_CUSTOM_ARROWS
 
 #ifdef WIDGET_USE_CUSTOM_ARROWS

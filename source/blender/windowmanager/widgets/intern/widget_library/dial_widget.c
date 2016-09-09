@@ -59,7 +59,7 @@
 #include "widget_library_intern.h"
 
 
-/* to use custom dials exported to dial_widget.c */
+/* to use custom dials exported to geom_dial_widget.c */
 //#define WIDGET_USE_CUSTOM_DIAS
 
 #ifdef WIDGET_USE_CUSTOM_DIAS

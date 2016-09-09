@@ -56,7 +56,9 @@
 
 
 /* PrimitiveWidget->flag */
-#define PRIM_UP_VECTOR_SET 1
+enum {
+	PRIM_UP_VECTOR_SET = (1 << 0),
+};
 
 typedef struct PrimitiveWidget {
 	wmWidget widget;
