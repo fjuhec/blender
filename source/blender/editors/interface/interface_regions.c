@@ -73,44 +73,12 @@
 #define MENU_PADDING		(int)(0.2f * UI_UNIT_Y)
 #define MENU_BORDER			(int)(0.3f * U.widget_unit)
 
-static int rna_property_enum_step(const bContext *C, PointerRNA *ptr, PropertyRNA *prop, int direction)
-{
-	EnumPropertyItem *item_array;
-	int totitem;
-	bool free;
-	int value;
-	int i, i_init;
-	int step = (direction < 0) ? -1 : 1;
-	int step_tot = 0;
-
-	RNA_property_enum_items((bContext *)C, ptr, prop, &item_array, &totitem, &free);
-	value = RNA_property_enum_get(ptr, prop);
-	i = RNA_enum_from_value(item_array, value);
-	i_init = i;
-
-	do {
-		i = mod_i(i + step, totitem);
-		if (item_array[i].identifier[0]) {
-			step_tot += step;
-		}
-	} while ((i != i_init) && (step_tot != direction));
-
-	if (i != i_init) {
-		value = item_array[i].value;
-	}
-
-	if (free) {
-		MEM_freeN(item_array);
-	}
-
-	return value;
-}
 
 bool ui_but_menu_step_poll(const uiBut *but)
 {
 	BLI_assert(but->type == UI_BTYPE_MENU);
 
-	/* currenly only RNA buttons */
+	/* currently only RNA buttons */
 	return ((but->menu_step_func != NULL) ||
 	        (but->rnaprop && RNA_property_type(but->rnaprop) == PROP_ENUM));
 }
@@ -122,7 +90,8 @@ int ui_but_menu_step(uiBut *but, int direction)
 			return but->menu_step_func(but->block->evil_C, direction, but->poin);
 		}
 		else {
-			return rna_property_enum_step(but->block->evil_C, &but->rnapoin, but->rnaprop, direction);
+			const int curval = RNA_property_enum_get(&but->rnapoin, but->rnaprop);
+			return RNA_property_enum_step(but->block->evil_C, &but->rnapoin, but->rnaprop, curval, direction);
 		}
 	}
 
@@ -454,7 +423,7 @@ static uiTooltipData *ui_tooltip_data_from_button(bContext *C, uiBut *but)
 
 		if (but->rnapoin.id.data) {
 			ID *id = but->rnapoin.id.data;
-			if (id->lib) {
+			if (ID_IS_LINKED_DATABLOCK(id)) {
 				BLI_snprintf(data->lines[data->totline], sizeof(data->lines[0]), TIP_("Library: %s"), id->lib->name);
 				data->format[data->totline].color_id = UI_TIP_LC_NORMAL;
 				data->totline++;
@@ -1380,6 +1349,7 @@ static void ui_searchbox_region_draw_cb__operator(const bContext *UNUSED(C), ARe
 			rect_pre.xmax = rect_post.xmin = rect.xmin + ((rect.xmax - rect.xmin) / 4);
 
 			/* widget itself */
+			/* NOTE: i18n messages extracting tool does the same, please keep it in sync. */
 			{
 				wmOperatorType *ot = data->items.pointers[a];
 
@@ -1400,7 +1370,8 @@ static void ui_searchbox_region_draw_cb__operator(const bContext *UNUSED(C), ARe
 				}
 
 				rect_pre.xmax += 4;  /* sneaky, avoid showing ugly margin */
-				ui_draw_menu_item(&data->fstyle, &rect_pre, text_pre, data->items.icons[a], state, false);
+				ui_draw_menu_item(&data->fstyle, &rect_pre, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, text_pre),
+				                  data->items.icons[a], state, false);
 				ui_draw_menu_item(&data->fstyle, &rect_post, data->items.names[a], 0, state, data->use_sep);
 			}
 
@@ -1701,7 +1672,9 @@ static void ui_block_region_draw(const bContext *C, ARegion *ar)
 		ar->do_draw &= ~RGN_DRAW_REFRESH_UI;
 		for (block = ar->uiblocks.first; block; block = block_next) {
 			block_next = block->next;
-			ui_popup_block_refresh((bContext *)C, block->handle, NULL, NULL);
+			if (block->handle->can_refresh) {
+				ui_popup_block_refresh((bContext *)C, block->handle, NULL, NULL);
+			}
 		}
 	}
 
@@ -1788,10 +1761,20 @@ void ui_popup_block_scrolltest(uiBlock *block)
 
 static void ui_popup_block_remove(bContext *C, uiPopupBlockHandle *handle)
 {
-	ui_region_temp_remove(C, CTX_wm_screen(C), handle->region);
+	wmWindow *win = CTX_wm_window(C);
+	bScreen *sc = CTX_wm_screen(C);
+
+	ui_region_temp_remove(C, sc, handle->region);
+
+	/* reset to region cursor (only if there's not another menu open) */
+	if (BLI_listbase_is_empty(&sc->regionbase)) {
+		ED_region_cursor_set(win, CTX_wm_area(C), CTX_wm_region(C));
+		/* in case cursor needs to be changed again */
+		WM_event_add_mousemove(C);
+	}
 
 	if (handle->scrolltimer)
-		WM_event_remove_timer(CTX_wm_manager(C), CTX_wm_window(C), handle->scrolltimer);
+		WM_event_remove_timer(CTX_wm_manager(C), win, handle->scrolltimer);
 }
 
 /**
@@ -1801,6 +1784,8 @@ uiBlock *ui_popup_block_refresh(
         bContext *C, uiPopupBlockHandle *handle,
         ARegion *butregion, uiBut *but)
 {
+	BLI_assert(handle->can_refresh == true);
+
 	const int margin = UI_POPUP_MARGIN;
 	wmWindow *window = CTX_wm_window(C);
 	ARegion *ar = handle->region;
@@ -1965,10 +1950,18 @@ uiPopupBlockHandle *ui_popup_block_create(
         void *arg)
 {
 	wmWindow *window = CTX_wm_window(C);
+	uiBut *activebut = UI_context_active_but_get(C);
 	static ARegionType type;
 	ARegion *ar;
 	uiBlock *block;
 	uiPopupBlockHandle *handle;
+
+	/* disable tooltips from buttons below */
+	if (activebut) {
+		UI_but_tooltip_timer_remove(C, activebut);
+	}
+	/* standard cursor by default */
+	WM_cursor_set(window, CURSOR_STD);
 
 	/* create handle */
 	handle = MEM_callocN(sizeof(uiPopupBlockHandle), "uiPopupBlockHandle");
@@ -1983,6 +1976,8 @@ uiPopupBlockHandle *ui_popup_block_create(
 	handle->popup_create_vars.arg = arg;
 	handle->popup_create_vars.butregion = but ? butregion : NULL;
 	copy_v2_v2_int(handle->popup_create_vars.event_xy, &window->eventstate->x);
+	/* caller may free vars used to create this popup, in that case this variable should be disabled. */
+	handle->can_refresh = true;
 
 	/* create area region */
 	ar = ui_region_temp_add(CTX_wm_screen(C));
@@ -2309,6 +2304,12 @@ static void ui_block_colorpicker(uiBlock *block, float rgba[4], PointerRNA *ptr,
 	RNA_property_float_range(ptr, prop, &hardmin, &hardmax);
 	RNA_property_float_get_array(ptr, prop, rgba);
 
+	/* when the softmax isn't defined in the RNA,
+	 * using very large numbers causes sRGB/linear round trip to fail. */
+	if (softmax == FLT_MAX) {
+		softmax = 1.0f;
+	}
+
 	switch (U.color_picker_type) {
 		case USER_CP_SQUARE_SV:
 			ui_colorpicker_square(block, ptr, prop, UI_GRAD_SV, cpicker);
@@ -2400,7 +2401,7 @@ static void ui_block_colorpicker(uiBlock *block, float rgba[4], PointerRNA *ptr,
 	BLI_snprintf(hexcol, sizeof(hexcol), "%02X%02X%02X", UNPACK3_EX((unsigned int), rgb_gamma_uchar, ));
 
 	yco = -3.0f * UI_UNIT_Y;
-	bt = uiDefBut(block, UI_BTYPE_TEXT, 0, IFACE_("Hex: "), 0, yco, butwidth, UI_UNIT_Y, hexcol, 0, 8, 0, 0, TIP_("Hex triplet for color (#RRGGBB)"));
+	bt = uiDefBut(block, UI_BTYPE_TEXT, 0, IFACE_("Hex: "), 0, yco, butwidth, UI_UNIT_Y, hexcol, 0, 7, 0, 0, TIP_("Hex triplet for color (#RRGGBB)"));
 	UI_but_func_set(bt, ui_colorpicker_hex_rna_cb, bt, hexcol);
 	bt->custom_data = cpicker;
 	uiDefBut(block, UI_BTYPE_LABEL, 0, IFACE_("(Gamma Corrected)"), 0, yco - UI_UNIT_Y, butwidth, UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, "");
@@ -2776,6 +2777,7 @@ uiPopupBlockHandle *ui_popup_menu_create(
 		WM_event_add_mousemove(C);
 	}
 	
+	handle->can_refresh = false;
 	MEM_freeN(pup);
 
 	return handle;
@@ -2783,14 +2785,17 @@ uiPopupBlockHandle *ui_popup_menu_create(
 
 /******************** Popup Menu API with begin and end ***********************/
 
-/* only return handler, and set optional title */
-uiPopupMenu *UI_popup_menu_begin(bContext *C, const char *title, int icon)
+/**
+ * Only return handler, and set optional title.
+ * \param block_name: Assigned to uiBlock.name (useful info for debugging).
+ */
+uiPopupMenu *UI_popup_menu_begin_ex(bContext *C, const char *title, const char *block_name, int icon)
 {
 	uiStyle *style = UI_style_get_dpi();
 	uiPopupMenu *pup = MEM_callocN(sizeof(uiPopupMenu), "popup menu");
 	uiBut *but;
 
-	pup->block = UI_block_begin(C, NULL, __func__, UI_EMBOSS_PULLDOWN);
+	pup->block = UI_block_begin(C, NULL, block_name, UI_EMBOSS_PULLDOWN);
 	pup->block->flag |= UI_BLOCK_POPUP_MEMORY | UI_BLOCK_IS_FLIP;
 	pup->block->puphash = ui_popup_menu_hash(title);
 	pup->layout = UI_block_layout(pup->block, UI_LAYOUT_VERTICAL, UI_LAYOUT_MENU, 0, 0, 200, 0, MENU_PADDING, style);
@@ -2821,6 +2826,11 @@ uiPopupMenu *UI_popup_menu_begin(bContext *C, const char *title, int icon)
 	return pup;
 }
 
+uiPopupMenu *UI_popup_menu_begin(bContext *C, const char *title, int icon)
+{
+	return UI_popup_menu_begin_ex(C, title, __func__, icon);
+}
+
 /* set the whole structure to work */
 void UI_popup_menu_end(bContext *C, uiPopupMenu *pup)
 {
@@ -2836,7 +2846,8 @@ void UI_popup_menu_end(bContext *C, uiPopupMenu *pup)
 	
 	UI_popup_handlers_add(C, &window->modalhandlers, menu, 0);
 	WM_event_add_mousemove(C);
-	
+
+	menu->can_refresh = false;
 	MEM_freeN(pup);
 }
 
@@ -2967,6 +2978,7 @@ void UI_pie_menu_end(bContext *C, uiPieMenu *pie)
 	        menu, WM_HANDLER_ACCEPT_DBL_CLICK);
 	WM_event_add_mousemove(C);
 
+	menu->can_refresh = false;
 	MEM_freeN(pie);
 }
 
@@ -2988,7 +3000,8 @@ int UI_pie_menu_invoke(struct bContext *C, const char *idname, const wmEvent *ev
 	}
 
 	if (mt->poll && mt->poll(C, mt) == 0)
-		return OPERATOR_CANCELLED;
+		/* cancel but allow event to pass through, just like operators do */
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 
 	pie = UI_pie_menu_begin(C, IFACE_(mt->label), ICON_NONE, event);
 	layout = UI_pie_menu_layout(pie);
@@ -3178,7 +3191,8 @@ void UI_popup_menu_reports(bContext *C, ReportList *reports)
 		if (pup == NULL) {
 			char title[UI_MAX_DRAW_STR];
 			BLI_snprintf(title, sizeof(title), "%s: %s", IFACE_("Report"), report->typestr);
-			pup = UI_popup_menu_begin(C, title, ICON_NONE);
+			/* popup_menu stuff does just what we need (but pass meaningful block name) */
+			pup = UI_popup_menu_begin_ex(C, title, __func__, ICON_NONE);
 			layout = UI_popup_menu_layout(pup);
 		}
 		else {
@@ -3219,7 +3233,8 @@ int UI_popup_menu_invoke(bContext *C, const char *idname, ReportList *reports)
 	}
 
 	if (mt->poll && mt->poll(C, mt) == 0)
-		return OPERATOR_CANCELLED;
+		/* cancel but allow event to pass through, just like operators do */
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 
 	pup = UI_popup_menu_begin(C, IFACE_(mt->label), ICON_NONE);
 	layout = UI_popup_menu_layout(pup);
@@ -3305,6 +3320,11 @@ void UI_popup_block_close(bContext *C, wmWindow *win, uiBlock *block)
 		if (win) {
 			UI_popup_handlers_remove(&win->modalhandlers, block->handle);
 			ui_popup_block_free(C, block->handle);
+
+			/* In the case we have nested popups, closing one may need to redraw another, see: T48874 */
+			for (ARegion *ar = win->screen->regionbase.first; ar; ar = ar->next) {
+				ED_region_tag_refresh_ui(ar);
+			}
 		}
 	}
 }

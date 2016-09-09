@@ -292,6 +292,18 @@ ccl_device_inline void object_motion_info(KernelGlobals *kg, int object, int *nu
 		*numverts = __float_as_int(f.w);
 }
 
+/* Offset to an objects patch map */
+
+ccl_device_inline uint object_patch_map_offset(KernelGlobals *kg, int object)
+{
+	if(object == OBJECT_NONE)
+		return 0;
+
+	int offset = object*OBJECT_SIZE + 11;
+	float4 f = kernel_tex_fetch(__objects, offset);
+	return __float_as_uint(f.x);
+}
+
 /* Pass ID for shader */
 
 ccl_device int shader_pass_id(KernelGlobals *kg, const ShaderData *sd)
@@ -538,7 +550,7 @@ ccl_device_inline void bvh_instance_motion_pop_factor(KernelGlobals *kg,
                                                       float *t_fac,
                                                       Transform *itfm)
 {
-	*t_fac /= len(transform_direction(itfm, ray->D));
+	*t_fac = 1.0f / len(transform_direction(itfm, ray->D));
 	*P = ray->P;
 	*dir = bvh_clamp_direction(ray->D);
 	*idir = bvh_inverse_direction(*dir);

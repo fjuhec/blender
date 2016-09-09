@@ -2,6 +2,7 @@
 set(INC
 	.
 	../device
+	../graph
 	../kernel
 	../kernel/svm
 	../kernel/osl
@@ -21,6 +22,7 @@ set(SRC
 	bake.cpp
 	buffers.cpp
 	camera.cpp
+	constant_fold.cpp
 	film.cpp
 	graph.cpp
 	image.cpp
@@ -28,6 +30,7 @@ set(SRC
 	light.cpp
 	mesh.cpp
 	mesh_displace.cpp
+	mesh_subdivision.cpp
 	nodes.cpp
 	object.cpp
 	osl.cpp
@@ -48,6 +51,7 @@ set(SRC_HEADERS
 	background.h
 	buffers.h
 	camera.h
+	constant_fold.h
 	film.h
 	graph.h
 	image.h

@@ -416,7 +416,7 @@ bool UI_context_copy_to_selected_list(
 
 					if ((id_data == NULL) ||
 					    (id_data->tag & LIB_TAG_DOIT) == 0 ||
-					    (id_data->lib) ||
+					    ID_IS_LINKED_DATABLOCK(id_data) ||
 					    (GS(id_data->name) != id_code))
 					{
 						BLI_remlink(&lb, link);
@@ -557,7 +557,7 @@ static void UI_OT_copy_to_selected_button(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* properties */
-	RNA_def_boolean(ot->srna, "all", 1, "All", "Reset to default values all elements of the array");
+	RNA_def_boolean(ot->srna, "all", true, "All", "Copy to selected all elements of the array");
 }
 
 /* Reports to Textblock Operator ------------------------ */
@@ -897,7 +897,7 @@ static int edittranslation_exec(bContext *C, wmOperator *op)
 		}
 		ot = WM_operatortype_find(EDTSRC_I18N_OP_NAME, 0);
 		if (ot == NULL) {
-			BKE_reportf(op->reports, RPT_ERROR, "Could not find operator '%s'! Please enable ui_translate addon "
+			BKE_reportf(op->reports, RPT_ERROR, "Could not find operator '%s'! Please enable ui_translate add-on "
 			                                    "in the User Preferences", EDTSRC_I18N_OP_NAME);
 			return OPERATOR_CANCELLED;
 		}
@@ -1082,6 +1082,78 @@ static void UI_OT_drop_color(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "gamma", 0, "Gamma Corrected", "The source color is gamma corrected ");
 }
 
+/* ------------------------------------------------------------------------- */
+
+static EnumPropertyItem space_context_cycle_direction[] = {
+	{SPACE_CONTEXT_CYCLE_PREV, "PREV", 0, "Previous", ""},
+	{SPACE_CONTEXT_CYCLE_NEXT, "NEXT", 0, "Next", ""},
+	{0, NULL, 0, NULL, NULL}
+};
+
+static int space_context_cycle_poll(bContext *C)
+{
+	ScrArea *sa = CTX_wm_area(C);
+	return ELEM(sa->spacetype, SPACE_BUTS, SPACE_USERPREF);
+}
+
+/**
+ * Helper to get the correct RNA pointer/property pair for changing
+ * the display context of active space type in \sa.
+ */
+static void context_cycle_prop_get(
+        bScreen *screen, const ScrArea *sa,
+        PointerRNA *r_ptr, PropertyRNA **r_prop)
+{
+	const char *propname;
+
+	switch (sa->spacetype) {
+		case SPACE_BUTS:
+			RNA_pointer_create(&screen->id, &RNA_SpaceProperties, sa->spacedata.first, r_ptr);
+			propname = "context";
+			break;
+		case SPACE_USERPREF:
+			RNA_pointer_create(NULL, &RNA_UserPreferences, &U, r_ptr);
+			propname = "active_section";
+			break;
+	}
+
+	*r_prop = RNA_struct_find_property(r_ptr, propname);
+}
+
+static int space_context_cycle_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	const int direction = RNA_enum_get(op->ptr, "direction");
+
+	PointerRNA ptr;
+	PropertyRNA *prop;
+	context_cycle_prop_get(CTX_wm_screen(C), CTX_wm_area(C), &ptr, &prop);
+
+	const int old_context = RNA_property_enum_get(&ptr, prop);
+	const int new_context = RNA_property_enum_step(
+	                  C, &ptr, prop, old_context,
+	                  direction == SPACE_CONTEXT_CYCLE_PREV ? -1 : 1);
+	RNA_property_enum_set(&ptr, prop, new_context);
+	RNA_property_update(C, &ptr, prop);
+
+	return OPERATOR_FINISHED;
+}
+
+static void UI_OT_space_context_cycle(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Cycle Space Context";
+	ot->description = "Cycle through the editor context by activating the next/previous one";
+	ot->idname = "UI_OT_space_context_cycle";
+
+	/* api callbacks */
+	ot->invoke = space_context_cycle_invoke;
+	ot->poll = space_context_cycle_poll;
+
+	ot->flag = 0;
+
+	RNA_def_enum(ot->srna, "direction", space_context_cycle_direction, SPACE_CONTEXT_CYCLE_NEXT, "Direction",
+	             "Direction to cycle through");
+}
 
 
 /* ********************************************************* */
@@ -1102,6 +1174,7 @@ void ED_operatortypes_ui(void)
 	WM_operatortype_append(UI_OT_edittranslation_init);
 #endif
 	WM_operatortype_append(UI_OT_reloadtranslation);
+	WM_operatortype_append(UI_OT_space_context_cycle);
 
 	/* external */
 	WM_operatortype_append(UI_OT_eyedropper_color);

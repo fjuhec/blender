@@ -61,9 +61,6 @@
 
 #include "anim_intern.h"
 
-/* called by WM */
-void free_anim_drivers_copybuf(void);
-
 /* ************************************************** */
 /* Animation Data Validation */
 
@@ -161,7 +158,7 @@ static int add_driver_with_target(
         ReportList *UNUSED(reports),
         ID *dst_id, const char dst_path[], int dst_index,
         ID *src_id, const char src_path[], int src_index,
-        PointerRNA *UNUSED(dst_ptr), PropertyRNA *dst_prop,
+        PointerRNA *dst_ptr, PropertyRNA *dst_prop,
         PointerRNA *src_ptr, PropertyRNA *src_prop,
         short flag, int driver_type)
 {
@@ -210,11 +207,15 @@ static int add_driver_with_target(
 		/* Create a driver variable for the target
 		 *   - For transform properties, we want to automatically use "transform channel" instead
 		 *     (The only issue is with quat rotations vs euler channels...)
+		 *   - To avoid problems with transform properties depending on the final transform that they
+		 *     control (thus creating pseudo-cycles - see T48734), we don't use transform channels
+		 *     when both the source and destinations are in same places.
 		 */
 		dvar = driver_add_new_variable(driver);
 		
 		if (ELEM(src_ptr->type, &RNA_Object, &RNA_PoseBone) &&  
-		    (STREQ(prop_name, "location") || STREQ(prop_name, "scale") || STRPREFIX(prop_name, "rotation_")))
+		    (STREQ(prop_name, "location") || STREQ(prop_name, "scale") || STRPREFIX(prop_name, "rotation_")) &&
+		    (src_ptr->data != dst_ptr->data))
 		{
 			/* Transform Channel */
 			DriverTarget *dtar;
@@ -514,8 +515,7 @@ bool ANIM_remove_driver(ReportList *UNUSED(reports), ID *id, const char rna_path
 static FCurve *channeldriver_copypaste_buf = NULL;
 
 /* This function frees any MEM_calloc'ed copy/paste buffer data */
-// XXX find some header to put this in!
-void free_anim_drivers_copybuf(void)
+void ANIM_drivers_copybuf_free(void)
 {
 	/* free the buffer F-Curve if it exists, as if it were just another F-Curve */
 	if (channeldriver_copypaste_buf)
@@ -553,7 +553,7 @@ bool ANIM_copy_driver(ReportList *reports, ID *id, const char rna_path[], int ar
 	fcu = verify_driver_fcurve(id, rna_path, array_index, 0);
 	
 	/* clear copy/paste buffer first (for consistency with other copy/paste buffers) */
-	free_anim_drivers_copybuf();
+	ANIM_drivers_copybuf_free();
 	
 	/* copy this to the copy/paste buf if it exists */
 	if (fcu && fcu->driver) {
@@ -604,7 +604,7 @@ bool ANIM_paste_driver(ReportList *reports, ID *id, const char rna_path[], int a
 	
 	/* create Driver F-Curve, but without data which will be copied across... */
 	fcu = verify_driver_fcurve(id, rna_path, array_index, -1);
-
+	
 	if (fcu) {
 		/* copy across the curve data from the buffer curve 
 		 * NOTE: this step needs care to not miss new settings
@@ -629,6 +629,117 @@ bool ANIM_paste_driver(ReportList *reports, ID *id, const char rna_path[], int a
 }
 
 /* ************************************************** */
+/* Driver Management API - Copy/Paste Driver Variables */
+
+/* Copy/Paste Buffer for Driver Variables... */
+static ListBase driver_vars_copybuf = {NULL, NULL};
+
+/* This function frees any MEM_calloc'ed copy/paste buffer data */
+void ANIM_driver_vars_copybuf_free(void)
+{
+	/* Free the driver variables kept in the buffer */
+	if (driver_vars_copybuf.first) {
+		DriverVar *dvar, *dvarn;
+		
+		/* Free variables (and any data they use) */
+		for (dvar = driver_vars_copybuf.first; dvar; dvar = dvarn) {
+			dvarn = dvar->next;
+			driver_free_variable(&driver_vars_copybuf, dvar);
+		}
+	}
+	
+	BLI_listbase_clear(&driver_vars_copybuf);
+}
+
+/* Checks if there are driver variables in the copy/paste buffer */
+bool ANIM_driver_vars_can_paste(void)
+{
+	return (BLI_listbase_is_empty(&driver_vars_copybuf) == false);
+}
+
+/* -------------------------------------------------- */
+
+/* Copy the given driver's variables to the buffer */
+bool ANIM_driver_vars_copy(ReportList *reports, FCurve *fcu)
+{
+	/* sanity checks */
+	if (ELEM(NULL, fcu, fcu->driver)) {
+		BKE_report(reports, RPT_ERROR, "No driver to copy variables from");
+		return false;
+	}
+	
+	if (BLI_listbase_is_empty(&fcu->driver->variables)) {
+		BKE_report(reports, RPT_ERROR, "Driver has no variables to copy");
+		return false;
+	}
+	
+	/* clear buffer */
+	ANIM_driver_vars_copybuf_free();
+	
+	/* copy over the variables */
+	driver_variables_copy(&driver_vars_copybuf, &fcu->driver->variables);
+	
+	return (BLI_listbase_is_empty(&driver_vars_copybuf) == false);
+}
+
+/* Paste the variables in the buffer to the given FCurve */
+bool ANIM_driver_vars_paste(ReportList *reports, FCurve *fcu, bool replace)
+{
+	ChannelDriver *driver = (fcu) ? fcu->driver : NULL;
+	ListBase tmp_list = {NULL, NULL};
+	
+	/* sanity checks */
+	if (BLI_listbase_is_empty(&driver_vars_copybuf)) {
+		BKE_report(reports, RPT_ERROR, "No driver variables in clipboard to paste");
+		return false;
+	}
+	
+	if (ELEM(NULL, fcu, fcu->driver)) {
+		BKE_report(reports, RPT_ERROR, "Cannot paste driver variables without a driver");
+		return false;
+	}
+	
+	/* 1) Make a new copy of the variables in the buffer - these will get pasted later... */
+	driver_variables_copy(&tmp_list, &driver_vars_copybuf);
+	
+	/* 2) Prepare destination array */
+	if (replace) {
+		DriverVar *dvar, *dvarn;
+		
+		/* Free all existing vars first - We aren't retaining anything */
+		for (dvar = driver->variables.first; dvar; dvar = dvarn) {
+			dvarn = dvar->next;
+			driver_free_variable_ex(driver, dvar);
+		}
+		
+		BLI_listbase_clear(&driver->variables);
+	}
+	
+	/* 3) Add new vars */
+	if (driver->variables.last) {
+		DriverVar *last = driver->variables.last;
+		DriverVar *first = tmp_list.first;
+		
+		last->next = first;
+		first->prev = last;
+		
+		driver->variables.last = tmp_list.last;
+	}
+	else {
+		driver->variables.first = tmp_list.first;
+		driver->variables.last = tmp_list.last;
+	}
+	
+#ifdef WITH_PYTHON
+	/* since driver variables are cached, the expression needs re-compiling too */
+	if (driver->type == DRIVER_TYPE_PYTHON)
+		driver->flag |= DRIVER_FLAG_RENAMEVAR;
+#endif
+	
+	return true;
+}
+
+/* ************************************************** */
 /* UI-Button Interface */
 
 /* Add Driver - Enum Defines ------------------------- */
@@ -641,11 +752,12 @@ EnumPropertyItem prop_driver_create_mapping_types[] = {
 	 "Drive all components of this property using the target picked"},
 	{CREATEDRIVER_MAPPING_1_1, "DIRECT", 0, "Single from Target",
 	 "Drive this component of this property using the target picked"},
-	{CREATEDRIVER_MAPPING_N_N, "MATCH", 0, "Match Indices",
+	 
+	{CREATEDRIVER_MAPPING_N_N, "MATCH", ICON_COLOR, "Match Indices",
 	 "Create drivers for each pair of corresponding elements"},
 	 
 	{CREATEDRIVER_MAPPING_NONE_ALL, "NONE_ALL", ICON_HAND, "Manually Create Later",
-	 "Create drivers for all properites without assigning any targets yet"},
+	 "Create drivers for all properties without assigning any targets yet"},
 	{CREATEDRIVER_MAPPING_NONE,     "NONE_SINGLE", 0, "Manually Create Later (Single)",
 	 "Create driver for this property only and without assigning any targets yet"},
 	{0, NULL, 0, NULL, NULL}
@@ -758,7 +870,7 @@ static int add_driver_button_exec(bContext *C, wmOperator *op)
 }
 
 /* Show menu or create drivers */
-static int add_driver_button_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int add_driver_button_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	PropertyRNA *prop;
 	
@@ -769,7 +881,8 @@ static int add_driver_button_invoke(bContext *C, wmOperator *op, const wmEvent *
 	else {
 		/* Show menu */
 		// TODO: This should get filtered by the enum filter
-		return WM_menu_invoke(C, op, event);
+		/* important to execute in the region we're currently in */
+		return WM_menu_invoke_ex(C, op, WM_OP_INVOKE_DEFAULT);
 	}
 }
 
@@ -778,7 +891,7 @@ void ANIM_OT_driver_button_add(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Add Driver";
 	ot->idname = "ANIM_OT_driver_button_add";
-	ot->description = "Add driver(s) for the property(s) connected represented by the highlighted button";
+	ot->description = "Add driver(s) for the property(s) represented by the highlighted button";
 	
 	/* callbacks */
 	/* NOTE: No exec, as we need all these to use the current context info

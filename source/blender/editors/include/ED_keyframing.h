@@ -288,6 +288,14 @@ bool ANIM_remove_driver(struct ReportList *reports, struct ID *id, const char rn
 
 /* -------- */
 
+/* Clear copy-paste buffer for drivers */
+void ANIM_drivers_copybuf_free(void);
+
+/* Clear copy-paste buffer for driver variable sets */
+void ANIM_driver_vars_copybuf_free(void);
+
+/* -------- */
+
 /* Returns whether there is a driver in the copy/paste buffer to paste */
 bool ANIM_driver_can_paste(void);
 
@@ -302,22 +310,33 @@ bool ANIM_copy_driver(struct ReportList *reports, struct ID *id, const char rna_
  */
 bool ANIM_paste_driver(struct ReportList *reports, struct ID *id, const char rna_path[], int array_index, short flag);
 
+/* -------- */
+
+/* Checks if there are driver variables in the copy/paste buffer */
+bool ANIM_driver_vars_can_paste(void);
+
+/* Copy the given driver's variables to the buffer */
+bool ANIM_driver_vars_copy(struct ReportList *reports, struct FCurve *fcu);
+
+/* Paste the variables in the buffer to the given FCurve */
+bool ANIM_driver_vars_paste(struct ReportList *reports, struct FCurve *fcu, bool replace);
+
 /* ************ Auto-Keyframing ********************** */
 /* Notes:
  * - All the defines for this (User-Pref settings and Per-Scene settings)
  *  are defined in DNA_userdef_types.h
- * - Scene settings take presidence over those for userprefs, with old files
+ * - Scene settings take precedence over those for userprefs, with old files
  *  inheriting userpref settings for the scene settings
  * - "On/Off + Mode" are stored per Scene, but "settings" are currently stored
  *  as userprefs
  */
 
 /* Auto-Keying macros for use by various tools */
-/* check if auto-keyframing is enabled (per scene takes presidence) */
+/* check if auto-keyframing is enabled (per scene takes precedence) */
 #define IS_AUTOKEY_ON(scene)  ((scene) ? (scene->toolsettings->autokey_mode & AUTOKEY_ON) : (U.autokey_mode & AUTOKEY_ON))
-/* check the mode for auto-keyframing (per scene takes presidence)  */
+/* check the mode for auto-keyframing (per scene takes precedence)  */
 #define IS_AUTOKEY_MODE(scene, mode)  ((scene) ? (scene->toolsettings->autokey_mode == AUTOKEY_MODE_##mode) : (U.autokey_mode == AUTOKEY_MODE_##mode))
-/* check if a flag is set for auto-keyframing (per scene takes presidence) */
+/* check if a flag is set for auto-keyframing (per scene takes precedence) */
 #define IS_AUTOKEY_FLAG(scene, flag) \
 	((scene) ? \
 		((scene->toolsettings->autokey_flag & AUTOKEY_FLAG_##flag) || (U.autokey_flag & AUTOKEY_FLAG_##flag)) \
