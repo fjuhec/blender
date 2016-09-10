@@ -109,7 +109,7 @@ class ClaudeRepository:
         self.is_ready = False
 
     def check_dir_do(self, root_path, do_change, do_update_intern):
-        if self.curr_path == root_path:
+        if not do_update_intern and self.curr_path == root_path:
             return True, root_path
         parts = root_path.parts
         if do_update_intern:
@@ -121,9 +121,9 @@ class ClaudeRepository:
             paths = self.path_map
             idx = 0
             for i, p in enumerate(parts[1:]):
-                idx = i + 1
+                idx = i + 2
                 nid, paths = paths.get(p, (None, None))
-                print(p, nid, paths)
+                #~ print(p, nid, paths)
                 if nid is None:
                     idx -= 1
                     break
@@ -131,7 +131,7 @@ class ClaudeRepository:
                     nids.append(nid)
             if do_update_intern:
                 self.pending_path = parts[idx:]
-                self.curr_path = pillar.CloudPath("/" + "/".join(parts[1:idx + 1]))
+                self.curr_path = pillar.CloudPath("/" + "/".join(parts[1:idx]))
                 self.curr_path_real = pillar.CloudPath("/" + "/".join(nids))
             return True, root_path
         elif do_change:
@@ -206,32 +206,26 @@ class ClaudeJobCheckCredentials(ClaudeJob):
         Returns None if the user cannot be found, or if the user is not a Cloud subscriber.
         """
         try:
-            print("Awaiting pillar.check_pillar_credentials...")
             user_id = await pillar.check_pillar_credentials(REQUIRED_ROLES_FOR_CLAUDE)
-            print("Done pillar.check_pillar_credentials...")
         except pillar.NotSubscribedToCloudError:
-            print('Not subsribed.')
+            print('Not subscribed.')
             return None
         except pillar.CredentialsNotSyncedError:
             print('Credentials not synced, re-syncing automatically.')
             #~ self.log.info('Credentials not synced, re-syncing automatically.')
         else:
-            print('Credentials okay.')
             #~ self.log.info('Credentials okay.')
             return user_id
 
         try:
-            print("awaiting pillar.refresh_pillar_credentials...")
             user_id = await pillar.refresh_pillar_credentials(required_roles)
-            print("Done pillar.refresh_pillar_credentials...")
         except pillar.NotSubscribedToCloudError:
-            print('Not subsribed.')
+            print('Not subscribed.')
             return None
         except pillar.UserNotLoggedInError:
             print('User not logged in on Blender ID.')
             #~ self.log.error('User not logged in on Blender ID.')
         else:
-            print('Credentials refreshed and ok.')
             #~ self.log.info('Credentials refreshed and ok.')
             return user_id
 
@@ -249,11 +243,9 @@ class ClaudeJobCheckCredentials(ClaudeJob):
         if (self.progress > 1.0):
             self.progress = 0.0
 
-        print("Updating credential status, ", self.check_task, " | Done: ", self.check_task.done() if self.check_task else "")
         if self.check_task is not None:
             if not self.check_task.done():
                 return ...
-            print("Cred check finished, we should have cloud access...")
             user_id = self.check_task.result()
             self.check_task = self.remove_task(self.check_task)
             self.progress = 1.0
@@ -279,7 +271,6 @@ class ClaudeJobList(ClaudeJob):
         async def ls_do(part):
             project_uuid = repo.curr_path_real.project_uuid
             node_uuid = repo.curr_path_real.node_uuid
-            repo.nodes.clear()
 
             # XXX Not nice to redo whole path, should be cached...
             curr_path_map = repo.path_map
@@ -290,14 +281,14 @@ class ClaudeJobList(ClaudeJob):
 
             if node_uuid:
                 # Query for sub-nodes of this node.
-                print("Getting subnodes for parent node %r" % node_uuid)
+                print("Getting subnodes for parent node %r (%s)" % (node_uuid, repo.curr_path))
                 children = [UpNode()]
-                children += await pillar.get_nodes(parent_node_uuid=node_uuid, node_type='group_texture')
+                children += await pillar.get_nodes(parent_node_uuid=node_uuid, node_type=('group_texture', 'texture'))
             elif project_uuid:
                 # Query for top-level nodes.
                 print("Getting subnodes for project node %r" % project_uuid)
                 children = [UpNode()]
-                children += await pillar.get_nodes(project_uuid=project_uuid, parent_node_uuid='', node_type='group_texture')
+                children += await pillar.get_nodes(project_uuid=project_uuid, parent_node_uuid='', node_type=('group_texture', 'texture'))
             else:
                 # Query for projects
                 print("No node UUID and no project UUID, listing available projects")
@@ -330,34 +321,27 @@ class ClaudeJobList(ClaudeJob):
         self.status = {'VALID', 'RUNNING'}
 
         if user_id is None:
-            print("Invalid user ID, cannot proceed...")
             self.cancel()
             return
 
-        self.progress += 0.05
+        self.progress += 0.02
         if (self.progress > 1.0):
             self.progress = 0.0
 
         if user_id is ...:
-            print("Awaiting a valid user ID...")
             return
 
-        if self.ls_task is ...:
+        if self.ls_task is ...:  # INIT
             self.ls_task = self.add_task(self.ls(self.repo))
 
         if self.ls_task not in {None, ...}:
             if self.ls_task.done():
-                print("ls finished, we should have our children nodes now!")
+                print("ls finished, we should have our children nodes now!\n\n\n")
                 self.ls_task = self.remove_task(self.ls_task)
 
         if self.ls_task is None:
             self.progress = 1.0
             self.status = {'VALID'}
-
-    def cancel(self):
-        if self.ls_task:
-            self.ls_task.cancel()
-        super().cancel()
 
     def __init__(self, job_id, user_id, repo):
         super().__init__(job_id)
@@ -461,7 +445,6 @@ class AssetEngineClaude(AssetEngine):
             job = self.jobs[job_id] = ClaudeJobCheckCredentials(job_id)
         else:
             job = self.jobs[self.job_id_check_credentials]
-        print("main check_credentials: ", job)
         if job is not None:
             self.user_id = job.update()
             if self.user_id is not ...:
@@ -595,18 +578,18 @@ class AssetEngineClaude(AssetEngine):
     """
 
     def check_dir(self, entries, do_change):
-        print(self.repo.path_map)
+        #~ print(self.repo.path_map)
         ret, root_path = self.repo.check_dir_do(pillar.CloudPath(entries.root_path), do_change, False)
         entries.root_path = str(root_path)
         return ret
 
     def entries_block_get(self, start_index, end_index, entries):
-        print(start_index, end_index)
-        print(self.repo.nodes)
-        print("\n\n\n")
+        #~ print(start_index, end_index)
+        #~ print(self.repo.nodes)
+        #~ print("\n\n\n")
         for num, (uuid, node) in enumerate(tuple(self.repo.nodes.items())[start_index:end_index]):
             entry = entries.entries.add()
-            entry.type = {'DIR'}
+            entry.type = {'IMAGE'} if node['node_type'] == 'texture' else {'DIR'}
             entry.relpath = node['name']
             #~ print("added entry for", entry.relpath)
             entry.uuid = (0, 0, 0, num)
