@@ -41,7 +41,7 @@
 #include "node_intern.h"
 
 
-static int WIDGETGROUP_node_transform_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
+static int WIDGETGROUP_node_transform_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	SpaceNode *snode = CTX_wm_space_node(C);
 
@@ -55,20 +55,20 @@ static int WIDGETGROUP_node_transform_poll(const bContext *C, wmWidgetGroupType 
 	return false;
 }
 
-static void WIDGETGROUP_node_transform_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
+static void WIDGETGROUP_node_transform_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
 {
-	wmWidgetWrapper *wwrapper = MEM_mallocN(sizeof(wmWidgetWrapper), __func__);
+	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 
-	wwrapper->widget = WIDGET_rect_transform_new(
+	wwrapper->widget = MANIPULATOR_rect_transform_new(
 	                       wgroup, "backdrop_cage",
-	                       WIDGET_RECT_TRANSFORM_STYLE_TRANSLATE | WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM);
+	                       MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE | MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM);
 	wgroup->customdata = wwrapper;
 
 }
 
-static void WIDGETGROUP_node_transform_refresh(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_node_transform_refresh(const bContext *C, wmManipulatorGroup *wgroup)
 {
-	wmWidget *cage = ((wmWidgetWrapper *)wgroup->customdata)->widget;
+	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->widget;
 	const ARegion *ar = CTX_wm_region(C);
 	/* center is always at the origin */
 	const float origin[3] = {ar->winx / 2, ar->winy / 2};
@@ -81,25 +81,25 @@ static void WIDGETGROUP_node_transform_refresh(const bContext *C, wmWidgetGroup 
 		const float w = (ibuf->x > 0) ? ibuf->x : 64.0f;
 		const float h = (ibuf->y > 0) ? ibuf->y : 64.0f;
 
-		WIDGET_rect_transform_set_dimensions(cage, w, h);
-		WM_widget_set_origin(cage, origin);
-		WM_widget_set_flag(cage, WM_WIDGET_HIDDEN, false);
+		MANIPULATOR_rect_transform_set_dimensions(cage, w, h);
+		WM_manipulator_set_origin(cage, origin);
+		WM_manipulator_set_flag(cage, WM_MANIPULATOR_HIDDEN, false);
 
 		/* need to set property here for undo. TODO would prefer to do this in _init */
 		SpaceNode *snode = CTX_wm_space_node(C);
 		PointerRNA nodeptr;
 		RNA_pointer_create(snode->id, &RNA_SpaceNodeEditor, snode, &nodeptr);
-		WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, &nodeptr, "backdrop_offset");
-		WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, &nodeptr, "backdrop_zoom");
+		WM_manipulator_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, &nodeptr, "backdrop_offset");
+		WM_manipulator_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, &nodeptr, "backdrop_zoom");
 	}
 	else {
-		WM_widget_set_flag(cage, WM_WIDGET_HIDDEN, true);
+		WM_manipulator_set_flag(cage, WM_MANIPULATOR_HIDDEN, true);
 	}
 
 	BKE_image_release_ibuf(ima, ibuf, lock);
 }
 
-void NODE_WGT_backdrop_transform(wmWidgetGroupType *wgt)
+void NODE_WGT_backdrop_transform(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Backdrop Transform Widgets";
 

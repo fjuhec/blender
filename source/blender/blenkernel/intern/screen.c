@@ -296,7 +296,7 @@ void BKE_spacedata_id_unref(struct ScrArea *sa, struct SpaceLink *sl, struct ID 
 void BKE_area_region_free(SpaceType *st, ARegion *ar)
 {
 	uiList *uilst;
-	struct wmWidgetMap *wmap, *wmap_tmp;
+	struct wmManipulatorMap *wmap, *wmap_tmp;
 
 	if (st) {
 		ARegionType *art = BKE_regiontype_from_id(st, ar->regiontype);
@@ -345,7 +345,7 @@ void BKE_area_region_free(SpaceType *st, ARegion *ar)
 	
 	for (wmap = ar->widgetmaps.first; wmap; wmap = wmap_tmp) {
 		wmap_tmp = wmap->next;
-		WM_widgetmap_delete(wmap); /* XXX shouldn't be in blenkernel */
+		WM_manipulatormap_delete(wmap); /* XXX shouldn't be in blenkernel */
 	}
 	BLI_listbase_clear(&ar->widgetmaps);
 	BLI_freelistN(&ar->ui_lists);

@@ -291,10 +291,10 @@ ARegion *view3d_has_tools_region(ScrArea *sa);
 extern const char *view3d_context_dir[]; /* doc access */
 
 /* view3d_widgets.c */
-void VIEW3D_WGT_lamp             (struct wmWidgetGroupType *wgt);
-void VIEW3D_WGT_camera           (struct wmWidgetGroupType *wgt);
-void VIEW3D_WGT_force_field      (struct wmWidgetGroupType *wgt);
-void VIEW3D_WGT_armature_facemaps(struct wmWidgetGroupType *wgt);
+void VIEW3D_WGT_lamp             (struct wmManipulatorGroupType *wgt);
+void VIEW3D_WGT_camera           (struct wmManipulatorGroupType *wgt);
+void VIEW3D_WGT_force_field      (struct wmManipulatorGroupType *wgt);
+void VIEW3D_WGT_armature_facemaps(struct wmManipulatorGroupType *wgt);
 
 /* draw_volume.c */
 void draw_smoke_volume(struct SmokeDomainSettings *sds, struct Object *ob,

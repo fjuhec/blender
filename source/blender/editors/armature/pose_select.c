@@ -374,7 +374,7 @@ static int pose_de_select_all_exec(bContext *C, wmOperator *op)
 
 	/* handle facemap widget selection */
 	if ((ob->mode & OB_MODE_POSE) && has_facemap) {
-		WM_widgetmap_select_all(C, (wmWidgetMap *)ar->widgetmaps.first, action);
+		WM_manipulatormap_select_all(C, (wmManipulatorMap *)ar->widgetmaps.first, action);
 	}
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, NULL);

@@ -488,7 +488,7 @@ static void sequencer_main_region_init(wmWindowManager *wm, ARegion *ar)
 	
 	/* no modal keymap here, only operators use this currently */
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
-		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0});
 		BLI_addhead(&ar->widgetmaps, wmap);
 	}
@@ -570,7 +570,7 @@ static void sequencer_preview_region_init(wmWindowManager *wm, ARegion *ar)
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
 
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
-		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, 0});
 		BLI_addhead(&ar->widgetmaps, wmap);
 	}
@@ -611,8 +611,8 @@ static void sequencer_preview_region_draw(const bContext *C, ARegion *ar)
 		ED_scene_draw_fps(scene, &rect);
 	}
 
-	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
+	WM_manipulatormap_widgets_update(C, ar->widgetmaps.first);
+	WM_manipulatormap_widgets_draw(C, ar->widgetmaps.first, false, true);
 }
 
 static void sequencer_preview_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
@@ -727,9 +727,9 @@ static void sequencer_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id
 static void sequencer_widgets(void)
 {
 	/* create the widgetmap for the area here */
-	WM_widgetmaptype_ensure(&(const struct wmWidgetMapType_Params) {
+	WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
 	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0});
-	WM_widgetmaptype_ensure(&(const struct wmWidgetMapType_Params) {
+	WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
 	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, false});
 }
 

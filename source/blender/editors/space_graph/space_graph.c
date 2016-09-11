@@ -227,7 +227,7 @@ static void graph_main_region_init(wmWindowManager *wm, ARegion *ar)
 	
 	/* widgets */
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
-		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
 		BLI_addhead(&ar->widgetmaps, wmap);
 	}
@@ -352,8 +352,8 @@ static void graph_main_region_draw(const bContext *C, ARegion *ar)
 	UI_view2d_view_restore(C);
 	
 	/* finally draw any widgets here */
-	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
+	WM_manipulatormap_widgets_update(C, ar->widgetmaps.first);
+	WM_manipulatormap_widgets_draw(C, ar->widgetmaps.first, false, true);
 	
 	/* scrollers */
 	// FIXME: args for scrollers depend on the type of data being shown...
@@ -716,7 +716,7 @@ static void graph_refresh(const bContext *C, ScrArea *sa)
 static void graph_widgets(void)
 {
 	/* create the widgetmap for the area here */
-	WM_widgetmaptype_ensure(&(const struct wmWidgetMapType_Params) {
+	WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
 	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
 }
 

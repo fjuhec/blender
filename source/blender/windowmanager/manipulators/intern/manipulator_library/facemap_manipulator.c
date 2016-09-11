@@ -23,14 +23,14 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/facemap_widget.c
+/** \file blender/windowmanager/widgets/intern/widget_library/facemap_manipulator.c
  *  \ingroup wm
  *
- * \name Facemap Widget
+ * \name Facemap Manipulator
  *
- * 3D Widget
+ * 3D Manipulator
  *
- * \brief Widget representing shape of a face map.
+ * \brief Manipulator representing shape of a face map.
  * Currently no own handling, use with operator only.
  */
 
@@ -50,26 +50,26 @@
 #include "MEM_guardedalloc.h"
 
 /* own includes */
-#include "WM_widget_types.h"
-#include "WM_widget_library.h"
-#include "wm_widget_wmapi.h"
-#include "wm_widget_intern.h"
+#include "WM_manipulator_types.h"
+#include "WM_manipulator_library.h"
+#include "wm_manipulator_wmapi.h"
+#include "wm_manipulator_intern.h"
 
 
-typedef struct FacemapWidget {
-	wmWidget widget;
+typedef struct FacemapManipulator {
+	wmManipulator widget;
 	Object *ob;
 	int facemap;
 	int style;
-} FacemapWidget;
+} FacemapManipulator;
 
 
 /* -------------------------------------------------------------------- */
 
-static void widget_facemap_draw(const bContext *C, wmWidget *widget)
+static void widget_facemap_draw(const bContext *C, wmManipulator *widget)
 {
-	FacemapWidget *fmap_widget = (FacemapWidget *)widget;
-	const float *col = (widget->flag & WM_WIDGET_SELECTED) ? widget->col_hi : widget->col;
+	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
+	const float *col = (widget->flag & WM_MANIPULATOR_SELECTED) ? widget->col_hi : widget->col;
 
 	glPushMatrix();
 	glMultMatrixf(fmap_widget->ob->obmat);
@@ -78,19 +78,19 @@ static void widget_facemap_draw(const bContext *C, wmWidget *widget)
 	glPopMatrix();
 }
 
-static void widget_facemap_render_3d_intersect(const bContext *C, wmWidget *widget, int selectionbase)
+static void widget_facemap_render_3d_intersect(const bContext *C, wmManipulator *widget, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
 	widget_facemap_draw(C, widget);
 }
 
 #if 0
-static int widget_facemap_invoke(bContext *UNUSED(C), const wmEvent *event, wmWidget *widget)
+static int widget_facemap_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
 	return OPERATOR_PASS_THROUGH;
 }
 
-static int widget_facemap_handler(bContext *C, const wmEvent *event, wmWidget *widget)
+static int widget_facemap_handler(bContext *C, const wmEvent *event, wmManipulator *widget)
 {
 	return OPERATOR_PASS_THROUGH;
 }
@@ -101,11 +101,11 @@ static int widget_facemap_handler(bContext *C, const wmEvent *event, wmWidget *w
  *
  * \{ */
 
-wmWidget *WIDGET_facemap_new(
-        wmWidgetGroup *wgroup, const char *name, const int style,
+wmManipulator *MANIPULATOR_facemap_new(
+        wmManipulatorGroup *wgroup, const char *name, const int style,
         Object *ob, const int facemap)
 {
-	FacemapWidget *fmap_widget = MEM_callocN(sizeof(FacemapWidget), name);
+	FacemapManipulator *fmap_widget = MEM_callocN(sizeof(FacemapManipulator), name);
 
 	BLI_assert(facemap > -1);
 
@@ -118,14 +118,14 @@ wmWidget *WIDGET_facemap_new(
 	fmap_widget->facemap = facemap;
 	fmap_widget->style = style;
 
-	wm_widget_register(wgroup, &fmap_widget->widget, name);
+	WM_manipulator_register(wgroup, &fmap_widget->widget, name);
 
-	return (wmWidget *)fmap_widget;
+	return (wmManipulator *)fmap_widget;
 }
 
-bFaceMap *WIDGET_facemap_get_fmap(wmWidget *widget)
+bFaceMap *MANIPULATOR_facemap_get_fmap(wmManipulator *widget)
 {
-	FacemapWidget *fmap_widget = (FacemapWidget *)widget;
+	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
 	return BLI_findlink(&fmap_widget->ob->fmaps, fmap_widget->facemap);
 }
 
@@ -134,7 +134,7 @@ bFaceMap *WIDGET_facemap_get_fmap(wmWidget *widget)
 
 /* -------------------------------------------------------------------- */
 
-void fix_linking_widget_facemap(void)
+void fix_linking_manipulator_facemap(void)
 {
 	(void)0;
 }

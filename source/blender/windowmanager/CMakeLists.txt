@@ -77,7 +77,7 @@ set(SRC
 	manipulators/intern/manipulator_library/arrow2d_manipulator.c
 	manipulators/intern/manipulator_library/cage_manipulator.c
 	manipulators/intern/manipulator_library/dial_manipulator.c
-	manipulators/intern/manipulator_library/facemap_widget.c
+	manipulators/intern/manipulator_library/facemap_manipulator.c
 	manipulators/intern/manipulator_library/primitive_manipulator.c
 	manipulators/intern/manipulator_library/geom_arrow_manipulator.c
 	manipulators/intern/manipulator_library/geom_cube_manipulator.c

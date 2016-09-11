@@ -2765,19 +2765,19 @@ static int graph_widget_backdrop_transform_poll(bContext *C)
 	        (sipo->backdrop_camera));
 }
 
-static void widgetgroup_backdrop_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
+static void widgetgroup_backdrop_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
 {
-	wmWidgetWrapper *wwrapper = MEM_mallocN(sizeof(wmWidgetWrapper), __func__);
+	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 	wgroup->customdata = wwrapper;
 
-	wwrapper->widget = WIDGET_rect_transform_new(
+	wwrapper->widget = MANIPULATOR_rect_transform_new(
 	                     wgroup, "backdrop_cage",
-	                     WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM | WIDGET_RECT_TRANSFORM_STYLE_TRANSLATE);
+	                     MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM | MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE);
 }
 
-static void widgetgroup_backdrop_refresh(const struct bContext *C, wmWidgetGroup *wgroup)
+static void widgetgroup_backdrop_refresh(const struct bContext *C, wmManipulatorGroup *wgroup)
 {
-	wmWidget *cage = ((wmWidgetWrapper *)wgroup->customdata)->widget;
+	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->widget;
 	ARegion *ar = CTX_wm_region(C);
 	const Scene *scene = CTX_data_scene(C);
 	const int width = (scene->r.size * scene->r.xsch) / 150.0f;
@@ -2787,16 +2787,16 @@ static void widgetgroup_backdrop_refresh(const struct bContext *C, wmWidgetGroup
 	origin[0] = BLI_rcti_size_x(&ar->winrct) / 2.0f;
 	origin[1] = BLI_rcti_size_y(&ar->winrct) / 2.0f;
 
-	WM_widget_set_origin(cage, origin);
-	WIDGET_rect_transform_set_dimensions(cage, width, height);
+	WM_manipulator_set_origin(cage, origin);
+	MANIPULATOR_rect_transform_set_dimensions(cage, width, height);
 
 	/* XXX hmmm, can't we do this in _init somehow? Issue is op->ptr is freed after OP is done. */
 	wmOperator *op = wgroup->type->op;
-	WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, op->ptr, "offset");
-	WM_widget_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, op->ptr, "scale");
+	WM_manipulator_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, op->ptr, "offset");
+	WM_manipulator_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, op->ptr, "scale");
 }
 
-static void GRAPH_WGT_backdrop_transform(wmWidgetGroupType *wgt)
+static void GRAPH_WGT_backdrop_transform(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Backdrop Transform Widgets";
 
@@ -2841,7 +2841,7 @@ static void graph_widget_backdrop_transform_cancel(struct bContext *C, struct wm
 static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	ARegion *ar = CTX_wm_region(C);
-	wmWidgetMap *wmap = ar->widgetmaps.first;
+	wmManipulatorMap *wmap = ar->widgetmaps.first;
 	BackDropTransformData *data = op->customdata;
 
 	if (event->type == data->event_type && event->val == KM_PRESS) {
@@ -2850,7 +2850,7 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 	}
 
 	switch (event->type) {
-		case EVT_WIDGET_UPDATE:
+		case EVT_MANIPULATOR_UPDATE:
 		{
 			SpaceIpo *sipo = CTX_wm_space_graph(C);
 			RNA_float_get_array(op->ptr, "offset", sipo->backdrop_offset);
@@ -2892,7 +2892,7 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 			}
 		}
 	}
-	WM_widgetmap_tag_refresh(wmap);
+	WM_manipulatormap_tag_refresh(wmap);
 
 	return OPERATOR_RUNNING_MODAL;
 }
@@ -2900,7 +2900,7 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 void GRAPH_OT_widget_backdrop_transform(struct wmOperatorType *ot)
 {
 	float default_offset[2] = {0.0f, 0.0f};
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(&(const struct wmWidgetMapType_Params) {
+	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
 	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
 
 	/* identifiers */
@@ -2917,7 +2917,7 @@ void GRAPH_OT_widget_backdrop_transform(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->wgrouptype = WM_widgetgrouptype_append(wmaptype, GRAPH_WGT_backdrop_transform);
+	ot->wgrouptype = WM_manipulatorgrouptype_append(wmaptype, GRAPH_WGT_backdrop_transform);
 
 	RNA_def_float_array(ot->srna, "offset", 2, default_offset, FLT_MIN, FLT_MAX, "Offset", "Offset of the backdrop", FLT_MIN, FLT_MAX);
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, FLT_MAX, "Scale", "Scale of the backdrop", 0.0f, FLT_MAX);

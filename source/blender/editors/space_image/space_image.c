@@ -588,7 +588,7 @@ static int image_context(const bContext *C, const char *member, bContextDataResu
 	return 0;
 }
 
-static void IMAGE_WGT_manipulator2d(wmWidgetGroupType *wgt)
+static void IMAGE_WGT_manipulator2d(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "UV Transform Manipulator";
 
@@ -600,14 +600,14 @@ static void IMAGE_WGT_manipulator2d(wmWidgetGroupType *wgt)
 
 static void image_widgets(void)
 {
-	const struct wmWidgetMapType_Params wmap_params = {
+	const struct wmManipulatorMapType_Params wmap_params = {
 		.idname = "Image_UV",
 		.spaceid = SPACE_IMAGE, .regionid = RGN_TYPE_WINDOW,
 		.flag = 0,
 	};
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
+	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
 
-	WM_widgetgrouptype_append(wmaptype, IMAGE_WGT_manipulator2d);
+	WM_manipulatorgrouptype_append(wmaptype, IMAGE_WGT_manipulator2d);
 }
 
 /************************** main region ***************************/
@@ -675,11 +675,11 @@ static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 	/* widgets */
 	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
-		wmWidgetMap *wmap = WM_widgetmap_from_type(&(const struct wmWidgetMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
 		BLI_addhead(&ar->widgetmaps, wmap);
 	}
-	WM_widgetmaps_add_handlers(ar);
+	WM_manipulatormaps_add_handlers(ar);
 
 	/* mask polls mode */
 	keymap = WM_keymap_find(wm->defaultconf, "Mask Editing", 0, 0);
@@ -821,8 +821,8 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 		UI_view2d_view_restore(C);
 	}
 
-	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
+	WM_manipulatormap_widgets_update(C, ar->widgetmaps.first);
+	WM_manipulatormap_widgets_draw(C, ar->widgetmaps.first, false, true);
 
 	draw_image_cache(C, ar);
 
@@ -836,14 +836,14 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 
 static void image_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion *ar, wmNotifier *wmn)
 {
-	wmWidgetMap *wmap = WM_widgetmap_find(ar, &(const struct wmWidgetMapType_Params) {
+	wmManipulatorMap *wmap = WM_manipulatormap_find(ar, &(const struct wmManipulatorMapType_Params) {
 	        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
 
 	/* context changes */
 	switch (wmn->category) {
 		case NC_GEOM:
 			if (ELEM(wmn->data, ND_DATA, ND_SELECT))
-				WM_widgetmap_tag_refresh(wmap);
+				WM_manipulatormap_tag_refresh(wmap);
 			break;
 		case NC_GPENCIL:
 			if (ELEM(wmn->action, NA_EDITED, NA_SELECTED))
@@ -854,7 +854,7 @@ static void image_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion
 		case NC_IMAGE:
 			if (wmn->action == NA_PAINTING)
 				ED_region_tag_redraw(ar);
-			WM_widgetmap_tag_refresh(wmap);
+			WM_manipulatormap_tag_refresh(wmap);
 			break;
 		case NC_MATERIAL:
 			if (wmn->data == ND_SHADING_LINKS) {

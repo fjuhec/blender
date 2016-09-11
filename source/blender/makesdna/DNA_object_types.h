@@ -146,7 +146,7 @@ typedef struct Object {
 	bAnimVizSettings avs;	/* settings for visualization of object-transform animation */
 	bMotionPath *mpath;		/* motion path cache for this object */
 
-	struct wmWidgetGroup *wgroup; /* group of widgets assigned to this object */
+	struct wmManipulatorGroup *wgroup; /* group of widgets assigned to this object */
 
 	ListBase constraintChannels  DNA_DEPRECATED; // XXX deprecated... old animation system
 	ListBase effect  DNA_DEPRECATED;             // XXX deprecated... keep for readfile

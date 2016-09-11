@@ -443,7 +443,7 @@ EnumPropertyItem rna_enum_operator_return_items[] = {
 
 #ifndef RNA_RUNTIME
 static EnumPropertyItem widget_flag_items[] = {
-	{WM_WIDGETMAPTYPE_3D, "3D", 0, "3D", "Use the 3d viewport"},
+	{WM_MANIPULATORMAPTYPE_3D, "3D", 0, "3D", "Use the 3d viewport"},
 	{0, NULL, 0, NULL, NULL}
 };
 #endif
@@ -549,21 +549,21 @@ static PointerRNA rna_Operator_properties_get(PointerRNA *ptr)
 
 static void rna_WidgetGroup_name_get(PointerRNA *ptr, char *value)
 {
-	wmWidgetGroup *wgroup = ptr->data;
+	wmManipulatorGroup *wgroup = ptr->data;
 	strcpy(value, wgroup->type->name);
 	(void)wgroup;
 }
 
 static int rna_WidgetGroup_name_length(PointerRNA *ptr)
 {
-	wmWidgetGroup *wgroup = ptr->data;
+	wmManipulatorGroup *wgroup = ptr->data;
 	return strlen(wgroup->type->name);
 	(void)wgroup;
 }
 
 static void rna_WidgetGroup_bl_label_set(PointerRNA *ptr, const char *value)
 {
-	wmWidgetGroup *data = ptr->data;
+	wmManipulatorGroup *data = ptr->data;
 	const char *str = data->type->name;
 	if (!str)
 		str = value;
@@ -573,7 +573,7 @@ static void rna_WidgetGroup_bl_label_set(PointerRNA *ptr, const char *value)
 
 static int rna_WidgetGroup_has_reports_get(PointerRNA *ptr)
 {
-	wmWidgetGroup *wgroup = ptr->data;
+	wmManipulatorGroup *wgroup = ptr->data;
 	return (wgroup->reports && wgroup->reports->list.first);
 }
 
@@ -1451,9 +1451,9 @@ static void rna_Operator_bl_description_set(PointerRNA *ptr, const char *value)
 static void rna_WidgetGroup_unregister(struct Main *bmain, StructRNA *type)
 {
 	//const char *idname;
-	wmWidgetGroupType *wgrouptype = RNA_struct_blender_type_get(type);
+	wmManipulatorGroupType *wgrouptype = RNA_struct_blender_type_get(type);
 	//wmWindowManager *wm;
-	//wmWidgetMapType *wmap = NULL;
+	//wmManipulatorMapType *wmap = NULL;
 
 	if (!wgrouptype)
 		return;
@@ -1462,14 +1462,14 @@ static void rna_WidgetGroup_unregister(struct Main *bmain, StructRNA *type)
 
 	//RNA_struct_free_extension(type, &wgrouptype->ext);
 
-	WM_widgetgrouptype_unregister(NULL, bmain, wgrouptype);
+	WM_manipulatorgrouptype_unregister(NULL, bmain, wgrouptype);
 	//WM_operatortype_remove_ptr(ot);
 
 	/* not to be confused with the RNA_struct_free that WM_operatortype_remove calls, they are 2 different srna's */
 	RNA_struct_free(&BLENDER_RNA, type);
 }
 
-static int widgetgroup_poll(const bContext *C, wmWidgetGroupType *wgrouptype)
+static int widgetgroup_poll(const bContext *C, wmManipulatorGroupType *wgrouptype)
 {
 
 	extern FunctionRNA rna_WidgetGroup_poll_func;
@@ -1495,7 +1495,7 @@ static int widgetgroup_poll(const bContext *C, wmWidgetGroupType *wgrouptype)
 	return visible;
 }
 
-static void widgetgroup_draw(const bContext *C, wmWidgetGroup *wgroup)
+static void widgetgroup_draw(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	extern FunctionRNA rna_WidgetGroup_draw_func;
 
@@ -1513,7 +1513,7 @@ static void widgetgroup_draw(const bContext *C, wmWidgetGroup *wgroup)
 	RNA_parameter_list_free(&list);
 }
 
-static wmKeyMap *widgetgroup_keymap_init(const wmWidgetGroupType *wgrouptype, wmKeyConfig *config)
+static wmKeyMap *widgetgroup_keymap_init(const wmManipulatorGroupType *wgrouptype, wmKeyConfig *config)
 {
 	extern FunctionRNA rna_WidgetGroup_keymap_init_func;
 	const char *wgroupname = wgrouptype->name;
@@ -1542,7 +1542,7 @@ static wmKeyMap *widgetgroup_keymap_init(const wmWidgetGroupType *wgrouptype, wm
 #if 0
 
 /* same as exec(), but call cancel */
-static void operator_cancel(bContext *C, wmWidgetGroup *op)
+static void operator_cancel(bContext *C, wmManipulatorGroup *op)
 {
 	extern FunctionRNA rna_WidgetGroup_cancel_func;
 
@@ -1561,15 +1561,15 @@ static void operator_cancel(bContext *C, wmWidgetGroup *op)
 }
 #endif
 
-void widgetgroup_wrapper(wmWidgetGroupType *ot, void *userdata);
+void widgetgroup_wrapper(wmManipulatorGroupType *ot, void *userdata);
 
 static StructRNA *rna_WidgetGroup_register(
         Main *bmain, ReportList *reports, void *data, const char *identifier,
         StructValidateFunc validate, StructCallbackFunc call, StructFreeFunc free)
 {
 
-	wmWidgetGroupType *wgrouptype, dummywgt = {NULL};
-	wmWidgetGroup dummywg = {NULL};
+	wmManipulatorGroupType *wgrouptype, dummywgt = {NULL};
+	wmManipulatorGroup dummywg = {NULL};
 	PointerRNA wgptr;
 	int have_function[3];
 
@@ -1588,11 +1588,11 @@ static StructRNA *rna_WidgetGroup_register(
 	}
 	
 	/* check if the area supports widgets */
-	const struct wmWidgetMapType_Params wmap_params = {
+	const struct wmManipulatorMapType_Params wmap_params = {
 		dummywgt.mapidname, dummywgt.spaceid, dummywgt.regionid, dummywgt.flag,
 	};
 
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_ensure(&wmap_params);
+	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
 	if (wmaptype == NULL) {
 		BKE_reportf(reports, RPT_ERROR, "Area type does not support widgets");
 		return NULL;
@@ -1601,7 +1601,7 @@ static StructRNA *rna_WidgetGroup_register(
 #if 0
 	/* check if we have registered this widgetgroup type before, and remove it */
 	{
-		//wmWidgetGroupType *ot = WM_widgetgrouptype_find(dummywgt.idname, true);
+		//wmManipulatorGroupType *ot = WM_manipulatorrouptype_find(dummywgt.idname, true);
 		if (ot && ot->ext.srna)
 			rna_WidgetGroup_unregister(bmain, ot->ext.srna);
 	}
@@ -1613,7 +1613,7 @@ static StructRNA *rna_WidgetGroup_register(
 	/* We used to register widget group types like this, now we do it similar to
 	 * operator types. Thus we should be able to do the same as operator types now. */
 #if 0
-	wgrouptype = WM_widgetgrouptype_register_ptr(
+	wgrouptype = WM_manipulatorrouptype_register_ptr(
 	        NULL, wmaptype,
 	        (have_function[0]) ? widgetgroup_poll : NULL,
 	        (have_function[2]) ? widgetgroup_draw : NULL,
@@ -1637,10 +1637,10 @@ static StructRNA *rna_WidgetGroup_register(
 
 	RNA_struct_blender_type_set(wgrouptype->ext.srna, wgrouptype);
 
-	/* by passing NULL as main to WM_widgetgrouptype_register_ptr, we delay initialization */
+	/* by passing NULL as main to WM_manipulatorrouptype_register_ptr, we delay initialization */
 
 	/* XXX, currently not working since we cant call own callbacks until this function finishes, catch22! */
-	WM_widgetgrouptype_init_runtime(bmain, wmaptype, wgrouptype);
+	WM_manipulatorgrouptype_init_runtime(bmain, wmaptype, wgrouptype);
 
 	/* update while blender is running */
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);
@@ -1650,13 +1650,13 @@ static StructRNA *rna_WidgetGroup_register(
 
 static void **rna_WidgetGroup_instance(PointerRNA *ptr)
 {
-	wmWidgetGroup *wgroup = ptr->data;
+	wmManipulatorGroup *wgroup = ptr->data;
 	return &wgroup->py_instance;
 }
 
 static StructRNA *rna_WidgetGroup_refine(PointerRNA *wgroup_ptr)
 {
-	wmWidgetGroup *wgroup = wgroup_ptr->data;
+	wmManipulatorGroup *wgroup = wgroup_ptr->data;
 	return (wgroup->type && wgroup->type->ext.srna) ? wgroup->type->ext.srna : &RNA_WidgetGroup;
 }
 
@@ -1928,7 +1928,7 @@ static void rna_def_widgetgroup(BlenderRNA *brna)
 
 	srna = RNA_def_struct(brna, "WidgetGroup", NULL);
 	RNA_def_struct_ui_text(srna, "WidgetGroup", "Storage of an operator being executed, or registered after execution");
-	RNA_def_struct_sdna(srna, "wmWidgetGroup");
+	RNA_def_struct_sdna(srna, "wmManipulatorGroup");
 	RNA_def_struct_refine_func(srna, "rna_WidgetGroup_refine");
 #ifdef WITH_PYTHON
 	RNA_def_struct_register_funcs(srna, "rna_WidgetGroup_register", "rna_WidgetGroup_unregister", "rna_WidgetGroup_instance");

@@ -70,7 +70,7 @@ enum {
 };
 
 typedef struct ManipulatorGroup2D {
-	wmWidget *translate_x,
+	wmManipulator *translate_x,
 	         *translate_y;
 
 	/* Current origin in view space, used to update widget origin for possible view changes */
@@ -83,7 +83,7 @@ typedef struct ManipulatorGroup2D {
 /* loop over axes */
 #define MAN2D_ITER_AXES_BEGIN(axis, axis_idx) \
 	{ \
-		wmWidget *axis; \
+		wmManipulator *axis; \
 		int axis_idx; \
 		for (axis_idx = 0; axis_idx < MAN2D_AXIS_LAST; axis_idx++) { \
 			axis = manipulator2d_get_axis_from_index(man, axis_idx);
@@ -92,7 +92,7 @@ typedef struct ManipulatorGroup2D {
 		} \
 	} ((void)0)
 
-static wmWidget *manipulator2d_get_axis_from_index(const ManipulatorGroup2D *man, const short axis_idx)
+static wmManipulator *manipulator2d_get_axis_from_index(const ManipulatorGroup2D *man, const short axis_idx)
 {
 	BLI_assert(IN_RANGE_INCL(axis_idx, (float)MAN2D_AXIS_TRANS_X, (float)MAN2D_AXIS_TRANS_Y));
 
@@ -128,12 +128,12 @@ static void manipulator2d_get_axis_color(const int axis_idx, float *r_col, float
 	r_col_hi[3] *= alpha_hi;
 }
 
-static ManipulatorGroup2D *manipulatorgroup2d_init(wmWidgetGroup *wgroup)
+static ManipulatorGroup2D *manipulatorgroup2d_init(wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup2D *man = MEM_callocN(sizeof(ManipulatorGroup2D), __func__);
 
-	man->translate_x = WIDGET_arrow2d_new(wgroup, "translate_x");
-	man->translate_y = WIDGET_arrow2d_new(wgroup, "translate_y");
+	man->translate_x = MANIPULATOR_arrow2d_new(wgroup, "translate_x");
+	man->translate_y = MANIPULATOR_arrow2d_new(wgroup, "translate_y");
 
 	return man;
 }
@@ -165,21 +165,21 @@ BLI_INLINE void manipulator2d_origin_to_region(ARegion *ar, float *r_origin)
 /**
  * Custom handler for manipulator widgets
  */
-static int manipulator2d_handler(bContext *C, const wmEvent *UNUSED(event), wmWidget *widget, const int UNUSED(flag))
+static int manipulator2d_handler(bContext *C, const wmEvent *UNUSED(event), wmManipulator *widget, const int UNUSED(flag))
 {
 	ARegion *ar = CTX_wm_region(C);
 	float origin[3];
 
 	manipulator2d_calc_origin(C, origin);
 	manipulator2d_origin_to_region(ar, origin);
-	WM_widget_set_origin(widget, origin);
+	WM_manipulator_set_origin(widget, origin);
 
 	ED_region_tag_redraw(ar);
 
 	return OPERATOR_PASS_THROUGH;
 }
 
-void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
+void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup2D *man = manipulatorgroup2d_init(wgroup);
 	wgroup->customdata = man;
@@ -194,15 +194,15 @@ void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmWidgetGroup *wg
 		/* custom handler! */
 		axis->handler = manipulator2d_handler;
 		/* set up widget data */
-		WIDGET_arrow2d_set_angle(axis, -M_PI_2 * axis_idx);
-		WIDGET_arrow2d_set_line_len(axis, 0.8f);
-		WM_widget_set_offset(axis, offset);
-		WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
-		WM_widget_set_scale(axis, U.widget_scale);
-		WM_widget_set_colors(axis, col, col_hi);
+		MANIPULATOR_arrow2d_set_angle(axis, -M_PI_2 * axis_idx);
+		MANIPULATOR_arrow2d_set_line_len(axis, 0.8f);
+		WM_manipulator_set_offset(axis, offset);
+		WM_manipulator_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
+		WM_manipulator_set_scale(axis, U.widget_scale);
+		WM_manipulator_set_colors(axis, col, col_hi);
 
 		/* assign operator */
-		PointerRNA *ptr = WM_widget_set_operator(axis, "TRANSFORM_OT_translate");
+		PointerRNA *ptr = WM_manipulator_set_operator(axis, "TRANSFORM_OT_translate");
 		int constraint[3] = {0.0f};
 		constraint[(axis_idx + 1) % 2] = 1;
 		if (RNA_struct_find_property(ptr, "constraint_axis"))
@@ -212,7 +212,7 @@ void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmWidgetGroup *wg
 	MAN2D_ITER_AXES_END;
 }
 
-void WIDGETGROUP_manipulator2d_refresh(const bContext *C, wmWidgetGroup *wgroup)
+void WIDGETGROUP_manipulator2d_refresh(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup2D *man = wgroup->customdata;
 	float origin[3];
@@ -221,7 +221,7 @@ void WIDGETGROUP_manipulator2d_refresh(const bContext *C, wmWidgetGroup *wgroup)
 	copy_v2_v2(man->origin, origin);
 }
 
-void WIDGETGROUP_manipulator2d_draw_prepare(const bContext *C, wmWidgetGroup *wgroup)
+void WIDGETGROUP_manipulator2d_draw_prepare(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup2D *man = wgroup->customdata;
 	float origin[3] = {UNPACK2(man->origin), 0.0f};
@@ -230,7 +230,7 @@ void WIDGETGROUP_manipulator2d_draw_prepare(const bContext *C, wmWidgetGroup *wg
 
 	MAN2D_ITER_AXES_BEGIN(axis, axis_idx)
 	{
-		WM_widget_set_origin(axis, origin);
+		WM_manipulator_set_origin(axis, origin);
 	}
 	MAN2D_ITER_AXES_END;
 }
@@ -239,7 +239,7 @@ void WIDGETGROUP_manipulator2d_draw_prepare(const bContext *C, wmWidgetGroup *wg
  * - Called on every redraw, better to do a more simple poll and check for selection in _refresh
  * - UV editing only, could be expanded for other things.
  */
-int WIDGETGROUP_manipulator2d_poll(const bContext *C, wmWidgetGroupType *UNUSED(wgrouptype))
+int WIDGETGROUP_manipulator2d_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	SpaceImage *sima = CTX_wm_space_image(C);
 	Object *obedit = CTX_data_edit_object(C);

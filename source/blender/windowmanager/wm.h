@@ -39,7 +39,7 @@ struct PointerRNA;
 struct PropertyRNA;
 struct wmOperator;
 
-#include "widgets/wm_widget_wmapi.h" /* widgets wm API */
+#include "manipulators/wm_manipulator_wmapi.h" /* manipulators wm API */
 
 typedef struct wmPaintCursor {
 	struct wmPaintCursor *next, *prev;

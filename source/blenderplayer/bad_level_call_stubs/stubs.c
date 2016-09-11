@@ -131,7 +131,7 @@ struct wmOperator;
 struct wmOperatorType;
 struct wmWindow;
 struct wmWindowManager;
-struct wmWidgetMap;
+struct wmManipulatorMap;
 
 
 /* -------------------------------------------------------------------- */
@@ -338,12 +338,12 @@ void WM_jobs_callbacks(struct wmJob *job,
 void WM_jobs_start(struct wmWindowManager *wm, struct wmJob *job) RET_NONE
 void WM_report(ReportType type, const char *message) RET_NONE
 
-struct wmWidgetMapType *WM_widgetmaptype_find(const struct wmWidgetMapType_Params *wmap_params) RET_NULL
-struct wmWidgetMapType *WM_widgetmaptype_ensure(const struct wmWidgetMapType_Params *wmap_params) RET_NULL
-struct wmWidgetMap *WM_widgetmap_from_type(const struct wmWidgetMapType_Params *wmap_params) RET_NULL
-void WM_widgetmap_delete(struct wmWidgetMap *wmap) RET_NONE
-void WM_widgetgrouptype_init_runtime(const struct Main *bmain, struct wmWidgetMapType *wmaptype, struct wmWidgetGroupType *wgrouptype) RET_NONE
-void WM_widgetgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmWidgetGroupType *wgroup) RET_NONE
+struct wmManipulatorMapType *WM_manipulatormaptype_find(const struct wmManipulatorMapType_Params *wmap_params) RET_NULL
+struct wmManipulatorMapType *WM_manipulatormaptype_ensure(const struct wmManipulatorMapType_Params *wmap_params) RET_NULL
+struct wmManipulatorMap *WM_manipulatormap_from_type(const struct wmManipulatorMapType_Params *wmap_params) RET_NULL
+void WM_manipulatormap_delete(struct wmManipulatorMap *wmap) RET_NONE
+void WM_manipulatorgrouptype_init_runtime(const struct Main *bmain, struct wmManipulatorMapType *wmaptype, struct wmManipulatorGroupType *wgrouptype) RET_NONE
+void WM_manipulatorgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *wgroup) RET_NONE
 
 #ifdef WITH_INPUT_NDOF
     void WM_ndof_deadzone_set(float deadzone) RET_NONE

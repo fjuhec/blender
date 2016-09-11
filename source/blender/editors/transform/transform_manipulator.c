@@ -148,7 +148,7 @@ enum {
 typedef struct ManipulatorGroup {
 	bool all_hidden;
 
-	struct wmWidget *translate_x,
+	struct wmManipulator *translate_x,
 	                *translate_y,
 	                *translate_z,
 	                *translate_xy,
@@ -177,7 +177,7 @@ typedef struct ManipulatorGroup {
 /* loop over axes */
 #define MAN_ITER_AXES_BEGIN(axis, axis_idx) \
 	{ \
-		wmWidget *axis; \
+		wmManipulator *axis; \
 		int axis_idx; \
 		for (axis_idx = 0; axis_idx < MAN_AXIS_LAST; axis_idx++) { \
 			axis = manipulator_get_axis_from_index(man, axis_idx);
@@ -186,7 +186,7 @@ typedef struct ManipulatorGroup {
 		} \
 	} ((void)0)
 
-static wmWidget *manipulator_get_axis_from_index(const ManipulatorGroup *man, const short axis_idx)
+static wmManipulator *manipulator_get_axis_from_index(const ManipulatorGroup *man, const short axis_idx)
 {
 	BLI_assert(IN_RANGE_INCL(axis_idx, (float)MAN_AXIS_TRANS_X, (float)MAN_AXIS_LAST));
 
@@ -234,7 +234,7 @@ static wmWidget *manipulator_get_axis_from_index(const ManipulatorGroup *man, co
 	return NULL;
 }
 
-static short manipulator_get_axis_type(const ManipulatorGroup *man, const wmWidget *axis)
+static short manipulator_get_axis_type(const ManipulatorGroup *man, const wmManipulator *axis)
 {
 	if (ELEM(axis, man->translate_x, man->translate_y, man->translate_z, man->translate_c,
 	         man->translate_xy, man->translate_yz, man->translate_zx))
@@ -1152,36 +1152,36 @@ static void manipulator_line_range(const View3D *v3d, const short axis_type, flo
 
 /* **************** Actual Widget Stuff **************** */
 
-static ManipulatorGroup *manipulatorgroup_init(wmWidgetGroup *wgroup)
+static ManipulatorGroup *manipulatorgroup_init(wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup *man;
 
 	man = MEM_callocN(sizeof(ManipulatorGroup), "manipulator_data");
 
 	/* add/init widgets - order matters! */
-	man->rotate_t = WIDGET_dial_new(wgroup, "rotate_t", WIDGET_DIAL_STYLE_RING_FILLED);
+	man->rotate_t = MANIPULATOR_dial_new(wgroup, "rotate_t", MANIPULATOR_DIAL_STYLE_RING_FILLED);
 
-	man->scale_c = WIDGET_dial_new(wgroup, "scale_c", WIDGET_DIAL_STYLE_RING);
-	man->scale_x = WIDGET_arrow_new(wgroup, "scale_x", WIDGET_ARROW_STYLE_BOX);
-	man->scale_y = WIDGET_arrow_new(wgroup, "scale_y", WIDGET_ARROW_STYLE_BOX);
-	man->scale_z = WIDGET_arrow_new(wgroup, "scale_z", WIDGET_ARROW_STYLE_BOX);
-	man->scale_xy = WIDGET_primitive_new(wgroup, "scale_xy", WIDGET_PRIMITIVE_STYLE_PLANE);
-	man->scale_yz = WIDGET_primitive_new(wgroup, "scale_yz", WIDGET_PRIMITIVE_STYLE_PLANE);
-	man->scale_zx = WIDGET_primitive_new(wgroup, "scale_zx", WIDGET_PRIMITIVE_STYLE_PLANE);
+	man->scale_c = MANIPULATOR_dial_new(wgroup, "scale_c", MANIPULATOR_DIAL_STYLE_RING);
+	man->scale_x = MANIPULATOR_arrow_new(wgroup, "scale_x", MANIPULATOR_ARROW_STYLE_BOX);
+	man->scale_y = MANIPULATOR_arrow_new(wgroup, "scale_y", MANIPULATOR_ARROW_STYLE_BOX);
+	man->scale_z = MANIPULATOR_arrow_new(wgroup, "scale_z", MANIPULATOR_ARROW_STYLE_BOX);
+	man->scale_xy = MANIPULATOR_primitive_new(wgroup, "scale_xy", MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	man->scale_yz = MANIPULATOR_primitive_new(wgroup, "scale_yz", MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	man->scale_zx = MANIPULATOR_primitive_new(wgroup, "scale_zx", MANIPULATOR_PRIMITIVE_STYLE_PLANE);
 
-	man->rotate_x = WIDGET_dial_new(wgroup, "rotate_x", WIDGET_DIAL_STYLE_RING_CLIPPED);
-	man->rotate_y = WIDGET_dial_new(wgroup, "rotate_y", WIDGET_DIAL_STYLE_RING_CLIPPED);
-	man->rotate_z = WIDGET_dial_new(wgroup, "rotate_z", WIDGET_DIAL_STYLE_RING_CLIPPED);
+	man->rotate_x = MANIPULATOR_dial_new(wgroup, "rotate_x", MANIPULATOR_DIAL_STYLE_RING_CLIPPED);
+	man->rotate_y = MANIPULATOR_dial_new(wgroup, "rotate_y", MANIPULATOR_DIAL_STYLE_RING_CLIPPED);
+	man->rotate_z = MANIPULATOR_dial_new(wgroup, "rotate_z", MANIPULATOR_DIAL_STYLE_RING_CLIPPED);
 	/* init screen aligned widget last here, looks better, behaves better */
-	man->rotate_c = WIDGET_dial_new(wgroup, "rotate_c", WIDGET_DIAL_STYLE_RING);
+	man->rotate_c = MANIPULATOR_dial_new(wgroup, "rotate_c", MANIPULATOR_DIAL_STYLE_RING);
 
-	man->translate_c = WIDGET_dial_new(wgroup, "translate_c", WIDGET_DIAL_STYLE_RING);
-	man->translate_x = WIDGET_arrow_new(wgroup, "translate_x", WIDGET_ARROW_STYLE_NORMAL);
-	man->translate_y = WIDGET_arrow_new(wgroup, "translate_y", WIDGET_ARROW_STYLE_NORMAL);
-	man->translate_z = WIDGET_arrow_new(wgroup, "translate_z", WIDGET_ARROW_STYLE_NORMAL);
-	man->translate_xy = WIDGET_primitive_new(wgroup, "translate_xy", WIDGET_PRIMITIVE_STYLE_PLANE);
-	man->translate_yz = WIDGET_primitive_new(wgroup, "translate_yz", WIDGET_PRIMITIVE_STYLE_PLANE);
-	man->translate_zx = WIDGET_primitive_new(wgroup, "translate_zx", WIDGET_PRIMITIVE_STYLE_PLANE);
+	man->translate_c = MANIPULATOR_dial_new(wgroup, "translate_c", MANIPULATOR_DIAL_STYLE_RING);
+	man->translate_x = MANIPULATOR_arrow_new(wgroup, "translate_x", MANIPULATOR_ARROW_STYLE_NORMAL);
+	man->translate_y = MANIPULATOR_arrow_new(wgroup, "translate_y", MANIPULATOR_ARROW_STYLE_NORMAL);
+	man->translate_z = MANIPULATOR_arrow_new(wgroup, "translate_z", MANIPULATOR_ARROW_STYLE_NORMAL);
+	man->translate_xy = MANIPULATOR_primitive_new(wgroup, "translate_xy", MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	man->translate_yz = MANIPULATOR_primitive_new(wgroup, "translate_yz", MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	man->translate_zx = MANIPULATOR_primitive_new(wgroup, "translate_zx", MANIPULATOR_PRIMITIVE_STYLE_PLANE);
 
 	return man;
 }
@@ -1189,7 +1189,7 @@ static ManipulatorGroup *manipulatorgroup_init(wmWidgetGroup *wgroup)
 /**
  * Custom handler for manipulator widgets
  */
-static int manipulator_handler(bContext *C, const wmEvent *UNUSED(event), wmWidget *widget, const int UNUSED(flag))
+static int manipulator_handler(bContext *C, const wmEvent *UNUSED(event), wmManipulator *widget, const int UNUSED(flag))
 {
 	const ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
@@ -1198,7 +1198,7 @@ static int manipulator_handler(bContext *C, const wmEvent *UNUSED(event), wmWidg
 
 	if (calc_manipulator_stats(C)) {
 		manipulator_prepare_mat(C, v3d, rv3d);
-		WM_widget_set_origin(widget, rv3d->twmat[3]);
+		WM_manipulator_set_origin(widget, rv3d->twmat[3]);
 	}
 
 	ED_region_tag_redraw(ar);
@@ -1206,7 +1206,7 @@ static int manipulator_handler(bContext *C, const wmEvent *UNUSED(event), wmWidg
 	return OPERATOR_PASS_THROUGH;
 }
 
-static void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmWidgetGroup *wgroup)
+static void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup *man = manipulatorgroup_init(wgroup);
 	wgroup->customdata = man;
@@ -1231,14 +1231,14 @@ static void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmWidgetGrou
 			case MAN_AXIS_SCALE_X:
 			case MAN_AXIS_SCALE_Y:
 			case MAN_AXIS_SCALE_Z:
-				WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
+				WM_manipulator_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
 				break;
 			case MAN_AXIS_ROT_X:
 			case MAN_AXIS_ROT_Y:
 			case MAN_AXIS_ROT_Z:
 				/* increased line width for better display */
-				WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH + 1.0f);
-				WM_widget_set_flag(axis, WM_WIDGET_DRAW_VALUE, true);
+				WM_manipulator_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH + 1.0f);
+				WM_manipulator_set_flag(axis, WM_MANIPULATOR_DRAW_VALUE, true);
 				break;
 			case MAN_AXIS_TRANS_XY:
 			case MAN_AXIS_TRANS_YZ:
@@ -1249,38 +1249,38 @@ static void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmWidgetGrou
 			{
 				const float ofs_ax = 11.0f;
 				const float ofs[3] = {ofs_ax, ofs_ax, 0.0f};
-				WM_widget_set_scale(axis, 0.07f);
-				WM_widget_set_offset(axis, ofs);
+				WM_manipulator_set_scale(axis, 0.07f);
+				WM_manipulator_set_offset(axis, ofs);
 				break;
 			}
 			case MAN_AXIS_TRANS_C:
 			case MAN_AXIS_ROT_C:
 			case MAN_AXIS_SCALE_C:
 			case MAN_AXIS_ROT_T:
-				WM_widget_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
+				WM_manipulator_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
 				if (axis_idx == MAN_AXIS_ROT_T) {
-					WM_widget_set_flag(axis, WM_WIDGET_DRAW_HOVER, true);
+					WM_manipulator_set_flag(axis, WM_MANIPULATOR_DRAW_HOVER, true);
 				}
 				else if (axis_idx == MAN_AXIS_ROT_C) {
-					WM_widget_set_flag(axis, WM_WIDGET_DRAW_VALUE, true);
+					WM_manipulator_set_flag(axis, WM_MANIPULATOR_DRAW_VALUE, true);
 				}
 				else {
-					WM_widget_set_scale(axis, 0.2f);
+					WM_manipulator_set_scale(axis, 0.2f);
 				}
 				break;
 		}
 
 		switch (axis_type) {
 			case MAN_AXES_TRANSLATE:
-				ptr = WM_widget_set_operator(axis, "TRANSFORM_OT_translate");
+				ptr = WM_manipulator_set_operator(axis, "TRANSFORM_OT_translate");
 				break;
 			case MAN_AXES_ROTATE:
-				ptr = WM_widget_set_operator(
+				ptr = WM_manipulator_set_operator(
 				          axis, (axis_idx == MAN_AXIS_ROT_T) ?
 				          "TRANSFORM_OT_trackball" : "TRANSFORM_OT_rotate");
 				break;
 			case MAN_AXES_SCALE:
-				ptr = WM_widget_set_operator(axis, "TRANSFORM_OT_resize");
+				ptr = WM_manipulator_set_operator(axis, "TRANSFORM_OT_resize");
 				break;
 		}
 		if (RNA_struct_find_property(ptr, "constraint_axis"))
@@ -1290,7 +1290,7 @@ static void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmWidgetGrou
 	MAN_ITER_AXES_END;
 }
 
-static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup *man = wgroup->customdata;
 	ScrArea *sa = CTX_wm_area(C);
@@ -1313,7 +1313,7 @@ static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmWidgetGroup *wg
 		const short axis_type = manipulator_get_axis_type(man, axis);
 		const int aidx_norm = manipulator_index_normalize(axis_idx);
 
-		WM_widget_set_origin(axis, rv3d->twmat[3]);
+		WM_manipulator_set_origin(axis, rv3d->twmat[3]);
 
 		switch (axis_idx) {
 			case MAN_AXIS_TRANS_X:
@@ -1328,15 +1328,15 @@ static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmWidgetGroup *wg
 
 				manipulator_line_range(v3d, axis_type, &start_co[2], &len);
 
-				WIDGET_arrow_set_direction(axis, rv3d->twmat[aidx_norm]);
-				WIDGET_arrow_set_line_len(axis, len);
-				WM_widget_set_offset(axis, start_co);
+				MANIPULATOR_arrow_set_direction(axis, rv3d->twmat[aidx_norm]);
+				MANIPULATOR_arrow_set_line_len(axis, len);
+				WM_manipulator_set_offset(axis, start_co);
 				break;
 			}
 			case MAN_AXIS_ROT_X:
 			case MAN_AXIS_ROT_Y:
 			case MAN_AXIS_ROT_Z:
-				WIDGET_dial_set_up_vector(axis, rv3d->twmat[aidx_norm]);
+				MANIPULATOR_dial_set_up_vector(axis, rv3d->twmat[aidx_norm]);
 				break;
 			case MAN_AXIS_TRANS_XY:
 			case MAN_AXIS_TRANS_YZ:
@@ -1344,15 +1344,15 @@ static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmWidgetGroup *wg
 			case MAN_AXIS_SCALE_XY:
 			case MAN_AXIS_SCALE_YZ:
 			case MAN_AXIS_SCALE_ZX:
-				WIDGET_primitive_set_direction(axis, rv3d->twmat[aidx_norm - 1 < 0 ? 2 : aidx_norm - 1]);
-				WIDGET_primitive_set_up_vector(axis, rv3d->twmat[aidx_norm + 1 > 2 ? 0 : aidx_norm + 1]);
+				MANIPULATOR_primitive_set_direction(axis, rv3d->twmat[aidx_norm - 1 < 0 ? 2 : aidx_norm - 1]);
+				MANIPULATOR_primitive_set_up_vector(axis, rv3d->twmat[aidx_norm + 1 > 2 ? 0 : aidx_norm + 1]);
 				break;
 		}
 	}
 	MAN_ITER_AXES_END;
 }
 
-static void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	ManipulatorGroup *man = wgroup->customdata;
 	ScrArea *sa = CTX_wm_area(C);
@@ -1366,7 +1366,7 @@ static void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmWidgetGrou
 	if (man->all_hidden || fabsf(ED_view3d_pixel_size(rv3d, rv3d->twmat[3])) < 1e-6f) {
 		MAN_ITER_AXES_BEGIN(axis, axis_idx)
 		{
-			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, true);
+			WM_manipulator_set_flag(axis, WM_MANIPULATOR_HIDDEN, true);
 		}
 		MAN_ITER_AXES_END;
 		return;
@@ -1380,30 +1380,30 @@ static void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmWidgetGrou
 		const short axis_type = manipulator_get_axis_type(man, axis);
 		/* XXX maybe unset _HIDDEN flag on redraw? */
 		if (manipulator_is_axis_visible(v3d, rv3d, idot, axis_type, axis_idx)) {
-			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, false);
+			WM_manipulator_set_flag(axis, WM_MANIPULATOR_HIDDEN, false);
 		}
 		else {
-			WM_widget_set_flag(axis, WM_WIDGET_HIDDEN, true);
+			WM_manipulator_set_flag(axis, WM_MANIPULATOR_HIDDEN, true);
 			continue;
 		}
 
 		float col[4], col_hi[4];
 		manipulator_get_axis_color(axis_idx, idot, col, col_hi);
-		WM_widget_set_colors(axis, col, col_hi);
+		WM_manipulator_set_colors(axis, col, col_hi);
 
 		switch (axis_idx) {
 			case MAN_AXIS_TRANS_C:
 			case MAN_AXIS_ROT_C:
 			case MAN_AXIS_SCALE_C:
 			case MAN_AXIS_ROT_T:
-				WIDGET_dial_set_up_vector(axis, rv3d->viewinv[2]);
+				MANIPULATOR_dial_set_up_vector(axis, rv3d->viewinv[2]);
 				break;
 		}
 	}
 	MAN_ITER_AXES_END;
 }
 
-static int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidgetGroupType *UNUSED(wgrouptype))
+static int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	/* it's a given we only use this in 3D view */
 	const ScrArea *sa = CTX_wm_area(C);
@@ -1413,7 +1413,7 @@ static int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmWidge
 	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0));
 }
 
-void TRANSFORM_WGT_manipulator(wmWidgetGroupType *wgt)
+void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Transform Manipulator";
 
@@ -1427,7 +1427,7 @@ void TRANSFORM_WGT_manipulator(wmWidgetGroupType *wgt)
 /* -------------------------------------------------------------------- */
 /* Custom Object Manipulator (unfinished - unsure if this will stay) */
 
-static void WIDGETGROUP_object_manipulator_init(const bContext *C, wmWidgetGroup *wgroup)
+static void WIDGETGROUP_object_manipulator_init(const bContext *C, wmManipulatorGroup *wgroup)
 {
 	Object *ob = ED_object_active_context((bContext *)C);
 
@@ -1438,7 +1438,7 @@ static void WIDGETGROUP_object_manipulator_init(const bContext *C, wmWidgetGroup
 	WIDGETGROUP_manipulator_init(C, wgroup);
 }
 
-static int WIDGETGROUP_object_manipulator_poll(const bContext *C, wmWidgetGroupType *wgrouptype)
+static int WIDGETGROUP_object_manipulator_poll(const bContext *C, wmManipulatorGroupType *wgrouptype)
 {
 	Object *ob = ED_object_active_context((bContext *)C);
 
@@ -1451,7 +1451,7 @@ static int WIDGETGROUP_object_manipulator_poll(const bContext *C, wmWidgetGroupT
 }
 
 /* XXX should this really be in transform_manipulator.c? */
-void TRANSFORM_WGT_object(wmWidgetGroupType *wgt)
+void TRANSFORM_WGT_object(wmManipulatorGroupType *wgt)
 {
 	wgt->name = "Object Widgets";
 

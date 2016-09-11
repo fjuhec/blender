@@ -2202,9 +2202,9 @@ void OBJECT_OT_game_physics_copy(struct wmOperatorType *ot)
 static int object_widget_add_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *ob = ED_object_active_context((bContext *)C);
-	wmWidgetMapType *wmaptype = WM_widgetmaptype_find(&(const struct wmWidgetMapType_Params) {
-	        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_WIDGETMAPTYPE_3D});
-	wmWidgetGroupType *wgrouptype = WM_widgetgrouptype_append(wmaptype, TRANSFORM_WGT_object);
+	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
+	        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_MANIPULATORMAPTYPE_3D});
+	wmManipulatorGroupType *wgrouptype = WM_manipulatorgrouptype_append(wmaptype, TRANSFORM_WGT_object);
 	/* assign the objects id name to the widget */
 	strcpy(wgrouptype->idname, ob->id.name);
 

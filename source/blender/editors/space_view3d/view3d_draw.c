@@ -3899,9 +3899,9 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 	/* widgets need to be updated *after* view matrix was set up
 	 * XXX since we do 2 draw calls (with and without depth culling),
 	 * it might be better to have 2 update calls, too */
-	WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
+	WM_manipulatormap_widgets_update(C, ar->widgetmaps.first);
 	/* draw depth culled widgets */
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, true, false);
+	WM_manipulatormap_widgets_draw(C, ar->widgetmaps.first, true, false);
 
 	/* post process */
 	if (do_compositing) {
@@ -4073,9 +4073,9 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	glClear(GL_DEPTH_BUFFER_BIT);
 
 	if (update_widgets) {
-		WM_widgetmap_widgets_update(C, ar->widgetmaps.first);
+		WM_manipulatormap_widgets_update(C, ar->widgetmaps.first);
 	}
-	WM_widgetmap_widgets_draw(C, ar->widgetmaps.first, false, true);
+	WM_manipulatormap_widgets_draw(C, ar->widgetmaps.first, false, true);
 
 	ED_region_pixelspace(ar);
 	

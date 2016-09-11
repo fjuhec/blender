@@ -1677,7 +1677,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 
 			/* attach widgetmap to handler if not there yet */
 			if (ot->wgrouptype && !handler->widgetmap) {
-				wm_widgetgroup_attach_to_modal_handler(C, handler, ot->wgrouptype, op);
+				WM_manipulatorgroup_attach_to_modal_handler(C, handler, ot->wgrouptype, op);
 			}
 
 			if (ot->flag & OPTYPE_UNDO)
@@ -1729,7 +1729,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 				}
 
 				/* update widgets during modal handlers */
-				wm_widgetmaps_handled_modal_update(C, event, handler, ot);
+				WM_manipulatormaps_handled_modal_update(C, event, handler, ot);
 
 				/* remove modal handler, operator itself should have been canceled and freed */
 				if (retval & (OPERATOR_CANCELLED | OPERATOR_FINISHED)) {
@@ -2104,22 +2104,22 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 			else if (handler->widgetmap) {
 				ScrArea *area = CTX_wm_area(C);
 				ARegion *region = CTX_wm_region(C);
-				wmWidgetMap *wmap = handler->widgetmap;
-				wmWidget *widget = wm_widgetmap_get_highlighted_widget(wmap);
+				wmManipulatorMap *wmap = handler->widgetmap;
+				wmManipulator *widget = WM_manipulatormap_get_highlighted_widget(wmap);
 				unsigned char part;
 
-				wm_widgetmap_handler_context(C, handler);
+				WM_manipulatormap_handler_context(C, handler);
 				wm_region_mouse_co(C, event);
 
 				/* handle widget highlighting */
-				if (event->type == MOUSEMOVE && !wm_widgetmap_get_active_widget(wmap)) {
-					if (wm_widgetmap_is_3d(wmap)) {
-						widget = wm_widgetmap_find_highlighted_3D(wmap, C, event, &part);
-						wm_widgetmap_set_highlighted_widget(wmap, C, widget, part);
+				if (event->type == MOUSEMOVE && !WM_manipulatormap_get_active_widget(wmap)) {
+					if (WM_manipulatormap_is_3d(wmap)) {
+						widget = WM_manipulatormap_find_highlighted_3D(wmap, C, event, &part);
+						WM_manipulatormap_set_highlighted_widget(wmap, C, widget, part);
 					}
 					else {
-						widget = wm_widgetmap_find_highlighted_widget(wmap, C, event, &part);
-						wm_widgetmap_set_highlighted_widget(wmap, C, widget, part);
+						widget = WM_manipulatormap_find_highlighted_widget(wmap, C, event, &part);
+						WM_manipulatormap_set_highlighted_widget(wmap, C, widget, part);
 					}
 				}
 				/* handle user configurable widgetmap keymap */
