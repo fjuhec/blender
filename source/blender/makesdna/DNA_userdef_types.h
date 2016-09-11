@@ -784,8 +784,6 @@ typedef enum eText_Draw_Options {
 	USER_TEXT_DISABLE_AA	= (1 << 0),
 } eText_Draw_Options;
 
-/* tw_flag (transform widget) */
-
 /* gp_settings (Grease Pencil Settings) */
 typedef enum eGP_UserdefSettings {
 	GP_PAINT_DOSMOOTH		= (1 << 0),

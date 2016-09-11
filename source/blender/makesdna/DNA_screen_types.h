@@ -264,7 +264,7 @@ typedef struct ARegion {
 	ListBase ui_lists;			/* uiList */
 	ListBase ui_previews;		/* uiPreview */
 	ListBase handlers;			/* wmEventHandler */
-	ListBase manipulator_maps;		/* manipulator-maps */
+	ListBase manipulator_maps;	/* wmManipulatorMap */
 	ListBase panels_category;	/* Panel categories runtime */
 	
 	struct wmTimer *regiontimer; /* blend in/out */
