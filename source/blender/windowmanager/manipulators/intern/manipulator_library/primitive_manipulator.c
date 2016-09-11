@@ -38,7 +38,7 @@
 #include "BLI_math.h"
 
 #include "DNA_view3d_types.h"
-#include "DNA_widget_types.h"
+#include "DNA_manipulator_types.h"
 
 #include "GPU_select.h"
 
@@ -61,7 +61,7 @@ enum {
 };
 
 typedef struct PrimitiveManipulator {
-	wmManipulator widget;
+	wmManipulator manipulator;
 
 	float direction[3];
 	float up[3];
@@ -116,31 +116,31 @@ static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const 
 	}
 
 	copy_m4_m3(mat, rot);
-	copy_v3_v3(mat[3], prim->widget.origin);
-	mul_mat3_m4_fl(mat, prim->widget.scale);
+	copy_v3_v3(mat[3], prim->manipulator.origin);
+	mul_mat3_m4_fl(mat, prim->manipulator.scale);
 
 	glPushMatrix();
 	glMultMatrixf(mat);
 
-	if (highlight && (prim->widget.flag & WM_MANIPULATOR_DRAW_HOVER) == 0) {
-		copy_v4_v4(col_inner, prim->widget.col_hi);
-		copy_v4_v4(col_outer, prim->widget.col_hi);
+	if (highlight && (prim->manipulator.flag & WM_MANIPULATOR_DRAW_HOVER) == 0) {
+		copy_v4_v4(col_inner, prim->manipulator.col_hi);
+		copy_v4_v4(col_outer, prim->manipulator.col_hi);
 	}
 	else {
-		copy_v4_v4(col_inner, prim->widget.col);
-		copy_v4_v4(col_outer, prim->widget.col);
+		copy_v4_v4(col_inner, prim->manipulator.col);
+		copy_v4_v4(col_outer, prim->manipulator.col);
 	}
 	col_inner[3] *= 0.5f;
 
 	glEnable(GL_BLEND);
-	glTranslate3fv(prim->widget.offset);
+	glTranslate3fv(prim->manipulator.offset);
 	manipulator_primitive_draw_geom(col_inner, col_outer, prim->style);
 	glDisable(GL_BLEND);
 
 	glPopMatrix();
 
-	if (prim->widget.interaction_data) {
-		ManipulatorInteraction *inter = prim->widget.interaction_data;
+	if (prim->manipulator.interaction_data) {
+		ManipulatorInteraction *inter = prim->manipulator.interaction_data;
 
 		copy_v4_fl(col_inner, 0.5f);
 		copy_v3_fl(col_outer, 0.5f);
@@ -154,7 +154,7 @@ static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const 
 		glMultMatrixf(mat);
 
 		glEnable(GL_BLEND);
-		glTranslate3fv(prim->widget.offset);
+		glTranslate3fv(prim->manipulator.offset);
 		manipulator_primitive_draw_geom(col_inner, col_outer, prim->style);
 		glDisable(GL_BLEND);
 
@@ -162,25 +162,25 @@ static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const 
 	}
 }
 
-static void manipulator_primitive_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *widget, int selectionbase)
+static void manipulator_primitive_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *manipulator, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
-	manipulator_primitive_draw_intern((PrimitiveManipulator *)widget, true, false);
+	manipulator_primitive_draw_intern((PrimitiveManipulator *)manipulator, true, false);
 }
 
-static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator *widget)
+static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
 {
-	manipulator_primitive_draw_intern((PrimitiveManipulator *)widget, false, (widget->flag & WM_MANIPULATOR_HIGHLIGHT));
+	manipulator_primitive_draw_intern((PrimitiveManipulator *)manipulator, false, (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT));
 }
 
-static int manipulator_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *widget)
+static int manipulator_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *manipulator)
 {
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 
-	copy_v3_v3(inter->init_origin, widget->origin);
-	inter->init_scale = widget->scale;
+	copy_v3_v3(inter->init_origin, manipulator->origin);
+	inter->init_scale = manipulator->scale;
 
-	widget->interaction_data = inter;
+	manipulator->interaction_data = inter;
 
 	return OPERATOR_RUNNING_MODAL;
 }
@@ -191,22 +191,22 @@ static int manipulator_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUS
  *
  * \{ */
 
-wmManipulator *MANIPULATOR_primitive_new(wmManipulatorGroup *wgroup, const char *name, const int style)
+wmManipulator *MANIPULATOR_primitive_new(wmManipulatorGroup *mgroup, const char *name, const int style)
 {
 	PrimitiveManipulator *prim = MEM_callocN(sizeof(PrimitiveManipulator), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
-	prim->widget.draw = manipulator_primitive_draw;
-	prim->widget.invoke = manipulator_primitive_invoke;
-	prim->widget.intersect = NULL;
-	prim->widget.render_3d_intersection = manipulator_primitive_render_3d_intersect;
-	prim->widget.flag |= (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_SCALE_3D);
+	prim->manipulator.draw = manipulator_primitive_draw;
+	prim->manipulator.invoke = manipulator_primitive_invoke;
+	prim->manipulator.intersect = NULL;
+	prim->manipulator.render_3d_intersection = manipulator_primitive_render_3d_intersect;
+	prim->manipulator.flag |= (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_SCALE_3D);
 	prim->style = style;
 
 	/* defaults */
 	copy_v3_v3(prim->direction, dir_default);
 
-	WM_manipulator_register(wgroup, &prim->widget, name);
+	WM_manipulator_register(mgroup, &prim->manipulator, name);
 
 	return (wmManipulator *)prim;
 }
@@ -214,20 +214,20 @@ wmManipulator *MANIPULATOR_primitive_new(wmManipulatorGroup *wgroup, const char 
 /**
  * Define direction the primitive will point towards
  */
-void MANIPULATOR_primitive_set_direction(wmManipulator *widget, const float direction[3])
+void MANIPULATOR_primitive_set_direction(wmManipulator *manipulator, const float direction[3])
 {
-	PrimitiveManipulator *prim = (PrimitiveManipulator *)widget;
+	PrimitiveManipulator *prim = (PrimitiveManipulator *)manipulator;
 
 	copy_v3_v3(prim->direction, direction);
 	normalize_v3(prim->direction);
 }
 
 /**
- * Define up-direction of the primitive widget
+ * Define up-direction of the primitive manipulator
  */
-void MANIPULATOR_primitive_set_up_vector(wmManipulator *widget, const float direction[3])
+void MANIPULATOR_primitive_set_up_vector(wmManipulator *manipulator, const float direction[3])
 {
-	PrimitiveManipulator *prim = (PrimitiveManipulator *)widget;
+	PrimitiveManipulator *prim = (PrimitiveManipulator *)manipulator;
 
 	if (direction) {
 		copy_v3_v3(prim->up, direction);

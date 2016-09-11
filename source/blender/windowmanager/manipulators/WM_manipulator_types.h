@@ -50,23 +50,23 @@ typedef void (*wmManipulatorGroupDrawPrepareFunc)(const struct bContext *, struc
 
 /* -------------------------------------------------------------------- */
 
-/* factory class for a widgetgroup type, gets called every time a new area is spawned */
+/* factory class for a manipulator-group type, gets called every time a new area is spawned */
 typedef struct wmManipulatorGroupType {
 	struct wmManipulatorGroupType *next, *prev;
 
 	char idname[64];  /* MAX_NAME */
-	const char *name; /* widget group name - displayed in UI (keymap editor) */
+	const char *name; /* manipulator-group name - displayed in UI (keymap editor) */
 
-	/* poll if widgetmap should be active */
+	/* poll if manipulator-map should be active */
 	wmManipulatorGroupPollFunc poll;
-	/* initially create widgets, set permanent data stuff you only need to do once */
+	/* initially create manipulators, set permanent data stuff you only need to do once */
 	wmManipulatorGroupInitFunc init;
 	/* refresh data, only called if recreate flag is set (WM_manipulatormap_tag_refresh) */
 	wmManipulatorGroupRefreshFunc refresh;
 	/* refresh data for drawing, called before each redraw */
 	wmManipulatorGroupDrawPrepareFunc draw_prepare;
 
-	/* keymap init callback for this widgetgroup */
+	/* keymap init callback for this manipulator-group */
 	struct wmKeyMap *(*keymap_init)(const struct wmManipulatorGroupType *, struct wmKeyConfig *);
 	/* keymap created with callback from above */
 	struct wmKeyMap *keymap;
@@ -77,13 +77,13 @@ typedef struct wmManipulatorGroupType {
 	/* RNA integration */
 	ExtensionRNA ext;
 
-	/* widgetTypeflags (includes copy of wmManipulatorMapType.flag - used for comparisons) */
+	/* manipulatorTypeflags (includes copy of wmManipulatorMapType.flag - used for comparisons) */
 	int flag;
 
 	/* if type is spawned from operator this is set here */
 	void *op;
 
-	/* same as widgetmaps, so registering/unregistering goes to the correct region */
+	/* same as manipulator-maps, so registering/unregistering goes to the correct region */
 	short spaceid, regionid;
 	char mapidname[64];
 } wmManipulatorGroupType;
@@ -93,29 +93,29 @@ typedef struct wmManipulatorMap {
 	struct wmManipulatorMap *next, *prev;
 
 	struct wmManipulatorMapType *type;
-	ListBase widgetgroups;
+	ListBase manipulator_groups;
 
 	char update_flag; /* private, update tagging */
 
 	/**
-	 * \brief Widget map runtime context
+	 * \brief Manipulator map runtime context
 	 *
-	 * Contains information about this widget map. Currently
-	 * highlighted widget, currently selected widgets, ...
+	 * Contains information about this manipulator-map. Currently
+	 * highlighted manipulator, currently selected manipulators, ...
 	 */
 	struct {
-		/* we redraw the widgetmap when this changes */
-		struct wmManipulator *highlighted_widget;
-		/* user has clicked this widget and it gets all input */
-		struct wmManipulator *active_widget;
-		/* array for all selected widgets
+		/* we redraw the manipulator-map when this changes */
+		struct wmManipulator *highlighted_manipulator;
+		/* user has clicked this manipulator and it gets all input */
+		struct wmManipulator *active_manipulator;
+		/* array for all selected manipulators
 		 * TODO  check on using BLI_array */
-		struct wmManipulator **selected_widgets;
+		struct wmManipulator **selected_manipulator;
 		int tot_selected;
 
-		/* set while widget is highlighted/active */
+		/* set while manipulator is highlighted/active */
 		struct wmManipulatorGroup *activegroup;
-	} wmap_context;
+	} mmap_context;
 } wmManipulatorMap;
 
 
@@ -127,17 +127,17 @@ struct wmManipulatorMapType_Params {
 };
 
 /**
- * Simple utility wrapper for storing a single widget as wmManipulatorGroup.customdata (which gets freed).
+ * Simple utility wrapper for storing a single manipulator as wmManipulatorGroup.customdata (which gets freed).
  */
 typedef struct wmManipulatorWrapper {
-	struct wmManipulator *widget;
+	struct wmManipulator *manipulator;
 } wmManipulatorWrapper;
 
 
 /* -------------------------------------------------------------------- */
 
 /* wmManipulator->flag */
-enum eWidgetFlag {
+enum eManipulatorFlag {
 	/* states */
 	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0),
 	WM_MANIPULATOR_ACTIVE      = (1 << 1),
@@ -147,7 +147,7 @@ enum eWidgetFlag {
 	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
 	WM_MANIPULATOR_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
 	WM_MANIPULATOR_SCALE_3D    = (1 << 6),
-	WM_MANIPULATOR_SCENE_DEPTH = (1 << 7), /* widget is depth culled with scene objects*/
+	WM_MANIPULATOR_SCENE_DEPTH = (1 << 7), /* manipulator is depth culled with scene objects*/
 	WM_MANIPULATOR_HIDDEN      = (1 << 8),
 	WM_MANIPULATOR_SELECTABLE  = (1 << 9),
 };
@@ -155,7 +155,7 @@ enum eWidgetFlag {
 /* wmManipulatorMapType->flag */
 enum eManipulatorMapTypeFlag {
 	/**
-	 * Check if widgetmap does 3D drawing
+	 * Check if manipulator-map does 3D drawing
 	 * (uses a different kind of interaction),
 	 * - 3d: use glSelect buffer.
 	 * - 2d: use simple cursor position intersection test. */

@@ -36,22 +36,22 @@ struct wmManipulatorMap;
 /* wmManipulator */
 
 /**
- * \brief Widget tweak flag.
- * Bitflag passed to widget while tweaking.
+ * \brief Manipulator tweak flag.
+ * Bitflag passed to manipulator while tweaking.
  */
 enum {
 	/* drag with extra precision (shift)
-	 * NOTE: Widgets are responsible for handling this (widget->handler callback)! */
+	 * NOTE: Manipulators are responsible for handling this (manipulator->handler callback)! */
 	WM_MANIPULATOR_TWEAK_PRECISE = (1 << 0),
 };
 
-bool WM_manipulator_register(wmManipulatorGroup *wgroup, struct wmManipulator *widget, const char *name);
+bool WM_manipulator_register(wmManipulatorGroup *mgroup, struct wmManipulator *manipulator, const char *name);
 
-bool WM_manipulator_deselect(struct wmManipulatorMap *wmap, struct wmManipulator *widget);
-bool WM_manipulator_select(bContext *C, struct wmManipulatorMap *wmap, struct wmManipulator *widget);
+bool WM_manipulator_deselect(struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
+bool WM_manipulator_select(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
 
-void WM_manipulator_calculate_scale(struct wmManipulator *widget, const bContext *C);
-void WM_manipulator_update_prop_data(struct wmManipulator *widget);
+void WM_manipulator_calculate_scale(struct wmManipulator *manipulator, const bContext *C);
+void WM_manipulator_update_prop_data(struct wmManipulator *manipulator);
 
 void fix_linking_manipulator_arrow(void);
 void fix_linking_manipulator_arrow2d(void);
@@ -71,16 +71,16 @@ enum {
 	TWEAK_MODAL_PRECISION_OFF,
 };
 
-void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *wmap, struct wmManipulatorGroup *wgroup);
+void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, struct wmManipulatorGroup *mgroup);
 
-void WM_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *wgrouptype, struct wmKeyConfig *keyconf);
+void WM_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *keyconf);
 
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
 
 /**
- * This is a container for all widget types that can be instantiated in a region.
+ * This is a container for all manipulator types that can be instantiated in a region.
  * (similar to dropboxes).
  *
  * \note There is only ever one of these for every (area, region) combination.
@@ -89,17 +89,17 @@ typedef struct wmManipulatorMapType {
 	struct wmManipulatorMapType *next, *prev;
 	char idname[64];
 	short spaceid, regionid;
-	/* widgetTypeflags */
+	/* eManipulatorMapTypeFlag */
 	int flag;
-	/* types of widgetgroups for this widgetmap type */
-	ListBase widgetgrouptypes;
+	/* types of manipulator-groups for this manipulator-map type */
+	ListBase manipulator_grouptypes;
 } wmManipulatorMapType;
 
-void WM_manipulatormap_selected_delete(wmManipulatorMap *wmap);
+void WM_manipulatormap_selected_delete(wmManipulatorMap *mmap);
 
 
 /* -------------------------------------------------------------------- */
-/* Widget drawing */
+/* Manipulator drawing */
 
 typedef struct ManipulatorDrawInfo {
 	int nverts;

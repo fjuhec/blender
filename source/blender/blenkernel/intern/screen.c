@@ -53,6 +53,7 @@
 #include "BKE_idprop.h"
 #include "BKE_screen.h"
 
+/* XXX bad level call */
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -182,7 +183,7 @@ ARegion *BKE_area_region_copy(SpaceType *st, ARegion *ar)
 	BLI_listbase_clear(&newar->panels_category);
 	BLI_listbase_clear(&newar->panels_category_active);
 	BLI_listbase_clear(&newar->ui_lists);
-	BLI_listbase_clear(&newar->widgetmaps);
+	BLI_listbase_clear(&newar->manipulator_maps);
 	newar->swinid = 0;
 	newar->regiontimer = NULL;
 	
@@ -296,7 +297,6 @@ void BKE_spacedata_id_unref(struct ScrArea *sa, struct SpaceLink *sl, struct ID 
 void BKE_area_region_free(SpaceType *st, ARegion *ar)
 {
 	uiList *uilst;
-	struct wmManipulatorMap *wmap, *wmap_tmp;
 
 	if (st) {
 		ARegionType *art = BKE_regiontype_from_id(st, ar->regiontype);
@@ -342,12 +342,12 @@ void BKE_area_region_free(SpaceType *st, ARegion *ar)
 			MEM_freeN(uilst->properties);
 		}
 	}
-	
-	for (wmap = ar->widgetmaps.first; wmap; wmap = wmap_tmp) {
-		wmap_tmp = wmap->next;
-		WM_manipulatormap_delete(wmap); /* XXX shouldn't be in blenkernel */
+
+	for (wmManipulatorMap *mmap = ar->manipulator_maps.first, *mmap_tmp; mmap; mmap = mmap_tmp) {
+		mmap_tmp = mmap->next;
+		WM_manipulatormap_delete(mmap); /* XXX shouldn't be in blenkernel */
 	}
-	BLI_listbase_clear(&ar->widgetmaps);
+	BLI_listbase_clear(&ar->manipulator_maps);
 	BLI_freelistN(&ar->ui_lists);
 	BLI_freelistN(&ar->ui_previews);
 	BLI_freelistN(&ar->panels_category);

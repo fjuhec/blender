@@ -38,11 +38,7 @@
 
 struct ARegion;
 struct Main;
-struct wmEventHandler;
 struct wmKeyConfig;
-struct wmKeyMap;
-struct wmOperator;
-struct wmManipulatorGroup;
 struct wmManipulatorGroupType;
 struct wmManipulatorMap;
 struct wmManipulatorMapType;
@@ -56,67 +52,67 @@ struct wmManipulator *WM_manipulator_new(
         void (*render_3d_intersection)(const struct bContext *, struct wmManipulator *, int),
         int  (*intersect)(struct bContext *, const struct wmEvent *, struct wmManipulator *),
         int  (*handler)(struct bContext *, const struct wmEvent *, struct wmManipulator *, const int));
-void WM_manipulator_delete(ListBase *widgetlist, struct wmManipulatorMap *wmap, struct wmManipulator *widget, struct bContext *C);
+void WM_manipulator_delete(ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator, struct bContext *C);
 
 void WM_manipulator_set_property(struct wmManipulator *, int slot, struct PointerRNA *ptr, const char *propname);
 struct PointerRNA *WM_manipulator_set_operator(struct wmManipulator *, const char *opname);
 void WM_manipulator_set_func_select(
-        struct wmManipulator *widget,
+        struct wmManipulator *manipulator,
         void (*select)(struct bContext *, struct wmManipulator *, const int action)); /* wmManipulatorSelectFunc */
-void WM_manipulator_set_origin(struct wmManipulator *widget, const float origin[3]);
-void WM_manipulator_set_offset(struct wmManipulator *widget, const float offset[3]);
-void WM_manipulator_set_flag(struct wmManipulator *widget, const int flag, const bool enable);
-void WM_manipulator_set_scale(struct wmManipulator *widget, float scale);
-void WM_manipulator_set_line_width(struct wmManipulator *widget, const float line_width);
-void WM_manipulator_set_colors(struct wmManipulator *widget, const float col[4], const float col_hi[4]);
+void WM_manipulator_set_origin(struct wmManipulator *manipulator, const float origin[3]);
+void WM_manipulator_set_offset(struct wmManipulator *manipulator, const float offset[3]);
+void WM_manipulator_set_flag(struct wmManipulator *manipulator, const int flag, const bool enable);
+void WM_manipulator_set_scale(struct wmManipulator *manipulator, float scale);
+void WM_manipulator_set_line_width(struct wmManipulator *manipulator, const float line_width);
+void WM_manipulator_set_colors(struct wmManipulator *manipulator, const float col[4], const float col_hi[4]);
 
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
 
 struct wmManipulatorGroupType *WM_manipulatorgrouptype_append(
-        struct wmManipulatorMapType *wmaptype,
-        void (*wgrouptype_func)(struct wmManipulatorGroupType *));
+        struct wmManipulatorMapType *mmaptype,
+        void (*mgrouptype_func)(struct wmManipulatorGroupType *));
 struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_runtime(
-        const struct Main *main, struct wmManipulatorMapType *wmaptype,
-        void (*wgrouptype_func)(struct wmManipulatorGroupType *));
+        const struct Main *main, struct wmManipulatorMapType *mmaptype,
+        void (*mgrouptype_func)(struct wmManipulatorGroupType *));
 void WM_manipulatorgrouptype_init_runtime(
-        const struct Main *bmain, struct wmManipulatorMapType *wmaptype,
-        struct wmManipulatorGroupType *wgrouptype);
-void WM_manipulatorgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *wgroup);
+        const struct Main *bmain, struct wmManipulatorMapType *mmaptype,
+        struct wmManipulatorGroupType *mgrouptype);
+void WM_manipulatorgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *mgroup);
 
 struct wmKeyMap *WM_manipulatorgroup_keymap_common(
-        const struct wmManipulatorGroupType *wgrouptype, struct wmKeyConfig *config);
+        const struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *config);
 struct wmKeyMap *WM_manipulatorgroup_keymap_common_sel(
-        const struct wmManipulatorGroupType *wgrouptype, struct wmKeyConfig *config);
+        const struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *config);
 
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
 
 struct wmManipulatorMapType *WM_manipulatormaptype_find(
-        const struct wmManipulatorMapType_Params *wmap_params);
+        const struct wmManipulatorMapType_Params *mmap_params);
 struct wmManipulatorMapType *WM_manipulatormaptype_ensure(
-        const struct wmManipulatorMapType_Params *wmap_params);
+        const struct wmManipulatorMapType_Params *mmap_params);
 struct wmManipulatorMap *WM_manipulatormap_from_type(
-        const struct wmManipulatorMapType_Params *wmap_params);
+        const struct wmManipulatorMapType_Params *mmap_params);
 struct wmManipulatorMap *WM_manipulatormap_find(
-        const struct ARegion *ar, const struct wmManipulatorMapType_Params *wmap_params);
+        const struct ARegion *ar, const struct wmManipulatorMapType_Params *mmap_params);
 
-void WM_manipulatormap_delete(struct wmManipulatorMap *wmap);
+void WM_manipulatormap_delete(struct wmManipulatorMap *mmap);
 void WM_manipulatormaptypes_free(void);
 
-void WM_manipulatormap_tag_refresh(struct wmManipulatorMap *wmap);
-void WM_manipulatormap_widgets_update(const struct bContext *C, struct wmManipulatorMap *wmap);
-void WM_manipulatormap_widgets_draw(
-        const struct bContext *C, const struct wmManipulatorMap *wmap,
-        const bool in_scene, const bool free_drawwidgets);
+void WM_manipulatormap_tag_refresh(struct wmManipulatorMap *mmap);
+void WM_manipulatormap_update(const struct bContext *C, struct wmManipulatorMap *mmap);
+void WM_manipulatormap_draw(
+        const struct bContext *C, const struct wmManipulatorMap *mmap,
+        const bool in_scene, const bool free_drawmanipulators);
 
 void WM_manipulatormaps_add_handlers(struct ARegion *ar);
 
-bool WM_manipulatormap_select_all(struct bContext *C, struct wmManipulatorMap *wmap, const int action);
+bool WM_manipulatormap_select_all(struct bContext *C, struct wmManipulatorMap *mmap, const int action);
 
-bool WM_manipulatormap_cursor_set(const struct wmManipulatorMap *wmap, struct wmWindow *win);
+bool WM_manipulatormap_cursor_set(const struct wmManipulatorMap *mmap, struct wmWindow *win);
 
 #endif  /* __WM_MANIPULATOR_API_H__ */
 

@@ -43,7 +43,7 @@
 #include "WM_keymap.h"
 #include "BLI_compiler_attrs.h"
 
-/* Include external widget API's */
+/* Include external manipulator API's */
 #include "manipulators/WM_manipulator_api.h"
 #include "manipulators/WM_manipulator_library.h"
 

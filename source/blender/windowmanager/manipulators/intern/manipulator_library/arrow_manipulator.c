@@ -30,7 +30,7 @@
  *
  * 3D Manipulator
  *
- * \brief Simple arrow widget which is dragged into a certain direction.
+ * \brief Simple arrow manipulator which is dragged into a certain direction.
  * The arrow head can have varying shapes, e.g. cone, box, etc.
  */
 
@@ -61,10 +61,10 @@
 #include "manipulator_library_intern.h"
 
 
-/* to use custom arrows exported to geom_arrow_widget.c */
-//#define WIDGET_USE_CUSTOM_ARROWS
+/* to use custom arrows exported to geom_arrow_manipulator.c */
+//#define MANIPULATOR_USE_CUSTOM_ARROWS
 
-#ifdef WIDGET_USE_CUSTOM_ARROWS
+#ifdef MANIPULATOR_USE_CUSTOM_ARROWS
 ManipulatorDrawInfo arrow_head_draw_info = {0};
 #endif
 ManipulatorDrawInfo cube_draw_info = {0};
@@ -76,7 +76,7 @@ enum {
 };
 
 typedef struct ArrowManipulator {
-	wmManipulator widget;
+	wmManipulator manipulator;
 
 	ManipulatorCommonData data;
 
@@ -92,12 +92,12 @@ typedef struct ArrowManipulator {
 
 /* -------------------------------------------------------------------- */
 
-static void manipulator_arrow_get_final_pos(wmManipulator *widget, float r_pos[3])
+static void manipulator_arrow_get_final_pos(wmManipulator *manipulator, float r_pos[3])
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
 	mul_v3_v3fl(r_pos, arrow->direction, arrow->data.offset);
-	add_v3_v3(r_pos, arrow->widget.origin);
+	add_v3_v3(r_pos, arrow->manipulator.origin);
 }
 
 static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
@@ -124,7 +124,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 			{-unitx,  unity, 0},
 		};
 
-		glLineWidth(arrow->widget.line_width);
+		glLineWidth(arrow->manipulator.line_width);
 		glEnableClientState(GL_VERTEX_ARRAY);
 		glVertexPointer(3, GL_FLOAT, 0, vec);
 		glDrawArrays(GL_LINE_LOOP, 0, ARRAY_SIZE(vec));
@@ -132,7 +132,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 		glLineWidth(1.0);
 	}
 	else {
-#ifdef WIDGET_USE_CUSTOM_ARROWS
+#ifdef MANIPULATOR_USE_CUSTOM_ARROWS
 		manipulator_draw_intern(&arrow_head_draw_info, select);
 #else
 		const float vec[2][3] = {
@@ -140,7 +140,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 			{0.0f, 0.0f, arrow->len},
 		};
 
-		glLineWidth(arrow->widget.line_width);
+		glLineWidth(arrow->manipulator.line_width);
 		glEnableClientState(GL_VERTEX_ARRAY);
 		glVertexPointer(3, GL_FLOAT, 0, vec);
 		glDrawArrays(GL_LINE_STRIP, 0, ARRAY_SIZE(vec));
@@ -166,7 +166,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 		else {
 			const float len = 0.25f;
 			const float width = 0.06f;
-			const bool use_lighting = select == false && ((U.widget_flag & V3D_SHADED_WIDGETS) != 0);
+			const bool use_lighting = select == false && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0);
 
 			/* translate to line end */
 			glTranslatef(0.0f, 0.0f, arrow->len);
@@ -200,7 +200,7 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 	float mat[4][4];
 	float final_pos[3];
 
-	manipulator_arrow_get_final_pos(&arrow->widget, final_pos);
+	manipulator_arrow_get_final_pos(&arrow->manipulator, final_pos);
 
 	if (arrow->flag & ARROW_UP_VECTOR_SET) {
 		copy_v3_v3(rot[2], arrow->direction);
@@ -212,27 +212,27 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 	}
 	copy_m4_m3(mat, rot);
 	copy_v3_v3(mat[3], final_pos);
-	mul_mat3_m4_fl(mat, arrow->widget.scale);
+	mul_mat3_m4_fl(mat, arrow->manipulator.scale);
 
 	glPushMatrix();
 	glMultMatrixf(mat);
 
-	if (highlight && !(arrow->widget.flag & WM_MANIPULATOR_DRAW_HOVER)) {
-		glColor4fv(arrow->widget.col_hi);
+	if (highlight && !(arrow->manipulator.flag & WM_MANIPULATOR_DRAW_HOVER)) {
+		glColor4fv(arrow->manipulator.col_hi);
 	}
 	else {
-		glColor4fv(arrow->widget.col);
+		glColor4fv(arrow->manipulator.col);
 	}
 
 	glEnable(GL_BLEND);
-	glTranslate3fv(arrow->widget.offset);
+	glTranslate3fv(arrow->manipulator.offset);
 	arrow_draw_geom(arrow, select);
 	glDisable(GL_BLEND);
 
 	glPopMatrix();
 
-	if (arrow->widget.interaction_data) {
-		ManipulatorInteraction *inter = arrow->widget.interaction_data;
+	if (arrow->manipulator.interaction_data) {
+		ManipulatorInteraction *inter = arrow->manipulator.interaction_data;
 
 		copy_m4_m3(mat, rot);
 		copy_v3_v3(mat[3], inter->init_origin);
@@ -243,7 +243,7 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 
 		glEnable(GL_BLEND);
 		glColor4f(0.5f, 0.5f, 0.5f, 0.5f);
-		glTranslate3fv(arrow->widget.offset);
+		glTranslate3fv(arrow->manipulator.offset);
 		arrow_draw_geom(arrow, select);
 		glDisable(GL_BLEND);
 
@@ -251,15 +251,15 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 	}
 }
 
-static void manipulator_arrow_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *widget, int selectionbase)
+static void manipulator_arrow_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *manipulator, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
-	arrow_draw_intern((ArrowManipulator *)widget, true, false);
+	arrow_draw_intern((ArrowManipulator *)manipulator, true, false);
 }
 
-static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *widget)
+static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
 {
-	arrow_draw_intern((ArrowManipulator *)widget, false, (widget->flag & WM_MANIPULATOR_HIGHLIGHT) != 0);
+	arrow_draw_intern((ArrowManipulator *)manipulator, false, (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT) != 0);
 }
 
 /**
@@ -268,10 +268,10 @@ static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *wid
  */
 #define USE_ABS_HANDLE_RANGE
 
-static int manipulator_arrow_handler(bContext *C, const wmEvent *event, wmManipulator *widget, const int flag)
+static int manipulator_arrow_handler(bContext *C, const wmEvent *event, wmManipulator *manipulator, const int flag)
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
-	ManipulatorInteraction *inter = widget->interaction_data;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
+	ManipulatorInteraction *inter = manipulator->interaction_data;
 	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = ar->regiondata;
 
@@ -359,15 +359,15 @@ static int manipulator_arrow_handler(bContext *C, const wmEvent *event, wmManipu
 	const int slot = ARROW_SLOT_OFFSET_WORLD_SPACE;
 
 	/* set the property for the operator and call its modal function */
-	if (widget->props[slot]) {
+	if (manipulator->props[slot]) {
 		const bool constrained = arrow->style & MANIPULATOR_ARROW_STYLE_CONSTRAINED;
 		const bool inverted = arrow->style & MANIPULATOR_ARROW_STYLE_INVERTED;
 		const bool use_precision = flag & WM_MANIPULATOR_TWEAK_PRECISE;
 		float value = manipulator_value_from_offset(data, inter, ofs_new, constrained, inverted, use_precision);
 
-		manipulator_property_value_set(C, widget, slot, value);
+		manipulator_property_value_set(C, manipulator, slot, value);
 		/* get clamped value */
-		value = manipulator_property_value_get(widget, slot);
+		value = manipulator_property_value_get(manipulator, slot);
 
 		data->offset = manipulator_offset_from_value(data, value, constrained, inverted);
 	}
@@ -383,12 +383,12 @@ static int manipulator_arrow_handler(bContext *C, const wmEvent *event, wmManipu
 }
 
 
-static int manipulator_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
+static int manipulator_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *manipulator)
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
-	PointerRNA ptr = widget->ptr[ARROW_SLOT_OFFSET_WORLD_SPACE];
-	PropertyRNA *prop = widget->props[ARROW_SLOT_OFFSET_WORLD_SPACE];
+	PointerRNA ptr = manipulator->ptr[ARROW_SLOT_OFFSET_WORLD_SPACE];
+	PropertyRNA *prop = manipulator->props[ARROW_SLOT_OFFSET_WORLD_SPACE];
 
 	if (prop) {
 		inter->init_value = RNA_property_float_get(&ptr, prop);
@@ -399,34 +399,34 @@ static int manipulator_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, w
 	inter->init_mval[0] = event->mval[0];
 	inter->init_mval[1] = event->mval[1];
 
-	inter->init_scale = widget->scale;
+	inter->init_scale = manipulator->scale;
 
-	manipulator_arrow_get_final_pos(widget, inter->init_origin);
+	manipulator_arrow_get_final_pos(manipulator, inter->init_origin);
 
-	widget->interaction_data = inter;
+	manipulator->interaction_data = inter;
 
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static void manipulator_arrow_prop_data_update(wmManipulator *widget, const int slot)
+static void manipulator_arrow_prop_data_update(wmManipulator *manipulator, const int slot)
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 	manipulator_property_data_update(
-	            widget, &arrow->data, slot,
+	            manipulator, &arrow->data, slot,
 	            arrow->style & MANIPULATOR_ARROW_STYLE_CONSTRAINED,
 	            arrow->style & MANIPULATOR_ARROW_STYLE_INVERTED);
 }
 
-static void manipulator_arrow_exit(bContext *C, wmManipulator *widget, const bool cancel)
+static void manipulator_arrow_exit(bContext *C, wmManipulator *manipulator, const bool cancel)
 {
 	if (!cancel)
 		return;
 
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 	ManipulatorCommonData *data = &arrow->data;
-	ManipulatorInteraction *inter = widget->interaction_data;
+	ManipulatorInteraction *inter = manipulator->interaction_data;
 
-	manipulator_property_value_reset(C, widget, inter, ARROW_SLOT_OFFSET_WORLD_SPACE);
+	manipulator_property_value_reset(C, manipulator, inter, ARROW_SLOT_OFFSET_WORLD_SPACE);
 	data->offset = inter->init_offset;
 }
 
@@ -436,11 +436,11 @@ static void manipulator_arrow_exit(bContext *C, wmManipulator *widget, const boo
  *
  * \{ */
 
-wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *wgroup, const char *name, const int style)
+wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *mgroup, const char *name, const int style)
 {
 	int real_style = style;
 
-#ifdef WIDGET_USE_CUSTOM_ARROWS
+#ifdef MANIPULATOR_USE_CUSTOM_ARROWS
 	if (!arrow_head_draw_info.init) {
 		arrow_head_draw_info.nverts = _MANIPULATOR_nverts_arrow,
 		arrow_head_draw_info.ntris = _MANIPULATOR_ntris_arrow,
@@ -468,22 +468,22 @@ wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *wgroup, const char *nam
 	ArrowManipulator *arrow = MEM_callocN(sizeof(ArrowManipulator), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
-	arrow->widget.draw = manipulator_arrow_draw;
-	arrow->widget.get_final_position = manipulator_arrow_get_final_pos;
-	arrow->widget.intersect = NULL;
-	arrow->widget.handler = manipulator_arrow_handler;
-	arrow->widget.invoke = manipulator_arrow_invoke;
-	arrow->widget.render_3d_intersection = manipulator_arrow_render_3d_intersect;
-	arrow->widget.prop_data_update = manipulator_arrow_prop_data_update;
-	arrow->widget.exit = manipulator_arrow_exit;
-	arrow->widget.flag |= (WM_MANIPULATOR_SCALE_3D | WM_MANIPULATOR_DRAW_ACTIVE);
+	arrow->manipulator.draw = manipulator_arrow_draw;
+	arrow->manipulator.get_final_position = manipulator_arrow_get_final_pos;
+	arrow->manipulator.intersect = NULL;
+	arrow->manipulator.handler = manipulator_arrow_handler;
+	arrow->manipulator.invoke = manipulator_arrow_invoke;
+	arrow->manipulator.render_3d_intersection = manipulator_arrow_render_3d_intersect;
+	arrow->manipulator.prop_data_update = manipulator_arrow_prop_data_update;
+	arrow->manipulator.exit = manipulator_arrow_exit;
+	arrow->manipulator.flag |= (WM_MANIPULATOR_SCALE_3D | WM_MANIPULATOR_DRAW_ACTIVE);
 
 	arrow->style = real_style;
 	arrow->len = 1.0f;
 	arrow->data.range_fac = 1.0f;
 	copy_v3_v3(arrow->direction, dir_default);
 
-	WM_manipulator_register(wgroup, &arrow->widget, name);
+	WM_manipulator_register(mgroup, &arrow->manipulator, name);
 
 	return (wmManipulator *)arrow;
 }
@@ -491,20 +491,20 @@ wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *wgroup, const char *nam
 /**
  * Define direction the arrow will point towards
  */
-void MANIPULATOR_arrow_set_direction(wmManipulator *widget, const float direction[3])
+void MANIPULATOR_arrow_set_direction(wmManipulator *manipulator, const float direction[3])
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
 	copy_v3_v3(arrow->direction, direction);
 	normalize_v3(arrow->direction);
 }
 
 /**
- * Define up-direction of the arrow widget
+ * Define up-direction of the arrow manipulator
  */
-void MANIPULATOR_arrow_set_up_vector(wmManipulator *widget, const float direction[3])
+void MANIPULATOR_arrow_set_up_vector(wmManipulator *manipulator, const float direction[3])
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
 	if (direction) {
 		copy_v3_v3(arrow->up, direction);
@@ -519,9 +519,9 @@ void MANIPULATOR_arrow_set_up_vector(wmManipulator *widget, const float directio
 /**
  * Define a custom arrow line length
  */
-void MANIPULATOR_arrow_set_line_len(wmManipulator *widget, const float len)
+void MANIPULATOR_arrow_set_line_len(wmManipulator *manipulator, const float len)
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 	arrow->len = len;
 }
 
@@ -530,12 +530,12 @@ void MANIPULATOR_arrow_set_line_len(wmManipulator *widget, const float len)
  *
  * \note Needs to be called before WM_manipulator_set_property!
  */
-void MANIPULATOR_arrow_set_ui_range(wmManipulator *widget, const float min, const float max)
+void MANIPULATOR_arrow_set_ui_range(wmManipulator *manipulator, const float min, const float max)
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
 	BLI_assert(min < max);
-	BLI_assert(!(arrow->widget.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
+	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
 
 	arrow->data.range = max - min;
 	arrow->data.min = min;
@@ -547,11 +547,11 @@ void MANIPULATOR_arrow_set_ui_range(wmManipulator *widget, const float min, cons
  *
  * \note Needs to be called before WM_manipulator_set_property!
  */
-void MANIPULATOR_arrow_set_range_fac(wmManipulator *widget, const float range_fac)
+void MANIPULATOR_arrow_set_range_fac(wmManipulator *manipulator, const float range_fac)
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
-	BLI_assert(!(arrow->widget.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
+	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
 
 	arrow->data.range_fac = range_fac;
 }
@@ -559,9 +559,9 @@ void MANIPULATOR_arrow_set_range_fac(wmManipulator *widget, const float range_fa
 /**
  * Define xy-aspect for arrow cone
  */
-void MANIPULATOR_arrow_cone_set_aspect(wmManipulator *widget, const float aspect[2])
+void MANIPULATOR_arrow_cone_set_aspect(wmManipulator *manipulator, const float aspect[2])
 {
-	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
 	copy_v2_v2(arrow->aspect, aspect);
 }

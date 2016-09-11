@@ -15,35 +15,28 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_widget_types.h
+/** \file DNA_manipulator_types.h
  *  \ingroup DNA
  */
 
-#ifndef __DNA_WIDGET_TYPES_H__
-#define __DNA_WIDGET_TYPES_H__
+#ifndef __DNA_MANIPULATOR_TYPES_H__
+#define __DNA_MANIPULATOR_TYPES_H__
 
-typedef enum WidgetType {
+typedef enum ManipulatorType {
 	WT_TRANSLATE = 0,
 	WT_ROTATE    = 1,
 	WT_SCALE     = 2,
 	WT_CUSTOM    = 3,
-} WidgetType;
+} ManipulatorType;
 
 typedef struct wmManipulatorGroup {
 	struct wmManipulatorGroup *next, *prev;
 
 	struct wmManipulatorGroupType *type;
-	ListBase widgets;
+	ListBase manipulators;
 
 	void *py_instance;            /* python stores the class instance here */
 	struct ReportList *reports;   /* errors and warnings storage */
@@ -54,4 +47,4 @@ typedef struct wmManipulatorGroup {
 	int pad;
 } wmManipulatorGroup;
 
-#endif /* __DNA_WIDGET_TYPES_H__ */
+#endif /* __DNA_MANIPULATOR_TYPES_H__ */

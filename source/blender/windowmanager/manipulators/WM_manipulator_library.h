@@ -53,21 +53,21 @@ enum {
 	ARROW_SLOT_OFFSET_WORLD_SPACE = 0
 };
 
-struct wmManipulator *MANIPULATOR_arrow_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
-void MANIPULATOR_arrow_set_direction(struct wmManipulator *widget, const float direction[3]);
-void MANIPULATOR_arrow_set_up_vector(struct wmManipulator *widget, const float direction[3]);
-void MANIPULATOR_arrow_set_line_len(struct wmManipulator *widget, const float len);
-void MANIPULATOR_arrow_set_ui_range(struct wmManipulator *widget, const float min, const float max);
-void MANIPULATOR_arrow_set_range_fac(struct wmManipulator *widget, const float range_fac);
-void MANIPULATOR_arrow_cone_set_aspect(struct wmManipulator *widget, const float aspect[2]);
+struct wmManipulator *MANIPULATOR_arrow_new(struct wmManipulatorGroup *mgroup, const char *name, const int style);
+void MANIPULATOR_arrow_set_direction(struct wmManipulator *manipulator, const float direction[3]);
+void MANIPULATOR_arrow_set_up_vector(struct wmManipulator *manipulator, const float direction[3]);
+void MANIPULATOR_arrow_set_line_len(struct wmManipulator *manipulator, const float len);
+void MANIPULATOR_arrow_set_ui_range(struct wmManipulator *manipulator, const float min, const float max);
+void MANIPULATOR_arrow_set_range_fac(struct wmManipulator *manipulator, const float range_fac);
+void MANIPULATOR_arrow_cone_set_aspect(struct wmManipulator *manipulator, const float aspect[2]);
 
 
 /* -------------------------------------------------------------------- */
 /* 2D Arrow Manipulator */
 
-struct wmManipulator *MANIPULATOR_arrow2d_new(struct wmManipulatorGroup *wgroup, const char *name);
-void MANIPULATOR_arrow2d_set_angle(struct wmManipulator *widget, const float rot_fac);
-void MANIPULATOR_arrow2d_set_line_len(struct wmManipulator *widget, const float len);
+struct wmManipulator *MANIPULATOR_arrow2d_new(struct wmManipulatorGroup *mgroup, const char *name);
+void MANIPULATOR_arrow2d_set_angle(struct wmManipulator *manipulator, const float rot_fac);
+void MANIPULATOR_arrow2d_set_line_len(struct wmManipulator *manipulator, const float len);
 
 
 /* -------------------------------------------------------------------- */
@@ -85,8 +85,8 @@ enum {
 	RECT_TRANSFORM_SLOT_SCALE = 1
 };
 
-struct wmManipulator *MANIPULATOR_rect_transform_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
-void MANIPULATOR_rect_transform_set_dimensions(struct wmManipulator *widget, const float width, const float height);
+struct wmManipulator *MANIPULATOR_rect_transform_new(struct wmManipulatorGroup *mgroup, const char *name, const int style);
+void MANIPULATOR_rect_transform_set_dimensions(struct wmManipulator *manipulator, const float width, const float height);
 
 
 /* -------------------------------------------------------------------- */
@@ -98,17 +98,17 @@ enum {
 	MANIPULATOR_DIAL_STYLE_RING_FILLED = 2,
 };
 
-struct wmManipulator *MANIPULATOR_dial_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
-void MANIPULATOR_dial_set_up_vector(struct wmManipulator *widget, const float direction[3]);
+struct wmManipulator *MANIPULATOR_dial_new(struct wmManipulatorGroup *mgroup, const char *name, const int style);
+void MANIPULATOR_dial_set_up_vector(struct wmManipulator *manipulator, const float direction[3]);
 
 
 /* -------------------------------------------------------------------- */
 /* Facemap Manipulator */
 
 struct wmManipulator *MANIPULATOR_facemap_new(
-        struct wmManipulatorGroup *wgroup, const char *name, const int style,
+        struct wmManipulatorGroup *mgroup, const char *name, const int style,
         struct Object *ob, const int facemap);
-struct bFaceMap *MANIPULATOR_facemap_get_fmap(struct wmManipulator *widget);
+struct bFaceMap *MANIPULATOR_facemap_get_fmap(struct wmManipulator *manipulator);
 
 
 /* -------------------------------------------------------------------- */
@@ -118,9 +118,9 @@ enum {
 	MANIPULATOR_PRIMITIVE_STYLE_PLANE = 0,
 };
 
-struct wmManipulator *MANIPULATOR_primitive_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
-void MANIPULATOR_primitive_set_direction(struct wmManipulator *widget, const float direction[3]);
-void MANIPULATOR_primitive_set_up_vector(struct wmManipulator *widget, const float direction[3]);
+struct wmManipulator *MANIPULATOR_primitive_new(struct wmManipulatorGroup *mgroup, const char *name, const int style);
+void MANIPULATOR_primitive_set_direction(struct wmManipulator *manipulator, const float direction[3]);
+void MANIPULATOR_primitive_set_up_vector(struct wmManipulator *manipulator, const float direction[3]);
 
 #endif  /* __WM_MANIPULATOR_LIBRARY_H__ */
 
