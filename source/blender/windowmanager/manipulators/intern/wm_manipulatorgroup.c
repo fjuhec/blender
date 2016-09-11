@@ -94,8 +94,10 @@ void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *wmap, wmManipulator
 	MEM_freeN(wgroup);
 }
 
-void wm_manipulatorgroup_attach_to_modal_handler(bContext *C, wmEventHandler *handler,
-                                            wmManipulatorGroupType *wgrouptype, wmOperator *op)
+/* TODO could be done a bit nicer */
+void wm_manipulatorgroup_attach_to_modal_handler(
+        bContext *C, wmEventHandler *handler,
+        wmManipulatorGroupType *wgrouptype, wmOperator *op)
 {
 	/* maybe overly careful, but widgetgrouptype could come from a failed creation */
 	if (!wgrouptype) {

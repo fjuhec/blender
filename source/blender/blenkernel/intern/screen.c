@@ -53,6 +53,10 @@
 #include "BKE_idprop.h"
 #include "BKE_screen.h"
 
+/* XXX bad level call */
+#include "WM_api.h"
+#include "WM_types.h"
+
 /* ************ Spacetype/regiontype handling ************** */
 
 /* keep global; this has to be accessible outside of windowmanager */
@@ -336,6 +340,11 @@ void BKE_area_region_free(SpaceType *st, ARegion *ar)
 			IDP_FreeProperty(uilst->properties);
 			MEM_freeN(uilst->properties);
 		}
+	}
+
+	for (wmManipulatorMap *wmap = ar->widgetmaps.first, *wmap_tmp; wmap; wmap = wmap_tmp) {
+		wmap_tmp = wmap->next;
+		WM_manipulatormap_delete(wmap); /* XXX shouldn't be in blenkernel */
 	}
 	BLI_freelistN(&ar->ui_lists);
 	BLI_freelistN(&ar->ui_previews);

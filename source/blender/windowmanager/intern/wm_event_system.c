@@ -1674,7 +1674,12 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 			wm_handler_op_context(C, handler, event);
 			wm_region_mouse_co(C, event);
 			wm_event_modalkeymap(C, op, event, &dbl_click_disabled);
-			
+
+			/* attach widgetmap to handler if not there yet */
+			if (ot->wgrouptype && !handler->widgetmap) {
+				wm_manipulatorgroup_attach_to_modal_handler(C, handler, ot->wgrouptype, op);
+			}
+
 			if (ot->flag & OPTYPE_UNDO)
 				wm->op_undo_depth++;
 
@@ -1722,6 +1727,9 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 					CTX_wm_area_set(C, NULL);
 					CTX_wm_region_set(C, NULL);
 				}
+
+				/* update widgets during modal handlers */
+				wm_manipulatormaps_handled_modal_update(C, event, handler, ot);
 
 				/* remove modal handler, operator itself should have been canceled and freed */
 				if (retval & (OPERATOR_CANCELLED | OPERATOR_FINISHED)) {
@@ -2088,6 +2096,63 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 							}
 						}
 					}
+				}
+			}
+			else if (handler->widgetmap) {
+				ScrArea *area = CTX_wm_area(C);
+				ARegion *region = CTX_wm_region(C);
+				wmManipulatorMap *wmap = handler->widgetmap;
+				wmManipulator *widget = wm_manipulatormap_get_highlighted_widget(wmap);
+				unsigned char part;
+
+				wm_manipulatormap_handler_context(C, handler);
+				wm_region_mouse_co(C, event);
+
+				/* handle widget highlighting */
+				if (event->type == MOUSEMOVE && !wm_manipulatormap_get_active_widget(wmap)) {
+					if (wm_manipulatormap_is_3d(wmap)) {
+						widget = wm_manipulatormap_find_highlighted_3D(wmap, C, event, &part);
+						wm_manipulatormap_set_highlighted_widget(wmap, C, widget, part);
+					}
+					else {
+						widget = wm_manipulatormap_find_highlighted_widget(wmap, C, event, &part);
+						wm_manipulatormap_set_highlighted_widget(wmap, C, widget, part);
+					}
+				}
+				/* handle user configurable widgetmap keymap */
+				else if (widget && wmap->wmap_context.activegroup) {
+					/* get user customized keymap from default one */
+					const wmKeyMap *keymap = WM_keymap_active(wm, wmap->wmap_context.activegroup->type->keymap);
+					wmKeyMapItem *kmi;
+					/* TODO should probably add some PRINT calls here */
+
+					if (!keymap->poll || keymap->poll(C)) {
+						for (kmi = keymap->items.first; kmi; kmi = kmi->next) {
+							if (wm_eventmatch(event, kmi)) {
+								wmOperator *op = handler->op;
+
+								/* weak, but allows interactive callback to not use rawkey */
+								event->keymap_idname = kmi->idname;
+
+								/* handler->op is called later, we want keymap op to be triggered here */
+								handler->op = NULL;
+								action |= wm_handler_operator_call(C, handlers, handler, event, kmi->ptr);
+								handler->op = op;
+
+								if (action & WM_HANDLER_BREAK) {
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				/* restore the area */
+				CTX_wm_area_set(C, area);
+				CTX_wm_region_set(C, region);
+
+				if (handler->op) {
+					action |= wm_handler_operator_call(C, handlers, handler, event, NULL);
 				}
 			}
 			else {

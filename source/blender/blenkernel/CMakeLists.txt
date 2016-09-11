@@ -49,6 +49,9 @@ set(INC
 	../../../intern/smoke/extern
 	../../../intern/atomic
 	../../../intern/libmv
+
+	# XXX - BAD LEVEL CALL WM_api.h
+	../windowmanager
 )
 
 set(INC_SYS

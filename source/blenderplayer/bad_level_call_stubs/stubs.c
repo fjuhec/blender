@@ -336,6 +336,8 @@ void WM_jobs_callbacks(struct wmJob *job,
 void WM_jobs_start(struct wmWindowManager *wm, struct wmJob *job) RET_NONE
 void WM_report(ReportType type, const char *message) RET_NONE
 
+void WM_manipulatormap_delete(struct wmManipulatorMap *wmap) RET_NONE
+
 #ifdef WITH_INPUT_NDOF
     void WM_ndof_deadzone_set(float deadzone) RET_NONE
 #endif

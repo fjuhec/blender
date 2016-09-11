@@ -126,8 +126,9 @@ typedef struct wmManipulator {
 void MANIPULATORGROUP_OT_manipulator_select(struct wmOperatorType *ot);
 void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);
 
-void  wm_manipulatorgroup_attach_to_modal_handler(struct bContext *C, struct wmEventHandler *handler,
-                                             struct wmManipulatorGroupType *wgrouptype, struct wmOperator *op);
+void  wm_manipulatorgroup_attach_to_modal_handler(
+        struct bContext *C, struct wmEventHandler *handler,
+        struct wmManipulatorGroupType *wgrouptype, struct wmOperator *op);
 
 /* wmManipulatorGroupType->flag */
 enum {
