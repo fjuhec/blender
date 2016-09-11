@@ -57,7 +57,7 @@ void manipulator_draw_intern(ManipulatorDrawInfo *info, const bool select)
 {
 	GLuint buf[3];
 
-	const bool use_lighting = !select && ((U.widget_flag & V3D_SHADED_WIDGETS) != 0);
+	const bool use_lighting = !select && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0);
 
 	if (use_lighting)
 		glGenBuffers(3, buf);
@@ -104,17 +104,18 @@ void manipulator_draw_intern(ManipulatorDrawInfo *info, const bool select)
 }
 
 /* Still unused */
-wmManipulator *WM_manipulator_new(void (*draw)(const bContext *C, wmManipulator *customdata),
-                        void (*render_3d_intersection)(const bContext *C, wmManipulator *customdata, int selectionbase),
-                        int  (*intersect)(bContext *C, const wmEvent *event, wmManipulator *widget),
-                        int  (*handler)(bContext *C, const wmEvent *event, wmManipulator *widget, const int flag))
+wmManipulator *WM_manipulator_new(
+        void (*draw)(const bContext *C, wmManipulator *customdata),
+        void (*render_3d_intersection)(const bContext *C, wmManipulator *customdata, int selectionbase),
+        int  (*intersect)(bContext *C, const wmEvent *event, wmManipulator *manipulator),
+        int  (*handler)(bContext *C, const wmEvent *event, wmManipulator *manipulator, const int flag))
 {
-	wmManipulator *widget = MEM_callocN(sizeof(wmManipulator), "widget");
+	wmManipulator *manipulator = MEM_callocN(sizeof(wmManipulator), "manipulator");
 
-	widget->draw = draw;
-	widget->handler = handler;
-	widget->intersect = intersect;
-	widget->render_3d_intersection = render_3d_intersection;
+	manipulator->draw = draw;
+	manipulator->handler = handler;
+	manipulator->intersect = intersect;
+	manipulator->render_3d_intersection = render_3d_intersection;
 
 	/* XXX */
 	fix_linking_manipulator_arrow();
@@ -124,210 +125,211 @@ wmManipulator *WM_manipulator_new(void (*draw)(const bContext *C, wmManipulator 
 //	fix_linking_manipulator_facemap();
 	fix_linking_manipulator_primitive();
 
-	return widget;
+	return manipulator;
 }
 
 /**
- * Assign an idname that is unique in \a wgroup to \a widget.
+ * Assign an idname that is unique in \a mgroup to \a manipulator.
  *
- * \param rawname  Name used as basis to define final unique idname.
+ * \param rawname: Name used as basis to define final unique idname.
  */
-static void manipulator_unique_idname_set(wmManipulatorGroup *wgroup, wmManipulator *widget, const char *rawname)
+static void manipulator_unique_idname_set(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *rawname)
 {
-	if (wgroup->type->idname[0]) {
-		BLI_snprintf(widget->idname, sizeof(widget->idname), "%s_%s", wgroup->type->idname, rawname);
+	if (mgroup->type->idname[0]) {
+		BLI_snprintf(manipulator->idname, sizeof(manipulator->idname), "%s_%s", mgroup->type->idname, rawname);
 	}
 	else {
-		BLI_strncpy(widget->idname, rawname, sizeof(widget->idname));
+		BLI_strncpy(manipulator->idname, rawname, sizeof(manipulator->idname));
 	}
 
 	/* ensure name is unique, append '.001', '.002', etc if not */
-	BLI_uniquename(&wgroup->widgets, widget, "Widget", '.', offsetof(wmManipulator, idname), sizeof(widget->idname));
+	BLI_uniquename(&mgroup->manipulators, manipulator, "Manipulator", '.',
+	               offsetof(wmManipulator, idname), sizeof(manipulator->idname));
 }
 
 /**
- * Register \a widget.
+ * Register \a manipulator.
  *
- * \param name  name used to create a unique idname for \a widget in \a wgroup
+ * \param name  name used to create a unique idname for \a manipulator in \a mgroup
  */
-bool WM_manipulator_register(wmManipulatorGroup *wgroup, wmManipulator *widget, const char *name)
+bool WM_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name)
 {
 	const float col_default[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
-	manipulator_unique_idname_set(wgroup, widget, name);
+	manipulator_unique_idname_set(mgroup, manipulator, name);
 
-	widget->user_scale = 1.0f;
-	widget->line_width = 1.0f;
+	manipulator->user_scale = 1.0f;
+	manipulator->line_width = 1.0f;
 
 	/* defaults */
-	copy_v4_v4(widget->col, col_default);
-	copy_v4_v4(widget->col_hi, col_default);
+	copy_v4_v4(manipulator->col, col_default);
+	copy_v4_v4(manipulator->col_hi, col_default);
 
 	/* create at least one property for interaction */
-	if (widget->max_prop == 0) {
-		widget->max_prop = 1;
+	if (manipulator->max_prop == 0) {
+		manipulator->max_prop = 1;
 	}
 
-	widget->props = MEM_callocN(sizeof(PropertyRNA *) * widget->max_prop, "widget->props");
-	widget->ptr = MEM_callocN(sizeof(PointerRNA) * widget->max_prop, "widget->ptr");
+	manipulator->props = MEM_callocN(sizeof(PropertyRNA *) * manipulator->max_prop, "manipulator->props");
+	manipulator->ptr = MEM_callocN(sizeof(PointerRNA) * manipulator->max_prop, "manipulator->ptr");
 
-	widget->wgroup = wgroup;
+	manipulator->mgroup = mgroup;
 
-	BLI_addtail(&wgroup->widgets, widget);
+	BLI_addtail(&mgroup->manipulators, manipulator);
 	return true;
 }
 
 /**
- * Free \a widget and unlink from \a widgetlist.
- * \a widgetlist is allowed to be NULL.
+ * Free \a manipulator and unlink from \a manipulatorlist.
+ * \a manipulatorlist is allowed to be NULL.
  */
-void WM_manipulator_delete(ListBase *widgetlist, wmManipulatorMap *wmap, wmManipulator *widget, bContext *C)
+void WM_manipulator_delete(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmManipulator *manipulator, bContext *C)
 {
-	if (widget->flag & WM_MANIPULATOR_HIGHLIGHT) {
-		wm_manipulatormap_set_highlighted_widget(wmap, C, NULL, 0);
+	if (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT) {
+		wm_manipulatormap_set_highlighted_manipulator(mmap, C, NULL, 0);
 	}
-	if (widget->flag & WM_MANIPULATOR_ACTIVE) {
-		wm_manipulatormap_set_active_widget(wmap, C, NULL, NULL);
+	if (manipulator->flag & WM_MANIPULATOR_ACTIVE) {
+		wm_manipulatormap_set_active_manipulator(mmap, C, NULL, NULL);
 	}
-	if (widget->flag & WM_MANIPULATOR_SELECTED) {
-		WM_manipulator_deselect(wmap, widget);
+	if (manipulator->flag & WM_MANIPULATOR_SELECTED) {
+		WM_manipulator_deselect(mmap, manipulator);
 	}
 
-	if (widget->opptr.data) {
-		WM_operator_properties_free(&widget->opptr);
+	if (manipulator->opptr.data) {
+		WM_operator_properties_free(&manipulator->opptr);
 	}
-	MEM_freeN(widget->props);
-	MEM_freeN(widget->ptr);
+	MEM_freeN(manipulator->props);
+	MEM_freeN(manipulator->ptr);
 
-	if (widgetlist)
-		BLI_remlink(widgetlist, widget);
-	MEM_freeN(widget);
+	if (manipulatorlist)
+		BLI_remlink(manipulatorlist, manipulator);
+	MEM_freeN(manipulator);
 }
 
 
 /* -------------------------------------------------------------------- */
-/** \name Widget Creation API
+/** \name Manipulator Creation API
  *
- * API for defining data on widget creation.
+ * API for defining data on manipulator creation.
  *
  * \{ */
 
-void WM_manipulator_set_property(wmManipulator *widget, const int slot, PointerRNA *ptr, const char *propname)
+void WM_manipulator_set_property(wmManipulator *manipulator, const int slot, PointerRNA *ptr, const char *propname)
 {
-	if (slot < 0 || slot >= widget->max_prop) {
-		fprintf(stderr, "invalid index %d when binding property for widget type %s\n", slot, widget->idname);
+	if (slot < 0 || slot >= manipulator->max_prop) {
+		fprintf(stderr, "invalid index %d when binding property for manipulator type %s\n", slot, manipulator->idname);
 		return;
 	}
 
-	/* if widget evokes an operator we cannot use it for property manipulation */
-	widget->opname = NULL;
-	widget->ptr[slot] = *ptr;
-	widget->props[slot] = RNA_struct_find_property(ptr, propname);
+	/* if manipulator evokes an operator we cannot use it for property manipulation */
+	manipulator->opname = NULL;
+	manipulator->ptr[slot] = *ptr;
+	manipulator->props[slot] = RNA_struct_find_property(ptr, propname);
 
-	if (widget->prop_data_update)
-		widget->prop_data_update(widget, slot);
+	if (manipulator->prop_data_update)
+		manipulator->prop_data_update(manipulator, slot);
 }
 
-PointerRNA *WM_manipulator_set_operator(wmManipulator *widget, const char *opname)
+PointerRNA *WM_manipulator_set_operator(wmManipulator *manipulator, const char *opname)
 {
 	wmOperatorType *ot = WM_operatortype_find(opname, 0);
 
 	if (ot) {
-		widget->opname = opname;
+		manipulator->opname = opname;
 
-		if (widget->opptr.data) {
-			WM_operator_properties_free(&widget->opptr);
+		if (manipulator->opptr.data) {
+			WM_operator_properties_free(&manipulator->opptr);
 		}
-		WM_operator_properties_create_ptr(&widget->opptr, ot);
+		WM_operator_properties_create_ptr(&manipulator->opptr, ot);
 
-		return &widget->opptr;
+		return &manipulator->opptr;
 	}
 	else {
-		fprintf(stderr, "Error binding operator to widget: operator %s not found!\n", opname);
+		fprintf(stderr, "Error binding operator to manipulator: operator %s not found!\n", opname);
 	}
 
 	return NULL;
 }
 
 /**
- * \brief Set widget select callback.
+ * \brief Set manipulator select callback.
  *
- * Callback is called when widget gets selected/deselected.
+ * Callback is called when manipulator gets selected/deselected.
  */
-void WM_manipulator_set_func_select(wmManipulator *widget, wmManipulatorSelectFunc select)
+void WM_manipulator_set_func_select(wmManipulator *manipulator, wmManipulatorSelectFunc select)
 {
-	widget->flag |= WM_MANIPULATOR_SELECTABLE;
-	widget->select = select;
+	manipulator->flag |= WM_MANIPULATOR_SELECTABLE;
+	manipulator->select = select;
 }
 
-void WM_manipulator_set_origin(wmManipulator *widget, const float origin[3])
+void WM_manipulator_set_origin(wmManipulator *manipulator, const float origin[3])
 {
-	copy_v3_v3(widget->origin, origin);
+	copy_v3_v3(manipulator->origin, origin);
 }
 
-void WM_manipulator_set_offset(wmManipulator *widget, const float offset[3])
+void WM_manipulator_set_offset(wmManipulator *manipulator, const float offset[3])
 {
-	copy_v3_v3(widget->offset, offset);
+	copy_v3_v3(manipulator->offset, offset);
 }
 
-void WM_manipulator_set_flag(wmManipulator *widget, const int flag, const bool enable)
+void WM_manipulator_set_flag(wmManipulator *manipulator, const int flag, const bool enable)
 {
 	if (enable) {
-		widget->flag |= flag;
+		manipulator->flag |= flag;
 	}
 	else {
-		widget->flag &= ~flag;
+		manipulator->flag &= ~flag;
 	}
 }
 
-void WM_manipulator_set_scale(wmManipulator *widget, const float scale)
+void WM_manipulator_set_scale(wmManipulator *manipulator, const float scale)
 {
-	widget->user_scale = scale;
+	manipulator->user_scale = scale;
 }
 
-void WM_manipulator_set_line_width(wmManipulator *widget, const float line_width)
+void WM_manipulator_set_line_width(wmManipulator *manipulator, const float line_width)
 {
-	widget->line_width = line_width;
+	manipulator->line_width = line_width;
 }
 
 /**
- * Set widget rgba colors.
+ * Set manipulator rgba colors.
  *
  * \param col  Normal state color.
  * \param col_hi  Highlighted state color.
  */
-void WM_manipulator_set_colors(wmManipulator *widget, const float col[4], const float col_hi[4])
+void WM_manipulator_set_colors(wmManipulator *manipulator, const float col[4], const float col_hi[4])
 {
-	copy_v4_v4(widget->col, col);
-	copy_v4_v4(widget->col_hi, col_hi);
+	copy_v4_v4(manipulator->col, col);
+	copy_v4_v4(manipulator->col_hi, col_hi);
 }
 
-/** \} */ // Widget Creation API
+/** \} */ // Manipulator Creation API
 
 
 /* -------------------------------------------------------------------- */
 
 /**
- * Remove \a widget from selection.
- * Reallocates memory for selected widgets so better not call for selecting multiple ones.
+ * Remove \a manipulator from selection.
+ * Reallocates memory for selected manipulators so better not call for selecting multiple ones.
  *
  * \return if the selection has changed.
  */
-bool WM_manipulator_deselect(wmManipulatorMap *wmap, wmManipulator *widget)
+bool WM_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 {
-	if (!wmap->wmap_context.selected_widgets)
+	if (!mmap->mmap_context.selected_manipulator)
 		return false;
 
-	wmManipulator ***sel = &wmap->wmap_context.selected_widgets;
-	int *tot_selected = &wmap->wmap_context.tot_selected;
+	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
+	int *tot_selected = &mmap->mmap_context.tot_selected;
 	bool changed = false;
 
 	/* caller should check! */
-	BLI_assert(widget->flag & WM_MANIPULATOR_SELECTED);
+	BLI_assert(manipulator->flag & WM_MANIPULATOR_SELECTED);
 
-	/* remove widget from selected_widgets array */
+	/* remove manipulator from selected_manipulators array */
 	for (int i = 0; i < (*tot_selected); i++) {
-		if ((*sel)[i] == widget) {
+		if ((*sel)[i] == manipulator) {
 			for (int j = i; j < ((*tot_selected) - 1); j++) {
 				(*sel)[j] = (*sel)[j + 1];
 			}
@@ -338,77 +340,77 @@ bool WM_manipulator_deselect(wmManipulatorMap *wmap, wmManipulator *widget)
 
 	/* update array data */
 	if ((*tot_selected) <= 1) {
-		WM_manipulatormap_selected_delete(wmap);
+		WM_manipulatormap_selected_delete(mmap);
 	}
 	else {
 		*sel = MEM_reallocN(*sel, sizeof(**sel) * (*tot_selected));
 		(*tot_selected)--;
 	}
 
-	widget->flag &= ~WM_MANIPULATOR_SELECTED;
+	manipulator->flag &= ~WM_MANIPULATOR_SELECTED;
 	return changed;
 }
 
 /**
- * Add \a widget to selection.
- * Reallocates memory for selected widgets so better not call for selecting multiple ones.
+ * Add \a manipulator to selection.
+ * Reallocates memory for selected manipulators so better not call for selecting multiple ones.
  *
  * \return if the selection has changed.
  */
-bool WM_manipulator_select(bContext *C, wmManipulatorMap *wmap, wmManipulator *widget)
+bool WM_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *manipulator)
 {
-	wmManipulator ***sel = &wmap->wmap_context.selected_widgets;
-	int *tot_selected = &wmap->wmap_context.tot_selected;
+	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
+	int *tot_selected = &mmap->mmap_context.tot_selected;
 
-	if (!widget || (widget->flag & WM_MANIPULATOR_SELECTED))
+	if (!manipulator || (manipulator->flag & WM_MANIPULATOR_SELECTED))
 		return false;
 
 	(*tot_selected)++;
 
 	*sel = MEM_reallocN(*sel, sizeof(wmManipulator *) * (*tot_selected));
-	(*sel)[(*tot_selected) - 1] = widget;
+	(*sel)[(*tot_selected) - 1] = manipulator;
 
-	widget->flag |= WM_MANIPULATOR_SELECTED;
-	if (widget->select) {
-		widget->select(C, widget, SEL_SELECT);
+	manipulator->flag |= WM_MANIPULATOR_SELECTED;
+	if (manipulator->select) {
+		manipulator->select(C, manipulator, SEL_SELECT);
 	}
-	wm_manipulatormap_set_highlighted_widget(wmap, C, widget, widget->highlighted_part);
+	wm_manipulatormap_set_highlighted_manipulator(mmap, C, manipulator, manipulator->highlighted_part);
 
 	return true;
 }
 
-void WM_manipulator_calculate_scale(wmManipulator *widget, const bContext *C)
+void WM_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *C)
 {
 	const RegionView3D *rv3d = CTX_wm_region_view3d(C);
 	float scale = 1.0f;
 
-	if (widget->flag & WM_MANIPULATOR_SCALE_3D) {
-		if (rv3d && (U.widget_flag & V3D_3D_WIDGETS) == 0) {
-			if (widget->get_final_position) {
+	if (manipulator->flag & WM_MANIPULATOR_SCALE_3D) {
+		if (rv3d && (U.manipulator_flag & V3D_3D_MANIPULATORS) == 0) {
+			if (manipulator->get_final_position) {
 				float position[3];
 
-				widget->get_final_position(widget, position);
-				scale = ED_view3d_pixel_size(rv3d, position) * (float)U.widget_scale;
+				manipulator->get_final_position(manipulator, position);
+				scale = ED_view3d_pixel_size(rv3d, position) * (float)U.manipulator_scale;
 			}
 			else {
-				scale = ED_view3d_pixel_size(rv3d, widget->origin) * (float)U.widget_scale;
+				scale = ED_view3d_pixel_size(rv3d, manipulator->origin) * (float)U.manipulator_scale;
 			}
 		}
 		else {
-			scale = U.widget_scale * 0.02f;
+			scale = U.manipulator_scale * 0.02f;
 		}
 	}
 
-	widget->scale = scale * widget->user_scale;
+	manipulator->scale = scale * manipulator->user_scale;
 }
 
-void WM_manipulator_update_prop_data(wmManipulator *widget)
+void WM_manipulator_update_prop_data(wmManipulator *manipulator)
 {
-	/* widget property might have been changed, so update widget */
-	if (widget->props && widget->prop_data_update) {
-		for (int i = 0; i < widget->max_prop; i++) {
-			if (widget->props[i]) {
-				widget->prop_data_update(widget, i);
+	/* manipulator property might have been changed, so update manipulator */
+	if (manipulator->props && manipulator->prop_data_update) {
+		for (int i = 0; i < manipulator->max_prop; i++) {
+			if (manipulator->props[i]) {
+				manipulator->prop_data_update(manipulator, i);
 			}
 		}
 	}

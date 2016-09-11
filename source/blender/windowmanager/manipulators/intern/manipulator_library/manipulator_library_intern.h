@@ -31,7 +31,7 @@
 #ifndef __MANIPULATOR_LIBRARY_INTERN_H__
 #define __MANIPULATOR_LIBRARY_INTERN_H__
 
-/* distance around which widgets respond to input (and get highlighted) */
+/* distance around which manipulators respond to input (and get highlighted) */
 #define MANIPULATOR_HOTSPOT 14.0f /* TODO use everywhere */
 
 /**
@@ -43,9 +43,9 @@ typedef struct ManipulatorCommonData {
 	float range_fac;      /* factor for arrow min/max distance */
 	float offset;
 
-	/* property range for constrained widgets */
+	/* property range for constrained manipulators */
 	float range;
-	/* min/max value for constrained widgets */
+	/* min/max value for constrained manipulators */
 	float min, max;
 } ManipulatorCommonData;
 
@@ -77,22 +77,22 @@ float manipulator_value_from_offset(
         const bool constrained, const bool inverted, const bool use_precision);
 
 void manipulator_property_data_update(
-        wmManipulator *widget, ManipulatorCommonData *data, const int slot,
+        wmManipulator *manipulator, ManipulatorCommonData *data, const int slot,
         const bool constrained, const bool inverted);
 
 void  manipulator_property_value_set(
-        bContext *C, const wmManipulator *widget,
+        bContext *C, const wmManipulator *manipulator,
         const int slot, const float value);
 float manipulator_property_value_get(
-        const wmManipulator *widget, const int slot);
+        const wmManipulator *manipulator, const int slot);
 void  manipulator_property_value_reset(
-        bContext *C, const wmManipulator *widget, ManipulatorInteraction *inter,
+        bContext *C, const wmManipulator *manipulator, ManipulatorInteraction *inter,
         const int slot);
 
 
 /* -------------------------------------------------------------------- */
 
-float *manipulator_color_get(wmManipulator *widget, const bool highlight);
+float *manipulator_color_get(wmManipulator *manipulator, const bool highlight);
 
 #endif  /* __MANIPULATOR_LIBRARY_INTERN_H__ */
 

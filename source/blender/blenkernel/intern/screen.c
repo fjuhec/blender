@@ -342,9 +342,9 @@ void BKE_area_region_free(SpaceType *st, ARegion *ar)
 		}
 	}
 
-	for (wmManipulatorMap *wmap = ar->widgetmaps.first, *wmap_tmp; wmap; wmap = wmap_tmp) {
-		wmap_tmp = wmap->next;
-		WM_manipulatormap_delete(wmap); /* XXX shouldn't be in blenkernel */
+	for (wmManipulatorMap *mmap = ar->manipulator_maps.first, *mmap_tmp; mmap; mmap = mmap_tmp) {
+		mmap_tmp = mmap->next;
+		WM_manipulatormap_delete(mmap); /* XXX shouldn't be in blenkernel */
 	}
 	BLI_freelistN(&ar->ui_lists);
 	BLI_freelistN(&ar->ui_previews);

@@ -1675,9 +1675,9 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 			wm_region_mouse_co(C, event);
 			wm_event_modalkeymap(C, op, event, &dbl_click_disabled);
 
-			/* attach widgetmap to handler if not there yet */
-			if (ot->wgrouptype && !handler->widgetmap) {
-				wm_manipulatorgroup_attach_to_modal_handler(C, handler, ot->wgrouptype, op);
+			/* attach manipulator-map to handler if not there yet */
+			if (ot->mgrouptype && !handler->manipulator_map) {
+				wm_manipulatorgroup_attach_to_modal_handler(C, handler, ot->mgrouptype, op);
 			}
 
 			if (ot->flag & OPTYPE_UNDO)
@@ -1728,7 +1728,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 					CTX_wm_region_set(C, NULL);
 				}
 
-				/* update widgets during modal handlers */
+				/* update manipulators during modal handlers */
 				wm_manipulatormaps_handled_modal_update(C, event, handler, ot);
 
 				/* remove modal handler, operator itself should have been canceled and freed */
@@ -2098,31 +2098,31 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 					}
 				}
 			}
-			else if (handler->widgetmap) {
+			else if (handler->manipulator_map) {
 				ScrArea *area = CTX_wm_area(C);
 				ARegion *region = CTX_wm_region(C);
-				wmManipulatorMap *wmap = handler->widgetmap;
-				wmManipulator *widget = wm_manipulatormap_get_highlighted_widget(wmap);
+				wmManipulatorMap *mmap = handler->manipulator_map;
+				wmManipulator *manipulator = wm_manipulatormap_get_highlighted_manipulator(mmap);
 				unsigned char part;
 
 				wm_manipulatormap_handler_context(C, handler);
 				wm_region_mouse_co(C, event);
 
-				/* handle widget highlighting */
-				if (event->type == MOUSEMOVE && !wm_manipulatormap_get_active_widget(wmap)) {
-					if (wm_manipulatormap_is_3d(wmap)) {
-						widget = wm_manipulatormap_find_highlighted_3D(wmap, C, event, &part);
-						wm_manipulatormap_set_highlighted_widget(wmap, C, widget, part);
+				/* handle manipulator highlighting */
+				if (event->type == MOUSEMOVE && !wm_manipulatormap_get_active_manipulator(mmap)) {
+					if (wm_manipulatormap_is_3d(mmap)) {
+						manipulator = wm_manipulatormap_find_highlighted_3D(mmap, C, event, &part);
+						wm_manipulatormap_set_highlighted_manipulator(mmap, C, manipulator, part);
 					}
 					else {
-						widget = wm_manipulatormap_find_highlighted_widget(wmap, C, event, &part);
-						wm_manipulatormap_set_highlighted_widget(wmap, C, widget, part);
+						manipulator = wm_manipulatormap_find_highlighted_manipulator(mmap, C, event, &part);
+						wm_manipulatormap_set_highlighted_manipulator(mmap, C, manipulator, part);
 					}
 				}
-				/* handle user configurable widgetmap keymap */
-				else if (widget && wmap->wmap_context.activegroup) {
+				/* handle user configurable manipulator-map keymap */
+				else if (manipulator && mmap->mmap_context.activegroup) {
 					/* get user customized keymap from default one */
-					const wmKeyMap *keymap = WM_keymap_active(wm, wmap->wmap_context.activegroup->type->keymap);
+					const wmKeyMap *keymap = WM_keymap_active(wm, mmap->mmap_context.activegroup->type->keymap);
 					wmKeyMapItem *kmi;
 					/* TODO should probably add some PRINT calls here */
 

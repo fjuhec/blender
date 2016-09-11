@@ -43,7 +43,7 @@
 #include "manipulator_library_intern.h"
 
 /* factor for precision tweaking */
-#define WIDGET_PRECISION_FAC 0.05f
+#define MANIPULATOR_PRECISION_FAC 0.05f
 
 
 BLI_INLINE float manipulator_offset_from_value_constr(
@@ -80,7 +80,7 @@ float manipulator_value_from_offset(
 	}
 	inter->prev_offset = offset;
 
-	float ofs_new = inter->init_offset + offset - inter->precision_offset * (1.0f - WIDGET_PRECISION_FAC);
+	float ofs_new = inter->init_offset + offset - inter->precision_offset * (1.0f - MANIPULATOR_PRECISION_FAC);
 	float value;
 
 	if (constrained) {
@@ -99,17 +99,17 @@ float manipulator_value_from_offset(
 }
 
 void manipulator_property_data_update(
-        wmManipulator *widget, ManipulatorCommonData *data, const int slot,
+        wmManipulator *manipulator, ManipulatorCommonData *data, const int slot,
         const bool constrained, const bool inverted)
 {
-	if (!widget->props[slot]) {
+	if (!manipulator->props[slot]) {
 		data->offset = 0.0f;
 		return;
 	}
 
-	PointerRNA ptr = widget->ptr[slot];
-	PropertyRNA *prop = widget->props[slot];
-	float value = manipulator_property_value_get(widget, slot);
+	PointerRNA ptr = manipulator->ptr[slot];
+	PropertyRNA *prop = manipulator->props[slot];
+	float value = manipulator_property_value_get(manipulator, slot);
 
 	if (constrained) {
 		if ((data->flag & MANIPULATOR_CUSTOM_RANGE_SET) == 0) {
@@ -126,32 +126,32 @@ void manipulator_property_data_update(
 	}
 }
 
-void manipulator_property_value_set(bContext *C, const wmManipulator *widget, const int slot, const float value)
+void manipulator_property_value_set(bContext *C, const wmManipulator *manipulator, const int slot, const float value)
 {
-	PointerRNA ptr = widget->ptr[slot];
-	PropertyRNA *prop = widget->props[slot];
+	PointerRNA ptr = manipulator->ptr[slot];
+	PropertyRNA *prop = manipulator->props[slot];
 
 	/* reset property */
 	RNA_property_float_set(&ptr, prop, value);
 	RNA_property_update(C, &ptr, prop);
 }
 
-float manipulator_property_value_get(const wmManipulator *widget, const int slot)
+float manipulator_property_value_get(const wmManipulator *manipulator, const int slot)
 {
-	BLI_assert(RNA_property_type(widget->props[slot]) == PROP_FLOAT);
-	return RNA_property_float_get(&widget->ptr[slot], widget->props[slot]);
+	BLI_assert(RNA_property_type(manipulator->props[slot]) == PROP_FLOAT);
+	return RNA_property_float_get(&manipulator->ptr[slot], manipulator->props[slot]);
 }
 
-void manipulator_property_value_reset(bContext *C, const wmManipulator *widget, ManipulatorInteraction *inter, const int slot)
+void manipulator_property_value_reset(bContext *C, const wmManipulator *manipulator, ManipulatorInteraction *inter, const int slot)
 {
-	manipulator_property_value_set(C, widget, slot, inter->init_value);
+	manipulator_property_value_set(C, manipulator, slot, inter->init_value);
 }
 
 
 /* -------------------------------------------------------------------- */
 
 /* TODO use everywhere */
-float *manipulator_color_get(wmManipulator *widget, const bool highlight)
+float *manipulator_color_get(wmManipulator *manipulator, const bool highlight)
 {
-	return (highlight && !(widget->flag & WM_MANIPULATOR_DRAW_HOVER)) ? widget->col_hi : widget->col;
+	return (highlight && !(manipulator->flag & WM_MANIPULATOR_DRAW_HOVER)) ? manipulator->col_hi : manipulator->col;
 }

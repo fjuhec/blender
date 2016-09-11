@@ -491,8 +491,8 @@ void WM_operatortype_remove_ptr(wmOperatorType *ot)
 	BLI_ghash_remove(global_ops_hash, ot->idname, NULL, NULL);
 
 	WM_keyconfig_update_operatortype();
-	if (ot->wgrouptype) {
-		WM_manipulatorgrouptype_unregister(NULL, G.main, ot->wgrouptype);
+	if (ot->mgrouptype) {
+		WM_manipulatorgrouptype_unregister(NULL, G.main, ot->mgrouptype);
 	}
 
 	MEM_freeN(ot);
