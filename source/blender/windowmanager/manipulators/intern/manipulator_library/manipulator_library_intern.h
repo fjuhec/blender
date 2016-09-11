@@ -37,7 +37,7 @@
 /**
  * Data for common interactions. Used in manipulator_library_utils.c functions.
  */
-typedef struct WidgetCommonData {
+typedef struct ManipulatorCommonData {
 	int flag;
 
 	float range_fac;      /* factor for arrow min/max distance */
@@ -47,9 +47,9 @@ typedef struct WidgetCommonData {
 	float range;
 	/* min/max value for constrained widgets */
 	float min, max;
-} WidgetCommonData;
+} ManipulatorCommonData;
 
-typedef struct WidgetInteraction {
+typedef struct ManipulatorInteraction {
 	float init_value; /* initial property value */
 	float init_origin[3];
 	float init_mval[2];
@@ -61,23 +61,23 @@ typedef struct WidgetInteraction {
 	/* Total offset added by precision tweaking.
 	 * Needed to allow toggling precision on/off without causing jumps */
 	float precision_offset;
-} WidgetInteraction;
+} ManipulatorInteraction;
 
-/* WidgetCommonData->flag  */
+/* ManipulatorCommonData->flag  */
 enum {
-	WIDGET_CUSTOM_RANGE_SET = (1 << 0),
+	MANIPULATOR_CUSTOM_RANGE_SET = (1 << 0),
 };
 
 
 float manipulator_offset_from_value(
-        WidgetCommonData *data, const float value,
+        ManipulatorCommonData *data, const float value,
         const bool constrained, const bool inverted);
 float manipulator_value_from_offset(
-        WidgetCommonData *data, WidgetInteraction *inter, const float offset,
+        ManipulatorCommonData *data, ManipulatorInteraction *inter, const float offset,
         const bool constrained, const bool inverted, const bool use_precision);
 
 void manipulator_property_data_update(
-        wmManipulator *widget, WidgetCommonData *data, const int slot,
+        wmManipulator *widget, ManipulatorCommonData *data, const int slot,
         const bool constrained, const bool inverted);
 
 void  manipulator_property_value_set(
@@ -86,7 +86,7 @@ void  manipulator_property_value_set(
 float manipulator_property_value_get(
         const wmManipulator *widget, const int slot);
 void  manipulator_property_value_reset(
-        bContext *C, const wmManipulator *widget, WidgetInteraction *inter,
+        bContext *C, const wmManipulator *widget, ManipulatorInteraction *inter,
         const int slot);
 
 

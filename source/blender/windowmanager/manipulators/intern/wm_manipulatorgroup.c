@@ -193,17 +193,17 @@ void MANIPULATORGROUP_OT_manipulator_select(wmOperatorType *ot)
 	WM_operator_properties_mouse_select(ot);
 }
 
-typedef struct WidgetTweakData {
+typedef struct ManipulatorTweakData {
 	wmManipulatorMap *wmap;
 	wmManipulator *active;
 
 	int init_event; /* initial event type */
 	int flag;       /* tweak flags */
-} WidgetTweakData;
+} ManipulatorTweakData;
 
 static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool cancel)
 {
-	WidgetTweakData *wtweak = op->customdata;
+	ManipulatorTweakData *wtweak = op->customdata;
 	if (wtweak->active->exit) {
 		wtweak->active->exit(C, wtweak->active, cancel);
 	}
@@ -213,7 +213,7 @@ static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool can
 
 static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	WidgetTweakData *wtweak = op->customdata;
+	ManipulatorTweakData *wtweak = op->customdata;
 	wmManipulator *widget = wtweak->active;
 
 	if (!widget) {
@@ -250,7 +250,7 @@ static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *e
 	}
 
 	/* Ugly hack to send widget events */
-	((wmEvent *)event)->type = EVT_WIDGET_UPDATE;
+	((wmEvent *)event)->type = EVT_MANIPULATOR_UPDATE;
 
 	/* always return PASS_THROUGH so modal handlers
 	 * with widgets attached can update */
@@ -287,7 +287,7 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 	}
 
 
-	WidgetTweakData *wtweak = MEM_mallocN(sizeof(WidgetTweakData), __func__);
+	ManipulatorTweakData *wtweak = MEM_mallocN(sizeof(ManipulatorTweakData), __func__);
 
 	wtweak->init_event = event->type;
 	wtweak->active = wmap->wmap_context.highlighted_widget;
@@ -315,10 +315,10 @@ void MANIPULATORGROUP_OT_manipulator_tweak(wmOperatorType *ot)
 	ot->flag = OPTYPE_UNDO;
 }
 
-/** \} */ // Widget operators
+/** \} */ // Manipulator operators
 
 
-static wmKeyMap *widgetgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char *wgroupname)
+static wmKeyMap *manipulatorgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char *wgroupname)
 {
 	wmKeyMap *keymap;
 	char name[KMAP_MAX_NAME];
@@ -361,7 +361,7 @@ static wmKeyMap *widgetgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char
 }
 
 /**
- * Common default keymap for widget groups
+ * Common default keymap for manipulator groups
  */
 wmKeyMap *WM_manipulatorgroup_keymap_common(const struct wmManipulatorGroupType *wgrouptype, wmKeyConfig *config)
 {
@@ -369,7 +369,7 @@ wmKeyMap *WM_manipulatorgroup_keymap_common(const struct wmManipulatorGroupType 
 	wmKeyMap *km = WM_keymap_find(config, wgrouptype->name, wgrouptype->spaceid, wgrouptype->regionid);
 
 	WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
-	widgetgroup_tweak_modal_keymap(config, wgrouptype->name);
+	manipulatorgroup_tweak_modal_keymap(config, wgrouptype->name);
 
 	return km;
 }
@@ -383,7 +383,7 @@ wmKeyMap *WM_manipulatorgroup_keymap_common_sel(const struct wmManipulatorGroupT
 	wmKeyMap *km = WM_keymap_find(config, wgrouptype->name, wgrouptype->spaceid, wgrouptype->regionid);
 
 	WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
-	widgetgroup_tweak_modal_keymap(config, wgrouptype->name);
+	manipulatorgroup_tweak_modal_keymap(config, wgrouptype->name);
 
 	wmKeyMapItem *kmi = WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_select", SELECTMOUSE, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "extend", false);

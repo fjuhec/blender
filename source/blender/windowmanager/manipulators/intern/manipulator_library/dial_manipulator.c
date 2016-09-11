@@ -28,7 +28,7 @@
  *
  * \name Dial Manipulator
  *
- * 3D Widget
+ * 3D Manipulator
  *
  * \brief Circle shaped widget for circular interaction.
  * Currently no own handling, use with operator only.
@@ -63,14 +63,14 @@
 //#define WIDGET_USE_CUSTOM_DIAS
 
 #ifdef WIDGET_USE_CUSTOM_DIAS
-WidgetDrawInfo dial_draw_info = {0};
+ManipulatorDrawInfo dial_draw_info = {0};
 #endif
 
-typedef struct DialWidget {
+typedef struct DialManipulator {
 	wmManipulator widget;
 	int style;
 	float direction[3];
-} DialWidget;
+} DialManipulator;
 
 typedef struct DialInteraction {
 	float init_mval[2];
@@ -87,7 +87,7 @@ typedef struct DialInteraction {
 
 /* -------------------------------------------------------------------- */
 
-static void dial_geom_draw(const DialWidget *dial, const float col[4], const bool select)
+static void dial_geom_draw(const DialManipulator *dial, const float col[4], const bool select)
 {
 #ifdef WIDGET_USE_CUSTOM_DIAS
 	manipulator_draw_intern(&dial_draw_info, select);
@@ -124,7 +124,7 @@ static void dial_ghostarc_draw_helpline(const float angle, const float co_outer[
 	glPopMatrix();
 }
 
-static void dial_ghostarc_draw(const DialWidget *dial, const float angle_ofs, const float angle_delta)
+static void dial_ghostarc_draw(const DialManipulator *dial, const float angle_ofs, const float angle_delta)
 {
 	GLUquadricObj *qobj = gluNewQuadric();
 	const float width_inner = DIAL_WIDTH - dial->widget.line_width * 0.5f / U.widget_scale;
@@ -135,7 +135,7 @@ static void dial_ghostarc_draw(const DialWidget *dial, const float angle_ofs, co
 }
 
 static void dial_ghostarc_get_angles(
-        const DialWidget *dial, const wmEvent *event, const ARegion *ar,
+        const DialManipulator *dial, const wmEvent *event, const ARegion *ar,
         float mat[4][4], const float co_outer[3],
         float *r_start, float *r_delta)
 {
@@ -185,7 +185,7 @@ static void dial_ghostarc_get_angles(
 	*r_delta = fmod(delta + 2.0f * (float)M_PI * inter->rotations, 2 * (float)M_PI);
 }
 
-static void dial_draw_intern(const bContext *C, DialWidget *dial, const bool select, const bool highlight)
+static void dial_draw_intern(const bContext *C, DialManipulator *dial, const bool select, const bool highlight)
 {
 	float rot[3][3];
 	float mat[4][4];
@@ -228,7 +228,7 @@ static void dial_draw_intern(const bContext *C, DialWidget *dial, const bool sel
 
 static void manipulator_dial_render_3d_intersect(const bContext *C, wmManipulator *widget, int selectionbase)
 {
-	DialWidget *dial = (DialWidget *)widget;
+	DialManipulator *dial = (DialManipulator *)widget;
 
 	/* enable clipping if needed */
 	if (dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
@@ -252,7 +252,7 @@ static void manipulator_dial_render_3d_intersect(const bContext *C, wmManipulato
 
 static void manipulator_dial_draw(const bContext *C, wmManipulator *widget)
 {
-	DialWidget *dial = (DialWidget *)widget;
+	DialManipulator *dial = (DialManipulator *)widget;
 	const bool active = widget->flag & WM_MANIPULATOR_ACTIVE;
 
 	/* enable clipping if needed */
@@ -290,13 +290,13 @@ static int manipulator_dial_invoke(bContext *UNUSED(C), const wmEvent *event, wm
 
 
 /* -------------------------------------------------------------------- */
-/** \name Dial Widget API
+/** \name Dial Manipulator API
  *
  * \{ */
 
 wmManipulator *MANIPULATOR_dial_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
-	DialWidget *dial = MEM_callocN(sizeof(DialWidget), name);
+	DialManipulator *dial = MEM_callocN(sizeof(DialManipulator), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
 #ifdef WIDGET_USE_CUSTOM_DIAS
@@ -331,13 +331,13 @@ wmManipulator *MANIPULATOR_dial_new(wmManipulatorGroup *wgroup, const char *name
  */
 void MANIPULATOR_dial_set_up_vector(wmManipulator *widget, const float direction[3])
 {
-	DialWidget *dial = (DialWidget *)widget;
+	DialManipulator *dial = (DialManipulator *)widget;
 
 	copy_v3_v3(dial->direction, direction);
 	normalize_v3(dial->direction);
 }
 
-/** \} */ // Dial Widget API
+/** \} */ // Dial Manipulator API
 
 
 /* -------------------------------------------------------------------- */

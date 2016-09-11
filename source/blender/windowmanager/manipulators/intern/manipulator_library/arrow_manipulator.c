@@ -28,7 +28,7 @@
  *
  * \name Arrow Manipulator
  *
- * 3D Widget
+ * 3D Manipulator
  *
  * \brief Simple arrow widget which is dragged into a certain direction.
  * The arrow head can have varying shapes, e.g. cone, box, etc.
@@ -65,20 +65,20 @@
 //#define WIDGET_USE_CUSTOM_ARROWS
 
 #ifdef WIDGET_USE_CUSTOM_ARROWS
-WidgetDrawInfo arrow_head_draw_info = {0};
+ManipulatorDrawInfo arrow_head_draw_info = {0};
 #endif
-WidgetDrawInfo cube_draw_info = {0};
+ManipulatorDrawInfo cube_draw_info = {0};
 
-/* ArrowWidget->flag */
+/* ArrowManipulator->flag */
 enum {
 	ARROW_UP_VECTOR_SET    = (1 << 0),
 	ARROW_CUSTOM_RANGE_SET = (1 << 1),
 };
 
-typedef struct ArrowWidget {
+typedef struct ArrowManipulator {
 	wmManipulator widget;
 
-	WidgetCommonData data;
+	ManipulatorCommonData data;
 
 	int style;
 	int flag;
@@ -87,20 +87,20 @@ typedef struct ArrowWidget {
 	float direction[3];
 	float up[3];
 	float aspect[2];    /* cone style only */
-} ArrowWidget;
+} ArrowManipulator;
 
 
 /* -------------------------------------------------------------------- */
 
 static void manipulator_arrow_get_final_pos(wmManipulator *widget, float r_pos[3])
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
 
 	mul_v3_v3fl(r_pos, arrow->direction, arrow->data.offset);
 	add_v3_v3(r_pos, arrow->widget.origin);
 }
 
-static void arrow_draw_geom(const ArrowWidget *arrow, const bool select)
+static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 {
 	if (arrow->style & MANIPULATOR_ARROW_STYLE_CROSS) {
 		glPushAttrib(GL_ENABLE_BIT);
@@ -193,7 +193,7 @@ static void arrow_draw_geom(const ArrowWidget *arrow, const bool select)
 	}
 }
 
-static void arrow_draw_intern(ArrowWidget *arrow, const bool select, const bool highlight)
+static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const bool highlight)
 {
 	const float up[3] = {0.0f, 0.0f, 1.0f};
 	float rot[3][3];
@@ -232,7 +232,7 @@ static void arrow_draw_intern(ArrowWidget *arrow, const bool select, const bool 
 	glPopMatrix();
 
 	if (arrow->widget.interaction_data) {
-		WidgetInteraction *inter = arrow->widget.interaction_data;
+		ManipulatorInteraction *inter = arrow->widget.interaction_data;
 
 		copy_m4_m3(mat, rot);
 		copy_v3_v3(mat[3], inter->init_origin);
@@ -254,12 +254,12 @@ static void arrow_draw_intern(ArrowWidget *arrow, const bool select, const bool 
 static void manipulator_arrow_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *widget, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
-	arrow_draw_intern((ArrowWidget *)widget, true, false);
+	arrow_draw_intern((ArrowManipulator *)widget, true, false);
 }
 
 static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
-	arrow_draw_intern((ArrowWidget *)widget, false, (widget->flag & WM_MANIPULATOR_HIGHLIGHT) != 0);
+	arrow_draw_intern((ArrowManipulator *)widget, false, (widget->flag & WM_MANIPULATOR_HIGHLIGHT) != 0);
 }
 
 /**
@@ -270,8 +270,8 @@ static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *wid
 
 static int manipulator_arrow_handler(bContext *C, const wmEvent *event, wmManipulator *widget, const int flag)
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
-	WidgetInteraction *inter = widget->interaction_data;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ManipulatorInteraction *inter = widget->interaction_data;
 	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = ar->regiondata;
 
@@ -354,7 +354,7 @@ static int manipulator_arrow_handler(bContext *C, const wmEvent *event, wmManipu
 	}
 
 
-	WidgetCommonData *data = &arrow->data;
+	ManipulatorCommonData *data = &arrow->data;
 	const float ofs_new = facdir * len_v3(offset);
 	const int slot = ARROW_SLOT_OFFSET_WORLD_SPACE;
 
@@ -385,8 +385,8 @@ static int manipulator_arrow_handler(bContext *C, const wmEvent *event, wmManipu
 
 static int manipulator_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
-	WidgetInteraction *inter = MEM_callocN(sizeof(WidgetInteraction), __func__);
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 	PointerRNA ptr = widget->ptr[ARROW_SLOT_OFFSET_WORLD_SPACE];
 	PropertyRNA *prop = widget->props[ARROW_SLOT_OFFSET_WORLD_SPACE];
 
@@ -410,7 +410,7 @@ static int manipulator_arrow_invoke(bContext *UNUSED(C), const wmEvent *event, w
 
 static void manipulator_arrow_prop_data_update(wmManipulator *widget, const int slot)
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
 	manipulator_property_data_update(
 	            widget, &arrow->data, slot,
 	            arrow->style & MANIPULATOR_ARROW_STYLE_CONSTRAINED,
@@ -422,9 +422,9 @@ static void manipulator_arrow_exit(bContext *C, wmManipulator *widget, const boo
 	if (!cancel)
 		return;
 
-	ArrowWidget *arrow = (ArrowWidget *)widget;
-	WidgetCommonData *data = &arrow->data;
-	WidgetInteraction *inter = widget->interaction_data;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
+	ManipulatorCommonData *data = &arrow->data;
+	ManipulatorInteraction *inter = widget->interaction_data;
 
 	manipulator_property_value_reset(C, widget, inter, ARROW_SLOT_OFFSET_WORLD_SPACE);
 	data->offset = inter->init_offset;
@@ -432,7 +432,7 @@ static void manipulator_arrow_exit(bContext *C, wmManipulator *widget, const boo
 
 
 /* -------------------------------------------------------------------- */
-/** \name Arrow Widget API
+/** \name Arrow Manipulator API
  *
  * \{ */
 
@@ -465,7 +465,7 @@ wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *wgroup, const char *nam
 	}
 
 
-	ArrowWidget *arrow = MEM_callocN(sizeof(ArrowWidget), name);
+	ArrowManipulator *arrow = MEM_callocN(sizeof(ArrowManipulator), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
 	arrow->widget.draw = manipulator_arrow_draw;
@@ -493,7 +493,7 @@ wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *wgroup, const char *nam
  */
 void MANIPULATOR_arrow_set_direction(wmManipulator *widget, const float direction[3])
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
 
 	copy_v3_v3(arrow->direction, direction);
 	normalize_v3(arrow->direction);
@@ -504,7 +504,7 @@ void MANIPULATOR_arrow_set_direction(wmManipulator *widget, const float directio
  */
 void MANIPULATOR_arrow_set_up_vector(wmManipulator *widget, const float direction[3])
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
 
 	if (direction) {
 		copy_v3_v3(arrow->up, direction);
@@ -521,7 +521,7 @@ void MANIPULATOR_arrow_set_up_vector(wmManipulator *widget, const float directio
  */
 void MANIPULATOR_arrow_set_line_len(wmManipulator *widget, const float len)
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
 	arrow->len = len;
 }
 
@@ -532,14 +532,14 @@ void MANIPULATOR_arrow_set_line_len(wmManipulator *widget, const float len)
  */
 void MANIPULATOR_arrow_set_ui_range(wmManipulator *widget, const float min, const float max)
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
 
 	BLI_assert(min < max);
 	BLI_assert(!(arrow->widget.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
 
 	arrow->data.range = max - min;
 	arrow->data.min = min;
-	arrow->data.flag |= WIDGET_CUSTOM_RANGE_SET;
+	arrow->data.flag |= MANIPULATOR_CUSTOM_RANGE_SET;
 }
 
 /**
@@ -549,7 +549,7 @@ void MANIPULATOR_arrow_set_ui_range(wmManipulator *widget, const float min, cons
  */
 void MANIPULATOR_arrow_set_range_fac(wmManipulator *widget, const float range_fac)
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
 
 	BLI_assert(!(arrow->widget.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
 
@@ -561,12 +561,12 @@ void MANIPULATOR_arrow_set_range_fac(wmManipulator *widget, const float range_fa
  */
 void MANIPULATOR_arrow_cone_set_aspect(wmManipulator *widget, const float aspect[2])
 {
-	ArrowWidget *arrow = (ArrowWidget *)widget;
+	ArrowManipulator *arrow = (ArrowManipulator *)widget;
 
 	copy_v2_v2(arrow->aspect, aspect);
 }
 
-/** \} */ /* Arrow Widget API */
+/** \} */ /* Arrow Manipulator API */
 
 
 /* -------------------------------------------------------------------- */

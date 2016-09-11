@@ -28,8 +28,6 @@
  *
  * \name 2D Arrow Manipulator
  *
- * 2D Widget
- *
  * \brief Simple arrow widget which is dragged into a certain direction.
  */
 
@@ -60,15 +58,15 @@
 #include "manipulator_library_intern.h"
 
 
-typedef struct ArrowWidget2D {
+typedef struct ArrowManipulator2D {
 	wmManipulator widget;
 
 	float angle;
 	float line_len;
-} ArrowWidget2D;
+} ArrowManipulator2D;
 
 
-static void arrow2d_draw_geom(ArrowWidget2D *arrow, const float origin[2])
+static void arrow2d_draw_geom(ArrowManipulator2D *arrow, const float origin[2])
 {
 	const float size = 0.11f;
 	const float size_h = size / 2.0f;
@@ -98,7 +96,7 @@ static void arrow2d_draw_geom(ArrowWidget2D *arrow, const float origin[2])
 
 static void manipulator_arrow2d_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
-	ArrowWidget2D *arrow = (ArrowWidget2D *)widget;
+	ArrowManipulator2D *arrow = (ArrowManipulator2D *)widget;
 	const float *col = manipulator_color_get(widget, widget->flag & WM_MANIPULATOR_HIGHLIGHT);
 
 	glColor4fv(col);
@@ -108,7 +106,7 @@ static void manipulator_arrow2d_draw(const bContext *UNUSED(C), wmManipulator *w
 	glDisable(GL_BLEND);
 
 	if (arrow->widget.interaction_data) {
-		WidgetInteraction *inter = arrow->widget.interaction_data;
+		ManipulatorInteraction *inter = arrow->widget.interaction_data;
 
 		glColor4f(0.5f, 0.5f, 0.5f, 0.5f);
 		glEnable(GL_BLEND);
@@ -119,7 +117,7 @@ static void manipulator_arrow2d_draw(const bContext *UNUSED(C), wmManipulator *w
 
 static int manipulator_arrow2d_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *widget)
 {
-	WidgetInteraction *inter = MEM_callocN(sizeof(WidgetInteraction), __func__);
+	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 
 	copy_v2_v2(inter->init_origin, widget->origin);
 	widget->interaction_data = inter;
@@ -129,7 +127,7 @@ static int manipulator_arrow2d_invoke(bContext *UNUSED(C), const wmEvent *UNUSED
 
 static int manipulator_arrow2d_intersect(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
-	ArrowWidget2D *arrow = (ArrowWidget2D *)widget;
+	ArrowManipulator2D *arrow = (ArrowManipulator2D *)widget;
 	const float mval[2] = {event->mval[0], event->mval[1]};
 	const float line_len = arrow->line_len * widget->scale;
 	float mval_local[2];
@@ -175,13 +173,13 @@ static int manipulator_arrow2d_intersect(bContext *UNUSED(C), const wmEvent *eve
 }
 
 /* -------------------------------------------------------------------- */
-/** \name 2D Arrow Widget API
+/** \name 2D Arrow Manipulator API
  *
  * \{ */
 
 wmManipulator *MANIPULATOR_arrow2d_new(wmManipulatorGroup *wgroup, const char *name)
 {
-	ArrowWidget2D *arrow = MEM_callocN(sizeof(ArrowWidget2D), __func__);
+	ArrowManipulator2D *arrow = MEM_callocN(sizeof(ArrowManipulator2D), __func__);
 
 	arrow->widget.draw = manipulator_arrow2d_draw;
 	arrow->widget.invoke = manipulator_arrow2d_invoke;
@@ -200,17 +198,17 @@ wmManipulator *MANIPULATOR_arrow2d_new(wmManipulatorGroup *wgroup, const char *n
 
 void MANIPULATOR_arrow2d_set_angle(wmManipulator *widget, const float angle)
 {
-	ArrowWidget2D *arrow = (ArrowWidget2D *)widget;
+	ArrowManipulator2D *arrow = (ArrowManipulator2D *)widget;
 	arrow->angle = angle;
 }
 
 void MANIPULATOR_arrow2d_set_line_len(wmManipulator *widget, const float len)
 {
-	ArrowWidget2D *arrow = (ArrowWidget2D *)widget;
+	ArrowManipulator2D *arrow = (ArrowManipulator2D *)widget;
 	arrow->line_len = len;
 }
 
-/** \} */ /* Arrow Widget API */
+/** \} */ /* Arrow Manipulator API */
 
 
 /* -------------------------------------------------------------------- */

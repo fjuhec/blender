@@ -101,16 +101,16 @@ void WM_manipulatormap_selected_delete(wmManipulatorMap *wmap);
 /* -------------------------------------------------------------------- */
 /* Widget drawing */
 
-typedef struct WidgetDrawInfo {
+typedef struct ManipulatorDrawInfo {
 	int nverts;
 	int ntris;
 	float (*verts)[3];
 	float (*normals)[3];
 	unsigned short *indices;
 	bool init;
-} WidgetDrawInfo;
+} ManipulatorDrawInfo;
 
-void manipulator_draw_intern(WidgetDrawInfo *info, const bool select);
+void manipulator_draw_intern(ManipulatorDrawInfo *info, const bool select);
 
 #endif  /* __WM_MANIPULATOR_INTERN_H__ */
 

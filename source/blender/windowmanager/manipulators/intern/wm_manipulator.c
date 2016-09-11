@@ -51,9 +51,9 @@
 #include "wm_manipulator_intern.h"
 
 /**
- * Main draw call for WidgetDrawInfo data
+ * Main draw call for ManipulatorDrawInfo data
  */
-void manipulator_draw_intern(WidgetDrawInfo *info, const bool select)
+void manipulator_draw_intern(ManipulatorDrawInfo *info, const bool select)
 {
 	GLuint buf[3];
 

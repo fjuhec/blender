@@ -60,7 +60,7 @@ BLI_INLINE float manipulator_value_from_offset_constr(
 	return inverted ? (min + range - (value * range / range_fac)) : (value * range / range_fac);
 }
 
-float manipulator_offset_from_value(WidgetCommonData *data, const float value, const bool constrained, const bool inverted)
+float manipulator_offset_from_value(ManipulatorCommonData *data, const float value, const bool constrained, const bool inverted)
 {
 	if (constrained)
 		return manipulator_offset_from_value_constr(data->range_fac, data->min, data->range, value, inverted);
@@ -69,7 +69,7 @@ float manipulator_offset_from_value(WidgetCommonData *data, const float value, c
 }
 
 float manipulator_value_from_offset(
-        WidgetCommonData *data, WidgetInteraction *inter, const float offset,
+        ManipulatorCommonData *data, ManipulatorInteraction *inter, const float offset,
         const bool constrained, const bool inverted, const bool use_precision)
 {
 	const float max = data->min + data->range;
@@ -91,7 +91,7 @@ float manipulator_value_from_offset(
 	}
 
 	/* clamp to custom range */
-	if (data->flag & WIDGET_CUSTOM_RANGE_SET) {
+	if (data->flag & MANIPULATOR_CUSTOM_RANGE_SET) {
 		CLAMP(value, data->min, max);
 	}
 
@@ -99,7 +99,7 @@ float manipulator_value_from_offset(
 }
 
 void manipulator_property_data_update(
-        wmManipulator *widget, WidgetCommonData *data, const int slot,
+        wmManipulator *widget, ManipulatorCommonData *data, const int slot,
         const bool constrained, const bool inverted)
 {
 	if (!widget->props[slot]) {
@@ -112,7 +112,7 @@ void manipulator_property_data_update(
 	float value = manipulator_property_value_get(widget, slot);
 
 	if (constrained) {
-		if ((data->flag & WIDGET_CUSTOM_RANGE_SET) == 0) {
+		if ((data->flag & MANIPULATOR_CUSTOM_RANGE_SET) == 0) {
 			float step, precision;
 			float min, max;
 			RNA_property_float_ui_range(&ptr, prop, &min, &max, &step, &precision);
@@ -142,7 +142,7 @@ float manipulator_property_value_get(const wmManipulator *widget, const int slot
 	return RNA_property_float_get(&widget->ptr[slot], widget->props[slot]);
 }
 
-void manipulator_property_value_reset(bContext *C, const wmManipulator *widget, WidgetInteraction *inter, const int slot)
+void manipulator_property_value_reset(bContext *C, const wmManipulator *widget, ManipulatorInteraction *inter, const int slot)
 {
 	manipulator_property_value_set(C, widget, slot, inter->init_value);
 }

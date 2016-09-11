@@ -25,7 +25,7 @@
  *
  * \name Primitive Manipulator
  *
- * 3D Widget
+ * 3D Manipulator
  *
  * \brief Manipulator with primitive drawing type (plane, cube, etc.).
  * Currently only plane primitive supported without own handling, use with operator only.
@@ -55,19 +55,19 @@
 #include "manipulator_library_intern.h"
 
 
-/* PrimitiveWidget->flag */
+/* PrimitiveManipulator->flag */
 enum {
 	PRIM_UP_VECTOR_SET = (1 << 0),
 };
 
-typedef struct PrimitiveWidget {
+typedef struct PrimitiveManipulator {
 	wmManipulator widget;
 
 	float direction[3];
 	float up[3];
 	int style;
 	int flag;
-} PrimitiveWidget;
+} PrimitiveManipulator;
 
 
 static float verts_plane[4][3] = {
@@ -99,7 +99,7 @@ static void manipulator_primitive_draw_geom(const float col_inner[4], const floa
 	glDisableClientState(GL_VERTEX_ARRAY);
 }
 
-static void manipulator_primitive_draw_intern(PrimitiveWidget *prim, const bool UNUSED(select), const bool highlight)
+static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const bool UNUSED(select), const bool highlight)
 {
 	float col_inner[4], col_outer[4];
 	float rot[3][3];
@@ -140,7 +140,7 @@ static void manipulator_primitive_draw_intern(PrimitiveWidget *prim, const bool 
 	glPopMatrix();
 
 	if (prim->widget.interaction_data) {
-		WidgetInteraction *inter = prim->widget.interaction_data;
+		ManipulatorInteraction *inter = prim->widget.interaction_data;
 
 		copy_v4_fl(col_inner, 0.5f);
 		copy_v3_fl(col_outer, 0.5f);
@@ -165,17 +165,17 @@ static void manipulator_primitive_draw_intern(PrimitiveWidget *prim, const bool 
 static void manipulator_primitive_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *widget, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
-	manipulator_primitive_draw_intern((PrimitiveWidget *)widget, true, false);
+	manipulator_primitive_draw_intern((PrimitiveManipulator *)widget, true, false);
 }
 
 static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
-	manipulator_primitive_draw_intern((PrimitiveWidget *)widget, false, (widget->flag & WM_MANIPULATOR_HIGHLIGHT));
+	manipulator_primitive_draw_intern((PrimitiveManipulator *)widget, false, (widget->flag & WM_MANIPULATOR_HIGHLIGHT));
 }
 
 static int manipulator_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *widget)
 {
-	WidgetInteraction *inter = MEM_callocN(sizeof(WidgetInteraction), __func__);
+	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 
 	copy_v3_v3(inter->init_origin, widget->origin);
 	inter->init_scale = widget->scale;
@@ -187,13 +187,13 @@ static int manipulator_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUS
 
 
 /* -------------------------------------------------------------------- */
-/** \name Primitive Widget API
+/** \name Primitive Manipulator API
  *
  * \{ */
 
 wmManipulator *MANIPULATOR_primitive_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
-	PrimitiveWidget *prim = MEM_callocN(sizeof(PrimitiveWidget), name);
+	PrimitiveManipulator *prim = MEM_callocN(sizeof(PrimitiveManipulator), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
 	prim->widget.draw = manipulator_primitive_draw;
@@ -216,7 +216,7 @@ wmManipulator *MANIPULATOR_primitive_new(wmManipulatorGroup *wgroup, const char 
  */
 void MANIPULATOR_primitive_set_direction(wmManipulator *widget, const float direction[3])
 {
-	PrimitiveWidget *prim = (PrimitiveWidget *)widget;
+	PrimitiveManipulator *prim = (PrimitiveManipulator *)widget;
 
 	copy_v3_v3(prim->direction, direction);
 	normalize_v3(prim->direction);
@@ -227,7 +227,7 @@ void MANIPULATOR_primitive_set_direction(wmManipulator *widget, const float dire
  */
 void MANIPULATOR_primitive_set_up_vector(wmManipulator *widget, const float direction[3])
 {
-	PrimitiveWidget *prim = (PrimitiveWidget *)widget;
+	PrimitiveManipulator *prim = (PrimitiveManipulator *)widget;
 
 	if (direction) {
 		copy_v3_v3(prim->up, direction);
@@ -239,7 +239,7 @@ void MANIPULATOR_primitive_set_up_vector(wmManipulator *widget, const float dire
 	}
 }
 
-/** \} */ // Primitive Widget API
+/** \} */ // Primitive Manipulator API
 
 
 /* -------------------------------------------------------------------- */

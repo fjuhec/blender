@@ -28,7 +28,7 @@
  *
  * \name Cage Manipulator
  *
- * 2D Widget
+ * 2D Manipulator
  *
  * \brief Rectangular widget acting as a 'cage' around its content.
  * Interacting scales or translates the widget.
@@ -67,13 +67,13 @@ enum {
 #define MANIPULATOR_RECT_MIN_WIDTH 15.0f
 #define WIDGET_RESIZER_WIDTH  20.0f
 
-typedef struct RectTransformWidget {
+typedef struct RectTransformManipulator {
 	wmManipulator widget;
 	float w, h;      /* dimensions of widget */
 	float rotation;  /* rotation of the rectangle */
 	float scale[2]; /* scaling for the widget for non-destructive editing. */
 	int style;
-} RectTransformWidget;
+} RectTransformManipulator;
 
 
 /* -------------------------------------------------------------------- */
@@ -172,7 +172,7 @@ static void rect_transform_draw_interaction(
 
 static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
-	RectTransformWidget *cage = (RectTransformWidget *)widget;
+	RectTransformManipulator *cage = (RectTransformManipulator *)widget;
 	rctf r;
 	float w = cage->w;
 	float h = cage->h;
@@ -236,7 +236,7 @@ static int manipulator_rect_transform_get_cursor(wmManipulator *widget)
 
 static int manipulator_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
-	RectTransformWidget *cage = (RectTransformWidget *)widget;
+	RectTransformManipulator *cage = (RectTransformManipulator *)widget;
 	const float mouse[2] = {event->mval[0], event->mval[1]};
 	//float matrot[2][2];
 	float point_local[2];
@@ -349,7 +349,7 @@ static bool manipulator_rect_transform_get_prop_value(wmManipulator *widget, con
 			RNA_property_float_get_array(&widget->ptr[slot], widget->props[slot], value);
 		}
 		else if (slot == RECT_TRANSFORM_SLOT_SCALE) {
-			RectTransformWidget *cage = (RectTransformWidget *)widget;
+			RectTransformManipulator *cage = (RectTransformManipulator *)widget;
 			if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
 				*value = RNA_property_float_get(&widget->ptr[slot], widget->props[slot]);
 			}
@@ -368,7 +368,7 @@ static bool manipulator_rect_transform_get_prop_value(wmManipulator *widget, con
 
 static int manipulator_rect_transform_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
-	RectTransformWidget *cage = (RectTransformWidget *)widget;
+	RectTransformManipulator *cage = (RectTransformManipulator *)widget;
 	RectTransformInteraction *data = MEM_callocN(sizeof(RectTransformInteraction), "cage_interaction");
 
 	copy_v2_v2(data->orig_offset, widget->offset);
@@ -384,7 +384,7 @@ static int manipulator_rect_transform_invoke(bContext *UNUSED(C), const wmEvent 
 
 static int manipulator_rect_transform_handler(bContext *C, const wmEvent *event, wmManipulator *widget, const int UNUSED(flag))
 {
-	RectTransformWidget *cage = (RectTransformWidget *)widget;
+	RectTransformManipulator *cage = (RectTransformManipulator *)widget;
 	RectTransformInteraction *data = widget->interaction_data;
 	/* needed here as well in case clamping occurs */
 	const float orig_ofx = widget->offset[0], orig_ofy = widget->offset[1];
@@ -476,7 +476,7 @@ static int manipulator_rect_transform_handler(bContext *C, const wmEvent *event,
 
 static void manipulator_rect_transform_prop_data_update(wmManipulator *widget, const int slot)
 {
-	RectTransformWidget *cage = (RectTransformWidget *)widget;
+	RectTransformManipulator *cage = (RectTransformManipulator *)widget;
 
 	if (slot == RECT_TRANSFORM_SLOT_OFFSET)
 		manipulator_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_OFFSET, widget->offset);
@@ -486,7 +486,7 @@ static void manipulator_rect_transform_prop_data_update(wmManipulator *widget, c
 
 static void manipulator_rect_transform_exit(bContext *C, wmManipulator *widget, const bool cancel)
 {
-	RectTransformWidget *cage = (RectTransformWidget *)widget;
+	RectTransformManipulator *cage = (RectTransformManipulator *)widget;
 	RectTransformInteraction *data = widget->interaction_data;
 
 	if (!cancel)
@@ -516,13 +516,13 @@ static void manipulator_rect_transform_exit(bContext *C, wmManipulator *widget, 
 
 
 /* -------------------------------------------------------------------- */
-/** \name Cage Widget API
+/** \name Cage Manipulator API
  *
  * \{ */
 
 wmManipulator *MANIPULATOR_rect_transform_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
-	RectTransformWidget *cage = MEM_callocN(sizeof(RectTransformWidget), name);
+	RectTransformManipulator *cage = MEM_callocN(sizeof(RectTransformManipulator), name);
 
 	cage->widget.draw = manipulator_rect_transform_draw;
 	cage->widget.invoke = manipulator_rect_transform_invoke;
@@ -543,12 +543,12 @@ wmManipulator *MANIPULATOR_rect_transform_new(wmManipulatorGroup *wgroup, const 
 
 void MANIPULATOR_rect_transform_set_dimensions(wmManipulator *widget, const float width, const float height)
 {
-	RectTransformWidget *cage = (RectTransformWidget *)widget;
+	RectTransformManipulator *cage = (RectTransformManipulator *)widget;
 	cage->w = width;
 	cage->h = height;
 }
 
-/** \} */ // Cage Widget API
+/** \} */ // Cage Manipulator API
 
 
 /* -------------------------------------------------------------------- */
