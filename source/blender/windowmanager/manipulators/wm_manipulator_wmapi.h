@@ -123,8 +123,8 @@ typedef struct wmManipulator {
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
 
-void WIDGETGROUP_OT_widget_select(struct wmOperatorType *ot);
-void WIDGETGROUP_OT_widget_tweak(struct wmOperatorType *ot);
+void MANIPULATORGROUP_OT_manipulator_select(struct wmOperatorType *ot);
+void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);
 
 void  WM_manipulatorgroup_attach_to_modal_handler(struct bContext *C, struct wmEventHandler *handler,
                                              struct wmManipulatorGroupType *wgrouptype, struct wmOperator *op);

@@ -178,12 +178,12 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 	return OPERATOR_PASS_THROUGH;
 }
 
-void WIDGETGROUP_OT_widget_select(wmOperatorType *ot)
+void MANIPULATORGROUP_OT_manipulator_select(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Widget Select";
-	ot->description = "Select the currently highlighted widget";
-	ot->idname = "WIDGETGROUP_OT_widget_select";
+	ot->name = "Manipulator Select";
+	ot->description = "Select the currently highlighted manipulator";
+	ot->idname = "MANIPULATORGROUP_OT_manipulator_select";
 
 	/* api callbacks */
 	ot->invoke = manipulator_select_invoke;
@@ -301,12 +301,12 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 	return OPERATOR_RUNNING_MODAL;
 }
 
-void WIDGETGROUP_OT_widget_tweak(wmOperatorType *ot)
+void MANIPULATORGROUP_OT_manipulator_tweak(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Widget Tweak";
-	ot->description = "Tweak the active widget";
-	ot->idname = "WIDGETGROUP_OT_widget_tweak";
+	ot->name = "Manipulator Tweak";
+	ot->description = "Tweak the active manipulator";
+	ot->idname = "MANIPULATORGROUP_OT_manipulator_tweak";
 
 	/* api callbacks */
 	ot->invoke = manipulator_tweak_invoke;
@@ -355,7 +355,7 @@ static wmKeyMap *widgetgroup_tweak_modal_keymap(wmKeyConfig *keyconf, const char
 	WM_modalkeymap_add_item(keymap, LEFTSHIFTKEY, KM_RELEASE, KM_ANY, 0, TWEAK_MODAL_PRECISION_OFF);
 
 
-	WM_modalkeymap_assign(keymap, "WIDGETGROUP_OT_widget_tweak");
+	WM_modalkeymap_assign(keymap, "MANIPULATORGROUP_OT_manipulator_tweak");
 
 	return keymap;
 }
@@ -368,7 +368,7 @@ wmKeyMap *WM_manipulatorgroup_keymap_common(const struct wmManipulatorGroupType 
 	/* Use area and region id since we might have multiple widgets with the same name in different areas/regions */
 	wmKeyMap *km = WM_keymap_find(config, wgrouptype->name, wgrouptype->spaceid, wgrouptype->regionid);
 
-	WM_keymap_add_item(km, "WIDGETGROUP_OT_widget_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
+	WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
 	widgetgroup_tweak_modal_keymap(config, wgrouptype->name);
 
 	return km;
@@ -382,14 +382,14 @@ wmKeyMap *WM_manipulatorgroup_keymap_common_sel(const struct wmManipulatorGroupT
 	/* Use area and region id since we might have multiple widgets with the same name in different areas/regions */
 	wmKeyMap *km = WM_keymap_find(config, wgrouptype->name, wgrouptype->spaceid, wgrouptype->regionid);
 
-	WM_keymap_add_item(km, "WIDGETGROUP_OT_widget_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
+	WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
 	widgetgroup_tweak_modal_keymap(config, wgrouptype->name);
 
-	wmKeyMapItem *kmi = WM_keymap_add_item(km, "WIDGETGROUP_OT_widget_select", SELECTMOUSE, KM_PRESS, 0, 0);
+	wmKeyMapItem *kmi = WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_select", SELECTMOUSE, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "extend", false);
 	RNA_boolean_set(kmi->ptr, "deselect", false);
 	RNA_boolean_set(kmi->ptr, "toggle", false);
-	kmi = WM_keymap_add_item(km, "WIDGETGROUP_OT_widget_select", SELECTMOUSE, KM_PRESS, KM_SHIFT, 0);
+	kmi = WM_keymap_add_item(km, "MANIPULATORGROUP_OT_manipulator_select", SELECTMOUSE, KM_PRESS, KM_SHIFT, 0);
 	RNA_boolean_set(kmi->ptr, "extend", false);
 	RNA_boolean_set(kmi->ptr, "deselect", false);
 	RNA_boolean_set(kmi->ptr, "toggle", true);
