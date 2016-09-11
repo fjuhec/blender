@@ -183,6 +183,7 @@ ARegion *BKE_area_region_copy(SpaceType *st, ARegion *ar)
 	BLI_listbase_clear(&newar->panels_category);
 	BLI_listbase_clear(&newar->panels_category_active);
 	BLI_listbase_clear(&newar->ui_lists);
+	BLI_listbase_clear(&newar->manipulator_maps);
 	newar->swinid = 0;
 	newar->regiontimer = NULL;
 	
@@ -346,6 +347,7 @@ void BKE_area_region_free(SpaceType *st, ARegion *ar)
 		mmap_tmp = mmap->next;
 		WM_manipulatormap_delete(mmap); /* XXX shouldn't be in blenkernel */
 	}
+	BLI_listbase_clear(&ar->manipulator_maps);
 	BLI_freelistN(&ar->ui_lists);
 	BLI_freelistN(&ar->ui_previews);
 	BLI_freelistN(&ar->panels_category);
