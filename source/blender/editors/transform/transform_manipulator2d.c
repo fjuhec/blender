@@ -42,7 +42,7 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
-#include "DNA_widget_types.h"
+#include "DNA_manipulator_types.h"
 
 #include "ED_image.h"
 #include "ED_screen.h"
@@ -198,7 +198,7 @@ void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmManipulatorGrou
 		MANIPULATOR_arrow2d_set_line_len(axis, 0.8f);
 		WM_manipulator_set_offset(axis, offset);
 		WM_manipulator_set_line_width(axis, MANIPULATOR_AXIS_LINE_WIDTH);
-		WM_manipulator_set_scale(axis, U.widget_scale);
+		WM_manipulator_set_scale(axis, U.manipulator_scale);
 		WM_manipulator_set_colors(axis, col, col_hi);
 
 		/* assign operator */

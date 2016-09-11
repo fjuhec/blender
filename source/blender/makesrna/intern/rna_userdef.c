@@ -3568,17 +3568,17 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 
 	/* 3D transform widget */
 	prop = RNA_def_property(srna, "widget_shaded", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "widget_flag", V3D_SHADED_WIDGETS);
+	RNA_def_property_boolean_sdna(prop, NULL, "manipulator_flag", V3D_SHADED_MANIPULATORS);
 	RNA_def_property_ui_text(prop, "Draw Shaded", "Use 3D shading for widgets");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	prop = RNA_def_property(srna, "widget_world_space", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "widget_flag", V3D_3D_WIDGETS);
+	RNA_def_property_boolean_sdna(prop, NULL, "manipulator_flag", V3D_3D_MANIPULATORS);
 	RNA_def_property_ui_text(prop, "Zoom Like Geometry", "Make widgets zoom dependent as if they were geometry");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	prop = RNA_def_property(srna, "widget_scale", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "widget_scale");
+	RNA_def_property_int_sdna(prop, NULL, "manipulator_scale");
 	RNA_def_property_range(prop, 10, 200);
 	RNA_def_property_int_default(prop, 75);
 	RNA_def_property_ui_text(prop, "Scale", "Base size applied to scalable widgets");

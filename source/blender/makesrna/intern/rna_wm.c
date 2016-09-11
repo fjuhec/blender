@@ -30,7 +30,7 @@
 #include "DNA_space_types.h"
 #include "DNA_userdef_types.h"
 #include "DNA_windowmanager_types.h"
-#include "DNA_widget_types.h"
+#include "DNA_manipulator_types.h"
 
 #include "BLI_utildefines.h"
 
@@ -1979,7 +1979,7 @@ static void rna_def_widgetgroup(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Options",  "Options for this widget type");
 
 	prop = RNA_def_property(srna, "widgets", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_collection_sdna(prop, NULL, "widgets", NULL);
+	RNA_def_property_collection_sdna(prop, NULL, "manipulators", NULL);
 	RNA_def_property_struct_type(prop, "Widget");
 	RNA_def_property_ui_text(prop, "Widgets", "List of widgets in the Widget Map");
 	rna_def_widget(brna, prop);

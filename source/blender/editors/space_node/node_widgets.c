@@ -59,7 +59,7 @@ static void WIDGETGROUP_node_transform_init(const bContext *UNUSED(C), wmManipul
 {
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 
-	wwrapper->widget = MANIPULATOR_rect_transform_new(
+	wwrapper->manipulator = MANIPULATOR_rect_transform_new(
 	                       wgroup, "backdrop_cage",
 	                       MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE | MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM);
 	wgroup->customdata = wwrapper;
@@ -68,7 +68,7 @@ static void WIDGETGROUP_node_transform_init(const bContext *UNUSED(C), wmManipul
 
 static void WIDGETGROUP_node_transform_refresh(const bContext *C, wmManipulatorGroup *wgroup)
 {
-	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->widget;
+	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->manipulator;
 	const ARegion *ar = CTX_wm_region(C);
 	/* center is always at the origin */
 	const float origin[3] = {ar->winx / 2, ar->winy / 2};

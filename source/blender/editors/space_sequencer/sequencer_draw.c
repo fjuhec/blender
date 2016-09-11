@@ -1680,8 +1680,8 @@ void draw_timeline_seq(const bContext *C, ARegion *ar)
 	UI_view2d_view_restore(C);
 	
 	/* finally draw any widgets here */
-	WM_manipulatormap_widgets_update(C, ar->widgetmaps.first);
-	WM_manipulatormap_widgets_draw(C, ar->widgetmaps.first, false, true);
+	WM_manipulatormap_update(C, ar->manipulator_maps.first);
+	WM_manipulatormap_draw(C, ar->manipulator_maps.first, false, true);
 
 	/* scrollers */
 	unit = (sseq->flag & SEQ_DRAWFRAMES) ? V2D_UNIT_FRAMES : V2D_UNIT_SECONDS;

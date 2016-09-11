@@ -353,7 +353,7 @@ static SpaceLink *view3d_new(const bContext *C)
 	v3d->near = 0.01f;
 	v3d->far = 1000.0f;
 
-	v3d->twflag |= U.widget_flag & V3D_USE_MANIPULATOR;
+	v3d->twflag |= U.manipulator_flag & V3D_USE_MANIPULATOR;
 	v3d->twtype = V3D_MANIP_TRANSLATE;
 	v3d->around = V3D_AROUND_CENTER_MEAN;
 	
@@ -500,10 +500,10 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 	ListBase *lb;
 	wmKeyMap *keymap;
 
-	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
+	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
 		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_MANIPULATORMAPTYPE_3D});
-		BLI_addhead(&ar->widgetmaps, wmap);
+		BLI_addhead(&ar->manipulator_maps, wmap);
 	}
 
 	WM_manipulatormaps_add_handlers(ar);

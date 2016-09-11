@@ -674,10 +674,10 @@ static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 	// UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_STANDARD, ar->winx, ar->winy);
 
 	/* widgets */
-	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
+	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
 		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
-		BLI_addhead(&ar->widgetmaps, wmap);
+		BLI_addhead(&ar->manipulator_maps, wmap);
 	}
 	WM_manipulatormaps_add_handlers(ar);
 
@@ -821,8 +821,8 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 		UI_view2d_view_restore(C);
 	}
 
-	WM_manipulatormap_widgets_update(C, ar->widgetmaps.first);
-	WM_manipulatormap_widgets_draw(C, ar->widgetmaps.first, false, true);
+	WM_manipulatormap_update(C, ar->manipulator_maps.first);
+	WM_manipulatormap_draw(C, ar->manipulator_maps.first, false, true);
 
 	draw_image_cache(C, ar);
 

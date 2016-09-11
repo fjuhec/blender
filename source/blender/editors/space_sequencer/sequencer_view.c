@@ -36,7 +36,7 @@
 #include "BLI_rect.h"
 
 #include "DNA_scene_types.h"
-#include "DNA_widget_types.h"
+#include "DNA_manipulator_types.h"
 
 #include "BKE_context.h"
 #include "BKE_main.h"
@@ -270,14 +270,14 @@ static void widgetgroup_overdrop_init(const bContext *UNUSED(C), wmManipulatorGr
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 	wgroup->customdata = wwrapper;
 
-	wwrapper->widget = MANIPULATOR_rect_transform_new(
+	wwrapper->manipulator = MANIPULATOR_rect_transform_new(
 	                       wgroup, "overdrop_cage",
 	                       MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM | MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE);
 }
 
 static void widgetgroup_overdrop_refresh(const bContext *C, wmManipulatorGroup *wgroup)
 {
-	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->widget;
+	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->manipulator;
 	const Scene *sce = CTX_data_scene(C);
 	const ARegion *ar = CTX_wm_region(C);
 	const float origin[3] = {BLI_rcti_size_x(&ar->winrct) / 2.0f, BLI_rcti_size_y(&ar->winrct)/2.0f};
@@ -339,7 +339,7 @@ static int sequencer_overdrop_transform_modal(bContext *C, wmOperator *op, const
 {
 	OverDropTransformData *data = op->customdata;
 	ARegion *ar = CTX_wm_region(C);
-	wmManipulatorMap *wmap = ar->widgetmaps.first;
+	wmManipulatorMap *wmap = ar->manipulator_maps.first;
 
 	if (event->type == data->event_type && event->val == KM_PRESS) {
 		sequencer_overdrop_finish(C, data);
@@ -380,8 +380,8 @@ static int sequencer_overdrop_transform_modal(bContext *C, wmOperator *op, const
 		{
 			SpaceSeq *sseq = CTX_wm_space_seq(C);
 
-			/* only end modal if we're not dragging a widget */
-			if (!wmap->wmap_context.active_widget && event->val == KM_PRESS) {
+			/* only end modal if we're not dragging a manipulator */
+			if (!wmap->mmap_context.active_manipulator && event->val == KM_PRESS) {
 				copy_v2_v2(sseq->overdrop_offset, data->init_offset);
 				sseq->overdrop_zoom = data->init_zoom;
 
@@ -413,9 +413,9 @@ void SEQUENCER_OT_overdrop_transform(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
+	wmManipulatorMapType *mmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
 	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0});
-	ot->wgrouptype = WM_manipulatorgrouptype_append(wmaptype, SEQUENCER_WGT_overdrop_transform);
+	ot->mgrouptype = WM_manipulatorgrouptype_append(mmaptype, SEQUENCER_WGT_overdrop_transform);
 
 	RNA_def_float_array(ot->srna, "offset", 2, default_offset, FLT_MIN, FLT_MAX, "Offset", "Offset of the backdrop", FLT_MIN, FLT_MAX);
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, FLT_MAX, "Scale", "Scale of the backdrop", 0.0f, FLT_MAX);
@@ -442,14 +442,14 @@ static void widgetgroup_image_transform_init(const bContext *UNUSED(C), wmManipu
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 	wgroup->customdata = wwrapper;
 
-	wwrapper->widget = MANIPULATOR_rect_transform_new(
+	wwrapper->manipulator = MANIPULATOR_rect_transform_new(
 	                       wgroup, "image_cage",
 	                       MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM | MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE);
 }
 
 static void widgetgroup_image_transform_refresh(const bContext *C, wmManipulatorGroup *wgroup)
 {
-	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->widget;
+	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->manipulator;
 	ARegion *ar = CTX_wm_region(C);
 	View2D *v2d = &ar->v2d;
 	float viewrect[2];
@@ -516,7 +516,7 @@ static int sequencer_image_transform_widget_modal(bContext *C, wmOperator *op, c
 {
 	ImageTransformData *data = op->customdata;
 	ARegion *ar = CTX_wm_region(C);
-	wmManipulatorMap *wmap = ar->widgetmaps.first;
+	wmManipulatorMap *wmap = ar->manipulator_maps.first;
 
 	if (event->type == data->event_type && event->val == KM_PRESS) {
 		sequencer_image_transform_widget_finish(C, data);
@@ -543,7 +543,7 @@ static int sequencer_image_transform_widget_modal(bContext *C, wmOperator *op, c
 
 			/* no offset needed in this case */
 			offset[0] = offset[1] = 0;
-			WM_manipulator_set_offset(wmap->wmap_context.active_widget, offset);
+			WM_manipulator_set_offset(wmap->mmap_context.active_manipulator, offset);
 			break;
 		}
 
@@ -600,9 +600,9 @@ void SEQUENCER_OT_image_transform_widget(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
+	wmManipulatorMapType *mmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
 	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, 0});
-	ot->wgrouptype = WM_manipulatorgrouptype_append(wmaptype, SEQUENCER_WGT_image_transform);
+	ot->mgrouptype = WM_manipulatorgrouptype_append(mmaptype, SEQUENCER_WGT_image_transform);
 
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, FLT_MAX, "Scale", "Scale of the backdrop", 0.0f, FLT_MAX);
 }

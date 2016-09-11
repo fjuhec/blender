@@ -40,7 +40,6 @@ set(INC
 	../nodes
 	../physics
 	../render/extern/include
-	../windowmanager # XXX
 	../../../intern/ghost
 	../../../intern/guardedalloc
 	../../../intern/glew-mx

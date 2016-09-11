@@ -79,11 +79,11 @@ static void WIDGETGROUP_lamp_init(const bContext *UNUSED(C), wmManipulatorGroup 
 
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 
-	wwrapper->widget = MANIPULATOR_arrow_new(wgroup, propname, MANIPULATOR_ARROW_STYLE_INVERTED);
+	wwrapper->manipulator = MANIPULATOR_arrow_new(wgroup, propname, MANIPULATOR_ARROW_STYLE_INVERTED);
 	wgroup->customdata = wwrapper;
 
-	MANIPULATOR_arrow_set_range_fac(wwrapper->widget, 4.0f);
-	WM_manipulator_set_colors(wwrapper->widget, color, color_hi);
+	MANIPULATOR_arrow_set_range_fac(wwrapper->manipulator, 4.0f);
+	WM_manipulator_set_colors(wwrapper->manipulator, color, color_hi);
 }
 
 static void WIDGETGROUP_lamp_refresh(const bContext *C, wmManipulatorGroup *wgroup)
@@ -95,14 +95,14 @@ static void WIDGETGROUP_lamp_refresh(const bContext *C, wmManipulatorGroup *wgro
 
 	negate_v3_v3(dir, ob->obmat[2]);
 
-	MANIPULATOR_arrow_set_direction(wwrapper->widget, dir);
-	WM_manipulator_set_origin(wwrapper->widget, ob->obmat[3]);
+	MANIPULATOR_arrow_set_direction(wwrapper->manipulator, dir);
+	WM_manipulator_set_origin(wwrapper->manipulator, ob->obmat[3]);
 
 	/* need to set property here for undo. TODO would prefer to do this in _init */
 	PointerRNA ptr;
 	const char *propname = "spot_size";
 	RNA_pointer_create(&la->id, &RNA_Lamp, la, &ptr);
-	WM_manipulator_set_property(wwrapper->widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, propname);
+	WM_manipulator_set_property(wwrapper->manipulator, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, propname);
 }
 
 void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
@@ -283,12 +283,12 @@ static void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmManipulator
 	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
 	wgroup->customdata = wwrapper;
 
-	wwrapper->widget = MANIPULATOR_arrow_new(wgroup, "field_strength", MANIPULATOR_ARROW_STYLE_CONSTRAINED);
+	wwrapper->manipulator = MANIPULATOR_arrow_new(wgroup, "field_strength", MANIPULATOR_ARROW_STYLE_CONSTRAINED);
 
-	MANIPULATOR_arrow_set_ui_range(wwrapper->widget, -200.0f, 200.0f);
-	MANIPULATOR_arrow_set_range_fac(wwrapper->widget, 6.0f);
-	WM_manipulator_set_colors(wwrapper->widget, col, col_hi);
-	WM_manipulator_set_flag(wwrapper->widget, WM_MANIPULATOR_SCALE_3D, false);
+	MANIPULATOR_arrow_set_ui_range(wwrapper->manipulator, -200.0f, 200.0f);
+	MANIPULATOR_arrow_set_range_fac(wwrapper->manipulator, 6.0f);
+	WM_manipulator_set_colors(wwrapper->manipulator, col, col_hi);
+	WM_manipulator_set_flag(wwrapper->manipulator, WM_MANIPULATOR_SCALE_3D, false);
 }
 
 static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmManipulatorGroup *wgroup)
@@ -304,14 +304,14 @@ static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmManipulatorGroup
 
 		RNA_pointer_create(&ob->id, &RNA_FieldSettings, pd, &ptr);
 
-		MANIPULATOR_arrow_set_direction(wwrapper->widget, ob->obmat[2]);
-		WM_manipulator_set_origin(wwrapper->widget, ob->obmat[3]);
-		WM_manipulator_set_offset(wwrapper->widget, ofs);
-		WM_manipulator_set_flag(wwrapper->widget, WM_MANIPULATOR_HIDDEN, false);
-		WM_manipulator_set_property(wwrapper->widget, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, "strength");
+		MANIPULATOR_arrow_set_direction(wwrapper->manipulator, ob->obmat[2]);
+		WM_manipulator_set_origin(wwrapper->manipulator, ob->obmat[3]);
+		WM_manipulator_set_offset(wwrapper->manipulator, ofs);
+		WM_manipulator_set_flag(wwrapper->manipulator, WM_MANIPULATOR_HIDDEN, false);
+		WM_manipulator_set_property(wwrapper->manipulator, ARROW_SLOT_OFFSET_WORLD_SPACE, &ptr, "strength");
 	}
 	else {
-		WM_manipulator_set_flag(wwrapper->widget, WM_MANIPULATOR_HIDDEN, true);
+		WM_manipulator_set_flag(wwrapper->manipulator, WM_MANIPULATOR_HIDDEN, true);
 	}
 }
 
@@ -549,7 +549,7 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 	        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_MANIPULATORMAPTYPE_3D});
 	GHASH_ITER(ghi, oldhash) {
 		wmManipulator *found = BLI_ghashIterator_getValue(&ghi);
-		WM_manipulator_delete(&wgroup->widgets, wmap, found, (bContext *)C);
+		WM_manipulator_delete(&wgroup->manipulators, wmap, found, (bContext *)C);
 	}
 	armature_facemap_ghash_free(oldhash);
 

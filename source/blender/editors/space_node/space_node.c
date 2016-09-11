@@ -649,10 +649,10 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *ar)
 	UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_CUSTOM, ar->winx, ar->winy);
 
 	/* widgets stay in the background for now - quick patchjob to make sure nodes themselves work */
-	if (BLI_listbase_is_empty(&ar->widgetmaps)) {
+	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
 		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, 0});
-		BLI_addhead(&ar->widgetmaps, wmap);
+		BLI_addhead(&ar->manipulator_maps, wmap);
 	}
 
 	WM_manipulatormaps_add_handlers(ar);
