@@ -90,9 +90,9 @@ typedef struct DialInteraction {
 static void dial_geom_draw(const DialWidget *dial, const float col[4], const bool select)
 {
 #ifdef WIDGET_USE_CUSTOM_DIAS
-	widget_draw_intern(&dial_draw_info, select);
+	manipulator_draw_intern(&dial_draw_info, select);
 #else
-	const bool filled = (dial->style == WIDGET_DIAL_STYLE_RING_FILLED);
+	const bool filled = (dial->style == MANIPULATOR_DIAL_STYLE_RING_FILLED);
 
 	glLineWidth(dial->widget.line_width);
 	glColor4fv(col);
@@ -190,7 +190,7 @@ static void dial_draw_intern(const bContext *C, DialWidget *dial, const bool sel
 	float rot[3][3];
 	float mat[4][4];
 	const float up[3] = {0.0f, 0.0f, 1.0f};
-	const float *col = widget_color_get(&dial->widget, highlight);
+	const float *col = manipulator_color_get(&dial->widget, highlight);
 
 	BLI_assert(CTX_wm_area(C)->spacetype == SPACE_VIEW3D);
 
@@ -204,7 +204,7 @@ static void dial_draw_intern(const bContext *C, DialWidget *dial, const bool sel
 	glTranslate3fv(dial->widget.offset);
 
 	/* draw rotation indicator arc first */
-	if ((dial->widget.flag & WM_WIDGET_DRAW_VALUE) && (dial->widget.flag & WM_WIDGET_ACTIVE)) {
+	if ((dial->widget.flag & WM_MANIPULATOR_DRAW_VALUE) && (dial->widget.flag & WM_MANIPULATOR_ACTIVE)) {
 		wmWindow *win = CTX_wm_window(C);
 		const float co_outer[4] = {0.0f, DIAL_WIDTH, 0.0f}; /* coordinate at which the arc drawing will be started */
 		float angle_ofs, angle_delta;
@@ -226,12 +226,12 @@ static void dial_draw_intern(const bContext *C, DialWidget *dial, const bool sel
 
 }
 
-static void widget_dial_render_3d_intersect(const bContext *C, wmManipulator *widget, int selectionbase)
+static void manipulator_dial_render_3d_intersect(const bContext *C, wmManipulator *widget, int selectionbase)
 {
 	DialWidget *dial = (DialWidget *)widget;
 
 	/* enable clipping if needed */
-	if (dial->style == WIDGET_DIAL_STYLE_RING_CLIPPED) {
+	if (dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
 		ARegion *ar = CTX_wm_region(C);
 		RegionView3D *rv3d = ar->regiondata;
 		double plane[4];
@@ -245,18 +245,18 @@ static void widget_dial_render_3d_intersect(const bContext *C, wmManipulator *wi
 	GPU_select_load_id(selectionbase);
 	dial_draw_intern(C, dial, true, false);
 
-	if (dial->style == WIDGET_DIAL_STYLE_RING_CLIPPED) {
+	if (dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
 		glDisable(GL_CLIP_PLANE0);
 	}
 }
 
-static void widget_dial_draw(const bContext *C, wmManipulator *widget)
+static void manipulator_dial_draw(const bContext *C, wmManipulator *widget)
 {
 	DialWidget *dial = (DialWidget *)widget;
-	const bool active = widget->flag & WM_WIDGET_ACTIVE;
+	const bool active = widget->flag & WM_MANIPULATOR_ACTIVE;
 
 	/* enable clipping if needed */
-	if (!active && dial->style == WIDGET_DIAL_STYLE_RING_CLIPPED) {
+	if (!active && dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
 		double plane[4];
 		ARegion *ar = CTX_wm_region(C);
 		RegionView3D *rv3d = ar->regiondata;
@@ -268,15 +268,15 @@ static void widget_dial_draw(const bContext *C, wmManipulator *widget)
 	}
 
 	glEnable(GL_BLEND);
-	dial_draw_intern(C, dial, false, (widget->flag & WM_WIDGET_HIGHLIGHT) != 0);
+	dial_draw_intern(C, dial, false, (widget->flag & WM_MANIPULATOR_HIGHLIGHT) != 0);
 	glDisable(GL_BLEND);
 
-	if (!active && dial->style == WIDGET_DIAL_STYLE_RING_CLIPPED) {
+	if (!active && dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
 		glDisable(GL_CLIP_PLANE0);
 	}
 }
 
-static int widget_dial_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
+static int manipulator_dial_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
 	DialInteraction *inter = MEM_callocN(sizeof(DialInteraction), __func__);
 
@@ -294,34 +294,34 @@ static int widget_dial_invoke(bContext *UNUSED(C), const wmEvent *event, wmManip
  *
  * \{ */
 
-wmManipulator *WIDGET_dial_new(wmManipulatorGroup *wgroup, const char *name, const int style)
+wmManipulator *MANIPULATOR_dial_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
 	DialWidget *dial = MEM_callocN(sizeof(DialWidget), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
 #ifdef WIDGET_USE_CUSTOM_DIAS
 	if (!dial_draw_info.init) {
-		dial_draw_info.nverts = _WIDGET_nverts_dial,
-		dial_draw_info.ntris = _WIDGET_ntris_dial,
-		dial_draw_info.verts = _WIDGET_verts_dial,
-		dial_draw_info.normals = _WIDGET_normals_dial,
-		dial_draw_info.indices = _WIDGET_indices_dial,
+		dial_draw_info.nverts = _MANIPULATOR_nverts_dial,
+		dial_draw_info.ntris = _MANIPULATOR_ntris_dial,
+		dial_draw_info.verts = _MANIPULATOR_verts_dial,
+		dial_draw_info.normals = _MANIPULATOR_normals_dial,
+		dial_draw_info.indices = _MANIPULATOR_indices_dial,
 		dial_draw_info.init = true;
 	}
 #endif
 
-	dial->widget.draw = widget_dial_draw;
+	dial->widget.draw = manipulator_dial_draw;
 	dial->widget.intersect = NULL;
-	dial->widget.render_3d_intersection = widget_dial_render_3d_intersect;
-	dial->widget.invoke = widget_dial_invoke;
-	dial->widget.flag |= WM_WIDGET_SCALE_3D;
+	dial->widget.render_3d_intersection = manipulator_dial_render_3d_intersect;
+	dial->widget.invoke = manipulator_dial_invoke;
+	dial->widget.flag |= WM_MANIPULATOR_SCALE_3D;
 
 	dial->style = style;
 
 	/* defaults */
 	copy_v3_v3(dial->direction, dir_default);
 
-	wm_widget_register(wgroup, &dial->widget, name);
+	WM_manipulator_register(wgroup, &dial->widget, name);
 
 	return (wmManipulator *)dial;
 }
@@ -329,7 +329,7 @@ wmManipulator *WIDGET_dial_new(wmManipulatorGroup *wgroup, const char *name, con
 /**
  * Define up-direction of the dial widget
  */
-void WIDGET_dial_set_up_vector(wmManipulator *widget, const float direction[3])
+void MANIPULATOR_dial_set_up_vector(wmManipulator *widget, const float direction[3])
 {
 	DialWidget *dial = (DialWidget *)widget;
 
@@ -342,7 +342,7 @@ void WIDGET_dial_set_up_vector(wmManipulator *widget, const float direction[3])
 
 /* -------------------------------------------------------------------- */
 
-void fix_linking_widget_dial(void)
+void fix_linking_manipulator_dial(void)
 {
 	(void)0;
 }

@@ -36,16 +36,16 @@ struct wmManipulatorGroup;
 
 
 /* -------------------------------------------------------------------- */
-/* 3D Arrow Widget */
+/* 3D Arrow Manipulator */
 
 enum {
-	WIDGET_ARROW_STYLE_NORMAL        =  1,
-	WIDGET_ARROW_STYLE_NO_AXIS       = (1 << 1),
-	WIDGET_ARROW_STYLE_CROSS         = (1 << 2),
-	WIDGET_ARROW_STYLE_INVERTED      = (1 << 3), /* inverted offset during interaction - if set it also sets constrained below */
-	WIDGET_ARROW_STYLE_CONSTRAINED   = (1 << 4), /* clamp arrow interaction to property width */
-	WIDGET_ARROW_STYLE_BOX           = (1 << 5), /* use a box for the arrowhead */
-	WIDGET_ARROW_STYLE_CONE          = (1 << 6),
+	MANIPULATOR_ARROW_STYLE_NORMAL        =  1,
+	MANIPULATOR_ARROW_STYLE_NO_AXIS       = (1 << 1),
+	MANIPULATOR_ARROW_STYLE_CROSS         = (1 << 2),
+	MANIPULATOR_ARROW_STYLE_INVERTED      = (1 << 3), /* inverted offset during interaction - if set it also sets constrained below */
+	MANIPULATOR_ARROW_STYLE_CONSTRAINED   = (1 << 4), /* clamp arrow interaction to property width */
+	MANIPULATOR_ARROW_STYLE_BOX           = (1 << 5), /* use a box for the arrowhead */
+	MANIPULATOR_ARROW_STYLE_CONE          = (1 << 6),
 };
 
 /* slots for properties */
@@ -53,31 +53,31 @@ enum {
 	ARROW_SLOT_OFFSET_WORLD_SPACE = 0
 };
 
-struct wmManipulator *WIDGET_arrow_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
-void WIDGET_arrow_set_direction(struct wmManipulator *widget, const float direction[3]);
-void WIDGET_arrow_set_up_vector(struct wmManipulator *widget, const float direction[3]);
-void WIDGET_arrow_set_line_len(struct wmManipulator *widget, const float len);
-void WIDGET_arrow_set_ui_range(struct wmManipulator *widget, const float min, const float max);
-void WIDGET_arrow_set_range_fac(struct wmManipulator *widget, const float range_fac);
-void WIDGET_arrow_cone_set_aspect(struct wmManipulator *widget, const float aspect[2]);
+struct wmManipulator *MANIPULATOR_arrow_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
+void MANIPULATOR_arrow_set_direction(struct wmManipulator *widget, const float direction[3]);
+void MANIPULATOR_arrow_set_up_vector(struct wmManipulator *widget, const float direction[3]);
+void MANIPULATOR_arrow_set_line_len(struct wmManipulator *widget, const float len);
+void MANIPULATOR_arrow_set_ui_range(struct wmManipulator *widget, const float min, const float max);
+void MANIPULATOR_arrow_set_range_fac(struct wmManipulator *widget, const float range_fac);
+void MANIPULATOR_arrow_cone_set_aspect(struct wmManipulator *widget, const float aspect[2]);
 
 
 /* -------------------------------------------------------------------- */
-/* 2D Arrow Widget */
+/* 2D Arrow Manipulator */
 
-struct wmManipulator *WIDGET_arrow2d_new(struct wmManipulatorGroup *wgroup, const char *name);
-void WIDGET_arrow2d_set_angle(struct wmManipulator *widget, const float rot_fac);
-void WIDGET_arrow2d_set_line_len(struct wmManipulator *widget, const float len);
+struct wmManipulator *MANIPULATOR_arrow2d_new(struct wmManipulatorGroup *wgroup, const char *name);
+void MANIPULATOR_arrow2d_set_angle(struct wmManipulator *widget, const float rot_fac);
+void MANIPULATOR_arrow2d_set_line_len(struct wmManipulator *widget, const float len);
 
 
 /* -------------------------------------------------------------------- */
-/* Cage Widget */
+/* Cage Manipulator */
 
 enum {
-	WIDGET_RECT_TRANSFORM_STYLE_TRANSLATE       =  1,       /* widget translates */
-	WIDGET_RECT_TRANSFORM_STYLE_ROTATE          = (1 << 1), /* widget rotates */
-	WIDGET_RECT_TRANSFORM_STYLE_SCALE           = (1 << 2), /* widget scales */
-	WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM   = (1 << 3), /* widget scales uniformly */
+	MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE       =  1,       /* Manipulator translates */
+	MANIPULATOR_RECT_TRANSFORM_STYLE_ROTATE          = (1 << 1), /* Manipulator rotates */
+	MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE           = (1 << 2), /* Manipulator scales */
+	MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM   = (1 << 3), /* Manipulator scales uniformly */
 };
 
 enum {
@@ -85,42 +85,42 @@ enum {
 	RECT_TRANSFORM_SLOT_SCALE = 1
 };
 
-struct wmManipulator *WIDGET_rect_transform_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
-void WIDGET_rect_transform_set_dimensions(struct wmManipulator *widget, const float width, const float height);
+struct wmManipulator *MANIPULATOR_rect_transform_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
+void MANIPULATOR_rect_transform_set_dimensions(struct wmManipulator *widget, const float width, const float height);
 
 
 /* -------------------------------------------------------------------- */
-/* Dial Widget */
+/* Dial Manipulator */
 
 enum {
-	WIDGET_DIAL_STYLE_RING = 0,
-	WIDGET_DIAL_STYLE_RING_CLIPPED = 1,
-	WIDGET_DIAL_STYLE_RING_FILLED = 2,
+	MANIPULATOR_DIAL_STYLE_RING = 0,
+	MANIPULATOR_DIAL_STYLE_RING_CLIPPED = 1,
+	MANIPULATOR_DIAL_STYLE_RING_FILLED = 2,
 };
 
-struct wmManipulator *WIDGET_dial_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
-void WIDGET_dial_set_up_vector(struct wmManipulator *widget, const float direction[3]);
+struct wmManipulator *MANIPULATOR_dial_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
+void MANIPULATOR_dial_set_up_vector(struct wmManipulator *widget, const float direction[3]);
 
 
 /* -------------------------------------------------------------------- */
-/* Facemap Widget */
+/* Facemap Manipulator */
 
-struct wmManipulator *WIDGET_facemap_new(
+struct wmManipulator *MANIPULATOR_facemap_new(
         struct wmManipulatorGroup *wgroup, const char *name, const int style,
         struct Object *ob, const int facemap);
-struct bFaceMap *WIDGET_facemap_get_fmap(struct wmManipulator *widget);
+struct bFaceMap *MANIPULATOR_facemap_get_fmap(struct wmManipulator *widget);
 
 
 /* -------------------------------------------------------------------- */
-/* Primitive Widget */
+/* Primitive Manipulator */
 
 enum {
-	WIDGET_PRIMITIVE_STYLE_PLANE = 0,
+	MANIPULATOR_PRIMITIVE_STYLE_PLANE = 0,
 };
 
-struct wmManipulator *WIDGET_primitive_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
-void WIDGET_primitive_set_direction(struct wmManipulator *widget, const float direction[3]);
-void WIDGET_primitive_set_up_vector(struct wmManipulator *widget, const float direction[3]);
+struct wmManipulator *MANIPULATOR_primitive_new(struct wmManipulatorGroup *wgroup, const char *name, const int style);
+void MANIPULATOR_primitive_set_direction(struct wmManipulator *widget, const float direction[3]);
+void MANIPULATOR_primitive_set_up_vector(struct wmManipulator *widget, const float direction[3]);
 
 #endif  /* __WM_MANIPULATOR_LIBRARY_H__ */
 

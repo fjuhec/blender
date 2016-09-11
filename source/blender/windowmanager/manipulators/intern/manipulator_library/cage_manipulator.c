@@ -57,14 +57,14 @@
 
 /* wmManipulator->highlighted_part */
 enum {
-	WIDGET_RECT_TRANSFORM_INTERSECT_TRANSLATE     = 1,
-	WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT   = 2,
-	WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT  = 3,
-	WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_UP     = 4,
-	WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN   = 5
+	MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE     = 1,
+	MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT   = 2,
+	MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT  = 3,
+	MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP     = 4,
+	MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN   = 5
 };
 
-#define WIDGET_RECT_MIN_WIDTH 15.0f
+#define MANIPULATOR_RECT_MIN_WIDTH 15.0f
 #define WIDGET_RESIZER_WIDTH  20.0f
 
 typedef struct RectTransformWidget {
@@ -111,7 +111,7 @@ static void rect_transform_draw_interaction(
 	float verts[4][2];
 
 	switch (highlighted) {
-		case WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT:
+		case MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT:
 			verts[0][0] = -half_w + w;
 			verts[0][1] = -half_h;
 			verts[1][0] = -half_w;
@@ -122,7 +122,7 @@ static void rect_transform_draw_interaction(
 			verts[3][1] = half_h;
 			break;
 
-		case WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT:
+		case MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT:
 			verts[0][0] = half_w - w;
 			verts[0][1] = -half_h;
 			verts[1][0] = half_w;
@@ -133,7 +133,7 @@ static void rect_transform_draw_interaction(
 			verts[3][1] = half_h;
 			break;
 
-		case WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN:
+		case MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN:
 			verts[0][0] = -half_w;
 			verts[0][1] = -half_h + h;
 			verts[1][0] = -half_w;
@@ -144,7 +144,7 @@ static void rect_transform_draw_interaction(
 			verts[3][1] = -half_h + h;
 			break;
 
-		case WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_UP:
+		case MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP:
 			verts[0][0] = -half_w;
 			verts[0][1] = half_h - h;
 			verts[1][0] = -half_w;
@@ -170,7 +170,7 @@ static void rect_transform_draw_interaction(
 	glLineWidth(1.0);
 }
 
-static void widget_rect_transform_draw(const bContext *UNUSED(C), wmManipulator *widget)
+static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	rctf r;
@@ -187,7 +187,7 @@ static void widget_rect_transform_draw(const bContext *UNUSED(C), wmManipulator 
 
 	glPushMatrix();
 	glTranslatef(widget->origin[0] + widget->offset[0], widget->origin[1] + widget->offset[1], 0.0f);
-	if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)
+	if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)
 		glScalef(cage->scale[0], cage->scale[0], 1.0);
 	else
 		glScalef(cage->scale[0], cage->scale[1], 1.0);
@@ -198,7 +198,7 @@ static void widget_rect_transform_draw(const bContext *UNUSED(C), wmManipulator 
 		aspy = w / h;
 	w = min_ff(aspx * w / WIDGET_RESIZER_WIDTH, WIDGET_RESIZER_WIDTH / cage->scale[0]);
 	h = min_ff(aspy * h / WIDGET_RESIZER_WIDTH, WIDGET_RESIZER_WIDTH / 
-	           ((cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) ? cage->scale[0] : cage->scale[1]));
+	           ((cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) ? cage->scale[0] : cage->scale[1]));
 
 	/* corner widgets */
 	glColor3f(0.0, 0.0, 0.0);
@@ -218,23 +218,23 @@ static void widget_rect_transform_draw(const bContext *UNUSED(C), wmManipulator 
 	glPopMatrix();
 }
 
-static int widget_rect_transform_get_cursor(wmManipulator *widget)
+static int manipulator_rect_transform_get_cursor(wmManipulator *widget)
 {
 	switch (widget->highlighted_part) {
-		case WIDGET_RECT_TRANSFORM_INTERSECT_TRANSLATE:
+		case MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE:
 			return BC_HANDCURSOR;
-		case WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT:
-		case WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT:
+		case MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT:
+		case MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT:
 			return CURSOR_X_MOVE;
-		case WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN:
-		case WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_UP:
+		case MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN:
+		case MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP:
 			return CURSOR_Y_MOVE;
 		default:
 			return CURSOR_STD;
 	}
 }
 
-static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
+static int manipulator_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	const float mouse[2] = {event->mval[0], event->mval[1]};
@@ -252,7 +252,7 @@ static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *e
 	point_local[1] -= widget->offset[1];
 	//rotate_m2(matrot, -cage->transform.rotation);
 
-	if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)
+	if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)
 		mul_v2_fl(point_local, 1.0f / cage->scale[0]);
 	else {
 		point_local[0] /= cage->scale[0];
@@ -265,7 +265,7 @@ static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *e
 		aspy = w / h;
 	w = min_ff(aspx * w / WIDGET_RESIZER_WIDTH, WIDGET_RESIZER_WIDTH / cage->scale[0]);
 	h = min_ff(aspy * h / WIDGET_RESIZER_WIDTH, WIDGET_RESIZER_WIDTH / 
-	           ((cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) ? cage->scale[0] : cage->scale[1]));
+	           ((cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) ? cage->scale[0] : cage->scale[1]));
 
 
 	rctf r;
@@ -278,10 +278,10 @@ static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *e
 	bool isect = BLI_rctf_isect_pt_v(&r, point_local);
 
 	if (isect)
-		return WIDGET_RECT_TRANSFORM_INTERSECT_TRANSLATE;
+		return MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE;
 
 	/* if widget does not have a scale intersection, don't do it */
-	if (cage->style & (WIDGET_RECT_TRANSFORM_STYLE_SCALE | WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)) {
+	if (cage->style & (MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE | MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)) {
 		r.xmin = -half_w;
 		r.ymin = -half_h;
 		r.xmax = -half_w + w;
@@ -290,7 +290,7 @@ static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *e
 		isect = BLI_rctf_isect_pt_v(&r, point_local);
 
 		if (isect)
-			return WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT;
+			return MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT;
 
 		r.xmin = half_w - w;
 		r.ymin = -half_h;
@@ -300,7 +300,7 @@ static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *e
 		isect = BLI_rctf_isect_pt_v(&r, point_local);
 
 		if (isect)
-			return WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT;
+			return MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT;
 
 		r.xmin = -half_w;
 		r.ymin = -half_h;
@@ -310,7 +310,7 @@ static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *e
 		isect = BLI_rctf_isect_pt_v(&r, point_local);
 
 		if (isect)
-			return WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN;
+			return MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN;
 
 		r.xmin = -half_w;
 		r.ymin = half_h - h;
@@ -320,7 +320,7 @@ static int widget_rect_transform_intersect(bContext *UNUSED(C), const wmEvent *e
 		isect = BLI_rctf_isect_pt_v(&r, point_local);
 
 		if (isect)
-			return WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_UP;
+			return MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP;
 	}
 
 	return 0;
@@ -332,7 +332,7 @@ typedef struct RectTransformInteraction {
 	float orig_scale[2];
 } RectTransformInteraction;
 
-static bool widget_rect_transform_get_prop_value(wmManipulator *widget, const int slot, float *value)
+static bool manipulator_rect_transform_get_prop_value(wmManipulator *widget, const int slot, float *value)
 {
 	PropertyType type = RNA_property_type(widget->props[slot]);
 
@@ -350,7 +350,7 @@ static bool widget_rect_transform_get_prop_value(wmManipulator *widget, const in
 		}
 		else if (slot == RECT_TRANSFORM_SLOT_SCALE) {
 			RectTransformWidget *cage = (RectTransformWidget *)widget;
-			if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
+			if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
 				*value = RNA_property_float_get(&widget->ptr[slot], widget->props[slot]);
 			}
 			else {
@@ -366,7 +366,7 @@ static bool widget_rect_transform_get_prop_value(wmManipulator *widget, const in
 	return true;
 }
 
-static int widget_rect_transform_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
+static int manipulator_rect_transform_invoke(bContext *UNUSED(C), const wmEvent *event, wmManipulator *widget)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	RectTransformInteraction *data = MEM_callocN(sizeof(RectTransformInteraction), "cage_interaction");
@@ -382,7 +382,7 @@ static int widget_rect_transform_invoke(bContext *UNUSED(C), const wmEvent *even
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmManipulator *widget, const int UNUSED(flag))
+static int manipulator_rect_transform_handler(bContext *C, const wmEvent *event, wmManipulator *widget, const int UNUSED(flag))
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	RectTransformInteraction *data = widget->interaction_data;
@@ -393,32 +393,32 @@ static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmMa
 	const float valuey = (event->mval[1] - data->orig_mouse[1]);
 
 
-	if (widget->highlighted_part == WIDGET_RECT_TRANSFORM_INTERSECT_TRANSLATE) {
+	if (widget->highlighted_part == MANIPULATOR_RECT_TRANSFORM_INTERSECT_TRANSLATE) {
 		widget->offset[0] = data->orig_offset[0] + valuex;
 		widget->offset[1] = data->orig_offset[1] + valuey;
 	}
-	else if (widget->highlighted_part == WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT) {
+	else if (widget->highlighted_part == MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_LEFT) {
 		widget->offset[0] = data->orig_offset[0] + valuex / 2.0;
 		cage->scale[0] = (cage->w * data->orig_scale[0] - valuex) / cage->w;
 	}
-	else if (widget->highlighted_part == WIDGET_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT) {
+	else if (widget->highlighted_part == MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEX_RIGHT) {
 		widget->offset[0] = data->orig_offset[0] + valuex / 2.0;
 		cage->scale[0] = (cage->w * data->orig_scale[0] + valuex) / cage->w;
 	}
-	else if (widget->highlighted_part == WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN) {
+	else if (widget->highlighted_part == MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_DOWN) {
 		widget->offset[1] = data->orig_offset[1] + valuey / 2.0;
 
-		if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
+		if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
 			cage->scale[0] = (cage->h * data->orig_scale[0] - valuey) / cage->h;
 		}
 		else {
 			cage->scale[1] = (cage->h * data->orig_scale[1] - valuey) / cage->h;
 		}
 	}
-	else if (widget->highlighted_part == WIDGET_RECT_TRANSFORM_INTERSECT_SCALEY_UP) {
+	else if (widget->highlighted_part == MANIPULATOR_RECT_TRANSFORM_INTERSECT_SCALEY_UP) {
 		widget->offset[1] = data->orig_offset[1] + valuey / 2.0;
 
-		if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
+		if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
 			cage->scale[0] = (cage->h * data->orig_scale[0] + valuey) / cage->h;
 		}
 		else {
@@ -427,22 +427,22 @@ static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmMa
 	}
 
 	/* clamping - make sure widget is at least 5 pixels wide */
-	if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
-		if (cage->scale[0] < WIDGET_RECT_MIN_WIDTH / cage->h || 
-		    cage->scale[0] < WIDGET_RECT_MIN_WIDTH / cage->w) 
+	if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
+		if (cage->scale[0] < MANIPULATOR_RECT_MIN_WIDTH / cage->h || 
+		    cage->scale[0] < MANIPULATOR_RECT_MIN_WIDTH / cage->w) 
 		{
-			cage->scale[0] = max_ff(WIDGET_RECT_MIN_WIDTH / cage->h, WIDGET_RECT_MIN_WIDTH / cage->w);
+			cage->scale[0] = max_ff(MANIPULATOR_RECT_MIN_WIDTH / cage->h, MANIPULATOR_RECT_MIN_WIDTH / cage->w);
 			widget->offset[0] = orig_ofx;
 			widget->offset[1] = orig_ofy;
 		}
 	}
 	else {
-		if (cage->scale[0] < WIDGET_RECT_MIN_WIDTH / cage->w) {
-			cage->scale[0] = WIDGET_RECT_MIN_WIDTH / cage->w;
+		if (cage->scale[0] < MANIPULATOR_RECT_MIN_WIDTH / cage->w) {
+			cage->scale[0] = MANIPULATOR_RECT_MIN_WIDTH / cage->w;
 			widget->offset[0] = orig_ofx;
 		}
-		if (cage->scale[1] < WIDGET_RECT_MIN_WIDTH / cage->h) {
-			cage->scale[1] = WIDGET_RECT_MIN_WIDTH / cage->h;
+		if (cage->scale[1] < MANIPULATOR_RECT_MIN_WIDTH / cage->h) {
+			cage->scale[1] = MANIPULATOR_RECT_MIN_WIDTH / cage->h;
 			widget->offset[1] = orig_ofy;
 		}
 	}
@@ -459,7 +459,7 @@ static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmMa
 		PointerRNA ptr = widget->ptr[RECT_TRANSFORM_SLOT_SCALE];
 		PropertyRNA *prop = widget->props[RECT_TRANSFORM_SLOT_SCALE];
 
-		if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
+		if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
 			RNA_property_float_set(&ptr, prop, cage->scale[0]);
 		}
 		else {
@@ -474,17 +474,17 @@ static int widget_rect_transform_handler(bContext *C, const wmEvent *event, wmMa
 	return OPERATOR_PASS_THROUGH;
 }
 
-static void widget_rect_transform_prop_data_update(wmManipulator *widget, const int slot)
+static void manipulator_rect_transform_prop_data_update(wmManipulator *widget, const int slot)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 
 	if (slot == RECT_TRANSFORM_SLOT_OFFSET)
-		widget_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_OFFSET, widget->offset);
+		manipulator_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_OFFSET, widget->offset);
 	if (slot == RECT_TRANSFORM_SLOT_SCALE)
-		widget_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_SCALE, cage->scale);
+		manipulator_rect_transform_get_prop_value(widget, RECT_TRANSFORM_SLOT_SCALE, cage->scale);
 }
 
-static void widget_rect_transform_exit(bContext *C, wmManipulator *widget, const bool cancel)
+static void manipulator_rect_transform_exit(bContext *C, wmManipulator *widget, const bool cancel)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	RectTransformInteraction *data = widget->interaction_data;
@@ -504,7 +504,7 @@ static void widget_rect_transform_exit(bContext *C, wmManipulator *widget, const
 		PointerRNA ptr = widget->ptr[RECT_TRANSFORM_SLOT_SCALE];
 		PropertyRNA *prop = widget->props[RECT_TRANSFORM_SLOT_SCALE];
 
-		if (cage->style & WIDGET_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
+		if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM) {
 			RNA_property_float_set(&ptr, prop, data->orig_scale[0]);
 		}
 		else {
@@ -520,28 +520,28 @@ static void widget_rect_transform_exit(bContext *C, wmManipulator *widget, const
  *
  * \{ */
 
-wmManipulator *WIDGET_rect_transform_new(wmManipulatorGroup *wgroup, const char *name, const int style)
+wmManipulator *MANIPULATOR_rect_transform_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
 	RectTransformWidget *cage = MEM_callocN(sizeof(RectTransformWidget), name);
 
-	cage->widget.draw = widget_rect_transform_draw;
-	cage->widget.invoke = widget_rect_transform_invoke;
-	cage->widget.prop_data_update = widget_rect_transform_prop_data_update;
-	cage->widget.handler = widget_rect_transform_handler;
-	cage->widget.intersect = widget_rect_transform_intersect;
-	cage->widget.exit = widget_rect_transform_exit;
-	cage->widget.get_cursor = widget_rect_transform_get_cursor;
+	cage->widget.draw = manipulator_rect_transform_draw;
+	cage->widget.invoke = manipulator_rect_transform_invoke;
+	cage->widget.prop_data_update = manipulator_rect_transform_prop_data_update;
+	cage->widget.handler = manipulator_rect_transform_handler;
+	cage->widget.intersect = manipulator_rect_transform_intersect;
+	cage->widget.exit = manipulator_rect_transform_exit;
+	cage->widget.get_cursor = manipulator_rect_transform_get_cursor;
 	cage->widget.max_prop = 2;
-	cage->widget.flag |= WM_WIDGET_DRAW_ACTIVE;
+	cage->widget.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
 	cage->scale[0] = cage->scale[1] = 1.0f;
 	cage->style = style;
 
-	wm_widget_register(wgroup, &cage->widget, name);
+	WM_manipulator_register(wgroup, &cage->widget, name);
 
 	return (wmManipulator *)cage;
 }
 
-void WIDGET_rect_transform_set_dimensions(wmManipulator *widget, const float width, const float height)
+void MANIPULATOR_rect_transform_set_dimensions(wmManipulator *widget, const float width, const float height)
 {
 	RectTransformWidget *cage = (RectTransformWidget *)widget;
 	cage->w = width;
@@ -553,7 +553,7 @@ void WIDGET_rect_transform_set_dimensions(wmManipulator *widget, const float wid
 
 /* -------------------------------------------------------------------- */
 
-void fix_linking_widget_cage(void)
+void fix_linking_manipulator_cage(void)
 {
 	(void)0;
 }

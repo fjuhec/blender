@@ -80,12 +80,12 @@ static float verts_plane[4][3] = {
 
 /* -------------------------------------------------------------------- */
 
-static void widget_primitive_draw_geom(const float col_inner[4], const float col_outer[4], const int style)
+static void manipulator_primitive_draw_geom(const float col_inner[4], const float col_outer[4], const int style)
 {
 	float (*verts)[3];
 	float vert_count;
 
-	if (style == WIDGET_PRIMITIVE_STYLE_PLANE) {
+	if (style == MANIPULATOR_PRIMITIVE_STYLE_PLANE) {
 		verts = verts_plane;
 		vert_count = ARRAY_SIZE(verts_plane);
 	}
@@ -99,7 +99,7 @@ static void widget_primitive_draw_geom(const float col_inner[4], const float col
 	glDisableClientState(GL_VERTEX_ARRAY);
 }
 
-static void widget_primitive_draw_intern(PrimitiveWidget *prim, const bool UNUSED(select), const bool highlight)
+static void manipulator_primitive_draw_intern(PrimitiveWidget *prim, const bool UNUSED(select), const bool highlight)
 {
 	float col_inner[4], col_outer[4];
 	float rot[3][3];
@@ -122,7 +122,7 @@ static void widget_primitive_draw_intern(PrimitiveWidget *prim, const bool UNUSE
 	glPushMatrix();
 	glMultMatrixf(mat);
 
-	if (highlight && (prim->widget.flag & WM_WIDGET_DRAW_HOVER) == 0) {
+	if (highlight && (prim->widget.flag & WM_MANIPULATOR_DRAW_HOVER) == 0) {
 		copy_v4_v4(col_inner, prim->widget.col_hi);
 		copy_v4_v4(col_outer, prim->widget.col_hi);
 	}
@@ -134,7 +134,7 @@ static void widget_primitive_draw_intern(PrimitiveWidget *prim, const bool UNUSE
 
 	glEnable(GL_BLEND);
 	glTranslate3fv(prim->widget.offset);
-	widget_primitive_draw_geom(col_inner, col_outer, prim->style);
+	manipulator_primitive_draw_geom(col_inner, col_outer, prim->style);
 	glDisable(GL_BLEND);
 
 	glPopMatrix();
@@ -155,25 +155,25 @@ static void widget_primitive_draw_intern(PrimitiveWidget *prim, const bool UNUSE
 
 		glEnable(GL_BLEND);
 		glTranslate3fv(prim->widget.offset);
-		widget_primitive_draw_geom(col_inner, col_outer, prim->style);
+		manipulator_primitive_draw_geom(col_inner, col_outer, prim->style);
 		glDisable(GL_BLEND);
 
 		glPopMatrix();
 	}
 }
 
-static void widget_primitive_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *widget, int selectionbase)
+static void manipulator_primitive_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *widget, int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
-	widget_primitive_draw_intern((PrimitiveWidget *)widget, true, false);
+	manipulator_primitive_draw_intern((PrimitiveWidget *)widget, true, false);
 }
 
-static void widget_primitive_draw(const bContext *UNUSED(C), wmManipulator *widget)
+static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator *widget)
 {
-	widget_primitive_draw_intern((PrimitiveWidget *)widget, false, (widget->flag & WM_WIDGET_HIGHLIGHT));
+	manipulator_primitive_draw_intern((PrimitiveWidget *)widget, false, (widget->flag & WM_MANIPULATOR_HIGHLIGHT));
 }
 
-static int widget_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *widget)
+static int manipulator_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *widget)
 {
 	WidgetInteraction *inter = MEM_callocN(sizeof(WidgetInteraction), __func__);
 
@@ -191,22 +191,22 @@ static int widget_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(ev
  *
  * \{ */
 
-wmManipulator *WIDGET_primitive_new(wmManipulatorGroup *wgroup, const char *name, const int style)
+wmManipulator *MANIPULATOR_primitive_new(wmManipulatorGroup *wgroup, const char *name, const int style)
 {
 	PrimitiveWidget *prim = MEM_callocN(sizeof(PrimitiveWidget), name);
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
-	prim->widget.draw = widget_primitive_draw;
-	prim->widget.invoke = widget_primitive_invoke;
+	prim->widget.draw = manipulator_primitive_draw;
+	prim->widget.invoke = manipulator_primitive_invoke;
 	prim->widget.intersect = NULL;
-	prim->widget.render_3d_intersection = widget_primitive_render_3d_intersect;
-	prim->widget.flag |= (WM_WIDGET_DRAW_ACTIVE | WM_WIDGET_SCALE_3D);
+	prim->widget.render_3d_intersection = manipulator_primitive_render_3d_intersect;
+	prim->widget.flag |= (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_SCALE_3D);
 	prim->style = style;
 
 	/* defaults */
 	copy_v3_v3(prim->direction, dir_default);
 
-	wm_widget_register(wgroup, &prim->widget, name);
+	WM_manipulator_register(wgroup, &prim->widget, name);
 
 	return (wmManipulator *)prim;
 }
@@ -214,7 +214,7 @@ wmManipulator *WIDGET_primitive_new(wmManipulatorGroup *wgroup, const char *name
 /**
  * Define direction the primitive will point towards
  */
-void WIDGET_primitive_set_direction(wmManipulator *widget, const float direction[3])
+void MANIPULATOR_primitive_set_direction(wmManipulator *widget, const float direction[3])
 {
 	PrimitiveWidget *prim = (PrimitiveWidget *)widget;
 
@@ -225,7 +225,7 @@ void WIDGET_primitive_set_direction(wmManipulator *widget, const float direction
 /**
  * Define up-direction of the primitive widget
  */
-void WIDGET_primitive_set_up_vector(wmManipulator *widget, const float direction[3])
+void MANIPULATOR_primitive_set_up_vector(wmManipulator *widget, const float direction[3])
 {
 	PrimitiveWidget *prim = (PrimitiveWidget *)widget;
 
@@ -244,7 +244,7 @@ void WIDGET_primitive_set_up_vector(wmManipulator *widget, const float direction
 
 /* -------------------------------------------------------------------- */
 
-void fix_linking_widget_primitive(void)
+void fix_linking_manipulator_primitive(void)
 {
 	(void)0;
 }

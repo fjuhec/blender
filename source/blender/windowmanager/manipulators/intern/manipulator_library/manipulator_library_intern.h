@@ -32,10 +32,10 @@
 #define __MANIPULATOR_LIBRARY_INTERN_H__
 
 /* distance around which widgets respond to input (and get highlighted) */
-#define WIDGET_HOTSPOT 14.0f /* TODO use everywhere */
+#define MANIPULATOR_HOTSPOT 14.0f /* TODO use everywhere */
 
 /**
- * Data for common interactions. Used in widget_library_utils.c functions.
+ * Data for common interactions. Used in manipulator_library_utils.c functions.
  */
 typedef struct WidgetCommonData {
 	int flag;
@@ -69,25 +69,30 @@ enum {
 };
 
 
-float widget_offset_from_value(
+float manipulator_offset_from_value(
         WidgetCommonData *data, const float value,
         const bool constrained, const bool inverted);
-float widget_value_from_offset(
+float manipulator_value_from_offset(
         WidgetCommonData *data, WidgetInteraction *inter, const float offset,
         const bool constrained, const bool inverted, const bool use_precision);
 
-void widget_property_data_update(
+void manipulator_property_data_update(
         wmManipulator *widget, WidgetCommonData *data, const int slot,
         const bool constrained, const bool inverted);
 
-void  widget_property_value_set(bContext *C, const wmManipulator *widget, const int slot, const float value);
-float widget_property_value_get(const wmManipulator *widget, const int slot);
-void  widget_property_value_reset(bContext *C, const wmManipulator *widget, WidgetInteraction *inter, const int slot);
+void  manipulator_property_value_set(
+        bContext *C, const wmManipulator *widget,
+        const int slot, const float value);
+float manipulator_property_value_get(
+        const wmManipulator *widget, const int slot);
+void  manipulator_property_value_reset(
+        bContext *C, const wmManipulator *widget, WidgetInteraction *inter,
+        const int slot);
 
 
 /* -------------------------------------------------------------------- */
 
-float *widget_color_get(wmManipulator *widget, const bool highlight);
+float *manipulator_color_get(wmManipulator *widget, const bool highlight);
 
 #endif  /* __MANIPULATOR_LIBRARY_INTERN_H__ */
 

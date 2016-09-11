@@ -42,23 +42,23 @@ struct wmManipulatorMap;
 enum {
 	/* drag with extra precision (shift)
 	 * NOTE: Widgets are responsible for handling this (widget->handler callback)! */
-	WM_WIDGET_TWEAK_PRECISE = (1 << 0),
+	WM_MANIPULATOR_TWEAK_PRECISE = (1 << 0),
 };
 
-bool wm_widget_register(wmManipulatorGroup *wgroup, struct wmManipulator *widget, const char *name);
+bool WM_manipulator_register(wmManipulatorGroup *wgroup, struct wmManipulator *widget, const char *name);
 
-bool wm_widget_deselect(struct wmManipulatorMap *wmap, struct wmManipulator *widget);
-bool wm_widget_select(bContext *C, struct wmManipulatorMap *wmap, struct wmManipulator *widget);
+bool WM_manipulator_deselect(struct wmManipulatorMap *wmap, struct wmManipulator *widget);
+bool WM_manipulator_select(bContext *C, struct wmManipulatorMap *wmap, struct wmManipulator *widget);
 
-void wm_widget_calculate_scale(struct wmManipulator *widget, const bContext *C);
-void wm_widget_update_prop_data(struct wmManipulator *widget);
+void WM_manipulator_calculate_scale(struct wmManipulator *widget, const bContext *C);
+void WM_manipulator_update_prop_data(struct wmManipulator *widget);
 
-void fix_linking_widget_arrow(void);
-void fix_linking_widget_arrow2d(void);
-void fix_linking_widget_cage(void);
-void fix_linking_widget_dial(void);
-void fix_linking_widget_facemap(void);
-void fix_linking_widget_primitive(void);
+void fix_linking_manipulator_arrow(void);
+void fix_linking_manipulator_arrow2d(void);
+void fix_linking_manipulator_cage(void);
+void fix_linking_manipulator_dial(void);
+void fix_linking_manipulator_facemap(void);
+void fix_linking_manipulator_primitive(void);
 
 
 /* -------------------------------------------------------------------- */
@@ -71,9 +71,9 @@ enum {
 	TWEAK_MODAL_PRECISION_OFF,
 };
 
-void wm_widgetgroup_free(bContext *C, wmManipulatorMap *wmap, struct wmManipulatorGroup *wgroup);
+void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *wmap, struct wmManipulatorGroup *wgroup);
 
-void wm_widgetgrouptype_keymap_init(struct wmManipulatorGroupType *wgrouptype, struct wmKeyConfig *keyconf);
+void WM_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *wgrouptype, struct wmKeyConfig *keyconf);
 
 
 /* -------------------------------------------------------------------- */
@@ -95,7 +95,7 @@ typedef struct wmManipulatorMapType {
 	ListBase widgetgrouptypes;
 } wmManipulatorMapType;
 
-void wm_widgetmap_selected_delete(wmManipulatorMap *wmap);
+void WM_manipulatormap_selected_delete(wmManipulatorMap *wmap);
 
 
 /* -------------------------------------------------------------------- */
@@ -110,7 +110,7 @@ typedef struct WidgetDrawInfo {
 	bool init;
 } WidgetDrawInfo;
 
-void widget_draw_intern(WidgetDrawInfo *info, const bool select);
+void manipulator_draw_intern(WidgetDrawInfo *info, const bool select);
 
 #endif  /* __WM_MANIPULATOR_INTERN_H__ */
 

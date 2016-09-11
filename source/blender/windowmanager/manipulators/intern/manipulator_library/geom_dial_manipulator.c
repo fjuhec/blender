@@ -27,10 +27,10 @@
  *  \ingroup wm
  */
 
-int _WIDGET_nverts_dial = 192;
-int _WIDGET_ntris_dial = 384;
+int _MANIPULATOR_nverts_dial = 192;
+int _MANIPULATOR_ntris_dial = 384;
 
-float _WIDGET_verts_dial[][3] = {
+float _MANIPULATOR_verts_dial[][3] = {
     {1.034000, 0.000000, 0.000000},
     {1.017000, 0.000000, 0.029445},
     {0.983000, 0.000000, 0.029445},
@@ -225,7 +225,7 @@ float _WIDGET_verts_dial[][3] = {
     {0.997459, -0.198407, -0.029445},
 };
 
-float _WIDGET_normals_dial[][3] = {
+float _MANIPULATOR_normals_dial[][3] = {
     {1.000000, 0.000000, 0.000000},
     {0.522691, 0.000000, 0.852504},
     {-0.475845, 0.000000, 0.879513},
@@ -420,7 +420,7 @@ float _WIDGET_normals_dial[][3] = {
     {0.512650, -0.101962, -0.852504},
 };
 
-unsigned short _WIDGET_indices_dial[] = {
+unsigned short _MANIPULATOR_indices_dial[] = {
     6, 7, 1,
     7, 8, 2,
     8, 9, 3,

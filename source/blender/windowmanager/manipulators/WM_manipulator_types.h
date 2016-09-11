@@ -61,7 +61,7 @@ typedef struct wmManipulatorGroupType {
 	wmManipulatorGroupPollFunc poll;
 	/* initially create widgets, set permanent data stuff you only need to do once */
 	wmManipulatorGroupInitFunc init;
-	/* refresh data, only called if recreate flag is set (WM_widgetmap_tag_refresh) */
+	/* refresh data, only called if recreate flag is set (WM_manipulatormap_tag_refresh) */
 	wmManipulatorGroupRefreshFunc refresh;
 	/* refresh data for drawing, called before each redraw */
 	wmManipulatorGroupDrawPrepareFunc draw_prepare;
@@ -139,27 +139,27 @@ typedef struct wmManipulatorWrapper {
 /* wmManipulator->flag */
 enum eWidgetFlag {
 	/* states */
-	WM_WIDGET_HIGHLIGHT   = (1 << 0),
-	WM_WIDGET_ACTIVE      = (1 << 1),
-	WM_WIDGET_SELECTED    = (1 << 2),
+	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0),
+	WM_MANIPULATOR_ACTIVE      = (1 << 1),
+	WM_MANIPULATOR_SELECTED    = (1 << 2),
 	/* settings */
-	WM_WIDGET_DRAW_HOVER  = (1 << 3),
-	WM_WIDGET_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
-	WM_WIDGET_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
-	WM_WIDGET_SCALE_3D    = (1 << 6),
-	WM_WIDGET_SCENE_DEPTH = (1 << 7), /* widget is depth culled with scene objects*/
-	WM_WIDGET_HIDDEN      = (1 << 8),
-	WM_WIDGET_SELECTABLE  = (1 << 9),
+	WM_MANIPULATOR_DRAW_HOVER  = (1 << 3),
+	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
+	WM_MANIPULATOR_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
+	WM_MANIPULATOR_SCALE_3D    = (1 << 6),
+	WM_MANIPULATOR_SCENE_DEPTH = (1 << 7), /* widget is depth culled with scene objects*/
+	WM_MANIPULATOR_HIDDEN      = (1 << 8),
+	WM_MANIPULATOR_SELECTABLE  = (1 << 9),
 };
 
 /* wmManipulatorMapType->flag */
-enum eWidgetMapTypeFlag {
+enum eManipulatorMapTypeFlag {
 	/**
 	 * Check if widgetmap does 3D drawing
 	 * (uses a different kind of interaction),
 	 * - 3d: use glSelect buffer.
 	 * - 2d: use simple cursor position intersection test. */
-	WM_WIDGETMAPTYPE_3D           = (1 << 0),
+	WM_MANIPULATORMAPTYPE_3D           = (1 << 0),
 };
 
 #endif  /* __WM_MANIPULATOR_TYPES_H__ */

@@ -28,8 +28,8 @@
  *
  * \name Manipulator Geometry
  *
- * \brief Prototypes for arrays defining the widget geometry. The actual definitions can be found in files usually
- *        called geom_xxx_widget.c
+ * \brief Prototypes for arrays defining the manipulator geometry. The actual definitions can be found in files usually
+ *        called geom_xxx_manipulator.c
  */
 
 
@@ -37,31 +37,31 @@
 #define __MANIPULATOR_GEOMETRY_H__
 
 
-/* arrow widget */
-extern int _WIDGET_nverts_arrow;
-extern int _WIDGET_ntris_arrow;
+/* arrow manipulator */
+extern int _MANIPULATOR_nverts_arrow;
+extern int _MANIPULATOR_ntris_arrow;
 
-extern float _WIDGET_verts_arrow[][3];
-extern float _WIDGET_normals_arrow[][3];
-extern unsigned short _WIDGET_indices_arrow[];
-
-
-/* cube widget */
-extern int _WIDGET_nverts_cube;
-extern int _WIDGET_ntris_cube;
-
-extern float _WIDGET_verts_cube[][3];
-extern float _WIDGET_normals_cube[][3];
-extern unsigned short _WIDGET_indices_cube[];
+extern float _MANIPULATOR_verts_arrow[][3];
+extern float _MANIPULATOR_normals_arrow[][3];
+extern unsigned short _MANIPULATOR_indices_arrow[];
 
 
-/* dial widget */
-extern int _WIDGET_nverts_dial;
-extern int _WIDGET_ntris_dial;
+/* cube manipulator */
+extern int _MANIPULATOR_nverts_cube;
+extern int _MANIPULATOR_ntris_cube;
 
-extern float _WIDGET_verts_dial[][3];
-extern float _WIDGET_normals_dial[][3];
-extern unsigned short _WIDGET_indices_dial[];
+extern float _MANIPULATOR_verts_cube[][3];
+extern float _MANIPULATOR_normals_cube[][3];
+extern unsigned short _MANIPULATOR_indices_cube[];
+
+
+/* dial manipulator */
+extern int _MANIPULATOR_nverts_dial;
+extern int _MANIPULATOR_ntris_dial;
+
+extern float _MANIPULATOR_verts_dial[][3];
+extern float _MANIPULATOR_normals_dial[][3];
+extern unsigned short _MANIPULATOR_indices_dial[];
 
 #endif  /* __MANIPULATOR_GEOMETRY_H__ */
 
