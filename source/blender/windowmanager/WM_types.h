@@ -121,7 +121,7 @@ struct ImBuf;
 /* exported types for WM */
 #include "wm_cursors.h"
 #include "wm_event_types.h"
-#include "widgets/WM_widget_types.h"
+#include "manipulators/WM_manipulator_types.h"
 
 /* ************** wmOperatorType ************************ */
 
@@ -570,7 +570,7 @@ typedef struct wmOperatorType {
 	struct wmKeyMap *modalkeymap;
 
 	/* widget group that is accessible while operator runs */
-	wmWidgetGroupType *wgrouptype;
+	wmManipulatorGroupType *wgrouptype;
 
 	/* python needs the operator type as well */
 	int (*pyop_poll)(struct bContext *, struct wmOperatorType *ot) ATTR_WARN_UNUSED_RESULT;

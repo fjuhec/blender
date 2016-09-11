@@ -23,14 +23,14 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/geom_arrow_widget.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/geom_arrow_manipulator.c
  *  \ingroup wm
  */
 
-int _WIDGET_nverts_arrow = 25;
-int _WIDGET_ntris_arrow = 46;
+int _MANIPULATOR_nverts_arrow = 25;
+int _MANIPULATOR_ntris_arrow = 46;
 
-float _WIDGET_verts_arrow[][3] = {
+float _MANIPULATOR_verts_arrow[][3] = {
     {-0.000000, 0.012320, 0.000000},
     {-0.000000, 0.012320, 0.974306},
     {0.008711, 0.008711, 0.000000},
@@ -58,7 +58,7 @@ float _WIDGET_verts_arrow[][3] = {
     {0.000000, -0.000000, 1.268098},
 };
 
-float _WIDGET_normals_arrow[][3] = {
+float _MANIPULATOR_normals_arrow[][3] = {
     {0.000000, 0.776360, -0.630238},
     {0.000000, 0.594348, -0.804163},
     {0.548967, 0.548967, -0.630238},
@@ -86,7 +86,7 @@ float _WIDGET_normals_arrow[][3] = {
     {0.000000, 0.000000, 1.000000},
 };
 
-unsigned short _WIDGET_indices_arrow[] = {
+unsigned short _MANIPULATOR_indices_arrow[] = {
     1, 3, 2,
     3, 5, 4,
     5, 7, 6,

@@ -23,51 +23,51 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/WM_widget_types.h
+/** \file blender/windowmanager/manipulators/WM_manipulator_types.h
  *  \ingroup wm
  *
- * \name Widget Types
- * \brief Widget defines for external use.
+ * \name Manipulator Types
+ * \brief Manipulator defines for external use.
  *
  * Only included in WM_types.h and lower level files.
  */
 
 
-#ifndef __WM_WIDGET_TYPES_H__
-#define __WM_WIDGET_TYPES_H__
+#ifndef __WM_MANIPULATOR_TYPES_H__
+#define __WM_MANIPULATOR_TYPES_H__
 
 #include "BLI_compiler_attrs.h"
 
-struct wmWidgetGroupType;
-struct wmWidgetGroup;
+struct wmManipulatorGroupType;
+struct wmManipulatorGroup;
 struct wmKeyConfig;
 
-typedef int  (*wmWidgetGroupPollFunc)(const struct bContext *, struct wmWidgetGroupType *) ATTR_WARN_UNUSED_RESULT; /* TODO use bool */
-typedef void (*wmWidgetGroupInitFunc)(const struct bContext *, struct wmWidgetGroup *);
-typedef void (*wmWidgetGroupRefreshFunc)(const struct bContext *, struct wmWidgetGroup *);
-typedef void (*wmWidgetGroupDrawPrepareFunc)(const struct bContext *, struct wmWidgetGroup *);
+typedef int  (*wmManipulatorGroupPollFunc)(const struct bContext *, struct wmManipulatorGroupType *) ATTR_WARN_UNUSED_RESULT; /* TODO use bool */
+typedef void (*wmManipulatorGroupInitFunc)(const struct bContext *, struct wmManipulatorGroup *);
+typedef void (*wmManipulatorGroupRefreshFunc)(const struct bContext *, struct wmManipulatorGroup *);
+typedef void (*wmManipulatorGroupDrawPrepareFunc)(const struct bContext *, struct wmManipulatorGroup *);
 
 
 /* -------------------------------------------------------------------- */
 
 /* factory class for a widgetgroup type, gets called every time a new area is spawned */
-typedef struct wmWidgetGroupType {
-	struct wmWidgetGroupType *next, *prev;
+typedef struct wmManipulatorGroupType {
+	struct wmManipulatorGroupType *next, *prev;
 
 	char idname[64];  /* MAX_NAME */
 	const char *name; /* widget group name - displayed in UI (keymap editor) */
 
 	/* poll if widgetmap should be active */
-	wmWidgetGroupPollFunc poll;
+	wmManipulatorGroupPollFunc poll;
 	/* initially create widgets, set permanent data stuff you only need to do once */
-	wmWidgetGroupInitFunc init;
-	/* refresh data, only called if recreate flag is set (WM_widgetmap_tag_refresh) */
-	wmWidgetGroupRefreshFunc refresh;
+	wmManipulatorGroupInitFunc init;
+	/* refresh data, only called if recreate flag is set (WM_manipulatormap_tag_refresh) */
+	wmManipulatorGroupRefreshFunc refresh;
 	/* refresh data for drawing, called before each redraw */
-	wmWidgetGroupDrawPrepareFunc draw_prepare;
+	wmManipulatorGroupDrawPrepareFunc draw_prepare;
 
 	/* keymap init callback for this widgetgroup */
-	struct wmKeyMap *(*keymap_init)(const struct wmWidgetGroupType *, struct wmKeyConfig *);
+	struct wmKeyMap *(*keymap_init)(const struct wmManipulatorGroupType *, struct wmKeyConfig *);
 	/* keymap created with callback from above */
 	struct wmKeyMap *keymap;
 
@@ -77,7 +77,7 @@ typedef struct wmWidgetGroupType {
 	/* RNA integration */
 	ExtensionRNA ext;
 
-	/* widgetTypeflags (includes copy of wmWidgetMapType.flag - used for comparisons) */
+	/* widgetTypeflags (includes copy of wmManipulatorMapType.flag - used for comparisons) */
 	int flag;
 
 	/* if type is spawned from operator this is set here */
@@ -86,13 +86,13 @@ typedef struct wmWidgetGroupType {
 	/* same as widgetmaps, so registering/unregistering goes to the correct region */
 	short spaceid, regionid;
 	char mapidname[64];
-} wmWidgetGroupType;
+} wmManipulatorGroupType;
 
 
-typedef struct wmWidgetMap {
-	struct wmWidgetMap *next, *prev;
+typedef struct wmManipulatorMap {
+	struct wmManipulatorMap *next, *prev;
 
-	struct wmWidgetMapType *type;
+	struct wmManipulatorMapType *type;
 	ListBase widgetgroups;
 
 	char update_flag; /* private, update tagging */
@@ -105,21 +105,21 @@ typedef struct wmWidgetMap {
 	 */
 	struct {
 		/* we redraw the widgetmap when this changes */
-		struct wmWidget *highlighted_widget;
+		struct wmManipulator *highlighted_widget;
 		/* user has clicked this widget and it gets all input */
-		struct wmWidget *active_widget;
+		struct wmManipulator *active_widget;
 		/* array for all selected widgets
 		 * TODO  check on using BLI_array */
-		struct wmWidget **selected_widgets;
+		struct wmManipulator **selected_widgets;
 		int tot_selected;
 
 		/* set while widget is highlighted/active */
-		struct wmWidgetGroup *activegroup;
+		struct wmManipulatorGroup *activegroup;
 	} wmap_context;
-} wmWidgetMap;
+} wmManipulatorMap;
 
 
-struct wmWidgetMapType_Params {
+struct wmManipulatorMapType_Params {
 	const char *idname;
 	const int spaceid;
 	const int regionid;
@@ -127,40 +127,40 @@ struct wmWidgetMapType_Params {
 };
 
 /**
- * Simple utility wrapper for storing a single widget as wmWidgetGroup.customdata (which gets freed).
+ * Simple utility wrapper for storing a single widget as wmManipulatorGroup.customdata (which gets freed).
  */
-typedef struct wmWidgetWrapper {
-	struct wmWidget *widget;
-} wmWidgetWrapper;
+typedef struct wmManipulatorWrapper {
+	struct wmManipulator *widget;
+} wmManipulatorWrapper;
 
 
 /* -------------------------------------------------------------------- */
 
-/* wmWidget->flag */
+/* wmManipulator->flag */
 enum eWidgetFlag {
 	/* states */
-	WM_WIDGET_HIGHLIGHT   = (1 << 0),
-	WM_WIDGET_ACTIVE      = (1 << 1),
-	WM_WIDGET_SELECTED    = (1 << 2),
+	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0),
+	WM_MANIPULATOR_ACTIVE      = (1 << 1),
+	WM_MANIPULATOR_SELECTED    = (1 << 2),
 	/* settings */
-	WM_WIDGET_DRAW_HOVER  = (1 << 3),
-	WM_WIDGET_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
-	WM_WIDGET_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
-	WM_WIDGET_SCALE_3D    = (1 << 6),
-	WM_WIDGET_SCENE_DEPTH = (1 << 7), /* widget is depth culled with scene objects*/
-	WM_WIDGET_HIDDEN      = (1 << 8),
-	WM_WIDGET_SELECTABLE  = (1 << 9),
+	WM_MANIPULATOR_DRAW_HOVER  = (1 << 3),
+	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
+	WM_MANIPULATOR_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
+	WM_MANIPULATOR_SCALE_3D    = (1 << 6),
+	WM_MANIPULATOR_SCENE_DEPTH = (1 << 7), /* widget is depth culled with scene objects*/
+	WM_MANIPULATOR_HIDDEN      = (1 << 8),
+	WM_MANIPULATOR_SELECTABLE  = (1 << 9),
 };
 
-/* wmWidgetMapType->flag */
-enum eWidgetMapTypeFlag {
+/* wmManipulatorMapType->flag */
+enum eManipulatorMapTypeFlag {
 	/**
 	 * Check if widgetmap does 3D drawing
 	 * (uses a different kind of interaction),
 	 * - 3d: use glSelect buffer.
 	 * - 2d: use simple cursor position intersection test. */
-	WM_WIDGETMAPTYPE_3D           = (1 << 0),
+	WM_MANIPULATORMAPTYPE_3D           = (1 << 0),
 };
 
-#endif  /* __WM_WIDGET_TYPES_H__ */
+#endif  /* __WM_MANIPULATOR_TYPES_H__ */
 

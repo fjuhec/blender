@@ -23,21 +23,21 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/widget_library_intern.h
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/manipulator_library_intern.h
  *  \ingroup wm
  */
 
 
-#ifndef __WIDGET_LIBRARY_INTERN_H__
-#define __WIDGET_LIBRARY_INTERN_H__
+#ifndef __MANIPULATOR_LIBRARY_INTERN_H__
+#define __MANIPULATOR_LIBRARY_INTERN_H__
 
 /* distance around which widgets respond to input (and get highlighted) */
-#define WIDGET_HOTSPOT 14.0f /* TODO use everywhere */
+#define MANIPULATOR_HOTSPOT 14.0f /* TODO use everywhere */
 
 /**
- * Data for common interactions. Used in widget_library_utils.c functions.
+ * Data for common interactions. Used in manipulator_library_utils.c functions.
  */
-typedef struct WidgetCommonData {
+typedef struct ManipulatorCommonData {
 	int flag;
 
 	float range_fac;      /* factor for arrow min/max distance */
@@ -47,9 +47,9 @@ typedef struct WidgetCommonData {
 	float range;
 	/* min/max value for constrained widgets */
 	float min, max;
-} WidgetCommonData;
+} ManipulatorCommonData;
 
-typedef struct WidgetInteraction {
+typedef struct ManipulatorInteraction {
 	float init_value; /* initial property value */
 	float init_origin[3];
 	float init_mval[2];
@@ -61,33 +61,38 @@ typedef struct WidgetInteraction {
 	/* Total offset added by precision tweaking.
 	 * Needed to allow toggling precision on/off without causing jumps */
 	float precision_offset;
-} WidgetInteraction;
+} ManipulatorInteraction;
 
-/* WidgetCommonData->flag  */
+/* ManipulatorCommonData->flag  */
 enum {
-	WIDGET_CUSTOM_RANGE_SET = (1 << 0),
+	MANIPULATOR_CUSTOM_RANGE_SET = (1 << 0),
 };
 
 
-float widget_offset_from_value(
-        WidgetCommonData *data, const float value,
+float manipulator_offset_from_value(
+        ManipulatorCommonData *data, const float value,
         const bool constrained, const bool inverted);
-float widget_value_from_offset(
-        WidgetCommonData *data, WidgetInteraction *inter, const float offset,
+float manipulator_value_from_offset(
+        ManipulatorCommonData *data, ManipulatorInteraction *inter, const float offset,
         const bool constrained, const bool inverted, const bool use_precision);
 
-void widget_property_data_update(
-        wmWidget *widget, WidgetCommonData *data, const int slot,
+void manipulator_property_data_update(
+        wmManipulator *widget, ManipulatorCommonData *data, const int slot,
         const bool constrained, const bool inverted);
 
-void  widget_property_value_set(bContext *C, const wmWidget *widget, const int slot, const float value);
-float widget_property_value_get(const wmWidget *widget, const int slot);
-void  widget_property_value_reset(bContext *C, const wmWidget *widget, WidgetInteraction *inter, const int slot);
+void  manipulator_property_value_set(
+        bContext *C, const wmManipulator *widget,
+        const int slot, const float value);
+float manipulator_property_value_get(
+        const wmManipulator *widget, const int slot);
+void  manipulator_property_value_reset(
+        bContext *C, const wmManipulator *widget, ManipulatorInteraction *inter,
+        const int slot);
 
 
 /* -------------------------------------------------------------------- */
 
-float *widget_color_get(wmWidget *widget, const bool highlight);
+float *manipulator_color_get(wmManipulator *widget, const bool highlight);
 
-#endif  /* __WIDGET_LIBRARY_INTERN_H__ */
+#endif  /* __MANIPULATOR_LIBRARY_INTERN_H__ */
 

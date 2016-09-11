@@ -23,14 +23,14 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/geom_cube_widget.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/geom_cube_manipulator.c
  *  \ingroup wm
  */
 
-int _WIDGET_nverts_cube = 8;
-int _WIDGET_ntris_cube = 12;
+int _MANIPULATOR_nverts_cube = 8;
+int _MANIPULATOR_ntris_cube = 12;
 
-float _WIDGET_verts_cube[][3] = {
+float _MANIPULATOR_verts_cube[][3] = {
     {1.000000, 1.000000, -1.000000},
     {1.000000, -1.000000, -1.000000},
     {-1.000000, -1.000000, -1.000000},
@@ -41,7 +41,7 @@ float _WIDGET_verts_cube[][3] = {
     {-1.000000, 1.000000, 1.000000},
 };
 
-float _WIDGET_normals_cube[][3] = {
+float _MANIPULATOR_normals_cube[][3] = {
     {0.577349, 0.577349, -0.577349},
     {0.577349, -0.577349, -0.577349},
     {-0.577349, -0.577349, -0.577349},
@@ -52,7 +52,7 @@ float _WIDGET_normals_cube[][3] = {
     {-0.577349, 0.577349, 0.577349},
 };
 
-unsigned short _WIDGET_indices_cube[] = {
+unsigned short _MANIPULATOR_indices_cube[] = {
     1, 2, 3,
     7, 6, 5,
     4, 5, 1,

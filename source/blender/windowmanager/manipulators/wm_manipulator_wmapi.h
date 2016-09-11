@@ -23,18 +23,18 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/wm_widget_wmapi.h
+/** \file blender/windowmanager/manipulators/wm_manipulator_wmapi.h
  *  \ingroup wm
  *
- * \name Widgets Window Manager API
+ * \name Manipulators Window Manager API
  * \brief API for usage in window manager code only.
  *
  * Only included in wm.h and lower level files.
  */
 
 
-#ifndef __WM_WIDGET_WMAPI_H__
-#define __WM_WIDGET_WMAPI_H__
+#ifndef __WM_MANIPULATOR_WMAPI_H__
+#define __WM_MANIPULATOR_WMAPI_H__
 
 struct wmEventHandler;
 struct wmOperatorType;
@@ -42,50 +42,50 @@ struct wmOperator;
 
 
 /* -------------------------------------------------------------------- */
-/* wmWidget */
+/* wmManipulator */
 
-typedef void (*wmWidgetSelectFunc)(struct bContext *, struct wmWidget *, const int);
+typedef void (*wmManipulatorSelectFunc)(struct bContext *, struct wmManipulator *, const int);
 
 
 /* widgets are set per region by registering them on widgetmaps */
-typedef struct wmWidget {
-	struct wmWidget *next, *prev;
+typedef struct wmManipulator {
+	struct wmManipulator *next, *prev;
 
 	char idname[MAX_NAME + 4]; /* + 4 for unique '.001', '.002', etc suffix */
 
 	/* pointer back to parent widget group */
-	struct wmWidgetGroup *wgroup;
+	struct wmManipulatorGroup *wgroup;
 
-	/* could become wmWidgetType */
+	/* could become wmManipulatorType */
 	/* draw widget */
-	void (*draw)(const struct bContext *C, struct wmWidget *widget);
+	void (*draw)(const struct bContext *C, struct wmManipulator *widget);
 
 	/* determine if the mouse intersects with the widget. The calculation should be done in the callback itself */
-	int  (*intersect)(struct bContext *C, const struct wmEvent *event, struct wmWidget *widget);
+	int  (*intersect)(struct bContext *C, const struct wmEvent *event, struct wmManipulator *widget);
 
 	/* determines 3d intersection by rendering the widget in a selection routine. */
-	void (*render_3d_intersection)(const struct bContext *C, struct wmWidget *widget, int selectionbase);
+	void (*render_3d_intersection)(const struct bContext *C, struct wmManipulator *widget, int selectionbase);
 
 	/* handler used by the widget. Usually handles interaction tied to a widget type */
-	int  (*handler)(struct bContext *C, const struct wmEvent *event, struct wmWidget *widget, const int flag);
+	int  (*handler)(struct bContext *C, const struct wmEvent *event, struct wmManipulator *widget, const int flag);
 
 	/* widget-specific handler to update widget attributes based on the property value */
-	void (*prop_data_update)(struct wmWidget *widget, int slot);
+	void (*prop_data_update)(struct wmManipulator *widget, int slot);
 
 	/* returns the final position which may be different from the origin, depending on the widget.
 	 * used in calculations of scale */
-	void (*get_final_position)(struct wmWidget *widget, float vec[3]);
+	void (*get_final_position)(struct wmManipulator *widget, float vec[3]);
 
 	/* activate a widget state when the user clicks on it */
-	int (*invoke)(struct bContext *C, const struct wmEvent *event, struct wmWidget *widget);
+	int (*invoke)(struct bContext *C, const struct wmEvent *event, struct wmManipulator *widget);
 
 	/* called when widget tweaking is done - used to free data and reset property when cancelling */
-	void (*exit)(bContext *C, struct wmWidget *widget, const bool cancel);
+	void (*exit)(bContext *C, struct wmManipulator *widget, const bool cancel);
 
-	int (*get_cursor)(struct wmWidget *widget);
+	int (*get_cursor)(struct wmManipulator *widget);
 
-	/* called when widget selection state changes */
-	wmWidgetSelectFunc select;
+	/* called when manipulator selection state changes */
+	wmManipulatorSelectFunc select;
 
 	int flag; /* flags set by drawing and interaction, such as highlighting */
 
@@ -117,51 +117,55 @@ typedef struct wmWidget {
 	/* arrays of properties attached to various widget parameters. As the widget is interacted with, those properties get updated */
 	PointerRNA *ptr;
 	PropertyRNA **props;
-} wmWidget;
+} wmManipulator;
 
 
 /* -------------------------------------------------------------------- */
-/* wmWidgetGroup */
+/* wmManipulatorGroup */
 
-void WIDGETGROUP_OT_widget_select(struct wmOperatorType *ot);
-void WIDGETGROUP_OT_widget_tweak(struct wmOperatorType *ot);
+void MANIPULATORGROUP_OT_manipulator_select(struct wmOperatorType *ot);
+void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);
 
-void  wm_widgetgroup_attach_to_modal_handler(struct bContext *C, struct wmEventHandler *handler,
-                                             struct wmWidgetGroupType *wgrouptype, struct wmOperator *op);
+void  WM_manipulatorgroup_attach_to_modal_handler(struct bContext *C, struct wmEventHandler *handler,
+                                             struct wmManipulatorGroupType *wgrouptype, struct wmOperator *op);
 
-/* wmWidgetGroupType->flag */
+/* wmManipulatorGroupType->flag */
 enum {
-	WM_WIDGETGROUPTYPE_3D      = (1 << 0), /* WARNING: Don't change this! Bit used for wmWidgetMapType comparisons! */
+	WM_MANIPULATORGROUPTYPE_3D      = (1 << 0), /* WARNING: Don't change this! Bit used for wmManipulatorMapType comparisons! */
 	/* widget group is attached to operator, and is only accessible as long as this runs */
-	WM_WIDGETGROUPTYPE_OP      = (1 << 10),
-	WM_WIDGETGROUP_INITIALIZED = (1 << 11), /* wgroup has been initialized */
+	WM_MANIPULATORGROUPTYPE_OP      = (1 << 10),
+	WM_MANIPULATORGROUP_INITIALIZED = (1 << 11), /* wgroup has been initialized */
 };
 
 
 /* -------------------------------------------------------------------- */
-/* wmWidgetMap */
+/* wmManipulatorMap */
 
-void wm_widgets_keymap(struct wmKeyConfig *keyconf);
+void WM_manipulators_keymap(struct wmKeyConfig *keyconf);
 
-bool wm_widgetmap_is_3d(const struct wmWidgetMap *wmap);
+bool WM_manipulatormap_is_3d(const struct wmManipulatorMap *wmap);
 
-void wm_widgetmaps_handled_modal_update(
+void WM_manipulatormaps_handled_modal_update(
         bContext *C, struct wmEvent *event, struct wmEventHandler *handler,
         const struct wmOperatorType *ot);
-void wm_widgetmap_handler_context(bContext *C, struct wmEventHandler *handler);
+void WM_manipulatormap_handler_context(bContext *C, struct wmEventHandler *handler);
 
-wmWidget *wm_widgetmap_find_highlighted_3D(struct wmWidgetMap *wmap, bContext *C,
-                                        const struct wmEvent *event, unsigned char *part);
-wmWidget *wm_widgetmap_find_highlighted_widget(struct wmWidgetMap *wmap, bContext *C,
-                                     const struct wmEvent *event, unsigned char *part);
-void      wm_widgetmap_set_highlighted_widget(struct wmWidgetMap *wmap, const bContext *C,
-                                              wmWidget *widget, unsigned char part);
-wmWidget *wm_widgetmap_get_highlighted_widget(struct wmWidgetMap *wmap);
-void      wm_widgetmap_set_active_widget(struct wmWidgetMap *wmap, bContext *C,
-                                         const struct wmEvent *event, wmWidget *widget);
-wmWidget *wm_widgetmap_get_active_widget(struct wmWidgetMap *wmap);
+wmManipulator *WM_manipulatormap_find_highlighted_3D(
+        struct wmManipulatorMap *wmap, bContext *C,
+        const struct wmEvent *event, unsigned char *part);
+wmManipulator *WM_manipulatormap_find_highlighted_widget(
+        struct wmManipulatorMap *wmap, bContext *C,
+        const struct wmEvent *event, unsigned char *part);
+void WM_manipulatormap_set_highlighted_widget(
+        struct wmManipulatorMap *wmap, const bContext *C,
+        wmManipulator *widget, unsigned char part);
+wmManipulator *WM_manipulatormap_get_highlighted_widget(struct wmManipulatorMap *wmap);
+void WM_manipulatormap_set_active_widget(
+        struct wmManipulatorMap *wmap, bContext *C,
+        const struct wmEvent *event, wmManipulator *widget);
+wmManipulator *WM_manipulatormap_get_active_widget(struct wmManipulatorMap *wmap);
 
-bool wm_widgetmap_deselect_all(struct wmWidgetMap *wmap, wmWidget ***sel);
+bool WM_manipulatormap_deselect_all(struct wmManipulatorMap *wmap, wmManipulator ***sel);
 
-#endif  /* __WM_WIDGET_WMAPI_H__ */
+#endif  /* __WM_MANIPULATOR_WMAPI_H__ */
 

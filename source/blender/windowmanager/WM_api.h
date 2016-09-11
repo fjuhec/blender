@@ -44,8 +44,8 @@
 #include "BLI_compiler_attrs.h"
 
 /* Include external widget API's */
-#include "widgets/WM_widget_api.h"
-#include "widgets/WM_widget_library.h"
+#include "manipulators/WM_manipulator_api.h"
+#include "manipulators/WM_manipulator_library.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,8 +77,8 @@ struct wmNDOFMotionData;
 #endif
 
 typedef struct wmJob wmJob;
-typedef struct wmWidget wmWidget;
-typedef struct wmWidgetMapType wmWidgetMapType;
+typedef struct wmManipulator wmManipulator;
+typedef struct wmManipulatorMapType wmManipulatorMapType;
 
 /* general API */
 void		WM_init_state_size_set		(int stax, int stay, int sizx, int sizy);

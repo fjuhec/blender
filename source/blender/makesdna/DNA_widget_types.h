@@ -39,10 +39,10 @@ typedef enum WidgetType {
 	WT_CUSTOM    = 3,
 } WidgetType;
 
-typedef struct wmWidgetGroup {
-	struct wmWidgetGroup *next, *prev;
+typedef struct wmManipulatorGroup {
+	struct wmManipulatorGroup *next, *prev;
 
-	struct wmWidgetGroupType *type;
+	struct wmManipulatorGroupType *type;
 	ListBase widgets;
 
 	void *py_instance;            /* python stores the class instance here */
@@ -52,6 +52,6 @@ typedef struct wmWidgetGroup {
 	void (*customdata_free)(void *); /* for freeing customdata from above */
 	int flag;
 	int pad;
-} wmWidgetGroup;
+} wmManipulatorGroup;
 
 #endif /* __DNA_WIDGET_TYPES_H__ */

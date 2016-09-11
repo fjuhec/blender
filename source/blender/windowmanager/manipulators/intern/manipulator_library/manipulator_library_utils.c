@@ -23,12 +23,12 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/widgets/intern/widget_library/widget_library_utils.c
+/** \file blender/windowmanager/manipulators/intern/manipulator_library/manipulator_library_utils.c
  *  \ingroup wm
  *
- * \name Widget Library Utilities
+ * \name Manipulator Library Utilities
  *
- * \brief This file contains functions for common behaviors of widgets.
+ * \brief This file contains functions for common behaviors of manipulators.
  */
 
 #include "BKE_context.h"
@@ -38,38 +38,38 @@
 #include "WM_api.h"
 
 /* own includes */
-#include "WM_widget_types.h"
-#include "wm_widget_wmapi.h"
-#include "widget_library_intern.h"
+#include "WM_manipulator_types.h"
+#include "wm_manipulator_wmapi.h"
+#include "manipulator_library_intern.h"
 
 /* factor for precision tweaking */
 #define WIDGET_PRECISION_FAC 0.05f
 
 
-BLI_INLINE float widget_offset_from_value_constr(
+BLI_INLINE float manipulator_offset_from_value_constr(
         const float range_fac, const float min, const float range, const float value,
         const bool inverted)
 {
 	return inverted ? (range_fac * (min + range - value) / range) : (range_fac * (value / range));
 }
 
-BLI_INLINE float widget_value_from_offset_constr(
+BLI_INLINE float manipulator_value_from_offset_constr(
         const float range_fac, const float min, const float range, const float value,
         const bool inverted)
 {
 	return inverted ? (min + range - (value * range / range_fac)) : (value * range / range_fac);
 }
 
-float widget_offset_from_value(WidgetCommonData *data, const float value, const bool constrained, const bool inverted)
+float manipulator_offset_from_value(ManipulatorCommonData *data, const float value, const bool constrained, const bool inverted)
 {
 	if (constrained)
-		return widget_offset_from_value_constr(data->range_fac, data->min, data->range, value, inverted);
+		return manipulator_offset_from_value_constr(data->range_fac, data->min, data->range, value, inverted);
 
 	return value;
 }
 
-float widget_value_from_offset(
-        WidgetCommonData *data, WidgetInteraction *inter, const float offset,
+float manipulator_value_from_offset(
+        ManipulatorCommonData *data, ManipulatorInteraction *inter, const float offset,
         const bool constrained, const bool inverted, const bool use_precision)
 {
 	const float max = data->min + data->range;
@@ -84,22 +84,22 @@ float widget_value_from_offset(
 	float value;
 
 	if (constrained) {
-		value = widget_value_from_offset_constr(data->range_fac, data->min, data->range, ofs_new, inverted);
+		value = manipulator_value_from_offset_constr(data->range_fac, data->min, data->range, ofs_new, inverted);
 	}
 	else {
 		value = ofs_new;
 	}
 
 	/* clamp to custom range */
-	if (data->flag & WIDGET_CUSTOM_RANGE_SET) {
+	if (data->flag & MANIPULATOR_CUSTOM_RANGE_SET) {
 		CLAMP(value, data->min, max);
 	}
 
 	return value;
 }
 
-void widget_property_data_update(
-        wmWidget *widget, WidgetCommonData *data, const int slot,
+void manipulator_property_data_update(
+        wmManipulator *widget, ManipulatorCommonData *data, const int slot,
         const bool constrained, const bool inverted)
 {
 	if (!widget->props[slot]) {
@@ -109,24 +109,24 @@ void widget_property_data_update(
 
 	PointerRNA ptr = widget->ptr[slot];
 	PropertyRNA *prop = widget->props[slot];
-	float value = widget_property_value_get(widget, slot);
+	float value = manipulator_property_value_get(widget, slot);
 
 	if (constrained) {
-		if ((data->flag & WIDGET_CUSTOM_RANGE_SET) == 0) {
+		if ((data->flag & MANIPULATOR_CUSTOM_RANGE_SET) == 0) {
 			float step, precision;
 			float min, max;
 			RNA_property_float_ui_range(&ptr, prop, &min, &max, &step, &precision);
 			data->range = max - min;
 			data->min = min;
 		}
-		data->offset = widget_offset_from_value_constr(data->range_fac, data->min, data->range, value, inverted);
+		data->offset = manipulator_offset_from_value_constr(data->range_fac, data->min, data->range, value, inverted);
 	}
 	else {
 		data->offset = value;
 	}
 }
 
-void widget_property_value_set(bContext *C, const wmWidget *widget, const int slot, const float value)
+void manipulator_property_value_set(bContext *C, const wmManipulator *widget, const int slot, const float value)
 {
 	PointerRNA ptr = widget->ptr[slot];
 	PropertyRNA *prop = widget->props[slot];
@@ -136,22 +136,22 @@ void widget_property_value_set(bContext *C, const wmWidget *widget, const int sl
 	RNA_property_update(C, &ptr, prop);
 }
 
-float widget_property_value_get(const wmWidget *widget, const int slot)
+float manipulator_property_value_get(const wmManipulator *widget, const int slot)
 {
 	BLI_assert(RNA_property_type(widget->props[slot]) == PROP_FLOAT);
 	return RNA_property_float_get(&widget->ptr[slot], widget->props[slot]);
 }
 
-void widget_property_value_reset(bContext *C, const wmWidget *widget, WidgetInteraction *inter, const int slot)
+void manipulator_property_value_reset(bContext *C, const wmManipulator *widget, ManipulatorInteraction *inter, const int slot)
 {
-	widget_property_value_set(C, widget, slot, inter->init_value);
+	manipulator_property_value_set(C, widget, slot, inter->init_value);
 }
 
 
 /* -------------------------------------------------------------------- */
 
 /* TODO use everywhere */
-float *widget_color_get(wmWidget *widget, const bool highlight)
+float *manipulator_color_get(wmManipulator *widget, const bool highlight)
 {
-	return (highlight && !(widget->flag & WM_WIDGET_DRAW_HOVER)) ? widget->col_hi : widget->col;
+	return (highlight && !(widget->flag & WM_MANIPULATOR_DRAW_HOVER)) ? widget->col_hi : widget->col;
 }
