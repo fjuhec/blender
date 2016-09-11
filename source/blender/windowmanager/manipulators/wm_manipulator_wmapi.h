@@ -126,7 +126,7 @@ typedef struct wmManipulator {
 void MANIPULATORGROUP_OT_manipulator_select(struct wmOperatorType *ot);
 void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);
 
-void  WM_manipulatorgroup_attach_to_modal_handler(struct bContext *C, struct wmEventHandler *handler,
+void  wm_manipulatorgroup_attach_to_modal_handler(struct bContext *C, struct wmEventHandler *handler,
                                              struct wmManipulatorGroupType *wgrouptype, struct wmOperator *op);
 
 /* wmManipulatorGroupType->flag */
@@ -141,31 +141,31 @@ enum {
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
 
-void WM_manipulators_keymap(struct wmKeyConfig *keyconf);
+void wm_manipulators_keymap(struct wmKeyConfig *keyconf);
 
-bool WM_manipulatormap_is_3d(const struct wmManipulatorMap *wmap);
+bool wm_manipulatormap_is_3d(const struct wmManipulatorMap *wmap);
 
-void WM_manipulatormaps_handled_modal_update(
+void wm_manipulatormaps_handled_modal_update(
         bContext *C, struct wmEvent *event, struct wmEventHandler *handler,
         const struct wmOperatorType *ot);
-void WM_manipulatormap_handler_context(bContext *C, struct wmEventHandler *handler);
+void wm_manipulatormap_handler_context(bContext *C, struct wmEventHandler *handler);
 
-wmManipulator *WM_manipulatormap_find_highlighted_3D(
+wmManipulator *wm_manipulatormap_find_highlighted_3D(
         struct wmManipulatorMap *wmap, bContext *C,
         const struct wmEvent *event, unsigned char *part);
-wmManipulator *WM_manipulatormap_find_highlighted_widget(
+wmManipulator *wm_manipulatormap_find_highlighted_widget(
         struct wmManipulatorMap *wmap, bContext *C,
         const struct wmEvent *event, unsigned char *part);
-void WM_manipulatormap_set_highlighted_widget(
+void wm_manipulatormap_set_highlighted_widget(
         struct wmManipulatorMap *wmap, const bContext *C,
         wmManipulator *widget, unsigned char part);
-wmManipulator *WM_manipulatormap_get_highlighted_widget(struct wmManipulatorMap *wmap);
-void WM_manipulatormap_set_active_widget(
+wmManipulator *wm_manipulatormap_get_highlighted_widget(struct wmManipulatorMap *wmap);
+void wm_manipulatormap_set_active_widget(
         struct wmManipulatorMap *wmap, bContext *C,
         const struct wmEvent *event, wmManipulator *widget);
-wmManipulator *WM_manipulatormap_get_active_widget(struct wmManipulatorMap *wmap);
+wmManipulator *wm_manipulatormap_get_active_widget(struct wmManipulatorMap *wmap);
 
-bool WM_manipulatormap_deselect_all(struct wmManipulatorMap *wmap, wmManipulator ***sel);
+bool wm_manipulatormap_deselect_all(struct wmManipulatorMap *wmap, wmManipulator ***sel);
 
 #endif  /* __WM_MANIPULATOR_WMAPI_H__ */
 

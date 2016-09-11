@@ -391,7 +391,7 @@ static void widgets_prepare_visible_3D(wmManipulatorMap *wmap, ListBase *visible
 	}
 }
 
-wmManipulator *WM_manipulatormap_find_highlighted_3D(wmManipulatorMap *wmap, bContext *C, const wmEvent *event, unsigned char *part)
+wmManipulator *wm_manipulatormap_find_highlighted_3D(wmManipulatorMap *wmap, bContext *C, const wmEvent *event, unsigned char *part)
 {
 	wmManipulator *result = NULL;
 	ListBase visible_widgets = {0};
@@ -435,7 +435,7 @@ void WM_manipulatormaps_add_handlers(ARegion *ar)
 
 }
 
-void WM_manipulatormaps_handled_modal_update(
+void wm_manipulatormaps_handled_modal_update(
         bContext *C, wmEvent *event, wmEventHandler *handler,
         const wmOperatorType *ot)
 {
@@ -451,11 +451,11 @@ void WM_manipulatormaps_handled_modal_update(
 	}
 
 	for (wmManipulatorMap *wmap = handler->op_region->widgetmaps.first; wmap; wmap = wmap->next) {
-		wmManipulator *widget = WM_manipulatormap_get_active_widget(wmap);
+		wmManipulator *widget = wm_manipulatormap_get_active_widget(wmap);
 		ScrArea *area = CTX_wm_area(C);
 		ARegion *region = CTX_wm_region(C);
 
-		WM_manipulatormap_handler_context(C, handler);
+		wm_manipulatormap_handler_context(C, handler);
 
 		/* regular update for running operator */
 		if (modal_running) {
@@ -465,8 +465,8 @@ void WM_manipulatormaps_handled_modal_update(
 		}
 		/* operator not running anymore */
 		else {
-			WM_manipulatormap_set_highlighted_widget(wmap, C, NULL, 0);
-			WM_manipulatormap_set_active_widget(wmap, C, event, NULL);
+			wm_manipulatormap_set_highlighted_widget(wmap, C, NULL, 0);
+			wm_manipulatormap_set_active_widget(wmap, C, event, NULL);
 		}
 
 		/* restore the area */
@@ -479,7 +479,7 @@ void WM_manipulatormaps_handled_modal_update(
  * Deselect all selected widgets in \a wmap.
  * \return if selection has changed.
  */
-bool WM_manipulatormap_deselect_all(wmManipulatorMap *wmap, wmManipulator ***sel)
+bool wm_manipulatormap_deselect_all(wmManipulatorMap *wmap, wmManipulator ***sel)
 {
 	if (*sel == NULL || wmap->wmap_context.tot_selected == 0)
 		return false;
@@ -532,7 +532,7 @@ static bool WM_manipulatormap_select_all_intern(bContext *C, wmManipulatorMap *w
 		BLI_assert(i < (*tot_sel));
 	}
 	/* highlight first widget */
-	WM_manipulatormap_set_highlighted_widget(wmap, C, (*sel)[0], (*sel)[0]->highlighted_part);
+	wm_manipulatormap_set_highlighted_widget(wmap, C, (*sel)[0], (*sel)[0]->highlighted_part);
 
 	BLI_ghash_free(hash, NULL, NULL);
 	return changed;
@@ -554,7 +554,7 @@ bool WM_manipulatormap_select_all(bContext *C, wmManipulatorMap *wmap, const int
 			changed = WM_manipulatormap_select_all_intern(C, wmap, sel, action);
 			break;
 		case SEL_DESELECT:
-			changed = WM_manipulatormap_deselect_all(wmap, sel);
+			changed = wm_manipulatormap_deselect_all(wmap, sel);
 			break;
 		default:
 			BLI_assert(0);
@@ -567,12 +567,12 @@ bool WM_manipulatormap_select_all(bContext *C, wmManipulatorMap *wmap, const int
 	return changed;
 }
 
-bool WM_manipulatormap_is_3d(const wmManipulatorMap *wmap)
+bool wm_manipulatormap_is_3d(const wmManipulatorMap *wmap)
 {
 	return (wmap->type->flag & WM_MANIPULATORMAPTYPE_3D) != 0;
 }
 
-void WM_manipulatormap_handler_context(bContext *C, wmEventHandler *handler)
+void wm_manipulatormap_handler_context(bContext *C, wmEventHandler *handler)
 {
 	bScreen *screen = CTX_wm_screen(C);
 
@@ -607,7 +607,7 @@ void WM_manipulatormap_handler_context(bContext *C, wmEventHandler *handler)
 }
 
 
-wmManipulator *WM_manipulatormap_find_highlighted_widget(wmManipulatorMap *wmap, bContext *C, const wmEvent *event, unsigned char *part)
+wmManipulator *wm_manipulatormap_find_highlighted_widget(wmManipulatorMap *wmap, bContext *C, const wmEvent *event, unsigned char *part)
 {
 	wmManipulator *widget;
 
@@ -638,7 +638,7 @@ bool WM_manipulatormap_cursor_set(const wmManipulatorMap *wmap, wmWindow *win)
 	return false;
 }
 
-void WM_manipulatormap_set_highlighted_widget(wmManipulatorMap *wmap, const bContext *C, wmManipulator *widget, unsigned char part)
+void wm_manipulatormap_set_highlighted_widget(wmManipulatorMap *wmap, const bContext *C, wmManipulator *widget, unsigned char part)
 {
 	if ((widget != wmap->wmap_context.highlighted_widget) || (widget && part != widget->highlighted_part)) {
 		if (wmap->wmap_context.highlighted_widget) {
@@ -674,12 +674,12 @@ void WM_manipulatormap_set_highlighted_widget(wmManipulatorMap *wmap, const bCon
 	}
 }
 
-wmManipulator *WM_manipulatormap_get_highlighted_widget(wmManipulatorMap *wmap)
+wmManipulator *wm_manipulatormap_get_highlighted_widget(wmManipulatorMap *wmap)
 {
 	return wmap->wmap_context.highlighted_widget;
 }
 
-void WM_manipulatormap_set_active_widget(wmManipulatorMap *wmap, bContext *C, const wmEvent *event, wmManipulator *widget)
+void wm_manipulatormap_set_active_widget(wmManipulatorMap *wmap, bContext *C, const wmEvent *event, wmManipulator *widget)
 {
 	if (widget && C) {
 		widget->flag |= WM_MANIPULATOR_ACTIVE;
@@ -743,7 +743,7 @@ void WM_manipulatormap_set_active_widget(wmManipulatorMap *wmap, bContext *C, co
 	}
 }
 
-wmManipulator *WM_manipulatormap_get_active_widget(wmManipulatorMap *wmap)
+wmManipulator *wm_manipulatormap_get_active_widget(wmManipulatorMap *wmap)
 {
 	return wmap->wmap_context.active_widget;
 }
@@ -807,7 +807,7 @@ void WM_manipulatormaptypes_free(void)
 /**
  * Initialize keymaps for all existing widget-groups
  */
-void WM_manipulators_keymap(wmKeyConfig *keyconf)
+void wm_manipulators_keymap(wmKeyConfig *keyconf)
 {
 	wmManipulatorMapType *wmaptype;
 	wmManipulatorGroupType *wgrouptype;

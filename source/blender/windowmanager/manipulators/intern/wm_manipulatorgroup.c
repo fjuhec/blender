@@ -94,7 +94,7 @@ void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *wmap, wmManipulator
 	MEM_freeN(wgroup);
 }
 
-void WM_manipulatorgroup_attach_to_modal_handler(bContext *C, wmEventHandler *handler,
+void wm_manipulatorgroup_attach_to_modal_handler(bContext *C, wmEventHandler *handler,
                                             wmManipulatorGroupType *wgrouptype, wmOperator *op)
 {
 	/* maybe overly careful, but widgetgrouptype could come from a failed creation */
@@ -141,7 +141,7 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 
 		/* deselect all first */
 		if (extend == false && deselect == false && toggle == false) {
-			WM_manipulatormap_deselect_all(wmap, sel);
+			wm_manipulatormap_deselect_all(wmap, sel);
 			BLI_assert(*sel == NULL && wmap->wmap_context.tot_selected == 0);
 		}
 
@@ -207,7 +207,7 @@ static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool can
 	if (wtweak->active->exit) {
 		wtweak->active->exit(C, wtweak->active, cancel);
 	}
-	WM_manipulatormap_set_active_widget(wtweak->wmap, C, NULL, NULL);
+	wm_manipulatormap_set_active_widget(wtweak->wmap, C, NULL, NULL);
 	MEM_freeN(wtweak);
 }
 
@@ -275,7 +275,7 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 
 
 	/* activate highlighted widget */
-	WM_manipulatormap_set_active_widget(wmap, C, event, widget);
+	wm_manipulatormap_set_active_widget(wmap, C, event, widget);
 
 	/* XXX temporary workaround for modal widget operator
 	 * conflicting with modal operator attached to widget */
@@ -463,7 +463,7 @@ void WM_manipulatorgrouptype_init_runtime(
 
 							/* just add here, drawing will occur on next update */
 							BLI_addtail(&wmap->widgetgroups, wgroup);
-							WM_manipulatormap_set_highlighted_widget(wmap, NULL, NULL, 0);
+							wm_manipulatormap_set_highlighted_widget(wmap, NULL, NULL, 0);
 							ED_region_tag_redraw(ar);
 						}
 					}

@@ -184,10 +184,10 @@ bool WM_manipulator_register(wmManipulatorGroup *wgroup, wmManipulator *widget, 
 void WM_manipulator_delete(ListBase *widgetlist, wmManipulatorMap *wmap, wmManipulator *widget, bContext *C)
 {
 	if (widget->flag & WM_MANIPULATOR_HIGHLIGHT) {
-		WM_manipulatormap_set_highlighted_widget(wmap, C, NULL, 0);
+		wm_manipulatormap_set_highlighted_widget(wmap, C, NULL, 0);
 	}
 	if (widget->flag & WM_MANIPULATOR_ACTIVE) {
-		WM_manipulatormap_set_active_widget(wmap, C, NULL, NULL);
+		wm_manipulatormap_set_active_widget(wmap, C, NULL, NULL);
 	}
 	if (widget->flag & WM_MANIPULATOR_SELECTED) {
 		WM_manipulator_deselect(wmap, widget);
@@ -372,7 +372,7 @@ bool WM_manipulator_select(bContext *C, wmManipulatorMap *wmap, wmManipulator *w
 	if (widget->select) {
 		widget->select(C, widget, SEL_SELECT);
 	}
-	WM_manipulatormap_set_highlighted_widget(wmap, C, widget, widget->highlighted_part);
+	wm_manipulatormap_set_highlighted_widget(wmap, C, widget, widget->highlighted_part);
 
 	return true;
 }
