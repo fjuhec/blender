@@ -190,9 +190,11 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 	float rot[3][3];
 	float mat[4][4];
 	const float up[3] = {0.0f, 0.0f, 1.0f};
-	const float *col = manipulator_color_get(&dial->manipulator, highlight);
+	float col[4];
 
 	BLI_assert(CTX_wm_area(C)->spacetype == SPACE_VIEW3D);
+
+	manipulator_color_get(&dial->manipulator, highlight, col);
 
 	rotation_between_vecs_to_mat3(rot, up, dial->direction);
 	copy_m4_m3(mat, rot);

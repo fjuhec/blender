@@ -122,14 +122,8 @@ static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const 
 	glPushMatrix();
 	glMultMatrixf(mat);
 
-	if (highlight && (prim->manipulator.flag & WM_MANIPULATOR_DRAW_HOVER) == 0) {
-		copy_v4_v4(col_inner, prim->manipulator.col_hi);
-		copy_v4_v4(col_outer, prim->manipulator.col_hi);
-	}
-	else {
-		copy_v4_v4(col_inner, prim->manipulator.col);
-		copy_v4_v4(col_outer, prim->manipulator.col);
-	}
+	manipulator_color_get(&prim->manipulator, highlight, col_outer);
+	copy_v4_v4(col_inner, col_outer);
 	col_inner[3] *= 0.5f;
 
 	glEnable(GL_BLEND);

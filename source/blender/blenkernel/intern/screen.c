@@ -295,7 +295,7 @@ void BKE_spacedata_id_unref(struct ScrArea *sa, struct SpaceLink *sl, struct ID 
  */
 static void (*region_free_manipulatormaps_callback)(ListBase *) = NULL;
 
-void BKE_region_free_callback_manipulatormaps_set(void (*callback)(ListBase *list))
+void BKE_region_callback_free_manipulatormaps_set(void (*callback)(ListBase *list))
 {
 	region_free_manipulatormaps_callback = callback;
 }

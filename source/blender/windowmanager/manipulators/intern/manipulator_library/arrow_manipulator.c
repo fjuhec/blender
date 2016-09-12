@@ -196,10 +196,12 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const bool highlight)
 {
 	const float up[3] = {0.0f, 0.0f, 1.0f};
+	float col[4];
 	float rot[3][3];
 	float mat[4][4];
 	float final_pos[3];
 
+	manipulator_color_get(&arrow->manipulator, highlight, col);
 	manipulator_arrow_get_final_pos(&arrow->manipulator, final_pos);
 
 	if (arrow->flag & ARROW_UP_VECTOR_SET) {
@@ -217,13 +219,7 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 	glPushMatrix();
 	glMultMatrixf(mat);
 
-	if (highlight && !(arrow->manipulator.flag & WM_MANIPULATOR_DRAW_HOVER)) {
-		glColor4fv(arrow->manipulator.col_hi);
-	}
-	else {
-		glColor4fv(arrow->manipulator.col);
-	}
-
+	glColor4fv(col);
 	glEnable(GL_BLEND);
 	glTranslate3fv(arrow->manipulator.offset);
 	arrow_draw_geom(arrow, select);

@@ -33,6 +33,8 @@
 
 #include "BKE_context.h"
 
+#include "BLI_math.h"
+
 #include "RNA_access.h"
 
 #include "WM_api.h"
@@ -150,8 +152,14 @@ void manipulator_property_value_reset(bContext *C, const wmManipulator *manipula
 
 /* -------------------------------------------------------------------- */
 
-/* TODO use everywhere */
-float *manipulator_color_get(wmManipulator *manipulator, const bool highlight)
+void manipulator_color_get(
+        const wmManipulator *manipulator, const bool highlight,
+        float r_col[4])
 {
-	return (highlight && !(manipulator->flag & WM_MANIPULATOR_DRAW_HOVER)) ? manipulator->col_hi : manipulator->col;
+	if (highlight && !(manipulator->flag & WM_MANIPULATOR_DRAW_HOVER)) {
+		copy_v4_v4(r_col, manipulator->col_hi);
+	}
+	else {
+		copy_v4_v4(r_col, manipulator->col);
+	}
 }

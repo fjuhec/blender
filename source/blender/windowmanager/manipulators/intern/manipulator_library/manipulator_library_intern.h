@@ -32,7 +32,7 @@
 #define __MANIPULATOR_LIBRARY_INTERN_H__
 
 /* distance around which manipulators respond to input (and get highlighted) */
-#define MANIPULATOR_HOTSPOT 14.0f /* TODO use everywhere */
+#define MANIPULATOR_HOTSPOT 14.0f
 
 /**
  * Data for common interactions. Used in manipulator_library_utils.c functions.
@@ -92,7 +92,9 @@ void  manipulator_property_value_reset(
 
 /* -------------------------------------------------------------------- */
 
-float *manipulator_color_get(wmManipulator *manipulator, const bool highlight);
+void manipulator_color_get(
+        const wmManipulator *manipulator, const bool highlight,
+        float r_col[]);
 
 #endif  /* __MANIPULATOR_LIBRARY_INTERN_H__ */
 

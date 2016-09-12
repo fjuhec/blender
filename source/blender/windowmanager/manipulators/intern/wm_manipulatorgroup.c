@@ -94,7 +94,6 @@ void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, wmManipulator
 	MEM_freeN(mgroup);
 }
 
-/* TODO could be done a bit nicer */
 void wm_manipulatorgroup_attach_to_modal_handler(
         bContext *C, wmEventHandler *handler,
         wmManipulatorGroupType *mgrouptype, wmOperator *op)
@@ -107,15 +106,12 @@ void wm_manipulatorgroup_attach_to_modal_handler(
 	/* now instantiate the manipulator-map */
 	mgrouptype->op = op;
 
+	/* try to find map in handler region that contains mgrouptype */
 	if (handler->op_region && !BLI_listbase_is_empty(&handler->op_region->manipulator_maps)) {
-		for (wmManipulatorMap *mmap = handler->op_region->manipulator_maps.first; mmap; mmap = mmap->next) {
-			wmManipulatorMapType *mmaptype = mmap->type;
-
-			if (mmaptype->spaceid == mgrouptype->spaceid && mmaptype->regionid == mgrouptype->regionid) {
-				handler->manipulator_map = mmap;
-			}
-		}
-
+		const struct wmManipulatorMapType_Params mmaptype_params = {
+			mgrouptype->mapidname, mgrouptype->spaceid, mgrouptype->regionid
+		};
+		handler->manipulator_map = WM_manipulatormap_find(handler->op_region, &mmaptype_params);
 		ED_region_tag_redraw(handler->op_region);
 	}
 

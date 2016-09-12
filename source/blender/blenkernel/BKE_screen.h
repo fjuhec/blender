@@ -285,7 +285,7 @@ struct ARegion *BKE_area_region_copy(struct SpaceType *st, struct ARegion *ar);
 void            BKE_area_region_free(struct SpaceType *st, struct ARegion *ar);
 void            BKE_screen_area_free(struct ScrArea *sa);
 /* Manipulator-maps of a region need to be freed with the region. Uses callback to avoid low-level call. */
-void BKE_region_free_callback_manipulatormaps_set(void (*callback)(ListBase *list));
+void BKE_region_callback_free_manipulatormaps_set(void (*callback)(ListBase *list));
 
 struct ARegion *BKE_area_find_region_type(struct ScrArea *sa, int type);
 struct ARegion *BKE_area_find_region_active_win(struct ScrArea *sa);

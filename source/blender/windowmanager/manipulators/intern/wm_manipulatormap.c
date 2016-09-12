@@ -247,8 +247,8 @@ done:
  * Draw all visible manipulators in \a mmap.
  * Uses global draw_manipulators listbase.
  *
- * \param in_scene  draw depth-culled manipulators (wmManipulator->flag WM_MANIPULATOR_SCENE_DEPTH) - TODO
- * \param free_drawmanipulators  free global draw_manipulators listbase (always enable for last draw call in region!).
+ * \param in_scene: Draw depth-culled manipulators (wmManipulator->flag WM_MANIPULATOR_SCENE_DEPTH)
+ * \param free_drawmanipulators: Free global draw_manipulators listbase (always enable for last draw call in region!).
  */
 void WM_manipulatormap_draw(
         const bContext *C, const wmManipulatorMap *mmap,
@@ -597,6 +597,10 @@ bool wm_manipulatormap_is_3d(const wmManipulatorMap *mmap)
 	return (mmap->type->flag & WM_MANIPULATORMAPTYPE_3D) != 0;
 }
 
+/**
+ * Prepare context for manipulator handling (but only if area/region is
+ * part of screen). Version of #wm_handler_op_context for manipulators.
+ */
 void wm_manipulatormap_handler_context(bContext *C, wmEventHandler *handler)
 {
 	bScreen *screen = CTX_wm_screen(C);
