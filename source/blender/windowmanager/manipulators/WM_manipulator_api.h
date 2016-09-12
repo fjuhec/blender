@@ -99,7 +99,6 @@ struct wmManipulatorMap *WM_manipulatormap_from_type(
 struct wmManipulatorMap *WM_manipulatormap_find(
         const struct ARegion *ar, const struct wmManipulatorMapType_Params *mmap_params);
 
-void WM_manipulatormap_delete(struct wmManipulatorMap *mmap);
 void WM_manipulatormaptypes_free(void);
 
 void WM_manipulatormap_tag_refresh(struct wmManipulatorMap *mmap);

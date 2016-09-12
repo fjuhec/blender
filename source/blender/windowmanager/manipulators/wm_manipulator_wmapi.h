@@ -142,6 +142,8 @@ enum {
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
 
+void wm_manipulatormap_delete_list(struct ListBase *list);
+
 void wm_manipulators_keymap(struct wmKeyConfig *keyconf);
 
 bool wm_manipulatormap_is_3d(const struct wmManipulatorMap *mmap);

@@ -112,7 +112,7 @@ void WM_manipulatormap_selected_delete(wmManipulatorMap *mmap)
 	mmap->mmap_context.tot_selected = 0;
 }
 
-void WM_manipulatormap_delete(wmManipulatorMap *mmap)
+static void wm_manipulatormap_delete(wmManipulatorMap *mmap)
 {
 	if (!mmap)
 		return;
@@ -126,6 +126,18 @@ void WM_manipulatormap_delete(wmManipulatorMap *mmap)
 	WM_manipulatormap_selected_delete(mmap);
 
 	MEM_freeN(mmap);
+}
+
+/**
+ * Delete all manipulator-maps stored in \a list.
+ */
+void wm_manipulatormap_delete_list(ListBase *list)
+{
+	for (wmManipulatorMap *mmap = list->first, *mmap_next; mmap; mmap = mmap_next) {
+		mmap_next = mmap->next;
+		wm_manipulatormap_delete(mmap);
+	}
+	BLI_listbase_clear(list);
 }
 
 wmManipulatorMap *WM_manipulatormap_find(
