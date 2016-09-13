@@ -85,8 +85,10 @@ enum {
 	RECT_TRANSFORM_SLOT_SCALE = 1
 };
 
-struct wmManipulator *MANIPULATOR_rect_transform_new(struct wmManipulatorGroup *mgroup, const char *name, const int style);
-void MANIPULATOR_rect_transform_set_dimensions(struct wmManipulator *manipulator, const float width, const float height);
+struct wmManipulator *MANIPULATOR_rect_transform_new(
+        struct wmManipulatorGroup *mgroup, const char *name, const int style);
+void MANIPULATOR_rect_transform_set_dimensions(
+        struct wmManipulator *manipulator, const float width, const float height);
 
 
 /* -------------------------------------------------------------------- */

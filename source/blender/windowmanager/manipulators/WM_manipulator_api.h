@@ -52,7 +52,9 @@ struct wmManipulator *WM_manipulator_new(
         void (*render_3d_intersection)(const struct bContext *, struct wmManipulator *, int),
         int  (*intersect)(struct bContext *, const struct wmEvent *, struct wmManipulator *),
         int  (*handler)(struct bContext *, const struct wmEvent *, struct wmManipulator *, const int));
-void WM_manipulator_delete(ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator, struct bContext *C);
+void WM_manipulator_delete(
+        ListBase *manipulatorlist, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator,
+        struct bContext *C);
 
 void WM_manipulator_set_property(struct wmManipulator *, int slot, struct PointerRNA *ptr, const char *propname);
 struct PointerRNA *WM_manipulator_set_operator(struct wmManipulator *, const char *opname);
@@ -79,7 +81,8 @@ struct wmManipulatorGroupType *WM_manipulatorgrouptype_append_runtime(
 void WM_manipulatorgrouptype_init_runtime(
         const struct Main *bmain, struct wmManipulatorMapType *mmaptype,
         struct wmManipulatorGroupType *mgrouptype);
-void WM_manipulatorgrouptype_unregister(struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *mgroup);
+void WM_manipulatorgrouptype_unregister(
+        struct bContext *C, struct Main *bmain, struct wmManipulatorGroupType *mgroup);
 
 struct wmKeyMap *WM_manipulatorgroup_keymap_common(
         const struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *config);

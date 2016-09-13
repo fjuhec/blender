@@ -80,7 +80,8 @@ static float verts_plane[4][3] = {
 
 /* -------------------------------------------------------------------- */
 
-static void manipulator_primitive_draw_geom(const float col_inner[4], const float col_outer[4], const int style)
+static void manipulator_primitive_draw_geom(
+        const float col_inner[4], const float col_outer[4], const int style)
 {
 	float (*verts)[3];
 	float vert_count;
@@ -99,7 +100,9 @@ static void manipulator_primitive_draw_geom(const float col_inner[4], const floa
 	glDisableClientState(GL_VERTEX_ARRAY);
 }
 
-static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const bool UNUSED(select), const bool highlight)
+static void manipulator_primitive_draw_intern(
+        PrimitiveManipulator *prim, const bool UNUSED(select),
+        const bool highlight)
 {
 	float col_inner[4], col_outer[4];
 	float rot[3][3];
@@ -156,7 +159,9 @@ static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const 
 	}
 }
 
-static void manipulator_primitive_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *manipulator, int selectionbase)
+static void manipulator_primitive_render_3d_intersect(
+        const bContext *UNUSED(C), wmManipulator *manipulator,
+        int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
 	manipulator_primitive_draw_intern((PrimitiveManipulator *)manipulator, true, false);
@@ -164,10 +169,13 @@ static void manipulator_primitive_render_3d_intersect(const bContext *UNUSED(C),
 
 static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
 {
-	manipulator_primitive_draw_intern((PrimitiveManipulator *)manipulator, false, (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT));
+	manipulator_primitive_draw_intern(
+	            (PrimitiveManipulator *)manipulator, false,
+	            (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT));
 }
 
-static int manipulator_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *manipulator)
+static int manipulator_primitive_invoke(
+        bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *manipulator)
 {
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 

@@ -109,12 +109,14 @@ typedef struct wmManipulator {
 
 	/* name of operator to spawn when activating the manipulator */
 	const char *opname;
-	/* operator properties if manipulator spawns and controls an operator, or owner pointer if manipulator spawns and controls a property */
+	/* operator properties if manipulator spawns and controls an operator,
+	 * or owner pointer if manipulator spawns and controls a property */
 	PointerRNA opptr;
 
 	/* maximum number of properties attached to the manipulator */
 	int max_prop;
-	/* arrays of properties attached to various manipulator parameters. As the manipulator is interacted with, those properties get updated */
+	/* arrays of properties attached to various manipulator parameters. As
+	 * the manipulator is interacted with, those properties get updated */
 	PointerRNA *ptr;
 	PropertyRNA **props;
 } wmManipulator;

@@ -62,7 +62,8 @@ BLI_INLINE float manipulator_value_from_offset_constr(
 	return inverted ? (min + range - (value * range / range_fac)) : (value * range / range_fac);
 }
 
-float manipulator_offset_from_value(ManipulatorCommonData *data, const float value, const bool constrained, const bool inverted)
+float manipulator_offset_from_value(
+        ManipulatorCommonData *data, const float value, const bool constrained, const bool inverted)
 {
 	if (constrained)
 		return manipulator_offset_from_value_constr(data->range_fac, data->min, data->range, value, inverted);
@@ -128,7 +129,9 @@ void manipulator_property_data_update(
 	}
 }
 
-void manipulator_property_value_set(bContext *C, const wmManipulator *manipulator, const int slot, const float value)
+void manipulator_property_value_set(
+        bContext *C, const wmManipulator *manipulator,
+        const int slot, const float value)
 {
 	PointerRNA ptr = manipulator->ptr[slot];
 	PropertyRNA *prop = manipulator->props[slot];
@@ -144,7 +147,9 @@ float manipulator_property_value_get(const wmManipulator *manipulator, const int
 	return RNA_property_float_get(&manipulator->ptr[slot], manipulator->props[slot]);
 }
 
-void manipulator_property_value_reset(bContext *C, const wmManipulator *manipulator, ManipulatorInteraction *inter, const int slot)
+void manipulator_property_value_reset(
+        bContext *C, const wmManipulator *manipulator, ManipulatorInteraction *inter,
+        const int slot)
 {
 	manipulator_property_value_set(C, manipulator, slot, inter->init_value);
 }

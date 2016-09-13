@@ -405,7 +405,8 @@ wmKeyMap *WM_manipulatorgroup_keymap_common_sel(const struct wmManipulatorGroupT
 /**
  * Use this for registering manipulators on startup. For runtime, use #WM_manipulatorgrouptype_append_runtime.
  */
-wmManipulatorGroupType *WM_manipulatorgrouptype_append(wmManipulatorMapType *mmaptype, void (*mgrouptype_func)(wmManipulatorGroupType *))
+wmManipulatorGroupType *WM_manipulatorgrouptype_append(
+        wmManipulatorMapType *mmaptype, void (*mgrouptype_func)(wmManipulatorGroupType *))
 {
 	wmManipulatorGroupType *mgrouptype = MEM_callocN(sizeof(wmManipulatorGroupType), "manipulator-group");
 

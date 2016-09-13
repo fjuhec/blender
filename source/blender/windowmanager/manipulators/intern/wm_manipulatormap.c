@@ -173,7 +173,10 @@ static GHash *WM_manipulatormap_manipulator_hash_new(
 	/* collect manipulators */
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
 		if (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)) {
-			for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
+			for (wmManipulator *manipulator = mgroup->manipulators.first;
+			     manipulator;
+			     manipulator = manipulator->next)
+			{
 				if ((include_hidden || (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) &&
 				    (!poll || poll(manipulator, data)))
 				{
@@ -208,9 +211,13 @@ void WM_manipulatormap_update(const bContext *C, wmManipulatorMap *mmap)
 	}
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		if ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_OP && !mgroup->type->op) || /* only while operator runs */
-		    (mgroup->type->poll && !mgroup->type->poll(C, mgroup->type)))
+		if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_OP && !mgroup->type->op) {
+			/* only while operator runs */
 			continue;
+		}
+		if ((mgroup->type->poll && !mgroup->type->poll(C, mgroup->type))) {
+			continue;
+		}
 
 		/* prepare for first draw */
 		if (UNLIKELY((mgroup->flag & WM_MANIPULATORGROUP_INITIALIZED) == 0)) {
@@ -311,14 +318,24 @@ void WM_manipulatormap_draw(
 
 	/* draw other manipulators */
 	if (!mmap->mmap_context.active_manipulator) {
+		bool highlight_poll;
 		/* draw_manipulators excludes hidden manipulators */
-		for (LinkData *link = draw_manipulators.first; link; link = link->next) {
+		for (LinkData *link = draw_manipulators.first, *link_next; link; link = link_next) {
+			link_next = link_next;
 			manipulator = link->data;
+			highlight_poll = (manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) == 0 ||
+			                 (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT);
+
 			if ((in_scene == (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH)) &&
-				((manipulator->flag & WM_MANIPULATOR_SELECTED) == 0) && /* selected were drawn already */
-				((manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) == 0 || (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT)))
+			    ((manipulator->flag & WM_MANIPULATOR_SELECTED) == 0) && /* selected were drawn already */
+			    (highlight_poll == true))
 			{
 				manipulator->draw(C, manipulator);
+			}
+
+			/* free now, avoids further iterations */
+			if (free_drawmanipulators) {
+				MEM_freeN(link);
 			}
 		}
 	}
@@ -330,7 +347,7 @@ void WM_manipulatormap_draw(
 		glPopAttrib();
 
 	if (free_drawmanipulators) {
-		BLI_freelistN(&draw_manipulators);
+		BLI_listbase_clear(&draw_manipulators);
 	}
 }
 

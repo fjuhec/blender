@@ -247,7 +247,9 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 	}
 }
 
-static void manipulator_arrow_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *manipulator, int selectionbase)
+static void manipulator_arrow_render_3d_intersect(
+        const bContext *UNUSED(C), wmManipulator *manipulator,
+        int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
 	arrow_draw_intern((ArrowManipulator *)manipulator, true, false);
@@ -531,7 +533,8 @@ void MANIPULATOR_arrow_set_ui_range(wmManipulator *manipulator, const float min,
 	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
 	BLI_assert(min < max);
-	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
+	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function "
+	           "is called before WM_manipulator_set_property"));
 
 	arrow->data.range = max - min;
 	arrow->data.min = min;
@@ -547,7 +550,8 @@ void MANIPULATOR_arrow_set_range_fac(wmManipulator *manipulator, const float ran
 {
 	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
-	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
+	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function "
+	           "is called before WM_manipulator_set_property"));
 
 	arrow->data.range_fac = range_fac;
 }
