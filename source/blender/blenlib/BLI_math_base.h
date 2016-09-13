@@ -205,7 +205,6 @@ MINLINE unsigned int power_of_2_min_u(unsigned int x);
 
 MINLINE int iroundf(float a);
 MINLINE int divide_round_i(int a, int b);
-MINLINE unsigned long divide_round_ul(unsigned long a, unsigned long b);
 MINLINE int mod_i(int i, int n);
 
 int pow_i(int base, int exp);

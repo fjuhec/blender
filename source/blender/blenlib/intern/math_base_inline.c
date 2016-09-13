@@ -193,11 +193,6 @@ MINLINE int divide_round_i(int a, int b)
 	return (2 * a + b) / (2 * b);
 }
 
-MINLINE unsigned long divide_round_ul(unsigned long a, unsigned long b)
-{
-  return (2 * a + b) / (2 * b);
-}
-
 /**
  * modulo that handles negative numbers, works the same as Python's.
  */

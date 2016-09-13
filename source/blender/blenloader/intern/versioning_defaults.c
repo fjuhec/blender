@@ -94,14 +94,12 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 				sculpt->detail_size = 12;
 			}
 			
-			if (ts->vpaint)
-			{
+			if (ts->vpaint) {
 				VPaint *vp = ts->vpaint;
 				vp->radial_symm[0] = vp->radial_symm[1] = vp->radial_symm[2] = 1;
 			}
 
-			if (ts->wpaint)
-			{
+			if (ts->wpaint) {
 				VPaint *wp = ts->wpaint;
 				wp->radial_symm[0] = wp->radial_symm[1] = wp->radial_symm[2] = 1;
 			}

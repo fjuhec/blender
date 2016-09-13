@@ -750,26 +750,24 @@ void BKE_sculptsession_free(Object *ob)
 		/* Free maps */
 		if (ss->vert_to_loop)
 			MEM_freeN(ss->vert_to_loop);
-		if (ss->map_mem)
-			MEM_freeN(ss->map_mem);
+		if (ss->vert_map_mem)
+			MEM_freeN(ss->vert_map_mem);
 		if (ss->vert_to_poly)
 			MEM_freeN(ss->vert_to_poly);
 		if (ss->poly_map_mem)
 			MEM_freeN(ss->poly_map_mem);
 
-		/* Free average brush arrays */
-		if (ob->sculpt->totloopsHit)
-			MEM_freeN(ob->sculpt->totloopsHit);
-
-		if (ob->sculpt->totalColor)
-			MEM_freeN(ob->sculpt->totalColor);
-
-		MEM_freeN(ob->sculpt->totalWeight);
-
-		if (ob->sculpt->maxWeight)
-			MEM_freeN(ob->sculpt->maxWeight);
-		if (ob->sculpt->previousColor)
-			MEM_freeN(ob->sculpt->previousColor);
+		/* Free average, blur, and spray brush arrays */
+		if (ob->sculpt->tot_loops_hit)
+			MEM_freeN(ob->sculpt->tot_loops_hit);
+		if (ob->sculpt->total_color)
+			MEM_freeN(ob->sculpt->total_color);
+		if (ob->sculpt->total_weight)
+		  MEM_freeN(ob->sculpt->total_weight);
+		if (ob->sculpt->max_weight)
+			MEM_freeN(ob->sculpt->max_weight);
+		if (ob->sculpt->previous_color)
+			MEM_freeN(ob->sculpt->previous_color);
 
 		MEM_freeN(ss);
 

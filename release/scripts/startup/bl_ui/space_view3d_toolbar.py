@@ -1702,7 +1702,6 @@ class VIEW3D_PT_tools_brush_appearance(Panel, View3DPaintPanel):
 class VIEW3D_PT_tools_weightpaint(View3DPanel, Panel):
     bl_category = "Tools"
     bl_context = "weightpaint"
-    bl_options = {'DEFAULT_CLOSED'}
     bl_label = "Weight Tools"
 
     def draw(self, context):

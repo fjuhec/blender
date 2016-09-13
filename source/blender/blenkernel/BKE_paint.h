@@ -204,16 +204,16 @@ typedef struct SculptSession {
 	struct SculptStroke *stroke;
 	struct StrokeCache *cache;
 
-	int *map_mem;
-	MeshElemMap* vert_to_loop;
+	int *vert_map_mem;
+	MeshElemMap *vert_to_loop;
 	int *poly_map_mem;
-	MeshElemMap* vert_to_poly;
+	MeshElemMap *vert_to_poly;
 
-	unsigned long* totalColor;
-	double* totalWeight;
-	unsigned int *totloopsHit;
-	float *maxWeight;
-	unsigned int *previousColor;
+	unsigned int *total_color;
+	double *total_weight;
+	unsigned int *tot_loops_hit;
+	float *max_weight;
+	unsigned int *previous_color;
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);
