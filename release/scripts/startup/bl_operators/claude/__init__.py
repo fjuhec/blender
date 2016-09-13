@@ -592,7 +592,7 @@ class AssetEngineClaude(AssetEngine):
             entry.type = {'IMAGE'} if node['node_type'] == 'texture' else {'DIR'}
             entry.relpath = node['name']
             #~ print("added entry for", entry.relpath)
-            entry.uuid = (0, 0, 0, num)
+            entry.uuid = (0, 0, 0, num + start_index)
             variant = entry.variants.add()
             entry.variants.active = variant
             rev = variant.revisions.add()
