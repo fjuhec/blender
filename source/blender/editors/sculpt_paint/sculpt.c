@@ -527,6 +527,7 @@ BLI_INLINE bool sculpt_brush_test_clipping(const SculptBrushTest *test, const fl
 bool sculpt_brush_test(SculptBrushTest *test, const float co[3])
 {
 	float distsq = len_squared_v3v3(co, test->location);
+
 	if (distsq <= test->radius_squared) {
 		if (sculpt_brush_test_clipping(test, co)) {
 			return 0;
@@ -1142,12 +1143,12 @@ float tex_strength(SculptSession *ss, Brush *br,
 
 	/* Falloff curve */
 	avg *= BKE_brush_curve_strength(br, len, cache->radius);
-	
+
 	avg *= frontface(br, cache->view_normal, vno, fno);
-	
+
 	/* Paint mask */
 	avg *= 1.0f - mask;
-	
+
 	return avg;
 }
 

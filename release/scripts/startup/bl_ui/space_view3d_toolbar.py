@@ -1787,6 +1787,7 @@ class VIEW3D_PT_tools_vertexpaint(Panel, View3DPaintPanel):
         col.prop(vpaint, "use_spray")
 
         self.unified_paint_settings(col, context)
+
 # Commented out because the Apply button isn't an operator yet, making these settings useless
 #~         col.label(text="Gamma:")
 #~         col.prop(vpaint, "gamma", text="")

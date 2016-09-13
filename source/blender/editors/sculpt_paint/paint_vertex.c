@@ -798,6 +798,7 @@ static unsigned int vpaint_blend(VPaint *vp, unsigned int col, unsigned int colo
 {
 	Brush *brush = BKE_paint_brush(&vp->paint);
 	const int tool = brush->vertexpaint_tool;
+
 	col = vpaint_blend_tool(tool, col, paintcol, alpha_i);
 
 	/* if no spray, clip color adding with colorig & orig alpha */
@@ -1560,6 +1561,7 @@ static void do_weight_paint_vertex_single(
 	{
 		dw->weight = wpaint_blend(wp, dw->weight, alpha, paintweight,
 		                          wpi->brush_alpha_value, wpi->do_flip);
+
 		/* WATCH IT: take care of the ordering of applying mirror -> normalize,
 		 * can give wrong results [#26193], least confusing if normalize is done last */
 
@@ -1764,6 +1766,7 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	VPaint *wp = scene->toolsettings->wpaint;
 	Mesh *me;
+
 	if (!is_mode_set) {
 		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
 			return OPERATOR_CANCELLED;
@@ -1786,7 +1789,6 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		ED_mesh_mirror_spatial_table(NULL, NULL, NULL, NULL, 'e');
 		ED_mesh_mirror_topo_table(NULL, NULL, 'e');
 
-
 		/* If the cache is not released by a cancel or a done, free it now. */
 		if (ob->sculpt->cache){
 			sculpt_cache_free(ob->sculpt->cache);
@@ -1802,6 +1804,7 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		if (wp == NULL)
 			wp = scene->toolsettings->wpaint = new_vpaint(1);
+
 		paint_cursor_start(C, weight_paint_poll);
 
 		BKE_paint_init(scene, ePaintWeight, PAINT_CURSOR_WEIGHT_PAINT);
@@ -2057,7 +2060,6 @@ static void vwpaint_update_cache_variants(bContext *C, VPaint *vd, Object *ob, P
 	cache->radius_squared = cache->radius * cache->radius;
 }
 
-
 static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mouse[2])
 {
 	Scene *scene = CTX_data_scene(C);
@@ -2071,7 +2073,7 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	bool *defbase_sel;
 	SculptSession *ss = ob->sculpt;
 	VPaint *vd = CTX_data_tool_settings(C)->wpaint;
-	
+
 	float mat[4][4], imat[4][4];
 
 	if (wpaint_ensure_data(C, op, WPAINT_ENSURE_MIRROR, &vgroup_index) == false) {
@@ -3013,7 +3015,7 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		if (vp == NULL)
 			vp = scene->toolsettings->vpaint = new_vpaint(0);
-    
+		
 		paint_cursor_start(C, vertex_paint_poll);
 
 		BKE_paint_init(scene, ePaintVertex, PAINT_CURSOR_VERTEX_PAINT);
@@ -3169,6 +3171,7 @@ static void UNUSED_FUNCTION(Nvpaint_paint_poly)(VPaint *vp, VPaintData *vpd, Mes
 	float alpha;
 	int i, j;
 	int totloop = mpoly->totloop;
+
 	int brush_alpha_pressure_i = (int)(brush_alpha_pressure * 255.0f);
 
 	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
@@ -3662,7 +3665,6 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		/* If using new VBO drawing, mark mcol as dirty to force colors gpu buffer refresh! */
 		ob->derivedFinal->dirty |= DM_DIRTY_MCOL_UPDATE_DRAW;
 	}
-
 }
 
 static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
