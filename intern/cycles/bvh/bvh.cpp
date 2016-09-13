@@ -885,7 +885,7 @@ void QBVH::pack_aligned_node(int idx,
 		data[5][i] = FLT_MAX;
 		data[6][i] = -FLT_MAX;
 
-		data[7][i] = __int_as_float(0);
+		data[7][i] = __int_as_float(INT_MAX);
 	}
 
 	memcpy(&pack.nodes[idx], data, sizeof(float4)*BVH_QNODE_SIZE);
@@ -951,10 +951,24 @@ void QBVH::pack_unaligned_node(int idx,
 		/* We store BB which would never be recorded as intersection
 		 * so kernel might safely assume there are always 4 child nodes.
 		 */
-		for(int j = 1; j < 13; ++j) {
-			data[j][i] = 0.0f;
-		}
-		data[13][i] = __int_as_float(0);
+
+		data[1][i] = 1.0f;
+		data[2][i] = 0.0f;
+		data[3][i] = 0.0f;
+
+		data[4][i] = 0.0f;
+		data[5][i] = 0.0f;
+		data[6][i] = 0.0f;
+
+		data[7][i] = 0.0f;
+		data[8][i] = 0.0f;
+		data[9][i] = 0.0f;
+
+		data[10][i] = -FLT_MAX;
+		data[11][i] = -FLT_MAX;
+		data[12][i] = -FLT_MAX;
+
+		data[13][i] = __int_as_float(INT_MAX);
 	}
 
 	memcpy(&pack.nodes[idx], data, sizeof(float4)*BVH_UNALIGNED_QNODE_SIZE);
