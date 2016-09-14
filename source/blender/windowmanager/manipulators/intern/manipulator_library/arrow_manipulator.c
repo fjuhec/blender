@@ -133,7 +133,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 	}
 	else {
 #ifdef MANIPULATOR_USE_CUSTOM_ARROWS
-		manipulator_draw_intern(&arrow_head_draw_info, select);
+		manipulator_drawinfo_draw(&arrow_head_draw_info, select);
 #else
 		const float vec[2][3] = {
 			{0.0f, 0.0f, 0.0f},
@@ -161,7 +161,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 			glScalef(size, size, size);
 
 			/* draw cube */
-			manipulator_draw_intern(&cube_draw_info, select);
+			manipulator_drawinfo_draw(&cube_draw_info, select);
 		}
 		else {
 			const float len = 0.25f;

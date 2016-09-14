@@ -53,7 +53,7 @@
 /**
  * Main draw call for ManipulatorDrawInfo data
  */
-void manipulator_draw_intern(ManipulatorDrawInfo *info, const bool select)
+void manipulator_drawinfo_draw(ManipulatorDrawInfo *info, const bool select)
 {
 	GLuint buf[3];
 

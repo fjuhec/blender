@@ -110,7 +110,7 @@ typedef struct ManipulatorDrawInfo {
 	bool init;
 } ManipulatorDrawInfo;
 
-void manipulator_draw_intern(ManipulatorDrawInfo *info, const bool select);
+void manipulator_drawinfo_draw(ManipulatorDrawInfo *info, const bool select);
 
 #endif  /* __WM_MANIPULATOR_INTERN_H__ */
 

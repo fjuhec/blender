@@ -90,7 +90,7 @@ typedef struct DialInteraction {
 static void dial_geom_draw(const DialManipulator *dial, const float col[4], const bool select)
 {
 #ifdef MANIPULATOR_USE_CUSTOM_DIAS
-	manipulator_draw_intern(&dial_draw_info, select);
+	manipulator_drawinfo_draw(&dial_draw_info, select);
 #else
 	const bool filled = (dial->style == MANIPULATOR_DIAL_STYLE_RING_FILLED);
 
