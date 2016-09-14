@@ -57,9 +57,9 @@ typedef struct wmManipulatorGroupType {
 	char idname[64];  /* MAX_NAME */
 	const char *name; /* manipulator-group name - displayed in UI (keymap editor) */
 
-	/* poll if manipulator-map should be active */
+	/* poll if manipulator-map should be visible */
 	wmManipulatorGroupPollFunc poll;
-	/* initially create manipulators, set permanent data stuff you only need to do once */
+	/* initially create manipulators and set permanent data - stuff you only need to do once */
 	wmManipulatorGroupInitFunc init;
 	/* refresh data, only called if recreate flag is set (WM_manipulatormap_tag_refresh) */
 	wmManipulatorGroupRefreshFunc refresh;

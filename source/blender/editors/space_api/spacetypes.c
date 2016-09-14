@@ -121,12 +121,16 @@ void ED_spacetypes_init(void)
 	
 	ED_operatortypes_view2d();
 	ED_operatortypes_ui();
-	
-	/* register operators */
+
+	/* register types for operators and manipulators */
 	spacetypes = BKE_spacetypes_list();
 	for (type = spacetypes->first; type; type = type->next) {
-		if (type->operatortypes)
+		if (type->operatortypes) {
 			type->operatortypes();
+		}
+		if (type->manipulators) {
+			type->manipulators();
+		}
 	}
 
 	/* register internal render callbacks */
