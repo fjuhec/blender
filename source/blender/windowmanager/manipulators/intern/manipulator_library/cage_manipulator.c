@@ -41,6 +41,8 @@
 #include "BLI_math.h"
 #include "BLI_rect.h"
 
+#include "DNA_manipulator_types.h"
+
 #include "ED_screen.h"
 
 #include "MEM_guardedalloc.h"

@@ -40,6 +40,7 @@
 
 #include "BLI_math.h"
 
+#include "DNA_manipulator_types.h"
 #include "DNA_view3d_types.h"
 
 #include "ED_view3d.h"

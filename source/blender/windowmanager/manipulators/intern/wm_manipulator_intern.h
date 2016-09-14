@@ -45,7 +45,7 @@ enum {
 	WM_MANIPULATOR_TWEAK_PRECISE = (1 << 0),
 };
 
-bool WM_manipulator_register(wmManipulatorGroup *mgroup, struct wmManipulator *manipulator, const char *name);
+bool WM_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *manipulator, const char *name);
 
 bool WM_manipulator_deselect(struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
 bool WM_manipulator_select(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
