@@ -67,13 +67,11 @@ static ListBase manipulatormaptypes = {NULL, NULL};
 static ListBase draw_manipulators = {NULL, NULL};
 
 /**
- * Manipulator-map update/init tagging.
+ * Manipulator-map update tagging.
  */
 enum eManipulatorMapUpdateFlags {
-	/* Set to init manipulator-map. Should only be the case on first draw. */
-	MANIPULATORMAP_INIT    = (1 << 0),
 	/* Tag manipulator-map for refresh. */
-	MANIPULATORMAP_REFRESH = (1 << 1),
+	MANIPULATORMAP_REFRESH = (1 << 0),
 };
 
 
@@ -92,7 +90,7 @@ wmManipulatorMap *WM_manipulatormap_from_type(const struct wmManipulatorMapType_
 
 	mmap = MEM_callocN(sizeof(wmManipulatorMap), "ManipulatorMap");
 	mmap->type = mmaptype;
-	mmap->update_flag |= (MANIPULATORMAP_INIT | MANIPULATORMAP_REFRESH);
+	mmap->update_flag = MANIPULATORMAP_REFRESH;
 
 	/* create all manipulator-groups for this manipulator-map. We may create an empty one
 	 * too in anticipation of manipulators from operators etc */
