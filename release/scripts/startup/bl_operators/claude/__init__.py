@@ -563,6 +563,75 @@ class AssetEngineClaude(AssetEngine):
         # do nothing for now, no need to use actual job...
         return self.job_id_invalid
 
+    # TODO
+    """
+    def ensure_uuids(self, job_id, uuids):
+        from pillarsdk.utils import sanitize_filename
+
+        nodes = list(self.repo.nodes.values())
+
+        for uuid in uuids.uuids:
+            node = uuid.asset_uuid[-1]
+            node_path_components = (self.repo.curr_path / node['name']).parts[1:]  # Ignore root '/' here...
+            local_path_components = [sanitize_filename(comp) for comp in node_path_components]
+
+            top_texture_directory = bpy.app.tempdir  # bpy.path.abspath(context.scene.local_texture_dir)
+            local_path = os.path.join(top_texture_directory, *local_path_components)
+            meta_path = os.path.join(top_texture_directory, '.blender_cloud')
+
+            printf("we should be downloading %s into %s..." % (node_path_components, local_path))
+
+        return self.job_id_invalid
+    """
+
+    def load_pre(self, uuids, entries):
+        from pillarsdk.utils import sanitize_filename
+
+        nodes = list(self.repo.nodes.values())
+
+        # Note that most of this should ideally happen in ensure_uuids... later...
+        for uuid in uuids.uuids:
+            euuid = tuple(uuid.uuid_asset)
+            vuuid = tuple(uuid.uuid_variant)
+            ruuid = tuple(uuid.uuid_revision)
+
+            node = nodes[euuid[-1]]
+            print(self.repo.curr_path / node['name'])
+            node_path_components = (self.repo.curr_path / node['name']).parts[1:]  # Ignore root '/' here...
+            local_path_components = [sanitize_filename(comp) for comp in node_path_components]
+
+            top_texture_directory = bpy.app.tempdir  # bpy.path.abspath(context.scene.local_texture_dir)
+            local_path = os.path.join(top_texture_directory, *local_path_components)
+            meta_path = os.path.join(top_texture_directory, '.blender_cloud')
+
+            print("we should be downloading %s into %s..." % (node_path_components, local_path))
+
+            def texture_downloaded(file_path, file_desc, *args):
+                entry = entries.entries.add()
+                entry.type = {'BLENLIB'}
+                entry.blender_type = 'IMAGE'
+                entry.relpath = file_path
+                entry.uuid = euuid
+                var = entry.variants.add()
+                var.uuid = vuuid
+                rev = var.revisions.add()
+                rev.uuid = ruuid
+                var.revisions.active = rev
+                entry.variants.active = var
+
+            def texture_downloading(file_path, file_desc, *args):
+                pass
+
+            signalling_future = asyncio.Future()
+            asyncio.get_event_loop().run_until_complete(pillar.download_texture(node, local_path,
+                                                                                metadata_directory=meta_path,
+                                                                                texture_loading=texture_downloading,
+                                                                                texture_loaded=texture_downloaded,
+                                                                                future=signalling_future))
+
+        entries.root_path = ""
+        return True
+
     """
     def previews_get(self, job_id, uuids):
         pass
