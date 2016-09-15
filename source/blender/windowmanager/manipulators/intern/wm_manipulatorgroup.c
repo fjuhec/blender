@@ -63,6 +63,17 @@
  *
  * \{ */
 
+/**
+ * Create a new manipulator-group from \a mgrouptype.
+ */
+wmManipulatorGroup *wm_manipulatorgroup_new_from_type(wmManipulatorGroupType *mgrouptype)
+{
+	wmManipulatorGroup *mgroup = MEM_callocN(sizeof(*mgroup), "manipulator-group");
+	mgroup->type = mgrouptype;
+
+	return mgroup;
+}
+
 void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, wmManipulatorGroup *mgroup)
 {
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator;) {
@@ -458,9 +469,7 @@ void WM_manipulatorgrouptype_init_runtime(
 				for (ARegion *ar = lb->first; ar; ar = ar->next) {
 					for (wmManipulatorMap *mmap = ar->manipulator_maps.first; mmap; mmap = mmap->next) {
 						if (mmap->type == mmaptype) {
-							wmManipulatorGroup *mgroup = MEM_callocN(sizeof(wmManipulatorGroup), "manipulator-group");
-
-							mgroup->type = mgrouptype;
+							wmManipulatorGroup *mgroup = wm_manipulatorgroup_new_from_type(mgrouptype);
 
 							/* just add here, drawing will occur on next update */
 							BLI_addtail(&mmap->manipulator_groups, mgroup);

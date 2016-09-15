@@ -71,6 +71,7 @@ enum {
 	TWEAK_MODAL_PRECISION_OFF,
 };
 
+struct wmManipulatorGroup *wm_manipulatorgroup_new_from_type(struct wmManipulatorGroupType *mgrouptype);
 void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, struct wmManipulatorGroup *mgroup);
 
 void WM_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *keyconf);

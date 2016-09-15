@@ -98,8 +98,7 @@ wmManipulatorMap *WM_manipulatormap_from_type(const struct wmManipulatorMapType_
 	     mgrouptype;
 	     mgrouptype = mgrouptype->next)
 	{
-		wmManipulatorGroup *mgroup = MEM_callocN(sizeof(wmManipulatorGroup), "manipulatorgroup");
-		mgroup->type = mgrouptype;
+		wmManipulatorGroup *mgroup = wm_manipulatorgroup_new_from_type(mgrouptype);
 		BLI_addtail(&mmap->manipulator_groups, mgroup);
 	}
 
