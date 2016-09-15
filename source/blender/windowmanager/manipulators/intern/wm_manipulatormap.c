@@ -83,7 +83,7 @@ enum eManipulatorMapUpdateFlags {
 /**
  * Creates a manipulator-map with all registered manipulators for that type
  */
-wmManipulatorMap *WM_manipulatormap_from_type(const struct wmManipulatorMapType_Params *mmap_params)
+wmManipulatorMap *WM_manipulatormap_new_from_type(const struct wmManipulatorMapType_Params *mmap_params)
 {
 	wmManipulatorMapType *mmaptype = WM_manipulatormaptype_ensure(mmap_params);
 	wmManipulatorMap *mmap;
@@ -105,7 +105,7 @@ wmManipulatorMap *WM_manipulatormap_from_type(const struct wmManipulatorMapType_
 	return mmap;
 }
 
-void WM_manipulatormap_selected_delete(wmManipulatorMap *mmap)
+void wm_manipulatormap_selected_delete(wmManipulatorMap *mmap)
 {
 	MEM_SAFE_FREE(mmap->mmap_context.selected_manipulator);
 	mmap->mmap_context.tot_selected = 0;
@@ -118,11 +118,11 @@ static void wm_manipulatormap_delete(wmManipulatorMap *mmap)
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first, *mgroup_next; mgroup; mgroup = mgroup_next) {
 		mgroup_next = mgroup->next;
-		WM_manipulatorgroup_free(NULL, mmap, mgroup);
+		wm_manipulatorgroup_free(NULL, mmap, mgroup);
 	}
 	BLI_assert(BLI_listbase_is_empty(&mmap->manipulator_groups));
 
-	WM_manipulatormap_selected_delete(mmap);
+	wm_manipulatormap_selected_delete(mmap);
 
 	MEM_freeN(mmap);
 }
@@ -205,7 +205,7 @@ void WM_manipulatormap_update(const bContext *C, wmManipulatorMap *mmap)
 
 	/* only active manipulator needs updating */
 	if (mmap->mmap_context.active_manipulator) {
-		WM_manipulator_calculate_scale(mmap->mmap_context.active_manipulator, C);
+		wm_manipulator_calculate_scale(mmap->mmap_context.active_manipulator, C);
 		goto done;
 	}
 
@@ -214,7 +214,7 @@ void WM_manipulatormap_update(const bContext *C, wmManipulatorMap *mmap)
 			/* only while operator runs */
 			continue;
 		}
-		if ((mgroup->type->poll && !mgroup->type->poll(C, mgroup->type))) {
+		if (mgroup->type->poll && !mgroup->type->poll(C, mgroup->type)) {
 			continue;
 		}
 
@@ -224,6 +224,7 @@ void WM_manipulatormap_update(const bContext *C, wmManipulatorMap *mmap)
 			mgroup->flag |= WM_MANIPULATORGROUP_INITIALIZED;
 		}
 		/* update data if needed */
+		/* XXX weak: Manipulator-group may skip refreshing if it's invisible (map gets untagged nevertheless) */
 		if (mmap->update_flag & MANIPULATORMAP_REFRESH && mgroup->type->refresh) {
 			mgroup->type->refresh(C, mgroup);
 		}
@@ -236,9 +237,9 @@ void WM_manipulatormap_update(const bContext *C, wmManipulatorMap *mmap)
 			if (manipulator->flag & WM_MANIPULATOR_HIDDEN)
 				continue;
 			if (mmap->update_flag & MANIPULATORMAP_REFRESH) {
-				WM_manipulator_update_prop_data(manipulator);
+				wm_manipulator_update_prop_data(manipulator);
 			}
-			WM_manipulator_calculate_scale(manipulator, C);
+			wm_manipulator_calculate_scale(manipulator, C);
 			BLI_addhead(&draw_manipulators, BLI_genericNodeN(manipulator));
 		}
 	}
@@ -527,7 +528,7 @@ bool wm_manipulatormap_deselect_all(wmManipulatorMap *mmap, wmManipulator ***sel
 		(*sel)[i]->flag &= ~WM_MANIPULATOR_SELECTED;
 		(*sel)[i] = NULL;
 	}
-	WM_manipulatormap_selected_delete(mmap);
+	wm_manipulatormap_selected_delete(mmap);
 
 	/* always return true, we already checked
 	 * if there's anything to deselect */
@@ -702,7 +703,6 @@ void wm_manipulatormap_set_highlighted_manipulator(
 		if (manipulator) {
 			manipulator->flag |= WM_MANIPULATOR_HIGHLIGHT;
 			manipulator->highlighted_part = part;
-			mmap->mmap_context.activegroup = manipulator->mgroup;
 
 			if (C && manipulator->get_cursor) {
 				wmWindow *win = CTX_wm_window(C);
@@ -710,7 +710,6 @@ void wm_manipulatormap_set_highlighted_manipulator(
 			}
 		}
 		else {
-			mmap->mmap_context.activegroup = NULL;
 			if (C) {
 				wmWindow *win = CTX_wm_window(C);
 				WM_cursor_set(win, CURSOR_STD);
@@ -848,7 +847,7 @@ wmManipulatorMapType *WM_manipulatormaptype_ensure(
 	return mmaptype;
 }
 
-void WM_manipulatormaptypes_free(void)
+void wm_manipulatormaptypes_free(void)
 {
 	for (wmManipulatorMapType *mmaptype = manipulatormaptypes.first; mmaptype; mmaptype = mmaptype->next) {
 		BLI_freelistN(&mmaptype->manipulator_grouptypes);
@@ -869,7 +868,7 @@ void wm_manipulators_keymap(wmKeyConfig *keyconf)
 
 	for (mmaptype = manipulatormaptypes.first; mmaptype; mmaptype = mmaptype->next) {
 		for (mgrouptype = mmaptype->manipulator_grouptypes.first; mgrouptype; mgrouptype = mgrouptype->next) {
-			WM_manipulatorgrouptype_keymap_init(mgrouptype, keyconf);
+			wm_manipulatorgrouptype_keymap_init(mgrouptype, keyconf);
 		}
 	}
 }

@@ -88,37 +88,6 @@ typedef struct wmManipulatorGroupType {
 	char mapidname[64];
 } wmManipulatorGroupType;
 
-
-typedef struct wmManipulatorMap {
-	struct wmManipulatorMap *next, *prev;
-
-	struct wmManipulatorMapType *type;
-	ListBase manipulator_groups;
-
-	char update_flag; /* private, update tagging */
-
-	/**
-	 * \brief Manipulator map runtime context
-	 *
-	 * Contains information about this manipulator-map. Currently
-	 * highlighted manipulator, currently selected manipulators, ...
-	 */
-	struct {
-		/* we redraw the manipulator-map when this changes */
-		struct wmManipulator *highlighted_manipulator;
-		/* user has clicked this manipulator and it gets all input */
-		struct wmManipulator *active_manipulator;
-		/* array for all selected manipulators
-		 * TODO  check on using BLI_array */
-		struct wmManipulator **selected_manipulator;
-		int tot_selected;
-
-		/* set while manipulator is highlighted/active */
-		struct wmManipulatorGroup *activegroup;
-	} mmap_context;
-} wmManipulatorMap;
-
-
 struct wmManipulatorMapType_Params {
 	const char *idname;
 	const int spaceid;

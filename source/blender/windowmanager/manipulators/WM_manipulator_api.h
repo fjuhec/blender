@@ -97,12 +97,10 @@ struct wmManipulatorMapType *WM_manipulatormaptype_find(
         const struct wmManipulatorMapType_Params *mmap_params);
 struct wmManipulatorMapType *WM_manipulatormaptype_ensure(
         const struct wmManipulatorMapType_Params *mmap_params);
-struct wmManipulatorMap *WM_manipulatormap_from_type(
+struct wmManipulatorMap *WM_manipulatormap_new_from_type(
         const struct wmManipulatorMapType_Params *mmap_params);
 struct wmManipulatorMap *WM_manipulatormap_find(
         const struct ARegion *ar, const struct wmManipulatorMapType_Params *mmap_params);
-
-void WM_manipulatormaptypes_free(void);
 
 void WM_manipulatormap_tag_refresh(struct wmManipulatorMap *mmap);
 void WM_manipulatormap_update(const struct bContext *C, struct wmManipulatorMap *mmap);

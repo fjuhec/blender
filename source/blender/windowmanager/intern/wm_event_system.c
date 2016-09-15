@@ -2123,9 +2123,10 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 					}
 				}
 				/* handle user configurable manipulator-map keymap */
-				else if (manipulator && mmap->mmap_context.activegroup) {
+				else if (manipulator) {
 					/* get user customized keymap from default one */
-					const wmKeyMap *keymap = WM_keymap_active(wm, mmap->mmap_context.activegroup->type->keymap);
+					const wmManipulatorGroup *highlightgroup = wm_manipulator_group_find(mmap, manipulator);
+					const wmKeyMap *keymap = WM_keymap_active(wm, highlightgroup->type->keymap);
 					wmKeyMapItem *kmi;
 
 					PRINT("%s:   checking '%s' ...", __func__, keymap->idname);

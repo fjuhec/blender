@@ -65,7 +65,7 @@
 //#define MANIPULATOR_USE_CUSTOM_DIAS
 
 #ifdef MANIPULATOR_USE_CUSTOM_DIAS
-ManipulatorDrawInfo dial_draw_info = {0};
+ManipulatorGeometryInfo dial_draw_info = {0};
 #endif
 
 typedef struct DialManipulator {
@@ -92,7 +92,7 @@ typedef struct DialInteraction {
 static void dial_geom_draw(const DialManipulator *dial, const float col[4], const bool select)
 {
 #ifdef MANIPULATOR_USE_CUSTOM_DIAS
-	manipulator_drawinfo_draw(&dial_draw_info, select);
+	wm_manipulator_geometryinfo_draw(&dial_draw_info, select);
 #else
 	const bool filled = (dial->style == MANIPULATOR_DIAL_STYLE_RING_FILLED);
 
@@ -325,7 +325,7 @@ wmManipulator *MANIPULATOR_dial_new(wmManipulatorGroup *mgroup, const char *name
 	/* defaults */
 	copy_v3_v3(dial->direction, dir_default);
 
-	WM_manipulator_register(mgroup, &dial->manipulator, name);
+	wm_manipulator_register(mgroup, &dial->manipulator, name);
 
 	return (wmManipulator *)dial;
 }

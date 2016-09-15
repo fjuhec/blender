@@ -208,7 +208,7 @@ wmManipulator *MANIPULATOR_primitive_new(wmManipulatorGroup *mgroup, const char 
 	/* defaults */
 	copy_v3_v3(prim->direction, dir_default);
 
-	WM_manipulator_register(mgroup, &prim->manipulator, name);
+	wm_manipulator_register(mgroup, &prim->manipulator, name);
 
 	return (wmManipulator *)prim;
 }

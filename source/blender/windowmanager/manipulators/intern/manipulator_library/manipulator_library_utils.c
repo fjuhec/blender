@@ -42,6 +42,7 @@
 /* own includes */
 #include "WM_manipulator_types.h"
 #include "wm_manipulator_wmapi.h"
+#include "wm_manipulator_intern.h"
 #include "manipulator_library_intern.h"
 
 /* factor for precision tweaking */

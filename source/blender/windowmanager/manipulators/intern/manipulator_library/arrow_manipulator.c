@@ -66,9 +66,9 @@
 //#define MANIPULATOR_USE_CUSTOM_ARROWS
 
 #ifdef MANIPULATOR_USE_CUSTOM_ARROWS
-ManipulatorDrawInfo arrow_head_draw_info = {0};
+ManipulatorGeometryInfo arrow_head_draw_info = {0};
 #endif
-ManipulatorDrawInfo cube_draw_info = {0};
+ManipulatorGeometryInfo cube_draw_info = {0};
 
 /* ArrowManipulator->flag */
 enum {
@@ -134,7 +134,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 	}
 	else {
 #ifdef MANIPULATOR_USE_CUSTOM_ARROWS
-		manipulator_drawinfo_draw(&arrow_head_draw_info, select);
+		wm_manipulator_geometryinfo_draw(&arrow_head_draw_info, select);
 #else
 		const float vec[2][3] = {
 			{0.0f, 0.0f, 0.0f},
@@ -162,7 +162,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 			glScalef(size, size, size);
 
 			/* draw cube */
-			manipulator_drawinfo_draw(&cube_draw_info, select);
+			wm_manipulator_geometryinfo_draw(&cube_draw_info, select);
 		}
 		else {
 			const float len = 0.25f;
@@ -482,7 +482,7 @@ wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *mgroup, const char *nam
 	arrow->data.range_fac = 1.0f;
 	copy_v3_v3(arrow->direction, dir_default);
 
-	WM_manipulator_register(mgroup, &arrow->manipulator, name);
+	wm_manipulator_register(mgroup, &arrow->manipulator, name);
 
 	return (wmManipulator *)arrow;
 }

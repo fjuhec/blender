@@ -74,7 +74,7 @@ wmManipulatorGroup *wm_manipulatorgroup_new_from_type(wmManipulatorGroupType *mg
 	return mgroup;
 }
 
-void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, wmManipulatorGroup *mgroup)
+void wm_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, wmManipulatorGroup *mgroup)
 {
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator;) {
 		wmManipulator *manipulator_next = manipulator->next;
@@ -166,11 +166,11 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 			}
 
 			if (deselect) {
-				if (is_selected && WM_manipulator_deselect(mmap, highlighted)) {
+				if (is_selected && wm_manipulator_deselect(mmap, highlighted)) {
 					redraw = true;
 				}
 			}
-			else if (WM_manipulator_select(C, mmap, highlighted)) {
+			else if (wm_manipulator_select(C, mmap, highlighted)) {
 				redraw = true;
 			}
 
@@ -459,7 +459,7 @@ void WM_manipulatorgrouptype_init_runtime(
         wmManipulatorGroupType *mgrouptype)
 {
 	/* init keymap - on startup there's an extra call to init keymaps for 'permanent' manipulator-groups */
-	WM_manipulatorgrouptype_keymap_init(mgrouptype, ((wmWindowManager *)bmain->wm.first)->defaultconf);
+	wm_manipulatorgrouptype_keymap_init(mgrouptype, ((wmWindowManager *)bmain->wm.first)->defaultconf);
 
 	/* now create a manipulator for all existing areas */
 	for (bScreen *sc = bmain->screen.first; sc; sc = sc->id.next) {
@@ -496,7 +496,7 @@ void WM_manipulatorgrouptype_unregister(bContext *C, Main *bmain, wmManipulatorG
 						for (mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup_next) {
 							mgroup_next = mgroup->next;
 							if (mgroup->type == mgrouptype) {
-								WM_manipulatorgroup_free(C, mmap, mgroup);
+								wm_manipulatorgroup_free(C, mmap, mgroup);
 								ED_region_tag_redraw(ar);
 							}
 						}
@@ -516,7 +516,7 @@ void WM_manipulatorgrouptype_unregister(bContext *C, Main *bmain, wmManipulatorG
 	MEM_freeN(mgrouptype);
 }
 
-void WM_manipulatorgrouptype_keymap_init(wmManipulatorGroupType *mgrouptype, wmKeyConfig *keyconf)
+void wm_manipulatorgrouptype_keymap_init(wmManipulatorGroupType *mgrouptype, wmKeyConfig *keyconf)
 {
 	mgrouptype->keymap = mgrouptype->keymap_init(mgrouptype, keyconf);
 }

@@ -75,6 +75,7 @@ struct wmNDOFMotionData;
 
 typedef struct wmJob wmJob;
 typedef struct wmManipulator wmManipulator;
+typedef struct wmManipulatorMap wmManipulatorMap;
 typedef struct wmManipulatorMapType wmManipulatorMapType;
 
 /* general API */

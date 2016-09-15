@@ -532,7 +532,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	BKE_node_clipboard_clear();
 
 	/* free manipulator-maps after freeing blender, so no deleted data get accessed during cleaning up of areas */
-	WM_manipulatormaptypes_free();
+	wm_manipulatormaptypes_free();
 
 	BLF_exit();
 

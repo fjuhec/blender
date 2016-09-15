@@ -541,7 +541,7 @@ wmManipulator *MANIPULATOR_rect_transform_new(wmManipulatorGroup *mgroup, const 
 	cage->scale[0] = cage->scale[1] = 1.0f;
 	cage->style = style;
 
-	WM_manipulator_register(mgroup, &cage->manipulator, name);
+	wm_manipulator_register(mgroup, &cage->manipulator, name);
 
 	return (wmManipulator *)cage;
 }

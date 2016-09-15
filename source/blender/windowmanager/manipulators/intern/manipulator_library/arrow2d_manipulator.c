@@ -193,7 +193,7 @@ wmManipulator *MANIPULATOR_arrow2d_new(wmManipulatorGroup *mgroup, const char *n
 
 	arrow->line_len = 1.0f;
 
-	WM_manipulator_register(mgroup, &arrow->manipulator, name);
+	wm_manipulator_register(mgroup, &arrow->manipulator, name);
 
 	return (wmManipulator *)arrow;
 }
