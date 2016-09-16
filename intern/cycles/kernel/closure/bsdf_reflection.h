@@ -37,8 +37,11 @@ CCL_NAMESPACE_BEGIN
 
 /* REFLECTION */
 
-ccl_device int bsdf_reflection_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_reflection_setup(MicrofacetBsdf *bsdf, bool use_fresnel = false)
 {
+	if (bsdf->extra) {
+		bsdf->extra->use_fresnel = use_fresnel;
+	}
 	bsdf->type = CLOSURE_BSDF_REFLECTION_ID;
 	return SD_BSDF;
 }
@@ -70,6 +73,17 @@ ccl_device int bsdf_reflection_sample(const ShaderClosure *sc, float3 Ng, float3
 			/* Some high number for MIS. */
 			*pdf = 1e6f;
 			*eval = make_float3(1e6f, 1e6f, 1e6f);
+
+			if (bsdf->extra) {
+				if (bsdf->extra->use_fresnel) {
+					*pdf = 1.0f;
+
+					float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
+					float F0_norm = 1.0f / (1.0f - F0);
+					float FH = (fresnel_dielectric_cos(dot(I, normalize(I + *omega_in)), bsdf->ior) - F0) * F0_norm;
+					*eval = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+				}
+			}
 		}
 	}
 	return LABEL_REFLECT|LABEL_SINGULAR;

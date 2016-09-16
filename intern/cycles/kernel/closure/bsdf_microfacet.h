@@ -410,9 +410,17 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 		float3 F = make_float3(1.0f, 1.0f, 1.0f);
 		if (bsdf->extra) {
 			if (bsdf->extra->use_fresnel) {
-				float FH = fresnel_dielectric_cos(dot(omega_in, m), bsdf->ior);
+				/* Calculate the fresnel interpolation factor 
+				 * The value from fresnel_dielectric_cos(...) has to be normalized because
+				 * the cspec0 keeps the F0 color
+				 */
+				float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
+				float F0_norm = 1.0f / (1.0f - F0);
+				float FH = (fresnel_dielectric_cos(dot(omega_in, m), bsdf->ior) - F0) * F0_norm;
+				//float FH = schlick_fresnel(dot(omega_in, m));
 
-				F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
+				/* Blend between white and a specular color with respect to the fresnel */
+				F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 			}
 		}
 
@@ -485,9 +493,17 @@ ccl_device float3 bsdf_microfacet_ggx_eval_transmit(const ShaderClosure *sc, con
 	float3 F = make_float3(1.0f, 1.0f, 1.0f);
 	if (bsdf->extra) {
 		if (bsdf->extra->use_fresnel) {
-			float FH = fresnel_dielectric_cos(dot(omega_in, Ht), bsdf->ior);
+			/* Calculate the fresnel interpolation factor 
+			 * The value from fresnel_dielectric_cos(...) has to be normalized because
+			 * the cspec0 keeps the F0 color
+			 */
+			float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
+			float F0_norm = 1.0f / (1.0f - F0);
+			float FH = (fresnel_dielectric_cos(dot(omega_in, Ht), bsdf->ior) - F0) * F0_norm;
+			//float FH = schlick_fresnel(dot(omega_in, Ht));
 
-			F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
+			/* Blend between white and a specular color with respect to the fresnel */
+			F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 		}
 	}
 
@@ -599,9 +615,17 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 						float3 F = make_float3(1.0f, 1.0f, 1.0f);
 						if (bsdf->extra) {
 							if (bsdf->extra->use_fresnel) {
-								float FH = fresnel_dielectric_cos(dot(*omega_in, m), bsdf->ior);
+								/* Calculate the fresnel interpolation factor 
+								 * The value from fresnel_dielectric_cos(...) has to be normalized because
+								 * the cspec0 keeps the F0 color
+								 */
+								float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
+								float F0_norm = 1.0f / (1.0f - F0);
+								float FH = (fresnel_dielectric_cos(dot(*omega_in, m), bsdf->ior) - F0) * F0_norm;
+								//float FH = schlick_fresnel(dot(*omega_in, m));
 
-								F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
+								/* Blend between white and a specular color with respect to the fresnel */
+								F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 							}
 						}
 
@@ -670,9 +694,17 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 					float3 F = make_float3(1.0f, 1.0f, 1.0f);
 					if (bsdf->extra) {
 						if (bsdf->extra->use_fresnel) {
-							float FH = fresnel_dielectric_cos(dot(*omega_in, m), bsdf->ior);
+							/* Calculate the fresnel interpolation factor 
+							 * The value from fresnel_dielectric_cos(...) has to be normalized because
+							 * the cspec0 keeps the F0 color
+							 */
+							float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
+							float F0_norm = 1.0f / (1.0f - F0);
+							float FH = (fresnel_dielectric_cos(dot(*omega_in, m), bsdf->ior) - F0) * F0_norm;
+							//float FH = schlick_fresnel(dot(*omega_in, m));
 
-							F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH; // lerp(sc->custom_color0, make_float3(1.0f, 1.0f, 1.0f), FH);
+							/* Blend between white and a specular color with respect to the fresnel */
+							F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 						}
 					}
 

@@ -364,10 +364,19 @@ ccl_device int bssrdf_setup(Bssrdf *bssrdf, ClosureType type)
 		/* revert to diffuse BSDF if radius too small */
 		int flag;
 		if (type == CLOSURE_BSSRDF_DISNEY_ID) {
+			float roughness = bssrdf->roughness;
+			float3 baseColor = bssrdf->baseColor;
+			float3 N = bssrdf->N;
+			float3 weight = bssrdf->weight;
+			float sample_weight = bssrdf->sample_weight;
+
 			DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bssrdf;
-			bsdf->N = bssrdf->N;
-			bsdf->roughness = bssrdf->roughness;
-			bsdf->baseColor = bssrdf->baseColor;
+
+			bsdf->N = N;
+			bsdf->roughness = roughness;
+			bsdf->baseColor = baseColor;
+			bsdf->weight = weight;
+			bsdf->sample_weight = sample_weight;
 			flag = bsdf_disney_diffuse_setup(bsdf);
 			bsdf->type = CLOSURE_BSDF_BSSRDF_DISNEY_ID;
 		}
