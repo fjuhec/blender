@@ -239,7 +239,7 @@ class ClaudeJobCheckCredentials(ClaudeJob):
         if self.check_task is ...:
             self.check_task = self.add_task(self.check())
 
-        self.progress += 0.05
+        self.progress += 0.01
         if (self.progress > 1.0):
             self.progress = 0.0
 
@@ -324,7 +324,7 @@ class ClaudeJobList(ClaudeJob):
             self.cancel()
             return
 
-        self.progress += 0.02
+        self.progress += 0.01
         if (self.progress > 1.0):
             self.progress = 0.0
 
@@ -352,68 +352,102 @@ class ClaudeJobList(ClaudeJob):
         self.update(user_id)
 
 
-"""
-class AmberJobPreviews(AmberJob):
+class ClaudeJobPreviews(ClaudeJob):
     @staticmethod
-    def preview(uuid):
-        time.sleep(0.1)  # 100% Artificial Lag (c)
-        w = random.randint(2, 8)
-        h = random.randint(2, 8)
-        return [w, h, [random.getrandbits(32) for i in range(w * h)]]
+    async def preview(node, thumb_dir):
+        thumb_path = ""
+        thumb_path_ready = asyncio.Event()
 
-    def start(self, uuids):
-        self.nbr = 0
-        self.preview_tasks = {uuid.uuid_asset[:]: self.executor.submit(self.preview, uuid.uuid_asset[:]) for uuid in uuids.uuids}
-        self.tot = len(self.preview_tasks)
+        def thumbnail_loading(node, texture_node):
+            print("LOADING ", texture_node['name'], node['name'])
+
+        def thumbnail_loaded(node, file_desc, thmb_p):
+            nonlocal thumb_path
+            thumb_path = thmb_p
+            print("LOADED in ", thumb_path)
+            thumb_path_ready.set()
+
+        print("awaiting thumb for %s" % node["name"])
+        await pillar.download_texture_thumbnail(node, 's', thumb_dir,
+                                                thumbnail_loading=thumbnail_loading,
+                                                thumbnail_loaded=thumbnail_loaded)
+        await thumb_path_ready.wait()
+        print("DDDDOOOOONNNNNNEEEEEE", thumb_path)
+
+        if thumb_path:
+            print(thumb_path)
+            from PIL import Image
+            thumb = Image.open(thumb_path)
+            pixels = tuple(c for p in thumb.getdata() for c in p)
+            return [thumb.size, pixels]
+
+    @ClaudeJob.async_looper
+    def update(self, user_id, uuids):
         self.status = {'VALID', 'RUNNING'}
 
-    def update(self, uuids):
-        self.status = {'VALID', 'RUNNING'}
+        if user_id is None:
+            self.cancel()
+            return
 
-        uuids = {uuid.uuid_asset[:]: uuid for uuid in uuids.uuids}
+        if user_id is ...:
+            self.progress += 0.01
+            if (self.progress > 1.0):
+                self.progress = 0.0
+            return
 
+        uuids = {tuple(uuid.uuid_asset): uuid for uuid in uuids.uuids}
         new_uuids = set(uuids)
-        old_uuids = set(self.preview_tasks)
+        old_uuids = set(self.prv_tasks)
         del_uuids = old_uuids - new_uuids
         new_uuids -= old_uuids
 
+        print("\n\n\n")
+        print(new_uuids)
+        print(del_uuids)
+        print(old_uuids)
+        print("\n\n\n")
+
         for uuid in del_uuids:
-            self.preview_tasks[uuid].cancel()
-            del self.preview_tasks[uuid]
+            self.prv_tasks[uuid].cancel()
+            self.remove_task(self.prv_tasks[uuid])
+            del self.prv_tasks[uuid]
 
         for uuid in new_uuids:
-            self.preview_tasks[uuid] = self.executor.submit(self.preview, uuid)
+            node = tuple(self.repo.nodes.values())[uuid[-1]]
+            if node['node_type'] != 'texture':
+                uuids[uuid].has_asset_preview = False
+                continue
+            self.prv_tasks[uuid] = self.add_task(self.preview(node, self.thumb_dir))
 
-        self.tot = len(self.preview_tasks)
-        self.nbr = 0
+        tot = len(self.prv_tasks)
+        nbr_done = 0
 
         done_uuids = set()
-        for uuid, tsk in self.preview_tasks.items():
+        for uuid, tsk in self.prv_tasks.items():
             if tsk.done():
-                w, h, pixels = tsk.result()
-                uuids[uuid].preview_size = (w, h)
+                size, pixels = tsk.result()
+                print(size, pixels[:10])
+                uuids[uuid].preview_size = size
                 uuids[uuid].preview_pixels = pixels
-                self.nbr += 1
+                nbr_done += 1
                 done_uuids.add(uuid)
 
         for uuid in done_uuids:
-            del self.preview_tasks[uuid]
+            self.remove_task(self.prv_tasks[uuid])
+            del self.prv_tasks[uuid]
 
-        self.progress = self.nbr / self.tot
-        if not self.preview_tasks:
+        self.progress = nbr_done / tot if tot else 1.0
+        if not self.prv_tasks:
             self.status = {'VALID'}
 
-    def __init__(self, executor, job_id, uuids):
-        super().__init__(executor, job_id)
-        self.preview_tasks = {}
+    def __init__(self, job_id, user_id, repo, uuids, thumb_dir):
+        super().__init__(job_id)
+        self.repo = repo
+        self.thumb_dir = thumb_dir
 
-        self.start(uuids)
+        self.prv_tasks = {}
 
-    def __del__(self):
-        # Avoid useless work!
-        for tsk in self.preview_tasks.values():
-            tsk.cancel()
-"""
+        self.update(user_id, uuids)
 
 
 ###########################
@@ -632,19 +666,20 @@ class AssetEngineClaude(AssetEngine):
         entries.root_path = ""
         return True
 
-    """
     def previews_get(self, job_id, uuids):
-        pass
+        user_id = self.check_credentials()
+
         job = self.jobs.get(job_id, None)
-        #~ print(entries.root_path, job_id, job)
-        if job is not None and isinstance(job, AmberJobPreviews):
-            job.update(uuids)
+        if job is not None and isinstance(job, ClaudeJobPreviews):
+            job.update(user_id, uuids)
         else:
+            top_texture_directory = bpy.app.tempdir  # bpy.path.abspath(context.scene.local_texture_dir)
+            thumb_dir = os.path.join(top_texture_directory, "__thumbs")
+
             job_id = self.job_uuid
             self.job_uuid += 1
-            self.jobs[job_id] = AmberJobPreviews(job_id, uuids)
+            self.jobs[job_id] = ClaudeJobPreviews(job_id, user_id, self.repo, uuids, thumb_dir)
         return job_id
-    """
 
     def check_dir(self, entries, do_change):
         #~ print(self.repo.path_map)
