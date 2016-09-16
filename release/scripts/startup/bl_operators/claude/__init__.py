@@ -378,7 +378,18 @@ class ClaudeJobPreviews(ClaudeJob):
             print(thumb_path)
             from PIL import Image
             thumb = Image.open(thumb_path)
-            pixels = tuple(c for p in thumb.getdata() for c in p)
+            pixels = None
+            if thumb.mode == 'RGBA':
+                pixels = tuple((p[3] << 24) + (p[2] << 16) + (p[1] << 8) + (p[0]) for p in thumb.getdata())
+            elif thumb.mode == 'RGB':
+                pixels = tuple((255 << 24) + (p[2] << 16) + (p[1] << 8) + (p[0]) for p in thumb.getdata())
+            elif thumb.mode == 'L':
+                pixels = tuple((255 << 24) + (p << 16) + (p << 8) + (p) for p in thumb.getdata())
+            else:
+                return ((0, 0), None)
+            w = thumb.width
+            h = thumb.height
+            pixels = tuple(p for l in (pixels[i - w:i] for i in range(w * h, 0, -w)) for p in l)
             return [thumb.size, pixels]
 
     @ClaudeJob.async_looper
@@ -426,9 +437,12 @@ class ClaudeJobPreviews(ClaudeJob):
         for uuid, tsk in self.prv_tasks.items():
             if tsk.done():
                 size, pixels = tsk.result()
-                print(size, pixels[:10])
-                uuids[uuid].preview_size = size
-                uuids[uuid].preview_pixels = pixels
+                if pixels is None:
+                    uuids[uuid].has_asset_preview = False
+                else:
+                    print(size, pixels[:10])
+                    uuids[uuid].preview_size = size
+                    uuids[uuid].preview_pixels = pixels
                 nbr_done += 1
                 done_uuids.add(uuid)
 
