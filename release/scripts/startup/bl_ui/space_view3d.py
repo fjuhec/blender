@@ -3452,6 +3452,10 @@ class VIEW3D_PT_view3d_meshdisplay(Panel):
         sub.active = mesh.show_normal_vertex or mesh.show_normal_face or mesh.show_normal_loop
         sub.prop(scene.tool_settings, "normal_size", text="Size")
 
+        sub = col.row()
+        sub.active = mesh.show_normal_vertex or mesh.show_normal_face or mesh.show_normal_loop
+        sub.prop(mesh, "show_normal_select", text="Show Selected")
+
         col.separator()
         split = layout.split()
         col = split.column()
