@@ -219,6 +219,9 @@ enum {
 
 /* draw loop normals */
 	ME_DRAW_LNORMALS       = 1 << 18,
+
+/* draw selected element normals */
+	ME_DRAW_SNORMALS       = 1 << 25,
 };
 
 /* Subsurf Type */
