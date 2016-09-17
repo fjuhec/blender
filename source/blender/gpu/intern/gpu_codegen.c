@@ -1441,7 +1441,9 @@ GPUNodeLink *GPU_cube_map(Image *ima, ImageUser *iuser, bool is_data)
 GPUNodeLink *GPU_image_preview(PreviewImage *prv)
 {
 	GPUNodeLink *link = GPU_node_link_create();
-	
+
+	BLI_assert(prv->num_frames == 0);  /* For now, only usual, single-image previews should reach this point. */
+
 	link->image = GPU_NODE_LINK_IMAGE_PREVIEW;
 	link->ptr1 = prv;
 	

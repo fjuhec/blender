@@ -158,6 +158,14 @@ PreviewImage *BKE_previewimg_create(void)
 	return previewimg_create_ex(0);
 }
 
+static void previewimg_gputexture_free_single(PreviewImage *prv, enum eIconSizes size)
+{
+	if (prv->gputexture[size]) {
+		GPU_texture_free(prv->gputexture[size]);
+		prv->gputexture[size] = NULL;
+	}
+}
+
 void BKE_previewimg_freefunc(void *link)
 {
 	PreviewImage *prv = (PreviewImage *)link;
@@ -168,8 +176,7 @@ void BKE_previewimg_freefunc(void *link)
 			if (prv->rect[i]) {
 				MEM_freeN(prv->rect[i]);
 			}
-			if (prv->gputexture[i])
-				GPU_texture_free(prv->gputexture[i]);
+			previewimg_gputexture_free_single(prv, i);
 		}
 		
 		MEM_freeN(prv);
@@ -184,12 +191,10 @@ void BKE_previewimg_free(PreviewImage **prv)
 	}
 }
 
-void BKE_previewimg_clear_single(struct PreviewImage *prv, enum eIconSizes size)
+void BKE_previewimg_clear_single(PreviewImage *prv, enum eIconSizes size)
 {
 	MEM_SAFE_FREE(prv->rect[size]);
-	if (prv->gputexture[size]) {
-		GPU_texture_free(prv->gputexture[size]);
-	}
+	previewimg_gputexture_free_single(prv, size);
 	prv->h[size] = prv->w[size] = 0;
 	prv->flag[size] |= PRV_CHANGED;
 	prv->flag[size] &= ~PRV_USER_EDITED;
@@ -198,8 +203,8 @@ void BKE_previewimg_clear_single(struct PreviewImage *prv, enum eIconSizes size)
 
 void BKE_previewimg_clear(struct PreviewImage *prv)
 {
-	int i;
-	for (i = 0; i < NUM_ICON_SIZES; ++i) {
+	prv->num_frames = 0;
+	for (int i = 0; i < NUM_ICON_SIZES; ++i) {
 		BKE_previewimg_clear_single(prv, i);
 	}
 }
@@ -219,6 +224,126 @@ PreviewImage *BKE_previewimg_copy(PreviewImage *prv)
 		}
 	}
 	return prv_img;
+}
+
+#define PREVIEWIMG_OFFSET(_prv, _size, _idx) \
+	((_idx) * (_prv)->w[(_size)] * (_prv)->h[(_size)] + (_idx))
+
+size_t BKE_previewimg_get_rect_size(struct PreviewImage *prv, const int size)
+{
+	if (prv->num_frames != 0) {
+		return PREVIEWIMG_OFFSET(prv, size, prv->num_frames) * sizeof(*prv->rect[size]);
+	}
+	else {
+		return prv->w[size] * prv->h[size] * sizeof(*prv->rect[size]);
+	}
+}
+
+void BKE_previewimg_num_frames_set(struct PreviewImage *prv, const short num_frames)
+{
+	BLI_assert(prv != NULL);
+
+	if (num_frames == prv->num_frames) {
+		return;
+	}
+
+	prv->num_frames = num_frames;
+	for (int i = 0; i < NUM_ICON_SIZES; i++) {
+		if (prv->rect[i]) {
+			prv->rect[i] = MEM_recallocN_id(prv->rect[i], BKE_previewimg_get_rect_size(prv, i), __func__);
+		}
+		previewimg_gputexture_free_single(prv, i);
+	}
+}
+
+void BKE_previewimg_frame_delete(struct PreviewImage *prv, const short frame_idx)
+{
+	BLI_assert(prv != NULL && frame_idx < prv->num_frames && frame_idx >= 0);
+
+	if (prv->num_frames <= 1) {
+		BKE_previewimg_clear(prv);
+		return;
+	}
+
+	prv->num_frames--;
+	for (int i = 0; i < NUM_ICON_SIZES; i++) {
+		if (prv->rect[i]) {
+			if (frame_idx != prv->num_frames) {
+				unsigned int *p_del_idx = &prv->rect[i][PREVIEWIMG_OFFSET(prv, i, frame_idx)];
+				unsigned int *p_nxt_idx = &prv->rect[i][PREVIEWIMG_OFFSET(prv, i, frame_idx + 1)];
+				size_t nxt_size = (size_t)(&prv->rect[i][PREVIEWIMG_OFFSET(prv, i, prv->num_frames + 1)] - p_nxt_idx) * sizeof(*prv->rect[i]);
+				memmove(p_del_idx, p_nxt_idx, nxt_size);
+			}
+			prv->rect[i] = MEM_reallocN_id(prv->rect[i], BKE_previewimg_get_rect_size(prv, i), __func__);
+		}
+		previewimg_gputexture_free_single(prv, i);
+	}
+}
+
+unsigned int *BKE_previewimg_frame_data_get(
+        const PreviewImage *prv, const unsigned short frame_idx, const enum eIconSizes size, int *r_meta)
+{
+	BLI_assert(prv != NULL && frame_idx < prv->num_frames);
+
+	unsigned int *frame = NULL;
+	if (r_meta) {
+		*r_meta = 0;
+	}
+
+	if (prv->rect[size]) {
+		frame = &prv->rect[size][PREVIEWIMG_OFFSET(prv, size, frame_idx)];
+		if (r_meta && prv->num_frames > 0) {
+			*r_meta = frame[prv->w[size] * prv->h[size]];
+		}
+	}
+	return frame;
+}
+
+/* Would we want to rather use a search callback? */
+unsigned int *BKE_previewimg_frame_data_search(
+        const PreviewImage *prv, const int meta, const enum eIconSizes size, unsigned short *r_frame_idx)
+{
+	BLI_assert(prv != NULL);
+
+	unsigned int *frame = NULL;
+	if (r_frame_idx) {
+		*r_frame_idx = 0;
+	}
+
+	if (prv->rect[size]) {
+		if (prv->num_frames == 0) {
+			if (meta == 0) {  /* Convention... */
+				frame = prv->rect[size];
+			}
+		}
+		else {
+			ptrdiff_t stride = &prv->rect[size][PREVIEWIMG_OFFSET(prv, size, 1)] - &prv->rect[size][0];
+			unsigned int *frame_it = prv->rect[size];
+			for (unsigned short i = 0; i < prv->num_frames; i++, frame_it += stride) {
+				if (frame_it[prv->w[size] * prv->h[size]] == meta) {
+					if (r_frame_idx) {
+						*r_frame_idx = i;
+					}
+					frame = frame_it;
+					break;
+				}
+			}
+		}
+	}
+	return frame;
+}
+
+void BKE_previewimg_frame_data_set(
+        const PreviewImage *prv,
+        const unsigned short frame_idx, const enum eIconSizes size, const int meta, const unsigned int *data)
+{
+	BLI_assert(prv != NULL && frame_idx < prv->num_frames);
+
+	unsigned int *frame = &prv->rect[size][PREVIEWIMG_OFFSET(prv, size, frame_idx)];
+	memcpy(frame, data, prv->w[size] * prv->h[size] * sizeof(*prv->rect[size]));
+	if (prv->num_frames > 0) {
+		frame[prv->w[size] * prv->h[size]] = meta;
+	}
 }
 
 /** Duplicate preview image from \a id and clear icon_id, to be used by datablock copy functions. */

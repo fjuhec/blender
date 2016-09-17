@@ -161,6 +161,7 @@
 #include "BKE_curve.h"
 #include "BKE_constraint.h"
 #include "BKE_global.h" // for G
+#include "BKE_icons.h"
 #include "BKE_idcode.h"
 #include "BKE_library.h" // for  set_listbasepointers
 #include "BKE_main.h"
@@ -691,10 +692,10 @@ static void write_previews(WriteData *wd, const PreviewImage *prv_orig)
 		}
 		writestruct_at_address(wd, DATA, PreviewImage, 1, prv_orig, &prv);
 		if (prv.rect[0]) {
-			writedata(wd, DATA, prv.w[0] * prv.h[0] * sizeof(unsigned int), prv.rect[0]);
+			writedata(wd, DATA, BKE_previewimg_get_rect_size(&prv, 0), prv.rect[0]);
 		}
 		if (prv.rect[1]) {
-			writedata(wd, DATA, prv.w[1] * prv.h[1] * sizeof(unsigned int), prv.rect[1]);
+			writedata(wd, DATA, BKE_previewimg_get_rect_size(&prv, 1), prv.rect[1]);
 		}
 	}
 }

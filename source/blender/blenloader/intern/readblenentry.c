@@ -53,6 +53,7 @@
 
 #include "BKE_main.h"
 #include "BKE_library.h" // for BKE_main_free
+#include "BKE_icons.h"
 #include "BKE_idcode.h"
 
 #include "BLO_readfile.h"
@@ -211,7 +212,7 @@ LinkNode *BLO_blendhandle_get_previews(BlendHandle *bh, int ofblocktype, int *to
 						memcpy(new_prv, prv, sizeof(PreviewImage));
 						if (prv->rect[0] && prv->w[0] && prv->h[0]) {
 							unsigned int *rect = NULL;
-							size_t len = new_prv->w[0] * new_prv->h[0] * sizeof(unsigned int);
+							size_t len = BKE_previewimg_get_rect_size(new_prv, 0);
 							new_prv->rect[0] = MEM_callocN(len, __func__);
 							bhead = blo_nextbhead(fd, bhead);
 							rect = (unsigned int *)(bhead + 1);
@@ -228,7 +229,7 @@ LinkNode *BLO_blendhandle_get_previews(BlendHandle *bh, int ofblocktype, int *to
 						
 						if (prv->rect[1] && prv->w[1] && prv->h[1]) {
 							unsigned int *rect = NULL;
-							size_t len = new_prv->w[1] * new_prv->h[1] * sizeof(unsigned int);
+							size_t len = BKE_previewimg_get_rect_size(new_prv, 1);
 							new_prv->rect[1] = MEM_callocN(len, __func__);
 							bhead = blo_nextbhead(fd, bhead);
 							rect = (unsigned int *)(bhead + 1);

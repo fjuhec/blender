@@ -430,7 +430,9 @@ GPUTexture *GPU_texture_from_preview(PreviewImage *prv, int mipmap)
 {
 	GPUTexture *tex = prv->gputexture[0];
 	GLuint bindcode = 0;
-	
+
+	BLI_assert(prv->num_frames == 0);  /* For now, only usual, single-image previews should reach this point. */
+
 	if (tex)
 		bindcode = tex->bindcode;
 	
