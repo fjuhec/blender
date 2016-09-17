@@ -186,6 +186,7 @@ typedef struct drawDMNormal_userData {
 	float normalsize;
 	float tmat[3][3];
 	float imat[3][3];
+	bool select;
 } drawDMNormal_userData;
 
 typedef struct drawMVertOffset_userData {
@@ -2611,6 +2612,10 @@ static void draw_dm_face_normals__mapFunc(void *userData, int index, const float
 	float n[3];
 
 	if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
+		if (data->select && !BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
+			return;
+		}
+
 		if (!data->uniform_scale) {
 			mul_v3_m3v3(n, data->tmat, no);
 			normalize_v3(n);
@@ -2630,9 +2635,11 @@ static void draw_dm_face_normals__mapFunc(void *userData, int index, const float
 static void draw_dm_face_normals(BMEditMesh *em, Scene *scene, Object *ob, DerivedMesh *dm)
 {
 	drawDMNormal_userData data;
+	Mesh *me = ob->data;
 
 	data.bm = em->bm;
 	data.normalsize = scene->toolsettings->normalsize;
+	data.select = (me->drawflag & ME_DRAW_SNORMALS) != 0;
 
 	calcDrawDMNormalScale(ob, &data);
 
@@ -2668,6 +2675,9 @@ static void draw_dm_vert_normals__mapFunc(void *userData, int index, const float
 
 	if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
 		float no[3], n[3];
+		if (data->select && !BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
+			return;
+		}
 
 		if (no_f) {
 			copy_v3_v3(no, no_f);
@@ -2695,9 +2705,11 @@ static void draw_dm_vert_normals__mapFunc(void *userData, int index, const float
 static void draw_dm_vert_normals(BMEditMesh *em, Scene *scene, Object *ob, DerivedMesh *dm)
 {
 	drawDMNormal_userData data;
+	Mesh *me = ob->data;
 
 	data.bm = em->bm;
 	data.normalsize = scene->toolsettings->normalsize;
+	data.select = (me->drawflag & ME_DRAW_SNORMALS) != 0;
 
 	calcDrawDMNormalScale(ob, &data);
 
@@ -3062,6 +3074,10 @@ static void draw_dm_loop_normals__mapFunc(void *userData, int vertex_index, int 
 		float vec[3];
 
 		if (!(BM_elem_flag_test(eve, BM_ELEM_HIDDEN) || BM_elem_flag_test(efa, BM_ELEM_HIDDEN))) {
+			if (data->select &&
+			    (!BM_elem_flag_test(eve, BM_ELEM_SELECT) || !BM_elem_flag_test(efa, BM_ELEM_SELECT))) {
+				return;
+			}
 			if (!data->uniform_scale) {
 				mul_v3_m3v3(vec, (float(*)[3])data->tmat, no);
 				normalize_v3(vec);
@@ -3081,9 +3097,11 @@ static void draw_dm_loop_normals__mapFunc(void *userData, int vertex_index, int 
 static void draw_dm_loop_normals(BMEditMesh *em, Scene *scene, Object *ob, DerivedMesh *dm)
 {
 	drawDMNormal_userData data;
+	Mesh *me = ob->data;
 
 	data.bm = em->bm;
 	data.normalsize = scene->toolsettings->normalsize;
+	data.select = (me->drawflag & ME_DRAW_SNORMALS) != 0;
 
 	calcDrawDMNormalScale(ob, &data);
 

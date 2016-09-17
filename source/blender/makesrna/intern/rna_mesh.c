@@ -3554,6 +3554,11 @@ static void rna_def_mesh(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Draw Vertex Normals", "Display vertex normals as lines");
 	RNA_def_property_update(prop, 0, "rna_Mesh_update_draw");
 
+	prop = RNA_def_property(srna, "show_normal_select", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "drawflag", ME_DRAW_SNORMALS);
+	RNA_def_property_ui_text(prop, "Show Selected Normals", "Display selected element normals as lines");
+	RNA_def_property_update(prop, 0, "rna_Mesh_update_draw");
+
 	prop = RNA_def_property(srna, "show_weight", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "drawflag", ME_DRAWEIGHT);
 	RNA_def_property_ui_text(prop, "Show Weights", "Draw weights in editmode");
