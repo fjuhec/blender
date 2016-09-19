@@ -15,33 +15,39 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
+ * The Original Code is Copyright (C) 2014 Blender Foundation.
+ * All rights reserved.
+ *
+ * Contributor(s): Sergey Sharybin
+ *
  * ***** END GPL LICENSE BLOCK *****
  */
-#ifndef __BKE_BLENDER_COPYBUFFER_H__
-#define __BKE_BLENDER_COPYBUFFER_H__
 
-/** \file BKE_blender_copybuffer.h
- *  \ingroup bke
- */
+struct VertexData {
+	vec4 position;
+	vec3 normal;
+	vec2 uv;
+};
 
-#ifdef __cplusplus
-extern "C" {
+in vec3 normal;
+in vec4 position;
+
+uniform mat4 modelViewMatrix;
+uniform mat3 normalMatrix;
+
+out block {
+	VertexData v;
+} outpt;
+
+void main()
+{
+	outpt.v.position = modelViewMatrix * position;
+	outpt.v.normal = normalize(normalMatrix * normal);
+
+#if __VERSION__ < 140
+	/* Some compilers expects gl_Position to be written.
+	 * It's not needed once we explicitly switch to GLSL 1.40 or above.
+	 */
+	gl_Position = outpt.v.position;
 #endif
-
-struct bContext;
-struct ReportList;
-struct Main;
-struct ID;
-
-/* copybuffer (wrapper for BKE_blendfile_write_partial) */
-void BKE_copybuffer_begin(struct Main *bmain_src);
-void BKE_copybuffer_tag_ID(struct ID *id);
-bool BKE_copybuffer_save(struct Main *bmain_src, const char *filename, struct ReportList *reports);
-bool BKE_copybuffer_read(struct Main *bmain_dst, const char *libname, struct ReportList *reports);
-bool BKE_copybuffer_paste(struct bContext *C, const char *libname, const short flag, struct ReportList *reports);
-
-#ifdef __cplusplus
 }
-#endif
-
-#endif  /* __BKE_BLENDER_COPYBUFFER_H__ */
