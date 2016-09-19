@@ -819,7 +819,7 @@ static void outliner_do_data_operation(SpaceOops *soops, int type, int event, Li
 
 static Base *outline_delete_hierarchy(bContext *C, ReportList *reports, Scene *scene, Base *base)
 {
-	Base *base_next;
+	Base *base_next = NULL;
 	Object *parent;
 
 	if (!base) {
@@ -838,7 +838,9 @@ static Base *outline_delete_hierarchy(bContext *C, ReportList *reports, Scene *s
 	}
 	BKE_BASES_ITER_END;
 
-	base_next = BKE_objectlayer_base_next_find(base_next, false);
+	if (base_next) {
+		base_next = BKE_objectlayer_base_next_find(base_next, false);
+	}
 
 	Main *bmain = CTX_data_main(C);
 	if (base->object->id.tag & LIB_TAG_INDIRECT) {
