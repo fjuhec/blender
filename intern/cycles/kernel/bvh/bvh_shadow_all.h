@@ -278,7 +278,7 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 								shader = __float_as_int(str.z);
 							}
 #endif
-							int flag = kernel_tex_fetch(__shader_flag, (shader & SHADER_MASK)*2);
+							int flag = kernel_tex_fetch(__shader_flag, (shader & SHADER_MASK)*SHADER_SIZE);
 
 							/* if no transparent shadows, all light is blocked */
 							if(!(flag & SD_HAS_TRANSPARENT_SHADOW)) {
@@ -343,6 +343,7 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 		if(stack_ptr >= 0) {
 			kernel_assert(object != OBJECT_NONE);
 
+			/* Instance pop. */
 			if(num_hits_in_instance) {
 				float t_fac;
 
@@ -355,8 +356,9 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				triangle_intersect_precalc(dir, &isect_precalc);
 
 				/* scale isect->t to adjust for instancing */
-				for(int i = 0; i < num_hits_in_instance; i++)
+				for(int i = 0; i < num_hits_in_instance; i++) {
 					(isect_array-i-1)->t *= t_fac;
+				}
 			}
 			else {
 				float ignore_t = FLT_MAX;
