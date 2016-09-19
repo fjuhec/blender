@@ -437,7 +437,11 @@ void ANIM_flush_setting_anim_channels(bAnimContext *ac, ListBase *anim_data, bAn
 	/* sanity check */
 	if (ELEM(NULL, anim_data, anim_data->first))
 		return;
-	
+
+	if (setting == ACHANNEL_SETTING_ALWAYS_VISIBLE) {
+		return;
+	}
+
 	/* find the channel that got changed */
 	for (ale = anim_data->first; ale; ale = ale->next) {
 		/* compare data, and type as main way of identifying the channel */
@@ -2143,7 +2147,7 @@ static void ANIM_OT_channels_clean_empty(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Remove Empty Animation Data";
 	ot->idname = "ANIM_OT_channels_clean_empty";
-	ot->description = "Delete all empty animation data containers from visible datablocks";
+	ot->description = "Delete all empty animation data containers from visible data-blocks";
 	
 	/* api callbacks */
 	ot->exec = animchannels_clean_empty_exec;
