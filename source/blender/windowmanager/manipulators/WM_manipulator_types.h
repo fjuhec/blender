@@ -42,7 +42,7 @@ struct wmManipulatorGroupType;
 struct wmManipulatorGroup;
 struct wmKeyConfig;
 
-typedef int  (*wmManipulatorGroupPollFunc)(const struct bContext *, struct wmManipulatorGroupType *) ATTR_WARN_UNUSED_RESULT; /* TODO use bool */
+typedef bool (*wmManipulatorGroupPollFunc)(const struct bContext *, struct wmManipulatorGroupType *) ATTR_WARN_UNUSED_RESULT;
 typedef void (*wmManipulatorGroupInitFunc)(const struct bContext *, struct wmManipulatorGroup *);
 typedef void (*wmManipulatorGroupRefreshFunc)(const struct bContext *, struct wmManipulatorGroup *);
 typedef void (*wmManipulatorGroupDrawPrepareFunc)(const struct bContext *, struct wmManipulatorGroup *);
@@ -57,9 +57,9 @@ typedef struct wmManipulatorGroupType {
 	char idname[64];  /* MAX_NAME */
 	const char *name; /* manipulator-group name - displayed in UI (keymap editor) */
 
-	/* poll if manipulator-map should be active */
+	/* poll if manipulator-map should be visible */
 	wmManipulatorGroupPollFunc poll;
-	/* initially create manipulators, set permanent data stuff you only need to do once */
+	/* initially create manipulators and set permanent data - stuff you only need to do once */
 	wmManipulatorGroupInitFunc init;
 	/* refresh data, only called if recreate flag is set (WM_manipulatormap_tag_refresh) */
 	wmManipulatorGroupRefreshFunc refresh;
@@ -87,37 +87,6 @@ typedef struct wmManipulatorGroupType {
 	short spaceid, regionid;
 	char mapidname[64];
 } wmManipulatorGroupType;
-
-
-typedef struct wmManipulatorMap {
-	struct wmManipulatorMap *next, *prev;
-
-	struct wmManipulatorMapType *type;
-	ListBase manipulator_groups;
-
-	char update_flag; /* private, update tagging */
-
-	/**
-	 * \brief Manipulator map runtime context
-	 *
-	 * Contains information about this manipulator-map. Currently
-	 * highlighted manipulator, currently selected manipulators, ...
-	 */
-	struct {
-		/* we redraw the manipulator-map when this changes */
-		struct wmManipulator *highlighted_manipulator;
-		/* user has clicked this manipulator and it gets all input */
-		struct wmManipulator *active_manipulator;
-		/* array for all selected manipulators
-		 * TODO  check on using BLI_array */
-		struct wmManipulator **selected_manipulator;
-		int tot_selected;
-
-		/* set while manipulator is highlighted/active */
-		struct wmManipulatorGroup *activegroup;
-	} mmap_context;
-} wmManipulatorMap;
-
 
 struct wmManipulatorMapType_Params {
 	const char *idname;

@@ -41,6 +41,8 @@
 
 #include "BPY_extern.h"
 
+#include "DNA_manipulator_types.h"
+
 #include "ED_screen.h"
 
 #include "MEM_guardedalloc.h"
@@ -61,7 +63,18 @@
  *
  * \{ */
 
-void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, wmManipulatorGroup *mgroup)
+/**
+ * Create a new manipulator-group from \a mgrouptype.
+ */
+wmManipulatorGroup *wm_manipulatorgroup_new_from_type(wmManipulatorGroupType *mgrouptype)
+{
+	wmManipulatorGroup *mgroup = MEM_callocN(sizeof(*mgroup), "manipulator-group");
+	mgroup->type = mgrouptype;
+
+	return mgroup;
+}
+
+void wm_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, wmManipulatorGroup *mgroup)
 {
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator;) {
 		wmManipulator *manipulator_next = manipulator->next;
@@ -94,7 +107,6 @@ void WM_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, wmManipulator
 	MEM_freeN(mgroup);
 }
 
-/* TODO could be done a bit nicer */
 void wm_manipulatorgroup_attach_to_modal_handler(
         bContext *C, wmEventHandler *handler,
         wmManipulatorGroupType *mgrouptype, wmOperator *op)
@@ -107,15 +119,12 @@ void wm_manipulatorgroup_attach_to_modal_handler(
 	/* now instantiate the manipulator-map */
 	mgrouptype->op = op;
 
+	/* try to find map in handler region that contains mgrouptype */
 	if (handler->op_region && !BLI_listbase_is_empty(&handler->op_region->manipulator_maps)) {
-		for (wmManipulatorMap *mmap = handler->op_region->manipulator_maps.first; mmap; mmap = mmap->next) {
-			wmManipulatorMapType *mmaptype = mmap->type;
-
-			if (mmaptype->spaceid == mgrouptype->spaceid && mmaptype->regionid == mgrouptype->regionid) {
-				handler->manipulator_map = mmap;
-			}
-		}
-
+		const struct wmManipulatorMapType_Params mmaptype_params = {
+			mgrouptype->mapidname, mgrouptype->spaceid, mgrouptype->regionid
+		};
+		handler->manipulator_map = WM_manipulatormap_find(handler->op_region, &mmaptype_params);
 		ED_region_tag_redraw(handler->op_region);
 	}
 
@@ -157,11 +166,11 @@ static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent 
 			}
 
 			if (deselect) {
-				if (is_selected && WM_manipulator_deselect(mmap, highlighted)) {
+				if (is_selected && wm_manipulator_deselect(mmap, highlighted)) {
 					redraw = true;
 				}
 			}
-			else if (WM_manipulator_select(C, mmap, highlighted)) {
+			else if (wm_manipulator_select(C, mmap, highlighted)) {
 				redraw = true;
 			}
 
@@ -409,7 +418,8 @@ wmKeyMap *WM_manipulatorgroup_keymap_common_sel(const struct wmManipulatorGroupT
 /**
  * Use this for registering manipulators on startup. For runtime, use #WM_manipulatorgrouptype_append_runtime.
  */
-wmManipulatorGroupType *WM_manipulatorgrouptype_append(wmManipulatorMapType *mmaptype, void (*mgrouptype_func)(wmManipulatorGroupType *))
+wmManipulatorGroupType *WM_manipulatorgrouptype_append(
+        wmManipulatorMapType *mmaptype, void (*mgrouptype_func)(wmManipulatorGroupType *))
 {
 	wmManipulatorGroupType *mgrouptype = MEM_callocN(sizeof(wmManipulatorGroupType), "manipulator-group");
 
@@ -449,7 +459,7 @@ void WM_manipulatorgrouptype_init_runtime(
         wmManipulatorGroupType *mgrouptype)
 {
 	/* init keymap - on startup there's an extra call to init keymaps for 'permanent' manipulator-groups */
-	WM_manipulatorgrouptype_keymap_init(mgrouptype, ((wmWindowManager *)bmain->wm.first)->defaultconf);
+	wm_manipulatorgrouptype_keymap_init(mgrouptype, ((wmWindowManager *)bmain->wm.first)->defaultconf);
 
 	/* now create a manipulator for all existing areas */
 	for (bScreen *sc = bmain->screen.first; sc; sc = sc->id.next) {
@@ -459,9 +469,7 @@ void WM_manipulatorgrouptype_init_runtime(
 				for (ARegion *ar = lb->first; ar; ar = ar->next) {
 					for (wmManipulatorMap *mmap = ar->manipulator_maps.first; mmap; mmap = mmap->next) {
 						if (mmap->type == mmaptype) {
-							wmManipulatorGroup *mgroup = MEM_callocN(sizeof(wmManipulatorGroup), "manipulator-group");
-
-							mgroup->type = mgrouptype;
+							wmManipulatorGroup *mgroup = wm_manipulatorgroup_new_from_type(mgrouptype);
 
 							/* just add here, drawing will occur on next update */
 							BLI_addtail(&mmap->manipulator_groups, mgroup);
@@ -488,7 +496,7 @@ void WM_manipulatorgrouptype_unregister(bContext *C, Main *bmain, wmManipulatorG
 						for (mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup_next) {
 							mgroup_next = mgroup->next;
 							if (mgroup->type == mgrouptype) {
-								WM_manipulatorgroup_free(C, mmap, mgroup);
+								wm_manipulatorgroup_free(C, mmap, mgroup);
 								ED_region_tag_redraw(ar);
 							}
 						}
@@ -508,7 +516,7 @@ void WM_manipulatorgrouptype_unregister(bContext *C, Main *bmain, wmManipulatorG
 	MEM_freeN(mgrouptype);
 }
 
-void WM_manipulatorgrouptype_keymap_init(wmManipulatorGroupType *mgrouptype, wmKeyConfig *keyconf)
+void wm_manipulatorgrouptype_keymap_init(wmManipulatorGroupType *mgrouptype, wmKeyConfig *keyconf)
 {
 	mgrouptype->keymap = mgrouptype->keymap_init(mgrouptype, keyconf);
 }

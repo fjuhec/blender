@@ -97,7 +97,9 @@ static void arrow2d_draw_geom(ArrowManipulator2D *arrow, const float origin[2])
 static void manipulator_arrow2d_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
 {
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
-	const float *col = manipulator_color_get(manipulator, manipulator->flag & WM_MANIPULATOR_HIGHLIGHT);
+	float col[4];
+
+	manipulator_color_get(manipulator, manipulator->flag & WM_MANIPULATOR_HIGHLIGHT, col);
 
 	glColor4fv(col);
 	glLineWidth(manipulator->line_width);
@@ -191,7 +193,7 @@ wmManipulator *MANIPULATOR_arrow2d_new(wmManipulatorGroup *mgroup, const char *n
 
 	arrow->line_len = 1.0f;
 
-	WM_manipulator_register(mgroup, &arrow->manipulator, name);
+	wm_manipulator_register(mgroup, &arrow->manipulator, name);
 
 	return (wmManipulator *)arrow;
 }

@@ -41,6 +41,8 @@
 #include "BLI_math.h"
 #include "BLI_rect.h"
 
+#include "DNA_manipulator_types.h"
+
 #include "ED_screen.h"
 
 #include "MEM_guardedalloc.h"
@@ -186,7 +188,8 @@ static void manipulator_rect_transform_draw(const bContext *UNUSED(C), wmManipul
 	r.ymax = half_h;
 
 	glPushMatrix();
-	glTranslatef(manipulator->origin[0] + manipulator->offset[0], manipulator->origin[1] + manipulator->offset[1], 0.0f);
+	glTranslatef(manipulator->origin[0] + manipulator->offset[0],
+	        manipulator->origin[1] + manipulator->offset[1], 0.0f);
 	if (cage->style & MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM)
 		glScalef(cage->scale[0], cage->scale[0], 1.0);
 	else
@@ -382,7 +385,9 @@ static int manipulator_rect_transform_invoke(bContext *UNUSED(C), const wmEvent 
 	return OPERATOR_RUNNING_MODAL;
 }
 
-static int manipulator_rect_transform_handler(bContext *C, const wmEvent *event, wmManipulator *manipulator, const int UNUSED(flag))
+static int manipulator_rect_transform_handler(
+        bContext *C, const wmEvent *event, wmManipulator *manipulator,
+        const int UNUSED(flag))
 {
 	RectTransformManipulator *cage = (RectTransformManipulator *)manipulator;
 	RectTransformInteraction *data = manipulator->interaction_data;
@@ -536,7 +541,7 @@ wmManipulator *MANIPULATOR_rect_transform_new(wmManipulatorGroup *mgroup, const 
 	cage->scale[0] = cage->scale[1] = 1.0f;
 	cage->style = style;
 
-	WM_manipulator_register(mgroup, &cage->manipulator, name);
+	wm_manipulator_register(mgroup, &cage->manipulator, name);
 
 	return (wmManipulator *)cage;
 }

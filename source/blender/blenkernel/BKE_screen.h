@@ -96,9 +96,9 @@ typedef struct SpaceType {
 	/* on startup, define dropboxes for spacetype+regions */
 	void (*dropboxes)(void);
 
-	/* on startup define areas with widget types */
-	void (*widgets)(void);
-	
+	/* on startup, initialize manipulator-map-types and manipulator-group-types */
+	void (*manipulators)(void);
+
 	/* return context data */
 	int (*context)(const struct bContext *, const char *, struct bContextDataResult *);
 
@@ -287,6 +287,8 @@ void BKE_spacedata_id_unref(struct ScrArea *sa, struct SpaceLink *sl, struct ID 
 struct ARegion *BKE_area_region_copy(struct SpaceType *st, struct ARegion *ar);
 void            BKE_area_region_free(struct SpaceType *st, struct ARegion *ar);
 void            BKE_screen_area_free(struct ScrArea *sa);
+/* Manipulator-maps of a region need to be freed with the region. Uses callback to avoid low-level call. */
+void BKE_region_callback_free_manipulatormaps_set(void (*callback)(ListBase *list));
 
 struct ARegion *BKE_area_find_region_type(struct ScrArea *sa, int type);
 struct ARegion *BKE_area_find_region_active_win(struct ScrArea *sa);

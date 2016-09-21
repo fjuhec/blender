@@ -80,7 +80,8 @@ static float verts_plane[4][3] = {
 
 /* -------------------------------------------------------------------- */
 
-static void manipulator_primitive_draw_geom(const float col_inner[4], const float col_outer[4], const int style)
+static void manipulator_primitive_draw_geom(
+        const float col_inner[4], const float col_outer[4], const int style)
 {
 	float (*verts)[3];
 	float vert_count;
@@ -99,7 +100,9 @@ static void manipulator_primitive_draw_geom(const float col_inner[4], const floa
 	glDisableClientState(GL_VERTEX_ARRAY);
 }
 
-static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const bool UNUSED(select), const bool highlight)
+static void manipulator_primitive_draw_intern(
+        PrimitiveManipulator *prim, const bool UNUSED(select),
+        const bool highlight)
 {
 	float col_inner[4], col_outer[4];
 	float rot[3][3];
@@ -122,14 +125,8 @@ static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const 
 	glPushMatrix();
 	glMultMatrixf(mat);
 
-	if (highlight && (prim->manipulator.flag & WM_MANIPULATOR_DRAW_HOVER) == 0) {
-		copy_v4_v4(col_inner, prim->manipulator.col_hi);
-		copy_v4_v4(col_outer, prim->manipulator.col_hi);
-	}
-	else {
-		copy_v4_v4(col_inner, prim->manipulator.col);
-		copy_v4_v4(col_outer, prim->manipulator.col);
-	}
+	manipulator_color_get(&prim->manipulator, highlight, col_outer);
+	copy_v4_v4(col_inner, col_outer);
 	col_inner[3] *= 0.5f;
 
 	glEnable(GL_BLEND);
@@ -162,7 +159,9 @@ static void manipulator_primitive_draw_intern(PrimitiveManipulator *prim, const 
 	}
 }
 
-static void manipulator_primitive_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *manipulator, int selectionbase)
+static void manipulator_primitive_render_3d_intersect(
+        const bContext *UNUSED(C), wmManipulator *manipulator,
+        int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
 	manipulator_primitive_draw_intern((PrimitiveManipulator *)manipulator, true, false);
@@ -170,10 +169,13 @@ static void manipulator_primitive_render_3d_intersect(const bContext *UNUSED(C),
 
 static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
 {
-	manipulator_primitive_draw_intern((PrimitiveManipulator *)manipulator, false, (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT));
+	manipulator_primitive_draw_intern(
+	            (PrimitiveManipulator *)manipulator, false,
+	            (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT));
 }
 
-static int manipulator_primitive_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *manipulator)
+static int manipulator_primitive_invoke(
+        bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *manipulator)
 {
 	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
 
@@ -206,7 +208,7 @@ wmManipulator *MANIPULATOR_primitive_new(wmManipulatorGroup *mgroup, const char 
 	/* defaults */
 	copy_v3_v3(prim->direction, dir_default);
 
-	WM_manipulator_register(mgroup, &prim->manipulator, name);
+	wm_manipulator_register(mgroup, &prim->manipulator, name);
 
 	return (wmManipulator *)prim;
 }

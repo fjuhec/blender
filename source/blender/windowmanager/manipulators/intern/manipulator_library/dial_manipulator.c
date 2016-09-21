@@ -40,6 +40,8 @@
 
 #include "BLI_math.h"
 
+#include "DNA_manipulator_types.h"
+
 #include "ED_screen.h"
 #include "ED_view3d.h"
 
@@ -63,7 +65,7 @@
 //#define MANIPULATOR_USE_CUSTOM_DIAS
 
 #ifdef MANIPULATOR_USE_CUSTOM_DIAS
-ManipulatorDrawInfo dial_draw_info = {0};
+ManipulatorGeometryInfo dial_draw_info = {0};
 #endif
 
 typedef struct DialManipulator {
@@ -90,7 +92,7 @@ typedef struct DialInteraction {
 static void dial_geom_draw(const DialManipulator *dial, const float col[4], const bool select)
 {
 #ifdef MANIPULATOR_USE_CUSTOM_DIAS
-	manipulator_draw_intern(&dial_draw_info, select);
+	wm_manipulator_geometryinfo_draw(&dial_draw_info, select);
 #else
 	const bool filled = (dial->style == MANIPULATOR_DIAL_STYLE_RING_FILLED);
 
@@ -190,9 +192,11 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 	float rot[3][3];
 	float mat[4][4];
 	const float up[3] = {0.0f, 0.0f, 1.0f};
-	const float *col = manipulator_color_get(&dial->manipulator, highlight);
+	float col[4];
 
 	BLI_assert(CTX_wm_area(C)->spacetype == SPACE_VIEW3D);
+
+	manipulator_color_get(&dial->manipulator, highlight, col);
 
 	rotation_between_vecs_to_mat3(rot, up, dial->direction);
 	copy_m4_m3(mat, rot);
@@ -321,7 +325,7 @@ wmManipulator *MANIPULATOR_dial_new(wmManipulatorGroup *mgroup, const char *name
 	/* defaults */
 	copy_v3_v3(dial->direction, dir_default);
 
-	WM_manipulator_register(mgroup, &dial->manipulator, name);
+	wm_manipulator_register(mgroup, &dial->manipulator, name);
 
 	return (wmManipulator *)dial;
 }

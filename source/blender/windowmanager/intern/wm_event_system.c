@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include "DNA_listBase.h"
+#include "DNA_manipulator_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_windowmanager_types.h"
@@ -2125,16 +2126,21 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 					}
 				}
 				/* handle user configurable manipulator-map keymap */
-				else if (manipulator && mmap->mmap_context.activegroup) {
+				else if (manipulator) {
 					/* get user customized keymap from default one */
-					const wmKeyMap *keymap = WM_keymap_active(wm, mmap->mmap_context.activegroup->type->keymap);
+					const wmManipulatorGroup *highlightgroup = wm_manipulator_group_find(mmap, manipulator);
+					const wmKeyMap *keymap = WM_keymap_active(wm, highlightgroup->type->keymap);
 					wmKeyMapItem *kmi;
-					/* TODO should probably add some PRINT calls here */
+
+					PRINT("%s:   checking '%s' ...", __func__, keymap->idname);
 
 					if (!keymap->poll || keymap->poll(C)) {
+						PRINT("pass\n");
 						for (kmi = keymap->items.first; kmi; kmi = kmi->next) {
 							if (wm_eventmatch(event, kmi)) {
 								wmOperator *op = handler->op;
+
+								PRINT("%s:     item matched '%s'\n", __func__, kmi->idname);
 
 								/* weak, but allows interactive callback to not use rawkey */
 								event->keymap_idname = kmi->idname;
@@ -2145,10 +2151,19 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 								handler->op = op;
 
 								if (action & WM_HANDLER_BREAK) {
-									break;
+									if (action & WM_HANDLER_HANDLED) {
+										if (G.debug & (G_DEBUG_EVENTS | G_DEBUG_HANDLERS))
+											printf("%s:       handled - and pass on! '%s'\n", __func__, kmi->idname);
+									}
+									else {
+										PRINT("%s:       un-handled '%s'\n", __func__, kmi->idname);
+									}
 								}
 							}
 						}
+					}
+					else {
+						PRINT("fail\n");
 					}
 				}
 

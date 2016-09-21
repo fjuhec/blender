@@ -46,7 +46,6 @@
 #include "DNA_node_types.h"         /* for bNodeInstanceKey */
 /* Hum ... Not really nice... but needed for spacebuts. */
 #include "DNA_view2d_types.h"
-#include "DNA_manipulator_types.h"
 
 struct ID;
 struct Text;

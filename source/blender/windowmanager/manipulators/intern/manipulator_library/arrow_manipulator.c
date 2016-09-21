@@ -40,6 +40,7 @@
 
 #include "BLI_math.h"
 
+#include "DNA_manipulator_types.h"
 #include "DNA_view3d_types.h"
 
 #include "ED_view3d.h"
@@ -65,9 +66,9 @@
 //#define MANIPULATOR_USE_CUSTOM_ARROWS
 
 #ifdef MANIPULATOR_USE_CUSTOM_ARROWS
-ManipulatorDrawInfo arrow_head_draw_info = {0};
+ManipulatorGeometryInfo arrow_head_draw_info = {0};
 #endif
-ManipulatorDrawInfo cube_draw_info = {0};
+ManipulatorGeometryInfo cube_draw_info = {0};
 
 /* ArrowManipulator->flag */
 enum {
@@ -133,7 +134,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 	}
 	else {
 #ifdef MANIPULATOR_USE_CUSTOM_ARROWS
-		manipulator_draw_intern(&arrow_head_draw_info, select);
+		wm_manipulator_geometryinfo_draw(&arrow_head_draw_info, select);
 #else
 		const float vec[2][3] = {
 			{0.0f, 0.0f, 0.0f},
@@ -161,7 +162,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 			glScalef(size, size, size);
 
 			/* draw cube */
-			manipulator_draw_intern(&cube_draw_info, select);
+			wm_manipulator_geometryinfo_draw(&cube_draw_info, select);
 		}
 		else {
 			const float len = 0.25f;
@@ -196,10 +197,12 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool select)
 static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const bool highlight)
 {
 	const float up[3] = {0.0f, 0.0f, 1.0f};
+	float col[4];
 	float rot[3][3];
 	float mat[4][4];
 	float final_pos[3];
 
+	manipulator_color_get(&arrow->manipulator, highlight, col);
 	manipulator_arrow_get_final_pos(&arrow->manipulator, final_pos);
 
 	if (arrow->flag & ARROW_UP_VECTOR_SET) {
@@ -217,13 +220,7 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 	glPushMatrix();
 	glMultMatrixf(mat);
 
-	if (highlight && !(arrow->manipulator.flag & WM_MANIPULATOR_DRAW_HOVER)) {
-		glColor4fv(arrow->manipulator.col_hi);
-	}
-	else {
-		glColor4fv(arrow->manipulator.col);
-	}
-
+	glColor4fv(col);
 	glEnable(GL_BLEND);
 	glTranslate3fv(arrow->manipulator.offset);
 	arrow_draw_geom(arrow, select);
@@ -251,7 +248,9 @@ static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const 
 	}
 }
 
-static void manipulator_arrow_render_3d_intersect(const bContext *UNUSED(C), wmManipulator *manipulator, int selectionbase)
+static void manipulator_arrow_render_3d_intersect(
+        const bContext *UNUSED(C), wmManipulator *manipulator,
+        int selectionbase)
 {
 	GPU_select_load_id(selectionbase);
 	arrow_draw_intern((ArrowManipulator *)manipulator, true, false);
@@ -483,7 +482,7 @@ wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *mgroup, const char *nam
 	arrow->data.range_fac = 1.0f;
 	copy_v3_v3(arrow->direction, dir_default);
 
-	WM_manipulator_register(mgroup, &arrow->manipulator, name);
+	wm_manipulator_register(mgroup, &arrow->manipulator, name);
 
 	return (wmManipulator *)arrow;
 }
@@ -535,7 +534,8 @@ void MANIPULATOR_arrow_set_ui_range(wmManipulator *manipulator, const float min,
 	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
 	BLI_assert(min < max);
-	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
+	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function "
+	           "is called before WM_manipulator_set_property"));
 
 	arrow->data.range = max - min;
 	arrow->data.min = min;
@@ -551,7 +551,8 @@ void MANIPULATOR_arrow_set_range_fac(wmManipulator *manipulator, const float ran
 {
 	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
 
-	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function is called before WM_manipulator_set_property"));
+	BLI_assert(!(arrow->manipulator.props[0] && "Make sure this function "
+	           "is called before WM_manipulator_set_property"));
 
 	arrow->data.range_fac = range_fac;
 }

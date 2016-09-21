@@ -34,6 +34,8 @@
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 
+#include "DNA_manipulator_types.h"
+
 #include "ED_screen.h"
 #include "ED_view3d.h"
 
@@ -51,9 +53,9 @@
 #include "wm_manipulator_intern.h"
 
 /**
- * Main draw call for ManipulatorDrawInfo data
+ * Main draw call for ManipulatorGeometryInfo data
  */
-void manipulator_draw_intern(ManipulatorDrawInfo *info, const bool select)
+void wm_manipulator_geometryinfo_draw(ManipulatorGeometryInfo *info, const bool select)
 {
 	GLuint buf[3];
 
@@ -152,7 +154,7 @@ static void manipulator_unique_idname_set(wmManipulatorGroup *mgroup, wmManipula
  *
  * \param name  name used to create a unique idname for \a manipulator in \a mgroup
  */
-bool WM_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name)
+bool wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name)
 {
 	const float col_default[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
@@ -173,8 +175,6 @@ bool WM_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipula
 	manipulator->props = MEM_callocN(sizeof(PropertyRNA *) * manipulator->max_prop, "manipulator->props");
 	manipulator->ptr = MEM_callocN(sizeof(PointerRNA) * manipulator->max_prop, "manipulator->ptr");
 
-	manipulator->mgroup = mgroup;
-
 	BLI_addtail(&mgroup->manipulators, manipulator);
 	return true;
 }
@@ -192,7 +192,7 @@ void WM_manipulator_delete(ListBase *manipulatorlist, wmManipulatorMap *mmap, wm
 		wm_manipulatormap_set_active_manipulator(mmap, C, NULL, NULL);
 	}
 	if (manipulator->flag & WM_MANIPULATOR_SELECTED) {
-		WM_manipulator_deselect(mmap, manipulator);
+		wm_manipulator_deselect(mmap, manipulator);
 	}
 
 	if (manipulator->opptr.data) {
@@ -204,6 +204,19 @@ void WM_manipulator_delete(ListBase *manipulatorlist, wmManipulatorMap *mmap, wm
 	if (manipulatorlist)
 		BLI_remlink(manipulatorlist, manipulator);
 	MEM_freeN(manipulator);
+}
+
+wmManipulatorGroup *wm_manipulator_group_find(const wmManipulatorMap *mmap, wmManipulator *manipulator)
+{
+	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
+		for (wmManipulator *man_iter = mgroup->manipulators.first; man_iter; man_iter = man_iter->next) {
+			if (man_iter == manipulator) {
+				return mgroup;
+			}
+		}
+	}
+
+	return NULL;
 }
 
 
@@ -315,7 +328,7 @@ void WM_manipulator_set_colors(wmManipulator *manipulator, const float col[4], c
  *
  * \return if the selection has changed.
  */
-bool WM_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
+bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 {
 	if (!mmap->mmap_context.selected_manipulator)
 		return false;
@@ -340,7 +353,7 @@ bool WM_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 
 	/* update array data */
 	if ((*tot_selected) <= 1) {
-		WM_manipulatormap_selected_delete(mmap);
+		wm_manipulatormap_selected_delete(mmap);
 	}
 	else {
 		*sel = MEM_reallocN(*sel, sizeof(**sel) * (*tot_selected));
@@ -357,7 +370,7 @@ bool WM_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
  *
  * \return if the selection has changed.
  */
-bool WM_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *manipulator)
+bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *manipulator)
 {
 	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
 	int *tot_selected = &mmap->mmap_context.tot_selected;
@@ -379,7 +392,7 @@ bool WM_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *m
 	return true;
 }
 
-void WM_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *C)
+void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *C)
 {
 	const RegionView3D *rv3d = CTX_wm_region_view3d(C);
 	float scale = 1.0f;
@@ -404,7 +417,7 @@ void WM_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *
 	manipulator->scale = scale * manipulator->user_scale;
 }
 
-void WM_manipulator_update_prop_data(wmManipulator *manipulator)
+void wm_manipulator_update_prop_data(wmManipulator *manipulator)
 {
 	/* manipulator property might have been changed, so update manipulator */
 	if (manipulator->props && manipulator->prop_data_update) {
