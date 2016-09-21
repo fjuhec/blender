@@ -340,7 +340,7 @@ enum {
 	EVT_BUT_CANCEL        = 0x5024,
 
 	/* could become manipulator callback */
-	EVT_MANIPULATOR_UPDATE     = 0x5024,
+	EVT_MANIPULATOR_UPDATE     = 0x5025,
 	/* ********** End of Blender internal events. ********** */
 };
 
