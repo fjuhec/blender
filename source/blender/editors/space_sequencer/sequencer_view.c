@@ -380,8 +380,8 @@ static int sequencer_overdrop_transform_modal(bContext *C, wmOperator *op, const
 		{
 			SpaceSeq *sseq = CTX_wm_space_seq(C);
 
-			/* only end modal if we're not dragging a manipulator */
-			if (!wmap->mmap_context.active_manipulator && event->val == KM_PRESS) {
+			/* only end modal if we're not dragging a manipulator - XXX */
+			if (/*!wmap->mmap_context.active_manipulator && */event->val == KM_PRESS) {
 				copy_v2_v2(sseq->overdrop_offset, data->init_offset);
 				sseq->overdrop_zoom = data->init_zoom;
 
@@ -543,7 +543,7 @@ static int sequencer_image_transform_widget_modal(bContext *C, wmOperator *op, c
 
 			/* no offset needed in this case */
 			offset[0] = offset[1] = 0;
-			WM_manipulator_set_offset(wmap->mmap_context.active_manipulator, offset);
+//			WM_manipulator_set_offset(wmap->mmap_context.active_manipulator, offset);
 			break;
 		}
 

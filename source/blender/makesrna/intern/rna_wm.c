@@ -1469,7 +1469,7 @@ static void rna_WidgetGroup_unregister(struct Main *bmain, StructRNA *type)
 	RNA_struct_free(&BLENDER_RNA, type);
 }
 
-static int widgetgroup_poll(const bContext *C, wmManipulatorGroupType *wgrouptype)
+static bool widgetgroup_poll(const bContext *C, wmManipulatorGroupType *wgrouptype)
 {
 
 	extern FunctionRNA rna_WidgetGroup_poll_func;

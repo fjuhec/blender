@@ -46,6 +46,7 @@
 #include "BLI_utildefines.h"
 
 #include "DNA_anim_types.h"
+#include "DNA_manipulator_types.h"
 #include "DNA_scene_types.h"
 
 #include "RNA_access.h"
@@ -2882,8 +2883,8 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 		{
 			SpaceIpo *sipo = CTX_wm_space_graph(C);
 
-			/* only end modal if we're not dragging a widget */
-			if (!wmap->mmap_context.active_manipulator && event->val == KM_PRESS) {
+			/* only end modal if we're not dragging a widget - XXX */
+			if (/*!wmap->mmap_context.active_manipulator && */event->val == KM_PRESS) {
 				copy_v2_v2(sipo->backdrop_offset, data->init_offset);
 				sipo->backdrop_zoom = data->init_zoom;
 

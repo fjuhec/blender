@@ -675,7 +675,7 @@ static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 	/* widgets */
 	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
-		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
 		BLI_addhead(&ar->manipulator_maps, wmap);
 	}
@@ -1074,7 +1074,7 @@ void ED_spacetype_image(void)
 	st->refresh = image_refresh;
 	st->listener = image_listener;
 	st->context = image_context;
-	st->widgets = image_widgets;
+	st->manipulators = image_widgets;
 	st->id_remap = image_id_remap;
 
 	/* regions: main window */

@@ -650,7 +650,7 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 	/* widgets stay in the background for now - quick patchjob to make sure nodes themselves work */
 	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
-		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, 0});
 		BLI_addhead(&ar->manipulator_maps, wmap);
 	}
@@ -920,7 +920,7 @@ void ED_spacetype_node(void)
 	st->refresh = node_area_refresh;
 	st->context = node_context;
 	st->dropboxes = node_dropboxes;
-	st->widgets = node_widgets;
+	st->manipulators = node_widgets;
 	st->id_remap = node_id_remap;
 
 	/* regions: main window */

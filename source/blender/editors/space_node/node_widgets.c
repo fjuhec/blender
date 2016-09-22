@@ -26,6 +26,7 @@
 #include "BKE_image.h"
 
 #include "DNA_image_types.h"
+#include "DNA_manipulator_types.h"
 
 #include "ED_screen.h"
 
@@ -41,7 +42,7 @@
 #include "node_intern.h"
 
 
-static int WIDGETGROUP_node_transform_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_node_transform_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	SpaceNode *snode = CTX_wm_space_node(C);
 

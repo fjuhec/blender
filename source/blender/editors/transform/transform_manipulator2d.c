@@ -192,7 +192,7 @@ void WIDGETGROUP_manipulator2d_init(const bContext *UNUSED(C), wmManipulatorGrou
 		manipulator2d_get_axis_color(axis_idx, col, col_hi);
 
 		/* custom handler! */
-		axis->handler = manipulator2d_handler;
+		WM_manipulator_set_custom_handler(axis, manipulator2d_handler);
 		/* set up widget data */
 		MANIPULATOR_arrow2d_set_angle(axis, -M_PI_2 * axis_idx);
 		MANIPULATOR_arrow2d_set_line_len(axis, 0.8f);
@@ -239,7 +239,7 @@ void WIDGETGROUP_manipulator2d_draw_prepare(const bContext *C, wmManipulatorGrou
  * - Called on every redraw, better to do a more simple poll and check for selection in _refresh
  * - UV editing only, could be expanded for other things.
  */
-int WIDGETGROUP_manipulator2d_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+bool WIDGETGROUP_manipulator2d_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	SpaceImage *sima = CTX_wm_space_image(C);
 	Object *obedit = CTX_data_edit_object(C);

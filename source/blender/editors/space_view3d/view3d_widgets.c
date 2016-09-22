@@ -36,9 +36,10 @@
 
 #include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
+#include "DNA_lamp_types.h"
 #include "DNA_object_types.h"
 #include "DNA_object_force.h"
-#include "DNA_lamp_types.h"
+#include "DNA_manipulator_types.h"
 
 #include "ED_armature.h"
 #include "ED_screen.h"
@@ -59,7 +60,7 @@ typedef struct CameraWidgetGroup {
 } CameraWidgetGroup;
 
 
-static int WIDGETGROUP_lamp_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_lamp_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -114,7 +115,7 @@ void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
 	wgt->refresh = WIDGETGROUP_lamp_refresh;
 }
 
-static int WIDGETGROUP_camera_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_camera_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -267,7 +268,7 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 	wgt->refresh = WIDGETGROUP_camera_refresh;
 }
 
-static int WIDGETGROUP_forcefield_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_forcefield_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
 
@@ -330,7 +331,7 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 #define MAX_ARMATURE_FACEMAP_NAME (2 * MAX_NAME + 1) /* "OBJECTNAME_FACEMAPNAME" */
 
 
-static int WIDGETGROUP_armature_facemaps_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_armature_facemaps_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	Object *ob = CTX_data_active_object(C);
 

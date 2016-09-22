@@ -227,7 +227,7 @@ static void graph_main_region_init(wmWindowManager *wm, ARegion *ar)
 	
 	/* widgets */
 	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
-		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
 		BLI_addhead(&ar->manipulator_maps, wmap);
 	}
@@ -750,7 +750,7 @@ void ED_spacetype_ipo(void)
 	st->keymap = graphedit_keymap;
 	st->listener = graph_listener;
 	st->refresh = graph_refresh;
-	st->widgets = graph_widgets;
+	st->manipulators = graph_widgets;
 	st->id_remap = graph_id_remap;
 
 	/* regions: main window */

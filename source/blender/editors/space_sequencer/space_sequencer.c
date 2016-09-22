@@ -488,7 +488,7 @@ static void sequencer_main_region_init(wmWindowManager *wm, ARegion *ar)
 	
 	/* no modal keymap here, only operators use this currently */
 	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
-		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0});
 		BLI_addhead(&ar->manipulator_maps, wmap);
 	}
@@ -570,7 +570,7 @@ static void sequencer_preview_region_init(wmWindowManager *wm, ARegion *ar)
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
 
 	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
-		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, 0});
 		BLI_addhead(&ar->manipulator_maps, wmap);
 	}
@@ -754,7 +754,7 @@ void ED_spacetype_sequencer(void)
 	st->dropboxes = sequencer_dropboxes;
 	st->refresh = sequencer_refresh;
 	st->listener = sequencer_listener;
-	st->widgets = sequencer_widgets;
+	st->manipulators = sequencer_widgets;
 	st->id_remap = sequencer_id_remap;
 
 	/* regions: main window */

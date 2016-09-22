@@ -40,6 +40,7 @@
 
 #include "BLI_listbase.h"
 
+#include "DNA_manipulator_types.h"
 #include "DNA_object_types.h"
 
 #include "ED_screen.h"
@@ -118,7 +119,7 @@ wmManipulator *MANIPULATOR_facemap_new(
 	fmap_widget->facemap = facemap;
 	fmap_widget->style = style;
 
-	WM_manipulator_register(wgroup, &fmap_widget->widget, name);
+	wm_manipulator_register(wgroup, &fmap_widget->widget, name);
 
 	return (wmManipulator *)fmap_widget;
 }

@@ -501,7 +501,7 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 	wmKeyMap *keymap;
 
 	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
-		wmManipulatorMap *wmap = WM_manipulatormap_from_type(&(const struct wmManipulatorMapType_Params) {
+		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_MANIPULATORMAPTYPE_3D});
 		BLI_addhead(&ar->manipulator_maps, wmap);
 	}
@@ -1523,7 +1523,7 @@ void ED_spacetype_view3d(void)
 	st->operatortypes = view3d_operatortypes;
 	st->keymap = view3d_keymap;
 	st->dropboxes = view3d_dropboxes;
-	st->widgets = view3d_widgets;
+	st->manipulators = view3d_widgets;
 	st->context = view3d_context;
 	st->id_remap = view3d_id_remap;
 

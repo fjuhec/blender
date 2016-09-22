@@ -39,6 +39,7 @@
 #include "DNA_curve_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_lattice_types.h"
+#include "DNA_manipulator_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
@@ -1222,7 +1223,7 @@ static void WIDGETGROUP_manipulator_init(const bContext *UNUSED(C), wmManipulato
 		manipulator_get_axis_constraint(axis_idx, constraint_axis);
 
 		/* custom handler! */
-		axis->handler = manipulator_handler;
+		WM_manipulator_set_custom_handler(axis, manipulator_handler);
 
 		switch(axis_idx) {
 			case MAN_AXIS_TRANS_X:
@@ -1403,7 +1404,7 @@ static void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmManipulato
 	MAN_ITER_AXES_END;
 }
 
-static int WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmManipulatorGroupType *UNUSED(wgrouptype))
+static bool WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmManipulatorGroupType *UNUSED(wgrouptype))
 {
 	/* it's a given we only use this in 3D view */
 	const ScrArea *sa = CTX_wm_area(C);
@@ -1438,7 +1439,7 @@ static void WIDGETGROUP_object_manipulator_init(const bContext *C, wmManipulator
 	WIDGETGROUP_manipulator_init(C, wgroup);
 }
 
-static int WIDGETGROUP_object_manipulator_poll(const bContext *C, wmManipulatorGroupType *wgrouptype)
+static bool WIDGETGROUP_object_manipulator_poll(const bContext *C, wmManipulatorGroupType *wgrouptype)
 {
 	Object *ob = ED_object_active_context((bContext *)C);
 
