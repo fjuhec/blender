@@ -321,7 +321,7 @@ void WM_manipulatormap_draw(
 		bool highlight_poll;
 		/* draw_manipulators excludes hidden manipulators */
 		for (LinkData *link = draw_manipulators.first, *link_next; link; link = link_next) {
-			link_next = link_next;
+			link_next = link->next;
 			manipulator = link->data;
 			highlight_poll = (manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) == 0 ||
 			                 (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT);
@@ -335,9 +335,12 @@ void WM_manipulatormap_draw(
 
 			/* free now, avoids further iterations */
 			if (free_drawmanipulators) {
-				MEM_freeN(link);
+				BLI_freelinkN(&draw_manipulators, link);
 			}
 		}
+	}
+	if (free_drawmanipulators) {
+		BLI_listbase_clear(&draw_manipulators);
 	}
 
 
@@ -345,10 +348,6 @@ void WM_manipulatormap_draw(
 		glDisable(GL_MULTISAMPLE);
 	if (use_lighting)
 		glPopAttrib();
-
-	if (free_drawmanipulators) {
-		BLI_listbase_clear(&draw_manipulators);
-	}
 }
 
 static void manipulator_find_active_3D_loop(const bContext *C, ListBase *visible_manipulators)
