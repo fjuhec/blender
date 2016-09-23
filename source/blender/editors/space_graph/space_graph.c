@@ -104,6 +104,10 @@ static SpaceLink *graph_new(const bContext *C)
 	
 	sipo->autosnap = SACTSNAP_FRAME;
 	
+	sipo->backdrop_camera = scene->camera;
+	sipo->backdrop_zoom = 1.0f;
+	sipo->backdrop_opacity = 0.7f;
+	
 	/* allocate DopeSheet data for Graph Editor */
 	sipo->ads = MEM_callocN(sizeof(bDopeSheet), "GraphEdit DopeSheet");
 	sipo->ads->source = (ID *)scene;
@@ -220,18 +224,27 @@ static void graph_main_region_init(wmWindowManager *wm, ARegion *ar)
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
 	keymap = WM_keymap_find(wm->defaultconf, "Graph Editor Generic", SPACE_IPO, 0);
 	WM_event_add_keymap_handler(&ar->handlers, keymap);
+	
+	/* widgets */
+	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
+		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+		        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
+		BLI_addhead(&ar->manipulator_maps, wmap);
+	}
 }
 
 static void graph_main_region_draw(const bContext *C, ARegion *ar)
 {
 	/* draw entirely, view changes should be handled here */
 	SpaceIpo *sipo = CTX_wm_space_graph(C);
+	Scene *scene = CTX_data_scene(C);
 	bAnimContext ac;
 	View2D *v2d = &ar->v2d;
 	View2DGrid *grid;
 	View2DScrollers *scrollers;
 	float col[3];
 	short unitx = 0, unity = V2D_UNIT_VALUES, flag = 0;
+	const bool draw_backdrop = ((sipo->flag & SIPO_DRAW_BACKDROP) && (sipo->backdrop_camera != NULL));
 	
 	/* clear and setup matrix */
 	UI_GetThemeColor3fv(TH_BACK, col);
@@ -242,11 +255,26 @@ static void graph_main_region_draw(const bContext *C, ARegion *ar)
 	
 	/* grid */
 	unitx = ((sipo->mode == SIPO_MODE_ANIMATION) && (sipo->flag & SIPO_DRAWTIME)) ? V2D_UNIT_SECONDS : V2D_UNIT_FRAMESCALE;
-	grid = UI_view2d_grid_calc(CTX_data_scene(C), v2d, unitx, V2D_GRID_NOCLAMP, unity, V2D_GRID_NOCLAMP, ar->winx, ar->winy);
+	grid = UI_view2d_grid_calc(scene, v2d, unitx, V2D_GRID_NOCLAMP, unity, V2D_GRID_NOCLAMP, ar->winx, ar->winy);
 	UI_view2d_grid_draw(v2d, grid, V2D_GRIDLINES_ALL);
 	
 	ED_region_draw_cb_draw(C, ar, REGION_DRAW_PRE_VIEW);
-
+	
+	if (draw_backdrop) {
+		int width = (scene->r.size * scene->r.xsch) / 150 * sipo->backdrop_zoom;
+		int height = (scene->r.size * scene->r.ysch) / 150 * sipo->backdrop_zoom;
+		float xofs = (BLI_rcti_size_x(&ar->winrct) - width) / 2.0f + sipo->backdrop_offset[0];
+		float yofs = (BLI_rcti_size_y(&ar->winrct) - height) / 2.0f + sipo->backdrop_offset[1];
+		
+		/* reset view matrix */
+		UI_view2d_view_restore(C);
+		
+		ED_region_draw_backdrop_view3d(C, sipo->backdrop_camera, sipo->backdrop_opacity,
+		                               width, height, xofs, yofs, 1.0f, 1.0f, true);
+		
+		UI_view2d_view_ortho(v2d);
+	}
+	
 	/* draw data */
 	if (ANIM_animdata_get_context(C, &ac)) {
 		/* draw ghost curves */
@@ -322,6 +350,10 @@ static void graph_main_region_draw(const bContext *C, ARegion *ar)
 
 	/* reset view matrix */
 	UI_view2d_view_restore(C);
+	
+	/* finally draw any widgets here */
+	WM_manipulatormap_update(C, ar->manipulator_maps.first);
+	WM_manipulatormap_draw(C, ar->manipulator_maps.first, false, true);
 	
 	/* scrollers */
 	// FIXME: args for scrollers depend on the type of data being shown...
@@ -679,6 +711,15 @@ static void graph_refresh(const bContext *C, ScrArea *sa)
 	graph_refresh_fcurve_colors(C);
 }
 
+/* ************************************* */
+
+static void graph_widgets(void)
+{
+	/* create the widgetmap for the area here */
+	WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
+	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
+}
+
 static void graph_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID *new_id)
 {
 	SpaceIpo *sgraph = (SpaceIpo *)slink;
@@ -709,6 +750,7 @@ void ED_spacetype_ipo(void)
 	st->keymap = graphedit_keymap;
 	st->listener = graph_listener;
 	st->refresh = graph_refresh;
+	st->manipulators = graph_widgets;
 	st->id_remap = graph_id_remap;
 
 	/* regions: main window */

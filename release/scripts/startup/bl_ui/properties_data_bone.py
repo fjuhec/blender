@@ -268,6 +268,33 @@ class BONE_PT_relations(BoneButtonsPanel, Panel):
         sub.prop(bone, "use_local_location")
 
 
+class BONE_PT_facemaps(BoneButtonsPanel, Panel):
+    bl_label = "Face Maps"
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.bone
+
+    def draw(self, context):
+        layout = self.layout
+
+        ob = context.object
+        bone = context.bone
+        pchan = ob.pose.bones[bone.name]
+
+        col = layout.column()
+        col.prop(pchan, "facemap_object", text="Object")
+
+        col = layout.column()
+        if pchan.facemap_object:
+            col.prop_search(pchan, "facemap", pchan.facemap_object, "face_maps")
+        else:
+            # ugly, used to add inactive search field since prop_search
+            # doesn't support passing pchan.facemap_object if it's unset
+            col.enabled = False
+            col.prop(pchan, "facemap")
+
+
 class BONE_PT_display(BoneButtonsPanel, Panel):
     bl_label = "Display"
 
@@ -294,6 +321,9 @@ class BONE_PT_display(BoneButtonsPanel, Panel):
 
             col = split.column()
             col.prop(bone, "hide", text="Hide")
+            sub = col.column()
+            sub.active = bool(pchan and pchan.facemap)
+            sub.prop(bone, "fmap_only")
             sub = col.column()
             sub.active = bool(pchan and pchan.custom_shape)
             sub.prop(bone, "show_wire", text="Wireframe")

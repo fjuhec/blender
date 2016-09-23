@@ -186,6 +186,7 @@ struct DerivedMesh {
 	DerivedMeshType type;
 	float auto_bump_scale;
 	DMDirtyFlag dirty;
+	short totfmaps;
 	int totmat; /* total materials. Will be valid only before object drawing. */
 	struct Material **mat; /* material array. Will be valid only before object drawing */
 

@@ -111,7 +111,7 @@ typedef struct RegionView3D {
 	struct wmTimer *smooth_timer;
 
 
-	/* transform widget matrix */
+	/* transform manipulator matrix */
 	float twmat[4][4];
 
 	float viewquat[4];			/* view rotation, must be kept normalized */
@@ -130,7 +130,7 @@ typedef struct RegionView3D {
 	char pad[3];
 	float ofs_lock[2];			/* normalized offset for locked view: (-1, -1) bottom left, (1, 1) upper right */
 
-	short twdrawflag;
+	short twdrawflag; /* XXX can easily get rid of this (Julian) */
 	short rflag;
 
 
@@ -139,13 +139,13 @@ typedef struct RegionView3D {
 	short lpersp, lview; /* lpersp can never be set to 'RV3D_CAMOB' */
 
 	float gridview;
-	float tw_idot[3];  /* manipulator runtime: (1 - dot) product with view vector (used to check view alignment) */
 
 
 	/* active rotation from NDOF or elsewhere */
 	float rot_angle;
 	float rot_axis[3];
 
+	int pad2;
 	struct GPUFX *compositor;
 } RegionView3D;
 
@@ -202,7 +202,7 @@ typedef struct View3D {
 	short gridsubdiv;	/* Number of subdivisions in the grid between each highlighted grid line */
 	char gridflag;
 
-	/* transform widget info */
+	/* transform manipulator info */
 	char twtype, twmode, twflag;
 	
 	short flag3;
@@ -363,11 +363,11 @@ enum {
 #define V3D_MANIP_GIMBAL		4
 #define V3D_MANIP_CUSTOM		5 /* anything of value 5 or higher is custom */
 
-/* View3d->twflag */
+/* View3d->manipulator_flag */
    /* USE = user setting, DRAW = based on selection */
 #define V3D_USE_MANIPULATOR		1
-#define V3D_DRAW_MANIPULATOR	2
-/* #define V3D_CALC_MANIPULATOR	4 */ /*UNUSED*/
+#define V3D_3D_MANIPULATORS          (1 << 1)
+#define V3D_SHADED_MANIPULATORS      (1 << 2)
 
 /* BGPic->flag */
 /* may want to use 1 for select ? */

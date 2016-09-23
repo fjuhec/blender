@@ -352,10 +352,12 @@ static int pose_de_select_all_exec(bContext *C, wmOperator *op)
 {
 	int action = RNA_enum_get(op->ptr, "action");
 	
+	const ARegion *ar = CTX_wm_region(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = ED_object_context(C);
 	bArmature *arm = ob->data;
 	int multipaint = scene->toolsettings->multipaint;
+	bool has_facemap = false;
 
 	if (action == SEL_TOGGLE) {
 		action = CTX_DATA_COUNT(C, selected_pose_bones) ? SEL_DESELECT : SEL_SELECT;
@@ -365,8 +367,15 @@ static int pose_de_select_all_exec(bContext *C, wmOperator *op)
 	CTX_DATA_BEGIN(C, bPoseChannel *, pchan, visible_pose_bones)
 	{
 		pose_do_bone_select(pchan, action);
+		if (pchan->fmap)
+			has_facemap = true;
 	}
 	CTX_DATA_END;
+
+	/* handle facemap widget selection */
+	if ((ob->mode & OB_MODE_POSE) && has_facemap) {
+		WM_manipulatormap_select_all(C, (wmManipulatorMap *)ar->manipulator_maps.first, action);
+	}
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, NULL);
 	

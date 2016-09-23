@@ -743,4 +743,8 @@ void UI_OT_eyedropper_id(struct wmOperatorType *ot);
 void UI_OT_eyedropper_depth(struct wmOperatorType *ot);
 void UI_OT_eyedropper_driver(struct wmOperatorType *ot);
 
+
+/* interface_generic_widgets.c */
+void UI_OT_lamp_position(struct wmOperatorType *ot);
+
 #endif  /* __INTERFACE_INTERN_H__ */

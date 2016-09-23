@@ -3089,10 +3089,6 @@ static void view3d_draw_objects(
 		view3d_draw_bgpic_test(scene, ar, v3d, true, do_camera_frame);
 	}
 
-	if (!draw_offscreen) {
-		BIF_draw_manipulator(C);
-	}
-
 	/* cleanup */
 	if (v3d->zbuf) {
 		v3d->zbuf = false;
@@ -4087,6 +4083,13 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 	/* main drawing call */
 	view3d_draw_objects(C, scene, v3d, ar, grid_unit, true, false, do_compositing ? rv3d->compositor : NULL);
 
+	/* manipulators need to be updated *after* view matrix was set up
+	 * XXX since we do 2 draw calls (with and without depth culling),
+	 * it might be better to have 2 update calls, too */
+	WM_manipulatormap_update(C, ar->manipulator_maps.first);
+	/* draw depth culled manipulators */
+	WM_manipulatormap_draw(C, ar->manipulator_maps.first, true, false);
+
 	/* post process */
 	if (do_compositing) {
 		GPU_fx_do_composite_pass(rv3d->compositor, rv3d->winmat, rv3d->is_persp, scene, NULL);
@@ -4228,6 +4231,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	const char *grid_unit = NULL;
 	rcti border_rect;
 	bool render_border, clip_border;
+	bool update_widgets = true;
 
 	/* if we only redraw render border area, skip opengl draw and also
 	 * don't do scissor because it's already set */
@@ -4237,7 +4241,8 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	/* draw viewport using opengl */
 	if (v3d->drawtype != OB_RENDER || !view3d_main_region_do_render_draw(scene) || clip_border) {
 		view3d_main_region_draw_objects(C, scene, v3d, ar, &grid_unit);
-		
+		update_widgets = false; /* widgets were updated in view3d_main_area_draw_objects */
+
 #ifdef DEBUG_DRAW
 		bl_debug_draw();
 #endif
@@ -4250,6 +4255,16 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	/* draw viewport using external renderer */
 	if (v3d->drawtype == OB_RENDER)
 		view3d_main_region_draw_engine(C, scene, ar, v3d, clip_border, &border_rect);
+	
+	view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
+	glClear(GL_DEPTH_BUFFER_BIT);
+
+	if (update_widgets) {
+		WM_manipulatormap_update(C, ar->manipulator_maps.first);
+	}
+	WM_manipulatormap_draw(C, ar->manipulator_maps.first, false, true);
+
+	ED_region_pixelspace(ar);
 	
 	view3d_main_region_draw_info(C, scene, ar, v3d, grid_unit, render_border);
 

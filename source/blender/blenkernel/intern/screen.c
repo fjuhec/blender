@@ -179,6 +179,7 @@ ARegion *BKE_area_region_copy(SpaceType *st, ARegion *ar)
 	BLI_listbase_clear(&newar->panels_category);
 	BLI_listbase_clear(&newar->panels_category_active);
 	BLI_listbase_clear(&newar->ui_lists);
+	BLI_listbase_clear(&newar->manipulator_maps);
 	newar->swinid = 0;
 	newar->regiontimer = NULL;
 	
@@ -288,6 +289,17 @@ void BKE_spacedata_id_unref(struct ScrArea *sa, struct SpaceLink *sl, struct ID 
 	}
 }
 
+
+/**
+ * Avoid bad-level calls to #WM_manipulatormap_delete.
+ */
+static void (*region_free_manipulatormaps_callback)(ListBase *) = NULL;
+
+void BKE_region_callback_free_manipulatormaps_set(void (*callback)(ListBase *list))
+{
+	region_free_manipulatormaps_callback = callback;
+}
+
 /* not region itself */
 void BKE_area_region_free(SpaceType *st, ARegion *ar)
 {
@@ -337,6 +349,8 @@ void BKE_area_region_free(SpaceType *st, ARegion *ar)
 			MEM_freeN(uilst->properties);
 		}
 	}
+
+	region_free_manipulatormaps_callback(&ar->manipulator_maps);
 	BLI_freelistN(&ar->ui_lists);
 	BLI_freelistN(&ar->ui_previews);
 	BLI_freelistN(&ar->panels_category);

@@ -1657,11 +1657,8 @@ void init_userdef_do_versions(void)
 // XXX		error(STRINGIFY(BLENDER_STARTUP_FILE)" is buggy, please consider removing it.\n");
 	}
 	/* transform widget settings */
-	if (U.tw_hotspot == 0) {
-		U.tw_hotspot = 14;
-		U.tw_size = 25;          /* percentage of window size */
-		U.tw_handlesize = 16;    /* percentage of widget radius */
-	}
+	if (U.manipulator_scale == 0)
+		U.manipulator_scale = 75;
 	if (U.pad_rot_angle == 0.0f)
 		U.pad_rot_angle = 15.0f;
 	
@@ -2499,8 +2496,6 @@ void init_userdef_do_versions(void)
 	if (!USER_VERSION_ATLEAST(269, 9)) {
 		bTheme *btheme;
 		
-		U.tw_size = U.tw_size * 5.0f;
-		
 		/* Action Editor (and NLA Editor) - Keyframe Colors */
 		/* Graph Editor - larger vertex size defaults */
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
@@ -2745,6 +2740,15 @@ void init_userdef_do_versions(void)
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
 			rgba_char_args_set(btheme->tv3d.vertex_bevel, 0, 165, 255, 255);
 			rgba_char_args_set(btheme->tv3d.edge_bevel, 0, 165, 255, 255);
+		}
+	}
+
+	if (!USER_VERSION_ATLEAST(278, 2)) {
+		bTheme *btheme;
+		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
+			rgba_char_args_set_fl(btheme->tui.xaxis, 1.0f, 0.27f, 0.27f, 1.0f); /* red */
+			rgba_char_args_set_fl(btheme->tui.yaxis, 0.27f, 1.0f, 0.27f, 1.0f); /* green */
+			rgba_char_args_set_fl(btheme->tui.zaxis, 0.27f, 0.27f, 1.0f, 1.0f); /* blue */
 		}
 	}
 

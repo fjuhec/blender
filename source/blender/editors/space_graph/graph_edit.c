@@ -46,6 +46,7 @@
 #include "BLI_utildefines.h"
 
 #include "DNA_anim_types.h"
+#include "DNA_manipulator_types.h"
 #include "DNA_scene_types.h"
 
 #include "RNA_access.h"
@@ -60,6 +61,7 @@
 #include "BKE_nla.h"
 #include "BKE_context.h"
 #include "BKE_report.h"
+#include "BKE_screen.h"
 
 #include "UI_view2d.h"
 
@@ -2746,3 +2748,178 @@ void GRAPH_OT_driver_variables_paste(wmOperatorType *ot)
 }
 
 /* ************************************************************************** */
+
+typedef struct BackDropTransformData {
+	float init_offset[2];
+	float init_zoom;
+	short event_type;
+} BackDropTransformData;
+
+static int graph_widget_backdrop_transform_poll(bContext *C)
+{
+	SpaceIpo *sipo = CTX_wm_space_graph(C);
+	ARegion *ar = CTX_wm_region(C);
+
+	return ((sipo != NULL) &&
+	        (ar->type->regionid == RGN_TYPE_WINDOW) &&
+	        (sipo->flag & SIPO_DRAW_BACKDROP) &&
+	        (sipo->backdrop_camera));
+}
+
+static void widgetgroup_backdrop_init(const bContext *UNUSED(C), wmManipulatorGroup *wgroup)
+{
+	wmManipulatorWrapper *wwrapper = MEM_mallocN(sizeof(wmManipulatorWrapper), __func__);
+	wgroup->customdata = wwrapper;
+
+	wwrapper->manipulator = MANIPULATOR_rect_transform_new(
+	                     wgroup, "backdrop_cage",
+	                     MANIPULATOR_RECT_TRANSFORM_STYLE_SCALE_UNIFORM | MANIPULATOR_RECT_TRANSFORM_STYLE_TRANSLATE);
+}
+
+static void widgetgroup_backdrop_refresh(const struct bContext *C, wmManipulatorGroup *wgroup)
+{
+	wmManipulator *cage = ((wmManipulatorWrapper *)wgroup->customdata)->manipulator;
+	ARegion *ar = CTX_wm_region(C);
+	const Scene *scene = CTX_data_scene(C);
+	const int width = (scene->r.size * scene->r.xsch) / 150.0f;
+	const int height = (scene->r.size * scene->r.ysch) / 150.0f;
+	float origin[3];
+
+	origin[0] = BLI_rcti_size_x(&ar->winrct) / 2.0f;
+	origin[1] = BLI_rcti_size_y(&ar->winrct) / 2.0f;
+
+	WM_manipulator_set_origin(cage, origin);
+	MANIPULATOR_rect_transform_set_dimensions(cage, width, height);
+
+	/* XXX hmmm, can't we do this in _init somehow? Issue is op->ptr is freed after OP is done. */
+	wmOperator *op = wgroup->type->op;
+	WM_manipulator_set_property(cage, RECT_TRANSFORM_SLOT_OFFSET, op->ptr, "offset");
+	WM_manipulator_set_property(cage, RECT_TRANSFORM_SLOT_SCALE, op->ptr, "scale");
+}
+
+static void GRAPH_WGT_backdrop_transform(wmManipulatorGroupType *wgt)
+{
+	wgt->name = "Backdrop Transform Widgets";
+
+	wgt->init = widgetgroup_backdrop_init;
+	wgt->refresh = widgetgroup_backdrop_refresh;
+}
+
+static int graph_widget_backdrop_transform_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	ScrArea *sa = CTX_wm_area(C);
+	SpaceIpo *sipo = CTX_wm_space_graph(C);
+	BackDropTransformData *data = MEM_mallocN(sizeof(BackDropTransformData), "overdrop transform data");
+
+	RNA_float_set_array(op->ptr, "offset", sipo->backdrop_offset);
+	RNA_float_set(op->ptr, "scale", sipo->backdrop_zoom);
+
+	copy_v2_v2(data->init_offset, sipo->backdrop_offset);
+	data->init_zoom = sipo->backdrop_zoom;
+	data->event_type = event->type;
+
+	op->customdata = data;
+	WM_event_add_modal_handler(C, op);
+
+	ED_area_headerprint(sa, "Drag to place, and scale, Space/Enter/Caller key to confirm, R to recenter, RClick/Esc to cancel");
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+static void graph_widget_backdrop_transform_finish(bContext *C, BackDropTransformData *data)
+{
+	ScrArea *sa = CTX_wm_area(C);
+	ED_area_headerprint(sa, NULL);
+	MEM_freeN(data);
+}
+
+static void graph_widget_backdrop_transform_cancel(struct bContext *C, struct wmOperator *op)
+{
+	BackDropTransformData *data = op->customdata;
+	graph_widget_backdrop_transform_finish(C, data);
+}
+
+static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	ARegion *ar = CTX_wm_region(C);
+	wmManipulatorMap *wmap = ar->manipulator_maps.first;
+	BackDropTransformData *data = op->customdata;
+
+	if (event->type == data->event_type && event->val == KM_PRESS) {
+		graph_widget_backdrop_transform_finish(C, data);
+		return OPERATOR_FINISHED;
+	}
+
+	switch (event->type) {
+		case EVT_MANIPULATOR_UPDATE:
+		{
+			SpaceIpo *sipo = CTX_wm_space_graph(C);
+			RNA_float_get_array(op->ptr, "offset", sipo->backdrop_offset);
+			sipo->backdrop_zoom = RNA_float_get(op->ptr, "scale");
+			break;
+		}
+		case RKEY:
+		{
+			SpaceIpo *sipo = CTX_wm_space_graph(C);
+			float zero[2] = {0.0f};
+			RNA_float_set_array(op->ptr, "offset", zero);
+			RNA_float_set(op->ptr, "scale", 1.0f);
+			copy_v2_v2(sipo->backdrop_offset, zero);
+			sipo->backdrop_zoom = 1.0f;
+			ED_region_tag_redraw(ar);
+			/* add a mousemove to refresh the widget */
+			WM_event_add_mousemove(C);
+			break;
+		}
+		case RETKEY:
+		case PADENTER:
+		case SPACEKEY:
+		{
+			graph_widget_backdrop_transform_finish(C, data);
+			return OPERATOR_FINISHED;
+		}
+		case ESCKEY:
+		case RIGHTMOUSE:
+		{
+			SpaceIpo *sipo = CTX_wm_space_graph(C);
+
+			/* only end modal if we're not dragging a widget - XXX */
+			if (/*!wmap->mmap_context.active_manipulator && */event->val == KM_PRESS) {
+				copy_v2_v2(sipo->backdrop_offset, data->init_offset);
+				sipo->backdrop_zoom = data->init_zoom;
+
+				graph_widget_backdrop_transform_finish(C, data);
+				return OPERATOR_CANCELLED;
+			}
+		}
+	}
+	WM_manipulatormap_tag_refresh(wmap);
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+void GRAPH_OT_widget_backdrop_transform(struct wmOperatorType *ot)
+{
+	float default_offset[2] = {0.0f, 0.0f};
+	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
+	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
+
+	/* identifiers */
+	ot->name = "Transform Backdrop";
+	ot->idname = "GRAPH_OT_widget_backdrop_transform";
+	ot->description = "";
+
+	/* api callbacks */
+	ot->invoke = graph_widget_backdrop_transform_invoke;
+	ot->modal = graph_widget_backdrop_transform_modal;
+	ot->poll = graph_widget_backdrop_transform_poll;
+	ot->cancel = graph_widget_backdrop_transform_cancel;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->mgrouptype = WM_manipulatorgrouptype_append(wmaptype, GRAPH_WGT_backdrop_transform);
+
+	RNA_def_float_array(ot->srna, "offset", 2, default_offset, FLT_MIN, FLT_MAX, "Offset", "Offset of the backdrop", FLT_MIN, FLT_MAX);
+	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, FLT_MAX, "Scale", "Scale of the backdrop", 0.0f, FLT_MAX);
+}

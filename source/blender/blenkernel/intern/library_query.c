@@ -459,6 +459,7 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 
 					data.cd_flag |= proxy_cd_flag;
 					for (pchan = object->pose->chanbase.first; pchan; pchan = pchan->next) {
+						CALLBACK_INVOKE(pchan->fmap_object, IDWALK_USER);
 						CALLBACK_INVOKE(pchan->custom, IDWALK_USER);
 						BKE_constraints_id_loop(&pchan->constraints, library_foreach_constraintObjectLooper, &data);
 					}
@@ -544,15 +545,6 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 				CALLBACK_INVOKE(curve->vfontb, IDWALK_USER);
 				CALLBACK_INVOKE(curve->vfonti, IDWALK_USER);
 				CALLBACK_INVOKE(curve->vfontbi, IDWALK_USER);
-				break;
-			}
-
-			case ID_MB:
-			{
-				MetaBall *metaball = (MetaBall *) id;
-				for (i = 0; i < metaball->totcol; i++) {
-					CALLBACK_INVOKE(metaball->mat[i], IDWALK_USER);
-				}
 				break;
 			}
 

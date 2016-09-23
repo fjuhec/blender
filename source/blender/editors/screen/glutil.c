@@ -500,12 +500,12 @@ void glaDrawPixelsSafe(float x, float y, int img_w, int img_h, int row_w, int fo
 
 /* uses either DrawPixelsSafe or DrawPixelsTex, based on user defined maximum */
 void glaDrawPixelsAuto_clipping(float x, float y, int img_w, int img_h,
-                                int format, int type, int zoomfilter, void *rect,
+                                int format, int type, int zoomfilter, float alpha, void *rect,
                                 float clip_min_x, float clip_min_y,
                                 float clip_max_x, float clip_max_y)
 {
 	if (U.image_draw_method != IMAGE_DRAW_METHOD_DRAWPIXELS) {
-		glColor4f(1.0, 1.0, 1.0, 1.0);
+		glColor4f(1.0, 1.0, 1.0, alpha);
 		glaDrawPixelsTex_clipping(x, y, img_w, img_h, format, type, zoomfilter, rect,
 		                          clip_min_x, clip_min_y, clip_max_x, clip_max_y);
 	}
@@ -514,9 +514,9 @@ void glaDrawPixelsAuto_clipping(float x, float y, int img_w, int img_h,
 	}
 }
 
-void glaDrawPixelsAuto(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, void *rect)
+void glaDrawPixelsAuto(float x, float y, int img_w, int img_h, int format, int type, int zoomfilter, float alpha, void *rect)
 {
-	glaDrawPixelsAuto_clipping(x, y, img_w, img_h, format, type, zoomfilter, rect,
+	glaDrawPixelsAuto_clipping(x, y, img_w, img_h, format, type, zoomfilter, alpha, rect,
 	                           0.0f, 0.0f, 0.0f, 0.0f);
 }
 
@@ -754,7 +754,7 @@ void bglPolygonOffset(float viewdist, float dist)
 /* **** Color management helper functions for GLSL display/transform ***** */
 
 /* Draw given image buffer on a screen using GLSL for display transform */
-void glaDrawImBuf_glsl_clipping(ImBuf *ibuf, float x, float y, int zoomfilter,
+void glaDrawImBuf_glsl_clipping(ImBuf *ibuf, float x, float y, int zoomfilter, float alpha,
                                 ColorManagedViewSettings *view_settings,
                                 ColorManagedDisplaySettings *display_settings,
                                 float clip_min_x, float clip_min_y,
@@ -795,7 +795,7 @@ void glaDrawImBuf_glsl_clipping(ImBuf *ibuf, float x, float y, int zoomfilter,
 		}
 
 		if (ok) {
-			glColor4f(1.0, 1.0, 1.0, 1.0);
+			glColor4f(1.0, 1.0, 1.0, alpha);
 
 			if (ibuf->rect_float) {
 				int format = 0;
@@ -835,7 +835,7 @@ void glaDrawImBuf_glsl_clipping(ImBuf *ibuf, float x, float y, int zoomfilter,
 
 		if (display_buffer) {
 			glaDrawPixelsAuto_clipping(x, y, ibuf->x, ibuf->y, GL_RGBA, GL_UNSIGNED_BYTE,
-			                           zoomfilter, display_buffer,
+			                           zoomfilter, alpha, display_buffer,
 			                           clip_min_x, clip_min_y, clip_max_x, clip_max_y);
 		}
 
@@ -843,18 +843,18 @@ void glaDrawImBuf_glsl_clipping(ImBuf *ibuf, float x, float y, int zoomfilter,
 	}
 }
 
-void glaDrawImBuf_glsl(ImBuf *ibuf, float x, float y, int zoomfilter,
+void glaDrawImBuf_glsl(ImBuf *ibuf, float x, float y, int zoomfilter, float alpha,
                        ColorManagedViewSettings *view_settings,
                        ColorManagedDisplaySettings *display_settings)
 {
-	glaDrawImBuf_glsl_clipping(ibuf, x, y, zoomfilter, view_settings, display_settings,
+	glaDrawImBuf_glsl_clipping(ibuf, x, y, zoomfilter, alpha, view_settings, display_settings,
 	                           0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 void glaDrawImBuf_glsl_ctx_clipping(const bContext *C,
                                     ImBuf *ibuf,
                                     float x, float y,
-                                    int zoomfilter,
+                                    int zoomfilter, float alpha,
                                     float clip_min_x, float clip_min_y,
                                     float clip_max_x, float clip_max_y)
 {
@@ -863,13 +863,13 @@ void glaDrawImBuf_glsl_ctx_clipping(const bContext *C,
 
 	IMB_colormanagement_display_settings_from_ctx(C, &view_settings, &display_settings);
 
-	glaDrawImBuf_glsl_clipping(ibuf, x, y, zoomfilter, view_settings, display_settings,
+	glaDrawImBuf_glsl_clipping(ibuf, x, y, zoomfilter, alpha, view_settings, display_settings,
 	                           clip_min_x, clip_min_y, clip_max_x, clip_max_y);
 }
 
-void glaDrawImBuf_glsl_ctx(const bContext *C, ImBuf *ibuf, float x, float y, int zoomfilter)
+void glaDrawImBuf_glsl_ctx(const bContext *C, ImBuf *ibuf, float x, float y, int zoomfilter, float alpha)
 {
-	glaDrawImBuf_glsl_ctx_clipping(C, ibuf, x, y, zoomfilter, 0.0f, 0.0f, 0.0f, 0.0f);
+	glaDrawImBuf_glsl_ctx_clipping(C, ibuf, x, y, zoomfilter, alpha, 0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 void cpack(unsigned int x)

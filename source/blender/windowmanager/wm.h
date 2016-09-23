@@ -33,6 +33,15 @@
 
 struct wmWindow;
 struct ReportList;
+struct wmEvent;
+struct wmOperatorType;
+struct PointerRNA;
+struct PropertyRNA;
+struct wmOperator;
+
+#include "manipulators/wm_manipulator_wmapi.h" /* manipulators wm API */
+
+#include "manipulators/wm_manipulator_wmapi.h"
 
 typedef struct wmPaintCursor {
 	struct wmPaintCursor *next, *prev;
@@ -42,6 +51,7 @@ typedef struct wmPaintCursor {
 	int (*poll)(struct bContext *C);
 	void (*draw)(bContext *C, int, int, void *customdata);
 } wmPaintCursor;
+
 
 extern void wm_close_and_free(bContext *C, wmWindowManager *);
 extern void wm_close_and_free_all(bContext *C, ListBase *);
@@ -87,6 +97,7 @@ void wm_stereo3d_set_cancel(bContext *C, wmOperator *op);
 /* init operator properties */
 void wm_open_init_load_ui(wmOperator *op, bool use_prefs);
 void wm_open_init_use_scripts(wmOperator *op, bool use_prefs);
+
 
 /* hack to store circle select size - campbell, must replace with nice operator memory */
 #define GESTURE_MEMORY

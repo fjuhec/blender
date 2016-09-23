@@ -35,10 +35,12 @@
 /* ******************* Registration Function ********************** */
 
 struct ARegion;
+struct EnumPropertyItem;
 struct ListBase;
 struct Object;
 struct View3D;
 struct bContext;
+struct uiLayout;
 struct wmEvent;
 struct wmKeyConfig;
 struct wmKeyMap;
@@ -46,6 +48,8 @@ struct wmOperatorType;
 struct Main;
 struct SnapObjectContext;
 struct SnapObjectParams;
+struct wmWindowManager;
+struct PointerRNA;
 
 void transform_keymap_for_space(struct wmKeyConfig *keyconf, struct wmKeyMap *keymap, int spaceid);
 void transform_operatortypes(void);
@@ -109,9 +113,13 @@ enum TfmMode {
 bool calculateTransformCenter(struct bContext *C, int centerMode, float cent3d[3], float cent2d[2]);
 
 struct TransInfo;
+struct ScrArea;
 struct Base;
 struct Scene;
 struct Object;
+struct wmManipulator;
+struct wmManipulatorGroup;
+struct wmManipulatorGroupType;
 struct wmOperator;
 
 /* UNUSED */
@@ -152,10 +160,17 @@ int BIF_countTransformOrientation(const struct bContext *C);
 
 void Transform_Properties(struct wmOperatorType *ot, int flags);
 
-/* view3d manipulators */
+/* transform manipulators */
 
-int BIF_do_manipulator(struct bContext *C, const struct wmEvent *event, struct wmOperator *op);
-void BIF_draw_manipulator(const struct bContext *C);
+void TRANSFORM_WGT_manipulator(struct wmManipulatorGroupType *wgt);
+
+void TRANSFORM_WGT_object(struct wmManipulatorGroupType *wgt);
+
+bool WIDGETGROUP_manipulator2d_poll(const struct bContext *C, struct wmManipulatorGroupType *wgrouptype);
+void WIDGETGROUP_manipulator2d_init(const struct bContext *C, struct wmManipulatorGroup *wgroup);
+void WIDGETGROUP_manipulator2d_refresh(const struct bContext *C, struct wmManipulatorGroup *wgroup);
+void WIDGETGROUP_manipulator2d_draw_prepare(const struct bContext *C, struct wmManipulatorGroup *wgroup);
+
 
 /* Snapping */
 

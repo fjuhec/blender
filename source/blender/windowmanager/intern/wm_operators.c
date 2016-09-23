@@ -175,6 +175,10 @@ void WM_operatortype_append(void (*opfunc)(wmOperatorType *))
 		ot->name = N_("Dummy Name");
 	}
 
+	if (ot->mgrouptype) {
+		ot->mgrouptype->flag |= WM_MANIPULATORGROUPTYPE_OP;
+	}
+
 	/* XXX All ops should have a description but for now allow them not to. */
 	RNA_def_struct_ui_text(ot->srna, ot->name, ot->description ? ot->description : UNDOCUMENTED_OPERATOR_TIP);
 	RNA_def_struct_identifier(ot->srna, ot->idname);
@@ -491,6 +495,9 @@ void WM_operatortype_remove_ptr(wmOperatorType *ot)
 	BLI_ghash_remove(global_ops_hash, ot->idname, NULL, NULL);
 
 	WM_keyconfig_update_operatortype();
+	if (ot->mgrouptype) {
+		WM_manipulatorgrouptype_unregister(NULL, G.main, ot->mgrouptype);
+	}
 
 	MEM_freeN(ot);
 }
@@ -4170,6 +4177,10 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_previews_ensure);
 	WM_operatortype_append(WM_OT_previews_clear);
 	WM_operatortype_append(WM_OT_doc_view_manual_ui_context);
+
+	/* manipulators */
+	WM_operatortype_append(MANIPULATORGROUP_OT_manipulator_select);
+	WM_operatortype_append(MANIPULATORGROUP_OT_manipulator_tweak);
 }
 
 /* circleselect-like modal operators */
@@ -4475,6 +4486,7 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	RNA_float_set(kmi->ptr, "value", 1.0f / 1.5f);
 #endif /* WITH_INPUT_NDOF */
 
+	wm_manipulators_keymap(keyconf);
 	gesture_circle_modal_keymap(keyconf);
 	gesture_border_modal_keymap(keyconf);
 	gesture_zoom_border_modal_keymap(keyconf);

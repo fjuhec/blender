@@ -1438,6 +1438,7 @@ static void write_pose(WriteData *wd, bPose *pose)
 		}
 
 		write_constraints(wd, &chan->constraints);
+		writestruct(wd, DATA, bFaceMap, 1, chan->fmap);
 
 		write_motionpath(wd, chan->mpath);
 
@@ -1473,6 +1474,13 @@ static void write_defgroups(WriteData *wd, ListBase *defbase)
 {
 	for (bDeformGroup *defgroup = defbase->first; defgroup; defgroup = defgroup->next) {
 		writestruct(wd, DATA, bDeformGroup, 1, defgroup);
+	}
+}
+
+static void write_fmaps(WriteData *wd, ListBase *fbase)
+{
+	for (bFaceMap *fmap = fbase->first; fmap; fmap = fmap->next) {
+		writestruct(wd, DATA, bFaceMap, 1, fmap);
 	}
 }
 
@@ -1636,6 +1644,7 @@ static void write_objects(WriteData *wd, ListBase *idbase)
 
 			write_pose(wd, ob->pose);
 			write_defgroups(wd, &ob->defbase);
+			write_fmaps(wd, &ob->fmaps);
 			write_constraints(wd, &ob->constraints);
 			write_motionpath(wd, ob->mpath);
 
@@ -1922,6 +1931,10 @@ static void write_customdata(
 		}
 		else if (layer->type == CD_GRID_PAINT_MASK) {
 			write_grid_paint_mask(wd, count, layer->data);
+		}
+		else if (layer->type == CD_FACEMAP) {
+			const int *layer_data = layer->data;
+			writedata(wd, DATA, sizeof(*layer_data) * count, layer_data);
 		}
 		else {
 			CustomData_file_write_info(layer->type, &structname, &structnum);
@@ -2842,11 +2855,15 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 					ListBase tmpGhosts = sipo->ghostCurves;
 
 					/* temporarily disable ghost curves when saving */
-					sipo->ghostCurves.first = sipo->ghostCurves.last = NULL;
-
+					sipo->ghostCurves.first= sipo->ghostCurves.last= NULL;
+					
 					writestruct(wd, DATA, SpaceIpo, 1, sl);
 					if (sipo->ads) {
 						writestruct(wd, DATA, bDopeSheet, 1, sipo->ads);
+					}
+
+					if (sipo->backdrop_camera) {
+						writestruct(wd, DATA, Object, 1, sipo->backdrop_camera);
 					}
 
 					/* reenable ghost curves */

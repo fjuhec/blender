@@ -64,6 +64,14 @@ typedef struct bDeformGroup {
 	/* need this flag for locking weights */
 	char flag, pad[7];
 } bDeformGroup;
+
+/* Face Maps*/
+typedef struct bFaceMap {
+	struct bFaceMap *next, *prev;
+	char name[64];  /* MAX_VGROUP_NAME */
+} bFaceMap;
+
+
 #define MAX_VGROUP_NAME 64
 
 /* bDeformGroup->flag */
@@ -136,12 +144,15 @@ typedef struct Object {
 	
 	bAnimVizSettings avs;	/* settings for visualization of object-transform animation */
 	bMotionPath *mpath;		/* motion path cache for this object */
-	
+
+	struct wmManipulatorGroup *wgroup; /* group of widgets assigned to this object */
+
 	ListBase constraintChannels  DNA_DEPRECATED; // XXX deprecated... old animation system
 	ListBase effect  DNA_DEPRECATED;             // XXX deprecated... keep for readfile
 	ListBase defbase;   /* list of bDeformGroup (vertex groups) names and flag only */
 	ListBase modifiers; /* list of ModifierData structures */
-
+	ListBase fmaps;     /* list of facemaps */
+	
 	int mode;           /* Local object mode */
 	int restore_mode;   /* Keep track of what mode to return to after toggling a mode */
 
@@ -247,6 +258,8 @@ typedef struct Object {
 
 	short index;			/* custom index, for renderpasses */
 	unsigned short actdef;	/* current deformation group, note: index starts at 1 */
+	unsigned short actfmap;	/* current face map, note: index starts at 1 */
+	unsigned short pad3[3];
 	float col[4];			/* object color */
 
 	int gameflag;
@@ -278,6 +291,7 @@ typedef struct Object {
 	struct CurveCache *curve_cache;
 
 	struct DerivedMesh *derivedDeform, *derivedFinal;
+	void *pad4; /* 32 bit only */
 	uint64_t lastDataMask;   /* the custom data layer mask that was last used to calculate derivedDeform and derivedFinal */
 	uint64_t customdata_mask; /* (extra) custom data layer mask to use for creating derivedmesh, set by depsgraph */
 	unsigned int state;			/* bit masks of game controllers that are active */

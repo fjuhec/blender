@@ -91,6 +91,7 @@
 #include "ED_screen.h"
 #include "ED_util.h"
 #include "ED_image.h"
+#include "ED_transform.h" /* for object manipulator widgets */
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -2176,6 +2177,42 @@ void OBJECT_OT_game_physics_copy(struct wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static int object_widget_add_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Object *ob = ED_object_active_context((bContext *)C);
+	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
+	        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_MANIPULATORMAPTYPE_3D});
+	wmManipulatorGroupType *wgrouptype = WM_manipulatorgrouptype_append(wmaptype, TRANSFORM_WGT_object);
+	/* assign the objects id name to the widget */
+	strcpy(wgrouptype->idname, ob->id.name);
+
+	WM_main_add_notifier(NC_OBJECT | ND_DRAW, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void OBJECT_OT_widget_add(wmOperatorType *ot)
+{
+	PropertyRNA *prop;
+
+	/* identifiers */
+	ot->name = "Add Widget";
+	ot->description = "Add a widget to the active object";
+	ot->idname = "OBJECT_OT_widget_add";
+
+	/* api callbacks */
+	ot->invoke = WM_menu_invoke;
+	ot->exec = object_widget_add_exec;
+	ot->poll = ED_operator_object_active;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
+	prop = RNA_def_enum(ot->srna, "type", rna_enum_wm_widget_type_items, 0, "Type", "Select the type of widget to add");
+	ot->prop = prop;
 }
 
 /* generic utility function */

@@ -85,6 +85,7 @@
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
 
+#include "GPU_buffers.h"
 #include "GPU_draw.h"
 #include "GPU_select.h"
 #include "GPU_basic_shader.h"
@@ -7293,6 +7294,52 @@ static void draw_object_mesh_instance(Scene *scene, View3D *v3d, RegionView3D *r
 	if (edm) edm->release(edm);
 	if (dm) dm->release(dm);
 }
+
+void ED_draw_object_facemap(Scene *scene, Object *ob, const float col[4], const int facemap)
+{
+	DerivedMesh *dm = NULL;
+
+	/* happens on undo */
+	if (ob->type != OB_MESH || !ob->data)
+		return;
+
+	dm = mesh_get_derived_final(scene, ob, CD_MASK_BAREMESH);
+	if (!dm || !CustomData_has_layer(&dm->polyData, CD_FACEMAP))
+		return;
+
+	DM_update_materials(dm, ob);
+
+	glFrontFace((ob->transflag & OB_NEG_SCALE) ? GL_CW : GL_CCW);
+	
+	/* add polygon offset so we draw above the original surface */
+	glPolygonOffset(1.0, 1.0);
+
+	dm->totfmaps = BLI_listbase_count(&ob->fmaps);
+
+	GPU_facemap_setup(dm);
+
+	glColor4fv(col);
+
+	glPushAttrib(GL_ENABLE_BIT);
+	glEnable(GL_BLEND);
+	glDisable(GL_LIGHTING);
+
+	/* always draw using backface culling */
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+
+	if (dm->drawObject->facemapindices) {
+		glDrawElements(GL_TRIANGLES, dm->drawObject->facemap_count[facemap] * 3, GL_UNSIGNED_INT,
+		               (int *)NULL + dm->drawObject->facemap_start[facemap] * 3);
+	}
+	glPopAttrib();
+
+	GPU_buffers_unbind();
+
+	glPolygonOffset(0.0, 0.0);
+	dm->release(dm);
+}
+
 
 void draw_object_instance(Scene *scene, View3D *v3d, RegionView3D *rv3d, Object *ob, const char dt, int outline)
 {

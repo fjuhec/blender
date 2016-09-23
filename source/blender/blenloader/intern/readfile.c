@@ -122,6 +122,7 @@
 #include "BKE_curve.h"
 #include "BKE_depsgraph.h"
 #include "BKE_effect.h"
+#include "BKE_facemap.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h" // for G
 #include "BKE_group.h"
@@ -3271,6 +3272,14 @@ static void lib_link_pose(FileData *fd, Main *bmain, Object *ob, bPose *pose)
 
 		pchan->bone = BLI_ghash_lookup(bone_hash, pchan->name);
 		
+		pchan->fmap_object = newlibadr_us(fd, arm->id.lib, pchan->fmap_object);
+		if (pchan->fmap_object) {
+			bFaceMap *fmap = fmap_find_name(pchan->fmap_object, pchan->fmap->name);
+			/* fix fmap pointer now that we've got updated fmap_object */
+			MEM_freeN(pchan->fmap);
+			pchan->fmap = fmap;
+		}
+
 		pchan->custom = newlibadr_us(fd, arm->id.lib, pchan->custom);
 		if (UNLIKELY(pchan->bone == NULL)) {
 			rebuild = true;
@@ -4635,6 +4644,7 @@ static void direct_link_pose(FileData *fd, bPose *pose)
 		pchan->bone = NULL;
 		pchan->parent = newdataadr(fd, pchan->parent);
 		pchan->child = newdataadr(fd, pchan->child);
+		pchan->fmap = newdataadr(fd, pchan->fmap);
 		pchan->custom_tx = newdataadr(fd, pchan->custom_tx);
 		
 		pchan->bbone_prev = newdataadr(fd, pchan->bbone_prev);
@@ -4959,6 +4969,7 @@ static void direct_link_object(FileData *fd, Object *ob)
 		direct_link_motionpath(fd, ob->mpath);
 	
 	link_list(fd, &ob->defbase);
+	link_list(fd, &ob->fmaps);
 // XXX deprecated - old animation system <<<
 	direct_link_nlastrips(fd, &ob->nlastrips);
 	link_list(fd, &ob->constraintChannels);
@@ -5922,6 +5933,7 @@ static void lib_link_screen(FileData *fd, Main *main)
 							ads->source = newlibadr(fd, sc->id.lib, ads->source);
 							ads->filter_grp = newlibadr(fd, sc->id.lib, ads->filter_grp);
 						}
+						sipo->backdrop_camera = newlibadr(fd, sc->id.lib, sipo->backdrop_camera);
 					}
 					else if (sl->spacetype == SPACE_BUTS) {
 						SpaceButs *sbuts = (SpaceButs *)sl;
@@ -6268,6 +6280,7 @@ void blo_lib_link_screen_restore(Main *newmain, bScreen *curscreen, Scene *cursc
 						if (ads->filter_grp)
 							ads->filter_grp = restore_pointer_by_name(id_map, (ID *)ads->filter_grp, USER_IGNORE);
 					}
+					sipo->backdrop_camera = restore_pointer_by_name(id_map, (ID *)sipo->backdrop_camera, USER_IGNORE);
 					
 					/* force recalc of list of channels (i.e. includes calculating F-Curve colors)
 					 * thus preventing the "black curves" problem post-undo
@@ -6510,6 +6523,7 @@ static void direct_link_region(FileData *fd, ARegion *ar, int spacetype)
 	BLI_listbase_clear(&ar->panels_category);
 	BLI_listbase_clear(&ar->handlers);
 	BLI_listbase_clear(&ar->uiblocks);
+	BLI_listbase_clear(&ar->manipulator_maps);
 	ar->headerstr = NULL;
 	ar->swinid = 0;
 	ar->type = NULL;
@@ -8780,6 +8794,7 @@ static void expand_pose(FileData *fd, Main *mainvar, bPose *pose)
 	
 	for (chan = pose->chanbase.first; chan; chan = chan->next) {
 		expand_constraints(fd, mainvar, &chan->constraints);
+		expand_doit(fd, mainvar, chan->fmap_object);
 		expand_doit(fd, mainvar, chan->custom);
 	}
 }

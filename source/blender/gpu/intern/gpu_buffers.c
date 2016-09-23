@@ -93,6 +93,8 @@ const GPUBufferTypeSettings gpu_buffer_type_settings[] = {
     {GL_ELEMENT_ARRAY_BUFFER, 4},
     /* triangles, 1 point since we are allocating from tottriangle points, which account for all points */
     {GL_ELEMENT_ARRAY_BUFFER, 1},
+    /* facemap */
+    {GL_ELEMENT_ARRAY_BUFFER, 3},
 };
 
 #define MAX_GPU_ATTRIB_DATA 32
@@ -426,6 +428,10 @@ void GPU_drawobject_free(DerivedMesh *dm)
 #ifdef USE_GPU_POINT_LINK
 	MEM_freeN(gdo->vert_points_mem);
 #endif
+	if (gdo->facemap_start)
+		MEM_freeN(gdo->facemap_start);
+	if (gdo->facemap_count)
+		MEM_freeN(gdo->facemap_count);
 	GPU_buffer_free(gdo->points);
 	GPU_buffer_free(gdo->normals);
 	GPU_buffer_free(gdo->uv);
@@ -434,6 +440,7 @@ void GPU_drawobject_free(DerivedMesh *dm)
 	GPU_buffer_free(gdo->edges);
 	GPU_buffer_free(gdo->uvedges);
 	GPU_buffer_free(gdo->triangles);
+	GPU_buffer_free(gdo->facemapindices);
 
 	MEM_freeN(gdo);
 	dm->drawObject = NULL;
@@ -544,6 +551,8 @@ static GPUBuffer **gpu_drawobject_buffer_from_type(GPUDrawObject *gdo, GPUBuffer
 			return &gdo->uvedges;
 		case GPU_BUFFER_TRIANGLES:
 			return &gdo->triangles;
+		case GPU_BUFFER_FACEMAP:
+			return &gdo->facemapindices;
 		default:
 			return NULL;
 	}
@@ -569,6 +578,8 @@ static size_t gpu_buffer_size_from_type(DerivedMesh *dm, GPUBufferType type)
 		case GPU_BUFFER_UVEDGE:
 			return sizeof(int) * components * dm->drawObject->tot_loop_verts;
 		case GPU_BUFFER_TRIANGLES:
+			return sizeof(int) * components * dm->drawObject->tot_triangle_point;
+		case GPU_BUFFER_FACEMAP:
 			return sizeof(int) * components * dm->drawObject->tot_triangle_point;
 		default:
 			return -1;
@@ -740,6 +751,24 @@ void GPU_triangle_setup(struct DerivedMesh *dm)
 		return;
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, dm->drawObject->triangles->id);
+	GLStates |= GPU_BUFFER_ELEMENT_STATE;
+}
+
+void GPU_facemap_setup(DerivedMesh *dm)
+{
+	if (!gpu_buffer_setup_common(dm, GPU_BUFFER_FACEMAP, false))
+		return;
+	
+	if (!gpu_buffer_setup_common(dm, GPU_BUFFER_VERTEX, false))
+		return;
+
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glBindBuffer(GL_ARRAY_BUFFER_ARB, dm->drawObject->points->id);
+	glVertexPointer(3, GL_FLOAT, 0, 0);
+	
+	GLStates |= GPU_BUFFER_VERTEX_STATE;
+	glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, dm->drawObject->facemapindices->id);
+	
 	GLStates |= GPU_BUFFER_ELEMENT_STATE;
 }
 

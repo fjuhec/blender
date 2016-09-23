@@ -39,8 +39,13 @@
 
 /* dna-savable wmStructs here */
 #include "DNA_windowmanager_types.h"
+#include "DNA_listBase.h"
 #include "WM_keymap.h"
 #include "BLI_compiler_attrs.h"
+
+/* Include external manipulator API's */
+#include "manipulators/WM_manipulator_api.h"
+#include "manipulators/WM_manipulator_library.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,12 +69,17 @@ struct wmDrag;
 struct ImBuf;
 struct ImageFormatData;
 struct ARegion;
+struct Main;
+struct Object;
 
 #ifdef WITH_INPUT_NDOF
 struct wmNDOFMotionData;
 #endif
 
 typedef struct wmJob wmJob;
+typedef struct wmManipulator wmManipulator;
+typedef struct wmManipulatorMap wmManipulatorMap;
+typedef struct wmManipulatorMapType wmManipulatorMapType;
 
 /* general API */
 void		WM_init_state_size_set		(int stax, int stay, int sizx, int sizy);
@@ -512,6 +522,7 @@ void        WM_event_ndof_to_quat(const struct wmNDOFMotionData *ndof, float q[4
 
 float       WM_event_tablet_data(const struct wmEvent *event, int *pen_flip, float tilt[2]);
 bool        WM_event_is_tablet(const struct wmEvent *event);
+
 
 #ifdef WITH_INPUT_IME
 bool        WM_event_is_ime_switch(const struct wmEvent *event);
