@@ -15,30 +15,39 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
+ * The Original Code is Copyright (C) 2014 Blender Foundation.
+ * All rights reserved.
+ *
+ * Contributor(s): Sergey Sharybin
+ *
  * ***** END GPL LICENSE BLOCK *****
  */
-#ifndef __BKE_BLENDER_VERSION_H__
-#define __BKE_BLENDER_VERSION_H__
 
-/** \file BKE_blender_version.h
- *  \ingroup bke
- */
+struct VertexData {
+	vec4 position;
+	vec3 normal;
+	vec2 uv;
+};
 
-/* these lines are grep'd, watch out for our not-so-awesome regex
- * and keep comment above the defines.
- * Use STRINGIFY() rather than defining with quotes */
-#define BLENDER_VERSION         278
-#define BLENDER_SUBVERSION      1
-/* Several breakages with 270, e.g. constraint deg vs rad */
-#define BLENDER_MINVERSION      270
-#define BLENDER_MINSUBVERSION   6
+in vec3 normal;
+in vec4 position;
 
-/* used by packaging tools */
-/* can be left blank, otherwise a,b,c... etc with no quotes */
-#define BLENDER_VERSION_CHAR
-/* alpha/beta/rc/release, docs use this */
-#define BLENDER_VERSION_CYCLE   alpha
+uniform mat4 modelViewMatrix;
+uniform mat3 normalMatrix;
 
-extern char versionstr[]; /* from blender.c */
+out block {
+	VertexData v;
+} outpt;
 
-#endif  /* __BKE_BLENDER_VERSION_H__ */
+void main()
+{
+	outpt.v.position = modelViewMatrix * position;
+	outpt.v.normal = normalize(normalMatrix * normal);
+
+#if __VERSION__ < 140
+	/* Some compilers expects gl_Position to be written.
+	 * It's not needed once we explicitly switch to GLSL 1.40 or above.
+	 */
+	gl_Position = outpt.v.position;
+#endif
+}
