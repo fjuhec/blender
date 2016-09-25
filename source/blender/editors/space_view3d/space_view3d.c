@@ -834,6 +834,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_TRANSFORM:
 				case ND_OB_ACTIVE:
 				case ND_OB_SELECT:
+				case ND_OB_PRESELECT:
 				case ND_OB_VISIBLE:
 				case ND_LAYER:
 				case ND_RENDER_OPTIONS:
@@ -885,6 +886,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_DATA:
 				case ND_VERTEX_GROUP:
 				case ND_SELECT:
+				case ND_PRESELECT:
 					ED_region_tag_redraw(ar);
 					break;
 			}
@@ -1062,6 +1064,7 @@ static void view3d_header_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(s
 				case ND_FRAME:
 				case ND_OB_ACTIVE:
 				case ND_OB_SELECT:
+				case ND_OB_PRESELECT:
 				case ND_OB_VISIBLE:
 				case ND_MODE:
 				case ND_LAYER:
@@ -1121,6 +1124,7 @@ static void view3d_buttons_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(
 				case ND_FRAME:
 				case ND_OB_ACTIVE:
 				case ND_OB_SELECT:
+				case ND_OB_PRESELECT:
 				case ND_OB_VISIBLE:
 				case ND_MODE:
 				case ND_LAYER:
@@ -1153,6 +1157,7 @@ static void view3d_buttons_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(
 				case ND_DATA:
 				case ND_VERTEX_GROUP:
 				case ND_SELECT:
+				case ND_PRESELECT:
 					ED_region_tag_redraw(ar);
 					break;
 			}

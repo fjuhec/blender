@@ -205,6 +205,11 @@ int ED_operator_view3d_active(bContext *C)
 	return ed_spacetype_test(C, SPACE_VIEW3D);
 }
 
+int ED_operator_presel_view3d_active(bContext *C)
+{
+	return ((CTX_data_tool_settings(C)->presel_flags & SCE_PRESEL_ENABLED) && ed_spacetype_test(C, SPACE_VIEW3D));
+}
+
 int ED_operator_region_view3d_active(bContext *C)
 {
 	if (CTX_wm_region_view3d(C))

@@ -186,6 +186,8 @@ int     ED_operator_posemode(struct bContext *C);
 int     ED_operator_posemode_local(struct bContext *C);
 int     ED_operator_mask(struct bContext *C);
 
+int     ED_operator_presel_view3d_active(struct bContext *C);
+
 
 /* Cache display helpers */
 
