@@ -50,6 +50,8 @@ BMEditMesh *BKE_editmesh_create(BMesh *bm, const bool do_tessellate)
 		BKE_editmesh_tessface_calc(em);
 	}
 
+	BKE_editmesh_presel_new(em);
+
 	return em;
 }
 
@@ -75,6 +77,8 @@ BMEditMesh *BKE_editmesh_copy(BMEditMesh *em)
 	 * tessellation only when/if that copy ends up getting
 	 * used.*/
 	em_copy->looptris = NULL;
+
+	BKE_editmesh_presel_new(em_copy);
 
 	return em_copy;
 }
@@ -206,10 +210,52 @@ void BKE_editmesh_free(BMEditMesh *em)
 
 	BKE_editmesh_color_free(em);
 
+	BKE_editmesh_presel_free(em);
+
 	if (em->looptris) MEM_freeN(em->looptris);
 
 	if (em->bm)
 		BM_mesh_free(em->bm);
+}
+
+/* preselection */
+void BKE_editmesh_presel_new(BMEditMesh *em)
+{
+	em->presel_verts = BLI_gset_ptr_new("PSV");
+	em->presel_edges = BLI_gset_ptr_new("PSE");
+	em->presel_faces = BLI_gset_ptr_new("PSF");
+
+	em->last_presel = NULL;
+
+	em->presel_elem_table = NULL;
+
+	em->presel_table_size = 0;
+	em->presel_elem_flags = 0;
+}
+
+void BKE_editmesh_presel_clear(BMEditMesh *em)
+{
+	if (BLI_gset_size(em->presel_verts) > 0)
+		BLI_gset_clear(em->presel_verts, NULL);
+
+	if (BLI_gset_size(em->presel_edges) > 0)
+		BLI_gset_clear(em->presel_edges, NULL);
+
+	if (BLI_gset_size(em->presel_faces) > 0)
+		BLI_gset_clear(em->presel_faces, NULL);
+
+	em->last_presel = NULL;
+	em->presel_elem_flags = 0;
+}
+
+void BKE_editmesh_presel_free(BMEditMesh *em)
+{
+	/* free preselection item lists */
+	if (em->presel_verts) BLI_gset_free(em->presel_verts, NULL);
+	if (em->presel_edges) BLI_gset_free(em->presel_edges, NULL);
+	if (em->presel_faces) BLI_gset_free(em->presel_faces, NULL);
+
+	if (em->presel_elem_table) MEM_freeN(em->presel_elem_table);
 }
 
 void BKE_editmesh_color_free(BMEditMesh *em)

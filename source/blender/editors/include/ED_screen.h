@@ -187,6 +187,7 @@ int     ED_operator_posemode_local(struct bContext *C);
 int     ED_operator_mask(struct bContext *C);
 
 int     ED_operator_presel_view3d_active(struct bContext *C);
+int     ED_operator_presel_editmesh_region_view3d(struct bContext *C);
 
 
 /* Cache display helpers */

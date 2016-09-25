@@ -43,6 +43,7 @@
 #include "BKE_blender_undo.h"
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
+#include "BKE_editmesh.h"
 #include "BKE_global.h"
 
 #include "ED_util.h"
@@ -233,12 +234,14 @@ static void undo_clean_stack(bContext *C)
 void undo_editmode_step(bContext *C, int step)
 {
 	Object *obedit = CTX_data_edit_object(C);
+	float do_clear = false;
 	
 	/* prevent undo to happen on wrong object, stack can be a mix */
 	undo_clean_stack(C);
 	
 	if (step == 0) {
 		undo_restore(curundo, curundo->getdata(C), obedit->data);
+		do_clear = true;
 	}
 	else if (step == 1) {
 		
@@ -249,6 +252,7 @@ void undo_editmode_step(bContext *C, int step)
 			if (G.debug & G_DEBUG) printf("undo %s\n", curundo->name);
 			curundo = curundo->prev;
 			undo_restore(curundo, curundo->getdata(C), obedit->data);
+			do_clear = true;
 		}
 	}
 	else {
@@ -259,6 +263,7 @@ void undo_editmode_step(bContext *C, int step)
 		}
 		else {
 			undo_restore(curundo->next, curundo->getdata(C), obedit->data);
+			do_clear = true;
 			curundo = curundo->next;
 			if (G.debug & G_DEBUG) printf("redo %s\n", curundo->name);
 		}
@@ -266,6 +271,12 @@ void undo_editmode_step(bContext *C, int step)
 	
 	/* special case for editmesh, mode must be copied back to the scene */
 	if (obedit->type == OB_MESH) {
+		/* also, clear preselection if needed */
+		if (do_clear) {
+			BMEditMesh *em;
+			em = BKE_editmesh_from_object(obedit);
+			BKE_editmesh_presel_clear(em);
+		}
 		EDBM_selectmode_to_scene(C);
 	}
 
