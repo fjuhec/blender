@@ -2794,6 +2794,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	paint_last_stroke_update(scene, vc->ar, mval);
 
 	DAG_id_tag_update(ob->data, 0);
+
 	swap_m4m4(wpd->vc.rv3d->persmat, mat);
 
 	rcti r;
@@ -3679,7 +3680,6 @@ static void vpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 		MEM_freeN(vpd->mlooptag);
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
-	DAG_id_tag_update(&me->id, 0);
 
 	MEM_freeN(vpd);
 
