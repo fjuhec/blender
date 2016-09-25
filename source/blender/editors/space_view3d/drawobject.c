@@ -2403,6 +2403,36 @@ static void lattice_draw_verts(Lattice *lt, DispList *dl, BPoint *actbp, short s
 	glEnd();
 }
 
+static void lattice_draw_presel_verts(Lattice *lt, DispList *dl)
+{
+	BPoint *bp = lt->def;
+	const float *co = dl ? dl->verts : NULL;
+
+	UI_ThemeColor(TH_PRESEL_SELECT);
+
+	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE) + 2);
+	glBegin(GL_POINTS);
+
+	for (int w = 0; w < lt->pntsw; w++) {
+		int wxt = (w == 0 || w == lt->pntsw - 1);
+		for (int v = 0; v < lt->pntsv; v++) {
+			int vxt = (v == 0 || v == lt->pntsv - 1);
+			for (int u = 0; u < lt->pntsu; u++, bp++, co += 3) {
+				int uxt = (u == 0 || u == lt->pntsu - 1);
+				if (!(lt->flag & LT_OUTSIDE) || uxt || vxt || wxt) {
+					if (bp->hide == 0) {
+						if (bp->f1 & CU_PRESEL) {
+							glVertex3fv(dl ? co : bp->vec);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	glEnd();
+}
+
 static void drawlattice__point(Lattice *lt, DispList *dl, int u, int v, int w, int actdef_wcol)
 {
 	int index = ((w * lt->pntsv + v) * lt->pntsu) + u;
@@ -2468,7 +2498,7 @@ static void ensure_curve_cache(Scene *scene, Object *object)
 #endif
 
 /* lattice color is hardcoded, now also shows weightgroup values in edit mode */
-static void drawlattice(View3D *v3d, Object *ob)
+static void drawlattice(Scene *scene, View3D *v3d, Object *ob)
 {
 	Lattice *lt = ob->data;
 	DispList *dl;
@@ -2519,6 +2549,9 @@ static void drawlattice(View3D *v3d, Object *ob)
 
 		if (v3d->zbuf) glDisable(GL_DEPTH_TEST);
 		
+		if (scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) {
+			lattice_draw_presel_verts(lt, dl);
+		}
 		lattice_draw_verts(lt, dl, actbp, 0);
 		lattice_draw_verts(lt, dl, actbp, 1);
 		
@@ -6627,6 +6660,48 @@ static void drawvertsN(Nurb *nu, const char sel, const bool hide_handles, const 
 	glEnd();
 }
 
+static void drawpreselvertsN(Nurb *nu, const bool hide_handles)
+{
+	if (nu->hide) return;
+
+	UI_ThemeColor(TH_PRESEL_SELECT);
+
+	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE) + 2);
+	
+	glBegin(GL_POINTS);
+	
+	if (nu->type == CU_BEZIER) {
+
+		BezTriple *bezt = nu->bezt;
+		int a = nu->pntsu;
+		while (a--) {
+			if (bezt->hide == 0) {
+				if (hide_handles) {
+					if (bezt->f2 & CU_PRESEL) glVertex3fv(bezt->vec[1]);
+				}
+				else {
+					if (bezt->f1 & CU_PRESEL) glVertex3fv(bezt->vec[0]);
+					if (bezt->f2 & CU_PRESEL) glVertex3fv(bezt->vec[1]);
+					if (bezt->f3 & CU_PRESEL) glVertex3fv(bezt->vec[2]);
+				}
+			}
+			bezt++;
+		}
+	}
+	else {
+		BPoint *bp = nu->bp;
+		int a = nu->pntsu * nu->pntsv;
+		while (a--) {
+			if (bp->hide == 0) {
+				if (bp->f1 & CU_PRESEL) glVertex3fv(bp->vec);
+			}
+			bp++;
+		}
+	}
+	
+	glEnd();
+}
+
 static void editnurb_draw_active_poly(Nurb *nu)
 {
 	UI_ThemeColor(TH_ACTIVE_SPLINE);
@@ -6842,6 +6917,8 @@ static void draw_editnurb(
 	for (nu = nurb; nu; nu = nu->next) {
 		if (nu->type == CU_BEZIER && (cu->drawflag & CU_HIDE_HANDLES) == 0)
 			drawhandlesN(nu, 1, hide_handles);
+		if (ts->presel_flags & SCE_PRESEL_ENABLED)
+			drawpreselvertsN(nu, hide_handles);
 		drawvertsN(nu, 0, hide_handles, NULL);
 	}
 	
@@ -8216,7 +8293,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 #ifdef SEQUENCER_DAG_WORKAROUND
 						ensure_curve_cache(scene, ob);
 #endif
-						drawlattice(v3d, ob);
+						drawlattice(scene, v3d, ob);
 					}
 				}
 				break;

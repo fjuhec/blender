@@ -4277,7 +4277,7 @@ void CURVE_OT_make_segment(wmOperatorType *ot)
 
 /***************** pick select from 3d view **********************/
 
-bool ED_curve_editnurb_select_pick(bContext *C, const int mval[2], bool extend, bool deselect, bool toggle)
+bool ED_curve_editnurb_select_pick(bContext *C, const int mval[2], bool extend, bool deselect, bool toggle, bool presel)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	Curve *cu = obedit->data;
@@ -4296,7 +4296,32 @@ bool ED_curve_editnurb_select_pick(bContext *C, const int mval[2], bool extend, 
 	location[0] = mval[0];
 	location[1] = mval[1];
 
+	if (presel) {
+		ED_curve_presel_clear(editnurb);
+	}
+
 	if (ED_curve_pick_vert(&vc, 1, location, &nu, &bezt, &bp, &hand)) {
+		if (presel) {
+			if (bezt) {
+				if (hand == 1) {
+					select_beztriple(bezt, SELECT, CU_PRESEL, HIDDEN);
+				}
+				else if (hand == 0) {
+					bezt->f1 |= CU_PRESEL;
+				}
+				else {
+					bezt->f3 |= CU_PRESEL;
+				}
+			}
+			else {
+				select_bpoint(bp, SELECT, CU_PRESEL, HIDDEN);
+			}
+
+			WM_event_add_notifier(C, NC_GEOM | ND_PRESELECT, NULL);
+
+			return true;
+		}
+
 		if (extend) {
 			if (bezt) {
 				if (hand == 1) {
@@ -4391,6 +4416,10 @@ bool ED_curve_editnurb_select_pick(bContext *C, const int mval[2], bool extend, 
 		return true;
 	}
 	
+	if (presel) {
+		WM_event_add_notifier(C, NC_GEOM | ND_PRESELECT, NULL);
+	}
+
 	return false;
 }
 

@@ -130,6 +130,7 @@ void ED_operatortypes_curve(void)
 	WM_operatortype_append(CURVE_OT_select_nth);
 	WM_operatortype_append(CURVE_OT_select_similar);
 	WM_operatortype_append(CURVE_OT_shortest_path_pick);
+	WM_operatortype_append(CURVE_OT_shortest_path_presel);
 
 	WM_operatortype_append(CURVE_OT_switch_direction);
 	WM_operatortype_append(CURVE_OT_subdivide);
@@ -256,6 +257,11 @@ void ED_keymap_curve(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "deselect", true);
 
 	WM_keymap_add_item(keymap, "CURVE_OT_shortest_path_pick", SELECTMOUSE, KM_CLICK, KM_CTRL, 0);
+
+	/* preselection */
+	WM_keymap_add_item(keymap, "CURVE_OT_shortest_path_presel", MOUSEMOVE, KM_ANY, KM_CTRL, 0);
+	WM_keymap_add_item(keymap, "CURVE_OT_shortest_path_presel", LEFTCTRLKEY, KM_PRESS, KM_CTRL, 0);
+	WM_keymap_add_item(keymap, "CURVE_OT_shortest_path_presel", RIGHTCTRLKEY, KM_PRESS, KM_CTRL, 0);
 
 	WM_keymap_add_item(keymap, "CURVE_OT_separate", PKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_item(keymap, "CURVE_OT_split", YKEY, KM_PRESS, 0, 0);

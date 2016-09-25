@@ -449,6 +449,9 @@ enum {
 	CU_CHINFO_SMALLCAPS_CHECK = 1 << 5,  /* set at runtime, checks if case switching is needed */
 };
 
+/* used for BPoint and BezTriple preselection */
+#define CU_PRESEL			2
+
 /* mixed with KEY_LINEAR but define here since only curve supports */
 #define KEY_CU_EASE			3
 
