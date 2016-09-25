@@ -844,6 +844,21 @@ void LATTICE_OT_flip(wmOperatorType *ot)
 
 /****************************** Mouse Selection *************************/
 
+static void lattice_presel_clear(Lattice *lt)
+{
+	BPoint *bp;
+	int a;
+
+	bp = lt->editlatt->latt->def;
+
+	a = lt->editlatt->latt->pntsu * lt->editlatt->latt->pntsv * lt->editlatt->latt->pntsw;
+
+	while (a--) {
+		bp->f1 &= ~CU_PRESEL;
+		bp++;
+	}
+}
+
 static void findnearestLattvert__doClosest(void *userData, BPoint *bp, const float screen_co[2])
 {
 	struct { BPoint *bp; float dist; int select; float mval_fl[2]; } *data = userData;
@@ -877,7 +892,7 @@ static BPoint *findnearestLattvert(ViewContext *vc, const int mval[2], int sel)
 	return data.bp;
 }
 
-bool ED_lattice_select_pick(bContext *C, const int mval[2], bool extend, bool deselect, bool toggle)
+bool ED_lattice_select_pick(bContext *C, const int mval[2], bool extend, bool deselect, bool toggle, bool presel)
 {
 	ViewContext vc;
 	BPoint *bp = NULL;
@@ -885,9 +900,20 @@ bool ED_lattice_select_pick(bContext *C, const int mval[2], bool extend, bool de
 
 	view3d_set_viewcontext(C, &vc);
 	lt = ((Lattice *)vc.obedit->data)->editlatt->latt;
+
+	if (presel) {
+		lattice_presel_clear(lt);
+	}
+
 	bp = findnearestLattvert(&vc, mval, true);
 
 	if (bp) {
+		if (presel) {
+			bp->f1 |= CU_PRESEL;
+			WM_event_add_notifier(C, NC_GEOM | ND_PRESELECT, NULL);
+			return true;
+		}
+
 		if (extend) {
 			bp->f1 |= SELECT;
 		}
@@ -912,6 +938,10 @@ bool ED_lattice_select_pick(bContext *C, const int mval[2], bool extend, bool de
 		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
 
 		return true;
+	}
+
+	if (presel) {
+		WM_event_add_notifier(C, NC_GEOM | ND_PRESELECT, NULL);
 	}
 
 	return false;

@@ -43,6 +43,7 @@
 #include "BKE_curve.h"
 #include "BKE_fcurve.h"
 #include "BKE_report.h"
+#include "BKE_scene.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -263,6 +264,37 @@ void ED_curve_select_swap(EditNurb *editnurb, bool hide_handles)
 			a = nu->pntsu * nu->pntsv;
 			while (a--) {
 				swap_selection_bpoint(bp);
+				bp++;
+			}
+		}
+	}
+}
+
+/***************** preselection **********************/
+
+void ED_curve_presel_clear(ListBase *editnurb)
+{
+	Nurb *nu;
+	BPoint *bp;
+	BezTriple *bezt;
+	int a;
+
+	for (nu = editnurb->first; nu; nu = nu->next) {
+		if (nu->type == CU_BEZIER) {
+			bezt = nu->bezt;
+			a = nu->pntsu;
+			while (a--) {
+				bezt->f1 &= ~CU_PRESEL;
+				bezt->f2 &= ~CU_PRESEL;
+				bezt->f3 &= ~CU_PRESEL;
+				bezt++;
+			}
+		}
+		else {
+			bp = nu->bp;
+			a = nu->pntsu * nu->pntsv;
+			while (a--) {
+				bp->f1 &= ~CU_PRESEL;
 				bp++;
 			}
 		}
@@ -1539,7 +1571,7 @@ static float curve_calc_dist_span(Nurb *nu, int vert_src, int vert_dst)
 	return dist;
 }
 
-static void curve_select_shortest_path_curve(Nurb *nu, int vert_src, int vert_dst)
+static void curve_select_shortest_path_curve(Nurb *nu, int vert_src, int vert_dst, bool presel)
 {
 	const int u = nu->pntsu;
 	int i;
@@ -1559,10 +1591,10 @@ static void curve_select_shortest_path_curve(Nurb *nu, int vert_src, int vert_ds
 	i = vert_src;
 	while (true) {
 		if (nu->type & CU_BEZIER) {
-			select_beztriple(&nu->bezt[i], SELECT, SELECT, HIDDEN);
+			select_beztriple(&nu->bezt[i], SELECT, presel ? CU_PRESEL : SELECT, HIDDEN);
 		}
 		else {
-			select_bpoint(&nu->bp[i], SELECT, SELECT, HIDDEN);
+			select_bpoint(&nu->bp[i], SELECT, presel ? CU_PRESEL : SELECT, HIDDEN);
 		}
 
 		if (i == vert_dst) {
@@ -1572,7 +1604,7 @@ static void curve_select_shortest_path_curve(Nurb *nu, int vert_src, int vert_ds
 	}
 }
 
-static void curve_select_shortest_path_surf(Nurb *nu, int vert_src, int vert_dst)
+static void curve_select_shortest_path_surf(Nurb *nu, int vert_src, int vert_dst, bool presel)
 {
 	Heap *heap;
 
@@ -1646,10 +1678,10 @@ static void curve_select_shortest_path_surf(Nurb *nu, int vert_src, int vert_dst
 		i = 0;
 		while (vert_curr != vert_src && i++ < vert_num) {
 			if (nu->type == CU_BEZIER) {
-				select_beztriple(&nu->bezt[vert_curr], SELECT, SELECT, HIDDEN);
+				select_beztriple(&nu->bezt[vert_curr], SELECT, presel ? CU_PRESEL : SELECT, HIDDEN);
 			}
 			else {
-				select_bpoint(&nu->bp[vert_curr], SELECT, SELECT, HIDDEN);
+				select_bpoint(&nu->bp[vert_curr], SELECT, presel ? CU_PRESEL : SELECT, HIDDEN);
 			}
 			vert_curr = data[vert_curr].vert_prev;
 		}
@@ -1664,6 +1696,7 @@ static int edcu_shortest_path_pick_invoke(bContext *C, wmOperator *op, const wmE
 	Curve *cu = obedit->data;
 	Nurb *nu_src = BKE_curve_nurb_active_get(cu);
 	int vert_src = cu->actvert;
+	bool presel_op;
 
 	ViewContext vc;
 	Nurb *nu_dst;
@@ -1678,6 +1711,15 @@ static int edcu_shortest_path_pick_invoke(bContext *C, wmOperator *op, const wmE
 
 	view3d_operator_needs_opengl(C);
 	view3d_set_viewcontext(C, &vc);
+
+	presel_op = (vc.scene->toolsettings->presel_flags & SCE_PRESEL_OPERATOR) != 0;
+
+	if (presel_op) {
+		ListBase *editnurb = object_editcurve_get(obedit);
+
+		ED_curve_presel_clear(editnurb);
+		BKE_scene_base_presel_clear(vc.scene);
+	}
 
 	if (!ED_curve_pick_vert(&vc, 1, event->mval, &nu_dst, &bezt_dst, &bp_dst, NULL)) {
 		return OPERATOR_PASS_THROUGH;
@@ -1695,10 +1737,15 @@ static int edcu_shortest_path_pick_invoke(bContext *C, wmOperator *op, const wmE
 	}
 
 	if ((obedit->type == OB_SURF) && (nu_src->pntsv > 1)) {
-		curve_select_shortest_path_surf(nu_src, vert_src, vert_dst);
+		curve_select_shortest_path_surf(nu_src, vert_src, vert_dst, presel_op);
 	}
 	else {
-		curve_select_shortest_path_curve(nu_src, vert_src, vert_dst);
+		curve_select_shortest_path_curve(nu_src, vert_src, vert_dst, presel_op);
+	}
+
+	if (presel_op) {
+		WM_event_add_notifier(C, NC_GEOM | ND_PRESELECT, NULL);
+		return OPERATOR_FINISHED;
 	}
 
 	BKE_curve_nurb_vert_active_set(cu, nu_dst, vert_dst_p);
@@ -1720,6 +1767,32 @@ void CURVE_OT_shortest_path_pick(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static int edcu_shortest_path_presel_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	int retval;
+
+	ts->presel_flags |= SCE_PRESEL_OPERATOR;
+	retval = edcu_shortest_path_pick_invoke(C, op, event);
+	ts->presel_flags &= ~SCE_PRESEL_OPERATOR;
+
+	return retval;
+}
+
+void CURVE_OT_shortest_path_presel(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Presel Shortest Path";
+	ot->idname = "CURVE_OT_shortest_path_presel";
+	ot->description = "Preselect shortest path between two selections";
+
+	/* api callbacks */
+	ot->invoke = edcu_shortest_path_presel_invoke;
+	ot->poll = ED_operator_editsurfcurve_region_view3d;
+
+	/* flags */
 }
 
 /** \} */

@@ -2383,12 +2383,10 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
 				retval = ED_armature_select_pick(C, location, extend, deselect, toggle);
 		}
 		else if (obedit->type == OB_LATTICE) {
-			if (!presel_op) /* preselection not implemented */
-				retval = ED_lattice_select_pick(C, location, extend, deselect, toggle);
+			retval = ED_lattice_select_pick(C, location, extend, deselect, toggle, presel_op);
 		}
 		else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
-			if (!presel_op) /* preselection not implemented */
-				retval = ED_curve_editnurb_select_pick(C, location, extend, deselect, toggle);
+			retval = ED_curve_editnurb_select_pick(C, location, extend, deselect, toggle, presel_op);
 		}
 		else if (obedit->type == OB_MBALL) {
 			if (!presel_op) /* preselection not implemented */

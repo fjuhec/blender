@@ -505,6 +505,15 @@ int ED_operator_editsurfcurve_region_view3d(bContext *C)
 	return 0;
 }
 
+int ED_operator_presel_editsurfcurve_region_view3d(bContext *C)
+{
+	if ((CTX_data_tool_settings(C)->presel_flags & SCE_PRESEL_ENABLED) &&
+	     ED_operator_editsurfcurve(C) && CTX_wm_region_view3d(C))
+		return 1;
+
+	return 0;
+}
+
 int ED_operator_editcurve(bContext *C)
 {
 	Object *obedit = CTX_data_edit_object(C);
