@@ -3207,7 +3207,14 @@ class VIEW3D_PT_view3d_display(Panel):
         toolsettings = context.tool_settings
 
         col = layout.column()
-        col.prop(toolsettings, "use_presel", text="Preselection")
+        split = col.split()
+        split.prop(toolsettings, "use_presel", text="Preselection")
+        if (context.active_object and (context.mode == 'EDIT_MESH')):
+            row = split.row()
+            row.active = toolsettings.use_presel
+            row.prop(toolsettings, "flush_presel", text="Flush")
+
+        col = layout.column()
         col.prop(view, "show_only_render")
         col.prop(view, "show_world")
 

@@ -79,6 +79,18 @@ typedef struct BMEditMesh {
 
 	/*temp variables for x-mirror editing*/
 	int mirror_cdlayer; /* -1 is invalid */
+
+	/* preselecton item lists */
+	struct GSet *presel_verts;
+	struct GSet *presel_edges;
+	struct GSet *presel_faces;
+
+	struct BMElem *last_presel;
+
+	char *presel_elem_table;
+
+	int presel_table_size;
+	int presel_elem_flags;
 } BMEditMesh;
 
 /* editmesh.c */
@@ -89,6 +101,10 @@ BMEditMesh *BKE_editmesh_from_object(struct Object *ob);
 void        BKE_editmesh_free_derivedmesh(BMEditMesh *em);
 void        BKE_editmesh_free(BMEditMesh *em);
 void        BKE_editmesh_update_linked_customdata(BMEditMesh *em);
+
+void        BKE_editmesh_presel_new(BMEditMesh *em);
+void        BKE_editmesh_presel_clear(BMEditMesh *em);
+void        BKE_editmesh_presel_free(BMEditMesh *em);
 
 void        BKE_editmesh_color_free(BMEditMesh *em);
 void        BKE_editmesh_color_ensure(BMEditMesh *em, const char htype);

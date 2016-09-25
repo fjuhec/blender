@@ -40,6 +40,7 @@
 #include "BLI_buffer.h"
 #include "BLI_kdtree.h"
 #include "BLI_listbase.h"
+#include "BLI_linklist.h"
 
 #include "BKE_DerivedMesh.h"
 #include "BKE_context.h"
@@ -504,6 +505,488 @@ void EDBM_flag_disable_all(BMEditMesh *em, const char hflag)
 void EDBM_flag_enable_all(BMEditMesh *em, const char hflag)
 {
 	BM_mesh_elem_hflag_enable_all(em->bm, BM_VERT | BM_EDGE | BM_FACE, hflag, true);
+}
+
+/* preselection utils */
+void ED_vert_preselect_set(BMEditMesh *em, BMVert *v)
+{
+	BLI_assert(v->head.htype == BM_VERT);
+
+	if (BM_elem_flag_test(v, BM_ELEM_HIDDEN))
+		return;
+
+	BLI_gset_add(em->presel_verts, v);
+}
+
+void ED_edge_preselect_set(BMEditMesh *em, BMEdge *e)
+{
+	BLI_assert(e->head.htype == BM_EDGE);
+
+	if (BM_elem_flag_test(e, BM_ELEM_HIDDEN))
+		return;
+
+	BLI_gset_add(em->presel_edges, e);
+
+	if (em->selectmode & SCE_SELECT_VERTEX) {
+		ED_vert_preselect_set(em, e->v1);
+		ED_vert_preselect_set(em, e->v2);
+	}
+}
+
+void ED_face_preselect_set(BMEditMesh *em, BMFace *f)
+{
+	BLI_assert(f->head.htype == BM_FACE);
+
+	if (BM_elem_flag_test(f, BM_ELEM_HIDDEN))
+		return;
+
+	BLI_gset_add(em->presel_faces, f);
+
+	if (em->selectmode & SCE_SELECT_VERTEX) {
+		BMLoop *l_iter;
+		BMLoop *l_first;
+
+		l_iter = l_first = BM_FACE_FIRST_LOOP(f);
+		do {
+			ED_vert_preselect_set(em, l_iter->v);
+		} while ((l_iter = l_iter->next) != l_first);
+	}
+}
+
+void ED_elem_preselect_set(BMEditMesh *em, BMElem *ele)
+{
+	switch (ele->head.htype) {
+		case BM_VERT:
+			ED_vert_preselect_set(em, (BMVert *)ele);
+			break;
+		case BM_EDGE:
+			ED_edge_preselect_set(em, (BMEdge *)ele);
+			break;
+		case BM_FACE:
+			ED_face_preselect_set(em, (BMFace *)ele);
+			break;
+		default:
+			BLI_assert(0);
+			break;
+	}
+}
+
+bool ED_elem_preselect_test(BMEditMesh *em, BMElem *ele)
+{
+	if (ele == NULL)
+		return false;
+
+	if (ele->head.htype == BM_FACE) {
+		if (BLI_gset_haskey(em->presel_faces, ele)) {
+			return true;
+		}
+	}
+	else if (ele->head.htype == BM_EDGE) {
+		if (BLI_gset_haskey(em->presel_edges, ele)) {
+			return true;
+		}
+	}
+	else if (ele->head.htype == BM_VERT) {
+		if (BLI_gset_haskey(em->presel_verts, ele)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool presel_face_test_deselect(BMEditMesh *em, BMFace *f)
+{
+	BMLoop *l_iter;
+	BMLoop *l_first;
+
+	l_iter = l_first = BM_FACE_FIRST_LOOP(f);
+	do {
+		if (presel_elem_test_edge(em, l_iter->e) ||
+		    ((em->selectmode & SCE_SELECT_VERTEX) && presel_elem_test_vert(em, l_iter->v))) {
+			return true;
+		}
+	} while ((l_iter = l_iter->next) != l_first);
+
+	return false;
+}
+
+
+static bool presel_face_test_select(BMEditMesh *em, BMFace *f)
+{
+	BMLoop *l_iter;
+	BMLoop *l_first;
+	bool has_presel = false;
+
+	l_iter = l_first = BM_FACE_FIRST_LOOP(f);
+	do {
+		if (presel_elem_test_edge(em, l_iter->e) ||
+		    ((em->selectmode & SCE_SELECT_VERTEX) && presel_elem_test_vert(em, l_iter->v))) {
+			has_presel = true;
+		}
+		else if ((em->presel_elem_flags & PS_CLEAR) || BM_elem_flag_test(f, BM_ELEM_SELECT) ||
+		         !(BM_elem_flag_test(l_iter->e, BM_ELEM_SELECT) ||
+		           ((em->selectmode & SCE_SELECT_VERTEX) && BM_elem_flag_test(l_iter->v, BM_ELEM_SELECT)))) {
+			return false;
+		}
+	} while ((l_iter = l_iter->next) != l_first);
+
+	return has_presel;
+}
+
+static void presel_mesh_vert_edge_flush(BMEditMesh *em)
+{
+	BMesh *bm = em->bm;
+	BMEdge *e;
+	BMIter eiter;
+	bool has_edges = false;
+
+	BM_ITER_MESH (e, &eiter, bm, BM_EDGES_OF_MESH) {
+		if (!BM_elem_flag_test(e, BM_ELEM_HIDDEN) &&
+		    presel_elem_test_vert(em, e->v1) &&
+		    presel_elem_test_vert(em, e->v2))
+		{
+			presel_elem_set(em, e, BM_EDGE);
+			has_edges = true;
+		}
+	}
+
+	if (has_edges) em->presel_elem_flags |= BM_EDGE;
+}
+
+static void presel_elem_vert_edge_flush(BMEditMesh *em)
+{
+	GSetIterator gs_iter;
+	BMVert *v;
+	BMEdge *e;
+	BMIter eiter;
+	bool has_edges = false;
+
+	GSET_ITER(gs_iter, em->presel_verts) {
+		v = BLI_gsetIterator_getKey(&gs_iter);
+
+		BM_ITER_ELEM (e, &eiter, v, BM_EDGES_OF_VERT) {
+			if (presel_elem_test(em, e, PS_EDGE_TAG) == 0)
+			{
+				if (!BM_elem_flag_test(e, BM_ELEM_HIDDEN) &&
+				    presel_elem_test_vert(em, e->v1) &&
+				    presel_elem_test_vert(em, e->v2))
+				{
+					presel_elem_set(em, e, BM_EDGE);
+					has_edges = true;
+				}
+
+				presel_elem_set(em, e, PS_EDGE_TAG);
+			}
+		}
+	}
+
+	if (has_edges) em->presel_elem_flags |= BM_EDGE;
+}
+
+static void presel_mesh_vert_face_flush(BMEditMesh *em)
+{
+	BMesh *bm = em->bm;
+	BMFace *f;
+	BMIter fiter;
+	bool has_faces = false;
+
+	BM_ITER_MESH (f, &fiter, bm, BM_FACES_OF_MESH) {
+		if (BM_elem_flag_test(f, BM_ELEM_HIDDEN))
+			continue;
+
+		if (em->presel_elem_flags & PS_DESELECT) {
+			if (BM_elem_flag_test(f, BM_ELEM_SELECT) && presel_face_test_deselect(em, f)) {
+				presel_elem_set(em, f, BM_FACE);
+				has_faces = true;
+			}
+		}
+		else {
+			if (!BM_elem_flag_test(f, BM_ELEM_SELECT) && presel_face_test_select(em, f)) {
+				presel_elem_set(em, f, BM_FACE);
+				has_faces = true;
+			}
+		}
+	}
+
+	if (has_faces) em->presel_elem_flags |= BM_FACE;
+}
+
+static void presel_elem_vert_face_flush(BMEditMesh *em)
+{
+	GSetIterator gs_iter;
+	BMVert *v;
+	BMFace *f;
+	BMIter fiter;
+	bool has_faces = false;
+
+	GSET_ITER(gs_iter, em->presel_verts) {
+		v = BLI_gsetIterator_getKey(&gs_iter);
+
+		BM_ITER_ELEM (f, &fiter, v, BM_FACES_OF_VERT) {
+			if (BM_elem_flag_test(f, BM_ELEM_HIDDEN) || presel_elem_test(em, f, PS_FACE_TAG))
+				continue;
+
+			presel_elem_set(em, f, PS_FACE_TAG);
+
+			if (em->presel_elem_flags & PS_DESELECT) {
+				if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+					presel_elem_set(em, f, BM_FACE);
+					has_faces = true;
+				}
+			}
+			else {
+				if (!BM_elem_flag_test(f, BM_ELEM_SELECT) && presel_face_test_select(em, f)) {
+					presel_elem_set(em, f, BM_FACE);
+					has_faces = true;
+				}
+			}
+		}
+	}
+
+	if (has_faces) em->presel_elem_flags |= BM_FACE;
+}
+
+static void presel_mesh_edge_face_flush(BMEditMesh *em)
+{
+	BMesh *bm = em->bm;
+	BMFace *f;
+	BMIter fiter;
+	bool has_faces = false;
+
+	BM_ITER_MESH (f, &fiter, bm, BM_FACES_OF_MESH) {
+		if (BM_elem_flag_test(f, BM_ELEM_HIDDEN))
+			continue;
+
+		if (em->presel_elem_flags & PS_DESELECT) {
+			if (BM_elem_flag_test(f, BM_ELEM_SELECT) && presel_face_test_deselect(em, f)) {
+				presel_elem_set(em, f, BM_FACE);
+				has_faces = true;
+			}
+		}
+		else {
+			if (!BM_elem_flag_test(f, BM_ELEM_SELECT) && presel_face_test_select(em, f)) {
+				presel_elem_set(em, f, BM_FACE);
+				has_faces = true;
+			}
+		}
+	}
+
+	if (has_faces) em->presel_elem_flags |= BM_FACE;
+}
+
+static void presel_elem_edge_face_flush(BMEditMesh *em)
+{
+	GSetIterator gs_iter;
+	BMEdge *e;
+	BMFace *f;
+	BMIter fiter;
+	bool has_faces = false;
+
+	GSET_ITER(gs_iter, em->presel_edges) {
+		e = BLI_gsetIterator_getKey(&gs_iter);
+
+		BM_ITER_ELEM (f, &fiter, e, BM_FACES_OF_EDGE) {
+			if (BM_elem_flag_test(f, BM_ELEM_HIDDEN) || presel_elem_test(em, f, PS_FACE_TAG))
+				continue;
+
+			presel_elem_set(em, f, PS_FACE_TAG);
+
+			if (em->presel_elem_flags & PS_DESELECT) {
+				if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+					presel_elem_set(em, f, BM_FACE);
+					has_faces = true;
+				}
+			}
+			else {
+				if (!BM_elem_flag_test(f, BM_ELEM_SELECT) && presel_face_test_select(em, f)) {
+					presel_elem_set(em, f, BM_FACE);
+					has_faces = true;
+				}
+			}
+		}
+	}
+
+	if (has_faces) em->presel_elem_flags |= BM_FACE;
+}
+
+static void presel_elem_table_clear(BMEditMesh *em) {
+	BMesh *bm = em->bm;
+
+	int size = (bm->totvert > bm->totedge) ? (bm->totvert > bm->totface) ? bm->totvert : bm->totface : bm->totedge;
+
+	if (em->presel_elem_table && (em->presel_table_size != size)) {
+		MEM_freeN(em->presel_elem_table);
+		em->presel_elem_table = NULL;
+	}
+
+	if (em->presel_elem_table) {
+		memset(em->presel_elem_table, 0, em->presel_table_size);
+	}
+	else {
+		em->presel_table_size = size;
+		em->presel_elem_table = MEM_mallocN(em->presel_table_size, "PET");
+	}
+}
+
+void ED_presel_table_update(Scene *scene, BMEditMesh *em)
+{
+	GSetIterator gs_iter;
+	BMesh *bm;
+	bool flush_up, sel_verts;
+
+	if (em->presel_elem_flags & (BM_VERT | BM_EDGE| BM_FACE))
+		em->presel_elem_flags &= ~(BM_VERT | BM_EDGE| BM_FACE);
+
+	if ((scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) == 0)
+		return;
+
+	bm = em->bm;
+	flush_up = (scene->toolsettings->presel_flags & SCE_PRESEL_FLUSH) != 0;
+	sel_verts = (em->selectmode & SCE_SELECT_VERTEX) != 0;
+
+	BM_mesh_elem_index_ensure(bm, (BM_VERT | BM_EDGE | BM_FACE));
+	presel_elem_table_clear(em);
+
+	if (BLI_gset_size(em->presel_verts) > 0) {
+		BMVert *v;
+
+		GSET_ITER(gs_iter, em->presel_verts) {
+			v = BLI_gsetIterator_getKey(&gs_iter);
+
+			if (presel_elem_test_vert(em, v) == 0) {
+				presel_elem_set(em, v, BM_VERT);
+			}
+		}
+
+		em->presel_elem_flags |= BM_VERT;
+
+		if (flush_up && (bm->totedge > 0)) {
+			if ((bm->totedge / BLI_gset_size(em->presel_verts)) < 16) {
+				presel_mesh_vert_edge_flush(em);
+			}
+			else {
+				presel_elem_vert_edge_flush(em);
+			}
+		}
+
+		if (flush_up && (bm->totface > 0)) {
+			if ((bm->totface / BLI_gset_size(em->presel_verts)) < 21) {
+				presel_mesh_vert_face_flush(em);
+			}
+			else {
+				presel_elem_vert_face_flush(em);
+			}
+		}
+
+	}
+	else if (BLI_gset_size(em->presel_edges) > 0) {
+		BMEdge *e;
+
+		GSET_ITER(gs_iter, em->presel_edges) {
+			e = BLI_gsetIterator_getKey(&gs_iter);
+
+			if (presel_elem_test_edge(em, e) == 0) {
+				presel_elem_set(em, e, BM_EDGE);
+
+				if (sel_verts) {
+					if (presel_elem_test_vert(em, e->v1) == 0) {
+						presel_elem_set(em, e->v1, BM_VERT);
+					}
+					if (presel_elem_test_vert(em, e->v2) == 0) {
+						presel_elem_set(em, e->v2, BM_VERT);
+					}
+				}
+			}
+		}
+
+		em->presel_elem_flags |= ((sel_verts ? BM_VERT : 0) | BM_EDGE);
+
+		if (flush_up && (bm->totface > 0)) {
+			if (BLI_gset_size(em->presel_edges) * 8 > bm->totface) {
+				presel_mesh_edge_face_flush(em);
+			}
+			else {
+				presel_elem_edge_face_flush(em);
+			}
+		}
+	}
+	else if (BLI_gset_size(em->presel_faces) > 0) {
+		BMFace *f;
+		BMLoop *l_iter;
+		BMLoop *l_first;
+
+		GSET_ITER(gs_iter, em->presel_faces) {
+			f = BLI_gsetIterator_getKey(&gs_iter);
+
+			if (presel_elem_test_face(em, f) == 0) {
+				presel_elem_set(em, f, BM_FACE);
+
+				l_iter = l_first = BM_FACE_FIRST_LOOP(f);
+				do {
+					if (sel_verts &&
+					    (presel_elem_test_vert(em, l_iter->v) == 0)) {
+						presel_elem_set(em, l_iter->v, BM_VERT);
+					}
+					if (presel_elem_test_edge(em, l_iter->e) == 0) {
+						presel_elem_set(em, l_iter->e, BM_EDGE);
+					}
+				} while ((l_iter = l_iter->next) != l_first);
+			}
+		}
+
+		em->presel_elem_flags |= ((sel_verts ? BM_VERT : 0) | BM_EDGE | BM_FACE);
+	}
+}
+
+void ED_preselect_to_select(BMEditMesh *em, GSet *elems, const bool select, const bool select_clear)
+{
+	if (BLI_gset_size(elems) > 0) {
+		BMesh *bm = em->bm;
+		GSetIterator *iter;
+		BMElem *ele;
+
+		if (select_clear) {
+			EDBM_flag_disable_all(em, BM_ELEM_SELECT);
+		}
+
+		iter = BLI_gsetIterator_new(elems);
+
+		while (!(BLI_gsetIterator_done(iter))) {
+			ele = BLI_gsetIterator_getKey(iter);
+
+			if (!select) {
+				BM_select_history_remove(bm, ele);
+			}
+			BM_elem_select_set(bm, ele, select);
+
+			BLI_gsetIterator_step(iter);
+		}
+
+		BLI_gsetIterator_free(iter);
+	}
+}
+
+LinkNode *ED_preselect_to_linknode(GSet *elems)
+{
+	LinkNode *path = NULL;
+
+	if (BLI_gset_size(elems) > 0) {
+		GSetIterator *iter;
+		BMElem *ele;
+
+		iter = BLI_gsetIterator_new(elems);
+
+		while (!(BLI_gsetIterator_done(iter))) {
+			ele = BLI_gsetIterator_getKey(iter);
+			BLI_linklist_prepend(&path, ele);
+			BLI_gsetIterator_step(iter);
+		}
+
+		BLI_gsetIterator_free(iter);
+	}
+
+	return path;
 }
 
 /**

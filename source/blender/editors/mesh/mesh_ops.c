@@ -128,8 +128,10 @@ void ED_operatortypes_mesh(void)
 	WM_operatortype_append(MESH_OT_separate);
 	WM_operatortype_append(MESH_OT_dupli_extrude_cursor);
 	WM_operatortype_append(MESH_OT_loop_select);
+	WM_operatortype_append(MESH_OT_loop_presel);
 	WM_operatortype_append(MESH_OT_edge_face_add);
 	WM_operatortype_append(MESH_OT_shortest_path_pick);
+	WM_operatortype_append(MESH_OT_shortest_path_presel);
 	WM_operatortype_append(MESH_OT_select_similar);
 	WM_operatortype_append(MESH_OT_select_similar_region);
 	WM_operatortype_append(MESH_OT_select_mode);
@@ -160,6 +162,8 @@ void ED_operatortypes_mesh(void)
 	WM_operatortype_append(MESH_OT_drop_named_image);
 
 	WM_operatortype_append(MESH_OT_edgering_select);
+	WM_operatortype_append(MESH_OT_edgering_presel);
+	WM_operatortype_append(MESH_OT_pick_presel);
 	WM_operatortype_append(MESH_OT_loopcut);
 
 	WM_operatortype_append(MESH_OT_solidify);
@@ -371,6 +375,153 @@ void ED_keymap_mesh(wmKeyConfig *keyconf)
 	/* selection mode */
 	WM_keymap_add_menu(keymap, "VIEW3D_MT_edit_mesh_select_mode", TABKEY, KM_PRESS, KM_CTRL, 0);
 	
+	/* preselection */
+	/* this is a bit overkill but needed to monitor any relevant key press/release combination
+	 * ctrl and alt KM_RELEASE is monitored here to switch from (pick)<->(path/loop)<->(edgering)
+	 * and shift KM_RELEASE to enable disable path filling */
+
+	/* alt (+shift) pressed */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", LEFTALTKEY, KM_PRESS, KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", RIGHTALTKEY, KM_PRESS, KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", LEFTALTKEY, KM_PRESS, KM_SHIFT | KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", RIGHTALTKEY, KM_PRESS, KM_SHIFT | KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", LEFTSHIFTKEY, KM_PRESS, KM_SHIFT | KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", RIGHTSHIFTKEY, KM_PRESS, KM_SHIFT | KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+
+	/* ctrl released (was edgering), alt (+shift) still pressed */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", LEFTCTRLKEY, KM_RELEASE, KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", RIGHTCTRLKEY, KM_RELEASE, KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", LEFTCTRLKEY, KM_RELEASE, KM_SHIFT | KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", RIGHTCTRLKEY, KM_RELEASE, KM_SHIFT | KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+
+	/* mouse move + alt (+shift) */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", MOUSEMOVE, KM_ANY, KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", MOUSEMOVE, KM_ANY, KM_SHIFT | KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+
+	/* shift released, alt still pressed (disable toggle) */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", LEFTSHIFTKEY, KM_RELEASE, KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_loop_presel", RIGHTSHIFTKEY, KM_RELEASE, KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+
+	/* alt + ctrl pressed */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", LEFTALTKEY, KM_PRESS, KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", RIGHTALTKEY, KM_PRESS, KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", LEFTCTRLKEY, KM_PRESS, KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", RIGHTCTRLKEY, KM_PRESS, KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+
+	/* alt + ctrl + shift pressed */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", LEFTALTKEY, KM_PRESS, KM_SHIFT | KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", RIGHTALTKEY, KM_PRESS, KM_SHIFT | KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", LEFTCTRLKEY, KM_PRESS, KM_SHIFT | KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", RIGHTCTRLKEY, KM_PRESS, KM_SHIFT | KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", LEFTSHIFTKEY, KM_PRESS, KM_SHIFT | KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", RIGHTSHIFTKEY, KM_PRESS, KM_SHIFT | KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+
+	/* mouse move + alt + ctrl (+shift) */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", MOUSEMOVE, KM_ANY, KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", MOUSEMOVE, KM_ANY, KM_SHIFT | KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+
+	/* shift released, alt + ctrl still pressed (disable toggle) */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", LEFTSHIFTKEY, KM_RELEASE, KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_edgering_presel", RIGHTSHIFTKEY, KM_RELEASE, KM_ALT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+
+	/* ctrl pressed */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", LEFTCTRLKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", RIGHTCTRLKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", false);
+
+	/* ctrl + shift pressed (enable fill) */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", LEFTCTRLKEY, KM_PRESS, KM_SHIFT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", RIGHTCTRLKEY, KM_PRESS, KM_SHIFT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", LEFTSHIFTKEY, KM_PRESS, KM_SHIFT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", RIGHTSHIFTKEY, KM_PRESS, KM_SHIFT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", true);
+
+	/* shift released, ctrl still pressed (disable fill) */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", LEFTSHIFTKEY, KM_RELEASE, KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", RIGHTSHIFTKEY, KM_RELEASE, KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", false);
+
+	/* alt released (was edgering), ctrl (shift maybe) still pressed */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", LEFTALTKEY, KM_RELEASE, KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", RIGHTALTKEY, KM_RELEASE, KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", LEFTALTKEY, KM_RELEASE, KM_SHIFT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", RIGHTALTKEY, KM_RELEASE, KM_SHIFT | KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", true);
+
+	/* mouse move + ctrl (+shift) */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", MOUSEMOVE, KM_ANY, KM_CTRL, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_shortest_path_presel", MOUSEMOVE, KM_ANY, KM_CTRL | KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "use_fill", true);
+
+	/* alt released, clear loop preselection */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", LEFTALTKEY, KM_RELEASE, 0, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", RIGHTALTKEY, KM_RELEASE, 0, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", LEFTALTKEY, KM_RELEASE, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", RIGHTALTKEY, KM_RELEASE, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+
+	/* ctrl released, clear path preselection */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", LEFTCTRLKEY, KM_RELEASE, 0, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", RIGHTCTRLKEY, KM_RELEASE, 0, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", LEFTCTRLKEY, KM_RELEASE, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", RIGHTCTRLKEY, KM_RELEASE, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+
+	/* shift pressed */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", LEFTSHIFTKEY, KM_PRESS, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", RIGHTSHIFTKEY, KM_PRESS, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", true);
+
+	/* shift released */
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", LEFTSHIFTKEY, KM_RELEASE, 0, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+	kmi = WM_keymap_add_item(keymap, "MESH_OT_pick_presel", RIGHTSHIFTKEY, KM_RELEASE, 0, 0);
+	RNA_boolean_set(kmi->ptr, "toggle", false);
+
 	/* hide */
 	kmi = WM_keymap_add_item(keymap, "MESH_OT_hide", HKEY, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "unselected", false);

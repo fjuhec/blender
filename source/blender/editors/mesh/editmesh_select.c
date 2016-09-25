@@ -44,6 +44,7 @@
 #include "BKE_report.h"
 #include "BKE_paint.h"
 #include "BKE_editmesh.h"
+#include "BKE_scene.h"
 
 #include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
@@ -955,6 +956,38 @@ static int unified_findnearest(ViewContext *vc, BMVert **r_eve, BMEdge **r_eed, 
 
 /** \} */
 
+static int get_last_presel_pick(ViewContext *vc, BMVert **r_eve, BMEdge **r_eed, BMFace **r_efa)
+{
+	BMEditMesh *em = vc->em;
+	BMVert *eve = NULL;
+	BMEdge *eed = NULL;
+	BMFace *efa = NULL;
+
+	if (em->last_presel) {
+		if ((em->selectmode & SCE_SELECT_FACE) &&
+		    (em->last_presel->head.htype == BM_FACE) &&
+		    (BLI_gset_size(em->presel_faces) == 1)) {
+			efa = (BMFace *)em->last_presel;
+		}
+		else if ((em->selectmode & SCE_SELECT_EDGE) &&
+		    (em->last_presel->head.htype == BM_EDGE) &&
+		    (BLI_gset_size(em->presel_edges) == 1)) {
+			eed = (BMEdge *)em->last_presel;
+		}
+		else if ((em->selectmode & SCE_SELECT_VERTEX) &&
+		    (em->last_presel->head.htype == BM_VERT) &&
+		    (BLI_gset_size(em->presel_verts) == 1)) {
+			eve = (BMVert *)em->last_presel;
+		}
+	}
+
+	*r_eve = eve;
+	*r_eed = eed;
+	*r_efa = efa;
+
+	return (eve || eed || efa);
+}
+
 
 /* ****************  SIMILAR "group" SELECTS. FACE, EDGE AND VERTEX ************** */
 static EnumPropertyItem prop_similar_compare_types[] = {
@@ -1404,7 +1437,7 @@ static void walker_select_count(BMEditMesh *em, int walkercode, void *start, con
 	BMW_end(&walker);
 }
 
-static void walker_select(BMEditMesh *em, int walkercode, void *start, const bool select)
+static void walker_select(BMEditMesh *em, int walkercode, void *start, const bool select, const bool presel)
 {
 	BMesh *bm = em->bm;
 	BMElem *ele;
@@ -1416,10 +1449,15 @@ static void walker_select(BMEditMesh *em, int walkercode, void *start, const boo
 	         BMW_NIL_LAY);
 
 	for (ele = BMW_begin(&walker, start); ele; ele = BMW_step(&walker)) {
-		if (!select) {
-			BM_select_history_remove(bm, ele);
+		if (presel) {
+			ED_elem_preselect_set(em, ele);
 		}
-		BM_elem_select_set(bm, ele, select);
+		else {
+			if (!select) {
+				BM_select_history_remove(bm, ele);
+			}
+			BM_elem_select_set(bm, ele, select);
+		}
 	}
 	BMW_end(&walker);
 }
@@ -1455,14 +1493,14 @@ static int edbm_loop_multiselect_exec(bContext *C, wmOperator *op)
 	if (is_ring) {
 		for (edindex = 0; edindex < totedgesel; edindex += 1) {
 			eed = edarray[edindex];
-			walker_select(em, BMW_EDGERING, eed, true);
+			walker_select(em, BMW_EDGERING, eed, true, false);
 		}
 		EDBM_selectmode_flush(em);
 	}
 	else {
 		for (edindex = 0; edindex < totedgesel; edindex += 1) {
 			eed = edarray[edindex];
-			walker_select(em, BMW_EDGELOOP, eed, true);
+			walker_select(em, BMW_EDGELOOP, eed, true, false);
 		}
 		EDBM_selectmode_flush(em);
 	}
@@ -1498,25 +1536,25 @@ void MESH_OT_loop_multi_select(wmOperatorType *ot)
 
 /* ***************** loop select (non modal) ************** */
 
-static void mouse_mesh_loop_face(BMEditMesh *em, BMEdge *eed, bool select, bool select_clear)
+static void mouse_mesh_loop_face(BMEditMesh *em, BMEdge *eed, bool select, bool select_clear, bool presel)
 {
 	if (select_clear) {
 		EDBM_flag_disable_all(em, BM_ELEM_SELECT);
 	}
 
-	walker_select(em, BMW_FACELOOP, eed, select);
+	walker_select(em, BMW_FACELOOP, eed, select, presel);
 }
 
-static void mouse_mesh_loop_edge_ring(BMEditMesh *em, BMEdge *eed, bool select, bool select_clear)
+static void mouse_mesh_loop_edge_ring(BMEditMesh *em, BMEdge *eed, bool select, bool select_clear, bool presel)
 {
 	if (select_clear) {
 		EDBM_flag_disable_all(em, BM_ELEM_SELECT);
 	}
 
-	walker_select(em, BMW_EDGERING, eed, select);
+	walker_select(em, BMW_EDGERING, eed, select, presel);
 }
 
-static void mouse_mesh_loop_edge(BMEditMesh *em, BMEdge *eed, bool select, bool select_clear, bool select_cycle)
+static void mouse_mesh_loop_edge(BMEditMesh *em, BMEdge *eed, bool select, bool select_clear, bool select_cycle, bool presel)
 {
 	bool edge_boundary = false;
 
@@ -1544,13 +1582,12 @@ static void mouse_mesh_loop_edge(BMEditMesh *em, BMEdge *eed, bool select, bool 
 	}
 
 	if (edge_boundary) {
-		walker_select(em, BMW_EDGEBOUNDARY, eed, select);
+		walker_select(em, BMW_EDGEBOUNDARY, eed, select, presel);
 	}
 	else {
-		walker_select(em, BMW_EDGELOOP, eed, select);
+		walker_select(em, BMW_EDGELOOP, eed, select, presel);
 	}
 }
-
 
 static bool mouse_mesh_loop(bContext *C, const int mval[2], bool extend, bool deselect, bool toggle, bool ring)
 {
@@ -1562,22 +1599,42 @@ static bool mouse_mesh_loop(bContext *C, const int mval[2], bool extend, bool de
 	bool select_cycle = true;
 	float dist = ED_view3d_select_dist_px() * 0.6666f;
 	float mvalf[2];
+	bool preselect;
+	bool presel_op;
 
 	em_setup_viewcontext(C, &vc);
 	mvalf[0] = (float)(vc.mval[0] = mval[0]);
 	mvalf[1] = (float)(vc.mval[1] = mval[1]);
 	em = vc.em;
+	preselect = (vc.scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) != 0;
+	presel_op = (vc.scene->toolsettings->presel_flags & SCE_PRESEL_OPERATOR) != 0;
 
 	/* no afterqueue (yet), so we check it now, otherwise the bm_xxxofs indices are bad */
 	ED_view3d_backbuf_validate(&vc);
 
-	eed = EDBM_edge_find_nearest_ex(&vc, &dist, NULL, true, true, NULL);
-	if (eed == NULL) {
-		return false;
+	if (preselect && !presel_op && em->last_presel &&
+	    BLI_gset_haskey(em->presel_edges, em->last_presel) &&
+	    (((em->selectmode & SCE_SELECT_FACE) == 0) || BLI_gset_size(em->presel_faces) > 0)) {
+		eed = (BMEdge *)em->last_presel;
+	}
+	else {
+		eed = EDBM_edge_find_nearest_ex(&vc, &dist, NULL, true, true, NULL);
+		if (eed == NULL) {
+			return false;
+		}
+
+		if (preselect) {
+			BKE_editmesh_presel_clear(em);
+		}
 	}
 
 	if (extend == false && deselect == false && toggle == false) {
-		select_clear = true;
+		if (presel_op) {
+			em->presel_elem_flags |= PS_CLEAR;
+		}
+		else {
+			select_clear = true;
+		}
 	}
 
 	if (extend) {
@@ -1594,16 +1651,39 @@ static bool mouse_mesh_loop(bContext *C, const int mval[2], bool extend, bool de
 		select_cycle = false;
 	}
 
-	if (em->selectmode & SCE_SELECT_FACE) {
-		mouse_mesh_loop_face(em, eed, select, select_clear);
-	}
-	else {
-		if (ring) {
-			mouse_mesh_loop_edge_ring(em, eed, select, select_clear);
+	if (em->last_presel) {
+		if (em->selectmode & SCE_SELECT_FACE) {
+			ED_preselect_to_select(em, em->presel_faces, select, select_clear);
 		}
 		else {
-			mouse_mesh_loop_edge(em, eed, select, select_clear, select_cycle);
+			ED_preselect_to_select(em, em->presel_edges, select, select_clear);
 		}
+	}
+	else {
+		if (em->selectmode & SCE_SELECT_FACE) {
+			mouse_mesh_loop_face(em, eed, select, select_clear, presel_op);
+		}
+		else {
+			if (ring) {
+				mouse_mesh_loop_edge_ring(em, eed, select, select_clear, presel_op);
+			}
+			else {
+				mouse_mesh_loop_edge(em, eed, select, select_clear, select_cycle, presel_op);
+			}
+		}
+	}
+
+	if (presel_op) {
+		if (!select) {
+			em->presel_elem_flags |= PS_DESELECT;
+		}
+		em->last_presel = (BMElem *)eed;
+		WM_event_add_notifier(C, NC_GEOM | ND_PRESELECT, NULL);
+		return true;
+	}
+
+	if (preselect) {
+		BKE_editmesh_presel_clear(em);
 	}
 
 	EDBM_selectmode_flush(em);
@@ -1691,6 +1771,29 @@ static int edbm_select_loop_invoke(bContext *C, wmOperator *op, const wmEvent *e
 	}
 }
 
+static int edbm_presel_loop_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	int retval = OPERATOR_CANCELLED;
+
+	view3d_operator_needs_opengl(C);
+
+	ts->presel_flags |= SCE_PRESEL_OPERATOR;
+
+	if (mouse_mesh_loop(C, event->mval,
+	                    RNA_boolean_get(op->ptr, "extend"),
+	                    RNA_boolean_get(op->ptr, "deselect"),
+	                    RNA_boolean_get(op->ptr, "toggle"),
+	                    RNA_boolean_get(op->ptr, "ring")))
+	{
+		retval = OPERATOR_FINISHED;
+	}
+
+	ts->presel_flags &= ~SCE_PRESEL_OPERATOR;
+
+	return retval;
+}
+
 void MESH_OT_loop_select(wmOperatorType *ot)
 {
 	/* identifiers */
@@ -1712,6 +1815,26 @@ void MESH_OT_loop_select(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "ring", 0, "Select Ring", "Select ring");
 }
 
+void MESH_OT_loop_presel(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Loop Preselect";
+	ot->idname = "MESH_OT_loop_presel";
+	ot->description = "Preselect a loop of connected edges";
+
+	/* api callbacks */
+	ot->invoke = edbm_presel_loop_invoke;
+	ot->poll = ED_operator_presel_editmesh_region_view3d;
+
+	/* flags */
+
+	/* properties */
+	RNA_def_boolean(ot->srna, "extend", 0, "Extend Select", "Extend the selection");
+	RNA_def_boolean(ot->srna, "deselect", 0, "Deselect", "Remove from the selection");
+	RNA_def_boolean(ot->srna, "toggle", 0, "Toggle Select", "Toggle the selection");
+	RNA_def_boolean(ot->srna, "ring", 0, "Select Ring", "Select ring");
+}
+
 void MESH_OT_edgering_select(wmOperatorType *ot)
 {
 	/* description */
@@ -1725,6 +1848,25 @@ void MESH_OT_edgering_select(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "extend", 0, "Extend", "Extend the selection");
+	RNA_def_boolean(ot->srna, "deselect", 0, "Deselect", "Remove from the selection");
+	RNA_def_boolean(ot->srna, "toggle", 0, "Toggle Select", "Toggle the selection");
+	RNA_def_boolean(ot->srna, "ring", 1, "Select Ring", "Select ring");
+}
+
+void MESH_OT_edgering_presel(wmOperatorType *ot)
+{
+	/* description */
+	ot->name = "Edge Ring Preselect";
+	ot->idname = "MESH_OT_edgering_presel";
+	ot->description = "Preselect an edge ring";
+
+	/* callbacks */
+	ot->invoke = edbm_presel_loop_invoke;
+	ot->poll = ED_operator_presel_editmesh_region_view3d;
+
+	/* flags */
 
 	RNA_def_boolean(ot->srna, "extend", 0, "Extend", "Extend the selection");
 	RNA_def_boolean(ot->srna, "deselect", 0, "Deselect", "Remove from the selection");
@@ -1812,19 +1954,52 @@ void MESH_OT_select_interior_faces(wmOperatorType *ot)
 /* ************************************************** */
 /* here actual select happens */
 /* gets called via generic mouse select operator */
-bool EDBM_select_pick(bContext *C, const int mval[2], bool extend, bool deselect, bool toggle)
+bool EDBM_select_pick(bContext *C, const int mval[2], bool extend, bool deselect, bool toggle, short presel_flags)
 {
 	ViewContext vc;
 	BMVert *eve = NULL;
 	BMEdge *eed = NULL;
 	BMFace *efa = NULL;
+	bool preselect = (presel_flags & SCE_PRESEL_ENABLED) != 0;
+	bool presel_op = (presel_flags & SCE_PRESEL_OPERATOR) != 0;
 
 	/* setup view context for argument to callbacks */
 	em_setup_viewcontext(C, &vc);
 	vc.mval[0] = mval[0];
 	vc.mval[1] = mval[1];
 
-	if (unified_findnearest(&vc, &eve, &eed, &efa)) {
+	if (presel_op) {
+		BKE_editmesh_presel_clear(vc.em);
+		BKE_scene_base_presel_clear(vc.scene);
+	}
+
+	if ((preselect && !presel_op && get_last_presel_pick(&vc, &eve, &eed, &efa)) ||
+	     unified_findnearest(&vc, &eve, &eed, &efa)) {
+
+		if (presel_op) {
+			if (efa) {
+				ED_face_preselect_set(vc.em, efa);
+				vc.em->last_presel = (BMElem *)efa;
+			}
+			else if (eed) {
+				ED_edge_preselect_set(vc.em, eed);
+				vc.em->last_presel = (BMElem *)eed;
+			}
+			else if (eve) {
+				ED_vert_preselect_set(vc.em, eve);
+				vc.em->last_presel = (BMElem *)eve;
+			}
+			if (deselect ||
+			    (toggle && vc.em->last_presel &&
+			     BM_elem_flag_test(vc.em->last_presel, BM_ELEM_SELECT))) {
+				vc.em->presel_elem_flags |= PS_DESELECT;
+			}
+			if (extend == false && deselect == false && toggle == false)
+				vc.em->presel_elem_flags |= PS_CLEAR;
+
+			WM_event_add_notifier(C, NC_GEOM | ND_PRESELECT, NULL);
+			return true;
+		}
 
 		/* Deselect everything */
 		if (extend == false && deselect == false && toggle == false)
@@ -1920,11 +2095,53 @@ bool EDBM_select_pick(bContext *C, const int mval[2], bool extend, bool deselect
 
 		}
 
+		if (preselect) {
+			BKE_editmesh_presel_clear(vc.em);
+		}
+
 		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit);
 		return true;
 	}
 
+	if (presel_op) {
+		WM_event_add_notifier(C, NC_GEOM | ND_PRESELECT, NULL);
+	}
+
 	return false;
+}
+
+static int edbm_presel_pick_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	bool toggle = RNA_boolean_get(op->ptr, "toggle");
+
+	view3d_operator_needs_opengl(C);
+
+	if (EDBM_select_pick(C, event->mval, false, false, toggle, (SCE_PRESEL_ENABLED | SCE_PRESEL_OPERATOR)))
+	{
+		return OPERATOR_FINISHED;
+	}
+
+	return OPERATOR_PASS_THROUGH;
+}
+
+void MESH_OT_pick_presel(wmOperatorType *ot)
+{
+	PropertyRNA *prop;
+
+	/* identifiers */
+	ot->name = "Preselect Pick";
+	ot->idname = "MESH_OT_pick_presel";
+	ot->description = "Preselect a mesh element";
+
+	/* api callbacks */
+	ot->invoke = edbm_presel_pick_invoke;
+	ot->poll = ED_operator_presel_editmesh_region_view3d;
+
+	/* flags */
+
+	/* properties */
+	prop = RNA_def_boolean(ot->srna, "toggle", false, "Toggle Selection", "Toggle the selection");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 static void edbm_strip_selections(BMEditMesh *em)
