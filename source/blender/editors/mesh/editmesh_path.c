@@ -44,6 +44,7 @@
 #include "BKE_context.h"
 #include "BKE_editmesh.h"
 #include "BKE_report.h"
+#include "BKE_scene.h"
 
 #include "ED_mesh.h"
 #include "ED_screen.h"
@@ -62,6 +63,8 @@
 #include "mesh_intern.h"  /* own include */
 
 struct PathSelectParams {
+	BMEditMesh *em;
+	bool presel;
 	bool track_active;  /* ensure the active element is the last selected item (handy for picking) */
 	bool use_topology_distance;
 	bool use_face_step;
@@ -86,6 +89,8 @@ static void path_select_properties(wmOperatorType *ot)
 
 static void path_select_params_from_op(wmOperator *op, struct PathSelectParams *op_params)
 {
+	op_params->em = NULL;
+	op_params->presel = false;
 	op_params->edge_mode = EDGE_MODE_SELECT;
 	op_params->track_active = false;
 	op_params->use_face_step = RNA_boolean_get(op->ptr, "use_face_step");
@@ -115,7 +120,11 @@ static bool verttag_test_cb(BMVert *v, void *UNUSED(user_data_v))
 static void verttag_set_cb(BMVert *v, bool val, void *user_data_v)
 {
 	struct UserData *user_data = user_data_v;
-	BM_vert_select_set(user_data->bm, v, val);
+
+	if (user_data->op_params->presel)
+		ED_vert_preselect_set(user_data->op_params->em, v);
+	else
+		BM_vert_select_set(user_data->bm, v, val);
 }
 
 static void mouse_mesh_shortest_path_vert(
@@ -131,7 +140,10 @@ static void mouse_mesh_shortest_path_vert(
 	bool is_path_ordered = false;
 
 	if (v_act && (v_act != v_dst)) {
-		if (op_params->use_fill) {
+		if (em->last_presel) {
+			path = ED_preselect_to_linknode(em->presel_verts);
+		}
+		else if (op_params->use_fill) {
 			path = BM_mesh_calc_path_region_vert(
 			        bm, (BMElem *)v_act, (BMElem *)v_dst,
 			        verttag_filter_cb, &user_data);
@@ -182,11 +194,24 @@ static void mouse_mesh_shortest_path_vert(
 			}
 		} while ((void)depth++, (node = node->next));
 
+		if (op_params->presel && all_set) {
+			em->presel_elem_flags |= PS_DESELECT;
+		}
+
 		BLI_linklist_free(path, NULL);
 	}
 	else {
 		const bool is_act = !verttag_test_cb(v_dst, &user_data);
 		verttag_set_cb(v_dst, is_act, &user_data); /* switch the face option */
+
+		if (op_params->presel && !is_act) {
+			em->presel_elem_flags |= PS_DESELECT;
+		}
+	}
+
+	if (op_params->presel) {
+		em->last_presel = (BMElem *)v_dst_last;
+		return;
 	}
 
 	EDBM_selectmode_flush(em);
@@ -246,6 +271,11 @@ static void edgetag_set_cb(BMEdge *e, bool val, void *user_data_v)
 	struct UserData *user_data = user_data_v;
 	const char edge_mode = user_data->op_params->edge_mode;
 	BMesh *bm = user_data->bm;
+
+	if (user_data->op_params->presel) {
+		ED_edge_preselect_set(user_data->op_params->em, e);
+		return;
+	}
 
 	switch (edge_mode) {
 		case EDGE_MODE_SELECT:
@@ -320,7 +350,10 @@ static void mouse_mesh_shortest_path_edge(
 	edgetag_ensure_cd_flag(scene, obedit->data);
 
 	if (e_act && (e_act != e_dst)) {
-		if (op_params->use_fill) {
+		if (em->last_presel) {
+			path = ED_preselect_to_linknode(em->presel_edges);
+		}
+		else if (op_params->use_fill) {
 			path = BM_mesh_calc_path_region_edge(
 			        bm, (BMElem *)e_act, (BMElem *)e_dst,
 			        edgetag_filter_cb, &user_data);
@@ -371,12 +404,25 @@ static void mouse_mesh_shortest_path_edge(
 			}
 		} while ((void)depth++, (node = node->next));
 
+		if (op_params->presel && all_set) {
+			em->presel_elem_flags |= PS_DESELECT;
+		}
+
 		BLI_linklist_free(path, NULL);
 	}
 	else {
 		const bool is_act = !edgetag_test_cb(e_dst, &user_data);
 		edgetag_ensure_cd_flag(scene, obedit->data);
 		edgetag_set_cb(e_dst, is_act, &user_data); /* switch the edge option */
+
+		if (op_params->presel && !is_act) {
+			em->presel_elem_flags |= PS_DESELECT;
+		}
+	}
+
+	if (op_params->presel) {
+		em->last_presel = (BMElem *)e_dst_last;
+		return;
 	}
 
 	if (op_params->edge_mode != EDGE_MODE_SELECT) {
@@ -446,7 +492,11 @@ static bool facetag_test_cb(BMFace *f, void *UNUSED(user_data_v))
 static void facetag_set_cb(BMFace *f, bool val, void *user_data_v)
 {
 	struct UserData *user_data = user_data_v;
-	BM_face_select_set(user_data->bm, f, val);
+
+	if (user_data->op_params->presel)
+		ED_face_preselect_set(user_data->op_params->em, f);
+	else
+		BM_face_select_set(user_data->bm, f, val);
 }
 
 static void mouse_mesh_shortest_path_face(
@@ -462,7 +512,10 @@ static void mouse_mesh_shortest_path_face(
 	bool is_path_ordered = false;
 
 	if (f_act) {
-		if (op_params->use_fill) {
+		if (em->last_presel) {
+			path = ED_preselect_to_linknode(em->presel_faces);
+		}
+		else if (op_params->use_fill) {
 			path = BM_mesh_calc_path_region_face(
 			        bm, (BMElem *)f_act, (BMElem *)f_dst,
 			        facetag_filter_cb, &user_data);
@@ -516,11 +569,24 @@ static void mouse_mesh_shortest_path_face(
 			}
 		} while ((void)depth++, (node = node->next));
 
+		if (op_params->presel && all_set) {
+			em->presel_elem_flags |= PS_DESELECT;
+		}
+
 		BLI_linklist_free(path, NULL);
 	}
 	else {
 		const bool is_act = !facetag_test_cb(f_dst, &user_data);
 		facetag_set_cb(f_dst, is_act, &user_data); /* switch the face option */
+
+		if (op_params->presel && !is_act) {
+			em->presel_elem_flags |= PS_DESELECT;
+		}
+	}
+
+	if (op_params->presel) {
+		em->last_presel = (BMElem *)f_dst_last;
+		return;
 	}
 
 	EDBM_selectmode_flush(em);
@@ -616,32 +682,72 @@ static int edbm_shortest_path_pick_invoke(bContext *C, wmOperator *op, const wmE
 	view3d_operator_needs_opengl(C);
 
 	BMElem *ele_src, *ele_dst;
-	if (!(ele_src = edbm_elem_active_elem_or_face_get(em->bm)) ||
-	    !(ele_dst = edbm_elem_find_nearest(&vc, ele_src->head.htype)))
+	bool preselect = (vc.scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) != 0;
+	bool presel_op = (vc.scene->toolsettings->presel_flags & SCE_PRESEL_OPERATOR) != 0;
+
+	ele_src = edbm_elem_active_elem_or_face_get(em->bm);
+
+	if (preselect && !presel_op && ED_elem_preselect_test(em, em->last_presel) &&
+	    ((ele_src && (em->last_presel->head.htype == ele_src->head.htype)) ||
+	     ((em->selectmode & SCE_SELECT_EDGE) &&
+	      (vc.scene->toolsettings->edge_mode != EDGE_MODE_SELECT) &&
+	      (ele_src == NULL) && (em->last_presel->head.htype == BM_EDGE))))
 	{
-		/* special case, toggle edge tags even when we don't have a path */
-		if (((em->selectmode & SCE_SELECT_EDGE) &&
-		     (vc.scene->toolsettings->edge_mode != EDGE_MODE_SELECT)) &&
-		    /* check if we only have a destination edge */
-		    ((ele_src == NULL) &&
-		     (ele_dst = edbm_elem_find_nearest(&vc, BM_EDGE))))
-		{
+		ele_dst = em->last_presel;
+		if (ele_src == NULL) {
 			ele_src = ele_dst;
 			track_active = false;
 		}
-		else {
-			return OPERATOR_PASS_THROUGH;
+	}
+	else {
+		if (!(ele_src) ||
+		    !(ele_dst = edbm_elem_find_nearest(&vc, ele_src->head.htype)))
+		{
+			/* special case, toggle edge tags even when we don't have a path */
+			if (((em->selectmode & SCE_SELECT_EDGE) &&
+			     (vc.scene->toolsettings->edge_mode != EDGE_MODE_SELECT)) &&
+			    /* check if we only have a destination edge */
+			    ((ele_src == NULL) &&
+			     (ele_dst = edbm_elem_find_nearest(&vc, BM_EDGE))))
+			{
+				ele_src = ele_dst;
+				track_active = false;
+			}
+			else {
+				return OPERATOR_PASS_THROUGH;
+			}
+		}
+
+		if (preselect) {
+			BKE_editmesh_presel_clear(em);
 		}
 	}
 
 	struct PathSelectParams op_params;
 
 	path_select_params_from_op(op, &op_params);
+	op_params.em = em;
 	op_params.track_active = track_active;
 	op_params.edge_mode = vc.scene->toolsettings->edge_mode;
 
+	if (presel_op) {
+		op_params.presel = true;
+		op_params.track_active = false;
+		/* need to clear base preselection */
+		BKE_scene_base_presel_clear(vc.scene);
+	}
+
 	if (!edbm_shortest_path_pick_ex(vc.scene, &op_params, ele_src, ele_dst)) {
 		return OPERATOR_PASS_THROUGH;
+	}
+
+	if (presel_op) {
+		WM_event_add_notifier(C, NC_GEOM | ND_PRESELECT, NULL);
+		return OPERATOR_FINISHED;
+	}
+
+	if (preselect) {
+		BKE_editmesh_presel_clear(em);
 	}
 
 	/* to support redo */
@@ -700,6 +806,53 @@ void MESH_OT_shortest_path_pick(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
+	path_select_properties(ot);
+
+	/* use for redo */
+	prop = RNA_def_int(ot->srna, "index", -1, -1, INT_MAX, "", "", 0, INT_MAX);
+	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+}
+
+
+ /* -------------------------------------------------------------------- */
+/* Preselect path */
+
+static int edbm_shortest_path_presel_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	int retval;
+
+	/* change type to get last op properties */
+	wmOperatorType *ot = WM_operatortype_find("MESH_OT_shortest_path_pick", 0);
+	WM_operator_type_set(op, ot);
+	WM_operator_last_properties_init(op);
+
+	ts->presel_flags |= SCE_PRESEL_OPERATOR;
+	retval = edbm_shortest_path_pick_invoke(C, op, event);
+	ts->presel_flags &= ~SCE_PRESEL_OPERATOR;
+
+	ot = WM_operatortype_find("MESH_OT_shortest_path_presel", 0);
+	WM_operator_type_set(op, ot);
+
+	return retval;
+}
+
+void MESH_OT_shortest_path_presel(wmOperatorType *ot)
+{
+	PropertyRNA *prop;
+
+	/* identifiers */
+	ot->name = "Presel Shortest Path";
+	ot->idname = "MESH_OT_shortest_path_presel";
+	ot->description = "Preselect shortest path between two selections";
+
+	/* api callbacks */
+	ot->invoke = edbm_shortest_path_presel_invoke;
+	ot->poll = ED_operator_presel_editmesh_region_view3d;
+
+	/* flags */
 
 	/* properties */
 	path_select_properties(ot);

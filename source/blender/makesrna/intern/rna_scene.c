@@ -2476,6 +2476,11 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Use Preselection", "Turn on/off preselection");
 	RNA_def_property_update(prop, NC_GEOM | ND_PRESELECT, NULL); /* update views */
 
+	prop = RNA_def_property(srna, "flush_presel", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "presel_flags", SCE_PRESEL_FLUSH);
+	RNA_def_property_ui_text(prop, "Flush Preselection", "Turn on/off preselection flushing");
+	RNA_def_property_update(prop, NC_GEOM | ND_PRESELECT, NULL); /* update views */
+
 	/* Transform */
 	prop = RNA_def_property(srna, "proportional_edit", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "proportional");

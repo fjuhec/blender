@@ -1903,6 +1903,7 @@ extern const char *RE_engine_id_CYCLES;
 #define SCE_PRESEL_ENABLED	(1<<0) /* preselection is enabled */
 #define SCE_PRESEL_OPERATOR	(1<<1) /* runtime flag for operator preselection mode */
 #define SCE_PRESEL_OBJECT	(1<<2) /* runtime flag for object preselection */
+#define SCE_PRESEL_FLUSH	(1<<3) /* runtime flag for flushing preselected elements */
 
 /* toolsettings->selectmode */
 #define SCE_SELECT_VERTEX	1 /* for mesh */

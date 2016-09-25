@@ -2358,6 +2358,13 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
 	view3d_operator_needs_opengl(C);
 
 	if (object) {
+		if (presel_op && obedit) {
+			if (obedit->type == OB_MESH) {
+				BMEditMesh *em = BKE_editmesh_from_object(obedit);
+				BKE_editmesh_presel_clear(em);
+			}
+		}
+
 		obedit = NULL;
 		obact = NULL;
 
@@ -2369,8 +2376,7 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
 
 	if (obedit && object == false) {
 		if (obedit->type == OB_MESH) {
-			if (!presel_op) /* preselection not implemented */
-				retval = EDBM_select_pick(C, location, extend, deselect, toggle);
+			retval = EDBM_select_pick(C, location, extend, deselect, toggle, presel_flags);
 		}
 		else if (obedit->type == OB_ARMATURE) {
 			if (!presel_op) /* preselection not implemented */

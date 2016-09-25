@@ -141,18 +141,28 @@ typedef struct drawDMVerts_userData {
 	float imat[4][4];
 } drawDMVerts_userData;
 
+typedef struct drawDMPreselVerts_userData {
+	BMesh *bm;
+	char *presel_elem_table;
+} drawDMPreselVerts_userData;
+
 typedef struct drawDMEdgesSel_userData {
 	BMesh *bm;
 
-	unsigned char *baseCol, *selCol, *actCol;
+	unsigned char *baseCol, *selCol, *actCol, *preselCol;
+	char *presel_elem_table;
 	BMEdge *eed_act;
+	bool presel;
 } drawDMEdgesSel_userData;
 
 typedef struct drawDMEdgesSelInterp_userData {
 	BMesh *bm;
 
-	unsigned char *baseCol, *selCol;
-	unsigned char *lastCol;
+	unsigned char *baseCol, *selCol, *preselCol;
+	unsigned char *lastCol, *actCol;
+	char *presel_elem_table;
+	BMEdge *eed_act;
+	bool presel;
 } drawDMEdgesSelInterp_userData;
 
 typedef struct drawDMEdgesWeightInterp_userData {
@@ -178,15 +188,20 @@ typedef struct drawDMFacesSel_userData {
 
 	BMFace *efa_act;
 	const int *orig_index_mp_to_orig;
+	unsigned char *preselCol;
+	char *presel_elem_table;
+	bool presel;
 } drawDMFacesSel_userData;
 
 typedef struct drawDMNormal_userData {
 	BMesh *bm;
+	char *presel_elem_table;
 	int uniform_scale;
 	float normalsize;
 	float tmat[3][3];
 	float imat[3][3];
 	bool select;
+	bool presel;
 } drawDMNormal_userData;
 
 typedef struct drawMVertOffset_userData {
@@ -206,7 +221,12 @@ typedef struct drawBMOffset_userData {
 
 typedef struct drawBMSelect_userData {
 	BMesh *bm;
+	unsigned char selCol[4];
+	unsigned char preselCol[4];
+	char *presel_elem_table;
 	bool select;
+	bool presel;
+	bool last_is_presel;
 } drawBMSelect_userData;
 
 static void draw_bounding_volume(Object *ob, char type);
@@ -2591,8 +2611,16 @@ static void draw_dm_face_normals__mapFunc(void *userData, int index, const float
 	float n[3];
 
 	if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-		if (data->select && !BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
-			return;
+		if (data->select) {
+			if (data->presel && presel_index_test_face(data, index)) {
+				/* pass */
+			}
+			else if (BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
+				/* pass */
+			}
+			else {
+				return;
+			}
 		}
 
 		if (!data->uniform_scale) {
@@ -2619,6 +2647,8 @@ static void draw_dm_face_normals(BMEditMesh *em, Scene *scene, Object *ob, Deriv
 	data.bm = em->bm;
 	data.normalsize = scene->toolsettings->normalsize;
 	data.select = (me->drawflag & ME_DRAW_SNORMALS) != 0;
+	data.presel = (scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) != 0;
+	data.presel_elem_table = em->presel_elem_table;
 
 	calcDrawDMNormalScale(ob, &data);
 
@@ -2635,12 +2665,39 @@ static void draw_dm_face_centers__mapFunc(void *userData, int index, const float
 	if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN) &&
 	    (BM_elem_flag_test(efa, BM_ELEM_SELECT) == data->select))
 	{
+		if (data->presel) {
+			if (presel_index_test_face(data, index)) {
+				if (!data->last_is_presel) {
+					glColor4ubv(data->preselCol);
+					data->last_is_presel = true;
+				}
+			}
+			else {
+				if (data->last_is_presel) {
+					glColor4ubv(data->selCol);
+					data->last_is_presel = false;
+				}
+			}
+		}
+
 		glVertex3fv(cent);
 	}
 }
-static void draw_dm_face_centers(BMEditMesh *em, DerivedMesh *dm, bool select)
+static void draw_dm_face_centers(BMEditMesh *em, DerivedMesh *dm, bool select, bool presel)
 {
-	drawBMSelect_userData data = {em->bm, select};
+	drawBMSelect_userData data;
+
+	data.bm = em->bm;
+	data.select = select;
+	data.presel = presel;
+	data.presel_elem_table = em->presel_elem_table;
+	data.last_is_presel = false;
+
+	UI_GetThemeColor3ubv(select ? TH_FACE_DOT : TH_WIRE_EDIT, data.selCol);
+	UI_GetThemeColor3ubv(TH_PRESEL_SELECT, data.preselCol);
+
+	data.selCol[3] = select ? 255 : 100;
+	data.preselCol[3] = 255;
 
 	glBegin(GL_POINTS);
 	dm->foreachMappedFaceCenter(dm, draw_dm_face_centers__mapFunc, &data, DM_FOREACH_NOP);
@@ -2654,8 +2711,17 @@ static void draw_dm_vert_normals__mapFunc(void *userData, int index, const float
 
 	if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
 		float no[3], n[3];
-		if (data->select && !BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
-			return;
+
+		if (data->select) {
+			if (data->presel && presel_index_test_vert(data, index)) {
+				/* pass */
+			}
+			else if (BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
+				/* pass */
+			}
+			else {
+				return;
+			}
 		}
 
 		if (no_f) {
@@ -2689,6 +2755,8 @@ static void draw_dm_vert_normals(BMEditMesh *em, Scene *scene, Object *ob, Deriv
 	data.bm = em->bm;
 	data.normalsize = scene->toolsettings->normalsize;
 	data.select = (me->drawflag & ME_DRAW_SNORMALS) != 0;
+	data.presel = (scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) != 0;
+	data.presel_elem_table = em->presel_elem_table;
 
 	calcDrawDMNormalScale(ob, &data);
 
@@ -2760,6 +2828,29 @@ static void draw_dm_verts(BMEditMesh *em, DerivedMesh *dm, const char sel, BMVer
 	glEnd();
 }
 
+static void draw_dm_presel_verts__mapFunc(void *userData, int index, const float co[3],
+                                   const float UNUSED(no_f[3]), const short UNUSED(no_s[3]))
+{
+	drawDMPreselVerts_userData *data = userData;
+	BMVert *eve = BM_vert_at_index(data->bm, index);
+
+	if (presel_index_test_vert(data, index) &&
+	    !BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
+		glVertex3fv(co);
+	}
+}
+
+static void draw_dm_presel_verts(BMEditMesh *em, DerivedMesh *dm)
+{
+	drawDMPreselVerts_userData data;
+	data.bm = em->bm;
+	data.presel_elem_table = em->presel_elem_table;
+
+	glBegin(GL_POINTS);
+	dm->foreachMappedVert(dm, draw_dm_presel_verts__mapFunc, &data, DM_FOREACH_NOP);
+	glEnd();
+}
+
 /* Draw edges with color set based on selection */
 static DMDrawOption draw_dm_edges_sel__setDrawOptions(void *userData, int index)
 {
@@ -2771,10 +2862,21 @@ static DMDrawOption draw_dm_edges_sel__setDrawOptions(void *userData, int index)
 
 	if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
 		if (eed == data->eed_act) {
+			/* skip preselected & active, drawn on 2nd pass */
+			if (data->presel && presel_index_test_edge(data, index)) {
+				return DM_DRAW_OPTION_SKIP;
+			}
 			glColor4ubv(data->actCol);
 		}
 		else {
-			if (BM_elem_flag_test(eed, BM_ELEM_SELECT)) {
+			if (data->presel && presel_index_test_edge(data, index)) {
+				/* skip preselected & selected, drawn on 2nd pass */
+				if (BM_elem_flag_test(eed, BM_ELEM_SELECT)) {
+					return DM_DRAW_OPTION_SKIP;
+				}
+				col = data->preselCol;
+			}
+			else if (BM_elem_flag_test(eed, BM_ELEM_SELECT)) {
 				col = data->selCol;
 			}
 			else {
@@ -2793,17 +2895,45 @@ static DMDrawOption draw_dm_edges_sel__setDrawOptions(void *userData, int index)
 	}
 }
 
+static DMDrawOption draw_dm_edges_presel__setDrawOptions(void *userData, int index)
+{
+	BMEdge *eed;
+	drawDMEdgesSel_userData *data = userData;
+
+	eed = BM_edge_at_index(data->bm, index);
+
+	if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN) &&
+	     presel_index_test_edge(data, index) &&
+	     BM_elem_flag_test(eed, BM_ELEM_SELECT)) {
+		return DM_DRAW_OPTION_NORMAL;
+	}
+	else {
+		return DM_DRAW_OPTION_SKIP;
+	}
+}
+
 static void draw_dm_edges_sel(BMEditMesh *em, DerivedMesh *dm, unsigned char *baseCol,
-                              unsigned char *selCol, unsigned char *actCol, BMEdge *eed_act)
+                              unsigned char *selCol, unsigned char *actCol, unsigned char *preselCol, BMEdge *eed_act)
 {
 	drawDMEdgesSel_userData data;
 	
 	data.baseCol = baseCol;
 	data.selCol = selCol;
 	data.actCol = actCol;
+	data.preselCol = preselCol;
+	data.presel = preselCol[3] != 0;
+	data.presel_elem_table = em->presel_elem_table;
 	data.bm = em->bm;
 	data.eed_act = eed_act;
 	dm->drawMappedEdges(dm, draw_dm_edges_sel__setDrawOptions, &data);
+
+	/* 2nd pass for edges that are both preselected & selected */
+	if (data.presel) {
+		setlinestyle(3);
+		glColor4ubv(preselCol);
+		dm->drawMappedEdges(dm, draw_dm_edges_presel__setDrawOptions, &data);
+		setlinestyle(0);
+	}
 }
 
 /* Draw edges */
@@ -2824,21 +2954,58 @@ static void draw_dm_edges(BMEditMesh *em, DerivedMesh *dm)
 static DMDrawOption draw_dm_edges_sel_interp__setDrawOptions(void *userData, int index)
 {
 	drawDMEdgesSelInterp_userData *data = userData;
-	if (BM_elem_flag_test(BM_edge_at_index(data->bm, index), BM_ELEM_HIDDEN))
+	BMEdge *eed = BM_edge_at_index(data->bm, index);
+
+	if (BM_elem_flag_test(eed, BM_ELEM_HIDDEN) || (data->presel &&
+	    presel_index_test_edge(data, index) && BM_elem_flag_test(eed, BM_ELEM_SELECT)))
 		return DM_DRAW_OPTION_SKIP;
 	else
 		return DM_DRAW_OPTION_NORMAL;
 }
+
+static DMDrawOption draw_dm_edges_presel_interp__setDrawOptions(void *userData, int index)
+{
+	drawDMEdgesSelInterp_userData *data = userData;
+	BMEdge *eed= BM_edge_at_index(data->bm, index);
+
+	if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN) &&
+	    (presel_index_test_edge(data, index) && BM_elem_flag_test(eed, BM_ELEM_SELECT)))
+	{
+		return DM_DRAW_OPTION_NORMAL;
+	}
+	else {
+		return DM_DRAW_OPTION_SKIP;
+	}
+}
+
 static void draw_dm_edges_sel_interp__setDrawInterpOptions(void *userData, int index, float t)
 {
 	drawDMEdgesSelInterp_userData *data = userData;
 	BMEdge *eed = BM_edge_at_index(data->bm, index);
 	unsigned char **cols = userData;
-	unsigned int col0_id = (BM_elem_flag_test(eed->v1, BM_ELEM_SELECT)) ? 2 : 1;
-	unsigned int col1_id = (BM_elem_flag_test(eed->v2, BM_ELEM_SELECT)) ? 2 : 1;
-	unsigned char *col0 = cols[col0_id];
-	unsigned char *col1 = cols[col1_id];
+	unsigned int col0_id;
+	unsigned int col1_id;
+	unsigned char *col0;
+	unsigned char *col1;
 	unsigned char *col_pt;
+
+	if (eed == data->eed_act) {
+		data->lastCol = data->actCol;
+		glColor4ubv(data->actCol);
+		return;
+	}
+
+	if (data->presel) {
+		col0_id = (presel_elem_test_vert(data, eed->v1)) ? 3 : (BM_elem_flag_test(eed->v1, BM_ELEM_SELECT)) ? 2 : 1;
+		col1_id = (presel_elem_test_vert(data, eed->v2)) ? 3 : (BM_elem_flag_test(eed->v2, BM_ELEM_SELECT)) ? 2 : 1;
+	}
+	else {
+		col0_id = (BM_elem_flag_test(eed->v1, BM_ELEM_SELECT)) ? 2 : 1;
+		col1_id = (BM_elem_flag_test(eed->v2, BM_ELEM_SELECT)) ? 2 : 1;
+	}
+
+	col0 = cols[col0_id];
+	col1 = cols[col1_id];
 
 	if (col0_id == col1_id) {
 		col_pt = col0;
@@ -2863,15 +3030,29 @@ static void draw_dm_edges_sel_interp__setDrawInterpOptions(void *userData, int i
 	}
 }
 
-static void draw_dm_edges_sel_interp(BMEditMesh *em, DerivedMesh *dm, unsigned char *baseCol, unsigned char *selCol)
+static void draw_dm_edges_sel_interp(BMEditMesh *em, DerivedMesh *dm, unsigned char *baseCol, unsigned char *selCol, unsigned char *actCol,
+			      unsigned char *preselCol, BMEdge *eed_act)
 {
 	drawDMEdgesSelInterp_userData data;
 	data.bm = em->bm;
 	data.baseCol = baseCol;
 	data.selCol = selCol;
 	data.lastCol = NULL;
+	data.eed_act = eed_act;
+	data.actCol = actCol;
+	data.preselCol = preselCol;
+	data.presel = preselCol[3] != 0;
+	data.presel_elem_table = em->presel_elem_table;
 
 	dm->drawMappedEdgesInterp(dm, draw_dm_edges_sel_interp__setDrawOptions, draw_dm_edges_sel_interp__setDrawInterpOptions, &data);
+
+	/* 2nd pass for edges that are both preselected & selected */
+	if (data.presel) {
+		setlinestyle(3);
+		glColor4ubv(preselCol);
+		dm->drawMappedEdges(dm, draw_dm_edges_presel_interp__setDrawOptions, &data);
+		setlinestyle(0);
+	}
 }
 
 static void bm_color_from_weight(float col[3], BMVert *vert, drawDMEdgesWeightInterp_userData *data)
@@ -3053,10 +3234,19 @@ static void draw_dm_loop_normals__mapFunc(void *userData, int vertex_index, int 
 		float vec[3];
 
 		if (!(BM_elem_flag_test(eve, BM_ELEM_HIDDEN) || BM_elem_flag_test(efa, BM_ELEM_HIDDEN))) {
-			if (data->select &&
-			    (!BM_elem_flag_test(eve, BM_ELEM_SELECT) || !BM_elem_flag_test(efa, BM_ELEM_SELECT))) {
-				return;
+			if (data->select) {
+				if (data->presel &&
+				    (presel_index_test_vert(data, vertex_index) && presel_index_test_face(data, face_index))) {
+					/* pass */
+				}
+				else if (BM_elem_flag_test(eve, BM_ELEM_SELECT) && BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
+					/* pass */
+				}
+				else {
+					return;
+				}
 			}
+
 			if (!data->uniform_scale) {
 				mul_v3_m3v3(vec, (float(*)[3])data->tmat, no);
 				normalize_v3(vec);
@@ -3081,6 +3271,8 @@ static void draw_dm_loop_normals(BMEditMesh *em, Scene *scene, Object *ob, Deriv
 	data.bm = em->bm;
 	data.normalsize = scene->toolsettings->normalsize;
 	data.select = (me->drawflag & ME_DRAW_SNORMALS) != 0;
+	data.presel = (scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) != 0;
+	data.presel_elem_table = em->presel_elem_table;
 
 	calcDrawDMNormalScale(ob, &data);
 
@@ -3099,8 +3291,21 @@ static DMDrawOption draw_dm_faces_sel__setDrawOptions(void *userData, int index)
 	
 	if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
 		if (efa == data->efa_act) {
-			glColor4ubv(data->cols[2]);
+			if (data->presel && presel_index_test_face(data, index))
+				glColor4ubv(data->preselCol);
+			else
+				glColor4ubv(data->cols[2]);
 			return DM_DRAW_OPTION_STIPPLE;
+		}
+		else if (data->presel && presel_index_test_face(data, index)) {
+			glColor4ubv(data->preselCol);
+
+			if (BM_elem_flag_test(efa, BM_ELEM_SELECT)) {
+				return DM_DRAW_OPTION_STIPPLE;
+			}
+			else {
+				return DM_DRAW_OPTION_NORMAL;
+			}
 		}
 		else {
 #ifdef WITH_FREESTYLE
@@ -3141,6 +3346,20 @@ static int draw_dm_faces_sel__compareDrawOptions(void *userData, int index, int 
 	if (efa == data->efa_act || next_efa == data->efa_act)
 		return 0;
 
+	if (data->presel) {
+		if (presel_elem_test_face(data, efa) && presel_elem_test_face(data, next_efa)) {
+			if (BM_elem_flag_test(efa, BM_ELEM_SELECT) == BM_elem_flag_test(next_efa, BM_ELEM_SELECT)) {
+				return 1;
+			}
+			else {
+				return 0;
+			}
+		}
+		else if (presel_elem_test_face(data, efa) || presel_elem_test_face(data, next_efa)) {
+			return 0;
+		}
+	}
+
 #ifdef WITH_FREESTYLE
 	col = data->cols[BM_elem_flag_test(efa, BM_ELEM_SELECT) ? 1 : draw_dm_test_freestyle_face_mark(data->bm, efa) ? 3 : 0];
 	next_col = data->cols[BM_elem_flag_test(next_efa, BM_ELEM_SELECT) ? 1 : draw_dm_test_freestyle_face_mark(data->bm, efa) ? 3 : 0];
@@ -3158,10 +3377,10 @@ static int draw_dm_faces_sel__compareDrawOptions(void *userData, int index, int 
 /* also draws the active face */
 #ifdef WITH_FREESTYLE
 static void draw_dm_faces_sel(BMEditMesh *em, DerivedMesh *dm, unsigned char *baseCol,
-                              unsigned char *selCol, unsigned char *actCol, unsigned char *markCol, BMFace *efa_act)
+                              unsigned char *selCol, unsigned char *actCol, unsigned char *markCol, unsigned char *preselCol, BMFace *efa_act)
 #else
 static void draw_dm_faces_sel(BMEditMesh *em, DerivedMesh *dm, unsigned char *baseCol,
-                              unsigned char *selCol, unsigned char *actCol, BMFace *efa_act)
+                              unsigned char *selCol, unsigned char *actCol, unsigned char *preselCol, BMFace *efa_act)
 #endif
 {
 	drawDMFacesSel_userData data;
@@ -3176,6 +3395,9 @@ static void draw_dm_faces_sel(BMEditMesh *em, DerivedMesh *dm, unsigned char *ba
 	data.efa_act = efa_act;
 	/* double lookup */
 	data.orig_index_mp_to_orig  = DM_get_poly_data_layer(dm, CD_ORIGINDEX);
+	data.preselCol = preselCol;
+	data.presel = preselCol[3] != 0;
+	data.presel_elem_table = em->presel_elem_table;
 
 	dm->drawMappedFaces(dm, draw_dm_faces_sel__setDrawOptions, NULL, draw_dm_faces_sel__compareDrawOptions, &data, DM_DRAW_SKIP_HIDDEN);
 }
@@ -3282,8 +3504,21 @@ static void draw_em_fancy_verts(Scene *scene, View3D *v3d, Object *obedit,
                                 RegionView3D *rv3d)
 {
 	ToolSettings *ts = scene->toolsettings;
+	bool presel = (em->presel_elem_flags & BM_VERT) != 0;
 
 	if (v3d->zbuf) glDepthMask(0);  /* disable write in zbuffer, zbuf select */
+
+	if (presel) {
+		if (ts->selectmode & SCE_SELECT_VERTEX) {
+			unsigned char pscol[4];
+			UI_GetThemeColor4ubv(TH_PRESEL_SELECT, pscol);
+
+			glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE) + 2);
+			glColor4ubv(pscol);
+
+			draw_dm_presel_verts(em, cageDM);
+		}
+	}
 
 	for (int sel = 0; sel < 2; sel++) {
 		unsigned char col[4], fcol[4];
@@ -3321,7 +3556,7 @@ static void draw_em_fancy_verts(Scene *scene, View3D *v3d, Object *obedit,
 			if (check_ob_drawface_dot(scene, v3d, obedit->dt)) {
 				glPointSize(fsize);
 				glColor4ubv(fcol);
-				draw_dm_face_centers(em, cageDM, sel);
+				draw_dm_face_centers(em, cageDM, sel, presel);
 			}
 			
 			if (pass == 0) {
@@ -3339,7 +3574,7 @@ static void draw_em_fancy_edges(BMEditMesh *em, Scene *scene, View3D *v3d, Objec
                                 BMEdge *eed_act)
 {
 	ToolSettings *ts = scene->toolsettings;
-	unsigned char wireCol[4], selCol[4], actCol[4];
+	unsigned char wireCol[4], selCol[4], actCol[4], preselCol[4];
 
 	/* Check if wire color is enabled */
 	if (V3D_IS_WIRECOLOR(scene, v3d)) {
@@ -3409,6 +3644,12 @@ static void draw_em_fancy_edges(BMEditMesh *em, Scene *scene, View3D *v3d, Objec
 		UI_GetThemeColor4ubv(TH_WIRE_EDIT, wireCol);
 	}
 
+	preselCol[3] = 0;
+	if (em->presel_elem_flags & (BM_VERT | BM_EDGE)) {
+		UI_GetThemeColor4ubv(TH_PRESEL_SELECT, preselCol);
+		preselCol[3] = 255;
+	}
+
 	/* since this function does transparent... */
 	UI_GetThemeColor4ubv(TH_EDITMESH_ACTIVE, actCol);
 	
@@ -3444,15 +3685,15 @@ static void draw_em_fancy_edges(BMEditMesh *em, Scene *scene, View3D *v3d, Objec
 					draw_dm_edges_weight_interp(em, cageDM, ts->weightuser);
 				}
 				else if (ts->selectmode == SCE_SELECT_FACE) {
-					draw_dm_edges_sel(em, cageDM, wireCol, selCol, actCol, eed_act);
+					draw_dm_edges_sel(em, cageDM, wireCol, selCol, actCol, preselCol, eed_act);
 				}
 				else {
 					// Interpolate vertex selection
-					draw_dm_edges_sel_interp(em, cageDM, wireCol, selCol);
+					draw_dm_edges_sel_interp(em, cageDM, wireCol, selCol, actCol, preselCol, eed_act);
 				}
 			}
 			else {
-				draw_dm_edges_sel(em, cageDM, wireCol, selCol, actCol, eed_act);
+				draw_dm_edges_sel(em, cageDM, wireCol, selCol, actCol, preselCol, eed_act);
 			}
 		}
 		else {
@@ -3884,6 +4125,7 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 	glLineWidth(1);
 	
 	BM_mesh_elem_table_ensure(em->bm, BM_VERT | BM_EDGE | BM_FACE);
+	ED_presel_table_update(scene, em);
 
 	if (check_object_draw_editweight(me, finalDM)) {
 		if (dt > OB_WIRE) {
@@ -3974,7 +4216,7 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 		}
 
 		if ((me->drawflag & ME_DRAWFACES) && (use_occlude_wire == false)) {  /* transp faces */
-			unsigned char col1[4], col2[4], col3[4];
+			unsigned char col1[4], col2[4], col3[4], pscol[4];
 #ifdef WITH_FREESTYLE
 			unsigned char col4[4];
 #endif
@@ -3993,13 +4235,18 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 			if (check_object_draw_texture(scene, v3d, dt))
 				col1[3] = 0;
 
+			pscol[3] = 0;
+			if (em->presel_elem_flags & BM_FACE) {
+				UI_GetThemeColor4ubv(TH_PRESEL_SELECT, pscol);
+			}
+
 #ifdef WITH_FREESTYLE
 			if (!(me->drawflag & ME_DRAW_FREESTYLE_FACE) || !CustomData_has_layer(&em->bm->pdata, CD_FREESTYLE_FACE))
 				col4[3] = 0;
 
-			draw_dm_faces_sel(em, cageDM, col1, col2, col3, col4, efa_act);
+			draw_dm_faces_sel(em, cageDM, col1, col2, col3, col4, pscol, efa_act);
 #else
-			draw_dm_faces_sel(em, cageDM, col1, col2, col3, efa_act);
+			draw_dm_faces_sel(em, cageDM, col1, col2, col3, pscol, efa_act);
 #endif
 
 			glDisable(GL_BLEND);
@@ -4008,12 +4255,12 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 		else if (efa_act) {
 			/* even if draw faces is off it would be nice to draw the stipple face
 			 * Make all other faces zero alpha except for the active */
-			unsigned char col1[4], col2[4], col3[4];
+			unsigned char col1[4], col2[4], col3[4], pscol[4];
 #ifdef WITH_FREESTYLE
 			unsigned char col4[4];
 			col4[3] = 0; /* don't draw */
 #endif
-			col1[3] = col2[3] = 0; /* don't draw */
+			col1[3] = col2[3] = pscol[3] = 0; /* don't draw */
 
 			UI_GetThemeColor4ubv(TH_EDITMESH_ACTIVE, col3);
 
@@ -4021,9 +4268,9 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 			glDepthMask(0);  /* disable write in zbuffer, needed for nice transp */
 
 #ifdef WITH_FREESTYLE
-			draw_dm_faces_sel(em, cageDM, col1, col2, col3, col4, efa_act);
+			draw_dm_faces_sel(em, cageDM, col1, col2, col3, col4, pscol, efa_act);
 #else
-			draw_dm_faces_sel(em, cageDM, col1, col2, col3, efa_act);
+			draw_dm_faces_sel(em, cageDM, col1, col2, col3, pscol, efa_act);
 #endif
 
 			glDisable(GL_BLEND);

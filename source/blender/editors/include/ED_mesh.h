@@ -51,6 +51,7 @@ struct UvVertMap;
 struct UvMapVert;
 struct BMEditMesh;
 struct BMesh;
+struct BMElem;
 struct BMVert;
 struct BMLoop;
 struct BMBVHTree;
@@ -61,6 +62,8 @@ struct UvMapVert;
 struct ToolSettings;
 struct Object;
 struct rcti;
+struct GSet;
+struct LinkNode;
 
 /* editmesh_utils.c */
 void           EDBM_verts_mirror_cache_begin_ex(struct BMEditMesh *em, const int axis,
@@ -84,6 +87,38 @@ void EDBM_mesh_make(struct ToolSettings *ts, struct Object *ob, const bool add_k
 void EDBM_mesh_free(struct BMEditMesh *em);
 void EDBM_mesh_load(struct Object *ob);
 struct DerivedMesh *EDBM_mesh_deform_dm_get(struct BMEditMesh *em);
+
+/* preselection em->presel_elem_table (0...3 - BM_VERT...BM_FACE) */
+#define PS_VERT_TAG (1 << 4)
+#define PS_EDGE_TAG (1 << 5)
+#define PS_FACE_TAG (1 << 6)
+
+/* preselection em->presel_elem_flags (0...3 - BM_VERT...BM_FACE) */
+#define PS_DESELECT (1 << 4)
+#define PS_CLEAR    (1 << 5)
+
+/* preselection utils */
+#define presel_index_test_vert(_data, _index)        ((_data->presel_elem_table[_index] & BM_VERT))
+#define presel_index_test_edge(_data, _index)        ((_data->presel_elem_table[_index] & BM_EDGE))
+#define presel_index_test_face(_data, _index)        ((_data->presel_elem_table[_index] & BM_FACE))
+#define presel_index_test(_data, _index, _flag)      ((_data->presel_elem_table[_index] & _flag))
+
+#define presel_elem_test_vert(_data, _elem)          ((_data->presel_elem_table[BM_elem_index_get(_elem)] & BM_VERT))
+#define presel_elem_test_edge(_data, _elem)          ((_data->presel_elem_table[BM_elem_index_get(_elem)] & BM_EDGE))
+#define presel_elem_test_face(_data, _elem)          ((_data->presel_elem_table[BM_elem_index_get(_elem)] & BM_FACE))
+#define presel_elem_test(_data, _elem, _flag)        ((_data->presel_elem_table[BM_elem_index_get(_elem)] & _flag))
+
+#define presel_index_set(_data, _index, _flag)       _data->presel_elem_table[_index] |= _flag
+#define presel_elem_set(_data, _elem, _flag)         _data->presel_elem_table[BM_elem_index_get(_elem)] |= _flag
+
+void ED_vert_preselect_set(struct BMEditMesh *em, struct BMVert *v);
+void ED_edge_preselect_set(struct BMEditMesh *em, struct BMEdge *e);
+void ED_face_preselect_set(struct BMEditMesh *em, struct BMFace *f);
+void ED_elem_preselect_set(struct BMEditMesh *em, struct BMElem *ele);
+bool ED_elem_preselect_test(struct BMEditMesh *em, struct BMElem *ele);
+void ED_presel_table_update(struct Scene *scene, struct BMEditMesh *em);
+void ED_preselect_to_select(struct BMEditMesh *em, struct GSet *elems, const bool select, const bool select_clear);
+struct LinkNode *ED_preselect_to_linknode(struct GSet *elems);
 
 /* flushes based on the current select mode.  if in vertex select mode,
  * verts select/deselect edges and faces, if in edge select mode,
@@ -164,7 +199,7 @@ struct BMFace *EDBM_face_find_nearest_ex(
 struct BMFace *EDBM_face_find_nearest(
         struct ViewContext *vc, float *r_dist);
 
-bool EDBM_select_pick(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
+bool EDBM_select_pick(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle, short presel_flags);
 
 void EDBM_selectmode_set(struct BMEditMesh *em);
 void EDBM_selectmode_convert(struct BMEditMesh *em, const short selectmode_old, const short selectmode_new);

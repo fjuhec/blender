@@ -195,6 +195,7 @@ void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
 			}
 #endif
 			if (em) {
+				BKE_editmesh_presel_clear(em);
 				makeDerivedMesh(scene, ob, em,  data_mask, false); /* was CD_MASK_BAREMESH */
 			}
 			else {
