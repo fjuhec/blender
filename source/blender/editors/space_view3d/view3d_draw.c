@@ -2856,7 +2856,7 @@ static void view3d_draw_objects(
 				if (base->object->transflag & OB_DUPLI) {
 					draw_dupli_objects(scene, ar, v3d, base);
 				}
-				if ((base->flag & SELECT) == 0) {
+				if (((base->flag & SELECT) == 0) && ((base->pflag & BA_PRESELECT) == 0)) {
 					if (base->object != scene->obedit)
 						draw_object(scene, ar, v3d, base, 0);
 				}
@@ -2869,7 +2869,7 @@ static void view3d_draw_objects(
 		/* draw selected and editmode */
 		for (base = scene->base.first; base; base = base->next) {
 			if (v3d->lay & base->lay) {
-				if (base->object == scene->obedit || (base->flag & SELECT)) {
+				if (base->object == scene->obedit || (base->flag & SELECT) || (base->pflag & BA_PRESELECT)) {
 					draw_object(scene, ar, v3d, base, 0);
 				}
 			}

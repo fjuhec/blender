@@ -117,6 +117,8 @@ enum {
 	TH_NURB_VLINE,
 	TH_NURB_SEL_ULINE,
 	TH_NURB_SEL_VLINE,
+	TH_PRESEL_SELECT,
+	TH_PRESEL_NOSELECT,
 
 	/* this eight colors should be in one block */
 	TH_HANDLE_FREE,

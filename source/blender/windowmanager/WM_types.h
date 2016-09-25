@@ -287,6 +287,7 @@ typedef struct wmNotifier {
 #define ND_TRANSFORM_DONE	(18<<16)
 #define ND_WORLD			(92<<16)
 #define ND_LAYER_CONTENT	(101<<16)
+#define ND_OB_PRESELECT		(108<<16)
 
 	/* NC_OBJECT Object */
 #define	ND_TRANSFORM		(18<<16)
@@ -338,6 +339,7 @@ typedef struct wmNotifier {
 #define ND_SELECT			(90<<16)
 #define ND_DATA				(91<<16)
 #define ND_VERTEX_GROUP		(92<<16)
+#define ND_PRESELECT		(93<<16)
 
 	/* NC_NODE Nodes */
 

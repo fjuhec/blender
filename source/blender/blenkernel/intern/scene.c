@@ -603,6 +603,8 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->unwrapper = 1;
 	sce->toolsettings->select_thresh = 0.01f;
 
+	sce->toolsettings->presel_flags = 0;
+
 	sce->toolsettings->selectmode = SCE_SELECT_VERTEX;
 	sce->toolsettings->uv_selectmode = UV_SELECT_VERTEX;
 	sce->toolsettings->normalsize = 0.1;
@@ -1198,6 +1200,54 @@ void BKE_scene_base_select(Scene *sce, Base *selbase)
 	selbase->object->flag = selbase->flag;
 
 	sce->basact = selbase;
+}
+
+void BKE_scene_base_preselect(Scene *sce, Base *base)
+{
+	base->pflag |= BA_PRESELECT;
+	base->object->pflag = base->pflag;
+	sce->toolsettings->presel_flags |= SCE_PRESEL_OBJECT;
+}
+
+bool BKE_scene_base_presel_check(Scene *sce)
+{
+	Base *b;
+	bool retval = false;
+
+	for (b = sce->base.first; b; b = b->next) {
+		if (b->pflag & BA_PRESELECT) {
+			retval = true;
+			break;
+		}
+	}
+
+	if (retval) {
+		sce->toolsettings->presel_flags |= SCE_PRESEL_OBJECT;
+	}
+	else {
+		sce->toolsettings->presel_flags &= ~SCE_PRESEL_OBJECT;
+	}
+
+	return retval;
+}
+
+bool BKE_scene_base_presel_clear(Scene *sce)
+{
+	Base *b;
+	bool retval = false;
+
+	if (sce->toolsettings->presel_flags & SCE_PRESEL_OBJECT) {
+		for (b = sce->base.first; b; b = b->next) {
+			if (b->pflag & BA_PRESELECT) {
+				b->pflag = 0;
+				b->object->pflag = b->pflag;
+			}
+		}
+		sce->toolsettings->presel_flags &= ~SCE_PRESEL_OBJECT;
+		retval = true;
+	}
+
+	return retval;
 }
 
 /* checks for cycle, returns 1 if it's all OK */

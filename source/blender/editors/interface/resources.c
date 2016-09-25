@@ -395,6 +395,10 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 					cp = ts->act_spline; break;
 				case TH_ACTIVE_VERT:
 					cp = ts->lastsel_point; break;
+				case TH_PRESEL_SELECT:
+					cp = ts->presel_select; break;
+				case TH_PRESEL_NOSELECT:
+					cp = ts->presel_noselect; break;
 				case TH_HANDLE_FREE:
 					cp = ts->handle_free; break;
 				case TH_HANDLE_AUTO:
@@ -946,6 +950,9 @@ void ui_theme_init_default(void)
 
 	rgba_char_args_set(btheme->tv3d.act_spline, 0xdb, 0x25, 0x12, 255);
 	rgba_char_args_set(btheme->tv3d.lastsel_point,  0xff, 0xff, 0xff, 255);
+
+	rgba_char_args_set(btheme->tv3d.presel_select,  0xff, 0xdc, 0x59, 100);
+	rgba_char_args_set(btheme->tv3d.presel_noselect,  0x59, 0xdc, 0xff, 100);
 
 	rgba_char_args_set(btheme->tv3d.bone_solid, 200, 200, 200, 255);
 	/* alpha 80 is not meant editable, used for wire+action draw */
@@ -2758,5 +2765,19 @@ void init_userdef_do_versions(void)
 // XXX	space_set_commmandline_options();
 	/* this timer uses U */
 // XXX	reset_autosave();
+
+	{
+		/* set PreSelect build specific colors */
+		bTheme *btheme;
+		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
+			/* check for (alpha == 0) is safe, then color was never set */
+			if (btheme->tv3d.presel_select[3] == 0) {
+				rgba_char_args_set(btheme->tv3d.presel_select,  0xff, 0xdc, 0x59, 100);
+			}
+			if (btheme->tv3d.presel_noselect[3] == 0) {
+				rgba_char_args_set(btheme->tv3d.presel_noselect,  0x59, 0xdc, 0xff, 100);
+			}
+		}
+	}
 
 }

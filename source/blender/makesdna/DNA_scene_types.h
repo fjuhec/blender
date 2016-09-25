@@ -76,6 +76,7 @@ typedef struct Base {
 	int flag;
 	short sx, sy;
 	struct Object *object;
+	int pflag, pad;
 } Base;
 
 /* ************************************************************* */
@@ -1365,6 +1366,10 @@ typedef struct ToolSettings {
 	/* Selection Mode for Mesh */
 	short selectmode;
 
+	/* Preselection */
+	short presel_flags;
+	char pad2[6];
+
 	/* UV Calculation */
 	char unwrapper;
 	char uvcalc_flag;
@@ -1893,6 +1898,11 @@ extern const char *RE_engine_id_CYCLES;
 #define SCE_SNAP_MODE_NODE_Y	6
 #define SCE_SNAP_MODE_NODE_XY	7
 #define SCE_SNAP_MODE_GRID		8
+
+/* toolsettings->presel_flags */
+#define SCE_PRESEL_ENABLED	(1<<0) /* preselection is enabled */
+#define SCE_PRESEL_OPERATOR	(1<<1) /* runtime flag for operator preselection mode */
+#define SCE_PRESEL_OBJECT	(1<<2) /* runtime flag for object preselection */
 
 /* toolsettings->selectmode */
 #define SCE_SELECT_VERTEX	1 /* for mesh */

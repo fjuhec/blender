@@ -301,7 +301,7 @@ typedef struct Object {
 
 	struct PreviewImage *preview;
 
-	int pad9;
+	int pflag;			/* copy of Base */
 	int custom_wire_color;	/* index of custom color set to use for wire color (0=default - used for all old files, -1=custom set) */
 	ThemeWireColor wcs;		/* color set to use when custom_wire_color == -1 */
 } Object;
@@ -515,6 +515,11 @@ enum {
 /* an initial attempt as making selection more specific! */
 #define BA_DESELECT     0
 #define BA_SELECT       1
+
+
+/* base->pflag and ob->pflag */
+#define BA_PRESELECT        (1 << 0)  /* object is preselected */
+#define BA_PRESEL_ENUMERATE (1 << 1)  /* part of multiple preselection (enumerate active) */
 
 
 #define OB_FROMDUPLI        (1 << 9)
