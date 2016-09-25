@@ -3204,8 +3204,10 @@ class VIEW3D_PT_view3d_display(Panel):
 
         view = context.space_data
         scene = context.scene
+        toolsettings = context.tool_settings
 
         col = layout.column()
+        col.prop(toolsettings, "use_presel", text="Preselection")
         col.prop(view, "show_only_render")
         col.prop(view, "show_world")
 

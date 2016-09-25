@@ -2084,6 +2084,7 @@ static void draw_dupli_objects_color(
 	}
 
 	tbase.flag = OB_FROMDUPLI | base->flag;
+	tbase.pflag = base->pflag;
 	lb = object_duplilist(G.main->eval_ctx, scene, base->object);
 	// BLI_listbase_sort(lb, dupli_ob_sort); /* might be nice to have if we have a dupli list with mixed objects. */
 
@@ -2225,7 +2226,17 @@ static void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *bas
 
 	unsigned char dupli_wire_col[4];  /* dont initialize this */
 
-	if(V3D_IS_WIRECOLOR(scene, v3d) && set_wire_colorset(scene, v3d, base, dupli_wire_col)) {
+	if((scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) && (base->pflag & BA_PRESELECT)) {
+		if (base->flag & SELECT) {
+			UI_ThemeColor(TH_PRESEL_SELECT);
+		}
+		else {
+			UI_ThemeColor(TH_PRESEL_NOSELECT);
+		}
+		color = TH_UNDEFINED;
+		dflag = DRAW_CONSTCOLOR;
+	}
+	else if(V3D_IS_WIRECOLOR(scene, v3d) && set_wire_colorset(scene, v3d, base, dupli_wire_col)) {
 		glColor3ubv(dupli_wire_col);
 		color = TH_UNDEFINED;
 		dflag = DRAW_CONSTCOLOR;
@@ -2856,7 +2867,7 @@ static void view3d_draw_objects(
 				if (base->object->transflag & OB_DUPLI) {
 					draw_dupli_objects(scene, ar, v3d, base);
 				}
-				if ((base->flag & SELECT) == 0) {
+				if (((base->flag & SELECT) == 0) && ((base->pflag & BA_PRESELECT) == 0)) {
 					if (base->object != scene->obedit)
 						draw_object(scene, ar, v3d, base, 0);
 				}
@@ -2869,7 +2880,7 @@ static void view3d_draw_objects(
 		/* draw selected and editmode */
 		for (base = scene->base.first; base; base = base->next) {
 			if (v3d->lay & base->lay) {
-				if (base->object == scene->obedit || (base->flag & SELECT)) {
+				if (base->object == scene->obedit || (base->flag & SELECT) || (base->pflag & BA_PRESELECT)) {
 					draw_object(scene, ar, v3d, base, 0);
 				}
 			}

@@ -78,6 +78,10 @@ void         BKE_scene_base_unlink(struct Scene *sce, struct Base *base);
 void         BKE_scene_base_deselect_all(struct Scene *sce);
 void         BKE_scene_base_select(struct Scene *sce, struct Base *selbase);
 
+void         BKE_scene_base_preselect(struct Scene *sce, struct Base *base);
+bool         BKE_scene_base_presel_check(struct Scene *sce);
+bool         BKE_scene_base_presel_clear(struct Scene *sce);
+
 /* Scene base iteration function.
  * Define struct here, so no need to bother with alloc/free it.
  */

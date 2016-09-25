@@ -71,6 +71,7 @@
 #include "BKE_editmesh.h"
 #include "BKE_tracking.h"
 #include "BKE_utildefines.h"
+#include "BKE_scene.h"
 
 
 #include "BIF_gl.h"
@@ -1087,7 +1088,7 @@ static void deselectall_except(Scene *scene, Base *b)   /* deselect all except b
 	}
 }
 
-static Base *object_mouse_select_menu(bContext *C, ViewContext *vc, unsigned int *buffer, int hits, const int mval[2], short toggle)
+static Base *object_mouse_select_menu(bContext *C, ViewContext *vc, unsigned int *buffer, int hits, const int mval[2], short toggle, bool presel)
 {
 	short baseCount = 0;
 	bool ok;
@@ -1121,6 +1122,11 @@ static Base *object_mouse_select_menu(bContext *C, ViewContext *vc, unsigned int
 			baseCount++;
 			BLI_linklist_prepend(&linklist, base);
 
+			if (presel) {
+				base->pflag |= (BA_PRESELECT | BA_PRESEL_ENUMERATE);
+				base->object->pflag = base->pflag;
+			}
+
 			if (baseCount == SEL_MENU_SIZE)
 				break;
 		}
@@ -1132,6 +1138,12 @@ static Base *object_mouse_select_menu(bContext *C, ViewContext *vc, unsigned int
 	}
 	if (baseCount == 1) {
 		Base *base = (Base *)linklist->link;
+
+		if (presel) {
+			base->pflag &= ~BA_PRESEL_ENUMERATE;
+			base->object->pflag = base->pflag;
+		}
+
 		BLI_linklist_free(linklist, NULL);
 		return base;
 	}
@@ -1139,6 +1151,11 @@ static Base *object_mouse_select_menu(bContext *C, ViewContext *vc, unsigned int
 		/* UI, full in static array values that we later use in an enum function */
 		LinkNode *node;
 		int i;
+
+		if (presel) {
+			BLI_linklist_free(linklist, NULL);
+			return NULL;
+		}
 
 		memset(object_mouse_select_menu_data, 0, sizeof(object_mouse_select_menu_data));
 
@@ -1402,7 +1419,7 @@ static void deselect_all_tracks(MovieTracking *tracking)
 /* mval is region coords */
 static bool ed_object_select_pick(
         bContext *C, const int mval[2],
-        bool extend, bool deselect, bool toggle, bool obcenter, bool enumerate, bool object)
+        bool extend, bool deselect, bool toggle, bool obcenter, bool enumerate, bool object, short presel_flags)
 {
 	ViewContext vc;
 	ARegion *ar = CTX_wm_region(C);
@@ -1414,6 +1431,8 @@ static bool ed_object_select_pick(
 	bool retval = false;
 	short hits;
 	const float mval_fl[2] = {(float)mval[0], (float)mval[1]};
+	const bool preselect = (presel_flags & SCE_PRESEL_ENABLED) != 0;
+	const bool presel_op = (presel_flags & SCE_PRESEL_OPERATOR) != 0;
 
 	
 	/* setup view context for argument to callbacks */
@@ -1425,6 +1444,39 @@ static bool ed_object_select_pick(
 		vc.obedit = NULL;
 	}
 	
+	if (preselect) {
+		/* runing operator in preselection mode, clear preselection on all bases */
+		if (presel_op) {
+			if (BKE_scene_base_presel_clear(scene)) {
+				retval = true;
+			}
+		}
+		/* operator is not in preselection mode,
+		 * try to get the last preselected object */
+		else {
+			for (base = FIRSTBASE; base; base = base->next) {
+				if (base->pflag & BA_PRESELECT) {
+					/* break loop and clear if there is more than one preselected object,
+					 * probably because enumerating is enabled */
+					if ((base->pflag & BA_PRESEL_ENUMERATE) || basact != NULL) {
+						basact = NULL;
+						break;
+					}
+					else {
+						basact = base;
+					}
+				}
+			}
+		}
+	}
+
+	/* at this point selected object can only be set from preselection above,
+	 * if we got nothing run normally, otherwise skip pick code */
+	if (basact == NULL) {
+	/* start unindented block to minimize diff */
+	/* start unindented block to minimize diff */
+	/* start unindented block to minimize diff */
+
 	/* always start list from basact in wire mode */
 	startbase =  FIRSTBASE;
 	if (BASACT && BASACT->next) startbase = BASACT->next;
@@ -1435,7 +1487,7 @@ static bool ed_object_select_pick(
 		
 		/* note; shift+alt goes to group-flush-selecting */
 		if (enumerate) {
-			basact = object_mouse_select_menu(C, &vc, NULL, 0, mval, toggle);
+			basact = object_mouse_select_menu(C, &vc, NULL, 0, mval, toggle, presel_op);
 		}
 		else {
 			base = startbase;
@@ -1474,7 +1526,7 @@ static bool ed_object_select_pick(
 
 			/* note; shift+alt goes to group-flush-selecting */
 			if (enumerate) {
-				basact = object_mouse_select_menu(C, &vc, buffer, hits, mval, toggle);
+				basact = object_mouse_select_menu(C, &vc, buffer, hits, mval, toggle, presel_op);
 			}
 			else {
 				basact = mouse_select_eval_buffer(&vc, buffer, hits, startbase, has_bones, do_nearest);
@@ -1564,11 +1616,21 @@ static bool ed_object_select_pick(
 			}
 		}
 	}
+	/* end unindented block */
+	/* end unindented block */
+	/* end unindented block */
+	}
 	
 	/* so, do we have something selected? */
 	if (basact) {
 		retval = true;
 		
+		/* preselection operator, preselect basact and return */
+		if (presel_op) {
+			BKE_scene_base_preselect(scene, basact);
+			WM_event_add_notifier(C, NC_SCENE | ND_OB_PRESELECT, scene);
+			return retval;
+		}
 		if (vc.obedit) {
 			/* only do select */
 			deselectall_except(scene, basact);
@@ -1604,8 +1666,19 @@ static bool ed_object_select_pick(
 				ED_base_object_activate(C, basact); /* adds notifier */
 			}
 		}
+		/* run again in operator mode to preselect next object */
+		if (preselect && ((basact->pflag & BA_PRESEL_ENUMERATE) == 0)) {
+			ed_object_select_pick(C, mval, extend, deselect, toggle, obcenter, enumerate, object, (SCE_PRESEL_ENABLED | SCE_PRESEL_OPERATOR));
+		}
 
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+	}
+
+	if (presel_op) {
+		BKE_scene_base_presel_check(scene);
+		if (retval || enumerate) {
+			WM_event_add_notifier(C, NC_SCENE | ND_OB_PRESELECT, scene);
+		}
 	}
 
 	return retval;
@@ -2259,6 +2332,7 @@ static bool ed_wpaint_vertex_select_pick(
 
 static int view3d_select_exec(bContext *C, wmOperator *op)
 {
+	ToolSettings *ts = CTX_data_tool_settings(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Object *obact = CTX_data_active_object(C);
 	bool extend = RNA_boolean_get(op->ptr, "extend");
@@ -2276,6 +2350,8 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
 
 	bool retval = false;
 	int location[2];
+	short presel_flags = ts->presel_flags;
+	bool presel_op = (presel_flags & SCE_PRESEL_OPERATOR) != 0;
 
 	RNA_int_get_array(op->ptr, "location", location);
 
@@ -2292,28 +2368,45 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
 	}
 
 	if (obedit && object == false) {
-		if (obedit->type == OB_MESH)
-			retval = EDBM_select_pick(C, location, extend, deselect, toggle);
-		else if (obedit->type == OB_ARMATURE)
-			retval = ED_armature_select_pick(C, location, extend, deselect, toggle);
-		else if (obedit->type == OB_LATTICE)
-			retval = ED_lattice_select_pick(C, location, extend, deselect, toggle);
-		else if (ELEM(obedit->type, OB_CURVE, OB_SURF))
-			retval = ED_curve_editnurb_select_pick(C, location, extend, deselect, toggle);
-		else if (obedit->type == OB_MBALL)
-			retval = ED_mball_select_pick(C, location, extend, deselect, toggle);
-		else if (obedit->type == OB_FONT)
-			retval = ED_curve_editfont_select_pick(C, location, extend, deselect, toggle);
-			
+		if (obedit->type == OB_MESH) {
+			if (!presel_op) /* preselection not implemented */
+				retval = EDBM_select_pick(C, location, extend, deselect, toggle);
+		}
+		else if (obedit->type == OB_ARMATURE) {
+			if (!presel_op) /* preselection not implemented */
+				retval = ED_armature_select_pick(C, location, extend, deselect, toggle);
+		}
+		else if (obedit->type == OB_LATTICE) {
+			if (!presel_op) /* preselection not implemented */
+				retval = ED_lattice_select_pick(C, location, extend, deselect, toggle);
+		}
+		else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
+			if (!presel_op) /* preselection not implemented */
+				retval = ED_curve_editnurb_select_pick(C, location, extend, deselect, toggle);
+		}
+		else if (obedit->type == OB_MBALL) {
+			if (!presel_op) /* preselection not implemented */
+				retval = ED_mball_select_pick(C, location, extend, deselect, toggle);
+		}
+		else if (obedit->type == OB_FONT) {
+			if (!presel_op) /* preselection not implemented */
+				retval = ED_curve_editfont_select_pick(C, location, extend, deselect, toggle);
+		}
 	}
-	else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT)
-		return PE_mouse_particles(C, location, extend, deselect, toggle);
-	else if (obact && BKE_paint_select_face_test(obact))
-		retval = paintface_mouse_select(C, obact, location, extend, deselect, toggle);
-	else if (BKE_paint_select_vert_test(obact))
-		retval = ed_wpaint_vertex_select_pick(C, location, extend, deselect, toggle, obact);
+	else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT) {
+		if (!presel_op) /* preselection not implemented */
+			return PE_mouse_particles(C, location, extend, deselect, toggle);
+	}
+	else if (obact && BKE_paint_select_face_test(obact)) {
+		if (!presel_op) /* preselection not implemented */
+			retval = paintface_mouse_select(C, obact, location, extend, deselect, toggle);
+	}
+	else if (BKE_paint_select_vert_test(obact)) {
+		if (!presel_op) /* preselection not implemented */
+			retval = ed_wpaint_vertex_select_pick(C, location, extend, deselect, toggle, obact);
+	}
 	else
-		retval = ed_object_select_pick(C, location, extend, deselect, toggle, center, enumerate, object);
+		retval = ed_object_select_pick(C, location, extend, deselect, toggle, center, enumerate, object, presel_flags);
 
 	/* passthrough allows tweaks
 	 * FINISHED to signal one operator worked
@@ -2348,6 +2441,55 @@ void VIEW3D_OT_select(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_UNDO;
 	
+	/* properties */
+	WM_operator_properties_mouse_select(ot);
+
+	RNA_def_boolean(ot->srna, "center", 0, "Center", "Use the object center when selecting, in editmode used to extend object selection");
+	RNA_def_boolean(ot->srna, "enumerate", 0, "Enumerate", "List objects under the mouse (object mode only)");
+	RNA_def_boolean(ot->srna, "object", 0, "Object", "Use object selection (editmode only)");
+
+	prop = RNA_def_int_vector(ot->srna, "location", 2, NULL, INT_MIN, INT_MAX, "Location", "Mouse location", INT_MIN, INT_MAX);
+	RNA_def_property_flag(prop, PROP_HIDDEN);
+}
+
+
+/* -------------------- preselection --------------------------------------------- */
+
+static int view3d_presel_exec(bContext *C, wmOperator *op)
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	int retval = OPERATOR_PASS_THROUGH;
+
+	ts->presel_flags |= SCE_PRESEL_OPERATOR;
+	retval = view3d_select_exec(C, op);
+	ts->presel_flags &= ~SCE_PRESEL_OPERATOR;
+
+	return retval;
+}
+
+static int view3d_presel_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	RNA_int_set_array(op->ptr, "location", event->mval);
+
+	return view3d_presel_exec(C, op);
+}
+
+void VIEW3D_OT_preselect(wmOperatorType *ot)
+{
+	PropertyRNA *prop;
+
+	/* identifiers */
+	ot->name = "Preselect";
+	ot->description = "Preselect item(s)";
+	ot->idname = "VIEW3D_OT_preselect";
+
+	/* api callbacks */
+	ot->invoke = view3d_presel_invoke;
+	ot->exec = view3d_presel_exec;
+	ot->poll = ED_operator_presel_view3d_active;
+
+	/* flags */
+
 	/* properties */
 	WM_operator_properties_mouse_select(ot);
 

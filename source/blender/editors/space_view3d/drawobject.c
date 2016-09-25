@@ -4140,13 +4140,16 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 
 /* Mesh drawing routines */
 
-static void draw_mesh_object_outline(View3D *v3d, Object *ob, DerivedMesh *dm)
+static void draw_mesh_object_outline(View3D *v3d, Object *ob, DerivedMesh *dm, bool is_presel)
 {
 	if ((v3d->transp == false) &&  /* not when we draw the transparent pass */
 	    (ob->mode & OB_MODE_ALL_PAINT) == false) /* not when painting (its distracting) - campbell */
 	{
 		glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
-		glDepthMask(0);
+
+		if (!is_presel) {
+			glDepthMask(0);
+		}
 
 		/* if transparent, we cannot draw the edges for solid select... edges
 		 * have no material info. GPU_object_material_visible will skip the
@@ -4160,7 +4163,9 @@ static void draw_mesh_object_outline(View3D *v3d, Object *ob, DerivedMesh *dm)
 			dm->drawEdges(dm, 0, 1);
 		}
 
-		glDepthMask(1);
+		if (!is_presel) {
+			glDepthMask(1);
+		}
 	}
 }
 
@@ -4183,6 +4188,7 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 	bool /* no_verts,*/ no_edges, no_faces;
 	DerivedMesh *dm = mesh_get_derived_final(scene, ob, scene->customdata_mask);
 	const bool is_obact = (ob == OBACT);
+	const bool is_presel = ((scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) != 0) && ((base->pflag & BA_PRESELECT) != 0);
 	int draw_flags = (is_obact && BKE_paint_select_face_test(ob)) ? DRAW_FACE_SELECT : 0;
 
 	if (!dm)
@@ -4234,13 +4240,13 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 	{
 		bool draw_loose = true;
 
-		if ((v3d->flag & V3D_SELECT_OUTLINE) &&
+		if ((is_presel || (v3d->flag & V3D_SELECT_OUTLINE)) &&
 		    ((v3d->flag2 & V3D_RENDER_OVERRIDE) == 0) &&
-		    (base->flag & SELECT) &&
+		    (is_presel || (base->flag & SELECT)) &&
 		    !(G.f & G_PICKSEL || (draw_flags & DRAW_FACE_SELECT)) &&
 		    (draw_wire == OBDRAW_WIRE_OFF))
 		{
-			draw_mesh_object_outline(v3d, ob, dm);
+			draw_mesh_object_outline(v3d, ob, dm, is_presel);
 		}
 
 		if (draw_glsl_material(scene, ob, v3d, dt) && !(draw_flags & DRAW_MODIFIERS_PREVIEW)) {
@@ -4305,13 +4311,13 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 				const float specular[3] = {0.47f, 0.47f, 0.47f};
 
 				/* draw outline */
-				if ((v3d->flag & V3D_SELECT_OUTLINE) &&
+				if ((is_presel || (v3d->flag & V3D_SELECT_OUTLINE)) &&
 				    ((v3d->flag2 & V3D_RENDER_OVERRIDE) == 0) &&
-				    (base->flag & SELECT) &&
+				    (is_presel || (base->flag & SELECT)) &&
 				    (draw_wire == OBDRAW_WIRE_OFF) &&
 				    (ob->sculpt == NULL))
 				{
-					draw_mesh_object_outline(v3d, ob, dm);
+					draw_mesh_object_outline(v3d, ob, dm, is_presel);
 				}
 
 				/* materials arent compatible with vertex colors */
@@ -4329,13 +4335,13 @@ static void draw_mesh_fancy(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D
 		else {
 			Paint *p;
 
-			if ((v3d->flag & V3D_SELECT_OUTLINE) &&
+			if ((is_presel || (v3d->flag & V3D_SELECT_OUTLINE)) &&
 			    ((v3d->flag2 & V3D_RENDER_OVERRIDE) == 0) &&
-			    (base->flag & SELECT) &&
+			    (is_presel || (base->flag & SELECT)) &&
 			    (draw_wire == OBDRAW_WIRE_OFF) &&
 			    (ob->sculpt == NULL))
 			{
-				draw_mesh_object_outline(v3d, ob, dm);
+				draw_mesh_object_outline(v3d, ob, dm, is_presel);
 			}
 
 			glFrontFace((ob->transflag & OB_NEG_SCALE) ? GL_CW : GL_CCW);
@@ -7380,12 +7386,14 @@ static void drawtexspace(Object *ob)
 
 /* draws wire outline */
 static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
-                             const unsigned char ob_wire_col[4])
+                             const unsigned char ob_wire_col[4], bool is_presel)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	Object *ob = base->object;
 	
-	glDepthMask(0);
+	if (!is_presel) {
+		glDepthMask(0);
+	}
 	
 	if (ELEM(ob->type, OB_FONT, OB_CURVE, OB_SURF)) {
 		bool has_faces = false;
@@ -7409,7 +7417,7 @@ static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 		if (has_faces && ED_view3d_boundbox_clip(rv3d, ob->bb)) {
 			glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
 			if (dm) {
-				draw_mesh_object_outline(v3d, ob, dm);
+				draw_mesh_object_outline(v3d, ob, dm, is_presel);
 			}
 			else {
 				/* only draw 'solid' parts of the display list as wire. */
@@ -7432,7 +7440,9 @@ static void drawObjectSelect(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
 		}
 	}
 
-	glDepthMask(1);
+	if (!is_presel) {
+		glDepthMask(1);
+	}
 }
 
 static void draw_wire_extra(Scene *scene, RegionView3D *rv3d, Object *ob, const unsigned char ob_wire_col[4])
@@ -7681,6 +7691,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 	const unsigned char *ob_wire_col = NULL;  /* dont initialize this, use NULL crashes as a way to find invalid use */
 	bool zbufoff = false, is_paint = false, empty_object = false;
 	const bool is_obact = (ob == OBACT);
+	const bool is_presel = ((scene->toolsettings->presel_flags & SCE_PRESEL_ENABLED) != 0) && ((base->pflag & BA_PRESELECT) != 0);
 	const bool render_override = (v3d->flag2 & V3D_RENDER_OVERRIDE) != 0;
 	const bool is_picking = (G.f & G_PICKSEL) != 0;
 	const bool has_particles = (ob->particlesystem.first != NULL);
@@ -7800,6 +7811,14 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 		if(!V3D_IS_WIRECOLOR(scene, v3d) || !set_wire_colorset(scene, v3d, base, _ob_wire_col)) {
 			draw_object_wire_color(scene, base, _ob_wire_col);
 		}
+		if (is_presel) {
+			if (ob->flag & SELECT) {
+				UI_GetThemeColor3ubv(TH_PRESEL_SELECT, _ob_wire_col);
+			}
+			else {
+				UI_GetThemeColor3ubv(TH_PRESEL_NOSELECT, _ob_wire_col);
+			}
+		}
 		ob_wire_col = _ob_wire_col;
 
 		glColor3ubv(ob_wire_col);
@@ -7852,10 +7871,11 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 
 	if (!skip_object) {
 		/* draw outline for selected objects, mesh does itself */
-		if ((v3d->flag & V3D_SELECT_OUTLINE) && !render_override && ob->type != OB_MESH) {
+		if ((is_presel || (v3d->flag & V3D_SELECT_OUTLINE)) && !render_override && ob->type != OB_MESH) {
 			if (dt > OB_WIRE && (ob->mode & OB_MODE_EDIT) == 0 && (dflag & DRAW_SCENESET) == 0) {
-				if (!(ob->dtx & OB_DRAWWIRE) && (ob->flag & SELECT) && !(dflag & (DRAW_PICKING | DRAW_CONSTCOLOR))) {
-					drawObjectSelect(scene, v3d, ar, base, ob_wire_col);
+				if (!(ob->dtx & OB_DRAWWIRE) && (is_presel || (ob->flag & SELECT)) &&
+				    !(dflag & (DRAW_PICKING | DRAW_CONSTCOLOR))) {
+					drawObjectSelect(scene, v3d, ar, base, ob_wire_col, is_presel);
 				}
 			}
 		}
@@ -8719,7 +8739,7 @@ static void draw_object_mesh_instance(Scene *scene, View3D *v3d, RegionView3D *r
 	}
 	else {
 		if (outline)
-			draw_mesh_object_outline(v3d, ob, dm ? dm : edm);
+			draw_mesh_object_outline(v3d, ob, dm ? dm : edm, false);
 
 		if (dm) {
 			bool glsl = draw_glsl_material(scene, ob, v3d, dt);
