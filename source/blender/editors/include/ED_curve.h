@@ -55,7 +55,7 @@ void    ED_curve_editnurb_load(struct Object *obedit);
 void    ED_curve_editnurb_make(struct Object *obedit);
 void    ED_curve_editnurb_free(struct Object *obedit);
 
-bool    ED_curve_editnurb_select_pick(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
+bool    ED_curve_editnurb_select_pick(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle, bool presel);
 
 struct Nurb *ED_curve_add_nurbs_primitive(struct bContext *C, struct Object *obedit, float mat[4][4], int type, int newob);
 
@@ -71,6 +71,8 @@ bool ED_curve_select_check(struct Curve *cu, struct EditNurb *editnurb);
 void ED_curve_deselect_all(struct EditNurb *editnurb);
 void ED_curve_select_all(struct EditNurb *editnurb);
 void ED_curve_select_swap(struct EditNurb *editnurb, bool hide_handles);
+
+void ED_curve_presel_clear(ListBase *editnurb);
 
 /* editfont.c */
 void    ED_curve_editfont_load(struct Object *obedit);
