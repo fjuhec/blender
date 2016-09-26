@@ -300,6 +300,8 @@ enum {
 	TH_METADATA_BG,
 	TH_METADATA_TEXT,
 
+	TH_EDGE_BEVEL,
+	TH_VERTEX_BEVEL,
 	/* color theme for linked markers */
 	TH_LINKED_MARKER,
 	TH_SEL_LINKED_MARKER
