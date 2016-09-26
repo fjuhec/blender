@@ -149,7 +149,25 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			if (path_flag & PATH_RAY_DIFFUSE_ANCESTOR)
 				subsurface = 0.0f;
 
-			if (subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
+			if (subsurface < CLOSURE_WEIGHT_CUTOFF) {
+				/* diffuse */
+				if (diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(baseColor)) > CLOSURE_WEIGHT_CUTOFF) {
+					float3 diff_weight = weight * diffuse_weight;
+					float diff_sample_weight = fabsf(average(diff_weight));
+
+					DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
+
+					if (bsdf) {
+						bsdf->N = N;
+						bsdf->baseColor = baseColor;
+						bsdf->roughness = roughness;
+
+						/* setup bsdf */
+						ccl_fetch(sd, flag) |= bsdf_disney_diffuse_setup(bsdf);
+					}
+				}
+			}
+			else if (subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
 				/* radius * scale */
 				float3 radius = make_float3(1.0f, 1.0f, 1.0f) * subsurface;
 				/* sharpness */
@@ -239,7 +257,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 #ifdef __CAUSTICS_TRICKS__
 			if (kernel_data.integrator.caustics_reflective || (path_flag & PATH_RAY_DIFFUSE) == 0) {
 #endif
-				if (specular > CLOSURE_WEIGHT_CUTOFF || metallic > CLOSURE_WEIGHT_CUTOFF) {
+				if (specular_weight > CLOSURE_WEIGHT_CUTOFF && (specular > CLOSURE_WEIGHT_CUTOFF || metallic > CLOSURE_WEIGHT_CUTOFF)) {
 					float3 spec_weight = weight * specular_weight/* * (specular * (1.0f - metallic) + metallic)*/;
 
 					MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), spec_weight);
