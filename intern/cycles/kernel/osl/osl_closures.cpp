@@ -61,8 +61,6 @@
 #include "closure/bsdf_hair.h"
 #include "closure/bsdf_disney_diffuse.h"
 #include "closure/bsdf_disney_sheen.h"
-#include "closure/bsdf_disney_specular.h"
-#include "closure/bsdf_disney_clearcoat.h"
 #include "closure/volume.h"
 
 CCL_NAMESPACE_BEGIN
