@@ -40,15 +40,16 @@ shader node_disney_bsdf(
 	output closure color BSDF = 0)
 {
 	float f = max(IOR, 1e-5);
-	float eta = backfacing() ? 1.0 / f : f;
-	float cosNO = dot(Normal, I);
-	float Fr = fresnel_dielectric_cos(cosNO, eta);
     float diffuse_weight = (1.0 - clamp(Metallic, 0.0, 1.0)) * (1.0 - clamp(Transparency, 0.0, 1.0));
     float transp = clamp(Transparency, 0.0, 1.0) * (1.0 - clamp(Metallic, 0.0, 1.0));
     float specular_weight = (1.0 - transp);
     
     if (diffuse_weight > 1e-5) {
-        BSDF = bssrdf_disney(Normal, vector(Subsurface, Subsurface, Subsurface), 0.0, BaseColor, SubsurfaceColor, Roughness);
+        if (Subsurface > 1e-5) {
+            BSDF = bssrdf_disney(Normal, vector(Subsurface, Subsurface, Subsurface), 0.0, BaseColor, SubsurfaceColor, Roughness);
+        } else {
+            BSDF = disney_diffuse(Normal, BaseColor, Roughness);
+        }
         
         if (Sheen != 0.0) {
             BSDF = BSDF + disney_sheen(Normal, BaseColor, Sheen, SheenTint);
@@ -70,22 +71,30 @@ shader node_disney_bsdf(
         
         color Cspec0 = (Specular * 0.08 * tmp_col) * (1.0 - Metallic) + BaseColor * Metallic;
         
-        BSDF = BSDF + specular_weight * microfacet_multi_ggx_aniso_fresnel(Normal, Tangent, alpha_x, alpha_y, (2.0 / (1.0 - sqrt(0.08 * Specular))) - 1.0, BaseColor, Cspec0);
+        if (distribution == "Multiscatter GGX") {
+            BSDF = BSDF + specular_weight * microfacet_multi_ggx_aniso_fresnel(Normal, Tangent, alpha_x, alpha_y, (2.0 / (1.0 - sqrt(0.08 * Specular))) - 1.0, BaseColor, Cspec0);
+        } else {
+            BSDF = BSDF  + specular_weight * microfacet_ggx_aniso_fresnel(Normal, Tangent, alpha_x, alpha_y, (2.0 / (1.0 - sqrt(0.08 * Specular))) - 1.0, BaseColor, Cspec0);
+        }
     }
     
     if (transp > 1e-5) {
         color Cspec0 = BaseColor * SpecularTint + color(1.0, 1.0, 1.0) * (1.0 - SpecularTint);
+        float eta = backfacing() ? 1.0 / f : f;
         
         if (distribution == "Multiscatter GGX") {
             BSDF = BSDF + transp * microfacet_multi_ggx_glass_fresnel(Normal, Roughness * Roughness, eta, BaseColor, Cspec0);
         } else {
+            float cosNO = dot(Normal, I);
+            float Fr = fresnel_dielectric_cos(cosNO, eta);
+            
             BSDF = BSDF + transp * (Fr * microfacet_ggx_fresnel(Normal, Roughness, eta, BaseColor, Cspec0) +
-		                (1.0 - Fr) * microfacet_ggx_refraction_fresnel(Normal, Roughness, eta, BaseColor, Cspec0));
+		                (1.0 - Fr) * microfacet_ggx_refraction(Normal, Roughness, eta));
         }
     }
     
     if (Clearcoat > 1e-5) {
-        BSDF = BSDF + 0.25 * Clearcoat * microfacet_ggx_fresnel(Normal, 0.1 * (1.0 - ClearcoatGloss) + 0.001 * ClearcoatGloss, 1.5, color(1, 1, 1), color(0.04, 0.04, 0.04));
+        BSDF = BSDF + 0.25 * Clearcoat * disney_clearcoat(Normal, Clearcoat, ClearcoatGloss);
     }
 }
 

@@ -192,190 +192,27 @@ BSDF_CLOSURE_CLASS_BEGIN(DisneySheen, disney_sheen, DisneySheenBsdf, LABEL_DIFFU
 	CLOSURE_FLOAT_PARAM(DisneySheenClosure, params.sheenTint),
 BSDF_CLOSURE_CLASS_END(DisneySheen, disney_sheen)
 
-/*BSDF_CLOSURE_CLASS_BEGIN(DisneySpecular, disney_specular, DisneySpecularBsdf, LABEL_GLOSSY | LABEL_REFLECT)
-	CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, params.N),
-	CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, params.T),
-	CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, params.extra->baseColor),
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.metallic),
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.specular),
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.specularTint),
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.roughness),
-	CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.anisotropic),
-BSDF_CLOSURE_CLASS_END(DisneySpecular, disney_specular)*/
-
-BSDF_CLOSURE_CLASS_BEGIN(DisneyClearcoat, disney_clearcoat, DisneyClearcoatBsdf, LABEL_GLOSSY|LABEL_REFLECT)
-	CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, params.N),
-	CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, params.clearcoat),
-	CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, params.clearcoatGloss),
-BSDF_CLOSURE_CLASS_END(DisneyClearcoat, disney_clearcoat)
-
 /* DISNEY CLEARCOAT */
-/*class DisneyClearcoatClosure : public CBSDFClosure {
+class DisneyClearcoatClosure : public CBSDFClosure {
 public:
-	DisneyClearcoatClosure() : CBSDFClosure(LABEL_REFLECT | LABEL_GLOSSY)
-	{}
+	MicrofacetBsdf params;
+	float clearcoat, clearcoatGloss;
 
-	void setup()
+	MicrofacetBsdf *alloc(ShaderData *sd, int path_flag, float3 weight)
 	{
-		sc.prim = this;
-		m_shaderdata_flag = bsdf_disney_clearcoat_setup(&sc);
-	}
+		MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc_osl(sd, sizeof(MicrofacetBsdf), weight, &params);
+		MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
+		if(bsdf && extra) {
+			bsdf->extra = extra;
 
-	void blur(float roughness)
-	{
-	}
+			bsdf->ior = 1.5f;
 
-	float3 eval_reflect(const float3 &omega_out, const float3 &omega_in, float& pdf) const
-	{
-		return bsdf_disney_clearcoat_eval_reflect(&sc, omega_out, omega_in, &pdf);
-	}
+			bsdf->alpha_x = 0.1f * (1.0f - clearcoatGloss) + 0.001f * clearcoatGloss;
+			bsdf->alpha_y = 0.1f * (1.0f - clearcoatGloss) + 0.001f * clearcoatGloss;
 
-	float3 eval_transmit(const float3 &omega_out, const float3 &omega_in, float& pdf) const
-	{
-		return bsdf_disney_clearcoat_eval_transmit(&sc, omega_out, omega_in, &pdf);
-	}
+			bsdf->extra->cspec0 = make_float3(0.04f, 0.04f, 0.04f);
 
-	int sample(const float3 &Ng,
-		const float3 &omega_out, const float3 &domega_out_dx, const float3 &domega_out_dy,
-		float randu, float randv,
-		float3 &omega_in, float3 &domega_in_dx, float3 &domega_in_dy,
-		float &pdf, float3 &eval) const
-	{
-		return bsdf_disney_clearcoat_sample(&sc, Ng, omega_out, domega_out_dx, domega_out_dy,
-			randu, randv, &eval, &omega_in, &domega_in_dx, &domega_in_dy, &pdf);
-	}
-};
-
-ClosureParam *bsdf_disney_clearcoat_params()
-{
-	static ClosureParam params[] = {
-		CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, sc.N),
-		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data0), // clearcoat
-		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, sc.data1), // clearcoatGloss
-		CLOSURE_STRING_KEYPARAM(DisneyClearcoatClosure, label, "label"),
-		CLOSURE_FINISH_PARAM(DisneyClearcoatClosure)
-	};
-	return params;
-}
-
-CCLOSURE_PREPARE(bsdf_disney_clearcoat_prepare, DisneyClearcoatClosure)
-*/
-
-/* DISNEY DIFFUSE */
-/*class DisneyDiffuseClosure : public CBSDFClosure {
-public:
-	DisneyDiffuseClosure() : CBSDFClosure(LABEL_DIFFUSE)
-	{}
-
-	void setup()
-	{
-		sc.prim = this;
-		m_shaderdata_flag = bsdf_disney_diffuse_setup(&sc);
-	}
-
-	void blur(float roughness)
-	{
-	}
-
-	float3 eval_reflect(const float3 &omega_out, const float3 &omega_in, float& pdf) const
-	{
-		return bsdf_disney_diffuse_eval_reflect(&sc, omega_out, omega_in, &pdf);
-	}
-
-	float3 eval_transmit(const float3 &omega_out, const float3 &omega_in, float& pdf) const
-	{
-		return bsdf_disney_diffuse_eval_transmit(&sc, omega_out, omega_in, &pdf);
-	}
-
-	int sample(const float3 &Ng, const float3 &omega_out, const float3 &domega_out_dx,
-		const float3 &domega_out_dy, float randu, float randv, float3 &omega_in,
-		float3 &domega_in_dx, float3 &domega_in_dy, float &pdf, float3 &eval) const
-	{
-		return bsdf_disney_diffuse_sample(&sc, Ng, omega_out, domega_out_dx, domega_out_dy,
-			randu, randv, &eval, &omega_in, &domega_in_dx, &domega_in_dy, &pdf);
-	}
-};
-
-ClosureParam *bsdf_disney_diffuse_params()
-{
-	static ClosureParam params[] = {
-		CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.N),
-		CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, sc.color0),	// base color
-		CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, sc.data0),	// roughness
-		CLOSURE_STRING_KEYPARAM(DisneyDiffuseClosure, label, "label"),
-		CLOSURE_FINISH_PARAM(DisneyDiffuseClosure)
-	};
-	return params;
-}
-
-CCLOSURE_PREPARE(bsdf_disney_diffuse_prepare, DisneyDiffuseClosure)
-*/
-
-/* DISNEY SHEEN */
-/*class DisneySheenClosure : public CBSDFClosure {
-public:
-	DisneySheenClosure() : CBSDFClosure(LABEL_DIFFUSE)
-	{}
-
-	void setup()
-	{
-		sc.prim = this;
-		m_shaderdata_flag = bsdf_disney_sheen_setup(&sc);
-	}
-
-	void blur(float roughness)
-	{
-	}
-
-	float3 eval_reflect(const float3 &omega_out, const float3 &omega_in, float& pdf) const
-	{
-		return bsdf_disney_sheen_eval_reflect(&sc, omega_out, omega_in, &pdf);
-	}
-
-	float3 eval_transmit(const float3 &omega_out, const float3 &omega_in, float& pdf) const
-	{
-		return bsdf_disney_sheen_eval_transmit(&sc, omega_out, omega_in, &pdf);
-	}
-
-	int sample(const float3 &Ng, const float3 &omega_out, const float3 &domega_out_dx,
-		const float3 &domega_out_dy, float randu, float randv, float3 &omega_in,
-		float3 &domega_in_dx, float3 &domega_in_dy, float &pdf, float3 &eval) const
-	{
-		return bsdf_disney_sheen_sample(&sc, Ng, omega_out, domega_out_dx, domega_out_dy,
-			randu, randv, &eval, &omega_in, &domega_in_dx, &domega_in_dy, &pdf);
-	}
-};
-
-ClosureParam *bsdf_disney_sheen_params()
-{
-	static ClosureParam params[] = {
-		CLOSURE_FLOAT3_PARAM(DisneySheenClosure, sc.N),
-		CLOSURE_FLOAT3_PARAM(DisneySheenClosure, sc.color0),	// base color
-		CLOSURE_FLOAT_PARAM(DisneySheenClosure, sc.data0),	// sheen
-		CLOSURE_FLOAT_PARAM(DisneySheenClosure, sc.data1),	// sheenTint
-		CLOSURE_STRING_KEYPARAM(DisneySheenClosure, label, "label"),
-		CLOSURE_FINISH_PARAM(DisneySheenClosure)
-	};
-	return params;
-}
-
-CCLOSURE_PREPARE(bsdf_disney_sheen_prepare, DisneySheenClosure)
-*/
-
-/* DISNEY SPECULAR */
-class DisneySpecularClosure : public CBSDFClosure {
-public:
-	DisneySpecularBsdf params;
-
-	DisneySpecularBsdf *alloc(ShaderData *sd, int path_flag, float3 weight)
-	{
-		if (!skip(sd, path_flag, LABEL_GLOSSY | LABEL_REFLECT)) {
-			DisneySpecularBsdf *bsdf = (DisneySpecularBsdf*)bsdf_alloc_osl(sd, sizeof(DisneySpecularBsdf), weight, &params);
-			DisneySpecularExtra *extra = (DisneySpecularExtra*)closure_alloc_extra(sd, sizeof(DisneySpecularExtra));
-			if (bsdf && extra) {
-				bsdf->extra = extra;
-				return bsdf;
-			}
+			return bsdf;
 		}
 
 		return NULL;
@@ -383,28 +220,23 @@ public:
 
 	void setup(ShaderData *sd, int path_flag, float3 weight)
 	{
-		DisneySpecularBsdf *bsdf = alloc(sd, path_flag, weight);
-		sd->flag |= (bsdf) ? bsdf_disney_specular_setup(bsdf) : 0;
+		MicrofacetBsdf *bsdf = alloc(sd, path_flag, weight);
+		sd->flag |= (bsdf) ? bsdf_microfacet_ggx_setup(bsdf, true, true) : 0;
 	}
 };
 
-ClosureParam *closure_bsdf_disney_specular_params()
+ClosureParam *closure_bsdf_disney_clearcoat_params()
 {
 	static ClosureParam params[] = {
-		CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, params.N),
-		CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, params.extra->T),
-		CLOSURE_FLOAT3_PARAM(DisneySpecularClosure, params.extra->baseColor),
-		CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.metallic),
-		CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.specular),
-		CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.specularTint),
-		CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.roughness),
-		CLOSURE_FLOAT_PARAM(DisneySpecularClosure, params.anisotropic),
-		CLOSURE_STRING_KEYPARAM(DisneySpecularClosure, label, "label"),
-		CLOSURE_FINISH_PARAM(DisneySpecularClosure)
+		CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, params.N),
+		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, clearcoat),
+		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, clearcoatGloss),
+		CLOSURE_STRING_KEYPARAM(DisneyClearcoatClosure, label, "label"),
+		CLOSURE_FINISH_PARAM(DisneyClearcoatClosure)
 	};
 	return params;
 }
-CCLOSURE_PREPARE(closure_bsdf_disney_specular_prepare, DisneySpecularClosure);
+CCLOSURE_PREPARE(closure_bsdf_disney_clearcoat_prepare, DisneyClearcoatClosure)
 
 
 /* Registration */
@@ -476,10 +308,8 @@ void OSLShader::register_closures(OSLShadingSystem *ss_)
 		bsdf_disney_diffuse_params(), bsdf_disney_diffuse_prepare);
 	register_closure(ss, "disney_sheen", id++,
 		bsdf_disney_sheen_params(), bsdf_disney_sheen_prepare);
-	register_closure(ss, "disney_specular", id++,
-		closure_bsdf_disney_specular_params(), closure_bsdf_disney_specular_prepare);
 	register_closure(ss, "disney_clearcoat", id++,
-		bsdf_disney_clearcoat_params(), bsdf_disney_clearcoat_prepare);
+		closure_bsdf_disney_clearcoat_params(), closure_bsdf_disney_clearcoat_prepare);
 
 	register_closure(ss, "emission", id++,
 		closure_emission_params(), closure_emission_prepare);
