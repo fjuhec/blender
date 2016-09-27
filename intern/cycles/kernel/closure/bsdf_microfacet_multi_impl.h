@@ -251,8 +251,6 @@ ccl_device float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const 
 	, const float eta
 	, bool use_fresnel = false
 	, bool initial_outside = true
-	, bool only_refractions = false
-	, bool only_reflections = false
 #elif defined(MF_MULTI_GLOSSY)
 	, float3 *n, float3 *k
 	, const float eta = 1.0f
@@ -294,12 +292,6 @@ ccl_device float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const 
 		/* Sample microfacet height. */
 		if(!mf_sample_height(wr, &hr, &C1_r, &G1_r, &lambda_r, lcg_step_float_addrspace(lcg_state))) {
 			/* The random walk has left the surface. */
-#ifdef MF_MULTI_GLASS
-			if ((only_refractions && outside/* && initial_outside*/) || (only_reflections && !outside)) {
-				*wo = make_float3(0.0f, 0.0f, 1.0f);
-				return make_float3(0.0f, 0.0f, 0.0f);
-			}
-#endif
 			*wo = outside? wr: -wr;
 #if defined(MF_MULTI_GLASS) || defined(MF_MULTI_GLOSSY)
 			if (use_fresnel)

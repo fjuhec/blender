@@ -2333,7 +2333,7 @@ Mesh *BKE_mesh_new_from_object(
 				DerivedMesh *dm;
 				/* CustomDataMask mask = CD_MASK_BAREMESH|CD_MASK_MTFACE|CD_MASK_MCOL; */
 				CustomDataMask mask = CD_MASK_MESH; /* this seems more suitable, exporter,
-			                                         * for example, needs CD_MASK_MDEFORMVERT */
+				                                     * for example, needs CD_MASK_MDEFORMVERT */
 
 				if (calc_undeformed)
 					mask |= CD_MASK_ORCO;
@@ -2368,8 +2368,12 @@ Mesh *BKE_mesh_new_from_object(
 			if (tmpcu->mat) {
 				for (i = tmpcu->totcol; i-- > 0; ) {
 					/* are we an object material or data based? */
-
-					tmpmesh->mat[i] = ob->matbits[i] ? ob->mat[i] : tmpcu->mat[i];
+					if (ob->matbits[i] && i >= ob->totcol) {
+						tmpmesh->mat[i] = NULL;
+					}
+					else {
+						tmpmesh->mat[i] = ob->matbits[i] ? ob->mat[i] : tmpcu->mat[i];
+					}
 
 					if (do_mat_id_us && tmpmesh->mat[i]) {
 						id_us_plus(&tmpmesh->mat[i]->id);
@@ -2388,7 +2392,12 @@ Mesh *BKE_mesh_new_from_object(
 			if (tmpmb->mat) {
 				for (i = tmpmb->totcol; i-- > 0; ) {
 					/* are we an object material or data based? */
-					tmpmesh->mat[i] = ob->matbits[i] ? ob->mat[i] : tmpmb->mat[i];
+					if (ob->matbits[i] && i >= ob->totcol) {
+						tmpmesh->mat[i] = NULL;
+					}
+					else {
+						tmpmesh->mat[i] = ob->matbits[i] ? ob->mat[i] : tmpmb->mat[i];
+					}
 
 					if (do_mat_id_us && tmpmesh->mat[i]) {
 						id_us_plus(&tmpmesh->mat[i]->id);
@@ -2408,7 +2417,12 @@ Mesh *BKE_mesh_new_from_object(
 				if (origmesh->mat) {
 					for (i = origmesh->totcol; i-- > 0; ) {
 						/* are we an object material or data based? */
-						tmpmesh->mat[i] = ob->matbits[i] ? ob->mat[i] : origmesh->mat[i];
+						if (ob->matbits[i] && i >= ob->totcol) {
+							tmpmesh->mat[i] = NULL;
+						}
+						else {
+							tmpmesh->mat[i] = ob->matbits[i] ? ob->mat[i] : origmesh->mat[i];
+						}
 
 						if (do_mat_id_us && tmpmesh->mat[i]) {
 							id_us_plus(&tmpmesh->mat[i]->id);

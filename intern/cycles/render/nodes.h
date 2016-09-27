@@ -907,6 +907,7 @@ public:
 	}
 
 	bool invert;
+	bool use_object_space;
 	float height;
 	float sample_center;
 	float sample_x;
