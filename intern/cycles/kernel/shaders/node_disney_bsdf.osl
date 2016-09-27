@@ -88,8 +88,8 @@ shader node_disney_bsdf(
             float cosNO = dot(Normal, I);
             float Fr = fresnel_dielectric_cos(cosNO, eta);
             
-            BSDF = BSDF + transp * (Fr * microfacet_ggx_fresnel(Normal, Roughness, eta, BaseColor, Cspec0) +
-		                (1.0 - Fr) * microfacet_ggx_refraction(Normal, Roughness, eta));
+            BSDF = BSDF + transp * (Fr * microfacet_ggx_fresnel(Normal, Roughness * Roughness, eta, BaseColor, Cspec0) +
+		                (1.0 - Fr) * BaseColor * microfacet_ggx_refraction(Normal, Roughness * Roughness, eta));
         }
     }
     
