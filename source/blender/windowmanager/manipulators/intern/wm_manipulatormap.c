@@ -390,7 +390,7 @@ static void manipulators_prepare_visible_3D(wmManipulatorMap *mmap, ListBase *vi
 	wmManipulator *manipulator;
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		if (mgroup->flag & WM_MANIPULATORGROUPTYPE_3D) {
+		if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) {
 			if (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)) {
 				for (manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
 					if (manipulator->render_3d_intersection && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
@@ -441,7 +441,7 @@ void WM_manipulatormaps_add_handlers(ARegion *ar, wmManipulatorMap *mmap)
 {
 	wmEventHandler *handler = MEM_callocN(sizeof(wmEventHandler), "manipulator handler");
 
-	BLI_assert(handler->manipulator_map == ar->manipulator_map);
+	BLI_assert(mmap == ar->manipulator_map);
 	handler->manipulator_map = mmap;
 	BLI_addtail(&ar->handlers, handler);
 }
@@ -453,7 +453,7 @@ void wm_manipulatormaps_handled_modal_update(
 	const bool modal_running = (handler->op != NULL);
 
 	/* happens on render */
-	if (!handler->op_region)
+	if (!handler->op_region || !handler->op_region->manipulator_map)
 		return;
 
 	/* hide operator manipulators */
