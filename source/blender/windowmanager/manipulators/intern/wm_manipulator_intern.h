@@ -186,8 +186,6 @@ typedef struct wmManipulatorMapType {
 	struct wmManipulatorMapType *next, *prev;
 	char idname[64];
 	short spaceid, regionid;
-	/* eManipulatorMapTypeFlag */
-	int flag;
 	/* types of manipulator-groups for this manipulator-map type */
 	ListBase manipulator_grouptypes;
 } wmManipulatorMapType;

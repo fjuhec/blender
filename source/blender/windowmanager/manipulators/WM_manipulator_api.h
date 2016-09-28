@@ -99,8 +99,6 @@ struct wmManipulatorMapType *WM_manipulatormaptype_ensure(
         const struct wmManipulatorMapType_Params *mmap_params);
 struct wmManipulatorMap *WM_manipulatormap_new_from_type(
         const struct wmManipulatorMapType_Params *mmap_params);
-struct wmManipulatorMap *WM_manipulatormap_find(
-        const struct ARegion *ar, const struct wmManipulatorMapType_Params *mmap_params);
 
 void WM_manipulatormap_tag_refresh(struct wmManipulatorMap *mmap);
 void WM_manipulatormap_update(const struct bContext *C, struct wmManipulatorMap *mmap);
@@ -108,7 +106,7 @@ void WM_manipulatormap_draw(
         const struct bContext *C, const struct wmManipulatorMap *mmap,
         const bool in_scene, const bool free_drawmanipulators);
 
-void WM_manipulatormaps_add_handlers(struct ARegion *ar);
+void WM_manipulatormaps_add_handlers(struct ARegion *ar, struct wmManipulatorMap *mmap);
 
 bool WM_manipulatormap_select_all(struct bContext *C, struct wmManipulatorMap *mmap, const int action);
 

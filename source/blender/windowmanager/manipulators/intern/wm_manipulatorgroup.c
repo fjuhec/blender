@@ -120,11 +120,8 @@ void wm_manipulatorgroup_attach_to_modal_handler(
 	mgrouptype->op = op;
 
 	/* try to find map in handler region that contains mgrouptype */
-	if (handler->op_region && !BLI_listbase_is_empty(&handler->op_region->manipulator_maps)) {
-		const struct wmManipulatorMapType_Params mmaptype_params = {
-			mgrouptype->mapidname, mgrouptype->spaceid, mgrouptype->regionid
-		};
-		handler->manipulator_map = WM_manipulatormap_find(handler->op_region, &mmaptype_params);
+	if (handler->op_region && handler->op_region->manipulator_map) {
+		handler->manipulator_map = handler->op_region->manipulator_map;
 		ED_region_tag_redraw(handler->op_region);
 	}
 
@@ -140,50 +137,47 @@ void wm_manipulatorgroup_attach_to_modal_handler(
 static int manipulator_select_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	ARegion *ar = CTX_wm_region(C);
+	wmManipulatorMap *mmap = ar->manipulator_map;
+	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
+	wmManipulator *highlighted = mmap->mmap_context.highlighted_manipulator;
 
 	bool extend = RNA_boolean_get(op->ptr, "extend");
 	bool deselect = RNA_boolean_get(op->ptr, "deselect");
 	bool toggle = RNA_boolean_get(op->ptr, "toggle");
 
+	/* deselect all first */
+	if (extend == false && deselect == false && toggle == false) {
+		wm_manipulatormap_deselect_all(mmap, sel);
+		BLI_assert(*sel == NULL && mmap->mmap_context.tot_selected == 0);
+	}
 
-	for (wmManipulatorMap *mmap = ar->manipulator_maps.first; mmap; mmap = mmap->next) {
-		wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
-		wmManipulator *highlighted = mmap->mmap_context.highlighted_manipulator;
+	if (highlighted) {
+		const bool is_selected = (highlighted->flag & WM_MANIPULATOR_SELECTED);
+		bool redraw = false;
 
-		/* deselect all first */
-		if (extend == false && deselect == false && toggle == false) {
-			wm_manipulatormap_deselect_all(mmap, sel);
-			BLI_assert(*sel == NULL && mmap->mmap_context.tot_selected == 0);
+		if (toggle) {
+			/* toggle: deselect if already selected, else select */
+			deselect = is_selected;
 		}
 
-		if (highlighted) {
-			const bool is_selected = (highlighted->flag & WM_MANIPULATOR_SELECTED);
-			bool redraw = false;
-
-			if (toggle) {
-				/* toggle: deselect if already selected, else select */
-				deselect = is_selected;
-			}
-
-			if (deselect) {
-				if (is_selected && wm_manipulator_deselect(mmap, highlighted)) {
-					redraw = true;
-				}
-			}
-			else if (wm_manipulator_select(C, mmap, highlighted)) {
+		if (deselect) {
+			if (is_selected && wm_manipulator_deselect(mmap, highlighted)) {
 				redraw = true;
 			}
-
-			if (redraw) {
-				ED_region_tag_redraw(ar);
-			}
-
-			return OPERATOR_FINISHED;
 		}
-		else {
-			BLI_assert(0);
-			return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+		else if (wm_manipulator_select(C, mmap, highlighted)) {
+			redraw = true;
 		}
+
+		if (redraw) {
+			ED_region_tag_redraw(ar);
+		}
+
+		return OPERATOR_FINISHED;
+	}
+	else {
+		BLI_assert(0);
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 
 	return OPERATOR_PASS_THROUGH;
@@ -271,12 +265,8 @@ static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *e
 static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	ARegion *ar = CTX_wm_region(C);
-	wmManipulatorMap *mmap;
-	wmManipulator *manipulator;
-
-	for (mmap = ar->manipulator_maps.first; mmap; mmap = mmap->next)
-		if ((manipulator = mmap->mmap_context.highlighted_manipulator))
-			break;
+	wmManipulatorMap *mmap = ar->manipulator_map;
+	wmManipulator *manipulator = mmap->mmap_context.highlighted_manipulator;
 
 	if (!manipulator) {
 		/* wm_handlers_do_intern shouldn't let this happen */
@@ -426,7 +416,6 @@ wmManipulatorGroupType *WM_manipulatorgrouptype_append(
 	mgrouptype_func(mgrouptype);
 	mgrouptype->spaceid = mmaptype->spaceid;
 	mgrouptype->regionid = mmaptype->regionid;
-	mgrouptype->flag = mmaptype->flag;
 	BLI_strncpy(mgrouptype->mapidname, mmaptype->idname, MAX_NAME);
 	/* if not set, use default */
 	if (!mgrouptype->keymap_init) {
@@ -467,15 +456,14 @@ void WM_manipulatorgrouptype_init_runtime(
 			for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
 				ListBase *lb = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 				for (ARegion *ar = lb->first; ar; ar = ar->next) {
-					for (wmManipulatorMap *mmap = ar->manipulator_maps.first; mmap; mmap = mmap->next) {
-						if (mmap->type == mmaptype) {
-							wmManipulatorGroup *mgroup = wm_manipulatorgroup_new_from_type(mgrouptype);
+					wmManipulatorMap *mmap = ar->manipulator_map;
+					if (mmap->type == mmaptype) {
+						wmManipulatorGroup *mgroup = wm_manipulatorgroup_new_from_type(mgrouptype);
 
-							/* just add here, drawing will occur on next update */
-							BLI_addtail(&mmap->manipulator_groups, mgroup);
-							wm_manipulatormap_set_highlighted_manipulator(mmap, NULL, NULL, 0);
-							ED_region_tag_redraw(ar);
-						}
+						/* just add here, drawing will occur on next update */
+						BLI_addtail(&mmap->manipulator_groups, mgroup);
+						wm_manipulatormap_set_highlighted_manipulator(mmap, NULL, NULL, 0);
+						ED_region_tag_redraw(ar);
 					}
 				}
 			}
@@ -490,15 +478,14 @@ void WM_manipulatorgrouptype_unregister(bContext *C, Main *bmain, wmManipulatorG
 			for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
 				ListBase *lb = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
 				for (ARegion *ar = lb->first; ar; ar = ar->next) {
-					for (wmManipulatorMap *mmap = ar->manipulator_maps.first; mmap; mmap = mmap->next) {
-						wmManipulatorGroup *mgroup, *mgroup_next;
+					wmManipulatorMap *mmap = ar->manipulator_map;
+					wmManipulatorGroup *mgroup, *mgroup_next;
 
-						for (mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup_next) {
-							mgroup_next = mgroup->next;
-							if (mgroup->type == mgrouptype) {
-								wm_manipulatorgroup_free(C, mmap, mgroup);
-								ED_region_tag_redraw(ar);
-							}
+					for (mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup_next) {
+						mgroup_next = mgroup->next;
+						if (mgroup->type == mgrouptype) {
+							wm_manipulatorgroup_free(C, mmap, mgroup);
+							ED_region_tag_redraw(ar);
 						}
 					}
 				}

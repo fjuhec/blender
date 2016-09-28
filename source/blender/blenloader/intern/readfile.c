@@ -6904,12 +6904,12 @@ static void direct_link_region(FileData *fd, ARegion *ar, int spacetype)
 	BLI_listbase_clear(&ar->panels_category);
 	BLI_listbase_clear(&ar->handlers);
 	BLI_listbase_clear(&ar->uiblocks);
-	BLI_listbase_clear(&ar->manipulator_maps);
 	ar->headerstr = NULL;
 	ar->swinid = 0;
 	ar->type = NULL;
 	ar->swap = 0;
 	ar->do_draw = 0;
+	ar->manipulator_map = NULL;
 	ar->regiontimer = NULL;
 	memset(&ar->drawrct, 0, sizeof(ar->drawrct));
 }
