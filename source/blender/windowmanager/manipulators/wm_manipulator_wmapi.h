@@ -64,22 +64,21 @@ void  wm_manipulatorgroup_attach_to_modal_handler(
 
 /* wmManipulatorGroupType->flag */
 enum {
-	WM_MANIPULATORGROUPTYPE_3D      = (1 << 0), /* WARNING: Don't change this! Bit used for wmManipulatorMapType comparisons! */
+	WM_MANIPULATORGROUPTYPE_3D      = (1 << 0),
 	/* manipulator group is attached to operator, and is only accessible as long as this runs */
-	WM_MANIPULATORGROUPTYPE_OP      = (1 << 10),
-	WM_MANIPULATORGROUP_INITIALIZED = (1 << 11), /* mgroup has been initialized */
+	WM_MANIPULATORGROUPTYPE_OP      = (1 << 1),
+	/* TODO mixed group and group-type flags, should be separate enums */
+	WM_MANIPULATORGROUP_INITIALIZED = (1 << 2), /* mgroup has been initialized */
 };
 
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
 
-void wm_manipulatormap_delete_list(struct ListBase *list);
+void wm_manipulatormap_delete(wmManipulatorMap *mmap);
 void wm_manipulatormaptypes_free(void);
 
 void wm_manipulators_keymap(struct wmKeyConfig *keyconf);
-
-bool wm_manipulatormap_is_3d(const struct wmManipulatorMap *mmap);
 
 void wm_manipulatormaps_handled_modal_update(
         bContext *C, struct wmEvent *event, struct wmEventHandler *handler,

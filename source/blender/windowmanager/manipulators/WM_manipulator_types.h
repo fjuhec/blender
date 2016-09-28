@@ -121,15 +121,5 @@ enum eManipulatorFlag {
 	WM_MANIPULATOR_SELECTABLE  = (1 << 9),
 };
 
-/* wmManipulatorMapType->flag */
-enum eManipulatorMapTypeFlag {
-	/**
-	 * Check if manipulator-map does 3D drawing
-	 * (uses a different kind of interaction),
-	 * - 3d: use glSelect buffer.
-	 * - 2d: use simple cursor position intersection test. */
-	WM_MANIPULATORMAPTYPE_3D           = (1 << 0),
-};
-
 #endif  /* __WM_MANIPULATOR_TYPES_H__ */
 

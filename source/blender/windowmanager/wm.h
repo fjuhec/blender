@@ -43,6 +43,8 @@ struct wmOperator;
 
 #include "manipulators/wm_manipulator_wmapi.h"
 
+#include "manipulators/wm_manipulator_wmapi.h"
+
 typedef struct wmPaintCursor {
 	struct wmPaintCursor *next, *prev;
 
