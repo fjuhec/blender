@@ -205,6 +205,7 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
                 col.operator("poselib.pose_move", icon='TRIA_UP', text="").direction = 'UP'
                 col.operator("poselib.pose_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
+            row.operator("poselib.render_previews")
 
 # TODO: this panel will soon be deprecated too
 class DATA_PT_ghost(ArmatureButtonsPanel, Panel):
