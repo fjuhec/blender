@@ -648,14 +648,11 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 	UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_CUSTOM, ar->winx, ar->winy);
 
-	/* widgets stay in the background for now - quick patchjob to make sure nodes themselves work */
-	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
-		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-		        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, 0});
-		BLI_addhead(&ar->manipulator_maps, wmap);
-	}
+	/* manipulators stay in the background for now - quick patchjob to make sure nodes themselves work */
+	ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+	        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW});
 
-	WM_manipulatormaps_add_handlers(ar);
+	WM_manipulatormaps_add_handlers(ar, ar->manipulator_map);
 
 	/* own keymaps */
 	keymap = WM_keymap_find(wm->defaultconf, "Node Generic", SPACE_NODE, 0);
@@ -753,8 +750,7 @@ static void node_header_region_draw(const bContext *C, ARegion *ar)
 /* used for header + main region */
 static void node_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
-	wmManipulatorMap *wmap = WM_manipulatormap_find(ar, &(const struct wmManipulatorMapType_Params) {
-	        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, 0});
+	wmManipulatorMap *mmap = ar->manipulator_map;
 
 	/* context changes */
 	switch (wmn->category) {
@@ -764,13 +760,13 @@ static void node_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegi
 					ED_region_tag_redraw(ar);
 					break;
 				case ND_SPACE_NODE_VIEW:
-					WM_manipulatormap_tag_refresh(wmap);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 			}
 			break;
 		case NC_SCREEN:
 			if (wmn->data == ND_SCREENSET || wmn->action == NA_EDITED) {
-				WM_manipulatormap_tag_refresh(wmap);
+				WM_manipulatormap_tag_refresh(mmap);
 			}
 			switch (wmn->data) {
 				case ND_SCREENCAST:
@@ -782,13 +778,13 @@ static void node_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegi
 		case NC_SCENE:
 			ED_region_tag_redraw(ar);
 			if (wmn->data == ND_RENDER_RESULT) {
-				WM_manipulatormap_tag_refresh(wmap);
+				WM_manipulatormap_tag_refresh(mmap);
 			}
 			break;
 		case NC_NODE:
 			ED_region_tag_redraw(ar);
 			if (ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
-				WM_manipulatormap_tag_refresh(wmap);
+				WM_manipulatormap_tag_refresh(mmap);
 			}
 			break;
 		case NC_MATERIAL:

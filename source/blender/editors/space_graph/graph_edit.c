@@ -2842,7 +2842,6 @@ static void graph_widget_backdrop_transform_cancel(struct bContext *C, struct wm
 static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	ARegion *ar = CTX_wm_region(C);
-	wmManipulatorMap *wmap = ar->manipulator_maps.first;
 	BackDropTransformData *data = op->customdata;
 
 	if (event->type == data->event_type && event->val == KM_PRESS) {
@@ -2884,7 +2883,7 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 			SpaceIpo *sipo = CTX_wm_space_graph(C);
 
 			/* only end modal if we're not dragging a widget - XXX */
-			if (/*!wmap->mmap_context.active_manipulator && */event->val == KM_PRESS) {
+			if (/*!ar->manipulator_map->mmap_context.active_manipulator && */event->val == KM_PRESS) {
 				copy_v2_v2(sipo->backdrop_offset, data->init_offset);
 				sipo->backdrop_zoom = data->init_zoom;
 
@@ -2893,7 +2892,7 @@ static int graph_widget_backdrop_transform_modal(bContext *C, wmOperator *op, co
 			}
 		}
 	}
-	WM_manipulatormap_tag_refresh(wmap);
+	WM_manipulatormap_tag_refresh(ar->manipulator_map);
 
 	return OPERATOR_RUNNING_MODAL;
 }

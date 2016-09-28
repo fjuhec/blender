@@ -441,13 +441,6 @@ EnumPropertyItem rna_enum_operator_return_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-#ifndef RNA_RUNTIME
-static EnumPropertyItem widget_flag_items[] = {
-	{WM_MANIPULATORMAPTYPE_3D, "3D", 0, "3D", "Use the 3d viewport"},
-	{0, NULL, 0, NULL, NULL}
-};
-#endif
-
 /* flag/enum */
 EnumPropertyItem rna_enum_wm_report_items[] = {
 	{RPT_DEBUG, "DEBUG", 0, "Debug", ""},
@@ -1972,11 +1965,13 @@ static void rna_def_widgetgroup(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_REGISTER);
 	RNA_def_property_ui_text(prop, "Region Type", "The region where the panel is going to be used in");
 
+#if 0
 	prop = RNA_def_property(srna, "bl_options", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "type->flag");
 	RNA_def_property_enum_items(prop, widget_flag_items);
 	RNA_def_property_flag(prop, PROP_REGISTER_OPTIONAL | PROP_ENUM_FLAG);
 	RNA_def_property_ui_text(prop, "Options",  "Options for this widget type");
+#endif
 
 	prop = RNA_def_property(srna, "widgets", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "manipulators", NULL);

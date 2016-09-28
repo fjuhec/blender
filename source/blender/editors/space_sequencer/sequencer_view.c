@@ -339,7 +339,7 @@ static int sequencer_overdrop_transform_modal(bContext *C, wmOperator *op, const
 {
 	OverDropTransformData *data = op->customdata;
 	ARegion *ar = CTX_wm_region(C);
-	wmManipulatorMap *wmap = ar->manipulator_maps.first;
+	wmManipulatorMap *wmap = ar->manipulator_map;
 
 	if (event->type == data->event_type && event->val == KM_PRESS) {
 		sequencer_overdrop_finish(C, data);
@@ -516,7 +516,7 @@ static int sequencer_image_transform_widget_modal(bContext *C, wmOperator *op, c
 {
 	ImageTransformData *data = op->customdata;
 	ARegion *ar = CTX_wm_region(C);
-	wmManipulatorMap *wmap = ar->manipulator_maps.first;
+	wmManipulatorMap *wmap = ar->manipulator_map;
 
 	if (event->type == data->event_type && event->val == KM_PRESS) {
 		sequencer_image_transform_widget_finish(C, data);

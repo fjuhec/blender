@@ -673,13 +673,10 @@ static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 	// image space manages own v2d
 	// UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_STANDARD, ar->winx, ar->winy);
 
-	/* widgets */
-	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
-		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-		        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
-		BLI_addhead(&ar->manipulator_maps, wmap);
-	}
-	WM_manipulatormaps_add_handlers(ar);
+	/* manipulators */
+	ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+	        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
+	WM_manipulatormaps_add_handlers(ar, ar->manipulator_map);
 
 	/* mask polls mode */
 	keymap = WM_keymap_find(wm->defaultconf, "Mask Editing", 0, 0);
@@ -821,8 +818,8 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 		UI_view2d_view_restore(C);
 	}
 
-	WM_manipulatormap_update(C, ar->manipulator_maps.first);
-	WM_manipulatormap_draw(C, ar->manipulator_maps.first, false, true);
+	WM_manipulatormap_update(C, ar->manipulator_map);
+	WM_manipulatormap_draw(C, ar->manipulator_map, false, true);
 
 	draw_image_cache(C, ar);
 
@@ -836,14 +833,11 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 
 static void image_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion *ar, wmNotifier *wmn)
 {
-	wmManipulatorMap *wmap = WM_manipulatormap_find(ar, &(const struct wmManipulatorMapType_Params) {
-	        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
-
 	/* context changes */
 	switch (wmn->category) {
 		case NC_GEOM:
 			if (ELEM(wmn->data, ND_DATA, ND_SELECT))
-				WM_manipulatormap_tag_refresh(wmap);
+				WM_manipulatormap_tag_refresh(ar->manipulator_map);
 			break;
 		case NC_GPENCIL:
 			if (ELEM(wmn->action, NA_EDITED, NA_SELECTED))
@@ -854,7 +848,7 @@ static void image_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion
 		case NC_IMAGE:
 			if (wmn->action == NA_PAINTING)
 				ED_region_tag_redraw(ar);
-			WM_manipulatormap_tag_refresh(wmap);
+			WM_manipulatormap_tag_refresh(ar->manipulator_map);
 			break;
 		case NC_MATERIAL:
 			if (wmn->data == ND_SHADING_LINKS) {

@@ -265,7 +265,6 @@ typedef struct ARegion {
 	ListBase ui_lists;			/* uiList */
 	ListBase ui_previews;		/* uiPreview */
 	ListBase handlers;			/* wmEventHandler */
-	ListBase manipulator_maps;	/* wmManipulatorMap */
 	ListBase panels_category;	/* Panel categories runtime */
 
 	struct wmManipulatorMap *manipulator_map; /* manipulator map of this region */

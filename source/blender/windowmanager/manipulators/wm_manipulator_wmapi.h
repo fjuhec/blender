@@ -75,7 +75,7 @@ enum {
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
 
-void wm_manipulatormap_delete(wmManipulatorMap *mmap);
+void wm_manipulatormap_delete(struct wmManipulatorMap *mmap);
 void wm_manipulatormaptypes_free(void);
 
 void wm_manipulators_keymap(struct wmKeyConfig *keyconf);

@@ -500,13 +500,10 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 	ListBase *lb;
 	wmKeyMap *keymap;
 
-	if (BLI_listbase_is_empty(&ar->manipulator_maps)) {
-		wmManipulatorMap *wmap = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_MANIPULATORMAPTYPE_3D});
-		BLI_addhead(&ar->manipulator_maps, wmap);
-	}
+	ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+	        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW});
 
-	WM_manipulatormaps_add_handlers(ar);
+	WM_manipulatormaps_add_handlers(ar, ar->manipulator_map);
 
 	/* object ops. */
 	
@@ -738,7 +735,6 @@ static void view3d_widgets(void)
 	const struct wmManipulatorMapType_Params wmap_params = {
 		.idname = "View3D",
 		.spaceid = SPACE_VIEW3D, .regionid = RGN_TYPE_WINDOW,
-		.flag = WM_MANIPULATORMAPTYPE_3D,
 	};
 	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
 
@@ -840,8 +836,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 	Scene *scene = sc->scene;
 	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = ar->regiondata;
-	wmManipulatorMap *wmap = WM_manipulatormap_find(ar, &(const struct wmManipulatorMapType_Params) {
-	        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_MANIPULATORMAPTYPE_3D});
+	wmManipulatorMap *mmap = ar->manipulator_map;
 
 	/* context changes */
 	switch (wmn->category) {
@@ -868,7 +863,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 					if (wmn->reference)
 						view3d_recalc_used_layers(ar, wmn, wmn->reference);
 					ED_region_tag_redraw(ar);
-					WM_manipulatormap_tag_refresh(wmap);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 				case ND_FRAME:
 				case ND_TRANSFORM:
@@ -880,7 +875,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_MARKERS:
 				case ND_MODE:
 					ED_region_tag_redraw(ar);
-					WM_manipulatormap_tag_refresh(wmap);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 				case ND_WORLD:
 					/* handled by space_view3d_listener() for v3d access */
@@ -910,7 +905,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_KEYS:
 				case ND_LOD:
 					ED_region_tag_redraw(ar);
-					WM_manipulatormap_tag_refresh(wmap);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 			}
 			switch (wmn->action) {
@@ -924,7 +919,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_DATA:
 				case ND_VERTEX_GROUP:
 				case ND_SELECT:
-					WM_manipulatormap_tag_refresh(wmap);
+					WM_manipulatormap_tag_refresh(mmap);
 					ED_region_tag_redraw(ar);
 					break;
 			}
@@ -1007,7 +1002,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 					break;
 				case ND_LIGHTING_DRAW:
 					ED_region_tag_redraw(ar);
-					WM_manipulatormap_tag_refresh(wmap);
+					WM_manipulatormap_tag_refresh(mmap);
 					break;
 			}
 			break;
@@ -1030,7 +1025,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 					rv3d->rflag |= RV3D_GPULIGHT_UPDATE;
 				}
 				ED_region_tag_redraw(ar);
-				WM_manipulatormap_tag_refresh(wmap);
+				WM_manipulatormap_tag_refresh(mmap);
 			}
 			break;
 		case NC_ID:
@@ -1052,7 +1047,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 						bScreen *sc_ref = wmn->reference;
 						view3d_recalc_used_layers(ar, wmn, sc_ref->scene);
 					}
-					WM_manipulatormap_tag_refresh(wmap);
+					WM_manipulatormap_tag_refresh(mmap);
 					ED_region_tag_redraw(ar);
 					break;
 			}

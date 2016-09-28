@@ -1378,8 +1378,8 @@ void drawnodespace(const bContext *C, ARegion *ar)
 			glaDefine2DArea(&ar->winrct);
 			wmOrtho2_pixelspace(ar->winx, ar->winy);
 
-			WM_manipulatormap_update(C, ar->manipulator_maps.first);
-			WM_manipulatormap_draw(C, ar->manipulator_maps.first, false, true);
+			WM_manipulatormap_update(C, ar->manipulator_map);
+			WM_manipulatormap_draw(C, ar->manipulator_map, false, true);
 
 			glMatrixMode(GL_PROJECTION);
 			glPopMatrix();

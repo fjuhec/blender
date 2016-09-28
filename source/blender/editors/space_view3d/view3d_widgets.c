@@ -503,6 +503,7 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 
 	Object *ob = CTX_data_active_object(C);
 	bArmature *arm = (bArmature *)ob->data;
+	ARegion *ar = CTX_wm_region(C);
 
 #ifdef USE_FACEMAP_FROM_BONE
 	/* we create a new hash from the visible members of the old hash */
@@ -546,11 +547,9 @@ static void WIDGETGROUP_armature_facemaps_refresh(const bContext *C, wmManipulat
 
 	/* remove remaining widgets from old hash */
 	GHashIterator ghi;
-	wmManipulatorMap *wmap = WM_manipulatormap_find(CTX_wm_region(C), &(const struct wmManipulatorMapType_Params) {
-	        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW, WM_MANIPULATORMAPTYPE_3D});
 	GHASH_ITER(ghi, oldhash) {
 		wmManipulator *found = BLI_ghashIterator_getValue(&ghi);
-		WM_manipulator_delete(&wgroup->manipulators, wmap, found, (bContext *)C);
+		WM_manipulator_delete(&wgroup->manipulators, ar->manipulator_map, found, (bContext *)C);
 	}
 	armature_facemap_ghash_free(oldhash);
 
