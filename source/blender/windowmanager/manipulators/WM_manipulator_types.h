@@ -88,6 +88,9 @@ typedef struct wmManipulatorGroupType {
 	char mapidname[64];
 } wmManipulatorGroupType;
 
+/* XXX other flags are in wm_manipulator_wmapi.h */
+#define WM_MANIPULATORGROUPTYPE_3D (1 << 0)
+
 struct wmManipulatorMapType_Params {
 	const char *idname;
 	const int spaceid;

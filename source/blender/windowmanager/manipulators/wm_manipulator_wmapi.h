@@ -64,7 +64,7 @@ void  wm_manipulatorgroup_attach_to_modal_handler(
 
 /* wmManipulatorGroupType->flag */
 enum {
-	WM_MANIPULATORGROUPTYPE_3D      = (1 << 0),
+//	WM_MANIPULATORGROUPTYPE_3D      = (1 << 0),
 	/* manipulator group is attached to operator, and is only accessible as long as this runs */
 	WM_MANIPULATORGROUPTYPE_OP      = (1 << 1),
 	/* TODO mixed group and group-type flags, should be separate enums */

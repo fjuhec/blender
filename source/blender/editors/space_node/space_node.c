@@ -649,8 +649,10 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *ar)
 	UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_CUSTOM, ar->winx, ar->winy);
 
 	/* manipulators stay in the background for now - quick patchjob to make sure nodes themselves work */
-	ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-	        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW});
+	if (!ar->manipulator_map) {
+		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+		        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW});
+	}
 
 	WM_manipulatormaps_add_handlers(ar, ar->manipulator_map);
 

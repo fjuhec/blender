@@ -500,8 +500,10 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 	ListBase *lb;
 	wmKeyMap *keymap;
 
-	ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-	        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW});
+	if (!ar->manipulator_map) {
+		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW});
+	}
 
 	WM_manipulatormaps_add_handlers(ar, ar->manipulator_map);
 

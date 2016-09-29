@@ -674,8 +674,10 @@ static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 	// UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_STANDARD, ar->winx, ar->winy);
 
 	/* manipulators */
-	ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-	        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW, 0});
+	if (!ar->manipulator_map) {
+		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+		        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW});
+	}
 	WM_manipulatormaps_add_handlers(ar, ar->manipulator_map);
 
 	/* mask polls mode */

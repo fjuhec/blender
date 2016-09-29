@@ -1396,6 +1396,8 @@ void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
 	wgt->init = WIDGETGROUP_manipulator_init;
 	wgt->refresh = WIDGETGROUP_manipulator_refresh;
 	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
+
+	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
 }
 
 
@@ -1434,4 +1436,6 @@ void TRANSFORM_WGT_object(wmManipulatorGroupType *wgt)
 	wgt->init = WIDGETGROUP_object_manipulator_init;
 	wgt->refresh = WIDGETGROUP_manipulator_refresh;
 	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
+
+	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
 }
