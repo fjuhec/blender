@@ -627,11 +627,13 @@ wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
 	wmManipulator *manipulator;
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		if (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)) {
-			for (manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-				if (manipulator->intersect) {
-					if ((*part = manipulator->intersect(C, event, manipulator)))
-						return manipulator;
+		if ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0) {
+			if (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)) {
+				for (manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
+					if (manipulator->intersect) {
+						if ((*part = manipulator->intersect(C, event, manipulator)))
+							return manipulator;
+					}
 				}
 			}
 		}
