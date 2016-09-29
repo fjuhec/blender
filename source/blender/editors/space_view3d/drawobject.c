@@ -90,6 +90,7 @@
 #include "GPU_select.h"
 #include "GPU_basic_shader.h"
 #include "GPU_shader.h"
+#include "GPU_immediate.h"
 
 #include "ED_mesh.h"
 #include "ED_screen.h"
@@ -2186,43 +2187,50 @@ static void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base
 }
 
 /* flag similar to draw_object() */
-static void drawspeaker(Scene *UNUSED(scene), View3D *UNUSED(v3d), RegionView3D *UNUSED(rv3d),
-                        Object *UNUSED(ob), int UNUSED(flag))
+static void drawspeaker(const unsigned char ob_wire_col[3])
 {
-	float vec[3];
+	VertexFormat *format = immVertexFormat();
+	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
 
-	glEnable(GL_BLEND);
+	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+
+	if (ob_wire_col) {
+		immUniformColor3ubv(ob_wire_col);
+	}
+
 	glLineWidth(1);
 
-	for (int j = 0; j < 3; j++) {
-		vec[2] = 0.25f * j - 0.125f;
+	const int segments = 16;
 
-		glBegin(GL_LINE_LOOP);
-		for (int i = 0; i < 16; i++) {
-			vec[0] = cosf((float)M_PI * i / 8.0f) * (j == 0 ? 0.5f : 0.25f);
-			vec[1] = sinf((float)M_PI * i / 8.0f) * (j == 0 ? 0.5f : 0.25f);
-			glVertex3fv(vec);
+	for (int j = 0; j < 3; j++) {
+		float z = 0.25f * j - 0.125f;
+
+		immBegin(GL_LINE_LOOP, segments);
+		for (int i = 0; i < segments; i++) {
+			float x = cosf((float)M_PI * i / 8.0f) * (j == 0 ? 0.5f : 0.25f);
+			float y = sinf((float)M_PI * i / 8.0f) * (j == 0 ? 0.5f : 0.25f);
+			immVertex3f(pos, x, y, z);
 		}
-		glEnd();
+		immEnd();
 	}
 
 	for (int j = 0; j < 4; j++) {
-		vec[0] = (((j + 1) % 2) * (j - 1)) * 0.5f;
-		vec[1] = ((j % 2) * (j - 2)) * 0.5f;
-		glBegin(GL_LINE_STRIP);
+		float x = (((j + 1) % 2) * (j - 1)) * 0.5f;
+		float y = ((j % 2) * (j - 2)) * 0.5f;
+		immBegin(GL_LINE_STRIP, 3);
 		for (int i = 0; i < 3; i++) {
 			if (i == 1) {
-				vec[0] *= 0.5f;
-				vec[1] *= 0.5f;
+				x *= 0.5f;
+				y *= 0.5f;
 			}
 
-			vec[2] = 0.25f * i - 0.125f;
-			glVertex3fv(vec);
+			float z = 0.25f * i - 0.125f;
+			immVertex3f(pos, x, y, z);
 		}
-		glEnd();
+		immEnd();
 	}
 
-	glDisable(GL_BLEND);
+	immUnbindProgram();
 }
 
 static void lattice_draw_verts(Lattice *lt, DispList *dl, BPoint *actbp, short sel)
@@ -4996,66 +5004,94 @@ static void drawhandlesN_active(Nurb *nu)
 	glColor3ub(0, 0, 0);
 }
 
-static void drawvertsN(Nurb *nu, const char sel, const bool hide_handles, const void *vert)
+static void drawvertsN(const Nurb *nurb, const bool hide_handles, const void *vert)
 {
-	if (nu->hide) return;
+	const Nurb *nu;
 
-	const int color = sel ? TH_VERTEX_SELECT : TH_VERTEX;
+	// just quick guesstimate of how many verts to draw
+	int count = 0;
+	for (nu = nurb; nu; nu = nu->next) {
+		if (!nu->hide) {
+			if (nu->type == CU_BEZIER) {
+				count += nu->pntsu * 3;
+			}
+			else {
+				count += nu->pntsu * nu->pntsv;
+			}
+		}
+	}
+	if (count == 0) return;
 
-	UI_ThemeColor(color);
+	VertexFormat *format = immVertexFormat();
+	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned color = add_attrib(format, "color", GL_UNSIGNED_BYTE, 3, NORMALIZE_INT_TO_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
+
+	unsigned char vert_color[3];
+	unsigned char vert_color_select[3];
+	unsigned char vert_color_active[3];
+	UI_GetThemeColor3ubv(TH_VERTEX, vert_color);
+	UI_GetThemeColor3ubv(TH_VERTEX_SELECT, vert_color_select);
+	UI_GetThemeColor3ubv(TH_ACTIVE_VERT, vert_color_active);
 
 	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
-	
-	glBegin(GL_POINTS);
-	
-	if (nu->type == CU_BEZIER) {
 
-		BezTriple *bezt = nu->bezt;
-		int a = nu->pntsu;
-		while (a--) {
-			if (bezt->hide == 0) {
-				if (sel == 1 && bezt == vert) {
-					UI_ThemeColor(TH_ACTIVE_VERT);
+	immBeginAtMost(GL_POINTS, count);
+	
+	for (nu = nurb; nu; nu = nu->next) {
 
-					if (bezt->f2 & SELECT) glVertex3fv(bezt->vec[1]);
-					if (!hide_handles) {
-						if (bezt->f1 & SELECT) glVertex3fv(bezt->vec[0]);
-						if (bezt->f3 & SELECT) glVertex3fv(bezt->vec[2]);
+		if (nu->hide) continue;
+
+		if (nu->type == CU_BEZIER) {
+
+			const BezTriple *bezt = nu->bezt;
+			int a = nu->pntsu;
+			while (a--) {
+				if (bezt->hide == 0) {
+					if (bezt == vert) {
+						immAttrib3ubv(color, bezt->f2 & SELECT ? vert_color_active : vert_color);
+						immVertex3fv(pos, bezt->vec[1]);
+						if (!hide_handles) {
+							immAttrib3ubv(color, bezt->f1 & SELECT ? vert_color_active : vert_color);
+							immVertex3fv(pos, bezt->vec[0]);
+							immAttrib3ubv(color, bezt->f3 & SELECT ? vert_color_active : vert_color);
+							immVertex3fv(pos, bezt->vec[2]);
+						}
 					}
+					else {
+						immAttrib3ubv(color, bezt->f2 & SELECT ? vert_color_select : vert_color);
+						immVertex3fv(pos, bezt->vec[1]);
+						if (!hide_handles) {
+							immAttrib3ubv(color, bezt->f1 & SELECT ? vert_color_select : vert_color);
+							immVertex3fv(pos, bezt->vec[0]);
+							immAttrib3ubv(color, bezt->f3 & SELECT ? vert_color_select : vert_color);
+							immVertex3fv(pos, bezt->vec[2]);
+						}
+					}
+				}
+				bezt++;
+			}
+		}
+		else {
+			const BPoint *bp = nu->bp;
+			int a = nu->pntsu * nu->pntsv;
+			while (a--) {
+				if (bp->hide == 0) {
+					if (bp == vert) {
+						immAttrib3ubv(color, vert_color_active);
+					}
+					else {
+						immAttrib3ubv(color, bp->f1 & SELECT ? vert_color_select : vert_color);
+					}
+					immVertex3fv(pos, bp->vec);
+				}
+				bp++;
+			}
+		}
+	}
 
-					UI_ThemeColor(color);
-				}
-				else if (hide_handles) {
-					if ((bezt->f2 & SELECT) == sel) glVertex3fv(bezt->vec[1]);
-				}
-				else {
-					if ((bezt->f1 & SELECT) == sel) glVertex3fv(bezt->vec[0]);
-					if ((bezt->f2 & SELECT) == sel) glVertex3fv(bezt->vec[1]);
-					if ((bezt->f3 & SELECT) == sel) glVertex3fv(bezt->vec[2]);
-				}
-			}
-			bezt++;
-		}
-	}
-	else {
-		BPoint *bp = nu->bp;
-		int a = nu->pntsu * nu->pntsv;
-		while (a--) {
-			if (bp->hide == 0) {
-				if (bp == vert) {
-					UI_ThemeColor(TH_ACTIVE_VERT);
-					glVertex3fv(bp->vec);
-					UI_ThemeColor(color);
-				}
-				else {
-					if ((bp->f1 & SELECT) == sel) glVertex3fv(bp->vec);
-				}
-			}
-			bp++;
-		}
-	}
-	
-	glEnd();
+	immEnd();
+	immUnbindProgram();
 }
 
 static void editnurb_draw_active_poly(Nurb *nu)
@@ -5273,7 +5309,6 @@ static void draw_editnurb(
 	for (nu = nurb; nu; nu = nu->next) {
 		if (nu->type == CU_BEZIER && (cu->drawflag & CU_HIDE_HANDLES) == 0)
 			drawhandlesN(nu, 1, hide_handles);
-		drawvertsN(nu, 0, hide_handles, NULL);
 	}
 	
 	if (v3d->zbuf) glDepthFunc(GL_LEQUAL);
@@ -5324,11 +5359,9 @@ static void draw_editnurb(
 	}
 
 	if (v3d->zbuf) glDepthFunc(GL_ALWAYS);
-	
-	for (nu = nurb; nu; nu = nu->next) {
-		drawvertsN(nu, 1, hide_handles, vert);
-	}
-	
+
+	drawvertsN(nu, hide_handles, vert);
+
 	if (v3d->zbuf) glDepthFunc(GL_LEQUAL);
 }
 
@@ -6597,7 +6630,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 				break;
 			case OB_SPEAKER:
 				if (!render_override)
-					drawspeaker(scene, v3d, rv3d, ob, dflag);
+					drawspeaker(ob_wire_col);
 				break;
 			case OB_LATTICE:
 				if (!render_override) {
@@ -6728,9 +6761,10 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 			}
 
 			/* smoke debug render */
-#ifdef SMOKE_DEBUG_VELOCITY
-			draw_smoke_velocity(smd->domain, ob);
-#endif
+			if (!render_override && sds->draw_velocity) {
+				draw_smoke_velocity(sds, viewnormal);
+			}
+
 #ifdef SMOKE_DEBUG_HEAT
 			draw_smoke_heat(smd->domain, ob);
 #endif

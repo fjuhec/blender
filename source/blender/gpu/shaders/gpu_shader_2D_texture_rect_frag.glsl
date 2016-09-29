@@ -6,9 +6,11 @@
   out vec4 fragColor;
 #endif
 
+uniform float alpha;
 uniform sampler2DRect texture_map;
 
 void main()
 {
 	fragColor = texture2DRect(texture_map, texture_coord);
+	fragColor.a *= alpha;
 }
