@@ -1,8 +1,5 @@
 /*
- * Adapted from code Copyright 2009-2010 NVIDIA Corporation,
- * and code copyright 2009-2012 Intel Corporation
- *
- * Modifications Copyright 2011-2014, Blender Foundation.
+ * Copyright 2011-2013 Blender Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +66,7 @@ ccl_device uint BVH_FUNCTION_FULL_NAME(QBVH)(KernelGlobals *kg,
 
 #ifndef __KERNEL_SSE41__
 	if(!isfinite(P.x)) {
-		return false;
+		return 0;
 	}
 #endif
 
