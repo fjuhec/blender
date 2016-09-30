@@ -39,6 +39,7 @@ _modules = [
     "object",
     "object_randomize_transform",
     "object_quick_effects",
+    "poselib",
     "presets",
     "rigidbody",
     "screen_play_rendered_anim",

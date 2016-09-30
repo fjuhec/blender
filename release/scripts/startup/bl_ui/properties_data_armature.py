@@ -161,6 +161,61 @@ class DATA_PT_bone_groups(ArmatureButtonsPanel, Panel):
         sub.operator("pose.group_deselect", text="Deselect")
 
 
+class POSELIB_UL_poses(bpy.types.UIList):
+    # The draw_item function is called for each item of the collection that is visible in the list.
+    #   data is the RNA object containing the collection,
+    #   item is the currently drawn item of the collection,
+    #   icon is the "computed" icon for the item (as an integer, because some objects like materials or textures
+    #   have custom icons ID, which are not available as enum items).
+    #   active_data is the RNA object containing the active property for the collection (i.e. integer pointing to the
+    #   active item of the collection).
+    #   active_propname is the name of the active property (use 'getattr(active_data, active_propname)').
+    #   index is index of the current item in the collection.
+    #   flt_flag is the result of the filtering process for this item.
+    #   Note: as index and flt_flag are optional arguments, you do not have to use/declare them here if you don't
+    #         need them.
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        if self.layout_type != 'GRID':
+            super().draw_item(context, layout, data, item, icon, active_data, active_propname)
+
+        if icon == 17:
+            if icons is None: load_custom_icons()
+            icon = icons['POSE_NOT_HERE'].icon_id
+
+        col = layout.column(align=True)
+        col.alignment = 'CENTER'
+        col.label(text='', icon_value=icon)
+        col.label(text=item.name)
+
+
+icons = None
+
+def load_custom_icons():
+    global icons
+
+    if icons is not None:
+        # Already loaded
+        return
+
+    import bpy.utils.previews
+    import blender_cloud
+    import os.path
+
+    icons = bpy.utils.previews.new()
+    icons.load('POSE_NOT_HERE', bpy.path.abspath('//agent_thumbs/001.png'), 'IMAGE')
+
+
+def unload_custom_icons():
+    global icons
+
+    if icons is None:
+        # Already unloaded
+        return
+
+    bpy.utils.previews.remove(icons)
+    icons = None
+
+
 class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
     bl_label = "Pose Library"
     bl_options = {'DEFAULT_CLOSED'}
@@ -180,11 +235,16 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
         if not poselib:
             return
 
+        # layout.template_icon_view(
+        #     poselib, 'pose_markers',
+        #     show_labels=True,
+        # )
         # list of poses in pose library
         row = layout.row()
-        row.template_list("UI_UL_list", "pose_markers", poselib, "pose_markers",
-                          poselib.pose_markers, "active_index", rows=5)
-
+        row.template_list("POSELIB_UL_poses", "pose_markers",
+                          poselib, "pose_markers",
+                          poselib.pose_markers, "active_index",
+                          rows=5, type='GRID')
         # column of operators for active pose
         # - goes beside list
         col = row.column(align=True)
@@ -211,7 +271,9 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
 
             layout.prop(pose_marker_active, "camera",
                         text='Camera for %s' % pose_marker_active.name)
-        # layout.operator("poselib.render_previews")
+
+        col.operator_context = 'INVOKE_DEFAULT'
+        layout.operator("poselib.render_previews")
 
 # TODO: this panel will soon be deprecated too
 class DATA_PT_ghost(ArmatureButtonsPanel, Panel):

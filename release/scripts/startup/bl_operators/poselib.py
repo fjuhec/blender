@@ -38,8 +38,11 @@ from bpy.props import (
 class POSELIB_OT_render_previews(Operator):
     "Renders a preview image for each pose in the pose library"
 
+    import logging as __logging
+
     bl_idname = "poselib.render_previews"
     bl_label = "Render pose previews"
+    log = __logging.getLogger('bpy.ops.%s' % bl_idname)
 
     render_method = EnumProperty(
         items=[
@@ -51,6 +54,7 @@ class POSELIB_OT_render_previews(Operator):
 
     plib_index = 0
 
+
     @classmethod
     def poll(cls, context):
         """Running only makes sense if there are any poses in the library."""
@@ -58,21 +62,54 @@ class POSELIB_OT_render_previews(Operator):
         return bool(plib and plib.pose_markers)
 
     def execute(self, context):
+        return {'PASS_THROUGH'}
+
+    def modal(self, context, event):
+        if event.type == 'ESC':
+            self._finish(context)
+            self.report({'INFO'}, 'Canceled rendering pose library previews')
+            return {'CANCELLED'}
+
+        if event.type != 'TIMER':
+            return {'PASS_THROUGH'}
+
         plib = context.object.pose_library
 
-        if self.plib_index >= len(plib.pose_markers):
+        pose_count = len(plib.pose_markers)
+        if self.plib_index >= pose_count:
+            self._finish(context)
+            self.report({'INFO'}, 'Done rendering pose library previews')
             return {'FINISHED'}
 
-        self.render_pose(self.plib_index)
+        self.render_pose(context, plib, self.plib_index)
         self.plib_index += 1
 
         return {'RUNNING_MODAL'}
 
-    def render_pose(self, plib_index):
+    def render_pose(self, context, plib, plib_index):
+        import os.path
+
+        frame = plib.pose_markers[plib_index].frame
+        self.log.info('Rendering pose %i at frame %i', plib_index, frame)
+
+        context.scene.frame_set(frame)
         bpy.ops.poselib.apply_pose(pose_index=plib_index)
+
+        fname = '%03d.png' % (plib_index+1)
+        context.scene.render.filepath = os.path.join(plib.pose_previews_dir, fname)
+        bpy.ops.render.opengl(write_still=True)
 
     def invoke(self, context, event):
         wm = context.window_manager
         wm.modal_handler_add(self)
+
+        self.wm = context.window_manager
+        self.timer = self.wm.event_timer_add(0.01, context.window)
         self.plib_index = 0
+        self.orig_filepath = context.scene.render.filepath
+
         return {'RUNNING_MODAL'}
+
+    def _finish(self, context):
+        self.wm.event_timer_remove(self.timer)
+        context.scene.render.filepath = self.orig_filepath

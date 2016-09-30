@@ -145,6 +145,9 @@ def register():
 def unregister():
     bpy.utils.unregister_module(__name__)
 
+    from . import properties_data_armature
+    properties_data_armature.unload_custom_icons()
+
 
 # Define a default UIList, when a list does not need any custom drawing...
 # Keep in sync with its #defined name in UI_interface.h
