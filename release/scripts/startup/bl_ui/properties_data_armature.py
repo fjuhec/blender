@@ -188,24 +188,29 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
         # column of operators for active pose
         # - goes beside list
         col = row.column(align=True)
-        col.operator_context = 'EXEC_DEFAULT'  # exec not invoke, so that menu doesn't need showing
 
         # invoke should still be used for 'add', as it is needed to allow
         # add/replace options to be used properly
         col.operator("poselib.pose_add", icon='ZOOMIN', text="")
         pose_marker_active = poselib.pose_markers.active
 
-        if pose_marker_active is not None:
+        # The following operators just need to be executed, not invoked;
+        # otherwise they show a menu which we don't want.
+        col.operator_context = 'EXEC_DEFAULT'
+
+        if pose_marker_active:
             col.operator("poselib.pose_remove", icon='ZOOMOUT', text="")
-            col.operator("poselib.apply_pose", icon='ZOOM_SELECTED', text="").pose_index = poselib.pose_markers.active_index
+            props = col.operator("poselib.apply_pose", icon='ZOOM_SELECTED', text="")
+            props.pose_index = poselib.pose_markers.active_index
 
         col.operator("poselib.action_sanitize", icon='HELP', text="")  # XXX: put in menu?
 
-        if pose_marker_active is not None:
+        if pose_marker_active:
             col.operator("poselib.pose_move", icon='TRIA_UP', text="").direction = 'UP'
             col.operator("poselib.pose_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
-            layout.prop(pose_marker_active, "camera")
+            layout.prop(pose_marker_active, "camera",
+                        text='Camera for %s' % pose_marker_active.name)
         # layout.operator("poselib.render_previews")
 
 # TODO: this panel will soon be deprecated too
