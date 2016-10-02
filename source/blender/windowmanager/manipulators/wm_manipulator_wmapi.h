@@ -55,6 +55,12 @@ struct wmManipulatorGroup *wm_manipulator_group_find(
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
 
+/* wmManipulatorGroupType.flag */
+enum {
+	/* manipulator group is attached to operator, and is only accessible as long as this runs */
+	WM_MANIPULATORGROUPTYPE_OP = (1 << 0),
+};
+
 void MANIPULATORGROUP_OT_manipulator_select(struct wmOperatorType *ot);
 void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);
 
@@ -65,7 +71,7 @@ void  wm_manipulatorgroup_attach_to_modal_handler(
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
 
-void wm_manipulatormap_delete(wmManipulatorMap *mmap);
+void wm_manipulatormap_delete(struct wmManipulatorMap *mmap);
 void wm_manipulatormaptypes_free(void);
 
 void wm_manipulators_keymap(struct wmKeyConfig *keyconf);

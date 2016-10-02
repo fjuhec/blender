@@ -58,22 +58,15 @@
 #include "wm_manipulator_intern.h"
 
 
-/* wmManipulatorGroupType.flag_intern */
-enum {
-	/* manipulator group is attached to operator, and is only accessible as long as this runs */
-	WM_MANIPULATORGROUPTYPE_OP      = (1 << 0),
-};
+/* -------------------------------------------------------------------- */
+/** \name wmManipulatorGroup
+ *
+ * \{ */
 
 /* wmManipulatorGroup.flag */
 enum {
 	WM_MANIPULATORGROUP_INITIALIZED = (1 << 2), /* mgroup has been initialized */
 };
-
-
-/* -------------------------------------------------------------------- */
-/** \name wmManipulatorGroup
- *
- * \{ */
 
 /**
  * Create a new manipulator-group from \a mgrouptype.
