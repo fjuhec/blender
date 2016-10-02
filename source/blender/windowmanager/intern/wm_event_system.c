@@ -2114,11 +2114,7 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 
 				/* handle manipulator highlighting */
 				if (event->type == MOUSEMOVE && !wm_manipulatormap_get_active_manipulator(mmap)) {
-					/* TODO should check for both, 2D and 3D manipulators and choose the one closest to cursor */
-					manipulator = wm_manipulatormap_find_highlighted_3D(mmap, C, event, &part);
-					if (!manipulator) {
-						manipulator = wm_manipulatormap_find_highlighted_manipulator(mmap, C, event, &part);
-					}
+					manipulator = wm_manipulatormap_find_highlighted_manipulator(mmap, C, event, &part);
 					wm_manipulatormap_set_highlighted_manipulator(mmap, C, manipulator, part);
 				}
 				/* handle user configurable manipulator-map keymap */

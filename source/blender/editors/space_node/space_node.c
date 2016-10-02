@@ -860,7 +860,7 @@ static void node_widgets(void)
 {
 	/* create the widgetmap for the area here */
 	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
-	        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW, 0});
+	        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW});
 	WM_manipulatorgrouptype_append(wmaptype, NODE_WGT_backdrop_transform);
 }
 

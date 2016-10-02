@@ -1582,7 +1582,7 @@ static StructRNA *rna_WidgetGroup_register(
 	
 	/* check if the area supports widgets */
 	const struct wmManipulatorMapType_Params wmap_params = {
-		dummywgt.mapidname, dummywgt.spaceid, dummywgt.regionid, dummywgt.flag,
+		dummywgt.mapidname, dummywgt.spaceid, dummywgt.regionid
 	};
 
 	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);

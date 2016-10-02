@@ -414,7 +414,7 @@ void SEQUENCER_OT_overdrop_transform(struct wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	wmManipulatorMapType *mmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
-	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0});
+	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW});
 	ot->mgrouptype = WM_manipulatorgrouptype_append(mmaptype, SEQUENCER_WGT_overdrop_transform);
 
 	RNA_def_float_array(ot->srna, "offset", 2, default_offset, FLT_MIN, FLT_MAX, "Offset", "Offset of the backdrop", FLT_MIN, FLT_MAX);
@@ -601,7 +601,7 @@ void SEQUENCER_OT_image_transform_widget(struct wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	wmManipulatorMapType *mmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
-	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, 0});
+	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW});
 	ot->mgrouptype = WM_manipulatorgrouptype_append(mmaptype, SEQUENCER_WGT_image_transform);
 
 	RNA_def_float(ot->srna, "scale", 1.0f, 0.0f, FLT_MAX, "Scale", "Scale of the backdrop", 0.0f, FLT_MAX);

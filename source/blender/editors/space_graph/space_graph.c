@@ -714,7 +714,7 @@ static void graph_widgets(void)
 {
 	/* create the widgetmap for the area here */
 	WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
-	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
+	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW});
 }
 
 static void graph_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID *new_id)

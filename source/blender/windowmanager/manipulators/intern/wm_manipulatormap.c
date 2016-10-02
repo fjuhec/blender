@@ -183,19 +183,11 @@ void WM_manipulatormap_update(const bContext *C, wmManipulatorMap *mmap)
 	}
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_OP && !mgroup->type->op) {
-			/* only while operator runs */
-			continue;
-		}
-		if (mgroup->type->poll && !mgroup->type->poll(C, mgroup->type)) {
+		if (!wm_manipulatorgroup_is_visible(mgroup, C)) {
 			continue;
 		}
 
-		/* prepare for first draw */
-		if (UNLIKELY((mgroup->flag & WM_MANIPULATORGROUP_INITIALIZED) == 0)) {
-			mgroup->type->init(C, mgroup);
-			mgroup->flag |= WM_MANIPULATORGROUP_INITIALIZED;
-		}
+		wm_manipulatorgroup_ensure_initialized(mgroup, C);
 		/* update data if needed */
 		/* XXX weak: Manipulator-group may skip refreshing if it's invisible (map gets untagged nevertheless) */
 		if (mmap->update_flag & MANIPULATORMAP_REFRESH && mgroup->type->refresh) {
@@ -338,8 +330,8 @@ static void manipulator_find_active_3D_loop(const bContext *C, ListBase *visible
 	}
 }
 
-static int manipulator_find_highlighted_3D_intern(
-        ListBase *visible_manipulators, const bContext *C, const wmEvent *event,
+static int manipulator_find_intersected_3D_intern(
+        ListBase *visible_manipulators, const bContext *C, const int co[2],
         const float hotspot)
 {
 	ScrArea *sa = CTX_wm_area(C);
@@ -354,10 +346,10 @@ static int manipulator_find_highlighted_3D_intern(
 	extern void view3d_winmatrix_set(ARegion *ar, View3D *v3d, rctf *rect);
 
 
-	rect.xmin = event->mval[0] - hotspot;
-	rect.xmax = event->mval[0] + hotspot;
-	rect.ymin = event->mval[1] - hotspot;
-	rect.ymax = event->mval[1] + hotspot;
+	rect.xmin = co[0] - hotspot;
+	rect.xmax = co[0] + hotspot;
+	rect.ymin = co[1] - hotspot;
+	rect.ymax = co[1] + hotspot;
 
 	selrect = rect;
 
@@ -385,56 +377,67 @@ static int manipulator_find_highlighted_3D_intern(
 	return hits > 0 ? buffer[3] : -1;
 }
 
-static void manipulators_prepare_visible_3D(wmManipulatorMap *mmap, ListBase *visible_manipulators, bContext *C)
-{
-	wmManipulator *manipulator;
-
-	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) {
-			if (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)) {
-				for (manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-					if (manipulator->render_3d_intersection && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-						BLI_addhead(visible_manipulators, BLI_genericNodeN(manipulator));
-					}
-				}
-			}
-		}
-	}
-}
-
-wmManipulator *wm_manipulatormap_find_highlighted_3D(
-        wmManipulatorMap *mmap, bContext *C, const wmEvent *event,
+/**
+ * Try to find a 3D manipulator at screen-space coordinate \a co. Uses OpenGL picking.
+ */
+static wmManipulator *manipulator_find_intersected_3D(
+        bContext *C, const int co[2], ListBase *visible_manipulators,
         unsigned char *part)
 {
 	wmManipulator *result = NULL;
-	ListBase visible_manipulators = {0};
 	const float hotspot = 14.0f;
 	int ret;
-
-	manipulators_prepare_visible_3D(mmap, &visible_manipulators, C);
 
 	*part = 0;
 	/* set up view matrices */
 	view3d_operator_needs_opengl(C);
 
-	ret = manipulator_find_highlighted_3D_intern(&visible_manipulators, C, event, 0.5f * hotspot);
+	ret = manipulator_find_intersected_3D_intern(visible_manipulators, C, co, 0.5f * hotspot);
 
 	if (ret != -1) {
 		LinkData *link;
 		int retsec;
-		retsec = manipulator_find_highlighted_3D_intern(&visible_manipulators, C, event, 0.2f * hotspot);
+		retsec = manipulator_find_intersected_3D_intern(visible_manipulators, C, co, 0.2f * hotspot);
 
 		if (retsec != -1)
 			ret = retsec;
 
-		link = BLI_findlink(&visible_manipulators, ret >> 8);
+		link = BLI_findlink(visible_manipulators, ret >> 8);
 		*part = ret & 255;
 		result = link->data;
 	}
 
-	BLI_freelistN(&visible_manipulators);
-
 	return result;
+}
+
+/**
+ * Try to find a manipulator under the mouse position. 2D intersections have priority over
+ * 3D ones (could check for smallest screen-space distance but not needed right now).
+ */
+wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
+        wmManipulatorMap *mmap, bContext *C, const wmEvent *event,
+        unsigned char *part)
+{
+	wmManipulator *manipulator = NULL;
+	ListBase visible_3d_manipulators = {NULL};
+
+	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
+		if (wm_manipulatorgroup_is_visible(mgroup, C)) {
+			if (mgroup->type->is_3d) {
+				wm_manipulatorgroup_intersectable_manipulators_to_list(mgroup, &visible_3d_manipulators);
+			}
+			else if ((manipulator = wm_manipulatorgroup_find_intersected_mainpulator(mgroup, C, event, part))) {
+				break;
+			}
+		}
+	}
+
+	if (!BLI_listbase_is_empty(&visible_3d_manipulators)) {
+		manipulator = manipulator_find_intersected_3D(C, event->mval, &visible_3d_manipulators, part);
+		BLI_freelistN(&visible_3d_manipulators);
+	}
+
+	return manipulator;
 }
 
 void WM_manipulatormaps_add_handlers(ARegion *ar, wmManipulatorMap *mmap)
@@ -617,29 +620,6 @@ void wm_manipulatormap_handler_context(bContext *C, wmEventHandler *handler)
 			}
 		}
 	}
-}
-
-
-wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
-        wmManipulatorMap *mmap, bContext *C, const wmEvent *event,
-        unsigned char *part)
-{
-	wmManipulator *manipulator;
-
-	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		if ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0) {
-			if (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)) {
-				for (manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-					if (manipulator->intersect) {
-						if ((*part = manipulator->intersect(C, event, manipulator)))
-							return manipulator;
-					}
-				}
-			}
-		}
-	}
-
-	return NULL;
 }
 
 bool WM_manipulatormap_cursor_set(const wmManipulatorMap *mmap, wmWindow *win)

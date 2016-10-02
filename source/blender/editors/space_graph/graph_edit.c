@@ -2901,7 +2901,7 @@ void GRAPH_OT_widget_backdrop_transform(struct wmOperatorType *ot)
 {
 	float default_offset[2] = {0.0f, 0.0f};
 	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
-	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW, 0});
+	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW});
 
 	/* identifiers */
 	ot->name = "Transform Backdrop";

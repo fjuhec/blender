@@ -602,8 +602,7 @@ static void image_widgets(void)
 {
 	const struct wmManipulatorMapType_Params wmap_params = {
 		.idname = "Image_UV",
-		.spaceid = SPACE_IMAGE, .regionid = RGN_TYPE_WINDOW,
-		.flag = 0,
+		.spaceid = SPACE_IMAGE, .regionid = RGN_TYPE_WINDOW
 	};
 	wmManipulatorMapType *wmaptype = WM_manipulatormaptype_ensure(&wmap_params);
 

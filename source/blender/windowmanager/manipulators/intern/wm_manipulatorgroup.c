@@ -63,6 +63,11 @@
  *
  * \{ */
 
+/* wmManipulatorGroup.flag */
+enum {
+	WM_MANIPULATORGROUP_INITIALIZED = (1 << 2), /* mgroup has been initialized */
+};
+
 /**
  * Create a new manipulator-group from \a mgrouptype.
  */
@@ -126,6 +131,53 @@ void wm_manipulatorgroup_attach_to_modal_handler(
 	}
 
 	WM_event_add_mousemove(C);
+}
+
+wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
+        const wmManipulatorGroup *mgroup, bContext *C, const wmEvent *event,
+        unsigned char *part)
+{
+	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
+		if (manipulator->intersect && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
+			if ((*part = manipulator->intersect(C, event, manipulator))) {
+				return manipulator;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+/**
+ * Adds all manipulators of \a mgroup that can be selected to the head of \a listbase. Added items need freeing!
+ */
+void wm_manipulatorgroup_intersectable_manipulators_to_list(const wmManipulatorGroup *mgroup, ListBase *listbase)
+{
+	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
+		if ((manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
+			if ((mgroup->type->is_3d && manipulator->render_3d_intersection) ||
+			    (!mgroup->type->is_3d && manipulator->intersect))
+			{
+				BLI_addhead(listbase, BLI_genericNodeN(manipulator));
+			}
+		}
+	}
+}
+
+void wm_manipulatorgroup_ensure_initialized(wmManipulatorGroup *mgroup, const bContext *C)
+{
+	/* prepare for first draw */
+	if (UNLIKELY((mgroup->flag & WM_MANIPULATORGROUP_INITIALIZED) == 0)) {
+		mgroup->type->init(C, mgroup);
+		mgroup->flag |= WM_MANIPULATORGROUP_INITIALIZED;
+	}
+}
+
+bool wm_manipulatorgroup_is_visible(const wmManipulatorGroup *mgroup, const bContext *C)
+{
+	/* Check for poll function, if manipulator-group belongs to an operator, also check if the operator is running. */
+	return ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_OP) == 0 || mgroup->type->op) &&
+	       (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type));
 }
 
 /** \name Manipulator operators
@@ -495,7 +547,7 @@ void WM_manipulatorgrouptype_unregister(bContext *C, Main *bmain, wmManipulatorG
 
 	wmManipulatorMapType *mmaptype = WM_manipulatormaptype_find(&(const struct wmManipulatorMapType_Params) {
 	        mgrouptype->mapidname, mgrouptype->spaceid,
-	        mgrouptype->regionid, mgrouptype->flag});
+	        mgrouptype->regionid});
 
 	BLI_remlink(&mmaptype->manipulator_grouptypes, mgrouptype);
 	mgrouptype->prev = mgrouptype->next = NULL;

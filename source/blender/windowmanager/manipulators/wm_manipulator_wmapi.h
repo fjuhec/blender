@@ -55,22 +55,18 @@ struct wmManipulatorGroup *wm_manipulator_group_find(
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
 
+/* wmManipulatorGroupType.flag */
+enum {
+	/* manipulator group is attached to operator, and is only accessible as long as this runs */
+	WM_MANIPULATORGROUPTYPE_OP = (1 << 0),
+};
+
 void MANIPULATORGROUP_OT_manipulator_select(struct wmOperatorType *ot);
 void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);
 
 void  wm_manipulatorgroup_attach_to_modal_handler(
         struct bContext *C, struct wmEventHandler *handler,
         struct wmManipulatorGroupType *mgrouptype, struct wmOperator *op);
-
-/* wmManipulatorGroupType->flag */
-enum {
-//	WM_MANIPULATORGROUPTYPE_3D      = (1 << 0),
-	/* manipulator group is attached to operator, and is only accessible as long as this runs */
-	WM_MANIPULATORGROUPTYPE_OP      = (1 << 1),
-	/* TODO mixed group and group-type flags, should be separate enums */
-	WM_MANIPULATORGROUP_INITIALIZED = (1 << 2), /* mgroup has been initialized */
-};
-
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorMap */
@@ -85,9 +81,6 @@ void wm_manipulatormaps_handled_modal_update(
         const struct wmOperatorType *ot);
 void wm_manipulatormap_handler_context(bContext *C, struct wmEventHandler *handler);
 
-struct wmManipulator *wm_manipulatormap_find_highlighted_3D(
-        struct wmManipulatorMap *mmap, bContext *C,
-        const struct wmEvent *event, unsigned char *part);
 struct wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
         struct wmManipulatorMap *mmap, bContext *C,
         const struct wmEvent *event, unsigned char *part);

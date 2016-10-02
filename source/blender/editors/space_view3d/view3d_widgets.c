@@ -114,7 +114,7 @@ void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
 	wgt->init = WIDGETGROUP_lamp_init;
 	wgt->refresh = WIDGETGROUP_lamp_refresh;
 
-	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
+	wgt->is_3d = true;
 }
 
 static bool WIDGETGROUP_camera_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
@@ -269,7 +269,7 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 	wgt->init = WIDGETGROUP_camera_init;
 	wgt->refresh = WIDGETGROUP_camera_refresh;
 
-	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
+	wgt->is_3d = true;
 }
 
 static bool WIDGETGROUP_forcefield_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
@@ -328,7 +328,7 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 	wgt->init = WIDGETGROUP_forcefield_init;
 	wgt->refresh = WIDGETGROUP_forcefield_refresh;
 
-	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
+	wgt->is_3d = true;
 }
 
 /* draw facemaps depending on the selected bone in pose mode */
@@ -573,5 +573,5 @@ void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)
 
 	wgt->keymap_init = WM_manipulatorgroup_keymap_common_sel;
 
-	wgt->flag |= WM_MANIPULATORGROUPTYPE_3D;
+	wgt->is_3d = true;
 }

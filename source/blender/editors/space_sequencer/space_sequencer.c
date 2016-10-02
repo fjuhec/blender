@@ -722,9 +722,9 @@ static void sequencer_widgets(void)
 {
 	/* create the widgetmap for the area here */
 	WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
-	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW, 0});
+	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW});
 	WM_manipulatormaptype_ensure(&(const struct wmManipulatorMapType_Params) {
-	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW, false});
+	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW});
 }
 
 /* ************************************* */
