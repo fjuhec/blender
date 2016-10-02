@@ -419,7 +419,7 @@ wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
         unsigned char *part)
 {
 	wmManipulator *manipulator = NULL;
-	ListBase visible_3d_manipulators;
+	ListBase visible_3d_manipulators = {NULL};
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
 		if (wm_manipulatorgroup_is_visible(mgroup, C)) {
