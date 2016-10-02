@@ -75,9 +75,6 @@ void wm_manipulatormaps_handled_modal_update(
         const struct wmOperatorType *ot);
 void wm_manipulatormap_handler_context(bContext *C, struct wmEventHandler *handler);
 
-struct wmManipulator *wm_manipulatormap_find_highlighted_3D(
-        struct wmManipulatorMap *mmap, bContext *C,
-        const struct wmEvent *event, unsigned char *part);
 struct wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
         struct wmManipulatorMap *mmap, bContext *C,
         const struct wmEvent *event, unsigned char *part);

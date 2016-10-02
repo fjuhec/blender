@@ -143,6 +143,11 @@ enum {
 
 struct wmManipulatorGroup *wm_manipulatorgroup_new_from_type(struct wmManipulatorGroupType *mgrouptype);
 void wm_manipulatorgroup_free(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulatorGroup *mgroup);
+wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
+        const struct wmManipulatorGroup *mgroup, struct bContext *C, const struct wmEvent *event,
+        unsigned char *part);
+void wm_manipulatorgroup_intersectable_manipulators_to_list(
+        const struct wmManipulatorGroup *mgroup, struct ListBase *listbase);
 void wm_manipulatorgroup_ensure_initialized(struct wmManipulatorGroup *mgroup, const struct bContext *C);
 bool wm_manipulatorgroup_is_visible(const struct wmManipulatorGroup *mgroup, const struct bContext *C);
 

@@ -140,6 +140,37 @@ void wm_manipulatorgroup_attach_to_modal_handler(
 	WM_event_add_mousemove(C);
 }
 
+wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
+        const wmManipulatorGroup *mgroup, bContext *C, const wmEvent *event,
+        unsigned char *part)
+{
+	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
+		if (manipulator->intersect && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
+			if ((*part = manipulator->intersect(C, event, manipulator))) {
+				return manipulator;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+/**
+ * Adds all manipulators of \a mgroup that can be selected to the head of \a listbase. Added items need freeing!
+ */
+void wm_manipulatorgroup_intersectable_manipulators_to_list(const wmManipulatorGroup *mgroup, ListBase *listbase)
+{
+	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
+		if ((manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
+			if ((mgroup->type->is_3d && manipulator->render_3d_intersection) ||
+			    (!mgroup->type->is_3d && manipulator->intersect))
+			{
+				BLI_addhead(listbase, BLI_genericNodeN(manipulator));
+			}
+		}
+	}
+}
+
 void wm_manipulatorgroup_ensure_initialized(wmManipulatorGroup *mgroup, const bContext *C)
 {
 	/* prepare for first draw */
