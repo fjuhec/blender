@@ -143,6 +143,8 @@ enum {
 
 struct wmManipulatorGroup *wm_manipulatorgroup_new_from_type(struct wmManipulatorGroupType *mgrouptype);
 void wm_manipulatorgroup_free(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulatorGroup *mgroup);
+void wm_manipulatorgroup_ensure_initialized(struct wmManipulatorGroup *mgroup, const struct bContext *C);
+bool wm_manipulatorgroup_is_visible(const struct wmManipulatorGroup *mgroup, const struct bContext *C);
 
 void wm_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *keyconf);
 

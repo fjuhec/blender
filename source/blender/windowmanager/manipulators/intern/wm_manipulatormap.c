@@ -183,19 +183,11 @@ void WM_manipulatormap_update(const bContext *C, wmManipulatorMap *mmap)
 	}
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_OP && !mgroup->type->op) {
-			/* only while operator runs */
-			continue;
-		}
-		if (mgroup->type->poll && !mgroup->type->poll(C, mgroup->type)) {
+		if (!wm_manipulatorgroup_is_visible(mgroup, C)) {
 			continue;
 		}
 
-		/* prepare for first draw */
-		if (UNLIKELY((mgroup->flag & WM_MANIPULATORGROUP_INITIALIZED) == 0)) {
-			mgroup->type->init(C, mgroup);
-			mgroup->flag |= WM_MANIPULATORGROUP_INITIALIZED;
-		}
+		wm_manipulatorgroup_ensure_initialized(mgroup, C);
 		/* update data if needed */
 		/* XXX weak: Manipulator-group may skip refreshing if it's invisible (map gets untagged nevertheless) */
 		if (mmap->update_flag & MANIPULATORMAP_REFRESH && mgroup->type->refresh) {
@@ -390,12 +382,12 @@ static void manipulators_prepare_visible_3D(wmManipulatorMap *mmap, ListBase *vi
 	wmManipulator *manipulator;
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) {
-			if (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)) {
-				for (manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-					if (manipulator->render_3d_intersection && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-						BLI_addhead(visible_manipulators, BLI_genericNodeN(manipulator));
-					}
+		if (mgroup->type->is_3d &&
+		    (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)))
+		{
+			for (manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
+				if (manipulator->render_3d_intersection && (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
+					BLI_addhead(visible_manipulators, BLI_genericNodeN(manipulator));
 				}
 			}
 		}
@@ -627,13 +619,13 @@ wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
 	wmManipulator *manipulator;
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		if ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) == 0) {
-			if (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)) {
-				for (manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-					if (manipulator->intersect) {
-						if ((*part = manipulator->intersect(C, event, manipulator)))
-							return manipulator;
-					}
+		if (!mgroup->type->is_3d &&
+		    (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type)))
+		{
+			for (manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
+				if (manipulator->intersect) {
+					if ((*part = manipulator->intersect(C, event, manipulator)))
+						return manipulator;
 				}
 			}
 		}

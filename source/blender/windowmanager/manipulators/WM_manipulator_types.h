@@ -66,6 +66,9 @@ typedef struct wmManipulatorGroupType {
 	/* refresh data for drawing, called before each redraw */
 	wmManipulatorGroupDrawPrepareFunc draw_prepare;
 
+	/* manipulator-group will be treated as 2d if this isn't set to true */
+	bool is_3d;
+
 	/* keymap init callback for this manipulator-group */
 	struct wmKeyMap *(*keymap_init)(const struct wmManipulatorGroupType *, struct wmKeyConfig *);
 	/* keymap created with callback from above */
@@ -77,8 +80,7 @@ typedef struct wmManipulatorGroupType {
 	/* RNA integration */
 	ExtensionRNA ext;
 
-	/* manipulatorTypeflags (includes copy of wmManipulatorMapType.flag - used for comparisons) */
-	int flag;
+	char flag;
 
 	/* if type is spawned from operator this is set here */
 	void *op;
@@ -92,7 +94,6 @@ struct wmManipulatorMapType_Params {
 	const char *idname;
 	const int spaceid;
 	const int regionid;
-	const int flag;
 };
 
 /**

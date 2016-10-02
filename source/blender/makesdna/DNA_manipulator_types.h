@@ -43,7 +43,7 @@ typedef struct wmManipulatorGroup {
 
 	void *customdata;
 	void (*customdata_free)(void *); /* for freeing customdata from above */
-	int flag;
+	int flag; /* private */
 	int pad;
 } wmManipulatorGroup;
 
