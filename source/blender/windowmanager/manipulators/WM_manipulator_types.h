@@ -49,6 +49,34 @@ typedef void (*wmManipulatorGroupDrawPrepareFunc)(const struct bContext *, struc
 
 
 /* -------------------------------------------------------------------- */
+/* wmManipulator */
+
+/**
+ * Simple utility wrapper for storing a single manipulator as wmManipulatorGroup.customdata (which gets freed).
+ */
+typedef struct wmManipulatorWrapper {
+	struct wmManipulator *manipulator;
+} wmManipulatorWrapper;
+
+/* wmManipulator->flag */
+enum eManipulatorFlag {
+	/* states (TODO separate bitfield) */
+	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0),
+	WM_MANIPULATOR_ACTIVE      = (1 << 1),
+	WM_MANIPULATOR_SELECTED    = (1 << 2),
+	/* settings */
+	WM_MANIPULATOR_DRAW_HOVER  = (1 << 3),
+	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
+	WM_MANIPULATOR_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
+	WM_MANIPULATOR_SCALE_3D    = (1 << 6),
+	WM_MANIPULATOR_SCENE_DEPTH = (1 << 7), /* manipulator is depth culled with scene objects (TODO could be group flag) */
+	WM_MANIPULATOR_HIDDEN      = (1 << 8),
+	WM_MANIPULATOR_SELECTABLE  = (1 << 9),
+};
+
+
+/* -------------------------------------------------------------------- */
+/* wmManipulatorGroup */
 
 /* factory class for a manipulator-group type, gets called every time a new area is spawned */
 typedef struct wmManipulatorGroupType {
@@ -90,6 +118,10 @@ typedef struct wmManipulatorGroupType {
 	char mapidname[64];
 } wmManipulatorGroupType;
 
+
+/* -------------------------------------------------------------------- */
+/* wmManipulatorMap */
+
 struct wmManipulatorMapType_Params {
 	const char *idname;
 	const int spaceid;
@@ -97,29 +129,16 @@ struct wmManipulatorMapType_Params {
 };
 
 /**
- * Simple utility wrapper for storing a single manipulator as wmManipulatorGroup.customdata (which gets freed).
+ * Pass a value of this enum to #WM_manipulatormap_update to tell it what to draw.
  */
-typedef struct wmManipulatorWrapper {
-	struct wmManipulator *manipulator;
-} wmManipulatorWrapper;
-
-
-/* -------------------------------------------------------------------- */
-
-/* wmManipulator->flag */
-enum eManipulatorFlag {
-	/* states */
-	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0),
-	WM_MANIPULATOR_ACTIVE      = (1 << 1),
-	WM_MANIPULATOR_SELECTED    = (1 << 2),
-	/* settings */
-	WM_MANIPULATOR_DRAW_HOVER  = (1 << 3),
-	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
-	WM_MANIPULATOR_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
-	WM_MANIPULATOR_SCALE_3D    = (1 << 6),
-	WM_MANIPULATOR_SCENE_DEPTH = (1 << 7), /* manipulator is depth culled with scene objects*/
-	WM_MANIPULATOR_HIDDEN      = (1 << 8),
-	WM_MANIPULATOR_SELECTABLE  = (1 << 9),
+enum {
+	/* Draw 2D manipulator-groups (ManipulatorGroupType.is_3d == false) */
+	WM_MANIPULATORMAP_DRAWSTEP_2D = 0,
+	/* Draw 3D manipulator-groups (ManipulatorGroupType.is_3d == true) */
+	WM_MANIPULATORMAP_DRAWSTEP_3D,
+	/* Draw only depth culled manipulators (WM_MANIPULATOR_SCENE_DEPTH flag).
+	 * Note that these are expected to be 3D manipulators too. */
+	WM_MANIPULATORMAP_DRAWSTEP_IN_SCENE,
 };
 
 #endif  /* __WM_MANIPULATOR_TYPES_H__ */

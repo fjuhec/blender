@@ -121,7 +121,8 @@ bool wm_manipulator_deselect(struct wmManipulatorMap *mmap, struct wmManipulator
 bool wm_manipulator_select(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
 
 void wm_manipulator_calculate_scale(struct wmManipulator *manipulator, const bContext *C);
-void wm_manipulator_update_prop_data(struct wmManipulator *manipulator);
+void wm_manipulator_update(struct wmManipulator *manipulator, const bContext *C, const bool refresh_map);
+bool wm_manipulator_is_visible(struct wmManipulator *manipulator);
 
 void fix_linking_manipulator_arrow(void);
 void fix_linking_manipulator_arrow2d(void);

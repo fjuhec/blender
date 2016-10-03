@@ -61,12 +61,6 @@
 static ListBase manipulatormaptypes = {NULL, NULL};
 
 /**
- * List of all visible manipulators to avoid unnecessary loops and wmManipulatorGroupType->poll checks.
- * Collected in WM_manipulators_update.
- */
-static ListBase draw_manipulators = {NULL, NULL};
-
-/**
  * Manipulator-map update tagging.
  */
 enum eManipulatorMapUpdateFlags {
@@ -166,27 +160,67 @@ void WM_manipulatormap_tag_refresh(wmManipulatorMap *mmap)
 	}
 }
 
+static void manipulatormap_tag_updated(wmManipulatorMap *mmap)
+{
+	mmap->update_flag = 0;
+}
+
+static bool manipulator_prepare_drawing(
+        wmManipulatorMap *mmap, wmManipulator *manipulator, const bContext *C,
+        ListBase *draw_manipulators, const int drawstep)
+{
+	const bool is_in_scene = (drawstep == WM_MANIPULATORMAP_DRAWSTEP_IN_SCENE);
+
+	if (!wm_manipulator_is_visible(manipulator)) {
+		/* skip */
+	}
+	/* account for drawstep on manipulator level */
+	else if ((is_in_scene && (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH) == 0) ||
+	         (!is_in_scene && (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH)))
+	{
+		/* skip */
+	}
+	else {
+		wm_manipulator_update(manipulator, C, (mmap->update_flag & MANIPULATORMAP_REFRESH) != 0);
+		BLI_addhead(draw_manipulators, BLI_genericNodeN(manipulator));
+		return true;
+	}
+
+	return false;
+}
+
 /**
- * Update manipulators of \a mmap to prepare for drawing.
- *
- * XXX should either update 2D or 3D manipulators (and send these to drawing).
+ * Update manipulators of \a mmap to prepare for drawing. Adds all manipulators that
+ * should be drawn to list \a draw_manipulators, note that added items need freeing.
  */
-void WM_manipulatormap_update(const bContext *C, wmManipulatorMap *mmap)
+static void manipulatormap_prepare_drawing(
+        wmManipulatorMap *mmap, const bContext *C, ListBase *draw_manipulators, const int drawstep)
 {
 	if (!mmap || BLI_listbase_is_empty(&mmap->manipulator_groups))
 		return;
+	wmManipulator *active_manipulator = mmap->mmap_context.active_manipulator;
 
 	/* only active manipulator needs updating */
-	if (mmap->mmap_context.active_manipulator) {
-		wm_manipulator_calculate_scale(mmap->mmap_context.active_manipulator, C);
-		goto done;
+	if (active_manipulator) {
+		if (manipulator_prepare_drawing(mmap, active_manipulator, C, draw_manipulators, drawstep)) {
+			manipulatormap_tag_updated(mmap);
+		}
+		/* don't draw any other manipulators */
+		return;
 	}
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
+		/* account for drawstep on manipulator-group level (do first to avoid calling mgroup->poll if not needed) */
+		if ((drawstep == WM_MANIPULATORMAP_DRAWSTEP_2D && mgroup->type->is_3d) ||
+		    (drawstep == WM_MANIPULATORMAP_DRAWSTEP_3D && !mgroup->type->is_3d))
+		{
+			continue;
+		}
 		if (!wm_manipulatorgroup_is_visible(mgroup, C)) {
 			continue;
 		}
 
+		/* needs to be initialized on first draw */
 		wm_manipulatorgroup_ensure_initialized(mgroup, C);
 		/* update data if needed */
 		/* XXX weak: Manipulator-group may skip refreshing if it's invisible (map gets untagged nevertheless) */
@@ -199,36 +233,30 @@ void WM_manipulatormap_update(const bContext *C, wmManipulatorMap *mmap)
 		}
 
 		for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-			if (manipulator->flag & WM_MANIPULATOR_HIDDEN)
-				continue;
-			if (mmap->update_flag & MANIPULATORMAP_REFRESH) {
-				wm_manipulator_update_prop_data(manipulator);
-			}
-			wm_manipulator_calculate_scale(manipulator, C);
-			BLI_addhead(&draw_manipulators, BLI_genericNodeN(manipulator));
+			manipulator_prepare_drawing(mmap, manipulator, C, draw_manipulators, drawstep);
 		}
 	}
 
+	manipulatormap_tag_updated(mmap);
+}
 
-done:
-	/* done updating */
-	mmap->update_flag = 0;
+static void manipulator_draw(wmManipulator *manipulator, const bContext *C, ListBase *draw_manipulators)
+{
+	BLI_assert(BLI_findindex(draw_manipulators, manipulator) != -1);
+	manipulator->draw(C, manipulator);
+	/* free/remove manipulator link after drawing */
+	BLI_freelinkN(draw_manipulators, manipulator);
 }
 
 /**
  * Draw all visible manipulators in \a mmap.
  * Uses global draw_manipulators listbase.
- *
- * \param in_scene: Draw depth-culled manipulators (wmManipulator->flag WM_MANIPULATOR_SCENE_DEPTH) - TODO
- * \param free_drawmanipulators: Free global draw_manipulators listbase (always enable for last draw call in region!).
  */
-void WM_manipulatormap_draw(
-        const bContext *C, const wmManipulatorMap *mmap,
-        const bool in_scene, const bool free_drawmanipulators)
+static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext *C, ListBase *draw_manipulators)
 {
-	BLI_assert(!BLI_listbase_is_empty(&mmap->manipulator_groups));
 	if (!mmap)
 		return;
+	BLI_assert(!BLI_listbase_is_empty(&mmap->manipulator_groups));
 
 	const bool draw_multisample = (U.ogl_multisamples != USER_MULTISAMPLE_NONE);
 	const bool use_lighting = (U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0;
@@ -255,65 +283,31 @@ void WM_manipulatormap_draw(
 	}
 
 
-	wmManipulator *manipulator = mmap->mmap_context.active_manipulator;
+	/* draw_manipulators contains all visible manipulators - draw them */
+	for (LinkData *link = draw_manipulators->first, *link_next; link; link = link_next) {
+		wmManipulator *manipulator = link->data;
+		link_next = link->next;
 
-	/* draw active manipulator */
-	/* XXX is this in_scene check actually working? */
-	if (manipulator && in_scene == (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH)) {
-		if (manipulator->flag & (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_DRAW_VALUE)) {
-			/* notice that we don't update the manipulator-group, manipulator is now on
-			 * its own, it should have all relevant data to update itself */
-			manipulator->draw(C, manipulator);
-		}
-	}
-
-	/* draw selected manipulators */
-	if (mmap->mmap_context.selected_manipulator) {
-		for (int i = 0; i < mmap->mmap_context.tot_selected; i++) {
-			manipulator = mmap->mmap_context.selected_manipulator[i];
-			if ((manipulator != NULL) &&
-			    (manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0 &&
-			    (in_scene == (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH)))
-			{
-				/* notice that we don't update the manipulator-group, manipulator is now on
-				 * its own, it should have all relevant data to update itself */
-				manipulator->draw(C, manipulator);
-			}
-		}
-	}
-
-	/* draw other manipulators */
-	if (!mmap->mmap_context.active_manipulator) {
-		bool highlight_poll;
-		/* draw_manipulators excludes hidden manipulators */
-		for (LinkData *link = draw_manipulators.first, *link_next; link; link = link_next) {
-			link_next = link->next;
-			manipulator = link->data;
-			highlight_poll = (manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) == 0 ||
-			                 (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT);
-
-			if ((in_scene == (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH)) &&
-			    ((manipulator->flag & WM_MANIPULATOR_SELECTED) == 0) && /* selected were drawn already */
-			    (highlight_poll == true))
-			{
-				manipulator->draw(C, manipulator);
-			}
-
-			/* free now, avoids further iterations */
-			if (free_drawmanipulators) {
-				BLI_freelinkN(&draw_manipulators, link);
-			}
-		}
-	}
-	if (free_drawmanipulators) {
-		BLI_listbase_clear(&draw_manipulators);
+		/* removes/frees manipulator link from draw_manipulators */
+		manipulator_draw(manipulator, C, draw_manipulators);
 	}
 
 
-	if (draw_multisample)
+	if (draw_multisample) {
 		glDisable(GL_MULTISAMPLE);
-	if (use_lighting)
+	}
+	if (use_lighting) {
 		glPopAttrib();
+	}
+}
+
+void WM_manipulatormap_draw(wmManipulatorMap *mmap, const bContext *C, const int drawstep)
+{
+	static ListBase draw_manipulators = {NULL};
+
+	manipulatormap_prepare_drawing(mmap, C, &draw_manipulators, drawstep);
+	manipulators_draw_list(mmap, C, &draw_manipulators);
+	BLI_assert(BLI_listbase_is_empty(&draw_manipulators));
 }
 
 static void manipulator_find_active_3D_loop(const bContext *C, ListBase *visible_manipulators)
@@ -440,7 +434,7 @@ wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
 	return manipulator;
 }
 
-void WM_manipulatormaps_add_handlers(ARegion *ar, wmManipulatorMap *mmap)
+void WM_manipulatormap_add_handlers(ARegion *ar, wmManipulatorMap *mmap)
 {
 	wmEventHandler *handler = MEM_callocN(sizeof(wmEventHandler), "manipulator handler");
 
@@ -519,7 +513,7 @@ BLI_INLINE bool manipulator_selectable_poll(const wmManipulator *manipulator, vo
  * Select all selectable manipulators in \a mmap.
  * \return if selection has changed.
  */
-static bool WM_manipulatormap_select_all_intern(
+static bool wm_manipulatormap_select_all_intern(
         bContext *C, wmManipulatorMap *mmap, wmManipulator ***sel,
         const int action)
 {
@@ -568,7 +562,7 @@ bool WM_manipulatormap_select_all(bContext *C, wmManipulatorMap *mmap, const int
 
 	switch (action) {
 		case SEL_SELECT:
-			changed = WM_manipulatormap_select_all_intern(C, mmap, sel, action);
+			changed = wm_manipulatormap_select_all_intern(C, mmap, sel, action);
 			break;
 		case SEL_DESELECT:
 			changed = wm_manipulatormap_deselect_all(mmap, sel);
