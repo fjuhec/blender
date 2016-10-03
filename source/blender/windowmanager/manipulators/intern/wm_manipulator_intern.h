@@ -39,6 +39,8 @@ typedef struct wmManipulator {
 	struct wmManipulator *next, *prev;
 
 	char idname[MAX_NAME + 4]; /* + 4 for unique '.001', '.002', etc suffix */
+	/* pointer back to group this manipulator is in (just for quick access) */
+	struct wmManipulatorGroup *mgroup;
 
 	/* could become wmManipulatorType */
 	/* draw manipulator */
@@ -71,7 +73,8 @@ typedef struct wmManipulator {
 	/* called when manipulator selection state changes */
 	wmManipulatorSelectFunc select;
 
-	int flag; /* flags set by drawing and interaction, such as highlighting */
+	int flag; /* flags that influence the behavior or how the manipulators are drawn */
+	short state; /* state flags (active, highlighted, selected) */
 
 	unsigned char highlighted_part;
 
@@ -105,6 +108,13 @@ typedef struct wmManipulator {
 	PropertyRNA **props;
 } wmManipulator;
 
+/* wmManipulator.state */
+enum {
+	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0), /* while hovered */
+	WM_MANIPULATOR_ACTIVE      = (1 << 1), /* while dragging */
+	WM_MANIPULATOR_SELECTED    = (1 << 2),
+};
+
 /**
  * \brief Manipulator tweak flag.
  * Bitflag passed to manipulator while tweaking.
@@ -115,7 +125,7 @@ enum {
 	WM_MANIPULATOR_TWEAK_PRECISE = (1 << 0),
 };
 
-bool wm_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *manipulator, const char *name);
+void wm_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *manipulator, const char *name);
 
 bool wm_manipulator_deselect(struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
 bool wm_manipulator_select(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
@@ -144,6 +154,7 @@ enum {
 
 struct wmManipulatorGroup *wm_manipulatorgroup_new_from_type(struct wmManipulatorGroupType *mgrouptype);
 void wm_manipulatorgroup_free(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulatorGroup *mgroup);
+void wm_manipulatorgroup_manipulator_register(struct wmManipulatorGroup *mgroup, wmManipulator *manipulator);
 wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         const struct wmManipulatorGroup *mgroup, struct bContext *C, const struct wmEvent *event,
         unsigned char *part);
@@ -151,6 +162,7 @@ void wm_manipulatorgroup_intersectable_manipulators_to_list(
         const struct wmManipulatorGroup *mgroup, struct ListBase *listbase);
 void wm_manipulatorgroup_ensure_initialized(struct wmManipulatorGroup *mgroup, const struct bContext *C);
 bool wm_manipulatorgroup_is_visible(const struct wmManipulatorGroup *mgroup, const struct bContext *C);
+bool wm_manipulatorgroup_is_visible_in_drawstep(const struct wmManipulatorGroup *mgroup, const int drawstep);
 
 void wm_manipulatorgrouptype_keymap_init(struct wmManipulatorGroupType *mgrouptype, struct wmKeyConfig *keyconf);
 

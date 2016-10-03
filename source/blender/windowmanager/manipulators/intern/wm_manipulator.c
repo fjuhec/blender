@@ -150,15 +150,11 @@ static void manipulator_unique_idname_set(wmManipulatorGroup *mgroup, wmManipula
 }
 
 /**
- * Register \a manipulator.
- *
- * \param name  name used to create a unique idname for \a manipulator in \a mgroup
+ * Initialize default values and allocate needed memory for members.
  */
-bool wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name)
+static void manipulator_init(wmManipulator *manipulator)
 {
 	const float col_default[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-
-	manipulator_unique_idname_set(mgroup, manipulator, name);
 
 	manipulator->user_scale = 1.0f;
 	manipulator->line_width = 1.0f;
@@ -174,9 +170,18 @@ bool wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipula
 
 	manipulator->props = MEM_callocN(sizeof(PropertyRNA *) * manipulator->max_prop, "manipulator->props");
 	manipulator->ptr = MEM_callocN(sizeof(PointerRNA) * manipulator->max_prop, "manipulator->ptr");
+}
 
-	BLI_addtail(&mgroup->manipulators, manipulator);
-	return true;
+/**
+ * Register \a manipulator.
+ *
+ * \param name: name used to create a unique idname for \a manipulator in \a mgroup
+ */
+void wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator, const char *name)
+{
+	manipulator_init(manipulator);
+	manipulator_unique_idname_set(mgroup, manipulator, name);
+	wm_manipulatorgroup_manipulator_register(mgroup, manipulator);
 }
 
 /**
@@ -185,13 +190,13 @@ bool wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipula
  */
 void WM_manipulator_delete(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmManipulator *manipulator, bContext *C)
 {
-	if (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT) {
+	if (manipulator->state & WM_MANIPULATOR_HIGHLIGHT) {
 		wm_manipulatormap_set_highlighted_manipulator(mmap, C, NULL, 0);
 	}
-	if (manipulator->flag & WM_MANIPULATOR_ACTIVE) {
+	if (manipulator->state & WM_MANIPULATOR_ACTIVE) {
 		wm_manipulatormap_set_active_manipulator(mmap, C, NULL, NULL);
 	}
-	if (manipulator->flag & WM_MANIPULATOR_SELECTED) {
+	if (manipulator->state & WM_MANIPULATOR_SELECTED) {
 		wm_manipulator_deselect(mmap, manipulator);
 	}
 
@@ -206,17 +211,9 @@ void WM_manipulator_delete(ListBase *manipulatorlist, wmManipulatorMap *mmap, wm
 	MEM_freeN(manipulator);
 }
 
-wmManipulatorGroup *wm_manipulator_group_find(const wmManipulatorMap *mmap, wmManipulator *manipulator)
+wmManipulatorGroup *wm_manipulator_get_parent_group(const wmManipulator *manipulator)
 {
-	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		for (wmManipulator *man_iter = mgroup->manipulators.first; man_iter; man_iter = man_iter->next) {
-			if (man_iter == manipulator) {
-				return mgroup;
-			}
-		}
-	}
-
-	return NULL;
+	return manipulator->mgroup;
 }
 
 
@@ -279,7 +276,7 @@ void WM_manipulator_set_custom_handler(
  */
 void WM_manipulator_set_func_select(wmManipulator *manipulator, wmManipulatorSelectFunc select)
 {
-	manipulator->flag |= WM_MANIPULATOR_SELECTABLE;
+	BLI_assert(manipulator->mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECTABLE);
 	manipulator->select = select;
 }
 
@@ -346,7 +343,7 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 	bool changed = false;
 
 	/* caller should check! */
-	BLI_assert(manipulator->flag & WM_MANIPULATOR_SELECTED);
+	BLI_assert(manipulator->state & WM_MANIPULATOR_SELECTED);
 
 	/* remove manipulator from selected_manipulators array */
 	for (int i = 0; i < (*tot_selected); i++) {
@@ -368,7 +365,7 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 		(*tot_selected)--;
 	}
 
-	manipulator->flag &= ~WM_MANIPULATOR_SELECTED;
+	manipulator->state &= ~WM_MANIPULATOR_SELECTED;
 	return changed;
 }
 
@@ -383,7 +380,7 @@ bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *m
 	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
 	int *tot_selected = &mmap->mmap_context.tot_selected;
 
-	if (!manipulator || (manipulator->flag & WM_MANIPULATOR_SELECTED))
+	if (!manipulator || (manipulator->state & WM_MANIPULATOR_SELECTED))
 		return false;
 
 	(*tot_selected)++;
@@ -391,7 +388,7 @@ bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *m
 	*sel = MEM_reallocN(*sel, sizeof(wmManipulator *) * (*tot_selected));
 	(*sel)[(*tot_selected) - 1] = manipulator;
 
-	manipulator->flag |= WM_MANIPULATOR_SELECTED;
+	manipulator->state |= WM_MANIPULATOR_SELECTED;
 	if (manipulator->select) {
 		manipulator->select(C, manipulator, SEL_SELECT);
 	}
@@ -405,7 +402,7 @@ void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *
 	const RegionView3D *rv3d = CTX_wm_region_view3d(C);
 	float scale = 1.0f;
 
-	if (manipulator->flag & WM_MANIPULATOR_SCALE_3D) {
+	if (manipulator->mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCALE_3D) {
 		if (rv3d && (U.manipulator_flag & V3D_3D_MANIPULATORS) == 0) {
 			if (manipulator->get_final_position) {
 				float position[3];
@@ -450,13 +447,15 @@ bool wm_manipulator_is_visible(wmManipulator *manipulator)
 	if (manipulator->flag & WM_MANIPULATOR_HIDDEN) {
 		return false;
 	}
-	if ((manipulator->flag & WM_MANIPULATOR_ACTIVE) &&
+	if ((manipulator->state & WM_MANIPULATOR_ACTIVE) &&
 	    !(manipulator->flag & (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_DRAW_VALUE)))
 	{
 		/* don't draw while active (while dragging) */
 		return false;
 	}
-	if ((manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) && !(manipulator->flag & WM_MANIPULATOR_HIGHLIGHT)) {
+	if ((manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) &&
+	    !(manipulator->state & WM_MANIPULATOR_HIGHLIGHT))
+	{
 		/* only draw on mouse hover */
 		return false;
 	}

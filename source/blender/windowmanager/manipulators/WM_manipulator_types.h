@@ -58,20 +58,13 @@ typedef struct wmManipulatorWrapper {
 	struct wmManipulator *manipulator;
 } wmManipulatorWrapper;
 
-/* wmManipulator->flag */
-enum eManipulatorFlag {
-	/* states (TODO separate bitfield) */
-	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0),
-	WM_MANIPULATOR_ACTIVE      = (1 << 1),
-	WM_MANIPULATOR_SELECTED    = (1 << 2),
-	/* settings */
-	WM_MANIPULATOR_DRAW_HOVER  = (1 << 3),
-	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
-	WM_MANIPULATOR_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
-	WM_MANIPULATOR_SCALE_3D    = (1 << 6),
-	WM_MANIPULATOR_SCENE_DEPTH = (1 << 7), /* manipulator is depth culled with scene objects (TODO could be group flag) */
-	WM_MANIPULATOR_HIDDEN      = (1 << 8),
-	WM_MANIPULATOR_SELECTABLE  = (1 << 9),
+/* wmManipulator.flag
+ * Flags for individual manipulators. */
+enum {
+	WM_MANIPULATOR_DRAW_HOVER  = (1 << 0), /* draw *only* while hovering */
+	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 1), /* draw while dragging */
+	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw a indicator for the current value while dragging */
+	WM_MANIPULATOR_HIDDEN      = (1 << 3),
 };
 
 
@@ -94,9 +87,6 @@ typedef struct wmManipulatorGroupType {
 	/* refresh data for drawing, called before each redraw */
 	wmManipulatorGroupDrawPrepareFunc draw_prepare;
 
-	/* manipulator-group will be treated as 2d if this isn't set to true */
-	bool is_3d;
-
 	/* keymap init callback for this manipulator-group */
 	struct wmKeyMap *(*keymap_init)(const struct wmManipulatorGroupType *, struct wmKeyConfig *);
 	/* keymap created with callback from above */
@@ -108,7 +98,7 @@ typedef struct wmManipulatorGroupType {
 	/* RNA integration */
 	ExtensionRNA ext;
 
-	char flag;
+	int flag;
 
 	/* if type is spawned from operator this is set here */
 	void *op;
@@ -117,6 +107,23 @@ typedef struct wmManipulatorGroupType {
 	short spaceid, regionid;
 	char mapidname[64];
 } wmManipulatorGroupType;
+
+/**
+ * wmManipulatorGroupType.flag
+ * Flags that influence the behavior of all manipulators in the group.
+ */
+enum {
+	/* Mark manipulator-group as being 3D */
+	WM_MANIPULATORGROUPTYPE_IS_3D       = (1 << 0),
+	/* Scale manipulators as 3D object that respects zoom (otherwise zoom independent draw size) */
+	WM_MANIPULATORGROUPTYPE_SCALE_3D    = (1 << 1),
+	/* Manipulators can be depth culled with scene objects (covered by other geometry - TODO) */
+	WM_MANIPULATORGROUPTYPE_SCENE_DEPTH = (1 << 2),
+	/* Manipulators can be selected */
+	WM_MANIPULATORGROUPTYPE_SELECTABLE  = (1 << 3),
+	/* manipulator group is attached to operator, and is only accessible as long as this runs */
+	WM_MANIPULATORGROUPTYPE_OP          = (1 << 4),
+};
 
 
 /* -------------------------------------------------------------------- */

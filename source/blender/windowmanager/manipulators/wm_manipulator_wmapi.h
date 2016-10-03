@@ -49,17 +49,10 @@ struct wmOperator;
 
 typedef void (*wmManipulatorSelectFunc)(struct bContext *, struct wmManipulator *, const int);
 
-struct wmManipulatorGroup *wm_manipulator_group_find(
-        const struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
+struct wmManipulatorGroup *wm_manipulator_get_parent_group(const struct wmManipulator *manipulator);
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
-
-/* wmManipulatorGroupType.flag */
-enum {
-	/* manipulator group is attached to operator, and is only accessible as long as this runs */
-	WM_MANIPULATORGROUPTYPE_OP = (1 << 0),
-};
 
 void MANIPULATORGROUP_OT_manipulator_select(struct wmOperatorType *ot);
 void MANIPULATORGROUP_OT_manipulator_tweak(struct wmOperatorType *ot);

@@ -166,18 +166,10 @@ static void manipulatormap_tag_updated(wmManipulatorMap *mmap)
 }
 
 static bool manipulator_prepare_drawing(
-        wmManipulatorMap *mmap, wmManipulator *manipulator, const bContext *C,
-        ListBase *draw_manipulators, const int drawstep)
+        wmManipulatorMap *mmap, wmManipulator *manipulator,
+        const bContext *C, ListBase *draw_manipulators)
 {
-	const bool is_in_scene = (drawstep == WM_MANIPULATORMAP_DRAWSTEP_IN_SCENE);
-
 	if (!wm_manipulator_is_visible(manipulator)) {
-		/* skip */
-	}
-	/* account for drawstep on manipulator level */
-	else if ((is_in_scene && (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH) == 0) ||
-	         (!is_in_scene && (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH)))
-	{
 		/* skip */
 	}
 	else {
@@ -202,7 +194,7 @@ static void manipulatormap_prepare_drawing(
 
 	/* only active manipulator needs updating */
 	if (active_manipulator) {
-		if (manipulator_prepare_drawing(mmap, active_manipulator, C, draw_manipulators, drawstep)) {
+		if (manipulator_prepare_drawing(mmap, active_manipulator, C, draw_manipulators)) {
 			manipulatormap_tag_updated(mmap);
 		}
 		/* don't draw any other manipulators */
@@ -210,13 +202,10 @@ static void manipulatormap_prepare_drawing(
 	}
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		/* account for drawstep on manipulator-group level (do first to avoid calling mgroup->poll if not needed) */
-		if ((drawstep == WM_MANIPULATORMAP_DRAWSTEP_2D && mgroup->type->is_3d) ||
-		    (drawstep == WM_MANIPULATORMAP_DRAWSTEP_3D && !mgroup->type->is_3d))
+		/* check group visibility - drawstep first to avoid unnecessary call of group poll callback */
+		if (!wm_manipulatorgroup_is_visible_in_drawstep(mgroup, drawstep) ||
+		    !wm_manipulatorgroup_is_visible(mgroup, C))
 		{
-			continue;
-		}
-		if (!wm_manipulatorgroup_is_visible(mgroup, C)) {
 			continue;
 		}
 
@@ -233,7 +222,7 @@ static void manipulatormap_prepare_drawing(
 		}
 
 		for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-			manipulator_prepare_drawing(mmap, manipulator, C, draw_manipulators, drawstep);
+			manipulator_prepare_drawing(mmap, manipulator, C, draw_manipulators);
 		}
 	}
 
@@ -274,7 +263,6 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 		glPopMatrix();
 	}
 
-
 	/* draw_manipulators contains all visible manipulators - draw them */
 	for (LinkData *link = draw_manipulators->first, *link_next; link; link = link_next) {
 		wmManipulator *manipulator = link->data;
@@ -284,7 +272,6 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 		/* free/remove manipulator link after drawing */
 		BLI_freelinkN(draw_manipulators, link);
 	}
-
 
 	if (draw_multisample) {
 		glDisable(GL_MULTISAMPLE);
@@ -410,7 +397,7 @@ wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
 		if (wm_manipulatorgroup_is_visible(mgroup, C)) {
-			if (mgroup->type->is_3d) {
+			if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) {
 				wm_manipulatorgroup_intersectable_manipulators_to_list(mgroup, &visible_3d_manipulators);
 			}
 			else if ((manipulator = wm_manipulatorgroup_find_intersected_mainpulator(mgroup, C, event, part))) {
@@ -487,7 +474,7 @@ bool wm_manipulatormap_deselect_all(wmManipulatorMap *mmap, wmManipulator ***sel
 		return false;
 
 	for (int i = 0; i < mmap->mmap_context.tot_selected; i++) {
-		(*sel)[i]->flag &= ~WM_MANIPULATOR_SELECTED;
+		(*sel)[i]->state &= ~WM_MANIPULATOR_SELECTED;
 		(*sel)[i] = NULL;
 	}
 	wm_manipulatormap_selected_delete(mmap);
@@ -499,7 +486,7 @@ bool wm_manipulatormap_deselect_all(wmManipulatorMap *mmap, wmManipulator ***sel
 
 BLI_INLINE bool manipulator_selectable_poll(const wmManipulator *manipulator, void *UNUSED(data))
 {
-	return (manipulator->flag & WM_MANIPULATOR_SELECTABLE);
+	return (manipulator->mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECTABLE);
 }
 
 /**
@@ -525,10 +512,10 @@ static bool wm_manipulatormap_select_all_intern(
 	GHASH_ITER_INDEX (gh_iter, hash, i) {
 		wmManipulator *manipulator_iter = BLI_ghashIterator_getValue(&gh_iter);
 
-		if ((manipulator_iter->flag & WM_MANIPULATOR_SELECTED) == 0) {
+		if ((manipulator_iter->state & WM_MANIPULATOR_SELECTED) == 0) {
 			changed = true;
 		}
-		manipulator_iter->flag |= WM_MANIPULATOR_SELECTED;
+		manipulator_iter->state |= WM_MANIPULATOR_SELECTED;
 		if (manipulator_iter->select) {
 			manipulator_iter->select(C, manipulator_iter, action);
 		}
@@ -630,14 +617,14 @@ void wm_manipulatormap_set_highlighted_manipulator(
 	    (manipulator && part != manipulator->highlighted_part))
 	{
 		if (mmap->mmap_context.highlighted_manipulator) {
-			mmap->mmap_context.highlighted_manipulator->flag &= ~WM_MANIPULATOR_HIGHLIGHT;
+			mmap->mmap_context.highlighted_manipulator->state &= ~WM_MANIPULATOR_HIGHLIGHT;
 			mmap->mmap_context.highlighted_manipulator->highlighted_part = 0;
 		}
 
 		mmap->mmap_context.highlighted_manipulator = manipulator;
 
 		if (manipulator) {
-			manipulator->flag |= WM_MANIPULATOR_HIGHLIGHT;
+			manipulator->state |= WM_MANIPULATOR_HIGHLIGHT;
 			manipulator->highlighted_part = part;
 
 			if (C && manipulator->get_cursor) {
@@ -669,7 +656,7 @@ void wm_manipulatormap_set_active_manipulator(
         wmManipulatorMap *mmap, bContext *C, const wmEvent *event, wmManipulator *manipulator)
 {
 	if (manipulator && C) {
-		manipulator->flag |= WM_MANIPULATOR_ACTIVE;
+		manipulator->state |= WM_MANIPULATOR_ACTIVE;
 		mmap->mmap_context.active_manipulator = manipulator;
 
 		if (manipulator->opname) {
@@ -685,7 +672,7 @@ void wm_manipulatormap_set_active_manipulator(
 
 				/* we failed to hook the manipulator to the operator handler or operator was cancelled, return */
 				if (!mmap->mmap_context.active_manipulator) {
-					manipulator->flag &= ~WM_MANIPULATOR_ACTIVE;
+					manipulator->state &= ~WM_MANIPULATOR_ACTIVE;
 					/* first activate the manipulator itself */
 					if (manipulator->interaction_data) {
 						MEM_freeN(manipulator->interaction_data);
@@ -713,7 +700,7 @@ void wm_manipulatormap_set_active_manipulator(
 
 		/* deactivate, manipulator but first take care of some stuff */
 		if (manipulator) {
-			manipulator->flag &= ~WM_MANIPULATOR_ACTIVE;
+			manipulator->state &= ~WM_MANIPULATOR_ACTIVE;
 			/* first activate the manipulator itself */
 			if (manipulator->interaction_data) {
 				MEM_freeN(manipulator->interaction_data);
