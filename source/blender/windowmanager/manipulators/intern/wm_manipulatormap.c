@@ -240,14 +240,6 @@ static void manipulatormap_prepare_drawing(
 	manipulatormap_tag_updated(mmap);
 }
 
-static void manipulator_draw(wmManipulator *manipulator, const bContext *C, ListBase *draw_manipulators)
-{
-	BLI_assert(BLI_findindex(draw_manipulators, manipulator) != -1);
-	manipulator->draw(C, manipulator);
-	/* free/remove manipulator link after drawing */
-	BLI_freelinkN(draw_manipulators, manipulator);
-}
-
 /**
  * Draw all visible manipulators in \a mmap.
  * Uses global draw_manipulators listbase.
@@ -288,8 +280,9 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 		wmManipulator *manipulator = link->data;
 		link_next = link->next;
 
-		/* removes/frees manipulator link from draw_manipulators */
-		manipulator_draw(manipulator, C, draw_manipulators);
+		manipulator->draw(C, manipulator);
+		/* free/remove manipulator link after drawing */
+		BLI_freelinkN(draw_manipulators, link);
 	}
 
 
@@ -303,7 +296,7 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 
 void WM_manipulatormap_draw(wmManipulatorMap *mmap, const bContext *C, const int drawstep)
 {
-	static ListBase draw_manipulators = {NULL};
+	ListBase draw_manipulators = {NULL};
 
 	manipulatormap_prepare_drawing(mmap, C, &draw_manipulators, drawstep);
 	manipulators_draw_list(mmap, C, &draw_manipulators);

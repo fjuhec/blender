@@ -677,7 +677,7 @@ static void image_main_region_init(wmWindowManager *wm, ARegion *ar)
 		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
 		        "Image_UV", SPACE_IMAGE, RGN_TYPE_WINDOW});
 	}
-	WM_manipulatormaps_add_handlers(ar, ar->manipulator_map);
+	WM_manipulatormap_add_handlers(ar, ar->manipulator_map);
 
 	/* mask polls mode */
 	keymap = WM_keymap_find(wm->defaultconf, "Mask Editing", 0, 0);
@@ -819,8 +819,7 @@ static void image_main_region_draw(const bContext *C, ARegion *ar)
 		UI_view2d_view_restore(C);
 	}
 
-	WM_manipulatormap_update(C, ar->manipulator_map);
-	WM_manipulatormap_draw(C, ar->manipulator_map, false, true);
+	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
 
 	draw_image_cache(C, ar);
 

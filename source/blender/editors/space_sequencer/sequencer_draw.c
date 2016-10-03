@@ -73,6 +73,7 @@
 #include "UI_view2d.h"
 
 #include "WM_api.h"
+#include "WM_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -1678,10 +1679,9 @@ void draw_timeline_seq(const bContext *C, ARegion *ar)
 
 	/* reset view matrix */
 	UI_view2d_view_restore(C);
-	
+
 	/* finally draw any widgets here */
-	WM_manipulatormap_update(C, ar->manipulator_map);
-	WM_manipulatormap_draw(C, ar->manipulator_map, false, true);
+	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
 
 	/* scrollers */
 	unit = (sseq->flag & SEQ_DRAWFRAMES) ? V2D_UNIT_FRAMES : V2D_UNIT_SECONDS;

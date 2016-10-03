@@ -505,7 +505,7 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 		        "View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW});
 	}
 
-	WM_manipulatormaps_add_handlers(ar, ar->manipulator_map);
+	WM_manipulatormap_add_handlers(ar, ar->manipulator_map);
 
 	/* object ops. */
 	

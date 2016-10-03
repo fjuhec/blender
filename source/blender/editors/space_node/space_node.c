@@ -654,7 +654,7 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *ar)
 		        "Node_Canvas", SPACE_NODE, RGN_TYPE_WINDOW});
 	}
 
-	WM_manipulatormaps_add_handlers(ar, ar->manipulator_map);
+	WM_manipulatormap_add_handlers(ar, ar->manipulator_map);
 
 	/* own keymaps */
 	keymap = WM_keymap_find(wm->defaultconf, "Node Generic", SPACE_NODE, 0);

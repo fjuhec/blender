@@ -605,8 +605,7 @@ static void sequencer_preview_region_draw(const bContext *C, ARegion *ar)
 		ED_scene_draw_fps(scene, &rect);
 	}
 
-	WM_manipulatormap_update(C, ar->manipulator_map);
-	WM_manipulatormap_draw(C, ar->manipulator_map, false, true);
+	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
 }
 
 static void sequencer_preview_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)

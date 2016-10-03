@@ -349,8 +349,7 @@ static void graph_main_region_draw(const bContext *C, ARegion *ar)
 	UI_view2d_view_restore(C);
 	
 	/* finally draw any widgets here */
-	WM_manipulatormap_update(C, ar->manipulator_map);
-	WM_manipulatormap_draw(C, ar->manipulator_map, false, true);
+	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
 	
 	/* scrollers */
 	// FIXME: args for scrollers depend on the type of data being shown...

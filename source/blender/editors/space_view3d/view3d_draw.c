@@ -79,6 +79,7 @@
 #include "BIF_glutil.h"
 
 #include "WM_api.h"
+#include "WM_types.h"
 
 #include "BLF_api.h"
 #include "BLT_translation.h"
@@ -4083,12 +4084,10 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 	/* main drawing call */
 	view3d_draw_objects(C, scene, v3d, ar, grid_unit, true, false, do_compositing ? rv3d->compositor : NULL);
 
-	/* manipulators need to be updated *after* view matrix was set up
-	 * XXX since we do 2 draw calls (with and without depth culling),
-	 * it might be better to have 2 update calls, too */
-	WM_manipulatormap_update(C, ar->manipulator_map);
-	/* draw depth culled manipulators */
-	WM_manipulatormap_draw(C, ar->manipulator_map, true, false);
+	/* draw depth culled manipulators - manipulators need to be updated *after* view matrix was set up */
+	/* TODO depth culling manipulators is not yet supported, just drawing _3D here, should
+	 * later become _IN_SCENE (and draw _3D separate) */
+	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_3D);
 
 	/* post process */
 	if (do_compositing) {
@@ -4231,7 +4230,6 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	const char *grid_unit = NULL;
 	rcti border_rect;
 	bool render_border, clip_border;
-	bool update_widgets = true;
 
 	/* if we only redraw render border area, skip opengl draw and also
 	 * don't do scissor because it's already set */
@@ -4241,7 +4239,6 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	/* draw viewport using opengl */
 	if (v3d->drawtype != OB_RENDER || !view3d_main_region_do_render_draw(scene) || clip_border) {
 		view3d_main_region_draw_objects(C, scene, v3d, ar, &grid_unit);
-		update_widgets = false; /* widgets were updated in view3d_main_area_draw_objects */
 
 #ifdef DEBUG_DRAW
 		bl_debug_draw();
@@ -4259,10 +4256,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-	if (update_widgets) {
-		WM_manipulatormap_update(C, ar->manipulator_map);
-	}
-	WM_manipulatormap_draw(C, ar->manipulator_map, false, true);
+	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_2D);
 
 	ED_region_pixelspace(ar);
 	
