@@ -100,19 +100,13 @@ struct wmManipulatorMapType *WM_manipulatormaptype_find(
         const struct wmManipulatorMapType_Params *mmap_params);
 struct wmManipulatorMapType *WM_manipulatormaptype_ensure(
         const struct wmManipulatorMapType_Params *mmap_params);
+
 struct wmManipulatorMap *WM_manipulatormap_new_from_type(
         const struct wmManipulatorMapType_Params *mmap_params);
-
 void WM_manipulatormap_tag_refresh(struct wmManipulatorMap *mmap);
-void WM_manipulatormap_update(const struct bContext *C, struct wmManipulatorMap *mmap);
-void WM_manipulatormap_draw(
-        const struct bContext *C, const struct wmManipulatorMap *mmap,
-        const bool in_scene, const bool free_drawmanipulators);
-
-void WM_manipulatormaps_add_handlers(struct ARegion *ar, struct wmManipulatorMap *mmap);
-
+void WM_manipulatormap_draw(struct wmManipulatorMap *mmap, const struct bContext *C, const int drawstep);
+void WM_manipulatormap_add_handlers(struct ARegion *ar, struct wmManipulatorMap *mmap);
 bool WM_manipulatormap_select_all(struct bContext *C, struct wmManipulatorMap *mmap, const int action);
-
 bool WM_manipulatormap_cursor_set(const struct wmManipulatorMap *mmap, struct wmWindow *win);
 
 #endif  /* __WM_MANIPULATOR_API_H__ */

@@ -425,7 +425,7 @@ void wm_manipulator_calculate_scale(wmManipulator *manipulator, const bContext *
 	manipulator->scale = scale * manipulator->user_scale;
 }
 
-void wm_manipulator_update_prop_data(wmManipulator *manipulator)
+static void manipulator_update_prop_data(wmManipulator *manipulator)
 {
 	/* manipulator property might have been changed, so update manipulator */
 	if (manipulator->props && manipulator->prop_data_update) {
@@ -435,5 +435,32 @@ void wm_manipulator_update_prop_data(wmManipulator *manipulator)
 			}
 		}
 	}
+}
+
+void wm_manipulator_update(wmManipulator *manipulator, const bContext *C, const bool refresh_map)
+{
+	if (refresh_map) {
+		manipulator_update_prop_data(manipulator);
+	}
+	wm_manipulator_calculate_scale(manipulator, C);
+}
+
+bool wm_manipulator_is_visible(wmManipulator *manipulator)
+{
+	if (manipulator->flag & WM_MANIPULATOR_HIDDEN) {
+		return false;
+	}
+	if ((manipulator->flag & WM_MANIPULATOR_ACTIVE) &&
+	    !(manipulator->flag & (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_DRAW_VALUE)))
+	{
+		/* don't draw while active (while dragging) */
+		return false;
+	}
+	if ((manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) && !(manipulator->flag & WM_MANIPULATOR_HIGHLIGHT)) {
+		/* only draw on mouse hover */
+		return false;
+	}
+
+	return true;
 }
 
