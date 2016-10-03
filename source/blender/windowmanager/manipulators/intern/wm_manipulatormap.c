@@ -166,18 +166,10 @@ static void manipulatormap_tag_updated(wmManipulatorMap *mmap)
 }
 
 static bool manipulator_prepare_drawing(
-        wmManipulatorMap *mmap, wmManipulator *manipulator, const bContext *C,
-        ListBase *draw_manipulators, const int drawstep)
+        wmManipulatorMap *mmap, wmManipulator *manipulator,
+        const bContext *C, ListBase *draw_manipulators)
 {
-	const bool is_in_scene = (drawstep == WM_MANIPULATORMAP_DRAWSTEP_IN_SCENE);
-
 	if (!wm_manipulator_is_visible(manipulator)) {
-		/* skip */
-	}
-	/* account for drawstep on manipulator level */
-	else if ((is_in_scene && (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH) == 0) ||
-	         (!is_in_scene && (manipulator->flag & WM_MANIPULATOR_SCENE_DEPTH)))
-	{
 		/* skip */
 	}
 	else {
@@ -202,7 +194,7 @@ static void manipulatormap_prepare_drawing(
 
 	/* only active manipulator needs updating */
 	if (active_manipulator) {
-		if (manipulator_prepare_drawing(mmap, active_manipulator, C, draw_manipulators, drawstep)) {
+		if (manipulator_prepare_drawing(mmap, active_manipulator, C, draw_manipulators)) {
 			manipulatormap_tag_updated(mmap);
 		}
 		/* don't draw any other manipulators */
@@ -210,9 +202,8 @@ static void manipulatormap_prepare_drawing(
 	}
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
-		/* account for drawstep on manipulator-group level (do first to avoid calling mgroup->poll if not needed) */
-		if ((drawstep == WM_MANIPULATORMAP_DRAWSTEP_2D && mgroup->type->is_3d) ||
-		    (drawstep == WM_MANIPULATORMAP_DRAWSTEP_3D && !mgroup->type->is_3d) ||
+		/* check group visibility - drawstep first to avoid unnecessary call of group poll callback */
+		if (!wm_manipulatorgroup_is_visible_in_drawstep(mgroup, drawstep) ||
 		    !wm_manipulatorgroup_is_visible(mgroup, C))
 		{
 			continue;
@@ -231,7 +222,7 @@ static void manipulatormap_prepare_drawing(
 		}
 
 		for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
-			manipulator_prepare_drawing(mmap, manipulator, C, draw_manipulators, drawstep);
+			manipulator_prepare_drawing(mmap, manipulator, C, draw_manipulators);
 		}
 	}
 
@@ -406,7 +397,7 @@ wmManipulator *wm_manipulatormap_find_highlighted_manipulator(
 
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
 		if (wm_manipulatorgroup_is_visible(mgroup, C)) {
-			if (mgroup->type->is_3d) {
+			if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) {
 				wm_manipulatorgroup_intersectable_manipulators_to_list(mgroup, &visible_3d_manipulators);
 			}
 			else if ((manipulator = wm_manipulatorgroup_find_intersected_mainpulator(mgroup, C, event, part))) {
@@ -495,7 +486,7 @@ bool wm_manipulatormap_deselect_all(wmManipulatorMap *mmap, wmManipulator ***sel
 
 BLI_INLINE bool manipulator_selectable_poll(const wmManipulator *manipulator, void *UNUSED(data))
 {
-	return (manipulator->flag & WM_MANIPULATOR_SELECTABLE);
+	return (manipulator->mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SELECTABLE);
 }
 
 /**

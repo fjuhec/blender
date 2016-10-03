@@ -112,6 +112,16 @@ void wm_manipulatorgroup_free(bContext *C, wmManipulatorMap *mmap, wmManipulator
 	MEM_freeN(mgroup);
 }
 
+/**
+ * Add \a manipulator to \a mgroup and make sure its name is unique within the group.
+ */
+void wm_manipulatorgroup_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipulator)
+{
+	BLI_assert(!BLI_findstring(&mgroup->manipulators, manipulator->idname, offsetof(wmManipulator, idname)));
+	BLI_addtail(&mgroup->manipulators, manipulator);
+	manipulator->mgroup = mgroup;
+}
+
 void wm_manipulatorgroup_attach_to_modal_handler(
         bContext *C, wmEventHandler *handler,
         wmManipulatorGroupType *mgrouptype, wmOperator *op)
@@ -155,8 +165,8 @@ void wm_manipulatorgroup_intersectable_manipulators_to_list(const wmManipulatorG
 {
 	for (wmManipulator *manipulator = mgroup->manipulators.first; manipulator; manipulator = manipulator->next) {
 		if ((manipulator->flag & WM_MANIPULATOR_HIDDEN) == 0) {
-			if ((mgroup->type->is_3d && manipulator->render_3d_intersection) ||
-			    (!mgroup->type->is_3d && manipulator->intersect))
+			if (((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) && manipulator->render_3d_intersection) ||
+			    ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) == 0 && manipulator->intersect))
 			{
 				BLI_addhead(listbase, BLI_genericNodeN(manipulator));
 			}
@@ -178,6 +188,21 @@ bool wm_manipulatorgroup_is_visible(const wmManipulatorGroup *mgroup, const bCon
 	/* Check for poll function, if manipulator-group belongs to an operator, also check if the operator is running. */
 	return ((mgroup->type->flag & WM_MANIPULATORGROUPTYPE_OP) == 0 || mgroup->type->op) &&
 	       (!mgroup->type->poll || mgroup->type->poll(C, mgroup->type));
+}
+
+bool wm_manipulatorgroup_is_visible_in_drawstep(const wmManipulatorGroup *mgroup, const int drawstep)
+{
+	switch (drawstep) {
+		case WM_MANIPULATORMAP_DRAWSTEP_2D:
+			return (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D) == 0;
+		case WM_MANIPULATORMAP_DRAWSTEP_3D:
+			return (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_IS_3D);
+		case WM_MANIPULATORMAP_DRAWSTEP_IN_SCENE:
+			return (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_SCENE_DEPTH);
+		default:
+			BLI_assert(0);
+			return false;
+	}
 }
 
 /** \name Manipulator operators
