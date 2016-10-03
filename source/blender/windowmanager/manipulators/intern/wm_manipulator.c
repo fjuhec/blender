@@ -185,13 +185,13 @@ bool wm_manipulator_register(wmManipulatorGroup *mgroup, wmManipulator *manipula
  */
 void WM_manipulator_delete(ListBase *manipulatorlist, wmManipulatorMap *mmap, wmManipulator *manipulator, bContext *C)
 {
-	if (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT) {
+	if (manipulator->state & WM_MANIPULATOR_HIGHLIGHT) {
 		wm_manipulatormap_set_highlighted_manipulator(mmap, C, NULL, 0);
 	}
-	if (manipulator->flag & WM_MANIPULATOR_ACTIVE) {
+	if (manipulator->state & WM_MANIPULATOR_ACTIVE) {
 		wm_manipulatormap_set_active_manipulator(mmap, C, NULL, NULL);
 	}
-	if (manipulator->flag & WM_MANIPULATOR_SELECTED) {
+	if (manipulator->state & WM_MANIPULATOR_SELECTED) {
 		wm_manipulator_deselect(mmap, manipulator);
 	}
 
@@ -338,7 +338,7 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 	bool changed = false;
 
 	/* caller should check! */
-	BLI_assert(manipulator->flag & WM_MANIPULATOR_SELECTED);
+	BLI_assert(manipulator->state & WM_MANIPULATOR_SELECTED);
 
 	/* remove manipulator from selected_manipulators array */
 	for (int i = 0; i < (*tot_selected); i++) {
@@ -360,7 +360,7 @@ bool wm_manipulator_deselect(wmManipulatorMap *mmap, wmManipulator *manipulator)
 		(*tot_selected)--;
 	}
 
-	manipulator->flag &= ~WM_MANIPULATOR_SELECTED;
+	manipulator->state &= ~WM_MANIPULATOR_SELECTED;
 	return changed;
 }
 
@@ -375,7 +375,7 @@ bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *m
 	wmManipulator ***sel = &mmap->mmap_context.selected_manipulator;
 	int *tot_selected = &mmap->mmap_context.tot_selected;
 
-	if (!manipulator || (manipulator->flag & WM_MANIPULATOR_SELECTED))
+	if (!manipulator || (manipulator->state & WM_MANIPULATOR_SELECTED))
 		return false;
 
 	(*tot_selected)++;
@@ -383,7 +383,7 @@ bool wm_manipulator_select(bContext *C, wmManipulatorMap *mmap, wmManipulator *m
 	*sel = MEM_reallocN(*sel, sizeof(wmManipulator *) * (*tot_selected));
 	(*sel)[(*tot_selected) - 1] = manipulator;
 
-	manipulator->flag |= WM_MANIPULATOR_SELECTED;
+	manipulator->state |= WM_MANIPULATOR_SELECTED;
 	if (manipulator->select) {
 		manipulator->select(C, manipulator, SEL_SELECT);
 	}
@@ -442,13 +442,13 @@ bool wm_manipulator_is_visible(wmManipulator *manipulator)
 	if (manipulator->flag & WM_MANIPULATOR_HIDDEN) {
 		return false;
 	}
-	if ((manipulator->flag & WM_MANIPULATOR_ACTIVE) &&
+	if ((manipulator->state & WM_MANIPULATOR_ACTIVE) &&
 	    !(manipulator->flag & (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_DRAW_VALUE)))
 	{
 		/* don't draw while active (while dragging) */
 		return false;
 	}
-	if ((manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) && !(manipulator->flag & WM_MANIPULATOR_HIGHLIGHT)) {
+	if ((manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) && !(manipulator->state & WM_MANIPULATOR_HIGHLIGHT)) {
 		/* only draw on mouse hover */
 		return false;
 	}

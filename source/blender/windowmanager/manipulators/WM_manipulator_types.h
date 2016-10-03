@@ -59,19 +59,15 @@ typedef struct wmManipulatorWrapper {
 } wmManipulatorWrapper;
 
 /* wmManipulator->flag */
+/* TODO some of these could become group-type flags */
 enum eManipulatorFlag {
-	/* states (TODO separate bitfield) */
-	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0),
-	WM_MANIPULATOR_ACTIVE      = (1 << 1),
-	WM_MANIPULATOR_SELECTED    = (1 << 2),
-	/* settings */
-	WM_MANIPULATOR_DRAW_HOVER  = (1 << 3),
-	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 4), /* draw while dragging */
-	WM_MANIPULATOR_DRAW_VALUE  = (1 << 5), /* draw a indicator for the current value while dragging */
-	WM_MANIPULATOR_SCALE_3D    = (1 << 6),
-	WM_MANIPULATOR_SCENE_DEPTH = (1 << 7), /* manipulator is depth culled with scene objects (TODO could be group flag) */
-	WM_MANIPULATOR_HIDDEN      = (1 << 8),
-	WM_MANIPULATOR_SELECTABLE  = (1 << 9),
+	WM_MANIPULATOR_DRAW_HOVER  = (1 << 0), /* draw *only* while hovering */
+	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 1), /* draw while dragging */
+	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw a indicator for the current value while dragging */
+	WM_MANIPULATOR_SCALE_3D    = (1 << 3),
+	WM_MANIPULATOR_SCENE_DEPTH = (1 << 4), /* manipulator can be depth culled with scene objects */
+	WM_MANIPULATOR_HIDDEN      = (1 << 5),
+	WM_MANIPULATOR_SELECTABLE  = (1 << 6),
 };
 
 

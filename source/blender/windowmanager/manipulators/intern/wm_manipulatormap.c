@@ -212,11 +212,9 @@ static void manipulatormap_prepare_drawing(
 	for (wmManipulatorGroup *mgroup = mmap->manipulator_groups.first; mgroup; mgroup = mgroup->next) {
 		/* account for drawstep on manipulator-group level (do first to avoid calling mgroup->poll if not needed) */
 		if ((drawstep == WM_MANIPULATORMAP_DRAWSTEP_2D && mgroup->type->is_3d) ||
-		    (drawstep == WM_MANIPULATORMAP_DRAWSTEP_3D && !mgroup->type->is_3d))
+		    (drawstep == WM_MANIPULATORMAP_DRAWSTEP_3D && !mgroup->type->is_3d) ||
+		    !wm_manipulatorgroup_is_visible(mgroup, C))
 		{
-			continue;
-		}
-		if (!wm_manipulatorgroup_is_visible(mgroup, C)) {
 			continue;
 		}
 
@@ -485,7 +483,7 @@ bool wm_manipulatormap_deselect_all(wmManipulatorMap *mmap, wmManipulator ***sel
 		return false;
 
 	for (int i = 0; i < mmap->mmap_context.tot_selected; i++) {
-		(*sel)[i]->flag &= ~WM_MANIPULATOR_SELECTED;
+		(*sel)[i]->state &= ~WM_MANIPULATOR_SELECTED;
 		(*sel)[i] = NULL;
 	}
 	wm_manipulatormap_selected_delete(mmap);
@@ -523,10 +521,10 @@ static bool wm_manipulatormap_select_all_intern(
 	GHASH_ITER_INDEX (gh_iter, hash, i) {
 		wmManipulator *manipulator_iter = BLI_ghashIterator_getValue(&gh_iter);
 
-		if ((manipulator_iter->flag & WM_MANIPULATOR_SELECTED) == 0) {
+		if ((manipulator_iter->state & WM_MANIPULATOR_SELECTED) == 0) {
 			changed = true;
 		}
-		manipulator_iter->flag |= WM_MANIPULATOR_SELECTED;
+		manipulator_iter->state |= WM_MANIPULATOR_SELECTED;
 		if (manipulator_iter->select) {
 			manipulator_iter->select(C, manipulator_iter, action);
 		}
@@ -628,14 +626,14 @@ void wm_manipulatormap_set_highlighted_manipulator(
 	    (manipulator && part != manipulator->highlighted_part))
 	{
 		if (mmap->mmap_context.highlighted_manipulator) {
-			mmap->mmap_context.highlighted_manipulator->flag &= ~WM_MANIPULATOR_HIGHLIGHT;
+			mmap->mmap_context.highlighted_manipulator->state &= ~WM_MANIPULATOR_HIGHLIGHT;
 			mmap->mmap_context.highlighted_manipulator->highlighted_part = 0;
 		}
 
 		mmap->mmap_context.highlighted_manipulator = manipulator;
 
 		if (manipulator) {
-			manipulator->flag |= WM_MANIPULATOR_HIGHLIGHT;
+			manipulator->state |= WM_MANIPULATOR_HIGHLIGHT;
 			manipulator->highlighted_part = part;
 
 			if (C && manipulator->get_cursor) {
@@ -667,7 +665,7 @@ void wm_manipulatormap_set_active_manipulator(
         wmManipulatorMap *mmap, bContext *C, const wmEvent *event, wmManipulator *manipulator)
 {
 	if (manipulator && C) {
-		manipulator->flag |= WM_MANIPULATOR_ACTIVE;
+		manipulator->state |= WM_MANIPULATOR_ACTIVE;
 		mmap->mmap_context.active_manipulator = manipulator;
 
 		if (manipulator->opname) {
@@ -683,7 +681,7 @@ void wm_manipulatormap_set_active_manipulator(
 
 				/* we failed to hook the manipulator to the operator handler or operator was cancelled, return */
 				if (!mmap->mmap_context.active_manipulator) {
-					manipulator->flag &= ~WM_MANIPULATOR_ACTIVE;
+					manipulator->state &= ~WM_MANIPULATOR_ACTIVE;
 					/* first activate the manipulator itself */
 					if (manipulator->interaction_data) {
 						MEM_freeN(manipulator->interaction_data);
@@ -711,7 +709,7 @@ void wm_manipulatormap_set_active_manipulator(
 
 		/* deactivate, manipulator but first take care of some stuff */
 		if (manipulator) {
-			manipulator->flag &= ~WM_MANIPULATOR_ACTIVE;
+			manipulator->state &= ~WM_MANIPULATOR_ACTIVE;
 			/* first activate the manipulator itself */
 			if (manipulator->interaction_data) {
 				MEM_freeN(manipulator->interaction_data);

@@ -71,7 +71,8 @@ typedef struct wmManipulator {
 	/* called when manipulator selection state changes */
 	wmManipulatorSelectFunc select;
 
-	int flag; /* flags set by drawing and interaction, such as highlighting */
+	int flag; /* flags that influence the behavior or how the manipulators are drawn */
+	short state; /* state flags (active, highlighted, selected) */
 
 	unsigned char highlighted_part;
 
@@ -104,6 +105,13 @@ typedef struct wmManipulator {
 	PointerRNA *ptr;
 	PropertyRNA **props;
 } wmManipulator;
+
+/* wmManipulator.state */
+enum {
+	WM_MANIPULATOR_HIGHLIGHT   = (1 << 0), /* while hovered */
+	WM_MANIPULATOR_ACTIVE      = (1 << 1), /* while dragging */
+	WM_MANIPULATOR_SELECTED    = (1 << 2),
+};
 
 /**
  * \brief Manipulator tweak flag.
