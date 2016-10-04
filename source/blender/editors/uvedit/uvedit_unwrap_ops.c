@@ -900,9 +900,16 @@ static bool irregular_pack_islands_init(bContext *C, wmOperator *op)
 							   pi->margin, 
 							   pi->sa->rot_steps,
 							   pi->use_concave /* SA */);
+
+	param_accept_placement_all(pi->handle);
+
 	pi->wasted_area_last = wasted_area;
+	printf("wasted area currently: %f\n", wasted_area);
 
 	op->customdata = pi;
+
+	DAG_id_tag_update(pi->obedit->data, 0);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, pi->obedit->data);
 
 	return true;
 }
@@ -912,7 +919,7 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 	PackIslands *pi = op->customdata;
 	ScrArea *sa = CTX_wm_area(C);
 	float wasted_area = 0.0f, dE, r1, r2;
-	float a = 0.95f; /*ToDo SaphireS: Make operator parameter for testing */
+	float a = 0.95f; 
 	/* ToDo Saphires: Find optimal parameter */
 	float k = 0.5f; /* Stefan-Boltzman constant-like parameter */
 	int local_iter_max = 50;
@@ -937,25 +944,29 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 	/* delta Energy */
 	dE = wasted_area - pi->wasted_area_last;
 
+	printf("wasted area currently: %f, wasted area last: %f\n", wasted_area, pi->wasted_area_last);
+
 	if (dE < 0) {
 		/* Current solution is new best solution, keep placement */
-		/*param_accept_placement(ParamHandle *handle, PChart *chart);*/
+		param_accept_placement_all(pi->handle);
 		pi->wasted_area_last = wasted_area;
+		printf("dE < 0\n");
 	}
 	else {
 		r1 = BLI_rng_get_float(pi->sa->rng);
 
 		r2 = (float)exp(-dE/(k * pi->sa->temperature));
 
-		if (r1 < r2) {
+		if (0 /*r1 < r2*/) {
 			/* Current solution is new best solution, keep placement */
-			//param_accept_placement(ParamHandle *handle, PChart *chart); 
+			param_accept_placement_all(pi->handle);
 			pi->wasted_area_last = wasted_area;
+			printf("r1 < r2\n");
 		}
 		else {
 			/* no better solution found, "frozen state solution" */
-			/* ToDo SaphireS: param_restore_placement(ParamHandle *handle, PChart *chart) */
-			
+			printf("frozen state, revert\n");
+			param_restore_placement(pi->handle, pi->margin);
 			pi->iter_local++;
 		}
 	}
@@ -977,6 +988,8 @@ static void irregular_pack_islands_iteration(bContext *C, wmOperator *op, bool i
 
 		DAG_id_tag_update(pi->obedit->data, 0);
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, pi->obedit->data);
+
+		printf("done iteration\n");
 	}
 }
 
