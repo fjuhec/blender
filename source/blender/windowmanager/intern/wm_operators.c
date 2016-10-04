@@ -1895,6 +1895,16 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 		mt->draw(C, &menu);
 	}
 
+	UI_block_emboss_set(block, UI_EMBOSS);
+	mt = WM_menutype_find("USERPREF_MT_splash_prefs", false);
+	if (mt) {
+		Menu menu = {NULL};
+		menu.layout = uiLayoutColumn(layout, false);
+		menu.type = mt;
+		mt->draw(C, &menu);
+	}
+	UI_block_emboss_set(block, UI_EMBOSS_PULLDOWN);
+
 	UI_block_bounds_set_centered(block, 0);
 	
 	return block;
