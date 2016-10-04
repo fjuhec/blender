@@ -186,6 +186,33 @@ class USERPREF_MT_splash(Menu):
             text = "Blender (default)"
         row.menu("USERPREF_MT_appconfigs", text=text)
 
+        split = layout.split()
+        row = split.row()
+        row.label("")
+        row = split.row()
+        split2 = row.split(percentage=0.5)
+        row2 = split2.row()
+        row2.label("Mouse Selection:")
+        row2 = split2.row()
+        row2.prop(context.user_preferences.inputs, "select_mouse", expand=True)
+
+
+class USERPREF_MT_splash_prefs(Menu):
+    bl_label = ""
+
+    def draw(self, context):
+        layout = self.layout
+
+        split = layout.split()
+        row = split.row()
+        row.prop(context.user_preferences.view, "show_splash")
+        row = split.row()
+        splat = row.split()
+        splat.row().label("")
+        row2 = splat.row()
+        row2.operator_context = 'EXEC_AREA'
+        row2.operator("wm.save_userpref", text="Save Changes")
+
 
 # only for addons
 class USERPREF_MT_splash_footer(Menu):
