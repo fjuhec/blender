@@ -258,7 +258,7 @@ static void manipulator_arrow_render_3d_intersect(
 
 static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *manipulator)
 {
-	arrow_draw_intern((ArrowManipulator *)manipulator, false, (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT) != 0);
+	arrow_draw_intern((ArrowManipulator *)manipulator, false, (manipulator->state & WM_MANIPULATOR_HIGHLIGHT) != 0);
 }
 
 /**
@@ -475,7 +475,7 @@ wmManipulator *MANIPULATOR_arrow_new(wmManipulatorGroup *mgroup, const char *nam
 	arrow->manipulator.render_3d_intersection = manipulator_arrow_render_3d_intersect;
 	arrow->manipulator.prop_data_update = manipulator_arrow_prop_data_update;
 	arrow->manipulator.exit = manipulator_arrow_exit;
-	arrow->manipulator.flag |= (WM_MANIPULATOR_SCALE_3D | WM_MANIPULATOR_DRAW_ACTIVE);
+	arrow->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
 
 	arrow->style = real_style;
 	arrow->len = 1.0f;

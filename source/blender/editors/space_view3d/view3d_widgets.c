@@ -114,7 +114,7 @@ void VIEW3D_WGT_lamp(wmManipulatorGroupType *wgt)
 	wgt->init = WIDGETGROUP_lamp_init;
 	wgt->refresh = WIDGETGROUP_lamp_refresh;
 
-	wgt->is_3d = true;
+	wgt->flag |= (WM_MANIPULATORGROUPTYPE_IS_3D | WM_MANIPULATORGROUPTYPE_SCALE_3D);
 }
 
 static bool WIDGETGROUP_camera_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
@@ -165,7 +165,6 @@ static void WIDGETGROUP_camera_init(const bContext *C, wmManipulatorGroup *wgrou
 
 		camgroup->dop_dist = MANIPULATOR_arrow_new(wgroup, "dof_distance", MANIPULATOR_ARROW_STYLE_CROSS);
 		WM_manipulator_set_flag(camgroup->dop_dist, WM_MANIPULATOR_DRAW_HOVER, true);
-		WM_manipulator_set_flag(camgroup->dop_dist, WM_MANIPULATOR_SCALE_3D, false);
 		WM_manipulator_set_colors(camgroup->dop_dist, color, color_hi);
 	}
 
@@ -178,14 +177,12 @@ static void WIDGETGROUP_camera_init(const bContext *C, wmManipulatorGroup *wgrou
 		camgroup->focallen = MANIPULATOR_arrow_new(
 		                         wgroup, "focal_len",
 		                         (MANIPULATOR_ARROW_STYLE_CONE | MANIPULATOR_ARROW_STYLE_CONSTRAINED));
-		WM_manipulator_set_flag(camgroup->focallen, WM_MANIPULATOR_SCALE_3D, false);
 		WM_manipulator_set_colors(camgroup->focallen, color, color_hi);
 		cameragroup_property_setup(camgroup->focallen, ob, ca, false);
 
 		camgroup->ortho_scale = MANIPULATOR_arrow_new(
 		                            wgroup, "ortho_scale",
 		                            (MANIPULATOR_ARROW_STYLE_CONE | MANIPULATOR_ARROW_STYLE_CONSTRAINED));
-		WM_manipulator_set_flag(camgroup->ortho_scale, WM_MANIPULATOR_SCALE_3D, false);
 		WM_manipulator_set_colors(camgroup->ortho_scale, color, color_hi);
 		cameragroup_property_setup(camgroup->ortho_scale, ob, ca, true);
 	}
@@ -269,7 +266,7 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 	wgt->init = WIDGETGROUP_camera_init;
 	wgt->refresh = WIDGETGROUP_camera_refresh;
 
-	wgt->is_3d = true;
+	wgt->flag |= WM_MANIPULATORGROUPTYPE_IS_3D;
 }
 
 static bool WIDGETGROUP_forcefield_poll(const bContext *C, wmManipulatorGroupType *UNUSED(wgrouptype))
@@ -293,7 +290,6 @@ static void WIDGETGROUP_forcefield_init(const bContext *UNUSED(C), wmManipulator
 	MANIPULATOR_arrow_set_ui_range(wwrapper->manipulator, -200.0f, 200.0f);
 	MANIPULATOR_arrow_set_range_fac(wwrapper->manipulator, 6.0f);
 	WM_manipulator_set_colors(wwrapper->manipulator, col, col_hi);
-	WM_manipulator_set_flag(wwrapper->manipulator, WM_MANIPULATOR_SCALE_3D, false);
 }
 
 static void WIDGETGROUP_forcefield_refresh(const bContext *C, wmManipulatorGroup *wgroup)
@@ -328,7 +324,7 @@ void VIEW3D_WGT_force_field(wmManipulatorGroupType *wgt)
 	wgt->init = WIDGETGROUP_forcefield_init;
 	wgt->refresh = WIDGETGROUP_forcefield_refresh;
 
-	wgt->is_3d = true;
+	wgt->flag |= WM_MANIPULATORGROUPTYPE_IS_3D;
 }
 
 /* draw facemaps depending on the selected bone in pose mode */
@@ -573,5 +569,7 @@ void VIEW3D_WGT_armature_facemaps(wmManipulatorGroupType *wgt)
 
 	wgt->keymap_init = WM_manipulatorgroup_keymap_common_sel;
 
-	wgt->is_3d = true;
+	wgt->flag |= (WM_MANIPULATORGROUPTYPE_IS_3D |
+	              WM_MANIPULATORGROUPTYPE_SCALE_3D |
+	              WM_MANIPULATORGROUPTYPE_SELECTABLE);
 }

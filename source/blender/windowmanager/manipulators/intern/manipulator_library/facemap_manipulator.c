@@ -70,7 +70,7 @@ typedef struct FacemapManipulator {
 static void widget_facemap_draw(const bContext *C, wmManipulator *widget)
 {
 	FacemapManipulator *fmap_widget = (FacemapManipulator *)widget;
-	const float *col = (widget->flag & WM_MANIPULATOR_SELECTED) ? widget->col_hi : widget->col;
+	const float *col = (widget->state & WM_MANIPULATOR_SELECTED) ? widget->col_hi : widget->col;
 
 	glPushMatrix();
 	glMultMatrixf(fmap_widget->ob->obmat);

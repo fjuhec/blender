@@ -99,7 +99,7 @@ static void manipulator_arrow2d_draw(const bContext *UNUSED(C), wmManipulator *m
 	ArrowManipulator2D *arrow = (ArrowManipulator2D *)manipulator;
 	float col[4];
 
-	manipulator_color_get(manipulator, manipulator->flag & WM_MANIPULATOR_HIGHLIGHT, col);
+	manipulator_color_get(manipulator, manipulator->state & WM_MANIPULATOR_HIGHLIGHT, col);
 
 	glColor4fv(col);
 	glLineWidth(manipulator->line_width);

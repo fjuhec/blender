@@ -208,7 +208,7 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 	glTranslate3fv(dial->manipulator.offset);
 
 	/* draw rotation indicator arc first */
-	if ((dial->manipulator.flag & WM_MANIPULATOR_DRAW_VALUE) && (dial->manipulator.flag & WM_MANIPULATOR_ACTIVE)) {
+	if ((dial->manipulator.flag & WM_MANIPULATOR_DRAW_VALUE) && (dial->manipulator.state & WM_MANIPULATOR_ACTIVE)) {
 		wmWindow *win = CTX_wm_window(C);
 		const float co_outer[4] = {0.0f, DIAL_WIDTH, 0.0f}; /* coordinate at which the arc drawing will be started */
 		float angle_ofs, angle_delta;
@@ -257,7 +257,7 @@ static void manipulator_dial_render_3d_intersect(const bContext *C, wmManipulato
 static void manipulator_dial_draw(const bContext *C, wmManipulator *manipulator)
 {
 	DialManipulator *dial = (DialManipulator *)manipulator;
-	const bool active = manipulator->flag & WM_MANIPULATOR_ACTIVE;
+	const bool active = manipulator->state & WM_MANIPULATOR_ACTIVE;
 
 	/* enable clipping if needed */
 	if (!active && dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
@@ -272,7 +272,7 @@ static void manipulator_dial_draw(const bContext *C, wmManipulator *manipulator)
 	}
 
 	glEnable(GL_BLEND);
-	dial_draw_intern(C, dial, false, (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT) != 0);
+	dial_draw_intern(C, dial, false, (manipulator->state & WM_MANIPULATOR_HIGHLIGHT) != 0);
 	glDisable(GL_BLEND);
 
 	if (!active && dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) {
@@ -318,7 +318,6 @@ wmManipulator *MANIPULATOR_dial_new(wmManipulatorGroup *mgroup, const char *name
 	dial->manipulator.intersect = NULL;
 	dial->manipulator.render_3d_intersection = manipulator_dial_render_3d_intersect;
 	dial->manipulator.invoke = manipulator_dial_invoke;
-	dial->manipulator.flag |= WM_MANIPULATOR_SCALE_3D;
 
 	dial->style = style;
 

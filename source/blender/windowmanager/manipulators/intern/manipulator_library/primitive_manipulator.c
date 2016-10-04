@@ -171,7 +171,7 @@ static void manipulator_primitive_draw(const bContext *UNUSED(C), wmManipulator 
 {
 	manipulator_primitive_draw_intern(
 	            (PrimitiveManipulator *)manipulator, false,
-	            (manipulator->flag & WM_MANIPULATOR_HIGHLIGHT));
+	            (manipulator->state & WM_MANIPULATOR_HIGHLIGHT));
 }
 
 static int manipulator_primitive_invoke(
@@ -202,7 +202,7 @@ wmManipulator *MANIPULATOR_primitive_new(wmManipulatorGroup *mgroup, const char 
 	prim->manipulator.invoke = manipulator_primitive_invoke;
 	prim->manipulator.intersect = NULL;
 	prim->manipulator.render_3d_intersection = manipulator_primitive_render_3d_intersect;
-	prim->manipulator.flag |= (WM_MANIPULATOR_DRAW_ACTIVE | WM_MANIPULATOR_SCALE_3D);
+	prim->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
 	prim->style = style;
 
 	/* defaults */
