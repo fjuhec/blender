@@ -2299,6 +2299,11 @@ int WM_border_select_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		}
 
 	}
+#ifdef WITH_INPUT_NDOF
+	else if (event->type == NDOF_MOTION) {
+		return OPERATOR_PASS_THROUGH;
+	}
+#endif
 //	/* Allow view navigation??? */
 //	else {
 //		return OPERATOR_PASS_THROUGH;
@@ -2413,6 +2418,11 @@ int WM_gesture_circle_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				return OPERATOR_FINISHED; /* use finish or we don't get an undo */
 		}
 	}
+#ifdef WITH_INPUT_NDOF
+	else if (event->type == NDOF_MOTION) {
+		return OPERATOR_PASS_THROUGH;
+	}
+#endif
 	/* Allow view navigation??? */
 	/* note, this gives issues: 1) other modal ops run on top (border select), 2) middlemouse is used now 3) tablet/trackpad? */
 //	else {
@@ -3953,9 +3963,9 @@ static int previews_ensure_exec(bContext *C, wmOperator *UNUSED(op))
 
 static void WM_OT_previews_ensure(wmOperatorType *ot)
 {
-	ot->name = "Refresh DataBlock Previews";
+	ot->name = "Refresh Data-Block Previews";
 	ot->idname = "WM_OT_previews_ensure";
-	ot->description = "Ensure datablock previews are available and up-to-date "
+	ot->description = "Ensure data-block previews are available and up-to-date "
 	                  "(to be saved in .blend file, only for some types like materials, textures, etc.)";
 
 	ot->exec = previews_ensure_exec;
@@ -4012,9 +4022,9 @@ static int previews_clear_exec(bContext *C, wmOperator *op)
 
 static void WM_OT_previews_clear(wmOperatorType *ot)
 {
-	ot->name = "Clear DataBlock Previews";
+	ot->name = "Clear Data-Block Previews";
 	ot->idname = "WM_OT_previews_clear";
-	ot->description = "Clear datablock previews (only for some types like objects, materials, textures, etc.)";
+	ot->description = "Clear data-block previews (only for some types like objects, materials, textures, etc.)";
 
 	ot->exec = previews_clear_exec;
 	ot->invoke = WM_menu_invoke;
@@ -4022,7 +4032,7 @@ static void WM_OT_previews_clear(wmOperatorType *ot)
 	ot->prop = RNA_def_enum_flag(ot->srna, "id_type", preview_id_type_items,
 	                             FILTER_ID_SCE | FILTER_ID_OB | FILTER_ID_GR |
 	                             FILTER_ID_MA | FILTER_ID_LA | FILTER_ID_WO | FILTER_ID_TE | FILTER_ID_IM,
-	                             "DataBlock Type", "Which datablock previews to clear");
+	                             "Data-Block Type", "Which data-block previews to clear");
 }
 
 /* *************************** Doc from UI ************* */

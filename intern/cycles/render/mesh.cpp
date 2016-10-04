@@ -471,16 +471,12 @@ void Mesh::add_face_normals()
 
 	/* compute face normals */
 	size_t triangles_size = num_triangles();
-	bool flip = transform_negative_scaled;
 
 	if(triangles_size) {
 		float3 *verts_ptr = verts.data();
 
 		for(size_t i = 0; i < triangles_size; i++) {
 			fN[i] = compute_face_normal(get_triangle(i), verts_ptr);
-
-			if(flip)
-				fN[i] = -fN[i];
 		}
 	}
 
@@ -601,6 +597,12 @@ void Mesh::add_undisplaced()
 
 	/* copy verts */
 	size_t size = attr->buffer_size(this, (subdivision_type == SUBDIVISION_NONE) ? ATTR_PRIM_TRIANGLE : ATTR_PRIM_SUBD);
+
+	/* Center points for ngons aren't stored in Mesh::verts but are included in size since they will be
+	 * calculated later, we subtract them from size here so we don't have an overflow while copying.
+	 */
+	size -= num_ngons * attr->data_sizeof();
+
 	if(size) {
 		memcpy(data, verts.data(), size);
 	}
@@ -1650,10 +1652,10 @@ void MeshManager::device_update_displacement_images(Device *device,
 	foreach(Mesh *mesh, scene->meshes) {
 		if(mesh->need_update) {
 			foreach(Shader *shader, mesh->used_shaders) {
-				if(shader->graph_bump == NULL) {
+				if(!shader->has_displacement || shader->displacement_method == DISPLACE_BUMP) {
 					continue;
 				}
-				foreach(ShaderNode* node, shader->graph_bump->nodes) {
+				foreach(ShaderNode* node, shader->graph->nodes) {
 					if(node->special_type != SHADER_SPECIAL_TYPE_IMAGE_SLOT) {
 						continue;
 					}
