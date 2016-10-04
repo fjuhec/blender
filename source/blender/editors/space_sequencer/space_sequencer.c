@@ -487,8 +487,10 @@ static void sequencer_main_region_init(wmWindowManager *wm, ARegion *ar)
 	WM_event_add_dropbox_handler(&ar->handlers, lb);
 	
 	/* no modal keymap here, only operators use this currently */
-	ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW});
+	if (!ar->manipulator_map) {
+		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_WINDOW});
+	}
 }
 
 static void sequencer_main_region_draw(const bContext *C, ARegion *ar)
@@ -566,8 +568,10 @@ static void sequencer_preview_region_init(wmWindowManager *wm, ARegion *ar)
 	keymap = WM_keymap_find(wm->defaultconf, "SequencerPreview", SPACE_SEQ, 0);
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
 
-	ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-	        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW});
+	if (!ar->manipulator_map) {
+		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+		        "Seq_Canvas", SPACE_SEQ, RGN_TYPE_PREVIEW});
+	}
 }
 
 static void sequencer_preview_region_draw(const bContext *C, ARegion *ar)

@@ -226,8 +226,10 @@ static void graph_main_region_init(wmWindowManager *wm, ARegion *ar)
 	WM_event_add_keymap_handler(&ar->handlers, keymap);
 	
 	/* manipulators */
-	ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
-	        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW});
+	if (!ar->manipulator_map) {
+		ar->manipulator_map = WM_manipulatormap_new_from_type(&(const struct wmManipulatorMapType_Params) {
+		        "Graph_Canvas", SPACE_IPO, RGN_TYPE_WINDOW});
+	}
 }
 
 static void graph_main_region_draw(const bContext *C, ARegion *ar)
