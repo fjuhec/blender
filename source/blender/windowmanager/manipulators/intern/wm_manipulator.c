@@ -446,7 +446,8 @@ bool wm_manipulator_is_visible(wmManipulator *manipulator)
 		return false;
 	}
 	if ((manipulator->flag & WM_MANIPULATOR_DRAW_HOVER) &&
-	    !(manipulator->state & WM_MANIPULATOR_HIGHLIGHT))
+	    !(manipulator->state & WM_MANIPULATOR_HIGHLIGHT) &&
+	    !(manipulator->state & WM_MANIPULATOR_SELECTED)) /* still draw selected manipulators */
 	{
 		/* only draw on mouse hover */
 		return false;
