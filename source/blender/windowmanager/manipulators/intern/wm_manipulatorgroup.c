@@ -41,8 +41,6 @@
 
 #include "BPY_extern.h"
 
-#include "DNA_manipulator_types.h"
-
 #include "ED_screen.h"
 
 #include "MEM_guardedalloc.h"

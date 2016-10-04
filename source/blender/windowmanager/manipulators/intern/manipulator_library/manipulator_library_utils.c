@@ -35,8 +35,6 @@
 
 #include "BLI_math.h"
 
-#include "DNA_manipulator_types.h"
-
 #include "RNA_access.h"
 
 #include "WM_api.h"
