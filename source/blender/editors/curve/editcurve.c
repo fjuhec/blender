@@ -8259,6 +8259,59 @@ typedef struct CD {
 	BezTriple *selected_points;
 } CD;
 
+static void curve_chamfer_modal_loop(EditNurb *editnurb, Nurb *nu, CD *cd, float angle, float distance)
+{
+	BezTriple *bezt, *bezt1, *bezt2, *original, *helper;
+	int selected = 0;
+	for (int i = 0; i < nu->pntsu; i++) {
+		bezt = &nu->bezt[i];
+		if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
+			selected += 1;
+			original = &cd->selected_points[selected - 1];
+			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal1");
+			bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal2");
+			chamfer_handle(original, bezt1, bezt2, angle, distance);
+			BEZT_SEL_ALL(bezt1);
+
+			ED_curve_beztcpy(editnurb, bezt, bezt1, 1);
+			ED_curve_beztcpy(editnurb, &bezt[1], bezt2, 1);
+
+			MEM_freeN(bezt1);
+			MEM_freeN(bezt2);
+
+			/* set the handles for the first chamfered triple */
+			float v[3];
+			bezt1 = &nu->bezt[i];
+			helper = &nu->bezt[i - 1];
+			/* left handle */
+			sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
+			mul_v3_fl(v, 0.4 * len_v3(v));
+			copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
+			add_v3_v3(bezt1->vec[0], v);
+			/* right handle */
+			bezt2 = &nu->bezt[i + 1];
+			sub_v3_v3v3(v, bezt2->vec[1], bezt1->vec[1]);
+			mul_v3_fl(v, 0.4 * len_v3(v));
+			copy_v3_v3(bezt1->vec[2], bezt1->vec[1]);
+			add_v3_v3(bezt1->vec[2], v);
+
+			/* second chamfered triple */
+			helper = &nu->bezt[i + 2];
+			/* left handle */
+			sub_v3_v3v3(v, bezt1->vec[1], bezt2->vec[1]);
+			mul_v3_fl(v, 0.4 * len_v3(v));
+			copy_v3_v3(bezt2->vec[0], bezt2->vec[1]);
+			add_v3_v3(bezt2->vec[0], v);
+			/* right handle */
+			bezt2 = &nu->bezt[i + 1];
+			sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
+			mul_v3_fl(v, 0.4 * len_v3(v));
+			copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
+			add_v3_v3(bezt2->vec[2], v);
+		}
+	}
+}
+
 static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	/* modal function for curve chamfer */
@@ -8270,7 +8323,7 @@ static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event
 	EditNurb *editnurb = cu->editnurb;
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
-	BezTriple *bezt, *bezt1, *bezt2, *helper, *original;
+	BezTriple *bezt, *bezt1, *bezt2, *helper;
 	CD *cd = op->customdata;
 	OffsetData *opdata = cd->data;
 	float *init_mouse = cd->data->mcenter;
@@ -8280,7 +8333,6 @@ static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event
 	float angle = RNA_float_get(op->ptr, "angle");
 	int spline_id = cd->data->spline_id;
 	nu = BLI_findlink(nubase, spline_id);
-	int selected = 0;
 
 	/* handle events */
 	const bool has_numinput = hasNumInput(&opdata->num_input[opdata->value_mode]);
@@ -8290,53 +8342,7 @@ static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event
 		/* TODO: numinput for angle (handleNumInput returns false when event->ctrl )*/
 		RNA_float_set(op->ptr, "distance", opdata->num_input->val[0]);
 		distance = RNA_float_get(op->ptr, "distance");
-		for (int i = 0; i < nu->pntsu; i++) {
-			bezt = &nu->bezt[i];
-			if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
-				selected += 1;
-				original = &cd->selected_points[selected - 1];
-				bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal1");
-				bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal2");
-				chamfer_handle(original, bezt1, bezt2, angle, distance);
-				BEZT_SEL_ALL(bezt1);
-
-				ED_curve_beztcpy(editnurb, bezt, bezt1, 1);
-				ED_curve_beztcpy(editnurb, &bezt[1], bezt2, 1);
-
-				MEM_freeN(bezt1);
-				MEM_freeN(bezt2);
-
-				/* set the handles for the first chamfered triple */
-				float v[3];
-				bezt1 = &nu->bezt[i];
-				helper = &nu->bezt[i - 1];
-				/* left handle */
-				sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
-				mul_v3_fl(v, 0.4 * len_v3(v));
-				copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
-				add_v3_v3(bezt1->vec[0], v);
-				/* right handle */
-				bezt2 = &nu->bezt[i + 1];
-				sub_v3_v3v3(v, bezt2->vec[1], bezt1->vec[1]);
-				mul_v3_fl(v, 0.4 * len_v3(v));
-				copy_v3_v3(bezt1->vec[2], bezt1->vec[1]);
-				add_v3_v3(bezt1->vec[2], v);
-
-				/* second chamfered triple */
-				helper = &nu->bezt[i + 2];
-				/* left handle */
-				sub_v3_v3v3(v, bezt1->vec[1], bezt2->vec[1]);
-				mul_v3_fl(v, 0.4 * len_v3(v));
-				copy_v3_v3(bezt2->vec[0], bezt2->vec[1]);
-				add_v3_v3(bezt2->vec[0], v);
-				/* right handle */
-				bezt2 = &nu->bezt[i + 1];
-				sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
-				mul_v3_fl(v, 0.4 * len_v3(v));
-				copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
-				add_v3_v3(bezt2->vec[2], v);
-			}
-		}
+		curve_chamfer_modal_loop(editnurb, nu, cd, angle, distance);
 	}
 	else {
 		bool handled = false;
@@ -8375,53 +8381,7 @@ static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event
 					}
 					angle = RNA_float_get(op->ptr, "angle");
 					distance = RNA_float_get(op->ptr, "distance");
-					for (int i = 0; i < nu->pntsu; i++) {
-						bezt = &nu->bezt[i];
-						if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
-							selected += 1;
-							original = &cd->selected_points[selected - 1];
-							bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal1");
-							bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal2");
-							chamfer_handle(original, bezt1, bezt2, angle, distance);
-							BEZT_SEL_ALL(bezt1);
-
-							ED_curve_beztcpy(editnurb, bezt, bezt1, 1);
-							ED_curve_beztcpy(editnurb, &bezt[1], bezt2, 1);
-
-							MEM_freeN(bezt1);
-							MEM_freeN(bezt2);
-
-							/* set the handles for the first chamfered triple */
-							float v[3];
-							bezt1 = &nu->bezt[i];
-							helper = &nu->bezt[i - 1];
-							/* left handle */
-							sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
-							mul_v3_fl(v, 0.4 * len_v3(v));
-							copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
-							add_v3_v3(bezt1->vec[0], v);
-							/* right handle */
-							bezt2 = &nu->bezt[i + 1];
-							sub_v3_v3v3(v, bezt2->vec[1], bezt1->vec[1]);
-							mul_v3_fl(v, 0.4 * len_v3(v));
-							copy_v3_v3(bezt1->vec[2], bezt1->vec[1]);
-							add_v3_v3(bezt1->vec[2], v);
-
-							/* second chamfered triple */
-							helper = &nu->bezt[i + 2];
-							/* left handle */
-							sub_v3_v3v3(v, bezt1->vec[1], bezt2->vec[1]);
-							mul_v3_fl(v, 0.4 * len_v3(v));
-							copy_v3_v3(bezt2->vec[0], bezt2->vec[1]);
-							add_v3_v3(bezt2->vec[0], v);
-							/* right handle */
-							bezt2 = &nu->bezt[i + 1];
-							sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
-							mul_v3_fl(v, 0.4 * len_v3(v));
-							copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
-							add_v3_v3(bezt2->vec[2], v);
-						}
-					}
+					curve_chamfer_modal_loop(editnurb, nu, cd, angle, distance);
 					handled = true;
 					opdata->changed = 1;
 				}
@@ -8431,53 +8391,7 @@ static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event
 		if (!handled && event->val == KM_PRESS && handleNumInput(C, &opdata->num_input[opdata->value_mode], event)) {
 			RNA_float_set(op->ptr, "distance", opdata->num_input->val[0]);
 			distance = RNA_float_get(op->ptr, "distance");
-			for (int i = 0; i < nu->pntsu; i++) {
-				bezt = &nu->bezt[i];
-				if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
-					selected += 1;
-					original = &cd->selected_points[selected - 1];
-					bezt1 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal1");
-					bezt2 = MEM_callocN(sizeof(BezTriple), "curve_chamfer_modal2");
-					chamfer_handle(original, bezt1, bezt2, angle, distance);
-					BEZT_SEL_ALL(bezt1);
-
-					ED_curve_beztcpy(editnurb, bezt, bezt1, 1);
-					ED_curve_beztcpy(editnurb, &bezt[1], bezt2, 1);
-
-					MEM_freeN(bezt1);
-					MEM_freeN(bezt2);
-
-					/* set the handles for the first chamfered triple */
-					float v[3];
-					bezt1 = &nu->bezt[i];
-					helper = &nu->bezt[i - 1];
-					/* left handle */
-					sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
-					mul_v3_fl(v, 0.4 * len_v3(v));
-					copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
-					add_v3_v3(bezt1->vec[0], v);
-					/* right handle */
-					bezt2 = &nu->bezt[i + 1];
-					sub_v3_v3v3(v, bezt2->vec[1], bezt1->vec[1]);
-					mul_v3_fl(v, 0.4 * len_v3(v));
-					copy_v3_v3(bezt1->vec[2], bezt1->vec[1]);
-					add_v3_v3(bezt1->vec[2], v);
-
-					/* second chamfered triple */
-					helper = &nu->bezt[i + 2];
-					/* left handle */
-					sub_v3_v3v3(v, bezt1->vec[1], bezt2->vec[1]);
-					mul_v3_fl(v, 0.4 * len_v3(v));
-					copy_v3_v3(bezt2->vec[0], bezt2->vec[1]);
-					add_v3_v3(bezt2->vec[0], v);
-					/* right handle */
-					bezt2 = &nu->bezt[i + 1];
-					sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
-					mul_v3_fl(v, 0.4 * len_v3(v));
-					copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
-					add_v3_v3(bezt2->vec[2], v);
-				}
-			}
+			curve_chamfer_modal_loop(editnurb, nu, cd, angle, distance);
 			opdata->changed = 1;
 		}
 	}
@@ -8569,8 +8483,8 @@ void CURVE_OT_curve_chamfer(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = curve_chamfer_exec;
 	ot->poll = ED_operator_editsurfcurve;
-	//ot->modal = curve_chamfer_modal;
-	//ot->invoke = curve_chamfer_invoke;
+	ot->modal = curve_chamfer_modal;
+	ot->invoke = curve_chamfer_invoke;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -8689,6 +8603,59 @@ static int curve_fillet_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
+static void curve_fillet_modal_loop(EditNurb *editnurb, Nurb *nu, CD *cd, float distance)
+{
+	BezTriple *bezt, *original, *bezt1, *bezt2, *helper;
+	int selected = 0;
+	float v1[3], v2[3];
+	for (int i = 0; i < nu->pntsu; i++) {
+		bezt = &nu->bezt[i];
+		if (BEZT_ISSEL_ANY(bezt)) {
+			selected += 1;
+			original = &cd->selected_points[selected - 1];
+			bezt1 = MEM_callocN(sizeof(BezTriple), "curve_fillet_modal1");
+			bezt2 = MEM_callocN(sizeof(BezTriple), "curve_fillet_modal2");
+			sub_v3_v3v3(v1, original->vec[1], original->vec[0]);
+			normalize_v3(v1);
+			sub_v3_v3v3(v2, original->vec[1], original->vec[2]);
+			normalize_v3(v2);
+			float angle = DEG2RAD(90) - angle_normalized_v3v3(v1, v2) / 2;
+			fillet_handle(original, bezt1, bezt2, angle, distance);
+			BEZT_SEL_ALL(bezt1);
+
+			ED_curve_beztcpy(editnurb, bezt, bezt1, 1);
+			ED_curve_beztcpy(editnurb, &bezt[1], bezt2, 1);
+
+			MEM_freeN(bezt1);
+			MEM_freeN(bezt2);
+		}
+	}
+	/* after all new control points have been calculated, move the  handles */
+	for (int i = 0; i < nu->pntsu; i++) {
+		bezt = &nu->bezt[i];
+		if (BEZT_ISSEL_ANY(bezt)) {
+			/* set the handles for the first filleted triple */
+			float v[3];
+			bezt1 = &nu->bezt[i];
+			helper = &nu->bezt[(nu->pntsu + i - 1) % nu->pntsu];
+			/* left handle */
+			sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
+			mul_v3_fl(v, 0.4 * len_v3(v));
+			copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
+			add_v3_v3(bezt1->vec[0], v);
+
+			/* second filleted triple */
+			helper = &nu->bezt[(nu->pntsu + i + 2) % nu->pntsu];
+			/* right handle */
+			bezt2 = &nu->bezt[(nu->pntsu + i + 1) % nu->pntsu];
+			sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
+			mul_v3_fl(v, 0.4 * len_v3(v));
+			copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
+			add_v3_v3(bezt2->vec[2], v);
+		}
+	}
+}
+
 static int curve_fillet_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	/* modal function for curve fillet */
@@ -8700,7 +8667,6 @@ static int curve_fillet_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	EditNurb *editnurb = cu->editnurb;
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
-	BezTriple *bezt, *bezt1, *bezt2, *helper, *original;
 	CD *cd = op->customdata;
 	OffsetData *opdata = cd->data;
 	float *init_mouse = cd->data->mcenter;
@@ -8709,8 +8675,6 @@ static int curve_fillet_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	float distance = RNA_float_get(op->ptr, "distance");
 	int spline_id = cd->data->spline_id;
 	nu = BLI_findlink(nubase, spline_id);
-	int selected = 0;
-	float v1[3], v2[3];
 
 	/* handle events */
 	const bool has_numinput = hasNumInput(&opdata->num_input[opdata->value_mode]);
@@ -8720,47 +8684,7 @@ static int curve_fillet_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		/* TODO: numinput for angle (handleNumInput returns false when event->ctrl )*/
 		RNA_float_set(op->ptr, "distance", opdata->num_input->val[0]);
 		distance = RNA_float_get(op->ptr, "distance");
-		for (int i = 0; i < nu->pntsu; i++) {
-			bezt = &nu->bezt[i];
-			if (BEZT_ISSEL_ANY(bezt)) {
-				selected += 1;
-				original = &cd->selected_points[selected - 1];
-				bezt1 = MEM_callocN(sizeof(BezTriple), "curve_fillet_modal1");
-				bezt2 = MEM_callocN(sizeof(BezTriple), "curve_fillet_modal2");
-				sub_v3_v3v3(v1, original->vec[1], original->vec[0]);
-				normalize_v3(v1);
-				sub_v3_v3v3(v2, original->vec[1], original->vec[2]);
-				normalize_v3(v2);
-				float angle = DEG2RAD(90) - angle_normalized_v3v3(v1, v2) / 2;
-				fillet_handle(original, bezt1, bezt2, angle, distance);
-				BEZT_SEL_ALL(bezt1);
-
-				ED_curve_beztcpy(editnurb, bezt, bezt1, 1);
-				ED_curve_beztcpy(editnurb, &bezt[1], bezt2, 1);
-
-				MEM_freeN(bezt1);
-				MEM_freeN(bezt2);
-
-				/* set the handles for the first filleted triple */
-				float v[3];
-				bezt1 = &nu->bezt[i];
-				helper = &nu->bezt[(nu->pntsu + i - 1) % nu->pntsu];
-				/* left handle */
-				sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
-				mul_v3_fl(v, 0.4 * len_v3(v));
-				copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
-				add_v3_v3(bezt1->vec[0], v);
-
-				/* second filleted triple */
-				helper = &nu->bezt[(nu->pntsu + i + 2) % nu->pntsu];
-				/* right handle */
-				bezt2 = &nu->bezt[(nu->pntsu + i + 1) % nu->pntsu];
-				sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
-				mul_v3_fl(v, 0.4 * len_v3(v));
-				copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
-				add_v3_v3(bezt2->vec[2], v);
-			}
-		}
+		curve_fillet_modal_loop(editnurb, nu, cd, distance);
 	}
 	else {
 		bool handled = false;
@@ -8791,47 +8715,7 @@ static int curve_fillet_modal(bContext *C, wmOperator *op, const wmEvent *event)
 					+ (curr_mouse[1] - prev_mouse[1]) * (curr_mouse[1] - prev_mouse[1]);
 					float d = sqrtf(val);
 					RNA_float_set(op->ptr, "distance", d/100);
-					for (int i = 0; i < nu->pntsu; i++) {
-						bezt = &nu->bezt[i];
-						if (BEZT_ISSEL_ANY(bezt)) {
-							selected += 1;
-							original = &cd->selected_points[selected - 1];
-							bezt1 = MEM_callocN(sizeof(BezTriple), "curve_fillet_modal1");
-							bezt2 = MEM_callocN(sizeof(BezTriple), "curve_fillet_modal2");
-							sub_v3_v3v3(v1, original->vec[1], original->vec[0]);
-							normalize_v3(v1);
-							sub_v3_v3v3(v2, original->vec[1], original->vec[2]);
-							normalize_v3(v2);
-							float angle = DEG2RAD(90) - angle_normalized_v3v3(v1, v2) / 2;
-							fillet_handle(original, bezt1, bezt2, angle, distance);
-							BEZT_SEL_ALL(bezt1);
-
-							ED_curve_beztcpy(editnurb, bezt, bezt1, 1);
-							ED_curve_beztcpy(editnurb, &bezt[1], bezt2, 1);
-
-							MEM_freeN(bezt1);
-							MEM_freeN(bezt2);
-
-							/* set the handles for the first filleted triple */
-							float v[3];
-							bezt1 = &nu->bezt[i];
-							helper = &nu->bezt[(nu->pntsu + i - 1) % nu->pntsu];
-							/* left handle */
-							sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
-							mul_v3_fl(v, 0.4 * len_v3(v));
-							copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
-							add_v3_v3(bezt1->vec[0], v);
-
-							/* second filleted triple */
-							helper = &nu->bezt[(nu->pntsu + i + 2) % nu->pntsu];
-							/* right handle */
-							bezt2 = &nu->bezt[(nu->pntsu + i + 1) % nu->pntsu];
-							sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
-							mul_v3_fl(v, 0.4 * len_v3(v));
-							copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
-							add_v3_v3(bezt2->vec[2], v);
-						}
-					}
+					curve_fillet_modal_loop(editnurb, nu, cd, distance);
 					handled = true;
 					opdata->changed = 1;
 				}
@@ -8841,47 +8725,7 @@ static int curve_fillet_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		if (!handled && event->val == KM_PRESS && handleNumInput(C, &opdata->num_input[opdata->value_mode], event)) {
 			RNA_float_set(op->ptr, "distance", opdata->num_input->val[0]);
 			distance = RNA_float_get(op->ptr, "distance");
-			for (int i = 0; i < nu->pntsu; i++) {
-				bezt = &nu->bezt[i];
-				if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
-					selected += 1;
-					original = &cd->selected_points[selected - 1];
-					bezt1 = MEM_callocN(sizeof(BezTriple), "curve_fillet_modal1");
-					bezt2 = MEM_callocN(sizeof(BezTriple), "curve_fillet_modal2");
-					sub_v3_v3v3(v1, original->vec[1], original->vec[0]);
-					normalize_v3(v1);
-					sub_v3_v3v3(v2, original->vec[1], original->vec[2]);
-					normalize_v3(v2);
-					float angle = DEG2RAD(90) - angle_normalized_v3v3(v1, v2) / 2;
-					fillet_handle(original, bezt1, bezt2, angle, distance);
-					BEZT_SEL_ALL(bezt1);
-
-					ED_curve_beztcpy(editnurb, bezt, bezt1, 1);
-					ED_curve_beztcpy(editnurb, &bezt[1], bezt2, 1);
-
-					MEM_freeN(bezt1);
-					MEM_freeN(bezt2);
-
-					/* set the handles for the first filleted triple */
-					float v[3];
-					bezt1 = &nu->bezt[i];
-					helper = &nu->bezt[(nu->pntsu + i - 1) % nu->pntsu];
-					/* left handle */
-					sub_v3_v3v3(v, helper->vec[2], bezt1->vec[1]);
-					mul_v3_fl(v, 0.4 * len_v3(v));
-					copy_v3_v3(bezt1->vec[0], bezt1->vec[1]);
-					add_v3_v3(bezt1->vec[0], v);
-
-					/* second filleted triple */
-					helper = &nu->bezt[(nu->pntsu + i + 2) % nu->pntsu];
-					/* right handle */
-					bezt2 = &nu->bezt[(nu->pntsu + i + 1) % nu->pntsu];
-					sub_v3_v3v3(v, helper->vec[0], bezt2->vec[1]);
-					mul_v3_fl(v, 0.4 * len_v3(v));
-					copy_v3_v3(bezt2->vec[2], bezt2->vec[1]);
-					add_v3_v3(bezt2->vec[2], v);
-				}
-			}
+			curve_fillet_modal_loop(editnurb, nu, cd, distance);
 			opdata->changed = 1;
 		}
 	}
@@ -8907,8 +8751,8 @@ void CURVE_OT_curve_fillet(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = curve_fillet_exec;
 	ot->poll = ED_operator_editsurfcurve;
-	//ot->modal = curve_fillet_modal;
-	//ot->invoke = curve_chamfer_invoke;
+	ot->modal = curve_fillet_modal;
+	ot->invoke = curve_chamfer_invoke;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
