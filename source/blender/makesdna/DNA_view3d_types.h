@@ -368,8 +368,6 @@ enum {
 #define V3D_USE_MANIPULATOR		1
 #define V3D_DRAW_MANIPULATOR	2
 /* #define V3D_CALC_MANIPULATOR	4 */ /*UNUSED*/
-#define V3D_3D_MANIPULATORS          (1 << 2)
-#define V3D_SHADED_MANIPULATORS      (1 << 3)
 
 /* BGPic->flag */
 /* may want to use 1 for select ? */
