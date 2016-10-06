@@ -34,6 +34,8 @@
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 
+#include "DNA_manipulator_types.h"
+
 #include "ED_screen.h"
 #include "ED_view3d.h"
 
@@ -50,6 +52,59 @@
 #include "wm_manipulator_wmapi.h"
 #include "wm_manipulator_intern.h"
 
+
+/**
+ * Main draw call for ManipulatorGeometryInfo data
+ */
+void wm_manipulator_geometryinfo_draw(ManipulatorGeometryInfo *info, const bool select)
+{
+	GLuint buf[3];
+
+	const bool use_lighting = !select && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0);
+
+	if (use_lighting)
+		glGenBuffers(3, buf);
+	else
+		glGenBuffers(2, buf);
+
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glBindBuffer(GL_ARRAY_BUFFER, buf[0]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * info->nverts, info->verts, GL_STATIC_DRAW);
+	glVertexPointer(3, GL_FLOAT, 0, NULL);
+
+	if (use_lighting) {
+		glEnableClientState(GL_NORMAL_ARRAY);
+		glBindBuffer(GL_ARRAY_BUFFER, buf[2]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * info->nverts, info->normals, GL_STATIC_DRAW);
+		glNormalPointer(GL_FLOAT, 0, NULL);
+		glShadeModel(GL_SMOOTH);
+	}
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf[1]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short) * (3 * info->ntris), info->indices, GL_STATIC_DRAW);
+
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+
+	glDrawElements(GL_TRIANGLES, info->ntris * 3, GL_UNSIGNED_SHORT, NULL);
+
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	glDisableClientState(GL_VERTEX_ARRAY);
+
+	if (use_lighting) {
+		glDisableClientState(GL_NORMAL_ARRAY);
+		glShadeModel(GL_FLAT);
+		glDeleteBuffers(3, buf);
+	}
+	else {
+		glDeleteBuffers(2, buf);
+	}
+}
 
 /* Still unused */
 wmManipulator *WM_manipulator_new(

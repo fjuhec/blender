@@ -369,6 +369,14 @@ enum {
 #define V3D_3D_MANIPULATORS          (1 << 1)
 #define V3D_SHADED_MANIPULATORS      (1 << 2)
 
+typedef enum ManipulatorType{
+	WT_TRANSLATE = 0,
+	WT_ROTATE    = 1,
+	WT_SCALE     = 2,
+	WT_CUSTOM    = 3,
+} ManipulatorType;
+
+
 /* BGPic->flag */
 /* may want to use 1 for select ? */
 enum {
