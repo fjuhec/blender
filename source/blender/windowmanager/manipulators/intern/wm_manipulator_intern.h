@@ -226,7 +226,5 @@ typedef struct ManipulatorGeometryInfo {
 	bool init;
 } ManipulatorGeometryInfo;
 
-void wm_manipulator_geometryinfo_draw(ManipulatorGeometryInfo *info, const bool select);
-
 #endif  /* __WM_MANIPULATOR_INTERN_H__ */
 
