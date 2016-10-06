@@ -63,13 +63,28 @@ typedef struct wmManipulatorWrapper {
 enum {
 	WM_MANIPULATOR_DRAW_HOVER  = (1 << 0), /* draw *only* while hovering */
 	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 1), /* draw while dragging */
-	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw a indicator for the current value while dragging */
+	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw an indicator for the current value while dragging */
 	WM_MANIPULATOR_HIDDEN      = (1 << 3),
 };
 
 
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
+
+typedef struct wmManipulatorGroup {
+	struct wmManipulatorGroup *next, *prev;
+
+	struct wmManipulatorGroupType *type;
+	ListBase manipulators;
+
+	void *py_instance;            /* python stores the class instance here */
+	struct ReportList *reports;   /* errors and warnings storage */
+
+	void *customdata;
+	void (*customdata_free)(void *); /* for freeing customdata from above */
+	int flag; /* private */
+	int pad;
+} wmManipulatorGroup;
 
 /* factory class for a manipulator-group type, gets called every time a new area is spawned */
 typedef struct wmManipulatorGroupType {
@@ -136,7 +151,7 @@ struct wmManipulatorMapType_Params {
 };
 
 /**
- * Pass a value of this enum to #WM_manipulatormap_update to tell it what to draw.
+ * Pass a value of this enum to #WM_manipulatormap_draw to tell it what to draw.
  */
 enum {
 	/* Draw 2D manipulator-groups (ManipulatorGroupType.is_3d == false) */

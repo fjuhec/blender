@@ -97,7 +97,7 @@ typedef struct SpaceType {
 	/* on startup, define dropboxes for spacetype+regions */
 	void (*dropboxes)(void);
 
-	/* on startup, initialize manipulator-map-types and manipulator-group-types */
+	/* initialize manipulator-map-types and manipulator-group-types with the region */
 	void (*manipulators)(void);
 
 	/* return context data */
