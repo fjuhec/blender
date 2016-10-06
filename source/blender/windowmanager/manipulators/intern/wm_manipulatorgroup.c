@@ -26,10 +26,10 @@
 /** \file blender/windowmanager/manipulators/intern/wm_manipulatorgroup.c
  *  \ingroup wm
  *
- * \name Manipulator Group
+ * \name Manipulator-Group
  *
  * Manipulator-groups store and manage groups of manipulators. They can be
- * attached to modal handlers and have on keymaps.
+ * attached to modal handlers and have own keymaps.
  */
 
 #include "BKE_context.h"

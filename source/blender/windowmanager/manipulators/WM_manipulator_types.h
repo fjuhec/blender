@@ -63,7 +63,7 @@ typedef struct wmManipulatorWrapper {
 enum {
 	WM_MANIPULATOR_DRAW_HOVER  = (1 << 0), /* draw *only* while hovering */
 	WM_MANIPULATOR_DRAW_ACTIVE = (1 << 1), /* draw while dragging */
-	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw a indicator for the current value while dragging */
+	WM_MANIPULATOR_DRAW_VALUE  = (1 << 2), /* draw an indicator for the current value while dragging */
 	WM_MANIPULATOR_HIDDEN      = (1 << 3),
 };
 
@@ -151,7 +151,7 @@ struct wmManipulatorMapType_Params {
 };
 
 /**
- * Pass a value of this enum to #WM_manipulatormap_update to tell it what to draw.
+ * Pass a value of this enum to #WM_manipulatormap_draw to tell it what to draw.
  */
 enum {
 	/* Draw 2D manipulator-groups (ManipulatorGroupType.is_3d == false) */

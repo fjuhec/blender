@@ -125,7 +125,7 @@ void ED_spacetypes_init(void)
 	/* register types for operators and manipulators */
 	spacetypes = BKE_spacetypes_list();
 	for (type = spacetypes->first; type; type = type->next) {
-		/* init manipulator types first, operator types need them */
+		/* init manipulator types first, operator-types need them */
 		if (type->manipulators) {
 			type->manipulators();
 		}
