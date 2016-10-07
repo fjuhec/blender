@@ -1365,6 +1365,11 @@ static void rna_def_userdef_theme_spaces_vertex(StructRNA *srna)
 	RNA_def_property_ui_text(prop, "Vertex Size", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
+	prop = RNA_def_property(srna, "vertex_bevel", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Vertex Bevel", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
 	prop = RNA_def_property(srna, "vertex_unreferenced", PROP_FLOAT, PROP_COLOR_GAMMA);
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_ui_text(prop, "Vertex Group Unreferenced", "");
@@ -1393,6 +1398,11 @@ static void rna_def_userdef_theme_spaces_edge(StructRNA *srna)
 	prop = RNA_def_property(srna, "edge_crease", PROP_FLOAT, PROP_COLOR_GAMMA);
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_ui_text(prop, "Edge Crease", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "edge_bevel", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Edge Bevel", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	prop = RNA_def_property(srna, "edge_facesel", PROP_FLOAT, PROP_COLOR_GAMMA);
@@ -1891,36 +1901,11 @@ static void rna_def_userdef_theme_space_file(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Theme File Browser", "Theme settings for the File Browser");
 
 	rna_def_userdef_theme_spaces_main(srna);
-	rna_def_userdef_theme_spaces_list_main(srna);
 
 	prop = RNA_def_property(srna, "selected_file", PROP_FLOAT, PROP_COLOR_GAMMA);
 	RNA_def_property_float_sdna(prop, NULL, "hilite");
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_ui_text(prop, "Selected File", "");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "scrollbar", PROP_FLOAT, PROP_COLOR_GAMMA);
-	RNA_def_property_float_sdna(prop, NULL, "shade1");
-	RNA_def_property_array(prop, 3);
-	RNA_def_property_ui_text(prop, "Scrollbar", "");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "scroll_handle", PROP_FLOAT, PROP_COLOR_GAMMA);
-	RNA_def_property_float_sdna(prop, NULL, "shade2");
-	RNA_def_property_array(prop, 3);
-	RNA_def_property_ui_text(prop, "Scroll Handle", "");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "active_file", PROP_FLOAT, PROP_COLOR_GAMMA);
-	RNA_def_property_float_sdna(prop, NULL, "active");
-	RNA_def_property_array(prop, 3);
-	RNA_def_property_ui_text(prop, "Active File", "");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-	
-	prop = RNA_def_property(srna, "active_file_text", PROP_FLOAT, PROP_COLOR_GAMMA);
-	RNA_def_property_float_sdna(prop, NULL, "grid");
-	RNA_def_property_array(prop, 3);
-	RNA_def_property_ui_text(prop, "Active File Text", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 }
 
