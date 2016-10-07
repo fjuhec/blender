@@ -2,12 +2,10 @@
 #if __VERSION__ == 120
   attribute vec3 pos;
   attribute vec4 color;
-
   varying vec4 finalColor;
 #else
   in vec3 pos;
   in vec4 color;
-
   out vec4 finalColor;
 #endif
 

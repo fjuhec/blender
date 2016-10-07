@@ -1,18 +1,14 @@
 
 #if __VERSION__ == 120
   attribute vec3 pos;
-  attribute vec4 color;
-
-  varying vec4 finalColor;
+  attribute float size;
 #else
   in vec3 pos;
-  in vec4 color;
-
-  out vec4 finalColor;
+  in float size;
 #endif
 
 void main()
 {
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(pos, 1.0);
-	finalColor = color;
+	gl_PointSize = size;
 }

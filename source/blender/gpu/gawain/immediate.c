@@ -133,12 +133,12 @@ static bool vertex_count_makes_sense_for_primitive(unsigned vertex_ct, GLenum pr
 			return vertex_ct % 2 == 0;
 		case GL_LINE_STRIP:
 		case GL_LINE_LOOP:
-			return vertex_ct > 2; // otherwise why bother?
+			return vertex_ct >= 2;
 		case GL_TRIANGLES:
 			return vertex_ct % 3 == 0;
 		case GL_TRIANGLE_STRIP:
 		case GL_TRIANGLE_FAN:
-			return vertex_ct > 3; // otherwise why bother?
+			return vertex_ct >= 3;
   #ifdef WITH_GL_PROFILE_COMPAT
 		case GL_QUADS:
 			return vertex_ct % 4 == 0;
@@ -650,16 +650,36 @@ void immVertex2iv(unsigned attrib_id, const int data[2])
 	immEndVertex();
 	}
 
-void immUniformColor3ubv(const unsigned char rgb[3])
+void immUniformColor3fv(const float rgb[3])
+	{
+	immUniform4f("color", rgb[0], rgb[1], rgb[2], 1.0f);
+	}
+
+void immUniformColor4fv(const float rgba[4])
+	{
+	immUniform4f("color", rgba[0], rgba[1], rgba[2], rgba[3]);
+	}
+
+void immUniformColor3ub(unsigned char r, unsigned char g, unsigned char b)
 	{
 	const float scale = 1.0f / 255.0f;
-	immUniform4f("color", scale * rgb[0], scale * rgb[1], scale * rgb[2], 1.0f);
+	immUniform4f("color", scale * r, scale * g, scale * b, 1.0f);
+	}
+
+void immUniformColor4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
+	{
+	const float scale = 1.0f / 255.0f;
+	immUniform4f("color", scale * r, scale * g, scale * b, scale * a);
+	}
+
+void immUniformColor3ubv(const unsigned char rgb[3])
+	{
+	immUniformColor3ub(rgb[0], rgb[1], rgb[2]);
 	}
 
 void immUniformColor4ubv(const unsigned char rgba[4])
 	{
-	const float scale = 1.0f / 255.0f;
-	immUniform4f("color", scale * rgba[0], scale * rgba[1], scale * rgba[2], rgba[3]);
+	immUniformColor4ub(rgba[0], rgba[1], rgba[2], rgba[3]);
 	}
 
 void immUniform1i(const char *name, const unsigned int data)
