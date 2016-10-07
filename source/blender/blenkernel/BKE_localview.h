@@ -30,57 +30,20 @@
  */
 
 #include "BLI_compiler_attrs.h"
-#include "BLI_utildefines.h"
+#include "BLI_compiler_compat.h"
 
-#include "DNA_object_types.h"
-#include "DNA_screen_types.h"
-#include "DNA_view3d_types.h"
-
+struct LocalViewInfo;
+struct Object;
+struct View3D;
 
 /* Forcing inline as some of these are called a lot, mostly in loops even. */
 
-BLI_INLINE bool BKE_localview_info_cmp(LocalViewInfo a, LocalViewInfo b) ATTR_WARN_UNUSED_RESULT;
-BLI_INLINE bool BKE_localview_is_valid(LocalViewInfo localview) ATTR_WARN_UNUSED_RESULT;
+BLI_INLINE bool BKE_localview_info_cmp(struct LocalViewInfo a, struct LocalViewInfo b) ATTR_WARN_UNUSED_RESULT;
+BLI_INLINE bool BKE_localview_is_valid(struct LocalViewInfo localview) ATTR_WARN_UNUSED_RESULT;
 
-BLI_INLINE void BKE_localview_object_assign(View3D *v3d, Object *ob) ATTR_NONNULL();
-BLI_INLINE void BKE_localview_object_unassign(View3D *v3d, Object *ob) ATTR_NONNULL();
+BLI_INLINE void BKE_localview_object_assign(struct View3D *v3d, struct Object *ob) ATTR_NONNULL();
+BLI_INLINE void BKE_localview_object_unassign(struct View3D *v3d, struct Object *ob) ATTR_NONNULL();
 
+#include "intern/localview.c"
 
-/**
- * Local view main visibility checks.
- * \return if \a a is visible in \a b, or the other way around (order doesn't matter).
- */
-BLI_INLINE bool BKE_localview_info_cmp(LocalViewInfo a, LocalViewInfo b)
-{
-	return (a.viewbits & b.viewbits) != 0;
-}
-
-/**
- * Check if \a localview defines a visible local view.
- */
-BLI_INLINE bool BKE_localview_is_valid(LocalViewInfo localview)
-{
-	return localview.viewbits != 0;
-}
-
-/**
- * Adjust local view info of \a ob to be visible if \a v3d is in local view.
- */
-BLI_INLINE void BKE_localview_object_assign(View3D *v3d, Object *ob)
-{
-	if (v3d->localviewd) {
-		ob->localview.viewbits |= v3d->localviewd->info.viewbits;
-	}
-}
-
-/**
- * Remove \a from local view of \a v3d.
- */
-BLI_INLINE void BKE_localview_object_unassign(View3D *v3d, Object *ob)
-{
-	if (v3d->localviewd) {
-		ob->localview.viewbits &= ~v3d->localviewd->info.viewbits;
-	}
-}
-
-#endif // __BKE_LOCALVIEW_H__
+#endif /* __BKE_LOCALVIEW_H__ */
