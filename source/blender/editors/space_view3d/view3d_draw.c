@@ -1046,6 +1046,16 @@ static void view3d_draw_grease_pencil(const bContext *C)
 	/* TODO viewport */
 }
 
+static void view3d_draw_manipulators(const bContext *C, const ARegion *ar)
+{
+	/* TODO, only draws 3D manipulators right now, need to see how 2D drawing will work in new viewport */
+
+	/* draw depth culled manipulators - manipulators need to be updated *after* view matrix was set up */
+	/* TODO depth culling manipulators is not yet supported, just drawing _3D here, should
+	 * later become _IN_SCENE (and draw _3D separate) */
+	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_3D);
+}
+
 /**
  * This could run once per view, or even in parallel
  * for each of them. What is a "view"?
@@ -1066,8 +1076,7 @@ static void view3d_draw_view(const bContext *C, ARegion *ar, DrawData *draw_data
 	view3d_draw_tool_ui(C);
 	view3d_draw_reference_images(C);
 	view3d_draw_grease_pencil(C);
-
-	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_3D);
+	view3d_draw_manipulators(C, ar);
 }
 
 void view3d_main_region_draw(const bContext *C, ARegion *ar)
