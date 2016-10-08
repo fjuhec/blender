@@ -49,7 +49,7 @@
 extern void view3d_main_region_draw_legacy(const ViewportEngine *engine, const bContext *C);
 
 /* TODO Keeping old viewport only during transition */
-static ViewportEngineType old_viewport = {
+static ViewportEngineType legacy_viewport = {
 	NULL, NULL,
 	"LEGACY_VIEWPORT", N_("Legacy Viewport"),
 	NULL,
@@ -69,8 +69,8 @@ static void enginetype_init(ViewportEngineType *engine_type)
 
 void VP_enginetypes_init(void)
 {
+	enginetype_init(&legacy_viewport);
 	enginetype_init(&vp_blender_viewport);
-	enginetype_init(&old_viewport);
 }
 
 static void drawmode_plates_free(ViewportDrawMode *drawmode)

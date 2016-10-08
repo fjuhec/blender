@@ -2981,25 +2981,20 @@ class VIEW3D_PT_viewport_debug(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_label = "Modern Viewport"
-    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
         view = context.space_data
         return (view)
 
-    def draw_header(self, context):
-        view = context.space_data
-        self.layout.prop(view, "use_modern_viewport", text="")
-
     def draw(self, context):
         layout = self.layout
         view = context.space_data
 
-        layout.active = view.use_modern_viewport
+        layout.prop(view, "viewport_engine")
 
         col = layout.column()
-        col.prop(view, "viewport_engine")
+        col.active = view.viewport_engine == 'BLENDER_VIEWPORT' # new viewport
         col.label(text="Placeholder for debugging options")
 
 
@@ -3116,7 +3111,7 @@ class VIEW3D_PT_view3d_display(Panel):
     @classmethod
     def poll(cls, context):
         view = context.space_data
-        return (view) and not view.use_modern_viewport
+        return (view) and view.viewport_engine == 'LEGACY_VIEWPORT'
 
     def draw(self, context):
         layout = self.layout
@@ -3217,7 +3212,7 @@ class VIEW3D_PT_view3d_shading(Panel):
     @classmethod
     def poll(cls, context):
         view = context.space_data
-        return (view) and not view.use_modern_viewport
+        return (view) and view.viewport_engine == 'LEGACY_VIEWPORT'
 
     def draw(self, context):
         layout = self.layout

@@ -60,6 +60,8 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "VP_engine_API.h"
+
 #include "view3d_intern.h"
 
 static void do_view3d_header_buttons(bContext *C, void *arg, int event);

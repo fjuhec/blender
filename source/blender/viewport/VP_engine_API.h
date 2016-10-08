@@ -56,7 +56,7 @@ typedef struct ViewportDrawMode {
 typedef struct ViewportEngineType {
 	struct ViewportEngineType *next, *prev;
 
-	char idname[MAX_NAME]; /* Unused (TODO do we need this?) */
+	char idname[MAX_NAME]; /* TODO use defines for internal engine names */
 	/* Displayed in UI */
 	char name[MAX_NAME];
 
