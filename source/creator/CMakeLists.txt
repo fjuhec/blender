@@ -38,6 +38,7 @@ blender_include_dirs(
 	../blender/render/extern/include
 	../blender/makesdna
 	../blender/gpu
+	../blender/viewport
 	../blender/windowmanager
 )
 

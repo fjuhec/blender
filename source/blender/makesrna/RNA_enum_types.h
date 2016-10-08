@@ -160,6 +160,7 @@ extern EnumPropertyItem rna_enum_property_unit_items[];
 
 extern EnumPropertyItem rna_enum_gameproperty_type_items[];
 
+extern EnumPropertyItem rna_enum_viewport_engine_items[];
 extern EnumPropertyItem rna_enum_viewport_shade_items[];
 
 extern EnumPropertyItem rna_enum_navigation_mode_items[];

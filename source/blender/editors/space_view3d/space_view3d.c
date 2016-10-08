@@ -60,6 +60,8 @@
 
 #include "BIF_gl.h"
 
+#include "VP_engine_API.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -331,6 +333,8 @@ static SpaceLink *view3d_new(const bContext *C)
 	v3d->gridsubdiv = 10;
 	v3d->drawtype = OB_SOLID;
 
+	v3d->viewport_engine = VP_engine_create(ViewportEngineTypes.first);
+
 	v3d->gridflag = V3D_SHOW_X | V3D_SHOW_Y | V3D_SHOW_FLOOR;
 	
 	v3d->flag = V3D_SELECT_OUTLINE;
@@ -405,6 +409,8 @@ static void view3d_free(SpaceLink *sl)
 {
 	View3D *vd = (View3D *) sl;
 	BGpic *bgpic;
+
+	VP_engine_free(vd->viewport_engine);
 
 	for (bgpic = vd->bgpicbase.first; bgpic; bgpic = bgpic->next) {
 		if (bgpic->source == V3D_BGPIC_IMAGE) {

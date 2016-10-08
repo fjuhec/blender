@@ -30,6 +30,7 @@ set(INC
 	../../makesdna
 	../../makesrna
 	../../render/extern/include
+	../../viewport
 	../../windowmanager
 	../../depsgraph
 	../../../../intern/guardedalloc

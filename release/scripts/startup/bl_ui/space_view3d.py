@@ -2999,6 +2999,7 @@ class VIEW3D_PT_viewport_debug(Panel):
         layout.active = view.use_modern_viewport
 
         col = layout.column()
+        col.prop(view, "viewport_engine")
         col.label(text="Placeholder for debugging options")
 
 

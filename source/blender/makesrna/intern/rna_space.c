@@ -175,6 +175,11 @@ static EnumPropertyItem autosnap_items[] = {
 };
 #endif
 
+EnumPropertyItem rna_enum_viewport_engine_items[] = {
+	{0, "BLENDER_VIEWPORT", 0, "Modern Viewport", ""},
+	{0, NULL, 0, NULL, NULL}
+};
+
 EnumPropertyItem rna_enum_viewport_shade_items[] = {
 	{OB_BOUNDBOX, "BOUNDBOX", ICON_BBOX, "Bounding Box", "Display the object's local bounding boxes only"},
 	{OB_WIRE, "WIREFRAME", ICON_WIRE, "Wireframe", "Display the object as wire edges"},
@@ -273,6 +278,9 @@ EnumPropertyItem rna_enum_file_sort_items[] = {
 
 #include "UI_interface.h"
 #include "UI_view2d.h"
+
+#include "VP_engine_API.h"
+
 
 static StructRNA *rna_Space_refine(struct PointerRNA *ptr)
 {
@@ -672,6 +680,60 @@ static void rna_RegionView3D_view_matrix_set(PointerRNA *ptr, const float *value
 	float mat[4][4];
 	invert_m4_m4(mat, (float (*)[4])values);
 	ED_view3d_from_m4(mat, rv3d->ofs, rv3d->viewquat, &rv3d->dist);
+}
+
+static int rna_SpaceView3D_viewport_engine_get(PointerRNA *ptr)
+{
+	View3D *v3d = (View3D *)ptr->data;
+	int engine_type_idx = 0;
+
+	if (!v3d->viewport_engine) {
+		BLI_assert(0);
+		return -1;
+	}
+
+	for (ViewportEngineType *engine_type = ViewportEngineTypes.first; engine_type; engine_type = engine_type->next) {
+		if (v3d->viewport_engine->type == engine_type) {
+			break;
+		}
+		engine_type_idx++;
+	}
+
+	return engine_type_idx;
+}
+
+static void rna_SpaceView3D_viewport_engine_set(PointerRNA *ptr, int value)
+{
+	View3D *v3d = (View3D *)ptr->data;
+	ViewportEngineType *new_engine_type = BLI_findlink(&ViewportEngineTypes, value);
+
+	if (new_engine_type) {
+		if (v3d->viewport_engine) {
+			VP_engine_free(v3d->viewport_engine);
+		}
+		v3d->viewport_engine = VP_engine_create(new_engine_type);
+	}
+}
+
+static EnumPropertyItem *rna_SpaceView3D_viewport_engine_itemf(
+        bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
+        bool *r_free)
+{
+	EnumPropertyItem *item = NULL;
+	EnumPropertyItem tmp = {0, "", 0, "", ""};
+	int totitem = 0;
+
+	for (ViewportEngineType *engine_type = ViewportEngineTypes.first; engine_type; engine_type = engine_type->next) {
+		tmp.value = totitem;
+		tmp.identifier = engine_type->idname;
+		tmp.name = engine_type->name;
+		RNA_enum_item_add(&item, &totitem, &tmp);
+	}
+
+	RNA_enum_item_end(&item, &totitem);
+	*r_free = true;
+
+	return item;
 }
 
 static int rna_SpaceView3D_viewport_shade_get(PointerRNA *ptr)
@@ -2358,6 +2420,15 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	RNA_def_property_pointer_sdna(prop, NULL, "camera");
 	RNA_def_property_ui_text(prop, "Camera",
 	                         "Active camera used in this view (when unlocked from the scene's active camera)");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+
+	/* viewport engine */
+	prop = RNA_def_property(srna, "viewport_engine", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, rna_enum_viewport_engine_items);
+	RNA_def_property_enum_funcs(prop, "rna_SpaceView3D_viewport_engine_get", "rna_SpaceView3D_viewport_engine_set",
+	                            "rna_SpaceView3D_viewport_engine_itemf");
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+	RNA_def_property_ui_text(prop, "Viewport Engine", "Engine to use for viewport drawing");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	/* render border */

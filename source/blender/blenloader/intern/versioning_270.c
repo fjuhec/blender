@@ -76,6 +76,8 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "VP_engine_API.h"
+
 /**
  * Setup rotation stabilization from ancient single track spec.
  * Former Version of 2D stabilization used a single tracking marker to determine the rotation
@@ -1331,6 +1333,21 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 							smd->domain->slice_per_voxel = 5.0f;
 							smd->domain->slice_depth = 0.5f;
 							smd->domain->display_thickness = 1.0f;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	{
+		if (!DNA_struct_elem_find(fd->filesdna, "View3D", "ViewportEngine", "*viewport_engine")) {
+			for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_VIEW3D) {
+							View3D *v3d = (View3D *)sl;
+							v3d->viewport_engine = VP_engine_create(ViewportEngineTypes.first);
 						}
 					}
 				}

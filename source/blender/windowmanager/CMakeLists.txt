@@ -40,6 +40,7 @@ set(INC
 	../makesrna
 	../nodes
 	../render/extern/include
+	../viewport
 	../../gameengine/BlenderRoutines
 	../../../intern/ghost
 	../../../intern/guardedalloc

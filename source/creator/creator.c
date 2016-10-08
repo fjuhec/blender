@@ -73,6 +73,8 @@
 
 #include "ED_datafiles.h"
 
+#include "VP_engine.h"
+
 #include "WM_api.h"
 
 #include "RNA_define.h"
@@ -400,6 +402,7 @@ int main(
 	RNA_init();
 
 	RE_engines_init();
+	VP_enginetypes_init();
 	init_nodesystem();
 	/* end second init */
 

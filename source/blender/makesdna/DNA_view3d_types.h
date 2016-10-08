@@ -149,6 +149,11 @@ typedef struct RegionView3D {
 	struct GPUFX *compositor;
 } RegionView3D;
 
+typedef struct ViewportEngine {
+	struct ViewportEngineType *type;
+	void *pad;
+} ViewportEngine;
+
 /* 3D ViewPort Struct */
 typedef struct View3D {
 	struct SpaceLink *next, *prev;
@@ -156,6 +161,8 @@ typedef struct View3D {
 	int spacetype;
 	float blockscale;
 	short blockhandler[8];
+
+	ViewportEngine *viewport_engine;
 
 	float viewquat[4]  DNA_DEPRECATED;
 	float dist         DNA_DEPRECATED;

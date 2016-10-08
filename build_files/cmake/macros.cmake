@@ -594,6 +594,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_editor_io
 
 		bf_render
+		bf_viewport
 		bf_python
 		bf_python_ext
 		bf_python_mathutils

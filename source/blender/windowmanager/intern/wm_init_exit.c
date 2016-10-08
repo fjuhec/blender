@@ -91,6 +91,8 @@
 
 #include "RNA_define.h"
 
+#include "VP_engine_API.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -505,7 +507,10 @@ void WM_exit_ext(bContext *C, const bool do_python)
 	/* render code might still access databases */
 	RE_FreeAllRender();
 	RE_engines_exit();
-	
+
+	/* viewport engines */
+	VP_enginetypes_exit();
+
 	ED_preview_free_dbase();  /* frees a Main dbase, before BKE_blender_free! */
 
 	if (C && wm)

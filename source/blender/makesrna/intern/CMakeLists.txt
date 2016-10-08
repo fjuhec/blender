@@ -348,6 +348,7 @@ blender_include_dirs(
 	../../windowmanager
 	../../editors/include
 	../../render/extern/include
+	../../viewport
 	../../../../intern/cycles/blender
 	../../../../intern/guardedalloc
 	../../../../intern/glew-mx
