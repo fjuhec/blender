@@ -468,6 +468,7 @@ static SpaceLink *view3d_duplicate(SpaceLink *sl)
 
 	v3dn->defmaterial = NULL;
 
+	v3dn->viewport_engine = MEM_dupallocN(v3do->viewport_engine);
 	BLI_duplicatelist(&v3dn->bgpicbase, &v3do->bgpicbase);
 	for (bgpic = v3dn->bgpicbase.first; bgpic; bgpic = bgpic->next) {
 		if (bgpic->source == V3D_BGPIC_IMAGE) {
