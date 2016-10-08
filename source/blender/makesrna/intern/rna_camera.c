@@ -44,11 +44,16 @@
 
 #include "WM_api.h"
 
-static int rna_camera_stereo_use_device_ipd_editeable(PointerRNA *ptr, const char **UNUSED(r_info))
+static int rna_camera_stereo_use_device_ipd_editeable(PointerRNA *ptr, const char **r_info)
 {
 #ifdef WITH_INPUT_HMD
 	if (U.hmd_device == -1 || WM_device_HMD_IPD_get() == -1) {
 		Camera *cam = ptr->id.data;
+
+		*r_info = (U.hmd_device == -1) ?
+		              "No valid HMD device selected (see User Preferences)" :
+		              "Active HMD device doesn't return valid interocular distance";
+
 		cam->stereo.flag |= CAM_S3D_CUSTOM_IPD;
 		return false;
 	}
