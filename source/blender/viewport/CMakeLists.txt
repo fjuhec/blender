@@ -18,19 +18,36 @@
 
 set(INC
 	.
+	intern
+	../blenkernel
 	../blenlib
 	../blentranslation
+	../editors/include
+	../gpu
 	../makesdna
+	../makesrna
+	../render/extern/include
+	../windowmanager
 	../../../intern/guardedalloc
+	../../../intern/glew-mx
 )
 
 set(INC_SYS
+	${GLEW_INCLUDE_PATH}
 )
 
 set(SRC
+	intern/blender_viewport/blender_viewport.c
 	intern/engine_api.c
 
+	intern/viewport_intern.h
 	VP_engine_API.h
 )
+
+add_definitions(${GL_DEFINITIONS})
+
+if(WITH_INTERNATIONAL)
+	add_definitions(-DWITH_INTERNATIONAL)
+endif()
 
 blender_add_lib(bf_viewport "${SRC}" "${INC}" "${INC_SYS}")

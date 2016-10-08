@@ -73,7 +73,7 @@
 
 #include "ED_datafiles.h"
 
-#include "VP_engine.h"
+#include "VP_engine_API.h"
 
 #include "WM_api.h"
 

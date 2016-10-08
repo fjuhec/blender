@@ -27,6 +27,8 @@
 
 #include <stddef.h>
 
+#include "BKE_context.h"
+
 #include "BLI_listbase.h"
 
 #include "BLT_translation.h"
@@ -35,6 +37,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "viewport_intern.h"
 #include "VP_engine_API.h"
 
 
@@ -43,22 +46,19 @@
  *
  * \{ */
 
-static ViewportEngineType internal_viewport = {
-	NULL, NULL,
-	"BLENDER_VIEWPORT", N_("Modern Viewport"), /* TODO temp name */
-};
-
 /* TODO Keeping old viewport only during transition */
+extern void view3d_main_region_draw_legacy(const bContext *C);
 static ViewportEngineType old_viewport = {
 	NULL, NULL,
-	"OLD_VIEWPORT", N_("Old Viewport"),
+	"LEGACY_VIEWPORT", N_("Legacy Viewport"),
+	view3d_main_region_draw_legacy,
 };
 
 ListBase ViewportEngineTypes = {NULL};
 
 void VP_enginetypes_init(void)
 {
-	BLI_addtail(&ViewportEngineTypes, &internal_viewport);
+	BLI_addtail(&ViewportEngineTypes, &vp_blender_viewport);
 	BLI_addtail(&ViewportEngineTypes, &old_viewport);
 }
 
@@ -94,6 +94,11 @@ ViewportEngine *VP_engine_create(ViewportEngineType *engine_type)
 void VP_engine_free(ViewportEngine *engine)
 {
 	MEM_freeN(engine);
+}
+
+void VP_engine_render(const ViewportEngine *engine, const bContext *C)
+{
+	engine->type->draw(C);
 }
 
 /** \} */ /* ViewportEngine */

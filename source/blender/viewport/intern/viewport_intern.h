@@ -18,39 +18,13 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file VP_engine_API.h
+/** \file blender/viewport/intern/viewport_intern.h
  *  \ingroup viewport
  */
 
-#ifndef __VP_ENGINE_H__
-#define __VP_ENGINE_H__
+#ifndef __VIEWPORT_INTERN_H__
+#define __VIEWPORT_INTERN_H__
 
-#include "BLI_compiler_attrs.h"
+extern struct ViewportEngineType vp_blender_viewport;
 
-#include "DNA_listBase.h"
-
-struct bContext;
-struct ViewportEngine;
-
-extern ListBase ViewportEngineTypes;
-
-typedef struct ViewportEngineType {
-	struct ViewportEngineType *next, *prev;
-
-	char idname[64];
-	char name[64]; /* MAX_NAME */
-
-	void (*draw)(const struct bContext *C);
-} ViewportEngineType;
-
-/* Engine Types */
-void VP_enginetypes_init(void);
-void VP_enginetypes_exit(void);
-
-/* Engines */
-struct ViewportEngine *VP_engine_create(ViewportEngineType *engine_type) ATTR_NONNULL();
-void VP_engine_free(struct ViewportEngine *engine) ATTR_NONNULL();
-
-void VP_engine_render(const struct ViewportEngine *engine, const struct bContext *C);
-
-#endif /* __VP_ENGINE_H__ */
+#endif /* __VIEWPORT_INTERN_H__ */

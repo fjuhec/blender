@@ -3569,10 +3569,11 @@ static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
 	}
 }
 
-void view3d_main_region_draw_legacy(const bContext *C, ARegion *ar)
+void view3d_main_region_draw_legacy(const bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
+	ARegion *ar = CTX_wm_region(C);
 	const char *grid_unit = NULL;
 	rcti border_rect;
 	bool render_border, clip_border;

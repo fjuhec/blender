@@ -4,7 +4,7 @@
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version. 
+ * of the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,20 +15,17 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- *
- * 
- * Contributor(s): Blender Foundation
- *
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_draw.c
- *  \ingroup spview3d
+/** \file blender/viewport/intern/blender_viewport/blender_viewport.c
+ *  \ingroup viewport
+ *
+ * \brief Blender Internal Viewport Engine
  */
 
-#include <math.h>
+#include <stddef.h>
+#include <string.h>
 
 #include "BIF_gl.h"
 
@@ -37,9 +34,12 @@
 #include "BKE_scene.h"
 #include "BKE_unit.h"
 
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_rect.h"
 #include "BLI_threads.h"
+
+#include "BLT_translation.h"
 
 #include "DNA_camera_types.h"
 #include "DNA_mesh_types.h"
@@ -48,18 +48,28 @@
 #include "DNA_windowmanager_types.h"
 
 #include "ED_screen.h"
+#include "ED_view3d.h"
 
 #include "GPU_immediate.h"
 
-#include "UI_resources.h"
+#include "MEM_guardedalloc.h"
 
 #include "RE_engine.h"
 
+#include "UI_resources.h"
+
+#include "viewport_intern.h"
 #include "VP_engine_API.h"
 
 #include "WM_api.h"
 
-#include "view3d_intern.h"  /* own include */
+static void blender_viewport_engine_draw(const bContext *C);
+
+ViewportEngineType vp_blender_viewport = {
+	NULL, NULL,
+	"BLENDER_VIEWPORT", N_("Modern Viewport"), /* TODO temp name */
+	blender_viewport_engine_draw,
+};
 
 typedef struct DrawData {
 	rcti border_rect;
@@ -68,8 +78,20 @@ typedef struct DrawData {
 	bool is_render;
 } DrawData;
 
+static void viewport_draw_data_init(const bContext *C, ARegion *ar, DrawData *draw_data)
+{
+	Scene *scene = CTX_data_scene(C);
+	View3D *v3d = CTX_wm_view3d(C);
+
+	draw_data->is_render = (v3d->drawtype == OB_RENDER);
+
+	draw_data->render_border = ED_view3d_calc_render_border(scene, v3d, ar, &draw_data->border_rect);
+	draw_data->clip_border = (draw_data->render_border && !BLI_rcti_compare(&ar->drawrct, &draw_data->border_rect));
+}
+
 /* ******************** general functions ***************** */
 
+#if 0
 static bool use_depth_doit(Scene *scene, View3D *v3d)
 {
 	if (v3d->drawtype > OB_WIRE)
@@ -87,68 +109,13 @@ static bool use_depth_doit(Scene *scene, View3D *v3d)
 	return false;
 }
 
-/**
- * \note keep this synced with #ED_view3d_mats_rv3d_backup/#ED_view3d_mats_rv3d_restore
- */
-void ED_view3d_update_viewmat(Scene *scene, View3D *v3d, ARegion *ar, float viewmat[4][4], float winmat[4][4])
+static bool use_depth(const bContext *C)
 {
-	RegionView3D *rv3d = ar->regiondata;
-	rctf cameraborder;
-
-	/* setup window matrices */
-	if (winmat)
-		copy_m4_m4(rv3d->winmat, winmat);
-	else
-		view3d_winmatrix_set(ar, v3d, NULL);
-
-	/* setup view matrix */
-	if (viewmat)
-		copy_m4_m4(rv3d->viewmat, viewmat);
-	else
-		view3d_viewmatrix_set(scene, v3d, rv3d);  /* note: calls BKE_object_where_is_calc for camera... */
-
-	/* update utilitity matrices */
-	mul_m4_m4m4(rv3d->persmat, rv3d->winmat, rv3d->viewmat);
-	invert_m4_m4(rv3d->persinv, rv3d->persmat);
-	invert_m4_m4(rv3d->viewinv, rv3d->viewmat);
-
-	/* calculate GLSL view dependent values */
-
-	/* store window coordinates scaling/offset */
-	if (rv3d->persp == RV3D_CAMOB && v3d->camera) {
-		ED_view3d_calc_camera_border(scene, ar, v3d, rv3d, &cameraborder, false);
-		rv3d->viewcamtexcofac[0] = (float)ar->winx / BLI_rctf_size_x(&cameraborder);
-		rv3d->viewcamtexcofac[1] = (float)ar->winy / BLI_rctf_size_y(&cameraborder);
-
-		rv3d->viewcamtexcofac[2] = -rv3d->viewcamtexcofac[0] * cameraborder.xmin / (float)ar->winx;
-		rv3d->viewcamtexcofac[3] = -rv3d->viewcamtexcofac[1] * cameraborder.ymin / (float)ar->winy;
-	}
-	else {
-		rv3d->viewcamtexcofac[0] = rv3d->viewcamtexcofac[1] = 1.0f;
-		rv3d->viewcamtexcofac[2] = rv3d->viewcamtexcofac[3] = 0.0f;
-	}
-
-	/* calculate pixelsize factor once, is used for lamps and obcenters */
-	{
-		/* note:  '1.0f / len_v3(v1)'  replaced  'len_v3(rv3d->viewmat[0])'
-		* because of float point precision problems at large values [#23908] */
-		float v1[3], v2[3];
-		float len_px, len_sc;
-
-		v1[0] = rv3d->persmat[0][0];
-		v1[1] = rv3d->persmat[1][0];
-		v1[2] = rv3d->persmat[2][0];
-
-		v2[0] = rv3d->persmat[0][1];
-		v2[1] = rv3d->persmat[1][1];
-		v2[2] = rv3d->persmat[2][1];
-
-		len_px = 2.0f / sqrtf(min_ff(len_squared_v3(v1), len_squared_v3(v2)));
-		len_sc = (float)MAX2(ar->winx, ar->winy);
-
-		rv3d->pixsize = len_px / len_sc;
-	}
+	View3D *v3d = CTX_wm_view3d(C);
+	Scene *scene = CTX_data_scene(C);
+	return use_depth_doit(scene, v3d);
 }
+#endif
 
 static void view3d_main_region_setup_view(Scene *scene, View3D *v3d, ARegion *ar, float viewmat[4][4], float winmat[4][4])
 {
@@ -239,6 +206,132 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
 		v3d->camera = view_ob;
 		BLI_unlock_thread(LOCK_VIEW3D);
 	}
+}
+
+/* ******************** offline engine ***************** */
+
+static bool view3d_draw_render_draw(const bContext *C, Scene *scene,
+	ARegion *ar, View3D *v3d,
+	bool clip_border, const rcti *border_rect)
+{
+	RegionView3D *rv3d = ar->regiondata;
+	RenderEngineType *type;
+	GLint scissor[4];
+
+	/* create render engine */
+	if (!rv3d->render_engine) {
+		RenderEngine *engine;
+
+		type = RE_engines_find(scene->r.engine);
+
+		if (!(type->view_update && type->view_draw))
+			return false;
+
+		engine = RE_engine_create_ex(type, true);
+
+		engine->tile_x = scene->r.tilex;
+		engine->tile_y = scene->r.tiley;
+
+		type->view_update(engine, C);
+
+		rv3d->render_engine = engine;
+	}
+
+	/* background draw */
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	ED_region_pixelspace(ar);
+
+	if (clip_border) {
+		/* for border draw, we only need to clear a subset of the 3d view */
+		if (border_rect->xmax > border_rect->xmin && border_rect->ymax > border_rect->ymin) {
+			glGetIntegerv(GL_SCISSOR_BOX, scissor);
+			glScissor(border_rect->xmin, border_rect->ymin,
+				BLI_rcti_size_x(border_rect), BLI_rcti_size_y(border_rect));
+		}
+		else {
+			return false;
+		}
+	}
+
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	/* don't change depth buffer */
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	/* render result draw */
+	type = rv3d->render_engine->type;
+	type->view_draw(rv3d->render_engine, C);
+
+	if (clip_border) {
+		/* restore scissor as it was before */
+		glScissor(scissor[0], scissor[1], scissor[2], scissor[3]);
+	}
+
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
+
+	return true;
+}
+
+/* ******************** solid plates ***************** */
+
+/**
+ *
+ */
+static void view3d_draw_background(const bContext *C)
+{
+	/* TODO viewport */
+	UI_ThemeClearColor(TH_HIGH_GRAD);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+#if 0
+/**
+ *
+ */
+static void view3d_draw_render_solid_surfaces(const bContext *C, ARegion *ar, const bool run_screen_shaders)
+{
+	/* TODO viewport */
+	draw_all_objects(C, ar, false, use_depth(C));
+}
+#endif
+
+/**
+ *
+ */
+static void view3d_draw_render_transparent_surfaces(const bContext *C)
+{
+	/* TODO viewport */
+}
+
+/**
+ *
+ */
+static void view3d_draw_post_draw(const bContext *C)
+{
+	/* TODO viewport */
+}
+
+/* ******************** geometry overlay ***************** */
+
+/**
+ * Front/back wire frames
+ */
+static void view3d_draw_wire_plates(const bContext *C)
+{
+	/* TODO viewport */
+}
+
+/**
+ * Special treatment for selected objects
+ */
+static void view3d_draw_outline_plates(const bContext *C)
+{
+	/* TODO viewport */
 }
 
 /* ******************** other elements ***************** */
@@ -702,75 +795,215 @@ static void drawfloor(Scene *scene, View3D *v3d, const char **grid_unit, bool wr
 	}
 }
 
-/** could move this elsewhere, but tied into #ED_view3d_grid_scale */
-float ED_scene_grid_scale(Scene *scene, const char **grid_unit)
+/**
+ *
+ */
+static void view3d_draw_grid(const bContext *C, ARegion *ar)
 {
-	/* apply units */
-	if (scene->unit.system) {
-		const void *usys;
-		int len;
+	/* TODO viewport
+	 * Missing is the flags to check whether to draw it
+	 * for now now we are using the flags in v3d itself.
+	 *
+	 * Also for now always assume depth is there, so we
+	 * draw on top of it.
+	 */
+	Scene *scene = CTX_data_scene(C);
+	View3D *v3d = CTX_wm_view3d(C);
+	RegionView3D *rv3d = ar->regiondata;
 
-		bUnit_GetSystem(scene->unit.system, B_UNIT_LENGTH, &usys, &len);
+	const bool draw_floor = (rv3d->view == RV3D_VIEW_USER) || (rv3d->persp != RV3D_ORTHO);
+	const char *grid_unit = NULL;
 
-		if (usys) {
-			int i = bUnit_GetBaseUnit(usys);
-			if (grid_unit)
-				*grid_unit = bUnit_GetNameDisplay(usys, i);
-			return (float)bUnit_GetScaler(usys, i) / scene->unit.scale_length;
-		}
+	/* ortho grid goes first, does not write to depth buffer and doesn't need depth test so it will override
+	* objects if done last */
+	/* needs to be done always, gridview is adjusted in drawgrid() now, but only for ortho views. */
+	rv3d->gridview = ED_view3d_grid_scale(scene, v3d, &grid_unit);
+
+	glEnable(GL_DEPTH_TEST);
+
+	if (!draw_floor) {
+		ED_region_pixelspace(ar);
+		*(&grid_unit) = NULL;  /* drawgrid need this to detect/affect smallest valid unit... */
+		drawgrid(&scene->unit, ar, v3d, &grid_unit);
+
+		glMatrixMode(GL_PROJECTION);
+		glLoadMatrixf(rv3d->winmat);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadMatrixf(rv3d->viewmat);
+	}
+	else {
+		drawfloor(scene, v3d, &grid_unit, false);
 	}
 
-	return 1.0f;
-}
-
-float ED_view3d_grid_scale(Scene *scene, View3D *v3d, const char **grid_unit)
-{
-	return v3d->grid * ED_scene_grid_scale(scene, grid_unit);
+	glDisable(GL_DEPTH_TEST);
 }
 
 /* ******************** view loop ***************** */
 
-void view3d_main_region_draw(const bContext *C, ARegion *UNUSED(ar))
+#if 0
+static void draw_all_objects(const bContext *C, ARegion *ar, const bool only_depth, const bool use_depth)
 {
+	Scene *scene = CTX_data_scene(C);
+	View3D *v3d = CTX_wm_view3d(C);
+	Base *base;
+
+	if (only_depth)
+		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+	if (only_depth || use_depth) {
+		glEnable(GL_DEPTH_TEST);
+		v3d->zbuf = true;
+	}
+
+	for (base = scene->base.first; base; base = base->next) {
+		if (v3d->lay & base->lay) {
+			/* dupli drawing */
+			if (base->object->transflag & OB_DUPLI)
+				draw_dupli_objects(scene, ar, v3d, base);
+
+			draw_object(scene, ar, v3d, base, 0);
+		}
+	}
+
+	if (only_depth)
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+	glDisable(GL_DEPTH_TEST);
+}
+
+/**
+ * Draw only the scene depth buffer
+ */
+static void draw_depth_buffer(const bContext *C, ARegion *ar)
+{
+	draw_all_objects(C, ar, true, true);
+}
+#endif
+
+/* ******************** view loop ***************** */
+
+/**
+ * Set the correct matrices
+ */
+static void viewport_draw_setup_view(const bContext *C, ARegion *ar)
+{
+	Scene *scene = CTX_data_scene(C);
+	View3D *v3d = CTX_wm_view3d(C);
+	RegionView3D *rv3d = ar->regiondata;
+
+	/* setup the view matrix */
+	if (view3d_stereo3d_active(C, scene, v3d, rv3d))
+		view3d_stereo3d_setup(scene, v3d, ar);
+	else
+		view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
+}
+
+/**
+ * Required if the shaders need it or external engines
+ * (e.g., Cycles requires depth buffer handled separately).
+ */
+static void viewport_draw_prerender_buffers(const bContext *C, ARegion *ar, DrawData *draw_data)
+{
+	/* TODO viewport */
+	if (draw_data->is_render && (!draw_data->clip_border)) {
+//		draw_depth_buffer(C, ar);
+	}
+}
+
+/**
+ * Draw all the plates that will fill the RGBD buffer
+ */
+static void viewport_draw_solid_plates(const bContext *C, ARegion *ar, DrawData *draw_data)
+{
+	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
 
-	VP_engine_render(v3d->viewport_engine, C);
+	/* realtime plates */
+	if ((!draw_data->is_render) || draw_data->clip_border) {
+		view3d_draw_background(C);
+//		view3d_draw_render_solid_surfaces(C, ar, true);
+		view3d_draw_render_transparent_surfaces(C);
+		view3d_draw_post_draw(C);
+	}
 
-	v3d->flag |= V3D_INVALID_BACKBUF;
+	/* offline plates*/
+	if (draw_data->is_render) {
+		view3d_draw_render_draw(C, scene, ar, v3d, draw_data->clip_border, &draw_data->border_rect);
+	}
 }
 
-/* ******************** legacy interface ***************** */
 /**
- * This will be removed once the viewport gets replaced
- * meanwhile it should keep the old viewport working.
+ * Wires, outline, ...
  */
-
-void VP_legacy_drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **grid_unit)
+static void viewport_draw_geometry_overlay(const bContext *C)
 {
-	drawgrid(unit, ar, v3d, grid_unit);
+	view3d_draw_wire_plates(C);
+	view3d_draw_outline_plates(C);
 }
 
-void VP_legacy_drawfloor(Scene *scene, View3D *v3d, const char **grid_unit, bool write_depth)
+/**
+* Empties, lamps, parent lines, grid, ...
+*/
+static void viewport_draw_other_elements(const bContext *C, ARegion *ar)
 {
-	drawfloor(scene, v3d, grid_unit, write_depth);
+	/* TODO viewport */
+	view3d_draw_grid(C, CTX_wm_region(C));
 }
 
-void VP_legacy_view3d_main_region_setup_view(Scene *scene, View3D *v3d, ARegion *ar, float viewmat[4][4], float winmat[4][4])
+/**
+ * Paint brushes, armatures, ...
+ */
+static void viewport_draw_tool_ui(const bContext *C)
 {
-	view3d_main_region_setup_view(scene, v3d, ar, viewmat, winmat);
+	/* TODO viewport */
 }
 
-bool VP_legacy_view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d, RegionView3D *rv3d)
+/**
+ * Blueprint images
+ */
+static void viewport_draw_reference_images(const bContext *C)
 {
-	return view3d_stereo3d_active(C, scene, v3d, rv3d);
+	/* TODO viewport */
 }
 
-void VP_legacy_view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
+/**
+ * Grease Pencil
+ */
+static void viewport_draw_grease_pencil(const bContext *C)
 {
-	view3d_stereo3d_setup(scene, v3d, ar);
+	/* TODO viewport */
 }
 
-bool VP_legacy_use_depth(Scene *scene, View3D *v3d)
+/**
+ * This could run once per view, or even in parallel
+ * for each of them. What is a "view"?
+ * - a viewport with the camera elsewhere
+ * - left/right stereo
+ * - panorama / fisheye individual cubemap faces
+ */
+static void viewport_draw_view(const bContext *C, ARegion *ar, DrawData *draw_data)
 {
-	return use_depth_doit(scene, v3d);
+	/* TODO - Technically this should be drawn to a few FBO, so we can handle
+	 * compositing better, but for now this will get the ball rolling (dfelinto) */
+
+	viewport_draw_setup_view(C, ar);
+	viewport_draw_prerender_buffers(C, ar, draw_data);
+	viewport_draw_solid_plates(C, ar, draw_data);
+	viewport_draw_geometry_overlay(C);
+	viewport_draw_other_elements(C, ar);
+	viewport_draw_tool_ui(C);
+	viewport_draw_reference_images(C);
+	viewport_draw_grease_pencil(C);
+}
+
+static void blender_viewport_engine_draw(const bContext *C)
+{
+	ARegion *ar = CTX_wm_region(C);
+
+	/* TODO viewport - there is so much to be done, in fact a lot will need to happen in the space_view3d.c
+	 * before we even call the drawing routine, but let's move on for now (dfelinto)
+	 * but this is a provisory way to start seeing things in the viewport */
+	DrawData draw_data;
+	viewport_draw_data_init(C, ar, &draw_data);
+	viewport_draw_view(C, ar, &draw_data);
 }
