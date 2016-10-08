@@ -63,14 +63,17 @@
 
 #include "WM_api.h"
 
-static void blender_viewport_engine_draw(const bContext *C);
+static void blender_viewport_engine_init(ViewportEngineType *engine_type);
+static void blender_viewport_engine_setup_render(ViewportEngine *engine, const bContext *C);
 
 ViewportEngineType vp_blender_viewport = {
 	NULL, NULL,
 	"BLENDER_VIEWPORT", N_("Modern Viewport"), /* TODO temp name */
-	blender_viewport_engine_draw,
+	blender_viewport_engine_init,
+	blender_viewport_engine_setup_render,
 };
 
+/* TODO this could become the RenderData equivalent for viewports (but less messy ;) ) */
 typedef struct DrawData {
 	rcti border_rect;
 	bool render_border;
@@ -880,30 +883,13 @@ static void draw_depth_buffer(const bContext *C, ARegion *ar)
 }
 #endif
 
-/* ******************** view loop ***************** */
-
-/**
- * Set the correct matrices
- */
-static void viewport_draw_setup_view(const bContext *C, ARegion *ar)
-{
-	Scene *scene = CTX_data_scene(C);
-	View3D *v3d = CTX_wm_view3d(C);
-	RegionView3D *rv3d = ar->regiondata;
-
-	/* setup the view matrix */
-	if (view3d_stereo3d_active(C, scene, v3d, rv3d))
-		view3d_stereo3d_setup(scene, v3d, ar);
-	else
-		view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
-}
-
 /**
  * Required if the shaders need it or external engines
  * (e.g., Cycles requires depth buffer handled separately).
  */
-static void viewport_draw_prerender_buffers(const bContext *C, ARegion *ar, DrawData *draw_data)
+static void viewport_draw_prerender_buffers(const ViewportEngine *engine, const bContext *UNUSED(C))
 {
+	const DrawData *draw_data = engine->render_data;
 	/* TODO viewport */
 	if (draw_data->is_render && (!draw_data->clip_border)) {
 //		draw_depth_buffer(C, ar);
@@ -913,10 +899,11 @@ static void viewport_draw_prerender_buffers(const bContext *C, ARegion *ar, Draw
 /**
  * Draw all the plates that will fill the RGBD buffer
  */
-static void viewport_draw_solid_plates(const bContext *C, ARegion *ar, DrawData *draw_data)
+static void viewport_draw_solid_plates(const ViewportEngine *engine, const bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
+	const DrawData *draw_data = engine->render_data;
 
 	/* realtime plates */
 	if ((!draw_data->is_render) || draw_data->clip_border) {
@@ -928,6 +915,7 @@ static void viewport_draw_solid_plates(const bContext *C, ARegion *ar, DrawData 
 
 	/* offline plates*/
 	if (draw_data->is_render) {
+		ARegion *ar = CTX_wm_region(C);
 		view3d_draw_render_draw(C, scene, ar, v3d, draw_data->clip_border, &draw_data->border_rect);
 	}
 }
@@ -935,7 +923,7 @@ static void viewport_draw_solid_plates(const bContext *C, ARegion *ar, DrawData 
 /**
  * Wires, outline, ...
  */
-static void viewport_draw_geometry_overlay(const bContext *C)
+static void viewport_draw_geometry_overlay(const ViewportEngine *UNUSED(engine), const bContext *C)
 {
 	view3d_draw_wire_plates(C);
 	view3d_draw_outline_plates(C);
@@ -944,7 +932,7 @@ static void viewport_draw_geometry_overlay(const bContext *C)
 /**
 * Empties, lamps, parent lines, grid, ...
 */
-static void viewport_draw_other_elements(const bContext *C, ARegion *ar)
+static void viewport_draw_other_elements(const ViewportEngine *UNUSED(engine), const bContext *C)
 {
 	/* TODO viewport */
 	view3d_draw_grid(C, CTX_wm_region(C));
@@ -953,7 +941,7 @@ static void viewport_draw_other_elements(const bContext *C, ARegion *ar)
 /**
  * Paint brushes, armatures, ...
  */
-static void viewport_draw_tool_ui(const bContext *C)
+static void viewport_draw_tool_ui(const ViewportEngine *UNUSED(engine), const bContext *UNUSED(C))
 {
 	/* TODO viewport */
 }
@@ -961,7 +949,7 @@ static void viewport_draw_tool_ui(const bContext *C)
 /**
  * Blueprint images
  */
-static void viewport_draw_reference_images(const bContext *C)
+static void viewport_draw_reference_images(const ViewportEngine *UNUSED(engine), const bContext *UNUSED(C))
 {
 	/* TODO viewport */
 }
@@ -969,41 +957,59 @@ static void viewport_draw_reference_images(const bContext *C)
 /**
  * Grease Pencil
  */
-static void viewport_draw_grease_pencil(const bContext *C)
+static void viewport_draw_grease_pencil(const ViewportEngine *UNUSED(engine), const bContext *UNUSED(C))
 {
 	/* TODO viewport */
 }
 
-/**
- * This could run once per view, or even in parallel
- * for each of them. What is a "view"?
- * - a viewport with the camera elsewhere
- * - left/right stereo
- * - panorama / fisheye individual cubemap faces
- */
-static void viewport_draw_view(const bContext *C, ARegion *ar, DrawData *draw_data)
-{
-	/* TODO - Technically this should be drawn to a few FBO, so we can handle
-	 * compositing better, but for now this will get the ball rolling (dfelinto) */
+static ViewportDrawPlate default_plates[] = {
+	{NULL, NULL, "PRERENDER_BUFFERS", viewport_draw_prerender_buffers},
+	{NULL, NULL, "SOLID_PLATES",      viewport_draw_solid_plates},
+	{NULL, NULL, "GEOMETRY_OVERLAY",  viewport_draw_geometry_overlay},
+	{NULL, NULL, "OTHER_ELEMENTS",    viewport_draw_other_elements},
+	{NULL, NULL, "TOOL_UI",           viewport_draw_tool_ui},
+	{NULL, NULL, "REFERENCE_IMAGES",  viewport_draw_reference_images},
+	{NULL, NULL, "GREASE_PENCIL",     viewport_draw_grease_pencil},
+	{NULL}
+};
 
-	viewport_draw_setup_view(C, ar);
-	viewport_draw_prerender_buffers(C, ar, draw_data);
-	viewport_draw_solid_plates(C, ar, draw_data);
-	viewport_draw_geometry_overlay(C);
-	viewport_draw_other_elements(C, ar);
-	viewport_draw_tool_ui(C);
-	viewport_draw_reference_images(C);
-	viewport_draw_grease_pencil(C);
+static void draw_mode_add_default_plates(ViewportDrawMode *mode)
+{
+	for (ViewportDrawPlate *plate = &default_plates[0]; plate->idname; plate++) {
+		BLI_addtail(&mode->drawplates, plate);
+	}
 }
 
-static void blender_viewport_engine_draw(const bContext *C)
+static void blender_viewport_engine_init(ViewportEngineType *engine_type)
 {
-	ARegion *ar = CTX_wm_region(C);
+	ViewportDrawMode *defaultmode = MEM_callocN(sizeof(*defaultmode), "Blender viewport default plates");
+	draw_mode_add_default_plates(defaultmode);
+	BLI_addtail(&engine_type->drawmodes, defaultmode);
+}
 
+/**
+ * Set the correct matrices
+ */
+static void blender_viewport_engine_setup_render(ViewportEngine *engine, const bContext *C)
+{
 	/* TODO viewport - there is so much to be done, in fact a lot will need to happen in the space_view3d.c
 	 * before we even call the drawing routine, but let's move on for now (dfelinto)
 	 * but this is a provisory way to start seeing things in the viewport */
-	DrawData draw_data;
-	viewport_draw_data_init(C, ar, &draw_data);
-	viewport_draw_view(C, ar, &draw_data);
+	Scene *scene = CTX_data_scene(C);
+	ARegion *ar = CTX_wm_region(C);
+	View3D *v3d = CTX_wm_view3d(C);
+	RegionView3D *rv3d = ar->regiondata;
+	DrawData *draw_data = engine->render_data;
+
+	/* setup the view matrix */
+	if (view3d_stereo3d_active(C, scene, v3d, rv3d))
+		view3d_stereo3d_setup(scene, v3d, ar);
+	else
+		view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
+
+	if (!draw_data) {
+		draw_data = MEM_callocN(sizeof(*draw_data), __func__);
+		engine->render_data = draw_data;
+	}
+	viewport_draw_data_init(C, ar, draw_data);
 }

@@ -151,7 +151,7 @@ typedef struct RegionView3D {
 
 typedef struct ViewportEngine {
 	struct ViewportEngineType *type;
-	void *pad;
+	void *render_data; /* void pointer for storing render data for now, could become own struct */
 } ViewportEngine;
 
 /* 3D ViewPort Struct */

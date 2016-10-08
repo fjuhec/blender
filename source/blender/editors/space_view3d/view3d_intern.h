@@ -46,6 +46,7 @@ struct bContext;
 struct bMotionPath;
 struct bPoseChannel;
 struct Mesh;
+struct ViewportEngine;
 struct wmOperatorType;
 struct wmWindowManager;
 struct wmKeyConfig;
@@ -195,7 +196,7 @@ void draw_sim_debug_data(Scene *scene, View3D *v3d, ARegion *ar);
 void view3d_main_region_draw(const struct bContext *C, struct ARegion *ar);
 
 /* view3d_draw_legacy.c */
-void view3d_main_region_draw_legacy(const struct bContext *C);
+void view3d_main_region_draw_legacy(const struct ViewportEngine *engine, const struct bContext *C);
 void ED_view3d_draw_depth(Scene *scene, struct ARegion *ar, View3D *v3d, bool alphaoverride);
 void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d);
 void ED_view3d_after_add(ListBase *lb, Base *base, const short dflag);
