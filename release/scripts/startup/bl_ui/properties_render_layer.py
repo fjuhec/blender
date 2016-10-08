@@ -199,6 +199,7 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
         scene = context.scene
         rd = scene.render
         rv = rd.views.active
+        wm = context.window_manager
 
         layout.active = rd.use_multiview
         basic_stereo = rd.views_format == 'STEREO_3D'
@@ -224,23 +225,24 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
             row = layout.row()
             row.label(text="Camera Suffix:")
             row.prop(rv, "camera_suffix", text="")
-        else:
-            wm = context.window_manager
 
-            running = scene.hmd_running
-            text_win = "Close HMD Window" if wm.has_hmd_window else "Open HMD Window"
-            text_run = "Stop Session" if running else "Start Session"
-            icon = 'PAUSE' if running else 'PLAY'
+        running = scene.hmd_running
+        text_win = "Close HMD Window" if wm.has_hmd_window else "Open HMD Window"
+        text_run = "Stop Session" if running else "Start Session"
+        icon = 'PAUSE' if running else 'PLAY'
 
-            col = layout.column()
+        layout.separator()
+        layout.label(text="HMD View:")
 
-            row = col.row(align=True)
-            row.operator("wm.hmd_view_toggle", text=text_win)
-            row.operator("wm.hmd_session_run", text=text_run, icon=icon)
+        col = layout.column()
 
-            col.prop(rd, "hmd_camlock")
-            col.prop(rd, "use_hmd_view_lensdist", text="Lens Distortion")
-            col.prop(rd, "hmd_view_shade", text="Shading")
+        row = col.row(align=True)
+        row.operator("wm.hmd_view_toggle", text=text_win)
+        row.operator("wm.hmd_session_run", text=text_run, icon=icon)
+
+        col.prop(rd, "hmd_camlock")
+        col.prop(rd, "use_hmd_view_lensdist", text="Lens Distortion")
+        col.prop(rd, "hmd_view_shade", text="Shading")
 
 
 if __name__ == "__main__":  # only for live edit.

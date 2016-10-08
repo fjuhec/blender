@@ -143,7 +143,7 @@ class DATA_PT_camera_stereoscopy(CameraButtonsPanel, Panel):
     def poll(cls, context):
         render = context.scene.render
         return (super().poll(context) and render.use_multiview and
-                render.views_format in {'STEREO_3D', 'HMD'})
+                render.views_format == 'STEREO_3D')
 
     def draw(self, context):
         layout = self.layout
@@ -156,31 +156,31 @@ class DATA_PT_camera_stereoscopy(CameraButtonsPanel, Panel):
         is_spherical_stereo = cam.type != 'ORTHO' and render.use_spherical_stereo
         use_spherical_stereo = is_spherical_stereo and st.use_spherical_stereo
 
-        if render.views_format == 'HMD':
-            col.prop(st, "use_device_ipd")
-            subcol = col.column()
-            subcol.active = not st.use_device_ipd
-            subcol.prop(st, "interocular_distance")
-        else:
-            col.row().prop(st, "convergence_mode", expand=True)
+        col.prop(st, "use_device_ipd")
+        subcol = col.column()
+        subcol.active = not st.use_device_ipd
+        # TODO needs own property for HMD IPD
+        # subcol.prop(st, "interocular_distance")
 
-            sub = col.column()
-            sub.active = st.convergence_mode != 'PARALLEL'
-            sub.prop(st, "convergence_distance")
+        col.row().prop(st, "convergence_mode", expand=True)
 
-            col.prop(st, "interocular_distance")
+        sub = col.column()
+        sub.active = st.convergence_mode != 'PARALLEL'
+        sub.prop(st, "convergence_distance")
 
-            if is_spherical_stereo:
-                col.separator()
-                row = col.row()
-                row.prop(st, "use_spherical_stereo")
-                sub = row.row()
-                sub.active = st.use_spherical_stereo
-                sub.prop(st, "use_pole_merge")
-                row = col.row(align=True)
-                row.active = st.use_pole_merge
-                row.prop(st, "pole_merge_angle_from")
-                row.prop(st, "pole_merge_angle_to")
+        col.prop(st, "interocular_distance")
+
+        if is_spherical_stereo:
+            col.separator()
+            row = col.row()
+            row.prop(st, "use_spherical_stereo")
+            sub = row.row()
+            sub.active = st.use_spherical_stereo
+            sub.prop(st, "use_pole_merge")
+            row = col.row(align=True)
+            row.active = st.use_pole_merge
+            row.prop(st, "pole_merge_angle_from")
+            row.prop(st, "pole_merge_angle_to")
 
         col.label(text="Pivot:")
         row = col.row()

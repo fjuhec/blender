@@ -5838,9 +5838,6 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 		                        "Single stereo camera system, adjust the stereo settings in the camera panel"},
 		{SCE_VIEWS_FORMAT_MULTIVIEW, "MULTIVIEW", 0, "Multi-View",
 		                        "Multi camera system, adjust the cameras individually"},
-#ifdef WITH_INPUT_HMD
-		{SCE_VIEWS_FORMAT_HMD, "HMD", 0, "HMD View", "Side-by-Side view for head mounted displays (virtual reality)"},
-#endif
 		{0, NULL, 0, NULL, NULL}
 	};
 

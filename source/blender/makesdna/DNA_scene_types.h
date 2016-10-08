@@ -308,7 +308,6 @@ typedef struct SceneRenderView {
 enum {
 	SCE_VIEWS_FORMAT_STEREO_3D = 0,
 	SCE_VIEWS_FORMAT_MULTIVIEW = 1,
-	SCE_VIEWS_FORMAT_HMD       = 2,
 };
 
 /* ImageFormatData.views_output */
