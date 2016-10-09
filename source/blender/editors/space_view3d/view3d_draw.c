@@ -4063,7 +4063,8 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	bool render_border, clip_border;
 	const bool is_hmd_view =
 #ifdef WITH_INPUT_HMD
-	        ((CTX_wm_manager(C)->win_hmd == CTX_wm_window(C)) && (scene->flag & SCE_HMD_RUNNING));
+	        ((CTX_wm_manager(C)->win_hmd == CTX_wm_window(C)) &&
+	         (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING));
 #else
 	        false;
 #endif

@@ -240,9 +240,9 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
         row.operator("wm.hmd_view_toggle", text=text_win)
         row.operator("wm.hmd_session_run", text=text_run, icon=icon)
 
-        col.prop(rd, "hmd_camlock")
-        col.prop(rd, "use_hmd_view_lensdist", text="Lens Distortion")
-        col.prop(rd, "hmd_view_shade", text="Shading")
+        col.prop(scene, "hmd_camlock")
+        col.prop(scene, "use_hmd_view_lensdist", text="Lens Distortion")
+        col.prop(scene, "hmd_view_shade", text="Shading")
 
 
 if __name__ == "__main__":  # only for live edit.

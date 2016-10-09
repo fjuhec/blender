@@ -420,7 +420,7 @@ bool GPU_fx_compositor_initialize_passes(
 	if (fx_flag & GPU_FX_FLAG_SSAO)
 		num_passes++;
 
-    if (fx_flag & GPU_FX_FLAG_LensDist)
+	if (fx_flag & GPU_FX_FLAG_LensDist)
 		num_passes++;
 
 	if (!fx->gbuffer) {

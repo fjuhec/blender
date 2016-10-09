@@ -766,11 +766,7 @@ typedef struct RenderData {
 	ListBase views;  /* SceneRenderView */
 	short actview;
 	short views_format;
-	char pad8[2];
-
-	/* HMD */
-	char hmd_view_shade;
-	char hmd_fx_flags; /* eGPUFXFlags */
+	int pad8;
 
 	/* Motion blur shutter */
 	struct CurveMapping mblur_shutter_curve;
@@ -1569,6 +1565,25 @@ typedef struct DisplaySafeAreas {
 	float action_center[2];
 } DisplaySafeAreas;
 
+/* ------------------------------------------- */
+/* HMD View Settings */
+
+/**
+ * Settings that will be applied to the already opened HMD view or when opening one.
+ */
+struct HMDViewSettings {
+	char view_shade; /* rna_enum_viewport_shade_items */
+	char flag;
+	char pad[2];
+};
+
+/* HMDViewSettings.flag */
+enum {
+	HMDVIEW_SESSION_RUNNING = (1 << 0),
+	HMDVIEW_IGNORE_ROT      = (1 << 1),
+	HMDVIEW_USE_LENSDIST_FX = (1 << 2),
+};
+
 /* *************************************************************** */
 /* Scene ID-Block */
 
@@ -1660,6 +1675,9 @@ typedef struct Scene {
 	struct RigidBodyWorld *rigidbody_world;
 
 	struct PreviewImage *preview;
+
+	struct HMDViewSettings hmd_settings;
+	int pad2;
 } Scene;
 
 /* **************** RENDERDATA ********************* */
@@ -1670,7 +1688,6 @@ typedef struct Scene {
 #define SCER_LOCK_FRAME_SELECTION (1 << 1)
 	/* timeline/keyframe jumping - only selected items (on by default) */
 #define SCE_KEYS_NO_SELONLY       (1 << 2)
-#define SCE_HMD_RUNNING           (1 << 3)
 
 /* mode (int now) */
 #define R_OSA			0x0001
@@ -1767,7 +1784,6 @@ typedef struct Scene {
 #define R_VIEWPORT_PREVIEW	0x80000
 #define R_EXR_CACHE_FILE	0x100000
 #define R_MULTIVIEW			0x200000
-#define R_HMD_IGNORE_ROT	0x400000
 
 /* r->stamp */
 #define R_STAMP_TIME 	0x0001

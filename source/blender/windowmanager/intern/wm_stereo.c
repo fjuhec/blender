@@ -311,7 +311,7 @@ void wm_method_draw_stereo3d(const bContext *C, wmWindow *win)
 	Scene *scene = CTX_data_scene(C);
 	wmWindowManager *wm = CTX_wm_manager(C);
 
-	if (wm->win_hmd == win && scene->flag & SCE_HMD_RUNNING) {
+	if (wm->win_hmd == win && scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING) {
 		wm_method_draw_stereo3d_hmd(win);
 		return;
 	}
@@ -350,7 +350,7 @@ static bool wm_stereo3d_quadbuffer_supported(void)
 #ifdef WITH_INPUT_HMD
 BLI_INLINE bool wm_stereo3d_is_hmd_enabled(wmWindowManager *wm, wmWindow *win, Scene *scene)
 {
-	return ((wm->win_hmd == win) && (scene->flag & SCE_HMD_RUNNING));
+	return ((wm->win_hmd == win) && (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING));
 }
 #endif /* WITH_INPUT_HMD */
 

@@ -4155,7 +4155,7 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	/* close */
 	if ((win = wm->win_hmd)) {
 		Scene *sc = CTX_data_scene(C);
-		sc->flag &= ~SCE_HMD_RUNNING;
+		sc->hmd_settings.flag &= ~HMDVIEW_SESSION_RUNNING;
 		hmd_view_exit(C, sc);
 		wm_window_close(C, wm, win);
 		wm->win_hmd = NULL;
@@ -4176,8 +4176,8 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		BLI_assert(sa->spacetype == SPACE_VIEW3D);
 		ED_screen_state_toggle(C, win, sa, SCREENFULL);
 		/* sync view options */
-		v3d->drawtype = scene->r.hmd_view_shade;
-		v3d->fx_settings.fx_flag = scene->r.hmd_fx_flags;
+		v3d->drawtype = scene->hmd_settings.view_shade;
+		v3d->fx_settings.fx_flag = scene->hmd_settings.flag;
 	}
 
 	return OPERATOR_FINISHED;
@@ -4202,13 +4202,13 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	Scene *scene = CTX_data_scene(C);
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *hmd_win = wm->win_hmd;
-	const bool was_hmd_running = (scene->flag & SCE_HMD_RUNNING);
+	const bool was_hmd_running = (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING);
 
 	if (!hmd_win) {
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 
-	scene->flag ^= SCE_HMD_RUNNING;
+	scene->hmd_settings.flag ^= HMDVIEW_SESSION_RUNNING;
 	if (was_hmd_running) {
 		hmd_view_exit(C, scene);
 		WM_window_fullscreen_toggle(hmd_win, false, true);
@@ -4270,10 +4270,10 @@ static void WM_OT_hmd_session_toggle(wmOperatorType *ot)
 
 static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HMDOrientationData *data)
 {
-	if (scene->r.scemode & R_HMD_IGNORE_ROT)
+	if (scene->hmd_settings.flag & HMDVIEW_IGNORE_ROT)
 		return;
 	if (!hmd_win) {
-		scene->flag &= ~SCE_HMD_RUNNING;
+		scene->hmd_settings.flag &= ~HMDVIEW_SESSION_RUNNING;
 		return;
 	}
 
@@ -4294,7 +4294,7 @@ static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HM
 static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
 	Scene *scene = CTX_data_scene(C);
-	if ((scene->flag & SCE_HMD_RUNNING) == 0)
+	if ((scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING) == 0)
 		return OPERATOR_CANCELLED; /* no pass through, we don't need to keep that event in queue */
 
 	wmWindowManager *wm = CTX_wm_manager(C);

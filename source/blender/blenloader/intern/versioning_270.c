@@ -1427,10 +1427,10 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 	}
 
 	{
-		if (!DNA_struct_elem_find(fd->filesdna, "RenderData", "char", "hmd_view_shade")) {
+		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "HMDViewSettings", "hmd_settings")) {
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-				scene->r.hmd_view_shade = OB_MATERIAL;
-				scene->r.hmd_fx_flags |= GPU_FX_FLAG_LensDist;
+				scene->hmd_settings.view_shade = OB_MATERIAL;
+				scene->hmd_settings.flag |= HMDVIEW_USE_LENSDIST_FX;
 			}
 		}
 	}
