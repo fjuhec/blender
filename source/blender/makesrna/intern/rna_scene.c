@@ -743,7 +743,7 @@ static void rna_Scene_hmd_camlock_update(
 
 static void rna_Scene_hmd_view_shade_set(PointerRNA *ptr, int value)
 {
-	Scene *scene = (Scene *)ptr->data;
+	Scene *scene = ptr->data;
 	wmWindowManager *wm = G.main->wm.first;
 	wmWindow *win = wm->win_hmd;
 
@@ -763,7 +763,7 @@ static void rna_Scene_hmd_view_shade_set(PointerRNA *ptr, int value)
 
 static void rna_Scene_hmd_view_lensdist_set(PointerRNA *ptr, int value)
 {
-	Scene *scene = (Scene *)ptr->data;
+	Scene *scene = ptr->data;
 	wmWindowManager *wm = G.main->wm.first;
 	wmWindow *win = wm->win_hmd;
 
@@ -789,6 +789,23 @@ static void rna_Scene_hmd_view_lensdist_set(PointerRNA *ptr, int value)
 			}
 		}
 	}
+}
+
+static int rna_Scene_use_hmd_device_ipd_editeable(PointerRNA *ptr, const char **r_info)
+{
+
+	if (U.hmd_device == -1 || WM_device_HMD_IPD_get() == -1) {
+		Scene *scene = ptr->data;
+
+		*r_info = (U.hmd_device == -1) ?
+		              "No valid HMD device selected (see User Preferences)" :
+		              "Active HMD device doesn't return valid interocular distance";
+
+		scene->hmd_settings.flag |= HMDVIEW_USE_DEVICE_IPD;
+		return false;
+	}
+
+	return PROP_EDITABLE;
 }
 #endif /* WITH_INPUT_HMD */
 
@@ -7358,6 +7375,21 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "hmd_settings.flag", HMDVIEW_USE_LENSDIST_FX);
 	RNA_def_property_boolean_funcs(prop, NULL, "rna_Scene_hmd_view_lensdist_set");
 	RNA_def_property_ui_text(prop, "HMD View Lens Distortion", "Draw the HMD viewport using a distorted lens");
+
+	prop = RNA_def_property(srna, "use_hmd_device_ipd", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "hmd_settings.flag", HMDVIEW_USE_DEVICE_IPD);
+	RNA_def_property_ui_text(prop, "Interocular Distance from HMD",
+	                         "Request the interocular distance (distance between eyes) from the HMD driver");
+	RNA_def_property_editable_func(prop, "rna_Scene_use_hmd_device_ipd_editeable");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+
+	prop = RNA_def_property(srna, "hmd_interocular_distance", PROP_FLOAT, PROP_DISTANCE);
+	RNA_def_property_float_sdna(prop, NULL, "hmd_settings.interocular_distance");
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0.0f, 1e4f, 1, 3);
+	RNA_def_property_ui_text(prop, "Interocular Distance",
+	                         "Set the distance between the eyes - the stereo plane distance / 30 should be fine");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 #endif
 
 	/* Nestled Data  */

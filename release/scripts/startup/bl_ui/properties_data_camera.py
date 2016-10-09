@@ -156,12 +156,6 @@ class DATA_PT_camera_stereoscopy(CameraButtonsPanel, Panel):
         is_spherical_stereo = cam.type != 'ORTHO' and render.use_spherical_stereo
         use_spherical_stereo = is_spherical_stereo and st.use_spherical_stereo
 
-        col.prop(st, "use_device_ipd")
-        subcol = col.column()
-        subcol.active = not st.use_device_ipd
-        # TODO needs own property for HMD IPD
-        # subcol.prop(st, "interocular_distance")
-
         col.row().prop(st, "convergence_mode", expand=True)
 
         sub = col.column()

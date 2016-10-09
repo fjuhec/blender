@@ -201,7 +201,7 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
         rv = rd.views.active
         wm = context.window_manager
 
-        layout.active = rd.use_multiview
+        layout.enabled = rd.use_multiview
         basic_stereo = rd.views_format == 'STEREO_3D'
 
         row = layout.row()
@@ -240,9 +240,16 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
         row.operator("wm.hmd_view_toggle", text=text_win)
         row.operator("wm.hmd_session_run", text=text_run, icon=icon)
 
-        col.prop(scene, "hmd_camlock")
-        col.prop(scene, "use_hmd_view_lensdist", text="Lens Distortion")
-        col.prop(scene, "hmd_view_shade", text="Shading")
+        row = col.row()
+        row.prop(scene, "hmd_camlock")
+        row.prop(scene, "use_hmd_view_lensdist", text="Lens Distortion")
+
+        layout.prop(scene, "hmd_view_shade", text="Shading")
+        layout.prop(scene, "use_hmd_device_ipd")
+
+        col = layout.column()
+        col.active = not scene.use_hmd_device_ipd
+        col.prop(scene, "hmd_interocular_distance")
 
 
 if __name__ == "__main__":  # only for live edit.

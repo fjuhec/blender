@@ -1569,12 +1569,12 @@ typedef struct DisplaySafeAreas {
 /* HMD View Settings */
 
 /**
- * Settings that will be applied to the already opened HMD view or when opening one.
+ * Settings that will be applied to the already opened HMD view or when opening it.
  */
 struct HMDViewSettings {
 	char view_shade; /* rna_enum_viewport_shade_items */
-	char flag;
-	char pad[2];
+	char flag, pad[2];
+	float interocular_distance;
 };
 
 /* HMDViewSettings.flag */
@@ -1582,6 +1582,7 @@ enum {
 	HMDVIEW_SESSION_RUNNING = (1 << 0),
 	HMDVIEW_IGNORE_ROT      = (1 << 1),
 	HMDVIEW_USE_LENSDIST_FX = (1 << 2),
+	HMDVIEW_USE_DEVICE_IPD  = (1 << 3),
 };
 
 /* *************************************************************** */
@@ -1677,7 +1678,6 @@ typedef struct Scene {
 	struct PreviewImage *preview;
 
 	struct HMDViewSettings hmd_settings;
-	int pad2;
 } Scene;
 
 /* **************** RENDERDATA ********************* */

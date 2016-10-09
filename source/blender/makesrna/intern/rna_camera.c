@@ -44,25 +44,6 @@
 
 #include "WM_api.h"
 
-static int rna_camera_stereo_use_device_ipd_editeable(PointerRNA *ptr, const char **r_info)
-{
-#ifdef WITH_INPUT_HMD
-	if (U.hmd_device == -1 || WM_device_HMD_IPD_get() == -1) {
-		Camera *cam = ptr->id.data;
-
-		*r_info = (U.hmd_device == -1) ?
-		              "No valid HMD device selected (see User Preferences)" :
-		              "Active HMD device doesn't return valid interocular distance";
-
-		cam->stereo.flag |= CAM_S3D_CUSTOM_IPD;
-		return false;
-	}
-#else
-	UNUSED_VARS(ptr);
-#endif
-	return PROP_EDITABLE;
-}
-
 static float rna_Camera_angle_get(PointerRNA *ptr)
 {
 	Camera *cam = ptr->id.data;
@@ -149,13 +130,6 @@ static void rna_def_camera_stereo_data(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "pivot", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, pivot_items);
 	RNA_def_property_ui_text(prop, "Pivot", "");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
-
-	prop = RNA_def_property(srna, "use_device_ipd", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", CAM_S3D_CUSTOM_IPD);
-	RNA_def_property_ui_text(prop, "Interocular Distance from HMD",
-	                         "Request the interocular distance (distance between eyes) from the HMD driver");
-	RNA_def_property_editable_func(prop, "rna_camera_stereo_use_device_ipd_editeable");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
 
 	prop = RNA_def_property(srna, "interocular_distance", PROP_FLOAT, PROP_DISTANCE);
