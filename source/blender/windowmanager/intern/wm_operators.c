@@ -4141,9 +4141,11 @@ static void hmd_view_exit(const bContext *C, Scene *scene)
 	View3D *v3d = CTX_wm_view3d(C);
 	Object *ob = v3d ? v3d->camera : scene->camera;
 
-	/* reset initial camera rotation */
-	BKE_object_quat_to_rot(ob, init_rot);
-	DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
+	if (ob) {
+		/* reset initial camera rotation */
+		BKE_object_quat_to_rot(ob, init_rot);
+		DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
+	}
 }
 
 static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
@@ -4250,10 +4252,10 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 				v3d->camera = ob;
 			if (v3d->camera == NULL)
 				v3d->camera = BKE_scene_camera_find(scene);
-			if (v3d->camera)
+			if (v3d->camera) {
 				rv3d->persp = RV3D_CAMOB;
-
-			BKE_object_rot_to_quat(v3d->camera, init_rot);
+				BKE_object_rot_to_quat(v3d->camera, init_rot);
+			}
 			ED_view3d_update_viewmat(scene, sa->spacedata.first, ar, NULL, NULL);
 		}
 
@@ -4277,16 +4279,18 @@ static void WM_OT_hmd_session_toggle(wmOperatorType *ot)
 
 static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HMDOrientationData *data)
 {
-	if (scene->hmd_settings.flag & HMDVIEW_IGNORE_ROT)
-		return;
-	if (!hmd_win) {
-		scene->hmd_settings.flag &= ~HMDVIEW_SESSION_RUNNING;
-		return;
-	}
-
 	View3D *v3d = CTX_wm_view3d(C);
 	Object *ob = v3d ? v3d->camera : scene->camera;
 	float quat[4];
+
+	if ((scene->hmd_settings.flag & HMDVIEW_IGNORE_ROT) || !ob) {
+		return;
+	}
+	if (!hmd_win) {
+		BLI_assert(0);
+		scene->hmd_settings.flag &= ~HMDVIEW_SESSION_RUNNING;
+		return;
+	}
 
 	mul_qt_qtqt(quat, init_rot, data->orientation);
 	BKE_object_quat_to_rot(ob, quat);
