@@ -793,14 +793,30 @@ static void rna_Scene_hmd_view_lensdist_set(PointerRNA *ptr, int value)
 
 static int rna_Scene_use_hmd_device_ipd_editeable(PointerRNA *ptr, const char **r_info)
 {
+	Scene *scene = ptr->data;
+	bool editable = true;
 
-	if (U.hmd_device == -1 || WM_device_HMD_IPD_get() == -1) {
-		Scene *scene = ptr->data;
+	if (U.hmd_device == -1) {
+		*r_info = "No valid HMD device selected (see User Preferences)";
+		editable = false;
+	}
+	else {
+		const bool has_active_device = WM_device_HMD_current_get() >= 0;
 
-		*r_info = (U.hmd_device == -1) ?
-		              "No valid HMD device selected (see User Preferences)" :
-		              "Active HMD device doesn't return valid interocular distance";
+		if (!has_active_device) {
+			/* temporary activate device to see if it returns an IPD */
+			WM_device_HMD_state_set(U.hmd_device, true);
+		}
+		if (WM_device_HMD_IPD_get() == -1.0f) {
+			*r_info = "Active HMD device doesn't return valid interocular distance";
+			editable = false;
+		}
+		if (!has_active_device) {
+			WM_device_HMD_state_set(U.hmd_device, false);
+		}
+	}
 
+	if (!editable) {
 		scene->hmd_settings.flag |= HMDVIEW_USE_DEVICE_IPD;
 		return false;
 	}
@@ -7377,7 +7393,7 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "HMD View Lens Distortion", "Draw the HMD viewport using a distorted lens");
 
 	prop = RNA_def_property(srna, "use_hmd_device_ipd", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "hmd_settings.flag", HMDVIEW_USE_DEVICE_IPD);
+	RNA_def_property_boolean_sdna(prop, NULL, "hmd_settings.flag", HMDVIEW_USE_DEVICE_IPD);
 	RNA_def_property_ui_text(prop, "Interocular Distance from HMD",
 	                         "Request the interocular distance (distance between eyes) from the HMD driver");
 	RNA_def_property_editable_func(prop, "rna_Scene_use_hmd_device_ipd_editeable");

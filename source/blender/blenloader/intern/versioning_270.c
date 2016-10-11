@@ -1430,7 +1430,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "HMDViewSettings", "hmd_settings")) {
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 				scene->hmd_settings.view_shade = OB_MATERIAL;
-				scene->hmd_settings.flag |= HMDVIEW_USE_LENSDIST_FX;
+				scene->hmd_settings.flag |= (HMDVIEW_USE_LENSDIST_FX | HMDVIEW_USE_DEVICE_IPD);
 			}
 		}
 	}
