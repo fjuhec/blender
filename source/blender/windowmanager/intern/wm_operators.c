@@ -4194,7 +4194,14 @@ static void WM_OT_hmd_view_toggle(wmOperatorType *ot)
 
 static int hmd_session_toggle_poll(bContext *C)
 {
-	return (CTX_wm_manager(C)->win_hmd != NULL);
+	wmWindowManager *wm = CTX_wm_manager(C);
+
+	if (!wm->win_hmd) {
+		CTX_wm_operator_poll_msg_set(C, "Open a HMD window first");
+		return false;
+	}
+
+	return true;
 }
 
 static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
