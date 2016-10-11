@@ -139,6 +139,20 @@ def register():
             default={'OFFICIAL', 'COMMUNITY'},
             options={'ENUM_FLAG'},
             )
+
+    # properties_data_armature.py
+    from . import properties_data_armature
+    bpy.types.Action.pose_previews = EnumProperty(
+        items=properties_data_armature.pose_preview_items,
+        update=properties_data_armature.update_pose)
+    bpy.types.Action.pose_previews_dir = StringProperty(
+        name='Thumbnail Path',
+        subtype='DIR_PATH',
+        default='',
+        # update=filepath_update
+    )
+
+
     # done...
 
 
@@ -147,6 +161,10 @@ def unregister():
 
     from . import properties_data_armature
     properties_data_armature.unload_custom_icons()
+
+    del bpy.types.Object.pose_previews
+    if properties_data_armature.previews:
+        bpy.utils.previews.remove(properties_data_armature.previews)
 
 
 # Define a default UIList, when a list does not need any custom drawing...

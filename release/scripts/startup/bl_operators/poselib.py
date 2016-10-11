@@ -89,13 +89,13 @@ class POSELIB_OT_render_previews(Operator):
     def render_pose(self, context, plib, plib_index):
         import os.path
 
-        frame = plib.pose_markers[plib_index].frame
-        self.log.info('Rendering pose %i at frame %i', plib_index, frame)
+        marker = plib.pose_markers[plib_index]
+        self.log.info('Rendering pose %s at frame %i', marker.name, marker.frame)
 
-        context.scene.frame_set(frame)
+        context.scene.frame_set(marker.frame)
         bpy.ops.poselib.apply_pose(pose_index=plib_index)
 
-        fname = '%03d.png' % (plib_index+1)
+        fname = '%s.png' % marker.name
         context.scene.render.filepath = os.path.join(plib.pose_previews_dir, fname)
         bpy.ops.render.opengl(write_still=True)
 

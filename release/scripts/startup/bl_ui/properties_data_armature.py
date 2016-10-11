@@ -161,59 +161,54 @@ class DATA_PT_bone_groups(ArmatureButtonsPanel, Panel):
         sub.operator("pose.group_deselect", text="Deselect")
 
 
-class POSELIB_UL_poses(bpy.types.UIList):
-    # The draw_item function is called for each item of the collection that is visible in the list.
-    #   data is the RNA object containing the collection,
-    #   item is the currently drawn item of the collection,
-    #   icon is the "computed" icon for the item (as an integer, because some objects like materials or textures
-    #   have custom icons ID, which are not available as enum items).
-    #   active_data is the RNA object containing the active property for the collection (i.e. integer pointing to the
-    #   active item of the collection).
-    #   active_propname is the name of the active property (use 'getattr(active_data, active_propname)').
-    #   index is index of the current item in the collection.
-    #   flt_flag is the result of the filtering process for this item.
-    #   Note: as index and flt_flag are optional arguments, you do not have to use/declare them here if you don't
-    #         need them.
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
-        if self.layout_type != 'GRID':
-            super().draw_item(context, layout, data, item, icon, active_data, active_propname)
-
-        if icon == 17:
-            if icons is None: load_custom_icons()
-            icon = icons['POSE_NOT_HERE'].icon_id
-
-        col = layout.column(align=True)
-        col.alignment = 'CENTER'
-        col.label(text='', icon_value=icon)
-        col.label(text=item.name)
+previews = None
 
 
-icons = None
-
-def load_custom_icons():
-    global icons
-
-    if icons is not None:
-        # Already loaded
-        return
-
-    import bpy.utils.previews
-    import blender_cloud
+def pose_preview_items(poselib, context):
+    global previews
     import os.path
 
-    icons = bpy.utils.previews.new()
-    icons.load('POSE_NOT_HERE', bpy.path.abspath('//agent_thumbs/001.png'), 'IMAGE')
+    if context is None or not poselib.pose_previews_dir:
+        return []
+
+    directory = bpy.path.abspath(poselib.pose_previews_dir)
+    if not os.path.isdir(directory):
+        return []
+
+    if previews is not None and directory == previews.get('pose_previews_dir', None):
+        return previews.pose_previews
+
+    if previews is None:
+        previews = bpy.utils.previews.new()
+    else:
+        previews.clear()
+
+    no_thumbnail = os.path.join(os.path.dirname(__file__),
+                                'thumbnails',
+                                'no_thumbnail.png')
+    no_thumb_thumb = previews.load('NO THUMBNAIL', no_thumbnail, 'IMAGE')
+
+    enum_items = []
+    for pose_idx, pose_marker in enumerate(poselib.pose_markers):
+        filepath = os.path.join(directory, '%s.png' % pose_marker.name)
+        if os.path.exists(filepath):
+            thumb = previews.load(pose_marker.name, filepath, 'IMAGE')
+        else:
+            print('Warning: "%s" does not exist' % filepath)
+            thumb = no_thumb_thumb
+
+        enum_items.append((pose_marker.name, pose_marker.name, pose_marker.name,
+                           thumb.icon_id, pose_idx))
+
+    previews.pose_previews = enum_items
+    previews['pose_previews_dir'] = directory
+    return previews.pose_previews
 
 
-def unload_custom_icons():
-    global icons
-
-    if icons is None:
-        # Already unloaded
-        return
-
-    bpy.utils.previews.remove(icons)
-    icons = None
+def update_pose(poselib_action, context):
+    pose_name = poselib_action.pose_previews
+    poselib_action.pose_markers.active = poselib_action.pose_markers[pose_name]
+    bpy.ops.poselib.apply_pose(pose_index=poselib_action.pose_markers.active_index)
 
 
 class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
@@ -241,10 +236,9 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
         # )
         # list of poses in pose library
         row = layout.row()
-        row.template_list("POSELIB_UL_poses", "pose_markers",
-                          poselib, "pose_markers",
+        row.template_list("UI_UL_list", "pose_markers", poselib, "pose_markers",
                           poselib.pose_markers, "active_index",
-                          rows=5, type='GRID')
+                          rows=5)
         # column of operators for active pose
         # - goes beside list
         col = row.column(align=True)
@@ -272,8 +266,12 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
             layout.prop(pose_marker_active, "camera",
                         text='Camera for %s' % pose_marker_active.name)
 
+        layout.template_icon_view(poselib, 'pose_previews', show_labels=True)
+        layout.prop(poselib, "pose_previews_dir")
+
         col.operator_context = 'INVOKE_DEFAULT'
         layout.operator("poselib.render_previews")
+
 
 # TODO: this panel will soon be deprecated too
 class DATA_PT_ghost(ArmatureButtonsPanel, Panel):
@@ -396,6 +394,8 @@ class DATA_PT_custom_props_arm(ArmatureButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
     _context_path = "object.data"
     _property_type = bpy.types.Armature
+
+
 
 if __name__ == "__main__":  # only for live edit.
     bpy.utils.register_module(__name__)
