@@ -1291,7 +1291,7 @@ bool GPU_fx_do_composite_pass(
 	}
 
 	/* third pass, Lens Distortion */
-	if(fx->effects & GPU_FX_FLAG_LensDist) {
+	if (fx->effects & GPU_FX_FLAG_LensDist) {
 		GPUShader *lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp);
 
 		if (lensdist_shader) {

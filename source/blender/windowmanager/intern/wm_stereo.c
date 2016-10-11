@@ -291,7 +291,7 @@ static void wm_method_draw_stereo3d_hmd(wmWindow *win)
 	wmDrawData *drawdata;
 	int view;
 
-	for (view = 0; view < 2; view ++) {
+	for (view = 0; view < 2; view++) {
 		const int win_x_h = WM_window_pixels_x(win) / 2;
 		const int win_y = WM_window_pixels_y(win);
 
@@ -311,7 +311,7 @@ void wm_method_draw_stereo3d(const bContext *C, wmWindow *win)
 	Scene *scene = CTX_data_scene(C);
 	wmWindowManager *wm = CTX_wm_manager(C);
 
-	if (wm->win_hmd == win && scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING) {
+	if (wm->win_hmd == win && (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING)) {
 		wm_method_draw_stereo3d_hmd(win);
 		return;
 	}

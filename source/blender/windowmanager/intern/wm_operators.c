@@ -4159,7 +4159,9 @@ static void hmd_view_prepare_screen(bContext *C, Scene *scene, wmWindow *win)
 
 	/* sync view options */
 	v3d->drawtype = scene->hmd_settings.view_shade;
-	v3d->fx_settings.fx_flag = scene->hmd_settings.flag;
+	if (scene->hmd_settings.flag & HMDVIEW_USE_LENSDIST_FX) {
+		v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
+	}
 
 	rv3d->persp = RV3D_CAMOB;
 	rv3d->camzoom = BKE_screen_view3d_zoom_from_fac(1.0f);
