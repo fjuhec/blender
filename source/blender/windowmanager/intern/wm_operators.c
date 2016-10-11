@@ -4148,6 +4148,23 @@ static void hmd_view_exit(const bContext *C, Scene *scene)
 	}
 }
 
+static void hmd_view_prepare_screen(bContext *C, Scene *scene, wmWindow *win)
+{
+	ScrArea *sa = win->screen->areabase.first;
+	View3D *v3d = sa->spacedata.first;
+	RegionView3D *rv3d = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW)->regiondata;
+
+	BLI_assert(sa->spacetype == SPACE_VIEW3D);
+	ED_screen_state_toggle(C, win, sa, SCREENFULL);
+
+	/* sync view options */
+	v3d->drawtype = scene->hmd_settings.view_shade;
+	v3d->fx_settings.fx_flag = scene->hmd_settings.flag;
+
+	rv3d->persp = RV3D_CAMOB;
+	rv3d->camzoom = BKE_screen_view3d_zoom_from_fac(1.0f);
+}
+
 static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	wmWindow *prevwin = CTX_wm_window(C);
@@ -4172,14 +4189,7 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		win = WM_window_open_temp(C, &rect, WM_WINDOW_HMD);
 		wm->win_hmd = win;
 
-		/* prepare area */
-		ScrArea *sa = win->screen->areabase.first;
-		View3D *v3d = sa->spacedata.first;
-		BLI_assert(sa->spacetype == SPACE_VIEW3D);
-		ED_screen_state_toggle(C, win, sa, SCREENFULL);
-		/* sync view options */
-		v3d->drawtype = scene->hmd_settings.view_shade;
-		v3d->fx_settings.fx_flag = scene->hmd_settings.flag;
+		hmd_view_prepare_screen(C, scene, win);
 	}
 
 	return OPERATOR_FINISHED;
@@ -4228,36 +4238,15 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		ScrArea *sa = hmd_win->screen->areabase.first;
 		ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
 		View3D *v3d = sa->spacedata.first;
-		RegionView3D *rv3d = ar->regiondata;
 		BLI_assert(sa->spacetype = SPACE_VIEW3D);
 
 		WM_device_HMD_state_set(U.hmd_device, true);
 
-		/* XXX duplicated code from viewnumpad_exec */
-		if (rv3d->persp != RV3D_CAMOB) {
-			Object *ob = OBACT;
-			/* first get the default camera for the view lock type */
-			if (v3d->scenelock) {
-				/* sets the camera view if available */
-				v3d->camera = scene->camera;
-			}
-			else {
-				/* use scene camera if one is not set (even though we're unlocked) */
-				if (v3d->camera == NULL) {
-					v3d->camera = scene->camera;
-				}
-			}
-			/* if the camera isn't found, check a number of options */
-			if (v3d->camera == NULL && ob && ob->type == OB_CAMERA)
-				v3d->camera = ob;
-			if (v3d->camera == NULL)
-				v3d->camera = BKE_scene_camera_find(scene);
-			if (v3d->camera) {
-				rv3d->persp = RV3D_CAMOB;
-				BKE_object_rot_to_quat(v3d->camera, init_rot);
-			}
-			ED_view3d_update_viewmat(scene, sa->spacedata.first, ar, NULL, NULL);
+		BLI_assert(v3d->camera == scene->camera);
+		if (scene->camera) {
+			BKE_object_rot_to_quat(scene->camera, init_rot);
 		}
+		ED_view3d_update_viewmat(scene, sa->spacedata.first, ar, NULL, NULL);
 
 		WM_window_fullscreen_toggle(hmd_win, true, false);
 
