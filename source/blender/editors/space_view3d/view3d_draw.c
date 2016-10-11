@@ -3775,15 +3775,17 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 #else
 	if (is_hmd_view) {
 		Camera *data = v3d->camera->data;
-		short view_format = scene->r.views_format;
-		short convergence_mode = data->stereo.convergence_mode;
-		float ipd_override = (U.hmd_device != -1 && (scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD)) ?
-		                         WM_device_HMD_IPD_get() : scene->hmd_settings.interocular_distance;
+		const short view_format = scene->r.views_format;
+		const short convergence_mode = data->stereo.convergence_mode;
+		const short pivot = data->stereo.pivot;
+		const float ipd_override = (U.hmd_device != -1 && (scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD)) ?
+		                               WM_device_HMD_IPD_get() : scene->hmd_settings.interocular_distance;
 		float viewmat[4][4];
 		float projmat[4][4];
 
 		BLI_lock_thread(LOCK_VIEW3D);
 		data->stereo.convergence_mode = CAM_S3D_PARALLEL;
+		data->stereo.pivot = CAM_S3D_PIVOT_CENTER;
 		scene->r.views_format = SCE_VIEWS_FORMAT_STEREO_3D;
 
 		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, ipd_override, viewmat);
@@ -3792,6 +3794,7 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 		view3d_main_region_setup_view(scene, v3d, ar, viewmat, projmat);
 
 		data->stereo.convergence_mode = convergence_mode;
+		data->stereo.pivot = pivot;
 		scene->r.views_format = view_format;
 		BLI_unlock_thread(LOCK_VIEW3D);
 	}
@@ -3865,10 +3868,19 @@ static void update_lods(Scene *scene, float camera_pos[3])
 }
 #endif
 
+static bool view3d_stereo3d_is_hmd_view(wmWindowManager *wm, wmWindow *win, Scene *scene)
+{
+#ifdef WITH_INPUT_HMD
+	return (wm->win_hmd == win && (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING));
+#else
+	UNUSED_VARS(wm, win, scene);
+	return false;
+#endif
+}
+
 static void view3d_main_region_draw_objects(
         const bContext *C, Scene *scene, View3D *v3d,
-        ARegion *ar, const char **grid_unit,
-        const bool is_hmd_view)
+        ARegion *ar, const char **grid_unit)
 {
 	wmWindow *win = CTX_wm_window(C);
 	RegionView3D *rv3d = ar->regiondata;
@@ -3889,6 +3901,7 @@ static void view3d_main_region_draw_objects(
 
 	/* setup the view matrix */
 	if (view3d_stereo3d_active(C, scene, v3d, rv3d)) {
+		const bool is_hmd_view = view3d_stereo3d_is_hmd_view(CTX_wm_manager(C), win, scene);
 		view3d_stereo3d_setup(scene, v3d, ar, is_hmd_view);
 	}
 	else {
@@ -4074,13 +4087,6 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	const char *grid_unit = NULL;
 	rcti border_rect;
 	bool render_border, clip_border;
-	const bool is_hmd_view =
-#ifdef WITH_INPUT_HMD
-	        ((CTX_wm_manager(C)->win_hmd == CTX_wm_window(C)) &&
-	         (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING));
-#else
-	        false;
-#endif
 
 	/* if we only redraw render border area, skip opengl draw and also
 	 * don't do scissor because it's already set */
@@ -4089,7 +4095,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 
 	/* draw viewport using opengl */
 	if (v3d->drawtype != OB_RENDER || !view3d_main_region_do_render_draw(scene) || clip_border) {
-		view3d_main_region_draw_objects(C, scene, v3d, ar, &grid_unit, is_hmd_view);
+		view3d_main_region_draw_objects(C, scene, v3d, ar, &grid_unit);
 		
 #ifdef DEBUG_DRAW
 		bl_debug_draw();
@@ -4099,7 +4105,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 		
 		ED_region_pixelspace(ar);
 
-		if (is_hmd_view) {
+		if (view3d_stereo3d_is_hmd_view(CTX_wm_manager(C), CTX_wm_window(C), scene)) {
 			return;
 		}
 	}
