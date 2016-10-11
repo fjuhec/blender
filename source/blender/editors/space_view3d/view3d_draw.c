@@ -3770,20 +3770,29 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 	viewname = names[is_left ? STEREO_LEFT_ID : STEREO_RIGHT_ID];
 
 	/* update the viewport matrices with the new camera */
+#ifdef WITH_INPUT_HMD
 	if (is_hmd_view) {
+		Camera *data = v3d->camera->data;
+		short convergence_mode = data->stereo.convergence_mode;
+		float ipd_override = (U.hmd_device != -1 && (scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD)) ?
+		                         WM_device_HMD_IPD_get() : scene->hmd_settings.interocular_distance;
 		float viewmat[4][4];
 		float projmat[4][4];
 
 		BLI_lock_thread(LOCK_VIEW3D);
+		data->stereo.convergence_mode = CAM_S3D_PARALLEL;
 
-		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, is_hmd_view, viewmat);
-		BKE_camera_multiview_proj_matrix(is_left, projmat);
+		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, ipd_override, viewmat);
+		WM_device_HMD_projection_matrix_get(is_left, projmat);
 
 		view3d_main_region_setup_view(scene, v3d, ar, viewmat, projmat);
 
+		data->stereo.convergence_mode = convergence_mode;
 		BLI_unlock_thread(LOCK_VIEW3D);
 	}
-	else if (scene->r.views_format == SCE_VIEWS_FORMAT_STEREO_3D) {
+	else
+#endif
+	if (scene->r.views_format == SCE_VIEWS_FORMAT_STEREO_3D) {
 		Camera *data;
 		float viewmat[4][4];
 		float shiftx;
@@ -3794,7 +3803,7 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 		BLI_lock_thread(LOCK_VIEW3D);
 		data->shiftx = BKE_camera_multiview_shift_x(&scene->r, v3d->camera, viewname);
 
-		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, is_hmd_view, viewmat);
+		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, -1.0f, viewmat);
 
 		view3d_main_region_setup_view(scene, v3d, ar, viewmat, NULL);
 
@@ -3809,7 +3818,7 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 		BLI_lock_thread(LOCK_VIEW3D);
 		v3d->camera = camera;
 
-		BKE_camera_multiview_view_matrix(&scene->r, camera, false, is_hmd_view, viewmat);
+		BKE_camera_multiview_view_matrix(&scene->r, camera, false, -1.0f, viewmat);
 		view3d_main_region_setup_view(scene, v3d, ar, viewmat, NULL);
 
 		v3d->camera = view_ob;
@@ -3825,15 +3834,14 @@ static void view3d_stereo3d_setup_offscreen(Scene *scene, View3D *v3d, ARegion *
 		float viewmat[4][4];
 		const bool is_left = STREQ(viewname, STEREO_LEFT_NAME);
 
-		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, false, viewmat);
-		BKE_camera_multiview_proj_matrix(is_left, winmat);
+		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, -1.0f, viewmat);
 		view3d_main_region_setup_view(scene, v3d, ar, viewmat, winmat);
 	}
 	else { /* SCE_VIEWS_FORMAT_MULTIVIEW */
 		float viewmat[4][4];
 		Object *camera = BKE_camera_multiview_render(scene, v3d->camera, viewname);
 
-		BKE_camera_multiview_view_matrix(&scene->r, camera, false, false, viewmat);
+		BKE_camera_multiview_view_matrix(&scene->r, camera, false, -1.0f, viewmat);
 		view3d_main_region_setup_view(scene, v3d, ar, viewmat, winmat);
 	}
 }

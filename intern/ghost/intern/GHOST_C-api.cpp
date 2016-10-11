@@ -1009,7 +1009,7 @@ float GHOST_HMDgetDeviceIPD()
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	return ohmd->getEyeIPD();
 #else
-	return 0.0f;
+	return -1.0f;
 #endif
 }
 

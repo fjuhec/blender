@@ -526,8 +526,8 @@ bool        WM_event_is_ime_switch(const struct wmEvent *event);
 
 #define MAX_HMD_DEVICES 12
 
+/* Get/Set Wrappers */
 int         WM_device_HMD_num_devices_get(void) ATTR_WARN_UNUSED_RESULT;
-void        WM_device_HMD_state_set(const int device, const bool enable);
 int         WM_device_HMD_current_get(void) ATTR_WARN_UNUSED_RESULT;
 const char *WM_device_HMD_name_get(int index) ATTR_WARN_UNUSED_RESULT;
 const char *WM_device_HMD_vendor_get(int index) ATTR_WARN_UNUSED_RESULT;
@@ -536,6 +536,9 @@ void        WM_device_HMD_left_modelview_matrix_get(float r_mat[4][4]) ATTR_NONN
 void        WM_device_HMD_right_modelview_matrix_get(float r_mat[4][4]) ATTR_NONNULL();
 void        WM_device_HMD_left_projection_matrix_get(float r_mat[4][4]) ATTR_NONNULL();
 void        WM_device_HMD_right_projection_matrix_get(float r_mat[4][4]) ATTR_NONNULL();
+/* Utils */
+void WM_device_HMD_state_set(const int device, const bool enable);
+void WM_device_HMD_projection_matrix_get(const bool is_left, float r_projmat[4][4]) ATTR_NONNULL();
 
 #endif /* WITH_INPUT_HMD */
 

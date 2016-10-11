@@ -57,8 +57,6 @@
 
 #include "GPU_compositing.h"
 
-#include "WM_api.h" /* XXX */
-
 /****************************** Camera Datablock *****************************/
 
 void BKE_camera_init(Camera *cam)
@@ -677,7 +675,7 @@ static void camera_model_matrix(Object *camera, float r_modelmat[4][4])
 }
 
 static void camera_stereo3d_model_matrix(
-        Object *camera, const bool is_left, const bool is_hmd_view,
+        Object *camera, const bool is_left, const float interocular_distance_override,
         float r_modelmat[4][4])
 {
 	Camera *data = (Camera *)camera->data;
@@ -686,22 +684,10 @@ static void camera_stereo3d_model_matrix(
 	float fac = 1.0f;
 	float fac_signed;
 
-	float interocular_distance = data->stereo.interocular_distance;
-	const float convergence_distance = data->stereo.convergence_distance;
+	const float interocular_distance = interocular_distance_override == -1.0f ?
+	                                       data->stereo.interocular_distance : interocular_distance_override;
 	const short convergence_mode = data->stereo.convergence_mode;
 	const short pivot = data->stereo.pivot;
-
-#ifdef WITH_INPUT_HMD
-	/* Try to get the interocular distance from the HMD */
-	if (is_hmd_view && U.hmd_device != -1 && !(data->stereo.flag & CAM_S3D_CUSTOM_IPD)) {
-		const float device_ipd = WM_device_HMD_IPD_get();
-		if (device_ipd != -1) {
-			interocular_distance = device_ipd;
-		}
-	}
-#else
-	UNUSED_VARS(is_hmd_view);
-#endif
 
 	if (((pivot == CAM_S3D_PIVOT_LEFT) && is_left) ||
 	    ((pivot == CAM_S3D_PIVOT_RIGHT) && !is_left))
@@ -721,12 +707,8 @@ static void camera_stereo3d_model_matrix(
 	fac_signed = is_left ? fac : -fac;
 
 	/* rotation */
-	if (convergence_mode == CAM_S3D_TOE
-#ifdef WITH_INPUT_HMD
-	    && !is_hmd_view
-#endif
-	    )
-	{
+	if (convergence_mode == CAM_S3D_TOE) {
+		const float convergence_distance = data->stereo.convergence_distance;
 		float angle;
 		float angle_sin, angle_cos;
 		float toeinmat[4][4];
@@ -792,31 +774,12 @@ static void camera_stereo3d_model_matrix(
 
 /* the view matrix is used by the viewport drawing, it is basically the inverted model matrix */
 void BKE_camera_multiview_view_matrix(
-        RenderData *rd, Object *camera, const bool is_left, const bool is_hmd_view,
+        RenderData *rd, Object *camera, const bool is_left, const float interocular_distance_override,
         float r_viewmat[4][4])
 {
 	BKE_camera_multiview_model_matrix_ex(rd, camera, is_left ? STEREO_LEFT_NAME : STEREO_RIGHT_NAME,
-	                                     is_hmd_view, r_viewmat);
+	                                     interocular_distance_override, r_viewmat);
 	invert_m4(r_viewmat);
-}
-
-/* get the projection matrix for HMD */
-void BKE_camera_multiview_proj_matrix(const bool is_left, float r_projmat[4][4])
-{
-#ifdef WITH_INPUT_HMD
-	/* set projection matrix from hmd */
-	if (U.hmd_device != -1) {
-		if (is_left) {
-			WM_device_HMD_left_projection_matrix_get(r_projmat);
-		}
-		else {
-			WM_device_HMD_right_projection_matrix_get(r_projmat);
-		}
-		//transpose_m4(r_projmat);
-	}
-#else
-	UNUSED_VARS(is_left, r_projmat);
-#endif
 }
 
 /* left is the default */
@@ -829,7 +792,7 @@ static bool camera_is_left(const char *viewname)
 }
 
 void BKE_camera_multiview_model_matrix_ex(
-        RenderData *rd, Object *camera, const char *viewname, const bool is_hmd_view,
+        RenderData *rd, Object *camera, const char *viewname, const float interocular_distance_override,
         float r_modelmat[4][4])
 {
 	const bool is_multiview = (rd && rd->scemode & R_MULTIVIEW) != 0;
@@ -842,14 +805,14 @@ void BKE_camera_multiview_model_matrix_ex(
 	}
 	else { /* SCE_VIEWS_SETUP_BASIC */
 		const bool is_left = camera_is_left(viewname);
-		camera_stereo3d_model_matrix(camera, is_left, is_hmd_view, r_modelmat);
+		camera_stereo3d_model_matrix(camera, is_left, interocular_distance_override, r_modelmat);
 	}
 	normalize_m4(r_modelmat);
 }
 
 void BKE_camera_multiview_model_matrix(RenderData *rd, Object *camera, const char *viewname, float r_modelmat[4][4])
 {
-	BKE_camera_multiview_model_matrix_ex(rd, camera, viewname, false, r_modelmat);
+	BKE_camera_multiview_model_matrix_ex(rd, camera, viewname, -1.0f, r_modelmat);
 }
 
 bool BKE_camera_multiview_spherical_stereo(RenderData *rd, Object *camera)

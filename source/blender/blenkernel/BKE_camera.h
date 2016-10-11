@@ -140,9 +140,9 @@ void BKE_camera_to_gpu_dof(struct Object *camera, struct GPUFXSettings *r_fx_set
 /* Camera multi-view API */
 
 struct Object *BKE_camera_multiview_render(struct Scene *scene, struct Object *camera, const char *viewname);
-void           BKE_camera_multiview_view_matrix(struct RenderData *rd, struct Object *camera, const bool is_left, const bool is_hmd_view, float r_viewmat[4][4]);
+void           BKE_camera_multiview_view_matrix(struct RenderData *rd, struct Object *camera, const bool is_left, const float interocular_distance_override, float r_viewmat[4][4]);
 void           BKE_camera_multiview_proj_matrix(const bool is_left, float r_projmat[4][4]);
-void           BKE_camera_multiview_model_matrix_ex(struct RenderData *rd, struct Object *camera, const char *viewname, const bool is_hmd_view, float r_modelmat[4][4]);
+void           BKE_camera_multiview_model_matrix_ex(struct RenderData *rd, struct Object *camera, const char *viewname, const float interocular_distance_override, float r_modelmat[4][4]);
 void           BKE_camera_multiview_model_matrix(struct RenderData *rd, struct Object *camera, const char *viewname, float r_modelmat[4][4]);
 float          BKE_camera_multiview_shift_x(struct RenderData *rd, struct Object *camera, const char *viewname);
 void           BKE_camera_multiview_params(struct RenderData *rd, struct CameraParams *params, struct Object *camera, const char *viewname);

@@ -23,7 +23,7 @@
 /** \file blender/windowmanager/intern/wm_device.c
  *  \ingroup wm
  *
- * Data functions for physical devices (GHOST wrappers).
+ * Get/set functions and utilities for physical devices (GHOST wrappers).
  */
 
 #ifdef WITH_INPUT_HMD
@@ -45,24 +45,11 @@
 /** \name Head Mounted Displays
  * \{ */
 
+/* ------ Get/Set Wrappers ------ */
+
 int WM_device_HMD_num_devices_get(void)
 {
 	return GHOST_HMDgetNumDevices();
-}
-
-/**
- * Enable or disable an HMD.
- */
-void WM_device_HMD_state_set(const int device, const bool enable)
-{
-	BLI_assert(device < MAX_HMD_DEVICES);
-	if (enable && (device >= 0)) {
-		/* GHOST closes previously opened device if needed */
-		GHOST_HMDopenDevice(device);
-	}
-	else {
-		GHOST_HMDcloseDevice();
-	}
 }
 
 /**
@@ -124,6 +111,38 @@ void WM_device_HMD_right_projection_matrix_get(float r_mat[4][4])
 {
 	GHOST_HMDgetRightProjectionMatrix(r_mat);
 }
+
+
+/* ------ Utilities ------ */
+
+/**
+ * Enable or disable an HMD.
+ */
+void WM_device_HMD_state_set(const int device, const bool enable)
+{
+	BLI_assert(device < MAX_HMD_DEVICES);
+	if (enable && (device >= 0)) {
+		/* GHOST closes previously opened device if needed */
+		GHOST_HMDopenDevice(device);
+	}
+	else {
+		GHOST_HMDcloseDevice();
+	}
+}
+
+void WM_device_HMD_projection_matrix_get(const bool is_left, float r_projmat[4][4])
+{
+	if (U.hmd_device == -1) {
+		r_projmat = NULL;
+	}
+	else if (is_left) {
+		GHOST_HMDgetLeftProjectionMatrix(r_projmat);
+	}
+	else {
+		GHOST_HMDgetRightProjectionMatrix(r_projmat);
+	}
+}
+
 /** \} */
 
 #endif
