@@ -3770,7 +3770,9 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 	viewname = names[is_left ? STEREO_LEFT_ID : STEREO_RIGHT_ID];
 
 	/* update the viewport matrices with the new camera */
-#ifdef WITH_INPUT_HMD
+#ifndef WITH_INPUT_HMD
+	UNUSED_VARS(is_hmd_view);
+#else
 	if (is_hmd_view) {
 		Camera *data = v3d->camera->data;
 		short view_format = scene->r.views_format;
