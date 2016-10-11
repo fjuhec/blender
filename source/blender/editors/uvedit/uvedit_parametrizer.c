@@ -5891,7 +5891,7 @@ static float p_scale_binary_search(PHandle *phandle, PChart *chart, float val, f
 
 static float p_binary_depth_search(PHandle *phandle, PChart *chart, int depth, float margin)
 {
-	float value = 0.5f, abs_scale = 1.0f, found = 1.0f;
+	float value = 0.5f, abs_scale = chart->u.ipack.last_scale/*1.0f*/, found = 1.0f;
 
 	return p_scale_binary_search(phandle, chart, value, value, depth, abs_scale, found, margin);
 }
