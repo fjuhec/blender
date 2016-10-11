@@ -3773,6 +3773,7 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 #ifdef WITH_INPUT_HMD
 	if (is_hmd_view) {
 		Camera *data = v3d->camera->data;
+		short view_format = scene->r.views_format;
 		short convergence_mode = data->stereo.convergence_mode;
 		float ipd_override = (U.hmd_device != -1 && (scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD)) ?
 		                         WM_device_HMD_IPD_get() : scene->hmd_settings.interocular_distance;
@@ -3781,6 +3782,7 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 
 		BLI_lock_thread(LOCK_VIEW3D);
 		data->stereo.convergence_mode = CAM_S3D_PARALLEL;
+		scene->r.views_format = SCE_VIEWS_FORMAT_STEREO_3D;
 
 		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, ipd_override, viewmat);
 		WM_device_HMD_projection_matrix_get(is_left, projmat);
@@ -3788,6 +3790,7 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 		view3d_main_region_setup_view(scene, v3d, ar, viewmat, projmat);
 
 		data->stereo.convergence_mode = convergence_mode;
+		scene->r.views_format = view_format;
 		BLI_unlock_thread(LOCK_VIEW3D);
 	}
 	else
