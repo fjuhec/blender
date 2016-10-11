@@ -812,6 +812,10 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->gpencil_v2d_align = GP_PROJECT_VIEWSPACE;
 	sce->toolsettings->gpencil_seq_align = GP_PROJECT_VIEWSPACE;
 	sce->toolsettings->gpencil_ima_align = GP_PROJECT_VIEWSPACE;
+
+	/* HMD settings */
+	sce->hmd_settings.view_shade = OB_MATERIAL;
+	sce->hmd_settings.flag |= (HMDVIEW_USE_LENSDIST_FX | HMDVIEW_USE_DEVICE_IPD);
 }
 
 Scene *BKE_scene_add(Main *bmain, const char *name)
