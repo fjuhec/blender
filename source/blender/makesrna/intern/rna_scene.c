@@ -791,6 +791,20 @@ static void rna_Scene_hmd_view_lensdist_set(PointerRNA *ptr, int value)
 	}
 }
 
+void rna_Scene_use_hmd_device_ipd_set(PointerRNA *ptr, int value)
+{
+	Scene *scene = ptr->data;
+	if (value) {
+		scene->hmd_settings.flag |= HMDVIEW_USE_DEVICE_IPD;
+		WM_device_HMD_IPD_set(scene->hmd_settings.init_ipd);
+	}
+	else {
+		scene->hmd_settings.flag &= ~HMDVIEW_USE_DEVICE_IPD;
+		scene->hmd_settings.init_ipd = WM_device_HMD_IPD_get();
+		WM_device_HMD_IPD_set(scene->hmd_settings.custom_ipd);
+	}
+}
+
 static int rna_Scene_use_hmd_device_ipd_editeable(PointerRNA *ptr, const char **r_info)
 {
 	Scene *scene = ptr->data;
@@ -823,6 +837,16 @@ static int rna_Scene_use_hmd_device_ipd_editeable(PointerRNA *ptr, const char **
 
 	return PROP_EDITABLE;
 }
+
+void rna_Scene_hmd_custom_ipd_set(PointerRNA *ptr, float value)
+{
+	Scene *scene = ptr->data;
+	scene->hmd_settings.custom_ipd = value;
+	if ((scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD) == 0) {
+		WM_device_HMD_IPD_set(value);
+	}
+}
+
 #endif /* WITH_INPUT_HMD */
 
 static void rna_Scene_framelen_update(Main *UNUSED(bmain), Scene *scene, PointerRNA *UNUSED(ptr))
@@ -7394,17 +7418,19 @@ void RNA_def_scene(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "use_hmd_device_ipd", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "hmd_settings.flag", HMDVIEW_USE_DEVICE_IPD);
-	RNA_def_property_ui_text(prop, "Interocular Distance from HMD",
-	                         "Request the interocular distance (distance between eyes) from the HMD driver");
+	RNA_def_property_boolean_funcs(prop, NULL, "rna_Scene_use_hmd_device_ipd_set");
+	RNA_def_property_ui_text(prop, "IPD from HMD", "Request the interpupillary distance (distance between the "
+	                         "eye pupil centers) from the HMD driver");
 	RNA_def_property_editable_func(prop, "rna_Scene_use_hmd_device_ipd_editeable");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
-	prop = RNA_def_property(srna, "hmd_interocular_distance", PROP_FLOAT, PROP_DISTANCE);
-	RNA_def_property_float_sdna(prop, NULL, "hmd_settings.interocular_distance");
+	prop = RNA_def_property(srna, "hmd_custom_ipd", PROP_FLOAT, PROP_DISTANCE);
+	RNA_def_property_float_sdna(prop, NULL, "hmd_settings.custom_ipd");
+	RNA_def_property_float_funcs(prop, NULL, "rna_Scene_hmd_custom_ipd_set", NULL);
 	RNA_def_property_range(prop, 0.0f, FLT_MAX);
 	RNA_def_property_ui_range(prop, 0.0f, 1e4f, 1, 3);
-	RNA_def_property_ui_text(prop, "Interocular Distance",
-	                         "Set the distance between the eyes - the stereo plane distance / 30 should be fine");
+	RNA_def_property_ui_text(prop, "Custom IPD", "Set the interpupillary distance (distance between the "
+	                         "eye pupil centers)");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 #endif
 

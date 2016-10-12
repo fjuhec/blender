@@ -1013,6 +1013,17 @@ float GHOST_HMDgetDeviceIPD()
 #endif
 }
 
+void GHOST_HMDsetDeviceIPD(float value)
+{
+#ifdef WITH_OPENHMD
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	ohmd->setEyeIPD(value);
+#else
+	(void)value;
+#endif
+}
+
 void GHOST_HMDgetLeftModelviewMatrix(float r_mat[4][4])
 {
 #ifdef WITH_OPENHMD

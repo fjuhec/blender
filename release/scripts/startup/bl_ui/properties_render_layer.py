@@ -249,7 +249,7 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
 
         col = layout.column()
         col.active = not scene.use_hmd_device_ipd
-        col.prop(scene, "hmd_interocular_distance")
+        col.prop(scene, "hmd_custom_ipd")
 
 
 if __name__ == "__main__":  # only for live edit.

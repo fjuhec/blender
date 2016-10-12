@@ -79,37 +79,9 @@ float WM_device_HMD_IPD_get(void)
 {
 	return GHOST_HMDgetDeviceIPD();
 }
-
-/**
- * Get left eye modelview matrix from currently opened HMD.
- */
-void WM_device_HMD_left_modelview_matrix_get(float r_mat[4][4])
+void WM_device_HMD_IPD_set(float value)
 {
-	GHOST_HMDgetLeftModelviewMatrix(r_mat);
-}
-
-/**
- * Get right eye modelview matrix from currently opened HMD.
- */
-void WM_device_HMD_right_modelview_matrix_get(float r_mat[4][4])
-{
-	GHOST_HMDgetRightModelviewMatrix(r_mat);
-}
-
-/**
- * Get left eye projection matrix from currently opened HMD.
- */
-void WM_device_HMD_left_projection_matrix_get(float r_mat[4][4])
-{
-	GHOST_HMDgetLeftProjectionMatrix(r_mat);
-}
-
-/**
- * Get right eye projection matrix from currently opened HMD.
- */
-void WM_device_HMD_right_projection_matrix_get(float r_mat[4][4])
-{
-	GHOST_HMDgetRightProjectionMatrix(r_mat);
+	GHOST_HMDsetDeviceIPD(value);
 }
 
 
@@ -127,6 +99,19 @@ void WM_device_HMD_state_set(const int device, const bool enable)
 	}
 	else {
 		GHOST_HMDcloseDevice();
+	}
+}
+
+void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4])
+{
+	if (U.hmd_device == -1) {
+		r_modelviewmat = NULL;
+	}
+	else if (is_left) {
+		GHOST_HMDgetLeftModelviewMatrix(r_modelviewmat);
+	}
+	else {
+		GHOST_HMDgetRightModelviewMatrix(r_modelviewmat);
 	}
 }
 

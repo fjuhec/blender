@@ -532,12 +532,10 @@ int         WM_device_HMD_current_get(void) ATTR_WARN_UNUSED_RESULT;
 const char *WM_device_HMD_name_get(int index) ATTR_WARN_UNUSED_RESULT;
 const char *WM_device_HMD_vendor_get(int index) ATTR_WARN_UNUSED_RESULT;
 float       WM_device_HMD_IPD_get(void) ATTR_WARN_UNUSED_RESULT;
-void        WM_device_HMD_left_modelview_matrix_get(float r_mat[4][4]) ATTR_NONNULL();
-void        WM_device_HMD_right_modelview_matrix_get(float r_mat[4][4]) ATTR_NONNULL();
-void        WM_device_HMD_left_projection_matrix_get(float r_mat[4][4]) ATTR_NONNULL();
-void        WM_device_HMD_right_projection_matrix_get(float r_mat[4][4]) ATTR_NONNULL();
+void        WM_device_HMD_IPD_set(float value);
 /* Utils */
 void WM_device_HMD_state_set(const int device, const bool enable);
+void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4]) ATTR_NONNULL();
 void WM_device_HMD_projection_matrix_get(const bool is_left, float r_projmat[4][4]) ATTR_NONNULL();
 
 #endif /* WITH_INPUT_HMD */

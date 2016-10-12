@@ -4238,17 +4238,19 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	}
 	else {
 		ScrArea *sa = hmd_win->screen->areabase.first;
-		ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
 		View3D *v3d = sa->spacedata.first;
 		BLI_assert(sa->spacetype = SPACE_VIEW3D);
 
 		WM_device_HMD_state_set(U.hmd_device, true);
+		if ((scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD) == 0) {
+			scene->hmd_settings.init_ipd = WM_device_HMD_IPD_get();
+			WM_device_HMD_IPD_set(scene->hmd_settings.custom_ipd);
+		}
 
 		BLI_assert(v3d->camera == scene->camera);
 		if (scene->camera) {
 			BKE_object_rot_to_quat(scene->camera, init_rot);
 		}
-		ED_view3d_update_viewmat(scene, v3d, ar, NULL, NULL);
 
 		WM_window_fullscreen_toggle(hmd_win, true, false);
 

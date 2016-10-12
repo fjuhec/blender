@@ -3756,11 +3756,29 @@ static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win, Scene *sc
 
 static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
 {
+	RegionView3D *rv3d = ar->regiondata;
 	const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
 	float projmat[4][4];
+	float modelviewmat[4][4];
 
+	WM_device_HMD_modelview_matrix_get(is_left, modelviewmat);
 	WM_device_HMD_projection_matrix_get(is_left, projmat);
-	view3d_main_region_setup_view(scene, v3d, ar, NULL, projmat);
+
+	/* update 3d view matrices before applying matrices from HMD */
+	view3d_viewmatrix_set(scene, v3d, rv3d);
+	view3d_winmatrix_set(ar, v3d, NULL);
+
+	/* apply 3d view matrices on hmd device ones */
+	mul_m4_m4m4(modelviewmat, modelviewmat, rv3d->viewmat);
+	add_m4_m4m4(projmat, projmat, rv3d->winmat);
+
+	if (rv3d->persp != RV3D_CAMOB) {
+		/* apply modelview zoom */
+		modelviewmat[3][2] -= rv3d->dist;
+	}
+
+	/* setup view with adjusted matrices */
+	view3d_main_region_setup_view(scene, v3d, ar, modelviewmat, projmat);
 }
 
 #endif /* WITH_INPUT_HMD */

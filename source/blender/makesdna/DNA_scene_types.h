@@ -1574,7 +1574,9 @@ typedef struct DisplaySafeAreas {
 struct HMDViewSettings {
 	char view_shade; /* rna_enum_viewport_shade_items */
 	char flag, pad[2];
-	float interocular_distance;
+	float custom_ipd;
+	/* Set while using custom_ipd (HMDVIEW_USE_DEVICE_IPD) so we can reset to device IPD */
+	float init_ipd;
 };
 
 /* HMDViewSettings.flag */
@@ -1678,6 +1680,7 @@ typedef struct Scene {
 	struct PreviewImage *preview;
 
 	struct HMDViewSettings hmd_settings;
+	int pad2;
 } Scene;
 
 /* **************** RENDERDATA ********************* */
