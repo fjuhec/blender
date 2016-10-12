@@ -20,6 +20,9 @@
 #include "kernel_compat_opencl.h"
 #include "kernel_math.h"
 #include "kernel_types.h"
+
+#include "kernel_split_data.h"
+
 #include "kernel_globals.h"
 
 #include "util_atomic.h"

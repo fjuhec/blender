@@ -72,20 +72,7 @@
  */
 ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
         KernelGlobals *kg,
-        ShaderData *sd,                        /* Required throughout the kernel except probabilistic path termination and AO */
-        ccl_global float *per_sample_output_buffers,
-        ccl_global uint *rng_coop,             /* Required for "kernel_write_data_passes" and AO */
-        ccl_global float3 *throughput_coop,    /* Required for handling holdout material and AO */
-        ccl_global float *L_transparent_coop,  /* Required for handling holdout material */
-        PathRadiance *PathRadiance_coop,       /* Required for "kernel_write_data_passes" and indirect primitive emission */
-        ccl_global PathState *PathState_coop,  /* Required throughout the kernel and AO */
-        Intersection *Intersection_coop,       /* Required for indirect primitive emission */
-        ccl_global float3 *AOAlpha_coop,       /* Required for AO */
-        ccl_global float3 *AOBSDF_coop,        /* Required for AO */
-        ccl_global Ray *AOLightRay_coop,       /* Required for AO */
         int sw, int sh, int sx, int sy, int stride,
-        ccl_global char *ray_state,            /* Denotes the state of each ray */
-        ccl_global unsigned int *work_array,   /* Denotes the work that each ray belongs to */
 #ifdef __WORK_STEALING__
         unsigned int start_sample,
 #endif
@@ -108,13 +95,17 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 	ccl_global PathState *state = 0x0;
 	float3 throughput;
 
+	ccl_global char *ray_state = split_state->ray_state;
+	ShaderData *sd = split_state->sd;
+	ccl_global float *per_sample_output_buffers = split_state->per_sample_output_buffers;
+
 	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
 
-		throughput = throughput_coop[ray_index];
-		state = &PathState_coop[ray_index];
-		rng = &rng_coop[ray_index];
+		throughput = split_state->throughput[ray_index];
+		state = &split_state->path_state[ray_index];
+		rng = &split_state->rng[ray_index];
 #ifdef __WORK_STEALING__
-		my_work = work_array[ray_index];
+		my_work = split_state->work_array[ray_index];
 		sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + start_sample;
 		get_pixel_tile_position(&pixel_x, &pixel_y,
 		                        &tile_x, &tile_y,
@@ -124,7 +115,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 		                        ray_index);
 		my_sample_tile = 0;
 #else  /* __WORK_STEALING__ */
-		sample = work_array[ray_index];
+		sample = split_state->work_array[ray_index];
 		/* Buffer's stride is "stride"; Find x and y using ray_index. */
 		int tile_index = ray_index / parallel_samples;
 		tile_x = tile_index % sw;
@@ -149,7 +140,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 					holdout_weight = shader_holdout_eval(kg, sd);
 
 				/* any throughput is ok, should all be identical here */
-				L_transparent_coop[ray_index] += average(holdout_weight*throughput);
+				split_state->L_transparent[ray_index] += average(holdout_weight*throughput);
 			}
 
 			if(ccl_fetch(sd, flag) & SD_HOLDOUT_MASK) {
@@ -161,7 +152,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 	}
 
 	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
-		PathRadiance *L = &PathRadiance_coop[ray_index];
+		PathRadiance *L = &split_state->path_radiance[ray_index];
 		/* Holdout mask objects do not write data passes. */
 		kernel_write_data_passes(kg,
 		                         per_sample_output_buffers,
@@ -188,7 +179,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 			float3 emission = indirect_primitive_emission(
 			        kg,
 			        sd,
-			        Intersection_coop[ray_index].t,
+			        split_state->isect[ray_index].t,
 			        state->flag,
 			        state->ray_pdf);
 			path_radiance_accum_emission(L, throughput, emission, state->bounce);
@@ -214,7 +205,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 					*enqueue_flag = 1;
 				}
 				else {
-					throughput_coop[ray_index] = throughput/probability;
+					split_state->throughput[ray_index] = throughput/probability;
 				}
 			}
 		}
@@ -232,8 +223,8 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 
 			float ao_factor = kernel_data.background.ao_factor;
 			float3 ao_N;
-			AOBSDF_coop[ray_index] = shader_bsdf_ao(kg, sd, ao_factor, &ao_N);
-			AOAlpha_coop[ray_index] = shader_bsdf_alpha(kg, sd);
+			split_state->ao_bsdf[ray_index] = shader_bsdf_ao(kg, sd, ao_factor, &ao_N);
+			split_state->ao_alpha[ray_index] = shader_bsdf_alpha(kg, sd);
 
 			float3 ao_D;
 			float ao_pdf;
@@ -249,7 +240,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 #endif
 				_ray.dP = ccl_fetch(sd, dP);
 				_ray.dD = differential3_zero();
-				AOLightRay_coop[ray_index] = _ray;
+				split_state->ao_light_ray[ray_index] = _ray;
 
 				ADD_RAY_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO);
 				*enqueue_flag_AO_SHADOW_RAY_CAST = 1;

@@ -195,6 +195,7 @@ set(SRC_SPLIT_HEADERS
 	split/kernel_shader_eval.h
 	split/kernel_shadow_blocked.h
 	split/kernel_split_common.h
+	split/kernel_split_data.h
 	split/kernel_sum_all_radiance.h
 )
 

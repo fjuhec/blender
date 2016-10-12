@@ -47,22 +47,18 @@
  */
 ccl_device void kernel_shadow_blocked(
         KernelGlobals *kg,
-        ccl_global PathState *PathState_coop,  /* Required for shadow blocked */
-        ccl_global Ray *LightRay_dl_coop,      /* Required for direct lighting's shadow blocked */
-        ccl_global Ray *LightRay_ao_coop,      /* Required for AO's shadow blocked */
-        ccl_global char *ray_state,
         char shadow_blocked_type,
         int ray_index)
 {
 	/* Flag determining if we need to update L. */
 	char update_path_radiance = 0;
 
-	if(IS_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL) ||
-	   IS_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO))
+	if(IS_FLAG(split_state->ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL) ||
+	   IS_FLAG(split_state->ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO))
 	{
-		ccl_global PathState *state = &PathState_coop[ray_index];
-		ccl_global Ray *light_ray_dl_global = &LightRay_dl_coop[ray_index];
-		ccl_global Ray *light_ray_ao_global = &LightRay_ao_coop[ray_index];
+		ccl_global PathState *state = &split_state->path_state[ray_index];
+		ccl_global Ray *light_ray_dl_global = &split_state->light_ray[ray_index];
+		ccl_global Ray *light_ray_ao_global = &split_state->ao_light_ray[ray_index];
 
 		ccl_global Ray *light_ray_global =
 		        shadow_blocked_type == RAY_SHADOW_RAY_CAST_AO

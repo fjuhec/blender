@@ -17,22 +17,13 @@
 #include "split/kernel_scene_intersect.h"
 
 __kernel void kernel_ocl_path_trace_scene_intersect(
-        ccl_global char *kg,
+        KernelGlobals *kg,
         ccl_constant KernelData *data,
-        ccl_global uint *rng_coop,
-        ccl_global Ray *Ray_coop,              /* Required for scene_intersect */
-        ccl_global PathState *PathState_coop,  /* Required for scene_intersect */
-        Intersection *Intersection_coop,       /* Required for scene_intersect */
-        ccl_global char *ray_state,            /* Denotes the state of each ray */
         int sw, int sh,
-        ccl_global int *Queue_data,            /* Memory for queues */
         ccl_global int *Queue_index,           /* Tracks the number of elements in queues */
         int queuesize,                         /* Size (capacity) of queues */
         ccl_global char *use_queues_flag,      /* used to decide if this kernel should use
                                                 * queues to fetch ray index */
-#ifdef __KERNEL_DEBUG__
-        DebugData *debugdata_coop,
-#endif
         int parallel_samples)                  /* Number of samples to be processed in parallel */
 {
 	int x = get_global_id(0);
@@ -50,7 +41,7 @@ __kernel void kernel_ocl_path_trace_scene_intersect(
 		int thread_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
 		ray_index = get_ray_index(thread_index,
 		                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-		                          Queue_data,
+		                          split_state->queue_data,
 		                          queuesize,
 		                          0);
 
@@ -65,16 +56,8 @@ __kernel void kernel_ocl_path_trace_scene_intersect(
 		}
 	}
 
-	kernel_scene_intersect((KernelGlobals *)kg,
-	                       rng_coop,
-	                       Ray_coop,
-	                       PathState_coop,
-	                       Intersection_coop,
-	                       ray_state,
+	kernel_scene_intersect(kg,
 	                       sw, sh,
 	                       use_queues_flag,
-#ifdef __KERNEL_DEBUG__
-	                       debugdata_coop,
-#endif
 	                       ray_index);
 }

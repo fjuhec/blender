@@ -21,6 +21,7 @@
 #include "buffers.h"
 
 #include "kernel_types.h"
+#include "kernel_split_data.h"
 
 #include "util_md5.h"
 #include "util_path.h"
@@ -106,46 +107,14 @@ public:
 	 * kernel will be available to another kernel via this global
 	 * memory.
 	 */
-	cl_mem rng_coop;
-	cl_mem throughput_coop;
-	cl_mem L_transparent_coop;
-	cl_mem PathRadiance_coop;
-	cl_mem Ray_coop;
-	cl_mem PathState_coop;
-	cl_mem Intersection_coop;
 	cl_mem kgbuffer;  /* KernelGlobals buffer. */
 
-	/* Global buffers for ShaderData. */
-	cl_mem sd;             /* ShaderData used in the main path-iteration loop. */
-	cl_mem sd_DL_shadow;   /* ShaderData used in Direct Lighting and
-	                        * shadow_blocked kernel.
-	                        */
-
-	/* Global memory required for shadow blocked and accum_radiance. */
-	cl_mem BSDFEval_coop;
-	cl_mem ISLamp_coop;
-	cl_mem LightRay_coop;
-	cl_mem AOAlpha_coop;
-	cl_mem AOBSDF_coop;
-	cl_mem AOLightRay_coop;
-	cl_mem Intersection_coop_shadow;
-
-#ifdef WITH_CYCLES_DEBUG
-	/* DebugData memory */
-	cl_mem debugdata_coop;
-#endif
+	cl_mem split_data;
 
 	/* Global state array that tracks ray state. */
 	cl_mem ray_state;
 
-	/* Per sample buffers. */
-	cl_mem per_sample_output_buffers;
-
-	/* Denotes which sample each ray is being processed for. */
-	cl_mem work_array;
-
 	/* Queue */
-	cl_mem Queue_data;  /* Array of size queuesize * num_queues * sizeof(int). */
 	cl_mem Queue_index; /* Array of size num_queues * sizeof(int);
 	                     * Tracks the size of each queue.
 	                     */
@@ -188,38 +157,12 @@ public:
 
 		/* Initialize cl_mem variables. */
 		kgbuffer = NULL;
-		sd = NULL;
-		sd_DL_shadow = NULL;
-
-		rng_coop = NULL;
-		throughput_coop = NULL;
-		L_transparent_coop = NULL;
-		PathRadiance_coop = NULL;
-		Ray_coop = NULL;
-		PathState_coop = NULL;
-		Intersection_coop = NULL;
+		split_data = NULL;
 		ray_state = NULL;
 
-		AOAlpha_coop = NULL;
-		AOBSDF_coop = NULL;
-		AOLightRay_coop = NULL;
-		BSDFEval_coop = NULL;
-		ISLamp_coop = NULL;
-		LightRay_coop = NULL;
-		Intersection_coop_shadow = NULL;
-
-#ifdef WITH_CYCLES_DEBUG
-		debugdata_coop = NULL;
-#endif
-
-		work_array = NULL;
-
 		/* Queue. */
-		Queue_data = NULL;
 		Queue_index = NULL;
 		use_queues_flag = NULL;
-
-		per_sample_output_buffers = NULL;
 
 		per_thread_output_buffer_size = 0;
 		hostRayStateArray = NULL;
@@ -265,12 +208,6 @@ public:
 		return ret_size;
 	}
 
-	size_t get_shader_data_size(size_t max_closure)
-	{
-		/* ShaderData size with variable size ShaderClosure array */
-		return sizeof(ShaderData) - (sizeof(ShaderClosure) * (MAX_CLOSURE - max_closure));
-	}
-
 	/* Returns size of KernelGlobals structure associated with OpenCL. */
 	size_t get_KernelGlobals_size()
 	{
@@ -285,6 +222,7 @@ public:
 #undef KERNEL_TEX
 			void *sd_input;
 			void *isect_shadow;
+			SplitData split_data;
 		} KernelGlobals;
 
 		return sizeof(KernelGlobals);
@@ -355,35 +293,14 @@ public:
 		program_sum_all_radiance.release();
 
 		/* Release global memory */
-		release_mem_object_safe(rng_coop);
-		release_mem_object_safe(throughput_coop);
-		release_mem_object_safe(L_transparent_coop);
-		release_mem_object_safe(PathRadiance_coop);
-		release_mem_object_safe(Ray_coop);
-		release_mem_object_safe(PathState_coop);
-		release_mem_object_safe(Intersection_coop);
 		release_mem_object_safe(kgbuffer);
-		release_mem_object_safe(sd);
-		release_mem_object_safe(sd_DL_shadow);
+		release_mem_object_safe(split_data);
 		release_mem_object_safe(ray_state);
-		release_mem_object_safe(AOAlpha_coop);
-		release_mem_object_safe(AOBSDF_coop);
-		release_mem_object_safe(AOLightRay_coop);
-		release_mem_object_safe(BSDFEval_coop);
-		release_mem_object_safe(ISLamp_coop);
-		release_mem_object_safe(LightRay_coop);
-		release_mem_object_safe(Intersection_coop_shadow);
-#ifdef WITH_CYCLES_DEBUG
-		release_mem_object_safe(debugdata_coop);
-#endif
 		release_mem_object_safe(use_queues_flag);
-		release_mem_object_safe(Queue_data);
 		release_mem_object_safe(Queue_index);
-		release_mem_object_safe(work_array);
 #ifdef __WORK_STEALING__
 		release_mem_object_safe(work_pool_wgs);
 #endif
-		release_mem_object_safe(per_sample_output_buffers);
 
 		if(hostRayStateArray != NULL) {
 			free(hostRayStateArray);
@@ -451,15 +368,11 @@ public:
 		assert(global_size[0] * global_size[1] <=
 		       max_render_feasible_tile_size.x * max_render_feasible_tile_size.y);
 
+		int num_global_elements = max_render_feasible_tile_size.x *
+		                          max_render_feasible_tile_size.y;
+
 		/* Allocate all required global memory once. */
 		if(first_tile) {
-			size_t num_global_elements = max_render_feasible_tile_size.x *
-			                             max_render_feasible_tile_size.y;
-			/* TODO(sergey): This will actually over-allocate if
-			 * particular kernel does not support multiclosure.
-			 */
-			size_t shaderdata_size = get_shader_data_size(current_max_closure);
-
 #ifdef __WORK_STEALING__
 			/* Calculate max groups */
 			size_t max_global_size[2];
@@ -477,62 +390,27 @@ public:
 			Queue_index = mem_alloc(NUM_QUEUES * sizeof(int));
 			use_queues_flag = mem_alloc(sizeof(char));
 			kgbuffer = mem_alloc(get_KernelGlobals_size());
-
-			/* Create global buffers for ShaderData. */
-			sd = mem_alloc(num_global_elements * shaderdata_size);
-			sd_DL_shadow = mem_alloc(num_global_elements * 2 * shaderdata_size);
-
-			/* Creation of global memory buffers which are shared among
-			 * the kernels.
-			 */
-			rng_coop = mem_alloc(num_global_elements * sizeof(RNG));
-			throughput_coop = mem_alloc(num_global_elements * sizeof(float3));
-			L_transparent_coop = mem_alloc(num_global_elements * sizeof(float));
-			PathRadiance_coop = mem_alloc(num_global_elements * sizeof(PathRadiance));
-			Ray_coop = mem_alloc(num_global_elements * sizeof(Ray));
-			PathState_coop = mem_alloc(num_global_elements * sizeof(PathState));
-			Intersection_coop = mem_alloc(num_global_elements * sizeof(Intersection));
-			AOAlpha_coop = mem_alloc(num_global_elements * sizeof(float3));
-			AOBSDF_coop = mem_alloc(num_global_elements * sizeof(float3));
-			AOLightRay_coop = mem_alloc(num_global_elements * sizeof(Ray));
-			BSDFEval_coop = mem_alloc(num_global_elements * sizeof(BsdfEval));
-			ISLamp_coop = mem_alloc(num_global_elements * sizeof(int));
-			LightRay_coop = mem_alloc(num_global_elements * sizeof(Ray));
-			Intersection_coop_shadow = mem_alloc(2 * num_global_elements * sizeof(Intersection));
-
-#ifdef WITH_CYCLES_DEBUG
-			debugdata_coop = mem_alloc(num_global_elements * sizeof(DebugData));
-#endif
-
 			ray_state = mem_alloc(num_global_elements * sizeof(char));
+			split_data = mem_alloc(split_data_buffer_size(num_global_elements,
+			                                              current_max_closure,
+			                                              per_thread_output_buffer_size));
 
 			hostRayStateArray = (char *)calloc(num_global_elements, sizeof(char));
 			assert(hostRayStateArray != NULL && "Can't create hostRayStateArray memory");
-
-			Queue_data = mem_alloc(num_global_elements * (NUM_QUEUES * sizeof(int)+sizeof(int)));
-			work_array = mem_alloc(num_global_elements * sizeof(unsigned int));
-			per_sample_output_buffers = mem_alloc(num_global_elements *
-			                                      per_thread_output_buffer_size);
 		}
 
 		cl_int dQueue_size = global_size[0] * global_size[1];
 
+		//printf("kernel_set_args data_init\n");
 		cl_uint start_arg_index =
 			kernel_set_args(program_data_init(),
 			                0,
 			                kgbuffer,
-			                sd_DL_shadow,
 			                d_data,
-			                per_sample_output_buffers,
-			                d_rng_state,
-			                rng_coop,
-			                throughput_coop,
-			                L_transparent_coop,
-			                PathRadiance_coop,
-			                Ray_coop,
-			                PathState_coop,
-			                Intersection_coop_shadow,
-			                ray_state);
+							split_data,
+			                num_global_elements,
+							ray_state,
+			                d_rng_state);
 
 /* TODO(sergey): Avoid map lookup here. */
 #define KERNEL_TEX(type, ttype, name) \
@@ -553,78 +431,53 @@ public:
 			                rtile.rng_state_offset_x,
 			                rtile.rng_state_offset_y,
 			                rtile.buffer_rng_state_stride,
-			                Queue_data,
 			                Queue_index,
 			                dQueue_size,
 			                use_queues_flag,
-			                work_array,
 #ifdef __WORK_STEALING__
 			                work_pool_wgs,
 			                num_samples,
 #endif
-#ifdef WITH_CYCLES_DEBUG
-			                debugdata_coop,
-#endif
 			                num_parallel_samples);
 
+		//printf("kernel_set_args scene_intersect\n");
 		kernel_set_args(program_scene_intersect(),
 		                0,
 		                kgbuffer,
 		                d_data,
-		                rng_coop,
-		                Ray_coop,
-		                PathState_coop,
-		                Intersection_coop,
-		                ray_state,
 		                d_w,
 		                d_h,
-		                Queue_data,
 		                Queue_index,
 		                dQueue_size,
 		                use_queues_flag,
-#ifdef WITH_CYCLES_DEBUG
-		                debugdata_coop,
-#endif
 		                num_parallel_samples);
 
+		//printf("kernel_set_args lamp_emission\n");
 		kernel_set_args(program_lamp_emission(),
 		                0,
 		                kgbuffer,
 		                d_data,
-		                throughput_coop,
-		                PathRadiance_coop,
-		                Ray_coop,
-		                PathState_coop,
-		                Intersection_coop,
-		                ray_state,
 		                d_w,
 		                d_h,
-		                Queue_data,
 		                Queue_index,
 		                dQueue_size,
 		                use_queues_flag,
 		                num_parallel_samples);
 
+		//printf("kernel_set_args queue_enqueue\n");
 		kernel_set_args(program_queue_enqueue(),
 		                0,
-		                Queue_data,
+		                kgbuffer,
+			            d_data,
 		                Queue_index,
-		                ray_state,
 		                dQueue_size);
 
+		//printf("kernel_set_args background_buffer_update\n");
 		kernel_set_args(program_background_buffer_update(),
 		                 0,
 		                 kgbuffer,
 		                 d_data,
-		                 per_sample_output_buffers,
 		                 d_rng_state,
-		                 rng_coop,
-		                 throughput_coop,
-		                 PathRadiance_coop,
-		                 Ray_coop,
-		                 PathState_coop,
-		                 L_transparent_coop,
-		                 ray_state,
 		                 d_w,
 		                 d_h,
 		                 d_x,
@@ -633,8 +486,6 @@ public:
 		                 rtile.rng_state_offset_x,
 		                 rtile.rng_state_offset_y,
 		                 rtile.buffer_rng_state_stride,
-		                 work_array,
-		                 Queue_data,
 		                 Queue_index,
 		                 dQueue_size,
 		                 end_sample,
@@ -643,48 +494,26 @@ public:
 		                 work_pool_wgs,
 		                 num_samples,
 #endif
-#ifdef WITH_CYCLES_DEBUG
-		                 debugdata_coop,
-#endif
 		                 num_parallel_samples);
 
+		//printf("kernel_set_args shader_eval\n");
 		kernel_set_args(program_shader_eval(),
 		                0,
 		                kgbuffer,
 		                d_data,
-		                sd,
-		                rng_coop,
-		                Ray_coop,
-		                PathState_coop,
-		                Intersection_coop,
-		                ray_state,
-		                Queue_data,
 		                Queue_index,
 		                dQueue_size);
 
+		//printf("kernel_set_args holdout_emission_blurring_pathtermination_ao\n");
 		kernel_set_args(program_holdout_emission_blurring_pathtermination_ao(),
 		                0,
 		                kgbuffer,
 		                d_data,
-		                sd,
-		                per_sample_output_buffers,
-		                rng_coop,
-		                throughput_coop,
-		                L_transparent_coop,
-		                PathRadiance_coop,
-		                PathState_coop,
-		                Intersection_coop,
-		                AOAlpha_coop,
-		                AOBSDF_coop,
-		                AOLightRay_coop,
 		                d_w,
 		                d_h,
 		                d_x,
 		                d_y,
 		                d_stride,
-		                ray_state,
-		                work_array,
-		                Queue_data,
 		                Queue_index,
 		                dQueue_size,
 #ifdef __WORK_STEALING__
@@ -692,60 +521,37 @@ public:
 #endif
 		                num_parallel_samples);
 
+		//printf("kernel_set_args direct_lighting\n");
 		kernel_set_args(program_direct_lighting(),
 		                0,
 		                kgbuffer,
 		                d_data,
-		                sd,
-		                rng_coop,
-		                PathState_coop,
-		                ISLamp_coop,
-		                LightRay_coop,
-		                BSDFEval_coop,
-		                ray_state,
-		                Queue_data,
 		                Queue_index,
 		                dQueue_size);
 
+		//printf("kernel_set_args shadow_blocked\n");
 		kernel_set_args(program_shadow_blocked(),
 		                0,
 		                kgbuffer,
 		                d_data,
-		                PathState_coop,
-		                LightRay_coop,
-		                AOLightRay_coop,
-		                ray_state,
-		                Queue_data,
 		                Queue_index,
 		                dQueue_size);
 
+		//printf("kernel_set_args next_iteration_setup\n");
 		kernel_set_args(program_next_iteration_setup(),
 		                0,
 		                kgbuffer,
 		                d_data,
-		                sd,
-		                rng_coop,
-		                throughput_coop,
-		                PathRadiance_coop,
-		                Ray_coop,
-		                PathState_coop,
-		                LightRay_coop,
-		                ISLamp_coop,
-		                BSDFEval_coop,
-		                AOLightRay_coop,
-		                AOBSDF_coop,
-		                AOAlpha_coop,
-		                ray_state,
-		                Queue_data,
 		                Queue_index,
 		                dQueue_size,
 		                use_queues_flag);
 
+		//printf("kernel_set_args sum_all_radiance\n");
 		kernel_set_args(program_sum_all_radiance(),
 		                0,
+		                kgbuffer,
 		                d_data,
 		                d_buffer,
-		                per_sample_output_buffers,
 		                num_parallel_samples,
 		                d_w,
 		                d_h,
@@ -759,6 +565,7 @@ public:
 #define GLUE(a, b) a ## b
 #define ENQUEUE_SPLIT_KERNEL(kernelName, globalSize, localSize) \
 		{ \
+			/*printf("enqueueing " #kernelName "\n");*/ \
 			ciErr = clEnqueueNDRangeKernel(cqCommandQueue, \
 			                               GLUE(program_, \
 			                                    kernelName)(), \
@@ -786,6 +593,7 @@ public:
 		unsigned int numHostIntervention = 0;
 		unsigned int numNextPathIterTimes = PathIteration_times;
 		bool canceled = false;
+
 		while(activeRaysAvailable) {
 			/* Twice the global work size of other kernels for
 			 * ckPathTraceKernel_shadow_blocked_direct_lighting. */
@@ -814,6 +622,7 @@ public:
 			/* Read ray-state into Host memory to decide if we should exit
 			 * path-iteration in host.
 			 */
+			//printf("enqueue read\n");
 			ciErr = clEnqueueReadBuffer(cqCommandQueue,
 			                            ray_state,
 			                            CL_TRUE,
@@ -972,29 +781,9 @@ public:
 	/* Calculate the memory required for one thread in split kernel. */
 	size_t get_per_thread_memory()
 	{
-		size_t shaderdata_size = 0;
-		/* TODO(sergey): This will actually over-allocate if
-		 * particular kernel does not support multiclosure.
-		 */
-		shaderdata_size = get_shader_data_size(current_max_closure);
-		size_t retval = sizeof(RNG)
-			+ sizeof(float3)          /* Throughput size */
-			+ sizeof(float)           /* L transparent size */
-			+ sizeof(char)            /* Ray state size */
-			+ sizeof(unsigned int)    /* Work element size */
-			+ sizeof(int)             /* ISLamp_size */
-			+ sizeof(PathRadiance) + sizeof(Ray) + sizeof(PathState)
-			+ sizeof(Intersection)    /* Overall isect */
-			+ sizeof(Intersection)    /* Instersection_coop_AO */
-			+ sizeof(Intersection)    /* Intersection coop DL */
-			+ shaderdata_size         /* Overall ShaderData */
-			+ (shaderdata_size * 2)   /* ShaderData : DL and shadow */
-			+ sizeof(Ray) + sizeof(BsdfEval)
-			+ sizeof(float3)          /* AOAlpha size */
-			+ sizeof(float3)          /* AOBSDF size */
-			+ sizeof(Ray)
-			+ (sizeof(int) * NUM_QUEUES)
-			+ per_thread_output_buffer_size;
+		size_t retval = split_data_buffer_size(1, current_max_closure, per_thread_output_buffer_size);
+		retval += sizeof(char); /* ray state size (since ray state is in a different buffer from split state data) */
+
 		return retval;
 	}
 

@@ -17,22 +17,8 @@
 #include "split/kernel_next_iteration_setup.h"
 
 __kernel void kernel_ocl_path_trace_next_iteration_setup(
-        ccl_global char *kg,
+        KernelGlobals *kg,
         ccl_constant KernelData *data,
-        ccl_global char *sd,                  /* Required for setting up ray for next iteration */
-        ccl_global uint *rng_coop,            /* Required for setting up ray for next iteration */
-        ccl_global float3 *throughput_coop,   /* Required for setting up ray for next iteration */
-        PathRadiance *PathRadiance_coop,      /* Required for setting up ray for next iteration */
-        ccl_global Ray *Ray_coop,             /* Required for setting up ray for next iteration */
-        ccl_global PathState *PathState_coop, /* Required for setting up ray for next iteration */
-        ccl_global Ray *LightRay_dl_coop,     /* Required for radiance update - direct lighting */
-        ccl_global int *ISLamp_coop,          /* Required for radiance update - direct lighting */
-        ccl_global BsdfEval *BSDFEval_coop,   /* Required for radiance update - direct lighting */
-        ccl_global Ray *LightRay_ao_coop,     /* Required for radiance update - AO */
-        ccl_global float3 *AOBSDF_coop,       /* Required for radiance update - AO */
-        ccl_global float3 *AOAlpha_coop,      /* Required for radiance update - AO */
-        ccl_global char *ray_state,           /* Denotes the state of each ray */
-        ccl_global int *Queue_data,           /* Queue memory */
         ccl_global int *Queue_index,          /* Tracks the number of elements in each queue */
         int queuesize,                        /* Size (capacity) of each queue */
         ccl_global char *use_queues_flag)     /* flag to decide if scene_intersect kernel should
@@ -63,7 +49,7 @@ __kernel void kernel_ocl_path_trace_next_iteration_setup(
 	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
 	ray_index = get_ray_index(ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-	                          Queue_data,
+	                          split_state->queue_data,
 	                          queuesize,
 	                          0);
 
@@ -83,20 +69,7 @@ __kernel void kernel_ocl_path_trace_next_iteration_setup(
 #ifndef __COMPUTE_DEVICE_GPU__
 	if(ray_index != QUEUE_EMPTY_SLOT) {
 #endif
-		enqueue_flag = kernel_next_iteration_setup((KernelGlobals *)kg,
-		                                           (ShaderData *)sd,
-		                                           rng_coop,
-		                                           throughput_coop,
-		                                           PathRadiance_coop,
-		                                           Ray_coop,
-		                                           PathState_coop,
-		                                           LightRay_dl_coop,
-		                                           ISLamp_coop,
-		                                           BSDFEval_coop,
-		                                           LightRay_ao_coop,
-		                                           AOBSDF_coop,
-		                                           AOAlpha_coop,
-		                                           ray_state,
+		enqueue_flag = kernel_next_iteration_setup(kg,
 		                                           use_queues_flag,
 		                                           ray_index);
 #ifndef __COMPUTE_DEVICE_GPU__
@@ -109,6 +82,6 @@ __kernel void kernel_ocl_path_trace_next_iteration_setup(
 	                        enqueue_flag,
 	                        queuesize,
 	                        &local_queue_atomics,
-	                        Queue_data,
+	                        split_state->queue_data,
 	                        Queue_index);
 }

@@ -44,27 +44,19 @@
  * QUEUE_ACTIVE_AND_REGENERATED_RAYS will be filled with RAY_ACTIVE and RAY_REGENERATED rays
  * QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be filled with RAY_TO_REGENERATE rays
  */
-ccl_device void kernel_shader_eval(
-        KernelGlobals *kg,
-        ShaderData *sd,                        /* Output ShaderData structure to be filled */
-        ccl_global uint *rng_coop,             /* Required for rbsdf calculation */
-        ccl_global Ray *Ray_coop,              /* Required for setting up shader from ray */
-        ccl_global PathState *PathState_coop,  /* Required for all functions in this kernel */
-        Intersection *Intersection_coop,       /* Required for setting up shader from ray */
-        ccl_global char *ray_state,            /* Denotes the state of each ray */
-        int ray_index)
+ccl_device void kernel_shader_eval(KernelGlobals *kg, int ray_index)
 {
-	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
-		Intersection *isect = &Intersection_coop[ray_index];
-		ccl_global uint *rng = &rng_coop[ray_index];
-		ccl_global PathState *state = &PathState_coop[ray_index];
-		Ray ray = Ray_coop[ray_index];
+	if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE)) {
+		Intersection *isect = &split_state->isect[ray_index];
+		ccl_global uint *rng = &split_state->rng[ray_index];
+		ccl_global PathState *state = &split_state->path_state[ray_index];
+		Ray ray = split_state->ray[ray_index];
 
 		shader_setup_from_ray(kg,
-		                      sd,
+		                      split_state->sd,
 		                      isect,
 		                      &ray);
 		float rbsdf = path_state_rng_1D_for_decision(kg, rng, state, PRNG_BSDF);
-		shader_eval_surface(kg, sd, rng, state, rbsdf, state->flag, SHADER_CONTEXT_MAIN);
+		shader_eval_surface(kg, split_state->sd, rng, state, rbsdf, state->flag, SHADER_CONTEXT_MAIN);
 	}
 }

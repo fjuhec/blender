@@ -38,26 +38,20 @@
  */
 ccl_device void kernel_lamp_emission(
         KernelGlobals *kg,
-        ccl_global float3 *throughput_coop,    /* Required for lamp emission */
-        PathRadiance *PathRadiance_coop,       /* Required for lamp emission */
-        ccl_global Ray *Ray_coop,              /* Required for lamp emission */
-        ccl_global PathState *PathState_coop,  /* Required for lamp emission */
-        Intersection *Intersection_coop,       /* Required for lamp emission */
-        ccl_global char *ray_state,            /* Denotes the state of each ray */
         int sw, int sh,
         ccl_global char *use_queues_flag,      /* Used to decide if this kernel should use
                                                 * queues to fetch ray index
                                                 */
         int ray_index)
 {
-	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE) ||
-	   IS_STATE(ray_state, ray_index, RAY_HIT_BACKGROUND))
+	if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE) ||
+	   IS_STATE(split_state->ray_state, ray_index, RAY_HIT_BACKGROUND))
 	{
-		PathRadiance *L = &PathRadiance_coop[ray_index];
-		ccl_global PathState *state = &PathState_coop[ray_index];
+		PathRadiance *L = &split_state->path_radiance[ray_index];
+		ccl_global PathState *state = &split_state->path_state[ray_index];
 
-		float3 throughput = throughput_coop[ray_index];
-		Ray ray = Ray_coop[ray_index];
+		float3 throughput = split_state->throughput[ray_index];
+		Ray ray = split_state->ray[ray_index];
 
 #ifdef __LAMP_MIS__
 		if(kernel_data.integrator.use_lamp_mis && !(state->flag & PATH_RAY_CAMERA)) {
@@ -65,7 +59,7 @@ ccl_device void kernel_lamp_emission(
 			Ray light_ray;
 
 			light_ray.P = ray.P - state->ray_t*ray.D;
-			state->ray_t += Intersection_coop[ray_index].t;
+			state->ray_t += split_state->isect[ray_index].t;
 			light_ray.D = ray.D;
 			light_ray.t = state->ray_t;
 			light_ray.time = ray.time;

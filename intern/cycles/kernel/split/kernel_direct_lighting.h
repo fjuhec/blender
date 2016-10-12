@@ -47,20 +47,12 @@
  * QUEUE_SHADOW_RAY_CAST_DL_RAYS queue will be filled with rays for which a shadow_blocked function must be executed, after this
  * kernel call. Before this kernel call the QUEUE_SHADOW_RAY_CAST_DL_RAYS will be empty.
  */
-ccl_device char kernel_direct_lighting(
-        KernelGlobals *kg,
-        ShaderData *sd,                         /* Required for direct lighting */
-        ccl_global uint *rng_coop,              /* Required for direct lighting */
-        ccl_global PathState *PathState_coop,   /* Required for direct lighting */
-        ccl_global int *ISLamp_coop,            /* Required for direct lighting */
-        ccl_global Ray *LightRay_coop,          /* Required for direct lighting */
-        ccl_global BsdfEval *BSDFEval_coop,     /* Required for direct lighting */
-        ccl_global char *ray_state,             /* Denotes the state of each ray */
-        int ray_index)
+ccl_device char kernel_direct_lighting(KernelGlobals *kg, int ray_index)
 {
 	char enqueue_flag = 0;
-	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
-		ccl_global PathState *state = &PathState_coop[ray_index];
+	if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE)) {
+		ccl_global PathState *state = &split_state->path_state[ray_index];
+		ShaderData *sd = split_state->sd;
 
 		/* direct lighting */
 #ifdef __EMISSION__
@@ -68,7 +60,7 @@ ccl_device char kernel_direct_lighting(
 		    (ccl_fetch(sd, flag) & SD_BSDF_HAS_EVAL)))
 		{
 			/* Sample illumination from lights to find path contribution. */
-			ccl_global RNG* rng = &rng_coop[ray_index];
+			ccl_global RNG* rng = &split_state->rng[ray_index];
 			float light_t = path_state_rng_1D(kg, rng, state, PRNG_LIGHT);
 			float light_u, light_v;
 			path_state_rng_2D(kg, rng, state, PRNG_LIGHT_U, &light_u, &light_v);
@@ -92,11 +84,11 @@ ccl_device char kernel_direct_lighting(
 					/* Write intermediate data to global memory to access from
 					 * the next kernel.
 					 */
-					LightRay_coop[ray_index] = light_ray;
-					BSDFEval_coop[ray_index] = L_light;
-					ISLamp_coop[ray_index] = is_lamp;
+					split_state->light_ray[ray_index] = light_ray;
+					split_state->bsdf_eval[ray_index] = L_light;
+					split_state->is_lamp[ray_index] = is_lamp;
 					/* Mark ray state for next shadow kernel. */
-					ADD_RAY_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL);
+					ADD_RAY_FLAG(split_state->ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL);
 					enqueue_flag = 1;
 				}
 			}

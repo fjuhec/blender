@@ -3,6 +3,7 @@ set(INC
 	.
 	../graph
 	../kernel
+	../kernel/split
 	../kernel/svm
 	../kernel/osl
 	../util

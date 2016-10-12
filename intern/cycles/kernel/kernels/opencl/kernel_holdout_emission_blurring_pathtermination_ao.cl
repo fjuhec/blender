@@ -17,23 +17,9 @@
 #include "split/kernel_holdout_emission_blurring_pathtermination_ao.h"
 
 __kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao(
-        ccl_global char *kg,
+        KernelGlobals *kg,
         ccl_constant KernelData *data,
-        ccl_global char *sd,                   /* Required throughout the kernel except probabilistic path termination and AO */
-        ccl_global float *per_sample_output_buffers,
-        ccl_global uint *rng_coop,             /* Required for "kernel_write_data_passes" and AO */
-        ccl_global float3 *throughput_coop,    /* Required for handling holdout material and AO */
-        ccl_global float *L_transparent_coop,  /* Required for handling holdout material */
-        PathRadiance *PathRadiance_coop,       /* Required for "kernel_write_data_passes" and indirect primitive emission */
-        ccl_global PathState *PathState_coop,  /* Required throughout the kernel and AO */
-        Intersection *Intersection_coop,       /* Required for indirect primitive emission */
-        ccl_global float3 *AOAlpha_coop,       /* Required for AO */
-        ccl_global float3 *AOBSDF_coop,        /* Required for AO */
-        ccl_global Ray *AOLightRay_coop,       /* Required for AO */
         int sw, int sh, int sx, int sy, int stride,
-        ccl_global char *ray_state,            /* Denotes the state of each ray */
-        ccl_global unsigned int *work_array,   /* Denotes the work that each ray belongs to */
-        ccl_global int *Queue_data,            /* Queue memory */
         ccl_global int *Queue_index,           /* Tracks the number of elements in each queue */
         int queuesize,                         /* Size (capacity) of each queue */
 #ifdef __WORK_STEALING__
@@ -54,7 +40,7 @@ __kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao
 	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
 	ray_index = get_ray_index(ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-	                          Queue_data,
+	                          split_state->queue_data,
 	                          queuesize,
 	                          0);
 
@@ -75,21 +61,8 @@ __kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao
 	if(ray_index != QUEUE_EMPTY_SLOT) {
 #endif
 		kernel_holdout_emission_blurring_pathtermination_ao(
-		        (KernelGlobals *)kg,
-		        (ShaderData *)sd,
-		        per_sample_output_buffers,
-		        rng_coop,
-		        throughput_coop,
-		        L_transparent_coop,
-		        PathRadiance_coop,
-		        PathState_coop,
-		        Intersection_coop,
-		        AOAlpha_coop,
-		        AOBSDF_coop,
-		        AOLightRay_coop,
+		        kg,
 		        sw, sh, sx, sy, stride,
-		        ray_state,
-		        work_array,
 #ifdef __WORK_STEALING__
 		        start_sample,
 #endif
@@ -107,7 +80,7 @@ __kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao
 	                        enqueue_flag,
 	                        queuesize,
 	                        &local_queue_atomics_bg,
-	                        Queue_data,
+	                        split_state->queue_data,
 	                        Queue_index);
 
 #ifdef __AO__
@@ -117,7 +90,7 @@ __kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao
 	                        enqueue_flag_AO_SHADOW_RAY_CAST,
 	                        queuesize,
 	                        &local_queue_atomics_ao,
-	                        Queue_data,
+	                        split_state->queue_data,
 	                        Queue_index);
 #endif
 }

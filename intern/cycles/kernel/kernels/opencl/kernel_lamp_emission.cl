@@ -17,16 +17,9 @@
 #include "split/kernel_lamp_emission.h"
 
 __kernel void kernel_ocl_path_trace_lamp_emission(
-        ccl_global char *kg,
+        KernelGlobals *kg,
         ccl_constant KernelData *data,
-        ccl_global float3 *throughput_coop,    /* Required for lamp emission */
-        PathRadiance *PathRadiance_coop,       /* Required for lamp emission */
-        ccl_global Ray *Ray_coop,              /* Required for lamp emission */
-        ccl_global PathState *PathState_coop,  /* Required for lamp emission */
-        Intersection *Intersection_coop,       /* Required for lamp emission */
-        ccl_global char *ray_state,            /* Denotes the state of each ray */
         int sw, int sh,
-        ccl_global int *Queue_data,            /* Memory for queues */
         ccl_global int *Queue_index,           /* Tracks the number of elements in queues */
         int queuesize,                         /* Size (capacity) of queues */
         ccl_global char *use_queues_flag,      /* Used to decide if this kernel should use
@@ -53,7 +46,7 @@ __kernel void kernel_ocl_path_trace_lamp_emission(
 		int thread_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
 		ray_index = get_ray_index(thread_index,
 		                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-		                          Queue_data,
+		                          split_state->queue_data,
 		                          queuesize,
 		                          1);
 		if(ray_index == QUEUE_EMPTY_SLOT) {
@@ -67,13 +60,7 @@ __kernel void kernel_ocl_path_trace_lamp_emission(
 		}
 	}
 
-	kernel_lamp_emission((KernelGlobals *)kg,
-	                     throughput_coop,
-	                     PathRadiance_coop,
-	                     Ray_coop,
-	                     PathState_coop,
-	                     Intersection_coop,
-	                     ray_state,
+	kernel_lamp_emission(kg,
 	                     sw, sh,
 	                     use_queues_flag,
 	                     ray_index);

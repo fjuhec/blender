@@ -17,15 +17,8 @@
 #include "split/kernel_shader_eval.h"
 
 __kernel void kernel_ocl_path_trace_shader_eval(
-        ccl_global char *kg,
+        KernelGlobals *kg,
         ccl_constant KernelData *data,
-        ccl_global char *sd,                   /* Output ShaderData structure to be filled */
-        ccl_global uint *rng_coop,             /* Required for rbsdf calculation */
-        ccl_global Ray *Ray_coop,              /* Required for setting up shader from ray */
-        ccl_global PathState *PathState_coop,  /* Required for all functions in this kernel */
-        Intersection *Intersection_coop,       /* Required for setting up shader from ray */
-        ccl_global char *ray_state,            /* Denotes the state of each ray */
-        ccl_global int *Queue_data,            /* queue memory */
         ccl_global int *Queue_index,           /* Tracks the number of elements in each queue */
         int queuesize)                         /* Size (capacity) of each queue */
 {
@@ -39,7 +32,7 @@ __kernel void kernel_ocl_path_trace_shader_eval(
 	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
 	ray_index = get_ray_index(ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-	                          Queue_data,
+	                          split_state->queue_data,
 	                          queuesize,
 	                          0);
 
@@ -47,22 +40,15 @@ __kernel void kernel_ocl_path_trace_shader_eval(
 		return;
 	}
 
-	char enqueue_flag = (IS_STATE(ray_state, ray_index, RAY_TO_REGENERATE)) ? 1 : 0;
+	char enqueue_flag = (IS_STATE(split_state->ray_state, ray_index, RAY_TO_REGENERATE)) ? 1 : 0;
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 	                        enqueue_flag,
 	                        queuesize,
 	                        &local_queue_atomics,
-	                        Queue_data,
+	                        split_state->queue_data,
 	                        Queue_index);
 
 	/* Continue on with shader evaluation. */
-	kernel_shader_eval((KernelGlobals *)kg,
-	                   (ShaderData *)sd,
-	                   rng_coop,
-	                   Ray_coop,
-	                   PathState_coop,
-	                   Intersection_coop,
-	                   ray_state,
-	                   ray_index);
+	kernel_shader_eval(kg, ray_index);
 }

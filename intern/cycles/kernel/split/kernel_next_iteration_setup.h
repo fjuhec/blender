@@ -61,19 +61,6 @@
  */
 ccl_device char kernel_next_iteration_setup(
         KernelGlobals *kg,
-        ShaderData *sd,                       /* Required for setting up ray for next iteration */
-        ccl_global uint *rng_coop,            /* Required for setting up ray for next iteration */
-        ccl_global float3 *throughput_coop,   /* Required for setting up ray for next iteration */
-        PathRadiance *PathRadiance_coop,      /* Required for setting up ray for next iteration */
-        ccl_global Ray *Ray_coop,             /* Required for setting up ray for next iteration */
-        ccl_global PathState *PathState_coop, /* Required for setting up ray for next iteration */
-        ccl_global Ray *LightRay_dl_coop,     /* Required for radiance update - direct lighting */
-        ccl_global int *ISLamp_coop,          /* Required for radiance update - direct lighting */
-        ccl_global BsdfEval *BSDFEval_coop,   /* Required for radiance update - direct lighting */
-        ccl_global Ray *LightRay_ao_coop,     /* Required for radiance update - AO */
-        ccl_global float3 *AOBSDF_coop,       /* Required for radiance update - AO */
-        ccl_global float3 *AOAlpha_coop,      /* Required for radiance update - AO */
-        ccl_global char *ray_state,           /* Denotes the state of each ray */
         ccl_global char *use_queues_flag,     /* flag to decide if scene_intersect kernel should
                                                * use queues to fetch ray index */
         int ray_index)
@@ -83,23 +70,24 @@ ccl_device char kernel_next_iteration_setup(
 	/* Load ShaderData structure. */
 	PathRadiance *L = NULL;
 	ccl_global PathState *state = NULL;
+	ccl_global char *ray_state = split_state->ray_state;
 
 	/* Path radiance update for AO/Direct_lighting's shadow blocked. */
 	if(IS_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL) ||
 	   IS_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO))
 	{
-		state = &PathState_coop[ray_index];
-		L = &PathRadiance_coop[ray_index];
-		float3 _throughput = throughput_coop[ray_index];
+		state = &split_state->path_state[ray_index];
+		L = &split_state->path_radiance[ray_index];
+		float3 _throughput = split_state->throughput[ray_index];
 
 		if(IS_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO)) {
-			float3 shadow = LightRay_ao_coop[ray_index].P;
-			char update_path_radiance = LightRay_ao_coop[ray_index].t;
+			float3 shadow = split_state->ao_light_ray[ray_index].P;
+			char update_path_radiance = split_state->ao_light_ray[ray_index].t;
 			if(update_path_radiance) {
 				path_radiance_accum_ao(L,
 				                       _throughput,
-				                       AOAlpha_coop[ray_index],
-				                       AOBSDF_coop[ray_index],
+				                       split_state->ao_alpha[ray_index],
+				                       split_state->ao_bsdf[ray_index],
 				                       shadow,
 				                       state->bounce);
 			}
@@ -107,31 +95,31 @@ ccl_device char kernel_next_iteration_setup(
 		}
 
 		if(IS_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL)) {
-			float3 shadow = LightRay_dl_coop[ray_index].P;
-			char update_path_radiance = LightRay_dl_coop[ray_index].t;
+			float3 shadow = split_state->light_ray[ray_index].P;
+			char update_path_radiance = split_state->light_ray[ray_index].t;
 			if(update_path_radiance) {
-				BsdfEval L_light = BSDFEval_coop[ray_index];
+				BsdfEval L_light = split_state->bsdf_eval[ray_index];
 				path_radiance_accum_light(L,
 				                          _throughput,
 				                          &L_light,
 				                          shadow,
 				                          1.0f,
 				                          state->bounce,
-				                          ISLamp_coop[ray_index]);
+				                          split_state->is_lamp[ray_index]);
 			}
 			REMOVE_RAY_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL);
 		}
 	}
 
 	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
-		ccl_global float3 *throughput = &throughput_coop[ray_index];
-		ccl_global Ray *ray = &Ray_coop[ray_index];
-		ccl_global RNG *rng = &rng_coop[ray_index];
-		state = &PathState_coop[ray_index];
-		L = &PathRadiance_coop[ray_index];
+		ccl_global float3 *throughput = &split_state->throughput[ray_index];
+		ccl_global Ray *ray = &split_state->ray[ray_index];
+		ccl_global RNG *rng = &split_state->rng[ray_index];
+		state = &split_state->path_state[ray_index];
+		L = &split_state->path_radiance[ray_index];
 
 		/* Compute direct lighting and next bounce. */
-		if(!kernel_path_surface_bounce(kg, rng, sd, throughput, state, L, ray)) {
+		if(!kernel_path_surface_bounce(kg, rng, split_state->sd, throughput, state, L, ray)) {
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_UPDATE_BUFFER);
 			enqueue_flag = 1;
 		}

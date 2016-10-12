@@ -17,6 +17,7 @@
 #include "../../kernel_compat_opencl.h"
 #include "../../kernel_math.h"
 #include "../../kernel_types.h"
+#include "../../split/kernel_split_data.h"
 #include "../../kernel_globals.h"
 #include "../../kernel_queues.h"
 
@@ -52,9 +53,9 @@
  * QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be filled with RAY_TO_REGENERATE, RAY_UPDATE_BUFFER, RAY_HIT_BACKGROUND rays.
  */
 __kernel void kernel_ocl_path_trace_queue_enqueue(
-        ccl_global int *Queue_data,   /* Queue memory */
+        KernelGlobals *kg,
+        ccl_constant KernelData *data,
         ccl_global int *Queue_index,  /* Tracks the number of elements in each queue */
-        ccl_global char *ray_state,   /* Denotes the state of each ray */
         int queuesize)                /* Size (capacity) of each queue */
 {
 	/* We have only 2 cases (Hit/Not-Hit) */
@@ -70,10 +71,10 @@ __kernel void kernel_ocl_path_trace_queue_enqueue(
 
 	int queue_number = -1;
 
-	if(IS_STATE(ray_state, ray_index, RAY_HIT_BACKGROUND)) {
+	if(IS_STATE(split_state->ray_state, ray_index, RAY_HIT_BACKGROUND)) {
 		queue_number = QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS;
 	}
-	else if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
+	else if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE)) {
 		queue_number = QUEUE_ACTIVE_AND_REGENERATED_RAYS;
 	}
 
@@ -101,6 +102,6 @@ __kernel void kernel_ocl_path_trace_queue_enqueue(
 		                                  queuesize,
 		                                  my_lqidx,
 		                                  local_queue_atomics);
-		Queue_data[my_gqidx] = ray_index;
+		split_state->queue_data[my_gqidx] = ray_index;
 	}
 }
