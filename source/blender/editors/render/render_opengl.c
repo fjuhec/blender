@@ -442,7 +442,7 @@ static void add_gpencil_renderpass(OGLRender *oglrender, RenderResult *rr, Rende
 	if (BLI_listbase_is_empty(&gpd->layers)) {
 		return;
 	}
-	if ((oglrender->v3d->flag2 & V3D_SHOW_GPENCIL) == 0) {
+	if (oglrender->v3d != NULL && (oglrender->v3d->flag2 & V3D_SHOW_GPENCIL) == 0) {
 		return;
 	}
 
@@ -860,7 +860,7 @@ static void write_result_func(TaskPool * __restrict pool,
 	const int cfra = task_data->cfra;
 	bool ok;
 	/* Don't attempt to write if we've got an error. */
-	if (!oglrender->pool_ok || G.is_break) {
+	if (!oglrender->pool_ok) {
 		RE_FreeRenderResult(rr);
 		BLI_mutex_lock(&oglrender->task_mutex);
 		oglrender->num_scheduled_frames--;
@@ -1046,6 +1046,7 @@ static int screen_opengl_render_modal(bContext *C, wmOperator *op, const wmEvent
 	switch (event->type) {
 		case ESCKEY:
 			/* cancel */
+			oglrender->pool_ok = false;  /* Flag pool for cancel. */
 			screen_opengl_render_end(C, op->customdata);
 			return OPERATOR_FINISHED;
 		case TIMER:
