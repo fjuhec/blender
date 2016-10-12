@@ -4248,7 +4248,7 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		if (scene->camera) {
 			BKE_object_rot_to_quat(scene->camera, init_rot);
 		}
-		ED_view3d_update_viewmat(scene, sa->spacedata.first, ar, NULL, NULL);
+		ED_view3d_update_viewmat(scene, v3d, ar, NULL, NULL);
 
 		WM_window_fullscreen_toggle(hmd_win, true, false);
 

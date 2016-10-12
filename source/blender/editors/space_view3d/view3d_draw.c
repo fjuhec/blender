@@ -104,7 +104,7 @@
 #include "view3d_intern.h"  /* own include */
 
 /* prototypes */
-static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const bool is_hmd_view);
+static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar);
 static void view3d_stereo3d_setup_offscreen(Scene *scene, View3D *v3d, ARegion *ar,
                                             float winmat[4][4], const char *viewname);
 
@@ -3747,16 +3747,33 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
 	return true;
 }
 
+#ifdef WITH_INPUT_HMD
+
+static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win, Scene *scene)
+{
+	return (wm->win_hmd == win && (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING));
+}
+
+static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
+{
+	const bool is_left = v3d->multiview_eye == STEREO_LEFT_ID;
+	float projmat[4][4];
+
+	WM_device_HMD_projection_matrix_get(is_left, projmat);
+	view3d_main_region_setup_view(scene, v3d, ar, NULL, projmat);
+}
+
+#endif /* WITH_INPUT_HMD */
+
 /* setup the view and win matrices for the multiview cameras
  *
  * unlike view3d_stereo3d_setup_offscreen, when view3d_stereo3d_setup is called
- * we have no winmatrix (i.e., projection matrix) defined at that time, with
- * the exception when using Head Mounted Displays where OpenHMD provides one.
+ * we have no winmatrix (i.e., projection matrix) defined at that time.
  * Since the camera and the camera shift are needed for the winmat calculation
  * we do a small hack to replace it temporarily so we don't need to change the
  * view3d)main_region_setup_view() code to account for that.
  */
-static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const bool is_hmd_view)
+static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
 {
 	bool is_left;
 	const char *names[2] = {STEREO_LEFT_NAME, STEREO_RIGHT_NAME};
@@ -3770,36 +3787,6 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar, const 
 	viewname = names[is_left ? STEREO_LEFT_ID : STEREO_RIGHT_ID];
 
 	/* update the viewport matrices with the new camera */
-#ifndef WITH_INPUT_HMD
-	UNUSED_VARS(is_hmd_view);
-#else
-	if (is_hmd_view) {
-		Camera *data = v3d->camera->data;
-		const short view_format = scene->r.views_format;
-		const short convergence_mode = data->stereo.convergence_mode;
-		const short pivot = data->stereo.pivot;
-		const float ipd_override = (U.hmd_device != -1 && (scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD)) ?
-		                               WM_device_HMD_IPD_get() : scene->hmd_settings.interocular_distance;
-		float viewmat[4][4];
-		float projmat[4][4];
-
-		BLI_lock_thread(LOCK_VIEW3D);
-		data->stereo.convergence_mode = CAM_S3D_PARALLEL;
-		data->stereo.pivot = CAM_S3D_PIVOT_CENTER;
-		scene->r.views_format = SCE_VIEWS_FORMAT_STEREO_3D;
-
-		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, ipd_override, viewmat);
-		WM_device_HMD_projection_matrix_get(is_left, projmat);
-
-		view3d_main_region_setup_view(scene, v3d, ar, viewmat, projmat);
-
-		data->stereo.convergence_mode = convergence_mode;
-		data->stereo.pivot = pivot;
-		scene->r.views_format = view_format;
-		BLI_unlock_thread(LOCK_VIEW3D);
-	}
-	else
-#endif
 	if (scene->r.views_format == SCE_VIEWS_FORMAT_STEREO_3D) {
 		Camera *data;
 		float viewmat[4][4];
@@ -3868,16 +3855,6 @@ static void update_lods(Scene *scene, float camera_pos[3])
 }
 #endif
 
-static bool view3d_stereo3d_is_hmd_view(wmWindowManager *wm, wmWindow *win, Scene *scene)
-{
-#ifdef WITH_INPUT_HMD
-	return (wm->win_hmd == win && (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING));
-#else
-	UNUSED_VARS(wm, win, scene);
-	return false;
-#endif
-}
-
 static void view3d_main_region_draw_objects(
         const bContext *C, Scene *scene, View3D *v3d,
         ARegion *ar, const char **grid_unit)
@@ -3900,9 +3877,14 @@ static void view3d_main_region_draw_objects(
 	}
 
 	/* setup the view matrix */
+#ifdef WITH_INPUT_HMD
+	if (view3d_hmd_view_active(CTX_wm_manager(C), win, scene)) {
+		view3d_hmd_view_setup(scene, v3d, ar);
+	}
+	else
+#endif
 	if (view3d_stereo3d_active(C, scene, v3d, rv3d)) {
-		const bool is_hmd_view = view3d_stereo3d_is_hmd_view(CTX_wm_manager(C), win, scene);
-		view3d_stereo3d_setup(scene, v3d, ar, is_hmd_view);
+		view3d_stereo3d_setup(scene, v3d, ar);
 	}
 	else {
 		view3d_main_region_setup_view(scene, v3d, ar, NULL, NULL);
@@ -4105,9 +4087,11 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 		
 		ED_region_pixelspace(ar);
 
-		if (view3d_stereo3d_is_hmd_view(CTX_wm_manager(C), CTX_wm_window(C), scene)) {
+#ifdef WITH_INPUT_HMD
+		if (view3d_hmd_view_active(CTX_wm_manager(C), CTX_wm_window(C), scene)) {
 			return;
 		}
+#endif
 	}
 
 	/* draw viewport using external renderer */
