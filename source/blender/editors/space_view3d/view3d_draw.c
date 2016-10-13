@@ -34,6 +34,7 @@
 
 #include "BKE_camera.h"
 #include "BKE_context.h"
+#include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_unit.h"
 
@@ -937,7 +938,6 @@ static void draw_all_objects(const bContext *C, ARegion *ar, const bool only_dep
 {
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
-	Base *base;
 
 	if (only_depth)
 		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -947,7 +947,8 @@ static void draw_all_objects(const bContext *C, ARegion *ar, const bool only_dep
 		v3d->zbuf = true;
 	}
 
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (v3d->lay & base->lay) {
 			/* dupli drawing */
 			if (base->object->transflag & OB_DUPLI)
@@ -956,6 +957,7 @@ static void draw_all_objects(const bContext *C, ARegion *ar, const bool only_dep
 			draw_object(scene, ar, v3d, base, 0);
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	if (only_depth)
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
