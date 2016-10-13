@@ -45,6 +45,7 @@
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_icons.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
@@ -774,19 +775,17 @@ static void view3d_recalc_used_layers(ARegion *ar, wmNotifier *wmn, Scene *scene
 	wmWindow *win = wmn->wm->winactive;
 	ScrArea *sa;
 	unsigned int lay_used = 0;
-	Base *base;
 
 	if (!win) return;
 
-	base = scene->base.first;
-	while (base) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		lay_used |= base->lay & ((1 << 20) - 1); /* ignore localview */
 
 		if (lay_used == (1 << 20) - 1)
 			break;
-
-		base = base->next;
 	}
+	BKE_BASES_ITER_END;
 
 	for (sa = win->screen->areabase.first; sa; sa = sa->next) {
 		if (sa->spacetype == SPACE_VIEW3D) {
@@ -1289,19 +1288,18 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		View3D *v3d = CTX_wm_view3d(C);
 		Scene *scene = CTX_data_scene(C);
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
-		Base *base;
 		const bool selected_objects = CTX_data_equals(member, "selected_objects");
 
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if ((base->flag & SELECT) && (base->lay & lay)) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
-					if (selected_objects)
-						CTX_data_id_list_add(result, &base->object->id);
-					else
-						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+				if (selected_objects)
+					CTX_data_id_list_add(result, &base->object->id);
+				else
+					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
+		BKE_BASES_ITER_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
@@ -1309,21 +1307,20 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		View3D *v3d = CTX_wm_view3d(C);
 		Scene *scene = CTX_data_scene(C);
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
-		Base *base;
 		const bool selected_editable_objects = CTX_data_equals(member, "selected_editable_objects");
 
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if ((base->flag & SELECT) && (base->lay & lay)) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
-					if (0 == BKE_object_is_libdata(base->object)) {
-						if (selected_editable_objects)
-							CTX_data_id_list_add(result, &base->object->id);
-						else
-							CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-					}
+				if (0 == BKE_object_is_libdata(base->object)) {
+					if (selected_editable_objects)
+						CTX_data_id_list_add(result, &base->object->id);
+					else
+						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 				}
 			}
 		}
+		BKE_BASES_ITER_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
@@ -1331,19 +1328,18 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		View3D *v3d = CTX_wm_view3d(C);
 		Scene *scene = CTX_data_scene(C);
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
-		Base *base;
 		const bool visible_objects = CTX_data_equals(member, "visible_objects");
 
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if (base->lay & lay) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) {
-					if (visible_objects)
-						CTX_data_id_list_add(result, &base->object->id);
-					else
-						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+				if (visible_objects)
+					CTX_data_id_list_add(result, &base->object->id);
+				else
+					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
+		BKE_BASES_ITER_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
@@ -1351,19 +1347,18 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		View3D *v3d = CTX_wm_view3d(C);
 		Scene *scene = CTX_data_scene(C);
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
-		Base *base;
 		const bool selectable_objects = CTX_data_equals(member, "selectable_objects");
 
-		for (base = scene->base.first; base; base = base->next) {
-			if (base->lay & lay) {
-				if ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0 && (base->object->restrictflag & OB_RESTRICT_SELECT) == 0) {
-					if (selectable_objects)
-						CTX_data_id_list_add(result, &base->object->id);
-					else
-						CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
+			if ((base->lay & lay) && ((base->object->restrictflag & OB_RESTRICT_SELECT) == 0)) {
+				if (selectable_objects)
+					CTX_data_id_list_add(result, &base->object->id);
+				else
+					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
+		BKE_BASES_ITER_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
@@ -1374,8 +1369,11 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		if (scene->basact && (scene->basact->lay & lay)) {
 			Object *ob = scene->basact->object;
 			/* if hidden but in edit mode, we still display, can happen with animation */
-			if ((ob->restrictflag & OB_RESTRICT_VIEW) == 0 || (ob->mode & OB_MODE_EDIT))
+			if ((ob->mode & OB_MODE_EDIT) ||
+			    (BKE_layeritem_is_visible(ob->layer) && (ob->restrictflag & OB_RESTRICT_VIEW) == 0))
+			{
 				CTX_data_pointer_set(result, &scene->id, &RNA_ObjectBase, scene->basact);
+			}
 		}
 		
 		return 1;
@@ -1386,8 +1384,11 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		const unsigned int lay = v3d ? v3d->lay : scene->lay;
 		if (scene->basact && (scene->basact->lay & lay)) {
 			Object *ob = scene->basact->object;
-			if ((ob->restrictflag & OB_RESTRICT_VIEW) == 0 || (ob->mode & OB_MODE_EDIT))
+			if ((ob->mode & OB_MODE_EDIT) ||
+			    (BKE_layeritem_is_visible(ob->layer) && (ob->restrictflag & OB_RESTRICT_VIEW) == 0))
+			{
 				CTX_data_id_pointer_set(result, &scene->basact->object->id);
+			}
 		}
 		
 		return 1;

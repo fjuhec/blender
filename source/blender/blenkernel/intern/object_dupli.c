@@ -55,6 +55,7 @@
 #include "BKE_group.h"
 #include "BKE_global.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
@@ -241,8 +242,8 @@ static void make_child_duplis(const DupliContext *ctx, void *userdata, MakeChild
 	else {
 		unsigned int lay = ctx->scene->lay;
 		int baseid = 0;
-		Base *base;
-		for (base = ctx->scene->base.first; base; base = base->next, baseid++) {
+		BKE_BASES_ITER_START(ctx->scene, base)
+		{
 			Object *ob = base->object;
 
 			if ((base->lay & lay) && ob != obedit && is_child(ob, parent)) {
@@ -255,7 +256,9 @@ static void make_child_duplis(const DupliContext *ctx, void *userdata, MakeChild
 
 				make_child_duplis_cb(&pctx, userdata, ob);
 			}
+			baseid++;
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 
@@ -315,7 +318,8 @@ static void make_duplis_group(const DupliContext *ctx)
 
 			/* check the group instance and object layers match, also that the object visible flags are ok. */
 			hide = (go->ob->lay & group->layer) == 0 ||
-			       (for_render ? go->ob->restrictflag & OB_RESTRICT_RENDER : go->ob->restrictflag & OB_RESTRICT_VIEW);
+			       (for_render ? go->ob->restrictflag & OB_RESTRICT_RENDER : go->ob->restrictflag & OB_RESTRICT_VIEW) ||
+			       !BKE_layeritem_is_visible(ob->layer);
 
 			make_dupli(ctx, go->ob, mat, id, animated, hide);
 

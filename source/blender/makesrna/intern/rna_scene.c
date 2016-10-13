@@ -411,6 +411,7 @@ EnumPropertyItem rna_enum_bake_pass_filter_type_items[] = {
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_space_types.h"
 #include "DNA_text_types.h"
 
 #include "RNA_access.h"
@@ -420,9 +421,12 @@ EnumPropertyItem rna_enum_bake_pass_filter_type_items[] = {
 #include "BKE_brush.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_idprop.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_depsgraph.h"
 #include "BKE_mesh.h"
@@ -551,27 +555,52 @@ static void rna_SpaceImageEditor_uv_sculpt_update(Main *bmain, Scene *scene, Poi
 	ED_space_image_uv_sculpt_update(bmain->wm.first, scene);
 }
 
+static void rna_Scene_object_bases_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
+{
+	Scene *scene = (Scene *)ptr->data;
+	Base *base = BKE_objectlayer_base_first_find(scene->object_layers);
+	const int totbases = BKE_objectlayer_bases_count(scene->object_layers);
+	rna_iterator_array_begin(iter, base, sizeof(base), totbases, 0, NULL);
+	iter->internal.array.endptr = NULL;
+}
+
+static void rna_Scene_object_bases_next(CollectionPropertyIterator *iter)
+{
+	ArrayIterator *internal = &iter->internal.array;
+	Base *base = (Base *)internal->ptr;
+	Base *next = BKE_objectlayer_base_next_find(base, false);
+
+	if (next) {
+		internal->ptr = (char *)next;
+	}
+	else {
+		/* no next base was found, tell iterator to stop. */
+		iter->valid = 0;
+	}
+}
+
 static int rna_Scene_object_bases_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr)
 {
 	Scene *scene = (Scene *)ptr->data;
-	Base *base;
 
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (STREQLEN(base->object->id.name + 2, key, sizeof(base->object->id.name) - 2)) {
 			*r_ptr = rna_pointer_inherit_refine(ptr, &RNA_ObjectBase, base);
 			return true;
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	return false;
 }
 
 static PointerRNA rna_Scene_objects_get(CollectionPropertyIterator *iter)
 {
-	ListBaseIterator *internal = &iter->internal.listbase;
+	ArrayIterator *internal = &iter->internal.array;
 
 	/* we are actually iterating a Base list, so override get */
-	return rna_pointer_inherit_refine(&iter->parent, &RNA_Object, ((Base *)internal->link)->object);
+	return rna_pointer_inherit_refine(&iter->parent, &RNA_Object, ((Base *)internal->ptr)->object);
 }
 
 static Base *rna_Scene_object_link(Scene *scene, bContext *C, ReportList *reports, Object *ob)
@@ -888,6 +917,40 @@ static void rna_Scene_all_keyingsets_next(CollectionPropertyIterator *iter)
 		internal->link = (Link *)ks->next;
 		
 	iter->valid = (internal->link != NULL);
+}
+
+static IDProperty *rna_LayerTreeItem_idprops(PointerRNA *ptr, bool create)
+{
+	LayerTreeItem *litem = ptr->data;
+
+	if (create && !litem->prop) {
+		IDPropertyTemplate val = {0};
+		litem->prop = IDP_New(IDP_GROUP, &val, "RNA_LayerTreeItem ID properties");
+	}
+
+	return litem->prop;
+}
+
+static PointerRNA rna_Layer_properties_get(PointerRNA *ptr)
+{
+	LayerTreeItem *litem = ptr->data;
+	return rna_pointer_inherit_refine(ptr, litem->type->srna, litem->prop);
+}
+
+static IDProperty *rna_LayerProperties_idprops(PointerRNA *ptr, bool create)
+{
+	if (create && !ptr->data) {
+		IDPropertyTemplate val = {0};
+		ptr->data = IDP_New(IDP_GROUP, &val, "RNA_LayerProperties group");
+	}
+
+	return ptr->data;
+}
+
+static void rna_layer_tree_items_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
+{
+	LayerTree *ltree = ptr->data;
+	rna_iterator_array_begin(iter, ltree->items_all, sizeof(LayerTreeItem *), ltree->tot_items, 0, NULL);
 }
 
 static int rna_RenderSettings_stereoViews_skip(CollectionPropertyIterator *iter, void *UNUSED(data))
@@ -6824,6 +6887,43 @@ static void rna_def_display_safe_areas(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SCENE | ND_DRAW_RENDER_VIEWPORT, NULL);
 }
 
+static void rna_def_layer_tree_item(BlenderRNA *brna)
+{
+	PropertyRNA *prop;
+	StructRNA *srna = RNA_def_struct(brna, "LayerTreeItem", NULL);
+	RNA_def_struct_idprops_func(srna, "rna_LayerTreeItem_idprops");
+
+	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Name", "Name of the item");
+
+	prop = RNA_def_property(srna, "properties", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "prop");
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_struct_type(prop, "LayerProperties");
+	RNA_def_property_ui_text(prop, "Properties", "");
+	RNA_def_property_pointer_funcs(prop, "rna_Layer_properties_get", NULL, NULL, NULL);
+
+	srna = RNA_def_struct(brna, "LayerProperties", NULL);
+	RNA_def_struct_ui_text(srna, "Layer Properties", "Input properties of a layer");
+	RNA_def_struct_idprops_func(srna, "rna_LayerProperties_idprops");
+}
+
+static void rna_def_layer_tree(BlenderRNA *brna)
+{
+	StructRNA *srna = RNA_def_struct(brna, "LayerTree", NULL);
+	PropertyRNA *prop;
+
+	prop = RNA_def_property(srna, "tree_items", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_collection_sdna(prop, NULL, "items_all", NULL);
+	RNA_def_property_struct_type(prop, "LayerTreeItem");
+	RNA_def_property_ui_text(prop, "Layer Items", "The items of the layer tree that represent the "
+	                         "layer types (object layer, layer group, compositing layer, ...)");
+	RNA_def_property_collection_funcs(prop, "rna_layer_tree_items_begin", "rna_iterator_array_next",
+	                                  "rna_iterator_array_end", "rna_iterator_array_dereference_get",
+	                                  NULL, NULL, NULL, NULL);
+
+	rna_def_layer_tree_item(brna);
+}
 
 void RNA_def_scene(BlenderRNA *brna)
 {
@@ -6889,15 +6989,16 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_collection_sdna(prop, NULL, "base", NULL);
 	RNA_def_property_struct_type(prop, "ObjectBase");
 	RNA_def_property_ui_text(prop, "Bases", "");
-	RNA_def_property_collection_funcs(prop, NULL, NULL, NULL, NULL, NULL, NULL,
-	                                  "rna_Scene_object_bases_lookup_string", NULL);
+	RNA_def_property_collection_funcs(prop, "rna_Scene_object_bases_begin", "rna_Scene_object_bases_next",
+	                                  NULL, NULL, NULL, NULL, "rna_Scene_object_bases_lookup_string", NULL);
 	rna_def_scene_bases(brna, prop);
 
 	prop = RNA_def_property(srna, "objects", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "base", NULL);
 	RNA_def_property_struct_type(prop, "Object");
 	RNA_def_property_ui_text(prop, "Objects", "");
-	RNA_def_property_collection_funcs(prop, NULL, NULL, NULL, "rna_Scene_objects_get", NULL, NULL, NULL, NULL);
+	RNA_def_property_collection_funcs(prop, "rna_Scene_object_bases_begin", "rna_Scene_object_bases_next",
+	                                  NULL, "rna_Scene_objects_get", NULL, NULL, NULL, NULL);
 	rna_def_scene_objects(brna, prop);
 
 	/* Layers */
@@ -6915,6 +7016,9 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE | PROP_EDITABLE);
 	RNA_def_property_int_funcs(prop, "rna_Scene_active_layer_get", NULL, NULL);
 	RNA_def_property_ui_text(prop, "Active Layer", "Active scene layer index");
+
+	prop = RNA_def_property(srna, "object_layers", PROP_POINTER, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Object Layers", "Layer tree which contains the object layers");
 
 	/* Frame Range Stuff */
 	prop = RNA_def_property(srna, "frame_current", PROP_INT, PROP_TIME);
@@ -7249,6 +7353,7 @@ void RNA_def_scene(BlenderRNA *brna)
 	/* *** Animated *** */
 	rna_def_scene_render_data(brna);
 	rna_def_scene_render_layer(brna);
+	rna_def_layer_tree(brna);
 	rna_def_gpu_fx(brna);
 	rna_def_scene_render_view(brna);
 

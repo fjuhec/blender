@@ -54,6 +54,7 @@
 #include "BKE_customdata.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
+#include "BKE_layer.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -320,6 +321,10 @@ int ED_operator_info_active(bContext *C)
 	return ed_spacetype_test(C, SPACE_INFO);
 }
 
+int ED_operator_layers_active(bContext *C)
+{
+	return ed_spacetype_test(C, SPACE_LAYERS);
+}
 
 int ED_operator_console_active(bContext *C)
 {
@@ -329,7 +334,8 @@ int ED_operator_console_active(bContext *C)
 static int ed_object_hidden(Object *ob)
 {
 	/* if hidden but in edit mode, we still display, can happen with animation */
-	return ((ob->restrictflag & OB_RESTRICT_VIEW) && !(ob->mode & OB_MODE_EDIT));
+	return (!(ob->mode & OB_MODE_EDIT) &&
+	        ((ob->restrictflag & OB_RESTRICT_VIEW) || !BKE_layeritem_is_visible(ob->layer)));
 }
 
 int ED_operator_object_active(bContext *C)

@@ -356,6 +356,11 @@ static void restrictbutton_gp_layer_flag_cb(bContext *C, void *UNUSED(poin), voi
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 }
 
+static void restrictbutton_layer_flag_cb(bContext *C, void *UNUSED(poin), void *UNUSED(poin2))
+{
+	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, NULL);
+}
+
 static int group_restrict_flag(Group *gr, int flag)
 {
 	GroupObject *gob;
@@ -804,6 +809,18 @@ static void outliner_draw_restrictbuts(uiBlock *block, Scene *scene, ARegion *ar
 				
 				/* TODO: visibility in renders */
 				
+				UI_block_emboss_set(block, UI_EMBOSS);
+			}
+			else if (tselem->type == TSE_OBJECT_LAYER) {
+				LayerTreeItem *litem = te->directdata;
+
+				UI_block_emboss_set(block, UI_EMBOSS_NONE);
+
+				bt = uiDefIconButC(block, UI_BTYPE_ICON_TOGGLE, 0, ICON_RESTRICT_VIEW_OFF,
+				                   (int)(ar->v2d.cur.xmax - UI_UNIT_X), te->ys, UI_UNIT_X, UI_UNIT_Y,
+				                   &litem->is_hidden, 0.0f, 0.0f, 0.0f, 0.0f, "Hide/unhide this layer");
+				UI_but_func_set(bt, restrictbutton_layer_flag_cb, NULL, NULL);
+
 				UI_block_emboss_set(block, UI_EMBOSS);
 			}
 		}

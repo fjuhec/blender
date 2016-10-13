@@ -49,6 +49,7 @@ extern "C" {
 #include "DNA_gpu_types.h"
 #include "DNA_userdef_types.h"
 
+struct bContext;
 struct CurveMapping;
 struct Object;
 struct Brush;
@@ -65,18 +66,75 @@ struct bGPdata;
 struct bGPDbrush;
 struct MovieClip;
 struct ColorSpace;
+struct uiLayout;
 
 /* ************************************************************* */
 /* Scene Data */
 
 /* Base - Wrapper for referencing Objects in a Scene */
 typedef struct Base {
-	struct Base *next, *prev;
+	struct Base *next DNA_DEPRECATED, *prev DNA_DEPRECATED;
 	unsigned int lay, selcol;
 	int flag;
 	short sx, sy;
 	struct Object *object;
+	struct LayerTreeItem *layer; /* The layer this base is assigned to. Synced with Object.layer */
+	int index, pad; /* the index of this Base within the object layer */
 } Base;
+
+/* ------------------------------------------- */
+/* Layers */
+
+typedef struct LayerTree {
+	int type; /* eLayerTree_Type */
+
+	unsigned int tot_items; /* total items of *all hierarchy levels*, not only what's in "items" below */
+	/* LayerTreeItem - Only items of the first level in the hierarchy, these may have children then.
+	 * TODO check if worth using array instead */
+	ListBase items;
+	/* Array of all layer tree items, including all childs. Using array in hope it speeds up iterations.
+	 * NOTE: We currently assume that all children (or grand-children, etc) are placed after their parent, even though
+	 * it's quite easy to break it. It could be supported but might lower performance a bit (maybe uber-picky).
+	 * XXX Check if this can be made safer */
+	struct LayerTreeItem **items_all;
+
+	/* The currently active layer of this tree */
+	struct LayerTreeItem *active_layer;
+} LayerTree;
+
+/**
+ * \brief An item of the layer tree.
+ * Used as a base struct for the individual layer tree item types (layer, layer group, compositing layer, etc).
+ */
+typedef struct LayerTreeItem {
+	struct LayerTreeItem *next, *prev;
+
+	struct LayerType *type;
+	char idname[64]; /* LayerType.idname, for finding type on file read */
+
+	int index; /* index of the item - stored to avoid loockups */
+	char name[64];  /* MAX_NAME */
+
+	/* Such stuff should usually be handled using custom props but this is
+	 * an exception: We access it a lot and it's useful for all layer types.
+	 * Will/should stay the only exception so not using bit flags. */
+	char is_hidden, pad[3];
+
+	LayerTree *tree; /* pointer back to layer tree - TODO check if needed */
+	struct LayerTreeItem *parent; /* the group this item belongs to */
+	ListBase childs; /* LayerTreeItem */
+
+	/* custom props */
+	struct PointerRNA *ptr; /* rna pointer to access properties from layer type */
+	IDProperty *prop;       /* custom props for all layers */
+} LayerTreeItem;
+
+typedef struct LayerTypeObject {
+	LayerTreeItem litem;
+	Base **bases;           /* Array of objects assigned to this layer. */
+	unsigned int tot_bases; /* amount of objects assigned to this layer */
+	int visibility_bits;
+} LayerTypeObject;
 
 /* ************************************************************* */
 /* Output Format Data */
@@ -1540,19 +1598,22 @@ typedef struct Scene {
 	struct World *world;
 	
 	struct Scene *set;
-	
-	ListBase base;
+
+	ListBase base DNA_DEPRECATED; /* old base list, now stored in object_layers below */
 	struct Base *basact;		/* active base */
 	struct Object *obedit;		/* name replaces old G.obedit */
-	
+
 	float cursor[3];			/* 3d cursor location */
 	float twcent[3];			/* center for transform widget */
 	float twmin[3], twmax[3];	/* boundbox of selection for transform widget */
-	
+
+	/* the object layer tree of this scene */
+	struct LayerTree *object_layers;
+
 	unsigned int lay;			/* bitflags for layer visibility */
 	int layact;		/* active layer */
 	unsigned int lay_updated;       /* runtime flag, has layer ever been updated since load? */
-	
+
 	short flag;								/* various settings */
 	
 	char use_nodes;
@@ -1607,6 +1668,8 @@ typedef struct Scene {
 
 	/* Movie Tracking */
 	struct MovieClip *clip;			/* active movie clip */
+
+	void *pad2;
 
 	uint64_t customdata_mask;	/* XXX. runtime flag for drawing, actually belongs in the window, only used by BKE_object_handle_update() */
 	uint64_t customdata_mask_modal; /* XXX. same as above but for temp operator use (gl renders) */
@@ -1823,6 +1886,8 @@ extern const char *RE_engine_id_CYCLES;
 /* (minimum frame number for current-frame) */
 #define MINAFRAME	-500000
 #define MINAFRAMEF	-500000.0f
+
+/* TODO add layer visibility checks */
 
 /* depricate this! */
 #define TESTBASE(v3d, base)  (                                                \

@@ -1856,6 +1856,10 @@ wmKeyMap *WM_keymap_guess_opname(const bContext *C, const char *opname)
 	else if (STRPREFIX(opname, "OUTLINER_OT")) {
 		km = WM_keymap_find_all(C, "Outliner", sl->spacetype, 0);
 	}
+	/* Layer Manager */
+	else if (STRPREFIX(opname, "LAYERS_OT")) {
+		km = WM_keymap_find_all(C, "Layer Manager", sl->spacetype, 0);
+	}
 	/* Transform */
 	else if (STRPREFIX(opname, "TRANSFORM_OT")) {
 		/* check for relevant editor */

@@ -66,6 +66,7 @@
 #include "BKE_depsgraph.h"
 #include "BKE_mball.h"
 #include "BKE_mesh.h"
+#include "BKE_layer.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_editmesh.h"
@@ -400,24 +401,23 @@ static void do_lasso_select_pose(ViewContext *vc, Object *ob, const int mcords[]
 
 static void object_deselect_all_visible(Scene *scene, View3D *v3d)
 {
-	Base *base;
-
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
 		if (BASE_SELECTABLE(v3d, base)) {
 			ED_base_object_select(base, BA_DESELECT);
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void do_lasso_select_objects(ViewContext *vc, const int mcords[][2], const short moves,
                                     const bool extend, const bool select)
 {
-	Base *base;
-	
 	if (extend == false && select)
 		object_deselect_all_visible(vc->scene, vc->v3d);
 
-	for (base = vc->scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(vc->scene, base)
+	{
 		if (BASE_SELECTABLE(vc->v3d, base)) { /* use this to avoid un-needed lasso lookups */
 			if (ED_view3d_project_base(vc->ar, base) == V3D_PROJ_RET_OK) {
 				if (BLI_lasso_is_point_inside(mcords, moves, base->sx, base->sy, IS_CLIPPED)) {
@@ -431,6 +431,7 @@ static void do_lasso_select_objects(ViewContext *vc, const int mcords[][2], cons
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void do_lasso_select_mesh__doSelectVert(void *userData, BMVert *eve, const float screen_co[2], int UNUSED(index))
@@ -1073,15 +1074,15 @@ void VIEW3D_OT_select_menu(wmOperatorType *ot)
 
 static void deselectall_except(Scene *scene, Base *b)   /* deselect all except b */
 {
-	Base *base;
-	
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (base->flag & SELECT) {
 			if (b != base) {
 				ED_base_object_select(base, BA_DESELECT);
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static Base *object_mouse_select_menu(bContext *C, ViewContext *vc, unsigned int *buffer, int hits, const int mval[2], short toggle)
@@ -1277,7 +1278,7 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 {
 	Scene *scene = vc->scene;
 	View3D *v3d = vc->v3d;
-	Base *base, *basact = NULL;
+	Base *basact = NULL;
 	int a;
 	
 	if (do_nearest) {
@@ -1305,28 +1306,21 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 				}
 			}
 		}
-		
-		base = FIRSTBASE;
-		while (base) {
+
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if (BASE_SELECTABLE(v3d, base)) {
-				if (base->selcol == selcol) break;
+				if (base->selcol == selcol) {
+					basact = base;
+					break;
+				}
 			}
-			base = base->next;
 		}
-		if (base) basact = base;
+		BKE_BASES_ITER_END;
 	}
 	else {
-		
-		base = startbase;
-		while (base) {
-			/* skip objects with select restriction, to prevent prematurely ending this loop
-			 * with an un-selectable choice */
-			if (base->object->restrictflag & OB_RESTRICT_SELECT) {
-				base = base->next;
-				if (base == NULL) base = FIRSTBASE;
-				if (base == startbase) break;
-			}
-			
+		BKE_BASES_ITER_CIRCULAR_START(scene, base, startbase, true)
+		{
 			if (BASE_SELECTABLE(v3d, base)) {
 				for (a = 0; a < hits; a++) {
 					if (has_bones) {
@@ -1341,16 +1335,13 @@ static Base *mouse_select_eval_buffer(ViewContext *vc, unsigned int *buffer, int
 							basact = base;
 					}
 				}
+				if (basact)
+					break;
 			}
-			
-			if (basact) break;
-			
-			base = base->next;
-			if (base == NULL) base = FIRSTBASE;
-			if (base == startbase) break;
 		}
+		BKE_LAYERTREE_ITER_END;
 	}
-	
+
 	return basact;
 }
 
@@ -1371,7 +1362,9 @@ Base *ED_view3d_give_base_under_cursor(bContext *C, const int mval[2])
 	
 	if (hits > 0) {
 		const bool has_bones = selectbuffer_has_bones(buffer, hits);
-		basact = mouse_select_eval_buffer(&vc, buffer, hits, vc.scene->base.first, has_bones, do_nearest);
+		basact = mouse_select_eval_buffer(
+		             &vc, buffer, hits, BKE_objectlayer_base_first_find(vc.scene->object_layers),
+		             has_bones, do_nearest);
 	}
 	
 	return basact;
@@ -1405,7 +1398,7 @@ static bool ed_object_select_pick(
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	Scene *scene = CTX_data_scene(C);
-	Base *base, *startbase = NULL, *basact = NULL, *oldbasact = NULL;
+	Base *startbase = NULL, *basact = NULL, *oldbasact = NULL;
 	bool is_obedit;
 	float dist = ED_view3d_select_dist_px() * 1.3333f;
 	bool retval = false;
@@ -1423,24 +1416,29 @@ static bool ed_object_select_pick(
 	}
 	
 	/* always start list from basact in wire mode */
-	startbase =  FIRSTBASE;
-	if (BASACT && BASACT->next) startbase = BASACT->next;
+	startbase = BKE_objectlayer_base_first_find(scene->object_layers);
+	if (BASACT) {
+		Base *nextbase = BKE_objectlayer_base_next_find(BASACT, false);
+		if (nextbase) {
+			startbase = nextbase;
+		}
+	}
 	
 	/* This block uses the control key to make the object selected by its center point rather than its contents */
 	/* in editmode do not activate */
 	if (obcenter) {
-		
 		/* note; shift+alt goes to group-flush-selecting */
 		if (enumerate) {
 			basact = object_mouse_select_menu(C, &vc, NULL, 0, mval, toggle);
 		}
 		else {
-			base = startbase;
-			while (base) {
+			BKE_BASES_ITER_CIRCULAR_START(scene, base, startbase, true)
+			{
 				if (BASE_SELECTABLE(v3d, base)) {
+					eV3DProjTest flag = (V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR);
 					float screen_co[2];
-					if (ED_view3d_project_float_global(ar, base->object->obmat[3], screen_co,
-					                                   V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR) == V3D_PROJ_RET_OK)
+					if (ED_view3d_project_float_global(
+							ar, base->object->obmat[3], screen_co, flag) == V3D_PROJ_RET_OK)
 					{
 						float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
 						if (base == BASACT) dist_temp += 10.0f;
@@ -1450,11 +1448,8 @@ static bool ed_object_select_pick(
 						}
 					}
 				}
-				base = base->next;
-				
-				if (base == NULL) base = FIRSTBASE;
-				if (base == startbase) break;
 			}
+			BKE_BASES_ITER_END;
 		}
 	}
 	else {
@@ -2048,10 +2043,13 @@ static int do_object_pose_box_select(bContext *C, ViewContext *vc, rcti *rect, b
 	 */
 
 	if (hits > 0) { /* no need to loop if there's no hit */
-		Base *base;
 		col = vbuffer + 3;
-		
-		for (base = vc->scene->base.first; base && hits; base = base->next) {
+
+		BKE_BASES_ITER_VISIBLE_START(vc->scene, base)
+		{
+			if (!hits)
+				break;
+
 			if (BASE_SELECTABLE(vc->v3d, base)) {
 				while (base->selcol == (*col & 0xFFFF)) {   /* we got an object */
 					if (*col & 0xFFFF0000) {                    /* we got a bone */
@@ -2094,7 +2092,8 @@ static int do_object_pose_box_select(bContext *C, ViewContext *vc, rcti *rect, b
 				}
 			}
 		}
-		
+		BKE_BASES_ITER_END;
+
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, vc->scene);
 	}
 	MEM_freeN(vbuffer);
@@ -2781,16 +2780,16 @@ static bool object_circle_select(ViewContext *vc, const bool select, const int m
 	Scene *scene = vc->scene;
 	const float radius_squared = rad * rad;
 	const float mval_fl[2] = {mval[0], mval[1]};
+	const eV3DProjTest projflag = (V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR);
 	bool changed = false;
 	const int select_flag = select ? SELECT : 0;
 
-
-	Base *base;
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
 		if (BASE_SELECTABLE(vc->v3d, base) && ((base->flag & SELECT) != select_flag)) {
 			float screen_co[2];
-			if (ED_view3d_project_float_global(vc->ar, base->object->obmat[3], screen_co,
-			                                   V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_WIN | V3D_PROJ_TEST_CLIP_NEAR) == V3D_PROJ_RET_OK)
+			if (ED_view3d_project_float_global(
+			        vc->ar, base->object->obmat[3], screen_co, projflag) == V3D_PROJ_RET_OK)
 			{
 				if (len_squared_v2v2(mval_fl, screen_co) <= radius_squared) {
 					ED_base_object_select(base, select ? BA_SELECT : BA_DESELECT);
@@ -2799,6 +2798,7 @@ static bool object_circle_select(ViewContext *vc, const bool select, const int m
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	return changed;
 }

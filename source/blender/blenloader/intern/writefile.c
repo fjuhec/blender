@@ -161,9 +161,11 @@
 #include "BKE_constraint.h"
 #include "BKE_global.h" // for G
 #include "BKE_idcode.h"
+#include "BKE_layer.h"
 #include "BKE_library.h" // for  set_listbasepointers
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_sequencer.h"
 #include "BKE_subsurf.h"
@@ -2394,10 +2396,36 @@ static void write_paint(WriteData *wd, Paint *p)
 	}
 }
 
+/**
+ * \note Recursive.
+ */
+static void write_layertree(WriteData *wd, LayerTree *ltree, ListBase *layeritems)
+{
+	writestruct(wd, DATA, LayerTree, 1, ltree);
+
+	/* write item array */
+	writedata(wd, DATA, sizeof(LayerTreeItem *) * ltree->tot_items, ltree->items_all);
+
+	for (LayerTreeItem *litem = layeritems->first; litem; litem = litem->next) {
+		if (ltree->type == LAYER_TREETYPE_OBJECT && litem->type->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			writestruct(wd, DATA, LayerTypeObject, 1, oblayer);
+			writedata(wd, DATA, sizeof(*oblayer->bases) * oblayer->tot_bases, oblayer->bases);
+		}
+		else {
+			writestruct(wd, DATA, LayerTreeItem, 1, litem);
+		}
+		if (litem->prop) {
+			IDP_WriteProperty(litem->prop, wd);
+		}
+		litem->tree = ltree;
+		write_layertree(wd, ltree, &litem->childs);
+	}
+}
+
 static void write_scenes(WriteData *wd, ListBase *scebase)
 {
 	Scene *sce;
-	Base *base;
 	Editing *ed;
 	Sequence *seq;
 	MetaStack *ms;
@@ -2422,11 +2450,11 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 		write_keyingsets(wd, &sce->keyingsets);
 
 		/* direct data */
-		base = sce->base.first;
-		while (base) {
+		BKE_BASES_ITER_START(sce, base)
+		{
 			writestruct(wd, DATA, Base, 1, base);
-			base = base->next;
 		}
+		BKE_BASES_ITER_END;
 
 		tos = sce->toolsettings;
 		writestruct(wd, DATA, ToolSettings, 1, tos);
@@ -2609,7 +2637,11 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 		write_previews(wd, sce->preview);
 		write_curvemapping_curves(wd, &sce->r.mblur_shutter_curve);
 
-		sce = sce->id.next;
+		if (sce->object_layers) {
+			write_layertree(wd, sce->object_layers, &sce->object_layers->items);
+		}
+
+		sce= sce->id.next;
 	}
 
 	mywrite_flush(wd);
@@ -2927,6 +2959,9 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 				}
 				else if (sl->spacetype == SPACE_INFO) {
 					writestruct(wd, DATA, SpaceInfo, 1, sl);
+				}
+				else if (sl->spacetype == SPACE_LAYERS) {
+					writestruct(wd, DATA, SpaceLayers, 1, sl);
 				}
 
 				sl = sl->next;

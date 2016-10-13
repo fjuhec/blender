@@ -63,6 +63,7 @@
 #include "BKE_cdderivedmesh.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
@@ -182,10 +183,9 @@ static void add_object_to_effectors(ListBase **effectors, Scene *scene, Effector
 ListBase *pdInitEffectors(Scene *scene, Object *ob_src,
                           EffectorWeights *weights, bool for_simulation)
 {
-	Base *base;
 	unsigned int layer= ob_src->lay;
 	ListBase *effectors = NULL;
-	
+
 	if (weights->group) {
 		GroupObject *go;
 		
@@ -197,12 +197,14 @@ ListBase *pdInitEffectors(Scene *scene, Object *ob_src,
 		}
 	}
 	else {
-		for (base = scene->base.first; base; base= base->next) {
+		BKE_BASES_ITER_START(scene, base)
+		{
 			if ( (base->lay & layer) ) {
 				if ( base->object->pd && base->object->pd->forcefield )
 					add_object_to_effectors(&effectors, scene, weights, base->object, ob_src, for_simulation);
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 	
 	if (for_simulation)

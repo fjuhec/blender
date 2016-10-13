@@ -48,7 +48,9 @@
 
 #include "BKE_DerivedMesh.h"
 #include "BKE_editmesh.h"
+#include "BKE_layer.h"
 #include "BKE_material.h"
+#include "BKE_object.h"
 
 #include "BKE_scene.h"
 
@@ -458,21 +460,20 @@ static void draw_uvs_other_mesh(Object *ob, const Image *curimage, const bool ne
 
 static void draw_uvs_other(Scene *scene, Object *obedit, const Image *curimage, const bool new_shading_nodes)
 {
-	Base *base;
-
 	UI_ThemeColor(TH_UV_OTHERS);
 
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
 		Object *ob = base->object;
 
 		if (!(base->flag & SELECT)) continue;
 		if (!(base->lay & scene->lay)) continue;
-		if (ob->restrictflag & OB_RESTRICT_VIEW) continue;
 
 		if ((ob->type == OB_MESH) && (ob != obedit) && ((Mesh *)ob->data)->mloopuv) {
 			draw_uvs_other_mesh(ob, curimage, new_shading_nodes);
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void draw_uvs_texpaint(SpaceImage *sima, Scene *scene, Object *ob)

@@ -74,6 +74,7 @@
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
@@ -5195,7 +5196,6 @@ static void set_trans_object_base_flags(TransInfo *t)
 	 * if Base selected and has parent selected:
 	 * base->flag = BA_WAS_SEL
 	 */
-	Base *base;
 
 	/* don't do it if we're not actually going to recalculate anything */
 	if (t->mode == TFM_DUMMY)
@@ -5208,14 +5208,17 @@ static void set_trans_object_base_flags(TransInfo *t)
 	DAG_scene_relations_update(G.main, t->scene);
 
 	/* handle pending update events, otherwise they got copied below */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (base->object->recalc & OB_RECALC_ALL) {
 			/* TODO(sergey): Ideally, it's not needed. */
 			BKE_object_handle_update(G.main->eval_ctx, t->scene, base->object);
 		}
 	}
+	BKE_BASES_ITER_END;
 
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		base->flag &= ~BA_WAS_SEL;
 
 		if (TESTBASELIB_BGMODE(v3d, scene, base)) {
@@ -5250,6 +5253,7 @@ static void set_trans_object_base_flags(TransInfo *t)
 			DAG_id_tag_update(&ob->id, OB_RECALC_OB);
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
 #ifdef WITH_LEGACY_DEPSGRAPH
@@ -5258,12 +5262,14 @@ static void set_trans_object_base_flags(TransInfo *t)
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (base->object->recalc & OB_RECALC_OB)
 			base->flag |= BA_HAS_RECALC_OB;
 		if (base->object->recalc & OB_RECALC_DATA)
 			base->flag |= BA_HAS_RECALC_DATA;
 	}
+	BKE_BASES_ITER_END;
 }
 
 static bool mark_children(Object *ob)
@@ -5286,14 +5292,14 @@ static int count_proportional_objects(TransInfo *t)
 	int total = 0;
 	Scene *scene = t->scene;
 	View3D *v3d = t->view;
-	Base *base;
 
 	/* rotations around local centers are allowed to propagate, so we take all objects */
 	if (!((t->around == V3D_AROUND_LOCAL_ORIGINS) &&
 	      (t->mode == TFM_ROTATION || t->mode == TFM_TRACKBALL)))
 	{
 		/* mark all parents */
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if (TESTBASELIB_BGMODE(v3d, scene, base)) {
 				Object *parent = base->object->parent;
 	
@@ -5304,9 +5310,11 @@ static int count_proportional_objects(TransInfo *t)
 				}
 			}
 		}
+		BKE_BASES_ITER_END;
 
 		/* mark all children */
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			/* all base not already selected or marked that is editable */
 			if ((base->object->flag & (SELECT | BA_TRANSFORM_CHILD | BA_TRANSFORM_PARENT)) == 0 &&
 			    (BASE_EDITABLE_BGMODE(v3d, scene, base)))
@@ -5314,9 +5322,11 @@ static int count_proportional_objects(TransInfo *t)
 				mark_children(base->object);
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
-	
-	for (base = scene->base.first; base; base = base->next) {
+
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
 		Object *ob = base->object;
 
 		/* if base is not selected, not a parent of selection or not a child of selection and it is editable */
@@ -5329,7 +5339,7 @@ static int count_proportional_objects(TransInfo *t)
 			total += 1;
 		}
 	}
-	
+	BKE_BASES_ITER_END;
 
 	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
 	DAG_scene_relations_update(G.main, t->scene);
@@ -5339,12 +5349,14 @@ static int count_proportional_objects(TransInfo *t)
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (base->object->recalc & OB_RECALC_OB)
 			base->flag |= BA_HAS_RECALC_OB;
 		if (base->object->recalc & OB_RECALC_DATA)
 			base->flag |= BA_HAS_RECALC_DATA;
 	}
+	BKE_BASES_ITER_END;
 
 	return total;
 }
@@ -5352,14 +5364,15 @@ static int count_proportional_objects(TransInfo *t)
 static void clear_trans_object_base_flags(TransInfo *t)
 {
 	Scene *sce = t->scene;
-	Base *base;
 
-	for (base = sce->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(sce, base)
+	{
 		if (base->flag & BA_WAS_SEL)
 			base->flag |= SELECT;
 
 		base->flag &= ~(BA_WAS_SEL | BA_HAS_RECALC_OB | BA_HAS_RECALC_DATA | BA_TEMP_TAG | BA_TRANSFORM_CHILD | BA_TRANSFORM_PARENT);
 	}
+	BKE_BASES_ITER_END;
 }
 
 /* auto-keyframing feature - for objects
@@ -6255,9 +6268,9 @@ static void createTransObject(bContext *C, TransInfo *t)
 	
 	if (is_prop_edit) {
 		View3D *v3d = t->view;
-		Base *base;
 
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene, base)
+		{
 			Object *ob = base->object;
 
 			/* if base is not selected, not a parent of selection or not a child of selection and it is editable */
@@ -6274,6 +6287,7 @@ static void createTransObject(bContext *C, TransInfo *t)
 				tx++;
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 

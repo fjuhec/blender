@@ -79,6 +79,7 @@ EnumPropertyItem rna_enum_space_type_items[] = {
 	{0, "", ICON_NONE, NULL, NULL},
 	{SPACE_BUTS, "PROPERTIES", ICON_BUTS, "Properties", "Edit properties of active object and related data-blocks"},
 	{SPACE_OUTLINER, "OUTLINER", ICON_OOPS, "Outliner", "Overview of scene graph and all available data-blocks"},
+	{SPACE_LAYERS, "LAYER_MANAGER", ICON_COLLAPSEMENU, "Layer Manager", "Organize scene content and adjust its view options"},
 	{SPACE_USERPREF, "USER_PREFERENCES", ICON_PREFERENCES, "User Preferences", "Edit persistent configuration settings"},
 	{SPACE_INFO, "INFO", ICON_INFO, "Info", "Main menu bar and list of error messages (drag down to expand and display)"},
 	{0, "", ICON_NONE, NULL, NULL},
@@ -313,6 +314,8 @@ static StructRNA *rna_Space_refine(struct PointerRNA *ptr)
 			return &RNA_SpaceUserPreferences;
 		case SPACE_CLIP:
 			return &RNA_SpaceClipEditor;
+		case SPACE_LAYERS:
+			return &RNA_SpaceLayerManager;
 		default:
 			return &RNA_Space;
 	}
@@ -2069,6 +2072,7 @@ static void rna_def_space_outliner(BlenderRNA *brna)
 		{SO_USERDEF, "USER_PREFERENCES", 0, "User Preferences", "Display user preference data"},
 		{SO_ID_ORPHANS, "ORPHAN_DATA", 0, "Orphan Data",
 		                "Display data-blocks which are unused and/or will be lost when the file is reloaded"},
+		{SO_LAYERS, "LAYERS", 0, "Layers", "Display the layer tree of the current scene"},
 		{0, NULL, 0, NULL, NULL}
 	};
 	
@@ -2688,6 +2692,11 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "show_bundle_names", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag2", V3D_SHOW_BUNDLENAME);
 	RNA_def_property_ui_text(prop, "Show 3D Marker Names", "Show names for reconstructed tracks objects");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+
+	prop = RNA_def_property(srna, "use_wire_color", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag2", V3D_WIRE_COLOR_NOCUSTOM);
+	RNA_def_property_ui_text(prop, "Color Wire", "Draw wireframes using layer color");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "use_matcap", PROP_BOOLEAN, PROP_NONE);
@@ -4732,6 +4741,15 @@ static void rna_def_space_clip(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_CLIP, NULL);
 }
 
+static void rna_def_space_layers(BlenderRNA *brna)
+{
+	StructRNA *srna;
+
+	srna = RNA_def_struct(brna, "SpaceLayerManager", "Space");
+	RNA_def_struct_sdna(srna, "SpaceLayers");
+	RNA_def_struct_ui_text(srna, "Space Layer Manager", "Layer Manager space data");
+}
+
 
 void RNA_def_space(BlenderRNA *brna)
 {
@@ -4758,6 +4776,7 @@ void RNA_def_space(BlenderRNA *brna)
 	rna_def_space_node(brna);
 	rna_def_space_logic(brna);
 	rna_def_space_clip(brna);
+	rna_def_space_layers(brna);
 }
 
 #endif

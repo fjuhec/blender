@@ -95,7 +95,9 @@ static EnumPropertyItem empty_vortex_shape_items[] = {
 #include "DNA_texture_types.h"
 
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_depsgraph.h"
 
 #include "ED_object.h"

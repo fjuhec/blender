@@ -46,6 +46,7 @@ extern "C" {
 #include "BKE_customdata.h"
 #include "BKE_depsgraph.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_library.h" /* free_libblock */
 #include "BKE_material.h"
 #include "BKE_mesh.h"
@@ -166,8 +167,9 @@ BlenderStrokeRenderer::~BlenderStrokeRenderer()
 	// compositor has finished.
 
 	// release objects and data blocks
-	for (Base *b = (Base *)freestyle_scene->base.first; b; b = b->next) {
-		Object *ob = b->object;
+	BKE_BASES_ITER_START(freestyle_scene, base)
+	{
+		Object *ob = base->object;
 		void *data = ob->data;
 		char *name = ob->id.name;
 #if 0
@@ -189,6 +191,7 @@ BlenderStrokeRenderer::~BlenderStrokeRenderer()
 			cerr << "Warning: unexpected object in the scene: " << name[0] << name[1] << ":" << (name + 2) << endl;
 		}
 	}
+	BKE_BASES_ITER_END;
 	BLI_freelistN(&freestyle_scene->base);
 
 	// release materials

@@ -50,6 +50,7 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_font.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
@@ -670,12 +671,12 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 	else if (ob_act == NULL || ob_act->mode == OB_MODE_OBJECT) {
 		/* object mode use boundbox centers */
 		View3D *v3d = CTX_wm_view3d(C);
-		Base *base;
 		unsigned int tot = 0;
 		float select_center[3];
 
 		zero_v3(select_center);
-		for (base = FIRSTBASE; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if (TESTBASE(v3d, base)) {
 				/* use the boundbox if we can */
 				Object *ob = base->object;
@@ -694,6 +695,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 				tot++;
 			}
 		}
+		BKE_BASES_ITER_END;
 		if (tot) {
 			mul_v3_fl(select_center, 1.0f / (float)tot);
 			copy_v3_v3(lastofs, select_center);
@@ -2940,7 +2942,6 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	Scene *scene = CTX_data_scene(C);
-	Base *base;
 	float *curs;
 	const bool use_all_regions = RNA_boolean_get(op->ptr, "use_all_regions");
 	const bool skip_camera = (ED_view3d_camera_lock_check(v3d, ar->regiondata) ||
@@ -2963,8 +2964,9 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 		INIT_MINMAX(min, max);
 	}
 
-	for (base = scene->base.first; base; base = base->next) {
-		if (BASE_VISIBLE(v3d, base)) {
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
+		if (base->lay & v3d->lay) {
 			changed = true;
 
 			if (skip_camera && base->object == v3d->camera) {
@@ -2974,6 +2976,8 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 			BKE_object_minmax(base->object, min, max, false);
 		}
 	}
+	BKE_BASES_ITER_END;
+
 	if (!changed) {
 		ED_region_tag_redraw(ar);
 		/* TODO - should this be cancel?
@@ -3045,16 +3049,18 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	if (ob && (ob->mode & OB_MODE_WEIGHT_PAINT)) {
 		/* hard-coded exception, we look for the one selected armature */
 		/* this is weak code this way, we should make a generic active/selection callback interface once... */
-		Base *base;
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if (TESTBASELIB(v3d, base)) {
-				if (base->object->type == OB_ARMATURE)
-					if (base->object->mode & OB_MODE_POSE)
+				if (base->object->type == OB_ARMATURE) {
+					if (base->object->mode & OB_MODE_POSE) {
+						ob = base->object;
 						break;
+					}
+				}
 			}
 		}
-		if (base)
-			ob = base->object;
+		BKE_BASES_ITER_END;
 	}
 
 
@@ -3088,10 +3094,9 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 		ok_dist = 0; /* don't zoom */
 	}
 	else {
-		Base *base;
-		for (base = FIRSTBASE; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if (TESTBASE(v3d, base)) {
-
 				if (skip_camera && base->object == v3d->camera) {
 					continue;
 				}
@@ -3103,6 +3108,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 				ok = 1;
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 
 	if (ok == 0) {

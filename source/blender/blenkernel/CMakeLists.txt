@@ -117,6 +117,7 @@ set(SRC
 	intern/key.c
 	intern/lamp.c
 	intern/lattice.c
+	intern/layer.c
 	intern/library.c
 	intern/library_idmap.c
 	intern/library_query.c
@@ -142,6 +143,7 @@ set(SRC
 	intern/object.c
 	intern/object_deform.c
 	intern/object_dupli.c
+	intern/object_layer.c
 	intern/object_update.c
 	intern/ocean.c
 	intern/outliner_treehash.c
@@ -237,6 +239,7 @@ set(SRC
 	BKE_key.h
 	BKE_lamp.h
 	BKE_lattice.h
+	BKE_layer.h
 	BKE_library.h
 	BKE_library_idmap.h
 	BKE_library_query.h

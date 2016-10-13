@@ -47,6 +47,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_jitter.h"
 #include "BLI_utildefines.h"
@@ -60,6 +61,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_global.h"
@@ -91,6 +93,8 @@
 #include "ED_screen_types.h"
 #include "ED_transform.h"
 
+#include "RNA_access.h"
+
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
 #include "UI_resources.h"
@@ -119,6 +123,14 @@ extern void bl_debug_draw_quad_add(const float v0[3], const float v1[3], const f
 extern void bl_debug_draw_edge_add(const float v0[3], const float v1[3]);
 extern void bl_debug_color_set(const unsigned int col);
 #endif
+
+ThemeWireColor *view3d_layer_color_from_base(const Base *base)
+{
+	bTheme *btheme = UI_GetTheme();
+	const int col_idx = base->layer ? RNA_enum_get(base->layer->ptr, "color_set") : 0;
+
+	return (col_idx > 0) ? &btheme->tarm[col_idx - 1] : NULL;
+}
 
 void circ(float x, float y, float rad)
 {
@@ -1770,8 +1782,14 @@ static void draw_dupli_objects_color(
 	short dtx;
 	DupliApplyData *apply_data;
 
-	if (base->object->restrictflag & OB_RESTRICT_VIEW) return;
-	if ((base->object->restrictflag & OB_RESTRICT_RENDER) && (v3d->flag2 & V3D_RENDER_OVERRIDE)) return;
+	if (base->object->restrictflag & OB_RESTRICT_VIEW)
+		return;
+	/* XXX Checking this for every object is quite inefficient.
+	 * Caller should check, but needs to be done carefully. */
+	if (!BKE_layeritem_is_visible(base->layer))
+		return;
+	if ((base->object->restrictflag & OB_RESTRICT_RENDER) && (v3d->flag2 & V3D_RENDER_OVERRIDE))
+		return;
 
 	if (dflag & DRAW_CONSTCOLOR) {
 		BLI_assert(color == TH_UNDEFINED);
@@ -1916,13 +1934,32 @@ void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *base)
 {
 	/* define the color here so draw_dupli_objects_color can be called
 	 * from the set loop */
-	
-	int color = (base->flag & SELECT) ? TH_SELECT : TH_WIRE;
-	/* debug */
-	if (base->object->dup_group && base->object->dup_group->id.us < 1)
-		color = TH_REDALERT;
-	
-	draw_dupli_objects_color(scene, ar, v3d, base, 0, color);
+	const bool is_wire_color = V3D_IS_WIRECOLOR(v3d);
+	bool use_wire_color = false;
+	short dflag;
+	int color;
+
+	if (is_wire_color) {
+		ThemeWireColor *wcol = view3d_layer_color_from_base(base);
+		if (wcol) {
+			glColor3ubv((unsigned char *)(base->flag & SELECT ? wcol->select : wcol->solid));
+
+			color = TH_UNDEFINED;
+			dflag = DRAW_CONSTCOLOR;
+			use_wire_color = true;
+		}
+	}
+
+	/* fallback to theme setting */
+	if (!use_wire_color) {
+		color = (base->flag & SELECT) ? TH_SELECT : TH_WIRE;
+		/* debug */
+		if (base->object->dup_group && base->object->dup_group->id.us < 1)
+			color = TH_REDALERT;
+		dflag = 0;
+	}
+
+	draw_dupli_objects_color(scene, ar, v3d, base, dflag, color);
 }
 
 /* XXX warning, not using gpu offscreen here */
@@ -2066,7 +2103,6 @@ void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d)
 void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaoverride)
 {
 	RegionView3D *rv3d = ar->regiondata;
-	Base *base;
 	short zbuf = v3d->zbuf;
 	short flag = v3d->flag;
 	float glalphaclip = U.glalphaclip;
@@ -2103,6 +2139,7 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	/* draw set first */
 	if (scene->set) {
 		Scene *sce_iter;
+		Base *base;
 		for (SETLOOPER(scene->set, sce_iter, base)) {
 			if (v3d->lay & base->lay) {
 				draw_object(scene, ar, v3d, base, 0);
@@ -2112,8 +2149,10 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 			}
 		}
 	}
-	
-	for (base = scene->base.first; base; base = base->next) {
+
+
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (v3d->lay & base->lay) {
 			/* dupli drawing */
 			if (base->object->transflag & OB_DUPLI) {
@@ -2122,7 +2161,8 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 			draw_object(scene, ar, v3d, base, dflag_depth);
 		}
 	}
-	
+	BKE_BASES_ITER_END;
+
 	/* this isn't that nice, draw xray objects as if they are normal */
 	if (v3d->afterdraw_transp.first ||
 	    v3d->afterdraw_xray.first ||
@@ -2353,6 +2393,100 @@ CustomDataMask ED_view3d_screen_datamask(const bScreen *screen)
 }
 
 /**
+ * We draw stuff in multiple iterations but don't want to add functions specific for each iteration.
+ * Values tell #view3d_object_drawstep_draw what iteration we're in, so it knows what/how to draw.
+ * Not really generic, but simple :)
+ */
+typedef enum {
+	/* draw background scene */
+	OB_DRAWSTEP_SET,
+	/* offscreen drawing */
+	OB_DRAWSTEP_OFFSCREEN,
+	/* draw dupli and unselected objects */
+	OB_DRAWSTEP_DUPLI_UNSEL,
+	/* draw selected and editmode objects */
+	OB_DRAWSTEP_SEL_EDIT,
+} ObjectDrawStep;
+
+/**
+ * Low-level drawing function to draw an object based on ObjectDrawData.drawstep.
+ */
+static void view3d_object_drawstep_draw(
+        Scene *scene, View3D *v3d, ARegion *ar,
+        Base *base, ObjectDrawStep drawstep, int dflag,
+        unsigned int *r_lay_used)
+{
+	switch (drawstep) {
+		case OB_DRAWSTEP_SET:
+			UI_ThemeColorBlend(TH_WIRE, TH_BACK, 0.6f);
+			draw_object(scene, ar, v3d, base, dflag);
+
+			if (base->object->transflag & OB_DUPLI) {
+				draw_dupli_objects_color(scene, ar, v3d, base, dflag, TH_UNDEFINED);
+			}
+			break;
+
+		case OB_DRAWSTEP_DUPLI_UNSEL:
+			(*r_lay_used) |= base->lay;
+
+			/* dupli drawing */
+			if (base->object->transflag & OB_DUPLI) {
+				draw_dupli_objects(scene, ar, v3d, base);
+			}
+			if ((base->flag & SELECT) == 0) {
+				if (base->object != scene->obedit)
+					draw_object(scene, ar, v3d, base, dflag);
+			}
+			break;
+
+		case OB_DRAWSTEP_SEL_EDIT:
+			if (base->object == scene->obedit || (base->flag & SELECT)) {
+				draw_object(scene, ar, v3d, base, dflag);
+			}
+			break;
+
+		case OB_DRAWSTEP_OFFSCREEN:
+			/* dupli drawing */
+			if (base->object->transflag & OB_DUPLI)
+				draw_dupli_objects(scene, ar, v3d, base);
+
+			draw_object(scene, ar, v3d, base, dflag);
+			break;
+		default:
+			BLI_assert(0);
+	}
+}
+
+/**
+ * \brief Draw all object layers.
+ *
+ * Draw objects by iterating over object layers in the scene. Uses
+ * #view3d_object_drawstep_draw to draw the individual layers.
+ *
+ * \param drawstep: Tells the layer draw callback what and how to draw.
+ */
+static void view3d_objectlayers_drawstep_draw(
+        Scene *scene, View3D *v3d, ARegion *ar,
+        ObjectDrawStep drawstep, int drawflag,
+        unsigned int *r_lay_used)
+{
+	BKE_LAYERTREE_ITER_START(scene->object_layers, 0, i, litem)
+	{
+		if (BKE_layeritem_is_visible(litem) && litem->type->type == LAYER_ITEMTYPE_LAYER) {
+			LayerTypeObject *oblayer = (LayerTypeObject *)litem;
+			BKE_OBJECTLAYER_BASES_ITER_START(oblayer, j, base)
+			{
+				if (base->lay & oblayer->visibility_bits) {
+					view3d_object_drawstep_draw(scene, v3d, ar, base, drawstep, drawflag, r_lay_used);
+				}
+			}
+			BKE_OBJECTLAYER_BASES_ITER_END;
+		}
+	}
+	BKE_LAYERTREE_ITER_END;
+}
+
+/**
  * Shared by #ED_view3d_draw_offscreen and #view3d_main_region_draw_objects
  *
  * \note \a C and \a grid_unit will be NULL when \a draw_offscreen is set.
@@ -2365,7 +2499,7 @@ static void view3d_draw_objects(
         const bool do_bgpic, const bool draw_offscreen, GPUFX *fx)
 {
 	RegionView3D *rv3d = ar->regiondata;
-	Base *base;
+	unsigned int lay_used = 0;
 	const bool do_camera_frame = !draw_offscreen;
 	const bool draw_grids = !draw_offscreen && (v3d->flag2 & V3D_RENDER_OVERRIDE) == 0;
 	const bool draw_floor = (rv3d->view == RV3D_VIEW_USER) || (rv3d->persp != RV3D_ORTHO);
@@ -2418,19 +2552,12 @@ static void view3d_draw_objects(
 		ED_view3d_clipping_set(rv3d);
 	}
 
-	/* draw set first */
+	/* draw background set first */
 	if (scene->set) {
-		const short dflag = DRAW_CONSTCOLOR | DRAW_SCENESET;
-		Scene *sce_iter;
-		for (SETLOOPER(scene->set, sce_iter, base)) {
-			if (v3d->lay & base->lay) {
-				UI_ThemeColorBlend(TH_WIRE, TH_BACK, 0.6f);
-				draw_object(scene, ar, v3d, base, dflag);
-
-				if (base->object->transflag & OB_DUPLI) {
-					draw_dupli_objects_color(scene, ar, v3d, base, dflag, TH_UNDEFINED);
-				}
-			}
+		for (Scene *sce_iter = scene->set; sce_iter; sce_iter = sce_iter->set) {
+			view3d_objectlayers_drawstep_draw(
+			            sce_iter, v3d, ar, OB_DRAWSTEP_SET, DRAW_CONSTCOLOR | DRAW_SCENESET,
+			            &lay_used);
 		}
 
 		/* Transp and X-ray afterdraw stuff for sets is done later */
@@ -2438,47 +2565,17 @@ static void view3d_draw_objects(
 
 
 	if (draw_offscreen) {
-		for (base = scene->base.first; base; base = base->next) {
-			if (v3d->lay & base->lay) {
-				/* dupli drawing */
-				if (base->object->transflag & OB_DUPLI)
-					draw_dupli_objects(scene, ar, v3d, base);
-
-				draw_object(scene, ar, v3d, base, 0);
-			}
-		}
+		view3d_objectlayers_drawstep_draw(scene, v3d, ar, OB_DRAWSTEP_OFFSCREEN, 0, &lay_used);
 	}
 	else {
-		unsigned int lay_used = 0;
-
 		/* then draw not selected and the duplis, but skip editmode object */
-		for (base = scene->base.first; base; base = base->next) {
-			lay_used |= base->lay;
-
-			if (v3d->lay & base->lay) {
-
-				/* dupli drawing */
-				if (base->object->transflag & OB_DUPLI) {
-					draw_dupli_objects(scene, ar, v3d, base);
-				}
-				if ((base->flag & SELECT) == 0) {
-					if (base->object != scene->obedit)
-						draw_object(scene, ar, v3d, base, 0);
-				}
-			}
-		}
+		view3d_objectlayers_drawstep_draw(scene, v3d, ar, OB_DRAWSTEP_DUPLI_UNSEL, 0, &lay_used);
 
 		/* mask out localview */
 		v3d->lay_used = lay_used & ((1 << 20) - 1);
 
 		/* draw selected and editmode */
-		for (base = scene->base.first; base; base = base->next) {
-			if (v3d->lay & base->lay) {
-				if (base->object == scene->obedit || (base->flag & SELECT)) {
-					draw_object(scene, ar, v3d, base, 0);
-				}
-			}
-		}
+		view3d_objectlayers_drawstep_draw(scene, v3d, ar, OB_DRAWSTEP_SEL_EDIT, 0, &lay_used);
 	}
 
 	/* perspective floor goes last to use scene depth and avoid writing to depth buffer */

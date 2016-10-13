@@ -173,7 +173,9 @@ typedef struct Object {
 	 * be used when ever the inverse of ob->obmat * re->viewmat is needed! - jahka
 	 */
 	float imat_ren[4][4];
-	
+
+	struct LayerTreeItem *layer; /* The layer this object is assigned to. Synced with Base.layer */
+	void *pad3;
 	unsigned int lay;	/* copy of Base's layer in the scene */
 
 	short flag;			/* copy of Base */

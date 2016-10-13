@@ -48,6 +48,7 @@ struct Main;
 struct RigidBodyWorld;
 struct HookModifierData;
 struct ModifierData;
+struct LayerTree;
 
 void BKE_object_workob_clear(struct Object *workob);
 void BKE_object_workob_calc_parent(struct Scene *scene, struct Object *ob, struct Object *workob);
@@ -264,6 +265,62 @@ bool BKE_object_modifier_use_time(struct Object *ob, struct ModifierData *md);
 bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob, bool update_mesh,
                                          int parent_recursion, float frame,
                                          int type);
+
+/* -------------------------------------------------------------------- */
+/* Object Layers */
+
+#define BKE_OBJECTLAYER_BASES_ITER_START(oblayer, idx_name, base_name) \
+	for (unsigned int idx_name = 0; idx_name < oblayer->tot_bases; idx_name++) { \
+		Base *base_name = oblayer->bases[idx_name];
+#define BKE_OBJECTLAYER_BASES_ITER_END } (void)0
+
+#define BKE_BASES_ITER_START_EX(scene, base_name, skip_hidden) \
+	for (Base *base_name = BKE_objectlayer_base_first_find(scene->object_layers), *base_name##_next; \
+	     base_name != NULL; \
+	     base_name = base_name##_next) \
+	{ \
+		/* store next base here to allow removing base_name */ \
+		base_name##_next = BKE_objectlayer_base_next_find(base_name, skip_hidden); \
+		if (skip_hidden && (base_name->object->restrictflag & OB_RESTRICT_VIEW)) \
+			continue;
+
+/* Start iterating over all bases of the scene, ignoring visibility. */
+#define BKE_BASES_ITER_START(scene, base_name) \
+	BKE_BASES_ITER_START_EX(scene, base_name, false)
+
+#define BKE_BASES_ITER_CIRCULAR_START(scene, base_name, base_start, skip_hidden) \
+	for (Base *base_name = base_start, *base_name##_next = NULL; base_name != base_start; base = base_name##_next) { \
+		base_name##_next = BKE_objectlayer_base_next_find(base_name, skip_hidden); \
+		if (!base_name##_next) { \
+			/* continue with first base in layer tree */ \
+			base_name##_next = BKE_objectlayer_base_first_find(scene->object_layers); \
+		} \
+		if (skip_hidden && (base_name->object->restrictflag & OB_RESTRICT_VIEW)) \
+			continue;
+
+/* Version of BKE_BASES_ITER_START that skips invisible layers and
+ * invisible objects. Doesn't do layer visibility-bit check.*/
+#define BKE_BASES_ITER_VISIBLE_START(scene, base_name) \
+	BKE_BASES_ITER_START_EX(scene, base_name, true)
+
+#define BKE_BASES_ITER_END \
+	} (void)0
+
+struct LayerTree *BKE_objectlayer_tree_new(void);
+struct LayerTreeItem *BKE_objectlayer_add(struct LayerTree *tree, struct LayerTreeItem *parent, const char *name);
+void BKE_objectlayer_free(struct LayerTreeItem *litem);
+void BKE_objectlayer_base_assign_ex(
+        struct Base *base, struct LayerTreeItem *litem,
+        const bool has_reserved, const bool add_head);
+void BKE_objectlayer_base_assign(struct Base *base, struct LayerTreeItem *litem);
+void BKE_objectlayer_base_unassign(struct Base *base);
+void BKE_objectlayer_bases_unassign_all(struct LayerTreeItem *litem, const bool unset_base_layer);
+void BKE_objectlayer_base_entries_reserve(struct LayerTreeItem *litem, const unsigned int nentries_reserve);
+int  BKE_objectlayer_bases_count(const struct LayerTree *ltree);
+
+struct Base *BKE_objectlayer_base_first_find(const struct LayerTree *ltree);
+struct Base *BKE_objectlayer_base_last_find(const struct LayerTree *ltree);
+struct Base *BKE_objectlayer_base_next_find(const struct Base *prev, const bool skip_hidden_layers);
 
 #ifdef __cplusplus
 }

@@ -49,8 +49,10 @@
 #include "BKE_curve.h"
 #include "BKE_context.h"
 #include "BKE_editmesh.h"
+#include "BKE_layer.h"
 #include "BKE_report.h"
 #include "BKE_main.h"
+#include "BKE_object.h"
 #include "BKE_screen.h"
 
 #include "BLT_translation.h"
@@ -588,7 +590,6 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
-	Base *base;
 	Object *ob = OBACT;
 	int result = ORIENTATION_NONE;
 	const bool activeOnly = (around == V3D_AROUND_ACTIVE);
@@ -1024,12 +1025,14 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 		else {
 			/* first selected */
 			ob = NULL;
-			for (base = scene->base.first; base; base = base->next) {
+			BKE_BASES_ITER_VISIBLE_START(scene, base)
+			{
 				if (TESTBASELIB(v3d, base)) {
 					ob = base->object;
 					break;
 				}
 			}
+			BKE_BASES_ITER_END;
 		}
 		
 		if (ob) {

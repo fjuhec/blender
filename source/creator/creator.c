@@ -59,6 +59,7 @@
 #include "BKE_depsgraph.h" /* for DAG_init */
 #include "BKE_font.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_material.h"
 #include "BKE_modifier.h"
 #include "BKE_node.h"

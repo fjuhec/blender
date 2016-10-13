@@ -77,6 +77,7 @@
 #include "BKE_icons.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_linestyle.h"
 #include "BKE_main.h"
@@ -158,7 +159,6 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 	SceneRenderLayer *srl, *new_srl;
 	FreestyleLineSet *lineset;
 	ToolSettings *ts;
-	Base *base, *obase;
 	
 	if (type == SCE_COPY_EMPTY) {
 		ListBase rl, rv;
@@ -184,8 +184,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 	}
 	else {
 		scen = BKE_libblock_copy(bmain, &sce->id);
-		BLI_duplicatelist(&(scen->base), &(sce->base));
-		
+
 		BKE_main_id_clear_newpoins(bmain);
 		
 		id_us_plus((ID *)scen->world);
@@ -207,6 +206,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		BLI_duplicatelist(&(scen->r.layers), &(sce->r.layers));
 		BLI_duplicatelist(&(scen->r.views), &(sce->r.views));
 		BKE_keyingsets_copy(&(scen->keyingsets), &(sce->keyingsets));
+		scen->object_layers = BKE_layertree_copy(sce->object_layers);
 
 		if (sce->nodetree) {
 			/* ID's are managed on both copy and switch */
@@ -214,15 +214,16 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 			ntreeSwitchID(scen->nodetree, &sce->id, &scen->id);
 		}
 
-		obase = sce->base.first;
-		base = scen->base.first;
-		while (base) {
+		/* increase id_us and find basact for new scene */
+		BKE_BASES_ITER_START(scen, base)
+		{
 			id_us_plus(&base->object->id);
-			if (obase == sce->basact) scen->basact = base;
-	
-			obase = obase->next;
-			base = base->next;
+			/* if layer->index and base->index match, we've found the base to activate */
+			if (sce->basact->layer->index == base->layer->index && sce->basact->index == base->index) {
+				scen->basact = base;
+			}
 		}
+		BKE_BASES_ITER_END;
 
 		/* copy action and remove animation used by sequencer */
 		BKE_animdata_copy_id_action(&scen->id);
@@ -380,7 +381,6 @@ void BKE_scene_free(Scene *sce)
 	BKE_sequencer_clear_scene_in_allseqs(G.main, sce);
 
 	sce->basact = NULL;
-	BLI_freelistN(&sce->base);
 	BKE_sequencer_editing_free(sce);
 
 	BKE_keyingsets_free(&sce->keyingsets);
@@ -455,6 +455,10 @@ void BKE_scene_free(Scene *sce)
 	
 	MEM_SAFE_FREE(sce->stats);
 	MEM_SAFE_FREE(sce->fps_info);
+
+	BLI_assert(sce->object_layers != NULL);
+	/* bases are freed in this through object layer callbacks */
+	BKE_layertree_delete(sce->object_layers);
 
 	BKE_sound_destroy_scene(sce);
 
@@ -723,6 +727,8 @@ void BKE_scene_init(Scene *sce)
 
 	sce->gm.exitkey = 218; // Blender key code for ESC
 
+	sce->object_layers = BKE_objectlayer_tree_new();
+
 	BKE_sound_create_scene(sce);
 
 	/* color management */
@@ -809,20 +815,28 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 
 Base *BKE_scene_base_find_by_name(struct Scene *scene, const char *name)
 {
-	Base *base;
-
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (STREQ(base->object->id.name + 2, name)) {
-			break;
+			return base;
 		}
 	}
+	BKE_BASES_ITER_END;
 
-	return base;
+	return NULL;
 }
 
 Base *BKE_scene_base_find(Scene *scene, Object *ob)
 {
-	return BLI_findptr(&scene->base, ob, offsetof(Base, object));
+	BKE_BASES_ITER_START(scene, base)
+	{
+		if (base->object == ob) {
+			return base;
+		}
+	}
+	BKE_BASES_ITER_END;
+
+	return NULL;
 }
 
 /**
@@ -833,7 +847,6 @@ Base *BKE_scene_base_find(Scene *scene, Object *ob)
 void BKE_scene_set_background(Main *bmain, Scene *scene)
 {
 	Scene *sce;
-	Base *base;
 	Object *ob;
 	Group *group;
 	GroupObject *go;
@@ -864,7 +877,8 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 		DAG_scene_relations_rebuild(bmain, sce);
 
 	/* copy layers and flags from bases to objects */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		ob = base->object;
 		ob->lay = base->lay;
 		
@@ -877,6 +891,7 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 		//if (ob->pose == NULL) base->flag &= ~OB_POSEMODE;
 		ob->flag = base->flag;
 	}
+	BKE_BASES_ITER_END;
 	/* no full animation update, this to enable render code to work (render code calls own animation updates) */
 }
 
@@ -914,7 +929,7 @@ int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
 
 			/* the first base */
 			if (iter->phase == F_START) {
-				*base = (*scene)->base.first;
+				*base = BKE_objectlayer_base_first_find((*scene)->object_layers);
 				if (*base) {
 					*ob = (*base)->object;
 					iter->phase = F_SCENE;
@@ -922,9 +937,10 @@ int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
 				else {
 					/* exception: empty scene */
 					while ((*scene)->set) {
+						Base *firstbase = BKE_objectlayer_base_first_find((*scene)->object_layers);
 						(*scene) = (*scene)->set;
-						if ((*scene)->base.first) {
-							*base = (*scene)->base.first;
+						if (firstbase) {
+							*base = firstbase;
 							*ob = (*base)->object;
 							iter->phase = F_SCENE;
 							break;
@@ -934,7 +950,7 @@ int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
 			}
 			else {
 				if (*base && iter->phase != F_DUPLI) {
-					*base = (*base)->next;
+					*base = BKE_objectlayer_base_next_find(*base, false);
 					if (*base) {
 						*ob = (*base)->object;
 					}
@@ -942,9 +958,10 @@ int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
 						if (iter->phase == F_SCENE) {
 							/* (*scene) is finished, now do the set */
 							while ((*scene)->set) {
+								Base *firstbase = BKE_objectlayer_base_first_find((*scene)->object_layers);
 								(*scene) = (*scene)->set;
-								if ((*scene)->base.first) {
-									*base = (*scene)->base.first;
+								if (firstbase) {
+									*base = firstbase;
 									*ob = (*base)->object;
 									break;
 								}
@@ -1024,11 +1041,12 @@ int BKE_scene_base_iter_next(EvaluationContext *eval_ctx, SceneBaseIter *iter,
 
 Object *BKE_scene_camera_find(Scene *sc)
 {
-	Base *base;
-	
-	for (base = sc->base.first; base; base = base->next)
+	BKE_BASES_ITER_START(sc, base)
+	{
 		if (base->object->type == OB_CAMERA)
 			return base->object;
+	}
+	BKE_BASES_ITER_END;
 
 	return NULL;
 }
@@ -1127,10 +1145,16 @@ char *BKE_scene_find_last_marker_name(Scene *scene, int frame)
 }
 
 
+/**
+ * Creates a base and assigns it to the active layer.
+ */
 Base *BKE_scene_base_add(Scene *sce, Object *ob)
 {
 	Base *b = MEM_callocN(sizeof(*b), __func__);
-	BLI_addhead(&sce->base, b);
+
+	BLI_assert(sce->object_layers->active_layer != NULL); /* XXX quite easy to break currently */
+	BKE_objectlayer_base_assign(b, sce->object_layers->active_layer);
+	ob->layer = b->layer; /* XXX ugly to do this here, alternative would be to do this all over the place :/ */
 
 	b->object = ob;
 	b->flag = ob->flag;
@@ -1147,20 +1171,21 @@ void BKE_scene_base_unlink(Scene *sce, Base *base)
 	/* remove rigid body object from world before removing object */
 	if (base->object->rigidbody_object)
 		BKE_rigidbody_remove_object(sce, base->object);
-	
-	BLI_remlink(&sce->base, base);
+	if (base->layer)
+		BKE_objectlayer_base_unassign(base);
+
 	if (sce->basact == base)
 		sce->basact = NULL;
 }
 
 void BKE_scene_base_deselect_all(Scene *sce)
 {
-	Base *b;
-
-	for (b = sce->base.first; b; b = b->next) {
-		b->flag &= ~SELECT;
-		b->object->flag = b->flag;
+	BKE_BASES_ITER_START(sce, base)
+	{
+		base->flag &= ~SELECT;
+		base->object->flag = base->flag;
 	}
+	BKE_BASES_ITER_END;
 }
 
 void BKE_scene_base_select(Scene *sce, Base *selbase)
@@ -1285,16 +1310,15 @@ static void scene_update_drivers(Main *UNUSED(bmain), Scene *scene)
 /* deps hack - do extra recalcs at end */
 static void scene_depsgraph_hack(EvaluationContext *eval_ctx, Scene *scene, Scene *scene_parent)
 {
-	Base *base;
-		
 	scene->customdata_mask = scene_parent->customdata_mask;
-	
+
 	/* sets first, we allow per definition current scene to have
 	 * dependencies on sets, but not the other way around. */
 	if (scene->set)
 		scene_depsgraph_hack(eval_ctx, scene->set, scene_parent);
-	
-	for (base = scene->base.first; base; base = base->next) {
+
+	BKE_BASES_ITER_START(scene, base)
+	{
 		Object *ob = base->object;
 		
 		if (ob->depsflag) {
@@ -1320,6 +1344,7 @@ static void scene_depsgraph_hack(EvaluationContext *eval_ctx, Scene *scene, Scen
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 #endif  /* WITH_LEGACY_DEPSGRAPH */
 
@@ -1420,9 +1445,8 @@ static void scene_update_object_add_task(void *node, void *user_data);
 
 static void scene_update_all_bases(EvaluationContext *eval_ctx, Scene *scene, Scene *scene_parent)
 {
-	Base *base;
-
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		Object *object = base->object;
 
 		BKE_object_handle_update_ex(eval_ctx, scene_parent, object, scene->rigidbody_world, true);
@@ -1435,6 +1459,7 @@ static void scene_update_all_bases(EvaluationContext *eval_ctx, Scene *scene, Sc
 		 * (on scene-set, the base-lay is copied to ob-lay (ton nov 2012) */
 		// base->lay = ob->lay;
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void scene_update_object_func(TaskPool * __restrict pool, void *taskdata, int threadid)
@@ -2129,21 +2154,19 @@ float get_render_aosss_error(const RenderData *r, float error)
 /* helper function for the SETLOOPER macro */
 Base *_setlooper_base_step(Scene **sce_iter, Base *base)
 {
-	if (base && base->next) {
+	Base *nextbase;
+	if (base && (nextbase = BKE_objectlayer_base_next_find(base, false))) {
 		/* common case, step to the next */
-		return base->next;
+		return nextbase;
 	}
-	else if (base == NULL && (*sce_iter)->base.first) {
+	else if (base == NULL && BKE_objectlayer_base_first_find((*sce_iter)->object_layers)) {
 		/* first time looping, return the scenes first base */
-		return (Base *)(*sce_iter)->base.first;
+		return BKE_objectlayer_base_first_find((*sce_iter)->object_layers);
 	}
 	else {
 		/* reached the end, get the next base in the set */
 		while ((*sce_iter = (*sce_iter)->set)) {
-			base = (Base *)(*sce_iter)->base.first;
-			if (base) {
-				return base;
-			}
+			return BKE_objectlayer_base_first_find((*sce_iter)->object_layers);
 		}
 	}
 
@@ -2187,22 +2210,20 @@ bool BKE_scene_uses_blender_game(const Scene *scene)
 
 void BKE_scene_base_flag_to_objects(struct Scene *scene)
 {
-	Base *base = scene->base.first;
-
-	while (base) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		base->object->flag = base->flag;
-		base = base->next;
 	}
+	BKE_BASES_ITER_END;
 }
 
 void BKE_scene_base_flag_from_objects(struct Scene *scene)
 {
-	Base *base = scene->base.first;
-
-	while (base) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		base->flag = base->object->flag;
-		base = base->next;
 	}
+	BKE_BASES_ITER_END;
 }
 
 void BKE_scene_disable_color_management(Scene *scene)

@@ -64,7 +64,10 @@ EnumPropertyItem rna_enum_posebone_rotmode_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-/* Bone and Group Color Sets */
+/**
+ * Bone and Group Color Sets
+ * \note Take care of #UI_colorset_icon_get when changing.
+ */
 EnumPropertyItem rna_enum_color_sets_items[] = {
 	{0, "DEFAULT", 0, "Default Colors", ""},
 	{1, "THEME01", VICO_COLORSET_01_VEC, "01 - Theme Color Set", ""},

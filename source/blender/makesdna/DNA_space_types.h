@@ -66,6 +66,9 @@ struct MovieClip;
 struct MovieClipScopes;
 struct Mask;
 struct BLI_mempool;
+struct bContext;
+struct LayerTreeItem;
+struct uiLayout;
 
 
 /* SpaceLink (Base) ==================================== */
@@ -288,6 +291,7 @@ typedef enum eSpaceOutliner_Mode {
 	SO_USERDEF = 12,
 	/* SO_KEYMAP = 13, */        /* deprecated! */
 	SO_ID_ORPHANS = 14,
+	SO_LAYERS = 15,
 } eSpaceOutliner_Mode;
 
 /* SpaceOops->storeflag */
@@ -1333,6 +1337,62 @@ typedef enum eSpaceClip_GPencil_Source {
 	SC_GPENCIL_SRC_TRACK = 1,
 } eSpaceClip_GPencil_Source;
 
+/* Layer Manager ======================================= */
+
+/* XXX LAYERTILE_CLOSED and _EXPANDED could use better names */
+typedef enum eLayerTileFlag {
+	LAYERTILE_SELECTED = (1 << 0),
+	LAYERTILE_RENAME   = (1 << 1),
+	/* Don't show childs */
+	LAYERTILE_CLOSED   = (1 << 2),
+	/* Show layer settings */
+	LAYERTILE_EXPANDED = (1 << 3),
+	/* Draw the tile as if it was floating above others (for drag and drop).
+	 * Note: Currently only one floating tile at a time allowed. */
+	LAYERTILE_FLOATING = (1 << 4),
+} eLayerTileFlag;
+
+/**
+ * Wrapper around LayerTreeItem with extra info for drawing in layer manager editor.
+ */
+typedef struct LayerTile {
+	/* LayerTreeItem this tile represents */
+	struct LayerTreeItem *litem;
+
+	int flag;
+	/* The height of this item. Set right after drawing,
+	 * so should always reflect what's on the screen */
+	int tot_height;
+	struct rcti rect;
+
+	/* Offset applied for drawing, used for drag and drop preview */
+	int ofs[2];
+} LayerTile;
+
+/* SpaceLayers->flag */
+typedef enum eSpaceLayers_Flag {
+	SL_LAYERDATA_REFRESH = (1 << 0), /* recreate/update SpaceLayers layer data, needed for undo/read/write */
+} eSpaceLayers_Flag;
+
+typedef struct SpaceLayers {
+	SpaceLink *next, *prev;
+	ListBase regionbase;        /* storage of regions for inactive spaces */
+	int spacetype;
+
+	int flag; /* eSpaceLayers_Flag */
+
+	/* The currently shown layer tree (only object_layer tree righ now). */
+	struct LayerTree *act_tree;
+	/* Pointer hash table to access LayerTile from LayerTreeItem without expensive lookups.
+	 * The item order is *not* synced with the LayerTree items.
+	 * Use to get the LayerTile from a LayerTreeItem or for iterating over layer tree where order doesn't matter. */
+	struct GHash *tiles;
+
+	/* filtering (unused still) */
+	short filterflag, pad2[3];
+	char filter_str[64]; /* MAX_NAME */
+} SpaceLayers;
+
 /* **************** SPACE DEFINES ********************* */
 
 /* space types, moved from DNA_screen_types.h */
@@ -1362,8 +1422,9 @@ typedef enum eSpace_Type {
 	SPACE_CONSOLE  = 18,
 	SPACE_USERPREF = 19,
 	SPACE_CLIP     = 20,
-	
-	SPACEICONMAX = SPACE_CLIP
+	SPACE_LAYERS   = 21,
+
+	SPACEICONMAX = SPACE_LAYERS
 } eSpace_Type;
 
 /* use for function args */

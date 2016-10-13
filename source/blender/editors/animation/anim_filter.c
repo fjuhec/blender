@@ -88,11 +88,13 @@
 #include "BKE_global.h"
 #include "BKE_group.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_modifier.h"
 #include "BKE_node.h"
 #include "BKE_mask.h"
+#include "BKE_object.h"
 #include "BKE_sequencer.h"
 
 #include "ED_anim_api.h"
@@ -1655,7 +1657,6 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 	
 	if (ads->filterflag & ADS_FILTER_GP_3DONLY) {
 		Scene *scene = (Scene *)ads->source;
-		Base *base;
 		
 		/* Active scene's GPencil block first - No parent item needed... */
 		if (scene->gpd) {
@@ -1663,7 +1664,8 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 		}
 		
 		/* Objects in the scene */
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene, base)
+		{
 			/* Only consider this object if it has got some GP data (saving on all the other tests) */
 			if (base->object && base->object->gpd) {
 				Object *ob = base->object;
@@ -1678,6 +1680,8 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 				 *	  try to add the channels)
 				 */
 				if ((filter_mode & ANIMFILTER_DATA_VISIBLE) && !(ads->filterflag & ADS_FILTER_INCL_HIDDEN)) {
+					if (!BKE_layeritem_is_visible(base->layer)) break; /* continue with next layer */
+
 					/* layer visibility - we check both object and base, since these may not be in sync yet */
 					if ((scene->lay & (ob->lay | base->lay)) == 0) continue;
 					
@@ -1705,6 +1709,7 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 				items += animdata_filter_gpencil_data(anim_data, ads, ob->gpd, filter_mode);
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 	else {
 		bGPdata *gpd;
@@ -2740,6 +2745,8 @@ static bool animdata_filter_base_is_ok(bDopeSheet *ads, Scene *scene, Base *base
 	 *	  try to add the channels)
 	 */
 	if ((filter_mode & ANIMFILTER_DATA_VISIBLE) && !(ads->filterflag & ADS_FILTER_INCL_HIDDEN)) {
+		if (!BKE_layeritem_is_visible(base->layer)) return false;
+		
 		/* layer visibility - we check both object and base, since these may not be in sync yet */
 		if ((scene->lay & (ob->lay | base->lay)) == 0)
 			return false;
@@ -2807,15 +2814,17 @@ static int ds_base_sorting_cmp(const void *base1_ptr, const void *base2_ptr)
 static Base **animdata_filter_ds_sorted_bases(bDopeSheet *ads, Scene *scene, int filter_mode, size_t *r_usable_bases)
 {
 	/* Create an array with space for all the bases, but only containing the usable ones */
-	size_t tot_bases = BLI_listbase_count(&scene->base);
+	size_t tot_bases = BKE_objectlayer_bases_count(scene->object_layers);
 	size_t num_bases = 0;
 	
 	Base **sorted_bases = MEM_mallocN(sizeof(Base *) * tot_bases, "Dopesheet Usable Sorted Bases");
-	for (Base *base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (animdata_filter_base_is_ok(ads, scene, base, filter_mode)) {
 			sorted_bases[num_bases++] = base;
 		}
 	}
+	BKE_BASES_ITER_END;
 	
 	/* Sort this list of pointers (based on the names) */
 	qsort(sorted_bases, num_bases, sizeof(Base *), ds_base_sorting_cmp);
@@ -2831,6 +2840,8 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, b
 {
 	Scene *scene = (Scene *)ads->source;
 	size_t items = 0;
+	/* base counting could early exit if more than 1 base found */
+	int tot_base = BKE_objectlayer_bases_count(scene->object_layers);
 	
 	/* check that we do indeed have a scene */
 	if ((ads->source == NULL) || (GS(ads->source->name) != ID_SCE)) {
@@ -2864,9 +2875,7 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, b
 	 *  - Don't do this if this behaviour has been turned off (i.e. due to it being too slow)
 	 *  - Don't do this if there's just a single object
 	 */
-	if ((filter_mode & ANIMFILTER_LIST_CHANNELS) && !(ads->flag & ADS_FLAG_NO_DB_SORT) &&
-	    (scene->base.first != scene->base.last))
-	{
+	if ((filter_mode & ANIMFILTER_LIST_CHANNELS) && !(ads->flag & ADS_FLAG_NO_DB_SORT) && (tot_base > 1)) {
 		/* Filter list of bases (i.e. objects), sort them, then add their contents normally... */
 		// TODO: Cache the old sorted order - if the set of bases hasn't changed, don't re-sort...
 		Base **sorted_bases;
@@ -2889,12 +2898,14 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, b
 		/* Filter and add contents of each base (i.e. object) without them sorting first
 		 * NOTE: This saves performance in cases where order doesn't matter
 		 */
-		for (Base *base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene, base)
+		{
 			if (animdata_filter_base_is_ok(ads, scene, base, filter_mode)) {
 				/* since we're still here, this object should be usable */
 				items += animdata_filter_dopesheet_ob(ac, anim_data, ads, base, filter_mode);
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 	
 	/* return the number of items in the list */

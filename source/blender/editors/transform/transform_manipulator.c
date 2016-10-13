@@ -55,6 +55,8 @@
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
+#include "BKE_object.h"
 #include "BKE_editmesh.h"
 #include "BKE_lattice.h"
 #include "BKE_gpencil.h"
@@ -272,7 +274,6 @@ static int calc_manipulator_stats(const bContext *C)
 	Object *obedit = CTX_data_edit_object(C);
 	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = ar->regiondata;
-	Base *base;
 	Object *ob = OBACT;
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
@@ -564,7 +565,8 @@ static int calc_manipulator_stats(const bContext *C)
 		ob = OBACT;
 		if (ob && !(ob->flag & SELECT)) ob = NULL;
 
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if (TESTBASELIB(v3d, base)) {
 				if (ob == NULL)
 					ob = base->object;
@@ -573,6 +575,7 @@ static int calc_manipulator_stats(const bContext *C)
 				totsel++;
 			}
 		}
+		BKE_BASES_ITER_END;
 
 		/* selection center */
 		if (totsel) {

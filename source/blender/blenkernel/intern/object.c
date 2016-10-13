@@ -94,6 +94,7 @@
 #include "BKE_key.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
@@ -153,12 +154,13 @@ void BKE_object_workob_clear(Object *workob)
 
 void BKE_object_update_base_layer(struct Scene *scene, Object *ob)
 {
-	Base *base = scene->base.first;
-
-	while (base) {
-		if (base->object == ob) base->lay = ob->lay;
-		base = base->next;
+	BKE_BASES_ITER_START(scene, base)
+	{
+		if (base->object == ob) {
+			base->lay = ob->lay;
+		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 void BKE_object_free_softbody(Object *ob)
@@ -2369,10 +2371,10 @@ void BKE_scene_foreach_display_point(
         Scene *scene, View3D *v3d, const short flag,
         void (*func_cb)(const float[3], void *), void *user_data)
 {
-	Base *base;
 	Object *ob;
 
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
 		if (BASE_VISIBLE_BGMODE(v3d, scene, base) && (base->flag & flag) == flag) {
 			ob = base->object;
 
@@ -2393,6 +2395,7 @@ void BKE_scene_foreach_display_point(
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 /* copied from DNA_object_types.h */
@@ -3217,21 +3220,25 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 {
 	LinkNode *links = NULL;
 
-	Base *base;
-
 	/* Remove markers from all objects */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		base->object->id.tag &= ~LIB_TAG_DOIT;
 	}
+	BKE_BASES_ITER_END;
 
 	/* iterate over all selected and visible objects */
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (objectSet == OB_SET_ALL) {
 			/* as we get all anyways just add it */
 			Object *ob = base->object;
 			obrel_list_add(&links, ob);
 		}
 		else {
+			if (objectSet == OB_SET_VISIBLE && !BKE_layeritem_is_visible(base->layer))
+				break; /* breaks base iteration, continues with next layer */
+
 			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE(((View3D *)NULL), scene, base)) ||
 			    (objectSet == OB_SET_VISIBLE  && BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, base)))
 			{
@@ -3261,10 +3268,10 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 
 				/* child relationship */
 				if (includeFilter & (OB_REL_CHILDREN | OB_REL_CHILDREN_RECURSIVE)) {
-					Base *local_base;
-					for (local_base = scene->base.first; local_base; local_base = local_base->next) {
+					/* FIXME O(n^2) */
+					BKE_BASES_ITER_START(scene, local_base)
+					{
 						if (BASE_EDITABLE_BGMODE(((View3D *)NULL), scene, local_base)) {
-
 							Object *child = local_base->object;
 							if (obrel_list_test(child)) {
 								if ((includeFilter & OB_REL_CHILDREN_RECURSIVE && BKE_object_is_child_recursive(ob, child)) ||
@@ -3275,6 +3282,7 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 							}
 						}
 					}
+					BKE_BASES_ITER_END;
 				}
 
 
@@ -3289,6 +3297,7 @@ LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectS
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	return links;
 }

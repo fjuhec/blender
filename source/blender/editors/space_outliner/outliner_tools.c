@@ -56,10 +56,12 @@
 #include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_group.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
+#include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
@@ -366,7 +368,7 @@ static void object_select_cb(
 	Base *base = (Base *)te->directdata;
 	
 	if (base == NULL) base = BKE_scene_base_find(scene, (Object *)tselem->id);
-	if (base && ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0)) {
+	if (base && ((base->object->restrictflag & OB_RESTRICT_VIEW) == 0) && BKE_layeritem_is_visible(base->layer)) {
 		base->flag |= SELECT;
 		base->object->flag |= SELECT;
 	}
@@ -817,22 +819,28 @@ static void outliner_do_data_operation(SpaceOops *soops, int type, int event, Li
 
 static Base *outline_delete_hierarchy(bContext *C, ReportList *reports, Scene *scene, Base *base)
 {
-	Base *child_base, *base_next;
+	Base *base_next = NULL;
 	Object *parent;
 
 	if (!base) {
 		return NULL;
 	}
 
-	for (child_base = scene->base.first; child_base; child_base = base_next) {
-		base_next = child_base->next;
-		for (parent = child_base->object->parent; parent && (parent != base->object); parent = parent->parent);
+	BKE_BASES_ITER_START(scene, child_base)
+	{
+		for (parent = child_base->object->parent; parent && (parent != base->object); parent = parent->parent) {
+			/* skip */
+		}
+
 		if (parent) {
 			base_next = outline_delete_hierarchy(C, reports, scene, child_base);
 		}
 	}
+	BKE_BASES_ITER_END;
 
-	base_next = base->next;
+	if (base_next) {
+		base_next = BKE_objectlayer_base_next_find(base_next, false);
+	}
 
 	Main *bmain = CTX_data_main(C);
 	if (base->object->id.tag & LIB_TAG_INDIRECT) {

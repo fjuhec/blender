@@ -75,7 +75,9 @@ variables on the UI for now
 #include "BKE_curve.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_softbody.h"
 #include "BKE_deform.h"
 #include "BKE_mesh.h"
@@ -530,7 +532,8 @@ static void ccd_build_deflector_hash(Scene *scene, Group *group, Object *vertexo
 		}
 	}
 	else {
-		for (Base *base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene, base)
+		{
 			/*Only proceed for mesh object in same layer */
 			if (base->object->type == OB_MESH && (base->lay & vertexowner->lay)) {
 				ob= base->object;
@@ -542,6 +545,7 @@ static void ccd_build_deflector_hash(Scene *scene, Group *group, Object *vertexo
 				ccd_build_deflector_hash_single(hash, ob);
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 
@@ -576,7 +580,8 @@ static void ccd_update_deflector_hash(Scene *scene, Group *group, Object *vertex
 		}
 	}
 	else {
-		for (Base *base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene, base)
+		{
 			/*Only proceed for mesh object in same layer */
 			if (base->object->type == OB_MESH && (base->lay & vertexowner->lay)) {
 				ob= base->object;
@@ -588,6 +593,7 @@ static void ccd_update_deflector_hash(Scene *scene, Group *group, Object *vertex
 				ccd_update_deflector_hash_single(hash, ob);
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 }
 
@@ -986,12 +992,14 @@ static bool are_there_deflectors(Scene *scene, Group *group, unsigned int layer)
 		}
 	}
 	else {
-		for (Base *base = scene->base.first; base; base= base->next) {
+		BKE_BASES_ITER_START(scene, base)
+		{
 			if ( (base->lay & layer) && base->object->pd) {
 				if (base->object->pd->deflect)
 					return 1;
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 
 	return 0;

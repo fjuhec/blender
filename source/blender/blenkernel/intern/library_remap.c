@@ -83,6 +83,7 @@
 #include "BKE_key.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
@@ -267,12 +268,12 @@ static void libblock_remap_data_preprocess(IDRemap *r_id_remap_data)
 				/* In case we are unlinking... */
 				if (!r_id_remap_data->old_id) {
 					/* ... everything from scene. */
-					Base *base, *base_next;
-					for (base = sce->base.first; base; base = base_next) {
-						base_next = base->next;
+					BKE_BASES_ITER_START(sce, base)
+					{
 						libblock_remap_data_preprocess_scene_base_unlink(
 						            r_id_remap_data, sce, base, skip_indirect, is_indirect);
 					}
+					BKE_BASES_ITER_END;
 				}
 				else if (GS(r_id_remap_data->old_id->name) == ID_OB) {
 					/* ... a specific object from scene. */
@@ -337,7 +338,8 @@ static void libblock_remap_data_postprocess_group_scene_unlink(Main *UNUSED(bmai
 {
 	/* Note that here we assume no object has no base (i.e. all objects are assumed instanced
 	 * in one scene...). */
-	for (Base *base = sce->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(sce, base)
+	{
 		if (base->flag & OB_FROMGROUP) {
 			Object *ob = base->object;
 
@@ -357,6 +359,7 @@ static void libblock_remap_data_postprocess_group_scene_unlink(Main *UNUSED(bmai
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 static void libblock_remap_data_postprocess_obdata_relink(Main *UNUSED(bmain), Object *ob, ID *new_id)

@@ -47,10 +47,12 @@
 
 
 #include "BKE_cdderivedmesh.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_smoke.h"
 
 #include "depsgraph_private.h"

@@ -50,6 +50,8 @@
 #include "BKE_displist.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
+#include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_editmesh.h"
 
@@ -318,8 +320,7 @@ static void stats_update(Scene *scene)
 {
 	SceneStats stats = {0};
 	Object *ob = (scene->basact) ? scene->basact->object : NULL;
-	Base *base;
-	
+
 	if (scene->obedit) {
 		/* Edit Mode */
 		stats_object_edit(scene->obedit, &stats);
@@ -334,9 +335,12 @@ static void stats_update(Scene *scene)
 	}
 	else {
 		/* Objects */
-		for (base = scene->base.first; base; base = base->next)
+		BKE_BASES_ITER_START(scene, base)
+		{
 			if (scene->lay & base->lay)
 				stats_dupli_object(base, base->object, &stats);
+		}
+		BKE_BASES_ITER_END;
 	}
 
 	if (!scene->stats)

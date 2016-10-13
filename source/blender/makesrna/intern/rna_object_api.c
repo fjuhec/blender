@@ -71,6 +71,7 @@ static EnumPropertyItem space_items[] = {
 #include "BKE_customdata.h"
 #include "BKE_font.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_mball.h"
@@ -220,7 +221,7 @@ static void rna_Object_shape_key_remove(
 
 static int rna_Object_is_visible(Object *ob, Scene *sce)
 {
-	return !(ob->restrictflag & OB_RESTRICT_VIEW) && (ob->lay & sce->lay);
+	return !(ob->restrictflag & OB_RESTRICT_VIEW) && BKE_layeritem_is_visible(ob->layer) && (ob->lay & sce->lay);
 }
 
 #if 0

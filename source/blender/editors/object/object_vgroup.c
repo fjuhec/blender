@@ -57,6 +57,7 @@
 #include "BKE_customdata.h"
 #include "BKE_deform.h"
 #include "BKE_depsgraph.h"
+#include "BKE_layer.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_editmesh.h"
 #include "BKE_modifier.h"
@@ -3293,10 +3294,10 @@ static int vertex_group_copy_to_linked_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = ED_object_context(C);
-	Base *base;
 	int retval = OPERATOR_CANCELLED;
 
-	for (base = scene->base.first; base; base = base->next) {
+	BKE_BASES_ITER_START(scene, base)
+	{
 		if (base->object->type == ob->type) {
 			if (base->object != ob && base->object->data == ob->data) {
 				BLI_freelistN(&base->object->defbase);
@@ -3311,6 +3312,7 @@ static int vertex_group_copy_to_linked_exec(bContext *C, wmOperator *UNUSED(op))
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 
 	return retval;
 }

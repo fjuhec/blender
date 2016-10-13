@@ -69,6 +69,7 @@
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -137,12 +138,12 @@ static int object_hide_view_clear_exec(bContext *C, wmOperator *UNUSED(op))
 	ScrArea *sa = CTX_wm_area(C);
 	View3D *v3d = sa->spacedata.first;
 	Scene *scene = CTX_data_scene(C);
-	Base *base;
 	bool changed = false;
 	
 	/* XXX need a context loop to handle such cases */
-	for (base = FIRSTBASE; base; base = base->next) {
-		if ((base->lay & v3d->lay) && base->object->restrictflag & OB_RESTRICT_VIEW) {
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
+		if ((base->lay & v3d->lay)) {
 			if (!(base->object->restrictflag & OB_RESTRICT_SELECT)) {
 				base->flag |= SELECT;
 			}
@@ -151,6 +152,7 @@ static int object_hide_view_clear_exec(bContext *C, wmOperator *UNUSED(op))
 			changed = true;
 		}
 	}
+	BKE_BASES_ITER_END;
 	if (changed) {
 		DAG_id_type_tag(bmain, ID_OB);
 		DAG_relations_tag_update(bmain);
@@ -611,8 +613,11 @@ static int editmode_toggle_poll(bContext *C)
 		return 0;
 
 	/* if hidden but in edit mode, we still display */
-	if ((ob->restrictflag & OB_RESTRICT_VIEW) && !(ob->mode & OB_MODE_EDIT))
+	if (!(ob->mode & OB_MODE_EDIT) &&
+	    ((ob->restrictflag & OB_RESTRICT_VIEW) || !BKE_layeritem_is_visible(ob->layer)))
+	{
 		return 0;
+	}
 
 	return OB_TYPE_SUPPORT_EDITMODE(ob->type);
 }
@@ -683,7 +688,6 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 {	
 //XXX no longer used - to be removed - replaced by game_properties_copy_exec
 	bProperty *prop;
-	Base *base;
 	int nr, tot = 0;
 	char *str;
 	
@@ -712,7 +716,8 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 	nr = pupmenu(str);
 	
 	if (nr == 1 || nr == 2) {
-		for (base = FIRSTBASE; base; base = base->next) {
+		BKE_BASES_ITER_VISIBLE_START(scene, base)
+		{
 			if ((base != BASACT) && (TESTBASELIB(v3d, base))) {
 				if (nr == 1) { /* replace */
 					BKE_bproperty_copy_list(&base->object->prop, &ob->prop);
@@ -724,16 +729,19 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 				}
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 	else if (nr > 0) {
 		prop = BLI_findlink(&ob->prop, nr - 4); /* account for first 3 menu items & menu index starting at 1*/
 		
 		if (prop) {
-			for (base = FIRSTBASE; base; base = base->next) {
+			BKE_BASES_ITER_VISIBLE_START(scene, base)
+			{
 				if ((base != BASACT) && (TESTBASELIB(v3d, base))) {
 					BKE_bproperty_object_set(base->object, prop);
 				}
 			}
+			BKE_BASES_ITER_END;
 		}
 	}
 	MEM_freeN(str);
@@ -743,9 +751,8 @@ static void copymenu_properties(Scene *scene, View3D *v3d, Object *ob)
 static void copymenu_logicbricks(Scene *scene, View3D *v3d, Object *ob)
 {
 //XXX no longer used - to be removed - replaced by logicbricks_copy_exec
-	Base *base;
-	
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
 		if (base->object != ob) {
 			if (TESTBASELIB(v3d, base)) {
 				
@@ -773,6 +780,7 @@ static void copymenu_logicbricks(Scene *scene, View3D *v3d, Object *ob)
 			}
 		}
 	}
+	BKE_BASES_ITER_END;
 }
 
 /* both pointers should exist */
@@ -829,7 +837,6 @@ static void copy_texture_space(Object *to, Object *ob)
 static void copy_attr(Main *bmain, Scene *scene, View3D *v3d, short event)
 {
 	Object *ob;
-	Base *base;
 	Curve *cu, *cu1;
 	Nurb *nu;
 	bool do_depgraph_update = false;
@@ -856,7 +863,8 @@ static void copy_attr(Main *bmain, Scene *scene, View3D *v3d, short event)
 		return;
 	}
 
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
 		if (base != BASACT) {
 			if (TESTBASELIB(v3d, base)) {
 				DAG_id_tag_update(&base->object->id, OB_RECALC_DATA);
@@ -1072,7 +1080,8 @@ static void copy_attr(Main *bmain, Scene *scene, View3D *v3d, short event)
 			}
 		}
 	}
-	
+	BKE_BASES_ITER_END;
+
 	if (do_depgraph_update)
 		DAG_relations_tag_update(bmain);
 }
@@ -1497,7 +1506,6 @@ void OBJECT_OT_shade_smooth(wmOperatorType *ot)
 static void UNUSED_FUNCTION(image_aspect) (Scene *scene, View3D *v3d)
 {
 	/* all selected objects with an image map: scale in image aspect */
-	Base *base;
 	Object *ob;
 	Material *ma;
 	Tex *tex;
@@ -1507,7 +1515,8 @@ static void UNUSED_FUNCTION(image_aspect) (Scene *scene, View3D *v3d)
 	if (scene->obedit) return;  // XXX get from context
 	if (ID_IS_LINKED_DATABLOCK(scene)) return;
 	
-	for (base = FIRSTBASE; base; base = base->next) {
+	BKE_BASES_ITER_VISIBLE_START(scene, base)
+	{
 		if (TESTBASELIB(v3d, base)) {
 			ob = base->object;
 			done = false;
@@ -1553,7 +1562,7 @@ static void UNUSED_FUNCTION(image_aspect) (Scene *scene, View3D *v3d)
 			}
 		}
 	}
-	
+	BKE_BASES_ITER_END;
 }
 
 static EnumPropertyItem *object_mode_set_itemsf(bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)

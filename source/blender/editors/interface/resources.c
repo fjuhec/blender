@@ -165,6 +165,9 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 				case SPACE_CLIP:
 					ts = &btheme->tclip;
 					break;
+				case SPACE_LAYERS:
+					ts = &btheme->tlayers;
+					break;
 				default:
 					ts = &btheme->tv3d;
 					break;
@@ -1202,6 +1205,11 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tclip.strip_select, 0xff, 0x8c, 0x00, 0xff);
 	btheme->tclip.handle_vertex_size = 5;
 	ui_theme_space_init_handles_color(&btheme->tclip);
+
+	/* space layer manager */
+	btheme->tlayers = btheme->tv3d;
+	rgba_char_args_set_fl(btheme->tlayers.back,    0.42, 0.42, 0.42, 1.0);
+	rgba_char_args_set(btheme->tlayers.hilite, 255, 140, 25, 255);  /* selected files */
 }
 
 void ui_style_init_default(void)
@@ -2767,6 +2775,14 @@ void init_userdef_do_versions(void)
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
 			rgba_char_args_set(btheme->tv3d.vertex_bevel, 0, 165, 255, 255);
 			rgba_char_args_set(btheme->tv3d.edge_bevel, 0, 165, 255, 255);
+		}
+	}
+
+	if (!USER_VERSION_ATLEAST(278, 1)) {
+		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+			btheme->tlayers = btheme->tv3d;
+			rgba_char_args_set_fl(btheme->tlayers.back,    0.42, 0.42, 0.42, 1.0);
+			rgba_char_args_set(btheme->tlayers.hilite, 255, 140, 25, 255);  /* selected files */
 		}
 	}
 

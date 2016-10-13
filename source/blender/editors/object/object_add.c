@@ -76,6 +76,7 @@
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mball.h"
@@ -1322,8 +1323,8 @@ static void make_object_duplilist_real(bContext *C, Scene *scene, Base *base,
 		basen->flag &= ~(OB_FROMDUPLI | OB_FROMGROUP);
 		ob->flag = basen->flag;
 		basen->lay = base->lay;
-		BLI_addhead(&scene->base, basen);   /* addhead: othwise eternal loop */
 		basen->object = ob;
+		BKE_objectlayer_base_assign_ex(basen, base->layer, false, true); /* addhead: othwise eternal loop */
 
 		/* make sure apply works */
 		BKE_animdata_free(&ob->id, true);
@@ -1532,7 +1533,7 @@ static int convert_poll(bContext *C)
 }
 
 /* Helper for convert_exec */
-static Base *duplibase_for_convert(Main *bmain, Scene *scene, Base *base, Object *ob)
+static Base *duplibase_for_convert(Main *bmain, Scene *UNUSED(scene), Base *base, Object *ob)
 {
 	Object *obn;
 	Base *basen;
@@ -1546,7 +1547,7 @@ static Base *duplibase_for_convert(Main *bmain, Scene *scene, Base *base, Object
 
 	basen = MEM_mallocN(sizeof(Base), "duplibase");
 	*basen = *base;
-	BLI_addhead(&scene->base, basen);   /* addhead: otherwise eternal loop */
+	BKE_objectlayer_base_assign_ex(basen, base->layer, false, true); /* addhead: othwise eternal loop */
 	basen->object = obn;
 	basen->flag |= SELECT;
 	obn->flag |= SELECT;
@@ -1574,9 +1575,8 @@ static int convert_exec(bContext *C, wmOperator *op)
 	/* don't forget multiple users! */
 
 	{
-		Base *base;
-
-		for (base = scene->base.first; base; base = base->next) {
+		BKE_BASES_ITER_START(scene, base)
+		{
 			ob = base->object;
 			ob->flag &= ~OB_DONE;
 
@@ -1596,6 +1596,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 				}
 			}
 		}
+		BKE_BASES_ITER_END;
 	}
 
 	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
@@ -1835,11 +1836,8 @@ static int convert_exec(bContext *C, wmOperator *op)
 
 	if (!keep_original) {
 		if (mballConverted) {
-			Base *base, *base_next;
-
-			for (base = scene->base.first; base; base = base_next) {
-				base_next = base->next;
-
+			BKE_BASES_ITER_START(scene, base)
+			{
 				ob = base->object;
 				if (ob->type == OB_MBALL) {
 					if (ob->flag & OB_DONE) {
@@ -1852,6 +1850,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 					}
 				}
 			}
+			BKE_BASES_ITER_END;
 		}
 
 		/* delete object should renew depsgraph */
@@ -1927,8 +1926,8 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, Base *base
 
 		basen = MEM_mallocN(sizeof(Base), "duplibase");
 		*basen = *base;
-		BLI_addhead(&scene->base, basen);   /* addhead: prevent eternal loop */
 		basen->object = obn;
+		BKE_objectlayer_base_assign_ex(basen, base->layer, false, true); /* addhead: othwise eternal loop */
 
 		/* 1) duplis should end up in same group as the original
 		 * 2) Rigid Body sim participants MUST always be part of a group...

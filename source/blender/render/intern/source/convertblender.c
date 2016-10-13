@@ -71,6 +71,7 @@
 #include "BKE_key.h"
 #include "BKE_image.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_material.h"
 #include "BKE_main.h"
 #include "BKE_mball.h"
@@ -2808,7 +2809,7 @@ static bool is_object_restricted(Render *re, Object *ob)
 
 static bool is_object_hidden(Render *re, Object *ob)
 {
-	if (is_object_restricted(re, ob))
+	if (is_object_restricted(re, ob) || !BKE_layeritem_is_visible(ob->layer))
 		return true;
 	
 	if (re->r.scemode & R_VIEWPORT_PREVIEW) {

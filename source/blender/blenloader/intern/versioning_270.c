@@ -56,10 +56,12 @@
 #include "DNA_genfile.h"
 
 #include "BKE_colortools.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
 #include "BKE_screen.h"
@@ -1334,6 +1336,24 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 						}
 					}
 				}
+			}
+		}
+	}
+
+	/* Convert to new layer system */
+	if (!MAIN_VERSION_ATLEAST(main, 277, 4)) {
+		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "LayerTree", "*object_layers")) {
+			for (Scene *sce = main->scene.first; sce; sce = sce->id.next) {
+				sce->object_layers = BKE_objectlayer_tree_new();
+
+				BKE_objectlayer_base_entries_reserve(sce->object_layers->active_layer, BLI_listbase_count(&sce->base));
+				/* For now, simply create a new layer and move all objects into it */
+				for (Base *base = sce->base.first, *base_next; base; base = base_next) {
+					base_next = base->next;
+					BKE_objectlayer_base_assign_ex(base, sce->object_layers->active_layer, true, false);
+					base->prev = base->next = NULL;
+				}
+				BLI_listbase_clear(&sce->base);
 			}
 		}
 	}
