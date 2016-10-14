@@ -93,6 +93,18 @@ class POSELIB_OT_render_previews(Operator):
         self.log.info('Rendering pose %s at frame %i', marker.name, marker.frame)
 
         context.scene.frame_set(marker.frame)
+        switch_to = None
+        if marker.camera:
+            switch_to = marker.camera
+        else:
+            cams = [m.camera for m in context.scene.timeline_markers
+                    if m.frame == marker.frame and m.camera]
+            if cams:
+                switch_to = cams[0]
+        if switch_to is not None:
+            self.log.info('Switching camera to %s', switch_to)
+            context.scene.camera = switch_to
+
         bpy.ops.poselib.apply_pose(pose_index=plib_index)
 
         fname = '%s.png' % marker.name
