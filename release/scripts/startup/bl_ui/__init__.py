@@ -160,7 +160,6 @@ def unregister():
     bpy.utils.unregister_module(__name__)
 
     from . import properties_data_armature
-    properties_data_armature.unload_custom_icons()
 
     del bpy.types.Object.pose_previews
     if properties_data_armature.previews:
