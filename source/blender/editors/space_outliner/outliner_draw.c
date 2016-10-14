@@ -1575,8 +1575,7 @@ static void outliner_draw_tree_element(
 		
 		/* datatype icon */
 		
-		if (!(ELEM(tselem->type, TSE_RNA_PROPERTY, TSE_RNA_ARRAY_ELEM))) {
-			
+		if (!(ELEM(tselem->type, TSE_RNA_PROPERTY, TSE_RNA_ARRAY_ELEM, TSE_OBJECT_LAYER))) {
 			tselem_draw_icon(block, xmax, (float)startx + offsx, (float)*starty, tselem, te, 1.0f);
 			
 			offsx += UI_UNIT_X;
