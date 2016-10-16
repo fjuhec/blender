@@ -77,7 +77,7 @@
 static void node_socket_button_label(bContext *UNUSED(C), uiLayout *layout, PointerRNA *UNUSED(ptr), PointerRNA *UNUSED(node_ptr),
                                      const char *text)
 {
-	uiItemL(layout, text, 0);
+	uiItemL(layout, text, ICON_NONE, 0);
 }
 
 
@@ -706,7 +706,7 @@ static void node_buts_image_user(uiLayout *layout, bContext *C, PointerRNA *ptr,
 		char numstr[32];
 		const int framenr = BKE_image_user_frame_get(iuser, CFRA, 0, NULL);
 		BLI_snprintf(numstr, sizeof(numstr), IFACE_("Frame: %d"), framenr);
-		uiItemL(layout, numstr, ICON_NONE);
+		uiItemL(layout, numstr, ICON_NONE, 0);
 	}
 
 	if (ELEM(source, IMA_SRC_SEQUENCE, IMA_SRC_MOVIE)) {
@@ -750,15 +750,15 @@ static void node_shader_buts_mapping(uiLayout *layout, bContext *UNUSED(C), Poin
 	row = uiLayoutRow(layout, false);
 
 	col = uiLayoutColumn(row, true);
-	uiItemL(col, IFACE_("Location:"), ICON_NONE);
+	uiItemL(col, IFACE_("Location:"), ICON_NONE, 0);
 	uiItemR(col, ptr, "translation", 0, "", ICON_NONE);
 
 	col = uiLayoutColumn(row, true);
-	uiItemL(col, IFACE_("Rotation:"), ICON_NONE);
+	uiItemL(col, IFACE_("Rotation:"), ICON_NONE, 0);
 	uiItemR(col, ptr, "rotation", 0, "", ICON_NONE);
 
 	col = uiLayoutColumn(row, true);
-	uiItemL(col, IFACE_("Scale:"), ICON_NONE);
+	uiItemL(col, IFACE_("Scale:"), ICON_NONE, 0);
 	uiItemR(col, ptr, "scale", 0, "", ICON_NONE);
 
 	row = uiLayoutRow(layout, false);
@@ -1369,7 +1369,7 @@ static void node_composit_buts_blur(uiLayout *layout, bContext *UNUSED(C), Point
 	uiItemR(col, ptr, "use_relative", 0, NULL, ICON_NONE);
 	
 	if (RNA_boolean_get(ptr, "use_relative")) {
-		uiItemL(col, IFACE_("Aspect Correction"), ICON_NONE);
+		uiItemL(col, IFACE_("Aspect Correction"), ICON_NONE, 0);
 		row = uiLayoutRow(layout, true);
 		uiItemR(row, ptr, "aspect_correction", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 		
@@ -1393,7 +1393,7 @@ static void node_composit_buts_dblur(uiLayout *layout, bContext *UNUSED(C), Poin
 	uiItemR(layout, ptr, "use_wrap", 0, NULL, ICON_NONE);
 	
 	col = uiLayoutColumn(layout, true);
-	uiItemL(col, IFACE_("Center:"), ICON_NONE);
+	uiItemL(col, IFACE_("Center:"), ICON_NONE, 0);
 	uiItemR(col, ptr, "center_x", 0, IFACE_("X"), ICON_NONE);
 	uiItemR(col, ptr, "center_y", 0, IFACE_("Y"), ICON_NONE);
 	
@@ -1424,7 +1424,7 @@ static void node_composit_buts_defocus(uiLayout *layout, bContext *C, PointerRNA
 	uiLayout *sub, *col;
 	
 	col = uiLayoutColumn(layout, false);
-	uiItemL(col, IFACE_("Bokeh Type:"), ICON_NONE);
+	uiItemL(col, IFACE_("Bokeh Type:"), ICON_NONE, 0);
 	uiItemR(col, ptr, "bokeh", 0, "", ICON_NONE);
 	uiItemR(col, ptr, "angle", 0, NULL, ICON_NONE);
 
@@ -1521,7 +1521,7 @@ static void node_composit_buts_vecblur(uiLayout *layout, bContext *UNUSED(C), Po
 	uiItemR(col, ptr, "factor", 0, IFACE_("Blur"), ICON_NONE);
 	
 	col = uiLayoutColumn(layout, true);
-	uiItemL(col, IFACE_("Speed:"), ICON_NONE);
+	uiItemL(col, IFACE_("Speed:"), ICON_NONE, 0);
 	uiItemR(col, ptr, "speed_min", 0, IFACE_("Min"), ICON_NONE);
 	uiItemR(col, ptr, "speed_max", 0, IFACE_("Max"), ICON_NONE);
 
@@ -1576,9 +1576,9 @@ static void node_composit_buts_double_edge_mask(uiLayout *layout, bContext *UNUS
 
 	col = uiLayoutColumn(layout, false);
 
-	uiItemL(col, IFACE_("Inner Edge:"), ICON_NONE);
+	uiItemL(col, IFACE_("Inner Edge:"), ICON_NONE, 0);
 	uiItemR(col, ptr, "inner_mode", 0, "", ICON_NONE);
-	uiItemL(col, IFACE_("Buffer Edge:"), ICON_NONE);
+	uiItemL(col, IFACE_("Buffer Edge:"), ICON_NONE, 0);
 	uiItemR(col, ptr, "edge_mode", 0, "", ICON_NONE);
 }
 
@@ -1683,7 +1683,7 @@ static void node_composit_buts_distance_matte(uiLayout *layout, bContext *UNUSED
 	
 	col = uiLayoutColumn(layout, true);
 
-	uiItemL(layout, IFACE_("Color Space:"), ICON_NONE);
+	uiItemL(layout, IFACE_("Color Space:"), ICON_NONE, 0);
 	row = uiLayoutRow(layout, false);
 	uiItemR(row, ptr, "channel", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 
@@ -1695,7 +1695,7 @@ static void node_composit_buts_color_spill(uiLayout *layout, bContext *UNUSED(C)
 {
 	uiLayout *row, *col;
 	
-	uiItemL(layout, IFACE_("Despill Channel:"), ICON_NONE);
+	uiItemL(layout, IFACE_("Despill Channel:"), ICON_NONE, 0);
 	row = uiLayoutRow(layout, false);
 	uiItemR(row, ptr, "channel", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 
@@ -1703,7 +1703,7 @@ static void node_composit_buts_color_spill(uiLayout *layout, bContext *UNUSED(C)
 	uiItemR(col, ptr, "limit_method", 0, NULL, ICON_NONE);
 
 	if (RNA_enum_get(ptr, "limit_method") == 0) {
-		uiItemL(col, IFACE_("Limiting Channel:"), ICON_NONE);
+		uiItemL(col, IFACE_("Limiting Channel:"), ICON_NONE, 0);
 		row = uiLayoutRow(col, false);
 		uiItemR(row, ptr, "limit_channel", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 	}
@@ -1745,12 +1745,12 @@ static void node_composit_buts_channel_matte(uiLayout *layout, bContext *UNUSED(
 {	
 	uiLayout *col, *row;
 
-	uiItemL(layout, IFACE_("Color Space:"), ICON_NONE);
+	uiItemL(layout, IFACE_("Color Space:"), ICON_NONE, 0);
 	row = uiLayoutRow(layout, false);
 	uiItemR(row, ptr, "color_space", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 
 	col = uiLayoutColumn(layout, false);
-	uiItemL(col, IFACE_("Key Channel:"), ICON_NONE);
+	uiItemL(col, IFACE_("Key Channel:"), ICON_NONE, 0);
 	row = uiLayoutRow(col, false);
 	uiItemR(row, ptr, "matte_channel", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 
@@ -1758,7 +1758,7 @@ static void node_composit_buts_channel_matte(uiLayout *layout, bContext *UNUSED(
 
 	uiItemR(col, ptr, "limit_method", 0, NULL, ICON_NONE);
 	if (RNA_enum_get(ptr, "limit_method") == 0) {
-		uiItemL(col, IFACE_("Limiting Channel:"), ICON_NONE);
+		uiItemL(col, IFACE_("Limiting Channel:"), ICON_NONE, 0);
 		row = uiLayoutRow(col, false);
 		uiItemR(row, ptr, "limit_channel", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 	}
@@ -1793,9 +1793,9 @@ static void node_composit_buts_file_output(uiLayout *layout, bContext *UNUSED(C)
 	const bool multilayer = RNA_enum_get(&imfptr, "file_format") == R_IMF_IMTYPE_MULTILAYER;
 
 	if (multilayer)
-		uiItemL(layout, IFACE_("Path:"), ICON_NONE);
+		uiItemL(layout, IFACE_("Path:"), ICON_NONE, 0);
 	else
-		uiItemL(layout, IFACE_("Base Path:"), ICON_NONE);
+		uiItemL(layout, IFACE_("Base Path:"), ICON_NONE, 0);
 	uiItemR(layout, ptr, "base_path", 0, "", ICON_NONE);
 }
 static void node_composit_buts_file_output_ex(uiLayout *layout, bContext *C, PointerRNA *ptr)
@@ -1852,7 +1852,7 @@ static void node_composit_buts_file_output_ex(uiLayout *layout, bContext *C, Poi
 		if (multilayer) {
 			col = uiLayoutColumn(layout, true);
 			
-			uiItemL(col, IFACE_("Layer:"), ICON_NONE);
+			uiItemL(col, IFACE_("Layer:"), ICON_NONE, 0);
 			row = uiLayoutRow(col, false);
 			uiItemR(row, &active_input_ptr, "name", 0, "", ICON_NONE);
 			uiItemFullO(row, "NODE_OT_output_file_remove_active_socket", "",
@@ -1861,7 +1861,7 @@ static void node_composit_buts_file_output_ex(uiLayout *layout, bContext *C, Poi
 		else {
 			col = uiLayoutColumn(layout, true);
 			
-			uiItemL(col, IFACE_("File Subpath:"), ICON_NONE);
+			uiItemL(col, IFACE_("File Subpath:"), ICON_NONE, 0);
 			row = uiLayoutRow(col, false);
 			uiItemR(row, &active_input_ptr, "path", 0, "", ICON_NONE);
 			uiItemFullO(row, "NODE_OT_output_file_remove_active_socket", "",
@@ -1871,7 +1871,7 @@ static void node_composit_buts_file_output_ex(uiLayout *layout, bContext *C, Poi
 			imfptr = RNA_pointer_get(&active_input_ptr, "format");
 			
 			col = uiLayoutColumn(layout, true);
-			uiItemL(col, IFACE_("Format:"), ICON_NONE);
+			uiItemL(col, IFACE_("Format:"), ICON_NONE, 0);
 			uiItemR(col, &active_input_ptr, "use_node_format", 0, NULL, ICON_NONE);
 			
 			col = uiLayoutColumn(layout, false);
@@ -2082,15 +2082,15 @@ static void node_composit_buts_colorcorrection(uiLayout *layout, bContext *UNUSE
 	uiItemR(row, ptr, "blue", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(layout, false);
-	uiItemL(row, "", ICON_NONE);
-	uiItemL(row, IFACE_("Saturation"), ICON_NONE);
-	uiItemL(row, IFACE_("Contrast"), ICON_NONE);
-	uiItemL(row, IFACE_("Gamma"), ICON_NONE);
-	uiItemL(row, IFACE_("Gain"), ICON_NONE);
-	uiItemL(row, IFACE_("Lift"), ICON_NONE);
+	uiItemL(row, "", ICON_NONE, 0);
+	uiItemL(row, IFACE_("Saturation"), ICON_NONE, 0);
+	uiItemL(row, IFACE_("Contrast"), ICON_NONE, 0);
+	uiItemL(row, IFACE_("Gamma"), ICON_NONE, 0);
+	uiItemL(row, IFACE_("Gain"), ICON_NONE, 0);
+	uiItemL(row, IFACE_("Lift"), ICON_NONE, 0);
 
 	row = uiLayoutRow(layout, false);
-	uiItemL(row, IFACE_("Master"), ICON_NONE);
+	uiItemL(row, IFACE_("Master"), ICON_NONE, 0);
 	uiItemR(row, ptr, "master_saturation", UI_ITEM_R_SLIDER, "", ICON_NONE);
 	uiItemR(row, ptr, "master_contrast", UI_ITEM_R_SLIDER, "", ICON_NONE);
 	uiItemR(row, ptr, "master_gamma", UI_ITEM_R_SLIDER, "", ICON_NONE);
@@ -2098,7 +2098,7 @@ static void node_composit_buts_colorcorrection(uiLayout *layout, bContext *UNUSE
 	uiItemR(row, ptr, "master_lift", UI_ITEM_R_SLIDER, "", ICON_NONE);
 
 	row = uiLayoutRow(layout, false);
-	uiItemL(row, IFACE_("Highlights"), ICON_NONE);
+	uiItemL(row, IFACE_("Highlights"), ICON_NONE, 0);
 	uiItemR(row, ptr, "highlights_saturation", UI_ITEM_R_SLIDER, "", ICON_NONE);
 	uiItemR(row, ptr, "highlights_contrast", UI_ITEM_R_SLIDER, "", ICON_NONE);
 	uiItemR(row, ptr, "highlights_gamma", UI_ITEM_R_SLIDER, "", ICON_NONE);
@@ -2106,7 +2106,7 @@ static void node_composit_buts_colorcorrection(uiLayout *layout, bContext *UNUSE
 	uiItemR(row, ptr, "highlights_lift", UI_ITEM_R_SLIDER, "", ICON_NONE);
 
 	row = uiLayoutRow(layout, false);
-	uiItemL(row, IFACE_("Midtones"), ICON_NONE);
+	uiItemL(row, IFACE_("Midtones"), ICON_NONE, 0);
 	uiItemR(row, ptr, "midtones_saturation", UI_ITEM_R_SLIDER, "", ICON_NONE);
 	uiItemR(row, ptr, "midtones_contrast", UI_ITEM_R_SLIDER, "", ICON_NONE);
 	uiItemR(row, ptr, "midtones_gamma", UI_ITEM_R_SLIDER, "", ICON_NONE);
@@ -2114,7 +2114,7 @@ static void node_composit_buts_colorcorrection(uiLayout *layout, bContext *UNUSE
 	uiItemR(row, ptr, "midtones_lift", UI_ITEM_R_SLIDER, "", ICON_NONE);
 
 	row = uiLayoutRow(layout, false);
-	uiItemL(row, IFACE_("Shadows"), ICON_NONE);
+	uiItemL(row, IFACE_("Shadows"), ICON_NONE, 0);
 	uiItemR(row, ptr, "shadows_saturation", UI_ITEM_R_SLIDER, "", ICON_NONE);
 	uiItemR(row, ptr, "shadows_contrast", UI_ITEM_R_SLIDER, "", ICON_NONE);
 	uiItemR(row, ptr, "shadows_gamma", UI_ITEM_R_SLIDER, "", ICON_NONE);
@@ -2135,31 +2135,31 @@ static void node_composit_buts_colorcorrection_ex(uiLayout *layout, bContext *UN
 	uiItemR(row, ptr, "green", 0, NULL, ICON_NONE);
 	uiItemR(row, ptr, "blue", 0, NULL, ICON_NONE);
 	row = layout;
-	uiItemL(row, IFACE_("Saturation"), ICON_NONE);
+	uiItemL(row, IFACE_("Saturation"), ICON_NONE, 0);
 	uiItemR(row, ptr, "master_saturation", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "highlights_saturation", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "midtones_saturation", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "shadows_saturation", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 
-	uiItemL(row, IFACE_("Contrast"), ICON_NONE);
+	uiItemL(row, IFACE_("Contrast"), ICON_NONE, 0);
 	uiItemR(row, ptr, "master_contrast", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "highlights_contrast", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "midtones_contrast", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "shadows_contrast", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 
-	uiItemL(row, IFACE_("Gamma"), ICON_NONE);
+	uiItemL(row, IFACE_("Gamma"), ICON_NONE, 0);
 	uiItemR(row, ptr, "master_gamma", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "highlights_gamma", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "midtones_gamma", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "shadows_gamma", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 
-	uiItemL(row, IFACE_("Gain"), ICON_NONE);
+	uiItemL(row, IFACE_("Gain"), ICON_NONE, 0);
 	uiItemR(row, ptr, "master_gain", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "highlights_gain", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "midtones_gain", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "shadows_gain", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	
-	uiItemL(row, IFACE_("Lift"), ICON_NONE);
+	uiItemL(row, IFACE_("Lift"), ICON_NONE, 0);
 	uiItemR(row, ptr, "master_lift", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "highlights_lift", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 	uiItemR(row, ptr, "midtones_lift", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
@@ -2931,7 +2931,7 @@ static void node_template_properties_update(bNodeType *ntype)
 static void node_socket_undefined_draw(bContext *UNUSED(C), uiLayout *layout, PointerRNA *UNUSED(ptr), PointerRNA *UNUSED(node_ptr),
                                        const char *UNUSED(text))
 {
-	uiItemL(layout, IFACE_("Undefined Socket Type"), ICON_ERROR);
+	uiItemL(layout, IFACE_("Undefined Socket Type"), ICON_ERROR, 0);
 }
 
 static void node_socket_undefined_draw_color(bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PointerRNA *UNUSED(node_ptr), float *r_color)
@@ -2944,7 +2944,7 @@ static void node_socket_undefined_draw_color(bContext *UNUSED(C), PointerRNA *UN
 
 static void node_socket_undefined_interface_draw(bContext *UNUSED(C), uiLayout *layout, PointerRNA *UNUSED(ptr))
 {
-	uiItemL(layout, IFACE_("Undefined Socket Type"), ICON_ERROR);
+	uiItemL(layout, IFACE_("Undefined Socket Type"), ICON_ERROR, 0);
 }
 
 static void node_socket_undefined_interface_draw_color(bContext *UNUSED(C), PointerRNA *UNUSED(ptr), float *r_color)
@@ -3065,7 +3065,7 @@ static void node_file_output_socket_draw(bContext *C, uiLayout *layout, PointerR
 		NodeImageMultiFileSocket *input = sock->storage;
 		RNA_pointer_create(&ntree->id, &RNA_NodeOutputFileSlotLayer, input, &inputptr);
 		
-		uiItemL(row, input->layer, ICON_NONE);
+		uiItemL(row, input->layer, ICON_NONE, 0);
 	}
 	else {
 		NodeImageMultiFileSocket *input = sock->storage;
@@ -3074,7 +3074,7 @@ static void node_file_output_socket_draw(bContext *C, uiLayout *layout, PointerR
 		uiBlock *block;
 		RNA_pointer_create(&ntree->id, &RNA_NodeOutputFileSlotFile, input, &inputptr);
 		
-		uiItemL(row, input->path, ICON_NONE);
+		uiItemL(row, input->path, ICON_NONE, 0);
 		
 		if (!RNA_boolean_get(&inputptr, "use_node_format"))
 			imfptr = RNA_pointer_get(&inputptr, "format");
@@ -3084,7 +3084,7 @@ static void node_file_output_socket_draw(bContext *C, uiLayout *layout, PointerR
 		                       RNA_property_enum_get(&imfptr, imtype_prop), &imtype_name);
 		block = uiLayoutGetBlock(row);
 		UI_block_emboss_set(block, UI_EMBOSS_PULLDOWN);
-		uiItemL(row, imtype_name, ICON_NONE);
+		uiItemL(row, imtype_name, ICON_NONE, 0);
 		UI_block_emboss_set(block, UI_EMBOSS_NONE);
 	}
 }
@@ -3122,7 +3122,7 @@ static void std_node_socket_draw(bContext *C, uiLayout *layout, PointerRNA *ptr,
 			uiLayoutSetAlignment(row, UI_LAYOUT_ALIGN_LEFT);
 			/* draw the socket name right of the actual button */
 			uiItemR(row, ptr, "default_value", 0, "", 0);
-			uiItemL(row, text, 0);
+			uiItemL(row, text, ICON_NONE, 0);
 			break;
 		}
 		case SOCK_STRING:
@@ -3130,7 +3130,7 @@ static void std_node_socket_draw(bContext *C, uiLayout *layout, PointerRNA *ptr,
 			uiLayout *row = uiLayoutRow(layout, true);
 			/* draw the socket name right of the actual button */
 			uiItemR(row, ptr, "default_value", 0, "", 0);
-			uiItemL(row, text, 0);
+			uiItemL(row, text, ICON_NONE, 0);
 			break;
 		}
 		default:

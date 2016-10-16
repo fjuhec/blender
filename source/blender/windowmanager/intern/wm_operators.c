@@ -1833,7 +1833,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	
 	split = uiLayoutSplit(layout, 0.0f, false);
 	col = uiLayoutColumn(split, false);
-	uiItemL(col, IFACE_("Links"), ICON_NONE);
+	uiItemL(col, IFACE_("Links"), ICON_NONE, 0);
 #if 0
 	uiItemStringO(col, IFACE_("Support an Open Animation Movie"), ICON_URL, "WM_OT_url_open", "url",
 	              "https://cloud.blender.org/join");
@@ -1858,7 +1858,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 		             BLENDER_VERSION / 100, BLENDER_VERSION % 100, BLENDER_SUBVERSION);
 	}
 	uiItemStringO(col, IFACE_("Python API Reference"), ICON_URL, "WM_OT_url_open", "url", url);
-	uiItemL(col, "", ICON_NONE);
+	uiItemL(col, "", ICON_NONE, 0);
 
 	col = uiLayoutColumn(split, false);
 
@@ -1867,7 +1867,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 		uiItemS(col);
 	}
 
-	uiItemL(col, IFACE_("Recent"), ICON_NONE);
+	uiItemL(col, IFACE_("Recent"), ICON_NONE, 0);
 	for (recent = G.recent_files.first, i = 0; (i < 5) && (recent); recent = recent->next, i++) {
 		const char *filename = BLI_path_basename(recent->filepath);
 		uiItemStringO(col, filename,
@@ -1877,7 +1877,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 
 	uiItemS(col);
 	uiItemO(col, NULL, ICON_RECOVER_LAST, "WM_OT_recover_last_session");
-	uiItemL(col, "", ICON_NONE);
+	uiItemL(col, "", ICON_NONE, 0);
 	
 	mt = WM_menutype_find("USERPREF_MT_splash_footer", false);
 	if (mt) {

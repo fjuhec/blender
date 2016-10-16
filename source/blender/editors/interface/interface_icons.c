@@ -1606,16 +1606,16 @@ int UI_idcode_icon_get(const int idcode)
 }
 
 static void icon_draw_at_size(
-        float x, float y, int icon_id, float aspect, float alpha,
+        float x, float y, int icon_id, const short frame, float aspect, float alpha,
         enum eIconSizes size, const bool nocreate)
 {
 	int draw_size = get_draw_size(size);
-	icon_draw_size(x, y, icon_id, 0, aspect, alpha, NULL, size, draw_size, nocreate, false);
+	icon_draw_size(x, y, icon_id, frame, aspect, alpha, NULL, size, draw_size, nocreate, false);
 }
 
-void UI_icon_draw_aspect(float x, float y, int icon_id, float aspect, float alpha)
+void UI_icon_draw_aspect(float x, float y, int icon_id, const short frame, float aspect, float alpha)
 {
-	icon_draw_at_size(x, y, icon_id, aspect, alpha, ICON_SIZE_ICON, 0);
+	icon_draw_at_size(x, y, icon_id, frame, aspect, alpha, ICON_SIZE_ICON, 0);
 }
 
 void UI_icon_draw_aspect_color(float x, float y, int icon_id, float aspect, const float rgb[3])
@@ -1627,7 +1627,7 @@ void UI_icon_draw_aspect_color(float x, float y, int icon_id, float aspect, cons
 /* draws icon with dpi scale factor */
 void UI_icon_draw(float x, float y, int icon_id)
 {
-	UI_icon_draw_aspect(x, y, icon_id, 1.0f / UI_DPI_FAC, 1.0f);
+	UI_icon_draw_aspect(x, y, icon_id, 0, 1.0f / UI_DPI_FAC, 1.0f);
 }
 
 void UI_icon_draw_size(float x, float y, int size, int icon_id, float alpha)
@@ -1637,12 +1637,12 @@ void UI_icon_draw_size(float x, float y, int size, int icon_id, float alpha)
 
 void UI_icon_draw_preview(float x, float y, int icon_id)
 {
-	icon_draw_at_size(x, y, icon_id, 1.0f, 1.0f, ICON_SIZE_PREVIEW, 0);
+	icon_draw_at_size(x, y, icon_id, 0, 1.0f, 1.0f, ICON_SIZE_PREVIEW, 0);
 }
 
 void UI_icon_draw_preview_aspect(float x, float y, int icon_id, float aspect)
 {
-	icon_draw_at_size(x, y, icon_id, aspect, 1.0f, ICON_SIZE_PREVIEW, 0);
+	icon_draw_at_size(x, y, icon_id, 0, aspect, 1.0f, ICON_SIZE_PREVIEW, 0);
 }
 
 void UI_icon_draw_preview_aspect_size(float x, float y, int icon_id, float aspect, float alpha, int size)

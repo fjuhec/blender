@@ -710,10 +710,10 @@ void uiTemplateAnyID(
 	/* Label - either use the provided text, or will become "ID-Block:" */
 	if (text) {
 		if (text[0])
-			uiItemL(row, text, ICON_NONE);
+			uiItemL(row, text, ICON_NONE, 0);
 	}
 	else {
-		uiItemL(row, IFACE_("ID-Block:"), ICON_NONE);
+		uiItemL(row, IFACE_("ID-Block:"), ICON_NONE, 0);
 	}
 	
 	/* SECOND PART ................................................ */
@@ -723,13 +723,13 @@ void uiTemplateAnyID(
 	sub = uiLayoutRow(row, true);                     /* HACK: special group just for the enum, otherwise we */
 	uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_LEFT);  /*       we get ugly layout with text included too...  */
 	
-	uiItemFullR(sub, ptr, propType, 0, 0, UI_ITEM_R_ICON_ONLY, "", ICON_NONE);
+	uiItemFullR(sub, ptr, propType, 0, 0, UI_ITEM_R_ICON_ONLY, "", ICON_NONE, 0);
 	
 	/* ID-Block Selector - just use pointer widget... */
 	sub = uiLayoutRow(row, true);                       /* HACK: special group to counteract the effects of the previous */
 	uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_EXPAND);  /*       enum, which now pushes everything too far right         */
 	
-	uiItemFullR(sub, ptr, propID, 0, 0, 0, "", ICON_NONE);
+	uiItemFullR(sub, ptr, propID, 0, 0, 0, "", ICON_NONE, 0);
 }
 
 /********************* RNA Path Builder Template ********************/
@@ -863,7 +863,7 @@ static uiLayout *draw_modifier(
 		uiItemR(row, &ptr, "show_expanded", 0, "", ICON_NONE);
 		
 		/* modifier-type icon */
-		uiItemL(row, "", RNA_struct_ui_icon(ptr.type));
+		uiItemL(row, "", RNA_struct_ui_icon(ptr.type), 0);
 		UI_block_emboss_set(block, UI_EMBOSS);
 		
 		/* modifier name */
@@ -997,7 +997,7 @@ static uiLayout *draw_modifier(
 	if (md->error) {
 		box = uiLayoutBox(column);
 		row = uiLayoutRow(box, false);
-		uiItemL(row, md->error, ICON_ERROR);
+		uiItemL(row, md->error, ICON_ERROR, 0);
 	}
 	
 	return result;
@@ -1150,7 +1150,7 @@ static uiLayout *draw_constraint(uiLayout *layout, Object *ob, bConstraint *con)
 		uiItemR(row, &ptr, "name", 0, "", ICON_NONE);
 	}
 	else
-		uiItemL(row, con->name, ICON_NONE);
+		uiItemL(row, con->name, ICON_NONE, 0);
 	
 	uiLayoutSetRedAlert(row, false);
 	
@@ -2616,16 +2616,16 @@ static void uilist_draw_item_default(
 	/* Simplest one! */
 	switch (ui_list->layout_type) {
 		case UILST_LAYOUT_GRID:
-			uiItemL(layout, "", icon);
+			uiItemL(layout, "", icon, 0);
 			break;
 		case UILST_LAYOUT_DEFAULT:
 		case UILST_LAYOUT_COMPACT:
 		default:
 			if (nameprop) {
-				uiItemFullR(layout, itemptr, nameprop, RNA_NO_INDEX, 0, UI_ITEM_R_NO_BG, "", icon);
+				uiItemFullR(layout, itemptr, nameprop, RNA_NO_INDEX, 0, UI_ITEM_R_NO_BG, "", icon, 0);
 			}
 			else {
-				uiItemL(layout, "", icon);
+				uiItemL(layout, "", icon, 0);
 			}
 			break;
 	}
@@ -3131,7 +3131,7 @@ void uiTemplateList(
 
 			/* add dummy buttons to fill space */
 			for (; i < layoutdata.start_idx + layoutdata.visual_items; i++) {
-				uiItemL(col, "", ICON_NONE);
+				uiItemL(col, "", ICON_NONE, 0);
 			}
 
 			/* add scrollbar */
@@ -3158,7 +3158,7 @@ void uiTemplateList(
 			}
 			/* if list is empty, add in dummy button */
 			else {
-				uiItemL(row, "", ICON_NONE);
+				uiItemL(row, "", ICON_NONE, 0);
 			}
 
 			/* next/prev button */
@@ -3220,7 +3220,7 @@ void uiTemplateList(
 				if (!(i % columns)) {
 					subrow = uiLayoutRow(col, false);
 				}
-				uiItemL(subrow, "", ICON_NONE);
+				uiItemL(subrow, "", ICON_NONE, 0);
 			}
 
 			/* add scrollbar */
@@ -3669,7 +3669,7 @@ static void template_keymap_item_properties(uiLayout *layout, const char *title,
 	uiItemS(layout);
 
 	if (title)
-		uiItemL(layout, title, ICON_NONE);
+		uiItemL(layout, title, ICON_NONE, 0);
 	
 	flow = uiLayoutColumnFlow(layout, 2, false);
 
@@ -3694,7 +3694,7 @@ static void template_keymap_item_properties(uiLayout *layout, const char *title,
 		row = uiLayoutRow(box, false);
 
 		/* property value */
-		uiItemFullR(row, ptr, prop, -1, 0, 0, NULL, ICON_NONE);
+		uiItemFullR(row, ptr, prop, -1, 0, 0, NULL, ICON_NONE, 0);
 
 		if (is_set) {
 			/* unset operator */
@@ -3908,7 +3908,7 @@ void uiTemplateCacheFile(uiLayout *layout, bContext *C, PointerRNA *ptr, const c
 	uiItemR(row, &fileptr, "frame", 0, "Frame", ICON_NONE);
 
 	row = uiLayoutRow(layout, false);
-	uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE);
+	uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE, 0);
 
 	row = uiLayoutRow(layout, false);
 	uiItemR(row, &fileptr, "scale", 0, "Scale", ICON_NONE);

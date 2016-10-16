@@ -210,7 +210,7 @@ static void clip_panel_operator_redo_operator(const bContext *C, Panel *pa, wmOp
 {
 	if (op->type->flag & OPTYPE_MACRO) {
 		for (op = op->macro.first; op; op = op->next) {
-			uiItemL(pa->layout, RNA_struct_ui_name(op->type->srna), ICON_NONE);
+			uiItemL(pa->layout, RNA_struct_ui_name(op->type->srna), ICON_NONE, 0);
 			clip_panel_operator_redo_operator(C, pa, op);
 		}
 	}

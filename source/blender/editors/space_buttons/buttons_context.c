@@ -1114,7 +1114,7 @@ void buttons_context_draw(const bContext *C, uiLayout *layout)
 		ptr = &path->ptr[a];
 
 		if (a != 0)
-			uiItemL(row, "", VICO_SMALL_TRI_RIGHT_VEC);
+			uiItemL(row, "", VICO_SMALL_TRI_RIGHT_VEC, 0);
 
 		if (ptr->data) {
 			icon = RNA_struct_ui_icon(ptr->type);
@@ -1130,7 +1130,7 @@ void buttons_context_draw(const bContext *C, uiLayout *layout)
 					MEM_freeN(name);
 			}
 			else
-				uiItemL(row, "", icon);
+				uiItemL(row, "", icon, 0);
 		}
 	}
 }

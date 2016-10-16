@@ -537,7 +537,7 @@ void uiTemplateMovieclipInformation(uiLayout *layout, PointerRNA *ptr, const cha
 		ofs += BLI_strncpy_rlen(str + ofs, IFACE_(", failed to load"), sizeof(str) - ofs);
 	}
 
-	uiItemL(col, str, ICON_NONE);
+	uiItemL(col, str, ICON_NONE, 0);
 
 	/* Display current frame number. */
 	framenr = BKE_movieclip_remap_scene_to_clip_frame(clip, user->framenr);
@@ -545,7 +545,7 @@ void uiTemplateMovieclipInformation(uiLayout *layout, PointerRNA *ptr, const cha
 		BLI_snprintf(str, sizeof(str), IFACE_("Frame: %d / %d"), framenr, clip->len);
 	else
 		BLI_snprintf(str, sizeof(str), IFACE_("Frame: - / %d"), clip->len);
-	uiItemL(col, str, ICON_NONE);
+	uiItemL(col, str, ICON_NONE, 0);
 
 	/* Display current file name if it's a sequence clip. */
 	if (clip->source == MCLIP_SRC_SEQUENCE) {
@@ -562,7 +562,7 @@ void uiTemplateMovieclipInformation(uiLayout *layout, PointerRNA *ptr, const cha
 
 		BLI_snprintf(str, sizeof(str), IFACE_("File: %s"), file);
 
-		uiItemL(col, str, ICON_NONE);
+		uiItemL(col, str, ICON_NONE, 0);
 	}
 
 	IMB_freeImBuf(ibuf);

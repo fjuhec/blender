@@ -984,7 +984,7 @@ PointerRNA uiItemFullO_ptr(uiLayout *layout, struct wmOperatorType *ot, const ch
 PointerRNA uiItemFullO(uiLayout *layout, const char *idname, const char *name, int icon, struct IDProperty *properties, int context, int flag);
 
 void uiItemR(uiLayout *layout, struct PointerRNA *ptr, const char *propname, int flag, const char *name, int icon);
-void uiItemFullR(uiLayout *layout, struct PointerRNA *ptr, struct PropertyRNA *prop, int index, int value, int flag, const char *name, int icon);
+void uiItemFullR(uiLayout *layout, struct PointerRNA *ptr, struct PropertyRNA *prop, int index, int value, int flag, const char *name, int icon, const unsigned short icon_frame);
 void uiItemEnumR_prop(uiLayout *layout, const char *name, int icon, struct PointerRNA *ptr, PropertyRNA *prop, int value);
 void uiItemEnumR(uiLayout *layout, const char *name, int icon, struct PointerRNA *ptr, const char *propname, int value);
 void uiItemEnumR_string(uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *value, const char *name, int icon);
@@ -998,7 +998,7 @@ void uiItemsFullEnumO_items(
         IDProperty *properties, int context, int flag,
         const EnumPropertyItem *item_array, int totitem);
 
-void uiItemL(uiLayout *layout, const char *name, int icon); /* label */
+void uiItemL(uiLayout *layout, const char *name, int icon, const unsigned short icon_frame); /* label */
 void uiItemLDrag(uiLayout *layout, struct PointerRNA *ptr, const char *name, int icon); /* label icon for dragging */
 void uiItemM(uiLayout *layout, struct bContext *C, const char *menuname, const char *name, int icon); /* menu */
 void uiItemV(uiLayout *layout, const char *name, int icon, int argval); /* value */

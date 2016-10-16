@@ -510,7 +510,7 @@ static void ui_node_menu_column(NodeLinkArg *arg, int nclass, const char *cname)
 				column = uiLayoutColumn(layout, 0);
 				UI_block_layout_set_current(block, column);
 				
-				uiItemL(column, IFACE_(cname), ICON_NODE);
+				uiItemL(column, IFACE_(cname), ICON_NODE, 0);
 				but = block->buttons.last;
 				
 				first = 0;
@@ -581,7 +581,7 @@ static void ui_template_node_link_menu(bContext *C, uiLayout *layout, void *but_
 	UI_block_layout_set_current(block, column);
 
 	if (sock->link) {
-		uiItemL(column, IFACE_("Link"), ICON_NONE);
+		uiItemL(column, IFACE_("Link"), ICON_NONE, 0);
 		but = block->buttons.last;
 		but->drawflag = UI_BUT_TEXT_LEFT;
 
@@ -701,7 +701,7 @@ static void ui_node_draw_input(uiLayout *layout, bContext *C, bNodeTree *ntree, 
 			uiItemR(row, &inputptr, "show_expanded", UI_ITEM_R_ICON_ONLY, "", icon);
 		}
 		else
-			uiItemL(row, "", ICON_BLANK1);
+			uiItemL(row, "", ICON_BLANK1, 0);
 
 		bt = block->buttons.last;
 		bt->rect.xmax = UI_UNIT_X / 2;
@@ -709,13 +709,13 @@ static void ui_node_draw_input(uiLayout *layout, bContext *C, bNodeTree *ntree, 
 		UI_block_emboss_set(block, UI_EMBOSS);
 	}
 
-	uiItemL(row, label, ICON_NONE);
+	uiItemL(row, label, ICON_NONE, 0);
 	bt = block->buttons.last;
 	bt->drawflag = UI_BUT_TEXT_LEFT;
 
 	if (dependency_loop) {
 		row = uiLayoutRow(split, false);
-		uiItemL(row, IFACE_("Dependency Loop"), ICON_ERROR);
+		uiItemL(row, IFACE_("Dependency Loop"), ICON_ERROR, 0);
 	}
 	else if (lnode) {
 		/* input linked to a node */

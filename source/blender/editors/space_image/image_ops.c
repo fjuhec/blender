@@ -2491,30 +2491,30 @@ static void image_new_draw(bContext *UNUSED(C), wmOperator *op)
 	col[0] = uiLayoutColumn(split, false);
 	col[1] = uiLayoutColumn(split, false);
 
-	uiItemL(col[0], IFACE_("Name"), ICON_NONE);
+	uiItemL(col[0], IFACE_("Name"), ICON_NONE, 0);
 	uiItemR(col[1], &ptr, "name", 0, "", ICON_NONE);
 
-	uiItemL(col[0], IFACE_("Width"), ICON_NONE);
+	uiItemL(col[0], IFACE_("Width"), ICON_NONE, 0);
 	uiItemR(col[1], &ptr, "width", 0, "", ICON_NONE);
 
-	uiItemL(col[0], IFACE_("Height"), ICON_NONE);
+	uiItemL(col[0], IFACE_("Height"), ICON_NONE, 0);
 	uiItemR(col[1], &ptr, "height", 0, "", ICON_NONE);
 
-	uiItemL(col[0], IFACE_("Color"), ICON_NONE);
+	uiItemL(col[0], IFACE_("Color"), ICON_NONE, 0);
 	uiItemR(col[1], &ptr, "color", 0, "", ICON_NONE);
 
-	uiItemL(col[0], "", ICON_NONE);
+	uiItemL(col[0], "", ICON_NONE, 0);
 	uiItemR(col[1], &ptr, "alpha", 0, NULL, ICON_NONE);
 
-	uiItemL(col[0], IFACE_("Generated Type"), ICON_NONE);
+	uiItemL(col[0], IFACE_("Generated Type"), ICON_NONE, 0);
 	uiItemR(col[1], &ptr, "generated_type", 0, "", ICON_NONE);
 
-	uiItemL(col[0], "", ICON_NONE);
+	uiItemL(col[0], "", ICON_NONE, 0);
 	uiItemR(col[1], &ptr, "float", 0, NULL, ICON_NONE);
 
 #if 0
 	if (is_multiview) {
-		uiItemL(col[0], "", ICON_NONE);
+		uiItemL(col[0], "", ICON_NONE, 0);
 		uiItemR(col[1], &ptr, "use_stereo_3d", 0, NULL, ICON_NONE);
 	}
 #endif

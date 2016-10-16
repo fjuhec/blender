@@ -719,6 +719,7 @@ static bool ui_but_update_from_old_block(const bContext *C, uiBlock *block, uiBu
 
 		/* drawing */
 		oldbut->icon = but->icon;
+		oldbut->icon_frame = but->icon_frame;
 		oldbut->iconadd = but->iconadd;
 		oldbut->alignnr = but->alignnr;
 
@@ -3202,17 +3203,25 @@ static uiBut *ui_def_but(
 	return but;
 }
 
-void ui_def_but_icon(uiBut *but, const int icon, const int flag)
+/* Note that we may extend this further in future (thinking e.g. to some animated icons for active widget,
+ * could be nice for videos or animations previews... */
+void ui_def_but_icon_ex(uiBut *but, const int icon, const short frame, const int flag)
 {
 	if (icon) {
 		ui_icon_ensure_deferred(but->block->evil_C, icon, (flag & UI_BUT_ICON_PREVIEW) != 0);
 	}
 	but->icon = (BIFIconID)icon;
+	but->icon_frame = frame;
 	but->flag |= flag;
 
 	if (but->str && but->str[0]) {
 		but->drawflag |= UI_BUT_ICON_LEFT;
 	}
+}
+
+void ui_def_but_icon(uiBut *but, const int icon, const int flag)
+{
+	ui_def_but_icon_ex(but, icon, 0, flag);
 }
 
 static void ui_def_but_rna__disable(uiBut *but, const char *info)
@@ -3312,7 +3321,7 @@ static void ui_def_but_rna__menu(bContext *UNUSED(C), uiLayout *layout, void *bu
 		if (!item->identifier[0]) {
 			if (item->name) {
 				if (item->icon) {
-					uiItemL(column, item->name, item->icon);
+					uiItemL(column, item->name, item->icon, 0);
 				}
 				else {
 					/* Do not use uiItemL here, as our root layout is a menu one, it will add a fake blank icon! */

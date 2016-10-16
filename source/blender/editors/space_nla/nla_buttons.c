@@ -275,9 +275,9 @@ static void nla_panel_animdata(const bContext *C, Panel *pa)
 		row = uiLayoutRow(layout, true);
 		uiLayoutSetAlignment(row, UI_LAYOUT_ALIGN_LEFT);
 		
-		uiItemL(row, id->name + 2, RNA_struct_ui_icon(id_ptr.type));  /* id-block (src) */
-		uiItemL(row, "", VICO_SMALL_TRI_RIGHT_VEC);                   /* expander */
-		uiItemL(row, IFACE_("Animation Data"), ICON_ANIM_DATA);       /* animdata */
+		uiItemL(row, id->name + 2, RNA_struct_ui_icon(id_ptr.type), 0);  /* id-block (src) */
+		uiItemL(row, "", VICO_SMALL_TRI_RIGHT_VEC, 0);                   /* expander */
+		uiItemL(row, IFACE_("Animation Data"), ICON_ANIM_DATA, 0);       /* animdata */
 		
 		uiItemS(layout);
 	}
@@ -343,7 +343,7 @@ static void nla_panel_properties(const bContext *C, Panel *pa)
 	
 	/* strip extents */
 	column = uiLayoutColumn(layout, true);
-	uiItemL(column, IFACE_("Strip Extents:"), ICON_NONE);
+	uiItemL(column, IFACE_("Strip Extents:"), ICON_NONE, 0);
 	uiItemR(column, &strip_ptr, "frame_start", 0, NULL, ICON_NONE);
 	uiItemR(column, &strip_ptr, "frame_end", 0, NULL, ICON_NONE);
 	
@@ -378,7 +378,7 @@ static void nla_panel_properties(const bContext *C, Panel *pa)
 		/* settings */
 		column = uiLayoutColumn(layout, true);
 		uiLayoutSetActive(column, !(RNA_boolean_get(&strip_ptr, "use_animated_influence") || RNA_boolean_get(&strip_ptr, "use_animated_time")));
-		uiItemL(column, IFACE_("Playback Settings:"), ICON_NONE);
+		uiItemL(column, IFACE_("Playback Settings:"), ICON_NONE, 0);
 		uiItemR(column, &strip_ptr, "mute", 0, NULL, ICON_NONE);
 		uiItemR(column, &strip_ptr, "use_reverse", 0, NULL, ICON_NONE);
 	}
@@ -408,7 +408,7 @@ static void nla_panel_actclip(const bContext *C, Panel *pa)
 	/* action extents */
 	// XXX custom names were used here (to avoid the prefixes)... probably not necessary in future?
 	column = uiLayoutColumn(layout, true);
-	uiItemL(column, IFACE_("Action Extents:"), ICON_NONE);
+	uiItemL(column, IFACE_("Action Extents:"), ICON_NONE, 0);
 	uiItemR(column, &strip_ptr, "action_frame_start", 0, IFACE_("Start Frame"), ICON_NONE);
 	uiItemR(column, &strip_ptr, "action_frame_end", 0, IFACE_("End Frame"), ICON_NONE);
 	
@@ -420,7 +420,7 @@ static void nla_panel_actclip(const bContext *C, Panel *pa)
 	/* action usage */
 	column = uiLayoutColumn(layout, true);
 	uiLayoutSetActive(column, RNA_boolean_get(&strip_ptr, "use_animated_time") == false);
-	uiItemL(column, IFACE_("Playback Settings:"), ICON_NONE);
+	uiItemL(column, IFACE_("Playback Settings:"), ICON_NONE, 0);
 	uiItemR(column, &strip_ptr, "scale", 0, NULL, ICON_NONE);
 	uiItemR(column, &strip_ptr, "repeat", 0, NULL, ICON_NONE);
 }
