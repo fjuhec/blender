@@ -39,6 +39,12 @@
 extern "C" {
 #endif
 
+/* For now we support the legacy matrix stack in gpuGetMatrix functions.
+ * Will remove this after switching to core profile, which can happen after
+ * we convert all code to use the API in this file. */
+#define SUPPORT_LEGACY_MATRIX 1
+
+
 void gpuMatrixInit(void); /* called by system -- make private? */
 
 
@@ -114,6 +120,21 @@ bool gpuUnProject(const float win[3], const float model[4][4], const float proj[
 
 void gpuOrtho2D(float left, float right, float bottom, float top);
 
+
+/* functions to get matrix values */
+const float *gpuGetModelViewMatrix3D(float m[4][4]);
+const float *gpuGetProjectionMatrix3D(float m[4][4]);
+const float *gpuGetModelViewProjectionMatrix3D(float m[4][4]);
+
+
+#if SUPPORT_LEGACY_MATRIX
+/* copy top matrix from each legacy stack into new fresh stack */
+void gpuMatrixBegin3D_legacy(void);
+#endif
+
+
+/* set uniform values for currently bound shader */
+void gpuBindMatrices(GLuint program);
 
 #ifdef __cplusplus
 }

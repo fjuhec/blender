@@ -36,6 +36,8 @@
 #include "BLI_math_vector.h"
 
 
+#define DEBUG_MATRIX_BIND 0
+
 #define MATRIX_STACK_DEPTH 32
 
 typedef float Mat4[4][4];
@@ -86,6 +88,17 @@ void gpuMatrixBegin3D()
 	unit_m4(ModelView3D);
 	gpuOrtho(-1.0f, +1.0f, -1.0f, +1.0f, -1.0f, +1.0f); // or identity?
 }
+
+#if SUPPORT_LEGACY_MATRIX
+void gpuMatrixBegin3D_legacy()
+{
+	/* copy top matrix from each legacy stack into new fresh stack */
+	state.mode = MATRIX_MODE_3D;
+	state.top = 0;
+	glGetFloatv(GL_MODELVIEW_MATRIX, (float*)ModelView3D);
+	glGetFloatv(GL_PROJECTION_MATRIX, (float*)Projection3D);
+}
+#endif
 
 void gpuMatrixEnd()
 {
@@ -149,19 +162,6 @@ void gpuLoadMatrix2D(const float m[3][3])
 	CHECKMAT(ModelView2D);
 }
 
-//const float *gpuGetMatrix(eGPUMatrixMode stack, float *m)
-//{
-//	GPU_matrix_stack *ms_select = mstacks + stack;
-//
-//	if (m) {
-//		copy_m4_m4((float (*)[4])m, ms_select->dynstack[ms_select->pos]);
-//		return m;
-//	}
-//	else {
-//		return (float*)(ms_select->dynstack[ms_select->pos]);
-//	}
-//}
-
 void gpuLoadIdentity()
 {
 	switch (state.mode) {
@@ -192,9 +192,18 @@ void gpuTranslate2fv(const float vec[2])
 
 void gpuTranslate3f(float x, float y, float z)
 {
+#if 1
 	BLI_assert(state.mode == MATRIX_MODE_3D);
 	translate_m4(ModelView3D, x, y, z);
 	CHECKMAT(ModelView3D);
+#else /* above works well in early testing, below is generic version */
+	Mat4 m;
+	unit_m4(m);
+	m[3][0] = x;
+	m[3][1] = y;
+	m[3][2] = z;
+	gpuMultMatrix3D(m);
+#endif
 }
 
 void gpuTranslate3fv(const float vec[3])
@@ -264,14 +273,14 @@ void gpuScale3fv(const float vec[3])
 void gpuMultMatrix3D(const float m[4][4])
 {
 	BLI_assert(state.mode == MATRIX_MODE_3D);
-	mul_m4_m4_post(ModelView3D, m);
+	mul_m4_m4_pre(ModelView3D, m);
 	CHECKMAT(ModelView3D);
 }
 
 void gpuMultMatrix2D(const float m[3][3])
 {
 	BLI_assert(state.mode == MATRIX_MODE_2D);
-	mul_m3_m3_post(ModelView2D, m);
+	mul_m3_m3_pre(ModelView2D, m);
 	CHECKMAT(ModelView2D);
 }
 
@@ -505,5 +514,124 @@ bool gpuUnProject(const float win[3], const float model[4][4], const float proj[
 		obj[2] = out[2];
 
 		return true;
+	}
+}
+
+const float *gpuGetModelViewMatrix3D(float m[4][4])
+{
+#if SUPPORT_LEGACY_MATRIX
+	if (state.mode == MATRIX_MODE_INACTIVE) {
+		if (m == NULL) {
+			static Mat4 temp;
+			m = temp;
+		}
+
+		glGetFloatv(GL_MODELVIEW_MATRIX, (float*)m);
+		return (const float*)m;		
+	}
+#endif
+
+	BLI_assert(state.mode == MATRIX_MODE_3D);
+
+	if (m) {
+		copy_m4_m4(m, ModelView3D);
+		return (const float*)m;
+	}
+	else {
+		return (const float*)ModelView3D;
+	}
+}
+
+const float *gpuGetProjectionMatrix3D(float m[4][4])
+{
+#if SUPPORT_LEGACY_MATRIX
+	if (state.mode == MATRIX_MODE_INACTIVE) {
+		if (m == NULL) {
+			static Mat4 temp;
+			m = temp;
+		}
+
+		glGetFloatv(GL_PROJECTION_MATRIX, (float*)m);
+		return (const float*)m;
+	}
+#endif
+
+	BLI_assert(state.mode == MATRIX_MODE_3D);
+
+	if (m) {
+		copy_m4_m4(m, ModelView3D);
+		return (const float*)m;
+	}
+	else {
+		return (const float*)ModelView3D;
+	}
+}
+
+const float *gpuGetModelViewProjectionMatrix3D(float m[4][4])
+{
+#if SUPPORT_LEGACY_MATRIX
+	if (state.mode == MATRIX_MODE_INACTIVE) {
+		if (m == NULL) {
+			static Mat4 temp;
+			m = temp;
+		}
+
+		Mat4 proj;
+		glGetFloatv(GL_MODELVIEW_MATRIX, (float*)proj);
+		glGetFloatv(GL_PROJECTION_MATRIX, (float*)m);
+		mul_m4_m4_post(m, proj);
+		return (const float*)m;
+	}
+#endif
+
+	BLI_assert(state.mode == MATRIX_MODE_3D);
+
+	if (m == NULL) {
+		static Mat4 temp;
+		m = temp;
+	}
+
+	mul_m4_m4m4(m, Projection3D, ModelView3D);
+	return (const float*)m;
+}
+
+void gpuBindMatrices(GLuint program)
+{
+	/* TODO: split this into 2 functions
+	 * 1) get uniform locations & determine 2D or 3D
+	 */
+	GLint loc_MV = glGetUniformLocation(program, "ModelViewMatrix");
+	GLint loc_P = glGetUniformLocation(program, "ProjectionMatrix");
+	GLint loc_MVP = glGetUniformLocation(program, "ModelViewProjectionMatrix");
+
+	/* 2) set uniform values to matrix stack values
+	 * program needs to be bound
+	 */
+	glUseProgram(program);
+
+
+	/* call this portion before a draw call if desired matrices are dirty */
+	if (loc_MV != -1) {
+		#if DEBUG_MATRIX_BIND
+		puts("setting 3D MV matrix");
+		#endif
+
+		glUniformMatrix4fv(loc_MV, 1, GL_FALSE, gpuGetModelViewMatrix3D(NULL));
+	}
+
+	if (loc_P != -1) {
+		#if DEBUG_MATRIX_BIND
+		puts("setting 3D P matrix");
+		#endif
+
+		glUniformMatrix4fv(loc_P, 1, GL_FALSE, gpuGetProjectionMatrix3D(NULL));
+	}
+
+	if (loc_MVP != -1) {
+		#if DEBUG_MATRIX_BIND
+		puts("setting 3D MVP matrix");
+		#endif
+
+		glUniformMatrix4fv(loc_MVP, 1, GL_FALSE, gpuGetModelViewProjectionMatrix3D(NULL));
 	}
 }

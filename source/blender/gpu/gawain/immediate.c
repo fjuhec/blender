@@ -57,8 +57,6 @@ void immInit()
 
 	memset(&imm, 0, sizeof(Immediate));
 
-	glGenVertexArrays(1, &imm.vao_id);
-	glBindVertexArray(imm.vao_id);
 	glGenBuffers(1, &imm.vbo_id);
 	glBindBuffer(GL_ARRAY_BUFFER, imm.vbo_id);
 	glBufferData(GL_ARRAY_BUFFER, IMM_BUFFER_SIZE, NULL, GL_DYNAMIC_DRAW);
@@ -72,19 +70,38 @@ void immInit()
 	imm.strict_vertex_ct = true;
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
 	initialized = true;
+
+	immActivate();
 	}
 
-void immDestroy()
+void immActivate()
 	{
 #if TRUST_NO_ONE
 	assert(initialized);
 	assert(imm.primitive == PRIM_NONE); // make sure we're not between a Begin/End pair
+	assert(imm.vao_id == 0);
 #endif
 
-	VertexFormat_clear(&imm.vertex_format);
+	glGenVertexArrays(1, &imm.vao_id);
+	}
+
+void immDeactivate()
+	{
+#if TRUST_NO_ONE
+	assert(initialized);
+	assert(imm.primitive == PRIM_NONE); // make sure we're not between a Begin/End pair
+	assert(imm.vao_id != 0);
+#endif
+
 	glDeleteVertexArrays(1, &imm.vao_id);
+	imm.vao_id = 0;
+	imm.prev_enabled_attrib_bits = 0;
+	}
+
+void immDestroy()
+	{
+	immDeactivate();
 	glDeleteBuffers(1, &imm.vbo_id);
 	initialized = false;
 	}
@@ -194,7 +211,8 @@ void immBegin(GLenum primitive, unsigned vertex_ct)
 #if APPLE_LEGACY
 	imm.buffer_data = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY) + imm.buffer_offset;
 #else
-	imm.buffer_data = glMapBufferRange(GL_ARRAY_BUFFER, imm.buffer_offset, bytes_needed, GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+	imm.buffer_data = glMapBufferRange(GL_ARRAY_BUFFER, imm.buffer_offset, bytes_needed,
+	                                   GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | (imm.strict_vertex_ct ? 0 : GL_MAP_FLUSH_EXPLICIT_BIT));
 #endif
 
 #if TRUST_NO_ONE
@@ -207,6 +225,10 @@ void immBegin(GLenum primitive, unsigned vertex_ct)
 
 void immBeginAtMost(GLenum primitive, unsigned vertex_ct)
 	{
+#if TRUST_NO_ONE
+	assert(vertex_ct > 0);
+#endif
+
 	imm.strict_vertex_ct = false;
 	immBegin(primitive, vertex_ct);
 	}
@@ -320,13 +342,27 @@ void immEnd()
 		{
 #if TRUST_NO_ONE
 		assert(imm.vertex_idx <= imm.vertex_ct);
-		assert(vertex_count_makes_sense_for_primitive(imm.vertex_idx, imm.primitive));
 #endif
 		// printf("used %u of %u verts,", imm.vertex_idx, imm.vertex_ct);
-		imm.vertex_ct = imm.vertex_idx;
-		buffer_bytes_used = vertex_buffer_size(&imm.vertex_format, imm.vertex_ct);
-		// unused buffer bytes are available to the next immBegin
-		// printf(" %u of %u bytes\n", buffer_bytes_used, imm.buffer_bytes_mapped);
+		if (imm.vertex_idx == imm.vertex_ct)
+			{
+			buffer_bytes_used = imm.buffer_bytes_mapped;
+			}
+		else
+			{
+#if TRUST_NO_ONE
+			assert(imm.vertex_idx == 0 || vertex_count_makes_sense_for_primitive(imm.vertex_idx, imm.primitive));
+#endif
+			imm.vertex_ct = imm.vertex_idx;
+			buffer_bytes_used = vertex_buffer_size(&imm.vertex_format, imm.vertex_ct);
+			// unused buffer bytes are available to the next immBegin
+			// printf(" %u of %u bytes\n", buffer_bytes_used, imm.buffer_bytes_mapped);
+			}
+#if !APPLE_LEGACY
+		// tell OpenGL what range was modified so it doesn't copy the whole mapped range
+		// printf("flushing %u to %u\n", imm.buffer_offset, imm.buffer_offset + buffer_bytes_used - 1);
+		glFlushMappedBufferRange(GL_ARRAY_BUFFER, 0, buffer_bytes_used);
+#endif
 		}
 
 #if IMM_BATCH_COMBO
@@ -346,14 +382,16 @@ void immEnd()
 		{
 #if APPLE_LEGACY
 		// tell OpenGL what range was modified so it doesn't copy the whole buffer
+		// printf("flushing %u to %u\n", imm.buffer_offset, imm.buffer_offset + buffer_bytes_used - 1);
 		glFlushMappedBufferRangeAPPLE(GL_ARRAY_BUFFER, imm.buffer_offset, buffer_bytes_used);
-//		printf("flushing %u to %u\n", imm.buffer_offset, imm.buffer_offset + buffer_bytes_used - 1);
 #endif
 		glUnmapBuffer(GL_ARRAY_BUFFER);
 
-		immDrawSetup();
-
-		glDrawArrays(imm.primitive, 0, imm.vertex_ct);
+		if (imm.vertex_ct > 0)
+			{
+			immDrawSetup();
+			glDrawArrays(imm.primitive, 0, imm.vertex_ct);
+			}
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
@@ -367,11 +405,6 @@ void immEnd()
 	imm.strict_vertex_ct = true;
 	imm.vertex_idx = 0;
 	imm.attrib_value_bits = 0;
-
-	// further optional cleanup
-//	imm.buffer_bytes_mapped = 0;
-//	imm.buffer_data = NULL;
-//	imm.vertex_data = NULL;
 	}
 
 static void setAttribValueBit(unsigned attrib_id)
@@ -384,6 +417,9 @@ static void setAttribValueBit(unsigned attrib_id)
 
 	imm.attrib_value_bits |= mask;
 	}
+
+
+// --- generic attribute functions ---
 
 void immAttrib1f(unsigned attrib_id, float x)
 	{
@@ -556,7 +592,18 @@ void immAttrib4ubv(unsigned attrib_id, const unsigned char data[4])
 	immAttrib4ub(attrib_id, data[0], data[1], data[2], data[3]);
 	}
 
-void immEndVertex()
+void immSkipAttrib(unsigned attrib_id)
+	{
+#if TRUST_NO_ONE
+	assert(attrib_id < imm.vertex_format.attrib_ct);
+	assert(imm.vertex_idx < imm.vertex_ct);
+	assert(imm.primitive != PRIM_NONE); // make sure we're between a Begin/End pair
+#endif
+
+	setAttribValueBit(attrib_id);
+	}
+
+static void immEndVertex(void) // and move on to the next vertex
 	{
 #if TRUST_NO_ONE
 	assert(imm.primitive != PRIM_NONE); // make sure we're between a Begin/End pair
@@ -583,10 +630,11 @@ void immEndVertex()
 
 				GLubyte* data = imm.vertex_data + a->offset;
 				memcpy(data, data - imm.vertex_format.stride, a->sz);
+				// TODO: consolidate copy of adjacent attributes
 				}
 			}
 		}
-	
+
 	imm.vertex_idx++;
 	imm.vertex_data += imm.vertex_format.stride;
 	imm.attrib_value_bits = 0;
@@ -622,8 +670,17 @@ void immVertex3fv(unsigned attrib_id, const float data[3])
 	immEndVertex();
 	}
 
+void immVertex2iv(unsigned attrib_id, const int data[2])
+	{
+	immAttrib2i(attrib_id, data[0], data[1]);
+	immEndVertex();
+	}
+
+
+// --- generic uniform functions ---
+
 void immUniform1f(const char* name, float x)
-{
+	{
 	int loc = glGetUniformLocation(imm.bound_program, name);
 
 #if TRUST_NO_ONE
@@ -631,7 +688,7 @@ void immUniform1f(const char* name, float x)
 #endif
 
 	glUniform1f(loc, x);
-}
+	}
 
 void immUniform4f(const char* name, float x, float y, float z, float w)
 	{
@@ -644,10 +701,28 @@ void immUniform4f(const char* name, float x, float y, float z, float w)
 	glUniform4f(loc, x, y, z, w);
 	}
 
-void immVertex2iv(unsigned attrib_id, const int data[2])
+void immUniform1i(const char* name, int x)
 	{
-	immAttrib2i(attrib_id, data[0], data[1]);
-	immEndVertex();
+	int loc = glGetUniformLocation(imm.bound_program, name);
+
+#if TRUST_NO_ONE
+	assert(loc != -1);
+#endif
+
+	glUniform1i(loc, x);
+	}
+
+
+// --- convenience functions for setting "uniform vec4 color" ---
+
+void immUniformColor4f(float r, float g, float b, float a)
+	{
+	immUniform4f("color", r, g, b, a);
+	}
+
+void immUniformColor4fv(const float rgba[4])
+	{
+	immUniform4f("color", rgba[0], rgba[1], rgba[2], rgba[3]);
 	}
 
 void immUniformColor3fv(const float rgb[3])
@@ -655,10 +730,12 @@ void immUniformColor3fv(const float rgb[3])
 	immUniform4f("color", rgb[0], rgb[1], rgb[2], 1.0f);
 	}
 
-void immUniformColor4fv(const float rgba[4])
+void immUniformColor3fvAlpha(const float rgb[3], float a)
 	{
-	immUniform4f("color", rgba[0], rgba[1], rgba[2], rgba[3]);
+	immUniform4f("color", rgb[0], rgb[1], rgb[2], a);
 	}
+
+// TODO: v-- treat as sRGB? --v
 
 void immUniformColor3ub(unsigned char r, unsigned char g, unsigned char b)
 	{
@@ -680,15 +757,4 @@ void immUniformColor3ubv(const unsigned char rgb[3])
 void immUniformColor4ubv(const unsigned char rgba[4])
 	{
 	immUniformColor4ub(rgba[0], rgba[1], rgba[2], rgba[3]);
-	}
-
-void immUniform1i(const char *name, const unsigned int data)
-	{
-	int loc = glGetUniformLocation(imm.bound_program, name);
-
-#if TRUST_NO_ONE
-	assert(loc != -1);
-#endif
-
-	glUniform1i(loc, data);
 	}

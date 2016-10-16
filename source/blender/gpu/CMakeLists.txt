@@ -32,6 +32,8 @@ set(INC
 	../makesdna
 	../makesrna
 
+	../editors/include
+
 	# For node muting stuff...
 	../nodes
 	../nodes/intern
@@ -62,6 +64,7 @@ set(SRC
 	intern/gpu_select.c
 	intern/gpu_shader.c
 	intern/gpu_texture.c
+	intern/gpu_viewport.c
 
 	gawain/attrib_binding.c
 	gawain/attrib_binding.h
@@ -72,6 +75,8 @@ set(SRC
 	gawain/element.h
 	gawain/immediate.c
 	gawain/immediate.h
+	gawain/imm_util.c
+	gawain/imm_util.h
 	gawain/vertex_buffer.c
 	gawain/vertex_buffer.h
 	gawain/vertex_format.c
@@ -115,6 +120,7 @@ set(SRC
 	GPU_select.h
 	GPU_shader.h
 	GPU_texture.h
+	GPU_viewport.h
 
 	intern/gpu_codegen.h
 	intern/gpu_private.h
@@ -123,24 +129,30 @@ set(SRC
 data_to_c_simple(shaders/gpu_shader_depth_only_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_uniform_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_flat_color_frag.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_2D_no_color_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_flat_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_smooth_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_smooth_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_texture_2D_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_texture_rect_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_texture_vert.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_3D_no_color_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_3D_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_flat_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_smooth_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_smooth_color_frag.glsl SRC)
 
 data_to_c_simple(shaders/gpu_shader_point_uniform_color_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_point_uniform_color_smooth_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_point_uniform_color_outline_smooth_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_point_varying_color_outline_smooth_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_point_varying_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_point_fixed_size_varying_color_vert.glsl SRC)
-data_to_c_simple(shaders/gpu_shader_3D_point_varying_size_no_color_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_3D_point_varying_size_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_point_varying_size_varying_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_point_varying_size_varying_color_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_point_uniform_size_smooth_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_point_uniform_size_outline_smooth_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_point_uniform_size_varying_color_outline_smooth_vert.glsl SRC)
 
 data_to_c_simple(shaders/gpu_shader_text_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_text_frag.glsl SRC)

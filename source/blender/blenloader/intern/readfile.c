@@ -4834,6 +4834,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			collmd->time_x = collmd->time_xnew = -1000;
 			collmd->mvert_num = 0;
 			collmd->tri_num = 0;
+			collmd->is_static = false;
 			collmd->bvhtree = NULL;
 			collmd->tri = NULL;
 			
@@ -6513,6 +6514,7 @@ static void direct_link_region(FileData *fd, ARegion *ar, int spacetype)
 				rv3d->sms = NULL;
 				rv3d->smooth_timer = NULL;
 				rv3d->compositor = NULL;
+				rv3d->viewport = NULL;
 			}
 		}
 	}

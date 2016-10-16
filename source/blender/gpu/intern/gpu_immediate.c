@@ -26,10 +26,35 @@
  */
 
 #include "GPU_immediate.h"
+#include "GPU_matrix.h"
+#include "UI_resources.h"
+
 #include "gpu_shader_private.h"
 
 void immBindBuiltinProgram(GPUBuiltinShader shader_id)
 {
 	GPUShader *shader = GPU_shader_get_builtin_shader(shader_id);
 	immBindProgram(shader->program);
+	gpuBindMatrices(shader->program);
+}
+
+void immUniformThemeColor(int colorid)
+{
+	float color[4];
+	UI_GetThemeColor4fv(colorid, color);
+	immUniformColor4fv(color);
+}
+
+void immUniformThemeColorShade(int colorid, int offset)
+{
+	float color[4];
+	UI_GetThemeColorShade4fv(colorid, offset, color);
+	immUniformColor4fv(color);
+}
+
+void immUniformThemeColorBlendShade(int colorid1, int colorid2, float fac, int offset)
+{
+	float color[4];
+	UI_GetThemeColorBlendShade4fv(colorid1, colorid2, fac, offset, color);
+	immUniformColor4fv(color);
 }
