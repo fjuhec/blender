@@ -15,46 +15,38 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2016 Blender Foundation.
+ * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
  *
  * The Original Code is: all of this file.
  *
- * Contributor(s): Mike Erwin
+ * Contributor(s):
  *
  * ***** END GPL LICENSE BLOCK *****
  */
 
-#include "GPU_immediate.h"
-#include "GPU_matrix.h"
-#include "UI_resources.h"
+/** \file blender/gpu/intern/gpu_viewport.c
+ *  \ingroup gpu
+ *
+ * System that manages viewport drawing.
+ */
 
-#include "gpu_shader_private.h"
+#include "GPU_viewport.h"
 
-void immBindBuiltinProgram(GPUBuiltinShader shader_id)
+#include "MEM_guardedalloc.h"
+
+struct GPUViewport {
+	float pad[4];
+};
+
+GPUViewport *GPU_viewport_create(void)
 {
-	GPUShader *shader = GPU_shader_get_builtin_shader(shader_id);
-	immBindProgram(shader->program);
-	gpuBindMatrices(shader->program);
+	GPUViewport *viewport = MEM_callocN(sizeof(GPUViewport), "GPUViewport");
+	return viewport;
 }
 
-void immUniformThemeColor(int colorid)
+void GPU_viewport_free(GPUViewport *viewport)
 {
-	float color[4];
-	UI_GetThemeColor4fv(colorid, color);
-	immUniformColor4fv(color);
+	MEM_freeN(viewport);
 }
 
-void immUniformThemeColorShade(int colorid, int offset)
-{
-	float color[4];
-	UI_GetThemeColorShade4fv(colorid, offset, color);
-	immUniformColor4fv(color);
-}
-
-void immUniformThemeColorBlendShade(int colorid1, int colorid2, float fac, int offset)
-{
-	float color[4];
-	UI_GetThemeColorBlendShade4fv(colorid1, colorid2, fac, offset, color);
-	immUniformColor4fv(color);
-}

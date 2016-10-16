@@ -58,6 +58,8 @@
 #include "BIF_gl.h"
 #include "BLF_api.h"
 
+#include "GPU_immediate.h"
+
 #include "blf_internal_types.h"
 #include "blf_internal.h"
 
@@ -172,6 +174,21 @@ static void blf_font_ensure_ascii_table(FontBLF *font)
 	}                                                                            \
 } (void)0
 
+static unsigned verts_needed(const FontBLF *font, const char *str, size_t len)
+{
+	unsigned length = (unsigned)((len == INT_MAX) ? strlen(str) : len);
+	return length * 40;
+	/* (5 shadow + 5 blur) * 4 verts per quad
+	 * TODO: determine exact count of quads, somthing like this: */
+#if 0
+	unsigned quad_ct = 1 + (unsigned)font->blur;
+	if (font->flags & BLF_SHADOW)
+		quad_ct += (unsigned)font->shadow;
+
+	immBegin(GL_QUADS, length * quad_ct * 4);
+#endif
+}
+
 static void blf_font_draw_ex(
         FontBLF *font, const char *str, size_t len, struct ResultBLF *r_info,
         int pen_y)
@@ -186,6 +203,8 @@ static void blf_font_draw_ex(
 	BLF_KERNING_VARS(font, has_kerning, kern_mode);
 
 	blf_font_ensure_ascii_table(font);
+
+	immBeginAtMost(GL_QUADS, verts_needed(font, str, len));
 
 	while ((i < len) && str[i]) {
 		BLF_UTF8_NEXT_FAST(font, g, str, i, c, glyph_ascii_table);
@@ -203,6 +222,8 @@ static void blf_font_draw_ex(
 		pen_x += g->advance_i;
 		g_prev = g;
 	}
+
+	immEnd();
 
 	if (r_info) {
 		r_info->lines = 1;
@@ -229,6 +250,8 @@ static void blf_font_draw_ascii_ex(
 
 	blf_font_ensure_ascii_table(font);
 
+	immBeginAtMost(GL_QUADS, verts_needed(font, str, len));
+
 	while ((c = *(str++)) && len--) {
 		BLI_assert(c < 128);
 		if ((g = glyph_ascii_table[c]) == NULL)
@@ -242,6 +265,8 @@ static void blf_font_draw_ascii_ex(
 		pen_x += g->advance_i;
 		g_prev = g;
 	}
+
+	immEnd();
 
 	if (r_info) {
 		r_info->lines = 1;
@@ -265,6 +290,8 @@ int blf_font_draw_mono(FontBLF *font, const char *str, size_t len, int cwidth)
 
 	blf_font_ensure_ascii_table(font);
 
+	immBeginAtMost(GL_QUADS, verts_needed(font, str, len));
+
 	while ((i < len) && str[i]) {
 		BLF_UTF8_NEXT_FAST(font, g, str, i, c, glyph_ascii_table);
 
@@ -283,6 +310,8 @@ int blf_font_draw_mono(FontBLF *font, const char *str, size_t len, int cwidth)
 		columns += col;
 		pen_x += cwidth * col;
 	}
+
+	immEnd();
 
 	return columns;
 }
