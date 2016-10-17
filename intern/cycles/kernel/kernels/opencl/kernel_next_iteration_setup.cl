@@ -18,11 +18,7 @@
 
 __kernel void kernel_ocl_path_trace_next_iteration_setup(
         KernelGlobals *kg,
-        ccl_constant KernelData *data,
-        ccl_global int *Queue_index,          /* Tracks the number of elements in each queue */
-        int queuesize,                        /* Size (capacity) of each queue */
-        ccl_global char *use_queues_flag)     /* flag to decide if scene_intersect kernel should
-                                               * use queues to fetch ray index */
+        ccl_constant KernelData *data)
 {
 	ccl_local unsigned int local_queue_atomics;
 	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
@@ -35,14 +31,14 @@ __kernel void kernel_ocl_path_trace_next_iteration_setup(
 		* has already been executed atleast once. From the next time,
 		* scene-intersect kernel may operate on queues to fetch ray index
 		*/
-		use_queues_flag[0] = 1;
+		split_params->use_queues_flag[0] = 1;
 
 		/* Mark queue indices of QUEUE_SHADOW_RAY_CAST_AO_RAYS and
 		 * QUEUE_SHADOW_RAY_CAST_DL_RAYS queues that were made empty during the
 		 * previous kernel.
 		 */
-		Queue_index[QUEUE_SHADOW_RAY_CAST_AO_RAYS] = 0;
-		Queue_index[QUEUE_SHADOW_RAY_CAST_DL_RAYS] = 0;
+		split_params->queue_index[QUEUE_SHADOW_RAY_CAST_AO_RAYS] = 0;
+		split_params->queue_index[QUEUE_SHADOW_RAY_CAST_DL_RAYS] = 0;
 	}
 
 	char enqueue_flag = 0;
@@ -50,7 +46,7 @@ __kernel void kernel_ocl_path_trace_next_iteration_setup(
 	ray_index = get_ray_index(ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                          split_state->queue_data,
-	                          queuesize,
+	                          split_params->queue_size,
 	                          0);
 
 #ifdef __COMPUTE_DEVICE_GPU__
@@ -70,7 +66,7 @@ __kernel void kernel_ocl_path_trace_next_iteration_setup(
 	if(ray_index != QUEUE_EMPTY_SLOT) {
 #endif
 		enqueue_flag = kernel_next_iteration_setup(kg,
-		                                           use_queues_flag,
+		                                           split_params->use_queues_flag,
 		                                           ray_index);
 #ifndef __COMPUTE_DEVICE_GPU__
 	}
@@ -80,8 +76,8 @@ __kernel void kernel_ocl_path_trace_next_iteration_setup(
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 	                        enqueue_flag,
-	                        queuesize,
+	                        split_params->queue_size,
 	                        &local_queue_atomics,
 	                        split_state->queue_data,
-	                        Queue_index);
+	                        split_params->queue_index);
 }

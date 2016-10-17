@@ -18,13 +18,7 @@
 
 __kernel void kernel_ocl_path_trace_scene_intersect(
         KernelGlobals *kg,
-        ccl_constant KernelData *data,
-        int sw, int sh,
-        ccl_global int *Queue_index,           /* Tracks the number of elements in queues */
-        int queuesize,                         /* Size (capacity) of queues */
-        ccl_global char *use_queues_flag,      /* used to decide if this kernel should use
-                                                * queues to fetch ray index */
-        int parallel_samples)                  /* Number of samples to be processed in parallel */
+        ccl_constant KernelData *data)
 {
 	int x = get_global_id(0);
 	int y = get_global_id(1);
@@ -32,7 +26,7 @@ __kernel void kernel_ocl_path_trace_scene_intersect(
 	/* Fetch use_queues_flag */
 	ccl_local char local_use_queues_flag;
 	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
-		local_use_queues_flag = use_queues_flag[0];
+		local_use_queues_flag = split_params->use_queues_flag[0];
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -42,22 +36,22 @@ __kernel void kernel_ocl_path_trace_scene_intersect(
 		ray_index = get_ray_index(thread_index,
 		                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 		                          split_state->queue_data,
-		                          queuesize,
+		                          split_params->queue_size,
 		                          0);
 
 		if(ray_index == QUEUE_EMPTY_SLOT) {
 			return;
 		}
 	} else {
-		if(x < (sw * parallel_samples) && y < sh) {
-			ray_index = x + y * (sw * parallel_samples);
+		if(x < (split_params->w * split_params->parallel_samples) && y < split_params->h) {
+			ray_index = x + y * (split_params->w * split_params->parallel_samples);
 		} else {
 			return;
 		}
 	}
 
 	kernel_scene_intersect(kg,
-	                       sw, sh,
-	                       use_queues_flag,
+	                       split_params->w, split_params->h,
+	                       split_params->use_queues_flag,
 	                       ray_index);
 }

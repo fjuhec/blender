@@ -18,20 +18,14 @@
 
 __kernel void kernel_ocl_path_trace_sum_all_radiance(
         KernelGlobals *kg,
-        ccl_constant KernelData *data,
-        ccl_global float *buffer,                    /* Output buffer of RenderTile */
-        int parallel_samples, int sw, int sh, int stride,
-        int buffer_offset_x,
-        int buffer_offset_y,
-        int buffer_stride,
-        int start_sample)
+        ccl_constant KernelData *data)
 {
 	kernel_sum_all_radiance(kg,
-	                        buffer,
-	                        parallel_samples,
-	                        sw, sh, stride,
-	                        buffer_offset_x,
-	                        buffer_offset_y,
-	                        buffer_stride,
-	                        start_sample);
+	                        split_params->buffer,
+	                        split_params->parallel_samples,
+	                        split_params->w, split_params->h, split_params->stride,
+	                        split_params->buffer_offset_x,
+	                        split_params->buffer_offset_y,
+	                        split_params->buffer_stride,
+	                        split_params->start_sample);
 }

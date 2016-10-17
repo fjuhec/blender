@@ -19,6 +19,42 @@
 
 CCL_NAMESPACE_BEGIN
 
+/* parameters used by the split kernels, we use a single struct to avoid passing these to each kernel */
+
+typedef struct SplitParams {
+	int x;
+	int y;
+	int w;
+	int h;
+
+	int offset;
+	int stride;
+
+	ccl_global uint *rng_state;
+	int rng_offset_x;
+	int rng_offset_y;
+	int rng_stride;
+
+	int start_sample;
+	int end_sample;
+
+#ifdef __WORK_STEALING__
+	ccl_global unsigned int *work_pool_wgs;
+	unsigned int num_samples;
+#endif
+
+	int parallel_samples;
+
+	ccl_global int *queue_index;
+	int queue_size;
+	ccl_global char *use_queues_flag;
+
+	int buffer_offset_x;
+	int buffer_offset_y;
+	int buffer_stride;
+	ccl_global float *buffer;
+} SplitParams;
+
 /* Global memory variables [porting]; These memory is used for
  * co-operation between different kernels; Data written by one
  * kernel will be available to another kernel via this global
@@ -118,6 +154,7 @@ ccl_device_inline void split_data_init(ccl_global SplitData *split_data,
 }
 
 #define split_state (&kg->split_data)
+#define split_params (&kg->split_param_data)
 
 CCL_NAMESPACE_END
 

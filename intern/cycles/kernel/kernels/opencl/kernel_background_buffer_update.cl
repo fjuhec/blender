@@ -18,21 +18,7 @@
 
 __kernel void kernel_ocl_path_trace_background_buffer_update(
         KernelGlobals *kg,
-        ccl_constant KernelData *data,
-        ccl_global uint *rng_state,
-        int sw, int sh, int sx, int sy, int stride,
-        int rng_state_offset_x,
-        int rng_state_offset_y,
-        int rng_state_stride,
-        ccl_global int *Queue_index,           /* Tracks the number of elements in each queue */
-        int queuesize,                         /* Size (capacity) of each queue */
-        int end_sample,
-        int start_sample,
-#ifdef __WORK_STEALING__
-        ccl_global unsigned int *work_pool_wgs,
-        unsigned int num_samples,
-#endif
-        int parallel_samples)                  /* Number of samples to be processed in parallel */
+        ccl_constant KernelData *data)
 {
 	ccl_local unsigned int local_queue_atomics;
 	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
@@ -43,13 +29,13 @@ __kernel void kernel_ocl_path_trace_background_buffer_update(
 	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
 	if(ray_index == 0) {
 		/* We will empty this queue in this kernel. */
-		Queue_index[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS] = 0;
+		split_params->queue_index[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS] = 0;
 	}
 	char enqueue_flag = 0;
 	ray_index = get_ray_index(ray_index,
 	                          QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 	                          split_state->queue_data,
-	                          queuesize,
+	                          split_params->queue_size,
 	                          1);
 
 #ifdef __COMPUTE_DEVICE_GPU__
@@ -70,18 +56,22 @@ __kernel void kernel_ocl_path_trace_background_buffer_update(
 #endif
 		enqueue_flag =
 			kernel_background_buffer_update(kg,
-			                                rng_state,
-			                                sw, sh, sx, sy, stride,
-			                                rng_state_offset_x,
-			                                rng_state_offset_y,
-			                                rng_state_stride,
-			                                end_sample,
-			                                start_sample,
+			                                split_params->rng_state,
+			                                split_params->w,
+			                                split_params->h,
+			                                split_params->x,
+			                                split_params->y,
+			                                split_params->stride,
+			                                split_params->rng_offset_x,
+			                                split_params->rng_offset_y,
+			                                split_params->rng_stride,
+			                                split_params->end_sample,
+			                                split_params->start_sample,
 #ifdef __WORK_STEALING__
-			                                work_pool_wgs,
-			                                num_samples,
+			                                split_params->work_pool_wgs,
+			                                split_params->num_samples,
 #endif
-			                                parallel_samples,
+			                                split_params->parallel_samples,
 			                                ray_index);
 #ifndef __COMPUTE_DEVICE_GPU__
 	}
@@ -93,8 +83,8 @@ __kernel void kernel_ocl_path_trace_background_buffer_update(
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                        enqueue_flag,
-	                        queuesize,
+	                        split_params->queue_size,
 	                        &local_queue_atomics,
 	                        split_state->queue_data,
-	                        Queue_index);
+	                        split_params->queue_index);
 }

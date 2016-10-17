@@ -18,9 +18,7 @@
 
 __kernel void kernel_ocl_path_trace_direct_lighting(
         KernelGlobals *kg,
-        ccl_constant KernelData *data,
-        ccl_global int *Queue_index,            /* Tracks the number of elements in each queue */
-        int queuesize)                          /* Size (capacity) of each queue */
+        ccl_constant KernelData *data)
 {
 	ccl_local unsigned int local_queue_atomics;
 	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
@@ -33,7 +31,7 @@ __kernel void kernel_ocl_path_trace_direct_lighting(
 	ray_index = get_ray_index(ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                          split_state->queue_data,
-	                          queuesize,
+	                          split_params->queue_size,
 	                          0);
 
 #ifdef __COMPUTE_DEVICE_GPU__
@@ -63,9 +61,9 @@ __kernel void kernel_ocl_path_trace_direct_lighting(
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_SHADOW_RAY_CAST_DL_RAYS,
 	                        enqueue_flag,
-	                        queuesize,
+	                        split_params->queue_size,
 	                        &local_queue_atomics,
 	                        split_state->queue_data,
-	                        Queue_index);
+	                        split_params->queue_index);
 #endif
 }

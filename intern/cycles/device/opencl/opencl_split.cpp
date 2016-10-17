@@ -223,6 +223,7 @@ public:
 			void *sd_input;
 			void *isect_shadow;
 			SplitData split_data;
+			SplitParams split_param_data;
 		} KernelGlobals;
 
 		return sizeof(KernelGlobals);
@@ -422,6 +423,7 @@ public:
 			kernel_set_args(program_data_init(),
 			                start_arg_index,
 			                start_sample,
+			                end_sample,
 			                d_x,
 			                d_y,
 			                d_w,
@@ -438,128 +440,24 @@ public:
 			                work_pool_wgs,
 			                num_samples,
 #endif
-			                num_parallel_samples);
+			                num_parallel_samples,
+			                rtile.buffer_offset_x,
+			                rtile.buffer_offset_y,
+			                rtile.buffer_rng_state_stride,
+							d_buffer);
 
-		//printf("kernel_set_args scene_intersect\n");
-		kernel_set_args(program_scene_intersect(),
-		                0,
-		                kgbuffer,
-		                d_data,
-		                d_w,
-		                d_h,
-		                Queue_index,
-		                dQueue_size,
-		                use_queues_flag,
-		                num_parallel_samples);
-
-		//printf("kernel_set_args lamp_emission\n");
-		kernel_set_args(program_lamp_emission(),
-		                0,
-		                kgbuffer,
-		                d_data,
-		                d_w,
-		                d_h,
-		                Queue_index,
-		                dQueue_size,
-		                use_queues_flag,
-		                num_parallel_samples);
-
-		//printf("kernel_set_args queue_enqueue\n");
-		kernel_set_args(program_queue_enqueue(),
-		                0,
-		                kgbuffer,
-			            d_data,
-		                Queue_index,
-		                dQueue_size);
-
-		//printf("kernel_set_args background_buffer_update\n");
-		kernel_set_args(program_background_buffer_update(),
-		                 0,
-		                 kgbuffer,
-		                 d_data,
-		                 d_rng_state,
-		                 d_w,
-		                 d_h,
-		                 d_x,
-		                 d_y,
-		                 d_stride,
-		                 rtile.rng_state_offset_x,
-		                 rtile.rng_state_offset_y,
-		                 rtile.buffer_rng_state_stride,
-		                 Queue_index,
-		                 dQueue_size,
-		                 end_sample,
-		                 start_sample,
-#ifdef __WORK_STEALING__
-		                 work_pool_wgs,
-		                 num_samples,
-#endif
-		                 num_parallel_samples);
-
-		//printf("kernel_set_args shader_eval\n");
-		kernel_set_args(program_shader_eval(),
-		                0,
-		                kgbuffer,
-		                d_data,
-		                Queue_index,
-		                dQueue_size);
-
-		//printf("kernel_set_args holdout_emission_blurring_pathtermination_ao\n");
-		kernel_set_args(program_holdout_emission_blurring_pathtermination_ao(),
-		                0,
-		                kgbuffer,
-		                d_data,
-		                d_w,
-		                d_h,
-		                d_x,
-		                d_y,
-		                d_stride,
-		                Queue_index,
-		                dQueue_size,
-#ifdef __WORK_STEALING__
-		                start_sample,
-#endif
-		                num_parallel_samples);
-
-		//printf("kernel_set_args direct_lighting\n");
-		kernel_set_args(program_direct_lighting(),
-		                0,
-		                kgbuffer,
-		                d_data,
-		                Queue_index,
-		                dQueue_size);
-
-		//printf("kernel_set_args shadow_blocked\n");
-		kernel_set_args(program_shadow_blocked(),
-		                0,
-		                kgbuffer,
-		                d_data,
-		                Queue_index,
-		                dQueue_size);
-
-		//printf("kernel_set_args next_iteration_setup\n");
-		kernel_set_args(program_next_iteration_setup(),
-		                0,
-		                kgbuffer,
-		                d_data,
-		                Queue_index,
-		                dQueue_size,
-		                use_queues_flag);
-
-		//printf("kernel_set_args sum_all_radiance\n");
-		kernel_set_args(program_sum_all_radiance(),
-		                0,
-		                kgbuffer,
-		                d_data,
-		                d_buffer,
-		                num_parallel_samples,
-		                d_w,
-		                d_h,
-		                d_stride,
-		                rtile.buffer_offset_x,
-		                rtile.buffer_offset_y,
-		                rtile.buffer_rng_state_stride,
-		                start_sample);
+#define KERNEL_SET_ARGS(name) kernel_set_args(program_##name(), 0, kgbuffer, d_data);
+		KERNEL_SET_ARGS(scene_intersect);
+		KERNEL_SET_ARGS(lamp_emission);
+		KERNEL_SET_ARGS(queue_enqueue);
+		KERNEL_SET_ARGS(background_buffer_update);
+		KERNEL_SET_ARGS(shader_eval);
+		KERNEL_SET_ARGS(holdout_emission_blurring_pathtermination_ao);
+		KERNEL_SET_ARGS(direct_lighting);
+		KERNEL_SET_ARGS(shadow_blocked);
+		KERNEL_SET_ARGS(next_iteration_setup);
+		KERNEL_SET_ARGS(sum_all_radiance);
+#undef KERNEL_SET_ARGS
 
 		/* Macro for Enqueuing split kernels. */
 #define GLUE(a, b) a ## b

@@ -18,14 +18,7 @@
 
 __kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao(
         KernelGlobals *kg,
-        ccl_constant KernelData *data,
-        int sw, int sh, int sx, int sy, int stride,
-        ccl_global int *Queue_index,           /* Tracks the number of elements in each queue */
-        int queuesize,                         /* Size (capacity) of each queue */
-#ifdef __WORK_STEALING__
-        unsigned int start_sample,
-#endif
-        int parallel_samples)                  /* Number of samples to be processed in parallel */
+        ccl_constant KernelData *data)
 {
 	ccl_local unsigned int local_queue_atomics_bg;
 	ccl_local unsigned int local_queue_atomics_ao;
@@ -41,7 +34,7 @@ __kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao
 	ray_index = get_ray_index(ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                          split_state->queue_data,
-	                          queuesize,
+	                          split_params->queue_size,
 	                          0);
 
 #ifdef __COMPUTE_DEVICE_GPU__
@@ -62,11 +55,11 @@ __kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao
 #endif
 		kernel_holdout_emission_blurring_pathtermination_ao(
 		        kg,
-		        sw, sh, sx, sy, stride,
+		        split_params->w, split_params->h, split_params->x, split_params->y, split_params->stride,
 #ifdef __WORK_STEALING__
-		        start_sample,
+		        split_params->start_sample,
 #endif
-		        parallel_samples,
+		        split_params->parallel_samples,
 		        ray_index,
 		        &enqueue_flag,
 		        &enqueue_flag_AO_SHADOW_RAY_CAST);
@@ -78,19 +71,19 @@ __kernel void kernel_ocl_path_trace_holdout_emission_blurring_pathtermination_ao
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 	                        enqueue_flag,
-	                        queuesize,
+	                        split_params->queue_size,
 	                        &local_queue_atomics_bg,
 	                        split_state->queue_data,
-	                        Queue_index);
+	                        split_params->queue_index);
 
 #ifdef __AO__
 	/* Enqueue to-shadow-ray-cast rays. */
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_SHADOW_RAY_CAST_AO_RAYS,
 	                        enqueue_flag_AO_SHADOW_RAY_CAST,
-	                        queuesize,
+	                        split_params->queue_size,
 	                        &local_queue_atomics_ao,
 	                        split_state->queue_data,
-	                        Queue_index);
+	                        split_params->queue_index);
 #endif
 }

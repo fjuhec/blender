@@ -54,9 +54,7 @@
  */
 __kernel void kernel_ocl_path_trace_queue_enqueue(
         KernelGlobals *kg,
-        ccl_constant KernelData *data,
-        ccl_global int *Queue_index,  /* Tracks the number of elements in each queue */
-        int queuesize)                /* Size (capacity) of each queue */
+        ccl_constant KernelData *data)
 {
 	/* We have only 2 cases (Hit/Not-Hit) */
 	ccl_local unsigned int local_queue_atomics[2];
@@ -88,18 +86,18 @@ __kernel void kernel_ocl_path_trace_queue_enqueue(
 		local_queue_atomics[QUEUE_ACTIVE_AND_REGENERATED_RAYS] =
 		        get_global_per_queue_offset(QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 		                                    local_queue_atomics,
-		                                    Queue_index);
+		                                    split_params->queue_index);
 		local_queue_atomics[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS] =
 		        get_global_per_queue_offset(QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 		                                    local_queue_atomics,
-		                                    Queue_index);
+		                                    split_params->queue_index);
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);
 
 	unsigned int my_gqidx;
 	if(queue_number != -1) {
 		my_gqidx = get_global_queue_index(queue_number,
-		                                  queuesize,
+		                                  split_params->queue_size,
 		                                  my_lqidx,
 		                                  local_queue_atomics);
 		split_state->queue_data[my_gqidx] = ray_index;

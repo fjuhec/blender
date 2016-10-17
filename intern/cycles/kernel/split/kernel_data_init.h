@@ -63,7 +63,9 @@ ccl_device void kernel_data_init(
         ccl_global type *name,
 #include "../kernel_textures.h"
 
-        int start_sample, int sx, int sy, int sw, int sh, int offset, int stride,
+        int start_sample,
+        int end_sample,
+        int sx, int sy, int sw, int sh, int offset, int stride,
         int rng_state_offset_x,
         int rng_state_offset_y,
         int rng_state_stride,
@@ -74,9 +76,46 @@ ccl_device void kernel_data_init(
         ccl_global unsigned int *work_pool_wgs,      /* Work pool for each work group */
         unsigned int num_samples,                    /* Total number of samples per pixel */
 #endif
-        int parallel_samples)                        /* Number of samples to be processed in parallel */
+        int parallel_samples,                        /* Number of samples to be processed in parallel */
+        int buffer_offset_x,
+        int buffer_offset_y,
+        int buffer_stride,
+        ccl_global float *buffer)
 {
 	kg->data = data;
+
+	split_params->x = sx;
+	split_params->y = sy;
+	split_params->w = sw;
+	split_params->h = sh;
+
+	split_params->offset = offset;
+	split_params->stride = stride;
+
+	split_params->rng_state = rng_state;
+	split_params->rng_offset_x = rng_state_offset_x;
+	split_params->rng_offset_y = rng_state_offset_y;
+	split_params->rng_stride = rng_state_stride;
+
+	split_params->start_sample = start_sample;
+	split_params->end_sample = end_sample;
+
+#ifdef __WORK_STEALING__
+	split_params->work_pool_wgs = work_pool_wgs;
+	split_params->num_samples = num_samples;
+#endif
+
+	split_params->parallel_samples = parallel_samples;
+
+	split_params->queue_index = Queue_index;
+	split_params->queue_size = queuesize;
+	split_params->use_queues_flag = use_queues_flag;
+
+	split_params->buffer_offset_x = buffer_offset_x;
+	split_params->buffer_offset_y = buffer_offset_y;
+	split_params->buffer_stride = buffer_stride;
+	split_params->buffer = buffer;
+
 	split_data_init(split_state, num_elements, split_data_buffer, ray_state);
 
 	kg->sd_input = split_state->sd_DL_shadow;
