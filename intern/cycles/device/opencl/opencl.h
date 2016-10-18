@@ -261,7 +261,7 @@ public:
 
 	/* Has to be implemented by the real device classes.
 	 * The base device will then load all these programs. */
-	virtual void load_kernels(const DeviceRequestedFeatures& requested_features,
+	virtual bool load_kernels(const DeviceRequestedFeatures& requested_features,
 	                          vector<OpenCLProgram*> &programs) = 0;
 
 	void mem_alloc(device_memory& mem, MemoryType type);
@@ -417,6 +417,8 @@ protected:
 
 	virtual string build_options_for_base_program(
 	        const DeviceRequestedFeatures& /*requested_features*/);
+
+	friend class OpenCLSplitKernelFunction;
 };
 
 Device *opencl_create_mega_device(DeviceInfo& info, Stats& stats, bool background);

@@ -190,6 +190,28 @@ public:
 std::ostream& operator <<(std::ostream &os,
                           const DeviceRequestedFeatures& requested_features);
 
+/* Types used for split kernel */
+
+class KernelDimensions {
+public:
+	size_t global_size[2];
+	size_t local_size[2];
+
+	KernelDimensions(size_t global_size_[2], size_t local_size_[2])
+	{
+		memcpy(global_size, global_size_, 2*sizeof(size_t));
+		memcpy(local_size, local_size_, 2*sizeof(size_t));
+	}
+};
+
+class SplitKernelFunction {
+public:
+	virtual ~SplitKernelFunction() {}
+
+	/* enqueue the kernel, returns false if there is an error */
+	virtual bool enqueue(const KernelDimensions& dim, device_memory& kg, device_memory& data) = 0;
+};
+
 /* Device */
 
 struct DeviceDrawParams {
@@ -272,6 +294,18 @@ public:
 	virtual bool load_kernels(
 	        const DeviceRequestedFeatures& /*requested_features*/)
 	{ return true; }
+
+	/* split kernel */
+	virtual bool enqueue_split_kernel_data_init()
+	{
+		assert(!"not implemented for this device");
+		return false;
+	}
+	virtual SplitKernelFunction* get_split_kernel_function(string /*kernel_name*/, const DeviceRequestedFeatures&)
+	{
+		assert(!"not implemented for this device");
+		return NULL;
+	}
 
 	/* tasks */
 	virtual int get_split_task_count(DeviceTask& task) = 0;

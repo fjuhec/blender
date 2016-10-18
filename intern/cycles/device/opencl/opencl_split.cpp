@@ -85,22 +85,57 @@ public:
 	int buffer_rng_state_stride;
 };
 
+class OpenCLSplitKernelFunction : public SplitKernelFunction {
+public:
+	OpenCLDeviceBase* device;
+	OpenCLDeviceBase::OpenCLProgram program;
+
+	OpenCLSplitKernelFunction(OpenCLDeviceBase* device) : device(device) {}
+	~OpenCLSplitKernelFunction() { program.release(); }
+
+	virtual bool enqueue(const KernelDimensions& dim, device_memory& kg, device_memory& data)
+	{
+		device->kernel_set_args(program(), 0, kg, data);
+
+		device->ciErr = clEnqueueNDRangeKernel(device->cqCommandQueue,
+		                                       program(),
+		                                       2,
+		                                       NULL,
+		                                       dim.global_size,
+		                                       dim.local_size,
+		                                       0,
+		                                       NULL,
+		                                       NULL);
+
+		device->opencl_assert_err(device->ciErr, "clEnqueueNDRangeKernel");
+
+		if(device->ciErr != CL_SUCCESS) {
+			string message = string_printf("OpenCL error: %s in clEnqueueNDRangeKernel()",
+			                               clewErrorString(device->ciErr));
+			device->opencl_error(message);
+			return false;
+		}
+
+		return true;
+	}
+};
+
 /* OpenCLDeviceSplitKernel's declaration/definition. */
 class OpenCLDeviceSplitKernel : public OpenCLDeviceBase
 {
 public:
 	/* Kernel declaration. */
 	OpenCLProgram program_data_init;
-	OpenCLProgram program_scene_intersect;
-	OpenCLProgram program_lamp_emission;
-	OpenCLProgram program_queue_enqueue;
-	OpenCLProgram program_background_buffer_update;
-	OpenCLProgram program_shader_eval;
-	OpenCLProgram program_holdout_emission_blurring_pathtermination_ao;
-	OpenCLProgram program_direct_lighting;
-	OpenCLProgram program_shadow_blocked;
-	OpenCLProgram program_next_iteration_setup;
-	OpenCLProgram program_sum_all_radiance;
+	SplitKernelFunction* program_scene_intersect;
+	SplitKernelFunction* program_lamp_emission;
+	SplitKernelFunction* program_queue_enqueue;
+	SplitKernelFunction* program_background_buffer_update;
+	SplitKernelFunction* program_shader_eval;
+	SplitKernelFunction* program_holdout_emission_blurring_pathtermination_ao;
+	SplitKernelFunction* program_direct_lighting;
+	SplitKernelFunction* program_shadow_blocked;
+	SplitKernelFunction* program_next_iteration_setup;
+	SplitKernelFunction* program_sum_all_radiance;
 
 	/* Global memory variables [porting]; These memory is used for
 	 * co-operation between different kernels; Data written by one
@@ -206,8 +241,7 @@ public:
 		return sizeof(KernelGlobals);
 	}
 
-	virtual void load_kernels(const DeviceRequestedFeatures& requested_features,
-	                          vector<OpenCLProgram*> &programs)
+	string get_build_options(const DeviceRequestedFeatures& requested_features)
 	{
 		string build_options = "-D__SPLIT_KERNEL__ ";
 #ifdef __WORK_STEALING__
@@ -227,15 +261,25 @@ public:
 			build_options += " -D__COMPUTE_DEVICE_GPU__";
 		}
 
-#define GLUE(a, b) a ## b
-#define LOAD_KERNEL(name) \
-	do { \
-		GLUE(program_, name) = OpenCLProgram(this, "split_" #name, "kernel_" #name ".cl", build_options); \
-		GLUE(program_, name).add_kernel(ustring("path_trace_" #name)); \
-		programs.push_back(&GLUE(program_, name)); \
-	} while(false)
+		return build_options;
+	}
 
-		LOAD_KERNEL(data_init);
+	virtual bool load_kernels(const DeviceRequestedFeatures& requested_features,
+	                          vector<OpenCLProgram*> &programs)
+	{
+		program_data_init = OpenCLProgram(this,
+		                                  "split_data_init",
+		                                  "kernel_data_init.cl",
+		                                  get_build_options(requested_features));
+		program_data_init.add_kernel(ustring("path_trace_data_init"));
+		programs.push_back(&program_data_init);
+
+#define LOAD_KERNEL(name) \
+			program_##name = get_split_kernel_function(#name, requested_features); \
+			if(!program_##name) { \
+				return false;\
+			}
+
 		LOAD_KERNEL(scene_intersect);
 		LOAD_KERNEL(lamp_emission);
 		LOAD_KERNEL(queue_enqueue);
@@ -247,10 +291,31 @@ public:
 		LOAD_KERNEL(next_iteration_setup);
 		LOAD_KERNEL(sum_all_radiance);
 
-#undef FIND_KERNEL
-#undef GLUE
+#undef LOAD_KERNEL
 
 		current_max_closure = requested_features.max_closure;
+
+		return true;
+	}
+
+	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name,
+	                                                       const DeviceRequestedFeatures& requested_features)
+	{
+		OpenCLSplitKernelFunction* kernel = new OpenCLSplitKernelFunction(this);
+
+		kernel->program = OpenCLProgram(this,
+		                                "split_" + kernel_name,
+		                                "kernel_" + kernel_name + ".cl",
+		                                get_build_options(requested_features));
+		kernel->program.add_kernel(ustring("path_trace_" + kernel_name));
+		kernel->program.load();
+
+		if(!kernel->program.is_loaded()) {
+			delete kernel;
+			return NULL;
+		}
+
+		return kernel;
 	}
 
 	~OpenCLDeviceSplitKernel()
@@ -259,16 +324,16 @@ public:
 
 		/* Release kernels */
 		program_data_init.release();
-		program_scene_intersect.release();
-		program_lamp_emission.release();
-		program_queue_enqueue.release();
-		program_background_buffer_update.release();
-		program_shader_eval.release();
-		program_holdout_emission_blurring_pathtermination_ao.release();
-		program_direct_lighting.release();
-		program_shadow_blocked.release();
-		program_next_iteration_setup.release();
-		program_sum_all_radiance.release();
+		delete program_scene_intersect;
+		delete program_lamp_emission;
+		delete program_queue_enqueue;
+		delete program_background_buffer_update;
+		delete program_shader_eval;
+		delete program_holdout_emission_blurring_pathtermination_ao;
+		delete program_direct_lighting;
+		delete program_shadow_blocked;
+		delete program_next_iteration_setup;
+		delete program_sum_all_radiance;
 
 		/* Release global memory */
 		mem_free(kgbuffer);
@@ -418,51 +483,37 @@ public:
 			                rtile.buffer_rng_state_stride,
 							d_buffer);
 
-#define KERNEL_SET_ARGS(name) kernel_set_args(program_##name(), 0, kgbuffer, d_data);
-		KERNEL_SET_ARGS(scene_intersect);
-		KERNEL_SET_ARGS(lamp_emission);
-		KERNEL_SET_ARGS(queue_enqueue);
-		KERNEL_SET_ARGS(background_buffer_update);
-		KERNEL_SET_ARGS(shader_eval);
-		KERNEL_SET_ARGS(holdout_emission_blurring_pathtermination_ao);
-		KERNEL_SET_ARGS(direct_lighting);
-		KERNEL_SET_ARGS(shadow_blocked);
-		KERNEL_SET_ARGS(next_iteration_setup);
-		KERNEL_SET_ARGS(sum_all_radiance);
-#undef KERNEL_SET_ARGS
-
-		/* Macro for Enqueuing split kernels. */
-#define GLUE(a, b) a ## b
-#define ENQUEUE_SPLIT_KERNEL(kernelName, globalSize, localSize) \
-		{ \
-			ciErr = clEnqueueNDRangeKernel(cqCommandQueue, \
-			                               GLUE(program_, \
-			                                    kernelName)(), \
-			                               2, \
-			                               NULL, \
-			                               globalSize, \
-			                               localSize, \
-			                               0, \
-			                               NULL, \
-			                               NULL); \
-			opencl_assert_err(ciErr, "clEnqueueNDRangeKernel"); \
-			if(ciErr != CL_SUCCESS) { \
-				string message = string_printf("OpenCL error: %s in clEnqueueNDRangeKernel()", \
-				                               clewErrorString(ciErr)); \
-				opencl_error(message); \
-				return; \
-			} \
-		} (void) 0
-
 		/* Enqueue ckPathTraceKernel_data_init kernel. */
-		ENQUEUE_SPLIT_KERNEL(data_init, global_size, local_size);
-		bool activeRaysAvailable = true;
+		ciErr = clEnqueueNDRangeKernel(cqCommandQueue,
+		                               program_data_init(),
+		                               2,
+		                               NULL,
+		                               global_size,
+		                               local_size,
+		                               0,
+		                               NULL,
+		                               NULL);
+
+		opencl_assert_err(ciErr, "clEnqueueNDRangeKernel");
+
+		if(ciErr != CL_SUCCESS) {
+			string message = string_printf("OpenCL error: %s in clEnqueueNDRangeKernel()",
+			                               clewErrorString(ciErr));
+			opencl_error(message);
+			return;
+		}
+
+#define ENQUEUE_SPLIT_KERNEL(name, global_size, local_size) \
+			if(!program_##name->enqueue(KernelDimensions(global_size, local_size), kgbuffer, d_data)) { \
+				return; \
+			}
 
 		/* Record number of time host intervention has been made */
 		unsigned int numHostIntervention = 0;
 		unsigned int numNextPathIterTimes = PathIteration_times;
 		bool canceled = false;
 
+		bool activeRaysAvailable = true;
 		while(activeRaysAvailable) {
 			/* Twice the global work size of other kernels for
 			 * ckPathTraceKernel_shadow_blocked_direct_lighting. */
@@ -537,7 +588,6 @@ public:
 		}
 
 #undef ENQUEUE_SPLIT_KERNEL
-#undef GLUE
 
 		if(numHostIntervention == 0) {
 			/* This means that we are executing kernel more than required
