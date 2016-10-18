@@ -180,10 +180,20 @@ public:
 	/* device pointer */
 	device_ptr device_pointer;
 
-protected:
-	device_memory() {}
+	device_memory() {
+		data_type = device_type_traits<float>::data_type;
+		data_elements = device_type_traits<float>::num_elements;
+		data_pointer = 0;
+		data_size = 0;
+		device_size = 0;
+		data_width = 0;
+		data_height = 0;
+		data_depth = 0;
+		device_pointer = 0;
+	}
 	virtual ~device_memory() { assert(!device_pointer); }
 
+protected:
 	/* no copying */
 	device_memory(const device_memory&);
 	device_memory& operator = (const device_memory&);

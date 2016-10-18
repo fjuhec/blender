@@ -265,6 +265,7 @@ public:
 	                          vector<OpenCLProgram*> &programs) = 0;
 
 	void mem_alloc(device_memory& mem, MemoryType type);
+	using Device::mem_alloc;
 	void mem_copy_to(device_memory& mem);
 	void mem_copy_from(device_memory& mem, int y, int w, int h, int elem);
 	void mem_zero(device_memory& mem);
@@ -321,16 +322,39 @@ protected:
 
 	class ArgumentWrapper {
 	public:
-		ArgumentWrapper() : size(0), pointer(NULL) {}
-		template <typename T>
+		ArgumentWrapper() : size(0), pointer(NULL)
+		{
+		}
+
+		ArgumentWrapper(device_memory& argument) : size(sizeof(void*)),
+		                                           pointer((void*)(&argument.device_pointer))
+		{
+		}
+
+		template<typename T>
+		ArgumentWrapper(device_vector<T>& argument) : size(sizeof(void*)),
+		                                              pointer((void*)(&argument.device_pointer))
+		{
+		}
+
+		template<typename T>
 		ArgumentWrapper(T& argument) : size(sizeof(argument)),
-		                               pointer(&argument) { }
+		                               pointer(&argument)
+		{
+		}
+
 		ArgumentWrapper(int argument) : size(sizeof(int)),
 		                                int_value(argument),
-		                                pointer(&int_value) { }
+		                                pointer(&int_value)
+		{
+		}
+
 		ArgumentWrapper(float argument) : size(sizeof(float)),
 		                                  float_value(argument),
-		                                  pointer(&float_value) { }
+		                                  pointer(&float_value)
+		{
+		}
+
 		size_t size;
 		int int_value;
 		float float_value;

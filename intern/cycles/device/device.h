@@ -226,6 +226,25 @@ public:
 	virtual void mem_zero(device_memory& mem) = 0;
 	virtual void mem_free(device_memory& mem) = 0;
 
+	/* setup and allocate a device_memory object for use on device only (no host side buffer)*/
+	void mem_alloc(device_memory& mem, size_t size, MemoryType type = MEM_READ_WRITE)
+	{
+		mem.data_type = device_type_traits<uchar>::data_type;
+		mem.data_elements = 1;
+		mem.data_pointer = 0;
+		mem.data_size = size;
+		mem.device_size = 0;
+		mem.data_width = size;
+		mem.data_height = 1;
+		mem.data_depth = 1;
+
+		assert(mem.data_elements > 0);
+
+		mem.device_pointer = 0;
+
+		mem_alloc(mem, type);
+	}
+
 	/* constant memory */
 	virtual void const_copy_to(const char *name, void *host, size_t size) = 0;
 

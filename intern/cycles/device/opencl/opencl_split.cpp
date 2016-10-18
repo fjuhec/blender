@@ -107,20 +107,13 @@ public:
 	 * kernel will be available to another kernel via this global
 	 * memory.
 	 */
-	cl_mem kgbuffer;  /* KernelGlobals buffer. */
-
-	cl_mem split_data;
-
-	/* Global state array that tracks ray state. */
-	cl_mem ray_state;
-
-	/* Queue */
-	cl_mem Queue_index; /* Array of size num_queues * sizeof(int);
-	                     * Tracks the size of each queue.
-	                     */
+	device_memory kgbuffer;
+	device_memory split_data;
+	device_vector<uchar> ray_state;
+	device_memory queue_index; /* Array of size num_queues * sizeof(int) that tracks the size of each queue. */
 
 	/* Flag to make sceneintersect and lampemission kernel use queues. */
-	cl_mem use_queues_flag;
+	device_memory use_queues_flag;
 
 	/* Amount of memory in output buffer associated with one pixel/thread. */
 	size_t per_thread_output_buffer_size;
@@ -128,17 +121,12 @@ public:
 	/* Total allocatable available device memory. */
 	size_t total_allocatable_memory;
 
-	/* host version of ray_state; Used in checking host path-iteration
-	 * termination.
-	 */
-	char *hostRayStateArray;
-
 	/* Number of path-iterations to be done in one shot. */
 	unsigned int PathIteration_times;
 
 #ifdef __WORK_STEALING__
 	/* Work pool with respect to each work group. */
-	cl_mem work_pool_wgs;
+	device_memory work_pool_wgs;
 
 	/* Denotes the maximum work groups possible w.r.t. current tile size. */
 	unsigned int max_work_groups;
@@ -155,20 +143,9 @@ public:
 	{
 		background = background_;
 
-		/* Initialize cl_mem variables. */
-		kgbuffer = NULL;
-		split_data = NULL;
-		ray_state = NULL;
-
-		/* Queue. */
-		Queue_index = NULL;
-		use_queues_flag = NULL;
-
 		per_thread_output_buffer_size = 0;
-		hostRayStateArray = NULL;
 		PathIteration_times = PATH_ITER_INC_FACTOR;
 #ifdef __WORK_STEALING__
-		work_pool_wgs = NULL;
 		max_work_groups = 0;
 #endif
 		current_max_closure = -1;
@@ -294,18 +271,14 @@ public:
 		program_sum_all_radiance.release();
 
 		/* Release global memory */
-		release_mem_object_safe(kgbuffer);
-		release_mem_object_safe(split_data);
-		release_mem_object_safe(ray_state);
-		release_mem_object_safe(use_queues_flag);
-		release_mem_object_safe(Queue_index);
+		mem_free(kgbuffer);
+		mem_free(split_data);
+		mem_free(ray_state);
+		mem_free(use_queues_flag);
+		mem_free(queue_index);
 #ifdef __WORK_STEALING__
-		release_mem_object_safe(work_pool_wgs);
+		mem_free(work_pool_wgs);
 #endif
-
-		if(hostRayStateArray != NULL) {
-			free(hostRayStateArray);
-		}
 	}
 
 	void path_trace(DeviceTask *task,
@@ -313,9 +286,9 @@ public:
 	                int2 max_render_feasible_tile_size)
 	{
 		/* cast arguments to cl types */
-		cl_mem d_data = CL_MEM_PTR(const_mem_map["__data"]->device_pointer);
-		cl_mem d_buffer = CL_MEM_PTR(rtile.buffer);
-		cl_mem d_rng_state = CL_MEM_PTR(rtile.rng_state);
+		device_memory& d_data = *const_mem_map["__data"];
+		device_ptr d_buffer = rtile.buffer;
+		device_ptr d_rng_state = rtile.rng_state;
 		cl_int d_x = rtile.x;
 		cl_int d_y = rtile.y;
 		cl_int d_w = rtile.w;
@@ -383,26 +356,25 @@ public:
 			max_global_size[1] = (((tile_y - 1) / local_size[1]) + 1) * local_size[1];
 			max_work_groups = (max_global_size[0] * max_global_size[1]) /
 			                  (local_size[0] * local_size[1]);
+
 			/* Allocate work_pool_wgs memory. */
-			work_pool_wgs = mem_alloc(max_work_groups * sizeof(unsigned int));
+			mem_alloc(work_pool_wgs, max_work_groups * sizeof(unsigned int));
 #endif  /* __WORK_STEALING__ */
 
-			/* Allocate queue_index memory only once. */
-			Queue_index = mem_alloc(NUM_QUEUES * sizeof(int));
-			use_queues_flag = mem_alloc(sizeof(char));
-			kgbuffer = mem_alloc(get_KernelGlobals_size());
-			ray_state = mem_alloc(num_global_elements * sizeof(char));
-			split_data = mem_alloc(split_data_buffer_size(num_global_elements,
-			                                              current_max_closure,
-			                                              per_thread_output_buffer_size));
+			mem_alloc(queue_index, NUM_QUEUES * sizeof(int));
+			mem_alloc(use_queues_flag, sizeof(char));
+			mem_alloc(kgbuffer, get_KernelGlobals_size());
 
-			hostRayStateArray = (char *)calloc(num_global_elements, sizeof(char));
-			assert(hostRayStateArray != NULL && "Can't create hostRayStateArray memory");
+			ray_state.resize(num_global_elements);
+			mem_alloc(ray_state, MEM_READ_WRITE);
+
+			mem_alloc(split_data, split_data_buffer_size(num_global_elements,
+			                                             current_max_closure,
+			                                             per_thread_output_buffer_size));
 		}
 
 		cl_int dQueue_size = global_size[0] * global_size[1];
 
-		//printf("kernel_set_args data_init\n");
 		cl_uint start_arg_index =
 			kernel_set_args(program_data_init(),
 			                0,
@@ -433,7 +405,7 @@ public:
 			                rtile.rng_state_offset_x,
 			                rtile.rng_state_offset_y,
 			                rtile.buffer_rng_state_stride,
-			                Queue_index,
+			                queue_index,
 			                dQueue_size,
 			                use_queues_flag,
 #ifdef __WORK_STEALING__
@@ -463,7 +435,6 @@ public:
 #define GLUE(a, b) a ## b
 #define ENQUEUE_SPLIT_KERNEL(kernelName, globalSize, localSize) \
 		{ \
-			/*printf("enqueueing " #kernelName "\n");*/ \
 			ciErr = clEnqueueNDRangeKernel(cqCommandQueue, \
 			                               GLUE(program_, \
 			                                    kernelName)(), \
@@ -517,20 +488,8 @@ public:
 				}
 			}
 
-			/* Read ray-state into Host memory to decide if we should exit
-			 * path-iteration in host.
-			 */
-			//printf("enqueue read\n");
-			ciErr = clEnqueueReadBuffer(cqCommandQueue,
-			                            ray_state,
-			                            CL_TRUE,
-			                            0,
-			                            global_size[0] * global_size[1] * sizeof(char),
-			                            hostRayStateArray,
-			                            0,
-			                            NULL,
-			                            NULL);
-			assert(ciErr == CL_SUCCESS);
+			/* Decide if we should exit path-iteration in host. */
+			mem_copy_from(ray_state, 0, global_size[0] * global_size[1] * sizeof(char), 1, 1);
 
 			activeRaysAvailable = false;
 
@@ -538,7 +497,7 @@ public:
 			    rayStateIter < global_size[0] * global_size[1];
 			    ++rayStateIter)
 			{
-				if(int8_t(hostRayStateArray[rayStateIter]) != RAY_INACTIVE) {
+				if(int8_t(ray_state.get_data()[rayStateIter]) != RAY_INACTIVE) {
 					/* Not all rays are RAY_INACTIVE. */
 					activeRaysAvailable = true;
 					break;
@@ -966,15 +925,6 @@ public:
 	}
 
 protected:
-	cl_mem mem_alloc(size_t bufsize, cl_mem_flags mem_flag = CL_MEM_READ_WRITE)
-	{
-		cl_mem ptr;
-		assert(bufsize != 0);
-		ptr = clCreateBuffer(cxContext, mem_flag, bufsize, NULL, &ciErr);
-		opencl_assert_err(ciErr, "clCreateBuffer");
-		return ptr;
-	}
-
 	/* ** Those guys are for workign around some compiler-specific bugs ** */
 
 	string build_options_for_base_program(
