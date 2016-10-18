@@ -79,6 +79,7 @@
 #include "BIF_glutil.h"
 
 #include "WM_api.h"
+#include "WM_types.h"
 
 #include "BLF_api.h"
 #include "BLT_translation.h"
@@ -2177,10 +2178,6 @@ static void view3d_draw_objects(
 		view3d_draw_bgpic_test(scene, ar, v3d, true, do_camera_frame);
 	}
 
-	if (!draw_offscreen) {
-		BIF_draw_manipulator(C);
-	}
-
 	/* cleanup */
 	if (v3d->zbuf) {
 		v3d->zbuf = false;
@@ -2964,6 +2961,11 @@ static void view3d_main_region_draw_objects(const bContext *C, Scene *scene, Vie
 
 	/* main drawing call */
 	view3d_draw_objects(C, scene, v3d, ar, grid_unit, true, false, do_compositing ? rv3d->compositor : NULL);
+
+	/* draw depth culled manipulators - manipulators need to be updated *after* view matrix was set up */
+	/* TODO depth culling manipulators is not yet supported, just drawing _3D here, should
+	 * later become _IN_SCENE (and draw _3D separate) */
+	WM_manipulatormap_draw(ar->manipulator_map, C, WM_MANIPULATORMAP_DRAWSTEP_3D);
 
 	/* post process */
 	if (do_compositing) {

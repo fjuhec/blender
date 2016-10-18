@@ -128,10 +128,10 @@ enum {
 void wm_manipulator_register(struct wmManipulatorGroup *mgroup, struct wmManipulator *manipulator, const char *name);
 
 bool wm_manipulator_deselect(struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
-bool wm_manipulator_select(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
+bool wm_manipulator_select(struct bContext *C, struct wmManipulatorMap *mmap, struct wmManipulator *manipulator);
 
-void wm_manipulator_calculate_scale(struct wmManipulator *manipulator, const bContext *C);
-void wm_manipulator_update(struct wmManipulator *manipulator, const bContext *C, const bool refresh_map);
+void wm_manipulator_calculate_scale(struct wmManipulator *manipulator, const struct bContext *C);
+void wm_manipulator_update(struct wmManipulator *manipulator, const struct bContext *C, const bool refresh_map);
 bool wm_manipulator_is_visible(struct wmManipulator *manipulator);
 
 void fix_linking_manipulator_arrow(void);
@@ -153,7 +153,7 @@ enum {
 };
 
 struct wmManipulatorGroup *wm_manipulatorgroup_new_from_type(struct wmManipulatorGroupType *mgrouptype);
-void wm_manipulatorgroup_free(bContext *C, struct wmManipulatorMap *mmap, struct wmManipulatorGroup *mgroup);
+void wm_manipulatorgroup_free(struct bContext *C, struct wmManipulatorMap *mmap, struct wmManipulatorGroup *mgroup);
 void wm_manipulatorgroup_manipulator_register(struct wmManipulatorGroup *mgroup, wmManipulator *manipulator);
 wmManipulator *wm_manipulatorgroup_find_intersected_mainpulator(
         const struct wmManipulatorGroup *mgroup, struct bContext *C, const struct wmEvent *event,

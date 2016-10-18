@@ -38,6 +38,7 @@
 
 #include "BLI_compiler_attrs.h"
 
+struct bContext;
 struct wmManipulatorGroupType;
 struct wmManipulatorGroup;
 struct wmKeyConfig;

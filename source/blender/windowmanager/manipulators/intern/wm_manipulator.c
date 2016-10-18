@@ -66,7 +66,7 @@ wmManipulator *WM_manipulator_new(
 	manipulator->render_3d_intersection = render_3d_intersection;
 
 	/* XXX */
-//	fix_linking_manipulator_arrow();
+	fix_linking_manipulator_arrow();
 //	fix_linking_manipulator_arrow2d();
 //	fix_linking_manipulator_cage();
 //	fix_linking_manipulator_dial();

@@ -46,6 +46,7 @@ struct bContext;
 struct bMotionPath;
 struct bPoseChannel;
 struct Mesh;
+struct wmManipulatorGroupType;
 struct wmOperatorType;
 struct wmWindowManager;
 struct wmKeyConfig;
@@ -99,7 +100,6 @@ void VIEW3D_OT_view_orbit(struct wmOperatorType *ot);
 void VIEW3D_OT_view_roll(struct wmOperatorType *ot);
 void VIEW3D_OT_clip_border(struct wmOperatorType *ot);
 void VIEW3D_OT_cursor3d(struct wmOperatorType *ot);
-void VIEW3D_OT_manipulator(struct wmOperatorType *ot);
 void VIEW3D_OT_enable_manipulator(struct wmOperatorType *ot);
 void VIEW3D_OT_render_border(struct wmOperatorType *ot);
 void VIEW3D_OT_clear_render_border(struct wmOperatorType *ot);
@@ -335,5 +335,9 @@ void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *base);
 bool VP_legacy_use_depth(Scene *scene, View3D *v3d);
 void VP_drawviewborder(Scene *scene, ARegion *ar, View3D *v3d);
 void VP_drawrenderborder(ARegion *ar, View3D *v3d);
+
+/* manipulators */
+
+void VIEW3D_MGT_transform_manipulators(struct wmManipulatorGroupType *mgt);
 
 #endif /* __VIEW3D_INTERN_H__ */

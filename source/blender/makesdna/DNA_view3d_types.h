@@ -361,9 +361,11 @@ enum {
 #define V3D_SHOW_Z				8
 
 /* View3d->twtype (bits, we can combine them) */
-#define V3D_MANIP_TRANSLATE		1
-#define V3D_MANIP_ROTATE		2
-#define V3D_MANIP_SCALE			4
+enum {
+	V3D_MANIP_TRANSLATE = (1 << 0),
+	V3D_MANIP_ROTATE    = (1 << 1),
+	V3D_MANIP_SCALE     = (1 << 2),
+};
 
 /* View3d->twmode */
 #define V3D_MANIP_GLOBAL		0

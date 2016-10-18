@@ -145,7 +145,7 @@ static TransformOrientation *createBoneSpace(bContext *C, ReportList *reports,
 	float mat[3][3];
 	float normal[3], plane[3];
 
-	getTransformOrientation(C, normal, plane);
+	getLocalTransformOrientation(C, normal, plane);
 
 	if (createSpaceNormalTangent(mat, normal, plane) == 0) {
 		BKE_reports_prepend(reports, "Cannot use zero-length bone");
@@ -165,7 +165,7 @@ static TransformOrientation *createCurveSpace(bContext *C, ReportList *reports,
 	float mat[3][3];
 	float normal[3], plane[3];
 
-	getTransformOrientation(C, normal, plane);
+	getLocalTransformOrientation(C, normal, plane);
 
 	if (createSpaceNormalTangent(mat, normal, plane) == 0) {
 		BKE_reports_prepend(reports, "Cannot use zero-length curve");
@@ -187,7 +187,7 @@ static TransformOrientation *createMeshSpace(bContext *C, ReportList *reports,
 	float normal[3], plane[3];
 	int type;
 
-	type = getTransformOrientation(C, normal, plane);
+	type = getLocalTransformOrientation(C, normal, plane);
 	
 	switch (type) {
 		case ORIENTATION_VERT:
@@ -459,7 +459,7 @@ void initTransformOrientation(bContext *C, TransInfo *t)
 		case V3D_MANIP_NORMAL:
 			if (obedit || (ob && ob->mode & OB_MODE_POSE)) {
 				BLI_strncpy(t->spacename, IFACE_("normal"), sizeof(t->spacename));
-				ED_getTransformOrientationMatrix(C, t->spacemtx, t->around);
+				ED_getLocalTransformOrientationMatrix(C, t->spacemtx, t->around);
 				break;
 			}
 			/* fall-through */  /* we define 'normal' as 'local' in Object mode */
@@ -584,7 +584,7 @@ static unsigned int bm_mesh_faces_select_get_n(BMesh *bm, BMVert **elems, const 
 }
 #endif
 
-int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3], const short around)
+int getLocalTransformOrientation_ex(const bContext *C, float normal[3], float plane[3], const short around)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
@@ -1042,22 +1042,22 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 	return result;
 }
 
-int getTransformOrientation(const bContext *C, float normal[3], float plane[3])
+int getLocalTransformOrientation(const bContext *C, float normal[3], float plane[3])
 {
 	/* dummy value, not V3D_AROUND_ACTIVE and not V3D_AROUND_LOCAL_ORIGINS */
 	short around = V3D_AROUND_CENTER_BOUNDS;
 
-	return getTransformOrientation_ex(C, normal, plane, around);
+	return getLocalTransformOrientation_ex(C, normal, plane, around);
 }
 
-void ED_getTransformOrientationMatrix(const bContext *C, float orientation_mat[3][3], const short around)
+void ED_getLocalTransformOrientationMatrix(const bContext *C, float orientation_mat[3][3], const short around)
 {
 	float normal[3] = {0.0, 0.0, 0.0};
 	float plane[3] = {0.0, 0.0, 0.0};
 
 	int type;
 
-	type = getTransformOrientation_ex(C, normal, plane, around);
+	type = getLocalTransformOrientation_ex(C, normal, plane, around);
 
 	switch (type) {
 		case ORIENTATION_NORMAL:
@@ -1085,4 +1085,59 @@ void ED_getTransformOrientationMatrix(const bContext *C, float orientation_mat[3
 	if (type == ORIENTATION_NONE) {
 		unit_m3(orientation_mat);
 	}
+}
+
+/**
+ * Get (or calculate if needed) the rotation matrix for \a orientation_type.
+ */
+void ED_getTransformOrientationMatrix(
+        const bContext *C, const char orientation_type, const short around,
+        float r_orientation_mat[3][3])
+{
+	Object *ob = CTX_data_active_object(C);
+	Object *obedit = CTX_data_active_object(C);
+	float mat[3][3];
+
+	BLI_assert(CTX_wm_area(C)->spacetype == SPACE_VIEW3D &&
+	           CTX_wm_region(C)->regiontype == RGN_TYPE_WINDOW);
+
+	unit_m3(mat);
+
+	switch (orientation_type) {
+		case V3D_MANIP_GLOBAL:
+			/* use unit matrix */
+			break;
+		case V3D_MANIP_GIMBAL:
+			if (gimbal_axis(ob, mat)) {
+				break;
+			}
+			/* No break, fall-through here! If not gimbal, fall through to normal. */
+		case V3D_MANIP_NORMAL:
+			if (obedit || (ob && ob->mode & OB_MODE_POSE)) {
+				ED_getLocalTransformOrientationMatrix(C, mat, around);
+				break;
+			}
+			/* No break, fall-trough here! We define 'normal' as 'local' in Object mode. */
+		case V3D_MANIP_LOCAL:
+			if (ob) {
+				copy_m3_m4(mat, ob->obmat);
+				normalize_m3(mat);
+			}
+			else {
+				unit_m3(mat);
+			}
+			break;
+		case V3D_MANIP_VIEW:
+		{
+			RegionView3D *rv3d = CTX_wm_region_view3d(C);
+			copy_m3_m4(mat, rv3d->viewinv);
+			normalize_m3(mat);
+			break;
+		}
+		default: /* custom (V3D_MANIP_CUSTOM and higher) */
+			applyTransformOrientation(C, mat, NULL, orientation_type - V3D_MANIP_CUSTOM);
+			break;
+	}
+
+	copy_m3_m3(r_orientation_mat, mat);
 }

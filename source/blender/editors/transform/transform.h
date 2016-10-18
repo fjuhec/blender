@@ -791,8 +791,8 @@ bool applyTransformOrientation(const struct bContext *C, float mat[3][3], char r
 #define ORIENTATION_EDGE	3
 #define ORIENTATION_FACE	4
 
-int getTransformOrientation_ex(const struct bContext *C, float normal[3], float plane[3], const short around);
-int getTransformOrientation(const struct bContext *C, float normal[3], float plane[3]);
+int getLocalTransformOrientation_ex(const struct bContext *C, float normal[3], float plane[3], const short around);
+int getLocalTransformOrientation(const struct bContext *C, float normal[3], float plane[3]);
 
 void freeEdgeSlideTempFaces(EdgeSlideData *sld);
 void freeEdgeSlideVerts(TransInfo *t, TransCustomData *custom_data);
