@@ -818,6 +818,8 @@ static void write_actions(WriteData *wd, ListBase *idbase)
 			for (marker = act->markers.first; marker; marker = marker->next) {
 				writestruct(wd, DATA, TimeMarker, 1, marker);
 			}
+
+			write_previews(wd, act->preview);
 		}
 	}
 

@@ -2545,6 +2545,8 @@ static void direct_link_action(FileData *fd, bAction *act)
 		agrp->channels.first= newdataadr(fd, agrp->channels.first);
 		agrp->channels.last= newdataadr(fd, agrp->channels.last);
 	}
+
+	act->preview = direct_link_preview_image(fd, act->preview);
 }
 
 static void lib_link_nladata_strips(FileData *fd, ID *id, ListBase *list)
