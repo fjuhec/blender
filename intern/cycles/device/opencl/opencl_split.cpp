@@ -29,62 +29,6 @@
 
 CCL_NAMESPACE_BEGIN
 
-/* TODO(sergey): This is to keep tile split on OpenCL level working
- * for now, since without this view-port render does not work as it
- * should.
- *
- * Ideally it'll be done on the higher level, but we need to get ready
- * for merge rather soon, so let's keep split logic private here in
- * the file.
- */
-class SplitRenderTile : public RenderTile {
-public:
-	SplitRenderTile()
-		: RenderTile(),
-		  buffer_offset_x(0),
-		  buffer_offset_y(0),
-		  rng_state_offset_x(0),
-		  rng_state_offset_y(0),
-		  buffer_rng_state_stride(0) {}
-
-	explicit SplitRenderTile(RenderTile& tile)
-		: RenderTile(),
-		  buffer_offset_x(0),
-		  buffer_offset_y(0),
-		  rng_state_offset_x(0),
-		  rng_state_offset_y(0),
-		  buffer_rng_state_stride(0)
-	{
-		x = tile.x;
-		y = tile.y;
-		w = tile.w;
-		h = tile.h;
-		start_sample = tile.start_sample;
-		num_samples = tile.num_samples;
-		sample = tile.sample;
-		resolution = tile.resolution;
-		offset = tile.offset;
-		stride = tile.stride;
-		buffer = tile.buffer;
-		rng_state = tile.rng_state;
-		buffers = tile.buffers;
-	}
-
-	/* Split kernel is device global memory constrained;
-	 * hence split kernel cant render big tile size's in
-	 * one go. If the user sets a big tile size (big tile size
-	 * is a term relative to the available device global memory),
-	 * we split the tile further and then call path_trace on
-	 * each of those split tiles. The following variables declared,
-	 * assist in achieving that purpose
-	 */
-	int buffer_offset_x;
-	int buffer_offset_y;
-	int rng_state_offset_x;
-	int rng_state_offset_y;
-	int buffer_rng_state_stride;
-};
-
 class OpenCLSplitKernelFunction : public SplitKernelFunction {
 public:
 	OpenCLDeviceBase* device;
@@ -346,20 +290,101 @@ public:
 #endif
 	}
 
+	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
+	                                            RenderTile& rtile,
+	                                            int num_global_elements,
+	                                            int num_parallel_samples,
+	                                            device_memory& kernel_globals,
+	                                            device_memory& kernel_data,
+	                                            device_memory& split_data,
+	                                            device_memory& ray_state,
+	                                            device_memory& queue_index,
+	                                            device_memory& use_queues_flag,
+#ifdef __WORK_STEALING__
+	                                            device_memory& work_pool_wgs
+#endif
+	                                            )
+	{
+		cl_int dQueue_size = dim.global_size[0] * dim.global_size[1];
+
+		/* Set the range of samples to be processed for every ray in
+		 * path-regeneration logic.
+		 */
+		cl_int start_sample = rtile.start_sample;
+		cl_int end_sample = rtile.start_sample + rtile.num_samples;
+
+		cl_uint start_arg_index =
+			kernel_set_args(program_data_init(),
+			                0,
+			                kernel_globals,
+			                kernel_data,
+							split_data,
+			                num_global_elements,
+							ray_state,
+			                rtile.rng_state);
+
+/* TODO(sergey): Avoid map lookup here. */
+#define KERNEL_TEX(type, ttype, name) \
+	set_kernel_arg_mem(program_data_init(), &start_arg_index, #name);
+#include "kernel_textures.h"
+#undef KERNEL_TEX
+
+		start_arg_index +=
+			kernel_set_args(program_data_init(),
+			                start_arg_index,
+			                start_sample,
+			                end_sample,
+			                rtile.x,
+			                rtile.y,
+			                rtile.w,
+			                rtile.h,
+			                rtile.offset,
+			                rtile.stride,
+			                rtile.rng_state_offset_x,
+			                rtile.rng_state_offset_y,
+			                rtile.buffer_rng_state_stride,
+			                queue_index,
+			                dQueue_size,
+			                use_queues_flag,
+#ifdef __WORK_STEALING__
+			                work_pool_wgs,
+			                rtile.num_samples,
+#endif
+			                num_parallel_samples,
+			                rtile.buffer_offset_x,
+			                rtile.buffer_offset_y,
+			                rtile.buffer_rng_state_stride,
+							rtile.buffer);
+
+		/* Enqueue ckPathTraceKernel_data_init kernel. */
+		ciErr = clEnqueueNDRangeKernel(cqCommandQueue,
+		                               program_data_init(),
+		                               2,
+		                               NULL,
+		                               dim.global_size,
+		                               dim.local_size,
+		                               0,
+		                               NULL,
+		                               NULL);
+
+		opencl_assert_err(ciErr, "clEnqueueNDRangeKernel");
+
+		if(ciErr != CL_SUCCESS) {
+			string message = string_printf("OpenCL error: %s in clEnqueueNDRangeKernel()",
+			                               clewErrorString(ciErr));
+			opencl_error(message);
+			return false;
+		}
+
+		return true;
+	}
+
 	void path_trace(DeviceTask *task,
-	                SplitRenderTile& rtile,
+	                RenderTile& rtile,
 	                int2 max_render_feasible_tile_size)
 	{
 		/* cast arguments to cl types */
 		device_memory& d_data = *const_mem_map["__data"];
-		device_ptr d_buffer = rtile.buffer;
-		device_ptr d_rng_state = rtile.rng_state;
-		cl_int d_x = rtile.x;
-		cl_int d_y = rtile.y;
-		cl_int d_w = rtile.w;
-		cl_int d_h = rtile.h;
-		cl_int d_offset = rtile.offset;
-		cl_int d_stride = rtile.stride;
 
 		/* Make sure that set render feasible tile size is a multiple of local
 		 * work size dimensions.
@@ -371,12 +396,8 @@ public:
 		size_t local_size[2] = {SPLIT_KERNEL_LOCAL_SIZE_X,
 		                        SPLIT_KERNEL_LOCAL_SIZE_Y};
 
-		/* Set the range of samples to be processed for every ray in
-		 * path-regeneration logic.
-		 */
-		cl_int start_sample = rtile.start_sample;
-		cl_int end_sample = rtile.start_sample + rtile.num_samples;
-		cl_int num_samples = rtile.num_samples;
+		int d_w = rtile.w;
+		int d_h = rtile.h;
 
 #ifdef __WORK_STEALING__
 		global_size[0] = (((d_w - 1) / local_size[0]) + 1) * local_size[0];
@@ -438,68 +459,21 @@ public:
 			                                             per_thread_output_buffer_size));
 		}
 
-		cl_int dQueue_size = global_size[0] * global_size[1];
-
-		cl_uint start_arg_index =
-			kernel_set_args(program_data_init(),
-			                0,
-			                kgbuffer,
-			                d_data,
-							split_data,
-			                num_global_elements,
-							ray_state,
-			                d_rng_state);
-
-/* TODO(sergey): Avoid map lookup here. */
-#define KERNEL_TEX(type, ttype, name) \
-	set_kernel_arg_mem(program_data_init(), &start_arg_index, #name);
-#include "kernel_textures.h"
-#undef KERNEL_TEX
-
-		start_arg_index +=
-			kernel_set_args(program_data_init(),
-			                start_arg_index,
-			                start_sample,
-			                end_sample,
-			                d_x,
-			                d_y,
-			                d_w,
-			                d_h,
-			                d_offset,
-			                d_stride,
-			                rtile.rng_state_offset_x,
-			                rtile.rng_state_offset_y,
-			                rtile.buffer_rng_state_stride,
-			                queue_index,
-			                dQueue_size,
-			                use_queues_flag,
+		if(!enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
+	                                       rtile,
+	                                       num_global_elements,
+	                                       num_parallel_samples,
+	                                       kgbuffer,
+	                                       d_data,
+	                                       split_data,
+	                                       ray_state,
+	                                       queue_index,
+	                                       use_queues_flag,
 #ifdef __WORK_STEALING__
-			                work_pool_wgs,
-			                num_samples,
+	                                       work_pool_wgs
 #endif
-			                num_parallel_samples,
-			                rtile.buffer_offset_x,
-			                rtile.buffer_offset_y,
-			                rtile.buffer_rng_state_stride,
-							d_buffer);
-
-		/* Enqueue ckPathTraceKernel_data_init kernel. */
-		ciErr = clEnqueueNDRangeKernel(cqCommandQueue,
-		                               program_data_init(),
-		                               2,
-		                               NULL,
-		                               global_size,
-		                               local_size,
-		                               0,
-		                               NULL,
-		                               NULL);
-
-		opencl_assert_err(ciErr, "clEnqueueNDRangeKernel");
-
-		if(ciErr != CL_SUCCESS) {
-			string message = string_printf("OpenCL error: %s in clEnqueueNDRangeKernel()",
-			                               clewErrorString(ciErr));
-			opencl_error(message);
+		                                   ))
+		{
 			return;
 		}
 
@@ -814,9 +788,9 @@ public:
 	}
 
 	/* Splits existing tile into multiple tiles of tile size split_tile_size. */
-	vector<SplitRenderTile> split_tiles(RenderTile rtile, int2 split_tile_size)
+	vector<RenderTile> split_tiles(RenderTile rtile, int2 split_tile_size)
 	{
-		vector<SplitRenderTile> to_path_trace_rtile;
+		vector<RenderTile> to_path_trace_rtile;
 		int d_w = rtile.w;
 		int d_h = rtile.h;
 		int num_tiles_x = (((d_w - 1) / split_tile_size.x) + 1);
@@ -918,7 +892,7 @@ public:
 					int2 split_tile_size =
 						get_split_tile_size(tile,
 						                    max_render_feasible_tile_size);
-					vector<SplitRenderTile> to_path_trace_render_tiles =
+					vector<RenderTile> to_path_trace_render_tiles =
 						split_tiles(tile, split_tile_size);
 					/* Print message to console */
 					if(background && (to_path_trace_render_tiles.size() > 1)) {
@@ -952,7 +926,7 @@ public:
 						(((tile_size.y - 1) / SPLIT_KERNEL_LOCAL_SIZE_Y) + 1) *
 						SPLIT_KERNEL_LOCAL_SIZE_Y;
 					/* buffer_rng_state_stride is stride itself. */
-					SplitRenderTile split_tile(tile);
+					RenderTile split_tile(tile);
 					split_tile.buffer_rng_state_stride = tile.stride;
 					path_trace(task, split_tile, max_render_feasible_tile_size);
 				}

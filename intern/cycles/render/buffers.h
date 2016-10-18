@@ -145,6 +145,25 @@ public:
 	RenderBuffers *buffers;
 
 	RenderTile();
+
+	/* TODO(sergey): This is to keep tile split on OpenCL level working
+	 * for now, since without this view-port render does not work as it
+	 * should. Ideally it'll be done on the higher level.
+	 */
+
+	/* Split kernel is device global memory constrained;
+	 * hence split kernel cant render big tile size's in
+	 * one go. If the user sets a big tile size (big tile size
+	 * is a term relative to the available device global memory),
+	 * we split the tile further and then call path_trace on
+	 * each of those split tiles. The following variables declared,
+	 * assist in achieving that purpose
+	 */
+	int buffer_offset_x;
+	int buffer_offset_y;
+	int rng_state_offset_x;
+	int rng_state_offset_y;
+	int buffer_rng_state_stride;
 };
 
 CCL_NAMESPACE_END

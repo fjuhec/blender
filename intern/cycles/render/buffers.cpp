@@ -93,6 +93,12 @@ RenderTile::RenderTile()
 	rng_state = 0;
 
 	buffers = NULL;
+
+	buffer_offset_x = 0;
+	buffer_offset_y = 0;
+	rng_state_offset_x = 0;
+	rng_state_offset_y = 0;
+	buffer_rng_state_stride = 0;
 }
 
 /* Render Buffers */

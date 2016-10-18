@@ -296,7 +296,20 @@ public:
 	{ return true; }
 
 	/* split kernel */
-	virtual bool enqueue_split_kernel_data_init()
+	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& /*dim*/,
+	                                            RenderTile& /*rtile*/,
+	                                            int /*num_global_elements*/,
+	                                            int /*num_parallel_samples*/,
+	                                            device_memory& /*kernel_globals*/,
+	                                            device_memory& /*kernel_data*/,
+	                                            device_memory& /*split_data*/,
+	                                            device_memory& /*ray_state*/,
+	                                            device_memory& /*queue_index*/,
+	                                            device_memory& /*use_queues_flag*/
+#ifdef __WORK_STEALING__
+	                                            , device_memory& /*work_pool_wgs*/
+#endif
+	                                            )
 	{
 		assert(!"not implemented for this device");
 		return false;
