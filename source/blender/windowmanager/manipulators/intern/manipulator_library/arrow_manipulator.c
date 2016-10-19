@@ -98,19 +98,25 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool UNUSED(sel
 	glPopMatrix();
 }
 
-static void arrow_draw_intern(ArrowManipulator *arrow, const bool select, const bool highlight)
+static void arrow_get_matrix(const ArrowManipulator *arrow, float r_mat[4][4])
 {
 	const float up[3] = {0.0f, 0.0f, 1.0f};
-	float col[4];
 	float rot[3][3];
-	float mat[4][4];
-
-	manipulator_color_get(&arrow->manipulator, highlight, col);
 
 	rotation_between_vecs_to_mat3(rot, up, arrow->direction);
 
-	copy_m4_m3(mat, rot);
-	copy_v3_v3(mat[3], arrow->manipulator.origin);
+	copy_m4_m3(r_mat, rot);
+	copy_v3_v3(r_mat[3], arrow->manipulator.origin);
+	mul_mat3_m4_fl(r_mat, arrow->manipulator.scale);
+}
+
+static void arrow_draw_intern(const ArrowManipulator *arrow, const bool select, const bool highlight)
+{
+	float col[4];
+	float mat[4][4];
+
+	manipulator_color_get(&arrow->manipulator, highlight, col);
+	arrow_get_matrix(arrow, mat);
 
 	glPushMatrix();
 	glMultMatrixf(mat);

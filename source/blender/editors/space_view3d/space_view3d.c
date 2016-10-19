@@ -1040,6 +1040,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 		case NC_GPENCIL:
 			if (wmn->data == ND_DATA || ELEM(wmn->action, NA_EDITED, NA_SELECTED)) {
 				ED_region_tag_redraw(ar);
+				WM_manipulatormap_tag_refresh(mmap);
 			}
 			break;
 	}

@@ -1119,12 +1119,17 @@ void ED_getTransformOrientationMatrix(
 			}
 			/* No break, fall-trough here! We define 'normal' as 'local' in Object mode. */
 		case V3D_MANIP_LOCAL:
-			if (ob) {
+			if (ob && ob->mode & OB_MODE_POSE) {
+				/* each bone moves on its own local axis, but  to avoid confusion,
+				 * use the active pones axis for display [#33575], this works as expected on a single bone
+				 * and users who select many bones will understand whats going on and what local means
+				 * when they start transforming */
+				ED_getLocalTransformOrientationMatrix(C, mat, around);
+				break;
+			}
+			else if (ob) {
 				copy_m3_m4(mat, ob->obmat);
 				normalize_m3(mat);
-			}
-			else {
-				unit_m3(mat);
 			}
 			break;
 		case V3D_MANIP_VIEW:

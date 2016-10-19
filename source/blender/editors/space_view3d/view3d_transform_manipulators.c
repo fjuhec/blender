@@ -22,15 +22,20 @@
  *  \ingroup spview3d
  */
 
-#include "BKE_context.h"
 
 #include "BLI_math.h"
 
+#include "BKE_action.h"
+#include "BKE_context.h"
+
+#include "DNA_armature_types.h"
+#include "DNA_gpencil_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_view3d_types.h"
 
+#include "ED_armature.h"
 #include "ED_transform.h"
 
 #include "MEM_guardedalloc.h"
@@ -46,7 +51,7 @@
 
 
 /* axes as index */
-enum {
+enum TransformAxisType {
 	MAN_AXIS_TRANS_X = 0,
 	MAN_AXIS_TRANS_Y,
 	MAN_AXIS_TRANS_Z,
@@ -75,24 +80,22 @@ enum {
 	MAN_AXIS_LAST,
 };
 
-/* axis types */
-enum {
+enum TransformType {
 	MAN_AXES_ALL = 0,
 	MAN_AXES_TRANSLATE,
 	MAN_AXES_ROTATE,
 	MAN_AXES_SCALE,
 };
 
-enum {
-	MAN_CONSTRAINT_X = (1 << 0),
-	MAN_CONSTRAINT_Y = (1 << 1),
-	MAN_CONSTRAINT_Z = (1 << 2),
-};
+/* threshold for testing view aligned manipulator axis */
+#define TW_AXIS_DOT_MIN 0.02f
+#define TW_AXIS_DOT_MAX 0.1f
 
 typedef struct TranformAxisManipulator {
 	/* -- initialized using static array -- */
 
-	int index, type;
+	enum TransformAxisType index;
+	enum TransformType type;
 
 	const char *name;
 	/* op info */
@@ -102,12 +105,22 @@ typedef struct TranformAxisManipulator {
 	/* appearance */
 	int theme_colorid;
 	int manipulator_type;
+	int protectflag; /* the protectflags this axis checks (e.g. OB_LOCK_LOCZ) */
 
 
 	/* -- initialized later -- */
 
 	wmManipulator *manipulator;
 } TranformAxisManipulator;
+
+/**
+ * Struct for carrying data of transform manipulators as wmManipulatorGroup.customdata.
+ */
+typedef struct TransformManipulatorsInfo {
+	TranformAxisManipulator *axes; /* Array of axes */
+
+	float mat[4][4]; /* Cached loc/rot matrix */
+} TransformManipulatorsInfo;
 
 /**
  * This TranformAxisManipulator array contains all the info we need to initialize, store and identify all
@@ -119,20 +132,32 @@ static TranformAxisManipulator tman_axes[] = {
 	{
 		MAN_AXIS_TRANS_X, MAN_AXES_TRANSLATE,
 		"translate_x", "TRANSFORM_OT_translate", {1, 0, 0},
-		TH_AXIS_X, MANIPULATOR_ARROW_STYLE_NORMAL,
+		TH_AXIS_X, MANIPULATOR_ARROW_STYLE_NORMAL, OB_LOCK_LOCX,
 	},
 	{
 		MAN_AXIS_TRANS_Y, MAN_AXES_TRANSLATE,
 		"translate_y", "TRANSFORM_OT_translate", {0, 1, 0},
-		TH_AXIS_Y, MANIPULATOR_ARROW_STYLE_NORMAL,
+		TH_AXIS_Y, MANIPULATOR_ARROW_STYLE_NORMAL, OB_LOCK_LOCY,
 	},
 	{
 		MAN_AXIS_TRANS_Z, MAN_AXES_TRANSLATE,
 		"translate_z", "TRANSFORM_OT_translate", {0, 0, 1},
-		TH_AXIS_Z, MANIPULATOR_ARROW_STYLE_NORMAL,
+		TH_AXIS_Z, MANIPULATOR_ARROW_STYLE_NORMAL, OB_LOCK_LOCZ,
 	},
 	{0, 0, NULL}
 };
+
+
+/* -------------------------------------------------------------------- */
+/* General helpers */
+
+static void transform_manipulators_info_free(void *customdata)
+{
+	TransformManipulatorsInfo *info = customdata;
+
+	MEM_freeN(info->axes);
+	MEM_freeN(info);
+}
 
 
 /* -------------------------------------------------------------------- */
@@ -162,35 +187,143 @@ static void transform_axis_manipulator_init(TranformAxisManipulator *axis, wmMan
 
 static void transform_manipulatorgroup_init(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
 {
-	TranformAxisManipulator *axes = MEM_callocN(sizeof(tman_axes), __func__);
+	TransformManipulatorsInfo *info = MEM_callocN(sizeof(*info), __func__);
 
-	memcpy(axes, tman_axes, sizeof(tman_axes));
+	info->axes = MEM_callocN(sizeof(tman_axes), STRINGIFY(TranformAxisManipulator));
+	memcpy(info->axes, tman_axes, sizeof(tman_axes));
 
-	for (int i = 0; i < MAN_AXIS_LAST && axes[i].name; i++) {
-		transform_axis_manipulator_init(&axes[i], mgroup);
+	TranformAxisManipulator *axis;
+	for (int i = 0; i < MAN_AXIS_LAST && info->axes[i].name; i++) {
+		axis = &info->axes[i];
+
+		transform_axis_manipulator_init(axis, mgroup);
 	}
 
-	mgroup->customdata = axes;
+	mgroup->customdata = info;
+	mgroup->customdata_free = transform_manipulators_info_free;
 }
 
 
 /* -------------------------------------------------------------------- */
 /* refresh callback and helpers */
 
-static void transform_axis_manipulator_set_color(TranformAxisManipulator *axis)
+static bool transfrom_axis_manipulator_is_visible(TranformAxisManipulator *axis, int protectflag)
 {
-	/* alpha values for normal/highlighted states */
-	const float alpha = 0.6f;
-	const float alpha_hi = 1.0f;
-	float col[4], col_hi[4];
+	return ((axis->protectflag & protectflag) != axis->protectflag);
+}
 
-	UI_GetThemeColor4fv(axis->theme_colorid, col);
-	copy_v4_v4(col_hi, col);
+static int transform_manipulators_protectflag_posemode_get(Object *ob, View3D *v3d)
+{
+	bPoseChannel *pchan;
+	int protectflag = 0;
 
-	col[3] = alpha;
-	col_hi[3] = alpha_hi;
+	if ((v3d->around == V3D_AROUND_ACTIVE) && (pchan = BKE_pose_channel_active(ob))) {
+		if (pchan->bone) {
+			protectflag = pchan->protectflag;
+		}
+	}
+	else {
+		/* use channels to get stats */
+		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+			Bone *bone = pchan->bone;
+			if (bone && (bone->flag & BONE_TRANSFORM)) {
+				protectflag |= pchan->protectflag;
+			}
+		}
+	}
 
-	WM_manipulator_set_colors(axis->manipulator, col, col_hi);
+	return protectflag;
+}
+
+static int transform_manipulators_protectflag_editmode_get(Object *obedit, View3D *v3d)
+{
+	int protectflag = 0;
+
+	if (obedit->type == OB_ARMATURE) {
+		const bArmature *arm = obedit->data;
+		EditBone *ebo;
+		if ((v3d->around == V3D_AROUND_ACTIVE) && (ebo = arm->act_edbone)) {
+			if (ebo->flag & BONE_EDITMODE_LOCKED) {
+				protectflag = (OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE);
+			}
+		}
+		else {
+			for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
+				if (EBONE_VISIBLE(arm, ebo)) {
+					if ((ebo->flag & BONE_SELECTED) && (ebo->flag & BONE_EDITMODE_LOCKED)) {
+						protectflag = (OB_LOCK_LOC | OB_LOCK_ROT | OB_LOCK_SCALE);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	return protectflag;
+}
+
+static int transform_manipulators_protectflag_objectmode_get(const Scene *scene, const View3D *v3d)
+{
+	int protectflag = 0;
+
+	for (Base *base = scene->base.first; base; base = base->next) {
+		if (TESTBASELIB(v3d, base)) {
+			protectflag |= base->object->protectflag;
+		}
+	}
+
+	return protectflag;
+}
+
+static int transform_manipulators_protectflag_get(const bContext *C, View3D *v3d)
+{
+	Scene *scene = CTX_data_scene(C);
+	Object *ob = OBACT, *obedit = CTX_data_edit_object(C);
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	const bool is_gp_edit = (gpd && (gpd->flag & GP_DATA_STROKE_EDITMODE));
+	int protectflag = 0;
+
+	if (is_gp_edit) {
+		/* pass */
+	}
+	else if (obedit) {
+		protectflag = transform_manipulators_protectflag_editmode_get(obedit, v3d);
+	}
+	else if (ob && (ob->mode & OB_MODE_POSE)) {
+		protectflag = transform_manipulators_protectflag_posemode_get(ob, v3d);
+	}
+	else if (ob && (ob->mode & OB_MODE_ALL_PAINT)) {
+		/* pass */
+	}
+	else {
+		protectflag = transform_manipulators_protectflag_objectmode_get(scene, v3d);
+	}
+
+	return protectflag;
+}
+
+/**
+ * Performs some additional layer checks, #calculateTransformCenter does the rest of them.
+ */
+static bool transform_manipulators_layer_visible(const bContext *C, const View3D *v3d)
+{
+	Scene *scene = CTX_data_scene(C);
+	Object *ob = OBACT;
+	Object *obedit = CTX_data_edit_object(C);
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
+
+	if (is_gp_edit) {
+		/* TODO */
+	}
+	else if (obedit) {
+		return (obedit->lay & v3d->lay) != 0;
+	}
+	else if (ob && (ob->mode & OB_MODE_POSE)) {
+		return (ob->lay & v3d->lay) != 0;
+	}
+
+	return true;
 }
 
 /**
@@ -219,28 +352,88 @@ static bool transform_manipulators_matrix_get(const bContext *C, const View3D *v
 static void transform_manipulatorgroup_refresh(const bContext *C, wmManipulatorGroup *mgroup)
 {
 	View3D *v3d = CTX_wm_view3d(C);
-	TranformAxisManipulator *axes = mgroup->customdata;
+	TransformManipulatorsInfo *info = mgroup->customdata;
 
 	float mat[4][4];
-	const bool visible = transform_manipulators_matrix_get(C, v3d, mat);
+	const bool any_visible = transform_manipulators_layer_visible(C, v3d) &&
+	                         transform_manipulators_matrix_get(C, v3d, mat);
+	const int protectflag = transform_manipulators_protectflag_get(C, v3d);
 
-	for (int i = 0; i < MAN_AXIS_LAST && axes[i].name; i++) {
-		if (visible) {
-			WM_manipulator_set_flag(axes[i].manipulator, WM_MANIPULATOR_HIDDEN, false);
+	copy_m4_m4(info->mat, mat);
+
+	TranformAxisManipulator *axis;
+	for (int i = 0; i < MAN_AXIS_LAST && info->axes[i].name; i++) {
+		axis = &info->axes[i];
+
+		if (any_visible && transfrom_axis_manipulator_is_visible(axis, protectflag)) {
+			WM_manipulator_set_flag(axis->manipulator, WM_MANIPULATOR_HIDDEN, false);
 		}
 		else {
-			WM_manipulator_set_flag(axes[i].manipulator, WM_MANIPULATOR_HIDDEN, true);
+			WM_manipulator_set_flag(axis->manipulator, WM_MANIPULATOR_HIDDEN, true);
 			continue;
 		}
-		WM_arrow_manipulator_set_direction(axes[i].manipulator, mat[i]);
-		WM_manipulator_set_origin(axes[i].manipulator, mat[3]);
-		transform_axis_manipulator_set_color(&axes[i]);
+		WM_arrow_manipulator_set_direction(axis->manipulator, mat[i]);
+		WM_manipulator_set_origin(axis->manipulator, mat[3]);
 	}
 }
 
 
 /* -------------------------------------------------------------------- */
 /* draw_prepare callback and helpers */
+
+static unsigned int transform_axis_index_normalize(const int axis_idx)
+{
+	if (axis_idx > MAN_AXIS_TRANS_ZX) {
+		return axis_idx - 16;
+	}
+	else if (axis_idx > MAN_AXIS_SCALE_C) {
+		return axis_idx - 13;
+	}
+	else if (axis_idx > MAN_AXIS_ROT_T) {
+		return axis_idx - 9;
+	}
+	else if (axis_idx > MAN_AXIS_TRANS_C) {
+		return axis_idx - 4;
+	}
+
+	return axis_idx;
+}
+
+static float transform_axis_view_alpha_fac_get(TranformAxisManipulator *axis, RegionView3D *rv3d, float mat[4][4])
+{
+	const int axis_idx_norm = transform_axis_index_normalize(axis->index);
+	float view_vec[3], axis_vec[3];
+	float idot[3], idot_axis;
+
+	ED_view3d_global_to_vector(rv3d, mat[3], view_vec);
+
+	for (int i = 0; i < 3; i++) {
+		normalize_v3_v3(axis_vec, mat[i]);
+		idot[i] = 1.0f - fabsf(dot_v3v3(view_vec, axis_vec));
+	}
+	idot_axis = idot[axis_idx_norm];
+
+	return ((idot_axis > TW_AXIS_DOT_MAX) ?
+	        1.0f : (idot_axis < TW_AXIS_DOT_MIN) ?
+	        0.0f : ((idot_axis - TW_AXIS_DOT_MIN) / (TW_AXIS_DOT_MAX - TW_AXIS_DOT_MIN)));
+}
+
+static void transform_axis_manipulator_set_color(TranformAxisManipulator *axis, RegionView3D *rv3d, float mat[4][4])
+{
+	/* alpha values for normal/highlighted states */
+	const float alpha = 0.6f;
+	const float alpha_hi = 1.0f;
+	const float alpha_fac = transform_axis_view_alpha_fac_get(axis, rv3d, mat);
+	float col[4], col_hi[4];
+
+	UI_GetThemeColor4fv(axis->theme_colorid, col);
+	copy_v4_v4(col_hi, col);
+
+	col[3] = alpha * alpha_fac;
+	col_hi[3] = alpha_hi * alpha_fac;
+
+	WM_manipulator_set_colors(axis->manipulator, col, col_hi);
+}
 
 /**
  * Some transform orientation modes require updating the transform manipulators rotation matrix every redraw.
@@ -259,15 +452,20 @@ static bool transform_manipulators_draw_rotmatrix_get(const bContext *C, const V
 static void transform_manipulatorgroup_draw_prepare(const bContext *C, wmManipulatorGroup *mgroup)
 {
 	View3D *v3d = CTX_wm_view3d(C);
-	TranformAxisManipulator *axes = mgroup->customdata;
+	RegionView3D *rv3d = CTX_wm_region_view3d(C);
+	TransformManipulatorsInfo *info = mgroup->customdata;
 
 	float rot[3][3];
 	const bool update_rot = transform_manipulators_draw_rotmatrix_get(C, v3d, rot);
 
-	for (int i = 0; i < MAN_AXIS_LAST && axes[i].name; i++) {
+	TranformAxisManipulator *axis;
+	for (int i = 0; i < MAN_AXIS_LAST && info->axes[i].name; i++) {
+		axis = &info->axes[i];
+
 		if (update_rot) {
-			WM_arrow_manipulator_set_direction(axes[i].manipulator, rot[i]);
+			WM_arrow_manipulator_set_direction(axis->manipulator, rot[i]);
 		}
+		transform_axis_manipulator_set_color(axis, rv3d, info->mat);
 	}
 }
 
