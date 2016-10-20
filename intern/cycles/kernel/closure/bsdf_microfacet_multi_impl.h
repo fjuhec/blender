@@ -276,7 +276,7 @@ ccl_device float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const 
 		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wr)), eta) - F0) * F0_norm; //schlick_fresnel(dot(wi, normalize(wi + wr))); //
 		throughput2 = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 	}
-#else defined(MF_MULTI_GLOSSY)
+#elif defined(MF_MULTI_GLOSSY)
 	float3 t_color = cspec0;
 	float3 throughput2 = make_float3(1.0f, 1.0f, 1.0f);
 	float F0 = fresnel_dielectric_cos(1.0f, eta);

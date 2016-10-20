@@ -153,7 +153,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				/* diffuse */
 				if (diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(baseColor)) > CLOSURE_WEIGHT_CUTOFF) {
 					float3 diff_weight = weight * diffuse_weight;
-					float diff_sample_weight = fabsf(average(diff_weight));
 
 					DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
 
@@ -186,6 +185,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					bssrdf->N = N;
 					bssrdf->baseColor = baseColor;
 					bssrdf->roughness = roughness;
+
+					/* setup bsdf */
 					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
 				}
 
@@ -199,6 +200,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					bssrdf->N = N;
 					bssrdf->baseColor = baseColor;
 					bssrdf->roughness = roughness;
+
+					/* setup bsdf */
 					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
 				}
 
@@ -212,14 +215,15 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					bssrdf->N = N;
 					bssrdf->baseColor = baseColor;
 					bssrdf->roughness = roughness;
+
+					/* setup bsdf */
 					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
 				}
 			}
 #else
 			/* diffuse */
-			if (diffuse_weight > 0.0f) {
+			if (diffuse_weight > CLOSURE_WEIGHT_CUTOFF) {
 				float3 diff_weight = weight * diffuse_weight;
-				float diff_sample_weight = fabsf(average(diff_weight));
 
 				DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
 
@@ -234,13 +238,11 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 #endif
 
-			float sheen_diffuse_weight = diffuse_weight * 1.0f + (1.0f - diffuse_weight) * transp;
             /* sheen */
-			if (sheen_diffuse_weight > CLOSURE_WEIGHT_CUTOFF && sheen > CLOSURE_WEIGHT_CUTOFF) {
-				float3 sheen_weight = weight * sheen_diffuse_weight;
-				float sheen_sample_weight = fabsf(average(sheen_weight));
+			if (diffuse_weight > CLOSURE_WEIGHT_CUTOFF && sheen > CLOSURE_WEIGHT_CUTOFF) {
+				float3 sheen_weight = weight * diffuse_weight;
 
-				DisneySheenBsdf *bsdf = (DisneySheenBsdf*)bsdf_alloc(sd, sizeof(DisneySheenBsdf), weight);
+				DisneySheenBsdf *bsdf = (DisneySheenBsdf*)bsdf_alloc(sd, sizeof(DisneySheenBsdf), sheen_weight);
 
 				if (bsdf) {
 					bsdf->N = N;
@@ -258,7 +260,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			if (kernel_data.integrator.caustics_reflective || (path_flag & PATH_RAY_DIFFUSE) == 0) {
 #endif
 				if (specular_weight > CLOSURE_WEIGHT_CUTOFF && (specular > CLOSURE_WEIGHT_CUTOFF || metallic > CLOSURE_WEIGHT_CUTOFF)) {
-					float3 spec_weight = weight * specular_weight/* * (specular * (1.0f - metallic) + metallic)*/;
+					float3 spec_weight = weight * specular_weight;
 
 					MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), spec_weight);
 					MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
@@ -279,14 +281,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						float3 m_ctint = m_cdlum > 0.0f ? baseColor / m_cdlum : make_float3(0.0f, 0.0f, 0.0f); // normalize lum. to isolate hue+sat
 						float3 tmp_col = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specularTint) + m_ctint * specularTint;
 
-						bsdf->extra->cspec0 = (/*fresnel_dielectric_cos(1.0f, ior)*/specular * 0.08f * tmp_col) * (1.0f - metallic) + baseColor * metallic;
+						bsdf->extra->cspec0 = (specular * 0.08f * tmp_col) * (1.0f - metallic) + baseColor * metallic;
 						bsdf->extra->color = baseColor;
 
 						/* setup bsdf */
-						if (distribution == CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID && roughness > 0.075f)
-							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_setup(bsdf, true);
-						else
+						if (distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID || roughness <= 0.075f) /* use single-scatter GGX */
 							ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_aniso_setup(bsdf, true);
+						else /* use multi-scatter GGX */
+							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_setup(bsdf, true);
 					}
 				}
 #ifdef __CAUSTICS_TRICKS__
@@ -298,11 +300,11 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			if (kernel_data.integrator.caustics_reflective || kernel_data.integrator.caustics_refractive || (path_flag & PATH_RAY_DIFFUSE) == 0) {
 #endif
 				if (transp > CLOSURE_WEIGHT_CUTOFF) {
-					float3 glass_weight = /*baseColor */ weight * transp;
+					float3 glass_weight = weight * transp;
 					float3 cspec0 = baseColor * specularTint + make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specularTint);
 					bool frontfacing = (ccl_fetch(sd, flag) & SD_BACKFACING) == 0;
 
-					if (roughness <= 5e-2f || distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID) {
+					if (roughness <= 5e-2f || distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID) { /* use single-scatter GGX */
 						float refl_roughness = roughness;
 						if (roughness <= 1e-2f)
 							refl_roughness = 0.0f;
@@ -326,6 +328,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 								bsdf->extra->color = baseColor;
 								bsdf->extra->cspec0 = cspec0;
 
+							    /* setup bsdf */
 								if (refl_roughness == 0.0f)
 									ccl_fetch(sd, flag) |= bsdf_reflection_setup(bsdf, true);
 								else
@@ -345,10 +348,10 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 								bsdf->N = N;
 								bsdf->extra = extra;
 
-								if (distribution == CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID)
-									refraction_roughness = roughness;
-								else
-									refraction_roughness = 1.0f - (1.0f - roughness) * (1.0f - refraction_roughness);
+                                if (distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID)
+                                    refraction_roughness = 1.0f - (1.0f - refl_roughness) * (1.0f - refraction_roughness);
+                                else
+                                    refraction_roughness = refl_roughness;
 
 								bsdf->alpha_x = refraction_roughness * refraction_roughness;
 								bsdf->alpha_y = refraction_roughness * refraction_roughness;
@@ -357,11 +360,12 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 								bsdf->extra->color = baseColor;
 								bsdf->extra->cspec0 = cspec0;
 
+							    /* setup bsdf */
 								ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_refraction_setup(bsdf);
 							}
 						}
 					}
-					else {
+					else { /* use multi-scatter GGX */
 						MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight);
 						MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
@@ -392,7 +396,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 #endif
 				if (clearcoat > CLOSURE_WEIGHT_CUTOFF) {
 					float3 clearcoat_weight = 0.25f * clearcoat * weight;
-					float clearcoat_sample_weight = fabsf(average(clearcoat_weight));
 
 					MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), clearcoat_weight);
 					MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
