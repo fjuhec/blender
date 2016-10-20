@@ -33,6 +33,23 @@
 
 struct wmManipulator;
 
+/* -------------------------------------------------------------------- */
+/* Manipulator drawing */
+
+typedef struct ManipulatorGeometryInfo {
+	int nverts;
+	int ntris;
+	float (*verts)[3];
+	float (*normals)[3];
+	unsigned short *indices;
+	bool init;
+} ManipulatorGeometryInfo;
+
+void wm_manipulator_geometryinfo_draw(const ManipulatorGeometryInfo *info, const bool select);
+
+/* -------------------------------------------------------------------- */
+/* Manipulator handling */
+
 /* distance around which manipulators respond to input (and get highlighted) */
 #define MANIPULATOR_HOTSPOT 14.0f
 

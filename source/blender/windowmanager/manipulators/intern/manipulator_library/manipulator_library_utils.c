@@ -31,6 +31,8 @@
  * \brief This file contains functions for common behaviors of manipulators.
  */
 
+#include "BIF_gl.h"
+
 #include "BKE_context.h"
 
 #include "BLI_math.h"
@@ -48,6 +50,49 @@
 /* factor for precision tweaking */
 #define MANIPULATOR_PRECISION_FAC 0.05f
 
+/* -------------------------------------------------------------------- */
+/* Manipulator drawing */
+
+/**
+ * Main draw call for ManipulatorGeometryInfo data.
+ */
+void wm_manipulator_geometryinfo_draw(const ManipulatorGeometryInfo *info, const bool UNUSED(select))
+{
+	GLuint buf[2];
+
+	glGenBuffers(2, buf);
+
+	/* vertex buffer */
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, buf[0]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * info->nverts, info->verts, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+	/* normal buffer */
+	/* TODO normal buffer for lighting (if we need this?) */
+
+	/* index buffer */
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf[1]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short) * (3 * info->ntris), info->indices, GL_STATIC_DRAW);
+
+	glEnable(GL_CULL_FACE);
+//	glEnable(GL_DEPTH_TEST);
+
+	glDrawElements(GL_TRIANGLES, info->ntris * 3, GL_UNSIGNED_SHORT, NULL);
+
+//	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	glDisableVertexAttribArray(0);
+	glDeleteBuffers(2, buf);
+}
+
+
+/* -------------------------------------------------------------------- */
+/* Manipulator handling */
 
 BLI_INLINE float manipulator_offset_from_value_constr(
         const float range_fac, const float min, const float range, const float value,

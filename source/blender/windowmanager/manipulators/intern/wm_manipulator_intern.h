@@ -213,18 +213,5 @@ typedef struct wmManipulatorMapType {
 void wm_manipulatormap_selected_delete(wmManipulatorMap *mmap);
 bool wm_manipulatormap_deselect_all(struct wmManipulatorMap *mmap, wmManipulator ***sel);
 
-
-/* -------------------------------------------------------------------- */
-/* Manipulator drawing */
-
-typedef struct ManipulatorGeometryInfo {
-	int nverts;
-	int ntris;
-	float (*verts)[3];
-	float (*normals)[3];
-	unsigned short *indices;
-	bool init;
-} ManipulatorGeometryInfo;
-
 #endif  /* __WM_MANIPULATOR_INTERN_H__ */
 

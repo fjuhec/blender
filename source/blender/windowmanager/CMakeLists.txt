@@ -74,6 +74,7 @@ set(SRC
 	manipulators/intern/wm_manipulatorgroup.c
 	manipulators/intern/wm_manipulatormap.c
 	manipulators/intern/manipulator_library/arrow_manipulator.c
+	manipulators/intern/manipulator_library/geom_cone.c
 	manipulators/intern/manipulator_library/manipulator_library_utils.c
 
 	WM_api.h
@@ -92,6 +93,7 @@ set(SRC
 	manipulators/WM_manipulator_types.h
 	manipulators/wm_manipulator_wmapi.h
 	manipulators/intern/wm_manipulator_intern.h
+	manipulators/intern/manipulator_library/manipulator_geometry.h
 	manipulators/intern/manipulator_library/manipulator_library_intern.h
 )
 

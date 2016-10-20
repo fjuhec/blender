@@ -34,6 +34,9 @@
 #include "DNA_userdef_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "GPU_basic_shader.h"
+#include "GPU_immediate.h"
+#include "GPU_matrix.h"
 #include "GPU_select.h"
 
 #include "MEM_guardedalloc.h"
@@ -42,6 +45,7 @@
 
 #include "WM_types.h"
 
+#include "manipulator_geometry.h"
 #include "manipulator_library_intern.h"
 #include "WM_manipulator_types.h"
 #include "wm_manipulator_wmapi.h"
@@ -55,49 +59,65 @@ typedef struct ArrowManipulator {
 } ArrowManipulator;
 
 
-static void arrow_draw_geom(const ArrowManipulator *arrow, const bool UNUSED(select))
+static void arrow_draw_line(const ArrowManipulator *arrow, const float col[4], const float len)
 {
-	const float len = 1.0f; /* TODO arrow->len */
-	const float vec[2][3] = {
-		{0.0f, 0.0f, 0.0f},
-		{0.0f, 0.0f, len},
-	};
+	VertexFormat *format = immVertexFormat();
+	unsigned int pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+	immUniformColor4fv(col);
 
 	glLineWidth(arrow->manipulator.line_width);
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glVertexPointer(3, GL_FLOAT, 0, vec);
-	glDrawArrays(GL_LINE_STRIP, 0, ARRAY_SIZE(vec));
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glLineWidth(1.0);
 
+	immBegin(GL_LINES, 2);
+	immVertex3f(pos, 0.0f, 0.0f, 0.0f);
+	immVertex3f(pos, 0.0f, 0.0f, len);
+	immEnd();
+
+	immUnbindProgram();
+}
+
+static void arrow_draw_cone(const bool select)
+{
+	const ManipulatorGeometryInfo cone_geo = {
+		_MANIPULATOR_nverts_Cone,
+		_MANIPULATOR_ntris_Cone,
+		_MANIPULATOR_verts_Cone,
+		_MANIPULATOR_normals_Cone,
+		_MANIPULATOR_indices_Cone,
+		true,
+	};
+	const float scale = 0.25f;
+
+	glScalef(scale, scale, scale);
+	wm_manipulator_geometryinfo_draw(&cone_geo, select);
+}
+
+static void arrow_draw_geom(const ArrowManipulator *arrow, const float col[4], const bool select)
+{
+	const float len = 1.0f; /* TODO arrow->len */
+	const bool use_lighting = /*select == false && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0)*/ false;
+
+	glColor4fv(col);
+	glTranslate3fv(arrow->manipulator.offset);
+
+	arrow_draw_line(arrow, col, len);
 
 	/* *** draw arrow head *** */
 
-	glPushMatrix();
-
-	const float head_len = 0.25f;
-	const float width = 0.06f;
-	const bool use_lighting = /*select == false && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0)*/ false;
-
 	/* translate to line end */
+	glPushMatrix();
 	glTranslatef(0.0f, 0.0f, len);
 
 	if (use_lighting) {
 		glShadeModel(GL_SMOOTH);
 	}
 
-	GLUquadricObj *qobj = gluNewQuadric();
-	gluQuadricDrawStyle(qobj, GLU_FILL);
-	gluQuadricOrientation(qobj, GLU_INSIDE);
-	gluDisk(qobj, 0.0, width, 8, 1);
-	gluQuadricOrientation(qobj, GLU_OUTSIDE);
-	gluCylinder(qobj, width, 0.0, head_len, 8, 1);
-	gluDeleteQuadric(qobj);
+	arrow_draw_cone(select);
 
 	if (use_lighting) {
 		glShadeModel(GL_FLAT);
 	}
-
 	glPopMatrix();
 }
 
@@ -124,16 +144,15 @@ static void arrow_draw_intern(const ArrowManipulator *arrow, const bool select, 
 	glPushMatrix();
 	glMultMatrixf(mat);
 
-	glColor4fv(col);
 	glEnable(GL_BLEND);
-	glTranslate3fv(arrow->manipulator.offset);
-	arrow_draw_geom(arrow, select);
+	arrow_draw_geom(arrow, col, select);
 	glDisable(GL_BLEND);
 
 	glPopMatrix();
 
 	if (arrow->manipulator.interaction_data) {
 		ManipulatorInteraction *inter = arrow->manipulator.interaction_data;
+		const float ghost_col[] = {0.5f, 0.5f, 0.5f, 0.5f};
 
 		copy_m4_m3(mat, rot);
 		copy_v3_v3(mat[3], inter->init_origin);
@@ -143,9 +162,7 @@ static void arrow_draw_intern(const ArrowManipulator *arrow, const bool select, 
 		glMultMatrixf(mat);
 
 		glEnable(GL_BLEND);
-		glColor4f(0.5f, 0.5f, 0.5f, 0.5f);
-		glTranslate3fv(arrow->manipulator.offset);
-		arrow_draw_geom(arrow, select);
+		arrow_draw_geom(arrow, ghost_col, select);
 		glDisable(GL_BLEND);
 
 		glPopMatrix();
