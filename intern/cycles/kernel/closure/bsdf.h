@@ -38,7 +38,7 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device_inline int bsdf_sample(KernelGlobals *kg,
+ccl_device_forceinline int bsdf_sample(KernelGlobals *kg,
                                   ShaderData *sd,
                                   const ShaderClosure *sc,
                                   float randu,
@@ -159,7 +159,7 @@ ccl_device_inline int bsdf_sample(KernelGlobals *kg,
 #ifndef __KERNEL_CUDA__
 ccl_device
 #else
-ccl_device_inline
+ccl_device_forceinline
 #endif
 float3 bsdf_eval(KernelGlobals *kg,
                  ShaderData *sd,
@@ -401,6 +401,8 @@ ccl_device bool bsdf_merge(ShaderClosure *a, ShaderClosure *b)
 		default:
 			return false;
 	}
+#else
+	return false;
 #endif
 }
 

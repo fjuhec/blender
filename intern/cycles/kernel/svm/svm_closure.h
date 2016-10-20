@@ -302,7 +302,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				if (transp > CLOSURE_WEIGHT_CUTOFF) {
 					float3 glass_weight = weight * transp;
 					float3 cspec0 = baseColor * specularTint + make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specularTint);
-					bool frontfacing = (ccl_fetch(sd, flag) & SD_BACKFACING) == 0;
 
 					if (roughness <= 5e-2f || distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID) { /* use single-scatter GGX */
 						float refl_roughness = roughness;
@@ -382,7 +381,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 							bsdf->extra->cspec0 = cspec0;
 
 							/* setup bsdf */
-							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_glass_setup(bsdf, true, frontfacing);
+							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_glass_setup(bsdf, true);
 						}
 					}
 				}

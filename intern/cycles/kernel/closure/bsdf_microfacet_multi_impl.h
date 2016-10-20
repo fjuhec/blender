@@ -25,23 +25,23 @@
  * energy is used. In combination with MIS, that is enough to produce an unbiased result, although
  * the balance heuristic isn't necessarily optimal anymore.
  */
-ccl_device_inline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
+ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
         float3 wi,
         float3 wo,
         const bool wo_outside,
 		const float3 color,
-		const float3 cspec0,
         const float alpha_x,
         const float alpha_y,
          ccl_addr_space uint *lcg_state
 #ifdef MF_MULTI_GLASS
         , const float eta
 		, bool use_fresnel = false
-		, bool initial_outside = true
+		, const float3 cspec0 = make_float3(1.0f, 1.0f, 1.0f)
 #elif defined(MF_MULTI_GLOSSY)
 		 , float3 *n, float3 *k
 		 , const float eta = 1.0f
 		 , bool use_fresnel = false
+		 , const float3 cspec0 = make_float3(1.0f, 1.0f, 1.0f)
 #endif
 )
 {
@@ -88,8 +88,8 @@ ccl_device_inline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 	float3 throughput2 = make_float3(1.0f, 1.0f, 1.0f);
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
 	float F0_norm = 1.0f / (1.0f - F0);
-	if (use_fresnel/* && initial_outside*/) {
-		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wo)), eta) - F0) * F0_norm; //schlick_fresnel(dot(wi, normalize(wi + wo))); //
+	if (use_fresnel) {
+		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wo)), eta) - F0) * F0_norm;
 		throughput2 = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 
 		eval2 = throughput2 * eval;
@@ -118,7 +118,7 @@ ccl_device_inline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
 	float F0_norm = 1.0f / (1.0f - F0);
 	if (use_fresnel) {
-		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wo)), eta) - F0) * F0_norm; //schlick_fresnel(dot(wi, normalize(wi + wo))); //
+		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wo)), eta) - F0) * F0_norm;
 		throughput2 = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 
 		eval2 = throughput2 * val;
@@ -167,7 +167,7 @@ ccl_device_inline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 			else
 				phase = mf_eval_phase_glass(wr, lambda_r, -wo, !wo_outside, alpha, 1.0f/eta);
 
-			if (use_fresnel/* && initial_outside*/)
+			if (use_fresnel)
 				eval2 += throughput2 * phase * mf_G1(wo_outside ? wo : -wo, mf_C1((outside == wo_outside) ? hr : -hr), shadowing_lambda);
 #elif defined(MF_MULTI_DIFFUSE)
 			phase = mf_eval_phase_diffuse(wo, wm);
@@ -194,8 +194,8 @@ ccl_device_inline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 			if (use_fresnel && !next_outside) {
 				throughput2 *= color;
 			}
-			else if (use_fresnel/* && initial_outside && outside && next_outside*/) {
-				float FH = (fresnel_dielectric_cos(dot(wi_prev, wm), eta) - F0) * F0_norm; //schlick_fresnel(dot(wi_prev, wm)); //
+			else if (use_fresnel) {
+				float FH = (fresnel_dielectric_cos(dot(wi_prev, wm), eta) - F0) * F0_norm;
 				t_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 
 				if (order > 0)
@@ -207,7 +207,7 @@ ccl_device_inline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 			                             lcg_step_float_addrspace(lcg_state));
 #else /* MF_MULTI_GLOSSY */
 			if (use_fresnel) {
-				float FH = (fresnel_dielectric_cos(dot(-wr, wm), eta) - F0) * F0_norm; //schlick_fresnel(dot(-wr, wm)); //
+				float FH = (fresnel_dielectric_cos(dot(-wr, wm), eta) - F0) * F0_norm;
 				t_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 
 				if (order > 0)
@@ -246,15 +246,16 @@ ccl_device_inline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
  * escaped the surface in wo. The function returns the throughput between wi and wo.
  * Without reflection losses due to coloring or fresnel absorption in conductors, the sampling is optimal.
  */
-ccl_device float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const float3 color, const float3 cspec0, const float alpha_x, const float alpha_y, ccl_addr_space uint *lcg_state
+ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const float3 color, const float alpha_x, const float alpha_y, ccl_addr_space uint *lcg_state
 #ifdef MF_MULTI_GLASS
 	, const float eta
 	, bool use_fresnel = false
-	, bool initial_outside = true
+	, const float3 cspec0 = make_float3(1.0f, 1.0f, 1.0f)
 #elif defined(MF_MULTI_GLOSSY)
 	, float3 *n, float3 *k
 	, const float eta = 1.0f
 	, bool use_fresnel = false
+	, const float3 cspec0 = make_float3(1.0f, 1.0f, 1.0f)
 #endif
 )
 {
@@ -272,8 +273,8 @@ ccl_device float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const 
 	float3 throughput2 = make_float3(1.0f, 1.0f, 1.0f);
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
 	float F0_norm = 1.0f / (1.0f - F0);
-	if (use_fresnel/* && initial_outside*/) {
-		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wr)), eta) - F0) * F0_norm; //schlick_fresnel(dot(wi, normalize(wi + wr))); //
+	if (use_fresnel) {
+		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wr)), eta) - F0) * F0_norm;
 		throughput2 = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 	}
 #elif defined(MF_MULTI_GLOSSY)
@@ -282,7 +283,7 @@ ccl_device float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const 
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
 	float F0_norm = 1.0f / (1.0f - F0);
 	if (use_fresnel) {
-		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wr)), eta) - F0) * F0_norm; //schlick_fresnel(dot(wi, normalize(wi + wr))); //
+		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wr)), eta) - F0) * F0_norm;
 		throughput2 = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 	}
 #endif
@@ -322,8 +323,8 @@ ccl_device float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const 
 			if (!next_outside) {
 				throughput2 *= color;
 			}
-			else if (/*initial_outside && outside && next_outside*/true) {
-				float FH = (fresnel_dielectric_cos(dot(wi_prev, wm), eta) - F0) * F0_norm; //schlick_fresnel(dot(wi_prev, wm)); //
+			else {
+				float FH = (fresnel_dielectric_cos(dot(wi_prev, wm), eta) - F0) * F0_norm;
 				t_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 
 				if (order == 0)
@@ -338,7 +339,7 @@ ccl_device float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const 
 		                             lcg_step_float_addrspace(lcg_state));
 #else /* MF_MULTI_GLOSSY */
 		if (use_fresnel) {
-			float FH = (fresnel_dielectric_cos(dot(-wr, wm), eta) - F0) * F0_norm; //schlick_fresnel(dot(-wr, wm)); //
+			float FH = (fresnel_dielectric_cos(dot(-wr, wm), eta) - F0) * F0_norm;
 			t_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 
 			if (order == 0)
