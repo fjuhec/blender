@@ -34,9 +34,7 @@
 #include "DNA_userdef_types.h"
 #include "DNA_windowmanager_types.h"
 
-#include "GPU_basic_shader.h"
 #include "GPU_immediate.h"
-#include "GPU_matrix.h"
 #include "GPU_select.h"
 
 #include "MEM_guardedalloc.h"
