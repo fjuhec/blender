@@ -80,22 +80,17 @@ enum TransformAxisType {
 	MAN_AXIS_LAST,
 };
 
-enum TransformType {
-	MAN_AXES_ALL = 0,
-	MAN_AXES_TRANSLATE,
-	MAN_AXES_ROTATE,
-	MAN_AXES_SCALE,
-};
+/* threshold for testing view aligned axis manipulator */
+#define TRANSFORM_MAN_AXIS_DOT_MIN 0.02f
+#define TRANSFORM_MAN_AXIS_DOT_MAX 0.1f
 
-/* threshold for testing view aligned manipulator axis */
-#define TW_AXIS_DOT_MIN 0.02f
-#define TW_AXIS_DOT_MAX 0.1f
+#define TRANSFORM_MAN_AXIS_LINE_WIDTH 2.0f
 
 typedef struct TranformAxisManipulator {
 	/* -- initialized using static array -- */
 
 	enum TransformAxisType index;
-	enum TransformType type;
+	int transform_type; /* View3d->twtype */
 
 	const char *name;
 	/* op info */
@@ -103,7 +98,7 @@ typedef struct TranformAxisManipulator {
 	int constraint[3]; /* {x, y, z} */
 
 	/* appearance */
-	int theme_colorid;
+	int theme_colorid, line_width;
 	int manipulator_type;
 	int protectflag; /* the protectflags this axis checks (e.g. OB_LOCK_LOCZ) */
 
@@ -130,19 +125,22 @@ typedef struct TransformManipulatorsInfo {
  */
 static TranformAxisManipulator tman_axes[] = {
 	{
-		MAN_AXIS_TRANS_X, MAN_AXES_TRANSLATE,
+		MAN_AXIS_TRANS_X, V3D_MANIP_TRANSLATE,
 		"translate_x", "TRANSFORM_OT_translate", {1, 0, 0},
-		TH_AXIS_X, MANIPULATOR_ARROW_STYLE_NORMAL, OB_LOCK_LOCX,
+		TH_AXIS_X, TRANSFORM_MAN_AXIS_LINE_WIDTH,
+		MANIPULATOR_ARROW_STYLE_NORMAL, OB_LOCK_LOCX,
 	},
 	{
-		MAN_AXIS_TRANS_Y, MAN_AXES_TRANSLATE,
+		MAN_AXIS_TRANS_Y, V3D_MANIP_TRANSLATE,
 		"translate_y", "TRANSFORM_OT_translate", {0, 1, 0},
-		TH_AXIS_Y, MANIPULATOR_ARROW_STYLE_NORMAL, OB_LOCK_LOCY,
+		TH_AXIS_Y, TRANSFORM_MAN_AXIS_LINE_WIDTH,
+		MANIPULATOR_ARROW_STYLE_NORMAL, OB_LOCK_LOCY,
 	},
 	{
-		MAN_AXIS_TRANS_Z, MAN_AXES_TRANSLATE,
+		MAN_AXIS_TRANS_Z, V3D_MANIP_TRANSLATE,
 		"translate_z", "TRANSFORM_OT_translate", {0, 0, 1},
-		TH_AXIS_Z, MANIPULATOR_ARROW_STYLE_NORMAL, OB_LOCK_LOCZ,
+		TH_AXIS_Z, TRANSFORM_MAN_AXIS_LINE_WIDTH,
+		MANIPULATOR_ARROW_STYLE_NORMAL, OB_LOCK_LOCZ,
 	},
 	{0, 0, NULL}
 };
@@ -164,7 +162,7 @@ static void transform_manipulators_info_free(void *customdata)
 /* init callback and helpers */
 
 /**
- * Custom handler for manipulator widgets
+ * Custom handler for transform manipulators to update them while modal transform operator runs.
  */
 static int transform_axis_manipulator_handler(
         bContext *C, const wmEvent *UNUSED(event), wmManipulator *widget, const int UNUSED(flag))
@@ -196,6 +194,7 @@ static void transform_axis_manipulator_init(TranformAxisManipulator *axis, wmMan
 
 	PointerRNA *ptr = WM_manipulator_set_operator(axis->manipulator, axis->op_name);
 	WM_manipulator_set_custom_handler(axis->manipulator, transform_axis_manipulator_handler);
+	WM_manipulator_set_line_width(axis->manipulator, axis->line_width);
 
 	if (RNA_struct_find_property(ptr, "constraint_axis")) {
 		RNA_boolean_set_array(ptr, "constraint_axis", axis->constraint);
@@ -225,9 +224,10 @@ static void transform_manipulatorgroup_init(const bContext *UNUSED(C), wmManipul
 /* -------------------------------------------------------------------- */
 /* refresh callback and helpers */
 
-static bool transfrom_axis_manipulator_is_visible(TranformAxisManipulator *axis, int protectflag)
+static bool transform_axis_manipulator_is_visible(TranformAxisManipulator *axis, char transform_type, int protectflag)
 {
-	return ((axis->protectflag & protectflag) != axis->protectflag);
+	return ((axis->transform_type & transform_type) &&
+	        ((axis->protectflag & protectflag) != axis->protectflag));
 }
 
 static int transform_manipulators_protectflag_posemode_get(Object *ob, View3D *v3d)
@@ -383,7 +383,7 @@ static void transform_manipulatorgroup_refresh(const bContext *C, wmManipulatorG
 	for (int i = 0; i < MAN_AXIS_LAST && info->axes[i].name; i++) {
 		axis = &info->axes[i];
 
-		if (any_visible && transfrom_axis_manipulator_is_visible(axis, protectflag)) {
+		if (any_visible && transform_axis_manipulator_is_visible(axis, v3d->twtype, protectflag)) {
 			WM_manipulator_set_flag(axis->manipulator, WM_MANIPULATOR_HIDDEN, false);
 		}
 		else {
@@ -420,6 +420,8 @@ static unsigned int transform_axis_index_normalize(const int axis_idx)
 static float transform_axis_view_alpha_fac_get(TranformAxisManipulator *axis, RegionView3D *rv3d, float mat[4][4])
 {
 	const int axis_idx_norm = transform_axis_index_normalize(axis->index);
+	const float dot_min = TRANSFORM_MAN_AXIS_DOT_MIN;
+	const float dot_max = TRANSFORM_MAN_AXIS_DOT_MAX;
 	float view_vec[3], axis_vec[3];
 	float idot[3], idot_axis;
 
@@ -431,9 +433,9 @@ static float transform_axis_view_alpha_fac_get(TranformAxisManipulator *axis, Re
 	}
 	idot_axis = idot[axis_idx_norm];
 
-	return ((idot_axis > TW_AXIS_DOT_MAX) ?
-	        1.0f : (idot_axis < TW_AXIS_DOT_MIN) ?
-	        0.0f : ((idot_axis - TW_AXIS_DOT_MIN) / (TW_AXIS_DOT_MAX - TW_AXIS_DOT_MIN)));
+	return ((idot_axis > dot_max) ?
+	        1.0f : (idot_axis < dot_min) ?
+	        0.0f : ((idot_axis - dot_min) / (dot_max - dot_min)));
 }
 
 static void transform_axis_manipulator_set_color(TranformAxisManipulator *axis, RegionView3D *rv3d, float mat[4][4])
