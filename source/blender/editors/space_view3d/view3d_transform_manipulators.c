@@ -92,10 +92,13 @@ enum TransformAxisType {
 typedef struct TransformManipulatorsInfo {
 	struct TranformAxisManipulator *axes; /* Array of axes */
 
+	wmManipulatorGroup *mgroup;
 	float mat[4][4]; /* Cached loc/rot matrix */
 } TransformManipulatorsInfo;
 
-typedef void TransformManipulatorUpdateFunc(const bContext *, const struct TransformManipulatorsInfo *,
+typedef wmManipulator *TransformManipulatorInitFunc(const TransformManipulatorsInfo *,
+                                                    struct TranformAxisManipulator *);
+typedef void TransformManipulatorUpdateFunc(const bContext *, const TransformManipulatorsInfo *,
                                             const struct TranformAxisManipulator *);
 
 typedef struct TranformAxisManipulator {
@@ -105,6 +108,7 @@ typedef struct TranformAxisManipulator {
 	int transform_type; /* View3d->twtype */
 
 	/* per-manipulator callbacks for initializing/updating data */
+	TransformManipulatorInitFunc   (*init);
 	TransformManipulatorUpdateFunc (*refresh);
 	TransformManipulatorUpdateFunc (*draw_prepare);
 
@@ -116,7 +120,7 @@ typedef struct TranformAxisManipulator {
 	float scale;
 	float line_width;
 	int theme_colorid;
-	int manipulator_type;
+	int manipulator_style;
 
 
 	/* -- initialized later -- */
@@ -124,10 +128,11 @@ typedef struct TranformAxisManipulator {
 	wmManipulator *manipulator;
 } TranformAxisManipulator;
 
-static void manipulator_refresh_arrow(
-        const bContext *UNUSED(C), const TransformManipulatorsInfo *info, const TranformAxisManipulator *axis);
-static void manipulator_view_dial_draw_prepare(
-        const bContext *C, const TransformManipulatorsInfo *info, const TranformAxisManipulator *axis);
+static TransformManipulatorInitFunc   manipulator_arrow_init;
+static TransformManipulatorUpdateFunc manipulator_arrow_draw_prepare;
+static TransformManipulatorInitFunc   manipulator_dial_init;
+static TransformManipulatorUpdateFunc manipulator_dial_refresh;
+static TransformManipulatorUpdateFunc manipulator_view_dial_draw_prepare;
 
 /**
  * This TranformAxisManipulator array contains all the info we need to initialize, store and identify all
@@ -138,27 +143,51 @@ static void manipulator_view_dial_draw_prepare(
 static TranformAxisManipulator tman_axes[] = {
 	{
 		MAN_AXIS_TRANS_X, V3D_MANIP_TRANSLATE,
-		manipulator_refresh_arrow, NULL,
+		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
 		"translate_x", {1, 0, 0}, OB_LOCK_LOCX,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_X, MANIPULATOR_ARROW_STYLE_NORMAL,
 	},
 	{
 		MAN_AXIS_TRANS_Y, V3D_MANIP_TRANSLATE,
-		manipulator_refresh_arrow, NULL,
+		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
 		"translate_y", {0, 1, 0}, OB_LOCK_LOCY,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Y, MANIPULATOR_ARROW_STYLE_NORMAL,
 	},
 	{
 		MAN_AXIS_TRANS_Z, V3D_MANIP_TRANSLATE,
-		manipulator_refresh_arrow, NULL,
+		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
 		"translate_z", {0, 0, 1}, OB_LOCK_LOCZ,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Z, MANIPULATOR_ARROW_STYLE_NORMAL,
 	},
 	{
 		MAN_AXIS_TRANS_C, V3D_MANIP_TRANSLATE,
-		NULL, manipulator_view_dial_draw_prepare,
+		manipulator_dial_init, manipulator_dial_refresh, manipulator_view_dial_draw_prepare,
 		"translate_c", {0}, 0,
 		0.2f, TRANSFORM_MAN_AXIS_LINE_WIDTH, -1, MANIPULATOR_DIAL_STYLE_RING,
+	},
+	{
+		MAN_AXIS_ROT_X, V3D_MANIP_ROTATE,
+		manipulator_dial_init, manipulator_dial_refresh, NULL,
+		"rotate_x", {1, 0, 0}, OB_LOCK_ROTX,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH + 1.0f, TH_AXIS_X, MANIPULATOR_DIAL_STYLE_RING_CLIPPED,
+	},
+	{
+		MAN_AXIS_ROT_Y, V3D_MANIP_ROTATE,
+		manipulator_dial_init, manipulator_dial_refresh, NULL,
+		"rotate_y", {0, 1, 0}, OB_LOCK_ROTY,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH + 1.0f, TH_AXIS_Y, MANIPULATOR_DIAL_STYLE_RING_CLIPPED,
+	},
+	{
+		MAN_AXIS_ROT_Z, V3D_MANIP_ROTATE,
+		manipulator_dial_init, manipulator_dial_refresh, NULL,
+		"rotate_y", {0, 0, 1}, OB_LOCK_ROTZ,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH + 1.0f, TH_AXIS_Z, MANIPULATOR_DIAL_STYLE_RING_CLIPPED,
+	},
+	{
+		MAN_AXIS_ROT_C, V3D_MANIP_ROTATE,
+		manipulator_dial_init, NULL, manipulator_view_dial_draw_prepare,
+		"rotate_c", {0}, OB_LOCK_ROTZ,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH + 1.0f, -1, MANIPULATOR_DIAL_STYLE_RING,
 	},
 	{0, 0, NULL}
 };
@@ -196,6 +225,17 @@ static unsigned int transform_axis_index_normalize(const int axis_idx)
 
 /* -------------------------------------------------------------------- */
 /* init callback and helpers */
+
+
+static wmManipulator *manipulator_arrow_init(const TransformManipulatorsInfo *info, TranformAxisManipulator *axis)
+{
+	return WM_arrow_manipulator_new(info->mgroup, axis->name);
+}
+
+static wmManipulator *manipulator_dial_init(const TransformManipulatorsInfo *info, TranformAxisManipulator *axis)
+{
+	return WM_dial_manipulator_new(info->mgroup, axis->name, axis->manipulator_style);
+}
 
 /**
  * Custom handler for transform manipulators to update them while modal transform operator runs.
@@ -239,19 +279,9 @@ static const char *transform_axis_ot_name_get(int transform_type)
 /**
  * Create and initialize a manipulator for \a axis.
  */
-static void transform_axis_manipulator_init(TranformAxisManipulator *axis, wmManipulatorGroup *mgroup)
+static void transform_axis_manipulator_init(TransformManipulatorsInfo *info, TranformAxisManipulator *axis)
 {
-	switch (axis->manipulator_type) {
-		case MANIPULATOR_ARROW_STYLE_NORMAL:
-			axis->manipulator = WM_arrow_manipulator_new(mgroup, axis->name);
-			break;
-		case MANIPULATOR_DIAL_STYLE_RING:
-			axis->manipulator = WM_dial_manipulator_new(mgroup, axis->name, axis->manipulator_type);
-			break;
-		default:
-			BLI_assert(0);
-			break;
-	}
+	axis->manipulator = axis->init(info, axis);
 
 	const char *op_name = transform_axis_ot_name_get(axis->transform_type);
 	PointerRNA *ptr = WM_manipulator_set_operator(axis->manipulator, op_name);
@@ -269,14 +299,12 @@ static void transform_manipulatorgroup_init(const bContext *UNUSED(C), wmManipul
 {
 	TransformManipulatorsInfo *info = MEM_callocN(sizeof(*info), __func__);
 
+	info->mgroup = mgroup;
 	info->axes = MEM_callocN(sizeof(tman_axes), STRINGIFY(TranformAxisManipulator));
 	memcpy(info->axes, tman_axes, sizeof(tman_axes));
 
-	TranformAxisManipulator *axis;
 	for (int i = 0; i < MAN_AXIS_LAST && info->axes[i].name; i++) {
-		axis = &info->axes[i];
-
-		transform_axis_manipulator_init(axis, mgroup);
+		transform_axis_manipulator_init(info, &info->axes[i]);
 	}
 
 	mgroup->customdata = info;
@@ -287,11 +315,12 @@ static void transform_manipulatorgroup_init(const bContext *UNUSED(C), wmManipul
 /* -------------------------------------------------------------------- */
 /* refresh callback and helpers */
 
-static void manipulator_refresh_arrow(
+
+static void manipulator_dial_refresh(
         const bContext *UNUSED(C), const TransformManipulatorsInfo *info, const TranformAxisManipulator *axis)
 {
 	const int idx_normalized = transform_axis_index_normalize(axis->index);
-	WM_arrow_manipulator_set_direction(axis->manipulator, info->mat[idx_normalized]);
+	WM_dial_manipulator_set_up_vector(axis->manipulator, info->mat[idx_normalized]);
 }
 
 static bool transform_axis_manipulator_is_visible(TranformAxisManipulator *axis, char transform_type, int protectflag)
@@ -472,14 +501,9 @@ static void transform_manipulatorgroup_refresh(const bContext *C, wmManipulatorG
 /* -------------------------------------------------------------------- */
 /* draw_prepare callback and helpers */
 
-static void manipulator_view_dial_draw_prepare(
-        const bContext *C, const TransformManipulatorsInfo *UNUSED(info), const TranformAxisManipulator *axis)
-{
-	RegionView3D *rv3d = CTX_wm_region_view3d(C);
-	WM_dial_manipulator_set_up_vector(axis->manipulator, rv3d->viewinv[2]);
-}
 
-static float transform_axis_view_alpha_fac_get(TranformAxisManipulator *axis, RegionView3D *rv3d, float mat[4][4])
+static float transform_axis_view_alpha_fac_get(
+        const TranformAxisManipulator *axis, const RegionView3D *rv3d, const float mat[4][4])
 {
 	const int axis_idx_norm = transform_axis_index_normalize(axis->index);
 	const float dot_min = TRANSFORM_MAN_AXIS_DOT_MIN;
@@ -500,7 +524,8 @@ static float transform_axis_view_alpha_fac_get(TranformAxisManipulator *axis, Re
 	        0.0f : ((idot_axis - dot_min) / (dot_max - dot_min)));
 }
 
-static void transform_axis_manipulator_set_color(TranformAxisManipulator *axis, RegionView3D *rv3d, float mat[4][4])
+static void transform_axis_manipulator_set_color(
+        const TranformAxisManipulator *axis, const RegionView3D *rv3d, const float mat[4][4])
 {
 	/* alpha values for normal/highlighted states */
 	const float alpha = 0.6f;
@@ -523,14 +548,29 @@ static void transform_axis_manipulator_set_color(TranformAxisManipulator *axis, 
 	WM_manipulator_set_colors(axis->manipulator, col, col_hi);
 }
 
+static void manipulator_arrow_draw_prepare(
+        const bContext *UNUSED(C), const TransformManipulatorsInfo *info, const TranformAxisManipulator *axis)
+{
+	const int axis_idx_norm = transform_axis_index_normalize(axis->index);
+
+	WM_arrow_manipulator_set_direction(axis->manipulator, info->mat[axis_idx_norm]);
+}
+
+static void manipulator_view_dial_draw_prepare(
+        const bContext *C, const TransformManipulatorsInfo *UNUSED(info), const TranformAxisManipulator *axis)
+{
+	RegionView3D *rv3d = CTX_wm_region_view3d(C);
+	WM_dial_manipulator_set_up_vector(axis->manipulator, rv3d->viewinv[2]);
+}
+
 /**
  * Some transform orientation modes require updating the transform manipulators rotation matrix every redraw.
  * \return If manipulators need to update their rotation.
  */
-static bool transform_manipulators_draw_rotmatrix_get(const bContext *C, const View3D *v3d, float r_mat[3][3])
+static bool transform_manipulators_draw_rotmatrix_get(const bContext *C, const View3D *v3d, float r_rot[3][3])
 {
 	if (v3d->twmode == V3D_MANIP_VIEW) {
-		ED_getTransformOrientationMatrix(C, v3d->twmode, v3d->around, r_mat);
+		ED_getTransformOrientationMatrix(C, v3d->twmode, v3d->around, r_rot);
 		return true;
 	}
 
@@ -544,19 +584,15 @@ static void transform_manipulatorgroup_draw_prepare(const bContext *C, wmManipul
 	TransformManipulatorsInfo *info = mgroup->customdata;
 
 	float rot[3][3];
-	const bool update_rot = transform_manipulators_draw_rotmatrix_get(C, v3d, rot);
+	if (transform_manipulators_draw_rotmatrix_get(C, v3d, rot)) {
+		copy_m4_m3(info->mat, rot);
+	}
 
-	TranformAxisManipulator *axis;
 	for (int i = 0; i < MAN_AXIS_LAST && info->axes[i].name; i++) {
-		axis = &info->axes[i];
-
-		if (update_rot) {
-			WM_arrow_manipulator_set_direction(axis->manipulator, rot[i]);
+		if (info->axes[i].draw_prepare) {
+			info->axes[i].draw_prepare(C, info, &info->axes[i]);
 		}
-		transform_axis_manipulator_set_color(axis, rv3d, info->mat);
-		if (axis->draw_prepare) {
-			axis->draw_prepare(C, info, axis);
-		}
+		transform_axis_manipulator_set_color(&info->axes[i], rv3d, info->mat);
 	}
 }
 
