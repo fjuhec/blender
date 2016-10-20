@@ -39,13 +39,25 @@ struct wmManipulatorGroup;
 /* -------------------------------------------------------------------- */
 /* 3D Arrow Manipulator */
 
-
 enum {
 	MANIPULATOR_ARROW_STYLE_NORMAL        =  (1 << 0),
 };
 
 struct wmManipulator *WM_arrow_manipulator_new(struct wmManipulatorGroup *mgroup, const char *name);
 void WM_arrow_manipulator_set_direction(struct wmManipulator *manipulator, const float direction[3]);
+
+
+/* -------------------------------------------------------------------- */
+/* Dial Manipulator */
+
+enum {
+	MANIPULATOR_DIAL_STYLE_RING = 0,
+	MANIPULATOR_DIAL_STYLE_RING_CLIPPED = 1,
+	MANIPULATOR_DIAL_STYLE_RING_FILLED = 2,
+};
+
+struct wmManipulator *WM_dial_manipulator_new(struct wmManipulatorGroup *mgroup, const char *name, const int style);
+void WM_dial_manipulator_set_up_vector(struct wmManipulator *manipulator, const float direction[3]);
 
 #endif  /* __WM_MANIPULATOR_LIBRARY_H__ */
 

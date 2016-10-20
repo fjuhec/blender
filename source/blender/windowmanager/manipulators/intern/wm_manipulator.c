@@ -69,7 +69,7 @@ wmManipulator *WM_manipulator_new(
 	fix_linking_manipulator_arrow();
 //	fix_linking_manipulator_arrow2d();
 //	fix_linking_manipulator_cage();
-//	fix_linking_manipulator_dial();
+	fix_linking_manipulator_dial();
 //	fix_linking_manipulator_facemap();
 //	fix_linking_manipulator_primitive();
 
