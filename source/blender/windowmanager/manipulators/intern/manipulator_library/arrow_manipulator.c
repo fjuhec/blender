@@ -32,12 +32,15 @@
 #include "DNA_defs.h"
 #include "DNA_listBase.h"
 #include "DNA_userdef_types.h"
+#include "DNA_windowmanager_types.h"
 
 #include "GPU_select.h"
 
 #include "MEM_guardedalloc.h"
 
 #include "RNA_types.h"
+
+#include "WM_types.h"
 
 #include "manipulator_library_intern.h"
 #include "WM_manipulator_types.h"
@@ -98,14 +101,13 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const bool UNUSED(sel
 	glPopMatrix();
 }
 
-static void arrow_get_matrix(const ArrowManipulator *arrow, float r_mat[4][4])
+static void arrow_get_matrix(const ArrowManipulator *arrow, float r_rot[3][3], float r_mat[4][4])
 {
 	const float up[3] = {0.0f, 0.0f, 1.0f};
-	float rot[3][3];
 
-	rotation_between_vecs_to_mat3(rot, up, arrow->direction);
+	rotation_between_vecs_to_mat3(r_rot, up, arrow->direction);
 
-	copy_m4_m3(r_mat, rot);
+	copy_m4_m3(r_mat, r_rot);
 	copy_v3_v3(r_mat[3], arrow->manipulator.origin);
 	mul_mat3_m4_fl(r_mat, arrow->manipulator.scale);
 }
@@ -113,10 +115,11 @@ static void arrow_get_matrix(const ArrowManipulator *arrow, float r_mat[4][4])
 static void arrow_draw_intern(const ArrowManipulator *arrow, const bool select, const bool highlight)
 {
 	float col[4];
+	float rot[3][3];
 	float mat[4][4];
 
 	manipulator_color_get(&arrow->manipulator, highlight, col);
-	arrow_get_matrix(arrow, mat);
+	arrow_get_matrix(arrow, rot, mat);
 
 	glPushMatrix();
 	glMultMatrixf(mat);
@@ -128,6 +131,25 @@ static void arrow_draw_intern(const ArrowManipulator *arrow, const bool select, 
 	glDisable(GL_BLEND);
 
 	glPopMatrix();
+
+	if (arrow->manipulator.interaction_data) {
+		ManipulatorInteraction *inter = arrow->manipulator.interaction_data;
+
+		copy_m4_m3(mat, rot);
+		copy_v3_v3(mat[3], inter->init_origin);
+		mul_mat3_m4_fl(mat, inter->init_scale);
+
+		glPushMatrix();
+		glMultMatrixf(mat);
+
+		glEnable(GL_BLEND);
+		glColor4f(0.5f, 0.5f, 0.5f, 0.5f);
+		glTranslate3fv(arrow->manipulator.offset);
+		arrow_draw_geom(arrow, select);
+		glDisable(GL_BLEND);
+
+		glPopMatrix();
+	}
 }
 
 static void arrow_manipulator_render_3d_intersect(
@@ -143,6 +165,19 @@ static void arrow_manipulator_draw(const bContext *UNUSED(C), wmManipulator *man
 	arrow_draw_intern((ArrowManipulator *)manipulator, false, (manipulator->state & WM_MANIPULATOR_HIGHLIGHT) != 0);
 }
 
+static int manipulator_arrow_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(event), wmManipulator *manipulator)
+{
+	ManipulatorInteraction *inter = MEM_callocN(sizeof(ManipulatorInteraction), __func__);
+
+	inter->init_scale = manipulator->scale;
+//	manipulator_arrow_get_final_pos(manipulator, inter->init_origin);
+	copy_v3_v3(inter->init_origin, manipulator->origin);
+
+	manipulator->interaction_data = inter;
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
 /* -------------------------------------------------------------------- */
 /** \name Arrow Manipulator API
  *
@@ -154,6 +189,8 @@ wmManipulator *WM_arrow_manipulator_new(wmManipulatorGroup *mgroup, const char *
 
 	arrow->manipulator.draw = arrow_manipulator_draw;
 	arrow->manipulator.render_3d_intersection = arrow_manipulator_render_3d_intersect;
+	arrow->manipulator.invoke = manipulator_arrow_invoke;
+	arrow->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
 
 	wm_manipulator_register(mgroup, &arrow->manipulator, idname);
 

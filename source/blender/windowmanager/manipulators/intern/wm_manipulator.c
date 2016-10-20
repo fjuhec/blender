@@ -207,6 +207,13 @@ PointerRNA *WM_manipulator_set_operator(wmManipulator *manipulator, const char *
 	return NULL;
 }
 
+void WM_manipulator_set_custom_handler(
+        wmManipulator *manipulator,
+        int (*handler)(bContext *, const wmEvent *, wmManipulator *, const int))
+{
+	manipulator->handler = handler;
+}
+
 /**
  * \brief Set manipulator select callback.
  *

@@ -631,7 +631,7 @@ void wm_manipulatormap_set_active_manipulator(
 
 			if (ot) {
 				/* first activate the manipulator itself */
-				if (manipulator->invoke && manipulator->handler) {
+				if (manipulator->invoke) {
 					manipulator->invoke(C, event, manipulator);
 				}
 
@@ -655,7 +655,7 @@ void wm_manipulatormap_set_active_manipulator(
 			}
 		}
 		else {
-			if (manipulator->invoke && manipulator->handler) {
+			if (manipulator->invoke) {
 				manipulator->invoke(C, event, manipulator);
 			}
 		}

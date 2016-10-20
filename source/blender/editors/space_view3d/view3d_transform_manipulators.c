@@ -164,6 +164,23 @@ static void transform_manipulators_info_free(void *customdata)
 /* init callback and helpers */
 
 /**
+ * Custom handler for manipulator widgets
+ */
+static int transform_axis_manipulator_handler(
+        bContext *C, const wmEvent *UNUSED(event), wmManipulator *widget, const int UNUSED(flag))
+{
+	View3D *v3d = CTX_wm_view3d(C);
+	float origin[3];
+
+	/* update origin */
+	if (calculateTransformCenter(C, v3d->around, origin, NULL)) {
+		WM_manipulator_set_origin(widget, origin);
+	}
+
+	return OPERATOR_PASS_THROUGH;
+}
+
+/**
  * Create and initialize a manipulator for \a axis.
  */
 static void transform_axis_manipulator_init(TranformAxisManipulator *axis, wmManipulatorGroup *mgroup)
@@ -178,6 +195,7 @@ static void transform_axis_manipulator_init(TranformAxisManipulator *axis, wmMan
 	}
 
 	PointerRNA *ptr = WM_manipulator_set_operator(axis->manipulator, axis->op_name);
+	WM_manipulator_set_custom_handler(axis->manipulator, transform_axis_manipulator_handler);
 
 	if (RNA_struct_find_property(ptr, "constraint_axis")) {
 		RNA_boolean_set_array(ptr, "constraint_axis", axis->constraint);
