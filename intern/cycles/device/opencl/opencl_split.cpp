@@ -23,6 +23,8 @@
 #include "kernel_types.h"
 #include "kernel_split_data.h"
 
+#include "device_split_kernel.h"
+
 #include "util_md5.h"
 #include "util_path.h"
 #include "util_time.h"
@@ -68,31 +70,15 @@ public:
 class OpenCLDeviceSplitKernel : public OpenCLDeviceBase
 {
 public:
-	/* Kernel declaration. */
+	DeviceSplitKernel *split_kernel;
+
 	OpenCLProgram program_data_init;
-	SplitKernelFunction* program_scene_intersect;
-	SplitKernelFunction* program_lamp_emission;
-	SplitKernelFunction* program_queue_enqueue;
-	SplitKernelFunction* program_background_buffer_update;
-	SplitKernelFunction* program_shader_eval;
-	SplitKernelFunction* program_holdout_emission_blurring_pathtermination_ao;
-	SplitKernelFunction* program_direct_lighting;
-	SplitKernelFunction* program_shadow_blocked;
-	SplitKernelFunction* program_next_iteration_setup;
-	SplitKernelFunction* program_sum_all_radiance;
 
 	/* Global memory variables [porting]; These memory is used for
 	 * co-operation between different kernels; Data written by one
 	 * kernel will be available to another kernel via this global
 	 * memory.
 	 */
-	device_memory kgbuffer;
-	device_memory split_data;
-	device_vector<uchar> ray_state;
-	device_memory queue_index; /* Array of size num_queues * sizeof(int) that tracks the size of each queue. */
-
-	/* Flag to make sceneintersect and lampemission kernel use queues. */
-	device_memory use_queues_flag;
 
 	/* Amount of memory in output buffer associated with one pixel/thread. */
 	size_t per_thread_output_buffer_size;
@@ -100,35 +86,18 @@ public:
 	/* Total allocatable available device memory. */
 	size_t total_allocatable_memory;
 
-	/* Number of path-iterations to be done in one shot. */
-	unsigned int PathIteration_times;
-
-#ifdef __WORK_STEALING__
-	/* Work pool with respect to each work group. */
-	device_memory work_pool_wgs;
-
-	/* Denotes the maximum work groups possible w.r.t. current tile size. */
-	unsigned int max_work_groups;
-#endif
-
 	/* clos_max value for which the kernels have been loaded currently. */
 	int current_max_closure;
-
-	/* Marked True in constructor and marked false at the end of path_trace(). */
-	bool first_tile;
 
 	OpenCLDeviceSplitKernel(DeviceInfo& info, Stats &stats, bool background_)
 	: OpenCLDeviceBase(info, stats, background_)
 	{
+		split_kernel = new DeviceSplitKernel(this);
+
 		background = background_;
 
 		per_thread_output_buffer_size = 0;
-		PathIteration_times = PATH_ITER_INC_FACTOR;
-#ifdef __WORK_STEALING__
-		max_work_groups = 0;
-#endif
 		current_max_closure = -1;
-		first_tile = true;
 
 		/* Get device's maximum memory that can be allocated. */
 		ciErr = clGetDeviceInfo(cdDevice,
@@ -165,7 +134,7 @@ public:
 	}
 
 	/* Returns size of KernelGlobals structure associated with OpenCL. */
-	size_t get_KernelGlobals_size()
+	size_t sizeof_KernelGlobals()
 	{
 		/* Copy dummy KernelGlobals related to OpenCL from kernel_globals.h to
 		 * fetch its size.
@@ -218,28 +187,9 @@ public:
 		program_data_init.add_kernel(ustring("path_trace_data_init"));
 		programs.push_back(&program_data_init);
 
-#define LOAD_KERNEL(name) \
-			program_##name = get_split_kernel_function(#name, requested_features); \
-			if(!program_##name) { \
-				return false;\
-			}
-
-		LOAD_KERNEL(scene_intersect);
-		LOAD_KERNEL(lamp_emission);
-		LOAD_KERNEL(queue_enqueue);
-		LOAD_KERNEL(background_buffer_update);
-		LOAD_KERNEL(shader_eval);
-		LOAD_KERNEL(holdout_emission_blurring_pathtermination_ao);
-		LOAD_KERNEL(direct_lighting);
-		LOAD_KERNEL(shadow_blocked);
-		LOAD_KERNEL(next_iteration_setup);
-		LOAD_KERNEL(sum_all_radiance);
-
-#undef LOAD_KERNEL
-
 		current_max_closure = requested_features.max_closure;
 
-		return true;
+		return split_kernel->load_kernels(requested_features);
 	}
 
 	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name,
@@ -268,26 +218,8 @@ public:
 
 		/* Release kernels */
 		program_data_init.release();
-		delete program_scene_intersect;
-		delete program_lamp_emission;
-		delete program_queue_enqueue;
-		delete program_background_buffer_update;
-		delete program_shader_eval;
-		delete program_holdout_emission_blurring_pathtermination_ao;
-		delete program_direct_lighting;
-		delete program_shadow_blocked;
-		delete program_next_iteration_setup;
-		delete program_sum_all_radiance;
 
-		/* Release global memory */
-		mem_free(kgbuffer);
-		mem_free(split_data);
-		mem_free(ray_state);
-		mem_free(use_queues_flag);
-		mem_free(queue_index);
-#ifdef __WORK_STEALING__
-		mem_free(work_pool_wgs);
-#endif
+		delete split_kernel;
 	}
 
 	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
@@ -300,9 +232,7 @@ public:
 	                                            device_memory& ray_state,
 	                                            device_memory& queue_index,
 	                                            device_memory& use_queues_flag,
-#ifdef __WORK_STEALING__
 	                                            device_memory& work_pool_wgs
-#endif
 	                                            )
 	{
 		cl_int dQueue_size = dim.global_size[0] * dim.global_size[1];
@@ -383,201 +313,11 @@ public:
 	                RenderTile& rtile,
 	                int2 max_render_feasible_tile_size)
 	{
-		/* cast arguments to cl types */
-		device_memory& d_data = *const_mem_map["__data"];
-
-		/* Make sure that set render feasible tile size is a multiple of local
-		 * work size dimensions.
-		 */
-		assert(max_render_feasible_tile_size.x % SPLIT_KERNEL_LOCAL_SIZE_X == 0);
-		assert(max_render_feasible_tile_size.y % SPLIT_KERNEL_LOCAL_SIZE_Y == 0);
-
-		size_t global_size[2];
-		size_t local_size[2] = {SPLIT_KERNEL_LOCAL_SIZE_X,
-		                        SPLIT_KERNEL_LOCAL_SIZE_Y};
-
-		int d_w = rtile.w;
-		int d_h = rtile.h;
-
-#ifdef __WORK_STEALING__
-		global_size[0] = (((d_w - 1) / local_size[0]) + 1) * local_size[0];
-		global_size[1] = (((d_h - 1) / local_size[1]) + 1) * local_size[1];
-		unsigned int num_parallel_samples = 1;
-#else
-		global_size[1] = (((d_h - 1) / local_size[1]) + 1) * local_size[1];
-		unsigned int num_threads = max_render_feasible_tile_size.x *
-		                           max_render_feasible_tile_size.y;
-		unsigned int num_tile_columns_possible = num_threads / global_size[1];
-		/* Estimate number of parallel samples that can be
-		 * processed in parallel.
-		 */
-		unsigned int num_parallel_samples = min(num_tile_columns_possible / d_w,
-		                                        rtile.num_samples);
-		/* Wavefront size in AMD is 64.
-		 * TODO(sergey): What about other platforms?
-		 */
-		if(num_parallel_samples >= 64) {
-			/* TODO(sergey): Could use generic round-up here. */
-			num_parallel_samples = (num_parallel_samples / 64) * 64;
-		}
-		assert(num_parallel_samples != 0);
-
-		global_size[0] = d_w * num_parallel_samples;
-#endif  /* __WORK_STEALING__ */
-
-		assert(global_size[0] * global_size[1] <=
-		       max_render_feasible_tile_size.x * max_render_feasible_tile_size.y);
-
-		int num_global_elements = max_render_feasible_tile_size.x *
-		                          max_render_feasible_tile_size.y;
-
-		/* Allocate all required global memory once. */
-		if(first_tile) {
-#ifdef __WORK_STEALING__
-			/* Calculate max groups */
-			size_t max_global_size[2];
-			size_t tile_x = max_render_feasible_tile_size.x;
-			size_t tile_y = max_render_feasible_tile_size.y;
-			max_global_size[0] = (((tile_x - 1) / local_size[0]) + 1) * local_size[0];
-			max_global_size[1] = (((tile_y - 1) / local_size[1]) + 1) * local_size[1];
-			max_work_groups = (max_global_size[0] * max_global_size[1]) /
-			                  (local_size[0] * local_size[1]);
-
-			/* Allocate work_pool_wgs memory. */
-			mem_alloc(work_pool_wgs, max_work_groups * sizeof(unsigned int));
-#endif  /* __WORK_STEALING__ */
-
-			mem_alloc(queue_index, NUM_QUEUES * sizeof(int));
-			mem_alloc(use_queues_flag, sizeof(char));
-			mem_alloc(kgbuffer, get_KernelGlobals_size());
-
-			ray_state.resize(num_global_elements);
-			mem_alloc(ray_state, MEM_READ_WRITE);
-
-			mem_alloc(split_data, split_data_buffer_size(num_global_elements,
-			                                             current_max_closure,
-			                                             per_thread_output_buffer_size));
-		}
-
-		if(!enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
-	                                       rtile,
-	                                       num_global_elements,
-	                                       num_parallel_samples,
-	                                       kgbuffer,
-	                                       d_data,
-	                                       split_data,
-	                                       ray_state,
-	                                       queue_index,
-	                                       use_queues_flag,
-#ifdef __WORK_STEALING__
-	                                       work_pool_wgs
-#endif
-		                                   ))
-		{
-			return;
-		}
-
-#define ENQUEUE_SPLIT_KERNEL(name, global_size, local_size) \
-			if(!program_##name->enqueue(KernelDimensions(global_size, local_size), kgbuffer, d_data)) { \
-				return; \
-			}
-
-		/* Record number of time host intervention has been made */
-		unsigned int numHostIntervention = 0;
-		unsigned int numNextPathIterTimes = PathIteration_times;
-		bool canceled = false;
-
-		bool activeRaysAvailable = true;
-		while(activeRaysAvailable) {
-			/* Twice the global work size of other kernels for
-			 * ckPathTraceKernel_shadow_blocked_direct_lighting. */
-			size_t global_size_shadow_blocked[2];
-			global_size_shadow_blocked[0] = global_size[0] * 2;
-			global_size_shadow_blocked[1] = global_size[1];
-
-			/* Do path-iteration in host [Enqueue Path-iteration kernels. */
-			for(int PathIter = 0; PathIter < PathIteration_times; PathIter++) {
-				ENQUEUE_SPLIT_KERNEL(scene_intersect, global_size, local_size);
-				ENQUEUE_SPLIT_KERNEL(lamp_emission, global_size, local_size);
-				ENQUEUE_SPLIT_KERNEL(queue_enqueue, global_size, local_size);
-				ENQUEUE_SPLIT_KERNEL(background_buffer_update, global_size, local_size);
-				ENQUEUE_SPLIT_KERNEL(shader_eval, global_size, local_size);
-				ENQUEUE_SPLIT_KERNEL(holdout_emission_blurring_pathtermination_ao, global_size, local_size);
-				ENQUEUE_SPLIT_KERNEL(direct_lighting, global_size, local_size);
-				ENQUEUE_SPLIT_KERNEL(shadow_blocked, global_size_shadow_blocked, local_size);
-				ENQUEUE_SPLIT_KERNEL(next_iteration_setup, global_size, local_size);
-
-				if(task->get_cancel()) {
-					canceled = true;
-					break;
-				}
-			}
-
-			/* Decide if we should exit path-iteration in host. */
-			mem_copy_from(ray_state, 0, global_size[0] * global_size[1] * sizeof(char), 1, 1);
-
-			activeRaysAvailable = false;
-
-			for(int rayStateIter = 0;
-			    rayStateIter < global_size[0] * global_size[1];
-			    ++rayStateIter)
-			{
-				if(int8_t(ray_state.get_data()[rayStateIter]) != RAY_INACTIVE) {
-					/* Not all rays are RAY_INACTIVE. */
-					activeRaysAvailable = true;
-					break;
-				}
-			}
-
-			if(activeRaysAvailable) {
-				numHostIntervention++;
-				PathIteration_times = PATH_ITER_INC_FACTOR;
-				/* Host intervention done before all rays become RAY_INACTIVE;
-				 * Set do more initial iterations for the next tile.
-				 */
-				numNextPathIterTimes += PATH_ITER_INC_FACTOR;
-			}
-
-			if(task->get_cancel()) {
-				canceled = true;
-				break;
-			}
-		}
-
-		/* Execute SumALLRadiance kernel to accumulate radiance calculated in
-		 * per_sample_output_buffers into RenderTile's output buffer.
-		 */
-		if(!canceled) {
-			size_t sum_all_radiance_local_size[2] = {16, 16};
-			size_t sum_all_radiance_global_size[2];
-			sum_all_radiance_global_size[0] =
-				(((d_w - 1) / sum_all_radiance_local_size[0]) + 1) *
-				sum_all_radiance_local_size[0];
-			sum_all_radiance_global_size[1] =
-				(((d_h - 1) / sum_all_radiance_local_size[1]) + 1) *
-				sum_all_radiance_local_size[1];
-			ENQUEUE_SPLIT_KERNEL(sum_all_radiance,
-			                     sum_all_radiance_global_size,
-			                     sum_all_radiance_local_size);
-		}
-
-#undef ENQUEUE_SPLIT_KERNEL
-
-		if(numHostIntervention == 0) {
-			/* This means that we are executing kernel more than required
-			 * Must avoid this for the next sample/tile.
-			 */
-			PathIteration_times = ((numNextPathIterTimes - PATH_ITER_INC_FACTOR) <= 0) ?
-			PATH_ITER_INC_FACTOR : numNextPathIterTimes - PATH_ITER_INC_FACTOR;
-		}
-		else {
-			/* Number of path-iterations done for this tile is set as
-			 * Initial path-iteration times for the next tile
-			 */
-			PathIteration_times = numNextPathIterTimes;
-		}
-
-		first_tile = false;
+		split_kernel->path_trace(task,
+		                         rtile,
+		                         max_render_feasible_tile_size,
+		                         per_thread_output_buffer_size,
+		                         *const_mem_map["__data"]);
 	}
 
 	/* Calculates the amount of memory that has to be always
@@ -591,7 +331,7 @@ public:
 		size_t total_invariable_mem_allocated = 0;
 		size_t KernelGlobals_size = 0;
 
-		KernelGlobals_size = get_KernelGlobals_size();
+		KernelGlobals_size = sizeof_KernelGlobals();
 
 		total_invariable_mem_allocated += KernelGlobals_size; /* KernelGlobals size */
 		total_invariable_mem_allocated += NUM_QUEUES * sizeof(unsigned int); /* Queue index size */

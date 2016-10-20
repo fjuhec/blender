@@ -19,6 +19,7 @@
 #include "clew.h"
 
 #include "device.h"
+#include "device_split_kernel.h"
 
 #include "util_map.h"
 #include "util_param.h"
@@ -27,28 +28,6 @@
 CCL_NAMESPACE_BEGIN
 
 #define CL_MEM_PTR(p) ((cl_mem)(uintptr_t)(p))
-
-/* Macro declarations used with split kernel */
-
-/* Macro to enable/disable work-stealing */
-#define __WORK_STEALING__
-
-#define SPLIT_KERNEL_LOCAL_SIZE_X 64
-#define SPLIT_KERNEL_LOCAL_SIZE_Y 1
-
-/* This value may be tuned according to the scene we are rendering.
- *
- * Modifying PATH_ITER_INC_FACTOR value proportional to number of expected
- * ray-bounces will improve performance.
- */
-#define PATH_ITER_INC_FACTOR 8
-
-/* When allocate global memory in chunks. We may not be able to
- * allocate exactly "CL_DEVICE_MAX_MEM_ALLOC_SIZE" bytes in chunks;
- * Since some bytes may be needed for aligning chunks of memory;
- * This is the amount of memory that we dedicate for that purpose.
- */
-#define DATA_ALLOCATION_MEM_FACTOR 5000000 //5MB
 
 struct OpenCLPlatformDevice {
 	OpenCLPlatformDevice(cl_platform_id platform_id,

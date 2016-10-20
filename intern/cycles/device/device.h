@@ -305,19 +305,23 @@ public:
 	                                            device_memory& /*split_data*/,
 	                                            device_memory& /*ray_state*/,
 	                                            device_memory& /*queue_index*/,
-	                                            device_memory& /*use_queues_flag*/
-#ifdef __WORK_STEALING__
-	                                            , device_memory& /*work_pool_wgs*/
-#endif
-	                                            )
+	                                            device_memory& /*use_queues_flag*/,
+	                                            device_memory& /*work_pool_wgs*/)
 	{
 		assert(!"not implemented for this device");
 		return false;
 	}
+
 	virtual SplitKernelFunction* get_split_kernel_function(string /*kernel_name*/, const DeviceRequestedFeatures&)
 	{
 		assert(!"not implemented for this device");
 		return NULL;
+	}
+
+	virtual size_t sizeof_KernelGlobals()
+	{
+		assert(!"not implemented for this device");
+		return 0;
 	}
 
 	/* tasks */
