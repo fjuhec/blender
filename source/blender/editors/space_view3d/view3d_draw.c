@@ -56,6 +56,8 @@
 #include "GPU_immediate.h"
 #include "GPU_viewport.h"
 
+#include "MEM_guardedalloc.h"
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 
@@ -74,9 +76,10 @@ typedef struct DrawData {
 	bool render_border;
 	bool clip_border;
 	bool is_render;
+	GPUViewport *viewport;
 } DrawData;
 
-static void view3d_draw_data_init(const bContext *C, ARegion *ar, DrawData *draw_data)
+static void view3d_draw_data_init(const bContext *C, ARegion *ar, RegionView3D *rv3d, DrawData *draw_data)
 {
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
@@ -85,6 +88,8 @@ static void view3d_draw_data_init(const bContext *C, ARegion *ar, DrawData *draw
 
 	draw_data->render_border = ED_view3d_calc_render_border(scene, v3d, ar, &draw_data->border_rect);
 	draw_data->clip_border = (draw_data->render_border && !BLI_rcti_compare(&ar->drawrct, &draw_data->border_rect));
+
+	draw_data->viewport = rv3d->viewport;
 }
 
 /* ******************** general functions ***************** */
@@ -264,6 +269,70 @@ static void view3d_stereo3d_setup(Scene *scene, View3D *v3d, ARegion *ar)
 
 		v3d->camera = view_ob;
 		BLI_unlock_thread(LOCK_VIEW3D);
+	}
+}
+
+/* ******************** debug ***************** */
+
+static void view3d_draw_debug_store_depth(ARegion *ar, DrawData *draw_data)
+{
+	GPUViewport *viewport = draw_data->viewport;
+	GLint viewport_size[4];
+	glGetIntegerv(GL_VIEWPORT, viewport_size);
+
+	const int x = viewport_size[0];
+	const int y = viewport_size[1];
+	const int w = viewport_size[2];
+	const int h = viewport_size[3];
+
+	if (GPU_viewport_debug_depth_is_valid(viewport)) {
+		if ((GPU_viewport_debug_depth_width(viewport) != w) ||
+			(GPU_viewport_debug_depth_height(viewport) != h))
+		{
+			GPU_viewport_debug_depth_free(viewport);
+		}
+	}
+
+	if (!GPU_viewport_debug_depth_is_valid(viewport)) {
+		char error[256];
+		if (!GPU_viewport_debug_depth_create(viewport, w, h, 0, error)) {
+			fprintf(stderr, "Failed to create depth buffer for debug: %s\n", error);
+			return;
+		}
+	}
+
+	GPU_viewport_debug_depth_store(viewport, x, y);
+}
+
+static void view3d_draw_debug_post_solid(const bContext *C, ARegion *ar, DrawData *draw_data)
+{
+	View3D *v3d = CTX_wm_view3d(C);
+
+	if ((v3d->tmp_compat_flag & V3D_DEBUG_SHOW_SCENE_DEPTH) != 0) {
+		view3d_draw_debug_store_depth(ar, draw_data);
+	}
+}
+
+static void view3d_draw_debug(const bContext *C, ARegion *ar, DrawData *draw_data)
+{
+	View3D *v3d = CTX_wm_view3d(C);
+
+	if ((v3d->tmp_compat_flag & V3D_DEBUG_SHOW_COMBINED_DEPTH) != 0) {
+		/* store */
+		view3d_draw_debug_store_depth(ar, draw_data);
+	}
+
+	if (((v3d->tmp_compat_flag & V3D_DEBUG_SHOW_SCENE_DEPTH) != 0) ||
+		((v3d->tmp_compat_flag & V3D_DEBUG_SHOW_COMBINED_DEPTH) != 0))
+	{
+		/* draw */
+		if (GPU_viewport_debug_depth_is_valid(draw_data->viewport)) {
+			GPU_viewport_debug_depth_draw(draw_data->viewport, v3d->debug.znear, v3d->debug.zfar);
+		}
+	}
+	else {
+		/* cleanup */
+		GPU_viewport_debug_depth_free(draw_data->viewport);
 	}
 }
 
@@ -1305,8 +1374,8 @@ static void view3d_draw_grid(const bContext *C, ARegion *ar)
 /* ******************** non-meshes ***************** */
 
 static void view3d_draw_non_mesh(
-Object *ob, Base *base, View3D *v3d,
-RegionView3D *rv3d, const unsigned char color[4])
+Scene *scene, Object *ob, Base *base, View3D *v3d,
+RegionView3D *rv3d, const bool is_boundingbox, const unsigned char color[4])
 {
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
@@ -1318,15 +1387,40 @@ RegionView3D *rv3d, const unsigned char color[4])
 	ED_view3d_init_mats_rv3d_gl(ob, rv3d);
 
 	switch (ob->type) {
+		case OB_MESH:
+		case OB_FONT:
+		case OB_CURVE:
+		case OB_SURF:
+		case OB_MBALL:
+			if (is_boundingbox) {
+				draw_bounding_volume(ob, ob->boundtype);
+			}
+			break;
 		case OB_EMPTY:
-			drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype);
+			drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, color);
 			break;
 		case OB_LAMP:
-			drawlamp(v3d, rv3d, base, OB_SOLID, DRAW_CONSTCOLOR, color, false);
+			drawlamp(v3d, rv3d, base, OB_SOLID, DRAW_CONSTCOLOR, color, ob == OBACT);
+			break;
+		case OB_CAMERA:
+			drawcamera(scene, v3d, rv3d, base, DRAW_CONSTCOLOR, color);
+			break;
+		case OB_SPEAKER:
+			drawspeaker(color);
+			break;
+		case OB_LATTICE:
+			/* TODO */
+			break;
+		case OB_ARMATURE:
+			/* TODO */
 			break;
 		default:
 		/* TODO Viewport: handle the other cases*/
 			break;
+	}
+
+	if (ob->rigidbody_object) {
+		draw_rigidbody_shape(ob);
 	}
 
 	ED_view3d_clear_mats_rv3d(rv3d);
@@ -1457,6 +1551,9 @@ static void view3d_draw_solid_plates(const bContext *C, ARegion *ar, DrawData *d
 	if (draw_data->is_render) {
 		view3d_draw_render_draw(C, scene, ar, v3d, draw_data->clip_border, &draw_data->border_rect);
 	}
+
+	/* debug */
+	view3d_draw_debug_post_solid(C, ar, draw_data);
 }
 
 /**
@@ -1481,12 +1578,10 @@ static void view3d_draw_non_meshes(const bContext *C, ARegion *ar)
 	Object *ob_act = CTX_data_active_object(C);
 	Base *base;
 
-	unsigned char *color, *color_prev = NULL;
-	unsigned char color_active[4], color_select[4], color_normal[4];
+	bool is_boundingbox = ((v3d->drawtype == OB_BOUNDBOX) ||
+	                        ((v3d->drawtype == OB_RENDER) && (v3d->prev_drawtype == OB_BOUNDBOX)));
 
-	UI_GetThemeColor4ubv(TH_ACTIVE, color_active);
-	UI_GetThemeColor4ubv(TH_SELECT, color_select);
-	UI_GetThemeColor4ubv(TH_WIRE, color_normal);
+	unsigned char ob_wire_col[4];            /* dont initialize this */
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_FALSE);  /* disable write in zbuffer */
@@ -1499,19 +1594,8 @@ static void view3d_draw_non_meshes(const bContext *C, ARegion *ar)
 		if (v3d->lay & base->lay) {
 			Object *ob = base->object;
 
-			if (ob == ob_act)
-				color = color_active;
-			else if (ob->flag & SELECT)
-				color = color_select;
-			else
-				color = color_normal;
-
-			if (color != color_prev) {
-				glColor4ubv(color);
-				color_prev = color;
-			}
-
-			view3d_draw_non_mesh(ob, base, v3d, rv3d, color);
+			draw_object_wire_color(scene, base, ob_wire_col);
+			view3d_draw_non_mesh(scene, ob, base, v3d, rv3d, is_boundingbox, ob_wire_col);
 		}
 	}
 
@@ -1598,6 +1682,7 @@ static void view3d_draw_view(const bContext *C, ARegion *ar, DrawData *draw_data
 	view3d_draw_reference_images(C);
 	view3d_draw_manipulators(C, ar);
 	view3d_draw_region_info(C, ar);
+	view3d_draw_debug(C, ar, draw_data);
 }
 
 void view3d_main_region_draw(const bContext *C, ARegion *ar)
@@ -1617,7 +1702,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	 * before we even call the drawing routine, but let's move on for now (dfelinto)
 	 * but this is a provisory way to start seeing things in the viewport */
 	DrawData draw_data;
-	view3d_draw_data_init(C, ar, &draw_data);
+	view3d_draw_data_init(C, ar, rv3d, &draw_data);
 	view3d_draw_view(C, ar, &draw_data);
 
 	v3d->flag |= V3D_INVALID_BACKBUF;

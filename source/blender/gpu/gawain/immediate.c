@@ -13,6 +13,10 @@
 #include "attrib_binding.h"
 #include <string.h>
 
+// necessary functions from matrix API
+extern void gpuBindMatrices(GLuint program);
+extern bool gpuMatricesDirty(void);
+
 typedef struct {
 	// TODO: organize this struct by frequency of change (run-time)
 
@@ -116,6 +120,7 @@ void immBindProgram(GLuint program)
 	{
 #if TRUST_NO_ONE
 	assert(imm.bound_program == 0);
+	assert(glIsProgram(program));
 #endif
 
 	if (!imm.vertex_format.packed)
@@ -124,6 +129,8 @@ void immBindProgram(GLuint program)
 	glUseProgram(program);
 	get_attrib_locations(&imm.vertex_format, &imm.attrib_binding, program);
 	imm.bound_program = program;
+
+	gpuBindMatrices(program);
 	}
 
 void immUnbindProgram()
@@ -326,6 +333,9 @@ static void immDrawSetup(void)
 				glVertexAttribIPointer(loc, a->comp_ct, a->comp_type, stride, pointer);
 			}
 		}
+
+	if (gpuMatricesDirty())
+		gpuBindMatrices(imm.bound_program);
 	}
 
 void immEnd()
@@ -734,6 +744,11 @@ void immUniformColor4f(float r, float g, float b, float a)
 void immUniformColor4fv(const float rgba[4])
 	{
 	immUniform4fv("color", rgba);
+	}
+
+void immUniformColor3f(float r, float g, float b)
+	{
+	immUniform4f("color", r, g, b, 1.0f);
 	}
 
 void immUniformColor3fv(const float rgb[3])
