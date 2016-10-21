@@ -30,24 +30,24 @@
 /* **************** OUTPUT ******************** */
 
 static bNodeSocketTemplate sh_node_bsdf_disney_in[] = {
-	{	SOCK_RGBA, 1, N_("BaseColor"),		        0.64555527f, 0.41514809f, 0.01698805f, 1.0f, 0.0f, 1.0f},
-	{	SOCK_RGBA, 1, N_("SubsurfaceColor"),		0.64555527f, 0.41514809f, 0.01698805f, 1.0f, 0.0f, 1.0f},
+	{	SOCK_RGBA, 1, N_("Base Color"),		        0.64555527f, 0.41514809f, 0.01698805f, 1.0f, 0.0f, 1.0f},
+	{	SOCK_RGBA, 1, N_("Subsurface Color"),		0.64555527f, 0.41514809f, 0.01698805f, 1.0f, 0.0f, 1.0f},
 	{	SOCK_FLOAT, 1, N_("Metallic"),	            0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Subsurface"),	        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Specular"),	            0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Roughness"),	            0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
-	{	SOCK_FLOAT, 1, N_("SpecularTint"),	        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	SOCK_FLOAT, 1, N_("Specular Tint"),	        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Anisotropic"),	        0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Sheen"),	                0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
-	{	SOCK_FLOAT, 1, N_("SheenTint"),	            0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	SOCK_FLOAT, 1, N_("Sheen Tint"),	            0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Clearcoat"),	            0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
-	{	SOCK_FLOAT, 1, N_("ClearcoatGloss"),        1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	SOCK_FLOAT, 1, N_("Clearcoat Gloss"),        1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("IOR"),					1.45f, 0.0f, 0.0f, 0.0f, 0.0f, 1000.0f},
 	{	SOCK_FLOAT, 1, N_("Transparency"),			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
-	{	SOCK_FLOAT, 1, N_("RefractionRoughness"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
-	{	SOCK_FLOAT, 1, N_("AnisotropicRotation"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	SOCK_FLOAT, 1, N_("Refraction Roughness"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	SOCK_FLOAT, 1, N_("Anisotropic Rotation"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{   SOCK_VECTOR, 1, N_("Normal"),               0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
-	{   SOCK_VECTOR, 1, N_("ClearcoatNormal"),      0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
+	{   SOCK_VECTOR, 1, N_("Clearcoat Normal"),      0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
 	{	SOCK_VECTOR, 1, N_("Tangent"),	            0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
 	{	-1, 0, ""	}
 };
@@ -78,7 +78,7 @@ static void node_shader_update_disney(bNodeTree *UNUSED(ntree), bNode *node)
 	int distribution = node->custom1;
 
 	for (sock = node->inputs.first; sock; sock = sock->next) {
-		if (STREQ(sock->name, "RefractionRoughness")) {
+		if (STREQ(sock->name, "Refraction Roughness")) {
 			if (distribution == SHD_GLOSSY_GGX)
 				sock->flag &= ~SOCK_UNAVAIL;
 			else

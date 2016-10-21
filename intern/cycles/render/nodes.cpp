@@ -2229,24 +2229,24 @@ NODE_DEFINE(DisneyBsdfNode)
 	distribution_enum.insert("GGX", CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID);
 	distribution_enum.insert("Multiscatter GGX", CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID);
 	SOCKET_ENUM(distribution, "Distribution", distribution_enum, CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID);
-	SOCKET_IN_COLOR(base_color, "BaseColor", make_float3(0.8f, 0.8f, 0.8f));
-	SOCKET_IN_COLOR(subsurface_color, "SubsurfaceColor", make_float3(0.8f, 0.8f, 0.8f));
+	SOCKET_IN_COLOR(base_color, "Base Color", make_float3(0.8f, 0.8f, 0.8f));
+	SOCKET_IN_COLOR(subsurface_color, "Subsurface Color", make_float3(0.8f, 0.8f, 0.8f));
 	SOCKET_IN_FLOAT(metallic, "Metallic", 0.0f);
 	SOCKET_IN_FLOAT(subsurface, "Subsurface", 0.0f);
 	SOCKET_IN_FLOAT(specular, "Specular", 0.0f);
 	SOCKET_IN_FLOAT(roughness, "Roughness", 0.0f);
-	SOCKET_IN_FLOAT(specular_tint, "SpecularTint", 0.0f);
+	SOCKET_IN_FLOAT(specular_tint, "Specular Tint", 0.0f);
 	SOCKET_IN_FLOAT(anisotropic, "Anisotropic", 0.0f);
 	SOCKET_IN_FLOAT(sheen, "Sheen", 0.0f);
-	SOCKET_IN_FLOAT(sheen_tint, "SheenTint", 0.0f);
+	SOCKET_IN_FLOAT(sheen_tint, "Sheen Tint", 0.0f);
 	SOCKET_IN_FLOAT(clearcoat, "Clearcoat", 0.0f);
-	SOCKET_IN_FLOAT(clearcoat_gloss, "ClearcoatGloss", 0.0f);
+	SOCKET_IN_FLOAT(clearcoat_gloss, "Clearcoat Gloss", 0.0f);
 	SOCKET_IN_FLOAT(ior, "IOR", 0.0f);
 	SOCKET_IN_FLOAT(transparency, "Transparency", 0.0f);
-	SOCKET_IN_FLOAT(refraction_roughness, "RefractionRoughness", 0.0f);
-	SOCKET_IN_FLOAT(anisotropic_rotation, "AnisotropicRotation", 0.0f);
+	SOCKET_IN_FLOAT(refraction_roughness, "Refraction Roughness", 0.0f);
+	SOCKET_IN_FLOAT(anisotropic_rotation, "Anisotropic Rotation", 0.0f);
 	SOCKET_IN_NORMAL(normal, "Normal", make_float3(0.0f, 0.0f, 0.0f), SocketType::LINK_NORMAL);
-	SOCKET_IN_NORMAL(clearcoat_normal, "ClearcoatNormal", make_float3(0.0f, 0.0f, 0.0f), SocketType::LINK_NORMAL);
+	SOCKET_IN_NORMAL(clearcoat_normal, "Clearcoat Normal", make_float3(0.0f, 0.0f, 0.0f), SocketType::LINK_NORMAL);
 	SOCKET_IN_NORMAL(tangent, "Tangent", make_float3(0.0f, 0.0f, 0.0f), SocketType::LINK_TANGENT);
 	SOCKET_IN_FLOAT(surface_mix_weight, "SurfaceMixWeight", 0.0f, SocketType::SVM_INTERNAL);
 
@@ -2269,10 +2269,10 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, Sha
 	ShaderInput *p_sheen, ShaderInput *p_sheen_tint, ShaderInput *p_clearcoat, ShaderInput *p_clearcoat_gloss,
 	ShaderInput *p_ior, ShaderInput *p_transparency, ShaderInput *p_anisotropic_rotation, ShaderInput *p_refraction_roughness)
 {
-	ShaderInput *base_color_in = input("BaseColor");
-	ShaderInput *subsurface_color_in = input("SubsurfaceColor");
+	ShaderInput *base_color_in = input("Base Color");
+	ShaderInput *subsurface_color_in = input("Subsurface Color");
 	ShaderInput *normal_in = input("Normal");
-	ShaderInput *clearcoat_normal_in = input("ClearcoatNormal");
+	ShaderInput *clearcoat_normal_in = input("Clearcoat Normal");
 	ShaderInput *tangent_in = input("Tangent");
 
 	float3 weight = make_float3(1.0f, 1.0f, 1.0f);
@@ -2332,9 +2332,9 @@ bool DisneyBsdfNode::has_integrator_dependency()
 void DisneyBsdfNode::compile(SVMCompiler& compiler)
 {
 	compile(compiler, input("Metallic"), input("Subsurface"), input("Specular"), input("Roughness"),
-		input("SpecularTint"), input("Anisotropic"), input("Sheen"), input("SheenTint"),
-		input("Clearcoat"), input("ClearcoatGloss"), input("IOR"), input("Transparency"),
-		input("AnisotropicRotation"), input("RefractionRoughness"));
+		input("Specular Tint"), input("Anisotropic"), input("Sheen"), input("Sheen Tint"),
+		input("Clearcoat"), input("Clearcoat Gloss"), input("IOR"), input("Transparency"),
+		input("Anisotropic Rotation"), input("Refraction Roughness"));
 }
 
 void DisneyBsdfNode::compile(OSLCompiler& compiler)
