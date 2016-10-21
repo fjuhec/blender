@@ -57,6 +57,8 @@ public:
 #ifdef WITH_OSL
 	OSLGlobals osl_globals;
 #endif
+
+	bool split_kernel;
 	
 	CPUDevice(DeviceInfo& info, Stats &stats, bool background)
 	: Device(info, stats, background)
@@ -104,6 +106,11 @@ public:
 #endif
 		{
 			VLOG(1) << "Will be using regular kernels.";
+		}
+
+		split_kernel = DebugFlags().cpu.split_kernel;
+		if(split_kernel) {
+			VLOG(1) << "Will be using split kernel.";
 		}
 	}
 
