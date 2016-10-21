@@ -390,7 +390,6 @@ public:
 	}
 
 	ClosureType get_closure_type() { return closure; }
-	void simplify_settings(Scene *scene);
 	bool has_integrator_dependency();
 };
 

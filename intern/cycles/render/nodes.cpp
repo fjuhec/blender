@@ -2323,29 +2323,6 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, Sha
 		__float_as_int(ss_default.x), __float_as_int(ss_default.y), __float_as_int(ss_default.z));
 }
 
-void DisneyBsdfNode::simplify_settings(Scene *scene)
-{
-#if 0
-	if (distribution_orig == NBUILTIN_CLOSURES) {
-		distribution_orig = distribution;
-	}
-	Integrator *integrator = scene->integrator;
-	if (integrator->filter_glossy == 0.0f) {
-		/* Fallback to Sharp closure for Roughness close to 0.
-		* Note: Keep the epsilon in sync with kernel!
-		*/
-		ShaderInput *roughness_input = input("Roughness");
-		if (!roughness_input->link && roughness <= 1e-4f) {
-			distribution = CLOSURE_BSDF_SHARP_GLASS_ID;
-		}
-	}
-	else {
-		/* Rollback to original distribution when filter glossy is used. */
-		distribution = distribution_orig;
-	}
-#endif
-}
-
 bool DisneyBsdfNode::has_integrator_dependency()
 {
 	ShaderInput *roughness_input = input("Roughness");
