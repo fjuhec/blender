@@ -26,6 +26,7 @@
 
 #include "device.h"
 #include "device_intern.h"
+#include "device_split_kernel.h"
 
 #include "kernel.h"
 #include "kernel_compat_cpu.h"
@@ -48,6 +49,21 @@
 
 CCL_NAMESPACE_BEGIN
 
+class CPUDevice;
+
+class CPUSplitKernelFunction : public SplitKernelFunction {
+public:
+	CPUDevice* device;
+
+	CPUSplitKernelFunction(CPUDevice* device) : device(device) {}
+	~CPUSplitKernelFunction() {}
+
+	virtual bool enqueue(const KernelDimensions& dim, device_memory& kg, device_memory& data)
+	{
+		return false;
+	}
+};
+
 class CPUDevice : public Device
 {
 public:
@@ -58,11 +74,14 @@ public:
 	OSLGlobals osl_globals;
 #endif
 
-	bool split_kernel;
+	bool use_split_kernel;
+
+	DeviceRequestedFeatures requested_features;
 	
 	CPUDevice(DeviceInfo& info, Stats &stats, bool background)
 	: Device(info, stats, background)
 	{
+
 #ifdef WITH_OSL
 		kernel_globals.osl = &osl_globals;
 #endif
@@ -108,8 +127,8 @@ public:
 			VLOG(1) << "Will be using regular kernels.";
 		}
 
-		split_kernel = DebugFlags().cpu.split_kernel;
-		if(split_kernel) {
+		use_split_kernel = DebugFlags().cpu.split_kernel;
+		if(use_split_kernel) {
 			VLOG(1) << "Will be using split kernel.";
 		}
 	}
@@ -198,8 +217,14 @@ public:
 
 	void thread_run(DeviceTask *task)
 	{
-		if(task->type == DeviceTask::PATH_TRACE)
-			thread_path_trace(*task);
+		if(task->type == DeviceTask::PATH_TRACE) {
+			if(!use_split_kernel) {
+				thread_path_trace(*task);
+			}
+			else {
+				thread_path_trace_split(*task);
+			}
+		}
 		else if(task->type == DeviceTask::FILM_CONVERT)
 			thread_film_convert(*task);
 		else if(task->type == DeviceTask::SHADER)
@@ -260,7 +285,7 @@ public:
 		{
 			path_trace_kernel = kernel_cpu_path_trace;
 		}
-		
+
 		while(task.acquire_tile(this, tile)) {
 			float *render_buffer = (float*)tile.buffer;
 			uint *rng_state = (uint*)tile.rng_state;
@@ -292,6 +317,43 @@ public:
 					break;
 			}
 		}
+
+		thread_kernel_globals_free(&kg);
+	}
+
+	void thread_path_trace_split(DeviceTask& task)
+	{
+		if(task_pool.canceled()) {
+			if(task.need_finish_queue == false)
+				return;
+		}
+
+		KernelGlobals kg = thread_kernel_globals_init();
+		RenderTile tile;
+
+		DeviceSplitKernel *split_kernel = new DeviceSplitKernel(this);
+
+		if(!split_kernel->load_kernels(requested_features)) {
+			delete split_kernel;
+
+			return;
+		}
+
+		while(task.acquire_tile(this, tile)) {
+			device_memory data;
+			split_kernel->path_trace(&task, tile, data);
+
+			tile.sample = tile.start_sample + tile.num_samples;
+
+			task.release_tile(tile);
+
+			if(task_pool.canceled()) {
+				if(task.need_finish_queue == false)
+					break;
+			}
+		}
+
+		delete split_kernel;
 
 		thread_kernel_globals_free(&kg);
 	}
@@ -516,6 +578,41 @@ protected:
 #ifdef WITH_OSL
 		OSLShader::thread_free(kg);
 #endif
+	}
+
+	virtual bool load_kernels(DeviceRequestedFeatures& requested_features_) {
+		requested_features = requested_features_;
+
+		return true;
+	}
+
+	/* split kernel */
+	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& /*dim*/,
+	                                            RenderTile& /*rtile*/,
+	                                            int /*num_global_elements*/,
+	                                            int /*num_parallel_samples*/,
+	                                            device_memory& /*kernel_globals*/,
+	                                            device_memory& /*kernel_data*/,
+	                                            device_memory& /*split_data*/,
+	                                            device_memory& /*ray_state*/,
+	                                            device_memory& /*queue_index*/,
+	                                            device_memory& /*use_queues_flag*/,
+	                                            device_memory& /*work_pool_wgs*/)
+	{
+		assert(!"not implemented for this device");
+		return false;
+	}
+
+	virtual SplitKernelFunction* get_split_kernel_function(string /*kernel_name*/, const DeviceRequestedFeatures&)
+	{
+		CPUSplitKernelFunction *kernel = new CPUSplitKernelFunction(this);
+
+		return kernel;
+	}
+
+	virtual size_t sizeof_KernelGlobals()
+	{
+		return sizeof(KernelGlobals);
 	}
 };
 
