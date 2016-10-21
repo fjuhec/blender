@@ -92,8 +92,6 @@ public:
 	bool load_kernels(const DeviceRequestedFeatures& requested_features);
 	bool path_trace(DeviceTask *task,
 	                RenderTile& rtile,
-	                int2 max_render_feasible_tile_size,
-	                size_t per_thread_output_buffer_size,
 	                device_memory& kernel_data);
 };
 

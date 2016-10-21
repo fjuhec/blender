@@ -592,6 +592,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 	}
 
 	/* tiles */
+#if 0
 	if(params.device.type != DEVICE_CPU && !background) {
 		/* currently GPU could be much slower than CPU when using tiles,
 		 * still need to be investigated, but meanwhile make it possible
@@ -601,7 +602,9 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 
 		params.tile_size = make_int2(debug_tile_size, debug_tile_size);
 	}
-	else {
+	else
+#endif
+	{
 		int tile_x = b_engine.tile_x();
 		int tile_y = b_engine.tile_y();
 

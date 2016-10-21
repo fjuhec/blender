@@ -21,6 +21,8 @@
 
 CCL_NAMESPACE_BEGIN
 
+#define ROUND_UP(x, multiple) (((((x) - 1 ) / (multiple)) + 1) * (multiple))
+
 DeviceSplitKernel::DeviceSplitKernel(Device *device) : device(device)
 {
 	path_iteration_times = PATH_ITER_INC_FACTOR;
@@ -65,25 +67,61 @@ bool DeviceSplitKernel::load_kernels(const DeviceRequestedFeatures& requested_fe
 }
 
 bool DeviceSplitKernel::path_trace(DeviceTask *task,
-                                   RenderTile& rtile,
-                                   int2 max_render_feasible_tile_size,
-                                   size_t per_thread_output_buffer_size,
+                                   RenderTile& tile,
                                    device_memory& kernel_data)
 {
-	device_memory& d_data = kernel_data;
+	/* TODO(mai): should be easy enough to remove these variables from tile */
+	/* Buffer and rng_state offset calc. */
+	size_t offset_index = tile.offset + (tile.x + tile.y * tile.stride);
+	size_t offset_x = offset_index % tile.stride;
+	size_t offset_y = offset_index / tile.stride;
+
+	tile.rng_state_offset_x = offset_x;
+	tile.rng_state_offset_y = offset_y;
+	tile.buffer_offset_x = offset_x;
+	tile.buffer_offset_y = offset_y;
+
+	tile.buffer_rng_state_stride = tile.stride;
+	tile.stride = tile.w;
 
 	/* Make sure that set render feasible tile size is a multiple of local
 	 * work size dimensions.
 	 */
-	assert(max_render_feasible_tile_size.x % SPLIT_KERNEL_LOCAL_SIZE_X == 0);
-	assert(max_render_feasible_tile_size.y % SPLIT_KERNEL_LOCAL_SIZE_Y == 0);
+	int2 max_render_feasible_tile_size;
+	const int2 tile_size = task->requested_tile_size;
+	max_render_feasible_tile_size.x = ROUND_UP(tile_size.x, SPLIT_KERNEL_LOCAL_SIZE_X);
+	max_render_feasible_tile_size.y = ROUND_UP(tile_size.y, SPLIT_KERNEL_LOCAL_SIZE_Y);
+
+	/* Calculate per_thread_output_buffer_size. */
+	size_t per_thread_output_buffer_size;
+	size_t output_buffer_size = tile.buffers->buffer.device_size;
+
+#if 0
+	/* This value is different when running on AMD and NV. */
+	if(device->background) {
+		/* In offline render the number of buffer elements
+		 * associated with tile.buffer is the current tile size.
+		 */
+		per_thread_output_buffer_size =
+			output_buffer_size / (tile.w * tile.h);
+	}
+	else
+#endif
+	{
+		/* interactive rendering, unlike offline render, the number of buffer elements
+		 * associated with tile.buffer is the entire viewport size.
+		 */
+		per_thread_output_buffer_size =
+			output_buffer_size / (tile.buffers->params.width *
+			                      tile.buffers->params.height);
+	}
 
 	size_t global_size[2];
 	size_t local_size[2] = {SPLIT_KERNEL_LOCAL_SIZE_X,
 	                        SPLIT_KERNEL_LOCAL_SIZE_Y};
 
-	int d_w = rtile.w;
-	int d_h = rtile.h;
+	int d_w = tile.w;
+	int d_h = tile.h;
 
 #ifdef __WORK_STEALING__
 	global_size[0] = (((d_w - 1) / local_size[0]) + 1) * local_size[0];
@@ -98,7 +136,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	 * processed in parallel.
 	 */
 	unsigned int num_parallel_samples = min(num_tile_columns_possible / d_w,
-	                                        rtile.num_samples);
+	                                        tile.num_samples);
 	/* Wavefront size in AMD is 64.
 	 * TODO(sergey): What about other platforms?
 	 */
@@ -148,11 +186,11 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	}
 
 	if(!device->enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
-	                                           rtile,
+	                                           tile,
 	                                           num_global_elements,
 	                                           num_parallel_samples,
 	                                           kgbuffer,
-	                                           d_data,
+	                                           kernel_data,
 	                                           split_data,
 	                                           ray_state,
 	                                           queue_index,
@@ -164,7 +202,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	}
 
 #define ENQUEUE_SPLIT_KERNEL(name, global_size, local_size) \
-		if(!kernel_##name->enqueue(KernelDimensions(global_size, local_size), kgbuffer, d_data)) { \
+		if(!kernel_##name->enqueue(KernelDimensions(global_size, local_size), kgbuffer, kernel_data)) { \
 			return false; \
 		}
 
