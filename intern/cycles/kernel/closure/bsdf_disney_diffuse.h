@@ -1,38 +1,26 @@
-
 /*
- * Adapted from Open Shading Language with this license:
+ * Copyright 2011-2014 Blender Foundation
  *
- * Copyright (c) 2009-2010 Sony Pictures Imageworks Inc., et al.
- * All Rights Reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Modifications Copyright 2011, Blender Foundation.
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- * * Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
- * * Redistributions in binary form must reproduce the above copyright
- *   notice, this list of conditions and the following disclaimer in the
- *   documentation and/or other materials provided with the distribution.
- * * Neither the name of Sony Pictures Imageworks nor the names of its
- *   contributors may be used to endorse or promote products derived from
- *   this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef __BSDF_DISNEY_DIFFUSE_H__
 #define __BSDF_DISNEY_DIFFUSE_H__
+
+/* DISNEY DIFFUSE BRDF
+ *
+ * Shading model by Brent Burley (Disney): "Physically Based Shading at Disney" (2012)
+ */
 
 CCL_NAMESPACE_BEGIN
 
@@ -41,7 +29,7 @@ typedef ccl_addr_space struct DisneyDiffuseBsdf {
 
 	float roughness;
 	float3 N;
-	float3 baseColor;
+	float3 base_color;
 } DisneyDiffuseBsdf;
 
 ccl_device float3 calculate_disney_diffuse_brdf(const DisneyDiffuseBsdf *bsdf,
@@ -50,7 +38,7 @@ ccl_device float3 calculate_disney_diffuse_brdf(const DisneyDiffuseBsdf *bsdf,
 	float NdotL = max(dot(N, L), 0.0f);
 	float NdotV = max(dot(N, V), 0.0f);
 
-    if (NdotL < 0 || NdotV < 0) {
+    if(NdotL < 0 || NdotV < 0) {
         *pdf = 0.0f;
         return make_float3(0.0f, 0.0f, 0.0f);
     }
@@ -61,7 +49,7 @@ ccl_device float3 calculate_disney_diffuse_brdf(const DisneyDiffuseBsdf *bsdf,
     const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * bsdf->roughness;
 	float Fd = (1.0f * (1.0f - FL) + Fd90 * FL) * (1.0f * (1.0f - FV) + Fd90 * FV); //lerp(1.0f, Fd90, FL) * lerp(1.0f, Fd90, FV);
 
-	float3 value = M_1_PI_F * Fd * bsdf->baseColor;
+	float3 value = M_1_PI_F * Fd * bsdf->base_color;
 
 	*pdf = M_1_PI_F * 0.5f;
 
@@ -86,7 +74,7 @@ ccl_device float3 bsdf_disney_diffuse_eval_reflect(const ShaderClosure *sc, cons
 	float3 L = omega_in; // incoming
 	float3 H = normalize(L + V);
 
-    if (dot(bsdf->N, omega_in) > 0.0f) {
+    if(dot(bsdf->N, omega_in) > 0.0f) {
         float3 value = calculate_disney_diffuse_brdf(bsdf, N, V, L, H, pdf);
 
 		return value;
@@ -114,7 +102,7 @@ ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc,
 
 	sample_uniform_hemisphere(N, randu, randv, omega_in, pdf);
 
-	if (dot(Ng, *omega_in) > 0) {
+	if(dot(Ng, *omega_in) > 0) {
 		float3 H = normalize(I + *omega_in);
 
 		*eval = calculate_disney_diffuse_brdf(bsdf, N, I, *omega_in, H, pdf);

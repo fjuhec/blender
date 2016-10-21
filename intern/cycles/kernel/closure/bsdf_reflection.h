@@ -39,7 +39,7 @@ CCL_NAMESPACE_BEGIN
 
 ccl_device int bsdf_reflection_setup(MicrofacetBsdf *bsdf, bool use_fresnel = false)
 {
-	if (bsdf->extra) {
+	if(bsdf->extra) {
 		bsdf->extra->use_fresnel = use_fresnel;
 	}
 	bsdf->type = CLOSURE_BSDF_REFLECTION_ID;
@@ -74,8 +74,8 @@ ccl_device int bsdf_reflection_sample(const ShaderClosure *sc, float3 Ng, float3
 			*pdf = 1e6f;
 			*eval = make_float3(1e6f, 1e6f, 1e6f);
 
-			if (bsdf->extra) {
-				if (bsdf->extra->use_fresnel) {
+			if(bsdf->extra) {
+				if(bsdf->extra->use_fresnel) {
 					*pdf = 1.0f;
 
 					float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);

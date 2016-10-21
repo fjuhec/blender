@@ -179,22 +179,22 @@ VOLUME_CLOSURE_CLASS_END(VolumeAbsorption, absorption)
 
 BSDF_CLOSURE_CLASS_BEGIN(DisneyDiffuse, disney_diffuse, DisneyDiffuseBsdf, LABEL_DIFFUSE)
 	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, params.N),
-	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, params.baseColor),
+	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, params.base_color),
 	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, params.roughness),
 BSDF_CLOSURE_CLASS_END(DisneyDiffuse, disney_diffuse)
 
 BSDF_CLOSURE_CLASS_BEGIN(DisneySheen, disney_sheen, DisneySheenBsdf, LABEL_DIFFUSE)
 	CLOSURE_FLOAT3_PARAM(DisneySheenClosure, params.N),
-	CLOSURE_FLOAT3_PARAM(DisneySheenClosure, params.baseColor),
+	CLOSURE_FLOAT3_PARAM(DisneySheenClosure, params.base_color),
 	CLOSURE_FLOAT_PARAM(DisneySheenClosure, params.sheen),
-	CLOSURE_FLOAT_PARAM(DisneySheenClosure, params.sheenTint),
+	CLOSURE_FLOAT_PARAM(DisneySheenClosure, params.sheen_tint),
 BSDF_CLOSURE_CLASS_END(DisneySheen, disney_sheen)
 
 /* DISNEY CLEARCOAT */
 class DisneyClearcoatClosure : public CBSDFClosure {
 public:
 	MicrofacetBsdf params;
-	float clearcoat, clearcoatGloss;
+	float clearcoat, clearcoat_gloss;
 
 	MicrofacetBsdf *alloc(ShaderData *sd, int path_flag, float3 weight)
 	{
@@ -205,8 +205,8 @@ public:
 
 			bsdf->ior = 1.5f;
 
-			bsdf->alpha_x = 0.1f * (1.0f - clearcoatGloss) + 0.001f * clearcoatGloss;
-			bsdf->alpha_y = 0.1f * (1.0f - clearcoatGloss) + 0.001f * clearcoatGloss;
+			bsdf->alpha_x = 0.1f * (1.0f - clearcoat_gloss) + 0.001f * clearcoat_gloss;
+			bsdf->alpha_y = 0.1f * (1.0f - clearcoat_gloss) + 0.001f * clearcoat_gloss;
 
 			bsdf->extra->cspec0 = make_float3(0.04f, 0.04f, 0.04f);
 
@@ -228,7 +228,7 @@ ClosureParam *closure_bsdf_disney_clearcoat_params()
 	static ClosureParam params[] = {
 		CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, params.N),
 		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, clearcoat),
-		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, clearcoatGloss),
+		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, clearcoat_gloss),
 		CLOSURE_STRING_KEYPARAM(DisneyClearcoatClosure, label, "label"),
 		CLOSURE_FINISH_PARAM(DisneyClearcoatClosure)
 	};
@@ -373,10 +373,10 @@ public:
 		/* Technically, the MultiGGX Glass closure may also transmit. However,
 		* since this is set statically and only used for caustic flags, this
 		* is probably as good as it gets. */
-		if (!skip(sd, path_flag, LABEL_GLOSSY | LABEL_REFLECT)) {
+		if(!skip(sd, path_flag, LABEL_GLOSSY | LABEL_REFLECT)) {
 			MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc_osl(sd, sizeof(MicrofacetBsdf), weight, &params);
 			MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
-			if (bsdf && extra) {
+			if(bsdf && extra) {
 				bsdf->extra = extra;
 				bsdf->extra->color = color;
 				bsdf->extra->cspec0 = cspec0;
@@ -474,7 +474,7 @@ public:
 
 	MicrofacetBsdf *alloc(ShaderData *sd, int path_flag, float3 weight)
 	{
-		/* Technically, the MultiGGX Glass closure may also transmit. However,
+		/* Technically, the MultiGGX closure may also transmit. However,
 		 * since this is set statically and only used for caustic flags, this
 		 * is probably as good as it gets. */
 	    if(!skip(sd, path_flag, LABEL_GLOSSY|LABEL_REFLECT)) {
@@ -573,13 +573,13 @@ public:
 
 	MicrofacetBsdf *alloc(ShaderData *sd, int path_flag, float3 weight)
 	{
-		/* Technically, the MultiGGX Glass closure may also transmit. However,
+		/* Technically, the MultiGGX closure may also transmit. However,
 		* since this is set statically and only used for caustic flags, this
 		* is probably as good as it gets. */
-		if (!skip(sd, path_flag, LABEL_GLOSSY | LABEL_REFLECT)) {
+		if(!skip(sd, path_flag, LABEL_GLOSSY | LABEL_REFLECT)) {
 			MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc_osl(sd, sizeof(MicrofacetBsdf), weight, &params);
 			MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
-			if (bsdf && extra) {
+			if(bsdf && extra) {
 				bsdf->extra = extra;
 				bsdf->extra->color = color;
 				bsdf->extra->cspec0 = cspec0;

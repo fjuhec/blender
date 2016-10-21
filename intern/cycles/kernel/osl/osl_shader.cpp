@@ -23,12 +23,6 @@
 
 #include "geom/geom_object.h"
 
-/*#include "closure/bsdf_util.h"
-#include "closure/bsdf_diffuse.h"
-#include "closure/bsdf_disney_diffuse.h"
-#include "closure/bssrdf.h"
-
-#include "osl_bssrdf.h"*/
 #include "osl_closures.h"
 #include "osl_globals.h"
 #include "osl_services.h"
@@ -167,7 +161,7 @@ static void flatten_surface_closure_tree(ShaderData *sd,
 			OSL::ClosureComponent *comp = (OSL::ClosureComponent *)closure;
 			CClosurePrimitive *prim = (CClosurePrimitive *)comp->data();
 
-			if (prim) {
+			if(prim) {
 #ifdef OSL_SUPPORTS_WEIGHTED_CLOSURE_COMPONENTS
 				weight = weight*TO_FLOAT3(comp->w);
 #endif

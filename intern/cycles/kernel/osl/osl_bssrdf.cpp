@@ -80,7 +80,7 @@ public:
 				bssrdf->albedo = albedo.x;
 				bssrdf->sharpness = sharpness;
 				bssrdf->N = params.N;
-				bssrdf->baseColor = params.baseColor;
+				bssrdf->base_color = params.base_color;
 				bssrdf->roughness = params.roughness;
 				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
@@ -93,7 +93,7 @@ public:
 				bssrdf->albedo = albedo.y;
 				bssrdf->sharpness = sharpness;
 				bssrdf->N = params.N;
-				bssrdf->baseColor = params.baseColor;
+				bssrdf->base_color = params.base_color;
 				bssrdf->roughness = params.roughness;
 				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
@@ -106,7 +106,7 @@ public:
 				bssrdf->albedo = albedo.z;
 				bssrdf->sharpness = sharpness;
 				bssrdf->N = params.N;
-				bssrdf->baseColor = params.baseColor;
+				bssrdf->base_color = params.base_color;
 				bssrdf->roughness = params.roughness;
 				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
@@ -204,7 +204,7 @@ ClosureParam *closure_bssrdf_disney_params()
 		CLOSURE_FLOAT3_PARAM(DisneyBSSRDFClosure, params.N),
 		CLOSURE_FLOAT3_PARAM(DisneyBSSRDFClosure, radius),
 		CLOSURE_FLOAT_PARAM(DisneyBSSRDFClosure, params.texture_blur),
-		CLOSURE_FLOAT3_PARAM(DisneyBSSRDFClosure, params.baseColor),
+		CLOSURE_FLOAT3_PARAM(DisneyBSSRDFClosure, params.base_color),
 		CLOSURE_FLOAT3_PARAM(DisneyBSSRDFClosure, albedo),
 		CLOSURE_FLOAT_PARAM(DisneyBSSRDFClosure, params.roughness),
 		CLOSURE_STRING_KEYPARAM(DisneyBSSRDFClosure, label, "label"),

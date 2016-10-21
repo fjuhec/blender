@@ -29,7 +29,7 @@ typedef ccl_addr_space struct Bssrdf {
 	float albedo;
 	float roughness;
 	float3 N;
-	float3 baseColor;
+	float3 base_color;
 } Bssrdf;
 
 /* Planar Truncated Gaussian
@@ -363,9 +363,9 @@ ccl_device int bssrdf_setup(Bssrdf *bssrdf, ClosureType type)
 	if(bssrdf->radius < BSSRDF_MIN_RADIUS) {
 		/* revert to diffuse BSDF if radius too small */
 		int flag;
-		if (type == CLOSURE_BSSRDF_DISNEY_ID) {
+		if(type == CLOSURE_BSSRDF_DISNEY_ID) {
 			float roughness = bssrdf->roughness;
-			float3 baseColor = bssrdf->baseColor;
+			float3 base_color = bssrdf->base_color;
 			float3 N = bssrdf->N;
 			float3 weight = bssrdf->weight;
 			float sample_weight = bssrdf->sample_weight;
@@ -374,7 +374,7 @@ ccl_device int bssrdf_setup(Bssrdf *bssrdf, ClosureType type)
 
 			bsdf->N = N;
 			bsdf->roughness = roughness;
-			bsdf->baseColor = baseColor;
+			bsdf->base_color = base_color;
 			bsdf->weight = weight;
 			bsdf->sample_weight = sample_weight;
 			flag = bsdf_disney_diffuse_setup(bsdf);
@@ -394,7 +394,7 @@ ccl_device int bssrdf_setup(Bssrdf *bssrdf, ClosureType type)
 		bssrdf->sharpness = saturate(bssrdf->sharpness);
 		bssrdf->type = type;
 
-		if (type == CLOSURE_BSSRDF_BURLEY_ID || type == CLOSURE_BSSRDF_DISNEY_ID) {
+		if(type == CLOSURE_BSSRDF_BURLEY_ID || type == CLOSURE_BSSRDF_DISNEY_ID) {
 			bssrdf_burley_setup(bssrdf);
 		}
 

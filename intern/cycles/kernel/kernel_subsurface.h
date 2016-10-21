@@ -149,13 +149,13 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, ShaderClos
 
 	if(hit) {
 		Bssrdf *bssrdf = (Bssrdf *)sc;
-		if (bssrdf->type == CLOSURE_BSSRDF_DISNEY_ID) {
+		if(bssrdf->type == CLOSURE_BSSRDF_DISNEY_ID) {
 			DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), weight);
 
-			if (bsdf) {
+			if(bsdf) {
 				bsdf->N = N;
 				bsdf->roughness = bssrdf->roughness;
-				bsdf->baseColor = bssrdf->baseColor;
+				bsdf->base_color = bssrdf->base_color;
 				sd->flag |= bsdf_disney_diffuse_setup(bsdf);
 
 				/* replace CLOSURE_BSDF_DISNEY_DIFFUSE_ID with this special ID so render passes
@@ -166,7 +166,7 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, ShaderClos
 		else {
 			DiffuseBsdf *bsdf = (DiffuseBsdf*)bsdf_alloc(sd, sizeof(DiffuseBsdf), weight);
 
-			if (bsdf) {
+			if(bsdf) {
 				bsdf->N = N;
 				sd->flag |= bsdf_diffuse_setup(bsdf);
 
