@@ -77,6 +77,7 @@ void immUniform1i(const char* name, int x);
 void immUniform1f(const char* name, float x);
 void immUniform4f(const char* name, float x, float y, float z, float w);
 void immUniform4fv(const char* name, const float data[4]);
+void immUniformMat4(const char* name, const float data[4][4]);
 
 
 // convenience functions for setting "uniform vec4 color"

@@ -722,6 +722,17 @@ void immUniform4fv(const char* name, const float data[4])
 	glUniform4fv(loc, 1, data);
 	}
 
+void immUniformMat4(const char* name, const float data[4][4])
+	{
+	int loc = glGetUniformLocation(imm.bound_program, name);
+
+#if TRUST_NO_ONE
+	assert(loc != -1);
+#endif
+
+	glUniformMatrix4fv(loc, 1, GL_FALSE, (float *)data);
+	}
+
 void immUniform1i(const char* name, int x)
 	{
 	int loc = glGetUniformLocation(imm.bound_program, name);
