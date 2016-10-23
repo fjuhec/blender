@@ -76,6 +76,7 @@ set(SRC
 	manipulators/intern/manipulator_library/arrow_manipulator.c
 	manipulators/intern/manipulator_library/dial_manipulator.c
 	manipulators/intern/manipulator_library/geom_cone.c
+	manipulators/intern/manipulator_library/geom_cube.c
 	manipulators/intern/manipulator_library/manipulator_library_utils.c
 
 	WM_api.h

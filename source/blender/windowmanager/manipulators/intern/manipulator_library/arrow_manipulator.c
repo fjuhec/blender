@@ -53,6 +53,8 @@
 typedef struct ArrowManipulator {
 	wmManipulator manipulator;
 
+	int style;
+
 	float direction[3];
 } ArrowManipulator;
 
@@ -75,20 +77,51 @@ static void arrow_draw_line(const ArrowManipulator *arrow, const float col[4], c
 	immUnbindProgram();
 }
 
-static void arrow_draw_cone(const bool select)
+static void arrow_draw_head_cone(const float col[4], const bool select)
 {
 	const ManipulatorGeometryInfo cone_geo = {
-		_MANIPULATOR_nverts_Cone,
-		_MANIPULATOR_ntris_Cone,
-		_MANIPULATOR_verts_Cone,
-		_MANIPULATOR_normals_Cone,
-		_MANIPULATOR_indices_Cone,
+		_MANIPULATOR_nverts_cone,
+		_MANIPULATOR_ntris_cone,
+		_MANIPULATOR_verts_cone,
+		_MANIPULATOR_normals_cone,
+		_MANIPULATOR_indices_cone,
 		true,
 	};
 	const float scale = 0.25f;
 
+	glColor4fv(col);
 	glScalef(scale, scale, scale);
 	wm_manipulator_geometryinfo_draw(&cone_geo, select);
+}
+
+static void arrow_draw_head_cube(const float col[4], const bool select)
+{
+	const ManipulatorGeometryInfo cone_geo = {
+		_MANIPULATOR_nverts_cube,
+		_MANIPULATOR_ntris_cube,
+		_MANIPULATOR_verts_cube,
+		_MANIPULATOR_normals_cube,
+		_MANIPULATOR_indices_cube,
+		true,
+	};
+	const float scale = 0.05f;
+
+	glColor4fv(col);
+	glScalef(scale, scale, scale);
+	glTranslatef(0.0f, 0.0f, 1.0f); /* Cube origin is at its center, needs this offset to not overlap with line. */
+	wm_manipulator_geometryinfo_draw(&cone_geo, select);
+}
+
+static void arrow_draw_head(const ArrowManipulator *arrow, const float col[4], const bool select)
+{
+	switch (arrow->style) {
+		case MANIPULATOR_ARROW_STYLE_CONE:
+			arrow_draw_head_cone(col, select);
+			break;
+		case MANIPULATOR_ARROW_STYLE_CUBE:
+			arrow_draw_head_cube(col, select);
+			break;
+	}
 }
 
 static void arrow_draw_geom(const ArrowManipulator *arrow, const float col[4], const bool select)
@@ -96,7 +129,6 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const float col[4], c
 	const float len = 1.0f; /* TODO arrow->len */
 	const bool use_lighting = /*select == false && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0)*/ false;
 
-	glColor4fv(col);
 	glTranslate3fv(arrow->manipulator.offset);
 
 	arrow_draw_line(arrow, col, len);
@@ -111,7 +143,7 @@ static void arrow_draw_geom(const ArrowManipulator *arrow, const float col[4], c
 		glShadeModel(GL_SMOOTH);
 	}
 
-	arrow_draw_cone(select);
+	arrow_draw_head(arrow, col, select);
 
 	if (use_lighting) {
 		glShadeModel(GL_FLAT);
@@ -198,7 +230,8 @@ static int manipulator_arrow_invoke(bContext *UNUSED(C), const wmEvent *UNUSED(e
  *
  * \{ */
 
-wmManipulator *WM_arrow_manipulator_new(wmManipulatorGroup *mgroup, const char *idname)
+wmManipulator *WM_arrow_manipulator_new(
+		wmManipulatorGroup *mgroup, const char *idname, const enum ArrowManipulatorStyle style)
 {
 	ArrowManipulator *arrow = MEM_callocN(sizeof(*arrow), __func__);
 
@@ -206,6 +239,8 @@ wmManipulator *WM_arrow_manipulator_new(wmManipulatorGroup *mgroup, const char *
 	arrow->manipulator.render_3d_intersection = arrow_manipulator_render_3d_intersect;
 	arrow->manipulator.invoke = manipulator_arrow_invoke;
 	arrow->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
+
+	arrow->style = style;
 
 	wm_manipulator_register(mgroup, &arrow->manipulator, idname);
 

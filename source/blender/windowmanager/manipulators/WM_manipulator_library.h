@@ -39,11 +39,13 @@ struct wmManipulatorGroup;
 /* -------------------------------------------------------------------- */
 /* 3D Arrow Manipulator */
 
-enum {
-	MANIPULATOR_ARROW_STYLE_NORMAL        =  (1 << 0),
+enum ArrowManipulatorStyle {
+	MANIPULATOR_ARROW_STYLE_CONE = 0,
+	MANIPULATOR_ARROW_STYLE_CUBE = 1,
 };
 
-struct wmManipulator *WM_arrow_manipulator_new(struct wmManipulatorGroup *mgroup, const char *name);
+struct wmManipulator *WM_arrow_manipulator_new(
+        struct wmManipulatorGroup *mgroup, const char *name, const enum ArrowManipulatorStyle style);
 void WM_arrow_manipulator_set_direction(struct wmManipulator *manipulator, const float direction[3]);
 
 

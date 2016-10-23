@@ -38,12 +38,23 @@
 
 
 /* cone */
-extern int _MANIPULATOR_nverts_Cone;
-extern int _MANIPULATOR_ntris_Cone;
 
-extern float _MANIPULATOR_verts_Cone[][3];
-extern float _MANIPULATOR_normals_Cone[][3];
-extern unsigned short _MANIPULATOR_indices_Cone[];
+extern int _MANIPULATOR_nverts_cone;
+extern int _MANIPULATOR_ntris_cone;
+
+extern float _MANIPULATOR_verts_cone[][3];
+extern float _MANIPULATOR_normals_cone[][3];
+extern unsigned short _MANIPULATOR_indices_cone[];
+
+
+/* cube */
+
+extern int _MANIPULATOR_nverts_cube;
+extern int _MANIPULATOR_ntris_cube;
+
+extern float _MANIPULATOR_verts_cube[][3];
+extern float _MANIPULATOR_normals_cube[][3];
+extern unsigned short _MANIPULATOR_indices_cube[];
 
 #endif  /* __MANIPULATOR_GEOMETRY_H__ */
 

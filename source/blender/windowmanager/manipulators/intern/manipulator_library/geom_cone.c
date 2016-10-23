@@ -22,10 +22,10 @@
  *  \ingroup wm
  */
 
-int _MANIPULATOR_nverts_Cone = 10;
-int _MANIPULATOR_ntris_Cone = 16;
+int _MANIPULATOR_nverts_cone = 10;
+int _MANIPULATOR_ntris_cone = 16;
 
-float _MANIPULATOR_verts_Cone[][3] = {
+float _MANIPULATOR_verts_cone[][3] = {
 	{0.000000, 0.000000, 0.000000},
 	{0.000000, 0.000000, 1.000000},
 	{0.000000, 0.270000, 0.000000},
@@ -38,7 +38,7 @@ float _MANIPULATOR_verts_Cone[][3] = {
 	{-0.190919, 0.190919, 0.000000},
 };
 
-float _MANIPULATOR_normals_Cone[][3] = {
+float _MANIPULATOR_normals_cone[][3] = {
 	{0.000000, 0.000000, -1.000000},
 	{0.000000, 0.000000, 0.999969},
 	{0.000000, 0.848567, -0.529069},
@@ -51,7 +51,7 @@ float _MANIPULATOR_normals_Cone[][3] = {
 	{-0.600024, 0.600024, -0.529069},
 };
 
-unsigned short _MANIPULATOR_indices_Cone[] = {
+unsigned short _MANIPULATOR_indices_cone[] = {
 	0, 2, 3,
 	2, 1, 3,
 	0, 3, 4,

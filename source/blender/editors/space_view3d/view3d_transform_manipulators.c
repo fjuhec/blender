@@ -145,19 +145,19 @@ static TranformAxisManipulator tman_axes[] = {
 		MAN_AXIS_TRANS_X, V3D_MANIP_TRANSLATE,
 		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
 		"translate_x", {1, 0, 0}, OB_LOCK_LOCX,
-		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_X, MANIPULATOR_ARROW_STYLE_NORMAL,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_X, MANIPULATOR_ARROW_STYLE_CONE,
 	},
 	{
 		MAN_AXIS_TRANS_Y, V3D_MANIP_TRANSLATE,
 		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
 		"translate_y", {0, 1, 0}, OB_LOCK_LOCY,
-		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Y, MANIPULATOR_ARROW_STYLE_NORMAL,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Y, MANIPULATOR_ARROW_STYLE_CONE,
 	},
 	{
 		MAN_AXIS_TRANS_Z, V3D_MANIP_TRANSLATE,
 		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
 		"translate_z", {0, 0, 1}, OB_LOCK_LOCZ,
-		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Z, MANIPULATOR_ARROW_STYLE_NORMAL,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Z, MANIPULATOR_ARROW_STYLE_CONE,
 	},
 	{
 		MAN_AXIS_TRANS_C, V3D_MANIP_TRANSLATE,
@@ -189,6 +189,30 @@ static TranformAxisManipulator tman_axes[] = {
 		"rotate_c", {0}, OB_LOCK_ROTZ,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH + 1.0f, -1, MANIPULATOR_DIAL_STYLE_RING,
 	},
+	{
+		MAN_AXIS_SCALE_X, V3D_MANIP_SCALE,
+		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
+		"scale_x", {1, 0, 0}, OB_LOCK_SCALEX,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_X, MANIPULATOR_ARROW_STYLE_CUBE,
+	},
+	{
+		MAN_AXIS_SCALE_Y, V3D_MANIP_SCALE,
+		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
+		"scale_y", {0, 1, 0}, OB_LOCK_SCALEY,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Y, MANIPULATOR_ARROW_STYLE_CUBE,
+	},
+	{
+		MAN_AXIS_SCALE_Z, V3D_MANIP_SCALE,
+		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
+		"scale_y", {0, 0, 1}, OB_LOCK_SCALEZ,
+		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Z, MANIPULATOR_ARROW_STYLE_CUBE,
+	},
+	{
+		MAN_AXIS_SCALE_C, V3D_MANIP_SCALE,
+		manipulator_dial_init, manipulator_dial_refresh, manipulator_view_dial_draw_prepare,
+		"scale_c", {0}, 0,
+		0.2f, TRANSFORM_MAN_AXIS_LINE_WIDTH, -1, MANIPULATOR_DIAL_STYLE_RING,
+	},
 	{0, 0, NULL}
 };
 
@@ -204,7 +228,11 @@ static void transform_manipulators_info_free(void *customdata)
 	MEM_freeN(info);
 }
 
-static unsigned int transform_axis_index_normalize(const int axis_idx)
+
+/**
+ * Get index within axis type, so that x == 0, y == 1 and z == 2, no matter which axis type.
+ */
+static unsigned int transform_axis_index_normalize(const enum TransformAxisType axis_idx)
 {
 	if (axis_idx > MAN_AXIS_TRANS_ZX) {
 		return axis_idx - 16;
@@ -229,7 +257,7 @@ static unsigned int transform_axis_index_normalize(const int axis_idx)
 
 static wmManipulator *manipulator_arrow_init(const TransformManipulatorsInfo *info, TranformAxisManipulator *axis)
 {
-	return WM_arrow_manipulator_new(info->mgroup, axis->name);
+	return WM_arrow_manipulator_new(info->mgroup, axis->name, axis->manipulator_style);
 }
 
 static wmManipulator *manipulator_dial_init(const TransformManipulatorsInfo *info, TranformAxisManipulator *axis)
@@ -266,7 +294,7 @@ static const char *transform_axis_ot_name_get(int transform_type)
 			name = "TRANSFORM_OT_rotate";
 			break;
 		case V3D_MANIP_SCALE:
-			name = "TRANSFORM_OT_scale";
+			name = "TRANSFORM_OT_resize";
 			break;
 		default:
 			BLI_assert(0);
