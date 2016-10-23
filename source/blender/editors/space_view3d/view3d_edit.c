@@ -635,7 +635,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 	Object *ob_act = OBACT;
 
 	if (ob_act && (ob_act->mode & OB_MODE_ALL_PAINT) &&
-	    /* with weight-paint + pose-mode, fall through to using calculateTransformCenter */
+	    /* with weight-paint + pose-mode, fall through to using ED_calculateTransformCenter */
 	    ((ob_act->mode & OB_MODE_WEIGHT_PAINT) && BKE_object_pose_armature_get(ob_act)) == 0)
 	{
 		/* in case of sculpting use last average stroke position as a rotation
@@ -702,7 +702,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 	}
 	else {
 		/* If there's no selection, lastofs is unmodified and last value since static */
-		is_set = calculateTransformCenter(C, V3D_AROUND_CENTER_MEAN, lastofs, NULL);
+		is_set = ED_calculateTransformCenter(C, V3D_AROUND_CENTER_MEAN, lastofs, NULL);
 	}
 
 	copy_v3_v3(r_dyn_ofs, lastofs);

@@ -102,12 +102,6 @@ enum TfmMode {
 #define CTX_PAINT_CURVE     (1 << 8)
 #define CTX_GPENCIL_STROKES (1 << 9)
 
-/* Standalone call to get the transformation center corresponding to the current situation
- * returns 1 if successful, 0 otherwise (usually means there's no selection)
- * (if 0 is returns, *vec is unmodified)
- * */
-bool calculateTransformCenter(struct bContext *C, int centerMode, float cent3d[3], float cent2d[2]);
-
 struct TransInfo;
 struct Base;
 struct Scene;
@@ -134,6 +128,11 @@ void ED_getLocalTransformOrientationMatrix(const struct bContext *C, float orien
 void ED_getTransformOrientationMatrix(
         const struct bContext *C, const char orientation_type, const short around,
         float r_orientation_mat[3][3]);
+/* Standalone call to get the transformation center corresponding to the current situation
+ * returns 1 if successful, 0 otherwise (usually means there's no selection)
+ * (if 0 is returns, *vec is unmodified)
+ * */
+bool ED_calculateTransformCenter(struct bContext *C, int centerMode, float cent3d[3], float cent2d[2]);
 
 int BIF_countTransformOrientation(const struct bContext *C);
 

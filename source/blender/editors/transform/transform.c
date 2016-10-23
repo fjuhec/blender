@@ -1542,7 +1542,7 @@ int transformEvent(TransInfo *t, const wmEvent *event)
 	}
 }
 
-bool calculateTransformCenter(bContext *C, int centerMode, float cent3d[3], float cent2d[2])
+bool ED_calculateTransformCenter(bContext *C, int centerMode, float cent3d[3], float cent2d[2])
 {
 	TransInfo *t = MEM_callocN(sizeof(TransInfo), "TransInfo data");
 	bool success;
