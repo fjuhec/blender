@@ -131,4 +131,20 @@ void KERNEL_FUNCTION_FULL_NAME(shader)(KernelGlobals *kg,
 	}
 }
 
+void KERNEL_FUNCTION_FULL_NAME(register_functions)(void(*reg)(const char* name, void* func))
+{
+#define REGISTER_NAME_STRING(name) #name
+#define REGISTER_EVAL_NAME(name) REGISTER_NAME_STRING(name)
+#define REGISTER(name) reg(REGISTER_EVAL_NAME(KERNEL_FUNCTION_FULL_NAME(name)), (void*)KERNEL_FUNCTION_FULL_NAME(name));
+
+	REGISTER(path_trace);
+	REGISTER(convert_to_byte);
+	REGISTER(convert_to_half_float);
+	REGISTER(shader);
+
+#undef REGISTER
+#undef REGISTER_EVAL_NAME
+#undef REGISTER_NAME_STRING
+}
+
 CCL_NAMESPACE_END

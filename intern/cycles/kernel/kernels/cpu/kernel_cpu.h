@@ -49,4 +49,6 @@ void KERNEL_FUNCTION_FULL_NAME(shader)(KernelGlobals *kg,
                                        int offset,
                                        int sample);
 
+void KERNEL_FUNCTION_FULL_NAME(register_functions)(void(*reg)(const char* name, void* func));
+
 #undef KERNEL_ARCH

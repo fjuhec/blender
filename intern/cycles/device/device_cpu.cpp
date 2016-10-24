@@ -42,6 +42,7 @@
 #include "util_foreach.h"
 #include "util_function.h"
 #include "util_logging.h"
+#include "util_map.h"
 #include "util_opengl.h"
 #include "util_progress.h"
 #include "util_system.h"
@@ -54,18 +55,84 @@ class CPUDevice;
 class CPUSplitKernelFunction : public SplitKernelFunction {
 public:
 	CPUDevice* device;
+	void (*func)(KernelGlobals *kg, KernelData *data);
 
-	CPUSplitKernelFunction(CPUDevice* device) : device(device) {}
+	CPUSplitKernelFunction(CPUDevice* device) : device(device), func(NULL) {}
 	~CPUSplitKernelFunction() {}
 
-	virtual bool enqueue(const KernelDimensions& dim, device_memory& kg, device_memory& data)
+	virtual bool enqueue(const KernelDimensions& /*dim*/, device_memory& kg, device_memory& data)
 	{
-		return false;
+		if(!func) {
+			return false;
+		}
+
+		func((KernelGlobals*)kg.device_pointer, (KernelData*)data.device_pointer);
+
+		return true;
 	}
 };
 
 class CPUDevice : public Device
 {
+	static unordered_map<string, void*> kernel_functions;
+
+	static void register_kernel_function(const char* name, void* func)
+	{
+		kernel_functions[name] = func;
+	}
+
+	static const char* get_arch_name()
+	{
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX2
+		if(system_cpu_support_avx2()) {
+			return "cpu_avx2";
+		}
+		else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX
+		if(system_cpu_support_avx()) {
+			return "cpu_avx";
+		}
+		else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE41
+		if(system_cpu_support_sse41()) {
+			return "cpu_sse41";
+		}
+		else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE3
+		if(system_cpu_support_sse3()) {
+			return "cpu_sse3";
+		}
+		else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE2
+		if(system_cpu_support_sse2()) {
+			return "cpu_sse2";
+		}
+		else
+#endif
+		{
+			return "cpu";
+		}
+	}
+
+	template<typename F>
+	static F get_kernel_function(string name)
+	{
+		name = string("kernel_") + get_arch_name() + "_" + name;
+
+		unordered_map<string, void*>::iterator it = kernel_functions.find(name);
+
+		if(it == kernel_functions.end()) {
+			assert(!"kernel function not found");
+			return nullptr;
+		}
+
+		return (F)it->second;
+	}
+
 public:
 	TaskPool task_pool;
 	KernelGlobals kernel_globals;
@@ -131,6 +198,23 @@ public:
 		if(use_split_kernel) {
 			VLOG(1) << "Will be using split kernel.";
 		}
+
+		kernel_cpu_register_functions(register_kernel_function);
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE2
+		kernel_cpu_sse2_register_functions(register_kernel_function);
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE3
+		kernel_cpu_sse3_register_functions(register_kernel_function);
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE41
+		kernel_cpu_sse41_register_functions(register_kernel_function);
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX
+		kernel_cpu_avx_register_functions(register_kernel_function);
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX2
+		kernel_cpu_avx2_register_functions(register_kernel_function);
+#endif
 	}
 
 	~CPUDevice()
@@ -608,9 +692,11 @@ protected:
 		return false;
 	}
 
-	virtual SplitKernelFunction* get_split_kernel_function(string /*kernel_name*/, const DeviceRequestedFeatures&)
+	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&)
 	{
 		CPUSplitKernelFunction *kernel = new CPUSplitKernelFunction(this);
+
+		kernel->func = get_kernel_function<void(*)(KernelGlobals*, KernelData*)>(kernel_name);
 
 		return kernel;
 	}
@@ -620,6 +706,8 @@ protected:
 		return sizeof(KernelGlobals);
 	}
 };
+
+unordered_map<string, void*> CPUDevice::kernel_functions;
 
 Device *device_cpu_create(DeviceInfo& info, Stats &stats, bool background)
 {
