@@ -391,6 +391,7 @@ public:
 
 	ClosureType get_closure_type() { return closure; }
 	bool has_integrator_dependency();
+	void attributes(Shader *shader, AttributeRequestSet *attributes);
 };
 
 class TranslucentBsdfNode : public BsdfNode {

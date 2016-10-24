@@ -2265,6 +2265,18 @@ DisneyBsdfNode::DisneyBsdfNode()
 	distribution_orig = NBUILTIN_CLOSURES;
 }
 
+void DisneyBsdfNode::attributes(Shader *shader, AttributeRequestSet *attributes)
+{
+	if(shader->has_surface) {
+		ShaderInput *tangent_in = input("Tangent");
+
+		if(!tangent_in->link)
+			attributes->add(ATTR_STD_GENERATED);
+	}
+
+	ShaderNode::attributes(shader, attributes);
+}
+
 void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, ShaderInput *p_subsurface, ShaderInput *p_subsurface_radius,
 	ShaderInput *p_specular, ShaderInput *p_roughness, ShaderInput *p_specular_tint, ShaderInput *p_anisotropic,
 	ShaderInput *p_sheen, ShaderInput *p_sheen_tint, ShaderInput *p_clearcoat, ShaderInput *p_clearcoat_gloss,
