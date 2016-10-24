@@ -18,8 +18,8 @@
 #define __DEVICE_SPLIT_KERNEL_H__
 
 #include "device.h"
-
 #include "buffers.h"
+#include "util_memory.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -49,16 +49,16 @@ class DeviceSplitKernel {
 private:
 	Device *device;
 
-	SplitKernelFunction *kernel_scene_intersect;
-	SplitKernelFunction *kernel_lamp_emission;
-	SplitKernelFunction *kernel_queue_enqueue;
-	SplitKernelFunction *kernel_background_buffer_update;
-	SplitKernelFunction *kernel_shader_eval;
-	SplitKernelFunction *kernel_holdout_emission_blurring_pathtermination_ao;
-	SplitKernelFunction *kernel_direct_lighting;
-	SplitKernelFunction *kernel_shadow_blocked;
-	SplitKernelFunction *kernel_next_iteration_setup;
-	SplitKernelFunction *kernel_sum_all_radiance;
+	unique_ptr<SplitKernelFunction> kernel_scene_intersect;
+	unique_ptr<SplitKernelFunction> kernel_lamp_emission;
+	unique_ptr<SplitKernelFunction> kernel_queue_enqueue;
+	unique_ptr<SplitKernelFunction> kernel_background_buffer_update;
+	unique_ptr<SplitKernelFunction> kernel_shader_eval;
+	unique_ptr<SplitKernelFunction> kernel_holdout_emission_blurring_pathtermination_ao;
+	unique_ptr<SplitKernelFunction> kernel_direct_lighting;
+	unique_ptr<SplitKernelFunction> kernel_shadow_blocked;
+	unique_ptr<SplitKernelFunction> kernel_next_iteration_setup;
+	unique_ptr<SplitKernelFunction> kernel_sum_all_radiance;
 
 	/* Global memory variables [porting]; These memory is used for
 	 * co-operation between different kernels; Data written by one

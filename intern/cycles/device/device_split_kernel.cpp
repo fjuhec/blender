@@ -43,7 +43,7 @@ DeviceSplitKernel::~DeviceSplitKernel()
 bool DeviceSplitKernel::load_kernels(const DeviceRequestedFeatures& requested_features)
 {
 #define LOAD_KERNEL(name) \
-		kernel_##name = device->get_split_kernel_function(#name, requested_features); \
+		kernel_##name = unique_ptr<SplitKernelFunction>(device->get_split_kernel_function(#name, requested_features)); \
 		if(!kernel_##name) { \
 			return false; \
 		}
@@ -157,6 +157,8 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 	/* Allocate all required global memory once. */
 	if(first_tile) {
+		first_tile = false;
+
 #ifdef __WORK_STEALING__
 		/* Calculate max groups */
 		size_t max_global_size[2];
@@ -301,8 +303,6 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		 */
 		path_iteration_times = numNextPathIterTimes;
 	}
-
-	first_tile = false;
 
 	return true;
 }

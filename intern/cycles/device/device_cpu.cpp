@@ -141,6 +141,11 @@ public:
 	void mem_alloc(device_memory& mem, MemoryType /*type*/)
 	{
 		mem.device_pointer = mem.data_pointer;
+
+		if(!mem.device_pointer) {
+			mem.device_pointer = (device_ptr)malloc(mem.memory_size());
+		}
+
 		mem.device_size = mem.memory_size();
 		stats.mem_alloc(mem.device_size);
 	}
@@ -165,6 +170,10 @@ public:
 	void mem_free(device_memory& mem)
 	{
 		if(mem.device_pointer) {
+			if(!mem.data_pointer) {
+				free((void*)mem.device_pointer);
+			}
+
 			mem.device_pointer = 0;
 			stats.mem_free(mem.device_size);
 			mem.device_size = 0;
@@ -331,17 +340,15 @@ public:
 		KernelGlobals kg = thread_kernel_globals_init();
 		RenderTile tile;
 
-		DeviceSplitKernel *split_kernel = new DeviceSplitKernel(this);
+		DeviceSplitKernel split_kernel(this);
 
-		if(!split_kernel->load_kernels(requested_features)) {
-			delete split_kernel;
-
+		if(!split_kernel.load_kernels(requested_features)) {
 			return;
 		}
 
 		while(task.acquire_tile(this, tile)) {
 			device_memory data;
-			split_kernel->path_trace(&task, tile, data);
+			split_kernel.path_trace(&task, tile, data);
 
 			tile.sample = tile.start_sample + tile.num_samples;
 
@@ -352,8 +359,6 @@ public:
 					break;
 			}
 		}
-
-		delete split_kernel;
 
 		thread_kernel_globals_free(&kg);
 	}
