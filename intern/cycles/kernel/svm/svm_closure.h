@@ -153,13 +153,12 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			if(subsurface < CLOSURE_WEIGHT_CUTOFF) {
 				/* diffuse */
 				if(diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
-					float3 diff_weight = weight * diffuse_weight;
+					float3 diff_weight = weight * base_color * diffuse_weight;
 
 					DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
 
 					if(bsdf) {
 						bsdf->N = N;
-						bsdf->base_color = base_color;
 						bsdf->roughness = roughness;
 
 						/* setup bsdf */
@@ -224,13 +223,12 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 #else
 			/* diffuse */
 			if(diffuse_weight > CLOSURE_WEIGHT_CUTOFF) {
-				float3 diff_weight = weight * diffuse_weight;
+				float3 diff_weight = weight * base_color * diffuse_weight;
 
 				DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
 
 				if(bsdf) {
 					bsdf->N = N;
-					bsdf->base_color = base_color;
 					bsdf->roughness = roughness;
 
 					/* setup bsdf */
@@ -241,15 +239,18 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
             /* sheen */
 			if(diffuse_weight > CLOSURE_WEIGHT_CUTOFF && sheen > CLOSURE_WEIGHT_CUTOFF) {
-				float3 sheen_weight = weight * diffuse_weight;
+                float m_cdlum = 0.3f * base_color.x + 0.6f * base_color.y + 0.1f * base_color.z; // luminance approx.
+                float3 m_ctint = m_cdlum > 0.0f ? base_color / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
+
+                /* csheen0 */
+                float3 csheen0 = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sheen_tint) + m_ctint * sheen_tint;
+
+				float3 sheen_weight = weight * sheen * csheen0 * diffuse_weight;
 
 				DisneySheenBsdf *bsdf = (DisneySheenBsdf*)bsdf_alloc(sd, sizeof(DisneySheenBsdf), sheen_weight);
 
 				if(bsdf) {
 					bsdf->N = N;
-					bsdf->base_color = base_color;
-					bsdf->sheen = sheen;
-					bsdf->sheen_tint = sheen_tint;
 
 					/* setup bsdf */
 					ccl_fetch(sd, flag) |= bsdf_disney_sheen_setup(bsdf);

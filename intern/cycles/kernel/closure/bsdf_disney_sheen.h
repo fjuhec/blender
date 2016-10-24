@@ -26,10 +26,7 @@ CCL_NAMESPACE_BEGIN
 
 typedef ccl_addr_space struct DisneySheenBsdf {
 	SHADER_CLOSURE_BASE;
-
-	float sheen, sheen_tint;
 	float3 N;
-	float3 base_color, csheen0;
 } DisneySheenBsdf;
 
 ccl_device float3 calculate_disney_sheen_brdf(const DisneySheenBsdf *bsdf,
@@ -38,7 +35,7 @@ ccl_device float3 calculate_disney_sheen_brdf(const DisneySheenBsdf *bsdf,
 	float NdotL = dot(N, L);
 	float NdotV = dot(N, V);
 
-    if(NdotL < 0 || NdotV < 0 || bsdf->sheen == 0.0f) {
+    if(NdotL < 0 || NdotV < 0) {
         *pdf = 0.0f;
         return make_float3(0.0f, 0.0f, 0.0f);
     }
@@ -49,22 +46,15 @@ ccl_device float3 calculate_disney_sheen_brdf(const DisneySheenBsdf *bsdf,
 
 	float FH = schlick_fresnel(LdotH);
 
-	float3 value = FH * bsdf->sheen * bsdf->csheen0;
+	float value = FH;
 
 	value *= NdotL;
 
-	return value;
+	return make_float3(value, value, value);
 }
 
 ccl_device int bsdf_disney_sheen_setup(DisneySheenBsdf *bsdf)
 {
-	float m_cdlum = 0.3f * bsdf->base_color.x + 0.6f * bsdf->base_color.y + 0.1f * bsdf->base_color.z; // luminance approx.
-
-	float3 m_ctint = m_cdlum > 0.0f ? bsdf->base_color / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
-
-	/* csheen0 */
-	bsdf->csheen0 = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - bsdf->sheen_tint) + m_ctint * bsdf->sheen_tint;
-
 	bsdf->type = CLOSURE_BSDF_DISNEY_SHEEN_ID;
 	return SD_BSDF|SD_BSDF_HAS_EVAL;
 }
@@ -74,7 +64,7 @@ ccl_device float3 bsdf_disney_sheen_eval_reflect(const ShaderClosure *sc, const 
 {
 	const DisneySheenBsdf *bsdf = (const DisneySheenBsdf *)sc;
 
-	float3 N = normalize(bsdf->N);
+	float3 N = bsdf->N;
 	float3 V = I; // outgoing
 	float3 L = omega_in; // incoming
 	float3 H = normalize(L + V);
@@ -103,7 +93,7 @@ ccl_device int bsdf_disney_sheen_sample(const ShaderClosure *sc,
 {
 	const DisneySheenBsdf *bsdf = (const DisneySheenBsdf *)sc;
 
-	float3 N = normalize(bsdf->N);
+	float3 N = bsdf->N;
 
 	sample_uniform_hemisphere(N, randu, randv, omega_in, pdf);
 

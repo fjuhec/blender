@@ -545,8 +545,8 @@ closure color emission() BUILTIN;
 closure color background() BUILTIN;
 closure color holdout() BUILTIN;
 closure color ambient_occlusion() BUILTIN;
-closure color disney_diffuse(normal N, color base_color, float roughness) BUILTIN;
-closure color disney_sheen(normal N, color base_color, float sheen, float sheen_tint) BUILTIN;
+closure color disney_diffuse(normal N, float roughness) BUILTIN;
+closure color disney_sheen(normal N) BUILTIN;
 closure color disney_clearcoat(normal N, float clearcoat, float clearcoat_gloss) BUILTIN;
 
 // BSSRDF

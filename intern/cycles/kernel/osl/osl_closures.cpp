@@ -179,15 +179,11 @@ VOLUME_CLOSURE_CLASS_END(VolumeAbsorption, absorption)
 
 BSDF_CLOSURE_CLASS_BEGIN(DisneyDiffuse, disney_diffuse, DisneyDiffuseBsdf, LABEL_DIFFUSE)
 	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, params.N),
-	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, params.base_color),
 	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, params.roughness),
 BSDF_CLOSURE_CLASS_END(DisneyDiffuse, disney_diffuse)
 
 BSDF_CLOSURE_CLASS_BEGIN(DisneySheen, disney_sheen, DisneySheenBsdf, LABEL_DIFFUSE)
 	CLOSURE_FLOAT3_PARAM(DisneySheenClosure, params.N),
-	CLOSURE_FLOAT3_PARAM(DisneySheenClosure, params.base_color),
-	CLOSURE_FLOAT_PARAM(DisneySheenClosure, params.sheen),
-	CLOSURE_FLOAT_PARAM(DisneySheenClosure, params.sheen_tint),
 BSDF_CLOSURE_CLASS_END(DisneySheen, disney_sheen)
 
 /* DISNEY CLEARCOAT */

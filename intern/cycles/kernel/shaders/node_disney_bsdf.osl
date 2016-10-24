@@ -48,6 +48,9 @@ shader node_disney_bsdf(
 
     vector T = Tangent;
 
+    float m_cdlum = 0.3 * BaseColor[0] + 0.6 * BaseColor[1] + 0.1 * BaseColor[2]; // luminance approx.
+    color m_ctint = m_cdlum > 0.0 ? BaseColor / m_cdlum : color(0.0, 0.0, 0.0); // normalize lum. to isolate hue+sat
+
     /* rotate tangent */
     if (AnisotropicRotation != 0.0)
         T = rotate(T, AnisotropicRotation * M_2PI, point(0.0, 0.0, 0.0), Normal);
@@ -56,11 +59,13 @@ shader node_disney_bsdf(
         if (Subsurface > 1e-5) {
             BSDF = bssrdf_disney(Normal, Subsurface * SubsurfaceRadius, 0.0, BaseColor, SubsurfaceColor, Roughness);
         } else {
-            BSDF = disney_diffuse(Normal, BaseColor, Roughness);
+            BSDF = BaseColor * disney_diffuse(Normal, Roughness);
         }
         
         if (Sheen > 1e-5) {
-            BSDF = BSDF + disney_sheen(Normal, BaseColor, Sheen, SheenTint);
+            color csheen0 = color(1.0, 1.0, 1.0) * (1.0 - SheenTint) + m_ctint * SheenTint;
+
+            BSDF = BSDF + csheen0 * Sheen * disney_sheen(Normal);
         }
         
         BSDF = BSDF * diffuse_weight;
@@ -73,8 +78,6 @@ shader node_disney_bsdf(
         float alpha_x = max(0.001, r2 / aspect);
         float alpha_y = max(0.001, r2 * aspect);
         
-        float m_cdlum = 0.3 * BaseColor[0] + 0.6 * BaseColor[1] + 0.1 * BaseColor[2]; // luminance approx.
-        color m_ctint = m_cdlum > 0.0 ? BaseColor / m_cdlum : color(0.0, 0.0, 0.0); // normalize lum. to isolate hue+sat
         color tmp_col = color(1.0, 1.0, 1.0) * (1.0 - SpecularTint) + m_ctint * SpecularTint;
         
         color Cspec0 = (Specular * 0.08 * tmp_col) * (1.0 - Metallic) + BaseColor * Metallic;
