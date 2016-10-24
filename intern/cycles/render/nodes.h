@@ -369,13 +369,13 @@ public:
 	bool has_spatial_varying() { return true; }
 	bool has_surface_bssrdf() { return true; }
 	bool has_bssrdf_bump();
-	void compile(SVMCompiler& compiler, ShaderInput *metallic, ShaderInput *subsurface,
+	void compile(SVMCompiler& compiler, ShaderInput *metallic, ShaderInput *subsurface, ShaderInput *subsurface_radius,
 		ShaderInput *specular, ShaderInput *roughness, ShaderInput *specular_tint, ShaderInput *anisotropic,
 		ShaderInput *sheen, ShaderInput *sheen_tint, ShaderInput *clearcoat, ShaderInput *clearcoat_gloss,
 		ShaderInput *ior, ShaderInput *transparency, ShaderInput *anisotropic_rotation, ShaderInput *refraction_roughness);
 
 	float3 base_color;
-	float3 subsurface_color;
+	float3 subsurface_color, subsurface_radius;
 	float metallic, subsurface, specular, roughness, specular_tint, anisotropic,
 		sheen, sheen_tint, clearcoat, clearcoat_gloss, ior, transparency,
 		anisotropic_rotation, refraction_roughness;

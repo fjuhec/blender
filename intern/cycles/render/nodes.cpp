@@ -2233,6 +2233,7 @@ NODE_DEFINE(DisneyBsdfNode)
 	SOCKET_IN_COLOR(subsurface_color, "Subsurface Color", make_float3(0.8f, 0.8f, 0.8f));
 	SOCKET_IN_FLOAT(metallic, "Metallic", 0.0f);
 	SOCKET_IN_FLOAT(subsurface, "Subsurface", 0.0f);
+	SOCKET_IN_VECTOR(subsurface_radius, "Subsurface Radius", make_float3(0.1f, 0.1f, 0.1f));
 	SOCKET_IN_FLOAT(specular, "Specular", 0.0f);
 	SOCKET_IN_FLOAT(roughness, "Roughness", 0.0f);
 	SOCKET_IN_FLOAT(specular_tint, "Specular Tint", 0.0f);
@@ -2264,7 +2265,7 @@ DisneyBsdfNode::DisneyBsdfNode()
 	distribution_orig = NBUILTIN_CLOSURES;
 }
 
-void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, ShaderInput *p_subsurface,
+void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, ShaderInput *p_subsurface, ShaderInput *p_subsurface_radius,
 	ShaderInput *p_specular, ShaderInput *p_roughness, ShaderInput *p_specular_tint, ShaderInput *p_anisotropic,
 	ShaderInput *p_sheen, ShaderInput *p_sheen_tint, ShaderInput *p_clearcoat, ShaderInput *p_clearcoat_gloss,
 	ShaderInput *p_ior, ShaderInput *p_transparency, ShaderInput *p_anisotropic_rotation, ShaderInput *p_refraction_roughness)
@@ -2294,6 +2295,7 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, Sha
 	int transparency_offset = compiler.stack_assign(p_transparency);
 	int refraction_roughness_offset = compiler.stack_assign(p_refraction_roughness);
 	int anisotropic_rotation_offset = compiler.stack_assign(p_anisotropic_rotation);
+	int subsurface_radius_offset = compiler.stack_assign(p_subsurface_radius);
 
 	compiler.add_node(NODE_CLOSURE_BSDF,
 		compiler.encode_uchar4(closure,
@@ -2315,7 +2317,7 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, Sha
 	compiler.add_node(((base_color_in->link) ? compiler.stack_assign(base_color_in) : SVM_STACK_INVALID),
 		__float_as_int(bc_default.x), __float_as_int(bc_default.y), __float_as_int(bc_default.z));
 
-	compiler.add_node(clearcoat_normal_offset, SVM_STACK_INVALID, SVM_STACK_INVALID, SVM_STACK_INVALID);
+	compiler.add_node(clearcoat_normal_offset, subsurface_radius_offset, SVM_STACK_INVALID, SVM_STACK_INVALID);
 
 	float3 ss_default = get_float3(subsurface_color_in->socket_type);
 
@@ -2331,8 +2333,8 @@ bool DisneyBsdfNode::has_integrator_dependency()
 
 void DisneyBsdfNode::compile(SVMCompiler& compiler)
 {
-	compile(compiler, input("Metallic"), input("Subsurface"), input("Specular"), input("Roughness"),
-		input("Specular Tint"), input("Anisotropic"), input("Sheen"), input("Sheen Tint"),
+	compile(compiler, input("Metallic"), input("Subsurface"), input("Subsurface Radius"), input("Specular"),
+		input("Roughness"), input("Specular Tint"), input("Anisotropic"), input("Sheen"), input("Sheen Tint"),
 		input("Clearcoat"), input("Clearcoat Gloss"), input("IOR"), input("Transparency"),
 		input("Anisotropic Rotation"), input("Refraction Roughness"));
 }

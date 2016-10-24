@@ -127,9 +127,10 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float3 base_color = stack_valid(data_base_color.x) ? stack_load_float3(stack, data_base_color.x) :
 				make_float3(__uint_as_float(data_base_color.y), __uint_as_float(data_base_color.z), __uint_as_float(data_base_color.w));
 
-			// get the additional clearcoat normal
-			uint4 data_clearcoat_normal = read_node(kg, offset);
-			float3 CN = stack_valid(data_clearcoat_normal.x) ? stack_load_float3(stack, data_clearcoat_normal.x) : ccl_fetch(sd, N);
+			// get the additional clearcoat normal and subsurface scattering radius
+			uint4 data_cn_ssr = read_node(kg, offset);
+			float3 CN = stack_valid(data_cn_ssr.x) ? stack_load_float3(stack, data_cn_ssr.x) : ccl_fetch(sd, N);
+			float3 subsurface_radius = stack_valid(data_cn_ssr.y) ? stack_load_float3(stack, data_cn_ssr.y) : make_float3(1.0f, 1.0f, 1.0f);
 
 			// get the subsurface color
 			uint4 data_subsurface_color = read_node(kg, offset);
@@ -168,7 +169,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 			else if(subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
 				/* radius * scale */
-				float3 radius = make_float3(1.0f, 1.0f, 1.0f) * subsurface;
+				float3 radius = subsurface_radius * subsurface;
 				/* sharpness */
 				float sharpness = 0.0f;
 				/* texture color blur */
