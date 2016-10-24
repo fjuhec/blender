@@ -47,6 +47,7 @@ enum ArrowManipulatorStyle {
 struct wmManipulator *WM_arrow_manipulator_new(
         struct wmManipulatorGroup *mgroup, const char *name, const enum ArrowManipulatorStyle style);
 void WM_arrow_manipulator_set_direction(struct wmManipulator *manipulator, const float direction[3]);
+void WM_arrow_manipulator_set_length(struct wmManipulator *manipulator, const float length);
 
 
 /* -------------------------------------------------------------------- */

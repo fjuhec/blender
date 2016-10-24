@@ -128,6 +128,54 @@ static wmManipulator *manipulator_dial_init(TranformAxisManipulator *axis, wmMan
 	return WM_dial_manipulator_new(mgroup, axis->name, axis->manipulator_style);
 }
 
+/**
+ * Sets up \a r_start and \a r_len to define arrow line range.
+ * Needed to adjust line drawing for combined manipulator axis types.
+ */
+static void manipulator_line_range(
+        const TranformAxisManipulator *axis, const View3D *v3d,
+        float *r_start, float *r_len)
+{
+	const float ofs = 0.2f;
+
+	*r_start = 0.2f;
+	*r_len = 1.0f;
+
+	switch (axis->transform_type) {
+		case V3D_MANIP_TRANSLATE:
+			if (v3d->twtype & V3D_MANIP_SCALE) {
+				*r_start = *r_len - ofs + 0.075f;
+			}
+			if (v3d->twtype & V3D_MANIP_ROTATE) {
+				*r_len += ofs;
+			}
+			break;
+		case V3D_MANIP_SCALE:
+			if (v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE)) {
+				*r_len -= ofs + 0.025f;
+			}
+			break;
+	}
+
+	*r_len -= *r_start;
+}
+
+static void manipulator_arrow_update_line_range(const View3D *v3d, const TranformAxisManipulator *axis)
+{
+	float start[3] = {0.0f};
+	float len;
+
+	manipulator_line_range(axis, v3d, &start[2], &len);
+	WM_manipulator_set_offset(axis->manipulator, start);
+	WM_arrow_manipulator_set_length(axis->manipulator, len);
+}
+
+static void manipulator_arrow_refresh(
+        const bContext *C, const TransformManipulatorsInfo *UNUSED(info), const TranformAxisManipulator *axis)
+{
+	manipulator_arrow_update_line_range(CTX_wm_view3d(C), axis);
+}
+
 static void manipulator_dial_refresh(
         const bContext *UNUSED(C), const TransformManipulatorsInfo *info, const TranformAxisManipulator *axis)
 {
@@ -160,19 +208,19 @@ static void manipulator_view_dial_draw_prepare(
 static TranformAxisManipulator tman_axes[] = {
 	{
 		TRANSFORM_AXIS_X, V3D_MANIP_TRANSLATE,
-		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
+		manipulator_arrow_init, manipulator_arrow_refresh, manipulator_arrow_draw_prepare,
 		"translate_x", {1, 0, 0}, OB_LOCK_LOCX,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_X, MANIPULATOR_ARROW_STYLE_CONE,
 	},
 	{
 		TRANSFORM_AXIS_Y, V3D_MANIP_TRANSLATE,
-		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
+		manipulator_arrow_init, manipulator_arrow_refresh, manipulator_arrow_draw_prepare,
 		"translate_y", {0, 1, 0}, OB_LOCK_LOCY,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Y, MANIPULATOR_ARROW_STYLE_CONE,
 	},
 	{
 		TRANSFORM_AXIS_Z, V3D_MANIP_TRANSLATE,
-		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
+		manipulator_arrow_init, manipulator_arrow_refresh, manipulator_arrow_draw_prepare,
 		"translate_z", {0, 0, 1}, OB_LOCK_LOCZ,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Z, MANIPULATOR_ARROW_STYLE_CONE,
 	},
@@ -208,19 +256,19 @@ static TranformAxisManipulator tman_axes[] = {
 	},
 	{
 		TRANSFORM_AXIS_X, V3D_MANIP_SCALE,
-		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
+		manipulator_arrow_init, manipulator_arrow_refresh, manipulator_arrow_draw_prepare,
 		"scale_x", {1, 0, 0}, OB_LOCK_SCALEX,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_X, MANIPULATOR_ARROW_STYLE_CUBE,
 	},
 	{
 		TRANSFORM_AXIS_Y, V3D_MANIP_SCALE,
-		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
+		manipulator_arrow_init, manipulator_arrow_refresh, manipulator_arrow_draw_prepare,
 		"scale_y", {0, 1, 0}, OB_LOCK_SCALEY,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Y, MANIPULATOR_ARROW_STYLE_CUBE,
 	},
 	{
 		TRANSFORM_AXIS_Z, V3D_MANIP_SCALE,
-		manipulator_arrow_init, NULL, manipulator_arrow_draw_prepare,
+		manipulator_arrow_init, manipulator_arrow_refresh, manipulator_arrow_draw_prepare,
 		"scale_y", {0, 0, 1}, OB_LOCK_SCALEZ,
 		1.0f, TRANSFORM_MAN_AXIS_LINE_WIDTH, TH_AXIS_Z, MANIPULATOR_ARROW_STYLE_CUBE,
 	},
@@ -232,6 +280,12 @@ static TranformAxisManipulator tman_axes[] = {
 	},
 	{0, 0, NULL}
 };
+
+static void transform_manipulators_info_init(TransformManipulatorsInfo *info)
+{
+	info->axes = MEM_callocN(sizeof(tman_axes), STRINGIFY(TranformAxisManipulator));
+	memcpy(info->axes, tman_axes, sizeof(tman_axes));
+}
 
 static void transform_manipulators_info_free(void *customdata)
 {
@@ -306,9 +360,7 @@ static void transform_axis_manipulator_init(TranformAxisManipulator *axis, wmMan
 static void transform_manipulatorgroup_init(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
 {
 	TransformManipulatorsInfo *info = MEM_callocN(sizeof(*info), __func__);
-
-	info->axes = MEM_callocN(sizeof(tman_axes), STRINGIFY(TranformAxisManipulator));
-	memcpy(info->axes, tman_axes, sizeof(tman_axes));
+	transform_manipulators_info_init(info);
 
 	for (int i = 0; info->axes[i].name; i++) {
 		transform_axis_manipulator_init(&info->axes[i], mgroup);

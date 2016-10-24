@@ -56,6 +56,7 @@ typedef struct ArrowManipulator {
 	int style;
 
 	float direction[3];
+	float length;
 } ArrowManipulator;
 
 
@@ -126,7 +127,7 @@ static void arrow_draw_head(const ArrowManipulator *arrow, const float col[4], c
 
 static void arrow_draw_geom(const ArrowManipulator *arrow, const float col[4], const bool select)
 {
-	const float len = 1.0f; /* TODO arrow->len */
+	const float len = arrow->length;
 	const bool use_lighting = /*select == false && ((U.manipulator_flag & V3D_SHADED_MANIPULATORS) != 0)*/ false;
 
 	glTranslate3fv(arrow->manipulator.offset);
@@ -241,6 +242,7 @@ wmManipulator *WM_arrow_manipulator_new(
 	arrow->manipulator.flag |= WM_MANIPULATOR_DRAW_ACTIVE;
 
 	arrow->style = style;
+	arrow->length = 1.0f;
 
 	wm_manipulator_register(mgroup, &arrow->manipulator, idname);
 
@@ -256,6 +258,13 @@ void WM_arrow_manipulator_set_direction(wmManipulator *manipulator, const float 
 
 	copy_v3_v3(arrow->direction, direction);
 	normalize_v3(arrow->direction);
+}
+
+void WM_arrow_manipulator_set_length(wmManipulator *manipulator, const float length)
+{
+	ArrowManipulator *arrow = (ArrowManipulator *)manipulator;
+
+	arrow->length = length;
 }
 
 /** \} */ /* Arrow Manipulator API */
