@@ -50,8 +50,6 @@ ccl_device float3 calculate_disney_diffuse_brdf(const DisneyDiffuseBsdf *bsdf,
 
 	float value = M_1_PI_F * Fd;
 
-	*pdf = M_1_PI_F * 0.5f;
-
 	value *= NdotL;
 
 	return make_float3(value, value, value);
@@ -73,10 +71,10 @@ ccl_device float3 bsdf_disney_diffuse_eval_reflect(const ShaderClosure *sc, cons
 	float3 L = omega_in; // incoming
 	float3 H = normalize(L + V);
 
-    if(dot(bsdf->N, omega_in) > 0.0f) {
-        float3 value = calculate_disney_diffuse_brdf(bsdf, N, V, L, H, pdf);
-
-		return value;
+    if(dot(N, omega_in) > 0.0f) {
+        float cos_pi = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
+        *pdf = cos_pi;
+        return calculate_disney_diffuse_brdf(bsdf, N, V, L, H, pdf);
     }
     else {
         *pdf = 0.0f;
@@ -99,7 +97,7 @@ ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc,
 
 	float3 N = bsdf->N;
 
-	sample_uniform_hemisphere(N, randu, randv, omega_in, pdf);
+	sample_cos_hemisphere(N, randu, randv, omega_in, pdf);
 
 	if(dot(Ng, *omega_in) > 0) {
 		float3 H = normalize(I + *omega_in);
