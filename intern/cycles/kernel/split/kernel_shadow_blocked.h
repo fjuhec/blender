@@ -55,7 +55,7 @@ ccl_device void kernel_shadow_blocked(KernelGlobals *kg)
 		ao_queue_length = split_params->queue_index[QUEUE_SHADOW_RAY_CAST_AO_RAYS];
 		dl_queue_length = split_params->queue_index[QUEUE_SHADOW_RAY_CAST_DL_RAYS];
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	/* flag determining if the current ray is to process shadow ray for AO or DL */
 	char shadow_blocked_type = -1;

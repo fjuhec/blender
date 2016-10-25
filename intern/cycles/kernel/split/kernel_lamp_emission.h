@@ -50,7 +50,7 @@ ccl_device void kernel_lamp_emission(KernelGlobals *kg)
 	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
 		local_use_queues_flag = split_params->use_queues_flag[0];
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	int ray_index;
 	if(local_use_queues_flag) {

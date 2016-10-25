@@ -65,7 +65,7 @@ ccl_device void kernel_next_iteration_setup(KernelGlobals *kg)
 	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
 		local_queue_atomics = 0;
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	if(ccl_global_id(0) == 0 && ccl_global_id(1) == 0) {
 		/* If we are here, then it means that scene-intersect kernel

@@ -78,7 +78,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 		local_queue_atomics_bg = 0;
 		local_queue_atomics_ao = 0;
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	char enqueue_flag = 0;
 	char enqueue_flag_AO_SHADOW_RAY_CAST = 0;

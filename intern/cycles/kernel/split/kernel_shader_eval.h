@@ -52,7 +52,7 @@ ccl_device void kernel_shader_eval(KernelGlobals *kg)
 	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
 		local_queue_atomics = 0;
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 	ray_index = get_ray_index(ray_index,

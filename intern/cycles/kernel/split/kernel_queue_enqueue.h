@@ -58,7 +58,7 @@ ccl_device void kernel_queue_enqueue(KernelGlobals *kg)
 	if(lidx < 2 ) {
 		local_queue_atomics[lidx] = 0;
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	int queue_number = -1;
 
@@ -73,7 +73,7 @@ ccl_device void kernel_queue_enqueue(KernelGlobals *kg)
 	if(queue_number != -1) {
 		my_lqidx = get_local_queue_index(queue_number, local_queue_atomics);
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	if(lidx == 0) {
 		local_queue_atomics[QUEUE_ACTIVE_AND_REGENERATED_RAYS] =
@@ -85,7 +85,7 @@ ccl_device void kernel_queue_enqueue(KernelGlobals *kg)
 		                                    local_queue_atomics,
 		                                    split_params->queue_index);
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	unsigned int my_gqidx;
 	if(queue_number != -1) {

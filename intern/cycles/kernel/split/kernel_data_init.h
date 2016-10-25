@@ -133,7 +133,7 @@ ccl_device void kernel_data_init(
 		int group_index = get_group_id(1) * ccl_num_groups(0) + get_group_id(0);
 		work_pool_wgs[group_index] = 0;
 	}
-	barrier(CLK_LOCAL_MEM_FENCE);
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 #endif  /* __WORK_STEALING__ */
 
 	/* Initialize queue data and queue index. */
