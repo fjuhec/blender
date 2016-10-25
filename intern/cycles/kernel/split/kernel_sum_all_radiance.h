@@ -14,24 +14,27 @@
  * limitations under the License.
  */
 
-#include "kernel_split_common.h"
+CCL_NAMESPACE_BEGIN
 
 /* Since we process various samples in parallel; The output radiance of different samples
  * are stored in different locations; This kernel combines the output radiance contributed
  * by all different samples and stores them in the RenderTile's output buffer.
  */
 
-ccl_device void kernel_sum_all_radiance(
-        KernelGlobals *kg,
-        ccl_global float *buffer,                    /* Output buffer of RenderTile */
-        int parallel_samples, int sw, int sh, int stride,
-        int buffer_offset_x,
-        int buffer_offset_y,
-        int buffer_stride,
-        int start_sample)
+ccl_device void kernel_sum_all_radiance(KernelGlobals *kg)
 {
 	int x = get_global_id(0);
 	int y = get_global_id(1);
+
+	ccl_global float *buffer = split_params->buffer;
+	int parallel_samples = split_params->parallel_samples;
+	int sw = split_params->w;
+	int sh = split_params->h;
+	int stride = split_params->stride;
+	int buffer_offset_x = split_params->buffer_offset_x;
+	int buffer_offset_y = split_params->buffer_offset_y;
+	int buffer_stride = split_params->buffer_stride;
+	int start_sample = split_params->start_sample;
 
 	if(x < sw && y < sh) {
 		buffer += ((buffer_offset_x + x) + (buffer_offset_y + y) * buffer_stride) * (kernel_data.film.pass_stride);
@@ -56,3 +59,6 @@ ccl_device void kernel_sum_all_radiance(
 		}
 	}
 }
+
+CCL_NAMESPACE_END
+

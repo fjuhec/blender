@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "kernel_split_common.h"
+CCL_NAMESPACE_BEGIN
 
 /* Note on kernel_setup_next_iteration kernel.
  * This is the tenth kernel in the ray tracing logic. This is the ninth
@@ -59,13 +59,53 @@
  * QUEUE_ACTIVE_AND_REGENERATED_RAYS will be filled with RAY_ACTIVE, RAY_REGENERATED and more RAY_UPDATE_BUFFER rays.
  * QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be filled with RAY_TO_REGENERATE and more RAY_UPDATE_BUFFER rays
  */
-ccl_device char kernel_next_iteration_setup(
-        KernelGlobals *kg,
-        ccl_global char *use_queues_flag,     /* flag to decide if scene_intersect kernel should
-                                               * use queues to fetch ray index */
-        int ray_index)
+ccl_device void kernel_next_iteration_setup(KernelGlobals *kg)
 {
+	ccl_local unsigned int local_queue_atomics;
+	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
+		local_queue_atomics = 0;
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	if(get_global_id(0) == 0 && get_global_id(1) == 0) {
+		/* If we are here, then it means that scene-intersect kernel
+		* has already been executed atleast once. From the next time,
+		* scene-intersect kernel may operate on queues to fetch ray index
+		*/
+		split_params->use_queues_flag[0] = 1;
+
+		/* Mark queue indices of QUEUE_SHADOW_RAY_CAST_AO_RAYS and
+		 * QUEUE_SHADOW_RAY_CAST_DL_RAYS queues that were made empty during the
+		 * previous kernel.
+		 */
+		split_params->queue_index[QUEUE_SHADOW_RAY_CAST_AO_RAYS] = 0;
+		split_params->queue_index[QUEUE_SHADOW_RAY_CAST_DL_RAYS] = 0;
+	}
+
 	char enqueue_flag = 0;
+	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	ray_index = get_ray_index(ray_index,
+	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
+	                          split_state->queue_data,
+	                          split_params->queue_size,
+	                          0);
+
+#ifdef __COMPUTE_DEVICE_GPU__
+	/* If we are executing on a GPU device, we exit all threads that are not
+	 * required.
+	 *
+	 * If we are executing on a CPU device, then we need to keep all threads
+	 * active since we have barrier() calls later in the kernel. CPU devices,
+	 * expect all threads to execute barrier statement.
+	 */
+	if(ray_index == QUEUE_EMPTY_SLOT) {
+		return;
+	}
+#endif
+
+#ifndef __COMPUTE_DEVICE_GPU__
+	if(ray_index != QUEUE_EMPTY_SLOT) {
+#endif
 
 	/* Load ShaderData structure. */
 	PathRadiance *L = NULL;
@@ -82,7 +122,8 @@ ccl_device char kernel_next_iteration_setup(
 
 		if(IS_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO)) {
 			float3 shadow = split_state->ao_light_ray[ray_index].P;
-			char update_path_radiance = split_state->ao_light_ray[ray_index].t;
+			// TODO(mai): investigate correctness here
+			char update_path_radiance = (char)split_state->ao_light_ray[ray_index].t;
 			if(update_path_radiance) {
 				path_radiance_accum_ao(L,
 				                       _throughput,
@@ -96,7 +137,8 @@ ccl_device char kernel_next_iteration_setup(
 
 		if(IS_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL)) {
 			float3 shadow = split_state->light_ray[ray_index].P;
-			char update_path_radiance = split_state->light_ray[ray_index].t;
+			// TODO(mai): investigate correctness here
+			char update_path_radiance = (char)split_state->light_ray[ray_index].t;
 			if(update_path_radiance) {
 				BsdfEval L_light = split_state->bsdf_eval[ray_index];
 				path_radiance_accum_light(L,
@@ -125,5 +167,19 @@ ccl_device char kernel_next_iteration_setup(
 		}
 	}
 
-	return enqueue_flag;
+#ifndef __COMPUTE_DEVICE_GPU__
+	}
+#endif
+
+	/* Enqueue RAY_UPDATE_BUFFER rays. */
+	enqueue_ray_index_local(ray_index,
+	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
+	                        enqueue_flag,
+	                        split_params->queue_size,
+	                        &local_queue_atomics,
+	                        split_state->queue_data,
+	                        split_params->queue_index);
 }
+
+CCL_NAMESPACE_END
+

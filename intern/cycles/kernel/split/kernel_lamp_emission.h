@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "kernel_split_common.h"
+CCL_NAMESPACE_BEGIN
 
 /* Note on kernel_lamp_emission
  * This is the 3rd kernel in the ray-tracing logic. This is the second of the
@@ -36,14 +36,41 @@
  * sw -------------------------------------------------|                           |
  * sh -------------------------------------------------|                           |
  */
-ccl_device void kernel_lamp_emission(
-        KernelGlobals *kg,
-        int sw, int sh,
-        ccl_global char *use_queues_flag,      /* Used to decide if this kernel should use
-                                                * queues to fetch ray index
-                                                */
-        int ray_index)
+ccl_device void kernel_lamp_emission(KernelGlobals *kg)
 {
+	int x = get_global_id(0);
+	int y = get_global_id(1);
+
+	/* We will empty this queue in this kernel. */
+	if(get_global_id(0) == 0 && get_global_id(1) == 0) {
+		split_params->queue_index[QUEUE_ACTIVE_AND_REGENERATED_RAYS] = 0;
+	}
+	/* Fetch use_queues_flag. */
+	ccl_local char local_use_queues_flag;
+	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
+		local_use_queues_flag = split_params->use_queues_flag[0];
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	int ray_index;
+	if(local_use_queues_flag) {
+		int thread_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+		ray_index = get_ray_index(thread_index,
+		                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
+		                          split_state->queue_data,
+		                          split_params->queue_size,
+		                          1);
+		if(ray_index == QUEUE_EMPTY_SLOT) {
+			return;
+		}
+	} else {
+		if(x < (split_params->w * split_params->parallel_samples) && y < split_params->h) {
+			ray_index = x + y * (split_params->w * split_params->parallel_samples);
+		} else {
+			return;
+		}
+	}
+
 	if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE) ||
 	   IS_STATE(split_state->ray_state, ray_index, RAY_HIT_BACKGROUND))
 	{
@@ -75,3 +102,6 @@ ccl_device void kernel_lamp_emission(
 #endif  /* __LAMP_MIS__ */
 	}
 }
+
+CCL_NAMESPACE_END
+

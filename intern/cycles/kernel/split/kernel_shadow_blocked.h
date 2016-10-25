@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "kernel_split_common.h"
+CCL_NAMESPACE_BEGIN
 
 /* Note on kernel_shadow_blocked kernel.
  * This is the ninth kernel in the ray tracing logic. This is the eighth
@@ -45,11 +45,38 @@
  * and RAY_SHADOW_RAY_CAST_DL respectively, during kernel entry.
  * QUEUE_SHADOW_RAY_CAST_AO_RAYS and QUEUE_SHADOW_RAY_CAST_DL_RAYS will be empty at kernel exit.
  */
-ccl_device void kernel_shadow_blocked(
-        KernelGlobals *kg,
-        char shadow_blocked_type,
-        int ray_index)
+ccl_device void kernel_shadow_blocked(KernelGlobals *kg)
 {
+	int lidx = get_local_id(1) * get_local_id(0) + get_local_id(0);
+
+	ccl_local unsigned int ao_queue_length;
+	ccl_local unsigned int dl_queue_length;
+	if(lidx == 0) {
+		ao_queue_length = split_params->queue_index[QUEUE_SHADOW_RAY_CAST_AO_RAYS];
+		dl_queue_length = split_params->queue_index[QUEUE_SHADOW_RAY_CAST_DL_RAYS];
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	/* flag determining if the current ray is to process shadow ray for AO or DL */
+	char shadow_blocked_type = -1;
+
+	int ray_index = QUEUE_EMPTY_SLOT;
+	int thread_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	if(thread_index < ao_queue_length + dl_queue_length) {
+		if(thread_index < ao_queue_length) {
+			ray_index = get_ray_index(thread_index, QUEUE_SHADOW_RAY_CAST_AO_RAYS,
+			                          split_state->queue_data, split_params->queue_size, 1);
+			shadow_blocked_type = RAY_SHADOW_RAY_CAST_AO;
+		} else {
+			ray_index = get_ray_index(thread_index - ao_queue_length, QUEUE_SHADOW_RAY_CAST_DL_RAYS,
+			                          split_state->queue_data, split_params->queue_size, 1);
+			shadow_blocked_type = RAY_SHADOW_RAY_CAST_DL;
+		}
+	}
+
+	if(ray_index == QUEUE_EMPTY_SLOT)
+		return;
+
 	/* Flag determining if we need to update L. */
 	char update_path_radiance = 0;
 
@@ -79,3 +106,6 @@ ccl_device void kernel_shadow_blocked(
 		light_ray_global->t = update_path_radiance;
 	}
 }
+
+CCL_NAMESPACE_END
+

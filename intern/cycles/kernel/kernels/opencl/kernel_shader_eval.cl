@@ -14,39 +14,12 @@
  * limitations under the License.
  */
 
+#include "split/kernel_split_common.h"
 #include "split/kernel_shader_eval.h"
 
 __kernel void kernel_ocl_path_trace_shader_eval(
         KernelGlobals *kg,
         ccl_constant KernelData *data)
 {
-	/* Enqeueue RAY_TO_REGENERATE rays into QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS queue. */
-	ccl_local unsigned int local_queue_atomics;
-	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
-		local_queue_atomics = 0;
-	}
-	barrier(CLK_LOCAL_MEM_FENCE);
-
-	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
-	ray_index = get_ray_index(ray_index,
-	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-	                          split_state->queue_data,
-	                          split_params->queue_size,
-	                          0);
-
-	if(ray_index == QUEUE_EMPTY_SLOT) {
-		return;
-	}
-
-	char enqueue_flag = (IS_STATE(split_state->ray_state, ray_index, RAY_TO_REGENERATE)) ? 1 : 0;
-	enqueue_ray_index_local(ray_index,
-	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
-	                        enqueue_flag,
-	                        split_params->queue_size,
-	                        &local_queue_atomics,
-	                        split_state->queue_data,
-	                        split_params->queue_index);
-
-	/* Continue on with shader evaluation. */
-	kernel_shader_eval(kg, ray_index);
+	kernel_shader_eval(kg);
 }

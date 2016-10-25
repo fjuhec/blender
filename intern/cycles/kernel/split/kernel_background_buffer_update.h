@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "kernel_split_common.h"
+CCL_NAMESPACE_BEGIN
 
 /* Note on kernel_background_buffer_update kernel.
  * This is the fourth kernel in the ray tracing logic, and the third
@@ -69,24 +69,55 @@
  * QUEUE_ACTIVE_AND_REGENERATED_RAYS will be filled with RAY_ACTIVE and RAY_REGENERATED rays
  * QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be empty
  */
-ccl_device char kernel_background_buffer_update(
-        KernelGlobals *kg,
-        ccl_global uint *rng_state,
-        int sw, int sh, int sx, int sy, int stride,
-        int rng_state_offset_x,
-        int rng_state_offset_y,
-        int rng_state_stride,
-        int end_sample,
-        int start_sample,
-#ifdef __WORK_STEALING__
-        ccl_global unsigned int *work_pool_wgs,
-        unsigned int num_samples,
-#endif
-        int parallel_samples,                  /* Number of samples to be processed in parallel */
-        int ray_index)
+ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 {
-	ccl_global char *ray_state = split_state->ray_state;
+	ccl_local unsigned int local_queue_atomics;
+	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
+		local_queue_atomics = 0;
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	if(ray_index == 0) {
+		/* We will empty this queue in this kernel. */
+		split_params->queue_index[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS] = 0;
+	}
 	char enqueue_flag = 0;
+	ray_index = get_ray_index(ray_index,
+	                          QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
+	                          split_state->queue_data,
+	                          split_params->queue_size,
+	                          1);
+
+#ifdef __COMPUTE_DEVICE_GPU__
+	/* If we are executing on a GPU device, we exit all threads that are not
+	 * required.
+	 *
+	 * If we are executing on a CPU device, then we need to keep all threads
+	 * active since we have barrier() calls later in the kernel. CPU devices,
+	 * expect all threads to execute barrier statement.
+	 */
+	if(ray_index == QUEUE_EMPTY_SLOT) {
+		return;
+	}
+#endif
+
+#ifndef __COMPUTE_DEVICE_GPU__
+	if(ray_index != QUEUE_EMPTY_SLOT) {
+#endif
+
+	ccl_global uint *rng_state = split_params->rng_state;
+	int sw = split_params->w;
+	int sh = split_params->h;
+	int sx = split_params->x;
+	int sy = split_params->y;
+	int stride = split_params->stride;
+	int rng_state_offset_x = split_params->rng_offset_x;
+	int rng_state_offset_y = split_params->rng_offset_y;
+	int rng_state_stride = split_params->rng_stride;
+	int parallel_samples = split_params->parallel_samples;
+
+	ccl_global char *ray_state = split_state->ray_state;
 #ifdef __KERNEL_DEBUG__
 	DebugData *debug_data = &split_state->debug_data[ray_index];
 #endif
@@ -111,7 +142,7 @@ ccl_device char kernel_background_buffer_update(
 
 #ifdef __WORK_STEALING__
 	my_work = split_state->work_array[ray_index];
-	sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + start_sample;
+	sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
 	get_pixel_tile_position(&pixel_x, &pixel_y,
 	                        &tile_x, &tile_y,
 	                        my_work,
@@ -170,13 +201,13 @@ ccl_device char kernel_background_buffer_update(
 	if(IS_STATE(ray_state, ray_index, RAY_TO_REGENERATE)) {
 #ifdef __WORK_STEALING__
 		/* We have completed current work; So get next work */
-		int valid_work = get_next_work(work_pool_wgs, &my_work, sw, sh, num_samples, parallel_samples, ray_index);
+		int valid_work = get_next_work(split_params->work_pool_wgs, &my_work, sw, sh, split_params->num_samples, parallel_samples, ray_index);
 		if(!valid_work) {
 			/* If work is invalid, this means no more work is available and the thread may exit */
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_INACTIVE);
 		}
 #else  /* __WORK_STEALING__ */
-		if((sample + parallel_samples) >= end_sample) {
+		if((sample + parallel_samples) >= split_params->end_sample) {
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_INACTIVE);
 		}
 #endif  /* __WORK_STEALING__ */
@@ -185,7 +216,7 @@ ccl_device char kernel_background_buffer_update(
 #ifdef __WORK_STEALING__
 			split_state->work_array[ray_index] = my_work;
 			/* Get the sample associated with the current work */
-			sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + start_sample;
+			sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
 			/* Get pixel and tile position associated with current work */
 			get_pixel_tile_position(&pixel_x, &pixel_y, &tile_x, &tile_y, my_work, sw, sh, sx, sy, parallel_samples, ray_index);
 			my_sample_tile = 0;
@@ -232,5 +263,22 @@ ccl_device char kernel_background_buffer_update(
 			}
 		}
 	}
-	return enqueue_flag;
+
+#ifndef __COMPUTE_DEVICE_GPU__
+	}
+#endif
+
+	/* Enqueue RAY_REGENERATED rays into QUEUE_ACTIVE_AND_REGENERATED_RAYS;
+	 * These rays will be made active during next SceneIntersectkernel.
+	 */
+	enqueue_ray_index_local(ray_index,
+	                        QUEUE_ACTIVE_AND_REGENERATED_RAYS,
+	                        enqueue_flag,
+	                        split_params->queue_size,
+	                        &local_queue_atomics,
+	                        split_state->queue_data,
+	                        split_params->queue_index);
 }
+
+CCL_NAMESPACE_END
+

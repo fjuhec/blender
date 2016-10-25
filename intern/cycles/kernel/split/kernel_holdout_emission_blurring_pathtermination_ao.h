@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "kernel_split_common.h"
+CCL_NAMESPACE_BEGIN
 
 /* Note on kernel_holdout_emission_blurring_pathtermination_ao kernel.
  * This is the sixth kernel in the ray tracing logic. This is the fifth
@@ -70,17 +70,49 @@
  * QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be filled with RAY_TO_REGENERATE and RAY_UPDATE_BUFFER rays
  * QUEUE_SHADOW_RAY_CAST_AO_RAYS will be filled with rays marked with flag RAY_SHADOW_RAY_CAST_AO
  */
-ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
-        KernelGlobals *kg,
-        int sw, int sh, int sx, int sy, int stride,
-#ifdef __WORK_STEALING__
-        unsigned int start_sample,
-#endif
-        int parallel_samples,                  /* Number of samples to be processed in parallel */
-        int ray_index,
-        char *enqueue_flag,
-        char *enqueue_flag_AO_SHADOW_RAY_CAST)
+ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobals *kg)
 {
+	ccl_local unsigned int local_queue_atomics_bg;
+	ccl_local unsigned int local_queue_atomics_ao;
+	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
+		local_queue_atomics_bg = 0;
+		local_queue_atomics_ao = 0;
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	char enqueue_flag = 0;
+	char enqueue_flag_AO_SHADOW_RAY_CAST = 0;
+	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	ray_index = get_ray_index(ray_index,
+	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
+	                          split_state->queue_data,
+	                          split_params->queue_size,
+	                          0);
+
+#ifdef __COMPUTE_DEVICE_GPU__
+	/* If we are executing on a GPU device, we exit all threads that are not
+	 * required.
+	 *
+	 * If we are executing on a CPU device, then we need to keep all threads
+	 * active since we have barrier() calls later in the kernel. CPU devices,
+	 * expect all threads to execute barrier statement.
+	 */
+	if(ray_index == QUEUE_EMPTY_SLOT) {
+		return;
+	}
+#endif  /* __COMPUTE_DEVICE_GPU__ */
+
+#ifndef __COMPUTE_DEVICE_GPU__
+	if(ray_index != QUEUE_EMPTY_SLOT) {
+#endif
+
+	int sw = split_params->w;
+	int sh = split_params->h;
+	int sx = split_params->x;
+	int sy = split_params->y;
+	int stride = split_params->stride;
+	int parallel_samples = split_params->parallel_samples;
+
 #ifdef __WORK_STEALING__
 	unsigned int my_work;
 	unsigned int pixel_x;
@@ -106,7 +138,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 		rng = &split_state->rng[ray_index];
 #ifdef __WORK_STEALING__
 		my_work = split_state->work_array[ray_index];
-		sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + start_sample;
+		sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
 		get_pixel_tile_position(&pixel_x, &pixel_y,
 		                        &tile_x, &tile_y,
 		                        my_work,
@@ -145,7 +177,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 
 			if(ccl_fetch(sd, flag) & SD_HOLDOUT_MASK) {
 				ASSIGN_RAY_STATE(ray_state, ray_index, RAY_UPDATE_BUFFER);
-				*enqueue_flag = 1;
+				enqueue_flag = 1;
 			}
 		}
 #endif  /* __HOLDOUT__ */
@@ -194,7 +226,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 
 		if(probability == 0.0f) {
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_UPDATE_BUFFER);
-			*enqueue_flag = 1;
+			enqueue_flag = 1;
 		}
 
 		if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
@@ -202,7 +234,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 				float terminate = path_state_rng_1D_for_decision(kg, rng, state, PRNG_TERMINATE);
 				if(terminate >= probability) {
 					ASSIGN_RAY_STATE(ray_state, ray_index, RAY_UPDATE_BUFFER);
-					*enqueue_flag = 1;
+					enqueue_flag = 1;
 				}
 				else {
 					split_state->throughput[ray_index] = throughput/probability;
@@ -243,9 +275,36 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 				split_state->ao_light_ray[ray_index] = _ray;
 
 				ADD_RAY_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO);
-				*enqueue_flag_AO_SHADOW_RAY_CAST = 1;
+				enqueue_flag_AO_SHADOW_RAY_CAST = 1;
 			}
 		}
 	}
 #endif  /* __AO__ */
+
+#ifndef __COMPUTE_DEVICE_GPU__
+	}
+#endif
+
+	/* Enqueue RAY_UPDATE_BUFFER rays. */
+	enqueue_ray_index_local(ray_index,
+	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
+	                        enqueue_flag,
+	                        split_params->queue_size,
+	                        &local_queue_atomics_bg,
+	                        split_state->queue_data,
+	                        split_params->queue_index);
+
+#ifdef __AO__
+	/* Enqueue to-shadow-ray-cast rays. */
+	enqueue_ray_index_local(ray_index,
+	                        QUEUE_SHADOW_RAY_CAST_AO_RAYS,
+	                        enqueue_flag_AO_SHADOW_RAY_CAST,
+	                        split_params->queue_size,
+	                        &local_queue_atomics_ao,
+	                        split_state->queue_data,
+	                        split_params->queue_index);
+#endif
 }
+
+CCL_NAMESPACE_END
+

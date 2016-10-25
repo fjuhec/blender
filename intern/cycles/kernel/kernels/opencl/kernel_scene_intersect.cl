@@ -14,44 +14,12 @@
  * limitations under the License.
  */
 
+#include "split/kernel_split_common.h"
 #include "split/kernel_scene_intersect.h"
 
 __kernel void kernel_ocl_path_trace_scene_intersect(
         KernelGlobals *kg,
         ccl_constant KernelData *data)
 {
-	int x = get_global_id(0);
-	int y = get_global_id(1);
-
-	/* Fetch use_queues_flag */
-	ccl_local char local_use_queues_flag;
-	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
-		local_use_queues_flag = split_params->use_queues_flag[0];
-	}
-	barrier(CLK_LOCAL_MEM_FENCE);
-
-	int ray_index;
-	if(local_use_queues_flag) {
-		int thread_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
-		ray_index = get_ray_index(thread_index,
-		                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-		                          split_state->queue_data,
-		                          split_params->queue_size,
-		                          0);
-
-		if(ray_index == QUEUE_EMPTY_SLOT) {
-			return;
-		}
-	} else {
-		if(x < (split_params->w * split_params->parallel_samples) && y < split_params->h) {
-			ray_index = x + y * (split_params->w * split_params->parallel_samples);
-		} else {
-			return;
-		}
-	}
-
-	kernel_scene_intersect(kg,
-	                       split_params->w, split_params->h,
-	                       split_params->use_queues_flag,
-	                       ray_index);
+	kernel_scene_intersect(kg);
 }

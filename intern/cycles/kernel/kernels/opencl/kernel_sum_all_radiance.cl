@@ -14,18 +14,12 @@
  * limitations under the License.
  */
 
+#include "split/kernel_split_common.h"
 #include "split/kernel_sum_all_radiance.h"
 
 __kernel void kernel_ocl_path_trace_sum_all_radiance(
         KernelGlobals *kg,
         ccl_constant KernelData *data)
 {
-	kernel_sum_all_radiance(kg,
-	                        split_params->buffer,
-	                        split_params->parallel_samples,
-	                        split_params->w, split_params->h, split_params->stride,
-	                        split_params->buffer_offset_x,
-	                        split_params->buffer_offset_y,
-	                        split_params->buffer_stride,
-	                        split_params->start_sample);
+	kernel_sum_all_radiance(kg);
 }

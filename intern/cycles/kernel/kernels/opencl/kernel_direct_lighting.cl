@@ -14,56 +14,12 @@
  * limitations under the License.
  */
 
+#include "split/kernel_split_common.h"
 #include "split/kernel_direct_lighting.h"
 
 __kernel void kernel_ocl_path_trace_direct_lighting(
         KernelGlobals *kg,
         ccl_constant KernelData *data)
 {
-	ccl_local unsigned int local_queue_atomics;
-	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
-		local_queue_atomics = 0;
-	}
-	barrier(CLK_LOCAL_MEM_FENCE);
-
-	char enqueue_flag = 0;
-	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
-	ray_index = get_ray_index(ray_index,
-	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-	                          split_state->queue_data,
-	                          split_params->queue_size,
-	                          0);
-
-#ifdef __COMPUTE_DEVICE_GPU__
-	/* If we are executing on a GPU device, we exit all threads that are not
-	 * required.
-	 *
-	 * If we are executing on a CPU device, then we need to keep all threads
-	 * active since we have barrier() calls later in the kernel. CPU devices,
-	 * expect all threads to execute barrier statement.
-	 */
-	if(ray_index == QUEUE_EMPTY_SLOT) {
-		return;
-	}
-#endif
-
-#ifndef __COMPUTE_DEVICE_GPU__
-	if(ray_index != QUEUE_EMPTY_SLOT) {
-#endif
-		enqueue_flag = kernel_direct_lighting(kg, ray_index);
-
-#ifndef __COMPUTE_DEVICE_GPU__
-	}
-#endif
-
-#ifdef __EMISSION__
-	/* Enqueue RAY_SHADOW_RAY_CAST_DL rays. */
-	enqueue_ray_index_local(ray_index,
-	                        QUEUE_SHADOW_RAY_CAST_DL_RAYS,
-	                        enqueue_flag,
-	                        split_params->queue_size,
-	                        &local_queue_atomics,
-	                        split_state->queue_data,
-	                        split_params->queue_index);
-#endif
+	kernel_direct_lighting(kg);
 }

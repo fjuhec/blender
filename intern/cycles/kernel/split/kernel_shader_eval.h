@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "kernel_split_common.h"
+CCL_NAMESPACE_BEGIN
 
 /* Note on kernel_shader_eval kernel
  * This kernel is the 5th kernel in the ray tracing logic. This is
@@ -44,8 +44,37 @@
  * QUEUE_ACTIVE_AND_REGENERATED_RAYS will be filled with RAY_ACTIVE and RAY_REGENERATED rays
  * QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS will be filled with RAY_TO_REGENERATE rays
  */
-ccl_device void kernel_shader_eval(KernelGlobals *kg, int ray_index)
+
+ccl_device void kernel_shader_eval(KernelGlobals *kg)
 {
+	/* Enqeueue RAY_TO_REGENERATE rays into QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS queue. */
+	ccl_local unsigned int local_queue_atomics;
+	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
+		local_queue_atomics = 0;
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
+
+	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	ray_index = get_ray_index(ray_index,
+	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
+	                          split_state->queue_data,
+	                          split_params->queue_size,
+	                          0);
+
+	if(ray_index == QUEUE_EMPTY_SLOT) {
+		return;
+	}
+
+	char enqueue_flag = (IS_STATE(split_state->ray_state, ray_index, RAY_TO_REGENERATE)) ? 1 : 0;
+	enqueue_ray_index_local(ray_index,
+	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
+	                        enqueue_flag,
+	                        split_params->queue_size,
+	                        &local_queue_atomics,
+	                        split_state->queue_data,
+	                        split_params->queue_index);
+
+	/* Continue on with shader evaluation. */
 	if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE)) {
 		Intersection *isect = &split_state->isect[ray_index];
 		ccl_global uint *rng = &split_state->rng[ray_index];
@@ -60,3 +89,6 @@ ccl_device void kernel_shader_eval(KernelGlobals *kg, int ray_index)
 		shader_eval_surface(kg, split_state->sd, rng, state, rbsdf, state->flag, SHADER_CONTEXT_MAIN);
 	}
 }
+
+CCL_NAMESPACE_END
+

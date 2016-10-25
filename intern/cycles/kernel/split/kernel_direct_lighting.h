@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "kernel_split_common.h"
+CCL_NAMESPACE_BEGIN
 
 /* Note on kernel_direct_lighting kernel.
  * This is the eighth kernel in the ray tracing logic. This is the seventh
@@ -47,9 +47,39 @@
  * QUEUE_SHADOW_RAY_CAST_DL_RAYS queue will be filled with rays for which a shadow_blocked function must be executed, after this
  * kernel call. Before this kernel call the QUEUE_SHADOW_RAY_CAST_DL_RAYS will be empty.
  */
-ccl_device char kernel_direct_lighting(KernelGlobals *kg, int ray_index)
+ccl_device void kernel_direct_lighting(KernelGlobals *kg)
 {
+	ccl_local unsigned int local_queue_atomics;
+	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
+		local_queue_atomics = 0;
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
+
 	char enqueue_flag = 0;
+	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	ray_index = get_ray_index(ray_index,
+	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
+	                          split_state->queue_data,
+	                          split_params->queue_size,
+	                          0);
+
+#ifdef __COMPUTE_DEVICE_GPU__
+	/* If we are executing on a GPU device, we exit all threads that are not
+	 * required.
+	 *
+	 * If we are executing on a CPU device, then we need to keep all threads
+	 * active since we have barrier() calls later in the kernel. CPU devices,
+	 * expect all threads to execute barrier statement.
+	 */
+	if(ray_index == QUEUE_EMPTY_SLOT) {
+		return;
+	}
+#endif
+
+#ifndef __COMPUTE_DEVICE_GPU__
+	if(ray_index != QUEUE_EMPTY_SLOT) {
+#endif
+
 	if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE)) {
 		ccl_global PathState *state = &split_state->path_state[ray_index];
 		ShaderData *sd = split_state->sd;
@@ -95,5 +125,21 @@ ccl_device char kernel_direct_lighting(KernelGlobals *kg, int ray_index)
 		}
 #endif  /* __EMISSION__ */
 	}
-	return enqueue_flag;
+
+#ifndef __COMPUTE_DEVICE_GPU__
+	}
+#endif
+
+#ifdef __EMISSION__
+	/* Enqueue RAY_SHADOW_RAY_CAST_DL rays. */
+	enqueue_ray_index_local(ray_index,
+	                        QUEUE_SHADOW_RAY_CAST_DL_RAYS,
+	                        enqueue_flag,
+	                        split_params->queue_size,
+	                        &local_queue_atomics,
+	                        split_state->queue_data,
+	                        split_params->queue_index);
+#endif
 }
+
+CCL_NAMESPACE_END
