@@ -67,8 +67,8 @@ __kernel void kernel_ocl_path_trace(
 	kg->name = name;
 #include "../../kernel_textures.h"
 
-	int x = sx + get_global_id(0);
-	int y = sy + get_global_id(1);
+	int x = sx + ccl_global_id(0);
+	int y = sy + ccl_global_id(1);
 
 	if(x < sx + sw && y < sy + sh)
 		kernel_path_trace(kg, buffer, rng_state, sample, x, y, offset, stride);
@@ -96,7 +96,7 @@ __kernel void kernel_ocl_shader(
 	kg->name = name;
 #include "../../kernel_textures.h"
 
-	int x = sx + get_global_id(0);
+	int x = sx + ccl_global_id(0);
 
 	if(x < sx + sw) {
 		kernel_shader_evaluate(kg,
@@ -128,7 +128,7 @@ __kernel void kernel_ocl_bake(
 	kg->name = name;
 #include "../../kernel_textures.h"
 
-	int x = sx + get_global_id(0);
+	int x = sx + ccl_global_id(0);
 
 	if(x < sx + sw) {
 #ifdef __NO_BAKING__
@@ -159,8 +159,8 @@ __kernel void kernel_ocl_convert_to_byte(
 	kg->name = name;
 #include "../../kernel_textures.h"
 
-	int x = sx + get_global_id(0);
-	int y = sy + get_global_id(1);
+	int x = sx + ccl_global_id(0);
+	int y = sy + ccl_global_id(1);
 
 	if(x < sx + sw && y < sy + sh)
 		kernel_film_convert_to_byte(kg, rgba, buffer, sample_scale, x, y, offset, stride);
@@ -186,8 +186,8 @@ __kernel void kernel_ocl_convert_to_half_float(
 	kg->name = name;
 #include "../../kernel_textures.h"
 
-	int x = sx + get_global_id(0);
-	int y = sy + get_global_id(1);
+	int x = sx + ccl_global_id(0);
+	int y = sy + ccl_global_id(1);
 
 	if(x < sx + sw && y < sy + sh)
 		kernel_film_convert_to_half_float(kg, rgba, buffer, sample_scale, x, y, offset, stride);

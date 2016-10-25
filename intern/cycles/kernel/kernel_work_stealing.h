@@ -35,12 +35,12 @@ uint get_group_id_with_ray_index(uint ray_index,
 {
 	if(dim == 0) {
 		uint x_span = ray_index % (tile_dim_x * parallel_samples);
-		return x_span / get_local_size(0);
+		return x_span / ccl_local_size(0);
 	}
 	else /*if(dim == 1)*/ {
 		kernel_assert(dim == 1);
 		uint y_span = ray_index / (tile_dim_x * parallel_samples);
-		return y_span / get_local_size(1);
+		return y_span / ccl_local_size(1);
 	}
 }
 
@@ -51,17 +51,17 @@ uint get_total_work(uint tile_dim_x,
                     uint num_samples)
 {
 	uint threads_within_tile_border_x =
-		(grp_idx == (get_num_groups(0) - 1)) ? tile_dim_x % get_local_size(0)
-		                                     : get_local_size(0);
+		(grp_idx == (ccl_num_groups(0) - 1)) ? tile_dim_x % ccl_local_size(0)
+		                                     : ccl_local_size(0);
 	uint threads_within_tile_border_y =
-		(grp_idy == (get_num_groups(1) - 1)) ? tile_dim_y % get_local_size(1)
-		                                     : get_local_size(1);
+		(grp_idy == (ccl_num_groups(1) - 1)) ? tile_dim_y % ccl_local_size(1)
+		                                     : ccl_local_size(1);
 
 	threads_within_tile_border_x =
-		(threads_within_tile_border_x == 0) ? get_local_size(0)
+		(threads_within_tile_border_x == 0) ? ccl_local_size(0)
 		                                    : threads_within_tile_border_x;
 	threads_within_tile_border_y =
-		(threads_within_tile_border_y == 0) ? get_local_size(1)
+		(threads_within_tile_border_y == 0) ? ccl_local_size(1)
 		                                    : threads_within_tile_border_y;
 
 	return threads_within_tile_border_x *
@@ -94,7 +94,7 @@ int get_next_work(ccl_global uint *work_pool,
 	                                 grp_idx,
 	                                 grp_idy,
 	                                 num_samples);
-	uint group_index = grp_idy * get_num_groups(0) + grp_idx;
+	uint group_index = grp_idy * ccl_num_groups(0) + grp_idx;
 	*my_work = atomic_inc(&work_pool[group_index]);
 	return (*my_work < total_work) ? 1 : 0;
 }
@@ -118,17 +118,17 @@ uint get_my_sample(uint my_work,
 	                                           parallel_samples,
 	                                           1);
 	uint threads_within_tile_border_x =
-		(grp_idx == (get_num_groups(0) - 1)) ? tile_dim_x % get_local_size(0)
-		                                     : get_local_size(0);
+		(grp_idx == (ccl_num_groups(0) - 1)) ? tile_dim_x % ccl_local_size(0)
+		                                     : ccl_local_size(0);
 	uint threads_within_tile_border_y =
-		(grp_idy == (get_num_groups(1) - 1)) ? tile_dim_y % get_local_size(1)
-		                                     : get_local_size(1);
+		(grp_idy == (ccl_num_groups(1) - 1)) ? tile_dim_y % ccl_local_size(1)
+		                                     : ccl_local_size(1);
 
 	threads_within_tile_border_x =
-		(threads_within_tile_border_x == 0) ? get_local_size(0)
+		(threads_within_tile_border_x == 0) ? ccl_local_size(0)
 		                                    : threads_within_tile_border_x;
 	threads_within_tile_border_y =
-		(threads_within_tile_border_y == 0) ? get_local_size(1)
+		(threads_within_tile_border_y == 0) ? ccl_local_size(1)
 		                                    : threads_within_tile_border_y;
 
 	return my_work /
@@ -159,17 +159,17 @@ void get_pixel_tile_position(ccl_private uint *pixel_x,
 	                                           parallel_samples,
 	                                           1);
 	uint threads_within_tile_border_x =
-		(grp_idx == (get_num_groups(0) - 1)) ? tile_dim_x % get_local_size(0)
-		                                     : get_local_size(0);
+		(grp_idx == (ccl_num_groups(0) - 1)) ? tile_dim_x % ccl_local_size(0)
+		                                     : ccl_local_size(0);
 	uint threads_within_tile_border_y =
-		(grp_idy == (get_num_groups(1) - 1)) ? tile_dim_y % get_local_size(1)
-		                                     : get_local_size(1);
+		(grp_idy == (ccl_num_groups(1) - 1)) ? tile_dim_y % ccl_local_size(1)
+		                                     : ccl_local_size(1);
 
 	threads_within_tile_border_x =
-		(threads_within_tile_border_x == 0) ? get_local_size(0)
+		(threads_within_tile_border_x == 0) ? ccl_local_size(0)
 		                                    : threads_within_tile_border_x;
 	threads_within_tile_border_y =
-		(threads_within_tile_border_y == 0) ? get_local_size(1)
+		(threads_within_tile_border_y == 0) ? ccl_local_size(1)
 		                                    : threads_within_tile_border_y;
 
 	uint total_associated_pixels =
@@ -181,9 +181,9 @@ void get_pixel_tile_position(ccl_private uint *pixel_x,
 		work_group_pixel_index / threads_within_tile_border_x;
 
 	*pixel_x =
-		tile_offset_x + (grp_idx * get_local_size(0)) + work_group_pixel_x;
+		tile_offset_x + (grp_idx * ccl_local_size(0)) + work_group_pixel_x;
 	*pixel_y =
-		tile_offset_y + (grp_idy * get_local_size(1)) + work_group_pixel_y;
+		tile_offset_y + (grp_idy * ccl_local_size(1)) + work_group_pixel_y;
 	*tile_x = *pixel_x - tile_offset_x;
 	*tile_y = *pixel_y - tile_offset_y;
 }

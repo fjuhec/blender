@@ -44,6 +44,14 @@
 
 #define ccl_addr_space
 
+#define ccl_local_id(d) 0
+#define ccl_global_id(d) 0
+
+#define ccl_local_size(d) 1
+#define ccl_global_size(d) 1
+
+#define ccl_num_groups(d) 1
+
 /* On x86_64, versions of glibc < 2.16 have an issue where expf is
  * much slower than the double version.  This was fixed in glibc 2.16.
  */

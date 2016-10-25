@@ -23,8 +23,8 @@ CCL_NAMESPACE_BEGIN
 
 ccl_device void kernel_sum_all_radiance(KernelGlobals *kg)
 {
-	int x = get_global_id(0);
-	int y = get_global_id(1);
+	int x = ccl_global_id(0);
+	int y = ccl_global_id(1);
 
 	ccl_global float *buffer = split_params->buffer;
 	int parallel_samples = split_params->parallel_samples;

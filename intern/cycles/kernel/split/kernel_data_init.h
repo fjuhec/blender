@@ -124,13 +124,13 @@ ccl_device void kernel_data_init(
 	kg->name = name;
 #include "../kernel_textures.h"
 
-	int thread_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 
 #ifdef __WORK_STEALING__
-	int lid = get_local_id(1) * get_local_size(0) + get_local_id(0);
+	int lid = ccl_local_id(1) * ccl_local_size(0) + ccl_local_id(0);
 	/* Initialize work_pool_wgs */
 	if(lid == 0) {
-		int group_index = get_group_id(1) * get_num_groups(0) + get_group_id(0);
+		int group_index = get_group_id(1) * ccl_num_groups(0) + get_group_id(0);
 		work_pool_wgs[group_index] = 0;
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -159,8 +159,8 @@ ccl_device void kernel_data_init(
 		use_queues_flag[0] = 0;
 	}
 
-	int x = get_global_id(0);
-	int y = get_global_id(1);
+	int x = ccl_global_id(0);
+	int y = ccl_global_id(1);
 
 	if(x < (sw * parallel_samples) && y < sh) {
 		int ray_index = x + y * (sw * parallel_samples);
@@ -261,7 +261,7 @@ ccl_device void kernel_data_init(
 	}
 
 	/* Mark rest of the ray-state indices as RAY_INACTIVE. */
-	if(thread_index < (get_global_size(0) * get_global_size(1)) - (sh * (sw * parallel_samples))) {
+	if(thread_index < (ccl_global_size(0) * ccl_global_size(1)) - (sh * (sw * parallel_samples))) {
 		/* First assignment, hence we dont use ASSIGN_RAY_STATE macro */
 		split_state->ray_state[((sw * parallel_samples) * sh) + thread_index] = RAY_INACTIVE;
 	}

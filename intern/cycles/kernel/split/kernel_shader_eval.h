@@ -49,12 +49,12 @@ ccl_device void kernel_shader_eval(KernelGlobals *kg)
 {
 	/* Enqeueue RAY_TO_REGENERATE rays into QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS queue. */
 	ccl_local unsigned int local_queue_atomics;
-	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
+	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
 		local_queue_atomics = 0;
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);
 
-	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 	ray_index = get_ray_index(ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                          split_state->queue_data,

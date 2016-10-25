@@ -74,7 +74,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 {
 	ccl_local unsigned int local_queue_atomics_bg;
 	ccl_local unsigned int local_queue_atomics_ao;
-	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
+	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
 		local_queue_atomics_bg = 0;
 		local_queue_atomics_ao = 0;
 	}
@@ -82,7 +82,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 
 	char enqueue_flag = 0;
 	char enqueue_flag_AO_SHADOW_RAY_CAST = 0;
-	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 	ray_index = get_ray_index(ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                          split_state->queue_data,

@@ -49,6 +49,14 @@
 #  define ccl_addr_space
 #endif
 
+#define ccl_local_id(d) get_local_id(d)
+#define ccl_global_id(d) get_global_id(d)
+
+#define ccl_local_size(d) get_local_size(d)
+#define ccl_global_size(d) get_global_size(d)
+
+#define ccl_num_groups(d) get_num_groups(d)
+
 /* Selective nodes compilation. */
 #ifndef __NODES_MAX_GROUP__
 #  define __NODES_MAX_GROUP__ NODE_GROUP_LEVEL_MAX

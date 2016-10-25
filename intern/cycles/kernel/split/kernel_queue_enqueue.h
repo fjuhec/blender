@@ -52,8 +52,8 @@ ccl_device void kernel_queue_enqueue(KernelGlobals *kg)
 	/* We have only 2 cases (Hit/Not-Hit) */
 	ccl_local unsigned int local_queue_atomics[2];
 
-	int lidx = get_local_id(1) * get_local_size(0) + get_local_id(0);
-	int ray_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+	int lidx = ccl_local_id(1) * ccl_local_size(0) + ccl_local_id(0);
+	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 
 	if(lidx < 2 ) {
 		local_queue_atomics[lidx] = 0;

@@ -72,7 +72,7 @@ ccl_device void enqueue_ray_index_local(
         ccl_global int *Queue_data,                  /* Queues. */
         ccl_global int *Queue_index)                 /* To do global queue atomics. */
 {
-	int lidx = get_local_id(1) * get_local_size(0) + get_local_id(0);
+	int lidx = ccl_local_id(1) * ccl_local_size(0) + ccl_local_id(0);
 
 	/* Get local queue id .*/
 	unsigned int lqidx;

@@ -38,23 +38,23 @@ CCL_NAMESPACE_BEGIN
  */
 ccl_device void kernel_lamp_emission(KernelGlobals *kg)
 {
-	int x = get_global_id(0);
-	int y = get_global_id(1);
+	int x = ccl_global_id(0);
+	int y = ccl_global_id(1);
 
 	/* We will empty this queue in this kernel. */
-	if(get_global_id(0) == 0 && get_global_id(1) == 0) {
+	if(ccl_global_id(0) == 0 && ccl_global_id(1) == 0) {
 		split_params->queue_index[QUEUE_ACTIVE_AND_REGENERATED_RAYS] = 0;
 	}
 	/* Fetch use_queues_flag. */
 	ccl_local char local_use_queues_flag;
-	if(get_local_id(0) == 0 && get_local_id(1) == 0) {
+	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
 		local_use_queues_flag = split_params->use_queues_flag[0];
 	}
 	barrier(CLK_LOCAL_MEM_FENCE);
 
 	int ray_index;
 	if(local_use_queues_flag) {
-		int thread_index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+		int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 		ray_index = get_ray_index(thread_index,
 		                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 		                          split_state->queue_data,
