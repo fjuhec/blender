@@ -35,13 +35,13 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
          ccl_addr_space uint *lcg_state
 #ifdef MF_MULTI_GLASS
         , const float eta
-		, bool use_fresnel = false
-		, const float3 cspec0 = make_float3(1.0f, 1.0f, 1.0f)
+		, bool use_fresnel
+		, const float3 cspec0
 #elif defined(MF_MULTI_GLOSSY)
 		 , float3 *n, float3 *k
-		 , const float eta = 1.0f
-		 , bool use_fresnel = false
-		 , const float3 cspec0 = make_float3(1.0f, 1.0f, 1.0f)
+		 , const float eta
+		 , bool use_fresnel
+		 , const float3 cspec0
 #endif
 )
 {
@@ -249,13 +249,13 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3 *wo, const float3 color, const float alpha_x, const float alpha_y, ccl_addr_space uint *lcg_state
 #ifdef MF_MULTI_GLASS
 	, const float eta
-	, bool use_fresnel = false
-	, const float3 cspec0 = make_float3(1.0f, 1.0f, 1.0f)
+	, bool use_fresnel
+	, const float3 cspec0
 #elif defined(MF_MULTI_GLOSSY)
 	, float3 *n, float3 *k
-	, const float eta = 1.0f
-	, bool use_fresnel = false
-	, const float3 cspec0 = make_float3(1.0f, 1.0f, 1.0f)
+	, const float eta
+	, bool use_fresnel
+	, const float3 cspec0
 #endif
 )
 {

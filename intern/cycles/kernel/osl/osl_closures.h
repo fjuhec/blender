@@ -57,7 +57,6 @@ OSL::ClosureParam *closure_bsdf_microfacet_multi_ggx_params();
 OSL::ClosureParam *closure_bsdf_microfacet_multi_ggx_glass_params();
 OSL::ClosureParam *closure_bsdf_microfacet_multi_ggx_aniso_params();
 OSL::ClosureParam *closure_bsdf_microfacet_ggx_fresnel_params();
-OSL::ClosureParam *closure_bsdf_microfacet_ggx_refraction_fresnel_params();
 OSL::ClosureParam *closure_bsdf_microfacet_ggx_aniso_fresnel_params();
 OSL::ClosureParam *closure_bsdf_microfacet_multi_ggx_fresnel_params();
 OSL::ClosureParam *closure_bsdf_microfacet_multi_ggx_glass_fresnel_params();
@@ -78,7 +77,6 @@ void closure_bsdf_microfacet_multi_ggx_prepare(OSL::RendererServices *, int id, 
 void closure_bsdf_microfacet_multi_ggx_glass_prepare(OSL::RendererServices *, int id, void *data);
 void closure_bsdf_microfacet_multi_ggx_aniso_prepare(OSL::RendererServices *, int id, void *data);
 void closure_bsdf_microfacet_ggx_fresnel_prepare(OSL::RendererServices *, int id, void *data);
-void closure_bsdf_microfacet_ggx_refraction_fresnel_prepare(OSL::RendererServices *, int id, void *data);
 void closure_bsdf_microfacet_ggx_aniso_fresnel_prepare(OSL::RendererServices *, int id, void *data);
 void closure_bsdf_microfacet_multi_ggx_fresnel_prepare(OSL::RendererServices *, int id, void *data);
 void closure_bsdf_microfacet_multi_ggx_glass_fresnel_prepare(OSL::RendererServices *, int id, void *data);

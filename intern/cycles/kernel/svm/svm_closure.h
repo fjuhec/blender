@@ -288,9 +288,9 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 						/* setup bsdf */
 						if(distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID || roughness <= 0.075f) /* use single-scatter GGX */
-							ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_aniso_setup(bsdf, true);
+							ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_aniso_fresnel_setup(bsdf);
 						else /* use multi-scatter GGX */
-							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_setup(bsdf, true);
+							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_fresnel_setup(bsdf);
 					}
 				}
 #ifdef __CAUSTICS_TRICKS__
@@ -331,9 +331,9 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 							    /* setup bsdf */
 								if(refl_roughness == 0.0f)
-									ccl_fetch(sd, flag) |= bsdf_reflection_setup(bsdf, true);
+									ccl_fetch(sd, flag) |= bsdf_reflection_fresnel_setup(bsdf);
 								else
-									ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_setup(bsdf, true);
+									ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_fresnel_setup(bsdf);
 							}
 						}
 
@@ -383,7 +383,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 							bsdf->extra->cspec0 = cspec0;
 
 							/* setup bsdf */
-							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_glass_setup(bsdf, true);
+							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_glass_fresnel_setup(bsdf);
 						}
 					}
 				}
@@ -412,7 +412,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						bsdf->extra->cspec0 = make_float3(0.04f, 0.04f, 0.04f);
 
 						/* setup bsdf */
-						ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_setup(bsdf, true, true);
+						ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_clearcoat_setup(bsdf);
 					}
 				}
 #ifdef __CAUSTICS_TRICKS__

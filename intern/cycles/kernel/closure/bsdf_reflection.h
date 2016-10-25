@@ -37,11 +37,18 @@ CCL_NAMESPACE_BEGIN
 
 /* REFLECTION */
 
-ccl_device int bsdf_reflection_setup(MicrofacetBsdf *bsdf, bool use_fresnel = false)
+ccl_device int bsdf_reflection_setup(MicrofacetBsdf *bsdf)
 {
-	if(bsdf->extra) {
-		bsdf->extra->use_fresnel = use_fresnel;
-	}
+    bsdf->extra = NULL;
+
+	bsdf->type = CLOSURE_BSDF_REFLECTION_ID;
+	return SD_BSDF;
+}
+
+ccl_device int bsdf_reflection_fresnel_setup(MicrofacetBsdf *bsdf)
+{
+	bsdf->extra->use_fresnel = true;
+
 	bsdf->type = CLOSURE_BSDF_REFLECTION_ID;
 	return SD_BSDF;
 }

@@ -532,7 +532,6 @@ closure color microfacet_multi_ggx_aniso(normal N, vector T, float ax, float ay,
 closure color microfacet_multi_ggx_glass(normal N, float ag, float eta, color C) BUILTIN;
 closure color microfacet_ggx_fresnel(normal N, float ag, float eta, color C, color Cspec0) BUILTIN;
 closure color microfacet_ggx_aniso_fresnel(normal N, vector T, float ax, float ay, float eta, color C, color Cspec0) BUILTIN;
-closure color microfacet_ggx_refraction_fresnel(normal N, float ag, float eta, color C, color Cspec0) BUILTIN;
 closure color microfacet_multi_ggx_fresnel(normal N, float ag, float eta, color C, color Cspec0) BUILTIN;
 closure color microfacet_multi_ggx_aniso_fresnel(normal N, vector T, float ax, float ay, float eta, color C, color Cspec0) BUILTIN;
 closure color microfacet_multi_ggx_glass_fresnel(normal N, float ag, float eta, color C, color Cspec0) BUILTIN;
