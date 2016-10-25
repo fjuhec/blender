@@ -25,9 +25,6 @@ CCL_NAMESPACE_BEGIN
 
 /* Macro declarations used with split kernel */
 
-/* Macro to enable/disable work-stealing */
-#define __WORK_STEALING__
-
 #define SPLIT_KERNEL_LOCAL_SIZE_X 64
 #define SPLIT_KERNEL_LOCAL_SIZE_Y 1
 

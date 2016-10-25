@@ -49,6 +49,20 @@ void KERNEL_FUNCTION_FULL_NAME(shader)(KernelGlobals *kg,
                                        int offset,
                                        int sample);
 
+#define DECLARE_SPLIT_KERNEL_FUNCTION(name) \
+	void KERNEL_FUNCTION_FULL_NAME(name)(KernelGlobals *kg, KernelData *data);
+
+DECLARE_SPLIT_KERNEL_FUNCTION(scene_intersect)
+DECLARE_SPLIT_KERNEL_FUNCTION(lamp_emission)
+DECLARE_SPLIT_KERNEL_FUNCTION(queue_enqueue)
+DECLARE_SPLIT_KERNEL_FUNCTION(background_buffer_update)
+DECLARE_SPLIT_KERNEL_FUNCTION(shader_eval)
+DECLARE_SPLIT_KERNEL_FUNCTION(holdout_emission_blurring_pathtermination_ao)
+DECLARE_SPLIT_KERNEL_FUNCTION(direct_lighting)
+DECLARE_SPLIT_KERNEL_FUNCTION(shadow_blocked)
+DECLARE_SPLIT_KERNEL_FUNCTION(next_iteration_setup)
+DECLARE_SPLIT_KERNEL_FUNCTION(sum_all_radiance)
+
 void KERNEL_FUNCTION_FULL_NAME(register_functions)(void(*reg)(const char* name, void* func));
 
 #undef KERNEL_ARCH

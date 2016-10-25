@@ -106,9 +106,6 @@ public:
 	string get_build_options(const DeviceRequestedFeatures& requested_features)
 	{
 		string build_options = "-D__SPLIT_KERNEL__ ";
-#ifdef __WORK_STEALING__
-		build_options += "-D__WORK_STEALING__ ";
-#endif
 		build_options += requested_features.get_build_options();
 
 		/* Set compute device build option. */

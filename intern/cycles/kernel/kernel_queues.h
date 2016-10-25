@@ -17,6 +17,8 @@
 #ifndef __KERNEL_QUEUE_H__
 #define __KERNEL_QUEUE_H__
 
+CCL_NAMESPACE_BEGIN
+
 /*
  * Queue utility functions for split kernel
  */
@@ -121,5 +123,7 @@ ccl_device unsigned int get_global_queue_index(
 	int my_gqidx = queuesize * queue_number + lqidx + global_per_queue_offset[queue_number];
 	return my_gqidx;
 }
+
+CCL_NAMESPACE_END
 
 #endif // __KERNEL_QUEUE_H__

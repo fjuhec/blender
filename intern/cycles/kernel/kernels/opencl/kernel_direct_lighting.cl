@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "kernel_compat_opencl.h"
 #include "split/kernel_split_common.h"
 #include "split/kernel_direct_lighting.h"
 

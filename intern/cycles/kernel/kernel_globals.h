@@ -64,6 +64,12 @@ typedef struct KernelGlobals {
 	/* Storage for decoupled volume steps. */
 	VolumeStep *decoupled_volume_steps[2];
 	int decoupled_volume_steps_index;
+
+	/* split kernel */
+	ShaderData *sd_input;
+	Intersection *isect_shadow;
+	SplitData split_data;
+	SplitParams split_param_data;
 } KernelGlobals;
 
 #endif  /* __KERNEL_CPU__ */

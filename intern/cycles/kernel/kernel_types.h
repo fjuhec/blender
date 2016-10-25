@@ -63,17 +63,23 @@ CCL_NAMESPACE_BEGIN
 #  endif
 #  define __KERNEL_SHADING__
 #  define __KERNEL_ADV_SHADING__
-#  define __BRANCHED_PATH__
+#  ifndef __SPLIT_KERNEL__
+#    define __BRANCHED_PATH__
+#  endif
 #  ifdef WITH_OSL
 #    define __OSL__
 #  endif
-#  define __SUBSURFACE__
+#  ifndef __SPLIT_KERNEL__
+#    define __SUBSURFACE__
+#  endif
 #  define __CMJ__
-#  define __VOLUME__
-#  define __VOLUME_DECOUPLED__
-#  define __VOLUME_SCATTER__
-#  define __SHADOW_RECORD_ALL__
-#  define __VOLUME_RECORD_ALL__
+#  ifndef __SPLIT_KERNEL__
+#    define __VOLUME__
+#    define __VOLUME_DECOUPLED__
+#    define __VOLUME_SCATTER__
+#    define __SHADOW_RECORD_ALL__
+#    define __VOLUME_RECORD_ALL__
+#  endif
 #endif  /* __KERNEL_CPU__ */
 
 #ifdef __KERNEL_CUDA__
@@ -140,6 +146,7 @@ CCL_NAMESPACE_BEGIN
 #define __INTERSECTION_REFINE__
 #define __CLAMP_SAMPLE__
 #define __PATCH_EVAL__
+#define __WORK_STEALING__
 
 #ifdef __KERNEL_SHADING__
 #  define __SVM__

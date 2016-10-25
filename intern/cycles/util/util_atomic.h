@@ -32,6 +32,8 @@ ATOMIC_INLINE void atomic_update_max_z(size_t *maximum_value, size_t value)
 	}
 }
 
+#define atomic_add_float(p, x) atomic_add_fl((p), (x))
+
 #define atomic_inc_uint32(p) atomic_add_uint32((p), 1)
 
 #define CCL_LOCAL_MEM_FENCE 0

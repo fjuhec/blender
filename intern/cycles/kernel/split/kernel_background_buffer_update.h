@@ -122,15 +122,15 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	DebugData *debug_data = &split_state->debug_data[ray_index];
 #endif
 	ccl_global PathState *state = &split_state->path_state[ray_index];
-	PathRadiance *L = L = &split_state->path_radiance[ray_index];
+	PathRadiance *L = &split_state->path_radiance[ray_index];
 	ccl_global Ray *ray = &split_state->ray[ray_index];
 	ccl_global float3 *throughput = &split_state->throughput[ray_index];
 	ccl_global float *L_transparent = &split_state->L_transparent[ray_index];
 	ccl_global uint *rng = &split_state->rng[ray_index];
+	ccl_global float *per_sample_output_buffers = split_state->per_sample_output_buffers;
 
 #ifdef __WORK_STEALING__
 	unsigned int my_work;
-	ccl_global float *per_sample_output_buffers = split_state->per_sample_output_buffers;
 	ccl_global uint *initial_rng;
 #endif
 	unsigned int sample;

@@ -28,6 +28,7 @@ CCL_NAMESPACE_BEGIN
 #define KERNEL_FUNCTION_FULL_NAME(name) KERNEL_NAME_EVAL(KERNEL_ARCH, name)
 
 struct KernelGlobals;
+struct KernelData;
 
 KernelGlobals *kernel_globals_create();
 void kernel_globals_free(KernelGlobals *kg);
