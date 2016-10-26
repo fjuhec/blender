@@ -4219,6 +4219,23 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 			glFrontFace(GL_CCW);
 
 			GPU_object_material_unbind();
+
+			/* overlay wireframe if wire drawing is enabled on object */
+			if (ob->dtx & OB_DRAWWIRE) {
+				float wirecol[3];
+
+				bglPolygonOffset(rv3d->dist, 1.0);
+				glDepthMask(0);
+				glEnable(GL_BLEND);
+
+				UI_GetThemeColor3fv(TH_WIRE, wirecol);
+				glColor4f(wirecol[0], wirecol[1], wirecol[2], 0.2f);
+				finalDM->drawEdges(finalDM, 1, 1);
+
+				glDepthMask(1);
+				bglPolygonOffset(rv3d->dist, 0.0);
+				glDisable(GL_BLEND);
+			}
 		}
 
 		/* Setup for drawing wire over, disable zbuffer
