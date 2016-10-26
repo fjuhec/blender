@@ -343,6 +343,7 @@ static DerivedMesh *applyModifier_bmesh(
 				        use_dissolve,
 				        use_island_connect,
 				        false,
+				        (bmd->bm_altflag & eBooleanModifierBMeshFlag_AltFgRemoval) != 0,
 				        bmd->operation,
 				        bmd->double_threshold);
 

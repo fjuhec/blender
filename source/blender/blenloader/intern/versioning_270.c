@@ -1677,6 +1677,27 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			CustomData_set_layer_name(&me->vdata, CD_MDEFORMVERT, 0, "");
 		}
 	}
+
+	{
+		if (!DNA_struct_elem_find(fd->filesdna, "BooleanModifierData", "char", "bm_altflag")) {
+			if (DNA_struct_elem_find(fd->filesdna, "BooleanModifierData", "char", "bm_flag")) {
+				if (DNA_struct_elem_find(fd->filesdna, "BooleanModifierData", "float", "threshold")) {
+					Object *ob;
+					for (ob = main->object.first; ob; ob = ob->id.next) {
+						ModifierData *md;
+						for (md = ob->modifiers.first; md; md = md->next) {
+							if (md->type == eModifierType_Boolean) {
+								BooleanModifierData *bmd = (BooleanModifierData *)md;
+								if ((bmd->bm_flag & (1 << 4)) != 0) {
+									bmd->bm_altflag = 1;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 void do_versions_after_linking_270(Main *main)

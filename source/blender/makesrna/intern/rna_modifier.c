@@ -1994,6 +1994,11 @@ static void rna_def_modifier_boolean(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_ENUM_FLAG);
 	RNA_def_property_ui_text(prop, "Debug", "Debugging options, only when started with '-d'");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "use_bmesh_alternate", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "bm_altflag", eBooleanModifierBMeshFlag_AltFgRemoval);
+	RNA_def_property_ui_text(prop, "Use Alternate", "Use alternate BMesh face group removal code");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_array(BlenderRNA *brna)

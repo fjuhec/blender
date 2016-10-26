@@ -167,6 +167,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         if solver == 'BMESH':
             layout.prop(md, "double_threshold")
+            layout.prop(md, "use_bmesh_alternate")
 
             if bpy.app.debug:
                 layout.prop(md, "debug_options")

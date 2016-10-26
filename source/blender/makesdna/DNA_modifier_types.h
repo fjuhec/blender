@@ -658,7 +658,7 @@ typedef struct BooleanModifierData {
 	char bm_flag;
 	float double_threshold;
 	/* old temp bmesh */
-	char bm_flag;
+	char bm_altflag;
 	char pad2[3];
 	float threshold;
 } BooleanModifierData;
@@ -679,6 +679,11 @@ enum {
 	eBooleanModifierBMeshFlag_BMesh_Separate            = (1 << 0),
 	eBooleanModifierBMeshFlag_BMesh_NoDissolve          = (1 << 1),
 	eBooleanModifierBMeshFlag_BMesh_NoConnectRegions    = (1 << 2),
+};
+
+/* bm_altflag */
+enum {
+	eBooleanModifierBMeshFlag_AltFgRemoval              = (1 << 0),
 };
 
 typedef struct MDefInfluence {
