@@ -166,6 +166,7 @@ static int edbm_intersect_exec(bContext *C, wmOperator *op)
 	        em->looptris, em->tottri,
 	        test_fn, NULL,
 	        use_self, use_separate, true, true,
+	        false,
 	        -1,
 	        eps);
 
@@ -240,6 +241,7 @@ static int edbm_intersect_boolean_exec(bContext *C, wmOperator *op)
 	        em->looptris, em->tottri,
 	        test_fn, NULL,
 	        false, false, true, true,
+	        false,
 	        boolean_operation,
 	        eps);
 
@@ -356,6 +358,7 @@ static void bm_face_split_by_edges(
 
 	BM_face_split_edgenet(
 	        bm, f, edge_net_temp_buf->data, edge_net_temp_buf->count,
+	        false,
 	        &face_arr, &face_arr_len);
 
 	BLI_buffer_empty(edge_net_temp_buf);
@@ -464,6 +467,7 @@ static void bm_face_split_by_edges_island_connect(
 
 	BM_face_split_edgenet(
 	        bm, f, edge_arr, edge_arr_len,
+	        false,
 	        NULL, NULL);
 
 	for (int i = e_link_len; i < edge_arr_len; i++) {

@@ -89,6 +89,8 @@
 
 // #define USE_DUMP
 
+#define FACE_SPLIT (1 << 6)
+
 static void tri_v3_scale(
         float v1[3], float v2[3], float v3[3],
         const float t)
@@ -243,7 +245,7 @@ static void face_edges_add(
 #ifdef USE_NET
 static void face_edges_split(
         BMesh *bm, BMFace *f, struct LinkBase *e_ls_base,
-        bool use_island_connect,
+        bool use_island_connect, bool use_wire_priority,
         MemArena *mem_arena_edgenet)
 {
 	unsigned int i;
@@ -280,7 +282,7 @@ static void face_edges_split(
 	UNUSED_VARS(use_island_connect, mem_arena_edgenet);
 #endif
 
-	BM_face_split_edgenet(bm, f, edge_arr, (int)edge_arr_len, NULL, NULL);
+	BM_face_split_edgenet(bm, f, edge_arr, (int)edge_arr_len, use_wire_priority, NULL, NULL);
 }
 #endif
 
@@ -584,11 +586,11 @@ static void bm_isect_tri_tri(
 			for (i_b = 0; i_b < 3; i_b++) {
 				if (len_squared_v3v3(fv_a[i_a]->co, fv_b[i_b]->co) <= s->epsilon.eps2x_sq) {
 #ifdef USE_DUMP
-					if (BM_ELEM_API_FLAG_TEST(fv_a[i_a], VERT_VISIT) == 0) {
+					if (BM_ELEM_API_FLAG_TEST(fv_a[i_a], VERT_VISIT_A) == 0) {
 						printf("  ('VERT-VERT-A') %d, %d),\n",
 						       i_a, BM_elem_index_get(fv_a[i_a]));
 					}
-					if (BM_ELEM_API_FLAG_TEST(fv_b[i_b], VERT_VISIT) == 0) {
+					if (BM_ELEM_API_FLAG_TEST(fv_b[i_b], VERT_VISIT_B) == 0) {
 						printf("  ('VERT-VERT-B') %d, %d),\n",
 						       i_b, BM_elem_index_get(fv_b[i_b]));
 					}
@@ -861,6 +863,7 @@ finally:
 struct RaycastData {
 	const float **looptris;
 	BLI_Buffer *z_buffer;
+	bool use_alt_fg;
 };
 
 #ifdef USE_KDOPBVH_WATERTIGHT
@@ -870,7 +873,7 @@ static const struct IsectRayPrecalc isect_precalc_x = {1, 2, 0, 0, 0, 1};
 static void raycast_callback(void *userdata,
                              int index,
                              const BVHTreeRay *ray,
-                             BVHTreeRayHit *UNUSED(hit))
+                             BVHTreeRayHit *hit)
 {
 	struct RaycastData *raycast_data = userdata;
 	const float **looptris = raycast_data->looptris;
@@ -881,13 +884,21 @@ static void raycast_callback(void *userdata,
 
 	if (
 #ifdef USE_KDOPBVH_WATERTIGHT
-	    isect_ray_tri_watertight_v3(ray->origin, &isect_precalc_x, v0, v1, v2, &dist, NULL)
+	    (!raycast_data->use_alt_fg && isect_ray_tri_watertight_v3(ray->origin, &isect_precalc_x, v0, v1, v2, &dist, NULL)) ||
+	    (raycast_data->use_alt_fg && isect_ray_tri_watertight_v3_simple(ray->origin, ray->direction, v0, v1, v2, &dist, NULL))
 #else
 	    isect_ray_tri_epsilon_v3(ray->origin, ray->direction, v0, v1, v2, &dist, NULL, FLT_EPSILON)
 #endif
 	    )
 	{
-		if (dist >= 0.0f) {
+		if (dist >= 0.0f && dist < hit->dist) {
+			if (raycast_data->use_alt_fg) {
+				float no[3];
+				normal_tri_v3(no, v0, v1, v2);
+				copy_v3_v3(hit->no, no);
+				hit->index = index;
+				hit->dist = dist;
+			}
 #ifdef USE_DUMP
 			printf("%s:\n", __func__);
 			print_v3("  origin", ray->origin);
@@ -909,16 +920,18 @@ static void raycast_callback(void *userdata,
 static int isect_bvhtree_point_v3(
         BVHTree *tree,
         const float **looptris,
-        const float co[3])
+        const float co[3],
+        const float dir[3],
+        const bool use_alt_fg)
 {
 	BLI_buffer_declare_static(float, z_buffer, BLI_BUFFER_NOP, 64);
 
 	struct RaycastData raycast_data = {
 		looptris,
 		&z_buffer,
+		use_alt_fg,
 	};
 	BVHTreeRayHit hit = {0};
-	float dir[3] = {1.0f, 0.0f, 0.0f};
 
 	/* Need to initialize hit even tho it's not used.
 	 * This is to make it so kdotree believes we didn't intersect anything and
@@ -935,8 +948,20 @@ static int isect_bvhtree_point_v3(
 	                     &raycast_data);
 
 #ifdef USE_DUMP
-	printf("%s: Total intersections: %d\n", __func__, z_buffer.count);
+	printf("%s: Total intersections: %zu\n", __func__, z_buffer.count);
 #endif
+
+	if (use_alt_fg) {
+		if (hit.index == -1) {
+			return 0;
+		}
+		if (dot_v3v3(dir, hit.no) < 0.0f) {
+			return 2;
+		}
+		else {
+			return 1;
+		}
+	}
 
 	int num_isect;
 
@@ -986,6 +1011,7 @@ bool BM_mesh_intersect(
         struct BMLoop *(*looptris)[3], const int looptris_tot,
         int (*test_fn)(BMFace *f, void *user_data), void *user_data,
         const bool use_self, const bool use_separate, const bool use_dissolve, const bool use_island_connect,
+        const bool use_alt_fg,
         const int boolean_mode,
         const float eps)
 {
@@ -1486,6 +1512,9 @@ bool BM_mesh_intersect(
 		MemArena *mem_arena_edgenet = BLI_memarena_new(BLI_MEMARENA_STD_BUFSIZE, __func__);
 
 		faces = bm->ftable;
+		if (use_alt_fg) {
+			BM_mesh_elem_hflag_disable_all(bm, BM_FACE, FACE_SPLIT, false);
+		}
 
 		GHASH_ITER (gh_iter, s.face_edges) {
 			const int f_index = GET_INT_FROM_POINTER(BLI_ghashIterator_getKey(&gh_iter));
@@ -1501,7 +1530,10 @@ bool BM_mesh_intersect(
 
 			BLI_assert(BM_elem_index_get(f) == f_index);
 
-			face_edges_split(bm, f, e_ls_base, use_island_connect, mem_arena_edgenet);
+			if (use_alt_fg) {
+				BM_elem_flag_enable(f, FACE_SPLIT);
+			}
+			face_edges_split(bm, f, e_ls_base, use_island_connect, use_alt_fg, mem_arena_edgenet);
 
 			BLI_memarena_clear(mem_arena_edgenet);
 		}
@@ -1579,6 +1611,7 @@ bool BM_mesh_intersect(
 				/* for now assyme this is an OK face to test with (not degenerate!) */
 				BMFace *f = ftable[groups_array[fg]];
 				float co[3];
+				float dir[3] = {1.0f, 0.0f, 0.0f};
 				int hits;
 				int side = test_fn(f, user_data);
 
@@ -1588,10 +1621,72 @@ bool BM_mesh_intersect(
 				BLI_assert(ELEM(side, 0, 1));
 				side = !side;
 
+				if (use_alt_fg) {
+					if (!BM_elem_flag_test(f, FACE_SPLIT) && group_index[i][1] > 1) {
+						for (int fi = fg + 1 ; fi < fg_end; fi++) {
+							if (BM_elem_flag_test(ftable[groups_array[fi]], FACE_SPLIT)) {
+								f = ftable[groups_array[fi]];
+								break;
+							}
+						}
+					}
+				}
+
 				// BM_face_calc_center_mean(f, co);
 				BM_face_calc_point_in_face(f, co);
 
-				hits = isect_bvhtree_point_v3(tree_pair[side], looptri_coords, co);
+				if (use_alt_fg) {
+					BMFace *f_target = NULL;
+
+					if (BM_elem_flag_test(f, FACE_SPLIT)) {
+						BMLoop *l_first;
+						BMLoop *l_iter;
+
+						l_iter = l_first = BM_FACE_FIRST_LOOP(f);
+						do {
+							if (!BM_elem_flag_test(l_iter->e, BM_ELEM_TAG)){
+								continue;
+							}
+
+							if (l_iter->radial_next != l_iter) {
+								BMLoop *l_radial = l_iter->radial_next;
+								do {
+									if (test_fn(l_radial->f, user_data) == side) {
+										float dist = 0.0f;
+										float p[3];
+										float d;
+										mid_v3_v3v3(p, l_radial->e->v1->co, l_radial->e->v2->co);
+										d = len_v3v3(p, co);
+										if (d < dist || f_target == NULL) {
+											dist = d;
+											f_target = l_radial->f;
+										}
+									}
+								} while ((l_radial = l_radial->radial_next) != l_iter);
+							}
+						} while ((l_iter = l_iter->next) != l_first);
+					}
+
+
+					if (f_target == NULL) {
+						for (int j = 0; j < group_tot; j++) {
+							int o_fg = group_index[j][0];
+							if (test_fn(ftable[groups_array[o_fg]], user_data) == side) {
+								f_target = ftable[groups_array[o_fg]];
+								break;
+							}
+						}
+					}
+
+					if (f_target != NULL) {
+						float co_target[3];
+						BM_face_calc_point_in_face(f_target, co_target);
+						sub_v3_v3v3(dir, co_target, co);
+						normalize_v3(dir);
+					}
+				}
+
+				hits = isect_bvhtree_point_v3(tree_pair[side], looptri_coords, co, dir, use_alt_fg);
 
 				switch (boolean_mode) {
 					case BMESH_ISECT_BOOLEAN_ISECT:

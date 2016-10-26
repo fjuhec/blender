@@ -605,6 +605,7 @@ static PyObject *bpy_bm_utils_face_split_edgenet(PyObject *UNUSED(self), PyObjec
 	/* --- main function body --- */
 
 	ok = BM_face_split_edgenet(bm, py_face->f, edge_array, edge_array_len,
+	                           false,
 	                           &face_arr, &face_arr_len);
 
 	PyMem_FREE(edge_array);

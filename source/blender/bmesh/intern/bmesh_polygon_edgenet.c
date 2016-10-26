@@ -161,7 +161,7 @@ static bool bm_face_split_edgenet_find_loop_pair(
 			e_pair[1] = BLI_SMALLSTACK_POP(edges_boundary);
 
 			if (edges_boundary_len > 2) {
-				BLI_SMALLSTACK_SWAP(edges_search, edges_wire);
+				BLI_SMALLSTACK_SWAP(edges_search, edges_boundary);
 			}
 		}
 		else {
@@ -275,6 +275,7 @@ static bool bm_face_split_edgenet_find_loop_walk(
         BMVert *v_init, const float face_normal[3],
         /* cache to avoid realloc every time */
         struct VertOrder *edge_order, const unsigned int edge_order_len,
+        bool use_wire_priority,
         BMEdge *e_pair[2])
 {
 	/* fast-path for the common case (avoid push-pop).
@@ -386,6 +387,10 @@ walk_nofork:
 
 			for (j = 0; j < STACK_SIZE(edge_order); j++) {
 				edge_order[j].angle = angle_signed_on_axis_v3v3v3_v3(v_prev->co, v->co, edge_order[j].v->co, face_normal);
+				/* give lower sorting priority to boundary edges */
+				if (use_wire_priority) {
+					edge_order[j].angle -= M_PI * 2.0f * bm_edge_flagged_radial_count(edge_order[j].v->e);
+				}
 			}
 			qsort(edge_order, STACK_SIZE(edge_order), sizeof(struct VertOrder), BLI_sortutil_cmp_float_reverse);
 
@@ -421,6 +426,7 @@ static bool bm_face_split_edgenet_find_loop(
         BMVert *v_init, const float face_normal[3], float face_normal_matrix[3][3],
         /* cache to avoid realloc every time */
         struct VertOrder *edge_order, const unsigned int edge_order_len,
+        bool use_wire_priority,
         BMVert **r_face_verts, int *r_face_verts_len)
 {
 	BMEdge *e_pair[2];
@@ -433,7 +439,7 @@ static bool bm_face_split_edgenet_find_loop(
 	BLI_assert((bm_edge_flagged_radial_count(e_pair[0]) == 1) ||
 	           (bm_edge_flagged_radial_count(e_pair[1]) == 1));
 
-	if (bm_face_split_edgenet_find_loop_walk(v_init, face_normal, edge_order, edge_order_len, e_pair)) {
+	if (bm_face_split_edgenet_find_loop_walk(v_init, face_normal, edge_order, edge_order_len, use_wire_priority, e_pair)) {
 		unsigned int i = 0;
 
 		r_face_verts[i++] = v_init;
@@ -460,6 +466,7 @@ static bool bm_face_split_edgenet_find_loop(
 bool BM_face_split_edgenet(
         BMesh *bm,
         BMFace *f, BMEdge **edge_net, const int edge_net_len,
+        bool use_wire_priority,
         BMFace ***r_face_arr, int *r_face_arr_len)
 {
 	/* re-use for new face verts */
@@ -531,7 +538,7 @@ bool BM_face_split_edgenet(
 	while ((v = STACK_POP(vert_queue))) {
 		if (bm_face_split_edgenet_find_loop(
 		        v, f->no, face_normal_matrix,
-		        edge_order, edge_order_len, face_verts, &face_verts_len))
+		        edge_order, edge_order_len, use_wire_priority, face_verts, &face_verts_len))
 		{
 			BMFace *f_new;
 

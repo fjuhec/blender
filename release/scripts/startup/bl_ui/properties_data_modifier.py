@@ -162,6 +162,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         if md.solver == 'BMESH':
             layout.prop(md, "double_threshold")
+            layout.prop(md, "use_bmesh_alternate")
 
     def BUILD(self, layout, ob, md):
         split = layout.split()

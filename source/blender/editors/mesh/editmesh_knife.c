@@ -2362,6 +2362,7 @@ static void knife_make_face_cuts(KnifeTool_OpData *kcd, BMFace *f, ListBase *kfe
 
 			BM_face_split_edgenet(
 			        bm, f, edge_array, edge_array_len,
+			        false,
 			        &face_arr, &face_arr_len);
 
 			if (face_arr) {

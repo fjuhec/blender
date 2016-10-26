@@ -662,6 +662,19 @@ typedef enum {
 	eBooleanModifierSolver_BMesh = 1,
 } BooleanSolver;
 
+/* bm_flag (was debugging only) */
+enum {
+	/* legacy flags (unused) */
+#if 0
+	eBooleanModifierBMeshFlag_Enabled                   = (1 << 0),
+	eBooleanModifierBMeshFlag_BMesh_Separate            = (1 << 1),
+	eBooleanModifierBMeshFlag_BMesh_NoDissolve          = (1 << 2),
+	eBooleanModifierBMeshFlag_BMesh_NoConnectRegions    = (1 << 3),
+#endif
+	/* use alternate bmesh fg removal code */
+	eBooleanModifierBMeshFlag_AltFgRemoval              = (1 << 4),
+};
+
 typedef struct MDefInfluence {
 	int vertex;
 	float weight;

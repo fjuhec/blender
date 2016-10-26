@@ -28,6 +28,7 @@
 bool BM_face_split_edgenet(
         BMesh *bm, BMFace *f,
         BMEdge **edge_net, const int edge_net_len,
+        bool use_wire_priority,
         BMFace ***r_face_arr, int *r_face_arr_len);
 
 bool BM_face_split_edgenet_connect_islands(
