@@ -37,7 +37,7 @@ CCL_NAMESPACE_BEGIN
 
 typedef ccl_addr_space struct MicrofacetExtra {
 	float3 color, cspec0;
-	bool use_fresnel, is_disney_clearcoat, initial_outside, only_refractions, only_reflections;
+	bool use_fresnel, is_disney_clearcoat;
 } MicrofacetExtra;
 
 typedef ccl_addr_space struct MicrofacetBsdf {
@@ -234,22 +234,21 @@ ccl_device_forceinline float3 microfacet_sample_stretched(
 	return normalize(make_float3(-slope_x, -slope_y, 1.0f));
 } 
 
-/* Calculate the fresnel color which is a blend between white and the F0 color */
-ccl_device_forceinline float3 fresnel_color(const MicrofacetBsdf *bsdf, float3 L, float3 H) {
+/* Calculate the reflection color
+ *
+ * If fresnel is used, the color is an interpolation of the F0 color and white
+ * with respect to the fresnel
+ *
+ * Else it is simply white
+ */
+ccl_device_forceinline float3 reflection_color(const MicrofacetBsdf *bsdf, float3 L, float3 H) {
     float3 F = make_float3(1.0f, 1.0f, 1.0f);
 
     if(bsdf->extra) {
         if(bsdf->extra->use_fresnel) {
-            /* Calculate the fresnel interpolation factor 
-             * The value from fresnel_dielectric_cos(...) has to be normalized because
-             * the cspec0 keeps the F0 color
-             */
             float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
-            float F0_norm = 1.0f / (1.0f - F0);
-            float FH = (fresnel_dielectric_cos(dot(L, H), bsdf->ior) - F0) * F0_norm;
 
-            /* Blend between white and a specular color with respect to the fresnel */
-            F = bsdf->extra->cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+            F = interpolate_fresnel_color(L, H, bsdf->ior, F0, bsdf->extra->cspec0);
         }
     }
 
@@ -409,13 +408,14 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 			float tanThetaM2 = (1 - cosThetaM2) / cosThetaM2;
 			D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
 
-			/* eq. 34: now calculate G1(i,m) and G1(o,m) */
 			if(bsdf->extra) {
 				if(bsdf->extra->is_disney_clearcoat) {
+                    /* the alpha value for clearcoat is a fixed 0.25 => alpha2 = 0.25 * 0.25 */
 					alpha2 = 0.0625f;
                 }
             }
 
+			/* eq. 34: now calculate G1(i,m) and G1(o,m) */
 			G1o = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNO * cosNO) / (cosNO * cosNO)));
 			G1i = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNI * cosNI) / (cosNI * cosNI))); 
 		}
@@ -461,7 +461,7 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 		/* eq. 20 */
 		float common = D * 0.25f / cosNO;
 
-        float3 F = fresnel_color(bsdf, omega_in, m);
+        float3 F = reflection_color(bsdf, omega_in, m);
 
 		float3 out = F * G * common;
 
@@ -529,12 +529,10 @@ ccl_device float3 bsdf_microfacet_ggx_eval_transmit(const ShaderClosure *sc, con
 	 * pdf = pm * (m_eta * m_eta) * fabsf(cosHI) / Ht2 */
 	float common = D * (m_eta * m_eta) / (cosNO * Ht2);
 
-    float3 F = fresnel_color(bsdf, omega_in, Ht);
-
-	float3 out = G * fabsf(cosHI * cosHO) * common * F;
+	float out = G * fabsf(cosHI * cosHO) * common;
 	*pdf = G1o * fabsf(cosHO * cosHI) * common;
 
-	return out;
+	return make_float3(out, out, out);
 }
 
 ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure *sc, float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv, float3 *eval, float3 *omega_in, float3 *domega_in_dx, float3 *domega_in_dy, float *pdf)
@@ -579,6 +577,14 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 						/* some high number for MIS */
 						*pdf = 1e6f;
 						*eval = make_float3(1e6f, 1e6f, 1e6f);
+
+                        /* if fresnel is used, calculate the color with reflection_color(...) */
+			            if(bsdf->extra) {
+                            if(bsdf->extra->use_fresnel) {
+                                *pdf = 1.0f;
+                                *eval = reflection_color(bsdf, *omega_in, m);
+                            }
+                        }
 					}
 					else {
 						/* microfacet normal is visible to this ray */
@@ -599,9 +605,11 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 							/* eq. 34: now calculate G1(i,m) */
 							if(bsdf->extra) {
 								if(bsdf->extra->is_disney_clearcoat) {
-									// recalculate G1o
-									G1o = 2 / (1 + safe_sqrtf(1 + 0.0625f * (1 - cosNO * cosNO) / (cosNO * cosNO)));
+                                    /* the alpha value for clearcoat is a fixed 0.25 => alpha2 = 0.25 * 0.25 */
 									alpha2 = 0.0625f;
+
+									/* recalculate G1o */
+									G1o = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNO * cosNO) / (cosNO * cosNO)));
 								}
                             }
 
@@ -637,7 +645,7 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 						float common = (G1o * D) * 0.25f / cosNO;
 						*pdf = common;
 
-                        float3 F = fresnel_color(bsdf, *omega_in, m);
+                        float3 F = reflection_color(bsdf, *omega_in, m);
 
 						*eval = G1i * common * F;
 					}
@@ -701,12 +709,10 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 					/* see eval function for derivation */
 					float common = (G1o * D) * (m_eta * m_eta) / (cosNO * Ht2);
 
-                    float3 F = fresnel_color(bsdf, *omega_in, m);
-
-					float3 out = G1i * fabsf(cosHI * cosHO) * common * F;
+					float out = G1i * fabsf(cosHI * cosHO) * common;
 					*pdf = cosHO * fabsf(cosHI) * common;
 
-					*eval = out;
+					*eval = make_float3(out, out, out);
 				}
 			}
 		}

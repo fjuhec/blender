@@ -83,16 +83,14 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 	else
 		eval *= -lambda_r * beta(-lambda_r, shadowing_lambda+1.0f);
 
-	float3 eval2;
+	float3 eval_fresnel;
 	float3 t_color = cspec0;
-	float3 throughput2 = make_float3(1.0f, 1.0f, 1.0f);
+	float3 throughput_fresnel = make_float3(1.0f, 1.0f, 1.0f);
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
-	float F0_norm = 1.0f / (1.0f - F0);
 	if(use_fresnel) {
-		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wo)), eta) - F0) * F0_norm;
-		throughput2 = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+        throughput_fresnel = interpolate_fresnel_color(wi, normalize(wi + wo), eta, F0, cspec0);
 
-		eval2 = throughput2 * eval;
+		eval_fresnel = throughput_fresnel * eval;
 	}
 #elif defined(MF_MULTI_DIFFUSE)
 	/* Diffuse has no special closed form for the single scattering bounce */
@@ -112,16 +110,14 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 		eval = make_float3(val, val, val);
 	}
 
-	float3 eval2;
+	float3 eval_fresnel;
 	float3 t_color = cspec0;
-	float3 throughput2 = make_float3(1.0f, 1.0f, 1.0f);
+	float3 throughput_fresnel = make_float3(1.0f, 1.0f, 1.0f);
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
-	float F0_norm = 1.0f / (1.0f - F0);
 	if(use_fresnel) {
-		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wo)), eta) - F0) * F0_norm;
-		throughput2 = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+        throughput_fresnel = interpolate_fresnel_color(wi, normalize(wi + wo), eta, F0, cspec0);
 
-		eval2 = throughput2 * val;
+		eval_fresnel = throughput_fresnel * val;
 	}
 #endif
 
@@ -155,7 +151,7 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 			else
 				phase = mf_eval_phase_glass(wr, lambda_r, -wo, !wo_outside, alpha, 1.0f / eta);
 
-			eval2 = throughput2 * phase * mf_G1(wo_outside ? wo : -wo, mf_C1((outside == wo_outside) ? hr : -hr), shadowing_lambda);
+			eval_fresnel = throughput_fresnel * phase * mf_G1(wo_outside ? wo : -wo, mf_C1((outside == wo_outside) ? hr : -hr), shadowing_lambda);
 		}
 #endif
 		if(order > 0) {
@@ -168,14 +164,14 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 				phase = mf_eval_phase_glass(wr, lambda_r, -wo, !wo_outside, alpha, 1.0f/eta);
 
 			if(use_fresnel)
-				eval2 += throughput2 * phase * mf_G1(wo_outside ? wo : -wo, mf_C1((outside == wo_outside) ? hr : -hr), shadowing_lambda);
+				eval_fresnel += throughput_fresnel * phase * mf_G1(wo_outside ? wo : -wo, mf_C1((outside == wo_outside) ? hr : -hr), shadowing_lambda);
 #elif defined(MF_MULTI_DIFFUSE)
 			phase = mf_eval_phase_diffuse(wo, wm);
 #else /* MF_MULTI_GLOSSY */
 			phase = mf_eval_phase_glossy(wr, lambda_r, wo, alpha, n, k) * throughput;
 
 			if(use_fresnel)
-				eval2 += throughput2 * phase * mf_G1(wo_outside ? wo : -wo, mf_C1((outside == wo_outside) ? hr : -hr), shadowing_lambda);
+				eval_fresnel += throughput_fresnel * phase * mf_G1(wo_outside ? wo : -wo, mf_C1((outside == wo_outside) ? hr : -hr), shadowing_lambda);
 #endif
 			eval += throughput * phase * mf_G1(wo_outside? wo: -wo, mf_C1((outside == wo_outside)? hr: -hr), shadowing_lambda);
 		}
@@ -192,14 +188,13 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 			}
 
 			if(use_fresnel && !next_outside) {
-				throughput2 *= color;
+				throughput_fresnel *= color;
 			}
 			else if(use_fresnel) {
-				float FH = (fresnel_dielectric_cos(dot(wi_prev, wm), eta) - F0) * F0_norm;
-				t_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+                t_color = interpolate_fresnel_color(wi_prev, wm, eta, F0, cspec0);
 
 				if(order > 0)
-					throughput2 *= t_color;
+					throughput_fresnel *= t_color;
 			}
 #elif defined(MF_MULTI_DIFFUSE)
 			wr = mf_sample_phase_diffuse(wm,
@@ -207,14 +202,13 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 			                             lcg_step_float_addrspace(lcg_state));
 #else /* MF_MULTI_GLOSSY */
 			if(use_fresnel) {
-				float FH = (fresnel_dielectric_cos(dot(-wr, wm), eta) - F0) * F0_norm;
-				t_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+                t_color = interpolate_fresnel_color(-wr, wm, eta, F0, cspec0);
 
 				if(order > 0)
-					throughput2 *= t_color;
+					throughput_fresnel *= t_color;
 			}
 			else {
-				throughput2 *= color;
+				throughput_fresnel *= color;
 			}
 			wr = mf_sample_phase_glossy(-wr, n, k, &throughput, wm);
 #endif
@@ -231,9 +225,9 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 #if defined(MF_MULTI_GLASS) || defined(MF_MULTI_GLOSSY)
 	if(use_fresnel) {
 		if(swapped)
-			eval2 *= fabsf(wi.z / wo.z);
+			eval_fresnel *= fabsf(wi.z / wo.z);
 
-		return eval2;
+		return eval_fresnel;
 	}
 #endif
 
@@ -270,21 +264,17 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3
 	bool outside = true;
 #ifdef MF_MULTI_GLASS
 	float3 t_color = cspec0;
-	float3 throughput2 = make_float3(1.0f, 1.0f, 1.0f);
+	float3 throughput_fresnel = make_float3(1.0f, 1.0f, 1.0f);
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
-	float F0_norm = 1.0f / (1.0f - F0);
 	if(use_fresnel) {
-		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wr)), eta) - F0) * F0_norm;
-		throughput2 = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+        throughput_fresnel = interpolate_fresnel_color(wi, normalize(wi + wr), eta, F0, cspec0);
 	}
 #elif defined(MF_MULTI_GLOSSY)
 	float3 t_color = cspec0;
-	float3 throughput2 = make_float3(1.0f, 1.0f, 1.0f);
+	float3 throughput_fresnel = make_float3(1.0f, 1.0f, 1.0f);
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
-	float F0_norm = 1.0f / (1.0f - F0);
 	if(use_fresnel) {
-		float FH = (fresnel_dielectric_cos(dot(wi, normalize(wi + wr)), eta) - F0) * F0_norm;
-		throughput2 = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+        throughput_fresnel = interpolate_fresnel_color(wi, normalize(wi + wr), eta, F0, cspec0);
 	}
 #endif
 
@@ -296,7 +286,7 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3
 			*wo = outside? wr: -wr;
 #if defined(MF_MULTI_GLASS) || defined(MF_MULTI_GLOSSY)
 			if(use_fresnel)
-				return throughput2;
+				return throughput_fresnel;
 #endif
 			return throughput;
 		}
@@ -321,16 +311,15 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3
 
 		if(use_fresnel) {
 			if(!next_outside) {
-				throughput2 *= color;
+				throughput_fresnel *= color;
 			}
 			else {
-				float FH = (fresnel_dielectric_cos(dot(wi_prev, wm), eta) - F0) * F0_norm;
-				t_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+                t_color = interpolate_fresnel_color(wi_prev, wm, eta, F0, cspec0);
 
 				if(order == 0)
-					throughput2 = t_color;
+					throughput_fresnel = t_color;
 				else
-					throughput2 *= t_color;
+					throughput_fresnel *= t_color;
 			}
 		}
 #elif defined(MF_MULTI_DIFFUSE)
@@ -339,13 +328,12 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3
 		                             lcg_step_float_addrspace(lcg_state));
 #else /* MF_MULTI_GLOSSY */
 		if(use_fresnel) {
-			float FH = (fresnel_dielectric_cos(dot(-wr, wm), eta) - F0) * F0_norm;
-			t_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+            t_color = interpolate_fresnel_color(-wr, wm, eta, F0, cspec0);
 
 			if(order == 0)
-				throughput2 = t_color;
+				throughput_fresnel = t_color;
 			else
-				throughput2 *= t_color;
+				throughput_fresnel *= t_color;
 		}
 		wr = mf_sample_phase_glossy(-wr, n, k, &throughput, wm);
 #endif

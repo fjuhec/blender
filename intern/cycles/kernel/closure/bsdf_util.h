@@ -148,6 +148,19 @@ ccl_device float smooth_step(float edge0, float edge1, float x)
 	return result;
 }
 
+/* Calculate the fresnel color which is a blend between white and the F0 color (cspec0) */
+ccl_device_forceinline float3 interpolate_fresnel_color(float3 L, float3 H, float ior, float F0, float3 cspec0) {
+    /* Calculate the fresnel interpolation factor
+     * The value from fresnel_dielectric_cos(...) has to be normalized because
+     * the cspec0 keeps the F0 color
+     */
+    float F0_norm = 1.0f / (1.0f - F0);
+    float FH = (fresnel_dielectric_cos(dot(L, H), ior) - F0) * F0_norm;
+
+    /* Blend between white and a specular color with respect to the fresnel */
+    return cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+}
+
 CCL_NAMESPACE_END
 
 #endif /* __BSDF_UTIL_H__ */
