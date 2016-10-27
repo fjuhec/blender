@@ -344,9 +344,9 @@ ccl_device void bssrdf_none_sample(const ShaderClosure *sc, float xi, float *r, 
 
 /* Generic */
 
-ccl_device_inline Bssrdf *bssrdf_alloc(ShaderData *sd, float3 weight)
+ccl_device_inline Bssrdf *bssrdf_alloc(KernelGlobals *kg, ShaderData *sd, float3 weight)
 {
-	Bssrdf *bssrdf = (Bssrdf*)closure_alloc(sd, sizeof(Bssrdf), CLOSURE_NONE_ID, weight);
+	Bssrdf *bssrdf = (Bssrdf*)closure_alloc(kg, sd, sizeof(Bssrdf), CLOSURE_NONE_ID, weight);
 
 	if(!bssrdf)
 		return NULL;

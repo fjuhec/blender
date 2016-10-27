@@ -55,6 +55,7 @@
 #define ccl_local_size(d) get_local_size(d)
 #define ccl_global_size(d) get_global_size(d)
 
+#define ccl_group_id(d) get_group_id(d)
 #define ccl_num_groups(d) get_num_groups(d)
 
 /* Selective nodes compilation. */

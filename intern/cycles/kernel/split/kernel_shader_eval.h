@@ -55,7 +55,7 @@ ccl_device void kernel_shader_eval(KernelGlobals *kg)
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
-	ray_index = get_ray_index(ray_index,
+	ray_index = get_ray_index(kg, ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                          split_state->queue_data,
 	                          split_params->queue_size,

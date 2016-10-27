@@ -64,11 +64,11 @@ ccl_device void kernel_shadow_blocked(KernelGlobals *kg)
 	int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 	if(thread_index < ao_queue_length + dl_queue_length) {
 		if(thread_index < ao_queue_length) {
-			ray_index = get_ray_index(thread_index, QUEUE_SHADOW_RAY_CAST_AO_RAYS,
+			ray_index = get_ray_index(kg, thread_index, QUEUE_SHADOW_RAY_CAST_AO_RAYS,
 			                          split_state->queue_data, split_params->queue_size, 1);
 			shadow_blocked_type = RAY_SHADOW_RAY_CAST_AO;
 		} else {
-			ray_index = get_ray_index(thread_index - ao_queue_length, QUEUE_SHADOW_RAY_CAST_DL_RAYS,
+			ray_index = get_ray_index(kg, thread_index - ao_queue_length, QUEUE_SHADOW_RAY_CAST_DL_RAYS,
 			                          split_state->queue_data, split_params->queue_size, 1);
 			shadow_blocked_type = RAY_SHADOW_RAY_CAST_DL;
 		}

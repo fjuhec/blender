@@ -130,7 +130,7 @@ ccl_device void kernel_data_init(
 	int lid = ccl_local_id(1) * ccl_local_size(0) + ccl_local_id(0);
 	/* Initialize work_pool_wgs */
 	if(lid == 0) {
-		int group_index = get_group_id(1) * ccl_num_groups(0) + get_group_id(0);
+		int group_index = ccl_group_id(1) * ccl_num_groups(0) + ccl_group_id(0);
 		work_pool_wgs[group_index] = 0;
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
@@ -180,14 +180,14 @@ ccl_device void kernel_data_init(
 #ifdef __WORK_STEALING__
 		unsigned int my_work = 0;
 		/* Get work. */
-		get_next_work(work_pool_wgs, &my_work, sw, sh, num_samples, parallel_samples, ray_index);
+		get_next_work(kg, work_pool_wgs, &my_work, sw, sh, num_samples, parallel_samples, ray_index);
 		/* Get the sample associated with the work. */
-		my_sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + start_sample;
+		my_sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + start_sample;
 
 		my_sample_tile = 0;
 
 		/* Get pixel and tile position associated with the work. */
-		get_pixel_tile_position(&pixel_x, &pixel_y,
+		get_pixel_tile_position(kg, &pixel_x, &pixel_y,
 		                        &tile_x, &tile_y,
 		                        my_work,
 		                        sw, sh, sx, sy,

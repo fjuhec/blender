@@ -83,7 +83,7 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 		split_params->queue_index[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS] = 0;
 	}
 	char enqueue_flag = 0;
-	ray_index = get_ray_index(ray_index,
+	ray_index = get_ray_index(kg, ray_index,
 	                          QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 	                          split_state->queue_data,
 	                          split_params->queue_size,
@@ -142,8 +142,8 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 
 #ifdef __WORK_STEALING__
 	my_work = split_state->work_array[ray_index];
-	sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
-	get_pixel_tile_position(&pixel_x, &pixel_y,
+	sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
+	get_pixel_tile_position(kg, &pixel_x, &pixel_y,
 	                        &tile_x, &tile_y,
 	                        my_work,
 	                        sw, sh, sx, sy,
@@ -201,7 +201,7 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	if(IS_STATE(ray_state, ray_index, RAY_TO_REGENERATE)) {
 #ifdef __WORK_STEALING__
 		/* We have completed current work; So get next work */
-		int valid_work = get_next_work(split_params->work_pool_wgs, &my_work, sw, sh, split_params->num_samples, parallel_samples, ray_index);
+		int valid_work = get_next_work(kg, split_params->work_pool_wgs, &my_work, sw, sh, split_params->num_samples, parallel_samples, ray_index);
 		if(!valid_work) {
 			/* If work is invalid, this means no more work is available and the thread may exit */
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_INACTIVE);
@@ -216,9 +216,9 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 #ifdef __WORK_STEALING__
 			split_state->work_array[ray_index] = my_work;
 			/* Get the sample associated with the current work */
-			sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
+			sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
 			/* Get pixel and tile position associated with current work */
-			get_pixel_tile_position(&pixel_x, &pixel_y, &tile_x, &tile_y, my_work, sw, sh, sx, sy, parallel_samples, ray_index);
+			get_pixel_tile_position(kg, &pixel_x, &pixel_y, &tile_x, &tile_y, my_work, sw, sh, sx, sy, parallel_samples, ray_index);
 			my_sample_tile = 0;
 
 			/* Remap rng_state according to the current work */

@@ -70,6 +70,9 @@ typedef struct KernelGlobals {
 	Intersection *isect_shadow;
 	SplitData split_data;
 	SplitParams split_param_data;
+
+	int2 global_size;
+	int2 global_id;
 } KernelGlobals;
 
 #endif  /* __KERNEL_CPU__ */

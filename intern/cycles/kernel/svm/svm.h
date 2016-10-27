@@ -210,16 +210,16 @@ ccl_device_noinline void svm_eval_nodes(KernelGlobals *kg, ShaderData *sd, ccl_a
 				svm_node_closure_bsdf(kg, sd, stack, node, path_flag, &offset);
 				break;
 			case NODE_CLOSURE_EMISSION:
-				svm_node_closure_emission(sd, stack, node);
+				svm_node_closure_emission(kg, sd, stack, node);
 				break;
 			case NODE_CLOSURE_BACKGROUND:
-				svm_node_closure_background(sd, stack, node);
+				svm_node_closure_background(kg, sd, stack, node);
 				break;
 			case NODE_CLOSURE_SET_WEIGHT:
-				svm_node_closure_set_weight(sd, node.y, node.z, node.w);
+				svm_node_closure_set_weight(kg, sd, node.y, node.z, node.w);
 				break;
 			case NODE_CLOSURE_WEIGHT:
-				svm_node_closure_weight(sd, stack, node.y);
+				svm_node_closure_weight(kg, sd, stack, node.y);
 				break;
 			case NODE_EMISSION_WEIGHT:
 				svm_node_emission_weight(kg, sd, stack, node);
@@ -312,16 +312,16 @@ ccl_device_noinline void svm_eval_nodes(KernelGlobals *kg, ShaderData *sd, ccl_a
 
 #if NODES_GROUP(NODE_GROUP_LEVEL_1)
 			case NODE_CLOSURE_HOLDOUT:
-				svm_node_closure_holdout(sd, stack, node);
+				svm_node_closure_holdout(kg, sd, stack, node);
 				break;
 			case NODE_CLOSURE_AMBIENT_OCCLUSION:
-				svm_node_closure_ambient_occlusion(sd, stack, node);
+				svm_node_closure_ambient_occlusion(kg, sd, stack, node);
 				break;
 			case NODE_FRESNEL:
-				svm_node_fresnel(sd, stack, node.y, node.z, node.w);
+				svm_node_fresnel(kg, sd, stack, node.y, node.z, node.w);
 				break;
 			case NODE_LAYER_WEIGHT:
-				svm_node_layer_weight(sd, stack, node);
+				svm_node_layer_weight(kg, sd, stack, node);
 				break;
 #  if NODES_FEATURE(NODE_FEATURE_VOLUME)
 			case NODE_CLOSURE_VOLUME:
@@ -345,7 +345,7 @@ ccl_device_noinline void svm_eval_nodes(KernelGlobals *kg, ShaderData *sd, ccl_a
 				svm_node_brightness(sd, stack, node.y, node.z, node.w);
 				break;
 			case NODE_LIGHT_PATH:
-				svm_node_light_path(sd, state, stack, node.y, node.z, path_flag);
+				svm_node_light_path(kg, sd, state, stack, node.y, node.z, path_flag);
 				break;
 			case NODE_OBJECT_INFO:
 				svm_node_object_info(kg, sd, stack, node.y, node.z);
@@ -407,7 +407,7 @@ ccl_device_noinline void svm_eval_nodes(KernelGlobals *kg, ShaderData *sd, ccl_a
 				svm_node_normal(kg, sd, stack, node.y, node.z, node.w, &offset);
 				break;
 			case NODE_LIGHT_FALLOFF:
-				svm_node_light_falloff(sd, stack, node);
+				svm_node_light_falloff(kg, sd, stack, node);
 				break;
 #  endif  /* __EXTRA_NODES__ */
 #endif  /* NODES_GROUP(NODE_GROUP_LEVEL_2) */

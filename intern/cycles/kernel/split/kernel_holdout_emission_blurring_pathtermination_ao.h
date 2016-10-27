@@ -83,7 +83,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	char enqueue_flag = 0;
 	char enqueue_flag_AO_SHADOW_RAY_CAST = 0;
 	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
-	ray_index = get_ray_index(ray_index,
+	ray_index = get_ray_index(kg, ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                          split_state->queue_data,
 	                          split_params->queue_size,
@@ -138,8 +138,8 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 		rng = &split_state->rng[ray_index];
 #ifdef __WORK_STEALING__
 		my_work = split_state->work_array[ray_index];
-		sample = get_my_sample(my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
-		get_pixel_tile_position(&pixel_x, &pixel_y,
+		sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
+		get_pixel_tile_position(kg, &pixel_x, &pixel_y,
 		                        &tile_x, &tile_y,
 		                        my_work,
 		                        sw, sh, sx, sy,

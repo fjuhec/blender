@@ -55,8 +55,9 @@ ccl_device void kernel_queue_enqueue(KernelGlobals *kg)
 	int lidx = ccl_local_id(1) * ccl_local_size(0) + ccl_local_id(0);
 	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 
-	if(lidx < 2 ) {
-		local_queue_atomics[lidx] = 0;
+	if(lidx == 0) {
+		local_queue_atomics[0] = 0;
+		local_queue_atomics[1] = 0;
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 

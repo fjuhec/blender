@@ -46,7 +46,8 @@ ccl_device uint get_group_id_with_ray_index(uint ray_index,
 	}
 }
 
-ccl_device uint get_total_work(uint tile_dim_x,
+ccl_device uint get_total_work(KernelGlobals *kg,
+                    uint tile_dim_x,
                     uint tile_dim_y,
                     uint grp_idx,
                     uint grp_idy,
@@ -73,7 +74,8 @@ ccl_device uint get_total_work(uint tile_dim_x,
 
 /* Returns 0 in case there is no next work available */
 /* Returns 1 in case work assigned is valid */
-ccl_device int get_next_work(ccl_global uint *work_pool,
+ccl_device int get_next_work(KernelGlobals *kg,
+                  ccl_global uint *work_pool,
                   ccl_private uint *my_work,
                   uint tile_dim_x,
                   uint tile_dim_y,
@@ -91,7 +93,8 @@ ccl_device int get_next_work(ccl_global uint *work_pool,
 	                                           tile_dim_y,
 	                                           parallel_samples,
 	                                           1);
-	uint total_work = get_total_work(tile_dim_x,
+	uint total_work = get_total_work(kg,
+	                                 tile_dim_x,
 	                                 tile_dim_y,
 	                                 grp_idx,
 	                                 grp_idy,
@@ -103,7 +106,8 @@ ccl_device int get_next_work(ccl_global uint *work_pool,
 
 /* This function assumes that the passed my_work is valid. */
 /* Decode sample number w.r.t. assigned my_work. */
-ccl_device uint get_my_sample(uint my_work,
+ccl_device uint get_my_sample(KernelGlobals *kg,
+                   uint my_work,
                    uint tile_dim_x,
                    uint tile_dim_y,
                    uint parallel_samples,
@@ -138,7 +142,8 @@ ccl_device uint get_my_sample(uint my_work,
 }
 
 /* Decode pixel and tile position w.r.t. assigned my_work. */
-ccl_device void get_pixel_tile_position(ccl_private uint *pixel_x,
+ccl_device void get_pixel_tile_position(KernelGlobals *kg,
+                             ccl_private uint *pixel_x,
                              ccl_private uint *pixel_y,
                              ccl_private uint *tile_x,
                              ccl_private uint *tile_y,
