@@ -318,10 +318,14 @@ public:
 		return NULL;
 	}
 
-	virtual size_t sizeof_KernelGlobals()
+	virtual void alloc_kernel_globals(device_memory& /*mem*/)
 	{
 		assert(!"not implemented for this device");
-		return 0;
+	}
+
+	virtual void free_kernel_globals(device_memory& /*mem*/)
+	{
+		assert(!"not implemented for this device");
 	}
 
 	/* tasks */

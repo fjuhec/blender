@@ -223,6 +223,8 @@ public:
 		task_pool.stop();
 	}
 
+	using Device::mem_alloc;
+
 	void mem_alloc(device_memory& mem, MemoryType /*type*/)
 	{
 		mem.device_pointer = mem.data_pointer;
@@ -422,7 +424,6 @@ public:
 				return;
 		}
 
-		KernelGlobals kg = thread_kernel_globals_init();
 		RenderTile tile;
 
 		DeviceSplitKernel split_kernel(this);
@@ -444,8 +445,6 @@ public:
 					break;
 			}
 		}
-
-		thread_kernel_globals_free(&kg);
 	}
 
 	void thread_film_convert(DeviceTask& task)
@@ -702,9 +701,17 @@ protected:
 		return kernel;
 	}
 
-	virtual size_t sizeof_KernelGlobals()
+	virtual void alloc_kernel_globals(device_memory& mem)
 	{
-		return sizeof(KernelGlobals);
+		mem_alloc(mem, sizeof(KernelGlobals));
+
+		KernelGlobals *kg = (KernelGlobals*)mem.device_pointer;
+		*kg = thread_kernel_globals_init();
+	}
+
+	virtual void free_kernel_globals(device_memory& mem)
+	{
+		thread_kernel_globals_free((KernelGlobals*)mem.device_pointer);
 	}
 };
 

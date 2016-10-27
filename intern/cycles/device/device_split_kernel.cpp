@@ -32,7 +32,7 @@ DeviceSplitKernel::DeviceSplitKernel(Device *device) : device(device)
 
 DeviceSplitKernel::~DeviceSplitKernel()
 {
-	device->mem_free(kgbuffer);
+	device->free_kernel_globals(kgbuffer);
 	device->mem_free(split_data);
 	device->mem_free(ray_state);
 	device->mem_free(use_queues_flag);
@@ -177,7 +177,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 		device->mem_alloc(queue_index, NUM_QUEUES * sizeof(int));
 		device->mem_alloc(use_queues_flag, sizeof(char));
-		device->mem_alloc(kgbuffer, device->sizeof_KernelGlobals());
+		device->alloc_kernel_globals(kgbuffer);
 
 		ray_state.resize(num_global_elements);
 		device->mem_alloc(ray_state, MEM_READ_WRITE);

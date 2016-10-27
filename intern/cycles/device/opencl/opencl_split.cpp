@@ -82,8 +82,7 @@ public:
 		background = background_;
 	}
 
-	/* Returns size of KernelGlobals structure associated with OpenCL. */
-	size_t sizeof_KernelGlobals()
+	virtual void alloc_kernel_globals(device_memory& mem)
 	{
 		/* Copy dummy KernelGlobals related to OpenCL from kernel_globals.h to
 		 * fetch its size.
@@ -100,7 +99,12 @@ public:
 			SplitParams split_param_data;
 		} KernelGlobals;
 
-		return sizeof(KernelGlobals);
+		mem_alloc(mem, sizeof(KernelGlobals));
+	}
+
+	virtual void free_kernel_globals(device_memory& mem)
+	{
+		mem_free(mem);
 	}
 
 	string get_build_options(const DeviceRequestedFeatures& requested_features)
