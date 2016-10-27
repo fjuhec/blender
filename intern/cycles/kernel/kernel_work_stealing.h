@@ -97,7 +97,7 @@ ccl_device int get_next_work(ccl_global uint *work_pool,
 	                                 grp_idy,
 	                                 num_samples);
 	uint group_index = grp_idy * ccl_num_groups(0) + grp_idx;
-	*my_work = atomic_inc_uint32(&work_pool[group_index]);
+	*my_work = atomic_inc_uint32(&work_pool[group_index])-1;
 	return (*my_work < total_work) ? 1 : 0;
 }
 

@@ -65,8 +65,8 @@ ccl_device_inline void atomic_add_float(volatile ccl_global float *source,
 	                       new_value.int_value) != prev_value.int_value);
 }
 
-#define atomic_add_uint32(p, x) atomic_add((p), (x))
-#define atomic_inc_uint32(p) atomic_inc((p))
+#define atomic_add_uint32(p, x) (atomic_add((p), (x))+(x))
+#define atomic_inc_uint32(p) (atomic_inc((p))+1)
 
 #define CCL_LOCAL_MEM_FENCE CLK_LOCAL_MEM_FENCE
 #define ccl_barrier(flags) barrier(flags)
