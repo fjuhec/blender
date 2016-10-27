@@ -84,13 +84,22 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	tile.buffer_rng_state_stride = tile.stride;
 	tile.stride = tile.w;
 
+	size_t global_size[2];
+	size_t local_size[2];
+
+	{
+		int2 lsize = device->split_kernel_local_size();
+		local_size[0] = lsize[0];
+		local_size[1] = lsize[1];
+	}
+
 	/* Make sure that set render feasible tile size is a multiple of local
 	 * work size dimensions.
 	 */
 	int2 max_render_feasible_tile_size;
 	const int2 tile_size = task->requested_tile_size;
-	max_render_feasible_tile_size.x = ROUND_UP(tile_size.x, SPLIT_KERNEL_LOCAL_SIZE_X);
-	max_render_feasible_tile_size.y = ROUND_UP(tile_size.y, SPLIT_KERNEL_LOCAL_SIZE_Y);
+	max_render_feasible_tile_size.x = ROUND_UP(tile_size.x, local_size[0]);
+	max_render_feasible_tile_size.y = ROUND_UP(tile_size.y, local_size[1]);
 
 	/* Calculate per_thread_output_buffer_size. */
 	size_t per_thread_output_buffer_size;
@@ -115,10 +124,6 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 			output_buffer_size / (tile.buffers->params.width *
 			                      tile.buffers->params.height);
 	}
-
-	size_t global_size[2];
-	size_t local_size[2] = {SPLIT_KERNEL_LOCAL_SIZE_X,
-	                        SPLIT_KERNEL_LOCAL_SIZE_Y};
 
 	int d_w = tile.w;
 	int d_h = tile.h;

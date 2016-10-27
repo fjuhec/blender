@@ -23,11 +23,6 @@
 
 CCL_NAMESPACE_BEGIN
 
-/* Macro declarations used with split kernel */
-
-#define SPLIT_KERNEL_LOCAL_SIZE_X 64
-#define SPLIT_KERNEL_LOCAL_SIZE_Y 1
-
 /* This value may be tuned according to the scene we are rendering.
  *
  * Modifying PATH_ITER_INC_FACTOR value proportional to number of expected

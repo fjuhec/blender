@@ -328,6 +328,12 @@ public:
 		assert(!"not implemented for this device");
 	}
 
+	virtual int2 split_kernel_local_size()
+	{
+		assert(!"not implemented for this device");
+		return make_int2(0, 0);
+	}
+
 	/* tasks */
 	virtual int get_split_task_count(DeviceTask& task) = 0;
 	virtual void task_add(DeviceTask& task) = 0;

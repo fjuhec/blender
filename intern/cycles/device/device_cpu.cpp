@@ -713,6 +713,11 @@ protected:
 	{
 		thread_kernel_globals_free((KernelGlobals*)mem.device_pointer);
 	}
+
+	virtual int2 split_kernel_local_size()
+	{
+		return make_int2(1, 1);
+	}
 };
 
 unordered_map<string, void*> CPUDevice::kernel_functions;

@@ -257,6 +257,11 @@ public:
 		return true;
 	}
 
+	virtual int2 split_kernel_local_size()
+	{
+		return make_int2(64, 1);
+	}
+
 	void thread_run(DeviceTask *task)
 	{
 		if(task->type == DeviceTask::FILM_CONVERT) {
