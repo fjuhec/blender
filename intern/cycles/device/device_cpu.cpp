@@ -61,13 +61,22 @@ public:
 	CPUSplitKernelFunction(CPUDevice* device) : device(device), func(NULL) {}
 	~CPUSplitKernelFunction() {}
 
-	virtual bool enqueue(const KernelDimensions& /*dim*/, device_memory& kg, device_memory& data)
+	virtual bool enqueue(const KernelDimensions& dim, device_memory& kernel_globals, device_memory& data)
 	{
 		if(!func) {
 			return false;
 		}
 
-		func((KernelGlobals*)kg.device_pointer, (KernelData*)data.device_pointer);
+		KernelGlobals *kg = (KernelGlobals*)kernel_globals.device_pointer;
+		kg->global_size = make_int2(dim.global_size[0], dim.global_size[1]);
+
+		for(int y = 0; y < dim.global_size[1]; y++) {
+			for(int x = 0; x < dim.global_size[0]; x++) {
+				kg->global_id = make_int2(x, y);
+
+				func(kg, (KernelData*)data.device_pointer);
+			}
+		}
 
 		return true;
 	}
@@ -428,6 +437,7 @@ public:
 
 		DeviceSplitKernel split_kernel(this);
 
+		requested_features.max_closure = MAX_CLOSURE;
 		if(!split_kernel.load_kernels(requested_features)) {
 			return;
 		}
@@ -676,20 +686,88 @@ protected:
 	}
 
 	/* split kernel */
-	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& /*dim*/,
-	                                            RenderTile& /*rtile*/,
-	                                            int /*num_global_elements*/,
-	                                            int /*num_parallel_samples*/,
-	                                            device_memory& /*kernel_globals*/,
-	                                            device_memory& /*kernel_data*/,
-	                                            device_memory& /*split_data*/,
-	                                            device_memory& /*ray_state*/,
-	                                            device_memory& /*queue_index*/,
-	                                            device_memory& /*use_queues_flag*/,
-	                                            device_memory& /*work_pool_wgs*/)
+	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
+	                                            RenderTile& rtile,
+	                                            int num_global_elements,
+	                                            int num_parallel_samples,
+	                                            device_memory& kernel_globals,
+	                                            device_memory& data,
+	                                            device_memory& split_data,
+	                                            device_memory& ray_state,
+	                                            device_memory& queue_index,
+	                                            device_memory& use_queues_flags,
+	                                            device_memory& work_pool_wgs)
 	{
-		assert(!"not implemented for this device");
-		return false;
+		typedef void(*data_init_t)(KernelGlobals *kg,
+                                   ccl_constant KernelData *data,
+                                   ccl_global void *split_data_buffer,
+                                   int num_elements,
+                                   ccl_global char *ray_state,
+                                   ccl_global uint *rng_state,
+                                   int start_sample,
+                                   int end_sample,
+                                   int sx, int sy, int sw, int sh, int offset, int stride,
+                                   int rng_state_offset_x,
+                                   int rng_state_offset_y,
+                                   int rng_state_stride,
+                                   ccl_global int *Queue_index,
+                                   int queuesize,
+                                   ccl_global char *use_queues_flag,
+#ifdef __WORK_STEALING__
+                                   ccl_global unsigned int *work_pool_wgs,
+                                   unsigned int num_samples,
+#endif
+                                   int parallel_samples,
+                                   int buffer_offset_x,
+                                   int buffer_offset_y,
+                                   int buffer_stride,
+                                   ccl_global float *buffer);
+
+		data_init_t data_init = get_kernel_function<data_init_t>("data_init");
+		if(!data_init) {
+			return false;
+		}
+
+		KernelGlobals *kg = (KernelGlobals*)kernel_globals.device_pointer;
+		kg->global_size = make_int2(dim.global_size[0], dim.global_size[1]);
+
+		for(int y = 0; y < dim.global_size[1]; y++) {
+			for(int x = 0; x < dim.global_size[0]; x++) {
+				kg->global_id = make_int2(x, y);
+
+				data_init((KernelGlobals*)kernel_globals.device_pointer,
+						  (KernelData*)data.device_pointer,
+						  (void*)split_data.device_pointer,
+						  num_global_elements,
+						  (char*)ray_state.device_pointer,
+						  (uint*)rtile.rng_state,
+						  rtile.start_sample,
+						  rtile.start_sample + rtile.num_samples,
+						  rtile.x,
+						  rtile.y,
+						  rtile.w,
+						  rtile.h,
+						  rtile.offset,
+						  rtile.stride,
+						  rtile.rng_state_offset_x,
+						  rtile.rng_state_offset_y,
+						  rtile.buffer_rng_state_stride,
+						  (int*)queue_index.device_pointer,
+						  dim.global_size[0] * dim.global_size[1],
+						  (char*)use_queues_flags.device_pointer,
+#ifdef __WORK_STEALING__
+						  (uint*)work_pool_wgs.device_pointer,
+						  rtile.num_samples,
+#endif
+						  num_parallel_samples,
+						  rtile.buffer_offset_x,
+						  rtile.buffer_offset_y,
+						  rtile.buffer_rng_state_stride,
+						  (float*)rtile.buffer);
+			}
+		}
+
+		return true;
 	}
 
 	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&)
@@ -697,6 +775,10 @@ protected:
 		CPUSplitKernelFunction *kernel = new CPUSplitKernelFunction(this);
 
 		kernel->func = get_kernel_function<void(*)(KernelGlobals*, KernelData*)>(kernel_name);
+		if(!kernel->func) {
+			delete kernel;
+			return nullptr;
+		}
 
 		return kernel;
 	}

@@ -37,6 +37,7 @@
 #else
 #  include "split/kernel_split_common.h"
 
+#  include "split/kernel_data_init.h"
 #  include "split/kernel_scene_intersect.h"
 #  include "split/kernel_lamp_emission.h"
 #  include "split/kernel_queue_enqueue.h"
@@ -183,6 +184,8 @@ void KERNEL_FUNCTION_FULL_NAME(register_functions)(void(*reg)(const char* name, 
 	REGISTER(convert_to_byte);
 	REGISTER(convert_to_half_float);
 	REGISTER(shader);
+
+	reg(REGISTER_EVAL_NAME(KERNEL_FUNCTION_FULL_NAME(data_init)), (void*)kernel_data_init);
 
 	REGISTER(scene_intersect);
 	REGISTER(lamp_emission);

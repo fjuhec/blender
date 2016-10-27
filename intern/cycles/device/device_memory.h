@@ -276,6 +276,7 @@ public:
 		data_height = 0;
 		data_depth = 0;
 		data_size = 0;
+		device_pointer = 0;
 	}
 
 	size_t size()

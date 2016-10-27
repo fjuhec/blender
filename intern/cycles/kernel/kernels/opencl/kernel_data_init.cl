@@ -15,6 +15,7 @@
  */
 
 #include "kernel_compat_opencl.h"
+#include "split/kernel_split_common.h"
 #include "split/kernel_data_init.h"
 
 __kernel void kernel_ocl_path_trace_data_init(

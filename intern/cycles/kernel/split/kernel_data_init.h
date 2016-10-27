@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "kernel_split_common.h"
+CCL_NAMESPACE_BEGIN
 
 /* Note on kernel_data_initialization kernel
  * This kernel Initializes structures needed in path-iteration kernels.
@@ -59,9 +59,11 @@ ccl_device void kernel_data_init(
         ccl_global char *ray_state,
         ccl_global uint *rng_state,
 
+#ifndef __KERNEL_CPU__
 #define KERNEL_TEX(type, ttype, name)                                   \
         ccl_global type *name,
 #include "../kernel_textures.h"
+#endif
 
         int start_sample,
         int end_sample,
@@ -82,7 +84,9 @@ ccl_device void kernel_data_init(
         int buffer_stride,
         ccl_global float *buffer)
 {
+#ifndef __KERNEL_CPU__
 	kg->data = data;
+#endif
 
 	split_params->x = sx;
 	split_params->y = sy;
@@ -120,9 +124,11 @@ ccl_device void kernel_data_init(
 
 	kg->sd_input = split_state->sd_DL_shadow;
 	kg->isect_shadow = split_state->isect_shadow;
+#ifndef __KERNEL_CPU__
 #define KERNEL_TEX(type, ttype, name) \
 	kg->name = name;
 #include "../kernel_textures.h"
+#endif
 
 	int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 
@@ -266,3 +272,6 @@ ccl_device void kernel_data_init(
 		split_state->ray_state[((sw * parallel_samples) * sh) + thread_index] = RAY_INACTIVE;
 	}
 }
+
+CCL_NAMESPACE_END
+
