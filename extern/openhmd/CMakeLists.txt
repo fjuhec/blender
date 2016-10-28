@@ -36,7 +36,8 @@ set(SRC
 )
 
 # TODO: Either remove this or move to main CMakeLists.txt
-OPTION(OPENHMD_DRIVER_OCULUS_RIFT "Oculus Rift DK1 and DK2" ON)
+OPTION(OPENHMD_DRIVER_OCULUS_RIFT "Oculus Rift DK1, DK2 and CV1" ON)
+OPTION(OPENHMD_DRIVER_DEEPOON "Deepoon E2 support" ON)
 OPTION(OPENHMD_DRIVER_EXTERNAL "External sensor driver" OFF)
 OPTION(OPENHMD_DRIVER_ANDROID "General Android driver" OFF)
 
@@ -51,6 +52,17 @@ if(OPENHMD_DRIVER_OCULUS_RIFT)
 		src/drv_oculus_rift/packet.c
 	)
 	add_definitions(-DDRIVER_OCULUS_RIFT)
+
+	find_package(HIDAPI REQUIRED)
+	list(APPEND INC_SYS ${HIDAPI_INCLUDE_DIRS})
+endif()
+
+if(OPENHMD_DRIVER_DEEPOON)
+	list(APPEND SRC
+		src/drv_deepoon/deepoon.c
+		src/drv_deepoon/packet.c
+	)
+	add_definitions(-DDRIVER_DEEPOON)
 
 	find_package(HIDAPI REQUIRED)
 	list(APPEND INC_SYS ${HIDAPI_INCLUDE_DIRS})
