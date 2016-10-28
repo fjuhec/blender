@@ -1258,9 +1258,9 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 #ifdef WITH_INPUT_HMD
 			case GHOST_kEventHMD:
 			{
-				GHOST_TEventOpenHMDData *hmdd = data;
+				GHOST_TEventOpenHMDData *hmd_data = data;
 
-				if (hmdd->subtype == GHOST_kDeviceNumChanged) {
+				if (hmd_data->subtype == GHOST_kDeviceNumChanged) {
 					if (WM_device_HMD_num_devices_get() > 0) {
 						if (U.hmd_device == -1) { /* Only if 'None' item is selected */
 							U.hmd_device = 0; /* last device plugged in */

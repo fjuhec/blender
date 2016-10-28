@@ -4126,28 +4126,6 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 /* ******************************************************* */
 /* Head Mounted Display */
 
-typedef struct HMDOrientationData {
-	float orientation[4];
-} HMDOrientationData;
-
-/**
- * Initial camera rotation (quaternion).
- * A bit ugly, but we need to calculate the rotation delta since session start.
- */
-static float init_rot[4];
-
-static void hmd_view_exit(const bContext *C, Scene *scene)
-{
-	View3D *v3d = CTX_wm_view3d(C);
-	Object *ob = v3d ? v3d->camera : scene->camera;
-
-	if (ob) {
-		/* reset initial camera rotation */
-		BKE_object_quat_to_rot(ob, init_rot);
-		DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
-	}
-}
-
 static void hmd_view_prepare_screen(bContext *C, Scene *scene, wmWindow *win)
 {
 	ScrArea *sa = win->screen->areabase.first;
@@ -4177,7 +4155,6 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	if ((win = wm->win_hmd)) {
 		Scene *sc = CTX_data_scene(C);
 		sc->hmd_settings.flag &= ~HMDVIEW_SESSION_RUNNING;
-		hmd_view_exit(C, sc);
 		wm_window_close(C, wm, win);
 		wm->win_hmd = NULL;
 		/* close HMD */
@@ -4231,25 +4208,18 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 
 	scene->hmd_settings.flag ^= HMDVIEW_SESSION_RUNNING;
 	if (was_hmd_running) {
-		hmd_view_exit(C, scene);
 		WM_window_fullscreen_toggle(hmd_win, false, true);
 		WM_device_HMD_state_set(U.hmd_device, false);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 	else {
 		ScrArea *sa = hmd_win->screen->areabase.first;
-		View3D *v3d = sa->spacedata.first;
 		BLI_assert(sa->spacetype = SPACE_VIEW3D);
 
 		WM_device_HMD_state_set(U.hmd_device, true);
 		if ((scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD) == 0) {
 			scene->hmd_settings.init_ipd = WM_device_HMD_IPD_get();
 			WM_device_HMD_IPD_set(scene->hmd_settings.custom_ipd);
-		}
-
-		BLI_assert(v3d->camera == scene->camera);
-		if (scene->camera) {
-			BKE_object_rot_to_quat(scene->camera, init_rot);
 		}
 
 		WM_window_fullscreen_toggle(hmd_win, true, false);
@@ -4270,40 +4240,23 @@ static void WM_OT_hmd_session_toggle(wmOperatorType *ot)
 	ot->poll = hmd_session_toggle_poll;
 }
 
-static void hmd_session_refresh(bContext *C, wmWindow *hmd_win, Scene *scene, HMDOrientationData *data)
-{
-	View3D *v3d = CTX_wm_view3d(C);
-	Object *ob = v3d ? v3d->camera : scene->camera;
-	float quat[4];
-
-	if ((scene->hmd_settings.flag & HMDVIEW_IGNORE_ROT) || !ob) {
-		return;
-	}
-	if (!hmd_win) {
-		BLI_assert(0);
-		scene->hmd_settings.flag &= ~HMDVIEW_SESSION_RUNNING;
-		return;
-	}
-
-	mul_qt_qtqt(quat, init_rot, data->orientation);
-	BKE_object_quat_to_rot(ob, quat);
-
-	DAG_id_tag_update(&ob->id, OB_RECALC_OB);  /* sets recalc flags */
-	/* tag hmd region for update */
-	ScrArea *sa = hmd_win->screen->areabase.first;
-	ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
-	ED_region_tag_redraw(ar);
-}
-
-static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	Scene *scene = CTX_data_scene(C);
-	if ((scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING) == 0)
+
+	if ((scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING) == 0) {
 		return OPERATOR_CANCELLED; /* no pass through, we don't need to keep that event in queue */
+	}
 
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *hmd_win = wm->win_hmd;
-	hmd_session_refresh(C, hmd_win, CTX_data_scene(C), event->customdata);
+	ScrArea *sa = hmd_win->screen->areabase.first;
+
+	BLI_assert(sa->spacetype == SPACE_VIEW3D);
+	/* Actually the only thing we have to do is ensuring a redraw, we'll then
+	 * get the modelview/projection matrices from HMD device when drawing */
+	ED_area_tag_redraw(sa);
+
 	return (OPERATOR_FINISHED | OPERATOR_PASS_THROUGH);
 }
 
