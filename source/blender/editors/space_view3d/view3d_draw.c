@@ -3647,7 +3647,6 @@ static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
 
 	/* apply 3d view matrices on hmd device ones */
 	mul_m4_m4m4(modelviewmat, modelviewmat, rv3d->viewmat);
-	add_m4_m4m4(projmat, projmat, rv3d->winmat);
 
 	if (rv3d->persp != RV3D_CAMOB) {
 		/* apply modelview zoom */
