@@ -240,9 +240,6 @@ static ohmd_device* open_device(ohmd_driver* driver, ohmd_device_desc* desc)
 	SETFLAG(priv->sensor_config.flags, RIFT_SCF_USE_CALIBRATION, 1);
 	SETFLAG(priv->sensor_config.flags, RIFT_SCF_AUTO_CALIBRATION, 1);
 
-	// apply sensor config
-	set_coordinate_frame(priv, priv->coordinate_frame);
-
 	// set keep alive interval to n seconds
 	pkt_keep_alive keep_alive = { 0, KEEP_ALIVE_VALUE };
 	size = dp_encode_keep_alive(buf, &keep_alive);
