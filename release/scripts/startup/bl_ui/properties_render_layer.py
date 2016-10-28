@@ -226,21 +226,28 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
             row.label(text="Camera Suffix:")
             row.prop(rv, "camera_suffix", text="")
 
+
+class RENDERLAYER_PT_hmd(RenderLayerButtonsPanel, Panel):
+    bl_label = "Head Mounted Displays"
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        scene = context.scene
+        wm = context.window_manager
+
         running = scene.hmd_running
         text_win = "Close HMD Window" if wm.has_hmd_window else "Open HMD Window"
         text_run = "Stop Session" if running else "Start Session"
         icon = 'PAUSE' if running else 'PLAY'
 
-        layout.separator()
-        layout.label(text="HMD View:")
-
-        col = layout.column()
-
-        row = col.row(align=True)
+        row = layout.row(align=True)
         row.operator("wm.hmd_view_toggle", text=text_win)
         row.operator("wm.hmd_session_run", text=text_run, icon=icon)
 
-        row = col.row()
+        row = layout.row()
         row.prop(scene, "hmd_camlock")
         row.prop(scene, "use_hmd_view_lensdist", text="Lens Distortion")
 
