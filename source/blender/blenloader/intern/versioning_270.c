@@ -1433,6 +1433,6 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				BKE_scene_hmd_settings_default_init(scene);
 			}
 		}
-	}
 #endif
+	}
 }

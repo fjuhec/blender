@@ -813,7 +813,9 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->gpencil_seq_align = GP_PROJECT_VIEWSPACE;
 	sce->toolsettings->gpencil_ima_align = GP_PROJECT_VIEWSPACE;
 
+#ifdef WITH_INPUT_HMD
 	BKE_scene_hmd_settings_default_init(sce);
+#endif
 }
 
 Scene *BKE_scene_add(Main *bmain, const char *name)
