@@ -1024,6 +1024,7 @@ void GHOST_HMDsetDeviceIPD(float value)
 #endif
 }
 
+#ifndef WITH_OPENHMD
 static void ghost_UnitMat(float r_mat[4][4])
 {
 	r_mat[0][0] = r_mat[1][1] = r_mat[2][2] = r_mat[3][3] = 1.0f;
@@ -1032,6 +1033,7 @@ static void ghost_UnitMat(float r_mat[4][4])
 	r_mat[2][0] = r_mat[2][1] = r_mat[2][3] = 0.0f;
 	r_mat[3][0] = r_mat[3][1] = r_mat[3][2] = 0.0f;
 }
+#endif
 
 void GHOST_HMDgetLeftModelviewMatrix(float r_mat[4][4])
 {
