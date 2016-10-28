@@ -30,6 +30,8 @@
 
 #include "BKE_context.h"
 
+#include "BLI_math.h"
+
 #include "DNA_userdef_types.h"
 
 #include "GHOST_C-api.h"
@@ -105,7 +107,7 @@ void WM_device_HMD_state_set(const int device, const bool enable)
 void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4])
 {
 	if (U.hmd_device == -1) {
-		r_modelviewmat = NULL;
+		unit_m4(r_modelviewmat);
 	}
 	else if (is_left) {
 		GHOST_HMDgetLeftModelviewMatrix(r_modelviewmat);
@@ -118,7 +120,7 @@ void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat
 void WM_device_HMD_projection_matrix_get(const bool is_left, float r_projmat[4][4])
 {
 	if (U.hmd_device == -1) {
-		r_projmat = NULL;
+		unit_m4(r_projmat);
 	}
 	else if (is_left) {
 		GHOST_HMDgetLeftProjectionMatrix(r_projmat);

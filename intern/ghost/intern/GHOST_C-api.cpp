@@ -1024,6 +1024,15 @@ void GHOST_HMDsetDeviceIPD(float value)
 #endif
 }
 
+static void ghost_UnitMat(float r_mat[4][4])
+{
+	r_mat[0][0] = r_mat[1][1] = r_mat[2][2] = r_mat[3][3] = 1.0f;
+	r_mat[0][1] = r_mat[0][2] = r_mat[0][3] = 0.0f;
+	r_mat[1][0] = r_mat[1][2] = r_mat[1][3] = 0.0f;
+	r_mat[2][0] = r_mat[2][1] = r_mat[2][3] = 0.0f;
+	r_mat[3][0] = r_mat[3][1] = r_mat[3][2] = 0.0f;
+}
+
 void GHOST_HMDgetLeftModelviewMatrix(float r_mat[4][4])
 {
 #ifdef WITH_OPENHMD
@@ -1031,7 +1040,7 @@ void GHOST_HMDgetLeftModelviewMatrix(float r_mat[4][4])
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	ohmd->getLeftEyeGLModelviewMatrix(r_mat);
 #else
-	(void)r_mat;
+	ghost_UnitMat(r_mat);
 #endif
 }
 
@@ -1042,7 +1051,7 @@ void GHOST_HMDgetRightModelviewMatrix(float r_mat[4][4])
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	ohmd->getRightEyeGLModelviewMatrix(r_mat);
 #else
-	(void)r_mat;
+	ghost_UnitMat(r_mat);
 #endif
 }
 
@@ -1053,7 +1062,7 @@ void GHOST_HMDgetLeftProjectionMatrix(float r_mat[4][4])
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	ohmd->getLeftEyeGLProjectionMatrix(r_mat);
 #else
-	(void)r_mat;
+	ghost_UnitMat(r_mat);
 #endif
 }
 
@@ -1064,7 +1073,7 @@ void GHOST_HMDgetRightProjectionMatrix(float r_mat[4][4])
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	ohmd->getRightEyeGLProjectionMatrix(r_mat);
 #else
-	(void)r_mat;
+	ghost_UnitMat(r_mat);
 #endif
 }
 
