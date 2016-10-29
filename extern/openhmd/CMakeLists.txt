@@ -38,7 +38,7 @@ set(SRC
 # TODO: Either remove this or move to main CMakeLists.txt
 OPTION(OPENHMD_DRIVER_OCULUS_RIFT "Oculus Rift DK1, DK2 and CV1" ON)
 OPTION(OPENHMD_DRIVER_DEEPOON "Deepoon E2 support" ON)
-OPTION(OPENHMD_DRIVER_DEEPOON "HTC Vive support" ON)
+OPTION(OPENHMD_DRIVER_HTC_VIVE "HTC Vive support" ON)
 OPTION(OPENHMD_DRIVER_EXTERNAL "External sensor driver" OFF)
 OPTION(OPENHMD_DRIVER_ANDROID "General Android driver" OFF)
 
