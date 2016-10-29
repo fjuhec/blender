@@ -38,6 +38,7 @@ set(SRC
 # TODO: Either remove this or move to main CMakeLists.txt
 OPTION(OPENHMD_DRIVER_OCULUS_RIFT "Oculus Rift DK1, DK2 and CV1" ON)
 OPTION(OPENHMD_DRIVER_DEEPOON "Deepoon E2 support" ON)
+OPTION(OPENHMD_DRIVER_DEEPOON "HTC Vive support" ON)
 OPTION(OPENHMD_DRIVER_EXTERNAL "External sensor driver" OFF)
 OPTION(OPENHMD_DRIVER_ANDROID "General Android driver" OFF)
 
@@ -63,6 +64,17 @@ if(OPENHMD_DRIVER_DEEPOON)
 		src/drv_deepoon/packet.c
 	)
 	add_definitions(-DDRIVER_DEEPOON)
+
+	find_package(HIDAPI REQUIRED)
+	list(APPEND INC_SYS ${HIDAPI_INCLUDE_DIRS})
+endif()
+
+if(OPENHMD_HTC_VIVE)
+	list(APPEND SRC
+		src/drv_htc_vive/vive.c
+		src/drv_htc_vive/packet.c
+	)
+	add_definitions(-DDRIVER_HTC_VIVE)
 
 	find_package(HIDAPI REQUIRED)
 	list(APPEND INC_SYS ${HIDAPI_INCLUDE_DIRS})
