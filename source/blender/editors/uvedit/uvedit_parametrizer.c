@@ -5358,6 +5358,15 @@ static void p_convex_hull_restore_direction(PConvexHull *item, float margin)
 	p_convex_hull_compute_edge_components(item);
 }
 
+static void p_convex_hull_update_all(PConvexHull *hull, float margin)
+{
+	p_convex_hull_update(hull, true);
+	p_convex_hull_grow(hull, margin);
+	p_convex_hull_update(hull, false);
+	p_convex_hull_compute_horizontal_angles(hull); /* ToDo: Shouldn't be necessary! */
+	p_convex_hull_compute_edge_components(hull);
+}
+
 static PNoFitPolygon *p_inner_fit_polygon_create(PHandle *phandle, PConvexHull *item)
 {
 	PNoFitPolygon *nfp = (PNoFitPolygon *)MEM_callocN(sizeof(*nfp), "PNoFitPolygon");
@@ -5851,11 +5860,7 @@ static float p_scale_binary_search(PHandle *phandle, PChart *chart, float val, f
 
 	if (depth--) {
 		p_chart_uv_scale_origin(chart, val);
-		p_convex_hull_update(chart->u.ipack.convex_hull, true);
-		p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
-		p_convex_hull_update(chart->u.ipack.convex_hull, false);
-		p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
-		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+		p_convex_hull_update_all(chart->u.ipack.convex_hull, margin);
 
 		abs_scale *= val;
 
@@ -5880,11 +5885,8 @@ static float p_scale_binary_search(PHandle *phandle, PChart *chart, float val, f
 	else {
 		printf("-scale factor found: %f\n", (found / abs_scale));
 		p_chart_uv_scale_origin(chart, 1.0f / (found / abs_scale)); // = abs_scale / found
-		p_convex_hull_update(chart->u.ipack.convex_hull, true);
-		p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
-		p_convex_hull_update(chart->u.ipack.convex_hull, false);
-		p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
-		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+		p_convex_hull_update_all(chart->u.ipack.convex_hull, margin);
+
 		return (found / abs_scale);
 	}
 }
@@ -5923,11 +5925,8 @@ static bool p_compute_packing_solution(PHandle *phandle, float margin /* ToDo Sa
 					for (j = 0; j < chart->u.ipack.ntris; j++) {
 						PConvexHull *hull = chart->u.ipack.tris[j];
 
-						p_convex_hull_update(hull, true);
-						p_convex_hull_grow(hull, margin);
-						p_convex_hull_update(hull, false);
-						p_convex_hull_compute_horizontal_angles(hull); /* ToDo: Shouldn't be necessary! */
-						p_convex_hull_compute_edge_components(hull);
+						p_convex_hull_update_all(hull, margin);
+
 						p_chart_pack_individual(phandle, chart, margin);
 						hull->placed = true;
 					}
@@ -5945,11 +5944,9 @@ static bool p_compute_packing_solution(PHandle *phandle, float margin /* ToDo Sa
 					/* ToDo SaphireS: Avoid recomputation, store placement/scale of best solution from binary depth search! */
 					/* scale chart */
 					p_chart_uv_scale_origin(chart, scale);
+
 					p_convex_hull_update(chart->u.ipack.convex_hull, true);
-					p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
-					p_convex_hull_update(chart->u.ipack.convex_hull, false);
-					p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
-					p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+
 					p_chart_pack_individual(phandle, chart, margin);
 					chart->u.ipack.convex_hull->placed = true;
 				}
@@ -6152,11 +6149,7 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int 
 	/* Set initial scale of charts so finding a better solution is possible */
 	p_chart_uv_scale_origin(chart, upscale_fac); /* ToDo SaphireS: Find best upscale_fac value */
 	chart->u.ipack.last_scale = upscale_fac;
-	p_convex_hull_update(chart->u.ipack.convex_hull, true);
-	p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
-	p_convex_hull_update(chart->u.ipack.convex_hull, false);
-	p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
-	p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+	p_convex_hull_update_all(chart->u.ipack.convex_hull, margin);
 
 	/* Set random SA parameter of chosen chart to new value */
 	randf = BLI_rng_get_float(phandle->rng);
@@ -6170,19 +6163,12 @@ void param_irregular_pack_iter(ParamHandle *handle, float *w_area, unsigned int 
 		rot = (int)(rot_rand * (float)rot_step) * (2 * M_PI / (float)rot_step);
 		printf("SA param rot for chart[%i]: %f\n", rand_chart, rot);
 		//p_chart_uv_rotate_origin(chart, rot);
-		p_convex_hull_update(chart->u.ipack.convex_hull, true);
-		p_convex_hull_grow(chart->u.ipack.convex_hull, margin);
-		p_convex_hull_update(chart->u.ipack.convex_hull, false);
-		p_convex_hull_compute_horizontal_angles(chart->u.ipack.convex_hull); /* ToDo: Shouldn't be necessary! */
-		p_convex_hull_compute_edge_components(chart->u.ipack.convex_hull);
+		p_convex_hull_update_all(chart->u.ipack.convex_hull, margin);
+
 		if (chart->u.ipack.decomposed) {
 			for (i = 0; i < chart->u.ipack.ntris; i++){
 				PConvexHull *tri = chart->u.ipack.tris[i];
-				p_convex_hull_update(tri, true);
-				p_convex_hull_grow(tri, margin);
-				p_convex_hull_update(tri, false);
-				p_convex_hull_compute_horizontal_angles(tri); /* ToDo: Shouldn't be necessary! */
-				p_convex_hull_compute_edge_components(tri);
+				p_convex_hull_update_all(tri, margin);
 			}
 		}
 	}
