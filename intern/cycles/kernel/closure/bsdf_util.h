@@ -131,11 +131,6 @@ ccl_device float schlick_fresnel(float u)
 	return m2 * m2 * m; // pow(m, 5)
 }
 
-ccl_device float sqr(float a)
-{
-	return a * a;
-}
-
 ccl_device float smooth_step(float edge0, float edge1, float x)
 {
 	float result;

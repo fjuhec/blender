@@ -46,11 +46,9 @@ ccl_device float3 calculate_disney_diffuse_brdf(const DisneyDiffuseBsdf *bsdf,
 
 	float FL = schlick_fresnel(NdotL), FV = schlick_fresnel(NdotV);
     const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * bsdf->roughness;
-	float Fd = (1.0f * (1.0f - FL) + Fd90 * FL) * (1.0f * (1.0f - FV) + Fd90 * FV); //lerp(1.0f, Fd90, FL) * lerp(1.0f, Fd90, FV);
+	float Fd = (1.0f * (1.0f - FL) + Fd90 * FL) * (1.0f * (1.0f - FV) + Fd90 * FV);
 
-	float value = M_1_PI_F * Fd;
-
-	value *= NdotL;
+	float value = M_1_PI_F * NdotL * Fd;
 
 	return make_float3(value, value, value);
 }
@@ -72,8 +70,7 @@ ccl_device float3 bsdf_disney_diffuse_eval_reflect(const ShaderClosure *sc, cons
 	float3 H = normalize(L + V);
 
     if(dot(N, omega_in) > 0.0f) {
-        float cos_pi = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
-        *pdf = cos_pi;
+        *pdf = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
         return calculate_disney_diffuse_brdf(bsdf, N, V, L, H, pdf);
     }
     else {
@@ -111,7 +108,7 @@ ccl_device int bsdf_disney_diffuse_sample(const ShaderClosure *sc,
 #endif
 	}
 	else {
-		*pdf = 0;
+		*pdf = 0.0f;
 	}
 	return LABEL_REFLECT|LABEL_DIFFUSE;
 }

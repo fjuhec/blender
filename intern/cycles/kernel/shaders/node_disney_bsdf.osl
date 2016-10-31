@@ -48,7 +48,7 @@ shader node_disney_bsdf(
 
     vector T = Tangent;
 
-    float m_cdlum = 0.3 * BaseColor[0] + 0.6 * BaseColor[1] + 0.1 * BaseColor[2]; // luminance approx.
+    float m_cdlum = luminance(BaseColor);
     color m_ctint = m_cdlum > 0.0 ? BaseColor / m_cdlum : color(0.0, 0.0, 0.0); // normalize lum. to isolate hue+sat
 
     /* rotate tangent */
@@ -63,9 +63,9 @@ shader node_disney_bsdf(
         }
         
         if (Sheen > 1e-5) {
-            color csheen0 = color(1.0, 1.0, 1.0) * (1.0 - SheenTint) + m_ctint * SheenTint;
+            color sheen_color = color(1.0, 1.0, 1.0) * (1.0 - SheenTint) + m_ctint * SheenTint;
 
-            BSDF = BSDF + csheen0 * Sheen * disney_sheen(Normal);
+            BSDF = BSDF + sheen_color * Sheen * disney_sheen(Normal);
         }
         
         BSDF = BSDF * diffuse_weight;

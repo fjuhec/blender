@@ -42,11 +42,7 @@ ccl_device float3 calculate_disney_sheen_brdf(const DisneySheenBsdf *bsdf,
 
 	float LdotH = dot(L, H);
 
-	float FH = schlick_fresnel(LdotH);
-
-	float value = FH;
-
-	value *= NdotL;
+	float value = schlick_fresnel(LdotH) * NdotL;
 
 	return make_float3(value, value, value);
 }
@@ -68,8 +64,7 @@ ccl_device float3 bsdf_disney_sheen_eval_reflect(const ShaderClosure *sc, const 
 	float3 H = normalize(L + V);
 
     if(dot(N, omega_in) > 0.0f) {
-        float cos_pi = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
-        *pdf = cos_pi;
+        *pdf = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
         return calculate_disney_sheen_brdf(bsdf, N, V, L, H, pdf);
     }
     else {
@@ -107,7 +102,7 @@ ccl_device int bsdf_disney_sheen_sample(const ShaderClosure *sc,
 #endif
 	}
 	else {
-		*pdf = 0;
+		*pdf = 0.0f;
 	}
 	return LABEL_REFLECT|LABEL_DIFFUSE;
 }

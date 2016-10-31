@@ -244,12 +244,10 @@ ccl_device_forceinline float3 microfacet_sample_stretched(
 ccl_device_forceinline float3 reflection_color(const MicrofacetBsdf *bsdf, float3 L, float3 H) {
     float3 F = make_float3(1.0f, 1.0f, 1.0f);
 
-    if(bsdf->extra) {
-        if(bsdf->extra->use_fresnel) {
-            float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
+    if(bsdf->extra && bsdf->extra->use_fresnel) {
+		float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
 
-            F = interpolate_fresnel_color(L, H, bsdf->ior, F0, bsdf->extra->cspec0);
-        }
+		F = interpolate_fresnel_color(L, H, bsdf->ior, F0, bsdf->extra->cspec0);
     }
 
     return F;
@@ -528,7 +526,6 @@ ccl_device float3 bsdf_microfacet_ggx_eval_transmit(const ShaderClosure *sc, con
 	/* out = fabsf(cosHI * cosHO) * (m_eta * m_eta) * G * D / (cosNO * Ht2)
 	 * pdf = pm * (m_eta * m_eta) * fabsf(cosHI) / Ht2 */
 	float common = D * (m_eta * m_eta) / (cosNO * Ht2);
-
 	float out = G * fabsf(cosHI * cosHO) * common;
 	*pdf = G1o * fabsf(cosHO * cosHI) * common;
 
@@ -579,11 +576,9 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 						*eval = make_float3(1e6f, 1e6f, 1e6f);
 
                         /* if fresnel is used, calculate the color with reflection_color(...) */
-			            if(bsdf->extra) {
-                            if(bsdf->extra->use_fresnel) {
-                                *pdf = 1.0f;
-                                *eval = reflection_color(bsdf, *omega_in, m);
-                            }
+			            if(bsdf->extra && bsdf->extra->use_fresnel) {
+							*pdf = 1.0f;
+							*eval = reflection_color(bsdf, *omega_in, m);
                         }
 					}
 					else {
@@ -603,14 +598,12 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 							float cosNI = dot(N, *omega_in);
 
 							/* eq. 34: now calculate G1(i,m) */
-							if(bsdf->extra) {
-								if(bsdf->extra->is_disney_clearcoat) {
-                                    /* the alpha value for clearcoat is a fixed 0.25 => alpha2 = 0.25 * 0.25 */
-									alpha2 = 0.0625f;
+							if(bsdf->extra && bsdf->extra->is_disney_clearcoat) {
+								/* the alpha value for clearcoat is a fixed 0.25 => alpha2 = 0.25 * 0.25 */
+								alpha2 = 0.0625f;
 
-									/* recalculate G1o */
-									G1o = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNO * cosNO) / (cosNO * cosNO)));
-								}
+								/* recalculate G1o */
+								G1o = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNO * cosNO) / (cosNO * cosNO)));
                             }
 
 							G1i = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNI * cosNI) / (cosNI * cosNI))); 
@@ -708,7 +701,6 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 
 					/* see eval function for derivation */
 					float common = (G1o * D) * (m_eta * m_eta) / (cosNO * Ht2);
-
 					float out = G1i * fabsf(cosHI * cosHO) * common;
 					*pdf = cosHO * fabsf(cosHI) * common;
 

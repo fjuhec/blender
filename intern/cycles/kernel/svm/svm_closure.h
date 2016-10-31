@@ -129,7 +129,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 			// get the additional clearcoat normal and subsurface scattering radius
 			uint4 data_cn_ssr = read_node(kg, offset);
-			float3 CN = stack_valid(data_cn_ssr.x) ? stack_load_float3(stack, data_cn_ssr.x) : ccl_fetch(sd, N);
+			float3 clearcoat_normal = stack_valid(data_cn_ssr.x) ? stack_load_float3(stack, data_cn_ssr.x) : ccl_fetch(sd, N);
 			float3 subsurface_radius = stack_valid(data_cn_ssr.y) ? stack_load_float3(stack, data_cn_ssr.y) : make_float3(1.0f, 1.0f, 1.0f);
 
 			// get the subsurface color
@@ -147,23 +147,22 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			/* disable in case of diffuse ancestor, can't see it well then and
 			 * adds considerably noise due to probabilities of continuing path
 			 * getting lower and lower */
-			if(path_flag & PATH_RAY_DIFFUSE_ANCESTOR)
+			if(path_flag & PATH_RAY_DIFFUSE_ANCESTOR) {
 				subsurface = 0.0f;
+			}
 
-			if(subsurface < CLOSURE_WEIGHT_CUTOFF) {
-				/* diffuse */
-				if(diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
-					float3 diff_weight = weight * base_color * diffuse_weight;
+			/* diffuse */
+			if(subsurface < CLOSURE_WEIGHT_CUTOFF && diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
+				float3 diff_weight = weight * base_color * diffuse_weight;
 
-					DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
+				DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
 
-					if(bsdf) {
-						bsdf->N = N;
-						bsdf->roughness = roughness;
+				if(bsdf) {
+					bsdf->N = N;
+					bsdf->roughness = roughness;
 
-						/* setup bsdf */
-						ccl_fetch(sd, flag) |= bsdf_disney_diffuse_setup(bsdf);
-					}
+					/* setup bsdf */
+					ccl_fetch(sd, flag) |= bsdf_disney_diffuse_setup(bsdf);
 				}
 			}
 			else if(subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
@@ -239,13 +238,13 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
             /* sheen */
 			if(diffuse_weight > CLOSURE_WEIGHT_CUTOFF && sheen > CLOSURE_WEIGHT_CUTOFF) {
-                float m_cdlum = 0.3f * base_color.x + 0.6f * base_color.y + 0.1f * base_color.z; // luminance approx.
+                float m_cdlum = linear_rgb_to_gray(base_color);
                 float3 m_ctint = m_cdlum > 0.0f ? base_color / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 
-                /* csheen0 */
-                float3 csheen0 = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sheen_tint) + m_ctint * sheen_tint;
+                /* color of the sheen component */
+                float3 sheen_color = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sheen_tint) + m_ctint * sheen_tint;
 
-				float3 sheen_weight = weight * sheen * csheen0 * diffuse_weight;
+				float3 sheen_weight = weight * sheen * sheen_color * diffuse_weight;
 
 				DisneySheenBsdf *bsdf = (DisneySheenBsdf*)bsdf_alloc(sd, sizeof(DisneySheenBsdf), sheen_weight);
 
@@ -264,33 +263,60 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				if(specular_weight > CLOSURE_WEIGHT_CUTOFF && (specular > CLOSURE_WEIGHT_CUTOFF || metallic > CLOSURE_WEIGHT_CUTOFF)) {
 					float3 spec_weight = weight * specular_weight;
 
-					MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), spec_weight);
-					MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
+					/* for roughness values close to 0 handle as a sharp reflection */
+					if(roughness <= 1e-2f) {
+						float spec_to_ior = (2.0f / (1.0f - safe_sqrtf(0.08f * specular))) - 1.0f;
 
-					if(bsdf && extra) {
-						bsdf->N = N;
-						bsdf->ior = (2.0f / (1.0f - safe_sqrtf(0.08f * specular))) - 1.0f;
-						bsdf->T = T;
-						bsdf->extra = extra;
-
-						float aspect = safe_sqrtf(1.0f - anisotropic * 0.9f);
-						float r2 = roughness * roughness;
-
-						bsdf->alpha_x = fmaxf(0.001f, r2 / aspect);
-						bsdf->alpha_y = fmaxf(0.001f, r2 * aspect);
-
-						float m_cdlum = 0.3f * base_color.x + 0.6f * base_color.y + 0.1f * base_color.z; // luminance approx.
+						float m_cdlum = linear_rgb_to_gray(base_color);
 						float3 m_ctint = m_cdlum > 0.0f ? base_color / m_cdlum : make_float3(0.0f, 0.0f, 0.0f); // normalize lum. to isolate hue+sat
 						float3 tmp_col = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specular_tint) + m_ctint * specular_tint;
+						float3 cspec0 = (specular * 0.08f * tmp_col) * (1.0f - metallic) + base_color * metallic;
 
-						bsdf->extra->cspec0 = (specular * 0.08f * tmp_col) * (1.0f - metallic) + base_color * metallic;
-						bsdf->extra->color = base_color;
+						float F0 = fresnel_dielectric_cos(1.0f, spec_to_ior);
+						float F0_norm = 1.0f / (1.0f - F0);
+						float FH = (fresnel_dielectric_cos(cosNO, spec_to_ior) - F0) * F0_norm;
 
-						/* setup bsdf */
-						if(distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID || roughness <= 0.075f) /* use single-scatter GGX */
-							ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_aniso_fresnel_setup(bsdf);
-						else /* use multi-scatter GGX */
-							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_fresnel_setup(bsdf);
+						/* Blend between white and a specular color with respect to the fresnel */
+						float3 refl_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+
+						MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), spec_weight*refl_color);
+
+						if(bsdf) {
+							bsdf->N = N;
+
+							/* setup bsdf */
+							ccl_fetch(sd, flag) |= bsdf_reflection_setup(bsdf);
+						}
+					}
+					else {
+						MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), spec_weight);
+						MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
+
+						if(bsdf && extra) {
+							bsdf->N = N;
+							bsdf->ior = (2.0f / (1.0f - safe_sqrtf(0.08f * specular))) - 1.0f;
+							bsdf->T = T;
+							bsdf->extra = extra;
+
+							float aspect = safe_sqrtf(1.0f - anisotropic * 0.9f);
+							float r2 = roughness * roughness;
+
+							bsdf->alpha_x = fmaxf(0.001f, r2 / aspect);
+							bsdf->alpha_y = fmaxf(0.001f, r2 * aspect);
+
+							float m_cdlum = 0.3f * base_color.x + 0.6f * base_color.y + 0.1f * base_color.z; // luminance approx.
+							float3 m_ctint = m_cdlum > 0.0f ? base_color / m_cdlum : make_float3(0.0f, 0.0f, 0.0f); // normalize lum. to isolate hue+sat
+							float3 tmp_col = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specular_tint) + m_ctint * specular_tint;
+
+							bsdf->extra->cspec0 = (specular * 0.08f * tmp_col) * (1.0f - metallic) + base_color * metallic;
+							bsdf->extra->color = base_color;
+
+							/* setup bsdf */
+							if(distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID || roughness <= 0.075f) /* use single-scatter GGX */
+								ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_aniso_fresnel_setup(bsdf);
+							else /* use multi-scatter GGX */
+								ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_fresnel_setup(bsdf);
+						}
 					}
 				}
 #ifdef __CAUSTICS_TRICKS__
@@ -412,7 +438,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
 					if(bsdf && extra) {
-						bsdf->N = CN;
+						bsdf->N = clearcoat_normal;
 						bsdf->ior = 1.5f;
 						bsdf->extra = extra;
 
