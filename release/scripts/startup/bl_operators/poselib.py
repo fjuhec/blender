@@ -16,8 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-# <pep8-80 compliant>
-
 if "bpy" in locals():
     from importlib import reload
     if "anim_utils" in locals():
