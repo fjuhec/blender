@@ -863,8 +863,8 @@ static void draw_sensor_header(uiLayout *layout, PointerRNA *ptr, PointerRNA *lo
 		uiItemR(sub, ptr, "name", 0, "", ICON_NONE);
 	}
 	else {
-		uiItemL(sub, IFACE_(sensor_name(sens->type)), ICON_NONE);
-		uiItemL(sub, sens->name, ICON_NONE);
+		uiItemL(sub, IFACE_(sensor_name(sens->type)), ICON_NONE, 0);
+		uiItemL(sub, sens->name, ICON_NONE, 0);
 	}
 
 	sub = uiLayoutRow(row, false);
@@ -930,7 +930,7 @@ static void draw_sensor_armature(uiLayout *layout, PointerRNA *ptr)
 	uiLayout *row;
 
 	if (ob->type != OB_ARMATURE) {
-		uiItemL(layout, IFACE_("Sensor only available for armatures"), ICON_NONE);
+		uiItemL(layout, IFACE_("Sensor only available for armatures"), ICON_NONE, 0);
 		return;
 	}
 
@@ -1033,7 +1033,7 @@ static void draw_sensor_keyboard(uiLayout *layout, PointerRNA *ptr)
 	uiLayout *row, *col;
 
 	row = uiLayoutRow(layout, false);
-	uiItemL(row, CTX_IFACE_(BLT_I18NCONTEXT_ID_WINDOWMANAGER, "Key:"), ICON_NONE);
+	uiItemL(row, CTX_IFACE_(BLT_I18NCONTEXT_ID_WINDOWMANAGER, "Key:"), ICON_NONE, 0);
 	col = uiLayoutColumn(row, false);
 	uiLayoutSetActive(col, RNA_boolean_get(ptr, "use_all_keys") == false);
 	uiItemR(col, ptr, "key", UI_ITEM_R_EVENT, "", ICON_NONE);
@@ -1043,11 +1043,11 @@ static void draw_sensor_keyboard(uiLayout *layout, PointerRNA *ptr)
 	col = uiLayoutColumn(layout, false);
 	uiLayoutSetActive(col, RNA_boolean_get(ptr, "use_all_keys") == false);
 	row = uiLayoutRow(col, false);
-	uiItemL(row, IFACE_("First Modifier:"), ICON_NONE);
+	uiItemL(row, IFACE_("First Modifier:"), ICON_NONE, 0);
 	uiItemR(row, ptr, "modifier_key_1", UI_ITEM_R_EVENT, "", ICON_NONE);
 	
 	row = uiLayoutRow(col, false);
-	uiItemL(row, IFACE_("Second Modifier:"), ICON_NONE);
+	uiItemL(row, IFACE_("Second Modifier:"), ICON_NONE, 0);
 	uiItemR(row, ptr, "modifier_key_2", UI_ITEM_R_EVENT, "", ICON_NONE);
 
 	RNA_pointer_create((ID *)ob, &RNA_GameObjectSettings, ob, &settings_ptr);
@@ -1246,9 +1246,9 @@ static void draw_controller_header(uiLayout *layout, PointerRNA *ptr, int xco, i
 		uiDefBlockBut(uiLayoutGetBlock(layout), controller_state_mask_menu, cont, state, (short)(xco+width-44), yco, 22+22, UI_UNIT_Y, IFACE_("Set controller state index (from 1 to 30)"));
 	}
 	else {
-		uiItemL(sub, IFACE_(controller_name(cont->type)), ICON_NONE);
-		uiItemL(sub, cont->name, ICON_NONE);
-		uiItemL(sub, state, ICON_NONE);
+		uiItemL(sub, IFACE_(controller_name(cont->type)), ICON_NONE, 0);
+		uiItemL(sub, cont->name, ICON_NONE, 0);
+		uiItemL(sub, state, ICON_NONE, 0);
 	}
 
 	sub = uiLayoutRow(row, false);
@@ -1347,8 +1347,8 @@ static void draw_actuator_header(uiLayout *layout, PointerRNA *ptr, PointerRNA *
 		uiItemR(sub, ptr, "name", 0, "", ICON_NONE);
 	}
 	else {
-		uiItemL(sub, IFACE_(actuator_name(act->type)), ICON_NONE);
-		uiItemL(sub, act->name, ICON_NONE);
+		uiItemL(sub, IFACE_(actuator_name(act->type)), ICON_NONE, 0);
+		uiItemL(sub, act->name, ICON_NONE, 0);
 	}
 
 	sub = uiLayoutRow(row, false);
@@ -1432,7 +1432,7 @@ static void draw_actuator_armature(uiLayout *layout, PointerRNA *ptr)
 	PropertyRNA *bones_prop = NULL;
 
 	if (ob->type != OB_ARMATURE) {
-		uiItemL(layout, IFACE_("Actuator only available for armatures"), ICON_NONE);
+		uiItemL(layout, IFACE_("Actuator only available for armatures"), ICON_NONE, 0);
 		return;
 	}
 	
@@ -1538,7 +1538,7 @@ static void draw_actuator_constraint(uiLayout *layout, PointerRNA *ptr, bContext
 
 			row = uiLayoutRow(layout, false);
 			col = uiLayoutColumn(row, true);
-			uiItemL(col, IFACE_("Range:"), ICON_NONE);
+			uiItemL(col, IFACE_("Range:"), ICON_NONE, 0);
 			uiItemR(col, ptr, "range", 0, "", ICON_NONE);
 
 			col = uiLayoutColumn(row, true);
@@ -1636,7 +1636,7 @@ static void draw_actuator_edit_object(uiLayout *layout, PointerRNA *ptr)
 			break;
 		case ACT_EDOB_REPLACE_MESH:
 			if (ob->type != OB_MESH) {
-				uiItemL(layout, IFACE_("Mode only available for mesh objects"), ICON_NONE);
+				uiItemL(layout, IFACE_("Mode only available for mesh objects"), ICON_NONE, 0);
 				break;
 			}
 			split = uiLayoutSplit(layout, 0.6, false);
@@ -1660,7 +1660,7 @@ static void draw_actuator_edit_object(uiLayout *layout, PointerRNA *ptr)
 			break;
 		case ACT_EDOB_DYNAMICS:
 			if (ob->type != OB_MESH) {
-				uiItemL(layout, IFACE_("Mode only available for mesh objects"), ICON_NONE);
+				uiItemL(layout, IFACE_("Mode only available for mesh objects"), ICON_NONE, 0);
 				break;
 			}
 			uiItemR(layout, ptr, "dynamic_operation", 0, NULL, ICON_NONE);
@@ -1749,7 +1749,7 @@ static void draw_actuator_motion(uiLayout *layout, PointerRNA *ptr)
 			uiItemR(split, ptr, "use_local_rotation", UI_ITEM_R_TOGGLE, NULL, ICON_NONE);
 			
 			if (ELEM(physics_type, OB_BODY_TYPE_DYNAMIC, OB_BODY_TYPE_RIGID, OB_BODY_TYPE_SOFT)) {
-				uiItemL(layout, IFACE_("Dynamic Object Settings:"), ICON_NONE);
+				uiItemL(layout, IFACE_("Dynamic Object Settings:"), ICON_NONE, 0);
 				split = uiLayoutSplit(layout, 0.9, false);
 				row = uiLayoutRow(split, false);
 				uiItemR(row, ptr, "force", 0, NULL, ICON_NONE);
@@ -1830,7 +1830,7 @@ static void draw_actuator_motion(uiLayout *layout, PointerRNA *ptr)
 			split = uiLayoutSplit(layout, 0.9, false);
 			row = uiLayoutRow(split, false);
 			split = uiLayoutSplit(row, 0.7, false);
-			uiItemL(split, "", ICON_NONE); /*Just use this for some spacing */
+			uiItemL(split, "", ICON_NONE, 0); /*Just use this for some spacing */
 			uiItemR(split, ptr, "use_character_jump", UI_ITEM_R_TOGGLE, NULL, ICON_NONE);
 			break;
 	}
@@ -1919,7 +1919,7 @@ static void draw_actuator_random(uiLayout *layout, PointerRNA *ptr)
 			break;
 
 		case ACT_RANDOM_BOOL_UNIFORM:
-			uiItemL(row, IFACE_("Choose between true and false, 50% chance each"), ICON_NONE);
+			uiItemL(row, IFACE_("Choose between true and false, 50% chance each"), ICON_NONE, 0);
 			break;
 
 		case ACT_RANDOM_BOOL_BERNOUILLI:
@@ -1982,7 +1982,7 @@ static void draw_actuator_shape_action(uiLayout *layout, PointerRNA *ptr)
 	uiLayout *row;
 
 	if (ob->type != OB_MESH) {
-		uiItemL(layout, IFACE_("Actuator only available for mesh objects"), ICON_NONE);
+		uiItemL(layout, IFACE_("Actuator only available for mesh objects"), ICON_NONE, 0);
 		return;
 	}
 
@@ -2020,7 +2020,7 @@ static void draw_actuator_sound(uiLayout *layout, PointerRNA *ptr, bContext *C)
 
 	uiTemplateID(layout, C, ptr, "sound", NULL, "SOUND_OT_open", NULL);
 	if (!RNA_pointer_get(ptr, "sound").data) {
-		uiItemL(layout, IFACE_("Select a sound from the list or load a new one"), ICON_NONE);
+		uiItemL(layout, IFACE_("Select a sound from the list or load a new one"), ICON_NONE, 0);
 		return;
 	}
 	uiItemR(layout, ptr, "mode", 0, NULL, ICON_NONE);
@@ -2362,8 +2362,8 @@ void logic_buttons(bContext *C, ARegion *ar)
 			split = uiLayoutSplit(box, 0.2f, false);
 
 			col = uiLayoutColumn(split, false);
-			uiItemL(col, IFACE_("Visible"), ICON_NONE);
-			uiItemL(col, IFACE_("Initial"), ICON_NONE);
+			uiItemL(col, IFACE_("Visible"), ICON_NONE, 0);
+			uiItemL(col, IFACE_("Initial"), ICON_NONE, 0);
 
 			subsplit = uiLayoutSplit(split, 0.85f, false);
 			col = uiLayoutColumn(subsplit, false);

@@ -63,6 +63,7 @@
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
+#include "BKE_icons.h"
 
 #include "BIK_api.h"
 
@@ -115,6 +116,8 @@ void BKE_action_free(bAction *act)
 		
 	/* Free pose-references (aka local markers) */
 	BLI_freelistN(&act->markers);
+
+	BKE_previewimg_free(&act->preview);
 }
 
 /* .................................. */
@@ -157,6 +160,8 @@ bAction *BKE_action_copy(Main *bmain, bAction *src)
 	}
 	
 	BKE_id_copy_ensure_local(bmain, &src->id, &dst->id);
+
+	BKE_previewimg_id_copy(&dst->id, &src->id);
 
 	return dst;
 }

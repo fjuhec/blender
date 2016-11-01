@@ -190,7 +190,7 @@ static void graph_panel_properties(const bContext *C, Panel *pa)
 		if (ale->type == ANIMTYPE_NLACURVE)
 			icon = ICON_NLA;
 	}
-	uiItemL(col, name, icon);
+	uiItemL(col, name, icon, 0);
 		
 	/* RNA-Path Editing - only really should be enabled when things aren't working */
 	col = uiLayoutColumn(layout, true);
@@ -200,7 +200,7 @@ static void graph_panel_properties(const bContext *C, Panel *pa)
 		
 	/* color settings */
 	col = uiLayoutColumn(layout, true);
-	uiItemL(col, IFACE_("Display Color:"), ICON_NONE);
+	uiItemL(col, IFACE_("Display Color:"), ICON_NONE, 0);
 		
 	row = uiLayoutRow(col, true);
 	uiItemR(row, &fcu_ptr, "color_mode", 0, "", ICON_NONE);
@@ -360,8 +360,8 @@ static void graph_panel_key_properties(const bContext *C, Panel *pa)
 		col = uiLayoutColumn(layout, false);
 		if (fcu->flag & FCURVE_DISCRETE_VALUES) {
 			uiLayout *split = uiLayoutSplit(col, 0.33f, true);
-			uiItemL(split, IFACE_("Interpolation:"), ICON_NONE);
-			uiItemL(split, IFACE_("None for Enum/Boolean"), ICON_IPO_CONSTANT);
+			uiItemL(split, IFACE_("Interpolation:"), ICON_NONE, 0);
+			uiItemL(split, IFACE_("None for Enum/Boolean"), ICON_IPO_CONSTANT, 0);
 		}
 		else {
 			uiItemR(col, &bezt_ptr, "interpolation", 0, NULL, ICON_NONE);
@@ -393,7 +393,7 @@ static void graph_panel_key_properties(const bContext *C, Panel *pa)
 		col = uiLayoutColumn(layout, true);
 		/* keyframe itself */
 		{
-			uiItemL(col, IFACE_("Key:"), ICON_NONE);
+			uiItemL(col, IFACE_("Key:"), ICON_NONE, 0);
 			
 			but = uiDefButR(block, UI_BTYPE_NUM, B_REDR, IFACE_("Frame:"), 0, 0, UI_UNIT_X, UI_UNIT_Y,
 			                &bezt_ptr, "co", 0, 0, 0, -1, -1, NULL);
@@ -407,7 +407,7 @@ static void graph_panel_key_properties(const bContext *C, Panel *pa)
 		
 		/* previous handle - only if previous was Bezier interpolation */
 		if ((prevbezt) && (prevbezt->ipo == BEZT_IPO_BEZ)) {
-			uiItemL(col, IFACE_("Left Handle:"), ICON_NONE);
+			uiItemL(col, IFACE_("Left Handle:"), ICON_NONE, 0);
 			
 			but = uiDefButR(block, UI_BTYPE_NUM, B_REDR, "X:", 0, 0, UI_UNIT_X, UI_UNIT_Y,
 			                &bezt_ptr, "handle_left", 0, 0, 0, -1, -1, NULL);
@@ -427,7 +427,7 @@ static void graph_panel_key_properties(const bContext *C, Panel *pa)
 		/* next handle - only if current is Bezier interpolation */
 		if (bezt->ipo == BEZT_IPO_BEZ) {
 			/* NOTE: special update callbacks are needed on the coords here due to T39911 */
-			uiItemL(col, IFACE_("Right Handle:"), ICON_NONE);
+			uiItemL(col, IFACE_("Right Handle:"), ICON_NONE, 0);
 			
 			but = uiDefButR(block, UI_BTYPE_NUM, B_REDR, "X:", 0, 0, UI_UNIT_X, UI_UNIT_Y,
 			                &bezt_ptr, "handle_right", 0, 0, 0, -1, -1, NULL);
@@ -447,16 +447,16 @@ static void graph_panel_key_properties(const bContext *C, Panel *pa)
 	else {
 		if ((fcu->bezt == NULL) && (fcu->modifiers.first)) {
 			/* modifiers only - so no keyframes to be active */
-			uiItemL(layout, IFACE_("F-Curve only has F-Modifiers"), ICON_NONE);
-			uiItemL(layout, IFACE_("See Modifiers panel below"), ICON_INFO);
+			uiItemL(layout, IFACE_("F-Curve only has F-Modifiers"), ICON_NONE, 0);
+			uiItemL(layout, IFACE_("See Modifiers panel below"), ICON_INFO, 0);
 		}
 		else if (fcu->fpt) {
 			/* samples only */
 			uiItemL(layout, IFACE_("F-Curve doesn't have any keyframes as it only contains sampled points"),
-			        ICON_NONE);
+			        ICON_NONE, 0);
 		}
 		else
-			uiItemL(layout, IFACE_("No active keyframe on F-Curve"), ICON_NONE);
+			uiItemL(layout, IFACE_("No active keyframe on F-Curve"), ICON_NONE, 0);
 	}
 	
 	MEM_freeN(ale);
@@ -528,28 +528,28 @@ static void driver_dvar_invalid_name_query_cb(bContext *C, void *dvar_v, void *U
 	DriverVar *dvar = (DriverVar *)dvar_v;
 	
 	if (dvar->flag & DVAR_FLAG_INVALID_EMPTY) {
-		uiItemL(layout, "It cannot be left blank", ICON_ERROR);
+		uiItemL(layout, "It cannot be left blank", ICON_ERROR, 0);
 	}
 	if (dvar->flag & DVAR_FLAG_INVALID_START_NUM) {
-		uiItemL(layout, "It cannot start with a number", ICON_ERROR);
+		uiItemL(layout, "It cannot start with a number", ICON_ERROR, 0);
 	}
 	if (dvar->flag & DVAR_FLAG_INVALID_START_CHAR) {
 		uiItemL(layout, 
 		        "It cannot start with a special character,"
 		        " including '$', '@', '!', '~', '+', '-', '_', '.', or ' '",
-		        ICON_NONE);
+		        ICON_NONE, 0);
 	}
 	if (dvar->flag & DVAR_FLAG_INVALID_HAS_SPACE) {
-		uiItemL(layout, "It cannot contain spaces (e.g. 'a space')", ICON_ERROR);
+		uiItemL(layout, "It cannot contain spaces (e.g. 'a space')", ICON_ERROR, 0);
 	}
 	if (dvar->flag & DVAR_FLAG_INVALID_HAS_DOT) {
-		uiItemL(layout, "It cannot contain dots (e.g. 'a.dot')", ICON_ERROR);
+		uiItemL(layout, "It cannot contain dots (e.g. 'a.dot')", ICON_ERROR, 0);
 	}
 	if (dvar->flag & DVAR_FLAG_INVALID_HAS_SPECIAL) {
-		uiItemL(layout, "It cannot contain special (non-alphabetical/numeric) characters", ICON_ERROR);
+		uiItemL(layout, "It cannot contain special (non-alphabetical/numeric) characters", ICON_ERROR, 0);
 	}
 	if (dvar->flag & DVAR_FLAG_INVALID_PY_KEYWORD) {
-		uiItemL(layout, "It cannot be a reserved keyword in Python", ICON_INFO);
+		uiItemL(layout, "It cannot be a reserved keyword in Python", ICON_INFO, 0);
 	}
 	
 	UI_popup_menu_end(C, pup);
@@ -771,29 +771,29 @@ static void graph_panel_drivers(const bContext *C, Panel *pa)
 		
 		/* errors? */
 		if ((G.f & G_SCRIPT_AUTOEXEC) == 0) {
-			uiItemL(col, IFACE_("ERROR: Python auto-execution disabled"), ICON_CANCEL);
+			uiItemL(col, IFACE_("ERROR: Python auto-execution disabled"), ICON_CANCEL, 0);
 		}
 		else if (driver->flag & DRIVER_FLAG_INVALID) {
-			uiItemL(col, IFACE_("ERROR: Invalid Python expression"), ICON_CANCEL);
+			uiItemL(col, IFACE_("ERROR: Invalid Python expression"), ICON_CANCEL, 0);
 		}
 		
 		/* Explicit bpy-references are evil. Warn about these to prevent errors */
 		/* TODO: put these in a box? */
 		if (bpy_data_expr_error || bpy_ctx_expr_error) {
-			uiItemL(col, IFACE_("WARNING: Driver expression may not work correctly"), ICON_HELP);
+			uiItemL(col, IFACE_("WARNING: Driver expression may not work correctly"), ICON_HELP, 0);
 			
 			if (bpy_data_expr_error) {
-				uiItemL(col, IFACE_("TIP: Use variables instead of bpy.data paths (see below)"), ICON_ERROR);
+				uiItemL(col, IFACE_("TIP: Use variables instead of bpy.data paths (see below)"), ICON_ERROR, 0);
 			}
 			if (bpy_ctx_expr_error) {
-				uiItemL(col, IFACE_("TIP: bpy.context is not safe for renderfarm usage"), ICON_ERROR);
+				uiItemL(col, IFACE_("TIP: bpy.context is not safe for renderfarm usage"), ICON_ERROR, 0);
 			}
 		}
 	}
 	else {
 		/* errors? */
 		if (driver->flag & DRIVER_FLAG_INVALID)
-			uiItemL(col, IFACE_("ERROR: Invalid target channel(s)"), ICON_ERROR);
+			uiItemL(col, IFACE_("ERROR: Invalid target channel(s)"), ICON_ERROR, 0);
 			
 		/* Warnings about a lack of variables
 		 * NOTE: The lack of variables is generally a bad thing, since it indicates
@@ -802,11 +802,11 @@ static void graph_panel_drivers(const bContext *C, Panel *pa)
 		 *       property animation
 		 */
 		if (BLI_listbase_is_empty(&driver->variables)) {
-			uiItemL(col, IFACE_("ERROR: Driver is useless without any inputs"), ICON_ERROR);
+			uiItemL(col, IFACE_("ERROR: Driver is useless without any inputs"), ICON_ERROR, 0);
 			
 			if (!BLI_listbase_is_empty(&fcu->modifiers)) {
-				uiItemL(col, IFACE_("TIP: Use F-Curves for procedural animation instead"), ICON_INFO);
-				uiItemL(col, IFACE_("F-Modifiers can generate curves for those too"), ICON_INFO);
+				uiItemL(col, IFACE_("TIP: Use F-Curves for procedural animation instead"), ICON_INFO, 0);
+				uiItemL(col, IFACE_("F-Modifiers can generate curves for those too"), ICON_INFO, 0);
 			}
 		}
 	}
@@ -825,10 +825,10 @@ static void graph_panel_drivers(const bContext *C, Panel *pa)
 		uiLayout *row = uiLayoutRow(col, true);
 		char valBuf[32];
 			
-		uiItemL(row, IFACE_("Driver Value:"), ICON_NONE);
+		uiItemL(row, IFACE_("Driver Value:"), ICON_NONE, 0);
 			
 		BLI_snprintf(valBuf, sizeof(valBuf), "%.3f", driver->curval);
-		uiItemL(row, valBuf, ICON_NONE);
+		uiItemL(row, valBuf, ICON_NONE, 0);
 	}
 	
 	/* add/copy/paste driver variables */
@@ -923,7 +923,7 @@ static void graph_panel_drivers(const bContext *C, Panel *pa)
 			
 			box = uiLayoutBox(col);
 			row = uiLayoutRow(box, true);
-			uiItemL(row, IFACE_("Value:"), ICON_NONE);
+			uiItemL(row, IFACE_("Value:"), ICON_NONE, 0);
 			
 			if ((dvar->type == DVAR_TYPE_ROT_DIFF) ||
 			    (dvar->type == DVAR_TYPE_TRANSFORM_CHAN &&
@@ -936,7 +936,7 @@ static void graph_panel_drivers(const bContext *C, Panel *pa)
 				BLI_snprintf(valBuf, sizeof(valBuf), "%.3f", dvar->curval);
 			}
 			
-			uiItemL(row, valBuf, ICON_NONE);
+			uiItemL(row, valBuf, ICON_NONE, 0);
 		}
 	}
 	

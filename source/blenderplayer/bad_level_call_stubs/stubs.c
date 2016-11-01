@@ -586,10 +586,10 @@ void uiItemBooleanO(uiLayout *layout, const char *name, int icon, const char *op
 void uiItemIntO(uiLayout *layout, const char *name, int icon, const char *opname, const char *propname, int value) RET_NONE
 void uiItemFloatO(uiLayout *layout, const char *name, int icon, const char *opname, const char *propname, float value) RET_NONE
 void uiItemStringO(uiLayout *layout, const char *name, int icon, const char *opname, const char *propname, const char *value) RET_NONE
-void uiItemL(struct uiLayout *layout, const char *name, int icon) RET_NONE
+void uiItemL(struct uiLayout *layout, const char *name, int icon, const unsigned short icon_frame) RET_NONE
 void uiItemM(uiLayout *layout, struct bContext *C, const char *menuname, const char *name, int icon) RET_NONE
 void uiItemS(struct uiLayout *layout) RET_NONE
-void uiItemFullR(uiLayout *layout, struct PointerRNA *ptr, struct PropertyRNA *prop, int index, int value, int flag, const char *name, int icon) RET_NONE
+void uiItemFullR(uiLayout *layout, struct PointerRNA *ptr, struct PropertyRNA *prop, int index, int value, int flag, const char *name, int icon, const unsigned short icon_frame) RET_NONE
 void uiLayoutSetContextPointer(uiLayout *layout, const char *name, struct PointerRNA *ptr) RET_NONE
 const char *uiLayoutIntrospect(uiLayout *layout) RET_NULL
 void UI_reinit_font(void) RET_NONE

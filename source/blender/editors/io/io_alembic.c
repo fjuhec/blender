@@ -144,7 +144,7 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 #ifdef WITH_ALEMBIC_HDF5
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Archive Options:"), ICON_NONE);
+	uiItemL(row, IFACE_("Archive Options:"), ICON_NONE, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "compression_type", 0, NULL, ICON_NONE);
@@ -152,7 +152,7 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE);
+	uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "global_scale", 0, NULL, ICON_NONE);
@@ -160,7 +160,7 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 	/* Scene Options */
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Scene Options:"), ICON_SCENE_DATA);
+	uiItemL(row, IFACE_("Scene Options:"), ICON_SCENE_DATA, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "start", 0, NULL, ICON_NONE);
@@ -195,7 +195,7 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 	/* Object Data */
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Object Options:"), ICON_OBJECT_DATA);
+	uiItemL(row, IFACE_("Object Options:"), ICON_OBJECT_DATA, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "uvs", 0, NULL, ICON_NONE);
@@ -441,14 +441,14 @@ static void ui_alembic_import_settings(uiLayout *layout, PointerRNA *imfptr)
 {
 	uiLayout *box = uiLayoutBox(layout);
 	uiLayout *row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE);
+	uiItemL(row, IFACE_("Manual Transform:"), ICON_NONE, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "scale", 0, NULL, ICON_NONE);
 
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Options:"), ICON_NONE);
+	uiItemL(row, IFACE_("Options:"), ICON_NONE, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "set_frame_range", 0, NULL, ICON_NONE);

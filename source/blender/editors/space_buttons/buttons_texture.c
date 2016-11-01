@@ -563,7 +563,7 @@ static void template_texture_user_menu(bContext *C, uiLayout *layout, void *UNUS
 
 		/* add label per category */
 		if (!last_category || !STREQ(last_category, user->category)) {
-			uiItemL(layout, IFACE_(user->category), ICON_NONE);
+			uiItemL(layout, IFACE_(user->category), ICON_NONE, 0);
 			but = block->buttons.last;
 			but->drawflag = UI_BUT_TEXT_LEFT;
 		}
@@ -608,7 +608,7 @@ void uiTemplateTextureUser(uiLayout *layout, bContext *C)
 	user = ct->user;
 
 	if (!user) {
-		uiItemL(layout, IFACE_("No textures in context"), ICON_NONE);
+		uiItemL(layout, IFACE_("No textures in context"), ICON_NONE, 0);
 		return;
 	}
 

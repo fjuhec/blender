@@ -900,8 +900,8 @@ void uiTemplateImage(uiLayout *layout, bContext *C, PointerRNA *ptr, const char 
 			image_info(scene, iuser, ima, ibuf, str, MAX_IMAGE_INFO_LEN);
 			BKE_image_release_ibuf(ima, ibuf, lock);
 
-			uiItemL(layout, ima->id.name + 2, ICON_NONE);
-			uiItemL(layout, str, ICON_NONE);
+			uiItemL(layout, ima->id.name + 2, ICON_NONE, 0);
+			uiItemL(layout, str, ICON_NONE, 0);
 
 			if (ima->type == IMA_TYPE_COMPOSITE) {
 				// XXX not working yet
@@ -1109,7 +1109,7 @@ void uiTemplateImageSettings(uiLayout *layout, PointerRNA *imfptr, int color_man
 	{
 		row = uiLayoutRow(col, false);
 
-		uiItemL(row, IFACE_("Color Depth:"), ICON_NONE);
+		uiItemL(row, IFACE_("Color Depth:"), ICON_NONE, 0);
 		uiItemR(row, imfptr, "color_depth", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 	}
 
@@ -1151,7 +1151,7 @@ void uiTemplateImageSettings(uiLayout *layout, PointerRNA *imfptr, int color_man
 
 	if (imf->imtype == R_IMF_IMTYPE_CINEON) {
 #if 1
-		uiItemL(col, IFACE_("Hard coded Non-Linear, Gamma:1.7"), ICON_NONE);
+		uiItemL(col, IFACE_("Hard coded Non-Linear, Gamma:1.7"), ICON_NONE, 0);
 #else
 		uiItemR(col, imfptr, "use_cineon_log", 0, NULL, ICON_NONE);
 		uiItemR(col, imfptr, "cineon_black", 0, NULL, ICON_NONE);
@@ -1173,7 +1173,7 @@ void uiTemplateImageSettings(uiLayout *layout, PointerRNA *imfptr, int color_man
 		display_settings_ptr = RNA_property_pointer_get(imfptr, prop);
 
 		col = uiLayoutColumn(layout, false);
-		uiItemL(col, IFACE_("Color Management"), ICON_NONE);
+		uiItemL(col, IFACE_("Color Management"), ICON_NONE, 0);
 
 		uiItemR(col, &display_settings_ptr, "display_device", 0, NULL, ICON_NONE);
 
@@ -1220,7 +1220,7 @@ static void uiTemplateViewsFormat(uiLayout *layout, PointerRNA *ptr, PointerRNA 
 
 	col = uiLayoutColumn(layout, false);
 
-	uiItemL(col, IFACE_("Views Format:"), ICON_NONE);
+	uiItemL(col, IFACE_("Views Format:"), ICON_NONE, 0);
 	uiItemR(uiLayoutRow(col, false), ptr, "views_format", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 
 	if (stereo3d_format_ptr) {
@@ -1305,7 +1305,7 @@ void uiTemplateImageInfo(uiLayout *layout, bContext *C, Image *ima, ImageUser *i
 
 	image_info(CTX_data_scene(C), iuser, ima, ibuf, str, MAX_IMAGE_INFO_LEN);
 	BKE_image_release_ibuf(ima, ibuf, lock);
-	uiItemL(layout, str, ICON_NONE);
+	uiItemL(layout, str, ICON_NONE, 0);
 }
 
 #undef MAX_IMAGE_INFO_LEN

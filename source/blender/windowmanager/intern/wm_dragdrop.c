@@ -343,7 +343,7 @@ void wm_drags_draw(bContext *C, wmWindow *win, rcti *rect)
 			if (rect)
 				drag_rect_minmax(rect, x, y, x + iconsize, y + iconsize);
 			else
-				UI_icon_draw_aspect(x, y, drag->icon, 1.0f / UI_DPI_FAC, 0.8);
+				UI_icon_draw_aspect(x, y, drag->icon, 0, 1.0f / UI_DPI_FAC, 0.8);
 		}
 		
 		/* item name */

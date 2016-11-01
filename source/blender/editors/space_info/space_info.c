@@ -292,7 +292,7 @@ static void recent_files_menu_draw(const bContext *UNUSED(C), Menu *menu)
 		}
 	}
 	else {
-		uiItemL(layout, IFACE_("No Recent Files"), ICON_NONE);
+		uiItemL(layout, IFACE_("No Recent Files"), ICON_NONE, 0);
 	}
 }
 

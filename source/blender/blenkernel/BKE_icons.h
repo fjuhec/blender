@@ -99,6 +99,23 @@ struct PreviewImage *BKE_previewimg_create(void);
 /* create a copy of the preview image */
 struct PreviewImage *BKE_previewimg_copy(struct PreviewImage *prv);
 
+size_t BKE_previewimg_get_rect_size(struct PreviewImage *prv, const int size);
+
+void BKE_previewimg_num_frames_set(struct PreviewImage *prv, const short num_frames);
+void BKE_previewimg_frame_delete(struct PreviewImage *prv, const short frame_idx);
+
+unsigned int *BKE_previewimg_frame_data_get(
+        const struct PreviewImage *prv,
+        const unsigned short frame_idx, const enum eIconSizes size, int *r_meta);
+
+unsigned int *BKE_previewimg_frame_data_search(
+        const struct PreviewImage *prv,
+        const int meta, const enum eIconSizes size, unsigned short *r_frame_idx);
+
+void BKE_previewimg_frame_data_set(
+        const struct PreviewImage *prv,
+        const unsigned short frame_idx, const enum eIconSizes size, const int meta, const unsigned int *data);
+
 void BKE_previewimg_id_copy(struct ID *new_id, struct ID *old_id);
 
 /* retrieve existing or create new preview image */

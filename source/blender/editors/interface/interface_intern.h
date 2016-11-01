@@ -275,6 +275,7 @@ struct uiBut {
 	const char *disabled_info;
 
 	BIFIconID icon;
+	short icon_frame;  /* For icon pointing to multi-frames ImagePreview. */
 	char dt; /* drawtype: UI_EMBOSS, UI_EMBOSS_NONE ... etc, copied from the block */
 	signed char pie_dir; /* direction in a pie menu, used for collision detection (RadialDirection) */
 	char changed; /* could be made into a single flag */
@@ -482,6 +483,7 @@ extern bool ui_but_string_set_eval_num(struct bContext *C, uiBut *but, const cha
 extern int  ui_but_string_get_max_length(uiBut *but);
 extern uiBut *ui_but_drag_multi_edit_get(uiBut *but);
 
+void ui_def_but_icon_ex(uiBut *but, const int icon, const short frame, const int flag);
 void ui_def_but_icon(uiBut *but, const int icon, const int flag);
 extern uiButExtraIconType ui_but_icon_extra_get(uiBut *but);
 

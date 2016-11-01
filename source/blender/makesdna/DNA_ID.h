@@ -185,14 +185,21 @@ typedef struct PreviewImage {
 	unsigned int h[2];
 	short flag[2];
 	short changed_timestamp[2];
+	/* To keep backward/forward compat here, format of those rect is as follow:
+	 *
+	 *   flat array of frames, each frame takes w * h + 1 integers,
+	 *   last integer is free to be used as needed (flags, timecode, ...).
+	 */
 	unsigned int *rect[2];
 
 	/* Runtime-only data. */
 	struct GPUTexture *gputexture[2];
 	int icon_id;  /* Used by previews outside of ID context. */
 
+	/* Number of frames stored in each rect (0 means 'old format', rect is only w * h integers). */
+	unsigned short num_frames;
+
 	short tag;  /* Runtime data. */
-	char pad[2];
 } PreviewImage;
 
 #define PRV_DEFERRED_DATA(prv) \

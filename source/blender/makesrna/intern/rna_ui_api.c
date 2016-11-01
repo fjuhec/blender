@@ -97,7 +97,7 @@ static const char *rna_translate_ui_text(const char *text, const char *text_ctxt
 
 static void rna_uiItemR(uiLayout *layout, PointerRNA *ptr, const char *propname, const char *name, const char *text_ctxt,
                         int translate, int icon, int expand, int slider, int toggle, int icon_only, int event,
-                        int full_event, int emboss, int index, int icon_value)
+                        int full_event, int emboss, int index, int icon_value, int icon_frame)
 {
 	PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
 	int flag = 0;
@@ -122,7 +122,7 @@ static void rna_uiItemR(uiLayout *layout, PointerRNA *ptr, const char *propname,
 	flag |= (full_event) ? UI_ITEM_R_FULL_EVENT : 0;
 	flag |= (emboss) ? 0 : UI_ITEM_R_NO_BG;
 
-	uiItemFullR(layout, ptr, prop, index, 0, flag, name, icon);
+	uiItemFullR(layout, ptr, prop, index, 0, flag, name, icon, (unsigned short)icon_frame);
 }
 
 static void rna_uiItemMenuEnumR(uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *name,
@@ -218,7 +218,7 @@ static void rna_uiItemMenuEnumO(uiLayout *layout, bContext *C, const char *opnam
 }
 
 static void rna_uiItemL(uiLayout *layout, const char *name, const char *text_ctxt, int translate,
-                        int icon, int icon_value)
+                        int icon, int icon_value, int icon_frame)
 {
 	/* Get translated name (label). */
 	name = rna_translate_ui_text(name, text_ctxt, NULL, NULL, translate);
@@ -227,7 +227,7 @@ static void rna_uiItemL(uiLayout *layout, const char *name, const char *text_ctx
 		icon = icon_value;
 	}
 
-	uiItemL(layout, name, icon);
+	uiItemL(layout, name, icon, (unsigned short)icon_frame);
 }
 
 static void rna_uiItemM(uiLayout *layout, bContext *C, const char *menuname, const char *name, const char *text_ctxt,
@@ -530,6 +530,8 @@ void RNA_api_ui_layout(StructRNA *srna)
 	            "when set to -1 all array members are used", -2, INT_MAX); /* RNA_NO_INDEX == -1 */
 	parm = RNA_def_property(func, "icon_value", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_ui_text(parm, "Icon Value", "Override automatic icon of the item");
+	parm = RNA_def_property(func, "icon_frame", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_ui_text(parm, "Icon Frame", "For multi-frame icons, index of frame to show");
 
 	func = RNA_def_function(srna, "props_enum", "uiItemsEnumR");
 	api_ui_item_rna_common(func);
@@ -622,6 +624,8 @@ void RNA_api_ui_layout(StructRNA *srna)
 	api_ui_item_common(func);
 	parm = RNA_def_property(func, "icon_value", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_ui_text(parm, "Icon Value", "Override automatic icon of the item");
+	parm = RNA_def_property(func, "icon_frame", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_ui_text(parm, "Icon Frame", "For multi-frame icons, index of frame to show");
 
 	func = RNA_def_function(srna, "menu", "rna_uiItemM");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT);

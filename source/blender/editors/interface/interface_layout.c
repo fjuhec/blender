@@ -973,7 +973,7 @@ void uiItemsFullEnumO_items(
 				}
 
 				if (item->icon || radial) {
-					uiItemL(target, item->name, item->icon);
+					uiItemL(target, item->name, item->icon, 0);
 
 					but = block->buttons.last;
 				}
@@ -1259,7 +1259,7 @@ static void ui_item_rna_size(
 	*r_h = h;
 }
 
-void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index, int value, int flag, const char *name, int icon)
+void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index, int value, int flag, const char *name, int icon, const unsigned short icon_frame)
 {
 	uiBlock *block = layout->root->block;
 	uiBut *but = NULL;
@@ -1340,11 +1340,11 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 	/* enum item */
 	else if (type == PROP_ENUM && index == RNA_ENUM_VALUE) {
 		if (icon && name[0] && !icon_only)
-			uiDefIconTextButR_prop(block, UI_BTYPE_ROW, 0, icon, name, 0, 0, w, h, ptr, prop, -1, 0, value, -1, -1, NULL);
+			but = uiDefIconTextButR_prop(block, UI_BTYPE_ROW, 0, icon, name, 0, 0, w, h, ptr, prop, -1, 0, value, -1, -1, NULL);
 		else if (icon)
-			uiDefIconButR_prop(block, UI_BTYPE_ROW, 0, icon, 0, 0, w, h, ptr, prop, -1, 0, value, -1, -1, NULL);
+			but = uiDefIconButR_prop(block, UI_BTYPE_ROW, 0, icon, 0, 0, w, h, ptr, prop, -1, 0, value, -1, -1, NULL);
 		else
-			uiDefButR_prop(block, UI_BTYPE_ROW, 0, name, 0, 0, w, h, ptr, prop, -1, 0, value, -1, -1, NULL);
+			but = uiDefButR_prop(block, UI_BTYPE_ROW, 0, name, 0, 0, w, h, ptr, prop, -1, 0, value, -1, -1, NULL);
 	}
 	/* expanded enum */
 	else if (type == PROP_ENUM && (expand || RNA_property_flag(prop) & PROP_ENUM_FLAG))
@@ -1369,6 +1369,10 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 		
 		if (layout->redalert)
 			UI_but_flag_enable(but, UI_BUT_REDALERT);
+	}
+
+	if (but && icon_frame != 0) {
+		ui_def_but_icon_ex(but, icon, icon_frame, UI_HAS_ICON);
 	}
 
 	/* Mark non-embossed textfields inside a listbox. */
@@ -1396,7 +1400,7 @@ void uiItemR(uiLayout *layout, PointerRNA *ptr, const char *propname, int flag, 
 		return;
 	}
 
-	uiItemFullR(layout, ptr, prop, RNA_NO_INDEX, 0, flag, name, icon);
+	uiItemFullR(layout, ptr, prop, RNA_NO_INDEX, 0, flag, name, icon, 0);
 }
 
 void uiItemEnumR_prop(uiLayout *layout, const char *name, int icon, struct PointerRNA *ptr, PropertyRNA *prop, int value)
@@ -1408,7 +1412,7 @@ void uiItemEnumR_prop(uiLayout *layout, const char *name, int icon, struct Point
 		return;
 	}
 
-	uiItemFullR(layout, ptr, prop, RNA_ENUM_VALUE, value, 0, name, icon);
+	uiItemFullR(layout, ptr, prop, RNA_ENUM_VALUE, value, 0, name, icon, 0);
 }
 
 void uiItemEnumR(uiLayout *layout, const char *name, int icon, struct PointerRNA *ptr, const char *propname, int value)
@@ -1421,7 +1425,7 @@ void uiItemEnumR(uiLayout *layout, const char *name, int icon, struct PointerRNA
 		return;
 	}
 
-	uiItemFullR(layout, ptr, prop, RNA_ENUM_VALUE, value, 0, name, icon);
+	uiItemFullR(layout, ptr, prop, RNA_ENUM_VALUE, value, 0, name, icon, 0);
 }
 
 void uiItemEnumR_string(uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *value, const char *name, int icon)
@@ -1452,7 +1456,7 @@ void uiItemEnumR_string(uiLayout *layout, struct PointerRNA *ptr, const char *pr
 		if (item[a].value == ivalue) {
 			const char *item_name = name ? name : CTX_IFACE_(RNA_property_translation_context(prop), item[a].name);
 
-			uiItemFullR(layout, ptr, prop, RNA_ENUM_VALUE, ivalue, 0, item_name, icon ? icon : item[a].icon);
+			uiItemFullR(layout, ptr, prop, RNA_ENUM_VALUE, ivalue, 0, item_name, icon ? icon : item[a].icon, 0);
 			break;
 		}
 	}
@@ -1502,7 +1506,7 @@ void uiItemsEnumR(uiLayout *layout, struct PointerRNA *ptr, const char *propname
 						block->flag |= UI_BLOCK_NO_FLIP;
 					}
 
-					uiItemL(column, item[i].name, ICON_NONE);
+					uiItemL(column, item[i].name, ICON_NONE, 0);
 					bt = block->buttons.last;
 					bt->drawflag = UI_BUT_TEXT_LEFT;
 
@@ -1838,7 +1842,7 @@ void uiItemM(uiLayout *layout, bContext *UNUSED(C), const char *menuname, const 
 }
 
 /* label item */
-static uiBut *uiItemL_(uiLayout *layout, const char *name, int icon)
+static uiBut *uiItemL_(uiLayout *layout, const char *name, int icon, const unsigned short icon_frame)
 {
 	uiBlock *block = layout->root->block;
 	uiBut *but;
@@ -1860,6 +1864,10 @@ static uiBut *uiItemL_(uiLayout *layout, const char *name, int icon)
 	else
 		but = uiDefBut(block, UI_BTYPE_LABEL, 0, name, 0, 0, w, UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, "");
 
+	if (icon_frame != 0) {
+		ui_def_but_icon_ex(but, icon, icon_frame, UI_HAS_ICON);
+	}
+
 	/* to compensate for string size padding in ui_text_icon_width,
 	 * make text aligned right if the layout is aligned right.
 	 */
@@ -1876,14 +1884,14 @@ static uiBut *uiItemL_(uiLayout *layout, const char *name, int icon)
 	return but;
 }
 
-void uiItemL(uiLayout *layout, const char *name, int icon)
+void uiItemL(uiLayout *layout, const char *name, int icon, const unsigned short icon_frame)
 {
-	uiItemL_(layout, name, icon);
+	uiItemL_(layout, name, icon, icon_frame);
 }
 
 void uiItemLDrag(uiLayout *layout, PointerRNA *ptr, const char *name, int icon)
 {
-	uiBut *but = uiItemL_(layout, name, icon);
+	uiBut *but = uiItemL_(layout, name, icon, 0);
 
 	if (ptr && ptr->type)
 		if (RNA_struct_is_ID(ptr->type))
@@ -3443,7 +3451,7 @@ void uiLayoutOperatorButs(
 	}
 
 	if (flag & UI_LAYOUT_OP_SHOW_TITLE) {
-		uiItemL(layout, RNA_struct_ui_name(op->type->srna), ICON_NONE);
+		uiItemL(layout, RNA_struct_ui_name(op->type->srna), ICON_NONE, 0);
 	}
 
 	/* poll() on this operator may still fail, at the moment there is no nice feedback when this happens
@@ -3452,7 +3460,7 @@ void uiLayoutOperatorButs(
 		UI_block_lock_set(uiLayoutGetBlock(layout), true, "Operator can't' redo");
 
 		/* XXX, could give some nicer feedback or not show redo panel at all? */
-		uiItemL(layout, IFACE_("* Redo Unsupported *"), ICON_NONE);
+		uiItemL(layout, IFACE_("* Redo Unsupported *"), ICON_NONE, 0);
 	}
 	else {
 		/* useful for macros where only one of the steps can't be re-done */
@@ -3498,7 +3506,7 @@ void uiLayoutOperatorButs(
 		empty = uiDefAutoButsRNA(layout, &ptr, check_prop, label_align) == 0;
 
 		if (empty && (flag & UI_LAYOUT_OP_SHOW_EMPTY)) {
-			uiItemL(layout, IFACE_("No Properties"), ICON_NONE);
+			uiItemL(layout, IFACE_("No Properties"), ICON_NONE, 0);
 		}
 	}
 

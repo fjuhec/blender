@@ -831,7 +831,7 @@ static int ui_but_draw_menu_icon(const uiBut *but)
 /* icons have been standardized... and this call draws in untransformed coordinates */
 
 static void widget_draw_icon(
-        const uiBut *but, BIFIconID icon, float alpha, const rcti *rect,
+        const uiBut *but, BIFIconID icon, const float frame, float alpha, const rcti *rect,
         const bool show_menu_icon)
 {
 	float xs = 0.0f, ys = 0.0f;
@@ -901,15 +901,16 @@ static void widget_draw_icon(
 			float rgb[3] = {1.25f, 1.25f, 1.25f};
 			UI_icon_draw_aspect_color(xs, ys, icon, aspect, rgb);
 		}
-		else
-			UI_icon_draw_aspect(xs, ys, icon, aspect, alpha);
+		else {
+			UI_icon_draw_aspect(xs, ys, icon, frame, aspect, alpha);
+		}
 	}
 
 	if (show_menu_icon) {
 		xs = rect->xmax - UI_DPI_ICON_SIZE - aspect;
 		ys = (rect->ymin + rect->ymax - height) / 2.0f;
 		
-		UI_icon_draw_aspect(xs, ys, ICON_RIGHTARROW_THIN, aspect, alpha);
+		UI_icon_draw_aspect(xs, ys, ICON_RIGHTARROW_THIN, 0, aspect, alpha);
 	}
 	
 	glDisable(GL_BLEND);
@@ -1519,7 +1520,7 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 	if (but->type == UI_BTYPE_MENU && (but->flag & UI_BUT_NODE_LINK)) {
 		rcti temp = *rect;
 		temp.xmin = rect->xmax - BLI_rcti_size_y(rect) - 1;
-		widget_draw_icon(but, ICON_LAYER_USED, alpha, &temp, false);
+		widget_draw_icon(but, ICON_LAYER_USED, 0, alpha, &temp, false);
 	}
 
 	/* If there's an icon too (made with uiDefIconTextBut) then draw the icon
@@ -1554,6 +1555,7 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 	/* Icons on the left with optional text label on the right */
 	else if (but->flag & UI_HAS_ICON || show_menu_icon) {
 		const BIFIconID icon = (but->flag & UI_HAS_ICON) ? but->icon + but->iconadd : ICON_NONE;
+		const short frame = (but->flag & UI_HAS_ICON) ? but->icon_frame : 0;
 		const float icon_size = ICON_SIZE_FROM_BUTRECT(rect);
 
 		/* menu item - add some more padding so menus don't feel cramped. it must
@@ -1561,7 +1563,7 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 		if (ui_block_is_menu(but->block))
 			rect->xmin += 0.3f * U.widget_unit;
 
-		widget_draw_icon(but, icon, alpha, rect, show_menu_icon);
+		widget_draw_icon(but, icon, frame, alpha, rect, show_menu_icon);
 
 		rect->xmin += icon_size;
 		/* without this menu keybindings will overlap the arrow icon [#38083] */
@@ -1586,10 +1588,10 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 		temp.xmin = temp.xmax - (BLI_rcti_size_y(rect) * 1.08f);
 
 		if (extra_icon_type == UI_BUT_ICONEXTRA_UNLINK) {
-			widget_draw_icon(but, ICON_X, alpha, &temp, false);
+			widget_draw_icon(but, ICON_X, 0, alpha, &temp, false);
 		}
 		else if (extra_icon_type == UI_BUT_ICONEXTRA_EYEDROPPER) {
-			widget_draw_icon(but, ICON_EYEDROPPER, alpha, &temp, false);
+			widget_draw_icon(but, ICON_EYEDROPPER, 0, alpha, &temp, false);
 		}
 		else {
 			BLI_assert(0);
@@ -4135,7 +4137,7 @@ void ui_draw_menu_item(uiFontStyle *fstyle, rcti *rect, const char *name, int ic
 		aspect = ICON_DEFAULT_HEIGHT / height;
 		
 		glEnable(GL_BLEND);
-		UI_icon_draw_aspect(xs, ys, iconid, aspect, 1.0f); /* XXX scale weak get from fstyle? */
+		UI_icon_draw_aspect(xs, ys, iconid, 0, aspect, 1.0f); /* XXX scale weak get from fstyle? */
 		glDisable(GL_BLEND);
 	}
 }

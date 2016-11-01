@@ -290,13 +290,13 @@ static void draw_modifier__cycles(uiLayout *layout, ID *id, FModifier *fcm, shor
 	
 	/* before range */
 	col = uiLayoutColumn(split, true);
-	uiItemL(col, IFACE_("Before:"), ICON_NONE);
+	uiItemL(col, IFACE_("Before:"), ICON_NONE, 0);
 	uiItemR(col, &ptr, "mode_before", 0, "", ICON_NONE);
 	uiItemR(col, &ptr, "cycles_before", 0, NULL, ICON_NONE);
 		
 	/* after range */
 	col = uiLayoutColumn(split, true);
-	uiItemL(col, IFACE_("After:"), ICON_NONE);
+	uiItemL(col, IFACE_("After:"), ICON_NONE, 0);
 	uiItemR(col, &ptr, "mode_after", 0, "", ICON_NONE);
 	uiItemR(col, &ptr, "cycles_after", 0, NULL, ICON_NONE);
 }
@@ -428,7 +428,7 @@ static void draw_modifier__envelope(uiLayout *layout, ID *id, FModifier *fcm, sh
 	
 	/* general settings */
 	col = uiLayoutColumn(layout, true);
-	uiItemL(col, IFACE_("Envelope:"), ICON_NONE);
+	uiItemL(col, IFACE_("Envelope:"), ICON_NONE, 0);
 	uiItemR(col, &ptr, "reference_value", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(col, true);
@@ -587,9 +587,9 @@ void ANIM_uiTemplate_fmodifier_draw(uiLayout *layout, ID *id, ListBase *modifier
 		
 		/* name */
 		if (fmi)
-			uiItemL(sub, IFACE_(fmi->name), ICON_NONE);
+			uiItemL(sub, IFACE_(fmi->name), ICON_NONE, 0);
 		else
-			uiItemL(sub, IFACE_("<Unknown Modifier>"), ICON_NONE);
+			uiItemL(sub, IFACE_("<Unknown Modifier>"), ICON_NONE, 0);
 		
 		/* right-align ------------------------------------------- */
 		sub = uiLayoutRow(row, true);

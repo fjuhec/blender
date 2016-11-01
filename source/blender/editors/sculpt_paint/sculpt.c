@@ -5137,8 +5137,8 @@ static int dyntopo_warning_popup(bContext *C, wmOperatorType *ot, enum eDynTopoW
 	if (flag & (DYNTOPO_WARN_VDATA | DYNTOPO_WARN_EDATA | DYNTOPO_WARN_LDATA)) {
 		const char *msg_error = TIP_("Vertex Data Detected!");
 		const char *msg = TIP_("Dyntopo will not preserve vertex colors, UVs, or other customdata");
-		uiItemL(layout, msg_error, ICON_INFO);
-		uiItemL(layout, msg, ICON_NONE);
+		uiItemL(layout, msg_error, ICON_INFO, 0);
+		uiItemL(layout, msg, ICON_NONE, 0);
 		uiItemS(layout);
 	}
 
@@ -5146,8 +5146,8 @@ static int dyntopo_warning_popup(bContext *C, wmOperatorType *ot, enum eDynTopoW
 		const char *msg_error = TIP_("Generative Modifiers Detected!");
 		const char *msg = TIP_("Keeping the modifiers will increase polycount when returning to object mode");
 
-		uiItemL(layout, msg_error, ICON_INFO);
-		uiItemL(layout, msg, ICON_NONE);
+		uiItemL(layout, msg_error, ICON_INFO, 0);
+		uiItemL(layout, msg, ICON_NONE, 0);
 		uiItemS(layout);
 	}
 

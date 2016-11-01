@@ -185,14 +185,14 @@ int uiDefAutoButsRNA(
 				col = uiLayoutColumn(layout, true);
 
 				if (!is_boolean)
-					uiItemL(col, name, ICON_NONE);
+					uiItemL(col, name, ICON_NONE, 0);
 			}
 			else {  /* (label_align == 'H') */
 				BLI_assert(label_align == 'H');
 				split = uiLayoutSplit(layout, 0.5f, false);
 
 				col = uiLayoutColumn(split, false);
-				uiItemL(col, (is_boolean) ? "" : name, ICON_NONE);
+				uiItemL(col, (is_boolean) ? "" : name, ICON_NONE, 0);
 				col = uiLayoutColumn(split, false);
 			}
 
@@ -207,7 +207,7 @@ int uiDefAutoButsRNA(
 			name = NULL; /* no smart label alignment, show default name with button */
 		}
 
-		uiItemFullR(col, ptr, prop, -1, 0, 0, name, ICON_NONE);
+		uiItemFullR(col, ptr, prop, -1, 0, 0, name, ICON_NONE, 0);
 		tot++;
 	}
 	RNA_STRUCT_END;

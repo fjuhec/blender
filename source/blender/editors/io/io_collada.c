@@ -197,7 +197,7 @@ static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 	/* Export Options: */
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Export Data Options:"), ICON_MESH_DATA);
+	uiItemL(row, IFACE_("Export Data Options:"), ICON_MESH_DATA, 0);
 
 	row = uiLayoutRow(box, false);
 	split = uiLayoutSplit(row, 0.6f, UI_LAYOUT_ALIGN_RIGHT);
@@ -225,7 +225,7 @@ static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 	/* Texture options */
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Texture Options:"), ICON_TEXTURE_DATA);
+	uiItemL(row, IFACE_("Texture Options:"), ICON_TEXTURE_DATA, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "active_uv_only", 0, NULL, ICON_NONE);
@@ -243,7 +243,7 @@ static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 	/* Armature options */
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Armature Options:"), ICON_ARMATURE_DATA);
+	uiItemL(row, IFACE_("Armature Options:"), ICON_ARMATURE_DATA, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "deform_bones_only", 0, NULL, ICON_NONE);
@@ -253,7 +253,7 @@ static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 	/* Collada options: */
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Collada Options:"), ICON_MODIFIER);
+	uiItemL(row, IFACE_("Collada Options:"), ICON_MODIFIER, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "triangulate", 0, NULL, ICON_NONE);
@@ -264,7 +264,7 @@ static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 
 	row = uiLayoutRow(box, false);
 	split = uiLayoutSplit(row, 0.6f, UI_LAYOUT_ALIGN_RIGHT);
-	uiItemL(split, IFACE_("Transformation Type"), ICON_NONE);
+	uiItemL(split, IFACE_("Transformation Type"), ICON_NONE, 0);
 	uiItemR(split, imfptr, "export_transformation_type_selection", 0, "", ICON_NONE);
 
 	row = uiLayoutRow(box, false);
@@ -434,14 +434,14 @@ static void uiCollada_importSettings(uiLayout *layout, PointerRNA *imfptr)
 	/* Import Options: */
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Import Data Options:"), ICON_MESH_DATA);
+	uiItemL(row, IFACE_("Import Data Options:"), ICON_MESH_DATA, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "import_units", 0, NULL, ICON_NONE);
 
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
-	uiItemL(row, IFACE_("Armature Options:"), ICON_MESH_DATA);
+	uiItemL(row, IFACE_("Armature Options:"), ICON_MESH_DATA, 0);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "fix_orientation", 0, NULL, ICON_NONE);

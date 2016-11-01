@@ -3075,7 +3075,7 @@ int UI_pie_menu_invoke_from_rna_enum(
 	layout = UI_pie_menu_layout(pie);
 
 	layout = uiLayoutRadial(layout);
-	uiItemFullR(layout, &r_ptr, r_prop, RNA_NO_INDEX, 0, UI_ITEM_R_EXPAND, NULL, 0);
+	uiItemFullR(layout, &r_ptr, r_prop, RNA_NO_INDEX, 0, UI_ITEM_R_EXPAND, NULL, 0, 0);
 
 	UI_pie_menu_end(C, pie);
 
@@ -3220,7 +3220,7 @@ void UI_popup_menu_reports(bContext *C, ReportList *reports)
 				BLI_strncpy(buf, msg, MIN2(sizeof(buf), msg_next - msg));
 				msg = buf;
 			}
-			uiItemL(layout, msg, icon);
+			uiItemL(layout, msg, icon, 0);
 			icon = ICON_NONE;
 		} while ((msg = msg_next) && *msg);
 	}
