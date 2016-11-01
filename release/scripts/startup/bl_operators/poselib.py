@@ -36,12 +36,17 @@ from bpy.props import (
 
 
 class POSELIB_OT_render_previews(Operator):
-    "Renders a preview image for each pose in the pose library"
+    """Renders a preview image for each pose in the pose library.
+
+    TODO: the viewport used for OpenGL rendering is more or less random.
+    """
 
     import logging as __logging
 
     bl_idname = "poselib.render_previews"
     bl_label = "Render pose previews"
+    bl_description = "Renders a preview image for each pose in the pose library"
+
     log = __logging.getLogger('bpy.ops.%s' % bl_idname)
 
     render_method = EnumProperty(
@@ -53,7 +58,6 @@ class POSELIB_OT_render_previews(Operator):
     )
 
     plib_index = 0
-
 
     @classmethod
     def poll(cls, context):
