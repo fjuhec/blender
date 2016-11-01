@@ -268,9 +268,11 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
 
         layout.template_icon_view(poselib, 'pose_previews', show_labels=True)
         layout.prop(poselib, "pose_previews_dir")
-
         col.operator_context = 'INVOKE_DEFAULT'
-        layout.operator("poselib.render_previews")
+
+        row = layout.row(align=True)
+        row.operator("poselib.render_previews", text='Render OGL').render_method='OPENGL'
+        row.operator("poselib.render_previews", text='Render Full').render_method='FULL'
 
 
 # TODO: this panel will soon be deprecated too

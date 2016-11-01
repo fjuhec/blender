@@ -109,7 +109,10 @@ class POSELIB_OT_render_previews(Operator):
 
         bpy.ops.poselib.apply_pose(pose_index=plib_index)
 
-        bpy.ops.render.opengl(view_context=False)
+        if self.render_method == 'OPENGL':
+            bpy.ops.render.opengl(view_context=False)
+        else:
+            bpy.ops.render.render()
         fname = os.path.join(plib.pose_previews_dir, '%s.png' % marker.name)
         bpy.data.images['Render Result'].save_render(bpy.path.abspath(fname))
 
