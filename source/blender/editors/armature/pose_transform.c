@@ -269,39 +269,6 @@ static void set_pose_keys(Object *ob)
 	}
 }
 
-static void flip_pose_channel(bPoseChannel *pchan)
-{
-	pchan->loc[0] *= -1;
-
-	pchan->curveInX *= -1;
-	pchan->curveOutX *= -1;
-	pchan->roll1 *= -1; // XXX?
-	pchan->roll2 *= -1; // XXX?
-
-	/* has to be done as eulers... */
-	if (pchan->rotmode > 0) {
-		pchan->eul[1] *= -1;
-		pchan->eul[2] *= -1;
-	}
-	else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
-		float eul[3];
-
-		axis_angle_to_eulO(eul, EULER_ORDER_DEFAULT, pchan->rotAxis, pchan->rotAngle);
-		eul[1] *= -1;
-		eul[2] *= -1;
-		eulO_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, eul, EULER_ORDER_DEFAULT);
-	}
-	else {
-		float eul[3];
-
-		normalize_qt(pchan->quat);
-		quat_to_eul(eul, pchan->quat);
-		eul[1] *= -1;
-		eul[2] *= -1;
-		eul_to_quat(pchan->quat, eul);
-	}
-}
-
 /**
  * Perform paste pose, for a single bone.
  *
@@ -390,8 +357,39 @@ static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bo
 		pchan->scaleIn = chan->scaleIn;
 		pchan->scaleOut = chan->scaleOut;
 		
-		if (flip) flip_pose_channel(pchan);
-
+		/* paste flipped pose? */
+		if (flip) {
+			pchan->loc[0] *= -1;
+			
+			pchan->curveInX *= -1;
+			pchan->curveOutX *= -1;
+			pchan->roll1 *= -1; // XXX?
+			pchan->roll2 *= -1; // XXX?
+			
+			/* has to be done as eulers... */
+			if (pchan->rotmode > 0) {
+				pchan->eul[1] *= -1;
+				pchan->eul[2] *= -1;
+			}
+			else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
+				float eul[3];
+				
+				axis_angle_to_eulO(eul, EULER_ORDER_DEFAULT, pchan->rotAxis, pchan->rotAngle);
+				eul[1] *= -1;
+				eul[2] *= -1;
+				eulO_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, eul, EULER_ORDER_DEFAULT);
+			}
+			else {
+				float eul[3];
+				
+				normalize_qt(pchan->quat);
+				quat_to_eul(eul, pchan->quat);
+				eul[1] *= -1;
+				eul[2] *= -1;
+				eul_to_quat(pchan->quat, eul);
+			}
+		}
+		
 		/* ID properties */
 		if (chan->prop) {
 			if (pchan->prop) {
