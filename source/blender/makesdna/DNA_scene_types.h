@@ -985,11 +985,12 @@ typedef enum StereoViews {
 /* *************************************************************** */
 /* Markers */
 
-typedef struct TimeMarker {	
+typedef struct TimeMarker {
 	struct TimeMarker *next, *prev;
 	int frame;
 	char name[64];
-	unsigned int flag;
+	unsigned short flag;
+	unsigned short preview_frame_index;
 	struct Object *camera;
 } TimeMarker;
 

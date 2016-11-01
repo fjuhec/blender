@@ -70,6 +70,12 @@ static void rna_def_timeline_marker(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Select", "Marker selection state");
 	RNA_def_property_update(prop, 0, "rna_TimelineMarker_update");
 
+	prop = RNA_def_property(srna, "preview_frame_index", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_range(prop, 0, USHRT_MAX);
+	RNA_def_property_ui_text(prop, "Preview Frame",
+	                         "The frame index in the Action/Scene data-block previews matching that marker");
+	RNA_def_property_update(prop, 0, "rna_TimelineMarker_update");
+
 #ifdef DURIAN_CAMERA_SWITCH
 	prop = RNA_def_property(srna, "camera", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "Object");
