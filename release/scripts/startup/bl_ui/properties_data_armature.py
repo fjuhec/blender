@@ -266,6 +266,9 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
             layout.prop(pose_marker_active, "camera",
                         text='Camera for %s' % pose_marker_active.name)
 
+        for marker in poselib.pose_markers:
+            col.label(marker.name, icon_value=poselib.preview.icon_id, icon_frame=marker.preview_frame_index)
+
         layout.template_icon_view(poselib, 'pose_previews', show_labels=True)
         layout.prop(poselib, "pose_previews_dir")
         col.operator_context = 'INVOKE_DEFAULT'
