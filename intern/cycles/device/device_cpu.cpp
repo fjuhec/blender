@@ -664,6 +664,10 @@ protected:
 
 	inline void thread_kernel_globals_free(KernelGlobals *kg)
 	{
+		if(!kg) {
+			return;
+		}
+
 		if(kg->transparent_shadow_intersections != NULL) {
 			free(kg->transparent_shadow_intersections);
 		}
