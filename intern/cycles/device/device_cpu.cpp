@@ -798,6 +798,7 @@ protected:
 	virtual void free_kernel_globals(device_memory& mem)
 	{
 		thread_kernel_globals_free((KernelGlobals*)mem.device_pointer);
+		mem_free(mem);
 	}
 
 	virtual int2 split_kernel_local_size()
