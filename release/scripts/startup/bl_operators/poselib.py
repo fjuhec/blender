@@ -116,10 +116,12 @@ class POSELIB_OT_render_previews(Operator):
         fname = os.path.join(plib.pose_previews_dir, '%s.png' % marker.name)
         bpy.data.images['Render Result'].save_render(bpy.path.abspath(fname))
         im = bpy.data.images.load(fname)
-        im.scale(128, 128)
+        im.scale(16, 16)
         marker.preview_frame_index = plib_index
-        plib.preview.image_frames_float[plib_index][:] = im.pixels
-        plib.preview.icon_frames_float[plib_index][:] = im.pixels
+        pix = [list(f) for f in plib.preview.image_frames_float]
+        pix[plib_index][:] = im.pixels
+        plib.preview.image_frames_float[:] = pix
+        plib.preview.icon_frames_float[:] = pix
 
     def invoke(self, context, event):
         wm = context.window_manager
@@ -130,7 +132,7 @@ class POSELIB_OT_render_previews(Operator):
         self.plib_index = 0
 
         plib = context.object.pose_library
-        plib.preview.icon_size = plib.preview.image_size = (128, 128)
+        plib.preview.icon_size = plib.preview.image_size = (16, 16)
         plib.preview.frames_number = len(plib.pose_markers)
         for pmrk in plib.pose_markers:
             pmrk.preview_frame_index = 0
