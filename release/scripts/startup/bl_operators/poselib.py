@@ -109,9 +109,9 @@ class POSELIB_OT_render_previews(Operator):
 
         bpy.ops.poselib.apply_pose(pose_index=plib_index)
 
-        fname = '%s.png' % marker.name
-        context.scene.render.filepath = os.path.join(plib.pose_previews_dir, fname)
-        bpy.ops.render.opengl(write_still=True)
+        bpy.ops.render.opengl(view_context=False)
+        fname = os.path.join(plib.pose_previews_dir, '%s.png' % marker.name)
+        bpy.data.images['Render Result'].save_render(bpy.path.abspath(fname))
 
     def invoke(self, context, event):
         wm = context.window_manager
@@ -120,10 +120,8 @@ class POSELIB_OT_render_previews(Operator):
         self.wm = context.window_manager
         self.timer = self.wm.event_timer_add(0.01, context.window)
         self.plib_index = 0
-        self.orig_filepath = context.scene.render.filepath
 
         return {'RUNNING_MODAL'}
 
     def _finish(self, context):
         self.wm.event_timer_remove(self.timer)
-        context.scene.render.filepath = self.orig_filepath
