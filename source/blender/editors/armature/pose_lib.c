@@ -45,6 +45,7 @@
 #include "BKE_animsys.h"
 #include "BKE_action.h"
 #include "BKE_armature.h"
+#include "BKE_deform.h"
 #include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
@@ -866,7 +867,8 @@ enum {
 /* defines for tPoseLib_PreviewData->flag values */
 enum {
 	PL_PREVIEW_FIRSTTIME    = (1 << 0),
-	PL_PREVIEW_SHOWORIGINAL = (1 << 1)
+	PL_PREVIEW_SHOWORIGINAL = (1 << 1),
+	PL_PREVIEW_APPLY_FLIPPED = (1 << 2),
 };
 
 /* ---------------------------- */
@@ -966,11 +968,13 @@ static void poselib_apply_pose(tPoseLib_PreviewData *pld)
 	bPoseChannel *pchan;
 	bAction *act = pld->act;
 	bActionGroup *agrp;
-	
+	bool flip = pld->flag & PL_PREVIEW_APPLY_FLIPPED;
+
 	KeyframeEditData ked = {{NULL}};
 	KeyframeEditFunc group_ok_cb;
 	int frame = 1;
-	
+	char name[MAXBONENAME];
+
 	/* get the frame */
 	if (pld->marker)
 		frame = pld->marker->frame;
@@ -989,8 +993,12 @@ static void poselib_apply_pose(tPoseLib_PreviewData *pld)
 		/* check if group has any keyframes */
 		if (ANIM_animchanneldata_keyframes_loop(&ked, NULL, agrp, ALE_GROUP, NULL, group_ok_cb, NULL)) {
 			/* has keyframe on this frame, so try to get a PoseChannel with this name */
-			pchan = BKE_pose_channel_find_name(pose, agrp->name);
-			
+			if (flip)
+				BKE_deform_flip_side_name(name, agrp->name, false);
+			else
+				BLI_strncpy(name, agrp->name, sizeof(name));
+			pchan = BKE_pose_channel_find_name(pose, name);
+
 			if (pchan) {
 				bool ok = 0;
 				

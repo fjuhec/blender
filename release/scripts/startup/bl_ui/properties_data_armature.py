@@ -161,6 +161,56 @@ class DATA_PT_bone_groups(ArmatureButtonsPanel, Panel):
         sub.operator("pose.group_deselect", text="Deselect")
 
 
+previews = None
+
+
+def pose_preview_items(poselib, context):
+    global previews
+    import os.path
+
+    if context is None or not poselib.pose_previews_dir:
+        return []
+
+    directory = bpy.path.abspath(poselib.pose_previews_dir)
+    if not os.path.isdir(directory):
+        return []
+
+    if previews is not None and directory == previews.get('pose_previews_dir', None):
+        return previews.pose_previews
+
+    if previews is None:
+        previews = bpy.utils.previews.new()
+    else:
+        previews.clear()
+
+    no_thumbnail = os.path.join(os.path.dirname(__file__),
+                                'thumbnails',
+                                'no_thumbnail.png')
+    no_thumb_thumb = previews.load('NO THUMBNAIL', no_thumbnail, 'IMAGE')
+
+    enum_items = []
+    for pose_idx, pose_marker in enumerate(poselib.pose_markers):
+        filepath = os.path.join(directory, '%s.png' % pose_marker.name)
+        if os.path.exists(filepath):
+            thumb = previews.load(pose_marker.name, filepath, 'IMAGE')
+        else:
+            print('Warning: "%s" does not exist' % filepath)
+            thumb = no_thumb_thumb
+
+        enum_items.append((pose_marker.name, pose_marker.name, pose_marker.name,
+                           thumb.icon_id, pose_idx))
+
+    previews.pose_previews = enum_items
+    previews['pose_previews_dir'] = directory
+    return previews.pose_previews
+
+
+def update_pose(poselib_action, context):
+    pose_name = poselib_action.pose_previews
+    poselib_action.pose_markers.active = poselib_action.pose_markers[pose_name]
+    bpy.ops.poselib.apply_pose(pose_index=poselib_action.pose_markers.active_index)
+
+
 class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
     bl_label = "Pose Library"
     bl_options = {'DEFAULT_CLOSED'}
@@ -177,33 +227,50 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
 
         layout.template_ID(ob, "pose_library", new="poselib.new", unlink="poselib.unlink")
 
-        if poselib:
-            # list of poses in pose library
-            row = layout.row()
-            row.template_list("UI_UL_list", "pose_markers", poselib, "pose_markers",
-                              poselib.pose_markers, "active_index", rows=5)
+        if not poselib:
+            return
 
-            # column of operators for active pose
-            # - goes beside list
-            col = row.column(align=True)
+        # layout.template_icon_view(
+        #     poselib, 'pose_markers',
+        #     show_labels=True,
+        # )
+        # list of poses in pose library
+        row = layout.row()
+        row.template_list("UI_UL_list", "pose_markers", poselib, "pose_markers",
+                          poselib.pose_markers, "active_index",
+                          rows=5)
+        # column of operators for active pose
+        # - goes beside list
+        col = row.column(align=True)
 
-            # invoke should still be used for 'add', as it is needed to allow
-            # add/replace options to be used properly
-            col.operator("poselib.pose_add", icon='ZOOMIN', text="")
+        # invoke should still be used for 'add', as it is needed to allow
+        # add/replace options to be used properly
+        col.operator("poselib.pose_add", icon='ZOOMIN', text="")
+        pose_marker_active = poselib.pose_markers.active
 
-            col.operator_context = 'EXEC_DEFAULT'  # exec not invoke, so that menu doesn't need showing
+        # The following operators just need to be executed, not invoked;
+        # otherwise they show a menu which we don't want.
+        col.operator_context = 'EXEC_DEFAULT'
 
-            pose_marker_active = poselib.pose_markers.active
+        if pose_marker_active:
+            col.operator("poselib.pose_remove", icon='ZOOMOUT', text="")
+            props = col.operator("poselib.apply_pose", icon='ZOOM_SELECTED', text="")
+            props.pose_index = poselib.pose_markers.active_index
 
-            if pose_marker_active is not None:
-                col.operator("poselib.pose_remove", icon='ZOOMOUT', text="")
-                col.operator("poselib.apply_pose", icon='ZOOM_SELECTED', text="").pose_index = poselib.pose_markers.active_index
+        col.operator("poselib.action_sanitize", icon='HELP', text="")  # XXX: put in menu?
 
-            col.operator("poselib.action_sanitize", icon='HELP', text="")  # XXX: put in menu?
+        if pose_marker_active:
+            col.operator("poselib.pose_move", icon='TRIA_UP', text="").direction = 'UP'
+            col.operator("poselib.pose_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
-            if pose_marker_active is not None:
-                col.operator("poselib.pose_move", icon='TRIA_UP', text="").direction = 'UP'
-                col.operator("poselib.pose_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+            layout.prop(pose_marker_active, "camera",
+                        text='Camera for %s' % pose_marker_active.name)
+
+        layout.template_icon_view(poselib, 'pose_previews', show_labels=True)
+        layout.prop(poselib, "pose_previews_dir")
+
+        col.operator_context = 'INVOKE_DEFAULT'
+        layout.operator("poselib.render_previews")
 
 
 # TODO: this panel will soon be deprecated too
@@ -327,6 +394,8 @@ class DATA_PT_custom_props_arm(ArmatureButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
     _context_path = "object.data"
     _property_type = bpy.types.Armature
+
+
 
 if __name__ == "__main__":  # only for live edit.
     bpy.utils.register_module(__name__)
