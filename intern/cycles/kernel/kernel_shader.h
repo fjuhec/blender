@@ -844,7 +844,7 @@ ccl_device void shader_eval_surface(KernelGlobals *kg, ShaderData *sd, ccl_addr_
 
 #ifdef __OSL__
 	if(kg->osl)
-		OSLShader::eval_surface(kg, sd, state, path_flag, ctx);
+		OSLShader::eval_surface(kg, ccl_thread_sd(sd), state, path_flag, ctx);
 	else
 #endif
 	{
@@ -876,7 +876,7 @@ ccl_device float3 shader_eval_background(KernelGlobals *kg, ShaderData *sd,
 #ifdef __SVM__
 #ifdef __OSL__
 	if(kg->osl) {
-		OSLShader::eval_background(kg, sd, state, path_flag, ctx);
+		OSLShader::eval_background(kg, ccl_thread_sd(sd), state, path_flag, ctx);
 	}
 	else
 #endif
@@ -1043,7 +1043,7 @@ ccl_device_inline void shader_eval_volume(KernelGlobals *kg,
 #ifdef __SVM__
 #  ifdef __OSL__
 		if(kg->osl) {
-			OSLShader::eval_volume(kg, sd, state, path_flag, ctx);
+			OSLShader::eval_volume(kg, ccl_thread_sd(sd), state, path_flag, ctx);
 		}
 		else
 #  endif
@@ -1072,7 +1072,7 @@ ccl_device void shader_eval_displacement(KernelGlobals *kg, ShaderData *sd, ccl_
 #ifdef __SVM__
 #  ifdef __OSL__
 	if(kg->osl)
-		OSLShader::eval_displacement(kg, sd, ctx);
+		OSLShader::eval_displacement(kg, ccl_thread_sd(sd), ctx);
 	else
 #  endif
 	{

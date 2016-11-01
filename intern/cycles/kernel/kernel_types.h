@@ -755,6 +755,7 @@ enum ShaderDataFlag {
 #    define ccl_soa_member(type, name) type soa_##name
 #    define ccl_fetch(s, t) (s[SD_THREAD].soa_##t)
 #    define ccl_fetch_array(s, t, index) (&s[SD_THREAD].soa_##t[index])
+#    define ccl_thread_sd(s) (&(s[SD_THREAD]))
 #  else
      /* ShaderData is stored as an Structure-of-Arrays */
 #    define SD_GLOBAL_SIZE (ccl_global_size(0) * ccl_global_size(1))
@@ -768,6 +769,7 @@ enum ShaderDataFlag {
 #  define ccl_soa_member(type, name) type name
 #  define ccl_fetch(s, t) (s->t)
 #  define ccl_fetch_array(s, t, index) (&s->t[index])
+#  define ccl_thread_sd(s) (s)
 #endif
 
 typedef ccl_addr_space struct ShaderData {
