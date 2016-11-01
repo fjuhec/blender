@@ -42,6 +42,7 @@
 
 #include "kernel_types.h"
 #include "kernel_compat_cpu.h"
+#include "split/kernel_split_data.h"
 #include "kernel_globals.h"
 #include "kernel_montecarlo.h"
 #include "kernel_random.h"
@@ -284,14 +285,14 @@ public:
 	MicrofacetBsdf params;
 	float3 color;
 
-	MicrofacetBsdf *alloc(ShaderData *sd, int path_flag, float3 weight)
+	MicrofacetBsdf *alloc(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight)
 	{
 		/* Technically, the MultiGGX Glass closure may also transmit. However,
 		 * since this is set statically and only used for caustic flags, this
 		 * is probably as good as it gets. */
 	    if(!skip(sd, path_flag, LABEL_GLOSSY|LABEL_REFLECT)) {
-			MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc_osl(sd, sizeof(MicrofacetBsdf), weight, &params);
-			MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
+			MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc_osl(kg, sd, sizeof(MicrofacetBsdf), weight, &params);
+			MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(kg, sd, sizeof(MicrofacetExtra));
 			if(bsdf && extra) {
 				bsdf->extra = extra;
 				bsdf->extra->color = color;
@@ -305,9 +306,9 @@ public:
 
 class MicrofacetMultiGGXClosure : public MicrofacetMultiClosure {
 public:
-	void setup(ShaderData *sd, int path_flag, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight)
 	{
-		MicrofacetBsdf *bsdf = alloc(sd, path_flag, weight);
+		MicrofacetBsdf *bsdf = alloc(kg, sd, path_flag, weight);
 		sd->flag |= (bsdf) ? bsdf_microfacet_multi_ggx_setup(bsdf) : 0;
 	}
 };
@@ -327,9 +328,9 @@ CCLOSURE_PREPARE(closure_bsdf_microfacet_multi_ggx_prepare, MicrofacetMultiGGXCl
 
 class MicrofacetMultiGGXAnisoClosure : public MicrofacetMultiClosure {
 public:
-	void setup(ShaderData *sd, int path_flag, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight)
 	{
-		MicrofacetBsdf *bsdf = alloc(sd, path_flag, weight);
+		MicrofacetBsdf *bsdf = alloc(kg, sd, path_flag, weight);
 		sd->flag |= (bsdf) ? bsdf_microfacet_multi_ggx_aniso_setup(bsdf) : 0;
 	}
 };
@@ -353,9 +354,9 @@ class MicrofacetMultiGGXGlassClosure : public MicrofacetMultiClosure {
 public:
 	MicrofacetMultiGGXGlassClosure() : MicrofacetMultiClosure() {}
 
-	void setup(ShaderData *sd, int path_flag, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight)
 	{
-		MicrofacetBsdf *bsdf = alloc(sd, path_flag, weight);
+		MicrofacetBsdf *bsdf = alloc(kg, sd, path_flag, weight);
 		sd->flag |= (bsdf) ? bsdf_microfacet_multi_ggx_glass_setup(bsdf) : 0;
 	}
 };

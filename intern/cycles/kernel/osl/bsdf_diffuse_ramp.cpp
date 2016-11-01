@@ -51,12 +51,12 @@ public:
 	DiffuseRampBsdf params;
 	Color3 colors[8];
 
-	void setup(ShaderData *sd, int /* path_flag */, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int /* path_flag */, float3 weight)
 	{
-	    DiffuseRampBsdf *bsdf = (DiffuseRampBsdf*)bsdf_alloc_osl(sd, sizeof(DiffuseRampBsdf), weight, &params);
+	    DiffuseRampBsdf *bsdf = (DiffuseRampBsdf*)bsdf_alloc_osl(kg, sd, sizeof(DiffuseRampBsdf), weight, &params);
 
 		if(bsdf) {
-			bsdf->colors = (float3*)closure_alloc_extra(sd, sizeof(float3)*8);
+			bsdf->colors = (float3*)closure_alloc_extra(kg, sd, sizeof(float3)*8);
 
 			if(bsdf->colors) {
 				for(int i = 0; i < 8; i++)

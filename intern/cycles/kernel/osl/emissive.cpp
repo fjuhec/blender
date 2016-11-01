@@ -54,9 +54,9 @@ using namespace OSL;
 ///
 class GenericEmissiveClosure : public CClosurePrimitive {
 public:
-	void setup(ShaderData *sd, int /* path_flag */, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int /* path_flag */, float3 weight)
 	{
-		closure_alloc(sd, sizeof(ShaderClosure), CLOSURE_EMISSION_ID, weight);
+		closure_alloc(kg, sd, sizeof(ShaderClosure), CLOSURE_EMISSION_ID, weight);
 		sd->flag |= SD_EMISSION;
 	}
 };

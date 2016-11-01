@@ -52,7 +52,7 @@ public:
 	float3 radius;
 	float3 albedo;
 
-	void alloc(ShaderData *sd, int path_flag, float3 weight, ClosureType type)
+	void alloc(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight, ClosureType type)
 	{
 		float sample_weight = fabsf(average(weight));
 
@@ -70,7 +70,7 @@ public:
 			float texture_blur = params.texture_blur;
 
 			/* create one closure per color channel */
-			Bssrdf *bssrdf = bssrdf_alloc(sd, make_float3(weight.x, 0.0f, 0.0f));
+			Bssrdf *bssrdf = bssrdf_alloc(kg, sd, make_float3(weight.x, 0.0f, 0.0f));
 			if(bssrdf) {
 				bssrdf->sample_weight = sample_weight;
 				bssrdf->radius = radius.x;
@@ -81,7 +81,7 @@ public:
 				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
 
-			bssrdf = bssrdf_alloc(sd, make_float3(0.0f, weight.y, 0.0f));
+			bssrdf = bssrdf_alloc(kg, sd, make_float3(0.0f, weight.y, 0.0f));
 			if(bssrdf) {
 				bssrdf->sample_weight = sample_weight;
 				bssrdf->radius = radius.y;
@@ -92,7 +92,7 @@ public:
 				ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)type);
 			}
 
-			bssrdf = bssrdf_alloc(sd, make_float3(0.0f, 0.0f, weight.z));
+			bssrdf = bssrdf_alloc(kg, sd, make_float3(0.0f, 0.0f, weight.z));
 			if(bssrdf) {
 				bssrdf->sample_weight = sample_weight;
 				bssrdf->radius = radius.z;
@@ -110,9 +110,9 @@ public:
 
 class CubicBSSRDFClosure : public CBSSRDFClosure {
 public:
-	void setup(ShaderData *sd, int path_flag, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight)
 	{
-		alloc(sd, path_flag, weight, CLOSURE_BSSRDF_CUBIC_ID);
+		alloc(kg, sd, path_flag, weight, CLOSURE_BSSRDF_CUBIC_ID);
 	}
 };
 
@@ -135,9 +135,9 @@ CCLOSURE_PREPARE(closure_bssrdf_cubic_prepare, CubicBSSRDFClosure)
 
 class GaussianBSSRDFClosure : public CBSSRDFClosure {
 public:
-	void setup(ShaderData *sd, int path_flag, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight)
 	{
-		alloc(sd, path_flag, weight, CLOSURE_BSSRDF_GAUSSIAN_ID);
+		alloc(kg, sd, path_flag, weight, CLOSURE_BSSRDF_GAUSSIAN_ID);
 	}
 };
 
@@ -159,9 +159,9 @@ CCLOSURE_PREPARE(closure_bssrdf_gaussian_prepare, GaussianBSSRDFClosure)
 
 class BurleyBSSRDFClosure : public CBSSRDFClosure {
 public:
-	void setup(ShaderData *sd, int path_flag, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight)
 	{
-		alloc(sd, path_flag, weight, CLOSURE_BSSRDF_BURLEY_ID);
+		alloc(kg, sd, path_flag, weight, CLOSURE_BSSRDF_BURLEY_ID);
 	}
 };
 

@@ -50,12 +50,12 @@ public:
 	PhongRampBsdf params;
 	Color3 colors[8];
 
-	void setup(ShaderData *sd, int /* path_flag */, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int /* path_flag */, float3 weight)
 	{
-	    PhongRampBsdf *bsdf = (PhongRampBsdf*)bsdf_alloc_osl(sd, sizeof(PhongRampBsdf), weight, &params);
+	    PhongRampBsdf *bsdf = (PhongRampBsdf*)bsdf_alloc_osl(kg, sd, sizeof(PhongRampBsdf), weight, &params);
 
 		if(bsdf) {
-			bsdf->colors = (float3*)closure_alloc_extra(sd, sizeof(float3)*8);
+			bsdf->colors = (float3*)closure_alloc_extra(kg, sd, sizeof(float3)*8);
 
 			if(bsdf->colors) {
 				for(int i = 0; i < 8; i++)

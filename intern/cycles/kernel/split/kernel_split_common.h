@@ -24,6 +24,10 @@
 
 #include "kernel_globals.h"
 
+#ifdef __OSL__
+#  include "osl_shader.h"
+#endif
+
 #ifdef __KERNEL_OPENCL__
 #  include "kernel_image_opencl.h"
 #endif

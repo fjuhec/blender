@@ -90,7 +90,7 @@ void name(RendererServices *, int id, void *data) \
 
 class CClosurePrimitive {
 public:
-	virtual void setup(ShaderData *sd, int path_flag, float3 weight) = 0;
+	virtual void setup(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight) = 0;
 
 	OSL::ustring label;
 };
@@ -109,10 +109,10 @@ public: \
 	structname params; \
 	float3 unused; \
 \
-	void setup(ShaderData *sd, int path_flag, float3 weight) \
+	void setup(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight) \
 	{ \
 	    if(!skip(sd, path_flag, TYPE)) { \
-			structname *bsdf = (structname*)bsdf_alloc_osl(sd, sizeof(structname), weight, &params); \
+			structname *bsdf = (structname*)bsdf_alloc_osl(kg, sd, sizeof(structname), weight, &params); \
 			sd->flag |= (bsdf) ? bsdf_##lower##_setup(bsdf) : 0; \
 		} \
 	} \
@@ -141,9 +141,9 @@ class Upper##Closure : public CBSDFClosure { \
 public: \
 	structname params; \
 \
-	void setup(ShaderData *sd, int path_flag, float3 weight) \
+	void setup(KernelGlobals *kg, ShaderData *sd, int path_flag, float3 weight) \
 	{ \
-	    structname *volume = (structname*)bsdf_alloc_osl(sd, sizeof(structname), weight, &params); \
+	    structname *volume = (structname*)bsdf_alloc_osl(kg, sd, sizeof(structname), weight, &params); \
 		sd->flag |= (volume) ? volume_##lower##_setup(volume) : 0; \
 	} \
 }; \

@@ -51,9 +51,9 @@ using namespace OSL;
 ///
 class GenericBackgroundClosure : public CClosurePrimitive {
 public:
-	void setup(ShaderData *sd, int /* path_flag */, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int /* path_flag */, float3 weight)
 	{
-		closure_alloc(sd, sizeof(ShaderClosure), CLOSURE_BACKGROUND_ID, weight);
+		closure_alloc(kg, sd, sizeof(ShaderClosure), CLOSURE_BACKGROUND_ID, weight);
 	}
 };
 
@@ -66,9 +66,9 @@ public:
 ///
 class HoldoutClosure : CClosurePrimitive {
 public:
-	void setup(ShaderData *sd, int /* path_flag */, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int /* path_flag */, float3 weight)
 	{
-		closure_alloc(sd, sizeof(ShaderClosure), CLOSURE_HOLDOUT_ID, weight);
+		closure_alloc(kg, sd, sizeof(ShaderClosure), CLOSURE_HOLDOUT_ID, weight);
 		sd->flag |= SD_HOLDOUT;
 	}
 };
@@ -81,9 +81,9 @@ public:
 ///
 class AmbientOcclusionClosure : public CClosurePrimitive {
 public:
-	void setup(ShaderData *sd, int /* path_flag */, float3 weight)
+	void setup(KernelGlobals *kg, ShaderData *sd, int /* path_flag */, float3 weight)
 	{
-		closure_alloc(sd, sizeof(ShaderClosure), CLOSURE_AMBIENT_OCCLUSION_ID, weight);
+		closure_alloc(kg, sd, sizeof(ShaderClosure), CLOSURE_AMBIENT_OCCLUSION_ID, weight);
 		sd->flag |= SD_AO;
 	}
 };
