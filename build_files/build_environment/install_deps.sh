@@ -30,13 +30,13 @@ with-all,with-opencollada,\
 ver-ocio:,ver-oiio:,ver-llvm:,ver-osl:,ver-osd:,ver-openvdb:,\
 force-all,force-python,force-numpy,force-boost,\
 force-ocio,force-openexr,force-oiio,force-llvm,force-osl,force-osd,force-openvdb,\
-force-ffmpeg,force-opencollada,force-alembic,\
+force-ffmpeg,force-opencollada,force-alembic,force-hidapi\
 build-all,build-python,build-numpy,build-boost,\
 build-ocio,build-openexr,build-oiio,build-llvm,build-osl,build-osd,build-openvdb,\
-build-ffmpeg,build-opencollada,build-alembic,\
+build-ffmpeg,build-opencollada,build-alembic,build-hidapi\
 skip-python,skip-numpy,skip-boost,\
 skip-ocio,skip-openexr,skip-oiio,skip-llvm,skip-osl,skip-osd,skip-openvdb,\
-skip-ffmpeg,skip-opencollada,skip-alembic \
+skip-ffmpeg,skip-opencollada,skip-alembic,skip-hidapi \
 -- "$@" \
 )
 
@@ -182,6 +182,9 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
     --build-ffmpeg
         Force the build of FFMpeg.
 
+    --build-hidapi
+        Force the build of hidapi.
+
     Note about the --build-foo options:
         * They force the script to prefer building dependencies rather than using available packages.
           This may make things simpler and allow working around some distribution bugs, but on the other hand it will
@@ -234,6 +237,9 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
     --force-ffmpeg
         Force the rebuild of FFMpeg.
 
+    --force-hidapi
+        Force the rebuild of hidapi.
+
     Note about the --force-foo options:
         * They obviously only have an effect if those libraries are built by this script
           (i.e. if there is no available and satisfactory package)!
@@ -277,7 +283,10 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
         Unconditionally skip OpenCOLLADA installation/building.
 
     --skip-ffmpeg
-        Unconditionally skip FFMpeg installation/building.\""
+        Unconditionally skip FFMpeg installation/building.
+
+    --skip-hidapi
+        Unconditionally skip hidapi installation/building.\""
 
 ##### Main Vars #####
 
@@ -398,6 +407,12 @@ MP3LAME_USE=false
 MP3LAME_DEV=""
 OPENJPEG_USE=false
 OPENJPEG_DEV=""
+
+HIDAPI_VERSION="0.8.0"
+HIDAPI_VERSION_MIN="0.8.0"
+HIDAPI_FORCE_BUILD=false
+HIDAPI_FORCE_REBUILD=false
+HIDAPI_SKIP=false
 
 # Whether to use system GLEW or not (OpenSubDiv needs recent glew to work).
 NO_SYSTEM_GLEW=false
@@ -597,6 +612,9 @@ while true; do
     --build-alembic)
       ALEMBIC_FORCE_BUILD=true; shift; continue
     ;;
+    --build-hidapi)
+      HIDAPI_FORCE_BUILD=true; shift; continue
+    ;;
     --force-all)
       PYTHON_FORCE_REBUILD=true
       NUMPY_FORCE_REBUILD=true
@@ -611,6 +629,7 @@ while true; do
       OPENCOLLADA_FORCE_REBUILD=true
       FFMPEG_FORCE_REBUILD=true
       ALEMBIC_FORCE_REBUILD=true
+      HIDAPI_FORCE_REBUILD=true
       shift; continue
     ;;
     --force-python)
@@ -654,6 +673,9 @@ while true; do
     --force-alembic)
       ALEMBIC_FORCE_REBUILD=true; shift; continue
     ;;
+    --force-hidapi)
+      HIDAPI_FORCE_REBUILD=true; shift; continue
+    ;;
     --skip-python)
       PYTHON_SKIP=true; shift; continue
     ;;
@@ -692,6 +714,9 @@ while true; do
     ;;
     --skip-alembic)
       ALEMBIC_SKIP=true; shift; continue
+    ;;
+    --skip-hidapi)
+      HIDAPI_SKIP=true; shift; continue
     ;;
     --)
       # no more arguments to parse
@@ -776,6 +801,8 @@ OPENCOLLADA_REPO_BRANCH="master"
 
 FFMPEG_SOURCE=( "http://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.bz2" )
 
+HIDAPI_SOURCE=( "https://github.com/signal11/hidapi/archive/hidapi-0.8.0-rc1.tar.gz" )
+
 CXXFLAGS_BACK=$CXXFLAGS
 if [ "$USE_CXX11" = true ]; then
   WARNING "You are trying to use c++11, this *should* go smoothely with any very recent distribution
@@ -822,7 +849,8 @@ You may also want to build them yourself (optional ones are [between brackets]):
     * [OpenSubDiv $OSD_VERSION_MIN] (from $OSD_SOURCE_REPO, branch $OSD_SOURCE_REPO_BRANCH, commit $OSD_SOURCE_REPO_UID).
     * [OpenVDB $OPENVDB_VERSION_MIN] (from $OPENVDB_SOURCE), [Blosc $OPENVDB_BLOSC_VERSION] (from $OPENVDB_BLOSC_SOURCE).
     * [OpenCollada] (from $OPENCOLLADA_SOURCE, branch $OPENCOLLADA_REPO_BRANCH, commit $OPENCOLLADA_REPO_UID).
-    * [Alembic $ALEMBIC_VERSION] (from $ALEMBIC_SOURCE).\""
+    * [Alembic $ALEMBIC_VERSION] (from $ALEMBIC_SOURCE).
+    * [HIDAPI $HIDAPI_VERSION] (from $HIDAPI_SOURCE).\""
 
 if [ "$DO_SHOW_DEPS" = true ]; then
   PRINT ""
@@ -2488,6 +2516,75 @@ compile_FFmpeg() {
   fi
 }
 
+#### Build HIDAPI ####
+_init_hidapi() {
+  _src=$SRC/hidapi-$HIDAPI_VERSION
+  _inst=$INST/hidapi-$HIDAPI_VERSION
+  _inst_shortcut=$INST/hidapi
+}
+
+clean_hidapi() {
+  _init_hidapi
+  _clean
+}
+
+compile_hidapi() {
+  if [ "$NO_BUILD" = true ]; then
+    WARNING "--no-build enabled, HIDAPI will not be compiled!"
+    return
+  fi
+
+  # To be changed each time we make edits that would modify the compiled result!
+  hidapi_magic=1
+  _init_hidapi
+
+  # Clean install if needed!
+  magic_compile_check hidapi-$HIDAPI_VERSION $hidapi_magic
+  if [ $? -eq 1 -o "$HIDAPI_FORCE_REBUILD" = true ]; then
+    clean_hidapi
+  fi
+
+  if [ ! -d $_inst ]; then
+    INFO "Building hidapi-$HIDAPI_VERSION"
+
+    prepare_opt
+
+    if [ ! -d $_src -o true ]; then
+      mkdir -p $SRC
+      download HIDAPI_SOURCE[@] "$_src.tar.gz"
+
+      INFO "Unpacking hidapi-$HIDAPI_VERSION"
+      tar -C $SRC --transform "s,(/?)hidapi-[^/]*(.*),\1hidapi-$HIDAPI_VERSION\2,x" -xf $_src.tar.gz
+    fi
+
+    cd $_src
+
+    ./bootstrap
+    ./configure --prefix=$_inst
+
+    make -j$THREADS install
+    make clean
+
+    if [ -d $_inst ]; then
+      _create_inst_shortcut
+    else
+      ERROR "hidapi-$HIDAPI_VERSION failed to compile, exiting"
+      exit 1
+    fi
+
+    magic_compile_set hidapi-$HIDAPI_VERSION $hidapi_magic
+
+    cd $CWD
+    INFO "Done compiling hidapi-$HIDAPI_VERSION!"
+  else
+    INFO "Own hidapi-$HIDAPI_VERSION is up to date, nothing to do!"
+    INFO "If you want to force rebuild of this lib, use the --force-hidapi option."
+  fi
+
+  run_ldconfig "hidapi"
+}
+
+
 
 #### Install on DEB-like ####
 get_package_version_DEB() {
@@ -2958,6 +3055,34 @@ install_DEB() {
     else
       compile_FFmpeg
     fi
+  fi
+
+
+  PRINT ""
+  _do_compile_hidapi=false
+  if [ "$HIDAPI_SKIP" = true ]; then
+    WARNING "Skipping hidapi installation, as requested..."
+  elif [ "$HIDAPI_FORCE_BUILD" = true ]; then
+    INFO "Forced hidapi building, as requested..."
+    _do_compile_hidapi=true
+  else
+    check_package_DEB libhidapi-dev
+    if [ $? -eq 0 ]; then
+      check_package_version_ge_DEB libhidapi-dev $HIDAPI_VERSION_MIN
+      if [ $? -eq 0 ]; then
+        install_packages_DEB libhidapi-dev
+        clean_hidapi
+      else
+        _do_compile_hidapi=true
+      fi
+    else
+      _do_compile_hidapi=true
+    fi
+  fi
+
+  if [ "$_do_compile_hidapi" = true ]; then
+    install_packages_DEB libudev-dev libusb-1.0-0-dev
+    compile_hidapi
   fi
 }
 
@@ -3500,6 +3625,33 @@ install_RPM() {
       compile_FFmpeg
     fi
   fi
+
+  PRINT ""
+  _do_compile_hidapi=false
+  if [ "$HIDAPI_SKIP" = true ]; then
+    WARNING "Skipping hidapi installation, as requested..."
+  elif [ "$HIDAPI_FORCE_BUILD" = true ]; then
+    INFO "Forced hidapi building, as requested..."
+    _do_compile_hidapi=true
+  else
+    check_package_RPM hidapi-devel
+    if [ $? -eq 0 ]; then
+      check_package_version_ge_RPM hidapi-devel $HIDAPI_VERSION_MIN
+      if [ $? -eq 0 ]; then
+        install_packages_RPM hidapi-devel
+        clean_hidapi
+      else
+        _do_compile_hidapi=true
+      fi
+    else
+      _do_compile_hidapi=true
+    fi
+  fi
+
+  if [ "$_do_compile_hidapi" = true ]; then
+    install_packages_RPM libusbx-devel  # No libudev in fedora?
+    compile_hidapi
+  fi
 }
 
 
@@ -3925,6 +4077,33 @@ install_ARCH() {
       compile_FFmpeg
     fi
   fi
+
+  PRINT ""
+  _do_compile_hidapi=false
+  if [ "$HIDAPI_SKIP" = true ]; then
+    WARNING "Skipping hidapi installation, as requested..."
+  elif [ "$HIDAPI_FORCE_BUILD" = true ]; then
+    INFO "Forced hidapi building, as requested..."
+    _do_compile_hidapi=true
+  else
+    check_package_ARCH hidapi
+    if [ $? -eq 0 ]; then
+      check_package_version_ge_ARCH hidapi $HIDAPI_VERSION_MIN
+      if [ $? -eq 0 ]; then
+        install_packages_ARCH hidapi
+        clean_hidapi
+      else
+        _do_compile_hidapi=true
+      fi
+    else
+      _do_compile_hidapi=true
+    fi
+  fi
+
+  if [ "$_do_compile_hidapi" = true ]; then
+    install_packages_ARCH libusb  # No libudev in arch?
+    compile_hidapi
+  fi
 }
 
 
@@ -4097,6 +4276,16 @@ install_OTHER() {
     INFO "Forced FFMpeg building, as requested..."
     compile_FFmpeg
   fi
+
+
+  PRINT ""
+  _do_compile_hidapi=false
+  if [ "$HIDAPI_SKIP" = true ]; then
+    WARNING "Skipping hidapi installation, as requested..."
+  elif [ "$HIDAPI_FORCE_BUILD" = true ]; then
+    INFO "Forced hidapi building, as requested..."
+    compile_hidapi
+  fi
 }
 
 #### Printing User Info ####
@@ -4188,7 +4377,7 @@ print_info() {
 
   _buildargs="-U *SNDFILE* -U *PYTHON* -U *BOOST* -U *Boost*"
   _buildargs="$_buildargs -U *OPENCOLORIO* -U *OPENEXR* -U *OPENIMAGEIO* -U *LLVM* -U *CYCLES*"
-  _buildargs="$_buildargs -U *OPENSUBDIV* -U *OPENVDB* -U *COLLADA* -U *FFMPEG* -U *ALEMBIC*"
+  _buildargs="$_buildargs -U *OPENSUBDIV* -U *OPENVDB* -U *COLLADA* -U *FFMPEG* -U *ALEMBIC* -U *OPENHMD* -U *HIDAPI*"
 
   if [ "$USE_CXX11" = true ]; then
     _1="-D WITH_CXX11=ON"
@@ -4325,6 +4514,17 @@ print_info() {
     _buildargs="$_buildargs $_1 $_2"
     if [ -d $INST/ffmpeg ]; then
       _1="-D FFMPEG=$INST/ffmpeg"
+      PRINT "  $_1"
+      _buildargs="$_buildargs $_1"
+    fi
+  fi
+
+  if [ "$HIDAPI_SKIP" = false ]; then
+    _1="-D WITH_OPENHMD=ON"
+    PRINT "  $_1"
+    _buildargs="$_buildargs $_1"
+    if [ -d $INST/hidapi ]; then
+      _1="-D HIDAPI_ROOT_DIR=$INST/hidapi"
       PRINT "  $_1"
       _buildargs="$_buildargs $_1"
     fi
