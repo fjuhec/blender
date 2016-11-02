@@ -48,6 +48,7 @@
 #include "DNA_world_types.h"
 #include "DNA_object_types.h"
 #include "DNA_vfont_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BLI_math.h"
 #include "BLI_listbase.h"
@@ -1381,7 +1382,7 @@ static int move_to_layer_exec(bContext *C, wmOperator *op)
 			/* upper byte is used for local view */
 			local = base->lay & 0xFF000000;
 			base->lay = lay + local;
-			base->object->lay = lay;
+			base->object->lay = base->lay;
 			/* if (base->object->type == OB_LAMP) is_lamp = true; */
 		}
 		CTX_DATA_END;
@@ -1574,7 +1575,7 @@ static int make_links_data_exec(bContext *C, wmOperator *op)
 							Material *ma = give_current_material(ob_src, a + 1);
 							assign_material(ob_dst, ma, a + 1, BKE_MAT_ASSIGN_USERPREF); /* also works with ma==NULL */
 						}
-						DAG_id_tag_update(&ob_dst->id, 0);
+						DAG_id_tag_update(&ob_dst->id, OB_RECALC_DATA);
 						break;
 					case MAKE_LINKS_ANIMDATA:
 						BKE_animdata_copy_id((ID *)ob_dst, (ID *)ob_src, false);
@@ -1608,7 +1609,7 @@ static int make_links_data_exec(bContext *C, wmOperator *op)
 					case MAKE_LINKS_DUPLIGROUP:
 						ob_dst->dup_group = ob_src->dup_group;
 						if (ob_dst->dup_group) {
-							id_lib_extern(&ob_dst->dup_group->id);
+							id_us_plus(&ob_dst->dup_group->id);
 							ob_dst->transflag |= OB_DUPLIGROUP;
 						}
 						break;
@@ -1762,6 +1763,17 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 				else {
 					/* copy already clears */
 				}
+				/* remap gpencil parenting */
+
+				if (scene->gpd) {
+					bGPdata *gpd = scene->gpd;
+					for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+						if (gpl->parent == ob) {
+							gpl->parent = obn;
+						}
+					}
+				}
+
 				base->flag = obn->flag;
 
 				id_us_min(&ob->id);
@@ -2094,6 +2106,7 @@ void ED_object_single_users(Main *bmain, Scene *scene, const bool full, const bo
 	}
 
 	BKE_main_id_clear_newpoins(bmain);
+	DAG_relations_tag_update(bmain);
 }
 
 /******************************* Make Local ***********************************/
@@ -2104,11 +2117,11 @@ static void make_local_makelocalmaterial(Material *ma)
 	AnimData *adt;
 	int b;
 
-	id_make_local(G.main, &ma->id, false);
+	id_make_local(G.main, &ma->id, false, false);
 
 	for (b = 0; b < MAX_MTEX; b++)
 		if (ma->mtex[b] && ma->mtex[b]->tex)
-			id_make_local(G.main, &ma->mtex[b]->tex->id, false);
+			id_make_local(G.main, &ma->mtex[b]->tex->id, false, false);
 
 	adt = BKE_animdata_from_id(&ma->id);
 	if (adt) BKE_animdata_make_local(adt);
@@ -2222,7 +2235,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
 			           "Orphan library objects added to the current scene to avoid loss");
 		}
 
-		BKE_library_make_local(bmain, NULL, false, false); /* NULL is all libs */
+		BKE_library_make_local(bmain, NULL, NULL, false, false); /* NULL is all libs */
 		WM_event_add_notifier(C, NC_WINDOW, NULL);
 		return OPERATOR_FINISHED;
 	}
@@ -2237,7 +2250,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
 		}
 
 		if (ob->id.lib)
-			id_make_local(bmain, &ob->id, false);
+			id_make_local(bmain, &ob->id, false, false);
 	}
 	CTX_DATA_END;
 
@@ -2259,7 +2272,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
 		id = ob->data;
 
 		if (id && (ELEM(mode, MAKE_LOCAL_SELECT_OBDATA, MAKE_LOCAL_SELECT_OBDATA_MATERIAL))) {
-			id_make_local(bmain, id, false);
+			id_make_local(bmain, id, false, false);
 			adt = BKE_animdata_from_id(id);
 			if (adt) BKE_animdata_make_local(adt);
 
@@ -2275,7 +2288,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
 		}
 
 		for (psys = ob->particlesystem.first; psys; psys = psys->next)
-			id_make_local(bmain, &psys->part->id, false);
+			id_make_local(bmain, &psys->part->id, false, false);
 
 		adt = BKE_animdata_from_id(&ob->id);
 		if (adt) BKE_animdata_make_local(adt);
@@ -2294,7 +2307,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
 
 				for (b = 0; b < MAX_MTEX; b++)
 					if (la->mtex[b] && la->mtex[b]->tex)
-						id_make_local(bmain, &la->mtex[b]->tex->id, false);
+						id_make_local(bmain, &la->mtex[b]->tex->id, false, false);
 			}
 			else {
 				for (a = 0; a < ob->totcol; a++) {
@@ -2333,7 +2346,7 @@ void OBJECT_OT_make_local(wmOperatorType *ot)
 
 	/* identifiers */
 	ot->name = "Make Local";
-	ot->description = "Make library linked datablocks local to this file";
+	ot->description = "Make library linked data-blocks local to this file";
 	ot->idname = "OBJECT_OT_make_local";
 
 	/* api callbacks */
@@ -2428,7 +2441,7 @@ void OBJECT_OT_make_single_user(wmOperatorType *ot)
 
 	RNA_def_boolean(ot->srna, "object", 0, "Object", "Make single user objects");
 	RNA_def_boolean(ot->srna, "obdata", 0, "Object Data", "Make single user object data");
-	RNA_def_boolean(ot->srna, "material", 0, "Materials", "Make materials local to each datablock");
+	RNA_def_boolean(ot->srna, "material", 0, "Materials", "Make materials local to each data-block");
 	RNA_def_boolean(ot->srna, "texture", 0, "Textures",
 	                "Make textures local to each material (needs 'Materials' to be set too)");
 	RNA_def_boolean(ot->srna, "animation", 0, "Object Animation", "Make animation data local to each object");

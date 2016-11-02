@@ -46,12 +46,6 @@ enum_displacement_methods = (
     ('BOTH', "Both", "Combination of displacement and bump mapping"),
     )
 
-enum_subdivision_types = (
-    ('NONE', "None", "No subdivision"),
-    ('LINEAR', "Linear", "Use linear subdivision"),
-    ('CATMULL_CLARK', "Catmull–Clark", "Use Catmull-Clark subdivision"),
-    )
-
 enum_bvh_types = (
     ('DYNAMIC_BVH', "Dynamic BVH", "Objects can be individually updated, at the cost of slower render time"),
     ('STATIC_BVH', "Static BVH", "Any object modification requires a complete BVH rebuild, but renders faster"),
@@ -272,6 +266,13 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
                 description="Sample all lights (for indirect samples), rather than randomly picking one",
                 default=True,
                 )
+        cls.light_sampling_threshold = FloatProperty(
+                name="Light Sampling Threshold",
+                description="Probabilistically terminate light samples when the light contribution is below this threshold (more noise but faster rendering). "
+                            "Zero disables the test and never ignores lights",
+                min=0.0, max=1.0,
+                default=0.05,
+                )
 
         cls.caustics_reflective = BoolProperty(
                 name="Reflective Caustics",
@@ -373,14 +374,16 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         cls.dicing_rate = FloatProperty(
                 name="Dicing Rate",
                 description="Size of a micropolygon in pixels",
-                min=0.1, max=1000.0,
+                min=0.1, max=1000.0, soft_min=0.5,
                 default=1.0,
+                subtype="PIXEL"
                 )
         cls.preview_dicing_rate = FloatProperty(
                 name="Preview Dicing Rate",
                 description="Size of a micropolygon in pixels during preview render",
-                min=0.1, max=1000.0,
+                min=0.1, max=1000.0, soft_min=0.5,
                 default=8.0,
+                subtype="PIXEL"
                 )
 
         cls.max_subdivisions = IntProperty(
@@ -502,6 +505,11 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
                 name="Use Spatial Splits",
                 description="Use BVH spatial splits: longer builder time, faster render",
                 default=False,
+                )
+        cls.debug_use_hair_bvh = BoolProperty(
+                name="Use Hair BVH",
+                description="Use special type BVH optimized for hair (uses more ram but renders faster)",
+                default=True,
                 )
         cls.tile_order = EnumProperty(
                 name="Tile Order",
@@ -776,6 +784,13 @@ class CyclesMaterialSettings(bpy.types.PropertyGroup):
                 default='LINEAR',
                 )
 
+        cls.displacement_method = EnumProperty(
+                name="Displacement Method",
+                description="Method to use for the displacement",
+                items=enum_displacement_methods,
+                default='BUMP',
+                )
+
     @classmethod
     def unregister(cls):
         del bpy.types.Material.cycles
@@ -953,25 +968,6 @@ class CyclesMeshSettings(bpy.types.PropertyGroup):
                 type=cls,
                 )
 
-        cls.displacement_method = EnumProperty(
-                name="Displacement Method",
-                description="Method to use for the displacement",
-                items=enum_displacement_methods,
-                default='BUMP',
-                )
-        cls.subdivision_type = EnumProperty(
-                name="Subdivision Type",
-                description="Type of subdivision to use",
-                items=enum_subdivision_types,
-                default='NONE',
-                )
-        cls.dicing_rate = FloatProperty(
-                name="Dicing Rate",
-                description="Multiplier for scene dicing rate",
-                min=0.1, max=1000.0,
-                default=1.0,
-                )
-
     @classmethod
     def unregister(cls):
         del bpy.types.Mesh.cycles
@@ -979,11 +975,9 @@ class CyclesMeshSettings(bpy.types.PropertyGroup):
         del bpy.types.MetaBall.cycles
 
 
-class CyclesObjectBlurSettings(bpy.types.PropertyGroup):
-
+class CyclesObjectSettings(bpy.types.PropertyGroup):
     @classmethod
     def register(cls):
-
         bpy.types.Object.cycles = PointerProperty(
                 name="Cycles Object Settings",
                 description="Cycles object settings",
@@ -1013,6 +1007,19 @@ class CyclesObjectBlurSettings(bpy.types.PropertyGroup):
                 name="Use Camera Cull",
                 description="Allow this object and its duplicators to be culled by camera space culling",
                 default=False,
+                )
+
+        cls.use_adaptive_subdivision = BoolProperty(
+                name="Use Adaptive Subdivision",
+                description="Use adaptive render time subdivision",
+                default=False,
+                )
+
+        cls.dicing_rate = FloatProperty(
+                name="Dicing Scale",
+                description="Multiplier for scene dicing rate (located in the Geometry Panel)",
+                min=0.1, max=1000.0, soft_min=0.5,
+                default=1.0,
                 )
 
     @classmethod
@@ -1131,6 +1138,7 @@ def register():
     bpy.utils.register_class(CyclesWorldSettings)
     bpy.utils.register_class(CyclesVisibilitySettings)
     bpy.utils.register_class(CyclesMeshSettings)
+    bpy.utils.register_class(CyclesObjectSettings)
     bpy.utils.register_class(CyclesCurveRenderSettings)
     bpy.utils.register_class(CyclesCurveSettings)
 
@@ -1142,6 +1150,7 @@ def unregister():
     bpy.utils.unregister_class(CyclesLampSettings)
     bpy.utils.unregister_class(CyclesWorldSettings)
     bpy.utils.unregister_class(CyclesMeshSettings)
+    bpy.utils.unregister_class(CyclesObjectSettings)
     bpy.utils.unregister_class(CyclesVisibilitySettings)
     bpy.utils.unregister_class(CyclesCurveRenderSettings)
     bpy.utils.unregister_class(CyclesCurveSettings)

@@ -103,32 +103,6 @@ bool BlenderSync::sync_recalc()
 		if(b_lamp->is_updated() || (b_lamp->node_tree() && b_lamp->node_tree().is_updated()))
 			shader_map.set_recalc(*b_lamp);
 
-	BL::BlendData::objects_iterator b_ob;
-
-	for(b_data.objects.begin(b_ob); b_ob != b_data.objects.end(); ++b_ob) {
-		if(b_ob->is_updated()) {
-			object_map.set_recalc(*b_ob);
-			light_map.set_recalc(*b_ob);
-		}
-
-		if(object_is_mesh(*b_ob)) {
-			if(b_ob->is_updated_data() || b_ob->data().is_updated()) {
-				BL::ID key = BKE_object_is_modified(*b_ob)? *b_ob: b_ob->data();
-				mesh_map.set_recalc(key);
-			}
-		}
-		else if(object_is_light(*b_ob)) {
-			if(b_ob->is_updated_data() || b_ob->data().is_updated())
-				light_map.set_recalc(*b_ob);
-		}
-		
-		if(b_ob->is_updated_data()) {
-			BL::Object::particle_systems_iterator b_psys;
-			for(b_ob->particle_systems.begin(b_psys); b_psys != b_ob->particle_systems.end(); ++b_psys)
-				particle_system_map.set_recalc(*b_ob);
-		}
-	}
-
 	bool dicing_prop_changed = false;
 
 	if(experimental) {
@@ -150,20 +124,41 @@ bool BlenderSync::sync_recalc()
 		}
 	}
 
+	BL::BlendData::objects_iterator b_ob;
+
+	for(b_data.objects.begin(b_ob); b_ob != b_data.objects.end(); ++b_ob) {
+		if(b_ob->is_updated()) {
+			object_map.set_recalc(*b_ob);
+			light_map.set_recalc(*b_ob);
+		}
+
+		if(object_is_mesh(*b_ob)) {
+			if(b_ob->is_updated_data() || b_ob->data().is_updated() ||
+			   (dicing_prop_changed && object_subdivision_type(*b_ob, preview, experimental) != Mesh::SUBDIVISION_NONE))
+			{
+				BL::ID key = BKE_object_is_modified(*b_ob)? *b_ob: b_ob->data();
+				mesh_map.set_recalc(key);
+			}
+		}
+		else if(object_is_light(*b_ob)) {
+			if(b_ob->is_updated_data() || b_ob->data().is_updated())
+				light_map.set_recalc(*b_ob);
+		}
+		
+		if(b_ob->is_updated_data()) {
+			BL::Object::particle_systems_iterator b_psys;
+			for(b_ob->particle_systems.begin(b_psys); b_psys != b_ob->particle_systems.end(); ++b_psys)
+				particle_system_map.set_recalc(*b_ob);
+		}
+	}
+
 	BL::BlendData::meshes_iterator b_mesh;
 
 	for(b_data.meshes.begin(b_mesh); b_mesh != b_data.meshes.end(); ++b_mesh) {
 		if(b_mesh->is_updated()) {
 			mesh_map.set_recalc(*b_mesh);
 		}
-		else if(dicing_prop_changed) {
-			PointerRNA cmesh = RNA_pointer_get(&b_mesh->ptr, "cycles");
-
-			if(RNA_enum_get(&cmesh, "subdivision_type"))
-				mesh_map.set_recalc(*b_mesh);
-		}
 	}
-
 
 	BL::BlendData::worlds_iterator b_world;
 
@@ -289,6 +284,7 @@ void BlenderSync::sync_integrator()
 
 	integrator->sample_all_lights_direct = get_boolean(cscene, "sample_all_lights_direct");
 	integrator->sample_all_lights_indirect = get_boolean(cscene, "sample_all_lights_indirect");
+	integrator->light_sampling_threshold = get_float(cscene, "light_sampling_threshold");
 
 	int diffuse_samples = get_int(cscene, "diffuse_samples");
 	int glossy_samples = get_int(cscene, "glossy_samples");
@@ -492,6 +488,7 @@ SceneParams BlenderSync::get_scene_params(BL::Scene& b_scene,
 		        SceneParams::BVH_STATIC);
 
 	params.use_bvh_spatial_split = RNA_boolean_get(&cscene, "debug_use_spatial_splits");
+	params.use_bvh_unaligned_nodes = RNA_boolean_get(&cscene, "debug_use_hair_bvh");
 
 	if(background && params.shadingsystem != SHADINGSYSTEM_OSL)
 		params.persistent_data = r.use_persistent_data();

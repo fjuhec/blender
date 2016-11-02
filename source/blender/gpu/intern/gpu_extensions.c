@@ -77,9 +77,10 @@ static struct GPUGlobal {
 	GPUDeviceType device;
 	GPUOSType os;
 	GPUDriverType driver;
-	float dfdyfactors[2]; /* workaround for different calculation of dfdy factors on GPUs. Some GPUs/drivers
-	                         calculate dfdy in shader differently when drawing to an offscreen buffer. First
-	                         number is factor on screen and second is off-screen */
+	/* workaround for different calculation of dfdy factors on GPUs. Some GPUs/drivers
+	 * calculate dfdy in shader differently when drawing to an offscreen buffer. First
+	 * number is factor on screen and second is off-screen */
+	float dfdyfactors[2];
 	float max_anisotropy;
 } GG = {1, 0};
 
@@ -277,12 +278,6 @@ bool GPU_legacy_support(void)
 	}
 
 	return support;
-}
-
-bool GPU_glsl_support(void)
-{
-	/* always supported, still queried by game engine */
-	return true;
 }
 
 bool GPU_full_non_power_of_two_support(void)

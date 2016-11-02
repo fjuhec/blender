@@ -164,10 +164,12 @@ void view3d_operatortypes(void)
 	WM_operatortype_append(VIEW3D_OT_zoom);
 	WM_operatortype_append(VIEW3D_OT_zoom_camera_1_to_1);
 	WM_operatortype_append(VIEW3D_OT_dolly);
+#ifdef WITH_INPUT_NDOF
 	WM_operatortype_append(VIEW3D_OT_ndof_orbit_zoom);
 	WM_operatortype_append(VIEW3D_OT_ndof_orbit);
 	WM_operatortype_append(VIEW3D_OT_ndof_pan);
 	WM_operatortype_append(VIEW3D_OT_ndof_all);
+#endif /* WITH_INPUT_NDOF */
 	WM_operatortype_append(VIEW3D_OT_view_all);
 	WM_operatortype_append(VIEW3D_OT_viewnumpad);
 	WM_operatortype_append(VIEW3D_OT_view_orbit);
@@ -214,6 +216,7 @@ void view3d_operatortypes(void)
 	
 	WM_operatortype_append(VIEW3D_OT_snap_selected_to_grid);
 	WM_operatortype_append(VIEW3D_OT_snap_selected_to_cursor);
+	WM_operatortype_append(VIEW3D_OT_snap_selected_to_active);
 	WM_operatortype_append(VIEW3D_OT_snap_cursor_to_grid);
 	WM_operatortype_append(VIEW3D_OT_snap_cursor_to_center);
 	WM_operatortype_append(VIEW3D_OT_snap_cursor_to_selected);
@@ -362,7 +365,7 @@ void view3d_keymap(wmKeyConfig *keyconf)
 
 	WM_keymap_add_item(keymap, "VIEW3D_OT_localview", PADSLASHKEY, KM_PRESS, 0, 0);
 	
-	/* NDOF: begin */
+#ifdef WITH_INPUT_NDOF
 	/* note: positioned here so keymaps show keyboard keys if assigned */
 	/* 3D mouse */
 	WM_keymap_add_item(keymap, "VIEW3D_OT_ndof_orbit_zoom", NDOF_MOTION, 0, 0, 0);
@@ -391,8 +394,7 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "VIEW3D_OT_viewnumpad", NDOF_BUTTON_TOP, KM_PRESS, KM_SHIFT, 0);
 	RNA_enum_set(kmi->ptr, "type", RV3D_VIEW_TOP);
 	RNA_boolean_set(kmi->ptr, "align_active", true);
-	/* NDOF: end */
-	
+#endif /* WITH_INPUT_NDOF */
 
 	/* layers, shift + alt are properties set in invoke() */
 	RNA_int_set(WM_keymap_add_item(keymap, "VIEW3D_OT_layers", ACCENTGRAVEKEY, KM_PRESS, 0, 0)->ptr, "nr", 0);

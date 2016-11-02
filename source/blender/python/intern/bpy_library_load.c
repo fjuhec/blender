@@ -33,13 +33,13 @@
 #include <stddef.h>
 
 #include "BLI_utildefines.h"
+#include "BLI_ghash.h"
 #include "BLI_string.h"
 #include "BLI_linklist.h"
 #include "BLI_path_util.h"
 
 #include "BLO_readfile.h"
 
-#include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_library.h"
 #include "BKE_idcode.h"
@@ -186,6 +186,7 @@ PyDoc_STRVAR(bpy_lib_load_doc,
 static PyObject *bpy_lib_load(PyObject *UNUSED(self), PyObject *args, PyObject *kwds)
 {
 	static const char *kwlist[] = {"filepath", "link", "relative", NULL};
+	Main *bmain = CTX_data_main(BPy_GetContext());
 	BPy_Library *ret;
 	const char *filename = NULL;
 	bool is_rel = false, is_link = false;
@@ -204,13 +205,13 @@ static PyObject *bpy_lib_load(PyObject *UNUSED(self), PyObject *args, PyObject *
 
 	BLI_strncpy(ret->relpath, filename, sizeof(ret->relpath));
 	BLI_strncpy(ret->abspath, filename, sizeof(ret->abspath));
-	BLI_path_abs(ret->abspath, G.main->name);
+	BLI_path_abs(ret->abspath, bmain->name);
 
 	ret->blo_handle = NULL;
 	ret->flag = ((is_link ? FILE_LINK : 0) |
 	             (is_rel ? FILE_RELPATH : 0));
 
-	ret->dict = PyDict_New();
+	ret->dict = _PyDict_NewPresized(MAX_LIBARRAY);
 
 	return (PyObject *)ret;
 }
@@ -222,18 +223,15 @@ static PyObject *_bpy_names(BPy_Library *self, int blocktype)
 	int totnames;
 
 	names = BLO_blendhandle_get_datablock_names(self->blo_handle, blocktype, &totnames);
+	list = PyList_New(totnames);
 
 	if (names) {
 		int counter = 0;
-		list = PyList_New(totnames);
 		for (l = names; l; l = l->next) {
 			PyList_SET_ITEM(list, counter, PyUnicode_FromString((char *)l->link));
 			counter++;
 		}
 		BLI_linklist_free(names, free); /* free linklist *and* each node's data */
-	}
-	else {
-		list = PyList_New(0);
 	}
 
 	return list;
@@ -243,7 +241,7 @@ static PyObject *bpy_lib_enter(BPy_Library *self, PyObject *UNUSED(args))
 {
 	PyObject *ret;
 	BPy_Library *self_from;
-	PyObject *from_dict = PyDict_New();
+	PyObject *from_dict = _PyDict_NewPresized(MAX_LIBARRAY);
 	ReportList reports;
 
 	BKE_reports_init(&reports, RPT_STORE);
@@ -264,8 +262,13 @@ static PyObject *bpy_lib_enter(BPy_Library *self, PyObject *UNUSED(args))
 			if (BKE_idcode_is_linkable(code)) {
 				const char *name_plural = BKE_idcode_to_name_plural(code);
 				PyObject *str = PyUnicode_FromString(name_plural);
-				PyDict_SetItem(self->dict, str, PyList_New(0));
-				PyDict_SetItem(from_dict, str, _bpy_names(self, code));
+				PyObject *item;
+
+				PyDict_SetItem(self->dict, str, item = PyList_New(0));
+				Py_DECREF(item);
+				PyDict_SetItem(from_dict, str, item = _bpy_names(self, code));
+				Py_DECREF(item);
+
 				Py_DECREF(str);
 			}
 		}
@@ -346,48 +349,44 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 					/* loop */
 					Py_ssize_t size = PyList_GET_SIZE(ls);
 					Py_ssize_t i;
-					PyObject *item;
-					const char *item_str;
 
 					for (i = 0; i < size; i++) {
-						item = PyList_GET_ITEM(ls, i);
-						item_str = _PyUnicode_AsString(item);
+						PyObject *item_src = PyList_GET_ITEM(ls, i);
+						PyObject *item_dst;  /* must be set below */
+						const char *item_idname = _PyUnicode_AsString(item_src);
 
-						// printf("  %s\n", item_str);
+						// printf("  %s\n", item_idname);
 
-						if (item_str) {
-							ID *id = BLO_library_link_named_part(mainl, &(self->blo_handle), idcode, item_str);
+						if (item_idname) {
+							ID *id = BLO_library_link_named_part(mainl, &(self->blo_handle), idcode, item_idname);
 							if (id) {
 #ifdef USE_RNA_DATABLOCKS
 								/* swap name for pointer to the id */
-								Py_DECREF(item);
-								item = PyCapsule_New((void *)id, NULL, NULL);
+								item_dst = PyCapsule_New((void *)id, NULL, NULL);
+#else
+								/* leave as is */
+								continue;
 #endif
 							}
 							else {
-								bpy_lib_exit_warn_idname(self, name_plural, item_str);
+								bpy_lib_exit_warn_idname(self, name_plural, item_idname);
 								/* just warn for now */
 								/* err = -1; */
-#ifdef USE_RNA_DATABLOCKS
-								item = Py_INCREF_RET(Py_None);
-#endif
+								item_dst = Py_INCREF_RET(Py_None);
 							}
 
 							/* ID or None */
 						}
 						else {
 							/* XXX, could complain about this */
-							bpy_lib_exit_warn_type(self, item);
+							bpy_lib_exit_warn_type(self, item_src);
 							PyErr_Clear();
-
-#ifdef USE_RNA_DATABLOCKS
-							item = Py_INCREF_RET(Py_None);
-#endif
+							item_dst = Py_INCREF_RET(Py_None);
 						}
 
-#ifdef USE_RNA_DATABLOCKS
-						PyList_SET_ITEM(ls, i, item);
-#endif
+						/* item_dst must be new or already incref'd */
+						Py_DECREF(item_src);
+						PyList_SET_ITEM(ls, i, item_dst);
 					}
 				}
 			}
@@ -407,14 +406,16 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 		BLO_blendhandle_close(self->blo_handle);
 		self->blo_handle = NULL;
 
+		GHash *old_to_new_ids = BLI_ghash_ptr_new(__func__);
+
 		/* copied from wm_operator.c */
 		{
 			/* mark all library linked objects to be updated */
-			BKE_main_lib_objects_recalc_all(G.main);
+			BKE_main_lib_objects_recalc_all(bmain);
 
 			/* append, rather than linking */
 			if ((self->flag & FILE_LINK) == 0) {
-				BKE_library_make_local(bmain, lib, true, false);
+				BKE_library_make_local(bmain, lib, old_to_new_ids, true, false);
 			}
 		}
 
@@ -422,6 +423,7 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 
 		/* finally swap the capsules for real bpy objects
 		 * important since BLO_library_append_end initializes NodeTree types used by srna->refine */
+#ifdef USE_RNA_DATABLOCKS
 		{
 			int idcode_step = 0, idcode;
 			while ((idcode = BKE_idcode_iter_step(&idcode_step))) {
@@ -440,6 +442,7 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 								ID *id;
 
 								id = PyCapsule_GetPointer(item, NULL);
+								id = BLI_ghash_lookup_default(old_to_new_ids, id, id);
 								Py_DECREF(item);
 
 								RNA_id_pointer_create(id, &id_ptr);
@@ -451,7 +454,9 @@ static PyObject *bpy_lib_exit(BPy_Library *self, PyObject *UNUSED(args))
 				}
 			}
 		}
+#endif  /* USE_RNA_DATABLOCKS */
 
+		BLI_ghash_free(old_to_new_ids, NULL, NULL);
 		Py_RETURN_NONE;
 	}
 }

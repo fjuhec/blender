@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2013 Blender Foundation
+ * Copyright 2011-2016 Blender Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ class ShaderGraph;
 class SVMCompiler;
 class OSLCompiler;
 class OutputNode;
+class ConstantFolder;
 
 /* Bump
  *
@@ -140,9 +141,7 @@ public:
 
 	/* ** Node optimization ** */
 	/* Check whether the node can be replaced with single constant. */
-	virtual bool constant_fold(ShaderGraph * /*graph*/, ShaderOutput * /*socket*/, ShaderInput * /*optimized*/) { return false; }
-
-	bool all_inputs_constant() const;
+	virtual void constant_fold(const ConstantFolder& /*folder*/) {}
 
 	/* Simplify settings used by artists to the ones which are simpler to
 	 * evaluate in the kernel but keep the final result unchanged.
@@ -251,6 +250,7 @@ public:
 	OutputNode *output();
 
 	void connect(ShaderOutput *from, ShaderInput *to);
+	void disconnect(ShaderOutput *from);
 	void disconnect(ShaderInput *to);
 	void relink(ShaderNode *node, ShaderOutput *from, ShaderOutput *to);
 
@@ -258,7 +258,8 @@ public:
 	void finalize(Scene *scene,
 	              bool do_bump = false,
 	              bool do_osl = false,
-	              bool do_simplify = false);
+	              bool do_simplify = false,
+	              bool bump_in_object_space = false);
 
 	int get_num_closures();
 
@@ -272,7 +273,7 @@ protected:
 	void copy_nodes(ShaderNodeSet& nodes, ShaderNodeMap& nnodemap);
 
 	void break_cycles(ShaderNode *node, vector<bool>& visited, vector<bool>& on_stack);
-	void bump_from_displacement();
+	void bump_from_displacement(bool use_object_space);
 	void refine_bump_nodes();
 	void default_inputs(bool do_osl);
 	void transform_multi_closure(ShaderNode *node, ShaderOutput *weight_out, bool volume);

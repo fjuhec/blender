@@ -712,7 +712,7 @@ static void rna_Object_active_material_set(PointerRNA *ptr, PointerRNA value)
 	assign_material(ob, value.data, ob->actcol, BKE_MAT_ASSIGN_EXISTING);
 }
 
-static int rna_Object_active_material_editable(PointerRNA *ptr)
+static int rna_Object_active_material_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 {
 	Object *ob = (Object *)ptr->id.data;
 	bool is_editable;
@@ -1033,7 +1033,7 @@ static void rna_GameObjectSettings_physics_type_set(PointerRNA *ptr, int value)
 			ob->gameflag &= ~(OB_SENSOR | OB_OCCLUDER | OB_DYNAMIC | OB_RIGID_BODY | OB_SOFT_BODY | OB_ACTOR |
 			                  OB_ANISOTROPIC_FRICTION | OB_DO_FH | OB_ROT_FH | OB_COLLISION_RESPONSE | OB_NAVMESH);
 			/* When we switch to character physics and the collision bounds is set to triangle mesh
-			we have to change collision bounds because triangle mesh is not supported by Characters*/
+			 * we have to change collision bounds because triangle mesh is not supported by Characters */
 			if ((ob->gameflag & OB_BOUNDS) && ob->collision_boundtype == OB_BOUND_TRIANGLE_MESH) {
 				ob->boundtype = ob->collision_boundtype = OB_BOUND_BOX;
 			}
@@ -2559,7 +2559,7 @@ static void rna_def_object(BlenderRNA *brna)
 	/* render */
 	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "index");
-	RNA_def_property_ui_text(prop, "Pass Index", "Index number for the IndexOB render pass");
+	RNA_def_property_ui_text(prop, "Pass Index", "Index number for the \"Object Index\" render pass");
 	RNA_def_property_update(prop, NC_OBJECT, "rna_Object_internal_update");
 	
 	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR);

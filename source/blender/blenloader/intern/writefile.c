@@ -49,7 +49,7 @@
  *     <bh.len>            int,  len data after BHead
  *     <bh.old>            void,  old pointer
  *     <bh.SDNAnr>         int
- *     <bh.nr>             int, in case of array: amount of structs
+ *     <bh.nr>             int, in case of array: number of structs
  *     data
  *     ...
  *     ...
@@ -107,6 +107,7 @@
 #include "DNA_armature_types.h"
 #include "DNA_actuator_types.h"
 #include "DNA_brush_types.h"
+#include "DNA_cachefile_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_cloth_types.h"
 #include "DNA_constraint_types.h"
@@ -1305,13 +1306,11 @@ static void write_particlesettings(WriteData *wd, ListBase *idbase)
 
 			dw = part->dupliweights.first;
 			for (; dw; dw = dw->next) {
-				/* update indices */
-				dw->index = 0;
-				if (part->dup_group) { /* can be NULL if lining fails or set to None */
-					go = part->dup_group->gobject.first;
-					while (go && go->ob != dw->ob) {
-						go = go->next;
-						dw->index++;
+				/* update indices, but only if dw->ob is set (can be NULL after loading e.g.) */
+				if (dw->ob != NULL) {
+					dw->index = 0;
+					if (part->dup_group) { /* can be NULL if lining fails or set to None */
+						for (go = part->dup_group->gobject.first; go && go->ob != dw->ob; go = go->next, dw->index++);
 					}
 				}
 				writestruct(wd, DATA, ParticleDupliWeight, 1, dw);
@@ -1729,6 +1728,10 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 					smd->domain->point_cache[1]->step = 1;
 
 					write_pointcaches(wd, &(smd->domain->ptcaches[1]));
+
+					if (smd->domain->coba) {
+						writestruct(wd, DATA, ColorBand, 1, smd->domain->coba);
+					}
 				}
 
 				writestruct(wd, DATA, SmokeDomainSettings, 1, smd->domain);
@@ -2268,7 +2271,7 @@ static void write_meshes(WriteData *wd, ListBase *idbase)
 				mesh->edit_btmesh = NULL;
 
 				/* now fill in polys to mfaces */
-				/* XXX This breaks writing desing, by using temp allocated memory, which will likely generate
+				/* XXX This breaks writing design, by using temp allocated memory, which will likely generate
 				 *     duplicates in stored 'old' addresses.
 				 *     This is very bad, but do not see easy way to avoid this, aside from generating those data
 				 *     outside of save process itself.
@@ -2673,6 +2676,20 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 			writestruct(wd, DATA, UvSculpt, 1, tos->uvsculpt);
 			write_paint(wd, &tos->uvsculpt->paint);
 		}
+		/* write grease-pencil drawing brushes to file */
+		writelist(wd, DATA, bGPDbrush, &tos->gp_brushes);
+		for (bGPDbrush *brush = tos->gp_brushes.first; brush; brush = brush->next) {
+			if (brush->cur_sensitivity) {
+				write_curvemapping(wd, brush->cur_sensitivity);
+			}
+			if (brush->cur_strength) {
+				write_curvemapping(wd, brush->cur_strength);
+			}
+			if (brush->cur_jitter) {
+				write_curvemapping(wd, brush->cur_jitter);
+			}
+		}
+		
 
 		write_paint(wd, &tos->imapaint.paint);
 
@@ -2835,6 +2852,7 @@ static void write_gpencils(WriteData *wd, ListBase *lb)
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps;
+	bGPDpalette *palette;
 
 	for (gpd = lb->first; gpd; gpd = gpd->id.next) {
 		if (gpd->id.us > 0 || wd->current) {
@@ -2860,6 +2878,11 @@ static void write_gpencils(WriteData *wd, ListBase *lb)
 						writestruct(wd, DATA, bGPDspoint, gps->totpoints, gps->points);
 					}
 				}
+			}
+			/* write grease-pencil palettes */
+			writelist(wd, DATA, bGPDpalette, &gpd->palettes);
+			for (palette = gpd->palettes.first; palette; palette = palette->next) {
+				writelist(wd, DATA, bGPDpalettecolor, &palette->colors);
 			}
 		}
 	}
@@ -3862,6 +3885,21 @@ static void write_linestyles(WriteData *wd, ListBase *idbase)
 	}
 }
 
+static void write_cachefiles(WriteData *wd, ListBase *idbase)
+{
+	CacheFile *cache_file;
+
+	for (cache_file = idbase->first; cache_file; cache_file = cache_file->id.next) {
+		if (cache_file->id.us > 0 || wd->current) {
+			writestruct(wd, ID_CF, CacheFile, 1, cache_file);
+
+			if (cache_file->adt) {
+				write_animdata(wd, cache_file->adt);
+			}
+		}
+	}
+}
+
 /* Keep it last of write_foodata functions. */
 static void write_libraries(WriteData *wd, Main *main)
 {
@@ -3913,7 +3951,7 @@ static void write_libraries(WriteData *wd, Main *main)
 				for (id = lbarray[a]->first; id; id = id->next) {
 					if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
 						if (!BKE_idcode_is_linkable(GS(id->name))) {
-							printf("ERROR: write file: datablock '%s' from lib '%s' is not linkable "
+							printf("ERROR: write file: data-block '%s' from lib '%s' is not linkable "
 							       "but is flagged as directly linked", id->name, main->curlib->filepath);
 							BLI_assert(0);
 						}
@@ -4059,6 +4097,7 @@ static bool write_file_handle(
 	write_paintcurves(wd, &mainvar->paintcurves);
 	write_gpencils(wd, &mainvar->gpencil);
 	write_linestyles(wd, &mainvar->linestyle);
+	write_cachefiles(wd, &mainvar->cachefiles);
 	write_libraries(wd,  mainvar->next);
 
 	/* So changes above don't cause a 'DNA1' to be detected as changed on undo. */
