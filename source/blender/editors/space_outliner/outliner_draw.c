@@ -68,6 +68,8 @@
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
 
+#include "GPU_immediate.h"
+
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
 #include "UI_resources.h"
@@ -155,7 +157,7 @@ static void restrictbutton_recursive_ebone(bContext *C, EditBone *ebone_parent, 
 	}
 }
 
-static void restrictbutton_recursive_bone(bContext *C, bArmature *arm, Bone *bone_parent, int flag, bool set_flag)
+static void restrictbutton_recursive_bone(Bone *bone_parent, int flag, bool set_flag)
 {
 	Bone *bone;
 	for (bone = bone_parent->childbase.first; bone; bone = bone->next) {
@@ -166,7 +168,7 @@ static void restrictbutton_recursive_bone(bContext *C, bArmature *arm, Bone *bon
 		else {
 			bone->flag &= ~flag;
 		}
-		restrictbutton_recursive_bone(C, arm, bone, flag, set_flag);
+		restrictbutton_recursive_bone(bone, flag, set_flag);
 	}
 
 }
@@ -294,29 +296,27 @@ static void restrictbutton_modifier_cb(bContext *C, void *UNUSED(poin), void *po
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 }
 
-static void restrictbutton_bone_visibility_cb(bContext *C, void *poin, void *poin2)
+static void restrictbutton_bone_visibility_cb(bContext *C, void *UNUSED(poin), void *poin2)
 {
-	bArmature *arm = (bArmature *)poin;
 	Bone *bone = (Bone *)poin2;
 	if (bone->flag & BONE_HIDDEN_P)
 		bone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
 
 	if (CTX_wm_window(C)->eventstate->ctrl) {
-		restrictbutton_recursive_bone(C, arm, bone, BONE_HIDDEN_P, (bone->flag & BONE_HIDDEN_P) != 0);
+		restrictbutton_recursive_bone(bone, BONE_HIDDEN_P, (bone->flag & BONE_HIDDEN_P) != 0);
 	}
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, NULL);
 }
 
-static void restrictbutton_bone_select_cb(bContext *C, void *poin, void *poin2)
+static void restrictbutton_bone_select_cb(bContext *C, void *UNUSED(poin), void *poin2)
 {
-	bArmature *arm = (bArmature *)poin;
 	Bone *bone = (Bone *)poin2;
 	if (bone->flag & BONE_UNSELECTABLE)
 		bone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
 
 	if (CTX_wm_window(C)->eventstate->ctrl) {
-		restrictbutton_recursive_bone(C, arm, bone, BONE_UNSELECTABLE, (bone->flag & BONE_UNSELECTABLE) != 0);
+		restrictbutton_recursive_bone(bone, BONE_UNSELECTABLE, (bone->flag & BONE_UNSELECTABLE) != 0);
 	}
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, NULL);
@@ -910,7 +910,7 @@ static void outliner_draw_rnacols(ARegion *ar, int sizex)
 	          miny);
 }
 
-static void outliner_draw_rnabuts(uiBlock *block, Scene *scene, ARegion *ar, SpaceOops *soops, int sizex, ListBase *lb)
+static void outliner_draw_rnabuts(uiBlock *block, ARegion *ar, SpaceOops *soops, int sizex, ListBase *lb)
 {
 	TreeElement *te;
 	TreeStoreElem *tselem;
@@ -949,7 +949,7 @@ static void outliner_draw_rnabuts(uiBlock *block, Scene *scene, ARegion *ar, Spa
 			}
 		}
 		
-		if (TSELEM_OPEN(tselem, soops)) outliner_draw_rnabuts(block, scene, ar, soops, sizex, &te->subtree);
+		if (TSELEM_OPEN(tselem, soops)) outliner_draw_rnabuts(block, ar, soops, sizex, &te->subtree);
 	}
 
 	UI_block_emboss_set(block, UI_EMBOSS);
@@ -1425,16 +1425,19 @@ static void outliner_draw_iconrow(bContext *C, uiBlock *block, Scene *scene, Spa
 }
 
 /* closed tree element */
-static void outliner_set_coord_tree_element(SpaceOops *soops, TreeElement *te, int startx, int starty)
+static void outliner_set_coord_tree_element(TreeElement *te, int startx, int starty)
 {
 	TreeElement *ten;
-	
-	/* store coord and continue, we need coordinates for elements outside view too */
-	te->xs = startx;
-	te->ys = starty;
-	
+
+	/* closed items may be displayed in row of parent, don't change their coordinate! */
+	if ((te->flag & TE_ICONROW) == 0) {
+		/* store coord and continue, we need coordinates for elements outside view too */
+		te->xs = startx;
+		te->ys = starty;
+	}
+
 	for (ten = te->subtree.first; ten; ten = ten->next) {
-		outliner_set_coord_tree_element(soops, ten, startx + UI_UNIT_X, starty);
+		outliner_set_coord_tree_element(ten, startx + UI_UNIT_X, starty);
 	}
 }
 
@@ -1644,7 +1647,7 @@ static void outliner_draw_tree_element(
 	}
 	else {
 		for (ten = te->subtree.first; ten; ten = ten->next) {
-			outliner_set_coord_tree_element(soops, ten, startx, *starty);
+			outliner_set_coord_tree_element(ten, startx, *starty);
 		}
 		
 		*starty -= UI_UNIT_Y;
@@ -1685,7 +1688,7 @@ static void outliner_draw_hierarchy_lines(SpaceOops *soops, ListBase *lb, int st
 	}
 }
 
-static void outliner_draw_struct_marks(ARegion *ar, SpaceOops *soops, ListBase *lb, int *starty) 
+static void outliner_draw_struct_marks(ARegion *ar, SpaceOops *soops, ListBase *lb, int *starty)
 {
 	TreeElement *te;
 	TreeStoreElem *tselem;
@@ -1821,14 +1824,32 @@ static void outliner_back(ARegion *ar)
 {
 	int ystart;
 	
-	UI_ThemeColorShade(TH_BACK, 6);
 	ystart = (int)ar->v2d.tot.ymax;
 	ystart = UI_UNIT_Y * (ystart / (UI_UNIT_Y)) - OL_Y_OFFSET;
-	
-	while (ystart + 2 * UI_UNIT_Y > ar->v2d.cur.ymin) {
-		glRecti(0, ystart, (int)ar->v2d.cur.xmax, ystart + UI_UNIT_Y);
-		ystart -= 2 * UI_UNIT_Y;
+
+	VertexFormat *format = immVertexFormat();
+	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	immUniformThemeColorShade(TH_BACK, 6);
+
+	const float x1 = 0.0f, x2 = ar->v2d.cur.xmax;
+	float y1 = ystart, y2;
+	int tot = (int)floor(ystart - ar->v2d.cur.ymin + 2 * UI_UNIT_Y) / (2 * UI_UNIT_Y);
+
+	if (tot > 0) {
+		immBegin(GL_QUADS, 4 * tot);
+		while (tot--) {
+			y1 -= 2 * UI_UNIT_Y;
+			y2 = y1 + UI_UNIT_Y;
+			immVertex2f(pos, x1, y1);
+			immVertex2f(pos, x2, y1);
+			immVertex2f(pos, x2, y2);
+			immVertex2f(pos, x1, y2);
+		}
+		immEnd();
 	}
+	immUnbindProgram();
 }
 
 static void outliner_draw_restrictcols(ARegion *ar)
@@ -1924,7 +1945,7 @@ void draw_outliner(const bContext *C)
 	if (ELEM(soops->outlinevis, SO_DATABLOCKS, SO_USERDEF)) {
 		/* draw rna buttons */
 		outliner_draw_rnacols(ar, sizex_rna);
-		outliner_draw_rnabuts(block, scene, ar, soops, sizex_rna, &soops->tree);
+		outliner_draw_rnabuts(block, ar, soops, sizex_rna, &soops->tree);
 	}
 	else if ((soops->outlinevis == SO_ID_ORPHANS) && has_restrict_icons) {
 		/* draw user toggle columns */

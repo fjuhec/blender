@@ -66,6 +66,12 @@ struct GPUViewport;
 
 /* The near/far thing is a Win EXCEPTION. Thus, leave near/far in the
  * code, and patch for windows. */
+
+typedef struct View3DDebug {
+	float znear, zfar;
+	char background;
+	char pad[7];
+} View3DDebug;
  
 /* Background Picture in 3D-View */
 typedef struct BGpic {
@@ -249,6 +255,7 @@ typedef struct View3D {
 	short prev_drawtype;
 	short pad1;
 	float pad2;
+	View3DDebug debug;
 } View3D;
 
 
@@ -328,7 +335,16 @@ typedef struct View3D {
 
 /* View3d->tmp_compat_flag */
 enum {
-	V3D_NEW_VIEWPORT      = (1 << 0),
+	V3D_NEW_VIEWPORT              = (1 << 0),
+	V3D_DEBUG_SHOW_SCENE_DEPTH    = (1 << 1),
+	V3D_DEBUG_SHOW_COMBINED_DEPTH = (1 << 2),
+};
+
+/* View3d->debug.background */
+enum {
+	V3D_DEBUG_BACKGROUND_NONE     = (1 << 0),
+	V3D_DEBUG_BACKGROUND_GRADIENT = (1 << 1),
+	V3D_DEBUG_BACKGROUND_WORLD    = (1 << 2),
 };
 
 /* View3D->around */

@@ -379,7 +379,7 @@ static void draw_uvs_lineloop_mpoly(Mesh *me, MPoly *mpoly)
 	glEnd();
 }
 
-static void draw_uvs_other_mesh_texface(Object *ob, const Image *curimage)
+static void draw_uvs_other_mesh_texface(Object *ob, const Image *curimage, const int other_uv_filter)
 {
 	Mesh *me = ob->data;
 	MPoly *mpoly = me->mpoly;
@@ -391,14 +391,19 @@ static void draw_uvs_other_mesh_texface(Object *ob, const Image *curimage)
 	}
 
 	for (a = me->totpoly; a != 0; a--, mpoly++, mtpoly++) {
-		if (mtpoly->tpage != curimage) {
-			continue;
+		if (other_uv_filter == SI_FILTER_ALL) {
+			/* Nothing to compare, all UV faces are visible. */
+		}
+		else if (other_uv_filter == SI_FILTER_SAME_IMAGE) {
+			if (mtpoly->tpage != curimage) {
+				continue;
+			}
 		}
 
 		draw_uvs_lineloop_mpoly(me, mpoly);
 	}
 }
-static void draw_uvs_other_mesh_new_shading(Object *ob, const Image *curimage)
+static void draw_uvs_other_mesh_new_shading(Object *ob, const Image *curimage, const int other_uv_filter)
 {
 	Mesh *me = ob->data;
 	MPoly *mpoly = me->mpoly;
@@ -438,27 +443,34 @@ static void draw_uvs_other_mesh_new_shading(Object *ob, const Image *curimage)
 	}
 
 	for (a = me->totpoly; a != 0; a--, mpoly++) {
-		const int mat_nr = mpoly->mat_nr;
-		if ((mat_nr >= totcol) ||
-		    (BLI_BITMAP_TEST(mat_test_array, mat_nr)) == 0)
-		{
-			continue;
+		if (other_uv_filter == SI_FILTER_ALL) {
+			/* Nothing to compare, all UV faces are visible. */
+		}
+		else if (other_uv_filter == SI_FILTER_SAME_IMAGE) {
+			const int mat_nr = mpoly->mat_nr;
+			if ((mat_nr >= totcol) ||
+			    (BLI_BITMAP_TEST(mat_test_array, mat_nr)) == 0)
+			{
+				continue;
+			}
 		}
 
 		draw_uvs_lineloop_mpoly(me, mpoly);
 	}
 }
-static void draw_uvs_other_mesh(Object *ob, const Image *curimage, const bool new_shading_nodes)
+static void draw_uvs_other_mesh(Object *ob, const Image *curimage, const bool new_shading_nodes,
+                                const int other_uv_filter)
 {
 	if (new_shading_nodes) {
-		draw_uvs_other_mesh_new_shading(ob, curimage);
+		draw_uvs_other_mesh_new_shading(ob, curimage, other_uv_filter);
 	}
 	else {
-		draw_uvs_other_mesh_texface(ob, curimage);
+		draw_uvs_other_mesh_texface(ob, curimage, other_uv_filter);
 	}
 }
 
-static void draw_uvs_other(Scene *scene, Object *obedit, const Image *curimage, const bool new_shading_nodes)
+static void draw_uvs_other(Scene *scene, Object *obedit, const Image *curimage, const bool new_shading_nodes,
+                           const int other_uv_filter)
 {
 	UI_ThemeColor(TH_UV_OTHERS);
 
@@ -470,7 +482,7 @@ static void draw_uvs_other(Scene *scene, Object *obedit, const Image *curimage, 
 		if (!(base->lay & scene->lay)) continue;
 
 		if ((ob->type == OB_MESH) && (ob != obedit) && ((Mesh *)ob->data)->mloopuv) {
-			draw_uvs_other_mesh(ob, curimage, new_shading_nodes);
+			draw_uvs_other_mesh(ob, curimage, new_shading_nodes, other_uv_filter);
 		}
 	}
 	BKE_BASES_ITER_END;
@@ -484,7 +496,7 @@ static void draw_uvs_texpaint(SpaceImage *sima, Scene *scene, Object *ob)
 	Material *ma;
 
 	if (sima->flag & SI_DRAW_OTHER) {
-		draw_uvs_other(scene, ob, curimage, new_shading_nodes);
+		draw_uvs_other(scene, ob, curimage, new_shading_nodes, sima->other_uv_filter);
 	}
 
 	UI_ThemeColor(TH_UV_SHADOW);
@@ -587,7 +599,7 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, Object *obedit)
 			curimage = (activetf) ? activetf->tpage : ima;
 		}
 
-		draw_uvs_other(scene, obedit, curimage, new_shading_nodes);
+		draw_uvs_other(scene, obedit, curimage, new_shading_nodes, sima->other_uv_filter);
 	}
 
 	/* 1. draw shadow mesh */

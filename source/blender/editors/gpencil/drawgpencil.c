@@ -124,7 +124,7 @@ static void gp_set_point_varying_color(const bGPDspoint *pt, const float ink[4],
 }
 
 /* draw fills for buffer stroke */
-static void gp_draw_stroke_buffer_fill(tGPspoint *points, int totpoints, float ink[4])
+static void gp_draw_stroke_buffer_fill(const tGPspoint *points, int totpoints, float ink[4])
 {
 	if (totpoints < 3) {
 		return;
@@ -157,7 +157,7 @@ static void gp_draw_stroke_buffer_fill(tGPspoint *points, int totpoints, float i
 		immBegin(GL_TRIANGLES, tot_triangles * 3);
 		/* TODO: use batch instead of immediate mode, to share vertices */
 
-		tGPspoint *pt;
+		const tGPspoint *pt;
 		for (int i = 0; i < tot_triangles; i++) {
 			/* vertex 1 */
 			pt = &points[tmp_triangles[i][0]];
@@ -343,7 +343,7 @@ static void gp_draw_stroke_volumetric_buffer(const tGPspoint *points, int totpoi
 
 /* draw a 2D strokes in "volumetric" style */
 static void gp_draw_stroke_volumetric_2d(const bGPDspoint *points, int totpoints, short thickness,
-                                         short dflag, short sflag,
+                                         short UNUSED(dflag), short sflag,
                                          int offsx, int offsy, int winx, int winy,
                                          const float diff_mat[4][4], const float ink[4])
 {
@@ -616,7 +616,7 @@ static void gp_draw_stroke_fill(
 
 /* draw a given stroke - just a single dot (only one point) */
 static void gp_draw_stroke_point(
-        const bGPDspoint *points, short thickness, short dflag, short sflag,
+        const bGPDspoint *points, short thickness, short UNUSED(dflag), short sflag,
         int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float ink[4])
 {
 	const bGPDspoint *pt = points;
@@ -629,10 +629,10 @@ static void gp_draw_stroke_point(
 	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
 
 	if (sflag & GP_STROKE_3DSPACE) {
-		immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_UNIFORM_COLOR);
+		immBindBuiltinProgram(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_SMOOTH);
 	}
 	else {
-		immBindBuiltinProgram(GPU_SHADER_2D_POINT_FIXED_SIZE_UNIFORM_COLOR);
+		immBindBuiltinProgram(GPU_SHADER_2D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_SMOOTH);
 
 		/* get 2D coordinates of point */
 		float co[3] = { 0.0f };
@@ -641,9 +641,8 @@ static void gp_draw_stroke_point(
 	}
 
 	gp_set_point_uniform_color(pt, ink);
-
 	/* set point thickness (since there's only one of these) */
-	glPointSize((float)(thickness + 2) * pt->pressure);
+	immUniform1f("size", (float)(thickness + 2) * pt->pressure);
 
 	immBegin(GL_POINTS, 1);
 	immVertex3fv(pos, fpt);
@@ -951,6 +950,8 @@ static void gp_draw_stroke_2d(const bGPDspoint *points, int totpoints, short thi
 		}
 		glEnd();
 	}
+#else
+	UNUSED_VARS(debug);
 #endif
 }
 
@@ -997,6 +998,8 @@ static void gp_draw_strokes(
 	short sthickness;
 	float ink[4];
 
+	GPU_enable_program_point_size();
+
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 		/* check if stroke can be drawn */
 		if (gp_can_draw_stroke(gps, dflag) == false) {
@@ -1014,6 +1017,10 @@ static void gp_draw_strokes(
 
 		/* calculate thickness */
 		sthickness = gps->thickness + lthick;
+
+		if (sthickness <= 0) {
+			continue;
+		}
 
 		/* check which stroke-drawer to use */
 		if (dflag & GP_DRAWDATA_ONLY3D) {
@@ -1159,6 +1166,8 @@ static void gp_draw_strokes(
 			}
 		}
 	}
+
+	GPU_disable_program_point_size();
 }
 
 /* Draw selected verts for strokes being edited */

@@ -54,6 +54,10 @@ void immAttrib4ub(unsigned attrib_id, unsigned char r, unsigned char g, unsigned
 void immAttrib3ubv(unsigned attrib_id, const unsigned char data[4]);
 void immAttrib4ubv(unsigned attrib_id, const unsigned char data[4]);
 
+// explicitly skip an attribute
+// this advanced option kills automatic value copying for this attrib_id
+void immSkipAttrib(unsigned attrib_id);
+
 
 // provide one last attribute value & end the current vertex
 // this is most often used for 2D or 3D position (similar to glVertex)
@@ -72,12 +76,14 @@ void immVertex2iv(unsigned attrib_id, const int data[2]);
 void immUniform1i(const char* name, int x);
 void immUniform1f(const char* name, float x);
 void immUniform4f(const char* name, float x, float y, float z, float w);
+void immUniform4fv(const char* name, const float data[4]);
 
 
 // convenience functions for setting "uniform vec4 color"
 // the rgb functions have implicit alpha = 1.0
 void immUniformColor4f(float r, float g, float b, float a);
 void immUniformColor4fv(const float rgba[4]);
+void immUniformColor3f(float r, float g, float b);
 void immUniformColor3fv(const float rgb[3]);
 void immUniformColor3fvAlpha(const float rgb[3], float a);
 
