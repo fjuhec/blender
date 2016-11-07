@@ -35,13 +35,13 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
          ccl_addr_space uint *lcg_state
 #ifdef MF_MULTI_GLASS
         , const float eta
-		, bool use_fresnel
-		, const float3 cspec0
+        , bool use_fresnel
+        , const float3 cspec0
 #elif defined(MF_MULTI_GLOSSY)
          , float3 *n, float3 *k
-		 , const float eta
-		 , bool use_fresnel
-		 , const float3 cspec0
+         , const float eta
+         , bool use_fresnel
+         , const float3 cspec0
 #endif
 )
 {
@@ -86,7 +86,7 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
 	if(use_fresnel) {
-        throughput = interpolate_fresnel_color(wi, normalize(wi + wo), eta, F0, cspec0);
+		throughput = interpolate_fresnel_color(wi, normalize(wi + wo), eta, F0, cspec0);
 
 		eval *= throughput;
 	}
@@ -110,7 +110,7 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_eval)(
 
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
 	if(use_fresnel) {
-        throughput = interpolate_fresnel_color(wi, wh, eta, F0, cspec0);
+		throughput = interpolate_fresnel_color(wi, wh, eta, F0, cspec0);
 
 		eval = throughput * val;
 	}
@@ -240,12 +240,12 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3
 #ifdef MF_MULTI_GLASS
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
 	if(use_fresnel) {
-        throughput = interpolate_fresnel_color(wi, normalize(wi + wr), eta, F0, cspec0);
+		throughput = interpolate_fresnel_color(wi, normalize(wi + wr), eta, F0, cspec0);
 	}
 #elif defined(MF_MULTI_GLOSSY)
 	float F0 = fresnel_dielectric_cos(1.0f, eta);
 	if(use_fresnel) {
-        throughput = interpolate_fresnel_color(wi, normalize(wi + wr), eta, F0, cspec0);
+		throughput = interpolate_fresnel_color(wi, normalize(wi + wr), eta, F0, cspec0);
 	}
 #endif
 
@@ -286,7 +286,7 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3
 				throughput *= color;
 			}
 			else {
-                float3 t_color = interpolate_fresnel_color(wi_prev, wm, eta, F0, cspec0);
+				float3 t_color = interpolate_fresnel_color(wi_prev, wm, eta, F0, cspec0);
 
 				if(order == 0)
 					throughput = t_color;
@@ -300,7 +300,7 @@ ccl_device_forceinline float3 MF_FUNCTION_FULL_NAME(mf_sample)(float3 wi, float3
 		                             lcg_step_float_addrspace(lcg_state));
 #else /* MF_MULTI_GLOSSY */
 		if(use_fresnel) {
-            float3 t_color = interpolate_fresnel_color(-wr, wm, eta, F0, cspec0);
+			float3 t_color = interpolate_fresnel_color(-wr, wm, eta, F0, cspec0);
 
 			if(order == 0)
 				throughput = t_color;

@@ -35,10 +35,10 @@ ccl_device float3 calculate_disney_sheen_brdf(const DisneySheenBsdf *bsdf,
 	float NdotL = dot(N, L);
 	float NdotV = dot(N, V);
 
-    if(NdotL < 0 || NdotV < 0) {
-        *pdf = 0.0f;
-        return make_float3(0.0f, 0.0f, 0.0f);
-    }
+	if(NdotL < 0 || NdotV < 0) {
+		*pdf = 0.0f;
+		return make_float3(0.0f, 0.0f, 0.0f);
+	}
 
 	float LdotH = dot(L, H);
 
@@ -63,14 +63,14 @@ ccl_device float3 bsdf_disney_sheen_eval_reflect(const ShaderClosure *sc, const 
 	float3 L = omega_in; // incoming
 	float3 H = normalize(L + V);
 
-    if(dot(N, omega_in) > 0.0f) {
-        *pdf = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
-        return calculate_disney_sheen_brdf(bsdf, N, V, L, H, pdf);
-    }
-    else {
-        *pdf = 0.0f;
-        return make_float3(0.0f, 0.0f, 0.0f);
-    }
+	if(dot(N, omega_in) > 0.0f) {
+		*pdf = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
+		return calculate_disney_sheen_brdf(bsdf, N, V, L, H, pdf);
+	}
+	else {
+		*pdf = 0.0f;
+		return make_float3(0.0f, 0.0f, 0.0f);
+	}
 }
 
 ccl_device float3 bsdf_disney_sheen_eval_transmit(const ShaderClosure *sc, const float3 I,

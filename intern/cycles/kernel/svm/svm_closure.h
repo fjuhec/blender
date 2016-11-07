@@ -136,7 +136,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			uint4 data_subsurface_color = read_node(kg, offset);
 			float3 subsurface_color = stack_valid(data_subsurface_color.x) ? stack_load_float3(stack, data_subsurface_color.x) :
 				make_float3(__uint_as_float(data_subsurface_color.y), __uint_as_float(data_subsurface_color.z), __uint_as_float(data_subsurface_color.w));
-            
+
 			float3 weight = ccl_fetch(sd, svm_closure_weight) * mix_weight;
 
 #ifdef __SUBSURFACE__
@@ -236,13 +236,13 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 #endif
 
-            /* sheen */
+			/* sheen */
 			if(diffuse_weight > CLOSURE_WEIGHT_CUTOFF && sheen > CLOSURE_WEIGHT_CUTOFF) {
-                float m_cdlum = linear_rgb_to_gray(base_color);
-                float3 m_ctint = m_cdlum > 0.0f ? base_color / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
+				float m_cdlum = linear_rgb_to_gray(base_color);
+				float3 m_ctint = m_cdlum > 0.0f ? base_color / m_cdlum : make_float3(1.0f, 1.0f, 1.0f); // normalize lum. to isolate hue+sat
 
-                /* color of the sheen component */
-                float3 sheen_color = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sheen_tint) + m_ctint * sheen_tint;
+				/* color of the sheen component */
+				float3 sheen_color = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - sheen_tint) + m_ctint * sheen_tint;
 
 				float3 sheen_weight = weight * sheen * sheen_color * diffuse_weight;
 
@@ -339,43 +339,43 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						if(kernel_data.integrator.caustics_reflective || (path_flag & PATH_RAY_DIFFUSE) == 0)
 #endif
 						{
-                            /* for roughness values close to 0 handle as a sharp reflection */
-                            if(roughness <= 1e-2f) {
-                                float F0 = fresnel_dielectric_cos(1.0f, ior);
-                                float F0_norm = 1.0f / (1.0f - F0);
-                                float FH = (fresnel - F0) * F0_norm;
+							/* for roughness values close to 0 handle as a sharp reflection */
+							if(roughness <= 1e-2f) {
+								float F0 = fresnel_dielectric_cos(1.0f, ior);
+								float F0_norm = 1.0f / (1.0f - F0);
+								float FH = (fresnel - F0) * F0_norm;
 
-                                /* Blend between white and a specular color with respect to the fresnel */
-                                float3 refl_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+								/* Blend between white and a specular color with respect to the fresnel */
+								float3 refl_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
 
-                                MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), refl_color*glass_weight*fresnel);
+								MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), refl_color*glass_weight*fresnel);
 
-                                if(bsdf) {
-                                    bsdf->N = N;
+								if(bsdf) {
+									bsdf->N = N;
 
-                                    /* setup bsdf */
-                                    ccl_fetch(sd, flag) |= bsdf_reflection_setup(bsdf);
-                                }
-                            }
-                            else {
-                                MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight*fresnel);
-                                MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
+									/* setup bsdf */
+									ccl_fetch(sd, flag) |= bsdf_reflection_setup(bsdf);
+								}
+							}
+							else {
+								MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight*fresnel);
+								MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
-                                if(bsdf && extra) {
-                                    bsdf->N = N;
-                                    bsdf->extra = extra;
+								if(bsdf && extra) {
+									bsdf->N = N;
+									bsdf->extra = extra;
 
-                                    bsdf->alpha_x = refl_roughness * refl_roughness;
-                                    bsdf->alpha_y = refl_roughness * refl_roughness;
-                                    bsdf->ior = ior;
+									bsdf->alpha_x = refl_roughness * refl_roughness;
+									bsdf->alpha_y = refl_roughness * refl_roughness;
+									bsdf->ior = ior;
 
-                                    bsdf->extra->color = base_color;
-                                    bsdf->extra->cspec0 = cspec0;
+									bsdf->extra->color = base_color;
+									bsdf->extra->cspec0 = cspec0;
 
-                                    /* setup bsdf */
-                                    ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_fresnel_setup(bsdf);
-                                }
-                            }
+									/* setup bsdf */
+									ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_fresnel_setup(bsdf);
+								}
+							}
 						}
 
 						/* refraction */
@@ -388,16 +388,16 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 							if(bsdf) {
 								bsdf->N = N;
 
-                                if(distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID)
-                                    refraction_roughness = 1.0f - (1.0f - refl_roughness) * (1.0f - refraction_roughness);
-                                else
-                                    refraction_roughness = refl_roughness;
+								if(distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID)
+									refraction_roughness = 1.0f - (1.0f - refl_roughness) * (1.0f - refraction_roughness);
+								else
+									refraction_roughness = refl_roughness;
 
 								bsdf->alpha_x = refraction_roughness * refraction_roughness;
 								bsdf->alpha_y = refraction_roughness * refraction_roughness;
 								bsdf->ior = ior;
 
-							    /* setup bsdf */
+								/* setup bsdf */
 								ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_refraction_setup(bsdf);
 							}
 						}

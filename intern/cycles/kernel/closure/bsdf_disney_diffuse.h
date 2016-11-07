@@ -37,15 +37,15 @@ ccl_device float3 calculate_disney_diffuse_brdf(const DisneyDiffuseBsdf *bsdf,
 	float NdotL = max(dot(N, L), 0.0f);
 	float NdotV = max(dot(N, V), 0.0f);
 
-    if(NdotL < 0 || NdotV < 0) {
-        *pdf = 0.0f;
-        return make_float3(0.0f, 0.0f, 0.0f);
-    }
+	if(NdotL < 0 || NdotV < 0) {
+		*pdf = 0.0f;
+		return make_float3(0.0f, 0.0f, 0.0f);
+	}
 
 	float LdotH = dot(L, H);
 
 	float FL = schlick_fresnel(NdotL), FV = schlick_fresnel(NdotV);
-    const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * bsdf->roughness;
+	const float Fd90 = 0.5f + 2.0f * LdotH*LdotH * bsdf->roughness;
 	float Fd = (1.0f * (1.0f - FL) + Fd90 * FL) * (1.0f * (1.0f - FV) + Fd90 * FV);
 
 	float value = M_1_PI_F * NdotL * Fd;
@@ -69,14 +69,14 @@ ccl_device float3 bsdf_disney_diffuse_eval_reflect(const ShaderClosure *sc, cons
 	float3 L = omega_in; // incoming
 	float3 H = normalize(L + V);
 
-    if(dot(N, omega_in) > 0.0f) {
-        *pdf = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
-        return calculate_disney_diffuse_brdf(bsdf, N, V, L, H, pdf);
-    }
-    else {
-        *pdf = 0.0f;
-        return make_float3(0.0f, 0.0f, 0.0f);
-    }
+	if(dot(N, omega_in) > 0.0f) {
+		*pdf = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
+		return calculate_disney_diffuse_brdf(bsdf, N, V, L, H, pdf);
+	}
+	else {
+		*pdf = 0.0f;
+		return make_float3(0.0f, 0.0f, 0.0f);
+	}
 }
 
 ccl_device float3 bsdf_disney_diffuse_eval_transmit(const ShaderClosure *sc, const float3 I,

@@ -529,7 +529,7 @@ static ShaderNode *add_node(Scene *scene,
 				break;
 		}
 		node = disney;
-    }
+	}
 	else if(b_node.is_a(&RNA_ShaderNodeBsdfTranslucent)) {
 		node = new TranslucentBsdfNode();
 	}
