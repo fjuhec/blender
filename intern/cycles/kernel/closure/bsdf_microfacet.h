@@ -38,6 +38,7 @@ CCL_NAMESPACE_BEGIN
 typedef ccl_addr_space struct MicrofacetExtra {
 	float3 color, cspec0;
 	bool use_fresnel, is_disney_clearcoat;
+	float clearcoat;
 } MicrofacetExtra;
 
 typedef ccl_addr_space struct MicrofacetBsdf {
@@ -253,6 +254,14 @@ ccl_device_forceinline float3 reflection_color(const MicrofacetBsdf *bsdf, float
     return F;
 }
 
+ccl_device_forceinline float D_GTR1(float NdotH, float alpha)
+{
+    if (alpha >= 1.0f) return M_1_PI_F;
+	float alpha2 = alpha*alpha;
+    float t = 1.0f + (alpha2 - 1.0f) * NdotH*NdotH;
+    return (alpha2 - 1.0f) / (M_1_PI_F * logf(alpha2) * t);
+}
+
 /* GGX microfacet with Smith shadow-masking from:
  *
  * Microfacet Models for Refraction through Rough Surfaces
@@ -404,14 +413,18 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 			float cosThetaM2 = cosThetaM * cosThetaM;
 			float cosThetaM4 = cosThetaM2 * cosThetaM2;
 			float tanThetaM2 = (1 - cosThetaM2) / cosThetaM2;
-			D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
 
-			if(bsdf->extra) {
-				if(bsdf->extra->is_disney_clearcoat) {
-                    /* the alpha value for clearcoat is a fixed 0.25 => alpha2 = 0.25 * 0.25 */
-					alpha2 = 0.0625f;
-                }
+			if(bsdf->extra && bsdf->extra->is_disney_clearcoat) {
+				/* use GTR1 for clearcoat */
+				D = D_GTR1(cosThetaM, bsdf->alpha_x);
+
+				/* the alpha value for clearcoat is a fixed 0.25 => alpha2 = 0.25 * 0.25 */
+				alpha2 = 0.0625f;
             }
+			else {
+				/* use GTR2 otherwise */
+				D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
+			}
 
 			/* eq. 34: now calculate G1(i,m) and G1(o,m) */
 			G1o = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNO * cosNO) / (cosNO * cosNO)));
@@ -460,6 +473,9 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 		float common = D * 0.25f / cosNO;
 
         float3 F = reflection_color(bsdf, omega_in, m);
+		if(bsdf->extra && bsdf->extra->is_disney_clearcoat) {
+			F *= 0.25f * bsdf->extra->clearcoat;
+		}
 
 		float3 out = F * G * common;
 
@@ -592,20 +608,26 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 							float cosThetaM2 = cosThetaM * cosThetaM;
 							float cosThetaM4 = cosThetaM2 * cosThetaM2;
 							float tanThetaM2 = 1/(cosThetaM2) - 1;
-							D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
 
 							/* eval BRDF*cosNI */
 							float cosNI = dot(N, *omega_in);
 
-							/* eq. 34: now calculate G1(i,m) */
 							if(bsdf->extra && bsdf->extra->is_disney_clearcoat) {
+								/* use GTR1 for clearcoat */
+								D = D_GTR1(cosThetaM, bsdf->alpha_x);
+
 								/* the alpha value for clearcoat is a fixed 0.25 => alpha2 = 0.25 * 0.25 */
 								alpha2 = 0.0625f;
 
 								/* recalculate G1o */
 								G1o = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNO * cosNO) / (cosNO * cosNO)));
                             }
+							else {
+								/* use GTR2 otherwise */
+								D = alpha2 / (M_PI_F * cosThetaM4 * (alpha2 + tanThetaM2) * (alpha2 + tanThetaM2));
+							}
 
+							/* eq. 34: now calculate G1(i,m) */
 							G1i = 2 / (1 + safe_sqrtf(1 + alpha2 * (1 - cosNI * cosNI) / (cosNI * cosNI))); 
 						}
 						else {
@@ -639,6 +661,9 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 						*pdf = common;
 
                         float3 F = reflection_color(bsdf, *omega_in, m);
+						if(bsdf->extra && bsdf->extra->is_disney_clearcoat) {
+							F *= 0.25f * bsdf->extra->clearcoat;
+						}
 
 						*eval = G1i * common * F;
 					}

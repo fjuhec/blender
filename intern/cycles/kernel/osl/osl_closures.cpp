@@ -205,6 +205,7 @@ public:
 			bsdf->alpha_y = 0.1f * (1.0f - clearcoat_gloss) + 0.001f * clearcoat_gloss;
 
 			bsdf->extra->cspec0 = make_float3(0.04f, 0.04f, 0.04f);
+			bsdf->extra->clearcoat = clearcoat;
 
 			return bsdf;
 		}

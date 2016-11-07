@@ -113,7 +113,7 @@ shader node_disney_bsdf(
     }
     
     if (Clearcoat > 1e-5) {
-        BSDF = BSDF + 0.25 * Clearcoat * disney_clearcoat(ClearcoatNormal, Clearcoat, ClearcoatGloss);
+        BSDF = BSDF + disney_clearcoat(ClearcoatNormal, Clearcoat, ClearcoatGloss);
     }
 }
 

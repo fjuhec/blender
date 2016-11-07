@@ -432,9 +432,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			if(kernel_data.integrator.caustics_reflective || (path_flag & PATH_RAY_DIFFUSE) == 0) {
 #endif
 				if(clearcoat > CLOSURE_WEIGHT_CUTOFF) {
-					float3 clearcoat_weight = 0.25f * clearcoat * weight;
-
-					MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), clearcoat_weight);
+					MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), weight);
 					MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
 					if(bsdf && extra) {
@@ -446,6 +444,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						bsdf->alpha_y = 0.1f * (1.0f - clearcoat_gloss) + 0.001f * clearcoat_gloss;
 
 						bsdf->extra->cspec0 = make_float3(0.04f, 0.04f, 0.04f);
+						bsdf->extra->clearcoat = clearcoat;
 
 						/* setup bsdf */
 						ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_clearcoat_setup(bsdf);
