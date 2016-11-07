@@ -41,6 +41,7 @@ extern "C" {
 struct AssetEngineType;
 struct AssetUUID;
 struct BlendThumbnail;
+struct GHash;
 struct ListBase;
 struct ID;
 struct ImBuf;
@@ -66,7 +67,7 @@ struct ID *BKE_libblock_find_name(const short type, const char *name) ATTR_WARN_
 
 /* library_remap.c (keep here since they're general functions) */
 void  BKE_libblock_free(struct Main *bmain, void *idv) ATTR_NONNULL();
-void  BKE_libblock_free_ex(struct Main *bmain, void *idv, bool do_id_user) ATTR_NONNULL();
+void  BKE_libblock_free_ex(struct Main *bmain, void *idv, const bool do_id_user) ATTR_NONNULL();
 void  BKE_libblock_free_us(struct Main *bmain, void *idv) ATTR_NONNULL();
 void  BKE_libblock_free_data(struct Main *bmain, struct ID *id) ATTR_NONNULL();
 void  BKE_libblock_delete(struct Main *bmain, void *idv) ATTR_NONNULL();
@@ -127,7 +128,8 @@ void BKE_id_ui_prefix(char name[66 + 1], const struct ID *id);
 void BKE_library_free(struct Library *lib);
 
 void BKE_library_make_local(
-        struct Main *bmain, const struct Library *lib, const bool untagged_only, const bool set_fake);
+        struct Main *bmain, const struct Library *lib, struct GHash *old_to_new_ids,
+        const bool untagged_only, const bool set_fake);
 
 void BKE_library_asset_repository_init(struct Library *lib, const struct AssetEngineType *aet, const char *repo_root);
 void BKE_library_asset_repository_clear(struct Library *lib);

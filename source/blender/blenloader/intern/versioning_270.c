@@ -53,6 +53,7 @@
 #include "DNA_actuator_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_smoke_types.h"
+#include "DNA_rigidbody_types.h"
 
 #include "DNA_genfile.h"
 
@@ -1393,7 +1394,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 	}
-	if (!MAIN_VERSION_ATLEAST(main, 279, 0)) {
+	if (!MAIN_VERSION_ATLEAST(main, 278, 2)) {
 		if (!DNA_struct_elem_find(fd->filesdna, "FFMpegCodecData", "int", "ffmpeg_preset")) {
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 				/* "medium" is the preset FFmpeg uses when no presets are given. */
@@ -1421,6 +1422,35 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 							smd->domain->display_thickness = 1.0f;
 						}
 					}
+				}
+			}
+		}
+	}
+
+	{
+		for (Scene *scene = main->scene.first; scene != NULL; scene = scene->id.next) {
+			if (scene->toolsettings != NULL) {
+				ToolSettings *ts = scene->toolsettings;
+				ParticleEditSettings *pset = &ts->particle;
+				for (int a = 0; a < PE_TOT_BRUSH; a++) {
+					if (pset->brush[a].count == 0) {
+						pset->brush[a].count = 10;
+					}
+				}
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "RigidBodyCon", "float", "spring_stiffness_ang_x")) {
+			Object *ob;
+			for (ob = main->object.first; ob; ob = ob->id.next) {
+				RigidBodyCon *rbc = ob->rigidbody_constraint;
+				if (rbc) {
+					rbc->spring_stiffness_ang_x = 10.0;
+					rbc->spring_stiffness_ang_y = 10.0;
+					rbc->spring_stiffness_ang_z = 10.0;
+					rbc->spring_damping_ang_x = 0.5;
+					rbc->spring_damping_ang_y = 0.5;
+					rbc->spring_damping_ang_z = 0.5;
 				}
 			}
 		}

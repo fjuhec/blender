@@ -55,17 +55,20 @@ struct OpenCLPlatformDevice {
 	                     const string& platform_name,
 	                     cl_device_id device_id,
 	                     cl_device_type device_type,
-	                     const string& device_name)
+	                     const string& device_name,
+	                     const string& hardware_id)
 	  : platform_id(platform_id),
 	    platform_name(platform_name),
 	    device_id(device_id),
 	    device_type(device_type),
-	    device_name(device_name) {}
+	    device_name(device_name),
+	    hardware_id(hardware_id) {}
 	cl_platform_id platform_id;
 	string platform_name;
 	cl_device_id device_id;
 	cl_device_type device_type;
 	string device_name;
+	string hardware_id;
 };
 
 /* Contains all static OpenCL helper functions. */
@@ -83,6 +86,8 @@ public:
 	                                   string *error = NULL);
 	static bool device_version_check(cl_device_id device,
 	                                 string *error = NULL);
+	static string get_hardware_id(string platform_name,
+	                              cl_device_id device_id);
 	static void get_usable_devices(vector<OpenCLPlatformDevice> *usable_devices,
 	                               bool force_all = false);
 };
@@ -191,7 +196,8 @@ public:
 		OpenCLProgram(OpenCLDeviceBase *device,
 		              string program_name,
 		              string kernel_name,
-		              string kernel_build_options);
+		              string kernel_build_options,
+		              bool use_stdout = true);
 		~OpenCLProgram();
 
 		void add_kernel(ustring name);
@@ -212,6 +218,9 @@ public:
 		bool load_binary(const string& clbin, const string *debug_src = NULL);
 		bool save_binary(const string& clbin);
 
+		void add_log(string msg, bool is_debug);
+		void add_error(string msg);
+
 		bool loaded;
 		cl_program program;
 		OpenCLDeviceBase *device;
@@ -220,8 +229,10 @@ public:
 		string program_name;
 
 		string kernel_file, kernel_build_options, device_md5;
-		string error_msg, output_msg;
-		string log;
+
+		bool use_stdout;
+		string log, error_msg;
+		string compile_output;
 
 		map<ustring, cl_kernel> kernels;
 	};

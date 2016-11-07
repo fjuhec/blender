@@ -881,6 +881,10 @@ typedef struct SpaceImage {
 	char dt_uvstretch;
 	char around;
 
+	/* Filter settings when editor shows other object's UVs. */
+	int other_uv_filter;
+	int pad2;
+
 	MaskSpaceInfo mask_info;
 } SpaceImage;
 
@@ -958,6 +962,12 @@ typedef enum eSpaceImage_Flag {
 	SI_SHOW_G             = (1 << 28),
 	SI_SHOW_B             = (1 << 29),
 } eSpaceImage_Flag;
+
+/* SpaceImage->other_uv_filter */
+typedef enum eSpaceImage_OtherUVFilter {
+	SI_FILTER_SAME_IMAGE    = 0,
+	SI_FILTER_ALL           = 1,
+} eSpaceImage_OtherUVFilter;
 
 /* Text Editor ============================================ */
 
