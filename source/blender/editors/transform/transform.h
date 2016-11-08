@@ -633,9 +633,6 @@ void flushTransMasking(TransInfo *t);
 void flushTransPaintCurve(TransInfo *t);
 void restoreBones(TransInfo *t);
 
-/*********************** exported from transform_manipulator.c ********** */
-bool gimbal_axis(struct Object *ob, float gmat[3][3]); /* return 0 when no gimbal for selection */
-
 /*********************** TransData Creation and General Handling *********** */
 void createTransData(struct bContext *C, TransInfo *t);
 void sort_trans_data_dist(TransInfo *t);
