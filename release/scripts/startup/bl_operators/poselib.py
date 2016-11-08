@@ -118,10 +118,8 @@ class POSELIB_OT_render_previews(Operator):
         im = bpy.data.images.load(fname)
         im.scale(16, 16)
         marker.preview_frame_index = plib_index
-        pix = [list(f) for f in plib.preview.image_frames_float]
-        pix[plib_index][:] = im.pixels
-        plib.preview.image_frames_float[:] = pix
-        plib.preview.icon_frames_float[:] = pix
+        plib.preview.icon_frame_float_set(plib_index, im.pixels)
+        plib.preview.image_frame_float_set(plib_index, im.pixels)
 
     def invoke(self, context, event):
         wm = context.window_manager
