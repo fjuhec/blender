@@ -3014,6 +3014,9 @@ class VIEW3D_PT_viewport_debug(Panel):
         row.prop(view, "debug_near")
         row.prop(view, "debug_far")
 
+        col.label(text="Background:")
+        col.row(align=True).prop(view, "debug_background", expand=True)
+
 
 class VIEW3D_PT_grease_pencil(GreasePencilDataPanel, Panel):
     bl_space_type = 'VIEW_3D'
@@ -3158,8 +3161,10 @@ class VIEW3D_PT_view3d_display(Panel):
         row.prop(view, "show_axis_z", text="Z", toggle=True)
 
         sub = col.column(align=True)
-        sub.active = (display_all and view.show_floor)
-        sub.prop(view, "grid_lines", text="Lines")
+        sub.active = bool(view.show_floor or view.region_quadviews or not view.region_3d.is_perspective)
+        subsub = sub.column(align=True)
+        subsub.active = view.show_floor
+        subsub.prop(view, "grid_lines", text="Lines")
         sub.prop(view, "grid_scale", text="Scale")
         subsub = sub.column(align=True)
         subsub.active = scene.unit_settings.system == 'NONE'

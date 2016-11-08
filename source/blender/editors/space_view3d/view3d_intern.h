@@ -310,13 +310,7 @@ void draw_smoke_volume(struct SmokeDomainSettings *sds, struct Object *ob,
                        const float min[3], const float max[3],
                        const float viewnormal[3]);
 
-//#define SMOKE_DEBUG_HEAT
-
 void draw_smoke_velocity(struct SmokeDomainSettings *domain, float viewnormal[3]);
-
-#ifdef SMOKE_DEBUG_HEAT
-void draw_smoke_heat(struct SmokeDomainSettings *domain, struct Object *ob);
-#endif
 
 /* workaround for trivial but noticeable camera bug caused by imprecision
  * between view border calculation in 2D/3D space, workaround for bug [#28037].
@@ -342,6 +336,8 @@ void draw_dupli_objects(Scene *scene, ARegion *ar, View3D *v3d, Base *base);
 bool VP_legacy_use_depth(Scene *scene, View3D *v3d);
 void VP_drawviewborder(Scene *scene, ARegion *ar, View3D *v3d);
 void VP_drawrenderborder(ARegion *ar, View3D *v3d);
+void VP_view3d_draw_background_none(void);
+void VP_view3d_draw_background_world(Scene *scene, View3D *v3d, RegionView3D *rv3d);
 
 /* manipulators */
 
