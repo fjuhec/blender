@@ -61,6 +61,7 @@ enum {
 
 struct wmManipulator *WM_dial_manipulator_new(struct wmManipulatorGroup *mgroup, const char *name, const int style);
 void WM_dial_manipulator_set_up_vector(struct wmManipulator *manipulator, const float direction[3]);
+void WM_dial_manipulator_set_value(struct wmManipulator *manipulator, const double value);
 
 #endif  /* __WM_MANIPULATOR_LIBRARY_H__ */
 

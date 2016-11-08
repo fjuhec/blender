@@ -50,8 +50,6 @@ struct wmOperator;
 
 typedef void (*wmManipulatorSelectFunc)(struct bContext *, struct wmManipulator *, const int);
 
-struct wmManipulatorGroup *wm_manipulator_get_parent_group(const struct wmManipulator *manipulator);
-
 /* -------------------------------------------------------------------- */
 /* wmManipulatorGroup */
 

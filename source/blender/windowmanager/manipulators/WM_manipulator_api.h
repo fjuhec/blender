@@ -70,6 +70,7 @@ void WM_manipulator_set_flag(struct wmManipulator *manipulator, const int flag, 
 void WM_manipulator_set_scale(struct wmManipulator *manipulator, float scale);
 void WM_manipulator_set_line_width(struct wmManipulator *manipulator, const float line_width);
 void WM_manipulator_set_colors(struct wmManipulator *manipulator, const float col[4], const float col_hi[4]);
+struct wmManipulatorGroup *WM_manipulator_get_parent_group(const struct wmManipulator *manipulator);
 
 
 /* -------------------------------------------------------------------- */

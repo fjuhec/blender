@@ -157,7 +157,7 @@ void WM_manipulator_delete(ListBase *manipulatorlist, wmManipulatorMap *mmap, wm
 	MEM_freeN(manipulator);
 }
 
-wmManipulatorGroup *wm_manipulator_get_parent_group(const wmManipulator *manipulator)
+wmManipulatorGroup *WM_manipulator_get_parent_group(const wmManipulator *manipulator)
 {
 	return manipulator->mgroup;
 }

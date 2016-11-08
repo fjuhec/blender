@@ -203,15 +203,44 @@ void imm_draw_filled_circle(unsigned pos, float x, float y, float rad, int nsegm
 	imm_draw_circle(GL_TRIANGLE_FAN, pos, x, y, rad, nsegments);
 }
 
-void imm_draw_lined_circle_3D(unsigned pos, float x, float y, float rad, int nsegments)
+static void imm_draw_circle_3D(GLenum prim_type, unsigned pos, float x, float y, float rad, int nsegments)
 {
-	immBegin(GL_LINE_LOOP, nsegments);
+	immBegin(prim_type, nsegments);
 	for (int i = 0; i < nsegments; ++i) {
 		float angle = 2 * M_PI * ((float)i / (float)nsegments);
 		immVertex3f(pos, x + rad * cosf(angle),
 		                 y + rad * sinf(angle), 0.0f);
 	}
 	immEnd();
+}
+
+void imm_draw_lined_circle_3D(unsigned pos, float x, float y, float rad, int nsegments)
+{
+	imm_draw_circle_3D(GL_LINE_LOOP, pos, x, y, rad, nsegments);
+}
+
+void imm_draw_filled_circle_3D(unsigned pos, float x, float y, float rad, int nsegments)
+{
+	imm_draw_circle_3D(GL_TRIANGLE_FAN, pos, x, y, rad, nsegments);
+}
+
+static void imm_draw_arc_3D(GLenum prim_type, unsigned int pos, float start, float angle, float radius, int nsegments)
+{
+	immBegin(prim_type, nsegments + 1);
+
+	immVertex3f(pos, 0.0f, 0.0f, 0.0f);
+	for (int i = 0; i < nsegments; i++) {
+		float t = (float) i / (nsegments - 1);
+		float cur = start + t * angle;
+
+		immVertex3f(pos, cosf(cur) * radius, sinf(cur) * radius, 0.0f);
+	}
+	immEnd();
+}
+
+void imm_draw_filled_arc_3D(unsigned int pos, float start, float angle, float radius, int nsegments)
+{
+	imm_draw_arc_3D(GL_TRIANGLE_FAN, pos, start, angle, radius, nsegments);
 }
 
 void imm_draw_line_box(unsigned pos, float x1, float y1, float x2, float y2)

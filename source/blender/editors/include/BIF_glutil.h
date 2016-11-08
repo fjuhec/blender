@@ -94,6 +94,20 @@ void imm_draw_lined_circle(unsigned pos, float x, float y, float radius, int nse
 
 /* use this version when VertexFormat has a vec3 position */
 void imm_draw_lined_circle_3D(unsigned pos, float x, float y, float radius, int nsegments);
+void imm_draw_filled_circle_3D(unsigned pos, float x, float y, float rad, int nsegments);
+
+/**
+ * Draw a filled arc with the given \a radius,
+ * starting at angle \a start and arcing through
+ * \a angle. The arc is centered at the origin
+ * and drawn in the XY plane.
+ *
+ * \param start The initial angle (in radians).
+ * \param angle The length of the arc (in radians).
+ * \param radius The arc radius.
+ * \param nsegments The number of segments to use in drawing the arc.
+ */
+void imm_draw_filled_arc_3D(unsigned int pos, float start, float angle, float radius, int nsegments);
 
 /**
  * Draw a filled circle with the given \a radius.

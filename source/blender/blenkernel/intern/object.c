@@ -1291,7 +1291,7 @@ void BKE_object_scale_to_mat3(Object *ob, float mat[3][3])
 	size_to_mat3(mat, vec);
 }
 
-void BKE_object_rot_to_mat3(Object *ob, float mat[3][3], bool use_drot)
+void BKE_object_rot_to_mat3(const Object *ob, float r_mat[3][3], bool use_drot)
 {
 	float rmat[3][3], dmat[3][3];
 	
@@ -1323,9 +1323,9 @@ void BKE_object_rot_to_mat3(Object *ob, float mat[3][3], bool use_drot)
 	
 	/* combine these rotations */
 	if (use_drot)
-		mul_m3_m3m3(mat, dmat, rmat);
+		mul_m3_m3m3(r_mat, dmat, rmat);
 	else
-		copy_m3_m3(mat, rmat);
+		copy_m3_m3(r_mat, rmat);
 }
 
 void BKE_object_mat3_to_rot(Object *ob, float mat[3][3], bool use_compat)
