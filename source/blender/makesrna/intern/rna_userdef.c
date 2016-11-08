@@ -179,10 +179,10 @@ static void rna_userdef_show_manipulator_update(Main *bmain, Scene *scene, Point
 			for (sl = sa->spacedata.first; sl; sl = sl->next) {
 				if (sl->spacetype == SPACE_VIEW3D) {
 					View3D *v3d = (View3D *)sl;
-					if (userdef->tw_flag & V3D_USE_MANIPULATOR)
-						v3d->twflag |= V3D_USE_MANIPULATOR;
+					if (userdef->tw_flag & V3D_USE_TRANSFORM_MANIPULATORS)
+						v3d->flag3 |= V3D_USE_TRANSFORM_MANIPULATORS;
 					else
-						v3d->twflag &= ~V3D_USE_MANIPULATOR;
+						v3d->flag3 &= ~V3D_USE_TRANSFORM_MANIPULATORS;
 				}
 			}
 		}
@@ -3497,7 +3497,7 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 
 	/* 3D transform widget */
 	prop = RNA_def_property(srna, "show_manipulator", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "tw_flag", V3D_USE_MANIPULATOR);
+	RNA_def_property_boolean_sdna(prop, NULL, "tw_flag", V3D_USE_TRANSFORM_MANIPULATORS);
 	RNA_def_property_ui_text(prop, "Manipulator", "Use 3D transform manipulator");
 	RNA_def_property_update(prop, 0, "rna_userdef_show_manipulator_update");
 

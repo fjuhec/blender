@@ -149,13 +149,15 @@ static EnumPropertyItem draw_channels_items[] = {
 };
 
 static EnumPropertyItem transform_orientation_items[] = {
-	{V3D_MANIP_GLOBAL, "GLOBAL", 0, "Global", "Align the transformation axes to world space"},
-	{V3D_MANIP_LOCAL, "LOCAL", 0, "Local", "Align the transformation axes to the selected objects' local space"},
-	{V3D_MANIP_NORMAL, "NORMAL", 0, "Normal",
+	{V3D_TRANS_ORIENTATION_GLOBAL, "GLOBAL", 0, "Global", "Align the transformation axes to world space"},
+	{V3D_TRANS_ORIENTATION_LOCAL, "LOCAL", 0, "Local",
+	                              "Align the transformation axes to the selected objects' local space"},
+	{V3D_TRANS_ORIENTATION_NORMAL, "NORMAL", 0, "Normal",
 	                   "Align the transformation axes to average normal of selected elements "
 	                   "(bone Y axis for pose mode)"},
-	{V3D_MANIP_GIMBAL, "GIMBAL", 0, "Gimbal", "Align each axis to the Euler rotation axis as used for input"},
-	{V3D_MANIP_VIEW, "VIEW", 0, "View", "Align the transformation axes to the window"},
+	{V3D_TRANS_ORIENTATION_GIMBAL, "GIMBAL", 0, "Gimbal",
+	                               "Align each axis to the Euler rotation axis as used for input"},
+	{V3D_TRANS_ORIENTATION_VIEW, "VIEW", 0, "View", "Align the transformation axes to the window"},
 	// {V3D_MANIP_CUSTOM, "CUSTOM", 0, "Custom", "Use a custom transform orientation"},
 	{0, NULL, 0, NULL, NULL}
 };
@@ -406,11 +408,13 @@ static PointerRNA rna_CurrentOrientation_get(PointerRNA *ptr)
 	Scene *scene = ((bScreen *)ptr->id.data)->scene;
 	View3D *v3d = (View3D *)ptr->data;
 
-	if (v3d->twmode < V3D_MANIP_CUSTOM)
+	if (v3d->transform_orientation < V3D_TRANS_ORIENTATION_CUSTOM)
 		return rna_pointer_inherit_refine(ptr, &RNA_TransformOrientation, NULL);
-	else
+	else {
+		const int ts_idx = v3d->transform_orientation - V3D_TRANS_ORIENTATION_CUSTOM;
 		return rna_pointer_inherit_refine(ptr, &RNA_TransformOrientation,
-		                                  BLI_findlink(&scene->transform_spaces, v3d->twmode - V3D_MANIP_CUSTOM));
+		                                  BLI_findlink(&scene->transform_spaces, ts_idx));
+	}
 }
 
 EnumPropertyItem *rna_TransformOrientation_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
@@ -420,7 +424,7 @@ EnumPropertyItem *rna_TransformOrientation_itemf(bContext *C, PointerRNA *ptr, P
 	TransformOrientation *ts = NULL;
 	EnumPropertyItem tmp = {0, "", 0, "", ""};
 	EnumPropertyItem *item = NULL;
-	int i = V3D_MANIP_CUSTOM, totitem = 0;
+	int i = V3D_TRANS_ORIENTATION_CUSTOM, totitem = 0;
 
 	RNA_enum_items_add(&item, &totitem, transform_orientation_items);
 
@@ -2626,20 +2630,19 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_SpaceView3D_pivot_update");
 
 	prop = RNA_def_property(srna, "show_manipulator", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "twflag", V3D_USE_MANIPULATOR);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag3", V3D_USE_TRANSFORM_MANIPULATORS);
 	RNA_def_property_ui_text(prop, "Manipulator", "Use a 3D manipulator widget for controlling transforms");
 	RNA_def_property_ui_icon(prop, ICON_MANIPUL, 0);
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
-	prop = RNA_def_property(srna, "transform_manipulators", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "twtype");
+	prop = RNA_def_property(srna, "transform_manipulators_type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, manipulators_items);
 	RNA_def_property_flag(prop, PROP_ENUM_FLAG);
-	RNA_def_property_ui_text(prop, "Transform Manipulators", "Transformation manipulators");
+	RNA_def_property_ui_text(prop, "Transform Manipulators", "Type of transformation the transform "
+	                         "manipulators will represent");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
-	
+
 	prop = RNA_def_property(srna, "transform_orientation", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "twmode");
 	RNA_def_property_enum_items(prop, transform_orientation_items);
 	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_TransformOrientation_itemf");
 	RNA_def_property_ui_text(prop, "Transform Orientation", "Transformation orientation");

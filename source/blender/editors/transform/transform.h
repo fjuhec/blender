@@ -417,9 +417,6 @@ typedef struct TransInfo {
 	char		spacetype;		/* spacetype where transforming is      */
 	char		helpline;		/* helpline modes (not to be confused with hotline) */
 
-	float		vec[3];			/* translation, to show for widget   	*/
-	float		mat[3][3];		/* rot/rescale, to show for widget   	*/
-
 	float		spacemtx[3][3];	/* orientation matrix of the current space	*/
 	char		spacename[64];	/* name of the current space, MAX_NAME		*/
 

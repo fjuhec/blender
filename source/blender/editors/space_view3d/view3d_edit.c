@@ -4774,14 +4774,14 @@ static int enable_manipulator_invoke(bContext *C, wmOperator *op, const wmEvent 
 {
 	View3D *v3d = CTX_wm_view3d(C);
 
-	v3d->twtype = 0;
+	v3d->transform_manipulators_type = 0;
 	
 	if (RNA_boolean_get(op->ptr, "translate"))
-		v3d->twtype |= V3D_MANIP_TRANSLATE;
+		v3d->transform_manipulators_type |= V3D_MANIP_TRANSLATE;
 	if (RNA_boolean_get(op->ptr, "rotate"))
-		v3d->twtype |= V3D_MANIP_ROTATE;
+		v3d->transform_manipulators_type |= V3D_MANIP_ROTATE;
 	if (RNA_boolean_get(op->ptr, "scale"))
-		v3d->twtype |= V3D_MANIP_SCALE;
+		v3d->transform_manipulators_type |= V3D_MANIP_SCALE;
 		
 	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
 

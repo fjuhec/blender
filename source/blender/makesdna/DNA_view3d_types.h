@@ -91,7 +91,6 @@ typedef struct BGpic {
 /* ********************************* */
 
 typedef struct RegionView3D {
-	
 	float winmat[4][4];			/* GL_PROJECTION matrix */
 	float viewmat[4][4];		/* GL_MODELVIEW matrix */
 	float viewinv[4][4];		/* inverse of viewmat */
@@ -113,13 +112,11 @@ typedef struct RegionView3D {
 	struct ViewDepths *depths;
 	void *gpuoffscreen;
 
+
 	/* animated smooth view */
 	struct SmoothView3DStore *sms;
 	struct wmTimer *smooth_timer;
 
-
-	/* transform manipulator matrix */
-	float twmat[4][4];
 
 	float viewquat[4];			/* view rotation, must be kept normalized */
 	float dist;					/* distance from 'ofs' along -viewinv[2] vector, where result is negative as is 'ofs' */
@@ -137,8 +134,7 @@ typedef struct RegionView3D {
 	char pad[3];
 	float ofs_lock[2];			/* normalized offset for locked view: (-1, -1) bottom left, (1, 1) upper right */
 
-	short twdrawflag;
-	short rflag;
+	short rflag, pad2[3];
 
 
 	/* last view (use when switching out of camera view) */
@@ -146,7 +142,6 @@ typedef struct RegionView3D {
 	short lpersp, lview; /* lpersp can never be set to 'RV3D_CAMOB' */
 
 	float gridview;
-	float tw_idot[3];  /* manipulator runtime: (1 - dot) product with view vector (used to check view alignment) */
 
 
 	/* active rotation from NDOF or elsewhere */
@@ -210,11 +205,13 @@ typedef struct View3D {
 	short gridsubdiv;	/* Number of subdivisions in the grid between each highlighted grid line */
 	char gridflag;
 
-	/* transform manipulator info */
-	char twtype, twmode, twflag;
-	
+	/* transform manipulators info */
+	char transform_manipulators_type;
+	char transform_orientation;
+	char pad5;
+
 	short flag3;
-	
+
 	/* afterdraw, for xray & transparent */
 	struct ListBase afterdraw_transp;
 	struct ListBase afterdraw_xray;
@@ -330,7 +327,10 @@ typedef struct View3D {
 
 
 /* View3d->flag3 (short) */
-#define V3D_SHOW_WORLD			(1 << 0)
+enum {
+	V3D_SHOW_WORLD                 = (1 << 0),
+	V3D_USE_TRANSFORM_MANIPULATORS = (1 << 1),
+};
 
 /* View3d->tmp_compat_flag */
 enum {
@@ -376,26 +376,23 @@ enum {
 #define V3D_SHOW_Y				4
 #define V3D_SHOW_Z				8
 
-/* View3d->twtype (bits, we can combine them) */
+/* View3d->transform_manipulators_type (bits, we can combine them) */
 enum {
 	V3D_MANIP_TRANSLATE = (1 << 0),
 	V3D_MANIP_ROTATE    = (1 << 1),
 	V3D_MANIP_SCALE     = (1 << 2),
 };
 
-/* View3d->twmode */
-#define V3D_MANIP_GLOBAL		0
-#define V3D_MANIP_LOCAL			1
-#define V3D_MANIP_NORMAL		2
-#define V3D_MANIP_VIEW			3
-#define V3D_MANIP_GIMBAL		4
-#define V3D_MANIP_CUSTOM		5 /* anything of value 5 or higher is custom */
-
-/* View3d->twflag */
-   /* USE = user setting, DRAW = based on selection */
-#define V3D_USE_MANIPULATOR		1
-#define V3D_DRAW_MANIPULATOR	2
-/* #define V3D_CALC_MANIPULATOR	4 */ /*UNUSED*/
+/* View3d->transform_orientation */
+enum {
+	V3D_TRANS_ORIENTATION_GLOBAL = 0,
+	V3D_TRANS_ORIENTATION_LOCAL  = 1,
+	V3D_TRANS_ORIENTATION_NORMAL = 2,
+	V3D_TRANS_ORIENTATION_VIEW   = 3,
+	V3D_TRANS_ORIENTATION_GIMBAL = 4,
+	V3D_TRANS_ORIENTATION_CUSTOM = 5,
+	/* anything of value 5 or higher is custom */
+};
 
 /* BGPic->flag */
 /* may want to use 1 for select ? */

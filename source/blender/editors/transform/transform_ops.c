@@ -206,7 +206,7 @@ static void TRANSFORM_OT_select_orientation(struct wmOperatorType *ot)
 static int delete_orientation_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	View3D *v3d = CTX_wm_view3d(C);
-	int selected_index = (v3d->twmode - V3D_MANIP_CUSTOM);
+	int selected_index = (v3d->transform_orientation - V3D_TRANS_ORIENTATION_CUSTOM);
 
 	BIF_removeTransformOrientationIndex(C, selected_index);
 	
@@ -231,7 +231,7 @@ static int delete_orientation_poll(bContext *C)
 	
 	
 	if (v3d) {
-		selected_index = (v3d->twmode - V3D_MANIP_CUSTOM);
+		selected_index = (v3d->transform_orientation - V3D_TRANS_ORIENTATION_CUSTOM);
 	}
 	
 	return selected_index >= 0;

@@ -39,6 +39,7 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 #include "DNA_userdef_types.h"
+#include "DNA_view3d_types.h"
 #include "DNA_windowmanager_types.h"
 
 #include "BLI_blenlib.h"
@@ -2810,6 +2811,8 @@ void init_userdef_do_versions(void)
 			btheme->tv3d.time_keyframe[3] = btheme->tv3d.time_gp_keyframe[3] = 255;
 			btheme->ttime.time_keyframe[3] = btheme->ttime.time_gp_keyframe[3] = 255;
 		}
+		/* Flag value has changed */
+		U.tw_flag = V3D_USE_TRANSFORM_MANIPULATORS;
 	}
 
 	if (U.pixelsize == 0.0f)

@@ -654,7 +654,7 @@ void setUserConstraint(TransInfo *t, short orientation, int mode, const char fte
 	char text[40];
 
 	switch (orientation) {
-		case V3D_MANIP_GLOBAL:
+		case V3D_TRANS_ORIENTATION_GLOBAL:
 		{
 			float mtx[3][3];
 			BLI_snprintf(text, sizeof(text), ftext, IFACE_("global"));
@@ -662,11 +662,11 @@ void setUserConstraint(TransInfo *t, short orientation, int mode, const char fte
 			setConstraint(t, mtx, mode, text);
 			break;
 		}
-		case V3D_MANIP_LOCAL:
+		case V3D_TRANS_ORIENTATION_LOCAL:
 			BLI_snprintf(text, sizeof(text), ftext, IFACE_("local"));
 			setLocalConstraint(t, mode, text);
 			break;
-		case V3D_MANIP_NORMAL:
+		case V3D_TRANS_ORIENTATION_NORMAL:
 			BLI_snprintf(text, sizeof(text), ftext, IFACE_("normal"));
 			if (checkUseAxisMatrix(t)) {
 				setAxisMatrixConstraint(t, mode, text);
@@ -675,11 +675,11 @@ void setUserConstraint(TransInfo *t, short orientation, int mode, const char fte
 				setConstraint(t, t->spacemtx, mode, text);
 			}
 			break;
-		case V3D_MANIP_VIEW:
+		case V3D_TRANS_ORIENTATION_VIEW:
 			BLI_snprintf(text, sizeof(text), ftext, IFACE_("view"));
 			setConstraint(t, t->spacemtx, mode, text);
 			break;
-		case V3D_MANIP_GIMBAL:
+		case V3D_TRANS_ORIENTATION_GIMBAL:
 			BLI_snprintf(text, sizeof(text), ftext, IFACE_("gimbal"));
 			setConstraint(t, t->spacemtx, mode, text);
 			break;

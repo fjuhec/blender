@@ -69,8 +69,8 @@ void BIF_clearTransformOrientation(bContext *C)
 	BLI_freelistN(transform_spaces);
 	
 	// Need to loop over all view3d
-	if (v3d && v3d->twmode >= V3D_MANIP_CUSTOM) {
-		v3d->twmode = V3D_MANIP_GLOBAL; /* fallback to global	*/
+	if (v3d && v3d->transform_orientation >= V3D_TRANS_ORIENTATION_CUSTOM) {
+		v3d->transform_orientation = V3D_TRANS_ORIENTATION_GLOBAL; /* fallback to global	*/
 	}
 }
 
@@ -352,7 +352,7 @@ void BIF_removeTransformOrientation(bContext *C, TransformOrientation *target)
 
 	if (i != -1) {
 		Main *bmain = CTX_data_main(C);
-		BKE_screen_view3d_main_twmode_remove(&bmain->screen, scene, i);
+		BKE_screen_view3d_main_transform_orientation_remove(&bmain->screen, scene, i);
 		BLI_freelinkN(transform_spaces, target);
 	}
 }
@@ -374,7 +374,7 @@ void BIF_selectTransformOrientation(bContext *C, TransformOrientation *target)
 
 	if (i != -1) {
 		View3D *v3d = CTX_wm_view3d(C);
-		v3d->twmode = V3D_MANIP_CUSTOM + i;
+		v3d->transform_orientation = V3D_TRANS_ORIENTATION_CUSTOM + i;
 	}
 }
 
@@ -382,7 +382,7 @@ void BIF_selectTransformOrientationValue(bContext *C, int orientation)
 {
 	View3D *v3d = CTX_wm_view3d(C);
 	if (v3d) /* currently using generic poll */
-		v3d->twmode = orientation;
+		v3d->transform_orientation = orientation;
 }
 
 int BIF_countTransformOrientation(const bContext *C)
@@ -546,26 +546,26 @@ void initTransformOrientation(bContext *C, TransInfo *t)
 	Object *obedit = CTX_data_active_object(C);
 
 	switch (t->current_orientation) {
-		case V3D_MANIP_GLOBAL:
+		case V3D_TRANS_ORIENTATION_GLOBAL:
 			unit_m3(t->spacemtx);
 			BLI_strncpy(t->spacename, IFACE_("global"), sizeof(t->spacename));
 			break;
 
-		case V3D_MANIP_GIMBAL:
+		case V3D_TRANS_ORIENTATION_GIMBAL:
 			unit_m3(t->spacemtx);
 			if (gimbal_axis(ob, t->spacemtx)) {
 				BLI_strncpy(t->spacename, IFACE_("gimbal"), sizeof(t->spacename));
 				break;
 			}
 			/* fall-through */  /* no gimbal fallthrough to normal */
-		case V3D_MANIP_NORMAL:
+		case V3D_TRANS_ORIENTATION_NORMAL:
 			if (obedit || (ob && ob->mode & OB_MODE_POSE)) {
 				BLI_strncpy(t->spacename, IFACE_("normal"), sizeof(t->spacename));
 				ED_getLocalTransformOrientationMatrix(C, t->spacemtx, t->around);
 				break;
 			}
 			/* fall-through */  /* we define 'normal' as 'local' in Object mode */
-		case V3D_MANIP_LOCAL:
+		case V3D_TRANS_ORIENTATION_LOCAL:
 			BLI_strncpy(t->spacename, IFACE_("local"), sizeof(t->spacename));
 		
 			if (ob) {
@@ -578,7 +578,7 @@ void initTransformOrientation(bContext *C, TransInfo *t)
 		
 			break;
 		
-		case V3D_MANIP_VIEW:
+		case V3D_TRANS_ORIENTATION_VIEW:
 			if ((t->spacetype == SPACE_VIEW3D) &&
 			    (t->ar->regiontype == RGN_TYPE_WINDOW))
 			{
@@ -595,7 +595,7 @@ void initTransformOrientation(bContext *C, TransInfo *t)
 			}
 			break;
 		default: /* V3D_MANIP_CUSTOM */
-			if (applyTransformOrientation(C, t->spacemtx, t->spacename, t->current_orientation - V3D_MANIP_CUSTOM)) {
+			if (applyTransformOrientation(C, t->spacemtx, t->spacename, t->current_orientation - V3D_TRANS_ORIENTATION_CUSTOM)) {
 				/* pass */
 			}
 			else {
@@ -1206,21 +1206,21 @@ void ED_getTransformOrientationMatrix(
 	unit_m3(mat);
 
 	switch (orientation_type) {
-		case V3D_MANIP_GLOBAL:
+		case V3D_TRANS_ORIENTATION_GLOBAL:
 			/* use unit matrix */
 			break;
-		case V3D_MANIP_GIMBAL:
+		case V3D_TRANS_ORIENTATION_GIMBAL:
 			if (gimbal_axis(ob, mat)) {
 				break;
 			}
 			/* No break, fall-through here! If not gimbal, fall through to normal. */
-		case V3D_MANIP_NORMAL:
+		case V3D_TRANS_ORIENTATION_NORMAL:
 			if (obedit || (ob && ob->mode & OB_MODE_POSE)) {
 				ED_getLocalTransformOrientationMatrix(C, mat, around);
 				break;
 			}
 			/* No break, fall-trough here! We define 'normal' as 'local' in Object mode. */
-		case V3D_MANIP_LOCAL:
+		case V3D_TRANS_ORIENTATION_LOCAL:
 			if (ob && ob->mode & OB_MODE_POSE) {
 				/* each bone moves on its own local axis, but  to avoid confusion,
 				 * use the active pones axis for display [#33575], this works as expected on a single bone
@@ -1234,7 +1234,7 @@ void ED_getTransformOrientationMatrix(
 				normalize_m3(mat);
 			}
 			break;
-		case V3D_MANIP_VIEW:
+		case V3D_TRANS_ORIENTATION_VIEW:
 		{
 			RegionView3D *rv3d = CTX_wm_region_view3d(C);
 			copy_m3_m4(mat, rv3d->viewinv);
@@ -1242,7 +1242,7 @@ void ED_getTransformOrientationMatrix(
 			break;
 		}
 		default: /* custom (V3D_MANIP_CUSTOM and higher) */
-			applyTransformOrientation(C, mat, NULL, orientation_type - V3D_MANIP_CUSTOM);
+			applyTransformOrientation(C, mat, NULL, orientation_type - V3D_TRANS_ORIENTATION_CUSTOM);
 			break;
 	}
 

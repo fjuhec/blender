@@ -1146,12 +1146,9 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	
 	t->val = 0.0f;
 
-	zero_v3(t->vec);
 	zero_v3(t->center);
 	zero_v3(t->center_global);
 
-	unit_m3(t->mat);
-	
 	/* if there's an event, we're modal */
 	if (event) {
 		t->flag |= T_MODAL;
@@ -1213,8 +1210,8 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 		/* turn manipulator off during transform */
 		// FIXME: but don't do this when USING the manipulator...
 		if (t->flag & T_MODAL) {
-			t->twtype = v3d->twtype;
-			v3d->twtype = 0;
+			t->twtype = v3d->transform_manipulators_type;
+			v3d->transform_manipulators_type = 0;
 		}
 
 		if (v3d->flag & V3D_ALIGN) t->flag |= T_V3D_ALIGN;
@@ -1225,7 +1222,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 			t->around = V3D_AROUND_CURSOR;
 		}
 
-		t->current_orientation = v3d->twmode;
+		t->current_orientation = v3d->transform_orientation;
 
 		/* exceptional case */
 		if (t->around == V3D_AROUND_LOCAL_ORIGINS) {
@@ -1318,8 +1315,8 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	{
 		t->current_orientation = RNA_property_enum_get(op->ptr, prop);
 
-		if (t->current_orientation >= V3D_MANIP_CUSTOM + BIF_countTransformOrientation(C)) {
-			t->current_orientation = V3D_MANIP_GLOBAL;
+		if (t->current_orientation >= V3D_TRANS_ORIENTATION_CUSTOM + BIF_countTransformOrientation(C)) {
+			t->current_orientation = V3D_TRANS_ORIENTATION_GLOBAL;
 		}
 	}
 	
@@ -1499,7 +1496,7 @@ void postTrans(bContext *C, TransInfo *t)
 		View3D *v3d = t->sa->spacedata.first;
 		/* restore manipulator */
 		if (t->flag & T_MODAL) {
-			v3d->twtype = t->twtype;
+			v3d->transform_manipulators_type = t->twtype;
 		}
 	}
 	
@@ -1581,8 +1578,6 @@ void restoreTransObjects(TransInfo *t)
 		}
 	}
 
-	unit_m3(t->mat);
-	
 	recalcData(t);
 }
 

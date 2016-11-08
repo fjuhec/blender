@@ -377,8 +377,8 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C)
 		/* Transform widget / manipulators */
 		row = uiLayoutRow(layout, true);
 		uiItemR(row, &v3dptr, "show_manipulator", UI_ITEM_R_ICON_ONLY, "", ICON_NONE);
-		if (v3d->twflag & V3D_USE_MANIPULATOR) {
-			uiItemR(row, &v3dptr, "transform_manipulators", UI_ITEM_R_ICON_ONLY, "", ICON_NONE);
+		if (v3d->flag3 & V3D_USE_TRANSFORM_MANIPULATORS) {
+			uiItemR(row, &v3dptr, "transform_manipulators_type", UI_ITEM_R_ICON_ONLY, "", ICON_NONE);
 		}
 		uiItemR(row, &v3dptr, "transform_orientation", 0, "", ICON_NONE);
 	}

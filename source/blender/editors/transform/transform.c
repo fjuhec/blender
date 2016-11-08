@@ -926,17 +926,17 @@ static void transform_event_xyz_constraint(TransInfo *t, short key_type, char cm
 				stopConstraint(t);
 			}
 			else {
-				setUserConstraint(t, V3D_MANIP_GLOBAL, constraint_axis, msg1);
+				setUserConstraint(t, V3D_TRANS_ORIENTATION_GLOBAL, constraint_axis, msg1);
 			}
 		}
 		else if (!edit_2d) {
 			if (cmode == axis) {
-				if (t->con.orientation != V3D_MANIP_GLOBAL) {
+				if (t->con.orientation != V3D_TRANS_ORIENTATION_GLOBAL) {
 					stopConstraint(t);
 				}
 				else {
-					short orientation = (t->current_orientation != V3D_MANIP_GLOBAL ?
-					                     t->current_orientation : V3D_MANIP_LOCAL);
+					short orientation = (t->current_orientation != V3D_TRANS_ORIENTATION_GLOBAL ?
+					                     t->current_orientation : V3D_TRANS_ORIENTATION_LOCAL);
 					if (!(t->modifiers & MOD_CONSTRAINT_PLANE))
 						setUserConstraint(t, orientation, constraint_axis, msg2);
 					else if (t->modifiers & MOD_CONSTRAINT_PLANE)
@@ -945,9 +945,9 @@ static void transform_event_xyz_constraint(TransInfo *t, short key_type, char cm
 			}
 			else {
 				if (!(t->modifiers & MOD_CONSTRAINT_PLANE))
-					setUserConstraint(t, V3D_MANIP_GLOBAL, constraint_axis, msg2);
+					setUserConstraint(t, V3D_TRANS_ORIENTATION_GLOBAL, constraint_axis, msg2);
 				else if (t->modifiers & MOD_CONSTRAINT_PLANE)
-					setUserConstraint(t, V3D_MANIP_GLOBAL, constraint_plane, msg3);
+					setUserConstraint(t, V3D_TRANS_ORIENTATION_GLOBAL, constraint_plane, msg3);
 			}
 		}
 		t->redraw |= TREDRAW_HARD;
@@ -1080,7 +1080,7 @@ int transformEvent(TransInfo *t, const wmEvent *event)
 				if (ELEM(t->mode, TFM_ROTATION, TFM_TRANSLATION, TFM_TRACKBALL, TFM_EDGE_SLIDE, TFM_VERT_SLIDE)) {
 
 					/* Scale isn't normally very useful after extrude along normals, see T39756 */
-					if ((t->con.mode & CON_APPLY) && (t->con.orientation == V3D_MANIP_NORMAL)) {
+					if ((t->con.mode & CON_APPLY) && (t->con.orientation == V3D_TRANS_ORIENTATION_NORMAL)) {
 						stopConstraint(t);
 					}
 
@@ -1983,7 +1983,7 @@ void saveTransform(bContext *C, TransInfo *t, wmOperator *op)
 			{
 				View3D *v3d = t->view;
 
-				v3d->twmode = t->current_orientation;
+				v3d->transform_orientation = t->current_orientation;
 			}
 		}
 	}
@@ -3434,8 +3434,6 @@ static void applyResize(TransInfo *t, const int mval[2])
 	if (t->con.applySize) {
 		t->con.applySize(t, NULL, mat);
 	}
-	
-	copy_m3_m3(t->mat, mat);    // used in manipulator
 	
 	headerResize(t, t->values, str);
 	
@@ -5253,8 +5251,6 @@ static void applyBoneSize(TransInfo *t, const int mval[2])
 	if (t->con.applySize) {
 		t->con.applySize(t, NULL, mat);
 	}
-	
-	copy_m3_m3(t->mat, mat);    // used in manipulator
 	
 	headerBoneSize(t, size, str);
 	
@@ -8285,9 +8281,7 @@ static void applyTimeTranslate(TransInfo *t, const int mval[2])
 	}
 
 	/* handle numeric-input stuff */
-	t->vec[0] = t->values[0];
-	applyNumInput(&t->num, &t->vec[0]);
-	t->values[0] = t->vec[0];
+	applyNumInput(&t->num, t->values);
 	headerTimeTranslate(t, str);
 
 	applyTimeTranslateValue(t);
@@ -8452,9 +8446,9 @@ static void applyTimeSlide(TransInfo *t, const int mval[2])
 	/* t->values[0] = cval[0]; */  /* UNUSED (reset again later). */
 
 	/* handle numeric-input stuff */
-	t->vec[0] = 2.0f * (cval[0] - sval[0]) / (maxx - minx);
-	applyNumInput(&t->num, &t->vec[0]);
-	t->values[0] = (maxx - minx) * t->vec[0] / 2.0f + sval[0];
+	t->values[0] = 2.0f * (cval[0] - sval[0]) / (maxx - minx);
+	applyNumInput(&t->num, t->values);
+	t->values[0] = (maxx - minx) * t->values[0] / 2.0f + sval[0];
 
 	headerTimeSlide(t, sval[0], str);
 	applyTimeSlideValue(t, sval[0]);
@@ -8568,11 +8562,9 @@ static void applyTimeScaleValue(TransInfo *t)
 static void applyTimeScale(TransInfo *t, const int UNUSED(mval[2]))
 {
 	char str[UI_MAX_DRAW_STR];
-	
+
 	/* handle numeric-input stuff */
-	t->vec[0] = t->values[0];
-	applyNumInput(&t->num, &t->vec[0]);
-	t->values[0] = t->vec[0];
+	applyNumInput(&t->num, t->values);
 	headerTimeScale(t, str);
 
 	applyTimeScaleValue(t);

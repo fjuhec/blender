@@ -626,18 +626,18 @@ void BKE_screen_view3d_main_sync(ListBase *screen_lb, Scene *scene)
 	}
 }
 
-void BKE_screen_view3d_twmode_remove(View3D *v3d, const int i)
+void BKE_screen_view3d_transform_orientation_remove(View3D *v3d, const int i)
 {
-	const int selected_index = (v3d->twmode - V3D_MANIP_CUSTOM);
+	const int selected_index = (v3d->transform_orientation - V3D_TRANS_ORIENTATION_CUSTOM);
 	if (selected_index == i) {
-		v3d->twmode = V3D_MANIP_GLOBAL; /* fallback to global	*/
+		v3d->transform_orientation = V3D_TRANS_ORIENTATION_GLOBAL; /* fallback to global	*/
 	}
 	else if (selected_index > i) {
-		v3d->twmode--;
+		v3d->transform_orientation--;
 	}
 }
 
-void BKE_screen_view3d_main_twmode_remove(ListBase *screen_lb, Scene *scene, const int i)
+void BKE_screen_view3d_main_transform_orientation_remove(ListBase *screen_lb, Scene *scene, const int i)
 {
 	bScreen *sc;
 
@@ -649,7 +649,7 @@ void BKE_screen_view3d_main_twmode_remove(ListBase *screen_lb, Scene *scene, con
 				for (sl = sa->spacedata.first; sl; sl = sl->next) {
 					if (sl->spacetype == SPACE_VIEW3D) {
 						View3D *v3d = (View3D *)sl;
-						BKE_screen_view3d_twmode_remove(v3d, i);
+						BKE_screen_view3d_transform_orientation_remove(v3d, i);
 					}
 				}
 			}

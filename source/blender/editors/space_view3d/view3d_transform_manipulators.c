@@ -153,15 +153,15 @@ static void manipulator_line_range(
 
 	switch (axis->transform_type) {
 		case V3D_MANIP_TRANSLATE:
-			if (v3d->twtype & V3D_MANIP_SCALE) {
+			if (v3d->transform_manipulators_type & V3D_MANIP_SCALE) {
 				*r_start = *r_len - ofs + 0.075f;
 			}
-			if (v3d->twtype & V3D_MANIP_ROTATE) {
+			if (v3d->transform_manipulators_type & V3D_MANIP_ROTATE) {
 				*r_len += ofs;
 			}
 			break;
 		case V3D_MANIP_SCALE:
-			if (v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE)) {
+			if (v3d->transform_manipulators_type & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE)) {
 				*r_len -= ofs + 0.025f;
 			}
 			break;
@@ -607,12 +607,12 @@ static bool transform_manipulators_matrix_get(const bContext *C, const View3D *v
 	float rot[3][3];
 
 	if (ED_calculateTransformCenter((bContext *)C, v3d->around, origin, NULL)) {
-		ED_getTransformOrientationMatrix(C, v3d->twmode, v3d->around, rot);
-		if (v3d->twmode == V3D_MANIP_LOCAL) {
+		ED_getTransformOrientationMatrix(C, v3d->transform_orientation, v3d->around, rot);
+		if (v3d->transform_orientation == V3D_TRANS_ORIENTATION_LOCAL) {
 			copy_m3_m3(r_local_rot, rot);
 		}
 		else {
-			ED_getTransformOrientationMatrix(C, V3D_MANIP_LOCAL, v3d->around, r_local_rot);
+			ED_getTransformOrientationMatrix(C, V3D_TRANS_ORIENTATION_LOCAL, v3d->around, r_local_rot);
 		}
 
 		copy_m4_m3(r_mat, rot);
@@ -665,7 +665,7 @@ static void transform_manipulatorgroup_refresh(const bContext *C, wmManipulatorG
 	for (int i = 0; info->axes[i].name; i++) {
 		TransformAxisManipulator *axis = &info->axes[i];
 
-		if (any_visible && transform_axis_manipulator_is_visible(axis, v3d->twtype, protectflag)) {
+		if (any_visible && transform_axis_manipulator_is_visible(axis, v3d->transform_manipulators_type, protectflag)) {
 			WM_manipulator_set_flag(axis->manipulator, WM_MANIPULATOR_HIDDEN, false);
 		}
 		else {
@@ -735,8 +735,8 @@ static void transform_axis_manipulator_set_color(
  */
 static bool transform_manipulators_draw_rotmatrix_get(const bContext *C, const View3D *v3d, float r_rot[3][3])
 {
-	if (v3d->twmode == V3D_MANIP_VIEW) {
-		ED_getTransformOrientationMatrix(C, v3d->twmode, v3d->around, r_rot);
+	if (v3d->transform_orientation == V3D_TRANS_ORIENTATION_VIEW) {
+		ED_getTransformOrientationMatrix(C, v3d->transform_orientation, v3d->around, r_rot);
 		return true;
 	}
 
@@ -775,8 +775,8 @@ static bool transform_manipulatorgroup_poll(const bContext *C, wmManipulatorGrou
 
 	/* avoiding complex stuff here (like checking for selected vertices),
 	 * this poll check runs on every redraw (and more) */
-	return (((v3d->twflag & V3D_USE_MANIPULATOR) != 0) &&
-	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0) &&
+	return (((v3d->flag3 & V3D_USE_TRANSFORM_MANIPULATORS) != 0) &&
+	        ((v3d->transform_manipulators_type & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0) &&
 	        (ob || editob));
 }
 

@@ -336,13 +336,13 @@ static SpaceLink *view3d_new(const bContext *C)
 	
 	v3d->flag = V3D_SELECT_OUTLINE;
 	v3d->flag2 = V3D_SHOW_RECONSTRUCTION | V3D_SHOW_GPENCIL;
+	v3d->flag3 |= (U.tw_flag & V3D_USE_TRANSFORM_MANIPULATORS);
 	
 	v3d->lens = 35.0f;
 	v3d->near = 0.01f;
 	v3d->far = 1000.0f;
 
-	v3d->twflag |= U.tw_flag & V3D_USE_MANIPULATOR;
-	v3d->twtype = V3D_MANIP_TRANSLATE;
+	v3d->transform_manipulators_type = V3D_MANIP_TRANSLATE;
 	v3d->around = V3D_AROUND_CENTER_MEAN;
 	
 	v3d->bundle_size = 0.2f;

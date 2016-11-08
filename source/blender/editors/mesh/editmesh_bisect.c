@@ -62,7 +62,7 @@ typedef struct {
 	/* modal only */
 	BMBackup mesh_backup;
 	bool is_first;
-	short twtype;
+	short transform_manipulators_type;
 } BisectData;
 
 static bool mesh_bisect_interactive_calc(
@@ -147,8 +147,8 @@ static int mesh_bisect_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
 		/* misc other vars */
 		G.moving = G_TRANSFORM_EDIT;
-		opdata->twtype = v3d->twtype;
-		v3d->twtype = 0;
+		opdata->transform_manipulators_type = v3d->transform_manipulators_type;
+		v3d->transform_manipulators_type = 0;
 
 		/* initialize modal callout */
 		ED_area_headerprint(CTX_wm_area(C), IFACE_("LMB: Click and drag to draw cut line"));
@@ -160,7 +160,7 @@ static void edbm_bisect_exit(bContext *C, BisectData *opdata)
 {
 	View3D *v3d = CTX_wm_view3d(C);
 	EDBM_redo_state_free(&opdata->mesh_backup, NULL, false);
-	v3d->twtype = opdata->twtype;
+	v3d->transform_manipulators_type = opdata->transform_manipulators_type;
 	G.moving = 0;
 }
 

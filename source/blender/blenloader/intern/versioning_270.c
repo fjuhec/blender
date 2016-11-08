@@ -1375,5 +1375,20 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
+
+		/* New transform manipulators */
+		if (!DNA_struct_elem_find(fd->filesdna, "View3D", "char", "transform_manipulators_type")) {
+			for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+					/* handle pushed-back space data first */
+					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_VIEW3D) {
+							View3D *v3d = (View3D *)sl;
+							v3d->flag3 |= V3D_USE_TRANSFORM_MANIPULATORS;
+						}
+					}
+				}
+			}
+		}
 	}
 }
