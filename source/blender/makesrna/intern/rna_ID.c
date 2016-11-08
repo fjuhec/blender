@@ -531,7 +531,7 @@ static void rna_ImagePreview_pixels_get(PointerRNA *ptr, int *values, enum eIcon
 
 	BKE_previewimg_ensure(prv_img, size);
 
-	memcpy(values, prv_img->rect[size], prv_img->w[size] * prv_img->h[size] * sizeof(unsigned int));
+	memcpy(values, prv_img->rect[size], BKE_previewimg_get_rect_size(prv_img, size));
 }
 
 static void rna_ImagePreview_pixels_set(PointerRNA *ptr, const int *values, enum eIconSizes size)
@@ -543,78 +543,7 @@ static void rna_ImagePreview_pixels_set(PointerRNA *ptr, const int *values, enum
 		BLI_assert(prv_img == BKE_previewimg_id_ensure(id));
 	}
 
-	memcpy(prv_img->rect[size], values, prv_img->w[size] * prv_img->h[size] * sizeof(unsigned int));
-	prv_img->flag[size] |= PRV_USER_EDITED;
-}
-
-
-static int rna_ImagePreview_frames_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION], enum eIconSizes size)
-{
-	ID *id = ptr->id.data;
-	PreviewImage *prv_img = (PreviewImage *)ptr->data;
-
-	if (id != NULL) {
-		BLI_assert(prv_img == BKE_previewimg_id_ensure(id));
-	}
-
-	BKE_previewimg_ensure(prv_img, size);
-
-	length[0] = prv_img->num_frames ? prv_img->num_frames : 1;
-	length[1] = prv_img->w[size] * prv_img->h[size];
-
-	return length[0] * length[1];
-}
-
-static void rna_ImagePreview_frames_get(PointerRNA *ptr, int *values, enum eIconSizes size)
-{
-	ID *id = ptr->id.data;
-	PreviewImage *prv_img = (PreviewImage *)ptr->data;
-
-	if (prv_img->num_frames == 0) {
-		rna_ImagePreview_pixels_get(ptr, values, size);
-		return;
-	}
-
-	int i;
-	unsigned int *data;
-
-	if (id != NULL) {
-		BLI_assert(prv_img == BKE_previewimg_id_ensure(id));
-	}
-
-	BKE_previewimg_ensure(prv_img, size);
-
-	ptrdiff_t copy_stride = prv_img->w[size] * prv_img->h[size];
-	ptrdiff_t stride = copy_stride + 1;
-	size_t copy_size = copy_stride * sizeof(*prv_img->rect[size]);
-	for (i = 0, data = prv_img->rect[size]; i < prv_img->num_frames; i++, data += stride, values += copy_stride) {
-		memcpy(values, data, copy_size);
-	}
-}
-
-static void rna_ImagePreview_frames_set(PointerRNA *ptr, const int *values, enum eIconSizes size)
-{
-	ID *id = ptr->id.data;
-	PreviewImage *prv_img = (PreviewImage *)ptr->data;
-
-	if (prv_img->num_frames == 0) {
-		rna_ImagePreview_pixels_set(ptr, values, size);
-		return;
-	}
-
-	int i;
-	unsigned int *data;
-
-	if (id != NULL) {
-		BLI_assert(prv_img == BKE_previewimg_id_ensure(id));
-	}
-
-	ptrdiff_t copy_stride = prv_img->w[size] * prv_img->h[size];
-	ptrdiff_t stride = copy_stride + 1;
-	size_t copy_size = copy_stride * sizeof(*prv_img->rect[size]);
-	for (i = 0, data = prv_img->rect[size]; i < prv_img->num_frames; i++, data += stride, values += copy_stride) {
-		memcpy(data, values, copy_size);
-	}
+	memcpy(prv_img->rect[size], values, BKE_previewimg_get_rect_size(prv_img, size));
 	prv_img->flag[size] |= PRV_USER_EDITED;
 }
 
@@ -633,7 +562,7 @@ static int rna_ImagePreview_pixels_float_get_length(
 
 	BKE_previewimg_ensure(prv_img, size);
 
-	length[0] = prv_img->w[size] * prv_img->h[size] * 4;
+	length[0] = BKE_previewimg_get_rect_size(prv_img, size);  /* / sizeof(*prv_img->rect[size]) * 4 */
 
 	return length[0];
 }
@@ -644,7 +573,7 @@ static void rna_ImagePreview_pixels_float_get(PointerRNA *ptr, float *values, en
 	PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
 	unsigned char *data = (unsigned char *)prv_img->rect[size];
-	const size_t len = prv_img->w[size] * prv_img->h[size] * 4;
+	const size_t len = BKE_previewimg_get_rect_size(prv_img, size);
 	size_t i;
 
 	BLI_assert(sizeof(unsigned int) == 4);
@@ -666,7 +595,7 @@ static void rna_ImagePreview_pixels_float_set(PointerRNA *ptr, const float *valu
 	PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
 	unsigned char *data = (unsigned char *)prv_img->rect[size];
-	const size_t len = prv_img->w[size] * prv_img->h[size] * 4;
+	const size_t len = BKE_previewimg_get_rect_size(prv_img, size);
 	size_t i;
 
 	BLI_assert(sizeof(unsigned int) == 4);
@@ -677,84 +606,6 @@ static void rna_ImagePreview_pixels_float_set(PointerRNA *ptr, const float *valu
 
 	for (i = 0; i < len; i++) {
 		data[i] = FTOCHAR(values[i]);
-	}
-	prv_img->flag[size] |= PRV_USER_EDITED;
-}
-
-static int rna_ImagePreview_frames_float_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION], enum eIconSizes size)
-{
-	ID *id = ptr->id.data;
-	PreviewImage *prv_img = (PreviewImage *)ptr->data;
-
-	BLI_assert(sizeof(unsigned int) == 4);
-
-	if (id != NULL) {
-		BLI_assert(prv_img == BKE_previewimg_id_ensure(id));
-	}
-
-	BKE_previewimg_ensure(prv_img, size);
-
-	length[0] = prv_img->num_frames ? prv_img->num_frames : 1;
-	length[1] = prv_img->w[size] * prv_img->h[size] * 4;
-
-	return length[0] * length[1];
-}
-
-static void rna_ImagePreview_frames_float_get(PointerRNA *ptr, float *values, enum eIconSizes size)
-{
-	ID *id = ptr->id.data;
-	PreviewImage *prv_img = (PreviewImage *)ptr->data;
-
-	BLI_assert(sizeof(unsigned int) == 4);
-
-	if (prv_img->num_frames == 0) {
-		rna_ImagePreview_pixels_float_get(ptr, values, size);
-		return;
-	}
-
-	if (id != NULL) {
-		BLI_assert(prv_img == BKE_previewimg_id_ensure(id));
-	}
-
-	BKE_previewimg_ensure(prv_img, size);
-
-	int i;
-	unsigned char *data = (unsigned char *)prv_img->rect[size];
-	ptrdiff_t copy_stride = prv_img->w[size] * prv_img->h[size] * 4;
-	ptrdiff_t stride = copy_stride + 4;
-	for (i = 0; i < prv_img->num_frames; i++, data += stride, values += copy_stride) {
-		size_t j;
-		for (j = 0; j < copy_stride; j++) {
-			values[j] = data[j] * (1.0f / 255.0f);
-		}
-	}
-}
-
-static void rna_ImagePreview_frames_float_set(PointerRNA *ptr, const float *values, enum eIconSizes size)
-{
-	ID *id = ptr->id.data;
-	PreviewImage *prv_img = (PreviewImage *)ptr->data;
-
-	BLI_assert(sizeof(unsigned int) == 4);
-
-	if (prv_img->num_frames == 0) {
-		rna_ImagePreview_pixels_float_set(ptr, values, size);
-		return;
-	}
-
-	if (id != NULL) {
-		BLI_assert(prv_img == BKE_previewimg_id_ensure(id));
-	}
-
-	int i;
-	unsigned char *data = (unsigned char *)prv_img->rect[size];
-	ptrdiff_t copy_stride = prv_img->w[size] * prv_img->h[size] * 4;
-	ptrdiff_t stride = copy_stride + 4;
-	for (i = 0; i < prv_img->num_frames; i++, data += stride, values += copy_stride) {
-		size_t j;
-		for (j = 0; j < copy_stride; j++) {
-			data[j] = FTOCHAR(values[j]);
-		}
 	}
 	prv_img->flag[size] |= PRV_USER_EDITED;
 }
@@ -790,21 +641,6 @@ static void rna_ImagePreview_image_pixels_set(PointerRNA *ptr, const int *values
 	rna_ImagePreview_pixels_set(ptr, values, ICON_SIZE_PREVIEW);
 }
 
-static int rna_ImagePreview_image_frames_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
-{
-	return rna_ImagePreview_frames_get_length(ptr, length, ICON_SIZE_PREVIEW);
-}
-
-static void rna_ImagePreview_image_frames_get(PointerRNA *ptr, int *values)
-{
-	rna_ImagePreview_frames_get(ptr, values, ICON_SIZE_PREVIEW);
-}
-
-static void rna_ImagePreview_image_frames_set(PointerRNA *ptr, const int *values)
-{
-	rna_ImagePreview_frames_set(ptr, values, ICON_SIZE_PREVIEW);
-}
-
 static int rna_ImagePreview_image_pixels_float_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
 {
 	return rna_ImagePreview_pixels_float_get_length(ptr, length, ICON_SIZE_PREVIEW);
@@ -818,21 +654,6 @@ static void rna_ImagePreview_image_pixels_float_get(PointerRNA *ptr, float *valu
 static void rna_ImagePreview_image_pixels_float_set(PointerRNA *ptr, const float *values)
 {
 	rna_ImagePreview_pixels_float_set(ptr, values, ICON_SIZE_PREVIEW);
-}
-
-static int rna_ImagePreview_image_frames_float_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
-{
-	return rna_ImagePreview_frames_float_get_length(ptr, length, ICON_SIZE_PREVIEW);
-}
-
-static void rna_ImagePreview_image_frames_float_get(PointerRNA *ptr, float *values)
-{
-	rna_ImagePreview_frames_float_get(ptr, values, ICON_SIZE_PREVIEW);
-}
-
-static void rna_ImagePreview_image_frames_float_set(PointerRNA *ptr, const float *values)
-{
-	rna_ImagePreview_frames_float_set(ptr, values, ICON_SIZE_PREVIEW);
 }
 
 
@@ -866,21 +687,6 @@ static void rna_ImagePreview_icon_pixels_set(PointerRNA *ptr, const int *values)
 	rna_ImagePreview_pixels_set(ptr, values, ICON_SIZE_ICON);
 }
 
-static int rna_ImagePreview_icon_frames_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
-{
-	return rna_ImagePreview_frames_get_length(ptr, length, ICON_SIZE_ICON);
-}
-
-static void rna_ImagePreview_icon_frames_get(PointerRNA *ptr, int *values)
-{
-	rna_ImagePreview_frames_get(ptr, values, ICON_SIZE_ICON);
-}
-
-static void rna_ImagePreview_icon_frames_set(PointerRNA *ptr, const int *values)
-{
-	rna_ImagePreview_frames_set(ptr, values, ICON_SIZE_ICON);
-}
-
 static int rna_ImagePreview_icon_pixels_float_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
 {
 	return rna_ImagePreview_pixels_float_get_length(ptr, length, ICON_SIZE_ICON);
@@ -896,33 +702,169 @@ static void rna_ImagePreview_icon_pixels_float_set(PointerRNA *ptr, const float 
 	rna_ImagePreview_pixels_float_set(ptr, values, ICON_SIZE_ICON);
 }
 
-static int rna_ImagePreview_icon_frames_float_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
-{
-	return rna_ImagePreview_frames_float_get_length(ptr, length, ICON_SIZE_ICON);
-}
-
-static void rna_ImagePreview_icon_frames_float_get(PointerRNA *ptr, float *values)
-{
-	rna_ImagePreview_frames_float_get(ptr, values, ICON_SIZE_ICON);
-}
-
-static void rna_ImagePreview_icon_frames_float_set(PointerRNA *ptr, const float *values)
-{
-	rna_ImagePreview_frames_float_set(ptr, values, ICON_SIZE_ICON);
-}
-
 
 static int rna_ImagePreview_icon_id_get(PointerRNA *ptr)
 {
 	/* Using a callback here allows us to only generate icon matching that preview when icon_id is requested. */
 	return BKE_icon_preview_ensure(ptr->id.data, (PreviewImage *)(ptr->data));
 }
+
+
 static void rna_ImagePreview_icon_reload(PreviewImage *prv)
 {
 	/* will lazy load on next use, but only in case icon is not user-modified! */
 	if (!(prv->flag[ICON_SIZE_ICON] & PRV_USER_EDITED) && !(prv->flag[ICON_SIZE_PREVIEW] & PRV_USER_EDITED)) {
 		BKE_previewimg_clear(prv);
 	}
+}
+
+static void rna_ImagePreview_frame_delete(PreviewImage *prv, ReportList *reports, int frame_idx)
+{
+	if (frame_idx < 0 || frame_idx >= (prv->num_frames ? prv->num_frames : 1)) {
+		BKE_reportf(reports, RPT_ERROR, "Invalid frame index %d", frame_idx);
+		return;
+	}
+	BKE_previewimg_frame_delete(prv, (unsigned short) frame_idx);
+}
+
+static void rna_ImagePreview_frame_get(
+        PreviewImage *prv, ReportList *reports,
+        int frame_idx, int *r_data_len, int **r_data, int *r_meta, enum eIconSizes size)
+{
+	if (frame_idx < 0 || frame_idx >= (prv->num_frames ? prv->num_frames : 1)) {
+		BKE_reportf(reports, RPT_ERROR, "Invalid frame index %d", frame_idx);
+		*r_data = NULL;
+		*r_data_len = 0;
+		*r_meta = 0;
+		return;
+	}
+
+	BKE_previewimg_ensure(prv, size);
+
+	unsigned int *frame = BKE_previewimg_frame_data_get(prv, (unsigned short) frame_idx, size, r_meta);
+	*r_data_len = prv->w[size] * prv->h[size];
+	size_t frame_size = sizeof(**r_data) * (*r_data_len);
+	*r_data = MEM_mallocN(frame_size, __func__);
+	memcpy(*r_data, frame, frame_size);
+}
+
+static void rna_ImagePreview_frame_set(
+        PreviewImage *prv, ReportList *reports,
+        int frame_idx, int data_len, int *data, int meta, enum eIconSizes size)
+{
+	if (frame_idx < 0 || frame_idx >= (prv->num_frames ? prv->num_frames : 1)) {
+		BKE_reportf(reports, RPT_ERROR, "Invalid frame index %d", frame_idx);
+		return;
+	}
+
+	if (data_len != prv->w[size] * prv->h[size]) {
+		BKE_reportf(reports, RPT_ERROR, "Expected an array of %u integers, not %d", prv->w[size] * prv->h[size], data_len);
+		return;
+	}
+	BKE_previewimg_frame_data_set(prv, (unsigned short) frame_idx, size, meta, (unsigned int *)data);
+	prv->flag[size] |= PRV_USER_EDITED;
+}
+
+static void rna_ImagePreview_frame_float_get(
+        PreviewImage *prv, ReportList *reports,
+        int frame_idx, int *r_data_len, float **r_data, int *r_meta, enum eIconSizes size)
+{
+	if (frame_idx < 0 || frame_idx >= (prv->num_frames ? prv->num_frames : 1)) {
+		BKE_reportf(reports, RPT_ERROR, "Invalid frame index %d", frame_idx);
+		*r_data = NULL;
+		*r_data_len = 0;
+		*r_meta = 0;
+		return;
+	}
+
+	BLI_assert(sizeof(unsigned int) == 4);
+
+	BKE_previewimg_ensure(prv, size);
+
+	unsigned char *frame = (unsigned char *)BKE_previewimg_frame_data_get(prv, (unsigned short) frame_idx, size, r_meta);
+	*r_data_len = prv->w[size] * prv->h[size] * 4;
+	size_t frame_size = sizeof(**r_data) * (*r_data_len);
+	*r_data = MEM_mallocN(frame_size, __func__);
+
+	for (int i = 0; i < *r_data_len; i++) {
+		(*r_data)[i] = frame[i] * (1.0f / 255.0f);
+	}
+
+}
+
+static void rna_ImagePreview_frame_float_set(
+        PreviewImage *prv, ReportList *reports,
+        int frame_idx, int data_len, float *data, int meta, enum eIconSizes size)
+{
+	if (frame_idx < 0 || frame_idx >= (prv->num_frames ? prv->num_frames : 1)) {
+		BKE_reportf(reports, RPT_ERROR, "Invalid frame index %d", frame_idx);
+		return;
+	}
+
+	if (data_len != prv->w[size] * prv->h[size] * 4) {
+		BKE_reportf(reports, RPT_ERROR, "Expected an array of %u floats, not %d", prv->w[size] * prv->h[size] * 4, data_len);
+		return;
+	}
+
+	unsigned char *frame = (unsigned char *)BKE_previewimg_frame_data_get(prv, (unsigned short) frame_idx, size, NULL);
+	int i;
+
+	BLI_assert(sizeof(unsigned int) == 4);
+
+	for (i = 0; i < data_len; i++) {
+		frame[i] = FTOCHAR(data[i]);
+	}
+	*((int *)(&frame[i])) = meta;
+
+	prv->flag[size] |= PRV_USER_EDITED;
+}
+
+static void rna_ImagePreview_image_frame_get(
+        PreviewImage *prv, ReportList *reports, int frame_idx, int *r_data_len, int **r_data, int *r_meta)
+{
+	rna_ImagePreview_frame_get(prv, reports, frame_idx, r_data_len, r_data, r_meta, ICON_SIZE_PREVIEW);
+}
+
+static void rna_ImagePreview_image_frame_set(
+        PreviewImage *prv, ReportList *reports, int frame_idx, int data_len, int *data, int meta)
+{
+	rna_ImagePreview_frame_set(prv, reports, frame_idx, data_len, data, meta, ICON_SIZE_PREVIEW);
+}
+
+static void rna_ImagePreview_image_frame_float_get(
+        PreviewImage *prv, ReportList *reports, int frame_idx, int *r_data_len, float **r_data, int *r_meta)
+{
+	rna_ImagePreview_frame_float_get(prv, reports, frame_idx, r_data_len, r_data, r_meta, ICON_SIZE_PREVIEW);
+}
+
+static void rna_ImagePreview_image_frame_float_set(
+        PreviewImage *prv, ReportList *reports, int frame_idx, int data_len, float *data, int meta)
+{
+	rna_ImagePreview_frame_float_set(prv, reports, frame_idx, data_len, data, meta, ICON_SIZE_PREVIEW);
+}
+
+static void rna_ImagePreview_icon_frame_get(
+        PreviewImage *prv, ReportList *reports, int frame_idx, int *r_data_len, int **r_data, int *r_meta)
+{
+	rna_ImagePreview_frame_get(prv, reports, frame_idx, r_data_len, r_data, r_meta, ICON_SIZE_ICON);
+}
+
+static void rna_ImagePreview_icon_frame_set(
+        PreviewImage *prv, ReportList *reports, int frame_idx, int data_len, int *data, int meta)
+{
+	rna_ImagePreview_frame_set(prv, reports, frame_idx, data_len, data, meta, ICON_SIZE_ICON);
+}
+
+static void rna_ImagePreview_icon_frame_float_get(
+        PreviewImage *prv, ReportList *reports, int frame_idx, int *r_data_len, float **r_data, int *r_meta)
+{
+	rna_ImagePreview_frame_float_get(prv, reports, frame_idx, r_data_len, r_data, r_meta, ICON_SIZE_ICON);
+}
+
+static void rna_ImagePreview_icon_frame_float_set(
+        PreviewImage *prv, ReportList *reports, int frame_idx, int data_len, float *data, int meta)
+{
+	rna_ImagePreview_frame_float_set(prv, reports, frame_idx, data_len, data, meta, ICON_SIZE_ICON);
 }
 
 static PointerRNA rna_IDPreview_get(PointerRNA *ptr)
@@ -1057,6 +999,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	StructRNA *srna;
 	FunctionRNA *func;
 	PropertyRNA *prop;
+	PropertyRNA *parm;
 
 	srna = RNA_def_struct(brna, "ImagePreview", NULL);
 	RNA_def_struct_sdna(srna, "PreviewImage");
@@ -1101,22 +1044,6 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_property_float_funcs(prop, "rna_ImagePreview_image_pixels_float_get",
 	                             "rna_ImagePreview_image_pixels_float_set", NULL);
 
-	prop = RNA_def_property(srna, "image_frames", PROP_INT, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_DYNAMIC);
-	RNA_def_property_multi_array(prop, 2, NULL);
-	RNA_def_property_ui_text(prop, "Image Frames", "Image pixels by frames, as bytes (always RGBA 32bits)");
-	RNA_def_property_dynamic_array_funcs(prop, "rna_ImagePreview_image_frames_get_length");
-	RNA_def_property_int_funcs(prop, "rna_ImagePreview_image_frames_get", "rna_ImagePreview_image_frames_set", NULL);
-
-	prop = RNA_def_property(srna, "image_frames_float", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_DYNAMIC);
-	RNA_def_property_multi_array(prop, 2, NULL);
-	RNA_def_property_ui_text(prop, "Float Image Frames",
-	                         "Image pixels by frames, as floats (RGBA concatenated values - raw data!)");
-	RNA_def_property_dynamic_array_funcs(prop, "rna_ImagePreview_image_frames_float_get_length");
-	RNA_def_property_float_funcs(prop, "rna_ImagePreview_image_frames_float_get",
-	                             "rna_ImagePreview_image_frames_float_set", NULL);
-
 	prop = RNA_def_property(srna, "is_icon_custom", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag[ICON_SIZE_ICON]", PRV_USER_EDITED);
 	RNA_def_property_boolean_funcs(prop, NULL, "rna_ImagePreview_is_icon_custom_set");
@@ -1144,22 +1071,6 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_property_float_funcs(prop, "rna_ImagePreview_icon_pixels_float_get",
 	                             "rna_ImagePreview_icon_pixels_float_set", NULL);
 
-	prop = RNA_def_property(srna, "icon_frames", PROP_INT, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_DYNAMIC);
-	RNA_def_property_multi_array(prop, 2, NULL);
-	RNA_def_property_ui_text(prop, "Icon Frames", "Icon pixels by frames, as bytes (always RGBA 32bits)");
-	RNA_def_property_dynamic_array_funcs(prop, "rna_ImagePreview_icon_frames_get_length");
-	RNA_def_property_int_funcs(prop, "rna_ImagePreview_icon_frames_get", "rna_ImagePreview_icon_frames_set", NULL);
-
-	prop = RNA_def_property(srna, "icon_frames_float", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_DYNAMIC);
-	RNA_def_property_multi_array(prop, 2, NULL);
-	RNA_def_property_ui_text(prop, "Float Icon Frames",
-	                         "Icon pixels by frames, as floats (RGBA concatenated values - raw data!)");
-	RNA_def_property_dynamic_array_funcs(prop, "rna_ImagePreview_icon_frames_float_get_length");
-	RNA_def_property_float_funcs(prop, "rna_ImagePreview_icon_frames_float_get",
-	                             "rna_ImagePreview_icon_frames_float_set", NULL);
-
 	prop = RNA_def_int(srna, "icon_id", 0, INT_MIN, INT_MAX, "Icon ID",
 	                   "Unique integer identifying this preview as an icon (zero means invalid)", INT_MIN, INT_MAX);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
@@ -1167,6 +1078,107 @@ static void rna_def_image_preview(BlenderRNA *brna)
 
 	func = RNA_def_function(srna, "reload", "rna_ImagePreview_icon_reload");
 	RNA_def_function_ui_description(func, "Reload the preview from its source path");
+
+	func = RNA_def_function(srna, "frame_delete", "rna_ImagePreview_frame_delete");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Delete a frame from this preview");
+	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to remove", 0, USHRT_MAX);
+
+	func = RNA_def_function(srna, "image_frame_get", "rna_ImagePreview_image_frame_get");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Get a frame data and meta-data from this preview");
+	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to get", 0, USHRT_MAX);
+	parm = RNA_def_property(func, "data", PROP_INT, PROP_NONE);
+	RNA_def_property_array(parm, 1);
+	RNA_def_property_flag(parm, PROP_DYNAMIC);
+	RNA_def_property_ui_text(parm, "", "Array of integers, one per pixel (RGBA concatenated values)");
+	RNA_def_function_output(func, parm);
+	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
+	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the preview frame");
+	RNA_def_function_output(func, parm);
+
+	func = RNA_def_function(srna, "image_frame_set", "rna_ImagePreview_image_frame_set");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Set a frame data and meta-data from this preview");
+	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
+	parm = RNA_def_property(func, "data", PROP_INT, PROP_NONE);
+	RNA_def_property_array(parm, 1);
+	RNA_def_property_flag(parm, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_property_ui_text(parm, "", "Array of integers, one per pixel (RGBA concatenated values)");
+	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
+	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the preview frame");
+
+	func = RNA_def_function(srna, "image_frame_float_get", "rna_ImagePreview_image_frame_float_get");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Get a frame data and meta-data from this preview");
+	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to get", 0, USHRT_MAX);
+	parm = RNA_def_property(func, "data", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_array(parm, 1);
+	RNA_def_property_flag(parm, PROP_DYNAMIC);
+	RNA_def_property_ui_text(parm, "", "Array of floats, one per pixel component (RGBA values)");
+	RNA_def_function_output(func, parm);
+	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
+	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the preview frame");
+	RNA_def_function_output(func, parm);
+
+	func = RNA_def_function(srna, "image_frame_float_set", "rna_ImagePreview_image_frame_float_set");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Set a frame data and meta-data from this preview");
+	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
+	parm = RNA_def_property(func, "data", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_array(parm, 1);
+	RNA_def_property_flag(parm, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_property_ui_text(parm, "", "Array of floats, one per pixel component (RGBA values)");
+	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
+	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the preview frame");
+
+	func = RNA_def_function(srna, "icon_frame_get", "rna_ImagePreview_icon_frame_get");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Get a frame data and meta-data from this icon");
+	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to get", 0, USHRT_MAX);
+	parm = RNA_def_property(func, "data", PROP_INT, PROP_NONE);
+	RNA_def_property_array(parm, 1);
+	RNA_def_property_flag(parm, PROP_DYNAMIC);
+	RNA_def_property_ui_text(parm, "", "Array of integers, one per pixel (RGBA concatenated values)");
+	RNA_def_function_output(func, parm);
+	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
+	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the icon frame");
+	RNA_def_function_output(func, parm);
+
+	func = RNA_def_function(srna, "icon_frame_set", "rna_ImagePreview_icon_frame_set");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Set a frame data and meta-data from this icon");
+	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
+	parm = RNA_def_property(func, "data", PROP_INT, PROP_NONE);
+	RNA_def_property_array(parm, 1);
+	RNA_def_property_flag(parm, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_property_ui_text(parm, "", "Array of integers, one per pixel (RGBA concatenated values)");
+	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
+	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the icon frame");
+
+	func = RNA_def_function(srna, "icon_frame_float_get", "rna_ImagePreview_icon_frame_float_get");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Get a frame data and meta-data from this icon");
+	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to get", 0, USHRT_MAX);
+	parm = RNA_def_property(func, "data", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_array(parm, 1);
+	RNA_def_property_flag(parm, PROP_DYNAMIC);
+	RNA_def_property_ui_text(parm, "", "Array of floats, one per pixel component (RGBA values)");
+	RNA_def_function_output(func, parm);
+	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
+	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the icon frame");
+	RNA_def_function_output(func, parm);
+
+	func = RNA_def_function(srna, "icon_frame_float_set", "rna_ImagePreview_icon_frame_float_set");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_ui_description(func, "Set a frame data and meta-data from this icon");
+	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
+	parm = RNA_def_property(func, "data", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_array(parm, 1);
+	RNA_def_property_flag(parm, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_property_ui_text(parm, "", "Array of floats, one per pixel component (RGBA values)");
+	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
+	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the icon frame");
 }
 
 static void rna_def_ID(BlenderRNA *brna)
