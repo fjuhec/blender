@@ -161,7 +161,7 @@ def unregister():
 
     from . import properties_data_armature
 
-    del bpy.types.Object.pose_previews
+    # del bpy.types.Object.pose_previews
     if properties_data_armature.previews:
         bpy.utils.previews.remove(properties_data_armature.previews)
 
