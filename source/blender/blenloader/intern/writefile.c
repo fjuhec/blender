@@ -1523,6 +1523,11 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 				writestruct(wd, DATA, SmokeDomainSettings, 1, smd->domain);
 
 				if (smd->domain) {
+
+					if (smd->domain->coba) {
+						writestruct(wd, DATA, ColorBand, 1, smd->domain->coba);
+					}
+
 					writestruct(wd, DATA, EffectorWeights, 1, smd->domain->effector_weights);
 				}
 			}

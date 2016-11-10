@@ -76,12 +76,14 @@ void immVertex2iv(unsigned attrib_id, const int data[2]);
 void immUniform1i(const char* name, int x);
 void immUniform1f(const char* name, float x);
 void immUniform4f(const char* name, float x, float y, float z, float w);
+void immUniform4fv(const char* name, const float data[4]);
 
 
 // convenience functions for setting "uniform vec4 color"
 // the rgb functions have implicit alpha = 1.0
 void immUniformColor4f(float r, float g, float b, float a);
 void immUniformColor4fv(const float rgba[4]);
+void immUniformColor3f(float r, float g, float b);
 void immUniformColor3fv(const float rgb[3]);
 void immUniformColor3fvAlpha(const float rgb[3], float a);
 

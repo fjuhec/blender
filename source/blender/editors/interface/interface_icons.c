@@ -728,8 +728,12 @@ static void init_internal_icons(void)
 			icongltex.id = 0;
 		}
 
+#if 0 /* should be a compile-time check (if needed at all) */
 		/* we only use a texture for cards with non-power of two */
 		if (GPU_full_non_power_of_two_support()) {
+#else
+		{
+#endif
 			glGenTextures(1, &icongltex.id);
 
 			if (icongltex.id) {
@@ -1083,7 +1087,7 @@ void ui_icon_ensure_deferred(const bContext *C, const int icon_id, const bool bi
 					if (prv) {
 						const int size = big ? ICON_SIZE_PREVIEW : ICON_SIZE_ICON;
 
-						if (id || prv->use_deferred) {
+						if (id || (prv->tag & PRV_TAG_DEFFERED) != 0) {
 							ui_id_preview_image_render_size(C, NULL, id, prv, size, true);
 						}
 					}
