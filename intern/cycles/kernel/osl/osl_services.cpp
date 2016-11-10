@@ -169,6 +169,12 @@ bool OSLRenderServices::get_matrix(OSL::ShaderGlobals *sg, OSL::Matrix44 &result
 
 			return true;
 		}
+		else if(sd->type == PRIMITIVE_LAMP) {
+			Transform tfm = transform_transpose(sd->ob_tfm);
+			COPY_MATRIX44(&result, &tfm);
+
+			return true;
+		}
 	}
 
 	return false;
@@ -196,6 +202,12 @@ bool OSLRenderServices::get_inverse_matrix(OSL::ShaderGlobals *sg, OSL::Matrix44
 #endif
 			itfm = transform_transpose(itfm);
 			COPY_MATRIX44(&result, &itfm);
+
+			return true;
+		}
+		else if(sd->type == PRIMITIVE_LAMP) {
+			Transform tfm = transform_transpose(sd->ob_itfm);
+			COPY_MATRIX44(&result, &tfm);
 
 			return true;
 		}
@@ -288,6 +300,12 @@ bool OSLRenderServices::get_matrix(OSL::ShaderGlobals *sg, OSL::Matrix44 &result
 
 			return true;
 		}
+		else if(sd->type == PRIMITIVE_LAMP) {
+			Transform tfm = transform_transpose(sd->ob_tfm);
+			COPY_MATRIX44(&result, &tfm);
+
+			return true;
+		}
 	}
 
 	return false;
@@ -309,6 +327,12 @@ bool OSLRenderServices::get_inverse_matrix(OSL::ShaderGlobals *sg, OSL::Matrix44
 			Transform tfm = object_fetch_transform(kg, object, OBJECT_INVERSE_TRANSFORM);
 #endif
 			tfm = transform_transpose(tfm);
+			COPY_MATRIX44(&result, &tfm);
+
+			return true;
+		}
+		else if(sd->type == PRIMITIVE_LAMP) {
+			Transform tfm = transform_transpose(sd->ob_itfm);
 			COPY_MATRIX44(&result, &tfm);
 
 			return true;
