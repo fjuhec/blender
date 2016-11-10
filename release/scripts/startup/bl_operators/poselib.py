@@ -56,6 +56,8 @@ class POSELIB_OT_render_previews(Operator):
     )
 
     plib_index = 0
+    image_size = 64, 64
+    icon_size = 16, 16
 
     @classmethod
     def poll(cls, context):
@@ -89,9 +91,11 @@ class POSELIB_OT_render_previews(Operator):
         return {'RUNNING_MODAL'}
 
     def render_pose(self, context, plib, plib_index):
+        import tempfile
         import os.path
 
         marker = plib.pose_markers[plib_index]
+        marker.preview_frame_index = plib_index
         self.log.info('Rendering pose %s at frame %i', marker.name, marker.frame)
 
         context.scene.frame_set(marker.frame)
@@ -113,13 +117,22 @@ class POSELIB_OT_render_previews(Operator):
             bpy.ops.render.opengl(view_context=False)
         else:
             bpy.ops.render.render()
-        fname = os.path.join(plib.pose_previews_dir, '%s.png' % marker.name)
-        bpy.data.images['Render Result'].save_render(bpy.path.abspath(fname))
-        im = bpy.data.images.load(fname)
-        im.scale(16, 16)
-        marker.preview_frame_index = plib_index
-        plib.preview.icon_frame_float_set(plib_index, im.pixels)
-        plib.preview.image_frame_float_set(plib_index, im.pixels)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fname = os.path.join(tmpdir, 'poselib.png')
+            bpy.data.images['Render Result'].save_render(fname)
+
+            # Loading and handling the image data should all be done while the tempfile
+            # still exists on disk.
+            im = bpy.data.images.load(fname)
+
+            im.scale(*self.image_size)
+            plib.preview.image_frame_float_set(plib_index, im.pixels)
+            self.image_load_time += duration
+
+            if self.icon_size != self.image_size:
+                im.scale(*self.icon_size)
+            plib.preview.icon_frame_float_set(plib_index, im.pixels)
 
     def invoke(self, context, event):
         wm = context.window_manager
@@ -130,7 +143,8 @@ class POSELIB_OT_render_previews(Operator):
         self.plib_index = 0
 
         plib = context.object.pose_library
-        plib.preview.icon_size = plib.preview.image_size = (16, 16)
+        plib.preview.icon_size = self.icon_size
+        plib.preview.image_size = self.image_size
         plib.preview.frames_number = len(plib.pose_markers)
         for pmrk in plib.pose_markers:
             pmrk.preview_frame_index = 0
