@@ -570,6 +570,9 @@ void Transform_Properties(struct wmOperatorType *ot, int flags)
 		/*prop =*/ RNA_def_boolean(ot->srna, "release_confirm", 0, "Confirm on Release", "Always confirm operation when releasing button");
 		//RNA_def_property_flag(prop, PROP_HIDDEN);
 	}
+
+	prop = RNA_def_boolean(ot->srna, "draw_helplines", 1, "Draw Helplines", "");
+	RNA_def_property_flag(prop, PROP_HIDDEN);
 }
 
 static void TRANSFORM_OT_translate(struct wmOperatorType *ot)

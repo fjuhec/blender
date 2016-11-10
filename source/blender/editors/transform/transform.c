@@ -1693,7 +1693,7 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 {
 	TransInfo *t = (TransInfo *)customdata;
 
-	if (t->helpline != HLP_NONE && !(t->flag & T_USES_MANIPULATOR)) {
+	if (t->helpline != HLP_NONE && (t->flag & T_DRAW_HELPLINES)) {
 		float vecrot[3], cent[2];
 		int mval[2];
 
@@ -3397,7 +3397,7 @@ static void ElementResize(TransInfo *t, TransData *td, float mat[3][3])
 	constraintTransLim(t, td);
 }
 
-static void applyResize(TransInfo *t, const int mval[2])
+static void applyResize(TransInfo *t, const int UNUSED(mval[2]))
 {
 	TransData *td;
 	float mat[3][3];
@@ -3408,17 +3408,7 @@ static void applyResize(TransInfo *t, const int mval[2])
 		copy_v3_v3(t->values, t->auto_values);
 	}
 	else {
-		float ratio;
-
-		/* for manipulator, center handle, the scaling can't be done relative to center */
-		if ((t->flag & T_USES_MANIPULATOR) && t->con.mode == 0) {
-			ratio = 1.0f - ((t->mouse.imval[0] - mval[0]) + (t->mouse.imval[1] - mval[1])) / 100.0f;
-		}
-		else {
-			ratio = t->values[0];
-		}
-
-		copy_v3_fl(t->values, ratio);
+		copy_v3_fl(t->values, t->values[0]);
 
 		snapGridIncrement(t, t->values);
 
@@ -5219,24 +5209,14 @@ static void ElementBoneSize(TransInfo *t, TransData *td, float mat[3][3])
 	td->loc[1] = oldy;
 }
 
-static void applyBoneSize(TransInfo *t, const int mval[2])
+static void applyBoneSize(TransInfo *t, const int UNUSED(mval[2]))
 {
 	TransData *td = t->data;
 	float size[3], mat[3][3];
-	float ratio;
 	int i;
 	char str[UI_MAX_DRAW_STR];
 	
-	// TRANSFORM_FIX_ME MOVE TO MOUSE INPUT
-	/* for manipulator, center handle, the scaling can't be done relative to center */
-	if ((t->flag & T_USES_MANIPULATOR) && t->con.mode == 0) {
-		ratio = 1.0f - ((t->mouse.imval[0] - mval[0]) + (t->mouse.imval[1] - mval[1])) / 100.0f;
-	}
-	else {
-		ratio = t->values[0];
-	}
-	
-	copy_v3_fl(size, ratio);
+	copy_v3_fl(size, t->values[0]);
 	
 	snapGridIncrement(t, size);
 	

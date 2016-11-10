@@ -704,7 +704,7 @@ void drawConstraint(TransInfo *t)
 		return;
 	if (!(tc->mode & CON_APPLY))
 		return;
-	if (t->flag & T_USES_MANIPULATOR)
+	if (!(t->flag & T_DRAW_HELPLINES))
 		return;
 	if (t->flag & T_NO_CONSTRAINT)
 		return;

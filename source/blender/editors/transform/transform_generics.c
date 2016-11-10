@@ -1414,7 +1414,13 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	else { /* add not pet option to context when not available */
 		t->options |= CTX_NO_PET;
 	}
-	
+
+	if (op && (prop = RNA_struct_find_property(op->ptr, "draw_helplines"))) {
+		if (RNA_property_boolean_get(op->ptr, prop)) {
+			t->flag |= T_DRAW_HELPLINES;
+		}
+	}
+
 	// Mirror is not supported with PET, turn it off.
 #if 0
 	if (t->flag & T_PROP_EDIT) {

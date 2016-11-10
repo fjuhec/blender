@@ -479,6 +479,7 @@ static void transform_axis_manipulator_init(TransformAxisManipulator *axis, wmMa
 		RNA_boolean_set_array(ptr, "constraint_axis", axis->constraint);
 	}
 	RNA_boolean_set(ptr, "release_confirm", 1);
+	RNA_boolean_set(ptr, "draw_helplines", 0);
 }
 
 static void transform_manipulatorgroup_init(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
