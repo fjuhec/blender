@@ -129,6 +129,8 @@
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 
+#include "atomic_ops.h"
+
 /* GS reads the memory pointed at in a specific ordering. 
  * only use this definition, makes little and big endian systems
  * work fine, in conjunction with MAKE_ID */
@@ -262,9 +264,12 @@ void id_fake_user_clear(ID *id)
 }
 
 static int id_expand_local_callback(
-        void *UNUSED(user_data), struct ID *UNUSED(id_self), struct ID **id_pointer, int UNUSED(cd_flag))
+        void *UNUSED(user_data), struct ID *id_self, struct ID **id_pointer, int UNUSED(cd_flag))
 {
-	if (*id_pointer) {
+	/* Can hapen that we get unlinkable ID here, e.g. with shapekey referring to itself (through drivers)...
+	 * Just skip it, shape key can only be either indirectly linked, or fully local, period.
+	 * And let's curse one more time that stupid useless shapekey ID type! */
+	if (*id_pointer && *id_pointer != id_self && BKE_idcode_is_linkable(GS((*id_pointer)->name))) {
 		id_lib_extern(*id_pointer);
 	}
 
@@ -1667,9 +1672,10 @@ void BKE_library_make_local(
 			/* The check on the second line (LIB_TAG_PRE_EXISTING) is done so its
 			 * possible to tag data you don't want to be made local, used for
 			 * appending data, so any libdata already linked wont become local
-			 * (very nasty to discover all your links are lost after appending)  
-			 * */
+			 * (very nasty to discover all your links are lost after appending).
+			 * Also, never ever make proxified objects local, would not make any sense. */
 			if (!do_skip && id->tag & (LIB_TAG_EXTERN | LIB_TAG_INDIRECT | LIB_TAG_NEW) &&
+			    !(GS(id->name) == ID_OB && ((Object *)id)->proxy_from != NULL) &&
 			    ((untagged_only == false) || !(id->tag & LIB_TAG_PRE_EXISTING)))
 			{
 				if (lib == NULL || id->lib == lib) {
@@ -1778,7 +1784,8 @@ void BKE_library_make_local(
 					it->link = NULL;
 					do_loop = true;
 				}
-				else {  /* Only used by linked data, potential candidate to ugly lib-only dependency cycles... */
+				/* Only used by linked data, potential candidate to ugly lib-only dependency cycles... */
+				else if ((id->tag & LIB_TAG_DOIT) == 0) {  /* Check TAG_DOIT to avoid adding same ID several times... */
 					/* Note that we store the node, not directly ID pointer, that way if it->link is set to NULL
 					 * later we can skip it in lib-dependency cycles search later. */
 					BLI_linklist_prepend_arena(&linked_loop_candidates, it, linklist_mem);
@@ -1821,6 +1828,7 @@ void BKE_library_make_local(
 			BKE_libblock_unlink(bmain, id, false, false);
 			BKE_libblock_free(bmain, id);
 #endif
+			((LinkNode *)it->link)->link = NULL;  /* Not strictly necessary, but safer (see T49903)... */
 			it->link = NULL;
 		}
 	}
@@ -1892,4 +1900,14 @@ void BKE_library_filepath_set(Library *lib, const char *filepath)
 		const char *basepath = lib->parent ? lib->parent->filepath : G.main->name;
 		BLI_path_abs(lib->filepath, basepath);
 	}
+}
+
+void BKE_id_tag_set_atomic(ID *id, int tag)
+{
+	atomic_fetch_and_or_uint32((uint32_t *)&id->tag, tag);
+}
+
+void BKE_id_tag_clear_atomic(ID *id, int tag)
+{
+	atomic_fetch_and_and_uint32((uint32_t *)&id->tag, ~tag);
 }

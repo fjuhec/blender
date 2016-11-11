@@ -76,43 +76,49 @@ struct DepsgraphNodeBuilder {
 
 	ComponentDepsNode *add_component_node(ID *id,
 	                                      eDepsNode_Type comp_type,
-	                                      const string& comp_name = "");
+	                                      const char *comp_name = "");
 
 	OperationDepsNode *add_operation_node(ComponentDepsNode *comp_node,
 	                                      eDepsOperation_Type optype,
 	                                      DepsEvalOperationCb op,
 	                                      eDepsOperation_Code opcode,
-	                                      const string& description = "");
+	                                      const char *name = "",
+	                                      int name_tag = -1);
 	OperationDepsNode *add_operation_node(ID *id,
 	                                      eDepsNode_Type comp_type,
-	                                      const string& comp_name,
+	                                      const char *comp_name,
 	                                      eDepsOperation_Type optype,
 	                                      DepsEvalOperationCb op,
 	                                      eDepsOperation_Code opcode,
-	                                      const string& description = "");
+	                                      const char *name = "",
+	                                      int name_tag = -1);
 	OperationDepsNode *add_operation_node(ID *id,
 	                                      eDepsNode_Type comp_type,
 	                                      eDepsOperation_Type optype,
 	                                      DepsEvalOperationCb op,
 	                                      eDepsOperation_Code opcode,
-	                                      const string& description = "");
+	                                      const char *name = "",
+	                                      int name_tag = -1);
 
 	bool has_operation_node(ID *id,
 	                        eDepsNode_Type comp_type,
-	                        const string& comp_name,
+	                        const char *comp_name,
 	                        eDepsOperation_Code opcode,
-	                        const string& description = "");
+	                        const char *name = "",
+	                        int name_tag = -1);
 
 	OperationDepsNode *find_operation_node(ID *id,
 	                                       eDepsNode_Type comp_type,
-	                                       const string &comp_name,
+	                                       const char *comp_name,
 	                                       eDepsOperation_Code opcode,
-	                                       const string &description = "");
+	                                       const char *name = "",
+	                                       int name_tag = -1);
 
 	OperationDepsNode *find_operation_node(ID *id,
 	                                       eDepsNode_Type comp_type,
 	                                       eDepsOperation_Code opcode,
-	                                       const string &description = "");
+	                                       const char *name = "",
+	                                       int name_tag = -1);
 
 	void build_scene(Main *bmain, Scene *scene);
 	SubgraphDepsNode *build_subgraph(Group *group);
