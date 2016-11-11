@@ -283,7 +283,12 @@ void BKE_previewimg_frame_delete(struct PreviewImage *prv, const short frame_idx
 unsigned int *BKE_previewimg_frame_data_get(
         const PreviewImage *prv, const unsigned short frame_idx, const enum eIconSizes size, int *r_meta)
 {
-	BLI_assert(prv != NULL && frame_idx < prv->num_frames);
+	BLI_assert(prv != NULL);
+
+	if (frame_idx >= prv->num_frames) {
+		printf("BKE_previewimg_frame_data_get: requested frame %i of %i\n", frame_idx, prv->num_frames);
+		return NULL;
+	}
 
 	unsigned int *frame = NULL;
 	if (r_meta) {

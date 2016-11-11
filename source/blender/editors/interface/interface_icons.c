@@ -1370,7 +1370,10 @@ static void icon_draw_size(
 
 			if (frame_idx > 0) {
 				unsigned int *rect = BKE_previewimg_frame_data_get(pi, frame_idx, size, NULL);
-				icon_draw_rect(x, y, w, h, aspect, pi->w[size], pi->h[size], rect, alpha, rgb, is_preview);
+				if (rect) {
+					/* TODO: just prevent this NULL pointer in the first place */
+					icon_draw_rect(x, y, w, h, aspect, pi->w[size], pi->h[size], rect, alpha, rgb, is_preview);
+				}
 			}
 			else {
 				icon_draw_rect(x, y, w, h, aspect, pi->w[size], pi->h[size], pi->rect[size], alpha, rgb, is_preview);
