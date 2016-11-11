@@ -1261,3 +1261,5 @@ def unregister():
     bpy.utils.unregister_class(CyclesVisibilitySettings)
     bpy.utils.unregister_class(CyclesCurveRenderSettings)
     bpy.utils.unregister_class(CyclesCurveSettings)
+    bpy.utils.unregister_class(CyclesDeviceSettings)
+    bpy.utils.unregister_class(CyclesPreferences)
