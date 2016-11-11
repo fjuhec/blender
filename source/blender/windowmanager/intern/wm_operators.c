@@ -4137,7 +4137,7 @@ static void hmd_view_prepare_screen(bContext *C, Scene *scene, wmWindow *win)
 
 	/* sync view options */
 	v3d->drawtype = scene->hmd_settings.view_shade;
-	if (scene->hmd_settings.flag & HMDVIEW_USE_LENSDIST_FX) {
+	if (U.hmd_settings.flag & USER_HMD_USE_LENSDIST_FX) {
 		v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
 	}
 
@@ -4158,7 +4158,7 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		wm_window_close(C, wm, win);
 		wm->win_hmd = NULL;
 		/* close HMD */
-		WM_device_HMD_state_set(U.hmd_device, false);
+		WM_device_HMD_state_set(U.hmd_settings.device, false);
 	}
 	/* open */
 	else {
@@ -4209,17 +4209,17 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	scene->hmd_settings.flag ^= HMDVIEW_SESSION_RUNNING;
 	if (was_hmd_running) {
 		WM_window_fullscreen_toggle(hmd_win, false, true);
-		WM_device_HMD_state_set(U.hmd_device, false);
+		WM_device_HMD_state_set(U.hmd_settings.device, false);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 	else {
 		ScrArea *sa = hmd_win->screen->areabase.first;
 		BLI_assert(sa->spacetype = SPACE_VIEW3D);
 
-		WM_device_HMD_state_set(U.hmd_device, true);
-		if ((scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD) == 0) {
-			scene->hmd_settings.init_ipd = WM_device_HMD_IPD_get();
-			WM_device_HMD_IPD_set(scene->hmd_settings.custom_ipd);
+		WM_device_HMD_state_set(U.hmd_settings.device, true);
+		if ((U.hmd_settings.flag & USER_HMD_USE_DEVICE_IPD) == 0) {
+			U.hmd_settings.init_ipd = WM_device_HMD_IPD_get();
+			WM_device_HMD_IPD_set(U.hmd_settings.custom_ipd);
 		}
 
 		WM_window_fullscreen_toggle(hmd_win, true, false);

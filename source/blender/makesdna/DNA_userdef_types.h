@@ -430,6 +430,21 @@ typedef struct WalkNavigation {
 	short pad[3];
 } WalkNavigation;
 
+struct HMDSettings {
+	short device; /* HMD device index */
+	char flag, pad;
+	float custom_ipd;
+	/* Set while using custom_ipd (USER_HMD_USE_DEVICE_IPD) so we can reset to device IPD */
+	float init_ipd;
+};
+
+/* HMDViewSettings.flag */
+enum {
+	USER_HMD_USE_DEVICE_ROT  = (1 << 0),
+	USER_HMD_USE_LENSDIST_FX = (1 << 1),
+	USER_HMD_USE_DEVICE_IPD  = (1 << 2),
+};
+
 typedef struct UserDef {
 	/* UserDef has separate do-version handling, and can be read from other files */
 	int versionfile, subversionfile;
@@ -568,10 +583,10 @@ typedef struct UserDef {
 
 	struct WalkNavigation walk_navigation;
 
-	short opensubdiv_compute_type;
+	short opensubdiv_compute_type, pad3[3];
 
-	short hmd_device; /* HMD device index */
-	char pad5[4];
+	struct HMDSettings hmd_settings;
+	int pad5;
 } UserDef;
 
 extern UserDef U; /* from blenkernel blender.c */

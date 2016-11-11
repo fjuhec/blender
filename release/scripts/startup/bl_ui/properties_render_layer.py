@@ -247,16 +247,7 @@ class RENDERLAYER_PT_hmd(RenderLayerButtonsPanel, Panel):
         row.operator("wm.hmd_view_toggle", text=text_win)
         row.operator("wm.hmd_session_run", text=text_run, icon=icon)
 
-        row = layout.row()
-        row.prop(scene, "hmd_camlock")
-        row.prop(scene, "use_hmd_view_lensdist", text="Lens Distortion")
-
         layout.prop(scene, "hmd_view_shade", text="Shading")
-        layout.prop(scene, "use_hmd_device_ipd")
-
-        col = layout.column()
-        col.active = not scene.use_hmd_device_ipd
-        col.prop(scene, "hmd_custom_ipd")
 
 
 if __name__ == "__main__":  # only for live edit.

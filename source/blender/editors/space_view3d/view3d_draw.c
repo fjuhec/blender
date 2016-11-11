@@ -3628,7 +3628,9 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
 
 static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win, Scene *scene)
 {
-	return (wm->win_hmd == win && (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING) && (U.hmd_device > -1));
+	return ((wm->win_hmd == win) &&
+	        (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING) &&
+	        (U.hmd_settings.device > -1));
 }
 
 static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)

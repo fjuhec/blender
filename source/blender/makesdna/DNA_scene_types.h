@@ -1582,17 +1582,11 @@ typedef struct DisplaySafeAreas {
 struct HMDViewSettings {
 	char view_shade; /* rna_enum_viewport_shade_items */
 	char flag, pad[2];
-	float custom_ipd;
-	/* Set while using custom_ipd (HMDVIEW_USE_DEVICE_IPD) so we can reset to device IPD */
-	float init_ipd;
 };
 
 /* HMDViewSettings.flag */
 enum {
 	HMDVIEW_SESSION_RUNNING = (1 << 0),
-	HMDVIEW_IGNORE_ROT      = (1 << 1),
-	HMDVIEW_USE_LENSDIST_FX = (1 << 2),
-	HMDVIEW_USE_DEVICE_IPD  = (1 << 3),
 };
 
 /* *************************************************************** */

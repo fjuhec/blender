@@ -2751,7 +2751,9 @@ void init_userdef_do_versions(void)
 	}
 
 	if (!USER_VERSION_ATLEAST(278, 2)) {
-		U.hmd_device = -1;
+		U.hmd_settings.device = -1;
+		U.hmd_settings.flag = (USER_HMD_USE_DEVICE_IPD | USER_HMD_USE_DEVICE_ROT | USER_HMD_USE_LENSDIST_FX);
+		U.hmd_settings.custom_ipd = 0.061f;
 	}
 
 	/**

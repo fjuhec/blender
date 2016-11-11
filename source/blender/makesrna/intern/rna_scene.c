@@ -733,13 +733,6 @@ static void rna_Scene_volume_set(PointerRNA *ptr, float value)
 
 
 #ifdef WITH_INPUT_HMD
-static void rna_Scene_hmd_camlock_update(
-        struct Main *UNUSED(main), struct Scene *scene,
-        struct PointerRNA *UNUSED(ptr))
-{
-	Object *camera_ob = scene->camera;
-	DAG_id_tag_update(&camera_ob->id, OB_RECALC_OB);
-}
 
 static void rna_Scene_hmd_view_shade_set(PointerRNA *ptr, int value)
 {
@@ -758,92 +751,6 @@ static void rna_Scene_hmd_view_shade_set(PointerRNA *ptr, int value)
 				break;
 			}
 		}
-	}
-}
-
-static void rna_Scene_hmd_view_lensdist_set(PointerRNA *ptr, int value)
-{
-	Scene *scene = ptr->data;
-	wmWindowManager *wm = G.main->wm.first;
-	wmWindow *win = wm->win_hmd;
-
-	if (value) {
-		scene->hmd_settings.flag |= HMDVIEW_USE_LENSDIST_FX;
-	}
-	else {
-		scene->hmd_settings.flag &= ~HMDVIEW_USE_LENSDIST_FX;
-	}
-
-	if (win) {
-		for (ScrArea *sa = win->screen->areabase.first; sa; sa = sa->next) {
-			if (sa->spacetype == SPACE_VIEW3D) {
-				View3D *v3d = sa->spacedata.first;
-				if (value) {
-					v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
-				}
-				else {
-					v3d->fx_settings.fx_flag &= ~GPU_FX_FLAG_LensDist;
-				}
-				ED_area_tag_redraw(sa);
-				break;
-			}
-		}
-	}
-}
-
-void rna_Scene_use_hmd_device_ipd_set(PointerRNA *ptr, int value)
-{
-	Scene *scene = ptr->data;
-	if (value) {
-		scene->hmd_settings.flag |= HMDVIEW_USE_DEVICE_IPD;
-		WM_device_HMD_IPD_set(scene->hmd_settings.init_ipd);
-	}
-	else {
-		scene->hmd_settings.flag &= ~HMDVIEW_USE_DEVICE_IPD;
-		scene->hmd_settings.init_ipd = WM_device_HMD_IPD_get();
-		WM_device_HMD_IPD_set(scene->hmd_settings.custom_ipd);
-	}
-}
-
-static int rna_Scene_use_hmd_device_ipd_editeable(PointerRNA *ptr, const char **r_info)
-{
-	Scene *scene = ptr->data;
-	bool editable = true;
-
-	if (U.hmd_device == -1) {
-		*r_info = "No valid HMD device selected (see User Preferences)";
-		editable = false;
-	}
-	else {
-		const bool has_active_device = WM_device_HMD_current_get() >= 0;
-
-		if (!has_active_device) {
-			/* temporary activate device to see if it returns an IPD */
-			WM_device_HMD_state_set(U.hmd_device, true);
-		}
-		if (WM_device_HMD_IPD_get() == -1.0f) {
-			*r_info = "Active HMD device doesn't return valid interocular distance";
-			editable = false;
-		}
-		if (!has_active_device) {
-			WM_device_HMD_state_set(U.hmd_device, false);
-		}
-	}
-
-	if (!editable) {
-		scene->hmd_settings.flag |= HMDVIEW_USE_DEVICE_IPD;
-		return false;
-	}
-
-	return PROP_EDITABLE;
-}
-
-void rna_Scene_hmd_custom_ipd_set(PointerRNA *ptr, float value)
-{
-	Scene *scene = ptr->data;
-	scene->hmd_settings.custom_ipd = value;
-	if ((scene->hmd_settings.flag & HMDVIEW_USE_DEVICE_IPD) == 0) {
-		WM_device_HMD_IPD_set(value);
 	}
 }
 
@@ -7400,38 +7307,11 @@ void RNA_def_scene(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "HMD Running", "");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
-	prop = RNA_def_property(srna, "hmd_camlock", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "hmd_settings.flag", HMDVIEW_IGNORE_ROT);
-	RNA_def_property_ui_text(prop, "HMD Rotation", "Use the rotation of a head mounted display if available");
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_Scene_hmd_camlock_update");
-
 	prop = RNA_def_property(srna, "hmd_view_shade", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "hmd_settings.view_shade");
 	RNA_def_property_enum_items(prop, rna_enum_viewport_shade_items);
 	RNA_def_property_enum_funcs(prop, NULL, "rna_Scene_hmd_view_shade_set", NULL);
 	RNA_def_property_ui_text(prop, "HMD View Shading", "Method to draw in the HMD view");
-
-	prop = RNA_def_property(srna, "use_hmd_view_lensdist", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "hmd_settings.flag", HMDVIEW_USE_LENSDIST_FX);
-	RNA_def_property_boolean_funcs(prop, NULL, "rna_Scene_hmd_view_lensdist_set");
-	RNA_def_property_ui_text(prop, "HMD View Lens Distortion", "Draw the HMD viewport using a distorted lens");
-
-	prop = RNA_def_property(srna, "use_hmd_device_ipd", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "hmd_settings.flag", HMDVIEW_USE_DEVICE_IPD);
-	RNA_def_property_boolean_funcs(prop, NULL, "rna_Scene_use_hmd_device_ipd_set");
-	RNA_def_property_ui_text(prop, "IPD from HMD", "Request the interpupillary distance (distance between the "
-	                         "eye pupil centers) from the HMD driver");
-	RNA_def_property_editable_func(prop, "rna_Scene_use_hmd_device_ipd_editeable");
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
-
-	prop = RNA_def_property(srna, "hmd_custom_ipd", PROP_FLOAT, PROP_DISTANCE);
-	RNA_def_property_float_sdna(prop, NULL, "hmd_settings.custom_ipd");
-	RNA_def_property_float_funcs(prop, NULL, "rna_Scene_hmd_custom_ipd_set", NULL);
-	RNA_def_property_range(prop, 0.0f, FLT_MAX);
-	RNA_def_property_ui_range(prop, 0.0f, 1e4f, 1, 3);
-	RNA_def_property_ui_text(prop, "Custom IPD", "Set the interpupillary distance (distance between the "
-	                         "eye pupil centers)");
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 #endif
 
 	/* Nestled Data  */

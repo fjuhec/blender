@@ -1262,12 +1262,12 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 				if (hmd_data->subtype == GHOST_kDeviceNumChanged) {
 					if (WM_device_HMD_num_devices_get() > 0) {
-						if (U.hmd_device == -1) { /* Only if 'None' item is selected */
-							U.hmd_device = 0; /* last device plugged in */
+						if (U.hmd_settings.device == -1) { /* Only if 'None' item is selected */
+							U.hmd_settings.device = 0; /* last device plugged in */
 						}
 					}
 					else {
-						U.hmd_device = -1;
+						U.hmd_settings.device = -1;
 					}
 				}
 				else {
