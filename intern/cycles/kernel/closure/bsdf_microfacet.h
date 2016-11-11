@@ -259,7 +259,7 @@ ccl_device_forceinline float D_GTR1(float NdotH, float alpha)
 	if (alpha >= 1.0f) return M_1_PI_F;
 	float alpha2 = alpha*alpha;
 	float t = 1.0f + (alpha2 - 1.0f) * NdotH*NdotH;
-	return (alpha2 - 1.0f) / (M_1_PI_F * logf(alpha2) * t);
+	return (alpha2 - 1.0f) / (M_PI_F * logf(alpha2) * t);
 }
 
 /* GGX microfacet with Smith shadow-masking from:
