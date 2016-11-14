@@ -1368,7 +1368,7 @@ static void icon_draw_size(
 			/* preview images use premul alpha ... */
 			glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-			if (frame_idx > 0) {
+			if (frame_idx > 0 && frame_idx < pi->num_frames) {
 				unsigned int *rect = BKE_previewimg_frame_data_get(pi, frame_idx, size, NULL);
 				icon_draw_rect(x, y, w, h, aspect, pi->w[size], pi->h[size], rect, alpha, rgb, is_preview);
 			}
