@@ -72,48 +72,95 @@ static void rna_ImagePackedFile_save(ImagePackedFile *imapf, ReportList *reports
 	}
 }
 
+static ImBuf *get_render_ibuf(Image *image, ReportList *reports, Scene *scene)
+{
+	ImBuf *ibuf, *ret_ibuf = NULL;
+	ImageUser iuser = {NULL};
+	void *lock;
+
+	iuser.scene = scene;
+	iuser.ok = 1;
+
+	ibuf = BKE_image_acquire_ibuf(image, &iuser, &lock);
+
+	if (ibuf == NULL) {
+		BKE_report(reports, RPT_ERROR, "Could not acquire buffer from image");
+	}
+	else {
+		ret_ibuf = IMB_colormanagement_imbuf_for_write(ibuf, true, true, &scene->view_settings,
+		                                               &scene->display_settings, &scene->r.im_format);
+
+		/* We do not want to change ibuf acquired from image in any way, so always ensure we are working on a copy. */
+		if (ret_ibuf == ibuf) {
+			ret_ibuf = IMB_dupImBuf(ibuf);
+		}
+		ret_ibuf->planes = scene->r.im_format.planes;
+		ret_ibuf->dither = scene->r.dither_intensity;
+
+		BKE_image_release_ibuf(image, ibuf, lock);
+	}
+
+	return ret_ibuf;
+}
+
 static void rna_Image_save_render(Image *image, bContext *C, ReportList *reports, const char *path, Scene *scene)
 {
-	ImBuf *ibuf;
+	if (scene == NULL) {
+		scene = CTX_data_scene(C);
+	}
+
+	if (scene) {
+		ImBuf *write_ibuf = get_render_ibuf(image, reports, scene);
+
+		if (write_ibuf == NULL) {
+			BKE_report(reports, RPT_ERROR, "Could not acquire buffer from image");
+		}
+		else {
+			if (!BKE_imbuf_write(write_ibuf, path, &scene->r.im_format)) {
+				BKE_reportf(reports, RPT_ERROR, "Could not write image: %s, '%s'", strerror(errno), path);
+			}
+
+			IMB_freeImBuf(write_ibuf);
+		}
+	}
+	else {
+		BKE_report(reports, RPT_ERROR, "Scene not in context, could not get save parameters");
+	}
+}
+
+static Image *rna_Image_copy_from_render(Image *image, bContext *C, ReportList *reports, Scene *scene)
+{
+	Image *ret_image = NULL;
 
 	if (scene == NULL) {
 		scene = CTX_data_scene(C);
 	}
 
 	if (scene) {
-		ImageUser iuser = {NULL};
-		void *lock;
+		ImBuf *new_ibuf = get_render_ibuf(image, reports, scene);
 
-		iuser.scene = scene;
-		iuser.ok = 1;
-
-		ibuf = BKE_image_acquire_ibuf(image, &iuser, &lock);
-
-		if (ibuf == NULL) {
+		if (new_ibuf == NULL) {
 			BKE_report(reports, RPT_ERROR, "Could not acquire buffer from image");
 		}
 		else {
-			ImBuf *write_ibuf;
+			ret_image = BKE_image_add_from_imbuf(new_ibuf, image->id.name + 2);
 
-			write_ibuf = IMB_colormanagement_imbuf_for_write(ibuf, true, true, &scene->view_settings,
-			                                                 &scene->display_settings, &scene->r.im_format);
-
-			write_ibuf->planes = scene->r.im_format.planes;
-			write_ibuf->dither = scene->r.dither_intensity;
-
-			if (!BKE_imbuf_write(write_ibuf, path, &scene->r.im_format)) {
-				BKE_reportf(reports, RPT_ERROR, "Could not write image: %s, '%s'", strerror(errno), path);
+			if (!ret_image) {
+				BKE_reportf(reports, RPT_ERROR, "Could not create copy image.");
+				IMB_freeImBuf(new_ibuf);
+			}
+			else {
+				id_us_min(&ret_image->id);
 			}
 
-			if (write_ibuf != ibuf)
-				IMB_freeImBuf(write_ibuf);
+			IMB_freeImBuf(new_ibuf);
 		}
-
-		BKE_image_release_ibuf(image, ibuf, lock);
 	}
 	else {
 		BKE_report(reports, RPT_ERROR, "Scene not in context, could not get save parameters");
 	}
+
+	return ret_image;
 }
 
 static void rna_Image_save(Image *image, Main *bmain, bContext *C, ReportList *reports)
@@ -316,6 +363,14 @@ void RNA_api_image(StructRNA *srna)
 	parm = RNA_def_string_file_path(func, "filepath", NULL, 0, "", "Save path");
 	RNA_def_property_flag(parm, PROP_REQUIRED);
 	RNA_def_pointer(func, "scene", "Scene", "", "Scene to take image parameters from");
+
+	func = RNA_def_function(srna, "copy_from_render", "rna_Image_copy_from_render");
+	RNA_def_function_ui_description(func, "Return a new, regular image, copy of given render result one");
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
+	RNA_def_pointer(func, "scene", "Scene", "", "Scene to take image parameters from");
+	parm = RNA_def_pointer(func, "image", "Image", "",
+	                       "Copied image from this render result one");
+	RNA_def_function_return(func, parm);
 
 	func = RNA_def_function(srna, "save", "rna_Image_save");
 	RNA_def_function_ui_description(func, "Save image to its source path");
