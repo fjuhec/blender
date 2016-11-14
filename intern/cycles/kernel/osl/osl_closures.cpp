@@ -180,7 +180,19 @@ VOLUME_CLOSURE_CLASS_END(VolumeAbsorption, absorption)
 BSDF_CLOSURE_CLASS_BEGIN(DisneyDiffuse, disney_diffuse, DisneyDiffuseBsdf, LABEL_DIFFUSE)
 	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, params.N),
 	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, params.roughness),
+	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, params.flatness),
 BSDF_CLOSURE_CLASS_END(DisneyDiffuse, disney_diffuse)
+
+BSDF_CLOSURE_CLASS_BEGIN(DisneyDiffuseTransmit, disney_diffuse_transmit, DisneyDiffuseBsdf, LABEL_DIFFUSE|LABEL_TRANSMIT)
+	CLOSURE_FLOAT3_PARAM(DisneyDiffuseTransmitClosure, params.N),
+	CLOSURE_FLOAT_PARAM(DisneyDiffuseTransmitClosure, params.roughness),
+	CLOSURE_FLOAT_PARAM(DisneyDiffuseTransmitClosure, params.flatness),
+BSDF_CLOSURE_CLASS_END(DisneyDiffuseTransmit, disney_diffuse_transmit)
+
+BSDF_CLOSURE_CLASS_BEGIN(DisneyRetroReflection, disney_retro_reflection, DisneyDiffuseBsdf, LABEL_DIFFUSE)
+	CLOSURE_FLOAT3_PARAM(DisneyRetroReflectionClosure, params.N),
+	CLOSURE_FLOAT_PARAM(DisneyRetroReflectionClosure, params.roughness),
+BSDF_CLOSURE_CLASS_END(DisneyRetroReflection, disney_retro_reflection)
 
 BSDF_CLOSURE_CLASS_BEGIN(DisneySheen, disney_sheen, DisneySheenBsdf, LABEL_DIFFUSE)
 	CLOSURE_FLOAT3_PARAM(DisneySheenClosure, params.N),
@@ -299,6 +311,10 @@ void OSLShader::register_closures(OSLShadingSystem *ss_)
 		bsdf_glossy_toon_params(), bsdf_glossy_toon_prepare);
 	register_closure(ss, "disney_diffuse", id++,
 		bsdf_disney_diffuse_params(), bsdf_disney_diffuse_prepare);
+	register_closure(ss, "disney_diffuse_transmit", id++,
+		bsdf_disney_diffuse_transmit_params(), bsdf_disney_diffuse_transmit_prepare);
+	register_closure(ss, "disney_retro_reflection", id++,
+		bsdf_disney_retro_reflection_params(), bsdf_disney_retro_reflection_prepare);
 	register_closure(ss, "disney_sheen", id++,
 		bsdf_disney_sheen_params(), bsdf_disney_sheen_prepare);
 	register_closure(ss, "disney_clearcoat", id++,

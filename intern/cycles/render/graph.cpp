@@ -980,7 +980,7 @@ int ShaderGraph::get_num_closures()
 			num_closures += 2;
 		}
 		else if(CLOSURE_IS_DISNEY(closure_type)) {
-			num_closures += 8;
+			num_closures += 10;
 		}
 		else {
 			++num_closures;

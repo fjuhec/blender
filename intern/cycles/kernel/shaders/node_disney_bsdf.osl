@@ -19,6 +19,7 @@
 
 shader node_disney_bsdf(
 	string distribution = "Multiscatter GGX",
+	string surface_type = "Solid Surface",
 	color BaseColor = color(0.8, 0.8, 0.8),
 	float Subsurface = 0.0,
 	vector SubsurfaceRadius = vector(1.0, 1.0, 1.0),
@@ -33,8 +34,10 @@ shader node_disney_bsdf(
 	float SheenTint = 0.5,
 	float Clearcoat = 0.0,
 	float ClearcoatGloss = 1.0,
+	float SpecularTransmission = 0.0,
 	float IOR = 1.45,
-	float Transparency = 0.0,
+	float Flatness = 0.0,
+	float DiffuseTransmission = 0.0,
 	float RefractionRoughness = 0.0,
 	normal Normal = N,
 	normal ClearcoatNormal = N,
@@ -42,8 +45,8 @@ shader node_disney_bsdf(
 	output closure color BSDF = 0)
 {
 	float f = max(IOR, 1e-5);
-	float diffuse_weight = (1.0 - clamp(Metallic, 0.0, 1.0)) * (1.0 - clamp(Transparency, 0.0, 1.0));
-	float transp = clamp(Transparency, 0.0, 1.0) * (1.0 - clamp(Metallic, 0.0, 1.0));
+	float diffuse_weight = (1.0 - clamp(Metallic, 0.0, 1.0)) * (1.0 - clamp(SpecularTransmission, 0.0, 1.0));
+	float transp = clamp(SpecularTransmission, 0.0, 1.0) * (1.0 - clamp(Metallic, 0.0, 1.0));
 	float specular_weight = (1.0 - transp);
 
 	vector T = Tangent;
@@ -56,10 +59,24 @@ shader node_disney_bsdf(
 		T = rotate(T, AnisotropicRotation * M_2PI, point(0.0, 0.0, 0.0), Normal);
 
 	if (diffuse_weight > 1e-5) {
-		if (Subsurface > 1e-5) {
-			BSDF = bssrdf_disney(Normal, Subsurface * SubsurfaceRadius, 0.0, BaseColor, SubsurfaceColor, Roughness);
+		float flat = Flatness;
+		float diff_trans = clamp(DiffuseTransmission, 0.0, 2.0);
+		if (surface_type == "Solid Surface") {
+			flat = 0.0;
+			diff_trans = 0.0;
+		}
+
+		if (Subsurface > 1e-5 && surface_type == "Solid Surface") {
+			BSDF = bssrdf_disney(Normal, Subsurface * SubsurfaceRadius, 0.0, BaseColor, SubsurfaceColor);
 		} else {
-			BSDF = BaseColor * disney_diffuse(Normal, Roughness);
+			BSDF = BaseColor * disney_diffuse(Normal, Roughness, flat) * ((2.0 - diff_trans) / 2.0);
+		}
+
+		/* diffuse retro-reflection */
+		BSDF = BSDF + BaseColor * disney_retro_reflection(Normal, Roughness);
+
+		if (diff_trans > 1e-5) {
+			BSDF = BSDF + BaseColor * disney_diffuse_transmit(Normal, Roughness, flat) * (diff_trans / 2.0);
 		}
 
 		if (Sheen > 1e-5) {

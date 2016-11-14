@@ -528,6 +528,14 @@ static ShaderNode *add_node(Scene *scene,
 				disney->distribution = CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID;
 				break;
 		}
+		switch (b_disney_node.surface_type()) {
+			case BL::ShaderNodeBsdfDisney::surface_type_THIN_SURFACE:
+				disney->surface_type = THIN_SURFACE;
+				break;
+			case BL::ShaderNodeBsdfDisney::surface_type_SOLID_SURFACE:
+				disney->surface_type = SOLID_SURFACE;
+				break;
+		}
 		node = disney;
 	}
 	else if(b_node.is_a(&RNA_ShaderNodeBsdfTranslucent)) {

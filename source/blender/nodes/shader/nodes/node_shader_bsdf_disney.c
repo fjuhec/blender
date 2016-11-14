@@ -44,8 +44,10 @@ static bNodeSocketTemplate sh_node_bsdf_disney_in[] = {
 	{	SOCK_FLOAT, 1, N_("Sheen Tint"),			0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Clearcoat"),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Clearcoat Gloss"),		1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	SOCK_FLOAT, 1, N_("Specular Transmission"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("IOR"),					1.45f, 0.0f, 0.0f, 0.0f, 0.0f, 1000.0f},
-	{	SOCK_FLOAT, 1, N_("Transparency"),			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	SOCK_FLOAT, 1, N_("Flatness"),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
+	{	SOCK_FLOAT, 1, N_("Diffuse Transmission"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 2.0f, PROP_FACTOR},
 	{	SOCK_FLOAT, 1, N_("Refraction Roughness"),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_VECTOR, 1, N_("Normal"),				0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
 	{	SOCK_VECTOR, 1, N_("Clearcoat Normal"),		0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, PROP_NONE, SOCK_HIDE_VALUE},
@@ -61,14 +63,15 @@ static bNodeSocketTemplate sh_node_bsdf_disney_out[] = {
 static void node_shader_init_disney(bNodeTree *UNUSED(ntree), bNode *node)
 {
 	node->custom1 = SHD_GLOSSY_MULTI_GGX;
+	node->custom2 = SHD_SOLID_SURFACE;
 }
 
 static int node_shader_gpu_bsdf_disney(GPUMaterial *mat, bNode *UNUSED(node), bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
 {
-	if (!in[16].link)
-		in[16].link = GPU_builtin(GPU_VIEW_NORMAL);
+	if (!in[18].link)
+		in[18].link = GPU_builtin(GPU_VIEW_NORMAL);
 	else
-		GPU_link(mat, "direction_transform_m4v3", in[16].link, GPU_builtin(GPU_VIEW_MATRIX), &in[16].link);
+		GPU_link(mat, "direction_transform_m4v3", in[18].link, GPU_builtin(GPU_VIEW_MATRIX), &in[18].link);
 
 	return GPU_stack_link(mat, "node_bsdf_disney", in, out);
 }
@@ -77,6 +80,7 @@ static void node_shader_update_disney(bNodeTree *UNUSED(ntree), bNode *node)
 {
 	bNodeSocket *sock;
 	int distribution = node->custom1;
+	int surface_type = node->custom2;
 
 	for (sock = node->inputs.first; sock; sock = sock->next) {
 		if (STREQ(sock->name, "Refraction Roughness")) {
@@ -84,7 +88,36 @@ static void node_shader_update_disney(bNodeTree *UNUSED(ntree), bNode *node)
 				sock->flag &= ~SOCK_UNAVAIL;
 			else
 				sock->flag |= SOCK_UNAVAIL;
-
+		}
+		else if (STREQ(sock->name, "Diffuse Transmission")) {
+			if (surface_type == SHD_THIN_SURFACE)
+				sock->flag &= ~SOCK_UNAVAIL;
+			else
+				sock->flag |= SOCK_UNAVAIL;
+		}
+		else if (STREQ(sock->name, "Subsurface")) {
+			if (surface_type == SHD_SOLID_SURFACE)
+				sock->flag &= ~SOCK_UNAVAIL;
+			else
+				sock->flag |= SOCK_UNAVAIL;
+		}
+		else if (STREQ(sock->name, "Subsurface Radius")) {
+			if (surface_type == SHD_SOLID_SURFACE)
+				sock->flag &= ~SOCK_UNAVAIL;
+			else
+				sock->flag |= SOCK_UNAVAIL;
+		}
+		else if (STREQ(sock->name, "Subsurface Color")) {
+			if (surface_type == SHD_SOLID_SURFACE)
+				sock->flag &= ~SOCK_UNAVAIL;
+			else
+				sock->flag |= SOCK_UNAVAIL;
+		}
+		else if (STREQ(sock->name, "Flatness")) {
+			if (surface_type == SHD_THIN_SURFACE)
+				sock->flag &= ~SOCK_UNAVAIL;
+			else
+				sock->flag |= SOCK_UNAVAIL;
 		}
 	}
 }

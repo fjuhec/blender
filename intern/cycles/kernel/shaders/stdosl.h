@@ -544,7 +544,9 @@ closure color emission() BUILTIN;
 closure color background() BUILTIN;
 closure color holdout() BUILTIN;
 closure color ambient_occlusion() BUILTIN;
-closure color disney_diffuse(normal N, float roughness) BUILTIN;
+closure color disney_diffuse(normal N, float roughness, float flatness) BUILTIN;
+closure color disney_diffuse_transmit(normal N, float roughness, float flatness) BUILTIN;
+closure color disney_retro_reflection(normal N, float roughness) BUILTIN;
 closure color disney_sheen(normal N) BUILTIN;
 closure color disney_clearcoat(normal N, float clearcoat, float clearcoat_gloss) BUILTIN;
 
@@ -552,7 +554,7 @@ closure color disney_clearcoat(normal N, float clearcoat, float clearcoat_gloss)
 closure color bssrdf_cubic(normal N, vector radius, float texture_blur, float sharpness) BUILTIN;
 closure color bssrdf_gaussian(normal N, vector radius, float texture_blur) BUILTIN;
 closure color bssrdf_burley(normal N, vector radius, float texture_blur, color albedo) BUILTIN;
-closure color bssrdf_disney(normal N, vector radius, float texture_blur, color base_color, color subsurface_color, float roughness) BUILTIN;
+closure color bssrdf_disney(normal N, vector radius, float texture_blur, color base_color, color subsurface_color) BUILTIN;
 
 // Hair
 closure color hair_reflection(normal N, float roughnessu, float roughnessv, vector T, float offset) BUILTIN;

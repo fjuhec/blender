@@ -27,7 +27,6 @@ typedef ccl_addr_space struct Bssrdf {
 	float d;
 	float texture_blur;
 	float albedo;
-	float roughness;
 	float3 N;
 	float3 base_color;
 } Bssrdf;
@@ -364,7 +363,6 @@ ccl_device int bssrdf_setup(Bssrdf *bssrdf, ClosureType type)
 		/* revert to diffuse BSDF if radius too small */
 		int flag;
 		if(type == CLOSURE_BSSRDF_DISNEY_ID) {
-			float roughness = bssrdf->roughness;
 			float3 N = bssrdf->N;
 			float3 weight = bssrdf->weight * bssrdf->base_color;
 			float sample_weight = bssrdf->sample_weight;
@@ -372,7 +370,7 @@ ccl_device int bssrdf_setup(Bssrdf *bssrdf, ClosureType type)
 			DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bssrdf;
 
 			bsdf->N = N;
-			bsdf->roughness = roughness;
+			bsdf->flatness = 0.0f;
 			bsdf->weight = weight;
 			bsdf->sample_weight = sample_weight;
 			flag = bsdf_disney_diffuse_setup(bsdf);

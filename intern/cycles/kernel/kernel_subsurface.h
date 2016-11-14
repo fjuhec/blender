@@ -154,7 +154,7 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, ShaderClos
 
 			if(bsdf) {
 				bsdf->N = N;
-				bsdf->roughness = bssrdf->roughness;
+				bsdf->flatness = 0.0f;
 				sd->flag |= bsdf_disney_diffuse_setup(bsdf);
 
 				/* replace CLOSURE_BSDF_DISNEY_DIFFUSE_ID with this special ID so render passes

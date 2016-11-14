@@ -4205,6 +4205,18 @@ static void def_disney(StructRNA *srna)
 	RNA_def_property_enum_items(prop, prop_disney_distribution_items);
 	RNA_def_property_ui_text(prop, "Distribution", "");
 	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_ShaderNodeDisney_update");
+
+	static EnumPropertyItem prop_disney_surface_type_items[] = {
+		{ SHD_THIN_SURFACE, "THIN_SURFACE", 0, "Thin Surface", "" },
+		{ SHD_SOLID_SURFACE, "SOLID_SURFACE", 0, "Solid Surface", "" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
+	prop = RNA_def_property(srna, "surface_type", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "custom2");
+	RNA_def_property_enum_items(prop, prop_disney_surface_type_items);
+	RNA_def_property_ui_text(prop, "Surface Type", "");
+	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_ShaderNodeDisney_update");
 }
 
 static void def_refraction(StructRNA *srna)

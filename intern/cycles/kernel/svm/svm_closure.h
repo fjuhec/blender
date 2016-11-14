@@ -78,14 +78,16 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 	switch(type) {
 		case CLOSURE_BSDF_DISNEY_ID: {
 			uint specular_offset, roughness_offset, specular_tint_offset, anisotropic_offset, sheen_offset,
-				sheen_tint_offset, clearcoat_offset, clearcoat_gloss_offset, eta_offset, transparency_offset,
-				anisotropic_rotation_offset, refraction_roughness_offset;
+				sheen_tint_offset, clearcoat_offset, clearcoat_gloss_offset, eta_offset, spec_trans_offset,
+				anisotropic_rotation_offset, refraction_roughness_offset, flatness_offset, diff_trans_offset, invalid0, invalid1;
+
 			uint4 data_node2 = read_node(kg, offset);
 
 			float3 T = stack_load_float3(stack, data_node.y);
 			decode_node_uchar4(data_node.z, &specular_offset, &roughness_offset, &specular_tint_offset, &anisotropic_offset);
 			decode_node_uchar4(data_node.w, &sheen_offset, &sheen_tint_offset, &clearcoat_offset, &clearcoat_gloss_offset);
-			decode_node_uchar4(data_node2.x, &eta_offset, &transparency_offset, &anisotropic_rotation_offset, &refraction_roughness_offset);
+			decode_node_uchar4(data_node2.x, &eta_offset, &spec_trans_offset, &anisotropic_rotation_offset, &refraction_roughness_offset);
+			decode_node_uchar4(data_node2.y, &flatness_offset, &diff_trans_offset, &invalid0, &invalid1);
 
 			// get disney parameters
 			float metallic = param1;
@@ -98,12 +100,15 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float sheen_tint = stack_load_float(stack, sheen_tint_offset);
 			float clearcoat = stack_load_float(stack, clearcoat_offset);
 			float clearcoat_gloss = stack_load_float(stack, clearcoat_gloss_offset);
-			float transparency = stack_load_float(stack, transparency_offset);
+			float spec_trans = stack_load_float(stack, spec_trans_offset);
 			float anisotropic_rotation = stack_load_float(stack, anisotropic_rotation_offset);
 			float refraction_roughness = stack_load_float(stack, refraction_roughness_offset);
 			float eta = fmaxf(stack_load_float(stack, eta_offset), 1e-5f);
+			float flatness = stack_load_float(stack, flatness_offset);
+			float diff_trans = clamp(stack_load_float(stack, diff_trans_offset), 0.0f, 2.0f);
 
-			ClosureType distribution = stack_valid(data_node2.y) ? (ClosureType) data_node2.y : CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID;
+			ClosureType distribution = stack_valid(data_node2.z) ? (ClosureType) data_node2.z : CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID;
+			SurfaceType surface_type = stack_valid(data_node2.w) ? (SurfaceType) data_node2.w : SOLID_SURFACE;
 
 			/* rotate tangent */
 			if(anisotropic_rotation != 0.0f)
@@ -117,10 +122,10 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float fresnel = fresnel_dielectric_cos(cosNO, ior);
 
 			// calculate weights of the diffuse and specular part
-			float diffuse_weight = (1.0f - saturate(metallic)) * (1.0f - saturate(transparency)); // lerp(1.0f - clamp(metallic, 0.0f, 1.0f), 0.0f, lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f)));
+			float diffuse_weight = (1.0f - saturate(metallic)) * (1.0f - saturate(spec_trans)); // lerp(1.0f - clamp(metallic, 0.0f, 1.0f), 0.0f, lerp(clamp(spec_trans, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f)));
 			
-			float transp = saturate(transparency) * (1.0f - saturate(metallic)); // lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f));
-			float specular_weight = (1.0f - transp); // + fresnel * transp; // lerp(1.0f, fresnel, transp);
+			float spec_transp = saturate(spec_trans) * (1.0f - saturate(metallic)); // lerp(clamp(spec_trans, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f));
+			float specular_weight = (1.0f - spec_transp); // + fresnel * spec_transp; // lerp(1.0f, fresnel, spec_transp);
 
 			// get the base color
 			uint4 data_base_color = read_node(kg, offset);
@@ -139,6 +144,11 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 			float3 weight = ccl_fetch(sd, svm_closure_weight) * mix_weight;
 
+			if(surface_type == SOLID_SURFACE) {
+				flatness = 0.0f;
+				diff_trans = 0.0f;
+			}
+
 #ifdef __SUBSURFACE__
 			float3 albedo = subsurface_color;
 			float3 subsurf_weight = weight * diffuse_weight;
@@ -152,20 +162,21 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			}
 
 			/* diffuse */
-			if(subsurface < CLOSURE_WEIGHT_CUTOFF && diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
-				float3 diff_weight = weight * base_color * diffuse_weight;
+			if((surface_type == THIN_SURFACE || subsurface < CLOSURE_WEIGHT_CUTOFF) && diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
+				float3 diff_weight = weight * base_color * diffuse_weight * ((2.0f - diff_trans) / 2.0f);
 
 				DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
 
 				if(bsdf) {
 					bsdf->N = N;
+					bsdf->flatness = flatness;
 					bsdf->roughness = roughness;
 
 					/* setup bsdf */
 					ccl_fetch(sd, flag) |= bsdf_disney_diffuse_setup(bsdf);
 				}
 			}
-			else if(subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
+			else if(surface_type == SOLID_SURFACE && subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
 				/* radius * scale */
 				float3 radius = subsurface_radius * subsurface;
 				/* sharpness */
@@ -183,7 +194,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					bssrdf->sharpness = sharpness;
 					bssrdf->N = N;
 					bssrdf->base_color = base_color;
-					bssrdf->roughness = roughness;
 
 					/* setup bsdf */
 					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
@@ -198,7 +208,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					bssrdf->sharpness = sharpness;
 					bssrdf->N = N;
 					bssrdf->base_color = base_color;
-					bssrdf->roughness = roughness;
 
 					/* setup bsdf */
 					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
@@ -213,7 +222,6 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					bssrdf->sharpness = sharpness;
 					bssrdf->N = N;
 					bssrdf->base_color = base_color;
-					bssrdf->roughness = roughness;
 
 					/* setup bsdf */
 					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
@@ -228,6 +236,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 				if(bsdf) {
 					bsdf->N = N;
+					bsdf->flatness = flatness;
 					bsdf->roughness = roughness;
 
 					/* setup bsdf */
@@ -235,6 +244,21 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				}
 			}
 #endif
+
+			/* retro reflection */
+			if(diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
+				float3 diff_weight = weight * base_color * diffuse_weight;
+
+				DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
+
+				if(bsdf) {
+					bsdf->N = N;
+					bsdf->roughness = roughness;
+
+					/* setup bsdf */
+					ccl_fetch(sd, flag) |= bsdf_disney_retro_reflection_setup(bsdf);
+				}
+			}
 
 			/* sheen */
 			if(diffuse_weight > CLOSURE_WEIGHT_CUTOFF && sheen > CLOSURE_WEIGHT_CUTOFF) {
@@ -253,6 +277,20 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 					/* setup bsdf */
 					ccl_fetch(sd, flag) |= bsdf_disney_sheen_setup(bsdf);
+				}
+			}
+
+			/* diffuse transmission */
+			if(surface_type == THIN_SURFACE && diff_trans > CLOSURE_WEIGHT_CUTOFF && diffuse_weight > CLOSURE_WEIGHT_CUTOFF) {
+				float3 diff_weight = weight * base_color * diffuse_weight * (diff_trans / 2.0f);
+
+				DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
+
+				if(bsdf) {
+					bsdf->N = N;
+
+					/* setup bsdf */
+					ccl_fetch(sd, flag) |= bsdf_disney_diffuse_transmit_setup(bsdf);
 				}
 			}
 
@@ -327,8 +365,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 #ifdef __CAUSTICS_TRICKS__
 			if(kernel_data.integrator.caustics_reflective || kernel_data.integrator.caustics_refractive || (path_flag & PATH_RAY_DIFFUSE) == 0) {
 #endif
-				if(transp > CLOSURE_WEIGHT_CUTOFF) {
-					float3 glass_weight = weight * transp;
+				if(spec_transp > CLOSURE_WEIGHT_CUTOFF) {
+					float3 glass_weight = weight * spec_transp;
 					float3 cspec0 = base_color * specular_tint + make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specular_tint);
 
 					if(roughness <= 5e-2f || distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID) { /* use single-scatter GGX */
