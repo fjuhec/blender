@@ -118,20 +118,16 @@ class POSELIB_OT_render_previews(Operator):
         else:
             bpy.ops.render.render()
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            fname = os.path.join(tmpdir, 'poselib.png')
-            bpy.data.images['Render Result'].save_render(fname)
+        im = bpy.data.images['Render Result'].copy_from_render(scene=context.scene)
 
-            # Loading and handling the image data should all be done while the tempfile
-            # still exists on disk.
-            im = bpy.data.images.load(fname)
+        im.scale(*self.image_size)
+        plib.preview.image_frame_img_set(plib_index, im)
 
-            im.scale(*self.image_size)
-            plib.preview.image_frame_img_set(plib_index, im)
+        if self.icon_size != self.image_size:
+            im.scale(*self.icon_size)
+        plib.preview.icon_frame_img_set(plib_index, im)
 
-            if self.icon_size != self.image_size:
-                im.scale(*self.icon_size)
-            plib.preview.icon_frame_img_set(plib_index, im)
+        bpy.data.images.remove(im)
 
     def invoke(self, context, event):
         wm = context.window_manager
