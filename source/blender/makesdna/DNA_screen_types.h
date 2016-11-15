@@ -69,7 +69,8 @@ typedef struct bScreen {
 	char swap;							/* indicator to survive swap-exchange systems */
 	char skip_handling;					/* set to delay screen handling after switching back from maximized area */
 	char scrubbing;						/* set when scrubbing to avoid some costly updates */
-	char pad[6];
+	char is_hmd_running;				/* is this screen running an HMD session? */
+	char pad[5];
 	
 	short mainwin;						/* screensize subwindow, for screenedges and global menus */
 	short subwinactive;					/* active subwindow */

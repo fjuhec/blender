@@ -4153,8 +4153,7 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 
 	/* close */
 	if ((win = wm->win_hmd)) {
-		Scene *sc = CTX_data_scene(C);
-		sc->hmd_settings.flag &= ~HMDVIEW_SESSION_RUNNING;
+		wm->win_hmd->screen->is_hmd_running = false;
 		wm_window_close(C, wm, win);
 		wm->win_hmd = NULL;
 		/* close HMD */
@@ -4197,17 +4196,15 @@ static int hmd_session_toggle_poll(bContext *C)
 
 static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
-	Scene *scene = CTX_data_scene(C);
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *hmd_win = wm->win_hmd;
-	const bool was_hmd_running = (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING);
 
 	if (!hmd_win) {
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 
-	scene->hmd_settings.flag ^= HMDVIEW_SESSION_RUNNING;
-	if (was_hmd_running) {
+	if (hmd_win->screen->is_hmd_running) {
+		hmd_win->screen->is_hmd_running = false;
 		WM_window_fullscreen_toggle(hmd_win, false, true);
 		WM_device_HMD_state_set(U.hmd_settings.device, false);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
@@ -4216,6 +4213,7 @@ static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		ScrArea *sa = hmd_win->screen->areabase.first;
 		BLI_assert(sa->spacetype = SPACE_VIEW3D);
 
+		hmd_win->screen->is_hmd_running = true;
 		WM_device_HMD_state_set(U.hmd_settings.device, true);
 		if ((U.hmd_settings.flag & USER_HMD_USE_DEVICE_IPD) == 0) {
 			U.hmd_settings.init_ipd = WM_device_HMD_IPD_get();
@@ -4242,15 +4240,13 @@ static void WM_OT_hmd_session_toggle(wmOperatorType *ot)
 
 static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
-	Scene *scene = CTX_data_scene(C);
-
-	if ((scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING) == 0) {
-		return OPERATOR_CANCELLED; /* no pass through, we don't need to keep that event in queue */
-	}
-
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *hmd_win = wm->win_hmd;
 	ScrArea *sa = hmd_win->screen->areabase.first;
+
+	if (!hmd_win || !hmd_win->screen->is_hmd_running) {
+		return OPERATOR_CANCELLED; /* no pass through, we don't need to keep that event in queue */
+	}
 
 	BLI_assert(sa->spacetype == SPACE_VIEW3D);
 	/* Actually the only thing we have to do is ensuring a redraw, we'll then

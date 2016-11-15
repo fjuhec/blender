@@ -1581,12 +1581,7 @@ typedef struct DisplaySafeAreas {
  */
 struct HMDViewSettings {
 	char view_shade; /* rna_enum_viewport_shade_items */
-	char flag, pad[2];
-};
-
-/* HMDViewSettings.flag */
-enum {
-	HMDVIEW_SESSION_RUNNING = (1 << 0),
+	char pad[3];
 };
 
 /* *************************************************************** */

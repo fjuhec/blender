@@ -402,6 +402,12 @@ static void rna_def_screen(BlenderRNA *brna)
 	RNA_def_property_boolean_funcs(prop, "rna_Screen_fullscreen_get", NULL);
 	RNA_def_property_ui_text(prop, "Maximize", "An area is maximized, filling this screen");
 
+#ifdef WITH_INPUT_HMD
+	prop = RNA_def_property(srna, "is_hmd_running", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "HMD Session Running", "This screen is running an HMD session");
+#endif
+
 	/* Define Anim Playback Areas */
 	prop = RNA_def_property(srna, "use_play_top_left_3d_editor", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "redraws_flag", TIME_REGION);

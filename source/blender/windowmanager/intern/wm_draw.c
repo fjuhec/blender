@@ -810,6 +810,61 @@ static void wm_method_draw_triple_multiview(bContext *C, wmWindow *win, StereoVi
 	wm_triple_copy_textures(win, triple_all);
 }
 
+#ifdef WITH_INPUT_HMD
+
+static void wm_method_draw_triple_hmd_view(wmWindow *win)
+{
+	wmDrawData *drawdata;
+	int view;
+
+	for (view = 0; view < 2; view++) {
+		const int win_x_h = WM_window_pixels_x(win) / 2;
+		const int win_y = WM_window_pixels_y(win);
+
+		drawdata = BLI_findlink(&win->drawdata, (view * 2) + 1);
+
+		/* OpenHMD sends us matrices for one eye (half screen), but we draw viewport over
+		 * entire screen. Using glViewport compensates that and prevents streched view. */
+		glViewport(view * win_x_h, 0, win_x_h, win_y);
+		wm_triple_draw_textures(win, drawdata->triple, 1.0f);
+	}
+}
+
+#endif /* WITH_INPUT_HMD */
+
+static void wm_method_draw_triple_all(bContext *C, wmWindow *win)
+{
+	wmWindowManager *wm = CTX_wm_manager(C);
+	const bool is_stereo3d_enabled = WM_stereo3d_enabled(win, false);
+	const bool is_hmd_view =
+#ifdef WITH_INPUT_HMD
+	        wm->win_hmd == win && win->screen->is_hmd_running;
+#else
+	        false;
+#endif
+	const bool draw_multiview_lr = is_stereo3d_enabled || is_hmd_view;
+
+
+	if (draw_multiview_lr) {
+		wm_method_draw_triple_multiview(C, win, STEREO_LEFT_ID);
+		wm_method_draw_triple_multiview(C, win, STEREO_RIGHT_ID);
+	}
+
+	if (is_stereo3d_enabled) {
+		wm_method_draw_stereo3d(win);
+	}
+	else if (is_hmd_view) {
+#ifdef WITH_INPUT_HMD
+		wm_method_draw_triple_hmd_view(win);
+#else
+		UNUSED_VARS(wm);
+#endif
+	}
+	else {
+		wm_method_draw_triple(C, win);
+	}
+}
+
 /****************** main update call **********************/
 
 /* quick test to prevent changing window drawable */
@@ -949,23 +1004,21 @@ void wm_draw_update(bContext *C)
 
 			drawmethod = wm_automatic_draw_method(win);
 
-			if (win->drawfail)
+			if (win->drawfail) {
 				wm_method_draw_overlap_all(C, win, 0);
-			else if (drawmethod == USER_DRAW_FULL)
+			}
+			else if (drawmethod == USER_DRAW_FULL) {
 				wm_method_draw_full(C, win);
-			else if (drawmethod == USER_DRAW_OVERLAP)
+			}
+			else if (drawmethod == USER_DRAW_OVERLAP) {
 				wm_method_draw_overlap_all(C, win, 0);
-			else if (drawmethod == USER_DRAW_OVERLAP_FLIP)
+			}
+			else if (drawmethod == USER_DRAW_OVERLAP_FLIP) {
 				wm_method_draw_overlap_all(C, win, 1);
-			else { /* USER_DRAW_TRIPLE */
-				if ((WM_stereo3d_enabled(C, win, false)) == false) {
-					wm_method_draw_triple(C, win);
-				}
-				else {
-					wm_method_draw_triple_multiview(C, win, STEREO_LEFT_ID);
-					wm_method_draw_triple_multiview(C, win, STEREO_RIGHT_ID);
-					wm_method_draw_stereo3d(C, win);
-				}
+			}
+			else {
+				BLI_assert(drawmethod == USER_DRAW_TRIPLE);
+				wm_method_draw_triple_all(C, win);
 			}
 
 			win->screen->do_draw_gesture = false;

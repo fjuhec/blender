@@ -237,11 +237,11 @@ class RENDERLAYER_PT_hmd(RenderLayerButtonsPanel, Panel):
 
         scene = context.scene
         wm = context.window_manager
+        session_running = wm.is_hmd_session_running;
 
-        running = scene.hmd_running
         text_win = "Close HMD Window" if wm.has_hmd_window else "Open HMD Window"
-        text_run = "Stop Session" if running else "Start Session"
-        icon = 'PAUSE' if running else 'PLAY'
+        text_run = "Stop Session" if session_running else "Start Session"
+        icon = 'PAUSE' if session_running else 'PLAY'
 
         row = layout.row(align=True)
         row.operator("wm.hmd_view_toggle", text=text_win)

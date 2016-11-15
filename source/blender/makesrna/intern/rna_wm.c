@@ -939,11 +939,19 @@ static void rna_wmClipboard_set(PointerRNA *UNUSED(ptr), const char *value)
 }
 
 #ifdef WITH_INPUT_HMD
+
 static int rna_has_hmd_window_get(PointerRNA *ptr)
 {
 	wmWindowManager *wm = ptr->data;
 	return (wm->win_hmd != NULL);
 }
+
+static int rna_is_hmd_session_running_get(PointerRNA *ptr)
+{
+	wmWindowManager *wm = ptr->data;
+	return (wm->win_hmd && wm->win_hmd->screen->is_hmd_running == true);
+}
+
 #endif /* WITH_INPUT_HMD */
 
 #ifdef WITH_PYTHON
@@ -2027,6 +2035,10 @@ static void rna_def_windowmanager(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "has_hmd_window", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_boolean_funcs(prop, "rna_has_hmd_window_get", NULL);
+
+	prop = RNA_def_property(srna, "is_hmd_session_running", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_boolean_funcs(prop, "rna_is_hmd_session_running_get", NULL);
 #endif
 
 	RNA_api_wm(srna);

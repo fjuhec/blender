@@ -3608,7 +3608,7 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
 	if ((scene->r.scemode & R_MULTIVIEW) == 0)
 		return false;
 
-	if (WM_stereo3d_enabled(C, win, true) == false)
+	if (WM_stereo3d_enabled(win, true) == false)
 		return false;
 
 	if ((v3d->camera == NULL) || (v3d->camera->type != OB_CAMERA) || rv3d->persp != RV3D_CAMOB)
@@ -3626,10 +3626,10 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
 
 #ifdef WITH_INPUT_HMD
 
-static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win, Scene *scene)
+static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win)
 {
 	return ((wm->win_hmd == win) &&
-	        (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING) &&
+	        (wm->win_hmd->screen->is_hmd_running) &&
 	        (U.hmd_settings.device > -1));
 }
 
@@ -3774,7 +3774,7 @@ static void view3d_main_region_draw_objects(
 
 	/* setup the view matrix */
 #ifdef WITH_INPUT_HMD
-	if (view3d_hmd_view_active(CTX_wm_manager(C), win, scene)) {
+	if (view3d_hmd_view_active(CTX_wm_manager(C), win)) {
 		view3d_hmd_view_setup(scene, v3d, ar);
 	}
 	else
@@ -3984,7 +3984,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 		ED_region_pixelspace(ar);
 
 #ifdef WITH_INPUT_HMD
-		if (view3d_hmd_view_active(CTX_wm_manager(C), CTX_wm_window(C), scene)) {
+		if (view3d_hmd_view_active(CTX_wm_manager(C), CTX_wm_window(C))) {
 			return;
 		}
 #endif

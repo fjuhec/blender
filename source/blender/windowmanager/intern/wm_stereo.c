@@ -285,39 +285,9 @@ static void wm_method_draw_stereo3d_topbottom(wmWindow *win)
 	}
 }
 
-#ifdef WITH_INPUT_HMD
-static void wm_method_draw_stereo3d_hmd(wmWindow *win)
+
+void wm_method_draw_stereo3d(wmWindow *win)
 {
-	wmDrawData *drawdata;
-	int view;
-
-	for (view = 0; view < 2; view++) {
-		const int win_x_h = WM_window_pixels_x(win) / 2;
-		const int win_y = WM_window_pixels_y(win);
-
-		drawdata = BLI_findlink(&win->drawdata, (view * 2) + 1);
-
-		/* OpenHMD sends us matrices for one eye (half screen), but we draw viewport over
-		 * entire screen. Using glViewport compensates that and prevents streched view. */
-		glViewport(view * win_x_h, 0, win_x_h, win_y);
-		wm_triple_draw_textures(win, drawdata->triple, 1.0f);
-	}
-}
-#endif /* WITH_INPUT_HMD */
-
-void wm_method_draw_stereo3d(const bContext *C, wmWindow *win)
-{
-#ifdef WITH_INPUT_HMD
-	Scene *scene = CTX_data_scene(C);
-	wmWindowManager *wm = CTX_wm_manager(C);
-
-	if (wm->win_hmd == win && (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING)) {
-		wm_method_draw_stereo3d_hmd(win);
-		return;
-	}
-#else
-	UNUSED_VARS(C);
-#endif
 
 	switch (win->stereo3d_format->display_mode) {
 		case S3D_DISPLAY_ANAGLYPH:
@@ -347,13 +317,6 @@ static bool wm_stereo3d_quadbuffer_supported(void)
 	return gl_stereo != 0;
 }
 
-#ifdef WITH_INPUT_HMD
-BLI_INLINE bool wm_stereo3d_is_hmd_enabled(wmWindowManager *wm, wmWindow *win, Scene *scene)
-{
-	return ((wm->win_hmd == win) && (scene->hmd_settings.flag & HMDVIEW_SESSION_RUNNING));
-}
-#endif /* WITH_INPUT_HMD */
-
 static bool wm_stereo3d_is_fullscreen_required(eStereoDisplayMode stereo_display)
 {
 	return ELEM(stereo_display,
@@ -361,16 +324,9 @@ static bool wm_stereo3d_is_fullscreen_required(eStereoDisplayMode stereo_display
 	            S3D_DISPLAY_TOPBOTTOM);
 }
 
-bool WM_stereo3d_enabled(const bContext *C, wmWindow *win, bool skip_stereo3d_check)
+bool WM_stereo3d_enabled(wmWindow *win, bool skip_stereo3d_check)
 {
 	bScreen *screen = win->screen;
-
-#ifdef WITH_INPUT_HMD
-	if (wm_stereo3d_is_hmd_enabled(CTX_wm_manager(C), win, CTX_data_scene(C)))
-		return true;
-#else
-	UNUSED_VARS(C);
-#endif
 
 	/* some 3d methods change the window arrangement, thus they shouldn't
 	 * toggle on/off just because there is no 3d elements being drawn */
