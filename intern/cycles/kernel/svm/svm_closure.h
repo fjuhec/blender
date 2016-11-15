@@ -115,7 +115,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				T = rotate_around_axis(T, N, anisotropic_rotation * M_2PI_F);
 
 			/* calculate ior */
-			float ior = (ccl_fetch(sd, flag) & SD_BACKFACING) ? 1.0f / eta : eta;
+			float ior = ((ccl_fetch(sd, flag) & SD_BACKFACING) && (surface_type == SOLID_SURFACE)) ? 1.0f / eta : eta;
 
 			// calculate fresnel for refraction
 			float cosNO = dot(N, ccl_fetch(sd, I));
@@ -369,7 +369,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					float3 glass_weight = weight * spec_transp;
 					float3 cspec0 = base_color * specular_tint + make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specular_tint);
 
-					if(roughness <= 5e-2f || distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID) { /* use single-scatter GGX */
+					if(roughness <= 5e-2f || distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID || surface_type == THIN_SURFACE) { /* use single-scatter GGX */
 						float refl_roughness = roughness;
 
 						/* reflection */
@@ -430,6 +430,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 									refraction_roughness = 1.0f - (1.0f - refl_roughness) * (1.0f - refraction_roughness);
 								else
 									refraction_roughness = refl_roughness;
+
+								/* Remap the roughness for thin surfaces as introduced in the 2015 Disney paper:
+								 *
+								 * Extending the Disney BRDF to a BSDF with Integrated Subsurface Scattering
+								 * Burley, Brent (Walt Disney Animation Studios) */
+								if(surface_type == THIN_SURFACE) {
+									refraction_roughness *= 0.65f * ior - 0.35f;
+								}
 
 								bsdf->alpha_x = refraction_roughness * refraction_roughness;
 								bsdf->alpha_y = refraction_roughness * refraction_roughness;

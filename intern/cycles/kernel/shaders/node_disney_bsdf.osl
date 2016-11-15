@@ -108,19 +108,22 @@ shader node_disney_bsdf(
 
 	if (transp > 1e-5) {
 		color Cspec0 = BaseColor * SpecularTint + color(1.0, 1.0, 1.0) * (1.0 - SpecularTint);
-		float eta = backfacing() ? 1.0 / f : f;
+		float eta = (backfacing() && (surface_type == "Solid Surface")) ? 1.0 / f : f;
 
-		if (distribution == "GGX" || Roughness <= 5e-2) {
+		if (distribution == "GGX" || Roughness <= 5e-2 || surface_type == "Thin Surface") {
 			float cosNO = dot(Normal, I);
 			float Fr = fresnel_dielectric_cos(cosNO, eta);
 
-		float refl_roughness = Roughness;
-		if (Roughness <= 1e-2)
-			refl_roughness = 0.0;
+			float refl_roughness = Roughness;
+			if (Roughness <= 1e-2)
+				refl_roughness = 0.0;
 
 			float refraction_roughness = refl_roughness;
 			if (distribution == "GGX")
 				refraction_roughness = 1.0 - (1.0 - refl_roughness) * (1.0 - RefractionRoughness);
+
+			if (surface_type == "Thin Surface")
+				refraction_roughness = refraction_roughness * (0.65 * eta - 0.35);
 
 			BSDF = BSDF + transp * (Fr * microfacet_ggx_fresnel(Normal, refl_roughness * refl_roughness, eta, BaseColor, Cspec0) +
 			       (1.0 - Fr) * BaseColor * microfacet_ggx_refraction(Normal, refraction_roughness * refraction_roughness, eta));
