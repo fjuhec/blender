@@ -2750,10 +2750,12 @@ void init_userdef_do_versions(void)
 		}
 	}
 
-	if (!USER_VERSION_ATLEAST(278, 2)) {
-		U.hmd_settings.device = -1;
-		U.hmd_settings.flag = (USER_HMD_USE_DEVICE_IPD | USER_HMD_USE_DEVICE_ROT | USER_HMD_USE_LENSDIST_FX);
-		U.hmd_settings.custom_ipd = 0.061f;
+	if (!USER_VERSION_ATLEAST(278, 3)) {
+		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+			/* Keyframe Indicators (were using wrong alpha) */
+			btheme->tv3d.time_keyframe[3] = btheme->tv3d.time_gp_keyframe[3] = 255;
+			btheme->ttime.time_keyframe[3] = btheme->ttime.time_gp_keyframe[3] = 255;
+		}
 	}
 
 	/**
@@ -2762,11 +2764,9 @@ void init_userdef_do_versions(void)
 	 * (keep this block even if it becomes empty).
 	 */
 	{
-		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
-			/* Keyframe Indicators (were using wrong alpha) */
-			btheme->tv3d.time_keyframe[3] = btheme->tv3d.time_gp_keyframe[3] = 255;
-			btheme->ttime.time_keyframe[3] = btheme->ttime.time_gp_keyframe[3] = 255;
-		}
+		U.hmd_settings.device = -1;
+		U.hmd_settings.flag = (USER_HMD_USE_DEVICE_IPD | USER_HMD_USE_DEVICE_ROT | USER_HMD_USE_LENSDIST_FX);
+		U.hmd_settings.custom_ipd = 0.061f;
 	}
 
 	if (U.pixelsize == 0.0f)

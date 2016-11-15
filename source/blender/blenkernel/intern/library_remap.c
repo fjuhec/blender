@@ -691,21 +691,31 @@ static void animdata_dtar_clear_cb(ID *UNUSED(id), AnimData *adt, void *userdata
 
 void BKE_libblock_free_data(Main *bmain, ID *id)
 {
+	BKE_libblock_free_data_ex(bmain, id, true);
+}
+
+void BKE_libblock_free_data_ex(Main *bmain, ID *id, const bool do_id_user)
+{
 	if (id->properties) {
 		IDP_FreeProperty(id->properties);
 		MEM_freeN(id->properties);
 	}
-	
-	/* this ID may be a driver target! */
-	BKE_animdata_main_cb(bmain, animdata_dtar_clear_cb, (void *)id);
+
+	if (do_id_user) {
+		/* this ID may be a driver target! */
+		BKE_animdata_main_cb(bmain, animdata_dtar_clear_cb, (void *)id);
+	}
 }
 
 /**
  * used in headerbuttons.c image.c mesh.c screen.c sound.c and library.c
  *
  * \param do_id_user: if \a true, try to release other ID's 'references' hold by \a idv.
+ *                    (only applies to main database)
+ * \param do_ui_user: similar to do_id_user but makes sure UI does not hold references to
+ *                    \a id.
  */
-void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user)
+void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user, const bool do_ui_user)
 {
 	ID *id = idv;
 	short type = GS(id->name);
@@ -830,17 +840,19 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user)
 	/* avoid notifying on removed data */
 	BKE_main_lock(bmain);
 
-	if (free_notifier_reference_cb) {
-		free_notifier_reference_cb(id);
-	}
+	if (do_ui_user) {
+		if (free_notifier_reference_cb) {
+			free_notifier_reference_cb(id);
+		}
 
-	if (remap_editor_id_reference_cb) {
-		remap_editor_id_reference_cb(id, NULL);
+		if (remap_editor_id_reference_cb) {
+			remap_editor_id_reference_cb(id, NULL);
+		}
 	}
 
 	BLI_remlink(lb, id);
 
-	BKE_libblock_free_data(bmain, id);
+	BKE_libblock_free_data_ex(bmain, id, do_id_user);
 	BKE_main_unlock(bmain);
 
 	MEM_freeN(id);
@@ -848,7 +860,7 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user)
 
 void BKE_libblock_free(Main *bmain, void *idv)
 {
-	BKE_libblock_free_ex(bmain, idv, true);
+	BKE_libblock_free_ex(bmain, idv, true, true);
 }
 
 void BKE_libblock_free_us(Main *bmain, void *idv)      /* test users */

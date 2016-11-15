@@ -1427,7 +1427,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 	}
 
-	{
+	if (!MAIN_VERSION_ATLEAST(main, 278, 3)) {
 		for (Scene *scene = main->scene.first; scene != NULL; scene = scene->id.next) {
 			if (scene->toolsettings != NULL) {
 				ToolSettings *ts = scene->toolsettings;
@@ -1455,6 +1455,19 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 
+		/* constant detail for sculpting is now a resolution value instead of
+		 * a percentage, we reuse old DNA struct member but convert it */
+		for (Scene *scene = main->scene.first; scene != NULL; scene = scene->id.next) {
+			if (scene->toolsettings != NULL) {
+				ToolSettings *ts = scene->toolsettings;
+				if (ts->sculpt && ts->sculpt->constant_detail != 0.0f) {
+					ts->sculpt->constant_detail = 100.0f / ts->sculpt->constant_detail;
+				}
+			}
+		}
+	}
+
+	{
 #ifdef WITH_INPUT_HMD
 		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "HMDViewSettings", "hmd_settings")) {
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
