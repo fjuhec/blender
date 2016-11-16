@@ -123,7 +123,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 			// calculate weights of the diffuse and specular part
 			float diffuse_weight = (1.0f - saturate(metallic)) * (1.0f - saturate(spec_trans)); // lerp(1.0f - clamp(metallic, 0.0f, 1.0f), 0.0f, lerp(clamp(spec_trans, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f)));
-			
+
 			float spec_transp = saturate(spec_trans) * (1.0f - saturate(metallic)); // lerp(clamp(spec_trans, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f));
 			float specular_weight = (1.0f - spec_transp); // + fresnel * spec_transp; // lerp(1.0f, fresnel, spec_transp);
 
@@ -438,9 +438,12 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 								if(surface_type == THIN_SURFACE) {
 									refraction_roughness *= 0.65f * ior - 0.35f;
 								}
+								else {
+									refraction_roughness *= refraction_roughness;
+								}
 
-								bsdf->alpha_x = refraction_roughness * refraction_roughness;
-								bsdf->alpha_y = refraction_roughness * refraction_roughness;
+								bsdf->alpha_x = refraction_roughness;
+								bsdf->alpha_y = refraction_roughness;
 								bsdf->ior = ior;
 
 								/* setup bsdf */
