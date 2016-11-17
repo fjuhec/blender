@@ -122,18 +122,23 @@ typedef struct ReportTimerInfo {
 
 /* reports need to be before wmWindowManager */
 
+
 #ifndef WITH_INPUT_HMD
 #  ifdef __GNUC__
-#    define win_hmd win_hmd __attribute__ ((deprecated))
+#    define hmd_view hmd_view __attribute__ ((deprecated))
 #  endif
 #endif
+
+struct HMDViewInfo {
+	struct wmWindow *hmd_win;         /* HMD (virtual reality) window. Stored to avoid lookups. */
+	char view_shade, pad[7]; /* rna_enum_viewport_shade_items */
+};
 
 /* windowmanager is saved, tag WMAN */
 typedef struct wmWindowManager {
 	ID id;
 
 	struct wmWindow *windrawable, *winactive;  /* separate active from drawable */
-	struct wmWindow *win_hmd;         /* HMD (virtual reality) window. Stored to avoid lookups. */
 	ListBase windows;
 
 	int initialized;                  /* set on file read */
@@ -160,12 +165,14 @@ typedef struct wmWindowManager {
 	ListBase timers;                  /* active timers */
 	struct wmTimer *autosavetimer;    /* timer for auto save */
 
+	struct HMDViewInfo hmd_view;
+
 	char is_interface_locked;		/* indicates whether interface is locked for user interaction */
 	char par[7];
 } wmWindowManager;
 
-#ifdef win_hmd
-#  undef win_hmd
+#ifdef hmd_view
+#  undef hmd_view
 #endif
 
 /* wmWindowManager.initialized */

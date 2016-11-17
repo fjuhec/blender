@@ -3368,7 +3368,6 @@ class VIEW3D_PT_view3d_hmd_view(Panel):
         layout = self.layout
 
         wm = context.window_manager
-        scene = context.scene
 
         session_running = wm.is_hmd_session_running
         text_win = "Close HMD Window" if wm.has_hmd_window else "Open HMD Window"
@@ -3379,7 +3378,7 @@ class VIEW3D_PT_view3d_hmd_view(Panel):
         row.operator("wm.hmd_view_toggle", text=text_win)
         row.operator("wm.hmd_session_run", text=text_run, icon=icon_run)
 
-        layout.prop(scene, "hmd_view_shade", text="Shading")
+        layout.prop(wm, "hmd_view_shade", text="Shading")
 
 
 class VIEW3D_PT_view3d_motion_tracking(Panel):

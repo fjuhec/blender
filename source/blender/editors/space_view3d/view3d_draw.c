@@ -3628,8 +3628,8 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
 
 static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win)
 {
-	return ((wm->win_hmd == win) &&
-	        (wm->win_hmd->screen->is_hmd_running) &&
+	return ((wm->hmd_view.hmd_win == win) &&
+	        (wm->hmd_view.hmd_win->screen->is_hmd_running) &&
 	        (U.hmd_settings.device > -1));
 }
 

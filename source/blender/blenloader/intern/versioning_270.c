@@ -1469,9 +1469,9 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 
 	{
 #ifdef WITH_INPUT_HMD
-		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "HMDViewSettings", "hmd_settings")) {
-			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-				BKE_scene_hmd_settings_default_init(scene);
+		if (!DNA_struct_elem_find(fd->filesdna, "wmWindowManager", "HMDViewInfo", "hmd_view")) {
+			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+				wm->hmd_view.view_shade = OB_MATERIAL;
 			}
 		}
 #endif

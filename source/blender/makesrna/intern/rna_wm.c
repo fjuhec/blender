@@ -459,6 +459,10 @@ EnumPropertyItem rna_enum_wm_report_items[] = {
 
 #include <assert.h>
 
+#include "DNA_view3d_types.h"
+
+#include "ED_screen.h"
+
 #include "WM_api.h"
 
 #include "UI_interface.h"
@@ -943,13 +947,33 @@ static void rna_wmClipboard_set(PointerRNA *UNUSED(ptr), const char *value)
 static int rna_has_hmd_window_get(PointerRNA *ptr)
 {
 	wmWindowManager *wm = ptr->data;
-	return (wm->win_hmd != NULL);
+	return (wm->hmd_view.hmd_win != NULL);
 }
 
 static int rna_is_hmd_session_running_get(PointerRNA *ptr)
 {
 	wmWindowManager *wm = ptr->data;
-	return (wm->win_hmd && wm->win_hmd->screen->is_hmd_running == true);
+	return (wm->hmd_view.hmd_win && wm->hmd_view.hmd_win->screen->is_hmd_running == true);
+}
+
+static void rna_hmd_view_shade_set(PointerRNA *ptr, int value)
+{
+	wmWindowManager *wm = ptr->data;
+	wmWindow *win = wm->hmd_view.hmd_win;
+
+	wm->hmd_view.view_shade = value;
+
+	if (win) {
+		for (ScrArea *sa = win->screen->areabase.first; sa; sa = sa->next) {
+			if (sa->spacetype == SPACE_VIEW3D) {
+				View3D *v3d = sa->spacedata.first;
+				v3d->drawtype = value;
+				ED_area_tag_redraw(sa);
+				/* we assume one 3D view only */
+				break;
+			}
+		}
+	}
 }
 
 #endif /* WITH_INPUT_HMD */
@@ -2039,6 +2063,12 @@ static void rna_def_windowmanager(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "is_hmd_session_running", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_boolean_funcs(prop, "rna_is_hmd_session_running_get", NULL);
+
+	prop = RNA_def_property(srna, "hmd_view_shade", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "hmd_view.view_shade");
+	RNA_def_property_enum_items(prop, rna_enum_viewport_shade_items);
+	RNA_def_property_enum_funcs(prop, NULL, "rna_hmd_view_shade_set", NULL);
+	RNA_def_property_ui_text(prop, "HMD View Shading", "Method to draw in the HMD view");
 #endif
 
 	RNA_api_wm(srna);

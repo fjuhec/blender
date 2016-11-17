@@ -812,10 +812,6 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->gpencil_v2d_align = GP_PROJECT_VIEWSPACE;
 	sce->toolsettings->gpencil_seq_align = GP_PROJECT_VIEWSPACE;
 	sce->toolsettings->gpencil_ima_align = GP_PROJECT_VIEWSPACE;
-
-#ifdef WITH_INPUT_HMD
-	BKE_scene_hmd_settings_default_init(sce);
-#endif
 }
 
 Scene *BKE_scene_add(Main *bmain, const char *name)
@@ -2586,10 +2582,3 @@ int BKE_scene_multiview_num_videos_get(const RenderData *rd)
 		return BKE_scene_multiview_num_views_get(rd);
 	}
 }
-
-#ifdef WITH_INPUT_HMD
-void BKE_scene_hmd_settings_default_init(Scene *scene)
-{
-	scene->hmd_settings.view_shade = OB_MATERIAL;
-}
-#endif

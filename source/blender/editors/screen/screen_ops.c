@@ -2449,7 +2449,7 @@ static int screen_maximize_area_poll(bContext *C)
 {
 	return ED_operator_areaactive(C) &&
 #ifdef WITH_INPUT_HMD
-	        !(CTX_wm_manager(C)->win_hmd == CTX_wm_window(C));
+	        !(CTX_wm_manager(C)->hmd_view.hmd_win == CTX_wm_window(C));
 #else
 	        true;
 #endif

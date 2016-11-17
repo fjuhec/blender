@@ -4126,7 +4126,7 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 /* ******************************************************* */
 /* Head Mounted Display */
 
-static void hmd_view_prepare_screen(bContext *C, Scene *scene, wmWindow *win)
+static void hmd_view_prepare_screen(bContext *C, wmWindowManager *wm, wmWindow *win)
 {
 	ScrArea *sa = win->screen->areabase.first;
 	View3D *v3d = sa->spacedata.first;
@@ -4136,7 +4136,7 @@ static void hmd_view_prepare_screen(bContext *C, Scene *scene, wmWindow *win)
 	ED_screen_state_toggle(C, win, sa, SCREENFULL);
 
 	/* sync view options */
-	v3d->drawtype = scene->hmd_settings.view_shade;
+	v3d->drawtype = wm->hmd_view.view_shade;
 	if (U.hmd_settings.flag & USER_HMD_USE_LENSDIST_FX) {
 		v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
 	}
@@ -4152,22 +4152,21 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	wmWindow *win;
 
 	/* close */
-	if ((win = wm->win_hmd)) {
-		wm->win_hmd->screen->is_hmd_running = false;
+	if ((win = wm->hmd_view.hmd_win)) {
+		wm->hmd_view.hmd_win->screen->is_hmd_running = false;
 		wm_window_close(C, wm, win);
-		wm->win_hmd = NULL;
+		wm->hmd_view.hmd_win = NULL;
 		/* close HMD */
 		WM_device_HMD_state_set(U.hmd_settings.device, false);
 	}
 	/* open */
 	else {
-		Scene *scene = CTX_data_scene(C);
 		rcti rect = {prevwin->posx, prevwin->posx + (int)(prevwin->sizex * 0.9f),
 		             prevwin->posy, prevwin->posy + (int)(prevwin->sizey * 0.9f)};
 		win = WM_window_open_temp(C, &rect, WM_WINDOW_HMD);
-		wm->win_hmd = win;
+		wm->hmd_view.hmd_win = win;
 
-		hmd_view_prepare_screen(C, scene, win);
+		hmd_view_prepare_screen(C, wm, win);
 	}
 
 	return OPERATOR_FINISHED;
@@ -4186,7 +4185,7 @@ static int hmd_session_toggle_poll(bContext *C)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 
-	if (!wm->win_hmd) {
+	if (!wm->hmd_view.hmd_win) {
 		CTX_wm_operator_poll_msg_set(C, "Open a HMD window first");
 		return false;
 	}
@@ -4197,7 +4196,7 @@ static int hmd_session_toggle_poll(bContext *C)
 static int hmd_session_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	wmWindow *hmd_win = wm->win_hmd;
+	wmWindow *hmd_win = wm->hmd_view.hmd_win;
 
 	if (!hmd_win) {
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
@@ -4241,7 +4240,7 @@ static void WM_OT_hmd_session_toggle(wmOperatorType *ot)
 static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *UNUSED(event))
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	wmWindow *hmd_win = wm->win_hmd;
+	wmWindow *hmd_win = wm->hmd_view.hmd_win;
 	ScrArea *sa = hmd_win->screen->areabase.first;
 
 	if (!hmd_win || !hmd_win->screen->is_hmd_running) {

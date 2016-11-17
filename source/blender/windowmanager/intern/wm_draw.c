@@ -838,7 +838,7 @@ static void wm_method_draw_triple_all(bContext *C, wmWindow *win)
 	const bool is_stereo3d_enabled = WM_stereo3d_enabled(win, false);
 	const bool is_hmd_view =
 #ifdef WITH_INPUT_HMD
-	        wm->win_hmd == win && win->screen->is_hmd_running;
+	        wm->hmd_view.hmd_win == win && win->screen->is_hmd_running;
 #else
 	        false;
 #endif
@@ -963,8 +963,8 @@ void wm_draw_update(bContext *C)
 	int drawmethod;
 
 #ifdef WITH_INPUT_HMD
-	BLI_assert(wm->win_hmd == NULL ||
-	           wm->win_hmd->screen->state == SCREENFULL ||
+	BLI_assert(wm->hmd_view.hmd_win == NULL ||
+	           wm->hmd_view.hmd_win->screen->state == SCREENFULL ||
 	           !"BUG: HMD window should always be fullscreen!");
 #endif
 

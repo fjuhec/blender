@@ -339,8 +339,8 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 			ED_screen_exit(C, win, win->screen);
 		}
 #ifdef WITH_INPUT_HMD
-		if (wm->win_hmd == win) {
-			wm->win_hmd = NULL;
+		if (wm->hmd_view.hmd_win == win) {
+			wm->hmd_view.hmd_win = NULL;
 		}
 #endif
 
@@ -775,7 +775,7 @@ int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	wmWindow *win = CTX_wm_window(C);
 	const bool is_hmd_win =
 #ifdef WITH_INPUT_HMD
-	        win == CTX_wm_manager(C)->win_hmd;
+	        win == CTX_wm_manager(C)->hmd_view.hmd_win;
 #else
 	        false;
 #endif

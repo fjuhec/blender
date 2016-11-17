@@ -676,7 +676,7 @@ static void rna_userdef_hmd_camlock_update(
 static void rna_userdef_hmd_view_lensdist_set(PointerRNA *UNUSED(ptr), int value)
 {
 	wmWindowManager *wm = G.main->wm.first;
-	wmWindow *win = wm->win_hmd;
+	wmWindow *win = wm->hmd_view.hmd_win;
 
 	if (value) {
 		U.hmd_settings.flag |= USER_HMD_USE_LENSDIST_FX;

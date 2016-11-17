@@ -731,31 +731,6 @@ static void rna_Scene_volume_set(PointerRNA *ptr, float value)
 		BKE_sound_set_scene_volume(scene, value);
 }
 
-
-#ifdef WITH_INPUT_HMD
-
-static void rna_Scene_hmd_view_shade_set(PointerRNA *ptr, int value)
-{
-	Scene *scene = ptr->data;
-	wmWindowManager *wm = G.main->wm.first;
-	wmWindow *win = wm->win_hmd;
-
-	scene->hmd_settings.view_shade = value;
-
-	if (win) {
-		for (ScrArea *sa = win->screen->areabase.first; sa; sa = sa->next) {
-			if (sa->spacetype == SPACE_VIEW3D) {
-				View3D *v3d = sa->spacedata.first;
-				v3d->drawtype = value;
-				ED_area_tag_redraw(sa);
-				break;
-			}
-		}
-	}
-}
-
-#endif /* WITH_INPUT_HMD */
-
 static void rna_Scene_framelen_update(Main *UNUSED(bmain), Scene *scene, PointerRNA *UNUSED(ptr))
 {
 	scene->r.framelen = (float)scene->r.framapto / (float)scene->r.images;
@@ -7299,14 +7274,6 @@ void RNA_def_scene(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "depsgraph", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "Depsgraph");
 	RNA_def_property_ui_text(prop, "Dependency Graph", "Dependencies in the scene data");
-
-#ifdef WITH_INPUT_HMD
-	prop = RNA_def_property(srna, "hmd_view_shade", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "hmd_settings.view_shade");
-	RNA_def_property_enum_items(prop, rna_enum_viewport_shade_items);
-	RNA_def_property_enum_funcs(prop, NULL, "rna_Scene_hmd_view_shade_set", NULL);
-	RNA_def_property_ui_text(prop, "HMD View Shading", "Method to draw in the HMD view");
-#endif
 
 	/* Nestled Data  */
 	/* *** Non-Animated *** */

@@ -1573,17 +1573,6 @@ typedef struct DisplaySafeAreas {
 	float action_center[2];
 } DisplaySafeAreas;
 
-/* ------------------------------------------- */
-/* HMD View Settings */
-
-/**
- * Settings that will be applied to the already opened HMD view or when opening it.
- */
-struct HMDViewSettings {
-	char view_shade; /* rna_enum_viewport_shade_items */
-	char pad[3];
-};
-
 /* *************************************************************** */
 /* Scene ID-Block */
 
@@ -1675,9 +1664,6 @@ typedef struct Scene {
 	struct RigidBodyWorld *rigidbody_world;
 
 	struct PreviewImage *preview;
-
-	struct HMDViewSettings hmd_settings;
-	int pad2;
 } Scene;
 
 /* **************** RENDERDATA ********************* */
