@@ -227,28 +227,5 @@ class RENDERLAYER_PT_views(RenderLayerButtonsPanel, Panel):
             row.prop(rv, "camera_suffix", text="")
 
 
-class RENDERLAYER_PT_hmd(RenderLayerButtonsPanel, Panel):
-    bl_label = "Head Mounted Displays"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-
-        scene = context.scene
-        wm = context.window_manager
-        session_running = wm.is_hmd_session_running;
-
-        text_win = "Close HMD Window" if wm.has_hmd_window else "Open HMD Window"
-        text_run = "Stop Session" if session_running else "Start Session"
-        icon = 'PAUSE' if session_running else 'PLAY'
-
-        row = layout.row(align=True)
-        row.operator("wm.hmd_view_toggle", text=text_win)
-        row.operator("wm.hmd_session_run", text=text_run, icon=icon)
-
-        layout.prop(scene, "hmd_view_shade", text="Shading")
-
-
 if __name__ == "__main__":  # only for live edit.
     bpy.utils.register_module(__name__)

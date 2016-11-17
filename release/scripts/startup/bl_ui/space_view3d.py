@@ -3358,6 +3358,29 @@ class VIEW3D_PT_view3d_shading(Panel):
                 subcol.prop(ssao_settings, "samples")
                 subcol.prop(ssao_settings, "color")
 
+class VIEW3D_PT_view3d_hmd_view(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "HMD View"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        wm = context.window_manager
+        scene = context.scene
+
+        session_running = wm.is_hmd_session_running
+        text_win = "Close HMD Window" if wm.has_hmd_window else "Open HMD Window"
+        text_run = "Stop Session" if session_running else "Start Session"
+        icon_run = 'PAUSE' if session_running else 'PLAY'
+
+        row = layout.row(align=True)
+        row.operator("wm.hmd_view_toggle", text=text_win)
+        row.operator("wm.hmd_session_run", text=text_run, icon=icon_run)
+
+        layout.prop(scene, "hmd_view_shade", text="Shading")
+
 
 class VIEW3D_PT_view3d_motion_tracking(Panel):
     bl_space_type = 'VIEW_3D'
