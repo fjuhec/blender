@@ -77,27 +77,16 @@ bool BlenderSync::object_is_light(BL::Object& b_ob)
 bool BlenderSync::object_has_sparse_volume(BL::Object& b_ob)
 {
 	BL::SmokeDomainSettings b_domain = object_smoke_domain_find(b_ob);
-
-	if(!b_domain) {
-		return false;
+	if (b_domain) {
+		BL::PointCache b_ptcache = b_domain.point_cache();
+		if (b_ptcache.is_baked() && b_domain.cache_file_format() == BL::SmokeDomainSettings::cache_file_format_OPENVDB) {
+			char filename[1024];
+			SmokeDomainSettings_cache_filename_get(&b_domain.ptr, filename);
+			return strcmp(filename, "");
+		}
 	}
-
-	BL::PointCache b_ptcache = b_domain.point_cache();
-
-	if (!b_ptcache.is_baked()) {
-	    return false;
-	}
-
-	if (b_domain.cache_file_format() != BL::SmokeDomainSettings::cache_file_format_OPENVDB) {
-	    return false;
-	}
-
-	char filename[1024];
-	SmokeDomainSettings_cache_filename_get(&b_domain.ptr, filename);
-
-	printf("filename (blender sync): %s\n", filename);
-
-	return strcmp(filename, "");
+	
+	return false;
 }
 
 static uint object_ray_visibility(BL::Object& b_ob)
@@ -386,8 +375,6 @@ Object *BlenderSync::sync_object(BL::Object& b_parent,
 	bool use_holdout = (layer_flag & render_layer.holdout_layer) != 0;
 	
 	if(object_has_sparse_volume(b_ob)) {
-		//object->mesh = NULL;
-		printf("object has sparse volume\n");
 		sync_volume(b_ob);
 	}
 	/*else*/ {
