@@ -60,29 +60,20 @@ static Attribute *create_openvdb_attribute(Volume *volume,
 
 static Attribute *create_smoke_attribute(BL::Object& b_ob,
                                          Volume *volume,
-                                         VolumeManager *volume_manager,
                                          const ustring& name,
-                                         float /*frame*/)
+                                         float /*frame*/,
+                                         string *filename)
 {
-	Attribute *attr = NULL;
-	
 	BL::SmokeDomainSettings b_domain = object_smoke_domain_find(b_ob);
 	if(b_domain) {
-		char filename[1024];
-		SmokeDomainSettings_cache_filename_get(&b_domain.ptr, filename);
+		char filename_buf[1024];
+		SmokeDomainSettings_cache_filename_get(&b_domain.ptr, filename_buf);
+		*filename = string(filename_buf);
 		
-		attr = create_openvdb_attribute(volume, filename, name);
-		if (attr) {
-			VoxelAttribute *volume_data = attr->data_voxel();
-			assert(volume_data && "Failed to create volume data!\n");
-			
-			// TODO(kevin): add volume fields to the Volume*
-			//volume_data->manager = volume_manager;
-			volume_data->slot = volume_manager->add_volume(volume, filename, name.string());
-		}
+		return create_openvdb_attribute(volume, *filename, name);
 	}
 	
-	return attr;
+	return NULL;
 }
 
 static bool is_volume_attribute(AttributeStandard std) {
@@ -109,7 +100,17 @@ static void create_volume_attributes(Scene *scene,
 			}
 			
 			if (!name.empty()) {
-				/*Attribute *attr =*/ create_smoke_attribute(b_ob, volume, scene->volume_manager, name, frame);
+				string filename;
+				Attribute *attr = create_smoke_attribute(b_ob, volume, name, frame, &filename);
+				
+				if (attr) {
+					VoxelAttribute *volume_data = attr->data_voxel();
+					assert(volume_data && "Failed to create volume data!\n");
+					
+					// TODO(kevin): add volume fields to the Volume*
+					//volume_data->manager = volume_manager;
+					volume_data->slot = scene->volume_manager->add_volume(volume, filename, name.string());
+				}
 			}
 		}
 	}
