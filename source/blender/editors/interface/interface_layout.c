@@ -102,6 +102,7 @@ typedef enum uiItemType {
 	ITEM_LAYOUT_COLUMN,
 	ITEM_LAYOUT_COLUMN_FLOW,
 	ITEM_LAYOUT_ROW_FLOW,
+	ITEM_LAYOUT_GRID_FLOW,
 	ITEM_LAYOUT_BOX,
 	ITEM_LAYOUT_ABSOLUTE,
 	ITEM_LAYOUT_SPLIT,
@@ -153,6 +154,17 @@ typedef struct uiLayoutItemFlow {
 	int number;
 	int totcol;
 } uiLayoutItemFlow;
+
+typedef struct uiLayoutItemGridFlow {
+	uiLayout litem;
+
+	/* Extra parameters */
+	bool row_major, even_columns, even_rows;
+	int num_columns;
+
+	/* Pure internal runtime storage. */
+	int tot_items, tot_columns, tot_rows;
+} uiLayoutItemGridFlow;
 
 typedef struct uiLayoutItemBx {
 	uiLayout litem;
@@ -307,6 +319,7 @@ static int ui_layout_local_dir(uiLayout *layout)
 			return UI_LAYOUT_HORIZONTAL;
 		case ITEM_LAYOUT_COLUMN:
 		case ITEM_LAYOUT_COLUMN_FLOW:
+		case ITEM_LAYOUT_GRID_FLOW:
 		case ITEM_LAYOUT_SPLIT:
 		case ITEM_LAYOUT_ABSOLUTE:
 		case ITEM_LAYOUT_BOX:
@@ -2517,6 +2530,286 @@ static void ui_litem_layout_column_flow(uiLayout *litem)
 	litem->y = miny;
 }
 
+/* multi-column layout, automatically flowing to the next */
+static void ui_litem_estimate_grid_flow(uiLayout *litem)
+{
+	uiStyle *style = litem->root->style;
+	uiLayoutItemGridFlow *gflow = (uiLayoutItemGridFlow *)litem;
+	uiItem *item;
+	int i;
+
+	/* Estimate average needed width and height per item.
+	 * To do so, we do a weighted average where dimension of an item is its own weight.
+	 * This allows us to give more importance to big items, while not using actual biggest size as reference
+	 * (e.g. if we have a fair amount of very wide items, computed average width will be very close to their width,
+	 * but if we only have one very wide one, and many narrower ones, then we'll contraint the widest into reasonably
+	 * smaller space, to avoid too much emptyness in other cells). */
+	{
+		gflow->tot_items = 0;
+		float avg_w = 0.0f;
+		float avg_h = 0.0f;
+		float totweight_w = 0.0f;
+		float totweight_h = 0.0f;
+		for (item = litem->items.first, gflow->tot_items = 0; item; item = item->next, gflow->tot_items++) {
+			int item_w, item_h;
+			ui_item_size(item, &item_w, &item_h);
+
+			avg_w += (float)(item_w * item_w);
+			totweight_w += (float)item_w;
+
+			avg_h += (float)(item_h * item_h);
+			totweight_h += (float)item_h;
+		}
+		avg_w /= totweight_w;
+		avg_h /= totweight_h;
+
+		/* Even in varying column width case, we fix our columns number from weighted average width of items,
+		 * a proper solving of required width would be too costly, and this should give reasonably good results
+		 * in all resonable cases... */
+		if (gflow->num_columns > 0) {
+			gflow->tot_columns = gflow->num_columns;
+		}
+		else {
+			if (avg_w == 0.0f) {
+				gflow->tot_columns = 1;
+			}
+			else {
+				gflow->tot_columns = min_ii(max_ii((int)(litem->root->emw / avg_w), 1), gflow->tot_items);
+			}
+		}
+		gflow->tot_rows = (int)ceilf((float)gflow->tot_items / gflow->tot_columns);
+
+		/* Set evenly-spaced axes size. */
+		if (gflow->even_columns) {
+			litem->w = (int)(gflow->tot_columns * avg_w) + style->columnspace * (gflow->tot_columns - 1);
+		}
+		if (gflow->even_rows) {
+			litem->h = (int)(gflow->tot_rows * avg_h) + style->buttonspacey * (gflow->tot_rows - 1);
+
+			/* If columns' width and rows' height are even, we are done. */
+			if (gflow->even_columns) {
+				return;
+			}
+		}
+	}
+
+	/* Compute actual needed space for non-evenly spaced axes. */
+	{
+		const bool use_dim1 = gflow->row_major ? !gflow->even_rows : !gflow->even_columns;
+		const bool use_dim2 = gflow->row_major ? !gflow->even_columns : !gflow->even_rows;
+		const int num_dim1 = gflow->row_major ? gflow->tot_rows : gflow->tot_columns;
+		const int num_dim2 = gflow->row_major ? gflow->tot_columns : gflow->tot_rows;
+
+		float avg_dim1 = 0.0f;
+		float totweight_dim1 = 0.0f;
+		float *avg_dim2 = NULL;
+		float *totweight_dim2 = NULL;
+		if (use_dim2) {
+			avg_dim2 = alloca(sizeof(*avg_dim2) * num_dim2);
+			totweight_dim2 = alloca(sizeof(*totweight_dim2) * num_dim2);
+			memset(avg_dim2, 0, sizeof(*avg_dim2) * num_dim2);
+			memset(totweight_dim2, 0, sizeof(*totweight_dim2) * num_dim2);
+		}
+
+		int tot_dim1 = 0, tot_dim2 = 0;;
+		const int space_dim1 = gflow->row_major ? style->buttonspacey : style->columnspace;
+		const int space_dim2 = gflow->row_major ? style->columnspace : style->buttonspacey;
+
+		for (i = 0, item = litem->items.first; item; item = item->next, i++) {
+			const int index_dim2 = i % num_dim2;
+			int item_w, item_h;
+			ui_item_size(item, &item_w, &item_h);
+
+			if (use_dim1) {
+				const int item_dim1 = gflow->row_major ? item_h : item_w;
+				avg_dim1 += (float)(item_dim1 * item_dim1);
+				totweight_dim1 += (float)item_dim1;
+
+				if (index_dim2 == num_dim2 - 1) {
+					/* End of a set in first dimension (i.e. end of a row if row_major, of a column otherwise). */
+					tot_dim1 += (int)(avg_dim1 / totweight_dim1);
+					avg_dim1 = totweight_dim1 = 0.0f;
+				}
+			}
+
+			if (use_dim2) {
+				const int item_dim2 = gflow->row_major ? item_w : item_h;
+
+				avg_dim2[index_dim2] += (float)(item_dim2 * item_dim2);
+				totweight_dim2[index_dim2] += (float)item_dim2;
+			}
+		}
+
+		if (use_dim1) {
+			tot_dim1 += (num_dim1 - 1) * space_dim1;
+		}
+		if (use_dim2) {
+			/* And now, finalize computing of second dimension sizes */
+			for (i = 0; i < num_dim2; i++) {
+				tot_dim2 += (int)(avg_dim2[i] / totweight_dim2[i]);
+			}
+			tot_dim2 += (num_dim2 - 1) * space_dim2;
+		}
+
+		if (!gflow->even_columns) {
+			litem->w = gflow->row_major ? tot_dim2 : tot_dim1;
+		}
+		if (!gflow->even_rows) {
+			litem->h = gflow->row_major ? tot_dim1 : tot_dim2;
+		}
+	}
+}
+
+static void ui_litem_layout_grid_flow(uiLayout *litem)
+{
+	int i;
+	uiStyle *style = litem->root->style;
+	uiLayoutItemGridFlow *gflow = (uiLayoutItemGridFlow *)litem;
+	uiItem *item;
+
+	int *widths = alloca(sizeof(*widths) * gflow->tot_columns);
+	int *heights = alloca(sizeof(*heights) * gflow->tot_rows);
+	int *x_cos = alloca(sizeof(*x_cos) * gflow->tot_columns);
+	int *y_cos = alloca(sizeof(*y_cos) * gflow->tot_rows);
+
+	int even_h;
+
+	/* Precompute even columns' width and xpos, and rows' height and ypos. */
+	if (gflow->even_columns) {
+		for (int col = 0; col < gflow->tot_columns; col++) {
+			x_cos[col] = col ? x_cos[col - 1] + widths[col - 1] + style->columnspace : litem->x;
+			/*            (<     remaining width              > - <         space between remaining columns         >) /
+			 *            <   remamining columns   > */
+			widths[col] = ((litem->w - (x_cos[col] - litem->x)) - (gflow->tot_columns - col - 1) * style->columnspace) /
+			              (gflow->tot_columns - col);
+		}
+	}
+	if (gflow->even_rows) {
+		float avg_h = 0.0f;
+		float totweight_h = 0.0f;
+		for (item = litem->items.first, gflow->tot_items = 0; item; item = item->next, gflow->tot_items++) {
+			int item_h;
+			ui_item_size(item, NULL, &item_h);
+
+			avg_h += (float)(item_h * item_h);
+			totweight_h += (float)item_h;
+		}
+		avg_h /= totweight_h;
+
+		/* Items' height. */
+		even_h = (int)ceilf(avg_h);
+
+		for (int row = 0; row < gflow->tot_rows; row++) {
+			heights[row] = even_h * row;
+			y_cos[row] = litem->y - (even_h + style->buttonspacey) * row;
+		}
+	}
+
+	/* Compute actual needed space for non-evenly spaced axes. */
+	if (!(gflow->even_columns && gflow->even_rows)) {
+		const bool use_dim1 = gflow->row_major ? !gflow->even_rows : !gflow->even_columns;
+		const bool use_dim2 = gflow->row_major ? !gflow->even_columns : !gflow->even_rows;
+		const int num_dim1 = gflow->row_major ? gflow->tot_rows : gflow->tot_columns;
+		const int num_dim2 = gflow->row_major ? gflow->tot_columns : gflow->tot_rows;
+
+		float tot_dim1 = 0.0f, tot_dim2 = 0.0f;
+		float *avg_dim1 = NULL;
+		float *totweight_dim1 = NULL;
+		float *avg_dim2 = NULL;
+		float *totweight_dim2 = NULL;
+		if (use_dim1) {
+			avg_dim1 = alloca(sizeof(*avg_dim1) * num_dim1);
+			totweight_dim1 = alloca(sizeof(*totweight_dim1) * num_dim1);
+			memset(avg_dim1, 0, sizeof(*avg_dim1) * num_dim1);
+			memset(totweight_dim1, 0, sizeof(*totweight_dim1) * num_dim1);
+		}
+		if (use_dim2) {
+			avg_dim2 = alloca(sizeof(*avg_dim2) * num_dim2);
+			totweight_dim2 = alloca(sizeof(*totweight_dim2) * num_dim2);
+			memset(avg_dim2, 0, sizeof(*avg_dim2) * num_dim2);
+			memset(totweight_dim2, 0, sizeof(*totweight_dim2) * num_dim2);
+		}
+
+		const int space_dim1 = gflow->row_major ? style->buttonspacey : litem->space;
+		const int space_dim2 = gflow->row_major ? litem->space : style->buttonspacey;
+
+		for (i = 0, item = litem->items.first; item; item = item->next, i++) {
+			const int index_dim1 = i / num_dim2;
+			const int index_dim2 = i % num_dim2;
+			int item_w, item_h;
+			ui_item_size(item, &item_w, &item_h);
+
+			if (use_dim1) {
+				const int item_dim1 = gflow->row_major ? item_h : item_w;
+				avg_dim1[index_dim1] += (float)(item_dim1 * item_dim1);
+				totweight_dim1[index_dim1] += (float)item_dim1;
+			}
+			if (use_dim2) {
+				const int item_dim2 = gflow->row_major ? item_w : item_h;
+				avg_dim2[index_dim2] += (float)(item_dim2 * item_dim2);
+				totweight_dim2[index_dim2] += (float)item_dim2;
+			}
+		}
+
+		if (use_dim1) {
+			/* And now, finalize computing of second dimension sizes */
+			for (i = 0; i < num_dim1; i++) {
+				avg_dim1[i] /= totweight_dim1[i];
+				tot_dim1 += avg_dim1[i];
+			}
+		}
+		if (use_dim2) {
+			/* And now, finalize computing of second dimension sizes */
+			for (i = 0; i < num_dim2; i++) {
+				avg_dim2[i] /= totweight_dim2[i];
+				tot_dim2 += avg_dim2[i];
+			}
+		}
+
+		if (!gflow->even_columns) {
+			/* We enlarge/narrow columns evenly to match available width. */
+			const int tot_width = gflow->row_major ? tot_dim2 : tot_dim1;
+			const float wfac = (float)(litem->w - (gflow->tot_columns - 1) * style->columnspace) / tot_width;
+
+			for (int col = 0; col < gflow->tot_columns; col++) {
+				x_cos[col] = col ? x_cos[col - 1] + widths[col - 1] + style->columnspace : litem->x;
+				if (col == gflow->tot_columns - 1) {
+					/* Last column copes width rounding errors... */
+					widths[col] = litem->w - (x_cos[col] - litem->x);
+				}
+				else {
+					widths[col] = (int)((gflow->row_major ? avg_dim2[col] : avg_dim1[col]) * wfac);
+				}
+			}
+		}
+		if (!gflow->even_rows) {
+			for (int row = 0; row < gflow->tot_rows; row++) {
+				y_cos[row] = row ? y_cos[row - 1] - heights[row - 1] - style->buttonspacey : litem->y;
+				heights[row] = (int)(gflow->row_major ? avg_dim1[row] : avg_dim2[row]);
+			}
+		}
+	}
+
+	for (item = litem->items.first, i = 0; item; item = item->next, i++) {
+		const int col = gflow->row_major ? i % gflow->tot_columns : i / gflow->tot_columns;
+		const int row = gflow->row_major ? i / gflow->tot_rows : i % gflow->tot_rows;
+		int item_w, item_h;
+		ui_item_size(item, &item_w, &item_h);
+
+		const int w = widths[col];
+		const int h = heights[row];
+
+		item_w = (litem->alignment == UI_LAYOUT_ALIGN_EXPAND) ? w : min_ii(w, item_w);
+		item_h = (litem->alignment == UI_LAYOUT_ALIGN_EXPAND) ? h : min_ii(h, item_h);
+
+		ui_item_position(item, x_cos[col], y_cos[row], item_w, item_h);
+	}
+
+	litem->h = (litem->y - y_cos[gflow->tot_columns - 1]) + heights[gflow->tot_rows - 1];
+	litem->x = (x_cos[gflow->tot_columns - 1] - litem->x) + widths[gflow->tot_columns - 1];
+	litem->y = litem->y - litem->h;
+}
+
 /* free layout */
 static void ui_litem_estimate_absolute(uiLayout *litem)
 {
@@ -2741,6 +3034,33 @@ uiLayout *uiLayoutColumnFlow(uiLayout *layout, int number, int align)
 	flow->litem.redalert = layout->redalert;
 	flow->litem.w = layout->w;
 	flow->number = number;
+	BLI_addtail(&layout->items, flow);
+
+	UI_block_layout_set_current(layout->root->block, &flow->litem);
+
+	return &flow->litem;
+}
+
+uiLayout *uiLayoutGridFlow(
+        uiLayout *layout, const bool row_major, const int num_columns, const int align,
+        const bool even_columns, const bool even_rows)
+{
+	uiLayoutItemGridFlow *flow;
+
+	flow = MEM_callocN(sizeof(uiLayoutItemGridFlow), __func__);
+	flow->litem.item.type = ITEM_LAYOUT_GRID_FLOW;
+	flow->litem.root = layout->root;
+	flow->litem.align = align;
+	flow->litem.active = true;
+	flow->litem.enabled = true;
+	flow->litem.context = layout->context;
+	flow->litem.space = (flow->litem.align) ? 0 : layout->root->style->columnspace;
+	flow->litem.redalert = layout->redalert;
+	flow->litem.w = layout->w;
+	flow->row_major = row_major;
+	flow->num_columns = num_columns;
+	flow->even_columns = even_columns;
+	flow->even_rows = even_rows;
 	BLI_addtail(&layout->items, flow);
 
 	UI_block_layout_set_current(layout->root->block, &flow->litem);
@@ -3040,6 +3360,9 @@ static void ui_item_estimate(uiItem *item)
 			case ITEM_LAYOUT_COLUMN_FLOW:
 				ui_litem_estimate_column_flow(litem);
 				break;
+			case ITEM_LAYOUT_GRID_FLOW:
+				ui_litem_estimate_grid_flow(litem);
+				break;
 			case ITEM_LAYOUT_ROW:
 				ui_litem_estimate_row(litem);
 				break;
@@ -3138,6 +3461,9 @@ static void ui_item_layout(uiItem *item)
 				break;
 			case ITEM_LAYOUT_COLUMN_FLOW:
 				ui_litem_layout_column_flow(litem);
+				break;
+			case ITEM_LAYOUT_GRID_FLOW:
+				ui_litem_layout_grid_flow(litem);
 				break;
 			case ITEM_LAYOUT_ROW:
 				ui_litem_layout_row(litem);
@@ -3376,6 +3702,7 @@ static void ui_intro_items(DynStr *ds, ListBase *lb)
 			case ITEM_LAYOUT_COLUMN:      BLI_dynstr_append(ds, "'type':'COLUMN', "); break;
 			case ITEM_LAYOUT_COLUMN_FLOW: BLI_dynstr_append(ds, "'type':'COLUMN_FLOW', "); break;
 			case ITEM_LAYOUT_ROW_FLOW:    BLI_dynstr_append(ds, "'type':'ROW_FLOW', "); break;
+			case ITEM_LAYOUT_GRID_FLOW:   BLI_dynstr_append(ds, "'type':'GRID_FLOW', "); break;
 			case ITEM_LAYOUT_BOX:         BLI_dynstr_append(ds, "'type':'BOX', "); break;
 			case ITEM_LAYOUT_ABSOLUTE:    BLI_dynstr_append(ds, "'type':'ABSOLUTE', "); break;
 			case ITEM_LAYOUT_SPLIT:       BLI_dynstr_append(ds, "'type':'SPLIT', "); break;

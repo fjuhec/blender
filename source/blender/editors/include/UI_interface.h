@@ -893,6 +893,8 @@ float uiLayoutGetScaleY(uiLayout *layout);
 uiLayout *uiLayoutRow(uiLayout *layout, int align);
 uiLayout *uiLayoutColumn(uiLayout *layout, int align);
 uiLayout *uiLayoutColumnFlow(uiLayout *layout, int number, int align);
+uiLayout *uiLayoutGridFlow(uiLayout *layout, const bool row_major, const int num_columns, const int align,
+                           const bool even_columns, const bool even_rows);
 uiLayout *uiLayoutBox(uiLayout *layout);
 uiLayout *uiLayoutListBox(uiLayout *layout, struct uiList *ui_list, struct PointerRNA *ptr, struct PropertyRNA *prop,
                           struct PointerRNA *actptr, struct PropertyRNA *actprop);
