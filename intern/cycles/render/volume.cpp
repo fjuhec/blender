@@ -508,9 +508,14 @@ void VolumeManager::device_free(Device *device, DeviceScene *dscene)
 	for (size_t i = 0; i < vdb->scalar_main_isectors.size(); ++i) {
 		delete vdb->scalar_main_isectors[i];
 	}
+	vdb->scalar_grids.clear();
+	vdb->scalar_main_isectors.clear();
+	
 	for (size_t i = 0; i < vdb->vector_main_isectors.size(); ++i) {
 		delete vdb->vector_main_isectors[i];
 	}
+	vdb->vector_grids.clear();
+	vdb->vector_main_isectors.clear();
 #endif
 	
 	device->tex_free(dscene->vol_shader);
