@@ -31,6 +31,8 @@ set(INC
 	../../../../intern/guardedalloc
 	../../../../intern/eigen
 	../../../../intern/glew-mx
+
+	../../../../intern/SLIM/src
 )
 
 set(INC_SYS
@@ -56,3 +58,4 @@ endif()
 add_definitions(${GL_DEFINITIONS})
 
 blender_add_lib(bf_editor_uvedit "${SRC}" "${INC}" "${INC_SYS}")
+target_link_libraries(bf_editor_uvedit bf_intern_slim)

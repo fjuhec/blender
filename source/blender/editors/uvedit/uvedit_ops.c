@@ -4265,6 +4265,8 @@ void ED_operatortypes_uvedit(void)
 	WM_operatortype_append(UV_OT_cylinder_project);
 	WM_operatortype_append(UV_OT_project_from_view);
 	WM_operatortype_append(UV_OT_minimize_stretch);
+	// AUREL SLIM Interactive Parameterization
+ 	WM_operatortype_append(UV_OT_minimize_stretch_slim);
 	WM_operatortype_append(UV_OT_pack_islands);
 	WM_operatortype_append(UV_OT_reset);
 	WM_operatortype_append(UV_OT_sphere_project);
@@ -4341,6 +4343,8 @@ void ED_keymap_uvedit(wmKeyConfig *keyconf)
 	/* unwrap */
 	WM_keymap_add_item(keymap, "UV_OT_unwrap", EKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_item(keymap, "UV_OT_minimize_stretch", VKEY, KM_PRESS, KM_CTRL, 0);
+	// AUREL SLIM Interactive Parameterization
+	WM_keymap_add_item(keymap, "UV_OT_minimize_stretch_slim", MKEY, KM_PRESS, KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "UV_OT_pack_islands", PKEY, KM_PRESS, KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "UV_OT_average_islands_scale", AKEY, KM_PRESS, KM_CTRL, 0);
 

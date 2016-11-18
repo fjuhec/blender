@@ -1457,6 +1457,11 @@ typedef struct ToolSettings {
 	char uvcalc_flag;
 	char uv_flag;
 	char uv_selectmode;
+	/* AUREL THESIS*/
+	int slim_n_iterations;
+	int slim_skip_initialization;
+	int slim_fixed_boundary;
+	int slim_pack_islands;
 
 	float uvcalc_margin;
 
