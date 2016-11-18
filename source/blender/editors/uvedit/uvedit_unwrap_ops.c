@@ -82,6 +82,12 @@
 #include "uvedit_intern.h"
 #include "uvedit_parametrizer.h"
 
+#include "matrix_transfer.h"
+#include "slim_parametrizer.h"
+
+#define max(x, y) (((x) > (y)) ? (x) : (y))
+#define min(x, y) (((x) < (y)) ? (x) : (y))
+
 static void modifier_unwrap_state(Object *obedit, Scene *scene, bool *r_use_subsurf)
 {
 	ModifierData *md;
@@ -712,6 +718,274 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 	RNA_def_int(ot->srna, "iterations", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 100);
 }
 
+
+/*	AUREL THESIS
+	******************** Minimize Stretch SLIM operator **************** */
+
+/*	AUREL THESIS
+	Holds all necessary state for one session of interactive parametrisation.
+ */
+typedef struct {
+	matrix_transfer *mt;
+	ParamHandle *handle;
+	Object *obedit;
+
+	wmTimer *timer;
+	void** slimPtrs;
+	float blend;
+	bool firstIteration;
+	bool fixBorder;
+
+	bool noPins;
+} MinStretchSlim;
+
+void setup_weights();
+void setup_slim(Scene * scene, ParamHandle *handle, matrix_transfer *mt, MDeformVert *dvert, int defgrp_index, BMEditMesh *em);
+void free_matrix_transfer(matrix_transfer *mt);
+
+/*	AUREL THESIS
+	Initialises SLIM and transfars data matrices
+ */
+static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
+{
+
+	Scene *scene = CTX_data_scene(C);
+	Object *obedit = CTX_data_edit_object(C);
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+
+	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
+
+
+	/* AUREL THESIS setup to get weight paint colors*/
+	Mesh *me = obedit->data;
+	DerivedMesh *dm = mesh_create_derived(me, NULL);
+	char *name = "slim";
+	int defgrp_index = defgroup_name_index(obedit, name);
+	MDeformVert *dvert = dm->getVertDataArray(dm, CD_MDEFORMVERT);
+	setup_weights(obedit, em);
+
+	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, false, true, 1, 1);
+
+
+	MinStretchSlim *mss = MEM_callocN(sizeof(MinStretchSlim), "Data for minimizing stretch with SLIM");
+	mss->mt = MEM_callocN(sizeof(matrix_transfer), "Matrix Transfer to SLIM");
+	mss->handle = handle;
+	mss->obedit = obedit;
+	mss->firstIteration = true;
+	mss->fixBorder = true;
+	//fills in mt
+
+
+	setup_slim(scene, handle, mss->mt, dvert, defgrp_index, em);
+
+	mss->slimPtrs = MEM_callocN(mss->mt->nCharts * sizeof(void*), "pointers to Slim-objects");
+
+	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++){
+		mss->slimPtrs[chartNr] = setup_slim_C(mss->mt, chartNr, mss->fixBorder, true);
+	}
+
+	op->customdata = mss;
+	return true;
+}
+
+/*	AUREL THESIS
+	After initialisation, these iterations are executed, until applied or canceled by the user.
+ */
+static void minimize_stretch_SLIM_iteration(bContext *C, wmOperator *op, bool interactive)
+{
+	// AUREL THESIS In first iteration, check if pins are present
+	MinStretchSlim *mss = op->customdata;
+	if (mss->firstIteration){
+		mss->firstIteration = false;
+		if (!(mss->fixBorder)){
+			mss->noPins = mark_pins(mss->handle);
+		}
+	}
+
+	// AUREL THESIS Do one iteration and tranfer UVs
+	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++){
+		void *slimPtr = mss->slimPtrs[chartNr];
+		param_slim_single_iteration_C(slimPtr);
+		transfer_uvs_blended_C(mss->mt, slimPtr, chartNr, mss->blend);
+	}
+
+	//	AUREL THESIS Assign new UVs back to each vertex
+	set_uv_param_slim(mss->handle, mss->mt);
+	if (!(mss->fixBorder)){
+		if (mss->noPins){
+			param_pack(mss->handle, 0, false);
+		}
+	}
+	param_flush(mss->handle);
+
+
+	DAG_id_tag_update(mss->obedit->data, 0);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, mss->obedit->data);
+}
+
+/*	AUREL THESIS
+	Exit interactive parametrisation. Clean up memory.
+ */
+static void minimize_stretch_SLIM_exit(bContext *C, wmOperator *op, bool cancel)
+{
+	MinStretchSlim *mss = op->customdata;
+	/*
+	 if (!mss->fixBorder){
+		remove_pins(mss->handle);
+	 }*/
+
+	if (cancel){
+		mss->blend = 1.0f;
+	}
+
+	for (int chartNr = 0; chartNr < mss->mt->nCharts; chartNr++){
+		void *slimPtr = mss->slimPtrs[chartNr];
+		transfer_uvs_blended_C(mss->mt, slimPtr, chartNr, mss->blend);
+	}
+
+	set_uv_param_slim(mss->handle, mss->mt);
+
+	if (!(mss->fixBorder)){
+		if (mss->noPins){
+			param_pack(mss->handle, 0, false);
+		}
+	}
+
+	param_flush(mss->handle);
+	param_delete(mss->handle);
+
+	free_matrix_transfer(mss->mt);
+	MEM_freeN(mss->slimPtrs);
+	MEM_freeN(mss);
+	op->customdata = NULL;
+}
+
+/*	AUREL THESIS
+	NON-interactive version of interactive parametrisation. Every modal operator of blender has this mode.
+	In this case, it's obviously never used, since the "normal" non-interactive unwrapping method is to be preferred.
+ */
+static int minimize_stretch_SLIM_exec(bContext *C, wmOperator *op)
+{
+	int n_iterations = 1;
+
+	if (!minimize_stretch_SLIM_init(C, op))
+		return OPERATOR_CANCELLED;
+
+	MinStretchSlim *mss = op->customdata;
+
+	param_slim(mss->mt, n_iterations, true, true);
+
+	minimize_stretch_SLIM_exit(C, op, false);
+
+	return OPERATOR_FINISHED;
+}
+
+/*	AUREL THESIS
+	Entry point to interactive parametrisation. Already executes one iteration, allowing faster feedback.
+ */
+static int minimize_stretch_SLIM_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	MinStretchSlim *mss;
+
+	if (!minimize_stretch_SLIM_init(C, op))
+		return OPERATOR_CANCELLED;
+
+	minimize_stretch_SLIM_iteration(C, op, true);
+
+	mss = op->customdata;
+	WM_event_add_modal_handler(C, op);
+	mss->timer = WM_event_add_timer(CTX_wm_manager(C), CTX_wm_window(C), TIMER, 0.01f);
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+/*	AUREL THESIS
+	The control structure of the modal operator. a next iteration is either started due to a timer or
+	user input.
+ */
+static int minimize_stretch_SLIM_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	MinStretchSlim *mss = op->customdata;
+
+	switch (event->type) {
+		case ESCKEY:
+		case RIGHTMOUSE:
+			minimize_stretch_SLIM_exit(C, op, true);
+			return OPERATOR_CANCELLED;
+		case RETKEY:
+		case PADENTER:
+		case LEFTMOUSE:
+			minimize_stretch_SLIM_exit(C, op, false);
+			return OPERATOR_FINISHED;
+		case PADPLUSKEY:
+		case WHEELUPMOUSE:
+			if (event->val == KM_PRESS) {
+				if (mss->blend < 1.0f) {
+					mss->blend += min(0.1f, 1 - (mss->blend));
+					minimize_stretch_SLIM_iteration(C, op, true);
+				}
+			}
+			break;
+		case PADMINUS:
+		case WHEELDOWNMOUSE:
+			if (event->val == KM_PRESS) {
+				if (mss->blend > 0.0f) {
+					mss->blend -= min(0.1f, mss->blend);
+					minimize_stretch_SLIM_iteration(C, op, true);
+				}
+			}
+			break;
+		case TIMER:
+			if (mss->timer == event->customdata) {
+				double start = PIL_check_seconds_timer();
+
+				do {
+					minimize_stretch_SLIM_iteration(C, op, true);
+				} while (PIL_check_seconds_timer() - start < 0.01);
+			}
+			break;
+	}
+
+	/*if (ms->iterations && ms->i >= ms->iterations) {
+		minimize_stretch_exit(C, op, false);
+		return OPERATOR_FINISHED;
+	 }*/
+
+	return OPERATOR_RUNNING_MODAL;
+}
+
+/*	AUREL THESIS
+	Cancels the interactive parametrisation and discards the obtained map.
+ */
+static void minimize_stretch_SLIM_cancel(bContext *C, wmOperator *op)
+{
+	minimize_stretch_SLIM_exit(C, op, true);
+}
+
+/*	AUREL THESIS
+	Registration of the operator and integration into UI (can be executed with ctrl. + M)
+ */
+void UV_OT_minimize_stretch_slim(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Minimize Stretch SLIM";
+	ot->idname = "UV_OT_minimize_stretch_slim";
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_GRAB_CURSOR | OPTYPE_BLOCKING;
+	ot->description = "Reduce UV stretching by applying the SLIM algorithm";
+
+	/* api callbacks */
+	ot->exec = minimize_stretch_SLIM_exec;
+	ot->invoke = minimize_stretch_SLIM_invoke;
+	ot->modal = minimize_stretch_SLIM_modal;
+	ot->cancel = minimize_stretch_SLIM_cancel;
+	ot->poll = ED_operator_uvedit;
+
+	/* properties */
+	RNA_def_boolean(ot->srna, "fill_holes_slim", 1, "Fill Holes", "Virtual fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry");
+	RNA_def_float_factor(ot->srna, "blend_slim", 0.0f, 0.0f, 1.0f, "Blend", "Blend factor between stretch minimized and original", 0.0f, 1.0f);
+	RNA_def_int(ot->srna, "iterations_slim", 0, 0, INT_MAX, "Iterations", "Number of iterations to run, 0 is unlimited when run interactively", 0, 100);
+}
+
 /* ******************** Pack Islands operator **************** */
 
 void ED_uvedit_pack_islands(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect, bool do_rotate)
@@ -1141,7 +1415,20 @@ static void uv_map_clip_correct(Scene *scene, Object *ob, BMEditMesh *em, wmOper
 /* assumes UV Map is checked, doesn't run update funcs */
 void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 {
+
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+
+	/*	AUREL THESIS setup to get weight paint colors for weighted parametrisation*/
+	Mesh *me = obedit->data;
+	DerivedMesh *dm = mesh_create_derived(me, NULL);
+	char *name = "slim";
+	int defgrp_index = defgroup_name_index(obedit, name);
+	MDeformVert *dvert = dm->getVertDataArray(dm, CD_MDEFORMVERT);
+
+	setup_weights(obedit, em);
+
+	/* END AUREL THESIS*/
+
 	ParamHandle *handle;
 
 	const bool fill_holes = (scene->toolsettings->uvcalc_flag & UVCALC_FILLHOLES) != 0;
@@ -1155,16 +1442,95 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	else
 		handle = construct_param_handle(scene, obedit, em->bm, false, fill_holes, sel, correct_aspect);
 
-	param_lscm_begin(handle, PARAM_FALSE, scene->toolsettings->unwrapper == 0);
-	param_lscm_solve(handle);
-	param_lscm_end(handle);
+	bool transform_islands = true;
 
-	param_average(handle);
-	param_pack(handle, scene->toolsettings->uvcalc_margin, false);
+	/* AUREL THESIS - SLIM parametrization */
+
+	if (scene->toolsettings->unwrapper == 2){ //SLIM method chosen
+		int n_iterations = scene->toolsettings->slim_n_iterations;
+		bool skip_initialization = scene->toolsettings->slim_skip_initialization;
+		bool fixed_boundary = scene->toolsettings->slim_fixed_boundary;
+		bool pack_islands = scene->toolsettings->slim_pack_islands;
+
+		matrix_transfer *mt = MEM_mallocN(sizeof(matrix_transfer), "Matrix Transfer to SLIM");
+
+		/*	AUREL THESIS
+			transfer of data matrices, initialisation of SLIM, actual parametrisation and finally
+			reassignment of new UVs to vertices.
+		 */
+		setup_slim(scene, handle, mt, dvert, defgrp_index, em);
+		param_slim(mt, n_iterations, fixed_boundary, skip_initialization);
+		set_uv_param_slim(handle, mt);
+
+		//if any vertices are pinned, don't pack (i.e. reposition/-scale) UV charts
+		if (mt->pinned_vertices || !pack_islands){
+			transform_islands = false;
+		}
+
+		//cleanup
+		free_matrix_transfer(mt);
+
+	}else{	// AUREL THESIS use traditional parametrisation methods
+		param_lscm_begin(handle, PARAM_FALSE, scene->toolsettings->unwrapper == 0);
+		param_lscm_solve(handle);
+		param_lscm_end(handle);
+	}
+
+	if (transform_islands){
+		param_average(handle);
+		param_pack(handle, scene->toolsettings->uvcalc_margin, false);
+	}
 
 	param_flush(handle);
 
 	param_delete(handle);
+}
+
+
+void setup_weights(Object *obedit, BMEditMesh *em){
+
+	// AUREL THESIS iterate over bm edit mesh and set indices for weight retrieval,
+	//				This allows for later matching of vertices to weights.
+	BMVert *vert;
+	BMIter iter;
+	int i;
+	BM_ITER_MESH_INDEX(vert, &iter, em->bm, BM_VERTS_OF_MESH, i){
+		vert->id = i;
+	}
+}
+
+/*	AUREL THESIS
+	Transfers necessary data from native part to SLIM.
+ */
+void setup_slim(Scene * scene, ParamHandle *handle, matrix_transfer *mt, MDeformVert *dvert, int defgrp_index, BMEditMesh *em){
+	mt->pinned_vertices = false;
+	convert_blender_slim(handle, mt, false, dvert, defgrp_index, em);
+}
+
+/*	AUREL THESIS
+	Cleanup memory.
+ */
+void free_matrix_transfer(matrix_transfer *mt){
+
+	//Cleanup
+
+	for (int chartNr = 0; chartNr<mt->nCharts; chartNr++) {
+
+		MEM_freeN(mt->Vmatrices[chartNr]);
+		MEM_freeN(mt->UVmatrices[chartNr]);
+		MEM_freeN(mt->Fmatrices[chartNr]);
+
+	}
+
+	MEM_freeN(mt->nVerts);
+	MEM_freeN(mt->nFaces);
+	MEM_freeN(mt->nPinnedVertices);
+	MEM_freeN(mt->Vmatrices);
+	MEM_freeN(mt->UVmatrices);
+	MEM_freeN(mt->Fmatrices);
+	MEM_freeN(mt->Pmatrices);
+	MEM_freeN(mt->PPmatrices);
+	MEM_freeN(mt);
 }
 
 static int unwrap_exec(bContext *C, wmOperator *op)
@@ -1173,6 +1539,12 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	int method = RNA_enum_get(op->ptr, "method");
+
+	int n_slim_iterations = RNA_int_get(op->ptr, "slim_iterations");
+	bool slim_pack_islands = RNA_int_get(op->ptr, "slim_pack_islands");
+	bool slim_skip_initialization = RNA_int_get(op->ptr, "slim_skip_initialization");
+	bool slim_fixed_boundary = RNA_int_get(op->ptr, "slim_fixed_boundary");
+
 	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
 	const bool correct_aspect = RNA_boolean_get(op->ptr, "correct_aspect");
 	const bool use_subsurf = RNA_boolean_get(op->ptr, "use_subsurf_data");
@@ -1202,6 +1574,13 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 		scene->toolsettings->unwrapper = method;
 	else
 		RNA_enum_set(op->ptr, "method", scene->toolsettings->unwrapper);
+
+	/* get number of iterations and methood in global phase for SLIM unwraping*/
+	scene->toolsettings->slim_n_iterations = n_slim_iterations;
+	scene->toolsettings->slim_fixed_boundary = slim_fixed_boundary;
+	scene->toolsettings->slim_pack_islands = slim_pack_islands;
+	scene->toolsettings->slim_skip_initialization = slim_skip_initialization;
+
 
 	/* remember packing marging */
 	if (RNA_struct_property_is_set(op->ptr, "margin"))
@@ -1238,6 +1617,7 @@ void UV_OT_unwrap(wmOperatorType *ot)
 	static EnumPropertyItem method_items[] = {
 		{0, "ANGLE_BASED", 0, "Angle Based", ""},
 		{1, "CONFORMAL", 0, "Conformal", ""},
+		{2, "SLIM", 0, "SLIM", "" },
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -1261,6 +1641,15 @@ void UV_OT_unwrap(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "use_subsurf_data", 0, "Use Subsurf Modifier",
 	                "Map UVs taking vertex position after Subdivision Surface modifier has been applied");
 	RNA_def_float_factor(ot->srna, "margin", 0.001f, 0.0f, 1.0f, "Margin", "Space between islands", 0.0f, 1.0f);
+
+	RNA_def_int(ot->srna, "slim_iterations", 1, 0, 10000, "SLIM Iterations",
+				"Number of Iterations if the SLIM algorithm is used.", 1, 30);
+	RNA_def_boolean(ot->srna, "slim_skip_initialization", 0, "SLIM Skip Initialization",
+					"Use existing map as initialization for SLIM (May not contain flips!).");
+	RNA_def_boolean(ot->srna, "slim_fixed_boundary", 0, "SLIM Fix Boundary",
+					"When using SLIM and skipping initialization, this pins the boundary vertices to stay in place.");
+	RNA_def_boolean(ot->srna, "slim_pack_islands", 1, "SLIM Pack Islands",
+					"When using SLIM, this skips the packing of islands afterwards.");
 }
 
 /**************** Project From View operator **************/

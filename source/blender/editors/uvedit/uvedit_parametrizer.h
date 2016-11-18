@@ -30,8 +30,18 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-	
+
+
+#include "DNA_meshdata_types.h"
+#include "DNA_object_types.h"
+
+#include "BKE_deform.h"
+
+
 #include "BLI_sys_types.h" // for intptr_t support
+
+#include "matrix_transfer.h" // for SLIM
+
 
 typedef void ParamHandle;	/* handle to a set of charts */
 typedef intptr_t ParamKey;		/* (hash) key for identifying verts and faces */
@@ -114,6 +124,10 @@ void param_scale(ParamHandle *handle, float x, float y);
 void param_flush(ParamHandle *handle);
 void param_flush_restore(ParamHandle *handle);
 
+/*	AUREL THESIS */
+void convert_blender_slim(ParamHandle *handle, matrix_transfer *mt, bool selectionOnly,MDeformVert *dvert, int defgrp_index, BMEditMesh *em);
+void set_uv_param_slim(ParamHandle *handle, matrix_transfer *mt);
+bool mark_pins(ParamHandle *paramHandle);
 
 #ifdef __cplusplus
 }

@@ -99,6 +99,8 @@ typedef struct BMVert {
 	 *       which is a bit of an abuse of internal bmesh data but also works OK for now (use with care!).
 	 */
 	struct BMEdge *e;
+	/* AUREL */
+	int id;
 } BMVert;
 
 typedef struct BMVert_OFlag {
