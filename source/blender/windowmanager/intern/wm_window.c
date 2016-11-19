@@ -818,14 +818,8 @@ void WM_window_fullscreen_toggle(const wmWindow *win, const bool force_full, con
 int wm_window_fullscreen_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	wmWindow *win = CTX_wm_window(C);
-	const bool is_hmd_win =
-#ifdef WITH_INPUT_HMD
-	        win == CTX_wm_manager(C)->hmd_view.hmd_win;
-#else
-	        false;
-#endif
 
-	if (G.background || is_hmd_win)
+	if (G.background || !ED_screen_is_editable(CTX_wm_screen(C)))
 		return OPERATOR_CANCELLED;
 
 	WM_window_fullscreen_toggle(win, false, false);
