@@ -378,6 +378,18 @@ static void libblock_remap_data_postprocess_obdata_relink(Main *UNUSED(bmain), O
 	}
 }
 
+static void libblock_remap_data_postprocess_nodetree_update(Main *bmain, ID *new_id)
+{
+	/* Verify all nodetree user nodes. */
+	ntreeVerifyNodes(bmain, new_id);
+
+	/* Update node trees as necessary. */
+	FOREACH_NODETREE(bmain, ntree, id) {
+		/* make an update call for the tree */
+		ntreeUpdateTree(bmain, ntree);
+	} FOREACH_NODETREE_END
+}
+
 /**
  * Execute the 'data' part of the remapping (that is, all ID pointers from other ID datablocks).
  *
@@ -551,6 +563,8 @@ void BKE_libblock_remap_locked(
 		default:
 			break;
 	}
+	/* Node trees may virtually use any kind of data-block... */
+	libblock_remap_data_postprocess_nodetree_update(bmain, new_id);
 
 	/* Full rebuild of DAG! */
 	DAG_relations_tag_update(bmain);
@@ -666,44 +680,11 @@ void BKE_libblock_relink_ex(
 	}
 }
 
-static void animdata_dtar_clear_cb(ID *UNUSED(id), AnimData *adt, void *userdata)
-{
-	ChannelDriver *driver;
-	FCurve *fcu;
-
-	/* find the driver this belongs to and update it */
-	for (fcu = adt->drivers.first; fcu; fcu = fcu->next) {
-		driver = fcu->driver;
-		
-		if (driver) {
-			DriverVar *dvar;
-			for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
-				DRIVER_TARGETS_USED_LOOPER(dvar) 
-				{
-					if (dtar->id == userdata)
-						dtar->id = NULL;
-				}
-				DRIVER_TARGETS_LOOPER_END
-			}
-		}
-	}
-}
-
-void BKE_libblock_free_data(Main *bmain, ID *id)
-{
-	BKE_libblock_free_data_ex(bmain, id, true);
-}
-
-void BKE_libblock_free_data_ex(Main *bmain, ID *id, const bool do_id_user)
+void BKE_libblock_free_data(Main *UNUSED(bmain), ID *id)
 {
 	if (id->properties) {
 		IDP_FreeProperty(id->properties);
 		MEM_freeN(id->properties);
-	}
-
-	if (do_id_user) {
-		/* this ID may be a driver target! */
-		BKE_animdata_main_cb(bmain, animdata_dtar_clear_cb, (void *)id);
 	}
 }
 
@@ -852,7 +833,7 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user, const b
 
 	BLI_remlink(lb, id);
 
-	BKE_libblock_free_data_ex(bmain, id, do_id_user);
+	BKE_libblock_free_data(bmain, id);
 	BKE_main_unlock(bmain);
 
 	MEM_freeN(id);

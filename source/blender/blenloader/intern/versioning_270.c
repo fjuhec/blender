@@ -1467,6 +1467,13 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 	}
 
+	if (!MAIN_VERSION_ATLEAST(main, 278, 4)) {
+		const float sqrt_3 = (float)M_SQRT3;
+		for (Brush *br = main->brush.first; br; br = br->id.next) {
+			br->fill_threshold /= sqrt_3;
+		}
+	}
+
 	{
 #ifdef WITH_INPUT_HMD
 		if (!DNA_struct_elem_find(fd->filesdna, "wmWindowManager", "HMDViewInfo", "hmd_view")) {
