@@ -7065,7 +7065,9 @@ static bool direct_link_screen(FileData *fd, bScreen *sc)
 					v3d->fx_settings.dof = newdataadr(fd, v3d->fx_settings.dof);
 				if (v3d->fx_settings.ssao)
 					v3d->fx_settings.ssao = newdataadr(fd, v3d->fx_settings.ssao);
-				
+				if (v3d->fx_settings.lensdist)
+					v3d->fx_settings.lensdist = newdataadr(fd, v3d->fx_settings.lensdist);
+
 				blo_do_versions_view3d_split_250(v3d, &sl->regionbase);
 			}
 			else if (sl->spacetype == SPACE_IPO) {

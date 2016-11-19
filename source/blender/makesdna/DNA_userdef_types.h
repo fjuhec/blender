@@ -432,7 +432,8 @@ typedef struct WalkNavigation {
 
 struct HMDSettings {
 	short device; /* HMD device index */
-	char flag, pad;
+	char flag;
+	char lensdist_shader;
 	float custom_ipd;
 	/* Set while using custom_ipd (USER_HMD_USE_DEVICE_IPD) so we can reset to device IPD */
 	float init_ipd;
@@ -441,8 +442,7 @@ struct HMDSettings {
 /* HMDViewSettings.flag */
 enum {
 	USER_HMD_USE_DEVICE_ROT  = (1 << 0),
-	USER_HMD_USE_LENSDIST_FX = (1 << 1),
-	USER_HMD_USE_DEVICE_IPD  = (1 << 2),
+	USER_HMD_USE_DEVICE_IPD  = (1 << 1),
 };
 
 typedef struct UserDef {

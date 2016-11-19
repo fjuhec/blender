@@ -52,9 +52,20 @@ typedef struct GPUSSAOSettings {
 	int pad;
 } GPUSSAOSettings;
 
+typedef struct GPULensDistSettings {
+	char type; /* eGPULensDistType */
+	char pad[3];
+} GPULensDistSettings;
+
+typedef enum eGPULensDistType {
+	GPU_FX_LENSDIST_NONE = 0,
+	GPU_FX_LENSDIST_DK2  = 1,
+} eGPULensDistType;
+
 typedef struct GPUFXSettings {
 	GPUDOFSettings *dof;
 	GPUSSAOSettings *ssao;
+	GPULensDistSettings *lensdist;
 	char fx_flag;  /* eGPUFXFlags */
 	char pad[7];
 } GPUFXSettings;

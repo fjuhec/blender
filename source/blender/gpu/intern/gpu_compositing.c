@@ -399,6 +399,9 @@ bool GPU_fx_compositor_initialize_passes(
 	if (!fx_settings->ssao || fx_settings->ssao->samples < 1) {
 		fx_flag &= ~GPU_FX_FLAG_SSAO;
 	}
+	if (!fx_settings->lensdist || fx_settings->lensdist->type == GPU_FX_LENSDIST_NONE) {
+		fx_flag &= ~GPU_FX_FLAG_LensDist;
+	}
 
 	if (!fx_flag) {
 		cleanup_fx_gl_data(fx, true);
@@ -1292,7 +1295,10 @@ bool GPU_fx_do_composite_pass(
 
 	/* third pass, Lens Distortion */
 	if (fx->effects & GPU_FX_FLAG_LensDist) {
+		eGPULensDistType type = fx->settings.lensdist->type; /* TODO Use this */
 		GPUShader *lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp);
+
+		UNUSED_VARS(type);
 
 		if (lensdist_shader) {
 			const int color_uniform = GPU_shader_get_uniform(lensdist_shader, "warpTexture");
@@ -1355,6 +1361,11 @@ void GPU_fx_compositor_init_ssao_settings(GPUSSAOSettings *fx_ssao)
 	fx_ssao->distance_max = 0.2f;
 	fx_ssao->attenuation = 1.0f;
 	fx_ssao->samples = 20;
+}
+
+void GPU_fx_compositor_init_lensdist_settings(GPULensDistSettings *fx_lensdist)
+{
+	fx_lensdist->type = GPU_FX_LENSDIST_NONE;
 }
 
 void GPU_fx_shader_init_interface(struct GPUShader *shader, GPUFXShaderEffect effect)

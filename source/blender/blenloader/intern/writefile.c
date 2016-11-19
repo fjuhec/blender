@@ -3069,6 +3069,9 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 					if (v3d->fx_settings.dof) {
 						writestruct(wd, DATA, GPUDOFSettings, 1, v3d->fx_settings.dof);
 					}
+					if (v3d->fx_settings.lensdist) {
+						writestruct(wd, DATA, GPULensDistSettings, 1, v3d->fx_settings.lensdist);
+					}
 				}
 				else if (sl->spacetype == SPACE_IPO) {
 					SpaceIpo *sipo = (SpaceIpo *)sl;

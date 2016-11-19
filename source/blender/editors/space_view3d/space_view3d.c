@@ -432,13 +432,29 @@ static void view3d_free(SpaceLink *sl)
 		MEM_freeN(vd->fx_settings.ssao);
 	if (vd->fx_settings.dof)
 		MEM_freeN(vd->fx_settings.dof);
+	if (vd->fx_settings.lensdist)
+		MEM_freeN(vd->fx_settings.lensdist);
 }
 
 
 /* spacetype; init callback */
-static void view3d_init(wmWindowManager *UNUSED(wm), ScrArea *UNUSED(sa))
+static void view3d_init(wmWindowManager *wm, ScrArea *sa)
 {
+#ifdef WITH_INPUT_HMD
+	View3D *v3d = sa->spacedata.first;
+	const wmWindow *hmd_win = wm->hmd_view.hmd_win;
+	const bool is_hmd_view = hmd_win && (hmd_win->screen->areabase.first == sa);
 
+	/* Make sure the HMD view is initialized with the shader set in UserPrefs. */
+	if (is_hmd_view && v3d->fx_settings.lensdist) {
+		v3d->fx_settings.lensdist->type = U.hmd_settings.lensdist_shader;
+		if (U.hmd_settings.lensdist_shader != GPU_FX_LENSDIST_NONE) {
+			v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
+		}
+	}
+#else
+	UNUSED(wm, sa);
+#endif
 }
 
 static SpaceLink *view3d_duplicate(SpaceLink *sl)
@@ -477,6 +493,8 @@ static SpaceLink *view3d_duplicate(SpaceLink *sl)
 		v3dn->fx_settings.dof = MEM_dupallocN(v3do->fx_settings.dof);
 	if (v3dn->fx_settings.ssao)
 		v3dn->fx_settings.ssao = MEM_dupallocN(v3do->fx_settings.ssao);
+	if (v3dn->fx_settings.lensdist)
+		v3dn->fx_settings.lensdist = MEM_dupallocN(v3do->fx_settings.lensdist);
 
 	return (SpaceLink *)v3dn;
 }

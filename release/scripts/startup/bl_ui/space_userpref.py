@@ -437,9 +437,9 @@ class USERPREF_PT_system(Panel):
 
         col.label(text="Head Mounted Displays:")
         col.prop(system, "hmd_device", text="Device")
-        col.prop(system, "use_hmd_view_lensdist", text="Lens Distortion")
         col.prop(system, "use_hmd_rotation")
         col.prop(system, "use_hmd_device_ipd")
+        col.prop(system, "hmd_lensdist_type", text="Lens Distortion")
         subcol = col.column()
         subcol.active = not system.use_hmd_device_ipd
         subcol.prop(system, "hmd_custom_ipd")

@@ -40,6 +40,7 @@ extern "C" {
 typedef struct GPUFX GPUFX;
 struct GPUDOFSettings;
 struct GPUSSAOSettings;
+struct GPULensDistSettings;
 struct GPUOffScreen;
 struct GPUFXSettings;
 struct rcti;
@@ -101,6 +102,7 @@ void GPU_fx_compositor_XRay_resolve(GPUFX *fx);
 
 void GPU_fx_compositor_init_dof_settings(struct GPUDOFSettings *dof);
 void GPU_fx_compositor_init_ssao_settings(struct GPUSSAOSettings *ssao);
+void GPU_fx_compositor_init_lensdist_settings(struct GPULensDistSettings *fx_lensdist);
 
 
 /* initialize and cache the shader unform interface for effects */

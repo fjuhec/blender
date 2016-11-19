@@ -4136,8 +4136,11 @@ static void hmd_view_prepare_screen(wmWindowManager *wm, wmWindow *win)
 
 	/* sync view options */
 	v3d->drawtype = wm->hmd_view.view_shade;
-	if (U.hmd_settings.flag & USER_HMD_USE_LENSDIST_FX) {
+	if (U.hmd_settings.lensdist_shader != GPU_FX_LENSDIST_NONE) {
 		v3d->fx_settings.fx_flag |= GPU_FX_FLAG_LensDist;
+		/* Set distortion type for 3D View but first we need to validate fx settings. */
+		BKE_screen_gpu_fx_validate(&v3d->fx_settings);
+		v3d->fx_settings.lensdist->type = U.hmd_settings.lensdist_shader;
 	}
 
 	rv3d->persp = RV3D_CAMOB;
