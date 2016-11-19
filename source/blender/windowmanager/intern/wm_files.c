@@ -1264,7 +1264,7 @@ static int wm_homefile_write_exec(bContext *C, wmOperator *op)
 	BLI_callback_exec(G.main, NULL, BLI_CB_EVT_SAVE_PRE);
 
 	/* check current window and close it if temp */
-	if (win && win->screen->temp)
+	if (win && win->screen->type == SCREEN_TYPE_TEMP)
 		wm_window_close(C, wm, win);
 
 	/* update keymaps in user preferences */

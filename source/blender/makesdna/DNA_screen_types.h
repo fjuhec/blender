@@ -45,6 +45,16 @@ struct Scene;
 struct uiLayout;
 struct wmTimer;
 
+/* bScreen.type */
+enum {
+	SCREEN_TYPE_NORMAL     = 0,
+	/* temp screen in a temp window, don't save (like user prefs) */
+	SCREEN_TYPE_TEMP       = 1,
+	/* A restricted window only allows to display one particulare editor. It will only
+	 * display the main region and won't allow going out of fullscreen or switch the editor. */
+	SCREEN_TYPE_RESTRICTED = 2,
+};
+
 typedef struct bScreen {
 	ID id;
 	
@@ -59,7 +69,7 @@ typedef struct bScreen {
 	short winid;						/* winid from WM, starts with 1 */
 	short redraws_flag;					/* user-setting for which editors get redrawn during anim playback (used to be time->redraws) */
 
-	char temp;							/* temp screen in a temp window, don't save (like user prefs) */
+	char type;
 	char state;							/* temp screen for image render display or fileselect */
 	char do_draw;						/* notifier for drawing edges */
 	char do_refresh;					/* notifier for scale screen, changed screen, etc */
@@ -71,7 +81,7 @@ typedef struct bScreen {
 	char scrubbing;						/* set when scrubbing to avoid some costly updates */
 	char is_hmd_running;				/* is this screen running an HMD session? */
 	char pad[5];
-	
+
 	short mainwin;						/* screensize subwindow, for screenedges and global menus */
 	short subwinactive;					/* active subwindow */
 

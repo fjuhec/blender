@@ -630,7 +630,7 @@ static void rna_Window_screen_set(PointerRNA *ptr, PointerRNA value)
 	wmWindow *win = (wmWindow *)ptr->data;
 
 	/* disallow ID-browsing away from temp screens */
-	if (win->screen->temp) {
+	if (win->screen->type == SCREEN_TYPE_TEMP) {
 		return;
 	}
 
@@ -645,7 +645,7 @@ static int rna_Window_screen_assign_poll(PointerRNA *UNUSED(ptr), PointerRNA val
 {
 	bScreen *screen = (bScreen *)value.id.data;
 
-	return !screen->temp;
+	return screen->type == SCREEN_TYPE_NORMAL;
 }
 
 

@@ -1775,8 +1775,12 @@ static int wm_handler_fileselect_do(bContext *C, ListBase *handlers, wmEventHand
 	SpaceFile *sfile;
 	int action = WM_HANDLER_CONTINUE;
 
+	if (val == EVT_FILESELECT_FULL_OPEN && !ED_screen_is_editable(CTX_wm_screen(C))) {
+		val = EVT_FILESELECT_EXTERNAL_CANCEL;
+	}
+
 	switch (val) {
-		case EVT_FILESELECT_FULL_OPEN: 
+		case EVT_FILESELECT_FULL_OPEN:
 		{
 			ScrArea *sa;
 				

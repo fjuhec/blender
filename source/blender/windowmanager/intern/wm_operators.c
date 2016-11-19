@@ -4126,14 +4126,13 @@ static void WM_OT_stereo3d_set(wmOperatorType *ot)
 /* ******************************************************* */
 /* Head Mounted Display */
 
-static void hmd_view_prepare_screen(bContext *C, wmWindowManager *wm, wmWindow *win)
+static void hmd_view_prepare_screen(wmWindowManager *wm, wmWindow *win)
 {
 	ScrArea *sa = win->screen->areabase.first;
 	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW)->regiondata;
 
 	BLI_assert(sa->spacetype == SPACE_VIEW3D);
-	ED_screen_state_toggle(C, win, sa, SCREENFULL);
 
 	/* sync view options */
 	v3d->drawtype = wm->hmd_view.view_shade;
@@ -4163,10 +4162,10 @@ static int wm_hmd_view_toggle_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	else {
 		rcti rect = {prevwin->posx, prevwin->posx + (int)(prevwin->sizex * 0.9f),
 		             prevwin->posy, prevwin->posy + (int)(prevwin->sizey * 0.9f)};
-		win = WM_window_open_temp(C, &rect, WM_WINDOW_HMD);
+		win = WM_window_open_restricted(C, &rect, WM_WINDOW_HMD);
 		wm->hmd_view.hmd_win = win;
 
-		hmd_view_prepare_screen(C, wm, win);
+		hmd_view_prepare_screen(wm, win);
 	}
 
 	return OPERATOR_FINISHED;
@@ -4241,12 +4240,12 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *hmd_win = wm->hmd_view.hmd_win;
-	ScrArea *sa = hmd_win->screen->areabase.first;
 
 	if (!hmd_win || !hmd_win->screen->is_hmd_running) {
 		return OPERATOR_CANCELLED; /* no pass through, we don't need to keep that event in queue */
 	}
 
+	ScrArea *sa = hmd_win->screen->areabase.first;
 	BLI_assert(sa->spacetype == SPACE_VIEW3D);
 	/* Actually the only thing we have to do is ensuring a redraw, we'll then
 	 * get the modelview/projection matrices from HMD device when drawing */

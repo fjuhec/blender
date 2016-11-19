@@ -54,9 +54,8 @@
 /* returns biggest area that is not uv/image editor. Note that it uses buttons */
 /* window as the last possible alternative.									   */
 /* would use BKE_screen_find_big_area(...) but this is too specific            */
-static ScrArea *biggest_non_image_area(bContext *C)
+static ScrArea *biggest_non_image_area(const bScreen *sc)
 {
-	bScreen *sc = CTX_wm_screen(C);
 	ScrArea *sa, *big = NULL;
 	int size, maxsize = 0, bwmaxsize = 0;
 	short foundwin = 0;
@@ -181,7 +180,9 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
 	}
 
 	if (!sa) {
+		bScreen *screen = CTX_wm_screen(C);
 		sa = find_area_showing_r_result(C, scene, &win);
+
 		if (sa == NULL)
 			sa = find_area_image_empty(C);
 		
@@ -189,9 +190,9 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
 		if (win && win != CTX_wm_window(C))
 			wm_window_raise(win);
 
-		if (sa == NULL) {
+		if (sa == NULL && ED_screen_is_editable(screen)) {
 			/* find largest open non-image area */
-			sa = biggest_non_image_area(C);
+			sa = biggest_non_image_area(screen);
 			if (sa) {
 				ED_area_newspace(C, sa, SPACE_IMAGE, true);
 				sima = sa->spacedata.first;
@@ -206,7 +207,7 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
 			}
 			else {
 				/* use any area of decent size */
-				sa = BKE_screen_find_big_area(CTX_wm_screen(C), SPACE_TYPE_ANY, 0);
+				sa = BKE_screen_find_big_area(screen, SPACE_TYPE_ANY, 0);
 				if (sa->spacetype != SPACE_IMAGE) {
 					// XXX newspace(sa, SPACE_IMAGE);
 					sima = sa->spacedata.first;
@@ -215,6 +216,11 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
 					sima->flag |= SI_PREVSPACE;
 				}
 			}
+		}
+		else if (!sa) {
+			/* Could also search in other screens. */
+			BKE_report(reports, RPT_ERROR, "Can't show render result in current screen.");
+			return NULL;
 		}
 	}
 	sima = sa->spacedata.first;
@@ -255,7 +261,7 @@ static int render_view_cancel_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 
 	/* test if we have a temp screen in front */
-	if (win->screen->temp) {
+	if (win->screen->type == SCREEN_TYPE_TEMP) {
 		wm_window_lower(win);
 		return OPERATOR_FINISHED;
 	}
@@ -301,7 +307,7 @@ static int render_view_show_invoke(bContext *C, wmOperator *op, const wmEvent *e
 	wmWindow *wincur = CTX_wm_window(C);
 	
 	/* test if we have currently a temp screen active */
-	if (wincur->screen->temp) {
+	if (wincur->screen->type == SCREEN_TYPE_TEMP) {
 		wm_window_lower(wincur);
 	}
 	else {
@@ -311,7 +317,7 @@ static int render_view_show_invoke(bContext *C, wmOperator *op, const wmEvent *e
 		/* is there another window on current scene showing result? */
 		for (win = CTX_wm_manager(C)->windows.first; win; win = win->next) {
 			bScreen *sc = win->screen;
-			if ((sc->temp && ((ScrArea *)sc->areabase.first)->spacetype == SPACE_IMAGE) ||
+			if (((sc->type == SCREEN_TYPE_TEMP) && ((ScrArea *)sc->areabase.first)->spacetype == SPACE_IMAGE) ||
 			    (win == winshow && winshow != wincur))
 			{
 				wm_window_raise(win);

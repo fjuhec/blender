@@ -1529,7 +1529,11 @@ void ED_region_cursor_set(wmWindow *win, ScrArea *sa, ARegion *ar)
 void region_toggle_hidden(bContext *C, ARegion *ar, const bool do_fade)
 {
 	ScrArea *sa = CTX_wm_area(C);
-	
+
+	if (!ED_screen_is_editable(CTX_wm_screen(C))) {
+		return;
+	}
+
 	ar->flag ^= RGN_FLAG_HIDDEN;
 	
 	if (do_fade && ar->overlap) {

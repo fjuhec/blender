@@ -150,6 +150,11 @@ static void rna_Area_type_update(bContext *C, PointerRNA *ptr)
 	bScreen *sc = (bScreen *)ptr->id.data;
 	ScrArea *sa = (ScrArea *)ptr->data;
 
+	if (!ED_screen_is_editable(sc)) {
+		sa->butspacetype = sa->spacetype;
+		return;
+	}
+
 	/* XXX this call still use context, so we trick it to work in the right context */
 	for (win = wm->windows.first; win; win = win->next) {
 		if (sc == win->screen) {

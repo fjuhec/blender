@@ -297,18 +297,18 @@ wmWindow *wm_window_copy_test(bContext *C, wmWindow *win_src)
 /* this is event from ghost, or exit-blender op */
 void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 {
-	wmWindow *tmpwin;
+	wmWindow *normal_win;
 	bool do_exit = false;
 	
-	/* first check if we have to quit (there are non-temp remaining windows) */
-	for (tmpwin = wm->windows.first; tmpwin; tmpwin = tmpwin->next) {
-		if (tmpwin == win)
+	/* first check if we have to quit (there are no normal windows remaining) */
+	for (normal_win = wm->windows.first; normal_win; normal_win = normal_win->next) {
+		if (normal_win == win)
 			continue;
-		if (tmpwin->screen->temp == 0)
+		if (normal_win->screen->type == SCREEN_TYPE_NORMAL)
 			break;
 	}
 
-	if (tmpwin == NULL)
+	if (normal_win == NULL)
 		do_exit = 1;
 	
 	if ((U.uiflag & USER_QUIT_PROMPT) && !wm->file_saved) {
@@ -347,7 +347,7 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 		wm_window_free(C, wm, win);
 	
 		/* if temp screen, delete it after window free (it stops jobs that can access it) */
-		if (screen && screen->temp) {
+		if (screen && screen->type == SCREEN_TYPE_TEMP) {
 			Main *bmain = CTX_data_main(C);
 			BKE_libblock_free(bmain, screen);
 		}
@@ -359,9 +359,9 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
  */
 void wm_window_title(wmWindowManager *wm, wmWindow *win, const char *title)
 {
-	if (win->screen && win->screen->temp) {
-		/* nothing to do for 'temp' windows,
-		 * because WM_window_open_temp always sets window title  */
+	if (win->screen && ELEM(win->screen->type, SCREEN_TYPE_TEMP, SCREEN_TYPE_RESTRICTED)) {
+		/* nothing to do for temporary or restricted windows,
+		 * because WM_window_open_temp/WM_window_open_restricted always sets window title  */
 	}
 	else if (win->ghostwin) {
 		if (title) {
@@ -623,37 +623,16 @@ wmWindow *WM_window_open(bContext *C, const rcti *rect)
 }
 
 /**
- * Uses `screen->temp` tag to define what to do, currently it limits
- * to only one "temp" window for render out, preferences, filewindow, etc...
+ * Sets up the window and the screen for a desired \a type.
  *
- * \param type: WM_WINDOW_RENDER, WM_WINDOW_USERPREFS, WM_WINDOW_HMD...
- * \return the window or NULL.
+ * \return if the window is valid.
  */
-wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
+static bool wm_window_setup_type(bContext *C, Scene *scene, wmWindow *win, rcti rect, int type)
 {
 	wmWindow *win_prev = CTX_wm_window(C);
-	wmWindow *win;
-	ScrArea *sa;
-	Scene *scene = CTX_data_scene(C);
-	const char *title;
-	rcti rect = *rect_init;
 	const short px_virtual = (short)wm_window_get_virtual_pixelsize();
-
-	/* changes rect to fit within desktop */
-	wm_window_check_position(&rect);
-	
-	/* test if we have a temp screen already */
-	for (win = CTX_wm_manager(C)->windows.first; win; win = win->next)
-		if (win->screen->temp)
-			break;
-	
-	/* add new window? */
-	if (win == NULL) {
-		win = wm_window_new(C);
-		
-		win->posx = rect.xmin;
-		win->posy = rect.ymin;
-	}
+	ScrArea *sa;
+	const char *title;
 
 	/* multiply with virtual pixelsize, ghost handles native one (e.g. for retina) */
 	win->sizex = BLI_rcti_size_x(&rect) * px_virtual;
@@ -674,8 +653,6 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 			ED_screen_set_scene(C, win->screen, scene);
 	}
 
-	win->screen->temp = 1; 
-	
 	/* make window active, and validate/resize */
 	CTX_wm_window_set(C, win);
 	WM_check(C);
@@ -686,7 +663,7 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 	 * to avoid having to take into account a partially-created window.
 	 */
 
-	/* ensure it shows the right spacetype editor */
+	/* ensure we show the right spacetype editor */
 	sa = win->screen->areabase.first;
 	CTX_wm_area_set(C, sa);
 
@@ -716,15 +693,83 @@ wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
 
 	if (win->ghostwin) {
 		GHOST_SetTitle(win->ghostwin, title);
-		return win;
 	}
 	else {
 		/* very unlikely! but opening a new window can fail */
 		wm_window_close(C, CTX_wm_manager(C), win);
 		CTX_wm_window_set(C, win_prev);
+		return false;
+	}
 
+	return true;
+}
+
+/**
+ * Uses `screen->temp` tag to define what to do, currently it limits
+ * to only one "temp" window for render out, preferences, filewindow, etc...
+ *
+ * \param type: WM_WINDOW_RENDER, WM_WINDOW_USERPREFS, WM_WINDOW_HMD...
+ * \return the window or NULL.
+ */
+wmWindow *WM_window_open_temp(bContext *C, const rcti *rect_init, int type)
+{
+	Scene *scene = CTX_data_scene(C);
+	wmWindow *win;
+	rcti rect = *rect_init;
+
+	/* changes rect to fit within desktop */
+	wm_window_check_position(&rect);
+
+	/* test if we have a temp screen already */
+	for (win = CTX_wm_manager(C)->windows.first; win; win = win->next)
+		if (win->screen->type == SCREEN_TYPE_TEMP)
+			break;
+
+	/* add new window? */
+	if (win == NULL) {
+		win = wm_window_new(C);
+
+		win->posx = rect.xmin;
+		win->posy = rect.ymin;
+	}
+
+	if (!wm_window_setup_type(C, scene, win, rect, type)) {
 		return NULL;
 	}
+
+	/* after window setup! */
+	win->screen->type = SCREEN_TYPE_TEMP;
+
+	return win;
+}
+
+/**
+ * Opens a new, restricted window. A restricted window only allows to display one particulare editor. It
+ * will only display the main region and won't allow you to go out of fullscreen or switch the editor.
+ *
+ * \param type: WM_WINDOW_RENDER, WM_WINDOW_USERPREFS, WM_WINDOW_HMD...
+ * \return the window or NULL.
+ */
+wmWindow *WM_window_open_restricted(bContext *C, const rcti *rect_init, int type)
+{
+	Scene *scene = CTX_data_scene(C);
+	wmWindow *win = wm_window_new(C);
+	rcti rect = *rect_init;
+
+	/* changes rect to fit within desktop */
+	wm_window_check_position(&rect);
+
+	win->posx = rect.xmin;
+	win->posy = rect.ymin;
+
+	if (!wm_window_setup_type(C, scene, win, rect, type)) {
+		return NULL;
+	}
+
+	ED_screen_state_toggle(C, win, win->screen->areabase.first, SCREENFULL);
+	win->screen->type = SCREEN_TYPE_RESTRICTED;
+
+	return win;
 }
 
 

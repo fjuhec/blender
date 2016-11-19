@@ -2374,7 +2374,7 @@ static bool screen_set_is_ok(bScreen *screen, bScreen *screen_prev)
 	return ((screen->winid == 0) &&
 	        /* in typical usage these should have a nonzero winid
 	         * (all temp screens should be used, or closed & freed). */
-	        (screen->temp == false) &&
+	        (screen->type == SCREEN_TYPE_NORMAL) &&
 	        (screen->state == SCREENNORMAL) &&
 	        (screen != screen_prev) &&
 	        (screen->id.name[2] != '.' || !(U.uiflag & USER_HIDE_DOT)));
@@ -2392,7 +2392,7 @@ static int screen_set_exec(bContext *C, wmOperator *op)
 	int delta = RNA_int_get(op->ptr, "delta");
 	
 	/* temp screens are for userpref or render display */
-	if (screen->temp || (sa && sa->full && sa->full->temp)) {
+	if (screen->type != SCREEN_TYPE_NORMAL || (sa && sa->full && sa->full->type != SCREEN_TYPE_NORMAL)) {
 		return OPERATOR_CANCELLED;
 	}
 	
@@ -2447,12 +2447,7 @@ static void SCREEN_OT_screen_set(wmOperatorType *ot)
 
 static int screen_maximize_area_poll(bContext *C)
 {
-	return ED_operator_areaactive(C) &&
-#ifdef WITH_INPUT_HMD
-	        !(CTX_wm_manager(C)->hmd_view.hmd_win == CTX_wm_window(C));
-#else
-	        true;
-#endif
+	return ED_operator_areaactive(C) && ED_screen_is_editable(CTX_wm_screen(C));
 }
 
 /* function to be called outside UI context, or for redo */
@@ -3200,9 +3195,10 @@ static void SCREEN_OT_region_flip(wmOperatorType *ot)
 /* ************** header operator ***************************** */
 static int header_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	const bScreen *screen = CTX_wm_screen(C);
 	ARegion *ar = screen_find_region_type(C, RGN_TYPE_HEADER);
 
-	if (ar == NULL) {
+	if (ar == NULL || !ED_screen_is_editable(screen)) {
 		return OPERATOR_CANCELLED;
 	}
 

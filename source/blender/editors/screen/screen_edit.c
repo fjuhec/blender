@@ -1344,7 +1344,7 @@ void ED_screen_exit(bContext *C, wmWindow *window, bScreen *screen)
 	/* mark it available for use for other windows */
 	screen->winid = 0;
 	
-	if (prevwin->screen->temp == 0) {
+	if (prevwin->screen->type == SCREEN_TYPE_NORMAL) {
 		/* use previous window if possible */
 		CTX_wm_window_set(C, prevwin);
 	}
@@ -1495,7 +1495,8 @@ bool ED_screen_set(bContext *C, bScreen *sc)
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
 	bScreen *oldscreen = CTX_wm_screen(C);
-	
+
+	BLI_assert(ED_screen_is_editable(sc)); /* Caller should check */
 	/* validate screen, it's called with notifier reference */
 	if (BLI_findindex(&bmain->screen, sc) == -1) {
 		return true;
@@ -1623,12 +1624,12 @@ bool ED_screen_delete(bContext *C, bScreen *sc)
 	 * can safely assume ours is not in use anywhere an delete it */
 
 	for (newsc = sc->id.prev; newsc; newsc = newsc->id.prev)
-		if (!ed_screen_used(wm, newsc) && !newsc->temp)
+		if (!ed_screen_used(wm, newsc) && newsc->type != SCREEN_TYPE_TEMP)
 			break;
 	
 	if (!newsc) {
 		for (newsc = sc->id.next; newsc; newsc = newsc->id.next)
-			if (!ed_screen_used(wm, newsc) && !newsc->temp)
+			if (!ed_screen_used(wm, newsc) && newsc->type != SCREEN_TYPE_TEMP)
 				break;
 	}
 
@@ -1943,7 +1944,7 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 		sc = ED_screen_add(win, oldscreen->scene, newname);
 		sc->state = state;
 		sc->redraws_flag = oldscreen->redraws_flag;
-		sc->temp = oldscreen->temp;
+		sc->type = oldscreen->type;
 
 		/* timer */
 		sc->animtimer = oldscreen->animtimer;
@@ -2255,4 +2256,9 @@ bool ED_screen_stereo3d_required(bScreen *screen)
 	}
 
 	return false;
+}
+
+bool ED_screen_is_editable(const bScreen *screen)
+{
+	return (screen && screen->type != SCREEN_TYPE_RESTRICTED);
 }

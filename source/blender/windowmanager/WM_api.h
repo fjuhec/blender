@@ -94,7 +94,7 @@ int			WM_window_pixels_x		(struct wmWindow *win);
 int			WM_window_pixels_y		(struct wmWindow *win);
 bool		WM_window_is_fullscreen	(struct wmWindow *win);
 
-/* defines for 'type' WM_window_open_temp */
+/* defines for 'type' WM_window_open_temp/WM_window_open_restricted */
 enum {
 	WM_WINDOW_RENDER = 1,
 	WM_WINDOW_USERPREFS,
@@ -103,6 +103,7 @@ enum {
 
 struct wmWindow	*WM_window_open(struct bContext *C, const struct rcti *rect);
 struct wmWindow *WM_window_open_temp(struct bContext *C, const struct rcti *rect_init, int type);
+struct wmWindow *WM_window_open_restricted(struct bContext *C, const struct rcti *rect_init, int type);
 
 void WM_window_fullscreen_toggle(const struct wmWindow *win, const bool force_full, const bool force_normal);
 
