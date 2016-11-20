@@ -137,7 +137,7 @@ class CPUDevice : public Device
 
 		if(it == kernel_functions.end()) {
 			assert(!"kernel function not found");
-			return nullptr;
+			return NULL;
 		}
 
 		return (F)it->second;
@@ -781,7 +781,7 @@ protected:
 		kernel->func = get_kernel_function<void(*)(KernelGlobals*, KernelData*)>(kernel_name);
 		if(!kernel->func) {
 			delete kernel;
-			return nullptr;
+			return NULL;
 		}
 
 		return kernel;
