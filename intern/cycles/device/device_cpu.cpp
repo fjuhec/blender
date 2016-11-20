@@ -664,7 +664,7 @@ protected:
 
 	inline void thread_kernel_globals_free(KernelGlobals *kg)
 	{
-		if(!kg) {
+		if(kg == NULL) {
 			return;
 		}
 
