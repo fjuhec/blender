@@ -205,8 +205,8 @@ public:
 
 	KernelDimensions(size_t global_size_[2], size_t local_size_[2])
 	{
-		memcpy(global_size, global_size_, 2*sizeof(size_t));
-		memcpy(local_size, local_size_, 2*sizeof(size_t));
+		memcpy(global_size, global_size_, sizeof(global_size));
+		memcpy(local_size, local_size_, sizeof(local_size));
 	}
 };
 
