@@ -208,16 +208,8 @@ public:
 	{
 		data_type = device_type_traits<T>::data_type;
 		data_elements = device_type_traits<T>::num_elements;
-		data_pointer = 0;
-		data_size = 0;
-		device_size = 0;
-		data_width = 0;
-		data_height = 0;
-		data_depth = 0;
 
 		assert(data_elements > 0);
-
-		device_pointer = 0;
 	}
 
 	virtual ~device_vector() {}
