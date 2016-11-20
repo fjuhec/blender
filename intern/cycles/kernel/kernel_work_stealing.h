@@ -100,7 +100,7 @@ ccl_device int get_next_work(KernelGlobals *kg,
 	                                 grp_idy,
 	                                 num_samples);
 	uint group_index = grp_idy * ccl_num_groups(0) + grp_idx;
-	*my_work = atomic_inc_uint32(&work_pool[group_index])-1;
+	*my_work = atomic_fetch_and_inc_uint32(&work_pool[group_index]);
 	return (*my_work < total_work) ? 1 : 0;
 }
 
