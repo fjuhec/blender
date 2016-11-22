@@ -86,6 +86,10 @@ void WM_device_HMD_IPD_set(float value)
 	GHOST_HMDsetDeviceIPD(value);
 }
 
+float WM_device_HMD_lens_horizontal_separation_get(void)
+{
+	return GHOST_HMDgetLensHorizontalSeparation();
+}
 
 /* ------ Utilities ------ */
 

@@ -940,6 +940,7 @@ extern const char *GHOST_HMDgetDeviceName(int index);
 extern const char *GHOST_HMDgetVendorName(int index);
 extern float       GHOST_HMDgetDeviceIPD(void);
 extern void        GHOST_HMDsetDeviceIPD(float value);
+extern float       GHOST_HMDgetLensHorizontalSeparation(void);
 extern void        GHOST_HMDgetLeftModelviewMatrix(float r_mat[4][4]);
 extern void        GHOST_HMDgetRightModelviewMatrix(float r_mat[4][4]);
 extern void        GHOST_HMDgetLeftProjectionMatrix(float r_mat[4][4]);

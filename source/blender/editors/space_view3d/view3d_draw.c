@@ -3633,6 +3633,41 @@ static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win)
 	        (U.hmd_settings.device > -1));
 }
 
+static void view3d_hmd_view_get_matrices(
+        RegionView3D *rv3d, const bool is_left,
+        float r_modelviewmat[4][4], float r_projectionmat[4][4])
+{
+	const bool use_device_rot = U.hmd_settings.flag & USER_HMD_USE_DEVICE_ROT;
+
+	if (use_device_rot) {
+		WM_device_HMD_modelview_matrix_get(is_left, r_modelviewmat);
+		WM_device_HMD_projection_matrix_get(is_left, r_projectionmat);
+
+		/* apply modelview matrix from 3D View onto hmd device one */
+		mul_m4_m4m4(r_modelviewmat, r_modelviewmat, rv3d->viewmat);
+
+		if (rv3d->persp == RV3D_CAMOB) {
+			/* projection matrix contains camera zoom and camera view offset, needs to be applied */
+			add_m4_m4m4(r_projectionmat, r_projectionmat, rv3d->winmat);
+		}
+		else {
+			/* apply modelview zoom */
+			r_modelviewmat[3][2] -= rv3d->dist;
+		}
+	}
+	else {
+		const float shiftx = WM_device_HMD_lens_horizontal_separation_get();
+		const float ipd = WM_device_HMD_IPD_get();
+
+		copy_m4_m4(r_modelviewmat, rv3d->viewmat);
+		copy_m4_m4(r_projectionmat, rv3d->winmat);
+
+		/* apply ipd and lens shift */
+		r_modelviewmat[3][0]  += (shiftx * 0.5f) * (is_left ? 1.0f : -1.0f);
+		r_projectionmat[3][0] += (ipd    * 0.5f) * (is_left ? 1.0f : -1.0f);
+	}
+}
+
 static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
 {
 	RegionView3D *rv3d = ar->regiondata;
@@ -3640,27 +3675,19 @@ static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
 	float projmat[4][4];
 	float modelviewmat[4][4];
 
-	WM_device_HMD_modelview_matrix_get(is_left, modelviewmat);
-	WM_device_HMD_projection_matrix_get(is_left, projmat);
+	/* hmd view uses half screen width, this makes sure winmatrix is calculated correctly for that */
+	ar->winx /= 2;
 
 	/* update 3d view matrices before applying matrices from HMD */
 	view3d_viewmatrix_set(scene, v3d, rv3d);
 	view3d_winmatrix_set(ar, v3d, NULL);
 
-	/* apply 3d view matrices on hmd device ones */
-	mul_m4_m4m4(modelviewmat, modelviewmat, rv3d->viewmat);
-
-	if (rv3d->persp == RV3D_CAMOB) {
-		/* projection matrix contains camera zoom and camera view offset, needs to be applied */
-		add_m4_m4m4(projmat, projmat, rv3d->winmat);
-	}
-	else {
-		/* apply modelview zoom */
-		modelviewmat[3][2] -= rv3d->dist;
-	}
+	view3d_hmd_view_get_matrices(rv3d, is_left, modelviewmat, projmat);
 
 	/* setup view with adjusted matrices */
 	view3d_main_region_setup_view(scene, v3d, ar, modelviewmat, projmat);
+
+	ar->winx *= 2;
 }
 
 #endif /* WITH_INPUT_HMD */

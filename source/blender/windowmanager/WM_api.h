@@ -534,6 +534,7 @@ const char *WM_device_HMD_name_get(int index) ATTR_WARN_UNUSED_RESULT;
 const char *WM_device_HMD_vendor_get(int index) ATTR_WARN_UNUSED_RESULT;
 float       WM_device_HMD_IPD_get(void) ATTR_WARN_UNUSED_RESULT;
 void        WM_device_HMD_IPD_set(float value);
+float       WM_device_HMD_lens_horizontal_separation_get(void) ATTR_WARN_UNUSED_RESULT;
 /* Utils */
 void WM_device_HMD_state_set(const int device, const bool enable);
 void WM_device_HMD_modelview_matrix_get(const bool is_left, float r_modelviewmat[4][4]) ATTR_NONNULL();

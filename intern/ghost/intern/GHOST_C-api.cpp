@@ -1024,6 +1024,17 @@ void GHOST_HMDsetDeviceIPD(float value)
 #endif
 }
 
+float GHOST_HMDgetLensHorizontalSeparation()
+{
+#ifdef WITH_OPENHMD
+	GHOST_ISystem *system = GHOST_ISystem::getSystem();
+	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
+	return ohmd->getLensHorizontalSeparation();
+#else
+	(void)value;
+#endif
+}
+
 #ifndef WITH_OPENHMD
 static void ghost_UnitMat(float r_mat[4][4])
 {
