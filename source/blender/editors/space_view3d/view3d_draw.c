@@ -3650,7 +3650,11 @@ static void view3d_hmd_view_setup(Scene *scene, View3D *v3d, ARegion *ar)
 	/* apply 3d view matrices on hmd device ones */
 	mul_m4_m4m4(modelviewmat, modelviewmat, rv3d->viewmat);
 
-	if (rv3d->persp != RV3D_CAMOB) {
+	if (rv3d->persp == RV3D_CAMOB) {
+		/* projection matrix contains camera zoom and camera view offset, needs to be applied */
+		add_m4_m4m4(projmat, projmat, rv3d->winmat);
+	}
+	else {
 		/* apply modelview zoom */
 		modelviewmat[3][2] -= rv3d->dist;
 	}
