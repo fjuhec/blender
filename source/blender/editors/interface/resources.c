@@ -2807,11 +2807,11 @@ void init_userdef_do_versions(void)
 		}
 	}
 
-	if (!USER_VERSION_ATLEAST(278, 1)) {
+	if (!USER_VERSION_ATLEAST(278, 3)) {
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
-			btheme->tlayers = btheme->tv3d;
-			rgba_char_args_set_fl(btheme->tlayers.back,    0.42, 0.42, 0.42, 1.0);
-			rgba_char_args_set(btheme->tlayers.hilite, 255, 140, 25, 255);  /* selected files */
+			/* Keyframe Indicators (were using wrong alpha) */
+			btheme->tv3d.time_keyframe[3] = btheme->tv3d.time_gp_keyframe[3] = 255;
+			btheme->ttime.time_keyframe[3] = btheme->ttime.time_gp_keyframe[3] = 255;
 		}
 	}
 
@@ -2822,9 +2822,9 @@ void init_userdef_do_versions(void)
 	 */
 	{
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
-			/* Keyframe Indicators (were using wrong alpha) */
-			btheme->tv3d.time_keyframe[3] = btheme->tv3d.time_gp_keyframe[3] = 255;
-			btheme->ttime.time_keyframe[3] = btheme->ttime.time_gp_keyframe[3] = 255;
+			btheme->tlayers = btheme->tv3d;
+			rgba_char_args_set_fl(btheme->tlayers.back,    0.42, 0.42, 0.42, 1.0);
+			rgba_char_args_set(btheme->tlayers.hilite, 255, 140, 25, 255);  /* selected files */
 		}
 	}
 

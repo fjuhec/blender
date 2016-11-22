@@ -638,10 +638,15 @@ static void node_draw_preview_background(float tile, rctf *rect)
 {
 	float x, y;
 	
+	VertexFormat *format = immVertexFormat();
+	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
 	/* draw checkerboard backdrop to show alpha */
-	glColor3ub(120, 120, 120);
-	glRectf(rect->xmin, rect->ymin, rect->xmax, rect->ymax);
-	glColor3ub(160, 160, 160);
+	immUniformColor3ub(120, 120, 120);
+	immRectf(pos, rect->xmin, rect->ymin, rect->xmax, rect->ymax);
+	immUniformColor3ub(160, 160, 160);
 	
 	for (y = rect->ymin; y < rect->ymax; y += tile * 2) {
 		for (x = rect->xmin; x < rect->xmax; x += tile * 2) {
@@ -652,7 +657,7 @@ static void node_draw_preview_background(float tile, rctf *rect)
 			if (y + tile > rect->ymax)
 				tiley = rect->ymax - y;
 
-			glRectf(x, y, x + tilex, y + tiley);
+			immRectf(pos, x, y, x + tilex, y + tiley);
 		}
 	}
 	for (y = rect->ymin + tile; y < rect->ymax; y += tile * 2) {
@@ -664,9 +669,10 @@ static void node_draw_preview_background(float tile, rctf *rect)
 			if (y + tile > rect->ymax)
 				tiley = rect->ymax - y;
 
-			glRectf(x, y, x + tilex, y + tiley);
+			immRectf(pos, x, y, x + tilex, y + tiley);
 		}
 	}
+	immUnbindProgram();
 }
 
 /* not a callback */
@@ -732,10 +738,10 @@ void node_draw_shadow(SpaceNode *snode, bNode *node, float radius, float alpha)
 	else {
 		const float margin = 3.0f;
 		
-		glColor4f(0.0f, 0.0f, 0.0f, 0.33f);
+		float color[4] = {0.0f, 0.0f, 0.0f, 0.33f};
 		glEnable(GL_BLEND);
 		UI_draw_roundbox(rct->xmin - margin, rct->ymin - margin,
-		                 rct->xmax + margin, rct->ymax + margin, radius + margin);
+		                 rct->xmax + margin, rct->ymax + margin, radius + margin, color);
 		glDisable(GL_BLEND);
 	}
 }
@@ -874,21 +880,20 @@ static void node_draw_basis(const bContext *C, ARegion *ar, SpaceNode *snode, bN
 	
 	/* header uses color from backdrop, but we make it opaqie */
 	if (color_id == TH_NODE) {
-		float col[3];
-		UI_GetThemeColorShade3fv(color_id, -20, col);
-		glColor4f(col[0], col[1], col[2], 1.0f);
+		UI_GetThemeColorShade3fv(color_id, -20, color);
 	}
 	else
-		UI_ThemeColor(color_id);
+		UI_GetThemeColor4fv(color_id, color);
 	
 	if (node->flag & NODE_MUTED)
-		UI_ThemeColorBlend(color_id, TH_REDALERT, 0.5f);
+		UI_GetThemeColorBlendShade4fv(color_id, TH_REDALERT, 0.5f, 0, color);
+
 	
 
 #ifdef WITH_COMPOSITOR
 	if (ntree->type == NTREE_COMPOSIT && (snode->flag & SNODE_SHOW_HIGHLIGHT)) {
 		if (COM_isHighlightedbNode(node)) {
-			UI_ThemeColorBlend(color_id, TH_ACTIVE, 0.5f);
+			UI_GetThemeColorBlendShade4fv(color_id, TH_ACTIVE, 0.5f, 0, color);
 		}
 	}
 #endif
@@ -896,7 +901,7 @@ static void node_draw_basis(const bContext *C, ARegion *ar, SpaceNode *snode, bN
 	glLineWidth(1.0f);
 
 	UI_draw_roundbox_corner_set(UI_CNR_TOP_LEFT | UI_CNR_TOP_RIGHT);
-	UI_draw_roundbox(rct->xmin, rct->ymax - NODE_DY, rct->xmax, rct->ymax, BASIS_RAD);
+	UI_draw_roundbox(rct->xmin, rct->ymax - NODE_DY, rct->xmax, rct->ymax, BASIS_RAD, color);
 	
 	/* show/hide icons */
 	iconofs = rct->xmax - 0.35f * U.widget_unit;
@@ -966,14 +971,15 @@ static void node_draw_basis(const bContext *C, ARegion *ar, SpaceNode *snode, bN
 
 	/* body */
 	if (!nodeIsRegistered(node))
-		UI_ThemeColor4(TH_REDALERT);	/* use warning color to indicate undefined types */
-	else if (node->flag & NODE_CUSTOM_COLOR)
-		glColor3fv(node->color);
+		UI_GetThemeColor4fv(TH_REDALERT, color);	/* use warning color to indicate undefined types */
+	else if (node->flag & NODE_CUSTOM_COLOR) {
+		rgba_float_args_set(color,  node->color[0],  node->color[1],  node->color[2], 1.0f);
+	}
 	else
-		UI_ThemeColor4(TH_NODE);
+		UI_GetThemeColor4fv(TH_NODE, color);
 	glEnable(GL_BLEND);
 	UI_draw_roundbox_corner_set(UI_CNR_BOTTOM_LEFT | UI_CNR_BOTTOM_RIGHT);
-	UI_draw_roundbox(rct->xmin, rct->ymin, rct->xmax, rct->ymax - NODE_DY, BASIS_RAD);
+	UI_draw_roundbox(rct->xmin, rct->ymin, rct->xmax, rct->ymax - NODE_DY, BASIS_RAD, color);
 	glDisable(GL_BLEND);
 
 	/* outline active and selected emphasis */
@@ -1032,19 +1038,19 @@ static void node_draw_hidden(const bContext *C, ARegion *ar, SpaceNode *snode, b
 	/* body */
 	UI_ThemeColor(color_id);
 	if (node->flag & NODE_MUTED)
-		UI_ThemeColorBlend(color_id, TH_REDALERT, 0.5f);
+		UI_GetThemeColorBlendShade4fv(color_id, TH_REDALERT, 0.5f, 0, color);
 
 #ifdef WITH_COMPOSITOR
 	if (ntree->type == NTREE_COMPOSIT && (snode->flag & SNODE_SHOW_HIGHLIGHT)) {
 		if (COM_isHighlightedbNode(node)) {
-			UI_ThemeColorBlend(color_id, TH_ACTIVE, 0.5f);
+			UI_GetThemeColorBlendShade4fv(color_id, TH_ACTIVE, 0.5f, 0, color);
 		}
 	}
 #else
 	(void)ntree;
 #endif
 	
-	UI_draw_roundbox(rct->xmin, rct->ymin, rct->xmax, rct->ymax, hiddenrad);
+	UI_draw_roundbox(rct->xmin, rct->ymin, rct->xmax, rct->ymax, hiddenrad, color);
 	
 	/* outline active and selected emphasis */
 	if (node->flag & SELECT) {

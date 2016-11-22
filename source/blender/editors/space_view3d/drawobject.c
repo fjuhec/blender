@@ -216,13 +216,14 @@ typedef struct drawBMSelect_userData {
 typedef struct {
 	VertexBuffer *pos_in_order;
 	ElementList *edges_in_order;
-	ElementList *faces_in_order;
+	ElementList *triangles_in_order;
 
 	Batch *all_verts;
 	Batch *all_edges;
-	Batch *all_faces;
+	Batch *all_triangles;
 
 	Batch *fancy_edges; /* owns its vertex buffer (not shared) */
+	Batch *overlay_edges; /* owns its vertex buffer */
 } MeshBatchCache;
 
 static MeshBatchCache *MBC_get(DerivedMesh *dm)
@@ -240,14 +241,18 @@ static void MBC_discard(MeshBatchCache *cache)
 {
 	if (cache->all_verts) Batch_discard(cache->all_verts);
 	if (cache->all_edges) Batch_discard(cache->all_edges);
-	if (cache->all_faces) Batch_discard(cache->all_faces);
+	if (cache->all_triangles) Batch_discard(cache->all_triangles);
 
 	if (cache->pos_in_order) VertexBuffer_discard(cache->pos_in_order);
 	if (cache->edges_in_order) ElementList_discard(cache->edges_in_order);
-	if (cache->faces_in_order) ElementList_discard(cache->faces_in_order);
+	if (cache->triangles_in_order) ElementList_discard(cache->triangles_in_order);
 
 	if (cache->fancy_edges) {
 		Batch_discard_all(cache->fancy_edges);
+	}
+
+	if (cache->overlay_edges) {
+		Batch_discard_all(cache->overlay_edges);
 	}
 }
 /* need to set this as DM callback:
@@ -317,6 +322,30 @@ static ElementList *MBC_get_edges_in_order(DerivedMesh *dm)
 	return cache->edges_in_order;
 }
 
+static ElementList *MBC_get_triangles_in_order(DerivedMesh *dm)
+{
+	MeshBatchCache *cache = MBC_get(dm);
+
+	if (cache->triangles_in_order == NULL) {
+		const int vertex_ct = dm->getNumVerts(dm);
+		const int tessface_ct = dm->getNumTessFaces(dm);
+		const MFace *tessfaces = dm->getTessFaceArray(dm);
+		ElementListBuilder elb;
+		ElementListBuilder_init(&elb, GL_TRIANGLES, tessface_ct, vertex_ct);
+		for (int i = 0; i < tessface_ct; ++i) {
+			const MFace *tess = tessfaces + i;
+			add_triangle_vertices(&elb, tess->v1, tess->v2, tess->v3);
+			/* tessface can be triangle or quad */
+			if (tess->v4) {
+				add_triangle_vertices(&elb, tess->v3, tess->v2, tess->v4);
+			}
+		}
+		cache->triangles_in_order = ElementList_build(&elb);
+	}
+
+	return cache->triangles_in_order;
+}
+
 static Batch *MBC_get_all_edges(DerivedMesh *dm)
 {
 	MeshBatchCache *cache = MBC_get(dm);
@@ -329,15 +358,16 @@ static Batch *MBC_get_all_edges(DerivedMesh *dm)
 	return cache->all_edges;
 }
 
-static Batch *MBC_get_all_faces(DerivedMesh *dm)
+static Batch *MBC_get_all_triangles(DerivedMesh *dm)
 {
 	MeshBatchCache *cache = MBC_get(dm);
 
-	if (cache->all_faces == NULL) {
+	if (cache->all_triangles == NULL) {
 		/* create batch from DM */
+		cache->all_triangles = Batch_create(GL_TRIANGLES, MBC_get_pos_in_order(dm), MBC_get_triangles_in_order(dm));
 	}
 
-	return cache->all_faces;
+	return cache->all_triangles;
 }
 
 static Batch *MBC_get_fancy_edges(DerivedMesh *dm)
@@ -350,9 +380,15 @@ static Batch *MBC_get_fancy_edges(DerivedMesh *dm)
 		static unsigned pos_id, n1_id, n2_id;
 		if (format.attrib_ct == 0) {
 			/* initialize vertex format */
-			pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-			n1_id = add_attrib(&format, "N1", GL_FLOAT, 3, KEEP_FLOAT); /* TODO: make N1 and N2 10_10_10 format */
-			n2_id = add_attrib(&format, "N2", GL_FLOAT, 3, KEEP_FLOAT); /*      (takes 1/3 the space)           */
+			pos_id = add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+
+#if USE_10_10_10 /* takes 1/3 the space */
+			n1_id = add_attrib(&format, "N1", COMP_I10, 3, NORMALIZE_INT_TO_FLOAT);
+			n2_id = add_attrib(&format, "N2", COMP_I10, 3, NORMALIZE_INT_TO_FLOAT);
+#else
+			n1_id = add_attrib(&format, "N1", COMP_F32, 3, KEEP_FLOAT);
+			n2_id = add_attrib(&format, "N2", COMP_F32, 3, KEEP_FLOAT);
+#endif
 		}
 		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 
@@ -389,11 +425,26 @@ static Batch *MBC_get_fancy_edges(DerivedMesh *dm)
 		VertexBuffer_allocate_data(vbo, vertex_ct);
 		for (int i = 0; i < edge_ct; ++i) {
 			const MEdge *edge = edges + i;
-			float dummy1[3] = { 0.0f, 0.0f, +1.0f };
-			float dummy2[3] = { 0.0f, 0.0f, -1.0f };
 			const AdjacentFaces *adj = adj_faces + i;
+
+#if USE_10_10_10
+			PackedNormal n1value = { .x = 0, .y = 0, .z = +511 };
+			PackedNormal n2value = { .x = 0, .y = 0, .z = -511 };
+
+			if (adj->count == 2) {
+				n1value = convert_i10_v3(face_normal[adj->face_index[0]]);
+				n2value = convert_i10_v3(face_normal[adj->face_index[1]]);
+			}
+
+			const PackedNormal *n1 = &n1value;
+			const PackedNormal *n2 = &n2value;
+#else
+			const float dummy1[3] = { 0.0f, 0.0f, +1.0f };
+			const float dummy2[3] = { 0.0f, 0.0f, -1.0f };
+
 			const float *n1 = (adj->count == 2) ? face_normal[adj->face_index[0]] : dummy1;
 			const float *n2 = (adj->count == 2) ? face_normal[adj->face_index[1]] : dummy2;
+#endif
 
 			setAttrib(vbo, pos_id, 2 * i, &verts[edge->v1].co);
 			setAttrib(vbo, n1_id, 2 * i, n1);
@@ -411,6 +462,81 @@ static Batch *MBC_get_fancy_edges(DerivedMesh *dm)
 	}
 
 	return cache->fancy_edges;
+}
+
+static bool edge_is_real(const MEdge *edges, int edge_ct, int v1, int v2)
+{
+	/* TODO: same thing, except not ridiculously slow */
+
+	for (int e = 0; e < edge_ct; ++e) {
+		const MEdge *edge = edges + e;
+		if ((edge->v1 == v1 && edge->v2 == v2) || (edge->v1 == v2 && edge->v2 == v1)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static void add_overlay_tri(VertexBuffer *vbo, unsigned pos_id, unsigned edgeMod_id, const MVert *verts, const MEdge *edges, int edge_ct, int v1, int v2, int v3, int base_vert_idx)
+{
+	const float edgeMods[2] = { 0.0f, 1.0f };
+
+	const float *pos = verts[v1].co;
+	setAttrib(vbo, pos_id, base_vert_idx + 0, pos);
+	setAttrib(vbo, edgeMod_id, base_vert_idx + 0, edgeMods + (edge_is_real(edges, edge_ct, v2, v3) ? 1 : 0));
+
+	pos = verts[v2].co;
+	setAttrib(vbo, pos_id, base_vert_idx + 1, pos);
+	setAttrib(vbo, edgeMod_id, base_vert_idx + 1, edgeMods + (edge_is_real(edges, edge_ct, v3, v1) ? 1 : 0));
+
+	pos = verts[v3].co;
+	setAttrib(vbo, pos_id, base_vert_idx + 2, pos);
+	setAttrib(vbo, edgeMod_id, base_vert_idx + 2, edgeMods + (edge_is_real(edges, edge_ct, v1, v2) ? 1 : 0));
+}
+
+static Batch *MBC_get_overlay_edges(DerivedMesh *dm)
+{
+	MeshBatchCache *cache = MBC_get(dm);
+
+	if (cache->overlay_edges == NULL) {
+		/* create batch from DM */
+		static VertexFormat format = { 0 };
+		static unsigned pos_id, edgeMod_id;
+		if (format.attrib_ct == 0) {
+			/* initialize vertex format */
+			pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+			edgeMod_id = add_attrib(&format, "edgeWidthModulator", GL_FLOAT, 1, KEEP_FLOAT);
+		}
+		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
+
+		const int vertex_ct = dm->getNumVerts(dm);
+		const int edge_ct = dm->getNumEdges(dm);
+		const int tessface_ct = dm->getNumTessFaces(dm);
+		const MVert *verts = dm->getVertArray(dm);
+		const MEdge *edges = dm->getEdgeArray(dm);
+		const MFace *tessfaces = dm->getTessFaceArray(dm);
+
+		VertexBuffer_allocate_data(vbo, tessface_ct * 6); /* up to 2 triangles per tessface */
+
+		int gpu_vert_idx = 0;
+		for (int i = 0; i < tessface_ct; ++i) {
+			const MFace *tess = tessfaces + i;
+			add_overlay_tri(vbo, pos_id, edgeMod_id, verts, edges, edge_ct, tess->v1, tess->v2, tess->v3, gpu_vert_idx);
+			gpu_vert_idx += 3;
+			/* tessface can be triangle or quad */
+			if (tess->v4) {
+				add_overlay_tri(vbo, pos_id, edgeMod_id, verts, edges, edge_ct, tess->v3, tess->v2, tess->v4, gpu_vert_idx);
+				gpu_vert_idx += 3;
+			}
+		}
+
+		VertexBuffer_resize_data(vbo, gpu_vert_idx);
+
+		cache->overlay_edges = Batch_create(GL_TRIANGLES, vbo, NULL);
+	}
+
+	return cache->overlay_edges;
 }
 
 static void drawcube_size(float size, unsigned pos);
@@ -847,7 +973,7 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const 
 
 
 /* Function to draw an Image on an empty Object */
-static void draw_empty_image(Object *ob, const short dflag, const unsigned char ob_wire_col[4])
+static void draw_empty_image(Object *ob, const short dflag, const unsigned char ob_wire_col[4], StereoViews sview)
 {
 	Image *ima = ob->data;
 
@@ -857,13 +983,22 @@ static void draw_empty_image(Object *ob, const short dflag, const unsigned char 
 	int bindcode = 0;
 
 	if (ima) {
+		ImageUser iuser = *ob->iuser;
+
+		/* Support multi-view */
+		if (ima && (sview == STEREO_RIGHT_ID)) {
+			iuser.multiview_eye = sview;
+			iuser.flag |= IMA_SHOW_STEREO;
+			BKE_image_multiview_index(ima, &iuser);
+		}
+
 		if (ob_alpha > 0.0f) {
-			bindcode = GPU_verify_image(ima, ob->iuser, GL_TEXTURE_2D, 0, false, false, false);
+			bindcode = GPU_verify_image(ima, &iuser, GL_TEXTURE_2D, 0, false, false, false);
 			/* don't bother drawing the image if alpha = 0 */
 		}
 
 		int w, h;
-		BKE_image_get_size(ima, ob->iuser, &w, &h);
+		BKE_image_get_size(ima, &iuser, &w, &h);
 		width = w;
 		height = h;
 	}
@@ -4229,7 +4364,80 @@ static void draw_em_fancy(Scene *scene, ARegion *ar, View3D *v3d,
 static void draw_em_fancy_new(Scene *scene, ARegion *ar, View3D *v3d,
                               Object *ob, BMEditMesh *em, DerivedMesh *cageDM, DerivedMesh *finalDM, const char dt)
 {
-	/* for now... nothing! */
+	/* for now... something simple! */
+
+	Batch *surface = MBC_get_all_triangles(cageDM);
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+
+	glEnable(GL_BLEND);
+
+	/* disable depth writes for transparent surface, so it doesn't interfere with itself */
+	glDepthMask(GL_FALSE);
+
+	Batch_set_builtin_program(surface, GPU_SHADER_3D_UNIFORM_COLOR);
+	Batch_Uniform4f(surface, "color", 1.0f, 0.5f, 0.0f, 0.5f);
+	Batch_draw(surface);
+
+#if 0 /* until I understand finalDM better */
+	if (finalDM != cageDM) {
+		puts("finalDM != cageDM");
+		Batch *finalSurface = MBC_get_all_triangles(finalDM);
+		Batch_set_builtin_program(finalSurface, GPU_SHADER_3D_UNIFORM_COLOR);
+		Batch_Uniform4f(finalSurface, "color", 0.0f, 0.0f, 0.0f, 0.05f);
+		Batch_draw(finalSurface);
+	}
+#endif
+
+	glDepthMask(GL_TRUE);
+
+	/* now write surface depth so other objects won't poke through
+	 * NOTE: does not help as much as desired
+	 * TODO: draw edit object last to avoid this mess
+	 */
+	Batch_set_builtin_program(surface, GPU_SHADER_3D_DEPTH_ONLY);
+	Batch_draw(surface);
+
+	if (GLEW_VERSION_3_2) {
+		Batch *overlay = MBC_get_overlay_edges(cageDM);
+		Batch_set_builtin_program(overlay, GPU_SHADER_EDGES_OVERLAY);
+		Batch_Uniform2f(overlay, "viewportSize", ar->winx, ar->winy);
+		Batch_draw(overlay);
+
+#if 0 /* TODO: use this SIMPLE variant for pure triangle meshes */
+		Batch_set_builtin_program(surface, GPU_SHADER_EDGES_OVERLAY_SIMPLE);
+		/* use these defaults:
+		 * const float edgeColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		 * Batch_Uniform4f(surface, "fillColor", edgeColor[0], edgeColor[1], edgeColor[2], 0.0f);
+		 * Batch_Uniform4fv(surface, "outlineColor", edgeColor);
+		 * Batch_Uniform1f(surface, "outlineWidth", 1.0f);
+		 */
+		Batch_Uniform2f(surface, "viewportSize", ar->winx, ar->winy);
+		Batch_draw(surface);
+#endif
+	}
+	else {
+		Batch *edges = MBC_get_all_edges(cageDM);
+		Batch_set_builtin_program(edges, GPU_SHADER_3D_UNIFORM_COLOR);
+		Batch_Uniform4f(edges, "color", 0.0f, 0.0f, 0.0f, 1.0f);
+		glEnable(GL_LINE_SMOOTH);
+		glLineWidth(1.5f);
+		Batch_draw(edges);
+		glDisable(GL_LINE_SMOOTH);
+	}
+
+#if 0 /* looks good even without points */
+	Batch *verts = MBC_get_all_verts(cageDM);
+	glEnable(GL_BLEND);
+
+	Batch_set_builtin_program(verts, GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_SMOOTH);
+	Batch_Uniform4f(verts, "color", 0.0f, 0.0f, 0.0f, 1.0f);
+	Batch_Uniform1f(verts, "size", UI_GetThemeValuef(TH_VERTEX_SIZE) * 1.5f);
+	Batch_draw(verts);
+
+	glDisable(GL_BLEND);
+#endif
 }
 
 /* Mesh drawing routines */
@@ -4269,7 +4477,7 @@ static void draw_mesh_object_outline_new(View3D *v3d, RegionView3D *rv3d, Object
 		float outline_color[4];
 		UI_GetThemeColor4fv((is_active ? TH_ACTIVE : TH_SELECT), outline_color);
 
-#if 1
+#if 1 /* new version that draws only silhouette edges */
 		Batch *fancy_edges = MBC_get_fancy_edges(dm);
 
 		if (rv3d->persp == RV3D_ORTHO) {
@@ -4289,13 +4497,13 @@ static void draw_mesh_object_outline_new(View3D *v3d, RegionView3D *rv3d, Object
 		Batch_Uniform4fv(fancy_edges, "silhouetteColor", outline_color);
 
 		Batch_draw(fancy_edges);
-
-#else
+#else /* alternate version that matches look of old viewport (but more efficient) */
 		Batch *batch = MBC_get_all_edges(dm);
 		Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
 		Batch_Uniform4fv(batch, "color", outline_color);
 		Batch_draw(batch);
 #endif
+
 		glDepthMask(GL_TRUE);
 	}
 }
@@ -4678,7 +4886,7 @@ static bool draw_mesh_object(Scene *scene, ARegion *ar, View3D *v3d, RegionView3
 	return retval;
 }
 
-static void make_color_variations(const unsigned char base_ubyte[4], float low[4], float med[4], float high[4])
+static void make_color_variations(const unsigned char base_ubyte[4], float low[4], float med[4], float high[4], const bool other_obedit)
 {
 	/* original idea: nice variations (lighter & darker shades) of base color
 	 * current implementation uses input color as high; med & low get closer to background color
@@ -4690,9 +4898,17 @@ static void make_color_variations(const unsigned char base_ubyte[4], float low[4
 	float base[4];
 	rgba_uchar_to_float(base, base_ubyte);
 
-	interp_v3_v3v3(low, bg, base, 0.333f);
-	interp_v3_v3v3(med, bg, base, 0.667f);
-	copy_v3_v3(high, base);
+	if (other_obedit) {
+		/* this object should fade away so user can focus on the object being edited */
+		interp_v3_v3v3(low, bg, base, 0.1f);
+		interp_v3_v3v3(med, bg, base, 0.2f);
+		interp_v3_v3v3(high, bg, base, 0.25f);
+	}
+	else {
+		interp_v3_v3v3(low, bg, base, 0.333f);
+		interp_v3_v3v3(med, bg, base, 0.667f);
+		copy_v3_v3(high, base);
+	}
 
 	/* use original alpha */
 	low[3] = base[3];
@@ -4701,7 +4917,7 @@ static void make_color_variations(const unsigned char base_ubyte[4], float low[4
 }
 
 static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
-                                const char dt, const unsigned char ob_wire_col[4], const short dflag)
+                                const char dt, const unsigned char ob_wire_col[4], const short dflag, const bool other_obedit)
 {
 	if (dflag & (DRAW_PICKING | DRAW_CONSTCOLOR)) {
 		/* too complicated! use existing methods */
@@ -4778,7 +4994,8 @@ static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionVi
 
 		glLineWidth(1.0f);
 
-#if 0
+#if 1 /* fancy wireframes */
+
 		Batch *fancy_edges = MBC_get_fancy_edges(dm);
 
 		if (rv3d->persp == RV3D_ORTHO) {
@@ -4795,7 +5012,7 @@ static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionVi
 		float frontColor[4];
 		float backColor[4];
 		float outlineColor[4];
-		make_color_variations(ob_wire_col, backColor, frontColor, outlineColor);
+		make_color_variations(ob_wire_col, backColor, frontColor, outlineColor, other_obedit);
 
 		Batch_Uniform4fv(fancy_edges, "frontColor", frontColor);
 		Batch_Uniform4fv(fancy_edges, "backColor", backColor);
@@ -4805,15 +5022,18 @@ static void draw_mesh_fancy_new(Scene *scene, ARegion *ar, View3D *v3d, RegionVi
 
 		Batch_draw(fancy_edges);
 
+		/* extra oomph for the silhouette contours */
 		glLineWidth(2.0f);
-
+		Batch_use_program(fancy_edges); /* hack to make the following uniforms stick */
 		Batch_Uniform1b(fancy_edges, "drawFront", false);
 		Batch_Uniform1b(fancy_edges, "drawBack", false);
 		Batch_Uniform1b(fancy_edges, "drawSilhouette", true);
 		Batch_Uniform4fv(fancy_edges, "silhouetteColor", outlineColor);
 
 		Batch_draw(fancy_edges);
-#else
+
+#else /* simple wireframes */
+
 		Batch *batch = MBC_get_all_edges(dm);
 		Batch_set_builtin_program(batch, GPU_SHADER_3D_UNIFORM_COLOR);
 
@@ -5099,7 +5319,9 @@ static bool draw_mesh_object_new(Scene *scene, ARegion *ar, View3D *v3d, RegionV
 				}
 			}
 
-			draw_mesh_fancy_new(scene, ar, v3d, rv3d, base, dt, ob_wire_col, dflag);
+			const bool other_obedit = obedit && (obedit != ob);
+
+			draw_mesh_fancy_new(scene, ar, v3d, rv3d, base, dt, ob_wire_col, dflag, other_obedit);
 
 			GPU_end_object_materials();
 
@@ -7494,7 +7716,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 			case OB_EMPTY:
 				if (!render_override) {
 					if (ob->empty_drawtype == OB_EMPTY_IMAGE) {
-						draw_empty_image(ob, dflag, ob_wire_col);
+						draw_empty_image(ob, dflag, ob_wire_col, v3d->multiview_eye);
 					}
 					else {
 						drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, ob_wire_col);
@@ -7651,10 +7873,6 @@ afterdraw:
 			if (!render_override && sds->draw_velocity) {
 				draw_smoke_velocity(sds, viewnormal);
 			}
-
-#ifdef SMOKE_DEBUG_HEAT
-			draw_smoke_heat(smd->domain, ob);
-#endif
 		}
 	}
 
@@ -8233,7 +8451,7 @@ void draw_object_instance(Scene *scene, View3D *v3d, RegionView3D *rv3d, Object 
 		case OB_EMPTY:
 			if (ob->empty_drawtype == OB_EMPTY_IMAGE) {
 				/* CONSTCOLOR == no wire outline */
-				draw_empty_image(ob, DRAW_CONSTCOLOR, NULL);
+				draw_empty_image(ob, DRAW_CONSTCOLOR, NULL, v3d->multiview_eye);
 			}
 			else {
 				drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, NULL); /* TODO: use proper color */

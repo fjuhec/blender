@@ -145,9 +145,10 @@ static float layer_tile_draw(
 	}
 	/* draw selection */
 	if (tile->flag & LAYERTILE_SELECTED) {
+		float col[4];
 		UI_draw_roundbox_corner_set(UI_CNR_ALL);
-		UI_ThemeColor(TH_HILITE);
-		UI_draw_roundbox(rect.xmin + pad_x, rect.ymin, rect.xmax - pad_x, rect.ymax, 5.0f);
+		UI_GetThemeColor4fv(TH_HILITE, col);
+		UI_draw_roundbox(rect.xmin + pad_x, rect.ymin, rect.xmax - pad_x, rect.ymax, 5.0f, col);
 	}
 
 	idx++;
