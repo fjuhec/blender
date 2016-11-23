@@ -4072,11 +4072,13 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
+#ifdef WITH_INPUT_HMD
 	static EnumPropertyItem hmd_lensdist_type_items[] = {
 		{GPU_FX_LENSDIST_NONE, "NONE", 0, "None", "Don't use a lens distortion/correction shader for the HMD view"},
 		{GPU_FX_LENSDIST_DK2,  "DK2",  0, "DK2",  "Use a lens distortion/correction shader for the DK2"},
 		{0, NULL, 0, NULL, NULL}
 	};
+#endif
 
 	srna = RNA_def_struct(brna, "UserPreferencesSystem", NULL);
 	RNA_def_struct_sdna(srna, "UserDef");

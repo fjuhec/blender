@@ -453,7 +453,7 @@ static void view3d_init(wmWindowManager *wm, ScrArea *sa)
 		}
 	}
 #else
-	UNUSED(wm, sa);
+	UNUSED_VARS(wm, sa);
 #endif
 }
 

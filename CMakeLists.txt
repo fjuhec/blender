@@ -372,7 +372,7 @@ if(WIN32)
 endif()
 option(WITH_INPUT_NDOF "Enable NDOF input devices (SpaceNavigator and friends)" ${_init_INPUT_NDOF})
 
-# IMD - actually not really input, there's also some other stuff for it
+# HMD - actually not really input, there's also some other stuff for it
 option(WITH_INPUT_HMD "Enable HMD support in Blender (Head Mounted Displays for VR support)" ON)
 option(WITH_OPENHMD "Enable OpenHMD driver library" ON)
 option(WITH_OPENHMD_DYNLOAD "Dynamically load OpenHMD dependencies at runtime" OFF)
@@ -709,7 +709,7 @@ endif()
 
 if(WITH_INPUT_HMD AND NOT WITH_OPENHMD)
 	message(WARNING "WITH_INPUT_HMD is enabled, but OpenHMD driver (WITH_OPENHMD) is disabled. "
-					"Only a limited set of HMD features will be available.")
+	        "Only a limited set of HMD features will be available.")
 endif()
 
 if(WITH_OPENHMD AND NOT WITH_INPUT_HMD)

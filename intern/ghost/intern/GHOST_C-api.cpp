@@ -1031,7 +1031,7 @@ float GHOST_HMDgetLensHorizontalSeparation()
 	GHOST_OpenHMDManager *ohmd = system->getOpenHMDManager();
 	return ohmd->getLensHorizontalSeparation();
 #else
-	(void)value;
+	return -1.0f;
 #endif
 }
 
