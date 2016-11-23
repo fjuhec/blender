@@ -27,7 +27,6 @@ CCL_NAMESPACE_BEGIN
 class ImageManager;
 class Scene;
 class Shader;
-class VolumeManager;
 
 /* Texture Mapping */
 
@@ -978,22 +977,6 @@ public:
 	NodeTangentAxis axis;
 	ustring attribute;
 	float3 normal_osl;
-};
-
-class OpenVDBNode : public ShaderNode {
-public:
-	SHADER_NODE_CLASS(OpenVDBNode)
-	void attributes(Shader *shader, AttributeRequestSet *attributes);
-	bool has_spatial_varying() { return true; }
-
-	void add_output(ustring name, SocketType::Type type);
-
-	ustring filename;
-	VolumeManager *volume_manager;
-
-	int grid_slot;
-	int sampling;
-	vector<SocketType> output_sockets;
 };
 
 CCL_NAMESPACE_END

@@ -182,7 +182,6 @@ set(SRC
 	shader/nodes/node_shader_mix_shader.c
 	shader/nodes/node_shader_normal_map.c
 	shader/nodes/node_shader_object_info.c
-	shader/nodes/node_shader_openvdb.c
 	shader/nodes/node_shader_hair_info.c
 	shader/nodes/node_shader_output_lamp.c
 	shader/nodes/node_shader_output_material.c
@@ -291,13 +290,6 @@ endif()
 
 if(WITH_CYCLES AND WITH_CYCLES_DEBUG)
 	add_definitions(-DWITH_CYCLES_DEBUG)
-endif()
-
-if(WITH_OPENVDB)
-	add_definitions(-DWITH_OPENVDB)
-	list(APPEND INC
-	     ../../../intern/openvdb
-	)
 endif()
 
 blender_add_lib(bf_nodes "${SRC}" "${INC}" "${INC_SYS}")

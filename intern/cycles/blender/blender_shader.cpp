@@ -845,43 +845,6 @@ static ShaderNode *add_node(Scene *scene,
 			        transform_inverse(get_transform(b_ob.matrix_world()));
 		}
 	}
-	else if(b_node.is_a(&RNA_ShaderNodeOpenVDB)) {
-		BL::ShaderNodeOpenVDB b_vdb_node(b_node);
-		OpenVDBNode *vdb_node = new OpenVDBNode();
-		vdb_node->filename = b_vdb_node.filename();
-		vdb_node->sampling = b_vdb_node.sampling();
-
-		/* TODO(kevin) */
-		if(b_vdb_node.source() == BL::ShaderNodeOpenVDB::source_SEQUENCE) {
-			string filename = b_vdb_node.filename();
-			string basename = filename.substr(0, filename.size() - 8);
-			stringstream ss;
-			ss << b_scene.frame_current();
-			string frame = ss.str();
-			frame.insert(frame.begin(), 4 - frame.size(), '0');
-
-			vdb_node->filename = ustring::format("%s%s.vdb", basename, frame);
-		}
-
-		BL::Node::outputs_iterator b_output;
-
-		vdb_node->output_sockets.resize(b_vdb_node.outputs.length());
-		int i = 0;
-		for(b_vdb_node.outputs.begin(b_output); b_output != b_vdb_node.outputs.end(); ++b_output, ++i) {
-			SocketType &socket = vdb_node->output_sockets.at(i);
-			socket.name = ustring(b_output->name());
-			socket.ui_name = ustring(b_output->name());
-			socket.type = convert_socket_type(*b_output);
-			socket.struct_offset = 0;
-			socket.default_value = NULL;
-			socket.enum_values = NULL;
-			socket.node_type = NULL;
-			socket.flags = SocketType::LINKABLE;
-			vdb_node->outputs.push_back(new ShaderOutput(socket, vdb_node));
-		}
-
-		node = vdb_node;
-	}
 
 	if(node) {
 		node->name = b_node.name();

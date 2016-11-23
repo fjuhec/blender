@@ -132,7 +132,6 @@ typedef enum ShaderNodeType {
 	NODE_TEX_VOXEL,
 	NODE_ENTER_BUMP_EVAL,
 	NODE_LEAVE_BUMP_EVAL,
-	NODE_OPENVDB,
 } ShaderNodeType;
 
 typedef enum NodeAttributeType {
@@ -376,11 +375,6 @@ typedef enum NodeTexVoxelSpace {
 	NODE_TEX_VOXEL_SPACE_OBJECT = 0,
 	NODE_TEX_VOXEL_SPACE_WORLD  = 1,
 } NodeTexVoxelSpace;
-
-typedef enum NodeOpenVDBType {
-	NODE_VDB_FLOAT  = 0,
-	NODE_VDB_FLOAT3 = 1,
-} NodeOpenVDBType;
 
 typedef enum ShaderType {
 	SHADER_TYPE_SURFACE,

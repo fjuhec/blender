@@ -24,15 +24,10 @@
 #include "svm_math_util.h"
 #include "osl.h"
 #include "constant_fold.h"
-#include "volume.h"
 
 #include "util_sky_model.h"
 #include "util_foreach.h"
 #include "util_transform.h"
-
-#ifdef WITH_OPENVDB
-#include "../kernel/openvdb/vdb_thread.h"
-#endif
 
 CCL_NAMESPACE_BEGIN
 
@@ -5373,72 +5368,6 @@ void TangentNode::compile(OSLCompiler& compiler)
 	compiler.parameter(this, "direction_type");
 	compiler.parameter(this, "axis");
 	compiler.add(this, "node_tangent"); 
-}
-
-NODE_DEFINE(OpenVDBNode)
-{
-	NodeType* type = NodeType::add("openvdb", create, NodeType::SHADER);
-
-	SOCKET_STRING(filename, "Filename", ustring(""));
-
-	static NodeEnum sampling_enum;
-	sampling_enum.insert("point", OPENVDB_SAMPLE_POINT);
-	sampling_enum.insert("box", OPENVDB_SAMPLE_BOX);
-	SOCKET_ENUM(sampling, "Sampling", sampling_enum, OPENVDB_SAMPLE_POINT);
-
-	return type;
-}
-
-OpenVDBNode::OpenVDBNode()
-: ShaderNode(node_type)
-{
-	volume_manager = NULL;
-}
-
-void OpenVDBNode::attributes(Shader *shader, AttributeRequestSet *attributes)
-{
-	ShaderNode::attributes(shader, attributes);
-}
-
-void OpenVDBNode::compile(SVMCompiler& compiler)
-{
-	volume_manager = compiler.volume_manager;
-
-	for(size_t i = 0; i < outputs.size(); ++i) {
-		ShaderOutput *out = outputs[i];
-
-		if(out->links.empty()) {
-			continue;
-		}
-
-		int type = NODE_VDB_FLOAT;
-
-		if(out->type() == SocketType::VECTOR || out->type() == SocketType::COLOR) {
-			type = NODE_VDB_FLOAT3;
-		}
-
-//		grid_slot = volume_manager->add_volume(filename.string(),
-//		                                       output_names[i].string(),
-//		                                       sampling, type);
-
-		if(grid_slot == -1) {
-			continue;
-		}
-
-		compiler.stack_assign(out);
-
-		compiler.add_node(NODE_OPENVDB,
-		                  compiler.encode_uchar4(grid_slot, type, out->stack_offset, sampling));
-	}
-}
-
-void OpenVDBNode::add_output(ustring name, SocketType::Type socket_type)
-{
-	const_cast<NodeType*>(type)->register_output(name, name, socket_type);
-}
-
-void OpenVDBNode::compile(OSLCompiler& /*compiler*/)
-{
 }
 
 CCL_NAMESPACE_END
