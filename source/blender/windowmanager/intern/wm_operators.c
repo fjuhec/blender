@@ -4254,7 +4254,7 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	 * get the modelview/projection matrices from HMD device when drawing */
 	ED_area_tag_redraw(sa);
 
-	return (OPERATOR_FINISHED | OPERATOR_PASS_THROUGH);
+	return OPERATOR_FINISHED;
 }
 
 static void WM_OT_hmd_session_refresh(wmOperatorType *ot)
@@ -4268,7 +4268,7 @@ static void WM_OT_hmd_session_refresh(wmOperatorType *ot)
 	ot->invoke = hmd_session_refresh_invoke;
 
 	/* flags */
-	ot->flag = (OPTYPE_INTERNAL | OPTYPE_BLOCKING);
+	ot->flag = OPTYPE_INTERNAL;
 }
 
 #endif /* WITH_INPUT_HMD */
