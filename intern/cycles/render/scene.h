@@ -150,6 +150,7 @@ public:
 	bool use_bvh_unaligned_nodes;
 	bool use_qbvh;
 	bool persistent_data;
+	int texture_limit;
 
 	SceneParams()
 	{
@@ -159,6 +160,7 @@ public:
 		use_bvh_unaligned_nodes = true;
 		use_qbvh = false;
 		persistent_data = false;
+		texture_limit = 0;
 	}
 
 	bool modified(const SceneParams& params)
@@ -167,7 +169,8 @@ public:
 		&& use_bvh_spatial_split == params.use_bvh_spatial_split
 		&& use_bvh_unaligned_nodes == params.use_bvh_unaligned_nodes
 		&& use_qbvh == params.use_qbvh
-		&& persistent_data == params.persistent_data); }
+		&& persistent_data == params.persistent_data
+		&& texture_limit == params.texture_limit); }
 };
 
 /* Scene */
