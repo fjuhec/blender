@@ -230,6 +230,7 @@ static MPoly *dm_dupPolyArray(DerivedMesh *dm)
 
 static int dm_getNumLoopTri(DerivedMesh *dm)
 {
+	DM_ensure_looptri(dm);
 	return dm->looptris.num;
 }
 
