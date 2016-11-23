@@ -3628,18 +3628,21 @@ static bool view3d_stereo3d_active(const bContext *C, Scene *scene, View3D *v3d,
 
 static bool view3d_hmd_view_active(wmWindowManager *wm, wmWindow *win)
 {
-	return ((wm->hmd_view.hmd_win == win) &&
-	        (wm->hmd_view.hmd_win->screen->is_hmd_running) &&
-	        (U.hmd_settings.device > -1));
+	return ((wm->hmd_view.hmd_win == win) && (wm->hmd_view.hmd_win->screen->is_hmd_running));
 }
 
 static void view3d_hmd_view_get_matrices(
         RegionView3D *rv3d, const bool is_left,
         float r_modelviewmat[4][4], float r_projectionmat[4][4])
 {
+	const bool has_device = U.hmd_settings.device > -1;
 	const bool use_device_rot = U.hmd_settings.flag & USER_HMD_USE_DEVICE_ROT;
 
-	if (use_device_rot) {
+	if (!has_device) {
+		copy_m4_m4(r_modelviewmat, rv3d->viewmat);
+		copy_m4_m4(r_projectionmat, rv3d->winmat);
+	}
+	else if (use_device_rot) {
 		WM_device_HMD_modelview_matrix_get(is_left, r_modelviewmat);
 		WM_device_HMD_projection_matrix_get(is_left, r_projectionmat);
 

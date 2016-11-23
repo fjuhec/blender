@@ -2767,7 +2767,7 @@ void init_userdef_do_versions(void)
 	 */
 	{
 #ifdef WITH_INPUT_HMD
-		if (WM_device_HMD_num_devices_get() > -1) {
+		if (WM_device_HMD_num_devices_get() > 0) {
 			U.hmd_settings.device = 0;
 		}
 		else
