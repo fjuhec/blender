@@ -79,6 +79,10 @@ if(WIN32)
 	endif()
 endif()
 
+if(WITH_INPUT_HMD)
+	add_definitions(-DWITH_INPUT_HMD)
+endif()
+
 add_definitions(${GL_DEFINITIONS})
 
 blender_add_lib(bf_editor_interface "${SRC}" "${INC}" "${INC_SYS}")

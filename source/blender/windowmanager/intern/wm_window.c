@@ -555,10 +555,12 @@ void wm_window_ghostwindows_ensure(wmWindowManager *wm)
 		if (win->eventstate == NULL)
 			win->eventstate = MEM_callocN(sizeof(wmEvent), "window event state");
 
+#ifdef WITH_INPUT_HMD
 		/* Try to open an HMD device when reading a file that has a running HMD session stored. */
 		if (win == wm->hmd_view.hmd_win && win->screen->is_hmd_running) {
 			WM_device_HMD_state_set(U.hmd_settings.device, true);
 		}
+#endif
 
 		/* add keymap handlers (1 handler for all keys in map!) */
 		keymap = WM_keymap_find(wm->defaultconf, "Window", 0, 0);
