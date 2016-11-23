@@ -4245,7 +4245,7 @@ static int hmd_session_refresh_invoke(bContext *C, wmOperator *UNUSED(op), const
 	wmWindow *hmd_win = wm->hmd_view.hmd_win;
 
 	if (!hmd_win || !hmd_win->screen->is_hmd_running) {
-		return OPERATOR_CANCELLED; /* no pass through, we don't need to keep that event in queue */
+		return OPERATOR_CANCELLED;
 	}
 
 	ScrArea *sa = hmd_win->screen->areabase.first;
