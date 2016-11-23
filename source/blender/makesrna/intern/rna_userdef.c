@@ -628,7 +628,7 @@ static void rna_userdef_hmd_device_update(Main *UNUSED(bmain), Scene *UNUSED(sce
 	}
 }
 
-void rna_userdef_use_hmd_device_ipd_set(PointerRNA *UNUSED(ptr), int value)
+void rna_userdef_hmd_use_device_ipd_set(PointerRNA *UNUSED(ptr), int value)
 {
 	if (value) {
 		U.hmd_settings.flag |= USER_HMD_USE_DEVICE_IPD;
@@ -641,12 +641,20 @@ void rna_userdef_use_hmd_device_ipd_set(PointerRNA *UNUSED(ptr), int value)
 	}
 }
 
-static int rna_userdef_use_hmd_device_ipd_editeable(PointerRNA *UNUSED(ptr), const char **r_info)
+static bool rna_userdef_hmd_active_device_poll(const char **r_info)
+{
+	if (U.hmd_settings.device == -1) {
+		*r_info = "No valid HMD device selected";
+		return false;
+	}
+	return true;
+}
+
+static int rna_userdef_hmd_use_device_ipd_editeable(PointerRNA *UNUSED(ptr), const char **r_info)
 {
 	bool editable = true;
 
-	if (U.hmd_settings.device == -1) {
-		*r_info = "No valid HMD device selected";
+	if (!rna_userdef_hmd_active_device_poll(r_info)) {
 		editable = false;
 	}
 	else {
@@ -673,13 +681,9 @@ static int rna_userdef_use_hmd_device_ipd_editeable(PointerRNA *UNUSED(ptr), con
 	return PROP_EDITABLE;
 }
 
-static void rna_userdef_hmd_camlock_update(
-        struct Main *UNUSED(main), struct Scene *scene,
-        struct PointerRNA *UNUSED(ptr))
+static int rna_userdef_hmd_use_device_rotation_editable(PointerRNA *UNUSED(ptr), const char **r_info)
 {
-	/* TODO this doesn't work currently */
-	Object *camera_ob = scene->camera;
-	DAG_id_tag_update(&camera_ob->id, OB_RECALC_OB);
+	return (rna_userdef_hmd_active_device_poll(r_info) ? PROP_EDITABLE : false);
 }
 
 static void rna_userdef_hmd_lensdist_type_set(PointerRNA *UNUSED(ptr), int value)
@@ -4378,18 +4382,19 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "HMD Device", "Device to use for HMD view interaction");
 	RNA_def_property_update(prop, 0, "rna_userdef_hmd_device_update");
 
-	prop = RNA_def_property(srna, "use_hmd_device_ipd", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "hmd_use_device_ipd", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "hmd_settings.flag", USER_HMD_USE_DEVICE_IPD);
-	RNA_def_property_boolean_funcs(prop, NULL, "rna_userdef_use_hmd_device_ipd_set");
+	RNA_def_property_boolean_funcs(prop, NULL, "rna_userdef_hmd_use_device_ipd_set");
 	RNA_def_property_ui_text(prop, "IPD from HMD", "Request the interpupillary distance (distance between the "
 	                         "eye pupil centers) from the HMD driver");
-	RNA_def_property_editable_func(prop, "rna_userdef_use_hmd_device_ipd_editeable");
+	RNA_def_property_editable_func(prop, "rna_userdef_hmd_use_device_ipd_editeable");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
-	prop = RNA_def_property(srna, "use_hmd_rotation", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "hmd_use_device_rotation", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "hmd_settings.flag", USER_HMD_USE_DEVICE_ROT);
 	RNA_def_property_ui_text(prop, "Rotation from HMD", "Use the rotation of a head mounted display if available");
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_userdef_hmd_camlock_update");
+	RNA_def_property_editable_func(prop, "rna_userdef_hmd_use_device_rotation_editable");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "hmd_lensdist_type", PROP_ENUM, PROP_ENUM);
 	RNA_def_property_flag(prop, PROP_ENUM_NO_CONTEXT);
