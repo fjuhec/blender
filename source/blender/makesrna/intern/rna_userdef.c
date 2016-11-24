@@ -616,15 +616,12 @@ static void rna_userdef_hmd_device_update(Main *UNUSED(bmain), Scene *UNUSED(sce
 {
 	const int act_device = WM_device_HMD_current_get();
 
-	/* a device is already open */
-	if (act_device >= 0) {
-		if (U.hmd_settings.device < 0) {
-			WM_device_HMD_state_set(U.hmd_settings.device, false);
-		}
-		/* change device */
-		else if (act_device != U.hmd_settings.device) {
-			WM_device_HMD_state_set(U.hmd_settings.device, true);
-		}
+	if (U.hmd_settings.device < 0) {
+		WM_device_HMD_state_set(U.hmd_settings.device, false);
+	}
+	/* change device */
+	else if (act_device != U.hmd_settings.device) {
+		WM_device_HMD_state_set(U.hmd_settings.device, true);
 	}
 }
 
