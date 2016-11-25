@@ -3041,9 +3041,7 @@ uiLayout *uiLayoutColumnFlow(uiLayout *layout, int number, int align)
 	return &flow->litem;
 }
 
-uiLayout *uiLayoutGridFlow(
-        uiLayout *layout, const bool row_major, const int num_columns, const int align,
-        const bool even_columns, const bool even_rows)
+uiLayout *uiLayoutGridFlow(uiLayout *layout, int row_major, int num_columns, int align, int even_columns, int even_rows)
 {
 	uiLayoutItemGridFlow *flow;
 

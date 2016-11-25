@@ -454,6 +454,15 @@ void RNA_api_ui_layout(StructRNA *srna)
 	RNA_def_function_return(func, parm);
 	RNA_def_boolean(func, "align", false, "", "Align buttons to each other");
 
+	func = RNA_def_function(srna, "grid_flow", "uiLayoutGridFlow");
+	RNA_def_boolean(func, "row_major", false, "", "Fill row by row, instead of column by column");
+	RNA_def_int(func, "num_columns", 0, 0, INT_MAX, "", "Number of columns, 0 is automatic", 0, INT_MAX);
+	RNA_def_boolean(func, "align", false, "", "Align buttons to each other");
+	RNA_def_boolean(func, "even_columns", false, "", "All columns will have the same width");
+	RNA_def_boolean(func, "even_rows", false, "", "All rows will have the same height");
+	parm = RNA_def_pointer(func, "layout", "UILayout", "", "Sub-layout to put items in");
+	RNA_def_function_return(func, parm);
+
 	/* box layout */
 	func = RNA_def_function(srna, "box", "uiLayoutBox");
 	parm = RNA_def_pointer(func, "layout", "UILayout", "", "Sub-layout to put items in");
