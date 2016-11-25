@@ -4791,54 +4791,56 @@ float form_factor_hemi_poly(float p[3], float n[3], float v1[3], float v2[3], fl
  */
 bool is_quad_convex_v3(const float v1[3], const float v2[3], const float v3[3], const float v4[3])
 {
+	const float verts[4][3] = {{UNPACK3(v1)}, {UNPACK3(v2)}, {UNPACK3(v3)}, {UNPACK3(v4)}};
+	return is_poly_convex_v3(verts, 4);
+}
+
+/**
+ * Check if polygon is convex
+ */
+bool is_poly_convex_v3(const float verts[][3], unsigned int nr)
+{
+	const float *co_curr, *co_prev;
+	float vec_curr[3], vec_prev[3];
+	float normal[3];
+	unsigned int i;
+
+	if (nr == 3)
+		return true;
+
+	co_prev = verts[nr - 1];
+	co_curr = verts[0];
+
+	/* Non-unit length normal, just to check angle directions */
+	cross_poly_v3(normal, verts, nr);
+
+	sub_v3_v3v3(vec_prev, co_prev, verts[nr - 2]);
+
 	/**
-	 * Method projects points onto a plane and checks its convex using following method:
-	 *
-	 * - Create a plane from the cross-product of both diagonal vectors.
-	 * - Project all points onto the plane.
-	 * - Subtract for direction vectors.
-	 * - Return true if all corners cross-products point the direction of the plane.
+	 * Implementation note: there is no need to project the vertices onto the normal plane,
+	 * because even if the polygon is highly non-planar, the cross product between
+	 * adjacent edges will always point to the same side as the normal when convex,
+	 * and to the opposite side when concave.
 	 */
 
-	/* non-unit length normal, used as a projection plane */
-	float plane[3];
+	for (i = 0; i < nr; i++) {
+		float cross[3];
 
-	{
-		float v13[3], v24[3];
+		sub_v3_v3v3(vec_curr, co_curr, co_prev);
 
-		sub_v3_v3v3(v13, v1, v3);
-		sub_v3_v3v3(v24, v2, v4);
+		cross_v3_v3v3(cross, vec_prev, vec_curr);
 
-		cross_v3_v3v3(plane, v13, v24);
-
-		if (len_squared_v3(plane) < FLT_EPSILON) {
+		if (dot_v3v3(cross, normal) < 0.0f) {
 			return false;
 		}
+
+		copy_v3_v3(vec_prev, vec_curr);
+
+		co_prev = co_curr;
+		co_curr += 3;
 	}
 
-	const float *quad_coords[4] = {v1, v2, v3, v4};
-	float        quad_proj[4][3];
-
-	for (int i = 0; i < 4; i++) {
-		project_plane_v3_v3v3(quad_proj[i], quad_coords[i], plane);
-	}
-
-	float        quad_dirs[4][3];
-	for (int i = 0, j = 3; i < 4; j = i++) {
-		sub_v3_v3v3(quad_dirs[i], quad_proj[i], quad_proj[j]);
-	}
-
-	float test_dir[3];
-
-#define CROSS_SIGN(dir_a, dir_b) \
-	((void)cross_v3_v3v3(test_dir, dir_a, dir_b), (dot_v3v3(plane, test_dir) > 0.0f))
-
-	return (CROSS_SIGN(quad_dirs[0], quad_dirs[1]) &&
-	        CROSS_SIGN(quad_dirs[1], quad_dirs[2]) &&
-	        CROSS_SIGN(quad_dirs[2], quad_dirs[3]) &&
-	        CROSS_SIGN(quad_dirs[3], quad_dirs[0]));
-
-#undef CROSS_SIGN
+	return true;
 }
 
 bool is_quad_convex_v2(const float v1[2], const float v2[2], const float v3[2], const float v4[2])
