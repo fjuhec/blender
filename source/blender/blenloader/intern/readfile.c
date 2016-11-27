@@ -5302,6 +5302,23 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			csmd->delta_cache = NULL;
 			csmd->delta_cache_num = 0;
 		}
+		else if (md->type == eModifierType_SurfaceDeform) {
+			SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
+			int i;
+
+			smd->verts = newdataadr(fd, smd->verts);
+
+			if (smd->verts) {
+				for (i = 0; i < smd->numverts; i++) {
+					smd->verts[i].vert_inds = newdataadr(fd, smd->verts[i].vert_inds);
+					smd->verts[i].vert_weights = newdataadr(fd, smd->verts[i].vert_weights);
+					if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
+						if (smd->verts[i].vert_inds)  BLI_endian_switch_int32_array(smd->verts[i].vert_inds, smd->verts[i].numverts);
+						if (smd->verts[i].vert_weights)  BLI_endian_switch_float_array(smd->verts[i].vert_weights, smd->verts[i].numverts);
+					}
+				}
+			}
+		}
 	}
 }
 
