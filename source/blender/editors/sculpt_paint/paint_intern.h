@@ -27,8 +27,6 @@
 /** \file blender/editors/sculpt_paint/paint_intern.h
  *  \ingroup edsculpt
  */
-#include "ED_view3d.h"
-
 #ifndef __PAINT_INTERN_H__
 #define __PAINT_INTERN_H__
 

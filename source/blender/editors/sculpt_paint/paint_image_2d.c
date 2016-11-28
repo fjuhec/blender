@@ -54,6 +54,7 @@
 
 #include "ED_paint.h"
 #include "ED_screen.h"
+#include "ED_view3d.h"  /* For paint_intern.h */
 
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"

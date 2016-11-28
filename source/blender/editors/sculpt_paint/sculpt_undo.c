@@ -63,6 +63,7 @@
 #include "GPU_buffers.h"
 
 #include "ED_paint.h"
+#include "ED_view3d.h"  /* For paint_intern.h */
 
 #include "bmesh.h"
 #include "paint_intern.h"
