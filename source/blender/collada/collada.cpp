@@ -48,7 +48,8 @@ int collada_import(bContext *C,
 				   int find_chains,
 				   int auto_connect,
 				   int fix_orientation,
-				   int min_chain_length)
+				   int min_chain_length,
+				   int use_collada_2)
 {
 
 	ImportSettings import_settings;
@@ -87,7 +88,8 @@ int collada_export(Scene *sce,
 				   int use_blender_profile,
 				   int sort_by_name,
 				   BC_export_transformation_type export_transformation_type,
-                   int open_sim)
+                   int open_sim,
+				   int use_collada_2)
 {
 	ExportSettings export_settings;
 
