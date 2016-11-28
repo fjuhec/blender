@@ -1181,7 +1181,7 @@ Object *BKE_object_copy(Main *bmain, Object *ob)
 	return BKE_object_copy_ex(bmain, ob, false);
 }
 
-void BKE_object_make_local(Main *bmain, Object *ob, const bool lib_local)
+void BKE_object_make_local_ex(Main *bmain, Object *ob, const bool lib_local, const bool clear_proxy)
 {
 	bool is_local = false, is_lib = false;
 
@@ -1201,6 +1201,13 @@ void BKE_object_make_local(Main *bmain, Object *ob, const bool lib_local)
 		if (!is_lib) {
 			id_clear_lib_data(bmain, &ob->id);
 			BKE_id_expand_local(&ob->id);
+			if (clear_proxy) {
+				if (ob->proxy_from != NULL) {
+					ob->proxy_from->proxy = NULL;
+					ob->proxy_from->proxy_group = NULL;
+				}
+				ob->proxy = ob->proxy_from = ob->proxy_group = NULL;
+			}
 		}
 		else {
 			Object *ob_new = BKE_object_copy(bmain, ob);
@@ -1213,6 +1220,11 @@ void BKE_object_make_local(Main *bmain, Object *ob, const bool lib_local)
 			}
 		}
 	}
+}
+
+void BKE_object_make_local(Main *bmain, Object *ob, const bool lib_local)
+{
+	BKE_object_make_local_ex(bmain, ob, lib_local, true);
 }
 
 /* Returns true if the Object is from an external blend file (libdata) */
@@ -1335,7 +1347,10 @@ void BKE_object_make_proxy(Object *ob, Object *target, Object *gob)
 	ob->type = target->type;
 	ob->data = target->data;
 	id_us_plus((ID *)ob->data);     /* ensures lib data becomes LIB_TAG_EXTERN */
-	
+
+	/* copy vertex groups */
+	defgroup_copy_list(&ob->defbase, &target->defbase);
+
 	/* copy material and index information */
 	ob->actcol = ob->totcol = 0;
 	if (ob->mat) MEM_freeN(ob->mat);
@@ -3211,6 +3226,14 @@ static bool constructive_modifier_is_deform_modified(ModifierData *md)
 	else if (md->type == eModifierType_Screw) {
 		ScrewModifierData *smd = (ScrewModifierData *)md;
 		return smd->ob_axis != NULL && object_moves_in_time(smd->ob_axis);
+	}
+	else if (md->type == eModifierType_MeshSequenceCache) {
+		/* NOTE: Not ideal because it's unknown whether topology changes or not.
+		 * This will be detected later, so by assuming it's only deformation
+		 * going on here we allow to bake deform-only mesh to Alembic and have
+		 * proper motion blur after that.
+		 */
+		return true;
 	}
 	return false;
 }
