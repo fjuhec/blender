@@ -81,9 +81,9 @@ typedef struct DialInteraction {
 /* -------------------------------------------------------------------- */
 
 static void dial_geom_draw(
-        const DialManipulator *dial, const float mat[4][4], const float clipping_plane[3], const float col[4])
+        const DialManipulator *dial, const float mat[4][4], const float clipping_plane[4], const float col[4])
 {
-	const bool is_active = dial->manipulator.interaction_data;
+	const bool is_active = (dial->manipulator.interaction_data != NULL);
 	const bool use_clipping = (dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) && !is_active;
 	const bool filled = (dial->style == MANIPULATOR_DIAL_STYLE_RING_FILLED);
 	const unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
@@ -160,7 +160,7 @@ static void dial_geom_value_indicator_draw(
 	dial_ghostarc_draw_inner(inter->value_indicator_offset, angle, col_inner);
 }
 
-static void dial_clipping_plane_get(DialManipulator *dial, RegionView3D *rv3d, float r_clipping_plane[3])
+static void dial_clipping_plane_get(DialManipulator *dial, RegionView3D *rv3d, float r_clipping_plane[4])
 {
 	copy_v3_v3(r_clipping_plane, rv3d->viewinv[2]);
 	r_clipping_plane[3] = -dot_v3v3(rv3d->viewinv[2], dial->manipulator.origin);
@@ -183,7 +183,7 @@ static void dial_draw_intern(const bContext *C, DialManipulator *dial, const boo
 	const bool is_active = (inter != NULL);
 	const bool use_value_indicator = is_active && (dial->manipulator.flag & WM_MANIPULATOR_DRAW_ACTIVE);
 	const bool use_clipping = (dial->style == MANIPULATOR_DIAL_STYLE_RING_CLIPPED) && !is_active;
-	float clipping_plane[3];
+	float clipping_plane[4];
 	float mat[4][4];
 	float col[4];
 
@@ -298,7 +298,6 @@ wmManipulator *WM_dial_manipulator_new(wmManipulatorGroup *mgroup, const char *n
 	const float dir_default[3] = {0.0f, 0.0f, 1.0f};
 
 	dial->manipulator.draw = manipulator_dial_draw;
-	dial->manipulator.intersect = NULL;
 	dial->manipulator.render_3d_intersection = manipulator_dial_render_3d_intersect;
 	dial->manipulator.invoke = manipulator_dial_invoke;
 
