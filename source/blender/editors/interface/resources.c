@@ -2797,10 +2797,6 @@ void init_userdef_do_versions(void)
 	 */
 	{
 		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
-			/* Keyframe Indicators (were using wrong alpha) */
-			btheme->tv3d.time_keyframe[3] = btheme->tv3d.time_gp_keyframe[3] = 255;
-			btheme->ttime.time_keyframe[3] = btheme->ttime.time_gp_keyframe[3] = 255;
-
 			rgba_char_args_set_fl(btheme->tui.xaxis, 1.0f, 0.27f, 0.27f, 1.0f); /* red */
 			rgba_char_args_set_fl(btheme->tui.yaxis, 0.27f, 1.0f, 0.27f, 1.0f); /* green */
 			rgba_char_args_set_fl(btheme->tui.zaxis, 0.27f, 0.27f, 1.0f, 1.0f); /* blue */

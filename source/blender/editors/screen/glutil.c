@@ -54,7 +54,7 @@
 #include "UI_interface.h"
 
 
-void fdrawline(float x1, float y1, float x2, float y2)
+void fdrawline(float x1, float y1, float x2, float y2) /* DEPRECATED */
 {
 	glBegin(GL_LINES);
 	glVertex2f(x1, y1);
@@ -75,7 +75,7 @@ void fdrawbox(float x1, float y1, float x2, float y2)
 	glEnd();
 }
 
-void fdrawcheckerboard(float x1, float y1, float x2, float y2)
+void fdrawcheckerboard(float x1, float y1, float x2, float y2) /* DEPRECATED */
 {
 	unsigned char col1[4] = {40, 40, 40}, col2[4] = {50, 50, 50};
 
@@ -89,7 +89,7 @@ void fdrawcheckerboard(float x1, float y1, float x2, float y2)
 	GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
 }
 
-void sdrawline(int x1, int y1, int x2, int y2)
+void sdrawline(int x1, int y1, int x2, int y2) /* DEPRECATED */
 {
 	glBegin(GL_LINES);
 	glVertex2i(x1, y1);
@@ -139,17 +139,6 @@ void set_inverted_drawing(int enable)
 	GL_TOGGLE(GL_DITHER, !enable);
 }
 
-void fdrawXORcirc(float xofs, float yofs, float rad)
-{
-	set_inverted_drawing(1);
-
-	glPushMatrix();
-	glTranslatef(xofs, yofs, 0.0);
-	glutil_draw_lined_arc(0.0, M_PI * 2.0, rad, 20);
-	glPopMatrix();
-
-	set_inverted_drawing(0);
-}
 
 void glutil_draw_filled_arc(float start, float angle, float radius, int nsegments)
 {
@@ -182,7 +171,7 @@ void glutil_draw_lined_arc(float start, float angle, float radius, int nsegments
 	glEnd();
 }
 
-static void imm_draw_circle(GLenum prim_type, unsigned pos, float x, float y, float rad, int nsegments)
+static void imm_draw_circle(PrimitiveType prim_type, unsigned pos, float x, float y, float rad, int nsegments)
 {
 	immBegin(prim_type, nsegments);
 	for (int i = 0; i < nsegments; ++i) {
@@ -195,12 +184,12 @@ static void imm_draw_circle(GLenum prim_type, unsigned pos, float x, float y, fl
 
 void imm_draw_lined_circle(unsigned pos, float x, float y, float rad, int nsegments)
 {
-	imm_draw_circle(GL_LINE_LOOP, pos, x, y, rad, nsegments);
+	imm_draw_circle(PRIM_LINE_LOOP, pos, x, y, rad, nsegments);
 }
 
 void imm_draw_filled_circle(unsigned pos, float x, float y, float rad, int nsegments)
 {
-	imm_draw_circle(GL_TRIANGLE_FAN, pos, x, y, rad, nsegments);
+	imm_draw_circle(PRIM_TRIANGLE_FAN, pos, x, y, rad, nsegments);
 }
 
 static void imm_draw_circle_3D(GLenum prim_type, unsigned pos, float x, float y, float rad, int nsegments)
@@ -216,12 +205,12 @@ static void imm_draw_circle_3D(GLenum prim_type, unsigned pos, float x, float y,
 
 void imm_draw_lined_circle_3D(unsigned pos, float x, float y, float rad, int nsegments)
 {
-	imm_draw_circle_3D(GL_LINE_LOOP, pos, x, y, rad, nsegments);
+	imm_draw_circle_3D(PRIM_LINE_LOOP, pos, x, y, rad, nsegments);
 }
 
 void imm_draw_filled_circle_3D(unsigned pos, float x, float y, float rad, int nsegments)
 {
-	imm_draw_circle_3D(GL_TRIANGLE_FAN, pos, x, y, rad, nsegments);
+	imm_draw_circle_3D(PRIM_TRIANGLE_FAN, pos, x, y, rad, nsegments);
 }
 
 static void imm_draw_arc_3D(GLenum prim_type, unsigned int pos, float start, float angle, float radius, int nsegments)
@@ -240,12 +229,12 @@ static void imm_draw_arc_3D(GLenum prim_type, unsigned int pos, float start, flo
 
 void imm_draw_filled_arc_3D(unsigned int pos, float start, float angle, float radius, int nsegments)
 {
-	imm_draw_arc_3D(GL_TRIANGLE_FAN, pos, start, angle, radius, nsegments);
+	imm_draw_arc_3D(PRIM_TRIANGLE_FAN, pos, start, angle, radius, nsegments);
 }
 
 void imm_draw_line_box(unsigned pos, float x1, float y1, float x2, float y2)
 {
-	immBegin(GL_LINE_LOOP, 4);
+	immBegin(PRIM_LINE_LOOP, 4);
 	immVertex2f(pos, x1, y1);
 	immVertex2f(pos, x1, y2);
 	immVertex2f(pos, x2, y2);
@@ -256,7 +245,7 @@ void imm_draw_line_box(unsigned pos, float x1, float y1, float x2, float y2)
 void imm_draw_line_box_3D(unsigned pos, float x1, float y1, float x2, float y2)
 {
 	/* use this version when VertexFormat has a vec3 position */
-	immBegin(GL_LINE_LOOP, 4);
+	immBegin(PRIM_LINE_LOOP, 4);
 	immVertex3f(pos, x1, y1, 0.0f);
 	immVertex3f(pos, x1, y2, 0.0f);
 	immVertex3f(pos, x2, y2, 0.0f);

@@ -70,6 +70,8 @@ set(SRC
 	gawain/attrib_binding.h
 	gawain/batch.c
 	gawain/batch.h
+	gawain/buffer_id.h
+	gawain/buffer_id.cpp
 	gawain/common.h
 	gawain/element.c
 	gawain/element.h
@@ -134,8 +136,10 @@ data_to_c_simple(shaders/gpu_shader_2D_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_flat_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_smooth_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_smooth_color_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_2D_image_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_image_mask_uniform_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_image_modulate_alpha_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_image_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_image_rect_modulate_alpha_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_image_depth_linear_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_image_vert.glsl SRC)

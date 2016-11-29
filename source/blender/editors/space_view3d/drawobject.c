@@ -225,17 +225,6 @@ typedef struct {
 	Batch *overlay_edges; /* owns its vertex buffer */
 } MeshBatchCache;
 
-static MeshBatchCache *MBC_get(DerivedMesh *dm)
-{
-	if (dm->batchCache == NULL) {
-		/* create cache */
-		dm->batchCache = MEM_callocN(sizeof(MeshBatchCache), "MeshBatchCache");
-		/* init everything to 0 is ok for now */
-	}
-
-	return dm->batchCache;
-}
-
 static void MBC_discard(MeshBatchCache *cache)
 {
 	if (cache->all_verts) Batch_discard(cache->all_verts);
@@ -253,10 +242,30 @@ static void MBC_discard(MeshBatchCache *cache)
 	if (cache->overlay_edges) {
 		Batch_discard_all(cache->overlay_edges);
 	}
+
+	MEM_freeN(cache);
 }
-/* need to set this as DM callback:
- * DM_set_batch_cleanup_callback((DMCleanupBatchCache)MBC_discard);
- */
+
+static MeshBatchCache *MBC_get(DerivedMesh *dm)
+{
+	if (dm->batchCache == NULL) {
+		/* create cache */
+		dm->batchCache = MEM_callocN(sizeof(MeshBatchCache), "MeshBatchCache");
+		/* init everything to 0 is ok for now */
+
+
+		/* tell DerivedMesh how to clean up these caches (just once) */
+		/* TODO: find a better place for this w/out exposing internals to DM */
+		/* TODO (long term): replace DM with something less messy */
+		static bool first = true;
+		if (first) {
+			DM_set_batch_cleanup_callback((DMCleanupBatchCache)MBC_discard);
+			first = false;
+		}
+	}
+
+	return dm->batchCache;
+}
 
 static VertexBuffer *MBC_get_pos_in_order(DerivedMesh *dm)
 {
@@ -379,9 +388,15 @@ static Batch *MBC_get_fancy_edges(DerivedMesh *dm)
 		static unsigned pos_id, n1_id, n2_id;
 		if (format.attrib_ct == 0) {
 			/* initialize vertex format */
-			pos_id = add_attrib(&format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
-			n1_id = add_attrib(&format, "N1", GL_FLOAT, 3, KEEP_FLOAT); /* TODO: make N1 and N2 10_10_10 format */
-			n2_id = add_attrib(&format, "N2", GL_FLOAT, 3, KEEP_FLOAT); /*      (takes 1/3 the space)           */
+			pos_id = add_attrib(&format, "pos", COMP_F32, 3, KEEP_FLOAT);
+
+#if USE_10_10_10 /* takes 1/3 the space */
+			n1_id = add_attrib(&format, "N1", COMP_I10, 3, NORMALIZE_INT_TO_FLOAT);
+			n2_id = add_attrib(&format, "N2", COMP_I10, 3, NORMALIZE_INT_TO_FLOAT);
+#else
+			n1_id = add_attrib(&format, "N1", COMP_F32, 3, KEEP_FLOAT);
+			n2_id = add_attrib(&format, "N2", COMP_F32, 3, KEEP_FLOAT);
+#endif
 		}
 		VertexBuffer *vbo = VertexBuffer_create_with_format(&format);
 
@@ -418,11 +433,26 @@ static Batch *MBC_get_fancy_edges(DerivedMesh *dm)
 		VertexBuffer_allocate_data(vbo, vertex_ct);
 		for (int i = 0; i < edge_ct; ++i) {
 			const MEdge *edge = edges + i;
-			float dummy1[3] = { 0.0f, 0.0f, +1.0f };
-			float dummy2[3] = { 0.0f, 0.0f, -1.0f };
 			const AdjacentFaces *adj = adj_faces + i;
+
+#if USE_10_10_10
+			PackedNormal n1value = { .x = 0, .y = 0, .z = +511 };
+			PackedNormal n2value = { .x = 0, .y = 0, .z = -511 };
+
+			if (adj->count == 2) {
+				n1value = convert_i10_v3(face_normal[adj->face_index[0]]);
+				n2value = convert_i10_v3(face_normal[adj->face_index[1]]);
+			}
+
+			const PackedNormal *n1 = &n1value;
+			const PackedNormal *n2 = &n2value;
+#else
+			const float dummy1[3] = { 0.0f, 0.0f, +1.0f };
+			const float dummy2[3] = { 0.0f, 0.0f, -1.0f };
+
 			const float *n1 = (adj->count == 2) ? face_normal[adj->face_index[0]] : dummy1;
 			const float *n2 = (adj->count == 2) ? face_normal[adj->face_index[1]] : dummy2;
+#endif
 
 			setAttrib(vbo, pos_id, 2 * i, &verts[edge->v1].co);
 			setAttrib(vbo, n1_id, 2 * i, n1);
@@ -951,7 +981,7 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const 
 
 
 /* Function to draw an Image on an empty Object */
-static void draw_empty_image(Object *ob, const short dflag, const unsigned char ob_wire_col[4])
+static void draw_empty_image(Object *ob, const short dflag, const unsigned char ob_wire_col[4], StereoViews sview)
 {
 	Image *ima = ob->data;
 
@@ -961,13 +991,22 @@ static void draw_empty_image(Object *ob, const short dflag, const unsigned char 
 	int bindcode = 0;
 
 	if (ima) {
+		ImageUser iuser = *ob->iuser;
+
+		/* Support multi-view */
+		if (ima && (sview == STEREO_RIGHT_ID)) {
+			iuser.multiview_eye = sview;
+			iuser.flag |= IMA_SHOW_STEREO;
+			BKE_image_multiview_index(ima, &iuser);
+		}
+
 		if (ob_alpha > 0.0f) {
-			bindcode = GPU_verify_image(ima, ob->iuser, GL_TEXTURE_2D, 0, false, false, false);
+			bindcode = GPU_verify_image(ima, &iuser, GL_TEXTURE_2D, 0, false, false, false);
 			/* don't bother drawing the image if alpha = 0 */
 		}
 
 		int w, h;
-		BKE_image_get_size(ima, ob->iuser, &w, &h);
+		BKE_image_get_size(ima, &iuser, &w, &h);
 		width = w;
 		height = h;
 	}
@@ -7664,7 +7703,7 @@ void draw_object(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short
 			case OB_EMPTY:
 				if (!render_override) {
 					if (ob->empty_drawtype == OB_EMPTY_IMAGE) {
-						draw_empty_image(ob, dflag, ob_wire_col);
+						draw_empty_image(ob, dflag, ob_wire_col, v3d->multiview_eye);
 					}
 					else {
 						drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, ob_wire_col);
@@ -8399,7 +8438,7 @@ void draw_object_instance(Scene *scene, View3D *v3d, RegionView3D *rv3d, Object 
 		case OB_EMPTY:
 			if (ob->empty_drawtype == OB_EMPTY_IMAGE) {
 				/* CONSTCOLOR == no wire outline */
-				draw_empty_image(ob, DRAW_CONSTCOLOR, NULL);
+				draw_empty_image(ob, DRAW_CONSTCOLOR, NULL, v3d->multiview_eye);
 			}
 			else {
 				drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, NULL); /* TODO: use proper color */
