@@ -2574,10 +2574,23 @@ static void ui_litem_estimate_grid_flow(uiLayout *litem)
 				gflow->tot_columns = 1;
 			}
 			else {
-				gflow->tot_columns = min_ii(max_ii((int)(litem->root->emw / avg_w), 1), gflow->tot_items);
+				gflow->tot_columns = min_ii(max_ii((int)(litem->w / avg_w), 1), gflow->tot_items);
 			}
 		}
 		gflow->tot_rows = (int)ceilf((float)gflow->tot_items / gflow->tot_columns);
+
+		if (!gflow->row_major && gflow->num_columns <= 0) {
+			/* In column major case, we may need to adjust number of columns, e.g. with 8 items, if we auto-compute
+			 * 5 columns, we can only actually fill 4 of them (since we need 2 rows anyway)... */
+			gflow->tot_columns = (int)ceilf((float)gflow->tot_items / gflow->tot_rows);
+		}
+
+		if (gflow->num_columns < -1) {
+			const int modulo = -gflow->num_columns;
+			gflow->tot_columns = max_ii(modulo, gflow->tot_columns - (gflow->tot_columns % modulo));
+			/* Might have changed on the road... */
+			gflow->tot_rows = (int)ceilf((float)gflow->tot_items / gflow->tot_columns);
+		}
 
 		/* Set evenly-spaced axes size. */
 		if (gflow->even_columns) {
@@ -2625,7 +2638,7 @@ static void ui_litem_estimate_grid_flow(uiLayout *litem)
 				avg_dim1 += (float)(item_dim1 * item_dim1);
 				totweight_dim1 += (float)item_dim1;
 
-				if (index_dim2 == num_dim2 - 1) {
+				if (index_dim2 == num_dim2 - 1 || i == gflow->tot_items - 1) {
 					/* End of a set in first dimension (i.e. end of a row if row_major, of a column otherwise). */
 					tot_dim1 += (int)(avg_dim1 / totweight_dim1);
 					avg_dim1 = totweight_dim1 = 0.0f;
@@ -2700,8 +2713,8 @@ static void ui_litem_layout_grid_flow(uiLayout *litem)
 		even_h = (int)ceilf(avg_h);
 
 		for (int row = 0; row < gflow->tot_rows; row++) {
-			heights[row] = even_h * row;
-			y_cos[row] = litem->y - (even_h + style->buttonspacey) * row;
+			heights[row] = even_h;
+			y_cos[row] = litem->y - even_h * (row + 1) - style->buttonspacey * row;
 		}
 	}
 
@@ -2784,15 +2797,15 @@ static void ui_litem_layout_grid_flow(uiLayout *litem)
 		}
 		if (!gflow->even_rows) {
 			for (int row = 0; row < gflow->tot_rows; row++) {
-				y_cos[row] = row ? y_cos[row - 1] - heights[row - 1] - style->buttonspacey : litem->y;
 				heights[row] = (int)(gflow->row_major ? avg_dim1[row] : avg_dim2[row]);
+				y_cos[row] = row ? y_cos[row - 1] - heights[row - 1] - style->buttonspacey : litem->y - heights[row];
 			}
 		}
 	}
 
 	for (item = litem->items.first, i = 0; item; item = item->next, i++) {
-		const int col = gflow->row_major ? i % gflow->tot_columns : i / gflow->tot_columns;
-		const int row = gflow->row_major ? i / gflow->tot_rows : i % gflow->tot_rows;
+		const int col = gflow->row_major ? i % gflow->tot_columns : i / gflow->tot_rows;
+		const int row = gflow->row_major ? i / gflow->tot_columns : i % gflow->tot_rows;
 		int item_w, item_h;
 		ui_item_size(item, &item_w, &item_h);
 
@@ -2805,7 +2818,7 @@ static void ui_litem_layout_grid_flow(uiLayout *litem)
 		ui_item_position(item, x_cos[col], y_cos[row], item_w, item_h);
 	}
 
-	litem->h = (litem->y - y_cos[gflow->tot_columns - 1]) + heights[gflow->tot_rows - 1];
+	litem->h = litem->y - y_cos[gflow->tot_rows - 1];
 	litem->x = (x_cos[gflow->tot_columns - 1] - litem->x) + widths[gflow->tot_columns - 1];
 	litem->y = litem->y - litem->h;
 }

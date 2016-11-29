@@ -456,7 +456,10 @@ void RNA_api_ui_layout(StructRNA *srna)
 
 	func = RNA_def_function(srna, "grid_flow", "uiLayoutGridFlow");
 	RNA_def_boolean(func, "row_major", false, "", "Fill row by row, instead of column by column");
-	RNA_def_int(func, "num_columns", 0, 0, INT_MAX, "", "Number of columns, 0 is automatic", 0, INT_MAX);
+	RNA_def_int(func, "num_columns", 0, INT_MIN, INT_MAX, "",
+	            "Number of columns, positive are absolute fixed numbers, 0 is automatic, negative are "
+	            "automatic multiple numbers (e.g. -2 will only produce 2, 4, 6 etc. columns layout)",
+	            INT_MIN, INT_MAX);
 	RNA_def_boolean(func, "align", false, "", "Align buttons to each other");
 	RNA_def_boolean(func, "even_columns", false, "", "All columns will have the same width");
 	RNA_def_boolean(func, "even_rows", false, "", "All rows will have the same height");

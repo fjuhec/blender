@@ -569,6 +569,7 @@ PointerRNA uiItemFullO_ptr(struct uiLayout *layout, struct wmOperatorType *ot, c
 struct uiLayout *uiLayoutRow(uiLayout *layout, int align) RET_NULL
 struct uiLayout *uiLayoutColumn(uiLayout *layout, int align) RET_NULL
 struct uiLayout *uiLayoutColumnFlow(uiLayout *layout, int number, int align) RET_NULL
+struct uiLayout *uiLayoutGridFlow(uiLayout *layout, int row_major, int num_columns, int align, int even_columns, int even_rows) RET_NULL
 struct uiLayout *uiLayoutBox(struct uiLayout *layout) RET_NULL
 struct uiLayout *uiLayoutSplit(uiLayout *layout, float percentage, int align) RET_NULL
 bool uiLayoutGetRedAlert(struct uiLayout *layout) RET_ZERO
