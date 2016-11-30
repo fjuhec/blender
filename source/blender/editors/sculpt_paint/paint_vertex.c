@@ -3036,6 +3036,9 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 		vpd->mlooptag = MEM_mallocN(sizeof(bool) * me->totloop, "VPaintData mlooptag");
 	}
 
+	/* Create projection handle */
+	vpd->vp_handle = ED_vpaint_proj_handle_create(scene, ob, &vpd->vertexcosnos);
+
 	/* some old cruft to sort out later */
 	mul_m4_m4m4(mat, vpd->vc.rv3d->viewmat, ob->obmat);
 	invert_m4_m4(imat, mat);
