@@ -241,7 +241,7 @@ static int ui_text_icon_width(uiLayout *layout, const char *name, int icon, bool
 	if (icon && !name[0])
 		return UI_UNIT_X;  /* icon only */
 
-	variable = (ui_layout_vary_direction(layout) == UI_ITEM_VARY_X);
+	variable = (ui_layout_vary_direction(layout) == UI_ITEM_VARY_X || true); /* XXX HACK, not to be committed! */
 
 	if (variable) {
 		const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
@@ -1259,7 +1259,7 @@ static void ui_item_rna_size(
 		else
 			h += len * UI_UNIT_Y;
 	}
-	else if (ui_layout_vary_direction(layout) == UI_ITEM_VARY_X) {
+	else if (ui_layout_vary_direction(layout) == UI_ITEM_VARY_X || true) {  /* XXX HACK! No to be committed! */
 		if (type == PROP_BOOLEAN && name[0])
 			w += UI_UNIT_X / 5;
 		else if (type == PROP_ENUM)
@@ -2535,22 +2535,20 @@ static void ui_litem_grid_flow_compute(
         ListBase *items, int *r_tot_items, const bool row_major, const bool even_cols, const bool even_rows,
         const int litem_w, const int litem_x, const int litem_y, const int space_x, const int space_y,
         float *r_global_avg_w, const int tot_cols, int *r_cos_x, int *r_widths, int *r_tot_w,
-        float *r_global_avg_h, const int tot_rows, int *r_cos_y, int *r_heights, int *r_tot_h)
+        int *r_global_max_h, const int tot_rows, int *r_cos_y, int *r_heights, int *r_tot_h)
 {
 	uiItem *item;
 	int i;
 
-	int tot_w = 0.0f, tot_h = 0.0f;
-	float global_avg_w = 0.0f, global_avg_h = 0.0f;
-	float global_totweight_w = 0.0f, global_totweight_h = 0.0f;
+	float tot_w = 0.0f, tot_h = 0.0f;
+	float global_avg_w = 0.0f, global_totweight_w = 0.0f;
+	int global_max_h = 0;
 
-	float *avg_w = NULL;
-	float *totweight_w = NULL;
-	float *avg_h = NULL;
-	float *totweight_h = NULL;
+	float *avg_w = NULL, *totweight_w = NULL;
+	int *max_h = NULL;
 
-	BLI_assert(tot_cols != 0 || (avg_w == NULL && r_cos_x == NULL && r_widths == NULL));
-	BLI_assert(tot_rows != 0 || (avg_h == NULL && r_cos_y == NULL && r_heights == NULL));
+	BLI_assert(tot_cols != 0 || (r_cos_x == NULL && r_widths == NULL));
+	BLI_assert(tot_rows != 0 || (r_cos_y == NULL && r_heights == NULL));
 
 	if (r_tot_items) {
 		*r_tot_items = 0;
@@ -2563,10 +2561,8 @@ static void ui_litem_grid_flow_compute(
 		memset(totweight_w, 0, sizeof(*totweight_w) * tot_cols);
 	}
 	if (tot_rows != 0) {
-		avg_h = alloca(sizeof(*avg_h) * tot_rows);
-		totweight_h = alloca(sizeof(*totweight_h) * tot_rows);
-		memset(avg_h, 0, sizeof(*avg_h) * tot_rows);
-		memset(totweight_h, 0, sizeof(*totweight_h) * tot_rows);
+		max_h = alloca(sizeof(*max_h) * tot_rows);
+		memset(max_h, 0, sizeof(*max_h) * tot_rows);
 	}
 
 	for (i = 0, item = items->first; item; item = item->next, i++) {
@@ -2575,8 +2571,7 @@ static void ui_litem_grid_flow_compute(
 
 		global_avg_w += (float)(item_w * item_w);
 		global_totweight_w += (float)item_w;
-		global_avg_h += (float)(item_h * item_h);
-		global_totweight_h += (float)item_h;
+		global_max_h = max_ii(global_max_h, item_h);
 
 		if (tot_rows != 0 && tot_cols != 0) {
 			const int index_col = row_major ? i % tot_cols : i / tot_rows;
@@ -2585,8 +2580,7 @@ static void ui_litem_grid_flow_compute(
 			avg_w[index_col] += (float)(item_w * item_w);
 			totweight_w[index_col] += (float)item_w;
 
-			avg_h[index_row] += (float)(item_h * item_h);
-			totweight_h[index_row] += (float)item_h;
+			max_h[index_row] = max_ii(max_h[index_row], item_h);
 		}
 
 		if (r_tot_items) {
@@ -2602,18 +2596,16 @@ static void ui_litem_grid_flow_compute(
 			tot_w += avg_w[i];
 		}
 		if (even_cols) {
-			tot_w = (int)(ceilf(global_avg_w) * tot_cols);
+			tot_w = ceilf(global_avg_w) * tot_cols;
 		}
 	}
-	/* Finalize computing of rows average sizes */
-	global_avg_h /= global_totweight_h;
+	/* Finalize computing of rows max sizes */
 	if (tot_rows != 0) {
 		for (i = 0; i < tot_rows; i++) {
-			avg_h[i] /= totweight_h[i];
-			tot_h += avg_h[i];
+			tot_h += max_h[i];
 		}
-		if (even_cols) {
-			tot_h = (int)(ceilf(global_avg_h) * tot_rows);
+		if (even_rows) {
+			tot_h = global_max_h * tot_cols;
 		}
 	}
 
@@ -2638,26 +2630,25 @@ static void ui_litem_grid_flow_compute(
 		}
 	}
 	if (r_cos_y != NULL && r_heights != NULL) {
-		const int even_h = (int)ceilf(global_avg_h);
 		for (int row = 0; row < tot_rows; row++) {
 			if (even_rows) {
-				r_heights[row] = even_h;
+				r_heights[row] = global_max_h;
 			}
 			else {
-				r_heights[row] = (int)avg_h[row];
+				r_heights[row] = max_h[row];
 			}
-			r_cos_y[row] = row ? r_cos_y[row - 1] - r_heights[row - 1] - space_y : litem_y - r_heights[row];
+			r_cos_y[row] = row ? r_cos_y[row - 1] - space_y - r_heights[row] : litem_y - r_heights[row];
 		}
 	}
 
 	if (r_global_avg_w) {
 		*r_global_avg_w = global_avg_w;
 	}
-	if (r_global_avg_h) {
-		*r_global_avg_h = global_avg_h;
+	if (r_global_max_h) {
+		*r_global_max_h = global_max_h;
 	}
 	if (r_tot_w) {
-		*r_tot_w = tot_w + space_x * (tot_cols - 1);
+		*r_tot_w = (int)tot_w + space_x * (tot_cols - 1);
 	}
 	if (r_tot_h) {
 		*r_tot_h = tot_h + space_y * (tot_rows - 1);
@@ -2674,13 +2665,14 @@ static void ui_litem_estimate_grid_flow(uiLayout *litem)
 
 	/* Estimate average needed width and height per item. */
 	{
-		float avg_w, avg_h;
+		float avg_w;
+		int max_h;
 
 		ui_litem_grid_flow_compute(
 		        &litem->items, &gflow->tot_items, gflow->row_major, gflow->even_columns, gflow->even_rows,
 		        litem->w, litem->x, litem->y, space_x, space_y,
 		        &avg_w, 0, NULL, NULL, NULL,
-		        &avg_h, 0, NULL, NULL, NULL);
+		        &max_h, 0, NULL, NULL, NULL);
 
 		/* Even in varying column width case, we fix our columns number from weighted average width of items,
 		 * a proper solving of required width would be too costly, and this should give reasonably good results
@@ -2712,17 +2704,11 @@ static void ui_litem_estimate_grid_flow(uiLayout *litem)
 
 		gflow->tot_rows = max_ii((int)ceilf((float)gflow->tot_items / gflow->tot_columns), 1);
 
-		/* Set evenly-spaced axes size. */
-		if (gflow->even_columns) {
+		/* Set evenly-spaced axes size (quick optimization in case we have even columns and rows). */
+		if (gflow->even_columns && gflow->even_rows) {
 			litem->w = (int)(gflow->tot_columns * avg_w) + space_x * (gflow->tot_columns - 1);
-		}
-		if (gflow->even_rows) {
-			litem->h = (int)(gflow->tot_rows * avg_h) + space_y * (gflow->tot_rows - 1);
-
-			/* If columns' width and rows' height are even, we are done. */
-			if (gflow->even_columns) {
-				return;
-			}
+			litem->h = (int)(gflow->tot_rows * max_h) + space_y * (gflow->tot_rows - 1);
+			return;
 		}
 	}
 

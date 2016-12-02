@@ -1055,7 +1055,10 @@ class TEXTURE_PT_influence(TextureSlotPanel, Panel):
 
         if isinstance(idblock, Material):
             if idblock.type in {'SURFACE', 'WIRE'}:
-                split = layout.split()
+                box = layout.box()
+                box.label(text="¡OLD LAYOUT!")
+                
+                split = box.split()
 
                 col = split.column()
                 col.label(text="Diffuse:")
@@ -1088,6 +1091,44 @@ class TEXTURE_PT_influence(TextureSlotPanel, Panel):
                 #~ sub = col.column()
                 #~ sub.active = tex.use_map_translucency or tex.map_emit or tex.map_alpha or tex.map_raymir or tex.map_hardness or tex.map_ambient or tex.map_specularity or tex.map_reflection or tex.map_mirror
                 #~ sub.prop(tex, "default_value", text="Amount", slider=True)
+
+                layout.separator()
+                box = layout.box()
+                box.label(text="¡GRID FLOW LAYOUT!")
+
+                gflow = box.grid_flow(row_major=True, num_columns=0, align=False, even_columns=True, even_rows=False)
+
+                col = gflow.column()
+                col.label(text="Diffuse:")
+                factor_but(col, "use_map_diffuse", "diffuse_factor", "Intensity")
+                factor_but(col, "use_map_color_diffuse", "diffuse_color_factor", "Color")
+                factor_but(col, "use_map_alpha", "alpha_factor", "Alpha")
+                factor_but(col, "use_map_translucency", "translucency_factor", "Translucency")
+
+                col = gflow.column()
+                col.label(text="Shading:")
+                factor_but(col, "use_map_ambient", "ambient_factor", "Ambient")
+                factor_but(col, "use_map_emit", "emit_factor", "Emit")
+                factor_but(col, "use_map_mirror", "mirror_factor", "Mirror")
+                factor_but(col, "use_map_raymir", "raymir_factor", "Ray Mirror")
+
+                col = gflow.column()
+                col.label(text="Specular:")
+                factor_but(col, "use_map_specular", "specular_factor", "Intensity")
+                factor_but(col, "use_map_color_spec", "specular_color_factor", "Color")
+                factor_but(col, "use_map_hardness", "hardness_factor", "Hardness")
+
+                col = gflow.column()
+                col.label(text="Geometry:")
+                # XXX replace 'or' when displacement is fixed to not rely on normal influence value.
+                sub_tmp = factor_but(col, "use_map_normal", "normal_factor", "Normal")
+                sub_tmp.active = (tex.use_map_normal or tex.use_map_displacement)
+                # END XXX
+                factor_but(col, "use_map_warp", "warp_factor", "Warp")
+                factor_but(col, "use_map_displacement", "displacement_factor", "Displace")
+
+
+
             elif idblock.type == 'HALO':
                 layout.label(text="Halo:")
 

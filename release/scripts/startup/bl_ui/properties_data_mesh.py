@@ -212,6 +212,12 @@ class DATA_PT_vertex_groups(MeshButtonsPanel, Panel):
             col.separator()
             col.operator("object.vertex_group_move", icon='TRIA_UP', text="").direction = 'UP'
             col.operator("object.vertex_group_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+        """
+        col = layout.column(align=True)
+        for vg in ob.vertex_groups:
+            col.prop(vg, "name", text="")
+
+        layout.separator()
 
         gflow = layout.grid_flow(row_major=True, num_columns=0, align=False, even_columns=False, even_rows=False)
         for vg in ob.vertex_groups:
@@ -226,6 +232,18 @@ class DATA_PT_vertex_groups(MeshButtonsPanel, Panel):
             gflow.prop(vg, "lock_weight")
 
         layout.separator()
+
+        gflow = layout.grid_flow(row_major=True, num_columns=-2, align=True, even_columns=False, even_rows=False)
+        for vg in ob.vertex_groups:
+            gflow.prop(vg, "name", text="")
+            gflow.prop(vg, "lock_weight")
+
+        layout.separator()
+        """
+        gflow = layout.grid_flow(row_major=False, num_columns=-2, align=True, even_columns=False, even_rows=False)
+        for vg in ob.vertex_groups:
+            gflow.prop(vg, "name", text="")
+            gflow.prop(vg, "lock_weight")
 
         if ob.vertex_groups and (ob.mode == 'EDIT' or (ob.mode == 'WEIGHT_PAINT' and ob.type == 'MESH' and ob.data.use_paint_mask_vertex)):
             row = layout.row()
