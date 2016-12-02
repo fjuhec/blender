@@ -377,6 +377,18 @@ ccl_device int bsdf_microfacet_ggx_refraction_setup(MicrofacetBsdf *bsdf)
 	return SD_BSDF|SD_BSDF_HAS_EVAL;
 }
 
+ccl_device int bsdf_microfacet_ggx_refraction_thin_setup(MicrofacetBsdf *bsdf)
+{
+	bsdf->extra = NULL;
+
+	bsdf->alpha_x = saturate(bsdf->alpha_x);
+	bsdf->alpha_y = bsdf->alpha_x;
+
+	bsdf->type = CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID;
+
+	return SD_BSDF|SD_BSDF_HAS_EVAL;
+}
+
 ccl_device void bsdf_microfacet_ggx_blur(ShaderClosure *sc, float roughness)
 {
 	MicrofacetBsdf *bsdf = (MicrofacetBsdf*)sc;
@@ -390,7 +402,7 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 	const MicrofacetBsdf *bsdf = (const MicrofacetBsdf*)sc;
 	float alpha_x = bsdf->alpha_x;
 	float alpha_y = bsdf->alpha_y;
-	bool m_refractive = bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID;
+	bool m_refractive = bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID || bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID;
 	float3 N = bsdf->N;
 
 	if(m_refractive || alpha_x*alpha_y <= 1e-7f)
@@ -499,7 +511,7 @@ ccl_device float3 bsdf_microfacet_ggx_eval_transmit(const ShaderClosure *sc, con
 	float alpha_x = bsdf->alpha_x;
 	float alpha_y = bsdf->alpha_y;
 	float m_eta = bsdf->ior;
-	bool m_refractive = bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID;
+	bool m_refractive = bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID || bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID;
 	float3 N = bsdf->N;
 
 	if(!m_refractive || alpha_x*alpha_y <= 1e-7f)
@@ -512,7 +524,15 @@ ccl_device float3 bsdf_microfacet_ggx_eval_transmit(const ShaderClosure *sc, con
 		return make_float3(0.0f, 0.0f, 0.0f); /* vectors on same side -- not possible */
 
 	/* compute half-vector of the refraction (eq. 16) */
-	float3 ht = -(m_eta * omega_in + I);
+	float3 ht;
+	if(bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID) {
+		/* for thin surfaces refraction approximately cancels and thus specular transmission is modelled
+		 * using a microfacet distribution which is simply reflected to the other side */
+		ht = -(omega_in + I);
+	}
+	else {
+		ht = -(m_eta * omega_in + I);
+	}
 	float3 Ht = normalize(ht);
 	float cosHO = dot(Ht, I);
 	float cosHI = dot(Ht, omega_in);
@@ -541,7 +561,13 @@ ccl_device float3 bsdf_microfacet_ggx_eval_transmit(const ShaderClosure *sc, con
 
 	/* out = fabsf(cosHI * cosHO) * (m_eta * m_eta) * G * D / (cosNO * Ht2)
 	 * pdf = pm * (m_eta * m_eta) * fabsf(cosHI) / Ht2 */
-	float common = D * (m_eta * m_eta) / (cosNO * Ht2);
+	float common;
+	if(bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID) {
+		common = D * 0.25f / cosNO;
+	}
+	else {
+		common = D * (m_eta * m_eta) / (cosNO * Ht2);
+	}
 	float out = G * fabsf(cosHI * cosHO) * common;
 	*pdf = G1o * fabsf(cosHO * cosHI) * common;
 
@@ -553,7 +579,7 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 	const MicrofacetBsdf *bsdf = (const MicrofacetBsdf*)sc;
 	float alpha_x = bsdf->alpha_x;
 	float alpha_y = bsdf->alpha_y;
-	bool m_refractive = bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID;
+	bool m_refractive = bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID || bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID;
 	float3 N = bsdf->N;
 
 	float cosNO = dot(N, I);
@@ -684,6 +710,10 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 #endif
 			float m_eta = bsdf->ior, fresnel;
 			bool inside;
+
+			if(bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID) {
+				m_eta = 1.0f;
+			}
 
 			fresnel = fresnel_dielectric(m_eta, m, I, &R, &T,
 #ifdef __RAY_DIFFERENTIALS__
@@ -1054,7 +1084,7 @@ ccl_device int bsdf_microfacet_beckmann_sample(KernelGlobals *kg, const ShaderCl
 				*domega_in_dy = dTdy;
 #endif
 
-				if(alpha_x*alpha_y <= 1e-7f || fabsf(m_eta - 1.0f) < 1e-4f) {
+				if(alpha_x*alpha_y <= 1e-7f || (fabsf(m_eta - 1.0f) < 1e-4f && bsdf->type != CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID)) {
 					/* some high number for MIS */
 					*pdf = 1e6f;
 					*eval = make_float3(1e6f, 1e6f, 1e6f);
@@ -1081,7 +1111,13 @@ ccl_device int bsdf_microfacet_beckmann_sample(KernelGlobals *kg, const ShaderCl
 					Ht2 *= Ht2;
 
 					/* see eval function for derivation */
-					float common = D * (m_eta * m_eta) / (cosNO * Ht2);
+					float common;
+					if(bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID) {
+						common = D * 0.25f / cosNO;
+					}
+					else {
+						common = D * (m_eta * m_eta) / (cosNO * Ht2);
+					}
 					float out = G * fabsf(cosHI * cosHO) * common;
 					*pdf = G1o * cosHO * fabsf(cosHI) * common;
 

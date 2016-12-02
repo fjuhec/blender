@@ -437,6 +437,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 								 * Burley, Brent (Walt Disney Animation Studios) */
 								if(surface_type == THIN_SURFACE) {
 									refraction_roughness *= 0.65f * ior - 0.35f;
+									//refraction_roughness = safe_sqrtf(refraction_roughness);
 								}
 								else {
 									refraction_roughness *= refraction_roughness;

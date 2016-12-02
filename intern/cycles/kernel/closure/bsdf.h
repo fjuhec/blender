@@ -90,6 +90,7 @@ ccl_device_forceinline int bsdf_sample(KernelGlobals *kg,
 		case CLOSURE_BSDF_MICROFACET_GGX_ID:
 		case CLOSURE_BSDF_MICROFACET_GGX_ANISO_ID:
 		case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID:
+		case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID:
 			label = bsdf_microfacet_ggx_sample(kg, sc, ccl_fetch(sd, Ng), ccl_fetch(sd, I), ccl_fetch(sd, dI).dx, ccl_fetch(sd, dI).dy, randu, randv,
 				eval, omega_in, &domega_in->dx, &domega_in->dy, pdf);
 			break;
@@ -206,6 +207,7 @@ float3 bsdf_eval(KernelGlobals *kg,
 			case CLOSURE_BSDF_MICROFACET_GGX_ID:
 			case CLOSURE_BSDF_MICROFACET_GGX_ANISO_ID:
 			case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID:
+			case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID:
 				eval = bsdf_microfacet_ggx_eval_reflect(sc, ccl_fetch(sd, I), omega_in, pdf);
 				break;
 			case CLOSURE_BSDF_MICROFACET_MULTI_GGX_ID:
@@ -285,6 +287,7 @@ float3 bsdf_eval(KernelGlobals *kg,
 			case CLOSURE_BSDF_MICROFACET_GGX_ID:
 			case CLOSURE_BSDF_MICROFACET_GGX_ANISO_ID:
 			case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID:
+			case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID:
 				eval = bsdf_microfacet_ggx_eval_transmit(sc, ccl_fetch(sd, I), omega_in, pdf);
 				break;
 			case CLOSURE_BSDF_MICROFACET_MULTI_GGX_ID:
@@ -355,6 +358,7 @@ ccl_device void bsdf_blur(KernelGlobals *kg, ShaderClosure *sc, float roughness)
 		case CLOSURE_BSDF_MICROFACET_GGX_ID:
 		case CLOSURE_BSDF_MICROFACET_GGX_ANISO_ID:
 		case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID:
+		case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID:
 			bsdf_microfacet_ggx_blur(sc, roughness);
 			break;
 		case CLOSURE_BSDF_MICROFACET_BECKMANN_ID:
@@ -389,6 +393,7 @@ ccl_device bool bsdf_merge(ShaderClosure *a, ShaderClosure *b)
 		case CLOSURE_BSDF_MICROFACET_GGX_ID:
 		case CLOSURE_BSDF_MICROFACET_GGX_ANISO_ID:
 		case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_ID:
+		case CLOSURE_BSDF_MICROFACET_GGX_REFRACTION_THIN_ID:
 		case CLOSURE_BSDF_MICROFACET_MULTI_GGX_ID:
 		case CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID:
 		case CLOSURE_BSDF_MICROFACET_BECKMANN_ID:
