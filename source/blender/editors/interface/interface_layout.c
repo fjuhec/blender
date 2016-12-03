@@ -159,7 +159,12 @@ typedef struct uiLayoutItemGridFlow {
 	uiLayout litem;
 
 	/* Extra parameters */
-	bool row_major, even_columns, even_rows;
+	bool row_major;     /* Fill first row first, instead of filling first column first. */
+	bool even_columns;  /* Same width for all columns. */
+	bool even_rows;     /* Same height for all rows. */
+	/* If positive, absolute fixed number of columns.
+	 * If 0, fully automatic (based on available width).
+	 * If negative, automatic but only generates number of columns/rows multiple of given (absolute) value. */
 	int num_columns;
 
 	/* Pure internal runtime storage. */
@@ -2547,11 +2552,21 @@ static void ui_litem_grid_flow_compute(
 	float *avg_w = NULL, *totweight_w = NULL;
 	int *max_h = NULL;
 
-	BLI_assert(tot_cols != 0 || (r_cos_x == NULL && r_widths == NULL));
-	BLI_assert(tot_rows != 0 || (r_cos_y == NULL && r_heights == NULL));
+	BLI_assert(tot_cols != 0 || (r_cos_x == NULL && r_widths == NULL && r_tot_w == NULL));
+	BLI_assert(tot_rows != 0 || (r_cos_y == NULL && r_heights == NULL && r_tot_h == NULL));
 
 	if (r_tot_items) {
 		*r_tot_items = 0;
+	}
+
+	if (items->first == NULL) {
+		if (r_global_avg_w) {
+			*r_global_avg_w = 0.0f;
+		}
+		if (r_global_max_h) {
+			*r_global_max_h = 0;
+		}
+		return;
 	}
 
 	if (tot_cols != 0) {
@@ -2674,6 +2689,12 @@ static void ui_litem_estimate_grid_flow(uiLayout *litem)
 		        &avg_w, 0, NULL, NULL, NULL,
 		        &max_h, 0, NULL, NULL, NULL);
 
+		if (gflow->tot_items == 0) {
+			litem->w = litem->h = 0;
+			gflow->tot_columns = gflow->tot_rows = 0;
+			return;
+		}
+
 		/* Even in varying column width case, we fix our columns number from weighted average width of items,
 		 * a proper solving of required width would be too costly, and this should give reasonably good results
 		 * in all resonable cases... */
@@ -2688,21 +2709,39 @@ static void ui_litem_estimate_grid_flow(uiLayout *litem)
 				gflow->tot_columns = min_ii(max_ii((int)(litem->w / avg_w), 1), gflow->tot_items);
 			}
 		}
+		gflow->tot_rows = (int)ceilf((float)gflow->tot_items / gflow->tot_columns);
 
-		/* In column major case, we may need to adjust number of columns, e.g. with 8 items, if we auto-compute
-		 * 5 columns, we can only actually fill 4 of them (since we need 2 rows anyway)... */
-		if (!gflow->row_major && gflow->num_columns <= 0) {
-			gflow->tot_rows = (int)ceilf((float)gflow->tot_items / gflow->tot_columns);
-			gflow->tot_columns = (int)ceilf((float)gflow->tot_items / gflow->tot_rows);
+		/* Try to tweak number of columns and rows to get better filling of last column or row,
+		 * and apply 'modulo' value to number of columns or rows.
+		 * Note that modulo does not prevent ending with fewer columns/rows than modulo, if mandatory
+		 * to avoid empty column/row. */
+		{
+			const int modulo = (gflow->num_columns < -1) ? -gflow->num_columns : 0;
+			const int step = modulo ? modulo : 1;
+
+			if (gflow->row_major) {
+				/* Adjust number of columns to be mutiple of given modulo. */
+				if (modulo && gflow->tot_columns % modulo != 0 && gflow->tot_columns > modulo) {
+					gflow->tot_columns = gflow->tot_columns - (gflow->tot_columns % modulo);
+				}
+				/* Find smallest number of columns conserving computed optimal number of rows. */
+				for (gflow->tot_rows = (int)ceilf((float)gflow->tot_items / gflow->tot_columns);
+				     (gflow->tot_columns - step) > 0 &&
+				     (int)ceilf((float)gflow->tot_items / (gflow->tot_columns - step)) <= gflow->tot_rows;
+				     gflow->tot_columns -= step);
+			}
+			else {
+				/* Adjust number of rows to be mutiple of given modulo. */
+				if (modulo && gflow->tot_rows % modulo != 0) {
+					gflow->tot_rows = min_ii(gflow->tot_rows + modulo - (gflow->tot_rows % modulo), gflow->tot_items);
+				}
+				/* Find smallest number of rows conserving computed optimal number of columns. */
+				for (gflow->tot_columns = (int)ceilf((float)gflow->tot_items / gflow->tot_rows);
+				     (gflow->tot_rows - step) > 0 &&
+				     (int)ceilf((float)gflow->tot_items / (gflow->tot_rows - step)) <= gflow->tot_columns;
+				     gflow->tot_rows -= step);
+			}
 		}
-
-		/* 'Modulo' number of columns as last step. */
-		if (gflow->num_columns < -1) {
-			const int modulo = -gflow->num_columns;
-			gflow->tot_columns = max_ii(modulo, gflow->tot_columns - (gflow->tot_columns % modulo));
-		}
-
-		gflow->tot_rows = max_ii((int)ceilf((float)gflow->tot_items / gflow->tot_columns), 1);
 
 		/* Set evenly-spaced axes size (quick optimization in case we have even columns and rows). */
 		if (gflow->even_columns && gflow->even_rows) {
@@ -2734,6 +2773,14 @@ static void ui_litem_layout_grid_flow(uiLayout *litem)
 	uiStyle *style = litem->root->style;
 	uiLayoutItemGridFlow *gflow = (uiLayoutItemGridFlow *)litem;
 	uiItem *item;
+
+	if (gflow->tot_items == 0) {
+		litem->w = litem->h = 0;
+		return;
+	}
+
+	BLI_assert(gflow->tot_columns > 0);
+	BLI_assert(gflow->tot_rows > 0);
 
 	const int space_x = style->columnspace;
 	const int space_y = style->buttonspacey;
@@ -3001,7 +3048,8 @@ uiLayout *uiLayoutColumnFlow(uiLayout *layout, int number, int align)
 	return &flow->litem;
 }
 
-uiLayout *uiLayoutGridFlow(uiLayout *layout, int row_major, int num_columns, int align, int even_columns, int even_rows)
+uiLayout *uiLayoutGridFlow(
+        uiLayout *layout, int row_major, int num_columns, int even_columns, int even_rows, int align)
 {
 	uiLayoutItemGridFlow *flow;
 

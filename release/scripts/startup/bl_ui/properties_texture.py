@@ -1096,7 +1096,7 @@ class TEXTURE_PT_influence(TextureSlotPanel, Panel):
                 box = layout.box()
                 box.label(text="¡GRID FLOW LAYOUT!")
 
-                gflow = box.grid_flow(row_major=True, num_columns=0, align=False, even_columns=True, even_rows=False)
+                gflow = box.grid_flow(row_major=True, num_columns=0, even_columns=True, even_rows=False, align=False)
 
                 col = gflow.column()
                 col.label(text="Diffuse:")

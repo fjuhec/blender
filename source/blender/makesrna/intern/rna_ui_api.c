@@ -458,11 +458,12 @@ void RNA_api_ui_layout(StructRNA *srna)
 	RNA_def_boolean(func, "row_major", false, "", "Fill row by row, instead of column by column");
 	RNA_def_int(func, "num_columns", 0, INT_MIN, INT_MAX, "",
 	            "Number of columns, positive are absolute fixed numbers, 0 is automatic, negative are "
-	            "automatic multiple numbers (e.g. -2 will only produce 2, 4, 6 etc. columns layout)",
+	            "automatic multiple numbers along major axis (e.g. -2 will only produce 2, 4, 6 etc. "
+	            "columns for row major layout, and 2, 4, 6 etc. rows for column major layout)",
 	            INT_MIN, INT_MAX);
-	RNA_def_boolean(func, "align", false, "", "Align buttons to each other");
 	RNA_def_boolean(func, "even_columns", false, "", "All columns will have the same width");
 	RNA_def_boolean(func, "even_rows", false, "", "All rows will have the same height");
+	RNA_def_boolean(func, "align", false, "", "Align buttons to each other");
 	parm = RNA_def_pointer(func, "layout", "UILayout", "", "Sub-layout to put items in");
 	RNA_def_function_return(func, parm);
 

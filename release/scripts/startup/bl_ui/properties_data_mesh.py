@@ -212,35 +212,31 @@ class DATA_PT_vertex_groups(MeshButtonsPanel, Panel):
             col.separator()
             col.operator("object.vertex_group_move", icon='TRIA_UP', text="").direction = 'UP'
             col.operator("object.vertex_group_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
-        """
-        col = layout.column(align=True)
-        for vg in ob.vertex_groups:
-            col.prop(vg, "name", text="")
 
-        layout.separator()
-
-        gflow = layout.grid_flow(row_major=True, num_columns=0, align=False, even_columns=False, even_rows=False)
+        box = layout.box()
+        box.label(text="Row, auto, col_tweak 2")
+        gflow = box.grid_flow(row_major=True, num_columns=0, even_columns=False, even_rows=False, align=False)
         for vg in ob.vertex_groups:
             gflow.prop(vg, "name", text="")
             gflow.prop(vg, "lock_weight")
 
-        layout.separator()
-
-        gflow = layout.grid_flow(row_major=False, num_columns=0, align=False, even_columns=False, even_rows=False)
+        box = layout.box()
+        box.label(text="Col, auto, col_tweak 2")
+        gflow = box.grid_flow(row_major=False, num_columns=0, even_columns=False, even_rows=False, align=False)
         for vg in ob.vertex_groups:
             gflow.prop(vg, "name", text="")
             gflow.prop(vg, "lock_weight")
 
-        layout.separator()
-
-        gflow = layout.grid_flow(row_major=True, num_columns=-2, align=True, even_columns=False, even_rows=False)
+        box = layout.box()
+        box.label(text="Row, auto % 2, col_tweak 2")
+        gflow = box.grid_flow(row_major=True, num_columns=-2, even_columns=False, even_rows=False, align=False)
         for vg in ob.vertex_groups:
             gflow.prop(vg, "name", text="")
             gflow.prop(vg, "lock_weight")
 
-        layout.separator()
-        """
-        gflow = layout.grid_flow(row_major=False, num_columns=-2, align=True, even_columns=False, even_rows=False)
+        box = layout.box()
+        box.label(text="Col, auto % 2, col_tweak 2")
+        gflow = box.grid_flow(row_major=False, num_columns=-2, even_columns=False, even_rows=False, align=False)
         for vg in ob.vertex_groups:
             gflow.prop(vg, "name", text="")
             gflow.prop(vg, "lock_weight")
