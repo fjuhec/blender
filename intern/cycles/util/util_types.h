@@ -399,11 +399,6 @@ ccl_device_inline float4 make_float4(float x, float y, float z, float w)
 	return a;
 }
 
-ccl_device_inline int align_up(int offset, int alignment)
-{
-	return (offset + alignment - 1) & ~(alignment - 1);
-}
-
 ccl_device_inline int3 make_int3(int i)
 {
 #ifdef __KERNEL_SSE__
@@ -477,6 +472,16 @@ ccl_device_inline int4 make_int4(const float3& f)
 }
 
 #endif
+
+ccl_device_inline int align_up(int offset, int alignment)
+{
+	return (offset + alignment - 1) & ~(alignment - 1);
+}
+
+ccl_device_inline int round_up(int x, int multiple)
+{
+	return ((x + multiple - 1) / multiple) * multiple;
+}
 
 /* Interpolation types for textures
  * cuda also use texture space to store other objects */

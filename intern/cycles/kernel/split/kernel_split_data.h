@@ -108,23 +108,22 @@ typedef struct SplitData {
 } SplitData;
 
 #define SIZEOF_SD(max_closure) (sizeof(ShaderData) - (sizeof(ShaderClosure) * (MAX_CLOSURE - (max_closure))))
-#define ALIGN_16(num) (((num) + 15) & ~15)
 
 ccl_device_inline size_t split_data_buffer_size(size_t num_elements,
                                                 size_t max_closure,
                                                 size_t per_thread_output_buffer_size)
 {
 	size_t size = 0;
-#define SPLIT_DATA_ENTRY(type, name, num) + ALIGN_16(num_elements * num * sizeof(type))
+#define SPLIT_DATA_ENTRY(type, name, num) + align_up(num_elements * num * sizeof(type), 16)
 	size = size SPLIT_DATA_ENTRIES;
 #undef SPLIT_DATA_ENTRY
 
 	/* TODO(sergey): This will actually over-allocate if
 	 * particular kernel does not support multiclosure.
 	 */
-	size += ALIGN_16(num_elements * SIZEOF_SD(max_closure)); /* sd */
-	size += ALIGN_16(2 * num_elements * SIZEOF_SD(max_closure)); /* sd_DL_shadow */
-	size += ALIGN_16(num_elements * per_thread_output_buffer_size); /* per_sample_output_buffers */
+	size += align_up(num_elements * SIZEOF_SD(max_closure), 16); /* sd */
+	size += align_up(2 * num_elements * SIZEOF_SD(max_closure), 16); /* sd_DL_shadow */
+	size += align_up(num_elements * per_thread_output_buffer_size, 16); /* per_sample_output_buffers */
 
 	return size;
 }
@@ -137,18 +136,18 @@ ccl_device_inline void split_data_init(ccl_global SplitData *split_data,
 	ccl_global char *p = (ccl_global char*)data;
 
 #define SPLIT_DATA_ENTRY(type, name, num) \
-	split_data->name = (type*)p; p += ALIGN_16(num_elements * num * sizeof(type));
+	split_data->name = (type*)p; p += align_up(num_elements * num * sizeof(type), 16);
 	SPLIT_DATA_ENTRIES
 #undef SPLIT_DATA_ENTRY
 
 	split_data->sd = (ShaderData*)p;
-	p += ALIGN_16(num_elements * SIZEOF_SD(MAX_CLOSURE));
+	p += align_up(num_elements * SIZEOF_SD(MAX_CLOSURE), 16);
 
 	split_data->sd_DL_shadow = (ShaderData*)p;
-	p += ALIGN_16(2 * num_elements * SIZEOF_SD(MAX_CLOSURE));
+	p += align_up(2 * num_elements * SIZEOF_SD(MAX_CLOSURE), 16);
 
 	split_data->per_sample_output_buffers = (ccl_global float*)p;
-	//p += ALIGN_16(num_elements * per_thread_output_buffer_size);
+	//p += align_up(num_elements * per_thread_output_buffer_size, 16);
 
 	split_data->ray_state = ray_state;
 }

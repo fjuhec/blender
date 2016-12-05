@@ -21,8 +21,6 @@
 
 CCL_NAMESPACE_BEGIN
 
-#define ROUND_UP(x, multiple) (((((x) - 1 ) / (multiple)) + 1) * (multiple))
-
 DeviceSplitKernel::DeviceSplitKernel(Device *device) : device(device)
 {
 	path_iteration_times = PATH_ITER_INC_FACTOR;
@@ -98,8 +96,8 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	 */
 	int2 max_render_feasible_tile_size;
 	const int2 tile_size = task->requested_tile_size;
-	max_render_feasible_tile_size.x = ROUND_UP(tile_size.x, local_size[0]);
-	max_render_feasible_tile_size.y = ROUND_UP(tile_size.y, local_size[1]);
+	max_render_feasible_tile_size.x = round_up(tile_size.x, local_size[0]);
+	max_render_feasible_tile_size.y = round_up(tile_size.y, local_size[1]);
 
 	/* Calculate per_thread_output_buffer_size. */
 	size_t per_thread_output_buffer_size;
