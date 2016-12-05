@@ -653,11 +653,9 @@ class AssetEngineAmberAIO(AssetEngine):
         return True
 
     def check_dir(self, entries, do_change):
-        # Stupid code just for test...
-        #~ if do_change:
-        #~     entries.root_path = entries.root_path + "../"
-        #~     print(entries.root_path)
-        return True
+        while do_change and not os.path.exists(entries.root_path):
+            entries.root_path = os.path.normpath(os.path.join(entries.root_path, ".."))
+        return os.path.exists(entries.root_path)
 
     def sort_filter(self, use_sort, use_filter, params, entries):
 #        print(use_sort, use_filter)

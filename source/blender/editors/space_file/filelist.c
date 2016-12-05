@@ -1508,6 +1508,9 @@ void filelist_assetengine_set(struct FileList *filelist, struct AssetEngineType 
 	if (aet) {
 		filelist->ae = BKE_asset_engine_create(aet, NULL);
 	}
+
+	/* Current path of filelist may not be valid for new asset engine! */
+	filelist->checkdirf(filelist, filelist->filelist.root, true);
 	filelist->flags |= FL_FORCE_RESET;
 }
 
