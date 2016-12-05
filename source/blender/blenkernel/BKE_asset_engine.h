@@ -62,6 +62,12 @@ enum {
 
 extern ListBase asset_engines;
 
+
+
+/**************************************************************************************/
+/* ***** Those callbacks help manage engine and its jobs.                       ***** */
+/**************************************************************************************/
+
 /* AE instance/job is valid, is running, is idle, etc. */
 typedef int (*ae_status)(struct AssetEngine *engine, const int job_id);
 
@@ -71,7 +77,11 @@ typedef float (*ae_progress)(struct AssetEngine *engine, const int job_id);
 /* To force end of given job (e.g. because it was cancelled by user...). */
 typedef void (*ae_kill)(struct AssetEngine *engine, const int job_id);
 
-/* ***** All callbacks below shall be non-blocking (i.e. return immediately). ***** */
+
+
+/**************************************************************************************/
+/* ***** All callbacks below shall be non-blocking (i.e. return immediately).   ***** */
+/**************************************************************************************/
 
 /* Those callbacks will be called from a 'fake-job' start *and* update functions (i.e. main thread, working one will
  * just sleep).
@@ -83,6 +93,10 @@ typedef void (*ae_kill)(struct AssetEngine *engine, const int job_id);
  * If the engine returns AE_JOB_ID_INVALID as job id, then code assumes whole execution was done in that single first
  * call (i.e. allows engine that do not need it to not bother with whole async crap - they should then process
  * the whole request in a very short amount of time (typically below 100ms).
+ *
+ * Most of those callbacks shall not return actual entries, but only (mainly) total number of available entries.
+ * The only callback returning actual entries should be ae_entries_block_get() (which returns a limited subset
+ * of all available ones, the visible ones usually), and ae_entries_uuid_get().
  */
 #define AE_JOB_ID_UNSET 0
 #define AE_JOB_ID_INVALID -1
@@ -90,6 +104,11 @@ typedef void (*ae_kill)(struct AssetEngine *engine, const int job_id);
 /* FILEBROWSER - List everything available at given root path - only returns numbers of entries!
  * Note that asset engine may change root_path here too. */
 typedef int (*ae_list_dir)(struct AssetEngine *engine, const int job_id, struct FileDirEntryArr *entries_r);
+
+/* FILEBROWSER - Get previews of given entries.
+ * XXX WARNING! Currently, only asset part of uuids is valid here (because fileentries only store this one)...
+ *              Think this makes more sense anyway, or do we want different previews per variants or revisions too? */
+typedef int (*ae_previews_get)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
 
 /* 'update' hook, called to prepare updating of given entries (typically after a file (re)load).
  * Engine should check whether given assets are still valid, if they should be updated, etc.
@@ -105,7 +124,11 @@ typedef int (*ae_update_check)(struct AssetEngine *engine, const int job_id, str
  *       (i.e. real ones as well as 'virtual' filebrowsing ones). */
 typedef int (*ae_ensure_uuids)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
 
+
+
+/**************************************************************************************/
 /* ***** All callbacks below are blocking. They shall be completed upon return. ***** */
+/**************************************************************************************/
 
 /* FILEBROWSER - Perform sorting and/or filtering on engines' side.
  * Note that engine is assumed to feature its own sorting/filtering settings!
@@ -121,10 +144,6 @@ typedef bool (*ae_entries_block_get)(struct AssetEngine *engine, const int start
 /* FILEBROWSER - Return specified entries from their uuids, in entries_r. */
 typedef bool (*ae_entries_uuid_get)(struct AssetEngine *engine, struct AssetUUIDList *uuids,
                                     struct FileDirEntryArr *entries_r);
-
-/* FILEBROWSER - Get previews of given entries.
- * XXX WARNING! Currently, only asset part of uuids is valid here (because fileentries only store this one)... */
-typedef int (*ae_previews_get)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
 
 /* 'pre-loading' hook, called before opening/appending/linking/updating given entries.
  * Note first given uuid is the one of 'active' entry, and first entry in returned list will be considered as such too.
@@ -146,6 +165,8 @@ typedef bool (*ae_load_post)(struct AssetEngine *engine, struct ID *items, const
  * r_dir is assumed to be least FILE_MAX.
  * returns true if path in r_dir is valid. */
 typedef bool (*ae_check_dir)(struct AssetEngine *engine, char *r_dir, bool do_change);
+
+
 
 typedef struct AssetEngineType {
 	struct AssetEngineType *next, *prev;
@@ -174,7 +195,9 @@ typedef struct AssetEngineType {
 
 	ae_load_pre load_pre;
 	ae_load_post load_post;
+
 	ae_update_check update_check;
+
 	ae_check_dir check_dir;
 
 	/* RNA integration */
@@ -193,6 +216,8 @@ typedef struct AssetEngine {
 
 	struct ReportList *reports;
 } AssetEngine;
+
+
 
 /* AssetEngine->flag */
 enum {
