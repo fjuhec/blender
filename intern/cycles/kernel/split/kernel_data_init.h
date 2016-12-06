@@ -88,42 +88,42 @@ ccl_device void kernel_data_init(
 	kg->data = data;
 #endif
 
-	split_params->x = sx;
-	split_params->y = sy;
-	split_params->w = sw;
-	split_params->h = sh;
+	kernel_split_params.x = sx;
+	kernel_split_params.y = sy;
+	kernel_split_params.w = sw;
+	kernel_split_params.h = sh;
 
-	split_params->offset = offset;
-	split_params->stride = stride;
+	kernel_split_params.offset = offset;
+	kernel_split_params.stride = stride;
 
-	split_params->rng_state = rng_state;
-	split_params->rng_offset_x = rng_state_offset_x;
-	split_params->rng_offset_y = rng_state_offset_y;
-	split_params->rng_stride = rng_state_stride;
+	kernel_split_params.rng_state = rng_state;
+	kernel_split_params.rng_offset_x = rng_state_offset_x;
+	kernel_split_params.rng_offset_y = rng_state_offset_y;
+	kernel_split_params.rng_stride = rng_state_stride;
 
-	split_params->start_sample = start_sample;
-	split_params->end_sample = end_sample;
+	kernel_split_params.start_sample = start_sample;
+	kernel_split_params.end_sample = end_sample;
 
 #ifdef __WORK_STEALING__
-	split_params->work_pool_wgs = work_pool_wgs;
-	split_params->num_samples = num_samples;
+	kernel_split_params.work_pool_wgs = work_pool_wgs;
+	kernel_split_params.num_samples = num_samples;
 #endif
 
-	split_params->parallel_samples = parallel_samples;
+	kernel_split_params.parallel_samples = parallel_samples;
 
-	split_params->queue_index = Queue_index;
-	split_params->queue_size = queuesize;
-	split_params->use_queues_flag = use_queues_flag;
+	kernel_split_params.queue_index = Queue_index;
+	kernel_split_params.queue_size = queuesize;
+	kernel_split_params.use_queues_flag = use_queues_flag;
 
-	split_params->buffer_offset_x = buffer_offset_x;
-	split_params->buffer_offset_y = buffer_offset_y;
-	split_params->buffer_stride = buffer_stride;
-	split_params->buffer = buffer;
+	kernel_split_params.buffer_offset_x = buffer_offset_x;
+	kernel_split_params.buffer_offset_y = buffer_offset_y;
+	kernel_split_params.buffer_stride = buffer_stride;
+	kernel_split_params.buffer = buffer;
 
-	split_data_init(split_state, num_elements, split_data_buffer, ray_state);
+	split_data_init(&kernel_split_state, num_elements, split_data_buffer, ray_state);
 
-	kg->sd_input = split_state->sd_DL_shadow;
-	kg->isect_shadow = split_state->isect_shadow;
+	kg->sd_input = kernel_split_state.sd_DL_shadow;
+	kg->isect_shadow = kernel_split_state.isect_shadow;
 #ifndef __KERNEL_CPU__
 #define KERNEL_TEX(type, ttype, name) \
 	kg->name = name;
@@ -145,13 +145,13 @@ ccl_device void kernel_data_init(
 	/* Initialize queue data and queue index. */
 	if(thread_index < queuesize) {
 		/* Initialize active ray queue. */
-		split_state->queue_data[QUEUE_ACTIVE_AND_REGENERATED_RAYS * queuesize + thread_index] = QUEUE_EMPTY_SLOT;
+		kernel_split_state.queue_data[QUEUE_ACTIVE_AND_REGENERATED_RAYS * queuesize + thread_index] = QUEUE_EMPTY_SLOT;
 		/* Initialize background and buffer update queue. */
-		split_state->queue_data[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS * queuesize + thread_index] = QUEUE_EMPTY_SLOT;
+		kernel_split_state.queue_data[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS * queuesize + thread_index] = QUEUE_EMPTY_SLOT;
 		/* Initialize shadow ray cast of AO queue. */
-		split_state->queue_data[QUEUE_SHADOW_RAY_CAST_AO_RAYS * queuesize + thread_index] = QUEUE_EMPTY_SLOT;
+		kernel_split_state.queue_data[QUEUE_SHADOW_RAY_CAST_AO_RAYS * queuesize + thread_index] = QUEUE_EMPTY_SLOT;
 		/* Initialize shadow ray cast of direct lighting queue. */
-		split_state->queue_data[QUEUE_SHADOW_RAY_CAST_DL_RAYS * queuesize + thread_index] = QUEUE_EMPTY_SLOT;
+		kernel_split_state.queue_data[QUEUE_SHADOW_RAY_CAST_DL_RAYS * queuesize + thread_index] = QUEUE_EMPTY_SLOT;
 	}
 
 	if(thread_index == 0) {
@@ -174,7 +174,7 @@ ccl_device void kernel_data_init(
 		/* This is the first assignment to ray_state;
 		 * So we dont use ASSIGN_RAY_STATE macro.
 		 */
-		split_state->ray_state[ray_index] = RAY_ACTIVE;
+		kernel_split_state.ray_state[ray_index] = RAY_ACTIVE;
 
 		unsigned int my_sample;
 		unsigned int pixel_x;
@@ -199,7 +199,7 @@ ccl_device void kernel_data_init(
 		                        sw, sh, sx, sy,
 		                        parallel_samples,
 		                        ray_index);
-		split_state->work_array[ray_index] = my_work;
+		kernel_split_state.work_array[ray_index] = my_work;
 #else  /* __WORK_STEALING__ */
 		unsigned int tile_index = ray_index / parallel_samples;
 		tile_x = tile_index % sw;
@@ -208,7 +208,7 @@ ccl_device void kernel_data_init(
 		my_sample = my_sample_tile + start_sample;
 
 		/* Initialize work array. */
-		split_state->work_array[ray_index] = my_sample;
+		kernel_split_state.work_array[ray_index] = my_sample;
 
 		/* Calculate pixel position of this ray. */
 		pixel_x = sx + tile_x;
@@ -219,7 +219,7 @@ ccl_device void kernel_data_init(
 
 
 		/* Initialise per_sample_output_buffers to all zeros. */
-		ccl_global float *per_sample_output_buffers = split_state->per_sample_output_buffers;
+		ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
 		per_sample_output_buffers += (((tile_x + (tile_y * stride)) * parallel_samples) + (my_sample_tile)) * kernel_data.film.pass_stride;
 
 		int per_sample_output_buffers_iterator = 0;
@@ -235,24 +235,24 @@ ccl_device void kernel_data_init(
 		                        rng_state,
 		                        my_sample,
 		                        pixel_x, pixel_y,
-		                        &split_state->rng[ray_index],
-		                        &split_state->ray[ray_index]);
+		                        &kernel_split_state.rng[ray_index],
+		                        &kernel_split_state.ray[ray_index]);
 
-		if(split_state->ray[ray_index].t != 0.0f) {
+		if(kernel_split_state.ray[ray_index].t != 0.0f) {
 			/* Initialize throughput, L_transparent, Ray, PathState;
 			 * These rays proceed with path-iteration.
 			 */
-			split_state->throughput[ray_index] = make_float3(1.0f, 1.0f, 1.0f);
-			split_state->L_transparent[ray_index] = 0.0f;
-			path_radiance_init(&split_state->path_radiance[ray_index], kernel_data.film.use_light_pass);
+			kernel_split_state.throughput[ray_index] = make_float3(1.0f, 1.0f, 1.0f);
+			kernel_split_state.L_transparent[ray_index] = 0.0f;
+			path_radiance_init(&kernel_split_state.path_radiance[ray_index], kernel_data.film.use_light_pass);
 			path_state_init(kg,
 			                kg->sd_input,
-			                &split_state->path_state[ray_index],
-			                &split_state->rng[ray_index],
+			                &kernel_split_state.path_state[ray_index],
+			                &kernel_split_state.rng[ray_index],
 			                my_sample,
-			                &split_state->ray[ray_index]);
+			                &kernel_split_state.ray[ray_index]);
 #ifdef __KERNEL_DEBUG__
-			debug_data_init(&split_state->debug_data[ray_index]);
+			debug_data_init(&kernel_split_state.debug_data[ray_index]);
 #endif
 		}
 		else {
@@ -260,8 +260,8 @@ ccl_device void kernel_data_init(
 			float4 L_rad = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
 			/* Accumulate result in output buffer. */
 			kernel_write_pass_float4(per_sample_output_buffers, my_sample, L_rad);
-			path_rng_end(kg, rng_state, split_state->rng[ray_index]);
-			ASSIGN_RAY_STATE(split_state->ray_state, ray_index, RAY_TO_REGENERATE);
+			path_rng_end(kg, rng_state, kernel_split_state.rng[ray_index]);
+			ASSIGN_RAY_STATE(kernel_split_state.ray_state, ray_index, RAY_TO_REGENERATE);
 		}
 
 	}
@@ -269,7 +269,7 @@ ccl_device void kernel_data_init(
 	/* Mark rest of the ray-state indices as RAY_INACTIVE. */
 	if(thread_index < (ccl_global_size(0) * ccl_global_size(1)) - (sh * (sw * parallel_samples))) {
 		/* First assignment, hence we dont use ASSIGN_RAY_STATE macro */
-		split_state->ray_state[((sw * parallel_samples) * sh) + thread_index] = RAY_INACTIVE;
+		kernel_split_state.ray_state[((sw * parallel_samples) * sh) + thread_index] = RAY_INACTIVE;
 	}
 }
 

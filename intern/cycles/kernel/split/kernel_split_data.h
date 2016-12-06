@@ -152,8 +152,8 @@ ccl_device_inline void split_data_init(ccl_global SplitData *split_data,
 	split_data->ray_state = ray_state;
 }
 
-#define split_state (&kg->split_data)
-#define split_params (&kg->split_param_data)
+#define kernel_split_state (kg->split_data)
+#define kernel_split_params (kg->split_param_data)
 
 CCL_NAMESPACE_END
 

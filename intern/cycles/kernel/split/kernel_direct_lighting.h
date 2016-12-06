@@ -59,8 +59,8 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg)
 	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 	ray_index = get_ray_index(kg, ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-	                          split_state->queue_data,
-	                          split_params->queue_size,
+	                          kernel_split_state.queue_data,
+	                          kernel_split_params.queue_size,
 	                          0);
 
 #ifdef __COMPUTE_DEVICE_GPU__
@@ -80,9 +80,9 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg)
 	if(ray_index != QUEUE_EMPTY_SLOT) {
 #endif
 
-	if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE)) {
-		ccl_global PathState *state = &split_state->path_state[ray_index];
-		ShaderData *sd = split_state->sd;
+	if(IS_STATE(kernel_split_state.ray_state, ray_index, RAY_ACTIVE)) {
+		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
+		ShaderData *sd = kernel_split_state.sd;
 
 		/* direct lighting */
 #ifdef __EMISSION__
@@ -90,7 +90,7 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg)
 		    (ccl_fetch(sd, flag) & SD_BSDF_HAS_EVAL)))
 		{
 			/* Sample illumination from lights to find path contribution. */
-			ccl_global RNG* rng = &split_state->rng[ray_index];
+			ccl_global RNG* rng = &kernel_split_state.rng[ray_index];
 			float light_t = path_state_rng_1D(kg, rng, state, PRNG_LIGHT);
 			float light_u, light_v;
 			path_state_rng_2D(kg, rng, state, PRNG_LIGHT_U, &light_u, &light_v);
@@ -115,11 +115,11 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg)
 					/* Write intermediate data to global memory to access from
 					 * the next kernel.
 					 */
-					split_state->light_ray[ray_index] = light_ray;
-					split_state->bsdf_eval[ray_index] = L_light;
-					split_state->is_lamp[ray_index] = is_lamp;
+					kernel_split_state.light_ray[ray_index] = light_ray;
+					kernel_split_state.bsdf_eval[ray_index] = L_light;
+					kernel_split_state.is_lamp[ray_index] = is_lamp;
 					/* Mark ray state for next shadow kernel. */
-					ADD_RAY_FLAG(split_state->ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL);
+					ADD_RAY_FLAG(kernel_split_state.ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL);
 					enqueue_flag = 1;
 				}
 			}
@@ -136,10 +136,10 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg)
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_SHADOW_RAY_CAST_DL_RAYS,
 	                        enqueue_flag,
-	                        split_params->queue_size,
+	                        kernel_split_params.queue_size,
 	                        &local_queue_atomics,
-	                        split_state->queue_data,
-	                        split_params->queue_index);
+	                        kernel_split_state.queue_data,
+	                        kernel_split_params.queue_index);
 #endif
 }
 

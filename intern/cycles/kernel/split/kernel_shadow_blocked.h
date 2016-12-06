@@ -52,8 +52,8 @@ ccl_device void kernel_shadow_blocked(KernelGlobals *kg)
 	ccl_local unsigned int ao_queue_length;
 	ccl_local unsigned int dl_queue_length;
 	if(lidx == 0) {
-		ao_queue_length = split_params->queue_index[QUEUE_SHADOW_RAY_CAST_AO_RAYS];
-		dl_queue_length = split_params->queue_index[QUEUE_SHADOW_RAY_CAST_DL_RAYS];
+		ao_queue_length = kernel_split_params.queue_index[QUEUE_SHADOW_RAY_CAST_AO_RAYS];
+		dl_queue_length = kernel_split_params.queue_index[QUEUE_SHADOW_RAY_CAST_DL_RAYS];
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
@@ -65,11 +65,11 @@ ccl_device void kernel_shadow_blocked(KernelGlobals *kg)
 	if(thread_index < ao_queue_length + dl_queue_length) {
 		if(thread_index < ao_queue_length) {
 			ray_index = get_ray_index(kg, thread_index, QUEUE_SHADOW_RAY_CAST_AO_RAYS,
-			                          split_state->queue_data, split_params->queue_size, 1);
+			                          kernel_split_state.queue_data, kernel_split_params.queue_size, 1);
 			shadow_blocked_type = RAY_SHADOW_RAY_CAST_AO;
 		} else {
 			ray_index = get_ray_index(kg, thread_index - ao_queue_length, QUEUE_SHADOW_RAY_CAST_DL_RAYS,
-			                          split_state->queue_data, split_params->queue_size, 1);
+			                          kernel_split_state.queue_data, kernel_split_params.queue_size, 1);
 			shadow_blocked_type = RAY_SHADOW_RAY_CAST_DL;
 		}
 	}
@@ -80,12 +80,12 @@ ccl_device void kernel_shadow_blocked(KernelGlobals *kg)
 	/* Flag determining if we need to update L. */
 	char update_path_radiance = 0;
 
-	if(IS_FLAG(split_state->ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL) ||
-	   IS_FLAG(split_state->ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO))
+	if(IS_FLAG(kernel_split_state.ray_state, ray_index, RAY_SHADOW_RAY_CAST_DL) ||
+	   IS_FLAG(kernel_split_state.ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO))
 	{
-		ccl_global PathState *state = &split_state->path_state[ray_index];
-		ccl_global Ray *light_ray_dl_global = &split_state->light_ray[ray_index];
-		ccl_global Ray *light_ray_ao_global = &split_state->ao_light_ray[ray_index];
+		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
+		ccl_global Ray *light_ray_dl_global = &kernel_split_state.light_ray[ray_index];
+		ccl_global Ray *light_ray_ao_global = &kernel_split_state.ao_light_ray[ray_index];
 
 		ccl_global Ray *light_ray_global =
 		        shadow_blocked_type == RAY_SHADOW_RAY_CAST_AO

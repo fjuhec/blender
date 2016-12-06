@@ -63,10 +63,10 @@ ccl_device void kernel_queue_enqueue(KernelGlobals *kg)
 
 	int queue_number = -1;
 
-	if(IS_STATE(split_state->ray_state, ray_index, RAY_HIT_BACKGROUND)) {
+	if(IS_STATE(kernel_split_state.ray_state, ray_index, RAY_HIT_BACKGROUND)) {
 		queue_number = QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS;
 	}
-	else if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE)) {
+	else if(IS_STATE(kernel_split_state.ray_state, ray_index, RAY_ACTIVE)) {
 		queue_number = QUEUE_ACTIVE_AND_REGENERATED_RAYS;
 	}
 
@@ -80,21 +80,21 @@ ccl_device void kernel_queue_enqueue(KernelGlobals *kg)
 		local_queue_atomics[QUEUE_ACTIVE_AND_REGENERATED_RAYS] =
 		        get_global_per_queue_offset(QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 		                                    local_queue_atomics,
-		                                    split_params->queue_index);
+		                                    kernel_split_params.queue_index);
 		local_queue_atomics[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS] =
 		        get_global_per_queue_offset(QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 		                                    local_queue_atomics,
-		                                    split_params->queue_index);
+		                                    kernel_split_params.queue_index);
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
 	unsigned int my_gqidx;
 	if(queue_number != -1) {
 		my_gqidx = get_global_queue_index(queue_number,
-		                                  split_params->queue_size,
+		                                  kernel_split_params.queue_size,
 		                                  my_lqidx,
 		                                  local_queue_atomics);
-		split_state->queue_data[my_gqidx] = ray_index;
+		kernel_split_state.queue_data[my_gqidx] = ray_index;
 	}
 }
 

@@ -26,20 +26,20 @@ ccl_device void kernel_sum_all_radiance(KernelGlobals *kg)
 	int x = ccl_global_id(0);
 	int y = ccl_global_id(1);
 
-	ccl_global float *buffer = split_params->buffer;
-	int parallel_samples = split_params->parallel_samples;
-	int sw = split_params->w;
-	int sh = split_params->h;
-	int stride = split_params->stride;
-	int buffer_offset_x = split_params->buffer_offset_x;
-	int buffer_offset_y = split_params->buffer_offset_y;
-	int buffer_stride = split_params->buffer_stride;
-	int start_sample = split_params->start_sample;
+	ccl_global float *buffer = kernel_split_params.buffer;
+	int parallel_samples = kernel_split_params.parallel_samples;
+	int sw = kernel_split_params.w;
+	int sh = kernel_split_params.h;
+	int stride = kernel_split_params.stride;
+	int buffer_offset_x = kernel_split_params.buffer_offset_x;
+	int buffer_offset_y = kernel_split_params.buffer_offset_y;
+	int buffer_stride = kernel_split_params.buffer_stride;
+	int start_sample = kernel_split_params.start_sample;
 
 	if(x < sw && y < sh) {
 		buffer += ((buffer_offset_x + x) + (buffer_offset_y + y) * buffer_stride) * (kernel_data.film.pass_stride);
 
-		ccl_global float *per_sample_output_buffer = split_state->per_sample_output_buffers;
+		ccl_global float *per_sample_output_buffer = kernel_split_state.per_sample_output_buffers;
 		per_sample_output_buffer += ((x + y * stride) * parallel_samples) * (kernel_data.film.pass_stride);
 
 		int sample_stride = (kernel_data.film.pass_stride);

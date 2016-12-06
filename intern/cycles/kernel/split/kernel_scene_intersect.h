@@ -69,7 +69,7 @@ ccl_device void kernel_scene_intersect(KernelGlobals *kg)
 	/* Fetch use_queues_flag */
 	ccl_local char local_use_queues_flag;
 	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
-		local_use_queues_flag = split_params->use_queues_flag[0];
+		local_use_queues_flag = kernel_split_params.use_queues_flag[0];
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
@@ -78,34 +78,34 @@ ccl_device void kernel_scene_intersect(KernelGlobals *kg)
 		int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 		ray_index = get_ray_index(kg, thread_index,
 		                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-		                          split_state->queue_data,
-		                          split_params->queue_size,
+		                          kernel_split_state.queue_data,
+		                          kernel_split_params.queue_size,
 		                          0);
 
 		if(ray_index == QUEUE_EMPTY_SLOT) {
 			return;
 		}
 	} else {
-		if(x < (split_params->w * split_params->parallel_samples) && y < split_params->h) {
-			ray_index = x + y * (split_params->w * split_params->parallel_samples);
+		if(x < (kernel_split_params.w * kernel_split_params.parallel_samples) && y < kernel_split_params.h) {
+			ray_index = x + y * (kernel_split_params.w * kernel_split_params.parallel_samples);
 		} else {
 			return;
 		}
 	}
 
 	/* All regenerated rays become active here */
-	if(IS_STATE(split_state->ray_state, ray_index, RAY_REGENERATED))
-		ASSIGN_RAY_STATE(split_state->ray_state, ray_index, RAY_ACTIVE);
+	if(IS_STATE(kernel_split_state.ray_state, ray_index, RAY_REGENERATED))
+		ASSIGN_RAY_STATE(kernel_split_state.ray_state, ray_index, RAY_ACTIVE);
 
-	if(!IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE))
+	if(!IS_STATE(kernel_split_state.ray_state, ray_index, RAY_ACTIVE))
 		return;
 
 #ifdef __KERNEL_DEBUG__
-	DebugData *debug_data = &split_state->debug_data[ray_index];
+	DebugData *debug_data = &kernel_split_state.debug_data[ray_index];
 #endif
-	Intersection *isect = &split_state->isect[ray_index];
-	PathState state = split_state->path_state[ray_index];
-	Ray ray = split_state->ray[ray_index];
+	Intersection *isect = &kernel_split_state.isect[ray_index];
+	PathState state = kernel_split_state.path_state[ray_index];
+	Ray ray = kernel_split_state.ray[ray_index];
 
 	/* intersect scene */
 	uint visibility = path_state_ray_visibility(kg, &state);
@@ -113,7 +113,7 @@ ccl_device void kernel_scene_intersect(KernelGlobals *kg)
 #ifdef __HAIR__
 	float difl = 0.0f, extmax = 0.0f;
 	uint lcg_state = 0;
-	RNG rng = split_state->rng[ray_index];
+	RNG rng = kernel_split_state.rng[ray_index];
 
 	if(kernel_data.bvh.have_curves) {
 		if((kernel_data.cam.resolution == 1) && (state.flag & PATH_RAY_CAMERA)) {
@@ -144,7 +144,7 @@ ccl_device void kernel_scene_intersect(KernelGlobals *kg)
 		 * These rays undergo special processing in the
 		 * background_bufferUpdate kernel.
 		 */
-		ASSIGN_RAY_STATE(split_state->ray_state, ray_index, RAY_HIT_BACKGROUND);
+		ASSIGN_RAY_STATE(kernel_split_state.ray_state, ray_index, RAY_HIT_BACKGROUND);
 	}
 }
 

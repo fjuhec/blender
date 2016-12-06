@@ -85,8 +85,8 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 	ray_index = get_ray_index(kg, ray_index,
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-	                          split_state->queue_data,
-	                          split_params->queue_size,
+	                          kernel_split_state.queue_data,
+	                          kernel_split_params.queue_size,
 	                          0);
 
 #ifdef __COMPUTE_DEVICE_GPU__
@@ -106,12 +106,12 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	if(ray_index != QUEUE_EMPTY_SLOT) {
 #endif
 
-	int sw = split_params->w;
-	int sh = split_params->h;
-	int sx = split_params->x;
-	int sy = split_params->y;
-	int stride = split_params->stride;
-	int parallel_samples = split_params->parallel_samples;
+	int sw = kernel_split_params.w;
+	int sh = kernel_split_params.h;
+	int sx = kernel_split_params.x;
+	int sy = kernel_split_params.y;
+	int stride = kernel_split_params.stride;
+	int parallel_samples = kernel_split_params.parallel_samples;
 
 #ifdef __WORK_STEALING__
 	unsigned int my_work;
@@ -127,18 +127,18 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	ccl_global PathState *state = 0x0;
 	float3 throughput;
 
-	ccl_global char *ray_state = split_state->ray_state;
-	ShaderData *sd = split_state->sd;
-	ccl_global float *per_sample_output_buffers = split_state->per_sample_output_buffers;
+	ccl_global char *ray_state = kernel_split_state.ray_state;
+	ShaderData *sd = kernel_split_state.sd;
+	ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
 
 	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
 
-		throughput = split_state->throughput[ray_index];
-		state = &split_state->path_state[ray_index];
-		rng = &split_state->rng[ray_index];
+		throughput = kernel_split_state.throughput[ray_index];
+		state = &kernel_split_state.path_state[ray_index];
+		rng = &kernel_split_state.rng[ray_index];
 #ifdef __WORK_STEALING__
-		my_work = split_state->work_array[ray_index];
-		sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
+		my_work = kernel_split_state.work_array[ray_index];
+		sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + kernel_split_params.start_sample;
 		get_pixel_tile_position(kg, &pixel_x, &pixel_y,
 		                        &tile_x, &tile_y,
 		                        my_work,
@@ -147,7 +147,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 		                        ray_index);
 		my_sample_tile = 0;
 #else  /* __WORK_STEALING__ */
-		sample = split_state->work_array[ray_index];
+		sample = kernel_split_state.work_array[ray_index];
 		/* Buffer's stride is "stride"; Find x and y using ray_index. */
 		int tile_index = ray_index / parallel_samples;
 		tile_x = tile_index % sw;
@@ -172,7 +172,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 					holdout_weight = shader_holdout_eval(kg, sd);
 
 				/* any throughput is ok, should all be identical here */
-				split_state->L_transparent[ray_index] += average(holdout_weight*throughput);
+				kernel_split_state.L_transparent[ray_index] += average(holdout_weight*throughput);
 			}
 
 			if(ccl_fetch(sd, flag) & SD_HOLDOUT_MASK) {
@@ -184,7 +184,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	}
 
 	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
-		PathRadiance *L = &split_state->path_radiance[ray_index];
+		PathRadiance *L = &kernel_split_state.path_radiance[ray_index];
 		/* Holdout mask objects do not write data passes. */
 		kernel_write_data_passes(kg,
 		                         per_sample_output_buffers,
@@ -211,7 +211,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 			float3 emission = indirect_primitive_emission(
 			        kg,
 			        sd,
-			        split_state->isect[ray_index].t,
+			        kernel_split_state.isect[ray_index].t,
 			        state->flag,
 			        state->ray_pdf);
 			path_radiance_accum_emission(L, throughput, emission, state->bounce);
@@ -237,7 +237,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 					enqueue_flag = 1;
 				}
 				else {
-					split_state->throughput[ray_index] = throughput/probability;
+					kernel_split_state.throughput[ray_index] = throughput/probability;
 				}
 			}
 		}
@@ -255,8 +255,8 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 
 			float ao_factor = kernel_data.background.ao_factor;
 			float3 ao_N;
-			split_state->ao_bsdf[ray_index] = shader_bsdf_ao(kg, sd, ao_factor, &ao_N);
-			split_state->ao_alpha[ray_index] = shader_bsdf_alpha(kg, sd);
+			kernel_split_state.ao_bsdf[ray_index] = shader_bsdf_ao(kg, sd, ao_factor, &ao_N);
+			kernel_split_state.ao_alpha[ray_index] = shader_bsdf_alpha(kg, sd);
 
 			float3 ao_D;
 			float ao_pdf;
@@ -272,7 +272,7 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 #endif
 				_ray.dP = ccl_fetch(sd, dP);
 				_ray.dD = differential3_zero();
-				split_state->ao_light_ray[ray_index] = _ray;
+				kernel_split_state.ao_light_ray[ray_index] = _ray;
 
 				ADD_RAY_FLAG(ray_state, ray_index, RAY_SHADOW_RAY_CAST_AO);
 				enqueue_flag_AO_SHADOW_RAY_CAST = 1;
@@ -289,20 +289,20 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 	                        enqueue_flag,
-	                        split_params->queue_size,
+	                        kernel_split_params.queue_size,
 	                        &local_queue_atomics_bg,
-	                        split_state->queue_data,
-	                        split_params->queue_index);
+	                        kernel_split_state.queue_data,
+	                        kernel_split_params.queue_index);
 
 #ifdef __AO__
 	/* Enqueue to-shadow-ray-cast rays. */
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_SHADOW_RAY_CAST_AO_RAYS,
 	                        enqueue_flag_AO_SHADOW_RAY_CAST,
-	                        split_params->queue_size,
+	                        kernel_split_params.queue_size,
 	                        &local_queue_atomics_ao,
-	                        split_state->queue_data,
-	                        split_params->queue_index);
+	                        kernel_split_state.queue_data,
+	                        kernel_split_params.queue_index);
 #endif
 }
 

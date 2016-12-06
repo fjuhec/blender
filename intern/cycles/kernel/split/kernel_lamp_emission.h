@@ -43,12 +43,12 @@ ccl_device void kernel_lamp_emission(KernelGlobals *kg)
 
 	/* We will empty this queue in this kernel. */
 	if(ccl_global_id(0) == 0 && ccl_global_id(1) == 0) {
-		split_params->queue_index[QUEUE_ACTIVE_AND_REGENERATED_RAYS] = 0;
+		kernel_split_params.queue_index[QUEUE_ACTIVE_AND_REGENERATED_RAYS] = 0;
 	}
 	/* Fetch use_queues_flag. */
 	ccl_local char local_use_queues_flag;
 	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
-		local_use_queues_flag = split_params->use_queues_flag[0];
+		local_use_queues_flag = kernel_split_params.use_queues_flag[0];
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
@@ -57,28 +57,28 @@ ccl_device void kernel_lamp_emission(KernelGlobals *kg)
 		int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 		ray_index = get_ray_index(kg, thread_index,
 		                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-		                          split_state->queue_data,
-		                          split_params->queue_size,
+		                          kernel_split_state.queue_data,
+		                          kernel_split_params.queue_size,
 		                          1);
 		if(ray_index == QUEUE_EMPTY_SLOT) {
 			return;
 		}
 	} else {
-		if(x < (split_params->w * split_params->parallel_samples) && y < split_params->h) {
-			ray_index = x + y * (split_params->w * split_params->parallel_samples);
+		if(x < (kernel_split_params.w * kernel_split_params.parallel_samples) && y < kernel_split_params.h) {
+			ray_index = x + y * (kernel_split_params.w * kernel_split_params.parallel_samples);
 		} else {
 			return;
 		}
 	}
 
-	if(IS_STATE(split_state->ray_state, ray_index, RAY_ACTIVE) ||
-	   IS_STATE(split_state->ray_state, ray_index, RAY_HIT_BACKGROUND))
+	if(IS_STATE(kernel_split_state.ray_state, ray_index, RAY_ACTIVE) ||
+	   IS_STATE(kernel_split_state.ray_state, ray_index, RAY_HIT_BACKGROUND))
 	{
-		PathRadiance *L = &split_state->path_radiance[ray_index];
-		ccl_global PathState *state = &split_state->path_state[ray_index];
+		PathRadiance *L = &kernel_split_state.path_radiance[ray_index];
+		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
 
-		float3 throughput = split_state->throughput[ray_index];
-		Ray ray = split_state->ray[ray_index];
+		float3 throughput = kernel_split_state.throughput[ray_index];
+		Ray ray = kernel_split_state.ray[ray_index];
 
 #ifdef __LAMP_MIS__
 		if(kernel_data.integrator.use_lamp_mis && !(state->flag & PATH_RAY_CAMERA)) {
@@ -86,7 +86,7 @@ ccl_device void kernel_lamp_emission(KernelGlobals *kg)
 			Ray light_ray;
 
 			light_ray.P = ray.P - state->ray_t*ray.D;
-			state->ray_t += split_state->isect[ray_index].t;
+			state->ray_t += kernel_split_state.isect[ray_index].t;
 			light_ray.D = ray.D;
 			light_ray.t = state->ray_t;
 			light_ray.time = ray.time;

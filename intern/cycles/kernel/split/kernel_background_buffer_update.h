@@ -80,13 +80,13 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 	if(ray_index == 0) {
 		/* We will empty this queue in this kernel. */
-		split_params->queue_index[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS] = 0;
+		kernel_split_params.queue_index[QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS] = 0;
 	}
 	char enqueue_flag = 0;
 	ray_index = get_ray_index(kg, ray_index,
 	                          QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
-	                          split_state->queue_data,
-	                          split_params->queue_size,
+	                          kernel_split_state.queue_data,
+	                          kernel_split_params.queue_size,
 	                          1);
 
 #ifdef __COMPUTE_DEVICE_GPU__
@@ -106,28 +106,28 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	if(ray_index != QUEUE_EMPTY_SLOT) {
 #endif
 
-	ccl_global uint *rng_state = split_params->rng_state;
-	int sw = split_params->w;
-	int sh = split_params->h;
-	int sx = split_params->x;
-	int sy = split_params->y;
-	int stride = split_params->stride;
-	int rng_state_offset_x = split_params->rng_offset_x;
-	int rng_state_offset_y = split_params->rng_offset_y;
-	int rng_state_stride = split_params->rng_stride;
-	int parallel_samples = split_params->parallel_samples;
+	ccl_global uint *rng_state = kernel_split_params.rng_state;
+	int sw = kernel_split_params.w;
+	int sh = kernel_split_params.h;
+	int sx = kernel_split_params.x;
+	int sy = kernel_split_params.y;
+	int stride = kernel_split_params.stride;
+	int rng_state_offset_x = kernel_split_params.rng_offset_x;
+	int rng_state_offset_y = kernel_split_params.rng_offset_y;
+	int rng_state_stride = kernel_split_params.rng_stride;
+	int parallel_samples = kernel_split_params.parallel_samples;
 
-	ccl_global char *ray_state = split_state->ray_state;
+	ccl_global char *ray_state = kernel_split_state.ray_state;
 #ifdef __KERNEL_DEBUG__
-	DebugData *debug_data = &split_state->debug_data[ray_index];
+	DebugData *debug_data = &kernel_split_state.debug_data[ray_index];
 #endif
-	ccl_global PathState *state = &split_state->path_state[ray_index];
-	PathRadiance *L = &split_state->path_radiance[ray_index];
-	ccl_global Ray *ray = &split_state->ray[ray_index];
-	ccl_global float3 *throughput = &split_state->throughput[ray_index];
-	ccl_global float *L_transparent = &split_state->L_transparent[ray_index];
-	ccl_global uint *rng = &split_state->rng[ray_index];
-	ccl_global float *per_sample_output_buffers = split_state->per_sample_output_buffers;
+	ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
+	PathRadiance *L = &kernel_split_state.path_radiance[ray_index];
+	ccl_global Ray *ray = &kernel_split_state.ray[ray_index];
+	ccl_global float3 *throughput = &kernel_split_state.throughput[ray_index];
+	ccl_global float *L_transparent = &kernel_split_state.L_transparent[ray_index];
+	ccl_global uint *rng = &kernel_split_state.rng[ray_index];
+	ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
 
 #ifdef __WORK_STEALING__
 	unsigned int my_work;
@@ -141,8 +141,8 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	unsigned int my_sample_tile;
 
 #ifdef __WORK_STEALING__
-	my_work = split_state->work_array[ray_index];
-	sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
+	my_work = kernel_split_state.work_array[ray_index];
+	sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + kernel_split_params.start_sample;
 	get_pixel_tile_position(kg, &pixel_x, &pixel_y,
 	                        &tile_x, &tile_y,
 	                        my_work,
@@ -152,7 +152,7 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	my_sample_tile = 0;
 	initial_rng = rng_state;
 #else  /* __WORK_STEALING__ */
-	sample = split_state->work_array[ray_index];
+	sample = kernel_split_state.work_array[ray_index];
 	int tile_index = ray_index / parallel_samples;
 	/* buffer and rng_state's stride is "stride". Find x and y using ray_index */
 	tile_x = tile_index % sw;
@@ -201,22 +201,22 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	if(IS_STATE(ray_state, ray_index, RAY_TO_REGENERATE)) {
 #ifdef __WORK_STEALING__
 		/* We have completed current work; So get next work */
-		int valid_work = get_next_work(kg, split_params->work_pool_wgs, &my_work, sw, sh, split_params->num_samples, parallel_samples, ray_index);
+		int valid_work = get_next_work(kg, kernel_split_params.work_pool_wgs, &my_work, sw, sh, kernel_split_params.num_samples, parallel_samples, ray_index);
 		if(!valid_work) {
 			/* If work is invalid, this means no more work is available and the thread may exit */
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_INACTIVE);
 		}
 #else  /* __WORK_STEALING__ */
-		if((sample + parallel_samples) >= split_params->end_sample) {
+		if((sample + parallel_samples) >= kernel_split_params.end_sample) {
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_INACTIVE);
 		}
 #endif  /* __WORK_STEALING__ */
 
 		if(IS_STATE(ray_state, ray_index, RAY_TO_REGENERATE)) {
 #ifdef __WORK_STEALING__
-			split_state->work_array[ray_index] = my_work;
+			kernel_split_state.work_array[ray_index] = my_work;
 			/* Get the sample associated with the current work */
-			sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + split_params->start_sample;
+			sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + kernel_split_params.start_sample;
 			/* Get pixel and tile position associated with current work */
 			get_pixel_tile_position(kg, &pixel_x, &pixel_y, &tile_x, &tile_y, my_work, sw, sh, sx, sy, parallel_samples, ray_index);
 			my_sample_tile = 0;
@@ -224,11 +224,11 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 			/* Remap rng_state according to the current work */
 			rng_state = initial_rng + ((rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride);
 			/* Remap per_sample_output_buffers according to the current work */
-			per_sample_output_buffers = split_state->per_sample_output_buffers
+			per_sample_output_buffers = kernel_split_state.per_sample_output_buffers
 				+ (((tile_x + (tile_y * stride)) * parallel_samples) + my_sample_tile) * kernel_data.film.pass_stride;
 #else  /* __WORK_STEALING__ */
-			split_state->work_array[ray_index] = sample + parallel_samples;
-			sample = split_state->work_array[ray_index];
+			kernel_split_state.work_array[ray_index] = sample + parallel_samples;
+			sample = kernel_split_state.work_array[ray_index];
 
 			/* Get ray position from ray index */
 			pixel_x = sx + ((ray_index / parallel_samples) % sw);
@@ -274,10 +274,10 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	enqueue_ray_index_local(ray_index,
 	                        QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                        enqueue_flag,
-	                        split_params->queue_size,
+	                        kernel_split_params.queue_size,
 	                        &local_queue_atomics,
-	                        split_state->queue_data,
-	                        split_params->queue_index);
+	                        kernel_split_state.queue_data,
+	                        kernel_split_params.queue_index);
 }
 
 CCL_NAMESPACE_END
