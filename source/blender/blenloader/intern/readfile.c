@@ -2155,6 +2155,34 @@ static PreviewImage *direct_link_preview_image(FileData *fd, PreviewImage *old_p
 
 /* ************ READ ID *************** */
 
+static void lib_link_id(FileData *fd, Main *main)
+{
+	ListBase *lbarray[MAX_LIBARRAY];
+	int base_count, i;
+
+	base_count = set_listbasepointers(main, lbarray);
+
+	for (i = 0; i < base_count; i++) {
+		ListBase *lb = lbarray[i];
+		ID *id;
+
+		for (id = lb->first; id; id = id->next) {
+			if (id->override) {
+				id->override->reference = newlibadr_us(fd, id->lib, id->override->reference);
+			}
+		}
+	}
+}
+
+static void direct_link_id_override_data_cb(FileData *fd, void *datav)
+{
+	IDOverrideData *data = datav;
+
+	data->rna_path = newdataadr(fd, data->rna_path);
+	data->subitem_reference_name = newdataadr(fd, data->subitem_reference_name);
+	data->subitem_local_name = newdataadr(fd, data->subitem_local_name);
+}
+
 static void direct_link_id(FileData *fd, ID *id)
 {
 	/*link direct data of ID properties*/
@@ -2162,6 +2190,12 @@ static void direct_link_id(FileData *fd, ID *id)
 		id->properties = newdataadr(fd, id->properties);
 		/* this case means the data was written incorrectly, it should not happen */
 		IDP_DirectLinkGroup_OrFree(&id->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+	}
+
+	/* Link direct data of overrides. */
+	if (id->override) {
+		id->override = newdataadr(fd, id->override);
+		link_list_ex(fd, &id->override->data, direct_link_id_override_data_cb);
 	}
 }
 
@@ -8383,6 +8417,8 @@ static void lib_link_all(FileData *fd, Main *main)
 {
 	oldnewmap_sort(fd);
 	
+	lib_link_id(fd, main);
+
 	/* No load UI for undo memfiles */
 	if (fd->memfile == NULL) {
 		lib_link_windowmanager(fd, main);

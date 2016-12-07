@@ -313,6 +313,10 @@ void BKE_library_foreach_ID_link(ID *id, LibraryIDLinkCallback callback, void *u
 #define CALLBACK_INVOKE(check_id_super, cb_flag) \
 	FOREACH_CALLBACK_INVOKE(&data, check_id_super, cb_flag)
 
+	if (id->override) {
+		CALLBACK_INVOKE_ID(id->override->reference, IDWALK_USER);
+	}
+
 	do {
 		data.self_id = id;
 		data.cd_flag = ID_IS_LINKED_DATABLOCK(id) ? IDWALK_INDIRECT_USAGE : 0;

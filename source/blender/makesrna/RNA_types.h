@@ -174,6 +174,9 @@ typedef enum PropertyFlag {
 	 * and collections */
 	PROP_ANIMATABLE              = (1 << 1),
 
+	/* Means the property can be overriden by a local 'proxy' of some linked datablock. */
+	PROP_OVERRIDABLE             = (1 << 8),
+
 	/* This flag means when the property's widget is in 'textedit' mode, it will be updated after every typed char,
 	 * instead of waiting final validation. Used e.g. for text searchbox. */
 	PROP_TEXTEDIT_UPDATE         = (1 << 31),

@@ -106,6 +106,54 @@ enum {
 
 /* add any future new id property types here.*/
 
+
+/* Static ID override structs. */
+
+/* A single overriding operation data, can affect only a single property. */
+typedef struct IDOverrideData {
+	struct IDOverrideData *next, *prev;
+
+	/* Path from ID to overridden property. *Does not* include indices/names for arrays/collections items. */
+	char *rna_path;
+
+	/* Sub-item references, if needed (for arrays or collections only).
+	 * We need both reference and local values to allow e.g. insertion into collections (constraints, modifiers...).
+	 * In collection case, if names are defined, they are used in priority.
+	 * Names are pointers (instead of char[64]) to save some space, NULL when unset.
+	 * Indices are -1 when unset. */
+	char *subitem_reference_name;
+	char *subitem_local_name;
+	int subitem_reference_index;
+	int subitem_local_index;
+
+	/* Type of override. */
+	short operation;
+
+	short pad_s1[3];
+} IDOverrideData;
+
+/* IDOverrideData->operation. */
+enum {
+	/* Basic operations. */
+	IDOVERRIDE_REPLACE       =   1,  /* Fully replace local value by reference one. */
+
+	/* Numeric-only operations. */
+	IDOVERRIDE_ADD           = 101,  /* Add local value to reference one. */
+	IDOVERRIDE_SUBTRACT      = 102,  /* Subtract local value from reference one (needed due to unsigned values etc.). */
+	IDOVERRIDE_MULTIPLY      = 103,  /* Multiply reference value by local one (useful for scales and the like). */
+
+	/* Collection-only operations. */
+	IDOVERRIDE_INSERT_AFTER  = 201,  /* Insert after given reference's subitem. */
+	IDOVERRIDE_INSERT_BEFORE = 202,  /* Insert before given reference's subitem. */
+};
+
+/* Main container for all overriding data info. */
+typedef struct IDOverride {
+	struct ID *reference;  /* Reference linked ID which this one overrides. */
+	ListBase data;  /* List of IDOverrideData structs. */
+} IDOverride;
+
+
 /* watch it: Sequence has identical beginning. */
 /**
  * ID is the first thing included in all serializable types. It
@@ -134,6 +182,8 @@ typedef struct ID {
 	int us;
 	int icon_id;
 	IDProperty *properties;
+	IDOverride *override;  /* Reference linked ID which this one overrides. */
+	void *pad_v1;
 } ID;
 
 /**

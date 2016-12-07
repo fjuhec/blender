@@ -675,6 +675,21 @@ static void write_iddata(void *wd, const ID *id)
 	if (id->properties && !ELEM(GS(id->name), ID_WM)) {
 		IDP_WriteProperty(id->properties, wd);
 	}
+
+	if (id->override) {
+		writestruct(wd, DATA, IDOverride, 1, id->override);
+
+		writelist(wd, DATA, IDOverrideData, &id->override->data);
+		for (IDOverrideData *od = id->override->data.first; od; od = od->next) {
+			writedata(wd, DATA, strlen(od->rna_path) + 1, od->rna_path);
+			if (od->subitem_reference_name) {
+				writedata(wd, DATA, strlen(od->subitem_reference_name) + 1, od->subitem_reference_name);
+			}
+			if (od->subitem_local_name) {
+				writedata(wd, DATA, strlen(od->subitem_local_name) + 1, od->subitem_local_name);
+			}
+		}
+	}
 }
 
 static void write_previews(WriteData *wd, const PreviewImage *prv_orig)
