@@ -7013,10 +7013,21 @@ bool RNA_property_equals(PointerRNA *a, PointerRNA *b, PropertyRNA *prop, eRNAEq
 			if (!STREQ(RNA_property_identifier(prop), "rna_type")) {
 				PointerRNA propptr_a = RNA_property_pointer_get(a, prop);
 				PointerRNA propptr_b = RNA_property_pointer_get(b, prop);
-				return RNA_struct_equals(&propptr_a, &propptr_b, mode);
+				if (RNA_struct_is_ID(propptr_a.type)) {
+					/* In case this is an ID, do not compare structs!
+					 * This is a quite safe path to infinite loop.
+					 * Instead, just compare pointers themselves (we assume sub-ID struct cannot loop). */
+					return propptr_a.id.data != propptr_b.id.data;
+				}
+				else {
+					return RNA_struct_equals(&propptr_a, &propptr_b, mode);
+				}
 			}
 			break;
 		}
+
+		case PROP_COLLECTION:
+			/* TODO! for override... */
 
 		default:
 			break;
@@ -7028,7 +7039,6 @@ bool RNA_property_equals(PointerRNA *a, PointerRNA *b, PropertyRNA *prop, eRNAEq
 bool RNA_struct_equals(PointerRNA *a, PointerRNA *b, eRNAEqualsMode mode)
 {
 	CollectionPropertyIterator iter;
-//	CollectionPropertyRNA *citerprop;  /* UNUSED */
 	PropertyRNA *iterprop;
 	bool equals = true;
 
@@ -7040,7 +7050,6 @@ bool RNA_struct_equals(PointerRNA *a, PointerRNA *b, eRNAEqualsMode mode)
 		return false;
 
 	iterprop = RNA_struct_iterator_property(a->type);
-//	citerprop = (CollectionPropertyRNA *)rna_ensure_property(iterprop);  /* UNUSED */
 
 	RNA_property_collection_begin(a, iterprop, &iter);
 	for (; iter.valid; RNA_property_collection_next(&iter)) {
