@@ -2614,7 +2614,7 @@ static void rna_generate_property_prototypes(BlenderRNA *UNUSED(brna), StructRNA
 		fprintf(f, "\n");
 
 	for (prop = srna->cont.properties.first; prop; prop = prop->next)
-		fprintf(f, "%s%s rna_%s_%s;\n", (prop->flag & PROP_EXPORT) ? "" : "", rna_property_structname(prop->type),
+		fprintf(f, "%s%s rna_%s_%s;\n", /*(prop->flag & PROP_EXPORT)*/false ? "" : "", rna_property_structname(prop->type),
 		        srna->identifier, prop->identifier);
 	fprintf(f, "\n");
 }
@@ -2984,7 +2984,7 @@ static void rna_generate_property(FILE *f, StructRNA *srna, const char *nest, Pr
 	}
 
 	fprintf(f, "%s%s rna_%s%s_%s = {\n",
-	        (prop->flag & PROP_EXPORT) ? "" : "",
+	        /*(prop->flag & PROP_EXPORT)*/false ? "" : "",
 	        rna_property_structname(prop->type),
 	        srna->identifier, strnest, prop->identifier);
 
