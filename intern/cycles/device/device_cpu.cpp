@@ -232,6 +232,11 @@ public:
 		task_pool.stop();
 	}
 
+	virtual bool show_samples() const
+	{
+		return (TaskScheduler::num_threads() == 1);
+	}
+
 	void mem_alloc(device_memory& mem, MemoryType /*type*/)
 	{
 		mem.device_pointer = mem.data_pointer;
@@ -410,7 +415,7 @@ public:
 
 				tile.sample = sample + 1;
 
-				task.update_progress(&tile);
+				task.update_progress(&tile, tile.w*tile.h);
 			}
 
 			task.release_tile(tile);
