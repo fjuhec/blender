@@ -282,6 +282,7 @@ public:
 	        const DeviceRequestedFeatures& /*requested_features*/)
 	{ return true; }
 
+private:
 	/* split kernel */
 	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& /*dim*/,
 	                                            RenderTile& /*rtile*/,
@@ -321,6 +322,9 @@ public:
 		return make_int2(0, 0);
 	}
 
+	friend class DeviceSplitKernel;
+
+public:
 	/* tasks */
 	virtual int get_split_task_count(DeviceTask& task) = 0;
 	virtual void task_add(DeviceTask& task) = 0;
