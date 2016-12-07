@@ -36,12 +36,23 @@ DeviceSplitKernel::~DeviceSplitKernel()
 	device->mem_free(use_queues_flag);
 	device->mem_free(queue_index);
 	device->mem_free(work_pool_wgs);
+
+	delete kernel_scene_intersect;
+	delete kernel_lamp_emission;
+	delete kernel_queue_enqueue;
+	delete kernel_background_buffer_update;
+	delete kernel_shader_eval;
+	delete kernel_holdout_emission_blurring_pathtermination_ao;
+	delete kernel_direct_lighting;
+	delete kernel_shadow_blocked;
+	delete kernel_next_iteration_setup;
+	delete kernel_sum_all_radiance;
 }
 
 bool DeviceSplitKernel::load_kernels(const DeviceRequestedFeatures& requested_features)
 {
 #define LOAD_KERNEL(name) \
-		kernel_##name = unique_ptr<SplitKernelFunction>(device->get_split_kernel_function(#name, requested_features)); \
+		kernel_##name = device->get_split_kernel_function(#name, requested_features); \
 		if(!kernel_##name) { \
 			return false; \
 		}
