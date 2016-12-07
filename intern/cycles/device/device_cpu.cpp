@@ -232,8 +232,6 @@ public:
 		task_pool.stop();
 	}
 
-	using Device::mem_alloc;
-
 	void mem_alloc(device_memory& mem, MemoryType /*type*/)
 	{
 		mem.device_pointer = mem.data_pointer;
@@ -820,7 +818,8 @@ protected:
 
 	virtual void alloc_kernel_globals(device_memory& mem)
 	{
-		mem_alloc(mem, sizeof(KernelGlobals));
+		mem.resize(sizeof(KernelGlobals));
+		mem_alloc(mem, MEM_READ_WRITE);
 
 		KernelGlobals *kg = (KernelGlobals*)mem.device_pointer;
 		*kg = thread_kernel_globals_init();

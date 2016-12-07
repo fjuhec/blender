@@ -175,19 +175,25 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		                  (local_size[0] * local_size[1]);
 
 		/* Allocate work_pool_wgs memory. */
-		device->mem_alloc(work_pool_wgs, max_work_groups * sizeof(unsigned int));
+		work_pool_wgs.resize(max_work_groups * sizeof(unsigned int));
+		device->mem_alloc(work_pool_wgs, MEM_READ_WRITE);
 #endif  /* __WORK_STEALING__ */
 
-		device->mem_alloc(queue_index, NUM_QUEUES * sizeof(int));
-		device->mem_alloc(use_queues_flag, sizeof(char));
+		queue_index.resize(NUM_QUEUES * sizeof(int));
+		device->mem_alloc(queue_index, MEM_READ_WRITE);
+
+		use_queues_flag.resize(sizeof(char));
+		device->mem_alloc(use_queues_flag, MEM_READ_WRITE);
+
 		device->alloc_kernel_globals(kgbuffer);
 
 		ray_state.resize(num_global_elements);
 		device->mem_alloc(ray_state, MEM_READ_WRITE);
 
-		device->mem_alloc(split_data, split_data_buffer_size(num_global_elements,
-		                                                     current_max_closure,
-		                                                     per_thread_output_buffer_size));
+		split_data.resize(split_data_buffer_size(num_global_elements,
+		                                         current_max_closure,
+		                                         per_thread_output_buffer_size));
+		device->mem_alloc(split_data, MEM_READ_WRITE);
 	}
 
 	if(!device->enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),

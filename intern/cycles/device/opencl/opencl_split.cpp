@@ -99,7 +99,8 @@ public:
 			SplitParams split_param_data;
 		} KernelGlobals;
 
-		mem_alloc(mem, sizeof(KernelGlobals));
+		mem.resize(sizeof(KernelGlobals));
+		mem_alloc(mem, MEM_READ_WRITE);
 	}
 
 	virtual void free_kernel_globals(device_memory& mem)

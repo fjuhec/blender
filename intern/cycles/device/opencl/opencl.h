@@ -249,7 +249,6 @@ public:
 	                          vector<OpenCLProgram*> &programs) = 0;
 
 	void mem_alloc(device_memory& mem, MemoryType type);
-	using Device::mem_alloc;
 	void mem_copy_to(device_memory& mem);
 	void mem_copy_from(device_memory& mem, int y, int w, int h, int elem);
 	void mem_zero(device_memory& mem);
