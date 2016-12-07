@@ -20,6 +20,7 @@
 /* CPU Kernel Interface */
 
 #include "util_types.h"
+#include "kernel_types.h"
 
 CCL_NAMESPACE_BEGIN
 

@@ -49,6 +49,34 @@ void KERNEL_FUNCTION_FULL_NAME(shader)(KernelGlobals *kg,
                                        int offset,
                                        int sample);
 
+/* Split kernels */
+
+void KERNEL_FUNCTION_FULL_NAME(data_init)(
+        KernelGlobals *kg,
+        ccl_constant KernelData *data,
+        ccl_global void *split_data_buffer,
+        int num_elements,
+        ccl_global char *ray_state,
+        ccl_global uint *rng_state,
+        int start_sample,
+        int end_sample,
+        int sx, int sy, int sw, int sh, int offset, int stride,
+        int rng_state_offset_x,
+        int rng_state_offset_y,
+        int rng_state_stride,
+        ccl_global int *Queue_index,
+        int queuesize,
+        ccl_global char *use_queues_flag,
+#ifdef __WORK_STEALING__
+        ccl_global unsigned int *work_pool_wgs,
+        unsigned int num_samples,
+#endif
+        int parallel_samples,
+        int buffer_offset_x,
+        int buffer_offset_y,
+        int buffer_stride,
+        ccl_global float *buffer);
+
 #define DECLARE_SPLIT_KERNEL_FUNCTION(name) \
 	void KERNEL_FUNCTION_FULL_NAME(name)(KernelGlobals *kg, KernelData *data);
 

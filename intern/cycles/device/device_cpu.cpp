@@ -727,9 +727,40 @@ protected:
                                    int buffer_stride,
                                    ccl_global float *buffer);
 
-		data_init_t data_init = get_kernel_function<data_init_t>("data_init");
-		if(!data_init) {
-			return false;
+		data_init_t data_init;
+
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX2
+		if(system_cpu_support_avx2()) {
+			data_init = kernel_cpu_avx2_data_init;
+		}
+		else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX
+		if(system_cpu_support_avx()) {
+			data_init = kernel_cpu_avx_data_init;
+		}
+		else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE41
+		if(system_cpu_support_sse41()) {
+			data_init = kernel_cpu_sse41_data_init;
+		}
+		else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE3
+		if(system_cpu_support_sse3()) {
+			data_init = kernel_cpu_sse3_data_init;
+		}
+		else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE2
+		if(system_cpu_support_sse2()) {
+			data_init = kernel_cpu_sse2_data_init;
+		}
+		else
+#endif
+		{
+			data_init = kernel_cpu_data_init;
 		}
 
 		KernelGlobals *kg = (KernelGlobals*)kernel_globals.device_pointer;

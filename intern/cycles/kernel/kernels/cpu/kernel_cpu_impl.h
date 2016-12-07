@@ -185,8 +185,7 @@ void KERNEL_FUNCTION_FULL_NAME(register_functions)(void(*reg)(const char* name, 
 	REGISTER(convert_to_half_float);
 	REGISTER(shader);
 
-	reg(REGISTER_EVAL_NAME(KERNEL_FUNCTION_FULL_NAME(data_init)), (void*)kernel_data_init);
-
+	REGISTER(data_init);
 	REGISTER(scene_intersect);
 	REGISTER(lamp_emission);
 	REGISTER(queue_enqueue);
