@@ -2174,13 +2174,20 @@ static void lib_link_id(FileData *fd, Main *main)
 	}
 }
 
-static void direct_link_id_override_data_cb(FileData *fd, void *datav)
+static void direct_link_id_override_property_operation_cb(FileData *fd, void *data)
 {
-	IDOverrideData *data = datav;
+	IDOverridePropertyOperation *opop = data;
 
-	data->rna_path = newdataadr(fd, data->rna_path);
-	data->subitem_reference_name = newdataadr(fd, data->subitem_reference_name);
-	data->subitem_local_name = newdataadr(fd, data->subitem_local_name);
+	opop->subitem_reference_name = newdataadr(fd, opop->subitem_reference_name);
+	opop->subitem_local_name = newdataadr(fd, opop->subitem_local_name);
+}
+
+static void direct_link_id_override_property_cb(FileData *fd, void *data)
+{
+	IDOverrideProperty *op = data;
+
+	op->rna_path = newdataadr(fd, op->rna_path);
+	link_list_ex(fd, &op->operations, direct_link_id_override_property_operation_cb);
 }
 
 static void direct_link_id(FileData *fd, ID *id)
@@ -2195,7 +2202,7 @@ static void direct_link_id(FileData *fd, ID *id)
 	/* Link direct data of overrides. */
 	if (id->override) {
 		id->override = newdataadr(fd, id->override);
-		link_list_ex(fd, &id->override->data, direct_link_id_override_data_cb);
+		link_list_ex(fd, &id->override->properties, direct_link_id_override_property_cb);
 	}
 }
 

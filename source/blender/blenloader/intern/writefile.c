@@ -679,14 +679,18 @@ static void write_iddata(void *wd, const ID *id)
 	if (id->override) {
 		writestruct(wd, DATA, IDOverride, 1, id->override);
 
-		writelist(wd, DATA, IDOverrideData, &id->override->data);
-		for (IDOverrideData *od = id->override->data.first; od; od = od->next) {
-			writedata(wd, DATA, strlen(od->rna_path) + 1, od->rna_path);
-			if (od->subitem_reference_name) {
-				writedata(wd, DATA, strlen(od->subitem_reference_name) + 1, od->subitem_reference_name);
-			}
-			if (od->subitem_local_name) {
-				writedata(wd, DATA, strlen(od->subitem_local_name) + 1, od->subitem_local_name);
+		writelist(wd, DATA, IDOverrideProperty, &id->override->properties);
+		for (IDOverrideProperty *op = id->override->properties.first; op; op = op->next) {
+			writedata(wd, DATA, strlen(op->rna_path) + 1, op->rna_path);
+
+			writelist(wd, DATA, IDOverridePropertyOperation, &op->operations);
+			for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+				if (opop->subitem_reference_name) {
+					writedata(wd, DATA, strlen(opop->subitem_reference_name) + 1, opop->subitem_reference_name);
+				}
+				if (opop->subitem_local_name) {
+					writedata(wd, DATA, strlen(opop->subitem_local_name) + 1, opop->subitem_local_name);
+				}
 			}
 		}
 	}

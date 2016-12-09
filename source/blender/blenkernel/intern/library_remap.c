@@ -84,6 +84,7 @@
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
+#include "BKE_library_override.h"
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
 #include "BKE_linestyle.h"
@@ -714,6 +715,10 @@ void BKE_libblock_free_data(Main *UNUSED(bmain), ID *id)
 	if (id->properties) {
 		IDP_FreeProperty(id->properties);
 		MEM_freeN(id->properties);
+	}
+
+	if (id->override) {
+		BKE_override_free(&id->override);
 	}
 }
 

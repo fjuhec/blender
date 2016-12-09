@@ -109,12 +109,12 @@ enum {
 
 /* Static ID override structs. */
 
-/* A single overriding operation data, can affect only a single property. */
-typedef struct IDOverrideData {
-	struct IDOverrideData *next, *prev;
+typedef struct IDOverridePropertyOperation {
+	struct IDOverridePropertyOperation *next, *prev;
 
-	/* Path from ID to overridden property. *Does not* include indices/names for arrays/collections items. */
-	char *rna_path;
+	/* Type of override. */
+	short operation;
+	short pad_s1[3];
 
 	/* Sub-item references, if needed (for arrays or collections only).
 	 * We need both reference and local values to allow e.g. insertion into collections (constraints, modifiers...).
@@ -125,14 +125,9 @@ typedef struct IDOverrideData {
 	char *subitem_local_name;
 	int subitem_reference_index;
 	int subitem_local_index;
+} IDOverridePropertyOperation;
 
-	/* Type of override. */
-	short operation;
-
-	short pad_s1[3];
-} IDOverrideData;
-
-/* IDOverrideData->operation. */
+/* IDOverridePropertyOperation->operation. */
 enum {
 	/* Basic operations. */
 	IDOVERRIDE_REPLACE       =   1,  /* Fully replace local value by reference one. */
@@ -140,17 +135,28 @@ enum {
 	/* Numeric-only operations. */
 	IDOVERRIDE_ADD           = 101,  /* Add local value to reference one. */
 	IDOVERRIDE_SUBTRACT      = 102,  /* Subtract local value from reference one (needed due to unsigned values etc.). */
-	IDOVERRIDE_MULTIPLY      = 103,  /* Multiply reference value by local one (useful for scales and the like). */
+	IDOVERRIDE_MULTIPLY      = 103,  /* Multiply reference value by local one (more useful than diff for scales and the like). */
 
 	/* Collection-only operations. */
 	IDOVERRIDE_INSERT_AFTER  = 201,  /* Insert after given reference's subitem. */
 	IDOVERRIDE_INSERT_BEFORE = 202,  /* Insert before given reference's subitem. */
+	/* We can add more if needed (move, delete, ...). */
 };
+
+/* A single overriden property, contain all operations on this one. */
+typedef struct IDOverrideProperty {
+	struct IDOverrideProperty *next, *prev;
+
+	/* Path from ID to overridden property. *Does not* include indices/names for final arrays/collections items. */
+	char *rna_path;
+
+	ListBase operations;  /* List of overriding operations (IDOverridePropertyOperation) applied to this property. */
+} IDOverrideProperty;
 
 /* Main container for all overriding data info. */
 typedef struct IDOverride {
 	struct ID *reference;  /* Reference linked ID which this one overrides. */
-	ListBase data;  /* List of IDOverrideData structs. */
+	ListBase properties;  /* List of IDOverrideProperty structs. */
 } IDOverride;
 
 
@@ -380,6 +386,9 @@ enum {
 
 	/* RESET_NEVER tag datablock as a place-holder (because the real one could not be linked from its library e.g.). */
 	LIB_TAG_MISSING         = 1 << 6,
+
+	/* RESET_NEVER tag datablock as being up-to-date regarding its reference. */
+	LIB_TAG_OVERRIDE_OK     = 1 << 9,
 
 	/* tag datablock has having an extra user. */
 	LIB_TAG_EXTRAUSER       = 1 << 2,

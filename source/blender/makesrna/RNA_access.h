@@ -39,6 +39,7 @@ extern "C" {
 
 struct bContext;
 struct ID;
+struct IDOverride;
 struct ListBase;
 struct Main;
 struct ReportList;
@@ -1205,13 +1206,16 @@ void _RNA_warning(const char *format, ...) ATTR_PRINTF_FORMAT(1, 2);
  * is_strict false assumes uninitialized properties are equal */
 
 typedef enum eRNAEqualsMode {
-	RNA_EQ_STRICT,          /* set/unset ignored */
-	RNA_EQ_UNSET_MATCH_ANY, /* unset property matches anything */
-	RNA_EQ_UNSET_MATCH_NONE /* unset property never matches set property */
+	RNA_EQ_STRICT,           /* set/unset ignored */
+	RNA_EQ_UNSET_MATCH_ANY,  /* unset property matches anything */
+	RNA_EQ_UNSET_MATCH_NONE, /* unset property never matches set property */
 } eRNAEqualsMode;
 
 bool RNA_property_equals(struct PointerRNA *a, struct PointerRNA *b, struct PropertyRNA *prop, eRNAEqualsMode mode);
 bool RNA_struct_equals(struct PointerRNA *a, struct PointerRNA *b, eRNAEqualsMode mode);
+
+bool RNA_struct_override_matches(struct PointerRNA *local, struct PointerRNA *reference,
+        struct IDOverride *override, const bool ignore_non_overridable, const bool ignore_overridden);
 
 #ifdef __cplusplus
 }
