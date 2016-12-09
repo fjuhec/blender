@@ -79,6 +79,10 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
                                    RenderTile& tile,
                                    device_memory& kernel_data)
 {
+	if(device->have_error()) {
+		return false;
+	}
+
 	/* TODO(mai): should be easy enough to remove these variables from tile */
 	/* Buffer and rng_state offset calc. */
 	size_t offset_index = tile.offset + (tile.x + tile.y * tile.stride);
@@ -207,6 +211,10 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		device->mem_alloc(split_data, MEM_READ_WRITE);
 	}
 
+	if(device->have_error()) {
+		return false;
+	}
+
 	if(!device->enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
 	                                           tile,
 	                                           num_global_elements,
@@ -224,6 +232,9 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	}
 
 #define ENQUEUE_SPLIT_KERNEL(name, global_size, local_size) \
+		if(device->have_error()) { \
+			return false; \
+		} \
 		if(!kernel_##name->enqueue(KernelDimensions(global_size, local_size), kgbuffer, kernel_data)) { \
 			return false; \
 		}
