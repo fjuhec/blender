@@ -17,22 +17,68 @@
 
 #include "MOD_util.h"
 
+typedef struct SDefAdjacency {
+	struct SDefAdjacency *next;
+	int index;
+} SDefAdjacency;
+
+typedef struct SDefEdgePolys {
+	int polys[2], num;
+} SDefEdgePolys;
+
 typedef struct SDefBindCalcData {
-	BVHTreeFromMesh *treeData;
-	MPoly *mpoly;
-	MLoop *mloop;
-	MLoopTri *looptri;
-	MVert *mvert;
-	SDefVert *verts;
-	float (*vertexCos)[3];
+	BVHTreeFromMesh * const treeData;
+	SDefAdjacency ** const vert_edges;
+	SDefEdgePolys * const edge_polys;
+	SDefVert * const bind_verts;
+	const MLoopTri * const looptri;
+	MPoly * const mpoly;
+	MEdge * const medge;
+	MLoop * const mloop;
+	MVert * const mvert;
+	float (* const vertexCos)[3];
+	const float falloff;
+	int success;
 } SDefBindCalcData;
+
+typedef struct SDefBindPoly {
+	struct SDefBindPoly *next;
+	float (*coords)[3];
+	float (*coords_v2)[2];
+	float point_v2[2];
+	float weight_components[3]; /* indices: 0 = angular weight; 1 = projected point weight; 2 = actual point weights; */
+	float weight;
+	float scales[2];
+	float centroid[3];
+	float centroid_v2[2];
+	float normal[3];
+	float cent_edgemid_vecs_v2[2][2];
+	float edgemid_angle;
+	float point_edgemid_angles[2];
+	float corner_edgemid_angles[2];
+	float dominant_angle_weight;
+	int index;
+	int numverts;
+	int loopstart;
+	int edge_inds[2];
+	int edge_vert_inds[2];
+	int corner_ind;
+	int dominant_edge;
+	bool inside;
+} SDefBindPoly;
+
+typedef struct SDefBindWeightData {
+	SDefBindPoly *bind_polys;
+	int numbinds;
+} SDefBindWeightData;
 
 static void initData(ModifierData *md)
 {
 	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
-	smd->target	= NULL;
-	smd->verts	= NULL;
-	smd->flags  = 0;
+	smd->target	 = NULL;
+	smd->verts	 = NULL;
+	smd->flags   = 0;
+	smd->falloff = 4.0f;
 }
 
 static void freeData(ModifierData *md)
@@ -40,16 +86,25 @@ static void freeData(ModifierData *md)
 	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
 
 	if (smd->verts) {
-		int i;
+		int i, j;
 		for (i = 0; i < smd->numverts; i++) {
-			if (smd->verts[i].vert_inds)
-				MEM_freeN(smd->verts[i].vert_inds);
+			if (smd->verts[i].binds) {
+				for (j = 0; j < smd->verts[i].numbinds; j++) {
+					if (smd->verts[i].binds[j].vert_inds) {
+						MEM_freeN(smd->verts[i].binds[j].vert_inds);
+					}
 
-			if (smd->verts[i].vert_weights)
-				MEM_freeN(smd->verts[i].vert_weights);
+					if (smd->verts[i].binds[j].vert_weights) {
+						MEM_freeN(smd->verts[i].binds[j].vert_weights);
+					}
+				}
+
+				MEM_freeN(smd->verts[i].binds);
+			}
 		}
 
 		MEM_freeN(smd->verts);
+		smd->verts = NULL;
 	}
 }
 
@@ -61,16 +116,24 @@ static void copyData(ModifierData *md, ModifierData *target)
 	*tsmd = *smd;
 
 	if (smd->verts) {
-		int i;
+		int i, j;
 
 		tsmd->verts = MEM_dupallocN(smd->verts);
 
 		for (i = 0; i < smd->numverts; i++) {
-			if (smd->verts[i].vert_inds)
-				tsmd->verts[i].vert_inds = MEM_dupallocN(smd->verts[i].vert_inds);
+			if (smd->verts[i].binds) {
+				tsmd->verts[i].binds = MEM_dupallocN(smd->verts[i].binds);
 
-			if (smd->verts[i].vert_weights)
-				tsmd->verts[i].vert_weights = MEM_dupallocN(smd->verts[i].vert_weights);
+				for (j = 0; j < smd->verts[i].numbinds; j++) {
+					if (smd->verts[i].binds[j].vert_inds) {
+						tsmd->verts[i].binds[j].vert_inds = MEM_dupallocN(smd->verts[i].binds[j].vert_inds);
+					}
+
+					if (smd->verts[i].binds[j].vert_weights) {
+						tsmd->verts[i].binds[j].vert_weights = MEM_dupallocN(smd->verts[i].binds[j].vert_weights);
+					}
+				}
+			}
 		}
 	}
 }
@@ -111,63 +174,137 @@ static void updateDepsgraph(ModifierData *md,
 	}
 }
 
-static void sortPolyVertsClosestEdge(int indices[], const int ind_map[], const float point[3],
-                                     const float verts[][3], const int num) {
-	int ind_prev, ind_curr, ind_target;
-	float dist, dist_min;
+static void freeAdjacencyMap(SDefAdjacency ** const vert_edges, SDefEdgePolys * const edge_polys, const int numverts)
+{
+	SDefAdjacency *adj;
+	int i;
 
-	dist_min = FLT_MAX;
+	MEM_freeN(edge_polys);
 
-	ind_prev = num -1;
-	ind_target = 0;
+	for (i = 0; i < numverts; i++) {
+		for (adj = vert_edges[i]; adj; adj = vert_edges[i]) {
+			vert_edges[i] = adj->next;
 
-	/* Fill in vertex indices starting with the closest edge indices */
-	for (ind_curr = 0; ind_curr < num; ind_curr++) {
-		dist = dist_squared_to_line_segment_v3(point, verts[ind_prev], verts[ind_curr]);
-
-		if (dist < dist_min) {
-			dist_min = dist;
-			indices[0] = ind_map[ind_prev];
-			indices[1] = ind_map[ind_curr];
-			ind_target = 1;
+			MEM_freeN(adj);
 		}
-		else if (ind_target > 1 && ind_target < num) {
-			indices[ind_target] = ind_map[ind_curr];
-		}
-
-		ind_prev = ind_curr;
-		ind_target++;
 	}
 
-	/* Fill in remaining vertex indices that occur before the closest edge indices */
-	for (ind_curr = 0; ind_target < num; ind_target++, ind_curr++) {
-		indices[ind_target] = ind_map[ind_curr];
+	MEM_freeN(vert_edges);
+}
+
+static int buildAdjacencyMap(MPoly *poly, MEdge *edge, MLoop * const mloop, const int numpoly, const int numedges,
+                              SDefAdjacency ** const vert_edges, SDefEdgePolys * const edge_polys)
+{
+	MLoop *loop;
+	SDefAdjacency *adj;
+	int i, j;
+
+	/* Fing polygons adjacent to edges */
+	for (i = 0; i < numpoly; i++, poly++) {
+		loop = &mloop[poly->loopstart];
+
+		for (j = 0; j < poly->totloop; j++, loop++) {
+			if (edge_polys[loop->e].num == 0) {
+				edge_polys[loop->e].polys[0] = i;
+				edge_polys[loop->e].polys[1] = -1;
+				edge_polys[loop->e].num++;
+			}
+			else if (edge_polys[loop->e].num == 1) {
+				edge_polys[loop->e].polys[1] = i;
+				edge_polys[loop->e].num++;
+			}
+			else {
+				printf("Surface Deform: Target has edges with more than two polys\n");
+				return -1;
+			}
+		}
+	}
+
+	/* Find edges adjacent to vertices */
+	for (i = 0; i < numedges; i++, edge++) {
+		adj = MEM_mallocN(sizeof(*adj), "SDefVertEdge");
+		if (adj == NULL) {
+			return 0;
+		}
+
+		adj->next = vert_edges[edge->v1];
+		adj->index = i;
+		vert_edges[edge->v1] = adj;
+
+		adj = MEM_mallocN(sizeof(*adj), "SDefVertEdge");
+		if (adj == NULL) {
+			return 0;
+		}
+
+		adj->next = vert_edges[edge->v2];
+		adj->index = i;
+		vert_edges[edge->v2] = adj;
+	}
+
+	return 1;
+}
+
+BLI_INLINE void sortPolyVertsEdge(int *indices, MLoop * const mloop, const int edge, const int num)
+{
+	int i;
+	bool found = false;
+
+	for (i = 0; i < num; i++) {
+		if (mloop[i].e == edge) {
+			found = true;
+		}
+		if (found) {
+			*indices = mloop[i].v;
+			indices++;
+		}
+	}
+
+	/* Fill in remaining vertex indices that occur before the edge */
+	for (i = 0; mloop[i].e != edge; i++) {
+		*indices = mloop[i].v;
+		indices++;
 	}
 }
 
-static void meanValueCoordinates(float w[], const float point[3], const float verts[][3], const int num) {
-	float vec_curr[3], vec_prev[3], vec_tmp[3];
+BLI_INLINE void sortPolyVertsTri(int *indices, MLoop * const mloop, const int loopstart, const int num)
+{
+	int i;
+
+	for (i = loopstart; i < num; i++) {
+		*indices = mloop[i].v;
+		indices++;
+	}
+
+	for (i = 0; i < loopstart; i++) {
+		*indices = mloop[i].v;
+		indices++;
+	}
+}
+
+BLI_INLINE void meanValueCoordinates(float w[], const float point[2], const float verts[][2], const int num)
+{
+	float vec_curr[2], vec_prev[2], vec_tmp[2];
 	float tan_prev, tan_curr, mag_curr, mag_next;
 	float tot_w = 0;
 	int i, ind_curr;
 
-	sub_v3_v3v3(vec_tmp, verts[num - 2], point);
-	sub_v3_v3v3(vec_prev, verts[num - 1], point);
+	sub_v2_v2v2(vec_tmp, verts[num - 2], point);
+	sub_v2_v2v2(vec_prev, verts[num - 1], point);
 
-	mag_curr = normalize_v3(vec_prev);
-	normalize_v3(vec_tmp);
+	mag_curr = normalize_v2(vec_prev);
+	normalize_v2(vec_tmp);
 
-	tan_prev = tan(acos(dot_v3v3(vec_prev, vec_tmp)) / 2.0f);
+	tan_prev = tan(saacos(dot_v2v2(vec_prev, vec_tmp)) / 2.0f);
 
 	for (i = 0; i < num; i++) {
-		sub_v3_v3v3(vec_curr, verts[i], point);
-		mag_next = normalize_v3(vec_curr);
+		sub_v2_v2v2(vec_curr, verts[i], point);
+		mag_next = normalize_v2(vec_curr);
 
-		tan_curr = tan(acos(dot_v3v3(vec_curr, vec_prev)) / 2.0f);
+		tan_curr = tan(saacos(dot_v2v2(vec_curr, vec_prev)) / 2.0f);
 
 		ind_curr = (i == 0) ? (num - 1) : (i - 1);
 
-		if (mag_curr > FLT_EPSILON) {
+		if (mag_curr >= FLT_EPSILON) {
 			w[ind_curr] = (tan_prev + tan_curr) / mag_curr;
 			tot_w += w[ind_curr];
 		}
@@ -181,7 +318,7 @@ static void meanValueCoordinates(float w[], const float point[3], const float ve
 
 		mag_curr = mag_next;
 		tan_prev = tan_curr;
-		copy_v3_v3(vec_prev, vec_curr);
+		copy_v2_v2(vec_prev, vec_curr);
 	}
 
 	for (i = 0; i < num; i++) {
@@ -189,186 +326,742 @@ static void meanValueCoordinates(float w[], const float point[3], const float ve
 	}
 }
 
-static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int index, const int UNUSED(threadid)) {
-	SDefBindCalcData *data = (SDefBindCalcData *) userdata;
+BLI_INLINE int nearestVert(SDefBindCalcData * const data, const float point_co[3])
+{
+	const MVert *mvert = data->mvert;
 	BVHTreeNearest nearest = {.dist_sq = FLT_MAX, .index = -1};
-	SDefVert *sdvert = data->verts + index;
-	MLoopTri *looptri = data->looptri;
-	MPoly *mpoly = data->mpoly;
-	float vert_co[3];
-	float vert_co_proj[3];
-	float (*coords)[3];
-	float v1[3], v2[3], v3[3];
-	float norm[3], cent[3], plane[4];
-	int *ind_map;
+	MPoly *poly;
+	MEdge *edge;
+	MLoop *loop;
+	float max_dist = FLT_MAX;
+	float dist;
+	int index;
 	int i;
 
-	copy_v3_v3(vert_co, *(data->vertexCos + index));
+	BLI_bvhtree_find_nearest(data->treeData->tree, point_co, &nearest, data->treeData->nearest_callback, data->treeData);
 
-	/* Assign nearest looptri and poly */
-	BLI_bvhtree_find_nearest(data->treeData->tree, vert_co, &nearest, data->treeData->nearest_callback, data->treeData);
-	looptri += nearest.index;
-	mpoly += looptri->poly;
+	poly = &data->mpoly[data->looptri[nearest.index].poly];
+	loop = &data->mloop[poly->loopstart];
 
-	/* Allocate and assign target poly vertex coordinates and indices */
-	coords = BLI_array_alloca(coords, mpoly->totloop);
-	ind_map = BLI_array_alloca(ind_map, mpoly->totloop);
+	for (i = 0; i < poly->totloop; i++, loop++) {
+		edge = &data->medge[loop->e];
+		dist = dist_squared_to_line_segment_v3(point_co, mvert[edge->v1].co, mvert[edge->v1].co);
 
-	MLoop *loop = &data->mloop[mpoly->loopstart];
-
-	for (i = 0; i < mpoly->totloop; i++, loop++) {
-		copy_v3_v3(coords[i], data->mvert[loop->v].co);
-		ind_map[i] = loop->v;
+		if (dist < max_dist) {
+			max_dist = dist;
+			index = loop->e;
+		}
 	}
 
-	/* Assign target looptri vertex coordiantes */
-	copy_v3_v3(v1, data->mvert[data->mloop[looptri->tri[0]].v].co);
-	copy_v3_v3(v2, data->mvert[data->mloop[looptri->tri[1]].v].co);
-	copy_v3_v3(v3, data->mvert[data->mloop[looptri->tri[2]].v].co);
-
-	/* ---------- looptri mode ---------- */
-	if (!is_poly_convex_v3(coords, mpoly->totloop)) {
-		sdvert->mode = MOD_SDEF_MODE_LOOPTRI;
-		sdvert->numverts = 3;
-		sdvert->vert_weights = MEM_mallocN(sizeof(*sdvert->vert_weights) * 3, "SDefTriVertWeights");
-		sdvert->vert_inds = MEM_mallocN(sizeof(*sdvert->vert_inds) * 3, "SDefTriVertInds");
-
-		cent_tri_v3(cent, v1, v2, v3);
-		normal_tri_v3(norm, v1, v2, v3);
-		plane_from_point_normal_v3(plane, cent, norm);
-
-		closest_to_plane_v3(vert_co_proj, plane, vert_co);
-
-		interp_weights_face_v3(sdvert->vert_weights, v1, v2, v3, NULL, vert_co_proj);
-
-		sdvert->vert_inds[0] = data->mloop[looptri->tri[0]].v;
-		sdvert->vert_inds[1] = data->mloop[looptri->tri[1]].v;
-		sdvert->vert_inds[2] = data->mloop[looptri->tri[2]].v;
+	edge = &data->medge[index];
+	if (len_squared_v3v3(point_co, mvert[edge->v1].co) < len_squared_v3v3(point_co, mvert[edge->v2].co)) {
+		return edge->v1;
 	}
 	else {
-		/* Generic non-looptri mode operations */
-		float v1_proj[3], v2_proj[3], v3_proj[3];
-		float (*coords_proj)[3] = BLI_array_alloca(coords_proj, mpoly->totloop);
+		return edge->v2;
+	}
+}
 
-		sdvert->numverts = mpoly->totloop;
+BLI_INLINE bool isPolyValid(const float coords[][2], const int nr)
+{
+	float prev_co[2];
+	float curr_vec[2], prev_vec[2];
+	int i;
 
-		cent_poly_v3(cent, coords, mpoly->totloop);
-		normal_poly_v3(norm, coords, mpoly->totloop);
-		plane_from_point_normal_v3(plane, cent, norm);
+	if (!is_poly_convex_v2(coords, nr)) {
+		printf("Surface Deform: Target containts concave polys\n");
+		return false;
+	}
 
-		closest_to_plane_v3(vert_co_proj, plane, vert_co);
+	copy_v2_v2(prev_co, coords[nr - 1]);
+	sub_v2_v2v2(prev_vec, prev_co, coords[nr - 2]);
 
-		/* Project looptri vertex coords onto poly plane, to check if vert lies within poly.
-		 * This has to be done because looptri normal can be different than poly normal. */
-		closest_to_plane_v3(v1_proj, plane, v1);
-		closest_to_plane_v3(v2_proj, plane, v2);
-		closest_to_plane_v3(v3_proj, plane, v3);
+	for (i = 0; i < nr; i++) {
+		sub_v2_v2v2(curr_vec, coords[i], prev_co);
 
-		/* Project poly vertices onto poly plane, to provide planar coordinates for vertex weight computation */
-		for (i = 0; i < mpoly->totloop; i++) {
-			closest_to_plane_v3(coords_proj[i], plane, coords[i]);
+		if (len_v2(curr_vec) < FLT_EPSILON) {
+			printf("Surface Deform: Target containts overlapping verts\n");
+			return false;
 		}
 
-		/* ---------- ngon mode ---------- */
-		if (isect_point_tri_prism_v3(vert_co_proj, v1_proj, v2_proj, v3_proj)) {
-			sdvert->mode = MOD_SDEF_MODE_NGON;
-			sdvert->vert_weights = MEM_mallocN(sizeof(*sdvert->vert_weights) * mpoly->totloop, "SDefNgonVertWeights");
-			sdvert->vert_inds = MEM_mallocN(sizeof(*sdvert->vert_inds) * mpoly->totloop, "SDefNgonVertInds");
+		if (1.0f - dot_v2v2(prev_vec, curr_vec) < FLT_EPSILON) {
+			printf("Surface Deform: Target containts concave polys\n");
+			return false;
+		}
 
-			meanValueCoordinates(sdvert->vert_weights, vert_co_proj, coords_proj, mpoly->totloop);
+		copy_v2_v2(prev_co, coords[i]);
+		copy_v2_v2(prev_vec, curr_vec);
+	}
 
-			/* Reproject vert based on weights and original poly verts, to reintroduce poly non-planarity */
-			zero_v3(vert_co_proj);
-			for (i = 0; i < mpoly->totloop; i++) {
-				madd_v3_v3fl(vert_co_proj, coords[i], sdvert->vert_weights[i]);
-				sdvert->vert_inds[i] = ind_map[i];
+	return true;
+}
+
+static void freeBindData(SDefBindWeightData * const bwdata)
+{
+	SDefBindPoly *bpoly;
+
+	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bwdata->bind_polys) {
+		bwdata->bind_polys = bpoly->next;
+
+		if (bpoly->coords) {
+			MEM_freeN(bpoly->coords);
+		}
+
+		if (bpoly->coords_v2) {
+			MEM_freeN(bpoly->coords_v2);
+		}
+
+		MEM_freeN(bpoly);
+	}
+
+	MEM_freeN(bwdata);
+}
+
+BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data, const float point_co[3])
+{
+	const int nearest = nearestVert(data, point_co);
+	SDefAdjacency * const vert_edges = data->vert_edges[nearest];
+	SDefEdgePolys * const edge_polys = data->edge_polys;
+
+	SDefAdjacency *vedge;
+	MPoly *poly;
+	MLoop *loop;
+
+	SDefBindWeightData *bwdata;
+	SDefBindPoly *bpoly;
+
+	float world[3] = {0.0f, 0.0f, 1.0f};
+	float avg_point_dist = 0.0f;
+	float tot_weight = 0.0f;
+	int inf_weight_flags = 0;
+	int numpoly = 0;
+	int i, j;
+
+	bwdata = MEM_callocN(sizeof(*bwdata), "SDefBindWeightData");
+	if (bwdata == NULL) {
+		data->success = 0;
+		return NULL;
+	}
+
+	/* Loop over all adjacent edges, and build the SDefBindPoly data for each poly adjacent to those */
+	for (vedge = vert_edges; vedge; vedge = vedge->next) {
+		int edge_ind = vedge->index;
+
+		for (i = 0; i < edge_polys[edge_ind].num; i++) {
+			for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+				if (bpoly->index == edge_polys[edge_ind].polys[i]) {
+					break;
+				}
 			}
-		}
-		/* ---------- centroid mode ---------- */
-		else {
-			sdvert->mode = MOD_SDEF_MODE_CENTROID;
-			sdvert->vert_weights = MEM_mallocN(sizeof(*sdvert->vert_weights) * 3, "SDefCentVertWeights");
-			sdvert->vert_inds = MEM_mallocN(sizeof(*sdvert->vert_inds) * mpoly->totloop, "SDefCentVertInds");
 
-			sortPolyVertsClosestEdge(sdvert->vert_inds, ind_map, vert_co_proj, coords_proj, mpoly->totloop);
+			/* Check if poly was already created by another edge or still has to be initialized */
+			if (!bpoly || bpoly->index != edge_polys[edge_ind].polys[i]) {
+				float angle;
+				float axis[3];
+				float tmp_vec_v2[2];
 
-			copy_v3_v3(v1, data->mvert[sdvert->vert_inds[0]].co);
-			copy_v3_v3(v2, data->mvert[sdvert->vert_inds[1]].co);
-			copy_v3_v3(v3, cent);
+				/* SDefBindPoly initialization */
+				bpoly = MEM_mallocN(sizeof(*bpoly), "SDefBindPoly");
+				if (bpoly == NULL) {
+					freeBindData(bwdata);
+					data->success = 0;
+					return NULL;
+				}
 
-			cent_tri_v3(cent, v1, v2, v3);
-			normal_tri_v3(norm, v1, v2, v3);
+				bpoly->next = bwdata->bind_polys;
+				bpoly->index = edge_polys[edge_ind].polys[i];
+				bpoly->coords = NULL;
+				bpoly->coords_v2 = NULL;
+				bwdata->bind_polys = bpoly;
 
-			plane_from_point_normal_v3(plane, cent, norm);
-			closest_to_plane_v3(vert_co_proj, plane, vert_co);
+				numpoly++;
 
-			interp_weights_face_v3(sdvert->vert_weights, v1, v2, v3, NULL, vert_co_proj);
+				/* Copy poly data */
+				poly = &data->mpoly[bpoly->index];
+				loop = &data->mloop[poly->loopstart];
+
+				bpoly->numverts = poly->totloop;
+				bpoly->loopstart = poly->loopstart;
+
+				bpoly->coords = MEM_mallocN(sizeof(*bpoly->coords) * poly->totloop, "SDefBindPolyCoords");
+				if (bpoly->coords == NULL) {
+					freeBindData(bwdata);
+					data->success = 0;
+					return NULL;
+				}
+
+				bpoly->coords_v2 = MEM_mallocN(sizeof(*bpoly->coords_v2) * poly->totloop, "SDefBindPolyCoords_v2");
+				if (bpoly->coords_v2 == NULL) {
+					freeBindData(bwdata);
+					data->success = 0;
+					return NULL;
+				}
+
+				for (j = 0; j < poly->totloop; j++, loop++) {
+					copy_v3_v3(bpoly->coords[j], data->mvert[loop->v].co);
+
+					/* Find corner and edge indices within poly loop array */
+					if (loop->v == nearest) {
+						bpoly->corner_ind = j;
+						bpoly->edge_vert_inds[0] = (j == 0) ? (poly->totloop - 1) : (j - 1);
+						bpoly->edge_vert_inds[1] = (j == poly->totloop - 1) ? (0) : (j + 1);
+
+						bpoly->edge_inds[0] = data->mloop[poly->loopstart + bpoly->edge_vert_inds[0]].e;
+						bpoly->edge_inds[1] = loop->e;
+					}
+				}
+
+				/* Compute poly's parametric data */
+				cent_poly_v3(bpoly->centroid, bpoly->coords, poly->totloop);
+				normal_poly_v3(bpoly->normal, bpoly->coords, poly->totloop);
+
+				/* Compute poly skew angle and axis */
+				angle = saacos(dot_v3v3(bpoly->normal, world));
+
+				cross_v3_v3v3(axis, bpoly->normal, world);
+				normalize_v3(axis);
+
+				/* Map coords onto 2d normal plane */
+				map_to_plane_axis_angle_v2_v3v3(bpoly->point_v2, point_co, axis, angle);
+
+				zero_v2(bpoly->centroid_v2);
+				for (j = 0; j < poly->totloop; j++) {
+					map_to_plane_axis_angle_v2_v3v3(bpoly->coords_v2[j], bpoly->coords[j], axis, angle);
+					madd_v2_v2fl(bpoly->centroid_v2, bpoly->coords_v2[j], 1.0f / poly->totloop);
+				}
+
+				if (!isPolyValid(bpoly->coords_v2, poly->totloop)) {
+					freeBindData(bwdata);
+					data->success = -1;
+					return NULL;
+				}
+
+				bpoly->inside = isect_point_poly_v2(bpoly->point_v2, bpoly->coords_v2, poly->totloop, false);
+
+				/* Initialize weight components */
+				bpoly->weight_components[0] = 1.0f;
+				bpoly->weight_components[1] = len_v2v2(bpoly->centroid_v2, bpoly->point_v2);
+				bpoly->weight_components[2] = len_v3v3(bpoly->centroid, point_co);
+
+				avg_point_dist += bpoly->weight_components[2];
+
+				/* Compute centroid to mid-edge vectors */
+				mid_v2_v2v2(bpoly->cent_edgemid_vecs_v2[0],
+				            bpoly->coords_v2[bpoly->edge_vert_inds[0]],
+				            bpoly->coords_v2[bpoly->corner_ind]);
+
+				mid_v2_v2v2(bpoly->cent_edgemid_vecs_v2[1],
+				            bpoly->coords_v2[bpoly->edge_vert_inds[1]],
+				            bpoly->coords_v2[bpoly->corner_ind]);
+
+				sub_v2_v2(bpoly->cent_edgemid_vecs_v2[0], bpoly->centroid_v2);
+				sub_v2_v2(bpoly->cent_edgemid_vecs_v2[1], bpoly->centroid_v2);
+
+				/* Compute poly scales with respect to mid-edges, and normalize the vectors */
+				bpoly->scales[0] = normalize_v2(bpoly->cent_edgemid_vecs_v2[0]);
+				bpoly->scales[1] = normalize_v2(bpoly->cent_edgemid_vecs_v2[1]);
+
+				/* Compute the required polygon angles */
+				bpoly->edgemid_angle = saacos(dot_v2v2(bpoly->cent_edgemid_vecs_v2[0], bpoly->cent_edgemid_vecs_v2[1]));
+
+				sub_v2_v2v2(tmp_vec_v2, bpoly->coords_v2[bpoly->corner_ind], bpoly->centroid_v2);
+				normalize_v2(tmp_vec_v2);
+
+				bpoly->corner_edgemid_angles[0] = saacos(dot_v2v2(tmp_vec_v2, bpoly->cent_edgemid_vecs_v2[0]));
+				bpoly->corner_edgemid_angles[1] = saacos(dot_v2v2(tmp_vec_v2, bpoly->cent_edgemid_vecs_v2[1]));
+
+				/* Check for inifnite weights, and compute angular data otherwise */
+				if (bpoly->weight_components[2] < FLT_EPSILON) {
+					inf_weight_flags |= 1 << 1;
+					inf_weight_flags |= 1 << 2;
+				}
+				else if (bpoly->weight_components[1] < FLT_EPSILON) {
+					inf_weight_flags |= 1 << 1;
+				}
+				else {
+					float cent_point_vec[2];
+
+					sub_v2_v2v2(cent_point_vec, bpoly->point_v2, bpoly->centroid_v2);
+					normalize_v2(cent_point_vec);
+
+					bpoly->point_edgemid_angles[0] = saacos(dot_v2v2(cent_point_vec, bpoly->cent_edgemid_vecs_v2[0]));
+					bpoly->point_edgemid_angles[1] = saacos(dot_v2v2(cent_point_vec, bpoly->cent_edgemid_vecs_v2[1]));
+				}
+			}
 		}
 	}
 
-	/* Compute normal displacement */
-	float disp_vec[3];
-	sub_v3_v3v3(disp_vec, vert_co, vert_co_proj);
-	sdvert->normal_dist = len_v3(disp_vec);
+	avg_point_dist /= numpoly;
 
-	if (dot_v3v3(disp_vec, norm) < 0)
-		sdvert->normal_dist *= -1;
+	/* If weights 1 and 2 are not infinite, loop over all adjacent edges again,
+	 * and build adjacency dependent angle data (depends on all polygons having been computed) */
+	if (!inf_weight_flags) {
+		for (vedge = vert_edges; vedge; vedge = vedge->next) {
+			SDefBindPoly *bpolys[2];
+			SDefEdgePolys *epolys;
+			float tmp1, tmp2;
+			int edge_ind = vedge->index;
+			int edge_on_poly[2];
+
+			epolys = &edge_polys[edge_ind];
+
+			/* Find bind polys corresponding to the edge's adjacent polys */
+			for (bpoly = bwdata->bind_polys, i = 0; bpoly && i < epolys->num; bpoly = bpoly->next)
+			{
+				if (ELEM(bpoly->index, epolys->polys[0], epolys->polys[1])) {
+					bpolys[i] = bpoly;
+
+					if (bpoly->edge_inds[0] == edge_ind) {
+						edge_on_poly[i] = 0;
+					}
+					else {
+						edge_on_poly[i] = 1;
+					}
+
+					i++;
+				}
+			}
+
+			/* Compute angular weight component */
+			/* Attention! Same operations have to be done in both conditions below! */
+			if (epolys->num == 1) {
+				tmp1 = bpolys[0]->point_edgemid_angles[edge_on_poly[0]];
+				tmp1 /= bpolys[0]->edgemid_angle;
+				tmp1 *= M_PI_2;
+				tmp1 = sinf(tmp1);
+
+				bpolys[0]->weight_components[0] *= tmp1 * tmp1;
+			}
+			else if (epolys->num == 2) {
+				tmp1 = bpolys[0]->point_edgemid_angles[edge_on_poly[0]];
+				tmp2 = bpolys[1]->point_edgemid_angles[edge_on_poly[1]];
+				tmp1 /= bpolys[0]->edgemid_angle;
+				tmp2 /= bpolys[1]->edgemid_angle;
+				tmp1 *= M_PI_2;
+				tmp2 *= M_PI_2;
+				tmp1 = sinf(tmp1);
+				tmp2 = sinf(tmp2);
+
+				bpolys[0]->weight_components[0] *= tmp1 * tmp2;
+				bpolys[1]->weight_components[0] *= tmp1 * tmp2;
+			}
+		}
+	}
+
+	/* Compute scalings and falloff.
+	 * Scale all weights if no infinite weight is found,
+	 * scale only unprojected weight if projected weight is infinite,
+	 * scale none if both are infinite. */
+	if (!inf_weight_flags) {
+		for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+			float tmp1 = bpoly->point_edgemid_angles[0] / bpoly->corner_edgemid_angles[0];
+			float tmp2 = bpoly->point_edgemid_angles[1] / bpoly->corner_edgemid_angles[1];
+			float scale_weight, sqr, inv_sqr;
+
+			if (isnanf(tmp1) || isnanf(tmp2)) {
+				freeBindData(bwdata);
+				data->success = -1;
+				/* I know this message is vague, but I could not think of a way
+				 * to explain this whith a reasonably sized message.
+				 * Though it shouldn't really matter all that much,
+				 * because this is very unlikely to occur */
+				printf("Surface Deform: Target contains invalid polys\n");
+				return NULL;
+			}
+
+			/* Find which edge the point is closer to */
+			if (tmp1 < tmp2) {
+				bpoly->dominant_edge = 0;
+				bpoly->dominant_angle_weight = tmp1;
+			}
+			else {
+				bpoly->dominant_edge = 1;
+				bpoly->dominant_angle_weight = tmp2;
+			}
+
+			bpoly->dominant_angle_weight = sinf(bpoly->dominant_angle_weight * M_PI_2);
+
+			/* Compute quadratic angular scale interpolation weight */
+			scale_weight = bpoly->point_edgemid_angles[bpoly->dominant_edge] / bpoly->edgemid_angle;
+			scale_weight /= scale_weight + (bpoly->point_edgemid_angles[!bpoly->dominant_edge] / bpoly->edgemid_angle);
+
+			sqr = scale_weight * scale_weight;
+			inv_sqr = 1.0f - scale_weight;
+			inv_sqr *= inv_sqr;
+			scale_weight = sqr / (sqr + inv_sqr);
+
+			/* Compute interpolated scale (no longer need the individual scales,
+			 * so simply storing the result over the scale in index zero) */
+			bpoly->scales[0] = bpoly->scales[bpoly->dominant_edge] * (1.0f - scale_weight) +
+			                   bpoly->scales[!bpoly->dominant_edge] * scale_weight;
+
+			/* Scale the point distance weights, and introduce falloff */
+			bpoly->weight_components[1] /= bpoly->scales[0];
+			bpoly->weight_components[1] = powf(bpoly->weight_components[1], data->falloff);
+
+			bpoly->weight_components[2] /= avg_point_dist;
+			bpoly->weight_components[2] = powf(bpoly->weight_components[2], data->falloff);
+
+			/* Re-check for infinite weights, now that all scalings and interpolations are computed */
+			if (bpoly->weight_components[2] < FLT_EPSILON) {
+				inf_weight_flags |= 1 << 1;
+				inf_weight_flags |= 1 << 2;
+			}
+			else if (bpoly->weight_components[1] < FLT_EPSILON) {
+				inf_weight_flags |= 1 << 1;
+			}
+			else if (bpoly->weight_components[0] < FLT_EPSILON) {
+				inf_weight_flags |= 1 << 0;
+			}
+		}
+	}
+	else if (!(inf_weight_flags & (1 << 2))) {
+		for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+			/* Scale the point distance weight by average point distance, and introduce falloff */
+			bpoly->weight_components[2] /= avg_point_dist;
+			bpoly->weight_components[2] = powf(bpoly->weight_components[2], data->falloff);
+
+			/* Re-check for infinite weights, now that all scalings and interpolations are computed */
+			if (bpoly->weight_components[2] < FLT_EPSILON) {
+				inf_weight_flags |= 1 << 2;
+			}
+		}
+	}
+
+	/* Final loop, to compute actual weights */
+	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+		/* Weight computation from components */
+		if (inf_weight_flags & 1 << 2) {
+			bpoly->weight = bpoly->weight_components[2] < FLT_EPSILON ? 1.0f : 0.0f;
+		}
+		else if (inf_weight_flags & 1 << 1) {
+			bpoly->weight = bpoly->weight_components[1] < FLT_EPSILON ?
+			                1.0f / bpoly->weight_components[2] : 0.0f;
+		}
+		else if (inf_weight_flags & 1 << 0) {
+			bpoly->weight = bpoly->weight_components[0] < FLT_EPSILON ?
+			                1.0f / bpoly->weight_components[1] / bpoly->weight_components[2] : 0.0f;
+		}
+		else {
+			bpoly->weight = 1.0f / bpoly->weight_components[0] /
+			                       bpoly->weight_components[1] /
+			                       bpoly->weight_components[2];
+		}
+
+		tot_weight += bpoly->weight;
+	}
+
+	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+		bpoly->weight /= tot_weight;
+
+		/* Evaluate if this poly is relevant to bind */
+		/* Even though the weights should add up to 1.0,
+		 * the losses of weights smaller than epsilon here
+		 * should be negligible... */
+		if (bpoly->weight >= FLT_EPSILON) {
+			if (bpoly->inside) {
+				bwdata->numbinds += 1;
+			}
+			else {
+				if (bpoly->dominant_angle_weight < FLT_EPSILON || 1.0f - bpoly->dominant_angle_weight < FLT_EPSILON) {
+					bwdata->numbinds += 1;
+				}
+				else {
+					bwdata->numbinds += 2;
+				}
+			}
+		}
+	}
+
+	return bwdata;
 }
 
-static void surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)[3],
-                              int numVerts, int numPoly, DerivedMesh *tdm) {
-	BVHTreeFromMesh treeData = {NULL};
+BLI_INLINE float computeNormalDisplacement(const float point_co[3], const float point_co_proj[3], const float normal[3])
+{
+	float disp_vec[3];
+	float normal_dist;
 
-	/* Create a bvh-tree of the target mesh */
-	bvhtree_from_mesh_looptri(&treeData, tdm, 0.0, 2, 6);
-	if (treeData.tree == NULL) {
-		printf("Surface Deform: Out of memory\n");
+	sub_v3_v3v3(disp_vec, point_co, point_co_proj);
+	normal_dist = len_v3(disp_vec);
+
+	if (dot_v3v3(disp_vec, normal) < 0) {
+		normal_dist *= -1;
+	}
+
+	return normal_dist;
+}
+
+static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int index, const int UNUSED(threadid))
+{
+	SDefBindCalcData * const data = (SDefBindCalcData *) userdata;
+	float point_co[3];
+	float point_co_proj[3];
+
+	SDefBindWeightData *bwdata;
+	SDefVert *sdvert = data->bind_verts + index;
+	SDefBindPoly *bpoly;
+	SDefBind *sdbind;
+
+	int i;
+
+	if (data->success != 1) {
+		sdvert->binds = NULL;
+		sdvert->numbinds = 0;
 		return;
 	}
 
-	smd->verts = MEM_mallocN(sizeof(*smd->verts) * numVerts, "SDefBindVerts");
+	copy_v3_v3(point_co, data->vertexCos[index]);
+	bwdata = computeBindWeights(data, point_co);
 
-	smd->numverts = numVerts;
-	smd->numpoly = numPoly;
+	if (bwdata == NULL) {
+		sdvert->binds = NULL;
+		sdvert->numbinds = 0;
+		return;
+	}
 
-	SDefBindCalcData data = {.treeData = &treeData,
-		                     .mpoly = tdm->getPolyArray(tdm),
-		                     .mloop = tdm->getLoopArray(tdm),
-		                     .looptri = tdm->getLoopTriArray(tdm),
-		                     .mvert = tdm->getVertArray(tdm),
-		                     .verts = smd->verts,
-		                     .vertexCos = vertexCos};
+	sdvert->binds = MEM_callocN(sizeof(*sdvert->binds) * bwdata->numbinds, "SDefVertBindData");
+	if (sdvert->binds == NULL) {
+		data->success = 0;
+		sdvert->numbinds = 0;
+		return;
+	}
 
-	BLI_task_parallel_range_ex(0, numVerts, &data, NULL, 0, bindVert,
-	                           numVerts > 10000, false);
+	sdvert->numbinds = bwdata->numbinds;
 
-	free_bvhtree_from_mesh(&treeData);
+	sdbind = sdvert->binds;
+
+	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+		if (bpoly->weight >= FLT_EPSILON) {
+			if (bpoly->inside) {
+				MLoop *loop = &data->mloop[bpoly->loopstart];
+
+				sdbind->influence = bpoly->weight;
+				sdbind->numverts = bpoly->numverts;
+
+				sdbind->mode = MOD_SDEF_MODE_NGON;
+				sdbind->vert_weights = MEM_mallocN(sizeof(*sdbind->vert_weights) * bpoly->numverts, "SDefNgonVertWeights");
+				if (sdbind->vert_weights == NULL) {
+					data->success = 0;
+					return;
+				}
+
+				sdbind->vert_inds = MEM_mallocN(sizeof(*sdbind->vert_inds) * bpoly->numverts, "SDefNgonVertInds");
+				if (sdbind->vert_inds == NULL) {
+					data->success = 0;
+					return;
+				}
+
+				meanValueCoordinates(sdbind->vert_weights, bpoly->point_v2, bpoly->coords_v2, bpoly->numverts);
+
+				/* Reproject vert based on weights and original poly verts, to reintroduce poly non-planarity */
+				zero_v3(point_co_proj);
+				for (i = 0; i < bpoly->numverts; i++, loop++) {
+					madd_v3_v3fl(point_co_proj, bpoly->coords[i], sdbind->vert_weights[i]);
+					sdbind->vert_inds[i] = loop->v;
+				}
+
+				sdbind->normal_dist = computeNormalDisplacement(point_co, point_co_proj, bpoly->normal);
+
+				sdbind++;
+			}
+			else {
+				float tmp_vec[3];
+				float cent[3], norm[3];
+				float v1[3], v2[3], v3[3];
+
+				if (1.0f - bpoly->dominant_angle_weight >= FLT_EPSILON) {
+					sdbind->influence = bpoly->weight * (1.0f - bpoly->dominant_angle_weight);
+					sdbind->numverts = bpoly->numverts;
+
+					sdbind->mode = MOD_SDEF_MODE_CENTROID;
+					sdbind->vert_weights = MEM_mallocN(sizeof(*sdbind->vert_weights) * 3, "SDefCentVertWeights");
+					if (sdbind->vert_weights == NULL) {
+						data->success = 0;
+						return;
+					}
+
+					sdbind->vert_inds = MEM_mallocN(sizeof(*sdbind->vert_inds) * bpoly->numverts, "SDefCentVertInds");
+					if (sdbind->vert_inds == NULL) {
+						data->success = 0;
+						return;
+					}
+
+					sortPolyVertsEdge(sdbind->vert_inds, &data->mloop[bpoly->loopstart],
+					                  bpoly->edge_inds[bpoly->dominant_edge], bpoly->numverts);
+
+					copy_v3_v3(v1, data->mvert[sdbind->vert_inds[0]].co);
+					copy_v3_v3(v2, data->mvert[sdbind->vert_inds[1]].co);
+					copy_v3_v3(v3, bpoly->centroid);
+
+					cent_tri_v3(cent, v1, v2, v3);
+					normal_tri_v3(norm, v1, v2, v3);
+
+					add_v3_v3v3(tmp_vec, point_co, bpoly->normal);
+
+					isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm);
+
+					interp_weights_face_v3(sdbind->vert_weights, v1, v2, v3, NULL, point_co_proj);
+
+					sdbind->normal_dist = computeNormalDisplacement(point_co, point_co_proj, bpoly->normal);
+
+					sdbind++;
+				}
+
+				if (bpoly->dominant_angle_weight >= FLT_EPSILON) {
+					sdbind->influence = bpoly->weight * bpoly->dominant_angle_weight;
+					sdbind->numverts = bpoly->numverts;
+
+					sdbind->mode = MOD_SDEF_MODE_LOOPTRI;
+					sdbind->vert_weights = MEM_mallocN(sizeof(*sdbind->vert_weights) * 3, "SDefTriVertWeights");
+					if (sdbind->vert_weights == NULL) {
+						data->success = 0;
+						return;
+					}
+
+					sdbind->vert_inds = MEM_mallocN(sizeof(*sdbind->vert_inds) * bpoly->numverts, "SDefTriVertInds");
+					if (sdbind->vert_inds == NULL) {
+						data->success = 0;
+						return;
+					}
+
+					sortPolyVertsTri(sdbind->vert_inds, &data->mloop[bpoly->loopstart], bpoly->edge_vert_inds[0], bpoly->numverts);
+
+					copy_v3_v3(v1, data->mvert[sdbind->vert_inds[0]].co);
+					copy_v3_v3(v2, data->mvert[sdbind->vert_inds[1]].co);
+					copy_v3_v3(v3, data->mvert[sdbind->vert_inds[2]].co);
+
+					cent_tri_v3(cent, v1, v2, v3);
+					normal_tri_v3(norm, v1, v2, v3);
+
+					add_v3_v3v3(tmp_vec, point_co, bpoly->normal);
+
+					isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm);
+
+					interp_weights_face_v3(sdbind->vert_weights, v1, v2, v3, NULL, point_co_proj);
+
+					sdbind->normal_dist = computeNormalDisplacement(point_co, point_co_proj, bpoly->normal);
+
+					sdbind++;
+				}
+			}
+		}
+	}
+
+	freeBindData(bwdata);
 }
 
-static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], int numVerts)
+static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)[3],
+                              int numverts, int tnumpoly, DerivedMesh *tdm)
+{
+	BVHTreeFromMesh treeData = {NULL};
+	MPoly *mpoly = tdm->getPolyArray(tdm);
+	MEdge *medge = tdm->getEdgeArray(tdm);
+	MLoop *mloop = tdm->getLoopArray(tdm);
+	int tnumedges = tdm->getNumEdges(tdm);
+	int tnumverts = tdm->getNumVerts(tdm);
+	int adj_result;
+	SDefAdjacency **vert_edges;
+	SDefEdgePolys *edge_polys;
+
+	vert_edges = MEM_callocN(sizeof(*vert_edges) * tnumverts, "SDefVertEdgeMap");
+	if (vert_edges == NULL) {
+		printf("Surface Deform: Out of memory\n");
+		return false;
+	}
+
+	edge_polys = MEM_callocN(sizeof(*edge_polys) * tnumedges, "SDefEdgeFaceMap");
+	if (edge_polys == NULL) {
+		printf("Surface Deform: Out of memory\n");
+		MEM_freeN(vert_edges);
+		return false;
+	}
+
+	smd->verts = MEM_mallocN(sizeof(*smd->verts) * numverts, "SDefBindVerts");
+	if (smd->verts == NULL) {
+		printf("Surface Deform: Out of memory\n");
+		MEM_freeN(vert_edges);
+		MEM_freeN(edge_polys);
+		return false;
+	}
+
+	bvhtree_from_mesh_looptri(&treeData, tdm, 0.0, 2, 6);
+	if (treeData.tree == NULL) {
+		printf("Surface Deform: Out of memory\n");
+		MEM_freeN(vert_edges);
+		MEM_freeN(edge_polys);
+		MEM_freeN(smd->verts);
+		smd->verts = NULL;
+		return false;
+	}
+
+	adj_result = buildAdjacencyMap(mpoly, medge, mloop, tnumpoly, tnumedges, vert_edges, edge_polys);
+
+	if(adj_result == 0) {
+		printf("Surface Deform: Out of memory\n");
+		freeAdjacencyMap(vert_edges, edge_polys, tnumverts);
+		free_bvhtree_from_mesh(&treeData);
+		MEM_freeN(smd->verts);
+		smd->verts = NULL;
+		return false;
+	}
+
+	if (adj_result == -1) {
+		printf("Surface Deform: Invalid target mesh\n");
+		freeAdjacencyMap(vert_edges, edge_polys, tnumverts);
+		free_bvhtree_from_mesh(&treeData);
+		MEM_freeN(smd->verts);
+		smd->verts = NULL;
+		return false;
+	}
+
+	smd->numverts = numverts;
+	smd->numpoly = tnumpoly;
+
+	SDefBindCalcData data = {.treeData = &treeData,
+		                     .vert_edges = vert_edges,
+		                     .edge_polys = edge_polys,
+		                     .mpoly = mpoly,
+		                     .medge = medge,
+		                     .mloop = mloop,
+		                     .looptri = tdm->getLoopTriArray(tdm),
+		                     .mvert = tdm->getVertArray(tdm),
+		                     .bind_verts = smd->verts,
+		                     .vertexCos = vertexCos,
+		                     .falloff = smd->falloff,
+		                     .success = 1};
+
+	BLI_task_parallel_range_ex(0, numverts, &data, NULL, 0, bindVert,
+	                           numverts > 10000, false);
+
+	if (data.success == 0) {
+		printf("Surface Deform: Out of memory\n");
+		freeData((ModifierData *) smd);
+	}
+	else if (data.success == -1) {
+		printf("Surface Deform: Invalid target mesh\n");
+		freeData((ModifierData *) smd);
+	}
+
+	freeAdjacencyMap(vert_edges, edge_polys, tnumverts);
+	free_bvhtree_from_mesh(&treeData);
+
+	return data.success == 1;
+}
+
+static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], int numverts)
 {
 	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
 	DerivedMesh *tdm;
-	int numPoly;
+	int tnumpoly;
 	SDefVert *sdvert;
+	SDefBind *sdbind;
 	MVert *mvert;
-	int i, j;
-	float norm[3];
+	int i, j, k;
+	float norm[3], temp[3];
 
 	/* Exit function if bind flag is not set (free bind data if any) */
 	if (!(smd->flags & MOD_SDEF_BIND)) {
-		if (smd->verts) {
-			for (i = 0; i < smd->numverts; i++) {
-				if (smd->verts[i].vert_inds)
-					MEM_freeN(smd->verts[i].vert_inds);
-
-				if (smd->verts[i].vert_weights)
-					MEM_freeN(smd->verts[i].vert_weights);
-			}
-
-			MEM_freeN(smd->verts);
-			smd->verts = NULL;
-		}
+		freeData(md);
 		return;
 	}
 
@@ -377,23 +1070,28 @@ static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], in
 		BMEditMesh *em = BKE_editmesh_from_object(smd->target);
 		tdm = em->derivedFinal;
 	}
-	else
+	else {
 		tdm = smd->target->derivedFinal;
+	}
 
-	numPoly = tdm->getNumPolys(tdm);
+	tnumpoly = tdm->getNumPolys(tdm);
 
 	/* If not bound, execute bind */
-	if (!(smd->verts))
-		surfacedeformBind(smd, vertexCos, numVerts, numPoly, tdm);
+	if (!(smd->verts)) {
+		if (!surfacedeformBind(smd, vertexCos, numverts, tnumpoly, tdm)) {
+			smd->flags &= ~MOD_SDEF_BIND;
+			return;
+		}
+	}
 
 	/* Poly count checks */
-	if (smd->numverts != numVerts) {
-		modifier_setError(md, "Verts changed from %d to %d", smd->numverts, numVerts);
+	if (smd->numverts != numverts) {
+		modifier_setError(md, "Verts changed from %d to %d", smd->numverts, numverts);
 		tdm->release(tdm);
 		return;
 	}
-	else if (smd->numpoly != numPoly) {
-		modifier_setError(md, "Target polygons changed from %d to %d", smd->numpoly, numPoly);
+	else if (smd->numpoly != tnumpoly) {
+		modifier_setError(md, "Target polygons changed from %d to %d", smd->numpoly, tnumpoly);
 		tdm->release(tdm);
 		return;
 	}
@@ -402,55 +1100,54 @@ static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], in
 	mvert = tdm->getVertArray(tdm);
 	sdvert = smd->verts;
 
-	for (i = 0; i < numVerts; i++, sdvert++) {
-		/* ---------- looptri mode ---------- */
-		if (sdvert->mode == MOD_SDEF_MODE_LOOPTRI) {
-			normal_tri_v3(norm, mvert[sdvert->vert_inds[0]].co,
-			                    mvert[sdvert->vert_inds[1]].co,
-			                    mvert[sdvert->vert_inds[2]].co);
+	for (i = 0; i < numverts; i++, sdvert++) {
+		sdbind = sdvert->binds;
 
-			zero_v3(vertexCos[i]);
-			madd_v3_v3fl(vertexCos[i], mvert[sdvert->vert_inds[0]].co, sdvert->vert_weights[0]);
-			madd_v3_v3fl(vertexCos[i], mvert[sdvert->vert_inds[1]].co, sdvert->vert_weights[1]);
-			madd_v3_v3fl(vertexCos[i], mvert[sdvert->vert_inds[2]].co, sdvert->vert_weights[2]);
-		}
-		else {
-			/* Generic non-looptri mode operations (allocate poly coordinates) */
-			float (*coords)[3] = BLI_array_alloca(coords, sdvert->numverts);
+		zero_v3(vertexCos[i]);
 
-			for (j = 0; j < sdvert->numverts; j++) {
-				copy_v3_v3(coords[j], mvert[sdvert->vert_inds[j]].co);
+		for (j = 0; j < sdvert->numbinds; j++, sdbind++) {
+			/* Mode-generic operations (allocate poly coordinates) */
+			float (*coords)[3] = MEM_mallocN(sizeof(*coords) * sdbind->numverts, "SDefDoPolyCoords");
+
+			for (k = 0; k < sdbind->numverts; k++) {
+				copy_v3_v3(coords[k], mvert[sdbind->vert_inds[k]].co);
 			}
 
-			/* ---------- ngon mode ---------- */
-			if (sdvert->mode == MOD_SDEF_MODE_NGON) {
-				normal_poly_v3(norm, coords, sdvert->numverts);
+			normal_poly_v3(norm, coords, sdbind->numverts);
+			zero_v3(temp);
 
-				zero_v3(vertexCos[i]);
+			/* ---------- looptri mode ---------- */
+			if (sdbind->mode == MOD_SDEF_MODE_LOOPTRI) {
+				madd_v3_v3fl(temp, mvert[sdbind->vert_inds[0]].co, sdbind->vert_weights[0]);
+				madd_v3_v3fl(temp, mvert[sdbind->vert_inds[1]].co, sdbind->vert_weights[1]);
+				madd_v3_v3fl(temp, mvert[sdbind->vert_inds[2]].co, sdbind->vert_weights[2]);
+			}
+			else {
+				/* ---------- ngon mode ---------- */
+				if (sdbind->mode == MOD_SDEF_MODE_NGON) {
+					for (k = 0; k < sdbind->numverts; k++) {
+						madd_v3_v3fl(temp, coords[k], sdbind->vert_weights[k]);
+					}
+				}
 
-				for (j = 0; j < sdvert->numverts; j++) {
-					madd_v3_v3fl(vertexCos[i], coords[j], sdvert->vert_weights[j]);
+				/* ---------- centroid mode ---------- */
+				else if (sdbind->mode == MOD_SDEF_MODE_CENTROID) {
+					float cent[3];
+					cent_poly_v3(cent, coords, sdbind->numverts);
+
+					madd_v3_v3fl(temp, mvert[sdbind->vert_inds[0]].co, sdbind->vert_weights[0]);
+					madd_v3_v3fl(temp, mvert[sdbind->vert_inds[1]].co, sdbind->vert_weights[1]);
+					madd_v3_v3fl(temp, cent, sdbind->vert_weights[2]);
 				}
 			}
 
-			/* ---------- centroid mode ---------- */
-			else if (sdvert->mode == MOD_SDEF_MODE_CENTROID) {
-				float cent[3];
-				cent_poly_v3(cent, coords, sdvert->numverts);
+			MEM_freeN(coords);
 
-				normal_tri_v3(norm, mvert[sdvert->vert_inds[0]].co,
-				                    mvert[sdvert->vert_inds[1]].co,
-				                    cent);
+			/* Apply normal offset (generic for all modes) */
+			madd_v3_v3fl(temp, norm, sdbind->normal_dist);
 
-				zero_v3(vertexCos[i]);
-				madd_v3_v3fl(vertexCos[i], mvert[sdvert->vert_inds[0]].co, sdvert->vert_weights[0]);
-				madd_v3_v3fl(vertexCos[i], mvert[sdvert->vert_inds[1]].co, sdvert->vert_weights[1]);
-				madd_v3_v3fl(vertexCos[i], cent, sdvert->vert_weights[2]);
-			}
+			madd_v3_v3fl(vertexCos[i], temp, sdbind->influence);
 		}
-
-		/* Apply normal offset (generic for all modes) */
-		madd_v3_v3fl(vertexCos[i], norm, sdvert->normal_dist);
 	}
 
 	tdm->release(tdm);

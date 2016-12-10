@@ -1571,23 +1571,29 @@ enum {
 	MOD_MESHSEQ_READ_COLOR = (1 << 3),
 };
 
+typedef struct SDefBind {
+	int *vert_inds;
+	int numverts;
+	int mode;
+	float *vert_weights;
+	float normal_dist;
+	float influence;
+} SDefBind;
+
 typedef struct SDefVert {
-    int *vert_inds;
-    int numverts;
-    int mode;
-    float *vert_weights;
-    float normal_dist;
-    char pad[4];
+	SDefBind *binds;
+	int numbinds;
+	char pad[4];
 } SDefVert;
 
 typedef struct SurfaceDeformModifierData {
-    ModifierData modifier;
+	ModifierData modifier;
 
 	struct Object *target;	/* bind target object */
 	SDefVert *verts;		/* vertex bind data */
+	float falloff;
 	int numverts, numpoly;
 	int flags;
-	char pad[4];
 } SurfaceDeformModifierData;
 
 /* Surface Deform modifier flags */

@@ -948,13 +948,21 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.label(text="Settings are inside the Physics tab")
 
     def SURFACE_DEFORM(self, layout, ob, md):
-        layout.prop(md, "target")
+        col = layout.column()
+        col.enabled = not md.is_bound
+
+        col.prop(md, "target")
+        col.prop(md, "falloff")
 
         layout.separator()
+
+        col = layout.column()
+        col.enabled = bool(md.target)
+
         if md.is_bound:
-            layout.operator("object.surfacedeform_bind", text="Unbind")
+            col.operator("object.surfacedeform_bind", text="Unbind")
         else:
-            layout.operator("object.surfacedeform_bind", text="Bind")
+            col.operator("object.surfacedeform_bind", text="Bind")
 
     def UV_PROJECT(self, layout, ob, md):
         split = layout.split()
