@@ -1134,6 +1134,8 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_SPEAKER); break;
 				case OB_EMPTY:
 					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_EMPTY); break;
+				case OB_GPENCIL:
+					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_GPENCIL); break; 
 			}
 		}
 		else {

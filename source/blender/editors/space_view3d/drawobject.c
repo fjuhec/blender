@@ -8143,6 +8143,7 @@ void draw_object_wire_color(Scene *scene, SceneLayer *sl, Base *base, unsigned c
 					else if (ob->type == OB_SPEAKER) theme_id = TH_SPEAKER;
 					else if (ob->type == OB_CAMERA) theme_id = TH_CAMERA;
 					else if (ob->type == OB_EMPTY) theme_id = TH_EMPTY;
+					else if (ob->type == OB_GPENCIL) theme_id = TH_EMPTY;
 					/* fallback to TH_WIRE */
 				}
 			}
@@ -8425,7 +8426,7 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 		/* TODO Viewport: draw only for selection */
 		if (!IS_VIEWPORT_LEGACY(v3d)) {
 			if ((dflag & DRAW_PICKING) == 0) {
-				if ((dt == OB_BOUNDBOX) || ELEM(ob->type, OB_EMPTY, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
+				if ((dt == OB_BOUNDBOX) || ELEM(ob->type, OB_EMPTY, OB_GPENCIL, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
 					goto afterdraw;
 				}
 			}
@@ -8509,6 +8510,11 @@ void draw_object(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, Base *b
 					else {
 						drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, ob_wire_col);
 					}
+				}
+				break;
+			case OB_GPENCIL:
+				if (!render_override) {
+					drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, ob_wire_col);
 				}
 				break;
 			case OB_LAMP:
@@ -9316,6 +9322,9 @@ void draw_object_instance(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3
 			else {
 				drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, NULL); /* TODO: use proper color */
 			}
+			break;
+		case OB_GPENCIL:
+			drawaxes(rv3d->viewmatob, ob->empty_drawsize, ob->empty_drawtype, NULL);
 			break;
 	}
 }

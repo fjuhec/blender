@@ -367,6 +367,8 @@ enum {
 
 /* 23 and 24 are for life and sector (old file compat.) */
 	OB_ARMATURE   = 25,
+/* Grease Pencil object used in 3D view but not used for annotation in 2D */
+	OB_GPENCIL  = 26,
 };
 
 /* check if the object type supports materials */

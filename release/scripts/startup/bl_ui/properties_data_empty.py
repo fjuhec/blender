@@ -28,7 +28,7 @@ class DataButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        return (context.object and context.object.type == 'EMPTY')
+        return (context.object and context.object.type in ('EMPTY', 'GPENCIL'))
 
 
 class DATA_PT_empty(DataButtonsPanel, Panel):

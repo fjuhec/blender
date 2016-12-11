@@ -73,6 +73,7 @@ void SceneExporter::exportHierarchy(Scene *sce)
 				case OB_CAMERA:
 				case OB_LAMP:
 				case OB_EMPTY:
+				case OB_GPENCIL:
 				case OB_ARMATURE:
 					base_objects.push_back(ob);
 					break;
@@ -126,6 +127,7 @@ void SceneExporter::writeNodes(Object *ob, Scene *sce)
 				case OB_CAMERA:
 				case OB_LAMP:
 				case OB_EMPTY:
+				case OB_GPENCIL:
 				case OB_ARMATURE:
 					if (bc_is_marked(cob))
 						child_objects.push_back(cob);
@@ -175,7 +177,7 @@ void SceneExporter::writeNodes(Object *ob, Scene *sce)
 	}
 
 	// empty object
-	else if (ob->type == OB_EMPTY) { // TODO: handle groups (OB_DUPLIGROUP
+	else if ((ob->type == OB_EMPTY) || (ob->type == OB_GPENCIL)) { // TODO: handle groups (OB_DUPLIGROUP
 		if ((ob->transflag & OB_DUPLIGROUP) == OB_DUPLIGROUP && ob->dup_group) {
 			GroupObject *go = NULL;
 			Group *gr = ob->dup_group;

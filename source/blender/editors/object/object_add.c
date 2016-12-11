@@ -73,6 +73,7 @@
 #include "BKE_effect.h"
 #include "BKE_font.h"
 #include "BKE_group.h"
+#include "BKE_gpencil.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
 #include "BKE_layer.h"
@@ -898,6 +899,50 @@ void OBJECT_OT_drop_named_image(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 	prop = RNA_def_string(ot->srna, "name", NULL, MAX_ID_NAME - 2, "Name", "Image name to assign");
 	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+	ED_object_add_generic_props(ot, false);
+}
+
+/********************* Add Gpencil Operator ********************/
+
+static int object_gpencil_add_exec(bContext *C, wmOperator *op)
+{
+	Object *ob;
+	unsigned int layer;
+	float loc[3], rot[3];
+
+	WM_operator_view3d_unit_defaults(C, op);
+	if (!ED_object_add_generic_get_opts(C, op, 'Z', loc, rot, NULL, &layer, NULL))
+		return OPERATOR_CANCELLED;
+
+	ob = ED_object_add_type(C, OB_GPENCIL, NULL, loc, rot, false, layer);
+
+	/* set radius to something small */
+	RNA_float_set(op->ptr, "radius", 0.2f);
+	BKE_object_obdata_size_init(ob, RNA_float_get(op->ptr, "radius"));
+
+	/* add a grease pencil datablock */	
+	ob->gpd = BKE_gpencil_data_addnew("GPencil");
+
+	return OPERATOR_FINISHED;
+}
+
+void OBJECT_OT_gpencil_add(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Add Gpencil";
+	ot->description = "Add an grease pencil object to the scene";
+	ot->idname = "OBJECT_OT_gpencil_add";
+
+	/* api callbacks */
+	ot->invoke = WM_menu_invoke;
+	ot->exec = object_gpencil_add_exec;
+	ot->poll = ED_operator_objectmode;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
+	ED_object_add_unit_props(ot);
 	ED_object_add_generic_props(ot, false);
 }
 
