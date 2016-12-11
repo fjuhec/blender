@@ -84,12 +84,30 @@
 
 static int gpencil_editmode_toggle_poll(bContext *C)
 {
+	/* if using gpencil object, use this gpd */
+	Object *ob = CTX_data_active_object(C);
+	if (ob != NULL) {
+		if (ob->type == OB_GPENCIL) {
+			return ob->gpd != NULL;
+		}
+	}
 	return ED_gpencil_data_get_active(C) != NULL;
 }
 
 static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	/* if using a gpencil object, use this datablock */
+	bGPdata *gpd = NULL;
+	Object *ob = CTX_data_active_object(C);
+	if (ob != NULL) {
+		if (ob->type == OB_GPENCIL) {
+			gpd = ob->gpd;
+		}
+	}
+	/* if gpd is still null, try to get from context */
+	if (gpd == NULL) {
+		bGPdata *gpd = ED_gpencil_data_get_active(C);
+	}
 	
 	if (gpd == NULL)
 		return OPERATOR_CANCELLED;

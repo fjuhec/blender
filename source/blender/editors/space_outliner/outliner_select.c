@@ -922,6 +922,9 @@ static void outliner_item_activate(
 		else if (ELEM(te->idcode, ID_ME, ID_CU, ID_MB, ID_LT, ID_AR)) {
 			WM_operator_name_call(C, "OBJECT_OT_editmode_toggle", WM_OP_INVOKE_REGION_WIN, NULL);
 		}
+		else if (ELEM(te->idcode, ID_GD)) {
+			WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_INVOKE_REGION_WIN, NULL);
+		}
 		else {  // rest of types
 			tree_element_active(C, scene, sl, soops, te, OL_SETSEL_NORMAL, false);
 		}
