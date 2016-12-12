@@ -44,7 +44,10 @@ void BKE_override_free(struct IDOverride **override);
 bool BKE_override_status_check_local(struct ID *local);
 bool BKE_override_status_check_reference(struct ID *local);
 
-bool BKE_override_synchronize_update(struct ID *local);
+bool BKE_override_operations_update(struct ID *local);
+
+void BKE_override_update(struct ID *local);
+void BKE_main_override_update(struct Main *bmain);
 
 
 #endif  /* __BKE_LIBRARY_OVERRIDE_H__ */

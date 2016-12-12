@@ -127,6 +127,7 @@
 #include "BKE_group.h"
 #include "BKE_library.h" // for which_libbase
 #include "BKE_library_idmap.h"
+#include "BKE_library_override.h"
 #include "BKE_library_query.h"
 #include "BKE_idcode.h"
 #include "BKE_material.h"
@@ -8621,6 +8622,10 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 	blo_join_main(&mainlist);
 	
 	lib_link_all(fd, bfd->main);
+
+	/* Now that all our data-blocks are loaded, we can re-generate overrides from their references. */
+	BKE_main_override_update(bfd->main);
+
 	//do_versions_after_linking(fd, NULL, bfd->main); // XXX: not here (or even in this function at all)! this causes crashes on many files - Aligorith (July 04, 2010)
 	lib_verify_nodetree(bfd->main, true);
 	fix_relpaths_library(fd->relabase, bfd->main); /* make all relative paths, relative to the open blend file */

@@ -33,8 +33,10 @@
 
 #include "DNA_ID.h"
 
+#include "BKE_global.h"  /* XXX Yuck! temp hack! */
 #include "BKE_library.h"
 #include "BKE_library_override.h"
+#include "BKE_main.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
@@ -163,10 +165,73 @@ bool BKE_override_status_check_reference(ID *local)
 /** Compares local and reference data-blocks and create new override operations as needed,
  * or reset to reference values if overriding is not allowed.
  * \return true is new overriding op was created, or some local data was reset. */
-bool BKE_override_synchronize_update(ID *local)
+bool BKE_override_operations_update(ID *local)
 {
 	BLI_assert(local->override != NULL);
 	return false;
 }
+#include "DNA_object_types.h"
+/** Update given override from its reference (not touching to overriden properties). */
+void BKE_override_update(ID *local)
+{
+	if (local->override == NULL) {
+		return;
+	}
 
+	/* Recursively do 'ancestors' overrides first, if any. */
+	if (local->override->reference->override) {
+		BKE_override_update(local->override->reference);
+	}
 
+	/* We want to avoid having to remap here, however creating up-to-date override is much simpler if based
+	 * on reference than on current override.
+	 * So we work on temp copy of reference. */
+
+	/* XXX We need a way to get off-Main copies of IDs (similar to localized mats/texts/ etc.)!
+	 *     However, this is whole bunch of code work in itself, so for now plain stupid ID copy will do,
+	 *     as innefficient as it is. :/
+	 *     Actually, maybe not! Since we are swapping with original ID's local content, we want to keep
+	 *     usercount in correct state when freeing tmp_id (and that usercounts of IDs used by 'new' local data
+	 *     also remain correct). */
+
+	ID *tmp_id;
+	id_copy(G.main, local->override->reference, &tmp_id, false);  /* XXX ...and worse of all, this won't work with scene! */
+
+	if (tmp_id == NULL) {
+		return;
+	}
+
+	PointerRNA rnaptr_local, rnaptr_data;
+	RNA_id_pointer_create(local, &rnaptr_local);
+	RNA_id_pointer_create(tmp_id, &rnaptr_data);
+
+	RNA_struct_override_update(&rnaptr_local, &rnaptr_data, local->override);
+
+	/* This also transfers all pointers (memory) owned by local to tmp_id, and vice-versa. So when we'll free tmp_id,
+	 * we'll actually free old, outdated data from local. */
+	BKE_id_swap(local, tmp_id);
+
+	/* Again, horribly innefficient in our case, we need something off-Main and off-usercounting
+	 * (aka moar generic nolib copy/free stuff)! */
+	BKE_libblock_free_ex(G.main, tmp_id, true, false);
+}
+
+/** Update all overrides from given \a bmain. */
+void BKE_main_override_update(Main *bmain)
+{
+	ListBase *lbarray[MAX_LIBARRAY];
+	int base_count, i;
+
+	base_count = set_listbasepointers(bmain, lbarray);
+
+	for (i = 0; i < base_count; i++) {
+		ListBase *lb = lbarray[i];
+		ID *id;
+
+		for (id = lb->first; id; id = id->next) {
+			if (id->override != NULL && id->lib == NULL) {
+				BKE_override_update(id);
+			}
+		}
+	}
+}

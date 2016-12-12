@@ -1217,6 +1217,8 @@ bool RNA_struct_equals(struct PointerRNA *a, struct PointerRNA *b, eRNAEqualsMod
 bool RNA_struct_override_matches(struct PointerRNA *local, struct PointerRNA *reference,
         struct IDOverride *override, const bool ignore_non_overridable, const bool ignore_overridden);
 
+void RNA_struct_override_update(struct PointerRNA *src, struct PointerRNA *dst, struct IDOverride *override);
+
 #ifdef __cplusplus
 }
 #endif

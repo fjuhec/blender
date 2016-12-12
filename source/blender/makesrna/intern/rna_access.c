@@ -7127,6 +7127,30 @@ bool RNA_struct_override_matches(
 	return equals;
 }
 
+void RNA_struct_override_update(PointerRNA *src, PointerRNA *dst, IDOverride *override)
+{
+	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
+		/* Simplified for now! */
+		PointerRNA src_data, dst_data;
+		PropertyRNA *src_prop, *dst_prop;
+
+		if (RNA_path_resolve_property(src, op->rna_path, &src_data, &src_prop) &&
+		    RNA_path_resolve_property(dst, op->rna_path, &dst_data, &dst_prop))
+		{
+			BLI_assert(src_prop == dst_prop);
+
+			for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+				switch (opop->operation) {
+					case IDOVERRIDE_REPLACE:
+						RNA_property_copy(&dst_data, &src_data, src_prop, -1);
+						break;
+					/* TODO other cases! */
+				}
+			}
+		}
+	}
+}
+
 
 bool RNA_path_resolved_create(
         PointerRNA *ptr, struct PropertyRNA *prop,
