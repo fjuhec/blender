@@ -920,6 +920,9 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 	RNA_float_set(op->ptr, "radius", 0.2f);
 	BKE_object_obdata_size_init(ob, RNA_float_get(op->ptr, "radius"));
 
+	/* set grease pencil mode to object */
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 	/* add a grease pencil datablock */	
 	ob->gpd = BKE_gpencil_data_addnew("GPencil");
 
