@@ -1171,8 +1171,8 @@ static void rna_def_asset_entries(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove the given entry from the list (entry is freeded)");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "entry", "AssetEntry", "Entry", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
 	/* Remove All Entries */
 	func = RNA_def_function(srna, "clear", "rna_AssetList_entries_clear");
@@ -1259,9 +1259,9 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	func = RNA_def_function(srna, "report", "rna_ae_report");
 	RNA_def_function_ui_description(func, "Generate a report (error, info, warning, etc.)");
 	parm = RNA_def_enum_flag(func, "type", rna_enum_wm_report_items, 0, "", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_string(func, "message", NULL, 0, "", "");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	/* API */
 
@@ -1272,7 +1272,7 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	RNA_def_int(func, "job_id", AE_JOB_ID_UNSET, AE_JOB_ID_INVALID, INT_MAX, "",
 	            "Job ID (JOB_ID_UNSET to get engine status itself)", AE_JOB_ID_INVALID, INT_MAX);
 	parm = RNA_def_enum(func, "status_return", asset_engine_status_types, 0, "", "Status of given job or whole engine");
-	RNA_def_property_flag(parm, PROP_ENUM_FLAG);
+	RNA_def_parameter_flags(parm, PROP_ENUM_FLAG, 0);
 	RNA_def_function_output(func, parm);
 
 	/* Progress callback */
@@ -1361,8 +1361,8 @@ static void rna_def_asset_engine(BlenderRNA *brna)
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
 	RNA_def_boolean(func, "use_sort", 0, "", "Whether to (re-)sort assets");
 	RNA_def_boolean(func, "use_filter", 0, "", "Whether to (re-)filter assets");
-	parm = RNA_def_pointer(func, "params", "FileSelectParams", "",
-	                       "Generic filtering/sorting parameters from FileBrowser");
+	RNA_def_pointer(func, "params", "FileSelectParams", "",
+	                "Generic filtering/sorting parameters from FileBrowser");
 	RNA_def_pointer(func, "entries", "AssetList", "", "List of asset entries proposed to user by the asset engine");
 	parm = RNA_def_boolean(func, "changed_return", false, "", "Whether list of available entries was changed");
 	RNA_def_function_output(func, parm);

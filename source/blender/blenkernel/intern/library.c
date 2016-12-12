@@ -80,8 +80,6 @@
 #include "BLI_threads.h"
 #include "BLT_translation.h"
 
-#include "RNA_access.h"
-
 #include "BKE_action.h"
 #include "BKE_animsys.h"
 #include "BKE_armature.h"
@@ -125,6 +123,8 @@
 #include "BKE_world.h"
 
 #include "DEG_depsgraph.h"
+
+#include "RNA_access.h"
 
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
@@ -1177,31 +1177,6 @@ void *BKE_libblock_copy_nolib(ID *id, const bool do_action)
 	return idn;
 }
 
-static int id_relink_looper(void *UNUSED(user_data), ID *UNUSED(self_id), ID **id_pointer, const int cd_flag)
-{
-	ID *id = *id_pointer;
-	if (id) {
-		/* See: NEW_ID macro */
-		if (id->newid) {
-			BKE_library_update_ID_link_user(id->newid, id, cd_flag);
-			*id_pointer = id->newid;
-		}
-		else if (id->tag & LIB_TAG_NEW) {
-			id->tag &= ~LIB_TAG_NEW;
-			BKE_libblock_relink(id);
-		}
-	}
-	return IDWALK_RET_NOP;
-}
-
-void BKE_libblock_relink(ID *id)
-{
-	if (ID_IS_LINKED(id))
-		return;
-
-	BKE_library_foreach_ID_link(id, id_relink_looper, NULL, 0);
-}
-
 void BKE_library_free(Library *lib)
 {
 	if (lib->packedfile)
@@ -1887,7 +1862,6 @@ void BKE_library_make_local(
 	BKE_main_id_clear_newpoins(bmain);
 	BLI_memarena_free(linklist_mem);
 }
-
 
 /**
  * Use after setting the ID's name
