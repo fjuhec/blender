@@ -736,6 +736,14 @@ static PointerRNA rna_IDPreview_get(PointerRNA *ptr)
 	return rna_pointer_inherit_refine(ptr, &RNA_ImagePreview, prv_img);
 }
 
+static PointerRNA rna_ID_override_reference_get(PointerRNA *ptr)
+{
+	ID *id = (ID *)ptr->data;
+	ID *reference = id->override ? id->override->reference : NULL;
+
+	return rna_pointer_inherit_refine(ptr, ID_code_to_RNA_type(GS(reference->name)), reference);
+}
+
 #else
 
 static void rna_def_ID_properties(BlenderRNA *brna)
@@ -993,6 +1001,11 @@ static void rna_def_ID(BlenderRNA *brna)
 	RNA_def_property_pointer_sdna(prop, NULL, "lib");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Library", "Library file the data-block is linked from");
+
+	prop = RNA_def_pointer(srna, "reference", "ID", "Reference", "Reference linked data-block overriden by this one");
+	RNA_def_property_pointer_sdna(prop, NULL, "override->reference");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_pointer_funcs(prop, "rna_ID_override_reference_get", NULL, NULL, NULL);
 
 	prop = RNA_def_pointer(srna, "preview", "ImagePreview", "Preview",
 	                       "Preview image and icon of this data-block (None if not supported for this type of data)");

@@ -75,6 +75,7 @@
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
+#include "BKE_library_override.h"
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
@@ -2355,6 +2356,64 @@ void OBJECT_OT_make_local(wmOperatorType *ot)
 
 	/* properties */
 	ot->prop = RNA_def_enum(ot->srna, "type", type_items, 0, "Type", "");
+}
+
+static int make_override_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Main *bmain = CTX_data_main(C);
+	Object *locobj, *refobj = CTX_data_active_object(C);
+
+	/* Note that we most likely want to do this in a more BKE generic function later, but for now will do for testing. */
+
+	id_copy(bmain, &refobj->id, (ID **)&locobj, false);
+
+	/* Remapping *before* defining override (this will have to be fixed btw, remapping of ref pointer...). */
+	BKE_libblock_remap(bmain, refobj, locobj, ID_REMAP_SKIP_INDIRECT_USAGE);
+
+	IDOverride *override = BKE_override_init(&locobj->id, &refobj->id);
+
+	/* For testing only of course! This will have to be auto-generated... */
+	{
+		IDOverrideProperty *overp = MEM_callocN(sizeof(IDOverrideProperty), __func__);
+		overp->rna_path = BLI_strdup("location");
+
+		IDOverridePropertyOperation *overp_op = MEM_callocN(sizeof(IDOverridePropertyOperation), __func__);
+		overp_op->subitem_local_index = overp_op->subitem_reference_index = -1;
+		overp_op->operation = IDOVERRIDE_REPLACE;
+
+		BLI_addtail(&overp->operations, overp_op);
+
+		BLI_addtail(&override->properties, overp);
+	}
+
+	WM_event_add_notifier(C, NC_WINDOW, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+static int make_override_poll(bContext *C)
+{
+	Object *obact = CTX_data_active_object(C);
+
+	/* Object must be directly linked to be overridable. */
+	return (ED_operator_objectmode(C) && obact && obact->id.lib != NULL && obact->id.tag & LIB_TAG_EXTERN);
+}
+
+void OBJECT_OT_make_override(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Make Override";
+	ot->description = "Make local override of this library linked data-block";
+	ot->idname = "OBJECT_OT_make_override";
+
+	/* api callbacks */
+	ot->exec = make_override_exec;
+	ot->poll = make_override_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
 }
 
 enum {
