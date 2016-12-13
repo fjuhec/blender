@@ -723,8 +723,9 @@ void buttons_context_compute(const bContext *C, SpaceButs *sbuts)
 			if (a == BCONTEXT_DATA) {
 				ptr = &path->ptr[path->len - 1];
 
-				if (ptr->type)
+				if (ptr->type) {
 					sbuts->dataicon = RNA_struct_ui_icon(ptr->type);
+				}
 				else {
 					Object *ob = CTX_data_active_object(C);
 					if (ob->type == OB_GPENCIL) {
