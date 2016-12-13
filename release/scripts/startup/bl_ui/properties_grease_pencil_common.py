@@ -872,21 +872,29 @@ class GreasePencilDataPanel:
 
     @staticmethod
     def draw_header(self, context):
-        self.layout.prop(context.space_data, "show_grease_pencil", text="")
+        if context.space_data.type != 'PROPERTIES':
+            self.layout.prop(context.space_data, "show_grease_pencil", text="")
 
     @staticmethod
     def draw(self, context):
         layout = self.layout
 
         # owner of Grease Pencil data
+        #if context.space_data.type != 'PROPERTIES':
         gpd_owner = context.gpencil_data_owner
         gpd = context.gpencil_data
+        #else:
+        #    ob = context.object
+        #    gpd_owner = ob
+        #    gpd = ob.grease_pencil
 
         # Owner Selector
         if context.space_data.type == 'VIEW_3D':
             layout.prop(context.tool_settings, "grease_pencil_source", expand=True)
         elif context.space_data.type == 'CLIP_EDITOR':
             layout.prop(context.space_data, "grease_pencil_source", expand=True)
+        elif context.space_data.type == 'PROPERTIES':
+            layout.prop(context.scene.tool_settings, "grease_pencil_source", expand=True)
 
         # Grease Pencil data selector
         layout.template_ID(gpd_owner, "grease_pencil", new="gpencil.data_add", unlink="gpencil.data_unlink")

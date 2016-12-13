@@ -19,6 +19,9 @@
 # <pep8 compliant>
 import bpy
 from bpy.types import Panel
+from bl_ui.properties_grease_pencil_common import (
+        GreasePencilDataPanel
+        )
 
 
 class DataButtonsPanel:
@@ -54,6 +57,14 @@ class DATA_PT_gpencil(DataButtonsPanel, Panel):
             row.prop(ob, "empty_image_offset", text="Offset Y", index=1)
 
         layout.prop(ob, "empty_draw_size", text="Size")
+
+class DATA_PT_gpencil_datapanel(GreasePencilDataPanel, Panel):
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "data"
+
+    # NOTE: this is just a wrapper around the generic GP Panel
+
 
 if __name__ == "__main__":  # only for live edit.
     bpy.utils.register_module(__name__)

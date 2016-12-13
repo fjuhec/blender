@@ -3156,7 +3156,7 @@ class VIEW3D_PT_grease_pencil(GreasePencilDataPanel, Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
 
-    # NOTE: this is just a wrapper around the generic GP Panel
+#    # NOTE: this is just a wrapper around the generic GP Panel
 
 
 class VIEW3D_PT_view3d_properties(Panel):
