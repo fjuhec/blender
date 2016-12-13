@@ -28,11 +28,11 @@ class DataButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        return (context.object and context.object.type == 'EMPTY')
+        return (context.object and context.object.type == 'GPENCIL')
 
 
-class DATA_PT_empty(DataButtonsPanel, Panel):
-    bl_label = "Empty"
+class DATA_PT_gpencil(DataButtonsPanel, Panel):
+    bl_label = "Gpencil"
 
     def draw(self, context):
         layout = self.layout
