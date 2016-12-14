@@ -44,6 +44,7 @@
 #include "RNA_access.h"
 #include "RNA_types.h"
 
+
 /** Initialize empty overriding of \a reference_id by \a local_id. */
 IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id)
 {
@@ -165,13 +166,13 @@ bool BKE_override_status_check_reference(ID *local)
 /** Compares local and reference data-blocks and create new override operations as needed,
  * or reset to reference values if overriding is not allowed.
  * \return true is new overriding op was created, or some local data was reset. */
-bool BKE_override_operations_update(ID *local)
+bool BKE_override_operations_create(ID *local)
 {
 	BLI_assert(local->override != NULL);
 	return false;
 }
-#include "DNA_object_types.h"
-/** Update given override from its reference (not touching to overriden properties). */
+
+/** Update given override from its reference (re-applying overriden properties). */
 void BKE_override_update(ID *local)
 {
 	if (local->override == NULL) {
@@ -179,7 +180,7 @@ void BKE_override_update(ID *local)
 	}
 
 	/* Recursively do 'ancestors' overrides first, if any. */
-	if (local->override->reference->override) {
+	if (local->override->reference->override && (local->override->reference->tag & LIB_TAG_OVERRIDE_OK) == 0) {
 		BKE_override_update(local->override->reference);
 	}
 
@@ -201,19 +202,20 @@ void BKE_override_update(ID *local)
 		return;
 	}
 
-	PointerRNA rnaptr_local, rnaptr_data;
+	PointerRNA rnaptr_local, rnaptr_final;
 	RNA_id_pointer_create(local, &rnaptr_local);
-	RNA_id_pointer_create(tmp_id, &rnaptr_data);
+	RNA_id_pointer_create(tmp_id, &rnaptr_final);
 
-	RNA_struct_override_update(&rnaptr_local, &rnaptr_data, local->override);
+	RNA_struct_override_apply(&rnaptr_final, &rnaptr_local, local->override);
 
 	/* This also transfers all pointers (memory) owned by local to tmp_id, and vice-versa. So when we'll free tmp_id,
 	 * we'll actually free old, outdated data from local. */
 	BKE_id_swap(local, tmp_id);
 
-	/* Again, horribly innefficient in our case, we need something off-Main and off-usercounting
-	 * (aka moar generic nolib copy/free stuff)! */
+	/* Again, horribly innefficient in our case, we need something off-Main (aka moar generic nolib copy/free stuff)! */
 	BKE_libblock_free_ex(G.main, tmp_id, true, false);
+
+	local->flag |= LIB_TAG_OVERRIDE_OK;
 }
 
 /** Update all overrides from given \a bmain. */

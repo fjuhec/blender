@@ -40,6 +40,7 @@ extern "C" {
 struct bContext;
 struct ID;
 struct IDOverride;
+struct IDOverrideProperty;
 struct ListBase;
 struct Main;
 struct ReportList;
@@ -1214,10 +1215,15 @@ typedef enum eRNAEqualsMode {
 bool RNA_property_equals(struct PointerRNA *a, struct PointerRNA *b, struct PropertyRNA *prop, eRNAEqualsMode mode);
 bool RNA_struct_equals(struct PointerRNA *a, struct PointerRNA *b, eRNAEqualsMode mode);
 
+
+/* Override. */
+
 bool RNA_struct_override_matches(struct PointerRNA *local, struct PointerRNA *reference,
         struct IDOverride *override, const bool ignore_non_overridable, const bool ignore_overridden);
 
-void RNA_struct_override_update(struct PointerRNA *src, struct PointerRNA *dst, struct IDOverride *override);
+void RNA_property_override_apply(struct PointerRNA *dst,
+        struct PointerRNA *src, struct PropertyRNA *prop, struct IDOverrideProperty *op);
+void RNA_struct_override_apply(struct PointerRNA *dst, struct PointerRNA *src, struct IDOverride *override);
 
 #ifdef __cplusplus
 }

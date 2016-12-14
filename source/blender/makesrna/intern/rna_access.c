@@ -7127,7 +7127,21 @@ bool RNA_struct_override_matches(
 	return equals;
 }
 
-void RNA_struct_override_update(PointerRNA *src, PointerRNA *dst, IDOverride *override)
+/** Apply given \a op override property operations on \a dst, using \a src as source. */
+void RNA_property_override_apply(PointerRNA *dst, PointerRNA *src, PropertyRNA *prop, IDOverrideProperty *op)
+{
+	for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+		switch (opop->operation) {
+			case IDOVERRIDE_REPLACE:
+				RNA_property_copy(dst, src, prop, -1);
+				break;
+			/* TODO other cases! */
+		}
+	}
+}
+
+/** Apply given \a override operations on \a dst, using \a src as source. */
+void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, IDOverride *override)
 {
 	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
 		/* Simplified for now! */
@@ -7139,14 +7153,7 @@ void RNA_struct_override_update(PointerRNA *src, PointerRNA *dst, IDOverride *ov
 		{
 			BLI_assert(src_prop == dst_prop);
 
-			for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
-				switch (opop->operation) {
-					case IDOVERRIDE_REPLACE:
-						RNA_property_copy(&dst_data, &src_data, src_prop, -1);
-						break;
-					/* TODO other cases! */
-				}
-			}
+			RNA_property_override_apply(&src_data, &dst_data, src_prop, op);
 		}
 	}
 }
