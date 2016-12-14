@@ -100,7 +100,7 @@ public:
 		} KernelGlobals;
 
 		mem.resize(sizeof(KernelGlobals));
-		mem_alloc(mem, MEM_READ_WRITE);
+		mem_alloc("kernel_globals", mem, MEM_READ_WRITE);
 	}
 
 	virtual void free_kernel_globals(device_memory& mem)
