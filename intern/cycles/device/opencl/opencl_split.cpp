@@ -280,8 +280,6 @@ public:
 		                                 tile,
 		                                 *const_mem_map["__data"]);
 
-				tile.sample = tile.start_sample + tile.num_samples;
-
 				/* Complete kernel execution before release tile. */
 				/* This helps in multi-device render;
 				 * The device that reaches the critical-section function

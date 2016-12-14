@@ -455,8 +455,6 @@ public:
 			device_memory data;
 			split_kernel.path_trace(&task, tile, data);
 
-			tile.sample = tile.start_sample + tile.num_samples;
-
 			task.release_tile(tile);
 
 			if(task_pool.canceled()) {

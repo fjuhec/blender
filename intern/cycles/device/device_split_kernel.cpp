@@ -19,13 +19,18 @@
 #include "kernel_types.h"
 #include "kernel_split_data.h"
 
+#include "util_time.h"
+
 CCL_NAMESPACE_BEGIN
+
+static const double alpha = 0.1; /* alpha for rolling average */
 
 DeviceSplitKernel::DeviceSplitKernel(Device *device) : device(device)
 {
-	path_iteration_times = PATH_ITER_INC_FACTOR;
 	current_max_closure = -1;
 	first_tile = true;
+
+	avg_time_per_sample = 0.0;
 }
 
 DeviceSplitKernel::~DeviceSplitKernel()
@@ -211,26 +216,6 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		device->mem_alloc("split_data", split_data, MEM_READ_WRITE);
 	}
 
-	if(device->have_error()) {
-		return false;
-	}
-
-	if(!device->enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
-	                                           tile,
-	                                           num_global_elements,
-	                                           num_parallel_samples,
-	                                           kgbuffer,
-	                                           kernel_data,
-	                                           split_data,
-	                                           ray_state,
-	                                           queue_index,
-	                                           use_queues_flag,
-	                                           work_pool_wgs
-	                                           ))
-	{
-		return false;
-	}
-
 #define ENQUEUE_SPLIT_KERNEL(name, global_size, local_size) \
 		if(device->have_error()) { \
 			return false; \
@@ -239,72 +224,96 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 			return false; \
 		}
 
-	/* Record number of time host intervention has been made */
-	unsigned int numHostIntervention = 0;
-	unsigned int numNextPathIterTimes = path_iteration_times;
-	bool canceled = false;
+	tile.sample = tile.start_sample;
 
-	bool activeRaysAvailable = true;
-	while(activeRaysAvailable) {
-		/* Twice the global work size of other kernels for
-		 * ckPathTraceKernel_shadow_blocked_direct_lighting. */
-		size_t global_size_shadow_blocked[2];
-		global_size_shadow_blocked[0] = global_size[0] * 2;
-		global_size_shadow_blocked[1] = global_size[1];
+	while(tile.sample < tile.start_sample + tile.num_samples) {
+		/* to keep track of how long it takes to run a number of samples */
+		double start_time = time_dt();
 
-		/* Do path-iteration in host [Enqueue Path-iteration kernels. */
-		for(int PathIter = 0; PathIter < path_iteration_times; PathIter++) {
-			ENQUEUE_SPLIT_KERNEL(scene_intersect, global_size, local_size);
-			ENQUEUE_SPLIT_KERNEL(lamp_emission, global_size, local_size);
-			ENQUEUE_SPLIT_KERNEL(queue_enqueue, global_size, local_size);
-			ENQUEUE_SPLIT_KERNEL(background_buffer_update, global_size, local_size);
-			ENQUEUE_SPLIT_KERNEL(shader_eval, global_size, local_size);
-			ENQUEUE_SPLIT_KERNEL(holdout_emission_blurring_pathtermination_ao, global_size, local_size);
-			ENQUEUE_SPLIT_KERNEL(direct_lighting, global_size, local_size);
-			ENQUEUE_SPLIT_KERNEL(shadow_blocked, global_size_shadow_blocked, local_size);
-			ENQUEUE_SPLIT_KERNEL(next_iteration_setup, global_size, local_size);
+		/* initial guess to start rolling average */
+		const int initial_num_samples = 1;
+		/* approx number of samples per second */
+		int samples_per_second = (avg_time_per_sample > 0.0) ?
+		                         int(1.0 / avg_time_per_sample) + 1 : initial_num_samples;
+
+		RenderTile subtile = tile;
+		subtile.start_sample = tile.sample;
+		subtile.num_samples = min(samples_per_second, tile.start_sample + tile.num_samples - tile.sample);
+
+		if(device->have_error()) {
+			return false;
+		}
+
+		if(!device->enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
+		                                           subtile,
+		                                           num_global_elements,
+		                                           num_parallel_samples,
+		                                           kgbuffer,
+		                                           kernel_data,
+		                                           split_data,
+		                                           ray_state,
+		                                           queue_index,
+		                                           use_queues_flag,
+		                                           work_pool_wgs
+		                                           ))
+		{
+			return false;
+		}
+
+		bool activeRaysAvailable = true;
+
+		while(activeRaysAvailable) {
+			/* Twice the global work size of other kernels for
+			 * ckPathTraceKernel_shadow_blocked_direct_lighting. */
+			size_t global_size_shadow_blocked[2];
+			global_size_shadow_blocked[0] = global_size[0] * 2;
+			global_size_shadow_blocked[1] = global_size[1];
+
+			/* Do path-iteration in host [Enqueue Path-iteration kernels. */
+			for(int PathIter = 0; PathIter < 16; PathIter++) {
+				ENQUEUE_SPLIT_KERNEL(scene_intersect, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(lamp_emission, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(queue_enqueue, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(background_buffer_update, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(shader_eval, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(holdout_emission_blurring_pathtermination_ao, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(direct_lighting, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(shadow_blocked, global_size_shadow_blocked, local_size);
+				ENQUEUE_SPLIT_KERNEL(next_iteration_setup, global_size, local_size);
+
+				if(task->get_cancel()) {
+					return true;
+				}
+			}
+
+			/* Decide if we should exit path-iteration in host. */
+			device->mem_copy_from(ray_state, 0, global_size[0] * global_size[1] * sizeof(char), 1, 1);
+
+			activeRaysAvailable = false;
+
+			for(int rayStateIter = 0; rayStateIter < global_size[0] * global_size[1]; ++rayStateIter) {
+				if(int8_t(ray_state.get_data()[rayStateIter]) != RAY_INACTIVE) {
+					/* Not all rays are RAY_INACTIVE. */
+					activeRaysAvailable = true;
+					break;
+				}
+			}
 
 			if(task->get_cancel()) {
-				canceled = true;
-				break;
+				return true;
 			}
 		}
 
-		/* Decide if we should exit path-iteration in host. */
-		device->mem_copy_from(ray_state, 0, global_size[0] * global_size[1] * sizeof(char), 1, 1);
+		double time_per_sample = ((time_dt()-start_time) / subtile.num_samples);
 
-		activeRaysAvailable = false;
-
-		for(int rayStateIter = 0;
-		    rayStateIter < global_size[0] * global_size[1];
-		    ++rayStateIter)
-		{
-			if(int8_t(ray_state.get_data()[rayStateIter]) != RAY_INACTIVE) {
-				/* Not all rays are RAY_INACTIVE. */
-				activeRaysAvailable = true;
-				break;
-			}
+		if(avg_time_per_sample == 0.0) {
+			/* start rolling average */
+			avg_time_per_sample = time_per_sample;
+		}
+		else {
+			avg_time_per_sample = alpha*time_per_sample + (1.0-alpha)*avg_time_per_sample;
 		}
 
-		if(activeRaysAvailable) {
-			numHostIntervention++;
-			path_iteration_times = PATH_ITER_INC_FACTOR;
-			/* Host intervention done before all rays become RAY_INACTIVE;
-			 * Set do more initial iterations for the next tile.
-			 */
-			numNextPathIterTimes += PATH_ITER_INC_FACTOR;
-		}
-
-		if(task->get_cancel()) {
-			canceled = true;
-			break;
-		}
-	}
-
-	/* Execute SumALLRadiance kernel to accumulate radiance calculated in
-	 * per_sample_output_buffers into RenderTile's output buffer.
-	 */
-	if(!canceled) {
 		size_t sum_all_radiance_local_size[2] = {16, 16};
 		size_t sum_all_radiance_global_size[2];
 		sum_all_radiance_global_size[0] =
@@ -317,22 +326,15 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		ENQUEUE_SPLIT_KERNEL(sum_all_radiance,
 		                     sum_all_radiance_global_size,
 		                     sum_all_radiance_local_size);
-	}
 
 #undef ENQUEUE_SPLIT_KERNEL
 
-	if(numHostIntervention == 0) {
-		/* This means that we are executing kernel more than required
-		 * Must avoid this for the next sample/tile.
-		 */
-		path_iteration_times = ((numNextPathIterTimes - PATH_ITER_INC_FACTOR) <= 0) ?
-		PATH_ITER_INC_FACTOR : numNextPathIterTimes - PATH_ITER_INC_FACTOR;
-	}
-	else {
-		/* Number of path-iterations done for this tile is set as
-		 * Initial path-iteration times for the next tile
-		 */
-		path_iteration_times = numNextPathIterTimes;
+		tile.sample += subtile.num_samples;
+		task->update_progress(&tile, tile.w*tile.h*subtile.num_samples);
+
+		if(task->get_cancel()) {
+			return true;
+		}
 	}
 
 	return true;

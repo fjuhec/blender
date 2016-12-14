@@ -22,13 +22,6 @@
 
 CCL_NAMESPACE_BEGIN
 
-/* This value may be tuned according to the scene we are rendering.
- *
- * Modifying PATH_ITER_INC_FACTOR value proportional to number of expected
- * ray-bounces will improve performance.
- */
-#define PATH_ITER_INC_FACTOR 8
-
 /* When allocate global memory in chunks. We may not be able to
  * allocate exactly "CL_DEVICE_MAX_MEM_ALLOC_SIZE" bytes in chunks;
  * Since some bytes may be needed for aligning chunks of memory;
@@ -64,8 +57,8 @@ private:
 	/* Flag to make sceneintersect and lampemission kernel use queues. */
 	device_memory use_queues_flag;
 
-	/* Number of path-iterations to be done in one shot. */
-	unsigned int path_iteration_times;
+	/* Approximate time it takes to complete one sample */
+	double avg_time_per_sample;
 
 	/* Work pool with respect to each work group. */
 	device_memory work_pool_wgs;
