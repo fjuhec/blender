@@ -34,7 +34,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
@@ -131,8 +130,7 @@ RootDepsNode *DepsgraphNodeBuilder::add_root_node()
 
 IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 {
-	const char *idtype_name = BKE_idcode_to_name(GS(id->name));
-	return m_graph->add_id_node(id, string(id->name + 2) + "[" + idtype_name + "]");
+	return m_graph->add_id_node(id, id->name);
 }
 
 TimeSourceDepsNode *DepsgraphNodeBuilder::add_time_source(ID *id)
@@ -179,7 +177,7 @@ TimeSourceDepsNode *DepsgraphNodeBuilder::add_time_source(ID *id)
 ComponentDepsNode *DepsgraphNodeBuilder::add_component_node(
         ID *id,
         eDepsNode_Type comp_type,
-        const string &comp_name)
+        const char *comp_name)
 {
 	IDDepsNode *id_node = add_id_node(id);
 	ComponentDepsNode *comp_node = id_node->add_component(comp_type, comp_name);
@@ -192,15 +190,19 @@ OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         eDepsOperation_Type optype,
         DepsEvalOperationCb op,
         eDepsOperation_Code opcode,
-        const string &description)
+        const char *name,
+        int name_tag)
 {
-	OperationDepsNode *op_node = comp_node->has_operation(opcode, description);
+	OperationDepsNode *op_node = comp_node->has_operation(opcode,
+	                                                      name,
+	                                                      name_tag);
 	if (op_node == NULL) {
-		op_node = comp_node->add_operation(optype, op, opcode, description);
+		op_node = comp_node->add_operation(optype, op, opcode, name, name_tag);
 		m_graph->operations.push_back(op_node);
 	}
 	else {
-		fprintf(stderr, "add_operation: Operation already exists - %s has %s at %p\n",
+		fprintf(stderr,
+		        "add_operation: Operation already exists - %s has %s at %p\n",
 		        comp_node->identifier().c_str(),
 		        op_node->identifier().c_str(),
 		        op_node);
@@ -212,14 +214,15 @@ OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
 OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         ID *id,
         eDepsNode_Type comp_type,
-        const string &comp_name,
+        const char *comp_name,
         eDepsOperation_Type optype,
         DepsEvalOperationCb op,
         eDepsOperation_Code opcode,
-        const string &description)
+        const char *name,
+        int name_tag)
 {
 	ComponentDepsNode *comp_node = add_component_node(id, comp_type, comp_name);
-	return add_operation_node(comp_node, optype, op, opcode, description);
+	return add_operation_node(comp_node, optype, op, opcode, name, name_tag);
 }
 
 OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
@@ -228,38 +231,54 @@ OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         eDepsOperation_Type optype,
         DepsEvalOperationCb op,
         eDepsOperation_Code opcode,
-        const string& description)
+        const char *name,
+        int name_tag)
 {
-	return add_operation_node(id, comp_type, "", optype, op, opcode, description);
+	return add_operation_node(id,
+	                          comp_type,
+	                          "",
+	                          optype,
+	                          op,
+	                          opcode,
+	                          name,
+	                          name_tag);
 }
 
 bool DepsgraphNodeBuilder::has_operation_node(ID *id,
                                               eDepsNode_Type comp_type,
-                                              const string &comp_name,
+                                              const char *comp_name,
                                               eDepsOperation_Code opcode,
-                                              const string &description)
+                                              const char *name,
+                                              int name_tag)
 {
-	return find_operation_node(id, comp_type, comp_name, opcode, description) != NULL;
+	return find_operation_node(id,
+	                           comp_type,
+	                           comp_name,
+	                           opcode,
+	                           name,
+	                           name_tag) != NULL;
 }
 
 OperationDepsNode *DepsgraphNodeBuilder::find_operation_node(
         ID *id,
         eDepsNode_Type comp_type,
-        const string &comp_name,
+        const char *comp_name,
         eDepsOperation_Code opcode,
-        const string &description)
+        const char *name,
+        int name_tag)
 {
 	ComponentDepsNode *comp_node = add_component_node(id, comp_type, comp_name);
-	return comp_node->has_operation(opcode, description);
+	return comp_node->has_operation(opcode, name, name_tag);
 }
 
 OperationDepsNode *DepsgraphNodeBuilder::find_operation_node(
         ID *id,
         eDepsNode_Type comp_type,
         eDepsOperation_Code opcode,
-        const string& description)
+        const char *name,
+        int name_tag)
 {
-	return find_operation_node(id, comp_type, "", opcode, description);
+	return find_operation_node(id, comp_type, "", opcode, name, name_tag);
 }
 
 /* **** Build functions for entity nodes **** */
@@ -617,12 +636,17 @@ OperationDepsNode *DepsgraphNodeBuilder::build_driver(ID *id, FCurve *fcu)
 	OperationDepsNode *driver_op = find_operation_node(id,
 	                                                   DEPSNODE_TYPE_PARAMETERS,
 	                                                   DEG_OPCODE_DRIVER,
-	                                                   deg_fcurve_id_name(fcu));
+	                                                   fcu->rna_path,
+	                                                   fcu->array_index);
 
 	if (driver_op == NULL) {
-		driver_op = add_operation_node(id, DEPSNODE_TYPE_PARAMETERS,
-		                               DEPSOP_TYPE_EXEC, function_bind(BKE_animsys_eval_driver, _1, id, fcu),
-		                               DEG_OPCODE_DRIVER, deg_fcurve_id_name(fcu));
+		driver_op = add_operation_node(id,
+		                               DEPSNODE_TYPE_PARAMETERS,
+		                               DEPSOP_TYPE_EXEC,
+		                               function_bind(BKE_animsys_eval_driver, _1, id, fcu),
+		                               DEG_OPCODE_DRIVER,
+		                               fcu->rna_path,
+		                               fcu->array_index);
 	}
 
 	/* tag "scripted expression" drivers as needing Python (due to GIL issues, etc.) */
@@ -807,7 +831,7 @@ void DepsgraphNodeBuilder::build_rig(Scene *scene, Object *ob)
 
 	/* Rebuild pose if not up to date. */
 	if (ob->pose == NULL || (ob->pose->flag & POSE_RECALC)) {
-		BKE_pose_rebuild(ob, arm);
+		BKE_pose_rebuild_ex(ob, arm, false);
 		/* XXX: Without this animation gets lost in certain circumstances
 		 * after loading file. Need to investigate further since it does
 		 * not happen with simple scenes..
