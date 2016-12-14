@@ -1900,6 +1900,66 @@ void ED_gpencil_draw_view3d(wmWindowManager *wm, Scene *scene, View3D *v3d, AReg
 	gp_draw_data_all(scene, gpd, offsx, offsy, winx, winy, CFRA, dflag, v3d->spacetype);	
 }
 
+/* draw grease-pencil sketches to specified 3d-view for gp object
+* assuming that matrices are already set correctly */
+void ED_gpencil_draw_view3d_object(wmWindowManager *wm, Scene *scene, Object *ob, View3D *v3d, ARegion *ar, bool only3d)
+{
+	int dflag = 0;
+	RegionView3D *rv3d = ar->regiondata;
+	int offsx, offsy, winx, winy;
+
+	/* check that we have grease-pencil stuff to draw */
+	bGPdata *gpd = ob->gpd;
+	if (gpd == NULL) return;
+
+	/* when rendering to the offscreen buffer we don't want to
+	* deal with the camera border, otherwise map the coords to the camera border. */
+	if ((rv3d->persp == RV3D_CAMOB) && !(G.f & G_RENDER_OGL)) {
+		rctf rectf;
+		ED_view3d_calc_camera_border(scene, ar, v3d, rv3d, &rectf, true); /* no shift */
+
+		offsx = iroundf(rectf.xmin);
+		offsy = iroundf(rectf.ymin);
+		winx = iroundf(rectf.xmax - rectf.xmin);
+		winy = iroundf(rectf.ymax - rectf.ymin);
+	}
+	else {
+		offsx = 0;
+		offsy = 0;
+		winx = ar->winx;
+		winy = ar->winy;
+	}
+
+	/* set flags */
+	if (only3d) {
+		/* 3D strokes/3D space:
+		* - only 3D space points
+		* - don't status text either (as it's the wrong space)
+		*/
+		dflag |= (GP_DRAWDATA_ONLY3D | GP_DRAWDATA_NOSTATUS);
+	}
+
+	if (v3d->flag2 & V3D_RENDER_OVERRIDE) {
+		/* don't draw status text when "only render" flag is set */
+		dflag |= GP_DRAWDATA_NOSTATUS;
+	}
+
+	if ((wm == NULL) || ED_screen_animation_playing(wm)) {
+		/* don't show onionskins during animation playback/scrub (i.e. it obscures the poses)
+		* OpenGL Renders (i.e. final output), or depth buffer (i.e. not real strokes)
+		*/
+		dflag |= GP_DRAWDATA_NO_ONIONS;
+	}
+
+	/* draw it! */
+	ToolSettings *ts = scene->toolsettings;
+	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
+	if (brush != NULL) {
+		gp_draw_data(brush, ts->gp_sculpt.alpha, gpd,
+			offsx, offsy, winx, winy, CFRA, dflag);
+	}
+}
+
 void ED_gpencil_draw_ex(Scene *scene, bGPdata *gpd, int winx, int winy, const int cfra, const char spacetype)
 {
 	int dflag = GP_DRAWDATA_NOSTATUS | GP_DRAWDATA_ONLYV2D;

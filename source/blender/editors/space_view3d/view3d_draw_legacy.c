@@ -1470,6 +1470,32 @@ CustomDataMask ED_view3d_screen_datamask(const bScreen *screen)
 
 	return mask;
 }
+/**
+* Draw grease pencil object strokes
+*/
+void draw_gpencil_object_strokes(const bContext *C, Scene *scene, ARegion *ar, View3D *v3d, Base *base)
+{
+	const bool render_override = (v3d->flag2 & V3D_RENDER_OVERRIDE) != 0;
+	Object *ob = base->object;
+
+	if (ob != scene->obedit) {
+		if (ob->restrictflag & OB_RESTRICT_VIEW)
+			return;
+
+		if (render_override) {
+			if (ob->restrictflag & OB_RESTRICT_RENDER)
+				return;
+
+			if (ob->transflag & (OB_DUPLI & ~OB_DUPLIFRAMES))
+				return;
+		}
+	}
+
+	wmWindowManager *wm = (C != NULL) ? CTX_wm_manager(C) : NULL;
+	if (v3d->zbuf) glDisable(GL_DEPTH_TEST);
+	ED_gpencil_draw_view3d_object(wm, scene, ob, v3d, ar, true);
+	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
+}
 
 /**
  * Shared by #ED_view3d_draw_offscreen and #view3d_main_region_draw_objects
@@ -1564,6 +1590,10 @@ static void view3d_draw_objects(
 					draw_dupli_objects(scene, sl, ar, v3d, base);
 
 				draw_object(scene, sl, ar, v3d, base, 0);
+				/* draw grease pencil */
+				if (base->object->type == OB_GPENCIL) {
+					draw_gpencil_object_strokes(C, scene, ar, v3d, base);
+				}
 			}
 		}
 	}
@@ -1583,6 +1613,11 @@ static void view3d_draw_objects(
 				if ((base->flag & BASE_SELECTED) == 0) {
 					if (base->object != scene->obedit)
 						draw_object(scene, sl, ar, v3d, base, 0);
+						/* draw grease pencil */
+						if (base->object->type == OB_GPENCIL) {
+							draw_gpencil_object_strokes(C, scene, ar, v3d, base);
+						}
+					}
 				}
 			}
 		}
@@ -1595,6 +1630,10 @@ static void view3d_draw_objects(
 			if ((base->flag & BASE_VISIBLED) != 0) {
 				if (base->object == scene->obedit || (base->flag & BASE_SELECTED)) {
 					draw_object(scene, sl, ar, v3d, base, 0);
+					/* draw grease pencil */
+					if (base->object->type == OB_GPENCIL) {
+						draw_gpencil_object_strokes(C, scene, ar, v3d, base);
+					}
 				}
 			}
 		}
