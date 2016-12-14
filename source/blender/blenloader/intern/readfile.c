@@ -2147,6 +2147,7 @@ static PreviewImage *direct_link_preview_image(FileData *fd, PreviewImage *old_p
 			prv->gputexture[i] = NULL;
 		}
 		prv->icon_id = 0;
+		prv->tag = 0;
 	}
 	
 	return prv;
@@ -2511,6 +2512,12 @@ static void lib_link_action(FileData *fd, Main *main)
 // >>> XXX deprecated - old animation system
 			
 			lib_link_fcurves(fd, &act->id, &act->curves);
+
+			for (TimeMarker *marker = act->markers.first; marker; marker = marker->next) {
+				if (marker->camera) {
+					marker->camera = newlibadr(fd, act->id.lib, marker->camera);
+				}
+			}
 		}
 	}
 }
@@ -2707,6 +2714,7 @@ static void lib_link_cachefiles(FileData *fd, Main *bmain)
 
 		BLI_listbase_clear(&cache_file->object_paths);
 		cache_file->handle = NULL;
+		cache_file->handle_mutex = NULL;
 
 		if (cache_file->adt) {
 			lib_link_animdata(fd, &cache_file->id, cache_file->adt);
@@ -2717,6 +2725,7 @@ static void lib_link_cachefiles(FileData *fd, Main *bmain)
 static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
 {
 	cache_file->handle = NULL;
+	cache_file->handle_mutex = NULL;
 
 	/* relink animdata */
 	cache_file->adt = newdataadr(fd, cache_file->adt);
@@ -4103,8 +4112,14 @@ static void lib_link_particlesettings(FileData *fd, Main *main)
 				if (index_ok) {
 					/* if we have indexes, let's use them */
 					for (dw = part->dupliweights.first; dw; dw = dw->next) {
-						GroupObject *go = (GroupObject *)BLI_findlink(&part->dup_group->gobject, dw->index);
-						dw->ob = go ? go->ob : NULL;
+						/* Do not try to restore pointer here, we have to search for group objects in another
+						 * separated step.
+						 * Reason is, the used group may be linked from another library, which has not yet
+						 * been 'lib_linked'.
+						 * Since dw->ob is not considered as an object user (it does not make objet directly linked),
+						 * we may have no valid way to retrieve it yet.
+						 * See T49273. */
+						dw->ob = NULL;
 					}
 				}
 				else {
@@ -4263,12 +4278,15 @@ static void direct_link_particlesystems(FileData *fd, ListBase *particles)
 			
 			psys->flag &= ~PSYS_KEYED;
 		}
-		
+
 		if (psys->particles && psys->particles->boid) {
 			pa = psys->particles;
 			pa->boid = newdataadr(fd, pa->boid);
-			for (a=1, pa++; a<psys->totpart; a++, pa++)
-				pa->boid = (pa-1)->boid + 1;
+			pa->boid->ground = NULL;  /* This is purely runtime data, but still can be an issue if left dangling. */
+			for (a = 1, pa++; a < psys->totpart; a++, pa++) {
+				pa->boid = (pa - 1)->boid + 1;
+				pa->boid->ground = NULL;
+			}
 		}
 		else if (psys->particles) {
 			for (a=0, pa=psys->particles; a<psys->totpart; a++, pa++)
@@ -5073,6 +5091,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 				smd->domain->tex = NULL;
 				smd->domain->tex_shadow = NULL;
 				smd->domain->tex_wt = NULL;
+				smd->domain->coba = newdataadr(fd, smd->domain->coba);
 				
 				smd->domain->effector_weights = newdataadr(fd, smd->domain->effector_weights);
 				if (!smd->domain->effector_weights)
@@ -5178,6 +5197,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			collmd->time_x = collmd->time_xnew = -1000;
 			collmd->mvert_num = 0;
 			collmd->tri_num = 0;
+			collmd->is_static = false;
 			collmd->bvhtree = NULL;
 			collmd->tri = NULL;
 			
@@ -5282,6 +5302,10 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			csmd->delta_cache = NULL;
 			csmd->delta_cache_num = 0;
 		}
+		else if (md->type == eModifierType_MeshSequenceCache) {
+			MeshSeqCacheModifierData *msmcd = (MeshSeqCacheModifierData *)md;
+			msmcd->reader = NULL;
+		}
 	}
 }
 
@@ -5300,6 +5324,9 @@ static void direct_link_object(FileData *fd, Object *ob)
 	 * time when file was saved.
 	 */
 	ob->recalc = 0;
+
+	/* XXX This should not be needed - but seems like it can happen in some cases, so for now play safe... */
+	ob->proxy_from = NULL;
 
 	/* loading saved files with editmode enabled works, but for undo we like
 	 * to stay in object mode during undo presses so keep editmode disabled.
@@ -5597,7 +5624,6 @@ static void lib_link_scene(FileData *fd, Main *main)
 	Base *base, *next;
 	Sequence *seq;
 	SceneRenderLayer *srl;
-	TimeMarker *marker;
 	FreestyleModuleConfig *fmc;
 	FreestyleLineSet *fls;
 
@@ -5698,15 +5724,11 @@ static void lib_link_scene(FileData *fd, Main *main)
 			}
 			SEQ_END
 
-#ifdef DURIAN_CAMERA_SWITCH
-			for (marker = sce->markers.first; marker; marker = marker->next) {
+			for (TimeMarker *marker = sce->markers.first; marker; marker = marker->next) {
 				if (marker->camera) {
 					marker->camera = newlibadr(fd, sce->id.lib, marker->camera);
 				}
 			}
-#else
-			(void)marker;
-#endif
 			
 			BKE_sequencer_update_muting(sce->ed);
 			BKE_sequencer_update_sound_bounds_all(sce);
@@ -6697,10 +6719,13 @@ void blo_lib_link_screen_restore(Main *newmain, bScreen *curscreen, Scene *cursc
 					 * since it gets initialized later */
 					sima->iuser.scene = NULL;
 					
-					sima->scopes.waveform_1 = NULL;
-					sima->scopes.waveform_2 = NULL;
-					sima->scopes.waveform_3 = NULL;
-					sima->scopes.vecscope = NULL;
+#if 0
+					/* Those are allocated and freed by space code, no need to handle them here. */
+					MEM_SAFE_FREE(sima->scopes.waveform_1);
+					MEM_SAFE_FREE(sima->scopes.waveform_2);
+					MEM_SAFE_FREE(sima->scopes.waveform_3);
+					MEM_SAFE_FREE(sima->scopes.vecscope);
+#endif
 					sima->scopes.ok = 0;
 					
 					/* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
@@ -8081,6 +8106,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 	id->lib = main->curlib;
 	id->us = ID_FAKE_USERS(id);
 	id->icon_id = 0;
+	id->newid = NULL;  /* Needed because .blend may have been saved with crap value here... */
 	
 	/* this case cannot be direct_linked: it's just the ID part */
 	if (bhead->code == ID_ID) {
@@ -8846,6 +8872,12 @@ static void expand_action(FileData *fd, Main *mainvar, bAction *act)
 	
 	/* F-Curves in Action */
 	expand_fcurves(fd, mainvar, &act->curves);
+
+	for (TimeMarker *marker = act->markers.first; marker; marker = marker->next) {
+		if (marker->camera) {
+			expand_doit(fd, mainvar, marker->camera);
+		}
+	}
 }
 
 static void expand_keyingsets(FileData *fd, Main *mainvar, ListBase *list)
@@ -9476,17 +9508,11 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 		expand_doit(fd, mainvar, sce->rigidbody_world->constraints);
 	}
 
-#ifdef DURIAN_CAMERA_SWITCH
-	{
-		TimeMarker *marker;
-		
-		for (marker = sce->markers.first; marker; marker = marker->next) {
-			if (marker->camera) {
-				expand_doit(fd, mainvar, marker->camera);
-			}
+	for (TimeMarker *marker = sce->markers.first; marker; marker = marker->next) {
+		if (marker->camera) {
+			expand_doit(fd, mainvar, marker->camera);
 		}
 	}
-#endif
 
 	expand_doit(fd, mainvar, sce->clip);
 }

@@ -4344,7 +4344,7 @@ static bConstraintTypeInfo CTI_OBJECTSOLVER = {
 static void transformcache_id_looper(bConstraint *con, ConstraintIDFunc func, void *userdata)
 {
 	bTransformCacheConstraint *data = con->data;
-	func(con, (ID **)&data->cache_file, false, userdata);
+	func(con, (ID **)&data->cache_file, true, userdata);
 }
 
 static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBase *targets)
@@ -4353,15 +4353,25 @@ static void transformcache_evaluate(bConstraint *con, bConstraintOb *cob, ListBa
 	bTransformCacheConstraint *data = con->data;
 	Scene *scene = cob->scene;
 
-	const float frame = BKE_scene_frame_get(scene);
-	const float time = BKE_cachefile_time_offset(data->cache_file, frame, FPS);
-
 	CacheFile *cache_file = data->cache_file;
+
+	if (!cache_file) {
+		return;
+	}
+
+	const float frame = BKE_scene_frame_get(scene);
+	const float time = BKE_cachefile_time_offset(cache_file, frame, FPS);
 
 	BKE_cachefile_ensure_handle(G.main, cache_file);
 
-	ABC_get_transform(cache_file->handle, cob->ob, data->object_path,
-	                  cob->matrix, time, cache_file->scale);
+	if (!data->reader) {
+		data->reader = CacheReader_open_alembic_object(cache_file->handle,
+		                                               data->reader,
+		                                               cob->ob,
+		                                               data->object_path);
+	}
+
+	ABC_get_transform(data->reader, cob->matrix, time, cache_file->scale);
 #else
 	UNUSED_VARS(con, cob);
 #endif
@@ -4389,6 +4399,20 @@ static void transformcache_free(bConstraint *con)
 	if (data->cache_file) {
 		id_us_min(&data->cache_file->id);
 	}
+
+	if (data->reader) {
+#ifdef WITH_ALEMBIC
+		CacheReader_free(data->reader);
+#endif
+		data->reader = NULL;
+	}
+}
+
+static void transformcache_new_data(void *cdata)
+{
+	bTransformCacheConstraint *data = (bTransformCacheConstraint *)cdata;
+
+	data->cache_file = NULL;
 }
 
 static bConstraintTypeInfo CTI_TRANSFORM_CACHE = {
@@ -4399,7 +4423,7 @@ static bConstraintTypeInfo CTI_TRANSFORM_CACHE = {
 	transformcache_free,  /* free data */
 	transformcache_id_looper,  /* id looper */
 	transformcache_copy,  /* copy data */
-	NULL,  /* new data */
+	transformcache_new_data,  /* new data */
 	NULL,  /* get constraint targets */
 	NULL,  /* flush constraint targets */
 	NULL,  /* get target matrix */
@@ -4681,27 +4705,6 @@ bConstraint *BKE_constraint_add_for_object(Object *ob, const char *name, short t
 }
 
 /* ......... */
-
-/* helper for BKE_constraints_relink() - call ID_NEW() on every ID reference the constraint has */
-static void con_relink_id_cb(bConstraint *UNUSED(con), ID **idpoin, bool UNUSED(is_reference), void *UNUSED(userdata))
-{
-	/* ID_NEW() expects a struct with inline "id" member as first
-	 * since we've got the actual ID block, let's just inline this
-	 * code. 
-	 *
-	 * See ID_NEW(a) in DNA_ID.h
-	 */
-	if ((*idpoin) && (*idpoin)->newid)
-		(*idpoin) = (void *)(*idpoin)->newid;
-}
-
-/* Reassign links that constraints have to other data (called during file loading?) */
-void BKE_constraints_relink(ListBase *conlist)
-{
-	/* just a wrapper around ID-loop for just calling ID_NEW() on all ID refs */
-	BKE_constraints_id_loop(conlist, con_relink_id_cb, NULL);
-}
-
 
 /* Run the given callback on all ID-blocks in list of constraints */
 void BKE_constraints_id_loop(ListBase *conlist, ConstraintIDFunc func, void *userdata)

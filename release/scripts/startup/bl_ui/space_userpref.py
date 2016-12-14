@@ -429,12 +429,11 @@ class USERPREF_PT_system(Panel):
 
         col.separator()
 
-        if hasattr(system, "compute_device_type"):
-            col.label(text="Compute Device:")
-            col.row().prop(system, "compute_device_type", expand=True)
-            sub = col.row()
-            sub.active = system.compute_device_type != 'CPU'
-            sub.prop(system, "compute_device", text="")
+        if bpy.app.build_options.cycles:
+            addon = userpref.addons.get("cycles")
+            if addon is not None:
+                addon.preferences.draw_impl(col, context)
+            del addon
 
         if hasattr(system, "opensubdiv_compute_type"):
             col.label(text="OpenSubdiv compute:")
@@ -1177,15 +1176,16 @@ class USERPREF_PT_input(Panel):
             sub.prop(walk, "view_height")
             sub.prop(walk, "jump_height")
 
-        col.separator()
-        col.label(text="NDOF Device:")
-        sub = col.column(align=True)
-        sub.prop(inputs, "ndof_sensitivity", text="NDOF Sensitivity")
-        sub.prop(inputs, "ndof_orbit_sensitivity", text="NDOF Orbit Sensitivity")
-        sub.prop(inputs, "ndof_deadzone", text="NDOF Deadzone")
-        sub = col.column(align=True)
-        sub.row().prop(inputs, "ndof_view_navigate_method", expand=True)
-        sub.row().prop(inputs, "ndof_view_rotate_method", expand=True)
+        if inputs.use_ndof:
+            col.separator()
+            col.label(text="NDOF Device:")
+            sub = col.column(align=True)
+            sub.prop(inputs, "ndof_sensitivity", text="NDOF Sensitivity")
+            sub.prop(inputs, "ndof_orbit_sensitivity", text="NDOF Orbit Sensitivity")
+            sub.prop(inputs, "ndof_deadzone", text="NDOF Deadzone")
+            sub = col.column(align=True)
+            sub.row().prop(inputs, "ndof_view_navigate_method", expand=True)
+            sub.row().prop(inputs, "ndof_view_rotate_method", expand=True)
 
         row.separator()
 

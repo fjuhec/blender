@@ -22,13 +22,9 @@
 
 #include "../ABC_alembic.h"
 
-#ifdef WITH_ALEMBIC_HDF5
-#  include <Alembic/AbcCoreHDF5/All.h>
-#endif
-
-#include <Alembic/AbcCoreOgawa/All.h>
 #include <Alembic/AbcMaterial/IMaterial.h>
 
+#include "abc_archive.h"
 #include "abc_camera.h"
 #include "abc_curves.h"
 #include "abc_hair.h"
@@ -77,13 +73,10 @@ extern "C" {
 using Alembic::Abc::Int32ArraySamplePtr;
 using Alembic::Abc::ObjectHeader;
 
-using Alembic::AbcGeom::ErrorHandler;
-using Alembic::AbcGeom::Exception;
 using Alembic::AbcGeom::MetaData;
 using Alembic::AbcGeom::P3fArraySamplePtr;
 using Alembic::AbcGeom::kWrapExisting;
 
-using Alembic::AbcGeom::IArchive;
 using Alembic::AbcGeom::ICamera;
 using Alembic::AbcGeom::ICurves;
 using Alembic::AbcGeom::ICurvesSchema;
@@ -113,45 +106,14 @@ struct AbcArchiveHandle {
 	int unused;
 };
 
-ABC_INLINE IArchive *archive_from_handle(AbcArchiveHandle *handle)
+ABC_INLINE ArchiveReader *archive_from_handle(AbcArchiveHandle *handle)
 {
-	return reinterpret_cast<IArchive *>(handle);
+	return reinterpret_cast<ArchiveReader *>(handle);
 }
 
-ABC_INLINE AbcArchiveHandle *handle_from_archive(IArchive *archive)
+ABC_INLINE AbcArchiveHandle *handle_from_archive(ArchiveReader *archive)
 {
 	return reinterpret_cast<AbcArchiveHandle *>(archive);
-}
-
-static IArchive *open_archive(const std::string &filename)
-{
-	Alembic::AbcCoreAbstract::ReadArraySampleCachePtr cache_ptr;
-	IArchive *archive;
-
-	try {
-		archive = new IArchive(Alembic::AbcCoreOgawa::ReadArchive(),
-		                       filename.c_str(), ErrorHandler::kThrowPolicy,
-		                       cache_ptr);
-	}
-	catch (const Exception &e) {
-		std::cerr << e.what() << '\n';
-
-#ifdef WITH_ALEMBIC_HDF5
-		try {
-			archive = new IArchive(Alembic::AbcCoreHDF5::ReadArchive(),
-			                       filename.c_str(), ErrorHandler::kThrowPolicy,
-			                       cache_ptr);
-		}
-		catch (const Exception &) {
-			std::cerr << e.what() << '\n';
-			return NULL;
-		}
-#else
-		return NULL;
-#endif
-	}
-
-	return archive;
 }
 
 //#define USE_NURBS
@@ -247,9 +209,10 @@ static void gather_objects_paths(const IObject &object, ListBase *object_paths)
 
 AbcArchiveHandle *ABC_create_handle(const char *filename, ListBase *object_paths)
 {
-	IArchive *archive = open_archive(filename);
+	ArchiveReader *archive = new ArchiveReader(filename);
 
-	if (!archive) {
+	if (!archive->valid()) {
+		delete archive;
 		return NULL;
 	}
 
@@ -388,6 +351,9 @@ void ABC_export(
 	job->settings.export_ogawa = (params->compression_type == ABC_ARCHIVE_OGAWA);
 	job->settings.pack_uv = params->packuv;
 	job->settings.global_scale = params->global_scale;
+	job->settings.triangulate = params->triangulate;
+	job->settings.quad_method = params->quad_method;
+	job->settings.ngon_method = params->ngon_method;
 
 	if (job->settings.frame_start > job->settings.frame_end) {
 		std::swap(job->settings.frame_start, job->settings.frame_end);
@@ -501,6 +467,7 @@ static void visit_object(const IObject &object,
 
 		if (reader) {
 			readers.push_back(reader);
+			reader->incref();
 
 			AlembicObjectPath *abc_path = static_cast<AlembicObjectPath *>(
 			                                  MEM_callocN(sizeof(AlembicObjectPath), "AlembicObjectPath"));
@@ -544,10 +511,6 @@ struct ImportJobData {
 
 ABC_INLINE bool is_mesh_and_strands(const IObject &object)
 {
-	if (object.getNumChildren() != 2) {
-		return false;
-	}
-
 	bool has_mesh = false;
 	bool has_curve = false;
 
@@ -569,6 +532,9 @@ ABC_INLINE bool is_mesh_and_strands(const IObject &object)
 		else if (ICurves::matches(md)) {
 			has_curve = true;
 		}
+		else if (IPoints::matches(md)) {
+			has_curve = true;
+		}
 	}
 
 	return has_mesh && has_curve;
@@ -582,12 +548,10 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 	data->do_update = do_update;
 	data->progress = progress;
 
-	IArchive *archive = open_archive(data->filename);
+	ArchiveReader *archive = new ArchiveReader(data->filename);
 
-	if (!archive || !archive->valid()) {
-		if (archive) {
-			delete archive;
-		}
+	if (!archive->valid()) {
+		delete archive;
 		data->error_code = ABC_ARCHIVE_FAIL;
 		return;
 	}
@@ -661,8 +625,8 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 			CFRA = SFRA;
 		}
 		else if (min_time < max_time) {
-			SFRA = min_time * FPS;
-			EFRA = max_time * FPS;
+			SFRA = static_cast<int>(min_time * FPS);
+			EFRA = static_cast<int>(max_time * FPS);
 			CFRA = SFRA;
 		}
 	}
@@ -747,7 +711,12 @@ static void import_endjob(void *user_data)
 	}
 
 	for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
-		delete *iter;
+		AbcObjectReader *reader = *iter;
+		reader->decref();
+
+		if (reader->refcount() == 0) {
+			delete reader;
+		}
 	}
 
 	if (data->parent_map) {
@@ -808,295 +777,31 @@ void ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	WM_jobs_start(CTX_wm_manager(C), wm_job);
 }
 
-/* ******************************* */
+/* ************************************************************************** */
 
-void ABC_get_transform(AbcArchiveHandle *handle, Object *ob, const char *object_path, float r_mat[4][4], float time, float scale)
+void ABC_get_transform(CacheReader *reader, float r_mat[4][4], float time, float scale)
 {
-	IArchive *archive = archive_from_handle(handle);
-
-	if (!archive || !archive->valid()) {
+	if (!reader) {
 		return;
 	}
 
-	IObject tmp;
-	find_iobject(archive->getTop(), tmp, object_path);
+	AbcObjectReader *abc_reader = reinterpret_cast<AbcObjectReader *>(reader);
 
-	IXform ixform;
-
-	if (IXform::matches(tmp.getHeader())) {
-		ixform = IXform(tmp, kWrapExisting);
-	}
-	else {
-		ixform = IXform(tmp.getParent(), kWrapExisting);
-	}
-
-	IXformSchema schema = ixform.getSchema();
-
-	if (!schema.valid()) {
-		return;
-	}
-
-	ISampleSelector sample_sel(time);
-
-	create_input_transform(sample_sel, ixform, ob, r_mat, scale);
+	bool is_constant = false;
+	abc_reader->read_matrix(r_mat, time, scale, is_constant);
 }
 
-/* ***************************************** */
+/* ************************************************************************** */
 
-static bool check_smooth_poly_flag(DerivedMesh *dm)
-{
-	MPoly *mpolys = dm->getPolyArray(dm);
-
-	for (int i = 0, e = dm->getNumPolys(dm); i < e; ++i) {
-		MPoly &poly = mpolys[i];
-
-		if ((poly.flag & ME_SMOOTH) != 0) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static void set_smooth_poly_flag(DerivedMesh *dm)
-{
-	MPoly *mpolys = dm->getPolyArray(dm);
-
-	for (int i = 0, e = dm->getNumPolys(dm); i < e; ++i) {
-		MPoly &poly = mpolys[i];
-		poly.flag |= ME_SMOOTH;
-	}
-}
-
-static void *add_customdata_cb(void *user_data, const char *name, int data_type)
-{
-	DerivedMesh *dm = static_cast<DerivedMesh *>(user_data);
-	CustomDataType cd_data_type = static_cast<CustomDataType>(data_type);
-	void *cd_ptr = NULL;
-
-	if (ELEM(cd_data_type, CD_MLOOPUV, CD_MLOOPCOL)) {
-		cd_ptr = CustomData_get_layer_named(dm->getLoopDataLayout(dm), cd_data_type, name);
-
-		if (cd_ptr == NULL) {
-			cd_ptr = CustomData_add_layer_named(dm->getLoopDataLayout(dm),
-			                                    cd_data_type,
-			                                    CD_DEFAULT,
-			                                    NULL,
-			                                    dm->getNumLoops(dm),
-			                                    name);
-		}
-	}
-
-	return cd_ptr;
-}
-
-ABC_INLINE CDStreamConfig get_config(DerivedMesh *dm)
-{
-	CDStreamConfig config;
-
-	config.user_data = dm;
-	config.mvert = dm->getVertArray(dm);
-	config.mloop = dm->getLoopArray(dm);
-	config.mpoly = dm->getPolyArray(dm);
-	config.totloop = dm->getNumLoops(dm);
-	config.totpoly = dm->getNumPolys(dm);
-	config.loopdata = dm->getLoopDataLayout(dm);
-	config.add_customdata_cb = add_customdata_cb;
-
-	return config;
-}
-
-static DerivedMesh *read_mesh_sample(DerivedMesh *dm, const IObject &iobject, const float time, int read_flag)
-{
-	IPolyMesh mesh(iobject, kWrapExisting);
-	IPolyMeshSchema schema = mesh.getSchema();
-	ISampleSelector sample_sel(time);
-	const IPolyMeshSchema::Sample sample = schema.getValue(sample_sel);
-
-	const P3fArraySamplePtr &positions = sample.getPositions();
-	const Alembic::Abc::Int32ArraySamplePtr &face_indices = sample.getFaceIndices();
-	const Alembic::Abc::Int32ArraySamplePtr &face_counts = sample.getFaceCounts();
-
-	DerivedMesh *new_dm = NULL;
-
-	/* Only read point data when streaming meshes, unless we need to create new ones. */
-	ImportSettings settings;
-	settings.read_flag |= read_flag;
-
-	if (dm->getNumVerts(dm) != positions->size()) {
-		new_dm = CDDM_from_template(dm,
-		                            positions->size(),
-		                            0,
-		                            0,
-		                            face_indices->size(),
-		                            face_counts->size());
-
-		settings.read_flag |= MOD_MESHSEQ_READ_ALL;
-	}
-
-	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
-
-	bool do_normals = false;
-	read_mesh_sample(&settings, schema, sample_sel, config, do_normals);
-
-	if (new_dm) {
-		/* Check if we had ME_SMOOTH flag set to restore it. */
-		if (!do_normals && check_smooth_poly_flag(dm)) {
-			set_smooth_poly_flag(new_dm);
-		}
-
-		CDDM_calc_normals(new_dm);
-		CDDM_calc_edges(new_dm);
-
-		return new_dm;
-	}
-
-	if (do_normals) {
-		CDDM_calc_normals(dm);
-	}
-
-	return dm;
-}
-
-using Alembic::AbcGeom::ISubDSchema;
-
-static DerivedMesh *read_subd_sample(DerivedMesh *dm, const IObject &iobject, const float time, int read_flag)
-{
-	ISubD mesh(iobject, kWrapExisting);
-	ISubDSchema schema = mesh.getSchema();
-	ISampleSelector sample_sel(time);
-	const ISubDSchema::Sample sample = schema.getValue(sample_sel);
-
-	const P3fArraySamplePtr &positions = sample.getPositions();
-	const Alembic::Abc::Int32ArraySamplePtr &face_indices = sample.getFaceIndices();
-	const Alembic::Abc::Int32ArraySamplePtr &face_counts = sample.getFaceCounts();
-
-	DerivedMesh *new_dm = NULL;
-
-	ImportSettings settings;
-	settings.read_flag |= read_flag;
-
-	if (dm->getNumVerts(dm) != positions->size()) {
-		new_dm = CDDM_from_template(dm,
-		                            positions->size(),
-		                            0,
-		                            0,
-		                            face_indices->size(),
-		                            face_counts->size());
-
-		settings.read_flag |= MOD_MESHSEQ_READ_ALL;
-	}
-
-	/* Only read point data when streaming meshes, unless we need to create new ones. */
-	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
-	read_subd_sample(&settings, schema, sample_sel, config);
-
-	if (new_dm) {
-		/* Check if we had ME_SMOOTH flag set to restore it. */
-		if (check_smooth_poly_flag(dm)) {
-			set_smooth_poly_flag(new_dm);
-		}
-
-		CDDM_calc_normals(new_dm);
-		CDDM_calc_edges(new_dm);
-
-		return new_dm;
-	}
-
-	return dm;
-}
-
-static DerivedMesh *read_points_sample(DerivedMesh *dm, const IObject &iobject, const float time)
-{
-	IPoints points(iobject, kWrapExisting);
-	IPointsSchema schema = points.getSchema();
-	ISampleSelector sample_sel(time);
-	const IPointsSchema::Sample sample = schema.getValue(sample_sel);
-
-	const P3fArraySamplePtr &positions = sample.getPositions();
-
-	DerivedMesh *new_dm = NULL;
-
-	if (dm->getNumVerts(dm) != positions->size()) {
-		new_dm = CDDM_new(positions->size(), 0, 0, 0, 0);
-	}
-
-	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
-	read_points_sample(schema, sample_sel, config, time);
-
-	return new_dm ? new_dm : dm;
-}
-
-/* NOTE: Alembic only stores data about control points, but the DerivedMesh
- * passed from the cache modifier contains the displist, which has more data
- * than the control points, so to avoid corrupting the displist we modify the
- * object directly and create a new DerivedMesh from that. Also we might need to
- * create new or delete existing NURBS in the curve.
- */
-static DerivedMesh *read_curves_sample(Object *ob, const IObject &iobject, const float time)
-{
-	ICurves points(iobject, kWrapExisting);
-	ICurvesSchema schema = points.getSchema();
-	ISampleSelector sample_sel(time);
-	const ICurvesSchema::Sample sample = schema.getValue(sample_sel);
-
-	const P3fArraySamplePtr &positions = sample.getPositions();
-	const Int32ArraySamplePtr num_vertices = sample.getCurvesNumVertices();
-
-	int vertex_idx = 0;
-	int curve_idx = 0;
-	Curve *curve = static_cast<Curve *>(ob->data);
-
-	const int curve_count = BLI_listbase_count(&curve->nurb);
-
-	if (curve_count != num_vertices->size()) {
-		BKE_nurbList_free(&curve->nurb);
-		read_curve_sample(curve, schema, time);
-	}
-	else {
-		Nurb *nurbs = static_cast<Nurb *>(curve->nurb.first);
-		for (; nurbs; nurbs = nurbs->next, ++curve_idx) {
-			const int totpoint = (*num_vertices)[curve_idx];
-
-			if (nurbs->bp) {
-				BPoint *point = nurbs->bp;
-
-				for (int i = 0; i < totpoint; ++i, ++point, ++vertex_idx) {
-					const Imath::V3f &pos = (*positions)[vertex_idx];
-					copy_yup_zup(point->vec, pos.getValue());
-				}
-			}
-			else if (nurbs->bezt) {
-				BezTriple *bezier = nurbs->bezt;
-
-				for (int i = 0; i < totpoint; ++i, ++bezier, ++vertex_idx) {
-					const Imath::V3f &pos = (*positions)[vertex_idx];
-					copy_yup_zup(bezier->vec[1], pos.getValue());
-				}
-			}
-		}
-	}
-
-	return CDDM_from_curve(ob);
-}
-
-DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
+DerivedMesh *ABC_read_mesh(CacheReader *reader,
                            Object *ob,
                            DerivedMesh *dm,
-                           const char *object_path,
                            const float time,
                            const char **err_str,
                            int read_flag)
 {
-	IArchive *archive = archive_from_handle(handle);
-
-	if (!archive || !archive->valid()) {
-		*err_str = "Invalid archive!";
-		return NULL;
-	}
-
-	IObject iobject;
-	find_iobject(archive->getTop(), iobject, object_path);
+	AbcObjectReader *abc_reader = reinterpret_cast<AbcObjectReader *>(reader);
+	IObject iobject = abc_reader->iobject();
 
 	if (!iobject.valid()) {
 		*err_str = "Invalid object: verify object path";
@@ -1111,7 +816,7 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
 			return NULL;
 		}
 
-		return read_mesh_sample(dm, iobject, time, read_flag);
+		return abc_reader->read_derivedmesh(dm, time, read_flag, err_str);
 	}
 	else if (ISubD::matches(header)) {
 		if (ob->type != OB_MESH) {
@@ -1119,7 +824,7 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
 			return NULL;
 		}
 
-		return read_subd_sample(dm, iobject, time, read_flag);
+		return abc_reader->read_derivedmesh(dm, time, read_flag, err_str);
 	}
 	else if (IPoints::matches(header)) {
 		if (ob->type != OB_MESH) {
@@ -1127,7 +832,7 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
 			return NULL;
 		}
 
-		return read_points_sample(dm, iobject, time);
+		return abc_reader->read_derivedmesh(dm, time, read_flag, err_str);
 	}
 	else if (ICurves::matches(header)) {
 		if (ob->type != OB_CURVE) {
@@ -1135,9 +840,48 @@ DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
 			return NULL;
 		}
 
-		return read_curves_sample(ob, iobject, time);
+		return abc_reader->read_derivedmesh(dm, time, read_flag, err_str);
 	}
 
 	*err_str = "Unsupported object type: verify object path"; // or poke developer
 	return NULL;
+}
+
+/* ************************************************************************** */
+
+void CacheReader_free(CacheReader *reader)
+{
+	AbcObjectReader *abc_reader = reinterpret_cast<AbcObjectReader *>(reader);
+	abc_reader->decref();
+
+	if (abc_reader->refcount() == 0) {
+		delete abc_reader;
+	}
+}
+
+CacheReader *CacheReader_open_alembic_object(AbcArchiveHandle *handle, CacheReader *reader, Object *object, const char *object_path)
+{
+	if (object_path[0] == '\0') {
+		return reader;
+	}
+
+	ArchiveReader *archive = archive_from_handle(handle);
+
+	if (!archive || !archive->valid()) {
+		return reader;
+	}
+
+	IObject iobject;
+	find_iobject(archive->getTop(), iobject, object_path);
+
+	if (reader) {
+		CacheReader_free(reader);
+	}
+
+	ImportSettings settings;
+	AbcObjectReader *abc_reader = create_reader(iobject, settings);
+	abc_reader->object(object);
+	abc_reader->incref();
+
+	return reinterpret_cast<CacheReader *>(abc_reader);
 }

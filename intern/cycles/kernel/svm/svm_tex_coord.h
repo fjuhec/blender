@@ -49,8 +49,7 @@ ccl_device void svm_node_tex_coord(KernelGlobals *kg,
 		}
 		case NODE_TEXCO_NORMAL: {
 			data = ccl_fetch(sd, N);
-			if(ccl_fetch(sd, object) != OBJECT_NONE)
-				object_inverse_normal_transform(kg, sd, &data);
+			object_inverse_normal_transform(kg, sd, &data);
 			break;
 		}
 		case NODE_TEXCO_CAMERA: {
@@ -131,8 +130,7 @@ ccl_device void svm_node_tex_coord_bump_dx(KernelGlobals *kg,
 		}
 		case NODE_TEXCO_NORMAL: {
 			data = ccl_fetch(sd, N);
-			if(ccl_fetch(sd, object) != OBJECT_NONE)
-				object_inverse_normal_transform(kg, sd, &data);
+			object_inverse_normal_transform(kg, sd, &data);
 			break;
 		}
 		case NODE_TEXCO_CAMERA: {
@@ -216,8 +214,7 @@ ccl_device void svm_node_tex_coord_bump_dy(KernelGlobals *kg,
 		}
 		case NODE_TEXCO_NORMAL: {
 			data = ccl_fetch(sd, N);
-			if(ccl_fetch(sd, object) != OBJECT_NONE)
-				object_inverse_normal_transform(kg, sd, &data);
+			object_inverse_normal_transform(kg, sd, &data);
 			break;
 		}
 		case NODE_TEXCO_CAMERA: {
@@ -277,6 +274,7 @@ ccl_device void svm_node_normal_map(KernelGlobals *kg, ShaderData *sd, float *st
 	float3 color = stack_load_float3(stack, color_offset);
 	color = 2.0f*make_float3(color.x - 0.5f, color.y - 0.5f, color.z - 0.5f);
 
+	bool is_backfacing = (ccl_fetch(sd, flag) & SD_BACKFACING) != 0;
 	float3 N;
 
 	if(space == NODE_NORMAL_MAP_TANGENT) {
@@ -306,6 +304,12 @@ ccl_device void svm_node_normal_map(KernelGlobals *kg, ShaderData *sd, float *st
 		}
 		else {
 			normal = ccl_fetch(sd, Ng);
+
+			/* the normal is already inverted, which is too soon for the math here */
+			if(is_backfacing) {
+				normal = -normal;
+			}
+
 			object_inverse_normal_transform(kg, sd, &normal);
 		}
 
@@ -330,6 +334,11 @@ ccl_device void svm_node_normal_map(KernelGlobals *kg, ShaderData *sd, float *st
 			object_normal_transform(kg, sd, &N);
 		else
 			N = safe_normalize(N);
+	}
+
+	/* invert normal for backfacing polygons */
+	if(is_backfacing) {
+		N = -N;
 	}
 
 	float strength = stack_load_float(stack, strength_offset);

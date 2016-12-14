@@ -28,6 +28,7 @@ extern "C" {
 #endif
 
 struct bContext;
+struct CacheReader;
 struct DerivedMesh;
 struct ListBase;
 struct Object;
@@ -64,8 +65,12 @@ struct AlembicExportParams {
 	unsigned int face_sets : 1;
 	unsigned int use_subdiv_schema : 1;
 	unsigned int packuv : 1;
+	unsigned int triangulate : 1;
 
 	unsigned int compression_type : 1;
+
+	int quad_method;
+	int ngon_method;
 	float global_scale;
 };
 
@@ -88,20 +93,24 @@ AbcArchiveHandle *ABC_create_handle(const char *filename, struct ListBase *objec
 
 void ABC_free_handle(AbcArchiveHandle *handle);
 
-void ABC_get_transform(AbcArchiveHandle *handle,
-                       struct Object *ob,
-                       const char *object_path,
+void ABC_get_transform(struct CacheReader *reader,
                        float r_mat[4][4],
                        float time,
                        float scale);
 
-struct DerivedMesh *ABC_read_mesh(AbcArchiveHandle *handle,
+struct DerivedMesh *ABC_read_mesh(struct CacheReader *reader,
                                   struct Object *ob,
                                   struct DerivedMesh *dm,
-                                  const char *object_path,
                                   const float time,
                                   const char **err_str,
                                   int flags);
+
+void CacheReader_free(struct CacheReader *reader);
+
+struct CacheReader *CacheReader_open_alembic_object(struct AbcArchiveHandle *handle,
+                                                    struct CacheReader *reader,
+                                                    struct Object *object,
+                                                    const char *object_path);
 
 #ifdef __cplusplus
 }

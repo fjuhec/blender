@@ -233,7 +233,7 @@ static void rna_Material_active_texture_set(PointerRNA *ptr, PointerRNA value)
 	set_current_material_texture(ma, value.data);
 }
 
-static int rna_Material_active_texture_editable(PointerRNA *ptr)
+static int rna_Material_active_texture_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 {
 	Material *ma = (Material *)ptr->id.data;
 
@@ -1889,7 +1889,7 @@ void RNA_def_material(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "index");
-	RNA_def_property_ui_text(prop, "Pass Index", "Index number for the IndexMA render pass");
+	RNA_def_property_ui_text(prop, "Pass Index", "Index number for the \"Material Index\" render pass");
 	RNA_def_property_update(prop, NC_OBJECT, "rna_Material_update");
 
 	/* flags */
@@ -2163,14 +2163,14 @@ static void rna_def_texture_slots(BlenderRNA *brna, PropertyRNA *cprop, const ch
 	func = RNA_def_function(srna, "create", "rna_mtex_texture_slots_create");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_NO_SELF | FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
 	parm = RNA_def_int(func, "index", 0, 0, INT_MAX, "Index", "Slot index to initialize", 0, INT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "mtex", structname, "", "The newly initialized mtex");
 	RNA_def_function_return(func, parm);
 	
 	func = RNA_def_function(srna, "clear", "rna_mtex_texture_slots_clear");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_NO_SELF | FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
 	parm = RNA_def_int(func, "index", 0, 0, INT_MAX, "Index", "Slot index to clear", 0, INT_MAX);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 }
 
 void rna_def_mtex_common(BlenderRNA *brna, StructRNA *srna, const char *begin,

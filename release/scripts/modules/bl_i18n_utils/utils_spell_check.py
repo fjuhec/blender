@@ -153,7 +153,7 @@ class SpellChecker:
         "realtime",
         "rekey",
         "remesh",
-        "reprojection",
+        "reprojection", "reproject",
         "resize",
         "restpose",
         "retarget", "retargets", "retargeting", "retargeted",
@@ -163,6 +163,7 @@ class SpellChecker:
         "runtime",
         "scanline",
         "screencast", "screenshot", "screenshots",
+        "seekability",
         "selfcollision",
         "shadowbuffer", "shadowbuffers",
         "singletexture",
@@ -184,6 +185,7 @@ class SpellChecker:
         "timestamp", "timestamps",
         "timestep", "timesteps",
         "todo",
+        "tradeoff",
         "un",
         "unbake",
         "uncomment",
@@ -246,6 +248,7 @@ class SpellChecker:
         "amb",
         "anim",
         "app",
+        "bbox", "bboxes",
         "bool",
         "calc",
         "config", "configs",
@@ -441,6 +444,7 @@ class SpellChecker:
         "gpencil",
         "idcol",
         "keyframe", "keyframes", "keyframing", "keyframed",
+        "mathvis",
         "metaball", "metaballs", "mball",
         "metaelement", "metaelements",
         "metastrip", "metastrips",
@@ -468,6 +472,7 @@ class SpellChecker:
         "timeline", "timelines",
         "tosphere",
         "uilist",
+        "userpref",
         "vcol", "vcols",
         "vgroup", "vgroups",
         "vinterlace",
@@ -476,6 +481,12 @@ class SpellChecker:
         "wetmap", "wetmaps",
         "wpaint",
         "uvwarp",
+
+        # UOC (Ugly Operator Categories)
+        "cachefile",
+        "paintcurve",
+        "ptcache",
+        "dpaint",
 
         # Algorithm/library names
         "ashikhmin",  # Ashikhmin-Shirley

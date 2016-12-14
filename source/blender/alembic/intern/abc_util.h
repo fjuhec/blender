@@ -32,9 +32,14 @@
 #  define ABC_INLINE static inline
 #endif
 
+struct CacheReader {
+	int unused;
+};
+
 using Alembic::Abc::chrono_t;
 
-class ImportSettings;
+class AbcObjectReader;
+struct ImportSettings;
 
 struct ID;
 struct Object;
@@ -59,9 +64,8 @@ bool begins_with(const TContainer &input, const TContainer &match)
 	        && std::equal(match.begin(), match.end(), input.begin());
 }
 
-void create_input_transform(const Alembic::AbcGeom::ISampleSelector &sample_sel,
-                            const Alembic::AbcGeom::IXform &ixform, Object *ob,
-                            float r_mat[4][4], float scale, bool has_alembic_parent = false);
+void convert_matrix(const Imath::M44d &xform, Object *ob,
+                    float r_mat[4][4], float scale, bool has_alembic_parent = false);
 
 template <typename Schema>
 void get_min_max_time_ex(const Schema &schema, chrono_t &min, chrono_t &max)
@@ -86,11 +90,22 @@ void get_min_max_time(const Alembic::AbcGeom::IObject &object, const Schema &sch
 {
 	get_min_max_time_ex(schema, min, max);
 
-	Alembic::AbcGeom::IXform parent(object.getParent(), Alembic::AbcGeom::kWrapExisting);
-	get_min_max_time_ex(parent.getSchema(), min, max);
+	const Alembic::AbcGeom::IObject &parent = object.getParent();
+	if (parent.valid() && Alembic::AbcGeom::IXform::matches(parent.getMetaData())) {
+		Alembic::AbcGeom::IXform xform(parent, Alembic::AbcGeom::kWrapExisting);
+		get_min_max_time_ex(xform.getSchema(), min, max);
+	}
 }
 
 bool has_property(const Alembic::Abc::ICompoundProperty &prop, const std::string &name);
+
+float get_weight_and_index(float time,
+                           const Alembic::AbcCoreAbstract::TimeSamplingPtr &time_sampling,
+                           int samples_number,
+                           Alembic::AbcGeom::index_t &i0,
+                           Alembic::AbcGeom::index_t &i1);
+
+AbcObjectReader *create_reader(const Alembic::AbcGeom::IObject &object, ImportSettings &settings);
 
 /* ************************** */
 

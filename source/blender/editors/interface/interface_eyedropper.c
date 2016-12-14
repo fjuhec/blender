@@ -448,8 +448,20 @@ static int eyedropper_exec(bContext *C, wmOperator *op)
 
 static int eyedropper_poll(bContext *C)
 {
-	if (!CTX_wm_window(C)) return 0;
-	else return 1;
+	PointerRNA ptr;
+	PropertyRNA *prop;
+	int index_dummy;
+	uiBut *but;
+
+	/* Only color buttons */
+	if ((CTX_wm_window(C) != NULL) &&
+	    (but = UI_context_active_but_prop_get(C, &ptr, &prop, &index_dummy)) &&
+	    (but->type == UI_BTYPE_COLOR))
+	{
+		return 1;
+	}
+
+	return 0;
 }
 
 void UI_OT_eyedropper_color(wmOperatorType *ot)
@@ -727,16 +739,35 @@ static int datadropper_exec(bContext *C, wmOperator *op)
 
 static int datadropper_poll(bContext *C)
 {
-	if (!CTX_wm_window(C)) return 0;
-	else return 1;
+	PointerRNA ptr;
+	PropertyRNA *prop;
+	int index_dummy;
+	uiBut *but;
+
+	/* data dropper only supports object data */
+	if ((CTX_wm_window(C) != NULL) &&
+	    (but = UI_context_active_but_prop_get(C, &ptr, &prop, &index_dummy)) &&
+	    (but->type == UI_BTYPE_SEARCH_MENU) &&
+	    (but->flag & UI_BUT_VALUE_CLEAR))
+	{
+		if (prop && RNA_property_type(prop) == PROP_POINTER) {
+			StructRNA *type = RNA_property_pointer_type(&ptr, prop);
+			const short idcode = RNA_type_to_ID_code(type);
+			if ((idcode == ID_OB) || OB_DATA_SUPPORT_ID(idcode)) {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
 }
 
 void UI_OT_eyedropper_id(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Eyedropper Datablock";
+	ot->name = "Eyedropper Data-Block";
 	ot->idname = "UI_OT_eyedropper_id";
-	ot->description = "Sample a datablock from the 3D View to store in a property";
+	ot->description = "Sample a data-block from the 3D View to store in a property";
 
 	/* api callbacks */
 	ot->invoke = datadropper_invoke;
@@ -851,7 +882,6 @@ static void depthdropper_exit(bContext *C, wmOperator *op)
  */
 static void depthdropper_depth_sample_pt(bContext *C, DepthDropper *ddr, int mx, int my, float *r_depth)
 {
-
 	/* we could use some clever */
 	wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa = BKE_screen_find_area_xy(win->screen, SPACE_TYPE_ANY, mx, my);
@@ -892,7 +922,7 @@ static void depthdropper_depth_sample_pt(bContext *C, DepthDropper *ddr, int mx,
 					float co_align[3];
 
 					/* quick way to get view-center aligned point */
-					ED_view3d_win_to_3d(ar, co, mval_center_fl, co_align);
+					ED_view3d_win_to_3d(v3d, ar, co, mval_center_fl, co_align);
 
 					*r_depth = len_v3v3(view_co, co_align);
 
@@ -1034,8 +1064,35 @@ static int depthdropper_exec(bContext *C, wmOperator *op)
 
 static int depthdropper_poll(bContext *C)
 {
-	if (!CTX_wm_window(C)) return 0;
-	else return 1;
+	PointerRNA ptr;
+	PropertyRNA *prop;
+	int index_dummy;
+	uiBut *but;
+
+	/* check if there's an active button taking depth value */
+	if ((CTX_wm_window(C) != NULL) &&
+	    (but = UI_context_active_but_prop_get(C, &ptr, &prop, &index_dummy)) &&
+	    (but->type == UI_BTYPE_NUM) &&
+	    (prop != NULL))
+	{
+		if ((RNA_property_type(prop) == PROP_FLOAT) &&
+		    (RNA_property_subtype(prop) & PROP_UNIT_LENGTH) &&
+		    (RNA_property_array_check(prop) == false))
+		{
+			return 1;
+		}
+	}
+	else  {
+		RegionView3D *rv3d = CTX_wm_region_view3d(C);
+		if (rv3d && rv3d->persp == RV3D_CAMOB) {
+			View3D *v3d = CTX_wm_view3d(C);
+			if (v3d->camera && v3d->camera->data && !ID_IS_LINKED_DATABLOCK(v3d->camera->data)) {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
 }
 
 void UI_OT_eyedropper_depth(wmOperatorType *ot)
@@ -1084,12 +1141,11 @@ static bool driverdropper_init(bContext *C, wmOperator *op)
 {
 	DriverDropper *ddr;
 	uiBut *but;
-	
+
 	op->customdata = ddr = MEM_callocN(sizeof(DriverDropper), "DriverDropper");
-	
-	UI_context_active_but_prop_get(C, &ddr->ptr, &ddr->prop, &ddr->index);
-	but = UI_context_active_but_get(C);
-	
+
+	but = UI_context_active_but_prop_get(C, &ddr->ptr, &ddr->prop, &ddr->index);
+
 	if ((ddr->ptr.data == NULL) ||
 	    (ddr->prop == NULL) ||
 	    (RNA_property_editable(&ddr->ptr, ddr->prop) == false) ||

@@ -44,6 +44,7 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_utildefines.h"
+#include "BLI_bitmap_draw_2d.h"
 #include "BLI_ghash.h"
 #include "BLI_math.h"
 #include "BLI_math_base.h"
@@ -330,7 +331,7 @@ void BKE_tracking_settings_init(MovieTracking *tracking)
 	tracking->settings.object_distance = 1;
 
 	tracking->stabilization.scaleinf = 1.0f;
-	tracking->stabilization.anchor_frame = MINFRAME;
+	tracking->stabilization.anchor_frame = 1;
 	zero_v2(tracking->stabilization.target_pos);
 	tracking->stabilization.target_rot = 0.0f;
 	tracking->stabilization.scale = 1.0f;
@@ -997,9 +998,10 @@ static void track_mask_gpencil_layer_rasterize(int frame_width, int frame_height
 					point[1] = (stroke_points[i].y - marker->search_min[1]) * frame_height;
 				}
 				/* TODO: add an option to control whether AA is enabled or not */
-				fill_poly_v2i_n(0, 0, mask_width, mask_height,
-				                (const int (*)[2])mask_points, stroke->totpoints,
-				                track_mask_set_pixel_cb, &data);
+				BLI_bitmap_draw_2d_poly_v2i_n(
+				        0, 0, mask_width, mask_height,
+				        (const int (*)[2])mask_points, stroke->totpoints,
+				        track_mask_set_pixel_cb, &data);
 				MEM_freeN(mask_points);
 			}
 			stroke = stroke->next;

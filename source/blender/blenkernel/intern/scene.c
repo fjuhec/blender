@@ -78,6 +78,7 @@
 #include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_library.h"
+#include "BKE_library_remap.h"
 #include "BKE_linestyle.h"
 #include "BKE_main.h"
 #include "BKE_mask.h"
@@ -162,7 +163,6 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 	
 	if (type == SCE_COPY_EMPTY) {
 		ListBase rl, rv;
-		/* XXX. main should become an arg */
 		scen = BKE_scene_add(bmain, sce->id.name + 2);
 		
 		rl = scen->r.layers;
@@ -187,8 +187,6 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		scen = BKE_libblock_copy(bmain, &sce->id);
 		BLI_duplicatelist(&(scen->base), &(sce->base));
 		
-		BKE_main_id_clear_newpoins(bmain);
-		
 		id_us_plus((ID *)scen->world);
 		id_us_plus((ID *)scen->set);
 		/* id_us_plus((ID *)scen->gm.dome.warptext); */  /* XXX Not refcounted? see readfile.c */
@@ -212,7 +210,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		if (sce->nodetree) {
 			/* ID's are managed on both copy and switch */
 			scen->nodetree = ntreeCopyTree(bmain, sce->nodetree);
-			ntreeSwitchID(scen->nodetree, &sce->id, &scen->id);
+			BKE_libblock_relink_ex(bmain, scen->nodetree, &sce->id, &scen->id, false);
 		}
 
 		obase = sce->base.first;
@@ -226,7 +224,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		}
 
 		/* copy action and remove animation used by sequencer */
-		BKE_animdata_copy_id_action(&scen->id);
+		BKE_animdata_copy_id_action(&scen->id, false);
 
 		if (type != SCE_COPY_FULL)
 			remove_sequencer_fcurves(scen);
@@ -319,7 +317,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 
 	/*  camera */
 	if (type == SCE_COPY_LINK_DATA || type == SCE_COPY_FULL) {
-		ID_NEW(scen->camera);
+		ID_NEW_REMAP(scen->camera);
 	}
 	
 	/* before scene copy */
@@ -330,7 +328,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		if (scen->world) {
 			id_us_plus((ID *)scen->world);
 			scen->world = BKE_world_copy(bmain, scen->world);
-			BKE_animdata_copy_id_action((ID *)scen->world);
+			BKE_animdata_copy_id_action((ID *)scen->world, false);
 		}
 
 		if (sce->ed) {
@@ -820,6 +818,8 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 	Scene *sce;
 
 	sce = BKE_libblock_alloc(bmain, ID_SCE, name);
+	id_us_min(&sce->id);
+	id_us_ensure_real(&sce->id);
 
 	BKE_scene_init(sce);
 
@@ -905,7 +905,7 @@ Scene *BKE_scene_set_name(Main *bmain, const char *name)
 	Scene *sce = (Scene *)BKE_libblock_find_name_ex(bmain, ID_SCE, name);
 	if (sce) {
 		BKE_scene_set_background(bmain, sce);
-		printf("Scene switch: '%s' in file: '%s'\n", name, bmain->name);
+		printf("Scene switch for render: '%s' in file: '%s'\n", name, bmain->name);
 		return sce;
 	}
 
@@ -1560,10 +1560,11 @@ static void print_threads_statistics(ThreadedObjectUpdateState *state)
 #else
 	finish_time = PIL_check_seconds_timer();
 	tot_thread = BLI_system_thread_count();
+	int total_objects = 0;
 
 	for (i = 0; i < tot_thread; i++) {
-		int total_objects = 0;
-		double total_time = 0.0;
+		int thread_total_objects = 0;
+		double thread_total_time = 0.0;
 		StatisicsEntry *entry;
 
 		if (state->has_updated_objects) {
@@ -1572,11 +1573,14 @@ static void print_threads_statistics(ThreadedObjectUpdateState *state)
 			     entry;
 			     entry = entry->next)
 			{
-				total_objects++;
-				total_time += entry->duration;
+				thread_total_objects++;
+				thread_total_time += entry->duration;
 			}
 
-			printf("Thread %d: total %d objects in %f sec.\n", i, total_objects, total_time);
+			printf("Thread %d: total %d objects in %f sec.\n",
+			       i,
+			       thread_total_objects,
+			       thread_total_time);
 
 			for (entry = state->statistics[i].first;
 			     entry;
@@ -1584,12 +1588,16 @@ static void print_threads_statistics(ThreadedObjectUpdateState *state)
 			{
 				printf("  %s in %f sec\n", entry->object->id.name + 2, entry->duration);
 			}
+
+			total_objects += thread_total_objects;
 		}
 
 		BLI_freelistN(&state->statistics[i]);
 	}
 	if (state->has_updated_objects) {
-		printf("Scene update in %f sec\n", finish_time - state->base_time);
+		printf("Scene updated %d objects in %f sec\n",
+		       total_objects,
+		       finish_time - state->base_time);
 	}
 #endif
 }

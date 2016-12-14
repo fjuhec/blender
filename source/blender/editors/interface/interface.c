@@ -1247,7 +1247,6 @@ void UI_block_end_ex(const bContext *C, uiBlock *block, const int xy[2])
 
 			if (ot == NULL || WM_operator_poll_context((bContext *)C, ot, but->opcontext) == 0) {
 				but->flag |= UI_BUT_DISABLED;
-				but->lock = true;
 			}
 
 			if (but->context)
@@ -1988,22 +1987,29 @@ uiBut *ui_but_drag_multi_edit_get(uiBut *but)
 /** \name Check to show extra icons
  *
  * Extra icons are shown on the right hand side of buttons.
+ * This could (should!) definitely become more generic, but for now this is good enough.
  * \{ */
+
+static bool ui_but_icon_extra_is_visible_text_clear(const uiBut *but)
+{
+	BLI_assert(but->type == UI_BTYPE_TEXT);
+	return ((but->flag & UI_BUT_VALUE_CLEAR) && but->drawstr && but->drawstr[0]);
+}
 
 static bool ui_but_icon_extra_is_visible_search_unlink(const uiBut *but)
 {
 	BLI_assert(but->type == UI_BTYPE_SEARCH_MENU);
 	return ((but->editstr == NULL) &&
 	        (but->drawstr[0] != '\0') &&
-	        (but->flag & UI_BUT_SEARCH_UNLINK));
+	        (but->flag & UI_BUT_VALUE_CLEAR));
 }
 
-static bool ui_but_icon_extra_is_visible_eyedropper(uiBut *but)
+static bool ui_but_icon_extra_is_visible_search_eyedropper(uiBut *but)
 {
 	StructRNA *type;
 	short idcode;
 
-	BLI_assert(but->type == UI_BTYPE_SEARCH_MENU && (but->flag & UI_BUT_SEARCH_UNLINK));
+	BLI_assert(but->type == UI_BTYPE_SEARCH_MENU && (but->flag & UI_BUT_VALUE_CLEAR));
 
 	if (but->rnaprop == NULL) {
 		return false;
@@ -2012,21 +2018,31 @@ static bool ui_but_icon_extra_is_visible_eyedropper(uiBut *but)
 	type = RNA_property_pointer_type(&but->rnapoin, but->rnaprop);
 	idcode = RNA_type_to_ID_code(type);
 
-
 	return ((but->editstr == NULL) &&
 	        (idcode == ID_OB || OB_DATA_SUPPORT_ID(idcode)));
 }
 
 uiButExtraIconType ui_but_icon_extra_get(uiBut *but)
 {
-	if ((but->flag & UI_BUT_SEARCH_UNLINK) == 0) {
-		/* pass */
-	}
-	else if (ui_but_icon_extra_is_visible_search_unlink(but)) {
-		return UI_BUT_ICONEXTRA_UNLINK;
-	}
-	else if (ui_but_icon_extra_is_visible_eyedropper(but)) {
-		return UI_BUT_ICONEXTRA_EYEDROPPER;
+	switch (but->type) {
+		case UI_BTYPE_TEXT:
+			if (ui_but_icon_extra_is_visible_text_clear(but)) {
+				return UI_BUT_ICONEXTRA_CLEAR;
+			}
+			break;
+		case UI_BTYPE_SEARCH_MENU:
+			if ((but->flag & UI_BUT_VALUE_CLEAR) == 0) {
+				/* pass */
+			}
+			else if (ui_but_icon_extra_is_visible_search_unlink(but)) {
+				return UI_BUT_ICONEXTRA_CLEAR;
+			}
+			else if (ui_but_icon_extra_is_visible_search_eyedropper(but)) {
+				return UI_BUT_ICONEXTRA_EYEDROPPER;
+			}
+			break;
+		default:
+			break;
 	}
 
 	return UI_BUT_ICONEXTRA_NONE;
@@ -3122,8 +3138,7 @@ static uiBut *ui_def_but(
 	but->a2 = a2;
 	but->tip = tip;
 
-	but->lock = block->lock;
-	but->lockstr = block->lockstr;
+	but->disabled_info = block->lockstr;
 	but->dt = block->dt;
 	but->pie_dir = UI_RADIAL_NONE;
 
@@ -3171,10 +3186,8 @@ static uiBut *ui_def_but(
 
 	but->drawflag |= (block->flag & UI_BUT_ALIGN);
 
-	if (but->lock == true) {
-		if (but->lockstr) {
-			but->flag |= UI_BUT_DISABLED;
-		}
+	if (block->lock == true) {
+		but->flag |= UI_BUT_DISABLED;
 	}
 
 	/* keep track of UI_interface.h */
@@ -3219,11 +3232,10 @@ void ui_def_but_icon(uiBut *but, const int icon, const int flag)
 	}
 }
 
-static void ui_def_but_rna__disable(uiBut *but)
+static void ui_def_but_rna__disable(uiBut *but, const char *info)
 {
 	but->flag |= UI_BUT_DISABLED;
-	but->lock = true;
-	but->lockstr = "";
+	but->disabled_info = info;
 }
 
 static void ui_def_but_rna__menu(bContext *UNUSED(C), uiLayout *layout, void *but_p)
@@ -3488,8 +3500,9 @@ static uiBut *ui_def_but_rna(
 		but->flag |= UI_BUT_ICON_SUBMENU;
 	}
 
-	if (!RNA_property_editable(&but->rnapoin, prop)) {
-		ui_def_but_rna__disable(but);
+	const char *info;
+	if (!RNA_property_editable_info(&but->rnapoin, prop, &info)) {
+		ui_def_but_rna__disable(but, info);
 	}
 
 	if (but->flag & UI_BUT_UNDO && (ui_but_is_rna_undo(but) == false)) {
@@ -3520,7 +3533,7 @@ static uiBut *ui_def_but_rna_propname(uiBlock *block, int type, int retval, cons
 	else {
 		but = ui_def_but(block, type, retval, propname, x, y, width, height, NULL, min, max, a1, a2, tip);
 
-		ui_def_but_rna__disable(but);
+		ui_def_but_rna__disable(but, "Unknown Property.");
 	}
 
 	return but;
@@ -3548,8 +3561,7 @@ static uiBut *ui_def_but_operator_ptr(uiBlock *block, int type, wmOperatorType *
 
 	if (!ot) {
 		but->flag |= UI_BUT_DISABLED;
-		but->lock = true;
-		but->lockstr = "";
+		but->disabled_info = "";
 	}
 
 	return but;

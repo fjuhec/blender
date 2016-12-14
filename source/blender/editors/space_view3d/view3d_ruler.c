@@ -357,7 +357,7 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 		gps->flag = GP_STROKE_3DSPACE;
 		gps->thickness = 3;
 		/* assign color to stroke */
-		strcpy(gps->colorname, palcolor->info);
+		BLI_strncpy(gps->colorname, palcolor->info, sizeof(gps->colorname));
 		gps->palcolor = palcolor;
 		BLI_addtail(&gpf->strokes, gps);
 		changed = true;
@@ -700,7 +700,7 @@ static void view3d_ruler_free(RulerInfo *ruler_info)
 static void view3d_ruler_item_project(RulerInfo *ruler_info, float r_co[3],
                                       const int xy[2])
 {
-	ED_view3d_win_to_3d_int(ruler_info->ar, r_co, xy, r_co);
+	ED_view3d_win_to_3d_int(ruler_info->sa->spacedata.first, ruler_info->ar, r_co, xy, r_co);
 }
 
 /* use for mousemove events */

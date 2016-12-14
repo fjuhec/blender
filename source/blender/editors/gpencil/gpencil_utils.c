@@ -628,6 +628,63 @@ void gp_point_to_xy(GP_SpaceConversion *gsc, bGPDstroke *gps, bGPDspoint *pt,
 	}
 }
 
+/* Convert Grease Pencil points to screen-space values (as floats)
+ * WARNING: This assumes that the caller has already checked whether the stroke in question can be drawn
+ */
+void gp_point_to_xy_fl(GP_SpaceConversion *gsc, bGPDstroke *gps, bGPDspoint *pt,
+                       float *r_x, float *r_y)
+{
+	ARegion *ar = gsc->ar;
+	View2D *v2d = gsc->v2d;
+	rctf *subrect = gsc->subrect;
+	float xyval[2];
+	
+	/* sanity checks */
+	BLI_assert(!(gps->flag & GP_STROKE_3DSPACE) || (gsc->sa->spacetype == SPACE_VIEW3D));
+	BLI_assert(!(gps->flag & GP_STROKE_2DSPACE) || (gsc->sa->spacetype != SPACE_VIEW3D));
+	
+	
+	if (gps->flag & GP_STROKE_3DSPACE) {
+		if (ED_view3d_project_float_global(ar, &pt->x, xyval, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
+			*r_x = xyval[0];
+			*r_y = xyval[1];
+		}
+		else {
+			*r_x = 0.0f;
+			*r_y = 0.0f;
+		}
+	}
+	else if (gps->flag & GP_STROKE_2DSPACE) {
+		float vec[3] = {pt->x, pt->y, 0.0f};
+		int t_x, t_y;
+		
+		mul_m4_v3(gsc->mat, vec);
+		UI_view2d_view_to_region_clip(v2d, vec[0], vec[1], &t_x, &t_y);
+		
+		if ((t_x == t_y) && (t_x == V2D_IS_CLIPPED)) {
+			/* XXX: Or should we just always use the values as-is? */
+			*r_x = 0.0f;
+			*r_y = 0.0f;
+		}
+		else {
+			*r_x = (float)t_x;
+			*r_y = (float)t_y;
+		}
+	}
+	else {
+		if (subrect == NULL) {
+			/* normal 3D view (or view space) */
+			*r_x = (pt->x / 100.0f * ar->winx);
+			*r_y = (pt->y / 100.0f * ar->winy);
+		}
+		else {
+			/* camera view, use subrect */
+			*r_x = ((pt->x / 100.0f) * BLI_rctf_size_x(subrect)) + subrect->xmin;
+			*r_y = ((pt->y / 100.0f) * BLI_rctf_size_y(subrect)) + subrect->ymin;
+		}
+	}
+}
+
 /**
  * Project screenspace coordinates to 3D-space
  *
@@ -858,7 +915,7 @@ void gp_subdivide_stroke(bGPDstroke *gps, const int new_totpoints)
 /**
  * Add randomness to stroke
  * \param gps           Stroke data
- * \param brsuh         Brush data
+ * \param brush         Brush data
  */
 void gp_randomize_stroke(bGPDstroke *gps, bGPDbrush *brush)
 {
@@ -883,10 +940,12 @@ void gp_randomize_stroke(bGPDstroke *gps, bGPDbrush *brush)
 	float normal[3];
 	cross_v3_v3v3(normal, v1, v2);
 	normalize_v3(normal);
+	
 	/* get orthogonal vector to plane to rotate random effect */
 	float ortho[3];
 	cross_v3_v3v3(ortho, v1, normal);
 	normalize_v3(ortho);
+	
 	/* Read all points and apply shift vector (first and last point not modified) */
 	for (int i = 1; i < gps->totpoints - 1; ++i) {
 		bGPDspoint *pt = &gps->points[i];
@@ -938,6 +997,46 @@ void ED_gpencil_parent_location(bGPDlayer *gpl, float diff_mat[4][4])
 	}
 }
 
+/* reset parent matrix for all layers */
+void ED_gpencil_reset_layers_parent(bGPdata *gpd)
+{
+	bGPDspoint *pt;
+	int i;
+	float diff_mat[4][4];
+	float cur_mat[4][4];
+
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		if (gpl->parent != NULL) {
+			/* calculate new matrix */
+			if ((gpl->partype == PAROBJECT) || (gpl->partype == PARSKEL)) {
+				invert_m4_m4(cur_mat, gpl->parent->obmat);
+			}
+			else if (gpl->partype == PARBONE) {
+				bPoseChannel *pchan = BKE_pose_channel_find_name(gpl->parent->pose, gpl->parsubstr);
+				if (pchan) {
+					float tmp_mat[4][4];
+					mul_m4_m4m4(tmp_mat, gpl->parent->obmat, pchan->pose_mat);
+					invert_m4_m4(cur_mat, tmp_mat);
+				}
+			}
+
+			/* only redo if any change */
+			if (!equals_m4m4(gpl->inverse, cur_mat)) {
+				/* first apply current transformation to all strokes */
+				ED_gpencil_parent_location(gpl, diff_mat);
+				for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+					for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+							mul_m4_v3(diff_mat, &pt->x);
+						}
+					}
+				}
+				/* set new parent matrix */
+				copy_m4_m4(gpl->inverse, cur_mat);
+			}
+		}
+	}
+}
 /* ******************************************************** */
 bool ED_gpencil_stroke_minmax(
         const bGPDstroke *gps, const bool use_select,
@@ -955,8 +1054,8 @@ bool ED_gpencil_stroke_minmax(
 	}
 	return changed;
 }
-/* Dynamic Enums of GP Brushes */
 
+/* Dynamic Enums of GP Brushes */
 EnumPropertyItem *ED_gpencil_brushes_enum_itemf(
         bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
         bool *r_free)
@@ -990,8 +1089,8 @@ EnumPropertyItem *ED_gpencil_brushes_enum_itemf(
 
 	return item;
 }
-/* Dynamic Enums of GP Palettes */
 
+/* Dynamic Enums of GP Palettes */
 EnumPropertyItem *ED_gpencil_palettes_enum_itemf(
         bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
         bool *r_free)

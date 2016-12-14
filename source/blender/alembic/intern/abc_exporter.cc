@@ -24,12 +24,7 @@
 
 #include <cmath>
 
-#ifdef WITH_ALEMBIC_HDF5
-#  include <Alembic/AbcCoreHDF5/All.h>
-#endif
-
-#include <Alembic/AbcCoreOgawa/All.h>
-
+#include "abc_archive.h"
 #include "abc_camera.h"
 #include "abc_curves.h"
 #include "abc_hair.h"
@@ -44,6 +39,7 @@ extern "C" {
 #include "DNA_curve_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_space_types.h"  /* for FILE_MAX */
 
@@ -91,6 +87,9 @@ ExportSettings::ExportSettings()
     , export_child_hairs(true)
     , export_ogawa(true)
     , pack_uv(false)
+    , triangulate(false)
+    , quad_method(0)
+    , ngon_method(0)
     , do_convert_axis(false)
 {}
 
@@ -149,6 +148,7 @@ AbcExporter::AbcExporter(Scene *scene, const char *filename, ExportSettings &set
     , m_trans_sampling_index(0)
     , m_shape_sampling_index(0)
     , m_scene(scene)
+    , m_writer(NULL)
 {}
 
 AbcExporter::~AbcExporter()
@@ -161,6 +161,8 @@ AbcExporter::~AbcExporter()
 	for (int i = 0, e = m_shapes.size(); i != e; ++i) {
 		delete m_shapes[i];
 	}
+
+	delete m_writer;
 }
 
 void AbcExporter::getShutterSamples(double step, bool time_relative,
@@ -174,13 +176,13 @@ void AbcExporter::getShutterSamples(double step, bool time_relative,
 
 	/* sample all frame */
 	if (shutter_open == 0.0 && shutter_close == 1.0) {
-		for (double t = 0; t < 1.0; t += step) {
+		for (double t = 0.0; t < 1.0; t += step) {
 			samples.push_back((t + m_settings.frame_start) / time_factor);
 		}
 	}
 	else {
 		/* sample between shutter open & close */
-		const int nsamples = std::max((1.0 / step) - 1.0, 1.0);
+		const int nsamples = static_cast<int>(std::max((1.0 / step) - 1.0, 1.0));
 		const double time_inc = (shutter_close - shutter_open) / nsamples;
 
 		for (double t = shutter_open; t <= shutter_close; t += time_inc) {
@@ -215,7 +217,7 @@ void AbcExporter::getFrameSet(double step, std::set<double> &frames)
 
 	getShutterSamples(step, false, shutter_samples);
 
-	for (int frame = m_settings.frame_start; frame <= m_settings.frame_end; ++frame) {
+	for (double frame = m_settings.frame_start; frame <= m_settings.frame_end; frame += 1.0) {
 		for (int j = 0, e = shutter_samples.size(); j < e; ++j) {
 			frames.insert(frame + shutter_samples[j]);
 		}
@@ -236,41 +238,21 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 	}
 
 	Scene *scene = m_scene;
-	const int fps = FPS;
+	const double fps = FPS;
 	char buf[16];
-	snprintf(buf, 15, "%d", fps);
+	snprintf(buf, 15, "%f", fps);
 	const std::string str_fps = buf;
 
 	Alembic::AbcCoreAbstract::MetaData md;
 	md.set("FramesPerTimeUnit", str_fps);
 
-	Alembic::Abc::Argument arg(md);
-
-#ifdef WITH_ALEMBIC_HDF5
-	if (!m_settings.export_ogawa) {
-		m_archive = Alembic::Abc::CreateArchiveWithInfo(Alembic::AbcCoreHDF5::WriteArchive(),
-		                                                m_filename,
-		                                                "Blender",
-		                                                scene_name,
-		                                                Alembic::Abc::ErrorHandler::kThrowPolicy,
-		                                                arg);
-	}
-	else
-#endif
-	{
-		m_archive = Alembic::Abc::CreateArchiveWithInfo(Alembic::AbcCoreOgawa::WriteArchive(),
-		                                                m_filename,
-		                                                "Blender",
-		                                                scene_name,
-		                                                Alembic::Abc::ErrorHandler::kThrowPolicy,
-		                                                arg);
-	}
+	m_writer = new ArchiveWriter(m_filename, scene_name.c_str(), m_settings.export_ogawa, md);
 
 	/* Create time samplings for transforms and shapes. */
 
 	TimeSamplingPtr trans_time = createTimeSampling(m_settings.frame_step_xform);
 
-	m_trans_sampling_index = m_archive.addTimeSampling(*trans_time);
+	m_trans_sampling_index = m_writer->archive().addTimeSampling(*trans_time);
 
 	TimeSamplingPtr shape_time;
 
@@ -282,10 +264,10 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 	}
 	else {
 		shape_time = createTimeSampling(m_settings.frame_step_shape);
-		m_shape_sampling_index = m_archive.addTimeSampling(*shape_time);
+		m_shape_sampling_index = m_writer->archive().addTimeSampling(*shape_time);
 	}
 
-	OBox3dProperty archive_bounds_prop = Alembic::AbcGeom::CreateOArchiveBounds(m_archive, m_trans_sampling_index);
+	OBox3dProperty archive_bounds_prop = Alembic::AbcGeom::CreateOArchiveBounds(m_writer->archive(), m_trans_sampling_index);
 
 	if (m_settings.flatten_hierarchy) {
 		createTransformWritersFlat();
@@ -391,7 +373,7 @@ void AbcExporter::createTransformWritersFlat()
 
 		if (export_object(&m_settings, ob) && object_is_shape(ob)) {
 			std::string name = get_id_name(ob);
-			m_xforms[name] = new AbcTransformWriter(ob, m_archive.getTop(), 0, m_trans_sampling_index, m_settings);
+			m_xforms[name] = new AbcTransformWriter(ob, m_writer->archive().getTop(), 0, m_trans_sampling_index, m_settings);
 		}
 
 		base = base->next;
@@ -457,7 +439,7 @@ void AbcExporter::createTransformWriter(Object *ob, Object *parent, Object *dupl
 		m_xforms[name]->setParent(parent);
 	}
 	else {
-		m_xforms[name] = new AbcTransformWriter(ob, m_archive.getTop(), NULL, m_trans_sampling_index, m_settings);
+		m_xforms[name] = new AbcTransformWriter(ob, m_writer->archive().getTop(), NULL, m_trans_sampling_index, m_settings);
 	}
 }
 
@@ -596,7 +578,7 @@ AbcTransformWriter *AbcExporter::getXForm(const std::string &name)
 
 void AbcExporter::setCurrentFrame(Main *bmain, double t)
 {
-	m_scene->r.cfra = std::floor(t);
-	m_scene->r.subframe = t - m_scene->r.cfra;
+	m_scene->r.cfra = static_cast<int>(t);
+	m_scene->r.subframe = static_cast<float>(t) - m_scene->r.cfra;
 	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, m_scene, m_scene->lay);
 }

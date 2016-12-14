@@ -1350,6 +1350,10 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
+		bGPDframe *gpf = gpl->actframe;
+		if (gpf == NULL)
+			continue;
+		
 		/* calculate difference matrix if parent object */
 		if (gpl->parent != NULL) {
 			ED_gpencil_parent_location(gpl, diff_mat);
@@ -1358,10 +1362,8 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 		else {
 			parented = false;
 		}
-
-		bGPDframe *gpf = gpl->actframe;
-		bGPDstroke *gps;
-		for (gps = gpf->strokes.first; gps; gps = gps->next) {
+		
+		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 			/* skip strokes that are invalid for current view */
 			if (ED_gpencil_stroke_can_use(C, gps) == false)
 				continue;
@@ -1795,6 +1797,12 @@ static int gpsculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *even
 			case RIGHTARROWKEY:
 			case UPARROWKEY:
 			case DOWNARROWKEY:
+				return OPERATOR_PASS_THROUGH;
+				
+			/* Camera/View Manipulations - Allowed */
+			/* (See rationale in gpencil_paint.c -> gpencil_draw_modal()) */
+			case PAD0:  case PAD1:  case PAD2:  case PAD3:  case PAD4:
+			case PAD5:  case PAD6:  case PAD7:  case PAD8:  case PAD9:
 				return OPERATOR_PASS_THROUGH;
 			
 			/* Unhandled event */

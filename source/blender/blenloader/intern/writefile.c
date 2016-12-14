@@ -49,7 +49,7 @@
  *     <bh.len>            int,  len data after BHead
  *     <bh.old>            void,  old pointer
  *     <bh.SDNAnr>         int
- *     <bh.nr>             int, in case of array: amount of structs
+ *     <bh.nr>             int, in case of array: number of structs
  *     data
  *     ...
  *     ...
@@ -914,20 +914,22 @@ static void write_curvemapping(WriteData *wd, CurveMapping *cumap)
 static void write_node_socket(WriteData *wd, bNodeTree *UNUSED(ntree), bNode *node, bNodeSocket *sock)
 {
 #ifdef USE_NODE_COMPAT_CUSTOMNODES
-	/* forward compatibility code, so older blenders still open */
-	sock->stack_type = 1;
+	/* forward compatibility code, so older blenders still open (not for undo) */
+	if (wd->current == NULL) {
+		sock->stack_type = 1;
 
-	if (node->type == NODE_GROUP) {
-		bNodeTree *ngroup = (bNodeTree *)node->id;
-		if (ngroup) {
-			/* for node groups: look up the deprecated groupsock pointer */
-			sock->groupsock = ntreeFindSocketInterface(ngroup, sock->in_out, sock->identifier);
-			BLI_assert(sock->groupsock != NULL);
+		if (node->type == NODE_GROUP) {
+			bNodeTree *ngroup = (bNodeTree *)node->id;
+			if (ngroup) {
+				/* for node groups: look up the deprecated groupsock pointer */
+				sock->groupsock = ntreeFindSocketInterface(ngroup, sock->in_out, sock->identifier);
+				BLI_assert(sock->groupsock != NULL);
 
-			/* node group sockets now use the generic identifier string to verify group nodes,
-			 * old blender uses the own_index.
-			 */
-			sock->own_index = sock->groupsock->own_index;
+				/* node group sockets now use the generic identifier string to verify group nodes,
+				 * old blender uses the own_index.
+				 */
+				sock->own_index = sock->groupsock->own_index;
+			}
 		}
 	}
 #endif
@@ -1306,13 +1308,11 @@ static void write_particlesettings(WriteData *wd, ListBase *idbase)
 
 			dw = part->dupliweights.first;
 			for (; dw; dw = dw->next) {
-				/* update indices */
-				dw->index = 0;
-				if (part->dup_group) { /* can be NULL if lining fails or set to None */
-					go = part->dup_group->gobject.first;
-					while (go && go->ob != dw->ob) {
-						go = go->next;
-						dw->index++;
+				/* update indices, but only if dw->ob is set (can be NULL after loading e.g.) */
+				if (dw->ob != NULL) {
+					dw->index = 0;
+					if (part->dup_group) { /* can be NULL if lining fails or set to None */
+						for (go = part->dup_group->gobject.first; go && go->ob != dw->ob; go = go->next, dw->index++);
 					}
 				}
 				writestruct(wd, DATA, ParticleDupliWeight, 1, dw);
@@ -1730,6 +1730,10 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 					smd->domain->point_cache[1]->step = 1;
 
 					write_pointcaches(wd, &(smd->domain->ptcaches[1]));
+
+					if (smd->domain->coba) {
+						writestruct(wd, DATA, ColorBand, 1, smd->domain->coba);
+					}
 				}
 
 				writestruct(wd, DATA, SmokeDomainSettings, 1, smd->domain);
@@ -3949,7 +3953,7 @@ static void write_libraries(WriteData *wd, Main *main)
 				for (id = lbarray[a]->first; id; id = id->next) {
 					if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
 						if (!BKE_idcode_is_linkable(GS(id->name))) {
-							printf("ERROR: write file: datablock '%s' from lib '%s' is not linkable "
+							printf("ERROR: write file: data-block '%s' from lib '%s' is not linkable "
 							       "but is flagged as directly linked", id->name, main->curlib->filepath);
 							BLI_assert(0);
 						}

@@ -50,6 +50,8 @@ public:
 	float3 axisv;
 	float sizev;
 
+	Transform tfm;
+
 	int map_resolution;
 
 	float spot_angle;
@@ -90,6 +92,9 @@ public:
 	void device_free(Device *device, DeviceScene *dscene);
 
 	void tag_update(Scene *scene);
+
+	/* Check whether there is a background light. */
+	bool has_background_light(Scene *scene);
 
 protected:
 	/* Optimization: disable light which is either unsupported or

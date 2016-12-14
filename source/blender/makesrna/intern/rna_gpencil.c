@@ -120,7 +120,7 @@ static char *rna_GPencilLayer_path(PointerRNA *ptr)
 	return BLI_sprintfN("layers[\"%s\"]", name_esc);
 }
 
-static int rna_GPencilLayer_active_frame_editable(PointerRNA *ptr)
+static int rna_GPencilLayer_active_frame_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 {
 	bGPDlayer *gpl = (bGPDlayer *)ptr->data;
 
@@ -439,12 +439,23 @@ static void rna_GPencil_stroke_point_select_set(PointerRNA *ptr, const int value
 	}
 }
 
-static void rna_GPencil_stroke_point_add(bGPDstroke *stroke, int count)
+static void rna_GPencil_stroke_point_add(bGPDstroke *stroke, int count, float pressure, float strength)
 {
 	if (count > 0) {
+		/* create space at the end of the array for extra points */
 		stroke->points = MEM_recallocN_id(stroke->points,
 		                                  sizeof(bGPDspoint) * (stroke->totpoints + count),
 		                                  "gp_stroke_points");
+		
+		/* init the pressure and strength values so that old scripts won't need to
+		 * be modified to give these initial values...
+		 */
+		for (int i = 0; i < count; i++) {
+			bGPDspoint *pt = stroke->points + (stroke->totpoints + i);
+			pt->pressure = pressure;
+			pt->strength = strength;
+		}
+		
 		stroke->totpoints += count;
 	}
 }
@@ -483,7 +494,7 @@ static bGPDstroke *rna_GPencil_stroke_new(bGPDframe *frame, const char *colornam
 {
 	bGPDstroke *stroke = MEM_callocN(sizeof(bGPDstroke), "gp_stroke");
 	if (colorname) {
-		strcpy(stroke->colorname, colorname);
+		BLI_strncpy(stroke->colorname, colorname, sizeof(stroke->colorname));
 	}
 	stroke->palcolor = NULL;
 	stroke->flag |= GP_STROKE_RECALC_COLOR;
@@ -574,11 +585,11 @@ static bGPDframe *rna_GPencil_frame_copy(bGPDlayer *layer, bGPDframe *src)
 
 static bGPDlayer *rna_GPencil_layer_new(bGPdata *gpd, const char *name, int setactive)
 {
-	bGPDlayer *gl = BKE_gpencil_layer_addnew(gpd, name, setactive != 0);
+	bGPDlayer *gpl = BKE_gpencil_layer_addnew(gpd, name, setactive != 0);
 
 	WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
-	return gl;
+	return gpl;
 }
 
 static void rna_GPencil_layer_remove(bGPdata *gpd, ReportList *reports, PointerRNA *layer_ptr)
@@ -772,6 +783,16 @@ static void rna_GPencilPalette_info_set(PointerRNA *ptr, const char *value)
 	               sizeof(palette->info));
 }
 
+static char *rna_GPencilPalette_path(PointerRNA *ptr)
+{
+	bGPDpalette *palette = ptr->data;
+	char name_esc[sizeof(palette->info) * 2];
+	
+	BLI_strescape(name_esc, palette->info, sizeof(name_esc));
+	
+	return BLI_sprintfN("palettes[\"%s\"]", name_esc);
+}
+
 static char *rna_GPencilPalette_color_path(PointerRNA *ptr)
 {
 	bGPdata *gpd = ptr->id.data;
@@ -888,9 +909,7 @@ static void rna_def_gpencil_stroke_point(BlenderRNA *brna)
 static void rna_def_gpencil_stroke_points_api(BlenderRNA *brna, PropertyRNA *cprop)
 {
 	StructRNA *srna;
-
 	FunctionRNA *func;
-	/* PropertyRNA *parm; */
 
 	RNA_def_property_srna(cprop, "GPencilStrokePoints");
 	srna = RNA_def_struct(brna, "GPencilStrokePoints", NULL);
@@ -900,6 +919,8 @@ static void rna_def_gpencil_stroke_points_api(BlenderRNA *brna, PropertyRNA *cpr
 	func = RNA_def_function(srna, "add", "rna_GPencil_stroke_point_add");
 	RNA_def_function_ui_description(func, "Add a new grease pencil stroke point");
 	RNA_def_int(func, "count", 1, 0, INT_MAX, "Number", "Number of points to add to the stroke", 0, INT_MAX);
+	RNA_def_float(func, "pressure", 1.0f, 0.0f, 1.0f, "Pressure", "Pressure for newly created points", 0.0f, 1.0f);
+	RNA_def_float(func, "strength", 1.0f, 0.0f, 1.0f, "Strength", "Color intensity (alpha factor) for newly created points", 0.0f, 1.0f);
 
 	func = RNA_def_function(srna, "pop", "rna_GPencil_stroke_point_pop");
 	RNA_def_function_ui_description(func, "Remove a grease pencil stroke point");
@@ -1030,8 +1051,8 @@ static void rna_def_gpencil_strokes_api(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a grease pencil stroke");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "stroke", "GPencilStroke", "Stroke", "The stroke to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
 
 static void rna_def_gpencil_frame(BlenderRNA *brna)
@@ -1091,7 +1112,7 @@ static void rna_def_gpencil_frames_api(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_int(func, "frame_number", 1, MINAFRAME, MAXFRAME, "Frame Number",
 	                   "The frame on which this sketch appears", MINAFRAME, MAXFRAME);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "frame", "GPencilFrame", "", "The newly created frame");
 	RNA_def_function_return(func, parm);
 
@@ -1099,13 +1120,13 @@ static void rna_def_gpencil_frames_api(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a grease pencil frame");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "frame", "GPencilFrame", "Frame", "The frame to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
 	func = RNA_def_function(srna, "copy", "rna_GPencil_frame_copy");
 	RNA_def_function_ui_description(func, "Copy a grease pencil frame");
 	parm = RNA_def_pointer(func, "source", "GPencilFrame", "Source", "The source frame");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_pointer(func, "copy", "GPencilFrame", "", "The newly copied frame");
 	RNA_def_function_return(func, parm);
 }
@@ -1332,8 +1353,8 @@ static void rna_def_gpencil_layers_api(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_GPencil_layer_new");
 	RNA_def_function_ui_description(func, "Add a new grease pencil layer");
 	parm = RNA_def_string(func, "name", "GPencilLayer", MAX_NAME, "Name", "Name of the layer");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
-	RNA_def_boolean(func, "set_active", 0, "Set Active", "Set the newly created layer to the active layer");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	RNA_def_boolean(func, "set_active", true, "Set Active", "Set the newly created layer to the active layer");
 	parm = RNA_def_pointer(func, "layer", "GPencilLayer", "", "The newly created layer");
 	RNA_def_function_return(func, parm);
 
@@ -1341,8 +1362,8 @@ static void rna_def_gpencil_layers_api(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a grease pencil layer");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "layer", "GPencilLayer", "", "The layer to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
 	prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "GPencilLayer");
@@ -1422,7 +1443,7 @@ static void rna_def_gpencil_palettecolor(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "ghost", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PC_COLOR_ONIONSKIN);
 	RNA_def_property_ui_icon(prop, ICON_GHOST_ENABLED, 0);
-	RNA_def_property_ui_text(prop, "Ghost", "Display the color in onion skinning");
+	RNA_def_property_ui_text(prop, "Show in Ghosts", "Display strokes using this color when showing onion skins");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* Draw Style */
@@ -1474,8 +1495,8 @@ static void rna_def_gpencil_palettecolors_api(BlenderRNA *brna, PropertyRNA *cpr
 	RNA_def_function_ui_description(func, "Remove a color from the palette");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "color", "GPencilPaletteColor", "", "The color to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
 	prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "GPencilPaletteColor");
@@ -1499,6 +1520,7 @@ static void rna_def_gpencil_palette(BlenderRNA *brna)
 	srna = RNA_def_struct(brna, "GPencilPalette", NULL);
 	RNA_def_struct_sdna(srna, "bGPDpalette");
 	RNA_def_struct_ui_text(srna, "Grease Pencil Palette", "Collection of related palettes");
+	RNA_def_struct_path_func(srna, "rna_GPencilPalette_path");
 	RNA_def_struct_ui_icon(srna, ICON_COLOR);
 
 	/* Name */
@@ -1534,8 +1556,8 @@ static void rna_def_gpencil_palettes_api(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_GPencil_palette_new");
 	RNA_def_function_ui_description(func, "Add a new grease pencil palette");
 	parm = RNA_def_string(func, "name", "GPencilPalette", MAX_NAME, "Name", "Name of the palette");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
-	RNA_def_boolean(func, "set_active", 0, "Set Active", "Activate the newly created palette");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	RNA_def_boolean(func, "set_active", true, "Set Active", "Activate the newly created palette");
 	parm = RNA_def_pointer(func, "palette", "GPencilPalette", "", "The newly created palette");
 	RNA_def_function_return(func, parm);
 
@@ -1543,8 +1565,8 @@ static void rna_def_gpencil_palettes_api(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Remove a grease pencil palette");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "palette", "GPencilPalette", "", "The palette to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
 	prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "GPencilPalette");

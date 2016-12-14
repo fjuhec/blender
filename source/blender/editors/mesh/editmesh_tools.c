@@ -1561,6 +1561,18 @@ static int edbm_edge_rotate_selected_exec(bContext *C, wmOperator *op)
 	/* edges may rotate into hidden vertices, if this does _not_ run we get an ilogical state */
 	BMO_slot_buffer_hflag_disable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_HIDDEN, true);
 	BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_SELECT, true);
+
+	const int tot_rotate = BMO_slot_buffer_count(bmop.slots_out, "edges.out");
+	const int tot_failed = tot - tot_rotate;
+	if (tot_failed != 0) {
+		/* If some edges fail to rotate, we need to re-select them,
+		 * otherwise we can end up with invalid selection
+		 * (unselected edge between 2 selected faces). */
+		BM_mesh_elem_hflag_enable_test(em->bm, BM_EDGE, BM_ELEM_SELECT, true, false, BM_ELEM_TAG);
+
+		BKE_reportf(op->reports, RPT_WARNING, "Unable to rotate %d edge(s)", tot_failed);
+	}
+
 	EDBM_selectmode_flush(em);
 
 	if (!EDBM_op_finish(em, &bmop, op, true)) {
@@ -3121,8 +3133,10 @@ static void mesh_separate_material_assign_mat_nr(Main *bmain, Object *ob, const 
 		BKE_material_resize_id(bmain, obdata, 1, true);
 
 		ob->mat[0] = ma_ob;
+		id_us_plus((ID *)ma_ob);
 		ob->matbits[0] = matbit;
 		(*matarar)[0] = ma_obdata;
+		id_us_plus((ID *)ma_obdata);
 	}
 	else {
 		BKE_material_clear_id(bmain, obdata, true);

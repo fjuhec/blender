@@ -280,6 +280,20 @@ static void wm_collada_export_draw(bContext *UNUSED(C), wmOperator *op)
 	uiCollada_exportSettings(op->layout, &ptr);
 }
 
+static bool wm_collada_export_check(bContext *UNUSED(C), wmOperator *op)
+{
+	char filepath[FILE_MAX];
+	RNA_string_get(op->ptr, "filepath", filepath);
+
+	if (!BLI_testextensie(filepath, ".dae")) {
+		BLI_ensure_extension(filepath, FILE_MAX, ".dae");
+		RNA_string_set(op->ptr, "filepath", filepath);
+		return true;
+	}
+
+	return false;
+}
+
 void WM_OT_collada_export(wmOperatorType *ot)
 {
 	static EnumPropertyItem prop_bc_export_mesh_type[] = {
@@ -291,7 +305,6 @@ void WM_OT_collada_export(wmOperatorType *ot)
 	static EnumPropertyItem prop_bc_export_transformation_type[] = {
 		{BC_TRANSFORMATION_TYPE_MATRIX, "matrix", 0, "Matrix", "Use <matrix> to specify transformations"},
 		{BC_TRANSFORMATION_TYPE_TRANSROTLOC, "transrotloc", 0, "TransRotLoc", "Use <translate>, <rotate>, <scale> to specify transformations"},
-		{BC_TRANSFORMATION_TYPE_BOTH, "both", 0, "Both", "Use <matrix> AND <translate>, <rotate>, <scale> to specify transformations"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -302,6 +315,7 @@ void WM_OT_collada_export(wmOperatorType *ot)
 	ot->invoke = wm_collada_export_invoke;
 	ot->exec = wm_collada_export_exec;
 	ot->poll = WM_operator_winactive;
+	ot->check = wm_collada_export_check;
 
 	ot->flag |= OPTYPE_PRESET;
 

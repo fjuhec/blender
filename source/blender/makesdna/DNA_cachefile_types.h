@@ -36,10 +36,10 @@
 extern "C" {
 #endif
 
-
 /* CacheFile::flag */
 enum {
 	CACHEFILE_DS_EXPAND = (1 << 0),
+	CACHEFILE_DIRTY     = (1 << 1),
 };
 
 /* CacheFile::draw_flag */
@@ -58,6 +58,7 @@ typedef struct CacheFile {
 	struct AnimData *adt;
 
 	struct AbcArchiveHandle *handle;
+	void *handle_mutex;
 
 	/* Paths of the objects inside of the Alembic archive referenced by this
 	 * CacheFile. */

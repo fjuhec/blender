@@ -453,7 +453,7 @@ finally:
 	pRes[3] = fSign;
 }
 
-static void emDM_calc_loop_tangents_thread(TaskPool *UNUSED(pool), void *taskdata, int UNUSED(threadid))
+static void emDM_calc_loop_tangents_thread(TaskPool * __restrict UNUSED(pool), void *taskdata, int UNUSED(threadid))
 {
 	struct SGLSLEditMeshToTangent *mesh2tangent = taskdata;
 	/* new computation method */
@@ -621,10 +621,33 @@ static void emDM_recalcTessellation(DerivedMesh *UNUSED(dm))
 	/* do nothing */
 }
 
-static void emDM_recalcLoopTri(DerivedMesh *UNUSED(dm))
+static void emDM_recalcLoopTri(DerivedMesh *dm)
 {
-	/* Nothing to do: emDM tessellation is known,
-	 * allocate and fill in with emDM_getLoopTriArray */
+	EditDerivedBMesh *bmdm = (EditDerivedBMesh *)dm;
+	BMLoop *(*looptris)[3] = bmdm->em->looptris;
+	MLoopTri *mlooptri;
+	const int tottri = bmdm->em->tottri;
+	int i;
+
+	DM_ensure_looptri_data(dm);
+	mlooptri = dm->looptris.array;
+
+	BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
+	BLI_assert(tottri == dm->looptris.num);
+
+	BM_mesh_elem_index_ensure(bmdm->em->bm, BM_FACE | BM_LOOP);
+
+	for (i = 0; i < tottri; i++) {
+		BMLoop **ltri = looptris[i];
+		MLoopTri *lt = &mlooptri[i];
+
+		ARRAY_SET_ITEMS(
+				lt->tri,
+				BM_elem_index_get(ltri[0]),
+				BM_elem_index_get(ltri[1]),
+				BM_elem_index_get(ltri[2]));
+		lt->poly = BM_elem_index_get(ltri[0]->f);
+	}
 }
 
 static const MLoopTri *emDM_getLoopTriArray(DerivedMesh *dm)
@@ -633,32 +656,9 @@ static const MLoopTri *emDM_getLoopTriArray(DerivedMesh *dm)
 		BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
 	}
 	else {
-		EditDerivedBMesh *bmdm = (EditDerivedBMesh *)dm;
-		BMLoop *(*looptris)[3] = bmdm->em->looptris;
-		MLoopTri *mlooptri;
-		const int tottri = bmdm->em->tottri;
-		int i;
-
-		DM_ensure_looptri_data(dm);
-		mlooptri = dm->looptris.array;
-
-		BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
-		BLI_assert(tottri == dm->looptris.num);
-
-		BM_mesh_elem_index_ensure(bmdm->em->bm, BM_FACE | BM_LOOP);
-
-		for (i = 0; i < tottri; i++) {
-			BMLoop **ltri = looptris[i];
-			MLoopTri *lt = &mlooptri[i];
-
-			ARRAY_SET_ITEMS(
-			        lt->tri,
-			        BM_elem_index_get(ltri[0]),
-			        BM_elem_index_get(ltri[1]),
-			        BM_elem_index_get(ltri[2]));
-			lt->poly = BM_elem_index_get(ltri[0]->f);
-		}
+		dm->recalcLoopTri(dm);
 	}
+
 	return dm->looptris.array;
 }
 
@@ -1410,24 +1410,6 @@ static void emDM_drawMappedFacesTex(
 	emDM_drawFacesTex_common(dm, NULL, setDrawOptions, compareDrawOptions, userData);
 }
 
-static void emdm_pass_attrib_update_uniforms(const DMVertexAttribs *attribs)
-{
-	int i;
-	if (attribs->totorco) {
-		glUniform1i(attribs->orco.gl_info_index, 0);
-	}
-	for (i = 0; i < attribs->tottface; i++) {
-		glUniform1i(attribs->tface[i].gl_info_index, 0);
-	}
-	for (i = 0; i < attribs->totmcol; i++) {
-		glUniform1i(attribs->mcol[i].gl_info_index, GPU_ATTR_INFO_SRGB);
-	}
-
-	for (i = 0; i < attribs->tottang; i++) {
-		glUniform1i(attribs->tang[i].gl_info_index, 0);
-	}
-}
-
 /**
  * \note
  *
@@ -1548,7 +1530,7 @@ static void emDM_drawMappedFacesGLSL(
 			do_draw = setMaterial(matnr = new_matnr, &gattribs);
 			if (do_draw) {
 				DM_vertex_attributes_from_gpu(dm, &gattribs, &attribs);
-				emdm_pass_attrib_update_uniforms(&attribs);
+				DM_draw_attrib_vertex_uniforms(&attribs);
 				if (UNLIKELY(attribs.tottang && bm->elem_index_dirty & BM_LOOP)) {
 					BM_mesh_elem_index_ensure(bm, BM_LOOP);
 				}

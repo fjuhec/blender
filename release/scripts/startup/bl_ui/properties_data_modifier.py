@@ -146,6 +146,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.row().prop(md, "offset_type", expand=True)
 
     def BOOLEAN(self, layout, ob, md):
+        if not bpy.app.build_options.mod_boolean:
+            layout.label("Built without Boolean modifier")
+            return
+
         split = layout.split()
 
         col = split.column()
@@ -336,6 +340,9 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column(align=True)
         col.label(text="Direction:")
         col.prop(md, "direction", text="")
+        if md.direction in {'X', 'Y', 'Z', 'RGB_TO_XYZ'}:
+            col.label(text="Space:")
+            col.prop(md, "space", text="")
         col.label(text="Vertex Group:")
         col.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
 
@@ -900,9 +907,13 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         split = layout.split()
         col = split.column()
 
-        engine = bpy.context.scene.render.engine
-        if engine == "CYCLES" and md == ob.modifiers[-1] and bpy.context.scene.cycles.feature_set == "EXPERIMENTAL":
-            col.label(text="Preview:")
+        scene = bpy.context.scene
+        engine = scene.render.engine
+        show_adaptive_options = (engine == "CYCLES" and md == ob.modifiers[-1] and
+                                 scene.cycles.feature_set == "EXPERIMENTAL")
+
+        if show_adaptive_options:
+            col.label(text="View:")
             col.prop(md, "levels", text="Levels")
             col.label(text="Render:")
             col.prop(ob.cycles, "use_adaptive_subdivision", text="Adaptive")
@@ -917,10 +928,25 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
         col.label(text="Options:")
-        col.prop(md, "use_subsurf_uv")
+
+        sub = col.column()
+        sub.active = (not show_adaptive_options) or (not ob.cycles.use_adaptive_subdivision)
+        sub.prop(md, "use_subsurf_uv")
+
         col.prop(md, "show_only_control_edges")
         if hasattr(md, "use_opensubdiv"):
             col.prop(md, "use_opensubdiv")
+
+        if show_adaptive_options and ob.cycles.use_adaptive_subdivision:
+            col = layout.column(align=True)
+            col.scale_y = 0.6
+            col.separator()
+            col.label("Final Dicing Rate:")
+            col.separator()
+
+            render = max(scene.cycles.dicing_rate * ob.cycles.dicing_rate, 0.1)
+            preview = max(scene.cycles.preview_dicing_rate * ob.cycles.dicing_rate, 0.1)
+            col.label("Render %.2f px, Preview %.2f px" % (render, preview))
 
     def SURFACE(self, layout, ob, md):
         layout.label(text="Settings are inside the Physics tab")
@@ -1055,6 +1081,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "narrowness", slider=True)
 
     def REMESH(self, layout, ob, md):
+        if not bpy.app.build_options.mod_remesh:
+            layout.label("Built without Remesh modifier")
+            return
+
         layout.prop(md, "mode")
 
         row = layout.row()

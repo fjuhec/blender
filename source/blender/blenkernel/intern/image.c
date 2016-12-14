@@ -436,7 +436,6 @@ static void copy_image_packedfiles(ListBase *lb_dst, const ListBase *lb_src)
 Image *BKE_image_copy(Main *bmain, Image *ima)
 {
 	Image *nima = image_alloc(bmain, ima->id.name + 2, ima->source, ima->type);
-	ima->id.newid = &nima->id;
 
 	BLI_strncpy(nima->name, ima->name, sizeof(ima->name));
 
@@ -1244,7 +1243,6 @@ char BKE_imtype_valid_channels(const char imtype, bool write_file)
 		case R_IMF_IMTYPE_RAWTGA:
 		case R_IMF_IMTYPE_IRIS:
 		case R_IMF_IMTYPE_PNG:
-		case R_IMF_IMTYPE_RADHDR:
 		case R_IMF_IMTYPE_TIFF:
 		case R_IMF_IMTYPE_OPENEXR:
 		case R_IMF_IMTYPE_MULTILAYER:
@@ -1325,7 +1323,7 @@ char BKE_imtype_from_arg(const char *imtype_arg)
 	else if (STREQ(imtype_arg, "EXR")) return R_IMF_IMTYPE_OPENEXR;
 	else if (STREQ(imtype_arg, "MULTILAYER")) return R_IMF_IMTYPE_MULTILAYER;
 #endif
-	else if (STREQ(imtype_arg, "MPEG")) return R_IMF_IMTYPE_FFMPEG;
+	else if (STREQ(imtype_arg, "FFMPEG")) return R_IMF_IMTYPE_FFMPEG;
 	else if (STREQ(imtype_arg, "FRAMESERVER")) return R_IMF_IMTYPE_FRAMESERVER;
 #ifdef WITH_CINEON
 	else if (STREQ(imtype_arg, "CINEON")) return R_IMF_IMTYPE_CINEON;
@@ -1580,24 +1578,7 @@ void BKE_imbuf_to_image_format(struct ImageFormatData *im_format, const ImBuf *i
 	}
 
 	/* planes */
-	/* TODO(sergey): Channels doesn't correspond actual planes used for image buffer
-	 *               For example byte buffer will have 4 channels but it might easily
-	 *               be BW or RGB image.
-	 *
-	 *               Need to use im_format->planes = imbuf->planes instead?
-	 */
-	switch (imbuf->channels) {
-		case 0:
-		case 4: im_format->planes = R_IMF_PLANES_RGBA;
-			break;
-		case 3: im_format->planes = R_IMF_PLANES_RGB;
-			break;
-		case 1: im_format->planes = R_IMF_PLANES_BW;
-			break;
-		default: im_format->planes = R_IMF_PLANES_RGB;
-			break;
-	}
-
+	im_format->planes = imbuf->planes;
 }
 
 
@@ -1866,7 +1847,7 @@ void BKE_image_stamp_buf(
 	display = IMB_colormanagement_display_get_named(display_device);
 
 	if (stamp_data_template == NULL) {
-		stampdata(scene, camera, &stamp_data, 1);
+		stampdata(scene, camera, &stamp_data, (scene->r.stamp & R_STAMP_HIDE_LABELS) == 0);
 	}
 	else {
 		stampdata_from_template(&stamp_data, scene, stamp_data_template);
