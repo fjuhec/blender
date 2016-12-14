@@ -8263,7 +8263,7 @@ static void curve_chamfer_modal_loop(EditNurb *editnurb, Nurb *nu, CD *cd, float
 {
 	BezTriple *bezt, *bezt1, *bezt2, *original, *helper;
 	int selected = 0;
-	for (int i = 0; i < nu->pntsu; i++) {
+	for (int i = 1; i < nu->pntsu - 1; i++) {
 		bezt = &nu->bezt[i];
 		if (BEZT_ISSEL_ANY(bezt) && bezt->h1 == 2 && bezt->h2 == 2) {
 			selected += 1;
@@ -8429,7 +8429,7 @@ static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 		return OPERATOR_CANCELLED;
 	}
 	int selected = 0;
-	for (int i = 0; i < nu->pntsu; i++) {
+	for (int i = 1; i < nu->pntsu - 1; i++) {
 		bezt = &nu->bezt[i];
 		if (BEZT_ISSEL_ANY(bezt)) {
 			sub_v3_v3v3(v1, bezt->vec[1], bezt->vec[0]);
@@ -8608,7 +8608,7 @@ static void curve_fillet_modal_loop(EditNurb *editnurb, Nurb *nu, CD *cd, float 
 	BezTriple *bezt, *original, *bezt1, *bezt2, *helper;
 	int selected = 0;
 	float v1[3], v2[3];
-	for (int i = 0; i < nu->pntsu; i++) {
+	for (int i = 1; i < nu->pntsu - 1; i++) {
 		bezt = &nu->bezt[i];
 		if (BEZT_ISSEL_ANY(bezt)) {
 			selected += 1;
@@ -8631,7 +8631,7 @@ static void curve_fillet_modal_loop(EditNurb *editnurb, Nurb *nu, CD *cd, float 
 		}
 	}
 	/* after all new control points have been calculated, move the  handles */
-	for (int i = 0; i < nu->pntsu; i++) {
+	for (int i = 1; i < nu->pntsu - 1; i++) {
 		bezt = &nu->bezt[i];
 		if (BEZT_ISSEL_ANY(bezt)) {
 			/* set the handles for the first filleted triple */
