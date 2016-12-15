@@ -656,11 +656,6 @@ doc_id = StringProperty(
         options={'HIDDEN'},
         )
 
-doc_new = StringProperty(
-        name="Edit Description",
-        maxlen=1024,
-        )
-
 data_path_iter = StringProperty(
         description="The data path relative to the context, must point to an iterable")
 
@@ -935,16 +930,23 @@ def _wm_doc_get_id(doc_id, do_url=True, url_prefix=""):
 
                 # detect if this is a inherited member and use that name instead
                 rna_parent = rna_class.bl_rna
-                rna_prop = rna_parent.properties[class_prop]
-                rna_parent = rna_parent.base
-                while rna_parent and rna_prop == rna_parent.properties.get(class_prop):
-                    class_name = rna_parent.identifier
+                rna_prop = rna_parent.properties.get(class_prop)
+                if rna_prop:
                     rna_parent = rna_parent.base
+                    while rna_parent and rna_prop == rna_parent.properties.get(class_prop):
+                        class_name = rna_parent.identifier
+                        rna_parent = rna_parent.base
 
-                if do_url:
-                    url = ("%s/bpy.types.%s.html#bpy.types.%s.%s" % (url_prefix, class_name, class_name, class_prop))
+                    if do_url:
+                        url = ("%s/bpy.types.%s.html#bpy.types.%s.%s" % (url_prefix, class_name, class_name, class_prop))
+                    else:
+                        rna = ("bpy.types.%s.%s" % (class_name, class_prop))
                 else:
-                    rna = ("bpy.types.%s.%s" % (class_name, class_prop))
+                    # We assume this is custom property, only try to generate generic url/rna_id...
+                    if do_url:
+                        url = ("%s/bpy.types.bpy_struct.html#bpy.types.bpy_struct.items" % (url_prefix,))
+                    else:
+                        rna = "bpy.types.bpy_struct"
 
     return url if do_url else rna
 

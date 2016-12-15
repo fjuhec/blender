@@ -2347,7 +2347,7 @@ void bmesh_vert_separate(
 
 			v_new = BM_vert_create(bm, v->co, v, BM_CREATE_NOP);
 			if (copy_select) {
-				BM_elem_select_copy(bm, bm, v_new, v);
+				BM_elem_select_copy(bm, v_new, v);
 			}
 
 			while ((e = BLI_SMALLSTACK_POP(edges))) {
@@ -2405,18 +2405,13 @@ static void bmesh_vert_separate__cleanup(BMesh *bm, LinkNode *edges_separate)
 		do {
 			BMEdge *e_orig = n_orig->link;
 			LinkNode *n_step = n_orig->next;
-			LinkNode *n_prev = n_orig;
 			do {
 				BMEdge *e = n_step->link;
 				BLI_assert(e != e_orig);
 				if ((e->v1 == e_orig->v1) && (e->v2 == e_orig->v2)) {
 					BM_edge_splice(bm, e_orig, e);
-					n_prev->next = n_step->next;
-					n_step = n_prev;
 				}
-			} while ((void)
-			         (n_prev = n_step),
-			         (n_step = n_step->next));
+			} while ((n_step = n_step->next));
 
 		} while ((n_orig = n_orig->next) && n_orig->next);
 	} while ((edges_separate = edges_separate->next));
@@ -2606,7 +2601,7 @@ void bmesh_edge_separate(
 	l_sep->e = e_new;
 
 	if (copy_select) {
-		BM_elem_select_copy(bm, bm, e_new, e);
+		BM_elem_select_copy(bm, e_new, e);
 	}
 
 	BLI_assert(bmesh_radial_length(e->l) == radlen - 1);
@@ -2687,8 +2682,10 @@ BMVert *bmesh_urmv_loop(BMesh *bm, BMLoop *l_sep)
 
 /**
  * A version of #bmesh_urmv_loop that disconnects multiple loops at once.
+ * The loops must all share the same vertex, can be in any order
+ * and are all moved to use a single new vertex - which is returned.
  *
- * Handles the task of finding fans boundaries.
+ * This function handles the details of finding fans boundaries.
  */
 BMVert *bmesh_urmv_loop_multi(
         BMesh *bm, BMLoop **larr, int larr_len)
