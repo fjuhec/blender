@@ -7650,7 +7650,9 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 	const bool is_prop_edit = (t->flag & T_PROP_EDIT) != 0;
 	const bool is_prop_edit_connected = (t->flag & T_PROP_CONNECTED) != 0;
 	
-	
+	/* current edit grease pencil object */
+	t->obedit = obact;
+
 	/* == Grease Pencil Strokes to Transform Data ==
 	 * Grease Pencil stroke points can be a mixture of 2D (screen-space),
 	 * or 3D coordinates. However, they're always saved as 3D points.
@@ -7731,12 +7733,10 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			float diff_mat[4][4];
 			float inverse_diff_mat[4][4];
 
-			/* calculate difference matrix if parent object */
-			if (gpl->parent != NULL) {
-				ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
-				/* undo matrix */
-				invert_m4_m4(inverse_diff_mat, diff_mat);
-			}
+			/* calculate difference matrix */
+			ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
+			/* undo matrix */
+			invert_m4_m4(inverse_diff_mat, diff_mat);
 			
 			/* Make a new frame to work on if the layer's frame and the current scene frame don't match up
 			 * - This is useful when animating as it saves that "uh-oh" moment when you realize you've
@@ -7816,7 +7816,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 							copy_v3_v3(td->center, &pt->x); // XXX: what about  t->around == local?
 							
 							td->loc = &pt->x;
-							
+
 							td->flag = 0;
 							
 							if (pt->flag & GP_SPOINT_SELECT)
@@ -7833,18 +7833,10 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 								/* screenspace */
 								td->protectflag = OB_LOCK_LOCZ | OB_LOCK_ROTZ | OB_LOCK_SCALEZ;
 								
-								/* apply parent transformations */
-								if (gpl->parent == NULL) {
-									copy_m3_m4(td->smtx, t->persmat);
-									copy_m3_m4(td->mtx, t->persinv);
-									unit_m3(td->axismtx);
-								}
-								else {
-									/* apply matrix transformation relative to parent */
-									copy_m3_m4(td->smtx, inverse_diff_mat); /* final position */
-									copy_m3_m4(td->mtx, diff_mat); /* display position */
-									copy_m3_m4(td->axismtx, diff_mat); /* axis orientation */
-								}
+								/* apply matrix transformation relative to parent */
+								copy_m3_m4(td->smtx, inverse_diff_mat); /* final position */
+								copy_m3_m4(td->mtx, diff_mat); /* display position */
+								copy_m3_m4(td->axismtx, diff_mat); /* axis orientation */
 							}
 							else {
 								/* configure 2D dataspace points so that they don't play up... */

@@ -1714,6 +1714,14 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 			Object *ob = t->poseobj;
 			if (ob) mul_m4_v3(ob->obmat, vecrot);
 		}
+		else if ((t->flag & T_POINTS) && (t->options & CTX_GPENCIL_STROKES)) {
+			Object *ob = t->obedit;
+			if (ob) {
+				if (ob->type == OB_GPENCIL) {
+					mul_m4_v3(ob->obmat, vecrot);
+				}
+			}
+		}
 
 		projectFloatViewEx(t, vecrot, cent, V3D_PROJ_TEST_CLIP_ZERO);
 

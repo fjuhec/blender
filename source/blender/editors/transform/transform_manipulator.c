@@ -300,10 +300,8 @@ static int calc_manipulator_stats(const bContext *C)
 			/* only editable and visible layers are considered */
 			if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
 
-				/* calculate difference matrix if parent object */
-				if (gpl->parent != NULL) {
-					ED_gpencil_parent_location(ob, gpd, gpl, diff_mat);
-				}
+				/* calculate difference matrix */
+				ED_gpencil_parent_location(ob, gpd, gpl, diff_mat);
 
 				for (bGPDstroke *gps = gpl->actframe->strokes.first; gps; gps = gps->next) {
 					/* skip strokes that are invalid for current view */
@@ -319,15 +317,9 @@ static int calc_manipulator_stats(const bContext *C)
 						/* Change selection status of all points, then make the stroke match */
 						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 							if (pt->flag & GP_SPOINT_SELECT) {
-								if (gpl->parent == NULL) {
-									calc_tw_center(scene, &pt->x);
-									totsel++;
-								}
-								else {
-									mul_v3_m4v3(fpt, diff_mat, &pt->x);
-									calc_tw_center(scene, fpt);
-									totsel++;
-								}
+								mul_v3_m4v3(fpt, diff_mat, &pt->x);
+								calc_tw_center(scene, fpt);
+								totsel++;
 							}
 						}
 					}
