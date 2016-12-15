@@ -86,6 +86,7 @@ class POSELIB_OT_render_previews(Operator):
             self.report({'INFO'}, 'Done rendering pose library previews')
             return {'FINISHED'}
 
+        context.window_manager.progress_update(self.plib_index)
         self.render_pose(context, plib, self.plib_index)
         self.plib_index += 1
 
@@ -136,6 +137,9 @@ class POSELIB_OT_render_previews(Operator):
         self.plib_index = 0
 
         plib = context.object.pose_library
+        nr_of_poses = len(plib.pose_markers)
+        context.window_manager.progress_begin(0, nr_of_poses)
+
         plib.preview.icon_size = self.icon_size
         plib.preview.image_size = self.image_size
         plib.preview.frames_number = len(plib.pose_markers)
@@ -146,3 +150,4 @@ class POSELIB_OT_render_previews(Operator):
 
     def _finish(self, context):
         self.wm.event_timer_remove(self.timer)
+        context.window_manager.progress_end()
