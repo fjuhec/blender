@@ -239,6 +239,25 @@ size_t BKE_previewimg_get_rect_size(struct PreviewImage *prv, const int size)
 	}
 }
 
+void BKE_previewimg_resolution_set(PreviewImage *prv, const int size, const int width, const int height)
+{
+	if (width == prv->w[size] && height == prv->h[size]) {
+		/* Same size, do nothing. */
+		return;
+	}
+
+	BKE_previewimg_clear_single(prv, size);
+
+	if (width && height) {
+		prv->w[size] = width;
+		prv->h[size] = height;
+
+		prv->rect[size] = MEM_callocN(BKE_previewimg_get_rect_size(prv, size), __func__);
+	}
+
+	prv->flag[size] |= (PRV_CHANGED | PRV_USER_EDITED);
+}
+
 void BKE_previewimg_num_frames_set(struct PreviewImage *prv, const short num_frames)
 {
 	BLI_assert(prv != NULL);

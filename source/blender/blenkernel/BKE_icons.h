@@ -101,6 +101,8 @@ struct PreviewImage *BKE_previewimg_copy(struct PreviewImage *prv);
 
 size_t BKE_previewimg_get_rect_size(struct PreviewImage *prv, const int size);
 
+void BKE_previewimg_resolution_set(struct PreviewImage *prv, const int size, const int width, const int height);
+
 void BKE_previewimg_num_frames_set(struct PreviewImage *prv, const short num_frames);
 void BKE_previewimg_frame_delete(struct PreviewImage *prv, const short frame_idx);
 

@@ -511,16 +511,7 @@ static void rna_ImagePreview_size_set(PointerRNA *ptr, const int *values, enum e
 		BLI_assert(prv_img == BKE_previewimg_id_ensure(id));
 	}
 
-	BKE_previewimg_clear_single(prv_img, size);
-
-	if (values[0] && values[1]) {
-		prv_img->w[size] = values[0];
-		prv_img->h[size] = values[1];
-
-		prv_img->rect[size] = MEM_callocN(BKE_previewimg_get_rect_size(prv_img, size), __func__);
-	}
-
-	prv_img->flag[size] |= (PRV_CHANGED | PRV_USER_EDITED);
+	BKE_previewimg_resolution_set(prv_img, size, values[0], values[1]);
 }
 
 
@@ -1174,7 +1165,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to get", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "data", PROP_INT, PROP_NONE);
 	RNA_def_property_array(parm, 1);
-	RNA_def_property_flag(parm, PROP_DYNAMIC);
+	RNA_def_parameter_flags(parm, PROP_DYNAMIC, 0);
 	RNA_def_property_ui_text(parm, "", "Array of integers, one per pixel (RGBA concatenated values)");
 	RNA_def_function_output(func, parm);
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
@@ -1187,7 +1178,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "data", PROP_INT, PROP_NONE);
 	RNA_def_property_array(parm, 1);
-	RNA_def_property_flag(parm, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, PROP_DYNAMIC, PARM_REQUIRED);
 	RNA_def_property_ui_text(parm, "", "Array of integers, one per pixel (RGBA concatenated values)");
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
 	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the preview frame");
@@ -1198,7 +1189,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to get", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "data", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_array(parm, 1);
-	RNA_def_property_flag(parm, PROP_DYNAMIC);
+	RNA_def_parameter_flags(parm, PROP_DYNAMIC, 0);
 	RNA_def_property_ui_text(parm, "", "Array of floats, one per pixel component (RGBA values)");
 	RNA_def_function_output(func, parm);
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
@@ -1211,7 +1202,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "data", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_array(parm, 1);
-	RNA_def_property_flag(parm, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, PROP_DYNAMIC, PARM_REQUIRED);
 	RNA_def_property_ui_text(parm, "", "Array of floats, one per pixel component (RGBA values)");
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
 	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the preview frame");
@@ -1221,7 +1212,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Set a frame data and meta-data for this preview");
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "image", PROP_POINTER, PROP_NONE);
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	RNA_def_property_struct_type(parm, "Image");
 	RNA_def_property_ui_text(parm, "", "Image whose pixels to copy and use for this preview");
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
@@ -1233,7 +1224,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to get", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "data", PROP_INT, PROP_NONE);
 	RNA_def_property_array(parm, 1);
-	RNA_def_property_flag(parm, PROP_DYNAMIC);
+	RNA_def_parameter_flags(parm, PROP_DYNAMIC, 0);
 	RNA_def_property_ui_text(parm, "", "Array of integers, one per pixel (RGBA concatenated values)");
 	RNA_def_function_output(func, parm);
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
@@ -1246,7 +1237,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "data", PROP_INT, PROP_NONE);
 	RNA_def_property_array(parm, 1);
-	RNA_def_property_flag(parm, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, PROP_DYNAMIC, PARM_REQUIRED);
 	RNA_def_property_ui_text(parm, "", "Array of integers, one per pixel (RGBA concatenated values)");
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
 	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the icon frame");
@@ -1257,7 +1248,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to get", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "data", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_array(parm, 1);
-	RNA_def_property_flag(parm, PROP_DYNAMIC);
+	RNA_def_parameter_flags(parm, PROP_DYNAMIC, 0);
 	RNA_def_property_ui_text(parm, "", "Array of floats, one per pixel component (RGBA values)");
 	RNA_def_function_output(func, parm);
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
@@ -1270,7 +1261,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "data", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_array(parm, 1);
-	RNA_def_property_flag(parm, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, PROP_DYNAMIC, PARM_REQUIRED);
 	RNA_def_property_ui_text(parm, "", "Array of floats, one per pixel component (RGBA values)");
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
 	RNA_def_property_ui_text(parm, "", "Meta-data integer associated to the icon frame");
@@ -1280,7 +1271,7 @@ static void rna_def_image_preview(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Set a frame data and meta-data for this icon");
 	RNA_def_int(func, "index", 0, 0, USHRT_MAX, "", "Index of frame to set", 0, USHRT_MAX);
 	parm = RNA_def_property(func, "image", PROP_POINTER, PROP_NONE);
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	RNA_def_property_struct_type(parm, "Image");
 	RNA_def_property_ui_text(parm, "", "Image whose pixels to copy and use for this preview");
 	parm = RNA_def_property(func, "meta", PROP_INT, PROP_NONE);
