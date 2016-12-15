@@ -212,13 +212,32 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
             layout.prop(pose_marker_active, "camera",
                         text='Camera for %s' % pose_marker_active.name)
 
+        previews = layout.box()
+        row = previews.column_flow(4)
         for marker in poselib.pose_markers:
-            col.label(marker.name, icon_value=poselib.preview.icon_id, icon_frame=marker.preview_frame_index)
+            row.label(marker.name,
+                      icon_value=poselib.preview.icon_id,
+                      icon_frame=marker.preview_frame_index)
 
         row = layout.row(align=True)
         row.operator_context = 'INVOKE_DEFAULT'
-        row.operator("poselib.render_previews", text='Render OGL').render_method='OPENGL'
-        row.operator("poselib.render_previews", text='Render Full').render_method='FULL'
+        props = row.operator("poselib.render_previews", text='Render OGL all')
+        props.render_method = 'OPENGL'
+        props.render_pose_index = -1
+        props = row.operator("poselib.render_previews", text='Render Full all')
+        props.render_method = 'FULL'
+        props.render_pose_index = -1
+
+        if pose_marker_active:
+            row = layout.row(align=True)
+            props = row.operator("poselib.render_previews",
+                                 text='Render OGL %s' % pose_marker_active.name)
+            props.render_method = 'OPENGL'
+            props.render_pose_index = poselib.pose_markers.active_index
+            props = row.operator("poselib.render_previews",
+                                 text='Render Full %s' % pose_marker_active.name)
+            props.render_method = 'FULL'
+            props.render_pose_index = poselib.pose_markers.active_index
 
 
 # TODO: this panel will soon be deprecated too

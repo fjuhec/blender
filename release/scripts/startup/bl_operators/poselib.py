@@ -56,6 +56,10 @@ class POSELIB_OT_render_previews(Operator):
         default='OPENGL'
     )
 
+    render_pose_index = IntProperty(name='Pose index',
+                                    default=-1,
+                                    description='Index of the pose to render, -1 renders all poses')
+
     plib_index = 0
     image_size = 64, 64
     icon_size = 16, 16
@@ -67,7 +71,14 @@ class POSELIB_OT_render_previews(Operator):
         return bool(plib and plib.pose_markers)
 
     def execute(self, context):
-        return {'PASS_THROUGH'}
+        if self.render_pose_index < 0:
+            self.report({'WARNING'}, "Rendering multiple previews is only available when INVOKE'd.")
+            return {'PASS_THROUGH'}
+
+        plib = context.object.pose_library
+        self.setup_plib(plib)
+        self.render_pose(context, plib, self.render_pose_index)
+        return {'FINISHED'}
 
     def modal(self, context, event):
         if event.type == 'ESC':
@@ -130,22 +141,27 @@ class POSELIB_OT_render_previews(Operator):
         bpy.data.images.remove(im)
 
     def invoke(self, context, event):
+        if self.render_pose_index >= 0:
+            self.execute(context)
+            return {'FINISHED'}
+
+        plib = context.object.pose_library
+
         wm = context.window_manager
         wm.modal_handler_add(self)
+        wm.progress_begin(0, len(plib.pose_markers))
 
         self.wm = context.window_manager
         self.timer = self.wm.event_timer_add(0.01, context.window)
         self.plib_index = 0
+        self.setup_plib(plib)
 
-        plib = context.object.pose_library
-        nr_of_poses = len(plib.pose_markers)
-        context.window_manager.progress_begin(0, nr_of_poses)
+        return {'RUNNING_MODAL'}
 
+    def setup_plib(self, plib):
         plib.preview.icon_size = self.icon_size
         plib.preview.image_size = self.image_size
         plib.preview.frames_number = len(plib.pose_markers)
-
-        return {'RUNNING_MODAL'}
 
     def _finish(self, context):
         self.wm.event_timer_remove(self.timer)
