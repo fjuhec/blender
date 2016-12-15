@@ -665,7 +665,7 @@ void GPENCIL_OT_select_less(wmOperatorType *ot)
 static bool gp_stroke_do_circle_sel(
         bGPDstroke *gps, GP_SpaceConversion *gsc,
         const int mx, const int my, const int radius,
-        const bool select, rcti *rect, const bool parented, float diff_mat[4][4])
+        const bool select, rcti *rect, float diff_mat[4][4])
 {
 	bGPDspoint *pt1, *pt2;
 	int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
@@ -673,14 +673,9 @@ static bool gp_stroke_do_circle_sel(
 	bool changed = false;
 	
 	if (gps->totpoints == 1) {
-		if (!parented) {
-			gp_point_to_xy(gsc, gps, gps->points, &x0, &y0);
-		}
-		else {
-			bGPDspoint pt_temp;
-			gp_point_to_parent_space(gps->points, diff_mat, &pt_temp);
-			gp_point_to_xy(gsc, gps, &pt_temp, &x0, &y0);
-		}
+		bGPDspoint pt_temp;
+		gp_point_to_parent_space(gps->points, diff_mat, &pt_temp);
+		gp_point_to_xy(gsc, gps, &pt_temp, &x0, &y0);
 		
 		/* do boundbox check first */
 		if ((!ELEM(V2D_IS_CLIPPED, x0, y0)) && BLI_rcti_isect_pt(rect, x0, y0)) {
@@ -708,18 +703,12 @@ static bool gp_stroke_do_circle_sel(
 			/* get points to work with */
 			pt1 = gps->points + i;
 			pt2 = gps->points + i + 1;
-			if (!parented) {
-				gp_point_to_xy(gsc, gps, pt1, &x0, &y0);
-				gp_point_to_xy(gsc, gps, pt2, &x1, &y1);
-			}
-			else {
-				bGPDspoint npt;
-				gp_point_to_parent_space(pt1, diff_mat, &npt);
-				gp_point_to_xy(gsc, gps, &npt, &x0, &y0);
+			bGPDspoint npt;
+			gp_point_to_parent_space(pt1, diff_mat, &npt);
+			gp_point_to_xy(gsc, gps, &npt, &x0, &y0);
 
-				gp_point_to_parent_space(pt2, diff_mat, &npt);
-				gp_point_to_xy(gsc, gps, &npt, &x1, &y1);
-			}
+			gp_point_to_parent_space(pt2, diff_mat, &npt);
+			gp_point_to_xy(gsc, gps, &npt, &x1, &y1);
 			
 			/* check that point segment of the boundbox of the selection stroke */
 			if (((!ELEM(V2D_IS_CLIPPED, x0, y0)) && BLI_rcti_isect_pt(rect, x0, y0)) ||
@@ -799,8 +788,7 @@ static int gpencil_circle_select_exec(bContext *C, wmOperator *op)
 	GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)
 	{
 		changed |= gp_stroke_do_circle_sel(
-			gps, &gsc, mx, my, radius, select, &rect,
-			(gpl->parent != NULL), diff_mat);
+			gps, &gsc, mx, my, radius, select, &rect, diff_mat);
 	}
 	GP_EDITABLE_STROKES_END;
 
@@ -893,14 +881,9 @@ static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 			int x0, y0;
 
 			/* convert point coords to screenspace */
-			if (gpl->parent == NULL) {
-				gp_point_to_xy(&gsc, gps, pt, &x0, &y0);
-			}
-			else {
-				bGPDspoint pt2;
-				gp_point_to_parent_space(pt, diff_mat, &pt2);
-				gp_point_to_xy(&gsc, gps, &pt2, &x0, &y0);
-			}
+			bGPDspoint pt2;
+			gp_point_to_parent_space(pt, diff_mat, &pt2);
+			gp_point_to_xy(&gsc, gps, &pt2, &x0, &y0);
 
 			/* test if in selection rect */
 			if ((!ELEM(V2D_IS_CLIPPED, x0, y0)) && BLI_rcti_isect_pt(&rect, x0, y0)) {
@@ -1002,14 +985,9 @@ static int gpencil_lasso_select_exec(bContext *C, wmOperator *op)
 			int x0, y0;
 
 			/* convert point coords to screenspace */
-			if (gpl->parent == NULL) {
-				gp_point_to_xy(&gsc, gps, pt, &x0, &y0);
-			}
-			else {
-				bGPDspoint pt2;
-				gp_point_to_parent_space(pt, diff_mat, &pt2);
-				gp_point_to_xy(&gsc, gps, &pt2, &x0, &y0);
-			}
+			bGPDspoint pt2;
+			gp_point_to_parent_space(pt, diff_mat, &pt2);
+			gp_point_to_xy(&gsc, gps, &pt2, &x0, &y0);
 			/* test if in lasso boundbox + within the lasso noose */
 			if ((!ELEM(V2D_IS_CLIPPED, x0, y0)) && BLI_rcti_isect_pt(&rect, x0, y0) &&
 				BLI_lasso_is_point_inside(mcords, mcords_tot, x0, y0, INT_MAX))
@@ -1108,14 +1086,9 @@ static int gpencil_select_exec(bContext *C, wmOperator *op)
 		for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 			int xy[2];
 
-			if (gpl->parent == NULL) {
-				gp_point_to_xy(&gsc, gps, pt, &xy[0], &xy[1]);
-			}
-			else {
-				bGPDspoint pt2;
-				gp_point_to_parent_space(pt, diff_mat, &pt2);
-				gp_point_to_xy(&gsc, gps, &pt2, &xy[0], &xy[1]);
-			}
+			bGPDspoint pt2;
+			gp_point_to_parent_space(pt, diff_mat, &pt2);
+			gp_point_to_xy(&gsc, gps, &pt2, &xy[0], &xy[1]);
 
 			/* do boundbox check first */
 			if (!ELEM(V2D_IS_CLIPPED, xy[0], xy[1])) {

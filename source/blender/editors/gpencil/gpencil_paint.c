@@ -1086,10 +1086,8 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 	int i;
 	float diff_mat[4][4];
 
-	/* calculate difference matrix if parent object */
-	if (gpl->parent != NULL) {
-		ED_gpencil_parent_location(obact, p->gpd, gpl, diff_mat);
-	}
+	/* calculate difference matrix */
+	ED_gpencil_parent_location(obact, p->gpd, gpl, diff_mat);
 
 	if (gps->totpoints == 0) {
 		/* just free stroke */
@@ -1102,14 +1100,9 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 	else if (gps->totpoints == 1) {
 		/* only process if it hasn't been masked out... */
 		if (!(p->flags & GP_PAINTFLAG_SELECTMASK) || (gps->points->flag & GP_SPOINT_SELECT)) {
-			if (gpl->parent == NULL) {
-				gp_point_to_xy(&p->gsc, gps, gps->points, &pc1[0], &pc1[1]);
-			}
-			else {
-				bGPDspoint pt_temp;
-				gp_point_to_parent_space(gps->points, diff_mat, &pt_temp);
-				gp_point_to_xy(&p->gsc, gps, &pt_temp, &pc1[0], &pc1[1]);
-			}
+			bGPDspoint pt_temp;
+			gp_point_to_parent_space(gps->points, diff_mat, &pt_temp);
+			gp_point_to_xy(&p->gsc, gps, &pt_temp, &pc1[0], &pc1[1]);
 			/* do boundbox check first */
 			if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
 				/* only check if point is inside */
@@ -1162,18 +1155,12 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 			if ((p->flags & GP_PAINTFLAG_SELECTMASK) && !(gps->points->flag & GP_SPOINT_SELECT))
 				continue;
 			
-			if (gpl->parent == NULL) {
-				gp_point_to_xy(&p->gsc, gps, pt1, &pc1[0], &pc1[1]);
-				gp_point_to_xy(&p->gsc, gps, pt2, &pc2[0], &pc2[1]);
-			}
-			else {
-				bGPDspoint npt;
-				gp_point_to_parent_space(pt1, diff_mat, &npt);
-				gp_point_to_xy(&p->gsc, gps, &npt, &pc1[0], &pc1[1]);
+			bGPDspoint npt;
+			gp_point_to_parent_space(pt1, diff_mat, &npt);
+			gp_point_to_xy(&p->gsc, gps, &npt, &pc1[0], &pc1[1]);
 
-				gp_point_to_parent_space(pt2, diff_mat, &npt);
-				gp_point_to_xy(&p->gsc, gps, &npt, &pc2[0], &pc2[1]);
-			}
+			gp_point_to_parent_space(pt2, diff_mat, &npt);
+			gp_point_to_xy(&p->gsc, gps, &npt, &pc2[0], &pc2[1]);
 
 			/* Check that point segment of the boundbox of the eraser stroke */
 			if (((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) ||

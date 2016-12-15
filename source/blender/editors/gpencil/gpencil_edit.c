@@ -1475,10 +1475,8 @@ static int gp_snap_cursor_to_sel(bContext *C, wmOperator *UNUSED(op))
 			bGPDframe *gpf = gpl->actframe;
 			float diff_mat[4][4];
 			
-			/* calculate difference matrix if parent object */
-			if (gpl->parent != NULL) {
-				ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
-			}
+			/* calculate difference matrix */
+			ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 			
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				bGPDspoint *pt;
@@ -1496,18 +1494,13 @@ static int gp_snap_cursor_to_sel(bContext *C, wmOperator *UNUSED(op))
 				
 				for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 					if (pt->flag & GP_SPOINT_SELECT) {
-						if (gpl->parent == NULL) {
-							add_v3_v3(centroid, &pt->x);
-							minmax_v3v3_v3(min, max, &pt->x);
-						}
-						else {
-							/* apply parent transformations */
-							float fpt[3];
-							mul_v3_m4v3(fpt, diff_mat, &pt->x);
-							
+						/* apply parent transformations */
+						float fpt[3];
+						mul_v3_m4v3(fpt, diff_mat, &pt->x);
+						
 							add_v3_v3(centroid, fpt);
-							minmax_v3v3_v3(min, max, fpt);
-						}
+						minmax_v3v3_v3(min, max, fpt);
+						
 						count++;
 					}
 				}
@@ -2034,9 +2027,7 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 			
 			/* Compute inverse matrix for unapplying parenting once instead of doing per-point */
 			/* TODO: add this bit to the iteration macro? */
-			if (gpl->parent) {
-				invert_m4_m4(inverse_diff_mat, diff_mat);
-			}
+			invert_m4_m4(inverse_diff_mat, diff_mat);
 			
 			/* Adjust each point */
 			for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
@@ -2047,14 +2038,9 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 				 *       coordinates, resulting in lost precision, which in turn causes stairstepping
 				 *       artifacts in the final points.
 				 */
-				if (gpl->parent == NULL) {
-					gp_point_to_xy_fl(&gsc, gps, pt, &xy[0], &xy[1]);
-				}
-				else {
-					bGPDspoint pt2;
-					gp_point_to_parent_space(pt, diff_mat, &pt2);
-					gp_point_to_xy_fl(&gsc, gps, &pt2, &xy[0], &xy[1]);
-				}
+				bGPDspoint pt2;
+				gp_point_to_parent_space(pt, diff_mat, &pt2);
+				gp_point_to_xy_fl(&gsc, gps, &pt2, &xy[0], &xy[1]);
 				
 				/* Project screenspace back to 3D space (from current perspective)
 				 * so that all points have been treated the same way
@@ -2082,9 +2068,7 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 				}
 				
 				/* Unapply parent corrections */
-				if (gpl->parent) {
-					mul_m4_v3(inverse_diff_mat, &pt->x);
-				}
+				mul_m4_v3(inverse_diff_mat, &pt->x);
 			}
 		}
 	}
