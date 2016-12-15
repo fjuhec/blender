@@ -623,8 +623,8 @@ static int gp_set_filling_texture(Image *image, short flag)
 
 /* draw fills for shapes */
 static void gp_draw_stroke_fill(
-	bGPdata *gpd, bGPDstroke *gps,
-	int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float color[4])
+        bGPdata *gpd, bGPDstroke *gps,
+        int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
 	PaletteColor *palcolor = gps->palcolor;
@@ -1060,7 +1060,7 @@ static bool gp_can_draw_stroke(const bGPDstroke *gps, const int dflag)
 
 /* draw a set of strokes */
 static void gp_draw_strokes(
-		bGPdata *gpd, const bGPDframe *gpf, int offsx, int offsy, int winx, int winy, int dflag,
+        bGPdata *gpd, const bGPDframe *gpf, int offsx, int offsy, int winx, int winy, int dflag,
         bool debug, short lthick, const float opacity, const float tintcolor[4],
         const bool onion, const bool custonion, const float diff_mat[4][4])
 {
@@ -1243,7 +1243,7 @@ static void gp_draw_strokes(
 
 /* Draw selected verts for strokes being edited */
 static void gp_draw_strokes_edit(
-		bGPdata *gpd, const bGPDframe *gpf, int offsx, int offsy, int winx, int winy, short dflag,
+        bGPdata *gpd, const bGPDframe *gpf, int offsx, int offsy, int winx, int winy, short dflag,
         short lflag, const float diff_mat[4][4], float alpha)
 {
 	/* if alpha 0 do not draw */
@@ -1402,7 +1402,7 @@ static void gp_draw_strokes_edit(
 
 /* draw onion-skinning for a layer */
 static void gp_draw_onionskins(
-		bGPdata *gpd, const bGPDlayer *gpl, const bGPDframe *gpf, int offsx, int offsy, int winx, int winy,
+        bGPdata *gpd, const bGPDlayer *gpl, const bGPDframe *gpf, int offsx, int offsy, int winx, int winy,
         int UNUSED(cfra), int dflag, bool debug, const float diff_mat[4][4])
 {
 	const float default_color[3] = {UNPACK3(U.gpencil_new_layer_col)};
@@ -1481,10 +1481,10 @@ static void gp_draw_onionskins(
 }
 
 /* draw interpolate strokes (used only while operator is running) */
-void ED_gp_draw_interpolation(tGPDinterpolate *tgpi, const int type)
+void ED_gp_draw_interpolation(const bContext *C, tGPDinterpolate *tgpi, const int type)
 {
 	tGPDinterpolate_layer *tgpil;
-	ToolSettings *ts = tgpi->scene->toolsettings;
+	Object *obact = CTX_data_active_object(C);
 	float diff_mat[4][4];
 	float color[4];
 
@@ -1505,7 +1505,7 @@ void ED_gp_draw_interpolation(tGPDinterpolate *tgpi, const int type)
 	glEnable(GL_BLEND);
 	for (tgpil = tgpi->ilayers.first; tgpil; tgpil = tgpil->next) {
 		/* calculate parent position */
-		ED_gpencil_parent_location(tgpil->gpl, diff_mat);
+		ED_gpencil_parent_location(obact, tgpi->gpd, tgpil->gpl, diff_mat);
 		if (tgpil->interFrame) {
 			gp_draw_strokes(tgpi->gpd, tgpil->interFrame, offsx, offsy, winx, winy, dflag, false,
 				tgpil->gpl->thickness, 1.0f, color, true, true, diff_mat);
@@ -1516,13 +1516,14 @@ void ED_gp_draw_interpolation(tGPDinterpolate *tgpi, const int type)
 
 /* loop over gpencil data layers, drawing them */
 static void gp_draw_data_layers(
-		const bGPDbrush *brush, float alpha, bGPdata *gpd, int offsx, int offsy, int winx, int winy, int cfra, int dflag)
+        const bGPDbrush *brush, float alpha, Object *ob, bGPdata *gpd,
+        int offsx, int offsy, int winx, int winy, int cfra, int dflag)
 {
 	float diff_mat[4][4];
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* calculate parent position */
-		ED_gpencil_parent_location(gpl, diff_mat);
+		ED_gpencil_parent_location(ob, gpd, gpl, diff_mat);
 
 		bool debug = (gpl->flag & GP_LAYER_DRAWDEBUG);
 		short lthick = brush->thickness + gpl->thickness;
@@ -1662,7 +1663,8 @@ static void gp_draw_status_text(const bGPdata *gpd, ARegion *ar)
 
 /* draw grease-pencil datablock */
 static void gp_draw_data(
-		const bGPDbrush *brush, float alpha, bGPdata *gpd, int offsx, int offsy, int winx, int winy, int cfra, int dflag)
+        const bGPDbrush *brush, float alpha, Object *ob, bGPdata *gpd,
+        int offsx, int offsy, int winx, int winy, int cfra, int dflag)
 {
 #if 0 /* disable to see if really needed. re-enable or delete by Dec 2016 */
 	/* reset line drawing style (in case previous user didn't reset) */
@@ -1682,7 +1684,7 @@ static void gp_draw_data(
 	glEnable(GL_BLEND);
 
 	/* draw! */
-	gp_draw_data_layers(brush, alpha, gpd, offsx, offsy, winx, winy, cfra, dflag);
+	gp_draw_data_layers(brush, alpha, ob, gpd, offsx, offsy, winx, winy, cfra, dflag);
 
 	/* turn off alpha blending, then smooth lines */
 	glDisable(GL_BLEND); // alpha blending
@@ -1721,7 +1723,7 @@ static void gp_draw_data_all(Scene *scene, bGPdata *gpd, int offsx, int offsy, i
 
 		if (gpd_source) {
 			if (brush != NULL) {
-				gp_draw_data(brush, ts->gp_sculpt.alpha, gpd_source,
+				gp_draw_data(brush, ts->gp_sculpt.alpha, NULL, gpd_source,
 				             offsx, offsy, winx, winy, cfra, dflag);
 			}
 		}
@@ -1731,7 +1733,7 @@ static void gp_draw_data_all(Scene *scene, bGPdata *gpd, int offsx, int offsy, i
 	 * if gpd_source == gpd, we don't have any object/track data and we can skip */
 	if (gpd_source == NULL || (gpd_source && gpd_source != gpd)) {
 		if (brush != NULL) {
-			gp_draw_data(brush, ts->gp_sculpt.alpha, gpd,
+			gp_draw_data(brush, ts->gp_sculpt.alpha, NULL, gpd,
 			             offsx, offsy, winx, winy, cfra, dflag);
 		}
 	}
@@ -1955,7 +1957,7 @@ void ED_gpencil_draw_view3d_object(wmWindowManager *wm, Scene *scene, Object *ob
 	ToolSettings *ts = scene->toolsettings;
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
 	if (brush != NULL) {
-		gp_draw_data(brush, ts->gp_sculpt.alpha, gpd,
+		gp_draw_data(brush, ts->gp_sculpt.alpha, ob, gpd,
 			offsx, offsy, winx, winy, CFRA, dflag);
 	}
 }

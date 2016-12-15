@@ -143,28 +143,23 @@ static EnumPropertyItem *rna_GPConvert_mode_items(bContext *UNUSED(C), PointerRN
  *	- assumes that the active space is the 3D-View
  */
 static void gp_strokepoint_convertcoords(
-        bContext *C, bGPDlayer *gpl, bGPDstroke *gps, bGPDspoint *source_pt,
+        bContext *C, bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, bGPDspoint *source_pt,
         float p3d[3], const rctf *subrect)
 {
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	ARegion *ar = CTX_wm_region(C);
+	Object *obact = CTX_data_active_object(C);   
 	bGPDspoint mypt, *pt;
 
 	float diff_mat[4][4];
 	pt = &mypt;
 
-	/* calculate difference matrix if parent object */
-	if (gpl->parent == NULL) {
-		copy_v3_v3(&pt->x, &source_pt->x);
-	}
-	else {
-		/* apply parent transform */
-		float fpt[3];
-		ED_gpencil_parent_location(gpl, diff_mat);
-		mul_v3_m4v3(fpt, diff_mat, &source_pt->x);
-		copy_v3_v3(&pt->x, fpt);
-	}
+	/* apply parent transform */
+	float fpt[3];
+	ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
+	mul_v3_m4v3(fpt, diff_mat, &source_pt->x);
+	copy_v3_v3(&pt->x, fpt);
 
 
 	if (gps->flag & GP_STROKE_3DSPACE) {
@@ -583,7 +578,7 @@ static void gp_stroke_to_path_add_point(tGpTimingData *gtd, BPoint *bp, const fl
 	}
 }
 
-static void gp_stroke_to_path(bContext *C, bGPDlayer *gpl, bGPDstroke *gps, Curve *cu, rctf *subrect, Nurb **curnu,
+static void gp_stroke_to_path(bContext *C, bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, Curve *cu, rctf *subrect, Nurb **curnu,
                               float minmax_weights[2], const float rad_fac, bool stitch, const bool add_start_point,
                               const bool add_end_point, tGpTimingData *gtd)
 {
@@ -647,7 +642,7 @@ static void gp_stroke_to_path(bContext *C, bGPDlayer *gpl, bGPDstroke *gps, Curv
 		bp = &nu->bp[old_nbp - 1];
 		
 		/* First point */
-		gp_strokepoint_convertcoords(C, gpl, gps, gps->points, p, subrect);
+		gp_strokepoint_convertcoords(C, gpd, gpl, gps, gps->points, p, subrect);
 		if (prev_bp) {
 			interp_v3_v3v3(p1, bp->vec, prev_bp->vec, -GAP_DFAC);
 			if (do_gtd) {
@@ -668,7 +663,7 @@ static void gp_stroke_to_path(bContext *C, bGPDlayer *gpl, bGPDstroke *gps, Curv
 		/* Second point */
 		/* Note dt2 is always negative, which marks the gap. */
 		if (gps->totpoints > 1) {
-			gp_strokepoint_convertcoords(C, gpl, gps, gps->points + 1, next_p, subrect);
+			gp_strokepoint_convertcoords(C, gpd, gpl, gps, gps->points + 1, next_p, subrect);
 			interp_v3_v3v3(p2, p, next_p, -GAP_DFAC);
 			if (do_gtd) {
 				dt2 = interpf(gps->points[1].time, gps->points[0].time, -GAP_DFAC);
@@ -689,9 +684,9 @@ static void gp_stroke_to_path(bContext *C, bGPDlayer *gpl, bGPDstroke *gps, Curv
 		float p[3], next_p[3];
 		float dt = 0.0f;
 		
-		gp_strokepoint_convertcoords(C, gpl, gps, gps->points, p, subrect);
+		gp_strokepoint_convertcoords(C, gpd, gpl, gps, gps->points, p, subrect);
 		if (gps->totpoints > 1) {
-			gp_strokepoint_convertcoords(C, gpl, gps, gps->points + 1, next_p, subrect);
+			gp_strokepoint_convertcoords(C, gpd, gpl, gps, gps->points + 1, next_p, subrect);
 			interp_v3_v3v3(p, p, next_p, -GAP_DFAC);
 			if (do_gtd) {
 				dt = interpf(gps->points[1].time, gps->points[0].time, -GAP_DFAC);
@@ -723,7 +718,7 @@ static void gp_stroke_to_path(bContext *C, bGPDlayer *gpl, bGPDstroke *gps, Curv
 		float width = pt->pressure * (gps->thickness + gpl->thickness) * WIDTH_CORR_FAC;
 		
 		/* get coordinates to add at */
-		gp_strokepoint_convertcoords(C, gpl, gps, pt, p, subrect);
+		gp_strokepoint_convertcoords(C, gpd, gpl, gps, pt, p, subrect);
 		
 		gp_stroke_to_path_add_point(gtd, bp, p, (prev_bp) ? prev_bp->vec : p, do_gtd, gps->inittime, pt->time,
 		                            width, rad_fac, minmax_weights);
@@ -793,7 +788,7 @@ static void gp_stroke_to_bezier_add_point(tGpTimingData *gtd, BezTriple *bezt,
 	}
 }
 
-static void gp_stroke_to_bezier(bContext *C, bGPDlayer *gpl, bGPDstroke *gps, Curve *cu, rctf *subrect, Nurb **curnu,
+static void gp_stroke_to_bezier(bContext *C, bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, Curve *cu, rctf *subrect, Nurb **curnu,
                                 float minmax_weights[2], const float rad_fac, bool stitch, const bool add_start_point,
                                 const bool add_end_point, tGpTimingData *gtd)
 {
@@ -835,12 +830,12 @@ static void gp_stroke_to_bezier(bContext *C, bGPDlayer *gpl, bGPDstroke *gps, Cu
 	/* get initial coordinates */
 	pt = gps->points;
 	if (tot) {
-		gp_strokepoint_convertcoords(C, gpl, gps, pt, (stitch) ? p3d_prev : p3d_cur, subrect);
+		gp_strokepoint_convertcoords(C, gpd, gpl, gps, pt, (stitch) ? p3d_prev : p3d_cur, subrect);
 		if (tot > 1) {
-			gp_strokepoint_convertcoords(C, gpl, gps, pt + 1, (stitch) ? p3d_cur : p3d_next, subrect);
+			gp_strokepoint_convertcoords(C, gpd, gpl, gps, pt + 1, (stitch) ? p3d_cur : p3d_next, subrect);
 		}
 		if (stitch && tot > 2) {
-			gp_strokepoint_convertcoords(C, gpl, gps, pt + 2, p3d_next, subrect);
+			gp_strokepoint_convertcoords(C, gpd, gpl, gps, pt + 2, p3d_next, subrect);
 		}
 	}
 	
@@ -983,7 +978,7 @@ static void gp_stroke_to_bezier(bContext *C, bGPDlayer *gpl, bGPDstroke *gps, Cu
 		copy_v3_v3(p3d_cur, p3d_next);
 		
 		if (i + 2 < tot) {
-			gp_strokepoint_convertcoords(C, gpl, gps, pt + 2, p3d_next, subrect);
+			gp_strokepoint_convertcoords(C, gpd, gpl, gps, pt + 2, p3d_next, subrect);
 		}
 		
 		prev_bezt = bezt;
@@ -1181,12 +1176,12 @@ static void gp_layer_to_curve(bContext *C, ReportList *reports, bGPdata *gpd, bG
 		
 		switch (mode) {
 			case GP_STROKECONVERT_PATH:
-				gp_stroke_to_path(C, gpl, gps, cu, subrect_ptr, &nu, minmax_weights, rad_fac, stitch,
+				gp_stroke_to_path(C, gpd, gpl, gps, cu, subrect_ptr, &nu, minmax_weights, rad_fac, stitch,
 				                  add_start_point, add_end_point, gtd);
 				break;
 			case GP_STROKECONVERT_CURVE:
 			case GP_STROKECONVERT_POLY:  /* convert after */
-				gp_stroke_to_bezier(C, gpl, gps, cu, subrect_ptr, &nu, minmax_weights, rad_fac, stitch,
+				gp_stroke_to_bezier(C, gpd, gpl, gps, cu, subrect_ptr, &nu, minmax_weights, rad_fac, stitch,
 				                    add_start_point, add_end_point, gtd);
 				break;
 			default:

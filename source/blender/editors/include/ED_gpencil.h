@@ -152,7 +152,7 @@ void ED_gpencil_draw_view3d(struct wmWindowManager *wm, struct Scene *scene, str
 void ED_gpencil_draw_view3d_object(struct wmWindowManager *wm, struct Scene *scene, struct Object *ob, struct View3D *v3d, struct ARegion *ar, bool only3d);
 void ED_gpencil_draw_ex(struct Scene *scene, struct bGPdata *gpd, int winx, int winy,
                         const int cfra, const char spacetype);
-void ED_gp_draw_interpolation(struct tGPDinterpolate *tgpi, const int type);
+void ED_gp_draw_interpolation(const struct bContext *C, struct tGPDinterpolate *tgpi, const int type);
 
 /* ----------- Grease-Pencil AnimEdit API ------------------ */
 bool  ED_gplayer_frames_looper(struct bGPDlayer *gpl, struct Scene *scene,
@@ -185,10 +185,10 @@ int ED_undo_gpencil_step(struct bContext *C, int step, const char *name);
 
 /* ------------ Transformation Utilities ------------ */
 
-/* get difference matrix using parent */
-void ED_gpencil_parent_location(struct bGPDlayer *gpl, float diff_mat[4][4]);
+/* get difference matrix */
+void ED_gpencil_parent_location(struct Object *obact, struct bGPdata *gpd, struct bGPDlayer *gpl, float diff_mat[4][4]);
 /* reset parent matrix for all layers */
-void ED_gpencil_reset_layers_parent(struct bGPdata *gpd);
+void ED_gpencil_reset_layers_parent(struct Object *obact, struct bGPdata *gpd);
 
 
 #endif /*  __ED_GPENCIL_H__ */

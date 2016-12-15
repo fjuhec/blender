@@ -302,7 +302,7 @@ static int calc_manipulator_stats(const bContext *C)
 
 				/* calculate difference matrix if parent object */
 				if (gpl->parent != NULL) {
-					ED_gpencil_parent_location(gpl, diff_mat);
+					ED_gpencil_parent_location(ob, gpd, gpl, diff_mat);
 				}
 
 				for (bGPDstroke *gps = gpl->actframe->strokes.first; gps; gps = gps->next) {

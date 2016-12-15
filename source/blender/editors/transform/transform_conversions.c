@@ -7639,6 +7639,7 @@ void flushTransPaintCurve(TransInfo *t)
 static void createTransGPencil(bContext *C, TransInfo *t)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	Object *obact = CTX_data_active_object(C);
 	bGPDlayer *gpl;
 	TransData *td = NULL;
 	float mtx[3][3], smtx[3][3];
@@ -7732,7 +7733,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 
 			/* calculate difference matrix if parent object */
 			if (gpl->parent != NULL) {
-				ED_gpencil_parent_location(gpl, diff_mat);
+				ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 				/* undo matrix */
 				invert_m4_m4(inverse_diff_mat, diff_mat);
 			}

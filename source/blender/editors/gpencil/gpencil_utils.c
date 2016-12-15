@@ -493,7 +493,7 @@ void gp_point_to_parent_space(bGPDspoint *pt, float diff_mat[4][4], bGPDspoint *
 }
 
 /* Change position relative to parent object */
-void gp_apply_parent(bGPDlayer *gpl, bGPDstroke *gps)
+void gp_apply_parent(Object *obact, bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
 	int i;
@@ -503,7 +503,7 @@ void gp_apply_parent(bGPDlayer *gpl, bGPDstroke *gps)
 	float inverse_diff_mat[4][4];
 	float fpt[3];
 
-	ED_gpencil_parent_location(gpl, diff_mat);
+	ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 	invert_m4_m4(inverse_diff_mat, diff_mat);
 
 	for (i = 0; i < gps->totpoints; i++) {
@@ -514,14 +514,14 @@ void gp_apply_parent(bGPDlayer *gpl, bGPDstroke *gps)
 }
 
 /* Change point position relative to parent object */
-void gp_apply_parent_point(bGPDlayer *gpl, bGPDspoint *pt)
+void gp_apply_parent_point(Object *obact, bGPdata *gpd, bGPDlayer *gpl, bGPDspoint *pt)
 {
 	/* undo matrix */
 	float diff_mat[4][4];
 	float inverse_diff_mat[4][4];
 	float fpt[3];
 
-	ED_gpencil_parent_location(gpl, diff_mat);
+	ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 	invert_m4_m4(inverse_diff_mat, diff_mat);
 
 	mul_v3_m4v3(fpt, inverse_diff_mat, &pt->x);
@@ -911,28 +911,37 @@ void gp_randomize_stroke(bGPDstroke *gps, bGPDbrush *brush)
 
 }
 /* calculate difference matrix */
-void ED_gpencil_parent_location(bGPDlayer *gpl, float diff_mat[4][4])
+void ED_gpencil_parent_location(Object *obact, bGPdata *gpd, bGPDlayer *gpl, float diff_mat[4][4])
 {
-	Object *ob = gpl->parent;
+	Object *obparent = gpl->parent;
 
-	if (ob == NULL) {
+	/* if not layer parented, try with object parented */
+	if (obparent == NULL) {
+		if (obact != NULL) {
+			/* the gpd can be scene, but a gpobject can be active, so need check gpd */
+			if ((obact->type == OB_GPENCIL) && (obact->gpd == gpd)) {
+				copy_m4_m4(diff_mat, obact->obmat);
+				return;
+			}
+		}
+		/* not gpencil object */
 		unit_m4(diff_mat);
 		return;
 	}
 	else {
 		if ((gpl->partype == PAROBJECT) || (gpl->partype == PARSKEL)) {
-			mul_m4_m4m4(diff_mat, ob->obmat, gpl->inverse);
+			mul_m4_m4m4(diff_mat, obparent->obmat, gpl->inverse);
 			return;
 		}
 		else if (gpl->partype == PARBONE) {
-			bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, gpl->parsubstr);
+			bPoseChannel *pchan = BKE_pose_channel_find_name(obparent->pose, gpl->parsubstr);
 			if (pchan) {
 				float tmp_mat[4][4];
-				mul_m4_m4m4(tmp_mat, ob->obmat, pchan->pose_mat);
+				mul_m4_m4m4(tmp_mat, obparent->obmat, pchan->pose_mat);
 				mul_m4_m4m4(diff_mat, tmp_mat, gpl->inverse);
 			}
 			else {
-				mul_m4_m4m4(diff_mat, ob->obmat, gpl->inverse); /* if bone not found use object (armature) */
+				mul_m4_m4m4(diff_mat, obparent->obmat, gpl->inverse); /* if bone not found use object (armature) */
 			}
 			return;
 		}
@@ -943,7 +952,7 @@ void ED_gpencil_parent_location(bGPDlayer *gpl, float diff_mat[4][4])
 }
 
 /* reset parent matrix for all layers */
-void ED_gpencil_reset_layers_parent(bGPdata *gpd)
+void ED_gpencil_reset_layers_parent(Object *obact, bGPdata *gpd)
 {
 	bGPDspoint *pt;
 	int i;
@@ -968,7 +977,7 @@ void ED_gpencil_reset_layers_parent(bGPdata *gpd)
 			/* only redo if any change */
 			if (!equals_m4m4(gpl->inverse, cur_mat)) {
 				/* first apply current transformation to all strokes */
-				ED_gpencil_parent_location(gpl, diff_mat);
+				ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 				for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 					for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {

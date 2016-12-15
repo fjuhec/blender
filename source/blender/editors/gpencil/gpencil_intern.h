@@ -123,11 +123,11 @@ void gp_point_to_parent_space(bGPDspoint *pt, float diff_mat[4][4], bGPDspoint *
 /**
  * Change points position relative to parent object
  */
-void gp_apply_parent(bGPDlayer *gpl, bGPDstroke *gps);
+void gp_apply_parent(struct Object *obact, bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps);
 /**
  * Change point position relative to parent object
  */
-void gp_apply_parent_point(bGPDlayer *gpl, bGPDspoint *pt);
+void gp_apply_parent_point(struct Object *obact, bGPdata *gpd, bGPDlayer *gpl, bGPDspoint *pt);
 
 /**
  * Convert a screenspace point to a 3D Grease Pencil coordinate.
@@ -406,13 +406,15 @@ typedef enum ACTCONT_TYPES {
 */
 #define GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)                                          \
 {                                                                                       \
+	Object *obact = CTX_data_active_object(C);                                          \
+	bGPdata *gpd = CTX_data_gpencil_data(C);                                            \
 	CTX_DATA_BEGIN(C, bGPDlayer*, gpl, editable_gpencil_layers)                         \
 	{                                                                                   \
 		if (gpl->actframe == NULL)                                                      \
 			continue;                                                                   \
-		/* calculate difference matrix if parent object */                              \
+		/* calculate difference matrix */                                               \
 		float diff_mat[4][4];                                                           \
-		ED_gpencil_parent_location(gpl, diff_mat);                                      \
+		ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);                          \
 		/* loop over strokes */                                                         \
 		for (bGPDstroke *gps = gpl->actframe->strokes.first; gps; gps = gps->next) {    \
 			/* skip strokes that are invalid for current view */                        \

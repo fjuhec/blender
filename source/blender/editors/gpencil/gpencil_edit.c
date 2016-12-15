@@ -116,7 +116,7 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	gpd->flag ^= GP_DATA_STROKE_EDITMODE;
 	/* recalculate parent matrix */
 	if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
-		ED_gpencil_reset_layers_parent(gpd);
+		ED_gpencil_reset_layers_parent(ob, gpd);
 	}
 
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, NULL);
@@ -1303,6 +1303,7 @@ static int gp_snap_to_grid(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	RegionView3D *rv3d = CTX_wm_region_data(C);
+	Object *obact = CTX_data_active_object(C);
 	const float gridf = rv3d->gridview;
 	
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
@@ -1311,10 +1312,8 @@ static int gp_snap_to_grid(bContext *C, wmOperator *UNUSED(op))
 			bGPDframe *gpf = gpl->actframe;
 			float diff_mat[4][4];
 			
-			/* calculate difference matrix if parent object */
-			if (gpl->parent != NULL) {
-				ED_gpencil_parent_location(gpl, diff_mat);
-			}
+			/* calculate difference matrix object */
+			ED_gpencil_parent_location(obact, gpd,gpl, diff_mat);
 			
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				bGPDspoint *pt;
@@ -1331,24 +1330,17 @@ static int gp_snap_to_grid(bContext *C, wmOperator *UNUSED(op))
 				for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 					/* only if point is selected */
 					if (pt->flag & GP_SPOINT_SELECT) {
-						if (gpl->parent == NULL) {
-							pt->x = gridf * floorf(0.5f + pt->x / gridf);
-							pt->y = gridf * floorf(0.5f + pt->y / gridf);
-							pt->z = gridf * floorf(0.5f + pt->z / gridf);
-						}
-						else {
-							/* apply parent transformations */
-							float fpt[3];
-							mul_v3_m4v3(fpt, diff_mat, &pt->x);
-							
-							fpt[0] = gridf * floorf(0.5f + fpt[0] / gridf);
-							fpt[1] = gridf * floorf(0.5f + fpt[1] / gridf);
-							fpt[2] = gridf * floorf(0.5f + fpt[2] / gridf);
-							
-							/* return data */
-							copy_v3_v3(&pt->x, fpt);
-							gp_apply_parent_point(gpl, pt);
-						}
+						/* apply parent transformations */
+						float fpt[3];
+						mul_v3_m4v3(fpt, diff_mat, &pt->x);
+
+						fpt[0] = gridf * floorf(0.5f + fpt[0] / gridf);
+						fpt[1] = gridf * floorf(0.5f + fpt[1] / gridf);
+						fpt[2] = gridf * floorf(0.5f + fpt[2] / gridf);
+
+						/* return data */
+						copy_v3_v3(&pt->x, fpt);
+						gp_apply_parent_point(obact, gpd, gpl, pt);
 					}
 				}
 			}
@@ -1382,7 +1374,8 @@ static int gp_snap_to_cursor(bContext *C, wmOperator *op)
 	
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
-	
+	Object *obact = CTX_data_active_object(C);                                          \
+
 	const bool use_offset = RNA_boolean_get(op->ptr, "use_offset");
 	const float *cursor_global = ED_view3d_cursor3d_get(scene, v3d);
 	
@@ -1392,10 +1385,8 @@ static int gp_snap_to_cursor(bContext *C, wmOperator *op)
 			bGPDframe *gpf = gpl->actframe;
 			float diff_mat[4][4];
 			
-			/* calculate difference matrix if parent object */
-			if (gpl->parent != NULL) {
-				ED_gpencil_parent_location(gpl, diff_mat);
-			}
+			/* calculate difference matrix */
+			ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 			
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				bGPDspoint *pt;
@@ -1428,9 +1419,7 @@ static int gp_snap_to_cursor(bContext *C, wmOperator *op)
 					for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 						if (pt->flag & GP_SPOINT_SELECT) {
 							copy_v3_v3(&pt->x, cursor_global);
-							if (gpl->parent != NULL) {
-								gp_apply_parent_point(gpl, pt);
-							}
+							gp_apply_parent_point(obact, gpd, gpl, pt);
 						}
 					}
 				}
@@ -1470,7 +1459,8 @@ static int gp_snap_cursor_to_sel(bContext *C, wmOperator *UNUSED(op))
 	
 	Scene *scene = CTX_data_scene(C);
 	View3D *v3d = CTX_wm_view3d(C);
-	
+	Object *obact = CTX_data_active_object(C);                                          \
+
 	float *cursor = ED_view3d_cursor3d_get(scene, v3d);
 	float centroid[3] = {0.0f};
 	float min[3], max[3];
@@ -1487,7 +1477,7 @@ static int gp_snap_cursor_to_sel(bContext *C, wmOperator *UNUSED(op))
 			
 			/* calculate difference matrix if parent object */
 			if (gpl->parent != NULL) {
-				ED_gpencil_parent_location(gpl, diff_mat);
+				ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 			}
 			
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {

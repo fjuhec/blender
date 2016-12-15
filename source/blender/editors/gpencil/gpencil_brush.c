@@ -428,7 +428,7 @@ static void gp_brush_grab_calc_dvec(tGP_BrushEditData *gso)
 
 /* Apply grab transform to all relevant points of the affected strokes */
 static void gp_brush_grab_apply_cached(
-        tGP_BrushEditData *gso, bGPDstroke *gps, bool parented, float diff_mat[4][4])
+        tGP_BrushEditData *gso, bGPDstroke *gps, float diff_mat[4][4])
 {
 	tGPSB_Grab_StrokeData *data = BLI_ghash_lookup(gso->stroke_customdata, gps);
 	int i;
@@ -440,22 +440,17 @@ static void gp_brush_grab_apply_cached(
 		
 		/* adjust the amount of displacement to apply */
 		mul_v3_v3fl(delta, gso->dvec, data->weights[i]);
-		if (!parented) {
-			/* apply */
-			add_v3_v3(&pt->x, delta);
-		}
-		else {
-			float fpt[3];
-			/* apply transformation */
-			mul_v3_m4v3(fpt, diff_mat, &pt->x);
-			/* apply */
-			add_v3_v3(fpt, delta);
-			copy_v3_v3(&pt->x, fpt);
-			/* undo transformation to the init parent position */
-			float inverse_diff_mat[4][4];
-			invert_m4_m4(inverse_diff_mat, diff_mat);
-			mul_m4_v3(inverse_diff_mat, &pt->x);
-		}
+
+		float fpt[3];
+		/* apply transformation */
+		mul_v3_m4v3(fpt, diff_mat, &pt->x);
+		/* apply */
+		add_v3_v3(fpt, delta);
+		copy_v3_v3(&pt->x, fpt);
+		/* undo transformation to the init parent position */
+		float inverse_diff_mat[4][4];
+		invert_m4_m4(inverse_diff_mat, diff_mat);
+		mul_m4_v3(inverse_diff_mat, &pt->x);
 		
 	}
 }
@@ -1199,7 +1194,7 @@ static void gpsculpt_brush_init_stroke(tGP_BrushEditData *gso)
 
 /* Apply brush operation to points in this stroke */
 static bool gpsculpt_brush_do_stroke(
-        tGP_BrushEditData *gso, bGPDstroke *gps, bool parented,
+        tGP_BrushEditData *gso, bGPDstroke *gps, 
         float diff_mat[4][4], GP_BrushApplyCb apply)
 {
 	GP_SpaceConversion *gsc = &gso->gsc;
@@ -1214,14 +1209,9 @@ static bool gpsculpt_brush_do_stroke(
 	bool changed = false;
 
 	if (gps->totpoints == 1) {
-		if (!parented) {
-			gp_point_to_xy(gsc, gps, gps->points, &pc1[0], &pc1[1]);
-		}
-		else {
-			bGPDspoint pt_temp;
-			gp_point_to_parent_space(gps->points, diff_mat, &pt_temp);
-			gp_point_to_xy(gsc, gps, &pt_temp, &pc1[0], &pc1[1]);
-		}
+		bGPDspoint pt_temp;
+		gp_point_to_parent_space(gps->points, diff_mat, &pt_temp);
+		gp_point_to_xy(gsc, gps, &pt_temp, &pc1[0], &pc1[1]);
 		
 		/* do boundbox check first */
 		if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
@@ -1248,19 +1238,12 @@ static bool gpsculpt_brush_do_stroke(
 					continue;
 				}
 			}
-			if (!parented) {
-				gp_point_to_xy(gsc, gps, pt1, &pc1[0], &pc1[1]);
-				gp_point_to_xy(gsc, gps, pt2, &pc2[0], &pc2[1]);
-			}
-			else {
-				bGPDspoint npt;
-				gp_point_to_parent_space(pt1, diff_mat, &npt);
-				gp_point_to_xy(gsc, gps, &npt, &pc1[0], &pc1[1]);
+			bGPDspoint npt;
+			gp_point_to_parent_space(pt1, diff_mat, &npt);
+			gp_point_to_xy(gsc, gps, &npt, &pc1[0], &pc1[1]);
 
-				gp_point_to_parent_space(pt2, diff_mat, &npt);
-				gp_point_to_xy(gsc, gps, &npt, &pc2[0], &pc2[1]);
-			}
-
+			gp_point_to_parent_space(pt2, diff_mat, &npt);
+			gp_point_to_xy(gsc, gps, &npt, &pc2[0], &pc2[1]);
 
 			/* Check that point segment of the boundbox of the selection stroke */
 			if (((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) ||
@@ -1347,7 +1330,8 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 	
 	/* Find visible strokes, and perform operations on those if hit */
 	float diff_mat[4][4];
-	bool parented = false;
+	Object *obact = CTX_data_active_object(C);     
+	bGPdata *gpd = gso->gpd;
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
@@ -1355,14 +1339,8 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 		if (gpf == NULL)
 			continue;
 		
-		/* calculate difference matrix if parent object */
-		if (gpl->parent != NULL) {
-			ED_gpencil_parent_location(gpl, diff_mat);
-			parented = true;
-		}
-		else {
-			parented = false;
-		}
+		/* calculate difference matrix */
+		ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 		
 		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 			/* skip strokes that are invalid for current view */
@@ -1376,19 +1354,19 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 			switch (gso->brush_type) {
 				case GP_EDITBRUSH_TYPE_SMOOTH: /* Smooth strokes */
 				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, parented, diff_mat, gp_brush_smooth_apply);
+					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_smooth_apply);
 					break;
 				}
 
 				case GP_EDITBRUSH_TYPE_THICKNESS: /* Adjust stroke thickness */
 				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, parented, diff_mat, gp_brush_thickness_apply);
+					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_thickness_apply);
 					break;
 				}
 
 				case GP_EDITBRUSH_TYPE_STRENGTH: /* Adjust stroke color strength */
 				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, parented, diff_mat, gp_brush_strength_apply);
+					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_strength_apply);
 					break;
 				}
 
@@ -1400,11 +1378,11 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 						 * 2) Use the points now under the cursor
 						 */
 						gp_brush_grab_stroke_init(gso, gps);
-						changed |= gpsculpt_brush_do_stroke(gso, gps, parented, diff_mat, gp_brush_grab_store_points);
+						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_grab_store_points);
 					}
 					else {
 						/* Apply effect to the stored points */
-						gp_brush_grab_apply_cached(gso, gps, parented, diff_mat);
+						gp_brush_grab_apply_cached(gso, gps, diff_mat);
 						changed |= true;
 					}
 					break;
@@ -1412,25 +1390,25 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 
 				case GP_EDITBRUSH_TYPE_PUSH: /* Push points */
 				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, parented, diff_mat, gp_brush_push_apply);
+					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_push_apply);
 					break;
 				}
 
 				case GP_EDITBRUSH_TYPE_PINCH: /* Pinch points */
 				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, parented, diff_mat, gp_brush_pinch_apply);
+					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_pinch_apply);
 					break;
 				}
 
 				case GP_EDITBRUSH_TYPE_TWIST: /* Twist points around midpoint */
 				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, parented, diff_mat, gp_brush_twist_apply);
+					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_twist_apply);
 					break;
 				}
 
 				case GP_EDITBRUSH_TYPE_RANDOMIZE: /* Apply jitter */
 				{
-					changed |= gpsculpt_brush_do_stroke(gso, gps, parented, diff_mat, gp_brush_randomize_apply);
+					changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_randomize_apply);
 					break;
 				}
 

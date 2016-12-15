@@ -486,7 +486,8 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 	bGPdata *gpd = p->gpd;
 	bGPDbrush *brush = p->brush;
 	tGPspoint *pt;
-	
+	Object *obact = (Object *)p->ownerPtr.data;
+
 	/* check painting mode */
 	if (p->paintmode == GP_PAINTMODE_DRAW_STRAIGHT) {
 		/* straight lines only - i.e. only store start and end point in buffer */
@@ -648,9 +649,7 @@ static short gp_stroke_addpoint(tGPsdata *p, const int mval[2], float pressure, 
 				gp_reproject_toplane(p, gps);
 			}
 			/* if parented change position relative to parent object */
-			if (gpl->parent != NULL) {
-				gp_apply_parent_point(gpl, pts);
-			}
+			gp_apply_parent_point(obact, gpd, gpl, pts);
 			/* copy pressure and time */
 			pts->pressure = pt->pressure;
 			pts->strength = pt->strength;
@@ -755,6 +754,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	tGPspoint *ptc;
 	bGPDbrush *brush = p->brush;
 	ToolSettings *ts = p->scene->toolsettings;
+	Object *obact = (Object *)p->ownerPtr.data;
 	
 	int i, totelem;
 	/* since strokes are so fine, when using their depth we need a margin otherwise they might get missed */
@@ -826,9 +826,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 				gp_reproject_toplane(p, gps);
 			}
 			/* if parented change position relative to parent object */
-			if (gpl->parent != NULL) {
-				gp_apply_parent_point(gpl, pt);
-			}
+			gp_apply_parent_point(obact, gpd, gpl, pt);
 			/* copy pressure and time */
 			pt->pressure = ptc->pressure;
 			pt->strength = ptc->strength;
@@ -849,9 +847,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 				gp_reproject_toplane(p, gps);
 			}
 			/* if parented change position relative to parent object */
-			if (gpl->parent != NULL) {
-				gp_apply_parent_point(gpl, pt);
-			}
+			gp_apply_parent_point(obact, gpd, gpl, pt);
 
 			/* copy pressure and time */
 			pt->pressure = ptc->pressure;
@@ -871,9 +867,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			gp_reproject_toplane(p, gps);
 		}
 		/* if parented change position relative to parent object */
-		if (gpl->parent != NULL) {
-			gp_apply_parent_point(gpl, pt);
-		}
+		gp_apply_parent_point(obact, gpd, gpl, pt);
 		/* copy pressure and time */
 		pt->pressure = ptc->pressure;
 		pt->strength = ptc->strength;
@@ -991,10 +985,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		if (p->lock_axis > GP_LOCKAXIS_NONE) {
 			gp_reproject_toplane(p, gps);
 		}
-		/* if parented change position relative to parent object */
-		if (gpl->parent != NULL) {
-			gp_apply_parent(gpl, gps);
-		}
+		/* change position relative to parent object */
+		gp_apply_parent(obact, gpd, gpl, gps);
 
 		if (depth_arr)
 			MEM_freeN(depth_arr);
@@ -1033,6 +1025,8 @@ static float view3d_point_depth(const RegionView3D *rv3d, const float co[3])
 /* only erase stroke points that are visible */
 static bool gp_stroke_eraser_is_occluded(tGPsdata *p, const bGPDspoint *pt, const int x, const int y)
 {
+	Object *obact = (Object *)p->ownerPtr.data;
+
 	if ((p->sa->spacetype == SPACE_VIEW3D) &&
 	    (p->flags & GP_PAINTFLAG_V3D_ERASER_DEPTH))
 	{
@@ -1045,7 +1039,7 @@ static bool gp_stroke_eraser_is_occluded(tGPsdata *p, const bGPDspoint *pt, cons
 
 		float diff_mat[4][4];
 		/* calculate difference matrix if parent object */
-		ED_gpencil_parent_location(gpl, diff_mat);
+		ED_gpencil_parent_location(obact, p->gpd, gpl, diff_mat);
 
 		if (ED_view3d_autodist_simple(p->ar, mval, mval_3d, 0, NULL)) {
 			const float depth_mval = view3d_point_depth(rv3d, mval_3d);
@@ -1085,6 +1079,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
                                       const int mval[2], const int mvalo[2],
                                       const int radius, const rcti *rect)
 {
+	Object *obact = (Object *)p->ownerPtr.data;
 	bGPDspoint *pt1, *pt2;
 	int pc1[2] = {0};
 	int pc2[2] = {0};
@@ -1093,7 +1088,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 
 	/* calculate difference matrix if parent object */
 	if (gpl->parent != NULL) {
-		ED_gpencil_parent_location(gpl, diff_mat);
+		ED_gpencil_parent_location(obact, p->gpd, gpl, diff_mat);
 	}
 
 	if (gps->totpoints == 0) {
