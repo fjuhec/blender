@@ -104,6 +104,9 @@ class POSELIB_OT_render_previews(Operator):
         return {'RUNNING_MODAL'}
 
     def render_pose(self, context, plib, plib_index):
+        import tempfile
+        import os.path
+
         marker = plib.pose_markers[plib_index]
         marker.preview_frame_index = plib_index
         self.log.info('Rendering pose %s at frame %i', marker.name, marker.frame)
