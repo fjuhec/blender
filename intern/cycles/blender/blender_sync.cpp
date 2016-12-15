@@ -257,9 +257,14 @@ void BlenderSync::sync_integrator()
 	integrator->seed = get_int(cscene, "seed");
 	if(get_boolean(cscene, "use_animated_seed")) {
 		integrator->seed = hash_int_2d(b_scene.frame_current(),
-		                               get_int(cscene, "seed")) +
-		                   hash_int_2d((int)(b_scene.frame_subframe() * (float)INT_MAX),
 		                               get_int(cscene, "seed"));
+		if(b_scene.frame_subframe() != 0.0f) {
+			/* TODO(sergey): Ideally should be some sort of hash_merge,
+			 * but this is good enough for now.
+			 */
+			integrator->seed += hash_int_2d((int)(b_scene.frame_subframe() * (float)INT_MAX),
+			                                get_int(cscene, "seed"));
+		}
 	}
 
 	integrator->sampling_pattern = (SamplingPattern)get_enum(
@@ -498,6 +503,20 @@ SceneParams BlenderSync::get_scene_params(BL::Scene& b_scene,
 		params.persistent_data = r.use_persistent_data();
 	else
 		params.persistent_data = false;
+
+	int texture_limit;
+	if(background) {
+		texture_limit = RNA_enum_get(&cscene, "texture_limit_render");
+	}
+	else {
+		texture_limit = RNA_enum_get(&cscene, "texture_limit");
+	}
+	if(texture_limit > 0 && b_scene.render().use_simplify()) {
+		params.texture_limit = 1 << (texture_limit + 6);
+	}
+	else {
+		params.texture_limit = 0;
+	}
 
 #if !(defined(__GNUC__) && (defined(i386) || defined(_M_IX86)))
 	if(is_cpu) {

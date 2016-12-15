@@ -102,16 +102,9 @@ BMLoop *BM_loop_other_edge_loop(BMLoop *l, BMVert *v)
  */
 BMLoop *BM_face_other_vert_loop(BMFace *f, BMVert *v_prev, BMVert *v)
 {
-	BMIter liter;
-	BMLoop *l_iter;
+	BMLoop *l_iter = BM_face_vert_share_loop(f, v);
 
 	BLI_assert(BM_edge_exists(v_prev, v) != NULL);
-
-	BM_ITER_ELEM (l_iter, &liter, v, BM_LOOPS_OF_VERT) {
-		if (l_iter->f == f) {
-			break;
-		}
-	}
 
 	if (l_iter) {
 		if (l_iter->prev->v == v_prev) {
@@ -149,7 +142,6 @@ BMLoop *BM_face_other_vert_loop(BMFace *f, BMVert *v_prev, BMVert *v)
  *                      The faces loop direction is ignored.
  * </pre>
  */
-
 BMLoop *BM_loop_other_vert_loop(BMLoop *l, BMVert *v)
 {
 #if 0 /* works but slow */
@@ -178,9 +170,6 @@ BMLoop *BM_loop_other_vert_loop(BMLoop *l, BMVert *v)
 			return l->next->next;
 		}
 	}
-
-
-
 #endif
 }
 
@@ -392,17 +381,7 @@ BMFace *BM_vert_pair_share_face_by_angle(
  */
 BMLoop *BM_vert_find_first_loop(BMVert *v)
 {
-	BMEdge *e;
-
-	if (!v->e)
-		return NULL;
-
-	e = bmesh_disk_faceedge_find_first(v->e, v);
-
-	if (!e)
-		return NULL;
-
-	return bmesh_radial_faceloop_find_first(e->l, v);
+	return v->e ? bmesh_disk_faceloop_find_first(v->e, v) : NULL;
 }
 
 /**
@@ -878,9 +857,18 @@ int BM_vert_face_count_ex(const BMVert *v, int count_max)
  *
  * same as ``BM_vert_face_count(v) != 0`` or ``BM_vert_find_first_loop(v) == NULL``
  */
-bool BM_vert_face_check(BMVert *v)
+bool BM_vert_face_check(const BMVert *v)
 {
-	return v->e && (bmesh_disk_faceedge_find_first(v->e, v) != NULL);
+	if (v->e != NULL) {
+		const BMEdge *e_iter, *e_first;
+		e_first = e_iter = v->e;
+		do {
+			if (e_iter->l != NULL) {
+				return true;
+			}
+		} while ((e_iter = bmesh_disk_edge_next(e_iter, v)) != e_first);
+	}
+	return false;
 }
 
 /**
