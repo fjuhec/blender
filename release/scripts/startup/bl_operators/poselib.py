@@ -44,6 +44,7 @@ class POSELIB_OT_render_previews(Operator):
     bl_idname = "poselib.render_previews"
     bl_label = "Render pose previews"
     bl_description = "Renders a preview image for each pose in the pose library"
+    bl_options = {'REGISTER', 'UNDO'}
 
     log = __logging.getLogger('bpy.ops.%s' % bl_idname)
 
