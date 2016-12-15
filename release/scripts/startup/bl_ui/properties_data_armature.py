@@ -166,42 +166,21 @@ previews = None
 
 def pose_preview_items(poselib, context):
     global previews
-    import os.path
 
-    if context is None or not poselib.pose_previews_dir:
+    if context is None or not poselib:
         return []
-
-    directory = bpy.path.abspath(poselib.pose_previews_dir)
-    if not os.path.isdir(directory):
-        return []
-
-    if previews is not None and directory == previews.get('pose_previews_dir', None):
-        return previews.pose_previews
 
     if previews is None:
         previews = bpy.utils.previews.new()
     else:
         previews.clear()
 
-    no_thumbnail = os.path.join(os.path.dirname(__file__),
-                                'thumbnails',
-                                'no_thumbnail.png')
-    no_thumb_thumb = previews.load('NO THUMBNAIL', no_thumbnail, 'IMAGE')
-
     enum_items = []
     for pose_idx, pose_marker in enumerate(poselib.pose_markers):
-        filepath = os.path.join(directory, '%s.png' % pose_marker.name)
-        if os.path.exists(filepath):
-            thumb = previews.load(pose_marker.name, filepath, 'IMAGE')
-        else:
-            print('Warning: "%s" does not exist' % filepath)
-            thumb = no_thumb_thumb
-
         enum_items.append((pose_marker.name, pose_marker.name, pose_marker.name,
-                           thumb.icon_id, pose_idx))
+                           poselib.preview.icon_id, pose_idx))
 
     previews.pose_previews = enum_items
-    previews['pose_previews_dir'] = directory
     return previews.pose_previews
 
 
@@ -230,15 +209,13 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
         if not poselib:
             return
 
-        # layout.template_icon_view(
-        #     poselib, 'pose_markers',
-        #     show_labels=True,
-        # )
         # list of poses in pose library
         row = layout.row()
+        row.template_icon_view(poselib, 'pose_previews', show_labels=True)
         row.template_list("UI_UL_list", "pose_markers", poselib, "pose_markers",
                           poselib.pose_markers, "active_index",
                           rows=5)
+
         # column of operators for active pose
         # - goes beside list
         col = row.column(align=True)
@@ -272,10 +249,6 @@ class DATA_PT_pose_library(ArmatureButtonsPanel, Panel):
             row.label(marker.name,
                       icon_value=poselib.preview.icon_id,
                       icon_frame=marker.preview_frame_index)
-
-        #~ layout.template_icon_view(poselib, 'pose_previews', show_labels=True)
-        layout.prop(poselib, "pose_previews_dir")
-        col.operator_context = 'INVOKE_DEFAULT'
 
         row = layout.row(align=True)
         row.operator_context = 'INVOKE_DEFAULT'
