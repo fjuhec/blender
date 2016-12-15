@@ -586,7 +586,7 @@ BLI_INLINE unsigned int mcol_blend(unsigned int col1, unsigned int col2, int fac
 	cp2 = (unsigned char *)&col2;
 	cp  = (unsigned char *)&col;
 
-	// Updated to use the rgb squared color model which blends more realistically. -N8V
+	/* Updated to use the rgb squared color model which blends nicer. */
 	int red1 = cp1[0] * cp1[0];
 	int green1 = cp1[1] * cp1[1];
 	int blue1 = cp1[2] * cp1[2];
@@ -1674,11 +1674,11 @@ static void vertex_paint_init_session_maps(Object *ob) {
 static void vertex_paint_init_session_average_arrays(Object *ob){
 	/* Create average brush arrays */
 	int totNode = 0;
-	//I think the totNodes might include internal nodes, and we really only need the tot leaves.
+	/* I think the totNodes might include internal nodes, and we really only need the tot leaves. */
 	BKE_pbvh_node_num_nodes(ob->sculpt->pbvh, &totNode);
 	Mesh *me = BKE_mesh_from_object(ob);
 
-	//Need unsigned long to prevent overflow when averaging multiple whites, which take up an entire unsigned int each.
+	/* Need unsigned long to prevent overflow when averaging multiple whites, which take up an entire unsigned int each. */
 	ob->sculpt->total_color = MEM_callocN(totNode * 3 * sizeof(unsigned int), "total_color");
 	ob->sculpt->total_weight = MEM_callocN(totNode * sizeof(double), "total_weight");
 	ob->sculpt->tot_loops_hit = MEM_callocN(totNode * sizeof(unsigned int), "tot_loops_hit");
@@ -1898,7 +1898,7 @@ static void vwpaint_update_cache_invariants(bContext *C, VPaint *vd, SculptSessi
 	float viewDir[3] = { 0.0f, 0.0f, 1.0f };
 	int mode;
 
-	// VW paint needs to allocate stroke cache before update is called.
+	/* VW paint needs to allocate stroke cache before update is called. */
 	if (!ss->cache) {
 		cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
 		ss->cache = cache;
@@ -1950,14 +1950,13 @@ static void vwpaint_update_cache_variants(bContext *C, VPaint *vd, Object *ob, P
 	StrokeCache *cache = ss->cache;
 	Brush *brush = BKE_paint_brush(&vd->paint);
 
-	//This effects the actual brush radius, so things farther away
-	//  are compared with a larger radius and vise versa.
+	/* This effects the actual brush radius, so things farther away */
+	/*  are compared with a larger radius and vise versa. */
 	if (cache->first_time)
 	{
 		RNA_float_get_array(ptr, "location", cache->true_location);
 	}
 
-	//cache->pen_flip = RNA_boolean_get(ptr, "pen_flip");
 	RNA_float_get_array(ptr, "mouse", cache->mouse);
 
 	/* XXX: Use pressure value from first brush step for brushes which don't
@@ -2282,7 +2281,7 @@ static void do_wpaint_brush_blur_task_cb_ex(
 	int total_hit_loops;
 	double finalColor;
 
-	//for each vertex
+	/* for each vertex */
 	PBVHVertexIter vd;
 
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
@@ -2290,11 +2289,11 @@ static void do_wpaint_brush_blur_task_cb_ex(
 		SculptBrushTest test;
 		sculpt_brush_test_init(ss, &test);
 
-		//Test to see if the vertex coordinates are within the spherical brush region.
+		/* Test to see if the vertex coordinates are within the spherical brush region. */
 		if (sculpt_brush_test(&test, vd.co)) {
 			const int vertexIndex = vd.vert_indices[vd.i];
 
-			//Get the average poly color
+			/* Get the average poly color */
 			total_hit_loops = 0;
 			finalColor = 0;
 
@@ -2339,25 +2338,25 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 	sub_v3_v3v3(brushDirection, cache->location, cache->last_location);
 	normalize_v3(brushDirection);
 
-	//If the position from the last update is initialized...
+	/* If the position from the last update is initialized... */
 	if (cache->is_last_valid) {
-		//for each vertex
+		/* for each vertex */
 		PBVHVertexIter vd;
 		BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 		{
 			SculptBrushTest test;
 			sculpt_brush_test_init(ss, &test);
 
-			//Test to see if the vertex coordinates are within the spherical brush region.
+			/* Test to see if the vertex coordinates are within the spherical brush region. */
 			if (sculpt_brush_test(&test, vd.co)) {
 				const float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
 				const int vertexIndex = vd.vert_indices[vd.i];
 				MVert *currentVert = &data->me->mvert[vertexIndex];
 
-				//Minimum dot product between brush direction and current to neighbor direction is 0.0, meaning orthogonal.
+				/* Minimum dot product between brush direction and current to neighbor direction is 0.0, meaning orthogonal. */
 				float maxDotProduct = 0.0f;
 
-				//Get the color of the loop in the opposite direction of the brush movement (this callback is specifically for smudge.)
+				/* Get the color of the loop in the opposite direction of the brush movement (this callback is specifically for smudge.) */
 				finalWeight = 0;
 				for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
 					int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
@@ -2368,7 +2367,7 @@ static void do_wpaint_brush_smudge_task_cb_ex(
 						unsigned int neighborIndex = loop->v;
 						MVert *neighbor = &data->me->mvert[neighborIndex];
 
-						//Get the direction from the selected vert to the neighbor.
+						/* Get the direction from the selected vert to the neighbor. */
 						float toNeighbor[3];
 						sub_v3_v3v3(toNeighbor, currentVert->co, neighbor->co);
 						normalize_v3(toNeighbor);
@@ -2422,7 +2421,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
 			float actualStrength = bstrength * fade * dot * brush_alpha_pressure;
 			float currentWeight;
 
-			//Spray logic
+			/* Spray logic */
 			if (!(data->vp->flag & VP_SPRAY)) {
 				MDeformVert *dv = &data->me->dvert[vertexIndex];
 				MDeformWeight *dw;
@@ -2435,7 +2434,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
 				CLAMP(actualStrength, 0.0, ss->max_weight[vertexIndex] - dw->weight);
 			}
 
-			//Splash Prevention
+			/* Splash Prevention */
 			if (dot > 0.0){
 				switch (data->vp->flag) {
 					case VP_SPRAY:
@@ -2464,21 +2463,21 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 	data->ob->sculpt->tot_loops_hit[n] = 0.0;
 	data->ob->sculpt->total_weight[n] = 0.0;
 
-	//for each vertex
+	/* for each vertex */
 	PBVHVertexIter vd;
 
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
-		//Test to see if the vertex coordinates are within the spherical brush region.
+		/* Test to see if the vertex coordinates are within the spherical brush region. */
 		if (sculpt_brush_test_fast(&test, vd.co)) {
 			float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
 			if (dot > 0.0 && BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
 				int vertexIndex = vd.vert_indices[vd.i];
 
 				ss->tot_loops_hit[n] += ss->vert_to_loop[vertexIndex].count;
-				//if a vertex is within the brush region, then add it's weight to the total weight.
+				/* if a vertex is within the brush region, then add it's weight to the total weight. */
 				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
 					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 
@@ -2654,9 +2653,6 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 		ED_region_tag_redraw(CTX_wm_region(C));
 		return;
 	}
-
-	/*float (*blur_weight_func)(const MDeformVert *, const WeightPaintInfo *) =
-	        wpd->do_multipaint ? wpaint_blur_weight_multi : wpaint_blur_weight_single;*/
 
 	vc = &wpd->vc;
 	ob = vc->obact;
@@ -3072,24 +3068,24 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 	char *col;
 	data->ob->sculpt->tot_loops_hit[n] = 0;
 
-	//for each vertex
+	/* for each vertex */
 	PBVHVertexIter vd;
 
 	SculptBrushTest test;
 	sculpt_brush_test_init(ss, &test);
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
-		//Test to see if the vertex coordinates are within the spherical brush region.
+		/* Test to see if the vertex coordinates are within the spherical brush region. */
 		if (sculpt_brush_test_fast(&test, vd.co)) {
 			if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
 				int vertexIndex = vd.vert_indices[vd.i];
 
 				ss->tot_loops_hit[n] += ss->vert_to_loop[vertexIndex].count;
-				//if a vertex is within the brush region, then add it's color to the blend.
+				/* if a vertex is within the brush region, then add it's color to the blend. */
 				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
 					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 					col = (char *)(&lcol[loopIndex]);
-					// Color is squared to compensate the sqrt color encoding.
+					/* Color is squared to compensate the sqrt color encoding. */
 					blend[0] += (long)col[0] * (long)col[0];
 					blend[1] += (long)col[1] * (long)col[1];
 					blend[2] += (long)col[2] * (long)col[2];
@@ -3135,14 +3131,14 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	const float brush_alpha_pressure = 
 	brush_alpha_value * (BKE_brush_use_alpha_pressure(scene, brush) ? ss->cache->pressure : 1.0f);
 
-	//for each vertex
+	/* for each vertex */
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		SculptBrushTest test;
 		sculpt_brush_test_init(ss, &test);
 
-		//Test to see if the vertex coordinates are within the spherical brush region.
+		/* Test to see if the vertex coordinates are within the spherical brush region. */
 		if (sculpt_brush_test(&test, vd.co)) {
 			int vertexIndex = vd.vert_indices[vd.i];
 			const float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
@@ -3155,16 +3151,16 @@ static void do_vpaint_brush_draw_task_cb_ex(
 			}
 
 			if (dot > 0.0)
-				//if a vertex is within the brush region, then paint each loop that vertex owns.
+				/* if a vertex is within the brush region, then paint each loop that vertex owns. */
 				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
 					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 
-					//Previous color logic
+					/* Previous color logic */
 					if (ss->previous_color[loopIndex] == 0) {
 						ss->previous_color[loopIndex] = lcol[loopIndex];
 					}
 
-					//Mix the new color with the original based on the brush strength and the curve.
+					/* Mix the new color with the original based on the brush strength and the curve. */
 					lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previous_color[loopIndex], actualColor,
 						255 * fade * bstrength * dot * alpha * brush_alpha_pressure, 255.0*bstrength);
 				}
@@ -3187,21 +3183,21 @@ static void do_vpaint_brush_blur_task_cb_ex(
 	char *col;
 	unsigned int finalColor;
 
-	//for each vertex
+	/* for each vertex */
 	PBVHVertexIter vd;
 	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 	{
 		SculptBrushTest test;
 		sculpt_brush_test_init(ss, &test);
 
-		//Test to see if the vertex coordinates are within the spherical brush region.
+		/* Test to see if the vertex coordinates are within the spherical brush region. */
 		if (sculpt_brush_test(&test, vd.co)) {
 			float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
 			if (dot > 0.0){
 				const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 				int vertexIndex = vd.vert_indices[vd.i];
 
-				//Get the average poly color
+				/* Get the average poly color */
 				total_hit_loops = 0;
 				finalColor = 0;
 				blend[0] = 0;
@@ -3215,7 +3211,7 @@ static void do_vpaint_brush_blur_task_cb_ex(
 					for (int k = 0; k < poly.totloop; k++) {
 						unsigned int loopIndex = poly.loopstart + k;
 						col = (char *)(&lcol[loopIndex]);
-						// Color is squared to compensate the sqrt color encoding.
+						/* Color is squared to compensate the sqrt color encoding. */
 						blend[0] += (unsigned int)col[0] * (unsigned int)col[0];
 						blend[1] += (unsigned int)col[1] * (unsigned int)col[1];
 						blend[2] += (unsigned int)col[2] * (unsigned int)col[2];
@@ -3229,16 +3225,16 @@ static void do_vpaint_brush_blur_task_cb_ex(
 					col[2] = (unsigned char)round(sqrtl(divide_round_i(blend[2], total_hit_loops)));
 					col[3] = (unsigned char)round(sqrtl(divide_round_i(blend[3], total_hit_loops)));
 
-					//if a vertex is within the brush region, then paint each loop that vertex owns.
+					/* if a vertex is within the brush region, then paint each loop that vertex owns. */
 					for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
 						int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 
-						//Previous color logic
+						/* Previous color logic */
 						if (ss->previous_color[loopIndex] == 0) {
 							ss->previous_color[loopIndex] = lcol[loopIndex];
 						}
 
-						//Mix the new color with the original based on the brush strength and the curve.
+						/* Mix the new color with the original based on the brush strength and the curve. */
 						lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previous_color[loopIndex], *((unsigned int*)col), 255.0 * fade * bstrength * dot, 255.0);
 					}
 				}
@@ -3263,16 +3259,16 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 	sub_v3_v3v3(brushDirection, cache->location, cache->last_location);
 	normalize_v3(brushDirection);
 
-	//If the position from the last update is initialized...
+	/* If the position from the last update is initialized... */
 	if (cache->is_last_valid) {
-		//for each vertex
+		/* for each vertex */
 		PBVHVertexIter vd;
 		BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
 		{
 			SculptBrushTest test;
 			sculpt_brush_test_init(ss, &test);
 
-			//Test to see if the vertex coordinates are within the spherical brush region.
+			/* Test to see if the vertex coordinates are within the spherical brush region. */
 			if (sculpt_brush_test(&test, vd.co)) {
 				float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
 				if (dot > 0.0) {
@@ -3280,10 +3276,10 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 					int vertexIndex = vd.vert_indices[vd.i];
 					MVert *currentVert = &data->me->mvert[vertexIndex];
 
-					//Minimum dot product between brush direction and current to neighbor direction is 0.0, meaning orthogonal.
+					/* Minimum dot product between brush direction and current to neighbor direction is 0.0, meaning orthogonal. */
 					float maxDotProduct = 0.0f;
 
-					//Get the color of the loop in the opposite direction of the brush movement
+					/* Get the color of the loop in the opposite direction of the brush movement */
 					finalColor = 0;
 					for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
 						int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
@@ -3293,8 +3289,8 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 							MLoop *loop = &data->me->mloop[loopIndex];
 							unsigned int neighborIndex = loop->v;
 							MVert *neighbor = &data->me->mvert[neighborIndex];
-
-							//Get the direction from the selected vert to the neighbor.
+              
+							/* Get the direction from the selected vert to the neighbor. */
 							float toNeighbor[3];
 							sub_v3_v3v3(toNeighbor, currentVert->co, neighbor->co);
 							normalize_v3(toNeighbor);
@@ -3309,16 +3305,16 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 						}
 					}
 					if (shouldColor) {
-						//if a vertex is within the brush region, then paint each loop that vertex owns.
+						/* if a vertex is within the brush region, then paint each loop that vertex owns. */
 						for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
 							int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 
-							//Previous color logic
+							/* Previous color logic */
 							if (ss->previous_color[loopIndex] == 0) {
 								ss->previous_color[loopIndex] = lcol[loopIndex];
 							}
 
-							//Mix the new color with the original based on the brush strength and the curve.
+							/* Mix the new color with the original based on the brush strength and the curve. */
 							lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previous_color[loopIndex], finalColor, 255.0 * fade * bstrength * dot, 255.0);
 						}
 					}
@@ -3378,30 +3374,30 @@ static void vpaint_paint_leaves(bContext *C, Sculpt *sd, VPaint *vp, VPaintData 
 }
 
 static void vpaint_do_paint(
-        bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, 
-        Brush *UNUSED(brush), const char symm, const int axis, const int i, const float angle)
+		bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, 
+		Brush *UNUSED(brush), const char symm, const int axis, const int i, const float angle)
 {
-  SculptSession *ss = ob->sculpt;
-  ss->cache->radial_symmetry_pass = i;
-  calc_brushdata_symm(vd, ss->cache, symm, axis, angle);
-  SculptSearchSphereData data;
-  PBVHNode **nodes = NULL;
-  int totnode;
+	SculptSession *ss = ob->sculpt;
+	ss->cache->radial_symmetry_pass = i;
+	calc_brushdata_symm(vd, ss->cache, symm, axis, angle);
+	SculptSearchSphereData data;
+	PBVHNode **nodes = NULL;
+	int totnode;
 
-  /* Build a list of all nodes that are potentially within the brush's area of influence */
-  data.ss = ss;
-  data.sd = sd;
-  data.radius_squared = ss->cache->radius_squared;
-  data.original = true;
-  BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
+	/* Build a list of all nodes that are potentially within the brush's area of influence */
+	data.ss = ss;
+	data.sd = sd;
+	data.radius_squared = ss->cache->radius_squared;
+	data.original = true;
+	BKE_pbvh_search_gather(ss->pbvh, sculpt_search_sphere_cb, &data, &nodes, &totnode);
 
-  calc_area_normal(vd, ob, nodes, totnode, ss->cache->sculpt_normal_symm);
+	calc_area_normal(vd, ob, nodes, totnode, ss->cache->sculpt_normal_symm);
 
-  //Paint those leaves.
-  vpaint_paint_leaves(C, sd, vd, vpd, ob, me, nodes, totnode);
+	/* Paint those leaves. */
+	vpaint_paint_leaves(C, sd, vd, vpd, ob, me, nodes, totnode);
 
-  if (nodes)
-    MEM_freeN(nodes);
+	if (nodes)
+		MEM_freeN(nodes);
 }
 
 static void vpaint_do_radial_symmetry(bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, Brush *brush, const char symm, const int axis)
@@ -3476,10 +3472,6 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	mul_m4_m4m4(mat, vc->rv3d->persmat, ob->obmat);
 
 	swap_m4m4(vc->rv3d->persmat, mat);
-
-	/* incase we have modifiers */
-	//I don't understand how this code handles modifiers. It's slowing vpaint down, so it's commented out.
-	//ED_vpaint_proj_handle_update(vpd->vp_handle, vc->ar, mval); 
 
 	vpaint_do_symmetrical_brush_actions(C, sd, vp, vpd, ob);
 
@@ -3685,7 +3677,6 @@ static void gradientVert_update(DMGradient_userData *grad_data, int index)
 	if (alpha != 0.0f) {
 		MDeformVert *dv = &me->dvert[index];
 		MDeformWeight *dw = defvert_verify_index(dv, grad_data->def_nr);
-		// dw->weight = alpha; // testing
 		int tool = grad_data->brush->vertexpaint_tool;
 		float testw;
 
