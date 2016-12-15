@@ -143,8 +143,6 @@ class POSELIB_OT_render_previews(Operator):
         plib.preview.icon_size = self.icon_size
         plib.preview.image_size = self.image_size
         plib.preview.frames_number = len(plib.pose_markers)
-        for pmrk in plib.pose_markers:
-            pmrk.preview_frame_index = 0
 
         return {'RUNNING_MODAL'}
 
