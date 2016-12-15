@@ -119,6 +119,7 @@ class POSELIB_OT_render_previews(Operator):
 
         im = bpy.data.images['Render Result'].copy_from_render(scene=context.scene)
 
+        # Scale to image and then icon size. Assumption: icon size is smaller than image size.
         im.scale(*self.image_size)
         plib.preview.image_frame_img_set(plib_index, im)
 
