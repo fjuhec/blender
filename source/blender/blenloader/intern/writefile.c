@@ -912,20 +912,22 @@ static void write_curvemapping(WriteData *wd, CurveMapping *cumap)
 static void write_node_socket(WriteData *wd, bNodeTree *UNUSED(ntree), bNode *node, bNodeSocket *sock)
 {
 #ifdef USE_NODE_COMPAT_CUSTOMNODES
-	/* forward compatibility code, so older blenders still open */
-	sock->stack_type = 1;
+	/* forward compatibility code, so older blenders still open (not for undo) */
+	if (wd->current == NULL) {
+		sock->stack_type = 1;
 
-	if (node->type == NODE_GROUP) {
-		bNodeTree *ngroup = (bNodeTree *)node->id;
-		if (ngroup) {
-			/* for node groups: look up the deprecated groupsock pointer */
-			sock->groupsock = ntreeFindSocketInterface(ngroup, sock->in_out, sock->identifier);
-			BLI_assert(sock->groupsock != NULL);
+		if (node->type == NODE_GROUP) {
+			bNodeTree *ngroup = (bNodeTree *)node->id;
+			if (ngroup) {
+				/* for node groups: look up the deprecated groupsock pointer */
+				sock->groupsock = ntreeFindSocketInterface(ngroup, sock->in_out, sock->identifier);
+				BLI_assert(sock->groupsock != NULL);
 
-			/* node group sockets now use the generic identifier string to verify group nodes,
-			 * old blender uses the own_index.
-			 */
-			sock->own_index = sock->groupsock->own_index;
+				/* node group sockets now use the generic identifier string to verify group nodes,
+				 * old blender uses the own_index.
+				 */
+				sock->own_index = sock->groupsock->own_index;
+			}
 		}
 	}
 #endif
@@ -2791,6 +2793,8 @@ static void write_screens(WriteData *wd, ListBase *scrbase)
 		/* in 2.50+ files, the file identifier for screens is patched, forward compatibility */
 		writestruct(wd, ID_SCRN, bScreen, 1, sc);
 		write_iddata(wd, &sc->id);
+
+		write_previews(wd, sc->preview);
 
 		/* direct data */
 		for (sv = sc->vertbase.first; sv; sv = sv->next) {

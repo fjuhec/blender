@@ -443,13 +443,14 @@ static void node_draw_frame(const bContext *C, ARegion *ar, SpaceNode *snode,
 	node_draw_shadow(snode, node, BASIS_RAD, alpha);
 	
 	/* body */
-	if (node->flag & NODE_CUSTOM_COLOR)
-		glColor4f(node->color[0], node->color[1], node->color[2], alpha);
+	if (node->flag & NODE_CUSTOM_COLOR) {
+		rgba_float_args_set(color, node->color[0], node->color[1], node->color[2], alpha);
+	}
 	else
-		UI_ThemeColor4(TH_NODE_FRAME);
+		UI_GetThemeColor4fv(TH_NODE_FRAME, color);
 	glEnable(GL_BLEND);
 	UI_draw_roundbox_corner_set(UI_CNR_ALL);
-	UI_draw_roundbox(rct->xmin, rct->ymin, rct->xmax, rct->ymax, BASIS_RAD);
+	UI_draw_roundbox(rct->xmin, rct->ymin, rct->xmax, rct->ymax, BASIS_RAD, color);
 	glDisable(GL_BLEND);
 
 	/* outline active and selected emphasis */
@@ -2186,14 +2187,21 @@ static void node_composit_backdrop_viewer(SpaceNode *snode, ImBuf *backdrop, bNo
 		const float cx  = x + snode->backdrop_zoom * backdropWidth * node->custom3;
 		const float cy = y + snode->backdrop_zoom * backdropHeight * node->custom4;
 
-		glColor3f(1.0, 1.0, 1.0);
+		VertexFormat* format = immVertexFormat();
+		unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
-		glBegin(GL_LINES);
-		glVertex2f(cx - 25, cy - 25);
-		glVertex2f(cx + 25, cy + 25);
-		glVertex2f(cx + 25, cy - 25);
-		glVertex2f(cx - 25, cy + 25);
-		glEnd();
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+		immUniformColor3f(1.0f, 1.0f, 1.0f);
+
+		immBegin(GL_LINES, 4);
+		immVertex2f(pos, cx - 25, cy - 25);
+		immVertex2f(pos, cx + 25, cy + 25);
+		immVertex2f(pos, cx + 25, cy - 25);
+		immVertex2f(pos, cx - 25, cy + 25);
+		immEnd();
+
+		immUnbindProgram();
 	}
 }
 
@@ -2212,9 +2220,6 @@ static void node_composit_backdrop_boxmask(SpaceNode *snode, ImBuf *backdrop, bN
 	float cx, cy, x1, x2, x3, x4;
 	float y1, y2, y3, y4;
 
-
-	glColor3f(1.0, 1.0, 1.0);
-
 	cx  = x + snode->backdrop_zoom * backdropWidth * boxmask->x;
 	cy = y + snode->backdrop_zoom * backdropHeight * boxmask->y;
 
@@ -2227,12 +2232,21 @@ static void node_composit_backdrop_boxmask(SpaceNode *snode, ImBuf *backdrop, bN
 	y3 = cy - (-sine * -halveBoxWidth + cosine * -halveBoxHeight) * snode->backdrop_zoom;
 	y4 = cy - (-sine * halveBoxWidth + cosine * -halveBoxHeight) * snode->backdrop_zoom;
 
-	glBegin(GL_LINE_LOOP);
-	glVertex2f(x1, y1);
-	glVertex2f(x2, y2);
-	glVertex2f(x3, y3);
-	glVertex2f(x4, y4);
-	glEnd();
+	VertexFormat* format = immVertexFormat();
+	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+	immUniformColor3f(1.0f, 1.0f, 1.0f);
+
+	immBegin(GL_LINE_LOOP, 4);
+	immVertex2f(pos, x1, y1);
+	immVertex2f(pos, x2, y2);
+	immVertex2f(pos, x3, y3);
+	immVertex2f(pos, x4, y4);
+	immEnd();
+
+	immUnbindProgram();
 }
 
 static void node_composit_backdrop_ellipsemask(SpaceNode *snode, ImBuf *backdrop, bNode *node, int x, int y)
@@ -2250,9 +2264,6 @@ static void node_composit_backdrop_ellipsemask(SpaceNode *snode, ImBuf *backdrop
 	float cx, cy, x1, x2, x3, x4;
 	float y1, y2, y3, y4;
 
-
-	glColor3f(1.0, 1.0, 1.0);
-
 	cx  = x + snode->backdrop_zoom * backdropWidth * ellipsemask->x;
 	cy = y + snode->backdrop_zoom * backdropHeight * ellipsemask->y;
 
@@ -2265,13 +2276,21 @@ static void node_composit_backdrop_ellipsemask(SpaceNode *snode, ImBuf *backdrop
 	y3 = cy - (-sine * -halveBoxWidth + cosine * -halveBoxHeight) * snode->backdrop_zoom;
 	y4 = cy - (-sine * halveBoxWidth + cosine * -halveBoxHeight) * snode->backdrop_zoom;
 
-	glBegin(GL_LINE_LOOP);
+	VertexFormat* format = immVertexFormat();
+	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
-	glVertex2f(x1, y1);
-	glVertex2f(x2, y2);
-	glVertex2f(x3, y3);
-	glVertex2f(x4, y4);
-	glEnd();
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+	immUniformColor3f(1.0f, 1.0f, 1.0f);
+
+	immBegin(GL_LINE_LOOP, 4);
+	immVertex2f(pos, x1, y1);
+	immVertex2f(pos, x2, y2);
+	immVertex2f(pos, x3, y3);
+	immVertex2f(pos, x4, y4);
+	immEnd();
+
+	immUnbindProgram();
 }
 
 static void node_composit_buts_ellipsemask(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)

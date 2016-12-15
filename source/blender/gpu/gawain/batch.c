@@ -10,17 +10,18 @@
 // the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "batch.h"
+#include "buffer_id.h"
 #include <stdlib.h>
 
 // necessary functions from matrix API
 extern void gpuBindMatrices(GLuint program);
 extern bool gpuMatricesDirty(void); // how best to use this here?
 
-Batch* Batch_create(GLenum prim_type, VertexBuffer* verts, ElementList* elem)
+Batch* Batch_create(PrimitiveType prim_type, VertexBuffer* verts, ElementList* elem)
 	{
 #if TRUST_NO_ONE
 	assert(verts != NULL);
-	assert(prim_type == GL_POINTS || prim_type == GL_LINES || prim_type == GL_TRIANGLES);
+	assert(prim_type == PRIM_POINTS || prim_type == PRIM_LINES || prim_type == PRIM_TRIANGLES);
 	// we will allow other primitive types in a future update
 #endif
 
@@ -36,7 +37,10 @@ Batch* Batch_create(GLenum prim_type, VertexBuffer* verts, ElementList* elem)
 
 void Batch_discard(Batch* batch)
 	{
-	// TODO: clean up
+	if (batch->vao_id)
+		vao_id_free(batch->vao_id);
+
+	free(batch);
 	}
 
 void Batch_discard_all(Batch* batch)
@@ -194,7 +198,7 @@ void Batch_Uniform4fv(Batch* batch, const char* name, const float data[4])
 
 static void Batch_prime(Batch* batch)
 	{
-	glGenVertexArrays(1, &batch->vao_id);
+	batch->vao_id = vao_id_alloc();
 	glBindVertexArray(batch->vao_id);
 
 	VertexBuffer_use(batch->verts);

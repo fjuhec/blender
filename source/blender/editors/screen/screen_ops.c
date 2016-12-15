@@ -53,6 +53,7 @@
 #include "BKE_context.h"
 #include "BKE_customdata.h"
 #include "BKE_global.h"
+#include "BKE_icons.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
@@ -440,6 +441,17 @@ int ED_operator_posemode(bContext *C)
 	}
 
 	return 0;
+}
+
+int ED_operator_posemode_local(bContext *C)
+{
+	if (ED_operator_posemode(C)) {
+		Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
+		bArmature *arm = ob->data;
+		return !(ID_IS_LINKED_DATABLOCK(&ob->id) ||
+		         ID_IS_LINKED_DATABLOCK(&arm->id));
+	}
+	return false;
 }
 
 /* wrapper for ED_space_image_show_uvedit */
@@ -1209,6 +1221,8 @@ static void area_move_apply_do(bContext *C, int origval, int delta, int dir, int
 		}
 
 		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL); /* redraw everything */
+		/* Update preview thumbnail */
+		BKE_icon_changed(sc->id.icon_id);
 	}
 }
 
@@ -1497,7 +1511,9 @@ static int area_split_apply(bContext *C, wmOperator *op)
 		ED_area_tag_redraw(sd->narea);
 
 		WM_event_add_notifier(C, NC_SCREEN | NA_EDITED, NULL);
-		
+		/* Update preview thumbnail */
+		BKE_icon_changed(sc->id.icon_id);
+
 		return 1;
 	}
 	
@@ -2136,7 +2152,8 @@ static void SCREEN_OT_frame_offset(wmOperatorType *ot)
 	ot->exec = frame_offset_exec;
 	
 	ot->poll = ED_operator_screenactive_norender;
-	ot->flag = 0;
+	ot->flag = OPTYPE_UNDO_GROUPED;
+	ot->undo_group = "FRAME_CHANGE";
 	
 	/* rna */
 	RNA_def_int(ot->srna, "delta", 0, INT_MIN, INT_MAX, "Delta", "", INT_MIN, INT_MAX);
@@ -2189,7 +2206,8 @@ static void SCREEN_OT_frame_jump(wmOperatorType *ot)
 	ot->exec = frame_jump_exec;
 	
 	ot->poll = ED_operator_screenactive_norender;
-	ot->flag = OPTYPE_UNDO;
+	ot->flag = OPTYPE_UNDO_GROUPED;
+	ot->undo_group = "FRAME_CHANGE";
 	
 	/* rna */
 	RNA_def_boolean(ot->srna, "end", 0, "Last Frame", "Jump to the last frame of the frame range");
@@ -2295,7 +2313,8 @@ static void SCREEN_OT_keyframe_jump(wmOperatorType *ot)
 	ot->exec = keyframe_jump_exec;
 	
 	ot->poll = ED_operator_screenactive_norender;
-	ot->flag = OPTYPE_UNDO;
+	ot->flag = OPTYPE_UNDO_GROUPED;
+	ot->undo_group = "FRAME_CHANGE";
 	
 	/* properties */
 	RNA_def_boolean(ot->srna, "next", true, "Next Keyframe", "");
@@ -2357,7 +2376,8 @@ static void SCREEN_OT_marker_jump(wmOperatorType *ot)
 	ot->exec = marker_jump_exec;
 
 	ot->poll = ED_operator_screenactive_norender;
-	ot->flag = OPTYPE_UNDO;
+	ot->flag = OPTYPE_UNDO_GROUPED;
+	ot->undo_group = "FRAME_CHANGE";
 
 	/* properties */
 	RNA_def_boolean(ot->srna, "next", true, "Next Marker", "");

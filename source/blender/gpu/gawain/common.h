@@ -11,7 +11,9 @@
 
 #pragma once
 
-#define TRUST_NO_ONE defined(NDEBUG)
+// #define TRUST_NO_ONE !defined(NDEBUG)
+#define TRUST_NO_ONE 1
+// strict error checking, always enabled during early development
 
 #include <GL/glew.h>
 #include <stdbool.h>
@@ -38,4 +40,19 @@
   #define glBindVertexArray glBindVertexArrayAPPLE
 #endif
 
-#define PRIM_NONE 0xF
+typedef enum {
+	PRIM_POINTS = GL_POINTS,
+	PRIM_LINES = GL_LINES,
+	PRIM_TRIANGLES = GL_TRIANGLES,
+
+#ifdef WITH_GL_PROFILE_COMPAT
+	PRIM_QUADS = GL_QUADS, // legacy GL has this, modern GL & Vulkan do not
+#endif
+
+	PRIM_LINE_STRIP = GL_LINE_STRIP,
+	PRIM_LINE_LOOP = GL_LINE_LOOP, // GL has this, Vulkan does not
+	PRIM_TRIANGLE_STRIP = GL_TRIANGLE_STRIP,
+	PRIM_TRIANGLE_FAN = GL_TRIANGLE_FAN,
+
+	PRIM_NONE = 0xF
+} PrimitiveType;

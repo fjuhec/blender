@@ -212,21 +212,23 @@ void ui_draw_anti_tria(float x1, float y1, float x2, float y2, float x3, float y
 	glDisable(GL_BLEND);
 }
 
-void ui_draw_anti_roundbox(int mode, float minx, float miny, float maxx, float maxy, float rad, bool use_alpha)
+void ui_draw_anti_roundbox(int mode, float minx, float miny, float maxx, float maxy,
+                           float rad, bool use_alpha, const float color[4])
 {
-	float color[4];
+	float draw_color[4];
 	int j;
-	
+
+	copy_v4_v4(draw_color, color);
+
 	glEnable(GL_BLEND);
-	glGetFloatv(GL_CURRENT_COLOR, color);  // I will make the change in a futur patch, use as it is for now
 	if (use_alpha) {
-		color[3] = 0.5f;
+		draw_color[3] = 0.5f;
 	}
-	color[3] *= 0.125f;
+	draw_color[3] *= 0.125f;
 	
 	for (j = 0; j < WIDGET_AA_JITTER; j++) {
 		glTranslate2fv(jit[j]);
-		UI_draw_roundbox_gl_mode(mode, minx, miny, maxx, maxy, rad, color);
+		UI_draw_roundbox_gl_mode(mode, minx, miny, maxx, maxy, rad, draw_color);
 		glTranslatef(-jit[j][0], -jit[j][1], 0.0f);
 	}
 
@@ -1511,10 +1513,10 @@ static void widget_draw_text(uiFontStyle *fstyle, uiWidgetColors *wcol, uiBut *b
 /* draws text and icons for buttons */
 static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiBut *but, rcti *rect)
 {
+	const uiButExtraIconType extra_icon_type = ui_but_icon_extra_get(but);
 	const bool show_menu_icon = ui_but_draw_menu_icon(but);
 	float alpha = (float)wcol->text[3] / 255.0f;
 	char password_str[UI_MAX_DRAW_STR];
-	uiButExtraIconType extra_icon_type;
 
 	ui_but_text_password_hide(password_str, but, false);
 
@@ -1580,15 +1582,13 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 		rect->xmax -= (UI_TEXT_MARGIN_X * U.widget_unit) / but->block->aspect;
 	}
 
-	/* unlink icon for this button type */
-	if ((but->type == UI_BTYPE_SEARCH_MENU) &&
-	    ((extra_icon_type = ui_but_icon_extra_get(but)) != UI_BUT_ICONEXTRA_NONE))
-	{
+	/* extra icons, e.g. 'x' icon to clear text or icon for eyedropper */
+	if (extra_icon_type != UI_BUT_ICONEXTRA_NONE) {
 		rcti temp = *rect;
 
 		temp.xmin = temp.xmax - (BLI_rcti_size_y(rect) * 1.08f);
 
-		if (extra_icon_type == UI_BUT_ICONEXTRA_UNLINK) {
+		if (extra_icon_type == UI_BUT_ICONEXTRA_CLEAR) {
 			widget_draw_icon(but, ICON_X, alpha, &temp, false);
 		}
 		else if (extra_icon_type == UI_BUT_ICONEXTRA_EYEDROPPER) {

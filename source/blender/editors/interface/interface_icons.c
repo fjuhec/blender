@@ -35,6 +35,7 @@
 
 #include "GPU_extensions.h"
 #include "GPU_basic_shader.h"
+#include "GPU_immediate.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
@@ -213,173 +214,6 @@ static void viconutil_set_point(GLint pt[2], int x, int y)
 	pt[1] = y;
 }
 
-static void viconutil_draw_tri(GLint(*pts)[2])
-{
-	glBegin(GL_TRIANGLES);
-	glVertex2iv(pts[0]);
-	glVertex2iv(pts[1]);
-	glVertex2iv(pts[2]);
-	glEnd();
-}
-
-static void viconutil_draw_lineloop(GLint(*pts)[2], int numPoints)
-{
-	int i;
-
-	glBegin(GL_LINE_LOOP);
-	for (i = 0; i < numPoints; i++) {
-		glVertex2iv(pts[i]);
-	}
-	glEnd();
-}
-
-static void viconutil_draw_lineloop_smooth(GLint(*pts)[2], int numPoints)
-{
-	glEnable(GL_LINE_SMOOTH);
-	viconutil_draw_lineloop(pts, numPoints);
-	glDisable(GL_LINE_SMOOTH);
-}
-
-static void viconutil_draw_points(GLint(*pts)[2], int numPoints, int pointSize)
-{
-	int i;
-
-	glBegin(GL_QUADS);
-	for (i = 0; i < numPoints; i++) {
-		int x = pts[i][0], y = pts[i][1];
-
-		glVertex2i(x - pointSize, y - pointSize);
-		glVertex2i(x + pointSize, y - pointSize);
-		glVertex2i(x + pointSize, y + pointSize);
-		glVertex2i(x - pointSize, y + pointSize);
-	}
-	glEnd();
-}
-
-/* Drawing functions */
-
-static void vicon_x_draw(int x, int y, int w, int h, float alpha)
-{
-	x += 3;
-	y += 3;
-	w -= 6;
-	h -= 6;
-
-	glEnable(GL_LINE_SMOOTH);
-
-	glLineWidth(2.5);
-	
-	glColor4f(0.0, 0.0, 0.0, alpha);
-	glBegin(GL_LINES);
-	glVertex2i(x, y);
-	glVertex2i(x + w, y + h);
-	glVertex2i(x + w, y);
-	glVertex2i(x, y + h);
-	glEnd();
-	
-	glDisable(GL_LINE_SMOOTH);
-}
-
-static void vicon_view3d_draw(int x, int y, int w, int h, float alpha)
-{
-	int cx = x + w / 2;
-	int cy = y + h / 2;
-	int d = MAX2(2, h / 3);
-
-	glColor4f(0.5, 0.5, 0.5, alpha);
-	glBegin(GL_LINES);
-	glVertex2i(x, cy - d);
-	glVertex2i(x + w, cy - d);
-	glVertex2i(x, cy + d);
-	glVertex2i(x + w, cy + d);
-
-	glVertex2i(cx - d, y);
-	glVertex2i(cx - d, y + h);
-	glVertex2i(cx + d, y);
-	glVertex2i(cx + d, y + h);
-	glEnd();
-	
-	glColor4f(0.0, 0.0, 0.0, alpha);
-	glBegin(GL_LINES);
-	glVertex2i(x, cy);
-	glVertex2i(x + w, cy);
-	glVertex2i(cx, y);
-	glVertex2i(cx, y + h);
-	glEnd();
-}
-
-static void vicon_edit_draw(int x, int y, int w, int h, float alpha)
-{
-	GLint pts[4][2];
-
-	viconutil_set_point(pts[0], x + 3,     y + 3);
-	viconutil_set_point(pts[1], x + w - 3, y + 3);
-	viconutil_set_point(pts[2], x + w - 3, y + h - 3);
-	viconutil_set_point(pts[3], x + 3,     y + h - 3);
-
-	glColor4f(0.0, 0.0, 0.0, alpha);
-	viconutil_draw_lineloop(pts, 4);
-
-	glColor3f(1, 1, 0.0);
-	viconutil_draw_points(pts, 4, 1);
-}
-
-static void vicon_editmode_hlt_draw(int x, int y, int w, int h, float alpha)
-{
-	GLint pts[3][2];
-
-	viconutil_set_point(pts[0], x + w / 2, y + h - 2);
-	viconutil_set_point(pts[1], x + 3,     y + 4);
-	viconutil_set_point(pts[2], x + w - 3, y + 4);
-
-	glColor4f(0.5, 0.5, 0.5, alpha);
-	viconutil_draw_tri(pts);
-
-	glColor4f(0.0, 0.0, 0.0, 1);
-	viconutil_draw_lineloop_smooth(pts, 3);
-
-	glColor3f(1, 1, 0.0);
-	viconutil_draw_points(pts, 3, 1);
-}
-
-static void vicon_editmode_dehlt_draw(int x, int y, int w, int h, float UNUSED(alpha))
-{
-	GLint pts[3][2];
-
-	viconutil_set_point(pts[0], x + w / 2, y + h - 2);
-	viconutil_set_point(pts[1], x + 3,     y + 4);
-	viconutil_set_point(pts[2], x + w - 3, y + 4);
-
-	glColor4f(0.0f, 0.0f, 0.0f, 1);
-	viconutil_draw_lineloop_smooth(pts, 3);
-
-	glColor3f(0.9f, 0.9f, 0.9f);
-	viconutil_draw_points(pts, 3, 1);
-}
-
-static void vicon_disclosure_tri_right_draw(int x, int y, int w, int UNUSED(h), float alpha)
-{
-	GLint pts[3][2];
-	int cx = x + w / 2;
-	int cy = y + w / 2;
-	int d = w / 3, d2 = w / 5;
-
-	viconutil_set_point(pts[0], cx - d2, cy + d);
-	viconutil_set_point(pts[1], cx - d2, cy - d);
-	viconutil_set_point(pts[2], cx + d2, cy);
-
-	glBegin(GL_TRIANGLES);
-	glColor4f(0.8f, 0.8f, 0.8f, alpha);
-	glVertex2iv(pts[0]);
-	glVertex2iv(pts[1]);
-	glColor4f(0.3f, 0.3f, 0.3f, alpha);
-	glVertex2iv(pts[2]);
-	glEnd();
-
-	glColor4f(0.0f, 0.0f, 0.0f, 1);
-	viconutil_draw_lineloop_smooth(pts, 3);
-}
-
 static void vicon_small_tri_right_draw(int x, int y, int w, int UNUSED(h), float alpha)
 {
 	GLint pts[3][2];
@@ -398,63 +232,6 @@ static void vicon_small_tri_right_draw(int x, int y, int w, int UNUSED(h), float
 	glVertex2iv(pts[1]);
 	glVertex2iv(pts[2]);
 	glEnd();
-}
-
-static void vicon_disclosure_tri_down_draw(int x, int y, int w, int UNUSED(h), float alpha)
-{
-	GLint pts[3][2];
-	int cx = x + w / 2;
-	int cy = y + w / 2;
-	int d = w / 3, d2 = w / 5;
-
-	viconutil_set_point(pts[0], cx + d, cy + d2);
-	viconutil_set_point(pts[1], cx - d, cy + d2);
-	viconutil_set_point(pts[2], cx, cy - d2);
-
-	glBegin(GL_TRIANGLES);
-	glColor4f(0.8f, 0.8f, 0.8f, alpha);
-	glVertex2iv(pts[0]);
-	glVertex2iv(pts[1]);
-	glColor4f(0.3f, 0.3f, 0.3f, alpha);
-	glVertex2iv(pts[2]);
-	glEnd();
-
-	glColor4f(0.0f, 0.0f, 0.0f, 1);
-	viconutil_draw_lineloop_smooth(pts, 3);
-}
-
-static void vicon_move_up_draw(int x, int y, int w, int h, float UNUSED(alpha))
-{
-	int d = -2;
-
-	glEnable(GL_LINE_SMOOTH);
-	glLineWidth(1);
-	glColor3f(0.0, 0.0, 0.0);
-
-	glBegin(GL_LINE_STRIP);
-	glVertex2i(x + w / 2 - d * 2, y + h / 2 + d);
-	glVertex2i(x + w / 2, y + h / 2 - d + 1);
-	glVertex2i(x + w / 2 + d * 2, y + h / 2 + d);
-	glEnd();
-
-	glDisable(GL_LINE_SMOOTH);
-}
-
-static void vicon_move_down_draw(int x, int y, int w, int h, float UNUSED(alpha))
-{
-	int d = 2;
-
-	glEnable(GL_LINE_SMOOTH);
-	glLineWidth(1);
-	glColor3f(0.0, 0.0, 0.0);
-
-	glBegin(GL_LINE_STRIP);
-	glVertex2i(x + w / 2 - d * 2, y + h / 2 + d);
-	glVertex2i(x + w / 2, y + h / 2 - d - 1);
-	glVertex2i(x + w / 2 + d * 2, y + h / 2 + d);
-	glEnd();
-
-	glDisable(GL_LINE_SMOOTH);
 }
 
 static void vicon_keytype_draw_wrapper(int x, int y, int w, int h, float alpha, short key_type)
@@ -781,15 +558,6 @@ static void init_internal_icons(void)
 		}
 	}
 
-	def_internal_vicon(VICO_VIEW3D_VEC, vicon_view3d_draw);
-	def_internal_vicon(VICO_EDIT_VEC, vicon_edit_draw);
-	def_internal_vicon(VICO_EDITMODE_VEC_DEHLT, vicon_editmode_dehlt_draw);
-	def_internal_vicon(VICO_EDITMODE_VEC_HLT, vicon_editmode_hlt_draw);
-	def_internal_vicon(VICO_DISCLOSURE_TRI_RIGHT_VEC, vicon_disclosure_tri_right_draw);
-	def_internal_vicon(VICO_DISCLOSURE_TRI_DOWN_VEC, vicon_disclosure_tri_down_draw);
-	def_internal_vicon(VICO_MOVE_UP_VEC, vicon_move_up_draw);
-	def_internal_vicon(VICO_MOVE_DOWN_VEC, vicon_move_down_draw);
-	def_internal_vicon(VICO_X_VEC, vicon_x_draw);
 	def_internal_vicon(VICO_SMALL_TRI_RIGHT_VEC, vicon_small_tri_right_draw);
 	
 	def_internal_vicon(VICO_KEYTYPE_KEYFRAME_VEC, vicon_keytype_keyframe_draw);
@@ -1083,12 +851,15 @@ void ui_icon_ensure_deferred(const bContext *C, const int icon_id, const bool bi
 				{
 					ID *id = (icon->type != 0) ? icon->obj : NULL;
 					PreviewImage *prv = id ? BKE_previewimg_id_ensure(id) : icon->obj;
+					/* Using jobs for screen previews crashes due to offscreen rendering.
+					 * XXX would be nicer if PreviewImage could store if it supports jobs */
+					const bool use_jobs = !id || (GS(id->name) != ID_SCR);
 
 					if (prv) {
 						const int size = big ? ICON_SIZE_PREVIEW : ICON_SIZE_ICON;
 
 						if (id || (prv->tag & PRV_TAG_DEFFERED) != 0) {
-							ui_id_preview_image_render_size(C, NULL, id, prv, size, true);
+							ui_id_preview_image_render_size(C, NULL, id, prv, size, use_jobs);
 						}
 					}
 					break;
@@ -1249,33 +1020,40 @@ static void icon_draw_texture(
 {
 	float x1, x2, y1, y2;
 
-	if (rgb) glColor4f(rgb[0], rgb[1], rgb[2], alpha);
-	else     glColor4f(alpha, alpha, alpha, alpha);
-
 	x1 = ix * icongltex.invw;
 	x2 = (ix + ih) * icongltex.invw;
 	y1 = iy * icongltex.invh;
 	y2 = (iy + ih) * icongltex.invh;
 
-	GPU_basic_shader_bind(GPU_SHADER_TEXTURE_2D | GPU_SHADER_USE_COLOR);
-	glBindTexture(GL_TEXTURE_2D, icongltex.id);
-
 	/* sharper downscaling, has no effect when scale matches with a mip level */
 	glTexEnvf(GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, -0.5f);
 
-	glBegin(GL_QUADS);
-	glTexCoord2f(x1, y1);
-	glVertex2f(x, y);
+	glBindTexture(GL_TEXTURE_2D, icongltex.id);
+	VertexFormat* format = immVertexFormat();
+	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned texCoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
 
-	glTexCoord2f(x2, y1);
-	glVertex2f(x + w, y);
+	immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
+	if (rgb) immUniform4f("color", rgb[0], rgb[1], rgb[2], alpha);
+	else     immUniform4f("color", alpha, alpha, alpha, alpha);
 
-	glTexCoord2f(x2, y2);
-	glVertex2f(x + w, y + h);
+	immUniform1i("image", 0);
 
-	glTexCoord2f(x1, y2);
-	glVertex2f(x, y + h);
-	glEnd();
+	immBegin(GL_TRIANGLE_STRIP, 4);
+	immAttrib2f(texCoord, x1, y2);
+	immVertex2f(pos, x, y + h);
+
+	immAttrib2f(texCoord, x1, y1);
+	immVertex2f(pos, x, y);
+
+	immAttrib2f(texCoord, x2, y2);
+	immVertex2f(pos, x + w, y + h);
+
+	immAttrib2f(texCoord, x2, y1);
+	immVertex2f(pos, x + w, y);
+	immEnd();
+
+	immUnbindProgram();
 
 	glTexEnvf(GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS, 0.0f);
 
@@ -1394,7 +1172,7 @@ void UI_id_icon_render(const bContext *C, Scene *scene, ID *id, const bool big, 
 	}
 }
 
-static void ui_id_brush_render(const bContext *C, ID *id)
+static void ui_id_icon_render(const bContext *C, ID *id, bool use_jobs)
 {
 	PreviewImage *pi = BKE_previewimg_id_ensure(id);
 	enum eIconSizes i;
@@ -1406,7 +1184,7 @@ static void ui_id_brush_render(const bContext *C, ID *id)
 		/* check if rect needs to be created; changed
 		 * only set by dynamic icons */
 		if (((pi->flag[i] & PRV_CHANGED) || !pi->rect[i])) {
-			icon_set_image(C, NULL, id, pi, i, true);
+			icon_set_image(C, NULL, id, pi, i, use_jobs);
 			pi->flag[i] &= ~PRV_CHANGED;
 		}
 	}
@@ -1419,7 +1197,7 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
 
 	if (br->flag & BRUSH_CUSTOM_ICON) {
 		BKE_icon_id_ensure(id);
-		ui_id_brush_render(C, id);
+		ui_id_icon_render(C, id, true);
 	}
 	else {
 		Object *ob = CTX_data_active_object(C);
@@ -1466,6 +1244,15 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
 	return id->icon_id;
 }
 
+static int ui_id_screen_get_icon(const bContext *C, ID *id)
+{
+	BKE_icon_id_ensure(id);
+	/* Don't use jobs here, offscreen rendering doesn't like this and crashes. */
+	ui_id_icon_render(C, id, false);
+
+	return id->icon_id;
+}
+
 int ui_id_icon_get(const bContext *C, ID *id, const bool big)
 {
 	int iconid = 0;
@@ -1483,6 +1270,9 @@ int ui_id_icon_get(const bContext *C, ID *id, const bool big)
 			iconid = BKE_icon_id_ensure(id);
 			/* checks if not exists, or changed */
 			UI_id_icon_render(C, NULL, id, big, true);
+			break;
+		case ID_SCR:
+			iconid = ui_id_screen_get_icon(C, id);
 			break;
 		default:
 			break;
