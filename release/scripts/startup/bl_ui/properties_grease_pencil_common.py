@@ -952,7 +952,7 @@ class GreasePencilDataPanel:
         split.prop(gpl, "show_points")
 
         # Offsets + Parenting (where available)
-        if context.space_data.type == 'VIEW_3D':
+        if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
             split = layout.split(percentage=0.5)
         else:
             split = layout.column()  # parenting is not available in 2D editors...
@@ -972,7 +972,7 @@ class GreasePencilDataPanel:
         row.operator("gpencil.stroke_apply_thickness", icon='STYLUS_PRESSURE', text="")
 
         # Parenting 
-        if context.space_data.type == 'VIEW_3D':
+        if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
             col = split.column(align=True)
             col.label(text="Parent:")
             col.prop(gpl, "parent", text="")
