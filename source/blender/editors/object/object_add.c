@@ -113,6 +113,7 @@
 #include "ED_screen.h"
 #include "ED_transform.h"
 #include "ED_view3d.h"
+#include "ED_gpencil.h"
 
 #include "UI_resources.h"
 
@@ -915,10 +916,7 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 
 	ob = ED_object_add_type(C, OB_GPENCIL, NULL, loc, rot, false, layer);
-
-	/* set radius to something small */
-	RNA_float_set(op->ptr, "radius", 0.2f);
-	BKE_object_obdata_size_init(ob, RNA_float_get(op->ptr, "radius"));
+	BKE_object_obdata_size_init(ob, GP_OBGPENCIL_DEFAULT_SIZE);
 
 	/* set grease pencil mode to object */
 	ToolSettings *ts = CTX_data_tool_settings(C);

@@ -190,5 +190,8 @@ void ED_gpencil_parent_location(struct Object *obact, struct bGPdata *gpd, struc
 /* reset parent matrix for all layers */
 void ED_gpencil_reset_layers_parent(struct Object *obact, struct bGPdata *gpd);
 
+/* ------------ Object Utilities ------------ */
+
+#define GP_OBGPENCIL_DEFAULT_SIZE  0.2f
 
 #endif /*  __ED_GPENCIL_H__ */
