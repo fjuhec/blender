@@ -96,8 +96,8 @@ static int gpencil_editmode_toggle_poll(bContext *C)
 
 static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if using a gpencil object, use this datablock */
-	bGPdata *gpd = NULL;
 	Object *ob = CTX_data_active_object(C);
 	if (ob != NULL) {
 		if (ob->type == OB_GPENCIL) {
