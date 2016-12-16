@@ -1715,14 +1715,14 @@ static void rna_def_face_map(BlenderRNA *brna)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS | FUNC_USE_SELF_ID);
 	/* TODO, see how array size of 0 works, this shouldnt be used */
 	prop = RNA_def_int_array(func, "index", 1, NULL, 0, 0, "", "Index List", 0, 0);
-	RNA_def_property_flag(prop, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_parameter_flags(prop, PROP_DYNAMIC, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "remove", "rna_FaceMap_face_remove");
 	RNA_def_function_ui_description(func, "Remove a vertex from the group");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS | FUNC_USE_SELF_ID);
 	/* TODO, see how array size of 0 works, this shouldnt be used */
 	prop = RNA_def_int_array(func, "index", 1, NULL, 0, 0, "", "Index List", 0, 0);
-	RNA_def_property_flag(prop, PROP_DYNAMIC | PROP_REQUIRED);
+	RNA_def_parameter_flags(prop, PROP_DYNAMIC, PARM_REQUIRED);
 }
 
 static void rna_def_material_slot(BlenderRNA *brna)
@@ -2263,7 +2263,7 @@ static void rna_def_object_face_maps(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	RNA_def_function_ui_description(func, "Delete vertex group from object");
 	parm = RNA_def_pointer(func, "group", "FaceMap", "", "Face map to remove");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL | PROP_RNAPTR);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
 	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
 
 	func = RNA_def_function(srna, "clear", "rna_Object_fmap_clear");
