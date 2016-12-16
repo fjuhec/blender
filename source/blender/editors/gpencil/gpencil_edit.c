@@ -104,10 +104,6 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 			gpd = ob->gpd;
 		}
 	}
-	/* if gpd is still null, try to get from context */
-	if (gpd == NULL) {
-		bGPdata *gpd = ED_gpencil_data_get_active(C);
-	}
 	
 	if (gpd == NULL)
 		return OPERATOR_CANCELLED;
