@@ -3489,7 +3489,7 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "widget_scale", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "manipulator_scale");
-	RNA_def_property_range(prop, 10, 200);
+	RNA_def_property_range(prop, 10, SHRT_MAX);
 	RNA_def_property_int_default(prop, 75);
 	RNA_def_property_ui_text(prop, "Scale", "Base size applied to scalable widgets");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
