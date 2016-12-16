@@ -2145,9 +2145,9 @@ static void calc_area_normal_and_center_task_cb(void *userdata, const int n)
 
 	sculpt_brush_test_init(ss, &test);
 
-  BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
-  {
-    const float *co;
+	BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
+	{
+		const float *co;
 
 		co = vd.co;
 
@@ -3374,8 +3374,8 @@ static void vpaint_paint_leaves(bContext *C, Sculpt *sd, VPaint *vp, VPaintData 
 }
 
 static void vpaint_do_paint(
-		bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, 
-		Brush *UNUSED(brush), const char symm, const int axis, const int i, const float angle)
+        bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me,
+        Brush *UNUSED(brush), const char symm, const int axis, const int i, const float angle)
 {
 	SculptSession *ss = ob->sculpt;
 	ss->cache->radial_symmetry_pass = i;
@@ -3400,7 +3400,9 @@ static void vpaint_do_paint(
 		MEM_freeN(nodes);
 }
 
-static void vpaint_do_radial_symmetry(bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me, Brush *brush, const char symm, const int axis)
+static void vpaint_do_radial_symmetry(
+        bContext *C, Sculpt *sd, VPaint *vd, VPaintData *vpd, Object *ob, Mesh *me,
+        Brush *brush, const char symm, const int axis)
 {
 	for (int i = 1; i < vd->radial_symm[axis - 'X']; ++i) {
 		const float angle = (2.0 * M_PI) * i / vd->radial_symm[axis - 'X'];

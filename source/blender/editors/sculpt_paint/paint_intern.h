@@ -163,34 +163,34 @@ typedef struct VPaintData {
 } VPaintData;
 
 typedef struct WPaintData {
-  struct ViewContext vc;
-  int *indexar;
+	struct ViewContext vc;
+	int *indexar;
 
-  struct WeightPaintGroupData active, mirror;
+	struct WeightPaintGroupData active, mirror;
 
-  void *vp_handle;
-  struct DMCoNo *vertexcosnos;
+	void *vp_handle;
+	struct DMCoNo *vertexcosnos;
 
-  float wpimat[3][3];
+	float wpimat[3][3];
 
-  /* variables for auto normalize */
-  const bool *vgroup_validmap; /* stores if vgroups tie to deforming bones or not */
-  const bool *lock_flags;
+	/* variables for auto normalize */
+	const bool *vgroup_validmap; /* stores if vgroups tie to deforming bones or not */
+	const bool *lock_flags;
 
-  /* variables for multipaint */
-  const bool *defbase_sel;      /* set of selected groups */
-  int defbase_tot_sel;          /* number of selected groups */
-  bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
+	/* variables for multipaint */
+	const bool *defbase_sel;      /* set of selected groups */
+	int defbase_tot_sel;          /* number of selected groups */
+	bool do_multipaint;           /* true if multipaint enabled and multiple groups selected */
 
-  /* variables for blur */
-  struct {
-    struct MeshElemMap *vmap;
-    int *vmap_mem;
-  } blur_data;
+	/* variables for blur */
+	struct {
+		struct MeshElemMap *vmap;
+		int *vmap_mem;
+	} blur_data;
 
-  struct BLI_Stack *accumulate_stack;  /* for reuse (WPaintDefer) */
+	struct BLI_Stack *accumulate_stack;  /* for reuse (WPaintDefer) */
 
-  int defbase_tot;
+	int defbase_tot;
 } WPaintData;
 
 
