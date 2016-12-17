@@ -63,7 +63,7 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
         ccl_global char *ray_state,
         ccl_global uint *rng_state,
 
-#ifndef __KERNEL_CPU__
+#ifdef __KERNEL_OPENCL__
 #define KERNEL_TEX(type, ttype, name)                                   \
         ccl_global type *name,
 #include "../kernel_textures.h"
@@ -88,7 +88,7 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
         int buffer_stride,
         ccl_global float *buffer)
 {
-#ifndef __KERNEL_CPU__
+#ifdef __KERNEL_OPENCL__
 	kg->data = data;
 #endif
 
@@ -126,9 +126,7 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 
 	split_data_init(&kernel_split_state, num_elements, split_data_buffer, ray_state);
 
-	kg->sd_input = kernel_split_state.sd_DL_shadow;
-	kg->isect_shadow = kernel_split_state.isect_shadow;
-#ifndef __KERNEL_CPU__
+#ifdef __KERNEL_OPENCL__
 #define KERNEL_TEX(type, ttype, name) \
 	kg->name = name;
 #include "../kernel_textures.h"
@@ -250,7 +248,7 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 			kernel_split_state.L_transparent[ray_index] = 0.0f;
 			path_radiance_init(&kernel_split_state.path_radiance[ray_index], kernel_data.film.use_light_pass);
 			path_state_init(kg,
-			                kg->sd_input,
+			                kernel_split_state.sd_DL_shadow,
 			                &kernel_split_state.path_state[ray_index],
 			                &kernel_split_state.rng[ray_index],
 			                my_sample,

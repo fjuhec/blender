@@ -39,6 +39,7 @@
 #define ccl_constant __constant
 #define ccl_global __global
 #define ccl_local __local
+#define ccl_local_param __local
 #define ccl_private __private
 #define ccl_restrict restrict
 #define ccl_align(n) __attribute__((aligned(n)))

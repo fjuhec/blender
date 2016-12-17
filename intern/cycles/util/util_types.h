@@ -38,6 +38,7 @@
 #define ccl_global
 #define ccl_constant
 #define ccl_local
+#define ccl_local_param
 #define ccl_private
 #define ccl_restrict __restrict
 #define __KERNEL_WITH_SSE_ALIGN__
