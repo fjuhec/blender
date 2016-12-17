@@ -50,6 +50,7 @@
 
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
+#include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_tracking.h"
 #include "BKE_action.h"
@@ -66,6 +67,7 @@
 #include "ED_gpencil.h"
 #include "ED_clip.h"
 #include "ED_view3d.h"
+#include "ED_object.h"
 
 #include "gpencil_intern.h"
 
@@ -1077,5 +1079,18 @@ EnumPropertyItem *ED_gpencil_palettes_enum_itemf(
 	*r_free = true;
 
 	return item;
+}
+/* Helper function to create new OB_GPENCIL Object */
+Object *ED_add_gpencil_object(bContext *C, Scene *scene, const float loc[3])
+{
+	float rot[3];
+
+	Object *ob;
+	ob = ED_object_add_type(C, OB_GPENCIL, NULL, loc, rot, false, scene->lay);
+
+	/* define size */
+	BKE_object_obdata_size_init(ob, GP_OBGPENCIL_DEFAULT_SIZE);
+	
+	return ob;
 }
 /* ******************************************************** */

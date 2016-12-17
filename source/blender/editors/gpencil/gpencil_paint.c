@@ -1344,7 +1344,9 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	ScrArea *curarea = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
-	
+	Object *obact = CTX_data_active_object(C);
+	View3D *v3d = curarea->spacedata.first;
+
 	/* make sure the active view (at the starting time) is a 3d-view */
 	if (curarea == NULL) {
 		p->status = GP_STATUS_ERROR;
@@ -1385,6 +1387,18 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 				if (G.debug & G_DEBUG)
 					printf("Error: 3D-View active region doesn't have any region data, so cannot be drawable\n");
 				return 0;
+			}
+			/* if object mode and is not active a OB_GPENCIL, create one */
+			if (ts->gpencil_src &  GP_TOOL_SOURCE_OBJECT) {
+				float *cur = ED_view3d_cursor3d_get(p->scene, v3d);
+				if (obact) {
+					if (obact->type != OB_GPENCIL) {
+						obact = ED_add_gpencil_object(C, p->scene, cur);
+					}
+				}
+				else {
+					obact = ED_add_gpencil_object(C, p->scene, cur);
+				}
 			}
 			break;
 		}

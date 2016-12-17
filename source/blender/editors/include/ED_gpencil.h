@@ -193,5 +193,6 @@ void ED_gpencil_reset_layers_parent(struct Object *obact, struct bGPdata *gpd);
 /* ------------ Object Utilities ------------ */
 
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.2f
+struct Object *ED_add_gpencil_object(struct bContext *C, struct Scene *scene, const float loc[3]);
 
 #endif /*  __ED_GPENCIL_H__ */
