@@ -1403,7 +1403,7 @@ void BKE_pbvh_node_num_verts(
 	}
 }
 
-void BKE_pbvh_node_num_nodes(PBVH *bvh, int* r_totnode) {
+void BKE_pbvh_get_num_nodes(PBVH *bvh, int* r_totnode) {
 	*r_totnode = bvh->totnode;
 }
 

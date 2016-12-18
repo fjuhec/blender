@@ -190,7 +190,7 @@ void BKE_pbvh_node_num_verts(
 void BKE_pbvh_node_get_verts(
         PBVH *bvh, PBVHNode *node,
         const int **r_vert_indices, struct MVert **r_verts);
-void BKE_pbvh_node_num_nodes(PBVH *bvh, int* r_totnode);
+void BKE_pbvh_get_num_nodes(PBVH *bvh, int* r_totnode);
 
 void BKE_pbvh_node_get_BB(PBVHNode *node, float bb_min[3], float bb_max[3]);
 void BKE_pbvh_node_get_original_BB(PBVHNode *node, float bb_min[3], float bb_max[3]);

@@ -2751,6 +2751,9 @@ void BKE_object_sculpt_modifiers_changed(Object *ob)
 			}
 
 			BKE_sculptsession_free_deformMats(ob->sculpt);
+
+			/* In VWpaint, force maps to be rebuilt. */
+			BKE_sculptsession_free_vwpaint_data(ob->sculpt);
 		}
 		else {
 			PBVHNode **nodes;

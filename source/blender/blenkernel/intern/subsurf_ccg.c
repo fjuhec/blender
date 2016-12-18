@@ -4441,7 +4441,8 @@ static struct PBVH *ccgDM_getPBVH(Object *ob, DerivedMesh *dm)
 	/* no pbvh exists yet, we need to create one. only in case of multires
 	 * we build a pbvh over the modified mesh, in other cases the base mesh
 	 * is being sculpted, so we build a pbvh from that. */
-	if (grid_pbvh) {
+	/* Note: VWPaint do not support PBVH_GRIDS at the moment. */
+	if (grid_pbvh && ob->mode & OB_MODE_SCULPT) {
 		ccgdm_create_grids(dm);
 
 		numGrids = ccgDM_getNumGrids(dm);

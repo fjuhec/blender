@@ -656,6 +656,48 @@ void BKE_sculptsession_free_deformMats(SculptSession *ss)
 	MEM_SAFE_FREE(ss->deform_imats);
 }
 
+void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss) {
+	/* Free maps */
+	if (ss->vert_to_loop) {
+		MEM_freeN(ss->vert_to_loop);
+		ss->vert_to_loop = NULL;
+	}
+	if (ss->vert_map_mem) {
+		MEM_freeN(ss->vert_map_mem);
+		ss->vert_map_mem = NULL;
+	}
+	if (ss->vert_to_poly) {
+		MEM_freeN(ss->vert_to_poly);
+		ss->vert_to_poly = NULL;
+	}
+	if (ss->poly_map_mem) {
+		MEM_freeN(ss->poly_map_mem);
+		ss->poly_map_mem = NULL;
+	}
+
+	/* Free average, blur, and spray brush arrays */
+	if (ss->tot_loops_hit) {
+		MEM_freeN(ss->tot_loops_hit);
+		ss->tot_loops_hit = NULL;
+	}
+	if (ss->total_color) {
+		MEM_freeN(ss->total_color);
+		ss->total_color = NULL;
+	}
+	if (ss->total_weight) {
+		MEM_freeN(ss->total_weight);
+		ss->total_weight = NULL;
+	}
+	if (ss->max_weight) {
+		MEM_freeN(ss->max_weight);
+		ss->max_weight = NULL;
+	}
+	if (ss->previous_color) {
+		MEM_freeN(ss->previous_color);
+		ss->previous_color = NULL;
+	}
+}
+
 /* Write out the sculpt dynamic-topology BMesh to the Mesh */
 static void sculptsession_bm_to_me_update_data_only(Object *ob, bool reorder)
 {
@@ -747,27 +789,7 @@ void BKE_sculptsession_free(Object *ob)
 		if (ss->deform_imats)
 			MEM_freeN(ss->deform_imats);
 
-		/* Free maps */
-		if (ss->vert_to_loop)
-			MEM_freeN(ss->vert_to_loop);
-		if (ss->vert_map_mem)
-			MEM_freeN(ss->vert_map_mem);
-		if (ss->vert_to_poly)
-			MEM_freeN(ss->vert_to_poly);
-		if (ss->poly_map_mem)
-			MEM_freeN(ss->poly_map_mem);
-
-		/* Free average, blur, and spray brush arrays */
-		if (ob->sculpt->tot_loops_hit)
-			MEM_freeN(ob->sculpt->tot_loops_hit);
-		if (ob->sculpt->total_color)
-			MEM_freeN(ob->sculpt->total_color);
-		if (ob->sculpt->total_weight)
-		  MEM_freeN(ob->sculpt->total_weight);
-		if (ob->sculpt->max_weight)
-			MEM_freeN(ob->sculpt->max_weight);
-		if (ob->sculpt->previous_color)
-			MEM_freeN(ob->sculpt->previous_color);
+		BKE_sculptsession_free_vwpaint_data(ob->sculpt);
 
 		MEM_freeN(ss);
 
@@ -881,7 +903,8 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 
 	dm = mesh_get_derived_final(scene, ob, CD_MASK_BAREMESH);
 
-	if (mmd) {
+	/* VWPaint require mesh info for loop lookup, so require sculpt mode here */
+	if (mmd && ob->mode & OB_MODE_SCULPT) {
 		ss->multires = mmd;
 		ss->totvert = dm->getNumVerts(dm);
 		ss->totpoly = dm->getNumPolys(dm);

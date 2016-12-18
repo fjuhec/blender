@@ -1656,34 +1656,40 @@ static void do_weight_paint_vertex(
 /       copied from sculpt.c                                  ****/
 static void vertex_paint_init_session(Scene *scene, Object *ob)
 {
-	ob->sculpt = MEM_callocN(sizeof(SculptSession), "sculpt session");
+	if (!ob->sculpt)
+	  ob->sculpt = MEM_callocN(sizeof(SculptSession), "sculpt session");
 	BKE_sculpt_update_mesh_elements(scene, scene->toolsettings->sculpt, ob, 0, false);
 }
 
 static void vertex_paint_init_session_maps(Object *ob) {
 	/* Create maps */
-	Mesh *me = ob->data;
-	ob->sculpt->vert_map_mem = NULL;
-	ob->sculpt->vert_to_loop = NULL;
-	ob->sculpt->poly_map_mem = NULL;
-	ob->sculpt->vert_to_poly = NULL;
-	BKE_mesh_vert_loop_map_create(&ob->sculpt->vert_to_loop, &ob->sculpt->vert_map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
-	BKE_mesh_vert_poly_map_create(&ob->sculpt->vert_to_poly, &ob->sculpt->poly_map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+	if (!ob->sculpt->vert_to_loop)
+	{
+		Mesh *me = ob->data;
+		ob->sculpt->vert_map_mem = NULL;
+		ob->sculpt->vert_to_loop = NULL;
+		ob->sculpt->poly_map_mem = NULL;
+		ob->sculpt->vert_to_poly = NULL;
+		BKE_mesh_vert_loop_map_create(&ob->sculpt->vert_to_loop, &ob->sculpt->vert_map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+		BKE_mesh_vert_poly_map_create(&ob->sculpt->vert_to_poly, &ob->sculpt->poly_map_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
+	}
 }
 
 static void vertex_paint_init_session_average_arrays(Object *ob){
 	/* Create average brush arrays */
-	int totNode = 0;
-	/* I think the totNodes might include internal nodes, and we really only need the tot leaves. */
-	BKE_pbvh_node_num_nodes(ob->sculpt->pbvh, &totNode);
-	Mesh *me = BKE_mesh_from_object(ob);
+	if (!ob->sculpt->tot_loops_hit) {
+		int totNode = 0;
+		/* I think the totNodes might include internal nodes, and we really only need the tot leaves. */
+		BKE_pbvh_get_num_nodes(ob->sculpt->pbvh, &totNode);
+		Mesh *me = BKE_mesh_from_object(ob);
 
-	/* Need unsigned long to prevent overflow when averaging multiple whites, which take up an entire unsigned int each. */
-	ob->sculpt->total_color = MEM_callocN(totNode * 3 * sizeof(unsigned int), "total_color");
-	ob->sculpt->total_weight = MEM_callocN(totNode * sizeof(double), "total_weight");
-	ob->sculpt->tot_loops_hit = MEM_callocN(totNode * sizeof(unsigned int), "tot_loops_hit");
-	ob->sculpt->max_weight = MEM_callocN(me->totvert * sizeof(float), "max_weight");
-	ob->sculpt->previous_color = MEM_callocN(me->totloop * sizeof(unsigned int), "previous_color");
+		/* Need unsigned long to prevent overflow when averaging multiple whites, which take up an entire unsigned int each. */
+		ob->sculpt->total_color = MEM_callocN(totNode * 3 * sizeof(unsigned int), "total_color");
+		ob->sculpt->total_weight = MEM_callocN(totNode * sizeof(double), "total_weight");
+		ob->sculpt->tot_loops_hit = MEM_callocN(totNode * sizeof(unsigned int), "tot_loops_hit");
+		ob->sculpt->max_weight = MEM_callocN(me->totvert * sizeof(float), "max_weight");
+		ob->sculpt->previous_color = MEM_callocN(me->totloop * sizeof(unsigned int), "previous_color");
+	}
 }
 
 /* *************** set wpaint operator ****************** */
@@ -1751,9 +1757,6 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			BKE_sculptsession_free(ob);
 
 		vertex_paint_init_session(scene, ob);
-
-		/* Cache needs to be initialized before mesh_build_data is called. */
-		ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
 	}
 	
 	/* Weightpaint works by overriding colors in mesh,
@@ -1990,6 +1993,11 @@ static void vwpaint_update_cache_variants(bContext *C, VPaint *vd, Object *ob, P
 	}
 
 	cache->radius_squared = cache->radius * cache->radius;
+
+	if (ss->pbvh) {
+		BKE_pbvh_update(ss->pbvh, PBVH_UpdateRedraw, NULL);
+		BKE_pbvh_update(ss->pbvh, PBVH_UpdateBB, NULL);
+	}
 }
 
 static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mouse[2])
@@ -2112,16 +2120,10 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	copy_m3_m4(wpd->wpimat, imat);
 
 	/* If not previously created, create vertex/weight paint mode session data */
-	if (!ob->sculpt)
-		vertex_paint_init_session(scene, ob);
-
-	if (!ob->sculpt->vert_to_loop)
-		vertex_paint_init_session_maps(ob);
-
-	if (!ob->sculpt->tot_loops_hit)
-		vertex_paint_init_session_average_arrays(ob);
-
+	vertex_paint_init_session(scene, ob);
 	vwpaint_update_cache_invariants(C, vd, ss, op, mouse);
+	vertex_paint_init_session_maps(ob);
+	vertex_paint_init_session_average_arrays(ob);
 
 	for (int i = 0; i < me->totvert; ++i)
 		ss->max_weight[i] = -1.0;
@@ -2691,7 +2693,7 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	paint_last_stroke_update(scene, vc->ar, mval);
 
 	DAG_id_tag_update(ob->data, 0);
-
+	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	swap_m4m4(wpd->vc.rv3d->persmat, mat);
 
 	rcti r;
@@ -2927,9 +2929,6 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			BKE_sculptsession_free(ob);
 		}
 		vertex_paint_init_session(scene, ob);
-
-		/* Cache needs to be initialized before mesh_build_data is called. */
-		ob->sculpt->cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
 	}
 	
 	/* update modifier stack for mapping requirements */
@@ -3041,19 +3040,13 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	copy_m3_m4(vpd->vpimat, imat);
 
 	/* If not previously created, create vertex/weight paint mode session data */
-	if (!ob->sculpt)
-		vertex_paint_init_session(scene, ob);
-
-	if (!ob->sculpt->vert_to_loop)
-		vertex_paint_init_session_maps(ob);
-
-	if (!ob->sculpt->tot_loops_hit)
-		vertex_paint_init_session_average_arrays(ob);
-
+	vertex_paint_init_session(scene, ob);
 	vwpaint_update_cache_invariants(C, vp, ss, op, mouse);
+	vertex_paint_init_session_maps(ob);
+	vertex_paint_init_session_average_arrays(ob);
 
 	for (int i = 0; i < me->totloop; ++i)
-		ss->previous_color[i] = 0;
+		ob->sculpt->previous_color[i] = 0;
 
 	return 1;
 }
