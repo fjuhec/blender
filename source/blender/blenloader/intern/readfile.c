@@ -8373,14 +8373,9 @@ static void do_versions(FileData *fd, Library *lib, Main *main)
 	/* don't forget to set version number in BKE_blender_version.h! */
 }
 
-#if 0 // XXX: disabled for now... we still don't have this in the right place in the loading code for it to work
-static void do_versions_after_linking(FileData *fd, Library *lib, Main *main)
+static void do_versions_after_linking(FileData *fd, Main *main)
 {
-	/* old Animation System (using IPO's) needs to be converted to the new Animato system */
-	if (main->versionfile < 250)
-		do_versions_ipos_to_animato(main);
 }
-#endif
 
 static void lib_link_all(FileData *fd, Main *main)
 {
@@ -8582,7 +8577,8 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 	
 	lib_link_all(fd, bfd->main);
 
-	//do_versions_after_linking(fd, NULL, bfd->main); // XXX: not here (or even in this function at all)! this causes crashes on many files - Aligorith (July 04, 2010)
+	do_versions_after_linking(fd, bfd->main);
+
 	BKE_main_id_tag_all(bfd->main, LIB_TAG_NEW, false);
 
 	lib_verify_nodetree(bfd->main, true);
@@ -10148,6 +10144,8 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
 	mainl = NULL; /* blo_join_main free's mainl, cant use anymore */
 
 	lib_link_all(*fd, mainvar);
+
+	do_versions_after_linking(*fd, mainvar);
 
 	BKE_main_id_tag_all(mainvar, LIB_TAG_NEW, false);
 
