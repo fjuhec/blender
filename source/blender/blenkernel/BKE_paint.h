@@ -103,6 +103,7 @@ struct Palette      *BKE_palette_copy(struct Main *bmain, struct Palette *palett
 void                 BKE_palette_make_local(struct Main *bmain, struct Palette *palette, const bool lib_local);
 struct PaletteColor *BKE_palette_color_add(struct Palette *palette);
 bool                 BKE_palette_is_empty(const struct Palette *palette);
+struct PaletteColor *BKE_palettecolor_getbyname(struct Palette *palette, char *name);
 void                 BKE_palette_color_remove(struct Palette *palette, struct PaletteColor *color);
 void                 BKE_palette_clear(struct Palette *palette);
 

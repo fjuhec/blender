@@ -445,6 +445,16 @@ bool BKE_palette_is_empty(const struct Palette *palette)
 	return BLI_listbase_is_empty(&palette->colors);
 }
 
+/* get the palettecolor looking by name */
+PaletteColor *BKE_palettecolor_getbyname(Palette *palette, char *name)
+{
+	/* error checking */
+	if (ELEM(NULL, palette, name)) {
+		return NULL;
+	}
+
+	return BLI_findstring(&palette->colors, name, offsetof(PaletteColor, info));
+}
 
 /* are we in vertex paint or weight pain face select mode? */
 bool BKE_paint_select_face_test(Object *ob)
