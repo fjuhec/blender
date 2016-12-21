@@ -121,9 +121,8 @@ static void rna_PaletteColor_info_set(PointerRNA *ptr, const char *value)
 	Palette *palette = ptr->data;
 	PaletteColor *palcolor = BLI_findlink(&palette->colors, palette->active_color);
 
-	/* rename all strokes */
-	// TODO: Pending to rename all gpd blocks
-	//BKE_gpencil_palettecolor_changename(gpd, palcolor->info, value);
+	/* rename all for gp datablocks */
+	BKE_gpencil_palettecolor_allnames(palcolor->info, value);
 
 	/* copy the new name into the name slot */
 	BLI_strncpy_utf8(palcolor->info, value, sizeof(palcolor->info));

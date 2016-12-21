@@ -1259,6 +1259,17 @@ bGPDpalettecolor *BKE_gpencil_palettecolor_getbyname(bGPDpalette *palette, char 
 	return BLI_findstring(&palette->colors, name, offsetof(bGPDpalettecolor, info));
 }
 
+/* Change color name in all gpd datablocks */
+void BKE_gpencil_palettecolor_allnames(char *oldname, const char *newname)
+{
+	bGPdata *gpd;
+	Main *main = G.main;
+
+	for (gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+		BKE_gpencil_palettecolor_changename(gpd, oldname, newname);
+	}
+}
+
 /* Change color name in all strokes */
 void BKE_gpencil_palettecolor_changename(bGPdata *gpd, char *oldname, const char *newname)
 {
