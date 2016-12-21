@@ -351,7 +351,7 @@ void BKE_paint_palette_set(Paint *p, Palette *palette)
 	}
 }
 
-Palette *BKE_palette_getactive(const bContext *C)
+Palette *BKE_palette_get_active_from_context(const bContext *C)
 {
 	Paint *paint = BKE_paint_get_active_from_context(C);
 	Palette *palette = paint->palette;
@@ -359,7 +359,7 @@ Palette *BKE_palette_getactive(const bContext *C)
 	return palette;
 }
 
-PaletteColor *BKE_palettecolor_getactive(Palette *palette)
+PaletteColor *BKE_palettecolor_get_active(Palette *palette)
 {
 	PaletteColor *palcolor = NULL;
 

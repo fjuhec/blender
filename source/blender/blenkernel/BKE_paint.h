@@ -106,6 +106,8 @@ bool                 BKE_palette_is_empty(const struct Palette *palette);
 struct PaletteColor *BKE_palettecolor_getbyname(struct Palette *palette, char *name);
 void                 BKE_palette_color_remove(struct Palette *palette, struct PaletteColor *color);
 void                 BKE_palette_clear(struct Palette *palette);
+struct Palette      *BKE_palette_get_active_from_context(const struct bContext *C);
+struct PaletteColor *BKE_palettecolor_get_active(struct Palette *palette);
 
 /* paint curves */
 struct PaintCurve *BKE_paint_curve_add(struct Main *bmain, const char *name);
@@ -128,8 +130,6 @@ struct Brush *BKE_paint_brush(struct Paint *paint);
 void BKE_paint_brush_set(struct Paint *paint, struct Brush *br);
 struct Palette *BKE_paint_palette(struct Paint *paint);
 void BKE_paint_palette_set(struct Paint *p, struct Palette *palette);
-struct Palette *BKE_palette_getactive(const struct bContext *C);
-struct PaletteColor *BKE_palettecolor_getactive(struct Palette *palette);
 void BKE_paint_curve_set(struct Brush *br, struct PaintCurve *pc);
 void BKE_paint_curve_clamp_endpoint_add_index(struct PaintCurve *pc, const int add_index);
 
