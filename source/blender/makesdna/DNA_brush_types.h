@@ -161,6 +161,7 @@ typedef enum ePaletteColor_Flag {
 
 typedef struct Palette {
 	ID id;
+	struct AnimData *adt;   /* animation data - for animating draw settings */
 
 	/* pointer to individual colours */
 	ListBase colors;
