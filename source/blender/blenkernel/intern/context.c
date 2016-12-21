@@ -1209,3 +1209,12 @@ int CTX_data_editable_gpencil_strokes(const bContext *C, ListBase *list)
 	return ctx_data_collection_get(C, "editable_gpencil_strokes", list);
 }
 
+Palette *CTX_data_active_palette(const bContext *C)
+{
+	return ctx_data_pointer_get(C, "active_palette");
+}
+
+PaletteColor *CTX_data_active_palettecolor(const bContext *C)
+{
+	return ctx_data_pointer_get(C, "active_palettecolor");
+}

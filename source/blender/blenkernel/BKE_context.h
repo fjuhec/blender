@@ -303,6 +303,8 @@ int CTX_data_visible_gpencil_layers(const bContext *C, ListBase *list);
 int CTX_data_editable_gpencil_layers(const bContext *C, ListBase *list);
 int CTX_data_editable_gpencil_strokes(const bContext *C, ListBase *list);
 
+struct Palette *CTX_data_active_palette(const bContext *C);
+struct PaletteColor *CTX_data_active_palettecolor(const bContext *C);
 
 #ifdef __cplusplus
 }

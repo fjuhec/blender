@@ -40,12 +40,13 @@
 #include "DNA_windowmanager_types.h"
 
 #include "BLI_utildefines.h"
-
+#include "BLI_listbase.h"
 
 #include "BKE_context.h"
 #include "BKE_object.h"
 #include "BKE_action.h"
 #include "BKE_armature.h"
+#include "BKE_paint.h"
 #include "BKE_gpencil.h"
 #include "BKE_layer.h"
 #include "BKE_screen.h"
@@ -76,6 +77,7 @@ const char *screen_context_dir[] = {
 	"visible_gpencil_layers", "editable_gpencil_layers", "editable_gpencil_strokes",
 	"active_gpencil_layer", "active_gpencil_frame", "active_gpencil_palette", 
 	"active_gpencil_palettecolor", "active_gpencil_brush",
+	"active_palette", "active_palettecolor",
 	"active_operator",
 	NULL};
 
@@ -580,6 +582,26 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 				}
 			}
 			CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
+			return 1;
+		}
+	}
+	else if (CTX_data_equals(member, "active_palette")) {
+		Paint *paint = BKE_paint_get_active_from_context(C);
+		Palette *palette = paint->palette;
+
+		if (palette) {
+			CTX_data_pointer_set(result, &palette->id, &RNA_Palette, palette);
+			return 1;
+		}
+	}
+	else if (CTX_data_equals(member, "active_palettecolor")) {
+		Paint *paint = BKE_paint_get_active_from_context(C);
+		Palette *palette = paint->palette;
+		PaletteColor *palcolor;
+
+		if (palette) {
+			palcolor = BLI_findlink(&palette->colors, palette->active_color);
+			CTX_data_pointer_set(result, &palette->id, &RNA_PaletteColor, palcolor);
 			return 1;
 		}
 	}
