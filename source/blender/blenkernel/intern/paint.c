@@ -43,9 +43,12 @@
 #include "DNA_space_types.h"
 
 #include "BLI_bitmap.h"
+#include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
 #include "BLI_listbase.h"
+
+#include "BLT_translation.h"
 
 #include "BKE_brush.h"
 #include "BKE_colortools.h"
@@ -424,6 +427,15 @@ PaletteColor *BKE_palette_color_add(Palette *palette)
 {
 	PaletteColor *color = MEM_callocN(sizeof(*color), "Pallete Color");
 	BLI_addtail(&palette->colors, color);
+
+	/* set basic settings */
+	color->rgb[3] = 1.0f;
+
+	/* auto-name */
+	BLI_strncpy(color->info, DATA_("Color"), sizeof(color->info));
+	BLI_uniquename(&palette->colors, color, DATA_("Color"), '.', offsetof(PaletteColor, info),
+		sizeof(color->info));
+
 	return color;
 }
 

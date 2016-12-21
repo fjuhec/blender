@@ -190,7 +190,7 @@ static int palette_poll(bContext *C)
 	return false;
 }
 
-static int palette_color_add_exec(bContext *C, wmOperator *UNUSED(op))
+static int palette_color_add_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Paint *paint = BKE_paint_get_active_from_context(C);
@@ -199,18 +199,21 @@ static int palette_color_add_exec(bContext *C, wmOperator *UNUSED(op))
 	Palette *palette = paint->palette;
 	PaletteColor *color;
 
+	const bool grease_pencil = RNA_boolean_get(op->ptr, "grease_pencil");
+
 	color = BKE_palette_color_add(palette);
 	palette->active_color = BLI_listbase_count(&palette->colors) - 1;
 
-	if (ELEM(mode, ePaintTextureProjective, ePaintTexture2D, ePaintVertex)) {
-		copy_v3_v3(color->rgb, BKE_brush_color_get(scene, brush));
-		color->value = 0.0;
+	if (!grease_pencil) {
+		if (ELEM(mode, ePaintTextureProjective, ePaintTexture2D, ePaintVertex)) {
+			copy_v3_v3(color->rgb, BKE_brush_color_get(scene, brush));
+			color->value = 0.0;
+		}
+		else if (mode == ePaintWeight) {
+			zero_v3(color->rgb);
+			color->value = brush->weight;
+		}
 	}
-	else if (mode == ePaintWeight) {
-		zero_v3(color->rgb);
-		color->value = brush->weight;
-	}
-
 	return OPERATOR_FINISHED;
 }
 
@@ -226,6 +229,9 @@ static void PALETTE_OT_color_add(wmOperatorType *ot)
 	ot->poll = palette_poll;
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* grease pencil */
+	RNA_def_boolean(ot->srna, "grease_pencil", false, "Grease Pencil", "The color is for grease pencil mode");
 }
 
 

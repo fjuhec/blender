@@ -139,10 +139,25 @@ typedef struct Brush {
 
 typedef struct PaletteColor {
 	struct PaletteColor *next, *prev;
-	/* two values, one to store rgb, other to store values for sculpt/weight */
-	float rgb[3];
-	float value;
+	float rgb[4];            /* color for paint and strokes (alpha included) */
+	float fill[4];           /* color that should be used for drawing "fills" for strokes (alpha included) */
+	char info[64];           /* color name. Must be unique. */
+	float value;             /* sculpt/weight */
+	short flag;              /* settings for palette color */
+	char  pad[2];            /* padding for compiler alignment error */
+
 } PaletteColor;
+/* PaletteColor->flag (mainly used by grease pencil) */
+typedef enum ePaletteColor_Flag {
+	/* don't display color */
+	PAC_COLOR_HIDE = (1 << 1),
+	/* protected from further editing */
+	PAC_COLOR_LOCKED = (1 << 2),
+	/* do onion skinning */
+	PAC_COLOR_ONIONSKIN = (1 << 3),
+	/* "volumetric" strokes (i.e. GLU Quadric discs in 3D) */
+	PAC_COLOR_VOLUMETRIC = (1 << 4)
+} ePaletteColor_Flag;
 
 typedef struct Palette {
 	ID id;
