@@ -40,7 +40,6 @@
 #include "DNA_windowmanager_types.h"
 
 #include "BLI_utildefines.h"
-#include "BLI_listbase.h"
 
 #include "BKE_context.h"
 #include "BKE_object.h"
@@ -586,8 +585,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		}
 	}
 	else if (CTX_data_equals(member, "active_palette")) {
-		Paint *paint = BKE_paint_get_active_from_context(C);
-		Palette *palette = paint->palette;
+		Palette *palette = BKE_palette_getactive(C);
 
 		if (palette) {
 			CTX_data_pointer_set(result, &palette->id, &RNA_Palette, palette);
@@ -595,12 +593,10 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		}
 	}
 	else if (CTX_data_equals(member, "active_palettecolor")) {
-		Paint *paint = BKE_paint_get_active_from_context(C);
-		Palette *palette = paint->palette;
-		PaletteColor *palcolor;
+		Palette *palette = BKE_palette_getactive(C);
+		PaletteColor *palcolor = BKE_palettecolor_getactive(palette);
 
-		if (palette) {
-			palcolor = BLI_findlink(&palette->colors, palette->active_color);
+		if (palcolor) {
 			CTX_data_pointer_set(result, &palette->id, &RNA_PaletteColor, palcolor);
 			return 1;
 		}

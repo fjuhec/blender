@@ -351,6 +351,25 @@ void BKE_paint_palette_set(Paint *p, Palette *palette)
 	}
 }
 
+Palette *BKE_palette_getactive(const bContext *C)
+{
+	Paint *paint = BKE_paint_get_active_from_context(C);
+	Palette *palette = paint->palette;
+
+	return palette;
+}
+
+PaletteColor *BKE_palettecolor_getactive(Palette *palette)
+{
+	PaletteColor *palcolor = NULL;
+
+	if (palette) {
+		palcolor = BLI_findlink(&palette->colors, palette->active_color);
+	}
+	
+	return palcolor;
+}
+
 void BKE_paint_curve_set(Brush *br, PaintCurve *pc)
 {
 	if (br) {
