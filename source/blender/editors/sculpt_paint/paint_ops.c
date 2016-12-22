@@ -191,6 +191,27 @@ static int palette_poll(bContext *C)
 	return false;
 }
 
+static int palette_new_gpencil_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	BKE_palette_add_gpencil(C);
+
+	return OPERATOR_FINISHED;
+}
+
+static void PALETTE_OT_new_gpencil(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Add New Palette for grease pencil";
+	ot->description = "Add new palette for using with grease pencil";
+	ot->idname = "PALETTE_OT_new_gpencil";
+
+	/* api callbacks */
+	ot->exec = palette_new_gpencil_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
 static int palette_color_add_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
@@ -1301,6 +1322,7 @@ void ED_operatortypes_paint(void)
 {
 	/* palette */
 	WM_operatortype_append(PALETTE_OT_new);
+	WM_operatortype_append(PALETTE_OT_new_gpencil);
 	WM_operatortype_append(PALETTE_OT_color_add);
 	WM_operatortype_append(PALETTE_OT_color_delete);
 
