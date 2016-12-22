@@ -57,6 +57,7 @@ struct StrokeCache;
 struct Tex;
 struct ImagePool;
 struct UnifiedPaintSettings;
+struct ToolSettings;
 
 enum OverlayFlags;
 
@@ -108,6 +109,8 @@ struct PaletteColor *BKE_palettecolor_getbyname(struct Palette *palette, char *n
 void                 BKE_palette_color_remove(struct Palette *palette, struct PaletteColor *color);
 void                 BKE_palette_clear(struct Palette *palette);
 struct Palette      *BKE_palette_get_active_from_context(const struct bContext *C);
+struct Palette      *BKE_palette_get_active_gpencil(struct ToolSettings *ts);
+struct Palette      *BKE_palette_get_active_gpencil_from_context(const struct bContext *C);
 struct PaletteColor *BKE_palettecolor_get_active(struct Palette *palette);
 struct PaletteColor *BKE_palettecolor_get_active_from_context(const struct bContext *C);
 
