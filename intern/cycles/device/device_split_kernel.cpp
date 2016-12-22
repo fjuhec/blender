@@ -102,9 +102,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	tile.buffer_rng_state_stride = tile.stride;
 	tile.stride = tile.w;
 
-	size_t global_size[2];
 	size_t local_size[2];
-
 	{
 		int2 lsize = device->split_kernel_local_size();
 		local_size[0] = lsize[0];
@@ -143,40 +141,38 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 			                      tile.buffers->params.height);
 	}
 
-	int d_w = tile.w;
-	int d_h = tile.h;
-
+	/* set global_size and num_parallel_samples */
+	size_t global_size[2];
+	unsigned int num_parallel_samples;
+	{
 #ifdef __WORK_STEALING__
-	global_size[0] = (((d_w - 1) / local_size[0]) + 1) * local_size[0];
-	global_size[1] = (((d_h - 1) / local_size[1]) + 1) * local_size[1];
-	unsigned int num_parallel_samples = 1;
+		global_size[0] = round_up(tile.w, local_size[0]);
+		global_size[1] = round_up(tile.h, local_size[1]);
+		num_parallel_samples = 1;
 #else
-	global_size[1] = (((d_h - 1) / local_size[1]) + 1) * local_size[1];
-	unsigned int num_threads = max_render_feasible_tile_size.x *
-	                           max_render_feasible_tile_size.y;
-	unsigned int num_tile_columns_possible = num_threads / global_size[1];
-	/* Estimate number of parallel samples that can be
-	 * processed in parallel.
-	 */
-	unsigned int num_parallel_samples = min(num_tile_columns_possible / d_w,
-	                                        tile.num_samples);
-	/* Wavefront size in AMD is 64.
-	 * TODO(sergey): What about other platforms?
-	 */
-	if(num_parallel_samples >= 64) {
-		/* TODO(sergey): Could use generic round-up here. */
-		num_parallel_samples = (num_parallel_samples / 64) * 64;
-	}
-	assert(num_parallel_samples != 0);
+		global_size[1] = round_up(tile.h, local_size[1]);
+		unsigned int num_threads = max_render_feasible_tile_size.x * max_render_feasible_tile_size.y;
+		unsigned int num_tile_columns_possible = num_threads / global_size[1];
+		/* Estimate number of parallel samples that can be
+		 * processed in parallel.
+		 */
+		num_parallel_samples = min(num_tile_columns_possible / tile.w, tile.num_samples);
+		/* Wavefront size in AMD is 64.
+		 * TODO(sergey): What about other platforms?
+		 */
+		if(num_parallel_samples >= 64) {
+			/* TODO(sergey): Could use generic round-up here. */
+			num_parallel_samples = (num_parallel_samples / 64) * 64;
+		}
+		assert(num_parallel_samples != 0);
 
-	global_size[0] = d_w * num_parallel_samples;
+		global_size[0] = tile.w * num_parallel_samples;
 #endif  /* __WORK_STEALING__ */
 
-	assert(global_size[0] * global_size[1] <=
-	       max_render_feasible_tile_size.x * max_render_feasible_tile_size.y);
+		assert(global_size[0] * global_size[1] <= max_render_feasible_tile_size.x * max_render_feasible_tile_size.y);
+	}
 
-	int num_global_elements = max_render_feasible_tile_size.x *
-	                          max_render_feasible_tile_size.y;
+	int num_global_elements = max_render_feasible_tile_size.x * max_render_feasible_tile_size.y;
 
 	/* Allocate all required global memory once. */
 	if(first_tile) {
@@ -185,10 +181,8 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 #ifdef __WORK_STEALING__
 		/* Calculate max groups */
 		size_t max_global_size[2];
-		size_t tile_x = max_render_feasible_tile_size.x;
-		size_t tile_y = max_render_feasible_tile_size.y;
-		max_global_size[0] = (((tile_x - 1) / local_size[0]) + 1) * local_size[0];
-		max_global_size[1] = (((tile_y - 1) / local_size[1]) + 1) * local_size[1];
+		max_global_size[0] = round_up(max_render_feasible_tile_size.x, local_size[0]);
+		max_global_size[1] = round_up(max_render_feasible_tile_size.y, local_size[1]);
 
 		/* Denotes the maximum work groups possible w.r.t. current tile size. */
 		unsigned int max_work_groups = (max_global_size[0] * max_global_size[1]) /
@@ -316,12 +310,8 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 		size_t sum_all_radiance_local_size[2] = {16, 16};
 		size_t sum_all_radiance_global_size[2];
-		sum_all_radiance_global_size[0] =
-			(((d_w - 1) / sum_all_radiance_local_size[0]) + 1) *
-			sum_all_radiance_local_size[0];
-		sum_all_radiance_global_size[1] =
-			(((d_h - 1) / sum_all_radiance_local_size[1]) + 1) *
-			sum_all_radiance_local_size[1];
+		sum_all_radiance_global_size[0] = round_up(tile.w, sum_all_radiance_local_size[0]);
+		sum_all_radiance_global_size[1] = round_up(tile.h, sum_all_radiance_local_size[1]);
 
 		ENQUEUE_SPLIT_KERNEL(sum_all_radiance,
 		                     sum_all_radiance_global_size,
