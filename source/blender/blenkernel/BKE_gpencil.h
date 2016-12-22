@@ -117,6 +117,7 @@ void BKE_gpencil_palettecolor_delete(struct bGPDpalette *palette, struct bGPDpal
 struct bGPDpalettecolor *BKE_gpencil_palettecolor_getbyname(struct bGPDpalette *palette, char *name);
 void BKE_gpencil_palettecolor_allnames(char *oldname, const char *newname);
 void BKE_gpencil_palettecolor_changename(struct bGPdata *gpd, char *oldname, const char *newname);
+void BKE_gpencil_palettecolor_delete_allstrokes(char *name);
 void BKE_gpencil_palettecolor_delete_strokes(struct bGPdata *gpd, char *name);
 
 #endif /*  __BKE_GPENCIL_H__ */

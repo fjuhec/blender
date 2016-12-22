@@ -1320,6 +1320,17 @@ void BKE_gpencil_palettecolor_delete_strokes(struct bGPdata *gpd, char *name)
 
 }
 
+/* Delete all strokes of the color for all gpd datablocks */
+void BKE_gpencil_palettecolor_delete_allstrokes(char *name)
+{
+	bGPdata *gpd;
+	Main *main = G.main;
+
+	for (gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+		BKE_gpencil_palettecolor_delete_strokes(gpd, name);
+	}
+}
+
 /* set the active gp-palettecolor */
 void BKE_gpencil_palettecolor_setactive(bGPDpalette *palette, bGPDpalettecolor *active)
 {

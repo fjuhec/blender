@@ -38,6 +38,7 @@
 #include "BKE_brush.h"
 #include "BKE_context.h"
 #include "BKE_paint.h"
+#include "BKE_gpencil.h"
 #include "BKE_main.h"
 
 #include "ED_paint.h"
@@ -242,8 +243,14 @@ static int palette_color_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	PaletteColor *color = BLI_findlink(&palette->colors, palette->active_color);
 
 	if (color) {
+		/* delete the gp strokes */
+		BKE_gpencil_palettecolor_delete_allstrokes(color->info);
+
 		BKE_palette_color_remove(palette, color);
 	}
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
 	return OPERATOR_FINISHED;
 }
