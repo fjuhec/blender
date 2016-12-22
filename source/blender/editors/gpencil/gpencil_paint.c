@@ -121,7 +121,8 @@ typedef struct tGPsdata {
 	View2D *v2d;        /* needed for GP_STROKE_2DSPACE */
 	rctf *subrect;      /* for using the camera rect within the 3d view */
 	rctf subrect_data;
-	
+	Palette *palette;    /* current palette */
+
 	GP_SpaceConversion gsc; /* settings to pass to gp_points_to_xy() */
 	
 	PointerRNA ownerPtr; /* pointer to owner of gp-datablock */
@@ -1394,6 +1395,11 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	/* pass on current scene and window */
 	p->scene = CTX_data_scene(C);
 	p->win = CTX_wm_window(C);
+	p->palette = BKE_palette_get_active_from_context(C);
+	/* if not exist palette, create a new one */
+	if (!p->palette) {
+		p->palette = BKE_palette_new(C);
+	}
 	
 	unit_m4(p->imat);
 	unit_m4(p->mat);
