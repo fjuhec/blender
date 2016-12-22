@@ -506,14 +506,14 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 
 /* draw fills for shapes */
 static void gp_draw_stroke_fill(
-        bGPdata *gpd, bGPDstroke *gps,
+		ToolSettings *ts, bGPdata *gpd, bGPDstroke *gps,
         int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float color[4])
 {
 	float fpt[3];
 
 	BLI_assert(gps->totpoints >= 3);
 
-	bGPDpalettecolor *palcolor = ED_gpencil_stroke_getcolor(gpd, gps);
+	PaletteColor *palcolor = ED_gpencil_stroke_getcolor(ts, gps);
 
 	/* Triangulation fill if high quality flag is enabled */
 	if (palcolor->flag & PC_COLOR_HQ_FILL) {
@@ -991,7 +991,8 @@ static bool gp_can_draw_stroke(const bGPDstroke *gps, const int dflag)
 
 /* draw a set of strokes */
 static void gp_draw_strokes(
-        bGPdata *gpd, const bGPDframe *gpf, int offsx, int offsy, int winx, int winy, int dflag,
+		ToolSettings *ts, bGPdata *gpd, const bGPDframe *gpf, int offsx, int offsy, 
+		int winx, int winy, int dflag,
         bool debug, short lthick, const float opacity, const float tintcolor[4],
         const bool onion, const bool custonion, const float diff_mat[4][4])
 {
@@ -1008,7 +1009,7 @@ static void gp_draw_strokes(
 			continue;
 		}
 		/* check if the color is visible */
-		bGPDpalettecolor *palcolor = ED_gpencil_stroke_getcolor(gpd, gps);
+		PaletteColor *palcolor = ED_gpencil_stroke_getcolor(ts, gps);
 		if ((palcolor == NULL) ||
 		    (palcolor->flag & PC_COLOR_HIDE) ||
 		    /* if onion and ghost flag do not draw*/
@@ -1063,15 +1064,15 @@ static void gp_draw_strokes(
 							color = tfill;
 						}
 					}
-					gp_draw_stroke_fill(gpd, gps, offsx, offsy, winx, winy, diff_mat, color);
+					gp_draw_stroke_fill(ts, gpd, gps, offsx, offsy, winx, winy, diff_mat, color);
 				}
 			}
 
 			/* 3D Stroke */
 			/* set color using palette, tint color and opacity */
 			if (!onion) {
-				interp_v3_v3v3(tcolor, palcolor->color, tintcolor, tintcolor[3]);
-				tcolor[3] = palcolor->color[3] * opacity;
+				interp_v3_v3v3(tcolor, palcolor->rgb, tintcolor, tintcolor[3]);
+				tcolor[3] = palcolor->rgb[3] * opacity;
 				copy_v4_v4(ink, tcolor);
 			}
 			else {
@@ -1079,7 +1080,7 @@ static void gp_draw_strokes(
 					copy_v4_v4(ink, tintcolor);
 				}
 				else {
-					ARRAY_SET_ITEMS(tcolor, palcolor->color[0], palcolor->color[1], palcolor->color[2], opacity);
+					ARRAY_SET_ITEMS(tcolor, palcolor->rgb[0], palcolor->rgb[1], palcolor->rgb[2], opacity);
 					copy_v4_v4(ink, tcolor);
 				}
 			}
@@ -1130,15 +1131,15 @@ static void gp_draw_strokes(
 							color = tfill;
 						}
 					}
-					gp_draw_stroke_fill(gpd, gps, offsx, offsy, winx, winy, diff_mat, color);
+					gp_draw_stroke_fill(ts, gpd, gps, offsx, offsy, winx, winy, diff_mat, color);
 				}
 			}
 
 			/* 2D Strokes... */
 			/* set color using palette, tint color and opacity */
 			if (!onion) {
-				interp_v3_v3v3(tcolor, palcolor->color, tintcolor, tintcolor[3]);
-				tcolor[3] = palcolor->color[3] * opacity;
+				interp_v3_v3v3(tcolor, palcolor->rgb, tintcolor, tintcolor[3]);
+				tcolor[3] = palcolor->rgb[3] * opacity;
 				copy_v4_v4(ink, tcolor);
 			}
 			else {
@@ -1146,7 +1147,7 @@ static void gp_draw_strokes(
 					copy_v4_v4(ink, tintcolor);
 				}
 				else {
-					ARRAY_SET_ITEMS(tcolor, palcolor->color[0], palcolor->color[1], palcolor->color[2], opacity);
+					ARRAY_SET_ITEMS(tcolor, palcolor->rgb[0], palcolor->rgb[1], palcolor->rgb[2], opacity);
 					copy_v4_v4(ink, tcolor);
 				}
 			}
@@ -1174,7 +1175,8 @@ static void gp_draw_strokes(
 
 /* Draw selected verts for strokes being edited */
 static void gp_draw_strokes_edit(
-        bGPdata *gpd, const bGPDframe *gpf, int offsx, int offsy, int winx, int winy, short dflag,
+		ToolSettings *ts, bGPdata *gpd, const bGPDframe *gpf, 
+		int offsx, int offsy, int winx, int winy, short dflag,
         short lflag, const float diff_mat[4][4], float alpha)
 {
 	/* if alpha 0 do not draw */
@@ -1218,7 +1220,7 @@ static void gp_draw_strokes_edit(
 
 		/* verify palette color lock */
 		{
-			bGPDpalettecolor *palcolor = ED_gpencil_stroke_getcolor(gpd, gps);
+			PaletteColor *palcolor = ED_gpencil_stroke_getcolor(ts, gps);
 			if (palcolor != NULL) {
 				if (palcolor->flag & PC_COLOR_HIDE) {
 					continue;
@@ -1246,7 +1248,7 @@ static void gp_draw_strokes_edit(
 
 		/* for now, we assume that the base color of the points is not too close to the real color */
 		/* set color using palette */
-		bGPDpalettecolor *palcolor = ED_gpencil_stroke_getcolor(gpd, gps);
+		PaletteColor *palcolor = ED_gpencil_stroke_getcolor(ts, gps);
 
 		float selectColor[4];
 		UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);
@@ -1291,7 +1293,7 @@ static void gp_draw_strokes_edit(
 				immAttrib1f(size, vsize);
 			}
 			else {
-				immAttrib3fv(color, palcolor->color);
+				immAttrib3fv(color, palcolor->rgb);
 				immAttrib1f(size, bsize);
 			}
 
@@ -1333,7 +1335,8 @@ static void gp_draw_strokes_edit(
 
 /* draw onion-skinning for a layer */
 static void gp_draw_onionskins(
-        bGPdata *gpd, const bGPDlayer *gpl, const bGPDframe *gpf, int offsx, int offsy, int winx, int winy,
+		ToolSettings *ts, bGPdata *gpd, const bGPDlayer *gpl, const bGPDframe *gpf, 
+		int offsx, int offsy, int winx, int winy,
         int UNUSED(cfra), int dflag, bool debug, const float diff_mat[4][4])
 {
 	const float default_color[3] = {UNPACK3(U.gpencil_new_layer_col)};
@@ -1356,7 +1359,7 @@ static void gp_draw_onionskins(
 				/* alpha decreases with distance from curframe index */
 				float fac = 1.0f - ((float)(gpf->framenum - gf->framenum) / (float)(gpl->gstep + 1));
 				color[3] = alpha * fac * 0.66f;
-				gp_draw_strokes(gpd, gf, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
+				gp_draw_strokes(ts, gpd, gf, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
 				                true, gpl->flag & GP_LAYER_GHOST_PREVCOL, diff_mat);
 			}
 			else
@@ -1367,7 +1370,7 @@ static void gp_draw_onionskins(
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->prev) {
 			color[3] = (alpha / 7);
-			gp_draw_strokes(gpd, gpf->prev, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
+			gp_draw_strokes(ts, gpd, gpf->prev, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
 			                true, gpl->flag & GP_LAYER_GHOST_PREVCOL, diff_mat);
 		}
 	}
@@ -1391,7 +1394,7 @@ static void gp_draw_onionskins(
 				/* alpha decreases with distance from curframe index */
 				float fac = 1.0f - ((float)(gf->framenum - gpf->framenum) / (float)(gpl->gstep_next + 1));
 				color[3] = alpha * fac * 0.66f;
-				gp_draw_strokes(gpd, gf, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
+				gp_draw_strokes(ts, gpd, gf, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
 				                true, gpl->flag & GP_LAYER_GHOST_NEXTCOL, diff_mat);
 			}
 			else
@@ -1402,7 +1405,7 @@ static void gp_draw_onionskins(
 		/* draw the strokes for the ghost frames (at half of the alpha set by user) */
 		if (gpf->next) {
 			color[3] = (alpha / 4);
-			gp_draw_strokes(gpd, gpf->next, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
+			gp_draw_strokes(ts, gpd, gpf->next, offsx, offsy, winx, winy, dflag, debug, gpl->thickness, 1.0f, color,
 			                true, gpl->flag & GP_LAYER_GHOST_NEXTCOL, diff_mat);
 		}
 	}
@@ -1415,6 +1418,7 @@ static void gp_draw_onionskins(
 void ED_gp_draw_interpolation(tGPDinterpolate *tgpi, const int type)
 {
 	tGPDinterpolate_layer *tgpil;
+	ToolSettings *ts = tgpi->scene->toolsettings;
 	float diff_mat[4][4];
 	float color[4];
 
@@ -1437,7 +1441,7 @@ void ED_gp_draw_interpolation(tGPDinterpolate *tgpi, const int type)
 		/* calculate parent position */
 		ED_gpencil_parent_location(tgpil->gpl, diff_mat);
 		if (tgpil->interFrame) {
-			gp_draw_strokes(tgpi->gpd, tgpil->interFrame, offsx, offsy, winx, winy, dflag, false,
+			gp_draw_strokes(ts, tgpi->gpd, tgpil->interFrame, offsx, offsy, winx, winy, dflag, false,
 				tgpil->gpl->thickness, 1.0f, color, true, true, diff_mat);
 		}
 	}
@@ -1446,7 +1450,7 @@ void ED_gp_draw_interpolation(tGPDinterpolate *tgpi, const int type)
 
 /* loop over gpencil data layers, drawing them */
 static void gp_draw_data_layers(
-        const bGPDbrush *brush, float alpha, bGPdata *gpd,
+		ToolSettings *ts, const bGPDbrush *brush, float alpha, bGPdata *gpd,
         int offsx, int offsy, int winx, int winy, int cfra, int dflag)
 {
 	float diff_mat[4][4];
@@ -1503,11 +1507,11 @@ static void gp_draw_data_layers(
 			/* Drawing method - only immediately surrounding (gstep = 0),
 			 * or within a frame range on either side (gstep > 0)
 			 */
-			gp_draw_onionskins(gpd, gpl, gpf, offsx, offsy, winx, winy, cfra, dflag, debug, diff_mat);
+			gp_draw_onionskins(ts, gpd, gpl, gpf, offsx, offsy, winx, winy, cfra, dflag, debug, diff_mat);
 		}
 
 		/* draw the strokes already in active frame */
-		gp_draw_strokes(gpd, gpf, offsx, offsy, winx, winy, dflag, debug, gpl->thickness,
+		gp_draw_strokes(ts, gpd, gpf, offsx, offsy, winx, winy, dflag, debug, gpl->thickness,
 		                gpl->opacity, gpl->tintcolor, false, false, diff_mat);
 
 		/* Draw verts of selected strokes
@@ -1522,7 +1526,7 @@ static void gp_draw_data_layers(
 		    (gpl->flag & GP_LAYER_LOCKED) == 0 &&
 		    (gpd->flag & GP_DATA_STROKE_EDITMODE))
 		{
-			gp_draw_strokes_edit(gpd, gpf, offsx, offsy, winx, winy, dflag, gpl->flag, diff_mat, alpha);
+			gp_draw_strokes_edit(ts, gpd, gpf, offsx, offsy, winx, winy, dflag, gpl->flag, diff_mat, alpha);
 		}
 
 		/* Check if may need to draw the active stroke cache, only if this layer is the active layer
@@ -1596,7 +1600,7 @@ static void gp_draw_status_text(const bGPdata *gpd, ARegion *ar)
 
 /* draw grease-pencil datablock */
 static void gp_draw_data(
-        const bGPDbrush *brush, float alpha, bGPdata *gpd,
+		ToolSettings *ts, const bGPDbrush *brush, float alpha, bGPdata *gpd,
         int offsx, int offsy, int winx, int winy, int cfra, int dflag)
 {
 #if 0 /* disable to see if really needed. re-enable or delete by Dec 2016 */
@@ -1617,7 +1621,7 @@ static void gp_draw_data(
 	glEnable(GL_BLEND);
 
 	/* draw! */
-	gp_draw_data_layers(brush, alpha, gpd, offsx, offsy, winx, winy, cfra, dflag);
+	gp_draw_data_layers(ts, brush, alpha, gpd, offsx, offsy, winx, winy, cfra, dflag);
 
 	/* turn off alpha blending, then smooth lines */
 	glDisable(GL_BLEND); // alpha blending
@@ -1656,7 +1660,7 @@ static void gp_draw_data_all(Scene *scene, bGPdata *gpd, int offsx, int offsy, i
 
 		if (gpd_source) {
 			if (brush != NULL) {
-				gp_draw_data(brush, ts->gp_sculpt.alpha, gpd_source,
+				gp_draw_data(ts, brush, ts->gp_sculpt.alpha, gpd_source,
 				             offsx, offsy, winx, winy, cfra, dflag);
 			}
 		}
@@ -1666,7 +1670,7 @@ static void gp_draw_data_all(Scene *scene, bGPdata *gpd, int offsx, int offsy, i
 	 * if gpd_source == gpd, we don't have any object/track data and we can skip */
 	if (gpd_source == NULL || (gpd_source && gpd_source != gpd)) {
 		if (brush != NULL) {
-			gp_draw_data(brush, ts->gp_sculpt.alpha, gpd,
+			gp_draw_data(ts, brush, ts->gp_sculpt.alpha, gpd,
 			             offsx, offsy, winx, winy, cfra, dflag);
 		}
 	}

@@ -1174,12 +1174,12 @@ bGPDlayer *CTX_data_active_gpencil_layer(const bContext *C)
 	return ctx_data_pointer_get(C, "active_gpencil_layer");
 }
 
-bGPDpalette *CTX_data_active_gpencil_palette(const bContext *C)
+Palette *CTX_data_active_gpencil_palette(const bContext *C)
 {
 	return ctx_data_pointer_get(C, "active_gpencil_palette");
 }
 
-bGPDpalettecolor *CTX_data_active_gpencil_palettecolor(const bContext *C)
+PaletteColor *CTX_data_active_gpencil_palettecolor(const bContext *C)
 {
 	return ctx_data_pointer_get(C, "active_gpencil_palettecolor");
 }

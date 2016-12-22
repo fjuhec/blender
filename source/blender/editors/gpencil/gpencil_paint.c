@@ -160,7 +160,7 @@ typedef struct tGPsdata {
 	
 	void *erasercursor; /* radial cursor data for drawing eraser */
 
-	bGPDpalettecolor *palettecolor; /* current palette color */
+	PaletteColor *palettecolor; /* current palette color */
 	bGPDbrush *brush; /* current drawing brush */
 	short straight[2];   /* 1: line horizontal, 2: line vertical, other: not defined, second element position */
 	int lock_axis;       /* lock drawing to one axis */
@@ -1000,8 +1000,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			MEM_freeN(depth_arr);
 	}
 	/* Save palette color */
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(p->gpd);
-	bGPDpalettecolor *palcolor = BKE_gpencil_palettecolor_getactive(palette);
+	PaletteColor *palcolor = BKE_palettecolor_get_active_gpencil(ts);
 	gps->palcolor = palcolor;
 	BLI_strncpy(gps->colorname, palcolor->info, sizeof(gps->colorname));
 
@@ -1342,32 +1341,32 @@ static void gp_init_drawing_brush(ToolSettings *ts, tGPsdata *p)
 /* initialize a paint palette brush and a default color if not exist */
 static void gp_init_palette(tGPsdata *p)
 {
-	bGPdata *gpd;
-	bGPDpalette *palette;
-	bGPDpalettecolor *palcolor;
+	Palette *palette;
+	PaletteColor *palcolor;
+	ToolSettings *ts = p->scene->toolsettings;
 
-	gpd = p->gpd;
+	palette = BKE_palette_get_active_gpencil(ts);
 
 	/* if not exist, create a new palette */
-	if (BLI_listbase_is_empty(&gpd->palettes)) {
+	if (!palette) {
 		/* create new palette */
-		palette = BKE_gpencil_palette_addnew(gpd, DATA_("GP_Palette"), true);
+		palette = BKE_palette_add_gpencil_tools(ts, DATA_("Palette"), true);
 		/* now create a default color */
-		palcolor = gp_create_new_color(palette);
+		palcolor = BKE_palette_color_add(palette);
 	}
 	else {
 		/* Use the current palette and color */
-		palette = BKE_gpencil_palette_getactive(gpd);
+		palette = BKE_palette_get_active_gpencil(ts);
 		/* the palette needs one color */
-		if (BLI_listbase_is_empty(&palette->colors)) {
-			palcolor = gp_create_new_color(palette);
+		if (BKE_palette_is_empty(palette)) {
+			palcolor = BKE_palette_color_add(palette);
 		}
 		else {
-			palcolor = BKE_gpencil_palettecolor_getactive(palette);
+			palcolor = BKE_palettecolor_get_active(palette);
 		}
 		/* in some situations can be null, so use first */
 		if (palcolor == NULL) {
-			BKE_gpencil_palettecolor_setactive(palette, palette->colors.first);
+			palette->active_color = 0;
 			palcolor = palette->colors.first;
 		}
 	}
@@ -1550,9 +1549,9 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	/* set palette info and create a new one if null */
 	gp_init_palette(p);
 	/* set palette colors */
-	bGPDpalettecolor *palcolor = p->palettecolor;
+	PaletteColor *palcolor = p->palettecolor;
 	bGPdata *pdata = p->gpd;
-	copy_v4_v4(pdata->scolor, palcolor->color);
+	copy_v4_v4(pdata->scolor, palcolor->rgb);
 	copy_v4_v4(pdata->sfill, palcolor->fill);
 	pdata->sflag = palcolor->flag;
 	/* lock axis */

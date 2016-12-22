@@ -474,31 +474,21 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		}
 	}
 	else if (CTX_data_equals(member, "active_gpencil_palette")) {
-		/* XXX: see comment for gpencil_data case... */
-		bGPdata *gpd = ED_gpencil_data_get_active_direct((ID *)sc, scene, sa, obact);
+		Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
 
-		if (gpd) {
-			bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-
-			if (palette) {
-				CTX_data_pointer_set(result, &gpd->id, &RNA_GPencilPalette, palette);
-				return 1;
-			}
+		if (palette) {
+			CTX_data_pointer_set(result, &palette->id, &RNA_Palette, palette);
+			return 1;
 		}
 	}
 	else if (CTX_data_equals(member, "active_gpencil_palettecolor")) {
-		/* XXX: see comment for gpencil_data case... */
-		bGPdata *gpd = ED_gpencil_data_get_active_direct((ID *)sc, scene, sa, obact);
+		Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
 
-		if (gpd) {
-			bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-
-			if (palette) {
-				bGPDpalettecolor *palcolor = BKE_gpencil_palettecolor_getactive(palette);
-				if (palcolor) {
-					CTX_data_pointer_set(result, &gpd->id, &RNA_GPencilPaletteColor, palcolor);
-					return 1;
-				}
+		if (palette) {
+			PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+			if (palcolor) {
+				CTX_data_pointer_set(result, &palette->id, &RNA_PaletteColor, palcolor);
+				return 1;
 			}
 		}
 	}

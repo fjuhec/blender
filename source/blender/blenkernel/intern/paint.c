@@ -356,6 +356,19 @@ Palette *BKE_palette_add_gpencil(const bContext *C)
 	return palette;
 }
 
+Palette *BKE_palette_add_gpencil_tools(ToolSettings *ts)
+{
+	Main *bmain = G.main;
+	Paint *paint = &ts->imapaint.paint;
+	Palette *palette;
+
+	palette = BKE_palette_add(bmain, "Palette");
+
+	BKE_paint_palette_set(paint, palette);
+
+	return palette;
+}
+
 void BKE_paint_palette_set(Paint *p, Palette *palette)
 {
 	if (p) {
@@ -525,6 +538,21 @@ PaletteColor *BKE_palette_color_add(Palette *palette)
 	return color;
 }
 
+PaletteColor *BKE_palette_color_add_name(Palette *palette, const char *name)
+{
+	PaletteColor *color = MEM_callocN(sizeof(*color), "Pallete Color");
+	BLI_addtail(&palette->colors, color);
+
+	/* set basic settings */
+	color->rgb[3] = 1.0f;
+
+	/* auto-name */
+	BLI_strncpy(color->info, name, sizeof(color->info));
+	BLI_uniquename(&palette->colors, color, name, '.', offsetof(PaletteColor, info),
+		sizeof(color->info));
+
+	return color;
+}
 
 bool BKE_palette_is_empty(const struct Palette *palette)
 {

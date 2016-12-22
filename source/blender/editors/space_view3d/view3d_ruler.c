@@ -29,6 +29,7 @@
 #include "DNA_scene_types.h"
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_brush_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -40,6 +41,7 @@
 #include "BKE_context.h"
 #include "BKE_unit.h"
 #include "BKE_gpencil.h"
+#include "BKE_paint.h"
 
 #include "BIF_gl.h"
 
@@ -299,8 +301,8 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps;
-	bGPDpalette *palette;
-	bGPDpalettecolor *palcolor;
+	Palette *palette;
+	PaletteColor *palcolor;
 	RulerItem *ruler_item;
 	const char *ruler_name = RULER_ID;
 	bool changed = false;
@@ -317,14 +319,17 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 	}
 
 	/* try to get active palette or create a new one */
-	palette = BKE_gpencil_palette_getactive(scene->gpd);
+	palette = BKE_palette_get_active_gpencil(scene->toolsettings);
+
 	if (palette == NULL) {
-		palette = BKE_gpencil_palette_addnew(scene->gpd, DATA_("GP_Palette"), true);
+		palette = BKE_palette_add_gpencil_tools(scene->toolsettings, DATA_("Palette"), true);
+		/* now create a default color */
+		palcolor = BKE_palette_color_add(palette);
 	}
 	/* try to get color with the ruler name or create a new one */
-	palcolor = BKE_gpencil_palettecolor_getbyname(palette, (char *)ruler_name);
+	palcolor = BKE_palettecolor_getbyname(palette, (char *)ruler_name);
 	if (palcolor == NULL) {
-		palcolor = BKE_gpencil_palettecolor_addnew(palette, (char *)ruler_name, true);
+		palcolor = BKE_palette_color_add(palette, (char *)ruler_name);
 	}
 	
 	gpf = BKE_gpencil_layer_getframe(gpl, CFRA, true);

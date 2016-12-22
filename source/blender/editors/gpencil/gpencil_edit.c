@@ -1599,7 +1599,7 @@ static int gp_stroke_cyclical_set_exec(bContext *C, wmOperator *op)
 			continue;
 			
 		for (bGPDstroke *gps = gpl->actframe->strokes.last; gps; gps = gps->prev) {
-			bGPDpalettecolor *palcolor = gps->palcolor;
+			PaletteColor *palcolor = gps->palcolor;
 			
 			/* skip strokes that are not selected or invalid for current view */
 			if (((gps->flag & GP_STROKE_SELECT) == 0) || ED_gpencil_stroke_can_use(C, gps) == false)
@@ -1792,9 +1792,9 @@ static int gp_stroke_join_exec(bContext *C, wmOperator *op)
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bGPDlayer *activegpl = BKE_gpencil_layer_getactive(gpd);
 	bGPDstroke *gps, *gpsn;
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *palcolor = BKE_gpencil_palettecolor_getactive(palette);
-	
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+
 	bGPDframe *gpf_a = NULL;
 	bGPDstroke *stroke_a = NULL;
 	bGPDstroke *stroke_b = NULL;

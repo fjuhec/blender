@@ -41,6 +41,7 @@
 #include "BLI_rand.h"
 
 #include "DNA_gpencil_types.h"
+#include "DNA_brush_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -49,6 +50,7 @@
 
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
+#include "BKE_paint.h"
 #include "BKE_tracking.h"
 #include "BKE_action.h"
 
@@ -295,9 +297,8 @@ int gp_active_palette_poll(bContext *C)
 /* poll callback for checking if there is an active palette color */
 int gp_active_palettecolor_poll(bContext *C)
 {
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *palcolor = BKE_gpencil_palettecolor_getactive(palette);
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
 
 	return (palcolor != NULL);
 }
@@ -461,32 +462,33 @@ bool ED_gpencil_stroke_color_use(const bGPDlayer *gpl, const bGPDstroke *gps)
 }
 
 /* Get palette color or create a new one */
-bGPDpalettecolor *ED_gpencil_stroke_getcolor(bGPdata *gpd, bGPDstroke *gps)
+PaletteColor *ED_gpencil_stroke_getcolor(ToolSettings *ts, bGPDstroke *gps)
 {
-	bGPDpalette *palette;
-	bGPDpalettecolor *palcolor;
+	Palette *palette;
+	PaletteColor *palcolor;
 
 	if ((gps->palcolor != NULL) && ((gps->flag & GP_STROKE_RECALC_COLOR) == 0))
 		return gps->palcolor;
 
 	/* get palette */
-	palette = BKE_gpencil_palette_getactive(gpd);
-	if (palette == NULL) {
-		palette = BKE_gpencil_palette_addnew(gpd, DATA_("GP_Palette"), true);
+	palette = BKE_palette_get_active_gpencil(ts);
+	if (!palette) {
+		/* create new palette */
+		palette = BKE_palette_add_gpencil_tools(ts, DATA_("Palette"), true);
 	}
 	/* get color */
 	palcolor = BKE_gpencil_palettecolor_getbyname(palette, gps->colorname);
 	if (palcolor == NULL) {
 		if (gps->palcolor == NULL) {
-			palcolor = BKE_gpencil_palettecolor_addnew(palette, DATA_("Color"), true);
+			palcolor = BKE_palette_color_add_name(palette, gps->colorname);
 			/* set to a different color */
-			ARRAY_SET_ITEMS(palcolor->color, 1.0f, 0.0f, 1.0f, 0.9f);
+			ARRAY_SET_ITEMS(palcolor->rgb, 1.0f, 0.0f, 1.0f, 0.9f);
 		}
 		else {
-			palcolor = BKE_gpencil_palettecolor_addnew(palette, gps->colorname, true);
+			palcolor = BKE_palette_color_add_name(palette, gps->colorname);
 			/* set old color and attributes */
-			bGPDpalettecolor *gpscolor = gps->palcolor;
-			copy_v4_v4(palcolor->color, gpscolor->color);
+			PaletteColor *gpscolor = gps->palcolor;
+			copy_v4_v4(palcolor->rgb, gpscolor->rgb);
 			copy_v4_v4(palcolor->fill, gpscolor->fill);
 			palcolor->flag = gpscolor->flag;
 		}

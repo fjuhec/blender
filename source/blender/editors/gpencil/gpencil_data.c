@@ -51,10 +51,12 @@
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_brush_types.h"
 
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
+#include "BKE_paint.h"
 #include "BKE_library.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
@@ -858,17 +860,15 @@ void GPENCIL_OT_stroke_arrange(wmOperatorType *ot)
 static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette;
-	bGPDpalettecolor *color;
+	PaletteColor *color;
 
 	/* sanity checks */
 	if (ELEM(NULL, gpd)) {
 		return OPERATOR_CANCELLED;
 	}
 
-	palette = BKE_gpencil_palette_getactive(gpd);
-	color = BKE_gpencil_palettecolor_getactive(palette);
-	if (ELEM(NULL, palette, color)) {
+	color = BKE_palettecolor_get_active_from_context(C);
+	if (ELEM(NULL, color)) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -918,18 +918,18 @@ void GPENCIL_OT_stroke_change_color(wmOperatorType *ot)
 static int gp_stroke_lock_color_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette;
+	Palette *palette;
 
 	/* sanity checks */
 	if (ELEM(NULL, gpd))
 		return OPERATOR_CANCELLED;
 
-	palette = BKE_gpencil_palette_getactive(gpd);
+	palette = BKE_palette_get_active_gpencil_from_context(C);
 	if (ELEM(NULL, palette))
 		return OPERATOR_CANCELLED;
-
+	
 	/* first lock all colors */
-	for (bGPDpalettecolor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+	for (PaletteColor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
 		palcolor->flag |= PC_COLOR_LOCKED;
 	}
 
@@ -1486,18 +1486,18 @@ void GPENCIL_OT_palette_change(wmOperatorType *ot)
 static int gp_palette_lock_layer_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette;
+	Palette *palette;
 
 	/* sanity checks */
 	if (ELEM(NULL, gpd))
 		return OPERATOR_CANCELLED;
 
-	palette = BKE_gpencil_palette_getactive(gpd);
+	palette = BKE_palette_get_active_gpencil_from_context(C);
 	if (ELEM(NULL, palette))
 		return OPERATOR_CANCELLED;
 
 	/* first lock and hide all colors */
-	for (bGPDpalettecolor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+	for (PaletteColor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
 		palcolor->flag |= PC_COLOR_LOCKED;
 		palcolor->flag |= PC_COLOR_HIDE;
 	}
@@ -1635,9 +1635,10 @@ void GPENCIL_OT_palettecolor_remove(wmOperatorType *ot)
 static int gp_isolate_palettecolor_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *active_color = BKE_gpencil_palettecolor_getactive(palette);
-	bGPDpalettecolor *palcolor;
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+
+	PaletteColor *active_color = BKE_palettecolor_get_active(palette);
+	PaletteColor *palcolor;
 
 	int flags = PC_COLOR_LOCKED;
 	bool isolate = false;
@@ -1711,18 +1712,17 @@ void GPENCIL_OT_palettecolor_isolate(wmOperatorType *ot)
 
 static int gp_palettecolor_hide_exec(bContext *C, wmOperator *op)
 {
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *palcolor = BKE_gpencil_palettecolor_getactive(palette);
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
 
 	bool unselected = RNA_boolean_get(op->ptr, "unselected");
 
 	/* sanity checks */
-	if (ELEM(NULL, gpd, palette, palcolor))
+	if (ELEM(NULL,palette, palcolor))
 		return OPERATOR_CANCELLED;
 
 	if (unselected) {
-		bGPDpalettecolor *color;
+		PaletteColor *color;
 
 		/* hide unselected */
 		for (color = palette->colors.first; color; color = color->next) {
@@ -1770,12 +1770,11 @@ static int gp_palettecolor_reveal_poll(bContext *C)
 
 static int gp_palettecolor_reveal_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *palcolor;
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor;
 
 	/* sanity checks */
-	if (ELEM(NULL, gpd, palette))
+	if (ELEM(NULL, palette))
 		return OPERATOR_CANCELLED;
 
 	/* make all colors visible */
@@ -1808,12 +1807,11 @@ void GPENCIL_OT_palettecolor_reveal(wmOperatorType *ot)
 
 static int gp_palettecolor_lock_all_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *palcolor;
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor;
 
 	/* sanity checks */
-	if (ELEM(NULL, gpd, palette))
+	if (ELEM(NULL, palette))
 		return OPERATOR_CANCELLED;
 
 	/* make all layers non-editable */
@@ -1846,12 +1844,11 @@ void GPENCIL_OT_palettecolor_lock_all(wmOperatorType *ot)
 
 static int gp_palettecolor_unlock_all_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *palcolor;
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor;
 
 	/* sanity checks */
-	if (ELEM(NULL, gpd, palette))
+	if (ELEM(NULL, palette))
 		return OPERATOR_CANCELLED;
 
 	/* make all layers editable again*/
@@ -1889,14 +1886,13 @@ enum {
 
 static int gp_palettecolor_move_exec(bContext *C, wmOperator *op)
 {
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *palcolor = BKE_gpencil_palettecolor_getactive(palette);
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
 
 	int direction = RNA_enum_get(op->ptr, "direction");
 
 	/* sanity checks */
-	if (ELEM(NULL, gpd, palette, palcolor))
+	if (ELEM(NULL, palette, palcolor))
 		return OPERATOR_CANCELLED;
 
 	/* up or down? */
@@ -1948,8 +1944,8 @@ void GPENCIL_OT_palettecolor_move(wmOperatorType *ot)
 static int gp_palettecolor_select_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *palcolor = BKE_gpencil_palettecolor_getactive(palette);
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
 
 	/* sanity checks */
 	if (ELEM(NULL, gpd, palette, palcolor))
@@ -2006,18 +2002,17 @@ void GPENCIL_OT_palettecolor_select(wmOperatorType *ot)
 
 static int gp_palettecolor_copy_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-	bGPDpalettecolor *palcolor = BKE_gpencil_palettecolor_getactive(palette);
-	bGPDpalettecolor *newcolor;
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+	PaletteColor *newcolor;
 
 	/* sanity checks */
-	if (ELEM(NULL, gpd, palette, palcolor))
+	if (ELEM(NULL,palette, palcolor))
 		return OPERATOR_CANCELLED;
 
 	/* create a new color and duplicate data */
-	newcolor = BKE_gpencil_palettecolor_addnew(palette, palcolor->info, true);
-	copy_v4_v4(newcolor->color, palcolor->color);
+	newcolor = BKE_palette_color_add_name(palette, palcolor->info);
+	copy_v4_v4(newcolor->rgb, palcolor->rgb);
 	copy_v4_v4(newcolor->fill, palcolor->fill);
 	newcolor->flag = palcolor->flag;
 

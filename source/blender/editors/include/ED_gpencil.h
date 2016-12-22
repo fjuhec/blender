@@ -51,6 +51,7 @@ struct PointerRNA;
 struct wmWindowManager;
 struct wmKeyConfig;
 struct Palette;
+struct PaletteColor;
 
 
 /* ------------- Grease-Pencil Helpers ---------------- */
@@ -125,7 +126,7 @@ bool ED_gpencil_stroke_can_use_direct(const struct ScrArea *sa, const struct bGP
 bool ED_gpencil_stroke_can_use(const struct bContext *C, const struct bGPDstroke *gps);
 bool ED_gpencil_stroke_color_use(const struct bGPDlayer *gpl, const struct bGPDstroke *gps);
 
-struct bGPDpalettecolor *ED_gpencil_stroke_getcolor(struct bGPdata *gpd, struct bGPDstroke *gps);
+struct PaletteColor *ED_gpencil_stroke_getcolor(struct ToolSettings *ts, struct bGPDstroke *gps);
 
 bool ED_gpencil_stroke_minmax(
         const struct bGPDstroke *gps, const bool use_select,
