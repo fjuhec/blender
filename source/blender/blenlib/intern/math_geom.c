@@ -2978,7 +2978,7 @@ void interp_weights_face_v3(float w[4], const float v1[3], const float v2[3], co
 {
 	float w2[3];
 
-	w[0] = w[1] = w[2] = w[3] = 0.0f;
+	w[0] = w[1] = w[2] = 0.0f;
 
 	/* first check for exact match */
 	if (equals_v3v3(co, v1))
@@ -3005,6 +3005,7 @@ void interp_weights_face_v3(float w[4], const float v1[3], const float v2[3], co
 
 		/* OpenGL seems to split this way, so we do too */
 		if (v4) {
+			w[3] = 0.0f;
 			degenerate = barycentric_weights(v1, v2, v4, co, n, w);
 			SWAP(float, w[2], w[3]);
 
