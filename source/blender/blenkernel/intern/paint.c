@@ -342,10 +342,11 @@ Palette *BKE_paint_palette(Paint *p)
 	return p ? p->palette : NULL;
 }
 
-Palette *BKE_palette_new(const bContext *C)
+Palette *BKE_palette_add_gpencil(const bContext *C)
 {
-	Paint *paint = BKE_paint_get_active_from_context(C);
 	Main *bmain = CTX_data_main(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	Paint *paint = &ts->imapaint.paint;
 	Palette *palette;
 
 	palette = BKE_palette_add(bmain, "Palette");
