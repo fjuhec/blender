@@ -108,6 +108,7 @@ void                 BKE_palette_color_remove(struct Palette *palette, struct Pa
 void                 BKE_palette_clear(struct Palette *palette);
 struct Palette      *BKE_palette_get_active_from_context(const struct bContext *C);
 struct PaletteColor *BKE_palettecolor_get_active(struct Palette *palette);
+struct PaletteColor *BKE_palettecolor_get_active_from_context(const struct bContext *C);
 
 /* paint curves */
 struct PaintCurve *BKE_paint_curve_add(struct Main *bmain, const char *name);

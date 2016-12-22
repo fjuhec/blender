@@ -370,6 +370,14 @@ PaletteColor *BKE_palettecolor_get_active(Palette *palette)
 	return palcolor;
 }
 
+PaletteColor *BKE_palettecolor_get_active_from_context(const bContext *C)
+{
+	Palette *palette = BKE_palette_get_active_from_context(C);
+	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+
+	return palcolor;
+}
+
 void BKE_paint_curve_set(Brush *br, PaintCurve *pc)
 {
 	if (br) {
