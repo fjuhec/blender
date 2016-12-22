@@ -240,17 +240,20 @@ static void task_free(TaskPool *pool, Task *task, const int thread_id)
 static void task_pool_num_decrease(TaskPool *pool, size_t done)
 {
 	BLI_assert(pool->num >= done);
+	TaskScheduler *scheduler = pool->scheduler;
 
 	const size_t num = atomic_sub_and_fetch_z(&pool->num, done);
+
+	/* WARNING! do not use pool anymore, it might be already freed by concurrent thread! */
 
 	/* This is needed for several things:
 	 *   - Wake up all sleeping threads on exit, before we join them.
 	 *   - Wake up 'main' thread itself in case it called BLI_task_pool_work_and_wait() and ended up sleeping there.
 	 *   - Wake up 'main' thread itself in case it called BLI_task_pool_cancel() and ended up sleeping there. */
-	if (num == 0 && pool->scheduler->num_workers_sleeping != 0) {
-		BLI_mutex_lock(&pool->scheduler->workers_mutex);
-		BLI_condition_notify_all(&pool->scheduler->workers_condition);
-		BLI_mutex_unlock(&pool->scheduler->workers_mutex);
+	if (num == 0 && scheduler->num_workers_sleeping != 0) {
+		BLI_mutex_lock(&scheduler->workers_mutex);
+		BLI_condition_notify_all(&scheduler->workers_condition);
+		BLI_mutex_unlock(&scheduler->workers_mutex);
 	}
 }
 
@@ -514,6 +517,8 @@ int BLI_task_scheduler_num_threads(TaskScheduler *scheduler)
 
 static void task_scheduler_push(TaskScheduler *scheduler, Task *task, TaskPriority priority)
 {
+	TaskPool *pool = task->pool;
+
 	/* add task to queue */
 	BLI_spin_lock(&scheduler->queue_spinlock);
 
@@ -524,7 +529,9 @@ static void task_scheduler_push(TaskScheduler *scheduler, Task *task, TaskPriori
 
 	BLI_spin_unlock(&scheduler->queue_spinlock);
 
-	task_pool_num_increase(task->pool);
+	/* WARNING! do not use task anymore, it might be already processed and freed by concurrent thread! */
+
+	task_pool_num_increase(pool);
 //	atomic_add_and_fetch_z(&scheduler->num_queued, 1);
 }
 
