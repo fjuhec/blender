@@ -113,6 +113,7 @@ struct Palette      *BKE_palette_get_active_gpencil(struct ToolSettings *ts);
 struct Palette      *BKE_palette_get_active_gpencil_from_context(const struct bContext *C);
 struct PaletteColor *BKE_palettecolor_get_active(struct Palette *palette);
 struct PaletteColor *BKE_palettecolor_get_active_from_context(const struct bContext *C);
+struct PaletteColor *BKE_palettecolor_get_active_gpencil(struct ToolSettings *ts);
 
 /* paint curves */
 struct PaintCurve *BKE_paint_curve_add(struct Main *bmain, const char *name);

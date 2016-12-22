@@ -425,6 +425,18 @@ PaletteColor *BKE_palettecolor_get_active_from_context(const bContext *C)
 	return palcolor;
 }
 
+PaletteColor *BKE_palettecolor_get_active_gpencil(ToolSettings *ts)
+{
+	PaletteColor *palcolor = NULL;
+
+	Palette *palette = BKE_palette_get_active_gpencil(ts);
+	if (palette) {
+		palcolor = BKE_palettecolor_get_active(palette);
+	}
+
+	return palcolor;
+}
+
 void BKE_paint_curve_set(Brush *br, PaintCurve *pc)
 {
 	if (br) {
