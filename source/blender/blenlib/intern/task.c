@@ -150,12 +150,12 @@ struct TaskScheduler {
 	bool background_thread_only;
 
 	ListBase queue;
-	size_t num_queued;
+//	size_t num_queued;
 	SpinLock queue_spinlock;
 
 	ThreadMutex workers_mutex;
 	ThreadCondition workers_condition;
-	size_t workers_sleeping;
+	size_t num_workers_sleeping;
 
 	uint8_t do_exit;
 };
@@ -247,7 +247,7 @@ static void task_pool_num_decrease(TaskPool *pool, size_t done)
 	 *   - Wake up all sleeping threads on exit, before we join them.
 	 *   - Wake up 'main' thread itself in case it called BLI_task_pool_work_and_wait() and ended up sleeping there.
 	 *   - Wake up 'main' thread itself in case it called BLI_task_pool_cancel() and ended up sleeping there. */
-	if (num == 0 && pool->scheduler->workers_sleeping != 0) {
+	if (num == 0 && pool->scheduler->num_workers_sleeping != 0) {
 		BLI_mutex_lock(&pool->scheduler->workers_mutex);
 		BLI_condition_notify_all(&pool->scheduler->workers_condition);
 		BLI_mutex_unlock(&pool->scheduler->workers_mutex);
@@ -258,7 +258,7 @@ static void task_pool_num_increase(TaskPool *pool)
 {
 	atomic_add_and_fetch_z(&pool->num, 1);
 
-	if (pool->scheduler->workers_sleeping != 0) {
+	if (pool->scheduler->num_workers_sleeping != 0) {
 		BLI_mutex_lock(&pool->scheduler->workers_mutex);
 		/* NOTE: Even tho it's only single task added here we notify all threads.
 		 * The reason for that is because there might be much more tasks coming
@@ -270,7 +270,7 @@ static void task_pool_num_increase(TaskPool *pool)
 	}
 }
 
-BLI_INLINE bool task_find(TaskScheduler *scheduler, Task **task, TaskPool *pool)
+BLI_INLINE bool task_find(TaskScheduler * restrict scheduler, Task ** restrict task, TaskPool * restrict pool)
 {
 	Task *current_task;
 	bool found_task = false;
@@ -279,7 +279,8 @@ BLI_INLINE bool task_find(TaskScheduler *scheduler, Task **task, TaskPool *pool)
 	 * There is a possibility of race condition here (check being done after task has been added to queue,
 	 * and before counter is increased), but this should not be an issue in practice, quite unlikely and
 	 * would just delay a bit that thread going back to work. */
-	if (scheduler->num_queued != 0) {
+//	if (scheduler->num_queued != 0) {
+	if (scheduler->queue.first != NULL) {
 		/* NOTE: We almost always do single iteration here, so spin time is most of the time is really low. */
 		BLI_spin_lock(&scheduler->queue_spinlock);
 		for (current_task = scheduler->queue.first;
@@ -302,7 +303,7 @@ BLI_INLINE bool task_find(TaskScheduler *scheduler, Task **task, TaskPool *pool)
 				*task = current_task;
 				found_task = true;
 				BLI_remlink(&scheduler->queue, *task);
-				atomic_sub_and_fetch_z(&scheduler->num_queued, 1);
+//				atomic_sub_and_fetch_z(&scheduler->num_queued, 1);
 				break;
 			}
 			else {
@@ -314,7 +315,7 @@ BLI_INLINE bool task_find(TaskScheduler *scheduler, Task **task, TaskPool *pool)
 	return found_task;
 }
 
-BLI_INLINE bool task_wait(TaskScheduler *scheduler, int *loop_count)
+BLI_INLINE bool task_wait(TaskScheduler * restrict scheduler, int * restrict loop_count)
 {
 	/* If we have iterated NANOSLEEP_MAX_SPINNING times without finding a task, go into real sleep. */
 	if (++(*loop_count) > NANOSLEEP_MAX_SPINNING) {
@@ -329,11 +330,11 @@ BLI_INLINE bool task_wait(TaskScheduler *scheduler, int *loop_count)
 
 		/* Even though this is read outside of mutex lock, there is no real need to use atomic ops here,
 		 * changing the value inside mutex should be enough to ensure safety. */
-		scheduler->workers_sleeping++;
+		scheduler->num_workers_sleeping++;
 
 		BLI_condition_wait(&scheduler->workers_condition, &scheduler->workers_mutex);
 
-		scheduler->workers_sleeping--;
+		scheduler->num_workers_sleeping--;
 
 		BLI_mutex_unlock(&scheduler->workers_mutex);
 	}
@@ -458,7 +459,7 @@ void BLI_task_scheduler_free(TaskScheduler *scheduler)
 
 	/* stop all waiting threads */
 	atomic_fetch_and_or_uint8(&scheduler->do_exit, 1);
-	if (scheduler->workers_sleeping != 0) {
+	if (scheduler->num_workers_sleeping != 0) {
 		BLI_mutex_lock(&scheduler->workers_mutex);
 		BLI_condition_notify_all(&scheduler->workers_condition);
 		BLI_mutex_unlock(&scheduler->workers_mutex);
@@ -524,7 +525,7 @@ static void task_scheduler_push(TaskScheduler *scheduler, Task *task, TaskPriori
 	BLI_spin_unlock(&scheduler->queue_spinlock);
 
 	task_pool_num_increase(task->pool);
-	atomic_add_and_fetch_z(&scheduler->num_queued, 1);
+//	atomic_add_and_fetch_z(&scheduler->num_queued, 1);
 }
 
 static void task_scheduler_clear(TaskScheduler *scheduler, TaskPool *pool)
@@ -548,7 +549,7 @@ static void task_scheduler_clear(TaskScheduler *scheduler, TaskPool *pool)
 
 	BLI_spin_unlock(&scheduler->queue_spinlock);
 
-	atomic_sub_and_fetch_z(&scheduler->num_queued, done);
+//	atomic_sub_and_fetch_z(&scheduler->num_queued, done);
 
 	/* notify done */
 	task_pool_num_decrease(pool, done);
@@ -752,9 +753,9 @@ void BLI_task_pool_cancel(TaskPool *pool)
 	while (pool->num) {
 		/* No real point in spinning here... */
 		BLI_mutex_lock(&pool->scheduler->workers_mutex);
-		pool->scheduler->workers_sleeping++;
+		pool->scheduler->num_workers_sleeping++;
 		BLI_condition_wait(&pool->scheduler->workers_condition, &pool->scheduler->workers_mutex);
-		pool->scheduler->workers_sleeping--;
+		pool->scheduler->num_workers_sleeping--;
 		BLI_mutex_unlock(&pool->scheduler->workers_mutex);
 	}
 
