@@ -50,6 +50,7 @@ struct KeyframeEditData;
 struct PointerRNA;
 struct wmWindowManager;
 struct wmKeyConfig;
+struct Palette;
 
 
 /* ------------- Grease-Pencil Helpers ---------------- */
@@ -70,6 +71,7 @@ typedef struct tGPDinterpolate {
 	struct ScrArea *sa;        /* area where painting originated */
 	struct ARegion *ar;        /* region where painting originated */
 	struct bGPdata *gpd;       /* current GP datablock */
+	struct Palette *palette;   /* current palette */
 
 	int cframe;                /* current frame number */
 	ListBase ilayers;   /* (tGPDinterpolate_layer) layers to be interpolated */
