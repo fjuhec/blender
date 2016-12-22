@@ -342,6 +342,19 @@ Palette *BKE_paint_palette(Paint *p)
 	return p ? p->palette : NULL;
 }
 
+Palette *BKE_palette_new(const bContext *C)
+{
+	Paint *paint = BKE_paint_get_active_from_context(C);
+	Main *bmain = CTX_data_main(C);
+	Palette *palette;
+
+	palette = BKE_palette_add(bmain, "Palette");
+
+	BKE_paint_palette_set(paint, palette);
+	
+	return palette;
+}
+
 void BKE_paint_palette_set(Paint *p, Palette *palette)
 {
 	if (p) {
