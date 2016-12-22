@@ -90,18 +90,21 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 	/* TODO(mai): should be easy enough to remove these variables from tile */
 	/* Buffer and rng_state offset calc. */
-	size_t offset_index = tile.offset + (tile.x + tile.y * tile.stride);
-	size_t offset_x = offset_index % tile.stride;
-	size_t offset_y = offset_index / tile.stride;
+	{
+		size_t offset_index = tile.offset + (tile.x + tile.y * tile.stride);
+		size_t offset_x = offset_index % tile.stride;
+		size_t offset_y = offset_index / tile.stride;
 
-	tile.rng_state_offset_x = offset_x;
-	tile.rng_state_offset_y = offset_y;
-	tile.buffer_offset_x = offset_x;
-	tile.buffer_offset_y = offset_y;
+		tile.rng_state_offset_x = offset_x;
+		tile.rng_state_offset_y = offset_y;
+		tile.buffer_offset_x = offset_x;
+		tile.buffer_offset_y = offset_y;
 
-	tile.buffer_rng_state_stride = tile.stride;
-	tile.stride = tile.w;
+		tile.buffer_rng_state_stride = tile.stride;
+		tile.stride = tile.w;
+	}
 
+	/* Get local size */
 	size_t local_size[2];
 	{
 		int2 lsize = device->split_kernel_local_size();
@@ -113,32 +116,31 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	 * work size dimensions.
 	 */
 	int2 max_render_feasible_tile_size;
-	const int2 tile_size = task->requested_tile_size;
-	max_render_feasible_tile_size.x = round_up(tile_size.x, local_size[0]);
-	max_render_feasible_tile_size.y = round_up(tile_size.y, local_size[1]);
+	max_render_feasible_tile_size.x = round_up(task->requested_tile_size.x, local_size[0]);
+	max_render_feasible_tile_size.y = round_up(task->requested_tile_size.y, local_size[1]);
 
 	/* Calculate per_thread_output_buffer_size. */
 	size_t per_thread_output_buffer_size;
-	size_t output_buffer_size = tile.buffers->buffer.device_size;
+	{
+		size_t output_buffer_size = tile.buffers->buffer.device_size;
 
 #if 0
-	/* This value is different when running on AMD and NV. */
-	if(device->background) {
-		/* In offline render the number of buffer elements
-		 * associated with tile.buffer is the current tile size.
-		 */
-		per_thread_output_buffer_size =
-			output_buffer_size / (tile.w * tile.h);
-	}
-	else
+		/* This value is different when running on AMD and NV. */
+		if(device->background) {
+			/* In offline render the number of buffer elements
+			 * associated with tile.buffer is the current tile size.
+			 */
+			per_thread_output_buffer_size = output_buffer_size / (tile.w * tile.h);
+		}
+		else
 #endif
-	{
-		/* interactive rendering, unlike offline render, the number of buffer elements
-		 * associated with tile.buffer is the entire viewport size.
-		 */
-		per_thread_output_buffer_size =
-			output_buffer_size / (tile.buffers->params.width *
-			                      tile.buffers->params.height);
+		{
+			/* interactive rendering, unlike offline render, the number of buffer elements
+			 * associated with tile.buffer is the entire viewport size.
+			 */
+			per_thread_output_buffer_size = output_buffer_size /
+				(tile.buffers->params.width * tile.buffers->params.height);
+		}
 	}
 
 	/* set global_size and num_parallel_samples */
@@ -172,6 +174,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		assert(global_size[0] * global_size[1] <= max_render_feasible_tile_size.x * max_render_feasible_tile_size.y);
 	}
 
+	/* Number of elements in the global state buffer */
 	int num_global_elements = max_render_feasible_tile_size.x * max_render_feasible_tile_size.y;
 
 	/* Allocate all required global memory once. */
@@ -180,12 +183,9 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 #ifdef __WORK_STEALING__
 		/* Calculate max groups */
-		size_t max_global_size[2];
-		max_global_size[0] = round_up(max_render_feasible_tile_size.x, local_size[0]);
-		max_global_size[1] = round_up(max_render_feasible_tile_size.y, local_size[1]);
 
-		/* Denotes the maximum work groups possible w.r.t. current tile size. */
-		unsigned int max_work_groups = (max_global_size[0] * max_global_size[1]) /
+		/* Denotes the maximum work groups possible w.r.t. current requested tile size. */
+		unsigned int max_work_groups = (max_render_feasible_tile_size.x * max_render_feasible_tile_size.y) /
 		                  (local_size[0] * local_size[1]);
 
 		/* Allocate work_pool_wgs memory. */
