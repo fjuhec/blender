@@ -235,7 +235,7 @@ static void task_free(TaskPool *pool, Task *task, const int thread_id)
 
 /* Task Scheduler */
 
-static void task_pool_num_decrease(TaskPool *pool, size_t done)
+BLI_INLINE void task_pool_num_decrease(TaskPool *pool, size_t done)
 {
 	BLI_assert(pool->num >= done);
 	TaskScheduler *scheduler = pool->scheduler;
@@ -255,7 +255,7 @@ static void task_pool_num_decrease(TaskPool *pool, size_t done)
 	}
 }
 
-static void task_pool_num_increase(TaskPool *pool)
+BLI_INLINE void task_pool_num_increase(TaskPool *pool)
 {
 	atomic_add_and_fetch_z(&pool->num, 1);
 
@@ -346,7 +346,7 @@ BLI_INLINE bool task_wait(TaskScheduler * restrict scheduler, int * restrict loo
 	return false;
 }
 
-static bool task_scheduler_thread_wait_pop(TaskScheduler *scheduler, Task **task)
+BLI_INLINE bool task_scheduler_thread_wait_pop(TaskScheduler *scheduler, Task **task)
 {
 	bool found_task = false;
 	int loop_count = 0;
@@ -514,7 +514,7 @@ int BLI_task_scheduler_num_threads(TaskScheduler *scheduler)
 	return scheduler->num_threads + 1;
 }
 
-static void task_scheduler_push(TaskScheduler *scheduler, Task *task, TaskPriority priority)
+BLI_INLINE void task_scheduler_push(TaskScheduler *scheduler, Task *task, TaskPriority priority)
 {
 	TaskPool *pool = task->pool;
 
