@@ -1802,7 +1802,7 @@ void ED_operatortypes_paint(void)
 	WM_operatortype_append(PALETTE_OT_new_gpencil);
 	WM_operatortype_append(PALETTE_OT_color_add);
 	WM_operatortype_append(PALETTE_OT_color_delete);
-	WM_operatortype_append(PALETTE_OT_palette_lock_layer);
+	WM_operatortype_append(PALETTE_OT_lock_layer);
 
 	WM_operatortype_append(PALETTE_OT_palettecolor_isolate);
 	WM_operatortype_append(PALETTE_OT_palettecolor_hide);
