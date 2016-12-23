@@ -285,11 +285,11 @@ static int palette_lock_layer_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
-void PALETTE_OT_palette_lock_layer(wmOperatorType *ot)
+void PALETTE_OT_lock_layer(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Disable Unused Layer Colors";
-	ot->idname = "PALETTE_OT_palette_lock_layer";
+	ot->idname = "PALETTE_OT_lock_layer";
 	ot->description = "Lock and hide any color not used in any layer";
 
 	/* api callbacks */
