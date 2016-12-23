@@ -102,23 +102,25 @@ static void rna_Palette_active_color_set(PointerRNA *ptr, PointerRNA value)
 	else
 		palette->active_color = BLI_findindex(&palette->colors, color);
 }
+
 static char *rna_Palette_color_path(PointerRNA *ptr)
 {
-	Palette *palette = ptr->data;
-	PaletteColor *palcolor = BLI_findlink(&palette->colors, palette->active_color);
+	Palette *palette = (Palette *)ptr->id.data; 
+	if (palette) {
+		PaletteColor *palcolor = BLI_findlink(&palette->colors, palette->active_color);
+		if (palcolor) {
+			char name_color[(sizeof(palcolor->info) - 2) * 2];
+			BLI_strescape(name_color, palcolor->info, sizeof(name_color));
 
-	char name_palette[sizeof(palette->id.name) * 2];
-	char name_color[sizeof(palcolor->info) * 2];
-
-	BLI_strescape(name_palette, palette->id.name, sizeof(name_palette));
-	BLI_strescape(name_color, palcolor->info, sizeof(name_color));
-
-	return BLI_sprintfN("palettes[\"%s\"].colors[\"%s\"]", name_palette, name_color);
+			return BLI_sprintfN("colors[\"%s\"]", name_color);
+		}
+	}
+	return NULL;
 }
 
 static void rna_PaletteColor_info_set(PointerRNA *ptr, const char *value)
 {
-	Palette *palette = ptr->data;
+	Palette *palette = (Palette *)ptr->id.data;
 	PaletteColor *palcolor = BLI_findlink(&palette->colors, palette->active_color);
 
 	/* rename all for gp datablocks */
@@ -187,6 +189,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 
 	srna = RNA_def_struct(brna, "PaletteColor", NULL);
 	RNA_def_struct_ui_text(srna, "Palette Color", "");
+	RNA_def_struct_path_func(srna, "rna_Palette_color_path");
 
 	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR_GAMMA);
 	RNA_def_property_range(prop, 0.0, 1.0);
@@ -288,6 +291,9 @@ static void rna_def_palette(BlenderRNA *brna)
 	RNA_def_property_struct_type(prop, "PaletteColor");
 	rna_def_palettecolors(brna, prop);
 
+	/* Animation Data */
+	rna_def_animdata_common(srna);
+
 	prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "active_color");
 	RNA_def_property_ui_text(prop, "Active Index", "");
@@ -297,9 +303,10 @@ static void rna_def_palette(BlenderRNA *brna)
 
 void RNA_def_palette(BlenderRNA *brna)
 {
+	rna_def_palettecolor(brna);
+
 	/* *** Non-Animated *** */
 	RNA_define_animate_sdna(false);
-	rna_def_palettecolor(brna);
 	rna_def_palette(brna);
 	RNA_define_animate_sdna(true);
 }
