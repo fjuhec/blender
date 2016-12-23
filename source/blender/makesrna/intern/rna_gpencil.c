@@ -636,15 +636,6 @@ static void rna_GPencil_clear(bGPdata *gpd)
 }
 
 /* Palettes */
-static bGPDpalette *rna_GPencil_palette_new(bGPdata *gpd, const char *name, int setactive)
-{
-	bGPDpalette *palette = BKE_gpencil_palette_addnew(gpd, name, setactive != 0);
-
-	WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
-
-	return palette;
-}
-
 static void rna_GPencil_palette_remove(bGPdata *gpd, ReportList *reports, PointerRNA *palette_ptr)
 {
 	bGPDpalette *palette = palette_ptr->data;
@@ -731,13 +722,6 @@ static void rna_GPencilPalette_index_range(PointerRNA *ptr, int *min, int *max, 
 }
 
 /* Palette colors */
-static bGPDpalettecolor *rna_GPencilPalette_color_new(bGPDpalette *palette)
-{
-	bGPDpalettecolor *color = BKE_gpencil_palettecolor_addnew(palette, DATA_("Color"), true);
-
-	return color;
-}
-
 static void rna_GPencilPalette_color_remove(bGPDpalette *palette, ReportList *reports, PointerRNA *color_ptr)
 {
 	bGPDpalettecolor *color = color_ptr->data;
@@ -1513,11 +1497,6 @@ static void rna_def_gpencil_palettecolors_api(BlenderRNA *brna, PropertyRNA *cpr
 	RNA_def_struct_sdna(srna, "bGPDpalette");
 	RNA_def_struct_ui_text(srna, "Palette colors", "Collection of palette colors");
 
-	func = RNA_def_function(srna, "new", "rna_GPencilPalette_color_new");
-	RNA_def_function_ui_description(func, "Add a new color to the palette");
-	parm = RNA_def_pointer(func, "color", "GPencilPaletteColor", "", "The newly created color");
-	RNA_def_function_return(func, parm);
-
 	func = RNA_def_function(srna, "remove", "rna_GPencilPalette_color_remove");
 	RNA_def_function_ui_description(func, "Remove a color from the palette");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
@@ -1579,14 +1558,6 @@ static void rna_def_gpencil_palettes_api(BlenderRNA *brna, PropertyRNA *cprop)
 	srna = RNA_def_struct(brna, "GreasePencilPalettes", NULL);
 	RNA_def_struct_sdna(srna, "bGPdata");
 	RNA_def_struct_ui_text(srna, "Grease Pencil Palettes", "Collection of grease pencil palettes");
-
-	func = RNA_def_function(srna, "new", "rna_GPencil_palette_new");
-	RNA_def_function_ui_description(func, "Add a new grease pencil palette");
-	parm = RNA_def_string(func, "name", "GPencilPalette", MAX_NAME, "Name", "Name of the palette");
-	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-	RNA_def_boolean(func, "set_active", true, "Set Active", "Activate the newly created palette");
-	parm = RNA_def_pointer(func, "palette", "GPencilPalette", "", "The newly created palette");
-	RNA_def_function_return(func, parm);
 
 	func = RNA_def_function(srna, "remove", "rna_GPencil_palette_remove");
 	RNA_def_function_ui_description(func, "Remove a grease pencil palette");
