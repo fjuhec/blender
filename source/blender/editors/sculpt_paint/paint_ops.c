@@ -34,16 +34,19 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_brush_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BKE_brush.h"
 #include "BKE_context.h"
 #include "BKE_paint.h"
 #include "BKE_gpencil.h"
 #include "BKE_main.h"
+#include "BKE_report.h"
 
 #include "ED_paint.h"
 #include "ED_screen.h"
 #include "ED_image.h"
+#include "ED_gpencil.h"
 #include "UI_resources.h"
 
 #include "WM_api.h"
@@ -59,6 +62,33 @@
 #include <string.h>
 //#include <stdio.h>
 #include <stddef.h>
+
+/* poll functions */
+/* poll callback for checking if there is an active layer */
+static int gp_active_layer_poll(bContext *C)
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
+
+	return (gpl != NULL);
+}
+
+/* poll callback for checking if there is an active palette */
+static int palette_active_poll(bContext *C)
+{
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+
+	return (palette != NULL);
+}
+
+/* poll callback for checking if there is an active palette color */
+static int palettecolor_active_poll(bContext *C)
+{
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
+
+	return (palcolor != NULL);
+}
 
 /* Brush operators */
 static int brush_add_exec(bContext *C, wmOperator *UNUSED(op))
@@ -212,6 +242,61 @@ static void PALETTE_OT_new_gpencil(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/* ******************* Lock and hide any color non used in current layer ************************** */
+static int palette_lock_layer_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	Palette *palette;
+
+	/* sanity checks */
+	if (ELEM(NULL, gpd))
+		return OPERATOR_CANCELLED;
+
+	palette = BKE_palette_get_active_gpencil_from_context(C);
+	if (ELEM(NULL, palette))
+		return OPERATOR_CANCELLED;
+
+	/* first lock and hide all colors */
+	for (PaletteColor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+		palcolor->flag |= PC_COLOR_LOCKED;
+		palcolor->flag |= PC_COLOR_HIDE;
+	}
+
+	/* loop all selected strokes and unlock any color used in active layer */
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		/* only editable and visible layers are considered */
+		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL) && (gpl->flag & GP_LAYER_ACTIVE)) {
+			for (bGPDstroke *gps = gpl->actframe->strokes.last; gps; gps = gps->prev) {
+				/* skip strokes that are invalid for current view */
+				if (ED_gpencil_stroke_can_use(C, gps) == false)
+					continue;
+
+				/* unlock/unhide color if not unlocked before */
+				if (gps->palcolor != NULL) {
+					gps->palcolor->flag &= ~PC_COLOR_LOCKED;
+					gps->palcolor->flag &= ~PC_COLOR_HIDE;
+				}
+			}
+		}
+	}
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void PALETTE_OT_palette_lock_layer(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Disable Unused Layer Colors";
+	ot->idname = "PALETTE_OT_palette_lock_layer";
+	ot->description = "Lock and hide any color not used in any layer";
+
+	/* api callbacks */
+	ot->exec = palette_lock_layer_exec;
+	ot->poll = gp_active_layer_poll;
+}
+
 static int palette_color_add_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
@@ -290,6 +375,398 @@ static void PALETTE_OT_color_delete(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/* ********************** Isolate palette color **************************** */
+static int palettecolor_isolate_exec(bContext *C, wmOperator *op)
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+
+	PaletteColor *active_color = BKE_palette_color_get_active(palette);
+	PaletteColor *palcolor;
+
+	int flags = PC_COLOR_LOCKED;
+	bool isolate = false;
+
+	if (RNA_boolean_get(op->ptr, "affect_visibility"))
+		flags |= PC_COLOR_HIDE;
+
+	if (ELEM(NULL, gpd, active_color)) {
+		BKE_report(op->reports, RPT_ERROR, "No active color to isolate");
+		return OPERATOR_CANCELLED;
+	}
+
+	/* Test whether to isolate or clear all flags */
+	for (palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+		/* Skip if this is the active one */
+		if (palcolor == active_color)
+			continue;
+
+		/* If the flags aren't set, that means that the color is
+		* not alone, so we have some colors to isolate still
+		*/
+		if ((palcolor->flag & flags) == 0) {
+			isolate = true;
+			break;
+		}
+	}
+
+	/* Set/Clear flags as appropriate */
+	if (isolate) {
+		/* Set flags on all "other" colors */
+		for (palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+			if (palcolor == active_color)
+				continue;
+			else
+				palcolor->flag |= flags;
+		}
+	}
+	else {
+		/* Clear flags - Restore everything else */
+		for (palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+			palcolor->flag &= ~flags;
+		}
+	}
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void PALETTE_OT_palettecolor_isolate(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Isolate Palette Color";
+	ot->idname = "PALETTE_OT_palettecolor_isolate";
+	ot->description = "Toggle whether the active color is the only one that is editable and/or visible";
+
+	/* callbacks */
+	ot->exec = palettecolor_isolate_exec;
+	ot->poll = palettecolor_active_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
+	RNA_def_boolean(ot->srna, "affect_visibility", false, "Affect Visibility", "In addition to toggling "
+		"the editability, also affect the visibility");
+}
+
+/* *********************** Hide Palette colors ******************************** */
+static int palettecolor_hide_exec(bContext *C, wmOperator *op)
+{
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
+
+	bool unselected = RNA_boolean_get(op->ptr, "unselected");
+
+	/* sanity checks */
+	if (ELEM(NULL, palette, palcolor))
+		return OPERATOR_CANCELLED;
+
+	if (unselected) {
+		PaletteColor *color;
+
+		/* hide unselected */
+		for (color = palette->colors.first; color; color = color->next) {
+			if (color != palcolor) {
+				color->flag |= PC_COLOR_HIDE;
+			}
+		}
+	}
+	else {
+		/* hide selected/active */
+		palcolor->flag |= PC_COLOR_HIDE;
+	}
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void PALETTE_OT_palettecolor_hide(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Hide Color(s)";
+	ot->idname = "PALETTE_OT_palettecolor_hide";
+	ot->description = "Hide selected/unselected Grease Pencil colors";
+
+	/* callbacks */
+	ot->exec = palettecolor_hide_exec;
+	ot->poll = palettecolor_active_poll; /* NOTE: we need an active color to play with */
+
+											/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* props */
+	RNA_def_boolean(ot->srna, "unselected", 0, "Unselected", "Hide unselected rather than selected colors");
+}
+
+/* ********************** Show All Colors ***************************** */
+static int palettecolor_reveal_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor;
+
+	/* sanity checks */
+	if (ELEM(NULL, palette))
+		return OPERATOR_CANCELLED;
+
+	/* make all colors visible */
+	for (palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+		palcolor->flag &= ~PC_COLOR_HIDE;
+	}
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void PALETTE_OT_palettecolor_reveal(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Show All Colors";
+	ot->idname = "PALETTE_OT_palettecolor_reveal";
+	ot->description = "Unhide all hidden Grease Pencil palette colors";
+
+	/* callbacks */
+	ot->exec = palettecolor_reveal_exec;
+	ot->poll = palette_active_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/* ***************** Lock/Unlock All Palette colors ************************ */
+static int palettecolor_lock_all_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor;
+
+	/* sanity checks */
+	if (ELEM(NULL, palette))
+		return OPERATOR_CANCELLED;
+
+	/* make all layers non-editable */
+	for (palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+		palcolor->flag |= PC_COLOR_LOCKED;
+	}
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void PALETTE_OT_palettecolor_lock_all(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Lock All Colors";
+	ot->idname = "PALETTE_OT_palettecolor_lock_all";
+	ot->description = "Lock all Grease Pencil colors to prevent them from being accidentally modified";
+
+	/* callbacks */
+	ot->exec = palettecolor_lock_all_exec;
+	ot->poll = palette_active_poll;
+
+											/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/* -------------------------- */
+static int palettecolor_unlock_all_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor;
+
+	/* sanity checks */
+	if (ELEM(NULL, palette))
+		return OPERATOR_CANCELLED;
+
+	/* make all layers editable again*/
+	for (palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+		palcolor->flag &= ~PC_COLOR_LOCKED;
+	}
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void PALETTE_OT_palettecolor_unlock_all(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Unlock All Colors";
+	ot->idname = "PALETTE_OT_palettecolor_unlock_all";
+	ot->description = "Unlock all Grease Pencil colors so that they can be edited";
+
+	/* callbacks */
+	ot->exec = palettecolor_unlock_all_exec;
+	ot->poll = palette_active_poll;
+
+											/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/* ******************* Move Color Up/Down ************************** */
+enum {
+	PALETTE_COLOR_MOVE_UP = -1,
+	PALETTE_COLOR_MOVE_DOWN = 1
+};
+
+static int palettecolor_move_exec(bContext *C, wmOperator *op)
+{
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
+
+	int direction = RNA_enum_get(op->ptr, "direction");
+
+	/* sanity checks */
+	if (ELEM(NULL, palette, palcolor))
+		return OPERATOR_CANCELLED;
+
+	/* up or down? */
+	if (direction == PALETTE_COLOR_MOVE_UP) {
+		/* up */
+		BLI_remlink(&palette->colors, palcolor);
+		BLI_insertlinkbefore(&palette->colors, palcolor->prev, palcolor);
+	}
+	else if (direction == PALETTE_COLOR_MOVE_DOWN) {
+		/* down */
+		BLI_remlink(&palette->colors, palcolor);
+		BLI_insertlinkafter(&palette->colors, palcolor->next, palcolor);
+	}
+	else {
+		BLI_assert(0);
+	}
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void PALETTE_OT_palettecolor_move(wmOperatorType *ot)
+{
+	static EnumPropertyItem slot_move[] = {
+		{ PALETTE_COLOR_MOVE_UP, "UP", 0, "Up", "" },
+		{ PALETTE_COLOR_MOVE_DOWN, "DOWN", 0, "Down", "" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
+	/* identifiers */
+	ot->name = "Move Palette color";
+	ot->idname = "PALETTE_OT_palettecolor_move";
+	ot->description = "Move the active palette color up/down in the list";
+
+	/* api callbacks */
+	ot->exec = palettecolor_move_exec;
+	ot->poll = palette_active_poll;
+
+											/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_enum(ot->srna, "direction", slot_move, PALETTE_COLOR_MOVE_UP, "Direction", "");
+}
+
+/* ***************** Select all strokes using Palette color ************************ */
+static int palettecolor_select_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
+
+	/* sanity checks */
+	if (ELEM(NULL, gpd, palette, palcolor))
+		return OPERATOR_CANCELLED;
+
+	/* read all strokes and select*/
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		/* only editable and visible layers are considered */
+		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
+			/* verify something to do */
+			for (bGPDstroke *gps = gpl->actframe->strokes.first; gps; gps = gps->next) {
+				/* skip strokes that are invalid for current view */
+				if (ED_gpencil_stroke_can_use(C, gps) == false)
+					continue;
+				/* check if the color is editable */
+				if (ED_gpencil_stroke_color_use(gpl, gps) == false)
+					continue;
+
+				/* select */
+				if (strcmp(palcolor->info, gps->colorname) == 0) {
+					bGPDspoint *pt;
+					int i;
+
+					gps->flag |= GP_STROKE_SELECT;
+					for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+						pt->flag |= GP_SPOINT_SELECT;
+					}
+				}
+			}
+		}
+	}
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void PALETTE_OT_palettecolor_select(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Select Color";
+	ot->idname = "PALETTE_OT_palettecolor_select";
+	ot->description = "Select all Grease Pencil strokes using current color";
+
+	/* callbacks */
+	ot->exec = palettecolor_select_exec;
+	ot->poll = palette_active_poll;
+
+											/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/* ***************** Copy Palette color ************************ */
+static int palettecolor_copy_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
+	PaletteColor *newcolor;
+
+	/* sanity checks */
+	if (ELEM(NULL, palette, palcolor))
+		return OPERATOR_CANCELLED;
+
+	/* create a new color and duplicate data */
+	newcolor = BKE_palette_color_add_name(palette, palcolor->info);
+	copy_v4_v4(newcolor->rgb, palcolor->rgb);
+	copy_v4_v4(newcolor->fill, palcolor->fill);
+	newcolor->flag = palcolor->flag;
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void PALETTE_OT_palettecolor_copy(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Copy Color";
+	ot->idname = "PALETTE_OT_palettecolor_copy";
+	ot->description = "Copy current palette color";
+
+	/* callbacks */
+	ot->exec = palettecolor_copy_exec;
+	ot->poll = palettecolor_active_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
 
 
 static int vertex_color_set_exec(bContext *C, wmOperator *UNUSED(op))
@@ -1325,6 +1802,16 @@ void ED_operatortypes_paint(void)
 	WM_operatortype_append(PALETTE_OT_new_gpencil);
 	WM_operatortype_append(PALETTE_OT_color_add);
 	WM_operatortype_append(PALETTE_OT_color_delete);
+	WM_operatortype_append(PALETTE_OT_palette_lock_layer);
+
+	WM_operatortype_append(PALETTE_OT_palettecolor_isolate);
+	WM_operatortype_append(PALETTE_OT_palettecolor_hide);
+	WM_operatortype_append(PALETTE_OT_palettecolor_reveal);
+	WM_operatortype_append(PALETTE_OT_palettecolor_lock_all);
+	WM_operatortype_append(PALETTE_OT_palettecolor_unlock_all);
+	WM_operatortype_append(PALETTE_OT_palettecolor_move);
+	WM_operatortype_append(PALETTE_OT_palettecolor_select);
+	WM_operatortype_append(PALETTE_OT_palettecolor_copy);
 
 	/* paint curve */
 	WM_operatortype_append(PAINTCURVE_OT_new);
