@@ -97,7 +97,7 @@ void BLI_task_pool_work_and_wait(TaskPool *pool);
 void BLI_task_pool_cancel(TaskPool *pool);
 
 /* set number of threads allowed to be used by this pool */
-void BLI_pool_set_num_threads(TaskPool *pool, int num_threads);
+void BLI_pool_set_num_threads(TaskPool *pool, size_t num_threads_max);
 
 /* for worker threads, test if canceled */
 bool BLI_task_pool_canceled(TaskPool *pool);
