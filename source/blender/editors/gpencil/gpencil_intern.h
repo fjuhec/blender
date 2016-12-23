@@ -319,18 +319,9 @@ void GPENCIL_OT_brush_select(struct wmOperatorType *ot);
 void GPENCIL_OT_palette_add(struct wmOperatorType *ot);
 void GPENCIL_OT_palette_remove(struct wmOperatorType *ot);
 void GPENCIL_OT_palette_change(struct wmOperatorType *ot);
-void GPENCIL_OT_palette_lock_layer(struct wmOperatorType *ot);
 
 void GPENCIL_OT_palettecolor_add(struct wmOperatorType *ot);
 void GPENCIL_OT_palettecolor_remove(struct wmOperatorType *ot);
-void GPENCIL_OT_palettecolor_isolate(struct wmOperatorType *ot);
-void GPENCIL_OT_palettecolor_hide(struct wmOperatorType *ot);
-void GPENCIL_OT_palettecolor_reveal(struct wmOperatorType *ot);
-void GPENCIL_OT_palettecolor_lock_all(struct wmOperatorType *ot);
-void GPENCIL_OT_palettecolor_unlock_all(struct wmOperatorType *ot);
-void GPENCIL_OT_palettecolor_move(struct wmOperatorType *ot);
-void GPENCIL_OT_palettecolor_select(struct wmOperatorType *ot);
-void GPENCIL_OT_palettecolor_copy(struct wmOperatorType *ot);
 
 /* undo stack ---------- */
 

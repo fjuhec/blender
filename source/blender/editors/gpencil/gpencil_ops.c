@@ -424,17 +424,8 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_palette_add);
 	WM_operatortype_append(GPENCIL_OT_palette_remove);
 	WM_operatortype_append(GPENCIL_OT_palette_change);
-	WM_operatortype_append(GPENCIL_OT_palette_lock_layer);
 	WM_operatortype_append(GPENCIL_OT_palettecolor_add);
 	WM_operatortype_append(GPENCIL_OT_palettecolor_remove);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_isolate);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_hide);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_reveal);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_lock_all);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_unlock_all);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_move);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_select);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_copy);
 
 	WM_operatortype_append(GPENCIL_OT_brush_add);
 	WM_operatortype_append(GPENCIL_OT_brush_remove);
