@@ -127,9 +127,7 @@ typedef enum eGPDpalettecolor_Flag {
 	/* do onion skinning */
 	PC_COLOR_ONIONSKIN = (1 << 3),
 	/* "volumetric" strokes (i.e. GLU Quadric discs in 3D) */
-	PC_COLOR_VOLUMETRIC = (1 << 4),
-	/* Use High quality fill */
-	PC_COLOR_HQ_FILL = (1 << 5)
+	PC_COLOR_VOLUMETRIC = (1 << 4)
 } eGPDpalettecolor_Flag;
 
 /* palette of colors */
@@ -273,8 +271,6 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_GHOST_NEXTCOL	= (1 << 9),
 	/* "volumetric" strokes (i.e. GLU Quadric discs in 3D) */
 	GP_LAYER_VOLUMETRIC		= (1 << 10),
-	/* Use high quality fill (instead of buggy legacy OpenGL Fill) */
-	GP_LAYER_HQ_FILL        = (1 << 11),
 	/* Unlock color */
 	GP_LAYER_UNLOCK_COLOR 	= (1 << 12),
 	/* always show onion skins (i.e. even during renders/animation playback) */

@@ -1368,7 +1368,6 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 							if (gpl->flag & GP_LAYER_LOCKED)     palcolor->flag |= PC_COLOR_LOCKED;
 							if (gpl->flag & GP_LAYER_ONIONSKIN)  palcolor->flag |= PC_COLOR_ONIONSKIN;
 							if (gpl->flag & GP_LAYER_VOLUMETRIC) palcolor->flag |= PC_COLOR_VOLUMETRIC;
-							if (gpl->flag & GP_LAYER_HQ_FILL)    palcolor->flag |= PC_COLOR_HQ_FILL;
 							
 							/* set layer opacity to 1 */
 							gpl->opacity = 1.0f;

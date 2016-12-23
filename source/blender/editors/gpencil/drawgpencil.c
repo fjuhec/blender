@@ -87,8 +87,7 @@ typedef enum eDrawStrokeFlags {
 	GP_DRAWDATA_NO_XRAY     = (1 << 5),   /* don't draw xray in 3D view (which is default) */
 	GP_DRAWDATA_NO_ONIONS   = (1 << 6),	  /* no onionskins should be drawn (for animation playback) */
 	GP_DRAWDATA_VOLUMETRIC	= (1 << 7),   /* draw strokes as "volumetric" circular billboards */
-	GP_DRAWDATA_FILL        = (1 << 8),   /* fill insides/bounded-regions of strokes */
-	GP_DRAWDATA_HQ_FILL     = (1 << 9)    /* Use high quality fill */
+	GP_DRAWDATA_FILL        = (1 << 8)    /* fill insides/bounded-regions of strokes */
 } eDrawStrokeFlags;
 
 
@@ -506,8 +505,8 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 
 /* draw fills for shapes */
 static void gp_draw_stroke_fill(
-		ToolSettings *ts, bGPdata *gpd, bGPDstroke *gps,
-        int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float color[4])
+	ToolSettings *ts, bGPdata *gpd, bGPDstroke *gps,
+	int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float color[4])
 {
 	float fpt[3];
 
@@ -515,71 +514,69 @@ static void gp_draw_stroke_fill(
 
 	PaletteColor *palcolor = ED_gpencil_stroke_getcolor(ts, gps);
 
-	/* Triangulation fill if high quality flag is enabled */
-	if (palcolor->flag & PC_COLOR_HQ_FILL) {
+	/* Triangulation fill hq fill always */
 		/* Calculate triangles cache for filling area (must be done only after changes) */
-		if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
-			gp_triangulate_stroke_fill(gps);
-		}
-		BLI_assert(gps->tot_triangles >= 1);
+	if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
+		gp_triangulate_stroke_fill(gps);
+	}
+	BLI_assert(gps->tot_triangles >= 1);
 
-		unsigned pos;
+	unsigned pos;
+	if (gps->flag & GP_STROKE_3DSPACE) {
+		pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
+		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+	}
+	else {
+		pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	}
+
+	immUniformColor4fv(color);
+
+	/* Draw all triangles for filling the polygon (cache must be calculated before) */
+	immBegin(GL_TRIANGLES, gps->tot_triangles * 3);
+	/* TODO: use batch instead of immediate mode, to share vertices */
+
+	bGPDtriangle *stroke_triangle = gps->triangles;
+	bGPDspoint *pt;
+
+	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
 		if (gps->flag & GP_STROKE_3DSPACE) {
-			pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
-			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+			/* vertex 1 */
+			pt = &gps->points[stroke_triangle->v1];
+			mul_v3_m4v3(fpt, diff_mat, &pt->x);
+			immVertex3fv(pos, fpt);
+			/* vertex 2 */
+			pt = &gps->points[stroke_triangle->v2];
+			mul_v3_m4v3(fpt, diff_mat, &pt->x);
+			immVertex3fv(pos, fpt);
+			/* vertex 3 */
+			pt = &gps->points[stroke_triangle->v3];
+			mul_v3_m4v3(fpt, diff_mat, &pt->x);
+			immVertex3fv(pos, fpt);
 		}
 		else {
-			pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
-			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+			float co[2];
+			/* vertex 1 */
+			pt = &gps->points[stroke_triangle->v1];
+			mul_v3_m4v3(fpt, diff_mat, &pt->x);
+			gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
+			immVertex2fv(pos, co);
+			/* vertex 2 */
+			pt = &gps->points[stroke_triangle->v2];
+			mul_v3_m4v3(fpt, diff_mat, &pt->x);
+			gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
+			immVertex2fv(pos, co);
+			/* vertex 3 */
+			pt = &gps->points[stroke_triangle->v3];
+			mul_v3_m4v3(fpt, diff_mat, &pt->x);
+			gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
+			immVertex2fv(pos, co);
 		}
-
-		immUniformColor4fv(color);
-
-		/* Draw all triangles for filling the polygon (cache must be calculated before) */
-		immBegin(GL_TRIANGLES, gps->tot_triangles * 3);
-		/* TODO: use batch instead of immediate mode, to share vertices */
-
-		bGPDtriangle *stroke_triangle = gps->triangles;
-		bGPDspoint *pt;
-
-		for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
-			if (gps->flag & GP_STROKE_3DSPACE) {
-				/* vertex 1 */
-				pt = &gps->points[stroke_triangle->v1];
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				immVertex3fv(pos, fpt);
-				/* vertex 2 */
-				pt = &gps->points[stroke_triangle->v2];
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				immVertex3fv(pos, fpt);
-				/* vertex 3 */
-				pt = &gps->points[stroke_triangle->v3];
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				immVertex3fv(pos, fpt);
-			}
-			else {
-				float co[2];
-				/* vertex 1 */
-				pt = &gps->points[stroke_triangle->v1];
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
-				immVertex2fv(pos, co);
-				/* vertex 2 */
-				pt = &gps->points[stroke_triangle->v2];
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
-				immVertex2fv(pos, co);
-				/* vertex 3 */
-				pt = &gps->points[stroke_triangle->v3];
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
-				immVertex2fv(pos, co);
-			}
-		}
-
-		immEnd();
-		immUnbindProgram();
 	}
+
+	immEnd();
+	immUnbindProgram();
 
 #if 0 /* convert to modern GL only if needed */
 	else {
@@ -1488,9 +1485,6 @@ static void gp_draw_data_layers(
 
 		/* volumetric strokes... */
 		GP_DRAWFLAG_APPLY((gpl->flag & GP_LAYER_VOLUMETRIC), GP_DRAWDATA_VOLUMETRIC);
-
-		/* HQ fills... */
-		GP_DRAWFLAG_APPLY((gpl->flag & GP_LAYER_HQ_FILL), GP_DRAWDATA_HQ_FILL);
 
 #undef GP_DRAWFLAG_APPLY
 		

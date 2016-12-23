@@ -1464,13 +1464,6 @@ static void rna_def_gpencil_palettecolor(BlenderRNA *brna)
 	                         "a volumetric effect");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-	/* Use High quality fill */
-	prop = RNA_def_property(srna, "use_hq_fill", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", PC_COLOR_HQ_FILL);
-	RNA_def_property_ui_text(prop, "High Quality Fill", "Fill strokes using high quality to avoid glitches "
-	                         "(slower fps during animation play)");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
 	/* Read-only state props (for simpler UI code) */
 	prop = RNA_def_property(srna, "is_stroke_visible", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_funcs(prop, "rna_GPencilPaletteColor_is_stroke_visible_get", NULL);
