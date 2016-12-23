@@ -485,7 +485,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
 
 		if (palette) {
-			PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+			PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 			if (palcolor) {
 				CTX_data_pointer_set(result, &palette->id, &RNA_PaletteColor, palcolor);
 				return 1;
@@ -584,7 +584,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 	}
 	else if (CTX_data_equals(member, "active_palettecolor")) {
 		Palette *palette = BKE_palette_get_active_from_context(C);
-		PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+		PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 
 		if (palcolor) {
 			CTX_data_pointer_set(result, &palette->id, &RNA_PaletteColor, palcolor);

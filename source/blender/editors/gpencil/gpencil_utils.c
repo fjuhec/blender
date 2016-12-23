@@ -298,7 +298,7 @@ int gp_active_palette_poll(bContext *C)
 int gp_active_palettecolor_poll(bContext *C)
 {
 	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
-	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 
 	return (palcolor != NULL);
 }

@@ -1000,7 +1000,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			MEM_freeN(depth_arr);
 	}
 	/* Save palette color */
-	PaletteColor *palcolor = BKE_palettecolor_get_active_gpencil(ts);
+	PaletteColor *palcolor = BKE_palette_color_get_active_gpencil(ts);
 	gps->palcolor = palcolor;
 	BLI_strncpy(gps->colorname, palcolor->info, sizeof(gps->colorname));
 
@@ -1362,7 +1362,7 @@ static void gp_init_palette(tGPsdata *p)
 			palcolor = BKE_palette_color_add(palette);
 		}
 		else {
-			palcolor = BKE_palettecolor_get_active(palette);
+			palcolor = BKE_palette_color_get_active(palette);
 		}
 		/* in some situations can be null, so use first */
 		if (palcolor == NULL) {

@@ -112,11 +112,11 @@ struct Palette      *BKE_palette_get_active_gpencil_from_context(const struct bC
 
 struct PaletteColor *BKE_palette_color_add(struct Palette *palette);
 struct PaletteColor *BKE_palette_color_add_name(struct Palette *palette, const char *name);
-struct PaletteColor *BKE_palettecolor_getbyname(struct Palette *palette, char *name);
+struct PaletteColor *BKE_palette_color_getbyname(struct Palette *palette, char *name);
 void                 BKE_palette_color_remove(struct Palette *palette, struct PaletteColor *color);
-struct PaletteColor *BKE_palettecolor_get_active(struct Palette *palette);
-struct PaletteColor *BKE_palettecolor_get_active_from_context(const struct bContext *C);
-struct PaletteColor *BKE_palettecolor_get_active_gpencil(struct ToolSettings *ts);
+struct PaletteColor *BKE_palette_color_get_active(struct Palette *palette);
+struct PaletteColor *BKE_palette_color_get_active_from_context(const struct bContext *C);
+struct PaletteColor *BKE_palette_color_get_active_gpencil(struct ToolSettings *ts);
 
 /* paint curves */
 struct PaintCurve *BKE_paint_curve_add(struct Main *bmain, const char *name);

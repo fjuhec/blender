@@ -327,7 +327,7 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 		palcolor = BKE_palette_color_add(palette);
 	}
 	/* try to get color with the ruler name or create a new one */
-	palcolor = BKE_palettecolor_getbyname(palette, (char *)ruler_name);
+	palcolor = BKE_palette_color_getbyname(palette, (char *)ruler_name);
 	if (palcolor == NULL) {
 		palcolor = BKE_palette_color_add(palette, (char *)ruler_name);
 	}

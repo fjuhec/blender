@@ -867,7 +867,7 @@ static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))
 		return OPERATOR_CANCELLED;
 	}
 
-	color = BKE_palettecolor_get_active_from_context(C);
+	color = BKE_palette_color_get_active_from_context(C);
 	if (ELEM(NULL, color)) {
 		return OPERATOR_CANCELLED;
 	}
@@ -1637,7 +1637,7 @@ static int gp_isolate_palettecolor_exec(bContext *C, wmOperator *op)
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
 
-	PaletteColor *active_color = BKE_palettecolor_get_active(palette);
+	PaletteColor *active_color = BKE_palette_color_get_active(palette);
 	PaletteColor *palcolor;
 
 	int flags = PC_COLOR_LOCKED;
@@ -1713,7 +1713,7 @@ void GPENCIL_OT_palettecolor_isolate(wmOperatorType *ot)
 static int gp_palettecolor_hide_exec(bContext *C, wmOperator *op)
 {
 	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
-	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 
 	bool unselected = RNA_boolean_get(op->ptr, "unselected");
 
@@ -1887,7 +1887,7 @@ enum {
 static int gp_palettecolor_move_exec(bContext *C, wmOperator *op)
 {
 	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
-	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 
 	int direction = RNA_enum_get(op->ptr, "direction");
 
@@ -1945,7 +1945,7 @@ static int gp_palettecolor_select_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
-	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 
 	/* sanity checks */
 	if (ELEM(NULL, gpd, palette, palcolor))
@@ -2003,7 +2003,7 @@ void GPENCIL_OT_palettecolor_select(wmOperatorType *ot)
 static int gp_palettecolor_copy_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
-	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 	PaletteColor *newcolor;
 
 	/* sanity checks */

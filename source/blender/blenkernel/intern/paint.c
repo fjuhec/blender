@@ -415,7 +415,7 @@ Palette *BKE_palette_get_active_gpencil_from_context(const bContext *C)
 	return palette;
 }
 
-PaletteColor *BKE_palettecolor_get_active(Palette *palette)
+PaletteColor *BKE_palette_color_get_active(Palette *palette)
 {
 	PaletteColor *palcolor = NULL;
 
@@ -426,25 +426,25 @@ PaletteColor *BKE_palettecolor_get_active(Palette *palette)
 	return palcolor;
 }
 
-PaletteColor *BKE_palettecolor_get_active_from_context(const bContext *C)
+PaletteColor *BKE_palette_color_get_active_from_context(const bContext *C)
 {
 	PaletteColor *palcolor = NULL;
 	
 	Palette *palette = BKE_palette_get_active_from_context(C);
 	if (palette) {
-		palcolor = BKE_palettecolor_get_active(palette);
+		palcolor = BKE_palette_color_get_active(palette);
 	}
 
 	return palcolor;
 }
 
-PaletteColor *BKE_palettecolor_get_active_gpencil(ToolSettings *ts)
+PaletteColor *BKE_palette_color_get_active_gpencil(ToolSettings *ts)
 {
 	PaletteColor *palcolor = NULL;
 
 	Palette *palette = BKE_palette_get_active_gpencil(ts);
 	if (palette) {
-		palcolor = BKE_palettecolor_get_active(palette);
+		palcolor = BKE_palette_color_get_active(palette);
 	}
 
 	return palcolor;
@@ -560,7 +560,7 @@ bool BKE_palette_is_empty(const struct Palette *palette)
 }
 
 /* get the palettecolor looking by name */
-PaletteColor *BKE_palettecolor_getbyname(Palette *palette, char *name)
+PaletteColor *BKE_palette_color_getbyname(Palette *palette, char *name)
 {
 	/* error checking */
 	if (ELEM(NULL, palette, name)) {

@@ -1793,7 +1793,7 @@ static int gp_stroke_join_exec(bContext *C, wmOperator *op)
 	bGPDlayer *activegpl = BKE_gpencil_layer_getactive(gpd);
 	bGPDstroke *gps, *gpsn;
 	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
-	PaletteColor *palcolor = BKE_palettecolor_get_active(palette);
+	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 
 	bGPDframe *gpf_a = NULL;
 	bGPDstroke *stroke_a = NULL;
