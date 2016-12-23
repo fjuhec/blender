@@ -110,7 +110,6 @@ struct TaskPool {
 	TaskScheduler *scheduler;
 
 	size_t num;
-	size_t num_threads_max;
 	size_t num_threads;
 	size_t currently_running_tasks;
 
@@ -300,10 +299,8 @@ BLI_INLINE bool task_find(
 				continue;
 			}
 
-			/* Order is important, we do not want to increase currently_running_tasks if we are in main thread
-			 * (run_and_wait)! */
-			if (is_main ||
-			    atomic_add_and_fetch_z(&current_pool->currently_running_tasks, 1) <= current_pool->num_threads)
+			if (atomic_add_and_fetch_z(&current_pool->currently_running_tasks, 1) <= current_pool->num_threads ||
+			    is_main || current_pool->num_threads == 0)
 			{
 				*task = current_task;
 				found_task = true;
@@ -584,9 +581,7 @@ static TaskPool *task_pool_create_ex(TaskScheduler *scheduler, void *userdata, c
 
 	pool->scheduler = scheduler;
 	pool->num = 0;
-	/* Do not use BLI_task_scheduler_num_threads(scheduler) here, we want number of workers, without main thred! */
-	pool->num_threads_max = scheduler->num_threads;
-	pool->num_threads = pool->num_threads_max;
+	pool->num_threads = 0;
 	pool->currently_running_tasks = 0;
 	pool->do_cancel = false;
 	pool->run_in_background = is_background;
@@ -673,14 +668,12 @@ void BLI_task_pool_free(TaskPool *pool)
 
 	BLI_end_threaded_malloc();
 }
-#include "PIL_time_utildefines.h"
+
 static void task_pool_push(
         TaskPool *pool, TaskRunFunction run, void *taskdata,
         bool free_taskdata, TaskFreeFunction freedata, TaskPriority priority,
         int thread_id)
 {
-	static int i = 1;
-
 	Task *task = task_alloc(pool, thread_id);
 
 	task->run = run;
@@ -690,23 +683,6 @@ static void task_pool_push(
 	task->pool = pool;
 
 	task_scheduler_push(pool->scheduler, task, priority);
-#if 1
-	if ((i++ % 200) == 0) {
-		const size_t min_threads = 1;  /* At least one worker. */
-//		printf("%s: %lu, %lu  ->  ", __func__, pool->num, pool->num_threads);
-		if (pool->num < pool->num_threads / 2 && pool->num_threads > min_threads) {
-			if (atomic_sub_and_fetch_z(&pool->num_threads, 1) < min_threads) {
-				pool->num_threads = min_threads;
-			}
-		}
-		else if (pool->num > pool->num_threads && pool->num_threads < pool->num_threads_max) {
-			if (atomic_add_and_fetch_z(&pool->num_threads, 1) > pool->num_threads_max) {
-				pool->num_threads = pool->num_threads_max;
-			}
-		}
-//		printf("%lu\n", pool->num_threads);
-	}
-#endif
 }
 
 void BLI_task_pool_push_ex(
@@ -750,7 +726,7 @@ void BLI_task_pool_work_and_wait(TaskPool *pool)
 			/* delete task */
 			task_free(pool, task, 0);
 
-//			atomic_sub_and_fetch_z(&pool->currently_running_tasks, 1);
+			atomic_sub_and_fetch_z(&pool->currently_running_tasks, 1);
 
 			/* notify pool task was done */
 			task_pool_num_decrease(pool, 1);
@@ -769,11 +745,8 @@ void BLI_task_pool_work_and_wait(TaskPool *pool)
 
 void BLI_pool_set_num_threads(TaskPool *pool, size_t num_threads_max)
 {
-	pool->num_threads_max = num_threads_max;
-
-	for (size_t num_threads_old = pool->num_threads;
-	     atomic_cas_z(&pool->num_threads, num_threads_old, min_ii(num_threads_old, num_threads_max)) != num_threads_old;
-	     num_threads_old = pool->num_threads);
+	/* NOTE: Don't try to modify threads while tasks are running! */
+	pool->num_threads = num_threads;
 }
 
 void BLI_task_pool_cancel(TaskPool *pool)
