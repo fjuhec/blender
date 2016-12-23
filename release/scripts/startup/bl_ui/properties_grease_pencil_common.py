@@ -849,18 +849,18 @@ class GPENCIL_MT_palettecolor_specials(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("gpencil.palettecolor_reveal", icon='RESTRICT_VIEW_OFF', text="Show All")
-        layout.operator("gpencil.palettecolor_hide", icon='RESTRICT_VIEW_ON', text="Hide Others").unselected = True
+        layout.operator("palette.palettecolor_reveal", icon='RESTRICT_VIEW_OFF', text="Show All")
+        layout.operator("palette.palettecolor_hide", icon='RESTRICT_VIEW_ON', text="Hide Others").unselected = True
 
         layout.separator()
 
-        layout.operator("gpencil.palettecolor_lock_all", icon='LOCKED', text="Lock All")
-        layout.operator("gpencil.palettecolor_unlock_all", icon='UNLOCKED', text="UnLock All")
-        layout.operator("gpencil.palettecolor_copy", icon='PASTEDOWN', text="Copy Color")
+        layout.operator("palette.palettecolor_lock_all", icon='LOCKED', text="Lock All")
+        layout.operator("palette.palettecolor_unlock_all", icon='UNLOCKED', text="UnLock All")
+        layout.operator("palette.palettecolor_copy", icon='PASTEDOWN', text="Copy Color")
 
         layout.separator()
 
-        layout.operator("gpencil.palettecolor_select", icon='COLOR', text="Select Strokes")
+        layout.operator("palette.palettecolor_select", icon='COLOR', text="Select Strokes")
         layout.operator("gpencil.stroke_change_color", icon='MAN_TRANS', text="Move to Color")
 
 
@@ -1023,7 +1023,8 @@ class GreasePencilDataPanel:
 class GreasePencilPaletteColorPanel:
     # subclass must set
     bl_label = "Grease Pencil Colors"
-    bl_region_type = 'UI'
+    bl_category = "Grease Pencil"
+    bl_region_type = 'TOOLS'
 
     @classmethod
     def poll(cls, context):
@@ -1037,30 +1038,27 @@ class GreasePencilPaletteColorPanel:
     def draw(self, context):
         layout = self.layout
         palette = context.active_gpencil_palette
+        settings = context.tool_settings        
+        paint = settings.image_paint
+
+        row = layout.row()
+        row.template_ID(paint, "palette", new="palette.new_gpencil")
 
         if palette:
-            row = layout.row(align=True)
-            row.operator_context = 'EXEC_REGION_WIN'
-            row.operator_menu_enum("gpencil.palette_change", "palette", text="", icon='COLOR')
-            row.prop(palette, "name", text="")
-            row.operator("gpencil.palette_add", icon='ZOOMIN', text="")
-            row.operator("gpencil.palette_remove", icon='X', text="")
-
-            # Palette colors
             row = layout.row()
             col = row.column()
             if len(palette.colors) >= 2:
                 color_rows = 5
             else:
                 color_rows = 2
-            col.template_list("GPENCIL_UL_palettecolor", "", palette, "colors", palette.colors, "active_index",
+            col.template_list("GPENCIL_UL_palettecolor", "", palette, "colors", palette, "active_index",
                               rows=color_rows)
 
             col = row.column()
 
             sub = col.column(align=True)
-            sub.operator("gpencil.palettecolor_add", icon='ZOOMIN', text="")
-            sub.operator("gpencil.palettecolor_remove", icon='ZOOMOUT', text="")
+            sub.operator("palette.color_add", icon='ZOOMIN', text="").grease_pencil = True
+            sub.operator("palette.color_delete", icon='ZOOMOUT', text="")
 
             palcol = context.active_gpencil_palettecolor
             if palcol:
@@ -1070,18 +1068,18 @@ class GreasePencilPaletteColorPanel:
                 col.separator()
 
                 sub = col.column(align=True)
-                sub.operator("gpencil.palettecolor_move", icon='TRIA_UP', text="").direction = 'UP'
-                sub.operator("gpencil.palettecolor_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+                sub.operator("palette.palettecolor_move", icon='TRIA_UP', text="").direction = 'UP'
+                sub.operator("palette.palettecolor_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
                 row = layout.row()
                 sub = row.row(align=True)
                 sub.label(text="Isolate:") # based on active color only
-                sub.operator("gpencil.palettecolor_isolate", icon='LOCKED', text="").affect_visibility = False
-                sub.operator("gpencil.palettecolor_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
+                sub.operator("palette.palettecolor_isolate", icon='LOCKED', text="").affect_visibility = False
+                sub.operator("palette.palettecolor_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
                 sub = row.row(align=True)
                 sub.label(text="Lock:") # based on other stuff...
                 sub.operator("gpencil.stroke_lock_color", icon='BORDER_RECT', text="")
-                sub.operator("gpencil.palette_lock_layer", icon='COLOR', text="")
+                sub.operator("palette.lock_layer", icon='COLOR', text="")
 
             pcolor = palette.colors.active
             if pcolor:
@@ -1115,8 +1113,6 @@ class GreasePencilPaletteColorPanel:
         col.active = not pcolor.lock
         col.prop(pcolor, "use_volumetric_strokes")
         col = split.column(align=True)
-        col.active = not pcolor.lock
-        col.prop(pcolor, "use_hq_fill")
 
 
 class GreasePencilToolsPanel:

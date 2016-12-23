@@ -1,3 +1,4 @@
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -25,6 +26,7 @@ from bl_ui.properties_grease_pencil_common import (
         GreasePencilInterpolatePanel,
         GreasePencilStrokeSculptPanel,
         GreasePencilBrushPanel,
+        GreasePencilPaletteColorPanel,
         GreasePencilBrushCurvesPanel
         )
 from bl_ui.properties_paint_common import (
@@ -1976,6 +1978,10 @@ class VIEW3D_PT_tools_grease_pencil_sculpt(GreasePencilStrokeSculptPanel, Panel)
 
 # Grease Pencil drawing brushes
 class VIEW3D_PT_tools_grease_pencil_brush(GreasePencilBrushPanel, Panel):
+    bl_space_type = 'VIEW_3D'
+
+# Grease Pencil colors (using blendpalettes)
+class VIEW3D_PT_tools_grease_pencil_palettecolor(GreasePencilPaletteColorPanel, Panel):
     bl_space_type = 'VIEW_3D'
 
 # Grease Pencil drawingcurves
