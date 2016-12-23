@@ -1028,11 +1028,12 @@ class GreasePencilPaletteColorPanel:
 
     @classmethod
     def poll(cls, context):
-        if context.gpencil_data is None:
+        settings = context.tool_settings        
+        paint = settings.image_paint
+        if paint is None:
             return False
-
-        gpd = context.gpencil_data
-        return bool(gpd.layers.active)
+        else:
+            return True
 
     @staticmethod
     def draw(self, context):
