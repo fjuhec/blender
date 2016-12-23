@@ -1350,7 +1350,7 @@ static void gp_init_palette(tGPsdata *p)
 	/* if not exist, create a new palette */
 	if (!palette) {
 		/* create new palette */
-		palette = BKE_palette_add_gpencil_tools(ts, DATA_("Palette"), true);
+		palette = BKE_palette_add_gpencil_from_tools(ts);
 		/* now create a default color */
 		palcolor = BKE_palette_color_add(palette);
 	}

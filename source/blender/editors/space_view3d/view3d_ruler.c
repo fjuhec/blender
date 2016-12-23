@@ -322,14 +322,14 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 	palette = BKE_palette_get_active_gpencil(scene->toolsettings);
 
 	if (palette == NULL) {
-		palette = BKE_palette_add_gpencil_tools(scene->toolsettings, DATA_("Palette"), true);
+		palette = BKE_palette_add_gpencil_from_tools(scene->toolsettings);
 		/* now create a default color */
 		palcolor = BKE_palette_color_add(palette);
 	}
 	/* try to get color with the ruler name or create a new one */
 	palcolor = BKE_palette_color_getbyname(palette, (char *)ruler_name);
 	if (palcolor == NULL) {
-		palcolor = BKE_palette_color_add(palette, (char *)ruler_name);
+		palcolor = BKE_palette_color_add_name(palette, (char *)ruler_name);
 	}
 	
 	gpf = BKE_gpencil_layer_getframe(gpl, CFRA, true);

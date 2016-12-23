@@ -356,7 +356,7 @@ Palette *BKE_palette_add_gpencil(const bContext *C)
 	return palette;
 }
 
-Palette *BKE_palette_add_gpencil_tools(ToolSettings *ts)
+Palette *BKE_palette_add_gpencil_from_tools(ToolSettings *ts)
 {
 	Main *bmain = G.main;
 	Paint *paint = &ts->imapaint.paint;

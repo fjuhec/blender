@@ -432,7 +432,7 @@ bool ED_gpencil_stroke_can_use(const bContext *C, const bGPDstroke *gps)
 bool ED_gpencil_stroke_color_use(const bGPDlayer *gpl, const bGPDstroke *gps)
 {
 	/* check if the color is editable */
-	bGPDpalettecolor *palcolor = gps->palcolor;
+	PaletteColor *palcolor = gps->palcolor;
 	if (palcolor != NULL) {
 		if (palcolor->flag & PC_COLOR_HIDE)
 			return false;
@@ -456,10 +456,10 @@ PaletteColor *ED_gpencil_stroke_getcolor(ToolSettings *ts, bGPDstroke *gps)
 	palette = BKE_palette_get_active_gpencil(ts);
 	if (!palette) {
 		/* create new palette */
-		palette = BKE_palette_add_gpencil_tools(ts, DATA_("Palette"), true);
+		palette = BKE_palette_add_gpencil_from_tools(ts);
 	}
 	/* get color */
-	palcolor = BKE_gpencil_palettecolor_getbyname(palette, gps->colorname);
+	palcolor = BKE_palette_color_getbyname(palette, gps->colorname);
 	if (palcolor == NULL) {
 		if (gps->palcolor == NULL) {
 			palcolor = BKE_palette_color_add_name(palette, gps->colorname);
