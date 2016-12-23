@@ -285,24 +285,6 @@ int gp_active_brush_poll(bContext *C)
 	return (brush != NULL);
 }
 
-/* poll callback for checking if there is an active palette */
-int gp_active_palette_poll(bContext *C)
-{
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDpalette *palette = BKE_gpencil_palette_getactive(gpd);
-
-	return (palette != NULL);
-}
-
-/* poll callback for checking if there is an active palette color */
-int gp_active_palettecolor_poll(bContext *C)
-{
-	Palette *palette = BKE_palette_get_active_gpencil_from_context(C);
-	PaletteColor *palcolor = BKE_palette_color_get_active(palette);
-
-	return (palcolor != NULL);
-}
-
 /* ******************************************************** */
 /* Dynamic Enums of GP Layers */
 /* NOTE: These include an option to create a new layer and use that... */
