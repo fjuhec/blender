@@ -49,7 +49,7 @@
 #define MEMPOOL_SIZE 256
 
 /* Parameters controlling how much we spin in nanosleeps before switching to real condition-controlled sleeping. */
-#define NANOSLEEP_MAX_SPINNING 1000   /* Number of failed attempt to get a task before going to condition waiting. */
+#define NANOSLEEP_MAX_SPINNING 200   /* Number of failed attempt to get a task before going to condition waiting. */
 #define NANOSLEEP_DURATION (const struct timespec[]){{0, 200L}}  /* Nanosleep duration (in nano-seconds). */
 
 typedef struct Task {
@@ -743,7 +743,7 @@ void BLI_task_pool_work_and_wait(TaskPool *pool)
 	}
 }
 
-void BLI_pool_set_num_threads(TaskPool *pool, size_t num_threads_max)
+void BLI_pool_set_num_threads(TaskPool *pool, size_t num_threads)
 {
 	/* NOTE: Don't try to modify threads while tasks are running! */
 	pool->num_threads = num_threads;
