@@ -1000,9 +1000,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			MEM_freeN(depth_arr);
 	}
 	/* Save palette color */
-	PaletteColor *palcolor = BKE_palette_color_get_active_gpencil(ts);
-	gps->palcolor = palcolor;
-	BLI_strncpy(gps->colorname, palcolor->info, sizeof(gps->colorname));
+	gps->palcolor = p->palettecolor;
+	BLI_strncpy(gps->colorname, p->palettecolor->info, sizeof(gps->colorname));
 
 	/* add stroke to frame, usually on tail of the listbase, but if on back is enabled the stroke is added on listbase head 
 	* because the drawing order is inverse and the head stroke is the first to draw. This is very useful for artist
@@ -1303,16 +1302,6 @@ static void gp_session_validatebuffer(tGPsdata *p)
 	p->inittime = 0.0;
 }
 
-/* create a new palette color */
-static bGPDpalettecolor *gp_create_new_color(bGPDpalette *palette)
-{
-	bGPDpalettecolor *palcolor;
-
-	palcolor = BKE_gpencil_palettecolor_addnew(palette, DATA_("Color"), true);
-	
-	return palcolor;
-}
-
 /* initialize a drawing brush */
 static void gp_init_drawing_brush(ToolSettings *ts, tGPsdata *p)
 {
@@ -1352,14 +1341,14 @@ static void gp_init_palette(tGPsdata *p)
 		/* create new palette */
 		palette = BKE_palette_add_gpencil_from_tools(ts);
 		/* now create a default color */
-		palcolor = BKE_palette_color_add(palette);
+		palcolor = BKE_palette_color_add_name(palette, DATA_("Color"));
 	}
 	else {
 		/* Use the current palette and color */
 		palette = BKE_palette_get_active_gpencil(ts);
 		/* the palette needs one color */
 		if (BKE_palette_is_empty(palette)) {
-			palcolor = BKE_palette_color_add(palette);
+			palcolor = BKE_palette_color_add_name(palette, DATA_("Color"));
 		}
 		else {
 			palcolor = BKE_palette_color_get_active(palette);
