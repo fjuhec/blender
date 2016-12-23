@@ -63,8 +63,6 @@ struct bPoseChannel;
 struct bGPdata;
 struct bGPDlayer;
 struct bGPDframe;
-struct bGPDpalette;
-struct bGPDpalettecolor;
 struct bGPDbrush;
 struct wmWindow;
 struct wmWindowManager;
