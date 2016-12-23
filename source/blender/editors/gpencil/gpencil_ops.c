@@ -421,12 +421,6 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_stroke_flip);
 	WM_operatortype_append(GPENCIL_OT_stroke_subdivide);
 
-	WM_operatortype_append(GPENCIL_OT_palette_add);
-	WM_operatortype_append(GPENCIL_OT_palette_remove);
-	WM_operatortype_append(GPENCIL_OT_palette_change);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_add);
-	WM_operatortype_append(GPENCIL_OT_palettecolor_remove);
-
 	WM_operatortype_append(GPENCIL_OT_brush_add);
 	WM_operatortype_append(GPENCIL_OT_brush_remove);
 	WM_operatortype_append(GPENCIL_OT_brush_change);
