@@ -273,7 +273,8 @@ static void task_pool_num_increase(TaskPool *pool)
 	}
 }
 
-BLI_INLINE bool task_find(TaskScheduler * restrict scheduler, Task ** restrict task, TaskPool * restrict pool)
+BLI_INLINE bool task_find(
+        TaskScheduler * restrict scheduler, Task ** restrict task, TaskPool * restrict pool, const bool is_main)
 {
 	Task *current_task;
 	bool found_task = false;
@@ -296,12 +297,12 @@ BLI_INLINE bool task_find(TaskScheduler * restrict scheduler, Task ** restrict t
 				continue;
 			}
 
-			if (scheduler->background_thread_only && !current_pool->run_in_background) {
+			if (!is_main && scheduler->background_thread_only && !current_pool->run_in_background) {
 				continue;
 			}
 
 			if (atomic_add_and_fetch_z(&current_pool->currently_running_tasks, 1) <= current_pool->num_threads ||
-				current_pool->num_threads == 0)
+			    is_main || current_pool->num_threads == 0)
 			{
 				*task = current_task;
 				found_task = true;
@@ -367,7 +368,7 @@ static bool task_scheduler_thread_wait_pop(TaskScheduler *scheduler, Task **task
 			return false;
 		}
 
-		if (!(found_task = task_find(scheduler, task, NULL))) {
+		if (!(found_task = task_find(scheduler, task, NULL, false))) {
 			if (task_wait(scheduler, &loop_count)) {
 				return false;
 			}
@@ -717,7 +718,7 @@ void BLI_task_pool_work_and_wait(TaskPool *pool)
 		/* find task from this pool. if we get a task from another pool,
 		 * we can get into deadlock */
 
-		found_task = task_find(scheduler, &task, pool);
+		found_task = task_find(scheduler, &task, pool, true);
 
 		/* if found task, do it, otherwise wait until other tasks are done */
 		if (found_task) {
