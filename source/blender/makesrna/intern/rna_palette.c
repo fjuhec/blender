@@ -287,6 +287,12 @@ static void rna_def_palette(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "colors", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_struct_type(prop, "PaletteColor");
 	rna_def_palettecolors(brna, prop);
+
+	prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "active_color");
+	RNA_def_property_ui_text(prop, "Active Index", "");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
 }
 
 void RNA_def_palette(BlenderRNA *brna)
