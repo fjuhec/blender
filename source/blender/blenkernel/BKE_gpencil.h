@@ -40,6 +40,7 @@ struct bGPDstroke;
 struct bGPDpalette;
 struct bGPDpalettecolor;
 struct Main;
+struct PaletteColor;
 
 /* ------------ Grease-Pencil API ------------------ */
 
@@ -115,9 +116,8 @@ struct bGPDpalettecolor *BKE_gpencil_palettecolor_getactive(struct bGPDpalette *
 void BKE_gpencil_palettecolor_setactive(struct bGPDpalette *palette, struct bGPDpalettecolor *active);
 void BKE_gpencil_palettecolor_delete(struct bGPDpalette *palette, struct bGPDpalettecolor *palcolor);
 struct bGPDpalettecolor *BKE_gpencil_palettecolor_getbyname(struct bGPDpalette *palette, char *name);
-void BKE_gpencil_palettecolor_allnames(char *oldname, const char *newname);
-void BKE_gpencil_palettecolor_changename(struct bGPdata *gpd, char *oldname, const char *newname);
-void BKE_gpencil_palettecolor_delete_allstrokes(char *name);
-void BKE_gpencil_palettecolor_delete_strokes(struct bGPdata *gpd, char *name);
+void BKE_gpencil_palettecolor_allnames(struct PaletteColor *palcolor, const char *newname);
+void BKE_gpencil_palettecolor_changename(struct PaletteColor *palcolor, struct bGPdata *gpd, const char *newname);
+void BKE_gpencil_palettecolor_delete_allstrokes(struct PaletteColor *palcolor);
 
 #endif /*  __BKE_GPENCIL_H__ */

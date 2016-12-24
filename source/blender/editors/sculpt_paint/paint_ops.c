@@ -350,7 +350,7 @@ static int palette_color_delete_exec(bContext *C, wmOperator *UNUSED(op))
 
 	if (color) {
 		/* delete the gp strokes */
-		BKE_gpencil_palettecolor_delete_allstrokes(color->info);
+		BKE_gpencil_palettecolor_delete_allstrokes(color);
 
 		BKE_palette_color_remove(palette, color);
 	}

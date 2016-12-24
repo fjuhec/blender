@@ -1256,31 +1256,31 @@ bGPDpalettecolor *BKE_gpencil_palettecolor_getbyname(bGPDpalette *palette, char 
 }
 
 /* Change color name in all gpd datablocks */
-void BKE_gpencil_palettecolor_allnames(char *oldname, const char *newname)
+void BKE_gpencil_palettecolor_allnames(PaletteColor *palcolor, const char *newname)
 {
 	bGPdata *gpd;
 	Main *main = G.main;
 
 	for (gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
-		BKE_gpencil_palettecolor_changename(gpd, oldname, newname);
+		BKE_gpencil_palettecolor_changename(palcolor, gpd, newname);
 	}
 }
 
 /* Change color name in all strokes */
-void BKE_gpencil_palettecolor_changename(bGPdata *gpd, char *oldname, const char *newname)
+void BKE_gpencil_palettecolor_changename(PaletteColor *palcolor, bGPdata *gpd, const char *newname)
 {
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps;
 	
 	/* Sanity checks (gpd may not be set in the RNA pointers sometimes) */
-	if (ELEM(NULL, gpd, oldname, newname))
+	if (ELEM(NULL, gpd, newname))
 		return;
 	
 	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (gps = gpf->strokes.first; gps; gps = gps->next) {
-				if (STREQ(gps->colorname, oldname)) {
+				if (gps->palcolor == palcolor) {
 					BLI_strncpy(gps->colorname, newname, sizeof(gps->colorname));
 				}
 			}
@@ -1289,41 +1289,30 @@ void BKE_gpencil_palettecolor_changename(bGPdata *gpd, char *oldname, const char
 		
 }
 
-/* Delete all strokes of the color */
-void BKE_gpencil_palettecolor_delete_strokes(struct bGPdata *gpd, char *name)
+/* Delete all strokes of the color for all gpd datablocks */
+void BKE_gpencil_palettecolor_delete_allstrokes(PaletteColor *palcolor)
 {
+	bGPdata *gpd;
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps, *gpsn;
-	
-	/* Sanity checks (gpd may not be set in the RNA pointers sometimes) */
-	if (ELEM(NULL, gpd, name))
-		return;
-	
-	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-			for (gps = gpf->strokes.first; gps; gps = gpsn) {
-				gpsn = gps->next;
 
-				if (STREQ(gps->colorname, name)) {
-					if (gps->points) MEM_freeN(gps->points);
-					if (gps->triangles) MEM_freeN(gps->triangles);
-					BLI_freelinkN(&gpf->strokes, gps);
-				}
-			}
-		}
-	}
-
-}
-
-/* Delete all strokes of the color for all gpd datablocks */
-void BKE_gpencil_palettecolor_delete_allstrokes(char *name)
-{
-	bGPdata *gpd;
 	Main *main = G.main;
 
 	for (gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
-		BKE_gpencil_palettecolor_delete_strokes(gpd, name);
+		for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+			for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+				for (gps = gpf->strokes.first; gps; gps = gpsn) {
+					gpsn = gps->next;
+
+					if (gps->palcolor == palcolor) {
+						if (gps->points) MEM_freeN(gps->points);
+						if (gps->triangles) MEM_freeN(gps->triangles);
+						BLI_freelinkN(&gpf->strokes, gps);
+					}
+				}
+			}
+		}
 	}
 }
 
