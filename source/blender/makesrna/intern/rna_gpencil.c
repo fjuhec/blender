@@ -102,16 +102,6 @@ static void rna_GPencil_onion_skinning_update(Main *bmain, Scene *scene, Pointer
 	rna_GPencil_update(bmain, scene, ptr);
 }
 
-static void rna_GPencil_stroke_colorname_update(Main *bmain, Scene *scene, PointerRNA *ptr)
-{
-	bGPDstroke *gps = (bGPDstroke *)ptr->data;
-	gps->flag |= GP_STROKE_RECALC_COLOR;
-	gps->palcolor = NULL;
-
-	/* Now do standard updates... */
-	rna_GPencil_update(bmain, scene, ptr);
-}
-
 static char *rna_GPencilLayer_path(PointerRNA *ptr)
 {
 	bGPDlayer *gpl = (bGPDlayer *)ptr->data;
@@ -826,15 +816,6 @@ static void rna_GPencilPaletteColor_info_set(PointerRNA *ptr, const char *value)
 	BKE_animdata_fix_paths_rename_all(&gpd->id, "colors", oldname, palcolor->info);
 }
 
-static void rna_GPencilStrokeColor_info_set(PointerRNA *ptr, const char *value)
-{
-	bGPDstroke *gps = ptr->data;
-
-	/* copy the new name into the name slot */
-	BLI_strncpy_utf8(gps->colorname, value, sizeof(gps->colorname));
-}
-
-
 static int rna_GPencilPaletteColor_is_stroke_visible_get(PointerRNA *ptr)
 {
 	bGPDpalettecolor *pcolor = (bGPDpalettecolor *)ptr->data;
@@ -1009,12 +990,6 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
 	RNA_def_property_boolean_funcs(prop, NULL, "rna_GPencil_stroke_select_set");
 	RNA_def_property_ui_text(prop, "Select", "Stroke is selected for viewport editing");
 	RNA_def_property_update(prop, 0, "rna_GPencil_update");
-
-	/* Color Name */
-	prop = RNA_def_property(srna, "colorname", PROP_STRING, PROP_NONE);
-	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GPencilStrokeColor_info_set");
-	RNA_def_property_ui_text(prop, "Color Name", "Palette color name");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_stroke_colorname_update");
 
 	/* Cyclic: Draw a line from end to start point */
 	prop = RNA_def_property(srna, "draw_cyclic", PROP_BOOLEAN, PROP_NONE);

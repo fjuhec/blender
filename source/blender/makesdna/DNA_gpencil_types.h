@@ -186,8 +186,6 @@ typedef enum eGPDstroke_Flag {
 	GP_STROKE_SELECT		= (1 << 3),
 	/* Recalculate triangulation for high quality fill (when true, force a new recalc) */
 	GP_STROKE_RECALC_CACHES = (1 << 4),
-	/* Recalculate the color pointer using the name as index (true force a new recalc) */
-	GP_STROKE_RECALC_COLOR = (1 << 5),
 	/* Flag used to indicate that stroke is closed and draw edge between last and first point */
 	GP_STROKE_CYCLIC = (1 << 7),
 	/* only for use with stroke-buffer (while drawing eraser) */
