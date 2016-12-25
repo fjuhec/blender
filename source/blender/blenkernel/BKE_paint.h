@@ -57,7 +57,6 @@ struct StrokeCache;
 struct Tex;
 struct ImagePool;
 struct UnifiedPaintSettings;
-struct ToolSettings;
 
 enum OverlayFlags;
 
@@ -101,14 +100,11 @@ void BKE_paint_set_overlay_override(enum OverlayFlags flag);
 void                 BKE_palette_free(struct Palette *palette);
 struct Palette      *BKE_palette_add(struct Main *bmain, const char *name);
 struct Palette      *BKE_palette_add_gpencil(const struct bContext *C);
-struct Palette      *BKE_palette_add_gpencil_from_tools(struct ToolSettings *ts);
 struct Palette      *BKE_palette_copy(struct Main *bmain, struct Palette *palette);
 void                 BKE_palette_make_local(struct Main *bmain, struct Palette *palette, const bool lib_local);
 bool                 BKE_palette_is_empty(const struct Palette *palette);
 void                 BKE_palette_clear(struct Palette *palette);
 struct Palette      *BKE_palette_get_active_from_context(const struct bContext *C);
-struct Palette      *BKE_palette_get_active_gpencil(struct ToolSettings *ts);
-struct Palette      *BKE_palette_get_active_gpencil_from_context(const struct bContext *C);
 
 struct PaletteColor *BKE_palette_color_add(struct Palette *palette);
 struct PaletteColor *BKE_palette_color_add_name(struct Palette *palette, const char *name);
@@ -116,7 +112,6 @@ struct PaletteColor *BKE_palette_color_getbyname(struct Palette *palette, char *
 void                 BKE_palette_color_remove(struct Palette *palette, struct PaletteColor *color);
 struct PaletteColor *BKE_palette_color_get_active(struct Palette *palette);
 struct PaletteColor *BKE_palette_color_get_active_from_context(const struct bContext *C);
-struct PaletteColor *BKE_palette_color_get_active_gpencil(struct ToolSettings *ts);
 
 /* paint curves */
 struct PaintCurve *BKE_paint_curve_add(struct Main *bmain, const char *name);

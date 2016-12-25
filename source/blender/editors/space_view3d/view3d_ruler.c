@@ -319,10 +319,10 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 	}
 
 	/* try to get active palette or create a new one */
-	palette = BKE_palette_get_active_gpencil(scene->toolsettings);
+	palette = BKE_palette_get_active_from_context(C);
 
 	if (palette == NULL) {
-		palette = BKE_palette_add_gpencil_from_tools(scene->toolsettings);
+		palette = BKE_palette_add_gpencil(C);
 		/* now create a default color */
 		palcolor = BKE_palette_color_add(palette);
 	}

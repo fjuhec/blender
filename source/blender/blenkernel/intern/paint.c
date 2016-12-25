@@ -356,19 +356,6 @@ Palette *BKE_palette_add_gpencil(const bContext *C)
 	return palette;
 }
 
-Palette *BKE_palette_add_gpencil_from_tools(ToolSettings *ts)
-{
-	Main *bmain = G.main;
-	Paint *paint = &ts->imapaint.paint;
-	Palette *palette;
-
-	palette = BKE_palette_add(bmain, "Palette");
-
-	BKE_paint_palette_set(paint, palette);
-
-	return palette;
-}
-
 void BKE_paint_palette_set(Paint *p, Palette *palette)
 {
 	if (p) {
@@ -390,31 +377,6 @@ Palette *BKE_palette_get_active_from_context(const bContext *C)
 	return palette;
 }
 
-Palette *BKE_palette_get_active_gpencil(ToolSettings *ts)
-{
-	Palette *palette = NULL;
-
-	Paint *paint = &ts->imapaint.paint;
-
-	if (paint && paint->palette) {
-		palette = paint->palette;
-	}
-
-	return palette;
-}
-
-Palette *BKE_palette_get_active_gpencil_from_context(const bContext *C)
-{
-	ToolSettings *ts = CTX_data_tool_settings(C);
-	Palette *palette = NULL;
-	
-	if (ts) {
-		palette = BKE_palette_get_active_gpencil(ts);
-	}
-
-	return palette;
-}
-
 PaletteColor *BKE_palette_color_get_active(Palette *palette)
 {
 	PaletteColor *palcolor = NULL;
@@ -431,18 +393,6 @@ PaletteColor *BKE_palette_color_get_active_from_context(const bContext *C)
 	PaletteColor *palcolor = NULL;
 	
 	Palette *palette = BKE_palette_get_active_from_context(C);
-	if (palette) {
-		palcolor = BKE_palette_color_get_active(palette);
-	}
-
-	return palcolor;
-}
-
-PaletteColor *BKE_palette_color_get_active_gpencil(ToolSettings *ts)
-{
-	PaletteColor *palcolor = NULL;
-
-	Palette *palette = BKE_palette_get_active_gpencil(ts);
 	if (palette) {
 		palcolor = BKE_palette_color_get_active(palette);
 	}

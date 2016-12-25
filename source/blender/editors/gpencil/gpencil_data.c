@@ -924,7 +924,7 @@ static int gp_stroke_lock_color_exec(bContext *C, wmOperator *UNUSED(op))
 	if (ELEM(NULL, gpd))
 		return OPERATOR_CANCELLED;
 
-	palette = BKE_palette_get_active_gpencil_from_context(C);
+	palette = BKE_palette_get_active_from_context(C);
 	if (ELEM(NULL, palette))
 		return OPERATOR_CANCELLED;
 	

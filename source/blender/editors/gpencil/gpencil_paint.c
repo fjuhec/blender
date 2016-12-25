@@ -1332,21 +1332,11 @@ static void gp_init_palette(tGPsdata *p)
 {
 	Palette *palette;
 	PaletteColor *palcolor;
-	ToolSettings *ts = p->scene->toolsettings;
 
-	palette = BKE_palette_get_active_gpencil(ts);
+	palette = p->palette;
 
-	/* if not exist, create a new palette */
-	if (!palette) {
-		/* create new palette */
-		palette = BKE_palette_add_gpencil_from_tools(ts);
-		/* now create a default color */
-		palcolor = BKE_palette_color_add_name(palette, DATA_("Color"));
-	}
-	else {
-		/* Use the current palette and color */
-		palette = BKE_palette_get_active_gpencil(ts);
-		/* the palette needs one color */
+	if (palette) {
+		/* palette needs one color */
 		if (BKE_palette_is_empty(palette)) {
 			palcolor = BKE_palette_color_add_name(palette, DATA_("Color"));
 		}
@@ -1383,7 +1373,7 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	/* pass on current scene and window */
 	p->scene = CTX_data_scene(C);
 	p->win = CTX_wm_window(C);
-	p->palette = BKE_palette_get_active_gpencil_from_context(C);
+	p->palette = BKE_palette_get_active_from_context(C);
 	/* if not exist palette, create a new one */
 	if (!p->palette) {
 		p->palette = BKE_palette_add_gpencil(C);
