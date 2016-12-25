@@ -1857,7 +1857,6 @@ static int gp_stroke_join_exec(bContext *C, wmOperator *op)
 						if (type == GP_STROKE_JOINCOPY) {
 							new_stroke->palcolor = palcolor;
 							BLI_strncpy(new_stroke->colorname, palcolor->info, sizeof(new_stroke->colorname));
-							new_stroke->flag |= GP_STROKE_RECALC_COLOR;
 						}
 					}
 					
