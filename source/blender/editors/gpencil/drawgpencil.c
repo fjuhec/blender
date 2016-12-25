@@ -512,7 +512,7 @@ static void gp_draw_stroke_fill(
 
 	BLI_assert(gps->totpoints >= 3);
 
-	PaletteColor *palcolor = ED_gpencil_stroke_getcolor(ts, gps);
+	PaletteColor *palcolor = gps->palcolor;
 
 	/* Triangulation fill hq fill always */
 		/* Calculate triangles cache for filling area (must be done only after changes) */
@@ -1006,7 +1006,7 @@ static void gp_draw_strokes(
 			continue;
 		}
 		/* check if the color is visible */
-		PaletteColor *palcolor = ED_gpencil_stroke_getcolor(ts, gps);
+		PaletteColor *palcolor = gps->palcolor;
 		if ((palcolor == NULL) ||
 		    (palcolor->flag & PC_COLOR_HIDE) ||
 		    /* if onion and ghost flag do not draw*/
@@ -1217,7 +1217,7 @@ static void gp_draw_strokes_edit(
 
 		/* verify palette color lock */
 		{
-			PaletteColor *palcolor = ED_gpencil_stroke_getcolor(ts, gps);
+			PaletteColor *palcolor = gps->palcolor;
 			if (palcolor != NULL) {
 				if (palcolor->flag & PC_COLOR_HIDE) {
 					continue;
@@ -1245,7 +1245,7 @@ static void gp_draw_strokes_edit(
 
 		/* for now, we assume that the base color of the points is not too close to the real color */
 		/* set color using palette */
-		PaletteColor *palcolor = ED_gpencil_stroke_getcolor(ts, gps);
+		PaletteColor *palcolor = gps->palcolor;
 
 		float selectColor[4];
 		UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);

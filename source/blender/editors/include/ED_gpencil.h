@@ -126,8 +126,6 @@ bool ED_gpencil_stroke_can_use_direct(const struct ScrArea *sa, const struct bGP
 bool ED_gpencil_stroke_can_use(const struct bContext *C, const struct bGPDstroke *gps);
 bool ED_gpencil_stroke_color_use(const struct bGPDlayer *gpl, const struct bGPDstroke *gps);
 
-struct PaletteColor *ED_gpencil_stroke_getcolor(struct ToolSettings *ts, struct bGPDstroke *gps);
-
 bool ED_gpencil_stroke_minmax(
         const struct bGPDstroke *gps, const bool use_select,
         float r_min[3], float r_max[3]);

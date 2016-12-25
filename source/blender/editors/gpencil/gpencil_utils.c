@@ -443,46 +443,6 @@ bool ED_gpencil_stroke_color_use(const bGPDlayer *gpl, const bGPDstroke *gps)
 	return true;
 }
 
-/* Get palette color or create a new one */
-PaletteColor *ED_gpencil_stroke_getcolor(ToolSettings *ts, bGPDstroke *gps)
-{
-	Palette *palette;
-	PaletteColor *palcolor;
-
-	if ((gps->palcolor != NULL) && ((gps->flag & GP_STROKE_RECALC_COLOR) == 0))
-		return gps->palcolor;
-
-	/* get palette */
-	palette = BKE_palette_get_active_gpencil(ts);
-	if (!palette) {
-		/* create new palette */
-		palette = BKE_palette_add_gpencil_from_tools(ts);
-	}
-	/* get color */
-	palcolor = BKE_palette_color_getbyname(palette, gps->colorname);
-	if (palcolor == NULL) {
-		if (gps->palcolor == NULL) {
-			palcolor = BKE_palette_color_add_name(palette, gps->colorname);
-			/* set to a different color */
-			ARRAY_SET_ITEMS(palcolor->rgb, 1.0f, 0.0f, 1.0f, 0.9f);
-		}
-		else {
-			palcolor = BKE_palette_color_add_name(palette, gps->colorname);
-			/* set old color and attributes */
-			PaletteColor *gpscolor = gps->palcolor;
-			copy_v4_v4(palcolor->rgb, gpscolor->rgb);
-			copy_v4_v4(palcolor->fill, gpscolor->fill);
-			palcolor->flag = gpscolor->flag;
-		}
-	}
-
-	/* clear flag and set pointer */
-	gps->flag &= ~GP_STROKE_RECALC_COLOR;
-	gps->palcolor = palcolor;
-
-	return palcolor;
-}
-
 /* ******************************************************** */
 /* Space Conversion */
 
