@@ -545,7 +545,7 @@ class GPENCIL_PIE_settings_palette(Menu):
         pie = layout.menu_pie()
         gpd = context.gpencil_data
         gpl = context.active_gpencil_layer
-        palcolor = context.active_gpencil_palettecolor
+        palcolor = context.active_palettecolor
         brush = context.active_gpencil_brush
 
         is_editmode = bool(gpd and gpd.use_stroke_edit_mode and context.editable_gpencil_strokes)
@@ -1028,8 +1028,7 @@ class GreasePencilPaletteColorPanel:
 
     @classmethod
     def poll(cls, context):
-        settings = context.tool_settings        
-        paint = settings.image_paint
+        paint = self.paint_settings(context)
         if paint is None:
             return False
         else:
@@ -1038,7 +1037,7 @@ class GreasePencilPaletteColorPanel:
     @staticmethod
     def draw(self, context):
         layout = self.layout
-        palette = context.active_gpencil_palette
+        palette = context.active_palette
         settings = context.tool_settings        
         paint = settings.image_paint
 
@@ -1061,7 +1060,7 @@ class GreasePencilPaletteColorPanel:
             sub.operator("palette.color_add", icon='ZOOMIN', text="").grease_pencil = True
             sub.operator("palette.color_delete", icon='ZOOMOUT', text="")
 
-            palcol = context.active_gpencil_palettecolor
+            palcol = context.active_palettecolor
             if palcol:
                 sub.menu("GPENCIL_MT_palettecolor_specials", icon='DOWNARROW_HLT', text="")
 
