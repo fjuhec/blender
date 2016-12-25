@@ -242,6 +242,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb);
 static void convert_tface_mt(FileData *fd, Main *main);
 static BHead *find_bhead_from_code_name(FileData *fd, const short idcode, const char *name);
 static BHead *find_bhead_from_idname(FileData *fd, const char *idname);
+static void direct_link_animdata(FileData *fd, AnimData *adt);
+static void lib_link_animdata(FileData *fd, ID *id, AnimData *adt);
 
 /* this function ensures that reports are printed,
  * in the case of libraray linking errors this is important!
@@ -2229,7 +2231,7 @@ static void direct_link_brush(FileData *fd, Brush *brush)
 }
 
 /* ************ READ Palette *************** */
-static void lib_link_palette(FileData *UNUSED(fd), Main *main)
+static void lib_link_palette(FileData *fd, Main *main)
 {
 	Palette *palette;
 
@@ -2237,14 +2239,23 @@ static void lib_link_palette(FileData *UNUSED(fd), Main *main)
 	for (palette = main->palettes.first; palette; palette = palette->id.next) {
 		if (palette->id.tag & LIB_TAG_NEED_LINK) {
 			palette->id.tag &= ~LIB_TAG_NEED_LINK;
+
+			lib_link_animdata(fd, &palette->id, palette->adt);
 		}
 	}
 }
 
 static void direct_link_palette(FileData *fd, Palette *palette)
 {
+
 	/* palette itself has been read */
 	link_list(fd, &palette->colors);
+	
+	/* relink animdata */
+	if (palette != NULL) {
+		palette->adt = newdataadr(fd, palette->adt);
+		direct_link_animdata(fd, palette->adt);
+	}
 }
 
 static void lib_link_paint_curve(FileData *UNUSED(fd), Main *main)
@@ -6409,7 +6420,7 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 			
 			for (gps = gpf->strokes.first; gps; gps = gps->next) {
 				gps->points = newdataadr(fd, gps->points);
-				
+
 				/* the triangulation is not saved, so need to be recalculated */
 				gps->triangles = NULL;
 				gps->tot_triangles = 0;

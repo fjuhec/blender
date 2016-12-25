@@ -3423,6 +3423,10 @@ static void write_palettes(WriteData *wd, ListBase *idbase)
 			PaletteColor *color;
 			writestruct(wd, ID_PAL, Palette, 1, palette);
 			write_iddata(wd, &palette->id);
+			/* animation data */
+			if (palette->adt) {
+				write_animdata(wd, palette->adt);
+			}
 
 			for (color = palette->colors.first; color; color = color->next) {
 				writestruct(wd, DATA, PaletteColor, 1, color);
