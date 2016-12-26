@@ -855,6 +855,103 @@ void GPENCIL_OT_stroke_arrange(wmOperatorType *ot)
 
 	ot->prop = RNA_def_enum(ot->srna, "direction", slot_move, GP_STROKE_MOVE_UP, "Direction", "");
 }
+/* ******************* Move Stroke to new palette ************************** */
+
+static int gp_stroke_change_palette_exec(bContext *C, wmOperator *op)
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	Scene *scene = CTX_data_scene(C);
+	const int type = RNA_enum_get(op->ptr, "type");
+
+	Palette *palette;
+	PaletteColor *palcolor;
+
+	/* sanity checks */
+	if (ELEM(NULL, gpd)) {
+		return OPERATOR_CANCELLED;
+	}
+
+	palette = BKE_palette_get_active_from_context(C);
+	if (ELEM(NULL, palette)) {
+		return OPERATOR_CANCELLED;
+	}
+
+	/* loop all strokes */
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		/* only editable and visible layers are considered */
+		if (!gpencil_layer_is_editable(gpl))
+			continue;
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			/* check frame if frame range */
+			if ((type == GP_MOVE_PALETTE_BEFORE) && (gpf->framenum >= scene->r.cfra))
+				continue;
+			if ((type == GP_MOVE_PALETTE_AFTER) && (gpf->framenum < scene->r.cfra))
+				continue;
+			if ((type == GP_MOVE_PALETTE_CURRENT) && (gpf->framenum != scene->r.cfra))
+				continue;
+
+			for (bGPDstroke *gps = gpl->actframe->strokes.last; gps; gps = gps->prev) {
+				/* only if selected */
+				if ((!gps->flag & GP_STROKE_SELECT) && (type == GP_MOVE_PALETTE_SELECT))
+					continue;
+				/* skip strokes that are invalid for current view */
+				if (ED_gpencil_stroke_can_use(C, gps) == false)
+					continue;
+				/* check if the color is editable */
+				if (ED_gpencil_stroke_color_use(gpl, gps) == false)
+					continue;
+
+				/* look for new color */
+				palcolor = BKE_palette_color_getbyname(palette, gps->colorname);
+				/* if the color does not exist, create a new one to keep stroke */
+				if (palcolor == NULL) {
+					palcolor = BKE_palette_color_add_name(palette, gps->colorname);
+					copy_v4_v4(palcolor->rgb, gps->palcolor->rgb);
+					copy_v4_v4(palcolor->fill, gps->palcolor->fill);
+					/* duplicate flags */
+					if (gps->palcolor->flag & GP_LAYER_HIDE)       palcolor->flag |= PC_COLOR_HIDE;
+					if (gps->palcolor->flag & GP_LAYER_LOCKED)     palcolor->flag |= PC_COLOR_LOCKED;
+					if (gps->palcolor->flag & GP_LAYER_ONIONSKIN)  palcolor->flag |= PC_COLOR_ONIONSKIN;
+					if (gps->palcolor->flag & GP_LAYER_VOLUMETRIC) palcolor->flag |= PC_COLOR_VOLUMETRIC;
+				}
+
+				/* asign new color */
+				BLI_strncpy(gps->colorname, palcolor->info, sizeof(gps->colorname));
+				gps->palette = palette;
+				gps->palcolor = palcolor;
+			}
+		}
+	}
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_stroke_change_palette(wmOperatorType *ot)
+{
+	static EnumPropertyItem palette_move_type[] = {
+		{ GP_MOVE_PALETTE_SELECT, "SELECTED", 0, "Move selected", "" },
+		{ GP_MOVE_PALETTE_ALL, "ALL", 0, "Move all", "" },
+		{ GP_MOVE_PALETTE_BEFORE, "BEFORE", 0, "Move all before current frame", "" },
+		{ GP_MOVE_PALETTE_AFTER, "AFTER", 0, "Move all greater or equal current frame", "" },
+		{ GP_MOVE_PALETTE_CURRENT, "CURRENT", 0, "Move strokes of current frame", "" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
+	/* identifiers */
+	ot->name = "Change Stroke Palette";
+	ot->idname = "GPENCIL_OT_stroke_change_palette";
+	ot->description = "Move strokes to active palette";
+
+	/* api callbacks */
+	ot->exec = gp_stroke_change_palette_exec;
+	ot->poll = gp_active_layer_poll;
+
+	/* properties */
+	ot->prop = RNA_def_enum(ot->srna, "type", palette_move_type, GP_MOVE_PALETTE_SELECT, "Type", "");
+
+}
 /* ******************* Move Stroke to new color ************************** */
 
 static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))

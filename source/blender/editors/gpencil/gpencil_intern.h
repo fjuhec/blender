@@ -297,7 +297,18 @@ enum {
 	GP_STROKE_JOINCOPY = 1
 };
 
+/* move strokes to new palette */
+enum {
+	GP_MOVE_PALETTE_SELECT = -1,
+	GP_MOVE_PALETTE_ALL = 1,
+	GP_MOVE_PALETTE_BEFORE = 2,
+	GP_MOVE_PALETTE_AFTER = 3,
+	GP_MOVE_PALETTE_CURRENT = 4
+};
+
+
 void GPENCIL_OT_stroke_arrange(struct wmOperatorType *ot);
+void GPENCIL_OT_stroke_change_palette(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_change_color(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_lock_color(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_apply_thickness(struct wmOperatorType *ot);
