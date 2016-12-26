@@ -1026,9 +1026,27 @@ class GreasePencilPaletteColorPanel:
     bl_category = "Grease Pencil"
     bl_region_type = 'TOOLS'
 
+    @staticmethod
+    def paint_settings(context):
+        toolsettings = context.tool_settings
+
+        if context.sculpt_object:
+            return toolsettings.sculpt
+        elif context.vertex_paint_object:
+            return toolsettings.vertex_paint
+        elif context.weight_paint_object:
+            return toolsettings.weight_paint
+        elif context.image_paint_object:
+            if (toolsettings.image_paint and toolsettings.image_paint.detect_data()):
+                return toolsettings.image_paint
+
+            return toolsettings.image_paint
+
+        return toolsettings.image_paint
+
     @classmethod
     def poll(cls, context):
-        paint = self.paint_settings(context)
+        paint = cls.paint_settings(context)
         if paint is None:
             return False
         else:
@@ -1038,8 +1056,7 @@ class GreasePencilPaletteColorPanel:
     def draw(self, context):
         layout = self.layout
         palette = context.active_palette
-        settings = context.tool_settings        
-        paint = settings.image_paint
+        paint = self.paint_settings(context)
 
         row = layout.row()
         row.template_ID(paint, "palette", new="palette.new_gpencil")
@@ -1080,6 +1097,9 @@ class GreasePencilPaletteColorPanel:
                 sub.label(text="Lock:") # based on other stuff...
                 sub.operator("gpencil.stroke_lock_color", icon='BORDER_RECT', text="")
                 sub.operator("palette.lock_layer", icon='COLOR', text="")
+
+            row = layout.row()
+            row.operator_menu_enum("gpencil.stroke_change_palette", text="Change Palette...", property="type")
 
             pcolor = palette.colors.active
             if pcolor:
