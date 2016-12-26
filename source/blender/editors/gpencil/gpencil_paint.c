@@ -1000,6 +1000,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			MEM_freeN(depth_arr);
 	}
 	/* Save palette color */
+	gps->palette = p->palette;
 	gps->palcolor = p->palettecolor;
 	BLI_strncpy(gps->colorname, p->palettecolor->info, sizeof(gps->colorname));
 

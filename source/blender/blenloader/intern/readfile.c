@@ -6425,9 +6425,10 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 				gps->triangles = NULL;
 				gps->tot_triangles = 0;
 				gps->flag |= GP_STROKE_RECALC_CACHES;
-				/* the color pointer is not saved, so need to be recalculated using the color name */
-				gps->palcolor = NULL;
-				gps->flag |= GP_STROKE_RECALC_COLOR;
+				/* palette */
+				gps->palette = newlibadr(fd, gpd->id.lib, gps->palette);
+				/* relink color */
+				gps->palcolor = BKE_palette_color_getbyname(gps->palette, gps->colorname);
 			}
 		}
 	}

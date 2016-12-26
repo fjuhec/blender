@@ -860,6 +860,7 @@ void GPENCIL_OT_stroke_arrange(wmOperatorType *ot)
 static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	Palette *palette;
 	PaletteColor *color;
 
 	/* sanity checks */
@@ -867,6 +868,7 @@ static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))
 		return OPERATOR_CANCELLED;
 	}
 
+	palette = BKE_palette_get_active_from_context(C);
 	color = BKE_palette_color_get_active_from_context(C);
 	if (ELEM(NULL, color)) {
 		return OPERATOR_CANCELLED;
@@ -889,6 +891,7 @@ static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))
 					/* asign new color (only if different) */
 					if ((STREQ(gps->colorname, color->info) == false) || (gps->palcolor != color)) {
 						BLI_strncpy(gps->colorname, color->info, sizeof(gps->colorname));
+						gps->palette = palette;
 						gps->palcolor = color;
 					}
 				}

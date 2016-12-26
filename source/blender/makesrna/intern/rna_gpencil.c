@@ -28,6 +28,7 @@
 
 #include "DNA_gpencil_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_brush_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -971,9 +972,16 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
 	RNA_def_property_struct_type(prop, "GPencilTriangle");
 	RNA_def_property_ui_text(prop, "Triangles", "Triangulation data for HQ fill");
 
+	/* Palette */
+	prop = RNA_def_property(srna, "palette", PROP_POINTER, PROP_NONE);
+	RNA_def_property_struct_type(prop, "Palette");
+	RNA_def_property_pointer_sdna(prop, NULL, "palette");
+	RNA_def_property_ui_text(prop, "Palette", "Palette");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
 	/* Color */
 	prop = RNA_def_property(srna, "color", PROP_POINTER, PROP_NONE);
-	RNA_def_property_struct_type(prop, "GPencilPaletteColor");
+	RNA_def_property_struct_type(prop, "PaletteColor");
 	RNA_def_property_pointer_sdna(prop, NULL, "palcolor");
 	RNA_def_property_ui_text(prop, "Palette Color", "Color from palette used in Stroke");
 	RNA_def_property_update(prop, 0, "rna_GPencil_update");
