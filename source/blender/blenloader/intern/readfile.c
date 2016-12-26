@@ -6427,8 +6427,16 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 				gps->flag |= GP_STROKE_RECALC_CACHES;
 				/* palette */
 				gps->palette = newlibadr(fd, gpd->id.lib, gps->palette);
+				if (gps->palette == NULL) {
+					gps->palette = BKE_palette_add(G.main, "GP Palette");
+				}
 				/* relink color */
 				gps->palcolor = BKE_palette_color_getbyname(gps->palette, gps->colorname);
+				if (gps->palcolor == NULL) {
+					gps->palcolor = BKE_palette_color_add_name(gps->palette, gps->colorname);
+					/* set to a different color */
+					ARRAY_SET_ITEMS(gps->palcolor->rgb, 1.0f, 0.0f, 1.0f, 1.0f);
+				}
 			}
 		}
 	}
