@@ -2912,12 +2912,14 @@ static void write_gpencils(WriteData *wd, ListBase *lb)
 					}
 				}
 			}
-
+#if 0       
+			/* since 2.8 the palettes uses BlenderPalettes, so do not save old palettes */
 			/* write grease-pencil palettes */
 			writelist(wd, DATA, bGPDpalette, &gpd->palettes);
 			for (bGPDpalette *palette = gpd->palettes.first; palette; palette = palette->next) {
 				writelist(wd, DATA, bGPDpalettecolor, &palette->colors);
 			}
+#endif
 		}
 	}
 
