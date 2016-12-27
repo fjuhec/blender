@@ -71,6 +71,7 @@
 #include "BKE_screen.h"
 #include "BKE_tracking.h"
 #include "BKE_gpencil.h"
+#include "BKE_paint.h"
 
 #include "BLI_math.h"
 #include "BLI_listbase.h"
@@ -1556,6 +1557,46 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
+	}
+		/* ------- convert grease pencil palettes to blender palettes --------------- */
+		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
+
+			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+				/* first create all palettes and colors */
+				Palette *first = NULL;
+				for (bGPDpalette *oldpalette = gpd->palettes.first; oldpalette; oldpalette = oldpalette->next) {
+					/* create palette */
+					Palette *newpalette = BKE_palette_add(main, oldpalette->info);
+					/* save first to use later */
+					if (first == NULL) {
+						first = newpalette;
+					}
+					/* enable fake user by default */
+					id_fake_user_set(&newpalette->id);
+
+					for (bGPDpalettecolor *oldcolor = oldpalette->colors.first; oldcolor; oldcolor = oldcolor->next) {
+						PaletteColor *newcolor = BKE_palette_color_add_name(newpalette, oldcolor->info);
+						/* set color attributes */
+						copy_v4_v4(newcolor->rgb, oldcolor->color);
+						copy_v4_v4(newcolor->fill, oldcolor->fill);
+						newcolor->flag = oldcolor->flag;
+					}
+				}
+				/* second, assign the palette and the color (always to first palette) */
+				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+					for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+							Palette *palette = first;
+							PaletteColor *palcolor = BKE_palette_color_getbyname(first, gps->colorname);
+
+							gps->palette = palette;
+							gps->palcolor = palcolor;
+						}
+					}
+				}
+			}
+		}
+		/* ------- end grease pencil palettes conversion --------------- */
 	}
 
 	/* To be added to next subversion bump! */
