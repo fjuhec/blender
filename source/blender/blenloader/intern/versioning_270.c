@@ -1581,6 +1581,10 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 						copy_v4_v4(newcolor->fill, oldcolor->fill);
 						newcolor->flag = oldcolor->flag;
 					}
+					/* set first color active by default */
+					if (!BLI_listbase_is_empty(newpalette)) {
+						newpalette->active_color = 0;
+					}
 				}
 				/* second, assign the palette and the color (always to first palette) */
 				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
