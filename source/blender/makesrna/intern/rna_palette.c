@@ -219,9 +219,9 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	/* Name */
 	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_sdna(prop, NULL, "info");
-	RNA_def_property_ui_text(prop, "Name", "Color name");
-	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_PaletteColor_info_set");
 	RNA_def_struct_name_property(srna, prop);
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_PaletteColor_info_set");
+	RNA_def_property_ui_text(prop, "Name", "Color name");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
 	/* Fill Drawing Color */
