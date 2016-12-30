@@ -2366,13 +2366,14 @@ static int make_override_exec(bContext *C, wmOperator *UNUSED(op))
 	/* Note that we most likely want to do this in a more BKE generic function later, but for now will do for testing. */
 
 	id_copy(bmain, &refobj->id, (ID **)&locobj, false);
+	locobj->id.flag |= LIB_AUTOOVERRIDE;
 
 	/* Remapping *before* defining override (this will have to be fixed btw, remapping of ref pointer...). */
 	BKE_libblock_remap(bmain, refobj, locobj, ID_REMAP_SKIP_INDIRECT_USAGE);
 
 	IDOverride *override = BKE_override_init(&locobj->id, &refobj->id);
 
-	/* For testing only of course! This will have to be auto-generated... */
+	/* For testing only of course! This will have to be auto-generated/editable by user... */
 	{
 		IDOverrideProperty *overp = MEM_callocN(sizeof(IDOverrideProperty), __func__);
 		overp->rna_path = BLI_strdup("location");

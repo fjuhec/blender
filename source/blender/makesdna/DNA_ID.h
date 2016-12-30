@@ -130,6 +130,8 @@ typedef struct IDOverridePropertyOperation {
 /* IDOverridePropertyOperation->operation. */
 enum {
 	/* Basic operations. */
+	IDOVERRIDE_NOOP          =   0,  /* Special value, forbids any overriding. */
+
 	IDOVERRIDE_REPLACE       =   1,  /* Fully replace local value by reference one. */
 
 	/* Numeric-only operations. */
@@ -353,6 +355,7 @@ typedef enum ID_Type {
 
 /* id->flag (persitent). */
 enum {
+	LIB_AUTOOVERRIDE    = 1 << 0,  /* Allow automatic generation of overriding rules. */
 	LIB_FAKEUSER        = 1 << 9,
 };
 

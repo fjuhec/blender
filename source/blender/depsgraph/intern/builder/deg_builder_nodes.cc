@@ -173,7 +173,7 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 	if (id_node == NULL) {
 		id_node = m_graph->add_id_node(id, id->name);
 
-		if (id->override != NULL) {
+		if (id->override != NULL && (id->flag & LIB_AUTOOVERRIDE) != 0) {
 			ComponentDepsNode *comp_node = id_node->add_component(DEPSNODE_TYPE_PARAMETERS, "override_generator");
 			comp_node->owner = id_node;
 

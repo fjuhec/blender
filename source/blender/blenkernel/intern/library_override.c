@@ -169,7 +169,9 @@ bool BKE_override_status_check_reference(ID *local)
 bool BKE_override_operations_create(ID *local)
 {
 	BLI_assert(local->override != NULL);
-	printf("Should generate static override rules for %s\n", local->name);
+	if (local->flag & LIB_AUTOOVERRIDE) {
+		printf("Should generate static override rules for %s\n", local->name);
+	}
 	return false;
 }
 
