@@ -80,6 +80,7 @@ extern "C" {
 #include "BKE_key.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
+#include "BKE_library_override.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
@@ -167,7 +168,22 @@ RootDepsNode *DepsgraphNodeBuilder::add_root_node()
 
 IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 {
-	return m_graph->add_id_node(id, id->name);
+	IDDepsNode *id_node = m_graph->find_id_node(id);
+
+	if (id_node == NULL) {
+		id_node = m_graph->add_id_node(id, id->name);
+
+		if (id->override != NULL) {
+			ComponentDepsNode *comp_node = id_node->add_component(DEPSNODE_TYPE_PARAMETERS, "override_generator");
+			comp_node->owner = id_node;
+
+			/* TDOD We most certainly do not want to run this on every deg evaluation! Especially not during animation? */
+			add_operation_node(comp_node, DEPSOP_TYPE_INIT, function_bind(BKE_override_operations_create, id),
+							   DEG_OPCODE_OPERATION, "override_generator", 0);
+		}
+	}
+
+	return id_node;
 }
 
 TimeSourceDepsNode *DepsgraphNodeBuilder::add_time_source(ID *id)
