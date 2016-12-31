@@ -1575,12 +1575,14 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Layers", "");
 	rna_def_gpencil_layers_api(brna, prop);
 	
+#if 0
 	/* Palettes */
 	prop = RNA_def_property(srna, "palettes", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "palettes", NULL);
 	RNA_def_property_struct_type(prop, "GPencilPalette");
 	RNA_def_property_ui_text(prop, "Palettes", "");
 	rna_def_gpencil_palettes_api(brna, prop);
+#endif
 
 	/* Animation Data */
 	rna_def_animdata_common(srna);
@@ -1621,8 +1623,10 @@ void RNA_def_gpencil(BlenderRNA *brna)
 	rna_def_gpencil_stroke(brna);
 	rna_def_gpencil_stroke_point(brna);
 
+#if 0
 	rna_def_gpencil_palette(brna);
 	rna_def_gpencil_palettecolor(brna);
+#endif
 }
 
 #endif
