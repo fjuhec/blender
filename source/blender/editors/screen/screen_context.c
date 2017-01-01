@@ -46,6 +46,7 @@
 #include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_paint.h"
+#include "BKE_main.h"
 #include "BKE_gpencil.h"
 #include "BKE_layer.h"
 #include "BKE_screen.h"
@@ -76,7 +77,7 @@ const char *screen_context_dir[] = {
 	"visible_gpencil_layers", "editable_gpencil_layers", "editable_gpencil_strokes",
 	"active_gpencil_layer", "active_gpencil_frame", "active_gpencil_palette", 
 	"active_gpencil_palettecolor", "active_gpencil_brush",
-	"active_palette", "active_palettecolor",
+	"active_palette", "active_palettecolor", "available_palettes", "available_palettecolors",
 	"active_operator",
 	NULL};
 
@@ -590,6 +591,38 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 			CTX_data_pointer_set(result, &palette->id, &RNA_PaletteColor, palcolor);
 			return 1;
 		}
+	}
+	else if (CTX_data_equals(member, "active_palettecolors")) {
+		Palette *palette = BKE_palette_get_active_from_context(C);
+		if (palette) {
+			for (PaletteColor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+				CTX_data_list_add(result, &palette->id, &RNA_PaletteColor, palcolor);
+			}
+			CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
+			return 1;
+		}
+	}
+	else if (CTX_data_equals(member, "available_palettes")) {
+		Main *bmain = CTX_data_main(C);
+
+		for (Palette *palette = bmain->palettes.first; palette; palette = palette->id.next) {
+			// TODO: filter to palettes on scene
+			CTX_data_list_add(result, &palette->id, &RNA_Palette, palette);
+		}
+		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
+		return 1;
+	}
+	else if (CTX_data_equals(member, "available_palettecolors")) {
+		Main *bmain = CTX_data_main(C);
+
+		for (Palette *palette = bmain->palettes.first; palette; palette = palette->id.next) {
+			// TODO: filter to palettes on scene
+			for (PaletteColor *palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+				CTX_data_list_add(result, &palette->id, &RNA_PaletteColor, palcolor);
+			}
+		}
+		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
+		return 1;
 	}
 	else if (CTX_data_equals(member, "active_operator")) {
 		wmOperator *op = NULL;

@@ -303,6 +303,9 @@ int CTX_data_editable_gpencil_strokes(const bContext *C, ListBase *list);
 
 struct Palette *CTX_data_active_palette(const bContext *C);
 struct PaletteColor *CTX_data_active_palettecolor(const bContext *C);
+int CTX_data_active_palettecolors(const bContext *C, ListBase *list);
+int CTX_data_available_palettes(const bContext *C, ListBase *list);
+int CTX_data_available_palettecolors(const bContext *C, ListBase *list);
 
 #ifdef __cplusplus
 }

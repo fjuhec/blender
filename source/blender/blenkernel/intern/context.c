@@ -1218,3 +1218,18 @@ PaletteColor *CTX_data_active_palettecolor(const bContext *C)
 {
 	return ctx_data_pointer_get(C, "active_palettecolor");
 }
+
+int CTX_data_available_palettes(const bContext *C, ListBase *list)
+{
+	return ctx_data_collection_get(C, "available_palettes", list);
+}
+
+int CTX_data_active_palettecolorss(const bContext *C, ListBase *list)
+{
+	return ctx_data_collection_get(C, "active_palettecolors", list);
+}
+
+int CTX_data_available_palettecolors(const bContext *C, ListBase *list)
+{
+	return ctx_data_collection_get(C, "available_palettecolors", list);
+}
