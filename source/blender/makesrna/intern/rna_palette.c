@@ -105,17 +105,13 @@ static void rna_Palette_active_color_set(PointerRNA *ptr, PointerRNA value)
 
 static char *rna_Palette_color_path(PointerRNA *ptr)
 {
-	Palette *palette = (Palette *)ptr->id.data; 
-	if (palette) {
-		PaletteColor *palcolor = BLI_findlink(&palette->colors, palette->active_color);
-		if (palcolor) {
-			char name_color[(sizeof(palcolor->info) - 2) * 2];
-			BLI_strescape(name_color, palcolor->info, sizeof(name_color));
+	PaletteColor *palcolor = (PaletteColor *)ptr->data;
+	char name_esc[sizeof(palcolor->info) * 2];
 
-			return BLI_sprintfN("colors[\"%s\"]", name_color);
-		}
-	}
-	return NULL;
+	BLI_strescape(name_esc, palcolor->info, sizeof(name_esc));
+
+	return BLI_sprintfN("colors[\"%s\"]", name_esc);
+
 }
 
 static void rna_PaletteColor_info_set(PointerRNA *ptr, const char *value)
