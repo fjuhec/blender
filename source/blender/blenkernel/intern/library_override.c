@@ -91,6 +91,14 @@ void BKE_override_free(struct IDOverride **override)
 	*override = NULL;
 }
 
+/**
+ * Find override property from given RNA path, if it exists.
+ */
+IDOverrideProperty *BKE_override_property_find(IDOverride *override, const char *rna_path)
+{
+	/* XXX TODO we'll most likely want a runtime ghash to store taht mapping at some point. */
+	return BLI_findstring_ptr(&override->properties, rna_path, offsetof(IDOverrideProperty, rna_path));
+}
 
 /**
  * Check that status of local data-block is still valid against current reference one.
@@ -218,7 +226,7 @@ void BKE_override_update(ID *local)
 	/* Again, horribly innefficient in our case, we need something off-Main (aka moar generic nolib copy/free stuff)! */
 	BKE_libblock_free_ex(G.main, tmp_id, true, false);
 
-	local->flag |= LIB_TAG_OVERRIDE_OK;
+	local->tag |= LIB_TAG_OVERRIDE_OK;
 }
 
 /** Update all overrides from given \a bmain. */

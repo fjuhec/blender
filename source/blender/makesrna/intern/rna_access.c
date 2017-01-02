@@ -50,6 +50,7 @@
 #include "BKE_idcode.h"
 #include "BKE_idprop.h"
 #include "BKE_fcurve.h"
+#include "BKE_library_override.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 
@@ -7110,7 +7111,7 @@ bool RNA_struct_override_matches(
 		if (ignore_overridden) {
 			/* XXX TODO this will have to be refined to handle collections insertions, and array items */
 			char *rna_path = RNA_path_from_ID_to_property(local, prop);
-			if (BLI_findstring_ptr(&override->properties, rna_path, offsetof(IDOverrideProperty, rna_path)) != NULL) {
+			if (BKE_override_property_find(override, rna_path) != NULL) {
 				MEM_SAFE_FREE(rna_path);
 				continue;
 			}
@@ -7131,9 +7132,13 @@ bool RNA_struct_override_matches(
 void RNA_property_override_apply(PointerRNA *dst, PointerRNA *src, PropertyRNA *prop, IDOverrideProperty *op)
 {
 	for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+		const int sub_index = opop->subitem_local_index;
 		switch (opop->operation) {
+			case IDOVERRIDE_NOOP:
+				/* Dummy place-holder, nothing to do. */
+				break;
 			case IDOVERRIDE_REPLACE:
-				RNA_property_copy(dst, src, prop, -1);
+				RNA_property_copy(dst, src, prop, sub_index);
 				break;
 			/* TODO other cases! */
 		}

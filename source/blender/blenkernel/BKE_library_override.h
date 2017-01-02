@@ -41,6 +41,8 @@ struct IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_i
 void BKE_override_clear(struct IDOverride *override);
 void BKE_override_free(struct IDOverride **override);
 
+struct IDOverrideProperty *BKE_override_property_find(struct IDOverride *override, const char *rna_path);
+
 bool BKE_override_status_check_local(struct ID *local);
 bool BKE_override_status_check_reference(struct ID *local);
 
