@@ -1582,7 +1582,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 						newcolor->flag = oldcolor->flag;
 					}
 					/* set first color active by default */
-					if (!BLI_listbase_is_empty(newpalette)) {
+					if (!BLI_listbase_is_empty(&newpalette->colors)) {
 						newpalette->active_color = 0;
 					}
 				}
