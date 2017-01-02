@@ -1225,6 +1225,8 @@ void RNA_property_override_apply(struct PointerRNA *dst,
         struct PointerRNA *src, struct PropertyRNA *prop, struct IDOverrideProperty *op);
 void RNA_struct_override_apply(struct PointerRNA *dst, struct PointerRNA *src, struct IDOverride *override);
 
+bool RNA_struct_auto_override(struct PointerRNA *local, struct PointerRNA *reference, struct IDOverride *override);
+
 #ifdef __cplusplus
 }
 #endif

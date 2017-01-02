@@ -6826,7 +6826,7 @@ bool RNA_property_copy(PointerRNA *ptr, PointerRNA *fromptr, PropertyRNA *prop, 
 					
 					RNA_property_float_get_array(fromptr, fromprop, tmparray);
 					RNA_property_float_set_array(ptr, prop, tmparray);
-					
+
 					MEM_freeN(tmparray);
 				}
 				else {
@@ -7158,11 +7158,91 @@ void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, IDOverride *ove
 		{
 			BLI_assert(src_prop == dst_prop);
 
-			RNA_property_override_apply(&src_data, &dst_data, src_prop, op);
+			RNA_property_override_apply(&dst_data, &src_data, src_prop, op);
 		}
 	}
 }
 
+/** Automatically define override rules by comparing \a local and \a reference RNA structs. */
+bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverride *override)
+{
+	CollectionPropertyIterator iter;
+	PropertyRNA *iterprop;
+	bool changed = false;
+
+	BLI_assert(local->type == reference->type);
+	BLI_assert(local->id.data && reference->id.data);
+
+	if ((((ID *)local->id.data)->flag & LIB_AUTOOVERRIDE) == 0) {
+		return changed;
+	}
+
+	iterprop = RNA_struct_iterator_property(local->type);
+
+	for (RNA_property_collection_begin(local, iterprop, &iter); iter.valid; RNA_property_collection_next(&iter)) {
+		PropertyRNA *prop = iter.ptr.data;
+		IDOverrideProperty *op = NULL;
+
+		if (!(prop->flag & PROP_OVERRIDABLE)) {
+			continue;
+		}
+
+		/* XXX TODO this will have to be refined to handle collections insertions, and array items */
+		char *rna_path = RNA_path_from_ID_to_property(local, prop);
+		if (rna_path == NULL) {
+			continue;
+		}
+
+		if (STREQ(prop->identifier, "location")) {
+			printf("loc: %d\n", rna_property_equals(local, reference, prop, RNA_EQ_STRICT, override, NULL, true, true));
+		}
+		if (!rna_property_equals(local, reference, prop, RNA_EQ_STRICT, override, NULL, true, true)) {
+			switch (RNA_property_type(prop)) {
+				case PROP_POINTER:
+				{
+					PointerRNA sub_local, sub_reference;
+					sub_local = RNA_property_pointer_get(local, prop);
+					sub_reference = RNA_property_pointer_get(reference, prop);
+					changed = changed || RNA_struct_auto_override(&sub_local, &sub_reference, override);
+					break;
+				}
+				case PROP_COLLECTION:
+					/* TODO... of course... */
+					break;
+				default:
+				{
+					/* All other types. */
+					/* TODO: handle arrays! */
+					op = BKE_override_property_find(override, rna_path);
+
+					if (op != NULL) {
+						/* Already overriden prop, later we'll have to check arrays items and such,
+						 * for now assume we have nothing to do. */
+						break;
+					}
+
+					op = MEM_callocN(sizeof(IDOverrideProperty), __func__);
+					op->rna_path = BLI_strdup(rna_path);
+
+					IDOverridePropertyOperation *opop = MEM_callocN(sizeof(IDOverridePropertyOperation), __func__);
+					opop->subitem_local_index = opop->subitem_reference_index = -1;
+					opop->operation = IDOVERRIDE_REPLACE;
+
+					BLI_addtail(&op->operations, opop);
+					BLI_addtail(&override->properties, op);
+
+					changed = true;
+					break;
+				}
+			}
+		}
+
+		MEM_SAFE_FREE(rna_path);
+	}
+	RNA_property_collection_end(&iter);
+
+	return changed;
+}
 
 bool RNA_path_resolved_create(
         PointerRNA *ptr, struct PropertyRNA *prop,

@@ -178,7 +178,16 @@ bool BKE_override_operations_create(ID *local)
 {
 	BLI_assert(local->override != NULL);
 	if (local->flag & LIB_AUTOOVERRIDE) {
-		printf("Should generate static override rules for %s\n", local->name);
+		PointerRNA rnaptr_local, rnaptr_reference;
+		RNA_id_pointer_create(local, &rnaptr_local);
+		RNA_id_pointer_create(local->override->reference, &rnaptr_reference);
+
+		if (RNA_struct_auto_override(&rnaptr_local, &rnaptr_reference, local->override)) {
+			printf("We did generate static override rules for %s\n", local->name);
+		}
+		else {
+			printf("No new static override rules for %s\n", local->name);
+		}
 	}
 	return false;
 }
