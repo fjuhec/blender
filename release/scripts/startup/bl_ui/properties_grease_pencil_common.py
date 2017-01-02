@@ -1133,6 +1133,7 @@ class GreasePencilPaletteColorPanel:
         col.active = not pcolor.lock
         col.prop(pcolor, "use_volumetric_strokes")
         col = split.column(align=True)
+        col.prop(pcolor, "pass_index")
 
 
 class GreasePencilToolsPanel:

@@ -144,8 +144,7 @@ typedef struct PaletteColor {
 	char info[64];           /* color name. Must be unique. */
 	float value;             /* sculpt/weight */
 	short flag;              /* settings for palette color */
-	char  pad[2];            /* padding for compiler alignment error */
-
+	short index;             /* custom index for passes */
 } PaletteColor;
 /* PaletteColor->flag (mainly used by grease pencil) */
 typedef enum ePaletteColor_Flag {
