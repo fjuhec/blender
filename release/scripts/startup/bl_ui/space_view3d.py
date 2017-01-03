@@ -2766,17 +2766,17 @@ class VIEW3D_MT_edit_curve_specials(Menu):
         layout.operator("curve.smooth_radius")
         layout.operator("curve.smooth_tilt")
 
-        layout.separator()
-
-        layout.operator("curve.extend_curve")
-        layout.operator("curve.batch_extend")
-        layout.operator("curve.trim_curve")
-        layout.operator("curve.offset_curve")
-
-        layout.separator()
-
-        layout.operator("curve.curve_chamfer")
-        layout.operator("curve.curve_fillet")
+#        layout.separator()
+#
+#        layout.operator("curve.extend_curve")
+#        layout.operator("curve.batch_extend")
+#        layout.operator("curve.trim_curve")
+#        layout.operator("curve.offset_curve")
+#
+#        layout.separator()
+#
+#        layout.operator("curve.curve_chamfer")
+#        layout.operator("curve.curve_fillet")
 
 
 class VIEW3D_MT_edit_curve_delete(Menu):

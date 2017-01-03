@@ -8323,7 +8323,6 @@ static int curve_chamfer_modal(bContext *C, wmOperator *op, const wmEvent *event
 	EditNurb *editnurb = cu->editnurb;
 	ListBase *nubase = object_editcurve_get(obedit);
 	Nurb *nu;
-	BezTriple *bezt, *bezt1, *bezt2, *helper;
 	CD *cd = op->customdata;
 	OffsetData *opdata = cd->data;
 	float *init_mouse = cd->data->mcenter;
@@ -8431,7 +8430,7 @@ static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 	int selected = 0;
 	for (int i = 1; i < nu->pntsu - 1; i++) {
 		bezt = &nu->bezt[i];
-		if (BEZT_ISSEL_ANY(bezt)) {
+		if (BEZT_ISSEL_ANY(bezt) && (bezt->h1 == HD_VECT)) {
 			sub_v3_v3v3(v1, bezt->vec[1], bezt->vec[0]);
 			normalize_v3(v1);
 			sub_v3_v3v3(v2, bezt->vec[1], bezt->vec[2]);
@@ -8465,12 +8464,19 @@ static int curve_chamfer_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 		initNumInput(&cd->data->num_input[i]);
 	}
 
-	op->customdata = cd;
+	if (cd->selected_points) {
+		op->customdata = cd;
 
-	/* add modal handler */
-	WM_event_add_modal_handler(C, op);
+		/* add modal handler */
+		WM_event_add_modal_handler(C, op);
 
-	return OPERATOR_RUNNING_MODAL;
+		return OPERATOR_RUNNING_MODAL;
+	}
+
+	MEM_freeN(cd->data);
+	MEM_freeN(cd);
+
+	return OPERATOR_FINISHED;
 }
 
 void CURVE_OT_curve_chamfer(wmOperatorType *ot)
@@ -8496,8 +8502,6 @@ void CURVE_OT_curve_chamfer(wmOperatorType *ot)
 }
 
 /******************** Fillet operator ********************/
-/* In an ideal world, chamfer and fillet would be the same operator, since they share 90% of the code
- * TODO: Make the above true */
 
 static void fillet_handle(BezTriple *bezt, BezTriple *r_new_bezt1, BezTriple *r_new_bezt2, float theta, float r)
 {
