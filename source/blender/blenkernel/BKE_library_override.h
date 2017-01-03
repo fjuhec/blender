@@ -35,6 +35,7 @@
 struct ID;
 struct IDOverride;
 struct IDOverrideProperty;
+struct IDOverridePropertyOperation;
 struct Main;
 
 struct IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id);
@@ -42,6 +43,16 @@ void BKE_override_clear(struct IDOverride *override);
 void BKE_override_free(struct IDOverride **override);
 
 struct IDOverrideProperty *BKE_override_property_find(struct IDOverride *override, const char *rna_path);
+struct IDOverrideProperty *BKE_override_property_get(struct IDOverride *override, const char *rna_path, bool *r_created);
+
+struct IDOverridePropertyOperation *BKE_override_property_operation_find(
+        struct IDOverrideProperty *override_property,
+        const char *subitem_refname, const char *subitem_locname,
+        const int subitem_refindex, const int subitem_locindex);
+struct IDOverridePropertyOperation *BKE_override_property_operation_get(
+        struct IDOverrideProperty *override_property, const int operation,
+        const char *subitem_refname, const char *subitem_locname,
+        const int subitem_refindex, const int subitem_locindex, bool *r_created);
 
 bool BKE_override_status_check_local(struct ID *local);
 bool BKE_override_status_check_reference(struct ID *local);

@@ -40,6 +40,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
+#include "BLI_string.h"
 
 #include "RNA_access.h"
 #include "RNA_types.h"
@@ -98,6 +99,102 @@ IDOverrideProperty *BKE_override_property_find(IDOverride *override, const char 
 {
 	/* XXX TODO we'll most likely want a runtime ghash to store taht mapping at some point. */
 	return BLI_findstring_ptr(&override->properties, rna_path, offsetof(IDOverrideProperty, rna_path));
+}
+
+/**
+ * Find override property from given RNA path, or create it if it does not exist.
+ */
+IDOverrideProperty *BKE_override_property_get(IDOverride *override, const char *rna_path, bool *r_created)
+{
+	/* XXX TODO we'll most likely want a runtime ghash to store taht mapping at some point. */
+	IDOverrideProperty *op = BKE_override_property_find(override, rna_path);
+
+	if (op == NULL) {
+		op = MEM_callocN(sizeof(IDOverrideProperty), __func__);
+		op->rna_path = BLI_strdup(rna_path);
+		BLI_addtail(&override->properties, op);
+
+		if (r_created) {
+			*r_created = true;
+		}
+	}
+	else if (r_created) {
+		*r_created = false;
+	}
+
+	return op;
+}
+
+/**
+ * Find override property operation from given sub-item(s), if it exists.
+ */
+IDOverridePropertyOperation *BKE_override_property_operation_find(
+        IDOverrideProperty *override_property,
+        const char *subitem_refname, const char *subitem_locname,
+        const int subitem_refindex, const int subitem_locindex)
+{
+	IDOverridePropertyOperation *opop;
+
+	if (subitem_refname &&
+	    (opop = BLI_findstring_ptr(&override_property->operations, subitem_refname,
+	                               offsetof(IDOverridePropertyOperation, subitem_reference_name))))
+	{
+		return opop;
+	}
+
+	if (subitem_locname &&
+	    (opop = BLI_findstring_ptr(&override_property->operations, subitem_locname,
+	                               offsetof(IDOverridePropertyOperation, subitem_local_name))))
+	{
+		return opop;
+	}
+
+	if ((opop = BLI_listbase_bytes_find(&override_property->operations, &subitem_refindex, sizeof(subitem_refindex),
+	                                    offsetof(IDOverridePropertyOperation, subitem_reference_index))))
+	{
+		return opop;
+	}
+
+	if ((opop = BLI_listbase_bytes_find(&override_property->operations, &subitem_locindex, sizeof(subitem_locindex),
+	                                    offsetof(IDOverridePropertyOperation, subitem_local_index))))
+	{
+		return opop;
+	}
+
+	return NULL;
+}
+
+/**
+ * Find override property operation from given sub-item(s), or create it if it does not exist.
+ */
+IDOverridePropertyOperation *BKE_override_property_operation_get(
+        IDOverrideProperty *override_property, const int operation,
+        const char *subitem_refname, const char *subitem_locname,
+        const int subitem_refindex, const int subitem_locindex, bool *r_created)
+{
+	IDOverridePropertyOperation *opop = BKE_override_property_operation_find(override_property,
+	                                                                         subitem_refname, subitem_locname,
+	                                                                         subitem_refindex, subitem_locindex);
+
+	if (opop == NULL) {
+		opop = MEM_callocN(sizeof(IDOverridePropertyOperation), __func__);
+		opop->operation = operation;
+		if (subitem_locname) {
+			opop->subitem_local_name = BLI_strdup(subitem_locname);
+		}
+		if (subitem_refname) {
+			opop->subitem_reference_name = BLI_strdup(subitem_refname);
+		}
+		opop->subitem_local_index = subitem_locindex;
+		opop->subitem_reference_index = subitem_refindex;
+
+		BLI_addtail(&override_property->operations, opop);
+	}
+	else if (r_created) {
+		*r_created = false;
+	}
+
+	return opop;
 }
 
 /**
