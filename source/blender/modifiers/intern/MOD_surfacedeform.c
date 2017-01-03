@@ -328,7 +328,7 @@ BLI_INLINE void meanValueCoordinates(float w[], const float point[2], const floa
 
 BLI_INLINE int nearestVert(SDefBindCalcData * const data, const float point_co[3])
 {
-	const MVert *mvert = data->mvert;
+	MVert * const mvert = data->mvert;
 	BVHTreeNearest nearest = {.dist_sq = FLT_MAX, .index = -1};
 	MPoly *poly;
 	MEdge *edge;
