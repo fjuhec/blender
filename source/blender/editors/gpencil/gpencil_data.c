@@ -909,10 +909,9 @@ static int gp_stroke_change_palette_exec(bContext *C, wmOperator *op)
 					copy_v4_v4(palcolor->rgb, gps->palcolor->rgb);
 					copy_v4_v4(palcolor->fill, gps->palcolor->fill);
 					/* duplicate flags */
-					if (gps->palcolor->flag & GP_LAYER_HIDE)       palcolor->flag |= PC_COLOR_HIDE;
-					if (gps->palcolor->flag & GP_LAYER_LOCKED)     palcolor->flag |= PC_COLOR_LOCKED;
-					if (gps->palcolor->flag & GP_LAYER_ONIONSKIN)  palcolor->flag |= PC_COLOR_ONIONSKIN;
-					if (gps->palcolor->flag & GP_LAYER_VOLUMETRIC) palcolor->flag |= PC_COLOR_VOLUMETRIC;
+					palcolor->flag = gps->palcolor->flag;
+					palcolor->stroke_style = gps->palcolor->stroke_style;
+					palcolor->fill_style = gps->palcolor->fill_style;
 				}
 
 				/* asign new color */
