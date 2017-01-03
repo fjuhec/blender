@@ -1534,6 +1534,9 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	copy_v4_v4(pdata->scolor, palcolor->rgb);
 	copy_v4_v4(pdata->sfill, palcolor->fill);
 	pdata->sflag = palcolor->flag;
+	pdata->bstroke_style = palcolor->stroke_style;
+	pdata->bfill_style = palcolor->fill_style;
+
 	/* lock axis */
 	p->lock_axis = ts->gp_sculpt.lock_axis;
 
