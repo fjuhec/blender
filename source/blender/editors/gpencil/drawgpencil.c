@@ -1080,7 +1080,7 @@ static void gp_draw_strokes(
 					copy_v4_v4(ink, tcolor);
 				}
 			}
-			if (palcolor->flag & PC_COLOR_VOLUMETRIC) {
+			if (palcolor->stroke_style & STROKE_STYLE_VOLUMETRIC) {
 				/* volumetric stroke drawing */
 				gp_draw_stroke_volumetric_3d(gps->points, gps->totpoints, sthickness, ink);
 			}
@@ -1147,7 +1147,7 @@ static void gp_draw_strokes(
 					copy_v4_v4(ink, tcolor);
 				}
 			}
-			if (palcolor->flag & PC_COLOR_VOLUMETRIC) {
+			if (palcolor->stroke_style & STROKE_STYLE_VOLUMETRIC) {
 				/* blob/disk-based "volumetric" drawing */
 				gp_draw_stroke_volumetric_2d(gps->points, gps->totpoints, sthickness, dflag, gps->flag,
 				                             offsx, offsy, winx, winy, diff_mat, ink);
@@ -1531,7 +1531,7 @@ static void gp_draw_data_layers(
 			 * It should also be noted that sbuffer contains temporary point types
 			 * i.e. tGPspoints NOT bGPDspoints
 			 */
-			if (gpd->sflag & PC_COLOR_VOLUMETRIC) {
+			if (gpd->bstroke_style & STROKE_STYLE_VOLUMETRIC) {
 				gp_draw_stroke_volumetric_buffer(gpd->sbuffer, gpd->sbuffer_size, lthick,
 				                                 dflag, gpd->scolor);
 			}

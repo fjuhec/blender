@@ -156,9 +156,7 @@ typedef enum ePaletteColor_Flag {
 	/* protected from further editing */
 	PAC_COLOR_LOCKED = (1 << 2),
 	/* do onion skinning */
-	PAC_COLOR_ONIONSKIN = (1 << 3),
-	/* "volumetric" strokes (i.e. GLU Quadric discs in 3D) */
-	PAC_COLOR_VOLUMETRIC = (1 << 4)
+	PAC_COLOR_ONIONSKIN = (1 << 3)
 } ePaletteColor_Flag;
 
 typedef struct Palette {
@@ -351,6 +349,7 @@ typedef enum BlurKernelType {
 
 /* Grease Pencil Stroke styles */
 #define STROKE_STYLE_SOLID	0
+#define STROKE_STYLE_VOLUMETRIC	1
 
 /* Grease Pencil Fill styles */
 #define FILL_STYLE_SOLID	0

@@ -186,6 +186,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	/* stroke styles */
 	static EnumPropertyItem stroke_style_items[] = {
 		{ STROKE_STYLE_SOLID, "SOLID", 0, "Solid Stroke", "Draw strokes with solid color" },
+		{ STROKE_STYLE_VOLUMETRIC, "VOLUMETRIC", 0, "Volumetric Stroke", "Draw strokes with dots" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
@@ -272,13 +273,15 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Pass Index", "Index number for the \"Color Index\" pass");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+#if 0   /* integrated as stroke style */
 	/* Draw Style */
 	prop = RNA_def_property(srna, "use_volumetric_strokes", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_VOLUMETRIC);
 	RNA_def_property_ui_text(prop, "Volumetric Strokes", "Draw strokes as a series of circular blobs, resulting in "
 		"a volumetric effect");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-	
+#endif
+
 	/* stroke style */
 	prop = RNA_def_property(srna, "stroke_style", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "stroke_style");
