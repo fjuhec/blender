@@ -1634,7 +1634,8 @@ bool RNA_property_editable(PointerRNA *ptr, PropertyRNA *prop)
 
 	return ((flag & PROP_EDITABLE) &&
 	        (flag & PROP_REGISTER) == 0 &&
-	        (!id || !ID_IS_LINKED_DATABLOCK(id) || (prop->flag & PROP_LIB_EXCEPTION)));
+	        (!id || ((!ID_IS_LINKED_DATABLOCK(id) || (prop->flag & PROP_LIB_EXCEPTION)) &&
+	                 (!id->override || (prop->flag & PROP_OVERRIDABLE)))));
 }
 
 /**
@@ -1660,11 +1661,19 @@ bool RNA_property_editable_info(PointerRNA *ptr, PropertyRNA *prop, const char *
 	}
 
 	/* property from linked data-block */
-	if (id && ID_IS_LINKED_DATABLOCK(id) && (prop->flag & PROP_LIB_EXCEPTION) == 0) {
-		if (!(*r_info)[0]) {
-			*r_info = "Can't edit this property from a linked data-block.";
+	if (id) {
+		if (ID_IS_LINKED_DATABLOCK(id) && (prop->flag & PROP_LIB_EXCEPTION) == 0) {
+			if (!(*r_info)[0]) {
+				*r_info = "Can't edit this property from a linked data-block.";
+			}
+			return false;
 		}
-		return false;
+		if (id->override != NULL && (prop->flag & PROP_OVERRIDABLE) == 0) {
+			if (!(*r_info)[0]) {
+				*r_info = "Can't edit this property from an override data-block.";
+			}
+			return false;
+		}
 	}
 
 	return ((flag & PROP_EDITABLE) && (flag & PROP_REGISTER) == 0);
