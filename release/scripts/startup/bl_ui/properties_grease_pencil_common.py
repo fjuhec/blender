@@ -1128,13 +1128,9 @@ class GreasePencilPaletteColorPanel:
         col.prop(pcolor, "fill_style", text="")
 
         # Options
-        split = layout.split(percentage=0.5)
-        split.active = not pcolor.lock
-
-        col = split.column(align=True)
-        col = split.column(align=True)
-        col.active = not pcolor.lock
-        col.prop(pcolor, "pass_index")
+        row = layout.row()
+        row.active = not pcolor.lock
+        row.prop(pcolor, "pass_index")
 
 
 class GreasePencilToolsPanel:
