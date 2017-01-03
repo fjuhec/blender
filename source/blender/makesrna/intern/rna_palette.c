@@ -183,6 +183,18 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
+	/* stroke styles */
+	static EnumPropertyItem stroke_style_items[] = {
+		{ STROKE_STYLE_SOLID, "SOLID", 0, "Solid Stroke", "Draw strokes with solid color" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
+	/* fill styles */
+	static EnumPropertyItem fill_style_items[] = {
+		{ FILL_STYLE_SOLID, "SOLID", 0, "Solid Fill", "Fill area with solid color" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
 	srna = RNA_def_struct(brna, "PaletteColor", NULL);
 	RNA_def_struct_ui_text(srna, "Palette Color", "");
 	RNA_def_struct_path_func(srna, "rna_Palette_color_path");
@@ -265,6 +277,20 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_VOLUMETRIC);
 	RNA_def_property_ui_text(prop, "Volumetric Strokes", "Draw strokes as a series of circular blobs, resulting in "
 		"a volumetric effect");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+	
+	/* stroke style */
+	prop = RNA_def_property(srna, "stroke_style", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "stroke_style");
+	RNA_def_property_enum_items(prop, stroke_style_items);
+	RNA_def_property_ui_text(prop, "Style", "Select style used to draw strokes");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	/* fill style */
+	prop = RNA_def_property(srna, "fill_style", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "fill_style");
+	RNA_def_property_enum_items(prop, fill_style_items);
+	RNA_def_property_ui_text(prop, "Style", "Select style used to fill strokes");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* Read-only state props (for simpler UI code) */

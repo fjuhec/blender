@@ -145,6 +145,9 @@ typedef struct PaletteColor {
 	float value;             /* sculpt/weight */
 	short flag;              /* settings for palette color */
 	short index;             /* custom index for passes */
+	short stroke_style;      /* style for drawing strokes (used to select shader type) */
+	short fill_style;        /* style for filling areas (used to select shader type) */
+	char  pad[4];
 } PaletteColor;
 /* PaletteColor->flag (mainly used by grease pencil) */
 typedef enum ePaletteColor_Flag {
@@ -345,5 +348,11 @@ typedef enum BlurKernelType {
 } BlurKernelType;
 
 #define MAX_BRUSH_PIXEL_RADIUS 500
+
+/* Grease Pencil Stroke styles */
+#define STROKE_STYLE_SOLID	0
+
+/* Grease Pencil Fill styles */
+#define FILL_STYLE_SOLID	0
 
 #endif  /* __DNA_BRUSH_TYPES_H__ */

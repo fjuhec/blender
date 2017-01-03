@@ -1117,6 +1117,7 @@ class GreasePencilPaletteColorPanel:
         col.label(text="Stroke:")
         col.prop(pcolor, "color", text="")
         col.prop(pcolor, "alpha", slider=True)
+        col.prop(pcolor, "stroke_style", text="")
 
         # Column 2 - Fill
         col = split.column(align=True)
@@ -1124,6 +1125,7 @@ class GreasePencilPaletteColorPanel:
         col.label(text="Fill:")
         col.prop(pcolor, "fill_color", text="")
         col.prop(pcolor, "fill_alpha", text="Opacity", slider=True)
+        col.prop(pcolor, "fill_style", text="")
 
         # Options
         split = layout.split(percentage=0.5)
