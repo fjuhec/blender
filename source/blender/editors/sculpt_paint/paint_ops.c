@@ -321,6 +321,10 @@ static int palette_color_add_exec(bContext *C, wmOperator *op)
 			color->value = brush->weight;
 		}
 	}
+	
+	/* disable option to avoid errors */
+	RNA_boolean_set(op->ptr, "grease_pencil", false);
+
 	return OPERATOR_FINISHED;
 }
 
