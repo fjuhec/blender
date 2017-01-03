@@ -746,6 +746,8 @@ static int palettecolor_copy_exec(bContext *C, wmOperator *UNUSED(op))
 	copy_v4_v4(newcolor->rgb, palcolor->rgb);
 	copy_v4_v4(newcolor->fill, palcolor->fill);
 	newcolor->flag = palcolor->flag;
+	newcolor->stroke_style = palcolor->stroke_style;
+	newcolor->fill_style = palcolor->fill_style;
 
 	/* notifiers */
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
