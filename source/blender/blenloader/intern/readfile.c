@@ -8644,7 +8644,10 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 	BKE_main_id_tag_all(bfd->main, LIB_TAG_NEW, false);
 
 	/* Now that all our data-blocks are loaded, we can re-generate overrides from their references. */
-	BKE_main_override_update(bfd->main);
+	if (fd->memfile == NULL) {
+		/* Do not apply in undo case! */
+		BKE_main_override_update(bfd->main, true);
+	}
 
 	lib_verify_nodetree(bfd->main, true);
 	fix_relpaths_library(fd->relabase, bfd->main); /* make all relative paths, relative to the open blend file */

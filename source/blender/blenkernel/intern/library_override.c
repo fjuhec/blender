@@ -290,7 +290,7 @@ bool BKE_override_operations_create(ID *local)
 }
 
 /** Update given override from its reference (re-applying overriden properties). */
-void BKE_override_update(ID *local)
+void BKE_override_update(ID *local, const bool do_init)
 {
 	if (local->override == NULL) {
 		return;
@@ -298,7 +298,7 @@ void BKE_override_update(ID *local)
 
 	/* Recursively do 'ancestors' overrides first, if any. */
 	if (local->override->reference->override && (local->override->reference->tag & LIB_TAG_OVERRIDE_OK) == 0) {
-		BKE_override_update(local->override->reference);
+		BKE_override_update(local->override->reference, do_init);
 	}
 
 	/* We want to avoid having to remap here, however creating up-to-date override is much simpler if based
@@ -323,7 +323,7 @@ void BKE_override_update(ID *local)
 	RNA_id_pointer_create(local, &rnaptr_local);
 	RNA_id_pointer_create(tmp_id, &rnaptr_final);
 
-	RNA_struct_override_apply(&rnaptr_final, &rnaptr_local, local->override);
+	RNA_struct_override_apply(&rnaptr_final, &rnaptr_local, local->override, do_init);
 
 	/* This also transfers all pointers (memory) owned by local to tmp_id, and vice-versa. So when we'll free tmp_id,
 	 * we'll actually free old, outdated data from local. */
@@ -336,7 +336,7 @@ void BKE_override_update(ID *local)
 }
 
 /** Update all overrides from given \a bmain. */
-void BKE_main_override_update(Main *bmain)
+void BKE_main_override_update(Main *bmain, const bool do_init)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
 	int base_count, i;
@@ -349,7 +349,7 @@ void BKE_main_override_update(Main *bmain)
 
 		for (id = lb->first; id; id = id->next) {
 			if (id->override != NULL && id->lib == NULL) {
-				BKE_override_update(id);
+				BKE_override_update(id, do_init);
 			}
 		}
 	}
