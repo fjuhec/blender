@@ -72,7 +72,7 @@ ccl_device void kernel_next_iteration_setup(KernelGlobals *kg)
 		* has already been executed atleast once. From the next time,
 		* scene-intersect kernel may operate on queues to fetch ray index
 		*/
-		kernel_split_params.use_queues_flag[0] = 1;
+		*kernel_split_params.use_queues_flag = 1;
 
 		/* Mark queue indices of QUEUE_SHADOW_RAY_CAST_AO_RAYS and
 		 * QUEUE_SHADOW_RAY_CAST_DL_RAYS queues that were made empty during the

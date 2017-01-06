@@ -164,7 +164,7 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 		/* The scene-intersect kernel should not use the queues very first time.
 		 * since the queue would be empty.
 		 */
-		use_queues_flag[0] = 0;
+		*use_queues_flag = 0;
 	}
 
 	int x = ccl_global_id(0);
