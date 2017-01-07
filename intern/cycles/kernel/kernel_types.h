@@ -1274,6 +1274,22 @@ enum RayState {
 #define PATCH_MAP_NODE_IS_LEAF (1u << 31)
 #define PATCH_MAP_NODE_INDEX_MASK (~(PATCH_MAP_NODE_IS_SET | PATCH_MAP_NODE_IS_LEAF))
 
+/* Sample Range */
+
+typedef struct SampleRange {
+	float *buffer;
+	uint *rng_state;
+	int x;
+	int y;
+	int w;
+	int h;
+	int offset;
+	int stride;
+	int sample;
+	int work_offset;
+} SampleRange;
+static_assert_align(SampleRange, 16);
+
 CCL_NAMESPACE_END
 
 #endif /*  __KERNEL_TYPES_H__ */
