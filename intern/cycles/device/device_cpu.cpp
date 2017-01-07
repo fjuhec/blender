@@ -221,7 +221,6 @@ public:
 		}
 
 		KernelGlobals kg = thread_kernel_globals_init();
-		RenderTile tile;
 
 		void(*path_trace_kernel)(KernelGlobals*, float*, unsigned int*, int, int, int, int, int);
 
@@ -258,37 +257,44 @@ public:
 		{
 			path_trace_kernel = kernel_cpu_path_trace;
 		}
-		
-		while(task.acquire_tile(this, tile)) {
-			float *render_buffer = (float*)tile.buffer;
-			uint *rng_state = (uint*)tile.rng_state;
-			int start_sample = tile.start_sample;
-			int end_sample = tile.start_sample + tile.num_samples;
 
-			for(int sample = start_sample; sample < end_sample; sample++) {
-				if(task.get_cancel() || task_pool.canceled()) {
-					if(task.need_finish_queue == false)
-						break;
-				}
+		RenderWorkRequest work_request = {16*16, 64*64};
+		vector<RenderTile> tiles;
 
-				for(int y = tile.y; y < tile.y + tile.h; y++) {
-					for(int x = tile.x; x < tile.x + tile.w; x++) {
-						path_trace_kernel(&kg, render_buffer, rng_state,
-						                  sample, x, y, tile.offset, tile.stride);
+		while(task.acquire_tiles(this, tiles, work_request)) {
+			foreach(RenderTile& tile, tiles) {
+				float *render_buffer = (float*)tile.buffer;
+				uint *rng_state = (uint*)tile.rng_state;
+				int start_sample = tile.start_sample;
+				int end_sample = tile.start_sample + tile.num_samples;
+
+				for(int sample = start_sample; sample < end_sample; sample++) {
+					if(task.get_cancel() || task_pool.canceled()) {
+						if(task.need_finish_queue == false)
+							break;
 					}
+
+					for(int y = tile.y; y < tile.y + tile.h; y++) {
+						for(int x = tile.x; x < tile.x + tile.w; x++) {
+							path_trace_kernel(&kg, render_buffer, rng_state,
+								              sample, x, y, tile.offset, tile.stride);
+						}
+					}
+
+					tile.sample = sample + 1;
+
+					task.update_progress(&tile, tile.w*tile.h);
 				}
 
-				tile.sample = sample + 1;
-
-				task.update_progress(&tile, tile.w*tile.h);
+				task.release_tile(tile);
 			}
-
-			task.release_tile(tile);
 
 			if(task_pool.canceled()) {
 				if(task.need_finish_queue == false)
 					break;
 			}
+
+			tiles.clear();
 		}
 
 		thread_kernel_globals_free(&kg);
