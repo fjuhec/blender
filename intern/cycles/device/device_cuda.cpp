@@ -32,6 +32,7 @@
 #  include <cudaGL.h>
 #endif
 #include "util_debug.h"
+#include "util_foreach.h"
 #include "util_logging.h"
 #include "util_map.h"
 #include "util_md5.h"
@@ -826,16 +827,50 @@ public:
 		}
 	}
 
-	void path_trace(RenderTile& rtile, int sample, bool branched)
+	void path_trace(vector<RenderTile>& rtiles, int sample, bool branched)
 	{
 		if(have_error())
 			return;
 
 		cuda_push_context();
 
+		/* set the sample ranges */
+		CUdeviceptr d_sample_ranges;
+		cuda_assert(cuMemAlloc(&d_sample_ranges, sizeof(SampleRange) * rtiles.size()));
+
+		CUfunction cuSetSampleRange;
+		cuda_assert(cuModuleGetFunction(&cuSetSampleRange, cuModule, "kernel_cuda_set_sample_range"));
+
+		if(have_error())
+			return;
+
+		for(int i = 0; i < rtiles.size(); i++) {
+			RenderTile& rtile = rtiles[i];
+
+			CUdeviceptr d_buffer = cuda_device_ptr(rtile.buffer);
+			CUdeviceptr d_rng_state = cuda_device_ptr(rtile.rng_state);
+
+			void *args[] = {
+				&d_sample_ranges,
+				&i,
+				&d_buffer,
+				&d_rng_state,
+				&sample,
+				&rtile.x,
+				&rtile.y,
+				&rtile.w,
+				&rtile.h,
+				&rtile.offset,
+				&rtile.stride,
+			};
+
+			cuda_assert(cuLaunchKernel(cuSetSampleRange,
+			                           1, 1, 1, /* blocks */
+			                           1, 1, 1, /* threads */
+			                           0, 0, args, 0));
+		}
+
 		CUfunction cuPathTrace;
-		CUdeviceptr d_buffer = cuda_device_ptr(rtile.buffer);
-		CUdeviceptr d_rng_state = cuda_device_ptr(rtile.rng_state);
 
 		/* get kernel function */
 		if(branched) {
@@ -849,15 +884,8 @@ public:
 			return;
 
 		/* pass in parameters */
-		void *args[] = {&d_buffer,
-		                &d_rng_state,
-		                &sample,
-		                &rtile.x,
-		                &rtile.y,
-		                &rtile.w,
-		                &rtile.h,
-		                &rtile.offset,
-		                &rtile.stride};
+		int num_sample_ranges = rtiles.size();
+		void *args[] = {&d_sample_ranges, &num_sample_ranges};
 
 		/* launch kernel */
 		int threads_per_block;
@@ -871,8 +899,9 @@ public:
 
 		int xthreads = (int)sqrt(threads_per_block);
 		int ythreads = (int)sqrt(threads_per_block);
-		int xblocks = (rtile.w + xthreads - 1)/xthreads;
-		int yblocks = (rtile.h + ythreads - 1)/ythreads;
+		/* TODO(mai): calculate a reasonable gird size for the device */
+		int xblocks = (256 + xthreads - 1)/xthreads;
+		int yblocks = (256 + ythreads - 1)/ythreads;
 
 		cuda_assert(cuFuncSetCacheConfig(cuPathTrace, CU_FUNC_CACHE_PREFER_L1));
 
@@ -882,6 +911,8 @@ public:
 		                           0, 0, args, 0));
 
 		cuda_assert(cuCtxSynchronize());
+
+		cuda_assert(cuMemFree(cuda_device_ptr(d_sample_ranges)));
 
 		cuda_pop_context();
 	}
@@ -1251,17 +1282,26 @@ public:
 	void thread_run(DeviceTask *task)
 	{
 		if(task->type == DeviceTask::PATH_TRACE) {
-			RenderTile tile;
-
 			bool branched = task->integrator_branched;
 
 			/* Upload Bindless Mapping */
 			load_bindless_mapping();
 
+			/* TODO(mai): calculate a reasonable grid size for the device */
+			RenderWorkRequest work_request = {256*256, 256*256};
+			vector<RenderTile> tiles;
+
 			/* keep rendering tiles until done */
-			while(task->acquire_tile(this, tile)) {
-				int start_sample = tile.start_sample;
-				int end_sample = tile.start_sample + tile.num_samples;
+			while(task->acquire_tiles(this, tiles, work_request)) {
+				int start_sample = tiles[0].start_sample;
+				int end_sample = tiles[0].start_sample + tiles[0].num_samples;
+
+#ifndef NDEBUG
+				foreach(RenderTile& tile, tiles) {
+					assert(start_sample == tile.start_sample);
+					assert(end_sample == tile.start_sample + tile.num_samples);
+				}
+#endif
 
 				for(int sample = start_sample; sample < end_sample; sample++) {
 					if(task->get_cancel()) {
@@ -1269,14 +1309,22 @@ public:
 							break;
 					}
 
-					path_trace(tile, sample, branched);
+					path_trace(tiles, sample, branched);
 
-					tile.sample = sample + 1;
+					int pixel_samples = 0;
+					foreach(RenderTile& tile, tiles) {
+						tile.sample = sample + 1;
+						pixel_samples += tile.w * tile.h;
+					}
 
-					task->update_progress(&tile, tile.w*tile.h);
+					task->update_progress(tiles, pixel_samples);
 				}
 
-				task->release_tile(tile);
+				foreach(RenderTile& tile, tiles) {
+					task->release_tile(tile);
+				}
+
+				tiles.clear();
 			}
 		}
 		else if(task->type == DeviceTask::SHADER) {
