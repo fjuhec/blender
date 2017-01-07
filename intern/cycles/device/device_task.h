@@ -32,6 +32,11 @@ class RenderBuffers;
 class RenderTile;
 class Tile;
 
+struct RenderWorkRequest {
+	int num_pixel_samples;
+	int max_pixel_samples;
+};
+
 class DeviceTask : public Task {
 public:
 	typedef enum { PATH_TRACE, FILM_CONVERT, SHADER } Type;
@@ -59,6 +64,7 @@ public:
 	void update_progress(RenderTile *rtile, int pixel_samples = -1);
 
 	function<bool(Device *device, RenderTile&)> acquire_tile;
+	function<bool(Device *device, vector<RenderTile>&, const RenderWorkRequest&)> acquire_tiles;
 	function<void(long, int)> update_progress_sample;
 	function<void(RenderTile&)> update_tile_sample;
 	function<void(RenderTile&)> release_tile;

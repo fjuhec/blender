@@ -347,6 +347,17 @@ bool TileManager::next_tile(Tile& tile, int device)
 	return true;
 }
 
+size_t TileManager::next_tile_work_size(int device)
+{
+	int logical_device = preserve_tile_device? device: 0;
+
+	if((logical_device >= state.tiles.size()) || state.tiles[logical_device].empty())
+		return 0;
+
+	Tile& tile = state.tiles[logical_device].front();
+	return tile.w * tile.h;
+}
+
 bool TileManager::done()
 {
 	int end_sample = (range_num_samples == -1)

@@ -439,6 +439,136 @@ bool Session::acquire_tile(Device *tile_device, RenderTile& rtile)
 	return true;
 }
 
+bool Session::acquire_tiles(Device *tile_device, vector<RenderTile>& rtiles, const RenderWorkRequest& work_request)
+{
+	assert(rtiles.size() == 0);
+
+	if(progress.get_cancel()) {
+		if(params.progressive_refine == false) {
+			/* for progressive refine current sample should be finished for all tiles */
+			return false;
+		}
+	}
+
+	thread_scoped_lock tile_lock(tile_mutex);
+
+	vector<Tile> tiles;
+	size_t work_acquired = 0;
+	int device_num = device->device_number(tile_device);
+
+	while(work_acquired < work_request.num_pixel_samples) {
+		/* get next tile from manager */
+		Tile tile;
+
+		size_t tile_work_size = tile_manager.next_tile_work_size(device_num);
+		if(tile_work_size == 0 || work_acquired + tile_work_size > work_request.max_pixel_samples) {
+			break;
+		}
+
+		if(!tile_manager.next_tile(tile, device_num)) {
+			break;
+		}
+
+		/* fill render tile */
+		RenderTile rtile;
+		rtile.x = tile_manager.state.buffer.full_x + tile.x;
+		rtile.y = tile_manager.state.buffer.full_y + tile.y;
+		rtile.w = tile.w;
+		rtile.h = tile.h;
+		rtile.start_sample = tile_manager.state.sample;
+		rtile.num_samples = tile_manager.state.num_samples;
+		rtile.resolution = tile_manager.state.resolution_divider;
+
+		tiles.push_back(tile);
+		rtiles.push_back(rtile);
+
+		work_acquired += tile_work_size;
+	}
+
+	if(tiles.size() == 0) {
+		if(tile_manager.next_tile_work_size(device_num) != 0) {
+			progress.set_error("Tile size too large for device");
+		}
+
+		return false;
+	}
+
+	tile_lock.unlock();
+
+	/* in case of a permanent buffer, return it, otherwise we will allocate
+	 * a new temporary buffer */
+	if(!(params.background && params.output_path.empty())) {
+		for(int i = 0; i < rtiles.size(); i++) {
+			RenderTile& rtile = rtiles[i];
+
+			tile_manager.state.buffer.get_offset_stride(rtile.offset, rtile.stride);
+
+			rtile.buffer = buffers->buffer.device_pointer;
+			rtile.rng_state = buffers->rng_state.device_pointer;
+			rtile.buffers = buffers;
+
+			device->map_tile(tile_device, rtile);
+		}
+
+		return true;
+	}
+
+	for(int i = 0; i < rtiles.size(); i++) {
+		RenderTile& rtile = rtiles[i];
+
+		/* fill buffer parameters */
+		BufferParams buffer_params = tile_manager.params;
+		buffer_params.full_x = rtile.x;
+		buffer_params.full_y = rtile.y;
+		buffer_params.width = rtile.w;
+		buffer_params.height = rtile.h;
+
+		buffer_params.get_offset_stride(rtile.offset, rtile.stride);
+
+		RenderBuffers *tilebuffers;
+
+		/* allocate buffers */
+		if(params.progressive_refine) {
+			tile_lock.lock();
+
+			if(tile_buffers.size() == 0)
+				tile_buffers.resize(tile_manager.state.num_tiles, NULL);
+
+			/* In certain circumstances number of tiles in the tile manager could
+			 * be changed. This is not supported by the progressive refine feature.
+			 */
+			assert(tile_buffers.size() == tile_manager.state.num_tiles);
+
+			tilebuffers = tile_buffers[tiles[i].index];
+			if(tilebuffers == NULL) {
+				tilebuffers = new RenderBuffers(tile_device);
+				tile_buffers[tiles[i].index] = tilebuffers;
+
+				tilebuffers->reset(tile_device, buffer_params);
+			}
+
+			tile_lock.unlock();
+		}
+		else {
+			tilebuffers = new RenderBuffers(tile_device);
+
+			tilebuffers->reset(tile_device, buffer_params);
+		}
+
+		rtile.buffer = tilebuffers->buffer.device_pointer;
+		rtile.rng_state = tilebuffers->rng_state.device_pointer;
+		rtile.buffers = tilebuffers;
+
+		/* this will tag tile as IN PROGRESS in blender-side render pipeline,
+		 * which is needed to highlight currently rendering tile before first
+		 * sample was processed for it
+		 */
+		update_tile_sample(rtile);
+	}
+
+	return true;
+}
+
 void Session::update_tile_sample(RenderTile& rtile)
 {
 	thread_scoped_lock tile_lock(tile_mutex);
@@ -874,6 +1004,7 @@ void Session::path_trace()
 	DeviceTask task(DeviceTask::PATH_TRACE);
 	
 	task.acquire_tile = function_bind(&Session::acquire_tile, this, _1, _2);
+	task.acquire_tiles = function_bind(&Session::acquire_tiles, this, _1, _2, _3);
 	task.release_tile = function_bind(&Session::release_tile, this, _1);
 	task.get_cancel = function_bind(&Progress::get_cancel, &this->progress);
 	task.update_tile_sample = function_bind(&Session::update_tile_sample, this, _1);

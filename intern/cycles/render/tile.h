@@ -83,6 +83,7 @@ public:
 	void set_samples(int num_samples);
 	bool next();
 	bool next_tile(Tile& tile, int device = 0);
+	size_t next_tile_work_size(int device = 0);
 	bool done();
 
 	void set_tile_order(TileOrder tile_order_) { tile_order = tile_order_; }

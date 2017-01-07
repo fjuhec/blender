@@ -174,6 +174,7 @@ protected:
 	void reset_gpu(BufferParams& params, int samples);
 
 	bool acquire_tile(Device *tile_device, RenderTile& tile);
+	bool acquire_tiles(Device *tile_device, vector<RenderTile>& tile, const RenderWorkRequest& work_request);
 	void update_tile_sample(RenderTile& tile);
 	void release_tile(RenderTile& tile);
 
