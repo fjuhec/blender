@@ -271,6 +271,58 @@ bool BKE_override_status_check_reference(ID *local)
 /** Compares local and reference data-blocks and create new override operations as needed,
  * or reset to reference values if overriding is not allowed.
  * \return true is new overriding op was created, or some local data was reset. */
+bool BKE_override_operations_store_start(ID *local)
+{
+	BLI_assert(local->override != NULL);
+
+	/* Here we work on original local data-block, after having made a temp copy of it.
+	 * Once we are done, _store_end() will swap temp and local contents.
+	 * This allows us to keep most of original data to write (whiwh is needed to (hopefully) avoid memory/pointers
+	 * collisions in .blend file), and also neats things like original ID name. ;) */
+	/* Note: ideally I'd rather work on copy here as well, and not touch to original at all, but then we'd have
+	 * issues with ID data itself (which is currently not swapped by BKE_id_swap()) AND pointers overlapping. */
+
+	ID *tmp_id;
+	id_copy(G.main, local, &tmp_id, false);  /* XXX ...and worse of all, this won't work with scene! */
+
+	if (tmp_id == NULL) {
+		return false;
+	}
+
+	PointerRNA rnaptr_reference, rnaptr_final;
+	RNA_id_pointer_create(local->override->reference, &rnaptr_reference);
+	RNA_id_pointer_create(local, &rnaptr_final);
+
+	if (!RNA_struct_override_store(&rnaptr_final, &rnaptr_reference, local->override)) {
+		BKE_libblock_free_ex(G.main, tmp_id, true, false);
+		return false;
+	}
+
+	local->tag &= ~LIB_TAG_OVERRIDE_OK;
+	local->newid = tmp_id;
+
+	return true;
+}
+
+void BKE_override_operations_store_end(ID *local)
+{
+	BLI_assert(local->override != NULL);
+
+	ID *tmp_id = local->newid;
+	BLI_assert(tmp_id != NULL);
+
+	/* Swapping here allows us to get back original data. */
+	BKE_id_swap(local, tmp_id);
+
+	local->tag |= LIB_TAG_OVERRIDE_OK;
+	local->newid = NULL;
+
+	BKE_libblock_free_ex(G.main, tmp_id, true, false);
+}
+
+/** Compares local and reference data-blocks and create new override operations as needed,
+ * or reset to reference values if overriding is not allowed.
+ * \return true is new overriding op was created, or some local data was reset. */
 bool BKE_override_operations_create(ID *local)
 {
 	BLI_assert(local->override != NULL);

@@ -57,6 +57,9 @@ struct IDOverridePropertyOperation *BKE_override_property_operation_get(
 bool BKE_override_status_check_local(struct ID *local);
 bool BKE_override_status_check_reference(struct ID *local);
 
+bool BKE_override_operations_store_start(struct ID *local);
+void BKE_override_operations_store_end(struct ID *local);
+
 bool BKE_override_operations_create(struct ID *local);
 
 void BKE_override_update(struct ID *local, const bool do_init);

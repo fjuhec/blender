@@ -163,6 +163,7 @@
 #include "BKE_global.h" // for G
 #include "BKE_idcode.h"
 #include "BKE_library.h" // for  set_listbasepointers
+#include "BKE_library_override.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_report.h"
@@ -1859,6 +1860,8 @@ static void write_objects(WriteData *wd, ListBase *idbase)
 	ob = idbase->first;
 	while (ob) {
 		if (ob->id.us > 0 || wd->current) {
+			const bool do_override = !wd->current && ob->id.override && BKE_override_operations_store_start(&ob->id);
+
 			/* write LibData */
 			writestruct(wd, ID_OB, Object, 1, ob);
 			write_iddata(wd, &ob->id);
@@ -1913,6 +1916,10 @@ static void write_objects(WriteData *wd, ListBase *idbase)
 
 			writelist(wd, DATA, LinkData, &ob->pc_ids);
 			writelist(wd, DATA, LodLevel, &ob->lodlevels);
+
+			if (do_override) {
+				BKE_override_operations_store_end(&ob->id);
+			}
 		}
 
 		write_previews(wd, ob->preview);

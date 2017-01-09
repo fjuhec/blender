@@ -6969,6 +6969,7 @@ static bool rna_property_override_equals(
 
 		case PROP_FLOAT:
 		{
+			const bool is_proportional = (prop->flag & PROP_PROPORTIONAL) != 0;
 			if (len) {
 				float fixed_a[16], fixed_b[16];
 				float *array_a, *array_b;
@@ -6987,7 +6988,7 @@ static bool rna_property_override_equals(
 					IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 					if (op != NULL && created) {
-						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+						BKE_override_property_operation_get(op, is_proportional ? IDOVERRIDE_MULTIPLY : IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
 						if (r_override_changed) {
 							*r_override_changed = created;
 						}
@@ -7011,7 +7012,7 @@ static bool rna_property_override_equals(
 					IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
 
 					if (op != NULL && created) {  /* If not yet overridden... */
-						BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+						BKE_override_property_operation_get(op, is_proportional ? IDOVERRIDE_MULTIPLY : IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
 						if (r_override_changed) {
 							*r_override_changed = created;
 						}
@@ -7442,7 +7443,7 @@ static bool rna_property_override_operation_store(
 
 		/* its possible the custom-prop doesn't exist on this data-block */
 		if (prop == NULL) {
-			return false;
+			return changed;
 		}
 
 		/* Even though currently we now prop will always be the 'fromprop', this might not be the case in the future. */
@@ -7519,6 +7520,7 @@ static bool rna_property_override_operation_store(
 									}
 								}
 								if (do_set) {
+									changed = true;
 									RNA_property_int_set_array(ptr, prop, array_b);
 								}
 								if (array_b != fixed_b) MEM_freeN(array_b);
@@ -7549,12 +7551,13 @@ static bool rna_property_override_operation_store(
 										break;
 									}
 								}
+								changed = true;
 								RNA_property_int_set_index(ptr, prop, index, b);
 								break;
 							}
 							default:
 								BLI_assert(0 && "Unsupported RNA override diff operation on integer");
-								return false;
+								break;
 						}
 					}
 				}
@@ -7576,12 +7579,13 @@ static bool rna_property_override_operation_store(
 									break;
 								}
 							}
+							changed = true;
 							RNA_property_int_set(ptr, prop, b);
 							break;
 						}
 						default:
 							BLI_assert(0 && "Unsupported RNA override diff operation on integer");
-							return false;
+							break;
 					}
 				}
 				break;
@@ -7626,6 +7630,7 @@ static bool rna_property_override_operation_store(
 									}
 								}
 								if (do_set) {
+									changed = true;
 									RNA_property_float_set_array(ptr, prop, array_a);
 								}
 								if (array_b != fixed_b) MEM_freeN(array_b);
@@ -7645,6 +7650,7 @@ static bool rna_property_override_operation_store(
 									}
 								}
 								if (do_set) {
+									changed = true;
 									RNA_property_float_set_array(ptr, prop, array_b);
 								}
 								if (array_b != fixed_b) MEM_freeN(array_b);
@@ -7652,7 +7658,7 @@ static bool rna_property_override_operation_store(
 							}
 							default:
 								BLI_assert(0 && "Unsupported RNA override diff operation on float");
-								return false;
+								break;
 						}
 
 						if (array_a != fixed_a) MEM_freeN(array_a);
@@ -7675,6 +7681,7 @@ static bool rna_property_override_operation_store(
 										break;
 									}
 								}
+								changed = true;
 								RNA_property_float_set_index(ptr, prop, index, b);
 								break;
 							}
@@ -7685,12 +7692,13 @@ static bool rna_property_override_operation_store(
 									opop->operation = IDOVERRIDE_REPLACE;
 									break;
 								}
+								changed = true;
 								RNA_property_float_set_index(ptr, prop, index, b);
 								break;
 							}
 							default:
 								BLI_assert(0 && "Unsupported RNA override diff operation on float");
-								return false;
+								break;
 						}
 					}
 				}
@@ -7712,6 +7720,7 @@ static bool rna_property_override_operation_store(
 									break;
 								}
 							}
+							changed = true;
 							RNA_property_float_set(ptr, prop, b);
 							break;
 						}
@@ -7722,12 +7731,13 @@ static bool rna_property_override_operation_store(
 								opop->operation = IDOVERRIDE_REPLACE;
 								break;
 							}
+							changed = true;
 							RNA_property_float_set(ptr, prop, b);
 							break;
 						}
 						default:
 							BLI_assert(0 && "Unsupported RNA override diff operation on float");
-							return false;
+							break;
 					}
 				}
 				return true;
@@ -7798,6 +7808,26 @@ bool RNA_struct_override_matches(
 	return equals;
 }
 
+/** Store needed second operands into local data-block for differential override operations. */
+bool RNA_struct_override_store(PointerRNA *local, PointerRNA *reference, IDOverride *override)
+{
+	bool changed = false;
+
+	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
+		/* Simplified for now! */
+		PointerRNA src_data, dst_data;
+		PropertyRNA *src_prop, *dst_prop;
+
+		if (RNA_path_resolve_property(reference, op->rna_path, &src_data, &src_prop) &&
+		    RNA_path_resolve_property(local, op->rna_path, &dst_data, &dst_prop))
+		{
+			changed = changed || rna_property_override_operation_store(&dst_data, &src_data, src_prop, op);
+		}
+	}
+
+	return changed;
+}
+
 /** Apply given \a op override property operations on \a dst, using \a src as source. */
 void RNA_property_override_apply(
         PointerRNA *dst, PointerRNA *src, PropertyRNA *prop, IDOverrideProperty *op, const bool do_init)
@@ -7820,8 +7850,7 @@ void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, IDOverride *ove
 		if (RNA_path_resolve_property(src, op->rna_path, &src_data, &src_prop) &&
 		    RNA_path_resolve_property(dst, op->rna_path, &dst_data, &dst_prop))
 		{
-			BLI_assert(src_prop == dst_prop);
-
+			/* Note that src and dst props are the same, unless they are IDProperties... */
 			RNA_property_override_apply(&dst_data, &src_data, src_prop, op, do_init);
 		}
 	}
