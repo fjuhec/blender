@@ -2415,39 +2415,43 @@ static void do_wpaint_brush_draw_task_cb_ex(
 		sculpt_brush_test_init(ss, &test);
 		if (sculpt_brush_test(&test, vd.co)) {
 			const int vertexIndex = vd.vert_indices[vd.i];
-			const float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
-			const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
-			const float brush_alpha_value = BKE_brush_alpha_get(scene, brush);
-			const float brush_alpha_pressure =
-			brush_alpha_value * (BKE_brush_use_alpha_pressure(scene, brush) ? ss->cache->pressure : 1.0f);
-			float actualStrength = bstrength * fade * dot * brush_alpha_pressure;
-			float currentWeight;
+      MVert v = data->me->mvert[vertexIndex];
+      /* If the vertex is selected */
+      if (v.flag & 1) {
+			  const float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
+			  const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+			  const float brush_alpha_value = BKE_brush_alpha_get(scene, brush);
+			  const float brush_alpha_pressure =
+			  brush_alpha_value * (BKE_brush_use_alpha_pressure(scene, brush) ? ss->cache->pressure : 1.0f);
+			  float actualStrength = bstrength * fade * dot * brush_alpha_pressure;
+			  float currentWeight;
 
-			/* Spray logic */
-			if (!(data->vp->flag & VP_SPRAY)) {
-				MDeformVert *dv = &data->me->dvert[vertexIndex];
-				MDeformWeight *dw;
-				dw = (data->vp->flag & VP_ONLYVGROUP) ? defvert_find_index(dv, data->wpi->active.index) :
-				                                        defvert_verify_index(dv, data->wpi->active.index);
-				currentWeight = dw->weight;
-				if (ss->max_weight[vertexIndex] < 0) {
-					ss->max_weight[vertexIndex] = min_ff(bstrength + dw->weight, 1.0f);
-				}
-				CLAMP(actualStrength, 0.0, ss->max_weight[vertexIndex] - dw->weight);
-			}
+			  /* Spray logic */
+			  if (!(data->vp->flag & VP_SPRAY)) {
+				  MDeformVert *dv = &data->me->dvert[vertexIndex];
+				  MDeformWeight *dw;
+				  dw = (data->vp->flag & VP_ONLYVGROUP) ? defvert_find_index(dv, data->wpi->active.index) :
+				                                          defvert_verify_index(dv, data->wpi->active.index);
+				  currentWeight = dw->weight;
+				  if (ss->max_weight[vertexIndex] < 0) {
+					  ss->max_weight[vertexIndex] = min_ff(bstrength + dw->weight, 1.0f);
+				  }
+				  CLAMP(actualStrength, 0.0, ss->max_weight[vertexIndex] - dw->weight);
+			  }
 
-			/* Splash Prevention */
-			if (dot > 0.0){
-				switch (data->vp->flag) {
-					case VP_SPRAY:
-						if (currentWeight < ss->max_weight[vertexIndex])
-							do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, actualStrength, paintweight);
-						break;
-					default:
-						do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, actualStrength, paintweight);
-						break;
-				}
-			}
+			  /* Splash Prevention */
+			  if (dot > 0.0){
+				  switch (data->vp->flag) {
+					  case VP_SPRAY:
+						  if (currentWeight < ss->max_weight[vertexIndex])
+							  do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, actualStrength, paintweight);
+						  break;
+					  default:
+						  do_weight_paint_vertex(data->vp, data->ob, data->wpi, vertexIndex, actualStrength, paintweight);
+						  break;
+				  }
+			  }
+      }
 		}
 		BKE_pbvh_vertex_iter_end;
 	}
@@ -2477,17 +2481,20 @@ static void do_wpaint_brush_calc_ave_weight_cb_ex(
 			float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
 			if (dot > 0.0 && BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
 				int vertexIndex = vd.vert_indices[vd.i];
+        MVert v = data->me->mvert[vertexIndex];
+        /* If the vertex is selected. */
+        if (v.flag & 1) {
+				  ss->tot_loops_hit[n] += ss->vert_to_loop[vertexIndex].count;
+				  /* if a vertex is within the brush region, then add it's weight to the total weight. */
+				  for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+					  int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 
-				ss->tot_loops_hit[n] += ss->vert_to_loop[vertexIndex].count;
-				/* if a vertex is within the brush region, then add it's weight to the total weight. */
-				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
-					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
-
-					MLoop loop = data->me->mloop[loopIndex];
-					MDeformVert *dv = &data->me->dvert[loop.v];
-					MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
-					weight += dw->weight;
-				}
+					  MLoop loop = data->me->mloop[loopIndex];
+					  MDeformVert *dv = &data->me->dvert[loop.v];
+					  MDeformWeight *dw = defvert_verify_index(dv, data->wpi->active.index);
+					  weight += dw->weight;
+				  }
+        }
 			}
 		}
 		BKE_pbvh_vertex_iter_end;
@@ -3072,16 +3079,19 @@ static void do_vpaint_brush_calc_ave_color_cb_ex(
 		if (sculpt_brush_test_fast(&test, vd.co)) {
 			if (BKE_brush_curve_strength(data->brush, test.dist, cache->radius) > 0.0) {
 				int vertexIndex = vd.vert_indices[vd.i];
-
-				ss->tot_loops_hit[n] += ss->vert_to_loop[vertexIndex].count;
-				/* if a vertex is within the brush region, then add it's color to the blend. */
-				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
-					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
-					col = (char *)(&lcol[loopIndex]);
-					/* Color is squared to compensate the sqrt color encoding. */
-					blend[0] += (long)col[0] * (long)col[0];
-					blend[1] += (long)col[1] * (long)col[1];
-					blend[2] += (long)col[2] * (long)col[2];
+				/* If the vertex is selected for painting. */
+				MVert v = data->me->mvert[vertexIndex];
+				if (v.flag & 1) {
+					ss->tot_loops_hit[n] += ss->vert_to_loop[vertexIndex].count;
+					/* if a vertex is within the brush region, then add it's color to the blend. */
+					for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+						int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+						col = (char *)(&lcol[loopIndex]);
+						/* Color is squared to compensate the sqrt color encoding. */
+						blend[0] += (long)col[0] * (long)col[0];
+						blend[1] += (long)col[1] * (long)col[1];
+						blend[2] += (long)col[2] * (long)col[2];
+					}
 				}
 			}
 		}
@@ -3130,37 +3140,39 @@ static void do_vpaint_brush_draw_task_cb_ex(
 	{
 		SculptBrushTest test;
 		sculpt_brush_test_init(ss, &test);
-
 		/* Test to see if the vertex coordinates are within the spherical brush region. */
 		if (sculpt_brush_test(&test, vd.co)) {
 			int vertexIndex = vd.vert_indices[vd.i];
-			const float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
-			const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
-			unsigned int actualColor = data->vpd->paintcol;
+			/* If the vertex is selected for painting. */
+			MVert v = data->me->mvert[vertexIndex];
+			if (v.flag & 1) {
+				const float dot = dot_vf3vs3(cache->sculpt_normal_symm, vd.no);
+				const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
+				unsigned int actualColor = data->vpd->paintcol;
 
-			float alpha = 1.0;
-			if (data->vpd->is_texbrush) {
-				handle_texture_brush(data, vd, &alpha, &actualColor, brush_size_pressure, brush_alpha_pressure);
-			}
+				float alpha = 1.0;
+				if (data->vpd->is_texbrush) {
+					handle_texture_brush(data, vd, &alpha, &actualColor, brush_size_pressure, brush_alpha_pressure);
+				}
 
-			if (dot > 0.0)
-				/* if a vertex is within the brush region, then paint each loop that vertex owns. */
-				for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
-					int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
-
-					/* Previous color logic */
-					if (ss->previous_color[loopIndex] == 0) {
-						ss->previous_color[loopIndex] = lcol[loopIndex];
+				if (dot > 0.0) {
+					/* if a vertex is within the brush region, then paint each loop that vertex owns. */
+					for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+						int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+						/* Previous color logic */
+						if (ss->previous_color[loopIndex] == 0) {
+							ss->previous_color[loopIndex] = lcol[loopIndex];
+						}
+						/* Mix the new color with the original based on the brush strength and the curve. */
+						lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previous_color[loopIndex], actualColor,
+								255 * fade * bstrength * dot * alpha * brush_alpha_pressure, 255.0*bstrength);
 					}
-
-					/* Mix the new color with the original based on the brush strength and the curve. */
-					lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previous_color[loopIndex], actualColor,
-						255 * fade * bstrength * dot * alpha * brush_alpha_pressure, 255.0*bstrength);
 				}
 			}
-			BKE_pbvh_vertex_iter_end;
 		}
+		BKE_pbvh_vertex_iter_end;
 	}
+}
 
 static void do_vpaint_brush_blur_task_cb_ex(
 	void *userdata, void *UNUSED(userdata_chunk), const int n, const int UNUSED(thread_id))
@@ -3189,46 +3201,49 @@ static void do_vpaint_brush_blur_task_cb_ex(
 			if (dot > 0.0){
 				const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 				int vertexIndex = vd.vert_indices[vd.i];
-
-				/* Get the average poly color */
-				total_hit_loops = 0;
-				finalColor = 0;
-				blend[0] = 0;
-				blend[1] = 0;
-				blend[2] = 0;
-				blend[3] = 0;
-				for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
-					int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
-					MPoly poly = data->me->mpoly[polyIndex];
-					total_hit_loops += poly.totloop;
-					for (int k = 0; k < poly.totloop; k++) {
-						unsigned int loopIndex = poly.loopstart + k;
-						col = (char *)(&lcol[loopIndex]);
-						/* Color is squared to compensate the sqrt color encoding. */
-						blend[0] += (unsigned int)col[0] * (unsigned int)col[0];
-						blend[1] += (unsigned int)col[1] * (unsigned int)col[1];
-						blend[2] += (unsigned int)col[2] * (unsigned int)col[2];
-						blend[3] += (unsigned int)col[3] * (unsigned int)col[3];
-					}
-				}
-				if (total_hit_loops != 0) {
-					col = (char*)(&finalColor);
-					col[0] = (unsigned char)round(sqrtl(divide_round_i(blend[0], total_hit_loops)));
-					col[1] = (unsigned char)round(sqrtl(divide_round_i(blend[1], total_hit_loops)));
-					col[2] = (unsigned char)round(sqrtl(divide_round_i(blend[2], total_hit_loops)));
-					col[3] = (unsigned char)round(sqrtl(divide_round_i(blend[3], total_hit_loops)));
-
-					/* if a vertex is within the brush region, then paint each loop that vertex owns. */
-					for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
-						int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
-
-						/* Previous color logic */
-						if (ss->previous_color[loopIndex] == 0) {
-							ss->previous_color[loopIndex] = lcol[loopIndex];
+				/* If the vertex is selected for painting. */
+				MVert v = data->me->mvert[vertexIndex];
+				if (v.flag & 1) {
+					/* Get the average poly color */
+					total_hit_loops = 0;
+					finalColor = 0;
+					blend[0] = 0;
+					blend[1] = 0;
+					blend[2] = 0;
+					blend[3] = 0;
+					for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
+						int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
+						MPoly poly = data->me->mpoly[polyIndex];
+						total_hit_loops += poly.totloop;
+						for (int k = 0; k < poly.totloop; k++) {
+							unsigned int loopIndex = poly.loopstart + k;
+							col = (char *)(&lcol[loopIndex]);
+							/* Color is squared to compensate the sqrt color encoding. */
+							blend[0] += (unsigned int)col[0] * (unsigned int)col[0];
+							blend[1] += (unsigned int)col[1] * (unsigned int)col[1];
+							blend[2] += (unsigned int)col[2] * (unsigned int)col[2];
+							blend[3] += (unsigned int)col[3] * (unsigned int)col[3];
 						}
+					}
+					if (total_hit_loops != 0) {
+						col = (char*)(&finalColor);
+						col[0] = (unsigned char)round(sqrtl(divide_round_i(blend[0], total_hit_loops)));
+						col[1] = (unsigned char)round(sqrtl(divide_round_i(blend[1], total_hit_loops)));
+						col[2] = (unsigned char)round(sqrtl(divide_round_i(blend[2], total_hit_loops)));
+						col[3] = (unsigned char)round(sqrtl(divide_round_i(blend[3], total_hit_loops)));
 
-						/* Mix the new color with the original based on the brush strength and the curve. */
-						lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previous_color[loopIndex], *((unsigned int*)col), 255.0 * fade * bstrength * dot, 255.0);
+						/* if a vertex is within the brush region, then paint each loop that vertex owns. */
+						for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+							int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+
+							/* Previous color logic */
+							if (ss->previous_color[loopIndex] == 0) {
+								ss->previous_color[loopIndex] = lcol[loopIndex];
+							}
+
+							/* Mix the new color with the original based on the brush strength and the curve. */
+							lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previous_color[loopIndex], *((unsigned int*)col), 255.0 * fade * bstrength * dot, 255.0);
+						}
 					}
 				}
 			}
@@ -3268,47 +3283,48 @@ static void do_vpaint_brush_smudge_task_cb_ex(
 					const float fade = BKE_brush_curve_strength(brush, test.dist, cache->radius);
 					int vertexIndex = vd.vert_indices[vd.i];
 					MVert *currentVert = &data->me->mvert[vertexIndex];
+					if (currentVert->flag & 1) {
+						/* Minimum dot product between brush direction and current to neighbor direction is 0.0, meaning orthogonal. */
+						float maxDotProduct = 0.0f;
 
-					/* Minimum dot product between brush direction and current to neighbor direction is 0.0, meaning orthogonal. */
-					float maxDotProduct = 0.0f;
+						/* Get the color of the loop in the opposite direction of the brush movement */
+						finalColor = 0;
+						for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
+							int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
+							MPoly *poly = &data->me->mpoly[polyIndex];
+							for (int k = 0; k < poly->totloop; k++) {
+								unsigned int loopIndex = poly->loopstart + k;
+								MLoop *loop = &data->me->mloop[loopIndex];
+								unsigned int neighborIndex = loop->v;
+								MVert *neighbor = &data->me->mvert[neighborIndex];
 
-					/* Get the color of the loop in the opposite direction of the brush movement */
-					finalColor = 0;
-					for (int j = 0; j < ss->vert_to_poly[vertexIndex].count; j++) {
-						int polyIndex = ss->vert_to_poly[vertexIndex].indices[j];
-						MPoly *poly = &data->me->mpoly[polyIndex];
-						for (int k = 0; k < poly->totloop; k++) {
-							unsigned int loopIndex = poly->loopstart + k;
-							MLoop *loop = &data->me->mloop[loopIndex];
-							unsigned int neighborIndex = loop->v;
-							MVert *neighbor = &data->me->mvert[neighborIndex];
-              
-							/* Get the direction from the selected vert to the neighbor. */
-							float toNeighbor[3];
-							sub_v3_v3v3(toNeighbor, currentVert->co, neighbor->co);
-							normalize_v3(toNeighbor);
+								/* Get the direction from the selected vert to the neighbor. */
+								float toNeighbor[3];
+								sub_v3_v3v3(toNeighbor, currentVert->co, neighbor->co);
+								normalize_v3(toNeighbor);
 
-							float dotProduct = dot_v3v3(toNeighbor, brushDirection);
+								float dotProduct = dot_v3v3(toNeighbor, brushDirection);
 
-							if (dotProduct > maxDotProduct) {
-								maxDotProduct = dotProduct;
-								finalColor = lcol[loopIndex];
-								shouldColor = true;
+								if (dotProduct > maxDotProduct) {
+									maxDotProduct = dotProduct;
+									finalColor = lcol[loopIndex];
+									shouldColor = true;
+								}
 							}
 						}
-					}
-					if (shouldColor) {
-						/* if a vertex is within the brush region, then paint each loop that vertex owns. */
-						for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
-							int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
+						if (shouldColor) {
+							/* if a vertex is within the brush region, then paint each loop that vertex owns. */
+							for (int j = 0; j < ss->vert_to_loop[vertexIndex].count; ++j) {
+								int loopIndex = ss->vert_to_loop[vertexIndex].indices[j];
 
-							/* Previous color logic */
-							if (ss->previous_color[loopIndex] == 0) {
-								ss->previous_color[loopIndex] = lcol[loopIndex];
+								/* Previous color logic */
+								if (ss->previous_color[loopIndex] == 0) {
+									ss->previous_color[loopIndex] = lcol[loopIndex];
+								}
+
+								/* Mix the new color with the original based on the brush strength and the curve. */
+								lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previous_color[loopIndex], finalColor, 255.0 * fade * bstrength * dot, 255.0);
 							}
-
-							/* Mix the new color with the original based on the brush strength and the curve. */
-							lcol[loopIndex] = vpaint_blend(data->vp, lcol[loopIndex], ss->previous_color[loopIndex], finalColor, 255.0 * fade * bstrength * dot, 255.0);
 						}
 					}
 				}
