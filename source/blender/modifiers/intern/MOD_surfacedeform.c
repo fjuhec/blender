@@ -512,7 +512,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				}
 
 				/* Compute poly's parametric data */
-				cent_poly_v3(bpoly->centroid, bpoly->coords, poly->totloop);
+				mid_v3_v3_array(bpoly->centroid, bpoly->coords, poly->totloop);
 				normal_poly_v3(bpoly->normal, bpoly->coords, poly->totloop);
 
 				/* Compute poly skew angle and axis */
@@ -893,7 +893,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					copy_v3_v3(v2, data->mvert[sdbind->vert_inds[1]].co);
 					copy_v3_v3(v3, bpoly->centroid);
 
-					cent_tri_v3(cent, v1, v2, v3);
+					mid_v3_v3v3v3(cent, v1, v2, v3);
 					normal_tri_v3(norm, v1, v2, v3);
 
 					add_v3_v3v3(tmp_vec, point_co, bpoly->normal);
@@ -930,7 +930,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					copy_v3_v3(v2, data->mvert[sdbind->vert_inds[1]].co);
 					copy_v3_v3(v3, data->mvert[sdbind->vert_inds[2]].co);
 
-					cent_tri_v3(cent, v1, v2, v3);
+					mid_v3_v3v3v3(cent, v1, v2, v3);
 					normal_tri_v3(norm, v1, v2, v3);
 
 					add_v3_v3v3(tmp_vec, point_co, bpoly->normal);
@@ -1133,7 +1133,7 @@ static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], in
 				/* ---------- centroid mode ---------- */
 				else if (sdbind->mode == MOD_SDEF_MODE_CENTROID) {
 					float cent[3];
-					cent_poly_v3(cent, coords, sdbind->numverts);
+					mid_v3_v3_array(cent, coords, sdbind->numverts);
 
 					madd_v3_v3fl(temp, mvert[sdbind->vert_inds[0]].co, sdbind->vert_weights[0]);
 					madd_v3_v3fl(temp, mvert[sdbind->vert_inds[1]].co, sdbind->vert_weights[1]);
