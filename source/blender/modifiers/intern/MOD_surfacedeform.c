@@ -28,14 +28,14 @@ typedef struct SDefEdgePolys {
 
 typedef struct SDefBindCalcData {
 	BVHTreeFromMesh * const treeData;
-	SDefAdjacency ** const vert_edges;
-	SDefEdgePolys * const edge_polys;
+	const SDefAdjacency ** const vert_edges;
+	const SDefEdgePolys * const edge_polys;
 	SDefVert * const bind_verts;
 	const MLoopTri * const looptri;
-	MPoly * const mpoly;
-	MEdge * const medge;
-	MLoop * const mloop;
-	MVert * const mvert;
+	const MPoly * const mpoly;
+	const MEdge * const medge;
+	const MLoop * const mloop;
+	const MVert * const mvert;
 	float (* const vertexCos)[3];
 	const float falloff;
 	int success;
@@ -192,10 +192,10 @@ static void freeAdjacencyMap(SDefAdjacency ** const vert_edges, SDefEdgePolys * 
 	MEM_freeN(vert_edges);
 }
 
-static int buildAdjacencyMap(MPoly *poly, MEdge *edge, MLoop * const mloop, const int numpoly, const int numedges,
+static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop * const mloop, const int numpoly, const int numedges,
                               SDefAdjacency ** const vert_edges, SDefEdgePolys * const edge_polys)
 {
-	MLoop *loop;
+	const MLoop *loop;
 	SDefAdjacency *adj;
 	int i, j;
 
@@ -244,7 +244,7 @@ static int buildAdjacencyMap(MPoly *poly, MEdge *edge, MLoop * const mloop, cons
 	return 1;
 }
 
-BLI_INLINE void sortPolyVertsEdge(int *indices, MLoop * const mloop, const int edge, const int num)
+BLI_INLINE void sortPolyVertsEdge(int *indices, const MLoop * const mloop, const int edge, const int num)
 {
 	int i;
 	bool found = false;
@@ -266,7 +266,7 @@ BLI_INLINE void sortPolyVertsEdge(int *indices, MLoop * const mloop, const int e
 	}
 }
 
-BLI_INLINE void sortPolyVertsTri(int *indices, MLoop * const mloop, const int loopstart, const int num)
+BLI_INLINE void sortPolyVertsTri(int *indices, const MLoop * const mloop, const int loopstart, const int num)
 {
 	int i;
 
@@ -328,11 +328,11 @@ BLI_INLINE void meanValueCoordinates(float w[], const float point[2], const floa
 
 BLI_INLINE int nearestVert(SDefBindCalcData * const data, const float point_co[3])
 {
-	MVert * const mvert = data->mvert;
+	const MVert * const mvert = data->mvert;
 	BVHTreeNearest nearest = {.dist_sq = FLT_MAX, .index = -1};
-	MPoly *poly;
-	MEdge *edge;
-	MLoop *loop;
+	const MPoly *poly;
+	const MEdge *edge;
+	const MLoop *loop;
 	float max_dist = FLT_MAX;
 	float dist;
 	int index;
@@ -420,12 +420,12 @@ static void freeBindData(SDefBindWeightData * const bwdata)
 BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data, const float point_co[3])
 {
 	const int nearest = nearestVert(data, point_co);
-	SDefAdjacency * const vert_edges = data->vert_edges[nearest];
-	SDefEdgePolys * const edge_polys = data->edge_polys;
+	const SDefAdjacency * const vert_edges = data->vert_edges[nearest];
+	const SDefEdgePolys * const edge_polys = data->edge_polys;
 
-	SDefAdjacency *vedge;
-	MPoly *poly;
-	MLoop *loop;
+	const SDefAdjacency *vedge;
+	const MPoly *poly;
+	const MLoop *loop;
 
 	SDefBindWeightData *bwdata;
 	SDefBindPoly *bpoly;
@@ -598,7 +598,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 	if (!inf_weight_flags) {
 		for (vedge = vert_edges; vedge; vedge = vedge->next) {
 			SDefBindPoly *bpolys[2];
-			SDefEdgePolys *epolys;
+			const SDefEdgePolys *epolys;
 			float tmp1, tmp2;
 			int edge_ind = vedge->index;
 			int edge_on_poly[2];
@@ -833,7 +833,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
 		if (bpoly->weight >= FLT_EPSILON) {
 			if (bpoly->inside) {
-				MLoop *loop = &data->mloop[bpoly->loopstart];
+				const MLoop *loop = &data->mloop[bpoly->loopstart];
 
 				sdbind->influence = bpoly->weight;
 				sdbind->numverts = bpoly->numverts;
@@ -954,9 +954,9 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
                               int numverts, int tnumpoly, DerivedMesh *tdm)
 {
 	BVHTreeFromMesh treeData = {NULL};
-	MPoly *mpoly = tdm->getPolyArray(tdm);
-	MEdge *medge = tdm->getEdgeArray(tdm);
-	MLoop *mloop = tdm->getLoopArray(tdm);
+	const MPoly *mpoly = tdm->getPolyArray(tdm);
+	const MEdge *medge = tdm->getEdgeArray(tdm);
+	const MLoop *mloop = tdm->getLoopArray(tdm);
 	int tnumedges = tdm->getNumEdges(tdm);
 	int tnumverts = tdm->getNumVerts(tdm);
 	int adj_result;
@@ -1055,7 +1055,7 @@ static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], in
 	int tnumpoly;
 	SDefVert *sdvert;
 	SDefBind *sdbind;
-	MVert *mvert;
+	const MVert *mvert;
 	int i, j, k;
 	float norm[3], temp[3];
 
