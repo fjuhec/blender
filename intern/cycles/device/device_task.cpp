@@ -22,6 +22,7 @@
 #include "buffers.h"
 
 #include "util_algorithm.h"
+#include "util_foreach.h"
 #include "util_time.h"
 
 CCL_NAMESPACE_BEGIN
@@ -119,6 +120,32 @@ void DeviceTask::update_progress(RenderTile *rtile, int pixel_samples)
 
 		if(current_time - last_update_time >= 1.0) {
 			update_tile_sample(*rtile);
+
+			last_update_time = current_time;
+		}
+	}
+}
+
+void DeviceTask::update_progress(vector<RenderTile>& rtiles, int pixel_samples)
+{
+	if((type != PATH_TRACE) &&
+	   (type != SHADER))
+		return;
+
+	if(update_progress_sample) {
+		if(pixel_samples == -1) {
+			pixel_samples = shader_w;
+		}
+		update_progress_sample(pixel_samples, rtiles[0].sample);
+	}
+
+	if(update_tile_sample) {
+		double current_time = time_dt();
+
+		if(current_time - last_update_time >= 1.0) {
+			foreach(RenderTile& rtile, rtiles) {
+				update_tile_sample(rtile);
+			}
 
 			last_update_time = current_time;
 		}

@@ -62,6 +62,7 @@ public:
 	void split(list<DeviceTask>& tasks, int num, int max_size = 0);
 
 	void update_progress(RenderTile *rtile, int pixel_samples = -1);
+	void update_progress(vector<RenderTile>& rtiles, int pixel_samples = -1);
 
 	function<bool(Device *device, RenderTile&)> acquire_tile;
 	function<bool(Device *device, vector<RenderTile>&, const RenderWorkRequest&)> acquire_tiles;
