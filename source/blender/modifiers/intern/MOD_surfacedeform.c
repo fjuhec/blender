@@ -855,7 +855,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 
 					isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm);
 
-					interp_weights_face_v3(sdbind->vert_weights, v1, v2, v3, NULL, point_co_proj);
+					interp_weights_tri_v3(sdbind->vert_weights, v1, v2, v3, point_co_proj);
 
 					sdbind->normal_dist = computeNormalDisplacement(point_co, point_co_proj, bpoly->normal);
 
@@ -892,7 +892,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 
 					isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm);
 
-					interp_weights_face_v3(sdbind->vert_weights, v1, v2, v3, NULL, point_co_proj);
+					interp_weights_tri_v3(sdbind->vert_weights, v1, v2, v3, point_co_proj);
 
 					sdbind->normal_dist = computeNormalDisplacement(point_co, point_co_proj, bpoly->normal);
 
