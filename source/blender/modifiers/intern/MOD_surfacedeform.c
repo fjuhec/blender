@@ -658,7 +658,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 			float tmp2 = bpoly->point_edgemid_angles[1] / bpoly->corner_edgemid_angles[1];
 			float scale_weight, sqr, inv_sqr;
 
-			if (isnanf(tmp1) || isnanf(tmp2)) {
+			if (isnan(tmp1) || isnan(tmp2)) {
 				freeBindData(bwdata);
 				data->success = -1;
 				/* I know this message is vague, but I could not think of a way
