@@ -3534,8 +3534,15 @@ static bool view3d_main_region_draw_engine(const bContext *C, Scene *scene,
 
 		engine = RE_engine_create_ex(type, true);
 
-		engine->tile_x = scene->r.tilex;
-		engine->tile_y = scene->r.tiley;
+		int tile_x = scene->r.tilex;
+		int tile_y = scene->r.tiley;
+
+		if(type->get_ideal_tile_size) {
+			type->get_ideal_tile_size(engine, scene, &tile_x, &tile_y);
+		}
+
+		engine->tile_x = tile_x;
+		engine->tile_y = tile_y;
 
 		type->view_update(engine, C);
 

@@ -256,6 +256,29 @@ static void engine_update_script_node(RenderEngine *engine, struct bNodeTree *nt
 	RNA_parameter_list_free(&list);
 }
 
+static void engine_get_ideal_tile_size(RenderEngine *engine, struct Scene *scene, int *tile_x, int *tile_y)
+{
+	extern FunctionRNA rna_RenderEngine_get_ideal_tile_size_func;
+	PointerRNA ptr;
+	ParameterList list;
+	FunctionRNA *func;
+	void *tile_x_res, *tile_y_res;
+
+	RNA_pointer_create(NULL, engine->type->ext.srna, engine, &ptr);
+	func = &rna_RenderEngine_get_ideal_tile_size_func;
+
+	RNA_parameter_list_create(&list, &ptr, func);
+	RNA_parameter_set_lookup(&list, "scene", &scene);
+	engine->type->ext.call(NULL, &ptr, func, &list);
+
+	RNA_parameter_get_lookup(&list, "tile_x", &tile_x_res);
+	RNA_parameter_get_lookup(&list, "tile_y", &tile_y_res);
+	*tile_x = *(int*)tile_x_res;
+	*tile_y = *(int*)tile_y_res;
+
+	RNA_parameter_list_free(&list);
+}
+
 /* RenderEngine registration */
 
 static void rna_RenderEngine_unregister(Main *UNUSED(bmain), StructRNA *type)
@@ -276,7 +299,7 @@ static StructRNA *rna_RenderEngine_register(Main *bmain, ReportList *reports, vo
 	RenderEngineType *et, dummyet = {NULL};
 	RenderEngine dummyengine = {NULL};
 	PointerRNA dummyptr;
-	int have_function[6];
+	int have_function[7];
 
 	/* setup dummy engine & engine type to store static properties in */
 	dummyengine.type = &dummyet;
@@ -318,6 +341,7 @@ static StructRNA *rna_RenderEngine_register(Main *bmain, ReportList *reports, vo
 	et->view_update = (have_function[3]) ? engine_view_update : NULL;
 	et->view_draw = (have_function[4]) ? engine_view_draw : NULL;
 	et->update_script_node = (have_function[5]) ? engine_update_script_node : NULL;
+	et->get_ideal_tile_size = (have_function[6]) ? engine_get_ideal_tile_size : NULL;
 
 	BLI_addtail(&R_engines, et);
 
@@ -483,6 +507,16 @@ static void rna_def_render_engine(BlenderRNA *brna)
 	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
 	parm = RNA_def_pointer(func, "node", "Node", "", "");
 	RNA_def_parameter_flags(parm, 0, PARM_RNAPTR);
+
+	/* engine query callbacks */
+	func = RNA_def_function(srna, "get_ideal_tile_size", NULL);
+	RNA_def_function_ui_description(func, "Query ideal tile size");
+	RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
+	RNA_def_pointer(func, "scene", "Scene", "", "");
+	parm = RNA_def_int(func, "tile_x", 0, 0, INT_MAX, "Width", "", 0, INT_MAX);
+	RNA_def_function_return(func, parm);
+	parm = RNA_def_int(func, "tile_y", 0, 0, INT_MAX, "Height", "", 0, INT_MAX);
+	RNA_def_function_return(func, parm);
 
 	/* tag for redraw */
 	func = RNA_def_function(srna, "tag_redraw", "engine_tag_redraw");

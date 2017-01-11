@@ -52,6 +52,8 @@
 #include "quicktime_export.h"
 #endif
 
+#include "RE_engine.h"
+
 /* this module */
 #include "renderpipeline.h"
 #include "render_types.h"
@@ -538,9 +540,19 @@ void RE_parts_free(Render *re)
 
 void RE_parts_clamp(Render *re)
 {
+	RenderEngineType *type = RE_engines_find(re->r.engine);
+	int tilex, tiley;
+
+	tilex = re->r.tilex;
+	tiley = re->r.tiley;
+
+	if(re->engine && type->get_ideal_tile_size) {
+		type->get_ideal_tile_size(re->engine, re->scene, &tilex, &tiley);
+	}
+
 	/* part size */
-	re->partx = max_ii(1, min_ii(re->r.tilex, re->rectx));
-	re->party = max_ii(1, min_ii(re->r.tiley, re->recty));
+	re->partx = max_ii(1, min_ii(tilex, re->rectx));
+	re->party = max_ii(1, min_ii(tiley, re->recty));
 }
 
 void RE_parts_init(Render *re, bool do_crop)

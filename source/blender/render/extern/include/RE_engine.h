@@ -97,6 +97,8 @@ typedef struct RenderEngineType {
 
 	void (*update_script_node)(struct RenderEngine *engine, struct bNodeTree *ntree, struct bNode *node);
 
+	void (*get_ideal_tile_size)(struct RenderEngine *engine, struct Scene *scene, int *tile_x, int *tile_y);
+
 	/* RNA integration */
 	ExtensionRNA ext;
 } RenderEngineType;
