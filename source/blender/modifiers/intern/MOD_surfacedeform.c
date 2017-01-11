@@ -522,11 +522,11 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				normalize_v3(axis);
 
 				/* Map coords onto 2d normal plane */
-				map_to_plane_axis_angle_v2_v3v3(bpoly->point_v2, point_co, axis, angle);
+				map_to_plane_axis_angle_v2_v3v3fl(bpoly->point_v2, point_co, axis, angle);
 
 				zero_v2(bpoly->centroid_v2);
 				for (j = 0; j < poly->totloop; j++) {
-					map_to_plane_axis_angle_v2_v3v3(bpoly->coords_v2[j], bpoly->coords[j], axis, angle);
+					map_to_plane_axis_angle_v2_v3v3fl(bpoly->coords_v2[j], bpoly->coords[j], axis, angle);
 					madd_v2_v2fl(bpoly->centroid_v2, bpoly->coords_v2[j], 1.0f / poly->totloop);
 				}
 
