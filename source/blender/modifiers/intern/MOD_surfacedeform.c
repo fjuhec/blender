@@ -281,51 +281,6 @@ BLI_INLINE void sortPolyVertsTri(int *indices, const MLoop * const mloop, const 
 	}
 }
 
-BLI_INLINE void meanValueCoordinates(float w[], const float point[2], const float verts[][2], const int num)
-{
-	float vec_curr[2], vec_prev[2], vec_tmp[2];
-	float tan_prev, tan_curr, mag_curr, mag_next;
-	float tot_w = 0;
-	int i, ind_curr;
-
-	sub_v2_v2v2(vec_tmp, verts[num - 2], point);
-	sub_v2_v2v2(vec_prev, verts[num - 1], point);
-
-	mag_curr = normalize_v2(vec_prev);
-	normalize_v2(vec_tmp);
-
-	tan_prev = tan(saacos(dot_v2v2(vec_prev, vec_tmp)) / 2.0f);
-
-	for (i = 0; i < num; i++) {
-		sub_v2_v2v2(vec_curr, verts[i], point);
-		mag_next = normalize_v2(vec_curr);
-
-		tan_curr = tan(saacos(dot_v2v2(vec_curr, vec_prev)) / 2.0f);
-
-		ind_curr = (i == 0) ? (num - 1) : (i - 1);
-
-		if (mag_curr >= FLT_EPSILON) {
-			w[ind_curr] = (tan_prev + tan_curr) / mag_curr;
-			tot_w += w[ind_curr];
-		}
-		else {
-			for (i = 0; i < num; i++) {
-				w[i] = 0.0f;
-			}
-			w[ind_curr] = 1.0f;
-			return;
-		}
-
-		mag_curr = mag_next;
-		tan_prev = tan_curr;
-		copy_v2_v2(vec_prev, vec_curr);
-	}
-
-	for (i = 0; i < num; i++) {
-		w[i] /= tot_w;
-	}
-}
-
 BLI_INLINE int nearestVert(SDefBindCalcData * const data, const float point_co[3])
 {
 	const MVert * const mvert = data->mvert;
@@ -851,7 +806,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					return;
 				}
 
-				meanValueCoordinates(sdbind->vert_weights, bpoly->point_v2, bpoly->coords_v2, bpoly->numverts);
+				interp_weights_poly_v2(sdbind->vert_weights, bpoly->coords_v2, bpoly->numverts, bpoly->point_v2);
 
 				/* Reproject vert based on weights and original poly verts, to reintroduce poly non-planarity */
 				zero_v3(point_co_proj);
