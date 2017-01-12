@@ -238,10 +238,12 @@ typedef struct Library {
 
 	AssetRepositoryRef *asset_repository;
 
-	int temp_index;
-
 	short flag;
-	short pad_s1;
+	short pad_s1[3];
+
+	/* Temp data needed by read/write code. */
+	int temp_index;
+	short versionfile, subversionfile;  /* see BLENDER_VERSION, BLENDER_SUBVERSION, needed for do_versions */
 } Library;
 
 /* Library.flag */
@@ -367,6 +369,7 @@ typedef enum ID_Type {
 
 #define ID_FAKE_USERS(id) ((((ID *)id)->flag & LIB_FAKEUSER) ? 1 : 0)
 #define ID_REAL_USERS(id) (((ID *)id)->us - ID_FAKE_USERS(id))
+#define ID_EXTRA_USERS(id) (((ID *)id)->tag & LIB_TAG_EXTRAUSER ? 1 : 0)
 
 #define ID_CHECK_UNDO(id) ((GS((id)->name) != ID_SCR) && (GS((id)->name) != ID_WM))
 
@@ -436,7 +439,8 @@ enum {
 	/* tag datablock has having actually increased usercount for the extra virtual user. */
 	LIB_TAG_EXTRAUSER_SET   = 1 << 7,
 
-	/* RESET_AFTER_USE tag newly duplicated/copied IDs. */
+	/* RESET_AFTER_USE tag newly duplicated/copied IDs.
+	 * Also used internally in readfile.c to mark datablocks needing do_versions. */
 	LIB_TAG_NEW             = 1 << 8,
 	/* RESET_BEFORE_USE free test flag.
      * TODO make it a RESET_AFTER_USE too. */
