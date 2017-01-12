@@ -385,9 +385,7 @@ class CyclesRender_PT_performance(CyclesButtonsPanel, Panel):
         sub = col.column(align=True)
         sub.label(text="Tiles:")
         sub.prop(cscene, "tile_order", text="")
-
-        sub.prop(rd, "tile_x", text="X")
-        sub.prop(rd, "tile_y", text="Y")
+        sub.prop(cscene, "tile_size", text="")
 
         sub.prop(cscene, "use_progressive_refine")
 

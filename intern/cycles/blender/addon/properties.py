@@ -478,13 +478,6 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
                 default=0.0,
                 )
 
-        cls.debug_tile_size = IntProperty(
-                name="Tile Size",
-                description="",
-                min=1, max=4096,
-                default=1024,
-                )
-
         cls.preview_start_resolution = IntProperty(
                 name="Start Resolution",
                 description="Resolution to start rendering preview at, "
@@ -534,6 +527,16 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
                 items=enum_tile_order,
                 default='HILBERT_SPIRAL',
                 options=set(),  # Not animatable!
+                )
+        cls.tile_size = EnumProperty(
+                name="Tile Size",
+                description="Size of tiles while rendering",
+                items=(
+                    ("16x16", "16x16", ""),
+                    ("32x32", "32x32", ""),
+                    ("64x64", "64x64", ""),
+                    ),
+                default='32x32',
                 )
         cls.use_progressive_refine = BoolProperty(
                 name="Progressive Refine",

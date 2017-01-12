@@ -673,7 +673,10 @@ void BlenderSession::bake(BL::Object& b_object,
 	SessionParams session_params = BlenderSync::get_session_params(b_engine, b_userpref, b_scene, background);
 	BufferParams buffer_params = BlenderSync::get_buffer_params(b_render, b_v3d, b_rv3d, scene->camera, width, height);
 
-	scene->bake_manager->set_shader_limit((size_t)b_engine.tile_x(), (size_t)b_engine.tile_y());
+	/* TODO(mai): baking doesnt handle splitting work to multiple devices/threads very well
+	 * until thats improved use a larger work size to keep performance on gpu devices
+	 */
+	scene->bake_manager->set_shader_limit(256, 256);
 
 	/* set number of samples */
 	session->tile_manager.set_samples(session_params.samples);

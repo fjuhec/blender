@@ -88,6 +88,9 @@ class CyclesRender(bpy.types.RenderEngine):
         else:
             self.report({'ERROR'}, "OSL support disabled in this build.")
 
+    def get_ideal_tile_size(self, scene):
+        return tuple(int(x) for x in scene.cycles.tile_size.split('x'))
+
 
 def engine_exit():
     engine.exit()

@@ -643,21 +643,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 	}
 
 	/* tiles */
-	if(params.device.type != DEVICE_CPU && !background) {
-		/* currently GPU could be much slower than CPU when using tiles,
-		 * still need to be investigated, but meanwhile make it possible
-		 * to work in viewport smoothly
-		 */
-		int debug_tile_size = get_int(cscene, "debug_tile_size");
-
-		params.tile_size = make_int2(debug_tile_size, debug_tile_size);
-	}
-	else {
-		int tile_x = b_engine.tile_x();
-		int tile_y = b_engine.tile_y();
-
-		params.tile_size = make_int2(tile_x, tile_y);
-	}
+	params.tile_size = make_int2(b_engine.tile_x(), b_engine.tile_y());
 
 	if((BlenderSession::headless == false) && background) {
 		params.tile_order = (TileOrder)get_enum(cscene, "tile_order");
