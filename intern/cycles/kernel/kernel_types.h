@@ -1277,8 +1277,8 @@ enum RayState {
 /* Sample Range */
 
 typedef struct SampleRange {
-	float *buffer;
-	uint *rng_state;
+	ccl_global float *buffer;
+	ccl_global uint *rng_state;
 	int x;
 	int y;
 	int w;

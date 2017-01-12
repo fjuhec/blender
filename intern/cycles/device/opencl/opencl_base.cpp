@@ -206,6 +206,7 @@ bool OpenCLDeviceBase::load_kernels(const DeviceRequestedFeatures& requested_fea
 	base_program.add_kernel(ustring("convert_to_half_float"));
 	base_program.add_kernel(ustring("shader"));
 	base_program.add_kernel(ustring("bake"));
+	base_program.add_kernel(ustring("set_sample_range"));
 
 	vector<OpenCLProgram*> programs;
 	programs.push_back(&base_program);

@@ -22,6 +22,7 @@
 
 #include "kernel_types.h"
 
+#include "util_foreach.h"
 #include "util_md5.h"
 #include "util_path.h"
 #include "util_time.h"
@@ -56,30 +57,59 @@ public:
 		path_trace_program.release();
 	}
 
-	void path_trace(RenderTile& rtile, int sample)
+	void path_trace(vector<RenderTile>& rtiles, int sample)
 	{
+		/* set the sample ranges */
+		cl_mem d_sample_ranges = clCreateBuffer(cxContext,
+		                                        CL_MEM_READ_WRITE,
+		                                        sizeof(SampleRange) * rtiles.size(),
+		                                        NULL,
+		                                        &ciErr);
+		opencl_assert_err(ciErr, "clCreateBuffer");
+
+		cl_kernel ckSetSampleRange = base_program(ustring("set_sample_range"));
+
+		for(int i = 0; i < rtiles.size(); i++) {
+			RenderTile& rtile = rtiles[i];
+
+			/* Cast arguments to cl types. */
+			cl_int d_range = i;
+			cl_mem d_buffer = CL_MEM_PTR(rtile.buffer);
+			cl_mem d_rng_state = CL_MEM_PTR(rtile.rng_state);
+			cl_int d_sample = sample;
+			cl_int d_x = rtile.x;
+			cl_int d_y = rtile.y;
+			cl_int d_w = rtile.w;
+			cl_int d_h = rtile.h;
+			cl_int d_offset = rtile.offset;
+			cl_int d_stride = rtile.stride;
+
+			kernel_set_args(ckSetSampleRange, 0,
+			                d_sample_ranges,
+			                d_range,
+			                d_buffer,
+			                d_rng_state,
+			                d_sample,
+			                d_x,
+			                d_y,
+			                d_w,
+			                d_h,
+			                d_offset,
+			                d_stride);
+
+			enqueue_kernel(ckSetSampleRange, 1, 1);
+		}
+
 		/* Cast arguments to cl types. */
 		cl_mem d_data = CL_MEM_PTR(const_mem_map["__data"]->device_pointer);
-		cl_mem d_buffer = CL_MEM_PTR(rtile.buffer);
-		cl_mem d_rng_state = CL_MEM_PTR(rtile.rng_state);
-		cl_int d_x = rtile.x;
-		cl_int d_y = rtile.y;
-		cl_int d_w = rtile.w;
-		cl_int d_h = rtile.h;
-		cl_int d_offset = rtile.offset;
-		cl_int d_stride = rtile.stride;
-
-		/* Sample arguments. */
-		cl_int d_sample = sample;
+		cl_int d_num_sample_ranges = rtiles.size();
 
 		cl_kernel ckPathTraceKernel = path_trace_program(ustring("path_trace"));
 
 		cl_uint start_arg_index =
 			kernel_set_args(ckPathTraceKernel,
 			                0,
-			                d_data,
-			                d_buffer,
-			                d_rng_state);
+			                d_data);
 
 #define KERNEL_TEX(type, ttype, name) \
 		set_kernel_arg_mem(ckPathTraceKernel, &start_arg_index, #name);
@@ -88,15 +118,13 @@ public:
 
 		start_arg_index += kernel_set_args(ckPathTraceKernel,
 		                                   start_arg_index,
-		                                   d_sample,
-		                                   d_x,
-		                                   d_y,
-		                                   d_w,
-		                                   d_h,
-		                                   d_offset,
-		                                   d_stride);
+		                                   d_sample_ranges,
+		                                   d_num_sample_ranges);
 
-		enqueue_kernel(ckPathTraceKernel, d_w, d_h);
+		/* TODO(mai): calculate a reasonable grid size for the device */
+		enqueue_kernel(ckPathTraceKernel, 256, 256);
+
+		opencl_assert(clReleaseMemObject(d_sample_ranges));
 	}
 
 	void thread_run(DeviceTask *task)
@@ -108,11 +136,21 @@ public:
 			shader(*task);
 		}
 		else if(task->type == DeviceTask::PATH_TRACE) {
-			RenderTile tile;
+			/* TODO(mai): calculate a reasonable grid size for the device */
+			RenderWorkRequest work_request = {256*256, 256*256};
+			vector<RenderTile> tiles;
+
 			/* Keep rendering tiles until done. */
-			while(task->acquire_tile(this, tile)) {
-				int start_sample = tile.start_sample;
-				int end_sample = tile.start_sample + tile.num_samples;
+			while(task->acquire_tiles(this, tiles, work_request)) {
+				int start_sample = tiles[0].start_sample;
+				int end_sample = tiles[0].start_sample + tiles[0].num_samples;
+
+#ifndef NDEBUG
+				foreach(RenderTile& tile, tiles) {
+					assert(start_sample == tile.start_sample);
+					assert(end_sample == tile.start_sample + tile.num_samples);
+				}
+#endif
 
 				for(int sample = start_sample; sample < end_sample; sample++) {
 					if(task->get_cancel()) {
@@ -120,11 +158,20 @@ public:
 							break;
 					}
 
-					path_trace(tile, sample);
+					path_trace(tiles, sample);
 
-					tile.sample = sample + 1;
+					int pixel_samples = 0;
+					foreach(RenderTile& tile, tiles) {
+						tile.sample = sample + 1;
+						pixel_samples += tile.w * tile.h;
+					}
 
-					task->update_progress(&tile, tile.w*tile.h);
+					/* TODO(mai): without this we cant see tile updates, however this has a huge impact on
+					 * performace. it should be posible to solve this by using a more async style loop
+					 */
+					clFinish(cqCommandQueue);
+
+					task->update_progress(tiles, pixel_samples);
 				}
 
 				/* Complete kernel execution before release tile */
@@ -138,7 +185,11 @@ public:
 				 */
 				clFinish(cqCommandQueue);
 
-				task->release_tile(tile);
+				foreach(RenderTile& tile, tiles) {
+					task->release_tile(tile);
+				}
+
+				tiles.clear();
 			}
 		}
 	}
