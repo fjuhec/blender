@@ -80,8 +80,6 @@
 #define WIN_FRONT_OK    2
 #define WIN_BOTH_OK     3
 
-#define USE_TEXTURE_RECTANGLE 1
-
 /* ******************* drawing, overlays *************** */
 
 

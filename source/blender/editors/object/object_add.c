@@ -83,6 +83,7 @@
 #include "BKE_mesh.h"
 #include "BKE_nla.h"
 #include "BKE_object.h"
+#include "BKE_particle.h"
 #include "BKE_report.h"
 #include "BKE_sca.h"
 #include "BKE_scene.h"
@@ -1110,7 +1111,9 @@ static void object_delete_check_glsl_update(Object *ob)
 /* note: now unlinks constraints as well */
 void ED_base_object_free_and_unlink(Main *bmain, Scene *scene, Base *base)
 {
-	if (BKE_library_ID_is_indirectly_used(bmain, base->object) && ID_REAL_USERS(base->object) <= 1) {
+	if (BKE_library_ID_is_indirectly_used(bmain, base->object) &&
+	    ID_REAL_USERS(base->object) <= 1 && ID_EXTRA_USERS(base->object) == 0)
+	{
 		/* We cannot delete indirectly used object... */
 		printf("WARNING, undeletable object '%s', should have been catched before reaching this function!",
 		       base->object->id.name + 2);
@@ -1144,7 +1147,7 @@ static int object_delete_exec(bContext *C, wmOperator *op)
 			BKE_reportf(op->reports, RPT_WARNING, "Cannot delete indirectly linked object '%s'", base->object->id.name + 2);
 			continue;
 		}
-		else if (is_indirectly_used && ID_REAL_USERS(base->object) <= 1) {
+		else if (is_indirectly_used && ID_REAL_USERS(base->object) <= 1 && ID_EXTRA_USERS(base->object) == 0) {
 			BKE_reportf(op->reports, RPT_WARNING,
 			        "Cannot delete object '%s' from scene '%s', indirectly used objects need at least one user",
 			        base->object->id.name + 2, scene->id.name + 2);
@@ -1178,7 +1181,7 @@ static int object_delete_exec(bContext *C, wmOperator *op)
 				if (scene_iter != scene && !ID_IS_LINKED_DATABLOCK(scene_iter)) {
 					base_other = BKE_scene_base_find(scene_iter, base->object);
 					if (base_other) {
-						if (is_indirectly_used && ID_REAL_USERS(base->object) <= 1) {
+						if (is_indirectly_used && ID_REAL_USERS(base->object) <= 1 && ID_EXTRA_USERS(base->object) == 0) {
 							BKE_reportf(op->reports, RPT_WARNING,
 							            "Cannot delete object '%s' from scene '%s', indirectly used objects need at least one user",
 							            base->object->id.name + 2, scene_iter->id.name + 2);
@@ -2018,6 +2021,24 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, Base *base
 					if (dupflag & USER_DUP_ACT) {
 						BKE_animdata_copy_id_action(&obn->mat[a]->id, true);
 					}
+				}
+			}
+		}
+		if (dupflag & USER_DUP_PSYS) {
+			ParticleSystem *psys;
+			for (psys = obn->particlesystem.first; psys; psys = psys->next) {
+				id = (ID *) psys->part;
+				if (id) {
+					ID_NEW_REMAP_US(psys->part)
+					else {
+						psys->part = ID_NEW_SET(psys->part, BKE_particlesettings_copy(bmain, psys->part));
+					}
+
+					if (dupflag & USER_DUP_ACT) {
+						BKE_animdata_copy_id_action(&psys->part->id, true);
+					}
+
+					id_us_min(id);
 				}
 			}
 		}

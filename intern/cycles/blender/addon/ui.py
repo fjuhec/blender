@@ -226,6 +226,7 @@ class CyclesRender_PT_geometery(CyclesButtonsPanel, Panel):
 
         scene = context.scene
         cscene = scene.cycles
+        ccscene = scene.cycles_curves
 
         if cscene.feature_set == 'EXPERIMENTAL':
             split = layout.split()
@@ -251,6 +252,25 @@ class CyclesRender_PT_geometery(CyclesButtonsPanel, Panel):
             row = layout.row()
             row.prop(cscene, "volume_step_size")
             row.prop(cscene, "volume_max_steps")
+
+        layout.prop(ccscene, "use_curves", text="Use Hair")
+        col = layout.column()
+        col.active = ccscene.use_curves
+
+        col.prop(ccscene, "primitive", text="Primitive")
+        col.prop(ccscene, "shape", text="Shape")
+
+        if not (ccscene.primitive in {'CURVE_SEGMENTS', 'LINE_SEGMENTS'} and ccscene.shape == 'RIBBONS'):
+            col.prop(ccscene, "cull_backfacing", text="Cull back-faces")
+
+        if ccscene.primitive == 'TRIANGLES' and ccscene.shape == 'THICK':
+            col.prop(ccscene, "resolution", text="Resolution")
+        elif ccscene.primitive == 'CURVE_SEGMENTS':
+            col.prop(ccscene, "subdivisions", text="Curve subdivisions")
+
+        row = col.row()
+        row.prop(ccscene, "minimum_width", text="Min Pixels")
+        row.prop(ccscene, "maximum_width", text="Max Ext.")
 
 
 class CyclesRender_PT_light_paths(CyclesButtonsPanel, Panel):
@@ -1360,41 +1380,35 @@ class CyclesTexture_PT_colors(CyclesButtonsPanel, Panel):
             layout.template_color_ramp(mapping, "color_ramp", expand=True)
 
 
-class CyclesRender_PT_CurveRendering(CyclesButtonsPanel, Panel):
-    bl_label = "Cycles Hair Rendering"
+class CyclesParticle_PT_textures(CyclesButtonsPanel, Panel):
+    bl_label = "Textures"
     bl_context = "particle"
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
         psys = context.particle_system
-        return CyclesButtonsPanel.poll(context) and psys and psys.settings.type == 'HAIR'
-
-    def draw_header(self, context):
-        ccscene = context.scene.cycles_curves
-        self.layout.prop(ccscene, "use_curves", text="")
+        return psys and CyclesButtonsPanel.poll(context)
 
     def draw(self, context):
         layout = self.layout
 
-        scene = context.scene
-        ccscene = scene.cycles_curves
-
-        layout.active = ccscene.use_curves
-
-        layout.prop(ccscene, "primitive", text="Primitive")
-        layout.prop(ccscene, "shape", text="Shape")
-
-        if not (ccscene.primitive in {'CURVE_SEGMENTS', 'LINE_SEGMENTS'} and ccscene.shape == 'RIBBONS'):
-            layout.prop(ccscene, "cull_backfacing", text="Cull back-faces")
-
-        if ccscene.primitive == 'TRIANGLES' and ccscene.shape == 'THICK':
-            layout.prop(ccscene, "resolution", text="Resolution")
-        elif ccscene.primitive == 'CURVE_SEGMENTS':
-            layout.prop(ccscene, "subdivisions", text="Curve subdivisions")
+        psys = context.particle_system
+        part = psys.settings
 
         row = layout.row()
-        row.prop(ccscene, "minimum_width", text="Min Pixels")
-        row.prop(ccscene, "maximum_width", text="Max Ext.")
+        row.template_list("TEXTURE_UL_texslots", "", part, "texture_slots", part, "active_texture_index", rows=2)
+
+        col = row.column(align=True)
+        col.operator("texture.slot_move", text="", icon='TRIA_UP').type = 'UP'
+        col.operator("texture.slot_move", text="", icon='TRIA_DOWN').type = 'DOWN'
+        col.menu("TEXTURE_MT_specials", icon='DOWNARROW_HLT', text="")
+
+        if not part.active_texture:
+            layout.template_ID(part, "active_texture", new="texture.new")
+        else:
+            slot = part.texture_slots[part.active_texture_index]
+            layout.template_ID(slot, "texture", new="texture.new")
 
 
 class CyclesRender_PT_bake(CyclesButtonsPanel, Panel):
@@ -1508,6 +1522,37 @@ class CyclesRender_PT_debug(CyclesButtonsPanel, Panel):
         col.prop(cscene, "debug_use_opencl_debug", text="Debug")
 
 
+class CyclesParticle_PT_CurveSettings(CyclesButtonsPanel, Panel):
+    bl_label = "Cycles Hair Settings"
+    bl_context = "particle"
+
+    @classmethod
+    def poll(cls, context):
+        scene = context.scene
+        ccscene = scene.cycles_curves
+        psys = context.particle_system
+        use_curves = ccscene.use_curves and psys
+        return CyclesButtonsPanel.poll(context) and use_curves and psys.settings.type == 'HAIR'
+
+    def draw(self, context):
+        layout = self.layout
+
+        psys = context.particle_settings
+        cpsys = psys.cycles
+
+        row = layout.row()
+        row.prop(cpsys, "shape", text="Shape")
+
+        layout.label(text="Thickness:")
+        row = layout.row()
+        row.prop(cpsys, "root_width", text="Root")
+        row.prop(cpsys, "tip_width", text="Tip")
+
+        row = layout.row()
+        row.prop(cpsys, "radius_scale", text="Scaling")
+        row.prop(cpsys, "use_closetip", text="Close tip")
+
+
 class CyclesScene_PT_simplify(CyclesButtonsPanel, Panel):
     bl_label = "Simplify"
     bl_context = "scene"
@@ -1532,6 +1577,12 @@ class CyclesScene_PT_simplify(CyclesButtonsPanel, Panel):
         row.prop(rd, "simplify_subdivision", text="Viewport")
         row.prop(rd, "simplify_subdivision_render", text="Render")
 
+
+        col = layout.column(align=True)
+        col.label(text="Child Particles")
+        row = col.row(align=True)
+        row.prop(rd, "simplify_child_particles", text="Viewport")
+        row.prop(rd, "simplify_child_particles_render", text="Render")
 
         col = layout.column(align=True)
         split = col.split()
