@@ -147,7 +147,7 @@ kernel_cuda_path_trace(SampleRange *sample_ranges, int num_sample_ranges)
 	ccl_global SampleRange* sample_range;
 	int x, y, sample;
 
-	if(!kernel_pixel_sample_for_thread(kg, sample_ranges, num_sample_ranges, &x, &y, &sample, &sample_range)) {
+	if(!kernel_pixel_sample_for_thread(NULL, sample_ranges, num_sample_ranges, &x, &y, &sample, &sample_range)) {
 		return;
 	}
 
@@ -168,7 +168,7 @@ kernel_cuda_branched_path_trace(SampleRange *sample_ranges, int num_sample_range
 	ccl_global SampleRange* sample_range;
 	int x, y, sample;
 
-	if(!kernel_pixel_sample_for_thread(kg, sample_ranges, num_sample_ranges, &x, &y, &sample, &sample_range)) {
+	if(!kernel_pixel_sample_for_thread(NULL, sample_ranges, num_sample_ranges, &x, &y, &sample, &sample_range)) {
 		return;
 	}
 
