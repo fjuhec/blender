@@ -71,6 +71,7 @@
 #include "RNA_define.h"
 
 #include "ED_armature.h"
+#include "ED_particle.h"
 #include "ED_keyframing.h"
 #include "ED_screen.h"
 #include "ED_transform.h"
@@ -565,22 +566,20 @@ typedef struct ViewOpsData {
 
 static void calctrackballvec(const rcti *rect, int mx, int my, float vec[3])
 {
-	float x, y, radius, d, z, t;
-
-	radius = TRACKBALLSIZE;
+	const float radius = TRACKBALLSIZE;
+	const float t = radius / (float)M_SQRT2;
+	float x, y, z, d;
 
 	/* normalize x and y */
 	x = BLI_rcti_cent_x(rect) - mx;
 	x /= (float)(BLI_rcti_size_x(rect) / 4);
 	y = BLI_rcti_cent_y(rect) - my;
 	y /= (float)(BLI_rcti_size_y(rect) / 2);
-
 	d = sqrtf(x * x + y * y);
-	if (d < radius * (float)M_SQRT1_2) { /* Inside sphere */
+	if (d < t) { /* Inside sphere */
 		z = sqrtf(radius * radius - d * d);
 	}
 	else { /* On hyperbola */
-		t = radius / (float)M_SQRT2;
 		z = t * t / d;
 	}
 
@@ -3080,6 +3079,9 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	else if (BKE_paint_select_face_test(ob)) {
 		ok = paintface_minmax(ob, min, max);
 	}
+	else if (ob && (ob->mode & OB_MODE_PARTICLE_EDIT)) {
+		ok = PE_minmax(scene, min, max);
+	}
 	else if (ob &&
 	         (ob->mode & (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)))
 	{
@@ -4062,6 +4064,9 @@ static int vieworbit_exec(bContext *C, wmOperator *op)
 
 			mul_qt_qtqt(quat_new, rv3d->viewquat, quat_mul);
 
+			/* avoid precision loss over time */
+			normalize_qt(quat_new);
+
 			if (view_opposite != RV3D_VIEW_USER) {
 				rv3d->view = view_opposite;
 				/* avoid float in-precision, just get a new orientation */
@@ -4128,6 +4133,10 @@ static void view_roll_angle(ARegion *ar, float quat[4], const float orig_quat[4]
 	axis_angle_normalized_to_quat(quat_mul, dvec, angle);
 
 	mul_qt_qtqt(quat, orig_quat, quat_mul);
+
+	/* avoid precision loss over time */
+	normalize_qt(quat);
+
 	rv3d->view = RV3D_VIEW_USER;
 }
 

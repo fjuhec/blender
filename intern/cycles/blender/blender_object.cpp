@@ -25,6 +25,7 @@
 #include "particles.h"
 #include "shader.h"
 
+#include "blender_object_cull.h"
 #include "blender_sync.h"
 #include "blender_util.h"
 
@@ -87,143 +88,6 @@ static uint object_ray_visibility(BL::Object& b_ob)
 
 	return flag;
 }
-
-/* Culling */
-
-class BlenderObjectCulling
-{
-public:
-	BlenderObjectCulling(Scene *scene, BL::Scene& b_scene)
-	: use_scene_camera_cull(false),
-	  use_camera_cull(false),
-	  camera_cull_margin(0.0f),
-	  use_scene_distance_cull(false),
-	  use_distance_cull(false),
-	  distance_cull_margin(0.0f)
-	{
-		if(b_scene.render().use_simplify()) {
-			PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
-
-			use_scene_camera_cull = scene->camera->type != CAMERA_PANORAMA &&
-									!b_scene.render().use_multiview() &&
-									get_boolean(cscene, "use_camera_cull");
-			use_scene_distance_cull = scene->camera->type != CAMERA_PANORAMA &&
-									  !b_scene.render().use_multiview() &&
-									  get_boolean(cscene, "use_distance_cull");
-
-			camera_cull_margin = get_float(cscene, "camera_cull_margin");
-			distance_cull_margin = get_float(cscene, "distance_cull_margin");
-
-			if (distance_cull_margin == 0.0f) {
-				use_scene_distance_cull = false;
-			}
-		}
-	}
-
-	void init_object(Scene *scene, BL::Object& b_ob)
-	{
-		if(!use_scene_camera_cull && !use_scene_distance_cull) {
-			return;
-		}
-
-		PointerRNA cobject = RNA_pointer_get(&b_ob.ptr, "cycles");
-
-		use_camera_cull = use_scene_camera_cull && get_boolean(cobject, "use_camera_cull");
-		use_distance_cull = use_scene_distance_cull && get_boolean(cobject, "use_distance_cull");
-
-		if(use_camera_cull || use_distance_cull) {
-			/* Need to have proper projection matrix. */
-			scene->camera->update();
-		}
-	}
-
-	bool test(Scene *scene, BL::Object& b_ob, Transform& tfm)
-	{
-		if(!use_camera_cull && !use_distance_cull) {
-			return false;
-		}
-
-		/* Compute world space bounding box corners. */
-		float3 bb[8];
-		BL::Array<float, 24> boundbox = b_ob.bound_box();
-		for(int i = 0; i < 8; ++i) {
-			float3 p = make_float3(boundbox[3 * i + 0],
-								   boundbox[3 * i + 1],
-								   boundbox[3 * i + 2]);
-			bb[i] = transform_point(&tfm, p);
-		}
-
-		bool camera_culled = use_camera_cull && test_camera(scene, bb);
-		bool distance_culled = use_distance_cull && test_distance(scene, bb);
-
-		return ((camera_culled && distance_culled) ||
-		        (camera_culled && !use_distance_cull) ||
-		        (distance_culled && !use_camera_cull));
-	}
-
-private:
-	/* TODO(sergey): Not really optimal, consider approaches based on k-DOP in order
-	 * to reduce number of objects which are wrongly considered visible.
-	 */
-	bool test_camera(Scene *scene, float3 bb[8])
-	{
-		Camera *cam = scene->camera;
-		Transform& worldtondc = cam->worldtondc;
-		float3 bb_min = make_float3(FLT_MAX, FLT_MAX, FLT_MAX),
-			   bb_max = make_float3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-		bool all_behind = true;
-		for(int i = 0; i < 8; ++i) {
-			float3 p = bb[i];
-			float4 b = make_float4(p.x, p.y, p.z, 1.0f);
-			float4 c = make_float4(dot(worldtondc.x, b),
-			                       dot(worldtondc.y, b),
-			                       dot(worldtondc.z, b),
-			                       dot(worldtondc.w, b));
-			p = float4_to_float3(c / c.w);
-			if(c.z < 0.0f) {
-				p.x = 1.0f - p.x;
-				p.y = 1.0f - p.y;
-			}
-			if(c.z >= -camera_cull_margin) {
-				all_behind = false;
-			}
-			bb_min = min(bb_min, p);
-			bb_max = max(bb_max, p);
-		}
-		if(all_behind) {
-			return true;
-		}
-		return (bb_min.x >= 1.0f + camera_cull_margin ||
-		        bb_min.y >= 1.0f + camera_cull_margin ||
-		        bb_max.x <= -camera_cull_margin ||
-		        bb_max.y <= -camera_cull_margin);
-	}
-
-	bool test_distance(Scene *scene, float3 bb[8])
-	{
-		float3 camera_position = transform_get_column(&scene->camera->matrix, 3);
-		float3 bb_min = make_float3(FLT_MAX, FLT_MAX, FLT_MAX),
-			   bb_max = make_float3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-		/* Find min & max points for x & y & z on bounding box */
-		for(int i = 0; i < 8; ++i) {
-			float3 p = bb[i];
-			bb_min = min(bb_min, p);
-			bb_max = max(bb_max, p);
-		}
-
-		float3 closest_point = max(min(bb_max,camera_position),bb_min);
-		return (len_squared(camera_position - closest_point) >
-		        distance_cull_margin * distance_cull_margin);
-	}
-
-	bool use_scene_camera_cull;
-	bool use_camera_cull;
-	float camera_cull_margin;
-	bool use_scene_distance_cull;
-	bool use_distance_cull;
-	float distance_cull_margin;
-};
 
 /* Light */
 
@@ -554,8 +418,28 @@ static bool object_render_hide(BL::Object& b_ob,
                                bool parent_hide,
                                bool& hide_triangles)
 {
+	/* check if we should render or hide particle emitter */
+	BL::Object::particle_systems_iterator b_psys;
+
+	bool hair_present = false;
+	bool show_emitter = false;
+	bool hide_emitter = false;
 	bool hide_as_dupli_parent = false;
 	bool hide_as_dupli_child_original = false;
+
+	for(b_ob.particle_systems.begin(b_psys); b_psys != b_ob.particle_systems.end(); ++b_psys) {
+		if((b_psys->settings().render_type() == BL::ParticleSettings::render_type_PATH) &&
+		   (b_psys->settings().type()==BL::ParticleSettings::type_HAIR))
+			hair_present = true;
+
+		if(b_psys->settings().use_render_emitter())
+			show_emitter = true;
+		else
+			hide_emitter = true;
+	}
+
+	if(show_emitter)
+		hide_emitter = false;
 
 	/* duplicators hidden by default, except dupliframes which duplicate self */
 	if(b_ob.is_duplicator())
@@ -576,9 +460,17 @@ static bool object_render_hide(BL::Object& b_ob,
 		parent = parent.parent();
 	}
 	
-	hide_triangles = false;
+	hide_triangles = hide_emitter;
 
-	return (hide_as_dupli_parent || hide_as_dupli_child_original);
+	if(show_emitter) {
+		return false;
+	}
+	else if(hair_present) {
+		return hide_as_dupli_child_original;
+	}
+	else {
+		return (hide_as_dupli_parent || hide_as_dupli_child_original);
+	}
 }
 
 static bool object_render_hide_duplis(BL::Object& b_ob)
@@ -601,6 +493,7 @@ void BlenderSync::sync_objects(BL::SpaceView3D& b_v3d, float motion_time)
 		light_map.pre_sync();
 		mesh_map.pre_sync();
 		object_map.pre_sync();
+		particle_system_map.pre_sync();
 		motion_times.clear();
 	}
 	else {
@@ -662,15 +555,22 @@ void BlenderSync::sync_objects(BL::SpaceView3D& b_v3d, float motion_time)
 							BL::Array<int, OBJECT_PERSISTENT_ID_SIZE> persistent_id = b_dup->persistent_id();
 
 							/* sync object and mesh or light data */
-							sync_object(b_ob,
-							            persistent_id.data,
-							            *b_dup,
-							            tfm,
-							            ob_layer,
-							            motion_time,
-							            hide_tris,
-							            culling,
-							            &use_portal);
+							Object *object = sync_object(b_ob,
+							                             persistent_id.data,
+							                             *b_dup,
+							                             tfm,
+							                             ob_layer,
+							                             motion_time,
+							                             hide_tris,
+							                             culling,
+							                             &use_portal);
+
+							/* sync possible particle data, note particle_id
+							 * starts counting at 1, first is dummy particle */
+							if(!motion && object) {
+								sync_dupli_particle(b_ob, *b_dup, object);
+							}
+
 						}
 					}
 
@@ -712,6 +612,8 @@ void BlenderSync::sync_objects(BL::SpaceView3D& b_v3d, float motion_time)
 			scene->mesh_manager->tag_update(scene);
 		if(object_map.post_sync())
 			scene->object_manager->tag_update(scene);
+		if(particle_system_map.post_sync())
+			scene->particle_system_manager->tag_update(scene);
 	}
 
 	if(motion)

@@ -915,6 +915,7 @@ static void view3d_main_region_listener(bScreen *sc, ScrArea *sa, ARegion *ar, w
 				case ND_MODIFIER:
 				case ND_CONSTRAINT:
 				case ND_KEYS:
+				case ND_PARTICLE:
 				case ND_LOD:
 					ED_region_tag_redraw(ar);
 					WM_manipulatormap_tag_refresh(mmap);
