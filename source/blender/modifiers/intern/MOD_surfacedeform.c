@@ -471,7 +471,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				normal_poly_v3(bpoly->normal, bpoly->coords, poly->totloop);
 
 				/* Compute poly skew angle and axis */
-				angle = saacos(dot_v3v3(bpoly->normal, world));
+				angle = angle_normalized_v3v3(bpoly->normal, world);
 
 				cross_v3_v3v3(axis, bpoly->normal, world);
 				normalize_v3(axis);
@@ -517,13 +517,13 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				bpoly->scales[1] = normalize_v2(bpoly->cent_edgemid_vecs_v2[1]);
 
 				/* Compute the required polygon angles */
-				bpoly->edgemid_angle = saacos(dot_v2v2(bpoly->cent_edgemid_vecs_v2[0], bpoly->cent_edgemid_vecs_v2[1]));
+				bpoly->edgemid_angle = angle_normalized_v2v2(bpoly->cent_edgemid_vecs_v2[0], bpoly->cent_edgemid_vecs_v2[1]);
 
 				sub_v2_v2v2(tmp_vec_v2, bpoly->coords_v2[bpoly->corner_ind], bpoly->centroid_v2);
 				normalize_v2(tmp_vec_v2);
 
-				bpoly->corner_edgemid_angles[0] = saacos(dot_v2v2(tmp_vec_v2, bpoly->cent_edgemid_vecs_v2[0]));
-				bpoly->corner_edgemid_angles[1] = saacos(dot_v2v2(tmp_vec_v2, bpoly->cent_edgemid_vecs_v2[1]));
+				bpoly->corner_edgemid_angles[0] = angle_normalized_v2v2(tmp_vec_v2, bpoly->cent_edgemid_vecs_v2[0]);
+				bpoly->corner_edgemid_angles[1] = angle_normalized_v2v2(tmp_vec_v2, bpoly->cent_edgemid_vecs_v2[1]);
 
 				/* Check for inifnite weights, and compute angular data otherwise */
 				if (bpoly->weight_components[2] < FLT_EPSILON) {
@@ -539,8 +539,8 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 					sub_v2_v2v2(cent_point_vec, bpoly->point_v2, bpoly->centroid_v2);
 					normalize_v2(cent_point_vec);
 
-					bpoly->point_edgemid_angles[0] = saacos(dot_v2v2(cent_point_vec, bpoly->cent_edgemid_vecs_v2[0]));
-					bpoly->point_edgemid_angles[1] = saacos(dot_v2v2(cent_point_vec, bpoly->cent_edgemid_vecs_v2[1]));
+					bpoly->point_edgemid_angles[0] = angle_normalized_v2v2(cent_point_vec, bpoly->cent_edgemid_vecs_v2[0]);
+					bpoly->point_edgemid_angles[1] = angle_normalized_v2v2(cent_point_vec, bpoly->cent_edgemid_vecs_v2[1]);
 				}
 			}
 		}
