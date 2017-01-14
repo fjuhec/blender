@@ -4047,14 +4047,11 @@ void map_to_plane_v2_v3v3(float r_co[2], const float co[3], const float no[3])
 {
 	float target[3] = {0.0f, 0.0f, 1.0f};
 	float axis[3];
-	float angle;
 
 	cross_v3_v3v3(axis, no, target);
 	normalize_v3(axis);
 
-	angle = saacos(dot_v3v3(no, target));
-
-	map_to_plane_axis_angle_v2_v3v3fl(r_co, co, axis, angle);
+	map_to_plane_axis_angle_v2_v3v3fl(r_co, co, axis, angle_normalized_v3v3(no, target));
 }
 
 void map_to_plane_axis_angle_v2_v3v3fl(float r_co[2], const float co[3], const float axis[3], const float angle)
