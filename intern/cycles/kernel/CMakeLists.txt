@@ -72,6 +72,7 @@ set(SRC_HEADERS
 	kernel_projection.h
 	kernel_queues.h
 	kernel_random.h
+	kernel_sample_range.h
 	kernel_shader.h
 	kernel_shadow.h
 	kernel_subsurface.h

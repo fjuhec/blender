@@ -24,6 +24,7 @@
 #include "../../kernel_path.h"
 #include "../../kernel_path_branched.h"
 #include "../../kernel_bake.h"
+#include "../../kernel_sample_range.h"
 
 /* device data taken from CUDA occupancy calculator */
 
@@ -123,68 +124,37 @@
 
 /* kernels */
 extern "C" __global__ void
-kernel_cuda_set_sample_range(SampleRange *sample_ranges, int range, float *buffer, uint *rng_state, int sample, int sx, int sy, int sw, int sh, int offset, int stride)
+kernel_cuda_set_sample_range(
+	SampleRange *sample_ranges,
+	int range,
+	float *buffer,
+	uint *rng_state,
+	int sample,
+	int sx,
+	int sy,
+	int sw,
+	int sh,
+	int offset,
+	int stride)
 {
-	SampleRange* sample_range = &sample_ranges[range];
-
-	sample_range->buffer = buffer;
-	sample_range->rng_state = rng_state;
-	sample_range->sample = sample;
-	sample_range->x = sx;
-	sample_range->y = sy;
-	sample_range->w = sw;
-	sample_range->h = sh;
-	sample_range->offset = offset;
-	sample_range->stride = stride;
-
-	if(range == 0) {
-		sample_range->work_offset = 0;
-	}
-	else {
-		SampleRange* prev_range = &sample_ranges[range-1];
-		sample_range->work_offset = prev_range->work_offset + prev_range->w * prev_range->h;
-	}
+	kernel_set_sample_range(sample_ranges, range, buffer, rng_state, sample, sx, sy, sw, sh, offset, stride);
 }
 
 extern "C" __global__ void
 CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_MAX_REGISTERS)
 kernel_cuda_path_trace(SampleRange *sample_ranges, int num_sample_ranges)
 {
-	/* order threads to maintain inner block coherency */
-	const int group_id = blockIdx.x + gridDim.x * blockIdx.y;
-	const int local_thread_id = threadIdx.x + threadIdx.y * blockDim.x;
+	ccl_global SampleRange* sample_range;
+	int x, y, sample;
 
-	const int thread_id = group_id * (blockDim.x * blockDim.x) + local_thread_id;
-
-	/* find which sample range belongs to this thread */
-	SampleRange* sample_range = NULL;
-
-	for(int i = 0; i < num_sample_ranges; i++) {
-		if(thread_id >= sample_ranges[i].work_offset &&
-		   thread_id < sample_ranges[i].work_offset + sample_ranges[i].w * sample_ranges[i].h)
-		{
-			sample_range = &sample_ranges[i];
-		}
-	}
-
-	/* check if theres work for this thread */
-	if(!sample_range) {
+	if(!kernel_pixel_sample_for_thread(kg, sample_ranges, num_sample_ranges, &x, &y, &sample, &sample_range)) {
 		return;
 	}
-
-	int work_offset = thread_id - sample_range->work_offset;
-
-	if(work_offset < 0 || work_offset >= sample_range->w * sample_range->h) {
-		return;
-	}
-
-	int x = (work_offset % sample_range->w) + sample_range->x;
-	int y = (work_offset / sample_range->w) + sample_range->y;
 
 	kernel_path_trace(NULL,
 	                  sample_range->buffer,
 	                  sample_range->rng_state,
-	                  sample_range->sample,
+	                  sample,
 	                  x, y,
 	                  sample_range->offset,
 	                  sample_range->stride);
@@ -195,41 +165,17 @@ extern "C" __global__ void
 CUDA_LAUNCH_BOUNDS(CUDA_THREADS_BLOCK_WIDTH, CUDA_KERNEL_BRANCHED_MAX_REGISTERS)
 kernel_cuda_branched_path_trace(SampleRange *sample_ranges, int num_sample_ranges)
 {
-	/* order threads to maintain inner block coherency */
-	const int group_id = blockIdx.x + gridDim.x * blockIdx.y;
-	const int local_thread_id = threadIdx.x + threadIdx.y * blockDim.x;
+	ccl_global SampleRange* sample_range;
+	int x, y, sample;
 
-	const int thread_id = group_id * (blockDim.x * blockDim.x) + local_thread_id;
-
-	/* find which sample range belongs to this thread */
-	SampleRange* sample_range = NULL;
-
-	for(int i = 0; i < num_sample_ranges; i++) {
-		if(thread_id >= sample_ranges[i].work_offset &&
-		   thread_id < sample_ranges[i].work_offset + sample_ranges[i].w * sample_ranges[i].h)
-		{
-			sample_range = &sample_ranges[i];
-		}
-	}
-
-	/* check if theres work for this thread */
-	if(!sample_range) {
+	if(!kernel_pixel_sample_for_thread(kg, sample_ranges, num_sample_ranges, &x, &y, &sample, &sample_range)) {
 		return;
 	}
-
-	int work_offset = thread_id - sample_range->work_offset;
-
-	if(work_offset < 0 || work_offset >= sample_range->w * sample_range->h) {
-		return;
-	}
-
-	int x = (work_offset % sample_range->w) + sample_range->x;
-	int y = (work_offset / sample_range->w) + sample_range->y;
 
 	kernel_branched_path_trace(NULL,
 	                  sample_range->buffer,
 	                  sample_range->rng_state,
-	                  sample_range->sample,
+	                  sample,
 	                  x, y,
 	                  sample_range->offset,
 	                  sample_range->stride);

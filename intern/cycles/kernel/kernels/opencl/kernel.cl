@@ -45,6 +45,8 @@
 
 #include "../../kernel_bake.h"
 
+#include "../../kernel_sample_range.h"
+
 #ifdef __COMPILE_ONLY_MEGAKERNEL__
 
 __kernel void kernel_ocl_path_trace(
@@ -65,41 +67,17 @@ __kernel void kernel_ocl_path_trace(
 	kg->name = name;
 #include "../../kernel_textures.h"
 
-	/* order threads to maintain inner block coherency */
-	const int group_id = get_group_id(0) + get_num_groups(0) * get_group_id(1);
-	const int local_thread_id = get_local_id(0) + get_local_id(1) * get_local_size(0);
+	ccl_global SampleRange* sample_range;
+	int x, y, sample;
 
-	const int thread_id = group_id * (get_local_size(0) * get_local_size(1)) + local_thread_id;
-
-	/* find which sample range belongs to this thread */
-	ccl_global SampleRange* sample_range = NULL;
-
-	for(int i = 0; i < num_sample_ranges; i++) {
-		if(thread_id >= sample_ranges[i].work_offset &&
-		   thread_id < sample_ranges[i].work_offset + sample_ranges[i].w * sample_ranges[i].h)
-		{
-			sample_range = &sample_ranges[i];
-		}
-	}
-
-	/* check if theres work for this thread */
-	if(!sample_range) {
+	if(!kernel_pixel_sample_for_thread(kg, sample_ranges, num_sample_ranges, &x, &y, &sample, &sample_range)) {
 		return;
 	}
-
-	int work_offset = thread_id - sample_range->work_offset;
-
-	if(work_offset < 0 || work_offset >= sample_range->w * sample_range->h) {
-		return;
-	}
-
-	int x = (work_offset % sample_range->w) + sample_range->x;
-	int y = (work_offset / sample_range->w) + sample_range->y;
 
 	kernel_path_trace(kg,
 	                  sample_range->buffer,
 	                  sample_range->rng_state,
-	                  sample_range->sample,
+	                  sample,
 	                  x, y,
 	                  sample_range->offset,
 	                  sample_range->stride);
@@ -121,25 +99,7 @@ __kernel void kernel_ocl_set_sample_range(
 	int offset,
 	int stride)
 {
-	ccl_global SampleRange* sample_range = &sample_ranges[range];
-
-	sample_range->buffer = buffer;
-	sample_range->rng_state = rng_state;
-	sample_range->sample = sample;
-	sample_range->x = sx;
-	sample_range->y = sy;
-	sample_range->w = sw;
-	sample_range->h = sh;
-	sample_range->offset = offset;
-	sample_range->stride = stride;
-
-	if(range == 0) {
-		sample_range->work_offset = 0;
-	}
-	else {
-		ccl_global SampleRange* prev_range = &sample_ranges[range-1];
-		sample_range->work_offset = prev_range->work_offset + prev_range->w * prev_range->h;
-	}
+	kernel_set_sample_range(sample_ranges, range, buffer, rng_state, sample, sx, sy, sw, sh, offset, stride);
 }
 
 __kernel void kernel_ocl_shader(
