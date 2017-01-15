@@ -300,7 +300,7 @@ BLI_INLINE int nearestVert(SDefBindCalcData * const data, const float point_co[3
 
 	for (i = 0; i < poly->totloop; i++, loop++) {
 		edge = &data->medge[loop->e];
-		dist = dist_squared_to_line_segment_v3(point_co, mvert[edge->v1].co, mvert[edge->v1].co);
+		dist = dist_squared_to_line_segment_v3(point_co, mvert[edge->v1].co, mvert[edge->v2].co);
 
 		if (dist < max_dist) {
 			max_dist = dist;
