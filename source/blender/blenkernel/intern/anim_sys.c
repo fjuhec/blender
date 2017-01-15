@@ -1166,6 +1166,9 @@ void BKE_animdata_main_cb(Main *mainptr, ID_AnimData_Edit_Callback func, void *u
 	/* grease pencil */
 	ANIMDATA_IDS_CB(mainptr->gpencil.first);
 
+	/* palettes */
+	ANIMDATA_IDS_CB(mainptr->palettes.first);
+
 	/* cache files */
 	ANIMDATA_IDS_CB(mainptr->cachefiles.first);
 }
@@ -1258,6 +1261,9 @@ void BKE_animdata_fix_paths_rename_all(ID *ref_id, const char *prefix, const cha
 	
 	/* grease pencil */
 	RENAMEFIX_ANIM_IDS(mainptr->gpencil.first);
+
+	/* palettes */
+	RENAMEFIX_ANIM_IDS(mainptr->palettes.first);
 
 	/* cache files */
 	RENAMEFIX_ANIM_IDS(mainptr->cachefiles.first);
@@ -2884,6 +2890,9 @@ void BKE_animsys_evaluate_all_animation(Main *main, Scene *scene, float ctime)
 	
 	/* grease pencil */
 	EVAL_ANIM_IDS(main->gpencil.first, ADT_RECALC_ANIM);
+
+	/* palettes */
+	EVAL_ANIM_IDS(main->palettes.first, ADT_RECALC_ANIM);
 
 	/* cache files */
 	EVAL_ANIM_IDS(main->cachefiles.first, ADT_RECALC_ANIM);

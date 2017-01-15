@@ -9828,6 +9828,12 @@ static void expand_gpencil(FileData *fd, Main *mainvar, bGPdata *gpd)
 		expand_animdata(fd, mainvar, gpd->adt);
 }
 
+static void expand_palette(FileData *fd, Main *mainvar, Palette *palette)
+{
+	if (palette->adt)
+		expand_animdata(fd, mainvar, palette->adt);
+}
+
 /**
  * Set the callback func used over all ID data found by \a BLO_expand_main func.
  *
@@ -9936,6 +9942,9 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 						break;
 					case ID_GD:
 						expand_gpencil(fd, mainvar, (bGPdata *)id);
+						break;
+					case ID_PAL:
+						expand_palette(fd, mainvar, (Palette *)id);
 						break;
 					case ID_CF:
 						expand_cachefile(fd, mainvar, (CacheFile *)id);

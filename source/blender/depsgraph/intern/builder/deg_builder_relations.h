@@ -47,6 +47,7 @@
 
 struct BaseLegacy;
 struct bGPdata;
+struct Palette;
 struct CacheFile;
 struct ListBase;
 struct GHash;
@@ -224,7 +225,8 @@ struct DepsgraphRelationBuilder
 	void build_texture(Tex *tex);
 	void build_texture_stack(MTex **texture_stack);
 	void build_compositor(Scene *scene);
-	void build_gpencil(bGPdata *gpd);
+	void build_gpencil(ID *owner, bGPdata *gpd);
+	void build_palette(ID *owner, Palette *palette);
 	void build_cachefile(CacheFile *cache_file);
 	void build_mask(Mask *mask);
 	void build_movieclip(MovieClip *clip);

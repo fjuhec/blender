@@ -1155,6 +1155,14 @@ void DepsgraphNodeBuilder::build_gpencil(bGPdata *gpd)
 	build_animdata(gpd_id);
 }
 
+void DepsgraphNodeBuilder::build_palette(Palette *palette)
+{
+	ID *palette_id = &palette->id;
+
+	add_id_node(palette_id);
+	build_animdata(palette_id);
+}
+
 void DepsgraphNodeBuilder::build_cachefile(CacheFile *cache_file)
 {
 	ID *cache_file_id = &cache_file->id;

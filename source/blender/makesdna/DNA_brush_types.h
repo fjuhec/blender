@@ -44,6 +44,7 @@
 struct CurveMapping;
 struct MTex;
 struct Image;
+struct AnimData;
 
 typedef struct BrushClone {
 	struct Image *image;    /* image for clone tool */
