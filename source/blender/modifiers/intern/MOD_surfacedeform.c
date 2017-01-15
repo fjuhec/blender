@@ -28,7 +28,7 @@ typedef struct SDefEdgePolys {
 
 typedef struct SDefBindCalcData {
 	BVHTreeFromMesh * const treeData;
-	const SDefAdjacency ** const vert_edges;
+	const SDefAdjacency * const * const vert_edges;
 	const SDefEdgePolys * const edge_polys;
 	SDefVert * const bind_verts;
 	const MLoopTri * const looptri;
@@ -853,7 +853,13 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 
 					add_v3_v3v3(tmp_vec, point_co, bpoly->normal);
 
-					isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm);
+					/* We are sure the line is not parallel to the plane.
+					 * Checking return value just to avoid warning... */
+					if (!isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm)) {
+						printf("Surface Deform: Aaaaah, math is broken!\n");
+						data->success = -2;
+						return;
+					}
 
 					interp_weights_tri_v3(sdbind->vert_weights, v1, v2, v3, point_co_proj);
 
@@ -890,7 +896,13 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 
 					add_v3_v3v3(tmp_vec, point_co, bpoly->normal);
 
-					isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm);
+					/* We are sure the line is not parallel to the plane.
+					 * Checking return value just to avoid warning... */
+					if (!isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm)) {
+						printf("Surface Deform: Aaaaah, math is broken!\n");
+						data->success = -2;
+						return;
+					}
 
 					interp_weights_tri_v3(sdbind->vert_weights, v1, v2, v3, point_co_proj);
 
@@ -973,7 +985,7 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 	smd->numpoly = tnumpoly;
 
 	SDefBindCalcData data = {.treeData = &treeData,
-		                     .vert_edges = vert_edges,
+		                     .vert_edges = (const SDefAdjacency **)vert_edges,
 		                     .edge_polys = edge_polys,
 		                     .mpoly = mpoly,
 		                     .medge = medge,
@@ -994,6 +1006,9 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 	}
 	else if (data.success == -1) {
 		printf("Surface Deform: Invalid target mesh\n");
+		freeData((ModifierData *) smd);
+	}
+	else if (data.success != 1) {
 		freeData((ModifierData *) smd);
 	}
 
