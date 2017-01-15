@@ -19,11 +19,11 @@
 
 typedef struct SDefAdjacency {
 	struct SDefAdjacency *next;
-	int index;
+	unsigned int index;
 } SDefAdjacency;
 
 typedef struct SDefEdgePolys {
-	int polys[2], num;
+	unsigned int polys[2], num;
 } SDefEdgePolys;
 
 typedef struct SDefBindCalcData {
@@ -57,19 +57,19 @@ typedef struct SDefBindPoly {
 	float point_edgemid_angles[2];
 	float corner_edgemid_angles[2];
 	float dominant_angle_weight;
-	int index;
-	int numverts;
-	int loopstart;
-	int edge_inds[2];
-	int edge_vert_inds[2];
-	int corner_ind;
-	int dominant_edge;
+	unsigned int index;
+	unsigned int numverts;
+	unsigned int loopstart;
+	unsigned int edge_inds[2];
+	unsigned int edge_vert_inds[2];
+	unsigned int corner_ind;
+	unsigned int dominant_edge;
 	bool inside;
 } SDefBindPoly;
 
 typedef struct SDefBindWeightData {
 	SDefBindPoly *bind_polys;
-	int numbinds;
+	unsigned int numbinds;
 } SDefBindWeightData;
 
 static void initData(ModifierData *md)
@@ -86,10 +86,9 @@ static void freeData(ModifierData *md)
 	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
 
 	if (smd->verts) {
-		int i, j;
-		for (i = 0; i < smd->numverts; i++) {
+		for (unsigned int i = 0; i < smd->numverts; i++) {
 			if (smd->verts[i].binds) {
-				for (j = 0; j < smd->verts[i].numbinds; j++) {
+				for (unsigned int j = 0; j < smd->verts[i].numbinds; j++) {
 					if (smd->verts[i].binds[j].vert_inds) {
 						MEM_freeN(smd->verts[i].binds[j].vert_inds);
 					}
@@ -116,15 +115,13 @@ static void copyData(ModifierData *md, ModifierData *target)
 	*tsmd = *smd;
 
 	if (smd->verts) {
-		int i, j;
-
 		tsmd->verts = MEM_dupallocN(smd->verts);
 
-		for (i = 0; i < smd->numverts; i++) {
+		for (unsigned int i = 0; i < smd->numverts; i++) {
 			if (smd->verts[i].binds) {
 				tsmd->verts[i].binds = MEM_dupallocN(smd->verts[i].binds);
 
-				for (j = 0; j < smd->verts[i].numbinds; j++) {
+				for (unsigned int j = 0; j < smd->verts[i].numbinds; j++) {
 					if (smd->verts[i].binds[j].vert_inds) {
 						tsmd->verts[i].binds[j].vert_inds = MEM_dupallocN(smd->verts[i].binds[j].vert_inds);
 					}
@@ -174,14 +171,13 @@ static void updateDepsgraph(ModifierData *md,
 	}
 }
 
-static void freeAdjacencyMap(SDefAdjacency ** const vert_edges, SDefEdgePolys * const edge_polys, const int numverts)
+static void freeAdjacencyMap(SDefAdjacency ** const vert_edges, SDefEdgePolys * const edge_polys, const unsigned int numverts)
 {
 	SDefAdjacency *adj;
-	int i;
 
 	MEM_freeN(edge_polys);
 
-	for (i = 0; i < numverts; i++) {
+	for (unsigned int i = 0; i < numverts; i++) {
 		for (adj = vert_edges[i]; adj; adj = vert_edges[i]) {
 			vert_edges[i] = adj->next;
 
@@ -192,18 +188,18 @@ static void freeAdjacencyMap(SDefAdjacency ** const vert_edges, SDefEdgePolys * 
 	MEM_freeN(vert_edges);
 }
 
-static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop * const mloop, const int numpoly, const int numedges,
+static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop * const mloop, const unsigned int numpoly, const unsigned int numedges,
                               SDefAdjacency ** const vert_edges, SDefEdgePolys * const edge_polys)
 {
 	const MLoop *loop;
 	SDefAdjacency *adj;
-	int i, j;
+	unsigned int i;
 
 	/* Fing polygons adjacent to edges */
 	for (i = 0; i < numpoly; i++, poly++) {
 		loop = &mloop[poly->loopstart];
 
-		for (j = 0; j < poly->totloop; j++, loop++) {
+		for (unsigned int j = 0; j < poly->totloop; j++, loop++) {
 			if (edge_polys[loop->e].num == 0) {
 				edge_polys[loop->e].polys[0] = i;
 				edge_polys[loop->e].polys[1] = -1;
@@ -244,10 +240,10 @@ static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop *
 	return 1;
 }
 
-BLI_INLINE void sortPolyVertsEdge(int *indices, const MLoop * const mloop, const int edge, const int num)
+BLI_INLINE void sortPolyVertsEdge(unsigned int *indices, const MLoop * const mloop, const unsigned int edge, const unsigned int num)
 {
-	int i;
 	bool found = false;
+	unsigned int i;
 
 	for (i = 0; i < num; i++) {
 		if (mloop[i].e == edge) {
@@ -266,9 +262,9 @@ BLI_INLINE void sortPolyVertsEdge(int *indices, const MLoop * const mloop, const
 	}
 }
 
-BLI_INLINE void sortPolyVertsTri(int *indices, const MLoop * const mloop, const int loopstart, const int num)
+BLI_INLINE void sortPolyVertsTri(unsigned int *indices, const MLoop * const mloop, const unsigned int loopstart, const unsigned int num)
 {
-	int i;
+	unsigned int i;
 
 	for (i = loopstart; i < num; i++) {
 		*indices = mloop[i].v;
@@ -281,7 +277,7 @@ BLI_INLINE void sortPolyVertsTri(int *indices, const MLoop * const mloop, const 
 	}
 }
 
-BLI_INLINE int nearestVert(SDefBindCalcData * const data, const float point_co[3])
+BLI_INLINE unsigned int nearestVert(SDefBindCalcData * const data, const float point_co[3])
 {
 	const MVert * const mvert = data->mvert;
 	BVHTreeNearest nearest = {.dist_sq = FLT_MAX, .index = -1};
@@ -290,15 +286,14 @@ BLI_INLINE int nearestVert(SDefBindCalcData * const data, const float point_co[3
 	const MLoop *loop;
 	float max_dist = FLT_MAX;
 	float dist;
-	int index;
-	int i;
+	unsigned int index;
 
 	BLI_bvhtree_find_nearest(data->treeData->tree, point_co, &nearest, data->treeData->nearest_callback, data->treeData);
 
 	poly = &data->mpoly[data->looptri[nearest.index].poly];
 	loop = &data->mloop[poly->loopstart];
 
-	for (i = 0; i < poly->totloop; i++, loop++) {
+	for (unsigned int i = 0; i < poly->totloop; i++, loop++) {
 		edge = &data->medge[loop->e];
 		dist = dist_squared_to_line_segment_v3(point_co, mvert[edge->v1].co, mvert[edge->v2].co);
 
@@ -317,11 +312,10 @@ BLI_INLINE int nearestVert(SDefBindCalcData * const data, const float point_co[3
 	}
 }
 
-BLI_INLINE bool isPolyValid(const float coords[][2], const int nr)
+BLI_INLINE bool isPolyValid(const float coords[][2], const unsigned int nr)
 {
 	float prev_co[2];
 	float curr_vec[2], prev_vec[2];
-	int i;
 
 	if (!is_poly_convex_v2(coords, nr)) {
 		printf("Surface Deform: Target containts concave polys\n");
@@ -331,7 +325,7 @@ BLI_INLINE bool isPolyValid(const float coords[][2], const int nr)
 	copy_v2_v2(prev_co, coords[nr - 1]);
 	sub_v2_v2v2(prev_vec, prev_co, coords[nr - 2]);
 
-	for (i = 0; i < nr; i++) {
+	for (unsigned int i = 0; i < nr; i++) {
 		sub_v2_v2v2(curr_vec, coords[i], prev_co);
 
 		if (len_v2(curr_vec) < FLT_EPSILON) {
@@ -374,7 +368,7 @@ static void freeBindData(SDefBindWeightData * const bwdata)
 
 BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data, const float point_co[3])
 {
-	const int nearest = nearestVert(data, point_co);
+	const unsigned int nearest = nearestVert(data, point_co);
 	const SDefAdjacency * const vert_edges = data->vert_edges[nearest];
 	const SDefEdgePolys * const edge_polys = data->edge_polys;
 
@@ -389,8 +383,8 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 	float avg_point_dist = 0.0f;
 	float tot_weight = 0.0f;
 	int inf_weight_flags = 0;
-	int numpoly = 0;
-	int i, j;
+	unsigned int numpoly = 0;
+	unsigned int i, j;
 
 	bwdata = MEM_callocN(sizeof(*bwdata), "SDefBindWeightData");
 	if (bwdata == NULL) {
@@ -400,7 +394,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 
 	/* Loop over all adjacent edges, and build the SDefBindPoly data for each poly adjacent to those */
 	for (vedge = vert_edges; vedge; vedge = vedge->next) {
-		int edge_ind = vedge->index;
+		unsigned int edge_ind = vedge->index;
 
 		for (i = 0; i < edge_polys[edge_ind].num; i++) {
 			for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
@@ -555,8 +549,8 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 			SDefBindPoly *bpolys[2];
 			const SDefEdgePolys *epolys;
 			float tmp1, tmp2;
-			int edge_ind = vedge->index;
-			int edge_on_poly[2];
+			unsigned int edge_ind = vedge->index;
+			unsigned int edge_on_poly[2];
 
 			epolys = &edge_polys[edge_ind];
 
@@ -757,8 +751,6 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 	SDefBindPoly *bpoly;
 	SDefBind *sdbind;
 
-	int i;
-
 	if (data->success != 1) {
 		sdvert->binds = NULL;
 		sdvert->numbinds = 0;
@@ -810,7 +802,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 
 				/* Reproject vert based on weights and original poly verts, to reintroduce poly non-planarity */
 				zero_v3(point_co_proj);
-				for (i = 0; i < bpoly->numverts; i++, loop++) {
+				for (unsigned int i = 0; i < bpoly->numverts; i++, loop++) {
 					madd_v3_v3fl(point_co_proj, bpoly->coords[i], sdbind->vert_weights[i]);
 					sdbind->vert_inds[i] = loop->v;
 				}
@@ -856,7 +848,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					/* We are sure the line is not parallel to the plane.
 					 * Checking return value just to avoid warning... */
 					if (!isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm)) {
-						printf("Surface Deform: Aaaaah, math is broken!\n");
+						printf("Surface Deform: Aaaaah, math is broken!\n"); /* This will never actually happen */
 						data->success = -2;
 						return;
 					}
@@ -899,7 +891,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					/* We are sure the line is not parallel to the plane.
 					 * Checking return value just to avoid warning... */
 					if (!isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm)) {
-						printf("Surface Deform: Aaaaah, math is broken!\n");
+						printf("Surface Deform: Aaaaah, math is broken!\n"); /* This will never actually happen */
 						data->success = -2;
 						return;
 					}
@@ -918,14 +910,14 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 }
 
 static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)[3],
-                              int numverts, int tnumpoly, DerivedMesh *tdm)
+                              unsigned int numverts, unsigned int tnumpoly, DerivedMesh *tdm)
 {
 	BVHTreeFromMesh treeData = {NULL};
 	const MPoly *mpoly = tdm->getPolyArray(tdm);
 	const MEdge *medge = tdm->getEdgeArray(tdm);
 	const MLoop *mloop = tdm->getLoopArray(tdm);
-	int tnumedges = tdm->getNumEdges(tdm);
-	int tnumverts = tdm->getNumVerts(tdm);
+	unsigned int tnumedges = tdm->getNumEdges(tdm);
+	unsigned int tnumverts = tdm->getNumVerts(tdm);
 	int adj_result;
 	SDefAdjacency **vert_edges;
 	SDefEdgePolys *edge_polys;
@@ -1018,15 +1010,14 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 	return data.success == 1;
 }
 
-static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], int numverts)
+static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], unsigned int numverts)
 {
 	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
 	DerivedMesh *tdm;
-	int tnumpoly;
+	unsigned int tnumpoly;
 	SDefVert *sdvert;
 	SDefBind *sdbind;
 	const MVert *mvert;
-	int i, j, k;
 	float norm[3], temp[3];
 
 	/* Exit function if bind flag is not set (free bind data if any) */
@@ -1056,12 +1047,12 @@ static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], in
 
 	/* Poly count checks */
 	if (smd->numverts != numverts) {
-		modifier_setError(md, "Verts changed from %d to %d", smd->numverts, numverts);
+		modifier_setError(md, "Verts changed from %u to %u", smd->numverts, numverts);
 		tdm->release(tdm);
 		return;
 	}
 	else if (smd->numpoly != tnumpoly) {
-		modifier_setError(md, "Target polygons changed from %d to %d", smd->numpoly, tnumpoly);
+		modifier_setError(md, "Target polygons changed from %u to %u", smd->numpoly, tnumpoly);
 		tdm->release(tdm);
 		return;
 	}
@@ -1070,16 +1061,16 @@ static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], in
 	mvert = tdm->getVertArray(tdm);
 	sdvert = smd->verts;
 
-	for (i = 0; i < numverts; i++, sdvert++) {
+	for (unsigned int i = 0; i < numverts; i++, sdvert++) {
 		sdbind = sdvert->binds;
 
 		zero_v3(vertexCos[i]);
 
-		for (j = 0; j < sdvert->numbinds; j++, sdbind++) {
+		for (unsigned int j = 0; j < sdvert->numbinds; j++, sdbind++) {
 			/* Mode-generic operations (allocate poly coordinates) */
 			float (*coords)[3] = MEM_mallocN(sizeof(*coords) * sdbind->numverts, "SDefDoPolyCoords");
 
-			for (k = 0; k < sdbind->numverts; k++) {
+			for (unsigned int k = 0; k < sdbind->numverts; k++) {
 				copy_v3_v3(coords[k], mvert[sdbind->vert_inds[k]].co);
 			}
 
@@ -1095,7 +1086,7 @@ static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], in
 			else {
 				/* ---------- ngon mode ---------- */
 				if (sdbind->mode == MOD_SDEF_MODE_NGON) {
-					for (k = 0; k < sdbind->numverts; k++) {
+					for (unsigned int k = 0; k < sdbind->numverts; k++) {
 						madd_v3_v3fl(temp, coords[k], sdbind->vert_weights[k]);
 					}
 				}

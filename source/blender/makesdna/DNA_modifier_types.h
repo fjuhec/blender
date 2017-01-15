@@ -1572,8 +1572,8 @@ enum {
 };
 
 typedef struct SDefBind {
-	int *vert_inds;
-	int numverts;
+	unsigned int *vert_inds;
+	unsigned int numverts;
 	int mode;
 	float *vert_weights;
 	float normal_dist;
@@ -1582,7 +1582,7 @@ typedef struct SDefBind {
 
 typedef struct SDefVert {
 	SDefBind *binds;
-	int numbinds;
+	unsigned int numbinds;
 	char pad[4];
 } SDefVert;
 
@@ -1592,7 +1592,7 @@ typedef struct SurfaceDeformModifierData {
 	struct Object *target;	/* bind target object */
 	SDefVert *verts;		/* vertex bind data */
 	float falloff;
-	int numverts, numpoly;
+	unsigned int numverts, numpoly;
 	int flags;
 } SurfaceDeformModifierData;
 
