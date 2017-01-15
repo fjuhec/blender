@@ -35,6 +35,7 @@
 #include "DNA_cachefile_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_brush_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -274,7 +275,19 @@ static void time_draw_idblock_keyframes(View2D *v2d, ID *id, short onlysel, cons
 	DLRBT_Tree keys;
 	ActKeyColumn *ak;
 	
-	float fac1 = (GS(id->name) == ID_GD) ? 0.8f : 0.6f; /* draw GPencil keys taller, to help distinguish them */
+	float fac1;
+	switch (GS(id->name)) {
+		case ID_GD:
+			fac1 = 0.8f; /* draw GPencil keys taller, to help distinguish them */
+			break;
+		case ID_PAL:
+			fac1 = 0.4f; /* draw palettes shorter, to help distinguish them */
+			break;
+		default:
+			fac1 = 0.6f; /* default size */
+			break;
+	}
+
 	float fac2 = 1.0f - fac1;
 	
 	float ymin = v2d->tot.ymin;
@@ -297,6 +310,9 @@ static void time_draw_idblock_keyframes(View2D *v2d, ID *id, short onlysel, cons
 			break;
 		case ID_GD:
 			gpencil_to_keylist(&ads, (bGPdata *)id, &keys);
+			break;
+		case ID_PAL:
+			palette_to_keylist(&ads, (Palette *)id, &keys, NULL);
 			break;
 		case ID_CF:
 			cachefile_to_keylist(&ads, (CacheFile *)id, &keys, NULL);
@@ -422,7 +438,14 @@ static void time_draw_keyframes(const bContext *C, ARegion *ar)
 	if (ob && ob->gpd) {
 		time_draw_idblock_keyframes(v2d, (ID *)ob->gpd, onlysel, color);
 	}
-	
+
+	/* draw keyframes for all palettes */
+	CTX_DATA_BEGIN(C, Palette *, palette, available_palettes)
+	{
+		time_draw_idblock_keyframes(v2d, (ID *)palette, onlysel, color);
+	}
+	CTX_DATA_END;
+
 	/* draw scene keyframes first 
 	 *	- don't try to do this when only drawing active/selected data keyframes,
 	 *	  since this can become quite slow
