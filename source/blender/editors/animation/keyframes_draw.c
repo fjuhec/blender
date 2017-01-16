@@ -1043,7 +1043,7 @@ void palette_to_keylist(bDopeSheet *ads, Palette *palette, DLRBT_Tree *keys, DLR
 		return;
 
 	/* create a dummy wrapper data to work with */
-	dummychan.type = ANIMTYPE_SCENE;
+	dummychan.type = ANIMTYPE_PALETTE;
 	dummychan.data = palette;
 	dummychan.id = &palette->id;
 	dummychan.adt = palette->adt;
