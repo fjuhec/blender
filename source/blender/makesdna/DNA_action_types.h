@@ -626,7 +626,10 @@ typedef enum eDopeSheet_FilterFlag {
 	
 	/* GPencil Mode */
 	ADS_FILTER_GP_3DONLY        = (1 << 29),  /* GP Mode - Only show datablocks used in the scene */
-	
+
+	/* Palette filter */
+	ADS_FILTER_NOPALETTE        = (1 << 30), 
+
 	/* combination filters (some only used at runtime) */
 	ADS_FILTER_NOOBDATA = (ADS_FILTER_NOCAM | ADS_FILTER_NOMAT | ADS_FILTER_NOLAM | ADS_FILTER_NOCUR | ADS_FILTER_NOPART | ADS_FILTER_NOARM | ADS_FILTER_NOSPK | ADS_FILTER_NOMODIFIERS)
 } eDopeSheet_FilterFlag;	
