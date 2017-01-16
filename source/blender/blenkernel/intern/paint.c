@@ -445,6 +445,9 @@ Palette *BKE_palette_add(Main *bmain, const char *name)
 	/* enable fake user by default */
 	id_fake_user_set(&palette->id);
 
+	/* initial settings */
+	palette->flag = PALETTE_DATA_EXPAND;
+
 	return palette;
 }
 

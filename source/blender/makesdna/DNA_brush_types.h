@@ -168,8 +168,14 @@ typedef struct Palette {
 	ListBase colors;
 
 	int active_color;
-	int pad;
+	int flag;
 } Palette;
+
+/* Palette->flag */
+typedef enum ePalette_Flag {
+	/* in Action Editor, show as expanded channel */
+	PALETTE_DATA_EXPAND = (1 << 1)
+} ePalette_Flag;
 
 typedef struct PaintCurvePoint {
 	BezTriple bez; /* bezier handle */
