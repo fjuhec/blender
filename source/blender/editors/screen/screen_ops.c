@@ -2248,6 +2248,14 @@ static int keyframe_jump_exec(bContext *C, wmOperator *op)
 	scene_to_keylist(&ads, scene, &keys, NULL);
 	gpencil_to_keylist(&ads, scene->gpd, &keys);
 
+	/* populate for all palettes */
+	CTX_DATA_BEGIN(C, Palette *, palette, available_palettes)
+	{
+		palette_to_keylist(&ads, palette, &keys, NULL);
+	}
+	CTX_DATA_END;
+
+
 	if (ob) {
 		ob_to_keylist(&ads, ob, &keys, NULL);
 		gpencil_to_keylist(&ads, ob->gpd, &keys);
