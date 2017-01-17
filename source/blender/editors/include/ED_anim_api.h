@@ -202,8 +202,7 @@ typedef enum eAnim_KeyType {
 	ALE_SCE,            /* Scene summary */
 	ALE_OB,             /* Object summary */
 	ALE_ACT,            /* Action summary */
-	ALE_GROUP,          /* Action Group summary */
-	ALE_PALETTE         /* Palette summary */
+	ALE_GROUP           /* Action Group summary */
 } eAnim_KeyType;
 
 /* Flags for specifying the types of updates (i.e. recalculation/refreshing) that

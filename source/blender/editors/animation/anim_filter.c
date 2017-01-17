@@ -963,7 +963,7 @@ static bAnimListElem *make_new_animlistelem(void *data, short datatype, ID *owne
 
 				ale->flag = palette->flag;
 				ale->key_data = (adt) ? adt->action : NULL;
-				ale->datatype = ALE_PALETTE;
+				ale->datatype = ALE_ACT;
 
 				ale->adt = BKE_animdata_from_id(data);
 				break;
@@ -3038,6 +3038,13 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac, ListBase *anim_data, b
 
 	/* scene-linked animation - e.g. world, compositing nodes, scene anim (including sequencer currently) */
 	items += animdata_filter_dopesheet_scene(ac, anim_data, ads, scene, filter_mode);
+
+	/* palettes */
+	for (Palette *palette = G.main->palettes.first; palette; palette = palette->id.next) {
+		if (palette->adt) {
+			items += animdata_filter_ds_palette(ac, anim_data, ads, palette, filter_mode);
+		}
+	}
 
 	/* If filtering for channel drawing, we want the objects in alphabetical order,
 	 * to make it easier to predict where items are in the hierarchy
