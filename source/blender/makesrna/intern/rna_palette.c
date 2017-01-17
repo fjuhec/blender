@@ -25,6 +25,7 @@
 #include <stdlib.h>
 
 #include "BLI_utildefines.h"
+#include "BLI_string_utils.h"
 
 #include "RNA_define.h"
 #include "RNA_access.h"
