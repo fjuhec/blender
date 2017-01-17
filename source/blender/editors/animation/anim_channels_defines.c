@@ -2712,6 +2712,83 @@ static bAnimChannelType ACF_DSGPENCIL =
 	acf_dsgpencil_setting_ptr               /* pointer for setting */
 };
 
+/* Palette Expander  ------------------------------------------- */
+
+// TODO: just get this from RNA?
+static int acf_dspalette_icon(bAnimListElem *UNUSED(ale))
+{
+	return ICON_COLOR;
+}
+
+/* get the appropriate flag(s) for the setting when it is valid  */
+static int acf_dspalette_setting_flag(bAnimContext *UNUSED(ac), eAnimChannel_Settings setting, bool *neg)
+{
+	/* clear extra return data first */
+	*neg = false;
+
+	switch (setting) {
+	case ACHANNEL_SETTING_EXPAND: /* expanded */
+		return PALETTE_DATA_EXPAND;
+
+	case ACHANNEL_SETTING_MUTE: /* mute (only in NLA) */
+		return ADT_NLA_EVAL_OFF;
+
+	case ACHANNEL_SETTING_VISIBLE: /* visible (only in Graph Editor) */
+		*neg = true;
+		return ADT_CURVES_NOT_VISIBLE;
+
+	case ACHANNEL_SETTING_SELECT: /* selected */
+		return ADT_UI_SELECTED;
+
+	default: /* unsupported */
+		return 0;
+	}
+}
+
+/* get pointer to the setting */
+static void *acf_dspalette_setting_ptr(bAnimListElem *ale, eAnimChannel_Settings setting, short *type)
+{
+	Palette *palette = (Palette *)ale->data;
+
+	/* clear extra return data first */
+	*type = 0;
+
+	switch (setting) {
+	case ACHANNEL_SETTING_EXPAND: /* expanded */
+		return GET_ACF_FLAG_PTR(palette->flag, type);
+
+	case ACHANNEL_SETTING_SELECT: /* selected */
+	case ACHANNEL_SETTING_MUTE: /* muted (for NLA only) */
+	case ACHANNEL_SETTING_VISIBLE: /* visible (for Graph Editor only) */
+		if (palette->adt)
+			return GET_ACF_FLAG_PTR(palette->adt->flag, type);
+		return NULL;
+
+	default: /* unsupported */
+		return NULL;
+	}
+}
+
+/* grease pencil expander type define */
+static bAnimChannelType ACF_DSPALETTE =
+{
+	"Palette DS Expander",          /* type name */
+	ACHANNEL_ROLE_EXPANDER,         /* role */
+
+	acf_generic_dataexpand_color,   /* backdrop color */
+	acf_generic_dataexpand_backdrop, /* backdrop */
+	acf_generic_indention_1,        /* indent level */
+	acf_generic_basic_offset,       /* offset */
+
+	acf_generic_idblock_name,       /* name */
+	acf_generic_idblock_name_prop,  /* name prop */
+	acf_dspalette_icon,             /* icon */
+
+	acf_generic_dataexpand_setting_valid,   /* has setting */
+	acf_dspalette_setting_flag,             /* flag for setting */
+	acf_dspalette_setting_ptr               /* pointer for setting */
+};
+
 /* World Expander  ------------------------------------------- */
 
 // TODO: just get this from RNA?
@@ -3603,6 +3680,8 @@ static void ANIM_init_channel_typeinfo_data(void)
 		
 		animchannelTypeInfo[type++] = &ACF_NLATRACK;     /* NLA Track */
 		animchannelTypeInfo[type++] = &ACF_NLAACTION;    /* NLA Action */
+		
+		animchannelTypeInfo[type++] = &ACF_DSPALETTE;    /* Palette Channel */
 	}
 } 
 
