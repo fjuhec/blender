@@ -51,6 +51,7 @@
 
 #include "BLT_translation.h"
 
+#include "BKE_animsys.h"
 #include "BKE_brush.h"
 #include "BKE_colortools.h"
 #include "BKE_main.h"
@@ -474,6 +475,11 @@ void BKE_palette_make_local(Main *bmain, Palette *palette, const bool lib_local)
 void BKE_palette_free(Palette *palette)
 {
 	BLI_freelistN(&palette->colors);
+	
+	/* free animation data*/
+	if (palette->adt) {
+		BKE_animdata_free((ID *) palette, false);
+	}
 }
 
 PaletteColor *BKE_palette_color_add(Palette *palette)
