@@ -45,6 +45,7 @@
 #include "WM_api.h"
 #include "ED_gpencil.h"
 
+#include "BKE_animsys.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_gpencil.h"
@@ -119,14 +120,20 @@ static void rna_PaletteColor_info_set(PointerRNA *ptr, const char *value)
 {
 	Palette *palette = (Palette *)ptr->id.data;
 	PaletteColor *palcolor = BLI_findlink(&palette->colors, palette->active_color);
-
-	/* rename all for gp datablocks */
-	BKE_gpencil_palettecolor_allnames(palcolor, value);
+	
+	char oldname[64] = "";
+	BLI_strncpy(oldname, palcolor->info, sizeof(oldname));
 
 	/* copy the new name into the name slot */
 	BLI_strncpy_utf8(palcolor->info, value, sizeof(palcolor->info));
 	BLI_uniquename(&palette->colors, palcolor, DATA_("Color"), '.', offsetof(PaletteColor, info),
 		sizeof(palcolor->info));
+
+	/* rename all for gp datablocks */
+	BKE_gpencil_palettecolor_allnames(palcolor, palcolor->info);
+
+	/* now fix animation paths */
+	BKE_animdata_fix_paths_rename_all(&palette->id, "colors", oldname, palcolor->info);
 }
 
 static int rna_PaletteColor_is_stroke_visible_get(PointerRNA *ptr)
