@@ -127,6 +127,11 @@ void DepsgraphNodeBuilder::build_scene(Main *bmain, Scene *scene)
 		build_gpencil(scene->gpd);
 	}
 
+	/* Palettes. */
+	LINKLIST_FOREACH(Palette *, palette, &bmain->palettes) {
+		build_palette(palette);
+	}
+
 	/* Cache file. */
 	LINKLIST_FOREACH (CacheFile *, cachefile, &bmain->cachefiles) {
 		build_cachefile(cachefile);

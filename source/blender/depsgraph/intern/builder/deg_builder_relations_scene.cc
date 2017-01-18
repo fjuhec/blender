@@ -124,6 +124,11 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 		build_gpencil(scene->gpd);
 	}
 
+	/* Palettes. */
+	LINKLIST_FOREACH(Palette *, palette, &bmain->palettes) {
+		build_palette(&scene->id, palette);
+	}
+
 	/* Masks. */
 	LINKLIST_FOREACH (Mask *, mask, &bmain->mask) {
 		build_mask(mask);
