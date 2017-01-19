@@ -1716,10 +1716,8 @@ static void drawHelpline(bContext *UNUSED(C), int x, int y, void *customdata)
 		}
 		else if ((t->flag & T_POINTS) && (t->options & CTX_GPENCIL_STROKES)) {
 			Object *ob = t->obedit;
-			if (ob) {
-				if (ob->type == OB_GPENCIL) {
-					mul_m4_v3(ob->obmat, vecrot);
-				}
+			if ((ob) && (ob->type == OB_GPENCIL)) {
+				mul_m4_v3(ob->obmat, vecrot);
 			}
 		}
 

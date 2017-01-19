@@ -1535,13 +1535,11 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 	const bool toggle = RNA_boolean_get(op->ptr, "toggle");
 
 	/* if type is OB_GPENCIL, then edit mode is for grease pencil strokes */	
-	if (ob) {
-		if (ob->type == OB_GPENCIL) {
-			if ((ob->gpd) && (ob->gpd == gpd))
-			{
-				WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
-				return OPERATOR_FINISHED;
-			}
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		if ((ob->gpd) && (ob->gpd == gpd))
+		{
+			WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
+			return OPERATOR_FINISHED;
 		}
 	}
 	/* if gpd data, but not related to OB_GPENCIL object type */
