@@ -71,6 +71,7 @@ void param_face_add(ParamHandle *handle,
                     ParamKey *vkeys,
                     float *co[4],
                     float *uv[4],
+					float id[4],
                     ParamBool *pin,
                     ParamBool *select,
                     float face_normal[3]);

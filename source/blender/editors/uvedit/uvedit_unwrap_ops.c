@@ -83,7 +83,7 @@
 #include "uvedit_parametrizer.h"
 
 #include "matrix_transfer.h"
-#include "slim_parametrizer.h"
+#include "slim_C_interface.h"
 
 #define max(x, y) (((x) > (y)) ? (x) : (y))
 #define min(x, y) (((x) < (y)) ? (x) : (y))
@@ -241,6 +241,7 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 	ParamBool *select = BLI_array_alloca(select, efa->len);
 	float **co = BLI_array_alloca(co, efa->len);
 	float **uv = BLI_array_alloca(uv, efa->len);
+	float *id = BLI_array_alloca(id, efa->len);
 	int i;
 
 	BMIter liter;
@@ -256,11 +257,12 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 		vkeys[i] = (ParamKey)BM_elem_index_get(l->v);
 		co[i] = l->v->co;
 		uv[i] = luv->uv;
+		id[i] = l->v->id;
 		pin[i] = (luv->flag & MLOOPUV_PINNED) != 0;
 		select[i] = uvedit_uv_select_test(scene, l, cd_loop_uv_offset);
 	}
 
-	param_face_add(handle, key, i, vkeys, co, uv, pin, select, efa->no);
+	param_face_add(handle, key, i, vkeys, co, uv, id, pin, select, efa->no);
 }
 
 static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
@@ -330,8 +332,7 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 }
 
 
-static void texface_from_original_index(BMFace *efa, int index, float **uv, ParamBool *pin, ParamBool *select,
-                                        Scene *scene, const int cd_loop_uv_offset)
+static void texface_from_original_index(BMFace *efa, int index, float **uv, ParamBool *pin, ParamBool *select, float *id, Scene *scene, const int cd_loop_uv_offset)
 {
 	BMLoop *l;
 	BMIter liter;
@@ -340,6 +341,7 @@ static void texface_from_original_index(BMFace *efa, int index, float **uv, Para
 	*uv = NULL;
 	*pin = 0;
 	*select = 1;
+	*id = 0;
 
 	if (index == ORIGINDEX_NONE)
 		return;
@@ -348,6 +350,7 @@ static void texface_from_original_index(BMFace *efa, int index, float **uv, Para
 		if (BM_elem_index_get(l->v) == index) {
 			luv = BM_ELEM_CD_GET_VOID_P(l, cd_loop_uv_offset);
 			*uv = luv->uv;
+			*id = l->v->id;
 			*pin = (luv->flag & MLOOPUV_PINNED) ? 1 : 0;
 			*select = uvedit_uv_select_test(scene, l, cd_loop_uv_offset);
 			break;
@@ -451,6 +454,7 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		ParamBool pin[4], select[4];
 		float *co[4];
 		float *uv[4];
+		float *id[4];
 		BMFace *origFace = faceMap[i];
 
 		if (scene->toolsettings->uv_flag & UV_SYNC_SELECTION) {
@@ -479,12 +483,12 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene, Object *ob, B
 		
 		/* This is where all the magic is done. If the vertex exists in the, we pass the original uv pointer to the solver, thus
 		 * flushing the solution to the edit mesh. */
-		texface_from_original_index(origFace, origVertIndices[mloop[0].v], &uv[0], &pin[0], &select[0], scene, cd_loop_uv_offset);
-		texface_from_original_index(origFace, origVertIndices[mloop[1].v], &uv[1], &pin[1], &select[1], scene, cd_loop_uv_offset);
-		texface_from_original_index(origFace, origVertIndices[mloop[2].v], &uv[2], &pin[2], &select[2], scene, cd_loop_uv_offset);
-		texface_from_original_index(origFace, origVertIndices[mloop[3].v], &uv[3], &pin[3], &select[3], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[0].v], &uv[0], &pin[0], &select[0], &id[0], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[1].v], &uv[1], &pin[1], &select[1], &id[1], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[2].v], &uv[2], &pin[2], &select[2], &id[2], scene, cd_loop_uv_offset);
+		texface_from_original_index(origFace, origVertIndices[mloop[3].v], &uv[3], &pin[3], &select[3], &id[3], scene, cd_loop_uv_offset);
 
-		param_face_add(handle, key, 4, vkeys, co, uv, pin, select, NULL);
+		param_face_add(handle, key, 4, vkeys, co, uv, pin, select, id, NULL);
 	}
 
 	/* these are calculated from original mesh too */
@@ -739,8 +743,13 @@ typedef struct {
 	bool noPins;
 } MinStretchSlim;
 
-void setup_weights();
-void setup_slim(Scene * scene, ParamHandle *handle, matrix_transfer *mt, MDeformVert *dvert, int defgrp_index, BMEditMesh *em);
+void add_index_to_vertices(BMEditMesh *em);
+void setup_slim(ParamHandle *handle,
+				matrix_transfer *mt,
+				MDeformVert *dvert,
+				int defgrp_index,
+				BMEditMesh *em,
+				bool with_weighted_parameterization);
 void free_matrix_transfer(matrix_transfer *mt);
 
 /*	AUREL THESIS
@@ -755,14 +764,19 @@ static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 
 	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
 
-
 	/* AUREL THESIS setup to get weight paint colors*/
 	Mesh *me = obedit->data;
-	DerivedMesh *dm = mesh_create_derived(me, NULL);
+
 	char *name = "slim";
 	int defgrp_index = defgroup_name_index(obedit, name);
+	DerivedMesh *dm = mesh_create_derived(me, NULL);
 	MDeformVert *dvert = dm->getVertDataArray(dm, CD_MDEFORMVERT);
-	setup_weights(obedit, em);
+	bool with_weighted_parameterization = false;
+
+	if (defgrp_index >= 0){
+		with_weighted_parameterization = true;
+		add_index_to_vertices(em);
+	}
 
 	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, false, true, 1, 1);
 
@@ -776,7 +790,7 @@ static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 	//fills in mt
 
 
-	setup_slim(scene, handle, mss->mt, dvert, defgrp_index, em);
+	setup_slim(handle, mss->mt, dvert, defgrp_index, em, with_weighted_parameterization);
 
 	mss->slimPtrs = MEM_callocN(mss->mt->nCharts * sizeof(void*), "pointers to Slim-objects");
 
@@ -873,7 +887,7 @@ static int minimize_stretch_SLIM_exec(bContext *C, wmOperator *op)
 
 	MinStretchSlim *mss = op->customdata;
 
-	param_slim(mss->mt, n_iterations, true, true);
+	param_slim_C(mss->mt, n_iterations, true, true);
 
 	minimize_stretch_SLIM_exit(C, op, false);
 
@@ -1412,22 +1426,18 @@ static void uv_map_clip_correct(Scene *scene, Object *ob, BMEditMesh *em, wmOper
 
 /* ******************** Unwrap operator **************** */
 
+bool setup_weight_transfer(Object *obedit,BMEditMesh *em, int defgrp_index, MDeformVert *dvert);
+
 /* assumes UV Map is checked, doesn't run update funcs */
 void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 {
 
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 
-	/*	AUREL THESIS setup to get weight paint colors for weighted parametrisation*/
-	Mesh *me = obedit->data;
-	DerivedMesh *dm = mesh_create_derived(me, NULL);
-	char *name = "slim";
-	int defgrp_index = defgroup_name_index(obedit, name);
-	MDeformVert *dvert = dm->getVertDataArray(dm, CD_MDEFORMVERT);
-
-	setup_weights(obedit, em);
-
-	/* END AUREL THESIS*/
+	/* AUREL GRUBER setup to get weight paint colors for weighted parametrisation*/
+	int defgrp_index;
+	MDeformVert *dvert;
+	bool with_weighted_parameterization = setup_weight_transfer(obedit, em, defgrp_index, dvert);
 
 	ParamHandle *handle;
 
@@ -1444,8 +1454,7 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 
 	bool transform_islands = true;
 
-	/* AUREL THESIS - SLIM parametrization */
-
+	/* AUREL GRUBER - SLIM parametrization */
 	if (scene->toolsettings->unwrapper == 2){ //SLIM method chosen
 		int n_iterations = scene->toolsettings->slim_n_iterations;
 		bool skip_initialization = scene->toolsettings->slim_skip_initialization;
@@ -1458,8 +1467,8 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 			transfer of data matrices, initialisation of SLIM, actual parametrisation and finally
 			reassignment of new UVs to vertices.
 		 */
-		setup_slim(scene, handle, mt, dvert, defgrp_index, em);
-		param_slim(mt, n_iterations, fixed_boundary, skip_initialization);
+		setup_slim(handle, mt, dvert, defgrp_index, em, with_weighted_parameterization);
+		param_slim_C(mt, n_iterations, fixed_boundary, skip_initialization);
 		set_uv_param_slim(handle, mt);
 
 		//if any vertices are pinned, don't pack (i.e. reposition/-scale) UV charts
@@ -1486,8 +1495,24 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	param_delete(handle);
 }
 
+bool setup_weight_transfer(Object *obedit,BMEditMesh *em, int defgrp_index, MDeformVert *dvert){
 
-void setup_weights(Object *obedit, BMEditMesh *em){
+	Mesh *me = obedit->data;
+
+	char *name = "slim";
+	defgrp_index = defgroup_name_index(obedit, name);
+	DerivedMesh *dm = mesh_create_derived(me, NULL);
+	dvert = dm->getVertDataArray(dm, CD_MDEFORMVERT);
+
+	if (defgrp_index >= 0){
+		add_index_to_vertices(em);
+		return true;
+	}
+
+	return false;
+}
+
+void add_index_to_vertices(BMEditMesh *em){
 
 	// AUREL THESIS iterate over bm edit mesh and set indices for weight retrieval,
 	//				This allows for later matching of vertices to weights.
@@ -1502,8 +1527,15 @@ void setup_weights(Object *obedit, BMEditMesh *em){
 /*	AUREL THESIS
 	Transfers necessary data from native part to SLIM.
  */
-void setup_slim(Scene * scene, ParamHandle *handle, matrix_transfer *mt, MDeformVert *dvert, int defgrp_index, BMEditMesh *em){
+void setup_slim(ParamHandle *handle,
+				matrix_transfer *mt,
+				MDeformVert *dvert,
+				int defgrp_index,
+				BMEditMesh *em,
+				bool with_weighted_parameterization){
+
 	mt->pinned_vertices = false;
+	mt->with_weighted_parameterization = with_weighted_parameterization;
 	convert_blender_slim(handle, mt, false, dvert, defgrp_index, em);
 }
 
