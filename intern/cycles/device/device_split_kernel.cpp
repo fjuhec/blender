@@ -126,28 +126,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	global_size[1] = round_up(task->requested_tile_size.y, local_size[1]);
 
 	/* Calculate per_thread_output_buffer_size. */
-	size_t per_thread_output_buffer_size;
-	{
-		size_t output_buffer_size = tile.buffers->buffer.device_size;
-
-#if 0
-		/* This value is different when running on AMD and NV. */
-		if(device->background) {
-			/* In offline render the number of buffer elements
-			 * associated with tile.buffer is the current tile size.
-			 */
-			per_thread_output_buffer_size = output_buffer_size / (tile.w * tile.h);
-		}
-		else
-#endif
-		{
-			/* interactive rendering, unlike offline render, the number of buffer elements
-			 * associated with tile.buffer is the entire viewport size.
-			 */
-			per_thread_output_buffer_size = output_buffer_size /
-				(tile.buffers->params.width * tile.buffers->params.height);
-		}
-	}
+	size_t per_thread_output_buffer_size = task->passes_size;
 
 	/* Number of elements in the global state buffer */
 	int num_global_elements = global_size[0] * global_size[1];
