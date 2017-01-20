@@ -77,6 +77,8 @@ public:
 	bool path_trace(DeviceTask *task,
 	                RenderTile& rtile,
 	                device_memory& kernel_data);
+
+	size_t max_elements_for_max_buffer_size(size_t max_buffer_size, size_t passes_size);
 };
 
 CCL_NAMESPACE_END

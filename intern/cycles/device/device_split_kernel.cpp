@@ -80,6 +80,12 @@ bool DeviceSplitKernel::load_kernels(const DeviceRequestedFeatures& requested_fe
 	return true;
 }
 
+size_t DeviceSplitKernel::max_elements_for_max_buffer_size(size_t max_buffer_size, size_t passes_size)
+{
+	size_t size_per_element = split_data_buffer_size(1024, current_max_closure, passes_size) / 1024;
+	return max_buffer_size / size_per_element;
+}
+
 bool DeviceSplitKernel::path_trace(DeviceTask *task,
                                    RenderTile& tile,
                                    device_memory& kernel_data)
