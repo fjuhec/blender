@@ -109,6 +109,8 @@ struct Palette      *BKE_palette_get_active_from_context(const struct bContext *
 struct PaletteColor *BKE_palette_color_add(struct Palette *palette);
 struct PaletteColor *BKE_palette_color_add_name(struct Palette *palette, const char *name);
 struct PaletteColor *BKE_palette_color_getbyname(struct Palette *palette, char *name);
+struct PaletteColor *BKE_gpencil_palettecolor_getbyrgb(struct Palette *palette, float rgb[3]);
+struct PaletteColor *BKE_gpencil_palettecolor_getbyrgba(struct Palette *palette, float rgba[4]);
 void                 BKE_palette_color_remove(struct Palette *palette, struct PaletteColor *color);
 struct PaletteColor *BKE_palette_color_get_active(struct Palette *palette);
 struct PaletteColor *BKE_palette_color_get_active_from_context(const struct bContext *C);

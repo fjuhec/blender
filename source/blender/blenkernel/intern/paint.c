@@ -530,6 +530,46 @@ PaletteColor *BKE_palette_color_getbyname(Palette *palette, char *name)
 	return BLI_findstring(&palette->colors, name, offsetof(PaletteColor, info));
 }
 
+/* get the palettecolor looking by rgb */
+PaletteColor *BKE_gpencil_palettecolor_getbyrgb(Palette *palette, float rgb[3])
+{
+	PaletteColor *palcolor;
+
+	/* error checking */
+	if (ELEM(NULL, palette, palette->colors.first)) {
+		return NULL;
+	}
+	/* loop over colors until found */
+	for (palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+		if (equals_v3v3(palcolor->rgb, rgb)) {
+			return palcolor;
+		}
+	}
+
+	/* no active color found */
+	return NULL;
+}
+
+/* get the palettecolor looking by rgba */
+PaletteColor *BKE_gpencil_palettecolor_getbyrgba(Palette *palette, float rgba[4])
+{
+	PaletteColor *palcolor;
+
+	/* error checking */
+	if (ELEM(NULL, palette, palette->colors.first)) {
+		return NULL;
+	}
+	/* loop over colors until found */
+	for (palcolor = palette->colors.first; palcolor; palcolor = palcolor->next) {
+		if (equals_v4v4(palcolor->rgb, rgba)) {
+			return palcolor;
+		}
+	}
+
+	/* no active color found */
+	return NULL;
+}
+
 /* are we in vertex paint or weight pain face select mode? */
 bool BKE_paint_select_face_test(Object *ob)
 {
