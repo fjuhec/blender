@@ -43,10 +43,12 @@
 
 #include "BLT_translation.h"
 
+#include "DNA_anim_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_userdef_types.h"
 #include "DNA_scene_types.h"
 
+#include "BKE_action.h"
 #include "BKE_animsys.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
@@ -1345,4 +1347,109 @@ void BKE_gpencil_palettecolor_delete(bGPDpalette *palette, bGPDpalettecolor *pal
 
 	/* free */
 	BLI_freelinkN(&palette->colors, palcolor);
+}
+
+/**
+* Helper heuristic for determining if a path is compatible with the basepath
+*
+* \param path Full RNA-path from some data (usually an F-Curve) to compare
+* \param basepath Shorter path fragment to look for
+* \return Whether there is a match
+*/
+static bool gp_animpath_matches_basepath(const char path[], const char basepath[])
+{
+	/* we need start of path to be basepath */
+	return (path && basepath) && STRPREFIX(path, basepath);
+}
+
+/* Transfer the animation data from bGPDpalette to Palette */
+void BKE_gpencil_copy_animdata_to_palettes(bGPdata *gpd)
+{
+	Main *main = G.main;
+	Palette *palette = NULL;
+	AnimData *srcAdt = NULL, *dstAdt = NULL;
+	FCurve *fcu = NULL;
+	char info[64];
+
+	LinkData *ld;
+
+	/* sanity checks */
+	if (ELEM(NULL, gpd)) {
+		if (G.debug & G_DEBUG)
+			printf("ERROR: no source or destination ID to separate AnimData with\n");
+		return;
+	}
+	/* get animdata from src, and create for destination (if needed) */
+	srcAdt = BKE_animdata_from_id((ID *)gpd);
+	if (ELEM(NULL, srcAdt)) {
+		if (G.debug & G_DEBUG)
+			printf("ERROR: no source AnimData\n");
+		return;
+	}
+
+	/* find first palette */
+	for (fcu = srcAdt->action->curves.first; fcu; fcu = fcu->next) {
+		if (strncmp("palette", fcu->rna_path, 7) == 0) {
+			int x = strcspn(fcu->rna_path, "[") + 2;
+			int y = strcspn(fcu->rna_path, "]");
+			BLI_strncpy(info, fcu->rna_path + x, y - x);
+			palette = BLI_findstring(&main->palettes, info, offsetof(ID, name) + 2);
+			break;
+		}
+	}
+	if (ELEM(NULL, palette)) {
+		if (G.debug & G_DEBUG)
+			printf("ERROR: Palette %s not found\n", info);
+		return;
+	}
+
+
+	/* active action */
+	if (srcAdt->action) {
+		/* get animdata from destination or create (if needed) */
+		dstAdt = BKE_animdata_add_id((ID *) palette);
+		if (ELEM(NULL, dstAdt)) {
+			if (G.debug & G_DEBUG)
+				printf("ERROR: no AnimData for destination palette\n");
+			return;
+		}
+
+		/* create destination action */
+		dstAdt->action = add_empty_action(G.main, srcAdt->action->id.name + 2);
+		/* move fcurves */
+		action_move_fcurves_by_basepath(srcAdt->action, dstAdt->action, "palettes");
+
+		/* loop over base paths, to fix for each one... */
+		for (fcu = dstAdt->action->curves.first; fcu; fcu = fcu->next) {
+			if (strncmp("palette", fcu->rna_path, 7) == 0) {
+				int x = strcspn(fcu->rna_path, ".") + 1;
+				BLI_strncpy(fcu->rna_path, fcu->rna_path + x, strlen(fcu->rna_path));
+			}
+		}
+	}
+
+	/* drivers */
+#if 0
+	if (srcAdt->drivers.first) {
+		FCurve *fcu, *fcn = NULL;
+
+		/* check each driver against all the base paths to see if any should go */
+		for (fcu = srcAdt->drivers.first; fcu; fcu = fcn) {
+			fcn = fcu->next;
+
+			/* try each basepath in turn, but stop on the first one which works */
+			for (ld = basepaths->first; ld; ld = ld->next) {
+				const char *basepath = (const char *)ld->data;
+
+				if (gp_animpath_matches_basepath(fcu->rna_path, basepath)) {
+					/* just need to change lists */
+					BLI_remlink(&srcAdt->drivers, fcu);
+					BLI_addtail(&dstAdt->drivers, fcu);
+					/* can stop now, as moved already */
+					break;
+				}
+			}
+		}
+	}
+#endif
 }
