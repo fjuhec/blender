@@ -78,9 +78,9 @@ typedef struct SDefBindWeightData {
 static void initData(ModifierData *md)
 {
 	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
-	smd->target	 = NULL;
-	smd->verts	 = NULL;
-	smd->flags   = 0;
+	smd->target = NULL;
+	smd->verts = NULL;
+	smd->flags = 0;
 	smd->falloff = 4.0f;
 }
 
@@ -92,13 +92,8 @@ static void freeData(ModifierData *md)
 		for (int i = 0; i < smd->numverts; i++) {
 			if (smd->verts[i].binds) {
 				for (int j = 0; j < smd->verts[i].numbinds; j++) {
-					if (smd->verts[i].binds[j].vert_inds) {
-						MEM_freeN(smd->verts[i].binds[j].vert_inds);
-					}
-
-					if (smd->verts[i].binds[j].vert_weights) {
-						MEM_freeN(smd->verts[i].binds[j].vert_weights);
-					}
+					MEM_SAFE_FREE(smd->verts[i].binds[j].vert_inds);
+					MEM_SAFE_FREE(smd->verts[i].binds[j].vert_weights);
 				}
 
 				MEM_freeN(smd->verts[i].binds);
@@ -351,13 +346,8 @@ static void freeBindData(SDefBindWeightData * const bwdata)
 	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bwdata->bind_polys) {
 		bwdata->bind_polys = bpoly->next;
 
-		if (bpoly->coords) {
-			MEM_freeN(bpoly->coords);
-		}
-
-		if (bpoly->coords_v2) {
-			MEM_freeN(bpoly->coords_v2);
-		}
+		MEM_SAFE_FREE(bpoly->coords);
+		MEM_SAFE_FREE(bpoly->coords_v2);
 
 		MEM_freeN(bpoly);
 	}
