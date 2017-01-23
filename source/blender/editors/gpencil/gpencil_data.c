@@ -53,6 +53,7 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_brush_types.h"
 
+#include "BKE_main.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
@@ -1422,4 +1423,38 @@ void GPENCIL_OT_brush_select(wmOperatorType *ot)
 
 	/* properties */
 	RNA_def_int(ot->srna, "index", 0, 0, INT_MAX, "Index", "Index of Drawing Brush", 0, INT_MAX);
+}
+
+/* ******************* Convertt animation data ************************ */
+static int gp_convert_old_palettes_poll(bContext *C)
+{
+	/* TODO: need better poll*/
+	return true;
+}
+
+/* convert old animation data to new format */
+static int gp_convert_old_palettes_exec(bContext *C, wmOperator *op)
+{
+	Main *main = CTX_data_main(C);
+	for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+		BKE_gpencil_copy_animdata_to_palettes(gpd);
+	}
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_convert_old_palettes(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Convert Old Palettes";
+	ot->idname = "GPENCIL_OT_convert_old_palettes";
+	ot->description = "Convert old gpencil palettes animation data to blender palettes";
+
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* callbacks */
+	ot->exec = gp_convert_old_palettes_exec;
+	ot->poll = gp_convert_old_palettes_poll;
 }

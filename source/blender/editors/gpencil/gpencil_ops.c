@@ -430,6 +430,9 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_brush_copy);
 	WM_operatortype_append(GPENCIL_OT_brush_select);
 
+	/* conversion of old palettes */
+	WM_operatortype_append(GPENCIL_OT_convert_old_palettes);
+
 	/* Editing (Time) --------------- */
 	
 	/* Interpolation */
