@@ -1832,16 +1832,15 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 		}
 		else if (md->type == eModifierType_SurfaceDeform) {
 			SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
-			int i, j;
 
 			writestruct(wd, DATA, SDefVert, smd->numverts, smd->verts);
 
 			if (smd->verts) {
-				for (i = 0; i < smd->numverts; i++) {
+				for (int i = 0; i < smd->numverts; i++) {
 					writestruct(wd, DATA, SDefBind, smd->verts[i].numbinds, smd->verts[i].binds);
 
 					if (smd->verts[i].binds) {
-						for (j = 0; j < smd->verts[i].numbinds; j++) {
+						for (int j = 0; j < smd->verts[i].numbinds; j++) {
 							writedata(wd, DATA, sizeof(int) * smd->verts[i].binds[j].numverts, smd->verts[i].binds[j].vert_inds);
 
 							if (smd->verts[i].binds[j].mode == MOD_SDEF_MODE_CENTROID ||

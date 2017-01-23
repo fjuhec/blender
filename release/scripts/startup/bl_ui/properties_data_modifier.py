@@ -957,7 +957,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.separator()
 
         col = layout.column()
-        col.enabled = bool(md.target)
+        col.active = md.target is not None
 
         if md.is_bound:
             col.operator("object.surfacedeform_bind", text="Unbind")

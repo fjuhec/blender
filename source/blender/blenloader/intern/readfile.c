@@ -5304,22 +5304,21 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 		}
 		else if (md->type == eModifierType_SurfaceDeform) {
 			SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
-			int i, j;
 
 			smd->verts = newdataadr(fd, smd->verts);
 
 			if (smd->verts) {
-				for (i = 0; i < smd->numverts; i++) {
+				for (int i = 0; i < smd->numverts; i++) {
 					smd->verts[i].binds = newdataadr(fd, smd->verts[i].binds);
 
 					if (smd->verts[i].binds) {
-						for (j = 0; j < smd->verts[i].numbinds; j++) {
+						for (int j = 0; j < smd->verts[i].numbinds; j++) {
 							smd->verts[i].binds[j].vert_inds = newdataadr(fd, smd->verts[i].binds[j].vert_inds);
 							smd->verts[i].binds[j].vert_weights = newdataadr(fd, smd->verts[i].binds[j].vert_weights);
 
 							if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
 								if (smd->verts[i].binds[j].vert_inds)
-									BLI_endian_switch_int32_array(smd->verts[i].binds[j].vert_inds, smd->verts[i].binds[j].numverts);
+									BLI_endian_switch_uint32_array(smd->verts[i].binds[j].vert_inds, smd->verts[i].binds[j].numverts);
 
 								if (smd->verts[i].binds[j].vert_weights) {
 									if (smd->verts[i].binds[j].mode == MOD_SDEF_MODE_CENTROID ||
