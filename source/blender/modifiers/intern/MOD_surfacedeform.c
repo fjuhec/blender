@@ -151,9 +151,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
 	if (smd->target) {
 		DagNode *curNode = dag_get_node(forest, smd->target);
 
-		dag_add_relation(forest, curNode, obNode,
-		                 DAG_RL_DATA_DATA | DAG_RL_OB_DATA | DAG_RL_DATA_OB | DAG_RL_OB_OB,
-		                 "Surface Deform Modifier");
+		dag_add_relation(forest, curNode, obNode, DAG_RL_DATA_DATA, "Surface Deform Modifier");
 	}
 }
 
