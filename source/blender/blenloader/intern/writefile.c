@@ -1845,9 +1845,12 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 
 							if (smd->verts[i].binds[j].mode == MOD_SDEF_MODE_CENTROID ||
 							    smd->verts[i].binds[j].mode == MOD_SDEF_MODE_LOOPTRI)
+							{
 								writedata(wd, DATA, sizeof(float) * 3, smd->verts[i].binds[j].vert_weights);
-							else
+							}
+							else {
 								writedata(wd, DATA, sizeof(float) * smd->verts[i].binds[j].numverts, smd->verts[i].binds[j].vert_weights);
+							}
 						}
 					}
 				}

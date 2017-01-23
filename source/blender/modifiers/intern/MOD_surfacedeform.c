@@ -28,7 +28,7 @@ typedef struct SDefEdgePolys {
 
 typedef struct SDefBindCalcData {
 	BVHTreeFromMesh * const treeData;
-	const SDefAdjacency * const * const vert_edges;
+	const SDefAdjacency ** const vert_edges;
 	const SDefEdgePolys * const edge_polys;
 	SDefVert * const bind_verts;
 	const MLoopTri * const looptri;
