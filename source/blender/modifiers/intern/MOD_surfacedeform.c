@@ -47,6 +47,9 @@ typedef struct SDefBindPoly {
 	float (*coords_v2)[2];
 	float point_v2[2];
 	float weight_components[3]; /* indices: 0 = angular weight; 1 = projected point weight; 2 = actual point weights; */
+	float weight_angular;
+	float weight_dist_proj;
+	float weight_dist;
 	float weight;
 	float scales[2];
 	float centroid[3];
@@ -483,11 +486,11 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				bpoly->inside = isect_point_poly_v2(bpoly->point_v2, bpoly->coords_v2, poly->totloop, false);
 
 				/* Initialize weight components */
-				bpoly->weight_components[0] = 1.0f;
-				bpoly->weight_components[1] = len_v2v2(bpoly->centroid_v2, bpoly->point_v2);
-				bpoly->weight_components[2] = len_v3v3(bpoly->centroid, point_co);
+				bpoly->weight_angular = 1.0f;
+				bpoly->weight_dist_proj = len_v2v2(bpoly->centroid_v2, bpoly->point_v2);
+				bpoly->weight_dist = len_v3v3(bpoly->centroid, point_co);
 
-				avg_point_dist += bpoly->weight_components[2];
+				avg_point_dist += bpoly->weight_dist;
 
 				/* Compute centroid to mid-edge vectors */
 				mid_v2_v2v2(bpoly->cent_edgemid_vecs_v2[0],
@@ -515,11 +518,11 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				bpoly->corner_edgemid_angles[1] = angle_normalized_v2v2(tmp_vec_v2, bpoly->cent_edgemid_vecs_v2[1]);
 
 				/* Check for inifnite weights, and compute angular data otherwise */
-				if (bpoly->weight_components[2] < FLT_EPSILON) {
+				if (bpoly->weight_dist < FLT_EPSILON) {
 					inf_weight_flags |= 1 << 1;
 					inf_weight_flags |= 1 << 2;
 				}
-				else if (bpoly->weight_components[1] < FLT_EPSILON) {
+				else if (bpoly->weight_dist_proj < FLT_EPSILON) {
 					inf_weight_flags |= 1 << 1;
 				}
 				else {
@@ -575,7 +578,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				tmp1 *= M_PI_2;
 				tmp1 = sinf(tmp1);
 
-				bpolys[0]->weight_components[0] *= tmp1 * tmp1;
+				bpolys[0]->weight_angular *= tmp1 * tmp1;
 			}
 			else if (epolys->num == 2) {
 				tmp1 = bpolys[0]->point_edgemid_angles[edge_on_poly[0]];
@@ -587,8 +590,8 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				tmp1 = sinf(tmp1);
 				tmp2 = sinf(tmp2);
 
-				bpolys[0]->weight_components[0] *= tmp1 * tmp2;
-				bpolys[1]->weight_components[0] *= tmp1 * tmp2;
+				bpolys[0]->weight_angular *= tmp1 * tmp2;
+				bpolys[1]->weight_angular *= tmp1 * tmp2;
 			}
 		}
 	}
@@ -641,21 +644,21 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 			                   bpoly->scales[!bpoly->dominant_edge] * scale_weight;
 
 			/* Scale the point distance weights, and introduce falloff */
-			bpoly->weight_components[1] /= bpoly->scales[0];
-			bpoly->weight_components[1] = powf(bpoly->weight_components[1], data->falloff);
+			bpoly->weight_dist_proj /= bpoly->scales[0];
+			bpoly->weight_dist_proj = powf(bpoly->weight_dist_proj, data->falloff);
 
-			bpoly->weight_components[2] /= avg_point_dist;
-			bpoly->weight_components[2] = powf(bpoly->weight_components[2], data->falloff);
+			bpoly->weight_dist /= avg_point_dist;
+			bpoly->weight_dist = powf(bpoly->weight_dist, data->falloff);
 
 			/* Re-check for infinite weights, now that all scalings and interpolations are computed */
-			if (bpoly->weight_components[2] < FLT_EPSILON) {
+			if (bpoly->weight_dist < FLT_EPSILON) {
 				inf_weight_flags |= 1 << 1;
 				inf_weight_flags |= 1 << 2;
 			}
-			else if (bpoly->weight_components[1] < FLT_EPSILON) {
+			else if (bpoly->weight_dist_proj < FLT_EPSILON) {
 				inf_weight_flags |= 1 << 1;
 			}
-			else if (bpoly->weight_components[0] < FLT_EPSILON) {
+			else if (bpoly->weight_angular < FLT_EPSILON) {
 				inf_weight_flags |= 1 << 0;
 			}
 		}
@@ -663,11 +666,11 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 	else if (!(inf_weight_flags & (1 << 2))) {
 		for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
 			/* Scale the point distance weight by average point distance, and introduce falloff */
-			bpoly->weight_components[2] /= avg_point_dist;
-			bpoly->weight_components[2] = powf(bpoly->weight_components[2], data->falloff);
+			bpoly->weight_dist /= avg_point_dist;
+			bpoly->weight_dist = powf(bpoly->weight_dist, data->falloff);
 
 			/* Re-check for infinite weights, now that all scalings and interpolations are computed */
-			if (bpoly->weight_components[2] < FLT_EPSILON) {
+			if (bpoly->weight_dist < FLT_EPSILON) {
 				inf_weight_flags |= 1 << 2;
 			}
 		}
@@ -677,20 +680,20 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
 		/* Weight computation from components */
 		if (inf_weight_flags & 1 << 2) {
-			bpoly->weight = bpoly->weight_components[2] < FLT_EPSILON ? 1.0f : 0.0f;
+			bpoly->weight = bpoly->weight_dist < FLT_EPSILON ? 1.0f : 0.0f;
 		}
 		else if (inf_weight_flags & 1 << 1) {
-			bpoly->weight = bpoly->weight_components[1] < FLT_EPSILON ?
-			                1.0f / bpoly->weight_components[2] : 0.0f;
+			bpoly->weight = bpoly->weight_dist_proj < FLT_EPSILON ?
+			                1.0f / bpoly->weight_dist : 0.0f;
 		}
 		else if (inf_weight_flags & 1 << 0) {
-			bpoly->weight = bpoly->weight_components[0] < FLT_EPSILON ?
-			                1.0f / bpoly->weight_components[1] / bpoly->weight_components[2] : 0.0f;
+			bpoly->weight = bpoly->weight_angular < FLT_EPSILON ?
+			                1.0f / bpoly->weight_dist_proj / bpoly->weight_dist : 0.0f;
 		}
 		else {
-			bpoly->weight = 1.0f / bpoly->weight_components[0] /
-			                       bpoly->weight_components[1] /
-			                       bpoly->weight_components[2];
+			bpoly->weight = 1.0f / bpoly->weight_angular /
+			                       bpoly->weight_dist_proj /
+			                       bpoly->weight_dist;
 		}
 
 		tot_weight += bpoly->weight;
