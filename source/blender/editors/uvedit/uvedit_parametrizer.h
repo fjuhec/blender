@@ -41,7 +41,7 @@ extern "C" {
 #include "BLI_sys_types.h" // for intptr_t support
 
 #include "matrix_transfer.h" // for SLIM
-
+#include "slim_C_interface.h"
 
 typedef void ParamHandle;	/* handle to a set of charts */
 typedef intptr_t ParamKey;		/* (hash) key for identifying verts and faces */
@@ -81,6 +81,51 @@ void param_edge_set_seam(ParamHandle *handle,
 
 void param_construct_end(ParamHandle *handle, ParamBool fill, ParamBool impl);
 void param_delete(ParamHandle *chart);
+
+
+
+/* SLIM handle enrichment/construction:
+ * -----------------------------
+ * - enrich handle
+ */
+
+void add_index_to_vertices(BMEditMesh *em);
+int retrieve_weightmap_index(Object *obedit);
+void param_slim_enrich_handle(Object *obedit,
+							  BMEditMesh *em,
+							  ParamHandle *handle,
+							  matrix_transfer *mt,
+							  MDeformVert *dvert,
+							  int weightMapIndex,
+							  int n_iterations,
+							  bool skip_initialization,
+							  bool fixed_boundary,
+							  bool pack_islands,
+							  bool with_weighted_parameterization);
+/* unwrapping:
+ * -----------------------------
+ * - Either Conformal or SLIM
+ */
+
+void param_begin(ParamHandle *handle, ParamBool abf, bool useSlim);
+void param_solve(ParamHandle *handle, bool useSlim);
+void param_end(ParamHandle *handle, bool useSlim);
+
+/* Least Squares Conformal Maps:
+ * -----------------------------
+ * - charts with less than two pinned vertices are assigned 2 pins
+ * - lscm is divided in three steps:
+ * - begin: compute matrix and it's factorization (expensive)
+ * - solve using pinned coordinates (cheap)
+ * - end: clean up
+ * - uv coordinates are allowed to change within begin/end, for
+ *   quick re-solving
+ */
+
+void param_slim_begin(ParamHandle *handle);
+void param_slim_solve(ParamHandle *handle);
+void param_slim_end(ParamHandle *handle);
+
 
 /* Least Squares Conformal Maps:
  * -----------------------------
@@ -126,8 +171,10 @@ void param_flush(ParamHandle *handle);
 void param_flush_restore(ParamHandle *handle);
 
 /*	AUREL THESIS */
-void convert_blender_slim(ParamHandle *handle, matrix_transfer *mt, bool selectionOnly,MDeformVert *dvert, int defgrp_index, BMEditMesh *em);
+void transfer_data_to_slim(ParamHandle *handle);
+void convert_blender_slim(ParamHandle *handle, bool selectionOnly, int weightMapIndex);
 void set_uv_param_slim(ParamHandle *handle, matrix_transfer *mt);
+bool transformIslands(ParamHandle *handle);
 bool mark_pins(ParamHandle *paramHandle);
 
 #ifdef __cplusplus
