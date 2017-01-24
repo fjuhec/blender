@@ -32,7 +32,7 @@
 #  define ccl_addr_space
 #endif
 
-#ifdef __SPLIT_KERNEL__
+#if defined(__SPLIT_KERNEL__) && !defined(__COMPUTE_DEVICE_GPU__)
 /* TODO(mai): need to investigate how this effects the kernel, as cpu kernel crashes without this right now */
 #define __COMPUTE_DEVICE_GPU__
 #endif
