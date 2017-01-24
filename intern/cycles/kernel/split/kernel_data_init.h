@@ -78,7 +78,7 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
         ccl_global int *Queue_index,                 /* Tracks the number of elements in queues */
         int queuesize,                               /* size (capacity) of the queue */
         ccl_global char *use_queues_flag,            /* flag to decide if scene-intersect kernel should use queues to fetch ray index */
-        ccl_global unsigned int *work_pool_wgs,      /* Work pool for each work group */
+        ccl_global unsigned int *work_pools,      /* Work pool for each work group */
         unsigned int num_samples,                    /* Total number of samples per pixel */
         int buffer_offset_x,
         int buffer_offset_y,
@@ -105,7 +105,7 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 	kernel_split_params.start_sample = start_sample;
 	kernel_split_params.end_sample = end_sample;
 
-	kernel_split_params.work_pool_wgs = work_pool_wgs;
+	kernel_split_params.work_pools = work_pools;
 	kernel_split_params.num_samples = num_samples;
 
 	kernel_split_params.queue_index = Queue_index;
@@ -127,11 +127,9 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 
 	int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 
-	int lid = ccl_local_id(1) * ccl_local_size(0) + ccl_local_id(0);
-	/* Initialize work_pool_wgs */
-	if(lid == 0) {
-		int group_index = ccl_group_id(1) * ccl_num_groups(0) + ccl_group_id(0);
-		work_pool_wgs[group_index] = 0;
+	/* Initialize work_pools */
+	if(thread_index < kernel_num_work_pools(kg)) {
+		work_pools[thread_index] = 0;
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
@@ -158,95 +156,88 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 		*use_queues_flag = 0;
 	}
 
-	int x = ccl_global_id(0);
-	int y = ccl_global_id(1);
+	int ray_index = ccl_global_id(0) + ccl_global_id(1) * ccl_global_size(0);
 
-	if(x < sw && y < sh) {
-		int ray_index = x + y * sw;
+	/* This is the first assignment to ray_state;
+	 * So we dont use ASSIGN_RAY_STATE macro.
+	 */
+	kernel_split_state.ray_state[ray_index] = RAY_ACTIVE;
 
-		/* This is the first assignment to ray_state;
-		 * So we dont use ASSIGN_RAY_STATE macro.
-		 */
-		kernel_split_state.ray_state[ray_index] = RAY_ACTIVE;
+	unsigned int my_sample;
+	unsigned int pixel_x;
+	unsigned int pixel_y;
+	unsigned int tile_x;
+	unsigned int tile_y;
+	unsigned int my_sample_tile;
 
-		unsigned int my_sample;
-		unsigned int pixel_x;
-		unsigned int pixel_y;
-		unsigned int tile_x;
-		unsigned int tile_y;
-		unsigned int my_sample_tile;
+	unsigned int work_index = 0;
+	/* Get work. */
+	if(!get_next_work(kg, &work_index, ray_index)) {
+		/* No more work, mark ray as inactive */
+		kernel_split_state.ray_state[ray_index] = RAY_INACTIVE;
 
-		unsigned int my_work = 0;
-		/* Get work. */
-		get_next_work(kg, work_pool_wgs, &my_work, sw, sh, num_samples, ray_index);
-		/* Get the sample associated with the work. */
-		my_sample = get_my_sample(kg, my_work, sw, sh, ray_index) + start_sample;
-
-		my_sample_tile = 0;
-
-		/* Get pixel and tile position associated with the work. */
-		get_pixel_tile_position(kg, &pixel_x, &pixel_y,
-		                        &tile_x, &tile_y,
-		                        my_work,
-		                        sw, sh, sx, sy,
-		                        ray_index);
-		kernel_split_state.work_array[ray_index] = my_work;
-
-		rng_state += (rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride;
-
-
-		/* Initialise per_sample_output_buffers to all zeros. */
-		ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
-		per_sample_output_buffers += ((tile_x + (tile_y * stride)) + (my_sample_tile)) * kernel_data.film.pass_stride;
-
-		int per_sample_output_buffers_iterator = 0;
-		for(per_sample_output_buffers_iterator = 0;
-		    per_sample_output_buffers_iterator < kernel_data.film.pass_stride;
-		    per_sample_output_buffers_iterator++)
-		{
-			per_sample_output_buffers[per_sample_output_buffers_iterator] = 0.0f;
-		}
-
-		/* Initialize random numbers and ray. */
-		kernel_path_trace_setup(kg,
-		                        rng_state,
-		                        my_sample,
-		                        pixel_x, pixel_y,
-		                        &kernel_split_state.rng[ray_index],
-		                        &kernel_split_state.ray[ray_index]);
-
-		if(kernel_split_state.ray[ray_index].t != 0.0f) {
-			/* Initialize throughput, L_transparent, Ray, PathState;
-			 * These rays proceed with path-iteration.
-			 */
-			kernel_split_state.throughput[ray_index] = make_float3(1.0f, 1.0f, 1.0f);
-			kernel_split_state.L_transparent[ray_index] = 0.0f;
-			path_radiance_init(&kernel_split_state.path_radiance[ray_index], kernel_data.film.use_light_pass);
-			path_state_init(kg,
-			                kernel_split_state.sd_DL_shadow,
-			                &kernel_split_state.path_state[ray_index],
-			                &kernel_split_state.rng[ray_index],
-			                my_sample,
-			                &kernel_split_state.ray[ray_index]);
-#ifdef __KERNEL_DEBUG__
-			debug_data_init(&kernel_split_state.debug_data[ray_index]);
-#endif
-		}
-		else {
-			/* These rays do not participate in path-iteration. */
-			float4 L_rad = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-			/* Accumulate result in output buffer. */
-			kernel_write_pass_float4(per_sample_output_buffers, my_sample, L_rad);
-			path_rng_end(kg, rng_state, kernel_split_state.rng[ray_index]);
-			ASSIGN_RAY_STATE(kernel_split_state.ray_state, ray_index, RAY_TO_REGENERATE);
-		}
-
+		return;
 	}
 
-	/* Mark rest of the ray-state indices as RAY_INACTIVE. */
-	if(thread_index < (ccl_global_size(0) * ccl_global_size(1)) - (sh * sw)) {
-		/* First assignment, hence we dont use ASSIGN_RAY_STATE macro */
-		kernel_split_state.ray_state[(sw * sh) + thread_index] = RAY_INACTIVE;
+	/* Get the sample associated with the work. */
+	my_sample = get_work_sample(kg, work_index, ray_index) + start_sample;
+
+	my_sample_tile = 0;
+
+	/* Get pixel and tile position associated with the work. */
+	get_work_pixel_tile_position(kg, &pixel_x, &pixel_y,
+	                        &tile_x, &tile_y,
+	                        work_index,
+	                        ray_index);
+	kernel_split_state.work_array[ray_index] = work_index;
+
+	rng_state += (rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride;
+
+
+	/* Initialise per_sample_output_buffers to all zeros. */
+	ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
+	per_sample_output_buffers += ((tile_x + (tile_y * stride)) + (my_sample_tile)) * kernel_data.film.pass_stride;
+
+	int per_sample_output_buffers_iterator = 0;
+	for(per_sample_output_buffers_iterator = 0;
+	    per_sample_output_buffers_iterator < kernel_data.film.pass_stride;
+	    per_sample_output_buffers_iterator++)
+	{
+		per_sample_output_buffers[per_sample_output_buffers_iterator] = 0.0f;
+	}
+
+	/* Initialize random numbers and ray. */
+	kernel_path_trace_setup(kg,
+	                        rng_state,
+	                        my_sample,
+	                        pixel_x, pixel_y,
+	                        &kernel_split_state.rng[ray_index],
+	                        &kernel_split_state.ray[ray_index]);
+
+	if(kernel_split_state.ray[ray_index].t != 0.0f) {
+		/* Initialize throughput, L_transparent, Ray, PathState;
+		 * These rays proceed with path-iteration.
+		 */
+		kernel_split_state.throughput[ray_index] = make_float3(1.0f, 1.0f, 1.0f);
+		kernel_split_state.L_transparent[ray_index] = 0.0f;
+		path_radiance_init(&kernel_split_state.path_radiance[ray_index], kernel_data.film.use_light_pass);
+		path_state_init(kg,
+		                kernel_split_state.sd_DL_shadow,
+		                &kernel_split_state.path_state[ray_index],
+		                &kernel_split_state.rng[ray_index],
+		                my_sample,
+		                &kernel_split_state.ray[ray_index]);
+#ifdef __KERNEL_DEBUG__
+		debug_data_init(&kernel_split_state.debug_data[ray_index]);
+#endif
+	}
+	else {
+		/* These rays do not participate in path-iteration. */
+		float4 L_rad = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+		/* Accumulate result in output buffer. */
+		kernel_write_pass_float4(per_sample_output_buffers, my_sample, L_rad);
+		path_rng_end(kg, rng_state, kernel_split_state.rng[ray_index]);
+		ASSIGN_RAY_STATE(kernel_split_state.ray_state, ray_index, RAY_TO_REGENERATE);
 	}
 }
 

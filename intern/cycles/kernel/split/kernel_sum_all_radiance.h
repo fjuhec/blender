@@ -41,9 +41,6 @@ ccl_device void kernel_sum_all_radiance(KernelGlobals *kg)
 		ccl_global float *per_sample_output_buffer = kernel_split_state.per_sample_output_buffers;
 		per_sample_output_buffer += (x + y * stride) * (kernel_data.film.pass_stride);
 
-		int sample_stride = (kernel_data.film.pass_stride);
-
-		int sample_iterator = 0;
 		int pass_stride_iterator = 0;
 		int num_floats = kernel_data.film.pass_stride;
 

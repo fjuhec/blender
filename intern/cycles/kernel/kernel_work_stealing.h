@@ -27,160 +27,90 @@ CCL_NAMESPACE_BEGIN
 #  pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 #endif
 
-ccl_device uint get_group_id_with_ray_index(uint ray_index,
-                                 uint tile_dim_x,
-                                 uint tile_dim_y,
-                                 int dim)
+ccl_device_inline uint kernel_total_work_size(KernelGlobals *kg)
 {
-	if(dim == 0) {
-		uint x_span = ray_index % tile_dim_x;
-		return x_span / ccl_local_size(0);
+	return kernel_split_params.w * kernel_split_params.h * kernel_split_params.num_samples;
+}
+
+ccl_device_inline uint kernel_num_work_pools(KernelGlobals *kg)
+{
+	return ccl_global_size(0) * ccl_global_size(1) / WORK_POOL_SIZE;
+}
+
+ccl_device_inline uint work_pool_from_ray_index(KernelGlobals *kg, uint ray_index)
+{
+	return ray_index / WORK_POOL_SIZE;
+}
+
+ccl_device_inline uint work_pool_work_size(KernelGlobals *kg, uint work_pool)
+{
+	uint total_work_size = kernel_total_work_size(kg);
+	uint num_pools = kernel_num_work_pools(kg);
+
+	if(work_pool >= num_pools || work_pool * WORK_POOL_SIZE >= total_work_size) {
+		return 0;
 	}
-	else /*if(dim == 1)*/ {
-		kernel_assert(dim == 1);
-		uint y_span = ray_index / tile_dim_x;
-		return y_span / ccl_local_size(1);
+
+	uint work_size = (total_work_size / (num_pools * WORK_POOL_SIZE)) * WORK_POOL_SIZE;
+
+	uint remainder = (total_work_size % (num_pools * WORK_POOL_SIZE));
+	if(work_pool < remainder / WORK_POOL_SIZE) {
+		work_size += WORK_POOL_SIZE;
 	}
+	else if(work_pool == remainder / WORK_POOL_SIZE) {
+		work_size += remainder % WORK_POOL_SIZE;
+	}
+
+	return work_size;
 }
 
-ccl_device uint get_total_work(KernelGlobals *kg,
-                    uint tile_dim_x,
-                    uint tile_dim_y,
-                    uint grp_idx,
-                    uint grp_idy,
-                    uint num_samples)
+ccl_device_inline uint get_global_work_index(KernelGlobals *kg, uint work_index, uint ray_index)
 {
-	uint threads_within_tile_border_x =
-		(grp_idx == (ccl_num_groups(0) - 1)) ? tile_dim_x % ccl_local_size(0)
-		                                     : ccl_local_size(0);
-	uint threads_within_tile_border_y =
-		(grp_idy == (ccl_num_groups(1) - 1)) ? tile_dim_y % ccl_local_size(1)
-		                                     : ccl_local_size(1);
+	uint num_pools = kernel_num_work_pools(kg);
+	uint pool = work_pool_from_ray_index(kg, ray_index);
 
-	threads_within_tile_border_x =
-		(threads_within_tile_border_x == 0) ? ccl_local_size(0)
-		                                    : threads_within_tile_border_x;
-	threads_within_tile_border_y =
-		(threads_within_tile_border_y == 0) ? ccl_local_size(1)
-		                                    : threads_within_tile_border_y;
-
-	return threads_within_tile_border_x *
-	       threads_within_tile_border_y *
-	       num_samples;
+	return (work_index / WORK_POOL_SIZE) * (num_pools * WORK_POOL_SIZE)
+	       + (pool * WORK_POOL_SIZE)
+	       + (work_index % WORK_POOL_SIZE);
 }
 
-/* Returns 0 in case there is no next work available */
-/* Returns 1 in case work assigned is valid */
-ccl_device int get_next_work(KernelGlobals *kg,
-                  ccl_global uint *work_pool,
-                  ccl_private uint *my_work,
-                  uint tile_dim_x,
-                  uint tile_dim_y,
-                  uint num_samples,
-                  uint ray_index)
+/* Returns true if there is work */
+ccl_device bool get_next_work(KernelGlobals *kg, ccl_private uint *work_index, uint ray_index)
 {
-	uint grp_idx = get_group_id_with_ray_index(ray_index,
-	                                           tile_dim_x,
-	                                           tile_dim_y,
-	                                           0);
-	uint grp_idy = get_group_id_with_ray_index(ray_index,
-	                                           tile_dim_x,
-	                                           tile_dim_y,
-	                                           1);
-	uint total_work = get_total_work(kg,
-	                                 tile_dim_x,
-	                                 tile_dim_y,
-	                                 grp_idx,
-	                                 grp_idy,
-	                                 num_samples);
-	uint group_index = grp_idy * ccl_num_groups(0) + grp_idx;
-	*my_work = atomic_fetch_and_inc_uint32(&work_pool[group_index]);
-	return (*my_work < total_work) ? 1 : 0;
+	uint work_pool = work_pool_from_ray_index(kg, ray_index);
+	uint pool_size = work_pool_work_size(kg, work_pool);
+
+	if(pool_size == 0) {
+		return false;
+	}
+
+	*work_index = atomic_fetch_and_inc_uint32(&kernel_split_params.work_pools[work_pool]);
+	return (*work_index < pool_size);
 }
 
-/* This function assumes that the passed my_work is valid. */
-/* Decode sample number w.r.t. assigned my_work. */
-ccl_device uint get_my_sample(KernelGlobals *kg,
-                   uint my_work,
-                   uint tile_dim_x,
-                   uint tile_dim_y,
-                   uint ray_index)
+/* This function assumes that the passed `work` is valid. */
+/* Decode sample number w.r.t. assigned `work`. */
+ccl_device uint get_work_sample(KernelGlobals *kg, uint work_index, uint ray_index)
 {
-	uint grp_idx = get_group_id_with_ray_index(ray_index,
-	                                           tile_dim_x,
-	                                           tile_dim_y,
-	                                           0);
-	uint grp_idy = get_group_id_with_ray_index(ray_index,
-	                                           tile_dim_x,
-	                                           tile_dim_y,
-	                                           1);
-	uint threads_within_tile_border_x =
-		(grp_idx == (ccl_num_groups(0) - 1)) ? tile_dim_x % ccl_local_size(0)
-		                                     : ccl_local_size(0);
-	uint threads_within_tile_border_y =
-		(grp_idy == (ccl_num_groups(1) - 1)) ? tile_dim_y % ccl_local_size(1)
-		                                     : ccl_local_size(1);
-
-	threads_within_tile_border_x =
-		(threads_within_tile_border_x == 0) ? ccl_local_size(0)
-		                                    : threads_within_tile_border_x;
-	threads_within_tile_border_y =
-		(threads_within_tile_border_y == 0) ? ccl_local_size(1)
-		                                    : threads_within_tile_border_y;
-
-	return my_work /
-	       (threads_within_tile_border_x * threads_within_tile_border_y);
+	return get_global_work_index(kg, work_index, ray_index) / (kernel_split_params.w * kernel_split_params.h);
 }
 
-/* Decode pixel and tile position w.r.t. assigned my_work. */
-ccl_device void get_pixel_tile_position(KernelGlobals *kg,
+/* Decode pixel and tile position w.r.t. assigned `work`. */
+ccl_device void get_work_pixel_tile_position(KernelGlobals *kg,
                              ccl_private uint *pixel_x,
                              ccl_private uint *pixel_y,
                              ccl_private uint *tile_x,
                              ccl_private uint *tile_y,
-                             uint my_work,
-                             uint tile_dim_x,
-                             uint tile_dim_y,
-                             uint tile_offset_x,
-                             uint tile_offset_y,
+                             uint work_index,
                              uint ray_index)
 {
-	uint grp_idx = get_group_id_with_ray_index(ray_index,
-	                                           tile_dim_x,
-	                                           tile_dim_y,
-	                                           0);
-	uint grp_idy = get_group_id_with_ray_index(ray_index,
-	                                           tile_dim_x,
-	                                           tile_dim_y,
-	                                           1);
-	uint threads_within_tile_border_x =
-		(grp_idx == (ccl_num_groups(0) - 1)) ? tile_dim_x % ccl_local_size(0)
-		                                     : ccl_local_size(0);
-	uint threads_within_tile_border_y =
-		(grp_idy == (ccl_num_groups(1) - 1)) ? tile_dim_y % ccl_local_size(1)
-		                                     : ccl_local_size(1);
+	uint pixel_index = get_global_work_index(kg, work_index, ray_index) % (kernel_split_params.w*kernel_split_params.h);
 
-	threads_within_tile_border_x =
-		(threads_within_tile_border_x == 0) ? ccl_local_size(0)
-		                                    : threads_within_tile_border_x;
-	threads_within_tile_border_y =
-		(threads_within_tile_border_y == 0) ? ccl_local_size(1)
-		                                    : threads_within_tile_border_y;
+	*tile_x = pixel_index % kernel_split_params.w;
+	*tile_y = pixel_index / kernel_split_params.w;
 
-	uint total_associated_pixels =
-		threads_within_tile_border_x * threads_within_tile_border_y;
-	uint work_group_pixel_index = my_work % total_associated_pixels;
-	uint work_group_pixel_x =
-		work_group_pixel_index % threads_within_tile_border_x;
-	uint work_group_pixel_y =
-		work_group_pixel_index / threads_within_tile_border_x;
-
-	*pixel_x =
-		tile_offset_x + (grp_idx * ccl_local_size(0)) + work_group_pixel_x;
-	*pixel_y =
-		tile_offset_y + (grp_idy * ccl_local_size(1)) + work_group_pixel_y;
-	*tile_x = *pixel_x - tile_offset_x;
-	*tile_y = *pixel_y - tile_offset_y;
+	*pixel_x = *tile_x + kernel_split_params.x;
+	*pixel_y = *tile_y + kernel_split_params.y;
 }
 
 CCL_NAMESPACE_END

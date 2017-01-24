@@ -115,9 +115,9 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	/* Make sure that set render feasible tile size is a multiple of local
 	 * work size dimensions.
 	 */
-	int2 max_render_feasible_tile_size;
-	max_render_feasible_tile_size.x = round_up(task->requested_tile_size.x, local_size[0]);
-	max_render_feasible_tile_size.y = round_up(task->requested_tile_size.y, local_size[1]);
+	size_t global_size[2];
+	global_size[0] = round_up(task->requested_tile_size.x, local_size[0]);
+	global_size[1] = round_up(task->requested_tile_size.y, local_size[1]);
 
 	/* Calculate per_thread_output_buffer_size. */
 	size_t per_thread_output_buffer_size;
@@ -143,12 +143,8 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		}
 	}
 
-	/* set global_size */
-	size_t global_size[2] = {round_up(tile.w, local_size[0]), round_up(tile.h, local_size[1])};
-	assert(global_size[0] * global_size[1] <= max_render_feasible_tile_size.x * max_render_feasible_tile_size.y);
-
 	/* Number of elements in the global state buffer */
-	int num_global_elements = max_render_feasible_tile_size.x * max_render_feasible_tile_size.y;
+	int num_global_elements = global_size[0] * global_size[1];
 
 	/* Allocate all required global memory once. */
 	if(first_tile) {
@@ -157,8 +153,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		/* Calculate max groups */
 
 		/* Denotes the maximum work groups possible w.r.t. current requested tile size. */
-		unsigned int max_work_groups = (max_render_feasible_tile_size.x * max_render_feasible_tile_size.y) /
-		                  (local_size[0] * local_size[1]);
+		unsigned int max_work_groups = num_global_elements / WORK_POOL_SIZE + 1;
 
 		/* Allocate work_pool_wgs memory. */
 		work_pool_wgs.resize(max_work_groups * sizeof(unsigned int));

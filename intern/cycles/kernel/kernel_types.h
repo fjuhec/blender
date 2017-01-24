@@ -61,6 +61,8 @@ CCL_NAMESPACE_BEGIN
 
 #define VOLUME_STACK_SIZE		16
 
+#define WORK_POOL_SIZE 64
+
 /* device capabilities */
 #ifdef __KERNEL_CPU__
 #  ifdef __KERNEL_SSE2__

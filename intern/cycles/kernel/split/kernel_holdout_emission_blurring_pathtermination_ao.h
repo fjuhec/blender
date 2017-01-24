@@ -106,13 +106,9 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	if(ray_index != QUEUE_EMPTY_SLOT) {
 #endif
 
-	int sw = kernel_split_params.w;
-	int sh = kernel_split_params.h;
-	int sx = kernel_split_params.x;
-	int sy = kernel_split_params.y;
 	int stride = kernel_split_params.stride;
 
-	unsigned int my_work;
+	unsigned int work_index;
 	unsigned int pixel_x;
 	unsigned int pixel_y;
 
@@ -135,12 +131,11 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 		state = &kernel_split_state.path_state[ray_index];
 		rng = &kernel_split_state.rng[ray_index];
 
-		my_work = kernel_split_state.work_array[ray_index];
-		sample = get_my_sample(kg, my_work, sw, sh, ray_index) + kernel_split_params.start_sample;
-		get_pixel_tile_position(kg, &pixel_x, &pixel_y,
+		work_index = kernel_split_state.work_array[ray_index];
+		sample = get_work_sample(kg, work_index, ray_index) + kernel_split_params.start_sample;
+		get_work_pixel_tile_position(kg, &pixel_x, &pixel_y,
 		                        &tile_x, &tile_y,
-		                        my_work,
-		                        sw, sh, sx, sy,
+		                        work_index,
 		                        ray_index);
 		my_sample_tile = 0;
 

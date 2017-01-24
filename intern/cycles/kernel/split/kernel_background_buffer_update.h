@@ -107,10 +107,6 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 #endif
 
 	ccl_global uint *rng_state = kernel_split_params.rng_state;
-	int sw = kernel_split_params.w;
-	int sh = kernel_split_params.h;
-	int sx = kernel_split_params.x;
-	int sy = kernel_split_params.y;
 	int stride = kernel_split_params.stride;
 	int rng_state_offset_x = kernel_split_params.rng_offset_x;
 	int rng_state_offset_y = kernel_split_params.rng_offset_y;
@@ -128,7 +124,7 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	ccl_global uint *rng = &kernel_split_state.rng[ray_index];
 	ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
 
-	unsigned int my_work;
+	unsigned int work_index;
 	ccl_global uint *initial_rng;
 
 	unsigned int sample;
@@ -138,12 +134,11 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	unsigned int pixel_y;
 	unsigned int my_sample_tile;
 
-	my_work = kernel_split_state.work_array[ray_index];
-	sample = get_my_sample(kg, my_work, sw, sh, ray_index) + kernel_split_params.start_sample;
-	get_pixel_tile_position(kg, &pixel_x, &pixel_y,
+	work_index = kernel_split_state.work_array[ray_index];
+	sample = get_work_sample(kg, work_index, ray_index) + kernel_split_params.start_sample;
+	get_work_pixel_tile_position(kg, &pixel_x, &pixel_y,
 	                        &tile_x, &tile_y,
-	                        my_work,
-	                        sw, sh, sx, sy,
+	                        work_index,
 	                        ray_index);
 	my_sample_tile = 0;
 	initial_rng = rng_state;
@@ -188,18 +183,18 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 
 	if(IS_STATE(ray_state, ray_index, RAY_TO_REGENERATE)) {
 		/* We have completed current work; So get next work */
-		int valid_work = get_next_work(kg, kernel_split_params.work_pool_wgs, &my_work, sw, sh, kernel_split_params.num_samples, ray_index);
+		int valid_work = get_next_work(kg, &work_index, ray_index);
 		if(!valid_work) {
 			/* If work is invalid, this means no more work is available and the thread may exit */
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_INACTIVE);
 		}
 
 		if(IS_STATE(ray_state, ray_index, RAY_TO_REGENERATE)) {
-			kernel_split_state.work_array[ray_index] = my_work;
+			kernel_split_state.work_array[ray_index] = work_index;
 			/* Get the sample associated with the current work */
-			sample = get_my_sample(kg, my_work, sw, sh, ray_index) + kernel_split_params.start_sample;
+			sample = get_work_sample(kg, work_index, ray_index) + kernel_split_params.start_sample;
 			/* Get pixel and tile position associated with current work */
-			get_pixel_tile_position(kg, &pixel_x, &pixel_y, &tile_x, &tile_y, my_work, sw, sh, sx, sy, ray_index);
+			get_work_pixel_tile_position(kg, &pixel_x, &pixel_y, &tile_x, &tile_y, work_index, ray_index);
 			my_sample_tile = 0;
 
 			/* Remap rng_state according to the current work */

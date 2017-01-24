@@ -63,9 +63,6 @@ CCL_NAMESPACE_BEGIN
 
 ccl_device void kernel_scene_intersect(KernelGlobals *kg)
 {
-	int x = ccl_global_id(0);
-	int y = ccl_global_id(1);
-
 	/* Fetch use_queues_flag */
 	ccl_local char local_use_queues_flag;
 	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
@@ -73,22 +70,15 @@ ccl_device void kernel_scene_intersect(KernelGlobals *kg)
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
 
-	int ray_index;
+	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 	if(local_use_queues_flag) {
-		int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
-		ray_index = get_ray_index(kg, thread_index,
+		ray_index = get_ray_index(kg, ray_index,
 		                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 		                          kernel_split_state.queue_data,
 		                          kernel_split_params.queue_size,
 		                          0);
 
 		if(ray_index == QUEUE_EMPTY_SLOT) {
-			return;
-		}
-	} else {
-		if(x < kernel_split_params.w && y < kernel_split_params.h) {
-			ray_index = x + y * kernel_split_params.w;
-		} else {
 			return;
 		}
 	}
