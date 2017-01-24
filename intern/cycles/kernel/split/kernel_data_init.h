@@ -78,11 +78,8 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
         ccl_global int *Queue_index,                 /* Tracks the number of elements in queues */
         int queuesize,                               /* size (capacity) of the queue */
         ccl_global char *use_queues_flag,            /* flag to decide if scene-intersect kernel should use queues to fetch ray index */
-#ifdef __WORK_STEALING__
         ccl_global unsigned int *work_pool_wgs,      /* Work pool for each work group */
         unsigned int num_samples,                    /* Total number of samples per pixel */
-#endif
-        int parallel_samples,                        /* Number of samples to be processed in parallel */
         int buffer_offset_x,
         int buffer_offset_y,
         int buffer_stride,
@@ -108,12 +105,8 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 	kernel_split_params.start_sample = start_sample;
 	kernel_split_params.end_sample = end_sample;
 
-#ifdef __WORK_STEALING__
 	kernel_split_params.work_pool_wgs = work_pool_wgs;
 	kernel_split_params.num_samples = num_samples;
-#endif
-
-	kernel_split_params.parallel_samples = parallel_samples;
 
 	kernel_split_params.queue_index = Queue_index;
 	kernel_split_params.queue_size = queuesize;
@@ -134,7 +127,6 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 
 	int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 
-#ifdef __WORK_STEALING__
 	int lid = ccl_local_id(1) * ccl_local_size(0) + ccl_local_id(0);
 	/* Initialize work_pool_wgs */
 	if(lid == 0) {
@@ -142,7 +134,6 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 		work_pool_wgs[group_index] = 0;
 	}
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
-#endif  /* __WORK_STEALING__ */
 
 	/* Initialize queue data and queue index. */
 	if(thread_index < queuesize) {
@@ -170,8 +161,8 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 	int x = ccl_global_id(0);
 	int y = ccl_global_id(1);
 
-	if(x < (sw * parallel_samples) && y < sh) {
-		int ray_index = x + y * (sw * parallel_samples);
+	if(x < sw && y < sh) {
+		int ray_index = x + y * sw;
 
 		/* This is the first assignment to ray_state;
 		 * So we dont use ASSIGN_RAY_STATE macro.
@@ -185,12 +176,11 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 		unsigned int tile_y;
 		unsigned int my_sample_tile;
 
-#ifdef __WORK_STEALING__
 		unsigned int my_work = 0;
 		/* Get work. */
-		get_next_work(kg, work_pool_wgs, &my_work, sw, sh, num_samples, parallel_samples, ray_index);
+		get_next_work(kg, work_pool_wgs, &my_work, sw, sh, num_samples, ray_index);
 		/* Get the sample associated with the work. */
-		my_sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + start_sample;
+		my_sample = get_my_sample(kg, my_work, sw, sh, ray_index) + start_sample;
 
 		my_sample_tile = 0;
 
@@ -199,30 +189,15 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 		                        &tile_x, &tile_y,
 		                        my_work,
 		                        sw, sh, sx, sy,
-		                        parallel_samples,
 		                        ray_index);
 		kernel_split_state.work_array[ray_index] = my_work;
-#else  /* __WORK_STEALING__ */
-		unsigned int tile_index = ray_index / parallel_samples;
-		tile_x = tile_index % sw;
-		tile_y = tile_index / sw;
-		my_sample_tile = ray_index - (tile_index * parallel_samples);
-		my_sample = my_sample_tile + start_sample;
-
-		/* Initialize work array. */
-		kernel_split_state.work_array[ray_index] = my_sample;
-
-		/* Calculate pixel position of this ray. */
-		pixel_x = sx + tile_x;
-		pixel_y = sy + tile_y;
-#endif  /* __WORK_STEALING__ */
 
 		rng_state += (rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride;
 
 
 		/* Initialise per_sample_output_buffers to all zeros. */
 		ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
-		per_sample_output_buffers += (((tile_x + (tile_y * stride)) * parallel_samples) + (my_sample_tile)) * kernel_data.film.pass_stride;
+		per_sample_output_buffers += ((tile_x + (tile_y * stride)) + (my_sample_tile)) * kernel_data.film.pass_stride;
 
 		int per_sample_output_buffers_iterator = 0;
 		for(per_sample_output_buffers_iterator = 0;
@@ -269,9 +244,9 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 	}
 
 	/* Mark rest of the ray-state indices as RAY_INACTIVE. */
-	if(thread_index < (ccl_global_size(0) * ccl_global_size(1)) - (sh * (sw * parallel_samples))) {
+	if(thread_index < (ccl_global_size(0) * ccl_global_size(1)) - (sh * sw)) {
 		/* First assignment, hence we dont use ASSIGN_RAY_STATE macro */
-		kernel_split_state.ray_state[((sw * parallel_samples) * sh) + thread_index] = RAY_INACTIVE;
+		kernel_split_state.ray_state[(sw * sh) + thread_index] = RAY_INACTIVE;
 	}
 }
 

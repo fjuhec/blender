@@ -115,7 +115,6 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	int rng_state_offset_x = kernel_split_params.rng_offset_x;
 	int rng_state_offset_y = kernel_split_params.rng_offset_y;
 	int rng_state_stride = kernel_split_params.rng_stride;
-	int parallel_samples = kernel_split_params.parallel_samples;
 
 	ccl_global char *ray_state = kernel_split_state.ray_state;
 #ifdef __KERNEL_DEBUG__
@@ -129,10 +128,9 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	ccl_global uint *rng = &kernel_split_state.rng[ray_index];
 	ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
 
-#ifdef __WORK_STEALING__
 	unsigned int my_work;
 	ccl_global uint *initial_rng;
-#endif
+
 	unsigned int sample;
 	unsigned int tile_x;
 	unsigned int tile_y;
@@ -140,28 +138,18 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	unsigned int pixel_y;
 	unsigned int my_sample_tile;
 
-#ifdef __WORK_STEALING__
 	my_work = kernel_split_state.work_array[ray_index];
-	sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + kernel_split_params.start_sample;
+	sample = get_my_sample(kg, my_work, sw, sh, ray_index) + kernel_split_params.start_sample;
 	get_pixel_tile_position(kg, &pixel_x, &pixel_y,
 	                        &tile_x, &tile_y,
 	                        my_work,
 	                        sw, sh, sx, sy,
-	                        parallel_samples,
 	                        ray_index);
 	my_sample_tile = 0;
 	initial_rng = rng_state;
-#else  /* __WORK_STEALING__ */
-	sample = kernel_split_state.work_array[ray_index];
-	int tile_index = ray_index / parallel_samples;
-	/* buffer and rng_state's stride is "stride". Find x and y using ray_index */
-	tile_x = tile_index % sw;
-	tile_y = tile_index / sw;
-	my_sample_tile = ray_index - (tile_index * parallel_samples);
-#endif  /* __WORK_STEALING__ */
 
 	rng_state += (rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride;
-	per_sample_output_buffers += (((tile_x + (tile_y * stride)) * parallel_samples) + my_sample_tile) * kernel_data.film.pass_stride;
+	per_sample_output_buffers += ((tile_x + (tile_y * stride)) + my_sample_tile) * kernel_data.film.pass_stride;
 
 	if(IS_STATE(ray_state, ray_index, RAY_HIT_BACKGROUND)) {
 		/* eval background shader if nothing hit */
@@ -199,41 +187,26 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	}
 
 	if(IS_STATE(ray_state, ray_index, RAY_TO_REGENERATE)) {
-#ifdef __WORK_STEALING__
 		/* We have completed current work; So get next work */
-		int valid_work = get_next_work(kg, kernel_split_params.work_pool_wgs, &my_work, sw, sh, kernel_split_params.num_samples, parallel_samples, ray_index);
+		int valid_work = get_next_work(kg, kernel_split_params.work_pool_wgs, &my_work, sw, sh, kernel_split_params.num_samples, ray_index);
 		if(!valid_work) {
 			/* If work is invalid, this means no more work is available and the thread may exit */
 			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_INACTIVE);
 		}
-#else  /* __WORK_STEALING__ */
-		if((sample + parallel_samples) >= kernel_split_params.end_sample) {
-			ASSIGN_RAY_STATE(ray_state, ray_index, RAY_INACTIVE);
-		}
-#endif  /* __WORK_STEALING__ */
 
 		if(IS_STATE(ray_state, ray_index, RAY_TO_REGENERATE)) {
-#ifdef __WORK_STEALING__
 			kernel_split_state.work_array[ray_index] = my_work;
 			/* Get the sample associated with the current work */
-			sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + kernel_split_params.start_sample;
+			sample = get_my_sample(kg, my_work, sw, sh, ray_index) + kernel_split_params.start_sample;
 			/* Get pixel and tile position associated with current work */
-			get_pixel_tile_position(kg, &pixel_x, &pixel_y, &tile_x, &tile_y, my_work, sw, sh, sx, sy, parallel_samples, ray_index);
+			get_pixel_tile_position(kg, &pixel_x, &pixel_y, &tile_x, &tile_y, my_work, sw, sh, sx, sy, ray_index);
 			my_sample_tile = 0;
 
 			/* Remap rng_state according to the current work */
 			rng_state = initial_rng + ((rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride);
 			/* Remap per_sample_output_buffers according to the current work */
 			per_sample_output_buffers = kernel_split_state.per_sample_output_buffers
-				+ (((tile_x + (tile_y * stride)) * parallel_samples) + my_sample_tile) * kernel_data.film.pass_stride;
-#else  /* __WORK_STEALING__ */
-			kernel_split_state.work_array[ray_index] = sample + parallel_samples;
-			sample = kernel_split_state.work_array[ray_index];
-
-			/* Get ray position from ray index */
-			pixel_x = sx + ((ray_index / parallel_samples) % sw);
-			pixel_y = sy + ((ray_index / parallel_samples) / sw);
-#endif  /* __WORK_STEALING__ */
+				+ ((tile_x + (tile_y * stride)) + my_sample_tile) * kernel_data.film.pass_stride;
 
 			/* Initialize random numbers and ray. */
 			kernel_path_trace_setup(kg, rng_state, sample, pixel_x, pixel_y, rng, ray);

@@ -23,8 +23,6 @@ CCL_NAMESPACE_BEGIN
  * Utility functions for work stealing
  */
 
-#ifdef __WORK_STEALING__
-
 #ifdef __KERNEL_OPENCL__
 #  pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 #endif
@@ -32,16 +30,15 @@ CCL_NAMESPACE_BEGIN
 ccl_device uint get_group_id_with_ray_index(uint ray_index,
                                  uint tile_dim_x,
                                  uint tile_dim_y,
-                                 uint parallel_samples,
                                  int dim)
 {
 	if(dim == 0) {
-		uint x_span = ray_index % (tile_dim_x * parallel_samples);
+		uint x_span = ray_index % tile_dim_x;
 		return x_span / ccl_local_size(0);
 	}
 	else /*if(dim == 1)*/ {
 		kernel_assert(dim == 1);
-		uint y_span = ray_index / (tile_dim_x * parallel_samples);
+		uint y_span = ray_index / tile_dim_x;
 		return y_span / ccl_local_size(1);
 	}
 }
@@ -80,18 +77,15 @@ ccl_device int get_next_work(KernelGlobals *kg,
                   uint tile_dim_x,
                   uint tile_dim_y,
                   uint num_samples,
-                  uint parallel_samples,
                   uint ray_index)
 {
 	uint grp_idx = get_group_id_with_ray_index(ray_index,
 	                                           tile_dim_x,
 	                                           tile_dim_y,
-	                                           parallel_samples,
 	                                           0);
 	uint grp_idy = get_group_id_with_ray_index(ray_index,
 	                                           tile_dim_x,
 	                                           tile_dim_y,
-	                                           parallel_samples,
 	                                           1);
 	uint total_work = get_total_work(kg,
 	                                 tile_dim_x,
@@ -110,18 +104,15 @@ ccl_device uint get_my_sample(KernelGlobals *kg,
                    uint my_work,
                    uint tile_dim_x,
                    uint tile_dim_y,
-                   uint parallel_samples,
                    uint ray_index)
 {
 	uint grp_idx = get_group_id_with_ray_index(ray_index,
 	                                           tile_dim_x,
 	                                           tile_dim_y,
-	                                           parallel_samples,
 	                                           0);
 	uint grp_idy = get_group_id_with_ray_index(ray_index,
 	                                           tile_dim_x,
 	                                           tile_dim_y,
-	                                           parallel_samples,
 	                                           1);
 	uint threads_within_tile_border_x =
 		(grp_idx == (ccl_num_groups(0) - 1)) ? tile_dim_x % ccl_local_size(0)
@@ -152,18 +143,15 @@ ccl_device void get_pixel_tile_position(KernelGlobals *kg,
                              uint tile_dim_y,
                              uint tile_offset_x,
                              uint tile_offset_y,
-                             uint parallel_samples,
                              uint ray_index)
 {
 	uint grp_idx = get_group_id_with_ray_index(ray_index,
 	                                           tile_dim_x,
 	                                           tile_dim_y,
-	                                           parallel_samples,
 	                                           0);
 	uint grp_idy = get_group_id_with_ray_index(ray_index,
 	                                           tile_dim_x,
 	                                           tile_dim_y,
-	                                           parallel_samples,
 	                                           1);
 	uint threads_within_tile_border_x =
 		(grp_idx == (ccl_num_groups(0) - 1)) ? tile_dim_x % ccl_local_size(0)
@@ -194,8 +182,6 @@ ccl_device void get_pixel_tile_position(KernelGlobals *kg,
 	*tile_x = *pixel_x - tile_offset_x;
 	*tile_y = *pixel_y - tile_offset_y;
 }
-
-#endif  /* __WORK_STEALING__ */
 
 CCL_NAMESPACE_END
 

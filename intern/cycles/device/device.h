@@ -296,7 +296,6 @@ private:
 	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& /*dim*/,
 	                                            RenderTile& /*rtile*/,
 	                                            int /*num_global_elements*/,
-	                                            int /*num_parallel_samples*/,
 	                                            device_memory& /*kernel_globals*/,
 	                                            device_memory& /*kernel_data*/,
 	                                            device_memory& /*split_data*/,

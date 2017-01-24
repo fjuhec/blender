@@ -1419,7 +1419,6 @@ public:
 	bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
 	                                    RenderTile& rtile,
 	                                    int num_global_elements,
-	                                    int num_parallel_samples,
 	                                    device_memory& /*kernel_globals*/,
 	                                    device_memory& /*kernel_data*/,
 	                                    device_memory& split_data,
@@ -1460,12 +1459,9 @@ public:
 			int* rng_state_stride;
 			CUdeviceptr* queue_index;
 			int* queuesize;
-#ifdef __WORK_STEALING__
 			CUdeviceptr* use_queues_flag;
 			CUdeviceptr* work_pool_wgs;
-#endif
 			int* num_samples;
-			int* parallel_samples;
 			int* buffer_offset_x;
 			int* buffer_offset_y;
 			int* buffer_stride;
@@ -1491,11 +1487,8 @@ public:
 			&d_queue_index,
 			&queue_size,
 			&d_use_queues_flag,
-#ifdef __WORK_STEALING__
 			&d_work_pool_wgs,
 			&rtile.num_samples,
-#endif
-			&num_parallel_samples,
 			&rtile.buffer_offset_x,
 			&rtile.buffer_offset_y,
 			&rtile.buffer_rng_state_stride,

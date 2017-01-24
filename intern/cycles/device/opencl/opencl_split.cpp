@@ -174,7 +174,6 @@ public:
 	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
 	                                            RenderTile& rtile,
 	                                            int num_global_elements,
-	                                            int num_parallel_samples,
 	                                            device_memory& kernel_globals,
 	                                            device_memory& kernel_data,
 	                                            device_memory& split_data,
@@ -225,11 +224,8 @@ public:
 			                queue_index,
 			                dQueue_size,
 			                use_queues_flag,
-#ifdef __WORK_STEALING__
 			                work_pool_wgs,
 			                rtile.num_samples,
-#endif
-			                num_parallel_samples,
 			                rtile.buffer_offset_x,
 			                rtile.buffer_offset_y,
 			                rtile.buffer_rng_state_stride,

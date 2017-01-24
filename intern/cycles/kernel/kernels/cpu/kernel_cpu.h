@@ -67,11 +67,8 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
         ccl_global int *Queue_index,
         int queuesize,
         ccl_global char *use_queues_flag,
-#ifdef __WORK_STEALING__
         ccl_global unsigned int *work_pool_wgs,
         unsigned int num_samples,
-#endif
-        int parallel_samples,
         int buffer_offset_x,
         int buffer_offset_y,
         int buffer_stride,

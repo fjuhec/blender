@@ -27,7 +27,6 @@ ccl_device void kernel_sum_all_radiance(KernelGlobals *kg)
 	int y = ccl_global_id(1);
 
 	ccl_global float *buffer = kernel_split_params.buffer;
-	int parallel_samples = kernel_split_params.parallel_samples;
 	int sw = kernel_split_params.w;
 	int sh = kernel_split_params.h;
 	int stride = kernel_split_params.stride;
@@ -40,7 +39,7 @@ ccl_device void kernel_sum_all_radiance(KernelGlobals *kg)
 		buffer += ((buffer_offset_x + x) + (buffer_offset_y + y) * buffer_stride) * (kernel_data.film.pass_stride);
 
 		ccl_global float *per_sample_output_buffer = kernel_split_state.per_sample_output_buffers;
-		per_sample_output_buffer += ((x + y * stride) * parallel_samples) * (kernel_data.film.pass_stride);
+		per_sample_output_buffer += (x + y * stride) * (kernel_data.film.pass_stride);
 
 		int sample_stride = (kernel_data.film.pass_stride);
 
@@ -48,14 +47,11 @@ ccl_device void kernel_sum_all_radiance(KernelGlobals *kg)
 		int pass_stride_iterator = 0;
 		int num_floats = kernel_data.film.pass_stride;
 
-		for(sample_iterator = 0; sample_iterator < parallel_samples; sample_iterator++) {
-			for(pass_stride_iterator = 0; pass_stride_iterator < num_floats; pass_stride_iterator++) {
-				*(buffer + pass_stride_iterator) =
-				        (start_sample == 0 && sample_iterator == 0)
-				                ? *(per_sample_output_buffer + pass_stride_iterator)
-				                : *(buffer + pass_stride_iterator) + *(per_sample_output_buffer + pass_stride_iterator);
-			}
-			per_sample_output_buffer += sample_stride;
+		for(pass_stride_iterator = 0; pass_stride_iterator < num_floats; pass_stride_iterator++) {
+			*(buffer + pass_stride_iterator) =
+			        (start_sample == 0)
+			                ? *(per_sample_output_buffer + pass_stride_iterator)
+			                : *(buffer + pass_stride_iterator) + *(per_sample_output_buffer + pass_stride_iterator);
 		}
 	}
 }

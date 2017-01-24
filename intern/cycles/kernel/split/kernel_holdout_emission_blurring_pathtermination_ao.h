@@ -111,13 +111,11 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 	int sx = kernel_split_params.x;
 	int sy = kernel_split_params.y;
 	int stride = kernel_split_params.stride;
-	int parallel_samples = kernel_split_params.parallel_samples;
 
-#ifdef __WORK_STEALING__
 	unsigned int my_work;
 	unsigned int pixel_x;
 	unsigned int pixel_y;
-#endif
+
 	unsigned int tile_x;
 	unsigned int tile_y;
 	int my_sample_tile;
@@ -136,26 +134,18 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(KernelGlobal
 		throughput = kernel_split_state.throughput[ray_index];
 		state = &kernel_split_state.path_state[ray_index];
 		rng = &kernel_split_state.rng[ray_index];
-#ifdef __WORK_STEALING__
+
 		my_work = kernel_split_state.work_array[ray_index];
-		sample = get_my_sample(kg, my_work, sw, sh, parallel_samples, ray_index) + kernel_split_params.start_sample;
+		sample = get_my_sample(kg, my_work, sw, sh, ray_index) + kernel_split_params.start_sample;
 		get_pixel_tile_position(kg, &pixel_x, &pixel_y,
 		                        &tile_x, &tile_y,
 		                        my_work,
 		                        sw, sh, sx, sy,
-		                        parallel_samples,
 		                        ray_index);
 		my_sample_tile = 0;
-#else  /* __WORK_STEALING__ */
-		sample = kernel_split_state.work_array[ray_index];
-		/* Buffer's stride is "stride"; Find x and y using ray_index. */
-		int tile_index = ray_index / parallel_samples;
-		tile_x = tile_index % sw;
-		tile_y = tile_index / sw;
-		my_sample_tile = ray_index - (tile_index * parallel_samples);
-#endif  /* __WORK_STEALING__ */
+
 		per_sample_output_buffers +=
-		    (((tile_x + (tile_y * stride)) * parallel_samples) + my_sample_tile) *
+		    ((tile_x + (tile_y * stride)) + my_sample_tile) *
 		    kernel_data.film.pass_stride;
 
 		/* holdout */

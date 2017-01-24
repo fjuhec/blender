@@ -700,7 +700,6 @@ protected:
 	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
 	                                            RenderTile& rtile,
 	                                            int num_global_elements,
-	                                            int num_parallel_samples,
 	                                            device_memory& kernel_globals,
 	                                            device_memory& data,
 	                                            device_memory& split_data,
@@ -724,11 +723,8 @@ protected:
                                    ccl_global int *Queue_index,
                                    int queuesize,
                                    ccl_global char *use_queues_flag,
-#ifdef __WORK_STEALING__
                                    ccl_global unsigned int *work_pool_wgs,
                                    unsigned int num_samples,
-#endif
-                                   int parallel_samples,
                                    int buffer_offset_x,
                                    int buffer_offset_y,
                                    int buffer_stride,
@@ -797,11 +793,8 @@ protected:
 						  (int*)queue_index.device_pointer,
 						  dim.global_size[0] * dim.global_size[1],
 						  (char*)use_queues_flags.device_pointer,
-#ifdef __WORK_STEALING__
 						  (uint*)work_pool_wgs.device_pointer,
 						  rtile.num_samples,
-#endif
-						  num_parallel_samples,
 						  rtile.buffer_offset_x,
 						  rtile.buffer_offset_y,
 						  rtile.buffer_rng_state_stride,

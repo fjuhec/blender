@@ -64,8 +64,8 @@ ccl_device void kernel_lamp_emission(KernelGlobals *kg)
 			return;
 		}
 	} else {
-		if(x < (kernel_split_params.w * kernel_split_params.parallel_samples) && y < kernel_split_params.h) {
-			ray_index = x + y * (kernel_split_params.w * kernel_split_params.parallel_samples);
+		if(x < kernel_split_params.w && y < kernel_split_params.h) {
+			ray_index = x + y * kernel_split_params.w;
 		} else {
 			return;
 		}

@@ -38,12 +38,8 @@ typedef struct SplitParams {
 	int start_sample;
 	int end_sample;
 
-#ifdef __WORK_STEALING__
 	ccl_global unsigned int *work_pool_wgs;
 	unsigned int num_samples;
-#endif
-
-	int parallel_samples;
 
 	ccl_global int *queue_index;
 	int queue_size;

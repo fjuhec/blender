@@ -143,36 +143,9 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		}
 	}
 
-	/* set global_size and num_parallel_samples */
-	size_t global_size[2];
-	unsigned int num_parallel_samples;
-	{
-#ifdef __WORK_STEALING__
-		global_size[0] = round_up(tile.w, local_size[0]);
-		global_size[1] = round_up(tile.h, local_size[1]);
-		num_parallel_samples = 1;
-#else
-		global_size[1] = round_up(tile.h, local_size[1]);
-		unsigned int num_threads = max_render_feasible_tile_size.x * max_render_feasible_tile_size.y;
-		unsigned int num_tile_columns_possible = num_threads / global_size[1];
-		/* Estimate number of parallel samples that can be
-		 * processed in parallel.
-		 */
-		num_parallel_samples = min(num_tile_columns_possible / tile.w, tile.num_samples);
-		/* Wavefront size in AMD is 64.
-		 * TODO(sergey): What about other platforms?
-		 */
-		if(num_parallel_samples >= 64) {
-			/* TODO(sergey): Could use generic round-up here. */
-			num_parallel_samples = (num_parallel_samples / 64) * 64;
-		}
-		assert(num_parallel_samples != 0);
-
-		global_size[0] = tile.w * num_parallel_samples;
-#endif  /* __WORK_STEALING__ */
-
-		assert(global_size[0] * global_size[1] <= max_render_feasible_tile_size.x * max_render_feasible_tile_size.y);
-	}
+	/* set global_size */
+	size_t global_size[2] = {round_up(tile.w, local_size[0]), round_up(tile.h, local_size[1])};
+	assert(global_size[0] * global_size[1] <= max_render_feasible_tile_size.x * max_render_feasible_tile_size.y);
 
 	/* Number of elements in the global state buffer */
 	int num_global_elements = max_render_feasible_tile_size.x * max_render_feasible_tile_size.y;
@@ -181,7 +154,6 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	if(first_tile) {
 		first_tile = false;
 
-#ifdef __WORK_STEALING__
 		/* Calculate max groups */
 
 		/* Denotes the maximum work groups possible w.r.t. current requested tile size. */
@@ -191,7 +163,6 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		/* Allocate work_pool_wgs memory. */
 		work_pool_wgs.resize(max_work_groups * sizeof(unsigned int));
 		device->mem_alloc("work_pool_wgs", work_pool_wgs, MEM_READ_WRITE);
-#endif  /* __WORK_STEALING__ */
 
 		queue_index.resize(NUM_QUEUES * sizeof(int));
 		device->mem_alloc("queue_index", queue_index, MEM_READ_WRITE);
@@ -241,7 +212,6 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		if(!device->enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
 		                                           subtile,
 		                                           num_global_elements,
-		                                           num_parallel_samples,
 		                                           kgbuffer,
 		                                           kernel_data,
 		                                           split_data,
