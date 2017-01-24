@@ -259,6 +259,16 @@ public:
 		return make_int2(64, 1);
 	}
 
+	virtual int2 split_kernel_global_size(DeviceTask *task, DeviceSplitKernel& split_kernel)
+	{
+		size_t max_buffer_size;
+		clGetDeviceInfo(cdDevice, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(size_t), &max_buffer_size, NULL);
+
+		size_t num_elements = split_kernel.max_elements_for_max_buffer_size(max_buffer_size / 2, task->passes_size);
+
+		return make_int2(round_up((int)sqrt(num_elements), 64), (int)sqrt(num_elements));
+	}
+
 	void thread_run(DeviceTask *task)
 	{
 		if(task->type == DeviceTask::FILM_CONVERT) {

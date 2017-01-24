@@ -33,6 +33,7 @@ CCL_NAMESPACE_BEGIN
 
 class Progress;
 class RenderTile;
+class DeviceSplitKernel;
 
 /* Device Types */
 
@@ -328,6 +329,12 @@ private:
 	{
 		assert(!"not implemented for this device");
 		return make_int2(0, 0);
+	}
+
+	virtual int2 split_kernel_global_size(DeviceTask */*task*/, DeviceSplitKernel& /*split_kernel*/)
+	{
+		assert(!"not implemented for this device");
+		return make_int2(64, 64);
 	}
 
 	friend class DeviceSplitKernel;
