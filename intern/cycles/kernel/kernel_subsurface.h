@@ -149,17 +149,17 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, ShaderClos
 
 	if(hit) {
 		Bssrdf *bssrdf = (Bssrdf *)sc;
-		if(bssrdf->type == CLOSURE_BSSRDF_DISNEY_ID) {
-			DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), weight * bssrdf->base_color);
+		if(bssrdf->type == CLOSURE_BSSRDF_PRINCIPLED_ID) {
+			PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bsdf_alloc(sd, sizeof(PrincipledDiffuseBsdf), weight * bssrdf->base_color);
 
 			if(bsdf) {
 				bsdf->N = N;
 				bsdf->roughness = bssrdf->roughness;
-				sd->flag |= bsdf_disney_diffuse_setup(bsdf);
+				sd->flag |= bsdf_principled_diffuse_setup(bsdf);
 
-				/* replace CLOSURE_BSDF_DISNEY_DIFFUSE_ID with this special ID so render passes
-				* can recognize it as not being a regular Disney diffuse closure */
-				bsdf->type = CLOSURE_BSDF_BSSRDF_DISNEY_ID;
+				/* replace CLOSURE_BSDF_PRINCIPLED_DIFFUSE_ID with this special ID so render passes
+				* can recognize it as not being a regular Disney principled diffuse closure */
+				bsdf->type = CLOSURE_BSDF_BSSRDF_PRINCIPLED_ID;
 			}
 		}
 		else {

@@ -398,7 +398,7 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 		float alpha2 = alpha_x * alpha_y;
 		float D, G1o, G1i;
 
-		bool is_disney_clearcoat = (bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_CLEARCOAT_ID);
+		bool is_principled_clearcoat = (bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_CLEARCOAT_ID);
 
 		if(alpha_x == alpha_y) {
 			/* isotropic
@@ -409,7 +409,7 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 			float cosThetaM4 = cosThetaM2 * cosThetaM2;
 			float tanThetaM2 = (1 - cosThetaM2) / cosThetaM2;
 
-			if(is_disney_clearcoat) {
+			if(is_principled_clearcoat) {
 				/* use GTR1 for clearcoat */
 				D = D_GTR1(cosThetaM, bsdf->alpha_x);
 
@@ -468,7 +468,7 @@ ccl_device float3 bsdf_microfacet_ggx_eval_reflect(const ShaderClosure *sc, cons
 		float common = D * 0.25f / cosNO;
 
 		float3 F = reflection_color(bsdf, omega_in, m);
-		if(is_disney_clearcoat) {
+		if(is_principled_clearcoat) {
 			F *= 0.25f * bsdf->extra->clearcoat;
 		}
 
@@ -602,7 +602,7 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 						float alpha2 = alpha_x * alpha_y;
 						float D, G1i;
 
-						bool is_disney_clearcoat = (bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_CLEARCOAT_ID);
+						bool is_principled_clearcoat = (bsdf->type == CLOSURE_BSDF_MICROFACET_GGX_CLEARCOAT_ID);
 
 						if(alpha_x == alpha_y) {
 							/* isotropic */
@@ -613,7 +613,7 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 							/* eval BRDF*cosNI */
 							float cosNI = dot(N, *omega_in);
 
-							if(is_disney_clearcoat) {
+							if(is_principled_clearcoat) {
 								/* use GTR1 for clearcoat */
 								D = D_GTR1(cosThetaM, bsdf->alpha_x);
 
@@ -662,7 +662,7 @@ ccl_device int bsdf_microfacet_ggx_sample(KernelGlobals *kg, const ShaderClosure
 						*pdf = common;
 
 						float3 F = reflection_color(bsdf, *omega_in, m);
-						if(is_disney_clearcoat) {
+						if(is_principled_clearcoat) {
 							F *= 0.25f * bsdf->extra->clearcoat;
 						}
 

@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-#ifndef __BSDF_DISNEY_SHEEN_H__
-#define __BSDF_DISNEY_SHEEN_H__
+#ifndef __BSDF_PRINCIPLED_SHEEN_H__
+#define __BSDF_PRINCIPLED_SHEEN_H__
 
-/* DISNEY SHEEN BRDF
+/* DISNEY PRINCIPLED SHEEN BRDF
  *
  * Shading model by Brent Burley (Disney): "Physically Based Shading at Disney" (2012)
  */
 
 CCL_NAMESPACE_BEGIN
 
-typedef ccl_addr_space struct DisneySheenBsdf {
+typedef ccl_addr_space struct PrincipledSheenBsdf {
 	SHADER_CLOSURE_BASE;
 	float3 N;
-} DisneySheenBsdf;
+} PrincipledSheenBsdf;
 
-ccl_device float3 calculate_disney_sheen_brdf(const DisneySheenBsdf *bsdf,
+ccl_device float3 calculate_principled_sheen_brdf(const PrincipledSheenBsdf *bsdf,
 	float3 N, float3 V, float3 L, float3 H, float *pdf)
 {
 	float NdotL = dot(N, L);
@@ -47,16 +47,16 @@ ccl_device float3 calculate_disney_sheen_brdf(const DisneySheenBsdf *bsdf,
 	return make_float3(value, value, value);
 }
 
-ccl_device int bsdf_disney_sheen_setup(DisneySheenBsdf *bsdf)
+ccl_device int bsdf_principled_sheen_setup(PrincipledSheenBsdf *bsdf)
 {
-	bsdf->type = CLOSURE_BSDF_DISNEY_SHEEN_ID;
+	bsdf->type = CLOSURE_BSDF_PRINCIPLED_SHEEN_ID;
 	return SD_BSDF|SD_BSDF_HAS_EVAL;
 }
 
-ccl_device float3 bsdf_disney_sheen_eval_reflect(const ShaderClosure *sc, const float3 I,
+ccl_device float3 bsdf_principled_sheen_eval_reflect(const ShaderClosure *sc, const float3 I,
 	const float3 omega_in, float *pdf)
 {
-	const DisneySheenBsdf *bsdf = (const DisneySheenBsdf *)sc;
+	const PrincipledSheenBsdf *bsdf = (const PrincipledSheenBsdf *)sc;
 
 	float3 N = bsdf->N;
 	float3 V = I; // outgoing
@@ -65,7 +65,7 @@ ccl_device float3 bsdf_disney_sheen_eval_reflect(const ShaderClosure *sc, const 
 
 	if(dot(N, omega_in) > 0.0f) {
 		*pdf = fmaxf(dot(N, omega_in), 0.0f) * M_1_PI_F;
-		return calculate_disney_sheen_brdf(bsdf, N, V, L, H, pdf);
+		return calculate_principled_sheen_brdf(bsdf, N, V, L, H, pdf);
 	}
 	else {
 		*pdf = 0.0f;
@@ -73,18 +73,18 @@ ccl_device float3 bsdf_disney_sheen_eval_reflect(const ShaderClosure *sc, const 
 	}
 }
 
-ccl_device float3 bsdf_disney_sheen_eval_transmit(const ShaderClosure *sc, const float3 I,
+ccl_device float3 bsdf_principled_sheen_eval_transmit(const ShaderClosure *sc, const float3 I,
 	const float3 omega_in, float *pdf)
 {
 	return make_float3(0.0f, 0.0f, 0.0f);
 }
 
-ccl_device int bsdf_disney_sheen_sample(const ShaderClosure *sc,
+ccl_device int bsdf_principled_sheen_sample(const ShaderClosure *sc,
 	float3 Ng, float3 I, float3 dIdx, float3 dIdy, float randu, float randv,
 	float3 *eval, float3 *omega_in, float3 *domega_in_dx,
 	float3 *domega_in_dy, float *pdf)
 {
-	const DisneySheenBsdf *bsdf = (const DisneySheenBsdf *)sc;
+	const PrincipledSheenBsdf *bsdf = (const PrincipledSheenBsdf *)sc;
 
 	float3 N = bsdf->N;
 
@@ -93,7 +93,7 @@ ccl_device int bsdf_disney_sheen_sample(const ShaderClosure *sc,
 	if(dot(Ng, *omega_in) > 0) {
 		float3 H = normalize(I + *omega_in);
 
-		*eval = calculate_disney_sheen_brdf(bsdf, N, I, *omega_in, H, pdf);
+		*eval = calculate_principled_sheen_brdf(bsdf, N, I, *omega_in, H, pdf);
 
 #ifdef __RAY_DIFFERENTIALS__
 		// TODO: find a better approximation for the diffuse bounce
@@ -109,6 +109,6 @@ ccl_device int bsdf_disney_sheen_sample(const ShaderClosure *sc,
 
 CCL_NAMESPACE_END
 
-#endif /* __BSDF_DISNEY_SHEEN_H__ */
+#endif /* __BSDF_PRINCIPLED_SHEEN_H__ */
 
 

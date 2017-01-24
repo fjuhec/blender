@@ -517,18 +517,18 @@ static ShaderNode *add_node(Scene *scene,
 		}
 		node = hair;
 	}
-	else if(b_node.is_a(&RNA_ShaderNodeBsdfDisney)) {
-		BL::ShaderNodeBsdfDisney b_disney_node(b_node);
-		DisneyBsdfNode *disney = new DisneyBsdfNode();
-		switch (b_disney_node.distribution()) {
-			case BL::ShaderNodeBsdfDisney::distribution_GGX:
-				disney->distribution = CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID;
+	else if(b_node.is_a(&RNA_ShaderNodeBsdfPrincipled)) {
+		BL::ShaderNodeBsdfPrincipled b_principled_node(b_node);
+		PrincipledBsdfNode *principled = new PrincipledBsdfNode();
+		switch (b_principled_node.distribution()) {
+			case BL::ShaderNodeBsdfPrincipled::distribution_GGX:
+				principled->distribution = CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID;
 				break;
-			case BL::ShaderNodeBsdfDisney::distribution_MULTI_GGX:
-				disney->distribution = CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID;
+			case BL::ShaderNodeBsdfPrincipled::distribution_MULTI_GGX:
+				principled->distribution = CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID;
 				break;
 		}
-		node = disney;
+		node = principled;
 	}
 	else if(b_node.is_a(&RNA_ShaderNodeBsdfTranslucent)) {
 		node = new TranslucentBsdfNode();

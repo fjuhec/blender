@@ -17,7 +17,7 @@
 #include "stdosl.h"
 #include "node_fresnel.h"
 
-shader node_disney_bsdf(
+shader node_principled_bsdf(
 	string distribution = "Multiscatter GGX",
 	color BaseColor = color(0.8, 0.8, 0.8),
 	float Subsurface = 0.0,
@@ -57,15 +57,15 @@ shader node_disney_bsdf(
 
 	if (diffuse_weight > 1e-5) {
 		if (Subsurface > 1e-5) {
-			BSDF = bssrdf_disney(Normal, Subsurface * SubsurfaceRadius, 0.0, BaseColor, SubsurfaceColor, Roughness);
+			BSDF = bssrdf_principled(Normal, Subsurface * SubsurfaceRadius, 0.0, BaseColor, SubsurfaceColor, Roughness);
 		} else {
-			BSDF = BaseColor * disney_diffuse(Normal, Roughness);
+			BSDF = BaseColor * principled_diffuse(Normal, Roughness);
 		}
 
 		if (Sheen > 1e-5) {
 			color sheen_color = color(1.0, 1.0, 1.0) * (1.0 - SheenTint) + m_ctint * SheenTint;
 
-			BSDF = BSDF + sheen_color * Sheen * disney_sheen(Normal);
+			BSDF = BSDF + sheen_color * Sheen * principled_sheen(Normal);
 		}
 
 		BSDF = BSDF * diffuse_weight;
@@ -113,7 +113,7 @@ shader node_disney_bsdf(
 	}
 
 	if (Clearcoat > 1e-5) {
-		BSDF = BSDF + disney_clearcoat(ClearcoatNormal, Clearcoat, ClearcoatGloss);
+		BSDF = BSDF + principled_clearcoat(ClearcoatNormal, Clearcoat, ClearcoatGloss);
 	}
 }
 

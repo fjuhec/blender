@@ -41,7 +41,7 @@
 #include "closure/alloc.h"
 #include "closure/bsdf_util.h"
 #include "closure/bsdf_diffuse.h"
-#include "closure/bsdf_disney_diffuse.h"
+#include "closure/bsdf_principled_diffuse.h"
 #include "closure/bssrdf.h"
 
 CCL_NAMESPACE_BEGIN
@@ -188,32 +188,32 @@ ClosureParam *closure_bssrdf_burley_params()
 
 CCLOSURE_PREPARE(closure_bssrdf_burley_prepare, BurleyBSSRDFClosure)
 
-/* Disney */
+/* Disney principled */
 
-class DisneyBSSRDFClosure : public CBSSRDFClosure {
+class PrincipledBSSRDFClosure : public CBSSRDFClosure {
 public:
 	void setup(ShaderData *sd, int path_flag, float3 weight)
 	{
-		alloc(sd, path_flag, weight, CLOSURE_BSSRDF_DISNEY_ID);
+		alloc(sd, path_flag, weight, CLOSURE_BSSRDF_PRINCIPLED_ID);
 	}
 };
 
-ClosureParam *closure_bssrdf_disney_params()
+ClosureParam *closure_bssrdf_principled_params()
 {
 	static ClosureParam params[] = {
-		CLOSURE_FLOAT3_PARAM(DisneyBSSRDFClosure, params.N),
-		CLOSURE_FLOAT3_PARAM(DisneyBSSRDFClosure, radius),
-		CLOSURE_FLOAT_PARAM(DisneyBSSRDFClosure, params.texture_blur),
-		CLOSURE_FLOAT3_PARAM(DisneyBSSRDFClosure, params.base_color),
-		CLOSURE_FLOAT3_PARAM(DisneyBSSRDFClosure, albedo),
-		CLOSURE_FLOAT_PARAM(DisneyBSSRDFClosure, params.roughness),
-		CLOSURE_STRING_KEYPARAM(DisneyBSSRDFClosure, label, "label"),
-		CLOSURE_FINISH_PARAM(DisneyBSSRDFClosure)
+		CLOSURE_FLOAT3_PARAM(PrincipledBSSRDFClosure, params.N),
+		CLOSURE_FLOAT3_PARAM(PrincipledBSSRDFClosure, radius),
+		CLOSURE_FLOAT_PARAM(PrincipledBSSRDFClosure, params.texture_blur),
+		CLOSURE_FLOAT3_PARAM(PrincipledBSSRDFClosure, params.base_color),
+		CLOSURE_FLOAT3_PARAM(PrincipledBSSRDFClosure, albedo),
+		CLOSURE_FLOAT_PARAM(PrincipledBSSRDFClosure, params.roughness),
+		CLOSURE_STRING_KEYPARAM(PrincipledBSSRDFClosure, label, "label"),
+		CLOSURE_FINISH_PARAM(PrincipledBSSRDFClosure)
 	};
 	return params;
 }
 
-CCLOSURE_PREPARE(closure_bssrdf_disney_prepare, DisneyBSSRDFClosure)
+CCLOSURE_PREPARE(closure_bssrdf_principled_prepare, PrincipledBSSRDFClosure)
 
 CCL_NAMESPACE_END
 

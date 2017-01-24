@@ -2220,10 +2220,10 @@ void DiffuseBsdfNode::compile(OSLCompiler& compiler)
 	compiler.add(this, "node_diffuse_bsdf");
 }
 
-/* Disney BSDF Closure */
-NODE_DEFINE(DisneyBsdfNode)
+/* Disney principled BSDF Closure */
+NODE_DEFINE(PrincipledBsdfNode)
 {
-	NodeType* type = NodeType::add("disney_bsdf", create, NodeType::SHADER);
+	NodeType* type = NodeType::add("principled_bsdf", create, NodeType::SHADER);
 
 	static NodeEnum distribution_enum;
 	distribution_enum.insert("GGX", CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID);
@@ -2256,16 +2256,16 @@ NODE_DEFINE(DisneyBsdfNode)
 	return type;
 }
 
-DisneyBsdfNode::DisneyBsdfNode()
+PrincipledBsdfNode::PrincipledBsdfNode()
 	: ShaderNode(node_type)
 {
 	special_type = SHADER_SPECIAL_TYPE_CLOSURE;
-	closure = CLOSURE_BSDF_DISNEY_ID;
+	closure = CLOSURE_BSDF_PRINCIPLED_ID;
 	distribution = CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID;
 	distribution_orig = NBUILTIN_CLOSURES;
 }
 
-void DisneyBsdfNode::attributes(Shader *shader, AttributeRequestSet *attributes)
+void PrincipledBsdfNode::attributes(Shader *shader, AttributeRequestSet *attributes)
 {
 	if(shader->has_surface) {
 		ShaderInput *tangent_in = input("Tangent");
@@ -2277,7 +2277,7 @@ void DisneyBsdfNode::attributes(Shader *shader, AttributeRequestSet *attributes)
 	ShaderNode::attributes(shader, attributes);
 }
 
-void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, ShaderInput *p_subsurface, ShaderInput *p_subsurface_radius,
+void PrincipledBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, ShaderInput *p_subsurface, ShaderInput *p_subsurface_radius,
 	ShaderInput *p_specular, ShaderInput *p_roughness, ShaderInput *p_specular_tint, ShaderInput *p_anisotropic,
 	ShaderInput *p_sheen, ShaderInput *p_sheen_tint, ShaderInput *p_clearcoat, ShaderInput *p_clearcoat_gloss,
 	ShaderInput *p_ior, ShaderInput *p_transparency, ShaderInput *p_anisotropic_rotation, ShaderInput *p_refraction_roughness)
@@ -2337,13 +2337,13 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler, ShaderInput *p_metallic, Sha
 		__float_as_int(ss_default.x), __float_as_int(ss_default.y), __float_as_int(ss_default.z));
 }
 
-bool DisneyBsdfNode::has_integrator_dependency()
+bool PrincipledBsdfNode::has_integrator_dependency()
 {
 	ShaderInput *roughness_input = input("Roughness");
 	return !roughness_input->link && roughness <= 1e-4f;
 }
 
-void DisneyBsdfNode::compile(SVMCompiler& compiler)
+void PrincipledBsdfNode::compile(SVMCompiler& compiler)
 {
 	compile(compiler, input("Metallic"), input("Subsurface"), input("Subsurface Radius"), input("Specular"),
 		input("Roughness"), input("Specular Tint"), input("Anisotropic"), input("Sheen"), input("Sheen Tint"),
@@ -2351,13 +2351,13 @@ void DisneyBsdfNode::compile(SVMCompiler& compiler)
 		input("Anisotropic Rotation"), input("Refraction Roughness"));
 }
 
-void DisneyBsdfNode::compile(OSLCompiler& compiler)
+void PrincipledBsdfNode::compile(OSLCompiler& compiler)
 {
 	compiler.parameter(this, "distribution");
-	compiler.add(this, "node_disney_bsdf");
+	compiler.add(this, "node_principled_bsdf");
 }
 
-bool DisneyBsdfNode::has_bssrdf_bump()
+bool PrincipledBsdfNode::has_bssrdf_bump()
 {
 	/* detect if anything is plugged into the normal input besides the default */
 	ShaderInput *normal_in = input("Normal");

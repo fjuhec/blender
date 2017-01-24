@@ -361,10 +361,10 @@ public:
 	float roughness;
 };
 
-/* Disney BRDF */
-class DisneyBsdfNode : public ShaderNode {
+/* Disney principled BRDF */
+class PrincipledBsdfNode : public ShaderNode {
 public:
-	SHADER_NODE_CLASS(DisneyBsdfNode)
+	SHADER_NODE_CLASS(PrincipledBsdfNode)
 
 	bool has_spatial_varying() { return true; }
 	bool has_surface_bssrdf() { return true; }

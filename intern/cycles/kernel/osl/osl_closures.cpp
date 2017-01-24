@@ -59,8 +59,8 @@
 #include "closure/bsdf_ashikhmin_shirley.h"
 #include "closure/bsdf_toon.h"
 #include "closure/bsdf_hair.h"
-#include "closure/bsdf_disney_diffuse.h"
-#include "closure/bsdf_disney_sheen.h"
+#include "closure/bsdf_principled_diffuse.h"
+#include "closure/bsdf_principled_sheen.h"
 #include "closure/volume.h"
 
 CCL_NAMESPACE_BEGIN
@@ -177,17 +177,17 @@ VOLUME_CLOSURE_CLASS_END(VolumeHenyeyGreenstein, henyey_greenstein)
 VOLUME_CLOSURE_CLASS_BEGIN(VolumeAbsorption, absorption, ShaderClosure, LABEL_SINGULAR)
 VOLUME_CLOSURE_CLASS_END(VolumeAbsorption, absorption)
 
-BSDF_CLOSURE_CLASS_BEGIN(DisneyDiffuse, disney_diffuse, DisneyDiffuseBsdf, LABEL_DIFFUSE)
-	CLOSURE_FLOAT3_PARAM(DisneyDiffuseClosure, params.N),
-	CLOSURE_FLOAT_PARAM(DisneyDiffuseClosure, params.roughness),
-BSDF_CLOSURE_CLASS_END(DisneyDiffuse, disney_diffuse)
+BSDF_CLOSURE_CLASS_BEGIN(PrincipledDiffuse, principled_diffuse, PrincipledDiffuseBsdf, LABEL_DIFFUSE)
+	CLOSURE_FLOAT3_PARAM(PrincipledDiffuseClosure, params.N),
+	CLOSURE_FLOAT_PARAM(PrincipledDiffuseClosure, params.roughness),
+BSDF_CLOSURE_CLASS_END(PrincipledDiffuse, principled_diffuse)
 
-BSDF_CLOSURE_CLASS_BEGIN(DisneySheen, disney_sheen, DisneySheenBsdf, LABEL_DIFFUSE)
-	CLOSURE_FLOAT3_PARAM(DisneySheenClosure, params.N),
-BSDF_CLOSURE_CLASS_END(DisneySheen, disney_sheen)
+BSDF_CLOSURE_CLASS_BEGIN(PrincipledSheen, principled_sheen, PrincipledSheenBsdf, LABEL_DIFFUSE)
+	CLOSURE_FLOAT3_PARAM(PrincipledSheenClosure, params.N),
+BSDF_CLOSURE_CLASS_END(PrincipledSheen, principled_sheen)
 
-/* DISNEY CLEARCOAT */
-class DisneyClearcoatClosure : public CBSDFClosure {
+/* DISNEY PRINCIPLED CLEARCOAT */
+class PrincipledClearcoatClosure : public CBSDFClosure {
 public:
 	MicrofacetBsdf params;
 	float clearcoat, clearcoat_gloss;
@@ -220,18 +220,18 @@ public:
 	}
 };
 
-ClosureParam *closure_bsdf_disney_clearcoat_params()
+ClosureParam *closure_bsdf_principled_clearcoat_params()
 {
 	static ClosureParam params[] = {
-		CLOSURE_FLOAT3_PARAM(DisneyClearcoatClosure, params.N),
-		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, clearcoat),
-		CLOSURE_FLOAT_PARAM(DisneyClearcoatClosure, clearcoat_gloss),
-		CLOSURE_STRING_KEYPARAM(DisneyClearcoatClosure, label, "label"),
-		CLOSURE_FINISH_PARAM(DisneyClearcoatClosure)
+		CLOSURE_FLOAT3_PARAM(PrincipledClearcoatClosure, params.N),
+		CLOSURE_FLOAT_PARAM(PrincipledClearcoatClosure, clearcoat),
+		CLOSURE_FLOAT_PARAM(PrincipledClearcoatClosure, clearcoat_gloss),
+		CLOSURE_STRING_KEYPARAM(PrincipledClearcoatClosure, label, "label"),
+		CLOSURE_FINISH_PARAM(PrincipledClearcoatClosure)
 	};
 	return params;
 }
-CCLOSURE_PREPARE(closure_bsdf_disney_clearcoat_prepare, DisneyClearcoatClosure)
+CCLOSURE_PREPARE(closure_bsdf_principled_clearcoat_prepare, PrincipledClearcoatClosure)
 
 
 /* Registration */
@@ -297,12 +297,12 @@ void OSLShader::register_closures(OSLShadingSystem *ss_)
 		bsdf_diffuse_toon_params(), bsdf_diffuse_toon_prepare);
 	register_closure(ss, "glossy_toon", id++,
 		bsdf_glossy_toon_params(), bsdf_glossy_toon_prepare);
-	register_closure(ss, "disney_diffuse", id++,
-		bsdf_disney_diffuse_params(), bsdf_disney_diffuse_prepare);
-	register_closure(ss, "disney_sheen", id++,
-		bsdf_disney_sheen_params(), bsdf_disney_sheen_prepare);
-	register_closure(ss, "disney_clearcoat", id++,
-		closure_bsdf_disney_clearcoat_params(), closure_bsdf_disney_clearcoat_prepare);
+	register_closure(ss, "principled_diffuse", id++,
+		bsdf_principled_diffuse_params(), bsdf_principled_diffuse_prepare);
+	register_closure(ss, "principled_sheen", id++,
+		bsdf_principled_sheen_params(), bsdf_principled_sheen_prepare);
+	register_closure(ss, "principled_clearcoat", id++,
+		closure_bsdf_principled_clearcoat_params(), closure_bsdf_principled_clearcoat_prepare);
 
 	register_closure(ss, "emission", id++,
 		closure_emission_params(), closure_emission_prepare);
@@ -322,8 +322,8 @@ void OSLShader::register_closures(OSLShadingSystem *ss_)
 		closure_bssrdf_gaussian_params(), closure_bssrdf_gaussian_prepare);
 	register_closure(ss, "bssrdf_burley", id++,
 		closure_bssrdf_burley_params(), closure_bssrdf_burley_prepare);
-	register_closure(ss, "bssrdf_disney", id++,
-		closure_bssrdf_disney_params(), closure_bssrdf_disney_prepare);
+	register_closure(ss, "bssrdf_principled", id++,
+		closure_bssrdf_principled_params(), closure_bssrdf_principled_prepare);
 
 	register_closure(ss, "hair_reflection", id++,
 		bsdf_hair_reflection_params(), bsdf_hair_reflection_prepare);

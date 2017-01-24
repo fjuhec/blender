@@ -29,7 +29,7 @@
 
 /* **************** OUTPUT ******************** */
 
-static bNodeSocketTemplate sh_node_bsdf_disney_in[] = {
+static bNodeSocketTemplate sh_node_bsdf_principled_in[] = {
 	{	SOCK_RGBA, 1, N_("Base Color"),				0.8f, 0.8f, 0.8f, 1.0f, 0.0f, 1.0f},
 	{	SOCK_FLOAT, 1, N_("Subsurface"),			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, PROP_FACTOR},
 	{	SOCK_VECTOR, 1, N_("Subsurface Radius"),	1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 100.0f},
@@ -53,27 +53,27 @@ static bNodeSocketTemplate sh_node_bsdf_disney_in[] = {
 	{	-1, 0, ""	}
 };
 
-static bNodeSocketTemplate sh_node_bsdf_disney_out[] = {
+static bNodeSocketTemplate sh_node_bsdf_principled_out[] = {
 	{	SOCK_SHADER, 0, N_("BSDF")},
 	{	-1, 0, ""	}
 };
 
-static void node_shader_init_disney(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_principled(bNodeTree *UNUSED(ntree), bNode *node)
 {
 	node->custom1 = SHD_GLOSSY_MULTI_GGX;
 }
 
-static int node_shader_gpu_bsdf_disney(GPUMaterial *mat, bNode *UNUSED(node), bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
+static int node_shader_gpu_bsdf_principled(GPUMaterial *mat, bNode *UNUSED(node), bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
 {
 	if (!in[16].link)
 		in[16].link = GPU_builtin(GPU_VIEW_NORMAL);
 	else
 		GPU_link(mat, "direction_transform_m4v3", in[16].link, GPU_builtin(GPU_VIEW_MATRIX), &in[16].link);
 
-	return GPU_stack_link(mat, "node_bsdf_disney", in, out);
+	return GPU_stack_link(mat, "node_bsdf_principled", in, out);
 }
 
-static void node_shader_update_disney(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_update_principled(bNodeTree *UNUSED(ntree), bNode *node)
 {
 	bNodeSocket *sock;
 	int distribution = node->custom1;
@@ -90,18 +90,18 @@ static void node_shader_update_disney(bNodeTree *UNUSED(ntree), bNode *node)
 }
 
 /* node type definition */
-void register_node_type_sh_bsdf_disney(void)
+void register_node_type_sh_bsdf_principled(void)
 {
 	static bNodeType ntype;
 
-	sh_node_type_base(&ntype, SH_NODE_BSDF_DISNEY, "Disney BSDF", NODE_CLASS_SHADER, 0);
+	sh_node_type_base(&ntype, SH_NODE_BSDF_PRINCIPLED, "Principled BSDF", NODE_CLASS_SHADER, 0);
 	node_type_compatibility(&ntype, NODE_NEW_SHADING);
-	node_type_socket_templates(&ntype, sh_node_bsdf_disney_in, sh_node_bsdf_disney_out);
+	node_type_socket_templates(&ntype, sh_node_bsdf_principled_in, sh_node_bsdf_principled_out);
 	node_type_size_preset(&ntype, NODE_SIZE_MIDDLE);
-	node_type_init(&ntype, node_shader_init_disney);
+	node_type_init(&ntype, node_shader_init_principled);
 	node_type_storage(&ntype, "", NULL, NULL);
-	node_type_gpu(&ntype, node_shader_gpu_bsdf_disney);
-	node_type_update(&ntype, node_shader_update_disney, NULL);
+	node_type_gpu(&ntype, node_shader_gpu_bsdf_principled);
+	node_type_update(&ntype, node_shader_update_principled, NULL);
 
 	nodeRegisterType(&ntype);
 }

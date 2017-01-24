@@ -2995,7 +2995,7 @@ static void rna_ShaderNodeScript_update(Main *bmain, Scene *scene, PointerRNA *p
 	ED_node_tag_update_nodetree(bmain, ntree, node);
 }
 
-static void rna_ShaderNodeDisney_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+static void rna_ShaderNodePrincipled_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	bNodeTree *ntree = (bNodeTree *)ptr->id.data;
 	bNode *node = (bNode *)ptr->data;
@@ -4190,9 +4190,9 @@ static void def_glass(StructRNA *srna)
 	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
-static void def_disney(StructRNA *srna)
+static void def_principled(StructRNA *srna)
 {
-	static EnumPropertyItem prop_disney_distribution_items[] = {
+	static EnumPropertyItem prop_principled_distribution_items[] = {
 		{ SHD_GLOSSY_GGX, "GGX", 0, "GGX", "" },
 		{ SHD_GLOSSY_MULTI_GGX, "MULTI_GGX", 0, "Multiscatter GGX", "" },
 		{ 0, NULL, 0, NULL, NULL }
@@ -4202,9 +4202,9 @@ static void def_disney(StructRNA *srna)
 
 	prop = RNA_def_property(srna, "distribution", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "custom1");
-	RNA_def_property_enum_items(prop, prop_disney_distribution_items);
+	RNA_def_property_enum_items(prop, prop_principled_distribution_items);
 	RNA_def_property_ui_text(prop, "Distribution", "");
-	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_ShaderNodeDisney_update");
+	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_ShaderNodePrincipled_update");
 }
 
 static void def_refraction(StructRNA *srna)

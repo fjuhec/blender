@@ -76,7 +76,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 	float param2 = (stack_valid(param2_offset))? stack_load_float(stack, param2_offset): __uint_as_float(node.w);
 
 	switch(type) {
-		case CLOSURE_BSDF_DISNEY_ID: {
+		case CLOSURE_BSDF_PRINCIPLED_ID: {
 			uint specular_offset, roughness_offset, specular_tint_offset, anisotropic_offset, sheen_offset,
 				sheen_tint_offset, clearcoat_offset, clearcoat_gloss_offset, eta_offset, transparency_offset,
 				anisotropic_rotation_offset, refraction_roughness_offset;
@@ -87,7 +87,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			decode_node_uchar4(data_node.w, &sheen_offset, &sheen_tint_offset, &clearcoat_offset, &clearcoat_gloss_offset);
 			decode_node_uchar4(data_node2.x, &eta_offset, &transparency_offset, &anisotropic_rotation_offset, &refraction_roughness_offset);
 
-			// get disney parameters
+			// get Disney principled parameters
 			float metallic = param1;
 			float subsurface = param2;
 			float specular = stack_load_float(stack, specular_offset);
@@ -155,14 +155,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			if(subsurface < CLOSURE_WEIGHT_CUTOFF && diffuse_weight > CLOSURE_WEIGHT_CUTOFF && fabsf(average(base_color)) > CLOSURE_WEIGHT_CUTOFF) {
 				float3 diff_weight = weight * base_color * diffuse_weight;
 
-				DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
+				PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bsdf_alloc(sd, sizeof(PrincipledDiffuseBsdf), diff_weight);
 
 				if(bsdf) {
 					bsdf->N = N;
 					bsdf->roughness = roughness;
 
 					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bsdf_disney_diffuse_setup(bsdf);
+					ccl_fetch(sd, flag) |= bsdf_principled_diffuse_setup(bsdf);
 				}
 			}
 			else if(subsurf_sample_weight > CLOSURE_WEIGHT_CUTOFF) {
@@ -186,7 +186,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					bssrdf->roughness = roughness;
 
 					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
+					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
 				}
 
 				bssrdf = bssrdf_alloc(sd, make_float3(0.0f, subsurf_weight.y, 0.0f));
@@ -201,7 +201,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					bssrdf->roughness = roughness;
 
 					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
+					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
 				}
 
 				bssrdf = bssrdf_alloc(sd, make_float3(0.0f, 0.0f, subsurf_weight.z));
@@ -216,7 +216,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					bssrdf->roughness = roughness;
 
 					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_DISNEY_ID);
+					ccl_fetch(sd, flag) |= bssrdf_setup(bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
 				}
 			}
 #else
@@ -224,14 +224,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			if(diffuse_weight > CLOSURE_WEIGHT_CUTOFF) {
 				float3 diff_weight = weight * base_color * diffuse_weight;
 
-				DisneyDiffuseBsdf *bsdf = (DisneyDiffuseBsdf*)bsdf_alloc(sd, sizeof(DisneyDiffuseBsdf), diff_weight);
+				PrincipledDiffuseBsdf *bsdf = (PrincipledDiffuseBsdf*)bsdf_alloc(sd, sizeof(PrincipledDiffuseBsdf), diff_weight);
 
 				if(bsdf) {
 					bsdf->N = N;
 					bsdf->roughness = roughness;
 
 					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bsdf_disney_diffuse_setup(bsdf);
+					ccl_fetch(sd, flag) |= bsdf_principled_diffuse_setup(bsdf);
 				}
 			}
 #endif
@@ -246,13 +246,13 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 				float3 sheen_weight = weight * sheen * sheen_color * diffuse_weight;
 
-				DisneySheenBsdf *bsdf = (DisneySheenBsdf*)bsdf_alloc(sd, sizeof(DisneySheenBsdf), sheen_weight);
+				PrincipledSheenBsdf *bsdf = (PrincipledSheenBsdf*)bsdf_alloc(sd, sizeof(PrincipledSheenBsdf), sheen_weight);
 
 				if(bsdf) {
 					bsdf->N = N;
 
 					/* setup bsdf */
-					ccl_fetch(sd, flag) |= bsdf_disney_sheen_setup(bsdf);
+					ccl_fetch(sd, flag) |= bsdf_principled_sheen_setup(bsdf);
 				}
 			}
 
