@@ -47,7 +47,9 @@ class BVHNode
 {
 public:
 	BVHNode() : m_is_unaligned(false),
-	            m_aligned_space(NULL)
+	            m_aligned_space(NULL),
+	            m_time_from(0.0f),
+	            m_time_to(1.0f)
 	{
 	}
 
@@ -66,7 +68,7 @@ public:
 	inline void set_aligned_space(const Transform& aligned_space)
 	{
 		m_is_unaligned = true;
-		if (m_aligned_space == NULL) {
+		if(m_aligned_space == NULL) {
 			m_aligned_space = new Transform(aligned_space);
 		}
 		else {
@@ -91,12 +93,15 @@ public:
 	void deleteSubtree();
 
 	uint update_visibility();
+	void update_time();
 
 	bool m_is_unaligned;
 
 	// TODO(sergey): Can be stored as 3x3 matrix, but better to have some
 	// utilities and type defines in util_transform first.
 	Transform *m_aligned_space;
+
+	float m_time_from, m_time_to;
 };
 
 class InnerNode : public BVHNode
