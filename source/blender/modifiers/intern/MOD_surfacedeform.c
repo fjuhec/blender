@@ -75,9 +75,19 @@ typedef struct SDefBindWeightData {
 	unsigned int numbinds;
 } SDefBindWeightData;
 
+/* Bind result values */
+enum {
+	MOD_SDEF_BIND_RESULT_SUCCESS = 1,
+	MOD_SDEF_BIND_RESULT_GENERIC_ERR = 0,
+	MOD_SDEF_BIND_RESULT_MEM_ERR = -1,
+	MOD_SDEF_BIND_RESULT_NONMANY_ERR = -2,
+	MOD_SDEF_BIND_RESULT_CONCAVE_ERR = -3,
+	MOD_SDEF_BIND_RESULT_OVERLAP_ERR = -4,
+};
+
 static void initData(ModifierData *md)
 {
-	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
+	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 	smd->target = NULL;
 	smd->verts = NULL;
 	smd->flags = 0;
@@ -86,7 +96,7 @@ static void initData(ModifierData *md)
 
 static void freeData(ModifierData *md)
 {
-	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
+	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 
 	if (smd->verts) {
 		for (int i = 0; i < smd->numverts; i++) {
@@ -107,8 +117,8 @@ static void freeData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
-	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
-	SurfaceDeformModifierData *tsmd = (SurfaceDeformModifierData *) target;
+	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
+	SurfaceDeformModifierData *tsmd = (SurfaceDeformModifierData *)target;
 
 	*tsmd = *smd;
 
@@ -135,7 +145,7 @@ static void copyData(ModifierData *md, ModifierData *target)
 
 static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
 {
-	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
+	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 
 	walk(userData, ob, &smd->target, IDWALK_NOP);
 }
@@ -146,7 +156,7 @@ static void updateDepgraph(ModifierData *md, DagForest *forest,
                            Object *UNUSED(ob),
                            DagNode *obNode)
 {
-	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
+	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 
 	if (smd->target) {
 		DagNode *curNode = dag_get_node(forest, smd->target);
@@ -205,8 +215,7 @@ static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop *
 				edge_polys[loop->e].num++;
 			}
 			else {
-				printf("Surface Deform: Target has edges with more than two polys\n");
-				return -1;
+				return MOD_SDEF_BIND_RESULT_NONMANY_ERR;
 			}
 		}
 	}
@@ -215,7 +224,7 @@ static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop *
 	for (int i = 0; i < numedges; i++, edge++) {
 		adj = MEM_mallocN(sizeof(*adj), "SDefVertEdge");
 		if (adj == NULL) {
-			return 0;
+			return MOD_SDEF_BIND_RESULT_MEM_ERR;
 		}
 
 		adj->next = vert_edges[edge->v1];
@@ -224,7 +233,7 @@ static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop *
 
 		adj = MEM_mallocN(sizeof(*adj), "SDefVertEdge");
 		if (adj == NULL) {
-			return 0;
+			return MOD_SDEF_BIND_RESULT_MEM_ERR;
 		}
 
 		adj->next = vert_edges[edge->v2];
@@ -232,7 +241,7 @@ static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop *
 		vert_edges[edge->v2] = adj;
 	}
 
-	return 1;
+	return MOD_SDEF_BIND_RESULT_SUCCESS;
 }
 
 BLI_INLINE void sortPolyVertsEdge(unsigned int *indices, const MLoop * const mloop, const unsigned int edge, const unsigned int num)
@@ -304,14 +313,13 @@ BLI_INLINE unsigned int nearestVert(SDefBindCalcData * const data, const float p
 	}
 }
 
-BLI_INLINE bool isPolyValid(const float coords[][2], const unsigned int nr)
+BLI_INLINE int isPolyValid(const float coords[][2], const unsigned int nr)
 {
 	float prev_co[2];
 	float curr_vec[2], prev_vec[2];
 
 	if (!is_poly_convex_v2(coords, nr)) {
-		printf("Surface Deform: Target containts concave polys\n");
-		return false;
+		return MOD_SDEF_BIND_RESULT_CONCAVE_ERR;
 	}
 
 	copy_v2_v2(prev_co, coords[nr - 1]);
@@ -321,20 +329,18 @@ BLI_INLINE bool isPolyValid(const float coords[][2], const unsigned int nr)
 		sub_v2_v2v2(curr_vec, coords[i], prev_co);
 
 		if (len_v2(curr_vec) < FLT_EPSILON) {
-			printf("Surface Deform: Target containts overlapping verts\n");
-			return false;
+			return MOD_SDEF_BIND_RESULT_OVERLAP_ERR;
 		}
 
 		if (1.0f - dot_v2v2(prev_vec, curr_vec) < FLT_EPSILON) {
-			printf("Surface Deform: Target containts concave polys\n");
-			return false;
+			return MOD_SDEF_BIND_RESULT_CONCAVE_ERR;
 		}
 
 		copy_v2_v2(prev_co, coords[i]);
 		copy_v2_v2(prev_vec, curr_vec);
 	}
 
-	return true;
+	return MOD_SDEF_BIND_RESULT_SUCCESS;
 }
 
 static void freeBindData(SDefBindWeightData * const bwdata)
@@ -374,7 +380,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 
 	bwdata = MEM_callocN(sizeof(*bwdata), "SDefBindWeightData");
 	if (bwdata == NULL) {
-		data->success = 0;
+		data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 		return NULL;
 	}
 
@@ -394,12 +400,13 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				float angle;
 				float axis[3];
 				float tmp_vec_v2[2];
+				int is_poly_valid;
 
 				/* SDefBindPoly initialization */
 				bpoly = MEM_mallocN(sizeof(*bpoly), "SDefBindPoly");
 				if (bpoly == NULL) {
 					freeBindData(bwdata);
-					data->success = 0;
+					data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 					return NULL;
 				}
 
@@ -421,14 +428,14 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 				bpoly->coords = MEM_mallocN(sizeof(*bpoly->coords) * poly->totloop, "SDefBindPolyCoords");
 				if (bpoly->coords == NULL) {
 					freeBindData(bwdata);
-					data->success = 0;
+					data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 					return NULL;
 				}
 
 				bpoly->coords_v2 = MEM_mallocN(sizeof(*bpoly->coords_v2) * poly->totloop, "SDefBindPolyCoords_v2");
 				if (bpoly->coords_v2 == NULL) {
 					freeBindData(bwdata);
-					data->success = 0;
+					data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 					return NULL;
 				}
 
@@ -465,9 +472,11 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 					madd_v2_v2fl(bpoly->centroid_v2, bpoly->coords_v2[j], 1.0f / poly->totloop);
 				}
 
-				if (!isPolyValid(bpoly->coords_v2, poly->totloop)) {
+				is_poly_valid = isPolyValid(bpoly->coords_v2, poly->totloop);
+
+				if (is_poly_valid != MOD_SDEF_BIND_RESULT_SUCCESS) {
 					freeBindData(bwdata);
-					data->success = -1;
+					data->success = is_poly_valid;
 					return NULL;
 				}
 
@@ -596,12 +605,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 
 			if (isnan(tmp1) || isnan(tmp2)) {
 				freeBindData(bwdata);
-				data->success = -1;
-				/* I know this message is vague, but I could not think of a way
-				 * to explain this whith a reasonably sized message.
-				 * Though it shouldn't really matter all that much,
-				 * because this is very unlikely to occur */
-				printf("Surface Deform: Target contains invalid polys\n");
+				data->success = MOD_SDEF_BIND_RESULT_GENERIC_ERR;
 				return NULL;
 			}
 
@@ -729,7 +733,7 @@ BLI_INLINE float computeNormalDisplacement(const float point_co[3], const float 
 
 static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int index, const int UNUSED(threadid))
 {
-	SDefBindCalcData * const data = (SDefBindCalcData *) userdata;
+	SDefBindCalcData * const data = (SDefBindCalcData *)userdata;
 	float point_co[3];
 	float point_co_proj[3];
 
@@ -738,7 +742,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 	SDefBindPoly *bpoly;
 	SDefBind *sdbind;
 
-	if (data->success != 1) {
+	if (data->success != MOD_SDEF_BIND_RESULT_SUCCESS) {
 		sdvert->binds = NULL;
 		sdvert->numbinds = 0;
 		return;
@@ -755,7 +759,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 
 	sdvert->binds = MEM_callocN(sizeof(*sdvert->binds) * bwdata->numbinds, "SDefVertBindData");
 	if (sdvert->binds == NULL) {
-		data->success = 0;
+		data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 		sdvert->numbinds = 0;
 		return;
 	}
@@ -775,13 +779,13 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 				sdbind->mode = MOD_SDEF_MODE_NGON;
 				sdbind->vert_weights = MEM_mallocN(sizeof(*sdbind->vert_weights) * bpoly->numverts, "SDefNgonVertWeights");
 				if (sdbind->vert_weights == NULL) {
-					data->success = 0;
+					data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 					return;
 				}
 
 				sdbind->vert_inds = MEM_mallocN(sizeof(*sdbind->vert_inds) * bpoly->numverts, "SDefNgonVertInds");
 				if (sdbind->vert_inds == NULL) {
-					data->success = 0;
+					data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 					return;
 				}
 
@@ -810,13 +814,13 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					sdbind->mode = MOD_SDEF_MODE_CENTROID;
 					sdbind->vert_weights = MEM_mallocN(sizeof(*sdbind->vert_weights) * 3, "SDefCentVertWeights");
 					if (sdbind->vert_weights == NULL) {
-						data->success = 0;
+						data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 						return;
 					}
 
 					sdbind->vert_inds = MEM_mallocN(sizeof(*sdbind->vert_inds) * bpoly->numverts, "SDefCentVertInds");
 					if (sdbind->vert_inds == NULL) {
-						data->success = 0;
+						data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 						return;
 					}
 
@@ -835,9 +839,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					/* We are sure the line is not parallel to the plane.
 					 * Checking return value just to avoid warning... */
 					if (!isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm)) {
-						printf("Surface Deform: Aaaaah, math is broken!\n"); /* This will never actually happen */
-						data->success = -2;
-						return;
+						BLI_assert(false);
 					}
 
 					interp_weights_tri_v3(sdbind->vert_weights, v1, v2, v3, point_co_proj);
@@ -854,13 +856,13 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					sdbind->mode = MOD_SDEF_MODE_LOOPTRI;
 					sdbind->vert_weights = MEM_mallocN(sizeof(*sdbind->vert_weights) * 3, "SDefTriVertWeights");
 					if (sdbind->vert_weights == NULL) {
-						data->success = 0;
+						data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 						return;
 					}
 
 					sdbind->vert_inds = MEM_mallocN(sizeof(*sdbind->vert_inds) * bpoly->numverts, "SDefTriVertInds");
 					if (sdbind->vert_inds == NULL) {
-						data->success = 0;
+						data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
 						return;
 					}
 
@@ -878,9 +880,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					/* We are sure the line is not parallel to the plane.
 					 * Checking return value just to avoid warning... */
 					if (!isect_line_plane_v3(point_co_proj, point_co, tmp_vec, cent, norm)) {
-						printf("Surface Deform: Aaaaah, math is broken!\n"); /* This will never actually happen */
-						data->success = -2;
-						return;
+						BLI_assert(false);
 					}
 
 					interp_weights_tri_v3(sdbind->vert_weights, v1, v2, v3, point_co_proj);
@@ -911,20 +911,20 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 
 	vert_edges = MEM_callocN(sizeof(*vert_edges) * tnumverts, "SDefVertEdgeMap");
 	if (vert_edges == NULL) {
-		printf("Surface Deform: Out of memory\n");
+		modifier_setError((ModifierData *)smd, "Out of memory");
 		return false;
 	}
 
 	edge_polys = MEM_callocN(sizeof(*edge_polys) * tnumedges, "SDefEdgeFaceMap");
 	if (edge_polys == NULL) {
-		printf("Surface Deform: Out of memory\n");
+		modifier_setError((ModifierData *)smd, "Out of memory");
 		MEM_freeN(vert_edges);
 		return false;
 	}
 
 	smd->verts = MEM_mallocN(sizeof(*smd->verts) * numverts, "SDefBindVerts");
 	if (smd->verts == NULL) {
-		printf("Surface Deform: Out of memory\n");
+		modifier_setError((ModifierData *)smd, "Out of memory");
 		MEM_freeN(vert_edges);
 		MEM_freeN(edge_polys);
 		return false;
@@ -932,7 +932,7 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 
 	bvhtree_from_mesh_looptri(&treeData, tdm, 0.0, 2, 6);
 	if (treeData.tree == NULL) {
-		printf("Surface Deform: Out of memory\n");
+		modifier_setError((ModifierData *)smd, "Out of memory");
 		MEM_freeN(vert_edges);
 		MEM_freeN(edge_polys);
 		MEM_freeN(smd->verts);
@@ -942,8 +942,8 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 
 	adj_result = buildAdjacencyMap(mpoly, medge, mloop, tnumpoly, tnumedges, vert_edges, edge_polys);
 
-	if(adj_result == 0) {
-		printf("Surface Deform: Out of memory\n");
+	if(adj_result == MOD_SDEF_BIND_RESULT_MEM_ERR) {
+		modifier_setError((ModifierData *)smd, "Out of memory");
 		freeAdjacencyMap(vert_edges, edge_polys, tnumverts);
 		free_bvhtree_from_mesh(&treeData);
 		MEM_freeN(smd->verts);
@@ -951,8 +951,8 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 		return false;
 	}
 
-	if (adj_result == -1) {
-		printf("Surface Deform: Invalid target mesh\n");
+	if (adj_result == MOD_SDEF_BIND_RESULT_NONMANY_ERR) {
+		modifier_setError((ModifierData *)smd, "Target has edges with more than two polys");
 		freeAdjacencyMap(vert_edges, edge_polys, tnumverts);
 		free_bvhtree_from_mesh(&treeData);
 		MEM_freeN(smd->verts);
@@ -979,16 +979,29 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 	BLI_task_parallel_range_ex(0, numverts, &data, NULL, 0, bindVert,
 	                           numverts > 10000, false);
 
-	if (data.success == 0) {
-		printf("Surface Deform: Out of memory\n");
-		freeData((ModifierData *) smd);
+	if (data.success == MOD_SDEF_BIND_RESULT_MEM_ERR) {
+		modifier_setError((ModifierData *)smd, "Out of memory");
+		freeData((ModifierData *)smd);
 	}
-	else if (data.success == -1) {
-		printf("Surface Deform: Invalid target mesh\n");
-		freeData((ModifierData *) smd);
+	else if (data.success == MOD_SDEF_BIND_RESULT_NONMANY_ERR) {
+		modifier_setError((ModifierData *)smd, "Target has edges with more than two polys");
+		freeData((ModifierData *)smd);
 	}
-	else if (data.success != 1) {
-		freeData((ModifierData *) smd);
+	else if (data.success == MOD_SDEF_BIND_RESULT_CONCAVE_ERR) {
+		modifier_setError((ModifierData *)smd, "Target containts concave polys");
+		freeData((ModifierData *)smd);
+	}
+	else if (data.success == MOD_SDEF_BIND_RESULT_OVERLAP_ERR) {
+		modifier_setError((ModifierData *)smd, "Target containts overlapping verts");
+		freeData((ModifierData *)smd);
+	}
+	else if (data.success == MOD_SDEF_BIND_RESULT_GENERIC_ERR) {
+		/* I know this message is vague, but I could not think of a way
+		 * to explain this whith a reasonably sized message.
+		 * Though it shouldn't really matter all that much,
+		 * because this is very unlikely to occur */
+		modifier_setError((ModifierData *)smd, "Target contains invalid polys");
+		freeData((ModifierData *)smd);
 	}
 
 	freeAdjacencyMap(vert_edges, edge_polys, tnumverts);
@@ -999,7 +1012,7 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 
 static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], unsigned int numverts)
 {
-	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
+	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 	DerivedMesh *tdm;
 	unsigned int tnumpoly;
 	SDefVert *sdvert;
@@ -1119,7 +1132,7 @@ static void deformVertsEM(ModifierData *md, Object *UNUSED(ob),
 
 static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
 {
-	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) md;
+	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 
 	return !smd->target;
 }
