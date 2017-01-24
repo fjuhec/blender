@@ -1557,7 +1557,6 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
-	}
 		/* ------- convert grease pencil palettes to blender palettes --------------- */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
 
