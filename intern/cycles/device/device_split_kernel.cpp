@@ -118,15 +118,20 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		local_size[1] = lsize[1];
 	}
 
-	/* Make sure that set render feasible tile size is a multiple of local
-	 * work size dimensions.
-	 */
-	size_t global_size[2];
-	global_size[0] = round_up(task->requested_tile_size.x, local_size[0]);
-	global_size[1] = round_up(task->requested_tile_size.y, local_size[1]);
-
 	/* Calculate per_thread_output_buffer_size. */
 	size_t per_thread_output_buffer_size = task->passes_size;
+
+	/* Set gloabl size */
+	size_t global_size[2];
+	{
+		int2 gsize = device->split_kernel_global_size(task, *this);
+
+		/* Make sure that set work size is a multiple of local
+		 * work size dimensions.
+		 */
+		global_size[0] = round_up(gsize[0], local_size[0]);
+		global_size[1] = round_up(gsize[1], local_size[1]);
+	}
 
 	/* Number of elements in the global state buffer */
 	int num_global_elements = global_size[0] * global_size[1];
