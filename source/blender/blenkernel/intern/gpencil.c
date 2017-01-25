@@ -1428,8 +1428,8 @@ void BKE_gpencil_copy_animdata_to_palettes(bGPdata *gpd)
 		}
 	}
 
+#if 0 /* old gp versions do not support drivers, so no need conversion */
 	/* drivers */
-#if 0
 	if (srcAdt->drivers.first) {
 		FCurve *fcu, *fcn = NULL;
 
