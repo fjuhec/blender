@@ -22,13 +22,18 @@ typedef struct SDefAdjacency {
 	unsigned int index;
 } SDefAdjacency;
 
+typedef struct SDefAdjacencyArray {
+	SDefAdjacency *first;
+	unsigned int num; /* Careful, this is twice the number of polygons (avoids an extra loop) */
+} SDefAdjacencyArray;
+
 typedef struct SDefEdgePolys {
 	unsigned int polys[2], num;
 } SDefEdgePolys;
 
 typedef struct SDefBindCalcData {
 	BVHTreeFromMesh * const treeData;
-	const SDefAdjacency ** const vert_edges;
+	const SDefAdjacencyArray * const vert_edges;
 	const SDefEdgePolys * const edge_polys;
 	SDefVert * const bind_verts;
 	const MLoopTri * const looptri;
@@ -177,7 +182,7 @@ static void updateDepsgraph(ModifierData *md,
 	}
 }
 
-static void freeAdjacencyMap(SDefAdjacency ** const vert_edges, SDefAdjacency * const adj_ref, SDefEdgePolys * const edge_polys)
+static void freeAdjacencyMap(SDefAdjacencyArray * const vert_edges, SDefAdjacency * const adj_ref, SDefEdgePolys * const edge_polys)
 {
 	MEM_freeN(edge_polys);
 
@@ -187,7 +192,7 @@ static void freeAdjacencyMap(SDefAdjacency ** const vert_edges, SDefAdjacency * 
 }
 
 static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop * const mloop, const unsigned int numpoly, const unsigned int numedges,
-                              SDefAdjacency ** const vert_edges, SDefAdjacency *adj, SDefEdgePolys * const edge_polys)
+                              SDefAdjacencyArray * const vert_edges, SDefAdjacency *adj, SDefEdgePolys * const edge_polys)
 {
 	const MLoop *loop;
 
@@ -213,14 +218,16 @@ static int buildAdjacencyMap(const MPoly *poly, const MEdge *edge, const MLoop *
 
 	/* Find edges adjacent to vertices */
 	for (int i = 0; i < numedges; i++, edge++) {
-		adj->next = vert_edges[edge->v1];
+		adj->next = vert_edges[edge->v1].first;
 		adj->index = i;
-		vert_edges[edge->v1] = adj;
+		vert_edges[edge->v1].first = adj;
+		vert_edges[edge->v1].num += edge_polys[i].num;
 		adj++;
 
-		adj->next = vert_edges[edge->v2];
+		adj->next = vert_edges[edge->v2].first;
 		adj->index = i;
-		vert_edges[edge->v2] = adj;
+		vert_edges[edge->v2].first = adj;
+		vert_edges[edge->v2].num += edge_polys[i].num;
 		adj++;
 	}
 
@@ -345,7 +352,7 @@ static void freeBindData(SDefBindWeightData * const bwdata)
 BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data, const float point_co[3])
 {
 	const unsigned int nearest = nearestVert(data, point_co);
-	const SDefAdjacency * const vert_edges = data->vert_edges[nearest];
+	const SDefAdjacency * const vert_edges = data->vert_edges[nearest].first;
 	const SDefEdgePolys * const edge_polys = data->edge_polys;
 
 	const SDefAdjacency *vedge;
@@ -366,11 +373,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 		return NULL;
 	}
 
-	for (vedge = vert_edges; vedge; vedge = vedge->next) {
-		bwdata->numpoly += edge_polys[vedge->index].num;
-	}
-
-	bwdata->numpoly /= 2;
+	bwdata->numpoly = data->vert_edges[nearest].num / 2;
 
 	bpoly = MEM_callocN(sizeof(*bpoly) * bwdata->numpoly, "SDefBindPoly");
 	if (bpoly == NULL) {
@@ -910,7 +913,7 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 	unsigned int tnumedges = tdm->getNumEdges(tdm);
 	unsigned int tnumverts = tdm->getNumVerts(tdm);
 	int adj_result;
-	SDefAdjacency **vert_edges;
+	SDefAdjacencyArray *vert_edges;
 	SDefAdjacency *adj_array;
 	SDefEdgePolys *edge_polys;
 
@@ -966,7 +969,7 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 	smd->numpoly = tnumpoly;
 
 	SDefBindCalcData data = {.treeData = &treeData,
-		                     .vert_edges = (const SDefAdjacency **)vert_edges,
+		                     .vert_edges = vert_edges,
 		                     .edge_polys = edge_polys,
 		                     .mpoly = mpoly,
 		                     .medge = medge,
