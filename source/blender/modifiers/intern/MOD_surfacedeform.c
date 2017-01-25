@@ -80,6 +80,12 @@ typedef struct SDefBindWeightData {
 	unsigned int numbinds;
 } SDefBindWeightData;
 
+typedef struct SDefDeformData {
+	const SDefVert * const bind_verts;
+	const MVert * const mvert;
+	float (* const vertexCos)[3];
+} SDefDeformData;
+
 /* Bind result values */
 enum {
 	MOD_SDEF_BIND_RESULT_SUCCESS = 1,
@@ -95,7 +101,7 @@ enum {
 	MOD_SDEF_INFINITE_WEIGHT_ANGULAR = 1 << 0,
 	MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ = 1 << 1,
 	MOD_SDEF_INFINITE_WEIGHT_DIST = 1 << 2,
-}
+};
 
 static void initData(ModifierData *md)
 {
@@ -1023,15 +1029,66 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 	return data.success == 1;
 }
 
+static void deformVert(void *userdata, void *UNUSED(userdata_chunk), const int index, const int UNUSED(threadid))
+{
+	const SDefDeformData * const data = (SDefDeformData *)userdata;
+	const SDefBind *sdbind = data->bind_verts[index].binds;
+	const MVert * const mvert = data->mvert;
+	float * const vertexCos = data->vertexCos[index];
+	float norm[3], temp[3];
+
+	zero_v3(vertexCos);
+
+	for (int j = 0; j < data->bind_verts[index].numbinds; j++, sdbind++) {
+		/* Mode-generic operations (allocate poly coordinates) */
+		float (*coords)[3] = MEM_mallocN(sizeof(*coords) * sdbind->numverts, "SDefDoPolyCoords");
+
+		for (int k = 0; k < sdbind->numverts; k++) {
+			copy_v3_v3(coords[k], mvert[sdbind->vert_inds[k]].co);
+		}
+
+		normal_poly_v3(norm, coords, sdbind->numverts);
+		zero_v3(temp);
+
+		/* ---------- looptri mode ---------- */
+		if (sdbind->mode == MOD_SDEF_MODE_LOOPTRI) {
+			madd_v3_v3fl(temp, mvert[sdbind->vert_inds[0]].co, sdbind->vert_weights[0]);
+			madd_v3_v3fl(temp, mvert[sdbind->vert_inds[1]].co, sdbind->vert_weights[1]);
+			madd_v3_v3fl(temp, mvert[sdbind->vert_inds[2]].co, sdbind->vert_weights[2]);
+		}
+		else {
+			/* ---------- ngon mode ---------- */
+			if (sdbind->mode == MOD_SDEF_MODE_NGON) {
+				for (int k = 0; k < sdbind->numverts; k++) {
+					madd_v3_v3fl(temp, coords[k], sdbind->vert_weights[k]);
+				}
+			}
+
+			/* ---------- centroid mode ---------- */
+			else if (sdbind->mode == MOD_SDEF_MODE_CENTROID) {
+				float cent[3];
+				mid_v3_v3_array(cent, coords, sdbind->numverts);
+
+				madd_v3_v3fl(temp, mvert[sdbind->vert_inds[0]].co, sdbind->vert_weights[0]);
+				madd_v3_v3fl(temp, mvert[sdbind->vert_inds[1]].co, sdbind->vert_weights[1]);
+				madd_v3_v3fl(temp, cent, sdbind->vert_weights[2]);
+			}
+		}
+
+		MEM_freeN(coords);
+
+		/* Apply normal offset (generic for all modes) */
+		madd_v3_v3fl(temp, norm, sdbind->normal_dist);
+
+		madd_v3_v3fl(vertexCos, temp, sdbind->influence);
+	}
+}
+
 static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], unsigned int numverts)
 {
 	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
 	DerivedMesh *tdm;
 	unsigned int tnumpoly;
-	SDefVert *sdvert;
-	SDefBind *sdbind;
-	const MVert *mvert;
-	float norm[3], temp[3];
 
 	/* Exit function if bind flag is not set (free bind data if any) */
 	if (!(smd->flags & MOD_SDEF_BIND)) {
@@ -1071,58 +1128,12 @@ static void surfacedeformModifier_do(ModifierData *md, float (*vertexCos)[3], un
 	}
 
 	/* Actual vertex location update starts here */
-	mvert = tdm->getVertArray(tdm);
-	sdvert = smd->verts;
+	SDefDeformData data = {.bind_verts = smd->verts,
+		                   .mvert = tdm->getVertArray(tdm),
+		                   .vertexCos = vertexCos};
 
-	for (int i = 0; i < numverts; i++, sdvert++) {
-		sdbind = sdvert->binds;
-
-		zero_v3(vertexCos[i]);
-
-		for (int j = 0; j < sdvert->numbinds; j++, sdbind++) {
-			/* Mode-generic operations (allocate poly coordinates) */
-			float (*coords)[3] = MEM_mallocN(sizeof(*coords) * sdbind->numverts, "SDefDoPolyCoords");
-
-			for (int k = 0; k < sdbind->numverts; k++) {
-				copy_v3_v3(coords[k], mvert[sdbind->vert_inds[k]].co);
-			}
-
-			normal_poly_v3(norm, coords, sdbind->numverts);
-			zero_v3(temp);
-
-			/* ---------- looptri mode ---------- */
-			if (sdbind->mode == MOD_SDEF_MODE_LOOPTRI) {
-				madd_v3_v3fl(temp, mvert[sdbind->vert_inds[0]].co, sdbind->vert_weights[0]);
-				madd_v3_v3fl(temp, mvert[sdbind->vert_inds[1]].co, sdbind->vert_weights[1]);
-				madd_v3_v3fl(temp, mvert[sdbind->vert_inds[2]].co, sdbind->vert_weights[2]);
-			}
-			else {
-				/* ---------- ngon mode ---------- */
-				if (sdbind->mode == MOD_SDEF_MODE_NGON) {
-					for (int k = 0; k < sdbind->numverts; k++) {
-						madd_v3_v3fl(temp, coords[k], sdbind->vert_weights[k]);
-					}
-				}
-
-				/* ---------- centroid mode ---------- */
-				else if (sdbind->mode == MOD_SDEF_MODE_CENTROID) {
-					float cent[3];
-					mid_v3_v3_array(cent, coords, sdbind->numverts);
-
-					madd_v3_v3fl(temp, mvert[sdbind->vert_inds[0]].co, sdbind->vert_weights[0]);
-					madd_v3_v3fl(temp, mvert[sdbind->vert_inds[1]].co, sdbind->vert_weights[1]);
-					madd_v3_v3fl(temp, cent, sdbind->vert_weights[2]);
-				}
-			}
-
-			MEM_freeN(coords);
-
-			/* Apply normal offset (generic for all modes) */
-			madd_v3_v3fl(temp, norm, sdbind->normal_dist);
-
-			madd_v3_v3fl(vertexCos[i], temp, sdbind->influence);
-		}
-	}
+	BLI_task_parallel_range_ex(0, numverts, &data, NULL, 0, deformVert,
+	                           numverts > 10000, false);
 
 	tdm->release(tdm);
 }
