@@ -90,6 +90,13 @@ enum {
 	MOD_SDEF_BIND_RESULT_OVERLAP_ERR = -4,
 };
 
+/* Infinite weight flags */
+enum {
+	MOD_SDEF_INFINITE_WEIGHT_ANGULAR = 1 << 0,
+	MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ = 1 << 1,
+	MOD_SDEF_INFINITE_WEIGHT_DIST = 1 << 2,
+}
+
 static void initData(ModifierData *md)
 {
 	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
@@ -520,11 +527,11 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 
 				/* Check for inifnite weights, and compute angular data otherwise */
 				if (bpoly->weight_dist < FLT_EPSILON) {
-					inf_weight_flags |= 1 << 1;
-					inf_weight_flags |= 1 << 2;
+					inf_weight_flags |= MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ;
+					inf_weight_flags |= MOD_SDEF_INFINITE_WEIGHT_DIST;
 				}
 				else if (bpoly->weight_dist_proj < FLT_EPSILON) {
-					inf_weight_flags |= 1 << 1;
+					inf_weight_flags |= MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ;
 				}
 				else {
 					float cent_point_vec[2];
@@ -641,18 +648,18 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 
 			/* Re-check for infinite weights, now that all scalings and interpolations are computed */
 			if (bpoly->weight_dist < FLT_EPSILON) {
-				inf_weight_flags |= 1 << 1;
-				inf_weight_flags |= 1 << 2;
+				inf_weight_flags |= MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ;
+				inf_weight_flags |= MOD_SDEF_INFINITE_WEIGHT_DIST;
 			}
 			else if (bpoly->weight_dist_proj < FLT_EPSILON) {
-				inf_weight_flags |= 1 << 1;
+				inf_weight_flags |= MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ;
 			}
 			else if (bpoly->weight_angular < FLT_EPSILON) {
-				inf_weight_flags |= 1 << 0;
+				inf_weight_flags |= MOD_SDEF_INFINITE_WEIGHT_ANGULAR;
 			}
 		}
 	}
-	else if (!(inf_weight_flags & (1 << 2))) {
+	else if (!(inf_weight_flags & MOD_SDEF_INFINITE_WEIGHT_DIST)) {
 		bpoly = bwdata->bind_polys;
 
 		for (int i = 0; i < bwdata->numpoly; bpoly++, i++) {
@@ -662,7 +669,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 
 			/* Re-check for infinite weights, now that all scalings and interpolations are computed */
 			if (bpoly->weight_dist < FLT_EPSILON) {
-				inf_weight_flags |= 1 << 2;
+				inf_weight_flags |= MOD_SDEF_INFINITE_WEIGHT_DIST;
 			}
 		}
 	}
@@ -672,14 +679,14 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 
 	for (int i = 0; i < bwdata->numpoly; bpoly++, i++) {
 		/* Weight computation from components */
-		if (inf_weight_flags & 1 << 2) {
+		if (inf_weight_flags & MOD_SDEF_INFINITE_WEIGHT_DIST) {
 			bpoly->weight = bpoly->weight_dist < FLT_EPSILON ? 1.0f : 0.0f;
 		}
-		else if (inf_weight_flags & 1 << 1) {
+		else if (inf_weight_flags & MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ) {
 			bpoly->weight = bpoly->weight_dist_proj < FLT_EPSILON ?
 			                1.0f / bpoly->weight_dist : 0.0f;
 		}
-		else if (inf_weight_flags & 1 << 0) {
+		else if (inf_weight_flags & MOD_SDEF_INFINITE_WEIGHT_ANGULAR) {
 			bpoly->weight = bpoly->weight_angular < FLT_EPSILON ?
 			                1.0f / bpoly->weight_dist_proj / bpoly->weight_dist : 0.0f;
 		}
