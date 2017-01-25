@@ -349,6 +349,17 @@ static void freeBindData(SDefBindWeightData * const bwdata)
 	MEM_freeN(bwdata);
 }
 
+BLI_INLINE float computeAngularWeight(const float point_angle, const float edgemid_angle)
+{
+	float weight;
+
+	weight = point_angle;
+	weight /= edgemid_angle;
+	weight *= M_PI_2;
+
+	return sinf(weight);
+}
+
 BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data, const float point_co[3])
 {
 	const unsigned int nearest = nearestVert(data, point_co);
@@ -536,7 +547,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 		for (vedge = vert_edges; vedge; vedge = vedge->next) {
 			SDefBindPoly *bpolys[2];
 			const SDefEdgePolys *epolys;
-			float tmp1, tmp2;
+			float ang_weights[2];
 			unsigned int edge_ind = vedge->index;
 			unsigned int edge_on_poly[2];
 
@@ -545,8 +556,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 			/* Find bind polys corresponding to the edge's adjacent polys */
 			bpoly = bwdata->bind_polys;
 
-			for (int i = 0, j = 0; (i < bwdata->numpoly) && (j < epolys->num); bpoly++, i++)
-			{
+			for (int i = 0, j = 0; (i < bwdata->numpoly) && (j < epolys->num); bpoly++, i++) {
 				if (ELEM(bpoly->index, epolys->polys[0], epolys->polys[1])) {
 					bpolys[j] = bpoly;
 
@@ -562,27 +572,16 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 			}
 
 			/* Compute angular weight component */
-			/* Attention! Same operations have to be done in both conditions below! */
 			if (epolys->num == 1) {
-				tmp1 = bpolys[0]->point_edgemid_angles[edge_on_poly[0]];
-				tmp1 /= bpolys[0]->edgemid_angle;
-				tmp1 *= M_PI_2;
-				tmp1 = sinf(tmp1);
-
-				bpolys[0]->weight_angular *= tmp1 * tmp1;
+				ang_weights[0] = computeAngularWeight(bpolys[0]->point_edgemid_angles[edge_on_poly[0]], bpolys[0]->edgemid_angle);
+				bpolys[0]->weight_angular *= ang_weights[0] * ang_weights[0];
 			}
 			else if (epolys->num == 2) {
-				tmp1 = bpolys[0]->point_edgemid_angles[edge_on_poly[0]];
-				tmp2 = bpolys[1]->point_edgemid_angles[edge_on_poly[1]];
-				tmp1 /= bpolys[0]->edgemid_angle;
-				tmp2 /= bpolys[1]->edgemid_angle;
-				tmp1 *= M_PI_2;
-				tmp2 *= M_PI_2;
-				tmp1 = sinf(tmp1);
-				tmp2 = sinf(tmp2);
+				ang_weights[0] = computeAngularWeight(bpolys[0]->point_edgemid_angles[edge_on_poly[0]], bpolys[0]->edgemid_angle);
+				ang_weights[1] = computeAngularWeight(bpolys[1]->point_edgemid_angles[edge_on_poly[1]], bpolys[1]->edgemid_angle);
 
-				bpolys[0]->weight_angular *= tmp1 * tmp2;
-				bpolys[1]->weight_angular *= tmp1 * tmp2;
+				bpolys[0]->weight_angular *= ang_weights[0] * ang_weights[1];
+				bpolys[1]->weight_angular *= ang_weights[0] * ang_weights[1];
 			}
 		}
 	}
@@ -595,24 +594,26 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 		bpoly = bwdata->bind_polys;
 
 		for (int i = 0; i < bwdata->numpoly; bpoly++, i++) {
-			float tmp1 = bpoly->point_edgemid_angles[0] / bpoly->corner_edgemid_angles[0];
-			float tmp2 = bpoly->point_edgemid_angles[1] / bpoly->corner_edgemid_angles[1];
+			float corner_angle_weights[2];
 			float scale_weight, sqr, inv_sqr;
 
-			if (isnan(tmp1) || isnan(tmp2)) {
+			corner_angle_weights[0] = bpoly->point_edgemid_angles[0] / bpoly->corner_edgemid_angles[0];
+			corner_angle_weights[1] = bpoly->point_edgemid_angles[1] / bpoly->corner_edgemid_angles[1];
+
+			if (isnan(corner_angle_weights[0]) || isnan(corner_angle_weights[1])) {
 				freeBindData(bwdata);
 				data->success = MOD_SDEF_BIND_RESULT_GENERIC_ERR;
 				return NULL;
 			}
 
 			/* Find which edge the point is closer to */
-			if (tmp1 < tmp2) {
+			if (corner_angle_weights[0] < corner_angle_weights[1]) {
 				bpoly->dominant_edge = 0;
-				bpoly->dominant_angle_weight = tmp1;
+				bpoly->dominant_angle_weight = corner_angle_weights[0];
 			}
 			else {
 				bpoly->dominant_edge = 1;
-				bpoly->dominant_angle_weight = tmp2;
+				bpoly->dominant_angle_weight = corner_angle_weights[1];
 			}
 
 			bpoly->dominant_angle_weight = sinf(bpoly->dominant_angle_weight * M_PI_2);
