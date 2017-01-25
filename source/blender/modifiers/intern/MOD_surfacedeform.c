@@ -987,7 +987,7 @@ static bool surfacedeformBind(SurfaceDeformModifierData *smd, float (*vertexCos)
 		                     .bind_verts = smd->verts,
 		                     .vertexCos = vertexCos,
 		                     .falloff = smd->falloff,
-		                     .success = 1};
+		                     .success = MOD_SDEF_BIND_RESULT_SUCCESS};
 
 	BLI_task_parallel_range_ex(0, numverts, &data, NULL, 0, bindVert,
 	                           numverts > 10000, false);
