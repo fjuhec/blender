@@ -42,7 +42,6 @@ typedef struct SDefBindCalcData {
 } SDefBindCalcData;
 
 typedef struct SDefBindPoly {
-	struct SDefBindPoly *next;
 	float (*coords)[3];
 	float (*coords_v2)[2];
 	float point_v2[2];
@@ -72,6 +71,7 @@ typedef struct SDefBindPoly {
 
 typedef struct SDefBindWeightData {
 	SDefBindPoly *bind_polys;
+	unsigned int numpoly;
 	unsigned int numbinds;
 } SDefBindWeightData;
 
@@ -328,15 +328,15 @@ BLI_INLINE int isPolyValid(const float coords[][2], const unsigned int nr)
 
 static void freeBindData(SDefBindWeightData * const bwdata)
 {
-	SDefBindPoly *bpoly;
+	SDefBindPoly *bpoly = bwdata->bind_polys;
 
-	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bwdata->bind_polys) {
-		bwdata->bind_polys = bpoly->next;
+	if (bwdata->bind_polys) {
+		for (int i = 0; i < bwdata->numpoly; bpoly++, i++) {
+			MEM_SAFE_FREE(bpoly->coords);
+			MEM_SAFE_FREE(bpoly->coords_v2);
+		}
 
-		MEM_SAFE_FREE(bpoly->coords);
-		MEM_SAFE_FREE(bpoly->coords_v2);
-
-		MEM_freeN(bpoly);
+		MEM_freeN(bwdata->bind_polys);
 	}
 
 	MEM_freeN(bwdata);
@@ -359,7 +359,6 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 	float avg_point_dist = 0.0f;
 	float tot_weight = 0.0f;
 	int inf_weight_flags = 0;
-	unsigned int numpoly = 0;
 
 	bwdata = MEM_callocN(sizeof(*bwdata), "SDefBindWeightData");
 	if (bwdata == NULL) {
@@ -367,39 +366,47 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 		return NULL;
 	}
 
+	for (vedge = vert_edges; vedge; vedge = vedge->next) {
+		bwdata->numpoly += edge_polys[vedge->index].num;
+	}
+
+	bwdata->numpoly /= 2;
+
+	bpoly = MEM_callocN(sizeof(*bpoly) * bwdata->numpoly, "SDefBindPoly");
+	if (bpoly == NULL) {
+		freeBindData(bwdata);
+		data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
+		return NULL;
+	}
+
+	bwdata->bind_polys = bpoly;
+
 	/* Loop over all adjacent edges, and build the SDefBindPoly data for each poly adjacent to those */
 	for (vedge = vert_edges; vedge; vedge = vedge->next) {
 		unsigned int edge_ind = vedge->index;
 
 		for (int i = 0; i < edge_polys[edge_ind].num; i++) {
-			for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
-				if (bpoly->index == edge_polys[edge_ind].polys[i]) {
-					break;
+			{
+				bpoly = bwdata->bind_polys;
+
+				for (int j = 0; j < bwdata->numpoly; bpoly++, j++) {
+					/* If coords isn't allocated, we have reached the first uninitialized bpoly */
+					if ((bpoly->index == edge_polys[edge_ind].polys[i]) || (!bpoly->coords)) {
+						break;
+					}
 				}
 			}
 
 			/* Check if poly was already created by another edge or still has to be initialized */
-			if (!bpoly || bpoly->index != edge_polys[edge_ind].polys[i]) {
+			if (!bpoly->coords) {
 				float angle;
 				float axis[3];
 				float tmp_vec_v2[2];
 				int is_poly_valid;
 
-				/* SDefBindPoly initialization */
-				bpoly = MEM_mallocN(sizeof(*bpoly), "SDefBindPoly");
-				if (bpoly == NULL) {
-					freeBindData(bwdata);
-					data->success = MOD_SDEF_BIND_RESULT_MEM_ERR;
-					return NULL;
-				}
-
-				bpoly->next = bwdata->bind_polys;
 				bpoly->index = edge_polys[edge_ind].polys[i];
 				bpoly->coords = NULL;
 				bpoly->coords_v2 = NULL;
-				bwdata->bind_polys = bpoly;
-
-				numpoly++;
 
 				/* Copy poly data */
 				poly = &data->mpoly[bpoly->index];
@@ -518,7 +525,7 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 		}
 	}
 
-	avg_point_dist /= numpoly;
+	avg_point_dist /= bwdata->numpoly;
 
 	/* If weights 1 and 2 are not infinite, loop over all adjacent edges again,
 	 * and build adjacency dependent angle data (depends on all polygons having been computed) */
@@ -529,24 +536,25 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 			float tmp1, tmp2;
 			unsigned int edge_ind = vedge->index;
 			unsigned int edge_on_poly[2];
-			int i;
 
 			epolys = &edge_polys[edge_ind];
 
 			/* Find bind polys corresponding to the edge's adjacent polys */
-			for (bpoly = bwdata->bind_polys, i = 0; bpoly && i < epolys->num; bpoly = bpoly->next)
+			bpoly = bwdata->bind_polys;
+
+			for (int i = 0, j = 0; (i < bwdata->numpoly) && (j < epolys->num); bpoly++, i++)
 			{
 				if (ELEM(bpoly->index, epolys->polys[0], epolys->polys[1])) {
-					bpolys[i] = bpoly;
+					bpolys[j] = bpoly;
 
 					if (bpoly->edge_inds[0] == edge_ind) {
-						edge_on_poly[i] = 0;
+						edge_on_poly[j] = 0;
 					}
 					else {
-						edge_on_poly[i] = 1;
+						edge_on_poly[j] = 1;
 					}
 
-					i++;
+					j++;
 				}
 			}
 
@@ -581,7 +589,9 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 	 * scale only unprojected weight if projected weight is infinite,
 	 * scale none if both are infinite. */
 	if (!inf_weight_flags) {
-		for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+		bpoly = bwdata->bind_polys;
+
+		for (int i = 0; i < bwdata->numpoly; bpoly++, i++) {
 			float tmp1 = bpoly->point_edgemid_angles[0] / bpoly->corner_edgemid_angles[0];
 			float tmp2 = bpoly->point_edgemid_angles[1] / bpoly->corner_edgemid_angles[1];
 			float scale_weight, sqr, inv_sqr;
@@ -639,7 +649,9 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 		}
 	}
 	else if (!(inf_weight_flags & (1 << 2))) {
-		for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+		bpoly = bwdata->bind_polys;
+
+		for (int i = 0; i < bwdata->numpoly; bpoly++, i++) {
 			/* Scale the point distance weight by average point distance, and introduce falloff */
 			bpoly->weight_dist /= avg_point_dist;
 			bpoly->weight_dist = powf(bpoly->weight_dist, data->falloff);
@@ -652,7 +664,9 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 	}
 
 	/* Final loop, to compute actual weights */
-	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+	bpoly = bwdata->bind_polys;
+
+	for (int i = 0; i < bwdata->numpoly; bpoly++, i++) {
 		/* Weight computation from components */
 		if (inf_weight_flags & 1 << 2) {
 			bpoly->weight = bpoly->weight_dist < FLT_EPSILON ? 1.0f : 0.0f;
@@ -674,7 +688,9 @@ BLI_INLINE SDefBindWeightData *computeBindWeights(SDefBindCalcData * const data,
 		tot_weight += bpoly->weight;
 	}
 
-	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+	bpoly = bwdata->bind_polys;
+
+	for (int i = 0; i < bwdata->numpoly; bpoly++, i++) {
 		bpoly->weight /= tot_weight;
 
 		/* Evaluate if this poly is relevant to bind */
@@ -751,7 +767,9 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 
 	sdbind = sdvert->binds;
 
-	for (bpoly = bwdata->bind_polys; bpoly; bpoly = bpoly->next) {
+	bpoly = bwdata->bind_polys;
+
+	for (int i = 0; i < bwdata->numbinds; bpoly++) {
 		if (bpoly->weight >= FLT_EPSILON) {
 			if (bpoly->inside) {
 				const MLoop *loop = &data->mloop[bpoly->loopstart];
@@ -776,14 +794,15 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 
 				/* Reproject vert based on weights and original poly verts, to reintroduce poly non-planarity */
 				zero_v3(point_co_proj);
-				for (int i = 0; i < bpoly->numverts; i++, loop++) {
-					madd_v3_v3fl(point_co_proj, bpoly->coords[i], sdbind->vert_weights[i]);
-					sdbind->vert_inds[i] = loop->v;
+				for (int j = 0; j < bpoly->numverts; j++, loop++) {
+					madd_v3_v3fl(point_co_proj, bpoly->coords[j], sdbind->vert_weights[j]);
+					sdbind->vert_inds[j] = loop->v;
 				}
 
 				sdbind->normal_dist = computeNormalDisplacement(point_co, point_co_proj, bpoly->normal);
 
 				sdbind++;
+				i++;
 			}
 			else {
 				float tmp_vec[3];
@@ -830,6 +849,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					sdbind->normal_dist = computeNormalDisplacement(point_co, point_co_proj, bpoly->normal);
 
 					sdbind++;
+					i++;
 				}
 
 				if (bpoly->dominant_angle_weight >= FLT_EPSILON) {
@@ -871,6 +891,7 @@ static void bindVert(void *userdata, void *UNUSED(userdata_chunk), const int ind
 					sdbind->normal_dist = computeNormalDisplacement(point_co, point_co_proj, bpoly->normal);
 
 					sdbind++;
+					i++;
 				}
 			}
 		}
