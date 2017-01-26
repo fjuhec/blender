@@ -194,6 +194,12 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 			return false;
 		}
 
+		/* reset state memory here as global size for data_init
+		 * kernel might not be large enough to do in kernel
+		 */
+		device->mem_zero(work_pool_wgs);
+		device->mem_zero(split_data);
+
 		if(!device->enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
 		                                           subtile,
 		                                           num_global_elements,

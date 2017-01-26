@@ -50,7 +50,7 @@ private:
 	 * memory.
 	 */
 	device_memory kgbuffer;
-	device_memory split_data;
+	device_vector<uchar> split_data;
 	device_vector<uchar> ray_state;
 	device_memory queue_index; /* Array of size num_queues * sizeof(int) that tracks the size of each queue. */
 
@@ -61,7 +61,7 @@ private:
 	double avg_time_per_sample;
 
 	/* Work pool with respect to each work group. */
-	device_memory work_pool_wgs;
+	device_vector<uchar> work_pool_wgs;
 
 	/* clos_max value for which the kernels have been loaded currently. */
 	int current_max_closure;

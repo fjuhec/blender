@@ -127,12 +127,6 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 
 	int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 
-	/* Initialize work_pools */
-	if(thread_index < kernel_num_work_pools(kg)) {
-		work_pools[thread_index] = 0;
-	}
-	ccl_barrier(CCL_LOCAL_MEM_FENCE);
-
 	/* Initialize queue data and queue index. */
 	if(thread_index < queuesize) {
 		/* Initialize active ray queue. */
@@ -193,18 +187,8 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 
 	rng_state += (rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride;
 
-
-	/* Initialise per_sample_output_buffers to all zeros. */
 	ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
 	per_sample_output_buffers += ((tile_x + (tile_y * stride)) + (my_sample_tile)) * kernel_data.film.pass_stride;
-
-	int per_sample_output_buffers_iterator = 0;
-	for(per_sample_output_buffers_iterator = 0;
-	    per_sample_output_buffers_iterator < kernel_data.film.pass_stride;
-	    per_sample_output_buffers_iterator++)
-	{
-		per_sample_output_buffers[per_sample_output_buffers_iterator] = 0.0f;
-	}
 
 	/* Initialize random numbers and ray. */
 	kernel_path_trace_setup(kg,
