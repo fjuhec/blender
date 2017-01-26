@@ -1557,6 +1557,48 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
+	}
+
+	/* To be added to next subversion bump! */
+	{
+		/* Mask primitive adding code was not initializing correctly id_type of its points' parent. */
+		for (Mask *mask = main->mask.first; mask; mask = mask->id.next) {
+			for (MaskLayer *mlayer = mask->masklayers.first; mlayer; mlayer = mlayer->next) {
+				for (MaskSpline *mspline = mlayer->splines.first; mspline; mspline = mspline->next) {
+					int i = 0;
+					for (MaskSplinePoint *mspoint = mspline->points; i < mspline->tot_point; mspoint++, i++) {
+						if (mspoint->parent.id_type == 0) {
+							BKE_mask_parent_init(&mspoint->parent);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	{
+		if (!DNA_struct_elem_find(fd->filesdna, "View3DDebug", "char", "background")) {
+			bScreen *screen;
+
+			for (screen = main->screen.first; screen; screen = screen->id.next) {
+				ScrArea *sa;
+				for (sa = screen->areabase.first; sa; sa = sa->next) {
+					SpaceLink *sl;
+
+					for (sl = sa->spacedata.first; sl; sl = sl->next) {
+						switch (sl->spacetype) {
+							case SPACE_VIEW3D:
+							{
+								View3D *v3d = (View3D *)sl;
+								v3d->debug.background = V3D_DEBUG_BACKGROUND_NONE;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	{
 		/* ------- convert grease pencil palettes to blender palettes --------------- */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
 
