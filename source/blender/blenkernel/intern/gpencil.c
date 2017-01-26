@@ -1371,12 +1371,10 @@ void BKE_gpencil_copy_animdata_to_palettes(bGPdata *gpd)
 	FCurve *fcu = NULL;
 	char info[64];
 
-	LinkData *ld;
-
 	/* sanity checks */
 	if (ELEM(NULL, gpd)) {
 		if (G.debug & G_DEBUG)
-			printf("ERROR: no source or destination ID to separate AnimData with\n");
+			printf("ERROR: no source ID to separate AnimData with\n");
 		return;
 	}
 	/* get animdata from src, and create for destination (if needed) */
@@ -1403,7 +1401,6 @@ void BKE_gpencil_copy_animdata_to_palettes(bGPdata *gpd)
 		return;
 	}
 
-
 	/* active action */
 	if (srcAdt->action) {
 		/* get animdata from destination or create (if needed) */
@@ -1427,29 +1424,4 @@ void BKE_gpencil_copy_animdata_to_palettes(bGPdata *gpd)
 			}
 		}
 	}
-
-#if 0 /* old gp versions do not support drivers, so no need conversion */
-	/* drivers */
-	if (srcAdt->drivers.first) {
-		FCurve *fcu, *fcn = NULL;
-
-		/* check each driver against all the base paths to see if any should go */
-		for (fcu = srcAdt->drivers.first; fcu; fcu = fcn) {
-			fcn = fcu->next;
-
-			/* try each basepath in turn, but stop on the first one which works */
-			for (ld = basepaths->first; ld; ld = ld->next) {
-				const char *basepath = (const char *)ld->data;
-
-				if (gp_animpath_matches_basepath(fcu->rna_path, basepath)) {
-					/* just need to change lists */
-					BLI_remlink(&srcAdt->drivers, fcu);
-					BLI_addtail(&dstAdt->drivers, fcu);
-					/* can stop now, as moved already */
-					break;
-				}
-			}
-		}
-	}
-#endif
 }
