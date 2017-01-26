@@ -206,6 +206,7 @@ bool OpenCLDeviceBase::load_kernels(const DeviceRequestedFeatures& requested_fea
 	base_program.add_kernel(ustring("convert_to_half_float"));
 	base_program.add_kernel(ustring("shader"));
 	base_program.add_kernel(ustring("bake"));
+	base_program.add_kernel(ustring("zero_buffer"));
 
 	vector<OpenCLProgram*> programs;
 	programs.push_back(&base_program);
@@ -319,8 +320,38 @@ void OpenCLDeviceBase::mem_copy_from(device_memory& mem, int y, int w, int h, in
 void OpenCLDeviceBase::mem_zero(device_memory& mem)
 {
 	if(mem.device_pointer) {
-		memset((void*)mem.data_pointer, 0, mem.memory_size());
-		mem_copy_to(mem);
+		cl_kernel ckZeroBuffer = base_program(ustring("zero_buffer"));
+
+		size_t max_work_items[3];
+		clGetDeviceInfo(cdDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*3, max_work_items, NULL);
+		size_t global_size = max_work_items[0] * max_work_items[1] * max_work_items[2];
+
+		cl_mem d_buffer = CL_MEM_PTR(mem.device_pointer);
+		unsigned long long d_offset = 0;
+		unsigned long long d_size = 0;
+
+		while(d_offset + d_size < mem.memory_size()) {
+			d_size = std::min<unsigned long long>(global_size*sizeof(float4), mem.memory_size() - d_offset);
+
+			kernel_set_args(ckZeroBuffer, 0, d_buffer, d_size, d_offset);
+
+			ciErr = clEnqueueNDRangeKernel(cqCommandQueue,
+				                           ckZeroBuffer,
+				                           1,
+				                           NULL,
+				                           &global_size,
+				                           NULL,
+				                           0,
+				                           NULL,
+				                           NULL);
+			opencl_assert_err(ciErr, "clEnqueueNDRangeKernel");
+
+			d_offset += d_size;
+		}
+
+		if(mem.data_pointer) {
+			memset((void*)mem.data_pointer, 0, mem.memory_size());
+		}
 	}
 }
 
