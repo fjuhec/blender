@@ -246,8 +246,8 @@ typedef struct PHandle {
 
 	matrix_transfer *mt;
 	int n_iterations;
+	int slim_global_method;
 	bool skip_initialization;
-	bool fixed_boundary;
 	bool pack_islands;
 	bool with_weighted_parameterization;
 	MDeformVert *weightMapData;
@@ -4348,7 +4348,7 @@ void param_construct_end(ParamHandle *handle, ParamBool fill, ParamBool impl)
 }
 
 void add_index_to_vertices(BMEditMesh *em){
-
+	
 	// AUREL THESIS iterate over bm edit mesh and set indices for weight retrieval,
 	//				This allows for later matching of vertices to weights.
 	BMVert *vert;
@@ -4372,7 +4372,6 @@ void param_slim_enrich_handle(Object *obedit,
 							  int weightMapIndex,
 							  int n_iterations,
 							  bool skip_initialization,
-							  bool fixed_boundary,
 							  bool pack_islands,
 							  bool with_weighted_parameterization){
 
@@ -4381,7 +4380,6 @@ void param_slim_enrich_handle(Object *obedit,
 	phandle->mt = mt;
 	phandle->n_iterations = n_iterations;
 	phandle->skip_initialization = skip_initialization;
-	phandle->fixed_boundary = fixed_boundary;
 	phandle->pack_islands = pack_islands;
 	phandle->with_weighted_parameterization = with_weighted_parameterization;
 	phandle->weightMapData = dvert;
@@ -4420,7 +4418,7 @@ void param_slim_begin(ParamHandle *handle) {
 void param_slim_solve(ParamHandle *handle) {
 	PHandle *phandle = (PHandle *) handle;
 	matrix_transfer *mt = phandle->mt;
-	param_slim_C(mt, phandle->n_iterations, phandle->fixed_boundary, phandle->skip_initialization);
+	param_slim_C(mt, phandle->n_iterations, mt->fixed_boundary, phandle->skip_initialization);
 }
 
 void param_slim_end(ParamHandle *handle) {
@@ -5011,12 +5009,13 @@ void transfer_vertices(const int chartNr, const PHandle *phandle, matrix_transfe
 	for (v = chart->verts; v; v = v->nextlink){
 
 		if (!v->on_boundary_flag){
-			v->slimId = vid;
-
+			// set v->slim_id to vid ONLY AFTER assigning weight!
 			if (mt->with_weighted_parameterization){
 				weight = tempW[v->slimId];
-				W[v->slimId] = weight;
+				W[vid] = weight;
 			}
+
+			v->slimId = vid;
 
 			vid++;
 		}
@@ -5076,15 +5075,16 @@ void transfer_boundary_vertices(const int chartNr, const PHandle *phandle, const
 	PEdge *be = outer;
 	do{
 
-		mt->nBoundaryVertices[chartNr] += 1;
-		be->vert->slimId = vid;
-		be->vert->on_boundary_flag = true;
-		B[vid] = vid;
-
+		// set be->vert->slim_id to vid ONLY AFTER assigning weight!
 		if (mt->with_weighted_parameterization){
 			weight = tempW[be->vert->slimId];
 			W[vid] = weight;
 		}
+
+		mt->nBoundaryVertices[chartNr] += 1;
+		be->vert->slimId = vid;
+		be->vert->on_boundary_flag = true;
+		B[vid] = vid;
 
 		vid += 1;
 		be = p_boundary_edge_next(be);

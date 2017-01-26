@@ -99,7 +99,6 @@ void param_slim_enrich_handle(Object *obedit,
 							  int weightMapIndex,
 							  int n_iterations,
 							  bool skip_initialization,
-							  bool fixed_boundary,
 							  bool pack_islands,
 							  bool with_weighted_parameterization);
 /* unwrapping:
@@ -125,7 +124,6 @@ void param_end(ParamHandle *handle, bool useSlim);
 void param_slim_begin(ParamHandle *handle);
 void param_slim_solve(ParamHandle *handle);
 void param_slim_end(ParamHandle *handle);
-
 
 /* Least Squares Conformal Maps:
  * -----------------------------

@@ -516,7 +516,7 @@ int setup_weight_transfer(Object *obedit, BMEditMesh *em){
 	int defgrp_index = retrieve_weightmap_index(obedit);
 
 	if (defgrp_index >= 0) {
-		add_index_to_vertices(em);
+		//add_index_to_vertices(em);
 	}
 
 	return defgrp_index;
@@ -529,7 +529,6 @@ void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandl
 
 	int n_iterations = scene->toolsettings->slim_n_iterations;
 	bool skip_initialization = scene->toolsettings->slim_skip_initialization;
-	bool fixed_boundary = scene->toolsettings->slim_fixed_boundary;
 	bool pack_islands = scene->toolsettings->slim_pack_islands;
 
 	MDeformVert *weightMapData = NULL;
@@ -548,7 +547,6 @@ void enrich_handle_slim(Scene *scene, Object *obedit, BMEditMesh *em, ParamHandl
 							 weightMapIndex,
 							 n_iterations,
 							 skip_initialization,
-							 fixed_boundary,
 							 pack_islands,
 							 with_weighted_parameterization);
 }
@@ -800,7 +798,7 @@ static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 
-	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
+	add_index_to_vertices(em);
 
 	ParamHandle *handle = construct_param_handle(scene, obedit, em->bm, false, true, 1, 1);
 
@@ -810,7 +808,7 @@ static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 	mss->obedit = obedit;
 	mss->firstIteration = true;
 	mss->fixBorder = true;
-	//fills in mt
+	mss->mt->fixed_boundary = true;
 
 	enrich_handle_slim(scene, obedit, em, handle, mss->mt);
 	param_slim_begin(handle);
@@ -1460,6 +1458,12 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	const bool correct_aspect = (scene->toolsettings->uvcalc_flag & UVCALC_NO_ASPECT_CORRECT) == 0;
 	bool use_subsurf;
 
+	bool use_slim_method = (scene->toolsettings->unwrapper == 2);
+
+	if(use_slim_method){
+		add_index_to_vertices(em);
+	}
+
 	modifier_unwrap_state(obedit, scene, &use_subsurf);
 
 	if (use_subsurf)
@@ -1467,9 +1471,8 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	else
 		handle = construct_param_handle(scene, obedit, em->bm, false, fill_holes, sel, correct_aspect);
 
-	bool use_slim_method = (scene->toolsettings->unwrapper == 2);
 	if (use_slim_method){
-		matrix_transfer *mt = mt = MEM_mallocN(sizeof(matrix_transfer), "matrix transfer data");
+		matrix_transfer *mt = MEM_mallocN(sizeof(matrix_transfer), "matrix transfer data");
 		enrich_handle_slim(scene, obedit, em, handle, mt);
 	}
 
