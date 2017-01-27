@@ -444,12 +444,9 @@ BMFace *BM_face_create(
 
 	if (create_flag & BM_CREATE_NO_DOUBLE) {
 		/* Check if face already exists */
-		const bool is_overlap = BM_face_exists(verts, len, &f);
-		if (is_overlap) {
+		f = BM_face_exists(verts, len);
+		if (f != NULL) {
 			return f;
-		}
-		else {
-			BLI_assert(f == NULL);
 		}
 	}
 
@@ -1019,64 +1016,73 @@ static int UNUSED_FUNCTION(bm_loop_length)(BMLoop *l)
  * \brief Loop Reverse
  *
  * Changes the winding order of a face from CW to CCW or vice versa.
- * This euler is a bit peculiar in comparison to others as it is its
- * own inverse.
- *
- * BMESH_TODO: reinsert validation code.
  *
  * \param cd_loop_mdisp_offset: Cached result of `CustomData_get_offset(&bm->ldata, CD_MDISPS)`.
  * \param use_loop_mdisp_flip: When set, flip the Z-depth of the mdisp,
  * (use when flipping normals, disable when mirroring, eg: symmetrize).
- *
- * \return Success
  */
-static bool bm_loop_reverse_loop(
+void bmesh_loop_reverse(
         BMesh *bm, BMFace *f,
-#ifdef USE_BMESH_HOLES
-        BMLoopList *lst,
-#endif
         const int cd_loop_mdisp_offset, const bool use_loop_mdisp_flip)
 {
-
-#ifdef USE_BMESH_HOLES
-	BMLoop *l_first = lst->first;
-#else
 	BMLoop *l_first = f->l_first;
+
+	/* track previous cycles radial state */
+	BMEdge *e_prev = l_first->prev->e;
+	BMLoop *l_prev_radial_next = l_first->prev->radial_next;
+	BMLoop *l_prev_radial_prev = l_first->prev->radial_prev;
+	bool is_prev_boundary = l_prev_radial_next == l_prev_radial_next->radial_next;
+
+	BMLoop *l_iter = l_first;
+	do {
+		BMEdge *e_iter = l_iter->e;
+		BMLoop *l_iter_radial_next = l_iter->radial_next;
+		BMLoop *l_iter_radial_prev = l_iter->radial_prev;
+		bool is_iter_boundary = l_iter_radial_next == l_iter_radial_next->radial_next;
+
+#if 0
+		bmesh_radial_loop_remove(e_iter, l_iter);
+		bmesh_radial_loop_append(e_prev, l_iter);
+#else
+		/* inline loop reversal */
+		if (is_prev_boundary) {
+			/* boundary */
+			l_iter->radial_next = l_iter;
+			l_iter->radial_prev = l_iter;
+		}
+		else {
+			/* non-boundary, replace radial links */
+			l_iter->radial_next = l_prev_radial_next;
+			l_iter->radial_prev = l_prev_radial_prev;
+			l_prev_radial_next->radial_prev = l_iter;
+			l_prev_radial_prev->radial_next = l_iter;
+		}
+
+		if (e_iter->l == l_iter) {
+			e_iter->l = l_iter->next;
+		}
+		l_iter->e = e_prev;
 #endif
 
-	const int len = f->len;
-	BMLoop *l_iter;
-	BMEdge **edar = BLI_array_alloca(edar, len);
-	int i;
+		SWAP(BMLoop *, l_iter->next, l_iter->prev);
 
-	for (i = 0, l_iter = l_first; i < len; i++, l_iter = l_iter->next) {
-		bmesh_radial_loop_remove((edar[i] = l_iter->e), l_iter);
-	}
-
-	/* actually reverse the loop */
-	for (i = 0, l_iter = l_first; i < len; i++) {
-		BMLoop *oldnext = l_iter->next;
-		BMLoop *oldprev = l_iter->prev;
-		l_iter->next = oldprev;
-		l_iter->prev = oldnext;
-		l_iter = oldnext;
-		
 		if (cd_loop_mdisp_offset != -1) {
 			MDisps *md = BM_ELEM_CD_GET_VOID_P(l_iter, cd_loop_mdisp_offset);
 			BKE_mesh_mdisp_flip(md, use_loop_mdisp_flip);
 		}
-	}
 
-	/* rebuild radial */
-	for (i = 0, l_iter = l_first->prev; i < len; i++, l_iter = l_iter->prev) {
-		BLI_assert(BM_verts_in_edge(l_iter->v, l_iter->next->v, edar[i]));
-		l_iter->e = edar[i];
-		bmesh_radial_loop_append(l_iter->e, l_iter);
-	}
+		e_prev = e_iter;
+		l_prev_radial_next = l_iter_radial_next;
+		l_prev_radial_prev = l_iter_radial_prev;
+		is_prev_boundary = is_iter_boundary;
+
+		/* step to next (now swapped) */
+	} while ((l_iter = l_iter->prev) != l_first);
 
 #ifndef NDEBUG
 	/* validate radial */
-	for (i = 0, l_iter = l_first; i < len; i++, l_iter = l_iter->next) {
+	int i;
+	for (i = 0, l_iter = l_first; i < f->len; i++, l_iter = l_iter->next) {
 		BM_CHECK_ELEMENT(l_iter);
 		BM_CHECK_ELEMENT(l_iter->e);
 		BM_CHECK_ELEMENT(l_iter->v);
@@ -1088,22 +1094,6 @@ static bool bm_loop_reverse_loop(
 
 	/* Loop indices are no more valid! */
 	bm->elem_index_dirty |= BM_LOOP;
-
-	return true;
-}
-
-/**
- * \brief Flip the faces direction
- */
-bool bmesh_loop_reverse(
-        BMesh *bm, BMFace *f,
-        const int cd_loop_mdisp_offset, const bool use_loop_mdisp_flip)
-{
-#ifdef USE_BMESH_HOLES
-	return bm_loop_reverse_loop(bm, f, f->loops.first, cd_loop_mdisp_offset, use_loop_mdisp_flip);
-#else
-	return bm_loop_reverse_loop(bm, f, cd_loop_mdisp_offset, use_loop_mdisp_flip);
-#endif
 }
 
 static void bm_elements_systag_enable(void *veles, int tot, const char api_flag)
@@ -1324,22 +1314,15 @@ BMFace *BM_faces_join(BMesh *bm, BMFace **faces, int totface, const bool do_del)
 #ifdef USE_BMESH_HOLES
 	/* add holes */
 	BLI_movelisttolist(&f_new->loops, &holes);
-#endif
 
 	/* update loop face pointer */
-#ifdef USE_BMESH_HOLES
-	for (lst = f_new->loops.first; lst; lst = lst->next)
-#endif
-	{
-#ifdef USE_BMESH_HOLES
+	for (lst = f_new->loops.first; lst; lst = lst->next) {
 		l_iter = l_first = lst->first;
-#else
-		l_iter = l_first = BM_FACE_FIRST_LOOP(f_new);
-#endif
 		do {
 			l_iter->f = f_new;
 		} while ((l_iter = l_iter->next) != l_first);
 	}
+#endif
 
 	bm_elements_systag_disable(faces, totface, _FLAG_JF);
 	BM_ELEM_API_FLAG_DISABLE(f_new, _FLAG_JF);
@@ -2364,7 +2347,7 @@ void bmesh_vert_separate(
 
 			v_new = BM_vert_create(bm, v->co, v, BM_CREATE_NOP);
 			if (copy_select) {
-				BM_elem_select_copy(bm, bm, v_new, v);
+				BM_elem_select_copy(bm, v_new, v);
 			}
 
 			while ((e = BLI_SMALLSTACK_POP(edges))) {
@@ -2422,18 +2405,13 @@ static void bmesh_vert_separate__cleanup(BMesh *bm, LinkNode *edges_separate)
 		do {
 			BMEdge *e_orig = n_orig->link;
 			LinkNode *n_step = n_orig->next;
-			LinkNode *n_prev = n_orig;
 			do {
 				BMEdge *e = n_step->link;
 				BLI_assert(e != e_orig);
 				if ((e->v1 == e_orig->v1) && (e->v2 == e_orig->v2)) {
 					BM_edge_splice(bm, e_orig, e);
-					n_prev->next = n_step->next;
-					n_step = n_prev;
 				}
-			} while ((void)
-			         (n_prev = n_step),
-			         (n_step = n_step->next));
+			} while ((n_step = n_step->next));
 
 		} while ((n_orig = n_orig->next) && n_orig->next);
 	} while ((edges_separate = edges_separate->next));
@@ -2623,7 +2601,7 @@ void bmesh_edge_separate(
 	l_sep->e = e_new;
 
 	if (copy_select) {
-		BM_elem_select_copy(bm, bm, e_new, e);
+		BM_elem_select_copy(bm, e_new, e);
 	}
 
 	BLI_assert(bmesh_radial_length(e->l) == radlen - 1);
@@ -2704,8 +2682,10 @@ BMVert *bmesh_urmv_loop(BMesh *bm, BMLoop *l_sep)
 
 /**
  * A version of #bmesh_urmv_loop that disconnects multiple loops at once.
+ * The loops must all share the same vertex, can be in any order
+ * and are all moved to use a single new vertex - which is returned.
  *
- * Handles the task of finding fans boundaries.
+ * This function handles the details of finding fans boundaries.
  */
 BMVert *bmesh_urmv_loop_multi(
         BMesh *bm, BMLoop **larr, int larr_len)

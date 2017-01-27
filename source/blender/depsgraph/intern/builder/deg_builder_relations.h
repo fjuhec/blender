@@ -47,6 +47,7 @@
 
 struct Base;
 struct bGPdata;
+struct CacheFile;
 struct ListBase;
 struct GHash;
 struct ID;
@@ -54,8 +55,10 @@ struct FCurve;
 struct Group;
 struct Key;
 struct Main;
+struct Mask;
 struct Material;
 struct MTex;
+struct MovieClip;
 struct bNodeTree;
 struct Object;
 struct bPoseChannel;
@@ -168,6 +171,8 @@ struct DepsgraphRelationBuilder
 {
 	DepsgraphRelationBuilder(Depsgraph *graph);
 
+	void begin_build(Main *bmain);
+
 	template <typename KeyFrom, typename KeyTo>
 	void add_relation(const KeyFrom& key_from,
 	                  const KeyTo& key_to,
@@ -214,12 +219,15 @@ struct DepsgraphRelationBuilder
 	void build_obdata_geom(Main *bmain, Scene *scene, Object *ob);
 	void build_camera(Object *ob);
 	void build_lamp(Object *ob);
-	void build_nodetree(ID *owner, bNodeTree *ntree);
-	void build_material(ID *owner, Material *ma);
-	void build_texture(ID *owner, Tex *tex);
-	void build_texture_stack(ID *owner, MTex **texture_stack);
+	void build_nodetree(bNodeTree *ntree);
+	void build_material(Material *ma);
+	void build_texture(Tex *tex);
+	void build_texture_stack(MTex **texture_stack);
 	void build_compositor(Scene *scene);
-	void build_gpencil(ID *owner, bGPdata *gpd);
+	void build_gpencil(bGPdata *gpd);
+	void build_cachefile(CacheFile *cache_file);
+	void build_mask(Mask *mask);
+	void build_movieclip(MovieClip *clip);
 
 	void add_collision_relations(const OperationKey &key, Scene *scene, Object *ob, Group *group, int layer, bool dupli, const char *name);
 	void add_forcefield_relations(const OperationKey &key, Scene *scene, Object *ob, ParticleSystem *psys, EffectorWeights *eff, bool add_absorption, const char *name);

@@ -1639,7 +1639,7 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	 * pass operator for warning append */
 	modifier_unwrap_state(obedit, scene, &use_subsurf_final);
 	if (use_subsurf != use_subsurf_final)
-		BKE_report(op->reports, RPT_INFO, "Subsurf modifier needs to be first to work with unwrap");
+		BKE_report(op->reports, RPT_INFO, "Subdivision Surface modifier needs to be first to work with unwrap");
 
 	/* execute unwrap */
 	ED_unwrap_lscm(scene, obedit, true);
@@ -1678,7 +1678,7 @@ void UV_OT_unwrap(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "pack_islands", 1, "Pack Islands",
 					"Pack UV islands after unwrapping");
 	RNA_def_boolean(ot->srna, "use_subsurf_data", 0, "Use Subsurf Modifier",
-	                "Map UVs taking vertex position after subsurf into account");
+	                "Map UVs taking vertex position after Subdivision Surface modifier has been applied");
 	RNA_def_float_factor(ot->srna, "margin", 0.001f, 0.0f, 1.0f, "Margin", "Space between islands", 0.0f, 1.0f);
 }
 

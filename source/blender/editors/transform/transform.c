@@ -103,7 +103,7 @@ static void drawEdgeSlide(TransInfo *t);
 static void drawVertSlide(TransInfo *t);
 static void postInputRotation(TransInfo *t, float values[3]);
 
-static void ElementRotation(TransInfo *t, TransData *td, float mat[3][3], short around);
+static void ElementRotation(TransInfo *t, TransData *td, float mat[3][3], const short around);
 static void initSnapSpatial(TransInfo *t, float r_snap[3]);
 
 
@@ -2176,7 +2176,7 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	calculateCenter(t);
 
 	if (event) {
-		initMouseInput(t, &t->mouse, t->center2d, event->mval);
+		initMouseInput(t, &t->mouse, t->center2d, event->mval, event->shift);
 	}
 
 	switch (mode) {
@@ -2880,7 +2880,7 @@ static void initBend(TransInfo *t)
 
 	curs = ED_view3d_cursor3d_get(t->scene, t->view);
 	copy_v3_v3(data->warp_sta, curs);
-	ED_view3d_win_to_3d(t->ar, curs, mval_fl, data->warp_end);
+	ED_view3d_win_to_3d(t->sa->spacedata.first, t->ar, curs, mval_fl, data->warp_end);
 
 	copy_v3_v3(data->warp_nor, t->viewinv[2]);
 	if (t->flag & T_EDIT) {
@@ -3392,7 +3392,9 @@ static void ElementResize(TransInfo *t, TransData *td, float mat[3][3])
 	}
 	
 	protectedTransBits(td->protectflag, vec);
-	add_v3_v3v3(td->loc, td->iloc, vec);
+	if (td->loc) {
+		add_v3_v3v3(td->loc, td->iloc, vec);
+	}
 	
 	constraintTransLim(t, td);
 }
@@ -8493,7 +8495,7 @@ static void initTimeScale(TransInfo *t)
 	center[1] = t->mouse.imval[1];
 
 	/* force a reinit with the center2d used here */
-	initMouseInput(t, &t->mouse, center, t->mouse.imval);
+	initMouseInput(t, &t->mouse, center, t->mouse.imval, false);
 
 	initMouseInputMode(t, &t->mouse, INPUT_SPRING_FLIP);
 

@@ -217,7 +217,7 @@ class CyclesRender_PT_sampling(CyclesButtonsPanel, Panel):
         draw_samples_info(layout, context)
 
 
-class CyclesRender_PT_geometery(CyclesButtonsPanel, Panel):
+class CyclesRender_PT_geometry(CyclesButtonsPanel, Panel):
     bl_label = "Geometry"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -226,6 +226,7 @@ class CyclesRender_PT_geometery(CyclesButtonsPanel, Panel):
 
         scene = context.scene
         cscene = scene.cycles
+        ccscene = scene.cycles_curves
 
         if cscene.feature_set == 'EXPERIMENTAL':
             split = layout.split()
@@ -251,6 +252,25 @@ class CyclesRender_PT_geometery(CyclesButtonsPanel, Panel):
             row = layout.row()
             row.prop(cscene, "volume_step_size")
             row.prop(cscene, "volume_max_steps")
+
+        layout.prop(ccscene, "use_curves", text="Use Hair")
+        col = layout.column()
+        col.active = ccscene.use_curves
+
+        col.prop(ccscene, "primitive", text="Primitive")
+        col.prop(ccscene, "shape", text="Shape")
+
+        if not (ccscene.primitive in {'CURVE_SEGMENTS', 'LINE_SEGMENTS'} and ccscene.shape == 'RIBBONS'):
+            col.prop(ccscene, "cull_backfacing", text="Cull back-faces")
+
+        if ccscene.primitive == 'TRIANGLES' and ccscene.shape == 'THICK':
+            col.prop(ccscene, "resolution", text="Resolution")
+        elif ccscene.primitive == 'CURVE_SEGMENTS':
+            col.prop(ccscene, "subdivisions", text="Curve subdivisions")
+
+        row = col.row()
+        row.prop(ccscene, "minimum_width", text="Min Pixels")
+        row.prop(ccscene, "maximum_width", text="Max Ext.")
 
 
 class CyclesRender_PT_light_paths(CyclesButtonsPanel, Panel):
@@ -411,6 +431,10 @@ class CyclesRender_PT_performance(CyclesButtonsPanel, Panel):
         col.label(text="Acceleration structure:")
         col.prop(cscene, "debug_use_spatial_splits")
         col.prop(cscene, "debug_use_hair_bvh")
+
+        row = col.row()
+        row.active = not cscene.debug_use_spatial_splits
+        row.prop(cscene, "debug_bvh_time_steps")
 
 
 class CyclesRender_PT_layer_options(CyclesButtonsPanel, Panel):
@@ -767,8 +791,13 @@ class CyclesObject_PT_cycles_settings(CyclesButtonsPanel, Panel):
         col = layout.column()
         col.label(text="Performance:")
         row = col.row()
-        row.active = scene.render.use_simplify and cscene.use_camera_cull
-        row.prop(cob, "use_camera_cull")
+        sub = row.row()
+        sub.active = scene.render.use_simplify and cscene.use_camera_cull
+        sub.prop(cob, "use_camera_cull")
+
+        sub = row.row()
+        sub.active = scene.render.use_simplify and cscene.use_distance_cull
+        sub.prop(cob, "use_distance_cull")
 
 
 class CYCLES_OT_use_shading_nodes(Operator):
@@ -1389,43 +1418,6 @@ class CyclesParticle_PT_textures(CyclesButtonsPanel, Panel):
             layout.template_ID(slot, "texture", new="texture.new")
 
 
-class CyclesRender_PT_CurveRendering(CyclesButtonsPanel, Panel):
-    bl_label = "Cycles Hair Rendering"
-    bl_context = "particle"
-
-    @classmethod
-    def poll(cls, context):
-        psys = context.particle_system
-        return CyclesButtonsPanel.poll(context) and psys and psys.settings.type == 'HAIR'
-
-    def draw_header(self, context):
-        ccscene = context.scene.cycles_curves
-        self.layout.prop(ccscene, "use_curves", text="")
-
-    def draw(self, context):
-        layout = self.layout
-
-        scene = context.scene
-        ccscene = scene.cycles_curves
-
-        layout.active = ccscene.use_curves
-
-        layout.prop(ccscene, "primitive", text="Primitive")
-        layout.prop(ccscene, "shape", text="Shape")
-
-        if not (ccscene.primitive in {'CURVE_SEGMENTS', 'LINE_SEGMENTS'} and ccscene.shape == 'RIBBONS'):
-            layout.prop(ccscene, "cull_backfacing", text="Cull back-faces")
-
-        if ccscene.primitive == 'TRIANGLES' and ccscene.shape == 'THICK':
-            layout.prop(ccscene, "resolution", text="Resolution")
-        elif ccscene.primitive == 'CURVE_SEGMENTS':
-            layout.prop(ccscene, "subdivisions", text="Curve subdivisions")
-
-        row = layout.row()
-        row.prop(ccscene, "minimum_width", text="Min Pixels")
-        row.prop(ccscene, "maximum_width", text="Max Ext.")
-
-
 class CyclesRender_PT_bake(CyclesButtonsPanel, Panel):
     bl_label = "Bake"
     bl_context = "render"
@@ -1585,24 +1577,40 @@ class CyclesScene_PT_simplify(CyclesButtonsPanel, Panel):
         cscene = scene.cycles
 
         layout.active = rd.use_simplify
+
+        col = layout.column(align=True)
+        col.label(text="Subdivision")
+        row = col.row(align=True)
+        row.prop(rd, "simplify_subdivision", text="Viewport")
+        row.prop(rd, "simplify_subdivision_render", text="Render")
+
+        col = layout.column(align=True)
+        col.label(text="Child Particles")
+        row = col.row(align=True)
+        row.prop(rd, "simplify_child_particles", text="Viewport")
+        row.prop(rd, "simplify_child_particles_render", text="Render")
+
+        col = layout.column(align=True)
+        split = col.split()
+        sub = split.column()
+        sub.label(text="Texture Limit Viewport")
+        sub.prop(cscene, "texture_limit", text="")
+        sub = split.column()
+        sub.label(text="Texture Limit Render")
+        sub.prop(cscene, "texture_limit_render", text="")
+
         split = layout.split()
-
         col = split.column()
-        col.label(text="Viewport:")
-        col.prop(rd, "simplify_subdivision", text="Subdivision")
-        col.prop(rd, "simplify_child_particles", text="Child Particles")
-
-        col = split.column()
-        col.label(text="Render:")
-        col.prop(rd, "simplify_subdivision_render", text="Subdivision")
-        col.prop(rd, "simplify_child_particles_render", text="Child Particles")
-
-        col = layout.column()
         col.prop(cscene, "use_camera_cull")
-        subsub = col.column()
-        subsub.active = cscene.use_camera_cull
-        subsub.prop(cscene, "camera_cull_margin")
+        row = col.row()
+        row.active = cscene.use_camera_cull
+        row.prop(cscene, "camera_cull_margin")
 
+        col = split.column()
+        col.prop(cscene, "use_distance_cull")
+        row = col.row()
+        row.active = cscene.use_distance_cull
+        row.prop(cscene, "distance_cull_margin", text="Distance")
 
 def draw_device(self, context):
     scene = context.scene
@@ -1616,11 +1624,9 @@ def draw_device(self, context):
 
         split = layout.split(percentage=1/3)
         split.label("Device:")
-        row = split.row(align=True)
-        sub = row.split(align=True)
-        sub.active = show_device_selection(context)
-        sub.prop(cscene, "device", text="")
-        row.operator("wm.addon_userpref_show", text="Preferences", icon='PREFERENCES').module = __package__
+        row = split.row()
+        row.active = show_device_selection(context)
+        row.prop(cscene, "device", text="")
 
         if engine.with_osl() and use_cpu(context):
             layout.prop(cscene, "shading_system")

@@ -81,6 +81,7 @@ static void freeData(ModifierData *md)
 #ifdef WITH_ALEMBIC
 		CacheReader_free(mcmd->reader);
 #endif
+		mcmd->reader = NULL;
 	}
 }
 
@@ -114,6 +115,10 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 		                                               mcmd->reader,
 		                                               ob,
 		                                               mcmd->object_path);
+		if (!mcmd->reader) {
+			modifier_setError(md, "Could not create Alembic reader for file %s", cache_file->filepath);
+			return dm;
+		}
 	}
 
 	DerivedMesh *result = ABC_read_mesh(mcmd->reader,

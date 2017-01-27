@@ -56,7 +56,6 @@ void  BKE_libblock_init_empty(struct ID *id);
 void *BKE_libblock_copy(struct Main *bmain, struct ID *id) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 void *BKE_libblock_copy_nolib(struct ID *id, const bool do_action) ATTR_NONNULL();
 void  BKE_libblock_copy_data(struct ID *id, const struct ID *id_from, const bool do_action);
-void  BKE_libblock_relink(struct ID *id);
 void  BKE_libblock_rename(struct Main *bmain, struct ID *id, const char *name) ATTR_NONNULL();
 void  BLI_libblock_ensure_unique_name(struct Main *bmain, const char *name) ATTR_NONNULL();
 
@@ -65,7 +64,7 @@ struct ID *BKE_libblock_find_name(const short type, const char *name) ATTR_WARN_
 
 /* library_remap.c (keep here since they're general functions) */
 void  BKE_libblock_free(struct Main *bmain, void *idv) ATTR_NONNULL();
-void  BKE_libblock_free_ex(struct Main *bmain, void *idv, const bool do_id_user) ATTR_NONNULL();
+void  BKE_libblock_free_ex(struct Main *bmain, void *idv, const bool do_id_user, const bool do_ui_user) ATTR_NONNULL();
 void  BKE_libblock_free_us(struct Main *bmain, void *idv) ATTR_NONNULL();
 void  BKE_libblock_free_data(struct Main *bmain, struct ID *id) ATTR_NONNULL();
 void  BKE_libblock_delete(struct Main *bmain, void *idv) ATTR_NONNULL();
@@ -80,6 +79,7 @@ void id_us_plus(struct ID *id);
 void id_us_min(struct ID *id);
 void id_fake_user_set(struct ID *id);
 void id_fake_user_clear(struct ID *id);
+void BKE_id_clear_newpoin(struct ID *id);
 
 void BKE_id_make_local_generic(struct Main *bmain, struct ID *id, const bool id_in_mainlist, const bool lib_local);
 bool id_make_local(struct Main *bmain, struct ID *id, const bool test, const bool force_local);
