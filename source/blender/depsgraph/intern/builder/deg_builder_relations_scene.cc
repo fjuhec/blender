@@ -126,7 +126,7 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 
 	/* Palettes. */
 	LINKLIST_FOREACH(Palette *, palette, &bmain->palettes) {
-		build_palette(&scene->id, palette);
+		build_palette(palette);
 	}
 
 	/* Masks. */

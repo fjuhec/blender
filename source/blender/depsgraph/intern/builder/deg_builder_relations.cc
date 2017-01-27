@@ -1727,7 +1727,7 @@ void DepsgraphRelationBuilder::build_gpencil(bGPdata *gpd)
 	// TODO: parent object (when that feature is implemented)
 }
 
-void DepsgraphRelationBuilder::build_palette(ID *UNUSED(owner), Palette *palette)
+void DepsgraphRelationBuilder::build_palette(Palette *palette)
 {
 	/* animation */
 	build_animdata(&palette->id);
