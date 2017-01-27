@@ -1429,7 +1429,13 @@ void GPENCIL_OT_brush_select(wmOperatorType *ot)
 static int gp_convert_old_palettes_poll(bContext *C)
 {
 	/* TODO: need better poll*/
-	return true;
+	Main *main = CTX_data_main(C);
+	if (main->gpencil.first) {
+		return true;
+	}
+	else { 
+		return false; 
+	}
 }
 
 /* convert old animation data to new format */
