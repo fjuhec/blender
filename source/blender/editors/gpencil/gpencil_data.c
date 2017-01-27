@@ -1425,7 +1425,7 @@ void GPENCIL_OT_brush_select(wmOperatorType *ot)
 	RNA_def_int(ot->srna, "index", 0, 0, INT_MAX, "Index", "Index of Drawing Brush", 0, INT_MAX);
 }
 
-/* ******************* Convertt animation data ************************ */
+/* ******************* Convert animation data ************************ */
 static int gp_convert_old_palettes_poll(bContext *C)
 {
 	/* TODO: need better poll*/
