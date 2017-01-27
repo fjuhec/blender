@@ -1363,7 +1363,7 @@ static bool gp_animpath_matches_basepath(const char path[], const char basepath[
 }
 
 /* Transfer the animation data from bGPDpalette to Palette */
-void BKE_gpencil_copy_animdata_to_palettes(bGPdata *gpd)
+void BKE_gpencil_move_animdata_to_palettes(bGPdata *gpd)
 {
 	Main *main = G.main;
 	Palette *palette = NULL;

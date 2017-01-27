@@ -76,7 +76,7 @@ struct bGPDbrush *BKE_gpencil_brush_duplicate(const struct bGPDbrush *brush_src)
 void BKE_gpencil_brush_init_presets(struct ToolSettings *ts);
 
 /* conversion of animation data from bGPDpalette to Palette */
-void BKE_gpencil_copy_animdata_to_palettes(struct bGPdata *gpd);
+void BKE_gpencil_move_animdata_to_palettes(struct bGPdata *gpd);
 
 /* Stroke and Fill - Alpha Visibility Threshold */
 #define GPENCIL_ALPHA_OPACITY_THRESH 0.001f
