@@ -438,7 +438,7 @@ static void arg_py_context_restore(
  *   see: `doc/manpage/blender.1.py`
  * - Parsed and extracted for the manual,
  *   which converts our ad-hoc formatting to reStructuredText.
- *   see: http://www.blender.org/manual/advanced/command_line.html
+ *   see: https://docs.blender.org/manual/en/dev/advanced/command_line.html
  *
  * \{ */
 
@@ -1886,7 +1886,7 @@ void main_args_setup(bContext *C, bArgs *ba, SYS_SystemHandle *syshandle)
 	BLI_argsAdd(ba, 4, "-E", "--engine", CB(arg_handle_engine_set), C);
 
 	BLI_argsAdd(ba, 4, "-F", "--render-format", CB(arg_handle_image_type_set), C);
-	BLI_argsAdd(ba, 4, "-t", "--threads", CB(arg_handle_threads_set), NULL);
+	BLI_argsAdd(ba, 1, "-t", "--threads", CB(arg_handle_threads_set), NULL);
 	BLI_argsAdd(ba, 4, "-x", "--use-extension", CB(arg_handle_extension_set), C);
 
 #undef CB
