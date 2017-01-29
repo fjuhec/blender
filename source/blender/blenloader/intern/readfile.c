@@ -3245,6 +3245,11 @@ static void direct_link_constraints(FileData *fd, ListBase *lb)
 					con->flag |= CONSTRAINT_SPACEONCE;
 				break;
 			}
+			case CONSTRAINT_TYPE_TRANSFORM_CACHE:
+			{
+				bTransformCacheConstraint *data = con->data;
+				data->reader = NULL;
+			}
 		}
 	}
 }
@@ -4611,6 +4616,7 @@ static void direct_link_mesh(FileData *fd, Mesh *mesh)
 
 	mesh->bb = NULL;
 	mesh->edit_btmesh = NULL;
+	mesh->batch_cache = NULL;
 	
 	/* happens with old files */
 	if (mesh->mselect == NULL) {
@@ -5943,6 +5949,7 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 			sce->toolsettings->wpaint->wpaint_prev = NULL;
 			sce->toolsettings->wpaint->tot = 0;
 		}
+		
 		/* relink grease pencil drawing brushes */
 		link_list(fd, &sce->toolsettings->gp_brushes);
 		for (bGPDbrush *brush = sce->toolsettings->gp_brushes.first; brush; brush = brush->next) {
@@ -5958,6 +5965,12 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 			if (brush->cur_jitter) {
 				direct_link_curvemapping(fd, brush->cur_jitter);
 			}
+		}
+		
+		/* relink grease pencil interpolation curves */
+		sce->toolsettings->gp_interpolate.custom_ipo = newdataadr(fd, sce->toolsettings->gp_interpolate.custom_ipo);
+		if (sce->toolsettings->gp_interpolate.custom_ipo) {
+			direct_link_curvemapping(fd, sce->toolsettings->gp_interpolate.custom_ipo);
 		}
 	}
 
@@ -8398,9 +8411,10 @@ static void do_versions(FileData *fd, Library *lib, Main *main)
 
 static void do_versions_after_linking(Main *main)
 {
-	UNUSED_VARS(main);
 //	printf("%s for %s (%s), %d.%d\n", __func__, main->curlib ? main->curlib->name : main->name,
 //	       main->curlib ? "LIB" : "MAIN", main->versionfile, main->subversionfile);
+
+	do_versions_after_linking_270(main);
 }
 
 static void lib_link_all(FileData *fd, Main *main)

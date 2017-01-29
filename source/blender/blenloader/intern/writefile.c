@@ -2283,6 +2283,7 @@ static void write_meshes(WriteData *wd, ListBase *idbase)
 				CustomData_reset(&mesh->pdata);
 				CustomData_reset(&mesh->ldata);
 				mesh->edit_btmesh = NULL;
+				mesh->batch_cache = NULL;
 
 				/* now fill in polys to mfaces */
 				/* XXX This breaks writing design, by using temp allocated memory, which will likely generate
@@ -2702,6 +2703,10 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 			if (brush->cur_jitter) {
 				write_curvemapping(wd, brush->cur_jitter);
 			}
+		}
+		/* write grease-pencil custom ipo curve to file */
+		if (tos->gp_interpolate.custom_ipo) {
+			write_curvemapping(wd, tos->gp_interpolate.custom_ipo);
 		}
 		
 
