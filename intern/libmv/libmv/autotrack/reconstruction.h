@@ -65,7 +65,7 @@ struct Point {
 // A reconstruction for a set of tracks. The indexing for clip, frame, and
 // track should match that of a Tracks object, stored elsewhere.
 class Reconstruction {
-public:
+ public:
   // All methods copy their input reference or take ownership of the pointer.
   void AddCameraPose(const CameraPose& pose);
   int AddCameraIntrinsics(CameraIntrinsics* intrinsics_ptr);
