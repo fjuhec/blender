@@ -133,6 +133,7 @@ set(SRC
 	intern/mesh_evaluate.c
 	intern/mesh_mapping.c
 	intern/mesh_remap.c
+	intern/mesh_render.c
 	intern/mesh_validate.c
 	intern/modifier.c
 	intern/modifiers_bmesh.c
@@ -257,6 +258,7 @@ set(SRC
 	BKE_mesh.h
 	BKE_mesh_mapping.h
 	BKE_mesh_remap.h
+	BKE_mesh_render.h
 	BKE_modifier.h
 	BKE_movieclip.h
 	BKE_multires.h
@@ -534,9 +536,5 @@ endif()
 #if(MSVC)
 #	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
 #endif()
-
-if(WITH_LEGACY_DEPSGRAPH)
-	add_definitions(-DWITH_LEGACY_DEPSGRAPH)
-endif()
 
 blender_add_lib(bf_blenkernel "${SRC}" "${INC}" "${INC_SYS}")
