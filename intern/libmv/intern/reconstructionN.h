@@ -42,24 +42,24 @@ typedef struct libmv_MultiviewReconstructionOptions {
   int *all_refine_intrinsics;		/* this should be an array since each clip has its own refine_flags */
 } libmv_MultiviewReconstructionOptions;
 
-typedef void (*multiview_reconstruct_progress_update_cb) (void* customdata,
+typedef void (*multiview_reconstruct_progress_update_cb) (void *customdata,
                                                           double progress,
-                                                          const char* message);
+                                                          const char *message);
 
-void libmv_reconstructionNDestroy(libmv_ReconstructionN* libmv_reconstructionN);
+void libmv_reconstructionNDestroy(libmv_ReconstructionN *libmv_reconstructionN);
 
 libmv_ReconstructionN** libmv_solveMultiviewReconstruction(const int clip_num,
         const struct libmv_TracksN **all_libmv_tracks,
         const libmv_CameraIntrinsicsOptions *all_libmv_camera_intrinsics_options,
         const libmv_CorrespondencesN *libmv_correspondences,
-        libmv_MultiviewReconstructionOptions* libmv_reconstruction_options,
+        libmv_MultiviewReconstructionOptions *libmv_reconstruction_options,
         multiview_reconstruct_progress_update_cb progress_update_callback,
-        void* callback_customdata);
+        void *callback_customdata);
 
 bool libmv_multiviewReconstructionIsValid(const int clip_num,
                                           const libmv_ReconstructionN **all_libmv_reconstruction);
 double libmv_multiviewReprojectionError(const int clip_num,
-                                        const libmv_ReconstructionN** all_libmv_reconstruction);
+                                        const libmv_ReconstructionN **all_libmv_reconstruction);
 
 libmv_CameraIntrinsics *libmv_reconstructionNExtractIntrinsics(libmv_ReconstructionN *libmv_reconstruction);
 
