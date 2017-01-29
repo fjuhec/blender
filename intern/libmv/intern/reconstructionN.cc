@@ -94,7 +94,8 @@ void mv_getNormalizedTracks(const Tracks &tracks,
     double normalized_x, normalized_y;
     camera_intrinsics.InvertIntrinsics(marker.center[0], marker.center[1],
                                        &normalized_x, &normalized_y);
-    marker.center[0] = normalized_x, marker.center[1] = normalized_y;
+    marker.center[0] = normalized_x;
+    marker.center[1] = normalized_y;
 
     normalized_tracks->AddMarker(marker);
   }
