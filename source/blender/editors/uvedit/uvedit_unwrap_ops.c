@@ -768,7 +768,7 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 /*	AUREL THESIS
 	******************** Minimize Stretch SLIM operator **************** */
 
-/*	AUREL THESIS
+/*	AUREL GRUBER
 	Holds all necessary state for one session of interactive parametrisation.
  */
 typedef struct {
@@ -809,6 +809,11 @@ static bool minimize_stretch_SLIM_init(bContext *C, wmOperator *op)
 	mss->firstIteration = true;
 	mss->fixBorder = true;
 	mss->mt->fixed_boundary = true;
+
+	scene->toolsettings->slim_skip_initialization = true;
+	scene->toolsettings->slim_pack_islands = false;
+	scene->toolsettings->slim_fixed_boundary = true;
+	
 
 	enrich_handle_slim(scene, obedit, em, handle, mss->mt);
 	param_slim_begin(handle);
@@ -1456,6 +1461,9 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 
 	const bool fill_holes = (scene->toolsettings->uvcalc_flag & UVCALC_FILLHOLES) != 0;
 	const bool correct_aspect = (scene->toolsettings->uvcalc_flag & UVCALC_NO_ASPECT_CORRECT) == 0;
+	scene->toolsettings->slim_skip_initialization = false;
+	scene->toolsettings->slim_pack_islands = true;
+	scene->toolsettings->slim_fixed_boundary = false;
 	bool use_subsurf;
 
 	bool use_slim_method = (scene->toolsettings->unwrapper == 2);
@@ -1497,9 +1505,7 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	int method = RNA_enum_get(op->ptr, "method");
 
 	int n_slim_iterations = RNA_int_get(op->ptr, "slim_iterations");
-	bool slim_pack_islands = RNA_int_get(op->ptr, "slim_pack_islands");
-	bool slim_skip_initialization = RNA_int_get(op->ptr, "slim_skip_initialization");
-	bool slim_fixed_boundary = RNA_int_get(op->ptr, "slim_fixed_boundary");
+	double slim_weight_influence = RNA_float_get(op->ptr, "slim_weight_influence");
 
 	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
 	const bool correct_aspect = RNA_boolean_get(op->ptr, "correct_aspect");
@@ -1531,12 +1537,9 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	else
 		RNA_enum_set(op->ptr, "method", scene->toolsettings->unwrapper);
 
-	/* get number of iterations and methood in global phase for SLIM unwraping*/
+	/* get number of iterations and method in global phase for SLIM unwraping*/
 	scene->toolsettings->slim_n_iterations = n_slim_iterations;
-	scene->toolsettings->slim_fixed_boundary = slim_fixed_boundary;
-	scene->toolsettings->slim_pack_islands = slim_pack_islands;
-	scene->toolsettings->slim_skip_initialization = slim_skip_initialization;
-
+	scene->toolsettings->slim_weight_influence = slim_weight_influence;
 
 	/* remember packing marging */
 	if (RNA_struct_property_is_set(op->ptr, "margin"))
@@ -1600,12 +1603,8 @@ void UV_OT_unwrap(wmOperatorType *ot)
 
 	RNA_def_int(ot->srna, "slim_iterations", 1, 0, 10000, "SLIM Iterations",
 				"Number of Iterations if the SLIM algorithm is used.", 1, 30);
-	RNA_def_boolean(ot->srna, "slim_skip_initialization", 0, "SLIM Skip Initialization",
-					"Use existing map as initialization for SLIM (May not contain flips!).");
-	RNA_def_boolean(ot->srna, "slim_fixed_boundary", 0, "SLIM Fix Boundary",
-					"When using SLIM and skipping initialization, this pins the boundary vertices to stay in place.");
-	RNA_def_boolean(ot->srna, "slim_pack_islands", 1, "SLIM Pack Islands",
-					"When using SLIM, this skips the packing of islands afterwards.");
+	RNA_def_float(ot->srna, "slim_weight_influence", 1.0, -10000.0, 10000.0, "SLIM Weight Map Influence",
+				"How much influence the weightmap has for weighted parameterization, 0 being no influence.", 0.0, 10.0);
 }
 
 /**************** Project From View operator **************/
