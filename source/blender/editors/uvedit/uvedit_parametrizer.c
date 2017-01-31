@@ -252,6 +252,7 @@ typedef struct PHandle {
 	bool with_weighted_parameterization;
 	MDeformVert *weightMapData;
 	int weightMapIndex;
+	double weightInfluence;
 	BMesh *bm;
 
 } PHandle;
@@ -4370,6 +4371,7 @@ void param_slim_enrich_handle(Object *obedit,
 							  matrix_transfer *mt,
 							  MDeformVert *dvert,
 							  int weightMapIndex,
+							  double weightInfluence,
 							  int n_iterations,
 							  bool skip_initialization,
 							  bool pack_islands,
@@ -4384,6 +4386,7 @@ void param_slim_enrich_handle(Object *obedit,
 	phandle->with_weighted_parameterization = with_weighted_parameterization;
 	phandle->weightMapData = dvert;
 	phandle->weightMapIndex = weightMapIndex;
+	phandle->weightInfluence = weightInfluence;
 	phandle->bm = em->bm;
 }
 
@@ -4830,6 +4833,7 @@ void transfer_data_to_slim(ParamHandle *handle){
 	mt->pinned_vertices = false;
 	mt->transform_islands = true;
 	mt->with_weighted_parameterization = phandle->with_weighted_parameterization;
+	mt->weight_influence = phandle->weightInfluence;
 	convert_blender_slim(handle, false, phandle->weightMapIndex);
 }
 
