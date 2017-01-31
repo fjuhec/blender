@@ -206,7 +206,8 @@ static void library_asset_dependencies_rebuild(ID *asset)
 
 	AssetRef *aref = BKE_library_asset_repository_asset_add(lib, asset);
 
-	BKE_library_foreach_ID_link(asset, library_asset_dependencies_rebuild_cb, aref, IDWALK_RECURSE);
+	/* TODO: pass main and use Main->relations? */
+	BKE_library_foreach_ID_link(NULL, asset, library_asset_dependencies_rebuild_cb, aref, IDWALK_RECURSE);
 }
 
 void BKE_libraries_asset_repositories_rebuild(Main *bmain)
