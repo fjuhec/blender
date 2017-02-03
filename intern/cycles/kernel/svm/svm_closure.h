@@ -117,10 +117,10 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float fresnel = fresnel_dielectric_cos(cosNO, ior);
 
 			// calculate weights of the diffuse and specular part
-			float diffuse_weight = (1.0f - saturate(metallic)) * (1.0f - saturate(transparency)); // lerp(1.0f - clamp(metallic, 0.0f, 1.0f), 0.0f, lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f)));
+			float diffuse_weight = (1.0f - saturate(metallic)) * (1.0f - saturate(transparency));
 			
-			float transp = saturate(transparency) * (1.0f - saturate(metallic)); // lerp(clamp(transparency, 0.0f, 1.0f), 0.0f, clamp(metallic, 0.0f, 1.0f));
-			float specular_weight = (1.0f - transp); // + fresnel * transp; // lerp(1.0f, fresnel, transp);
+			float transp = saturate(transparency) * (1.0f - saturate(metallic));
+			float specular_weight = (1.0f - transp);
 
 			// get the base color
 			uint4 data_base_color = read_node(kg, offset);
@@ -263,61 +263,34 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				if(specular_weight > CLOSURE_WEIGHT_CUTOFF && (specular > CLOSURE_WEIGHT_CUTOFF || metallic > CLOSURE_WEIGHT_CUTOFF)) {
 					float3 spec_weight = weight * specular_weight;
 
-					///* for roughness values close to 0 handle as a sharp reflection */
-					//if(roughness <= 1e-2f) {
-					//	float spec_to_ior = (2.0f / (1.0f - safe_sqrtf(0.08f * specular))) - 1.0f;
+					MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), spec_weight);
+					MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
-					//	float m_cdlum = linear_rgb_to_gray(base_color);
-					//	float3 m_ctint = m_cdlum > 0.0f ? base_color / m_cdlum : make_float3(0.0f, 0.0f, 0.0f); // normalize lum. to isolate hue+sat
-					//	float3 tmp_col = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specular_tint) + m_ctint * specular_tint;
-					//	float3 cspec0 = (specular * 0.08f * tmp_col) * (1.0f - metallic) + base_color * metallic;
+					if(bsdf && extra) {
+						bsdf->N = N;
+						bsdf->ior = (2.0f / (1.0f - safe_sqrtf(0.08f * specular))) - 1.0f;
+						bsdf->T = T;
+						bsdf->extra = extra;
 
-					//	float F0 = fresnel_dielectric_cos(1.0f, spec_to_ior);
-					//	float F0_norm = 1.0f / (1.0f - F0);
-					//	float FH = (fresnel_dielectric_cos(cosNO, spec_to_ior) - F0) * F0_norm;
+						float aspect = safe_sqrtf(1.0f - anisotropic * 0.9f);
+						float r2 = roughness * roughness;
 
-					//	/* Blend between white and a specular color with respect to the fresnel */
-					//	float3 refl_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+						bsdf->alpha_x = fmaxf(0.001f, r2 / aspect);
+						bsdf->alpha_y = fmaxf(0.001f, r2 * aspect);
 
-					//	MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), spec_weight*refl_color);
+						float m_cdlum = 0.3f * base_color.x + 0.6f * base_color.y + 0.1f * base_color.z; // luminance approx.
+						float3 m_ctint = m_cdlum > 0.0f ? base_color / m_cdlum : make_float3(0.0f, 0.0f, 0.0f); // normalize lum. to isolate hue+sat
+						float3 tmp_col = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specular_tint) + m_ctint * specular_tint;
 
-					//	if(bsdf) {
-					//		bsdf->N = N;
+						bsdf->extra->cspec0 = (specular * 0.08f * tmp_col) * (1.0f - metallic) + base_color * metallic;
+						bsdf->extra->color = base_color;
 
-					//		/* setup bsdf */
-					//		ccl_fetch(sd, flag) |= bsdf_reflection_setup(bsdf);
-					//	}
-					//}
-					//else {
-						MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), spec_weight);
-						MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
-
-						if(bsdf && extra) {
-							bsdf->N = N;
-							bsdf->ior = (2.0f / (1.0f - safe_sqrtf(0.08f * specular))) - 1.0f;
-							bsdf->T = T;
-							bsdf->extra = extra;
-
-							float aspect = safe_sqrtf(1.0f - anisotropic * 0.9f);
-							float r2 = roughness * roughness;
-
-							bsdf->alpha_x = fmaxf(0.001f, r2 / aspect);
-							bsdf->alpha_y = fmaxf(0.001f, r2 * aspect);
-
-							float m_cdlum = 0.3f * base_color.x + 0.6f * base_color.y + 0.1f * base_color.z; // luminance approx.
-							float3 m_ctint = m_cdlum > 0.0f ? base_color / m_cdlum : make_float3(0.0f, 0.0f, 0.0f); // normalize lum. to isolate hue+sat
-							float3 tmp_col = make_float3(1.0f, 1.0f, 1.0f) * (1.0f - specular_tint) + m_ctint * specular_tint;
-
-							bsdf->extra->cspec0 = (specular * 0.08f * tmp_col) * (1.0f - metallic) + base_color * metallic;
-							bsdf->extra->color = base_color;
-
-							/* setup bsdf */
-							if(distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID || roughness <= 0.075f) /* use single-scatter GGX */
-								ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_aniso_fresnel_setup(bsdf);
-							else /* use multi-scatter GGX */
-								ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_fresnel_setup(bsdf);
-						}
-					//}
+						/* setup bsdf */
+						if(distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID || roughness <= 0.075f) /* use single-scatter GGX */
+							ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_aniso_fresnel_setup(bsdf);
+						else /* use multi-scatter GGX */
+							ccl_fetch(sd, flag) |= bsdf_microfacet_multi_ggx_aniso_fresnel_setup(bsdf);
+					}
 				}
 #ifdef __CAUSTICS_TRICKS__
 			}
@@ -339,43 +312,23 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						if(kernel_data.integrator.caustics_reflective || (path_flag & PATH_RAY_DIFFUSE) == 0)
 #endif
 						{
-							/* for roughness values close to 0 handle as a sharp reflection */
-							//if(roughness <= 1e-2f) {
-							//	float F0 = fresnel_dielectric_cos(1.0f, ior);
-							//	float F0_norm = 1.0f / (1.0f - F0);
-							//	float FH = (fresnel - F0) * F0_norm;
+							MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight*fresnel);
+							MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
 
-							//	/* Blend between white and a specular color with respect to the fresnel */
-							//	float3 refl_color = cspec0 * (1.0f - FH) + make_float3(1.0f, 1.0f, 1.0f) * FH;
+							if(bsdf && extra) {
+								bsdf->N = N;
+								bsdf->extra = extra;
 
-							//	MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), refl_color*glass_weight*fresnel);
+								bsdf->alpha_x = refl_roughness * refl_roughness;
+								bsdf->alpha_y = refl_roughness * refl_roughness;
+								bsdf->ior = ior;
 
-							//	if(bsdf) {
-							//		bsdf->N = N;
+								bsdf->extra->color = base_color;
+								bsdf->extra->cspec0 = cspec0;
 
-							//		/* setup bsdf */
-							//		ccl_fetch(sd, flag) |= bsdf_reflection_setup(bsdf);
-							//	}
-							//}
-							//else {
-								MicrofacetBsdf *bsdf = (MicrofacetBsdf*)bsdf_alloc(sd, sizeof(MicrofacetBsdf), glass_weight*fresnel);
-								MicrofacetExtra *extra = (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra));
-
-								if(bsdf && extra) {
-									bsdf->N = N;
-									bsdf->extra = extra;
-
-									bsdf->alpha_x = refl_roughness * refl_roughness;
-									bsdf->alpha_y = refl_roughness * refl_roughness;
-									bsdf->ior = ior;
-
-									bsdf->extra->color = base_color;
-									bsdf->extra->cspec0 = cspec0;
-
-									/* setup bsdf */
-									ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_fresnel_setup(bsdf);
-								}
-							//}
+								/* setup bsdf */
+								ccl_fetch(sd, flag) |= bsdf_microfacet_ggx_fresnel_setup(bsdf);
+							}
 						}
 
 						/* refraction */

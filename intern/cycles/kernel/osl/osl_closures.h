@@ -61,6 +61,7 @@ OSL::ClosureParam *closure_bsdf_microfacet_ggx_aniso_fresnel_params();
 OSL::ClosureParam *closure_bsdf_microfacet_multi_ggx_fresnel_params();
 OSL::ClosureParam *closure_bsdf_microfacet_multi_ggx_glass_fresnel_params();
 OSL::ClosureParam *closure_bsdf_microfacet_multi_ggx_aniso_fresnel_params();
+OSL::ClosureParam *closure_bsdf_principled_clearcoat_params();
 
 void closure_emission_prepare(OSL::RendererServices *, int id, void *data);
 void closure_background_prepare(OSL::RendererServices *, int id, void *data);
@@ -81,6 +82,7 @@ void closure_bsdf_microfacet_ggx_aniso_fresnel_prepare(OSL::RendererServices *, 
 void closure_bsdf_microfacet_multi_ggx_fresnel_prepare(OSL::RendererServices *, int id, void *data);
 void closure_bsdf_microfacet_multi_ggx_glass_fresnel_prepare(OSL::RendererServices *, int id, void *data);
 void closure_bsdf_microfacet_multi_ggx_aniso_fresnel_prepare(OSL::RendererServices *, int id, void *data);
+void closure_bsdf_principled_clearcoat_prepare(OSL::RendererServices *, int id, void *data);
 
 #define CCLOSURE_PREPARE(name, classname)          \
 void name(RendererServices *, int id, void *data) \
