@@ -833,6 +833,12 @@ protected:
 		mem_free(mem);
 	}
 
+	virtual int2 split_kernel_global_size(DeviceTask *task, DeviceSplitKernel& /*split_kernel*/)
+	{
+		/* TODO(mai): this needs investigation but cpu gives incorrect render if global size doesnt match tile size */
+		return task->requested_tile_size;
+	}
+
 	virtual int2 split_kernel_local_size()
 	{
 		return make_int2(1, 1);
