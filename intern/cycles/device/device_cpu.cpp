@@ -53,33 +53,25 @@ CCL_NAMESPACE_BEGIN
 
 class CPUDevice;
 
-class CPUSplitKernelFunction : public SplitKernelFunction {
+class CPUSplitKernel : public DeviceSplitKernel {
+	CPUDevice *device;
 public:
-	CPUDevice* device;
-	void (*func)(KernelGlobals *kg, KernelData *data);
+	explicit CPUSplitKernel(CPUDevice *device);
 
-	CPUSplitKernelFunction(CPUDevice* device) : device(device), func(NULL) {}
-	~CPUSplitKernelFunction() {}
+	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
+	                                            RenderTile& rtile,
+	                                            int num_global_elements,
+	                                            device_memory& kernel_globals,
+	                                            device_memory& kernel_data_,
+	                                            device_memory& split_data,
+	                                            device_memory& ray_state,
+	                                            device_memory& queue_index,
+	                                            device_memory& use_queues_flag,
+	                                            device_memory& work_pool_wgs);
 
-	virtual bool enqueue(const KernelDimensions& dim, device_memory& kernel_globals, device_memory& data)
-	{
-		if(!func) {
-			return false;
-		}
-
-		KernelGlobals *kg = (KernelGlobals*)kernel_globals.device_pointer;
-		kg->global_size = make_int2(dim.global_size[0], dim.global_size[1]);
-
-		for(int y = 0; y < dim.global_size[1]; y++) {
-			for(int x = 0; x < dim.global_size[0]; x++) {
-				kg->global_id = make_int2(x, y);
-
-				func(kg, (KernelData*)data.device_pointer);
-			}
-		}
-
-		return true;
-	}
+	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&);
+	virtual int2 split_kernel_local_size();
+	virtual int2 split_kernel_global_size(DeviceTask *task);
 };
 
 class CPUDevice : public Device
@@ -142,6 +134,8 @@ class CPUDevice : public Device
 
 		return (F)it->second;
 	}
+
+	friend class CPUSplitKernel;
 
 public:
 	TaskPool task_pool;
@@ -444,7 +438,7 @@ public:
 
 		RenderTile tile;
 
-		DeviceSplitKernel split_kernel(this);
+		CPUSplitKernel split_kernel(this);
 
 		/* allocate buffer for kernel globals */
 		device_memory kgbuffer;
@@ -709,75 +703,22 @@ protected:
 
 		return true;
 	}
+};
 
-	/* split kernel */
-	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
-	                                            RenderTile& rtile,
-	                                            int num_global_elements,
-	                                            device_memory& kernel_globals,
-	                                            device_memory& data,
-	                                            device_memory& split_data,
-	                                            device_memory& ray_state,
-	                                            device_memory& queue_index,
-	                                            device_memory& use_queues_flags,
-	                                            device_memory& work_pool_wgs)
+/* split kernel */
+
+class CPUSplitKernelFunction : public SplitKernelFunction {
+public:
+	CPUDevice* device;
+	void (*func)(KernelGlobals *kg, KernelData *data);
+
+	CPUSplitKernelFunction(CPUDevice* device) : device(device), func(NULL) {}
+	~CPUSplitKernelFunction() {}
+
+	virtual bool enqueue(const KernelDimensions& dim, device_memory& kernel_globals, device_memory& data)
 	{
-		typedef void(*data_init_t)(KernelGlobals *kg,
-                                   ccl_constant KernelData *data,
-                                   ccl_global void *split_data_buffer,
-                                   int num_elements,
-                                   ccl_global char *ray_state,
-                                   ccl_global uint *rng_state,
-                                   int start_sample,
-                                   int end_sample,
-                                   int sx, int sy, int sw, int sh, int offset, int stride,
-                                   int rng_state_offset_x,
-                                   int rng_state_offset_y,
-                                   int rng_state_stride,
-                                   ccl_global int *Queue_index,
-                                   int queuesize,
-                                   ccl_global char *use_queues_flag,
-                                   ccl_global unsigned int *work_pool_wgs,
-                                   unsigned int num_samples,
-                                   int buffer_offset_x,
-                                   int buffer_offset_y,
-                                   int buffer_stride,
-                                   ccl_global float *buffer);
-
-		data_init_t data_init;
-
-#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX2
-		if(system_cpu_support_avx2()) {
-			data_init = kernel_cpu_avx2_data_init;
-		}
-		else
-#endif
-#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX
-		if(system_cpu_support_avx()) {
-			data_init = kernel_cpu_avx_data_init;
-		}
-		else
-#endif
-#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE41
-		if(system_cpu_support_sse41()) {
-			data_init = kernel_cpu_sse41_data_init;
-		}
-		else
-#endif
-#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE3
-		if(system_cpu_support_sse3()) {
-			data_init = kernel_cpu_sse3_data_init;
-		}
-		else
-#endif
-#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE2
-		if(system_cpu_support_sse2()) {
-			data_init = kernel_cpu_sse2_data_init;
-		}
-		else
-#endif
-		{
-			data_init = kernel_cpu_data_init;
+		if(!func) {
+			return false;
 		}
 
 		KernelGlobals *kg = (KernelGlobals*)kernel_globals.device_pointer;
@@ -787,62 +728,148 @@ protected:
 			for(int x = 0; x < dim.global_size[0]; x++) {
 				kg->global_id = make_int2(x, y);
 
-				data_init((KernelGlobals*)kernel_globals.device_pointer,
-						  (KernelData*)data.device_pointer,
-						  (void*)split_data.device_pointer,
-						  num_global_elements,
-						  (char*)ray_state.device_pointer,
-						  (uint*)rtile.rng_state,
-						  rtile.start_sample,
-						  rtile.start_sample + rtile.num_samples,
-						  rtile.x,
-						  rtile.y,
-						  rtile.w,
-						  rtile.h,
-						  rtile.offset,
-						  rtile.stride,
-						  rtile.rng_state_offset_x,
-						  rtile.rng_state_offset_y,
-						  rtile.buffer_rng_state_stride,
-						  (int*)queue_index.device_pointer,
-						  dim.global_size[0] * dim.global_size[1],
-						  (char*)use_queues_flags.device_pointer,
-						  (uint*)work_pool_wgs.device_pointer,
-						  rtile.num_samples,
-						  rtile.buffer_offset_x,
-						  rtile.buffer_offset_y,
-						  rtile.buffer_rng_state_stride,
-						  (float*)rtile.buffer);
+				func(kg, (KernelData*)data.device_pointer);
 			}
 		}
 
 		return true;
 	}
-
-	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&)
-	{
-		CPUSplitKernelFunction *kernel = new CPUSplitKernelFunction(this);
-
-		kernel->func = get_kernel_function<void(*)(KernelGlobals*, KernelData*)>(kernel_name);
-		if(!kernel->func) {
-			delete kernel;
-			return NULL;
-		}
-
-		return kernel;
-	}
-
-	virtual int2 split_kernel_global_size(DeviceTask *task, DeviceSplitKernel& /*split_kernel*/)
-	{
-		/* TODO(mai): this needs investigation but cpu gives incorrect render if global size doesnt match tile size */
-		return task->requested_tile_size;
-	}
-
-	virtual int2 split_kernel_local_size()
-	{
-		return make_int2(1, 1);
-	}
 };
+
+CPUSplitKernel::CPUSplitKernel(CPUDevice *device) : DeviceSplitKernel(device), device(device)
+{
+}
+
+bool CPUSplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim,
+                                                    RenderTile& rtile,
+                                                    int num_global_elements,
+                                                    device_memory& kernel_globals,
+                                                    device_memory& data,
+                                                    device_memory& split_data,
+                                                    device_memory& ray_state,
+                                                    device_memory& queue_index,
+                                                    device_memory& use_queues_flags,
+                                                    device_memory& work_pool_wgs)
+{
+	typedef void(*data_init_t)(KernelGlobals *kg,
+                               ccl_constant KernelData *data,
+                               ccl_global void *split_data_buffer,
+                               int num_elements,
+                               ccl_global char *ray_state,
+                               ccl_global uint *rng_state,
+                               int start_sample,
+                               int end_sample,
+                               int sx, int sy, int sw, int sh, int offset, int stride,
+                               int rng_state_offset_x,
+                               int rng_state_offset_y,
+                               int rng_state_stride,
+                               ccl_global int *Queue_index,
+                               int queuesize,
+                               ccl_global char *use_queues_flag,
+                               ccl_global unsigned int *work_pool_wgs,
+                               unsigned int num_samples,
+                               int buffer_offset_x,
+                               int buffer_offset_y,
+                               int buffer_stride,
+                               ccl_global float *buffer);
+
+	data_init_t data_init;
+
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX2
+	if(system_cpu_support_avx2()) {
+		data_init = kernel_cpu_avx2_data_init;
+	}
+	else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_AVX
+	if(system_cpu_support_avx()) {
+		data_init = kernel_cpu_avx_data_init;
+	}
+	else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE41
+	if(system_cpu_support_sse41()) {
+		data_init = kernel_cpu_sse41_data_init;
+	}
+	else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE3
+	if(system_cpu_support_sse3()) {
+		data_init = kernel_cpu_sse3_data_init;
+	}
+	else
+#endif
+#ifdef WITH_CYCLES_OPTIMIZED_KERNEL_SSE2
+	if(system_cpu_support_sse2()) {
+		data_init = kernel_cpu_sse2_data_init;
+	}
+	else
+#endif
+	{
+		data_init = kernel_cpu_data_init;
+	}
+
+	KernelGlobals *kg = (KernelGlobals*)kernel_globals.device_pointer;
+	kg->global_size = make_int2(dim.global_size[0], dim.global_size[1]);
+
+	for(int y = 0; y < dim.global_size[1]; y++) {
+		for(int x = 0; x < dim.global_size[0]; x++) {
+			kg->global_id = make_int2(x, y);
+
+			data_init((KernelGlobals*)kernel_globals.device_pointer,
+					  (KernelData*)data.device_pointer,
+					  (void*)split_data.device_pointer,
+					  num_global_elements,
+					  (char*)ray_state.device_pointer,
+					  (uint*)rtile.rng_state,
+					  rtile.start_sample,
+					  rtile.start_sample + rtile.num_samples,
+					  rtile.x,
+					  rtile.y,
+					  rtile.w,
+					  rtile.h,
+					  rtile.offset,
+					  rtile.stride,
+					  rtile.rng_state_offset_x,
+					  rtile.rng_state_offset_y,
+					  rtile.buffer_rng_state_stride,
+					  (int*)queue_index.device_pointer,
+					  dim.global_size[0] * dim.global_size[1],
+					  (char*)use_queues_flags.device_pointer,
+					  (uint*)work_pool_wgs.device_pointer,
+					  rtile.num_samples,
+					  rtile.buffer_offset_x,
+					  rtile.buffer_offset_y,
+					  rtile.buffer_rng_state_stride,
+					  (float*)rtile.buffer);
+		}
+	}
+
+	return true;
+}
+
+SplitKernelFunction* CPUSplitKernel::get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&)
+{
+	CPUSplitKernelFunction *kernel = new CPUSplitKernelFunction(device);
+
+	kernel->func = device->get_kernel_function<void(*)(KernelGlobals*, KernelData*)>(kernel_name);
+	if(!kernel->func) {
+		delete kernel;
+		return NULL;
+	}
+
+	return kernel;
+}
+
+int2 CPUSplitKernel::split_kernel_local_size()
+{
+	return make_int2(1, 1);
+}
+
+int2 CPUSplitKernel::split_kernel_global_size(DeviceTask *task) {
+	/* TODO(mai): this needs investigation but cpu gives incorrect render if global size doesnt match tile size */
+	return task->requested_tile_size;
+}
 
 unordered_map<string, void*> CPUDevice::kernel_functions;
 

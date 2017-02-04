@@ -29,6 +29,28 @@ CCL_NAMESPACE_BEGIN
  */
 #define DATA_ALLOCATION_MEM_FACTOR 5000000 //5MB
 
+/* Types used for split kernel */
+
+class KernelDimensions {
+public:
+	size_t global_size[2];
+	size_t local_size[2];
+
+	KernelDimensions(size_t global_size_[2], size_t local_size_[2])
+	{
+		memcpy(global_size, global_size_, sizeof(global_size));
+		memcpy(local_size, local_size_, sizeof(local_size));
+	}
+};
+
+class SplitKernelFunction {
+public:
+	virtual ~SplitKernelFunction() {}
+
+	/* enqueue the kernel, returns false if there is an error */
+	virtual bool enqueue(const KernelDimensions& dim, device_memory& kg, device_memory& data) = 0;
+};
+
 class DeviceSplitKernel {
 private:
 	Device *device;
@@ -70,7 +92,7 @@ private:
 
 public:
 	explicit DeviceSplitKernel(Device* device);
-	~DeviceSplitKernel();
+	virtual ~DeviceSplitKernel();
 
 	bool load_kernels(const DeviceRequestedFeatures& requested_features);
 	bool path_trace(DeviceTask *task,
@@ -79,6 +101,21 @@ public:
 	                device_memory& kernel_data);
 
 	size_t max_elements_for_max_buffer_size(size_t max_buffer_size, size_t passes_size);
+
+	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
+	                                            RenderTile& rtile,
+	                                            int num_global_elements,
+	                                            device_memory& kernel_globals,
+	                                            device_memory& kernel_data_,
+	                                            device_memory& split_data,
+	                                            device_memory& ray_state,
+	                                            device_memory& queue_index,
+	                                            device_memory& use_queues_flag,
+	                                            device_memory& work_pool_wgs) = 0;
+
+	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&) = 0;
+	virtual int2 split_kernel_local_size() = 0;
+	virtual int2 split_kernel_global_size(DeviceTask *task) = 0;
 };
 
 CCL_NAMESPACE_END

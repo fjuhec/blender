@@ -56,7 +56,7 @@ DeviceSplitKernel::~DeviceSplitKernel()
 bool DeviceSplitKernel::load_kernels(const DeviceRequestedFeatures& requested_features)
 {
 #define LOAD_KERNEL(name) \
-		kernel_##name = device->get_split_kernel_function(#name, requested_features); \
+		kernel_##name = get_split_kernel_function(#name, requested_features); \
 		if(!kernel_##name) { \
 			return false; \
 		}
@@ -113,7 +113,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	/* Get local size */
 	size_t local_size[2];
 	{
-		int2 lsize = device->split_kernel_local_size();
+		int2 lsize = split_kernel_local_size();
 		local_size[0] = lsize[0];
 		local_size[1] = lsize[1];
 	}
@@ -124,7 +124,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 	/* Set gloabl size */
 	size_t global_size[2];
 	{
-		int2 gsize = device->split_kernel_global_size(task, *this);
+		int2 gsize = split_kernel_global_size(task);
 
 		/* Make sure that set work size is a multiple of local
 		 * work size dimensions.
@@ -198,7 +198,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		device->mem_zero(work_pool_wgs);
 		device->mem_zero(split_data);
 
-		if(!device->enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
+		if(!enqueue_split_kernel_data_init(KernelDimensions(global_size, local_size),
 		                                           subtile,
 		                                           num_global_elements,
 		                                           kgbuffer,

@@ -31,109 +31,36 @@
 
 CCL_NAMESPACE_BEGIN
 
-class OpenCLSplitKernelFunction : public SplitKernelFunction {
-public:
-	OpenCLDeviceBase* device;
-	OpenCLDeviceBase::OpenCLProgram program;
+class OpenCLSplitKernel;
 
-	OpenCLSplitKernelFunction(OpenCLDeviceBase* device) : device(device) {}
-	~OpenCLSplitKernelFunction() { program.release(); }
+static string get_build_options(OpenCLDeviceBase *device, const DeviceRequestedFeatures& requested_features)
+{
+	string build_options = "-D__SPLIT_KERNEL__ ";
+	build_options += requested_features.get_build_options();
 
-	virtual bool enqueue(const KernelDimensions& dim, device_memory& kg, device_memory& data)
-	{
-		device->kernel_set_args(program(), 0, kg, data);
-
-		device->ciErr = clEnqueueNDRangeKernel(device->cqCommandQueue,
-		                                       program(),
-		                                       2,
-		                                       NULL,
-		                                       dim.global_size,
-		                                       dim.local_size,
-		                                       0,
-		                                       NULL,
-		                                       NULL);
-
-		device->opencl_assert_err(device->ciErr, "clEnqueueNDRangeKernel");
-
-		if(device->ciErr != CL_SUCCESS) {
-			string message = string_printf("OpenCL error: %s in clEnqueueNDRangeKernel()",
-			                               clewErrorString(device->ciErr));
-			device->opencl_error(message);
-			return false;
-		}
-
-		return true;
+	/* Set compute device build option. */
+	cl_device_type device_type;
+	device->ciErr = clGetDeviceInfo(device->cdDevice,
+	                        CL_DEVICE_TYPE,
+	                        sizeof(cl_device_type),
+	                        &device_type,
+	                        NULL);
+	assert(device->ciErr == CL_SUCCESS);
+	if(device_type == CL_DEVICE_TYPE_GPU) {
+		build_options += " -D__COMPUTE_DEVICE_GPU__";
 	}
-};
+
+	return build_options;
+}
 
 /* OpenCLDeviceSplitKernel's declaration/definition. */
 class OpenCLDeviceSplitKernel : public OpenCLDeviceBase
 {
 public:
 	DeviceSplitKernel *split_kernel;
-
 	OpenCLProgram program_data_init;
 
-	OpenCLDeviceSplitKernel(DeviceInfo& info, Stats &stats, bool background_)
-	: OpenCLDeviceBase(info, stats, background_)
-	{
-		split_kernel = new DeviceSplitKernel(this);
-
-		background = background_;
-	}
-
-	string get_build_options(const DeviceRequestedFeatures& requested_features)
-	{
-		string build_options = "-D__SPLIT_KERNEL__ ";
-		build_options += requested_features.get_build_options();
-
-		/* Set compute device build option. */
-		cl_device_type device_type;
-		ciErr = clGetDeviceInfo(cdDevice,
-		                        CL_DEVICE_TYPE,
-		                        sizeof(cl_device_type),
-		                        &device_type,
-		                        NULL);
-		assert(ciErr == CL_SUCCESS);
-		if(device_type == CL_DEVICE_TYPE_GPU) {
-			build_options += " -D__COMPUTE_DEVICE_GPU__";
-		}
-
-		return build_options;
-	}
-
-	virtual bool load_kernels(const DeviceRequestedFeatures& requested_features,
-	                          vector<OpenCLProgram*> &programs)
-	{
-		program_data_init = OpenCLProgram(this,
-		                                  "split_data_init",
-		                                  "kernel_data_init.cl",
-		                                  get_build_options(requested_features));
-		program_data_init.add_kernel(ustring("path_trace_data_init"));
-		programs.push_back(&program_data_init);
-
-		return split_kernel->load_kernels(requested_features);
-	}
-
-	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name,
-	                                                       const DeviceRequestedFeatures& requested_features)
-	{
-		OpenCLSplitKernelFunction* kernel = new OpenCLSplitKernelFunction(this);
-
-		kernel->program = OpenCLProgram(this,
-		                                "split_" + kernel_name,
-		                                "kernel_" + kernel_name + ".cl",
-		                                get_build_options(requested_features));
-		kernel->program.add_kernel(ustring("path_trace_" + kernel_name));
-		kernel->program.load();
-
-		if(!kernel->program.is_loaded()) {
-			delete kernel;
-			return NULL;
-		}
-
-		return kernel;
-	}
+	OpenCLDeviceSplitKernel(DeviceInfo& info, Stats &stats, bool background_);
 
 	~OpenCLDeviceSplitKernel()
 	{
@@ -145,102 +72,17 @@ public:
 		delete split_kernel;
 	}
 
-	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
-	                                            RenderTile& rtile,
-	                                            int num_global_elements,
-	                                            device_memory& kernel_globals,
-	                                            device_memory& kernel_data,
-	                                            device_memory& split_data,
-	                                            device_memory& ray_state,
-	                                            device_memory& queue_index,
-	                                            device_memory& use_queues_flag,
-	                                            device_memory& work_pool_wgs
-	                                            )
+	virtual bool load_kernels(const DeviceRequestedFeatures& requested_features,
+	                          vector<OpenCLDeviceBase::OpenCLProgram*> &programs)
 	{
-		cl_int dQueue_size = dim.global_size[0] * dim.global_size[1];
+		program_data_init = OpenCLDeviceBase::OpenCLProgram(this,
+		                                  "split_data_init",
+		                                  "kernel_data_init.cl",
+		                                  get_build_options(this, requested_features));
+		program_data_init.add_kernel(ustring("path_trace_data_init"));
+		programs.push_back(&program_data_init);
 
-		/* Set the range of samples to be processed for every ray in
-		 * path-regeneration logic.
-		 */
-		cl_int start_sample = rtile.start_sample;
-		cl_int end_sample = rtile.start_sample + rtile.num_samples;
-
-		cl_uint start_arg_index =
-			kernel_set_args(program_data_init(),
-			                0,
-			                kernel_globals,
-			                kernel_data,
-							split_data,
-			                num_global_elements,
-							ray_state,
-			                rtile.rng_state);
-
-/* TODO(sergey): Avoid map lookup here. */
-#define KERNEL_TEX(type, ttype, name) \
-	set_kernel_arg_mem(program_data_init(), &start_arg_index, #name);
-#include "kernel_textures.h"
-#undef KERNEL_TEX
-
-		start_arg_index +=
-			kernel_set_args(program_data_init(),
-			                start_arg_index,
-			                start_sample,
-			                end_sample,
-			                rtile.x,
-			                rtile.y,
-			                rtile.w,
-			                rtile.h,
-			                rtile.offset,
-			                rtile.stride,
-			                rtile.rng_state_offset_x,
-			                rtile.rng_state_offset_y,
-			                rtile.buffer_rng_state_stride,
-			                queue_index,
-			                dQueue_size,
-			                use_queues_flag,
-			                work_pool_wgs,
-			                rtile.num_samples,
-			                rtile.buffer_offset_x,
-			                rtile.buffer_offset_y,
-			                rtile.buffer_rng_state_stride,
-							rtile.buffer);
-
-		/* Enqueue ckPathTraceKernel_data_init kernel. */
-		ciErr = clEnqueueNDRangeKernel(cqCommandQueue,
-		                               program_data_init(),
-		                               2,
-		                               NULL,
-		                               dim.global_size,
-		                               dim.local_size,
-		                               0,
-		                               NULL,
-		                               NULL);
-
-		opencl_assert_err(ciErr, "clEnqueueNDRangeKernel");
-
-		if(ciErr != CL_SUCCESS) {
-			string message = string_printf("OpenCL error: %s in clEnqueueNDRangeKernel()",
-			                               clewErrorString(ciErr));
-			opencl_error(message);
-			return false;
-		}
-
-		return true;
-	}
-
-	virtual int2 split_kernel_local_size()
-	{
-		return make_int2(64, 1);
-	}
-
-	virtual int2 split_kernel_global_size(DeviceTask *task, DeviceSplitKernel& split_kernel)
-	{
-		size_t max_buffer_size;
-		clGetDeviceInfo(cdDevice, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(size_t), &max_buffer_size, NULL);
-
-		size_t num_elements = split_kernel.max_elements_for_max_buffer_size(max_buffer_size / 2, task->passes_size);
-
-		return make_int2(round_up((int)sqrt(num_elements), 64), (int)sqrt(num_elements));
+		return split_kernel->load_kernels(requested_features);
 	}
 
 	void thread_run(DeviceTask *task)
@@ -293,7 +135,6 @@ public:
 				clFinish(cqCommandQueue);
 
 				task->release_tile(tile);
-
 			}
 
 			mem_free(kgbuffer);
@@ -308,7 +149,177 @@ protected:
 	{
 		return requested_features.get_build_options();
 	}
+
+	friend class OpenCLSplitKernel;
 };
+
+class OpenCLSplitKernelFunction : public SplitKernelFunction {
+public:
+	OpenCLDeviceBase* device;
+	OpenCLDeviceBase::OpenCLProgram program;
+
+	OpenCLSplitKernelFunction(OpenCLDeviceBase* device) : device(device) {}
+	~OpenCLSplitKernelFunction() { program.release(); }
+
+	virtual bool enqueue(const KernelDimensions& dim, device_memory& kg, device_memory& data)
+	{
+		device->kernel_set_args(program(), 0, kg, data);
+
+		device->ciErr = clEnqueueNDRangeKernel(device->cqCommandQueue,
+		                                       program(),
+		                                       2,
+		                                       NULL,
+		                                       dim.global_size,
+		                                       dim.local_size,
+		                                       0,
+		                                       NULL,
+		                                       NULL);
+
+		device->opencl_assert_err(device->ciErr, "clEnqueueNDRangeKernel");
+
+		if(device->ciErr != CL_SUCCESS) {
+			string message = string_printf("OpenCL error: %s in clEnqueueNDRangeKernel()",
+			                               clewErrorString(device->ciErr));
+			device->opencl_error(message);
+			return false;
+		}
+
+		return true;
+	}
+};
+
+class OpenCLSplitKernel : public DeviceSplitKernel {
+	OpenCLDeviceSplitKernel *device;
+public:
+	explicit OpenCLSplitKernel(OpenCLDeviceSplitKernel *device) : DeviceSplitKernel(device), device(device) {
+	}
+
+	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name,
+	                                                       const DeviceRequestedFeatures& requested_features)
+	{
+		OpenCLSplitKernelFunction* kernel = new OpenCLSplitKernelFunction(device);
+
+		kernel->program = OpenCLDeviceBase::OpenCLProgram(device,
+		                                "split_" + kernel_name,
+		                                "kernel_" + kernel_name + ".cl",
+		                                get_build_options(device, requested_features));
+		kernel->program.add_kernel(ustring("path_trace_" + kernel_name));
+		kernel->program.load();
+
+		if(!kernel->program.is_loaded()) {
+			delete kernel;
+			return NULL;
+		}
+
+		return kernel;
+	}
+
+	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
+	                                            RenderTile& rtile,
+	                                            int num_global_elements,
+	                                            device_memory& kernel_globals,
+	                                            device_memory& kernel_data,
+	                                            device_memory& split_data,
+	                                            device_memory& ray_state,
+	                                            device_memory& queue_index,
+	                                            device_memory& use_queues_flag,
+	                                            device_memory& work_pool_wgs
+	                                            )
+	{
+		cl_int dQueue_size = dim.global_size[0] * dim.global_size[1];
+
+		/* Set the range of samples to be processed for every ray in
+		 * path-regeneration logic.
+		 */
+		cl_int start_sample = rtile.start_sample;
+		cl_int end_sample = rtile.start_sample + rtile.num_samples;
+
+		cl_uint start_arg_index =
+			device->kernel_set_args(device->program_data_init(),
+			                0,
+			                kernel_globals,
+			                kernel_data,
+							split_data,
+			                num_global_elements,
+							ray_state,
+			                rtile.rng_state);
+
+/* TODO(sergey): Avoid map lookup here. */
+#define KERNEL_TEX(type, ttype, name) \
+	device->set_kernel_arg_mem(device->program_data_init(), &start_arg_index, #name);
+#include "kernel_textures.h"
+#undef KERNEL_TEX
+
+		start_arg_index +=
+			device->kernel_set_args(device->program_data_init(),
+			                start_arg_index,
+			                start_sample,
+			                end_sample,
+			                rtile.x,
+			                rtile.y,
+			                rtile.w,
+			                rtile.h,
+			                rtile.offset,
+			                rtile.stride,
+			                rtile.rng_state_offset_x,
+			                rtile.rng_state_offset_y,
+			                rtile.buffer_rng_state_stride,
+			                queue_index,
+			                dQueue_size,
+			                use_queues_flag,
+			                work_pool_wgs,
+			                rtile.num_samples,
+			                rtile.buffer_offset_x,
+			                rtile.buffer_offset_y,
+			                rtile.buffer_rng_state_stride,
+							rtile.buffer);
+
+		/* Enqueue ckPathTraceKernel_data_init kernel. */
+		device->ciErr = clEnqueueNDRangeKernel(device->cqCommandQueue,
+		                               device->program_data_init(),
+		                               2,
+		                               NULL,
+		                               dim.global_size,
+		                               dim.local_size,
+		                               0,
+		                               NULL,
+		                               NULL);
+
+		device->opencl_assert_err(device->ciErr, "clEnqueueNDRangeKernel");
+
+		if(device->ciErr != CL_SUCCESS) {
+			string message = string_printf("OpenCL error: %s in clEnqueueNDRangeKernel()",
+			                               clewErrorString(device->ciErr));
+			device->opencl_error(message);
+			return false;
+		}
+
+		return true;
+	}
+
+	virtual int2 split_kernel_local_size()
+	{
+		return make_int2(64, 1);
+	}
+
+	virtual int2 split_kernel_global_size(DeviceTask *task)
+	{
+		size_t max_buffer_size;
+		clGetDeviceInfo(device->cdDevice, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(size_t), &max_buffer_size, NULL);
+
+		size_t num_elements = max_elements_for_max_buffer_size(max_buffer_size / 2, task->passes_size);
+
+		return make_int2(round_up((int)sqrt(num_elements), 64), (int)sqrt(num_elements));
+	}
+};
+
+OpenCLDeviceSplitKernel::OpenCLDeviceSplitKernel(DeviceInfo& info, Stats &stats, bool background_)
+: OpenCLDeviceBase(info, stats, background_)
+{
+	split_kernel = new OpenCLSplitKernel(this);
+
+	background = background_;
+}
 
 Device *opencl_create_split_device(DeviceInfo& info, Stats& stats, bool background)
 {

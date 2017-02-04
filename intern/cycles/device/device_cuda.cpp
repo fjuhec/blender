@@ -81,6 +81,29 @@ int cuewCompilerVersion(void)
 }  /* namespace */
 #endif  /* WITH_CUDA_DYNLOAD */
 
+class CUDADevice;
+
+class CUDASplitKernel : public DeviceSplitKernel {
+	CUDADevice *device;
+public:
+	explicit CUDASplitKernel(CUDADevice *device);
+
+	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
+	                                            RenderTile& rtile,
+	                                            int num_global_elements,
+	                                            device_memory& kernel_globals,
+	                                            device_memory& kernel_data_,
+	                                            device_memory& split_data,
+	                                            device_memory& ray_state,
+	                                            device_memory& queue_index,
+	                                            device_memory& use_queues_flag,
+	                                            device_memory& work_pool_wgs);
+
+	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&);
+	virtual int2 split_kernel_local_size();
+	virtual int2 split_kernel_global_size(DeviceTask *task);
+};
+
 class CUDADevice : public Device
 {
 public:
@@ -1309,7 +1332,7 @@ public:
 					requested_features.max_closure = 64;
 				}
 
-				DeviceSplitKernel split_kernel(this);
+				CUDASplitKernel split_kernel(this);
 				split_kernel.load_kernels(requested_features);
 
 				while(task->acquire_tile(this, tile)) {
@@ -1376,24 +1399,48 @@ public:
 		task_pool.cancel();
 	}
 
-	/* split kernel */
-	class CUDASplitKernelFunction : public SplitKernelFunction{
-		CUDADevice* device;
-		CUfunction func;
-	public:
-		CUDASplitKernelFunction(CUDADevice *device, CUfunction func) : device(device), func(func) {}
+	friend class CUDASplitKernelFunction;
+	friend class CUDASplitKernel;
+};
 
-		/* enqueue the kernel, returns false if there is an error */
-		bool enqueue(const KernelDimensions &dim, device_memory &/*kg*/, device_memory &/*data*/)
-		{
-			return device->enqueue_split_kernel_function(dim, func, NULL);
-		}
-	};
+/* redefine the cuda_assert macro so it can be used outside of the CUDADevice class
+ * now that the definition of that class is complete
+ */
+#undef cuda_assert
+#define cuda_assert(stmt) \
+	{ \
+		CUresult result = stmt; \
+		\
+		if(result != CUDA_SUCCESS) { \
+			string message = string_printf("CUDA error: %s in %s", cuewErrorString(result), #stmt); \
+			if(device->error_msg == "") \
+				device->error_msg = message; \
+			fprintf(stderr, "%s\n", message.c_str()); \
+			/*cuda_abort();*/ \
+			device->cuda_error_documentation(); \
+		} \
+	} (void)0
 
-	bool enqueue_split_kernel_function(const KernelDimensions &dim, CUfunction func, void *args[]) {
-		cuda_push_context();
+/* split kernel */
 
-		if(have_error())
+class CUDASplitKernelFunction : public SplitKernelFunction{
+	CUDADevice* device;
+	CUfunction func;
+public:
+	CUDASplitKernelFunction(CUDADevice *device, CUfunction func) : device(device), func(func) {}
+
+	/* enqueue the kernel, returns false if there is an error */
+	bool enqueue(const KernelDimensions &dim, device_memory &/*kg*/, device_memory &/*data*/)
+	{
+		return enqueue(dim, NULL);
+	}
+
+	/* enqueue the kernel, returns false if there is an error */
+	bool enqueue(const KernelDimensions &dim, void *args[])
+	{
+		device->cuda_push_context();
+
+		if(device->have_error())
 			return false;
 
 		/* we ignore dim.local_size for now, as this is faster */
@@ -1409,129 +1456,139 @@ public:
 		cuda_assert(cuFuncSetCacheConfig(func, CU_FUNC_CACHE_PREFER_L1));
 
 		cuda_assert(cuLaunchKernel(func,
-		                           xblocks , yblocks, 1, /* blocks */
-		                           xthreads, ythreads, 1, /* threads */
-		                           0, 0, args, 0));
+			                       xblocks , yblocks, 1, /* blocks */
+			                       xthreads, ythreads, 1, /* threads */
+			                       0, 0, args, 0));
 
-		cuda_pop_context();
+		device->cuda_pop_context();
 
-		return !have_error();
-	}
-
-	bool enqueue_split_kernel_data_init(const KernelDimensions& dim,
-	                                    RenderTile& rtile,
-	                                    int num_global_elements,
-	                                    device_memory& /*kernel_globals*/,
-	                                    device_memory& /*kernel_data*/,
-	                                    device_memory& split_data,
-	                                    device_memory& ray_state,
-	                                    device_memory& queue_index,
-	                                    device_memory& use_queues_flag,
-	                                    device_memory& work_pool_wgs)
-	{
-		cuda_push_context();
-
-		CUdeviceptr d_split_data = cuda_device_ptr(split_data.device_pointer);
-		CUdeviceptr d_ray_state = cuda_device_ptr(ray_state.device_pointer);
-		CUdeviceptr d_queue_index = cuda_device_ptr(queue_index.device_pointer);
-		CUdeviceptr d_use_queues_flag = cuda_device_ptr(use_queues_flag.device_pointer);
-		CUdeviceptr d_work_pool_wgs = cuda_device_ptr(work_pool_wgs.device_pointer);
-
-		CUdeviceptr d_rng_state = cuda_device_ptr(rtile.rng_state);
-		CUdeviceptr d_buffer = cuda_device_ptr(rtile.buffer);
-
-		int end_sample = rtile.start_sample + rtile.num_samples;
-		int queue_size = dim.global_size[0] * dim.global_size[1];
-
-		struct args_t {
-			CUdeviceptr* split_data_buffer;
-			int* num_elements;
-			CUdeviceptr* ray_state;
-			CUdeviceptr* rng_state;
-			int* start_sample;
-			int* end_sample;
-			int* sx;
-			int* sy;
-			int* sw;
-			int* sh;
-			int* offset;
-			int* stride;
-			int* rng_state_offset_x;
-			int* rng_state_offset_y;
-			int* rng_state_stride;
-			CUdeviceptr* queue_index;
-			int* queuesize;
-			CUdeviceptr* use_queues_flag;
-			CUdeviceptr* work_pool_wgs;
-			int* num_samples;
-			int* buffer_offset_x;
-			int* buffer_offset_y;
-			int* buffer_stride;
-			CUdeviceptr* buffer;
-		};
-
-		args_t args = {
-			&d_split_data,
-			&num_global_elements,
-			&d_ray_state,
-			&d_rng_state,
-			&rtile.start_sample,
-			&end_sample,
-			&rtile.x,
-			&rtile.y,
-			&rtile.w,
-			&rtile.h,
-			&rtile.offset,
-			&rtile.stride,
-			&rtile.rng_state_offset_x,
-			&rtile.rng_state_offset_y,
-			&rtile.buffer_rng_state_stride,
-			&d_queue_index,
-			&queue_size,
-			&d_use_queues_flag,
-			&d_work_pool_wgs,
-			&rtile.num_samples,
-			&rtile.buffer_offset_x,
-			&rtile.buffer_offset_y,
-			&rtile.buffer_rng_state_stride,
-			&d_buffer
-		};
-
-		CUfunction data_init;
-		cuda_assert(cuModuleGetFunction(&data_init, cuModule, "kernel_cuda_path_trace_data_init"));
-		if(have_error()) {
-			return false;
-		}
-
-		enqueue_split_kernel_function(dim, data_init, (void**)&args);
-
-		cuda_pop_context();
-
-		return !have_error();
-	}
-
-	SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&)
-	{
-		CUfunction func;
-
-		cuda_push_context();
-
-		cuda_assert(cuModuleGetFunction(&func, cuModule, (string("kernel_cuda_") + kernel_name).data()));
-		if(have_error()) {
-			cuda_error_message(string_printf("kernel \"kernel_cuda_%s\" not found in module", kernel_name.data()));
-			return NULL;
-		}
-
-		cuda_pop_context();
-
-		return new CUDASplitKernelFunction(this, func);
-	}
-
-	int2 split_kernel_local_size()
-	{
-		return make_int2(32, 1);
+		return !device->have_error();
 	}
 };
+
+CUDASplitKernel::CUDASplitKernel(CUDADevice *device) : DeviceSplitKernel(device), device(device)
+{
+}
+
+bool CUDASplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim,
+                                    RenderTile& rtile,
+                                    int num_global_elements,
+                                    device_memory& /*kernel_globals*/,
+                                    device_memory& /*kernel_data*/,
+                                    device_memory& split_data,
+                                    device_memory& ray_state,
+                                    device_memory& queue_index,
+                                    device_memory& use_queues_flag,
+                                    device_memory& work_pool_wgs)
+{
+	device->cuda_push_context();
+
+	CUdeviceptr d_split_data = device->cuda_device_ptr(split_data.device_pointer);
+	CUdeviceptr d_ray_state = device->cuda_device_ptr(ray_state.device_pointer);
+	CUdeviceptr d_queue_index = device->cuda_device_ptr(queue_index.device_pointer);
+	CUdeviceptr d_use_queues_flag = device->cuda_device_ptr(use_queues_flag.device_pointer);
+	CUdeviceptr d_work_pool_wgs = device->cuda_device_ptr(work_pool_wgs.device_pointer);
+
+	CUdeviceptr d_rng_state = device->cuda_device_ptr(rtile.rng_state);
+	CUdeviceptr d_buffer = device->cuda_device_ptr(rtile.buffer);
+
+	int end_sample = rtile.start_sample + rtile.num_samples;
+	int queue_size = dim.global_size[0] * dim.global_size[1];
+
+	struct args_t {
+		CUdeviceptr* split_data_buffer;
+		int* num_elements;
+		CUdeviceptr* ray_state;
+		CUdeviceptr* rng_state;
+		int* start_sample;
+		int* end_sample;
+		int* sx;
+		int* sy;
+		int* sw;
+		int* sh;
+		int* offset;
+		int* stride;
+		int* rng_state_offset_x;
+		int* rng_state_offset_y;
+		int* rng_state_stride;
+		CUdeviceptr* queue_index;
+		int* queuesize;
+		CUdeviceptr* use_queues_flag;
+		CUdeviceptr* work_pool_wgs;
+		int* num_samples;
+		int* buffer_offset_x;
+		int* buffer_offset_y;
+		int* buffer_stride;
+		CUdeviceptr* buffer;
+	};
+
+	args_t args = {
+		&d_split_data,
+		&num_global_elements,
+		&d_ray_state,
+		&d_rng_state,
+		&rtile.start_sample,
+		&end_sample,
+		&rtile.x,
+		&rtile.y,
+		&rtile.w,
+		&rtile.h,
+		&rtile.offset,
+		&rtile.stride,
+		&rtile.rng_state_offset_x,
+		&rtile.rng_state_offset_y,
+		&rtile.buffer_rng_state_stride,
+		&d_queue_index,
+		&queue_size,
+		&d_use_queues_flag,
+		&d_work_pool_wgs,
+		&rtile.num_samples,
+		&rtile.buffer_offset_x,
+		&rtile.buffer_offset_y,
+		&rtile.buffer_rng_state_stride,
+		&d_buffer
+	};
+
+	CUfunction data_init;
+	cuda_assert(cuModuleGetFunction(&data_init, device->cuModule, "kernel_cuda_path_trace_data_init"));
+	if(device->have_error()) {
+		return false;
+	}
+
+	CUDASplitKernelFunction(device, data_init).enqueue(dim, (void**)&args);
+
+	device->cuda_pop_context();
+
+	return !device->have_error();
+}
+
+SplitKernelFunction* CUDASplitKernel::get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&)
+{
+	CUfunction func;
+
+	device->cuda_push_context();
+
+	cuda_assert(cuModuleGetFunction(&func, device->cuModule, (string("kernel_cuda_") + kernel_name).data()));
+	if(device->have_error()) {
+		device->cuda_error_message(string_printf("kernel \"kernel_cuda_%s\" not found in module", kernel_name.data()));
+		return NULL;
+	}
+
+	device->cuda_pop_context();
+
+	return new CUDASplitKernelFunction(device, func);
+}
+
+int2 CUDASplitKernel::split_kernel_local_size()
+{
+	return make_int2(32, 1);
+}
+
+int2 CUDASplitKernel::split_kernel_global_size(DeviceTask */*task*/)
+{
+	/* TODO(mai): implement something here to detect ideal work size */
+	return make_int2(256, 256);
+}
 
 bool device_cuda_init(void)
 {

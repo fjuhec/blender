@@ -33,7 +33,6 @@ CCL_NAMESPACE_BEGIN
 
 class Progress;
 class RenderTile;
-class DeviceSplitKernel;
 
 /* Device Types */
 
@@ -205,28 +204,6 @@ public:
 std::ostream& operator <<(std::ostream &os,
                           const DeviceRequestedFeatures& requested_features);
 
-/* Types used for split kernel */
-
-class KernelDimensions {
-public:
-	size_t global_size[2];
-	size_t local_size[2];
-
-	KernelDimensions(size_t global_size_[2], size_t local_size_[2])
-	{
-		memcpy(global_size, global_size_, sizeof(global_size));
-		memcpy(local_size, local_size_, sizeof(local_size));
-	}
-};
-
-class SplitKernelFunction {
-public:
-	virtual ~SplitKernelFunction() {}
-
-	/* enqueue the kernel, returns false if there is an error */
-	virtual bool enqueue(const KernelDimensions& dim, device_memory& kg, device_memory& data) = 0;
-};
-
 /* Device */
 
 struct DeviceDrawParams {
@@ -292,44 +269,6 @@ public:
 	        const DeviceRequestedFeatures& /*requested_features*/)
 	{ return true; }
 
-private:
-	/* split kernel */
-	virtual bool enqueue_split_kernel_data_init(const KernelDimensions& /*dim*/,
-	                                            RenderTile& /*rtile*/,
-	                                            int /*num_global_elements*/,
-	                                            device_memory& /*kernel_globals*/,
-	                                            device_memory& /*kernel_data*/,
-	                                            device_memory& /*split_data*/,
-	                                            device_memory& /*ray_state*/,
-	                                            device_memory& /*queue_index*/,
-	                                            device_memory& /*use_queues_flag*/,
-	                                            device_memory& /*work_pool_wgs*/)
-	{
-		assert(!"not implemented for this device");
-		return false;
-	}
-
-	virtual SplitKernelFunction* get_split_kernel_function(string /*kernel_name*/, const DeviceRequestedFeatures&)
-	{
-		assert(!"not implemented for this device");
-		return NULL;
-	}
-
-	virtual int2 split_kernel_local_size()
-	{
-		assert(!"not implemented for this device");
-		return make_int2(0, 0);
-	}
-
-	virtual int2 split_kernel_global_size(DeviceTask */*task*/, DeviceSplitKernel& /*split_kernel*/)
-	{
-		assert(!"not implemented for this device");
-		return make_int2(64, 64);
-	}
-
-	friend class DeviceSplitKernel;
-
-public:
 	/* tasks */
 	virtual int get_split_task_count(DeviceTask& task) = 0;
 	virtual void task_add(DeviceTask& task) = 0;
