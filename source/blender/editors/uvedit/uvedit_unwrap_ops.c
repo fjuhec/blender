@@ -903,21 +903,10 @@ static void minimize_stretch_SLIM_exit(bContext *C, wmOperator *op, bool cancel)
 }
 
 /*	AUREL THESIS
-	NON-interactive version of interactive parametrisation. Every modal operator of blender has this mode.
-	In this case, it's obviously never used, since the "normal" non-interactive unwrapping method is to be preferred.
+	Used Only to adjust parameters.
  */
 static int minimize_stretch_SLIM_exec(bContext *C, wmOperator *op)
 {
-	int n_iterations = 1;
-
-	if (!minimize_stretch_SLIM_init(C, op))
-		return OPERATOR_CANCELLED;
-
-	MinStretchSlim *mss = op->customdata;
-
-	param_slim_C(mss->mt, n_iterations, true, true);
-
-	minimize_stretch_SLIM_exit(C, op, false);
 
 	return OPERATOR_FINISHED;
 }
