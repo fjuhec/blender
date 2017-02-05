@@ -1351,6 +1351,8 @@ typedef struct SpaceCollections {
 	ListBase regionbase;        /* storage of regions for inactive spaces */
 	int spacetype;
 	int flag; /* eSpaceCollections_Flag */
+
+	struct uiTable *table; /* The uiTable used to manage and draw the table UI. */
 } SpaceCollections;
 
 /* SpaceClip->flag */

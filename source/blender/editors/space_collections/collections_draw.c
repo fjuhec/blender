@@ -18,29 +18,36 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_collections/collections_intern.h
+/** \file blender/editors/space_collections/collections_draw.c
  *  \ingroup spcollections
  */
 
-#ifndef __COLLECTIONS_INTERN_H__
-#define __COLLECTIONS_INTERN_H__
+#include <string.h>
 
-struct rcti;
-struct SceneLayer;
-struct wmKeyConfig;
+#include "BLF_api.h"
 
-/* collections_edit.c */
-void collections_table_create(struct SceneLayer *layer, struct uiTable **r_table);
-void collections_table_free(struct uiTable *table);
-void collections_table_item_add(struct uiTable *table, struct LayerCollection *collection);
+#include "BLI_rect.h"
 
-/* collections_ops.c */
-void collections_operatortypes(void);
-void collections_keymap(struct wmKeyConfig *keyconf);
+#include "DNA_screen_types.h"
+#include "DNA_space_types.h"
 
-/* collections_draw.c */
-void collections_draw_table(struct SpaceCollections *spc, const ARegion *ar);
-void collections_draw_cell(void *rowdata, struct rcti drawrect);
+#include "UI_resources.h"
+#include "UI_table.h"
 
-#endif  /* __COLLECTIONS_INTERN_H__ */
+#include "collections_intern.h"
 
+
+void collections_draw_table(SpaceCollections *spc, const ARegion *ar)
+{
+	UI_table_max_width_set(spc->table, BLI_rctf_size_x(&ar->v2d.tot));
+	UI_table_draw(spc->table);
+}
+
+void collections_draw_cell(void *rowdata, rcti drawrect)
+{
+	LayerCollection *collection = rowdata;
+	const char *name = collection->scene_collection->name;
+
+	UI_ThemeColor(TH_TEXT);
+	BLF_draw_default(drawrect.xmin, drawrect.ymin, 0.0f, name, strlen(name));
+}

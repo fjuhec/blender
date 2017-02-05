@@ -122,11 +122,14 @@ static void COLLECTIONS_OT_collection_unlink(wmOperatorType *ot)
 
 static int collection_new_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	SpaceCollections *scol = CTX_wm_space_collections(C);
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
 
 	SceneCollection *sc = BKE_collection_add(scene, NULL, NULL);
-	BKE_collection_link(sl, sc);
+	LayerCollection *lc = BKE_collection_link(sl, sc);
+
+	collections_table_item_add(scol->table, lc);
 
 	WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
 	return OPERATOR_FINISHED;

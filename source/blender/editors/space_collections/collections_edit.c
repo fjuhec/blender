@@ -18,29 +18,38 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_collections/collections_intern.h
+/** \file blender/editors/space_collections/collections_edit.c
  *  \ingroup spcollections
  */
 
-#ifndef __COLLECTIONS_INTERN_H__
-#define __COLLECTIONS_INTERN_H__
+#include <stdio.h>
 
-struct rcti;
-struct SceneLayer;
-struct wmKeyConfig;
+#include "BKE_context.h"
 
-/* collections_edit.c */
-void collections_table_create(struct SceneLayer *layer, struct uiTable **r_table);
-void collections_table_free(struct uiTable *table);
-void collections_table_item_add(struct uiTable *table, struct LayerCollection *collection);
+#include "DNA_layer_types.h"
+#include "DNA_screen_types.h"
 
-/* collections_ops.c */
-void collections_operatortypes(void);
-void collections_keymap(struct wmKeyConfig *keyconf);
+#include "UI_table.h"
 
-/* collections_draw.c */
-void collections_draw_table(struct SpaceCollections *spc, const ARegion *ar);
-void collections_draw_cell(void *rowdata, struct rcti drawrect);
+#include "collections_intern.h"
 
-#endif  /* __COLLECTIONS_INTERN_H__ */
 
+void collections_table_create(SceneLayer *layer, uiTable **r_table)
+{
+	*r_table = UI_table_vertical_flow_create();
+
+	UI_table_column_add(*r_table, "collection_name", "Collection", collections_draw_cell);
+	for (LayerCollection *collection = layer->layer_collections.first; collection; collection = collection->next) {
+		UI_table_row_add(*r_table, collection);
+	}
+}
+
+void collections_table_free(uiTable *table)
+{
+	UI_table_free(table);
+}
+
+void collections_table_item_add(uiTable *table, LayerCollection *collection)
+{
+	UI_table_row_add(table, collection);
+}

@@ -47,13 +47,14 @@
 
 /* ******************** default callbacks for collection manager space ***************** */
 
-static SpaceLink *collections_new(const bContext *UNUSED(C))
+static SpaceLink *collections_new(const bContext *C)
 {
 	ARegion *ar;
-	SpaceCollections *scollection; /* hmm, that's actually a good band name... */
+	SpaceCollections *scollection;
 
 	scollection = MEM_callocN(sizeof(SpaceCollections), __func__);
 	scollection->spacetype = SPACE_COLLECTIONS;
+	collections_table_create(CTX_data_scene_layer(C), &scollection->table);
 
 	/* header */
 	ar = MEM_callocN(sizeof(ARegion), "header for collection manager");
@@ -71,8 +72,11 @@ static SpaceLink *collections_new(const bContext *UNUSED(C))
 	return (SpaceLink *)scollection;
 }
 
-static void collections_free(SpaceLink *UNUSED(sl))
+static void collections_free(SpaceLink *sl)
 {
+	SpaceCollections *scollection = (SpaceCollections *)sl;
+
+	collections_table_free(scollection->table);
 }
 
 static SpaceLink *collections_duplicate(SpaceLink *sl)
@@ -95,12 +99,15 @@ static void collection_main_region_init(wmWindowManager *wm, ARegion *ar)
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
 }
 
+#include "UI_table.h" /* XXX temporary for assert, can probably move this assert to collections_draw.c later */
 static void collections_main_region_draw(const bContext *C, ARegion *ar)
 {
 	SpaceCollections *spc = CTX_wm_space_collections(C);
+	SceneLayer *layer = CTX_data_scene_layer(C);
 	View2D *v2d = &ar->v2d;
 
 	if (spc->flag & SC_COLLECTION_DATA_REFRESH) {
+		/* TODO no need for this yet. */
 	}
 
 	/* v2d has initialized flag, so this call will only set the mask correct */
@@ -108,6 +115,12 @@ static void collections_main_region_draw(const bContext *C, ARegion *ar)
 
 	UI_ThemeClearColor(TH_BACK);
 	glClear(GL_COLOR_BUFFER_BIT);
+
+	UI_view2d_view_ortho(v2d);
+
+	BLI_assert(BLI_listbase_count(&layer->layer_collections) == UI_table_get_rowcount(spc->table));
+	UNUSED_VARS_NDEBUG(layer);
+	collections_draw_table(spc, ar);
 
 	/* reset view matrix */
 	UI_view2d_view_restore(C);

@@ -20,6 +20,7 @@
 
 set(INC
 	../include
+	../../blenfont
 	../../blenkernel
 	../../blenlib
 	../../blentranslation
@@ -36,6 +37,8 @@ set(INC_SYS
 )
 
 set(SRC
+	collections_draw.c
+	collections_edit.c
 	collections_ops.c
 	space_collections.c
 
