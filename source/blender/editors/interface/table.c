@@ -99,9 +99,6 @@ typedef struct uiTableColumn {
 /* -------------------------------------------------------------------- */
 
 struct TableColumnDrawInfo {
-	/* Total width of all columns. */
-	unsigned int totwidth_columns;
-
 	/* While drawing: Total width of the already drawn columns depending on alignment (left of right). */
 	unsigned int totwidth_left;
 	unsigned int totwidth_right;
@@ -280,6 +277,7 @@ void UI_table_max_width_set(uiTable *table, const unsigned int max_width)
 void UI_table_horizontal_flow_max_height_set(uiTable *table, const unsigned int max_height)
 {
 	TableHorizontalFlow *horizontal_table = (TableHorizontalFlow *)table;
+	BLI_assert(table->flow_direction == TABLE_FLOW_HORIZONTAL);
 	horizontal_table->max_height = max_height;
 }
 
