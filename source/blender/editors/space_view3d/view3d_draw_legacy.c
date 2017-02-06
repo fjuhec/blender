@@ -60,6 +60,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_global.h"
@@ -1450,10 +1451,11 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 	short flag = v3d->flag;
 	float glalphaclip = U.glalphaclip;
 	int obcenter_dia = U.obcenter_dia;
+	TODO_LAYER_CONTEXT; /* we should pass context, really */
+	SceneLayer *sl = BLI_findlink(&scene->render_layers, scene->active_layer);
 	/* no need for color when drawing depth buffer */
 	const short dflag_depth = DRAW_CONSTCOLOR;
 	/* temp set drawtype to solid */
-	
 	/* Setting these temporarily is not nice */
 	v3d->flag &= ~V3D_SELECT_OUTLINE;
 	U.glalphaclip = alphaoverride ? 0.5f : glalphaclip; /* not that nice but means we wont zoom into billboards */
@@ -1492,8 +1494,8 @@ void ED_view3d_draw_depth(Scene *scene, ARegion *ar, View3D *v3d, bool alphaover
 		}
 	}
 	
-	for (base = scene->base.first; base; base = base->next) {
-		if (v3d->lay & base->lay) {
+	for (base = sl->object_bases.first; base; base = base->next) {
+		if ((base->flag & BASE_VISIBLED) != 0) {
 			/* dupli drawing */
 			if (base->object->transflag & OB_DUPLI) {
 				draw_dupli_objects_color(scene, ar, v3d, base, dflag_depth, TH_UNDEFINED);
@@ -1738,6 +1740,7 @@ static void view3d_draw_objects(
         const char **grid_unit,
         const bool do_bgpic, const bool draw_offscreen, GPUFX *fx)
 {
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	RegionView3D *rv3d = ar->regiondata;
 	BaseLegacy *base;
 	const bool do_camera_frame = !draw_offscreen;
@@ -1811,8 +1814,8 @@ static void view3d_draw_objects(
 	}
 
 	if (draw_offscreen) {
-		for (base = scene->base.first; base; base = base->next) {
-			if (v3d->lay & base->lay) {
+		for (base = sl->object_bases.first; base; base = base->next) {
+			if ((base->flag & BASE_VISIBLED) != 0) {
 				/* dupli drawing */
 				if (base->object->transflag & OB_DUPLI)
 					draw_dupli_objects(scene, ar, v3d, base);
@@ -1825,16 +1828,16 @@ static void view3d_draw_objects(
 		unsigned int lay_used = 0;
 
 		/* then draw not selected and the duplis, but skip editmode object */
-		for (base = scene->base.first; base; base = base->next) {
+		for (base = sl->object_bases.first; base; base = base->next) {
 			lay_used |= base->lay;
 
-			if (v3d->lay & base->lay) {
+			if ((base->flag & BASE_VISIBLED) != 0) {
 
 				/* dupli drawing */
 				if (base->object->transflag & OB_DUPLI) {
 					draw_dupli_objects(scene, ar, v3d, base);
 				}
-				if ((base->flag_legacy & SELECT) == 0) {
+				if ((base->flag & BASE_SELECTED) == 0) {
 					if (base->object != scene->obedit)
 						draw_object(scene, ar, v3d, base, 0);
 				}
@@ -1845,9 +1848,9 @@ static void view3d_draw_objects(
 		v3d->lay_used = lay_used & ((1 << 20) - 1);
 
 		/* draw selected and editmode */
-		for (base = scene->base.first; base; base = base->next) {
-			if (v3d->lay & base->lay) {
-				if (base->object == scene->obedit || (base->flag_legacy & SELECT)) {
+		for (base = sl->object_bases.first; base; base = base->next) {
+			if ((base->flag & BASE_VISIBLED) != 0) {
+				if (base->object == scene->obedit || (base->flag & BASE_SELECTED)) {
 					draw_object(scene, ar, v3d, base, 0);
 				}
 			}
