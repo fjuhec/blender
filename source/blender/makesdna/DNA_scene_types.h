@@ -74,13 +74,6 @@ struct SceneCollection;
 
 /* Base - Wrapper for referencing Objects in a Scene */
 #define BaseLegacy Base
-typedef struct Base {
-	struct Base *next, *prev;
-	unsigned int lay, selcol;
-	int flag_legacy;
-	short sx, sy;
-	struct Object *object;
-} Base;
 
 /* ************************************************************* */
 /* Output Format Data */

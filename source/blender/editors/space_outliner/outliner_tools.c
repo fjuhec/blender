@@ -366,7 +366,7 @@ static void object_select_cb(
 {
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob = (Object *)tselem->id;
-	ObjectBase *base = BKE_scene_layer_base_find(sl, ob);
+	Base *base = BKE_scene_layer_base_find(sl, ob);
 
 	if (base && ((base->flag & BASE_VISIBLED) != 0)) {
 		base->flag |= BASE_SELECTED;
@@ -391,7 +391,7 @@ static void object_deselect_cb(
 {
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob = (Object *)tselem->id;
-	ObjectBase *base = BKE_scene_layer_base_find(sl, ob);
+	Base *base = BKE_scene_layer_base_find(sl, ob);
 
 	if (base) {
 		base->flag &= ~BASE_SELECTED;

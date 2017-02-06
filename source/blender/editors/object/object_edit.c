@@ -460,7 +460,7 @@ void OBJECT_OT_editmode_toggle(wmOperatorType *ot)
 
 static int posemode_exec(bContext *C, wmOperator *op)
 {
-	ObjectBase *base = CTX_data_active_base(C);
+	Base *base = CTX_data_active_base(C);
 	Object *ob = base->object;
 	const int mode_flag = OB_MODE_POSE;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;

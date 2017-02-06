@@ -33,8 +33,8 @@ extern "C" {
 
 #include "DNA_listBase.h"
 
-typedef struct ObjectBase {
-	struct ObjectBase *next, *prev;
+typedef struct Base {
+	struct Base *next, *prev;
 	short flag;
 	short refcount;
 	short sx, sy;
@@ -43,7 +43,7 @@ typedef struct ObjectBase {
 	unsigned int lay;
 	int flag_legacy;
 	int pad;
-} ObjectBase;
+} Base;
 
 typedef struct CollectionOverride {
 	struct CollectionOverride *next, *prev;
@@ -70,7 +70,7 @@ typedef struct SceneLayer {
 	short flag;
 	short pad[2];
 	ListBase object_bases;      /* ObjectBase */
-	struct ObjectBase *basact;
+	struct Base *basact;
 	ListBase layer_collections; /* LayerCollection */
 } SceneLayer;
 
@@ -85,7 +85,7 @@ typedef struct SceneCollection {
 	ListBase scene_collections; /* nested collections */
 } SceneCollection;
 
-/* ObjectBase->flag */
+/* Base->flag */
 enum {
 	BASE_SELECTED         = (1 << 0),
 	BASE_VISIBLED         = (1 << 1),

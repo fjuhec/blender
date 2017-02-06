@@ -2908,12 +2908,12 @@ static void rna_def_object_base_legacy(BlenderRNA *brna)
 	RNA_def_property_array(prop, 8);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Local View Layers", "3D local view layers the object base is on");
-	
+
 	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag_legacy", BA_SELECT);
 	RNA_def_property_ui_text(prop, "Select", "Object base selection state");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Base_select_update");
-	
+
 	RNA_api_object_base_legacy(srna);
 }
 

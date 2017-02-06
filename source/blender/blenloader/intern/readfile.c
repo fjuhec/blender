@@ -5811,7 +5811,7 @@ static void lib_link_scene(FileData *fd, Main *main)
 			lib_link_scene_collection(fd, sce->id.lib, sce->collection);
 
 			for (sl = sce->render_layers.first; sl; sl = sl->next) {
-				for (ObjectBase *base = sl->object_bases.first; base; base = base->next) {
+				for (Base *base = sl->object_bases.first; base; base = base->next) {
 					/* we only bump the use count for the collection objects */
 					base->object = newlibadr(fd, sce->id.lib, base->object);
 				}

@@ -77,7 +77,7 @@
 
 static void join_mesh_single(
         Main *bmain, Scene *scene,
-        Object *ob_dst, ObjectBase *base_src, float imat[4][4],
+        Object *ob_dst, Base *base_src, float imat[4][4],
         MVert **mvert_pp, MEdge **medge_pp, MLoop **mloop_pp, MPoly **mpoly_pp,
         CustomData *vdata, CustomData *edata, CustomData *ldata, CustomData *pdata,
         int totvert, int totedge, int totloop, int totpoly,
@@ -266,7 +266,7 @@ int join_mesh_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	ObjectBase *ob_base = CTX_data_active_base(C);
+	Base *ob_base = CTX_data_active_base(C);
 	Object *ob = ob_base->object;
 	Material **matar = NULL, *ma;
 	Mesh *me;
@@ -296,7 +296,7 @@ int join_mesh_exec(bContext *C, wmOperator *op)
 	}
 	
 	/* count & check */
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selected_editable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
 	{
 		if (base->object->type == OB_MESH) {
 			me = base->object->data;
@@ -377,7 +377,7 @@ int join_mesh_exec(bContext *C, wmOperator *op)
 	}
 	
 	/* first pass over objects - copying materials and vertexgroups across */
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selected_editable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
 	{
 		/* only act if a mesh, and not the one we're joining to */
 		if ((ob != base->object) && (base->object->type == OB_MESH)) {
@@ -507,7 +507,7 @@ int join_mesh_exec(bContext *C, wmOperator *op)
 	            matar, matmap, totcol,
 	            &vertofs, &edgeofs, &loopofs, &polyofs);
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selected_editable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
 	{
 		if (base->object == ob) {
 			continue;
@@ -621,7 +621,7 @@ int join_mesh_shapes_exec(bContext *C, wmOperator *op)
 	KeyBlock *kb;
 	bool ok = false, nonequal_verts = false;
 	
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selected_editable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
 	{
 		if (base->object == ob) continue;
 		
@@ -654,7 +654,7 @@ int join_mesh_shapes_exec(bContext *C, wmOperator *op)
 	}
 	
 	/* now ready to add new keys from selected meshes */
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selected_editable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
 	{
 		if (base->object == ob) continue;
 		

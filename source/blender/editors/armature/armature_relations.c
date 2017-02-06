@@ -269,7 +269,7 @@ int join_armature_exec(bContext *C, wmOperator *op)
 	if (!arm || arm->edbo)
 		return OPERATOR_CANCELLED;
 	
-	CTX_DATA_BEGIN(C, ObjectBase *, base, selected_editable_bases)
+	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
 	{
 		if (base->object == ob) {
 			ok = true;
@@ -291,7 +291,7 @@ int join_armature_exec(bContext *C, wmOperator *op)
 	pose = ob->pose;
 	ob->mode &= ~OB_MODE_POSE;
 
-	CTX_DATA_BEGIN(C, ObjectBase *, base, selected_editable_bases)
+	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
 	{
 		if ((base->object->type == OB_ARMATURE) && (base->object != ob)) {
 			tJoinArmature_AdtFixData afd = {NULL};
@@ -583,7 +583,7 @@ static int separate_armature_exec(bContext *C, wmOperator *op)
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Object *oldob, *newob;
-	ObjectBase *oldbase, *newbase;
+	Base *oldbase, *newbase;
 	
 	/* sanity checks */
 	if (obedit == NULL)
@@ -602,7 +602,7 @@ static int separate_armature_exec(bContext *C, wmOperator *op)
 
 	/* 1) only edit-base selected */
 	/* TODO: use context iterators for this? */
-	CTX_DATA_BEGIN(C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN(C, Base *, base, visible_bases)
 	{
 		if (base->object == obedit) {
 			ED_object_base_select(base, BA_SELECT);

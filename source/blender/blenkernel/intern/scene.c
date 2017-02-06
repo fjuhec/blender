@@ -321,7 +321,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 
 			if (sl->basact) {
 				Object *active_ob = sl->basact->object;
-				for (ObjectBase *base = new_sl->object_bases.first; base; base = base->next) {
+				for (Base *base = new_sl->object_bases.first; base; base = base->next) {
 					if (base->object == active_ob) {
 						new_sl->basact = base;
 						break;
@@ -1782,7 +1782,7 @@ void BKE_scene_base_flag_sync_from_object(BaseLegacy *base)
 	base->flag_legacy = base->object->flag;
 }
 
-void BKE_scene_object_base_flag_sync_from_base(ObjectBase *base)
+void BKE_scene_object_base_flag_sync_from_base(Base *base)
 {
 	Object *ob = base->object;
 
@@ -1793,7 +1793,7 @@ void BKE_scene_object_base_flag_sync_from_base(ObjectBase *base)
 	ob->flag |= flag;
 }
 
-void BKE_scene_object_base_flag_sync_from_object(ObjectBase *base)
+void BKE_scene_object_base_flag_sync_from_object(Base *base)
 {
 	base->flag = base->object->flag;
 }

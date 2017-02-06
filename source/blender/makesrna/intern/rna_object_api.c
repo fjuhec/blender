@@ -95,7 +95,7 @@ static EnumPropertyItem space_items[] = {
 static void rna_Object_select_set(Object *ob, bContext *C, ReportList *reports, int action)
 {
 	SceneLayer *sl = CTX_data_scene_layer(C);
-	ObjectBase *base = BKE_scene_layer_base_find(sl, ob);
+	Base *base = BKE_scene_layer_base_find(sl, ob);
 
 	if (!base) {
 		BKE_reportf(reports, RPT_ERROR, "Object '%s' not in Render Layer '%s'!", ob->id.name + 2, sl->name);
@@ -125,7 +125,7 @@ static void rna_Object_select_set(Object *ob, bContext *C, ReportList *reports, 
 static int rna_Object_select_get(Object *ob, bContext *C, ReportList *reports)
 {
 	SceneLayer *sl = CTX_data_scene_layer(C);
-	ObjectBase *base = BKE_scene_layer_base_find(sl, ob);
+	Base *base = BKE_scene_layer_base_find(sl, ob);
 
 	if (!base) {
 		BKE_reportf(reports, RPT_ERROR, "Object '%s' not in Render Layer '%s'!", ob->id.name + 2, sl->name);

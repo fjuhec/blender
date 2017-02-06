@@ -3011,9 +3011,9 @@ enum {
 	MESH_SEPARATE_LOOSE    = 2,
 };
 
-static ObjectBase *mesh_separate_tagged(Main *bmain, Scene *scene, SceneLayer *sl, ObjectBase *base_old, BMesh *bm_old)
+static Base *mesh_separate_tagged(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
 {
-	ObjectBase *base_new;
+	Base *base_new;
 	Object *obedit = base_old->object;
 	BMesh *bm_new;
 
@@ -3058,7 +3058,7 @@ static ObjectBase *mesh_separate_tagged(Main *bmain, Scene *scene, SceneLayer *s
 	return base_new;
 }
 
-static bool mesh_separate_selected(Main *bmain, Scene *scene, SceneLayer *sl, ObjectBase *base_old, BMesh *bm_old)
+static bool mesh_separate_selected(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	/* we may have tags from previous operators */
 	BM_mesh_elem_hflag_disable_all(bm_old, BM_FACE | BM_EDGE | BM_VERT, BM_ELEM_TAG, false);
@@ -3165,14 +3165,14 @@ static void mesh_separate_material_assign_mat_nr(Main *bmain, Object *ob, const 
 	}
 }
 
-static bool mesh_separate_material(Main *bmain, Scene *scene, SceneLayer *sl, ObjectBase *base_old, BMesh *bm_old)
+static bool mesh_separate_material(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	BMFace *f_cmp, *f;
 	BMIter iter;
 	bool result = false;
 
 	while ((f_cmp = BM_iter_at_index(bm_old, BM_FACES_OF_MESH, NULL, 0))) {
-		ObjectBase *base_new;
+		Base *base_new;
 		const short mat_nr = f_cmp->mat_nr;
 		int tot = 0;
 
@@ -3217,7 +3217,7 @@ static bool mesh_separate_material(Main *bmain, Scene *scene, SceneLayer *sl, Ob
 	return result;
 }
 
-static bool mesh_separate_loose(Main *bmain, Scene *scene, SceneLayer *sl, ObjectBase *base_old, BMesh *bm_old)
+static bool mesh_separate_loose(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	int i;
 	BMEdge *e;
@@ -3285,7 +3285,7 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 	int retval = 0;
 	
 	if (ED_operator_editmesh(C)) {
-		ObjectBase *base = CTX_data_active_base(C);
+		Base *base = CTX_data_active_base(C);
 		BMEditMesh *em = BKE_editmesh_from_object(base->object);
 
 		if (type == 0) {
@@ -3325,7 +3325,7 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 		}
 
 		/* object mode separate */
-		CTX_DATA_BEGIN(C, ObjectBase *, base_iter, selected_editable_bases)
+		CTX_DATA_BEGIN(C, Base *, base_iter, selected_editable_bases)
 		{
 			Object *ob = base_iter->object;
 			if (ob->type == OB_MESH) {

@@ -2932,7 +2932,7 @@ static void write_scenes(WriteData *wd, ListBase *scebase)
 
 		for (sl = sce->render_layers.first; sl; sl = sl->next) {
 			writestruct(wd, DATA, SceneLayer, 1, sl);
-			writelist(wd, DATA, ObjectBase, &sl->object_bases);
+			writelist(wd, DATA, Base, &sl->object_bases);
 			write_layer_collections(wd, &sl->layer_collections);
 		}
 

@@ -431,7 +431,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 
 				SceneLayer *sl;
 				for (sl = scene->render_layers.first; sl; sl = sl->next) {
-					for (ObjectBase *base = sl->object_bases.first; base; base = base->next) {
+					for (Base *base = sl->object_bases.first; base; base = base->next) {
 						CALLBACK_INVOKE(base->object, IDWALK_NOP);
 					}
 				}

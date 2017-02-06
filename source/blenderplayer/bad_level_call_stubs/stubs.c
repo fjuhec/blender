@@ -44,6 +44,7 @@
 struct ARegion;
 struct ARegionType;
 struct BMEditMesh;
+struct Base;
 struct BaseLegacy;
 struct bContext;
 struct BoundBox;
@@ -83,7 +84,6 @@ struct HookModifierData;
 struct NodeBlurData;
 struct Nurb;
 struct Object;
-struct ObjectBase;
 struct PBVHNode;
 struct PyObject;
 struct Render;
@@ -488,7 +488,7 @@ void ED_node_shader_default(const struct bContext *C, struct ID *id) RET_NONE
 void ED_screen_animation_timer_update(struct bScreen *screen, int redraws, int refresh) RET_NONE
 struct bScreen *ED_screen_animation_playing(const struct wmWindowManager *wm) RET_NULL
 void ED_base_object_select(struct BaseLegacy *base, short mode) RET_NONE
-void ED_object_base_select(struct ObjectBase *base, short mode) RET_NONE
+void ED_object_base_select(struct Base *base, short mode) RET_NONE
 bool ED_object_modifier_remove(struct ReportList *reports, struct Main *bmain, struct Object *ob, struct ModifierData *md) RET_ZERO
 struct ModifierData *ED_object_modifier_add(struct ReportList *reports, struct Main *bmain, struct Scene *scene, struct Object *ob, const char *name, int type) RET_ZERO
 void ED_object_modifier_clear(struct Main *bmain, struct Object *ob) RET_NONE

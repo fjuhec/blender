@@ -659,7 +659,7 @@ static eOLDrawState tree_element_active_pose(
 	TODO_LAYER_CONTEXT; /* we may need to pass SceneLayer instead of Scene here */
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob = (Object *)tselem->id;
-	ObjectBase *base = BKE_scene_layer_base_find(sl, ob);
+	Base *base = BKE_scene_layer_base_find(sl, ob);
 	
 	if (set != OL_SETSEL_NONE) {
 		if (scene->obedit)

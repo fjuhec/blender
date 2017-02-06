@@ -1016,7 +1016,7 @@ static int object_select_menu_exec(bContext *C, wmOperator *op)
 	const char *name = object_mouse_select_menu_data[name_index].idname;
 
 	if (!toggle) {
-		CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+		CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 		{
 			if ((base->flag & BASE_SELECTED) != 0) {
 				ED_object_base_select(base, BA_DESELECT);
@@ -1026,7 +1026,7 @@ static int object_select_menu_exec(bContext *C, wmOperator *op)
 		CTX_DATA_END;
 	}
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		/* this is a bit dodjy, there should only be ONE object with this name, but library objects can mess this up */
 		if (STREQ(name, base->object->id.name + 2)) {

@@ -1350,7 +1350,7 @@ static int make_links_scene_exec(bContext *C, wmOperator *op)
 	}
 
 	SceneCollection *sc_to = BKE_collection_master(scene_to);
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selected_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selected_bases)
 	{
 		BKE_collection_object_add(scene_to, sc_to, base->object);
 	}
@@ -1425,7 +1425,7 @@ static int make_links_data_exec(bContext *C, wmOperator *op)
 		ob_groups = BKE_object_groups(ob_src);
 	}
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base_dst, selected_editable_bases)
+	CTX_DATA_BEGIN (C, Base *, base_dst, selected_editable_bases)
 	{
 		Object *ob_dst = base_dst->object;
 
@@ -1682,7 +1682,7 @@ static void single_object_users(Main *bmain, Scene *scene, View3D *v3d, const in
 
 	/* loop over SceneLayers and assign the pointers accordingly */
 	for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
-		for (ObjectBase *base = sl->object_bases.first; base; base = base->next) {
+		for (Base *base = sl->object_bases.first; base; base = base->next) {
 			ID_NEW_REMAP(base->object);
 		}
 	}

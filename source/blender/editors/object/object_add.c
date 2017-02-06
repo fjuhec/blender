@@ -206,7 +206,7 @@ void ED_object_rotation_from_view(bContext *C, float rot[3], const char align_ax
 	}
 }
 
-void ED_object_base_init_transform(bContext *C, ObjectBase *base, const float loc[3], const float rot[3])
+void ED_object_base_init_transform(bContext *C, Base *base, const float loc[3], const float rot[3])
 {
 	Object *ob = base->object;
 	Scene *scene = CTX_data_scene(C);
@@ -1314,7 +1314,7 @@ static bool dupliobject_cmp(const void *a_, const void *b_)
 	return false;
 }
 
-static void make_object_duplilist_real(bContext *C, Scene *scene, ObjectBase *base,
+static void make_object_duplilist_real(bContext *C, Scene *scene, Base *base,
                                        const bool use_base_parent,
                                        const bool use_hierarchy)
 {
@@ -1343,7 +1343,7 @@ static void make_object_duplilist_real(bContext *C, Scene *scene, ObjectBase *ba
 	}
 
 	for (dob = lb->first; dob; dob = dob->next) {
-		ObjectBase *basen;
+		Base *basen;
 		Object *ob = ID_NEW_SET(dob->ob, BKE_object_copy(bmain, dob->ob));
 
 		/* font duplis can have a totcol without material, we get them from parent
@@ -1495,7 +1495,7 @@ static int object_duplicates_make_real_exec(bContext *C, wmOperator *op)
 
 	BKE_main_id_clear_newpoins(bmain);
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selected_editable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
 	{
 		make_object_duplilist_real(C, scene, base, use_base_parent, use_hierarchy);
 
@@ -1577,10 +1577,10 @@ static int convert_poll(bContext *C)
 }
 
 /* Helper for convert_exec */
-static ObjectBase *duplibase_for_convert(Main *bmain, Scene *scene, SceneLayer *sl, ObjectBase *base, Object *ob)
+static Base *duplibase_for_convert(Main *bmain, Scene *scene, SceneLayer *sl, Base *base, Object *ob)
 {
 	Object *obn;
-	ObjectBase *basen;
+	Base *basen;
 
 	if (ob == NULL) {
 		ob = base->object;
@@ -1601,7 +1601,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
-	ObjectBase *basen = NULL, *basact = NULL;
+	Base *basen = NULL, *basact = NULL;
 	Object *ob, *ob1, *newob, *obact = CTX_data_active_object(C);
 	DerivedMesh *dm;
 	Curve *cu;
@@ -1639,7 +1639,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selected_editable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
 	{
 		ob = base->object;
 
@@ -1949,12 +1949,12 @@ void OBJECT_OT_convert(wmOperatorType *ot)
 /* used below, assumes id.new is correct */
 /* leaves selection of base/object unaltered */
 /* Does set ID->newid pointers. */
-static ObjectBase *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer *sl, Object *ob, int dupflag)
+static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer *sl, Object *ob, int dupflag)
 {
 #define ID_NEW_REMAP_US(a)	if (      (a)->id.newid) { (a) = (void *)(a)->id.newid;       (a)->id.us++; }
 #define ID_NEW_REMAP_US2(a)	if (((ID *)a)->newid)    { (a) = ((ID  *)a)->newid;     ((ID *)a)->us++;    }
 
-	ObjectBase *basen = NULL;
+	Base *basen = NULL;
 	Material ***matarar;
 	Object *obn;
 	ID *id;
@@ -2186,9 +2186,9 @@ static ObjectBase *object_add_duplicate_internal(Main *bmain, Scene *scene, Scen
  * note: don't call this within a loop since clear_* funcs loop over the entire database.
  * note: caller must do DAG_relations_tag_update(bmain);
  *       this is not done automatic since we may duplicate many objects in a batch */
-ObjectBase *ED_object_add_duplicate(Main *bmain, Scene *scene, SceneLayer *sl, ObjectBase *base, int dupflag)
+Base *ED_object_add_duplicate(Main *bmain, Scene *scene, SceneLayer *sl, Base *base, int dupflag)
 {
-	ObjectBase *basen;
+	Base *basen;
 	Object *ob;
 
 	clear_sca_new_poins();  /* BGE logic */
@@ -2226,9 +2226,9 @@ static int duplicate_exec(bContext *C, wmOperator *op)
 
 	clear_sca_new_poins();  /* BGE logic */
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selected_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selected_bases)
 	{
-		ObjectBase *basen = object_add_duplicate_internal(bmain, scene, sl, base->object, dupflag);
+		Base *basen = object_add_duplicate_internal(bmain, scene, sl, base->object, dupflag);
 
 		/* note that this is safe to do with this context iterator,
 		 * the list is made in advance */
@@ -2290,7 +2290,7 @@ static int add_named_exec(bContext *C, wmOperator *op)
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
-	ObjectBase *basen;
+	Base *basen;
 	Object *ob;
 	const bool linked = RNA_boolean_get(op->ptr, "linked");
 	int dupflag = (linked) ? 0 : U.dupflag;

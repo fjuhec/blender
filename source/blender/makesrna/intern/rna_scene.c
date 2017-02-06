@@ -2454,7 +2454,7 @@ static void rna_LayerCollection_name_set(PointerRNA *ptr, const char *value)
 static PointerRNA rna_LayerCollection_objects_get(CollectionPropertyIterator *iter)
 {
 	ListBaseIterator *internal = &iter->internal.listbase;
-	ObjectBase *base = ((LinkData *)internal->link)->data;
+	Base *base = ((LinkData *)internal->link)->data;
 	return rna_pointer_inherit_refine(&iter->parent, &RNA_Object, base->object);
 }
 
@@ -2614,14 +2614,14 @@ static PointerRNA rna_SceneLayer_objects_get(CollectionPropertyIterator *iter)
 	ListBaseIterator *internal = &iter->internal.listbase;
 
 	/* we are actually iterating a ObjectBase list, so override get */
-	ObjectBase *base = (ObjectBase *)internal->link;
+	Base *base = (Base *)internal->link;
 	return rna_pointer_inherit_refine(&iter->parent, &RNA_Object, base->object);
 }
 
 static int rna_SceneLayer_objects_selected_skip(CollectionPropertyIterator *iter, void *UNUSED(data))
 {
 	ListBaseIterator *internal = &iter->internal.listbase;
-	ObjectBase *base = (ObjectBase *)internal->link;
+	Base *base = (Base *)internal->link;
 
 	if ((base->flag & BASE_SELECTED) != 0) {
 			return 0;
@@ -2758,7 +2758,7 @@ static void rna_SceneLayer_remove(
 
 static void rna_ObjectBase_select_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	ObjectBase *base = (ObjectBase *)ptr->data;
+	Base *base = (Base *)ptr->data;
 	short mode = (base->flag & BASE_SELECTED) ? BA_SELECT : BA_DESELECT;
 	ED_object_base_select(base, mode);
 }
@@ -6148,7 +6148,7 @@ static void rna_def_object_base(BlenderRNA *brna)
 	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "ObjectBase", NULL);
-	RNA_def_struct_sdna(srna, "ObjectBase");
+	RNA_def_struct_sdna(srna, "Base");
 	RNA_def_struct_ui_text(srna, "Object Base", "An object instance in a render layer");
 	RNA_def_struct_ui_icon(srna, ICON_OBJECT_DATA);
 

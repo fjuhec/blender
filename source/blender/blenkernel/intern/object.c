@@ -682,7 +682,7 @@ Object *BKE_object_add(
         int type, const char *name)
 {
 	Object *ob;
-	ObjectBase *base;
+	Base *base;
 	LayerCollection *lc;
 
 	ob = BKE_object_add_only_object(bmain, type, name);

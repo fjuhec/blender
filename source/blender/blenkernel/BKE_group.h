@@ -34,7 +34,7 @@
  */
 
 struct BaseLegacy;
-struct ObjectBase;
+struct Base;
 struct EvaluationContext;
 struct Group;
 struct Main;

@@ -119,7 +119,7 @@ static TransformOrientation *createViewSpace(bContext *C, ReportList *UNUSED(rep
 static TransformOrientation *createObjectSpace(bContext *C, ReportList *UNUSED(reports),
                                                const char *name, const bool overwrite)
 {
-	ObjectBase *base = CTX_data_active_base(C);
+	Base *base = CTX_data_active_base(C);
 	Object *ob;
 	float mat[3][3];
 

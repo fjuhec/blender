@@ -120,7 +120,7 @@ void ED_base_object_activate(bContext *C, BaseLegacy *base)
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, NULL);
 }
 
-void ED_object_base_select(ObjectBase *base, short mode)
+void ED_object_base_select(Base *base, short mode)
 {
 	if (base) {
 		if (mode == BA_SELECT) {
@@ -134,7 +134,7 @@ void ED_object_base_select(ObjectBase *base, short mode)
 	}
 }
 
-void ED_object_base_activate(bContext *C, ObjectBase *base)
+void ED_object_base_activate(bContext *C, Base *base)
 {
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	sl->basact = base;
@@ -173,14 +173,14 @@ static int object_select_by_type_exec(bContext *C, wmOperator *op)
 	extend = RNA_boolean_get(op->ptr, "extend");
 		
 	if (extend == 0) {
-		CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+		CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 		{
 			ED_object_base_select(base, BA_DESELECT);
 		}
 		CTX_DATA_END;
 	}
 	
-	CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 	{
 		if (base->object->type == obtype) {
 			ED_object_base_select(base, BA_SELECT);
@@ -242,7 +242,7 @@ static bool object_select_all_by_obdata(bContext *C, void *obdata)
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 	{
 		if (((base->flag & BASE_SELECTED) == 0) && ((base->flag & BASE_SELECTABLED) != 0)) {
 			if (base->object->data == obdata) {
@@ -260,7 +260,7 @@ static bool object_select_all_by_material_texture(bContext *C, int use_texture, 
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 	{
 		if (((base->flag & BASE_SELECTED) == 0) && ((base->flag & BASE_SELECTABLED) != 0)) {
 			Object *ob = base->object;
@@ -300,7 +300,7 @@ static bool object_select_all_by_dup_group(bContext *C, Object *ob)
 	bool changed = false;
 	Group *dup_group = (ob->transflag & OB_DUPLIGROUP) ? ob->dup_group : NULL;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 	{
 		if (((base->flag & BASE_SELECTED) == 0) && ((base->flag & BASE_SELECTABLED) != 0)) {
 			Group *dup_group_other = (base->object->transflag & OB_DUPLIGROUP) ? base->object->dup_group : NULL;
@@ -320,7 +320,7 @@ static bool object_select_all_by_particle(bContext *C, Object *ob)
 	ParticleSystem *psys_act = psys_get_current(ob);
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 	{
 		if (((base->flag & BASE_SELECTED) == 0) && ((base->flag & BASE_SELECTABLED) != 0)) {
 			/* loop through other particles*/
@@ -348,7 +348,7 @@ static bool object_select_all_by_library(bContext *C, Library *lib)
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 	{
 		if (((base->flag & BASE_SELECTED) == 0) && ((base->flag & BASE_SELECTABLED) != 0)) {
 			if (lib == base->object->id.lib) {
@@ -366,7 +366,7 @@ static bool object_select_all_by_library_obdata(bContext *C, Library *lib)
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 	{
 		if (((base->flag & BASE_SELECTED) == 0) && ((base->flag & BASE_SELECTABLED) != 0)) {
 			if (base->object->data && lib == ((ID *)base->object->data)->lib) {
@@ -410,7 +410,7 @@ static int object_select_linked_exec(bContext *C, wmOperator *op)
 	extend = RNA_boolean_get(op->ptr, "extend");
 	
 	if (extend == 0) {
-		CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+		CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 		{
 			ED_object_base_select(base, BA_DESELECT);
 		}
@@ -542,7 +542,7 @@ static bool select_grouped_children(bContext *C, Object *ob, const bool recursiv
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		if (ob == base->object->parent) {
 			if ((base->flag & BASE_SELECTED) == 0) {
@@ -563,7 +563,7 @@ static bool select_grouped_parent(bContext *C) /* Makes parent active and de-sel
 {
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	View3D *v3d = CTX_wm_view3d(C);
-	ObjectBase *baspar, *basact = CTX_data_active_base(C);
+	Base *baspar, *basact = CTX_data_active_base(C);
 	bool changed = false;
 
 	if (!basact || !(basact->object->parent)) {
@@ -602,7 +602,7 @@ static bool select_grouped_group(bContext *C, Object *ob)  /* Select objects in 
 		return 0;
 	else if (group_count == 1) {
 		group = ob_groups[0];
-		CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+		CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 		{
 			if (((base->flag & BASE_SELECTED) == 0) && ((base->flag & BASE_SELECTABLED) != 0)) {
 				if (BKE_group_object_exists(group, base->object)) {
@@ -659,7 +659,7 @@ static bool select_grouped_siblings(bContext *C, Object *ob)
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		if ((base->object->parent == ob->parent) && ((base->flag & BASE_SELECTED) == 0)) {
 			ED_object_base_select(base, BA_SELECT);
@@ -675,7 +675,7 @@ static bool select_grouped_lamptype(bContext *C, Object *ob)
 
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		if (base->object->type == OB_LAMP) {
 			Lamp *la_test = base->object->data;
@@ -692,7 +692,7 @@ static bool select_grouped_type(bContext *C, Object *ob)
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		if ((base->object->type == ob->type) && ((base->flag & BASE_SELECTED) == 0)) {
 			ED_object_base_select(base, BA_SELECT);
@@ -707,7 +707,7 @@ static bool select_grouped_index_object(bContext *C, Object *ob)
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		if ((base->object->index == ob->index) && ((base->flag & BASE_SELECTED) == 0)) {
 			ED_object_base_select(base, BA_SELECT);
@@ -722,7 +722,7 @@ static bool select_grouped_color(bContext *C, Object *ob)
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		if (((base->flag & BASE_SELECTED) == 0) && (compare_v3v3(base->object->col, ob->col, 0.005f))) {
 			ED_object_base_select(base, BA_SELECT);
@@ -749,7 +749,7 @@ static bool select_grouped_gameprops(bContext *C, Object *ob)
 {
 	bool changed = false;
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		if (((base->flag & BASE_SELECTED) == 0) && (objects_share_gameprop(base->object, ob))) {
 			ED_object_base_select(base, BA_SELECT);
@@ -787,7 +787,7 @@ static bool select_grouped_keyingset(bContext *C, Object *UNUSED(ob), ReportList
 	/* select each object that Keying Set refers to */
 	/* TODO: perhaps to be more in line with the rest of these, we should only take objects
 	 * if the passed in object is included in this too */
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		/* only check for this object if it isn't selected already, to limit time wasted */
 		if ((base->flag & BASE_SELECTED) == 0) {
@@ -821,7 +821,7 @@ static int object_select_grouped_exec(bContext *C, wmOperator *op)
 	extend = RNA_boolean_get(op->ptr, "extend");
 
 	if (extend == 0) {
-		CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+		CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 		{
 			ED_object_base_select(base, BA_DESELECT);
 			changed = true;
@@ -919,7 +919,7 @@ static int object_select_all_exec(bContext *C, wmOperator *op)
 
 	if (action == SEL_TOGGLE) {
 		action = SEL_SELECT;
-		CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+		CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 		{
 			if ((base->flag & BASE_SELECTED) != 0) {
 				action = SEL_DESELECT;
@@ -929,7 +929,7 @@ static int object_select_all_exec(bContext *C, wmOperator *op)
 		CTX_DATA_END;
 	}
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 	{
 		switch (action) {
 			case SEL_SELECT:
@@ -991,7 +991,7 @@ static int object_select_same_group_exec(bContext *C, wmOperator *op)
 		return OPERATOR_PASS_THROUGH;
 	}
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, visible_bases)
+	CTX_DATA_BEGIN (C, Base *, base, visible_bases)
 	{
 		if (((base->flag & BASE_SELECTED) == 0) && ((base->flag & BASE_SELECTABLED) != 0)) {
 			if (BKE_group_object_exists(group, base->object)) {
@@ -1033,7 +1033,7 @@ static int object_select_mirror_exec(bContext *C, wmOperator *op)
 	
 	extend = RNA_boolean_get(op->ptr, "extend");
 	
-	CTX_DATA_BEGIN (C, ObjectBase *, primbase, selected_bases)
+	CTX_DATA_BEGIN (C, Base *, primbase, selected_bases)
 	{
 		char name_flip[MAXBONENAME];
 
@@ -1042,7 +1042,7 @@ static int object_select_mirror_exec(bContext *C, wmOperator *op)
 		if (!STREQ(name_flip, primbase->object->id.name + 2)) {
 			Object *ob = (Object *)BKE_libblock_find_name(ID_OB, name_flip);
 			if (ob) {
-				ObjectBase *secbase = BKE_scene_layer_base_find(sl, ob);
+				Base *secbase = BKE_scene_layer_base_find(sl, ob);
 
 				if (secbase) {
 					ED_object_base_select(secbase, BA_SELECT);
@@ -1111,7 +1111,7 @@ static bool object_select_more_less(bContext *C, const bool select)
 
 
 	for (ctx_base = ctx_base_list.first; ctx_base; ctx_base = ctx_base->next) {
-		Object *ob = ((ObjectBase *)ctx_base->ptr.data)->object;
+		Object *ob = ((Base *)ctx_base->ptr.data)->object;
 		if (ob->parent) {
 			if ((ob->flag & OB_DONE) != (ob->parent->flag & OB_DONE)) {
 				ob->id.tag         |= LIB_TAG_DOIT;
@@ -1125,7 +1125,7 @@ static bool object_select_more_less(bContext *C, const bool select)
 	const short select_flag = select ? SELECT : 0;
 
 	for (ctx_base = ctx_base_list.first; ctx_base; ctx_base = ctx_base->next) {
-		ObjectBase *base = ctx_base->ptr.data;
+		Base *base = ctx_base->ptr.data;
 		Object *ob = base->object;
 		if ((ob->id.tag & LIB_TAG_DOIT) && ((ob->flag & SELECT) != select_flag)) {
 			ED_object_base_select(base, select_mode);
@@ -1207,7 +1207,7 @@ static int object_select_random_exec(bContext *C, wmOperator *op)
 
 	RNG *rng = BLI_rng_new_srandom(seed);
 
-	CTX_DATA_BEGIN (C, ObjectBase *, base, selectable_bases)
+	CTX_DATA_BEGIN (C, Base *, base, selectable_bases)
 	{
 		if (BLI_rng_get_float(rng) < randfac) {
 			ED_object_base_select(base, select);

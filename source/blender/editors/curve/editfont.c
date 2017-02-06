@@ -423,7 +423,7 @@ static void txt_add_object(bContext *C, TextLine *firstline, int totline, const 
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	Curve *cu;
 	Object *obedit;
-	ObjectBase *base;
+	Base *base;
 	struct TextLine *tmp;
 	int nchars = 0, nbytes = 0;
 	char *s;

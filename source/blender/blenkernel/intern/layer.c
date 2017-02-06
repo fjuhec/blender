@@ -138,7 +138,7 @@ void BKE_scene_layer_engine_set(SceneLayer *sl, const char *engine)
  */
 void BKE_scene_layer_selected_objects_tag(SceneLayer *sl, const int tag)
 {
-	for (ObjectBase *base = sl->object_bases.first; base; base = base->next) {
+	for (Base *base = sl->object_bases.first; base; base = base->next) {
 		if ((base->flag & BASE_SELECTED) != 0) {
 			base->object->flag |= tag;
 		}
@@ -174,23 +174,23 @@ SceneLayer *BKE_scene_layer_find_from_collection(Scene *scene, LayerCollection *
 	return NULL;
 }
 
-/* ObjectBase */
+/* Base */
 
-ObjectBase *BKE_scene_layer_base_find(SceneLayer *sl, Object *ob)
+Base *BKE_scene_layer_base_find(SceneLayer *sl, Object *ob)
 {
-	return BLI_findptr(&sl->object_bases, ob, offsetof(ObjectBase, object));
+	return BLI_findptr(&sl->object_bases, ob, offsetof(Base, object));
 }
 
 void BKE_scene_layer_base_deselect_all(SceneLayer *sl)
 {
-	ObjectBase *base;
+	Base *base;
 
 	for (base = sl->object_bases.first; base; base = base->next) {
 		base->flag &= ~BASE_SELECTED;
 	}
 }
 
-void BKE_scene_layer_base_select(struct SceneLayer *sl, ObjectBase *selbase)
+void BKE_scene_layer_base_select(struct SceneLayer *sl, Base *selbase)
 {
 	sl->basact = selbase;
 	if ((selbase->flag & BASE_SELECTABLED) != 0) {
@@ -198,7 +198,7 @@ void BKE_scene_layer_base_select(struct SceneLayer *sl, ObjectBase *selbase)
 	}
 }
 
-static void scene_layer_object_base_unref(SceneLayer* sl, ObjectBase *base)
+static void scene_layer_object_base_unref(SceneLayer* sl, Base *base)
 {
 	base->refcount--;
 
@@ -220,7 +220,7 @@ static void layer_collection_base_flag_recalculate(LayerCollection *lc, const bo
 	bool is_selectable = tree_is_selectable && is_visible && ((lc->flag & COLLECTION_SELECTABLE) != 0);
 
 	for (LinkData *link = lc->object_bases.first; link; link = link->next) {
-		ObjectBase *base = link->data;
+		Base *base = link->data;
 
 		if (is_visible) {
 			base->flag |= BASE_VISIBLED;
@@ -252,7 +252,7 @@ void BKE_scene_layer_base_flag_recalculate(SceneLayer *sl)
 	}
 
 	/* if base is not selectabled, clear select */
-	for (ObjectBase *base = sl->object_bases.first; base; base = base->next) {
+	for (Base *base = sl->object_bases.first; base; base = base->next) {
 		if ((base->flag & BASE_SELECTABLED) == 0) {
 			base->flag &= ~BASE_SELECTED;
 		}
@@ -292,13 +292,13 @@ void BKE_scene_layer_engine_settings_update(struct SceneLayer *sl)
  * Return the base if existent, or create it if necessary
  * Always bump the refcount
  */
-static ObjectBase *object_base_add(SceneLayer *sl, Object *ob)
+static Base *object_base_add(SceneLayer *sl, Object *ob)
 {
-	ObjectBase *base;
+	Base *base;
 	base = BKE_scene_layer_base_find(sl, ob);
 
 	if (base == NULL) {
-		base = MEM_callocN(sizeof(ObjectBase), "Object Base");
+		base = MEM_callocN(sizeof(Base), "Object Base");
 
 		/* do not bump user count, leave it for SceneCollections */
 		base->object = ob;
@@ -450,7 +450,7 @@ void BKE_collection_unlink(SceneLayer *sl, LayerCollection *lc)
 
 static void layer_collection_object_add(SceneLayer *sl, LayerCollection *lc, Object *ob)
 {
-	ObjectBase *base = object_base_add(sl, ob);
+	Base *base = object_base_add(sl, ob);
 
 	/* only add an object once - prevent SceneCollection->objects and
 	 * SceneCollection->filter_objects to add the same object */
@@ -466,7 +466,7 @@ static void layer_collection_object_add(SceneLayer *sl, LayerCollection *lc, Obj
 
 static void layer_collection_object_remove(SceneLayer *sl, LayerCollection *lc, Object *ob)
 {
-	ObjectBase *base;
+	Base *base;
 	base = BKE_scene_layer_base_find(sl, ob);
 
 	LinkData *link = BLI_findptr(&lc->object_bases, base, offsetof(LinkData, data));
@@ -528,7 +528,7 @@ bool BKE_scene_layer_has_collection(struct SceneLayer *sl, struct SceneCollectio
 bool BKE_scene_has_object(Scene *scene, Object *ob)
 {
 	for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
-		ObjectBase *base = BKE_scene_layer_base_find(sl, ob);
+		Base *base = BKE_scene_layer_base_find(sl, ob);
 		if (base) {
 			return true;
 		}
@@ -824,7 +824,7 @@ void BKE_collection_engine_property_use_set(CollectionEngineSettings *ces, const
 static void object_bases_Iterator_begin(Iterator *iter, void *data_in, const int flag)
 {
 	SceneLayer *sl = data_in;
-	ObjectBase *base = sl->object_bases.first;
+	Base *base = sl->object_bases.first;
 
 	/* when there are no objects */
 	if (base ==  NULL) {
@@ -845,7 +845,7 @@ static void object_bases_Iterator_begin(Iterator *iter, void *data_in, const int
 
 static void object_bases_Iterator_next(Iterator *iter, const int flag)
 {
-	ObjectBase *base = ((ObjectBase *)iter->data)->next;
+	Base *base = ((Base *)iter->data)->next;
 
 	while (base) {
 		if ((base->flag & flag) != 0) {
@@ -865,7 +865,7 @@ static void objects_Iterator_begin(Iterator *iter, void *data_in, const int flag
 	object_bases_Iterator_begin(iter, data_in, flag);
 
 	if (iter->valid) {
-		iter->current = ((ObjectBase *)iter->current)->object;
+		iter->current = ((Base *)iter->current)->object;
 	}
 }
 
@@ -874,7 +874,7 @@ static void objects_Iterator_next(Iterator *iter, const int flag)
 	object_bases_Iterator_next(iter, flag);
 
 	if (iter->valid) {
-		iter->current = ((ObjectBase *)iter->current)->object;
+		iter->current = ((Base *)iter->current)->object;
 	}
 }
 

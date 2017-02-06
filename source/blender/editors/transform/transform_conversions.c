@@ -1796,7 +1796,7 @@ static void createTransParticleVerts(bContext *C, TransInfo *t)
 {
 	TransData *td = NULL;
 	TransDataExtension *tx;
-	ObjectBase *base = CTX_data_active_base(C);
+	Base *base = CTX_data_active_base(C);
 	Object *ob = CTX_data_active_object(C);
 	ParticleEditSettings *pset = PE_settings(t->scene);
 	PTCacheEdit *edit = PE_get_current(t->scene, ob);
@@ -6398,7 +6398,7 @@ static void createTransObject(bContext *C, TransInfo *t)
 	td = t->data = MEM_callocN(t->total * sizeof(TransData), "TransOb");
 	tx = t->ext = MEM_callocN(t->total * sizeof(TransDataExtension), "TransObExtension");
 
-	CTX_DATA_BEGIN(C, ObjectBase *, base, selected_bases)
+	CTX_DATA_BEGIN(C, Base *, base, selected_bases)
 	{
 		Object *ob = base->object;
 		

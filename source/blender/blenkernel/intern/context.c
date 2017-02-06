@@ -1100,7 +1100,7 @@ struct Object *CTX_data_active_object(const bContext *C)
 	return ctx_data_pointer_get(C, "active_object");
 }
 
-struct ObjectBase *CTX_data_active_base(const bContext *C)
+struct Base *CTX_data_active_base(const bContext *C)
 {
 	return ctx_data_pointer_get(C, "active_base");
 }

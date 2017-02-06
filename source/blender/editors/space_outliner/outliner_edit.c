@@ -2197,7 +2197,7 @@ static int scene_drop_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		BKE_collection_object_add(scene, sc, ob);
 
 		for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
-			ObjectBase *base = BKE_scene_layer_base_find(sl, ob);
+			Base *base = BKE_scene_layer_base_find(sl, ob);
 			if (base) {
 				ED_object_base_select(base, BA_SELECT);
 			}

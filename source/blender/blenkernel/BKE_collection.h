@@ -38,7 +38,7 @@ extern "C" {
 struct Iterator;
 struct SceneCollection;
 struct Object;
-struct ObjectBase;
+struct Base;
 struct Main;
 struct Scene;
 
