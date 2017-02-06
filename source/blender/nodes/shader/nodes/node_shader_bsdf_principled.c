@@ -65,12 +65,19 @@ static void node_shader_init_principled(bNodeTree *UNUSED(ntree), bNode *node)
 
 static int node_shader_gpu_bsdf_principled(GPUMaterial *mat, bNode *UNUSED(node), bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
 {
-	if (!in[16].link)
-		in[16].link = GPU_builtin(GPU_VIEW_NORMAL);
+	// normal
+	if (!in[17].link)
+		in[17].link = GPU_builtin(GPU_VIEW_NORMAL);
 	else
-		GPU_link(mat, "direction_transform_m4v3", in[16].link, GPU_builtin(GPU_VIEW_MATRIX), &in[16].link);
+		GPU_link(mat, "direction_transform_m4v3", in[17].link, GPU_builtin(GPU_VIEW_MATRIX), &in[17].link);
 
-	return GPU_stack_link(mat, "node_bsdf_principled", in, out);
+	// clearcoat normal
+	if (!in[18].link)
+		in[18].link = GPU_builtin(GPU_VIEW_NORMAL);
+	else
+		GPU_link(mat, "direction_transform_m4v3", in[18].link, GPU_builtin(GPU_VIEW_MATRIX), &in[18].link);
+
+	return GPU_stack_link(mat, "node_bsdf_principled", in, out, GPU_builtin(GPU_VIEW_POSITION));
 }
 
 static void node_shader_update_principled(bNodeTree *UNUSED(ntree), bNode *node)
