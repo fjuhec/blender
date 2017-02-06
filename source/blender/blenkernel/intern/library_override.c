@@ -268,21 +268,24 @@ bool BKE_override_status_check_reference(ID *local)
 	return true;
 }
 
-/** Compares local and reference data-blocks and create new override operations as needed,
- * or reset to reference values if overriding is not allowed.
- * \return true is new overriding op was created, or some local data was reset. */
+/**
+ * Generate suitable 'write' data (this only affects differential override operations).
+ *
+ * \note ID is in 'invalid' state for all usages but being written to file, after this function has been called and
+ * until \a BKE_override_operations_store_end is called to restore it. */
 bool BKE_override_operations_store_start(ID *local)
 {
 	BLI_assert(local->override != NULL);
 
 	/* Here we work on original local data-block, after having made a temp copy of it.
 	 * Once we are done, _store_end() will swap temp and local contents.
-	 * This allows us to keep most of original data to write (whiwh is needed to (hopefully) avoid memory/pointers
+	 * This allows us to keep most of original data to write (which is needed to (hopefully) avoid memory/pointers
 	 * collisions in .blend file), and also neats things like original ID name. ;) */
 	/* Note: ideally I'd rather work on copy here as well, and not touch to original at all, but then we'd have
 	 * issues with ID data itself (which is currently not swapped by BKE_id_swap()) AND pointers overlapping. */
 
 	ID *tmp_id;
+	/* XXX TODO We *need* an id_copy_nolib(), that stays out of Main and does not inc/dec ID pointers... */
 	id_copy(G.main, local, &tmp_id, false);  /* XXX ...and worse of all, this won't work with scene! */
 
 	if (tmp_id == NULL) {
@@ -304,6 +307,7 @@ bool BKE_override_operations_store_start(ID *local)
 	return true;
 }
 
+/** Restore given ID modified by \a BKE_override_operations_store_start, to its valid original state. */
 void BKE_override_operations_store_end(ID *local)
 {
 	BLI_assert(local->override != NULL);
@@ -320,8 +324,10 @@ void BKE_override_operations_store_end(ID *local)
 	BKE_libblock_free_ex(G.main, tmp_id, true, false);
 }
 
-/** Compares local and reference data-blocks and create new override operations as needed,
+/**
+ * Compares local and reference data-blocks and create new override operations as needed,
  * or reset to reference values if overriding is not allowed.
+ *
  * \return true is new overriding op was created, or some local data was reset. */
 bool BKE_override_operations_create(ID *local)
 {
