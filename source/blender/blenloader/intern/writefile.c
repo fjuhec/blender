@@ -1902,12 +1902,12 @@ static void write_objects(WriteData *wd, ListBase *idbase)
 			writelist(wd, DATA, LinkData, &ob->pc_ids);
 			writelist(wd, DATA, LodLevel, &ob->lodlevels);
 
+			write_previews(wd, ob->preview);
+
 			if (do_override) {
 				BKE_override_operations_store_end(&ob->id);
 			}
 		}
-
-		write_previews(wd, ob->preview);
 	}
 
 	mywrite_flush(wd);
