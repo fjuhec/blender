@@ -73,6 +73,7 @@ struct SceneCollection;
 /* Scene Data */
 
 /* Base - Wrapper for referencing Objects in a Scene */
+#define BaseLegacy Base
 typedef struct Base {
 	struct Base *next, *prev;
 	unsigned int lay, selcol;
@@ -1675,7 +1676,7 @@ typedef struct Scene {
 	struct Scene *set;
 	
 	ListBase base;
-	struct Base *basact;		/* active base */
+	struct BaseLegacy *basact;		/* active base */
 	struct Object *obedit;		/* name replaces old G.obedit */
 	
 	float cursor[3];			/* 3d cursor location */
