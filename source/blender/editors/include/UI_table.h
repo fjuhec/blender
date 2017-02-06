@@ -41,6 +41,11 @@ enum uiTableColumnAlignemt {
 	TABLE_COLUMN_ALIGN_RIGHT,
 };
 
+enum uiTableUnit {
+	TABLE_UNIT_PX,
+	TABLE_UNIT_PERCENT,
+};
+
 
 uiTable *UI_table_horizontal_flow_create(void) ATTR_WARN_UNUSED_RESULT;
 uiTable *UI_table_vertical_flow_create(void) ATTR_WARN_UNUSED_RESULT;
@@ -55,14 +60,13 @@ uiTableColumn *UI_table_column_add(uiTable *table, const char *idname, const cha
                                    uiTableCellDrawFunc cell_draw) ATTR_NONNULL(1, 2);
 void UI_table_column_remove(uiTable *table, uiTableColumn *column) ATTR_NONNULL();
 uiTableColumn *UI_table_column_lookup(uiTable *table, const char *idname) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void UI_table_column_width_set(uiTableColumn *col, const uiTableSize width, const int min_width_px) ATTR_NONNULL();
+void UI_table_column_width_set(uiTableColumn *column, const unsigned int width, enum uiTableUnit unit,
+                               const int min_width_px) ATTR_NONNULL();
 void UI_table_column_alignment_set(uiTableColumn *column, enum uiTableColumnAlignemt alignment) ATTR_NONNULL();
 /* *** Rows *** */
 uiTableRow *UI_table_row_add(uiTable *table, void *rowdata) ATTR_NONNULL(1);
 void UI_table_row_height_set(uiTable *table, uiTableRow *row, unsigned int height) ATTR_NONNULL();
 
-uiTableSize UI_table_size_px(const int value);
-uiTableSize UI_table_size_percentage(const int value);
 unsigned int UI_table_get_rowcount(const uiTable *table);
 
 #endif /* __UI_TABLE_H__ */

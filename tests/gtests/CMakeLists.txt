@@ -10,6 +10,7 @@ if(WITH_GTESTS)
 	add_subdirectory(testing)
 	add_subdirectory(blenlib)
 	add_subdirectory(guardedalloc)
+	add_subdirectory(interface)
 	add_subdirectory(bmesh)
 endif()
 
