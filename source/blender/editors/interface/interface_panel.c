@@ -569,6 +569,7 @@ void ui_draw_aligned_panel(uiStyle *style, uiBlock *block, const rcti *rect, con
 	rcti headrect;
 	rctf itemrect;
 	int ofsx;
+	float color[4];
 	const bool is_closed_x = (panel->flag & PNL_CLOSEDX) ? true : false;
 	const bool is_closed_y = (panel->flag & PNL_CLOSEDY) ? true : false;
 
@@ -659,8 +660,8 @@ void ui_draw_aligned_panel(uiStyle *style, uiBlock *block, const rcti *rect, con
 			if (panel->control & UI_PNL_SOLID) UI_draw_roundbox_corner_set(UI_CNR_ALL);
 			else UI_draw_roundbox_corner_set(UI_CNR_NONE);
 
-			UI_ThemeColorShade(TH_BACK, -120);
-			UI_draw_roundbox_unfilled(0.5f + rect->xmin, 0.5f + rect->ymin, 0.5f + rect->xmax, 0.5f + headrect.ymax + 1, 8);
+			UI_GetThemeColorShade4fv(TH_BACK, -120, color);
+			UI_draw_roundbox_unfilled(0.5f + rect->xmin, 0.5f + rect->ymin, 0.5f + rect->xmax, 0.5f + headrect.ymax + 1, 8, color);
 		}
 
 		/* panel backdrop */
@@ -1805,7 +1806,7 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 		/* tab titles */
 
 		/* draw white shadow to give text more depth */
-		glColor3ubv(theme_col_text);
+		BLF_color3ubv(fontid, theme_col_text);
 
 		/* main tab title */
 		BLF_draw(fontid, category_id_draw, category_draw_len);
