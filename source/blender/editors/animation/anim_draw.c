@@ -109,7 +109,7 @@ static void draw_cfra_number(Scene *scene, View2D *v2d, const float cfra, const 
 	immUnbindProgram();
 	
 	/* draw current frame number - black text */
-	UI_ThemeColor(TH_TEXT);
+	UI_FontThemeColor(fstyle->uifont_id, TH_TEXT);
 	UI_fontstyle_draw_simple(fstyle, x - 0.25f * U.widget_unit, y + 0.15f * U.widget_unit, numstr);
 	
 	/* restore view transform */

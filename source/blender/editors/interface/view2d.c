@@ -1869,7 +1869,7 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 			dfac = dfac * BLI_rcti_size_x(&hor);
 			
 			/* set starting value, and text color */
-			UI_ThemeColor(TH_TEXT);
+			UI_FontThemeColor(BLF_default(), TH_TEXT);
 			val = grid->startx;
 			
 			/* if we're clamping to whole numbers only, make sure entries won't be repeated */
@@ -1881,7 +1881,7 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 			}
 			if (vs->xunits == V2D_UNIT_FRAMES)
 				grid->powerx = 1;
-			
+
 			/* draw numbers in the appropriate range */
 			if (dfac > 0.0f) {
 				float h = 0.1f * UI_UNIT_Y + (float)(hor.ymin);
