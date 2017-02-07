@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <string.h>
 
+#include "BLI_alloca.h"
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_mempool.h"
@@ -41,6 +42,7 @@
 typedef struct uiTable {
 	BLI_mempool *row_pool;
 	ListBase columns;
+	unsigned int tot_columns;
 
 	enum {
 		TABLE_FLOW_VERTICAL,
@@ -224,17 +226,24 @@ static void table_column_calc_x_coords(const uiTableColumn *column, const float 
 	}
 }
 
-static void table_row_calc_y_coords(uiTable *table, uiTableRow *row, const unsigned int ofs_y, int *r_ymin, int *r_ymax)
+static void table_row_calc_y_coords(uiTable *table, uiTableRow *row,
+                                    unsigned int *io_ofs_x, unsigned int *io_ofs_y,
+                                    int *r_ymin, int *r_ymax)
 {
 	unsigned int height = row->height;
 
 	if (table->flow_direction == TABLE_FLOW_HORIZONTAL) {
 		TableHorizontalFlow *horizontal_table = (TableHorizontalFlow *)table;
 		CLAMP_MAX(height, horizontal_table->max_height);
+
+		if ((*io_ofs_y + height) > horizontal_table->max_height) {
+			*io_ofs_x += table->max_width;
+			*io_ofs_y = 0;
+		}
 	}
 
 	/* Assuming inverted direction, from top to bottom. */
-	*r_ymax = -ofs_y;
+	*r_ymax = -(*io_ofs_y);
 	*r_ymin = *r_ymax - height;
 }
 
@@ -314,6 +323,7 @@ uiTableColumn *UI_table_column_add(uiTable *table, const char *idname, const cha
 	UI_table_column_width_set(col, 100, TABLE_UNIT_PERCENT, 0);
 
 	BLI_addtail(&table->columns, col);
+	table->tot_columns++;
 
 	return col;
 }
@@ -322,6 +332,7 @@ void UI_table_column_remove(uiTable *table, uiTableColumn *column)
 {
 	BLI_assert(BLI_findindex(&table->columns, column) != -1);
 	BLI_remlink(&table->columns, column);
+	table->tot_columns--;
 }
 
 uiTableColumn *UI_table_column_lookup(uiTable *table, const char *idname)
@@ -380,55 +391,61 @@ void UI_table_row_height_set(uiTable *table, uiTableRow *row, unsigned int heigh
 
 void UI_table_draw(uiTable *table)
 {
-	const bool is_horizontal_flow = (table->flow_direction == TABLE_FLOW_HORIZONTAL);
-	const union {
-		uiTable *vertical_flow;
-		TableHorizontalFlow *horizontal_flow;
-	} flow_table = {table};
-
 	struct TableColumnDrawInfo column_drawinfo = table_column_drawinfo_init(table);
+	struct {
+		int xmin;
+		int xmax;
+	} *column_xcoords = BLI_array_alloca(column_xcoords, table->tot_columns);
 	BLI_mempool_iter iter;
+	unsigned int prev_row_height = 0; /* to check if rows have consistent height */
 	unsigned int xofs = 0, yofs = 0;
+	bool consistent_row_height = true;
+	bool is_first_row = true;
 
 
-	TABLE_COLUMNS_ITER_BEGIN(table, column)
-	{
-		int prev_row_height = -1; /* to check if rows have consistent height */
-		bool consistent_row_height = true;
+	BLI_mempool_iternew(table->row_pool, &iter);
+	for (uiTableRow *row = BLI_mempool_iterstep(&iter); row; row = BLI_mempool_iterstep(&iter)) {
 		rcti drawrect = {};
+		unsigned int draw_height;
+		int column_index = 0;
 
-		table_column_calc_x_coords(column, table->max_width, &column_drawinfo, &drawrect.xmin, &drawrect.xmax);
+		table_row_calc_y_coords(table, row, &xofs, &yofs, &drawrect.ymin, &drawrect.ymax);
+		draw_height = BLI_rcti_size_y(&drawrect);
 
-		BLI_mempool_iternew(table->row_pool, &iter);
-		for (uiTableRow *row = BLI_mempool_iterstep(&iter); row; row = BLI_mempool_iterstep(&iter)) {
-			/* check for consistent row height */
-			if ((prev_row_height >= 0) && (row->height != prev_row_height)) {
-				consistent_row_height = false;
+		/* check for consistent row height */
+		if (!is_first_row && draw_height != prev_row_height) {
+			consistent_row_height = false;
+		}
+
+		TABLE_COLUMNS_ITER_BEGIN(table, column)
+		{
+			if (is_first_row) {
+				/* Store column x-coords for further iterations over this column. */
+				table_column_calc_x_coords(column, table->max_width, &column_drawinfo,
+				                           &column_xcoords[column_index].xmin,
+				                           &column_xcoords[column_index].xmax);
 			}
 
-			if (is_horizontal_flow && ((yofs + row->height) > flow_table.horizontal_flow->max_height)) {
-				xofs += flow_table.horizontal_flow->max_height;
-				yofs = 0;
-			}
-
-			table_row_calc_y_coords(table, row, yofs, &drawrect.ymin, &drawrect.ymax);
+			drawrect.xmin = column_xcoords[column_index].xmin;
+			drawrect.xmax = column_xcoords[column_index].xmax;
 			column->cell_draw(row->rowdata, drawrect);
 
-			yofs += row->height;
-			prev_row_height = row->height;
+			column_index++;
 		}
-		/* start over with next column */
-		xofs = 0;
-		yofs = 0;
+		TABLE_COLUMNS_ITER_END;
+		BLI_assert(column_index == table->tot_columns);
 
-		if (consistent_row_height) {
-			table->flag |= TABLE_ROWS_CONSTANT_HEIGHT;
-		}
-		else {
-			BLI_assert((table->flag & TABLE_ROWS_CONSTANT_HEIGHT) == 0);
-		}
+		yofs += draw_height;
+		prev_row_height = draw_height;
+		is_first_row = false;
 	}
-	TABLE_COLUMNS_ITER_END;
+
+	if (consistent_row_height) {
+		table->flag |= TABLE_ROWS_CONSTANT_HEIGHT;
+	}
+	else {
+		BLI_assert((table->flag & TABLE_ROWS_CONSTANT_HEIGHT) == 0);
+	}
 }
 
 unsigned int UI_table_get_rowcount(const uiTable *table)
