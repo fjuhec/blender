@@ -711,6 +711,27 @@ static void rna_def_gpencil_triangle(BlenderRNA *brna)
 	RNA_def_property_int_sdna(prop, NULL, "v3");
 	RNA_def_property_ui_text(prop, "v3", "Third triangle vertex index");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+	/* texture coord for point v1 */
+	prop = RNA_def_property(srna, "uv1", PROP_FLOAT, PROP_COORDS);
+	RNA_def_property_float_sdna(prop, NULL, "uv1");
+	RNA_def_property_array(prop, 2);
+	RNA_def_property_ui_text(prop, "uv1", "First triangle vertex texture coordinates");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+	/* texture coord for point v2 */
+	prop = RNA_def_property(srna, "uv2", PROP_FLOAT, PROP_COORDS);
+	RNA_def_property_float_sdna(prop, NULL, "uv2");
+	RNA_def_property_array(prop, 2);
+	RNA_def_property_ui_text(prop, "uv2", "Second triangle vertex texture coordinates");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+	/* texture coord for point v3 */
+	prop = RNA_def_property(srna, "uv3", PROP_FLOAT, PROP_COORDS);
+	RNA_def_property_float_sdna(prop, NULL, "uv3");
+	RNA_def_property_array(prop, 2);
+	RNA_def_property_ui_text(prop, "uv3", "Third triangle vertex texture coordinates");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 }
 
 static void rna_def_gpencil_stroke(BlenderRNA *brna)

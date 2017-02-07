@@ -65,6 +65,9 @@ typedef enum eGPDspoint_Flag {
  */
 typedef struct bGPDtriangle {
 	int v1, v2, v3;         /* indices for tesselated triangle used for GP Fill */
+	float uv1[2];           /* texture coordinates for v1 */
+	float uv2[2];           /* texture coordinates for v2 */
+	float uv3[2];           /* texture coordinates for v3 */
 } bGPDtriangle;
 
 /* GP brush (used for new strokes) */
