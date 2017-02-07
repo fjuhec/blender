@@ -404,6 +404,45 @@ static void gp_draw_stroke_volumetric_3d(
 
 
 /* --------------- Stroke Fills ----------------- */
+/* calc bounding box in 2d using flat projection data */
+void gp_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2])
+{
+	minv[0] = points2d[0][0];
+	minv[1] = points2d[0][1];
+	maxv[0] = points2d[0][0];
+	maxv[1] = points2d[0][1];
+
+	for (int i = 1; i < totpoints; i++)
+	{
+		/* min */
+		if (points2d[i][0] < minv[0]) {
+			minv[0] = points2d[i][0];
+		}
+		if (points2d[i][1] < minv[1]) {
+			minv[1] = points2d[i][1];
+		}
+		/* max */
+		if (points2d[i][0] > maxv[0]) {
+			maxv[0] = points2d[i][0];
+		}
+		if (points2d[i][1] > maxv[1]) {
+			maxv[1] = points2d[i][1];
+		}
+	}
+}
+
+/* calc texture coordinates using flat projected points */
+void gp_calc_stroke_text_coordinates(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2], float(*r_uv)[2])
+{
+	float d[2];
+	d[0] = maxv[0] - minv[0];
+	d[1] = maxv[1] - minv[1];
+	for (int i = 0; i < totpoints; i++)
+	{
+		r_uv[i][0] = (points2d[i][0] - minv[0]) / d[0];
+		r_uv[i][1] = (points2d[i][1] - minv[1]) / d[1];
+	}
+}
 
 /* Get points of stroke always flat to view not affected by camera view or view position */
 static void gp_stroke_2d_flat(const bGPDspoint *points, int totpoints, float(*points2d)[2], int *r_direction)
@@ -449,7 +488,6 @@ static void gp_stroke_2d_flat(const bGPDspoint *points, int totpoints, float(*po
 	*r_direction = (int)locy[2];
 }
 
-
 /* Triangulate stroke for high quality fill (this is done only if cache is null or stroke was modified) */
 static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 {
@@ -459,12 +497,21 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 	gps->tot_triangles = gps->totpoints - 2;
 	unsigned int (*tmp_triangles)[3] = MEM_mallocN(sizeof(*tmp_triangles) * gps->tot_triangles, "GP Stroke temp triangulation");
 	float (*points2d)[2] = MEM_mallocN(sizeof(*points2d) * gps->totpoints, "GP Stroke temp 2d points");
+	float(*uv)[2] = MEM_mallocN(sizeof(*uv) * gps->totpoints, "GP Stroke temp 2d uv data");
 
 	int direction = 0;
 
 	/* convert to 2d and triangulate */
 	gp_stroke_2d_flat(gps->points, gps->totpoints, points2d, &direction);
 	BLI_polyfill_calc((const float(*)[2])points2d, (unsigned int)gps->totpoints, direction, (unsigned int(*)[3])tmp_triangles);
+	
+	/* calc texture coordinates automatically */
+	float minv[2];
+	float maxv[2];
+	/* first needs bounding box data */
+	gp_calc_2d_bounding_box((const float(*)[2])points2d, gps->totpoints, minv, maxv);
+	/* calc uv data */
+	gp_calc_stroke_text_coordinates((const float(*)[2])points2d, gps->totpoints, minv, maxv, uv);
 
 	/* Number of triangles */
 	gps->tot_triangles = gps->totpoints - 2;
@@ -482,6 +529,10 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 			stroke_triangle->v1 = tmp_triangles[i][0];
 			stroke_triangle->v2 = tmp_triangles[i][1];
 			stroke_triangle->v3 = tmp_triangles[i][2];
+			/* copy texture coordinates */
+			copy_v2_v2(stroke_triangle->uv1, uv[tmp_triangles[i][0]]);
+			copy_v2_v2(stroke_triangle->uv2, uv[tmp_triangles[i][1]]);
+			copy_v2_v2(stroke_triangle->uv3, uv[tmp_triangles[i][2]]);
 		}
 	}
 	else {
@@ -500,6 +551,7 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 	/* clear memory */
 	if (tmp_triangles) MEM_freeN(tmp_triangles);
 	if (points2d) MEM_freeN(points2d);
+	if (uv) MEM_freeN(uv);
 }
 
 
