@@ -6829,6 +6829,52 @@ bool RNA_struct_equals(PointerRNA *a, PointerRNA *b, eRNAEqualsMode mode)
 
 /* Low-level functions, also used by non-override RNA API like copy or equality check. */
 
+/* Used for both Pointer and Collection properties. */
+static bool rna_property_override_equals_propptr(
+        PointerRNA *propptr_a, PointerRNA *propptr_b, eRNAEqualsMode mode,
+        IDOverride *override, const char *rna_path, bool *r_override_changed,
+        const bool ignore_non_overridable, const bool ignore_overridden)
+{
+	if (RNA_struct_is_ID(propptr_a->type)) {
+		/* In case this is an ID, do not compare structs!
+		 * This is a quite safe path to infinite loop.
+		 * Instead, just compare ID pointers themselves (we assume sub-ID structs cannot loop). */
+		const bool equals = propptr_a->id.data != propptr_b->id.data;
+
+		if (!equals && rna_path) {
+			bool created = false;
+			IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
+
+			if (op != NULL && created) {  /* If not yet overridden... */
+				BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
+				if (r_override_changed) {
+					*r_override_changed = *r_override_changed || created;
+				}
+			}
+		}
+
+		return equals;
+	}
+	else if (override) {
+		if (rna_path) {
+			const bool changed = RNA_struct_auto_override(propptr_a, propptr_b, override, rna_path);
+			if (r_override_changed) {
+				*r_override_changed = *r_override_changed || changed;
+			}
+			/* XXX Simplification here, if no override was added we assume they are equal,
+			 *     this may not be good behavior, time will say. */
+			return !changed;
+		}
+		else {
+			return RNA_struct_override_matches(
+			            propptr_a, propptr_b, override, ignore_non_overridable, ignore_overridden);
+		}
+	}
+	else {
+		return RNA_struct_equals(propptr_a, propptr_b, mode);
+	}
+}
+
 static bool rna_property_override_equals(
         PointerRNA *a, PointerRNA *b, PropertyRNA *prop, eRNAEqualsMode mode,
         IDOverride *override, const char *rna_path, bool *r_override_changed,
@@ -7078,50 +7124,80 @@ static bool rna_property_override_equals(
 			else {
 				PointerRNA propptr_a = RNA_property_pointer_get(a, prop);
 				PointerRNA propptr_b = RNA_property_pointer_get(b, prop);
-				if (RNA_struct_is_ID(propptr_a.type)) {
-					/* In case this is an ID, do not compare structs!
-					 * This is a quite safe path to infinite loop.
-					 * Instead, just compare ID pointers themselves (we assume sub-ID structs cannot loop). */
-					const bool equals =  propptr_a.id.data != propptr_b.id.data;
-
-					if (!equals && rna_path) {
-						bool created = false;
-						IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
-
-						if (op != NULL && created) {  /* If not yet overridden... */
-							BKE_override_property_operation_get(op, IDOVERRIDE_REPLACE, NULL, NULL, -1, -1, NULL);
-							if (r_override_changed) {
-								*r_override_changed = created;
-							}
-						}
-					}
-
-					return equals;
-				}
-				else if (override) {
-					if (rna_path) {
-						const bool changed = RNA_struct_auto_override(&propptr_a, &propptr_b, override);
-						if (r_override_changed) {
-							*r_override_changed = changed;
-						}
-						/* XXX Simplification here, if no override was added we assume they are equal,
-						 *     this may not be good behavior, time will say. */
-						return !changed;
-					}
-					else {
-						return RNA_struct_override_matches(
-						            &propptr_a, &propptr_b, override, ignore_non_overridable, ignore_overridden);
-					}
-				}
-				else {
-					return RNA_struct_equals(&propptr_a, &propptr_b, mode);
-				}
+				rna_property_override_equals_propptr(
+				            &propptr_a, &propptr_b, mode,
+				            override, rna_path, r_override_changed, ignore_non_overridable, ignore_overridden);
 			}
 			break;
 		}
 
 		case PROP_COLLECTION:
-			/* TODO! for override... */
+		{
+			bool equals = true;
+			int idx = 0;
+
+			CollectionPropertyIterator iter_a, iter_b;
+			RNA_property_collection_begin(a, prop, &iter_a);
+			RNA_property_collection_begin(b, prop, &iter_b);
+
+			for (; iter_a.valid && iter_b.valid;
+			     RNA_property_collection_next(&iter_a), RNA_property_collection_next(&iter_b), idx++)
+			{
+				char *extended_rna_path = NULL;
+
+				if (iter_a.ptr.type != iter_b.ptr.type) {
+					/* nothing we can do (for until we support adding/removing from collections), skip it. */
+					equals = false;
+					continue;
+				}
+
+				PropertyRNA *propname = RNA_struct_name_property(iter_a.ptr.type);
+				char propname_buff_a[256], propname_buff_b[256];
+				char *propname_a = NULL, *propname_b = NULL;
+
+				if (propname != NULL) {
+					propname_a = RNA_property_string_get_alloc(&iter_a.ptr, propname, propname_buff_a, sizeof(propname_buff_a), NULL);
+					propname_b = RNA_property_string_get_alloc(&iter_b.ptr, propname, propname_buff_b, sizeof(propname_buff_b), NULL);
+					if (!STREQ(propname_a, propname_b)) {
+						/* Same as above, not same structs. */
+						equals = false;
+					}
+					else if (rna_path) {
+						extended_rna_path = BLI_sprintfN("%s[\"%s\"]", rna_path, propname_a);  /* XXX TODO escape propname! */
+					}
+				}
+				else {  /* Based on index... */
+					if (rna_path) {
+						extended_rna_path = BLI_sprintfN("%s[%d]", rna_path, idx);
+					}
+				}
+
+				{
+					bool eq = rna_property_override_equals_propptr(
+					              &iter_a.ptr, &iter_b.ptr, mode,
+					              override, extended_rna_path, r_override_changed, ignore_non_overridable, ignore_overridden);
+					equals = equals && eq;
+				}
+
+				if (propname_a != propname_buff_a) {
+					MEM_freeN(propname_a);
+				}
+				if (propname_b != propname_buff_b) {
+					MEM_freeN(propname_b);
+				}
+				MEM_SAFE_FREE(extended_rna_path);
+
+				if (!rna_path && !equals) {
+					break;  /* Early out in case we do not want to loop over whole collection. */
+				}
+			}
+
+			equals = equals && !(iter_a.valid || iter_b.valid);  /* Not same number of items in both collections... */
+			RNA_property_collection_end(&iter_a);
+			RNA_property_collection_end(&iter_b);
+
+			return equals;
+		}
 
 		default:
 			break;
@@ -7857,7 +7933,7 @@ void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, IDOverride *ove
 }
 
 /** Automatically define override rules by comparing \a local and \a reference RNA structs. */
-bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverride *override)
+bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverride *override, const char *root_path)
 {
 	CollectionPropertyIterator iter;
 	PropertyRNA *iterprop;
@@ -7880,7 +7956,14 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 		}
 
 		/* XXX TODO this will have to be refined to handle collections insertions, and array items */
-		char *rna_path = RNA_path_from_ID_to_property(local, prop);
+		char *rna_path;
+		if (root_path) {
+			/* Inlined building, much much more efficient. */
+			rna_path = BLI_sprintfN("%s.%s", root_path, RNA_property_identifier(prop));
+		}
+		else {
+			rna_path = RNA_path_from_ID_to_property(local, prop);
+		}
 		if (rna_path == NULL) {
 			continue;
 		}

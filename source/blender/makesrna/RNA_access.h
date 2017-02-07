@@ -1230,7 +1230,8 @@ void RNA_property_override_apply(
 void RNA_struct_override_apply(
         struct PointerRNA *dst, struct PointerRNA *src, struct IDOverride *override, const bool do_init);
 
-bool RNA_struct_auto_override(struct PointerRNA *local, struct PointerRNA *reference, struct IDOverride *override);
+bool RNA_struct_auto_override(
+        struct PointerRNA *local, struct PointerRNA *reference, struct IDOverride *override, const char *root_path);
 
 #ifdef __cplusplus
 }

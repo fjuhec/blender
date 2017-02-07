@@ -337,7 +337,7 @@ bool BKE_override_operations_create(ID *local)
 		RNA_id_pointer_create(local, &rnaptr_local);
 		RNA_id_pointer_create(local->override->reference, &rnaptr_reference);
 
-		if (RNA_struct_auto_override(&rnaptr_local, &rnaptr_reference, local->override)) {
+		if (RNA_struct_auto_override(&rnaptr_local, &rnaptr_reference, local->override, NULL)) {
 			printf("We did generate static override rules for %s\n", local->name);
 		}
 		else {
