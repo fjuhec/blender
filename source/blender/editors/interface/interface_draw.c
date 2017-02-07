@@ -1047,44 +1047,44 @@ void ui_draw_but_VECTORSCOPE(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wco
 	glDisable(GL_BLEND);
 }
 
-static void ui_draw_colorband_handle_tri_hlight(float x1, float y1, float halfwidth, float height)
+static void ui_draw_colorband_handle_tri_hlight(unsigned int pos, float x1, float y1, float halfwidth, float height)
 {
 	glEnable(GL_LINE_SMOOTH);
 
-	glBegin(GL_LINE_STRIP);
-	glVertex2f(x1 + halfwidth, y1);
-	glVertex2f(x1, y1 + height);
-	glVertex2f(x1 - halfwidth, y1);
-	glEnd();
+	immBegin(GL_LINE_STRIP, 3);
+	immVertex2f(pos, x1 + halfwidth, y1);
+	immVertex2f(pos, x1, y1 + height);
+	immVertex2f(pos, x1 - halfwidth, y1);
+	immEnd();
 
 	glDisable(GL_LINE_SMOOTH);
 }
 
-static void ui_draw_colorband_handle_tri(float x1, float y1, float halfwidth, float height, bool fill)
+static void ui_draw_colorband_handle_tri(unsigned int pos, float x1, float y1, float halfwidth, float height, bool fill)
 {
 	glEnable(fill ? GL_POLYGON_SMOOTH : GL_LINE_SMOOTH);
 
-	glBegin(fill ? GL_TRIANGLES : GL_LINE_LOOP);
-	glVertex2f(x1 + halfwidth, y1);
-	glVertex2f(x1, y1 + height);
-	glVertex2f(x1 - halfwidth, y1);
-	glEnd();
+	immBegin(fill ? GL_TRIANGLES : GL_LINE_LOOP, 3);
+	immVertex2f(pos, x1 + halfwidth, y1);
+	immVertex2f(pos, x1, y1 + height);
+	immVertex2f(pos, x1 - halfwidth, y1);
+	immEnd();
 
 	glDisable(fill ? GL_POLYGON_SMOOTH : GL_LINE_SMOOTH);
 }
 
-static void ui_draw_colorband_handle_box(float x1, float y1, float x2, float y2, bool fill)
+static void ui_draw_colorband_handle_box(unsigned int pos, float x1, float y1, float x2, float y2, bool fill)
 {
-	glBegin(fill ? GL_QUADS : GL_LINE_LOOP);
-	glVertex2f(x1, y1);
-	glVertex2f(x1, y2);
-	glVertex2f(x2, y2);
-	glVertex2f(x2, y1);
-	glEnd();
+	immBegin(fill ? GL_QUADS : GL_LINE_LOOP, 4);
+	immVertex2f(pos, x1, y1);
+	immVertex2f(pos, x1, y2);
+	immVertex2f(pos, x2, y2);
+	immVertex2f(pos, x2, y1);
+	immEnd();
 }
 
 static void ui_draw_colorband_handle(
-        const rcti *rect, float x,
+        unsigned int pos, const rcti *rect, float x,
         const float rgb[3], struct ColorManagedDisplay *display,
         bool active)
 {
@@ -1103,17 +1103,18 @@ static void ui_draw_colorband_handle(
 	y1 = floorf(y1 + 0.5f);
 
 	if (active || half_width < min_width) {
-		glBegin(GL_LINES);
-		glColor3ub(0, 0, 0);
-		glVertex2f(x, y1);
-		glVertex2f(x, y2);
-		glEnd();
+		immUniformColor3ub(0, 0, 0);
+		immBegin(GL_LINES, 2);
+		immVertex2f(pos, x, y1);
+		immVertex2f(pos, x, y2);
+		immEnd();
+
 		setlinestyle(active ? 2 : 1);
-		glBegin(GL_LINES);
-		glColor3ub(200, 200, 200);
-		glVertex2f(x, y1);
-		glVertex2f(x, y2);
-		glEnd();
+		immUniformColor3ub(200, 200, 200);
+		immBegin(GL_LINES, 2);
+		immVertex2f(pos, x, y1);
+		immVertex2f(pos, x, y2);
+		immEnd();
 		setlinestyle(0);
 
 		/* hide handles when zoomed out too far */
@@ -1125,45 +1126,46 @@ static void ui_draw_colorband_handle(
 	/* shift handle down */
 	y1 -= half_width;
 
-	glColor3ub(0, 0, 0);
-	ui_draw_colorband_handle_box(x - half_width, y1 - 1, x + half_width, y1 + height, false);
+	immUniformColor3ub(0, 0, 0);
+	ui_draw_colorband_handle_box(pos, x - half_width, y1 - 1, x + half_width, y1 + height, false);
 
 	/* draw all triangles blended */
 	glEnable(GL_BLEND);
 
-	ui_draw_colorband_handle_tri(x, y1 + height, half_width, half_width, true);
+	ui_draw_colorband_handle_tri(pos, x, y1 + height, half_width, half_width, true);
 
 	if (active)
-		glColor3ub(196, 196, 196);
+		immUniformColor3ub(196, 196, 196);
 	else
-		glColor3ub(96, 96, 96);
-	ui_draw_colorband_handle_tri(x, y1 + height, half_width, half_width, true);
+		immUniformColor3ub(96, 96, 96);
+	ui_draw_colorband_handle_tri(pos, x, y1 + height, half_width, half_width, true);
 
 	if (active)
-		glColor3ub(255, 255, 255);
+		immUniformColor3ub(255, 255, 255);
 	else
-		glColor3ub(128, 128, 128);
-	ui_draw_colorband_handle_tri_hlight(x, y1 + height - 1, (half_width - 1), (half_width - 1));
+		immUniformColor3ub(128, 128, 128);
+	ui_draw_colorband_handle_tri_hlight(pos, x, y1 + height - 1, (half_width - 1), (half_width - 1));
 
-	glColor3ub(0, 0, 0);
-	ui_draw_colorband_handle_tri_hlight(x, y1 + height, half_width, half_width);
+	immUniformColor3ub(0, 0, 0);
+	ui_draw_colorband_handle_tri_hlight(pos, x, y1 + height, half_width, half_width);
 
 	glDisable(GL_BLEND);
 
-	glColor3ub(128, 128, 128);
-	ui_draw_colorband_handle_box(x - (half_width - 1), y1, x + (half_width - 1), y1 + height, true);
+	immUniformColor3ub(128, 128, 128);
+	ui_draw_colorband_handle_box(pos, x - (half_width - 1), y1, x + (half_width - 1), y1 + height, true);
 
 	if (display) {
 		IMB_colormanagement_scene_linear_to_display_v3(colf, display);
 	}
 
-	glColor3fv(colf);
-	ui_draw_colorband_handle_box(x - (half_width - 2), y1 + 1, x + (half_width - 2), y1 + height - 2, true);
+	immUniformColor3fv(colf);
+	ui_draw_colorband_handle_box(pos, x - (half_width - 2), y1 + 1, x + (half_width - 2), y1 + height - 2, true);
 }
 
 void ui_draw_but_COLORBAND(uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti *rect)
 {
 	struct ColorManagedDisplay *display = NULL;
+	unsigned int position, color;
 
 	ColorBand *coba = (ColorBand *)(but->editcoba ? but->editcoba : but->poin);
 	if (coba == NULL) return;
@@ -1177,17 +1179,22 @@ void ui_draw_but_COLORBAND(uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti 
 	float sizey_solid = sizey / 4;
 	float y1 = rect->ymin;
 
-	/* Drawing the checkerboard.
-	 * This could be optimized with a single checkerboard shader,
-	 * instead of drawing twice and using stippling the second time. */
-	/* layer: background, to show tranparency */
-	glColor4ub(UI_ALPHA_CHECKER_DARK, UI_ALPHA_CHECKER_DARK, UI_ALPHA_CHECKER_DARK, 255);
-	glRectf(x1, y1, x1 + sizex, rect->ymax);
-	GPU_basic_shader_bind(GPU_SHADER_STIPPLE | GPU_SHADER_USE_COLOR);
-	glColor4ub(UI_ALPHA_CHECKER_LIGHT, UI_ALPHA_CHECKER_LIGHT, UI_ALPHA_CHECKER_LIGHT, 255);
-	GPU_basic_shader_stipple(GPU_SHADER_STIPPLE_CHECKER_8PX);
-	glRectf(x1, y1, x1 + sizex, rect->ymax);
-	GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
+	VertexFormat *format = immVertexFormat();
+	position = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_CHECKER);
+
+	/* Drawing the checkerboard. */
+	immUniform4f("color1", UI_ALPHA_CHECKER_DARK / 255.f, UI_ALPHA_CHECKER_DARK / 255.f, UI_ALPHA_CHECKER_DARK / 255.f, 1.0f);
+	immUniform4f("color2", UI_ALPHA_CHECKER_LIGHT / 255.f, UI_ALPHA_CHECKER_LIGHT / 255.f, UI_ALPHA_CHECKER_LIGHT / 255.f, 1.0f);
+	immUniform1i("size", 8);
+	immRectf(position, x1, y1, x1 + sizex, rect->ymax);
+	immUnbindProgram();
+
+	/* New format */
+	format = immVertexFormat();
+	position = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	color = add_attrib(format, "color", GL_FLOAT, 4, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
 	/* layer: color ramp */
 	glEnable(GL_BLEND);
@@ -1200,7 +1207,7 @@ void ui_draw_but_COLORBAND(uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti 
 	v1[1] = y1 + sizey_solid;
 	v2[1] = rect->ymax;
 	
-	glBegin(GL_TRIANGLE_STRIP);
+	immBegin(GL_TRIANGLE_STRIP, (sizex+1) * 2);
 	for (int a = 0; a <= sizex; a++) {
 		float pos = ((float)a) / sizex;
 		do_colorband(coba, pos, colf);
@@ -1209,17 +1216,17 @@ void ui_draw_but_COLORBAND(uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti 
 		
 		v1[0] = v2[0] = x1 + a;
 		
-		glColor4fv(colf);
-		glVertex2fv(v1);
-		glVertex2fv(v2);
+		immAttrib4fv(color, colf);
+		immVertex2fv(position, v1);
+		immVertex2fv(position, v2);
 	}
-	glEnd();
+	immEnd();
 
 	/* layer: color ramp without alpha for reference when manipulating ramp properties */
 	v1[1] = y1;
 	v2[1] = y1 + sizey_solid;
 
-	glBegin(GL_TRIANGLE_STRIP);
+	immBegin(GL_TRIANGLE_STRIP, (sizex+1) * 2);
 	for (int a = 0; a <= sizex; a++) {
 		float pos = ((float)a) / sizex;
 		do_colorband(coba, pos, colf);
@@ -1228,31 +1235,38 @@ void ui_draw_but_COLORBAND(uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti 
 
 		v1[0] = v2[0] = x1 + a;
 
-		glColor4f(colf[0], colf[1], colf[2], 1.0f);
-		glVertex2fv(v1);
-		glVertex2fv(v2);
+		immAttrib4f(color, colf[0], colf[1], colf[2], 1.0f);
+		immVertex2fv(position, v1);
+		immVertex2fv(position, v2);
 	}
-	glEnd();
+	immEnd();
+
+	immUnbindProgram();
 
 	glDisable(GL_BLEND);
 
+	/* New format */
+	format = immVertexFormat();
+	position = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
 	/* layer: box outline */
-	glColor4f(0.0, 0.0, 0.0, 1.0);
-	fdrawbox(x1, y1, x1 + sizex, rect->ymax);
-	
+	immUniformColor4f(0.f, 0.f, 0.f, 1.f);
+	imm_draw_line_box(position, x1, y1, x1 + sizex, rect->ymax);
+
 	/* layer: box outline */
 	glEnable(GL_BLEND);
-	glColor4f(0.0f, 0.0f, 0.0f, 0.5f);
-	fdrawline(x1, y1, x1 + sizex, y1);
-	glColor4f(1.0f, 1.0f, 1.0f, 0.25f);
-	fdrawline(x1, y1 - 1, x1 + sizex, y1 - 1);
+	immUniformColor4f(0.f, 0.f, 0.f, 0.5f);
+	imm_draw_line(position, x1, y1, x1 + sizex, y1);
+	immUniformColor4f(1.f, 1.f, 1.f, 0.25f);
+	imm_draw_line(position, x1, y1 - 1, x1 + sizex, y1 - 1);
 	glDisable(GL_BLEND);
 	
 	/* layer: draw handles */
 	for (int a = 0; a < coba->tot; a++, cbd++) {
 		if (a != coba->cur) {
 			float pos = x1 + cbd->pos * (sizex - 1) + 1;
-			ui_draw_colorband_handle(rect, pos, &cbd->r, display, false);
+			ui_draw_colorband_handle(position, rect, pos, &cbd->r, display, false);
 		}
 	}
 
@@ -1260,8 +1274,10 @@ void ui_draw_but_COLORBAND(uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti 
 	if (coba->tot != 0) {
 		cbd = &coba->data[coba->cur];
 		float pos = x1 + cbd->pos * (sizex - 1) + 1;
-		ui_draw_colorband_handle(rect, pos, &cbd->r, display, true);
+		ui_draw_colorband_handle(position, rect, pos, &cbd->r, display, true);
 	}
+
+	immUnbindProgram();
 }
 
 void ui_draw_but_UNITVEC(uiBut *but, uiWidgetColors *wcol, const rcti *rect)
