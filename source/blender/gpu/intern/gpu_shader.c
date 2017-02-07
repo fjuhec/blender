@@ -131,6 +131,9 @@ extern char datatoc_gpu_shader_fx_dof_hq_geo_glsl[];
 extern char datatoc_gpu_shader_fx_depth_resolve_glsl[];
 extern char datatoc_gpu_shader_fx_lib_glsl[];
 
+extern char datatoc_gpu_shader_gpencil_fill_vert_glsl[];
+extern char datatoc_gpu_shader_gpencil_fill_frag_glsl[];
+
 /* cache of built-in shaders (each is created on first use) */
 static GPUShader *builtin_shaders[GPU_NUM_BUILTIN_SHADERS] = { NULL };
 
@@ -765,6 +768,9 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		[GPU_SHADER_INSTANCE_VARIYING_COLOR_VARIYING_SIZE] = 
 		    { datatoc_gpu_shader_instance_variying_size_variying_color_vert_glsl,
 		      datatoc_gpu_shader_flat_color_frag_glsl },
+
+		[GPU_SHADER_GPENCIL_FILL] = { datatoc_gpu_shader_gpencil_fill_vert_glsl,
+		                              datatoc_gpu_shader_gpencil_fill_frag_glsl },
 	};
 
 	if (builtin_shaders[shader] == NULL) {

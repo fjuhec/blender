@@ -154,6 +154,8 @@ typedef enum GPUBuiltinShader {
 	/* instance */
 	GPU_SHADER_INSTANCE_UNIFORM_COLOR,
 	GPU_SHADER_INSTANCE_VARIYING_COLOR_VARIYING_SIZE,
+	/* grease pencil drawing */
+	GPU_SHADER_GPENCIL_FILL,
 
 	GPU_NUM_BUILTIN_SHADERS /* (not an actual shader) */
 } GPUBuiltinShader;
