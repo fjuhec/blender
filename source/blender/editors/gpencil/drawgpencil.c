@@ -578,8 +578,6 @@ static void gp_draw_stroke_fill(
 	bGPdata *gpd, bGPDstroke *gps,
 	int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float color[4])
 {
-	float fpt[3];
-
 	BLI_assert(gps->totpoints >= 3);
 
 	PaletteColor *palcolor = gps->palcolor;
@@ -604,8 +602,6 @@ static void gp_draw_stroke_fill(
 	/* TODO: use batch instead of immediate mode, to share vertices */
 
 	bGPDtriangle *stroke_triangle = gps->triangles;
-	bGPDspoint *pt;
-
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
 
 		gp_add_filldata_tobuffer(&gps->points[stroke_triangle->v1], stroke_triangle->uv1,
