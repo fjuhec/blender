@@ -405,7 +405,7 @@ static void gp_draw_stroke_volumetric_3d(
 
 /* --------------- Stroke Fills ----------------- */
 /* calc bounding box in 2d using flat projection data */
-void gp_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2])
+static void gp_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2])
 {
 	minv[0] = points2d[0][0];
 	minv[1] = points2d[0][1];
@@ -432,7 +432,7 @@ void gp_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, float min
 }
 
 /* calc texture coordinates using flat projected points */
-void gp_calc_stroke_text_coordinates(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2], float(*r_uv)[2])
+static void gp_calc_stroke_text_coordinates(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2], float(*r_uv)[2])
 {
 	float d[2];
 	d[0] = maxv[0] - minv[0];
