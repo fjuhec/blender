@@ -554,6 +554,24 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 	if (uv) MEM_freeN(uv);
 }
 
+/* add a new fill point and texture coordinates to vertex buffer */
+static void gp_add_filldata_tobuffer(bGPDspoint *pt, float uv[2], unsigned pos, unsigned texcoord, short flag, 
+	int offsx, int offsy, int winx, int winy, const float diff_mat[4][4])
+{
+	float fpt[3];
+	float co[2];
+
+	mul_v3_m4v3(fpt, diff_mat, &pt->x);
+	/* if 2d need conversion */
+	if (!flag & GP_STROKE_3DSPACE) {
+		gp_calc_2d_stroke_fxy(fpt, flag, offsx, offsy, winx, winy, co);
+		copy_v2_v2(fpt, co);
+		fpt[2] = 0.0f; /* 2d always is z=0.0f */
+	}
+
+	immAttrib2f(texcoord, uv[0], uv[1]); /* texture coordinates */
+	immVertex3fv(pos, fpt); /* position */
+}
 
 /* draw fills for shapes */
 static void gp_draw_stroke_fill(
@@ -573,15 +591,11 @@ static void gp_draw_stroke_fill(
 	}
 	BLI_assert(gps->tot_triangles >= 1);
 
-	unsigned pos;
-	if (gps->flag & GP_STROKE_3DSPACE) {
-		pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 3, KEEP_FLOAT);
-		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-	}
-	else {
-		pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-	}
+	VertexFormat *format = immVertexFormat();
+	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
+	unsigned texcoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_GPENCIL_FILL);
 
 	immUniformColor4fv(color);
 
@@ -593,74 +607,20 @@ static void gp_draw_stroke_fill(
 	bGPDspoint *pt;
 
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
-		if (gps->flag & GP_STROKE_3DSPACE) {
-			/* vertex 1 */
-			pt = &gps->points[stroke_triangle->v1];
-			mul_v3_m4v3(fpt, diff_mat, &pt->x);
-			immVertex3fv(pos, fpt);
-			/* vertex 2 */
-			pt = &gps->points[stroke_triangle->v2];
-			mul_v3_m4v3(fpt, diff_mat, &pt->x);
-			immVertex3fv(pos, fpt);
-			/* vertex 3 */
-			pt = &gps->points[stroke_triangle->v3];
-			mul_v3_m4v3(fpt, diff_mat, &pt->x);
-			immVertex3fv(pos, fpt);
-		}
-		else {
-			float co[2];
-			/* vertex 1 */
-			pt = &gps->points[stroke_triangle->v1];
-			mul_v3_m4v3(fpt, diff_mat, &pt->x);
-			gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
-			immVertex2fv(pos, co);
-			/* vertex 2 */
-			pt = &gps->points[stroke_triangle->v2];
-			mul_v3_m4v3(fpt, diff_mat, &pt->x);
-			gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
-			immVertex2fv(pos, co);
-			/* vertex 3 */
-			pt = &gps->points[stroke_triangle->v3];
-			mul_v3_m4v3(fpt, diff_mat, &pt->x);
-			gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
-			immVertex2fv(pos, co);
-		}
+
+		gp_add_filldata_tobuffer(&gps->points[stroke_triangle->v1], stroke_triangle->uv1,
+			pos, texcoord, gps->flag,
+			offsx, offsy, winx, winy, diff_mat);
+		gp_add_filldata_tobuffer(&gps->points[stroke_triangle->v2], stroke_triangle->uv2,
+			pos, texcoord, gps->flag,
+			offsx, offsy, winx, winy, diff_mat);
+		gp_add_filldata_tobuffer(&gps->points[stroke_triangle->v3], stroke_triangle->uv3,
+			pos, texcoord, gps->flag,
+			offsx, offsy, winx, winy, diff_mat);
 	}
 
 	immEnd();
 	immUnbindProgram();
-
-#if 0 /* convert to modern GL only if needed */
-	else {
-		/* As an initial implementation, we use the OpenGL filled polygon drawing
-		* here since it's the easiest option to implement for this case. It does
-		* come with limitations (notably for concave shapes), though it shouldn't
-		* be much of an issue in most cases.
-		*
-		* We keep this legacy implementation around despite now having the high quality
-		* fills, as this is necessary for keeping everything working nicely for files
-		* created using old versions of Blender which may have depended on the artifacts
-		* the old fills created.
-		*/
-		bGPDspoint *pt = gps->points;
-
-		glBegin(GL_POLYGON);
-		for (int i = 0; i < gps->totpoints; i++, pt++) {
-			if (gps->flag & GP_STROKE_3DSPACE) {
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				glVertex3fv(fpt);
-			}
-			else {
-				float co[2];
-				mul_v3_m4v3(fpt, diff_mat, &pt->x);
-				gp_calc_2d_stroke_fxy(fpt, gps->flag, offsx, offsy, winx, winy, co);
-				glVertex2fv(co);
-			}
-		}
-
-		glEnd();
-	}
-#endif
 }
 
 /* ----- Existing Strokes Drawing (3D and Point) ------ */
