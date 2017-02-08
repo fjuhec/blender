@@ -45,6 +45,10 @@
 #include "RNA_access.h"
 #include "RNA_types.h"
 
+#include "PIL_time.h"
+#include "PIL_time_utildefines.h"
+
+#define OVERRIDE_AUTO_GAP 0.2  /* 200ms between auto-override checks. */
 
 /** Initialize empty overriding of \a reference_id by \a local_id. */
 IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id)
@@ -276,6 +280,12 @@ bool BKE_override_status_check_reference(ID *local)
 bool BKE_override_operations_store_start(ID *local)
 {
 	BLI_assert(local->override != NULL);
+	bool ret = false;
+
+	/* Forcefully ensure we now about all needed poverride operations. */
+	BKE_override_operations_create(local, true);
+
+	TIMEIT_START_AVERAGED(BKE_override_operations_store_start);
 
 	/* Here we work on original local data-block, after having made a temp copy of it.
 	 * Once we are done, _store_end() will swap temp and local contents.
@@ -289,7 +299,7 @@ bool BKE_override_operations_store_start(ID *local)
 	id_copy(G.main, local, &tmp_id, false);  /* XXX ...and worse of all, this won't work with scene! */
 
 	if (tmp_id == NULL) {
-		return false;
+		return ret;
 	}
 
 	PointerRNA rnaptr_reference, rnaptr_final;
@@ -298,13 +308,15 @@ bool BKE_override_operations_store_start(ID *local)
 
 	if (!RNA_struct_override_store(&rnaptr_final, &rnaptr_reference, local->override)) {
 		BKE_libblock_free_ex(G.main, tmp_id, true, false);
-		return false;
+	}
+	else {
+		local->tag &= ~LIB_TAG_OVERRIDE_OK;
+		local->newid = tmp_id;
+		ret = true;
 	}
 
-	local->tag &= ~LIB_TAG_OVERRIDE_OK;
-	local->newid = tmp_id;
-
-	return true;
+	TIMEIT_END_AVERAGED(BKE_override_operations_store_start);
+	return ret;
 }
 
 /** Restore given ID modified by \a BKE_override_operations_store_start, to its valid original state. */
@@ -328,23 +340,40 @@ void BKE_override_operations_store_end(ID *local)
  * Compares local and reference data-blocks and create new override operations as needed,
  * or reset to reference values if overriding is not allowed.
  *
+ * \note Defining override operations is only mandatory before saving a .blend file on disk (not for undo!).
+ * Knowing that info at runtime is only useful for UI/UX feedback.
+ *
+ * \note This is by far the biggest operation (the more time-consuming) of the three so far, since it has to go over
+ * all properties in depth (all overridable ones at least). Generating diff values and applying overrides
+ * are much cheaper.
+ *
  * \return true is new overriding op was created, or some local data was reset. */
-bool BKE_override_operations_create(ID *local)
+bool BKE_override_operations_create(ID *local, const bool no_skip)
 {
 	BLI_assert(local->override != NULL);
+	bool ret = false;
+
 	if (local->flag & LIB_AUTOOVERRIDE) {
+		/* This prevents running that (heavy) callback too often when editing data. */
+		const double currtime = PIL_check_seconds_timer();
+		if (!no_skip && (currtime - local->override->last_auto_run) < OVERRIDE_AUTO_GAP) {
+			return ret;
+		}
+		local->override->last_auto_run = currtime;
+
 		PointerRNA rnaptr_local, rnaptr_reference;
 		RNA_id_pointer_create(local, &rnaptr_local);
 		RNA_id_pointer_create(local->override->reference, &rnaptr_reference);
 
-		if (RNA_struct_auto_override(&rnaptr_local, &rnaptr_reference, local->override, NULL)) {
+		ret = RNA_struct_auto_override(&rnaptr_local, &rnaptr_reference, local->override, NULL);
+		if (ret) {
 			printf("We did generate static override rules for %s\n", local->name);
 		}
 		else {
 			printf("No new static override rules for %s\n", local->name);
 		}
 	}
-	return false;
+	return ret;
 }
 
 /** Update given override from its reference (re-applying overriden properties). */

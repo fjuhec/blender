@@ -60,7 +60,7 @@ bool BKE_override_status_check_reference(struct ID *local);
 bool BKE_override_operations_store_start(struct ID *local);
 void BKE_override_operations_store_end(struct ID *local);
 
-bool BKE_override_operations_create(struct ID *local);
+bool BKE_override_operations_create(struct ID *local, const bool no_skip);
 
 void BKE_override_update(struct ID *local, const bool do_init);
 void BKE_main_override_update(struct Main *bmain, const bool do_init);

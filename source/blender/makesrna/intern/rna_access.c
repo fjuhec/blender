@@ -6828,7 +6828,7 @@ bool RNA_struct_equals(PointerRNA *a, PointerRNA *b, eRNAEqualsMode mode)
 }
 
 /* Low-level functions, also used by non-override RNA API like copy or equality check. */
-
+#include "PIL_time_utildefines.h"
 /* Used for both Pointer and Collection properties. */
 static bool rna_property_override_equals_propptr(
         PointerRNA *propptr_a, PointerRNA *propptr_b, eRNAEqualsMode mode,
@@ -7889,6 +7889,7 @@ bool RNA_struct_override_store(PointerRNA *local, PointerRNA *reference, IDOverr
 {
 	bool changed = false;
 
+	TIMEIT_START_AVERAGED(RNA_struct_override_store);
 	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
 		/* Simplified for now! */
 		PointerRNA src_data, dst_data;
@@ -7900,6 +7901,7 @@ bool RNA_struct_override_store(PointerRNA *local, PointerRNA *reference, IDOverr
 			changed = changed || rna_property_override_operation_store(&dst_data, &src_data, src_prop, op);
 		}
 	}
+	TIMEIT_END_AVERAGED(RNA_struct_override_store);
 
 	return changed;
 }
@@ -7918,6 +7920,7 @@ void RNA_property_override_apply(
 /** Apply given \a override operations on \a dst, using \a src as source. */
 void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, IDOverride *override, const bool do_init)
 {
+	TIMEIT_START_AVERAGED(RNA_struct_override_apply);
 	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
 		/* Simplified for now! */
 		PointerRNA src_data, dst_data;
@@ -7930,6 +7933,7 @@ void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, IDOverride *ove
 			RNA_property_override_apply(&dst_data, &src_data, src_prop, op, do_init);
 		}
 	}
+	TIMEIT_END_AVERAGED(RNA_struct_override_apply);
 }
 
 /** Automatically define override rules by comparing \a local and \a reference RNA structs. */
@@ -7944,6 +7948,13 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 
 	if ((((ID *)local->id.data)->flag & LIB_AUTOOVERRIDE) == 0) {
 		return changed;
+	}
+
+	static float _sum_time = 0.0f;
+	static float _num_time = 0.0f;
+	double _timeit_time;
+	if (!root_path) {
+		_timeit_time = PIL_check_seconds_timer();
 	}
 
 	iterprop = RNA_struct_iterator_property(local->type);
@@ -7973,6 +7984,15 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 		MEM_SAFE_FREE(rna_path);
 	}
 	RNA_property_collection_end(&iter);
+
+	if (!root_path) {
+		const float _delta_time = (float)(PIL_check_seconds_timer() - _timeit_time);
+		_sum_time += _delta_time;
+		_num_time++;
+		printf("ID: %s\n", ((ID *)local->id.data)->name);
+		printf("time end      (%s): %.6f\n", __func__, _delta_time);
+		printf("time averaged (%s): %.6f (total: %.6f, in %d runs)\n", __func__, (_sum_time / _num_time), _sum_time, (int)_num_time);
+	}
 
 	return changed;
 }
