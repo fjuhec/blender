@@ -562,7 +562,7 @@ static void gp_add_filldata_tobuffer(bGPDspoint *pt, float uv[2], unsigned pos, 
 	float co[2];
 
 	mul_v3_m4v3(fpt, diff_mat, &pt->x);
-	/* if 2d need conversion */
+	/* if 2d, need conversion */
 	if (!flag & GP_STROKE_3DSPACE) {
 		gp_calc_2d_stroke_fxy(fpt, flag, offsx, offsy, winx, winy, co);
 		copy_v2_v2(fpt, co);
@@ -579,7 +579,6 @@ static void gp_draw_stroke_fill(
 	int offsx, int offsy, int winx, int winy, const float diff_mat[4][4], const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
-
 	PaletteColor *palcolor = gps->palcolor;
 
 	/* Calculate triangles cache for filling area (must be done only after changes) */
@@ -591,7 +590,6 @@ static void gp_draw_stroke_fill(
 	VertexFormat *format = immVertexFormat();
 	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 3, KEEP_FLOAT);
 	unsigned texcoord = add_attrib(format, "texCoord", GL_FLOAT, 2, KEEP_FLOAT);
-
 	immBindBuiltinProgram(GPU_SHADER_GPENCIL_FILL);
 
 	immUniformColor4fv(color);
@@ -602,7 +600,6 @@ static void gp_draw_stroke_fill(
 
 	bGPDtriangle *stroke_triangle = gps->triangles;
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
-
 		gp_add_filldata_tobuffer(&gps->points[stroke_triangle->v1], stroke_triangle->uv1,
 			pos, texcoord, gps->flag,
 			offsx, offsy, winx, winy, diff_mat);
