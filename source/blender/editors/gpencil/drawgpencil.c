@@ -582,8 +582,7 @@ static void gp_draw_stroke_fill(
 
 	PaletteColor *palcolor = gps->palcolor;
 
-	/* Triangulation fill hq fill always */
-		/* Calculate triangles cache for filling area (must be done only after changes) */
+	/* Calculate triangles cache for filling area (must be done only after changes) */
 	if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
 		gp_triangulate_stroke_fill(gps);
 	}
