@@ -7163,7 +7163,10 @@ static bool rna_property_override_equals(
 						equals = false;
 					}
 					else if (rna_path) {
-						extended_rna_path = BLI_sprintfN("%s[\"%s\"]", rna_path, propname_a);  /* XXX TODO escape propname! */
+						const size_t esc_propname_a_len = strlen(propname_a) * 2;
+						char *esc_propname_a = alloca(sizeof(*esc_propname_a) * esc_propname_a_len);
+						BLI_strescape(esc_propname_a, propname_a, esc_propname_a_len);
+						extended_rna_path = BLI_sprintfN("%s[\"%s\"]", rna_path, esc_propname_a);
 					}
 				}
 				else {  /* Based on index... */
@@ -7172,7 +7175,7 @@ static bool rna_property_override_equals(
 					}
 				}
 
-				{
+				if (equals) {
 					bool eq = rna_property_override_equals_propptr(
 					              &iter_a.ptr, &iter_b.ptr, mode,
 					              override, extended_rna_path, r_override_changed, ignore_non_overridable, ignore_overridden);

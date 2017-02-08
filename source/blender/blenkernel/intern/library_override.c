@@ -32,7 +32,9 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_ID.h"
+#include "DNA_object_types.h"
 
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"  /* XXX Yuck! temp hack! */
 #include "BKE_library.h"
 #include "BKE_library_override.h"
@@ -48,7 +50,7 @@
 #include "PIL_time.h"
 #include "PIL_time_utildefines.h"
 
-#define OVERRIDE_AUTO_GAP 0.2  /* 200ms between auto-override checks. */
+#define OVERRIDE_AUTO_CHECK_DELAY 0.2  /* 200ms between auto-override checks. */
 
 /** Initialize empty overriding of \a reference_id by \a local_id. */
 IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id)
@@ -356,7 +358,7 @@ bool BKE_override_operations_create(ID *local, const bool no_skip)
 	if (local->flag & LIB_AUTOOVERRIDE) {
 		/* This prevents running that (heavy) callback too often when editing data. */
 		const double currtime = PIL_check_seconds_timer();
-		if (!no_skip && (currtime - local->override->last_auto_run) < OVERRIDE_AUTO_GAP) {
+		if (!no_skip && (currtime - local->override->last_auto_run) < OVERRIDE_AUTO_CHECK_DELAY) {
 			return ret;
 		}
 		local->override->last_auto_run = currtime;
@@ -377,7 +379,7 @@ bool BKE_override_operations_create(ID *local, const bool no_skip)
 }
 
 /** Update given override from its reference (re-applying overriden properties). */
-void BKE_override_update(ID *local, const bool do_init)
+void BKE_override_update(Main *bmain, ID *local, const bool do_init)
 {
 	if (local->override == NULL) {
 		return;
@@ -385,7 +387,7 @@ void BKE_override_update(ID *local, const bool do_init)
 
 	/* Recursively do 'ancestors' overrides first, if any. */
 	if (local->override->reference->override && (local->override->reference->tag & LIB_TAG_OVERRIDE_OK) == 0) {
-		BKE_override_update(local->override->reference, do_init);
+		BKE_override_update(bmain, local->override->reference, do_init);
 	}
 
 	/* We want to avoid having to remap here, however creating up-to-date override is much simpler if based
@@ -400,7 +402,7 @@ void BKE_override_update(ID *local, const bool do_init)
 	 *     also remain correct). */
 
 	ID *tmp_id;
-	id_copy(G.main, local->override->reference, &tmp_id, false);  /* XXX ...and worse of all, this won't work with scene! */
+	id_copy(bmain, local->override->reference, &tmp_id, false);  /* XXX ...and worse of all, this won't work with scene! */
 
 	if (tmp_id == NULL) {
 		return;
@@ -417,7 +419,10 @@ void BKE_override_update(ID *local, const bool do_init)
 	BKE_id_swap(local, tmp_id);
 
 	/* Again, horribly innefficient in our case, we need something off-Main (aka moar generic nolib copy/free stuff)! */
-	BKE_libblock_free_ex(G.main, tmp_id, true, false);
+	/* XXX And crashing in complex cases (e.g. because depsgraph uses same data...). */
+	BKE_libblock_free_ex(bmain, tmp_id, true, false);
+
+	DAG_id_tag_update_ex(bmain, local, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 
 	local->tag |= LIB_TAG_OVERRIDE_OK;
 }
@@ -436,8 +441,11 @@ void BKE_main_override_update(Main *bmain, const bool do_init)
 
 		for (id = lb->first; id; id = id->next) {
 			if (id->override != NULL && id->lib == NULL) {
-				BKE_override_update(id, do_init);
+				BKE_override_update(bmain, id, do_init);
 			}
 		}
 	}
+
+	/* Full rebuild of DAG! */
+	DAG_relations_tag_update(bmain);
 }
