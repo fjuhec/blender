@@ -25,8 +25,10 @@
 #ifndef __COLLECTIONS_INTERN_H__
 #define __COLLECTIONS_INTERN_H__
 
+struct bContext;
 struct rcti;
 struct SceneLayer;
+struct uiLayout;
 struct wmKeyConfig;
 
 /* collections_edit.c */
@@ -39,8 +41,8 @@ void collections_operatortypes(void);
 void collections_keymap(struct wmKeyConfig *keyconf);
 
 /* collections_draw.c */
-void collections_draw_table(struct SpaceCollections *spc, const ARegion *ar);
-void collections_draw_cell(void *rowdata, struct rcti drawrect);
+void collections_draw_table(const struct bContext *C, struct SpaceCollections *spc, ARegion *ar);
+void collections_draw_cell(struct uiLayout *layout, void *rowdata, struct rcti drawrect);
 
 #endif  /* __COLLECTIONS_INTERN_H__ */
 

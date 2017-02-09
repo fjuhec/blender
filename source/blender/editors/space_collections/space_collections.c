@@ -120,7 +120,7 @@ static void collections_main_region_draw(const bContext *C, ARegion *ar)
 
 	BLI_assert(BLI_listbase_count(&layer->layer_collections) == UI_table_get_rowcount(spc->table));
 	UNUSED_VARS_NDEBUG(layer);
-	collections_draw_table(spc, ar);
+	collections_draw_table(C, spc, ar);
 
 	/* reset view matrix */
 	UI_view2d_view_restore(C);
