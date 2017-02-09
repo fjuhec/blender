@@ -1,6 +1,8 @@
 uniform vec4 color;  
 uniform vec4 color2;
 uniform int fill_type;
+uniform float angle;
+uniform float factor;
 
 #define SOLID 0
 #define GRADIENT 1
@@ -21,6 +23,7 @@ void main()
 	}
 	/* gradient fill */
 	if (fill_type == GRADIENT) {
-		fragColor = mix(color, color2, texCoord_interp.x);
+		float val = texCoord_interp.x * cos(angle) + texCoord_interp.y * sin(angle);
+		fragColor = mix(color, color2, val - factor);
 	}
 }

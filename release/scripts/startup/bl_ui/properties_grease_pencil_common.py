@@ -1129,6 +1129,7 @@ class GreasePencilPaletteColorPanel:
         if (pcolor.fill_style == 'GRADIENT'):
             col.prop(pcolor, "mix_color", text="Mix")
             col.prop(pcolor, "angle", text="Angle")
+            col.prop(pcolor, "factor", text="Factor")
 
         # Options
         row = layout.row()

@@ -595,6 +595,8 @@ static void gp_draw_stroke_fill(
 	immUniformColor4fv(color);
 	immUniform4fv("color2", palcolor->scolor);
 	immUniform1i("fill_type", palcolor->fill_style);
+	immUniform1f("angle", palcolor->angle);
+	immUniform1f("factor", palcolor->factor);
 
 	/* Draw all triangles for filling the polygon (cache must be calculated before) */
 	immBegin(GL_TRIANGLES, gps->tot_triangles * 3);
