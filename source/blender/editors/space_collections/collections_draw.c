@@ -42,12 +42,13 @@ void collections_draw_table(const struct bContext *C, SpaceCollections *spc, ARe
 {
 	uiStyle *style = UI_style_get_dpi();
 	uiBlock *block = UI_block_begin(C, ar, __func__, 0);
+	const int table_width = MAX2(BLI_rctf_size_x(&ar->v2d.tot), BLI_rctf_size_x(&ar->v2d.cur));
 	unsigned char col1[3], col2[3];
 
 	UI_GetThemeColorShade3ubv(TH_BACK, 6, col1);
 	UI_GetThemeColor3ubv(TH_BACK, col2);
 
-	UI_table_max_width_set(spc->table, BLI_rctf_size_x(&ar->v2d.tot));
+	UI_table_max_width_set(spc->table, table_width);
 	UI_table_background_colors_set(spc->table, col1, col2);
 
 	UI_table_draw(spc->table, block, style);
