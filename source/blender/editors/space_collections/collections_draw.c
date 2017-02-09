@@ -40,10 +40,17 @@
 
 void collections_draw_table(const struct bContext *C, SpaceCollections *spc, ARegion *ar)
 {
+	uiStyle *style = UI_style_get_dpi();
 	uiBlock *block = UI_block_begin(C, ar, __func__, 0);
+	unsigned char col1[3], col2[3];
+
+	UI_GetThemeColorShade3ubv(TH_BACK, 6, col1);
+	UI_GetThemeColor3ubv(TH_BACK, col2);
 
 	UI_table_max_width_set(spc->table, BLI_rctf_size_x(&ar->v2d.tot));
-	UI_table_draw(spc->table, block, UI_style_get_dpi());
+	UI_table_background_colors_set(spc->table, col1, col2);
+
+	UI_table_draw(spc->table, block, style);
 
 	UI_block_end(C, block);
 	UI_block_draw(C, block);
