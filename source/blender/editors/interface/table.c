@@ -25,12 +25,15 @@
 #include <limits.h>
 #include <string.h>
 
+#include "BLI_alloca.h"
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_mempool.h"
 #include "BLI_rect.h"
 
 #include "DNA_userdef_types.h"
+
+#include "GPU_immediate.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -41,6 +44,7 @@
 typedef struct uiTable {
 	BLI_mempool *row_pool;
 	ListBase columns;
+	unsigned int tot_columns;
 
 	enum {
 		TABLE_FLOW_VERTICAL,
@@ -48,6 +52,8 @@ typedef struct uiTable {
 	} flow_direction;
 	unsigned int max_width;
 
+	unsigned char rgb1[3];
+	unsigned char rgb2[3];
 	char flag;
 } uiTable;
 
@@ -55,6 +61,7 @@ enum eTableFlags {
 	/* All rows have the same height. In this case we can avoid iterating
 	 * over rows for calculations like intersection checks. */
 	TABLE_ROWS_CONSTANT_HEIGHT = (1 << 0),
+	TABLE_DRAW_BACKGROUND      = (1 << 1),
 };
 
 typedef struct TableHorizontalFlow {
@@ -69,10 +76,7 @@ typedef struct TableHorizontalFlow {
  * for size properties (only column widths right now).
  */
 typedef struct uiTableSize {
-	enum {
-		TABLE_UNIT_PX,
-		TABLE_UNIT_PERCENT,
-	} unit;
+	enum uiTableUnit unit;
 	int value;
 } uiTableSize;
 
@@ -154,15 +158,24 @@ static void table_row_height_set(uiTable *table, uiTableRow *row, unsigned int h
 	}
 }
 
-static unsigned int table_get_tot_width_unfixed_columns(const uiTable *table)
+static unsigned int table_column_width_clamp(const uiTableColumn *column, const unsigned int maxwidth,
+                                             const unsigned int unclamped_width)
+{
+	unsigned int width = unclamped_width;
+	CLAMP(width, column->min_width, maxwidth);
+	return width;
+}
+
+static unsigned int table_calc_tot_width_unfixed_columns(const uiTable *table)
 {
 	unsigned int nonfixed_width = table->max_width;
 
 	TABLE_COLUMNS_ITER_BEGIN(table, column)
 	{
 		if (column->width.unit == TABLE_UNIT_PX) {
-			BLI_assert(nonfixed_width - column->width.value > 0);
-			nonfixed_width -= column->width.value;
+			unsigned int width = table_column_width_clamp(column, table->max_width, column->width.value);
+			BLI_assert(nonfixed_width >= width);
+			nonfixed_width -= width;
 		}
 	}
 	TABLE_COLUMNS_ITER_END;
@@ -174,22 +187,23 @@ static struct TableColumnDrawInfo table_column_drawinfo_init(const uiTable *tabl
 {
 	struct TableColumnDrawInfo drawinfo = {};
 
-	drawinfo.totwidth_nonfixed = table_get_tot_width_unfixed_columns(table);
+	drawinfo.totwidth_nonfixed = table_calc_tot_width_unfixed_columns(table);
 	BLI_assert(drawinfo.totwidth_nonfixed <= table->max_width);
 
 	return drawinfo;
 }
 
-static unsigned int table_column_calc_width(const uiTableColumn *column, const struct TableColumnDrawInfo *drawinfo)
+static unsigned int table_column_calc_width(const uiTableColumn *column, const struct TableColumnDrawInfo *drawinfo,
+                                            const unsigned int maxwidth)
 {
 	unsigned int width = column->width.value;
 
 	if (column->width.unit == TABLE_UNIT_PERCENT) {
+		CLAMP_MAX(width, 100); /* more than 100% doesn't make sense */
 		width = iroundf(width * 0.01f * drawinfo->totwidth_nonfixed);
 	}
-	width = MAX2(column->min_width, width);
 
-	return width;
+	return table_column_width_clamp(column, maxwidth, width);
 }
 
 /**
@@ -200,7 +214,7 @@ static void table_column_calc_x_coords(const uiTableColumn *column, const float 
                                        struct TableColumnDrawInfo *io_drawinfo,
                                        int *r_xmin, int *r_xmax)
 {
-	const unsigned int width = table_column_calc_width(column, io_drawinfo);
+	const unsigned int width = table_column_calc_width(column, io_drawinfo, max_width);
 
 	if (column->alignment == TABLE_COLUMN_ALIGN_LEFT) {
 		*r_xmin = io_drawinfo->totwidth_left;
@@ -217,11 +231,40 @@ static void table_column_calc_x_coords(const uiTableColumn *column, const float 
 	}
 }
 
-static void table_row_calc_y_coords(uiTableRow *row, const unsigned int ofs_y, int *r_ymin, int *r_ymax)
+static void table_row_calc_y_coords(uiTable *table, uiTableRow *row,
+                                    unsigned int *io_ofs_x, unsigned int *io_ofs_y,
+                                    int *r_ymin, int *r_ymax)
 {
+	unsigned int height = row->height;
+
+	if (table->flow_direction == TABLE_FLOW_HORIZONTAL) {
+		TableHorizontalFlow *horizontal_table = (TableHorizontalFlow *)table;
+		CLAMP_MAX(height, horizontal_table->max_height);
+
+		if ((*io_ofs_y + height) > horizontal_table->max_height) {
+			*io_ofs_x += table->max_width;
+			*io_ofs_y = 0;
+		}
+	}
+
 	/* Assuming inverted direction, from top to bottom. */
-	*r_ymax = -ofs_y;
-	*r_ymin = *r_ymax - row->height;
+	*r_ymax = -(*io_ofs_y);
+	*r_ymin = *r_ymax - height;
+}
+
+static void table_row_draw_background(const uiTable *table, const int column_index, const unsigned int height,
+                                      const unsigned int ofs_x, const unsigned int ofs_y)
+{
+	if (table->flag & TABLE_DRAW_BACKGROUND) {
+		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_INT, 2, CONVERT_INT_TO_FLOAT);
+
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+		immUniformColor3ubv((column_index % 2) ? table->rgb1 : table->rgb2);
+		immRecti(pos, ofs_x, ofs_x + table->max_width, ofs_y, ofs_y + height);
+
+		immUnbindProgram();
+	}
 }
 
 
@@ -281,6 +324,13 @@ void UI_table_horizontal_flow_max_height_set(uiTable *table, const unsigned int 
 	horizontal_table->max_height = max_height;
 }
 
+void UI_table_background_colors_set(uiTable *table, const unsigned char rgb1[3], const unsigned char rgb2[3])
+{
+	copy_v3_v3_uchar(table->rgb1, rgb1);
+	copy_v3_v3_uchar(table->rgb2, rgb2);
+	table->flag |= TABLE_DRAW_BACKGROUND;
+}
+
 /**
  * Insert a new column into \a table with default parameters (100% available width, 0px min width, aligned to left).
  *
@@ -297,9 +347,10 @@ uiTableColumn *UI_table_column_add(uiTable *table, const char *idname, const cha
 	col->drawname = drawname;
 	col->cell_draw = cell_draw;
 	col->alignment = TABLE_COLUMN_ALIGN_LEFT;
-	UI_table_column_width_set(col, UI_table_size_percentage(100), 0);
+	UI_table_column_width_set(col, 100, TABLE_UNIT_PERCENT, 0);
 
 	BLI_addtail(&table->columns, col);
+	table->tot_columns++;
 
 	return col;
 }
@@ -308,6 +359,7 @@ void UI_table_column_remove(uiTable *table, uiTableColumn *column)
 {
 	BLI_assert(BLI_findindex(&table->columns, column) != -1);
 	BLI_remlink(&table->columns, column);
+	table->tot_columns--;
 }
 
 uiTableColumn *UI_table_column_lookup(uiTable *table, const char *idname)
@@ -326,11 +378,13 @@ uiTableColumn *UI_table_column_lookup(uiTable *table, const char *idname)
 /**
  * Set the size info for \a col.
  * \param width: The width in either pixels (#UI_table_size_px), or percentage (#UI_table_size_percentage).
+ * \param min_width_px: Minimum width for the column (always in px).
  */
-void UI_table_column_width_set(uiTableColumn *column, const uiTableSize width, const int min_width_px)
+void UI_table_column_width_set(uiTableColumn *column, const unsigned int width, enum uiTableUnit unit,
+                               const int min_width_px)
 {
-	BLI_assert(width.value >= 0);
-	column->width = width;
+	column->width.unit = unit;
+	column->width.value = width;
 	column->min_width = min_width_px;
 }
 
@@ -362,69 +416,77 @@ void UI_table_row_height_set(uiTable *table, uiTableRow *row, unsigned int heigh
 	table_row_height_set(table, row, height);
 }
 
-void UI_table_draw(uiTable *table)
+void UI_table_draw(uiTable *table, uiBlock *block, uiStyle *style)
 {
-	const bool is_horizontal_flow = (table->flow_direction == TABLE_FLOW_HORIZONTAL);
-	const union {
-		uiTable *vertical_flow;
-		TableHorizontalFlow *horizontal_flow;
-	} flow_table = {table};
-
 	struct TableColumnDrawInfo column_drawinfo = table_column_drawinfo_init(table);
-	unsigned int xofs = 0, yofs = 0;
+	struct {
+		int xmin;
+		int xmax;
+	} *column_xcoords = BLI_array_alloca(column_xcoords, table->tot_columns);
 	BLI_mempool_iter iter;
+	unsigned int prev_row_height = 0; /* to check if rows have consistent height */
+	unsigned int xofs = 0, yofs = 0;
+	bool consistent_row_height = true;
+	bool is_first_row = true;
 
 
 	BLI_mempool_iternew(table->row_pool, &iter);
-	TABLE_COLUMNS_ITER_BEGIN(table, column)
-	{
-		int prev_row_height = -1; /* to check if rows have consistent height */
-		bool consistent_row_height = true;
-		rcti drawrect = {};
+	for (uiTableRow *row = BLI_mempool_iterstep(&iter); row; row = BLI_mempool_iterstep(&iter)) {
+		rcti drawrect;
+		unsigned int draw_height;
+		int column_index = 0;
 
-		table_column_calc_x_coords(column, table->max_width, &column_drawinfo, &drawrect.xmin, &drawrect.xmax);
+		table_row_calc_y_coords(table, row, &xofs, &yofs, &drawrect.ymin, &drawrect.ymax);
+		draw_height = BLI_rcti_size_y(&drawrect);
 
-		for (uiTableRow *row = BLI_mempool_iterstep(&iter); row; row = BLI_mempool_iterstep(&iter)) {
-			/* check for consistent row height */
-			if ((prev_row_height >= 0) && (row->height != prev_row_height)) {
-				consistent_row_height = false;
+		/* check for consistent row height */
+		if (!is_first_row && draw_height != prev_row_height) {
+			consistent_row_height = false;
+		}
+
+		table_row_draw_background(table, column_index, draw_height, xofs, yofs);
+
+		TABLE_COLUMNS_ITER_BEGIN(table, column)
+		{
+			uiLayout *cell_layout = NULL;
+
+			if (is_first_row) {
+				/* Store column x-coords for further iterations over this column. */
+				table_column_calc_x_coords(column, table->max_width, &column_drawinfo,
+				                           &column_xcoords[column_index].xmin,
+				                           &column_xcoords[column_index].xmax);
 			}
 
-			if (is_horizontal_flow && ((yofs + row->height) > flow_table.horizontal_flow->max_height)) {
-				xofs += flow_table.horizontal_flow->max_height;
-				yofs = 0;
+			drawrect.xmin = column_xcoords[column_index].xmin;
+			drawrect.xmax = column_xcoords[column_index].xmax;
+
+			if (block && style) {
+				/* Room for optimization: UI_block_layout allocates memory twice, could be avoided by
+				 * pre-allocating into an array (uiLayout would need some changes to support this). */
+				cell_layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, drawrect.xmin, drawrect.ymax,
+				                              BLI_rcti_size_x(&drawrect), 0, 0, style);
+			}
+			column->cell_draw(cell_layout, row->rowdata, drawrect);
+			if (block) {
+				UI_block_layout_resolve(block, NULL, NULL);
 			}
 
-			table_row_calc_y_coords(row, yofs, &drawrect.ymin, &drawrect.ymax);
-			column->cell_draw(row->rowdata, drawrect);
+			column_index++;
+		}
+		TABLE_COLUMNS_ITER_END;
+		BLI_assert(column_index == table->tot_columns);
 
-			yofs += row->height;
-			prev_row_height = row->height;
-		}
-		/* start over with next column */
-		xofs = 0;
-		yofs = 0;
-
-		if (consistent_row_height) {
-			table->flag |= TABLE_ROWS_CONSTANT_HEIGHT;
-		}
-		else {
-			BLI_assert((table->flag & TABLE_ROWS_CONSTANT_HEIGHT) == 0);
-		}
+		yofs += draw_height;
+		prev_row_height = draw_height;
+		is_first_row = false;
 	}
-	TABLE_COLUMNS_ITER_END;
-}
 
-uiTableSize UI_table_size_px(const int value)
-{
-	uiTableSize size = {.unit = TABLE_UNIT_PX, .value = value};
-	return size;
-}
-
-uiTableSize UI_table_size_percentage(const int value)
-{
-	uiTableSize size = {.unit = TABLE_UNIT_PERCENT, .value = value};
-	return size;
+	if (consistent_row_height) {
+		table->flag |= TABLE_ROWS_CONSTANT_HEIGHT;
+	}
+	else {
+		BLI_assert((table->flag & TABLE_ROWS_CONSTANT_HEIGHT) == 0);
+	}
 }
 
 unsigned int UI_table_get_rowcount(const uiTable *table)
