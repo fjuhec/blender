@@ -202,6 +202,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	static EnumPropertyItem fill_style_items[] = {
 		{ FILL_STYLE_SOLID, "SOLID", 0, "Solid", "Fill area with solid color" },
 		{ FILL_STYLE_GRADIENT, "GRADIENT", 0, "Gradient", "Fill area with gradient color" },
+		{ FILL_STYLE_CHESSBOARD, "CHESSBOARD", 0, "Chessboard", "Fill area with chessboard pattern" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
