@@ -43,6 +43,8 @@ void collections_keymap(struct wmKeyConfig *keyconf);
 /* collections_draw.c */
 void collections_draw_table(const struct bContext *C, struct SpaceCollections *spc, ARegion *ar);
 void collections_draw_cell(struct uiLayout *layout, void *rowdata, struct rcti drawrect);
+void collections_draw_cell_visibility(struct uiLayout *layout, void *rowdata, struct rcti drawrect);
+void collections_draw_cell_selectability(struct uiLayout *layout, void *rowdata, struct rcti drawrect);
 
 #endif  /* __COLLECTIONS_INTERN_H__ */
 

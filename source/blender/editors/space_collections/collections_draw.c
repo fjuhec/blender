@@ -31,6 +31,8 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 
+#include "RNA_access.h"
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 #include "UI_table.h"
@@ -61,4 +63,22 @@ void collections_draw_cell(uiLayout *layout, void *rowdata, rcti UNUSED(drawrect
 {
 	LayerCollection *collection = rowdata;
 	uiItemL(layout, collection->scene_collection->name, ICON_NONE);
+}
+
+void collections_draw_cell_visibility(uiLayout *layout, void *rowdata, rcti UNUSED(drawrect))
+{
+	LayerCollection *collection = rowdata;
+	PointerRNA ptr;
+
+	RNA_pointer_create(NULL, &RNA_LayerCollection, collection, &ptr);
+	uiItemR(layout, &ptr, "hide", UI_ITEM_R_NO_BG, "", ICON_RESTRICT_VIEW_OFF);
+}
+
+void collections_draw_cell_selectability(uiLayout *layout, void *rowdata, rcti UNUSED(drawrect))
+{
+	LayerCollection *collection = rowdata;
+	PointerRNA ptr;
+
+	RNA_pointer_create(NULL, &RNA_LayerCollection, collection, &ptr);
+	uiItemR(layout, &ptr, "hide_select", UI_ITEM_R_NO_BG, "", ICON_RESTRICT_SELECT_OFF);
 }

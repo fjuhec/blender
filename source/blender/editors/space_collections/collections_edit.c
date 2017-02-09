@@ -28,7 +28,9 @@
 
 #include "DNA_layer_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_userdef_types.h"
 
+#include "UI_interface.h"
 #include "UI_table.h"
 
 #include "collections_intern.h"
@@ -36,12 +38,20 @@
 
 void collections_table_create(SceneLayer *layer, uiTable **r_table)
 {
-	*r_table = UI_table_vertical_flow_create();
+	uiTable *table = UI_table_vertical_flow_create();
+	uiTableColumn *col;
 
-	UI_table_column_add(*r_table, "collection_name", "Collection", collections_draw_cell);
+	UI_table_column_add(table, "name", "Collection", collections_draw_cell);
+	col = UI_table_column_add(table, "visibility", "Visible", collections_draw_cell_visibility);
+	UI_table_column_width_set(col, UI_UNIT_X, TABLE_UNIT_PX, UI_UNIT_X);
+	col = UI_table_column_add(table, "selectability", "Selectable", collections_draw_cell_selectability);
+	UI_table_column_width_set(col, UI_UNIT_X, TABLE_UNIT_PX, UI_UNIT_X);
+
 	for (LayerCollection *collection = layer->layer_collections.first; collection; collection = collection->next) {
-		UI_table_row_add(*r_table, collection);
+		UI_table_row_add(table, collection);
 	}
+
+	*r_table = table;
 }
 
 void collections_table_free(uiTable *table)
