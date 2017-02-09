@@ -323,14 +323,14 @@ void OpenCLDeviceBase::mem_zero(device_memory& mem)
 		if(base_program.is_loaded()) {
 			cl_kernel ckZeroBuffer = base_program(ustring("zero_buffer"));
 
-			size_t global_size[] = {256, 256};
+			size_t global_size[] = {1024, 1024};
 			size_t num_threads = global_size[0] * global_size[1];
 
 			cl_mem d_buffer = CL_MEM_PTR(mem.device_pointer);
 			unsigned long long d_offset = 0;
 			unsigned long long d_size = 0;
 
-			while(d_offset + d_size < mem.memory_size()) {
+			while(d_offset < mem.memory_size()) {
 				d_size = std::min<unsigned long long>(num_threads*sizeof(float4), mem.memory_size() - d_offset);
 
 				kernel_set_args(ckZeroBuffer, 0, d_buffer, d_size, d_offset);
