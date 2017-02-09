@@ -53,6 +53,7 @@ void UI_table_free(uiTable *table) ATTR_NONNULL();
 
 void UI_table_max_width_set(uiTable *table, const unsigned int max_width) ATTR_NONNULL();
 void UI_table_horizontal_flow_max_height_set(uiTable *table, const unsigned int max_height) ATTR_NONNULL();
+void UI_table_background_colors_set(uiTable *table, const unsigned char rgb1[3], const unsigned char rgb2[3]);
 void UI_table_draw(uiTable *table) ATTR_NONNULL();
 
 /* *** Columns *** */

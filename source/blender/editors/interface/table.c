@@ -33,6 +33,8 @@
 
 #include "DNA_userdef_types.h"
 
+#include "GPU_immediate.h"
+
 #include "MEM_guardedalloc.h"
 
 #include "UI_interface.h"
@@ -50,6 +52,8 @@ typedef struct uiTable {
 	} flow_direction;
 	unsigned int max_width;
 
+	unsigned char rgb1[3];
+	unsigned char rgb2[3];
 	char flag;
 } uiTable;
 
@@ -57,6 +61,7 @@ enum eTableFlags {
 	/* All rows have the same height. In this case we can avoid iterating
 	 * over rows for calculations like intersection checks. */
 	TABLE_ROWS_CONSTANT_HEIGHT = (1 << 0),
+	TABLE_DRAW_BACKGROUND      = (1 << 1),
 };
 
 typedef struct TableHorizontalFlow {
@@ -247,6 +252,21 @@ static void table_row_calc_y_coords(uiTable *table, uiTableRow *row,
 	*r_ymin = *r_ymax - height;
 }
 
+static void table_row_draw_background(const uiTable *table, const int column_index, const unsigned int height,
+                                      const unsigned int ofs_x, const unsigned int ofs_y)
+{
+	if (table->flag & TABLE_DRAW_BACKGROUND) {
+		unsigned int pos = add_attrib(immVertexFormat(), "pos", GL_INT, 2, CONVERT_INT_TO_FLOAT);
+
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+		immUniformColor3ubv((column_index % 2) ? table->rgb1 : table->rgb2);
+		immRecti(pos, ofs_x, ofs_x + table->max_width, ofs_y, ofs_y + height);
+
+		immUnbindProgram();
+	}
+}
+
 
 /* -------------------------------------------------------------------- */
 /** \name UI Table API
@@ -302,6 +322,13 @@ void UI_table_horizontal_flow_max_height_set(uiTable *table, const unsigned int 
 	TableHorizontalFlow *horizontal_table = (TableHorizontalFlow *)table;
 	BLI_assert(table->flow_direction == TABLE_FLOW_HORIZONTAL);
 	horizontal_table->max_height = max_height;
+}
+
+void UI_table_background_colors_set(uiTable *table, const unsigned char rgb1[3], const unsigned char rgb2[3])
+{
+	copy_v3_v3_uchar(table->rgb1, rgb1);
+	copy_v3_v3_uchar(table->rgb2, rgb2);
+	table->flag |= TABLE_DRAW_BACKGROUND;
 }
 
 /**
@@ -405,7 +432,7 @@ void UI_table_draw(uiTable *table)
 
 	BLI_mempool_iternew(table->row_pool, &iter);
 	for (uiTableRow *row = BLI_mempool_iterstep(&iter); row; row = BLI_mempool_iterstep(&iter)) {
-		rcti drawrect = {};
+		rcti drawrect;
 		unsigned int draw_height;
 		int column_index = 0;
 
@@ -416,6 +443,8 @@ void UI_table_draw(uiTable *table)
 		if (!is_first_row && draw_height != prev_row_height) {
 			consistent_row_height = false;
 		}
+
+		table_row_draw_background(table, column_index, draw_height, xofs, yofs);
 
 		TABLE_COLUMNS_ITER_BEGIN(table, column)
 		{
