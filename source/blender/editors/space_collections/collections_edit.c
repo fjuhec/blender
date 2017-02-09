@@ -42,9 +42,9 @@ void collections_table_create(SceneLayer *layer, uiTable **r_table)
 	uiTableColumn *col;
 
 	UI_table_column_add(table, "name", "Collection", collections_draw_cell);
-	col = UI_table_column_add(table, "visibility", "Visible", collections_draw_cell_visibility);
-	UI_table_column_width_set(col, UI_UNIT_X, TABLE_UNIT_PX, UI_UNIT_X);
 	col = UI_table_column_add(table, "selectability", "Selectable", collections_draw_cell_selectability);
+	UI_table_column_width_set(col, UI_UNIT_X, TABLE_UNIT_PX, UI_UNIT_X);
+	col = UI_table_column_add(table, "visibility", "Visible", collections_draw_cell_visibility);
 	UI_table_column_width_set(col, UI_UNIT_X, TABLE_UNIT_PX, UI_UNIT_X);
 
 	for (LayerCollection *collection = layer->layer_collections.first; collection; collection = collection->next) {
