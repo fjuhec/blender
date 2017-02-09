@@ -252,7 +252,7 @@ static void table_row_calc_y_coords(uiTable *table, uiTableRow *row,
 	*r_ymin = *r_ymax - height;
 }
 
-static void table_row_draw_background(const uiTable *table, const int column_index, const unsigned int height,
+static void table_row_draw_background(const uiTable *table, const int row_index, const unsigned int height,
                                       const unsigned int ofs_x, const unsigned int ofs_y)
 {
 	if (table->flag & TABLE_DRAW_BACKGROUND) {
@@ -260,8 +260,9 @@ static void table_row_draw_background(const uiTable *table, const int column_ind
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
-		immUniformColor3ubv((column_index % 2) ? table->rgb1 : table->rgb2);
-		immRecti(pos, ofs_x, ofs_x + table->max_width, ofs_y, ofs_y + height);
+		immUniformColor3ubv((row_index % 2) ? table->rgb1 : table->rgb2);
+		/* remember, drawing is done top to bottom with upper left being (0, 0), use negative y coordinates */
+		immRecti(pos, ofs_x, -ofs_y, ofs_x + table->max_width, -(ofs_y + height));
 
 		immUnbindProgram();
 	}
@@ -427,7 +428,7 @@ void UI_table_draw(uiTable *table, uiBlock *block, uiStyle *style)
 	unsigned int prev_row_height = 0; /* to check if rows have consistent height */
 	unsigned int xofs = 0, yofs = 0;
 	bool consistent_row_height = true;
-	bool is_first_row = true;
+	int row_index = 0;
 
 
 	BLI_mempool_iternew(table->row_pool, &iter);
@@ -440,17 +441,17 @@ void UI_table_draw(uiTable *table, uiBlock *block, uiStyle *style)
 		draw_height = BLI_rcti_size_y(&drawrect);
 
 		/* check for consistent row height */
-		if (!is_first_row && draw_height != prev_row_height) {
+		if ((row_index > 0) && (draw_height != prev_row_height)) {
 			consistent_row_height = false;
 		}
 
-		table_row_draw_background(table, column_index, draw_height, xofs, yofs);
+		table_row_draw_background(table, row_index, draw_height, xofs, yofs);
 
 		TABLE_COLUMNS_ITER_BEGIN(table, column)
 		{
 			uiLayout *cell_layout = NULL;
 
-			if (is_first_row) {
+			if (row_index == 0) {
 				/* Store column x-coords for further iterations over this column. */
 				table_column_calc_x_coords(column, table->max_width, &column_drawinfo,
 				                           &column_xcoords[column_index].xmin,
@@ -478,7 +479,7 @@ void UI_table_draw(uiTable *table, uiBlock *block, uiStyle *style)
 
 		yofs += draw_height;
 		prev_row_height = draw_height;
-		is_first_row = false;
+		row_index++;
 	}
 
 	if (consistent_row_height) {
