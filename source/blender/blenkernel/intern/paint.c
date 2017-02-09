@@ -484,27 +484,17 @@ void BKE_palette_free(Palette *palette)
 
 PaletteColor *BKE_palette_color_add(Palette *palette)
 {
-	PaletteColor *color = MEM_callocN(sizeof(*color), "Pallete Color");
-	BLI_addtail(&palette->colors, color);
-
-	/* set basic settings */
-	color->rgb[3] = 1.0f;
-
-	/* auto-name */
-	BLI_strncpy(color->info, DATA_("Color"), sizeof(color->info));
-	BLI_uniquename(&palette->colors, color, DATA_("Color"), '.', offsetof(PaletteColor, info),
-		sizeof(color->info));
-
-	return color;
+	return BKE_palette_color_add_name(palette, "Color");
 }
 
 PaletteColor *BKE_palette_color_add_name(Palette *palette, const char *name)
 {
-	PaletteColor *color = MEM_callocN(sizeof(*color), "Pallete Color");
+	PaletteColor *color = MEM_callocN(sizeof(*color), "Palette Color");
 	BLI_addtail(&palette->colors, color);
 
 	/* set basic settings */
 	color->rgb[3] = 1.0f;
+	ARRAY_SET_ITEMS(color->scolor, 1.0f, 1.0f, 1.0f, 0.2f);
 
 	/* auto-name */
 	BLI_strncpy(color->info, name, sizeof(color->info));

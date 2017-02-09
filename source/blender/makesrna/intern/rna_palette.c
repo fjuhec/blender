@@ -201,6 +201,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	/* fill styles */
 	static EnumPropertyItem fill_style_items[] = {
 		{ FILL_STYLE_SOLID, "SOLID", 0, "Solid", "Fill area with solid color" },
+		{ FILL_STYLE_GRADIENT, "GRADIENT", 0, "Gradient", "Fill area with gradient color" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
@@ -255,6 +256,26 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0.0, 1.0f);
 	RNA_def_property_ui_text(prop, "Fill Opacity", "Opacity for filling region bounded by each stroke");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+	
+	/* Secondary Drawing Color */
+	prop = RNA_def_property(srna, "mix_color", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "scolor");
+	RNA_def_property_array(prop, 4);
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_text(prop, "Mix Color", "Color for mixing with primary filling color");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+	
+	/* Gradient angle */
+	prop = RNA_def_property(srna, "angle", PROP_FLOAT, PROP_ANGLE);
+	RNA_def_property_float_sdna(prop, NULL, "angle");
+	RNA_def_property_ui_text(prop, "Angle", "Gradient Angle");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
+	/* Shader factor */
+	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "factor");
+	RNA_def_property_ui_text(prop, "Factor", "Adjustment Factor");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
 	/* Flags */
 	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);
@@ -294,14 +315,14 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "stroke_style", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "stroke_style");
 	RNA_def_property_enum_items(prop, stroke_style_items);
-	RNA_def_property_ui_text(prop, "Style", "Select style used to draw strokes");
+	RNA_def_property_ui_text(prop, "Stroke Style", "Select style used to draw strokes");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* fill style */
 	prop = RNA_def_property(srna, "fill_style", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "fill_style");
 	RNA_def_property_enum_items(prop, fill_style_items);
-	RNA_def_property_ui_text(prop, "Style", "Select style used to fill strokes");
+	RNA_def_property_ui_text(prop, "Fill Style", "Select style used to fill strokes");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* Read-only state props (for simpler UI code) */

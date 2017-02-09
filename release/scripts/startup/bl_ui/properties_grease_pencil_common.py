@@ -1126,6 +1126,8 @@ class GreasePencilPaletteColorPanel:
         col.prop(pcolor, "fill_color", text="")
         col.prop(pcolor, "fill_alpha", text="Opacity", slider=True)
         col.prop(pcolor, "fill_style", text="")
+        col.prop(pcolor, "mix_color", text="Mix")
+        col.prop(pcolor, "angle", text="Angle")
 
         # Options
         row = layout.row()
