@@ -28,13 +28,16 @@
 #include "BLI_compiler_attrs.h"
 
 struct rcti;
+struct uiBlock;
+struct uiLayout;
+struct uiStyle;
 
 typedef struct uiTable uiTable;
 typedef struct uiTableColumn uiTableColumn;
 typedef struct uiTableRow uiTableRow;
 typedef struct uiTableSize uiTableSize;
 
-typedef void (*uiTableCellDrawFunc)(void *rowdata, struct rcti drawrect);
+typedef void (*uiTableCellDrawFunc)(struct uiLayout *layout, void *rowdata, struct rcti drawrect);
 
 enum uiTableColumnAlignemt {
 	TABLE_COLUMN_ALIGN_LEFT,
@@ -54,7 +57,7 @@ void UI_table_free(uiTable *table) ATTR_NONNULL();
 void UI_table_max_width_set(uiTable *table, const unsigned int max_width) ATTR_NONNULL();
 void UI_table_horizontal_flow_max_height_set(uiTable *table, const unsigned int max_height) ATTR_NONNULL();
 void UI_table_background_colors_set(uiTable *table, const unsigned char rgb1[3], const unsigned char rgb2[3]);
-void UI_table_draw(uiTable *table) ATTR_NONNULL();
+void UI_table_draw(uiTable *table, struct uiBlock *block, struct uiStyle *style) ATTR_NONNULL(1);
 
 /* *** Columns *** */
 uiTableColumn *UI_table_column_add(uiTable *table, const char *idname, const char *drawname,

@@ -38,17 +38,17 @@ static void table_draw_test_ex()
 {
 	draw_stats.tot_cells++;
 }
-static void table_draw_test_col1(void *UNUSED(rowdata), rcti UNUSED(drawrect))
+static void table_draw_test_col1(uiLayout * /*layout */, void *UNUSED(rowdata), rcti UNUSED(drawrect))
 {
 	table_draw_test_ex();
 	draw_stats.tot_rows_col1++;
 }
-static void table_draw_test_col2(void *UNUSED(rowdata), rcti UNUSED(drawrect))
+static void table_draw_test_col2(uiLayout * /*layout */, void *UNUSED(rowdata), rcti UNUSED(drawrect))
 {
 	table_draw_test_ex();
 	draw_stats.tot_rows_col2++;
 }
-static void table_draw_test_col3(void *UNUSED(rowdata), rcti UNUSED(drawrect))
+static void table_draw_test_col3(uiLayout * /*layout */, void *UNUSED(rowdata), rcti UNUSED(drawrect))
 {
 	table_draw_test_ex();
 	draw_stats.tot_rows_col3++;
@@ -69,7 +69,7 @@ TEST(ui_table, CellsDraw)
 	}
 
 	/* fills draw_stats */
-	UI_table_draw(table);
+	UI_table_draw(table, NULL, NULL);
 
 	EXPECT_EQ(30, draw_stats.tot_cells);
 	EXPECT_EQ(10, draw_stats.tot_rows_col1);
@@ -79,12 +79,12 @@ TEST(ui_table, CellsDraw)
 	UI_table_free(table);
 }
 
-void table_draw_test_alignment_left(void *UNUSED(rowdata), rcti drawrect)
+void table_draw_test_alignment_left(uiLayout * /*layout */, void *UNUSED(rowdata), rcti drawrect)
 {
 	EXPECT_EQ(0, drawrect.xmin);
 	EXPECT_EQ(50, drawrect.xmax);
 }
-void table_draw_test_alignment_right(void *UNUSED(rowdata), rcti drawrect)
+void table_draw_test_alignment_right(uiLayout * /*layout */, void *UNUSED(rowdata), rcti drawrect)
 {
 	EXPECT_EQ(50, drawrect.xmin);
 	EXPECT_EQ(100, drawrect.xmax);
@@ -110,27 +110,27 @@ TEST(ui_table, ColumnAlignPercentage)
 		UI_table_row_add(table, NULL);
 	}
 
-	UI_table_draw(table);
+	UI_table_draw(table, NULL, NULL);
 
 	UI_table_free(table);
 }
 
-void table_draw_test_alignment_left_percent(void *UNUSED(rowdata), rcti drawrect)
+void table_draw_test_alignment_left_percent(uiLayout * /*layout */, void *UNUSED(rowdata), rcti drawrect)
 {
 	EXPECT_EQ(10, drawrect.xmin);
 	EXPECT_EQ(50, drawrect.xmax);
 }
-void table_draw_test_alignment_right_percent(void *UNUSED(rowdata), rcti drawrect)
+void table_draw_test_alignment_right_percent(uiLayout * /*layout */, void *UNUSED(rowdata), rcti drawrect)
 {
 	EXPECT_EQ(60, drawrect.xmin);
 	EXPECT_EQ(100, drawrect.xmax);
 }
-void table_draw_test_alignment_left_px(void *UNUSED(rowdata), rcti drawrect)
+void table_draw_test_alignment_left_px(uiLayout * /*layout */, void *UNUSED(rowdata), rcti drawrect)
 {
 	EXPECT_EQ(0, drawrect.xmin);
 	EXPECT_EQ(10, drawrect.xmax);
 }
-void table_draw_test_alignment_right_px(void *UNUSED(rowdata), rcti drawrect)
+void table_draw_test_alignment_right_px(uiLayout * /*layout */, void *UNUSED(rowdata), rcti drawrect)
 {
 	EXPECT_EQ(50, drawrect.xmin);
 	EXPECT_EQ(60, drawrect.xmax);
@@ -161,12 +161,12 @@ TEST(ui_table, ColumnAlignMixed)
 		UI_table_row_add(table, NULL);
 	}
 
-	UI_table_draw(table);
+	UI_table_draw(table, NULL, NULL);
 
 	UI_table_free(table);
 }
 
-void table_draw_test_oversize(void *UNUSED(rowdata), rcti drawrect)
+void table_draw_test_oversize(uiLayout * /*layout */, void *UNUSED(rowdata), rcti drawrect)
 {
 	EXPECT_EQ(100, BLI_rcti_size_x(&drawrect));
 }
@@ -188,12 +188,12 @@ TEST(ui_table, ColumnOversize)
 		UI_table_row_add(table, NULL);
 	}
 
-	UI_table_draw(table);
+	UI_table_draw(table, NULL, NULL);
 
 	UI_table_free(table);
 }
 
-void table_draw_test_horizontal_flow_oversize(void *UNUSED(rowdata), rcti drawrect)
+void table_draw_test_horizontal_flow_oversize(uiLayout * /*layout */, void *UNUSED(rowdata), rcti drawrect)
 {
 	EXPECT_EQ(0, drawrect.ymax);
 	EXPECT_EQ(-10, drawrect.ymin);
@@ -216,7 +216,7 @@ TEST(ui_table, HorizontalFlowOversize)
 		UI_table_row_height_set(table, row, 20);
 	}
 
-	UI_table_draw(table);
+	UI_table_draw(table, NULL, NULL);
 
 	UI_table_free(table);
 }

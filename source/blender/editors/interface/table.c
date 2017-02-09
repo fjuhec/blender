@@ -416,7 +416,7 @@ void UI_table_row_height_set(uiTable *table, uiTableRow *row, unsigned int heigh
 	table_row_height_set(table, row, height);
 }
 
-void UI_table_draw(uiTable *table)
+void UI_table_draw(uiTable *table, uiBlock *block, uiStyle *style)
 {
 	struct TableColumnDrawInfo column_drawinfo = table_column_drawinfo_init(table);
 	struct {
@@ -448,6 +448,8 @@ void UI_table_draw(uiTable *table)
 
 		TABLE_COLUMNS_ITER_BEGIN(table, column)
 		{
+			uiLayout *cell_layout = NULL;
+
 			if (is_first_row) {
 				/* Store column x-coords for further iterations over this column. */
 				table_column_calc_x_coords(column, table->max_width, &column_drawinfo,
@@ -457,7 +459,17 @@ void UI_table_draw(uiTable *table)
 
 			drawrect.xmin = column_xcoords[column_index].xmin;
 			drawrect.xmax = column_xcoords[column_index].xmax;
-			column->cell_draw(row->rowdata, drawrect);
+
+			if (block && style) {
+				/* Room for optimization: UI_block_layout allocates memory twice, could be avoided by
+				 * pre-allocating into an array (uiLayout would need some changes to support this). */
+				cell_layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, drawrect.xmin, drawrect.ymax,
+				                              BLI_rcti_size_x(&drawrect), 0, 0, style);
+			}
+			column->cell_draw(cell_layout, row->rowdata, drawrect);
+			if (block) {
+				UI_block_layout_resolve(block, NULL, NULL);
+			}
 
 			column_index++;
 		}
