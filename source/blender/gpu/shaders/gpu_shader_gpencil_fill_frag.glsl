@@ -33,7 +33,7 @@ void main()
 		}
 		/* radial gradient */
 		if (fill_type == RADIAL) {
-			vec2 center = vec2(0.5, 0.5);
+			vec2 center = vec2(0.5, 0.5) + shift;
 			float radius = factor;
 			if (radius < 0.01) {
 				radius = 0.01;
