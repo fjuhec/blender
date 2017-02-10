@@ -38,6 +38,7 @@
 #include "BKE_global.h"  /* XXX Yuck! temp hack! */
 #include "BKE_library.h"
 #include "BKE_library_override.h"
+#include "BKE_library_remap.h"
 #include "BKE_main.h"
 
 #include "BLI_utildefines.h"
@@ -331,11 +332,17 @@ void BKE_override_operations_store_end(ID *local)
 
 	/* Swapping here allows us to get back original data. */
 	BKE_id_swap(local, tmp_id);
+	/* Swap above may have broken internal references to itself. */
+	BKE_libblock_relink_ex(G.main, local, tmp_id, local, false);
+	BKE_libblock_relink_ex(G.main, tmp_id, local, tmp_id, false);  /* Grrrr... */
 
 	local->tag |= LIB_TAG_OVERRIDE_OK;
 	local->newid = NULL;
 
 	BKE_libblock_free_ex(G.main, tmp_id, true, false);
+
+	/* Full rebuild of DAG! */
+	DAG_relations_tag_update(G.main);
 }
 
 /**
@@ -417,14 +424,18 @@ void BKE_override_update(Main *bmain, ID *local, const bool do_init)
 	/* This also transfers all pointers (memory) owned by local to tmp_id, and vice-versa. So when we'll free tmp_id,
 	 * we'll actually free old, outdated data from local. */
 	BKE_id_swap(local, tmp_id);
+	/* Swap above may have broken internal references to itself. */
+	BKE_libblock_relink_ex(bmain, local, tmp_id, local, false);
+	BKE_libblock_relink_ex(bmain, tmp_id, local, tmp_id, false);  /* Grrrr... */
 
 	/* Again, horribly innefficient in our case, we need something off-Main (aka moar generic nolib copy/free stuff)! */
 	/* XXX And crashing in complex cases (e.g. because depsgraph uses same data...). */
 	BKE_libblock_free_ex(bmain, tmp_id, true, false);
 
-	DAG_id_tag_update_ex(bmain, local, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
-
 	local->tag |= LIB_TAG_OVERRIDE_OK;
+
+	/* Full rebuild of DAG! */
+	DAG_relations_tag_update(bmain);
 }
 
 /** Update all overrides from given \a bmain. */
@@ -445,7 +456,4 @@ void BKE_main_override_update(Main *bmain, const bool do_init)
 			}
 		}
 	}
-
-	/* Full rebuild of DAG! */
-	DAG_relations_tag_update(bmain);
 }
