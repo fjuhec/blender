@@ -4428,6 +4428,7 @@ void param_slim_end(ParamHandle *handle) {
 	PHandle *phandle = (PHandle *) handle;
 	matrix_transfer *mt = phandle->mt;
 	set_uv_param_slim(handle, mt);
+	free_matrix_transfer(mt);
 }
 
 
@@ -4874,6 +4875,8 @@ void convert_blender_slim(ParamHandle *handle, bool selectionOnly, int weightMap
 		mt->Pmatrices[chartNr] = MEM_reallocN_id(mt->Pmatrices[chartNr], mt->nPinnedVertices[chartNr] * sizeof(**mt->Pmatrices), " Pinned-Vertex Matrix");
 		mt->Bvectors[chartNr] = MEM_reallocN_id(mt->Bvectors[chartNr], mt->nBoundaryVertices[chartNr] * sizeof(**mt->Bvectors), " boundary-Vertex Matrix");
 		mt->Ematrices[chartNr] = MEM_reallocN_id(mt->Ematrices[chartNr], (mt->nEdges[chartNr] + mt->nBoundaryVertices[chartNr]) * 2 * sizeof(**mt->Ematrices), " boundarys-Vertex Matrix");
+
+		MEM_freeN(tempW);
 	}
 
 	if (mt->nPinnedVertices > 0){
@@ -5164,17 +5167,31 @@ void free_matrix_transfer(matrix_transfer *mt){
 		MEM_freeN(mt->Vmatrices[chartNr]);
 		MEM_freeN(mt->UVmatrices[chartNr]);
 		MEM_freeN(mt->Fmatrices[chartNr]);
-
+		MEM_freeN(mt->PPmatrices[chartNr]);
+		MEM_freeN(mt->ELvectors[chartNr]);
+		MEM_freeN(mt->Wvectors[chartNr]);
+		MEM_freeN(mt->Pmatrices[chartNr]);
+		MEM_freeN(mt->Ematrices[chartNr]);
+		MEM_freeN(mt->Bvectors[chartNr]);
 	}
+
+
+	MEM_freeN(mt->Vmatrices);
+	MEM_freeN(mt->UVmatrices);
+	MEM_freeN(mt->Fmatrices);
+	MEM_freeN(mt->PPmatrices);
+	MEM_freeN(mt->ELvectors);
+	MEM_freeN(mt->Wvectors);
+	MEM_freeN(mt->Pmatrices);
+	MEM_freeN(mt->Ematrices);
+	MEM_freeN(mt->Bvectors);
 
 	MEM_freeN(mt->nVerts);
 	MEM_freeN(mt->nFaces);
 	MEM_freeN(mt->nPinnedVertices);
-	MEM_freeN(mt->Vmatrices);
-	MEM_freeN(mt->UVmatrices);
-	MEM_freeN(mt->Fmatrices);
-	MEM_freeN(mt->Pmatrices);
-	MEM_freeN(mt->PPmatrices);
+	MEM_freeN(mt->nBoundaryVertices);
+	MEM_freeN(mt->nEdges);
+
 	MEM_freeN(mt);
 }
 

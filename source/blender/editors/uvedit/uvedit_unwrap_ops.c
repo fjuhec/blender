@@ -787,9 +787,6 @@ typedef struct {
 	bool noPins;
 } MinStretchSlim;
 
-void add_index_to_vertices(BMEditMesh *em);
-void free_matrix_transfer(matrix_transfer *mt);
-
 /*	AUREL THESIS
 	Initialises SLIM and transfars data matrices
  */
@@ -865,6 +862,12 @@ static void minimize_stretch_SLIM_iteration(bContext *C, wmOperator *op, bool in
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, mss->obedit->data);
 }
 
+void free_slimPtrs(void **slimPtrs, int nCharts){
+	for (int i = 0; i<nCharts; i++){
+		free_slim_data_C(slimPtrs[i]);
+	}
+}
+
 /*	AUREL THESIS
 	Exit interactive parametrisation. Clean up memory.
  */
@@ -897,6 +900,7 @@ static void minimize_stretch_SLIM_exit(bContext *C, wmOperator *op, bool cancel)
 	param_delete(mss->handle);
 
 	free_matrix_transfer(mss->mt);
+	free_slimPtrs(mss->slimPtrs, mss->mt->nCharts);
 	MEM_freeN(mss->slimPtrs);
 	MEM_freeN(mss);
 	op->customdata = NULL;
@@ -1472,7 +1476,7 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 		handle = construct_param_handle(scene, obedit, em->bm, false, fill_holes, sel, correct_aspect);
 
 	if (use_slim_method){
-		matrix_transfer *mt = MEM_mallocN(sizeof(matrix_transfer), "matrix transfer data");
+		matrix_transfer *mt = MEM_callocN(sizeof(matrix_transfer), "matrix transfer data");
 		enrich_handle_slim(scene, obedit, em, handle, mt);
 	}
 
