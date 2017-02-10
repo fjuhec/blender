@@ -1486,6 +1486,8 @@ static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ListBase *hand
 void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 {
 	const bScreen *screen = WM_window_get_active_screen(win);
+	const int screen_size_x = WM_window_screen_pixels_x(win);
+	const int screen_size_y = WM_window_screen_pixels_y(win);
 	ARegion *ar;
 	rcti rect;
 	
@@ -1499,10 +1501,10 @@ void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 	
 	for (ar = sa->regionbase.first; ar; ar = ar->next)
 		ar->type = BKE_regiontype_from_id(sa->type, ar->regiontype);
-	
+
 	/* area sizes */
-	area_calc_totrct(sa, WM_window_pixels_x(win), WM_window_pixels_y(win));
-	
+	area_calc_totrct(sa, screen_size_x, screen_size_y);
+
 	/* clear all azones, add the area triange widgets */
 	area_azone_initialize(win, screen, sa);
 

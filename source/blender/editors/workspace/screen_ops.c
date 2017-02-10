@@ -779,8 +779,8 @@ static int actionzone_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	wmWindow *win = CTX_wm_window(C);
 	bScreen *sc = CTX_wm_screen(C);
 	sActionzoneData *sad = op->customdata;
-	const int winsize_x = WM_window_pixels_x(win);
-	const int winsize_y = WM_window_pixels_y(win);
+	const int screen_size_x = WM_window_screen_pixels_x(win);
+	const int screen_size_y = WM_window_screen_pixels_y(win);
 
 	switch (event->type) {
 		case MOUSEMOVE:
@@ -804,7 +804,8 @@ static int actionzone_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				/* once we drag outside the actionzone, register a gesture
 				 * check we're not on an edge so join finds the other area */
 				is_gesture = ((is_in_area_actionzone(sad->sa1, &event->x) != sad->az) &&
-				              (screen_find_active_scredge(sc, winsize_x, winsize_y, event->x, event->y) == NULL));
+				              (screen_find_active_scredge(sc, screen_size_x, screen_size_y,
+				                                          event->x, event->y) == NULL));
 			}
 			else {
 				const int delta_min = 1;
@@ -1158,8 +1159,8 @@ static int area_move_init(bContext *C, wmOperator *op)
 	ScrEdge *actedge;
 	sAreaMoveData *md;
 	ScrVert *v1;
-	const int winsize_x = WM_window_pixels_x(win);
-	const int winsize_y = WM_window_pixels_y(win);
+	const int screen_size_x = WM_window_screen_pixels_x(win);
+	const int screen_size_y = WM_window_screen_pixels_y(win);
 	int x, y;
 	
 	/* required properties */
@@ -1167,7 +1168,7 @@ static int area_move_init(bContext *C, wmOperator *op)
 	y = RNA_int_get(op->ptr, "y");
 	
 	/* setup */
-	actedge = screen_find_active_scredge(sc, winsize_x, winsize_y, x, y);
+	actedge = screen_find_active_scredge(sc, screen_size_x, screen_size_y, x, y);
 	if (actedge == NULL) return 0;
 	
 	md = MEM_callocN(sizeof(sAreaMoveData), "sAreaMoveData");
@@ -1182,7 +1183,7 @@ static int area_move_init(bContext *C, wmOperator *op)
 	for (v1 = sc->vertbase.first; v1; v1 = v1->next)
 		v1->editflag = v1->flag;
 	
-	area_move_set_limits(sc, md->dir, winsize_x, winsize_y, &md->bigger, &md->smaller);
+	area_move_set_limits(sc, md->dir, screen_size_x, screen_size_y, &md->bigger, &md->smaller);
 	
 	return 1;
 }
@@ -1191,8 +1192,8 @@ static int area_move_init(bContext *C, wmOperator *op)
 static void area_move_apply_do(bContext *C, int origval, int delta, int dir, int bigger, int smaller)
 {
 	wmWindow *win = CTX_wm_window(C);
-	const int winsize_x = WM_window_pixels_x(win);
-	const int winsize_y = WM_window_pixels_y(win);
+	const int screen_size_x = WM_window_screen_pixels_x(win);
+	const int screen_size_y = WM_window_screen_pixels_y(win);
 	bScreen *sc = CTX_wm_screen(C);
 	ScrVert *v1;
 	ScrArea *sa;
@@ -1204,7 +1205,7 @@ static void area_move_apply_do(bContext *C, int origval, int delta, int dir, int
 	for (v1 = sc->vertbase.first; v1; v1 = v1->next) {
 		if (v1->editflag) {
 			/* that way a nice AREAGRID  */
-			if ((dir == 'v') && v1->vec.x > 0 && v1->vec.x < winsize_x - 1) {
+			if ((dir == 'v') && v1->vec.x > 0 && v1->vec.x < screen_size_x - 1) {
 				oldval = v1->vec.x;
 				v1->vec.x = origval + delta;
 				
@@ -1215,7 +1216,7 @@ static void area_move_apply_do(bContext *C, int origval, int delta, int dir, int
 				if (oldval != v1->vec.x)
 					doredraw = 1;
 			}
-			if ((dir == 'h') && v1->vec.y > 0 && v1->vec.y < winsize_y - 1) {
+			if ((dir == 'h') && v1->vec.y > 0 && v1->vec.y < screen_size_y - 1) {
 				oldval = v1->vec.y;
 				v1->vec.y = origval + delta;
 				
@@ -1565,8 +1566,8 @@ static int area_split_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	wmWindow *win = CTX_wm_window(C);
 	bScreen *sc = CTX_wm_screen(C);
 	sAreaSplitData *sd;
-	const int winsize_x = WM_window_pixels_x(win);
-	const int winsize_y = WM_window_pixels_y(win);
+	const int screen_size_x = WM_window_screen_pixels_x(win);
+	const int screen_size_y = WM_window_screen_pixels_y(win);
 	int dir;
 	
 	/* no full window splitting allowed */
@@ -1619,7 +1620,7 @@ static int area_split_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		else
 			y = event->x;
 		
-		actedge = screen_find_active_scredge(sc, winsize_x, winsize_y, x, y);
+		actedge = screen_find_active_scredge(sc, screen_size_x, screen_size_y, x, y);
 		if (actedge == NULL)
 			return OPERATOR_CANCELLED;
 		
@@ -1642,7 +1643,7 @@ static int area_split_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		
 		/* do the split */
 		if (area_split_apply(C, op)) {
-			area_move_set_limits(sc, dir, winsize_x, winsize_y, &sd->bigger, &sd->smaller);
+			area_move_set_limits(sc, dir, screen_size_x, screen_size_y, &sd->bigger, &sd->smaller);
 			
 			/* add temp handler for edge move or cancel */
 			WM_event_add_modal_handler(C, op);
@@ -2782,10 +2783,10 @@ static int screen_area_options_invoke(bContext *C, wmOperator *op, const wmEvent
 	uiLayout *layout;
 	PointerRNA ptr1, ptr2;
 	ScrEdge *actedge;
-	const int winsize_x = WM_window_pixels_x(win);
-	const int winsize_y = WM_window_pixels_y(win);
+	const int screen_size_x = WM_window_screen_pixels_x(win);
+	const int screen_size_y = WM_window_screen_pixels_y(win);
 
-	actedge = screen_find_active_scredge(sc, winsize_x, winsize_y, event->x, event->y);
+	actedge = screen_find_active_scredge(sc, screen_size_x, screen_size_y, event->x, event->y);
 	
 	if (actedge == NULL) return OPERATOR_CANCELLED;
 	

@@ -1716,19 +1716,29 @@ float WM_cursor_pressure(const struct wmWindow *win)
 
 /* support for native pixel size */
 /* mac retina opens window in size X, but it has up to 2 x more pixels */
-int WM_window_pixels_x(wmWindow *win)
+int WM_window_pixels_x(const wmWindow *win)
 {
 	float f = GHOST_GetNativePixelSize(win->ghostwin);
 	
 	return (int)(f * (float)win->sizex);
 }
-
-int WM_window_pixels_y(wmWindow *win)
+int WM_window_pixels_y(const wmWindow *win)
 {
 	float f = GHOST_GetNativePixelSize(win->ghostwin);
 	
 	return (int)(f * (float)win->sizey);
-	
+}
+
+/**
+ * Get the total pixels that are usable by the actual screen, excluding global areas.
+ */
+int WM_window_screen_pixels_x(const wmWindow *win)
+{
+	return WM_window_pixels_x(win);
+}
+int WM_window_screen_pixels_y(const wmWindow *win)
+{
+	return WM_window_pixels_y(win) - (2 * UI_UNIT_Y);
 }
 
 bool WM_window_is_fullscreen(wmWindow *win)

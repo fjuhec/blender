@@ -909,26 +909,26 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 
 	/* exception for bg mode, we only need the screen context */
 	if (!G.background) {
-		const int winsize_x = WM_window_pixels_x(win);
-		const int winsize_y = WM_window_pixels_y(win);
+		const int screen_size_x = WM_window_screen_pixels_x(win);
+		const int screen_size_y = WM_window_screen_pixels_y(win);
 		ScrArea *sa;
-		rcti winrct;
-	
-		winrct.xmin = 0;
-		winrct.xmax = winsize_x - 1;
-		winrct.ymin = 0;
-		winrct.ymax = winsize_y - 1;
-		
+		rcti screen_rect;
+
+		screen_rect.xmin = 0;
+		screen_rect.xmax = screen_size_x - 1;
+		screen_rect.ymin = 0;
+		screen_rect.ymax = screen_size_y - 1;
+
 		/* header size depends on DPI, let's verify */
 		screen_refresh_headersizes();
 		
-		screen_test_scale(screen, winsize_x, winsize_y);
+		screen_test_scale(screen, screen_size_x, screen_size_y);
 		
 		if (screen->mainwin == 0) {
-			screen->mainwin = wm_subwindow_open(win, &winrct, false);
+			screen->mainwin = wm_subwindow_open(win, &screen_rect, false);
 		}
 		else {
-			wm_subwindow_position(win, screen->mainwin, &winrct, false);
+			wm_subwindow_position(win, screen->mainwin, &screen_rect, false);
 		}
 		
 		for (sa = screen->areabase.first; sa; sa = sa->next) {
@@ -1066,8 +1066,8 @@ void ED_screen_exit(bContext *C, wmWindow *window, bScreen *screen)
 static void screen_cursor_set(wmWindow *win, wmEvent *event)
 {
 	const bScreen *screen = WM_window_get_active_screen(win);
-	const int winsize_x = WM_window_pixels_x(win);
-	const int winsize_y = WM_window_pixels_y(win);
+	const int screen_size_x = WM_window_screen_pixels_x(win);
+	const int screen_size_y = WM_window_screen_pixels_y(win);
 
 	AZone *az = NULL;
 	ScrArea *sa;
@@ -1087,7 +1087,7 @@ static void screen_cursor_set(wmWindow *win, wmEvent *event)
 		}
 	}
 	else {
-		ScrEdge *actedge = screen_find_active_scredge(screen, winsize_x, winsize_y, event->x, event->y);
+		ScrEdge *actedge = screen_find_active_scredge(screen, screen_size_x, screen_size_y, event->x, event->y);
 		
 		if (actedge) {
 			if (scredge_is_horizontal(actedge))
