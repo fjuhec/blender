@@ -1136,6 +1136,7 @@ class GreasePencilPaletteColorPanel:
             else:
                 txt = "Factor"
             col.prop(pcolor, "factor", text=txt)
+            col.prop(pcolor, "shift")
 
         # Options
         row = layout.row()

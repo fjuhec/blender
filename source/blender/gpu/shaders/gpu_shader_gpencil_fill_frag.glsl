@@ -3,6 +3,7 @@ uniform vec4 color2;
 uniform int fill_type;
 uniform float angle;
 uniform float factor;
+uniform vec2 shift;
 
 #define SOLID 0
 #define GRADIENT 1
@@ -25,7 +26,7 @@ void main()
 	}
 	else {
 		mat2 matrot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
-		vec2 rot = matrot * texCoord_interp;
+		vec2 rot = (matrot * texCoord_interp) + shift;
 		/* gradient */
 		if (fill_type == GRADIENT) {
 			fragColor = mix(color, color2, rot.x - factor);
