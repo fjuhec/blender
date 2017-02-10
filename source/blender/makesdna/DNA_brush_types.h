@@ -364,6 +364,7 @@ typedef enum BlurKernelType {
 /* Grease Pencil Fill styles */
 #define FILL_STYLE_SOLID	0
 #define FILL_STYLE_GRADIENT	1
-#define FILL_STYLE_CHESSBOARD 2
+#define FILL_STYLE_RADIAL	2
+#define FILL_STYLE_CHESSBOARD 3
 
 #endif  /* __DNA_BRUSH_TYPES_H__ */

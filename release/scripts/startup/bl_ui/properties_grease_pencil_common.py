@@ -1126,10 +1126,12 @@ class GreasePencilPaletteColorPanel:
         col.prop(pcolor, "fill_color", text="")
         col.prop(pcolor, "fill_alpha", text="Opacity", slider=True)
         col.prop(pcolor, "fill_style", text="")
-        if pcolor.fill_style in ('GRADIENT', 'CHESSBOARD'):
+        if pcolor.fill_style in ('GRADIENT', 'RADIAL', 'CHESSBOARD'):
             col.prop(pcolor, "mix_color", text="Mix")
             col.prop(pcolor, "angle", text="Angle")
-            if pcolor.fill_style == 'CHESSBOARD':
+            if pcolor.fill_style == 'RADIAL':
+                txt = "Radio"
+            elif pcolor.fill_style == 'CHESSBOARD':
                 txt = "Size"
             else:
                 txt = "Factor"
