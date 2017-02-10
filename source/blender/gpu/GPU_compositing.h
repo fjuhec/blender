@@ -69,7 +69,9 @@ typedef enum GPUFXShaderEffect {
 	GPU_SHADER_FX_DEPTH_RESOLVE = 10,
 
 	/* lens distortion for HMD viewport use */
-	GPU_SHADER_FX_LENS_DISTORTION = 11,
+	GPU_SHADER_FX_LENS_DISTORTION = 11, //Generic Correction
+	GPU_SHADER_FX_LENS_DISTORTION_DK1 = 12, //Oculus DK1
+	GPU_SHADER_FX_LENS_DISTORTION_DK2 = 13, //Oculus DK2
 
 	GPU_MAX_SHADER, /* Always last! */
 } GPUFXShaderEffect;

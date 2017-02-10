@@ -714,6 +714,14 @@ GPUShader *GPU_shader_get_builtin_fx_shader(int effect, bool persp)
 			case GPU_SHADER_FX_LENS_DISTORTION:
 				shader = GPU_shader_create(datatoc_gpu_shader_fx_lensdistortion_vert_glsl, datatoc_gpu_shader_fx_lensdistortion_frag_glsl, NULL, NULL, defines, 0, 0, 0);
 				break;
+			case GPU_SHADER_FX_LENS_DISTORTION_DK1:
+				strcat(defines, "#define DK1\n");
+				shader = GPU_shader_create(datatoc_gpu_shader_fx_lensdistortion_vert_glsl, datatoc_gpu_shader_fx_lensdistortion_frag_glsl, NULL, NULL, defines, 0, 0, 0);
+				break;
+			case GPU_SHADER_FX_LENS_DISTORTION_DK2:
+				strcat(defines, "#define DK2\n");
+				shader = GPU_shader_create(datatoc_gpu_shader_fx_lensdistortion_vert_glsl, datatoc_gpu_shader_fx_lensdistortion_frag_glsl, NULL, NULL, defines, 0, 0, 0);
+				break;
 		}
 
 		GG.shaders.fx_shaders[offset] = shader;

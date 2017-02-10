@@ -59,7 +59,9 @@ typedef struct GPULensDistSettings {
 
 typedef enum eGPULensDistType {
 	GPU_FX_LENSDIST_NONE = 0,
-	GPU_FX_LENSDIST_DK2  = 1,
+	GPU_FX_LENSDIST_GENERIC  = 1,
+	GPU_FX_LENSDIST_DK1  = 2,
+	GPU_FX_LENSDIST_DK2  = 3,
 } eGPULensDistType;
 
 typedef struct GPUFXSettings {

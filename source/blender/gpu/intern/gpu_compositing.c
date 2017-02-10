@@ -1295,10 +1295,21 @@ bool GPU_fx_do_composite_pass(
 
 	/* third pass, Lens Distortion */
 	if (fx->effects & GPU_FX_FLAG_LensDist) {
-		eGPULensDistType type = fx->settings.lensdist->type; /* TODO Use this */
-		GPUShader *lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp);
+		eGPULensDistType type = fx->settings.lensdist->type;
+		GPUShader *lensdist_shader = NULL;
 
-		UNUSED_VARS(type);
+		switch(type) {
+			case GPU_FX_LENSDIST_DK1: 
+				lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION_DK1, is_persp); 
+				break;
+			case GPU_FX_LENSDIST_DK2: 
+				lensdist_shader = GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION_DK2, is_persp); 
+				break;
+			case GPU_FX_LENSDIST_GENERIC: 
+			default: lensdist_shader = 
+				GPU_shader_get_builtin_fx_shader(GPU_SHADER_FX_LENS_DISTORTION, is_persp); 
+				break;
+		}
 
 		if (lensdist_shader) {
 			const int color_uniform = GPU_shader_get_uniform(lensdist_shader, "warpTexture");
