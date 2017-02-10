@@ -452,6 +452,7 @@ option(WITH_BOOST					"Enable features depending on boost" ON)
 
 # Unit testsing
 option(WITH_GTESTS "Enable GTest unit testing" OFF)
+option(WITH_OPENGL_TESTS "Enable OpenGL related unit testing (Experimental)" OFF)
 
 
 # Documentation
@@ -635,6 +636,12 @@ if(APPLE)
 			# to silence sdk not found warning, just overrides CMAKE_OSX_SYSROOT
 			set(CMAKE_XCODE_ATTRIBUTE_SDKROOT macosx${OSX_SYSTEM})
 		endif()
+
+		# QuickTime framework is no longer available in SDK 10.12+
+		if(WITH_CODEC_QUICKTIME AND ${OSX_SYSTEM} VERSION_GREATER 10.11)
+			set(WITH_CODEC_QUICKTIME OFF)
+			message(STATUS "QuickTime not supported by SDK ${OSX_SYSTEM}, disabling WITH_CODEC_QUICKTIME")
+		endif()
 	endif()
 
 	if(OSX_SYSTEM MATCHES 10.9)
@@ -733,7 +740,7 @@ if(NOT WITH_BOOST)
 	macro(set_and_warn
 		_setting _val)
 		if(${${_setting}})
-			message(STATUS "'WITH_BOOST' is disabled: forceing 'set(${_setting} ${_val})'")
+			message(STATUS "'WITH_BOOST' is disabled: forcing 'set(${_setting} ${_val})'")
 		endif()
 		set(${_setting} ${_val})
 	endmacro()
@@ -877,7 +884,7 @@ endif()
 # linux only, not cached
 set(WITH_BINRELOC OFF)
 
-# MAXOSX only, set to avoid uninitialized
+# MACOSX only, set to avoid uninitialized
 set(EXETYPE "")
 
 # C/C++ flags
@@ -1583,7 +1590,7 @@ if(WITH_CXX11)
 	if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 		# TODO(sergey): Do we want c++11 or gnu-c++11 here?
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-	elseif(MSVC12)
+	elseif(MSVC)
 		# Nothing special is needed, C++11 features are available by default.
 	else()
 		message(FATAL_ERROR "Compiler ${CMAKE_C_COMPILER_ID} is not supported for C++11 build yet")
