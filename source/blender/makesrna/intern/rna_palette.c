@@ -145,7 +145,7 @@ static int rna_PaletteColor_is_stroke_visible_get(PointerRNA *ptr)
 static int rna_PaletteColor_is_fill_visible_get(PointerRNA *ptr)
 {
 	PaletteColor *pcolor = (PaletteColor *)ptr->data;
-	return (pcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH);
+	return ((pcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (pcolor->fill_style > 0));
 }
 
 #else

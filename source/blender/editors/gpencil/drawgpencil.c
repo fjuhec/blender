@@ -1054,7 +1054,7 @@ static void gp_draw_strokes(
 				/* set color using palette, tint color and opacity */
 				interp_v3_v3v3(tfill, palcolor->fill, tintcolor, tintcolor[3]);
 				tfill[3] = palcolor->fill[3] * opacity;
-				if (tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) {
+				if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (palcolor->fill_style > 0)) {
 					const float *color;
 					if (!onion) {
 						color = tfill;
@@ -1120,7 +1120,7 @@ static void gp_draw_strokes(
 				/* set color using palette, tint color and opacity */
 				interp_v3_v3v3(tfill, palcolor->fill, tintcolor, tintcolor[3]);
 				tfill[3] = palcolor->fill[3] * opacity;
-				if (tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) {
+				if ((tfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (palcolor->fill_style > 0)) {
 					const float *color;
 					if (!onion) {
 						color = tfill;
