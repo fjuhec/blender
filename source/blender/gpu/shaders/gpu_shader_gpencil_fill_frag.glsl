@@ -22,21 +22,22 @@ void main()
 	if (fill_type == SOLID) {
 		fragColor = color;
 	}
-	/* gradient fill */
-	if (fill_type == GRADIENT) {
-		float val = texCoord_interp.x * cos(angle) + texCoord_interp.y * sin(angle);
-		fragColor = mix(color, color2, val - factor);
-	}
-	/* chessboard fill */
-	if (fill_type == CHESS) {
+	else {
 		mat2 matrot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
 		vec2 rot = matrot * texCoord_interp;
-		vec2 pos = rot / abs(factor);
-		if ((fract(pos.x) < 0.5 && fract(pos.y) < 0.5) || (fract(pos.x) > 0.5 && fract(pos.y) > 0.5)) {
-			fragColor = color;
+		/* gradient fill */
+		if (fill_type == GRADIENT) {
+			fragColor = mix(color, color2, rot.x - factor);
 		}
-		else {
-			fragColor = color2;
+		/* chessboard fill */
+		if (fill_type == CHESS) {
+			vec2 pos = rot / abs(factor);
+			if ((fract(pos.x) < 0.5 && fract(pos.y) < 0.5) || (fract(pos.x) > 0.5 && fract(pos.y) > 0.5)) {
+				fragColor = color;
+			}
+			else {
+				fragColor = color2;
+			}
 		}
 	}
 }
