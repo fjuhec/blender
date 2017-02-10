@@ -175,7 +175,9 @@ void convert_blender_slim(ParamHandle *handle, bool selectionOnly, int weightMap
 void set_uv_param_slim(ParamHandle *handle, matrix_transfer *mt);
 bool transformIslands(ParamHandle *handle);
 bool mark_pins(ParamHandle *paramHandle);
-
+void add_index_to_vertices(BMEditMesh *em);
+void free_matrix_transfer(matrix_transfer *mt);
+	
 #ifdef __cplusplus
 }
 #endif
