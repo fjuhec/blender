@@ -151,6 +151,7 @@ typedef struct PaletteColor {
 	short fill_style;        /* style for filling areas (used to select shader type) */
 	float angle;             /* angle used for gradients direction */
 	float factor;            /* factor used to define shader behavior (several uses) */
+	float shift[2];          /* factor to shift filling in 2d space */
 	char pad[4];
 } PaletteColor;
 /* PaletteColor->flag (mainly used by grease pencil) */

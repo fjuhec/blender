@@ -280,6 +280,13 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Factor", "Adjustment Factor");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
+	/* shift factor to move filling in 2d space */
+	prop = RNA_def_property(srna, "shift", PROP_FLOAT, PROP_COORDS);
+	RNA_def_property_float_sdna(prop, NULL, "shift");
+	RNA_def_property_array(prop, 2);
+	RNA_def_property_ui_text(prop, "Shift", "Shift filling pattern in 2d space");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
 	/* Flags */
 	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_HIDE);
