@@ -837,7 +837,7 @@ static void wm_method_draw_triple_hmd_view(wmWindow *win)
 		/* OpenHMD sends us matrices for one eye (half screen), but we draw viewport over
 		 * entire screen. Using glViewport compensates that and prevents streched view. */
 		glViewport(view * win_x_h, 0, win_x_h, win_y);
-		wm_triple_draw_textures(win, drawdata->triple, 1.0f);
+		wm_triple_draw_textures(win, drawdata->triple, 1.0f, false);
 	}
 }
 

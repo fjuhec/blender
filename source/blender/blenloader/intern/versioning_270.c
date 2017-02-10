@@ -1528,6 +1528,16 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			br->fill_threshold /= sqrt_3;
 		}
 
+		{
+	#ifdef WITH_INPUT_HMD
+			if (!DNA_struct_elem_find(fd->filesdna, "wmWindowManager", "HMDViewInfo", "hmd_view")) {
+				for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+					wm->hmd_view.view_shade = OB_MATERIAL;
+				}
+			}
+	#endif
+		}
+
 		/* Custom motion paths */
 		if (!DNA_struct_elem_find(fd->filesdna, "bMotionPath", "int", "line_thickness")) {
 			Object *ob;
@@ -1592,15 +1602,5 @@ void do_versions_after_linking_270(Main *main)
 				}
 			}
 		} FOREACH_NODETREE_END
-	}
-
-	{
-#ifdef WITH_INPUT_HMD
-		if (!DNA_struct_elem_find(fd->filesdna, "wmWindowManager", "HMDViewInfo", "hmd_view")) {
-			for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
-				wm->hmd_view.view_shade = OB_MATERIAL;
-			}
-		}
-#endif
 	}
 }
