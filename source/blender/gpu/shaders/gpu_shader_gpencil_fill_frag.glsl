@@ -41,13 +41,21 @@ void main()
 		vec2 rot = (matrot * texCoord_interp) + g_shift;
 		/* gradient */
 		if (fill_type == GRADIENT) {
-			fragColor = mix(color, color2, rot.x - mix_factor);
+			if (mix_factor == 1.0) {
+				fragColor = color;
+			}
+			else if (mix_factor == 0.0) {
+				fragColor = color2;
+			}
+			else {
+				fragColor = mix(color, color2, rot.x - mix_factor + 0.5);
+			}
 		}
 		/* radial gradient */
 		if (fill_type == RADIAL) {
 			vec2 center = vec2(0.5, 0.5) + g_shift;
 			float distance = length(center - texCoord_interp);
-			float intensity = 1.0 - min(distance, g_radius) / g_radius;
+			float intensity = 1.0 - (min(distance, g_radius) / g_radius) + mix_factor - 0.5;
 			fragColor = mix(color2, color, intensity);
 		}
 		/* chessboard */
