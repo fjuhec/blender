@@ -1124,28 +1124,40 @@ class GreasePencilPaletteColorPanel:
         col = row.column(align=True)
         col.enabled = not pcolor.lock
         col.label(text="Fill:")
-        col.prop(pcolor, "fill_color", text="")
-        col.prop(pcolor, "fill_alpha", text="Opacity", slider=True)
         col.prop(pcolor, "fill_style", text="")
-        if pcolor.fill_style in ('GRADIENT', 'RADIAL', 'CHESSBOARD', 'TEXTURE'):
-            col.prop(pcolor, "mix_color", text="")
-            col.prop(pcolor, "pattern_shift", text="")
-            subrow = col.row(align=True)
-            subrow.prop(pcolor, "mix_factor", text="Mix", slider=True)
-            subrow.prop(pcolor, "pattern_radius", text="Radius")
-            subrow = col.row(align=True)
-            subrow.prop(pcolor, "pattern_angle", text="Angle")
-            subrow.prop(pcolor, "pattern_boxsize", text="Box")
+        if pcolor.fill_style != 'TEXTURE':
+            col.prop(pcolor, "fill_color", text="")
+            col.prop(pcolor, "fill_alpha", text="Opacity", slider=True)
+            col.separator()
+            if pcolor.fill_style != 'CHESSBOARD':
+                if pcolor.texture_mix is True or pcolor.fill_style in ('GRADIENT', 'RADIAL', 'CHESSBOARD'):
+                    col.prop(pcolor, "mix_factor", text="Mix", slider=True)
 
-            col.label("Texture")
-            col.template_ID(pcolor, "image", open="image.open")
+        if pcolor.fill_style in ('GRADIENT', 'RADIAL', 'CHESSBOARD'):
+            col.prop(pcolor, "mix_color", text="")
             split = col.split(percentage=0.5)
             subcol = split.column(align=True)
-            subcol.prop(pcolor, "texture_scale", text="Scale")
-            subcol.prop(pcolor, "texture_angle")
+            subcol.prop(pcolor, "pattern_shift", text="")
+            subcol.prop(pcolor, "pattern_angle", text="Angle")
+
             subcol = split.column(align=True)
-            subcol.prop(pcolor, "texture_shift", text="Location")
-            subcol.prop(pcolor, "texture_clamp", text="Clip Image")
+            subcol.prop(pcolor, "pattern_radius", text="Radius")
+            subcol.prop(pcolor, "pattern_boxsize", text="Box")
+        
+        if pcolor.fill_style != 'CHESSBOARD':
+            col.separator()
+            col.label("Texture")
+            if pcolor.fill_style != 'TEXTURE':
+                col.prop(pcolor, "texture_mix", text="Mix Texture")
+            if pcolor.fill_style == 'TEXTURE' or pcolor.texture_mix is True:
+                col.template_ID(pcolor, "image", open="image.open")
+                split = col.split(percentage=0.5)
+                subcol = split.column(align=True)
+                subcol.prop(pcolor, "texture_shift", text="Location")
+                subcol.prop(pcolor, "texture_angle")
+                subcol = split.column(align=True)
+                subcol.prop(pcolor, "texture_scale", text="Scale")
+                subcol.prop(pcolor, "texture_clamp", text="Clip Image")
 
         # Options
         row = layout.row()
