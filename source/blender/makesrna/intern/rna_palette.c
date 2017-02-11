@@ -50,6 +50,7 @@
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_gpencil.h"
+#include "BKE_library.h"
 
 static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
@@ -155,15 +156,10 @@ static void rna_PaletteColor_image_set(PointerRNA *ptr, PointerRNA value)
 	ID *id = value.data;
 
 	if (id) {
-		/* special exception here, individual faces don't count
-		* as reference, but we do ensure the refcount is not zero */
-		if (id->us == 0)
-			id_us_plus(id);
-		else
-			id_lib_extern(id);
+		/* enable fake user */
+		id_fake_user_set(id);
 	}
-
-	pcolor->ima = (struct Image *)id;   // tf es MTexPoly struct
+	pcolor->ima = (struct Image *)id; 
 }
 
 #else
