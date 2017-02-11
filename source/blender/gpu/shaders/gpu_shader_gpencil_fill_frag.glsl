@@ -4,11 +4,14 @@ uniform int fill_type;
 uniform float angle;
 uniform float factor;
 uniform vec2 shift;
+uniform sampler2D myTexture;
 
+/* keep this list synchronized with list in DNA_brush_types.h */
 #define SOLID 0
 #define GRADIENT 1
 #define RADIAL 2
 #define CHESS 3
+#define TEXTURE 4
 
 #if __VERSION__ == 120
 	noperspective varying vec2 texCoord_interp;
@@ -16,6 +19,7 @@ uniform vec2 shift;
 #else
 	noperspective in vec2 texCoord_interp;
 	out vec4 fragColor;
+	#define texture2D texture
 #endif
 
 void main()
@@ -51,6 +55,10 @@ void main()
 			else {
 				fragColor = color2;
 			}
+		}
+		/* texture */
+		if (fill_type == TEXTURE) {
+			fragColor = texture2D(myTexture, rot);
 		}
 	}
 }

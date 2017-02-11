@@ -1126,7 +1126,7 @@ class GreasePencilPaletteColorPanel:
         col.prop(pcolor, "fill_color", text="")
         col.prop(pcolor, "fill_alpha", text="Opacity", slider=True)
         col.prop(pcolor, "fill_style", text="")
-        if pcolor.fill_style in ('GRADIENT', 'RADIAL', 'CHESSBOARD'):
+        if pcolor.fill_style in ('GRADIENT', 'RADIAL', 'CHESSBOARD', 'TEXTURE'):
             col.prop(pcolor, "mix_color", text="Mix")
             col.prop(pcolor, "angle", text="Angle")
             if pcolor.fill_style == 'RADIAL':
@@ -1137,6 +1137,7 @@ class GreasePencilPaletteColorPanel:
                 txt = "Factor"
             col.prop(pcolor, "factor", text=txt)
             col.prop(pcolor, "shift")
+            col.template_ID(pcolor, "image", open="image.open")
 
         # Options
         row = layout.row()

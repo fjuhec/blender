@@ -57,6 +57,7 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
+#include "BKE_image.h"
 
 #include "WM_api.h"
 
@@ -72,6 +73,8 @@
 
 #include "UI_interface_icons.h"
 #include "UI_resources.h"
+
+#include "IMB_imbuf_types.h"
 
 /* ************************************************** */
 /* GREASE PENCIL DRAWING */
@@ -573,6 +576,34 @@ static void gp_add_filldata_tobuffer(bGPDspoint *pt, float uv[2], unsigned pos, 
 	immVertex3fv(pos, fpt); /* position */
 }
 
+/* assign image texture for filling stroke */
+static int gp_set_filling_texture(Image *image)
+{
+	ImBuf *ibuf;
+	unsigned int *bind = &image->bindcode[TEXTARGET_TEXTURE_2D];
+	int error = GL_NO_ERROR;
+	ImageUser iuser = { NULL };
+	void *lock;
+
+	iuser.ok = true;
+
+	ibuf = BKE_image_acquire_ibuf(image, &iuser, &lock);
+
+	if (ibuf == NULL || ibuf->rect == NULL) {
+		BKE_image_release_ibuf(image, ibuf, NULL);
+		return (int)GL_INVALID_OPERATION;
+	}
+
+	GPU_create_gl_tex(bind, ibuf->rect, ibuf->rect_float, ibuf->x, ibuf->y, GL_TEXTURE_2D,
+		false, false, image);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	BKE_image_release_ibuf(image, ibuf, NULL);
+	
+	return error;
+}
+
 /* draw fills for shapes */
 static void gp_draw_stroke_fill(
 	bGPdata *gpd, bGPDstroke *gps,
@@ -598,6 +629,12 @@ static void gp_draw_stroke_fill(
 	immUniform1f("angle", palcolor->angle);
 	immUniform1f("factor", palcolor->factor);
 	immUniform2fv("shift", palcolor->shift);
+
+	/* image texture */
+	if (palcolor->fill_style == FILL_STYLE_TEXTURE) {
+		gp_set_filling_texture(palcolor->ima);
+	}
+
 
 	/* Draw all triangles for filling the polygon (cache must be calculated before) */
 	immBegin(GL_TRIANGLES, gps->tot_triangles * 3);

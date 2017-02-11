@@ -45,6 +45,7 @@ struct CurveMapping;
 struct MTex;
 struct Image;
 struct AnimData;
+struct Image;
 
 typedef struct BrushClone {
 	struct Image *image;    /* image for clone tool */
@@ -140,6 +141,7 @@ typedef struct Brush {
 
 typedef struct PaletteColor {
 	struct PaletteColor *next, *prev;
+	struct Image *ima;       /* Texture image */
 	float rgb[4];            /* color for paint and strokes (alpha included) */
 	float fill[4];           /* color that should be used for drawing "fills" for strokes (alpha included) */
 	float scolor[4];         /* secondary color used for gradients and other stuff */
@@ -367,5 +369,6 @@ typedef enum BlurKernelType {
 #define FILL_STYLE_GRADIENT	1
 #define FILL_STYLE_RADIAL	2
 #define FILL_STYLE_CHESSBOARD 3
+#define FILL_STYLE_TEXTURE 4
 
 #endif  /* __DNA_BRUSH_TYPES_H__ */

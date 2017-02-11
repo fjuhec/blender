@@ -39,6 +39,7 @@
 
 #include "DNA_gpencil_types.h"
 #include "DNA_brush_types.h"
+#include "DNA_image_types.h"
 
 #ifdef RNA_RUNTIME
 
@@ -148,6 +149,23 @@ static int rna_PaletteColor_is_fill_visible_get(PointerRNA *ptr)
 	return ((pcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (pcolor->fill_style > 0));
 }
 
+static void rna_PaletteColor_image_set(PointerRNA *ptr, PointerRNA value)
+{
+	PaletteColor *pcolor = (PaletteColor *)ptr->data;
+	ID *id = value.data;
+
+	if (id) {
+		/* special exception here, individual faces don't count
+		* as reference, but we do ensure the refcount is not zero */
+		if (id->us == 0)
+			id_us_plus(id);
+		else
+			id_lib_extern(id);
+	}
+
+	pcolor->ima = (struct Image *)id;   // tf es MTexPoly struct
+}
+
 #else
 
 /* palette.colors */
@@ -204,6 +222,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 		{ FILL_STYLE_GRADIENT, "GRADIENT", 0, "Gradient", "Fill area with gradient color" },
 		{ FILL_STYLE_RADIAL, "RADIAL", 0, "Radial", "Fill area with radial gradient" },
 		{ FILL_STYLE_CHESSBOARD, "CHESSBOARD", 0, "Chessboard", "Fill area with chessboard pattern" },
+		{ FILL_STYLE_TEXTURE, "TEXTURE", 0, "Texture", "Fill area with image texture" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
@@ -333,6 +352,14 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "fill_style");
 	RNA_def_property_enum_items(prop, fill_style_items);
 	RNA_def_property_ui_text(prop, "Fill Style", "Select style used to fill strokes");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	/* image texture */	
+	prop = RNA_def_property(srna, "image", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "ima");
+	RNA_def_property_pointer_funcs(prop, NULL, "rna_PaletteColor_image_set", NULL, NULL);
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "Image", "");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* Read-only state props (for simpler UI code) */
