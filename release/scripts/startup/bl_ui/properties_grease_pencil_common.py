@@ -1131,7 +1131,7 @@ class GreasePencilPaletteColorPanel:
             col.prop(pcolor, "mix_color", text="")
             col.prop(pcolor, "pattern_shift", text="")
             subrow = col.row(align=True)
-            subrow.prop(pcolor, "mix_factor", text="Mix")
+            subrow.prop(pcolor, "mix_factor", text="Mix", slider=True)
             subrow.prop(pcolor, "pattern_radius", text="Radius")
             subrow = col.row(align=True)
             subrow.prop(pcolor, "pattern_angle", text="Angle")
@@ -1142,10 +1142,10 @@ class GreasePencilPaletteColorPanel:
             split = col.split(percentage=0.5)
             subcol = split.column(align=True)
             subcol.prop(pcolor, "texture_scale", text="Scale")
+            subcol.prop(pcolor, "texture_angle")
             subcol = split.column(align=True)
             subcol.prop(pcolor, "texture_shift", text="Location")
-            col.prop(pcolor, "texture_angle")
-            col.prop(pcolor, "texture_clamp")
+            subcol.prop(pcolor, "texture_clamp", text="Clip Image")
 
         # Options
         row = layout.row()
