@@ -286,24 +286,58 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Mix Color", "Color for mixing with primary filling color");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 	
-	/* Gradient angle */
-	prop = RNA_def_property(srna, "angle", PROP_FLOAT, PROP_ANGLE);
-	RNA_def_property_float_sdna(prop, NULL, "angle");
-	RNA_def_property_ui_text(prop, "Angle", "Gradient Angle");
+	/* Mix factor */
+	prop = RNA_def_property(srna, "mix_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "mix_factor");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_text(prop, "Mix", "Mix Adjustment Factor");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
-	/* Shader factor */
-	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "factor");
-	RNA_def_property_range(prop, -2.0f, 2.0f);
-	RNA_def_property_ui_text(prop, "Factor", "Adjustment Factor");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
-
-	/* shift factor to move filling in 2d space */
-	prop = RNA_def_property(srna, "shift", PROP_FLOAT, PROP_COORDS);
-	RNA_def_property_float_sdna(prop, NULL, "shift");
+	/* Shift factor to move pattern filling in 2d space */
+	prop = RNA_def_property(srna, "pattern_shift", PROP_FLOAT, PROP_COORDS);
+	RNA_def_property_float_sdna(prop, NULL, "g_shift");
 	RNA_def_property_array(prop, 2);
 	RNA_def_property_ui_text(prop, "Shift", "Shift filling pattern in 2d space");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
+	/* Gradient angle */
+	prop = RNA_def_property(srna, "pattern_angle", PROP_FLOAT, PROP_ANGLE);
+	RNA_def_property_float_sdna(prop, NULL, "g_angle");
+	RNA_def_property_ui_text(prop, "Angle", "Pattern Orientation Angle");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
+	/* Gradient radius */
+	prop = RNA_def_property(srna, "pattern_radius", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "g_radius");
+	RNA_def_property_range(prop, 0.0001f, 10.0f);
+	RNA_def_property_ui_text(prop, "Radius", "Pattern Radius");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
+	/* Box size */
+	prop = RNA_def_property(srna, "pattern_boxsize", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "g_boxsize");
+	RNA_def_property_range(prop, 0.0001f, 10.0f);
+	RNA_def_property_ui_text(prop, "Size", "Box Size");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
+	/* Texture angle */
+	prop = RNA_def_property(srna, "texture_angle", PROP_FLOAT, PROP_ANGLE);
+	RNA_def_property_float_sdna(prop, NULL, "t_angle");
+	RNA_def_property_ui_text(prop, "Angle", "Texture Orientation Angle");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
+	/* Scale factor for texture */
+	prop = RNA_def_property(srna, "texture_scale", PROP_FLOAT, PROP_COORDS);
+	RNA_def_property_float_sdna(prop, NULL, "t_scale");
+	RNA_def_property_array(prop, 2);
+	RNA_def_property_ui_text(prop, "Scale", "Scale Factor for Texture");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
+	/* Shift factor to move texture in 2d space */
+	prop = RNA_def_property(srna, "texture_shift", PROP_FLOAT, PROP_COORDS);
+	RNA_def_property_float_sdna(prop, NULL, "t_shift");
+	RNA_def_property_array(prop, 2);
+	RNA_def_property_ui_text(prop, "Shift", "Shift Texture in 2d Space");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
 	/* Flags */
@@ -323,6 +357,11 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_ONIONSKIN);
 	RNA_def_property_ui_icon(prop, ICON_GHOST_ENABLED, 0);
 	RNA_def_property_ui_text(prop, "Show in Ghosts", "Display strokes using this color when showing onion skins");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "texture_clamp", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_TEX_CLAMP);
+	RNA_def_property_ui_text(prop, "Clamp", "Do not repeat texture and clamp to one instance only");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* pass index for future compositing and editing tools */

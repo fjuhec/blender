@@ -1108,7 +1108,7 @@ class GreasePencilPaletteColorPanel:
     # Draw palette colors
     def draw_palettecolors(self, layout, pcolor):
         # color settings
-        split = layout.split(percentage=0.5)
+        split = layout.split(percentage=1.0)
         split.active = not pcolor.lock
 
         # Column 1 - Stroke
@@ -1120,24 +1120,32 @@ class GreasePencilPaletteColorPanel:
         col.prop(pcolor, "stroke_style", text="")
 
         # Column 2 - Fill
-        col = split.column(align=True)
+        row = layout.row()
+        col = row.column(align=True)
         col.enabled = not pcolor.lock
         col.label(text="Fill:")
         col.prop(pcolor, "fill_color", text="")
         col.prop(pcolor, "fill_alpha", text="Opacity", slider=True)
         col.prop(pcolor, "fill_style", text="")
         if pcolor.fill_style in ('GRADIENT', 'RADIAL', 'CHESSBOARD', 'TEXTURE'):
-            col.prop(pcolor, "mix_color", text="Mix")
-            col.prop(pcolor, "angle", text="Angle")
-            if pcolor.fill_style == 'RADIAL':
-                txt = "Radio"
-            elif pcolor.fill_style == 'CHESSBOARD':
-                txt = "Size"
-            else:
-                txt = "Factor"
-            col.prop(pcolor, "factor", text=txt)
-            col.prop(pcolor, "shift")
+            col.prop(pcolor, "mix_color", text="")
+            col.prop(pcolor, "pattern_shift", text="")
+            subrow = col.row(align=True)
+            subrow.prop(pcolor, "mix_factor", text="Mix")
+            subrow.prop(pcolor, "pattern_radius", text="Radius")
+            subrow = col.row(align=True)
+            subrow.prop(pcolor, "pattern_angle", text="Angle")
+            subrow.prop(pcolor, "pattern_boxsize", text="Box")
+
+            col.label("Texture")
             col.template_ID(pcolor, "image", open="image.open")
+            split = col.split(percentage=0.5)
+            subcol = split.column(align=True)
+            subcol.prop(pcolor, "texture_scale", text="Scale")
+            subcol = split.column(align=True)
+            subcol.prop(pcolor, "texture_shift", text="Location")
+            col.prop(pcolor, "texture_angle")
+            col.prop(pcolor, "texture_clamp")
 
         # Options
         row = layout.row()

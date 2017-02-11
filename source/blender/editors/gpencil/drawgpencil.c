@@ -577,7 +577,7 @@ static void gp_add_filldata_tobuffer(bGPDspoint *pt, float uv[2], unsigned pos, 
 }
 
 /* assign image texture for filling stroke */
-static int gp_set_filling_texture(Image *image)
+static int gp_set_filling_texture(Image *image, short flag)
 {
 	ImBuf *ibuf;
 	unsigned int *bind = &image->bindcode[TEXTARGET_TEXTURE_2D];
@@ -599,6 +599,14 @@ static int gp_set_filling_texture(Image *image)
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	if (flag & PAC_COLOR_TEX_CLAMP) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	}
+	else {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	}
 	BKE_image_release_ibuf(image, ibuf, NULL);
 	
 	return error;
@@ -626,15 +634,20 @@ static void gp_draw_stroke_fill(
 	immUniformColor4fv(color);
 	immUniform4fv("color2", palcolor->scolor);
 	immUniform1i("fill_type", palcolor->fill_style);
-	immUniform1f("angle", palcolor->angle);
-	immUniform1f("factor", palcolor->factor);
-	immUniform2fv("shift", palcolor->shift);
+	immUniform1f("mix_factor", palcolor->mix_factor);
+	immUniform1f("g_angle", palcolor->g_angle);
+	immUniform1f("g_radius", palcolor->g_radius);
+	immUniform1f("g_boxsize", palcolor->g_boxsize);
+	immUniform2fv("g_shift", palcolor->g_shift);
+
+	immUniform1f("t_angle", palcolor->t_angle);
+	immUniform2fv("t_scale", palcolor->t_scale);
+	immUniform2fv("t_shift", palcolor->t_shift);
 
 	/* image texture */
 	if (palcolor->fill_style == FILL_STYLE_TEXTURE) {
-		gp_set_filling_texture(palcolor->ima);
+		gp_set_filling_texture(palcolor->ima, palcolor->flag);
 	}
-
 
 	/* Draw all triangles for filling the polygon (cache must be calculated before) */
 	immBegin(GL_TRIANGLES, gps->tot_triangles * 3);
