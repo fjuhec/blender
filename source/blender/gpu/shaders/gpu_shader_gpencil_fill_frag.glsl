@@ -33,13 +33,15 @@ uniform sampler2D myTexture;
 
 void main()
 {
+	vec2 t_center = vec2(0.5, 0.5);
+	mat2 matrot_tex = mat2(cos(t_angle), -sin(t_angle), sin(t_angle), cos(t_angle));
+	vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_shift;
+	vec4 text_color = texture2D(myTexture, rot_tex * t_scale);
+
 	/* solid fill */
 	if (fill_type == SOLID) {
 		if (t_mix == 1) {
-			vec2 t_center = vec2(0.5, 0.5);
-			mat2 matrot_tex = mat2(cos(t_angle), -sin(t_angle), sin(t_angle), cos(t_angle));
-			vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_shift;
-			fragColor = mix(color, texture2D(myTexture, rot_tex * t_scale), mix_factor);
+			fragColor = mix(color, text_color, mix_factor);
 		}
 		else {
 			fragColor = color;
@@ -55,10 +57,20 @@ void main()
 				fragColor = color;
 			}
 			else if (mix_factor == 0.0) {
-				fragColor = color2;
+				if (t_mix == 1) {
+					fragColor = text_color;
+				}
+				else {
+					fragColor = color2;
+				}
 			}
 			else {
-				fragColor = mix(color, color2, rot.x - mix_factor + 0.5);
+				if (t_mix == 1) {
+					fragColor = mix(color, text_color, rot.x - mix_factor + 0.5);
+				}
+				else {
+					fragColor = mix(color, color2, rot.x - mix_factor + 0.5);
+				}
 			}
 		}
 		/* radial gradient */
@@ -90,10 +102,7 @@ void main()
 		}
 		/* texture */
 		if (fill_type == TEXTURE) {
-			vec2 t_center = vec2(0.5, 0.5);
-			mat2 matrot_tex = mat2(cos(t_angle), -sin(t_angle), sin(t_angle), cos(t_angle));
-			vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_shift;
-			fragColor = texture2D(myTexture, rot_tex * t_scale);
+			fragColor = text_color;
 		}
 	}
 }
