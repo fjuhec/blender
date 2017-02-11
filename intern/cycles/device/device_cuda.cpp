@@ -1313,8 +1313,8 @@ public:
 				split_kernel.load_kernels(requested_features);
 
 				while(task->acquire_tile(this, tile)) {
-					device_memory data;
-					split_kernel.path_trace(task, tile, data);
+					device_memory void_buffer;
+					split_kernel.path_trace(task, tile, void_buffer, void_buffer);
 
 					task->release_tile(tile);
 
@@ -1525,14 +1525,6 @@ public:
 		cuda_pop_context();
 
 		return new CUDASplitKernelFunction(this, func);
-	}
-
-	void alloc_kernel_globals(device_memory& /*mem*/)
-	{
-	}
-
-	void free_kernel_globals(device_memory& /*mem*/)
-	{
 	}
 
 	int2 split_kernel_local_size()

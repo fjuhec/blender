@@ -82,32 +82,6 @@ public:
 		background = background_;
 	}
 
-	virtual void alloc_kernel_globals(device_memory& mem)
-	{
-		/* Copy dummy KernelGlobals related to OpenCL from kernel_globals.h to
-		 * fetch its size.
-		 */
-		typedef struct KernelGlobals {
-			ccl_constant KernelData *data;
-#define KERNEL_TEX(type, ttype, name) \
-	ccl_global type *name;
-#include "kernel_textures.h"
-#undef KERNEL_TEX
-			void *sd_input;
-			void *isect_shadow;
-			SplitData split_data;
-			SplitParams split_param_data;
-		} KernelGlobals;
-
-		mem.resize(sizeof(KernelGlobals));
-		mem_alloc("kernel_globals", mem, MEM_READ_WRITE);
-	}
-
-	virtual void free_kernel_globals(device_memory& mem)
-	{
-		mem_free(mem);
-	}
-
 	string get_build_options(const DeviceRequestedFeatures& requested_features)
 	{
 		string build_options = "-D__SPLIT_KERNEL__ ";
@@ -280,10 +254,31 @@ public:
 		else if(task->type == DeviceTask::PATH_TRACE) {
 			RenderTile tile;
 
+			/* Copy dummy KernelGlobals related to OpenCL from kernel_globals.h to
+			 * fetch its size.
+			 */
+			typedef struct KernelGlobals {
+				ccl_constant KernelData *data;
+#define KERNEL_TEX(type, ttype, name) \
+				ccl_global type *name;
+#include "kernel_textures.h"
+#undef KERNEL_TEX
+				void *sd_input;
+				void *isect_shadow;
+				SplitData split_data;
+				SplitParams split_param_data;
+			} KernelGlobals;
+
+			/* Allocate buffer for kernel globals */
+			device_memory kgbuffer;
+			kgbuffer.resize(sizeof(KernelGlobals));
+			mem_alloc("kernel_globals", kgbuffer, MEM_READ_WRITE);
+
 			/* Keep rendering tiles until done. */
 			while(task->acquire_tile(this, tile)) {
 				split_kernel->path_trace(task,
 		                                 tile,
+		                                 kgbuffer,
 		                                 *const_mem_map["__data"]);
 
 				/* Complete kernel execution before release tile. */
@@ -298,7 +293,10 @@ public:
 				clFinish(cqCommandQueue);
 
 				task->release_tile(tile);
+
 			}
+
+			mem_free(kgbuffer);
 		}
 	}
 

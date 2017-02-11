@@ -49,7 +49,6 @@ private:
 	 * kernel will be available to another kernel via this global
 	 * memory.
 	 */
-	device_memory kgbuffer;
 	device_memory split_data;
 	device_vector<uchar> ray_state;
 	device_memory queue_index; /* Array of size num_queues * sizeof(int) that tracks the size of each queue. */
@@ -76,6 +75,7 @@ public:
 	bool load_kernels(const DeviceRequestedFeatures& requested_features);
 	bool path_trace(DeviceTask *task,
 	                RenderTile& rtile,
+	                device_memory& kgbuffer,
 	                device_memory& kernel_data);
 
 	size_t max_elements_for_max_buffer_size(size_t max_buffer_size, size_t passes_size);

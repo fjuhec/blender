@@ -35,7 +35,6 @@ DeviceSplitKernel::DeviceSplitKernel(Device *device) : device(device)
 
 DeviceSplitKernel::~DeviceSplitKernel()
 {
-	device->free_kernel_globals(kgbuffer);
 	device->mem_free(split_data);
 	device->mem_free(ray_state);
 	device->mem_free(use_queues_flag);
@@ -88,6 +87,7 @@ size_t DeviceSplitKernel::max_elements_for_max_buffer_size(size_t max_buffer_siz
 
 bool DeviceSplitKernel::path_trace(DeviceTask *task,
                                    RenderTile& tile,
+                                   device_memory& kgbuffer,
                                    device_memory& kernel_data)
 {
 	if(device->have_error()) {
@@ -154,8 +154,6 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 
 		use_queues_flag.resize(sizeof(char));
 		device->mem_alloc("use_queues_flag", use_queues_flag, MEM_READ_WRITE);
-
-		device->alloc_kernel_globals(kgbuffer);
 
 		ray_state.resize(num_global_elements);
 		device->mem_alloc("ray_state", ray_state, MEM_READ_WRITE);

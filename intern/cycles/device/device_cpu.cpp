@@ -446,14 +446,25 @@ public:
 
 		DeviceSplitKernel split_kernel(this);
 
+		/* allocate buffer for kernel globals */
+		device_memory kgbuffer;
+		kgbuffer.resize(sizeof(KernelGlobals));
+		mem_alloc("kernel_globals", kgbuffer, MEM_READ_WRITE);
+
+		KernelGlobals *kg = (KernelGlobals*)kgbuffer.device_pointer;
+		*kg = thread_kernel_globals_init();
+
 		requested_features.max_closure = MAX_CLOSURE;
 		if(!split_kernel.load_kernels(requested_features)) {
+			thread_kernel_globals_free((KernelGlobals*)kgbuffer.device_pointer);
+			mem_free(kgbuffer);
+
 			return;
 		}
 
 		while(task.acquire_tile(this, tile)) {
 			device_memory data;
-			split_kernel.path_trace(&task, tile, data);
+			split_kernel.path_trace(&task, tile, kgbuffer, data);
 
 			task.release_tile(tile);
 
@@ -462,6 +473,9 @@ public:
 					break;
 			}
 		}
+
+		thread_kernel_globals_free((KernelGlobals*)kgbuffer.device_pointer);
+		mem_free(kgbuffer);
 	}
 
 	void thread_film_convert(DeviceTask& task)
@@ -816,21 +830,6 @@ protected:
 		}
 
 		return kernel;
-	}
-
-	virtual void alloc_kernel_globals(device_memory& mem)
-	{
-		mem.resize(sizeof(KernelGlobals));
-		mem_alloc("kernel_globals", mem, MEM_READ_WRITE);
-
-		KernelGlobals *kg = (KernelGlobals*)mem.device_pointer;
-		*kg = thread_kernel_globals_init();
-	}
-
-	virtual void free_kernel_globals(device_memory& mem)
-	{
-		thread_kernel_globals_free((KernelGlobals*)mem.device_pointer);
-		mem_free(mem);
 	}
 
 	virtual int2 split_kernel_global_size(DeviceTask *task, DeviceSplitKernel& /*split_kernel*/)

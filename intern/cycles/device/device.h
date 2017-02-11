@@ -315,16 +315,6 @@ private:
 		return NULL;
 	}
 
-	virtual void alloc_kernel_globals(device_memory& /*mem*/)
-	{
-		assert(!"not implemented for this device");
-	}
-
-	virtual void free_kernel_globals(device_memory& /*mem*/)
-	{
-		assert(!"not implemented for this device");
-	}
-
 	virtual int2 split_kernel_local_size()
 	{
 		assert(!"not implemented for this device");
