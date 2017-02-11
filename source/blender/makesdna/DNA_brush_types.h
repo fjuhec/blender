@@ -170,7 +170,9 @@ typedef enum ePaletteColor_Flag {
 	/* do onion skinning */
 	PAC_COLOR_ONIONSKIN = (1 << 3),
 	/* clamp texture */
-	PAC_COLOR_TEX_CLAMP = (1 << 4)
+	PAC_COLOR_TEX_CLAMP = (1 << 4),
+	/* mix texture */
+	PAC_COLOR_TEX_MIX = (1 << 5)
 } ePaletteColor_Flag;
 
 typedef struct Palette {
