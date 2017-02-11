@@ -12,6 +12,7 @@ uniform float t_angle;
 uniform vec2 t_scale;
 uniform vec2 t_shift;
 uniform int t_mix;
+uniform float t_opacity;
 
 uniform sampler2D myTexture;
 
@@ -36,7 +37,8 @@ void main()
 	vec2 t_center = vec2(0.5, 0.5);
 	mat2 matrot_tex = mat2(cos(t_angle), -sin(t_angle), sin(t_angle), cos(t_angle));
 	vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_shift;
-	vec4 text_color = texture2D(myTexture, rot_tex * t_scale);
+	vec4 tmp_color = texture2D(myTexture, rot_tex * t_scale);
+	vec4 text_color = vec4(tmp_color[0], tmp_color[1], tmp_color[2], tmp_color[3] * t_opacity);
 
 	/* solid fill */
 	if (fill_type == SOLID) {
@@ -84,10 +86,20 @@ void main()
 				fragColor = color;
 			}
 			else if (mix_factor <= 0.0) {
-				fragColor = color2;
+				if (t_mix == 1) {
+					fragColor = text_color;
+				}
+				else {
+					fragColor = color2;
+				}
 			}
 			else {
-				fragColor = mix(color, color2, intensity - mix_factor + 0.5);
+				if (t_mix == 1) {
+					fragColor = mix(color, text_color, intensity - mix_factor + 0.5);
+				}
+				else {
+					fragColor = mix(color, color2, intensity - mix_factor + 0.5);
+				}
 			}
 		}
 		/* chessboard */

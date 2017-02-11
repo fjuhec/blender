@@ -643,8 +643,12 @@ static void gp_draw_stroke_fill(
 	immUniform1f("t_angle", palcolor->t_angle);
 	immUniform2fv("t_scale", palcolor->t_scale);
 	immUniform2fv("t_shift", palcolor->t_shift);
+	immUniform1f("t_opacity", palcolor->t_opacity);
 	if (palcolor->flag & PAC_COLOR_TEX_MIX) {
 		immUniform1i("t_mix", 1);
+	}
+	else {
+		immUniform1i("t_mix", 0);
 	}
 	/* image texture */
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {

@@ -1155,9 +1155,10 @@ class GreasePencilPaletteColorPanel:
                 subcol = split.column(align=True)
                 subcol.prop(pcolor, "texture_shift", text="Location")
                 subcol.prop(pcolor, "texture_angle")
+                subcol.prop(pcolor, "texture_clamp", text="Clip Image")
                 subcol = split.column(align=True)
                 subcol.prop(pcolor, "texture_scale", text="Scale")
-                subcol.prop(pcolor, "texture_clamp", text="Clip Image")
+                subcol.prop(pcolor, "texture_opacity")
 
         # Options
         row = layout.row()

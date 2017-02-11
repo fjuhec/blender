@@ -498,6 +498,7 @@ PaletteColor *BKE_palette_color_add_name(Palette *palette, const char *name)
 	color->g_radius = 0.5f;
 	ARRAY_SET_ITEMS(color->scolor, 1.0f, 1.0f, 1.0f, 0.2f);
 	ARRAY_SET_ITEMS(color->t_scale, 1.0f, 1.0f);
+	color->t_opacity = 1.0f;
 
 	/* auto-name */
 	BLI_strncpy(color->info, name, sizeof(color->info));

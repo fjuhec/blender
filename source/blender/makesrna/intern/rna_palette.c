@@ -336,6 +336,13 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Shift", "Shift Texture in 2d Space");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
+	/* Texture opacity size */
+	prop = RNA_def_property(srna, "texture_opacity", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "t_opacity");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_text(prop, "Opacity", "Texture Opacity");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
 	/* Flags */
 	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_HIDE);

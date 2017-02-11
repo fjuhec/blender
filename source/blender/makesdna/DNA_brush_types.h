@@ -159,7 +159,8 @@ typedef struct PaletteColor {
 	float t_angle;           /* angle used for texture orientation */
 	float t_scale[2];        /* texture scale */
 	float t_shift[2];        /* factor to shift texture in 2d space */
-	char pad[8];
+	float t_opacity;         /* texture opacity */
+	char pad[4];
 } PaletteColor;
 /* PaletteColor->flag (mainly used by grease pencil) */
 typedef enum ePaletteColor_Flag {
