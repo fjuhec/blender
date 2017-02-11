@@ -55,8 +55,19 @@ void main()
 		if (fill_type == RADIAL) {
 			vec2 center = vec2(0.5, 0.5) + g_shift;
 			float distance = length(center - texCoord_interp);
-			float intensity = 1.0 - (min(distance, g_radius) / g_radius) + mix_factor - 0.5;
-			fragColor = mix(color2, color, intensity);
+			if (distance > g_radius) {
+				discard;
+			}
+			float intensity = distance / g_radius;
+			if (mix_factor >= 1.0) {
+				fragColor = color;
+			}
+			else if (mix_factor <= 0.0) {
+				fragColor = color2;
+			}
+			else {
+				fragColor = mix(color, color2, intensity - mix_factor + 0.5);
+			}
 		}
 		/* chessboard */
 		if (fill_type == CHESS) {
