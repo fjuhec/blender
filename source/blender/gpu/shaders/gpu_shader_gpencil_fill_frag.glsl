@@ -11,6 +11,7 @@ uniform vec2 g_shift;
 uniform float t_angle;
 uniform vec2 t_scale;
 uniform vec2 t_shift;
+uniform int t_mix;
 
 uniform sampler2D myTexture;
 
@@ -34,7 +35,15 @@ void main()
 {
 	/* solid fill */
 	if (fill_type == SOLID) {
-		fragColor = color;
+		if (t_mix == 1) {
+			vec2 t_center = vec2(0.5, 0.5);
+			mat2 matrot_tex = mat2(cos(t_angle), -sin(t_angle), sin(t_angle), cos(t_angle));
+			vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_shift;
+			fragColor = mix(color, texture2D(myTexture, rot_tex * t_scale), mix_factor);
+		}
+		else {
+			fragColor = color;
+		}
 	}
 	else {
 		vec2 center = vec2(0.5, 0.5) + g_shift;
