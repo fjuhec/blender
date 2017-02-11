@@ -39,7 +39,7 @@ void main()
 	else {
 		vec2 center = vec2(0.5, 0.5) + g_shift;
 		mat2 matrot = mat2(cos(g_angle), -sin(g_angle), sin(g_angle), cos(g_angle));
-		vec2 rot = (matrot * texCoord_interp) + g_shift;
+		vec2 rot = (matrot * (texCoord_interp - center)) + center + g_shift;
 		/* gradient */
 		if (fill_type == GRADIENT) {
 			if (mix_factor == 1.0) {
@@ -81,8 +81,9 @@ void main()
 		}
 		/* texture */
 		if (fill_type == TEXTURE) {
+			vec2 t_center = vec2(0.5, 0.5);
 			mat2 matrot_tex = mat2(cos(t_angle), -sin(t_angle), sin(t_angle), cos(t_angle));
-			vec2 rot_tex = (matrot_tex * (texCoord_interp - center)) + center + t_shift;
+			vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_shift;
 			fragColor = texture2D(myTexture, rot_tex * t_scale);
 		}
 	}
