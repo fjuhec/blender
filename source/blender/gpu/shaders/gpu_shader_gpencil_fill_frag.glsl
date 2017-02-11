@@ -37,6 +37,7 @@ void main()
 		fragColor = color;
 	}
 	else {
+		vec2 center = vec2(0.5, 0.5) + g_shift;
 		mat2 matrot = mat2(cos(g_angle), -sin(g_angle), sin(g_angle), cos(g_angle));
 		vec2 rot = (matrot * texCoord_interp) + g_shift;
 		/* gradient */
@@ -53,7 +54,6 @@ void main()
 		}
 		/* radial gradient */
 		if (fill_type == RADIAL) {
-			vec2 center = vec2(0.5, 0.5) + g_shift;
 			float distance = length(center - texCoord_interp);
 			if (distance > g_radius) {
 				discard;
@@ -82,7 +82,7 @@ void main()
 		/* texture */
 		if (fill_type == TEXTURE) {
 			mat2 matrot_tex = mat2(cos(t_angle), -sin(t_angle), sin(t_angle), cos(t_angle));
-			vec2 rot_tex = (matrot_tex * texCoord_interp) + t_shift;
+			vec2 rot_tex = (matrot_tex * (texCoord_interp - center)) + center + t_shift;
 			fragColor = texture2D(myTexture, rot_tex * t_scale);
 		}
 	}
