@@ -289,6 +289,13 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Mix", "Mix Adjustment Factor");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
+	/* Scale factor for uv coordinates */
+	prop = RNA_def_property(srna, "pattern_scale", PROP_FLOAT, PROP_COORDS);
+	RNA_def_property_float_sdna(prop, NULL, "g_scale");
+	RNA_def_property_array(prop, 2);
+	RNA_def_property_ui_text(prop, "Scale", "Scale Factor for UV coordinates");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
+
 	/* Shift factor to move pattern filling in 2d space */
 	prop = RNA_def_property(srna, "pattern_shift", PROP_FLOAT, PROP_COORDS);
 	RNA_def_property_float_sdna(prop, NULL, "g_shift");
@@ -370,6 +377,11 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "texture_mix", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_TEX_MIX);
 	RNA_def_property_ui_text(prop, "Mix Texture", "Mix texture image with filling colors");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "flip", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_FLIP_FILL);
+	RNA_def_property_ui_text(prop, "Flip", "Flip filling colors");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* pass index for future compositing and editing tools */

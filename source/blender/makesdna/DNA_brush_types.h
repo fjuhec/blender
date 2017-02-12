@@ -155,9 +155,10 @@ typedef struct PaletteColor {
 	float g_angle;           /* angle used for gradients orientation */
 	float g_radius;          /* radius for radial gradients */
 	float g_boxsize;         /* cheesboard size */
+	float g_scale[2];        /* uv coordinates scale */
 	float g_shift[2];        /* factor to shift filling in 2d space */
 	float t_angle;           /* angle used for texture orientation */
-	float t_scale[2];        /* texture scale */
+	float t_scale[2];        /* texture scale (separated of uv scale) */
 	float t_shift[2];        /* factor to shift texture in 2d space */
 	float t_opacity;         /* texture opacity */
 	char pad[4];
@@ -173,7 +174,9 @@ typedef enum ePaletteColor_Flag {
 	/* clamp texture */
 	PAC_COLOR_TEX_CLAMP = (1 << 4),
 	/* mix texture */
-	PAC_COLOR_TEX_MIX = (1 << 5)
+	PAC_COLOR_TEX_MIX = (1 << 5),
+	/* Flip fill colors */
+	PAC_COLOR_FLIP_FILL = (1 << 6)
 } ePaletteColor_Flag;
 
 typedef struct Palette {

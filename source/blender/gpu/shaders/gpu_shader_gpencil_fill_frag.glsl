@@ -6,12 +6,14 @@ uniform float mix_factor;
 uniform float g_angle;
 uniform float g_radius;
 uniform float g_boxsize;
+uniform vec2 g_scale;
 uniform vec2 g_shift;
 
 uniform float t_angle;
 uniform vec2 t_scale;
 uniform vec2 t_shift;
 uniform int t_mix;
+uniform int t_flip;
 uniform float t_opacity;
 
 uniform sampler2D myTexture;
@@ -32,6 +34,68 @@ uniform sampler2D myTexture;
 	#define texture2D texture
 #endif
 
+void set_color(in vec4 color, in vec4 color2, in vec4 tcolor, in float mixv, in float factor, 
+			   in int tmix, in int flip, out vec4 ocolor)
+{
+	/* full color A */
+	if (mixv == 1.0) {
+		if (tmix == 1) {
+			if (flip == 0) {
+				ocolor = color;
+			}
+			else {
+				ocolor = tcolor;
+			}
+		}
+		else {
+			if (flip == 0) {
+				ocolor = color;
+			}
+			else {
+				ocolor = color2;
+			}
+		}
+	}
+	/* full color B */
+	else if (mixv == 0.0) {
+		if (tmix == 1) {
+			if (flip == 0) {
+				ocolor = tcolor;
+			}
+			else {
+				ocolor = color;
+			}
+		}
+		else {
+			if (flip == 0) {
+				ocolor = color2;
+			}
+			else {
+				ocolor = color;
+			}
+		}
+	}
+	/* mix of colors */
+	else {
+		if (tmix == 1) {
+			if (flip == 0) {
+				ocolor = mix(color, tcolor, factor);
+			}
+			else {
+				ocolor = mix(tcolor, color, factor);
+			}
+		}
+		else {
+			if (flip == 0) {
+				ocolor = mix(color, color2, factor);
+			}
+			else {
+				ocolor = mix(color2, color, factor);
+			}
+		}
+	}
+}
+
 void main()
 {
 	vec2 t_center = vec2(0.5, 0.5);
@@ -39,6 +103,7 @@ void main()
 	vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_shift;
 	vec4 tmp_color = texture2D(myTexture, rot_tex * t_scale);
 	vec4 text_color = vec4(tmp_color[0], tmp_color[1], tmp_color[2], tmp_color[3] * t_opacity);
+	vec4 chesscolor;
 
 	/* solid fill */
 	if (fill_type == SOLID) {
@@ -52,64 +117,45 @@ void main()
 	else {
 		vec2 center = vec2(0.5, 0.5) + g_shift;
 		mat2 matrot = mat2(cos(g_angle), -sin(g_angle), sin(g_angle), cos(g_angle));
-		vec2 rot = (matrot * (texCoord_interp - center)) + center + g_shift;
+		vec2 rot = (((matrot * (texCoord_interp - center)) + center) * g_scale) + g_shift;
 		/* gradient */
 		if (fill_type == GRADIENT) {
-			if (mix_factor == 1.0) {
-				fragColor = color;
-			}
-			else if (mix_factor == 0.0) {
-				if (t_mix == 1) {
-					fragColor = text_color;
-				}
-				else {
-					fragColor = color2;
-				}
-			}
-			else {
-				if (t_mix == 1) {
-					fragColor = mix(color, text_color, rot.x - mix_factor + 0.5);
-				}
-				else {
-					fragColor = mix(color, color2, rot.x - mix_factor + 0.5);
-				}
-			}
+			set_color(color, color2, text_color, mix_factor, rot.x - mix_factor + 0.5, t_mix, t_flip, fragColor);
 		}
 		/* radial gradient */
 		if (fill_type == RADIAL) {
-			float distance = length(center - texCoord_interp);
+			float distance = length(center - (texCoord_interp * g_scale));
 			if (distance > g_radius) {
 				discard;
 			}
 			float intensity = distance / g_radius;
-			if (mix_factor >= 1.0) {
-				fragColor = color;
-			}
-			else if (mix_factor <= 0.0) {
-				if (t_mix == 1) {
-					fragColor = text_color;
-				}
-				else {
-					fragColor = color2;
-				}
-			}
-			else {
-				if (t_mix == 1) {
-					fragColor = mix(color, text_color, intensity - mix_factor + 0.5);
-				}
-				else {
-					fragColor = mix(color, color2, intensity - mix_factor + 0.5);
-				}
-			}
+			set_color(color, color2, text_color, mix_factor, intensity - mix_factor + 0.5, t_mix, t_flip, fragColor);
 		}
 		/* chessboard */
 		if (fill_type == CHESS) {
 			vec2 pos = rot / g_boxsize;
 			if ((fract(pos.x) < 0.5 && fract(pos.y) < 0.5) || (fract(pos.x) > 0.5 && fract(pos.y) > 0.5)) {
-				fragColor = color;
+				if (t_flip == 0) {
+					chesscolor = color;
+				}
+				else {
+					chesscolor = color2;
+				}
 			}
 			else {
-				fragColor = color2;
+				if (t_flip == 0) {
+					chesscolor = color2;
+				}
+				else {
+					chesscolor = color;
+				}
+			}
+			/* mix with texture */
+			if (t_mix == 1) {
+				fragColor = mix(chesscolor, text_color, mix_factor);
+			}
+			else {
+				fragColor = chesscolor;
 			}
 		}
 		/* texture */

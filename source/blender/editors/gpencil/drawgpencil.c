@@ -635,21 +635,19 @@ static void gp_draw_stroke_fill(
 	immUniform4fv("color2", palcolor->scolor);
 	immUniform1i("fill_type", palcolor->fill_style);
 	immUniform1f("mix_factor", palcolor->mix_factor);
+
 	immUniform1f("g_angle", palcolor->g_angle);
 	immUniform1f("g_radius", palcolor->g_radius);
 	immUniform1f("g_boxsize", palcolor->g_boxsize);
+	immUniform2fv("g_scale", palcolor->g_scale);
 	immUniform2fv("g_shift", palcolor->g_shift);
 
 	immUniform1f("t_angle", palcolor->t_angle);
 	immUniform2fv("t_scale", palcolor->t_scale);
 	immUniform2fv("t_shift", palcolor->t_shift);
 	immUniform1f("t_opacity", palcolor->t_opacity);
-	if (palcolor->flag & PAC_COLOR_TEX_MIX) {
-		immUniform1i("t_mix", 1);
-	}
-	else {
-		immUniform1i("t_mix", 0);
-	}
+	immUniform1i("t_mix", palcolor->flag & PAC_COLOR_TEX_MIX ? 1 : 0);
+	immUniform1i("t_flip", palcolor->flag & PAC_COLOR_FLIP_FILL ? 1 : 0);
 	/* image texture */
 	if ((palcolor->fill_style == FILL_STYLE_TEXTURE) || (palcolor->flag & PAC_COLOR_TEX_MIX)) {
 		gp_set_filling_texture(palcolor->ima, palcolor->flag);
