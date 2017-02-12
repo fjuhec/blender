@@ -35,6 +35,7 @@
 
 extern "C" {
 #include "DNA_object_types.h"
+#include "DNA_layer_types.h"
 
 #include "BLI_math.h"
 }
@@ -58,6 +59,16 @@ std::string get_id_name(ID *id)
 	return name;
 }
 
+
+/**
+ * @brief get_object_dag_path_name returns the name under which the object
+ *  will be exported in the Alembic file. It is of the form
+ *  "[../grandparent/]parent/object" if dupli_parent is NULL, or
+ *  "dupli_parent/[../grandparent/]parent/object" otherwise.
+ * @param ob
+ * @param dupli_parent
+ * @return
+ */
 std::string get_object_dag_path_name(Object *ob, Object *dupli_parent)
 {
 	std::string name = get_id_name(ob);
@@ -76,31 +87,9 @@ std::string get_object_dag_path_name(Object *ob, Object *dupli_parent)
 	return name;
 }
 
-bool object_selected(Object *ob)
+bool object_selected(const Base * const ob_base)
 {
-	return ob->flag & SELECT;
-}
-
-bool parent_selected(Object *ob)
-{
-	if (object_selected(ob)) {
-		return true;
-	}
-
-	bool do_export = false;
-
-	Object *parent = ob->parent;
-
-	while (parent != NULL) {
-		if (object_selected(parent)) {
-			do_export = true;
-			break;
-		}
-
-		parent = parent->parent;
-	}
-
-	return do_export;
+	return ob_base->flag & SELECT;
 }
 
 Imath::M44d convert_matrix(float mat[4][4])
@@ -197,7 +186,7 @@ void create_transform_matrix(float r_mat[4][4])
 	copy_m4_m3(transform_mat, rot_mat);
 
 	/* Add translation to transformation matrix. */
-	copy_yup_zup(transform_mat[3], loc);
+	copy_zup_from_yup(transform_mat[3], loc);
 
 	/* Create scale matrix. */
 	scale_mat[0][0] = scale[0];
@@ -417,7 +406,7 @@ void create_transform_matrix(Object *obj, float transform_mat[4][4])
 	copy_m4_m3(transform_mat, rot_mat);
 
 	/* Add translation to transformation matrix. */
-	copy_zup_yup(transform_mat[3], loc);
+	copy_yup_from_zup(transform_mat[3], loc);
 
 	/* Create scale matrix. */
 	scale_mat[0][0] = scale[0];

@@ -31,6 +31,7 @@ set(INC
 	../imbuf
 	../makesdna
 	../makesrna
+	../draw
 
 	../editors/include
 
@@ -64,6 +65,7 @@ set(SRC
 	intern/gpu_select.c
 	intern/gpu_shader.c
 	intern/gpu_texture.c
+	intern/gpu_uniformbuffer.c
 	intern/gpu_viewport.c
 
 	gawain/attrib_binding.c
@@ -122,6 +124,7 @@ set(SRC
 	GPU_select.h
 	GPU_shader.h
 	GPU_texture.h
+	GPU_uniformbuffer.h
 	GPU_viewport.h
 
 	intern/gpu_codegen.h
@@ -130,6 +133,8 @@ set(SRC
 
 data_to_c_simple(shaders/gpu_shader_depth_only_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_uniform_color_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_checker_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_simple_lighting_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_flat_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_flat_color_alpha_test_0_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_2D_vert.glsl SRC)
@@ -148,6 +153,14 @@ data_to_c_simple(shaders/gpu_shader_3D_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_flat_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_smooth_color_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_3D_smooth_color_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_3D_passthrough_vert.glsl SRC)
+
+data_to_c_simple(shaders/gpu_shader_instance_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_instance_variying_size_variying_color_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_instance_screenspace_variying_color_vert.glsl SRC)
+
+data_to_c_simple(shaders/gpu_shader_3D_groundline_geom.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_3D_groundpoint_vert.glsl SRC)
 
 data_to_c_simple(shaders/gpu_shader_point_uniform_color_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_point_uniform_color_smooth_frag.glsl SRC)
@@ -174,6 +187,8 @@ data_to_c_simple(shaders/gpu_shader_edges_overlay_simple_geom.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_edges_overlay_frag.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_text_vert.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_text_frag.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_keyframe_diamond_vert.glsl SRC)
+data_to_c_simple(shaders/gpu_shader_keyframe_diamond_frag.glsl SRC)
 
 data_to_c_simple(shaders/gpu_shader_geometry.glsl SRC)
 data_to_c_simple(shaders/gpu_shader_fire_frag.glsl SRC)

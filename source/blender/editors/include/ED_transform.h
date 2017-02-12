@@ -114,7 +114,7 @@ bool calculateTransformCenter(struct bContext *C, int centerMode, float cent3d[3
 
 struct TransInfo;
 struct ScrArea;
-struct Base;
+struct BaseLegacy;
 struct Scene;
 struct Object;
 struct wmManipulator;

@@ -85,6 +85,7 @@ set(SRC
 	intern/camera.c
 	intern/cdderivedmesh.c
 	intern/cloth.c
+	intern/collection.c
 	intern/collision.c
 	intern/colortools.c
 	intern/constraint.c
@@ -158,6 +159,7 @@ set(SRC
 	intern/pbvh_bmesh.c
 	intern/pointcache.c
 	intern/property.c
+	intern/layer.c
 	intern/report.c
 	intern/rigidbody.c
 	intern/sca.c
@@ -215,6 +217,7 @@ set(SRC
 	BKE_ccg.h
 	BKE_cdderivedmesh.h
 	BKE_cloth.h
+	BKE_collection.h
 	BKE_collision.h
 	BKE_colortools.h
 	BKE_constraint.h
@@ -276,6 +279,7 @@ set(SRC
 	BKE_pbvh.h
 	BKE_pointcache.h
 	BKE_property.h
+	BKE_layer.h
 	BKE_report.h
 	BKE_rigidbody.h
 	BKE_sca.h

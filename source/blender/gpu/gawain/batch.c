@@ -19,20 +19,25 @@ extern bool gpuMatricesDirty(void); // how best to use this here?
 
 Batch* Batch_create(PrimitiveType prim_type, VertexBuffer* verts, ElementList* elem)
 	{
+	Batch* batch = calloc(1, sizeof(Batch));
+
+	Batch_init(batch, prim_type, verts, elem);
+
+	return batch;
+	}
+
+void Batch_init(Batch* batch, PrimitiveType prim_type, VertexBuffer* verts, ElementList* elem)
+	{
 #if TRUST_NO_ONE
 	assert(verts != NULL);
 	assert(prim_type == PRIM_POINTS || prim_type == PRIM_LINES || prim_type == PRIM_TRIANGLES);
 	// we will allow other primitive types in a future update
 #endif
 
-	Batch* batch = calloc(1, sizeof(Batch));
-
 	batch->verts = verts;
 	batch->elem = elem;
 	batch->prim_type = prim_type;
 	batch->phase = READY_TO_DRAW;
-
-	return batch;
 	}
 
 void Batch_discard(Batch* batch)
@@ -247,3 +252,89 @@ void Batch_draw(Batch* batch)
 	Batch_done_using_program(batch);
 	glBindVertexArray(0);
 	}
+
+
+
+// clement : temp stuff
+void Batch_draw_stupid(Batch* batch)
+{
+	if (batch->vao_id)
+		glBindVertexArray(batch->vao_id);
+	else
+		Batch_prime(batch);
+
+	if (batch->program_dirty)
+		Batch_update_program_bindings(batch);
+
+	// Batch_use_program(batch);
+
+	//gpuBindMatrices(batch->program);
+
+	if (batch->elem)
+		{
+		const ElementList* el = batch->elem;
+
+#if TRACK_INDEX_RANGE
+		if (el->base_index)
+			glDrawRangeElementsBaseVertex(batch->prim_type, el->min_index, el->max_index, el->index_ct, el->index_type, 0, el->base_index);
+		else
+			glDrawRangeElements(batch->prim_type, el->min_index, el->max_index, el->index_ct, el->index_type, 0);
+#else
+		glDrawElements(batch->prim_type, el->index_ct, GL_UNSIGNED_INT, 0);
+#endif
+		}
+	else
+		glDrawArrays(batch->prim_type, 0, batch->verts->vertex_ct);
+
+	// Batch_done_using_program(batch);
+	glBindVertexArray(0);
+}
+
+// clement : temp stuff
+void Batch_draw_stupid_instanced(Batch* batch, unsigned int instance_vbo, int instance_count,
+                                 int attrib_nbr, int attrib_stride, int attrib_size[16], int attrib_loc[16])
+{
+	if (batch->vao_id)
+		glBindVertexArray(batch->vao_id);
+	else
+		Batch_prime(batch);
+
+	if (batch->program_dirty)
+		Batch_update_program_bindings(batch);
+
+	glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+	int ptr_ofs = 0;
+	for (int i = 0; i < attrib_nbr; ++i) {
+		int size = attrib_size[i];
+		int loc = attrib_loc[i];
+		int atr_ofs = 0;
+
+		while (size > 0) {
+			glEnableVertexAttribArray(loc + atr_ofs);
+			glVertexAttribPointer(loc + atr_ofs, (size > 4) ? 4 : size, GL_FLOAT, GL_FALSE,
+			                      sizeof(float) * attrib_stride, (GLvoid*)(sizeof(float) * ptr_ofs));
+			glVertexAttribDivisor(loc + atr_ofs, 1);
+			atr_ofs++;
+			ptr_ofs += (size > 4) ? 4 : size;
+			size -= 4;
+		}
+	}
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// Batch_use_program(batch);
+
+	//gpuBindMatrices(batch->program);
+
+	if (batch->elem)
+		{
+		const ElementList* el = batch->elem;
+
+		glDrawElementsInstanced(batch->prim_type, el->index_ct, GL_UNSIGNED_INT, 0, instance_count);
+		}
+	else
+		glDrawArraysInstanced(batch->prim_type, 0, batch->verts->vertex_ct, instance_count);
+
+	// Batch_done_using_program(batch);
+	glBindVertexArray(0);
+}
+
