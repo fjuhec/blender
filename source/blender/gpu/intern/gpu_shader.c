@@ -37,6 +37,7 @@
 #include "GPU_debug.h"
 #include "GPU_extensions.h"
 #include "GPU_shader.h"
+#include "GPU_uniformbuffer.h"
 #include "GPU_texture.h"
 
 #include "gpu_shader_private.h"
@@ -48,6 +49,8 @@
 /* Non-generated shaders */
 extern char datatoc_gpu_shader_depth_only_frag_glsl[];
 extern char datatoc_gpu_shader_uniform_color_frag_glsl[];
+extern char datatoc_gpu_shader_checker_frag_glsl[];
+extern char datatoc_gpu_shader_simple_lighting_frag_glsl[];
 extern char datatoc_gpu_shader_flat_color_frag_glsl[];
 extern char datatoc_gpu_shader_flat_color_alpha_test_0_frag_glsl[];
 extern char datatoc_gpu_shader_2D_vert_glsl[];
@@ -67,7 +70,15 @@ extern char datatoc_gpu_shader_3D_vert_glsl[];
 extern char datatoc_gpu_shader_3D_flat_color_vert_glsl[];
 extern char datatoc_gpu_shader_3D_smooth_color_vert_glsl[];
 extern char datatoc_gpu_shader_3D_smooth_color_frag_glsl[];
+extern char datatoc_gpu_shader_3D_passthrough_vert_glsl[];
 extern char datatoc_gpu_shader_3D_clipped_uniform_color_vert_glsl[];
+
+extern char datatoc_gpu_shader_instance_vert_glsl[];
+extern char datatoc_gpu_shader_instance_variying_size_variying_color_vert_glsl[];
+extern char datatoc_gpu_shader_instance_screenspace_variying_color_vert_glsl[];
+
+extern char datatoc_gpu_shader_3D_groundpoint_vert_glsl[];
+extern char datatoc_gpu_shader_3D_groundline_geom_glsl[];
 
 extern char datatoc_gpu_shader_point_uniform_color_frag_glsl[];
 extern char datatoc_gpu_shader_point_uniform_color_smooth_frag_glsl[];
@@ -94,6 +105,8 @@ extern char datatoc_gpu_shader_edges_overlay_simple_geom_glsl[];
 extern char datatoc_gpu_shader_edges_overlay_frag_glsl[];
 extern char datatoc_gpu_shader_text_vert_glsl[];
 extern char datatoc_gpu_shader_text_frag_glsl[];
+extern char datatoc_gpu_shader_keyframe_diamond_vert_glsl[];
+extern char datatoc_gpu_shader_keyframe_diamond_frag_glsl[];
 
 extern char datatoc_gpu_shader_fire_frag_glsl[];
 extern char datatoc_gpu_shader_smoke_vert_glsl[];
@@ -512,9 +525,22 @@ int GPU_shader_get_uniform(GPUShader *shader, const char *name)
 	return glGetUniformLocation(shader->program, name);
 }
 
+int GPU_shader_get_uniform_block(GPUShader *shader, const char *name)
+{
+	BLI_assert(shader && shader->program);
+
+	return glGetUniformBlockIndex(shader->program, name);
+}
+
 void *GPU_shader_get_interface(GPUShader *shader)
 {
 	return shader->uniform_interface;
+}
+
+/* Clement : Temp */
+int GPU_shader_get_program(GPUShader *shader)
+{
+	return (int)shader->program;
 }
 
 void GPU_shader_set_interface(GPUShader *shader, void *interface)
@@ -562,6 +588,17 @@ void GPU_shader_geometry_stage_primitive_io(GPUShader *shader, int input, int ou
 		glProgramParameteriEXT(shader->program, GL_GEOMETRY_OUTPUT_TYPE_EXT, output);
 		glProgramParameteriEXT(shader->program, GL_GEOMETRY_VERTICES_OUT_EXT, number);
 	}
+}
+
+void GPU_shader_uniform_buffer(GPUShader *shader, int location, GPUUniformBuffer *ubo)
+{
+	int bindpoint = GPU_uniformbuffer_bindpoint(ubo);
+
+	if (location == -1) {
+		return;
+	}
+
+	glUniformBlockBinding(shader->program, location, bindpoint);
 }
 
 void GPU_shader_uniform_texture(GPUShader *UNUSED(shader), int location, GPUTexture *tex)
@@ -615,6 +652,8 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		[GPU_SHADER_SMOKE_COBA] = { datatoc_gpu_shader_smoke_vert_glsl, datatoc_gpu_shader_smoke_frag_glsl },
 
 		[GPU_SHADER_TEXT] = { datatoc_gpu_shader_text_vert_glsl, datatoc_gpu_shader_text_frag_glsl },
+		[GPU_SHADER_KEYFRAME_DIAMOND] = { datatoc_gpu_shader_keyframe_diamond_vert_glsl,
+		                                  datatoc_gpu_shader_keyframe_diamond_frag_glsl },
 		[GPU_SHADER_EDGES_FRONT_BACK_PERSP] = { datatoc_gpu_shader_edges_front_back_persp_vert_glsl,
 		        /*  this version is     */      datatoc_gpu_shader_flat_color_frag_glsl,
 		       /*  magical but slooow  */       datatoc_gpu_shader_edges_front_back_persp_geom_glsl },
@@ -625,6 +664,7 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		[GPU_SHADER_EDGES_OVERLAY] = { datatoc_gpu_shader_edges_overlay_vert_glsl,
 		                               datatoc_gpu_shader_edges_overlay_frag_glsl,
 		                               datatoc_gpu_shader_edges_overlay_geom_glsl },
+		[GPU_SHADER_SIMPLE_LIGHTING] = { datatoc_gpu_shader_3D_vert_glsl, datatoc_gpu_shader_simple_lighting_frag_glsl },
 
 		[GPU_SHADER_2D_IMAGE_MASK_UNIFORM_COLOR] = { datatoc_gpu_shader_3D_image_vert_glsl,
 		                                             datatoc_gpu_shader_image_mask_uniform_color_frag_glsl },
@@ -635,8 +675,9 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		[GPU_SHADER_3D_IMAGE_DEPTH] = { datatoc_gpu_shader_3D_image_vert_glsl,
 		                                datatoc_gpu_shader_image_depth_linear_frag_glsl },
 
-	    [GPU_SHADER_2D_IMAGE_INTERLACE] = { datatoc_gpu_shader_2D_image_vert_glsl,
-	                                        datatoc_gpu_shader_image_interlace_frag_glsl },
+		[GPU_SHADER_2D_IMAGE_INTERLACE] = { datatoc_gpu_shader_2D_image_vert_glsl,
+		                                    datatoc_gpu_shader_image_interlace_frag_glsl },
+		[GPU_SHADER_2D_CHECKER] = { datatoc_gpu_shader_2D_vert_glsl, datatoc_gpu_shader_checker_frag_glsl },
 
 		[GPU_SHADER_2D_UNIFORM_COLOR] = { datatoc_gpu_shader_2D_vert_glsl, datatoc_gpu_shader_uniform_color_frag_glsl },
 		[GPU_SHADER_2D_FLAT_COLOR] = { datatoc_gpu_shader_2D_flat_color_vert_glsl,
@@ -651,8 +692,16 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		[GPU_SHADER_3D_SMOOTH_COLOR] = { datatoc_gpu_shader_3D_smooth_color_vert_glsl,
 		                                 datatoc_gpu_shader_3D_smooth_color_frag_glsl },
 		[GPU_SHADER_3D_DEPTH_ONLY] = { datatoc_gpu_shader_3D_vert_glsl, datatoc_gpu_shader_depth_only_frag_glsl },
+
+		[GPU_SHADER_3D_GROUNDPOINT] = { datatoc_gpu_shader_3D_groundpoint_vert_glsl, datatoc_gpu_shader_point_uniform_color_frag_glsl },
+		[GPU_SHADER_3D_GROUNDLINE] = { datatoc_gpu_shader_3D_passthrough_vert_glsl,
+		                               datatoc_gpu_shader_uniform_color_frag_glsl,
+		                               datatoc_gpu_shader_3D_groundline_geom_glsl },
 		[GPU_SHADER_3D_CLIPPED_UNIFORM_COLOR] = { datatoc_gpu_shader_3D_clipped_uniform_color_vert_glsl,
 		                                          datatoc_gpu_shader_uniform_color_frag_glsl },
+
+		[GPU_SHADER_3D_SCREENSPACE_VARIYING_COLOR] = { datatoc_gpu_shader_instance_screenspace_variying_color_vert_glsl,
+		                                               datatoc_gpu_shader_flat_color_frag_glsl},
 
 		[GPU_SHADER_2D_POINT_FIXED_SIZE_UNIFORM_COLOR] =
 			{ datatoc_gpu_shader_2D_vert_glsl, datatoc_gpu_shader_point_uniform_color_frag_glsl },
@@ -683,13 +732,27 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		[GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_OUTLINE_SMOOTH] =
 			{ datatoc_gpu_shader_3D_point_uniform_size_outline_smooth_vert_glsl,
 			  datatoc_gpu_shader_point_uniform_color_outline_smooth_frag_glsl },
+
+		[GPU_SHADER_INSTANCE_UNIFORM_COLOR] = { datatoc_gpu_shader_instance_vert_glsl, datatoc_gpu_shader_uniform_color_frag_glsl },
+		[GPU_SHADER_INSTANCE_VARIYING_COLOR_VARIYING_SIZE] = 
+		    { datatoc_gpu_shader_instance_variying_size_variying_color_vert_glsl,
+		      datatoc_gpu_shader_flat_color_frag_glsl },
 	};
 
 	if (builtin_shaders[shader] == NULL) {
 		/* just a few special cases */
-		const char *defines = (shader == GPU_SHADER_SMOKE_COBA) ? "#define USE_COBA;\n" : NULL;
+		const char *defines = (shader == GPU_SHADER_SMOKE_COBA) ? "#define USE_COBA;\n" :
+		                      (shader == GPU_SHADER_SIMPLE_LIGHTING) ? "#define USE_NORMALS;\n" : NULL;
 
 		const GPUShaderStages *stages = builtin_shader_stages + shader;
+
+		if (shader == GPU_SHADER_EDGES_FRONT_BACK_PERSP && !GLEW_VERSION_3_2) {
+			/* TODO: remove after switch to core profile (maybe) */
+			static const GPUShaderStages legacy_fancy_edges =
+				{ datatoc_gpu_shader_edges_front_back_persp_legacy_vert_glsl,
+				  datatoc_gpu_shader_flat_color_alpha_test_0_frag_glsl };
+			stages = &legacy_fancy_edges;
+		}
 
 		if (shader == GPU_SHADER_EDGES_FRONT_BACK_PERSP && !GLEW_VERSION_3_2) {
 			/* TODO: remove after switch to core profile (maybe) */

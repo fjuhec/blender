@@ -103,7 +103,7 @@ enum TfmMode {
 #define CTX_GPENCIL_STROKES (1 << 9)
 
 struct TransInfo;
-struct Base;
+struct BaseLegacy;
 struct Scene;
 struct Object;
 struct wmOperator;

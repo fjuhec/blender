@@ -124,7 +124,7 @@ static void acf_generic_root_backdrop(bAnimContext *ac, bAnimListElem *ale, floa
 	
 	/* rounded corners on LHS only - top only when expanded, but bottom too when collapsed */
 	UI_draw_roundbox_corner_set((expanded) ? UI_CNR_TOP_LEFT : (UI_CNR_TOP_LEFT | UI_CNR_BOTTOM_LEFT));
-	UI_draw_roundbox_gl_mode_3fvAlpha(GL_POLYGON, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8, color, 1.0f);
+	UI_draw_roundbox_gl_mode_3fvAlpha(GL_TRIANGLE_FAN, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8, color, 1.0f);
 }
 
 
@@ -143,15 +143,14 @@ static void acf_generic_dataexpand_backdrop(bAnimContext *ac, bAnimListElem *ale
 	short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
 	float color[3];
 
-	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
-	
+	unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
+
 	/* set backdrop drawing color */
 	acf->get_backdrop_color(ac, ale, color);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 	immUniformColor3fv(color);
-	
+
 	/* no rounded corner - just rectangular box */
 	immRectf(pos, offset, yminc,  v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc);
 
@@ -233,8 +232,7 @@ static void acf_generic_channel_backdrop(bAnimContext *ac, bAnimListElem *ale, f
 	short offset = (acf->get_offset) ? acf->get_offset(ac, ale) : 0;
 	float color[3];
 
-	VertexFormat *format = immVertexFormat();
-	unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+	unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
 	
 	/* set backdrop drawing color */
 	acf->get_backdrop_color(ac, ale, color);
@@ -442,7 +440,7 @@ static void acf_summary_backdrop(bAnimContext *ac, bAnimListElem *ale, float ymi
 	 *	- special hack: make the top a bit higher, since we are first... 
 	 */
 	UI_draw_roundbox_corner_set(UI_CNR_TOP_LEFT | UI_CNR_BOTTOM_LEFT);
-	UI_draw_roundbox_gl_mode_3fvAlpha(GL_POLYGON, 0,  yminc - 2, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8, color, 1.0f);
+	UI_draw_roundbox_gl_mode_3fvAlpha(GL_TRIANGLE_FAN, 0,  yminc - 2, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8, color, 1.0f);
 }
 
 /* name for summary entries */
@@ -631,7 +629,7 @@ static bAnimChannelType ACF_SCENE =
 
 static int acf_object_icon(bAnimListElem *ale)
 {
-	Base *base = (Base *)ale->data;
+	BaseLegacy *base = (BaseLegacy *)ale->data;
 	Object *ob = base->object;
 	
 	/* icon depends on object-type */
@@ -666,7 +664,7 @@ static int acf_object_icon(bAnimListElem *ale)
 /* name for object */
 static void acf_object_name(bAnimListElem *ale, char *name)
 {
-	Base *base = (Base *)ale->data;
+	BaseLegacy *base = (BaseLegacy *)ale->data;
 	Object *ob = base->object;
 	
 	/* just copy the name... */
@@ -686,7 +684,7 @@ static bool acf_object_name_prop(bAnimListElem *ale, PointerRNA *ptr, PropertyRN
 /* check if some setting exists for this channel */
 static bool acf_object_setting_valid(bAnimContext *ac, bAnimListElem *ale, eAnimChannel_Settings setting)
 {
-	Base *base = (Base *)ale->data;
+	BaseLegacy *base = (BaseLegacy *)ale->data;
 	Object *ob = base->object;
 	
 	switch (setting) {
@@ -743,7 +741,7 @@ static int acf_object_setting_flag(bAnimContext *UNUSED(ac), eAnimChannel_Settin
 /* get pointer to the setting */
 static void *acf_object_setting_ptr(bAnimListElem *ale, eAnimChannel_Settings setting, short *type)
 {
-	Base *base = (Base *)ale->data;
+	BaseLegacy *base = (BaseLegacy *)ale->data;
 	Object *ob = base->object;
 	
 	/* clear extra return data first */
@@ -831,7 +829,7 @@ static void acf_group_backdrop(bAnimContext *ac, bAnimListElem *ale, float yminc
 	
 	/* rounded corners on LHS only - top only when expanded, but bottom too when collapsed */
 	UI_draw_roundbox_corner_set(expanded ? UI_CNR_TOP_LEFT : (UI_CNR_TOP_LEFT | UI_CNR_BOTTOM_LEFT));
-	UI_draw_roundbox_gl_mode_3fvAlpha(GL_POLYGON, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8, color, 1.0f);
+	UI_draw_roundbox_gl_mode_3fvAlpha(GL_TRIANGLE_FAN, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 8, color, 1.0f);
 }
 
 /* name for group entries */
@@ -1087,7 +1085,7 @@ static void acf_nla_controls_backdrop(bAnimContext *ac, bAnimListElem *ale, floa
 	
 	/* rounded corners on LHS only - top only when expanded, but bottom too when collapsed */	
 	UI_draw_roundbox_corner_set(expanded ? UI_CNR_TOP_LEFT : (UI_CNR_TOP_LEFT | UI_CNR_BOTTOM_LEFT));
-	UI_draw_roundbox_gl_mode_3fvAlpha(GL_POLYGON, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 5, color, 1.0f);
+	UI_draw_roundbox_gl_mode_3fvAlpha(GL_TRIANGLE_FAN, offset,  yminc, v2d->cur.xmax + EXTRA_SCROLL_PAD, ymaxc, 5, color, 1.0f);
 }
 
 /* name for nla controls expander entries */
@@ -3441,7 +3439,7 @@ static void acf_nlaaction_backdrop(bAnimContext *ac, bAnimListElem *ale, float y
 	/* draw slightly shifted up vertically to look like it has more separation from other channels,
 	 * but we then need to slightly shorten it so that it doesn't look like it overlaps
 	 */
-	UI_draw_roundbox_gl_mode(GL_POLYGON, offset,  yminc + NLACHANNEL_SKIP, (float)v2d->cur.xmax, ymaxc + NLACHANNEL_SKIP - 1, 8, color);
+	UI_draw_roundbox_gl_mode(GL_TRIANGLE_FAN, offset,  yminc + NLACHANNEL_SKIP, (float)v2d->cur.xmax, ymaxc + NLACHANNEL_SKIP - 1, 8, color);
 }
 
 /* name for nla action entries */
@@ -3864,8 +3862,7 @@ void ANIM_channel_draw(bAnimContext *ac, bAnimListElem *ale, float yminc, float 
 			/* for F-Curves, draw color-preview of curve behind checkbox */
 			if (ELEM(ale->type, ANIMTYPE_FCURVE, ANIMTYPE_NLACURVE)) {
 				FCurve *fcu = (FCurve *)ale->data;
-				VertexFormat *format = immVertexFormat();
-				unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+				unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
 				immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 				
@@ -3903,31 +3900,32 @@ void ANIM_channel_draw(bAnimContext *ac, bAnimListElem *ale, float yminc, float 
 	if (acf->name && !achannel_is_being_renamed(ac, acf, channel_index)) {
 		const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 		char name[ANIM_CHAN_NAME_SIZE]; /* hopefully this will be enough! */
-		
+		unsigned char col[4];
+
 		/* set text color */
 		/* XXX: if active, highlight differently? */
+
 		if (selected)
-			UI_ThemeColor(TH_TEXT_HI);
+			UI_GetThemeColor4ubv(TH_TEXT_HI, col);
 		else
-			UI_ThemeColor(TH_TEXT);
-		
+			UI_GetThemeColor4ubv(TH_TEXT, col);
+
 		/* get name */
 		acf->name(ale, name);
 		
 		offset += 3;
-		UI_fontstyle_draw_simple(fstyle, offset, ytext, name);
+		UI_fontstyle_draw_simple(fstyle, offset, ytext, name, col);
 		
 		/* draw red underline if channel is disabled */
 		if (ELEM(ale->type, ANIMTYPE_FCURVE, ANIMTYPE_NLACURVE) && (ale->flag & FCURVE_DISABLED)) {
-			VertexFormat *format = immVertexFormat();
-			unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+			unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
 			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 			/* FIXME: replace hardcoded color here, and check on extents! */
 			immUniformColor3f(1.0f, 0.0f, 0.0f);
 
-			glLineWidth(2.0);
+			glLineWidth(2.0f);
 
 			immBegin(GL_LINES, 2);
 			immVertex2f(pos, (float)offset, yminc);
@@ -3948,8 +3946,7 @@ void ANIM_channel_draw(bAnimContext *ac, bAnimListElem *ale, float yminc, float 
 		short draw_sliders = 0;
 		float ymin_ofs = 0.0f;
 		float color[3];
-		VertexFormat *format = immVertexFormat();
-		unsigned pos = add_attrib(format, "pos", GL_FLOAT, 2, KEEP_FLOAT);
+		unsigned pos = add_attrib(immVertexFormat(), "pos", GL_FLOAT, 2, KEEP_FLOAT);
 
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		
