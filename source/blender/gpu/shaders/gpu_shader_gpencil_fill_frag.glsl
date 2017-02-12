@@ -124,7 +124,7 @@ void main()
 		}
 		/* radial gradient */
 		if (fill_type == RADIAL) {
-			float distance = length(center - (texCoord_interp * g_scale));
+			float distance = length((center - texCoord_interp) * g_scale);
 			if (distance > g_radius) {
 				discard;
 			}
