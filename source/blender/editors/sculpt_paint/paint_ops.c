@@ -749,10 +749,23 @@ static int palettecolor_copy_exec(bContext *C, wmOperator *UNUSED(op))
 	newcolor = BKE_palette_color_add_name(palette, palcolor->info);
 	copy_v4_v4(newcolor->rgb, palcolor->rgb);
 	copy_v4_v4(newcolor->fill, palcolor->fill);
+	copy_v4_v4(newcolor->scolor, palcolor->scolor);
+	newcolor->value = palcolor->value;
 	newcolor->flag = palcolor->flag;
 	newcolor->stroke_style = palcolor->stroke_style;
 	newcolor->fill_style = palcolor->fill_style;
 	newcolor->index = palcolor->index;
+	newcolor->mix_factor = palcolor->mix_factor;
+	newcolor->g_angle = palcolor->g_angle;
+	newcolor->g_radius = palcolor->g_radius;
+	newcolor->g_boxsize = palcolor->g_boxsize;
+	copy_v2_v2(newcolor->g_scale, palcolor->g_scale);
+	copy_v2_v2(newcolor->g_shift, palcolor->g_shift);
+	newcolor->t_angle = palcolor->t_angle;
+	copy_v2_v2(newcolor->t_scale, palcolor->t_scale);
+	copy_v2_v2(newcolor->t_shift, palcolor->t_shift);
+	newcolor->t_opacity = palcolor->t_opacity;
+	newcolor->ima = palcolor->ima;
 
 	/* notifiers */
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
