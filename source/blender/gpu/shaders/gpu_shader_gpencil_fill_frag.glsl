@@ -124,12 +124,17 @@ void main()
 		}
 		/* radial gradient */
 		if (fill_type == RADIAL) {
+			float in_rad = g_radius * mix_factor;
+			float ex_rad = g_radius - in_rad;
+			float intensity = 0;
 			float distance = length((center - texCoord_interp) * g_scale);
 			if (distance > g_radius) {
 				discard;
 			}
-			float intensity = distance / g_radius;
-			set_color(color, color2, text_color, mix_factor, intensity - mix_factor + 0.5, t_mix, t_flip, fragColor);
+			if (distance > in_rad) {
+				intensity = clamp(((distance - in_rad) / ex_rad), 0.0, 1.0);
+			}
+			set_color(color, color2, text_color, mix_factor, intensity, t_mix, t_flip, fragColor);
 		}
 		/* chessboard */
 		if (fill_type == CHESS) {
