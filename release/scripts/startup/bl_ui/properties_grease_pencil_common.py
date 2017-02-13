@@ -1138,13 +1138,22 @@ class GreasePencilPaletteColorPanel:
             split = col.split(percentage=0.5)
             subcol = split.column(align=True)
             subcol.prop(pcolor, "pattern_shift", text="Location")
-            subcol.prop(pcolor, "pattern_angle", text="Angle")
+            subrow = subcol.row(align=True)
+            if pcolor.fill_style  == 'RADIAL':
+                subrow.enabled = False
+            subrow.prop(pcolor, "pattern_angle", text="Angle")
             subcol.prop(pcolor, "flip", text="Flip")
 
             subcol = split.column(align=True)
             subcol.prop(pcolor, "pattern_scale", text="Scale")
-            subcol.prop(pcolor, "pattern_radius", text="Radius")
-            subcol.prop(pcolor, "pattern_boxsize", text="Box")
+            subrow = subcol.row(align=True)
+            if pcolor.fill_style  != 'RADIAL':
+                subrow.enabled = False
+            subrow.prop(pcolor, "pattern_radius", text="Radius")
+            subrow = subcol.row(align=True)
+            if pcolor.fill_style  != 'CHESSBOARD':
+                subrow.enabled = False
+            subrow.prop(pcolor, "pattern_boxsize", text="Box")
         
         col.separator()
         col.label("Texture")
