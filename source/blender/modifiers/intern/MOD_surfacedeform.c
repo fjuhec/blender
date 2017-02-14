@@ -97,9 +97,9 @@ enum {
 
 /* Infinite weight flags */
 enum {
-	MOD_SDEF_INFINITE_WEIGHT_ANGULAR = 1 << 0,
-	MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ = 1 << 1,
-	MOD_SDEF_INFINITE_WEIGHT_DIST = 1 << 2,
+	MOD_SDEF_INFINITE_WEIGHT_ANGULAR = (1 << 0),
+	MOD_SDEF_INFINITE_WEIGHT_DIST_PROJ = (1 << 1),
+	MOD_SDEF_INFINITE_WEIGHT_DIST = (1 << 2),
 };
 
 static void initData(ModifierData *md)
