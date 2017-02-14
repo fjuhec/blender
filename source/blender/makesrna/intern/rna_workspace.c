@@ -114,9 +114,45 @@ static void rna_workspace_object_mode_set(PointerRNA *ptr, int value)
 	BKE_workspace_object_mode_set(workspace, value);
 }
 
+void rna_workspace_layout_types_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
+{
+	WorkSpace *workspace = ptr->data;
+	rna_iterator_listbase_begin(iter, BKE_workspace_layout_types_get(workspace), NULL);
+}
+
+static void rna_workspace_layout_type_name_get(PointerRNA *ptr, char *value)
+{
+	WorkSpaceLayoutType *layout_type = ptr->data;
+	const char *name = BKE_workspace_layout_type_name_get(layout_type);
+	BLI_strncpy(value, name, strlen(name) + 1);
+}
+
+static int rna_workspace_layout_type_name_length(PointerRNA *ptr)
+{
+	WorkSpaceLayoutType *layout_type = ptr->data;
+	return strlen(BKE_workspace_layout_type_name_get(layout_type));
+}
+
 #endif /* USE_WORKSPACE_MODE */
 
 #else /* RNA_RUNTIME */
+
+static void rna_def_workspace_layout_type(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "WorkSpaceLayoutType", NULL);
+	RNA_def_struct_sdna(srna, "WorkSpaceLayoutType");
+	RNA_def_struct_ui_text(srna, "Layout Type", "");
+	RNA_def_struct_ui_icon(srna, ICON_NONE);
+
+	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_funcs(prop, "rna_workspace_layout_type_name_get", "rna_workspace_layout_type_name_length",
+	                              NULL);
+	RNA_def_property_ui_text(prop, "Name", "Workspace screen-layout name");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+}
 
 static void rna_def_workspace(BlenderRNA *brna)
 {
@@ -144,6 +180,13 @@ static void rna_def_workspace(BlenderRNA *brna)
 	                                  "rna_workspace_screens_item_get", NULL, NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "Screens", "Screen layouts of a workspace");
 
+	prop = RNA_def_property(srna, "layout_types", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_struct_type(prop, "WorkSpaceLayoutType");
+	RNA_def_property_collection_funcs(prop, "rna_workspace_layout_types_begin", NULL, NULL,
+	                                  NULL, NULL, NULL, NULL, NULL);
+	RNA_def_property_ui_text(prop, "Layout Types", "The different screen-layout types that can be visible "
+	                         "in the workspace");
+
 #ifdef USE_WORKSPACE_MODE
 	prop = RNA_def_property(srna, "object_mode", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, rna_enum_object_mode_items);
@@ -155,6 +198,7 @@ static void rna_def_workspace(BlenderRNA *brna)
 void RNA_def_workspace(BlenderRNA *brna)
 {
 	rna_def_workspace(brna);
+	rna_def_workspace_layout_type(brna);
 }
 
 #endif /* RNA_RUNTIME */

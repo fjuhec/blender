@@ -46,9 +46,15 @@ typedef struct WorkSpaceLayout {
 	struct bScreen *screen;
 } WorkSpaceLayout;
 
+typedef struct WorkSpaceLayoutType {
+	struct WorkSpaceLayoutType *next, *prev;
+	const char *name;
+} WorkSpaceLayoutType;
+
 typedef struct WorkSpace {
 	ID id;
 
+	ListBase layout_types;
 	ListBase layouts;
 	struct WorkSpaceLayout *act_layout;
 	struct WorkSpaceLayout *new_layout; /* temporary when switching screens */

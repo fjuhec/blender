@@ -36,6 +36,7 @@ struct WorkSpace;
 
 typedef struct WorkSpace WorkSpace;
 typedef struct WorkSpaceLayout WorkSpaceLayout;
+typedef struct WorkSpaceLayoutType WorkSpaceLayoutType;
 
 /**
  * Plan is to store the object-mode per workspace, not per object anymore.
@@ -100,6 +101,8 @@ enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) ATTR_N
 void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum ObjectMode mode) ATTR_NONNULL();
 #endif
 struct ListBase *BKE_workspace_layouts_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+struct ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+const char      *BKE_workspace_layout_type_name_get(WorkSpaceLayoutType *layout_type) ATTR_NONNULL();
 WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 void             BKE_workspace_new_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL(1);
 

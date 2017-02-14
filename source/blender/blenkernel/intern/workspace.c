@@ -65,6 +65,7 @@ WorkSpace *BKE_workspace_add(Main *bmain, const char *name)
 
 void BKE_workspace_free(WorkSpace *ws)
 {
+	BLI_freelistN(&ws->layout_types);
 	BLI_freelistN(&ws->layouts);
 }
 
@@ -85,19 +86,29 @@ void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
  */
 WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, bScreen *screen)
 {
+	WorkSpaceLayoutType *layout_type = MEM_mallocN(sizeof(*layout_type), "WorkSpaceLayoutType");
 	WorkSpaceLayout *layout = MEM_mallocN(sizeof(*layout), __func__);
 
 	BLI_assert(!workspaces_is_screen_used(G.main, screen));
 	layout->screen = screen;
 	BLI_addhead(&workspace->layouts, layout);
 
+	layout_type->name = screen->id.name + 2;
+	BLI_addhead(&workspace->layout_types, layout_type);
+
 	return layout;
 }
 
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, Main *bmain)
 {
-	BKE_libblock_free(bmain, BKE_workspace_layout_screen_get(layout));
+	bScreen *screen = BKE_workspace_layout_screen_get(layout);
+	WorkSpaceLayoutType *layout_type = BLI_findptr(&workspace->layout_types, screen->id.name + 2,
+	                                               offsetof(WorkSpaceLayoutType, name));
+
+	BLI_assert(layout_type);
+	BKE_libblock_free(bmain, screen);
 	BLI_freelinkN(&workspace->layouts, layout);
+	BLI_freelinkN(&workspace->layout_types, layout_type);
 }
 
 
@@ -244,6 +255,16 @@ void BKE_workspace_object_mode_set(WorkSpace *workspace, const ObjectMode mode)
 ListBase *BKE_workspace_layouts_get(WorkSpace *workspace)
 {
 	return &workspace->layouts;
+}
+
+ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace)
+{
+	return &workspace->layout_types;
+}
+
+const char *BKE_workspace_layout_type_name_get(WorkSpaceLayoutType *layout_type)
+{
+	return layout_type->name;
 }
 
 WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace)
