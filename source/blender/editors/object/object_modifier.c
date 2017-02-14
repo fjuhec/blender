@@ -2297,15 +2297,22 @@ void OBJECT_OT_laplaciandeform_bind(wmOperatorType *ot)
 
 /************************ sdef bind operator *********************/
 
-static int surfacedeform_poll(bContext *C)
+static int surfacedeform_bind_poll(bContext *C)
 {
-	return edit_modifier_poll_generic(C, &RNA_SurfaceDeformModifier, 0);
+	if (edit_modifier_poll_generic(C, &RNA_SurfaceDeformModifier, 0)) {
+		PointerRNA ptr = CTX_data_pointer_get_type(C, "modifier", &RNA_SurfaceDeformModifier);
+		SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)ptr.data;
+
+		return ((smd != NULL) && (smd->target != NULL));
+	}
+
+	return 0;
 }
 
 static int surfacedeform_bind_exec(bContext *C, wmOperator *op)
 {
 	Object *ob = ED_object_active_context(C);
-	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *) edit_modifier_property_get(op, ob, eModifierType_SurfaceDeform);
+	SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)edit_modifier_property_get(op, ob, eModifierType_SurfaceDeform);
 
 	if (!smd)
 		return OPERATOR_CANCELLED;
@@ -2339,7 +2346,7 @@ void OBJECT_OT_surfacedeform_bind(wmOperatorType *ot)
 	ot->idname = "OBJECT_OT_surfacedeform_bind";
 
 	/* api callbacks */
-	ot->poll = surfacedeform_poll;
+	ot->poll = surfacedeform_bind_poll;
 	ot->invoke = surfacedeform_bind_invoke;
 	ot->exec = surfacedeform_bind_exec;
 
