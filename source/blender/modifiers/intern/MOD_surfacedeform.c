@@ -50,7 +50,6 @@ typedef struct SDefBindPoly {
 	float (*coords)[3];
 	float (*coords_v2)[2];
 	float point_v2[2];
-	float weight_components[3]; /* indices: 0 = angular weight; 1 = projected point weight; 2 = actual point weights; */
 	float weight_angular;
 	float weight_dist_proj;
 	float weight_dist;
