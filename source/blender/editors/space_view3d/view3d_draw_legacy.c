@@ -1611,7 +1611,7 @@ static void view3d_draw_objects(
 					draw_dupli_objects(scene, sl, ar, v3d, base);
 				}
 				if ((base->flag & BASE_SELECTED) == 0) {
-					if (base->object != scene->obedit)
+					if (base->object != scene->obedit) {
 						draw_object(scene, sl, ar, v3d, base, 0);
 						/* draw grease pencil */
 						if (base->object->type == OB_GPENCIL) {
