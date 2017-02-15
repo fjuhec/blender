@@ -1704,9 +1704,9 @@ static bool snapObject(
 		}
 		else if (ob->type == OB_GPENCIL) {
 			retval = snapEmpty(
-				ar, ob, obmat, snap_to, mval, view_proj,
-				depth_range,
-				dist_px,
+				snapdata,
+				ob, obmat,
+				ray_depth, dist_px,
 				r_loc, r_no);
 		}
 		else if (ob->type == OB_CAMERA) {
