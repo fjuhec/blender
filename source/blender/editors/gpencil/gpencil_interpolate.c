@@ -314,17 +314,17 @@ static void gp_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
 /* Drawing Callbacks */
 
 /* Drawing callback for modal operator in screen mode */
-static void gpencil_interpolate_draw_screen(const struct bContext *UNUSED(C), ARegion *UNUSED(ar), void *arg)
+static void gpencil_interpolate_draw_screen(const struct bContext *C, ARegion *UNUSED(ar), void *arg)
 {
 	tGPDinterpolate *tgpi = (tGPDinterpolate *)arg;
-	ED_gp_draw_interpolation(tgpi, REGION_DRAW_POST_PIXEL);
+	ED_gp_draw_interpolation(C, tgpi, REGION_DRAW_POST_PIXEL);
 }
 
 /* Drawing callback for modal operator in 3d mode */
-static void gpencil_interpolate_draw_3d(const bContext *UNUSED(C), ARegion *UNUSED(ar), void *arg)
+static void gpencil_interpolate_draw_3d(const bContext *C, ARegion *UNUSED(ar), void *arg)
 {
 	tGPDinterpolate *tgpi = (tGPDinterpolate *)arg;
-	ED_gp_draw_interpolation(tgpi, REGION_DRAW_POST_VIEW);
+	ED_gp_draw_interpolation(C, tgpi, REGION_DRAW_POST_VIEW);
 }
 
 /* ----------------------- */
