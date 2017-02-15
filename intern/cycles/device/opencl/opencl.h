@@ -17,7 +17,6 @@
 #ifdef WITH_OPENCL
 
 #include "device.h"
-#include "device_split_kernel.h"
 
 #include "util_map.h"
 #include "util_param.h"
@@ -426,8 +425,6 @@ protected:
 
 	virtual string build_options_for_base_program(
 	        const DeviceRequestedFeatures& /*requested_features*/);
-
-	friend class OpenCLSplitKernelFunction;
 };
 
 Device *opencl_create_mega_device(DeviceInfo& info, Stats& stats, bool background);

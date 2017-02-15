@@ -152,14 +152,15 @@ protected:
 	}
 
 	friend class OpenCLSplitKernel;
+	friend class OpenCLSplitKernelFunction;
 };
 
 class OpenCLSplitKernelFunction : public SplitKernelFunction {
 public:
-	OpenCLDeviceBase* device;
+	OpenCLDeviceSplitKernel* device;
 	OpenCLDeviceBase::OpenCLProgram program;
 
-	OpenCLSplitKernelFunction(OpenCLDeviceBase* device) : device(device) {}
+	OpenCLSplitKernelFunction(OpenCLDeviceSplitKernel* device) : device(device) {}
 	~OpenCLSplitKernelFunction() { program.release(); }
 
 	virtual bool enqueue(const KernelDimensions& dim, device_memory& kg, device_memory& data)
