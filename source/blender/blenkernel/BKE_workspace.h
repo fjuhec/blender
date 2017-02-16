@@ -56,7 +56,9 @@ WorkSpace *BKE_workspace_add(struct Main *bmain, const char *name);
 void BKE_workspace_free(WorkSpace *ws);
 void BKE_workspace_remove(WorkSpace *workspace, struct Main *bmain);
 
-struct WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL();
+WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSpaceLayoutType *type, struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL();
+WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL();
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, struct Main *bmain) ATTR_NONNULL();
 
 
@@ -101,8 +103,10 @@ enum ObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace) ATTR_N
 void            BKE_workspace_object_mode_set(WorkSpace *workspace, const enum ObjectMode mode) ATTR_NONNULL();
 #endif
 struct ListBase *BKE_workspace_layouts_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
+WorkSpaceLayoutType *BKE_workspace_active_layout_type_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 struct ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 const char      *BKE_workspace_layout_type_name_get(WorkSpaceLayoutType *layout_type) ATTR_NONNULL();
+WorkSpaceLayoutType *BKE_workspace_layout_type_next_get(WorkSpaceLayoutType *layout_type) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
 void             BKE_workspace_new_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout) ATTR_NONNULL(1);
 

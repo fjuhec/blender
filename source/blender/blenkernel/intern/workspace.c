@@ -81,31 +81,45 @@ void BKE_workspace_remove(WorkSpace *workspace, Main *bmain)
 }
 
 
+WorkSpaceLayout *BKE_workspace_layout_add_from_type(WorkSpace *workspace, WorkSpaceLayoutType *type, bScreen *screen)
+{
+	WorkSpaceLayout *layout = MEM_mallocN(sizeof(*layout), __func__);
+
+//	BLI_assert(!workspaces_is_screen_used(G.main, screen));
+
+	layout->type = type;
+	layout->screen = screen;
+	BLI_addhead(&workspace->layouts, layout);
+
+	return layout;
+}
+
+WorkSpaceLayoutType *BKE_workspace_layout_type_add(WorkSpace *workspace, bScreen *screen)
+{
+	WorkSpaceLayoutType *layout_type = MEM_mallocN(sizeof(*layout_type), __func__);
+
+	layout_type->name = screen->id.name + 2;
+	BLI_addhead(&workspace->layout_types, layout_type);
+
+	return layout_type;
+}
+
 /**
  * Add a new layout to \a workspace for \a screen.
  */
 WorkSpaceLayout *BKE_workspace_layout_add(WorkSpace *workspace, bScreen *screen)
 {
-	WorkSpaceLayoutType *layout_type = MEM_mallocN(sizeof(*layout_type), "WorkSpaceLayoutType");
-	WorkSpaceLayout *layout = MEM_mallocN(sizeof(*layout), __func__);
-
-	BLI_assert(!workspaces_is_screen_used(G.main, screen));
-	layout->screen = screen;
-	BLI_addhead(&workspace->layouts, layout);
-
-	layout_type->name = screen->id.name + 2;
-	BLI_addhead(&workspace->layout_types, layout_type);
-
-	return layout;
+	WorkSpaceLayoutType *layout_type = BKE_workspace_layout_type_add(workspace, screen);
+	return BKE_workspace_layout_add_from_type(workspace, layout_type, screen);
 }
 
 void BKE_workspace_layout_remove(WorkSpace *workspace, WorkSpaceLayout *layout, Main *bmain)
 {
+	WorkSpaceLayoutType *layout_type = layout->type;
 	bScreen *screen = BKE_workspace_layout_screen_get(layout);
-	WorkSpaceLayoutType *layout_type = BLI_findptr(&workspace->layout_types, screen->id.name + 2,
-	                                               offsetof(WorkSpaceLayoutType, name));
 
-	BLI_assert(layout_type);
+	BLI_assert(BLI_findindex(&workspace->layouts, layout) >= 0);
+	BLI_assert(BLI_findindex(&workspace->layout_types, layout_type) >= 0);
 	BKE_libblock_free(bmain, screen);
 	BLI_freelinkN(&workspace->layouts, layout);
 	BLI_freelinkN(&workspace->layout_types, layout_type);
@@ -220,6 +234,7 @@ WorkSpaceLayout *BKE_workspace_active_layout_get(const WorkSpace *workspace)
 void BKE_workspace_active_layout_set(WorkSpace *workspace, WorkSpaceLayout *layout)
 {
 	workspace->act_layout = layout;
+	workspace->act_layout_type = layout->type;
 }
 
 WorkSpaceLayout *BKE_workspace_new_layout_get(const WorkSpace *workspace)
@@ -237,8 +252,10 @@ bScreen *BKE_workspace_active_screen_get(const WorkSpace *ws)
 }
 void BKE_workspace_active_screen_set(WorkSpace *ws, bScreen *screen)
 {
+	WorkSpaceLayout *layout = BKE_workspace_layout_find(ws, screen);
 	/* we need to find the WorkspaceLayout that wraps this screen */
-	ws->act_layout = BKE_workspace_layout_find(ws, screen);
+	ws->act_layout = layout;
+	ws->act_layout_type = layout->type;
 }
 
 #ifdef USE_WORKSPACE_MODE
@@ -257,6 +274,11 @@ ListBase *BKE_workspace_layouts_get(WorkSpace *workspace)
 	return &workspace->layouts;
 }
 
+WorkSpaceLayoutType *BKE_workspace_active_layout_type_get(WorkSpace *workspace)
+{
+	return workspace->act_layout_type;
+}
+
 ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace)
 {
 	return &workspace->layout_types;
@@ -265,6 +287,11 @@ ListBase *BKE_workspace_layout_types_get(WorkSpace *workspace)
 const char *BKE_workspace_layout_type_name_get(WorkSpaceLayoutType *layout_type)
 {
 	return layout_type->name;
+}
+
+WorkSpaceLayoutType *BKE_workspace_layout_type_next_get(WorkSpaceLayoutType *layout_type)
+{
+	return layout_type->next;
 }
 
 WorkSpace *BKE_workspace_next_get(const WorkSpace *workspace)

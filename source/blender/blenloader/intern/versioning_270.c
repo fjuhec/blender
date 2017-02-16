@@ -285,8 +285,13 @@ static void do_version_workspaces_after_lib_link(Main *main)
 	for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 		for (wmWindow *win = wm->windows.first; win; win = win->next) {
 			bScreen *screen = win->screen;
+			WorkSpace *workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+			ListBase *layout_types = BKE_workspace_layout_types_get(workspace);
+			WorkSpaceLayout *layout = BKE_workspace_layout_add_from_type(workspace, layout_types->first, screen);
 
-			win->workspace = BLI_findstring(&main->workspaces, screen->id.name + 2, offsetof(ID, name) + 2);
+			BLI_assert(BLI_listbase_count(layout_types) == 1);
+			BLI_addhead(&win->workspace_layouts, layout);
+			BKE_workspace_active_layout_set(workspace, layout); /* TODO */
 			win->scene = screen->scene;
 
 			/* Deprecated from now on! */

@@ -43,6 +43,7 @@
 typedef struct WorkSpaceLayout {
 	struct WorkSpaceLayout *next, *prev;
 
+	struct WorkSpaceLayoutType *type;
 	struct bScreen *screen;
 } WorkSpaceLayout;
 
@@ -56,6 +57,7 @@ typedef struct WorkSpace {
 
 	ListBase layout_types;
 	ListBase layouts;
+	struct WorkSpaceLayoutType *act_layout_type;
 	struct WorkSpaceLayout *act_layout;
 	struct WorkSpaceLayout *new_layout; /* temporary when switching screens */
 

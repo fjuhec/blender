@@ -114,6 +114,20 @@ static void rna_workspace_object_mode_set(PointerRNA *ptr, int value)
 	BKE_workspace_object_mode_set(workspace, value);
 }
 
+PointerRNA rna_workspace_layout_type_get(PointerRNA *ptr)
+{
+	WorkSpaceLayoutType *layout_type = BKE_workspace_active_layout_type_get(ptr->data);
+	return rna_pointer_inherit_refine(ptr, &RNA_WorkSpaceLayoutType, layout_type);
+}
+
+static void rna_workspace_layout_type_set(PointerRNA *ptr, PointerRNA value)
+{
+	WorkSpace *workspace = ptr->data;
+	WorkSpaceLayoutType *layout_type = value.data;
+	UNUSED_VARS(workspace, layout_type);
+	/* TODO */
+}
+
 void rna_workspace_layout_types_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
 {
 	WorkSpace *workspace = ptr->data;
@@ -179,6 +193,14 @@ static void rna_def_workspace(BlenderRNA *brna)
 	RNA_def_property_collection_funcs(prop, "rna_workspace_screens_begin", NULL, NULL,
 	                                  "rna_workspace_screens_item_get", NULL, NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "Screens", "Screen layouts of a workspace");
+
+	prop = RNA_def_property(srna, "layout_type", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "act_layout_type");
+	RNA_def_property_struct_type(prop, "WorkSpaceLayoutType");
+	RNA_def_property_ui_text(prop, "Layout", "Active screen-layout type showing in the workspace");
+	RNA_def_property_pointer_funcs(prop, "rna_workspace_layout_type_get", "rna_workspace_layout_type_set",
+	                               NULL, NULL);
+	RNA_def_property_flag(prop, PROP_EDITABLE);
 
 	prop = RNA_def_property(srna, "layout_types", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_struct_type(prop, "WorkSpaceLayoutType");
