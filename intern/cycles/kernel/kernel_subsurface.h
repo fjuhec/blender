@@ -140,7 +140,7 @@ ccl_device_inline float3 subsurface_scatter_eval(ShaderData *sd,
 }
 
 /* replace closures with a single diffuse bsdf closure after scatter step */
-ccl_device void subsurface_scatter_setup_diffuse_bsdf(KernelGlobals *kg, ShaderData *sd, float3 weight, bool hit, float3 N)
+ccl_device void subsurface_scatter_setup_diffuse_bsdf(ShaderData *sd, float3 weight, bool hit, float3 N)
 {
 	sd->flag &= ~SD_CLOSURE_FLAGS;
 	sd->randb_closure = 0.0f;
@@ -148,7 +148,7 @@ ccl_device void subsurface_scatter_setup_diffuse_bsdf(KernelGlobals *kg, ShaderD
 	sd->num_closure_extra = 0;
 
 	if(hit) {
-		DiffuseBsdf *bsdf = (DiffuseBsdf*)bsdf_alloc(kg, sd, sizeof(DiffuseBsdf), weight);
+		DiffuseBsdf *bsdf = (DiffuseBsdf*)bsdf_alloc(sd, sizeof(DiffuseBsdf), weight);
 
 		if(bsdf) {
 			bsdf->N = N;
@@ -298,20 +298,20 @@ ccl_device_inline int subsurface_scatter_multi_intersect(
 	for(int hit = 0; hit < num_eval_hits; hit++) {
 		/* Quickly retrieve P and Ng without setting up ShaderData. */
 		float3 hit_P;
-		if(ccl_fetch(sd, type) & PRIMITIVE_TRIANGLE) {
+		if(sd->type & PRIMITIVE_TRIANGLE) {
 			hit_P = triangle_refine_subsurface(kg,
 			                                   sd,
 			                                   &ss_isect->hits[hit],
 			                                   ray);
 		}
 #ifdef __OBJECT_MOTION__
-		else  if(ccl_fetch(sd, type) & PRIMITIVE_MOTION_TRIANGLE) {
+		else  if(sd->type & PRIMITIVE_MOTION_TRIANGLE) {
 			float3 verts[3];
 			motion_triangle_vertices(
 			        kg,
-			        ccl_fetch(sd, object),
+			        sd->object,
 			        kernel_tex_fetch(__prim_index, ss_isect->hits[hit].prim),
-			        ccl_fetch(sd, time),
+			        sd->time,
 			        verts);
 			hit_P = motion_triangle_refine_subsurface(kg,
 			                                          sd,
@@ -373,7 +373,7 @@ ccl_device_noinline void subsurface_scatter_multi_setup(
 	subsurface_color_bump_blur(kg, sd, state, state_flag, &weight, &N);
 
 	/* Setup diffuse BSDF. */
-	subsurface_scatter_setup_diffuse_bsdf(kg, sd, weight, true, N);
+	subsurface_scatter_setup_diffuse_bsdf(sd, weight, true, N);
 }
 
 /* subsurface scattering step, from a point on the surface to another nearby point on the same object */
@@ -463,7 +463,7 @@ ccl_device void subsurface_scatter_step(KernelGlobals *kg, ShaderData *sd, PathS
 	subsurface_color_bump_blur(kg, sd, state, state_flag, &eval, &N);
 
 	/* setup diffuse bsdf */
-	subsurface_scatter_setup_diffuse_bsdf(kg, sd, eval, (ss_isect.num_hits > 0), N);
+	subsurface_scatter_setup_diffuse_bsdf(sd, eval, (ss_isect.num_hits > 0), N);
 }
 
 CCL_NAMESPACE_END

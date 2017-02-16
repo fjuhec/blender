@@ -16,26 +16,26 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device ShaderClosure *closure_alloc(KernelGlobals *kg, ShaderData *sd, int size, ClosureType type, float3 weight)
+ccl_device ShaderClosure *closure_alloc(ShaderData *sd, int size, ClosureType type, float3 weight)
 {
 	kernel_assert(size <= sizeof(ShaderClosure));
 
-	int num_closure = ccl_fetch(sd, num_closure);
-	int num_closure_extra = ccl_fetch(sd, num_closure_extra);
+	int num_closure = sd->num_closure;
+	int num_closure_extra = sd->num_closure_extra;
 	if(num_closure + num_closure_extra >= MAX_CLOSURE)
 		return NULL;
 
-	ShaderClosure *sc = &ccl_fetch(sd, closure)[num_closure];
+	ShaderClosure *sc = &sd->closure[num_closure];
 
 	sc->type = type;
 	sc->weight = weight;
 
-	ccl_fetch(sd, num_closure)++;
+	sd->num_closure++;
 
 	return sc;
 }
 
-ccl_device ccl_addr_space void *closure_alloc_extra(KernelGlobals *kg, ShaderData *sd, int size)
+ccl_device ccl_addr_space void *closure_alloc_extra(ShaderData *sd, int size)
 {
 	/* Allocate extra space for closure that need more parameters. We allocate
 	 * in chunks of sizeof(ShaderClosure) starting from the end of the closure
@@ -44,23 +44,23 @@ ccl_device ccl_addr_space void *closure_alloc_extra(KernelGlobals *kg, ShaderDat
 	 * This lets us keep the same fast array iteration over closures, as we
 	 * found linked list iteration and iteration with skipping to be slower. */
 	int num_extra = ((size + sizeof(ShaderClosure) - 1) / sizeof(ShaderClosure));
-	int num_closure = ccl_fetch(sd, num_closure);
-	int num_closure_extra = ccl_fetch(sd, num_closure_extra) + num_extra;
+	int num_closure = sd->num_closure;
+	int num_closure_extra = sd->num_closure_extra + num_extra;
 
 	if(num_closure + num_closure_extra > MAX_CLOSURE) {
 		/* Remove previous closure. */
-		ccl_fetch(sd, num_closure)--;
-		ccl_fetch(sd, num_closure_extra)++;
+		sd->num_closure--;
+		sd->num_closure_extra++;
 		return NULL;
 	}
 
-	ccl_fetch(sd, num_closure_extra) = num_closure_extra;
-	return (ccl_addr_space void*)(ccl_fetch(sd, closure) + MAX_CLOSURE - num_closure_extra);
+	sd->num_closure_extra = num_closure_extra;
+	return (ccl_addr_space void*)(sd->closure + MAX_CLOSURE - num_closure_extra);
 }
 
-ccl_device_inline ShaderClosure *bsdf_alloc(KernelGlobals *kg, ShaderData *sd, int size, float3 weight)
+ccl_device_inline ShaderClosure *bsdf_alloc(ShaderData *sd, int size, float3 weight)
 {
-	ShaderClosure *sc = closure_alloc(kg, sd, size, CLOSURE_NONE_ID, weight);
+	ShaderClosure *sc = closure_alloc(sd, size, CLOSURE_NONE_ID, weight);
 
 	if(!sc)
 		return NULL;
@@ -71,9 +71,9 @@ ccl_device_inline ShaderClosure *bsdf_alloc(KernelGlobals *kg, ShaderData *sd, i
 }
 
 #ifdef __OSL__
-ccl_device_inline ShaderClosure *bsdf_alloc_osl(KernelGlobals *kg, ShaderData *sd, int size, float3 weight, void *data)
+ccl_device_inline ShaderClosure *bsdf_alloc_osl(ShaderData *sd, int size, float3 weight, void *data)
 {
-	ShaderClosure *sc = closure_alloc(kg, sd, size, CLOSURE_NONE_ID, weight);
+	ShaderClosure *sc = closure_alloc(sd, size, CLOSURE_NONE_ID, weight);
 
 	if(!sc)
 		return NULL;
