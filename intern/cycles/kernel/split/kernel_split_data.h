@@ -31,9 +31,6 @@ typedef struct SplitParams {
 	int stride;
 
 	ccl_global uint *rng_state;
-	int rng_offset_x;
-	int rng_offset_y;
-	int rng_stride;
 
 	int start_sample;
 	int end_sample;
@@ -45,9 +42,6 @@ typedef struct SplitParams {
 	int queue_size;
 	ccl_global char *use_queues_flag;
 
-	int buffer_offset_x;
-	int buffer_offset_y;
-	int buffer_stride;
 	ccl_global float *buffer;
 } SplitParams;
 

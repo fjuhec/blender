@@ -72,17 +72,11 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
         int start_sample,
         int end_sample,
         int sx, int sy, int sw, int sh, int offset, int stride,
-        int rng_state_offset_x,
-        int rng_state_offset_y,
-        int rng_state_stride,
         ccl_global int *Queue_index,                 /* Tracks the number of elements in queues */
         int queuesize,                               /* size (capacity) of the queue */
         ccl_global char *use_queues_flag,            /* flag to decide if scene-intersect kernel should use queues to fetch ray index */
         ccl_global unsigned int *work_pools,      /* Work pool for each work group */
-        unsigned int num_samples,                    /* Total number of samples per pixel */
-        int buffer_offset_x,
-        int buffer_offset_y,
-        int buffer_stride,
+        unsigned int num_samples,
         ccl_global float *buffer)
 {
 #ifdef __KERNEL_OPENCL__
@@ -98,9 +92,6 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 	kernel_split_params.stride = stride;
 
 	kernel_split_params.rng_state = rng_state;
-	kernel_split_params.rng_offset_x = rng_state_offset_x;
-	kernel_split_params.rng_offset_y = rng_state_offset_y;
-	kernel_split_params.rng_stride = rng_state_stride;
 
 	kernel_split_params.start_sample = start_sample;
 	kernel_split_params.end_sample = end_sample;
@@ -112,9 +103,6 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 	kernel_split_params.queue_size = queuesize;
 	kernel_split_params.use_queues_flag = use_queues_flag;
 
-	kernel_split_params.buffer_offset_x = buffer_offset_x;
-	kernel_split_params.buffer_offset_y = buffer_offset_y;
-	kernel_split_params.buffer_stride = buffer_stride;
 	kernel_split_params.buffer = buffer;
 
 	split_data_init(&kernel_split_state, num_elements, split_data_buffer, ray_state);
@@ -185,7 +173,7 @@ void KERNEL_FUNCTION_FULL_NAME(data_init)(
 	                        ray_index);
 	kernel_split_state.work_array[ray_index] = work_index;
 
-	rng_state += (rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride;
+	rng_state += tile_x + tile_y*stride;
 
 	ccl_global float *per_sample_output_buffers = kernel_split_state.per_sample_output_buffers;
 	per_sample_output_buffers += ((tile_x + (tile_y * stride)) + (my_sample_tile)) * kernel_data.film.pass_stride;

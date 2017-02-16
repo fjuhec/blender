@@ -261,17 +261,11 @@ public:
 			                rtile.h,
 			                rtile.offset,
 			                rtile.stride,
-			                rtile.rng_state_offset_x,
-			                rtile.rng_state_offset_y,
-			                rtile.buffer_rng_state_stride,
 			                queue_index,
 			                dQueue_size,
 			                use_queues_flag,
 			                work_pool_wgs,
 			                rtile.num_samples,
-			                rtile.buffer_offset_x,
-			                rtile.buffer_offset_y,
-			                rtile.buffer_rng_state_stride,
 							rtile.buffer);
 
 		/* Enqueue ckPathTraceKernel_data_init kernel. */

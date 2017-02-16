@@ -108,9 +108,6 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 
 	ccl_global uint *rng_state = kernel_split_params.rng_state;
 	int stride = kernel_split_params.stride;
-	int rng_state_offset_x = kernel_split_params.rng_offset_x;
-	int rng_state_offset_y = kernel_split_params.rng_offset_y;
-	int rng_state_stride = kernel_split_params.rng_stride;
 
 	ccl_global char *ray_state = kernel_split_state.ray_state;
 #ifdef __KERNEL_DEBUG__
@@ -143,7 +140,7 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 	my_sample_tile = 0;
 	initial_rng = rng_state;
 
-	rng_state += (rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride;
+	rng_state += tile_x + tile_y*kernel_split_params.stride;
 	per_sample_output_buffers += ((tile_x + (tile_y * stride)) + my_sample_tile) * kernel_data.film.pass_stride;
 
 	if(IS_STATE(ray_state, ray_index, RAY_HIT_BACKGROUND)) {
@@ -198,7 +195,7 @@ ccl_device void kernel_background_buffer_update(KernelGlobals *kg)
 			my_sample_tile = 0;
 
 			/* Remap rng_state according to the current work */
-			rng_state = initial_rng + ((rng_state_offset_x + tile_x) + (rng_state_offset_y + tile_y) * rng_state_stride);
+			rng_state = initial_rng + tile_x + tile_y*kernel_split_params.stride;
 			/* Remap per_sample_output_buffers according to the current work */
 			per_sample_output_buffers = kernel_split_state.per_sample_output_buffers
 				+ ((tile_x + (tile_y * stride)) + my_sample_tile) * kernel_data.film.pass_stride;

@@ -33,17 +33,11 @@ __kernel void kernel_ocl_path_trace_data_init(
         int start_sample,
         int end_sample,
         int sx, int sy, int sw, int sh, int offset, int stride,
-        int rng_state_offset_x,
-        int rng_state_offset_y,
-        int rng_state_stride,
         ccl_global int *Queue_index,                 /* Tracks the number of elements in queues */
         int queuesize,                               /* size (capacity) of the queue */
         ccl_global char *use_queues_flag,            /* flag to decide if scene-intersect kernel should use queues to fetch ray index */
         ccl_global unsigned int *work_pool_wgs,      /* Work pool for each work group */
         unsigned int num_samples,                    /* Total number of samples per pixel */
-        int buffer_offset_x,
-        int buffer_offset_y,
-        int buffer_stride,
         ccl_global float *buffer)
 {
 	kernel_data_init(kg,
@@ -59,16 +53,10 @@ __kernel void kernel_ocl_path_trace_data_init(
 	                 start_sample,
 	                 end_sample,
 	                 sx, sy, sw, sh, offset, stride,
-	                 rng_state_offset_x,
-	                 rng_state_offset_y,
-	                 rng_state_stride,
 	                 Queue_index,
 	                 queuesize,
 	                 use_queues_flag,
 	                 work_pool_wgs,
 	                 num_samples,
-	                 buffer_offset_x,
-	                 buffer_offset_y,
-	                 buffer_stride,
 	                 buffer);
 }

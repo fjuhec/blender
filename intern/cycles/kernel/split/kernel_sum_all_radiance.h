@@ -30,13 +30,10 @@ ccl_device void kernel_sum_all_radiance(KernelGlobals *kg)
 	int sw = kernel_split_params.w;
 	int sh = kernel_split_params.h;
 	int stride = kernel_split_params.stride;
-	int buffer_offset_x = kernel_split_params.buffer_offset_x;
-	int buffer_offset_y = kernel_split_params.buffer_offset_y;
-	int buffer_stride = kernel_split_params.buffer_stride;
 	int start_sample = kernel_split_params.start_sample;
 
 	if(x < sw && y < sh) {
-		buffer += ((buffer_offset_x + x) + (buffer_offset_y + y) * buffer_stride) * (kernel_data.film.pass_stride);
+		buffer += (x + y*stride) * (kernel_data.film.pass_stride);
 
 		ccl_global float *per_sample_output_buffer = kernel_split_state.per_sample_output_buffers;
 		per_sample_output_buffer += (x + y * stride) * (kernel_data.film.pass_stride);

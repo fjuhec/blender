@@ -94,22 +94,6 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 		return false;
 	}
 
-	/* TODO(mai): should be easy enough to remove these variables from tile */
-	/* Buffer and rng_state offset calc. */
-	{
-		size_t offset_index = tile.offset + (tile.x + tile.y * tile.stride);
-		size_t offset_x = offset_index % tile.stride;
-		size_t offset_y = offset_index / tile.stride;
-
-		tile.rng_state_offset_x = offset_x;
-		tile.rng_state_offset_y = offset_y;
-		tile.buffer_offset_x = offset_x;
-		tile.buffer_offset_y = offset_y;
-
-		tile.buffer_rng_state_stride = tile.stride;
-		tile.stride = tile.w;
-	}
-
 	/* Get local size */
 	size_t local_size[2];
 	{
