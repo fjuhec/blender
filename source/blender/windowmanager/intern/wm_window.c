@@ -1783,15 +1783,15 @@ WorkSpace *WM_window_get_active_workspace(const wmWindow *win)
 }
 void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
 {
+	ListBase *layout_types = BKE_workspace_layout_types_get(workspace);
+
 	win->workspace = workspace;
 	BLI_freelistN(&win->workspace_layouts);
 	if (!workspace) {
 		return;
 	}
 
-	for (WorkSpaceLayoutType *layout_type = BKE_workspace_layout_types_get(workspace)->first;
-	     layout_type != NULL;
-	     layout_type = BKE_workspace_layout_type_next_get(layout_type))
+	BKE_workspace_layout_type_iter_begin(layout_type, layout_types->first)
 	{
 		bScreen *screen = BLI_findstring(&G.main->screen, BKE_workspace_layout_type_name_get(layout_type),
 		                                 offsetof(ID, name) + 2); /* XXX */
@@ -1799,6 +1799,7 @@ void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
 
 		BLI_addhead(&win->workspace_layouts, layout);
 	}
+	BKE_workspace_layout_type_iter_end;
 }
 
 WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)

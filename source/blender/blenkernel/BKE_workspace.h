@@ -88,6 +88,15 @@ WorkSpaceLayout *BKE_workspace_layout_iter_circular(const WorkSpace *workspace, 
                                                     bool (*callback)(const WorkSpaceLayout *layout, void *arg),
                                                     void *arg, const bool iter_backward);
 
+#define BKE_workspace_layout_type_iter_begin(_layout_type, _start_layout_type) \
+	for (WorkSpaceLayoutType *_layout_type = _start_layout_type, *_layout_type##_next; \
+	     _layout_type; \
+	     _layout_type = _layout_type##_next) \
+	{ \
+		_layout_type##_next = BKE_workspace_layout_type_next_get(_layout_type); /* support removing layout-type from list */
+#define BKE_workspace_layout_type_iter_end } (void)0
+
+
 
 /* -------------------------------------------------------------------- */
 /* Getters/Setters */
